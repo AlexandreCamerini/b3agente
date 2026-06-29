@@ -1,0 +1,8 @@
+fastapi>=0.110
+uvicorn[standard]>=0.29
+httpx>=0.27
+# dev/test
+pytest>=8.0
+# FASE 2: validação de ID token Apple/Google (login social). Opcional —
+# o login por e-mail/senha e o app funcionam sem isto.
+PyJWT[crypto]>=2.8
