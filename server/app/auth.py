@@ -24,7 +24,7 @@ from . import db
 # auto-descritivo para permitir migração futura sem reescrever o verificador.
 _PBKDF2_ITER = 240_000
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
-_SESSION_TTL_DAYS = int(os.environ.get("B3_SESSION_TTL_DAYS", "90"))
+_SESSION_TTL_DAYS = int(os.environ.get("B3_SESSION_TTL_DAYS") or "90")
 
 
 class AuthError(Exception):
