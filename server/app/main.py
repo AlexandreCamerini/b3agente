@@ -27,9 +27,21 @@ app.add_middleware(
     allow_origins=["*"], allow_methods=["*"], allow_headers=["*"], allow_credentials=False,
 )
 
-_conn = db.connect()
+_conn = db.shared()  # FIX: conexão POR THREAD (pool do FastAPI) — ver db.py
 store.ensure_defaults(_conn)
 app.include_router(options_router)
+
+
+# FIX (diagnóstico): erro não tratado vira JSON {"detail": ...} em vez de
+# "Internal Server Error" opaco — o api.js já sabe exibir `detail`, então o
+# app mostra a causa real (ex.: no Radar). O traceback completo SEGUE nos logs
+# do Railway (o Starlette re-lança a exceção após enviar a resposta).
+@app.exception_handler(Exception)
+async def _unhandled_exception(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=500,
+        content={"detail": type(exc).__name__ + ": " + (str(exc) or "erro interno")},
+    )
 
 
 # ===========================================================================

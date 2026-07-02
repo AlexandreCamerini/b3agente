@@ -8,6 +8,7 @@ from typing import Optional
 import json
 import os
 import sqlite3
+import threading
 from pathlib import Path
 
 
@@ -30,8 +31,49 @@ def connect(db_path: Optional[str] = None) -> sqlite3.Connection:
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(path)
     conn.execute("PRAGMA journal_mode=WAL")
+    # FIX (thread-safety): com uma conexão POR THREAD (ver shared()), escritas
+    # concorrentes podem colidir no lock do WAL. busy_timeout faz o SQLite
+    # esperar (até 5s) em vez de falhar na hora com "database is locked".
+    conn.execute("PRAGMA busy_timeout=5000")
     init_db(conn)
     return conn
+
+
+class _ThreadLocalConnection:
+    """FIX (thread-safety): UMA conexão SQLite por thread, atrás da mesma
+    interface de `sqlite3.Connection` (delegação via __getattr__).
+
+    Por quê: o FastAPI executa dependências e handlers síncronos num POOL de
+    threads (anyio). Uma conexão global criada na thread principal explode com
+    `sqlite3.ProgrammingError: SQLite objects created in a thread can only be
+    used in that same thread` quando a requisição cai em outra thread — foi a
+    causa do 500 intermitente em toda rota autenticada (/api/scan, /auth/me...).
+
+    Cada thread do pool (quantidade limitada e reutilizada) abre a própria
+    conexão sob demanda, com WAL + busy_timeout — exatamente o cenário para o
+    qual o WAL foi desenhado. Nenhum call site muda: `_conn.execute(...)`,
+    `_conn.commit()` etc. continuam idênticos.
+    """
+
+    def __init__(self, db_path: Optional[str] = None):
+        self._db_path = db_path
+        self._local = threading.local()
+
+    def _conn_for_thread(self) -> sqlite3.Connection:
+        conn = getattr(self._local, "conn", None)
+        if conn is None:
+            conn = connect(self._db_path)
+            self._local.conn = conn
+        return conn
+
+    def __getattr__(self, name):
+        return getattr(self._conn_for_thread(), name)
+
+
+def shared(db_path: Optional[str] = None) -> _ThreadLocalConnection:
+    """Conexão compartilhável entre threads (uma real por thread). Uso: o
+    singleton do app em main.py. Testes seguem usando connect(path) direto."""
+    return _ThreadLocalConnection(db_path)
 
 
 def init_db(conn: sqlite3.Connection) -> None:
