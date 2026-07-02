@@ -194,7 +194,14 @@ export const api = {
   analyze: (t, body) => req("POST", "/api/analyze/" + t, body, TIMEOUT_LLM),
   technicalModels: () => req("GET", "/api/technical/models"),
   analyzeTechnical: (t, body) => req("POST", "/api/technical/analyze/" + encodeURIComponent(t), body, TIMEOUT_LLM),
+<<<<<<< HEAD
+  technicals: (t, period) => req("GET", "/api/technicals/" + t + (period ? ("?period=" + encodeURIComponent(period)) : ""), undefined, 30000),
+  // BLOCO 3: radar de mercado. Timeout longo — a PRIMEIRA varredura aquece o
+  // cache de candles do universo inteiro; as seguintes voltam em segundos.
+  scan: (period) => req("GET", "/api/scan" + (period ? ("?period=" + encodeURIComponent(period)) : ""), undefined, 120000),
+=======
   technicals: (t) => req("GET", "/api/technicals/" + t, undefined, 30000),
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
   optionsExpirations: (t) => req("GET", "/api/options/expirations/" + encodeURIComponent(t), undefined, 30000),
   optionsChain: (t, expiration) => req("GET", "/api/options/chain/" + encodeURIComponent(t) + (expiration ? "?expiration=" + encodeURIComponent(expiration) : ""), undefined, 30000),
   analyzeOption: (body) => req("POST", "/api/options/analyze", body, TIMEOUT_LLM),

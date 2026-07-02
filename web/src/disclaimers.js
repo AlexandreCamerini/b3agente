@@ -24,4 +24,11 @@ export const DISCLAIMERS = {
   // Operação simulada (compra/venda)
   trade:
     "Operação SIMULADA (paper trading). Nenhuma ordem real é enviada a uma corretora.",
+<<<<<<< HEAD
+
+  // BLOCO 3 — Radar de mercado (varredura de condições técnicas)
+  radar:
+    "Radar educacional: descreve condições técnicas detectadas em dados passados, sem garantia de resultado e sem qualquer recomendação de investimento. O score mede a intensidade dos sinais (quantas condições estão ativas), não a direção nem a atratividade do ativo.",
+=======
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
 };

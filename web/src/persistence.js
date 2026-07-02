@@ -100,11 +100,20 @@ function serverStore() {
     getQuotes: () => api.getQuotes(), // servidor conhece watchlist+posicoes
     analyze: (t, opts) => api.analyzeTechnical(t, { model: (opts && opts.model) || "completo" }),
     analyzeStopAlvo: (t, opts) => api.carteiraStopAlvo(t, (opts && opts.prompt) ? { prompt: opts.prompt } : {}),
+<<<<<<< HEAD
+    technicals: (t, period) => api.technicals(t, period),
+    scan: (period) => api.scan(period), // BLOCO 3: radar (o servidor varre o universo)
+    optionsExpirations: (t) => api.optionsExpirations(t),
+    optionsChain: (t, expiration) => api.optionsChain(t, expiration),
+    analyzeOption: (body) => api.analyzeOption(body),
+    cachedTechnicals: (_t, _period) => null,
+=======
     technicals: (t) => api.technicals(t),
     optionsExpirations: (t) => api.optionsExpirations(t),
     optionsChain: (t, expiration) => api.optionsChain(t, expiration),
     analyzeOption: (body) => api.analyzeOption(body),
     cachedTechnicals: () => null,
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
     buy: (t, qty) => api.buy(t, qty),
     sell: (t) => api.sell(t),
     putPosition: (t, b) => sync.mutate("putPosition", [t, b], (cur) => ({
@@ -183,6 +192,10 @@ function deviceStore() {
       if (doc.config.theme == null) doc.config.theme = "dark";
       if (typeof doc.config.userName !== "string") doc.config.userName = "";
       if (typeof doc.config.onboarded !== "boolean") doc.config.onboarded = false;
+<<<<<<< HEAD
+      if (!["1mo", "3mo", "6mo", "1y", "2y"].includes(doc.config.candlePeriod)) doc.config.candlePeriod = "1y";
+=======
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
       if (!doc.config.streak || typeof doc.config.streak !== "object") doc.config.streak = { days: 0, last: "" };
       if (!Array.isArray(doc.equitySnapshots)) doc.equitySnapshots = [];
       if (!doc.config.notif || typeof doc.config.notif !== "object") doc.config.notif = { enabled: false, stop: true, alvo: true, agente: true, variacao: true };
@@ -243,9 +256,16 @@ function deviceStore() {
       return {};
     }
   }
+<<<<<<< HEAD
+  function cacheTech(t, data, period) {
+    const key = t + "@" + (period || "1y");
+    const o = readTech();
+    o[key] = { at: Date.now(), data };
+=======
   function cacheTech(t, data) {
     const o = readTech();
     o[t] = { at: Date.now(), data };
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
     const keys = Object.keys(o).sort((a, b) => o[b].at - o[a].at);
     for (const k of keys.slice(8)) delete o[k];
     try {
@@ -254,8 +274,13 @@ function deviceStore() {
       /* armazenamento cheio: ignora */
     }
   }
+<<<<<<< HEAD
+  function getCachedTech(t, period) {
+    const e = readTech()[t + "@" + (period || "1y")];
+=======
   function getCachedTech(t) {
     const e = readTech()[t];
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
     return e ? e.data : null;
   }
 
@@ -276,6 +301,10 @@ function deviceStore() {
       if (patch.theme === "dark" || patch.theme === "light" || patch.theme === "system") c.theme = patch.theme;
       if (typeof patch.userName === "string") c.userName = patch.userName.trim().slice(0, 40);
       if ("onboarded" in patch) c.onboarded = !!patch.onboarded;
+<<<<<<< HEAD
+      if (typeof patch.candlePeriod === "string" && ["1mo", "3mo", "6mo", "1y", "2y"].includes(patch.candlePeriod)) c.candlePeriod = patch.candlePeriod;
+=======
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
       if (patch.streak && typeof patch.streak === "object") c.streak = { days: parseInt(patch.streak.days, 10) || 0, last: String(patch.streak.last || "") };
       if (patch.notif && typeof patch.notif === "object") {
         const base = (c.notif && typeof c.notif === "object") ? c.notif : { enabled: false, stop: true, alvo: true, agente: true, variacao: true };
@@ -414,12 +443,27 @@ function deviceStore() {
       write();
       return pub();
     },
+<<<<<<< HEAD
+    async technicals(t, period) {
+      ensure();
+      const r = await api.technicals(t, period);
+      cacheTech(t, r, period); // guarda os dados do ativo no aparelho (por período)
+      return r;
+    },
+    // BLOCO 3: radar. A varredura roda SEMPRE no servidor (universo + cache de
+    // candles vivem lá); o aparelho só consome o resultado — mesma interface.
+    async scan(period) {
+      ensure();
+      return api.scan(period);
+    },
+=======
     async technicals(t) {
       ensure();
       const r = await api.technicals(t);
       cacheTech(t, r); // guarda os dados do ativo no aparelho
       return r;
     },
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
     async optionsExpirations(t) {
       ensure();
       return api.optionsExpirations(t);
@@ -432,8 +476,13 @@ function deviceStore() {
       ensure();
       return api.analyzeOption(body);
     },
+<<<<<<< HEAD
+    cachedTechnicals(t, period) {
+      return getCachedTech(t, period);
+=======
     cachedTechnicals(t) {
       return getCachedTech(t);
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
     },
     async aiQuota() {
       ensure();

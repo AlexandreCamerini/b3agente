@@ -186,3 +186,52 @@ anônimo como semente; logout volta ao anônimo.
 > sinal no `KpiBlock` ("Sinal gerado para fins educacionais — não é recomendação
 > de compra ou venda"). Sem hard-stop próprio; valide visualmente junto com o
 > resto. Texto trocável numa linha do `App.jsx`.
+<<<<<<< HEAD
+
+---
+
+## Blocos 1·2·3 — Notificações · Welcome boot gate · Radar
+
+### O que mudou (resumo)
+- **web/src/notify.js**: ids persistidos entre aberturas (`b3-notify-nid`),
+  entrega imediata sem `at` no passado, clamp de horário no `schedule`,
+  `getPending()` e `diag()` com `pendingCount`.
+- **web/src/App.jsx**: welcome vira portão de boot (sempre aparece; com sessão
+  mostra "Conectado como X"); teste de notificação agendada passou a 30s;
+  nova aba/tela **Radar**.
+- **web/src/persistence.js**: `scan(period)` espelhado nos dois stores (aditivo).
+- **web/src/api.js**: `api.scan` → `GET /api/scan` (timeout 120s).
+- **web/src/disclaimers.js**: `DISCLAIMERS.radar` (aditivo).
+- **server/app/scanner.py** (novo) + rota `GET /api/scan` no `main.py`.
+- Testes: `test_scanner.py` e `test_radar.mjs` novos; `test_welcome.mjs`
+  reescrito para o contrato de boot gate; `test_notify.mjs` estendido.
+
+### Git
+```bash
+git add -A
+git commit -m "Blocos 1-3: notificacoes nativas confiaveis, welcome boot gate, radar de mercado"
+git push origin main
+```
+
+### Railway
+- Deploy automático no push. **Nada obrigatório** de novo.
+- Opcional: `B3_SCAN_UNIVERSE="PETR4,VALE3,..."` para sobrepor o universo do
+  Radar sem redeploy de código.
+- Continua pendente das Fases 2/3: volume `/data` + `B3_DB_PATH=/data/b3_agente.db`.
+- Smoke test pós-deploy: `curl "https://SEU-APP.railway.app/api/scan?period=1mo&tickers=PETR4,VALE3"`
+  → JSON com `results`, `disclaimer` e sem 5xx.
+
+### iOS
+```bash
+cd web && npm install && npm run build && npx cap sync ios
+# Xcode: rebuild no device / TestFlight
+```
+Sem plugin novo (o @capacitor/local-notifications já estava no projeto) — o
+`cap sync` basta. Validar `notify.diag()` → `pluginLoaded:true`,
+`permission:"granted"`, `pendingCount` após agendar.
+
+### ✋ Hard-stops
+Checklists completos por bloco em **ESTADO-Blocos-1-2-3-BolsIA.md** — validar
+um bloco por vez antes de seguir.
+=======
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026

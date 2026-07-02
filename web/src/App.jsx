@@ -1,16 +1,29 @@
 import { useState, useEffect, useRef, useCallback, useMemo, createContext, useContext } from "react";
 import { store, isNative, auth } from "./persistence.js";
+<<<<<<< HEAD
+import { hasSession } from "./sync.js"; // BLOCO 2: welcome exibe estado da sessão salva
+=======
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
 import { defaultLlmPrompts } from "./catalog.js";
 import { testServer, describeRuntimeConfig } from "./api.js";
 import { createChart, ColorType, CrosshairMode, LineStyle } from "lightweight-charts";
 import { sampleTechnicals } from "./demo.js";
 import { DISCLAIMERS } from "./disclaimers.js";
 import { canAddTicker, canAnalyze } from "./plan.js";
+<<<<<<< HEAD
+import { portfolioMetrics, dayReturnPct, equityCurve, markPrice } from "./finance.js";
+import * as notify from "./notify.js";
+
+/* =============================================================================
+   BolsIA — simulador EDUCACIONAL de paper trading da B3.
+   Identidade "mesa de operações": fundo quase-preto, acento índigo (IA), números mono.
+=======
 import * as notify from "./notify.js";
 
 /* =============================================================================
    B3 Agente — simulador EDUCACIONAL de paper trading da B3.
    Identidade "mesa de operações": fundo quase-preto, acento âmbar, números mono.
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
    Todo o estado é persistido no backend (sobrevive a reinício). A análise
    técnica é feita PELA LLM configurada, sob demanda, por ativo.
    Dinheiro simulado. Nada aqui é recomendação de investimento.
@@ -26,6 +39,15 @@ const PALETTE = {
     borderSubtle: "#232a35", borderFaint: "#1b212b", borderDashed: "#2f3a48", borderToast: "#2b3340",
     textPrimary: "#e7ecf3", textSecondary: "#c3ccd8", textMuted: "#9aa6b6", textDim: "#8a96a6",
     textFaint: "#5b6675", textBright: "#dfe6ef",
+<<<<<<< HEAD
+    accent: "#3B82F6", accentSoft: "#9DBEFF", positive: "#34d399", negative: "#fb7185",
+    knob: "#1b212b", navDotIdle: "#2b333f", confirmOkText: "#06231a",
+    accentTint: "rgba(59,130,246,0.14)", accentTintHi: "rgba(59,130,246,0.26)", accentTint10: "rgba(59,130,246,0.10)",
+    positiveTint: "rgba(52,211,153,0.12)", positiveTint10: "rgba(52,211,153,0.10)",
+    negativeTint: "rgba(251,113,133,0.12)", negativeTint10: "rgba(251,113,133,0.10)",
+    scrim: "rgba(5,7,11,0.68)",
+    chartGrid: "rgba(255,255,255,0.04)", chartBorder: "rgba(255,255,255,0.08)", chartAxis: "#6b7384", lineSubtle: "rgba(255,255,255,0.18)", onAccent: "#ffffff",
+=======
     accent: "#f0b429", accentSoft: "#f0e3c2", positive: "#34d399", negative: "#fb7185",
     knob: "#1b212b", navDotIdle: "#2b333f", confirmOkText: "#06231a",
     accentTint: "rgba(240,180,41,0.12)", accentTintHi: "rgba(240,180,41,0.22)", accentTint10: "rgba(240,180,41,0.10)",
@@ -33,12 +55,22 @@ const PALETTE = {
     negativeTint: "rgba(251,113,133,0.12)", negativeTint10: "rgba(251,113,133,0.10)",
     scrim: "rgba(5,7,11,0.68)",
     chartGrid: "rgba(255,255,255,0.04)", chartBorder: "rgba(255,255,255,0.08)", chartAxis: "#6b7384", lineSubtle: "rgba(255,255,255,0.18)", onAccent: "#0b0e14",
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
   },
   light: {
     bgBase: "#f3f4f7", bgPanel: "#ffffff", bgCard: "#ffffff", bgToast: "#222936",
     borderSubtle: "#e3e6ec", borderFaint: "#edeff3", borderDashed: "#d2d8e0", borderToast: "#39414f",
     textPrimary: "#11161d", textSecondary: "#2d3742", textMuted: "#5d6775", textDim: "#6b7480",
     textFaint: "#98a1ad", textBright: "#0a0e13",
+<<<<<<< HEAD
+    accent: "#2563EB", accentSoft: "#1d4ed8", positive: "#10976a", negative: "#d6455f",
+    knob: "#dfe3e9", navDotIdle: "#c4cad3", confirmOkText: "#ffffff",
+    accentTint: "rgba(37,99,235,0.12)", accentTintHi: "rgba(37,99,235,0.20)", accentTint10: "rgba(37,99,235,0.10)",
+    positiveTint: "rgba(16,151,106,0.12)", positiveTint10: "rgba(16,151,106,0.10)",
+    negativeTint: "rgba(214,69,95,0.12)", negativeTint10: "rgba(214,69,95,0.10)",
+    scrim: "rgba(15,20,28,0.45)",
+    chartGrid: "rgba(0,0,0,0.05)", chartBorder: "rgba(0,0,0,0.10)", chartAxis: "#8a93a0", lineSubtle: "rgba(0,0,0,0.16)", onAccent: "#ffffff",
+=======
     accent: "#b97e09", accentSoft: "#7a5c12", positive: "#10976a", negative: "#d6455f",
     knob: "#dfe3e9", navDotIdle: "#c4cad3", confirmOkText: "#ffffff",
     accentTint: "rgba(185,126,9,0.12)", accentTintHi: "rgba(185,126,9,0.20)", accentTint10: "rgba(185,126,9,0.10)",
@@ -46,6 +78,7 @@ const PALETTE = {
     negativeTint: "rgba(214,69,95,0.12)", negativeTint10: "rgba(214,69,95,0.10)",
     scrim: "rgba(15,20,28,0.45)",
     chartGrid: "rgba(0,0,0,0.05)", chartBorder: "rgba(0,0,0,0.10)", chartAxis: "#8a93a0", lineSubtle: "rgba(0,0,0,0.16)", onAccent: "#1a1205",
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
   },
 };
 const VARKEY = (k) => "--" + k.replace(/[A-Z]/g, (c) => "-" + c.toLowerCase());
@@ -61,6 +94,26 @@ const usePalette = () => PALETTE[useContext(ThemeCtx)] || PALETTE.dark;
 // fita (ticker tape). Mantém o fundo escuro nos dois temas (identidade de ícone).
 function LogoMark({ size = 32, radius }) {
   const r = radius != null ? radius : Math.round(size * 0.26);
+<<<<<<< HEAD
+  const rx = (r / size) * 32;
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" aria-hidden role="img" style={{ display: "block", flex: "none" }}>
+      <defs>
+        <linearGradient id="bolsiaLM" x1="6" y1="3" x2="26" y2="29" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#3B82F6" />
+          <stop offset="1" stopColor="#22D3EE" />
+        </linearGradient>
+      </defs>
+      <rect x="0" y="0" width="32" height="32" rx={rx} fill="#0b0e14" />
+      <rect x="0.6" y="0.6" width="30.8" height="30.8" rx={rx - 0.6} fill="none" stroke="#3B82F6" strokeOpacity="0.30" strokeWidth="1.1" />
+      {/* pavio do candle */}
+      <rect x="15.1" y="10.5" width="1.8" height="15" rx="0.9" fill="url(#bolsiaLM)" />
+      {/* corpo do candle */}
+      <rect x="11.6" y="14.4" width="8.8" height="9.6" rx="2.5" fill="url(#bolsiaLM)" />
+      {/* spark de IA na ponta */}
+      <path d="M16 3.4 C16.5 7.2 17.6 8.3 21.4 8.8 C17.6 9.3 16.5 10.4 16 14.2 C15.5 10.4 14.4 9.3 10.6 8.8 C14.4 8.3 15.5 7.2 16 3.4 Z" fill="url(#bolsiaLM)" />
+      <circle cx="16" cy="8.8" r="0.95" fill="#fff" fillOpacity="0.9" />
+=======
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" fill="none" aria-hidden role="img" style={{ display: "block", flex: "none" }}>
       <rect x="0" y="0" width="32" height="32" rx={(r / size) * 32} fill="#0b0e14" />
@@ -72,11 +125,17 @@ function LogoMark({ size = 32, radius }) {
       {/* candle menor */}
       <line x1="21" y1="9.5" x2="21" y2="22" stroke="#f0b429" strokeWidth="1.5" strokeLinecap="round" strokeOpacity="0.85" />
       <rect x="18.6" y="13.4" width="4.8" height="6.2" rx="1.2" fill="#f0b429" fillOpacity="0.85" />
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
     </svg>
   );
 }
 const MONO = "ui-monospace,'SF Mono',Menlo,Consolas,monospace";
 const SANS = "-apple-system, system-ui, 'Segoe UI', Helvetica, Arial, sans-serif";
+<<<<<<< HEAD
+// BolsIA: "IA" recebe o gradiente da marca (azul → ciano).
+const IA_GRAD = { background: "linear-gradient(135deg,#3B82F6,#22D3EE)", WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent" };
+=======
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
 
 const nf2 = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const price = (n) => (n == null || isNaN(n) ? "—" : nf2.format(n));
@@ -197,7 +256,11 @@ function OnboardingModal({ name, budget, risco, onComplete }) {
       <div style={{ width: "100%", maxWidth: "460px", ...card, padding: "26px 24px", maxHeight: "92vh", overflowY: "auto" }}>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", marginBottom: "16px" }}>
           <LogoMark size={60} />
+<<<<<<< HEAD
+          <div style={{ fontSize: "21px", fontWeight: 800, marginTop: "12px", letterSpacing: "-0.01em" }}>Bols<span style={IA_GRAD}>IA</span></div>
+=======
           <div style={{ fontSize: "21px", fontWeight: 800, marginTop: "12px", letterSpacing: "-0.01em" }}>B3 Agente</div>
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
           <div style={{ fontSize: "13px", color: T.accent, fontWeight: 600, marginTop: "2px" }}>sua mesa de operações para aprender</div>
         </div>
         <p style={{ color: T.textSecondary, fontSize: "13px", lineHeight: 1.6, margin: "0 0 16px", textAlign: "center" }}>
@@ -225,6 +288,63 @@ function OnboardingModal({ name, budget, risco, onComplete }) {
 // FASE 2 — conta OPCIONAL (decisão A). Logado: mostra e-mail, sair e excluir
 // conta. Anônimo: login/registro por e-mail+senha. Tudo guardado: se algo
 // falhar, o modal mostra o erro e o app segue funcionando sem login.
+<<<<<<< HEAD
+function AppleGlyph() {
+  return (
+    <svg width="15" height="17" viewBox="0 0 14 16" fill="currentColor" aria-hidden style={{ flex: "none" }}>
+      <path d="M11.3 8.5c0-1.7 1.4-2.5 1.4-2.6-.8-1.1-2-1.3-2.4-1.3-1-.1-2 .6-2.5.6s-1.3-.6-2.2-.6c-1.1 0-2.2.7-2.7 1.7-1.2 2-.3 5 .8 6.6.6.8 1.2 1.7 2.1 1.7.8 0 1.1-.5 2.1-.5s1.3.5 2.2.5 1.4-.8 2-1.6c.6-.9.9-1.8.9-1.8s-1.7-.7-1.7-2.4zM9.7 3.3c.5-.6.8-1.4.7-2.3-.7 0-1.6.5-2.1 1.1-.5.5-.9 1.4-.7 2.2.8.1 1.6-.4 2.1-1z" />
+    </svg>
+  );
+}
+function GoogleGlyph() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 18 18" aria-hidden style={{ flex: "none" }}>
+      <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.71-1.57 2.68-3.89 2.68-6.62z" />
+      <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.33A9 9 0 0 0 9 18z" />
+      <path fill="#FBBC05" d="M3.97 10.72a5.4 5.4 0 0 1 0-3.44V4.95H.96a9 9 0 0 0 0 8.1l3.01-2.33z" />
+      <path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.46.9 11.43 0 9 0A9 9 0 0 0 .96 4.95l3.01 2.33C4.68 5.16 6.66 3.58 9 3.58z" />
+    </svg>
+  );
+}
+// Botões de login social (UI). Caminho nativo (Apple/Google) fica pronto: quando
+// os plugins Capacitor expuserem `window.__bolsiaSocial.{apple,google}()` para
+// devolver o idToken, o clique chama ctx.oauth e autentica. Sem isso (estado
+// atual), mostra um aviso amigável e mantém o e-mail como caminho principal.
+function SocialAuthButtons({ ctx }) {
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState("");
+  const go = async (provider) => {
+    setNote("");
+    const bridge = (typeof window !== "undefined" && window.__bolsiaSocial) || null;
+    if (bridge && typeof bridge[provider] === "function") {
+      setBusy(provider);
+      try {
+        const idToken = await bridge[provider]();
+        if (ctx && ctx.oauth) await ctx.oauth({ provider, idToken });
+      } catch (e) { setNote((e && e.message) || "Falha no login social."); }
+      finally { setBusy(""); }
+      return;
+    }
+    setNote("Login com " + (provider === "apple" ? "a Apple" : "o Google") + " chega em breve — por enquanto, use o e-mail abaixo.");
+  };
+  const btn = { width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: "9px", padding: "12px", borderRadius: "11px", fontWeight: 700, fontSize: "14px", marginBottom: "10px" };
+  return (
+    <div>
+      <button onClick={() => go("apple")} disabled={!!busy} aria-label="Continuar com a Apple" style={{ ...btn, border: "none", background: "#000", color: "#fff", opacity: busy && busy !== "apple" ? 0.6 : 1 }}>
+        <AppleGlyph /> Continuar com a Apple
+      </button>
+      <button onClick={() => go("google")} disabled={!!busy} aria-label="Continuar com o Google" style={{ ...btn, border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textPrimary, opacity: busy && busy !== "google" ? 0.6 : 1 }}>
+        <GoogleGlyph /> Continuar com o Google
+      </button>
+      {note && <p style={{ color: T.textMuted, fontSize: "11.5px", lineHeight: 1.5, margin: "2px 0 0", textAlign: "center" }}>{note}</p>}
+      <div style={{ display: "flex", alignItems: "center", gap: "10px", color: T.textFaint, fontSize: "11px", margin: "14px 0" }}>
+        <span style={{ flex: 1, height: "1px", background: T.borderSubtle }} /> ou com e-mail <span style={{ flex: 1, height: "1px", background: T.borderSubtle }} />
+      </div>
+    </div>
+  );
+}
+=======
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
 function AuthModal({ ctx, onClose }) {
   const user = (ctx && ctx.authUser) || null;
   const [mode, setMode] = useState("login");   // login | register
@@ -289,6 +409,10 @@ function AuthModal({ ctx, onClose }) {
       <p style={{ color: T.textMuted, fontSize: "12.5px", lineHeight: 1.6, margin: "0 0 16px" }}>
         Criar conta é <b>opcional</b> — o app funciona sem login. Com conta, sua carteira fica salva e acompanha você entre aparelhos.
       </p>
+<<<<<<< HEAD
+      <SocialAuthButtons ctx={ctx} />
+=======
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
       {mode === "register" && (
         <>
           <label style={{ display: "block", fontSize: "12px", color: T.textMuted, marginBottom: "6px" }}>Nome (opcional)</label>
@@ -320,6 +444,16 @@ function WelcomeAuthScreen({ ctx, onAuthed, onSkip }) {
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+<<<<<<< HEAD
+  // BLOCO 2: boot gate. Se a sessão salva já foi restaurada (auth.me), mostra
+  // "Conectado como X" + Entrar. Se há token salvo mas o /auth/me ainda não
+  // respondeu, mostra o formulário com um aviso de restauração — quando a
+  // resposta chegar, esta tela troca sozinha para o estado conectado.
+  const user = ctx.authUser;
+  const restoring = !user && hasSession();
+  const userLabel = user ? ((user.name || "").trim() || user.email || "sua conta") : "";
+=======
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
   const submit = async () => {
     setErr(""); setBusy(true);
     try {
@@ -334,6 +468,59 @@ function WelcomeAuthScreen({ ctx, onAuthed, onSkip }) {
       <div style={{ width: "100%", maxWidth: "420px", ...card, padding: "26px 24px" }}>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", marginBottom: "18px" }}>
           <LogoMark size={56} />
+<<<<<<< HEAD
+          <div style={{ fontSize: "21px", fontWeight: 800, marginTop: "10px", letterSpacing: "-0.01em" }}>Bols<span style={IA_GRAD}>IA</span></div>
+          <div style={{ fontSize: "13px", color: T.accent, fontWeight: 600, marginTop: "2px" }}>Dados reais da bolsa · capital simulado</div>
+          <p style={{ color: T.textMuted, fontSize: "12.5px", lineHeight: 1.6, margin: "12px 0 0" }}>
+            Treine operações com <b>cotações reais</b> e <b>dinheiro simulado</b>, com uma <b>IA</b> que explica cada decisão. Conteúdo <b>educacional</b> — não é recomendação de investimento.
+          </p>
+        </div>
+        {user ? (
+          <>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "13px 14px", borderRadius: "12px", border: `1px solid ${T.borderSubtle}`, background: T.bgBase, marginBottom: "16px" }}>
+              <div aria-hidden style={{ width: "38px", height: "38px", borderRadius: "50%", background: T.accentTint, color: T.accent, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: "16px", flex: "none" }}>{userLabel.slice(0, 1).toUpperCase()}</div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: "11px", color: T.textFaint, letterSpacing: "0.05em" }}>CONECTADO COMO</div>
+                <div style={{ fontSize: "14px", fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{userLabel}</div>
+              </div>
+            </div>
+            <button onClick={() => onAuthed && onAuthed()} style={{ width: "100%", padding: "13px", borderRadius: "10px", border: "none", background: T.accent, color: T.onAccent, fontWeight: 800, fontSize: "15px" }}>
+              Entrar
+            </button>
+          </>
+        ) : (
+          <>
+            {restoring && (
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "9px 12px", borderRadius: "10px", border: `1px solid ${T.borderSubtle}`, background: T.bgBase, color: T.textMuted, fontSize: "12px", marginBottom: "14px" }}>
+                <span className="spin" style={{ display: "inline-block" }}>↻</span> Restaurando sessão salva… Se preferir, entre abaixo.
+              </div>
+            )}
+            <SocialAuthButtons ctx={ctx} />
+            {mode === "register" && (
+              <>
+                <label style={{ display: "block", fontSize: "12px", color: T.textMuted, marginBottom: "6px" }}>Nome (opcional)</label>
+                <input value={name} onChange={(e) => setName(e.target.value)} maxLength={40} placeholder="Seu nome" style={{ ...field, marginBottom: "12px" }} />
+              </>
+            )}
+            <label style={{ display: "block", fontSize: "12px", color: T.textMuted, marginBottom: "6px" }}>E-mail</label>
+            <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" autoCapitalize="none" autoCorrect="off" placeholder="voce@exemplo.com" style={{ ...field, marginBottom: "12px" }} />
+            <label style={{ display: "block", fontSize: "12px", color: T.textMuted, marginBottom: "6px" }}>Senha</label>
+            <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder="ao menos 8 caracteres" style={{ ...field, marginBottom: "18px" }} />
+            <button disabled={busy || !email || !password} onClick={submit} style={{ width: "100%", padding: "13px", borderRadius: "10px", border: "none", background: T.accent, color: T.onAccent, fontWeight: 800, fontSize: "15px", opacity: (busy || !email || !password) ? 0.6 : 1 }}>
+              {busy ? "…" : (mode === "register" ? "Criar conta" : "Entrar")}
+            </button>
+            <button onClick={() => { setErr(""); setMode(mode === "register" ? "login" : "register"); }} style={{ width: "100%", marginTop: "10px", padding: "6px", background: "transparent", border: "none", color: T.accent, fontWeight: 600, fontSize: "13px" }}>
+              {mode === "register" ? "Já tem conta? Entrar" : "Criar uma conta"}
+            </button>
+            {err && <p style={{ color: T.negative, fontSize: "12.5px", lineHeight: 1.5, margin: "12px 0 0", whiteSpace: "pre-wrap" }}>{err}</p>}
+            <div style={{ marginTop: "16px", paddingTop: "14px", borderTop: `1px solid ${T.borderSubtle}`, textAlign: "center" }}>
+              <button onClick={() => onSkip && onSkip()} style={{ background: "transparent", border: "none", color: T.textMuted, fontSize: "12.5px", fontWeight: 600, textDecoration: "underline", padding: "4px" }}>
+                Usar sem conta
+              </button>
+            </div>
+          </>
+        )}
+=======
           <div style={{ fontSize: "21px", fontWeight: 800, marginTop: "10px", letterSpacing: "-0.01em" }}>B3 Agente</div>
           <div style={{ fontSize: "13px", color: T.accent, fontWeight: 600, marginTop: "2px" }}>sua mesa de operações para aprender</div>
           <p style={{ color: T.textMuted, fontSize: "12.5px", lineHeight: 1.6, margin: "12px 0 0" }}>
@@ -362,6 +549,7 @@ function WelcomeAuthScreen({ ctx, onAuthed, onSkip }) {
             Usar sem conta
           </button>
         </div>
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
       </div>
     </div>
   );
@@ -387,6 +575,27 @@ function Ticker({ items, live }) {
   );
 }
 
+<<<<<<< HEAD
+function Topbar({ patr, dia, caixa, name }) {
+  const up = dia >= 0;
+  const base = patr - dia;
+  const pct = base > 0 ? (dia / base) * 100 : 0;
+  const pctStr = (pct >= 0 ? "+" : "") + pct.toFixed(1).replace(".", ",") + "%";
+  const arrow = up ? "▲" : "▼";
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "10px 16px", borderBottom: `1px solid ${T.borderSubtle}`, background: T.bgPanel, flex: "none" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "11px", marginRight: "auto", minWidth: 0 }}>
+        <LogoMark size={42} />
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontWeight: 700, fontSize: "18px", lineHeight: 1.05, letterSpacing: "-0.01em" }}>Bols<span style={IA_GRAD}>IA</span></div>
+          {name ? <div style={{ fontSize: "11px", color: T.textMuted, marginTop: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Olá, {name}</div> : null}
+        </div>
+      </div>
+      <div style={{ textAlign: "right", flex: "none", fontFamily: MONO }}>
+        <div style={{ fontWeight: 700, fontSize: "18px", lineHeight: 1.05, color: T.textPrimary }}>{money(patr)}</div>
+        <div style={{ fontSize: "11px", marginTop: "3px", fontWeight: 700, color: up ? T.positive : T.negative, whiteSpace: "nowrap" }}>{arrow} {moneySigned(dia)} ({pctStr})</div>
+        <div style={{ fontSize: "10.5px", marginTop: "2px", color: T.textFaint, whiteSpace: "nowrap" }}>caixa {money(caixa)}</div>
+=======
 function Topbar({ patr, dia, caixa, name, live }) {
   const chip = (label, value, color) => (
     <div style={{ textAlign: "right" }}>
@@ -406,6 +615,7 @@ function Topbar({ patr, dia, caixa, name, live }) {
         {chip("PATR.", money(patr), T.textPrimary)}
         {chip("DIA", moneySigned(dia), dia >= 0 ? T.positive : T.negative)}
         {chip("CAIXA", money(caixa), T.textMuted)}
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
       </div>
     </div>
   );
@@ -417,6 +627,10 @@ function NavIcon({ id, active }) {
   const paths = {
     evolucao: <><polyline points="3 17 9 11 13 15 21 7" {...p} /><polyline points="16 7 21 7 21 12" {...p} /></>,
     mercado: <><line x1="6" y1="20" x2="6" y2="13" {...p} /><line x1="12" y1="20" x2="12" y2="5" {...p} /><line x1="18" y1="20" x2="18" y2="10" {...p} /></>,
+<<<<<<< HEAD
+    radar: <><circle cx="12" cy="12" r="8.5" {...p} /><circle cx="12" cy="12" r="4.2" {...p} /><line x1="12" y1="12" x2="18" y2="6" {...p} /><circle cx="12" cy="12" r="1.2" fill={c} stroke="none" /></>,
+=======
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
     carteira: <><rect x="3" y="6" width="18" height="13" rx="2.5" {...p} /><path d="M3 9h13a2 2 0 0 1 2 2v0" {...p} /><circle cx="17" cy="13" r="1.3" fill={c} stroke="none" /></>,
     opcoes: <><path d="M4 17c4-9 12-9 16 0" {...p} /><path d="M6 12h12" {...p} /><circle cx="8" cy="12" r="1.3" fill={c} stroke="none" /><circle cx="16" cy="12" r="1.3" fill={c} stroke="none" /></>,
     perfil: <><circle cx="12" cy="8.5" r="3.4" {...p} /><path d="M5.5 19a6.5 6.5 0 0 1 13 0" {...p} /></>,
@@ -425,7 +639,11 @@ function NavIcon({ id, active }) {
 }
 
 function BottomNav({ tab, setTab }) {
+<<<<<<< HEAD
+  const defs = [["evolucao", "Evolução"], ["mercado", "Mercado"], ["radar", "Radar"], ["opcoes", "Opções"], ["carteira", "Carteira"], ["perfil", "Perfil"]];
+=======
   const defs = [["evolucao", "Evolução"], ["mercado", "Mercado"], ["opcoes", "Opções"], ["carteira", "Carteira"], ["perfil", "Perfil"]];
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
   return (
     <nav style={{ flex: "none", background: T.bgPanel, borderTop: `1px solid ${T.borderSubtle}`, paddingBottom: "env(safe-area-inset-bottom)" }}>
       <div style={{ display: "flex", maxWidth: "720px", margin: "0 auto", padding: "5px 6px" }}>
@@ -869,7 +1087,11 @@ function BottomSheet({ onClose, children }) {
   );
 }
 
+<<<<<<< HEAD
+function TechnicalModal({ ticker, name, quote, position, onClose, period }) {
+=======
 function TechnicalModal({ ticker, name, quote, position, onClose }) {
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
   const P = usePalette();
   const [data, setData] = useState(() => store.cachedTechnicals(ticker));
   const [loading, setLoading] = useState(false);
@@ -880,15 +1102,27 @@ function TechnicalModal({ ticker, name, quote, position, onClose }) {
 
   useEffect(() => {
     let alive = true;
+<<<<<<< HEAD
+    const per = period || "1y";
+    const cached = store.cachedTechnicals(ticker, per);
+    if (cached) { setData(cached); setDemo(!!cached.sample); }
+    setLoading(true);
+    store.technicals(ticker, per)
+=======
     const cached = store.cachedTechnicals(ticker);
     if (cached) { setData(cached); setDemo(!!cached.sample); }
     setLoading(true);
     store.technicals(ticker)
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
       .then((r) => { if (alive) { setData(r); setDemo(false); } })
       .catch(() => { if (alive && !cached) { setData(sampleTechnicals(ticker)); setDemo(true); } })
       .finally(() => alive && setLoading(false));
     return () => { alive = false; };
+<<<<<<< HEAD
+  }, [ticker, period]);
+=======
   }, [ticker]);
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
 
   const ind = data && data.indicators;
   const sm = (data && data.summary) || {};
@@ -980,6 +1214,18 @@ function TechnicalModal({ ticker, name, quote, position, onClose }) {
 // com retorno acumulado e drawdown (queda desde o pico). Determinístico, sem IA.
 function CapitalCurve({ ctx }) {
   const { data, quotes } = ctx;
+<<<<<<< HEAD
+  const m = portfolioMetrics(data.positions, quotes, data.cash);
+  const patr = m.patr;
+  const budget = (data.config && data.config.initialBudget) || 0;
+  const todayYmd = new Date().toISOString().slice(0, 10);
+  const ec = equityCurve(data.equitySnapshots, budget, patr, todayYmd);
+  const retVsInicio = budget > 0 ? ((patr - budget) / budget) * 100 : ec.retAcum;
+  const hasSeries = ec.days >= 1;          // mostra a curva a partir do 1º dia (baseline = orçamento)
+  const retAcum = ec.retAcum;               // base = orçamento inicial → bate com "vs início"
+  const dd = ec.drawdown;                   // drawdown sobre a MESMA curva exibida
+  const series = ec.curve;                  // curva exibida (orçamento → ... → ao vivo)
+=======
   const posVal = (data.positions || []).reduce((s, p) => s + p.qty * ((quotes[p.t] || {}).price || 0), 0);
   const patr = (data.cash || 0) + posVal;
   const budget = (data.config && data.config.initialBudget) || 0;
@@ -991,6 +1237,7 @@ function CapitalCurve({ ctx }) {
   let peak = series.length ? series[0] : 0, dd = 0;
   for (const v of series) { peak = Math.max(peak, v); if (peak > 0) dd = Math.max(dd, ((peak - v) / peak) * 100); }
   const retAcum = hasSeries && series[0] > 0 ? ((series[series.length - 1] - series[0]) / series[0]) * 100 : retVsInicio;
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
   const up = retAcum >= 0;
   // polyline normalizada ao viewBox 300x92
   let path = "";
@@ -1027,7 +1274,11 @@ function CapitalCurve({ ctx }) {
         <div style={{ display: "flex", gap: "10px", marginTop: "12px" }}>
           {stat("RETORNO ACUMULADO", pct(retAcum), retAcum >= 0 ? T.positive : T.negative)}
           {stat("DRAWDOWN (DESDE O PICO)", "-" + dd.toFixed(1) + "%", T.negative)}
+<<<<<<< HEAD
+          {stat("DIAS REGISTRADOS", String(ec.days))}
+=======
           {stat("DIAS REGISTRADOS", String(series.length))}
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
         </div>
       ) : (
         <div style={{ fontSize: "11.5px", color: T.textFaint, marginTop: "10px", lineHeight: 1.5 }}>
@@ -1334,11 +1585,20 @@ function StopAlvoModal({ ctx }) {
 function CarteiraScreen({ ctx }) {
   const { data, quotes, analysis, A, goMercado } = ctx;
   const byQ = (t) => quotes[t] || {};
+<<<<<<< HEAD
+  const m = portfolioMetrics(data.positions, quotes, data.cash);
+  const positionsValue = m.posVal;
+  const total = m.patr;
+  const cost = m.cost;
+  const openPnL = m.openPnL;
+  const openPct = m.openPct;
+=======
   const positionsValue = data.positions.reduce((s, p) => s + p.qty * (byQ(p.t).price || 0), 0);
   const total = data.cash + positionsValue;
   const cost = data.positions.reduce((s, p) => s + p.avg * p.qty, 0);
   const openPnL = data.positions.reduce((s, p) => s + ((byQ(p.t).price || p.avg) - p.avg) * p.qty, 0);
   const openPct = cost ? (openPnL / cost) * 100 : 0;
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
   const kpi = (label, value, color, sub, subColor) => (
     <div style={{ ...card, padding: "14px 15px" }}>
       <div style={kicker}>{label}</div>
@@ -1369,9 +1629,16 @@ function CarteiraScreen({ ctx }) {
       <div style={{ display: "flex", flexDirection: "column", gap: "11px" }}>
         {data.positions.map((p) => {
           const q = byQ(p.t);
+<<<<<<< HEAD
+          const cur = markPrice(q, p);
+          const avg = Number(p.avg) || 0;
+          const pnl = (cur - avg) * p.qty;
+          const pnlPct = avg > 0 ? (cur / avg - 1) * 100 : 0;
+=======
           const cur = q.price != null ? q.price : p.avg;
           const pnl = (cur - p.avg) * p.qty;
           const pnlPct = (cur / p.avg - 1) * 100;
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
           const color = pnl >= 0 ? T.positive : T.negative;
           const cell = (label, value, c) => (<div><div style={kicker}>{label}</div><div style={{ fontFamily: MONO, fontSize: "13px", color: c }}>{value}</div></div>);
           return (
@@ -1530,7 +1797,11 @@ function NotifSection({ ctx }) {
   }, []);
   const statusText = {
     granted: "Permissão concedida.",
+<<<<<<< HEAD
+    denied: "Permissão negada — ative em Ajustes → Notificações → BolsIA.",
+=======
     denied: "Permissão negada — ative em Ajustes → Notificações → B3 Agente.",
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
     default: "Permissão ainda não solicitada — ligue abaixo para pedir.",
     unsupported: isNative ? "Indisponível neste app — recompile (npm install + cap sync) para registrar o plugin." : "Seu navegador não suporta notificações.",
   }[perm] || "";
@@ -1540,19 +1811,34 @@ function NotifSection({ ctx }) {
     setMsg("Solicitando permissão do sistema…");
     const p = await notify.requestPermission();
     setPerm(p);
+<<<<<<< HEAD
+    setMsg(p === "granted" ? "Permissão concedida. Agora use o teste agendado." : (p === "denied" ? "Permissão negada pelo iOS. Ative em Ajustes → Notificações → BolsIA." : "Plugin ou navegador não suportou a permissão."));
+  };
+  const onTest = async () => {
+    const id = await notify.schedule("BolsIA · teste imediato", "Teste técnico de notificação local.", new Date(Date.now() + (isNative ? 5000 : 500)));
+=======
     setMsg(p === "granted" ? "Permissão concedida. Agora use o teste agendado." : (p === "denied" ? "Permissão negada pelo iOS. Ative em Ajustes → Notificações → B3 Agente." : "Plugin ou navegador não suportou a permissão."));
   };
   const onTest = async () => {
     const id = await notify.schedule("B3 Agente · teste imediato", "Teste técnico de notificação local.", new Date(Date.now() + (isNative ? 5000 : 500)));
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
     setMsg(id != null
       ? (isNative ? "Teste agendado para 5s. Coloque o app em segundo plano para ver o banner; com app aberto, o iOS pode apenas registrar a entrega." : "Notificação de teste enviada/agendada.")
       : "Não foi possível enviar agora — verifique permissão, plugin e recompilação do app.");
   };
   const onTestScheduled = async () => {
+<<<<<<< HEAD
+    // BLOCO 1: 30s à frente — tempo suficiente para mandar o app para segundo
+    // plano OU fechá-lo de vez (a entrega é do SISTEMA; independe do WebView).
+    const id = await notify.schedule("Teste agendado", "Esta notificação foi agendada há 30 segundos.", new Date(Date.now() + 30000));
+    setMsg(id != null
+      ? (isNative ? "Agendada para daqui a 30s (id " + id + "). Mande o app para segundo plano — ou feche-o — para validar a entrega pelo sistema." : "Agendada para daqui a 30s (mantenha esta aba aberta).")
+=======
     // FASE 4: agenda 10s à frente para validar o disparo "no horário agendado".
     const id = await notify.schedule("Teste agendado", "Esta notificação foi agendada há 10 segundos.", new Date(Date.now() + 10000));
     setMsg(id != null
       ? (isNative ? "Agendada para daqui a 10s. Mande o app para segundo plano para ver o banner." : "Agendada para daqui a 10s (mantenha esta aba aberta).")
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
       : "Não foi possível agendar agora — verifique a permissão acima.");
   };
   const row = (key, label, desc) => (
@@ -1641,6 +1927,124 @@ function PromptsSection({ ctx }) {
   );
 }
 
+<<<<<<< HEAD
+/* BLOCO 3 — Radar de mercado. Varre o universo no SERVIDOR (cache-first) e
+   lista, por ativo, as condições técnicas detectadas pelo motor de sinais.
+   Linguagem 100% descritiva/educacional (nada de "compre/venda/entre agora");
+   o score é INTENSIDADE de sinais, não direção. Período = candlePeriod da
+   Config (mesma config nos dois stores). */
+const RADAR_PERIOD_LABEL = { "1mo": "1M", "3mo": "3M", "6mo": "6M", "1y": "1A", "2y": "2A" };
+function RadarScreen({ ctx }) {
+  const { data } = ctx;
+  const period = (data.config && data.config.candlePeriod) || "1y";
+  const [st, setSt] = useState({ busy: false, res: null, error: "" });
+  const ranFor = useRef(null);
+  const run = useCallback(async (p) => {
+    setSt((s) => ({ ...s, busy: true, error: "" }));
+    try {
+      const r = await store.scan(p);
+      setSt({ busy: false, res: r, error: "" });
+    } catch (e) {
+      setSt((s) => ({ ...s, busy: false, error: (e && e.message) || String(e) }));
+    }
+  }, []);
+  useEffect(() => {
+    // varre ao abrir a aba e sempre que o período da Config mudar; o servidor
+    // segura repetições (resultado cacheado por 60s por período+universo).
+    if (ranFor.current === period) return;
+    ranFor.current = period;
+    run(period);
+  }, [period, run]);
+  const res = st.res;
+  const results = (res && res.results) || [];
+  const maxScore = results.reduce((m, r) => Math.max(m, r.score_tecnico || 0), 0) || 1;
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", marginBottom: "6px" }}>
+        <h1 style={{ margin: 0, fontSize: "24px", fontWeight: 700, letterSpacing: "-0.01em" }}>Radar de mercado</h1>
+        <IconBtn label="Varrer novamente" onClick={() => run(period)} busy={st.busy}>↻</IconBtn>
+      </div>
+      <p style={{ margin: "0 0 12px", color: T.textMuted, fontSize: "13px", maxWidth: "560px", lineHeight: 1.55 }}>
+        Varredura do universo de ativos com o motor de sinais: quais condições técnicas
+        estão ativas em cada papel, para você estudar — sem qualquer recomendação.
+      </p>
+      <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", marginBottom: "14px" }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "6px 10px", borderRadius: "999px", background: T.accentTint, border: `1px solid ${T.accent}`, color: T.accent, fontSize: "11px", fontWeight: 800, letterSpacing: "0.05em" }}>
+          PERÍODO EM USO: {RADAR_PERIOD_LABEL[period] || period}{res ? " · " + res.periodBars + " pregões" : ""}
+        </span>
+        {res && (
+          <span style={{ fontSize: "11.5px", color: T.textFaint }}>
+            {res.scanned}/{res.universeSize} ativos varridos{res.errors && res.errors.length ? " · " + res.errors.length + " sem dados" : ""} · {res.timestamp}
+          </span>
+        )}
+      </div>
+
+      {st.busy && !res && (
+        <div style={{ ...card, padding: "22px 20px", marginBottom: "14px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "13.5px", fontWeight: 700 }}>
+            <span className="spin" style={{ display: "inline-block", color: T.accent }}>↻</span> Varrendo o universo…
+          </div>
+          <p style={{ margin: "8px 0 0", color: T.textMuted, fontSize: "12.5px", lineHeight: 1.5 }}>
+            A primeira varredura do dia carrega o histórico de todos os ativos e pode levar
+            até um minuto. As próximas voltam em segundos (cache no servidor).
+          </p>
+        </div>
+      )}
+      {st.error && (
+        <div style={{ ...card, padding: "16px 18px", marginBottom: "14px", border: `1px solid ${T.negative}` }}>
+          <div style={{ fontSize: "13px", fontWeight: 700, color: T.negative }}>A varredura falhou</div>
+          <p style={{ margin: "6px 0 10px", color: T.textMuted, fontSize: "12.5px", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{st.error}</p>
+          <button onClick={() => run(period)} style={{ padding: "10px 16px", borderRadius: "8px", border: `1px solid ${T.accent}`, background: T.accentTint, color: T.accent, fontWeight: 700, fontSize: "13px" }}>Tentar de novo</button>
+        </div>
+      )}
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))", gap: "14px" }}>
+        {results.map((r) => {
+          const chColor = (r.variacaoPeriodoPct || 0) >= 0 ? T.positive : T.negative;
+          const barPct = Math.round(((r.score_tecnico || 0) / maxScore) * 100);
+          return (
+            <div key={r.ticker} style={{ ...card, padding: "14px 15px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "10px" }}>
+                <div>
+                  <div style={{ fontFamily: MONO, fontWeight: 800, fontSize: "16px", letterSpacing: "0.02em" }}>{r.ticker}</div>
+                  <div style={{ color: T.textMuted, fontSize: "11.5px", marginTop: "3px" }}>{r.candles} candles no período</div>
+                </div>
+                <div style={{ textAlign: "right", fontFamily: MONO, minWidth: "92px" }}>
+                  <div style={{ fontSize: "16px", fontWeight: 700 }}>{r.close != null ? "R$ " + price(r.close) : "—"}</div>
+                  <div style={{ fontSize: "12px", fontWeight: 700, color: chColor }}>{pct(r.variacaoPeriodoPct)} no período</div>
+                </div>
+              </div>
+              <div style={{ marginTop: "11px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "10.5px", color: T.textFaint, letterSpacing: "0.05em", marginBottom: "4px" }}>
+                  <span>INTENSIDADE DE SINAIS</span><span style={{ fontFamily: MONO, fontWeight: 800, color: T.textSecondary }}>{r.score_tecnico}</span>
+                </div>
+                <div style={{ height: "6px", borderRadius: "999px", background: T.bgBase, border: `1px solid ${T.borderFaint}`, overflow: "hidden" }}>
+                  <div style={{ width: barPct + "%", height: "100%", background: T.accent, borderRadius: "999px" }} />
+                </div>
+              </div>
+              {r.condicoes_detectadas && r.condicoes_detectadas.length > 0 ? (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "11px" }}>
+                  {r.condicoes_detectadas.map((cnd, i) => (
+                    <span key={i} style={{ padding: "5px 9px", borderRadius: "999px", background: T.bgBase, border: `1px solid ${T.borderSubtle}`, color: T.textSecondary, fontSize: "11px", fontWeight: 600, lineHeight: 1.35 }}>{cnd}</span>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ marginTop: "11px", fontSize: "11.5px", color: T.textFaint }}>Nenhuma condição marcante no fechamento mais recente.</div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{ ...card, padding: "13px 16px", marginTop: "16px", background: T.bgPanel }}>
+        <div style={{ fontSize: "11.5px", color: T.accent, lineHeight: 1.55 }}>{DISCLAIMERS.radar}</div>
+      </div>
+    </div>
+  );
+}
+
+=======
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
 function ConfigScreen({ ctx }) {
   const { data, A, test, themePref } = ctx;
   const c = data.config;
@@ -1660,7 +2064,11 @@ function ConfigScreen({ ctx }) {
     setDiagState({ status: "testing", text: "Executando diagnóstico…" });
     const lines = [];
     const stamp = new Date().toISOString();
+<<<<<<< HEAD
+    lines.push("BolsIA · Diagnóstico iOS/WebView");
+=======
     lines.push("B3 Agente · Diagnóstico iOS/WebView");
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
     lines.push("Gerado em: " + stamp);
     lines.push("");
     try {
@@ -1696,7 +2104,11 @@ function ConfigScreen({ ctx }) {
       lines.push("permission=" + nd.permission);
       if (nd.error) lines.push("erro=" + nd.error);
       if (nd.permission === "granted") {
+<<<<<<< HEAD
+        const id = await notify.schedule("BolsIA · teste QA", "Validação técnica de notificação local agendada.", new Date(Date.now() + 8000));
+=======
         const id = await notify.schedule("B3 Agente · teste QA", "Validação técnica de notificação local agendada.", new Date(Date.now() + 8000));
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
         lines.push("scheduledTestId=" + (id == null ? "falhou" : id));
         lines.push("ação=se estiver no iPhone, mande o app para segundo plano por 8 segundos para ver o banner.");
       } else {
@@ -1707,7 +2119,11 @@ function ConfigScreen({ ctx }) {
     lines.push("Checklist de correção rápida:");
     lines.push("1. API base deve ser URL absoluta, ex.: https://b3-production-8fc0.up.railway.app");
     lines.push("2. Se keySource=manual no iPhone, a chave precisa estar salva no próprio app.");
+<<<<<<< HEAD
+    lines.push("3. Se permissão=denied, corrigir em Ajustes do iOS → Notificações → BolsIA.");
+=======
     lines.push("3. Se permissão=denied, corrigir em Ajustes do iOS → Notificações → B3 Agente.");
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
     lines.push("4. Reinstale/recompile após mudanças de plugin: npm install && npx cap sync ios.");
     setDiagState({ status: "done", text: lines.join("\n") });
   };
@@ -1744,6 +2160,24 @@ function ConfigScreen({ ctx }) {
         </div>
       </div>
 
+<<<<<<< HEAD
+      {/* Objetivo 4: período de candles do gráfico e da análise */}
+      <div style={{ ...card, padding: "17px 18px", marginBottom: "16px" }}>
+        <div style={sectionTitle}>PERÍODO DE DADOS (CANDLES)</div>
+        <p style={{ margin: "6px 0 14px", color: T.textMuted, fontSize: "12.5px", lineHeight: 1.5, maxWidth: "560px" }}>
+          Janela de candles exibida no gráfico e enviada à IA na análise. Os indicadores
+          (médias, RSI, MACD…) seguem calculados sobre um histórico maior — só a janela
+          exibida/analisada muda.
+        </p>
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+          {[["1mo", "1M"], ["3mo", "3M"], ["6mo", "6M"], ["1y", "1A"], ["2y", "2A"]].map(([val, lab]) => (
+            <button key={val} onClick={() => A.saveConfig({ candlePeriod: val })} style={seg((c.candlePeriod || "1y") === val)}>{lab}</button>
+          ))}
+        </div>
+      </div>
+
+=======
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
       {/* Notificações locais de movimentos da carteira */}
       <NotifSection ctx={ctx} />
 
@@ -1964,14 +2398,22 @@ function ConfigScreen({ ctx }) {
 
       {/* Ponto único do aviso completo + boas-vindas */}
       <div style={{ display: "flex", gap: "10px", marginTop: "16px", flexWrap: "wrap" }}>
+<<<<<<< HEAD
+        <button onClick={ctx.openWelcomeAuth} style={{ flex: "1 1 160px", padding: "14px", borderRadius: "12px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 600, fontSize: "13px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
+=======
         <button onClick={ctx.openWelcome} style={{ flex: "1 1 160px", padding: "14px", borderRadius: "12px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 600, fontSize: "13px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
           <LogoMark size={18} /> Tela de boas-vindas
         </button>
         <button onClick={A.openAbout} style={{ flex: "1 1 160px", padding: "14px", borderRadius: "12px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 600, fontSize: "13px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
           <span aria-hidden style={{ fontWeight: 700, color: T.accent }}>ⓘ</span> Sobre · Aviso legal
         </button>
       </div>
+<<<<<<< HEAD
+      <div style={{ textAlign: "center", fontSize: "11px", color: T.textFaint, marginTop: "12px" }}>BolsIA · simulador educacional · {DISCLAIMERS.short}</div>
+=======
       <div style={{ textAlign: "center", fontSize: "11px", color: T.textFaint, marginTop: "12px" }}>B3 Agente · simulador educacional · {DISCLAIMERS.short}</div>
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
     </div>
   );
 }
@@ -2294,6 +2736,19 @@ export default function App() {
     setTimeout(() => setToast((cur) => (cur === msg ? null : cur)), 2600);
   }, []);
 
+<<<<<<< HEAD
+  // Objetivo 2: notificações locais aparecem MESMO com o app aberto. No iOS o
+  // banner do sistema é suprimido em foreground; aqui mostramos um aviso in-app
+  // (toast) quando uma notificação dispara com o app aberto. A notificação do
+  // sistema segue valendo para quando o app está em segundo plano.
+  useEffect(() => {
+    notify.setForegroundHandler((title, body) => flash(body ? (title + " — " + body) : title));
+    notify.setup();
+    return () => notify.setForegroundHandler(null);
+  }, [flash]);
+
+=======
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
   const loadState = useCallback(async () => {
     try {
       const s = await store.getState();
@@ -2465,7 +2920,11 @@ export default function App() {
         const perm = await notify.requestPermission();
         if (perm !== "granted") {
           p.enabled = false;
+<<<<<<< HEAD
+          if (perm === "denied") flash("Permissão negada. Ative em Ajustes → Notificações → BolsIA.");
+=======
           if (perm === "denied") flash("Permissão negada. Ative em Ajustes → Notificações → B3 Agente.");
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
           else flash(isNative ? "Plugin de notificações não registrado. Rode 'npm install' e recompile (cap sync)." : "Notificações não são suportadas neste navegador.");
         } else {
           notify.send("Notificações ativadas", "Você será avisado sobre stop, alvo e movimentos da carteira.");
@@ -2622,8 +3081,28 @@ export default function App() {
 
   // Tela de abertura: na 1a vez (flag do STORE) mostra login/criar conta; o
   // onboarding anônimo (orçamento/risco) só aparece se escolher "usar sem conta".
+<<<<<<< HEAD
+  // Debug opcional no device: no console do Safari, antes de recarregar, rode
+  // `localStorage.setItem("b3-debug-welcome","1")` (ou `window.__B3_DEBUG_WELCOME=true`)
+  // para logar a decisão (onboarded / já mostrado / vai mostrar).
+  useEffect(() => {
+    if (!data) return;
+    // BLOCO 2: o welcome é o PORTÃO DE ENTRADA do app — aparece SEMPRE no boot
+    // (uma vez por abertura), independente de config.onboarded e de sessão
+    // ativa. Com sessão restaurada, a tela mostra "Conectado como X" + Entrar;
+    // sem sessão, login/continuar sem conta. `onboarded` deixa de esconder o
+    // welcome e passa a controlar APENAS se o onboarding anônimo (orçamento/
+    // risco) roda ao escolher "usar sem conta".
+    const onboarded = !!(data.config && data.config.onboarded);
+    const willShow = !welcomeShownRef.current;
+    let dbg = false;
+    try { dbg = (typeof window !== "undefined") && (window.__B3_DEBUG_WELCOME || localStorage.getItem("b3-debug-welcome") === "1"); } catch { /* storage indisponível */ }
+    if (dbg) { try { console.log("[welcome]", { bootGate: true, onboarded, hasSavedSession: hasSession(), alreadyShown: welcomeShownRef.current, willShow }); } catch { /* noop */ } }
+    if (willShow) {
+=======
   useEffect(() => {
     if (data && !(data.config && data.config.onboarded) && !welcomeShownRef.current) {
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
       welcomeShownRef.current = true;
       setWelcomeAuthOpen(true);
     }
@@ -2639,9 +3118,14 @@ export default function App() {
     if (positions.length > 0 && !temCotacoes) return; // espera as cotações
     snapRanRef.current = true;
     const ymd = new Date().toISOString().slice(0, 10);
+<<<<<<< HEAD
+    const m = portfolioMetrics(positions, quotes, data.cash);
+    store.putSnapshot({ data: ymd, patrimonio: m.patr, caixa: m.cash, posicoesValor: m.posVal })
+=======
     const posVal = positions.reduce((s, p) => s + p.qty * ((quotes[p.t] || {}).price || 0), 0);
     const caixa = data.cash || 0;
     store.putSnapshot({ data: ymd, patrimonio: caixa + posVal, caixa, posicoesValor: posVal })
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
       .then((s) => s && setData(s))
       .catch(() => { /* offline-first: silencioso */ });
   }, [data, quotes]);
@@ -2667,6 +3151,10 @@ export default function App() {
     stopAlvo, stopAlvoFor,
     goMercado: () => setTab("mercado"),
     openWelcome: () => setWelcomeOpen(true),
+<<<<<<< HEAD
+    openWelcomeAuth: () => { welcomeShownRef.current = true; setWelcomeAuthOpen(true); },
+=======
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
     openStopAlvo: (t) => { setStopAlvoFor(t); A.runStopAlvoFor(t); }, // FASE 3: abre popup do ativo e analisa só ele
     markOnboarded: async () => {
       setData((d) => (d ? { ...d, config: { ...d.config, onboarded: true } } : d));
@@ -2689,6 +3177,18 @@ export default function App() {
       flash("Conta criada.");
       return r;
     },
+<<<<<<< HEAD
+    // FASE 2 — login social (Apple/Google). A UI está pronta; o token nativo é
+    // obtido pelos plugins Capacitor quando configurados. O servidor já valida.
+    oauth: async ({ provider, idToken }) => {
+      const r = await auth.oauth({ provider, idToken });
+      if (r && r.user) setAuthUser(r.user);
+      if (r && r.state) setData(r.state); else await loadState();
+      flash("Conectado.");
+      return r;
+    },
+=======
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
     logout: async () => {
       await auth.logout();
       setAuthUser(null);
@@ -2706,9 +3206,14 @@ export default function App() {
   // chips do topo
   const { patr, dia } = useMemo(() => {
     if (!data) return { patr: null, dia: 0 };
+<<<<<<< HEAD
+    const m = portfolioMetrics(data.positions, quotes, data.cash);
+    return { patr: m.patr, dia: m.dayVal };
+=======
     const posVal = (data.positions || []).reduce((s, p) => s + p.qty * ((quotes[p.t] && quotes[p.t].price) || 0), 0);
     const dayVal = (data.positions || []).reduce((s, p) => { const q = quotes[p.t] || {}; return s + p.qty * (q.price || 0) * ((q.change || 0) / 100); }, 0);
     return { patr: (data.cash || 0) + posVal, dia: dayVal };
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
   }, [data, quotes]);
 
   const tickerItems = useMemo(() => {
@@ -2752,7 +3257,12 @@ export default function App() {
     <ThemeCtx.Provider value={themeKey}>
     <div {...shell}>
       <GlobalStyle />
+<<<<<<< HEAD
+      <Ticker items={tickerItems} live={Object.keys(quotes).length > 0} />
+      <Topbar patr={patr} dia={dia} caixa={data.cash} name={firstName} />
+=======
       <Topbar patr={patr} dia={dia} caixa={data.cash} name={firstName} live={Object.keys(quotes).length > 0} />
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
 
       <main ref={mainRef} style={{ position: "relative", flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
         {pullY > 0 && (
@@ -2761,9 +3271,16 @@ export default function App() {
             {pullY >= 70 ? "Solte para atualizar" : "Puxe para atualizar"}
           </div>
         )}
+<<<<<<< HEAD
+        <div style={{ maxWidth: "1060px", margin: "0 auto", padding: "24px 18px 34px", transform: pullY ? `translateY(${pullY}px)` : undefined, transition: pullY ? "none" : "transform .2s ease" }}>
+          {tab === "evolucao" && <EvolucaoScreen ctx={ctx} />}
+          {tab === "mercado" && <MercadoScreen ctx={ctx} />}
+          {tab === "radar" && <RadarScreen ctx={ctx} />}
+=======
         <div style={{ maxWidth: "1060px", margin: "0 auto", padding: "14px 14px 26px", transform: pullY ? `translateY(${pullY}px)` : undefined, transition: pullY ? "none" : "transform .2s ease" }}>
           {tab === "evolucao" && <EvolucaoScreen ctx={ctx} />}
           {tab === "mercado" && <MercadoScreen ctx={ctx} />}
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
           {tab === "opcoes" && <OptionsScreen ctx={ctx} />}
           {tab === "carteira" && (carteiraView === "historico"
             ? (<><BackHeader title="Histórico de operações" onBack={() => setCarteiraView("main")} /><HistoricoScreen ctx={ctx} /></>)
@@ -2786,6 +3303,10 @@ export default function App() {
           name={(data.catalog.find((c) => c.t === techFor) || {}).n}
           quote={quotes[techFor]}
           position={data.positions.find((p) => p.t === techFor)}
+<<<<<<< HEAD
+          period={(data.config && data.config.candlePeriod) || "1y"}
+=======
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
           onClose={A.closeTech}
         />
       )}
@@ -2796,7 +3317,16 @@ export default function App() {
         <WelcomeAuthScreen
           ctx={ctx}
           onAuthed={() => { setWelcomeAuthOpen(false); ctx.markOnboarded(); }}
+<<<<<<< HEAD
+          onSkip={() => {
+            // BLOCO 2 (boot gate): "usar sem conta" só roda o onboarding
+            // (orçamento/risco) para quem NUNCA concluiu; veterano entra direto.
+            setWelcomeAuthOpen(false);
+            if (!(data.config && data.config.onboarded)) setWelcomeOpen(true);
+          }}
+=======
           onSkip={() => { setWelcomeAuthOpen(false); setWelcomeOpen(true); }}
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
         />
       )}
       {welcomeOpen && (

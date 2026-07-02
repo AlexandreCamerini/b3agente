@@ -31,6 +31,14 @@ export async function diag() {
       out.pluginLoaded = !!p;
       out.hasSchedule = !!(p && p.schedule);
       out.hasRequest = !!(p && p.requestPermissions);
+<<<<<<< HEAD
+      // BLOCO 1: o que o SISTEMA (iOS) tem de fato agendado — prova real de que
+      // o agendamento nativo foi aceito (independe do estado do WebView).
+      const pend = await getPending();
+      out.pendingCount = pend.length;
+      out.pendingIds = pend.map((n) => n.id);
+=======
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
     } else {
       out.pluginLoaded = typeof Notification !== "undefined";
     }
@@ -42,6 +50,25 @@ export async function diag() {
   return out;
 }
 
+<<<<<<< HEAD
+// BLOCO 1: lista os agendamentos PENDENTES registrados no sistema (nativo).
+// No web devolve os timers vivos da aba. Nunca lança.
+export async function getPending() {
+  try {
+    if (isNative) {
+      const p = await plugin();
+      if (!p || !p.getPending) return [];
+      const r = await p.getPending();
+      return ((r && r.notifications) || []).map((n) => ({ id: n.id, title: n.title || "", at: (n.schedule && n.schedule.at) || null }));
+    }
+    return Array.from(_webTimers.keys()).map((id) => ({ id, title: "", at: null }));
+  } catch {
+    return [];
+  }
+}
+
+=======
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
 async function plugin() {
   if (!isNative) return null;
   if (_plugin) return _plugin;
@@ -94,7 +121,58 @@ export async function requestPermission() {
   }
 }
 
+<<<<<<< HEAD
+// BLOCO 1 — ids PERSISTIDOS entre aberturas do app. Com o contador só em
+// memória (nascendo sempre em 1), reabrir o app e disparar QUALQUER notificação
+// reusava ids de agendamentos pendentes da sessão anterior — e, no iOS, agendar
+// com um id já pendente SUBSTITUI o agendamento antigo sem erro (a notificação
+// "some" e parece falha de entrega em background). O contador agora vive no
+// localStorage; sem storage (ex.: testes em Node), cai no contador em memória.
+const _NID_KEY = "b3-notify-nid";
 let _id = 1;
+function _nextId() {
+  let n = _id;
+  try {
+    if (typeof localStorage !== "undefined") {
+      const raw = parseInt(localStorage.getItem(_NID_KEY) || "", 10);
+      if (Number.isFinite(raw) && raw > 0) n = raw;
+    }
+  } catch { /* storage indisponível */ }
+  const id = ((n - 1) % 2147483000) + 1; // 1..2147483000
+  _id = id + 1;
+  try { if (typeof localStorage !== "undefined") localStorage.setItem(_NID_KEY, String(_id)); } catch { /* ignore */ }
+  return id;
+}
+// Apresentação em FOREGROUND (Objetivo 2): no iOS, com o app ABERTO, o banner do
+// sistema é suprimido por padrão. Para que teste e eventos apareçam MESMO com o
+// app aberto, o app registra um handler que mostra um aviso in-app (toast). A
+// notificação do SISTEMA continua disparando (aparece na central/segundo plano).
+// O banner nativo em foreground exige o delegate UNUserNotificationCenter
+// (willPresent → .banner/.list/.sound) no projeto iOS — documentado no guia.
+let _onForeground = null;
+export function setForegroundHandler(fn) {
+  _onForeground = typeof fn === "function" ? fn : null;
+}
+function _emitForeground(title, body) {
+  try { if (_onForeground) _onForeground(title, body); } catch { /* nunca quebra */ }
+}
+
+// Registra o listener nativo de recebimento (debug/telemetria). Idempotente.
+let _setupDone = false;
+export async function setup() {
+  if (_setupDone) return;
+  _setupDone = true;
+  if (!isNative) return;
+  try {
+    const p = await plugin();
+    if (p && p.addListener) {
+      p.addListener("localNotificationReceived", (n) => ndbg("recebida (foreground):", n && n.title));
+    }
+  } catch (e) { ndbg("setup() falhou:", (e && e.message) || e); }
+}
+=======
+let _id = 1;
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
 // FASE 4: timers do fallback web (sem service worker, "agendar" vive enquanto a
 // aba estiver aberta). No nativo, o agendamento/cancelamento é do plugin.
 const _webTimers = new Map();
@@ -109,6 +187,21 @@ export async function send(title, body) {
         try { await p.createChannel({ id: "carteira", name: "Movimentos da carteira", importance: 4 }); } catch { /* iOS ignora */ }
         _channelReady = true;
       }
+<<<<<<< HEAD
+      // BLOCO 1: entrega IMEDIATA sem campo `schedule`. O agendamento antigo em
+      // `at: agora+250ms` podia já estar no PASSADO quando o iOS processava a
+      // chamada (ponte JS→nativo + app ocupado) — e agendamento no passado é
+      // descartado silenciosamente pelo sistema.
+      await p.schedule({
+        notifications: [{
+          id: _nextId(),
+          title,
+          body,
+          channelId: "carteira",
+        }],
+      });
+      _emitForeground(title, body); // app aberto: garante visibilidade in-app
+=======
       await p.schedule({
         notifications: [{
           id: _id++ % 2147483000,
@@ -118,6 +211,7 @@ export async function send(title, body) {
           schedule: { at: new Date(Date.now() + 250) },
         }],
       });
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
       return true;
     }
     if (typeof Notification !== "undefined" && Notification.permission === "granted") {
@@ -143,8 +237,17 @@ export async function notifyIfEnabled(prefs, type, title, body) {
 // (use para cancelar) ou null. No iOS isso usa o plugin nativo; no web usa um
 // setTimeout enquanto a aba viver (sem service worker, nao ha agendamento real).
 export async function schedule(title, body, at, id) {
+<<<<<<< HEAD
+  const req = at instanceof Date ? at : new Date(at);
+  // BLOCO 1: horário no passado (ou "agora") é DESCARTADO pelo iOS sem erro.
+  // Clampa para pelo menos +1s no futuro — o agendamento sempre é aceito.
+  const when = (!Number.isFinite(req.getTime()) || req.getTime() <= Date.now())
+    ? new Date(Date.now() + 1000) : req;
+  const nid = (id != null ? id : _nextId()) || 1;
+=======
   const when = at instanceof Date ? at : new Date(at);
   const nid = (id != null ? id : (_id++ % 2147483000)) || 1;
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
   try {
     if (isNative) {
       const p = await plugin();
@@ -153,6 +256,31 @@ export async function schedule(title, body, at, id) {
         try { await p.createChannel({ id: "carteira", name: "Movimentos da carteira", importance: 4 }); } catch { /* iOS ignora */ }
         _channelReady = true;
       }
+<<<<<<< HEAD
+      // allowWhileIdle: entrega no horário mesmo em Doze/idle (Android; iOS ignora).
+      await p.schedule({ notifications: [{ id: nid, title, body, channelId: "carteira", schedule: { at: when, allowWhileIdle: true } }] });
+      // Foreground: se o app ainda estiver aberto na hora, mostra aviso in-app
+      // (o SO já cobre o caso de segundo plano). Timer cancelável junto do nativo.
+      const ms = Math.max(0, when.getTime() - Date.now());
+      const h = setTimeout(() => { _webTimers.delete(nid); _emitForeground(title, body); }, ms);
+      _webTimers.set(nid, h);
+      return nid;
+    }
+    // Web/fallback: timer da aba (sem service worker, o agendamento vive
+    // enquanto a aba viver). BLOCO 1: o timer é criado MESMO sem a API
+    // Notification ou sem permissão — na hora, tenta o banner do navegador e,
+    // se não der, avisa pelo toast in-app (e o contrato fica testável em Node).
+    const ms = Math.max(0, when.getTime() - Date.now());
+    const handle = setTimeout(() => {
+      _webTimers.delete(nid);
+      if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+        try { new Notification(title, { body }); return; } catch { /* cai no toast */ }
+      }
+      _emitForeground(title, body);
+    }, ms);
+    _webTimers.set(nid, handle);
+    return nid;
+=======
       await p.schedule({ notifications: [{ id: nid, title, body, channelId: "carteira", schedule: { at: when } }] });
       return nid;
     }
@@ -165,6 +293,7 @@ export async function schedule(title, body, at, id) {
       _webTimers.set(nid, handle);
       return nid;
     }
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
   } catch {
     /* nunca quebra o fluxo do app por causa de notificacao */
   }
@@ -175,14 +304,24 @@ export async function schedule(title, body, at, id) {
 export async function cancel(id) {
   if (id == null) return false;
   try {
+<<<<<<< HEAD
+    // limpa o timer in-app (criado tanto no web quanto no nativo p/ foreground)
+    const h = _webTimers.get(id);
+    if (h != null) { clearTimeout(h); _webTimers.delete(id); }
+=======
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
     if (isNative) {
       const p = await plugin();
       if (!p || !p.cancel) return false;
       await p.cancel({ notifications: [{ id }] });
       return true;
     }
+<<<<<<< HEAD
+    return h != null;
+=======
     const h = _webTimers.get(id);
     if (h != null) { clearTimeout(h); _webTimers.delete(id); return true; }
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
   } catch {
     /* ignore */
   }

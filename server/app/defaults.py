@@ -92,6 +92,10 @@ def default_state() -> dict:
             "theme": "dark",           # dark | light | system
             "userName": "",            # nome do usuario para personalizacao sobria
             "onboarded": False,        # tela de boas-vindas ja vista? (lida na init)
+<<<<<<< HEAD
+            "candlePeriod": "1y",      # Objetivo 4: janela de candles (1mo|3mo|6mo|1y|2y)
+=======
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
             "streak": {"days": 0, "last": ""},  # consistencia (dias seguidos abrindo)
             "notif": {                 # notificacoes LOCAIS de movimentos da carteira
                 "enabled": False,      # mestre (pede permissao quando ligado)

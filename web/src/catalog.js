@@ -99,7 +99,11 @@ explicando o porquê em "explicacao".`,
 
 export function defaultState() {
   return {
+<<<<<<< HEAD
+    config: { provider: "anthropic", model: "", keySource: "env", apiKey: "", baseUrl: "", serverUrl: "", initialBudget: 10000.0, theme: "dark", userName: "", onboarded: false, candlePeriod: "1y", streak: { days: 0, last: "" }, notif: { enabled: false, stop: true, alvo: true, agente: true, variacao: true } },
+=======
     config: { provider: "anthropic", model: "", keySource: "env", apiKey: "", baseUrl: "", serverUrl: "", initialBudget: 10000.0, theme: "dark", userName: "", onboarded: false, streak: { days: 0, last: "" }, notif: { enabled: false, stop: true, alvo: true, agente: true, variacao: true } },
+>>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
     llmPrompts: defaultLlmPrompts(),
     skill: { name: "Mesa B3 - Educacional v1", text: defaultSkillText() },
     watchlist: ["PETR4", "VALE3", "ITUB4", "BBDC4", "BBAS3", "B3SA3"],
