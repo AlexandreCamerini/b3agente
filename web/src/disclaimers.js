@@ -27,5 +27,5 @@ export const DISCLAIMERS = {
 
   // BLOCO 3 — Radar de mercado (varredura de condições técnicas)
   radar:
-    "Radar educacional: descreve condições técnicas detectadas em dados passados, sem garantia de resultado e sem qualquer recomendação de investimento. O score mede a intensidade dos sinais (quantas condições estão ativas), não a direção nem a atratividade do ativo.",
+    "Radar educacional: descreve condições técnicas e setups didáticos detectados em dados passados, sem garantia de resultado e sem qualquer recomendação de investimento. A confluência mede a aderência do ativo a um padrão de estudo (percentual de critérios atendidos), não probabilidade de acerto nem atratividade.",
 };

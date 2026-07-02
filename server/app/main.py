@@ -3,6 +3,7 @@ Persistencia em SQLite (web). Cotacoes via Yahoo, analise via LLM.
 O cliente iOS persiste no proprio aparelho e envia config/skill no corpo do
 /api/analyze; o cliente web usa a config persistida aqui.
 """
+import os
 from typing import Optional
 from datetime import datetime
 from pathlib import Path
@@ -423,6 +424,18 @@ async def technicals(ticker: str, period: Optional[str] = None, scope: Optional[
     return payload
 
 
+# ---- BLOCO D: AutoFill nativo do iOS (Chaveiro) ----
+# O iOS só oferece usuário+senha salvos dentro do app se o domínio declarar o
+# vínculo via este arquivo + capability "Associated Domains" no Xcode com
+# `webcredentials:b3agente-production.up.railway.app`. O appID vem da env
+# B3_APPLE_APP_ID no formato TEAMID.bundleid (ex.: ABCDE12345.com.b3.agente).
+@app.get("/.well-known/apple-app-site-association")
+async def apple_app_site_association():
+    app_id = os.environ.get("B3_APPLE_APP_ID", "").strip()
+    apps = [app_id] if app_id else []
+    return JSONResponse({"webcredentials": {"apps": apps}}, media_type="application/json")
+
+
 # ---- BLOCO 3: Radar de mercado ----
 # Varre o universo (default: aproximação do IBOV; sobreponível por env
 # B3_SCAN_UNIVERSE ou ?tickers=) com o período do usuário e devolve a lista
@@ -509,8 +522,14 @@ async def analyze(ticker: str, body: dict = Body(default={}), scope: Optional[st
         quote = await yahoo.get_quote(t)
     except Exception:
         quote = None
-    history_data = await yahoo.get_history(t)
-    history_data["candles"] = indicators.sanitize_candles(history_data.get("candles"))
+    # BLOCO C: histórico cache-first e janela do candlePeriod do usuário —
+    # antes o range era o default do provedor (~1 mês fixo) e sem cache.
+    hist = await candle_cache.load(t, lambda rng: yahoo.get_history(t, rng=rng))
+    history_data = {
+        "candles": candles_mod.slice_for_config(indicators.sanitize_candles(hist.get("candles")), config),
+        "currency": hist.get("currency"),
+        "periodLabel": candles_mod.normalize_period((config or {}).get("candlePeriod")),
+    }
     try:
         result = await llm.analyze(config, skill, profile, account, t, quote, history_data)
     except Exception as e:  # noqa: BLE001
@@ -549,8 +568,13 @@ async def carteira_stopalvo(ticker: str, body: dict = Body(default={}), scope: O
         quote = await yahoo.get_quote(t)
     except Exception:
         quote = None
-    history_data = await yahoo.get_history(t)
-    history_data["candles"] = indicators.sanitize_candles(history_data.get("candles"))
+    # BLOCO C: mesma janela da Config também no stop/alvo individual.
+    hist = await candle_cache.load(t, lambda rng: yahoo.get_history(t, rng=rng))
+    history_data = {
+        "candles": candles_mod.slice_for_config(indicators.sanitize_candles(hist.get("candles")), config),
+        "currency": hist.get("currency"),
+        "periodLabel": candles_mod.normalize_period((config or {}).get("candlePeriod")),
+    }
     try:
         res = await llm.analyze_carteira(config, profile, account, t, quote, history_data, prompt)
     except Exception as e:  # noqa: BLE001

@@ -155,16 +155,24 @@ if pytest is not None:
         _reset_caches()
 
 
+VEREDITOS = {"Estudar alta", "Estudar baixa", "Monitorar", "Sem setup no momento"}
+
+
 def test_scan_rankeia_tolera_falha_e_tem_disclaimer():
     payload = _run(scanner.run_scan(period="1y", universe="AAAA3,BBBB3,CCCC3", fetch=_fake_fetch))
     assert payload["disclaimer"] == scanner.DISCLAIMER
     assert payload["universeSize"] == 3 and payload["scanned"] == 2
     assert [e["ticker"] for e in payload["errors"]] == ["CCCC3"]
-    scores = [r["score_tecnico"] for r in payload["results"]]
-    assert scores == sorted(scores, reverse=True)         # rankeado
-    assert payload["results"][0]["ticker"] == "AAAA3"     # uptrend pontua mais
+    # BLOCO B (Radar v2): ranking por confluência do melhor setup; score desempata
+    confs = [r["confluencia"] for r in payload["results"]]
+    assert confs == sorted(confs, reverse=True)
+    assert payload["modelo"] and all({"nome", "descricao"} == set(m) for m in payload["modelo"])
     for r in payload["results"]:
         assert "condicoes_detectadas" in r and "timestamp" not in r  # timestamp é do payload
+        assert r["veredito"] in VEREDITOS
+        assert 0 <= r["confluencia"] <= 100
+        for stp in r["setups"]:
+            assert stp["criterios"] and 0 <= stp["confluencia"] <= 100
     assert payload["timestamp"]
 
 

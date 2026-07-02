@@ -29,7 +29,7 @@ import os
 import time
 from typing import Optional
 
-from . import candle_cache, indicators
+from . import candle_cache, indicators, setups
 from . import candles as candles_mod
 from .tickers import normalize_ticker
 
@@ -55,10 +55,11 @@ MIN_FETCH_GAP_S = 0.15      # espaçamento mínimo entre chamadas REAIS ao prove
 SCAN_TTL_S = 60.0           # resultado da varredura vale por 60s (por período+universo)
 
 DISCLAIMER = (
-    "Radar educacional: descreve condições técnicas detectadas em dados passados, "
-    "sem garantia de resultado e sem qualquer recomendação de investimento. O score "
-    "mede a INTENSIDADE dos sinais (quantas condições estão ativas), não a direção "
-    "nem a atratividade do ativo. Use para estudar como os indicadores se comportam."
+    "Radar educacional: descreve condições técnicas e setups didáticos detectados em "
+    "dados passados, sem garantia de resultado e sem qualquer recomendação de "
+    "investimento. A confluência mede a ADERÊNCIA do ativo a um padrão de estudo "
+    "(percentual de critérios atendidos), não probabilidade de acerto nem atratividade. "
+    "Use para estudar como os padrões se formam."
 )
 
 _SCAN_CACHE: dict = {}      # "period|t1,t2,..." -> (monotonic_ts, payload)
@@ -233,12 +234,19 @@ async def run_scan(period: Optional[str] = None, universe: Optional[str] = None,
                 k = min(len(cs), keep)
                 sl = indicators.slice_tail(cs, full["indicators"], full["summary"], k)
                 conds, score = detect_conditions(sl["candles"], sl["indicators"], full["summary"])
+                # BLOCO B (Radar v2): setups clássicos com checklist + veredito
+                # educacional — calculados sobre a MESMA janela do usuário.
+                sres = setups.detect_setups(sl["candles"], sl["indicators"])
                 first, last = sl["candles"][0], sl["candles"][-1]
                 chg = ((last["close"] - first["close"]) / first["close"] * 100) if first.get("close") else 0.0
                 results.append({
                     "ticker": symbol,
                     "condicoes_detectadas": conds,
                     "score_tecnico": score,
+                    "setups": sres["setups"],
+                    "veredito": sres["veredito"],
+                    "confluencia": sres["confluencia"],
+                    "melhorSetup": sres["melhor"],
                     "close": last.get("close"),
                     "variacaoPeriodoPct": round(chg, 2),
                     "candles": k,
@@ -248,7 +256,9 @@ async def run_scan(period: Optional[str] = None, universe: Optional[str] = None,
                 errors.append({"ticker": symbol, "erro": str(e) or type(e).__name__})
 
     await asyncio.gather(*(scan_one(s) for s in uni))
-    results.sort(key=lambda r: (-r["score_tecnico"], r["ticker"]))
+    # BLOCO B: rankeia por confluência do melhor setup; score de
+    # intensidade desempata; ticker estabiliza.
+    results.sort(key=lambda r: (-r["confluencia"], -r["score_tecnico"], r["ticker"]))
 
     payload = {
         "period": p,
@@ -257,6 +267,7 @@ async def run_scan(period: Optional[str] = None, universe: Optional[str] = None,
         "scanned": len(results),
         "results": results,
         "errors": errors,
+        "modelo": [{"nome": n, "descricao": d} for n, d in setups.MODEL_EXPLANATION],
         "disclaimer": DISCLAIMER,
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
     }

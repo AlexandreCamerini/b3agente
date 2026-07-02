@@ -49,7 +49,21 @@ ok("varre via store.scan (não bate na api direto)", /store\.scan\(/.test(appSrc
 const radarChunk = appSrc.slice(appSrc.indexOf("function RadarScreen"), appSrc.indexOf("function ConfigScreen"));
 ok("trecho da RadarScreen localizado", radarChunk.length > 500);
 ok("RadarScreen sem linguagem imperativa", !IMPERATIVE.test(radarChunk));
-ok("score rotulado como intensidade", /INTENSIDADE DE SINAIS/.test(radarChunk));
+ok("confluência rotulada na tela", /CONFLU/.test(radarChunk));
+ok("veredito educacional renderizado", /r\.veredito/.test(radarChunk));
+ok("seção 'Como o Radar analisa' presente", /COMO O RADAR ANALISA/.test(radarChunk));
+ok("checklist de critérios do setup na tela", /criterios/.test(radarChunk) && /Ver critérios do setup/.test(radarChunk));
+
+// BLOCO D — login persistido (e-mail lembrado + AutoFill do Chaveiro)
+ok("e-mail lembrado (loadLastEmail) no App.jsx", appSrc.includes("function loadLastEmail"));
+ok("salva e-mail no sucesso do login", (appSrc.match(/saveLastEmail\(email\)/g) || []).length >= 2);
+ok("AutoFill: autocomplete username no e-mail", appSrc.includes('autoComplete="username"'));
+ok("AutoFill: current/new-password na senha", appSrc.includes('current-password') && appSrc.includes('new-password'));
+ok("nunca persiste a senha", !/localStorage\.setItem\([^)]*password/i.test(appSrc));
+
+// BLOCO A — diagnóstico de notificações na tela
+ok("botão Diagnóstico na Config", appSrc.includes(">Diagnóstico<"));
+ok("veredito do diagnóstico interpreta plugin fora do build", appSrc.includes("instalar-iphone.sh"));
 
 console.log("\n" + (fails === 0 ? "TODOS OS TESTES DO RADAR (WIRING) PASSARAM" : fails + " TESTE(S) FALHARAM"));
 process.exit(fails === 0 ? 0 : 1);

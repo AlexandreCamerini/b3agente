@@ -50,3 +50,11 @@ def period_to_range(period: Optional[str]) -> str:
 def normalize_interval(interval: Optional[str]) -> str:
     i = (interval or "").strip().lower()
     return i if i in VALID_INTERVALS else DEFAULT_INTERVAL
+
+def slice_for_config(candles: list, config: Optional[dict]) -> list:
+    """BLOCO C — janela ÚNICA da análise: corta a cauda dos candles conforme o
+    candlePeriod escolhido pelo usuário na Config. Todo caminho que envia
+    histórico à IA (análise completa, stop/alvo, modelos técnicos) passa por
+    aqui ou por resolve_keep — nunca por uma janela fixa."""
+    keep = resolve_keep((config or {}).get("candlePeriod"))
+    return list(candles or [])[-keep:]

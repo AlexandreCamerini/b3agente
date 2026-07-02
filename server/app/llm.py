@@ -133,7 +133,9 @@ def _build_user_prompt(ticker: str, quote: dict, history: dict, profile: dict = 
     if quote and quote.get("price") is not None:
         lines.append(f"Cotacao atual (referencia para stop/alvo): R$ {quote['price']:.2f} ({quote.get('change', 0):+.2f}% no dia)")
     lines.append("")
-    lines.append("Historico diario (~1 mes) - data, abertura, maxima, minima, fechamento, volume:")
+    n_candles = len(history.get("candles") or [])
+    plabel = history.get("periodLabel") or "?"
+    lines.append(f"Historico diario ({n_candles} candles; janela '{plabel}' escolhida pelo usuario na Config) - data, abertura, maxima, minima, fechamento, volume:")
     for c in history.get("candles", []):
         lines.append("\t".join(str(c.get(k)) for k in ("date", "open", "high", "low", "close", "volume")))
     lines.append("")

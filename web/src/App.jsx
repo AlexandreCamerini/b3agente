@@ -84,6 +84,12 @@ function LogoMark({ size = 32, radius }) {
     </svg>
   );
 }
+// BLOCO D — login persistido: lembra APENAS o último e-mail (nunca a senha;
+// a senha fica no Chaveiro do iOS via AutoFill + na sessão persistida).
+const LAST_EMAIL_KEY = "b3-last-email";
+function loadLastEmail() { try { return localStorage.getItem(LAST_EMAIL_KEY) || ""; } catch { return ""; } }
+function saveLastEmail(e) { try { const v = String(e || "").trim(); if (v) localStorage.setItem(LAST_EMAIL_KEY, v); } catch { /* ignore */ } }
+
 const MONO = "ui-monospace,'SF Mono',Menlo,Consolas,monospace";
 const SANS = "-apple-system, system-ui, 'Segoe UI', Helvetica, Arial, sans-serif";
 // BolsIA: "IA" recebe o gradiente da marca (azul → ciano).
@@ -347,6 +353,7 @@ function AuthModal({ ctx, onClose }) {
   const submit = () => run(async () => {
     if (mode === "register") await ctx.register({ email, password, name });
     else await ctx.login({ email, password });
+    saveLastEmail(email); // BLOCO D
   });
 
   return wrap(
@@ -362,9 +369,9 @@ function AuthModal({ ctx, onClose }) {
         </>
       )}
       <label style={{ display: "block", fontSize: "12px", color: T.textMuted, marginBottom: "6px" }}>E-mail</label>
-      <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" autoCapitalize="none" autoCorrect="off" placeholder="voce@exemplo.com" style={{ ...field, marginBottom: "12px" }} />
+      <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" name="email" autoComplete="username" autoCapitalize="none" autoCorrect="off" placeholder="voce@exemplo.com" style={{ ...field, marginBottom: "12px" }} />
       <label style={{ display: "block", fontSize: "12px", color: T.textMuted, marginBottom: "6px" }}>Senha</label>
-      <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder="ao menos 8 caracteres" style={{ ...field, marginBottom: "18px" }} />
+      <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" name="password" autoComplete={mode === "register" ? "new-password" : "current-password"} placeholder="ao menos 8 caracteres" style={{ ...field, marginBottom: "18px" }} />
       <button disabled={busy || !email || !password} onClick={submit} style={{ width: "100%", padding: "13px", borderRadius: "10px", border: "none", background: T.accent, color: T.onAccent, fontWeight: 800, fontSize: "15px", opacity: (busy || !email || !password) ? 0.6 : 1 }}>
         {busy ? "…" : (mode === "login" ? "Entrar" : "Criar conta")}
       </button>
@@ -380,8 +387,10 @@ function AuthModal({ ctx, onClose }) {
 // "usar sem conta" no rodapé leva ao onboarding anônimo (orçamento/risco).
 // Self-contained e undefined-safe — não acessa campos de `data`.
 function WelcomeAuthScreen({ ctx, onAuthed, onSkip }) {
-  const [mode, setMode] = useState("register"); // criar conta em destaque
-  const [email, setEmail] = useState("");
+  // BLOCO D: quem já usou entra pré-preenchido — e-mail lembrado + modo login.
+  const lastEmail = loadLastEmail();
+  const [mode, setMode] = useState(lastEmail ? "login" : "register");
+  const [email, setEmail] = useState(lastEmail);
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
@@ -398,6 +407,7 @@ function WelcomeAuthScreen({ ctx, onAuthed, onSkip }) {
     try {
       if (mode === "register") await ctx.register({ email, password, name });
       else await ctx.login({ email, password });
+      saveLastEmail(email); // BLOCO D
       onAuthed && onAuthed();
     } catch (e) { setErr((e && e.message) || String(e)); }
     finally { setBusy(false); }
@@ -441,9 +451,9 @@ function WelcomeAuthScreen({ ctx, onAuthed, onSkip }) {
               </>
             )}
             <label style={{ display: "block", fontSize: "12px", color: T.textMuted, marginBottom: "6px" }}>E-mail</label>
-            <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" autoCapitalize="none" autoCorrect="off" placeholder="voce@exemplo.com" style={{ ...field, marginBottom: "12px" }} />
+            <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" name="email" autoComplete="username" autoCapitalize="none" autoCorrect="off" placeholder="voce@exemplo.com" style={{ ...field, marginBottom: "12px" }} />
             <label style={{ display: "block", fontSize: "12px", color: T.textMuted, marginBottom: "6px" }}>Senha</label>
-            <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder="ao menos 8 caracteres" style={{ ...field, marginBottom: "18px" }} />
+            <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" name="password" autoComplete={mode === "register" ? "new-password" : "current-password"} placeholder="ao menos 8 caracteres" style={{ ...field, marginBottom: "18px" }} />
             <button disabled={busy || !email || !password} onClick={submit} style={{ width: "100%", padding: "13px", borderRadius: "10px", border: "none", background: T.accent, color: T.onAccent, fontWeight: 800, fontSize: "15px", opacity: (busy || !email || !password) ? 0.6 : 1 }}>
               {busy ? "…" : (mode === "register" ? "Criar conta" : "Entrar")}
             </button>
@@ -1655,6 +1665,26 @@ function NotifSection({ ctx }) {
       ? (isNative ? "Agendada para daqui a 30s (id " + id + "). Mande o app para segundo plano — ou feche-o — para validar a entrega pelo sistema." : "Agendada para daqui a 30s (mantenha esta aba aberta).")
       : "Não foi possível agendar agora — verifique a permissão acima.");
   };
+  // BLOCO A: diagnóstico NO APARELHO, sem Safari/Mac. Interpreta o diag() e dá
+  // o veredito em linguagem simples — inclusive o caso "plugin fora do build"
+  // (app nem aparece em Ajustes → Notificações porque o pedido de permissão
+  // nativo nunca chegou a existir no binário instalado).
+  const [diag, setDiag] = useState(null);
+  const onDiag = async () => {
+    setMsg("");
+    const raw = await notify.diag();
+    let veredito;
+    if (isNative && raw.pendingCount == null && !raw.error) {
+      veredito = { ok: false, texto: "Este build é ANTIGO (não tem o campo pendingCount). As correções de notificação não estão instaladas — rode scripts/instalar-iphone.sh e reinstale pelo Xcode." };
+    } else if (isNative && !raw.pluginLoaded) {
+      veredito = { ok: false, texto: "O plugin de notificações NÃO está dentro do app instalado — por isso o BolsIA nem aparece em Ajustes → Notificações. Rode scripts/instalar-iphone.sh (ele faz build + cap sync + abre o Xcode) e reinstale no aparelho." };
+    } else if (raw.permission !== "granted") {
+      veredito = { ok: false, texto: "Plugin ok, mas sem permissão do sistema. Toque em Pedir permissão; se o iOS não perguntar, ative manualmente em Ajustes → Notificações → BolsIA." };
+    } else {
+      veredito = { ok: true, texto: "Tudo pronto: plugin no build e permissão concedida. Use o teste agendado (30s) e feche o app — a entrega passa a ser responsabilidade do iOS (confira Foco/Resumo Programado se não chegar)." };
+    }
+    setDiag({ raw, veredito });
+  };
   const row = (key, label, desc) => (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", padding: "10px 0", opacity: nf.enabled ? 1 : 0.45 }}>
       <div style={{ minWidth: 0 }}>
@@ -1689,9 +1719,23 @@ function NotifSection({ ctx }) {
       <div style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "12px", flexWrap: "wrap" }}>
         {perm !== "granted" && <button onClick={onRequestPermission} style={{ padding: "9px 14px", borderRadius: "8px", border: `1px solid ${T.accent}`, background: T.accentTint, color: T.accent, fontWeight: 800, fontSize: "13px" }}>Pedir permissão</button>}
         <button onClick={onTest} disabled={perm !== "granted"} style={{ padding: "9px 14px", borderRadius: "8px", border: `1px solid ${perm === "granted" ? T.accent : T.borderSubtle}`, background: perm === "granted" ? T.accentTint : T.bgPanel, color: perm === "granted" ? T.accent : T.textFaint, fontWeight: 700, fontSize: "13px" }}>Testar notificação</button>
-        <button onClick={onTestScheduled} disabled={perm !== "granted"} style={{ padding: "9px 14px", borderRadius: "8px", border: `1px solid ${perm === "granted" ? T.borderSubtle : T.borderSubtle}`, background: T.bgPanel, color: perm === "granted" ? T.textSecondary : T.textFaint, fontWeight: 700, fontSize: "13px" }}>Testar agendada (10s)</button>
+        <button onClick={onTestScheduled} disabled={perm !== "granted"} style={{ padding: "9px 14px", borderRadius: "8px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: perm === "granted" ? T.textSecondary : T.textFaint, fontWeight: 700, fontSize: "13px" }}>Testar agendada (30s)</button>
+        <button onClick={onDiag} style={{ padding: "9px 14px", borderRadius: "8px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 700, fontSize: "13px" }}>Diagnóstico</button>
         {msg && <span style={{ fontSize: "11.5px", color: T.textMuted, flex: 1, minWidth: "180px", lineHeight: 1.4 }}>{msg}</span>}
       </div>
+
+      {diag && (
+        <div style={{ marginTop: "12px", padding: "12px 13px", borderRadius: "10px", background: T.bgBase, border: `1px solid ${diag.veredito.ok ? T.borderSubtle : T.negative}` }}>
+          <div style={{ fontSize: "11px", fontWeight: 800, letterSpacing: "0.05em", color: diag.veredito.ok ? T.positive : T.negative }}>DIAGNÓSTICO DO SISTEMA</div>
+          <div style={{ fontFamily: MONO, fontSize: "11.5px", color: T.textSecondary, marginTop: "8px", lineHeight: 1.7 }}>
+            <div>plugin nativo carregado: <b style={{ color: diag.raw.pluginLoaded ? T.positive : T.negative }}>{String(diag.raw.pluginLoaded)}</b></div>
+            <div>permissão do sistema: <b style={{ color: diag.raw.permission === "granted" ? T.positive : T.negative }}>{String(diag.raw.permission)}</b></div>
+            <div>agendamentos pendentes no iOS: <b>{diag.raw.pendingCount != null ? diag.raw.pendingCount : "n/d (build antigo)"}</b></div>
+            {diag.raw.error && <div>erro: {diag.raw.error}</div>}
+          </div>
+          <div style={{ fontSize: "12px", color: diag.veredito.ok ? T.textMuted : T.negative, marginTop: "9px", lineHeight: 1.55 }}>{diag.veredito.texto}</div>
+        </div>
+      )}
 
       <div style={{ fontSize: "10.5px", color: T.textFaint, marginTop: "11px", lineHeight: 1.5 }}>
         Isto é notificação <b>local</b> (disparada pelo próprio app). No iOS, para validar banner de teste, coloque o app em segundo plano após tocar em testar. Avisos com o app <b>fechado</b> por push/APNs não fazem parte desta versão.
@@ -1751,6 +1795,8 @@ function RadarScreen({ ctx }) {
   const { data } = ctx;
   const period = (data.config && data.config.candlePeriod) || "1y";
   const [st, setSt] = useState({ busy: false, res: null, error: "" });
+  const [showModel, setShowModel] = useState(false);
+  const [openTicker, setOpenTicker] = useState(null);
   const ranFor = useRef(null);
   const run = useCallback(async (p) => {
     setSt((s) => ({ ...s, busy: true, error: "" }));
@@ -1770,7 +1816,6 @@ function RadarScreen({ ctx }) {
   }, [period, run]);
   const res = st.res;
   const results = (res && res.results) || [];
-  const maxScore = results.reduce((m, r) => Math.max(m, r.score_tecnico || 0), 0) || 1;
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", marginBottom: "6px" }}>
@@ -1791,6 +1836,30 @@ function RadarScreen({ ctx }) {
           </span>
         )}
       </div>
+
+      {res && res.modelo && (
+        <div style={{ ...card, padding: "13px 16px", marginBottom: "14px" }}>
+          <button onClick={() => setShowModel(!showModel)} style={{ display: "flex", width: "100%", justifyContent: "space-between", alignItems: "center", background: "transparent", border: "none", color: T.textSecondary, fontSize: "12px", fontWeight: 800, letterSpacing: "0.05em", padding: 0 }}>
+            <span>COMO O RADAR ANALISA</span><span style={{ color: T.accent }}>{showModel ? "−" : "+"}</span>
+          </button>
+          {showModel && (
+            <div style={{ marginTop: "10px" }}>
+              <p style={{ margin: "0 0 10px", color: T.textMuted, fontSize: "12px", lineHeight: 1.55 }}>
+                Cada ativo é comparado a setups didáticos clássicos, descritos como um checklist de
+                critérios objetivos. A <b>confluência</b> é o percentual ponderado de critérios
+                atendidos — mede aderência ao padrão em dados passados, não probabilidade de
+                resultado. O veredito é sempre de estudo, nunca uma ordem.
+              </p>
+              {res.modelo.map((m, i) => (
+                <div key={i} style={{ padding: "8px 0", borderTop: i ? `1px solid ${T.borderFaint}` : "none" }}>
+                  <div style={{ fontSize: "12px", fontWeight: 700 }}>{m.nome}</div>
+                  <div style={{ fontSize: "11.5px", color: T.textMuted, lineHeight: 1.5, marginTop: "2px" }}>{m.descricao}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {st.busy && !res && (
         <div style={{ ...card, padding: "22px 20px", marginBottom: "14px" }}>
@@ -1814,7 +1883,8 @@ function RadarScreen({ ctx }) {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))", gap: "14px" }}>
         {results.map((r) => {
           const chColor = (r.variacaoPeriodoPct || 0) >= 0 ? T.positive : T.negative;
-          const barPct = Math.round(((r.score_tecnico || 0) / maxScore) * 100);
+          const [vColor, vBg] = REC_STYLE[r.veredito] || [T.textMuted, T.bgBase];
+          const isOpen = openTicker === r.ticker;
           return (
             <div key={r.ticker} style={{ ...card, padding: "14px 15px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "10px" }}>
@@ -1827,22 +1897,42 @@ function RadarScreen({ ctx }) {
                   <div style={{ fontSize: "12px", fontWeight: 700, color: chColor }}>{pct(r.variacaoPeriodoPct)} no período</div>
                 </div>
               </div>
-              <div style={{ marginTop: "11px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", marginTop: "11px" }}>
+                <span style={{ padding: "5px 11px", borderRadius: "999px", background: vBg, color: vColor, fontSize: "11.5px", fontWeight: 800 }}>{r.veredito}</span>
+                {r.melhorSetup && <span style={{ fontSize: "11.5px", color: T.textMuted }}>{r.melhorSetup}</span>}
+              </div>
+              <div style={{ marginTop: "10px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: "10.5px", color: T.textFaint, letterSpacing: "0.05em", marginBottom: "4px" }}>
-                  <span>INTENSIDADE DE SINAIS</span><span style={{ fontFamily: MONO, fontWeight: 800, color: T.textSecondary }}>{r.score_tecnico}</span>
+                  <span>CONFLUÊNCIA DO SETUP</span><span style={{ fontFamily: MONO, fontWeight: 800, color: T.textSecondary }}>{r.confluencia}%</span>
                 </div>
                 <div style={{ height: "6px", borderRadius: "999px", background: T.bgBase, border: `1px solid ${T.borderFaint}`, overflow: "hidden" }}>
-                  <div style={{ width: barPct + "%", height: "100%", background: T.accent, borderRadius: "999px" }} />
+                  <div style={{ width: (r.confluencia || 0) + "%", height: "100%", background: vColor, borderRadius: "999px" }} />
                 </div>
               </div>
-              {r.condicoes_detectadas && r.condicoes_detectadas.length > 0 ? (
+              {r.setups && r.setups.length > 0 && (
+                <button onClick={() => setOpenTicker(isOpen ? null : r.ticker)} style={{ marginTop: "10px", background: "transparent", border: "none", color: T.accent, fontSize: "12px", fontWeight: 700, padding: 0 }}>
+                  {isOpen ? "− Ocultar critérios" : "+ Ver critérios do setup"}
+                </button>
+              )}
+              {isOpen && (r.setups || []).map((s, si) => (
+                <div key={si} style={{ marginTop: "9px", padding: "10px 11px", borderRadius: "10px", background: T.bgBase, border: `1px solid ${T.borderFaint}` }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: "8px", fontSize: "12px", fontWeight: 700 }}>
+                    <span>{s.nome}</span><span style={{ fontFamily: MONO, color: T.textSecondary }}>{s.confluencia}%</span>
+                  </div>
+                  {(s.criterios || []).map((cr, ci) => (
+                    <div key={ci} style={{ display: "flex", gap: "7px", alignItems: "flex-start", marginTop: "6px", fontSize: "11.5px", lineHeight: 1.45 }}>
+                      <span style={{ color: cr.ok ? T.positive : T.textFaint, fontWeight: 800, flex: "none" }}>{cr.ok ? "✓" : "○"}</span>
+                      <span style={{ color: cr.ok ? T.textSecondary : T.textFaint }}>{cr.criterio}</span>
+                    </div>
+                  ))}
+                </div>
+              ))}
+              {r.condicoes_detectadas && r.condicoes_detectadas.length > 0 && (
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "11px" }}>
                   {r.condicoes_detectadas.map((cnd, i) => (
                     <span key={i} style={{ padding: "5px 9px", borderRadius: "999px", background: T.bgBase, border: `1px solid ${T.borderSubtle}`, color: T.textSecondary, fontSize: "11px", fontWeight: 600, lineHeight: 1.35 }}>{cnd}</span>
                   ))}
                 </div>
-              ) : (
-                <div style={{ marginTop: "11px", fontSize: "11.5px", color: T.textFaint }}>Nenhuma condição marcante no fechamento mais recente.</div>
               )}
             </div>
           );

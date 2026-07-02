@@ -232,3 +232,43 @@ Sem plugin novo (o @capacitor/local-notifications já estava no projeto) — o
 ### ✋ Hard-stops
 Checklists completos por bloco em **ESTADO-Blocos-1-2-3-BolsIA.md** — validar
 um bloco por vez antes de seguir.
+
+---
+
+## Blocos A·B·C·D·E — Diagnóstico de notificações · Radar v2 (setups) · Período unificado · Login persistido · Identidade iOS
+
+### Ordem de execução (automatizada)
+```bash
+# 1) Servidor: commit + push + espera o deploy + smoke do /api/scan v2
+bash scripts/atualizar-servidor.sh "Blocos A-E: radar v2 setups, periodo unificado, login persistido, identidade iOS"
+
+# 2) iPhone: cadeia completa com verificação do plugin de notificações
+bash scripts/instalar-iphone.sh
+#    (se o SPM travar de novo, último recurso: --recriar-ios)
+```
+
+### Railway — variáveis (opcionais, mas recomendadas)
+- `B3_APPLE_APP_ID=TEAMID.bundleid` → habilita o AutoFill do Chaveiro
+  (Team ID em Xcode → Signing & Capabilities; bundle id do app).
+- `B3_SCAN_UNIVERSE=...` → sobrepõe o universo do Radar (já existia).
+
+### Xcode — uma vez (AutoFill do Chaveiro)
+Signing & Capabilities → + Capability → **Associated Domains** →
+`webcredentials:b3agente-production.up.railway.app`.
+
+### O que mudou (resumo por arquivo)
+- `server/app/setups.py` (novo) + `scanner.py`: setups, confluência, veredito,
+  `modelo[]` no payload, ranking por confluência.
+- `server/app/main.py`: análise completa e stop/alvo com candle_cache +
+  janela do candlePeriod; endpoint `/.well-known/apple-app-site-association`.
+- `server/app/candles.py`: helper `slice_for_config`. `llm.py`: prompt declara
+  a janela real.
+- `web/src/App.jsx`: painel Diagnóstico (notificações), Radar v2 (veredito/
+  confluência/checklist/“Como o Radar analisa”), e-mail lembrado + AutoFill.
+- `resources/` (fonte única da marca) + `scripts/instalar-iphone.sh`,
+  `scripts/atualizar-servidor.sh`, `scripts/gen-assets.sh`.
+- Testes: `test_setups.py` novo; `test_scanner.py` e `test_radar.mjs` no
+  contrato v2 (+ guardrails de senha e linguagem).
+
+### ✋ Hard-stops
+Checklists por bloco em **ESTADO-Blocos-A-E-BolsIA.md** — ordem A → E.
