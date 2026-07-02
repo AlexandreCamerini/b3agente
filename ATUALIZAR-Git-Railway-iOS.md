@@ -186,7 +186,6 @@ anônimo como semente; logout volta ao anônimo.
 > sinal no `KpiBlock` ("Sinal gerado para fins educacionais — não é recomendação
 > de compra ou venda"). Sem hard-stop próprio; valide visualmente junto com o
 > resto. Texto trocável numa linha do `App.jsx`.
-<<<<<<< HEAD
 
 ---
 
@@ -233,5 +232,3 @@ Sem plugin novo (o @capacitor/local-notifications já estava no projeto) — o
 ### ✋ Hard-stops
 Checklists completos por bloco em **ESTADO-Blocos-1-2-3-BolsIA.md** — validar
 um bloco por vez antes de seguir.
-=======
->>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026

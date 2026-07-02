@@ -13,12 +13,9 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import db, indicators, llm, plan, store, technical_models, tickers, yahoo
-<<<<<<< HEAD
 from . import candles as candles_mod  # Objetivo 4: período de candles configurável
 from . import candle_cache  # Objetivo 5: cache de candles (delta + revalida último)
 from . import scanner  # BLOCO 3: radar de mercado (varredura do universo)
-=======
->>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
 from .catalog import is_catalog_ticker
 from .options_api import router as options_router
 from .options_provider_yahoo import get_options as _get_options_for_status
@@ -344,19 +341,11 @@ async def quotes(symbols: Optional[str] = None, scope: Optional[str] = Depends(c
 
 
 @app.get("/api/history/{ticker}")
-<<<<<<< HEAD
 async def history(ticker: str, period: Optional[str] = None, scope: Optional[str] = Depends(current_scope)):
     t = _normalize_ticker(ticker)
     if len(t) < 4:
         raise HTTPException(400, "Ticker invalido.")
     h = await yahoo.get_history(t, rng=candles_mod.period_to_range(period))  # Objetivo 4
-=======
-async def history(ticker: str, scope: Optional[str] = Depends(current_scope)):
-    t = _normalize_ticker(ticker)
-    if len(t) < 4:
-        raise HTTPException(400, "Ticker invalido.")
-    h = await yahoo.get_history(t)
->>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
     h["candles"] = indicators.sanitize_candles(h.get("candles"))
     return h
 
@@ -401,7 +390,6 @@ async def _options_status_for_llm(t: str) -> dict:
         }
 
 @app.get("/api/technicals/{ticker}")
-<<<<<<< HEAD
 async def technicals(ticker: str, period: Optional[str] = None, scope: Optional[str] = Depends(current_scope)):
     t = _normalize_ticker(ticker)
     if len(t) < 4:
@@ -413,26 +401,11 @@ async def technicals(ticker: str, period: Optional[str] = None, scope: Optional[
         return hit[1]
     # janela longa (warmup p/ medias) recortada para o periodo escolhido
     hist = await candle_cache.load(t, lambda rng: yahoo.get_history(t, rng=rng))
-=======
-async def technicals(ticker: str, scope: Optional[str] = Depends(current_scope)):
-    t = _normalize_ticker(ticker)
-    if len(t) < 4:
-        raise HTTPException(400, "Ticker invalido.")
-    hit = _TECH_CACHE.get(t)
-    if hit and (_time.time() - hit[0]) < _TECH_TTL:
-        return hit[1]
-    # janela longa (warmup p/ medias) recortada para ~1 ano exibido
-    hist = await yahoo.get_history(t, rng="2y")
->>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
     candles = indicators.sanitize_candles(hist["candles"])
     if not candles:
         raise HTTPException(502, "Sem historico para " + t)
     full = indicators.compute(candles)
-<<<<<<< HEAD
     keep = min(len(candles), keep_req)
-=======
-    keep = min(len(candles), _TECH_KEEP)
->>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
     sliced = indicators.slice_tail(candles, full["indicators"], full["summary"], keep)
     last = sliced["candles"][-1]
     first = sliced["candles"][0]
@@ -446,7 +419,6 @@ async def technicals(ticker: str, scope: Optional[str] = Depends(current_scope))
         "periodChangePct": round(change_pct, 2),
         "at": now_str(),
     }
-<<<<<<< HEAD
     _TECH_CACHE[ck] = (_time.time(), payload)
     return payload
 
@@ -462,12 +434,6 @@ async def scan(period: Optional[str] = None, tickers: Optional[str] = None, scop
     return await scanner.run_scan(period=period, universe=tickers, fetch=yahoo.get_history)
 
 
-=======
-    _TECH_CACHE[t] = (_time.time(), payload)
-    return payload
-
-
->>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
 # ---- Analise pela LLM (config opcional no corpo, para o handset) ----
 @app.post("/api/technical/analyze/{ticker}")
 async def analyze_technical_model(ticker: str, body: dict = Body(default={}), scope: Optional[str] = Depends(current_scope)):
@@ -491,21 +457,13 @@ async def analyze_technical_model(ticker: str, body: dict = Body(default={}), sc
         quote = await yahoo.get_quote(t)
     except Exception:
         quote = None
-<<<<<<< HEAD
     hist = await candle_cache.load(t, lambda rng: yahoo.get_history(t, rng=rng))
-=======
-    hist = await yahoo.get_history(t, rng="2y")
->>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
     candles = indicators.sanitize_candles(hist.get("candles"))
     if not candles:
         raise HTTPException(502, "Sem historico para " + t)
     opt_status = await _options_status_for_llm(t) if model in ("opcoes", "completo") else {"available": None, "reason": "Não consultado para este modelo."}
-<<<<<<< HEAD
     tail_n = candles_mod.resolve_keep((config or {}).get("candlePeriod"))  # Objetivo 4
     context = technical_models.build_context(t, quote, candles, model, opt_status, tail_n=tail_n)
-=======
-    context = technical_models.build_context(t, quote, candles, model, opt_status)
->>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
     try:
         result = await llm.analyze_structured(config, skill, profile, account, t, context)
     except Exception as e:  # noqa: BLE001

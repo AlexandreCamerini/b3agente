@@ -115,19 +115,12 @@ def _tail_candles(candles: list[dict], n: int = 120) -> list[dict]:
     return out
 
 
-<<<<<<< HEAD
 def build_context(ticker: str, quote: dict | None, candles: list[dict], model: str = "completo", options_status: dict | None = None, tail_n: int = 120) -> dict:
-=======
-def build_context(ticker: str, quote: dict | None, candles: list[dict], model: str = "completo", options_status: dict | None = None) -> dict:
->>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
     model = normalize_model(model)
     candles = indicators.sanitize_candles(candles)
     if not candles:
         return {"ticker": ticker, "model": model, "error": "Sem candles válidos."}
-<<<<<<< HEAD
     tail_n = max(20, int(tail_n) if isinstance(tail_n, (int, float)) else 120)
-=======
->>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
 
     comp = indicators.compute(candles)
     ind = comp.get("indicators") or {}
@@ -182,11 +175,7 @@ def build_context(ticker: str, quote: dict | None, candles: list[dict], model: s
         "lastCandle": last,
         "historyStats": {
             "candlesAvailable": len(candles),
-<<<<<<< HEAD
             "candlesSentToLLM": min(len(candles), tail_n),
-=======
-            "candlesSentToLLM": min(len(candles), 120),
->>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
             "change21dPct": _pct(last["close"], first_21["close"]),
             "change63dPct": _pct(last["close"], first_63["close"]),
             "change252dPct": _pct(last["close"], first_252["close"]),
@@ -242,11 +231,7 @@ def build_context(ticker: str, quote: dict | None, candles: list[dict], model: s
             "rewardPerShare": _r(target_reference - last["close"]) if target_reference else None,
         },
         "options": options_status or {"available": None, "reason": "Não consultado para este modelo."},
-<<<<<<< HEAD
         "candles": _tail_candles(candles, tail_n),
-=======
-        "candles": _tail_candles(candles, 120),
->>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
     }
 
     # Recorte semântico: mantemos candles sempre, mas destacamos o bloco do modelo escolhido.

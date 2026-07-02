@@ -26,20 +26,13 @@ def ensure_defaults(conn, user_id=None) -> None:
         cfg["initialBudget"] = float(cur_cash) if isinstance(cur_cash, (int, float)) else d["config"]["initialBudget"]
         db.kv_set(conn, "config", cfg, user_id=user_id)
     cfg = db.kv_get(conn, "config", None, user_id=user_id)
-<<<<<<< HEAD
     if isinstance(cfg, dict) and ("theme" not in cfg or "userName" not in cfg or "notif" not in cfg or "onboarded" not in cfg or "streak" not in cfg or "candlePeriod" not in cfg):
-=======
-    if isinstance(cfg, dict) and ("theme" not in cfg or "userName" not in cfg or "notif" not in cfg or "onboarded" not in cfg or "streak" not in cfg):
->>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
         cfg.setdefault("theme", d["config"]["theme"])
         cfg.setdefault("userName", d["config"]["userName"])
         cfg.setdefault("notif", dict(d["config"]["notif"]))
         cfg.setdefault("onboarded", d["config"]["onboarded"])
         cfg.setdefault("streak", dict(d["config"]["streak"]))
-<<<<<<< HEAD
         cfg.setdefault("candlePeriod", d["config"].get("candlePeriod", "1y"))
-=======
->>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
         db.kv_set(conn, "config", cfg, user_id=user_id)
     # FASE 2: backfill da coleção de prompts e de chaves novas, preservando
     # prompts já editados pelo usuário.
@@ -87,11 +80,8 @@ def set_config(conn, patch: dict, user_id=None) -> dict:
         cfg["userName"] = patch["userName"].strip()[:40]
     if "onboarded" in patch:
         cfg["onboarded"] = bool(patch["onboarded"])
-<<<<<<< HEAD
     if patch.get("candlePeriod") in ("1mo", "3mo", "6mo", "1y", "2y"):
         cfg["candlePeriod"] = patch["candlePeriod"]
-=======
->>>>>>> 908c0a22284b7e560215d00545d61d119f7b5026
     if isinstance(patch.get("streak"), dict):
         st = patch["streak"]
         days = st.get("days"); last = st.get("last")
