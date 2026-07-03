@@ -35,3 +35,22 @@ server-side + push/APNs) vem depois do hard stop de device da Fase 2.
 py_compile ✅ · suítes backend **111/111** ✅ · node --check ✅ · frontend
 inalterado · grep de wiring ✅ · guardrail anti-imperativo ✅ (o teste
 inclusive pegou e forçou o refinamento do próprio prompt durante o build).
+<<<<<<< HEAD
+=======
+
+---
+
+## NOVO — Scripts de um comando (raiz do projeto)
+
+A partir desta entrega o fluxo inteiro tem três pontos de entrada:
+
+| Comando | O que faz |
+|---|---|
+| `bash instalar.sh` | Ambiente local completo (venv+deps backend, npm web) e roda as suítes como prova. `--iphone` executa a cadeia completa do aparelho (build→sync→pod→Xcode); `--tudo` faz ambos. |
+| `bash executar.sh` | Sobe DEV (backend :8787 + Vite :5173) com dica do endereço para o iPhone. Aceita `--prod`, `--stop`, `--status` e o novo `--testes` (só suítes). |
+| `bash atualizar.sh files.zip "msg"` | **Aplica a entrega do Claude**: exige working tree limpa, extrai o b3-agente.zip, faz overlay aditivo protegendo `.git/ node_modules/ web/ios/ dist/ .venv/ data/ *.db`, valida (py_compile, node --check, suítes se houver venv) e só então deploya via `scripts/atualizar-servidor.sh`, verificando também `/api/scan/deep/estimate`. Flags: `--somente-aplicar` (sem git/deploy) e `--somente-deploy "msg"` (sem zip). |
+
+Eles ORQUESTRAM os scripts existentes em `scripts/` (setup, run, test,
+atualizar-servidor, instalar-iphone) — nada foi reescrito. **O fluxo de toda
+entrega futura vira:** baixar o files.zip → `bash atualizar.sh ~/Downloads/files.zip "msg"`.
+>>>>>>> 3ded4d0 (feat: pipeline IA 3 niveis (backend) + espec + proposta UX)
