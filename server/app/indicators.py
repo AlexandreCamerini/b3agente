@@ -164,6 +164,57 @@ def atr(highs, lows, closes, p: int = 14) -> List[Optional[float]]:
     return out
 
 
+def adx(highs, lows, closes, p: int = 14):
+    """FASE 1 (N2, família tendência): ADX(14) + DI+/DI- (suavização de Wilder).
+    Mede FORÇA da tendência (não direção): ADX>=25 tendência definida; <20 fraca/
+    lateral. Retorna (adx, diPlus, diMinus) alinhados aos candles, None no warmup."""
+    n = len(closes)
+    none = [None] * n
+    if n <= p * 2:
+        return none, list(none), list(none)
+    tr = [0.0] * n
+    pdm = [0.0] * n
+    ndm = [0.0] * n
+    for i in range(1, n):
+        tr[i] = max(highs[i] - lows[i], abs(highs[i] - closes[i - 1]), abs(lows[i] - closes[i - 1]))
+        up = highs[i] - highs[i - 1]
+        dn = lows[i - 1] - lows[i]
+        pdm[i] = up if (up > dn and up > 0) else 0.0
+        ndm[i] = dn if (dn > up and dn > 0) else 0.0
+    atr_s = sum(tr[1:p + 1])
+    pdm_s = sum(pdm[1:p + 1])
+    ndm_s = sum(ndm[1:p + 1])
+    di_p = [None] * n
+    di_n = [None] * n
+    dx = [None] * n
+    for i in range(p, n):
+        if i > p:
+            atr_s = atr_s - atr_s / p + tr[i]
+            pdm_s = pdm_s - pdm_s / p + pdm[i]
+            ndm_s = ndm_s - ndm_s / p + ndm[i]
+        if atr_s <= 0:
+            continue
+        dip = 100.0 * pdm_s / atr_s
+        din = 100.0 * ndm_s / atr_s
+        di_p[i] = dip
+        di_n[i] = din
+        den = dip + din
+        dx[i] = (100.0 * abs(dip - din) / den) if den > 0 else 0.0
+    out = [None] * n
+    first = p * 2
+    vals = [x for x in dx[p:first + 1] if x is not None]
+    if vals:
+        prev = sum(vals) / len(vals)
+        out[first] = prev
+        for i in range(first + 1, n):
+            if dx[i] is None:
+                out[i] = prev
+                continue
+            prev = (prev * (p - 1) + dx[i]) / p
+            out[i] = prev
+    return out, di_p, di_n
+
+
 def obv(closes, volumes) -> List[Optional[float]]:
     n = len(closes)
     out = [None] * n
@@ -204,6 +255,7 @@ def compute(candles: List[dict]) -> dict:
     macdL, macdS, macdH = macd(c, 12, 26, 9)
     stochK, stochD = stochastic(h, l, c, 14, 3)
     atr14 = atr(h, l, c, 14)
+    adx14, diP, diN = adx(h, l, c, 14)   # FASE 1: força da tendência
     obvv = obv(c, v)
 
     def rr(arr, n=2):
@@ -217,6 +269,7 @@ def compute(candles: List[dict]) -> dict:
         "macd": rr(macdL, 3), "macdSignal": rr(macdS, 3), "macdHist": rr(macdH, 3),
         "stochK": rr(stochK, 1), "stochD": rr(stochD, 1),
         "atr14": rr(atr14), "obv": [int(x) if x is not None else None for x in obvv],
+        "adx14": rr(adx14, 1), "diPlus": rr(diP, 1), "diMinus": rr(diN, 1),
     }
 
     last_close = _last(c)
@@ -238,6 +291,8 @@ def compute(candles: List[dict]) -> dict:
         "priceVsSma20": ("acima" if (last_close is not None and s20 is not None and last_close > s20) else "abaixo" if (last_close is not None and s20 is not None) else None),
         "bbUpper": _r(bu), "bbLower": _r(bl),
         "atr14": _r(_last(atr14)),
+        "adx14": _r(_last(adx14), 1),
+        "adxState": (lambda a: "tendência forte" if a is not None and a >= 25 else "tendência fraca/lateral" if a is not None and a < 20 else ("transição" if a is not None else None))(_last(adx14)),
     }
     return {"indicators": indicators, "summary": summary}
 

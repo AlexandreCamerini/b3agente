@@ -259,7 +259,10 @@ def _build_structured_prompt(ticker: str, context: dict, profile: dict = None, a
         "2. Explique tendencia, momentum, volume, volatilidade, suportes/resistencias e risco conforme o modelo pedir.",
         "3. Se o modelo for opcoes e options.available=false, explique que a fonte yfinance nao retornou cadeia de opcoes e foque no ativo objeto.",
         "4. Se o cenario for indefinido, use recomendacao='Não operar' ou 'Aguardar'.",
-        "5. Saia somente no JSON obrigatorio.",
+        "5. Use o bloco `families` (leitura por familia + confluenciaEntreFamilias) como espinha da analise: explique cada familia e a sintese.",
+        "6. Respeite `dataQuality` (serie curta/volume/multi-timeframe limitam o teto de confianca — declare as limitacoes).",
+        "7. Termine o campo `corpo` com a secao '## Modelos utilizados' explicando CADA metodologia aplicada (o que e, o que mede, limitacoes) — o app ensina, nao opina.",
+        "8. Saia somente no JSON obrigatorio.",
     ])
     return "\n".join(lines)
 
@@ -292,6 +295,117 @@ async def analyze(config: dict, skill: dict, profile: dict, account: dict, ticke
     r = parse_rich(raw)
     # {kpis, detail, proposal, markdown, text}
     return r
+
+
+# ===========================================================================
+# FASE 1 — Pipeline de análise IA em 3 níveis.
+# Metodologia da skill `analise-tecnica-b3` (operador sênior de AT da B3)
+# ADAPTADA ao guardrail educacional: a skill decide comprar/vender; aqui o
+# mesmo rigor (dados só do pacote, confluência, invalidação, teto de
+# confiança, cenários) produz LEITURA DE ESTUDO no vocabulário fixo.
+# ===========================================================================
+
+OPERADOR_EDUCACIONAL = "\n".join([
+    "# Persona (metodologia: operador sênior de AT da B3, em função de PROFESSOR)",
+    "Disciplina, objetividade e rigor estatístico. Explique primeiro em linguagem",
+    "simples, depois o termo técnico. Nunca confunda convicção com certeza.",
+    "",
+    "# Regras metodológicas invioláveis",
+    "1. NUNCA invente preço, indicador, volume, fato ou notícia: use SOMENTE o",
+    "   pacote técnico pré-calculado fornecido. Todo número citado vem dele.",
+    "2. Nunca prometa lucro nem percentual de acerto; probabilidades apenas",
+    "   relativas (baixa/moderada/alta), nunca % sem base estatística.",
+    "3. Nunca fundamente a leitura em UM indicador isolado: peso maior em",
+    "   estrutura de preço + volume + confluência entre famílias.",
+    "4. Sinais conflitantes => a leitura é 'Aguardar' ou 'Não operar'.",
+    "5. SEMPRE informe o que INVALIDA a tese de estudo (nível ou condição).",
+    "6. Diferencie: cenário confirmado, em formação e especulativo.",
+    "7. Movimento excessivamente esticado: diga explicitamente.",
+    "8. Sem oportunidade de estudo => frase fixa: 'Sem setup no momento — não",
+    "   há leitura com vantagem estatística clara.'",
+    "9. Respeite dataQuality do pacote: serieCurta/volumeAusente/multiTimeframe",
+    "   limitam o teto de confiança (hoje, sem 2º timeframe, teto = moderada);",
+    "   DECLARE as limitações em vez de compensá-las com inferência.",
+    "10. PROIBIDO verbo de ordem (compre/venda/entre agora) e a palavra",
+    "    'recomendação' de investimento. Vocabulário fixo do plano de estudo:",
+    "    'Estudar alta' | 'Estudar baixa' | 'Monitorar' | 'Aguardar' | 'Não operar'.",
+])
+
+DEEP_FORMAT = "\n".join([
+    "",
+    "- FORMATO OBRIGATÓRIO (N1 · aprofundamento do Radar) -",
+    "Responda com APENAS UM objeto JSON válido (sem texto fora, sem cercas ```):",
+    "{",
+    '  "resumo": "2 a 3 frases da leitura geral",',
+    '  "leituraSetups": [{"setup": "nome do setup detectado", "leitura": "o que o padrão significa AQUI",',
+    '     "criteriosPresentes": ["..."], "criteriosAusentes": ["o que falta e por que importa"]}],',
+    '  "cenarios": {"alta": "condição + o que confirmaria", "baixa": "condição + o que confirmaria", "neutro": "quando a leitura é ficar de fora"},',
+    '  "riscos": ["riscos objetivos da leitura"],',
+    '  "invalidacao": "nível/condição que invalida a tese de estudo",',
+    '  "confianca": "baixa|moderada",',
+    '  "planoEstudo": "Estudar alta|Estudar baixa|Monitorar|Aguardar|Não operar",',
+    '  "modelosUtilizados": [{"nome": "...", "oQueE": "...", "oQueMede": "...", "limitacoes": "..."}]',
+    "}",
+    "modelosUtilizados cobre CADA metodologia usada (setups, ADX, MACD, Bollinger...):",
+    "o app ensina, não opina. `confianca` respeita o teto do dataQuality.",
+])
+
+
+def _parse_json_loose(raw: str):
+    """Extrai o primeiro objeto/array JSON de uma resposta, tolerante a cercas."""
+    import json as _json
+    import re as _re2
+    txt = (raw or "").strip()
+    txt = _re2.sub(r"^```(?:json)?", "", txt).strip()
+    txt = _re2.sub(r"```$", "", txt).strip()
+    try:
+        return _json.loads(txt)
+    except (ValueError, TypeError):
+        pass
+    for opener, closer in (("{", "}"), ("[", "]")):
+        s = txt.find(opener)
+        e = txt.rfind(closer)
+        if s != -1 and e > s:
+            try:
+                return _json.loads(txt[s:e + 1])
+            except (ValueError, TypeError):
+                continue
+    return None
+
+
+async def analyze_deep(config: dict, profile: dict, ticker: str, context: dict, setups_payload: dict):
+    """N1: UMA chamada de IA para UM ativo do top-N do Radar. Recebe o contexto
+    técnico completo (janela do usuário) + os setups detectados com checklist;
+    devolve leitura didática estruturada. Nenhum cálculo novo acontece aqui."""
+    key = resolve_key(config)
+    pl = _profile_line(profile)
+    system = OPERADOR_EDUCACIONAL + "\n" + GUARDRAILS + (("\n" + pl) if pl else "") + "\n" + DEEP_FORMAT
+    user = "\n".join([
+        f"Ativo: {ticker} ({name_of(ticker)}) - B3 · Aprofundamento do Radar (nível 1).",
+        "",
+        "SETUPS DETECTADOS (determinístico, com checklist e confluência %):",
+        json.dumps(setups_payload, ensure_ascii=False, separators=(",", ":")),
+        "",
+        "PACOTE TÉCNICO PRÉ-CALCULADO (janela escolhida pelo usuário) + candles:",
+        json.dumps(context, ensure_ascii=False, separators=(",", ":")),
+        "",
+        "Tarefa: para CADA setup detectado, explique a leitura, os critérios",
+        "presentes e os AUSENTES (e por que a ausência importa); descreva os",
+        "cenários de ESTUDO alta/baixa/neutro e os riscos. Sem verbo de ordem.",
+        "Saia somente no JSON obrigatório.",
+    ])
+    raw = await _call_llm(config, key, system, user, 1600)
+    if not raw:
+        raise RuntimeError("A LLM nao retornou texto.")
+    data = _parse_json_loose(raw)
+    if not isinstance(data, dict):
+        return {"resumo": (raw or "")[:600], "leituraSetups": [], "cenarios": {}, "riscos": [],
+                "invalidacao": "", "confianca": "baixa", "planoEstudo": "Monitorar", "modelosUtilizados": []}
+    data.setdefault("modelosUtilizados", [])
+    data.setdefault("planoEstudo", "Monitorar")
+    conf = str(data.get("confianca") or "").lower()
+    data["confianca"] = conf if conf in ("baixa", "moderada") else "moderada"  # teto sem 2º timeframe
+    return data
 
 
 def parse_carteira(raw: str, ticker: str) -> dict:
@@ -348,26 +462,75 @@ def parse_carteira(raw: str, ticker: str) -> dict:
         stop = None
         alvo = None
     proposal = {"stop": stop, "alvo": alvo} if (stop is not None or alvo is not None) else None
+    # FASE 1 (N3): cenários estruturados conservador/moderado/agressivo com
+    # memória de cálculo — a UI pré-preenche com 1 toque; usuário SEMPRE confirma.
+    cenarios = []
+    for c in (chosen.get("cenarios") or []):
+        if not isinstance(c, dict):
+            continue
+        perfil = str(c.get("perfil") or "").strip().lower()
+        if perfil not in ("conservador", "moderado", "agressivo"):
+            continue
+        cs, ca = _num(c.get("stop")), _num(c.get("alvo"))
+        if cs is None and ca is None:
+            continue
+        cenarios.append({
+            "perfil": perfil, "stop": cs, "alvo": ca,
+            "riscoRetorno": _num(c.get("riscoRetorno")),
+            "memoriaCalculo": str(c.get("memoriaCalculo") or ""),
+            "rrDesfavoravel": bool(c.get("rrDesfavoravel")) or (
+                c.get("riscoRetorno") is not None and _num(c.get("riscoRetorno")) is not None and _num(c.get("riscoRetorno")) < 1.5
+            ),
+        })
+    modelos = [m for m in (chosen.get("modelosUtilizados") or []) if isinstance(m, dict)]
     return {
         "proposal": proposal,
         "explicacao": str(chosen.get("explicacao") or ""),
         "operar": operar,
         "precoAtual": _num(chosen.get("precoAtual")),
+        "cenarios": cenarios,
+        "modelosUtilizados": modelos,
     }
 
 
-async def analyze_carteira(config: dict, profile: dict, account: dict, ticker: str, quote: dict, history: dict, prompt: str):
+async def analyze_carteira(config: dict, profile: dict, account: dict, ticker: str, quote: dict, history: dict, prompt: str, tech_context: dict = None):
     """FASE 3: análise INDIVIDUAL de stop/alvo de UM ativo da carteira, guiada
     pelo prompt configurável (prompts.carteiraStopAlvo) + BYOK. Usa o formato do
-    próprio prompt (array por ativo) — NÃO usa o FORMAT do Mercado."""
+    próprio prompt (array por ativo) — NÃO usa o FORMAT do Mercado.
+    FASE 1 (N3): quando tech_context vem, o payload ganha ATR(14), suportes/
+    resistências da janela, bandas e viés — e a resposta passa a incluir
+    `cenarios` (conservador/moderado/agressivo) com memória de cálculo."""
     key = resolve_key(config)
     pl = _profile_line(profile)
     instruction = (prompt or "").strip()
-    system = instruction + (("\n\n" + pl) if pl else "") + (
+    cenarios_ext = ""
+    if tech_context:
+        cenarios_ext = "\n".join([
+            "",
+            "EXTENSÃO OBRIGATÓRIA DO FORMATO: além dos campos do array, cada objeto",
+            "inclui:",
+            '  "cenarios": [',
+            '    {"perfil": "conservador", "stop": 0.0, "alvo": 0.0, "riscoRetorno": 0.0,',
+            '     "memoriaCalculo": "ex.: stop didático = mínima local 36,80 − 1×ATR 0,52 = 36,28"},',
+            '    {"perfil": "moderado", ...}, {"perfil": "agressivo", ...}',
+            "  ],",
+            '  "modelosUtilizados": [{"nome":"...","oQueE":"...","oQueMede":"...","limitacoes":"..."}]',
+            "Regras dos cenários (metodologia de mesa, uso EDUCACIONAL):",
+            "- stop TÉCNICO ligado à invalidação (suporte/mínima local e/ou k×ATR do",
+            "  CONTEXTO TÉCNICO fornecido) — nunca arbitrário; alvo em resistência ou",
+            "  múltiplos de ATR. Todo número citado VEM do contexto (não invente).",
+            "- riscoRetorno = (alvo−preço)/(preço−stop); se < 1,5 marque",
+            '  "rrDesfavoravel": true (cenário fica rotulado como estudo).',
+            "- Ajuste as distâncias ao PERFIL (tolerância de perda) e ao capital.",
+            "- Sem verbo de ordem; são sugestões PARA ESTUDO que o usuário confirma.",
+        ])
+    system = instruction + ((("\n\n" + pl)) if pl else "") + cenarios_ext + (
         "\n\nResponda SOMENTE com o array JSON especificado, sem texto fora dele e sem cercas ```."
     )
     user = _build_user_prompt(ticker, quote, history, profile, account)
-    raw = await _call_llm(config, key, system, user, 900)
+    if tech_context:
+        user += "\n\nCONTEXTO TÉCNICO PRÉ-CALCULADO (ATR, suportes/resistências da janela, bandas, viés) — use ESTES números:\n" + json.dumps(tech_context, ensure_ascii=False, separators=(",", ":"))
+    raw = await _call_llm(config, key, system, user, 1300 if tech_context else 900)
     if not raw:
         raise RuntimeError("A LLM nao retornou texto.")
     res = parse_carteira(raw, ticker)

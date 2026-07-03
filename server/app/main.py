@@ -17,6 +17,7 @@ from . import db, indicators, llm, plan, store, technical_models, tickers, yahoo
 from . import candles as candles_mod  # Objetivo 4: período de candles configurável
 from . import candle_cache  # Objetivo 5: cache de candles (delta + revalida último)
 from . import scanner  # BLOCO 3: radar de mercado (varredura do universo)
+from . import scan_deep  # FASE 1 (N1): aprofundamento IA do top-N do Radar
 from .catalog import is_catalog_ticker
 from .options_api import router as options_router
 from .options_provider_yahoo import get_options as _get_options_for_status
@@ -459,6 +460,49 @@ async def scan(period: Optional[str] = None, tickers: Optional[str] = None, scop
     return await scanner.run_scan(period=period, universe=tickers, fetch=yahoo.get_history)
 
 
+# FASE 1 (N1) — aprofundamento IA do Radar: híbrido por custo (scanner grátis
+# varre tudo; IA só no top-N por confluência). Cache por (ticker, período, dia).
+@app.get("/api/scan/deep/estimate")
+async def scan_deep_estimate(period: Optional[str] = None, topN: Optional[int] = None,
+                             tickers: Optional[str] = None, scope: Optional[str] = Depends(current_scope)):
+    """Custo ANTES de rodar: quantas chamadas novas de IA o deep fará agora."""
+    p = candles_mod.normalize_period(period)
+    cfg = store.get(_conn, "config", user_id=scope) or {}
+    n = scan_deep.resolve_top_n(topN, cfg)
+    payload = await scanner.run_scan(period=p, universe=tickers, fetch=yahoo.get_history)
+    return scan_deep.estimate(payload, n, p)
+
+
+@app.post("/api/scan/deep")
+async def scan_deep_run(body: dict = Body(default={}), scope: Optional[str] = Depends(current_scope)):
+    p = candles_mod.normalize_period((body or {}).get("period"))
+    config = (body or {}).get("config") or store.get(_conn, "config", user_id=scope) or {}
+    profile = (body or {}).get("profile") or store.get(_conn, "profile", user_id=scope)
+    n = scan_deep.resolve_top_n((body or {}).get("topN"), config)
+    ai_config, _consume_ai = _ai_apply_managed(scope, config)  # cota/rate ANTES de gastar
+    payload = await scanner.run_scan(period=p, universe=(body or {}).get("tickers"), fetch=yahoo.get_history)
+    keep = candles_mod.resolve_keep(p)
+
+    async def deep_call(item):
+        t = item["ticker"]
+        hist = await candle_cache.load(t, lambda rng: yahoo.get_history(t, rng=rng))
+        cs = indicators.sanitize_candles(hist.get("candles") or [])[-keep:]
+        ctx = technical_models.build_context(t, None, cs, model="completo", tail_n=keep)
+        setups_payload = {
+            "confluencia": item.get("confluencia"), "veredito": item.get("veredito"),
+            "melhorSetup": item.get("melhorSetup"), "setups": item.get("setups"),
+            "condicoesDetectadas": item.get("condicoes_detectadas"),
+        }
+        res = await llm.analyze_deep(ai_config, profile, t, ctx, setups_payload)
+        _consume_ai()  # cota gasta POR CHAMADA bem-sucedida (cache não gasta)
+        return res
+
+    try:
+        return await scan_deep.run_deep(payload, n, p, deep_call)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(502, llm.public_error(e))
+
+
 # ---- Analise pela LLM (config opcional no corpo, para o handset) ----
 @app.post("/api/technical/analyze/{ticker}")
 async def analyze_technical_model(ticker: str, body: dict = Body(default={}), scope: Optional[str] = Depends(current_scope)):
@@ -587,8 +631,29 @@ async def carteira_stopalvo(ticker: str, body: dict = Body(default={}), scope: O
         "currency": hist.get("currency"),
         "periodLabel": candles_mod.normalize_period((config or {}).get("candlePeriod")),
     }
+    # FASE 1 (N3): contexto técnico EXPLÍCITO — ATR(14), suportes/resistências
+    # da janela, bandas e viés — para a IA devolver cenários (conservador/
+    # moderado/agressivo) com memória de cálculo sobre ESTES números.
+    tech_context = None
     try:
-        res = await llm.analyze_carteira(config, profile, account, t, quote, history_data, prompt)
+        _ctx = technical_models.build_context(t, quote, history_data["candles"], model="swing_trade", tail_n=len(history_data["candles"]) or 20)
+        tech_context = {
+            "atr14": (_ctx.get("volatility") or {}).get("atr14"),
+            "atr14Pct": (_ctx.get("volatility") or {}).get("atr14Pct"),
+            "suportes": (_ctx.get("levels") or {}).get("supports"),
+            "resistencias": (_ctx.get("levels") or {}).get("resistances"),
+            "bandaSuperior": (_ctx.get("volatility") or {}).get("bollingerUpper"),
+            "bandaInferior": (_ctx.get("volatility") or {}).get("bollingerLower"),
+            "viesTendencia": (_ctx.get("trend") or {}).get("bias"),
+            "minimaLocal": (_ctx.get("historyStats") or {}).get("low63"),
+            "maximaLocal": (_ctx.get("historyStats") or {}).get("high63"),
+            "referencias": _ctx.get("riskPlanReference"),
+            "dataQuality": _ctx.get("dataQuality"),
+        }
+    except Exception:  # noqa: BLE001 — contexto é enriquecimento; falha não bloqueia
+        tech_context = None
+    try:
+        res = await llm.analyze_carteira(config, profile, account, t, quote, history_data, prompt, tech_context=tech_context)
     except Exception as e:  # noqa: BLE001
         raise HTTPException(502, llm.public_error(e))
     _consume_ai()  # conta a cota só no sucesso

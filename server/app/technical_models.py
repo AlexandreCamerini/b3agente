@@ -101,6 +101,104 @@ def _pivots(candles: list[dict], lookback: int = 80, bucket_pct: float = 1.0) ->
     return {"supports": supports, "resistances": resistances}
 
 
+def _candle_patterns(candles: list[dict], lookback: int = 10) -> list[dict]:
+    """FASE 1 (N2, família price action): padrões CLÁSSICOS detectados por regra
+    determinística na cauda da janela — a LLM interpreta o CONTEXTO (onde o
+    padrão apareceu), nunca detecta. Rótulos descritivos, sem verbo de ordem."""
+    out = []
+    cs = [c for c in (candles or []) if all(c.get(k) is not None for k in ("open", "high", "low", "close"))]
+    tail = cs[-lookback:]
+    for idx, c in enumerate(tail):
+        o, h, l, cl = c["open"], c["high"], c["low"], c["close"]
+        rng = h - l
+        if rng <= 0:
+            continue
+        body = abs(cl - o)
+        upper = h - max(o, cl)
+        lower = min(o, cl) - l
+        prev = tail[idx - 1] if idx > 0 else None
+
+        def add(nome, leitura):
+            out.append({"padrao": nome, "data": c.get("date"), "leitura": leitura})
+
+        if body <= 0.1 * rng:
+            add("Doji", "Indecisão: abertura e fechamento praticamente iguais — corpo ≤10% da amplitude.")
+        elif lower >= 2 * body and upper <= 0.3 * rng:
+            add("Martelo", "Sombra inferior ≥2× o corpo: rejeição de preços mais baixos na sessão.")
+        elif upper >= 2 * body and lower <= 0.3 * rng:
+            add("Estrela cadente", "Sombra superior ≥2× o corpo: rejeição de preços mais altos na sessão.")
+        if prev is not None:
+            po, pc = prev["open"], prev["close"]
+            if pc < po and cl > o and cl >= po and o <= pc:
+                add("Engolfo de alta", "Corpo de alta envolve o corpo de baixa anterior.")
+            elif pc > po and cl < o and cl <= po and o >= pc:
+                add("Engolfo de baixa", "Corpo de baixa envolve o corpo de alta anterior.")
+    return out[-6:]
+
+
+def _families(context: dict, summary: dict, patterns: list[dict]) -> dict:
+    """FASE 1 (N2): leitura DETERMINÍSTICA por família + síntese de confluência
+    ENTRE famílias. A LLM recebe isto pronto e explica — não decide direção.
+    Vocabulário fixo educacional: viés 'alta' | 'baixa' | 'neutro'."""
+    trend = context.get("trend") or {}
+    momentum = context.get("momentum") or {}
+    vol = context.get("volatility") or {}
+    volu = context.get("volume") or {}
+    adx = summary.get("adx14")
+    adx_state = summary.get("adxState")
+
+    f_trend = {
+        "vies": trend.get("bias") if trend.get("bias") in ("alta", "baixa") else "neutro",
+        "leitura": "Preço vs. médias (EMA9/21, SMA50) define o viés estrutural; ADX mede a força.",
+        "adx14": adx, "adxState": adx_state,
+    }
+    mh = momentum.get("macdHist")
+    f_mom = {
+        "vies": ("alta" if isinstance(mh, (int, float)) and mh > 0 else "baixa" if isinstance(mh, (int, float)) and mh < 0 else "neutro"),
+        "leitura": "Histograma MACD dá o sinal principal; RSI/estocástico marcam extremos e divergências.",
+        "rsiState": momentum.get("rsiState"), "stochState": momentum.get("stochState"),
+    }
+    bw = None
+    bu, bl = vol.get("bollingerUpper"), vol.get("bollingerLower")
+    close = (context.get("lastCandle") or {}).get("close")
+    if bu and bl and close:
+        bw = round((bu - bl) / close * 100, 2)
+    f_vol = {
+        "vies": "neutro",  # volatilidade descreve REGIME, não direção
+        "leitura": "ATR% e largura das bandas descrevem o regime (compressão × expansão) — calibra stop e ruído esperado.",
+        "atr14Pct": vol.get("atr14Pct"), "larguraBandasPct": bw,
+        "regime": ("compressão" if isinstance(bw, (int, float)) and bw < 6 else "expansão" if isinstance(bw, (int, float)) and bw > 12 else "normal" if bw is not None else None),
+    }
+    pa_vies = "neutro"
+    if patterns:
+        last_p = patterns[-1]["padrao"]
+        pa_vies = "alta" if last_p in ("Engolfo de alta", "Martelo") else "baixa" if last_p in ("Engolfo de baixa", "Estrela cadente") else "neutro"
+    f_pa = {
+        "vies": pa_vies,
+        "leitura": "Padrões de candle da janela + posição do preço vs. níveis; o CONTEXTO do padrão pesa mais que o padrão isolado.",
+        "padroes": patterns,
+    }
+    obv_slope = volu.get("obvSlope21Pct")
+    f_volu = {
+        "vies": ("alta" if isinstance(obv_slope, (int, float)) and obv_slope > 0 else "baixa" if isinstance(obv_slope, (int, float)) and obv_slope < 0 else "neutro"),
+        "leitura": "OBV e volume relativo confirmam (ou negam) o movimento do preço — rompimento sem volume não se confirma.",
+        "volumeRelativo": volu.get("relativeVolume"), "obvSlope21Pct": obv_slope,
+    }
+    direcionais = {"tendencia": f_trend["vies"], "momentum": f_mom["vies"], "priceAction": f_pa["vies"], "volume": f_volu["vies"]}
+    n_alta = sum(1 for v in direcionais.values() if v == "alta")
+    n_baixa = sum(1 for v in direcionais.values() if v == "baixa")
+    dominante = "alta" if n_alta > n_baixa else "baixa" if n_baixa > n_alta else "neutro"
+    sintese = (
+        f"{max(n_alta, n_baixa)} de 4 famílias direcionais com viés de {dominante}"
+        if dominante != "neutro" else "Famílias direcionais divididas — sem viés dominante"
+    ) + (f"; volatilidade em regime de {f_vol['regime']}." if f_vol.get("regime") else ".")
+    return {
+        "tendencia": f_trend, "momentum": f_mom, "volatilidade": f_vol,
+        "priceAction": f_pa, "volume": f_volu,
+        "confluenciaEntreFamilias": {"altaDe4": n_alta, "baixaDe4": n_baixa, "viesDominante": dominante, "sintese": sintese},
+    }
+
+
 def _tail_candles(candles: list[dict], n: int = 120) -> list[dict]:
     out = []
     for c in candles[-n:]:
@@ -232,6 +330,23 @@ def build_context(ticker: str, quote: dict | None, candles: list[dict], model: s
         },
         "options": options_status or {"available": None, "reason": "Não consultado para este modelo."},
         "candles": _tail_candles(candles, tail_n),
+    }
+
+    # FASE 1 (N2): padrões de candle da janela + leitura por família com
+    # síntese de confluência ENTRE famílias — tudo determinístico; a LLM explica.
+    patterns = _candle_patterns(context["candles"])
+    context["priceActionPatterns"] = patterns
+    context["families"] = _families(context, summary, patterns)
+    # Validação do contrato de dados (skill analise-tecnica-b3): a LLM é
+    # instruída a DECLARAR limitações em vez de compensá-las com inferência.
+    vols_missing = any((c.get("volume") in (None, 0)) for c in context["candles"][-20:]) if context["candles"] else True
+    context["dataQuality"] = {
+        "candles": len(candles),
+        "serieCurta": len(candles) < 50,
+        "estruturaSemConfianca": len(candles) < 20,
+        "volumeAusente": vols_missing,
+        "multiTimeframe": False,  # hoje só diário — teto de confiança 'moderada'
+        "tetoConfianca": ("baixa" if len(candles) < 20 else "moderada"),
     }
 
     # Recorte semântico: mantemos candles sempre, mas destacamos o bloco do modelo escolhido.
