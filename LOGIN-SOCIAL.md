@@ -86,10 +86,13 @@ cd web && npm install && cd ..
 set -a && source web/.env.local && set +a
 bash scripts/setup-ios.sh        # cap sync + URL scheme do Google no Info.plist
 ```
-- ⚠️ Se o `npm install` reclamar de peer dependency dos plugins com o
-  Capacitor 8, rode `cd web && npm i @capacitor-community/apple-sign-in@latest
-  @codetrix-studio/capacitor-google-auth@latest` e me mande o erro/versões —
-  ajusto a ponte se a API tiver mudado.
+- ⚠️ Se você extraiu um zip ANTERIOR (com @codetrix-studio/capacitor-google-auth,
+  que dava ERESOLVE no Capacitor 8): apague o lock antes de instalar —
+  `cd web && rm -f package-lock.json && rm -rf node_modules && npm install`.
+  O plugin atual é UM só: `@capgo/capacitor-social-login` (Apple + Google).
+- ⚠️ Se AINDA assim houver conflito de peer com o Capacitor 8, me mande o
+  erro com as versões — fixo a versão compatível do capgo (NÃO use
+  `--legacy-peer-deps`: pod nativo de major errada quebra em runtime).
 
 **C3. (🔑 no projeto gerado; refazer se apagar `web/ios/`) Xcode**
 - Abrir `web/ios/App/App.xcworkspace` → target **App** → **Signing &

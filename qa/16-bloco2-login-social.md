@@ -50,3 +50,16 @@ exato se o npm reclamar; a ponte isola a API dos plugins em um arquivo só.
   declarados).
 - `py_compile` ✅ · `node --check social.js` ✅ · balance App.jsx ✅ ·
   `bash -n setup-ios.sh` ✅.
+
+## Correção pós-hard-stop (07/07): ERESOLVE no npm install
+O risco documentado acima se confirmou: `@codetrix-studio/capacitor-google-auth`
+(latest = 3.4.0-rc.4) declara peer `@capacitor/core@^6.0.0` — abandonado duas
+majors atrás do Capacitor 8 do projeto. Correção: os DOIS plugins foram
+substituídos por `@capgo/capacitor-social-login` (mantido ativamente, Apple +
+Google em um pacote), a ponte `social.js` foi reescrita com leitura DEFENSIVA
+do retorno (`result`|direto, `idToken`|`identityToken`, `authorizationCode`|
+`serverAuthCode`, profile aninhado) para tolerar variações de versão, e o
+`test_social_login.mjs` agora FALHA se os plugins abandonados voltarem ao
+package.json. Contrato da ponte e todo o resto da cadeia (App.jsx, main.py,
+siwa.py, setup-ios.sh) permanecem intocados. `--legacy-peer-deps` foi
+deliberadamente descartado: forçaria pod nativo de Cap 6 na bridge do Cap 8.
