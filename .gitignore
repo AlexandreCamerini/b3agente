@@ -1,0 +1,30 @@
+# Python
+server/.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# estado persistido (runtime - NAO versionar: contem suas escolhas/chave)
+server/data/
+*.db
+*.db-wal
+*.db-shm
+
+# dependencias / builds do web
+node_modules/
+web/dist/
+
+# plataforma nativa gerada pelo Capacitor
+web/ios/
+
+# logs do lancador
+.run-logs/
+
+# diversos
+*.log
+.DS_Store
+.env
+.env.*
+
+# chaves privadas (APNs etc.) — NUNCA versionar
+*.p8
