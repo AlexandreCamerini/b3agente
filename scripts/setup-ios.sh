@@ -114,6 +114,26 @@ ok "iOS pronto."
 bash "$SCRIPT_DIR/ios-allow-http.sh" || warn "Nao consegui ajustar o Info.plist (ATS) automaticamente; rode: bash scripts/ios-allow-http.sh"
 bash "$SCRIPT_DIR/ios-adopt-uiscene.sh" || warn "Nao consegui adotar o UIScene automaticamente; rode: bash scripts/ios-adopt-uiscene.sh"
 
+# FASE 4 (Bloco 2) — URL scheme do Google Sign-In (client id iOS invertido).
+# So roda se VITE_GOOGLE_IOS_CLIENT_ID estiver no ambiente do build; sem ele
+# o login Google mostra o aviso de nao configurado (Apple e e-mail seguem ok).
+PLIST="ios/App/App/Info.plist"
+if [[ -n "${VITE_GOOGLE_IOS_CLIENT_ID:-}" && -f "$PLIST" ]]; then
+  REV="$(echo "$VITE_GOOGLE_IOS_CLIENT_ID" | awk -F. '{ for (i=NF; i>0; i--) printf "%s%s", $i, (i>1 ? "." : "") }')"
+  if ! /usr/libexec/PlistBuddy -c "Print :CFBundleURLTypes" "$PLIST" >/dev/null 2>&1; then
+    /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes array" "$PLIST"
+  fi
+  if ! grep -q "$REV" "$PLIST"; then
+    N="$(/usr/libexec/PlistBuddy -c "Print :CFBundleURLTypes" "$PLIST" 2>/dev/null | grep -c "Dict" || echo 0)"
+    /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:$N dict" "$PLIST"
+    /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:$N:CFBundleURLSchemes array" "$PLIST"
+    /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:$N:CFBundleURLSchemes:0 string $REV" "$PLIST"
+    ok "URL scheme do Google Sign-In adicionado ao Info.plist ($REV)"
+  else
+    ok "URL scheme do Google Sign-In ja presente"
+  fi
+fi
+
 if [[ "$OPEN_XCODE" -eq 1 ]]; then say "Abrindo no Xcode..."; "$CAP" open ios || warn "Nao consegui abrir o Xcode. Abra web/ios/App/App.xcworkspace."; fi
 
 cat <<EOF

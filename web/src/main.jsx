@@ -55,6 +55,11 @@ if (Capacitor.isNativePlatform()) {
       StatusBar.setStyle({ style: Style.Dark }).catch(() => {});
     })
     .catch(() => {});
+  // FASE 4 (Bloco 2): ponte de login social (Apple/Google) — só no nativo;
+  // falha de import não derruba o app (botões mantêm o aviso amigável).
+  import("./social.js")
+    .then(({ registerSocialBridge }) => registerSocialBridge())
+    .catch(() => {});
 } else if ("serviceWorker" in navigator) {
   // Web (desktop / mobile browser): enable the installable PWA.
   import("virtual:pwa-register")

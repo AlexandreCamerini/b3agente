@@ -22,6 +22,7 @@ from . import radar_daily  # FASE 4 (1.3): varredura automática 1x/dia + sob de
 from . import scan_deep  # FASE 1 (N1): aprofundamento IA do top-N do Radar
 from . import technical_snapshot  # FASE 1 (STU): fonte única de N1/N2/N3
 from . import agent as agent_mod  # FASE 3: agente autônomo server-side
+from . import siwa  # FASE 4 (Bloco 2): Sign in with Apple — exchange + revoke
 from . import push  # FASE 3.3b: APNs (no-op sem configuração)
 from .catalog import is_catalog_ticker
 from .options_api import router as options_router
@@ -142,9 +143,21 @@ async def auth_oauth(body: dict = Body(default={})):
         claims = auth.verify_oauth_token(provider, id_token)
         if not claims.get("sub"):
             raise auth.AuthError("Token sem identificador de usuário.")
-        user = auth.upsert_oauth_user(_conn, provider, claims["sub"], claims.get("email"), claims.get("name"))
+        # FASE 4 (Bloco 2): a Apple só envia o nome no PRIMEIRO consentimento e
+        # fora do id_token — a ponte nativa o repassa como hint; usado apenas
+        # na criação (upsert ignora em contas existentes).
+        name = claims.get("name") or (str(body.get("name") or "").strip() or None)
+        user = auth.upsert_oauth_user(_conn, provider, claims["sub"], claims.get("email"), name)
     except auth.AuthError as e:
         raise HTTPException(401, str(e))
+    # FASE 4 (Bloco 2): SIWA — guarda o refresh_token para o revoke exigido na
+    # exclusão de conta (5.1.1(v)). Best-effort: nunca bloqueia o login; o
+    # resultado vai para o Diário (motivo exato, sem nunca logar o token).
+    if provider == "apple" and body.get("authorizationCode"):
+        r = await siwa.exchange_and_store(_conn, user["id"], str(body.get("authorizationCode")))
+        store.push_agent_log(_conn, [{"time": agent_mod._now_str(), "kind": "auth",
+                                      "text": "SIWA: " + ("token de revogação armazenado." if r.get("ok") else "troca do code falhou — " + str(r.get("motivo")))}],
+                             user_id=user["id"])
     _apply_seed(user["id"], body)
     return _auth_payload(user)
 
@@ -166,9 +179,13 @@ async def auth_logout(authorization: Optional[str] = Header(default=None)):
 @app.delete("/api/account")
 async def delete_account(user: dict = Depends(require_user)):
     """Item 5 — exclusão de conta in-app: apaga todos os dados do usuário,
-    a linha em users e as sessões. Irreversível."""
+    a linha em users e as sessões. Irreversível.
+    FASE 4 (Bloco 2): contas Sign in with Apple têm o token REVOGADO na Apple
+    antes da limpeza (exigência da 5.1.1(v)); best-effort — a exclusão dos
+    dados acontece independentemente do resultado do revoke."""
+    revoke = await siwa.revoke_for_user(_conn, user["id"])
     store.delete_user_data(_conn, user["id"])
-    return {"ok": True, "deleted": user["id"]}
+    return {"ok": True, "deleted": user["id"], "siwaRevoke": revoke}
 
 
 # ===========================================================================

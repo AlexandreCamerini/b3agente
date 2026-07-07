@@ -272,8 +272,13 @@ function SocialAuthButtons({ ctx }) {
     if (bridge && typeof bridge[provider] === "function") {
       setBusy(provider);
       try {
-        const idToken = await bridge[provider]();
-        if (ctx && ctx.oauth) await ctx.oauth({ provider, idToken });
+        // A ponte pode devolver a string do token (contrato antigo) ou o objeto
+        // { idToken, name, authorizationCode } — name/code só vêm da Apple no
+        // PRIMEIRO consentimento e precisam ser persistidos nessa hora.
+        const r = await bridge[provider]();
+        const payload = typeof r === "string" ? { idToken: r } : (r || {});
+        if (!payload.idToken) throw new Error("Login não devolveu o token de identidade.");
+        if (ctx && ctx.oauth) await ctx.oauth({ provider, ...payload });
       } catch (e) { setNote((e && e.message) || "Falha no login social."); }
       finally { setBusy(""); }
       return;
@@ -4200,8 +4205,8 @@ export default function App() {
     },
     // FASE 2 — login social (Apple/Google). A UI está pronta; o token nativo é
     // obtido pelos plugins Capacitor quando configurados. O servidor já valida.
-    oauth: async ({ provider, idToken }) => {
-      const r = await auth.oauth({ provider, idToken });
+    oauth: async ({ provider, idToken, name, authorizationCode }) => {
+      const r = await auth.oauth({ provider, idToken, name: name || undefined, authorizationCode: authorizationCode || undefined });
       if (r && r.user) setAuthUser(r.user);
       if (r && r.state) setData(r.state); else await loadState();
       flash("Conectado.");

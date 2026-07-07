@@ -78,6 +78,14 @@ Variables (conferir):
 
 Qualquer item falhando: me traga o texto do Diário que eu sigo o diagnóstico.
 
-## Próximo bloco (após o hard stop)
-Bloco 2 — login Apple + Google (roteiro guiado) · Bloco 3 — auditoria QA +
-checklist App Store (`qa/16`) · Bloco 4 — go-to-market.
+## Bloco 2 — Login Apple + Google (INCLUÍDO nesta entrega)
+
+Código pronto (ponte nativa, name-hint do 1º login Apple, revoke SIWA na
+exclusão de conta). **Sua parte está em `LOGIN-SOCIAL.md`**: Parte A (portal
+Apple: chave SIWA + 3 variáveis no Railway), Parte B (Google Cloud: 2 client
+IDs + 1 variável), Parte C (npm install + setup-ios + capability Sign in
+with Apple no Xcode), Parte D (matriz de teste D1–D8 no aparelho).
+O hard stop desta entrega cobre os DOIS blocos: itens 1–4 acima + D1–D8.
+
+## Próximos blocos (após o hard stop)
+Bloco 3 — auditoria QA + checklist App Store (`qa/17`) · Bloco 4 — go-to-market.
