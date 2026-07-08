@@ -24,11 +24,21 @@ cmd="${1:-ajuda}"
 case "$cmd" in
   status)
     say "Servidor no ar (Railway)"
-    if curl -fsS --max-time 10 "$RAILWAY_URL/api/health" >/dev/null 2>&1; then
+    HEALTH="$(curl -fsS --max-time 10 "$RAILWAY_URL/api/health" 2>/dev/null || true)"
+    if [ -n "$HEALTH" ]; then
       ok "responde em $RAILWAY_URL"
+      SRV_BUILD="$(printf '%s' "$HEALTH" | sed -n 's/.*"build"[": ]*\([^"]*\)".*/\1/p')"
+      LOCAL_BUILD="$(sed -n 's/.*BUILD_ID = "\([^"]*\)".*/\1/p' web/src/version.js 2>/dev/null)"
+      if [ -n "$SRV_BUILD" ]; then
+        if [ "$SRV_BUILD" = "$LOCAL_BUILD" ]; then ok "build no ar = build local ($SRV_BUILD)"; else warn "build no ar ($SRV_BUILD) ≠ local ($LOCAL_BUILD) — falta deploy"; fi
+      else
+        warn "servidor no ar é ANTIGO (sem carimbo de build) — rode: bash operar.sh deploy"
+      fi
     else
       warn "NÃO respondeu em $RAILWAY_URL/api/health — veja os logs no painel do Railway"
     fi
+    echo "  Lembrete: a URL do Railway serve a API. O APP (telas) roda no iPhone —"
+    echo "  mudança de tela só aparece após: cd web && npm run ios (+ reinstalar)."
     say "Ambiente local"
     [ -d server/.venv ] && ok "venv do backend instalado" || warn "venv ausente — rode: bash instalar.sh"
     [ -d web/node_modules ] && ok "dependências do web instaladas" || warn "node_modules ausente — rode: bash instalar.sh"

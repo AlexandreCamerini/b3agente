@@ -7,6 +7,9 @@ import { createChart, ColorType, CrosshairMode, LineStyle } from "lightweight-ch
 import { sampleTechnicals } from "./demo.js";
 import { DISCLAIMERS, TERMO_OPERADOR_VERSAO } from "./disclaimers.js";
 import { copyFor } from "./copy.js";
+import { BUILD_ID } from "./version.js";
+// carimbo no console: prova de qual build está rodando (device/web)
+try { console.log("[b3] build", BUILD_ID); } catch { /* noop */ }
 import { canAddTicker, canAnalyze } from "./plan.js";
 import { portfolioMetrics, dayReturnPct, equityCurve, markPrice, sizingPlano } from "./finance.js";
 import * as notify from "./notify.js";
@@ -1657,6 +1660,9 @@ function PerfilHub({ ctx, onOpen }) {
       <div style={{ fontSize: "11.5px", color: T.textFaint, marginTop: "2px", lineHeight: 1.5 }}>
         Notificações {notifOn ? "ativas" : "desativadas"} · {ctx.cp.rodape}
       </div>
+      {/* FASE 8B: carimbo do build instalado — se não bater com a entrega,
+          o aparelho está rodando código antigo (rode npm run ios + reinstale). */}
+      <div style={{ fontSize: "10px", color: T.textFaint, fontFamily: MONO }}>build {BUILD_ID}</div>
     </div>
   );
 }

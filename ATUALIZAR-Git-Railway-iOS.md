@@ -50,6 +50,26 @@
 6. **Modo Operador (item 6 — GATE):** proposta em `PROPOSTA-MODO-OPERADOR.md`
    + mock em `qa/mocks/modo-operador.html`. Nada implementado — aguarda seu OK.
 
+## 0) POR QUE "a fase não apareceu" — a cadeia de entrega (leia 1×)
+
+As telas do BolsIA moram no APP DO IPHONE, não no Railway. O Railway roda só a
+API (o deploy sobe apenas a pasta `server/`; `web/dist` nem é versionado —
+abrir a URL do Railway no navegador NUNCA mostra tela nova). Toda mudança de
+tela (a FASE 8B inteira, inclusive) exige RECONSTRUIR e REINSTALAR o app:
+
+```bash
+cd web && npm install && npm run ios   # vite build + cap sync + abre o Xcode
+# Xcode: Product → Clean Build Folder → Run no iPhone
+```
+
+**Como CONFERIR (carimbo de build, novo):** Perfil → rodapé do hub deve
+mostrar `build F8B-20260708-1` (também sai no console: `[b3] build ...`).
+Backend: `bash operar.sh status` agora compara o build no ar com o local.
+Se o carimbo não bater, o aparelho está rodando código antigo — nada da
+entrega vai aparecer, por definição. Depois de conferir o carimbo, refaça o
+teste da 8B: Perfil → Modo de trabalho → Operador (aceitar o termo) → paleta
+verde + chip + "Mesa aberta" devem aparecer juntos.
+
 ## 1) Validação local
 
 ```bash
