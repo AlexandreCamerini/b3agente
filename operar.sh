@@ -37,8 +37,17 @@ case "$cmd" in
     else
       warn "NÃO respondeu em $RAILWAY_URL/api/health — veja os logs no painel do Railway"
     fi
-    echo "  Lembrete: a URL do Railway serve a API. O APP (telas) roda no iPhone —"
-    echo "  mudança de tela só aparece após: cd web && npm run ios (+ reinstalar)."
+    # FASE 9: comparação TRIPLA do carimbo — código × dist × bundle do iOS.
+    # É o diagnóstico instantâneo do "a fase não apareceu".
+    say "Carimbo de build nos 3 elos"
+    LOCAL_B="$(sed -n 's/.*BUILD_ID = "\([^"]*\)".*/\1/p' web/src/version.js 2>/dev/null)"
+    DIST_B="$(grep -rho 'F8B-[0-9A-Za-z-]*' web/dist/assets 2>/dev/null | sort -u | tail -1)"
+    IOS_B="$(grep -rho 'F8B-[0-9A-Za-z-]*' web/ios/App/App/public/assets 2>/dev/null | sort -u | tail -1)"
+    echo "  código (version.js): ${LOCAL_B:-?}"
+    [ "${DIST_B:-}" = "$LOCAL_B" ] && ok "dist/: $DIST_B" || warn "dist/: ${DIST_B:-ausente} — rode: bash entregar.sh"
+    [ "${IOS_B:-}" = "$LOCAL_B" ] && ok "bundle do iOS: $IOS_B" || warn "bundle do iOS: ${IOS_B:-ausente} — rode: bash entregar.sh"
+    echo "  4º elo (manual): o RODAPÉ do Perfil no iPhone deve mostrar 'build $LOCAL_B'."
+    echo "  Entrega completa em um comando: bash entregar.sh \"mensagem\""
     say "Ambiente local"
     [ -d server/.venv ] && ok "venv do backend instalado" || warn "venv ausente — rode: bash instalar.sh"
     [ -d web/node_modules ] && ok "dependências do web instaladas" || warn "node_modules ausente — rode: bash instalar.sh"
