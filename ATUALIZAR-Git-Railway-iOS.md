@@ -1,6 +1,13 @@
 # ATUALIZAR — Git · Railway · iOS
-## Entrega FASE 6: servidor fixo (login de fábrica) + 4 correções + proposta do Modo Operador
-*08/07/2026 · detalhes técnicos em `qa/19-fase6-correcoes.md`*
+## Entrega FASE 6 + FASE 7.1: correções finais + Modo Operador (fundação)
+*08/07/2026 · detalhes em `qa/19-fase6-correcoes.md` e `qa/20-fase7-1-modo-operador.md`*
+
+> **FASE 7.1 (aprovada por você) incluída nesta entrega:** seletor Estudo ↔
+> Operador no Perfil com Termo de Responsabilidade; Radar no modo operador com
+> decisão direta (COMPRAR/VENDER/AGUARDAR/NÃO OPERAR), plano completo
+> (entrada · stop na invalidação · alvo 1/alvo final · R:R com corte em 1,5:1)
+> e posição sugerida por % de risco. Tudo determinístico (setups.py), Estudo
+> intocado, sem IA nova. Hard stop adicional no item 6 do roteiro.
 
 ## O que mudou nesta entrega
 
@@ -83,9 +90,12 @@ Xcode: Product → Clean Build Folder → instalar no iPhone.
    app em segundo plano → banner chega.
 5. **APNs reason:** se o teste de push falhar, o Diário/central deve mostrar o
    reason + instrução exata (não mais o erro seco).
-6. **Modo Operador:** abrir `qa/mocks/modo-operador.html` no navegador, revisar
-   as 4 telas e a `PROPOSTA-MODO-OPERADOR.md` → me devolver OK/ajustes para eu
-   iniciar a F7.1.
+6. **Modo Operador (F7.1):** Perfil → "Modo de trabalho" → Operador → o termo
+   deve exigir rolagem até o fim antes do aceite; ativado, o Radar mostra
+   decisões diretas com plano (entrada/stop/alvos/R:R) e posição sugerida;
+   ativos sem vantagem mostram "NÃO OPERAR" com o motivo. Voltar ao Estudo
+   restaura tudo. Fechar e reabrir o app: o modo persiste e o termo não
+   reaparece. F7.2 (IA no formato PRO) começa após este hard stop.
 
 Qualquer item falhando: copie a linha dos "Logs do servidor" (Observabilidade)
 ou do Diário que eu sigo o diagnóstico.

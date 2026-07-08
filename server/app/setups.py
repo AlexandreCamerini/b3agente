@@ -538,3 +538,117 @@ MODEL_EXPLANATION = [
     ("Inside Bar", "Candle contido no anterior com tendência definida — compressão que costuma anteceder o próximo impulso; gatilho nos extremos do candle-mãe."),
     ("Máx/Mín de Larry Williams (9.4)", "Na correção dentro da tendência, o gatilho é o rompimento do extremo do candle que fez a mínima mais baixa (ou máxima mais alta, no lado vendedor)."),
 ]
+
+
+# =============================================================================
+# FASE 7 (F7.1) — MODO OPERADOR: plano operacional DETERMINÍSTICO.
+# Deriva decisão e plano (entrada/stop/alvos/R:R) dos números que os detectores
+# acima já produzem — nenhum cálculo novo de indicador, nenhum LLM. O texto é
+# direto de propósito (vocabulário do Modo Operador); a UI só o exibe quando
+# config.appMode == "operador". Sizing (quantidade por % de risco) fica no
+# CLIENTE: o resultado do scan é cacheado e compartilhado entre usuários, e o
+# capital de cada um não pode entrar nesse payload.
+# Regras da persona (analise-tecnica-b3) aplicadas de forma objetiva:
+#   • R:R mínimo 1,5:1 no alvo final — abaixo disso, NÃO OPERAR;
+#   • movimento esticado além de meia zona de risco após o gatilho => não
+#     perseguir preço (NÃO OPERAR; reentrada só em novo setup);
+#   • setup neutro (compressão) => AGUARDAR CONFIRMAÇÃO;
+#   • sem setup válido => NÃO OPERAR ("sem vantagem estatística").
+# =============================================================================
+
+RR_MINIMO = 1.5          # relação risco-retorno mínima aceitável (alvo final)
+ZONA_PERSEGUICAO = 0.5   # até 0,5× o risco além do gatilho ainda dá entrada a mercado
+
+DECISAO_COMPRAR = "COMPRAR"
+DECISAO_VENDER = "VENDER"
+DECISAO_AGUARDAR = "AGUARDAR CONFIRMAÇÃO"
+DECISAO_NAO_OPERAR = "NÃO OPERAR"
+
+
+def _plano_vazio(motivo):
+    return {"decisao": DECISAO_NAO_OPERAR, "motivo": motivo, "setup": None,
+            "lado": None, "tipo": None, "entrada": None, "stop": None,
+            "alvo1": None, "alvo2": None, "rr1": None, "rr2": None,
+            "riscoPorAcao": None}
+
+
+def plano_operacional(setup, close=None):
+    """Plano operacional puro de UM setup detectado (dict do _mk) + preço atual.
+
+    Retorna sempre um dict com `decisao` ∈ {COMPRAR, VENDER, AGUARDAR
+    CONFIRMAÇÃO, NÃO OPERAR} e, quando operável: tipo de entrada, entrada,
+    stop (invalidação do setup — nunca arbitrário), alvo1 (1R, parcial),
+    alvo2 (projeção do setup), rr1/rr2 e riscoPorAcao. `motivo` sempre explica
+    a decisão em uma frase direta.
+    """
+    if not isinstance(setup, dict):
+        return _plano_vazio("Sem setup válido — não há operação com vantagem estatística clara neste momento.")
+    lado = setup.get("lado")
+    if lado == "neutro":
+        return {**_plano_vazio(""), "decisao": DECISAO_AGUARDAR, "setup": setup.get("nome"), "lado": "neutro",
+                "motivo": "Compressão sem direção definida — aguarde o rompimento definir o lado antes de operar."}
+    if lado not in ("alta", "baixa"):
+        return _plano_vazio("Setup sem direção — não operar.")
+    gatilho = setup.get("gatilho")
+    stop = setup.get("invalidacao")
+    if gatilho is None or stop is None or gatilho == stop:
+        return _plano_vazio("Setup sem gatilho/invalidação numéricos — sem plano executável, não operar.")
+    alta = lado == "alta"
+    risco = abs(gatilho - stop)
+    # coerência geométrica: em compra o stop fica ABAIXO do gatilho (e vice-versa)
+    if (alta and stop >= gatilho) or ((not alta) and stop <= gatilho):
+        return _plano_vazio("Gatilho e invalidação incoerentes para o lado do setup — não operar.")
+
+    entrada = float(gatilho)
+    tipo = "no rompimento do gatilho"
+    if close is not None:
+        rompido = close >= gatilho if alta else close <= gatilho
+        if rompido:
+            excedente = abs(close - gatilho)
+            if excedente > ZONA_PERSEGUICAO * risco:
+                return {**_plano_vazio(""), "setup": setup.get("nome"), "lado": lado,
+                        "motivo": "Gatilho já rompido e preço esticado (>0,5R além) — não persiga; espere novo setup ou reteste."}
+            entrada = float(close)  # entrada a mercado: risco real conta a partir daqui
+            tipo = "a mercado (gatilho já rompido, dentro da zona)"
+
+    alvo2 = setup.get("alvoSugerido")
+    if alvo2 is None:
+        alvo2 = gatilho + 2 * risco if alta else gatilho - 2 * risco
+    alvo1 = gatilho + risco if alta else gatilho - risco
+    risco_real = abs(entrada - stop)
+    if risco_real <= 0:
+        return _plano_vazio("Risco nulo entre entrada e stop — plano inválido, não operar.")
+    rr1 = abs(alvo1 - entrada) / risco_real
+    rr2 = abs(alvo2 - entrada) / risco_real
+    if rr2 < RR_MINIMO:
+        return {**_plano_vazio(""), "setup": setup.get("nome"), "lado": lado,
+                "motivo": "R:R de %.1f:1 abaixo do mínimo de %.1f:1 — não há operação com vantagem estatística clara neste momento." % (rr2, RR_MINIMO)}
+
+    return {
+        "decisao": DECISAO_COMPRAR if alta else DECISAO_VENDER,
+        "tipo": tipo,
+        "setup": setup.get("nome"),
+        "lado": lado,
+        "entrada": _rr2(entrada),
+        "stop": _rr2(stop),
+        "alvo1": _rr2(alvo1),
+        "alvo2": _rr2(alvo2),
+        "rr1": round(rr1, 2),
+        "rr2": round(rr2, 2),
+        "riscoPorAcao": _rr2(risco_real),
+        "motivo": ("%s %s: entrada %s, stop na invalidação do setup, parcial no alvo 1 (1R) e alvo final com R:R %.1f:1."
+                   % (DECISAO_COMPRAR.capitalize() if alta else DECISAO_VENDER.capitalize(),
+                      tipo, _rr2(entrada), rr2)),
+    }
+
+
+def plano_do_resultado(sres, close=None):
+    """Plano do RESULTADO do detect_setups (o que o scanner anexa por ativo).
+    Melhor setup direcional => plano; só neutro => AGUARDAR; nada => NÃO OPERAR."""
+    setups_list = (sres or {}).get("setups") or []
+    direcionais = [s for s in setups_list if s.get("lado") in ("alta", "baixa")]
+    if direcionais:
+        return plano_operacional(direcionais[0], close=close)
+    if setups_list:
+        return plano_operacional(setups_list[0], close=close)
+    return _plano_vazio("Nenhum setup com confluência mínima — não há operação com vantagem estatística clara neste momento.")

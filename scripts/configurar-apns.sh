@@ -19,7 +19,11 @@ ok(){ printf "  \033[32m[OK]\033[0m %s\n" "$*"; }
 die(){ printf "  \033[31m[X]\033[0m %s\n" "$*" >&2; exit 1; }
 
 TEAM_ID="LC65399YC9"
-KEY_ID="22Y76F52NJ"
+# FASE 7 (fix do BadEnvironmentKeyInToken): o Key ID NÃO é mais fixo — a Apple
+# nomeia o arquivo como AuthKey_<KEYID>.p8, então o script DETECTA o ID do
+# próprio arquivo (troca de chave nunca mais exige editar este script).
+# Fallback: a última chave conhecida; override: KEY_ID=XXXX bash scripts/...
+KEY_ID="${KEY_ID:-22Y76F52NJ}"
 TOPIC="com.alexandrecamerini.bolsia"
 
 P8=""; SANDBOX=""
@@ -41,7 +45,19 @@ if command -v openssl >/dev/null 2>&1; then
 else
   ok "formato PEM ok (openssl ausente — validação profunda pulada)"
 fi
-case "$(basename "$P8")" in *"$KEY_ID"*) ok "nome do arquivo bate com o Key ID $KEY_ID";; *) echo "  (aviso: o nome do arquivo não contém $KEY_ID — confirme que é a chave certa)";; esac
+# Detecta o Key ID pelo nome padrão da Apple (AuthKey_<10 chars>.p8). Se o
+# nome foi alterado e não dá para detectar, mantém o fallback e avisa.
+DETECTED="$(basename "$P8" | sed -n 's/^AuthKey_\([A-Z0-9]\{10\}\)\.p8$/\1/p')"
+if [ -n "$DETECTED" ]; then
+  if [ "$DETECTED" != "$KEY_ID" ]; then
+    echo "  chave NOVA detectada pelo nome do arquivo: $DETECTED (substitui $KEY_ID)"
+  fi
+  KEY_ID="$DETECTED"
+  ok "Key ID em uso: $KEY_ID (detectado do arquivo)"
+else
+  echo "  (aviso: nome fora do padrão AuthKey_XXXXXXXXXX.p8 — usando Key ID $KEY_ID;"
+  echo "   se for outra chave, rode: KEY_ID=SEUKEYID bash scripts/configurar-apns.sh $P8)"
+fi
 KEY_CONTENT="$(cat "$P8")"
 
 say "2/3 · Aplicando as variáveis no Railway"

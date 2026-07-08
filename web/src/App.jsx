@@ -5,9 +5,9 @@ import { defaultLlmPrompts } from "./catalog.js";
 import { testServer, describeRuntimeConfig, getApiBase } from "./api.js";
 import { createChart, ColorType, CrosshairMode, LineStyle } from "lightweight-charts";
 import { sampleTechnicals } from "./demo.js";
-import { DISCLAIMERS } from "./disclaimers.js";
+import { DISCLAIMERS, TERMO_OPERADOR_VERSAO } from "./disclaimers.js";
 import { canAddTicker, canAnalyze } from "./plan.js";
-import { portfolioMetrics, dayReturnPct, equityCurve, markPrice } from "./finance.js";
+import { portfolioMetrics, dayReturnPct, equityCurve, markPrice, sizingPlano } from "./finance.js";
 import * as notify from "./notify.js";
 
 /* =============================================================================
@@ -1483,6 +1483,79 @@ function DrillRow({ icon, title, sub, onClick }) {
 }
 
 // Hub do Perfil: menu raso e escaneável; cada item entra numa tela focada.
+// FASE 7 (F7.1) — Modo de trabalho (Estudo × Operador). A troca para Operador
+// SÓ acontece com o termo aceito (regra espelhada nos DOIS stores); a 1ª
+// ativação abre o termo com rolagem obrigatória + checkbox. Voltar ao Estudo
+// é livre. Mock aprovado: qa/mocks/modo-operador.html (tela 1).
+function ModoTrabalhoCard({ ctx }) {
+  const { data, A } = ctx;
+  const c = data.config || {};
+  const mode = c.appMode === "operador" ? "operador" : "estudo";
+  const [termoOpen, setTermoOpen] = useState(false);
+  const escolher = (m) => {
+    if (m === mode) return;
+    if (m === "operador" && !c.operadorTermo) { setTermoOpen(true); return; }
+    A.saveConfig({ appMode: m });
+    A.flash(m === "operador" ? "Modo Operador ativado — decisões diretas com plano e risco." : "Modo Estudo ativado.");
+  };
+  const segBtn = (on) => ({ flex: 1, border: "none", borderRadius: "9px", padding: "10px", fontWeight: 800, fontSize: "13px", background: on ? T.accent : "transparent", color: on ? T.onAccent : T.textMuted });
+  return (
+    <div style={{ ...card, padding: "15px 16px" }}>
+      <div style={{ fontSize: "11px", fontWeight: 800, letterSpacing: "0.05em", color: T.textSecondary }}>MODO DE TRABALHO</div>
+      <div style={{ display: "flex", background: T.bgBase, border: `1px solid ${T.borderSubtle}`, borderRadius: "11px", padding: "4px", gap: "4px", marginTop: "10px" }}>
+        <button onClick={() => escolher("estudo")} style={segBtn(mode === "estudo")}>🎓 Estudo</button>
+        <button onClick={() => escolher("operador")} style={segBtn(mode === "operador")}>📈 Operador</button>
+      </div>
+      <div style={{ fontSize: "11.5px", color: T.textMuted, marginTop: "9px", lineHeight: 1.5 }}>
+        {mode === "operador"
+          ? <>Decisões diretas (comprar/vender/aguardar/não operar) com plano de entrada, stop, alvo e risco. Termo aceito em {(c.operadorTermo || {}).aceitoEm ? String(c.operadorTermo.aceitoEm).slice(0, 10) : "—"} (v{(c.operadorTermo || {}).versao || "?"}).</>
+          : <>Carteira simulada e leitura didática — o padrão para aprender. O Modo Operador libera decisões diretas com plano e gestão de risco.</>}
+      </div>
+      {termoOpen && <TermoOperadorModal ctx={ctx} onClose={() => setTermoOpen(false)} />}
+    </div>
+  );
+}
+
+function TermoOperadorModal({ ctx, onClose }) {
+  const { A } = ctx;
+  const [liTudo, setLiTudo] = useState(false);   // exige rolar até o fim
+  const [aceito, setAceito] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const onScroll = (e) => {
+    const el = e.target;
+    if (el.scrollHeight - el.scrollTop - el.clientHeight < 12) setLiTudo(true);
+  };
+  const ativar = async () => {
+    setBusy(true);
+    try {
+      // termo PRIMEIRO (mesmo patch): os stores só aceitam "operador" com ele
+      await A.saveConfig({ operadorTermo: { aceitoEm: new Date().toISOString(), versao: TERMO_OPERADOR_VERSAO }, appMode: "operador" });
+      A.flash("Modo Operador ativado — decisões diretas com plano e risco.");
+      onClose();
+    } catch (e) { A.flash("Erro ao ativar: " + (e.message || e)); }
+    finally { setBusy(false); }
+  };
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 84, background: T.scrim, display: "flex", alignItems: "center", justifyContent: "center", padding: "18px" }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: "440px", ...card, padding: "20px", maxHeight: "88vh", display: "flex", flexDirection: "column" }}>
+        <div style={{ fontSize: "16px", fontWeight: 800, marginBottom: "4px" }}>Termo de Responsabilidade</div>
+        <div style={{ fontSize: "11.5px", color: T.textMuted, marginBottom: "10px" }}>Modo Operador · versão {TERMO_OPERADOR_VERSAO} — leia até o fim para habilitar o aceite.</div>
+        <div onScroll={onScroll} style={{ overflowY: "auto", border: `1px solid ${T.borderSubtle}`, borderRadius: "10px", padding: "12px", fontSize: "12.5px", color: T.textSecondary, lineHeight: 1.6, maxHeight: "34vh", WebkitOverflowScrolling: "touch" }}>
+          {DISCLAIMERS.operadorTermo}
+        </div>
+        <label style={{ display: "flex", gap: "9px", alignItems: "flex-start", marginTop: "12px", fontSize: "12.5px", color: liTudo ? T.textPrimary : T.textFaint, lineHeight: 1.5 }}>
+          <input type="checkbox" disabled={!liTudo} checked={aceito} onChange={(e) => setAceito(e.target.checked)} style={{ marginTop: "2px" }} />
+          <span>Li até o fim e entendo que posso perder dinheiro operando por minha conta e risco.</span>
+        </label>
+        <div style={{ display: "flex", gap: "9px", marginTop: "14px" }}>
+          <button onClick={onClose} style={{ flex: 1, padding: "11px", borderRadius: "10px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 700, fontSize: "13px" }}>Continuar no Estudo</button>
+          <button onClick={ativar} disabled={!liTudo || !aceito || busy} style={{ flex: 1, padding: "11px", borderRadius: "10px", border: "none", background: (liTudo && aceito) ? T.accent : T.bgBase, color: (liTudo && aceito) ? T.onAccent : T.textFaint, fontWeight: 800, fontSize: "13px" }}>{busy ? "Ativando…" : "Ativar Modo Operador"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function PerfilHub({ ctx, onOpen }) {
   const { data } = ctx;
   const name = ((data.config && data.config.userName) || "").trim();
@@ -1498,6 +1571,8 @@ function PerfilHub({ ctx, onOpen }) {
           <div style={{ fontSize: "12.5px", color: T.textMuted }}>Perfil {prof.risco || "—"} · {prof.horizonte || "horizonte —"}</div>
         </div>
       </div>
+
+      <ModoTrabalhoCard ctx={ctx} />
 
       <DrillRow onClick={() => ctx.openAuth && ctx.openAuth()} title={ctx.authUser ? "Conta" : "Entrar ou criar conta"} sub={ctx.authUser ? ((ctx.authUser.email || ctx.authUser.name || "conectado") + " · toque para gerenciar") : "Opcional — salva sua carteira e sincroniza entre aparelhos"} icon={
         <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden><circle cx="12" cy="8.5" r="3.6" fill="none" stroke="currentColor" strokeWidth="1.9" /><path d="M5 19.5c0-3.6 3.1-5.5 7-5.5s7 1.9 7 5.5" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" /></svg>
@@ -2766,6 +2841,19 @@ function RadarScreen({ ctx }) {
           const posR = (data.positions || []).find((p) => p.t === r.ticker);
           const naWl = (data.watchlist || []).includes(r.ticker);
           const s0 = (r.setups || [])[0];
+          // FASE 7 (F7.1) — Modo Operador: decisão direta + plano do servidor.
+          // O plano vem SEMPRE no payload (determinístico, do setups.py); a UI
+          // só o exibe neste modo — o Estudo permanece intocado.
+          const operador = (data.config && data.config.appMode) === "operador";
+          const plano = operador ? r.plano : null;
+          const opStyle = plano ? ({
+            "COMPRAR": [T.positive, "rgba(52,211,153,.15)", "▲ "],
+            "VENDER": [T.negative, "rgba(248,113,113,.15)", "▼ "],
+            "AGUARDAR CONFIRMAÇÃO": [T.accent, T.accentTint, "◔ "],
+          }[plano.decisao] || [T.textFaint, T.bgBase, "✕ "]) : null;
+          const cRisco = (data.config && data.config.risco) || {};
+          const capitalOp = typeof cRisco.capital === "number" ? cRisco.capital : (data.config && data.config.initialBudget) || null;
+          const siz = plano ? sizingPlano(plano, capitalOp, cRisco.pctPorTrade || 1) : null;
           return (
             <div key={r.ticker} style={{ ...card, padding: "14px 15px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "10px" }}>
@@ -2782,9 +2870,38 @@ function RadarScreen({ ctx }) {
                 </div>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", marginTop: "11px" }}>
-                <span style={{ padding: "5px 11px", borderRadius: "999px", background: vBg, color: vColor, fontSize: "11.5px", fontWeight: 800 }}>{r.veredito}</span>
+                {plano ? (
+                  <span style={{ padding: "5px 11px", borderRadius: "999px", background: opStyle[1], color: opStyle[0], fontSize: "11.5px", fontWeight: 800 }}>{opStyle[2]}{plano.decisao}</span>
+                ) : (
+                  <span style={{ padding: "5px 11px", borderRadius: "999px", background: vBg, color: vColor, fontSize: "11.5px", fontWeight: 800 }}>{r.veredito}</span>
+                )}
                 {r.melhorSetup && <span style={{ fontSize: "11.5px", color: T.textMuted }}>{r.melhorSetup}</span>}
               </div>
+              {/* FASE 7 (F7.1): plano operacional — só no Modo Operador */}
+              {plano && (plano.decisao === "COMPRAR" || plano.decisao === "VENDER") && (
+                <div style={{ marginTop: "10px", padding: "11px 12px", borderRadius: "10px", background: T.bgBase, border: `1px solid ${T.borderFaint}` }}>
+                  {[
+                    ["Entrada (" + (plano.tipo || "") + ")", "R$ " + price(plano.entrada), T.textSecondary],
+                    ["Stop (invalidação do setup)", "R$ " + price(plano.stop), T.negative],
+                    ["Alvo 1 (parcial, 1R) / Alvo final", price(plano.alvo1) + " / " + price(plano.alvo2), T.positive],
+                    ["Risco:retorno (alvo final)", (plano.rr2 != null ? plano.rr2.toFixed(1).replace(".", ",") : "—") + " : 1", T.textSecondary],
+                  ].map(([k, v, cor], i2) => (
+                    <div key={i2} style={{ display: "flex", justifyContent: "space-between", gap: "8px", fontSize: "11.5px", padding: "3px 0", color: T.textMuted }}>
+                      <span>{k}</span><b style={{ fontFamily: MONO, color: cor }}>{v}</b>
+                    </div>
+                  ))}
+                  {siz && (
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: "8px", fontSize: "11.5px", padding: "3px 0", color: T.textMuted, borderTop: `1px dashed ${T.borderFaint}`, marginTop: "4px", paddingTop: "7px" }}>
+                      <span>Posição p/ risco de {siz.pct}%{typeof cRisco.capital === "number" ? "" : " (capital simulado — defina o real na Config)"}</span>
+                      <b style={{ fontFamily: MONO, color: T.textSecondary }}>{siz.qtd > 0 ? siz.qtd + " ações ≈ R$ " + price(siz.valorAprox) : "—"}</b>
+                    </div>
+                  )}
+                  {siz && siz.aviso && <div style={{ fontSize: "10.5px", color: T.negative, marginTop: "5px", lineHeight: 1.4 }}>{siz.aviso}</div>}
+                </div>
+              )}
+              {plano && plano.decisao !== "COMPRAR" && plano.decisao !== "VENDER" && plano.motivo && (
+                <div style={{ marginTop: "9px", fontSize: "11.5px", color: T.textMuted, lineHeight: 1.5 }}>{plano.motivo}</div>
+              )}
               <div style={{ marginTop: "10px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: "10.5px", color: T.textFaint, letterSpacing: "0.05em", marginBottom: "4px" }}>
                   <span>CONFLUÊNCIA DO SETUP</span><span style={{ fontFamily: MONO, fontWeight: 800, color: T.textSecondary }}>{r.confluencia}%</span>
@@ -2856,7 +2973,8 @@ function RadarScreen({ ctx }) {
       </div>
 
       <div style={{ ...card, padding: "13px 16px", marginTop: "16px", background: T.bgPanel }}>
-        <div style={{ fontSize: "11.5px", color: T.accent, lineHeight: 1.55 }}>{DISCLAIMERS.radar}</div>
+        {/* FASE 7 (F7.1): no Modo Operador vale o aviso da persona (risco real) */}
+        <div style={{ fontSize: "11.5px", color: T.accent, lineHeight: 1.55 }}>{(data.config && data.config.appMode) === "operador" ? DISCLAIMERS.operador : DISCLAIMERS.radar}</div>
       </div>
       {deepFor && <DeepModal t={deepFor} d={deep[deepFor] || {}} onClose={() => setDeepFor(null)} onAvaliar={() => { const t = deepFor; setDeepFor(null); ctx.openAvaliar(t); }} />}
     </div>

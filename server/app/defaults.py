@@ -98,6 +98,10 @@ def default_state() -> dict:
                 "enabled": False,      # mestre (pede permissao quando ligado)
                 "stop": True, "alvo": True, "agente": True, "variacao": True,
             },
+            # FASE 7 (F7.1) — Modo Operador
+            "appMode": "estudo",       # estudo | operador (operador exige termo aceito)
+            "operadorTermo": None,     # {aceitoEm, versao} registrado no aceite
+            "risco": {"pctPorTrade": 1.0, "capital": None},  # sizing (capital None => usa initialBudget)
         },
         "skill": {"name": "Mesa B3 - Educacional v1", "text": default_skill_text()},
         "llmPrompts": default_llm_prompts(),

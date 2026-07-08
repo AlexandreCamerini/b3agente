@@ -270,6 +270,11 @@ async def run_scan(period: Optional[str] = None, universe: Optional[str] = None,
                     "variacaoPeriodoPct": snap.get("variacaoPeriodoPct"),
                     "candles": snap["periodBars"],
                     "cacheStatus": hist.get("cacheStatus"),
+                    # FASE 7 (F7.1): plano operacional determinístico do melhor
+                    # setup (Modo Operador). Sempre anexado — é derivado dos
+                    # MESMOS números do card; a UI só o exibe no modo operador.
+                    # Sizing fica no cliente (capital não entra no cache).
+                    "plano": setups.plano_do_resultado(sres, close=snap.get("close")),
                 })
             except Exception as e:  # noqa: BLE001 — 1 símbolo ruim não derruba a varredura
                 _progress_tick(symbol)

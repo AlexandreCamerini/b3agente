@@ -26,13 +26,17 @@ def ensure_defaults(conn, user_id=None) -> None:
         cfg["initialBudget"] = float(cur_cash) if isinstance(cur_cash, (int, float)) else d["config"]["initialBudget"]
         db.kv_set(conn, "config", cfg, user_id=user_id)
     cfg = db.kv_get(conn, "config", None, user_id=user_id)
-    if isinstance(cfg, dict) and ("theme" not in cfg or "userName" not in cfg or "notif" not in cfg or "onboarded" not in cfg or "streak" not in cfg or "candlePeriod" not in cfg):
+    if isinstance(cfg, dict) and ("theme" not in cfg or "userName" not in cfg or "notif" not in cfg or "onboarded" not in cfg or "streak" not in cfg or "candlePeriod" not in cfg or "appMode" not in cfg):
         cfg.setdefault("theme", d["config"]["theme"])
         cfg.setdefault("userName", d["config"]["userName"])
         cfg.setdefault("notif", dict(d["config"]["notif"]))
         cfg.setdefault("onboarded", d["config"]["onboarded"])
         cfg.setdefault("streak", dict(d["config"]["streak"]))
         cfg.setdefault("candlePeriod", d["config"].get("candlePeriod", "1y"))
+        # FASE 7 (F7.1): modo de trabalho + risco (backfill de docs antigos)
+        cfg.setdefault("appMode", "estudo")
+        cfg.setdefault("operadorTermo", None)
+        cfg.setdefault("risco", dict(d["config"].get("risco") or {"pctPorTrade": 1.0, "capital": None}))
         db.kv_set(conn, "config", cfg, user_id=user_id)
     # FASE 2: backfill da coleção de prompts e de chaves novas, preservando
     # prompts já editados pelo usuário.
@@ -92,6 +96,28 @@ def set_config(conn, patch: dict, user_id=None) -> dict:
             if k in patch["notif"]:
                 base[k] = bool(patch["notif"][k])
         cfg["notif"] = base
+    # FASE 7 (F7.1) — Modo Operador: modo de trabalho, termo aceito e risco.
+    # Regra: ativar "operador" EXIGE o termo (aceitoEm+versao) já registrado ou
+    # vindo no MESMO patch — nunca liga sem aceite explícito.
+    if isinstance(patch.get("operadorTermo"), dict):
+        t = patch["operadorTermo"]
+        if t.get("aceitoEm") and t.get("versao"):
+            cfg["operadorTermo"] = {"aceitoEm": str(t["aceitoEm"])[:40], "versao": str(t["versao"])[:10]}
+    if patch.get("appMode") in ("estudo", "operador"):
+        if patch["appMode"] == "operador" and not isinstance(cfg.get("operadorTermo"), dict):
+            pass  # sem termo aceito, o modo NÃO muda (silencioso e seguro)
+        else:
+            cfg["appMode"] = patch["appMode"]
+    if isinstance(patch.get("risco"), dict):
+        base = cfg.get("risco") if isinstance(cfg.get("risco"), dict) else {}
+        r = patch["risco"]
+        if isinstance(r.get("pctPorTrade"), (int, float)):
+            base["pctPorTrade"] = max(0.25, min(5.0, round(float(r["pctPorTrade"]), 2)))
+        if r.get("capital") is None:
+            base["capital"] = None
+        elif isinstance(r.get("capital"), (int, float)):
+            base["capital"] = max(100.0, min(100_000_000.0, round(float(r["capital"]), 2)))
+        cfg["risco"] = base
     db.kv_set(conn, "config", cfg, user_id=user_id)
     return cfg
 

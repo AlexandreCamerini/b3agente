@@ -237,6 +237,10 @@ function deviceStore() {
       if (!doc.config.streak || typeof doc.config.streak !== "object") doc.config.streak = { days: 0, last: "" };
       if (!Array.isArray(doc.equitySnapshots)) doc.equitySnapshots = [];
       if (!doc.config.notif || typeof doc.config.notif !== "object") doc.config.notif = { enabled: false, stop: true, alvo: true, agente: true, variacao: true };
+      // FASE 7 (F7.1) — Modo Operador: backfill de docs antigos
+      if (doc.config.appMode !== "estudo" && doc.config.appMode !== "operador") doc.config.appMode = "estudo";
+      if (doc.config.operadorTermo !== null && typeof doc.config.operadorTermo !== "object") doc.config.operadorTermo = null;
+      if (!doc.config.risco || typeof doc.config.risco !== "object") doc.config.risco = { pctPorTrade: 1.0, capital: null };
       // FASE 2: coleção de prompts. Backfill da seção e de chaves novas, sem
       // sobrescrever valores que o usuário já editou.
       if (!doc.llmPrompts || typeof doc.llmPrompts !== "object") doc.llmPrompts = {};
@@ -335,6 +339,21 @@ function deviceStore() {
         const base = (c.notif && typeof c.notif === "object") ? c.notif : { enabled: false, stop: true, alvo: true, agente: true, variacao: true };
         for (const k of ["enabled", "stop", "alvo", "agente", "variacao"]) if (k in patch.notif) base[k] = !!patch.notif[k];
         c.notif = base;
+      }
+      // FASE 7 (F7.1) — Modo Operador (espelho exato do store.py.set_config):
+      // termo primeiro; "operador" só liga com termo já aceito (nunca sem aceite).
+      if (patch.operadorTermo && typeof patch.operadorTermo === "object" && patch.operadorTermo.aceitoEm && patch.operadorTermo.versao) {
+        c.operadorTermo = { aceitoEm: String(patch.operadorTermo.aceitoEm).slice(0, 40), versao: String(patch.operadorTermo.versao).slice(0, 10) };
+      }
+      if (patch.appMode === "estudo" || patch.appMode === "operador") {
+        if (!(patch.appMode === "operador" && !(c.operadorTermo && typeof c.operadorTermo === "object"))) c.appMode = patch.appMode;
+      }
+      if (patch.risco && typeof patch.risco === "object") {
+        const base = (c.risco && typeof c.risco === "object") ? c.risco : { pctPorTrade: 1.0, capital: null };
+        if (typeof patch.risco.pctPorTrade === "number") base.pctPorTrade = Math.max(0.25, Math.min(5, +patch.risco.pctPorTrade.toFixed(2)));
+        if (patch.risco.capital === null) base.capital = null;
+        else if (typeof patch.risco.capital === "number") base.capital = Math.max(100, Math.min(100000000, +patch.risco.capital.toFixed(2)));
+        c.risco = base;
       }
       write();
       setApiBase(doc.config.serverUrl); // se mudou o endereco do Mac, ja passa a valer

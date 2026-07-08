@@ -83,3 +83,24 @@ export function equityCurve(snapshots, budget, livePatr, todayYmd) {
   }
   return { curve, series, days: series.length, retAcum, drawdown: dd, base, end };
 }
+
+// FASE 7 (F7.1) — Modo Operador: position sizing por % de risco do capital.
+// Puro e espelhável em teste: o plano (entrada/stop/riscoPorAcao) vem PRONTO do
+// servidor (setups.plano_operacional); aqui só entra a aritmética do usuário —
+// capital e % de risco ficam no aparelho/conta, nunca no cache compartilhado.
+// Lote padrão B3 = 100 ações; risco financeiro = capital × pct/100.
+export function sizingPlano(plano, capital, pctPorTrade) {
+  const p = plano || {};
+  if (p.decisao !== "COMPRAR" && p.decisao !== "VENDER") return null;
+  const risco = typeof p.riscoPorAcao === "number" ? p.riscoPorAcao : null;
+  const entrada = typeof p.entrada === "number" ? p.entrada : null;
+  const cap = typeof capital === "number" && capital > 0 ? capital : null;
+  const pct = typeof pctPorTrade === "number" && pctPorTrade > 0 ? Math.min(5, pctPorTrade) : 1.0;
+  if (!risco || risco <= 0 || !entrada || !cap) return null;
+  const riscoFinanceiro = +(cap * (pct / 100)).toFixed(2);
+  const qtd = Math.floor(riscoFinanceiro / risco / 100) * 100;
+  if (qtd < 100) {
+    return { qtd: 0, valorAprox: 0, riscoFinanceiro, pct, aviso: "Capital insuficiente para 1 lote de 100 com risco de " + pct + "% — aumente o capital operacional ou o % de risco." };
+  }
+  return { qtd, valorAprox: +(qtd * entrada).toFixed(2), riscoFinanceiro, pct, aviso: null };
+}

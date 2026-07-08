@@ -99,7 +99,7 @@ explicando o porquê em "explicacao".`,
 
 export function defaultState() {
   return {
-    config: { provider: "anthropic", model: "", keySource: "env", apiKey: "", baseUrl: "", serverUrl: "", initialBudget: 10000.0, theme: "dark", userName: "", onboarded: false, candlePeriod: "1y", streak: { days: 0, last: "" }, notif: { enabled: false, stop: true, alvo: true, agente: true, variacao: true } },
+    config: { provider: "anthropic", model: "", keySource: "env", apiKey: "", baseUrl: "", serverUrl: "", initialBudget: 10000.0, theme: "dark", userName: "", onboarded: false, candlePeriod: "1y", streak: { days: 0, last: "" }, notif: { enabled: false, stop: true, alvo: true, agente: true, variacao: true }, appMode: "estudo", operadorTermo: null, risco: { pctPorTrade: 1.0, capital: null } },
     llmPrompts: defaultLlmPrompts(),
     skill: { name: "Mesa B3 - Educacional v1", text: defaultSkillText() },
     watchlist: ["PETR4", "VALE3", "ITUB4", "BBDC4", "BBAS3", "B3SA3"],
