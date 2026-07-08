@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BolsIA — Mock · Modo Operador (FASE 7, para aprovação)</title>
+<style>
+  :root{
+    --bg:#0b0e14; --panel:#131826; --base:#0f1420; --border:#232b3d; --border2:#1a2133;
+    --text:#e7ecf3; --text2:#b7c1cf; --muted:#9aa6b6; --faint:#647084;
+    --accent:#f0b429; --accent-tint:rgba(240,180,41,.14);
+    --pos:#34d399; --neg:#f87171; --warn:#fbbf24;
+    --mono:"SF Mono",ui-monospace,Menlo,monospace;
+  }
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:24px 16px 60px;display:flex;flex-direction:column;align-items:center;gap:26px}
+  .frame{width:100%;max-width:420px}
+  .mocktag{font-size:11px;font-weight:800;letter-spacing:.08em;color:var(--accent);margin-bottom:8px}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px 17px;margin-bottom:14px}
+  h1{font-size:22px;margin:0 0 4px} h2{font-size:12px;font-weight:800;letter-spacing:.05em;color:var(--text2);margin:0 0 10px}
+  .sub{font-size:12.5px;color:var(--muted);line-height:1.55;margin:0 0 8px}
+  .mono{font-family:var(--mono)}
+  .pill{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;font-size:11px;font-weight:800}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .btn{border:none;border-radius:10px;padding:11px 16px;font-weight:800;font-size:13px;cursor:pointer}
+  .btn-acc{background:var(--accent);color:#131313}
+  .btn-ghost{background:var(--base);color:var(--text2);border:1px solid var(--border)}
+  .divider{height:1px;background:var(--border2);margin:12px 0}
+  .kv{display:flex;justify-content:space-between;font-size:12.5px;padding:6px 0;border-bottom:1px dashed var(--border2)}
+  .kv b{font-family:var(--mono)}
+  .seg{display:flex;background:var(--base);border:1px solid var(--border);border-radius:11px;padding:4px;gap:4px}
+  .seg button{flex:1;border:none;border-radius:8px;padding:10px;font-weight:800;font-size:13px;background:transparent;color:var(--muted);cursor:pointer}
+  .seg .on{background:var(--accent);color:#131313}
+  .banner{background:rgba(248,113,113,.10);border:1px solid var(--neg);border-radius:10px;padding:9px 12px;font-size:11px;color:var(--neg);font-weight:700;line-height:1.5}
+  .check{display:flex;gap:8px;font-size:12px;color:var(--text2);padding:4px 0;line-height:1.45}
+  .ok{color:var(--pos);font-weight:800} .no{color:var(--neg);font-weight:800}
+  .ruler{position:relative;height:8px;border-radius:99px;background:linear-gradient(90deg,var(--neg) 0 18%,var(--border) 18% 55%,var(--pos) 55% 100%);margin:16px 2px 4px}
+  .tick{position:absolute;top:-5px;width:2px;height:18px;background:var(--text)}
+  .legend{display:flex;justify-content:space-between;font-size:10px;color:var(--faint);font-family:var(--mono);margin-top:6px}
+  .stat{flex:1;background:var(--base);border:1px solid var(--border2);border-radius:11px;padding:11px;text-align:center}
+  .stat .v{font-family:var(--mono);font-size:17px;font-weight:800} .stat .l{font-size:9.5px;color:var(--faint);letter-spacing:.05em;margin-top:3px}
+  .small{font-size:10.5px;color:var(--faint);line-height:1.5}
+  table{width:100%;border-collapse:collapse;font-size:11.5px}
+  td,th{padding:7px 4px;border-bottom:1px solid var(--border2);text-align:left} th{color:var(--faint);font-size:10px;letter-spacing:.05em}
+  .disc{font-size:10px;color:var(--faint);line-height:1.55;border-top:1px solid var(--border2);padding-top:10px;margin-top:12px}
+</style>
+</head>
+<body>
+
+<!-- ============ TELA 1 — Perfil: seletor de modo + termo ============ -->
+<div class="frame">
+  <div class="mocktag">MOCK 1/4 · PERFIL — MODO DE TRABALHO</div>
+  <div class="card">
+    <h2>MODO DE TRABALHO</h2>
+    <p class="sub">Define como o BolsIA fala com você no app inteiro.</p>
+    <div class="seg">
+      <button>🎓 Modo Estudo</button>
+      <button class="on">📈 Modo Operador</button>
+    </div>
+    <div class="divider"></div>
+    <div class="check"><span>🎓</span><span><b>Estudo</b> — carteira simulada, leitura didática, vocabulário educacional. (padrão)</span></div>
+    <div class="check"><span>📈</span><span><b>Operador</b> — decisões diretas (comprar/vender/aguardar/não operar), plano com entrada, stop e alvo, gestão de risco e registro dos seus trades reais.</span></div>
+  </div>
+  <div class="card" style="border-color:var(--accent)">
+    <h2 style="color:var(--accent)">TERMO DE RESPONSABILIDADE (1ª ativação)</h2>
+    <p class="sub" style="max-height:120px;overflow:auto;border:1px solid var(--border2);border-radius:9px;padding:10px">
+      O Modo Operador é uma ferramenta de <b>decisão e disciplina</b>. O BolsIA não envia ordens a corretoras, não garante resultado e não faz recomendação personalizada de investimento. Os planos apresentados são cenários probabilísticos calculados sobre dados passados; toda execução, e todo resultado — inclusive perdas —, são de responsabilidade exclusivamente sua. Operar exige stop e dimensionamento de posição. …
+    </p>
+    <label class="check"><input type="checkbox" checked> <span>Li até o fim e entendo que posso perder dinheiro operando por minha conta.</span></label>
+    <div class="row" style="margin-top:10px">
+      <button class="btn btn-ghost">Voltar ao Estudo</button>
+      <button class="btn btn-acc">Ativar Modo Operador</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ TELA 2 — Radar: card com decisão + plano ============ -->
+<div class="frame">
+  <div class="mocktag">MOCK 2/4 · RADAR — CARD NO MODO OPERADOR</div>
+  <div class="card">
+    <div class="row">
+      <div>
+        <span class="mono" style="font-weight:800;font-size:16px">PETR4</span>
+        <div style="font-size:11px;color:var(--faint)">252 candles · snapshot <span class="mono">#8412</span> · 1D + 4H ✓</div>
+      </div>
+      <div style="text-align:right" class="mono">
+        <div style="font-weight:800;font-size:16px">R$ 38,29</div>
+        <div style="font-size:11px;color:var(--neg)">-1,2% no dia</div>
+      </div>
+    </div>
+    <div style="margin:11px 0 4px;display:flex;gap:7px;flex-wrap:wrap">
+      <span class="pill" style="background:rgba(52,211,153,.15);color:var(--pos)">▲ COMPRAR — no rompimento</span>
+      <span class="pill" style="background:var(--accent-tint);color:var(--accent)">confiança MODERADA</span>
+      <span class="pill" style="background:var(--base);color:var(--muted);border:1px solid var(--border)">IFR2 + Stormer 9.1</span>
+    </div>
+    <div class="ruler">
+      <div class="tick" style="left:14%"></div><div class="tick" style="left:47%"></div><div class="tick" style="left:58%"></div><div class="tick" style="left:86%"></div>
+    </div>
+    <div class="legend"><span>STOP 37,60</span><span>agora 38,29</span><span>ENTRADA 38,55</span><span>ALVO1 40,05 · ALVO2 41,20</span></div>
+    <div class="divider"></div>
+    <div class="kv"><span>Entrada (rompimento da máx. de ontem)</span><b>R$ 38,55</b></div>
+    <div class="kv"><span>Stop técnico (fundo do pullback − 0,5×ATR)</span><b style="color:var(--neg)">R$ 37,60</b></div>
+    <div class="kv"><span>Alvo 1 (parcial 50%) / Alvo 2</span><b style="color:var(--pos)">40,05 / 41,20</b></div>
+    <div class="kv"><span>Risco:retorno (alvo 1 / alvo 2)</span><b>1,6 : 1 · 2,8 : 1</b></div>
+    <div class="kv" style="border-bottom:none"><span>Sua posição p/ risco de 1% (cap. R$ 50.000)</span><b>500 ações ≈ R$ 19.275</b></div>
+    <div class="row" style="margin-top:12px">
+      <button class="btn btn-ghost" style="flex:1">Plano completo (IA)</button>
+      <button class="btn btn-acc" style="flex:1">Armar monitor 🔔</button>
+    </div>
+    <p class="small" style="margin-top:10px">Cancelamento: fechar abaixo de 37,95 antes do gatilho. Prazo do plano: 5 pregões. Resultado em 15/07 — risco de gap.</p>
+  </div>
+  <div class="card" style="opacity:.8">
+    <div class="row">
+      <span class="mono" style="font-weight:800">MGLU3</span>
+      <span class="pill" style="background:var(--base);color:var(--muted);border:1px solid var(--border)">✕ NÃO OPERAR</span>
+    </div>
+    <p class="small" style="margin-top:8px">R:R máximo disponível 1,1:1 (abaixo do mínimo 1,5:1). <b>Não há operação com vantagem estatística clara neste momento.</b></p>
+  </div>
+</div>
+
+<!-- ============ TELA 3 — Plano completo (IA) + checklist ============ -->
+<div class="frame">
+  <div class="mocktag">MOCK 3/4 · PLANO OPERACIONAL COMPLETO (N1/N2 · FORMATO PRO)</div>
+  <div class="card">
+    <div class="row">
+      <h1 class="mono" style="font-size:17px">PETR4 · plano operacional</h1>
+      <span class="pill" style="background:rgba(52,211,153,.15);color:var(--pos)">COMPRAR</span>
+    </div>
+    <p class="sub" style="margin-top:8px"><b>Resumo executivo:</b> tendência moderada de alta no diário (ADX 33, +DI>-DI), pullback de 3 candles segurou na MM20 com IFR2 em 27; 4H confirma fundo mais alto. Volume do último candle 1,3× a média — reversão com participação.</p>
+    <h2>CHECKLIST PRÉ-OPERAÇÃO</h2>
+    <div class="check"><span class="ok">✓</span><span>Tendência: alta no primário (1D) e sem conflito no 4H</span></div>
+    <div class="check"><span class="ok">✓</span><span>Estrutura: reteste de suporte 38,00 com fundo ascendente</span></div>
+    <div class="check"><span class="ok">✓</span><span>Volume: reversão confirmada (1,3× média 20)</span></div>
+    <div class="check"><span class="ok">✓</span><span>Momentum: IFR2 saiu de sobrevenda; MACD histograma virando</span></div>
+    <div class="check"><span class="ok">✓</span><span>Volatilidade: stop a 1,4×ATR — fora do ruído</span></div>
+    <div class="check"><span class="ok">✓</span><span>R:R: 1,6:1 no alvo 1 · 2,8:1 no alvo 2</span></div>
+    <div class="check"><span class="no">✗</span><span>Preço esticado? Não — 0,7% acima da MM5 (ok)</span></div>
+    <h2 style="margin-top:12px">INVALIDAÇÃO</h2>
+    <p class="sub">Fechamento diário abaixo de <b class="mono">R$ 37,60</b> anula a tese (perde o fundo do pullback). Se o gatilho não vier em 5 pregões, o plano expira.</p>
+    <h2>GESTÃO DE RISCO</h2>
+    <p class="sub">Risco máx. sugerido: <b>1% do capital</b>. Parcial de 50% no alvo 1 e stop para o preço de entrada. Atenção: resultado trimestral em 15/07 — reduza a posição ou realize antes se o alvo 2 não vier.</p>
+    <div style="background:var(--accent-tint);border:1px solid var(--accent);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--accent);font-weight:700">
+      Conclusão: a operação está tecnicamente validada, desde que a condição de entrada seja confirmada.
+    </div>
+    <p class="disc">Esta análise possui finalidade educacional e utiliza cenários probabilísticos. Não representa garantia de resultado nem recomendação personalizada de investimento. Operações no mercado financeiro envolvem risco de perda, sendo indispensáveis o uso de stop, o dimensionamento adequado da posição e o respeito ao plano de risco.</p>
+  </div>
+</div>
+
+<!-- ============ TELA 4 — Trades reais + assertividade ============ -->
+<div class="frame">
+  <div class="mocktag">MOCK 4/4 · TRADES REAIS + PAINEL DE ASSERTIVIDADE</div>
+  <div class="banner" style="margin-bottom:12px">REGISTROS MANUAIS DOS SEUS TRADES REAIS — o BolsIA não envia ordens à corretora. Separado da carteira simulada.</div>
+  <div class="card">
+    <div class="row"><h2>ASSERTIVIDADE (últimos 90 dias · 18 trades fechados)</h2></div>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <div class="stat"><div class="v" style="color:var(--pos)">61%</div><div class="l">TAXA DE ACERTO</div></div>
+      <div class="stat"><div class="v">+0,74R</div><div class="l">R MÉDIO / TRADE</div></div>
+      <div class="stat"><div class="v" style="color:var(--neg)">-3,1%</div><div class="l">DRAWDOWN MÁX.</div></div>
+      <div class="stat"><div class="v">83%</div><div class="l">DISCIPLINA*</div></div>
+    </div>
+    <p class="small" style="margin-top:8px">*trades executados dentro do plano (entrada/stop respeitados). Por setup: IFR2 <b class="mono">8/11 ✓</b> · Stormer 9.1 <b class="mono">3/5 ✓</b> · PFR <b class="mono">0/2 ✗</b>. Em mercado lateral seu resultado cai para 0,1R — considere operar só tendência.</p>
+  </div>
+  <div class="card">
+    <div class="row"><h2>POSIÇÕES REAIS ABERTAS</h2><button class="btn btn-acc" style="padding:8px 13px;font-size:12px">+ Registrar trade</button></div>
+    <table>
+      <tr><th>ATIVO</th><th>QTD</th><th>ENTRADA</th><th>STOP</th><th>ALVO</th><th>AGORA</th></tr>
+      <tr class="mono"><td><b>PETR4</b></td><td>500</td><td>38,57</td><td style="color:var(--neg)">37,60</td><td style="color:var(--pos)">40,05</td><td style="color:var(--pos)">38,92 ▲</td></tr>
+      <tr class="mono"><td><b>VALE3</b></td><td>200</td><td>61,10</td><td style="color:var(--neg)">59,80</td><td style="color:var(--pos)">63,90</td><td style="color:var(--neg)">60,84 ▼</td></tr>
+    </table>
+    <p class="small" style="margin-top:9px">🔔 Monitor armado: aviso por push ao tocar stop/alvo/gatilho — a execução é sua, na corretora.</p>
+  </div>
+</div>
+
+</body>
+</html>

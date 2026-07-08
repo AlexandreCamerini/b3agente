@@ -388,6 +388,39 @@ def _parse_json_loose(raw: str):
     return None
 
 
+def _deep_fallback(raw: str) -> dict:
+    """FASE 6 (fix 2): a resposta do N1 não veio no JSON obrigatório (causa
+    típica: truncamento). NUNCA devolver o blob cru para a UI — era isso que
+    aparecia "todo mal formatado" no modal do Radar. Ordem de recuperação:
+      1. salvar o campo "resumo" do JSON parcial (regex tolerante);
+      2. senão, remover a sintaxe JSON (chaves/aspas/nomes de campo) e devolver
+         texto legível;
+      3. marcar parseFalhou=True para a UI oferecer "rodar de novo".
+    """
+    import re as _re3
+    txt = (raw or "").strip()
+    txt = _re3.sub(r"^```(?:json)?", "", txt).strip()
+    txt = _re3.sub(r"```$", "", txt).strip()
+    m = _re3.search(r'"resumo"\s*:\s*"((?:[^"\\]|\\.)*)', txt)
+    if m and m.group(1).strip():
+        resumo = m.group(1).replace('\\"', '"').replace("\\n", " ").strip()
+    else:
+        campos = ("resumo|leituraSetups|cenarios|riscos|invalidacao|confianca|planoEstudo|"
+                  "modelosUtilizados|setup|leitura|criteriosPresentes|criteriosAusentes|"
+                  "alta|baixa|neutro|nome|oQueE|oQueMede|limitacoes")
+        t = _re3.sub(r'"(?:' + campos + r')"\s*:', "", txt)
+        t = _re3.sub(r'[{}\[\]"`]', " ", t)
+        t = _re3.sub(r"\s*,\s*", " · ", t)
+        t = _re3.sub(r"\s+", " ", t).strip(" ·:")
+        resumo = t[:600]
+    return {
+        "resumo": resumo or "A leitura veio incompleta do modelo — toque em 'Aprofundar com IA' novamente.",
+        "leituraSetups": [], "cenarios": {}, "riscos": [], "invalidacao": "",
+        "confianca": "baixa", "planoEstudo": "Monitorar", "modelosUtilizados": [],
+        "parseFalhou": True,
+    }
+
+
 async def analyze_deep(config: dict, profile: dict, ticker: str, context: dict, setups_payload: dict):
     """N1: UMA chamada de IA para UM ativo do top-N do Radar. Recebe o contexto
     técnico completo (janela do usuário) + os setups detectados com checklist;
@@ -410,13 +443,15 @@ async def analyze_deep(config: dict, profile: dict, ticker: str, context: dict, 
         "cenários de ESTUDO alta/baixa/neutro e os riscos. Sem verbo de ordem.",
         "Saia somente no JSON obrigatório.",
     ])
-    raw = await _call_llm(config, key, system, user, 1600)
+    # FASE 6 (fix 2): 1600 tokens truncava leituras com muitos setups — JSON
+    # inválido caía no fallback e o modal mostrava texto quebrado. 2200 dá
+    # folga mantendo a instrução de concisão como controle principal.
+    raw = await _call_llm(config, key, system, user, 2200)
     if not raw:
         raise RuntimeError("A LLM nao retornou texto.")
     data = _parse_json_loose(raw)
     if not isinstance(data, dict):
-        return {"resumo": (raw or "")[:600], "leituraSetups": [], "cenarios": {}, "riscos": [],
-                "invalidacao": "", "confianca": "baixa", "planoEstudo": "Monitorar", "modelosUtilizados": []}
+        return _deep_fallback(raw)
     data.setdefault("modelosUtilizados", [])
     data.setdefault("planoEstudo", "Monitorar")
     conf = str(data.get("confianca") or "").lower()

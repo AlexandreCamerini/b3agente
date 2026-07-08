@@ -171,6 +171,18 @@ function deviceStore() {
   // localStorage (NÃO vira SQLite; os dois backends não se unificam).
   const BASE_KEY = "b3-agente-state-v1";
   const SCOPE_KEY = "b3-device-scope-v1"; // lembra qual usuário está ativo no aparelho
+  // FASE 6 (fix 1): o endereço do servidor é uma propriedade do APARELHO, não
+  // da conta — antes vivia só dentro do doc escopado por usuário e "sumia" ao
+  // trocar de escopo (login/logout), obrigando a recadastrar a cada reinício.
+  // Agora é espelhado numa chave GLOBAL, lida no boot de qualquer escopo.
+  const SRV_KEY = "b3-server-url-v1";
+  function readSrvGlobal() {
+    try { const v = typeof localStorage !== "undefined" ? localStorage.getItem(SRV_KEY) : null; return typeof v === "string" ? v : null; }
+    catch { return null; }
+  }
+  function writeSrvGlobal(v) {
+    try { if (typeof localStorage !== "undefined") localStorage.setItem(SRV_KEY, String(v == null ? "" : v)); } catch { /* ignore */ }
+  }
   let deviceUserId = (() => {
     try { return (typeof localStorage !== "undefined" && localStorage.getItem(SCOPE_KEY)) || null; }
     catch { return null; }
@@ -211,6 +223,9 @@ function deviceStore() {
       backfillStructural(doc, defaultState());
       if (!doc.analyses || typeof doc.analyses !== "object") doc.analyses = {};
       if (typeof doc.config.serverUrl !== "string") doc.config.serverUrl = "";
+      // FASE 6 (fix 1): a chave GLOBAL do aparelho vence o doc do escopo —
+      // configurado uma vez, vale para anônimo E para qualquer conta.
+      { const g = readSrvGlobal(); if (g !== null) doc.config.serverUrl = g; }
       if (!doc.profile || typeof doc.profile !== "object") doc.profile = defaultState().profile;
       if (!Array.isArray(doc.custom)) doc.custom = [];
       if (doc.agent && typeof doc.agent.intervalMin !== "number") doc.agent.intervalMin = 15;
@@ -306,6 +321,7 @@ function deviceStore() {
       ensure();
       const c = doc.config;
       for (const k of ["provider", "model", "baseUrl", "serverUrl"]) if (typeof patch[k] === "string") c[k] = patch[k];
+      if (typeof patch.serverUrl === "string") writeSrvGlobal(patch.serverUrl); // FASE 6 (fix 1): espelho global do aparelho
       if (patch.keySource === "env" || patch.keySource === "manual") c.keySource = patch.keySource;
       if (typeof patch.apiKey === "string" && patch.apiKey) c.apiKey = patch.apiKey;
       if (patch.clearKey === true) c.apiKey = "";
@@ -623,6 +639,22 @@ function deviceStore() {
       if (typeof b.autonomous === "boolean") doc.agent.autonomous = b.autonomous;
       if (typeof b.allocPct === "number") doc.agent.allocPct = Math.max(1, Math.min(20, Math.round(b.allocPct)));
       if (typeof b.intervalMin === "number") doc.agent.intervalMin = Math.max(1, Math.min(240, Math.round(b.intervalMin)));
+      // FASE 6 (fix 3): parâmetros do OPERADOR NO SERVIDOR. Antes eram
+      // DESCARTADOS em silêncio aqui — no iPhone, "Ativar no servidor" nunca
+      // chegava ao backend e o toggle "não funcionava". Agora vão por chamada
+      // LIVE (erro sobe para a UI; nada de estado fantasma) e o resultado
+      // confirmado pelo servidor é espelhado no doc local.
+      const SERVER_KEYS = ["serverEnabled", "mode", "rules", "trailingPct", "maxOpsDia", "maxValorOp", "lastSeenAt"];
+      const sb = {};
+      for (const k of SERVER_KEYS) if (k in (b || {})) sb[k] = b[k];
+      if (Object.keys(sb).length) {
+        if ("serverEnabled" in sb && !sync.hasSession()) {
+          throw new Error("Entre na sua conta para ligar o Operador no servidor (ele roda por conta, com o app fechado).");
+        }
+        const r = await api.putAgent(sb);
+        const ag = (r && r.agent) || {};
+        for (const k of SERVER_KEYS) if (k in ag) doc.agent[k] = ag[k];
+      }
       write();
       return pub();
     },

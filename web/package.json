@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@capacitor/app": "^8.0.0",
+    "@capacitor/app-launcher": "^8.0.0",
     "@capacitor/core": "^8.0.0",
     "@capacitor/local-notifications": "^8.0.0",
     "@capacitor/status-bar": "^8.0.0",

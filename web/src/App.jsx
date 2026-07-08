@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo, createContext, useCo
 import { store, isNative, auth } from "./persistence.js";
 import { hasSession } from "./sync.js"; // BLOCO 2: welcome exibe estado da sessão salva
 import { defaultLlmPrompts } from "./catalog.js";
-import { testServer, describeRuntimeConfig } from "./api.js";
+import { testServer, describeRuntimeConfig, getApiBase } from "./api.js";
 import { createChart, ColorType, CrosshairMode, LineStyle } from "lightweight-charts";
 import { sampleTechnicals } from "./demo.js";
 import { DISCLAIMERS } from "./disclaimers.js";
@@ -2068,12 +2068,9 @@ function AgenteScreen({ ctx }) {
   const logged = !!ctx.authUser;
   const rules = (ag.rules && typeof ag.rules === "object") ? ag.rules : {};
   const putAg = (patch) => A.putAgent(patch);
-  const [pushSt, setPushSt] = useState("");
-  const ativarPush = async () => {
-    setPushSt("registrando…");
-    const r = await notify.registerPush((tk) => store.registerPushToken(tk));
-    setPushSt(r.ok ? (r.apnsConfigured ? "push ativo ✓" : "token salvo — configure as chaves APNs no Railway (APNS-PUSH.md)") : (r.reason || "falhou"));
-  };
+  // FASE 6 (fix 4): a ativação/teste do push moraram aqui e na Observabilidade —
+  // agora vivem na CENTRAL de notificações (Perfil → Conta & preferências).
+  // Este atalho só leva o usuário para lá.
   // BLOCO D3 — só o necessário para CONFIRMAR o toggle (o resto da
   // observabilidade — status detalhado, Diário, passadas do scheduler —
   // mudou para Perfil → Observabilidade, a pedido do Alex).
@@ -2151,9 +2148,10 @@ function AgenteScreen({ ctx }) {
           </label>
         </div>
         {logged && (
-          <div style={{ marginTop: "13px", paddingTop: "12px", borderTop: `1px solid ${T.borderFaint}`, display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-            <button onClick={ativarPush} style={{ padding: "9px 14px", borderRadius: "10px", border: `1px solid ${T.accent}`, background: T.accentTint10, color: T.accent, fontWeight: 700, fontSize: "12px" }}>Ativar push das ações (iPhone)</button>
-            {pushSt && <span style={{ fontSize: "11.5px", color: T.textMuted }}>{pushSt}</span>}
+          <div style={{ marginTop: "13px", paddingTop: "12px", borderTop: `1px solid ${T.borderFaint}` }}>
+            <button onClick={() => A.openNotifCentral()} style={{ background: "transparent", border: "none", color: T.accent, fontWeight: 700, fontSize: "12px", padding: 0 }}>
+              Notificações e push → central única em Perfil → Conta & preferências
+            </button>
           </div>
         )}
         <div style={{ marginTop: "10px", fontSize: "10.5px", color: T.textFaint, lineHeight: 1.5 }}>Opera somente a carteira simulada. Conteúdo educacional — nenhuma ação é recomendação de investimento.</div>
@@ -2217,8 +2215,12 @@ function AgenteScreen({ ctx }) {
   );
 }
 
-// Seção de Notificações LOCAIS — reflete a permissão REAL do sistema, pede no
-// momento certo, dispara um teste com confirmação na tela e explica o caso iOS.
+// FASE 6 (fix 4) — CENTRAL ÚNICA de notificações. Antes os controles viviam em
+// três lugares (Config = locais; Operador IA = ativar push; Observabilidade =
+// testar push) e o "Pedir permissão" parecia morto: depois de UMA negativa o
+// iOS nunca pergunta de novo (requestPermissions volta "denied" na hora) — o
+// único caminho é Ajustes, e agora há botão direto para lá. Tudo num painel:
+// permissão do sistema → preferências locais → push do servidor → testes.
 function NotifSection({ ctx }) {
   const { data, A } = ctx;
   const c = data.config || {};
@@ -2235,8 +2237,8 @@ function NotifSection({ ctx }) {
   }, []);
   const statusText = {
     granted: "Permissão concedida.",
-    denied: "Permissão negada — ative em Ajustes → Notificações → BolsIA.",
-    default: "Permissão ainda não solicitada — ligue abaixo para pedir.",
+    denied: "Permissão negada — o iOS só pergunta UMA vez; reative em Ajustes → Notificações → BolsIA (botão abaixo).",
+    default: "Permissão ainda não solicitada — toque em Pedir permissão.",
     unsupported: isNative ? "Indisponível neste app — recompile (npm install + cap sync) para registrar o plugin." : "Seu navegador não suporta notificações.",
   }[perm] || "";
   const statusColor = perm === "granted" ? T.positive : (perm === "denied" || perm === "unsupported") ? T.negative : T.textMuted;
@@ -2245,7 +2247,34 @@ function NotifSection({ ctx }) {
     setMsg("Solicitando permissão do sistema…");
     const p = await notify.requestPermission();
     setPerm(p);
-    setMsg(p === "granted" ? "Permissão concedida. Agora use o teste agendado." : (p === "denied" ? "Permissão negada pelo iOS. Ative em Ajustes → Notificações → BolsIA." : "Plugin ou navegador não suportou a permissão."));
+    setMsg(p === "granted" ? "Permissão concedida. Agora use o teste agendado." : (p === "denied" ? "O iOS não vai perguntar de novo — use o botão Abrir Ajustes e ative Notificações → BolsIA." : "Plugin ou navegador não suportou a permissão."));
+  };
+  // FASE 6 (fix 4): caminho REAL quando a permissão já foi negada — o pedido
+  // via app nunca mais dispara; só os Ajustes resolvem. Com o plugin ausente
+  // no build, degrada para o passo a passo manual.
+  const onOpenSettings = async () => {
+    const okOpen = await notify.openSettings();
+    if (!okOpen) setMsg("Não deu para abrir os Ajustes automaticamente (recompile o app com npm install + cap sync). Caminho manual: Ajustes → Notificações → BolsIA → Permitir.");
+    else setMsg("Nos Ajustes: Notificações → Permitir notificações. Ao voltar, o status atualiza sozinho.");
+  };
+  // FASE 6 (fix 4): PUSH DO SERVIDOR unificado aqui (antes vivia no Operador
+  // IA e o teste na Observabilidade). Exige conta; cada etapa reporta o
+  // resultado exato.
+  const logged = !!ctx.authUser;
+  const [pushMsg, setPushMsg] = useState("");
+  const [pushBusy, setPushBusy] = useState(false);
+  const onAtivarPush = async () => {
+    setPushBusy(true); setPushMsg("registrando este aparelho no push…");
+    try {
+      const r = await notify.registerPush((tk) => store.registerPushToken(tk));
+      setPushMsg(r.ok ? (r.apnsConfigured ? "push ativo neste aparelho ✓" : "token salvo — falta configurar as chaves APNs no Railway (APNS-PUSH.md)") : (r.reason || "falhou"));
+    } finally { setPushBusy(false); }
+  };
+  const onTestarPush = async () => {
+    setPushBusy(true); setPushMsg("enviando push de teste…");
+    try { const r = await store.pushTest(); setPushMsg("push de teste enviado (" + r.enviados + "/" + r.total + " aparelho(s)) ✓ — coloque o app em segundo plano para ver o banner"); }
+    catch (e) { setPushMsg((e && e.message) || String(e)); }
+    finally { setPushBusy(false); }
   };
   const onTest = async () => {
     const id = await notify.schedule("BolsIA · teste imediato", "Teste técnico de notificação local.", new Date(Date.now() + (isNative ? 5000 : 500)));
@@ -2313,12 +2342,31 @@ function NotifSection({ ctx }) {
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "12px", flexWrap: "wrap" }}>
-        {perm !== "granted" && <button onClick={onRequestPermission} style={{ padding: "9px 14px", borderRadius: "8px", border: `1px solid ${T.accent}`, background: T.accentTint, color: T.accent, fontWeight: 800, fontSize: "13px" }}>Pedir permissão</button>}
+        {perm === "default" && <button onClick={onRequestPermission} style={{ padding: "9px 14px", borderRadius: "8px", border: `1px solid ${T.accent}`, background: T.accentTint, color: T.accent, fontWeight: 800, fontSize: "13px" }}>Pedir permissão</button>}
+        {perm === "denied" && isNative && <button onClick={onOpenSettings} style={{ padding: "9px 14px", borderRadius: "8px", border: `1px solid ${T.accent}`, background: T.accent, color: T.onAccent, fontWeight: 800, fontSize: "13px" }}>Abrir Ajustes →</button>}
         <button onClick={onTest} disabled={perm !== "granted"} style={{ padding: "9px 14px", borderRadius: "8px", border: `1px solid ${perm === "granted" ? T.accent : T.borderSubtle}`, background: perm === "granted" ? T.accentTint : T.bgPanel, color: perm === "granted" ? T.accent : T.textFaint, fontWeight: 700, fontSize: "13px" }}>Testar notificação</button>
         <button onClick={onTestScheduled} disabled={perm !== "granted"} style={{ padding: "9px 14px", borderRadius: "8px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: perm === "granted" ? T.textSecondary : T.textFaint, fontWeight: 700, fontSize: "13px" }}>Testar agendada (30s)</button>
         <button onClick={onDiag} style={{ padding: "9px 14px", borderRadius: "8px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 700, fontSize: "13px" }}>Diagnóstico</button>
         {msg && <span style={{ fontSize: "11.5px", color: T.textMuted, flex: 1, minWidth: "180px", lineHeight: 1.4 }}>{msg}</span>}
       </div>
+
+      {/* FASE 6 (fix 4): PUSH DO SERVIDOR (APNs) — unificado nesta central */}
+      {isNative && (
+        <div style={{ marginTop: "14px", paddingTop: "12px", borderTop: `1px solid ${T.borderFaint}` }}>
+          <div style={{ fontSize: "11px", fontWeight: 800, letterSpacing: "0.05em", color: T.textSecondary }}>PUSH DO SERVIDOR (app fechado)</div>
+          <div style={{ fontSize: "11.5px", color: T.textMuted, marginTop: "5px", lineHeight: 1.5, maxWidth: "480px" }}>
+            Avisos das ações do Operador no servidor chegam por push (APNs) mesmo com o app fechado. Exige conta e a permissão acima concedida.
+          </div>
+          {!logged && <div style={{ marginTop: "9px", fontSize: "12px", color: T.textFaint }}>Entre na sua conta para ativar o push deste aparelho.</div>}
+          {logged && (
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "10px", flexWrap: "wrap" }}>
+              <button onClick={onAtivarPush} disabled={pushBusy || perm !== "granted"} style={{ padding: "9px 14px", borderRadius: "8px", border: `1px solid ${perm === "granted" ? T.accent : T.borderSubtle}`, background: perm === "granted" ? T.accentTint : T.bgPanel, color: perm === "granted" ? T.accent : T.textFaint, fontWeight: 800, fontSize: "13px", opacity: pushBusy ? 0.6 : 1 }}>Ativar push neste aparelho</button>
+              <button onClick={onTestarPush} disabled={pushBusy} style={{ padding: "9px 14px", borderRadius: "8px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 700, fontSize: "13px", opacity: pushBusy ? 0.6 : 1 }}>Testar push</button>
+              {pushMsg && <span style={{ fontSize: "11.5px", color: T.textMuted, flex: 1, minWidth: "180px", lineHeight: 1.4 }}>{pushMsg}</span>}
+            </div>
+          )}
+        </div>
+      )}
 
       {diag && (
         <div style={{ marginTop: "12px", padding: "12px 13px", borderRadius: "10px", background: T.bgBase, border: `1px solid ${diag.veredito.ok ? T.borderSubtle : T.negative}` }}>
@@ -2334,7 +2382,7 @@ function NotifSection({ ctx }) {
       )}
 
       <div style={{ fontSize: "10.5px", color: T.textFaint, marginTop: "11px", lineHeight: 1.5 }}>
-        Isto é notificação <b>local</b> (disparada pelo próprio app). No iOS, para validar banner de teste, coloque o app em segundo plano após tocar em testar. Avisos com o app <b>fechado</b> por push/APNs não fazem parte desta versão.
+        Notificações <b>locais</b> são disparadas pelo próprio app (stop/alvo/variação com o app aberto ou em segundo plano); o <b>push do servidor</b> cobre as ações do Operador com o app fechado. Para validar um banner de teste no iOS, coloque o app em segundo plano após tocar em testar.
       </div>
     </div>
   );
@@ -2911,7 +2959,16 @@ function DeepModal({ t, d, onClose, onAvaliar }) {
         <div style={{ padding: "15px 18px", overflowY: "auto", flex: 1, minHeight: 0, WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
           {d.loading && <SweepGauge label={t + " · leitura profunda"} steps={["consultando o histórico", "montando o pacote técnico", "IA lendo os setups detectados"]} />}
           {d.error && <div style={{ fontSize: "12.5px", color: T.negative, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{d.error}</div>}
-          {r.resumo && <p style={{ margin: "0 0 12px", fontSize: "13px", color: T.textPrimary, lineHeight: 1.6 }}><MdInline text={r.resumo} /></p>}
+          {/* FASE 6 (fix 2): resumo renderizado em BLOCO (parágrafos, títulos e
+              listas) — o MdInline colapsava quebras de linha e a leitura chegava
+              "amassada". Se o servidor sinalizou parse parcial, avisa e oferece
+              rodar de novo em vez de exibir texto quebrado como se fosse normal. */}
+          {r.parseFalhou && (
+            <div style={{ margin: "0 0 10px", padding: "9px 11px", borderRadius: "9px", background: T.accentTint10, border: `1px solid ${T.accent}`, fontSize: "11.5px", color: T.accent, lineHeight: 1.5 }}>
+              A leitura veio incompleta do modelo (abaixo, o resumo recuperado). Toque em "Aprofundar com IA" de novo para a versão completa.
+            </div>
+          )}
+          {r.resumo && <div style={{ margin: "0 0 12px", fontSize: "13px", color: T.textPrimary, lineHeight: 1.6 }}><Markdown text={r.resumo} /></div>}
           {(r.leituraSetups || []).length > 0 && (
           <Fold title="Leitura por setup" count={(r.leituraSetups || []).length}>
           {(r.leituraSetups || []).map((s, i) => (
@@ -3179,14 +3236,15 @@ function ConfigScreen({ ctx }) {
       {/* Servidor do app (somente no iPhone) */}
       {isNative && (
         <div style={{ ...card, padding: "17px 18px", marginBottom: "16px" }}>
-          <div style={sectionTitle}>SERVIDOR DO APP (MAC)</div>
+          <div style={sectionTitle}>SERVIDOR DO APP</div>
           <p style={{ margin: "6px 0 14px", color: T.textMuted, fontSize: "12.5px", lineHeight: 1.5, maxWidth: "560px" }}>
-            Endereço do computador que roda o servidor (usado para cotações e análise da IA), na mesma rede Wi-Fi. Fica salvo neste aparelho — troque aqui se o IP mudar, sem recompilar.
+            O app já vem apontado para o servidor de <b>produção</b> — não precisa configurar nada para usar (login, cotações e IA funcionam de fábrica). Este campo é um <b>override de desenvolvimento</b>: preencha só para testar contra um Mac na rede local; deixe vazio para voltar à produção. Vale para o aparelho inteiro (qualquer conta).
           </p>
           <label style={{ display: "block", marginBottom: "12px" }}>
-            <span style={{ display: "block", fontSize: "12px", color: T.textMuted, marginBottom: "6px" }}>Endereço do servidor</span>
-            <input type="text" value={c.serverUrl || ""} onChange={(e) => A.editConfig({ serverUrl: e.target.value })} onBlur={(e) => A.saveConfig({ serverUrl: e.target.value })} placeholder="http://192.168.0.12:8787" style={{ ...field, fontFamily: MONO }} />
+            <span style={{ display: "block", fontSize: "12px", color: T.textMuted, marginBottom: "6px" }}>Override do servidor (opcional — vazio = produção)</span>
+            <input type="text" value={c.serverUrl || ""} onChange={(e) => A.editConfig({ serverUrl: e.target.value })} onBlur={(e) => A.saveConfig({ serverUrl: e.target.value })} placeholder="vazio = produção · dev: http://192.168.0.12:8787" style={{ ...field, fontFamily: MONO }} />
           </label>
+          <div style={{ margin: "0 0 12px", fontFamily: MONO, fontSize: "11px", color: T.textFaint }}>em uso agora: {getApiBase()}</div>
           <button onClick={handleTestServer} style={{ padding: "9px 14px", borderRadius: "8px", border: `1px solid ${T.accent}`, background: T.accentTint10, color: T.accent, fontWeight: 700, fontSize: "13px" }}>Testar conexão</button>
           {srvTest.status && srvTest.status !== "testing" && (
             <div style={{ marginTop: "10px", fontSize: "12.5px", color: srvColor }}>{srvTest.msg}</div>
@@ -3796,6 +3854,8 @@ export default function App() {
     flash,  // FASE 3: telas dão feedback padronizado (Operador IA usa)
     refreshQuotes,
     go: (t) => { setCarteiraView("main"); setPerfilView("hub"); setTab(t); },
+    // FASE 6 (fix 4): atalho direto para a CENTRAL de notificações (Config)
+    openNotifCentral: () => { setCarteiraView("main"); setPerfilView("config"); setTab("perfil"); },
     openCatalog: () => { setCatalogSel(data ? [...data.watchlist] : []); setCatalogOpen(true); },
     closeCatalog: () => setCatalogOpen(false),
     saveCatalog: async () => {
@@ -3930,10 +3990,16 @@ export default function App() {
       } catch (e) { flash("Erro: " + (e.message || e)); }
     },
     toggleAuto: async (v) => { try { const s = await store.putAgent({ autonomous: v }); setData(s); } catch (e) { flash("Erro: " + (e.message || e)); } },
-    // FASE 3.2: patch genérico dos parâmetros do agente (otimista + persiste)
+    // FASE 3.2: patch genérico dos parâmetros do agente (otimista + persiste).
+    // FASE 6 (fix 3): `serverEnabled` NUNCA é otimista — antes o setData
+    // adiantava o toggle e o catch engolia o erro: a UI mostrava "ligado" sem
+    // o servidor ter ligado (fantasma) e o setServer não via a falha. Flag de
+    // servidor = só com resposta confirmada; erro SOBE para quem chamou.
     putAgent: async (patch) => {
-      setData((d) => ({ ...d, agent: { ...d.agent, ...patch, rules: { ...((d.agent || {}).rules || {}), ...(patch.rules || {}) } } }));
-      try { const s = await store.putAgent(patch); setData(s); } catch (e) { flash("Erro: " + (e.message || e)); }
+      const liveFlag = !!(patch && ("serverEnabled" in patch));
+      if (!liveFlag) setData((d) => ({ ...d, agent: { ...d.agent, ...patch, rules: { ...((d.agent || {}).rules || {}), ...(patch.rules || {}) } } }));
+      try { const s = await store.putAgent(patch); setData(s); }
+      catch (e) { if (liveFlag) throw e; flash("Erro: " + (e.message || e)); }
     },
     setAlloc: async (v) => { setData((d) => ({ ...d, agent: { ...d.agent, allocPct: v } })); try { await store.putAgent({ allocPct: v }); } catch (e) { flash("Erro: " + (e.message || e)); } },
     setAgentInterval: async (v) => { setData((d) => ({ ...d, agent: { ...d.agent, intervalMin: v } })); try { await store.putAgent({ intervalMin: v }); } catch (e) { flash("Erro: " + (e.message || e)); } },

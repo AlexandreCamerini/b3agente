@@ -37,5 +37,13 @@ ok("área de conteúdo rolável de verdade (flex:1 + minHeight:0)",
 ok("scroll contido no iOS (não trava a página atrás)", /overscrollBehavior:\s*"contain"/.test(app));
 ok("rodapé respeita a safe area", app.includes("env(safe-area-inset-bottom"));
 
+// ---- FASE 6 (fix 2): formatação da leitura no DeepModal --------------------
+// BUG: o resumo era renderizado só com MdInline (colapsava quebras de linha) e,
+// quando o JSON do N1 vinha truncado, o servidor devolvia o blob cru — texto
+// "todo mal formatado" no modal. Contratos: resumo em BLOCO (<Markdown/>) e
+// aviso explícito quando o servidor sinaliza parseFalhou.
+ok("resumo renderizado em bloco (Markdown, não MdInline)", /r\.resumo && <div[^>]*><Markdown text=\{r\.resumo\} \/>/.test(app));
+ok("aviso de leitura parcial quando parseFalhou", /r\.parseFalhou &&/.test(app) && app.includes("leitura veio incompleta"));
+
 console.log(fails ? `\n${fails} FALHA(S)` : "\nWIRING FASE 4 (RADAR + DEEPMODAL) OK");
 process.exit(fails ? 1 : 0);

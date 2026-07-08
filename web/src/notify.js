@@ -301,6 +301,24 @@ export async function cancelAll() {
 }
 
 
+// FASE 6 (fix 4) — abre os Ajustes do app no iOS. Depois que o usuário NEGA a
+// permissão uma vez, o iOS NUNCA pergunta de novo: requestPermissions() volta
+// "denied" na hora e o botão "Pedir permissão" parece morto. O único caminho é
+// Ajustes → Notificações → BolsIA — este helper leva direto lá. Import tardio
+// e guardado (padrão do módulo): sem o plugin no build, devolve false e a UI
+// mostra o passo a passo manual.
+export async function openSettings() {
+  if (!isNative) return false;
+  try {
+    const mod = await import("@capacitor/app-launcher");
+    const r = await mod.AppLauncher.openUrl({ url: "app-settings:" });
+    return !!(r && r.completed);
+  } catch (e) {
+    ndbg("openSettings indisponível:", (e && e.message) || e);
+    return false;
+  }
+}
+
 // FASE 3.3b — push remoto (APNs) para as ações do agente server-side.
 // O plugin @capacitor/push-notifications só existe após npm install + cap sync;
 // fora do build (ou sem a capability no Xcode) isto degrada com motivo claro.

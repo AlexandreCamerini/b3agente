@@ -72,6 +72,40 @@ def tokens_for(conn, user_id: str) -> list:
 
 
 # --------------------------------- envio -----------------------------------
+# FASE 6 (fix 5): tradutor dos `reason` do APNs em instrução EXATA (pt-BR).
+# O caso que motivou: BadEnvironmentKeyInToken — a chave .p8 foi criada no
+# portal Apple RESTRITA a um ambiente (Development ou Production) e o servidor
+# está falando com o host do outro ambiente. Não é problema do token do
+# aparelho: trocar APNS_SANDBOX ou gerar chave sem restrição resolve.
+_REASON_HELP = {
+    "BadEnvironmentKeyInToken": (
+        "a chave .p8 (APNS_AUTH_KEY) é RESTRITA a um ambiente e não bate com o host em uso. "
+        "Corrija no portal Apple (Keys → sua chave APNs → Environment: 'Sandbox & Production') "
+        "OU alinhe APNS_SANDBOX no Railway: 1 = build do Xcode (sandbox); remova a variável = TestFlight/App Store (produção)."
+    ),
+    "BadDeviceToken": (
+        "o token deste aparelho pertence ao OUTRO ambiente (build do Xcode gera token de sandbox; "
+        "TestFlight/App Store gera de produção). Alinhe APNS_SANDBOX e toque de novo em 'Ativar push neste aparelho' — o token inválido foi descartado."
+    ),
+    "Unregistered": "o aparelho removeu o app ou o token expirou — token descartado; reative o push no aparelho.",
+    "DeviceTokenNotForTopic": "o token não pertence a este app (APNS_TOPIC) — token descartado; confira o bundle id e reative o push.",
+    "BadTopic": "APNS_TOPIC inválido — deve ser exatamente o bundle id do app (com.alexandrecamerini.bolsia).",
+    "TopicDisallowed": "a chave APNs não tem direito sobre este APNS_TOPIC — confira o App ID no portal Apple.",
+    "InvalidProviderToken": "APNS_TEAM_ID / APNS_KEY_ID / APNS_AUTH_KEY não batem entre si — confira os três no Railway com os valores do portal Apple.",
+    "ExpiredProviderToken": "JWT do provedor expirado — transitório; se persistir, confira o relógio do servidor.",
+    "MissingTopic": "faltou APNS_TOPIC no Railway.",
+}
+# reasons que INVALIDAM o token do aparelho (aí sim descartamos):
+_DROP_TOKEN_REASONS = ("BadDeviceToken", "Unregistered", "DeviceTokenNotForTopic")
+
+
+def explain_reason(reason: str) -> str:
+    """Instrução acionável para um reason do APNs ('' se desconhecido)."""
+    return _REASON_HELP.get((reason or "").strip(), "")
+
+
+def env_label() -> str:
+    return "sandbox (APNS_SANDBOX=1)" if os.environ.get("APNS_SANDBOX") == "1" else "produção"
 async def send_to_user(conn, user_id: str, title: str, body: str) -> dict:
     """Envia o push a todos os aparelhos do usuário.
 
@@ -111,8 +145,13 @@ async def send_to_user(conn, user_id: str, title: str, body: str) -> dict:
                         reason = (r.json() or {}).get("reason", "")
                     except Exception:  # noqa: BLE001
                         reason = ""
-                    detalhes.append(f"{tk[:10]}…: HTTP {r.status_code} {reason}".strip())
-                    if reason in ("BadDeviceToken", "Unregistered") and tk in keep:
+                    # FASE 6 (fix 5): reason cru + ambiente em uso + instrução exata
+                    ajuda = explain_reason(reason)
+                    detalhes.append(
+                        (f"{tk[:10]}…: HTTP {r.status_code} {reason} [ambiente: {env_label()}]"
+                         + (f" → {ajuda}" if ajuda else "")).strip()
+                    )
+                    if reason in _DROP_TOKEN_REASONS and tk in keep:
                         keep.remove(tk)
             except Exception as e:  # noqa: BLE001 — push é best-effort
                 detalhes.append(f"{tk[:10]}…: erro de rede ({e})")

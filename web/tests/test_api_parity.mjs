@@ -8,16 +8,26 @@ import { api, setNativeMode, setApiBase, getApiBase, testServer } from "../src/a
 let passed = 0;
 const ok = (name) => { console.log("ok", name); passed++; };
 
-// 1) NATIVO sem base configurada => falha cedo, com mensagem acionável.
+// 1) NATIVO sem base configurada => usa a PRODUÇÃO embutida (FASE 6, fix 1).
+// Contrato antigo (falhar cedo) foi substituído de propósito: o app deve
+// funcionar de fábrica, sem o usuário digitar servidor. O guardião completo
+// do novo contrato está em test_api_base.mjs.
 await (async () => {
   setNativeMode(true);
-  setApiBase(""); // sem servidor
-  await assert.rejects(
-    () => api.getState(),
-    (e) => /Endereço do servidor não configurado/.test(e.message),
-    "deveria falhar cedo no nativo sem base",
-  );
-  ok("nativo sem base falha cedo e claro");
+  setApiBase(""); // sem override manual
+  assert.strictEqual(getApiBase(), "https://b3agente-production.up.railway.app");
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    assert.ok(String(url).startsWith("https://b3agente-production.up.railway.app/api/"), "deveria chamar a produção");
+    return { ok: true, status: 200, text: async () => JSON.stringify({ okState: true }) };
+  };
+  try {
+    const s = await api.getState();
+    assert.ok(s && s.okState);
+    ok("nativo sem base usa a produção embutida (app funciona de fábrica)");
+  } finally {
+    globalThis.fetch = realFetch;
+  }
 })();
 
 // 2) Resposta NÃO-JSON (HTML do próprio app) => erro tratado, sem crash de parse.
@@ -70,14 +80,23 @@ await (async () => {
   ok("normaliza base (IP local em http; dominio publico em https; sem /api e barra final)");
 })();
 
-// 5) testServer com base vazia no nativo => mensagem pedindo o endereço (não quebra).
+// 5) testServer com base vazia no nativo => testa a PRODUÇÃO embutida (FASE 6).
 await (async () => {
   setNativeMode(true);
   setApiBase("");
-  const r = await testServer("");
-  assert.strictEqual(r.ok, false);
-  assert.ok(/Informe o endereço/.test(r.message));
-  ok("testServer sem base devolve aviso tratado");
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    assert.ok(String(url).startsWith("https://b3agente-production.up.railway.app/api/health"));
+    return { ok: true, status: 200, text: async () => JSON.stringify({ ok: true }) };
+  };
+  try {
+    const r = await testServer("");
+    assert.strictEqual(r.ok, true);
+    ok("testServer sem base testa a produção embutida");
+  } finally {
+    globalThis.fetch = realFetch;
+    setNativeMode(false); setApiBase("");
+  }
 })();
 
 // 6) Erro HTTP estruturado da IA => mensagem útil com ação, provedor/modelo e servidor.

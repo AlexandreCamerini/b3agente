@@ -10,7 +10,17 @@ const TIMEOUT_LLM = 90000; // análise/teste da IA demoram
 // Mensagem única para o problema de endereçamento do backend no mobile.
 const ADDR_HINT = "Configure o endereço do servidor em Perfil → Conta & preferências (ex.: http://SEU_IP:8787) e toque em Testar conexão.";
 
-export function setNativeMode(on) { nativeMode = !!on; }
+// FASE 6 (fix 1): URL de PRODUÇÃO embutida como padrão do app NATIVO. Antes,
+// sem VITE_API_BASE no build, o iPhone nascia sem endereço — login e tudo o
+// mais falhava até o usuário digitar o servidor (e redigitar quando o campo
+// se perdia entre escopos). Agora: campo vazio => produção; o campo manual
+// vira APENAS override de desenvolvimento (Mac na rede local).
+export const PROD_BASE = "https://b3agente-production.up.railway.app";
+
+export function setNativeMode(on) {
+  nativeMode = !!on;
+  if (nativeMode && !runtimeBase) runtimeBase = PROD_BASE; // padrão imediato no boot
+}
 
 // FASE 2 (auth): token de sessão em memória. A PERSISTÊNCIA do token é
 // responsabilidade da camada acima (sync.js/persistence.js, via localStorage);
@@ -72,7 +82,9 @@ export function describeRuntimeConfig() {
 
 
 export function setApiBase(url) {
-  runtimeBase = normBase(url) || BUILD_BASE;
+  // Prioridade: override manual > VITE_API_BASE do build > produção (nativo).
+  // No web, vazio segue "mesma origem" (o backend serve o próprio app).
+  runtimeBase = normBase(url) || BUILD_BASE || (nativeMode ? PROD_BASE : "");
 }
 export function getApiBase() {
   return runtimeBase || "(mesma origem)";

@@ -1,100 +1,91 @@
 # ATUALIZAR — Git · Railway · iOS
-## Entrega FASE 5 "Lançamento": correções (watchlist do Radar + push), login blindado, observabilidade e cache persistente
-*07/07/2026 · detalhes técnicos em `qa/18-fase5-lancamento.md`*
+## Entrega FASE 6: servidor fixo (login de fábrica) + 4 correções + proposta do Modo Operador
+*08/07/2026 · detalhes técnicos em `qa/19-fase6-correcoes.md`*
 
 ## O que mudou nesta entrega
 
-1. **"+ Watchlist" do Radar CORRIGIDO:** o botão dizia "adicionado ✓" mas o
-   ativo nunca entrava quando estava fora do catálogo de 20 tickers (o Radar
-   varre ~74). `addToWatchlist` e a ponte `openAvaliar` agora usam
-   `addWatchlistTicker` (valida e registra em `custom` nos dois stores) e
-   CONFEREM se o ticker entrou. Guardião: `web/tests/test_radar_watchlist.mjs`.
-2. **Push (APNs) CORRIGIDO na raiz:** o `AppDelegate.swift` não repassava o
-   registro do APNs ao Capacitor — o "Ativar push das ações" SEMPRE caía no
-   timeout de 15s, com tudo certo no portal. Adicionados os dois callbacks
-   (`didRegister/didFail...RemoteNotifications`) + `PushNotifications.
-   presentationOptions` no capacitor.config (banner com o app aberto).
-   Guardião: `web/tests/test_push_wiring.mjs`. **Exige recompilar no Xcode.**
-3. **Login pronto para o lançamento:** rate-limit de força bruta nas 3 rotas
-   de auth (10 falhas/15 min por ip+e-mail; sucesso zera; ajustes
-   `B3_AUTH_RL_MAX`/`B3_AUTH_RL_WINDOW_S`), teto de 128 caracteres na senha
-   (anti-DoS do PBKDF2) e purga automática de sessões expiradas (boot + 24h).
-   E-mail/senha, Apple e Google seguem como estavam (código do social pronto;
-   ativação é a Parte A–D do `LOGIN-SOCIAL.md`).
-4. **Observabilidade com logs detalhados:** novo `server/app/obslog.py` — toda
-   request de API (rota, status, duração, ip), lentidões (>2s), erros 5xx e
-   eventos de auth entram num log estruturado no stdout (Railway) E num ring
-   buffer consultável em `GET /api/obs/logs`. A tela Perfil → Observabilidade
-   ganhou a seção "Logs do servidor" com filtros (tudo / lentos+erros / só
-   erros). Acesso restrito: `B3_ADMIN_EMAILS` no Railway, ou (sem a env) só a
-   PRIMEIRA conta criada.
-5. **Fim da lentidão pós-deploy (cache persistente):** o cache de candles
-   ganhou um segundo nível em SQLite (tabela `candle_cache`, no volume
-   `/data`). Redeploy do Railway reidrata a série e busca só o DELTA recente —
-   antes, cada deploy rebaixava 2 anos × 74 ativos do Yahoo (a "demora para
-   atualizar"). Testes novos em `test_candle_cache.py` (incl. reboot e
-   corrupção); de quebra, 3 testes antigos que não rodavam no modo offline
-   voltaram ao portão.
-6. **Operação em um comando:** novo `operar.sh` na raiz —
-   `status | testes | backup | deploy "msg" | ajuda`. Guia completo para
-   não-desenvolvedor em `GUIA-OPERACAO.md`.
+1. **Servidor FIXO (fix 1):** o app nativo agora nasce apontado para a
+   produção do Railway — login, cotações e IA funcionam de fábrica, sem
+   digitar servidor. O campo da Config virou "override de desenvolvimento"
+   (vazio = produção) e vale para o aparelho inteiro (não se perde mais ao
+   entrar/sair da conta).
+2. **"Aprofundar com IA" legível (fix 2):** leitura truncada do modelo não
+   vira mais texto quebrado — o app recupera o resumo, avisa que veio
+   incompleta e oferece rodar de novo; resumo agora renderiza títulos, listas
+   e parágrafos.
+3. **"Ativar no servidor" funcionando (fix 3):** no iPhone o toggle do
+   Operador nunca chegava ao backend (parâmetro descartado no store local) e a
+   UI fingia sucesso. Agora é chamada confirmada: liga de verdade ou mostra o
+   motivo exato.
+4. **Central única de notificações (fix 4):** tudo em Perfil → Conta &
+   preferências: permissão do sistema (com **Abrir Ajustes** quando o iOS já
+   negou — ele só pergunta uma vez), avisos locais, push do servidor (ativar
+   aparelho + testar) e diagnóstico. O Operador IA ganhou um atalho para lá.
+   *Dependência nova: `@capacitor/app-launcher`.*
+5. **Push — BadEnvironmentKeyInToken (fix 5):** o servidor agora traduz cada
+   rejeição da Apple em instrução exata (esse reason = chave .p8 restrita a um
+   ambiente ≠ do host em uso) e só descarta token quando o problema é do
+   token. **Tem passo manual seu — item 3 abaixo.**
+6. **Modo Operador (item 6 — GATE):** proposta em `PROPOSTA-MODO-OPERADOR.md`
+   + mock em `qa/mocks/modo-operador.html`. Nada implementado — aguarda seu OK.
 
-## 1) Validação local (antes de subir)
+## 1) Validação local
 
 ```bash
-bash operar.sh testes    # 16 suítes backend + 14 suítes web devem passar
+cd web && npm install && cd ..     # dependência nova (app-launcher)
+bash operar.sh testes              # 17 suítes backend + 17 web
 ```
 
 ## 2) Git + Railway
 
 ```bash
-bash operar.sh deploy "FASE 5: watchlist do radar + push APNs + login blindado + observabilidade + cache persistente"
+bash operar.sh deploy "FASE 6: servidor fixo + leitura IA + operador servidor + central de notificações + reasons APNs"
 ```
 
-Variables (conferir no Railway):
-- `B3_DB_PATH=/data/b3_agente.db` (volume persistente — OBRIGATÓRIO; o cache
-  novo também vive aí)
-- **novo (recomendado)** `B3_ADMIN_EMAILS=seu-email@...` — quem vê os "Logs do
-  servidor" no app (sem a env, só a 1ª conta criada vê)
-- (opcionais) `B3_AUTH_RL_MAX=10` · `B3_AUTH_RL_WINDOW_S=900`
-- APNs (como antes): `APNS_TOPIC=com.alexandrecamerini.bolsia`,
-  `APNS_TEAM_ID`, `APNS_KEY_ID`, `APNS_AUTH_KEY`, `APNS_SANDBOX=1` (builds do
-  Xcode; remover no TestFlight)
+Variables (Railway): sem mudanças obrigatórias nesta entrega. Confira
+`B3_ADMIN_EMAILS` (logs) e as APNs do item 3.
 
-## 3) iOS — recompilar (necessário pelo item 2)
+## 3) APNs — passo MANUAL (resolve o BadEnvironmentKeyInToken)
+
+1. Portal Apple → Certificates, Identifiers & Profiles → **Keys** → sua chave
+   APNs → confira o **Environment**. Se estiver restrita (só Development ou só
+   Production), crie uma nova com **"Sandbox & Production"**, baixe o `.p8` e
+   atualize `APNS_AUTH_KEY` + `APNS_KEY_ID` no Railway.
+2. Regra do ambiente: build instalado pelo **Xcode** → `APNS_SANDBOX=1`;
+   **TestFlight/App Store** → REMOVER a variável.
+3. Depois do ajuste: app → central de notificações → "Testar push" — se ainda
+   falhar, a mensagem agora diz exatamente o quê corrigir.
+
+## 4) iOS — recompilar (exigido pelos fixes 1 e 4)
 
 ```bash
-cd web && npm run ios     # vite build + cap sync + abre o Xcode
+cd web && npm run ios     # build + cap sync (pega o app-launcher) + Xcode
 ```
 
-No Xcode: conferir **Push Notifications** em Signing & Capabilities →
-Product → Clean Build Folder → instalar no iPhone.
+Xcode: Product → Clean Build Folder → instalar no iPhone.
 
-## 4) HARD STOP — roteiro de teste no aparelho
+## 5) HARD STOP — roteiro de teste no aparelho
 
-1. **Watchlist via Radar:** Radar → um ativo FORA do catálogo (ex.: MGLU3,
-   GGBR4, CSNA3) → "+ Watchlist" → toast "✓" → abrir a aba Watchlist e
-   CONFERIR que o ativo está lá, com cotação. Repetir com "Levar para a
-   watchlist →" no destaque do Acompanhar.
-2. **Push:** aba Operador IA → "Ativar push das ações" → deve concluir SEM o
-   erro de tempo esgotado (aparece "push ativo ✓" ou o motivo exato). Depois
-   Perfil → Observabilidade → "Testar push agora" com o app em segundo plano
-   → banner deve chegar.
-3. **Notificações locais (regressão):** Config → ligar notificações → "Testar
-   notificação" (app em segundo plano) → banner em ~5s.
-4. **Login:** sair e entrar de novo (e-mail/senha). Errar a senha 10+ vezes →
-   mensagem "Muitas tentativas... aguarde"; acertar depois do intervalo →
-   entra normalmente.
-5. **Logs do servidor:** Perfil → Observabilidade → seção "LOGS DO SERVIDOR"
-   deve listar as requests que você acabou de fazer (com duração). Filtro
-   "só erros" deve esvaziar (ou mostrar apenas erros reais).
-6. **Velocidade pós-deploy:** logo após o redeploy, abrir o Radar — o
-   resultado deve vir em segundos (reidratado do cache persistente), não em
-   minutos.
+1. **Servidor/login:** apague o app, instale o build novo, abra SEM configurar
+   nada → a Config deve mostrar "em uso agora: https://b3agente-production…" e
+   o login por e-mail deve funcionar direto. Feche e reabra o app 2×: nada de
+   recadastrar servidor.
+2. **Leitura IA:** Radar → "Aprofundar com IA" em 2–3 ativos → texto com
+   parágrafos/listas legíveis; se aparecer o aviso de leitura incompleta,
+   rodar de novo deve completar.
+3. **Operador no servidor:** aba Operador IA → "Ativar no servidor" → deve
+   confirmar "ATIVADO ✓" e o status refletir; desligue e ligue de novo. Sem
+   conta, deve pedir login com mensagem clara (não fingir sucesso).
+4. **Central de notificações:** Perfil → Conta & preferências → central única.
+   (a) permissão: se negada, botão "Abrir Ajustes →" leva direto ao app nos
+   Ajustes; (b) "Testar agendada (30s)" com app fechado → banner chega;
+   (c) "Ativar push neste aparelho" → "push ativo ✓"; (d) "Testar push" com o
+   app em segundo plano → banner chega.
+5. **APNs reason:** se o teste de push falhar, o Diário/central deve mostrar o
+   reason + instrução exata (não mais o erro seco).
+6. **Modo Operador:** abrir `qa/mocks/modo-operador.html` no navegador, revisar
+   as 4 telas e a `PROPOSTA-MODO-OPERADOR.md` → me devolver OK/ajustes para eu
+   iniciar a F7.1.
 
-Qualquer item falhando: copie a linha correspondente dos "Logs do servidor"
-(ou do Diário) que eu sigo o diagnóstico.
-
-## Próximo bloco (após o hard stop)
-Submissão App Store (`qa/17-auditoria-appstore.md`) + ativação do login social
-(`LOGIN-SOCIAL.md`, Partes A–D).
+Qualquer item falhando: copie a linha dos "Logs do servidor" (Observabilidade)
+ou do Diário que eu sigo o diagnóstico.
