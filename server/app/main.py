@@ -305,7 +305,7 @@ async def obs_logs(n: int = 200, level: Optional[str] = None, cat: Optional[str]
 
 # FASE 8B (diagnóstico): carimbo de build do BACKEND — confirma qual código o
 # Railway está rodando (o front tem o dele em web/src/version.js).
-SERVER_BUILD_ID = "F8B-20260708-1"
+SERVER_BUILD_ID = "F8B-20260709-2"
 
 
 @app.get("/api/health")
@@ -755,13 +755,20 @@ async def carteira_stopalvo(ticker: str, body: dict = Body(default={}), scope: O
     if len(t) < 4:
         raise HTTPException(400, "Ticker invalido.")
     config = (body or {}).get("config") or store.get(_conn, "config", user_id=scope)
+    modo = (config or {}).get("appMode")  # FASE 8B (N4): antes do managed recriar a config
     config, _consume_ai = _ai_apply_managed(scope, config)
     profile = (body or {}).get("profile") or store.get(_conn, "profile", user_id=scope)
     account = (body or {}).get("account") or {
         "cash": store.get(_conn, "cash", user_id=scope),
         "budget": (store.get(_conn, "config", user_id=scope) or {}).get("initialBudget"),
     }
-    prompt = (body or {}).get("prompt") or (store.get(_conn, "llmPrompts", user_id=scope) or {}).get("carteiraStopAlvo") or ""
+    # FASE 8B (N4): a coleção de prompts tem UMA versão por modo — professor
+    # (carteiraStopAlvo) × mesa (carteiraStopAlvoOperador). O cliente pode
+    # mandar o prompt explícito; sem ele, escolhemos pelo modo do escopo, com
+    # fallback no educacional (contas antigas sem backfill).
+    _lp = store.get(_conn, "llmPrompts", user_id=scope) or {}
+    _key_prompt = "carteiraStopAlvoOperador" if modo == "operador" else "carteiraStopAlvo"
+    prompt = (body or {}).get("prompt") or _lp.get(_key_prompt) or _lp.get("carteiraStopAlvo") or ""
     try:
         quote = await yahoo.get_quote(t)
     except Exception:

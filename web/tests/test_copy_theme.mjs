@@ -64,5 +64,25 @@ ok("N3 ganha a camada de mesa no modo operador", llmPy.includes("is_operador(con
 ok("inputs com 16px (sem zoom automático do Safari)", app.includes("font-size:16px"));
 ok("sem flash cinza de toque do iOS", app.includes("-webkit-tap-highlight-color: transparent"));
 
+// ---- FASE 8B (N1–N5): identidade COMPLETA e que não se perde -----------------
+// N1: gráficos/canvas também trocam de identidade (usePalette mescla o modo)
+ok("ThemeCtx carrega tema + modo", app.includes('ThemeCtx.Provider value={{ key: themeKey, mode: appMode }}'));
+ok("usePalette mescla o override do modo (gráficos verdes na mesa)", app.includes("...base, ...(MODE_OPERADOR[key] || {})"));
+// N2: iOS local-first — estado do servidor NUNCA sobrescreve o doc do aparelho
+ok("boot (auth.me) não sobrescreve o doc local no nativo", app.includes("if (isNative) await loadState();"));
+ok("login/register/oauth preservam o doc local no nativo", (app.match(/if \(!isNative && r && r\.state\) setData\(r\.state\); else await loadState\(\);/g) || []).length === 3);
+// N2: trocar de modo aterrissa na tela inicial com a identidade nova
+ok("troca de modo navega para a home", (app.match(/A\.go\("evolucao"\)/g) || []).length >= 2);
+// N4: prompts LLM por modo (professor × mesa), com fallback
+ok("copy: prompt do stop/alvo escolhido pelo modo", app.includes("lp.carteiraStopAlvoOperador || lp.carteiraStopAlvo"));
+ok("defaults do cliente têm o prompt da mesa", readFileSync(join(here, "..", "src", "catalog.js"), "utf8").includes("carteiraStopAlvoOperador"));
+ok("defaults do servidor têm o prompt da mesa", readFileSync(join(here, "..", "..", "server", "app", "defaults.py"), "utf8").includes("carteiraStopAlvoOperador"));
+ok("rota escolhe o prompt pelo modo com fallback", mainPy.includes('"carteiraStopAlvoOperador" if modo == "operador" else "carteiraStopAlvo"'));
+ok("UI de prompts rotula os dois modos", app.includes("Stop/alvo · Modo Operador (mesa)"));
+// N5: superfícies secundárias na voz do modo
+for (const k of ["cp.kickerSetups", "cp.btnLevarWatchlist", "cp.btnVerWatchlist", "cp.tituloLeituraIA(t)", "ctx.cp.confirmarCompra", "ctx.cp.confirmarVenda"]) {
+  ok("superfície usa " + k, app.includes(k));
+}
+
 console.log(fails ? `\n${fails} falha(s)` : "\ntodos os testes passaram");
 process.exit(fails ? 1 : 0);

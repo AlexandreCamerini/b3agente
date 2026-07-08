@@ -1,6 +1,23 @@
 # ATUALIZAR — Git · Railway · iOS
-## Entrega FASES 6 + 7.1 + 8A: correções de plataforma + Modo Operador + gate "Dois apps em um"
-*08/07/2026 · detalhes em `qa/19`, `qa/20` e `qa/21-fase8-plataforma-doisapps.md`*
+## Entrega FASE 8B FINAL: identidade redesenhada (build F8B-20260709-2)
+*09/07/2026 · detalhes em `qa/24-fase8b-identidade-refatorada.md` (e qa/19–23)*
+
+> **O que esta entrega corrige (seus 3 relatos + 1 pedido):**
+> 1. **Identidade parcial** — os GRÁFICOS não trocavam de cor (liam a paleta
+>    crua) e várias superfícies estavam fora do dicionário; agora TUDO troca.
+> 2. **Identidade que se perdia** — no iPhone, o estado do SERVIDOR
+>    sobrescrevia o do aparelho a cada boot/login (violava o local-first);
+>    corrigido na raiz: no nativo, o aparelho é sempre a fonte da verdade.
+> 3. **Sem tela inicial** — trocar de modo agora aterrissa na HOME com a
+>    identidade nova inteira.
+> 4. **Login unificado** — um único formulário (AuthForm) no Welcome e no
+>    modal da conta.
+> 5. **Prompts LLM por modo** — stop/alvo agora tem versão professor E versão
+>    mesa, editáveis separadamente no Perfil; backfill automático.
+>
+> **Roteiro:** `bash operar.sh deploy "F8B final"` → `cd web && npm run ios` →
+> Clean Build Folder → reinstalar → conferir `build F8B-20260709-2` no rodapé
+> do Perfil → hard stop do qa/24 (5 itens).
 
 > **FASE 8 — Parte A incluída nesta entrega:**
 > **A1 · Notificações locais (solução final):** a causa real era a opção

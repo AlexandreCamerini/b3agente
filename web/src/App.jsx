@@ -78,9 +78,22 @@ const MODE_OPERADOR = {
 const modeVarBlock = (name) => Object.entries(MODE_OPERADOR[name]).map(([k, v]) => `${VARKEY(k)}:${v}`).join(";");
 const THEME_CSS = `.b3-theme-dark{${themeVarBlock("dark")}} .b3-theme-light{${themeVarBlock("light")}}`
   + ` .b3-mode-operador.b3-theme-dark{${modeVarBlock("dark")}} .b3-mode-operador.b3-theme-light{${modeVarBlock("light")}}`;
-const ThemeCtx = createContext("dark");
-const useThemeKey = () => useContext(ThemeCtx);
-const usePalette = () => PALETTE[useContext(ThemeCtx)] || PALETTE.dark;
+// FASE 8B (N1 — fix da identidade parcial): o contexto carrega TEMA + MODO.
+// Gráficos/canvas não resolvem var(--x) — liam PALETTE crua e ficavam AZUIS
+// no Modo Operador enquanto o resto da UI ficava verde. usePalette agora
+// mescla o override do modo: identidade completa em TODAS as superfícies.
+const ThemeCtx = createContext({ key: "dark", mode: "estudo" });
+const useThemeKey = () => {
+  const v = useContext(ThemeCtx);
+  return typeof v === "string" ? v : (v && v.key) || "dark";
+};
+const usePalette = () => {
+  const v = useContext(ThemeCtx);
+  const key = typeof v === "string" ? v : (v && v.key) || "dark";
+  const mode = typeof v === "string" ? "estudo" : (v && v.mode) || "estudo";
+  const base = PALETTE[key] || PALETTE.dark;
+  return mode === "operador" ? { ...base, ...(MODE_OPERADOR[key] || {}) } : base;
+};
 
 // Logo do app: "mesa de operações" — candles âmbar sobre fundo escuro, com uma
 // fita (ticker tape). Mantém o fundo escuro nos dois temas (identidade de ícone).
@@ -330,12 +343,55 @@ function SocialAuthButtons({ ctx }) {
     </div>
   );
 }
-function AuthModal({ ctx, onClose }) {
-  const user = (ctx && ctx.authUser) || null;
-  const [mode, setMode] = useState("login");   // login | register
-  const [email, setEmail] = useState((user && user.email) || "");
+// FASE 8B (N3) — FORMULÁRIO ÚNICO de login/registro. Antes existiam DOIS
+// (Welcome e AuthModal) com estados, textos e comportamentos que divergiam.
+// Fonte única: social + e-mail/senha + alternância entrar/criar + erro;
+// pré-preenche o último e-mail e persiste no sucesso. Quem embala (tela cheia
+// ou modal) só fornece o entorno e o onDone.
+function AuthForm({ ctx, onDone }) {
+  const lastEmail = loadLastEmail();
+  const [mode, setMode] = useState(lastEmail ? "login" : "register");
+  const [email, setEmail] = useState(lastEmail);
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const submit = async () => {
+    setErr(""); setBusy(true);
+    try {
+      if (mode === "register") await ctx.register({ email, password, name });
+      else await ctx.login({ email, password });
+      saveLastEmail(email); // BLOCO D
+      onDone && onDone();
+    } catch (e) { setErr((e && e.message) || String(e)); }
+    finally { setBusy(false); }
+  };
+  return (
+    <div>
+      <SocialAuthButtons ctx={ctx} />
+      {mode === "register" && (
+        <>
+          <label style={{ display: "block", fontSize: "12px", color: T.textMuted, marginBottom: "6px" }}>Nome (opcional)</label>
+          <input value={name} onChange={(e) => setName(e.target.value)} maxLength={40} placeholder="Seu nome" style={{ ...field, marginBottom: "12px" }} />
+        </>
+      )}
+      <label style={{ display: "block", fontSize: "12px", color: T.textMuted, marginBottom: "6px" }}>E-mail</label>
+      <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" name="email" autoComplete="username" autoCapitalize="none" autoCorrect="off" placeholder="voce@exemplo.com" style={{ ...field, marginBottom: "12px" }} />
+      <label style={{ display: "block", fontSize: "12px", color: T.textMuted, marginBottom: "6px" }}>Senha</label>
+      <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" name="password" autoComplete={mode === "register" ? "new-password" : "current-password"} placeholder="ao menos 8 caracteres" style={{ ...field, marginBottom: "18px" }} />
+      <button disabled={busy || !email || !password} onClick={submit} style={{ width: "100%", minHeight: "48px", padding: "13px", borderRadius: "10px", border: "none", background: T.accent, color: T.onAccent, fontWeight: 800, fontSize: "15px", opacity: (busy || !email || !password) ? 0.6 : 1 }}>
+        {busy ? "…" : (mode === "login" ? "Entrar" : "Criar conta")}
+      </button>
+      <button onClick={() => { setErr(""); setMode(mode === "login" ? "register" : "login"); }} style={{ width: "100%", marginTop: "12px", padding: "6px", background: "transparent", border: "none", color: T.accent, fontWeight: 600, fontSize: "13px" }}>
+        {mode === "login" ? "Não tem conta? Criar uma" : "Já tem conta? Entrar"}
+      </button>
+      {err && <p style={{ color: T.negative, fontSize: "12.5px", lineHeight: 1.5, margin: "12px 0 0", whiteSpace: "pre-wrap" }}>{err}</p>}
+    </div>
+  );
+}
+
+function AuthModal({ ctx, onClose }) {
+  const user = (ctx && ctx.authUser) || null;
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [confirmDel, setConfirmDel] = useState(false);
@@ -352,7 +408,7 @@ function AuthModal({ ctx, onClose }) {
       <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: "420px", ...card, padding: "24px", maxHeight: "90vh", overflowY: "auto" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "14px" }}>
           <LogoMark size={30} />
-          <div style={{ fontSize: "17px", fontWeight: 800 }}>{user ? "Sua conta" : (mode === "login" ? "Entrar" : "Criar conta")}</div>
+          <div style={{ fontSize: "17px", fontWeight: 800 }}>{user ? "Sua conta" : "Entrar ou criar conta"}</div>
         </div>
         {children}
         {err && <p style={{ color: T.negative, fontSize: "12.5px", lineHeight: 1.5, margin: "12px 0 0", whiteSpace: "pre-wrap" }}>{err}</p>}
@@ -398,34 +454,13 @@ function AuthModal({ ctx, onClose }) {
     );
   }
 
-  const submit = () => run(async () => {
-    if (mode === "register") await ctx.register({ email, password, name });
-    else await ctx.login({ email, password });
-    saveLastEmail(email); // BLOCO D
-  });
-
+  // FASE 8B (N3): sem conta, o modal usa o MESMO formulário do Welcome.
   return wrap(
     <div>
       <p style={{ color: T.textMuted, fontSize: "12.5px", lineHeight: 1.6, margin: "0 0 16px" }}>
         Criar conta é <b>opcional</b> — o app funciona sem login. Com conta, sua carteira fica salva e acompanha você entre aparelhos.
       </p>
-      <SocialAuthButtons ctx={ctx} />
-      {mode === "register" && (
-        <>
-          <label style={{ display: "block", fontSize: "12px", color: T.textMuted, marginBottom: "6px" }}>Nome (opcional)</label>
-          <input value={name} onChange={(e) => setName(e.target.value)} maxLength={40} placeholder="Seu nome" style={{ ...field, marginBottom: "12px" }} />
-        </>
-      )}
-      <label style={{ display: "block", fontSize: "12px", color: T.textMuted, marginBottom: "6px" }}>E-mail</label>
-      <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" name="email" autoComplete="username" autoCapitalize="none" autoCorrect="off" placeholder="voce@exemplo.com" style={{ ...field, marginBottom: "12px" }} />
-      <label style={{ display: "block", fontSize: "12px", color: T.textMuted, marginBottom: "6px" }}>Senha</label>
-      <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" name="password" autoComplete={mode === "register" ? "new-password" : "current-password"} placeholder="ao menos 8 caracteres" style={{ ...field, marginBottom: "18px" }} />
-      <button disabled={busy || !email || !password} onClick={submit} style={{ width: "100%", padding: "13px", borderRadius: "10px", border: "none", background: T.accent, color: T.onAccent, fontWeight: 800, fontSize: "15px", opacity: (busy || !email || !password) ? 0.6 : 1 }}>
-        {busy ? "…" : (mode === "login" ? "Entrar" : "Criar conta")}
-      </button>
-      <button onClick={() => { setErr(""); setMode(mode === "login" ? "register" : "login"); }} style={{ width: "100%", marginTop: "12px", padding: "6px", background: "transparent", border: "none", color: T.accent, fontWeight: 600, fontSize: "13px" }}>
-        {mode === "login" ? "Não tem conta? Criar uma" : "Já tem conta? Entrar"}
-      </button>
+      <AuthForm ctx={ctx} onDone={onClose} />
     </div>
   );
 }
@@ -436,31 +471,15 @@ function AuthModal({ ctx, onClose }) {
 // Self-contained e undefined-safe — não acessa campos de `data`.
 function WelcomeAuthScreen({ ctx, onAuthed, onSkip }) {
   // BLOCO D: quem já usou entra pré-preenchido — e-mail lembrado + modo login.
-  const lastEmail = loadLastEmail();
-  const [mode, setMode] = useState(lastEmail ? "login" : "register");
-  const [email, setEmail] = useState(lastEmail);
-  const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState("");
   // BLOCO 2: boot gate. Se a sessão salva já foi restaurada (auth.me), mostra
   // "Conectado como X" + Entrar. Se há token salvo mas o /auth/me ainda não
   // respondeu, mostra o formulário com um aviso de restauração — quando a
   // resposta chegar, esta tela troca sozinha para o estado conectado.
+  // FASE 8B (N3): o formulário em si agora é o AuthForm ÚNICO (mesmo do modal).
   const user = ctx.authUser;
   const restoring = !user && hasSession();
   // FASE 8B (P1): e-mail de relay da Apple não é rótulo de gente — usa o nome
   const userLabel = user ? ((user.name || "").trim() || (/@privaterelay\.appleid\.com$/i.test(user.email || "") ? "Conta Apple (e-mail oculto)" : user.email) || "sua conta") : "";
-  const submit = async () => {
-    setErr(""); setBusy(true);
-    try {
-      if (mode === "register") await ctx.register({ email, password, name });
-      else await ctx.login({ email, password });
-      saveLastEmail(email); // BLOCO D
-      onAuthed && onAuthed();
-    } catch (e) { setErr((e && e.message) || String(e)); }
-    finally { setBusy(false); }
-  };
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 85, background: T.bgBase, display: "flex", alignItems: "center", justifyContent: "center", padding: "18px", overflowY: "auto" }}>
       <div style={{ width: "100%", maxWidth: "420px", ...card, padding: "26px 24px" }}>
@@ -492,24 +511,7 @@ function WelcomeAuthScreen({ ctx, onAuthed, onSkip }) {
                 <span className="spin" style={{ display: "inline-block" }}>↻</span> Restaurando sessão salva… Se preferir, entre abaixo.
               </div>
             )}
-            <SocialAuthButtons ctx={ctx} />
-            {mode === "register" && (
-              <>
-                <label style={{ display: "block", fontSize: "12px", color: T.textMuted, marginBottom: "6px" }}>Nome (opcional)</label>
-                <input value={name} onChange={(e) => setName(e.target.value)} maxLength={40} placeholder="Seu nome" style={{ ...field, marginBottom: "12px" }} />
-              </>
-            )}
-            <label style={{ display: "block", fontSize: "12px", color: T.textMuted, marginBottom: "6px" }}>E-mail</label>
-            <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" name="email" autoComplete="username" autoCapitalize="none" autoCorrect="off" placeholder="voce@exemplo.com" style={{ ...field, marginBottom: "12px" }} />
-            <label style={{ display: "block", fontSize: "12px", color: T.textMuted, marginBottom: "6px" }}>Senha</label>
-            <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" name="password" autoComplete={mode === "register" ? "new-password" : "current-password"} placeholder="ao menos 8 caracteres" style={{ ...field, marginBottom: "18px" }} />
-            <button disabled={busy || !email || !password} onClick={submit} style={{ width: "100%", padding: "13px", borderRadius: "10px", border: "none", background: T.accent, color: T.onAccent, fontWeight: 800, fontSize: "15px", opacity: (busy || !email || !password) ? 0.6 : 1 }}>
-              {busy ? "…" : (mode === "register" ? "Criar conta" : "Entrar")}
-            </button>
-            <button onClick={() => { setErr(""); setMode(mode === "register" ? "login" : "register"); }} style={{ width: "100%", marginTop: "10px", padding: "6px", background: "transparent", border: "none", color: T.accent, fontWeight: 600, fontSize: "13px" }}>
-              {mode === "register" ? "Já tem conta? Entrar" : "Criar uma conta"}
-            </button>
-            {err && <p style={{ color: T.negative, fontSize: "12.5px", lineHeight: 1.5, margin: "12px 0 0", whiteSpace: "pre-wrap" }}>{err}</p>}
+            <AuthForm ctx={ctx} onDone={onAuthed} />
             <div style={{ marginTop: "16px", paddingTop: "14px", borderTop: `1px solid ${T.borderSubtle}`, textAlign: "center" }}>
               <button onClick={() => onSkip && onSkip()} style={{ background: "transparent", border: "none", color: T.textMuted, fontSize: "12.5px", fontWeight: 600, textDecoration: "underline", padding: "4px" }}>
                 Usar sem conta
@@ -1436,7 +1438,7 @@ function EvolucaoScreen({ ctx }) {
           )}
           {alertas.length > 0 && (
             <div style={{ marginTop: "12px", paddingTop: "10px", borderTop: `1px solid ${T.borderFaint}` }}>
-              <div style={{ fontSize: "10.5px", fontWeight: 700, color: T.textFaint, letterSpacing: "0.05em" }}>SETUPS NA SUA WATCHLIST</div>
+              <div style={{ fontSize: "10.5px", fontWeight: 700, color: T.textFaint, letterSpacing: "0.05em" }}>{cp.kickerSetups}</div>
               {alertas.slice(0, 4).map((r) => (
                 <button key={r.ticker} onClick={() => A.go("mercado")} style={{ display: "flex", width: "100%", gap: "8px", alignItems: "center", padding: "7px 0", background: "transparent", border: "none", borderTop: `1px solid ${T.borderFaint}`, fontSize: "12px", textAlign: "left" }}>
                   <span style={{ fontFamily: MONO, fontWeight: 800, color: T.textPrimary }}>{r.ticker}</span>
@@ -1470,14 +1472,14 @@ function EvolucaoScreen({ ctx }) {
               )}
               <div style={{ display: "flex", gap: "8px", marginTop: "11px" }}>
                 {destaque.deep && <button onClick={() => setDeepOpen(true)} style={{ flex: 1, minHeight: "40px", padding: "9px", borderRadius: "10px", border: `1px solid ${T.accent}`, background: T.accentTint10, color: T.accent, fontWeight: 800, fontSize: "12.5px" }}>Ver leitura completa</button>}
-                <button onClick={() => ctx.openAvaliar(it.ticker)} style={{ flex: 1, minHeight: "40px", padding: "9px", borderRadius: "10px", border: `1px solid ${T.borderSubtle}`, background: T.bgBase, color: T.textSecondary, fontWeight: 700, fontSize: "12.5px" }}>Levar para a watchlist →</button>
+                <button onClick={() => ctx.openAvaliar(it.ticker)} style={{ flex: 1, minHeight: "40px", padding: "9px", borderRadius: "10px", border: `1px solid ${T.borderSubtle}`, background: T.bgBase, color: T.textSecondary, fontWeight: 700, fontSize: "12.5px" }}>{cp.btnLevarWatchlist}</button>
               </div>
               <div style={{ fontSize: "10px", color: T.textFaint, marginTop: "9px", lineHeight: 1.5 }}>Melhor confluência do scan diário fora da sua watchlist — conteúdo educacional sobre dados passados, sem garantia de resultado e sem qualquer recomendação de investimento.</div>
             </>
           )}
         </div>
       )}
-      {deepOpen && destaque.deep && <DeepModal t={destaque.deep.ticker} d={{ res: destaque.deep.deep, cache: destaque.deep.cache }} onClose={() => setDeepOpen(false)} onAvaliar={(tk) => { setDeepOpen(false); ctx.openAvaliar(tk); }} />}
+      {deepOpen && destaque.deep && <DeepModal t={destaque.deep.ticker} d={{ res: destaque.deep.deep, cache: destaque.deep.cache }} cp={cp} onClose={() => setDeepOpen(false)} onAvaliar={(tk) => { setDeepOpen(false); ctx.openAvaliar(tk); }} />}
 
       <CapitalCurve ctx={ctx} />
 
@@ -1506,7 +1508,7 @@ function EvolucaoScreen({ ctx }) {
       {/* Atalhos */}
       <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
         <button onClick={() => A.go("carteira")} style={{ flex: "1 1 150px", minHeight: "46px", padding: "12px", borderRadius: "12px", border: "none", background: T.accent, color: T.onAccent, fontWeight: 800, fontSize: "13px" }}>Abrir Portfólio</button>
-        <button onClick={() => A.go("mercado")} style={{ flex: "1 1 150px", minHeight: "46px", padding: "12px", borderRadius: "12px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 700, fontSize: "13px" }}>Ver Watchlist</button>
+        <button onClick={() => A.go("mercado")} style={{ flex: "1 1 150px", minHeight: "46px", padding: "12px", borderRadius: "12px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 700, fontSize: "13px" }}>{cp.btnVerWatchlist}</button>
       </div>
     </div>
   );
@@ -1548,11 +1550,15 @@ function ModoTrabalhoCard({ ctx }) {
   const c = data.config || {};
   const mode = c.appMode === "operador" ? "operador" : "estudo";
   const [termoOpen, setTermoOpen] = useState(false);
-  const escolher = (m) => {
+  const escolher = async (m) => {
     if (m === mode) return;
     if (m === "operador" && !c.operadorTermo) { setTermoOpen(true); return; }
-    A.saveConfig({ appMode: m });
-    A.flash(m === "operador" ? "Modo Operador ativado — decisões diretas com plano e risco." : "Modo Estudo ativado.");
+    await A.saveConfig({ appMode: m });
+    // FASE 8B (N2): a troca de identidade LEVA À TELA INICIAL — o usuário vê
+    // o app inteiro na identidade nova (tema, chip, saudação, abas), em vez
+    // de continuar parado no Perfil sem perceber a mudança.
+    A.go("evolucao");
+    A.flash(m === "operador" ? "Modo Operador ativado — mesa aberta." : "Modo Estudo ativado — bons estudos.");
   };
   const segBtn = (on) => ({ flex: 1, border: "none", borderRadius: "9px", padding: "10px", fontWeight: 800, fontSize: "13px", background: on ? T.accent : "transparent", color: on ? T.onAccent : T.textMuted });
   return (
@@ -1600,8 +1606,9 @@ function TermoOperadorModal({ ctx, onClose }) {
     try {
       // termo PRIMEIRO (mesmo patch): os stores só aceitam "operador" com ele
       await A.saveConfig({ operadorTermo: { aceitoEm: new Date().toISOString(), versao: TERMO_OPERADOR_VERSAO }, appMode: "operador" });
-      A.flash("Modo Operador ativado — decisões diretas com plano e risco.");
       onClose();
+      A.go("evolucao"); // FASE 8B (N2): aterrissa na home com a identidade nova
+      A.flash("Modo Operador ativado — mesa aberta.");
     } catch (e) { A.flash("Erro ao ativar: " + (e.message || e)); }
     finally { setBusy(false); }
   };
@@ -2541,8 +2548,13 @@ function NotifSection({ ctx }) {
 // futuro) aparecem com o próprio nome — a interface não precisa mudar.
 const PROMPT_META = {
   carteiraStopAlvo: {
-    label: "Prompt — Análise de carteira (stop/alvo)",
-    hint: "Usado na Carteira (Fase 3) para a IA propor stop e alvo por perfil. Mantenha o enquadramento educacional: sugestão por perfil, nunca recomendação de compra ou venda.",
+    label: "Prompt — Stop/alvo · Modo Estudo (professor)",
+    hint: "Usado no popup de stop/alvo quando o app está no Modo Estudo. Mantenha o enquadramento educacional: sugestão por perfil, nunca recomendação de compra ou venda.",
+  },
+  // FASE 8B (N4): cada modo tem o seu prompt — edite os dois separadamente.
+  carteiraStopAlvoOperador: {
+    label: "Prompt — Stop/alvo · Modo Operador (mesa)",
+    hint: "Usado no popup de stop/alvo quando o app está no Modo Operador. Voz de mesa: stop na invalidação técnica, R:R mínimo de 1,5:1, execução sempre do usuário. O guardrail de mesa é aplicado por cima automaticamente.",
   },
 };
 
@@ -3047,7 +3059,7 @@ function RadarScreen({ ctx }) {
         {/* FASE 7 (F7.1): no Modo Operador vale o aviso da persona (risco real) */}
         <div style={{ fontSize: "11.5px", color: T.accent, lineHeight: 1.55 }}>{(data.config && data.config.appMode) === "operador" ? DISCLAIMERS.operador : DISCLAIMERS.radar}</div>
       </div>
-      {deepFor && <DeepModal t={deepFor} d={deep[deepFor] || {}} onClose={() => setDeepFor(null)} onAvaliar={() => { const t = deepFor; setDeepFor(null); ctx.openAvaliar(t); }} />}
+      {deepFor && <DeepModal t={deepFor} d={deep[deepFor] || {}} cp={cp} onClose={() => setDeepFor(null)} onAvaliar={() => { const t = deepFor; setDeepFor(null); ctx.openAvaliar(t); }} />}
     </div>
   );
 }
@@ -3125,7 +3137,7 @@ function Fold({ title, count, children, open0 }) {
   );
 }
 
-function DeepModal({ t, d, onClose, onAvaliar }) {
+function DeepModal({ t, d, onClose, onAvaliar, cp }) {
   const [showModels, setShowModels] = useState(false);
   const r = d.res || {};
   const cen = r.cenarios || {};
@@ -3134,7 +3146,7 @@ function DeepModal({ t, d, onClose, onAvaliar }) {
       <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: "520px", maxHeight: "86vh", display: "flex", flexDirection: "column", overflow: "hidden", ...card, borderRadius: "14px" }}>
         <div style={{ padding: "15px 18px", borderBottom: `1px solid ${T.borderSubtle}`, flexShrink: 0 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
-            <div style={{ fontSize: "16px", fontWeight: 800, fontFamily: MONO }}>{t} · leitura da IA</div>
+            <div style={{ fontSize: "16px", fontWeight: 800, fontFamily: MONO }}>{cp ? cp.tituloLeituraIA(t) : t + " · leitura da IA"}</div>
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               {r.planoEstudo && <span style={{ padding: "4px 10px", borderRadius: "999px", background: T.accentTint, color: T.accent, fontSize: "11px", fontWeight: 800 }}>{r.planoEstudo}</span>}
               {/* FASE 4 (1.4): fechar SEMPRE visível — o rodapé pode sair da tela em leituras longas */}
@@ -3675,7 +3687,7 @@ function BuyModal({ ctx }) {
         <div style={{ fontSize: "11px", color: T.textFaint, marginTop: "8px" }}>O preço final é o da cotação no momento da confirmação (servidor).</div>
         <div style={{ display: "flex", gap: "8px", marginTop: "16px" }}>
           <button onClick={A.closeBuy} style={{ flex: 1, padding: "11px", borderRadius: "9px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 600, fontSize: "14px" }}>Cancelar</button>
-          <button onClick={A.confirmBuy} disabled={!ok} style={{ flex: 1.4, padding: "11px", borderRadius: "9px", border: `1px solid ${ok ? T.positive : T.borderSubtle}`, background: ok ? T.positive : T.knob, color: ok ? T.confirmOkText : T.textFaint, fontWeight: 800, fontSize: "14px" }}>Confirmar compra</button>
+          <button onClick={A.confirmBuy} disabled={!ok} style={{ flex: 1.4, padding: "11px", borderRadius: "9px", border: `1px solid ${ok ? T.positive : T.borderSubtle}`, background: ok ? T.positive : T.knob, color: ok ? T.confirmOkText : T.textFaint, fontWeight: 800, fontSize: "14px" }}>{ctx.cp.confirmarCompra}</button>
         </div>
       </div>
     </div>
@@ -3732,7 +3744,7 @@ function SellModal({ ctx }) {
         <div style={{ fontSize: "11px", color: T.textFaint, marginTop: "6px" }}>O preço final é o da cotação no momento da confirmação (servidor). Registro vai para o histórico do ativo.</div>
         <div style={{ display: "flex", gap: "8px", marginTop: "16px" }}>
           <button onClick={A.closeSell} style={{ flex: 1, padding: "11px", borderRadius: "9px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 600, fontSize: "14px" }}>Cancelar</button>
-          <button onClick={A.confirmSell} style={{ flex: 1.4, padding: "11px", borderRadius: "9px", border: `1px solid ${T.negative}`, background: T.negativeTint10, color: T.negative, fontWeight: 800, fontSize: "14px" }}>Confirmar venda{total ? " total" : " de " + qty}</button>
+          <button onClick={A.confirmSell} style={{ flex: 1.4, padding: "11px", borderRadius: "9px", border: `1px solid ${T.negative}`, background: T.negativeTint10, color: T.negative, fontWeight: 800, fontSize: "14px" }}>{ctx.cp.confirmarVenda}{total ? " total" : " de " + qty}</button>
         </div>
       </div>
     </div>
@@ -4045,7 +4057,13 @@ export default function App() {
         const r = await auth.me();
         if (alive && r && r.user) {
           setAuthUser(r.user);
-          if (r.state) setData(r.state);
+          // FASE 8B (N2 — fix "identidade se perde"): no iOS o APARELHO é a
+          // fonte da verdade (local-first). O estado do SERVIDOR sobrescrevia
+          // o doc local — appMode/termo/risco voltavam ao padrão a cada boot
+          // ou login. Nativo: SEMPRE recarrega do deviceStore (o namespace já
+          // foi trocado pelo _setDeviceScope); web: estado do servidor vale.
+          if (isNative) await loadState();
+          else if (r.state) setData(r.state);
         }
       } catch { /* sessão inválida/sem rede: app segue sem login */ }
     })();
@@ -4249,7 +4267,10 @@ export default function App() {
     // configurável + BYOK. Resultado fica em `stopAlvo[t]`, transitório (popup).
     closeStopAlvo: () => setStopAlvoFor(null),
     runStopAlvoFor: async (t) => {
-      const prompt = ((data && data.llmPrompts) || {}).carteiraStopAlvo || "";
+      // FASE 8B (N4): o prompt do stop/alvo tem versão por MODO — a mesa usa
+      // carteiraStopAlvoOperador; o professor, carteiraStopAlvo (fallback).
+      const lp = (data && data.llmPrompts) || {};
+      const prompt = (((data.config || {}).appMode === "operador") ? (lp.carteiraStopAlvoOperador || lp.carteiraStopAlvo) : lp.carteiraStopAlvo) || "";
       setStopAlvo((s) => ({ ...s, [t]: { ...(s[t] || {}), loading: true, error: null } }));
       try {
         const r = await store.analyzeStopAlvo(t, { prompt });
@@ -4535,11 +4556,14 @@ export default function App() {
     // o antigo). Fonte única: _resetScopeState.
     authUser,
     openAuth: () => setAuthOpen(true),
+    // FASE 8B (N2): no NATIVO o estado pós-login vem SEMPRE do deviceStore
+    // (local-first; o namespace já trocou) — o estado do servidor sobrescrevia
+    // o doc do aparelho e a identidade (appMode/termo/risco) "se perdia".
     login: async ({ email, password }) => {
       const r = await auth.login({ email, password });
       if (r && r.user) setAuthUser(r.user);
       _resetScopeState();
-      if (r && r.state) setData(r.state); else await loadState();
+      if (!isNative && r && r.state) setData(r.state); else await loadState();
       refreshQuotes();
       flash("Conectado.");
       return r;
@@ -4548,7 +4572,7 @@ export default function App() {
       const r = await auth.register({ email, password, name });
       if (r && r.user) setAuthUser(r.user);
       _resetScopeState();
-      if (r && r.state) setData(r.state); else await loadState();
+      if (!isNative && r && r.state) setData(r.state); else await loadState();
       refreshQuotes();
       flash("Conta criada.");
       return r;
@@ -4559,7 +4583,7 @@ export default function App() {
       const r = await auth.oauth({ provider, idToken, name: name || undefined, authorizationCode: authorizationCode || undefined });
       if (r && r.user) setAuthUser(r.user);
       _resetScopeState();
-      if (r && r.state) setData(r.state); else await loadState();
+      if (!isNative && r && r.state) setData(r.state); else await loadState();
       refreshQuotes();
       flash("Conectado.");
       return r;
@@ -4637,7 +4661,7 @@ export default function App() {
   }
 
   return (
-    <ThemeCtx.Provider value={themeKey}>
+    <ThemeCtx.Provider value={{ key: themeKey, mode: appMode }}>
     <div {...shell}>
       <GlobalStyle />
       <Ticker items={tickerItems} live={Object.keys(quotes).length > 0} />

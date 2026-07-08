@@ -59,7 +59,12 @@ ok("checklist de critérios do setup na tela", /criterios/.test(radarChunk) && /
 
 // BLOCO D — login persistido (e-mail lembrado + AutoFill do Chaveiro)
 ok("e-mail lembrado (loadLastEmail) no App.jsx", appSrc.includes("function loadLastEmail"));
-ok("salva e-mail no sucesso do login", (appSrc.match(/saveLastEmail\(email\)/g) || []).length >= 2);
+// FASE 8B (N3): o formulário de login foi UNIFICADO (AuthForm) — o contrato
+// antigo (saveLastEmail em ≥2 formulários) era o sintoma da duplicação.
+// Agora: exatamente 1 ponto de persistência, e as DUAS superfícies (Welcome e
+// AuthModal) renderizam o MESMO <AuthForm.
+ok("salva e-mail em UM ponto único (AuthForm)", (appSrc.match(/saveLastEmail\(email\)/g) || []).length === 1);
+ok("Welcome e AuthModal usam o AuthForm único", (appSrc.match(/<AuthForm ctx=\{ctx\} onDone=/g) || []).length === 2);
 ok("AutoFill: autocomplete username no e-mail", appSrc.includes('autoComplete="username"'));
 ok("AutoFill: current/new-password na senha", appSrc.includes('current-password') && appSrc.includes('new-password'));
 ok("nunca persiste a senha", !/localStorage\.setItem\([^)]*password/i.test(appSrc));

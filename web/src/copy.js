@@ -44,6 +44,14 @@ export const COPY = {
     vazioWatchlist: "Sua watchlist está vazia — descubra oportunidades no Radar e traga os melhores para cá.",
     vazioPortfolio: "Você ainda não tem posições. Vá à Watchlist e simule sua primeira compra — é dinheiro simulado, sem risco.",
 
+    // superfícies secundárias (home, modais)
+    kickerSetups: "SETUPS NA SUA WATCHLIST",
+    btnLevarWatchlist: "Levar para a watchlist →",
+    btnVerWatchlist: "Ver Watchlist",
+    tituloLeituraIA: (t) => `${t} · leitura da IA`,
+    confirmarCompra: "Confirmar compra",
+    confirmarVenda: "Confirmar venda",
+
     // toasts/notificações
     toastCompra: (qty, t) => `Compra simulada: ${qty} ${t}. Sugerindo alvo e stop…`,
     toastVenda: (desc, t) => `Venda simulada: ${desc} de ${t}.`,
@@ -87,6 +95,14 @@ export const COPY = {
     // estados vazios
     vazioWatchlist: "Nada monitorado. Puxe da Mesa de oportunidades os ativos com plano válido.",
     vazioPortfolio: "Sem posições abertas. Capital parado também é gestão — espere o plano certo.",
+
+    // superfícies secundárias (home, modais)
+    kickerSetups: "PLANOS NO MONITORAMENTO",
+    btnLevarWatchlist: "Monitorar este ativo →",
+    btnVerWatchlist: "Ver Monitoramento",
+    tituloLeituraIA: (t) => `${t} · plano da mesa`,
+    confirmarCompra: "Confirmar entrada",
+    confirmarVenda: "Confirmar saída",
 
     // toasts/notificações
     toastCompra: (qty, t) => `Entrada registrada: ${qty} ${t}. Stop e alvo já definidos? Sem plano, sem posição.`,
