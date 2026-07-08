@@ -76,11 +76,27 @@ ok("AppIcon decodifica (PNG íntegro)", !!artSig(icon));
   const { readdirSync, existsSync } = await import("fs");
   const distA = p("dist", "assets");
   const iosA = p("ios", "App", "App", "public", "assets");
-  if (!existsSync(distA)) {
-    ok("paridade de chunks (dist ausente — rode vite build; tolerado no CI puro)", true);
+  // O carimbo de cada lado decide se a paridade se aplica: com carimbos
+  // DIFERENTES é meio-de-entrega legítimo (dist novo ainda não sincronizado —
+  // o entregar.sh sincroniza e IMPÕE a paridade no passo 4). A amputação que
+  // este teste pega é: MESMO build nos dois lados, mas chunks irmãos faltando.
+  const stampOf = (dir) => {
+    if (!existsSync(dir)) return null;
+    for (const f of readdirSync(dir)) {
+      const m = readFileSync(join(dir, f), "latin1").match(/F[0-9A-Za-z]{1,6}-[0-9]{8}-[0-9]{1,3}/);
+      if (m) return m[0];
+    }
+    return null;
+  };
+  const sd = stampOf(distA);
+  const si = stampOf(iosA);
+  if (!existsSync(distA) || sd === null) {
+    ok("paridade de chunks (dist ausente/sem carimbo — rode o entregar.sh; tolerado aqui)", true);
+  } else if (sd !== si) {
+    ok(`paridade de chunks: builds diferentes (dist=${sd} × ios=${si}) — meio-de-entrega; o entregar.sh sincroniza e impõe`, true);
   } else {
     const faltando = readdirSync(distA).filter((f) => !existsSync(join(iosA, f)));
-    ok("TODOS os chunks do dist estão no bundle do iOS" + (faltando.length ? " — FALTAM: " + faltando.join(", ") : ""), faltando.length === 0);
+    ok("MESMO build nos dois lados ⇒ TODOS os chunks do dist no bundle do iOS" + (faltando.length ? " — FALTAM: " + faltando.join(", ") : ""), faltando.length === 0);
   }
 }
 

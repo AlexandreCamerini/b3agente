@@ -27,7 +27,7 @@ BUILD_LOCAL="$(sed -n 's/.*BUILD_ID = "\([^"]*\)".*/\1/p' web/src/version.js)"
 [ -n "$BUILD_LOCAL" ] || die "web/src/version.js sem BUILD_ID — o carimbo é obrigatório"
 
 build_no_bundle(){ # $1 = dir de assets
-  grep -rho 'F[0-9][0-9A-Za-z]*-[0-9A-Za-z-]*' "$1" 2>/dev/null | sort -u | tail -1
+  grep -rho 'F[0-9A-Za-z]\{1,6\}-[0-9]\{8\}-[0-9]\{1,3\}' "$1" 2>/dev/null | sort -u | tail -1
 }
 verificar(){
   say "Verificação dos elos (BUILD_ID esperado: $BUILD_LOCAL)"
