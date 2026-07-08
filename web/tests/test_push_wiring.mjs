@@ -33,6 +33,16 @@ const capCfg = read(["capacitor.config.ts"]);
 ok("config: LocalNotifications.presentationOptions", /LocalNotifications:\s*{[^}]*presentationOptions/s.test(capCfg));
 ok("config: PushNotifications.presentationOptions", /PushNotifications:\s*{[^}]*presentationOptions/s.test(capCfg));
 
+// ---- FASE 8 (A1): opções que o plugin LOCAL de fato reconhece ---------------
+// CAUSA-RAIZ: o local-notifications 8.x NÃO mapeia "alert" (cai em
+// Unrecognized ⇒ nenhuma apresentação visual em foreground); o push mapeia.
+// Contrato: "banner" e "list" explícitos, e NUNCA "alert" no LocalNotifications.
+{
+  const local = (capCfg.match(/LocalNotifications:\s*{([^}]*)}/s) || [])[1] || "";
+  ok("LocalNotifications usa banner+list (reconhecidos pelo plugin)", local.includes('"banner"') && local.includes('"list"'));
+  ok("LocalNotifications NÃO usa 'alert' (não mapeado ⇒ banner mudo)", !local.includes('"alert"'));
+}
+
 // ---- plugins de notificação seguem no pacote SPM do app iOS ----------------
 const spm = read(["ios", "App", "CapApp-SPM", "Package.swift"]);
 ok("SPM: CapacitorLocalNotifications no build", spm.includes("CapacitorLocalNotifications"));

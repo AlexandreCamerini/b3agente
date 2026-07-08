@@ -216,17 +216,42 @@ _OIDC = {
 }
 
 
+def _aud_list(raw: str) -> list:
+    """FASE 8 (A2): APPLE_CLIENT_ID/GOOGLE_CLIENT_ID aceitam LISTA separada por
+    vírgula. Motivo: no login NATIVO da Apple o `aud` do id_token é o BUNDLE ID
+    do app (com.alexandrecamerini.bolsia); num futuro login web será o Services
+    ID — a env precisa cobrir os dois sem redeploy de código."""
+    return [a.strip() for a in (raw or "").split(",") if a.strip()]
+
+
+def _peek_aud(id_token: str) -> str:
+    """Lê o `aud` do token SEM validar assinatura — apenas para compor a
+    mensagem de erro acionável (nunca usado para autenticar)."""
+    try:
+        import base64
+        import json as _json
+        payload = id_token.split(".")[1]
+        payload += "=" * (-len(payload) % 4)
+        claims = _json.loads(base64.urlsafe_b64decode(payload))
+        aud = claims.get("aud")
+        return ", ".join(aud) if isinstance(aud, list) else str(aud or "?")
+    except Exception:  # noqa: BLE001
+        return "?"
+
+
 def verify_oauth_token(provider: str, id_token: str) -> dict:
     """Valida um ID token OIDC e devolve {sub, email, name}. Levanta AuthError
     com mensagem acionável se a dependência/configuração não estiver presente."""
     cfg = _OIDC.get(provider)
     if not cfg:
         raise AuthError("Provedor não suportado: " + str(provider))
-    aud = os.environ.get(cfg["aud_env"])
-    if not aud:
+    audiences = _aud_list(os.environ.get(cfg["aud_env"]))
+    if not audiences:
         raise AuthError(
             "Login " + provider + " não configurado no servidor "
-            "(defina " + cfg["aud_env"] + " com o client_id do app)."
+            "(defina " + cfg["aud_env"] + " com o client_id do app"
+            + (" — no app iOS é o bundle id, ex.: com.alexandrecamerini.bolsia" if provider == "apple" else "")
+            + "; aceita lista separada por vírgula)."
         )
     try:
         import jwt  # PyJWT
@@ -242,12 +267,22 @@ def verify_oauth_token(provider: str, id_token: str) -> dict:
             id_token,
             signing_key,
             algorithms=["RS256", "ES256"],
-            audience=aud,
+            audience=audiences,  # FASE 8 (A2): PyJWT aceita lista — qualquer uma vale
             issuer=list(cfg["iss"]) if len(cfg["iss"]) > 1 else cfg["iss"][0],
             options={"require": ["exp", "iss", "sub"]},
         )
     except Exception as e:  # noqa: BLE001 — mensagem segura ao cliente
-        raise AuthError("Não foi possível validar o login " + provider + ": " + str(e))
+        # FASE 8 (A2): "audience doesn't match" seco não diz O QUE corrigir.
+        # Mostra o aud RECEBIDO × os esperados e aponta a env exata.
+        msg = str(e)
+        if "audience" in msg.lower():
+            raise AuthError(
+                "Login " + provider + " recusado: o `aud` do token é '" + _peek_aud(id_token) + "', "
+                "mas o servidor espera " + str(audiences) + ". Corrija a variável " + cfg["aud_env"] +
+                " no Railway (no app iOS o valor é o bundle id com.alexandrecamerini.bolsia; "
+                "aceita lista separada por vírgula para incluir o Services ID do web)."
+            )
+        raise AuthError("Não foi possível validar o login " + provider + ": " + msg)
     return {
         "sub": claims.get("sub"),
         "email": (claims.get("email") or "").strip().lower() or None,

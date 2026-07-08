@@ -4404,6 +4404,13 @@ export default function App() {
     store.putConfig({ streak: ns }).catch(() => { /* silencioso */ });
   }, [data]);
 
+  // FASE 8 (A3): fonte única do reset de estados derivados na TROCA de escopo
+  // (login/logout/exclusão) — evita vazar análises/cotações entre contas.
+  const _resetScopeState = () => {
+    setAnalysis({}); setExpanded({}); setQuotes({}); setWlScan(null); setDestaque({ stage: "idle" });
+    notifRef.current = {};
+  };
+
   const ctx = {
     data, quotes, analysis, expanded, analysisModel, setAnalysisModel, A, quotesAt, quotesLoading, test, keyDraft, setKeyDraft,
     catalogSel, setCatalogSel, buyModal, setBuyModal, cycleBusy, addState, setAddState,
@@ -4433,19 +4440,27 @@ export default function App() {
       try { await store.putConfig({ onboarded: true }); } catch { /* silencioso */ }
     },
     // FASE 2 — conta opcional. Handlers guardados; erros sobem para o AuthModal.
+    // FASE 8 (A3): toda TROCA de escopo (entrar OU sair) limpa os estados
+    // derivados em memória — sem isso, análises/cotações do escopo anterior
+    // vazavam para o novo (o merge {...seed, ...cur} do loadState preservava
+    // o antigo). Fonte única: _resetScopeState.
     authUser,
     openAuth: () => setAuthOpen(true),
     login: async ({ email, password }) => {
       const r = await auth.login({ email, password });
       if (r && r.user) setAuthUser(r.user);
+      _resetScopeState();
       if (r && r.state) setData(r.state); else await loadState();
+      refreshQuotes();
       flash("Conectado.");
       return r;
     },
     register: async ({ email, password, name }) => {
       const r = await auth.register({ email, password, name });
       if (r && r.user) setAuthUser(r.user);
+      _resetScopeState();
       if (r && r.state) setData(r.state); else await loadState();
+      refreshQuotes();
       flash("Conta criada.");
       return r;
     },
@@ -4454,20 +4469,36 @@ export default function App() {
     oauth: async ({ provider, idToken, name, authorizationCode }) => {
       const r = await auth.oauth({ provider, idToken, name: name || undefined, authorizationCode: authorizationCode || undefined });
       if (r && r.user) setAuthUser(r.user);
+      _resetScopeState();
       if (r && r.state) setData(r.state); else await loadState();
+      refreshQuotes();
       flash("Conectado.");
       return r;
     },
+    // FASE 8 (A3): sair da conta é um RESET completo, não só o token. Antes o
+    // logout limpava token/escopo mas: (a) analysis/expanded/quotes/wlScan/
+    // destaque seguiam NA MEMÓRIA com os dados da conta; (b) nada levava de
+    // volta ao portão de entrada — o app "parecia" logado. Agora: limpa os
+    // estados derivados, recarrega o escopo anônimo, atualiza cotações e
+    // REABRE o welcome (saída visível e inequívoca).
     logout: async () => {
       await auth.logout();
       setAuthUser(null);
+      _resetScopeState();
       await loadState();
+      refreshQuotes();
+      setCarteiraView("main"); setPerfilView("hub"); setTab("evolucao");
+      welcomeShownRef.current = true; setWelcomeOpen(true);
       flash("Você saiu da conta.");
     },
     deleteAccount: async () => {
       await auth.deleteAccount();
       setAuthUser(null);
+      _resetScopeState();
       await loadState();
+      refreshQuotes();
+      setCarteiraView("main"); setPerfilView("hub"); setTab("evolucao");
+      welcomeShownRef.current = true; setWelcomeOpen(true);
       flash("Conta excluída.");
     },
   };

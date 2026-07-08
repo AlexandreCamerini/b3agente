@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BolsIA — Mock B2 · Dois apps em um (Estudo × Operador)</title>
+<style>
+  body{margin:0;background:#06080c;color:#e7ecf3;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:26px 14px 70px}
+  .wrap{display:flex;gap:22px;justify-content:center;flex-wrap:wrap}
+  .col{width:100%;max-width:400px}
+  .coltag{text-align:center;font-size:12px;font-weight:800;letter-spacing:.1em;margin-bottom:12px}
+  .phone{border-radius:22px;padding:16px 14px 20px;border:1px solid}
+  .mono{font-family:"SF Mono",ui-monospace,Menlo,monospace}
+  .card{border-radius:13px;padding:14px 15px;margin-top:12px;border:1px solid}
+  .pill{display:inline-block;padding:5px 11px;border-radius:999px;font-size:11px;font-weight:800}
+  .btn{border:none;border-radius:10px;padding:10px 14px;font-weight:800;font-size:12.5px;width:100%;margin-top:10px}
+  .kv{display:flex;justify-content:space-between;font-size:11.5px;padding:4px 0}
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:4px 2px 12px}
+  .brand{font-weight:800;font-size:16px}
+  .foot{font-size:9.5px;line-height:1.5;margin-top:12px;border-top:1px solid;padding-top:9px}
+  h3{font-size:19px;margin:14px 0 4px} .sub{font-size:11.5px;line-height:1.5;margin:0}
+
+  /* ===== TEMA ESTUDO (atual — âmbar sobre dark azulado) ===== */
+  .estudo{--bg:#0b0e14;--panel:#131826;--border:#232b3d;--acc:#f0b429;--accTint:rgba(240,180,41,.14);--onAcc:#131313;--muted:#9aa6b6;--faint:#647084;--pos:#34d399;--neg:#f87171}
+  /* ===== TEMA OPERADOR (novo — verde-mercado sobre grafite frio) ===== */
+  .operador{--bg:#0a0d10;--panel:#10161a;--border:#1e2a30;--acc:#22c55e;--accTint:rgba(34,197,94,.13);--onAcc:#04170b;--muted:#93a5ad;--faint:#5b6d75;--pos:#22c55e;--neg:#ef4444}
+
+  .phone{background:var(--bg);border-color:var(--border)}
+  .card{background:var(--panel);border-color:var(--border)}
+  .sub,.muted{color:var(--muted)} .faint{color:var(--faint)}
+  .acc{color:var(--acc)} .accbg{background:var(--accTint);color:var(--acc)}
+  .btn-acc{background:var(--acc);color:var(--onAcc)}
+  .btn-ghost{background:var(--bg);color:var(--muted);border:1px solid var(--border)!important}
+  .foot{color:var(--faint);border-color:var(--border)}
+</style>
+</head>
+<body>
+<div style="text-align:center;margin-bottom:18px">
+  <div style="font-size:13px;font-weight:800;letter-spacing:.08em;color:#8a96a6">MOCK B2 · GATE DE APROVAÇÃO — "DOIS APPS EM UM"</div>
+  <div style="font-size:11.5px;color:#647084;margin-top:4px">mesma tela, dois modos: fraseologia (copy.js) + paleta + tratamento. Estudo intocado à esquerda.</div>
+</div>
+
+<div class="wrap">
+  <!-- ================= COLUNA ESTUDO ================= -->
+  <div class="col estudo">
+    <div class="coltag acc">🎓 MODO ESTUDO (atual, intocado)</div>
+    <div class="phone">
+      <div class="topbar">
+        <span class="brand">Bols<span class="acc">IA</span> <span class="faint" style="font-size:10px;font-weight:700">· Estudo</span></span>
+        <span class="mono muted" style="font-size:11px">R$ 12.480 ▲0,8%</span>
+      </div>
+
+      <h3>Vamos estudar o mercado hoje, Alex?</h3>
+      <p class="sub">Há <b class="acc">3 setups</b> para estudar na sua watchlist — bora entender o porquê de cada um?</p>
+
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div><span class="mono" style="font-weight:800;font-size:15px">PETR4</span>
+            <div class="faint" style="font-size:10.5px">252 candles · snapshot #8412</div></div>
+          <div class="mono" style="text-align:right"><div style="font-weight:800">R$ 38,29</div><div style="font-size:11px;color:var(--neg)">-1,2%</div></div>
+        </div>
+        <div style="margin-top:10px"><span class="pill accbg">Estudar alta</span> <span class="muted" style="font-size:11px">IFR2 (Larry Connors)</span></div>
+        <div class="kv muted"><span>CONFLUÊNCIA DO SETUP</span><b class="mono">72%</b></div>
+        <div style="height:6px;border-radius:99px;background:var(--bg);overflow:hidden"><div style="width:72%;height:100%;background:var(--acc)"></div></div>
+        <button class="btn btn-acc">Aprofundar com IA</button>
+        <button class="btn btn-ghost">Simular compra</button>
+      </div>
+
+      <div class="foot">Radar educacional: descreve condições técnicas detectadas em dados passados, sem recomendação de investimento. Ferramenta educacional.</div>
+    </div>
+  </div>
+
+  <!-- ================= COLUNA OPERADOR ================= -->
+  <div class="col operador">
+    <div class="coltag acc">📈 MODO OPERADOR (novo tema)</div>
+    <div class="phone">
+      <div class="topbar">
+        <span class="brand">Bols<span class="acc">IA</span> <span class="pill accbg" style="font-size:9px;letter-spacing:.08em;padding:3px 8px;vertical-align:2px">MODO OPERADOR</span></span>
+        <span class="mono muted" style="font-size:11px">R$ 50.000 · risco 1%</span>
+      </div>
+
+      <h3>Mesa aberta, Alex.</h3>
+      <p class="sub"><b class="acc">2 planos válidos</b> hoje · 1 gatilho próximo do preço. Disciplina: só entra quem confirmar.</p>
+
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div><span class="mono" style="font-weight:800;font-size:15px">PETR4</span>
+            <div class="faint" style="font-size:10.5px;font-family:var(--mono)">252 candles · snapshot #8412</div></div>
+          <div class="mono" style="text-align:right"><div style="font-weight:800">R$ 38,29</div><div style="font-size:11px;color:var(--neg)">-1,2%</div></div>
+        </div>
+        <div style="margin-top:10px"><span class="pill" style="background:rgba(34,197,94,.15);color:var(--pos)">▲ COMPRAR — no rompimento</span> <span class="muted" style="font-size:11px">IFR2</span></div>
+        <div class="mono" style="margin-top:8px;border:1px solid var(--border);border-radius:10px;padding:9px 11px;background:var(--bg)">
+          <div class="kv muted"><span>Entrada</span><b style="color:#e7ecf3">38,55</b></div>
+          <div class="kv muted"><span>Stop (invalidação)</span><b style="color:var(--neg)">37,60</b></div>
+          <div class="kv muted"><span>Alvo 1 / final · R:R</span><b style="color:var(--pos)">39,50 / 40,45 · 2,0:1</b></div>
+          <div class="kv muted" style="border-top:1px dashed var(--border);padding-top:7px"><span>Posição (risco 1%)</span><b style="color:#e7ecf3">500 ações ≈ 19.275</b></div>
+        </div>
+        <button class="btn btn-acc">Plano da mesa (IA)</button>
+        <button class="btn btn-ghost">Registrar entrada</button>
+      </div>
+
+      <div class="card" style="opacity:.75">
+        <div style="display:flex;justify-content:space-between"><span class="mono" style="font-weight:800">MGLU3</span><span class="pill" style="background:var(--bg);color:var(--faint);border:1px solid var(--border)">✕ NÃO OPERAR</span></div>
+        <div class="muted" style="font-size:11px;margin-top:7px;line-height:1.5">R:R 1,1:1 abaixo do mínimo. Não operar também é posição.</div>
+      </div>
+
+      <div class="foot">Mesa de decisão — a execução e o risco são seus. Nenhuma ordem é enviada à corretora. Cenários probabilísticos, sem garantia de resultado.</div>
+    </div>
+  </div>
+</div>
+
+<div style="max-width:830px;margin:26px auto 0;font-size:11.5px;color:#8a96a6;line-height:1.65;border:1px solid #232b3d;border-radius:12px;padding:14px 16px">
+  <b style="color:#e7ecf3">Decisões de design para aprovar:</b>
+  (1) acento do Operador = <b style="color:#22c55e">verde-mercado #22c55e</b> sobre grafite mais frio (alternativa: teal #14b8a6 — diga qual);
+  (2) chip permanente "MODO OPERADOR" no topbar + capital/risco no lugar do patrimônio simulado;
+  (3) números sempre em mono no Operador;
+  (4) fraseologia da amostra <span class="mono">web/src/copy.js</span> (professor × mesa) — ajuste os textos que quiser antes do B1;
+  (5) transição de tema animada na troca de modo + theme-color/status bar acompanham.
+</div>
+</body>
+</html>

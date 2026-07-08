@@ -80,12 +80,21 @@ R:R mínimo 1,5:1, ideal ≥2:1) e position sizing por % fixo de risco.
 
 ## 5. Entrega em fases (cada uma com hard stop)
 
-- **F7.1** Seletor de modo + termo + vocabulário/decisões no Radar (sem IA
-  nova) + `plano_operacional()` com testes.
-- **F7.2** Formato PRO no N1/N2 + checklist pré-operação + guardrails PRO.
-- **F7.3** Trades reais (registro/posições/histórico) + monitor de planos com
-  push.
-- **F7.4** Painel de assertividade + comparação plano × executado.
+- **F7.1 ✅ (entregue)** Seletor de modo + termo + decisões no Radar +
+  `plano_operacional()` com testes.
+- **FASE 8 (renumeração — "Dois apps em um"):** o antigo F7.2+ virou a Parte B
+  da FASE 8, com identidade completa por modo:
+  - **B1** Camada de fraseologia (`web/src/copy.js` — amostra criada, gate) —
+    todas as telas leem COPY[modo]; guardião de vocabulário por ramo.
+  - **B2** Identidade visual por modo (tokens de tema; Operador em
+    verde-mercado/grafite; chip MODO OPERADOR; mock em
+    `qa/mocks/dois-apps-em-um.html` — gate).
+  - **B3** (antigo F7.2) Cérebro por modo: llmPrompts por modo + persona
+    OPERADOR_PRO + PRO_FORMAT no N1/N2/stop-alvo + checklist pré-operação +
+    GUARDRAILS_PRO.
+  - **B4** Tratamento por modo (Acompanhar, toasts, notificações).
+- **F8.5** (antigo F7.3) Trades reais + monitor de planos com push.
+- **F8.6** (antigo F7.4) Painel de assertividade + plano × executado.
 
 ## 6. Riscos e mitigação
 

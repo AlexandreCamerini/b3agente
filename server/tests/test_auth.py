@@ -162,6 +162,29 @@ def test_throttle_de_login():
     auth.throttle_reset()
 
 
+def test_aud_em_lista_e_peek():
+    # FASE 8 (A2): env aceita lista separada por vírgula (bundle id + Services
+    # ID); _peek_aud lê o aud do token SEM validar (só para a mensagem de erro).
+    assert auth._aud_list("com.alexandrecamerini.bolsia") == ["com.alexandrecamerini.bolsia"]
+    assert auth._aud_list(" a.b.c , d.e.f ,") == ["a.b.c", "d.e.f"]
+    assert auth._aud_list("") == [] and auth._aud_list(None) == []
+    import base64
+    import json as _json
+    payload = base64.urlsafe_b64encode(_json.dumps({"aud": "com.alexandrecamerini.bolsia"}).encode()).decode().rstrip("=")
+    assert auth._peek_aud("h." + payload + ".s") == "com.alexandrecamerini.bolsia"
+    assert auth._peek_aud("token-invalido") == "?"
+
+
+def test_oauth_sem_env_menciona_bundle_id_e_lista():
+    os.environ.pop("APPLE_CLIENT_ID", None)
+    try:
+        auth.verify_oauth_token("apple", "x.y.z")
+        assert False
+    except auth.AuthError as e:
+        msg = str(e)
+        assert "bundle id" in msg and "vírgula" in msg
+
+
 def test_purga_de_sessoes_expiradas():
     conn, _ = _fresh_db()
     u = auth.register_email(conn, "purge@x.com", "senha-purge-1")

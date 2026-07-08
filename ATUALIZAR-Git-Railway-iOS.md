@@ -1,6 +1,20 @@
 # ATUALIZAR — Git · Railway · iOS
-## Entrega FASE 6 + FASE 7.1: correções finais + Modo Operador (fundação)
-*08/07/2026 · detalhes em `qa/19-fase6-correcoes.md` e `qa/20-fase7-1-modo-operador.md`*
+## Entrega FASES 6 + 7.1 + 8A: correções de plataforma + Modo Operador + gate "Dois apps em um"
+*08/07/2026 · detalhes em `qa/19`, `qa/20` e `qa/21-fase8-plataforma-doisapps.md`*
+
+> **FASE 8 — Parte A incluída nesta entrega:**
+> **A1 · Notificações locais (solução final):** a causa real era a opção
+> `"alert"` no capacitor.config — o plugin local 8.x NÃO a reconhece e o banner
+> em foreground saía mudo (a hipótese do conflito de delegate foi refutada com
+> evidência no fonte do plugin). Corrigido para `banner+list+sound+badge` nos
+> dois plugins — **exige cap sync + rebuild**.
+> **A2 · Login Apple:** `APPLE_CLIENT_ID`/`GOOGLE_CLIENT_ID` agora aceitam
+> lista; erro mostra o `aud` recebido × esperados. **Defina no Railway:**
+> `APPLE_CLIENT_ID=com.alexandrecamerini.bolsia`.
+> **A3 · Logout:** sair (ou excluir/entrar) agora reseta TODOS os estados
+> derivados, recarrega o escopo certo e reabre o portão de entrada.
+> **Parte B (gate):** revise `qa/mocks/dois-apps-em-um.html` + `web/src/copy.js`
+> e me devolva OK/ajustes (5 decisões de design no rodapé do mock).
 
 > **FASE 7.1 (aprovada por você) incluída nesta entrega:** seletor Estudo ↔
 > Operador no Perfil com Termo de Responsabilidade; Radar no modo operador com
@@ -95,7 +109,22 @@ Xcode: Product → Clean Build Folder → instalar no iPhone.
    decisões diretas com plano (entrada/stop/alvos/R:R) e posição sugerida;
    ativos sem vantagem mostram "NÃO OPERAR" com o motivo. Voltar ao Estudo
    restaura tudo. Fechar e reabrir o app: o modo persiste e o termo não
-   reaparece. F7.2 (IA no formato PRO) começa após este hard stop.
+   reaparece.
+7. **FASE 8A — notificações locais (após cap sync + rebuild):** central de
+   notificações → "Testar notificação" com o app ABERTO → o banner nativo do
+   iOS deve aparecer NA HORA (era o que faltava); "Testar agendada (30s)" com
+   o app FECHADO → banner do sistema; e o push de teste segue funcionando
+   (um não pode quebrar o outro).
+8. **FASE 8A — login Apple:** com `APPLE_CLIENT_ID` no Railway, "Continuar com
+   a Apple" deve autenticar; se falhar, a mensagem agora mostra o `aud`
+   recebido × esperado (me envie a linha).
+9. **FASE 8A — logout:** Perfil → Conta → Sair → o app deve limpar a tela,
+   voltar ao portão de entrada e mostrar o estado anônimo; reabrir o app não
+   pode restaurar a sessão. Entrar de novo não pode trazer análises do
+   anônimo.
+10. **FASE 8B — gate:** abrir `qa/mocks/dois-apps-em-um.html`, decidir as 5
+    questões de design e revisar a fraseologia de `web/src/copy.js` → seu OK
+    inicia B1+B2.
 
 Qualquer item falhando: copie a linha dos "Logs do servidor" (Observabilidade)
 ou do Diário que eu sigo o diagnóstico.
