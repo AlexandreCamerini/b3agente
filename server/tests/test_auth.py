@@ -125,6 +125,54 @@ def test_oauth_sem_config_degrada_limpo():
         pass
 
 
+def test_senha_gigante_e_rejeitada():
+    # FASE 5 (lançamento): PBKDF2 (240k iterações) sobre senha arbitrariamente
+    # longa é DoS barato. Registro rejeita; verify devolve False SEM computar.
+    try:
+        auth.hash_password("x" * 5000)
+        assert False
+    except auth.AuthError as e:
+        assert "máximo" in str(e)
+    h = auth.hash_password("senha-normal-123")
+    assert auth.verify_password("x" * 5000, h) is False
+
+
+def test_throttle_de_login():
+    # FASE 5 (lançamento): freio de força bruta por (ip, e-mail) — janela
+    # deslizante. Falhas contam; sucesso limpa; janela expira sozinha.
+    auth.throttle_reset()
+    k = auth.throttle_key("1.2.3.4", "alvo@x.com")
+    t0 = 1000.0
+    for i in range(auth._RL_MAX):
+        auth.throttle_check(k, now=t0 + i)   # ainda dentro do limite
+        auth.throttle_fail(k, now=t0 + i)
+    try:
+        auth.throttle_check(k, now=t0 + auth._RL_MAX)
+        assert False, "deveria ter travado após o limite de falhas"
+    except auth.AuthError as e:
+        assert "tentativas" in str(e).lower()
+    # outra chave (outro e-mail/ip) não é afetada
+    auth.throttle_check(auth.throttle_key("1.2.3.4", "outro@x.com"), now=t0)
+    # a janela expira: mesmas falhas, muito depois => liberado
+    auth.throttle_check(k, now=t0 + auth._RL_WINDOW + 61)
+    # sucesso limpa o contador
+    auth.throttle_fail(k, now=t0)
+    auth.throttle_clear(k)
+    auth.throttle_check(k, now=t0 + 1)
+    auth.throttle_reset()
+
+
+def test_purga_de_sessoes_expiradas():
+    conn, _ = _fresh_db()
+    u = auth.register_email(conn, "purge@x.com", "senha-purge-1")
+    viva = auth.create_session(conn, u["id"])            # 90 dias
+    morta = auth.create_session(conn, u["id"], ttl_days=-1)  # já expirada
+    n = auth.purge_expired_sessions(conn)
+    assert n == 1
+    assert auth.resolve_session(conn, viva) is not None
+    assert db.get_session(conn, morta) is None
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_") and callable(fn):

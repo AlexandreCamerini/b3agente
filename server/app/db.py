@@ -104,6 +104,18 @@ def init_db(conn: sqlite3.Connection) -> None:
         ")"
     )
     conn.execute("CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id)")
+    # FASE 5 (performance): cache PERSISTENTE de candles. Antes o cache vivia só
+    # em memória — cada redeploy do Railway recomeçava do zero e a 1ª varredura
+    # rebaixava 2 anos de candles do universo inteiro (a "demora para atualizar").
+    # Com o L2 em SQLite (no volume /data), o boot reidrata e só busca o DELTA.
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS candle_cache ("
+        " k TEXT PRIMARY KEY,"       # "SYMBOL@interval"
+        " currency TEXT,"
+        " candles TEXT NOT NULL,"    # JSON da série (cap ~600 candles)
+        " at REAL NOT NULL"          # epoch da última atualização
+        ")"
+    )
     conn.commit()
 
 

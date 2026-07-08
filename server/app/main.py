@@ -24,6 +24,7 @@ from . import technical_snapshot  # FASE 1 (STU): fonte única de N1/N2/N3
 from . import agent as agent_mod  # FASE 3: agente autônomo server-side
 from . import siwa  # FASE 4 (Bloco 2): Sign in with Apple — exchange + revoke
 from . import push  # FASE 3.3b: APNs (no-op sem configuração)
+from . import obslog  # FASE 5: observabilidade (log estruturado + ring buffer)
 from .catalog import is_catalog_ticker
 from .options_api import router as options_router
 from .options_provider_yahoo import get_options as _get_options_for_status
@@ -36,6 +37,9 @@ app.add_middleware(
 
 _conn = db.shared()  # FIX: conexão POR THREAD (pool do FastAPI) — ver db.py
 store.ensure_defaults(_conn)
+# FASE 5 (performance): liga o L2 persistente do cache de candles (SQLite no
+# volume /data) — redeploy do Railway reidrata e busca só o delta recente.
+candle_cache.configure_db(_conn)
 app.include_router(options_router)
 
 
@@ -45,6 +49,9 @@ app.include_router(options_router)
 # do Railway (o Starlette re-lança a exceção após enviar a resposta).
 @app.exception_handler(Exception)
 async def _unhandled_exception(request: Request, exc: Exception):
+    # FASE 5: todo erro não tratado entra no log estruturado (categoria err) —
+    # visível no Railway E na tela Perfil → Observabilidade (/api/obs/logs).
+    obslog.log("err", f"{request.method} {request.url.path}: {type(exc).__name__}: {exc}", level="error")
     return JSONResponse(
         status_code=500,
         content={"detail": type(exc).__name__ + ": " + (str(exc) or "erro interno")},
@@ -115,31 +122,53 @@ def _auth_payload(user: dict) -> dict:
     return {"token": token, "user": _public_user(user), "state": store.public_state(_conn, user_id=user["id"])}
 
 
+def _client_ip(request: Request) -> str:
+    """IP real atrás do proxy do Railway (X-Forwarded-For), com fallback."""
+    fwd = request.headers.get("x-forwarded-for") or ""
+    if fwd:
+        return fwd.split(",")[0].strip()
+    return request.client.host if request.client else "?"
+
+
 @app.post("/api/auth/register")
-async def auth_register(body: dict = Body(default={})):
+async def auth_register(request: Request, body: dict = Body(default={})):
+    # FASE 5 (lançamento): freio de força bruta/enumeração também no registro.
+    rl_key = auth.throttle_key(_client_ip(request), str(body.get("email", "")))
     try:
+        auth.throttle_check(rl_key)
         user = auth.register_email(_conn, body.get("email", ""), body.get("password", ""), body.get("name", ""))
     except auth.AuthError as e:
+        auth.throttle_fail(rl_key)
         raise HTTPException(400, str(e))
+    auth.throttle_clear(rl_key)
     _apply_seed(user["id"], body)
     return _auth_payload(user)
 
 
 @app.post("/api/auth/login")
-async def auth_login(body: dict = Body(default={})):
+async def auth_login(request: Request, body: dict = Body(default={})):
+    # FASE 5 (lançamento): rate limit por (ip, e-mail) — sucesso zera o contador.
+    rl_key = auth.throttle_key(_client_ip(request), str(body.get("email", "")))
     try:
+        auth.throttle_check(rl_key)
         user = auth.login_email(_conn, body.get("email", ""), body.get("password", ""))
     except auth.AuthError as e:
+        auth.throttle_fail(rl_key)
+        obslog.log("auth", "login falhou (ip=" + _client_ip(request) + ")", level="warn")
         raise HTTPException(401, str(e))
+    auth.throttle_clear(rl_key)
     _apply_seed(user["id"], body)   # idempotente: só semeia conta vazia
     return _auth_payload(user)
 
 
 @app.post("/api/auth/oauth")
-async def auth_oauth(body: dict = Body(default={})):
+async def auth_oauth(request: Request, body: dict = Body(default={})):
     provider = str(body.get("provider", "")).lower()
     id_token = body.get("idToken") or body.get("id_token") or ""
+    # FASE 5 (lançamento): mesmo freio das demais rotas de auth (por ip+provedor).
+    rl_key = auth.throttle_key(_client_ip(request), "oauth:" + provider)
     try:
+        auth.throttle_check(rl_key)
         claims = auth.verify_oauth_token(provider, id_token)
         if not claims.get("sub"):
             raise auth.AuthError("Token sem identificador de usuário.")
@@ -149,7 +178,9 @@ async def auth_oauth(body: dict = Body(default={})):
         name = claims.get("name") or (str(body.get("name") or "").strip() or None)
         user = auth.upsert_oauth_user(_conn, provider, claims["sub"], claims.get("email"), name)
     except auth.AuthError as e:
+        auth.throttle_fail(rl_key)
         raise HTTPException(401, str(e))
+    auth.throttle_clear(rl_key)
     # FASE 4 (Bloco 2): SIWA — guarda o refresh_token para o revoke exigido na
     # exclusão de conta (5.1.1(v)). Best-effort: nunca bloqueia o login; o
     # resultado vai para o Diário (motivo exato, sem nunca logar o token).
@@ -227,21 +258,47 @@ def now_str() -> str:
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
-    # FASE 3 (Operador): além do log de entrada, mede a DURAÇÃO e marca
-    # requests lentos ([slow] >2s) — nos logs do Railway fica visível QUEM
-    # segurou o servidor quando alguém vê timeout no app.
-    is_api = request.url.path.startswith("/api")
-    if is_api:
-        client = request.client.host if request.client else "?"
-        print(f"[req] {request.method} {request.url.path} <- {client}")
+    # FASE 3 (Operador) + FASE 5 (observabilidade): loga TODA request de API com
+    # método, rota, origem, status e DURAÇÃO — no stdout (Railway) e no ring
+    # buffer (/api/obs/logs). Requests lentos (>2s) sobem para categoria "slow"
+    # nível warn; erros 5xx para nível error. A rota /api/obs não se auto-loga
+    # (evita ruído em quem está olhando os logs pela tela).
+    path = request.url.path
+    is_api = path.startswith("/api") and not path.startswith("/api/obs")
     import time as _t
     t0 = _t.monotonic()
     resp = await call_next(request)
     if is_api:
         dur = _t.monotonic() - t0
+        client = _client_ip(request)
+        status = getattr(resp, "status_code", 0)
         if dur > 2.0:
-            print(f"[slow] {request.method} {request.url.path} levou {dur:.1f}s (status {resp.status_code})")
+            obslog.log("slow", f"{request.method} {path} levou {dur:.1f}s (status {status})", level="warn", ip=client)
+        elif status >= 500:
+            obslog.log("req", f"{request.method} {path} -> {status} em {dur * 1000:.0f}ms", level="error", ip=client)
+        else:
+            obslog.log("req", f"{request.method} {path} -> {status} em {dur * 1000:.0f}ms", ip=client)
     return resp
+
+
+# ---- FASE 5: observabilidade consultável (Perfil → Observabilidade) --------
+def _is_obs_admin(user: dict) -> bool:
+    """Quem pode ver os logs do SERVIDOR (são globais, não por usuário):
+      - B3_ADMIN_EMAILS definido (lista separada por vírgula) => e-mail na lista;
+      - sem a env => apenas a PRIMEIRA conta criada (a do dono do app)."""
+    emails = [e.strip().lower() for e in (os.environ.get("B3_ADMIN_EMAILS") or "").split(",") if e.strip()]
+    if emails:
+        return bool(user.get("email")) and user["email"].lower() in emails
+    row = _conn.execute("SELECT id FROM users ORDER BY created_at ASC LIMIT 1").fetchone()
+    return bool(row) and row[0] == user.get("id")
+
+
+@app.get("/api/obs/logs")
+async def obs_logs(n: int = 200, level: Optional[str] = None, cat: Optional[str] = None,
+                   user: dict = Depends(require_user)):
+    if not _is_obs_admin(user):
+        raise HTTPException(403, "Logs do servidor são restritos ao administrador (defina B3_ADMIN_EMAILS no Railway).")
+    return {"logs": obslog.recent(n, level=level, cat=cat), "stats": obslog.stats()}
 
 
 @app.get("/api/health")
@@ -899,6 +956,19 @@ async def _start_agent_scheduler():
         agent_mod.scheduler_loop(_conn, yahoo.get_quotes, notify_push=_notify,
                                  radar_fetch=yahoo.get_history)  # FASE 4 (1.3)
     )
+    # FASE 5 (lançamento): higiene de sessões — purga as expiradas no boot e a
+    # cada 24h (o resolve_session já apaga lazy a sessão consultada; isto cobre
+    # tokens abandonados que nunca mais são usados).
+    async def _session_gc():
+        while True:
+            try:
+                n = auth.purge_expired_sessions(_conn)
+                if n:
+                    obslog.log("auth", f"purga de sessões expiradas: {n} removida(s)")
+            except Exception as e:  # noqa: BLE001 — GC nunca derruba o servidor
+                obslog.log("auth", "purga de sessões falhou: " + str(e), level="error")
+            await asyncio.sleep(24 * 3600)
+    asyncio.get_event_loop().create_task(_session_gc())
 
 
 # ---- Servir o app web em producao (mesma origem) ----

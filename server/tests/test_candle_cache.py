@@ -88,12 +88,9 @@ def test_load_respeita_teto_de_tamanho():
     assert len(r["candles"]) == cc._MAX     # não cresce sem limite
 
 
-if __name__ == "__main__":
-    for name, fn in list(globals().items()):
-        if name.startswith("test_") and callable(fn):
-            fn()
-            print("ok", name)
-    print("TODOS OS TESTES DE CACHE DE CANDLES PASSARAM")
+# (FASE 5) O runner offline foi movido para o FIM do arquivo: aqui no meio,
+# os testes definidos abaixo dele nunca rodavam no modo offline (o Python
+# executa de cima para baixo e o globals() ainda não os continha).
 
 
 # ===== BLOCO A1 — robustez do provedor =====
@@ -143,3 +140,84 @@ def test_delta_com_falha_serve_cache_stale():
     state["fail"] = True
     r = asyncio.run(candle_cache.load("YYYY3", fetch, now=1000.0 + 10 * 60))   # após o TTL do delta
     assert r["cacheStatus"] == "stale" and r["candles"]
+
+
+# ===== FASE 5 — L2 persistente (SQLite) =====
+def _fresh_l2():
+    import os
+    import tempfile
+    from app import db
+    d = tempfile.mkdtemp(prefix="b3_cc_")
+    return db.connect(os.path.join(d, "b3_agente.db"))
+
+
+def test_l2_persiste_e_reidrata_apos_reboot():
+    # write-through no miss; "reboot" (reset da memória) reidrata do SQLite e
+    # busca só o DELTA — nunca mais a série cheia.
+    import asyncio
+    from app import candle_cache
+    conn = _fresh_l2()
+    candle_cache.reset()
+    candle_cache.configure_db(conn)
+    calls = []
+
+    async def fetch(rng):
+        calls.append(rng)
+        return {"currency": "BRL", "candles": [_c(f"2026-05-{i:02d}", 10 + i) for i in range(1, 21)]}
+
+    r1 = asyncio.run(candle_cache.load("PETR4", fetch, now=1000.0))
+    assert r1["cacheStatus"] == "miss" and calls == [candle_cache.FULL_RANGE]
+    # simula redeploy: memória zerada, SQLite fica
+    candle_cache._CACHE.clear()
+    r2 = asyncio.run(candle_cache.load("PETR4", fetch, now=2000.0))
+    assert r2["cacheStatus"] == "delta"                     # reidratou do L2
+    assert calls == [candle_cache.FULL_RANGE, candle_cache.RECENT_RANGE]  # só o delta
+    assert len(r2["candles"]) == 20
+    candle_cache.configure_db(None)  # não vaza estado para os demais testes
+    candle_cache.reset()
+
+
+def test_l2_desligado_mantem_comportamento_antigo():
+    # Sem configure_db (suítes puras), nada toca disco e o miss segue cheio.
+    import asyncio
+    from app import candle_cache
+    candle_cache.configure_db(None)
+    candle_cache.reset()
+    calls = []
+
+    async def fetch(rng):
+        calls.append(rng)
+        return {"currency": "BRL", "candles": [_c("2026-05-01", 10)]}
+
+    asyncio.run(candle_cache.load("VALE3", fetch, now=1000.0))
+    candle_cache._CACHE.clear()
+    asyncio.run(candle_cache.load("VALE3", fetch, now=2000.0))
+    assert calls == [candle_cache.FULL_RANGE, candle_cache.FULL_RANGE]  # sem L2 => full de novo
+
+
+def test_l2_corrompido_degrada_para_miss():
+    # Linha inválida no SQLite não derruba: cai no fluxo de miss (série cheia).
+    import asyncio
+    from app import candle_cache
+    conn = _fresh_l2()
+    conn.execute("INSERT INTO candle_cache(k, currency, candles, at) VALUES(?,?,?,?)",
+                 ("ITUB4@1d", "BRL", "{nao-e-json", 1.0))
+    conn.commit()
+    candle_cache.reset()
+    candle_cache.configure_db(conn)
+
+    async def fetch(rng):
+        return {"currency": "BRL", "candles": [_c("2026-05-01", 10)]}
+
+    r = asyncio.run(candle_cache.load("ITUB4", fetch, now=1000.0))
+    assert r["cacheStatus"] == "miss" and r["candles"]
+    candle_cache.configure_db(None)
+    candle_cache.reset()
+
+
+if __name__ == "__main__":
+    for name, fn in list(globals().items()):
+        if name.startswith("test_") and callable(fn):
+            fn()
+            print("ok", name)
+    print("TODOS OS TESTES DE CACHE DE CANDLES PASSARAM")

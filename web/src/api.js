@@ -238,4 +238,12 @@ export const api = {
   authLogout: () => req("POST", "/api/auth/logout"),
   deleteAccount: () => req("DELETE", "/api/account"),
   aiQuota: () => req("GET", "/api/ai/quota"), // FASE 3: estado da IA gerenciada (cota/BYOK)
+  // FASE 5: observabilidade — logs detalhados do servidor (restrito ao admin).
+  obsLogs: (n, level, cat) => {
+    const q = [];
+    if (n) q.push("n=" + encodeURIComponent(n));
+    if (level) q.push("level=" + encodeURIComponent(level));
+    if (cat) q.push("cat=" + encodeURIComponent(cat));
+    return req("GET", "/api/obs/logs" + (q.length ? "?" + q.join("&") : ""), undefined, 15000);
+  },
 };

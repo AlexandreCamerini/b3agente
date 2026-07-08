@@ -33,15 +33,24 @@ class AuthError(Exception):
 
 
 # ------------------------------- senhas -------------------------------------
+# FASE 5 (lançamento): teto de tamanho. PBKDF2 com 240k iterações sobre uma
+# senha arbitrariamente longa é um vetor de DoS barato (CPU no servidor).
+_PASSWORD_MAX = 128
+
+
 def hash_password(password: str) -> str:
     if not isinstance(password, str) or len(password) < 8:
         raise AuthError("A senha precisa ter ao menos 8 caracteres.")
+    if len(password) > _PASSWORD_MAX:
+        raise AuthError("A senha pode ter no máximo %d caracteres." % _PASSWORD_MAX)
     salt = secrets.token_bytes(16)
     dk = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, _PBKDF2_ITER)
     return "pbkdf2_sha256$%d$%s$%s" % (_PBKDF2_ITER, salt.hex(), dk.hex())
 
 
 def verify_password(password: str, stored: str) -> bool:
+    if isinstance(password, str) and len(password) > _PASSWORD_MAX:
+        return False  # nunca gasta PBKDF2 com entrada gigante (DoS)
     try:
         algo, iter_s, salt_hex, hash_hex = (stored or "").split("$")
         if algo != "pbkdf2_sha256":
@@ -131,6 +140,62 @@ def resolve_session(conn, token: str):
 
 def revoke_session(conn, token: str) -> None:
     db.delete_session(conn, token)
+
+
+def purge_expired_sessions(conn) -> int:
+    """FASE 5 (lançamento): remove sessões vencidas em lote. O resolve_session
+    já apaga a sessão consultada quando expirada (lazy), mas tokens nunca mais
+    usados ficariam para sempre na tabela. Chamado pelo scheduler diário e no
+    boot; devolve quantas linhas saíram (vai para o log de observabilidade)."""
+    cur = conn.execute("DELETE FROM sessions WHERE expires_at < ?", (_iso(_now()),))
+    conn.commit()
+    return cur.rowcount
+
+
+# --------------------------- rate limit (login) ------------------------------
+# FASE 5 (lançamento): freio de força bruta nas rotas de autenticação, em
+# memória por processo (stdlib; espelha o padrão do metering). Janela deslizante
+# por chave (ip + e-mail): até _RL_MAX tentativas FALHAS por _RL_WINDOW s.
+# Sucesso limpa a chave (não pune quem errou a senha 2x e acertou na 3ª).
+_RL_MAX = int(os.environ.get("B3_AUTH_RL_MAX", "10"))
+_RL_WINDOW = float(os.environ.get("B3_AUTH_RL_WINDOW_S", "900"))  # 15 min
+_rl_attempts: dict = {}  # key -> [timestamps de FALHA]
+
+
+def throttle_key(ip: str, email: str = "") -> str:
+    return (ip or "?") + "|" + (email or "").strip().lower()
+
+
+def throttle_check(key: str, now: float = None) -> None:
+    """Levanta AuthError se a chave estourou o limite. Chamar ANTES de validar."""
+    import time as _t
+    t = now if now is not None else _t.time()
+    hits = [x for x in _rl_attempts.get(key, []) if t - x < _RL_WINDOW]
+    _rl_attempts[key] = hits
+    if len(hits) >= _RL_MAX:
+        espera = int(max(1, _RL_WINDOW - (t - hits[0])))
+        raise AuthError("Muitas tentativas de login. Aguarde %d min e tente de novo." % max(1, espera // 60))
+    # higiene: não deixa o dict crescer sem fim (chaves velhas sem hits saem)
+    if len(_rl_attempts) > 10000:
+        for k in [k for k, v in _rl_attempts.items() if not v][:5000]:
+            _rl_attempts.pop(k, None)
+
+
+def throttle_fail(key: str, now: float = None) -> None:
+    """Registra uma tentativa FALHA (chamar no except das rotas de auth)."""
+    import time as _t
+    t = now if now is not None else _t.time()
+    _rl_attempts.setdefault(key, []).append(t)
+
+
+def throttle_clear(key: str) -> None:
+    """Sucesso: zera o contador da chave."""
+    _rl_attempts.pop(key, None)
+
+
+def throttle_reset() -> None:
+    """Para testes."""
+    _rl_attempts.clear()
 
 
 # --------------------------- OAuth (Apple/Google) ---------------------------

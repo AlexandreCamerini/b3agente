@@ -2393,6 +2393,10 @@ function ObservabilidadeScreen({ ctx }) {
   const [diario, setDiario] = useState(null);
   const [runSt, setRunSt] = useState("");
   const [pushSt, setPushSt] = useState("");
+  // FASE 5: logs detalhados do servidor (restritos ao admin — 403 esconde a seção)
+  const [obs, setObs] = useState(null);          // { logs, stats } | null
+  const [obsDenied, setObsDenied] = useState(false);
+  const [obsLevel, setObsLevel] = useState("");  // "" (tudo) | warn | error
   const loadSrv = useCallback(async () => {
     try { setSrv(await store.agentStatus()); setSrvErr(""); }
     catch (e) { setSrvErr((e && e.message) || String(e)); }
@@ -2400,11 +2404,19 @@ function ObservabilidadeScreen({ ctx }) {
   const loadDiario = useCallback(async () => {
     try { setDiario(await store.agentLog(60)); } catch { /* diário é observabilidade; não quebra a tela */ }
   }, []);
+  const loadObs = useCallback(async () => {
+    try { setObs(await store.obsLogs(120, obsLevel || undefined)); setObsDenied(false); }
+    catch (e) {
+      const msg = (e && e.message) || "";
+      if (/403|restrito|administrador/i.test(msg)) setObsDenied(true); // conta não-admin: seção some
+      /* erro de rede: mantém o que tem — logs são observabilidade, não quebram a tela */
+    }
+  }, [obsLevel]);
   useEffect(() => {
-    loadSrv(); loadDiario();
-    const id = setInterval(() => { loadSrv(); loadDiario(); }, 15000);
+    loadSrv(); loadDiario(); loadObs();
+    const id = setInterval(() => { loadSrv(); loadDiario(); loadObs(); }, 15000);
     return () => clearInterval(id);
-  }, [loadSrv, loadDiario]);
+  }, [loadSrv, loadDiario, loadObs]);
   const rodarAgora = async () => {
     setRunSt("disparando…");
     try {
@@ -2494,6 +2506,48 @@ function ObservabilidadeScreen({ ctx }) {
           </div>
         )}
       </div>
+
+      {/* FASE 5 — LOGS DETALHADOS DO SERVIDOR: toda request (rota, status,
+          duração), lentidões, erros e eventos de auth/agente, direto do ring
+          buffer do backend — sem precisar abrir o painel do Railway. Restrito
+          ao admin (B3_ADMIN_EMAILS ou a primeira conta criada). */}
+      {!obsDenied && (
+        <div style={{ marginTop: "14px", ...card, padding: "14px 16px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", marginBottom: "8px", flexWrap: "wrap" }}>
+            <div style={{ fontSize: "11px", fontWeight: 800, color: T.textSecondary, letterSpacing: "0.05em" }}>LOGS DO SERVIDOR (detalhado)</div>
+            <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+              {["", "warn", "error"].map((lv) => (
+                <button key={lv || "all"} onClick={() => setObsLevel(lv)} style={{ padding: "4px 9px", borderRadius: "999px", border: `1px solid ${obsLevel === lv ? T.accent : T.borderSubtle}`, background: obsLevel === lv ? T.accentTint : "transparent", color: obsLevel === lv ? T.accent : T.textFaint, fontSize: "10.5px", fontWeight: 800 }}>
+                  {lv === "" ? "tudo" : lv === "warn" ? "lentos+erros" : "só erros"}
+                </button>
+              ))}
+              <button onClick={loadObs} style={{ background: "transparent", border: "none", color: T.textFaint, fontSize: "11px", fontWeight: 800, padding: "4px" }}>↻</button>
+            </div>
+          </div>
+          {obs && obs.stats && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "5px 12px", color: T.textFaint, fontSize: "10.5px", fontFamily: MONO, marginBottom: "8px" }}>
+              <span>uptime {Math.floor((obs.stats.uptimeS || 0) / 3600)}h{Math.floor(((obs.stats.uptimeS || 0) % 3600) / 60)}m</span>
+              {Object.entries(obs.stats.porCategoria || {}).map(([c, lv]) => (
+                <span key={c}>{c}: {Object.entries(lv).map(([k, v]) => k + "=" + v).join(" ")}</span>
+              ))}
+            </div>
+          )}
+          {!obs && <div style={{ fontSize: "11.5px", color: T.textFaint }}>carregando logs do servidor…</div>}
+          {obs && (obs.logs || []).length === 0 && <div style={{ fontSize: "11.5px", color: T.textFaint }}>nenhum evento registrado {obsLevel ? "neste filtro" : "desde o boot"}.</div>}
+          <div style={{ maxHeight: "300px", overflowY: "auto" }}>
+            {obs && (obs.logs || []).map((e, i) => {
+              const lc = e.level === "error" ? T.negative : e.level === "warn" ? "#fbbf24" : T.textFaint;
+              return (
+                <div key={i} style={{ display: "flex", gap: "8px", alignItems: "flex-start", padding: "4px 0", borderTop: i ? `1px solid ${T.borderFaint}` : "none", fontFamily: MONO, fontSize: "10.5px", lineHeight: 1.5 }}>
+                  <span style={{ color: T.textFaint, flex: "none" }}>{e.ts}</span>
+                  <span style={{ color: lc, fontWeight: 800, flex: "none", minWidth: "36px" }}>{e.cat}</span>
+                  <span style={{ color: e.level === "error" ? T.negative : T.textMuted, wordBreak: "break-word" }}>{e.msg}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -3780,12 +3834,18 @@ export default function App() {
     // FASE 2 (2.4): meta = setup de entrada (do STU) registrado na compra
     openBuy: (t, qty, meta) => setBuyModal({ t, qty: qty || 100, meta: meta || null }),
     closeBuy: () => setBuyModal(null),
-    // FASE 3 (Radar): "+ Watchlist" — move o achado para o funil sem sair da tela
+    // FASE 3 (Radar): "+ Watchlist" — move o achado para o funil sem sair da tela.
+    // FASE 5 (fix): usa addWatchlistTicker (valida e REGISTRA em `custom` nos dois
+    // stores). O caminho antigo (putWatchlist) filtrava contra o catálogo de 20
+    // tickers e DESCARTAVA em silêncio qualquer ativo do Radar fora dele — a UI
+    // dizia "adicionado ✓" mas o ativo nunca entrava. Guardado por
+    // web/tests/test_radar_watchlist.mjs.
     addToWatchlist: async (t) => {
       try {
         if (!(data.watchlist || []).includes(t)) {
-          const st = await store.putWatchlist([...(data.watchlist || []), t]);
+          const st = await store.addWatchlistTicker(t);
           setData(st);
+          if (!((st.watchlist || []).includes(t))) throw new Error(t + " não entrou na watchlist. Tente pelo ✎ da Watchlist.");
         }
         flash(t + " adicionado à watchlist ✓");
       } catch (e) { flash("Watchlist: " + (e.message || e)); }
@@ -4169,10 +4229,12 @@ export default function App() {
     goMercado: () => setTab("mercado"),
     // FASE 2 (2.1): ponte Descobrir → Avaliar. Garante o ativo na watchlist,
     // navega para Avaliar e dispara a análise N2 daquele ativo.
+    // FASE 5 (fix): mesma correção do addToWatchlist — addWatchlistTicker aceita
+    // ativos fora do catálogo (o putWatchlist os descartava em silêncio).
     openAvaliar: async (t) => {
       try {
         if (!(data.watchlist || []).includes(t)) {
-          const s = await store.putWatchlist([...(data.watchlist || []), t]);
+          const s = await store.addWatchlistTicker(t);
           setData(s);
         }
         setCarteiraView("main"); setPerfilView("hub"); setTab("mercado");

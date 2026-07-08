@@ -14,6 +14,11 @@ const config: CapacitorConfig = {
     LocalNotifications: {
       presentationOptions: ["alert", "sound", "badge"],
     },
+    // FASE 5 (fix das notificações): sem isto, um push APNs recebido com o app
+    // ABERTO é suprimido pelo iOS (nenhum banner). Espelha o LocalNotifications.
+    PushNotifications: {
+      presentationOptions: ["alert", "sound", "badge"],
+    },
     // Faz o fetch() usar HTTP nativo no iPhone, ignorando CORS — necessário
     // para chamar a API da brapi.dev direto do app. No navegador (PWA desktop)
     // o fetch normal continua valendo e o CORS pode bloquear; nesse caso o app

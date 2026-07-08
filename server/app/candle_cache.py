@@ -10,12 +10,20 @@ Cuidados tratados:
   • mudança de intervalo segmenta o cache (chave = símbolo + intervalo);
   • limite de tamanho (_MAX) para não crescer sem fim.
 
-Em memória por processo (como o _TECH_CACHE). Reinício do Railway reaquece no
-1º acesso (busca cheia). Persistir em SQLite é evolução futura, não necessária
-para o ganho de rede.
+FASE 5 (performance): o cache agora tem DOIS níveis.
+  L1 = memória do processo (como sempre foi; leitura instantânea).
+  L2 = SQLite (tabela candle_cache, no MESMO arquivo do app — volume /data no
+       Railway). Reinício/redeploy REIDRATA do L2 e busca só o delta recente,
+       em vez de rebaixar 2 anos do universo inteiro — era a principal causa da
+       "demora para atualizar" depois de cada deploy.
+Falha de SQLite nunca derruba o fluxo: degrada silenciosamente para o modo
+memória-apenas (comportamento antigo). Testável offline (test_candle_cache).
 """
+import json
 import time
-from typing import Awaitable, Callable
+from typing import Awaitable, Callable, Optional
+
+from . import db as _dbmod
 
 FULL_RANGE = "2y"      # warmup p/ médias longas na 1ª carga (cache miss)
 RECENT_RANGE = "1mo"   # janela buscada nas próximas vezes (delta + revalidação)
@@ -23,6 +31,55 @@ _MAX = 600             # ~2,4 anos de pregões; teto de tamanho
 _MIN_DELTA_INTERVAL = 45.0  # não rebusca o delta se atualizou há < 45s
 
 _CACHE: dict = {}      # "SYMBOL@interval" -> {"candles":[...], "currency":str, "at":float}
+
+# ------------------------- L2 persistente (SQLite) --------------------------
+# OPT-IN explícito: o main.py injeta a conexão no boot (configure_db(conn)).
+# Sem injeção (suítes puras, uso avulso do módulo) o comportamento é o antigo:
+# memória apenas — nenhum teste passa a tocar disco por acidente.
+_DB_ENABLED = False
+_DB_CONN = None
+
+
+def configure_db(conn=None, enabled: bool = True) -> None:
+    """Boot/testes: injeta a conexão do L2 (ou desliga a persistência)."""
+    global _DB_CONN, _DB_ENABLED
+    _DB_CONN = conn
+    _DB_ENABLED = bool(enabled and conn is not None)
+
+
+def _conn():
+    return _DB_CONN if _DB_ENABLED else None
+
+
+def _db_get(k: str) -> Optional[dict]:
+    try:
+        c = _conn()
+        if c is None:
+            return None
+        row = c.execute("SELECT currency, candles, at FROM candle_cache WHERE k = ?", (k,)).fetchone()
+        if not row:
+            return None
+        candles = json.loads(row[1])
+        if not isinstance(candles, list) or not candles:
+            return None
+        return {"candles": candles, "currency": row[0] or "BRL", "at": float(row[2] or 0)}
+    except Exception:  # noqa: BLE001 — L2 é otimização, nunca derruba
+        return None
+
+
+def _db_put(k: str, ent: dict) -> None:
+    try:
+        c = _conn()
+        if c is None:
+            return
+        c.execute(
+            "INSERT INTO candle_cache(k, currency, candles, at) VALUES(?,?,?,?) "
+            "ON CONFLICT(k) DO UPDATE SET currency=excluded.currency, candles=excluded.candles, at=excluded.at",
+            (k, ent.get("currency", "BRL"), json.dumps(ent.get("candles") or []), float(ent.get("at") or 0)),
+        )
+        c.commit()
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def _key(symbol: str, interval: str) -> str:
@@ -69,6 +126,13 @@ async def load(
     k = _key(symbol, interval)
     ent = _CACHE.get(k)
 
+    # FASE 5: L1 vazio => tenta reidratar do L2 (SQLite). Série persistida entra
+    # como cache existente: o fluxo abaixo busca só o DELTA recente, não os 2 anos.
+    if (not ent or not ent.get("candles")):
+        persisted = _db_get(k)
+        if persisted:
+            _CACHE[k] = ent = persisted
+
     if not ent or not ent.get("candles"):
         # BLOCO A1 — robustez: 404/erro do provedor não pode vazar stack técnico.
         # 1 retry em janela menor (símbolos com histórico curto/instável no Yahoo)
@@ -84,6 +148,7 @@ async def load(
                 )
         candles = (full.get("candles") or [])[-_MAX:]
         _CACHE[k] = {"candles": candles, "currency": full.get("currency", "BRL"), "at": t}
+        _db_put(k, _CACHE[k])  # FASE 5: write-through no L2 (sobrevive a redeploy)
         return {"t": symbol, "currency": _CACHE[k]["currency"], "candles": candles, "cacheStatus": "miss"}
 
     # já atualizado há pouco: serve do cache sem bater no provedor
@@ -101,4 +166,5 @@ async def load(
     ent["at"] = t
     if recent.get("currency"):
         ent["currency"] = recent["currency"]
+    _db_put(k, ent)  # FASE 5: write-through no L2
     return {"t": symbol, "currency": ent.get("currency", "BRL"), "candles": merged, "cacheStatus": "delta"}
