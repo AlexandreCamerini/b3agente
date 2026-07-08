@@ -45,9 +45,14 @@ export const COPY = {
     vazioPortfolio: "Você ainda não tem posições. Vá à Watchlist e simule sua primeira compra — é dinheiro simulado, sem risco.",
 
     // toasts/notificações
-    toastCompra: (qty, t) => `Compra simulada: ${qty} ${t}. Vamos acompanhar juntos?`,
+    toastCompra: (qty, t) => `Compra simulada: ${qty} ${t}. Sugerindo alvo e stop…`,
+    toastVenda: (desc, t) => `Venda simulada: ${desc} de ${t}.`,
     notifStopTitulo: (t) => `Stop acionado · ${t}`,
     notifStopCorpo: (t, preco, stop) => `${t} a R$ ${preco} atingiu o stop de R$ ${stop} — bom momento para estudar o que mudou.`,
+    notifAlvoTitulo: (t) => `Alvo atingido · ${t}`,
+    notifAlvoCorpo: (t, preco, alvo) => `${t} a R$ ${preco} alcançou o alvo de R$ ${alvo}. Que tal revisar a tese?`,
+    notifVarTitulo: (t) => `Movimento forte · ${t}`,
+    notifVarCorpo: (t, ch, preco) => `${t} ${ch} no dia (R$ ${preco}) — vale estudar o que está acontecendo.`,
 
     // rodapé/disclaimer
     disclaimer: DISCLAIMERS.radar,
@@ -85,8 +90,13 @@ export const COPY = {
 
     // toasts/notificações
     toastCompra: (qty, t) => `Entrada registrada: ${qty} ${t}. Stop e alvo já definidos? Sem plano, sem posição.`,
+    toastVenda: (desc, t) => `Saída registrada: ${desc} de ${t}. Anote o resultado em R.`,
     notifStopTitulo: (t) => `STOP executável · ${t}`,
     notifStopCorpo: (t, preco, stop) => `${t} a R$ ${preco} rompeu o stop de R$ ${stop}. Execute a saída na corretora — o plano manda.`,
+    notifAlvoTitulo: (t) => `ALVO no preço · ${t}`,
+    notifAlvoCorpo: (t, preco, alvo) => `${t} a R$ ${preco} tocou o alvo de R$ ${alvo}. Realize a parcial e suba o stop — disciplina.`,
+    notifVarTitulo: (t) => `Movimento forte · ${t}`,
+    notifVarCorpo: (t, ch, preco) => `${t} ${ch} no dia (R$ ${preco}). Confira se algum plano armado foi atingido.`,
 
     // rodapé/disclaimer
     disclaimer: DISCLAIMERS.operador,

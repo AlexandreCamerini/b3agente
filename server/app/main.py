@@ -235,7 +235,9 @@ def _ai_apply_managed(scope, config):
         ok, reason = metering.check(_conn, scope, quota=managed.daily_quota(), rate_per_min=managed.rate_per_min())
         if not ok:
             raise HTTPException(402, reason)
-        return mcfg, (lambda: metering.consume(_conn, scope))
+        # FASE 8B (B4): a config gerenciada é só a CHAVE/modelo — o modo de
+        # trabalho do usuário viaja junto (senão a mesa falava como professor).
+        return {**mcfg, "appMode": (config or {}).get("appMode")}, (lambda: metering.consume(_conn, scope))
     return config, (lambda: None)                    # sem BYOK e sem gerenciada: llm dará erro acionável
 
 

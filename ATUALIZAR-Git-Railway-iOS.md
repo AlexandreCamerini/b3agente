@@ -122,9 +122,14 @@ Xcode: Product → Clean Build Folder → instalar no iPhone.
    voltar ao portão de entrada e mostrar o estado anônimo; reabrir o app não
    pode restaurar a sessão. Entrar de novo não pode trazer análises do
    anônimo.
-10. **FASE 8B — gate de tema/copy:** abrir `qa/mocks/dois-apps-em-um.html`,
-    decidir as 5 questões de design e revisar `web/src/copy.js` → seu OK
-    inicia B1+B2 (as telas e a paleta ainda NÃO mudaram).
+10. **FASE 8B — "dois apps em um" COMPLETO (B1+B2+B4 · `qa/23`):** Perfil →
+    Modo de trabalho → Operador → num movimento só: paleta vira verde-mercado
+    sobre grafite (transição suave), chip MODO OPERADOR no topo, abas viram
+    Mesa de oportunidades/Monitoramento/Posições, saudação vira "Mesa aberta",
+    botões viram Registrar entrada/saída, e as notificações de stop/alvo falam
+    como mesa ("Execute a saída — o plano manda"). Voltar ao Estudo restaura
+    TUDO (paleta âmbar/azul, professor). Testar também: teclado não dá mais
+    zoom ao focar campos; toque sem flash cinza.
 11. **FASE 8B (P1–P4, nesta entrega · `qa/22`):**
     (a) conta Apple: o perfil deve mostrar seu NOME (ou "Conta Apple (e-mail
     oculto)") e o modal explicar o relay — o e-mail @privaterelay é o normal

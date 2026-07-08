@@ -714,7 +714,12 @@ async def analyze_carteira(config: dict, profile: dict, account: dict, ticker: s
             "- Ajuste as distâncias ao PERFIL (tolerância de perda) e ao capital.",
             "- Sem verbo de ordem; são sugestões PARA ESTUDO que o usuário confirma.",
         ])
-    system = instruction + ((("\n\n" + pl)) if pl else "") + cenarios_ext + (
+    # FASE 8B (B4/N3): no modo OPERADOR o prompt configurável do usuário ganha
+    # a camada de MESA por cima (tom direto + conclusões canônicas + limites) —
+    # o formato do array por ativo NÃO muda (o popup já parseia).
+    voz = ("\n\n" + GUARDRAILS_PRO + "\nFale como mesa de operações: stop na invalidação técnica, "
+           "alvos com R:R explícito e uma linha de racional por número.") if is_operador(config) else ""
+    system = instruction + voz + ((("\n\n" + pl)) if pl else "") + cenarios_ext + (
         "\n\nResponda SOMENTE com o array JSON especificado, sem texto fora dele e sem cercas ```."
     )
     user = _build_user_prompt(ticker, quote, history, profile, account)

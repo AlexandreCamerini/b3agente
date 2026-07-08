@@ -6,6 +6,7 @@ import { testServer, describeRuntimeConfig, getApiBase } from "./api.js";
 import { createChart, ColorType, CrosshairMode, LineStyle } from "lightweight-charts";
 import { sampleTechnicals } from "./demo.js";
 import { DISCLAIMERS, TERMO_OPERADOR_VERSAO } from "./disclaimers.js";
+import { copyFor } from "./copy.js";
 import { canAddTicker, canAnalyze } from "./plan.js";
 import { portfolioMetrics, dayReturnPct, equityCurve, markPrice, sizingPlano } from "./finance.js";
 import * as notify from "./notify.js";
@@ -54,7 +55,26 @@ const VARKEY = (k) => "--" + k.replace(/[A-Z]/g, (c) => "-" + c.toLowerCase());
 // T mantém as MESMAS chaves, mas aponta para var(--x) — nenhum uso T.x muda.
 const T = Object.fromEntries(Object.keys(PALETTE.dark).map((k) => [k, `var(${VARKEY(k)})`]));
 const themeVarBlock = (name) => Object.entries(PALETTE[name]).map(([k, v]) => `${VARKEY(k)}:${v}`).join(";");
-const THEME_CSS = `.b3-theme-dark{${themeVarBlock("dark")}} .b3-theme-light{${themeVarBlock("light")}}`;
+// FASE 8B (B2) — identidade do MODO OPERADOR: verde-mercado sobre grafite mais
+// frio. Como TODA a UI lê var(--x), o modo é um OVERRIDE de variáveis por cima
+// do tema (dark/light) — nenhum uso de T.x muda; a troca anima via transition.
+const MODE_OPERADOR = {
+  dark: {
+    bgBase: "#0a0d10", bgPanel: "#0c1116", bgCard: "#10161b", bgToast: "#16211c",
+    borderSubtle: "#1e2a30", borderFaint: "#182126", borderToast: "#24483a",
+    accent: "#22c55e", accentSoft: "#86efac",
+    accentTint: "rgba(34,197,94,0.14)", accentTintHi: "rgba(34,197,94,0.26)", accentTint10: "rgba(34,197,94,0.10)",
+    onAccent: "#04170b", knob: "#182126", navDotIdle: "#27343b",
+  },
+  light: {
+    accent: "#15803d", accentSoft: "#166534",
+    accentTint: "rgba(21,128,61,0.12)", accentTintHi: "rgba(21,128,61,0.20)", accentTint10: "rgba(21,128,61,0.10)",
+    onAccent: "#ffffff",
+  },
+};
+const modeVarBlock = (name) => Object.entries(MODE_OPERADOR[name]).map(([k, v]) => `${VARKEY(k)}:${v}`).join(";");
+const THEME_CSS = `.b3-theme-dark{${themeVarBlock("dark")}} .b3-theme-light{${themeVarBlock("light")}}`
+  + ` .b3-mode-operador.b3-theme-dark{${modeVarBlock("dark")}} .b3-mode-operador.b3-theme-light{${modeVarBlock("light")}}`;
 const ThemeCtx = createContext("dark");
 const useThemeKey = () => useContext(ThemeCtx);
 const usePalette = () => PALETTE[useContext(ThemeCtx)] || PALETTE.dark;
@@ -132,10 +152,16 @@ function GlobalStyle() {
       .b3 *{ box-sizing:border-box; }
       .b3-shell{ height:100vh; height:100dvh; }
       .b3{ transition:background .25s ease, color .25s ease; }
-      .b3 button{ font:inherit; color:inherit; cursor:pointer; transition:filter .12s ease, transform .05s ease; }
+      .b3 button{ font:inherit; color:inherit; cursor:pointer; transition:filter .12s ease, transform .05s ease; user-select:none; -webkit-user-select:none; }
       .b3 button:active:not(:disabled){ transform:translateY(1px); filter:brightness(1.12); }
       .b3 button:disabled{ cursor:default; opacity:.6; }
-      .b3 input,.b3 textarea,.b3 select{ font:inherit; }
+      /* FASE 8B (UX): sem o flash cinza de toque do iOS; inputs com 16px para
+         o Safari NÃO dar zoom automático ao focar (pulo de tela clássico). */
+      .b3, .b3 *{ -webkit-tap-highlight-color: transparent; }
+      .b3 input,.b3 textarea,.b3 select{ font:inherit; font-size:16px; }
+      /* FASE 8B (B2): troca de modo com transição suave — a classe entra por
+         ~450ms só durante a troca (não pesa nas interações normais). */
+      .b3-mode-switch, .b3-mode-switch *{ transition: background-color .35s ease, color .35s ease, border-color .35s ease, fill .35s ease !important; }
       .b3 textarea{ resize:vertical; }
       .b3 :focus-visible{ outline:2px solid ${T.accent}; outline-offset:2px; border-radius:4px; }
       .b3 ::-webkit-scrollbar{ width:10px; height:10px; }
@@ -513,7 +539,7 @@ function Ticker({ items, live }) {
   );
 }
 
-function Topbar({ patr, dia, caixa, name, onProfile }) {
+function Topbar({ patr, dia, caixa, name, onProfile, modeChip }) {
   const up = dia >= 0;
   const base = patr - dia;
   const pct = base > 0 ? (dia / base) * 100 : 0;
@@ -524,7 +550,11 @@ function Topbar({ patr, dia, caixa, name, onProfile }) {
       <div style={{ display: "flex", alignItems: "center", gap: "11px", marginRight: "auto", minWidth: 0 }}>
         <LogoMark size={42} />
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: "18px", lineHeight: 1.05, letterSpacing: "-0.01em" }}>Bols<span style={IA_GRAD}>IA</span></div>
+          <div style={{ display: "flex", alignItems: "center", gap: "7px", minWidth: 0 }}>
+            <div style={{ fontWeight: 700, fontSize: "18px", lineHeight: 1.05, letterSpacing: "-0.01em" }}>Bols<span style={IA_GRAD}>IA</span></div>
+            {/* FASE 8B (B2): identidade permanente do modo (nunca deixa dúvida de onde se está) */}
+            {modeChip && <span style={{ padding: "3px 8px", borderRadius: "999px", background: T.accentTint, color: T.accent, fontSize: "8.5px", fontWeight: 800, letterSpacing: "0.08em", whiteSpace: "nowrap", flex: "none" }}>{modeChip}</span>}
+          </div>
           {name ? <div style={{ fontSize: "11px", color: T.textMuted, marginTop: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Olá, {name}</div> : null}
         </div>
       </div>
@@ -557,12 +587,16 @@ function NavIcon({ id, active }) {
   return <svg width="23" height="23" viewBox="0 0 24 24" aria-hidden>{paths[id]}</svg>;
 }
 
-function BottomNav({ tab, setTab }) {
+function BottomNav({ tab, setTab, cp }) {
   // FASE 2 (2.1 — Revisão Total): funil canônico Acompanhar → Radar →
-  // Watchlist → Portfólio → Operador IA. "Avaliar" deixa de ser aba (a análise
-  // N2 abre como detalhe a partir dos cards); "Operar" vira "Portfólio".
-  // Ids internos preservados (zero mudança de estado; deep-links continuam).
-  const defs = [["evolucao", "Acompanhar"], ["radar", "Radar"], ["mercado", "Watchlist"], ["carteira", "Portfólio"], ["agente", "Operador IA"]];
+  // Watchlist → Portfólio → Operador IA. Ids internos preservados.
+  // FASE 8B (B1): rótulos das abas de mercado/carteira vêm da fraseologia do
+  // modo (Watchlist/Portfólio × Monitoramento/Posições) — a navegação também
+  // fala a língua do modo.
+  const defs = [["evolucao", "Acompanhar"], ["radar", "Radar"],
+    ["mercado", (cp && cp.tituloWatchlist) || "Watchlist"],
+    ["carteira", (cp && cp.tituloPortfolio) || "Portfólio"],
+    ["agente", "Operador IA"]];
   return (
     <nav style={{ flex: "none", background: T.bgPanel, borderTop: `1px solid ${T.borderSubtle}`, paddingBottom: "env(safe-area-inset-bottom)" }}>
       <div style={{ display: "flex", maxWidth: "720px", margin: "0 auto", padding: "5px 6px" }}>
@@ -1336,7 +1370,7 @@ function EvolucaoScreen({ ctx }) {
   // FASE 2 (2.2): Acompanhar vira a HOME — resumo do dia (determinístico, do
   // STU + finance.js), operações de hoje, alertas de setups na watchlist e o
   // destaque de oportunidade (1 leitura N1/dia autorizada, cache por snapshot).
-  const { data, quotes, A, wlScan, destaque } = ctx;
+  const { data, quotes, A, wlScan, destaque, cp } = ctx;   // FASE 8B (B1)
   const name = ((data.config && data.config.userName) || "").trim().split(/\s+/)[0] || "";
   const streak = (data.config && data.config.streak && data.config.streak.days) || 0;
   const [deepOpen, setDeepOpen] = useState(false);
@@ -1357,8 +1391,12 @@ function EvolucaoScreen({ ctx }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
       <div>
-        <h1 style={{ margin: 0, fontSize: "23px", fontWeight: 700, letterSpacing: "-0.01em" }}>{name ? "Olá, " + name : "Acompanhar"}</h1>
-        <p style={{ margin: "5px 0 0", color: T.textMuted, fontSize: "13px", lineHeight: 1.5 }}>Seu dia como operador em estudo — carteira simulada, gatilhos e a oportunidade do dia.</p>
+        {/* FASE 8B (B1/B4): saudação e resumo do dia na VOZ do modo (professor × mesa) */}
+        <h1 style={{ margin: 0, fontSize: "23px", fontWeight: 700, letterSpacing: "-0.01em" }}>{cp.saudacao(name || null)}</h1>
+        <p style={{ margin: "5px 0 0", color: T.textMuted, fontSize: "13px", lineHeight: 1.5 }}>
+          {cp.resumoDia(((wlScan && wlScan.results) || []).filter((r) => (r.confluencia || 0) > 0).length,
+            ((wlScan && wlScan.results) || []).filter((r) => r.plano && (r.plano.decisao === "COMPRAR" || r.plano.decisao === "VENDER")).length)}
+        </p>
       </div>
 
       {/* FASE 2 (2.2): estado vazio elegante — onboarding do funil */}
@@ -1617,7 +1655,7 @@ function PerfilHub({ ctx, onOpen }) {
         <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden><path d="M4 18v-5M9.5 18v-9M15 18V7M20 18v-3" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" /></svg>
       } />
       <div style={{ fontSize: "11.5px", color: T.textFaint, marginTop: "2px", lineHeight: 1.5 }}>
-        Notificações {notifOn ? "ativas" : "desativadas"} · ferramenta educacional — nada aqui é recomendação de investimento.
+        Notificações {notifOn ? "ativas" : "desativadas"} · {ctx.cp.rodape}
       </div>
     </div>
   );
@@ -1628,7 +1666,7 @@ function MercadoScreen({ ctx }) {
   // oportunidade (confluência do STU, melhor → pior); filtro secundário por
   // direção; histórico de operações por ativo (formatos a+b no card, c no
   // detalhe expandido). A análise N2 segue abrindo como detalhe do card.
-  const { data, quotes, analysis, expanded, analysisModel, setAnalysisModel, A, quotesAt, quotesLoading, wlScan, wlScanLoading } = ctx;
+  const { data, quotes, analysis, expanded, analysisModel, setAnalysisModel, A, quotesAt, quotesLoading, wlScan, wlScanLoading, cp } = ctx;
   const [dirFilter, setDirFilter] = useState("todos");   // todos | alta | baixa | neutro
   const [opsOpen, setOpsOpen] = useState({});            // ticker -> histórico aberto
   const [sparks, setSparks] = useState({});              // ticker -> candles (lazy)
@@ -1660,7 +1698,7 @@ function MercadoScreen({ ctx }) {
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", marginBottom: "6px" }}>
-        <h1 style={{ margin: 0, fontSize: "24px", fontWeight: 700, letterSpacing: "-0.01em" }}>Watchlist</h1>
+        <h1 style={{ margin: 0, fontSize: "24px", fontWeight: 700, letterSpacing: "-0.01em" }}>{cp.tituloWatchlist}</h1>
         <div style={{ display: "flex", gap: "8px" }}>
           <button onClick={() => A.go("opcoes")} style={{ minHeight: "36px", padding: "7px 12px", borderRadius: "10px", border: `1px solid ${T.borderSubtle}`, background: T.bgBase, color: T.textSecondary, fontWeight: 700, fontSize: "12px" }}>Opções ▸</button>
           <IconBtn label="Atualizar cotações" onClick={A.refreshQuotes} busy={quotesLoading}>↻</IconBtn>
@@ -1700,7 +1738,7 @@ function MercadoScreen({ ctx }) {
 
       {wl.length === 0 && (
         <div style={{ background: T.bgCard, border: `1px dashed ${T.borderDashed}`, borderRadius: "12px", padding: "34px 20px", textAlign: "center" }}>
-          <div style={{ fontSize: "16px", fontWeight: 700 }}>Sua watchlist está vazia</div>
+          <div style={{ fontSize: "16px", fontWeight: 700 }}>{ctx.cp.vazioWatchlist}</div>
           <p style={{ margin: "8px auto 16px", color: T.textMuted, fontSize: "13px", maxWidth: "380px", lineHeight: 1.5 }}>Escolha entre as 20 blue chips do catálogo quais ativos quer acompanhar. A seleção fica salva.</p>
           <button onClick={A.openCatalog} style={{ padding: "10px 18px", borderRadius: "8px", border: `1px solid ${T.accent}`, background: T.accentTint, color: T.accent, fontWeight: 700, fontSize: "13px" }}>Escolher ativos →</button>
         </div>
@@ -1793,7 +1831,7 @@ function MercadoScreen({ ctx }) {
                   const qs = suggestedQty(data.cash, q.price, (data.profile || {}).risco);
                   return (
                     <button onClick={() => A.openBuy(t, qs, buyMeta)} style={{ marginTop: "10px", width: "100%", minHeight: "42px", padding: "9px", borderRadius: "10px", border: `1px solid ${T.positive}`, background: T.positiveTint10, color: T.positive, fontWeight: 800, fontSize: "12.5px" }}>
-                      Simular compra · sugestão {qs} ações
+                      {cp.btnComprar} · sugestão {qs} ações
                     </button>
                   );
                 }
@@ -1809,7 +1847,7 @@ function MercadoScreen({ ctx }) {
                 }
                 return (
                   <button onClick={() => A.openBuy(t, undefined, buyMeta)} style={{ marginTop: "10px", width: "100%", minHeight: "42px", padding: "9px", borderRadius: "10px", border: `1px solid ${T.borderSubtle}`, background: T.bgBase, color: T.textSecondary, fontWeight: 700, fontSize: "12.5px" }}>
-                    Simular compra… <span style={{ color: T.textFaint, fontWeight: 600 }}>(leitura: {(an.kpis && an.kpis.recomendacao) || "neutra"})</span>
+                    {cp.btnComprar}… <span style={{ color: T.textFaint, fontWeight: 600 }}>(leitura: {(an.kpis && an.kpis.recomendacao) || "neutra"})</span>
                   </button>
                 );
               })()}
@@ -1824,7 +1862,7 @@ function MercadoScreen({ ctx }) {
               {/* FASE 3 (mock v2): sem análise ainda → CTA neutro de compra (o
                   contextual pós-análise já existe acima, no bloco C1) */}
               {!hasAnalysis(an) && !an.loading && (
-                <button onClick={() => A.openBuy(t, undefined, buyMeta)} disabled={q.error || q.price == null} style={{ marginTop: "12px", width: "100%", minHeight: "44px", padding: "10px", borderRadius: "10px", border: `1px solid ${T.borderSubtle}`, background: T.bgBase, color: T.textSecondary, fontWeight: 700, fontSize: "13px" }}>Simular compra…</button>
+                <button onClick={() => A.openBuy(t, undefined, buyMeta)} disabled={q.error || q.price == null} style={{ marginTop: "12px", width: "100%", minHeight: "44px", padding: "10px", borderRadius: "10px", border: `1px solid ${T.borderSubtle}`, background: T.bgBase, color: T.textSecondary, fontWeight: 700, fontSize: "13px" }}>{cp.btnComprar}…</button>
               )}
               {expanded[t] && hasAnalysis(an) && (
                 <div style={{ marginTop: "11px", paddingTop: "12px", borderTop: `1px solid ${T.borderSubtle}` }}>
@@ -1950,7 +1988,7 @@ function CarteiraScreen({ ctx }) {
   // FASE 3 (mock v2): edição de stop/alvo sob demanda + compras da posição
   const [editFor, setEditFor] = useState(null);
   const [comprasOpen, setComprasOpen] = useState({});
-  const { data, quotes, analysis, A, goMercado } = ctx;
+  const { data, quotes, analysis, A, goMercado, cp } = ctx;   // FASE 8B (B1)
   const byQ = (t) => quotes[t] || {};
   const m = portfolioMetrics(data.positions, quotes, data.cash);
   const positionsValue = m.posVal;
@@ -1968,7 +2006,7 @@ function CarteiraScreen({ ctx }) {
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
-        <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 700 }}>Portfólio</h1>
+        <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 700 }}>{cp.tituloPortfolio}</h1>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: "12px", margin: "16px 0 18px" }}>
         {kpi("PATRIMÔNIO TOTAL", money(total), T.textPrimary)}
@@ -1980,7 +2018,7 @@ function CarteiraScreen({ ctx }) {
       {data.positions.length === 0 && (
         <div style={{ background: T.bgCard, border: `1px dashed ${T.borderDashed}`, borderRadius: "12px", padding: "34px 20px", textAlign: "center" }}>
           <div style={{ fontSize: "16px", fontWeight: 700 }}>Portfólio vazio</div>
-          <p style={{ margin: "8px auto 16px", color: T.textMuted, fontSize: "13px", maxWidth: "380px", lineHeight: 1.5 }}>Você ainda não tem posições. Vá à Watchlist e simule sua primeira compra — é dinheiro simulado, sem risco.</p>
+          <p style={{ margin: "8px auto 16px", color: T.textMuted, fontSize: "13px", maxWidth: "380px", lineHeight: 1.5 }}>{cp.vazioPortfolio}</p>
           <button onClick={goMercado} style={{ padding: "10px 18px", borderRadius: "8px", border: `1px solid ${T.accent}`, background: T.accentTint, color: T.accent, fontWeight: 700, fontSize: "13px" }}>Ir à watchlist →</button>
         </div>
       )}
@@ -2091,7 +2129,7 @@ function CarteiraScreen({ ctx }) {
                   📈 Stop/alvo (IA)
                 </button>
                 <button onClick={() => ctx.A.openSell(p.t)} style={{ flex: 1, minHeight: "42px", padding: "9px", borderRadius: "10px", border: `1px solid ${T.negative}`, background: T.negativeTint10, color: T.negative, fontWeight: 800, fontSize: "12.5px" }}>
-                  Simular venda…
+                  {cp.btnVender}…
                 </button>
               </div>
               <div style={{ display: "flex", gap: "14px", alignItems: "center", marginTop: "10px", paddingTop: "9px", borderTop: `1px solid ${T.borderFaint}` }}>
@@ -2712,7 +2750,7 @@ function ObservabilidadeScreen({ ctx }) {
    Config (mesma config nos dois stores). */
 const RADAR_PERIOD_LABEL = { "1mo": "1M", "3mo": "3M", "6mo": "6M", "1y": "1A", "2y": "2A" };
 function RadarScreen({ ctx }) {
-  const { data } = ctx;
+  const { data, cp } = ctx;   // FASE 8B (B1): fraseologia por modo
   const period = (data.config && data.config.candlePeriod) || "1y";
   const [st, setSt] = useState({ busy: false, res: null, error: "" });
   const [showModel, setShowModel] = useState(false);
@@ -2788,7 +2826,7 @@ function RadarScreen({ ctx }) {
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", marginBottom: "6px" }}>
-        <h1 style={{ margin: 0, fontSize: "24px", fontWeight: 700, letterSpacing: "-0.01em" }}>Radar de mercado</h1>
+        <h1 style={{ margin: 0, fontSize: "24px", fontWeight: 700, letterSpacing: "-0.01em" }}>{cp.tituloRadar}</h1>
         <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
           <button onClick={runBatch} disabled={batch.busy || st.busy || !res} style={{ minHeight: "36px", padding: "7px 12px", borderRadius: "10px", border: `1px solid ${T.accent}`, background: batch.stage === "confirm" ? T.accent : T.accentTint, color: batch.stage === "confirm" ? T.onAccent : T.accent, fontWeight: 800, fontSize: "12px", opacity: (batch.busy || st.busy || !res) ? 0.6 : 1 }}>
             {batch.busy ? "…" : batch.stage === "confirm" && batch.est ? `Confirmar: ${batch.est.chamadas} chamada${batch.est.chamadas === 1 ? "" : "s"} de IA` : "IA no top-N"}
@@ -2802,10 +2840,7 @@ function RadarScreen({ ctx }) {
         </div>
       )}
       {batch.error && <div style={{ margin: "0 0 10px", fontSize: "11.5px", color: T.negative }}>{batch.error}</div>}
-      <p style={{ margin: "0 0 12px", color: T.textMuted, fontSize: "13px", maxWidth: "560px", lineHeight: 1.55 }}>
-        Varredura do universo de ativos com o motor de sinais: quais condições técnicas
-        estão ativas em cada papel, para você estudar — sem qualquer recomendação.
-      </p>
+      <p style={{ margin: "0 0 12px", color: T.textMuted, fontSize: "13px", maxWidth: "560px", lineHeight: 1.55 }}>{cp.subtituloRadar}</p>
       <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", marginBottom: "14px" }}>
         <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "6px 10px", borderRadius: "999px", background: T.accentTint, border: `1px solid ${T.accent}`, color: T.accent, fontSize: "11px", fontWeight: 800, letterSpacing: "0.05em" }}>
           PERÍODO EM USO: {RADAR_PERIOD_LABEL[period] || period}{res ? " · " + res.periodBars + " pregões" : ""}
@@ -2957,7 +2992,7 @@ function RadarScreen({ ctx }) {
               {/* FASE 2 (2.1): jornada — aprofundar (N1) ou avaliar por completo (N2) */}
               <div style={{ display: "flex", gap: "8px", marginTop: "12px" }}>
                 <button onClick={() => runDeep(r.ticker)} style={{ flex: 1, minHeight: "38px", padding: "8px", borderRadius: "10px", border: `1px solid ${T.accent}`, background: (deep[r.ticker] && deep[r.ticker].res) ? T.accent : T.accentTint10, color: (deep[r.ticker] && deep[r.ticker].res) ? T.onAccent : T.accent, fontWeight: 700, fontSize: "12px" }}>
-                  {deep[r.ticker] && deep[r.ticker].loading ? "IA lendo…" : deep[r.ticker] && deep[r.ticker].res ? "Leitura da IA ✓" : "Aprofundar com IA"}
+                  {deep[r.ticker] && deep[r.ticker].loading ? "IA lendo…" : deep[r.ticker] && deep[r.ticker].res ? "Leitura da IA ✓" : cp.btnAprofundar}
                 </button>
                 {naWl ? (
                   <button disabled style={{ flex: 1, minHeight: "38px", padding: "8px", borderRadius: "10px", border: `1px solid ${T.borderSubtle}`, background: T.bgBase, color: T.textFaint, fontWeight: 700, fontSize: "12px" }}>
@@ -3893,13 +3928,30 @@ export default function App() {
     try { mq.addEventListener("change", on); } catch { mq.addListener(on); }
     return () => { try { mq.removeEventListener("change", on); } catch { mq.removeListener(on); } };
   }, []);
+  // FASE 8B (B2): o modo é uma CLASSE por cima do tema — os overrides de
+  // var(--x) trocam a identidade inteira (verde-mercado × âmbar/azul) e o
+  // theme-color/status bar acompanham.
+  const appMode = (data && data.config && data.config.appMode) === "operador" ? "operador" : "estudo";
+  // FASE 8B (B1): fraseologia por modo — definida ANTES do useMemo(A), que a
+  // usa em toasts (recriado junto, pois deriva de `data`, que está nas deps).
+  const cp = copyFor(appMode);
   useEffect(() => {
     if (typeof document === "undefined") return;
     const html = document.documentElement;
     html.classList.remove("b3-theme-dark", "b3-theme-light");
     html.classList.add("b3-theme-" + themeKey);
+    // transição suave APENAS durante a troca de identidade
+    if (html.classList.contains("b3-mode-operador") !== (appMode === "operador")) {
+      html.classList.add("b3-mode-switch");
+      setTimeout(() => html.classList.remove("b3-mode-switch"), 450);
+    }
+    html.classList.toggle("b3-mode-operador", appMode === "operador");
     try { localStorage.setItem("b3-theme", themePref); } catch { /* ignore */ }
-  }, [themeKey, themePref]);
+    try {
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.setAttribute("content", appMode === "operador" ? "#0a0d10" : (themeKey === "light" ? "#f3f4f7" : "#0b0e14"));
+    } catch { /* ignore */ }
+  }, [themeKey, themePref, appMode]);
   const cfgTimer = useRef(null);
   const cycleRef = useRef(null);
   // Pull-to-refresh (mobile) sobre o scroller principal.
@@ -4070,7 +4122,7 @@ export default function App() {
         const total = !pos || sm.qty >= pos.qty;
         const st = await store.sell(sm.t, total ? undefined : sm.qty);
         setData(st); setSellModal(null);
-        flash("Venda simulada: " + (total ? "total" : sm.qty + " cotas") + " de " + sm.t + ".");
+        flash(cp.toastVenda(total ? "total" : sm.qty + " cotas", sm.t)); // FASE 8B (B1)
       } catch (e) { flash("Venda: " + (e.message || e)); }
     },
     // FASE 2 (2.3): scan do STU restrito aos ativos da watchlist — ordena os
@@ -4115,7 +4167,7 @@ export default function App() {
       try {
         const s = await store.buy(bm.t, bm.qty, bm.meta || undefined); // FASE 2 (2.4): setup de entrada
         setData(s); setBuyModal(null);
-        flash("Compra simulada: " + bm.qty + " " + bm.t + ". Sugerindo alvo e stop…");
+        flash(cp.toastCompra(bm.qty, bm.t)); // FASE 8B (B1): voz do modo
         // FASE 2 (2.3): oferta IMEDIATA do N3 — modal com cenários; nada é
         // aplicado sem o toque do usuário (Fechar cancela sem efeito).
         setStopAlvoFor(bm.t);
@@ -4124,7 +4176,7 @@ export default function App() {
       catch (e) { flash("Compra: " + (e.message || e)); }
     },
     sell: async (t) => {
-      try { const s = await store.sell(t); setData(s); flash("Venda simulada: " + t + "."); }
+      try { const s = await store.sell(t); setData(s); flash(cp.toastVenda("total", t)); }
       catch (e) { flash("Venda: " + (e.message || e)); }
     },
     setStop: async (t, v) => { try { const s = await store.putPosition(t, { stop: v }); setData(s); } catch (e) { flash("Erro: " + (e.message || e)); } },
@@ -4364,17 +4416,18 @@ export default function App() {
       const q = quotes[p.t];
       if (!q || q.price == null) continue;
       const st = notifRef.current[p.t] || (notifRef.current[p.t] = { stopArmed: true, alvoArmed: true, varKey: "" });
+      // FASE 8B (B4): título e corpo na VOZ do modo (professor × mesa)
       if (n.stop !== false && p.stop != null) {
-        if (q.price <= p.stop && st.stopArmed) { notify.notifyIfEnabled(n, "stop", "Stop acionado · " + p.t, p.t + " a R$ " + price(q.price) + " atingiu o stop de R$ " + price(p.stop) + "."); st.stopArmed = false; }
+        if (q.price <= p.stop && st.stopArmed) { notify.notifyIfEnabled(n, "stop", cp.notifStopTitulo(p.t), cp.notifStopCorpo(p.t, price(q.price), price(p.stop))); st.stopArmed = false; }
         else if (q.price > p.stop) st.stopArmed = true;
       }
       if (n.alvo !== false && p.alvo != null) {
-        if (q.price >= p.alvo && st.alvoArmed) { notify.notifyIfEnabled(n, "alvo", "Alvo atingido · " + p.t, p.t + " a R$ " + price(q.price) + " alcançou o alvo de R$ " + price(p.alvo) + "."); st.alvoArmed = false; }
+        if (q.price >= p.alvo && st.alvoArmed) { notify.notifyIfEnabled(n, "alvo", cp.notifAlvoTitulo(p.t), cp.notifAlvoCorpo(p.t, price(q.price), price(p.alvo))); st.alvoArmed = false; }
         else if (q.price < p.alvo) st.alvoArmed = true;
       }
       if (n.variacao !== false && q.change != null && Math.abs(q.change) >= 5) {
         const key = new Date().toDateString() + (q.change >= 0 ? "+" : "-");
-        if (st.varKey !== key) { notify.notifyIfEnabled(n, "variacao", "Movimento forte · " + p.t, p.t + " " + pct(q.change) + " no dia (R$ " + price(q.price) + ")."); st.varKey = key; }
+        if (st.varKey !== key) { notify.notifyIfEnabled(n, "variacao", cp.notifVarTitulo(p.t), cp.notifVarCorpo(p.t, pct(q.change), price(q.price))); st.varKey = key; }
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -4442,7 +4495,7 @@ export default function App() {
   };
 
   const ctx = {
-    data, quotes, analysis, expanded, analysisModel, setAnalysisModel, A, quotesAt, quotesLoading, test, keyDraft, setKeyDraft,
+    data, quotes, analysis, expanded, analysisModel, setAnalysisModel, A, quotesAt, quotesLoading, test, keyDraft, setKeyDraft, cp,
     catalogSel, setCatalogSel, buyModal, setBuyModal, cycleBusy, addState, setAddState,
     sellModal, setSellModal, wlScan, wlScanLoading, destaque,
     themePref, themeKey, aboutOpen,
@@ -4582,7 +4635,7 @@ export default function App() {
     <div {...shell}>
       <GlobalStyle />
       <Ticker items={tickerItems} live={Object.keys(quotes).length > 0} />
-      <Topbar patr={patr} dia={dia} caixa={data.cash} name={firstName} onProfile={() => { setPerfilView("hub"); setTab("perfil"); }} />
+      <Topbar patr={patr} dia={dia} caixa={data.cash} name={firstName} modeChip={cp.chipModo} onProfile={() => { setPerfilView("hub"); setTab("perfil"); }} />
 
       <main ref={mainRef} style={{ position: "relative", flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
         {pullY > 0 && (
@@ -4608,7 +4661,7 @@ export default function App() {
         </div>
       </main>
 
-      <BottomNav tab={tab} setTab={navigate} />
+      <BottomNav tab={tab} setTab={navigate} cp={cp} />
 
       {catalogOpen && <CatalogModal ctx={ctx} />}
       {buyModal && <BuyModal ctx={ctx} />}
