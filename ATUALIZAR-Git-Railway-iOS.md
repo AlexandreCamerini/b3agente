@@ -122,9 +122,21 @@ Xcode: Product → Clean Build Folder → instalar no iPhone.
    voltar ao portão de entrada e mostrar o estado anônimo; reabrir o app não
    pode restaurar a sessão. Entrar de novo não pode trazer análises do
    anônimo.
-10. **FASE 8B — gate:** abrir `qa/mocks/dois-apps-em-um.html`, decidir as 5
-    questões de design e revisar a fraseologia de `web/src/copy.js` → seu OK
-    inicia B1+B2.
+10. **FASE 8B — gate de tema/copy:** abrir `qa/mocks/dois-apps-em-um.html`,
+    decidir as 5 questões de design e revisar `web/src/copy.js` → seu OK
+    inicia B1+B2 (as telas e a paleta ainda NÃO mudaram).
+11. **FASE 8B (P1–P4, nesta entrega · `qa/22`):**
+    (a) conta Apple: o perfil deve mostrar seu NOME (ou "Conta Apple (e-mail
+    oculto)") e o modal explicar o relay — o e-mail @privaterelay é o normal
+    do "Ocultar e-mail";
+    (b) termo do Modo Operador: deve liberar o aceite mesmo sem rolagem
+    (texto que cabe) e com rolagem quando não cabe;
+    (c) ícone: reinstalar pelo Xcode → ícone do BolsIA na home e splash com a
+    arte certa (exige Clean Build Folder);
+    (d) cérebro por modo: no modo OPERADOR, "Aprofundar com IA" deve responder
+    como MESA (decisão direta + plano coerente com o card + conclusão
+    canônica); voltar ao Estudo → voz de professor de novo, sem misturar
+    cache (a 1ª leitura de cada modo repaga a chamada de IA).
 
 Qualquer item falhando: copie a linha dos "Logs do servidor" (Observabilidade)
 ou do Diário que eu sigo o diagnóstico.

@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import db, indicators, llm, plan, store, technical_models, tickers, yahoo
+from . import db, indicators, llm, plan, setups, store, technical_models, tickers, yahoo
 from . import candles as candles_mod  # Objetivo 4: período de candles configurável
 from . import candle_cache  # Objetivo 5: cache de candles (delta + revalida último)
 from . import scanner  # BLOCO 3: radar de mercado (varredura do universo)
@@ -565,19 +565,25 @@ async def scan_progress():
 
 @app.get("/api/scan/deep/estimate")
 async def scan_deep_estimate(period: Optional[str] = None, topN: Optional[int] = None,
-                             tickers: Optional[str] = None, scope: Optional[str] = Depends(current_scope)):
+                             tickers: Optional[str] = None, appMode: Optional[str] = None,
+                             scope: Optional[str] = Depends(current_scope)):
     """Custo ANTES de rodar: quantas chamadas novas de IA o deep fará agora."""
     p = candles_mod.normalize_period(period)
     cfg = store.get(_conn, "config", user_id=scope) or {}
     n = scan_deep.resolve_top_n(topN, cfg)
+    # FASE 8B (B3): cache do deep é por MODO — iOS manda ?appMode; web usa a config
+    modo = appMode or (cfg or {}).get("appMode")
     payload = await scanner.run_scan(period=p, universe=tickers, fetch=yahoo.get_history)
-    return scan_deep.estimate(payload, n, p)
+    return scan_deep.estimate(payload, n, p, modo=modo)
 
 
 @app.post("/api/scan/deep")
 async def scan_deep_run(body: dict = Body(default={}), scope: Optional[str] = Depends(current_scope)):
     p = candles_mod.normalize_period((body or {}).get("period"))
     config = (body or {}).get("config") or store.get(_conn, "config", user_id=scope) or {}
+    # FASE 8B (B3): modo do cliente — o iOS manda appMode no corpo (local-first);
+    # o web cai na config do escopo. Capturado ANTES do managed recriar a config.
+    modo = (body or {}).get("appMode") or (config or {}).get("appMode")
     profile = (body or {}).get("profile") or store.get(_conn, "profile", user_id=scope)
     n = scan_deep.resolve_top_n((body or {}).get("topN"), config)
     ai_config, _consume_ai = _ai_apply_managed(scope, config)  # cota/rate ANTES de gastar
@@ -594,13 +600,16 @@ async def scan_deep_run(body: dict = Body(default={}), scope: Optional[str] = De
             "confluencia": sres.get("confluencia"), "veredito": sres.get("veredito"),
             "melhorSetup": sres.get("melhor"), "setups": sres.get("setups"),
             "condicoesDetectadas": snap["conditions"],
+            # FASE 8B (B3): o plano determinístico entra no pacote — a mesa é
+            # OBRIGADA a ser coerente com ele (regra 10 do OPERADOR_PRO).
+            "planoOperacional": setups.plano_do_resultado(sres, close=snap.get("close")),
         }
-        res = await llm.analyze_deep(ai_config, profile, t, snap["context"], setups_payload)
+        res = await llm.analyze_deep(ai_config, profile, t, snap["context"], setups_payload, modo=modo)
         _consume_ai()  # cota gasta POR CHAMADA bem-sucedida (cache não gasta)
         return res
 
     try:
-        return await scan_deep.run_deep(payload, n, p, deep_call)
+        return await scan_deep.run_deep(payload, n, p, deep_call, modo=modo)
     except Exception as e:  # noqa: BLE001
         raise HTTPException(502, llm.public_error(e))
 
@@ -617,6 +626,8 @@ async def analyze_technical_model(ticker: str, body: dict = Body(default={}), sc
     body = body or {}
     model = technical_models.normalize_model(body.get("model") or body.get("technicalModel"))
     config = body.get("config") or store.get(_conn, "config", user_id=scope)
+    # FASE 8B (B3): captura o modo ANTES do managed (que pode recriar a config)
+    modo = (config or {}).get("appMode")
     config, _consume_ai = _ai_apply_managed(scope, config)
     skill = body.get("skill") or store.get(_conn, "skill", user_id=scope)
     profile = body.get("profile") or store.get(_conn, "profile", user_id=scope)
@@ -646,7 +657,7 @@ async def analyze_technical_model(ticker: str, body: dict = Body(default={}), sc
     if isinstance(body.get("position"), dict):
         context["userPosition"] = {k: body["position"].get(k) for k in ("qty", "avg", "stop", "alvo", "resultadoAtual")}
     try:
-        result = await llm.analyze_structured(config, skill, profile, account, t, context)
+        result = await llm.analyze_structured(config, skill, profile, account, t, context, modo=modo)
     except Exception as e:  # noqa: BLE001
         raise HTTPException(502, llm.public_error(e))
     _consume_ai()  # conta a cota só no sucesso

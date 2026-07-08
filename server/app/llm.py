@@ -86,6 +86,10 @@ FORMAT = "\n".join([
     "e gestao de risco simulada, coerentes com ATR, suportes e resistencias.",
     "Cada lista deve ter de 1 a 4 itens curtos. Nao escreva absolutamente nada fora",
     "do objeto JSON.",
+    # FASE 8B (revisão de eficiência dos defaults): leitura é no celular — o
+    # corpo enxuto vale nos DOIS modos; clareza > exaustividade.
+    "SEJA CONCISO: `corpo` em ate 12 linhas de markdown; corte redundancia,",
+    "nao corte o raciocinio.",
 ])
 
 
@@ -278,17 +282,31 @@ def _build_structured_prompt(ticker: str, context: dict, profile: dict = None, a
     return "\n".join(lines)
 
 
-async def analyze_structured(config: dict, skill: dict, profile: dict, account: dict, ticker: str, context: dict):
+async def analyze_structured(config: dict, skill: dict, profile: dict, account: dict, ticker: str, context: dict, modo: str = None):
     key = resolve_key(config)
     pl = _profile_line(profile)
-    super_operator = "\n".join([
-        "# Persona",
-        "Voce e um super operador educacional da B3 especializado em analise tecnica, leitura de candles, risco e psicologia de mercado.",
-        "Sua funcao e ENSINAR o raciocinio de uma mesa profissional, nao emitir ordem operacional real.",
-        "Diferencie fato calculado, inferencia tecnica e incerteza. Seja direto e didatico para leitura em celular.",
-        "Priorize contexto, risco, invalidacao, stop tecnico e nao-operacao quando os sinais forem conflitantes.",
-    ])
-    system = (skill.get("text") or "") + "\n" + super_operator + "\n" + GUARDRAILS + ("\n" + pl if pl else "") + "\n" + FORMAT
+    # FASE 8B (B3): N2 por modo — professor (educacional, intacto) × mesa de
+    # operações (decisão direta). Mesmas chaves de saída; muda persona/tom.
+    operador = (modo == "operador") or (modo is None and is_operador(config))
+    if operador:
+        mesa = "\n".join([
+            "# Persona",
+            "Voce e a MESA DE OPERACOES do cliente na B3: analise tecnica, leitura de",
+            "candles, risco e disciplina. Oriente direto: decisao, plano e onde a tese",
+            "morre — sem aula; uma linha de racional por decisao basta.",
+            "Diferencie fato calculado, inferencia tecnica e incerteza. Nao-operacao e",
+            "resultado de primeira classe quando os sinais conflitam.",
+        ])
+        system = (skill.get("text") or "") + "\n" + mesa + "\n" + GUARDRAILS_PRO + ("\n" + pl if pl else "") + "\n" + FORMAT_PRO
+    else:
+        super_operator = "\n".join([
+            "# Persona",
+            "Voce e um super operador educacional da B3 especializado em analise tecnica, leitura de candles, risco e psicologia de mercado.",
+            "Sua funcao e ENSINAR o raciocinio de uma mesa profissional, nao emitir ordem operacional real.",
+            "Diferencie fato calculado, inferencia tecnica e incerteza. Seja direto e didatico para leitura em celular.",
+            "Priorize contexto, risco, invalidacao, stop tecnico e nao-operacao quando os sinais forem conflitantes.",
+        ])
+        system = (skill.get("text") or "") + "\n" + super_operator + "\n" + GUARDRAILS + ("\n" + pl if pl else "") + "\n" + FORMAT
     user = _build_structured_prompt(ticker, context, profile, account)
     raw = await _call_llm(config, key, system, user, 1800)
     if not raw:
@@ -366,6 +384,111 @@ DEEP_FORMAT = "\n".join([
 ])
 
 
+# ============================================================================
+# FASE 8B (B3) — CÉREBRO DO MODO OPERADOR. A MESMA metodologia do operador
+# sênior (regras 1–9 idênticas às do educacional), mas em função de MESA DE
+# OPERAÇÕES que orienta o cliente: decisão direta, plano e gestão de risco.
+# O que muda é o vocabulário (item 10) e o tom; os limites regulatórios NÃO
+# mudam: proibido prometer resultado/taxa de acerto sem base e proibido
+# "recomendação personalizada" (o perfil só dimensiona o risco). O aviso
+# obrigatório da persona é acrescentado pela UI (DISCLAIMERS.operador).
+# ============================================================================
+CONCLUSOES_PRO = [
+    "A operação está tecnicamente validada, desde que a condição de entrada seja confirmada.",
+    "O cenário é promissor, mas ainda exige confirmação.",
+    "Os sinais são conflitantes. A melhor decisão é aguardar.",
+    "Não há uma operação com vantagem estatística clara neste momento.",
+]
+
+OPERADOR_PRO = "\n".join([
+    "# Persona (metodologia: operador sênior de AT da B3, em função de MESA DE OPERAÇÕES)",
+    "Disciplina, objetividade e rigor estatístico. Fale como uma mesa orienta o",
+    "cliente: direto, curto e acionável — o quê, quando, quanto e onde a tese",
+    "morre. Sem rodeios didáticos; o cliente já sabe os conceitos.",
+    "",
+    "# Regras metodológicas invioláveis",
+    "1. NUNCA invente preço, indicador, volume, fato ou notícia: use SOMENTE o",
+    "   pacote técnico pré-calculado fornecido. Todo número citado vem dele.",
+    "2. Nunca prometa lucro, retorno ou percentual de acerto; probabilidades",
+    "   apenas relativas (baixa/moderada/alta), nunca % sem base estatística.",
+    "3. Nunca fundamente a decisão em UM indicador isolado: peso maior em",
+    "   estrutura de preço + volume + confluência entre famílias.",
+    "4. Sinais conflitantes => decisão 'AGUARDAR CONFIRMAÇÃO' ou 'NÃO OPERAR'.",
+    "5. SEMPRE informe o nível/condição que INVALIDA a tese (o stop é técnico,",
+    "   nunca arbitrário).",
+    "6. Diferencie: cenário confirmado, em formação e especulativo.",
+    "7. Movimento excessivamente esticado: não perseguir preço — diga.",
+    "8. Sem vantagem estatística => frase fixa: 'Não há uma operação com",
+    "   vantagem estatística clara neste momento.'",
+    "9. Respeite dataQuality do pacote: serieCurta/volumeAusente/multiTimeframe",
+    "   limitam o teto de confiança (sem 2º timeframe, teto = moderada);",
+    "   DECLARE as limitações em vez de compensá-las com inferência.",
+    "10. Vocabulário de DECISÃO obrigatório: 'COMPRAR' | 'VENDER' |",
+    "    'AGUARDAR CONFIRMAÇÃO' | 'NÃO OPERAR' — sempre COERENTE com o plano",
+    "    determinístico fornecido no pacote (entrada/stop/alvos/R:R); nunca o",
+    "    contradiga nem crie níveis que não estejam nele.",
+    "11. O plano é técnico e a execução é do usuário na corretora dele; isto",
+    "    não é aconselhamento personalizado — o perfil informado só dimensiona",
+    "    o risco (% por operação), nunca muda a leitura técnica.",
+])
+
+GUARDRAILS_PRO = "\n".join([
+    "",
+    "- REGRAS DO SISTEMA (invioláveis) -",
+    "Modo OPERADOR: ferramenta de decisão e disciplina para o PRÓPRIO usuário.",
+    "Seja direto: decisão, plano (entrada, stop na invalidação, alvos, R:R),",
+    "gestão de risco em R e condição de cancelamento. Nada de aula — uma linha",
+    "de racional por decisão basta.",
+    "Nunca prometa lucro nem use linguagem de ganho garantido.",
+    "Risco primeiro: toda posição tem stop e tamanho definido ANTES da entrada;",
+    "parcial no alvo 1; 'NÃO OPERAR' é resultado de primeira classe.",
+    "Baseie-se em dados PASSADOS; não há garantia de repetição.",
+    "Termine SEMPRE com UMA conclusão canônica, textualmente:",
+    "'" + "' | '".join(CONCLUSOES_PRO) + "'",
+])
+
+# N2 no modo operador: mesmas CHAVES do FORMAT educacional (o app já parseia e
+# renderiza), mudando apenas vocabulário e tom — zero mudança de contrato.
+FORMAT_PRO = FORMAT.replace(
+    '"recomendacao": "Estudar alta|Estudar baixa|Monitorar|Aguardar|Não operar|Reduzir risco",',
+    '"recomendacao": "COMPRAR|VENDER|AGUARDAR CONFIRMAÇÃO|NÃO OPERAR|Reduzir risco",',
+).replace(
+    "O campo `recomendacao` NAO e recomendacao de investimento; e um PLANO EDUCACIONAL\npara estudo no simulador. Nao use 'comprar' ou 'vender'.",
+    "O campo `recomendacao` e a DECISAO da mesa, coerente com o plano deterministico\nfornecido; a execucao e sempre do usuario, na corretora dele.",
+) + "\nSEJA CONCISO (mesa, leitura no celular): `corpo` em ate 10 linhas de markdown,\nabrindo com 'Resumo executivo' (2 frases) e fechando com a conclusao canonica."
+
+# N1 (deep) no modo operador: mesmas CHAVES do DEEP_FORMAT (o DeepModal já
+# renderiza), com semântica de mesa — planoEstudo vira a DECISÃO.
+PRO_DEEP_FORMAT = "\n".join([
+    "",
+    "- FORMATO OBRIGATÓRIO (N1 · plano da mesa) -",
+    "Responda com APENAS UM objeto JSON válido (sem texto fora, sem cercas ```):",
+    "{",
+    '  "resumo": "resumo EXECUTIVO (2 a 3 frases: decisão, racional em 1 linha, risco principal), terminando com a conclusão canônica",',
+    '  "leituraSetups": [{"setup": "nome do setup", "leitura": "o que o padrão manda fazer AQUI (1 frase)",',
+    '     "criteriosPresentes": ["..."], "criteriosAusentes": ["o que falta e o que isso muda no plano"]}],',
+    '  "cenarios": {"alta": "gatilho + plano se confirmar", "baixa": "onde a tese morre + ação", "neutro": "quando ficar de fora"},',
+    '  "riscos": ["riscos objetivos do plano (curtos)"],',
+    '  "invalidacao": "nível/condição EXATA que cancela o plano",',
+    '  "confianca": "baixa|moderada",',
+    '  "planoEstudo": "COMPRAR|VENDER|AGUARDAR CONFIRMAÇÃO|NÃO OPERAR",',
+    '  "modelosUtilizados": [{"nome": "...", "oQueE": "...", "oQueMede": "...", "limitacoes": "..."}]',
+    "}",
+    "`planoEstudo` é a DECISÃO da mesa e deve ser COERENTE com o plano",
+    "determinístico do pacote (entrada/stop/alvos/R:R) — nunca o contradiga.",
+    "SEJA CONCISO (mesa): 'resumo' em até 3 frases; cada 'leitura' em até 2;",
+    "cada cenário em 1 frase; até 3 'riscos' de 1 frase; 'invalidacao' em 1.",
+])
+
+_DECISOES_PRO = ("COMPRAR", "VENDER", "AGUARDAR CONFIRMAÇÃO", "NÃO OPERAR")
+
+
+def is_operador(config) -> bool:
+    """Modo do escopo/aparelho: o cliente manda appMode dentro da config (iOS)
+    ou ele vem da config persistida do escopo (web)."""
+    return isinstance(config, dict) and config.get("appMode") == "operador"
+
+
 def _parse_json_loose(raw: str):
     """Extrai o primeiro objeto/array JSON de uma resposta, tolerante a cercas."""
     import json as _json
@@ -421,13 +544,19 @@ def _deep_fallback(raw: str) -> dict:
     }
 
 
-async def analyze_deep(config: dict, profile: dict, ticker: str, context: dict, setups_payload: dict):
+async def analyze_deep(config: dict, profile: dict, ticker: str, context: dict, setups_payload: dict, modo: str = None):
     """N1: UMA chamada de IA para UM ativo do top-N do Radar. Recebe o contexto
     técnico completo (janela do usuário) + os setups detectados com checklist;
-    devolve leitura didática estruturada. Nenhum cálculo novo acontece aqui."""
+    devolve leitura estruturada. Nenhum cálculo novo acontece aqui.
+    FASE 8B (B3): `modo` ('operador') troca persona/guardrails/formato — mesmas
+    CHAVES de saída, semântica de mesa. Padrão/qualquer outro valor = estudo."""
     key = resolve_key(config)
     pl = _profile_line(profile)
-    system = OPERADOR_EDUCACIONAL + "\n" + GUARDRAILS + (("\n" + pl) if pl else "") + "\n" + DEEP_FORMAT
+    operador = (modo == "operador") or (modo is None and is_operador(config))
+    if operador:
+        system = OPERADOR_PRO + "\n" + GUARDRAILS_PRO + (("\n" + pl) if pl else "") + "\n" + PRO_DEEP_FORMAT
+    else:
+        system = OPERADOR_EDUCACIONAL + "\n" + GUARDRAILS + (("\n" + pl) if pl else "") + "\n" + DEEP_FORMAT
     user = "\n".join([
         f"Ativo: {ticker} ({name_of(ticker)}) - B3 · Aprofundamento do Radar (nível 1).",
         (f"Snapshot técnico #{context.get('snapshotId')} ({context.get('snapshotAt')}): todos os números vêm DELE — mesma fonte do Radar; `planoEstudo` deve ser coerente com o veredito dos setups abaixo." if isinstance(context, dict) and context.get("snapshotId") else ""),
@@ -453,7 +582,17 @@ async def analyze_deep(config: dict, profile: dict, ticker: str, context: dict, 
     if not isinstance(data, dict):
         return _deep_fallback(raw)
     data.setdefault("modelosUtilizados", [])
-    data.setdefault("planoEstudo", "Monitorar")
+    # FASE 8B (B3): validação do rótulo por MODO — mesa usa decisões diretas;
+    # estudo mantém o vocabulário educacional. Valor fora do conjunto vira o
+    # neutro do modo (nunca vaza vocabulário de um modo no outro).
+    if operador:
+        if str(data.get("planoEstudo") or "").upper() not in _DECISOES_PRO:
+            data["planoEstudo"] = "AGUARDAR CONFIRMAÇÃO"
+        else:
+            data["planoEstudo"] = str(data["planoEstudo"]).upper()
+    else:
+        if data.get("planoEstudo") not in ("Estudar alta", "Estudar baixa", "Monitorar", "Aguardar", "Não operar"):
+            data["planoEstudo"] = "Monitorar"
     conf = str(data.get("confianca") or "").lower()
     data["confianca"] = conf if conf in ("baixa", "moderada") else "moderada"  # teto sem 2º timeframe
     return data

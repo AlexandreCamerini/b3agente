@@ -46,6 +46,45 @@ def test_analyze_deep_json_valido_nao_marca_parse_falhou():
     assert isinstance(data, dict) and "parseFalhou" not in data
 
 
+# ===== FASE 8B (B3) — cérebro por modo (mesa × professor) ===================
+def test_is_operador_le_o_modo_da_config():
+    assert llm.is_operador({"appMode": "operador"}) is True
+    assert llm.is_operador({"appMode": "estudo"}) is False
+    assert llm.is_operador({}) is False and llm.is_operador(None) is False
+
+
+def test_format_pro_troca_vocabulario_sem_trocar_contrato():
+    # mesmas CHAVES do FORMAT (o app já parseia); muda só o vocabulário
+    assert '"recomendacao": "COMPRAR|VENDER|AGUARDAR CONFIRMAÇÃO|NÃO OPERAR|Reduzir risco",' in llm.FORMAT_PRO
+    assert "Estudar alta|Estudar baixa" not in llm.FORMAT_PRO
+    assert "PLANO EDUCACIONAL" not in llm.FORMAT_PRO
+    for chave in ('"direcao"', '"conviccao"', '"qualidade"', '"resumo"', '"corpo"', '"stopSugerido"', '"alvoSugerido"'):
+        assert chave in llm.FORMAT_PRO, "chave do contrato sumiu no PRO: " + chave
+    # e o educacional permanece intacto
+    assert '"recomendacao": "Estudar alta|Estudar baixa|Monitorar|Aguardar|Não operar|Reduzir risco",' in llm.FORMAT
+
+
+def test_pro_deep_format_mantem_as_chaves_do_deep():
+    import re as _re
+    chaves = lambda s: set(_re.findall(r'^\s*"(\w+)":', s, _re.M))  # noqa: E731
+    assert chaves(llm.PRO_DEEP_FORMAT) == chaves(llm.DEEP_FORMAT), "DeepModal renderiza as MESMAS chaves nos dois modos"
+    assert "COMPRAR|VENDER|AGUARDAR CONFIRMAÇÃO|NÃO OPERAR" in llm.PRO_DEEP_FORMAT
+
+
+def test_conclusoes_canonicas_da_persona():
+    assert len(llm.CONCLUSOES_PRO) == 4
+    assert any("vantagem estatística" in c for c in llm.CONCLUSOES_PRO)
+    for c in llm.CONCLUSOES_PRO:
+        assert c in llm.GUARDRAILS_PRO  # a mesa é obrigada a fechar com uma delas
+
+
+def test_operador_pro_preserva_limites_regulatorios():
+    txt = llm.OPERADOR_PRO + llm.GUARDRAILS_PRO
+    assert "Nunca prometa lucro" in txt or "prometa lucro" in txt
+    assert "NUNCA invente" in llm.OPERADOR_PRO
+    assert "coerente" in llm.OPERADOR_PRO.lower()  # amarrado ao plano determinístico
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_") and callable(fn):

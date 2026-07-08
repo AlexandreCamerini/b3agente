@@ -510,13 +510,15 @@ function deviceStore() {
       }
     },
     // FASE 2 (2.1): deep do Radar — roda no servidor; o aparelho só consome.
+    // FASE 8B (B3): o modo é local-first no iOS — vai explícito no corpo/query
+    // (o cache do deep no servidor é por modo; mesa × professor não se misturam).
     async scanDeep(body) {
       ensure();
-      return api.scanDeep(body);
+      return api.scanDeep({ ...(body || {}), appMode: doc.config.appMode || "estudo" });
     },
     async scanDeepEstimate(p, n, t) {
       ensure();
-      return api.scanDeepEstimate(p, n, t);
+      return api.scanDeepEstimate(p, n, t, doc.config.appMode || "estudo");
     },
     // FASE 2 (2.5): no aparelho o histórico de análises vive no doc local
     // (mesma interface do serverStore; cap 20 por ticker).

@@ -70,3 +70,38 @@ def test_erro_em_um_ativo_nao_derruba_o_deep():
     assert r["analisados"] == 2
     assert [e["ticker"] for e in r["errors"]] == ["BBBB4"]
     assert "recomendação de investimento" in r["disclaimer"]
+
+
+# ===== FASE 8B (B3) — cache do deep é por MODO =====
+def test_cache_do_deep_nao_vaza_entre_modos():
+    """A leitura da mesa (operador) e a do professor (estudo) são textos
+    diferentes do MESMO snapshot — cache de um modo não pode servir o outro;
+    e repetir no MESMO modo continua sem repagar."""
+    scan_deep.reset()
+    calls = []
+
+    async def deep_call(item):
+        calls.append(item["ticker"])
+        return {"resumo": "ok"}
+
+    payload = {"results": [{"ticker": "AAAA3", "confluencia": 90, "melhorSetup": "x",
+                            "setups": [], "veredito": "Estudar alta",
+                            "condicoes_detectadas": ["c"], "snapshotId": 42}]}
+    asyncio.run(scan_deep.run_deep(payload, 1, "1y", deep_call, modo="estudo"))
+    asyncio.run(scan_deep.run_deep(payload, 1, "1y", deep_call, modo="operador"))
+    assert len(calls) == 2, "modo diferente deveria repagar (textos distintos)"
+    r3 = asyncio.run(scan_deep.run_deep(payload, 1, "1y", deep_call, modo="operador"))
+    assert len(calls) == 2 and r3["results"][0]["cache"] is True, "mesmo modo deveria usar o cache"
+    # estimate respeita o modo na contagem
+    est_est = scan_deep.estimate(payload, 1, "1y", modo="estudo")
+    est_novo = scan_deep.estimate(payload, 1, "1y", modo=None)  # legado => estudo
+    assert est_est["chamadas"] == 0 and est_novo["chamadas"] == 0  # estudo já pago; None normaliza p/ estudo
+    scan_deep.reset()
+
+
+if __name__ == "__main__":
+    for name, fn in list(globals().items()):
+        if name.startswith("test_") and callable(fn):
+            fn()
+            print("ok", name)
+    print("TODOS OS TESTES DO SCAN DEEP PASSARAM")

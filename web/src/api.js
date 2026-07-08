@@ -218,11 +218,12 @@ export const api = {
   },
   // FASE 2 (2.1): aprofundamento IA do Radar (N1). Estimate mostra o custo em
   // chamadas ANTES de rodar; o deep tem timeout longo (1 chamada de IA por ativo).
-  scanDeepEstimate: (period, topN, tickers) => {
+  scanDeepEstimate: (period, topN, tickers, appMode) => {
     const q = [];
     if (period) q.push("period=" + encodeURIComponent(period));
     if (topN) q.push("topN=" + encodeURIComponent(topN));
     if (tickers) q.push("tickers=" + encodeURIComponent(tickers));
+    if (appMode) q.push("appMode=" + encodeURIComponent(appMode)); // FASE 8B: cache do deep por modo
     return req("GET", "/api/scan/deep/estimate" + (q.length ? "?" + q.join("&") : ""), undefined, 120000);
   },
   scanDeep: (body) => req("POST", "/api/scan/deep", body || {}, 240000),

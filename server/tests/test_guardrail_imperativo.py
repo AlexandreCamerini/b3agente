@@ -19,6 +19,14 @@ FONTES = {
     "llm.OPERADOR_EDUCACIONAL": llm.OPERADOR_EDUCACIONAL,
     "llm.DEEP_FORMAT": llm.DEEP_FORMAT,
     "scanner.DISCLAIMER": scanner.DISCLAIMER,
+    # FASE 8B (B3): a mesa usa RÓTULOS de decisão ('COMPRAR'/'VENDER'), mas os
+    # imperativos de pressão ("compre", "venda agora", "deve comprar",
+    # "recomendo comprar") seguem PROIBIDOS também no modo operador —
+    # mesmos padrões, fontes novas.
+    "llm.OPERADOR_PRO": llm.OPERADOR_PRO,
+    "llm.GUARDRAILS_PRO": llm.GUARDRAILS_PRO,
+    "llm.FORMAT_PRO": llm.FORMAT_PRO,
+    "llm.PRO_DEEP_FORMAT": llm.PRO_DEEP_FORMAT,
 }
 
 

@@ -332,10 +332,24 @@ function AuthModal({ ctx, onClose }) {
   );
 
   if (user) {
+    // FASE 8B (P1): quem entra com a Apple usando "Ocultar e-mail" recebe um
+    // endereço @privaterelay.appleid.com — é o e-mail REAL da conta (os nossos
+    // avisos chegam nele via relay da Apple), mas confunde na tela. Preferimos
+    // o NOME e explicamos o relay + como compartilhar o e-mail verdadeiro.
+    const isRelay = /@privaterelay\.appleid\.com$/i.test(user.email || "");
+    const displayId = (user.name || "").trim() || (isRelay ? "Conta Apple (e-mail oculto)" : (user.email || user.id));
     return wrap(
       <div>
         <div style={{ fontSize: "13px", color: T.textMuted, marginBottom: "4px" }}>Conectado como</div>
-        <div style={{ fontSize: "15px", fontWeight: 700, marginBottom: "18px", wordBreak: "break-all" }}>{user.email || user.name || user.id}</div>
+        <div style={{ fontSize: "15px", fontWeight: 700, marginBottom: (isRelay || ((user.name || "").trim() && user.email)) ? "4px" : "18px", wordBreak: "break-all" }}>{displayId}</div>
+        {(user.name || "").trim() && user.email && !isRelay && (
+          <div style={{ fontSize: "11.5px", color: T.textFaint, marginBottom: "14px", wordBreak: "break-all" }}>{user.email}</div>
+        )}
+        {isRelay && (
+          <div style={{ fontSize: "11px", color: T.textFaint, lineHeight: 1.55, marginBottom: "14px" }}>
+            Você entrou com a Apple usando <b>Ocultar e-mail</b> — o endereço {user.email} é um retransmissor privado da Apple (nossas mensagens chegam no seu e-mail real por ele). Para compartilhar o e-mail verdadeiro: Ajustes → seu nome → Início de Sessão e Segurança → Iniciar sessão com a Apple → BolsIA → parar de usar → e entre de novo escolhendo "Compartilhar meu e-mail".
+          </div>
+        )}
         <p style={{ color: T.textMuted, fontSize: "12px", lineHeight: 1.6, margin: "0 0 16px" }}>
           Sua carteira simulada fica salva na sua conta e sobrevive a trocar de aparelho. Conteúdo educacional — nada aqui é recomendação de investimento.
         </p>
@@ -406,7 +420,8 @@ function WelcomeAuthScreen({ ctx, onAuthed, onSkip }) {
   // resposta chegar, esta tela troca sozinha para o estado conectado.
   const user = ctx.authUser;
   const restoring = !user && hasSession();
-  const userLabel = user ? ((user.name || "").trim() || user.email || "sua conta") : "";
+  // FASE 8B (P1): e-mail de relay da Apple não é rótulo de gente — usa o nome
+  const userLabel = user ? ((user.name || "").trim() || (/@privaterelay\.appleid\.com$/i.test(user.email || "") ? "Conta Apple (e-mail oculto)" : user.email) || "sua conta") : "";
   const submit = async () => {
     setErr(""); setBusy(true);
     try {
@@ -1521,6 +1536,20 @@ function TermoOperadorModal({ ctx, onClose }) {
   const [liTudo, setLiTudo] = useState(false);   // exige rolar até o fim
   const [aceito, setAceito] = useState(false);
   const [busy, setBusy] = useState(false);
+  // FASE 8B (P2): se o texto CABE sem rolagem (telas grandes/fonte pequena),
+  // o onScroll nunca dispara e o aceite ficava travado para sempre. Ao montar
+  // (e ao redimensionar), se não há overflow, o termo já conta como lido.
+  const termoRef = useRef(null);
+  useEffect(() => {
+    const check = () => {
+      const el = termoRef.current;
+      if (el && el.scrollHeight - el.clientHeight < 12) setLiTudo(true);
+    };
+    check();
+    const id = setTimeout(check, 250); // reflow tardio do WebView (fontes)
+    window.addEventListener("resize", check);
+    return () => { clearTimeout(id); window.removeEventListener("resize", check); };
+  }, []);
   const onScroll = (e) => {
     const el = e.target;
     if (el.scrollHeight - el.scrollTop - el.clientHeight < 12) setLiTudo(true);
@@ -1540,9 +1569,10 @@ function TermoOperadorModal({ ctx, onClose }) {
       <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: "440px", ...card, padding: "20px", maxHeight: "88vh", display: "flex", flexDirection: "column" }}>
         <div style={{ fontSize: "16px", fontWeight: 800, marginBottom: "4px" }}>Termo de Responsabilidade</div>
         <div style={{ fontSize: "11.5px", color: T.textMuted, marginBottom: "10px" }}>Modo Operador · versão {TERMO_OPERADOR_VERSAO} — leia até o fim para habilitar o aceite.</div>
-        <div onScroll={onScroll} style={{ overflowY: "auto", border: `1px solid ${T.borderSubtle}`, borderRadius: "10px", padding: "12px", fontSize: "12.5px", color: T.textSecondary, lineHeight: 1.6, maxHeight: "34vh", WebkitOverflowScrolling: "touch" }}>
+        <div ref={termoRef} onScroll={onScroll} style={{ overflowY: "auto", border: `1px solid ${T.borderSubtle}`, borderRadius: "10px", padding: "12px", fontSize: "12.5px", color: T.textSecondary, lineHeight: 1.6, maxHeight: "34vh", WebkitOverflowScrolling: "touch" }}>
           {DISCLAIMERS.operadorTermo}
         </div>
+        {!liTudo && <div style={{ fontSize: "10.5px", color: T.textFaint, marginTop: "6px", textAlign: "center" }}>↓ role o texto até o fim para liberar o aceite</div>}
         <label style={{ display: "flex", gap: "9px", alignItems: "flex-start", marginTop: "12px", fontSize: "12.5px", color: liTudo ? T.textPrimary : T.textFaint, lineHeight: 1.5 }}>
           <input type="checkbox" disabled={!liTudo} checked={aceito} onChange={(e) => setAceito(e.target.checked)} style={{ marginTop: "2px" }} />
           <span>Li até o fim e entendo que posso perder dinheiro operando por minha conta e risco.</span>
@@ -1574,7 +1604,7 @@ function PerfilHub({ ctx, onOpen }) {
 
       <ModoTrabalhoCard ctx={ctx} />
 
-      <DrillRow onClick={() => ctx.openAuth && ctx.openAuth()} title={ctx.authUser ? "Conta" : "Entrar ou criar conta"} sub={ctx.authUser ? ((ctx.authUser.email || ctx.authUser.name || "conectado") + " · toque para gerenciar") : "Opcional — salva sua carteira e sincroniza entre aparelhos"} icon={
+      <DrillRow onClick={() => ctx.openAuth && ctx.openAuth()} title={ctx.authUser ? "Conta" : "Entrar ou criar conta"} sub={ctx.authUser ? ((((ctx.authUser.name || "").trim()) || (/@privaterelay\.appleid\.com$/i.test(ctx.authUser.email || "") ? "Conta Apple (e-mail oculto)" : ctx.authUser.email) || "conectado") + " · toque para gerenciar") : "Opcional — salva sua carteira e sincroniza entre aparelhos"} icon={
         <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden><circle cx="12" cy="8.5" r="3.6" fill="none" stroke="currentColor" strokeWidth="1.9" /><path d="M5 19.5c0-3.6 3.1-5.5 7-5.5s7 1.9 7 5.5" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" /></svg>
       } />
       <DrillRow onClick={() => onOpen("config")} title="Conta & preferências" sub="Perfil de risco, IA & skill, aparência, notificações, orçamento" icon={
