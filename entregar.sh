@@ -27,7 +27,7 @@ BUILD_LOCAL="$(sed -n 's/.*BUILD_ID = "\([^"]*\)".*/\1/p' web/src/version.js)"
 [ -n "$BUILD_LOCAL" ] || die "web/src/version.js sem BUILD_ID — o carimbo é obrigatório"
 
 build_no_bundle(){ # $1 = dir de assets
-  grep -rho 'F8B-[0-9A-Za-z-]*' "$1" 2>/dev/null | sort -u | tail -1
+  grep -rho 'F[0-9][0-9A-Za-z]*-[0-9A-Za-z-]*' "$1" 2>/dev/null | sort -u | tail -1
 }
 verificar(){
   say "Verificação dos elos (BUILD_ID esperado: $BUILD_LOCAL)"
@@ -88,12 +88,22 @@ npx cap sync ios >/dev/null 2>&1 || die "cap sync falhou (veja: cd web && npx ca
 # regenerada (é gitignorada) — reaplica o patch idempotente SEMPRE.
 cd .. && bash scripts/ios-patch-appdelegate.sh || die "patch do AppDelegate falhou"
 cd web
-# o sync NÃO apaga bundles antigos — remove os index-*.js que o index.html não referencia
-REF="$(grep -o 'assets/index-[^"]*\.js' ios/App/App/public/index.html | head -1 | xargs -n1 basename)"
-for f in ios/App/App/public/assets/index-*.js; do
-  [ "$(basename "$f")" = "$REF" ] || rm -f "$f"
+# FASE 9.1 (correção de bug GRAVE meu): o Vite gera VÁRIOS index-*.js — são os
+# chunks dos imports dinâmicos (plugin de notificações, push, app-launcher,
+# gráficos). A limpeza antiga mantinha só o de entrada e AMPUTAVA o app
+# ("plugin não instalado", nada funcionava). Regra correta: dist/ é a fonte da
+# verdade — órfão é APENAS o que está no public/ e NÃO existe no dist/ atual.
+ORFAOS=0
+for f in ios/App/App/public/assets/*; do
+  b="$(basename "$f")"
+  [ -f "dist/assets/$b" ] || { rm -f "$f"; ORFAOS=$((ORFAOS+1)); }
 done
-ok "bundle sincronizado (mantido: $REF; órfãos removidos)"
+# paridade obrigatória: TODO chunk do dist precisa estar no bundle do iPhone
+for f in dist/assets/*; do
+  b="$(basename "$f")"
+  [ -f "ios/App/App/public/assets/$b" ] || die "chunk $b do dist NÃO chegou ao bundle do iOS — cap sync incompleto"
+done
+ok "bundle sincronizado ESPELHANDO o dist ($(ls dist/assets | wc -l | tr -d ' ') chunks; $ORFAOS órfão(s) de builds antigos removidos)"
 
 say "5/6 · Verificação final dos elos"
 cd ..

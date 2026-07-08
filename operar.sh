@@ -41,8 +41,8 @@ case "$cmd" in
     # É o diagnóstico instantâneo do "a fase não apareceu".
     say "Carimbo de build nos 3 elos"
     LOCAL_B="$(sed -n 's/.*BUILD_ID = "\([^"]*\)".*/\1/p' web/src/version.js 2>/dev/null)"
-    DIST_B="$(grep -rho 'F8B-[0-9A-Za-z-]*' web/dist/assets 2>/dev/null | sort -u | tail -1)"
-    IOS_B="$(grep -rho 'F8B-[0-9A-Za-z-]*' web/ios/App/App/public/assets 2>/dev/null | sort -u | tail -1)"
+    DIST_B="$(grep -rho 'F[0-9][0-9A-Za-z]*-[0-9A-Za-z-]*' web/dist/assets 2>/dev/null | sort -u | tail -1)"
+    IOS_B="$(grep -rho 'F[0-9][0-9A-Za-z]*-[0-9A-Za-z-]*' web/ios/App/App/public/assets 2>/dev/null | sort -u | tail -1)"
     echo "  código (version.js): ${LOCAL_B:-?}"
     [ "${DIST_B:-}" = "$LOCAL_B" ] && ok "dist/: $DIST_B" || warn "dist/: ${DIST_B:-ausente} — rode: bash entregar.sh"
     [ "${IOS_B:-}" = "$LOCAL_B" ] && ok "bundle do iOS: $IOS_B" || warn "bundle do iOS: ${IOS_B:-ausente} — rode: bash entregar.sh"

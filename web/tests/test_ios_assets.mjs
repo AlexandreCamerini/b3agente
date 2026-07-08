@@ -66,5 +66,23 @@ ok("Splash é 2732×2732 sem alpha", sp.w === 2732 && sp.h === 2732 && (sp.color
 // decodificar — a igualdade pixel a pixel entre tamanhos não se aplica.
 ok("AppIcon decodifica (PNG íntegro)", !!artSig(icon));
 
+// ---- FASE 9.1 — PARIDADE DE CHUNKS dist × bundle do iOS ---------------------
+// BUG GRAVE que motivou: uma "limpeza de órfãos" apagou chunks de import
+// dinâmico (index-*.js do Vite) do bundle do iPhone — plugin de notificações
+// "não instalado", app inteiro quebrado. Contrato: TODO arquivo de
+// dist/assets DEVE existir em ios/public/assets (o inverso não é exigido —
+// órfãos de builds antigos são tolerados aqui e limpos pelo entregar.sh).
+{
+  const { readdirSync, existsSync } = await import("fs");
+  const distA = p("dist", "assets");
+  const iosA = p("ios", "App", "App", "public", "assets");
+  if (!existsSync(distA)) {
+    ok("paridade de chunks (dist ausente — rode vite build; tolerado no CI puro)", true);
+  } else {
+    const faltando = readdirSync(distA).filter((f) => !existsSync(join(iosA, f)));
+    ok("TODOS os chunks do dist estão no bundle do iOS" + (faltando.length ? " — FALTAM: " + faltando.join(", ") : ""), faltando.length === 0);
+  }
+}
+
 console.log(fails ? `\n${fails} falha(s)` : "\ntodos os testes passaram");
 process.exit(fails ? 1 : 0);
