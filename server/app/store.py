@@ -6,7 +6,7 @@ from datetime import datetime
 from . import db, defaults
 from .catalog import CATALOG, CATALOG_TICKERS, is_catalog_ticker
 
-SECTIONS = ["config", "skill", "llmPrompts", "watchlist", "cash", "positions", "history", "agent", "analyses", "profile", "custom"]
+SECTIONS = ["config", "skill", "skillOperador", "llmPrompts", "watchlist", "cash", "positions", "history", "agent", "analyses", "profile", "custom"]
 
 
 def ensure_defaults(conn, user_id=None) -> None:
@@ -139,20 +139,28 @@ def reset_portfolio(conn, user_id=None) -> dict:
     return public_state(conn, user_id=user_id)
 
 
-def set_skill(conn, name=None, text=None, user_id=None) -> dict:
-    sk = get(conn, "skill", user_id=user_id)
+# FASE 8B (R2): a instrução do agente tem UMA versão por modo — "skill"
+# (Estudo, seção original intocada) e "skillOperador" (mesa). `modo` seleciona.
+def _skill_section(modo=None) -> str:
+    return "skillOperador" if modo == "operador" else "skill"
+
+
+def set_skill(conn, name=None, text=None, user_id=None, modo=None) -> dict:
+    sec = _skill_section(modo)
+    sk = get(conn, sec, user_id=user_id)
     if isinstance(name, str):
         sk["name"] = name
     if isinstance(text, str):
         sk["text"] = text
-    db.kv_set(conn, "skill", sk, user_id=user_id)
+    db.kv_set(conn, sec, sk, user_id=user_id)
     return sk
 
 
-def restore_skill(conn, user_id=None) -> dict:
-    sk = get(conn, "skill", user_id=user_id)
-    sk["text"] = defaults.default_skill_text()
-    db.kv_set(conn, "skill", sk, user_id=user_id)
+def restore_skill(conn, user_id=None, modo=None) -> dict:
+    sec = _skill_section(modo)
+    sk = get(conn, sec, user_id=user_id)
+    sk["text"] = defaults.default_skill_text_operador() if modo == "operador" else defaults.default_skill_text()
+    db.kv_set(conn, sec, sk, user_id=user_id)
     return sk
 
 
@@ -409,6 +417,7 @@ def public_state(conn, user_id=None) -> dict:
         "catalog": catalog,
         "config": cfg,
         "skill": get(conn, "skill", user_id=user_id),
+        "skillOperador": get(conn, "skillOperador", user_id=user_id),  # FASE 8B (R2)
         "llmPrompts": get(conn, "llmPrompts", user_id=user_id),
         "watchlist": get(conn, "watchlist", user_id=user_id),
         "cash": get(conn, "cash", user_id=user_id),

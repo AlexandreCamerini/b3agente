@@ -31,7 +31,11 @@ ok("openSettings fora do nativo devolve false sem lançar", r === false);
 ok("dependência @capacitor/app-launcher no package.json", !!pkg.dependencies["@capacitor/app-launcher"]);
 
 // ---- 2) botões coerentes com os estados REAIS do iOS ------------------------
-ok("'Pedir permissão' só no estado default", app.includes('perm === "default" && <button onClick={onRequestPermission}'));
+// FASE 8B (R1): contrato ATUALIZADO — pedir permissão fica disponível em
+// default E denied. Depois de reinstalar o app, o iOS pode reportar "denied"
+// herdado e o BolsIA some de Ajustes → Notificações até um novo request;
+// só oferecer "Abrir Ajustes" criava beco sem saída (a regressão relatada).
+ok("'Pedir permissão' disponível quando não concedida (default+denied)", app.includes('perm !== "granted" && perm !== "unsupported" && <button onClick={onRequestPermission}'));
 ok("'Abrir Ajustes' no estado denied", app.includes('perm === "denied" && isNative && <button onClick={onOpenSettings}'));
 ok("mensagem explica que o iOS só pergunta UMA vez", app.includes("só pergunta UMA vez") || app.includes("não vai perguntar de novo"));
 

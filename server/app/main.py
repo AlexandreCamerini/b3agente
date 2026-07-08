@@ -305,7 +305,7 @@ async def obs_logs(n: int = 200, level: Optional[str] = None, cat: Optional[str]
 
 # FASE 8B (diagnóstico): carimbo de build do BACKEND — confirma qual código o
 # Railway está rodando (o front tem o dele em web/src/version.js).
-SERVER_BUILD_ID = "F8B-20260709-2"
+SERVER_BUILD_ID = "F8B-20260709-3"
 
 
 @app.get("/api/health")
@@ -343,13 +343,14 @@ async def reset(body: dict = Body(default={}), scope: Optional[str] = Depends(cu
 # ---- Skill ----
 @app.put("/api/skill")
 async def put_skill(body: dict = Body(default={}), scope: Optional[str] = Depends(current_scope)):
-    store.set_skill(_conn, body.get("name"), body.get("text"), user_id=scope)
+    # FASE 8B (R2): body.modo escolhe a seção (skill × skillOperador)
+    store.set_skill(_conn, body.get("name"), body.get("text"), user_id=scope, modo=body.get("modo"))
     return store.public_state(_conn, user_id=scope)
 
 
 @app.post("/api/skill/restore")
-async def restore_skill(scope: Optional[str] = Depends(current_scope)):
-    store.restore_skill(_conn, user_id=scope)
+async def restore_skill(body: dict = Body(default={}), scope: Optional[str] = Depends(current_scope)):
+    store.restore_skill(_conn, user_id=scope, modo=(body or {}).get("modo"))
     return store.public_state(_conn, user_id=scope)
 
 
@@ -636,7 +637,9 @@ async def analyze_technical_model(ticker: str, body: dict = Body(default={}), sc
     # FASE 8B (B3): captura o modo ANTES do managed (que pode recriar a config)
     modo = (config or {}).get("appMode")
     config, _consume_ai = _ai_apply_managed(scope, config)
-    skill = body.get("skill") or store.get(_conn, "skill", user_id=scope)
+    # FASE 8B (R2): a instrução do agente é POR MODO — a mesa usa a skill do
+    # operador (iOS manda a certa no corpo; web escolhe pela config do escopo).
+    skill = body.get("skill") or store.get(_conn, "skillOperador" if modo == "operador" else "skill", user_id=scope)
     profile = body.get("profile") or store.get(_conn, "profile", user_id=scope)
     account = body.get("account") or {
         "cash": store.get(_conn, "cash", user_id=scope),

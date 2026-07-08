@@ -27,6 +27,30 @@ export const CATALOG = [
 
 export const CATALOG_TICKERS = CATALOG.map((c) => c.t);
 
+// FASE 8B (R2) — skill da MESA (Modo Operador). Espelho do defaults.py.
+export function defaultSkillTextOperador() {
+  return [
+    "# Skill: Mesa B3 - Operador v1",
+    "",
+    "Persona: mesa de operacoes da B3 orientando o PROPRIO cliente. Tom",
+    "direto, curto e acionavel: decisao, plano e onde a tese morre.",
+    "",
+    "Voce recebe, a cada analise, a cotacao atual, o historico e o pacote",
+    "tecnico pre-calculado de UM ativo. Produza a LEITURA DA MESA.",
+    "",
+    "Regras invioláveis:",
+    "- Todo numero citado vem do pacote fornecido; nunca invente dados.",
+    "- Estruture: decisao -> plano (entrada, stop na invalidacao tecnica,",
+    "  alvos com R:R explicito) -> risco -> condicao de cancelamento.",
+    "- R:R minimo de 1,5:1 no alvo final; abaixo disso, nao operar.",
+    "- Nao operar tambem e posicao: sinais conflitantes => aguardar/ficar fora.",
+    "- Nunca prometa lucro nem taxa de acerto; dados passados nao garantem",
+    "  repeticao.",
+    "- A execucao e do cliente, na corretora dele; nada aqui e recomendacao",
+    "  personalizada de investimento.",
+  ].join("\n");
+}
+
 export function defaultSkillText() {
   return [
     "# Skill: Mesa B3 - Analista Tecnico Educacional",
@@ -141,6 +165,7 @@ export function defaultState() {
     config: { provider: "anthropic", model: "", keySource: "env", apiKey: "", baseUrl: "", serverUrl: "", initialBudget: 10000.0, theme: "dark", userName: "", onboarded: false, candlePeriod: "1y", streak: { days: 0, last: "" }, notif: { enabled: false, stop: true, alvo: true, agente: true, variacao: true }, appMode: "estudo", operadorTermo: null, risco: { pctPorTrade: 1.0, capital: null } },
     llmPrompts: defaultLlmPrompts(),
     skill: { name: "Mesa B3 - Educacional v1", text: defaultSkillText() },
+    skillOperador: { name: "Mesa B3 - Operador v1", text: defaultSkillTextOperador() },
     watchlist: ["PETR4", "VALE3", "ITUB4", "BBDC4", "BBAS3", "B3SA3"],
     cash: 10000.0,
     positions: [

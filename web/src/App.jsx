@@ -61,17 +61,27 @@ const themeVarBlock = (name) => Object.entries(PALETTE[name]).map(([k, v]) => `$
 // FASE 8B (B2) — identidade do MODO OPERADOR: verde-mercado sobre grafite mais
 // frio. Como TODA a UI lê var(--x), o modo é um OVERRIDE de variáveis por cima
 // do tema (dark/light) — nenhum uso de T.x muda; a troca anima via transition.
+// Valores IGUAIS ao mock aprovado (qa/mocks/dois-apps-em-um.html): fundo
+// grafite frio, cards #10161a, textos frios, verde #22c55e como acento E
+// como positivo, vermelho #ef4444 — identidade impossível de confundir.
 const MODE_OPERADOR = {
   dark: {
-    bgBase: "#0a0d10", bgPanel: "#0c1116", bgCard: "#10161b", bgToast: "#16211c",
-    borderSubtle: "#1e2a30", borderFaint: "#182126", borderToast: "#24483a",
+    bgBase: "#0a0d10", bgPanel: "#0d1216", bgCard: "#10161a", bgToast: "#16211c",
+    borderSubtle: "#1e2a30", borderFaint: "#182126", borderDashed: "#2a3a42", borderToast: "#24483a",
+    textMuted: "#93a5ad", textDim: "#84959d", textFaint: "#5b6d75",
     accent: "#22c55e", accentSoft: "#86efac",
+    positive: "#22c55e", negative: "#ef4444",
     accentTint: "rgba(34,197,94,0.14)", accentTintHi: "rgba(34,197,94,0.26)", accentTint10: "rgba(34,197,94,0.10)",
-    onAccent: "#04170b", knob: "#182126", navDotIdle: "#27343b",
+    positiveTint: "rgba(34,197,94,0.13)", positiveTint10: "rgba(34,197,94,0.10)",
+    negativeTint: "rgba(239,68,68,0.13)", negativeTint10: "rgba(239,68,68,0.10)",
+    onAccent: "#04170b", knob: "#182126", navDotIdle: "#27343b", chartAxis: "#5e6f77",
   },
   light: {
     accent: "#15803d", accentSoft: "#166534",
+    positive: "#15803d", negative: "#dc2626",
     accentTint: "rgba(21,128,61,0.12)", accentTintHi: "rgba(21,128,61,0.20)", accentTint10: "rgba(21,128,61,0.10)",
+    positiveTint: "rgba(21,128,61,0.12)", positiveTint10: "rgba(21,128,61,0.10)",
+    negativeTint: "rgba(220,38,38,0.12)", negativeTint10: "rgba(220,38,38,0.10)",
     onAccent: "#ffffff",
   },
 };
@@ -557,8 +567,9 @@ function Topbar({ patr, dia, caixa, name, onProfile, modeChip }) {
         <div style={{ minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: "7px", minWidth: 0 }}>
             <div style={{ fontWeight: 700, fontSize: "18px", lineHeight: 1.05, letterSpacing: "-0.01em" }}>Bols<span style={IA_GRAD}>IA</span></div>
-            {/* FASE 8B (B2): identidade permanente do modo (nunca deixa dúvida de onde se está) */}
-            {modeChip && <span style={{ padding: "3px 8px", borderRadius: "999px", background: T.accentTint, color: T.accent, fontSize: "8.5px", fontWeight: 800, letterSpacing: "0.08em", whiteSpace: "nowrap", flex: "none" }}>{modeChip}</span>}
+            {/* FASE 8B (B2/R3): identidade permanente do modo — chip sólido e
+                legível (o usuário PRECISA saber onde está, sem esforço) */}
+            {modeChip && <span style={{ padding: "4px 10px", borderRadius: "999px", background: T.accent, color: T.onAccent, fontSize: "10px", fontWeight: 800, letterSpacing: "0.08em", whiteSpace: "nowrap", flex: "none" }}>{modeChip}</span>}
           </div>
           {name ? <div style={{ fontSize: "11px", color: T.textMuted, marginTop: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Olá, {name}</div> : null}
         </div>
@@ -773,6 +784,11 @@ function comprasDaPosicao(history, t) {
 const REC_STYLE = {
   "Estudar alta": [T.positive, T.positiveTint10],
   "Estudar baixa": [T.negative, T.negativeTint10],
+  // FASE 8B (R4): decisões da MESA — sem isto o chip do N2 caía no cinza
+  "COMPRAR": [T.positive, T.positiveTint10],
+  "VENDER": [T.negative, T.negativeTint10],
+  "AGUARDAR CONFIRMAÇÃO": [T.accent, T.accentTint10],
+  "NÃO OPERAR": [T.textMuted, T.bgBase],
   Monitorar: [TEAL, "rgba(45,212,191,0.12)"],
   Aguardar: [T.accent, T.accentTint10],
   "Não operar": [T.textMuted, T.bgBase],
@@ -1449,7 +1465,7 @@ function EvolucaoScreen({ ctx }) {
               ))}
             </div>
           )}
-          <div style={{ fontSize: "10px", color: T.textFaint, marginTop: "10px" }}>Números da carteira simulada (fonte única de cálculo) + setups didáticos do snapshot — nada aqui é recomendação de investimento.</div>
+          <div style={{ fontSize: "10px", color: T.textFaint, marginTop: "10px" }}>{cp.rodape}</div>
         </div>
       )}
 
@@ -1474,7 +1490,7 @@ function EvolucaoScreen({ ctx }) {
                 {destaque.deep && <button onClick={() => setDeepOpen(true)} style={{ flex: 1, minHeight: "40px", padding: "9px", borderRadius: "10px", border: `1px solid ${T.accent}`, background: T.accentTint10, color: T.accent, fontWeight: 800, fontSize: "12.5px" }}>Ver leitura completa</button>}
                 <button onClick={() => ctx.openAvaliar(it.ticker)} style={{ flex: 1, minHeight: "40px", padding: "9px", borderRadius: "10px", border: `1px solid ${T.borderSubtle}`, background: T.bgBase, color: T.textSecondary, fontWeight: 700, fontSize: "12.5px" }}>{cp.btnLevarWatchlist}</button>
               </div>
-              <div style={{ fontSize: "10px", color: T.textFaint, marginTop: "9px", lineHeight: 1.5 }}>Melhor confluência do scan diário fora da sua watchlist — conteúdo educacional sobre dados passados, sem garantia de resultado e sem qualquer recomendação de investimento.</div>
+              <div style={{ fontSize: "10px", color: T.textFaint, marginTop: "9px", lineHeight: 1.5 }}>{cp.rodape}</div>
             </>
           )}
         </div>
@@ -1725,7 +1741,7 @@ function MercadoScreen({ ctx }) {
           oportunidade é permanente e não compete com ordenação manual. */}
       {data.watchlist.length > 1 && (
         <div style={{ display: "flex", alignItems: "center", gap: "7px", marginBottom: "12px", flexWrap: "wrap" }}>
-          {[["todos", "Todos"], ["alta", "Estudar alta"], ["baixa", "Estudar baixa"], ["neutro", "Neutros"]].map(([id, label]) => (
+          {[["todos", "Todos"], ["alta", cp.filtroAlta], ["baixa", cp.filtroBaixa], ["neutro", "Neutros"]].map(([id, label]) => (
             <button key={id} onClick={() => setDirFilter(id)} style={{ minHeight: "34px", padding: "7px 12px", borderRadius: "999px", border: `1px solid ${dirFilter === id ? T.accent : T.borderSubtle}`, background: dirFilter === id ? T.accentTint : T.bgBase, color: dirFilter === id ? T.accent : T.textMuted, fontWeight: 700, fontSize: "11.5px" }}>{label}</button>
           ))}
           {wlScanLoading && <span style={{ fontSize: "11px", color: T.textFaint }}>atualizando oportunidade…</span>}
@@ -1942,7 +1958,7 @@ function StopAlvoModal({ ctx }) {
             <div style={{ fontSize: "16px", fontWeight: 700, fontFamily: MONO }}>{t} · stop e alvo</div>
             {loading && <SweepGauge compact label="Alvo & stop com IA" steps={["ATR, suportes e resistências", "cenários por perfil", "memória de cálculo"]} />}
           </div>
-          <div style={{ fontSize: "12.5px", color: T.textMuted, marginTop: "4px", lineHeight: 1.5 }}>Sugestão por perfil <b>{(data.profile || {}).risco || "—"}</b> — conteúdo educacional, dinheiro simulado. <b>Não é recomendação</b> de compra ou venda.</div>
+          <div style={{ fontSize: "12.5px", color: T.textMuted, marginTop: "4px", lineHeight: 1.5 }}>Perfil <b>{(data.profile || {}).risco || "—"}</b> · {ctx.cp.notaStopAlvo}</div>
           {r.snapshotId && <div style={{ fontFamily: MONO, fontSize: "10.5px", color: T.textFaint, marginTop: "5px" }}>Análise baseada no snapshot #{r.snapshotId}{r.snapshotAt ? " · " + r.snapshotAt : ""}</div>}
         </div>
         <div style={{ padding: "16px 18px", overflowY: "auto" }}>
@@ -2194,7 +2210,7 @@ function HistoricoScreen({ ctx }) {
       {data.history.length === 0 ? (
         <div style={{ background: T.bgCard, border: `1px dashed ${T.borderDashed}`, borderRadius: "12px", padding: "34px 20px", textAlign: "center" }}>
           <div style={{ fontSize: "16px", fontWeight: 700 }}>Nenhuma operação ainda</div>
-          <p style={{ margin: "8px auto 0", color: T.textMuted, fontSize: "13px", maxWidth: "380px", lineHeight: 1.5 }}>Suas compras e vendas simuladas aparecerão aqui.</p>
+          <p style={{ margin: "8px auto 0", color: T.textMuted, fontSize: "13px", maxWidth: "380px", lineHeight: 1.5 }}>{cp.vazioHistorico}</p>
         </div>
       ) : (
         <div style={{ ...card, overflow: "hidden" }}>
@@ -2460,7 +2476,7 @@ function NotifSection({ ctx }) {
     } else if (isNative && !raw.pluginLoaded) {
       veredito = { ok: false, texto: "O plugin de notificações NÃO está dentro do app instalado — por isso o BolsIA nem aparece em Ajustes → Notificações. Rode scripts/instalar-iphone.sh (ele faz build + cap sync + abre o Xcode) e reinstale no aparelho." };
     } else if (raw.permission !== "granted") {
-      veredito = { ok: false, texto: "Plugin ok, mas sem permissão do sistema. Toque em Pedir permissão; se o iOS não perguntar, ative manualmente em Ajustes → Notificações → BolsIA." };
+      veredito = { ok: false, texto: "Plugin ok, mas sem permissão do sistema. Toque em Pedir permissão (SEMPRE toque nele primeiro — depois de reinstalar o app, é este pedido que faz o BolsIA voltar a aparecer em Ajustes → Notificações). Se o iOS não perguntar, aí sim use Abrir Ajustes." };
     } else {
       veredito = { ok: true, texto: "Tudo pronto: plugin no build e permissão concedida. Use o teste agendado (30s) e feche o app — a entrega passa a ser responsabilidade do iOS (confira Foco/Resumo Programado se não chegar)." };
     }
@@ -2498,7 +2514,13 @@ function NotifSection({ ctx }) {
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "12px", flexWrap: "wrap" }}>
-        {perm === "default" && <button onClick={onRequestPermission} style={{ padding: "9px 14px", borderRadius: "8px", border: `1px solid ${T.accent}`, background: T.accentTint, color: T.accent, fontWeight: 800, fontSize: "13px" }}>Pedir permissão</button>}
+        {/* FASE 8B (R1 — fix da regressão): "Pedir permissão" fica disponível
+            SEMPRE que não está concedida (default E denied). Motivo: após
+            REINSTALAR o app, o iOS pode reportar "denied" herdado e o BolsIA
+            some de Ajustes → Notificações até um novo requestPermissions —
+            só mostrar "Abrir Ajustes" criava um beco sem saída. Pedir com
+            denied é inofensivo e re-registra o app na lista de Ajustes. */}
+        {perm !== "granted" && perm !== "unsupported" && <button onClick={onRequestPermission} style={{ padding: "9px 14px", borderRadius: "8px", border: `1px solid ${T.accent}`, background: T.accentTint, color: T.accent, fontWeight: 800, fontSize: "13px" }}>Pedir permissão</button>}
         {perm === "denied" && isNative && <button onClick={onOpenSettings} style={{ padding: "9px 14px", borderRadius: "8px", border: `1px solid ${T.accent}`, background: T.accent, color: T.onAccent, fontWeight: 800, fontSize: "13px" }}>Abrir Ajustes →</button>}
         <button onClick={onTest} disabled={perm !== "granted"} style={{ padding: "9px 14px", borderRadius: "8px", border: `1px solid ${perm === "granted" ? T.accent : T.borderSubtle}`, background: perm === "granted" ? T.accentTint : T.bgPanel, color: perm === "granted" ? T.accent : T.textFaint, fontWeight: 700, fontSize: "13px" }}>Testar notificação</button>
         <button onClick={onTestScheduled} disabled={perm !== "granted"} style={{ padding: "9px 14px", borderRadius: "8px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: perm === "granted" ? T.textSecondary : T.textFaint, fontWeight: 700, fontSize: "13px" }}>Testar agendada (30s)</button>
@@ -2557,6 +2579,48 @@ const PROMPT_META = {
     hint: "Usado no popup de stop/alvo quando o app está no Modo Operador. Voz de mesa: stop na invalidação técnica, R:R mínimo de 1,5:1, execução sempre do usuário. O guardrail de mesa é aplicado por cima automaticamente.",
   },
 };
+
+// FASE 8B (R2) — INSTRUÇÕES DO AGENTE por skill/modo, selecionáveis pelo NOME.
+// "skill" = professor (Modo Estudo, seção original); "skillOperador" = mesa.
+// A skill do modo ATIVO é usada automaticamente nas análises; aqui o usuário
+// escolhe pelo nome qual editar (abre na do modo em uso).
+function SkillSection({ ctx, sectionTitle }) {
+  const { data, A } = ctx;
+  const modoAtivo = (data.config && data.config.appMode) === "operador" ? "operador" : "estudo";
+  const [alvo, setAlvo] = useState(modoAtivo);   // estudo | operador
+  const sk = alvo === "operador" ? (data.skillOperador || { name: "Mesa B3 - Operador v1", text: "" }) : (data.skill || { name: "", text: "" });
+  const emUso = alvo === modoAtivo;
+  return (
+    <div style={{ marginTop: "14px", ...card, padding: "17px 18px" }}>
+      <div style={sectionTitle}>INSTRUÇÕES DO AGENTE (SKILLS)</div>
+      <p style={{ margin: "6px 0 12px", color: T.textMuted, fontSize: "12.5px", lineHeight: 1.5, maxWidth: "580px" }}>
+        Cada modo de trabalho tem a SUA instrução, selecionada pelo nome abaixo. A análise usa automaticamente a skill do modo ativo.
+      </p>
+      <label style={{ display: "block", marginBottom: "12px" }}>
+        <span style={{ display: "block", fontSize: "12px", color: T.textMuted, marginBottom: "6px" }}>Skill (pelo nome)</span>
+        <select value={alvo} onChange={(e) => setAlvo(e.target.value)} style={{ ...field, fontFamily: MONO }}>
+          <option value="estudo">{(data.skill && data.skill.name) || "Mesa B3 - Educacional v1"} · 🎓 Estudo</option>
+          <option value="operador">{(data.skillOperador && data.skillOperador.name) || "Mesa B3 - Operador v1"} · 📈 Operador</option>
+        </select>
+      </label>
+      <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "4px 10px", borderRadius: "999px", background: emUso ? T.accentTint : T.bgBase, border: `1px solid ${emUso ? T.accent : T.borderSubtle}`, color: emUso ? T.accent : T.textFaint, fontSize: "10.5px", fontWeight: 800, marginBottom: "12px" }}>
+        {emUso ? "EM USO no modo atual" : "usada só no modo " + (alvo === "operador" ? "Operador" : "Estudo")}
+      </div>
+      <label style={{ display: "block", marginBottom: "14px" }}>
+        <span style={{ display: "block", fontSize: "12px", color: T.textMuted, marginBottom: "6px" }}>Nome do skill</span>
+        <input type="text" value={sk.name || ""} onChange={(e) => A.editSkill({ name: e.target.value }, alvo)} style={{ ...field, fontFamily: MONO }} />
+      </label>
+      <label style={{ display: "block" }}>
+        <span style={{ display: "block", fontSize: "12px", color: T.textMuted, marginBottom: "6px" }}>Instruções</span>
+        <textarea value={sk.text || ""} onChange={(e) => A.editSkill({ text: e.target.value }, alvo)} rows={12} style={{ width: "100%", padding: "12px 13px", background: T.bgBase, border: `1px solid ${T.borderSubtle}`, borderRadius: "8px", color: T.textBright, fontFamily: MONO, fontSize: "12.5px", lineHeight: 1.6 }} />
+      </label>
+      <div style={{ display: "flex", gap: "8px", marginTop: "13px" }}>
+        <button onClick={() => A.saveSkill(alvo)} style={{ padding: "10px 18px", borderRadius: "8px", border: `1px solid ${T.accent}`, background: T.accent, color: T.onAccent, fontWeight: 800, fontSize: "13px" }}>Salvar</button>
+        <button onClick={() => A.restoreSkill(alvo)} style={{ padding: "10px 16px", borderRadius: "8px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 600, fontSize: "13px" }}>Restaurar padrão</button>
+      </div>
+    </div>
+  );
+}
 
 function PromptsSection({ ctx }) {
   const { data, A } = ctx;
@@ -3542,24 +3606,10 @@ function ConfigScreen({ ctx }) {
         </div>
       </div>
 
-      {/* B) Skill */}
-      <div style={{ marginTop: "14px", ...card, padding: "17px 18px" }}>
-        <div style={sectionTitle}>INSTRUÇÕES DO AGENTE (SKILL)</div>
-        <p style={{ margin: "6px 0 16px", color: T.textMuted, fontSize: "12.5px", lineHeight: 1.5, maxWidth: "580px" }}>Estas instruções guiam a análise da IA. Reforce sempre: análise educacional, nunca prometer lucro, sempre destacar gerenciamento de risco.</p>
-
-        <label style={{ display: "block", marginBottom: "14px" }}>
-          <span style={{ display: "block", fontSize: "12px", color: T.textMuted, marginBottom: "6px" }}>Nome do skill</span>
-          <input type="text" value={data.skill.name} onChange={(e) => A.editSkill({ name: e.target.value })} style={{ ...field, fontFamily: MONO }} />
-        </label>
-        <label style={{ display: "block" }}>
-          <span style={{ display: "block", fontSize: "12px", color: T.textMuted, marginBottom: "6px" }}>Instruções</span>
-          <textarea value={data.skill.text} onChange={(e) => A.editSkill({ text: e.target.value })} rows={12} style={{ width: "100%", padding: "12px 13px", background: T.bgBase, border: `1px solid ${T.borderSubtle}`, borderRadius: "8px", color: T.textBright, fontFamily: MONO, fontSize: "12.5px", lineHeight: 1.6 }} />
-        </label>
-        <div style={{ display: "flex", gap: "8px", marginTop: "13px" }}>
-          <button onClick={A.saveSkill} style={{ padding: "10px 18px", borderRadius: "8px", border: `1px solid ${T.accent}`, background: T.accent, color: T.onAccent, fontWeight: 800, fontSize: "13px" }}>Salvar</button>
-          <button onClick={A.restoreSkill} style={{ padding: "10px 16px", borderRadius: "8px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 600, fontSize: "13px" }}>Restaurar padrão</button>
-        </div>
-      </div>
+      {/* B) Skill — FASE 8B (R2): UMA instrução do agente POR SKILL/MODO,
+          selecionada PELO NOME. O seletor abre por padrão na skill do modo
+          ativo; a análise usa automaticamente a skill do modo em uso. */}
+      <SkillSection ctx={ctx} sectionTitle={sectionTitle} />
 
       {/* C) Config de LLMs e Prompts (FASE 2) */}
       <PromptsSection ctx={ctx} />
@@ -4355,9 +4405,19 @@ export default function App() {
       }
       catch (e) { setTest({ status: "error", msg: e.message || String(e) }); }
     },
-    editSkill: (patch) => setData((d) => ({ ...d, skill: { ...d.skill, ...patch } })),
-    saveSkill: async () => { try { const s = await store.putSkill({ name: data.skill.name, text: data.skill.text }); setData(s); flash("Skill salva."); } catch (e) { flash("Skill: " + (e.message || e)); } },
-    restoreSkill: async () => { try { const s = await store.restoreSkill(); setData(s); flash("Instruções restauradas ao padrão."); } catch (e) { flash("Erro: " + (e.message || e)); } },
+    // FASE 8B (R2): edição/salvamento POR skill (estudo | operador)
+    editSkill: (patch, alvo) => setData((d) => (alvo === "operador"
+      ? { ...d, skillOperador: { ...(d.skillOperador || {}), ...patch } }
+      : { ...d, skill: { ...d.skill, ...patch } })),
+    saveSkill: async (alvo) => {
+      const sk = alvo === "operador" ? (data.skillOperador || {}) : data.skill;
+      try { const s = await store.putSkill({ name: sk.name, text: sk.text, modo: alvo === "operador" ? "operador" : undefined }); setData(s); flash("Skill salva."); }
+      catch (e) { flash("Skill: " + (e.message || e)); }
+    },
+    restoreSkill: async (alvo) => {
+      try { const s = await store.restoreSkill(alvo === "operador" ? "operador" : undefined); setData(s); flash("Instruções restauradas ao padrão."); }
+      catch (e) { flash("Erro: " + (e.message || e)); }
+    },
     saveProfile: async (patch) => {
       // otimista: reflete na hora e persiste (o perfil entra no prompt da IA)
       setData((d) => ({ ...d, profile: { ...d.profile, ...patch } }));

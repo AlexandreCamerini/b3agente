@@ -185,6 +185,21 @@ def test_oauth_sem_env_menciona_bundle_id_e_lista():
         assert "bundle id" in msg and "vírgula" in msg
 
 
+def test_oauth_atualiza_email_ao_recompartilhar():
+    # FASE 8B (R5): usuário entrou com "Ocultar e-mail" (relay); depois refez o
+    # consentimento compartilhando o e-mail REAL — o novo login atualiza a conta.
+    conn, _ = _fresh_db()
+    u1 = auth.upsert_oauth_user(conn, "apple", "sub-relay", "abc123@privaterelay.appleid.com", "Alex")
+    assert "privaterelay" in (u1["email"] or "")
+    u2 = auth.upsert_oauth_user(conn, "apple", "sub-relay", "alex@exemplo.com", None)
+    assert u2["id"] == u1["id"]
+    assert u2["email"] == "alex@exemplo.com"
+    # colisão com e-mail de outra conta => mantém o atual (UNIQUE preservado)
+    auth.register_email(conn, "ocupado@exemplo.com", "senha-forte-1")
+    u3 = auth.upsert_oauth_user(conn, "apple", "sub-relay", "ocupado@exemplo.com", None)
+    assert u3["email"] == "alex@exemplo.com"
+
+
 def test_purga_de_sessoes_expiradas():
     conn, _ = _fresh_db()
     u = auth.register_email(conn, "purge@x.com", "senha-purge-1")

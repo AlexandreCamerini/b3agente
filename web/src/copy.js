@@ -51,6 +51,10 @@ export const COPY = {
     tituloLeituraIA: (t) => `${t} · leitura da IA`,
     confirmarCompra: "Confirmar compra",
     confirmarVenda: "Confirmar venda",
+    filtroAlta: "Estudar alta",
+    filtroBaixa: "Estudar baixa",
+    notaStopAlvo: "Sugestão por perfil — conteúdo educacional, dinheiro simulado. Não é recomendação de compra ou venda.",
+    vazioHistorico: "Suas compras e vendas simuladas aparecerão aqui.",
 
     // toasts/notificações
     toastCompra: (qty, t) => `Compra simulada: ${qty} ${t}. Sugerindo alvo e stop…`,
@@ -103,6 +107,10 @@ export const COPY = {
     tituloLeituraIA: (t) => `${t} · plano da mesa`,
     confirmarCompra: "Confirmar entrada",
     confirmarVenda: "Confirmar saída",
+    filtroAlta: "Compra",
+    filtroBaixa: "Venda",
+    notaStopAlvo: "Plano da mesa por perfil de risco — stop na invalidação técnica, alvo com R:R explícito. A execução é sua, na corretora.",
+    vazioHistorico: "Suas entradas e saídas registradas aparecerão aqui.",
 
     // toasts/notificações
     toastCompra: (qty, t) => `Entrada registrada: ${qty} ${t}. Stop e alvo já definidos? Sem plano, sem posição.`,

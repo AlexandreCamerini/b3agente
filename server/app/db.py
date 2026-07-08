@@ -202,6 +202,13 @@ def insert_user(conn: sqlite3.Connection, user: dict) -> None:
     conn.commit()
 
 
+def update_user_email(conn: sqlite3.Connection, user_id: str, email: str) -> None:
+    """FASE 8B (R5): atualiza o e-mail da conta (ex.: usuário refez o
+    consentimento da Apple compartilhando o e-mail real no lugar do relay)."""
+    conn.execute("UPDATE users SET email = ? WHERE id = ?", ((email or "").strip().lower() or None, user_id))
+    conn.commit()
+
+
 def delete_user(conn: sqlite3.Connection, user_id: str) -> None:
     conn.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
     conn.execute("DELETE FROM users WHERE id = ?", (user_id,))

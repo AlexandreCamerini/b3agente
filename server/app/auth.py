@@ -294,6 +294,13 @@ def upsert_oauth_user(conn, provider: str, sub: str, email: str = None, name: st
     """Encontra-ou-cria o usuário do provedor (idempotente por (provider, sub))."""
     existing = db.get_user_by_provider(conn, provider, sub)
     if existing:
+        # FASE 8B (R5): se o usuário REFEZ o consentimento na Apple escolhendo
+        # "Compartilhar meu e-mail", o novo login traz o e-mail REAL no lugar do
+        # @privaterelay — atualizamos a conta (sem colidir com o UNIQUE(email)).
+        e = (email or "").strip().lower() or None
+        if e and e != (existing.get("email") or "") and not db.get_user_by_email(conn, e):
+            db.update_user_email(conn, existing["id"], e)
+            existing = db.get_user_by_id(conn, existing["id"])
         return existing
     e = (email or "").strip().lower() or None
     # Evita colisão de UNIQUE(email) se o mesmo e-mail já existe por outro meio:

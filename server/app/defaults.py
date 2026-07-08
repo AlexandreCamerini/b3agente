@@ -30,6 +30,33 @@ def default_skill_text() -> str:
     )
 
 
+def default_skill_text_operador() -> str:
+    """FASE 8B (R2) — skill da MESA (Modo Operador): mesma metodologia, função
+    de mesa que orienta o cliente. Editável pelo usuário como a educacional."""
+    return "\n".join(
+        [
+            "# Skill: Mesa B3 - Operador v1",
+            "",
+            "Persona: mesa de operacoes da B3 orientando o PROPRIO cliente. Tom",
+            "direto, curto e acionavel: decisao, plano e onde a tese morre.",
+            "",
+            "Voce recebe, a cada analise, a cotacao atual, o historico e o pacote",
+            "tecnico pre-calculado de UM ativo. Produza a LEITURA DA MESA.",
+            "",
+            "Regras invioláveis:",
+            "- Todo numero citado vem do pacote fornecido; nunca invente dados.",
+            "- Estruture: decisao -> plano (entrada, stop na invalidacao tecnica,",
+            "  alvos com R:R explicito) -> risco -> condicao de cancelamento.",
+            "- R:R minimo de 1,5:1 no alvo final; abaixo disso, nao operar.",
+            "- Nao operar tambem e posicao: sinais conflitantes => aguardar/ficar fora.",
+            "- Nunca prometa lucro nem taxa de acerto; dados passados nao garantem",
+            "  repeticao.",
+            "- A execucao e do cliente, na corretora dele; nada aqui e recomendacao",
+            "  personalizada de investimento.",
+        ]
+    )
+
+
 def default_llm_prompts() -> dict:
     """FASE 2/3: coleção de prompts indexada por chave (extensível). O prompt da
     carteira analisa CADA ATIVO INDIVIDUALMENTE (saída em array por ativo) e
@@ -144,6 +171,8 @@ def default_state() -> dict:
             "risco": {"pctPorTrade": 1.0, "capital": None},  # sizing (capital None => usa initialBudget)
         },
         "skill": {"name": "Mesa B3 - Educacional v1", "text": default_skill_text()},
+        # FASE 8B (R2): instrução do agente POR MODO, selecionável pelo nome
+        "skillOperador": {"name": "Mesa B3 - Operador v1", "text": default_skill_text_operador()},
         "llmPrompts": default_llm_prompts(),
         "watchlist": ["PETR4", "VALE3", "ITUB4", "BBDC4", "BBAS3", "B3SA3"],
         "cash": 10000.0,

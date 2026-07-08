@@ -11,7 +11,7 @@
 // App.jsx fala apenas com `store`; a diferenca de plataforma fica escondida aqui.
 import { Capacitor } from "@capacitor/core";
 import { api, setApiBase, setNativeMode } from "./api.js";
-import { CATALOG, CATALOG_TICKERS, defaultState, defaultSkillText, defaultLlmPrompts } from "./catalog.js";
+import { CATALOG, CATALOG_TICKERS, defaultState, defaultSkillText, defaultSkillTextOperador, defaultLlmPrompts } from "./catalog.js";
 import { backfillStructural } from "./migrate.js";
 // FASE 2: camada de sync (token + cache otimista + fila offline). serverStore
 // passa a falar com o servidor ATRAVÉS dela; deviceStore segue local-first.
@@ -106,8 +106,11 @@ function serverStore() {
     getState: () => sync.readState(),
     putConfig: (patch) => sync.mutate("putConfig", [patch], optConfig(patch)),
     testConfig: () => api.testConfig(), // exige servidor (testa a chave ao vivo)
-    putSkill: (b) => sync.mutate("putSkill", [b], (cur) => ({ ...cur, skill: { ...(cur.skill || {}), ...b } })),
-    restoreSkill: () => sync.mutate("restoreSkill", []),
+    // FASE 8B (R2): a skill é POR MODO — b.modo escolhe a seção no servidor
+    putSkill: (b) => sync.mutate("putSkill", [b], (cur) => (b && b.modo === "operador"
+      ? { ...cur, skillOperador: { ...(cur.skillOperador || {}), name: b.name, text: b.text } }
+      : { ...cur, skill: { ...(cur.skill || {}), name: b.name, text: b.text } })),
+    restoreSkill: (modo) => sync.mutate("restoreSkill", [modo]),
     putWatchlist: (tickers) => sync.mutate("putWatchlist", [tickers], (cur) => ({ ...cur, watchlist: Array.isArray(tickers) ? [...tickers] : (cur.watchlist || []) })),
     addWatchlistTicker: (ticker) => api.addWatchlistTicker(ticker), // servidor valida no Yahoo (exige rede)
     putProfile: (profile) => sync.mutate("putProfile", [profile], (cur) => ({ ...cur, profile: { ...(cur.profile || {}), ...profile } })),
@@ -237,6 +240,10 @@ function deviceStore() {
       if (!doc.config.streak || typeof doc.config.streak !== "object") doc.config.streak = { days: 0, last: "" };
       if (!Array.isArray(doc.equitySnapshots)) doc.equitySnapshots = [];
       if (!doc.config.notif || typeof doc.config.notif !== "object") doc.config.notif = { enabled: false, stop: true, alvo: true, agente: true, variacao: true };
+      // FASE 8B (R2): skill da mesa — backfill em docs antigos
+      if (!doc.skillOperador || typeof doc.skillOperador !== "object" || typeof doc.skillOperador.text !== "string") {
+        doc.skillOperador = { name: "Mesa B3 - Operador v1", text: defaultSkillTextOperador() };
+      }
       // FASE 7 (F7.1) — Modo Operador: backfill de docs antigos
       if (doc.config.appMode !== "estudo" && doc.config.appMode !== "operador") doc.config.appMode = "estudo";
       if (doc.config.operadorTermo !== null && typeof doc.config.operadorTermo !== "object") doc.config.operadorTermo = null;
@@ -262,6 +269,7 @@ function deviceStore() {
       catalog,
       config: c,
       skill: doc.skill,
+      skillOperador: doc.skillOperador,  // FASE 8B (R2)
       watchlist: doc.watchlist,
       cash: doc.cash,
       positions: doc.positions,
@@ -365,14 +373,17 @@ function deviceStore() {
     },
     async putSkill(b) {
       ensure();
-      if (typeof b.name === "string") doc.skill.name = b.name;
-      if (typeof b.text === "string") doc.skill.text = b.text;
+      // FASE 8B (R2): b.modo === "operador" edita a skill da MESA
+      const alvo = (b && b.modo === "operador") ? doc.skillOperador : doc.skill;
+      if (typeof b.name === "string") alvo.name = b.name;
+      if (typeof b.text === "string") alvo.text = b.text;
       write();
       return pub();
     },
-    async restoreSkill() {
+    async restoreSkill(modo) {
       ensure();
-      doc.skill.text = defaultSkillText();
+      if (modo === "operador") doc.skillOperador.text = defaultSkillTextOperador();
+      else doc.skill.text = defaultSkillText();
       write();
       return pub();
     },
@@ -460,7 +471,9 @@ function deviceStore() {
     async analyze(t) {
       ensure();
       const account = { cash: doc.cash, budget: doc.config.initialBudget };
-      const r = await api.analyzeTechnical(t, { config: doc.config, skill: doc.skill, profile: doc.profile, account, model: (arguments[1] && arguments[1].model) || "completo", position: (arguments[1] && arguments[1].position) || undefined });
+      // FASE 8B (R2): a skill enviada acompanha o MODO do aparelho (mesa × professor)
+      const skillAtiva = doc.config.appMode === "operador" ? doc.skillOperador : doc.skill;
+      const r = await api.analyzeTechnical(t, { config: doc.config, skill: skillAtiva, profile: doc.profile, account, model: (arguments[1] && arguments[1].model) || "completo", position: (arguments[1] && arguments[1].position) || undefined });
       if (!doc.analyses) doc.analyses = {};
       const body = r.markdown || r.text || r.analysis || "";
       doc.analyses[t] = { kpis: r.kpis || null, detail: r.detail || null, proposal: r.proposal || null, markdown: body, text: r.text || r.analysis || "", model: r.model, modelLabel: r.modelLabel, technicalContext: r.technicalContext || null, candlesSentToLLM: r.candlesSentToLLM, at: r.at };
@@ -582,6 +595,7 @@ function deviceStore() {
       return {
         config: { ...doc.config },
         skill: doc.skill,
+        skillOperador: doc.skillOperador,  // FASE 8B (R2)
         llmPrompts: doc.llmPrompts || defaultLlmPrompts(),
         watchlist: doc.watchlist,
         cash: doc.cash,

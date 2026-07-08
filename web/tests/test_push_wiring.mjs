@@ -52,5 +52,19 @@ ok("SPM: CapacitorPushNotifications no build", spm.includes("CapacitorPushNotifi
 const ent = read(["ios", "App", "App", "App.entitlements"]);
 ok("entitlements: aps-environment presente", ent.includes("aps-environment"));
 
+// ---- FASE 8B (R1): a cópia SINCRONIZADA do config não pode ficar para trás --
+// O app instalado lê web/ios/App/App/capacitor.config.json (gerado pelo cap
+// sync). Se ele divergir do capacitor.config.ts, o aparelho roda config velha
+// (foi uma das causas de "notificação não funciona"). Este guardião tranca a
+// paridade das presentationOptions nos dois arquivos.
+{
+  const synced = JSON.parse(read(["ios", "App", "App", "capacitor.config.json"]));
+  for (const plugin of ["LocalNotifications", "PushNotifications"]) {
+    const opts = ((synced.plugins || {})[plugin] || {}).presentationOptions || [];
+    ok(`config SINCRONIZADO: ${plugin} com banner+list (sem 'alert')`,
+      opts.includes("banner") && opts.includes("list") && !opts.includes("alert"));
+  }
+}
+
 console.log(fails ? `\n${fails} falha(s)` : "\ntodos os testes passaram");
 process.exit(fails ? 1 : 0);

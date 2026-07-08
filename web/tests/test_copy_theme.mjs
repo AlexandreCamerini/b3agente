@@ -84,5 +84,24 @@ for (const k of ["cp.kickerSetups", "cp.btnLevarWatchlist", "cp.btnVerWatchlist"
   ok("superfície usa " + k, app.includes(k));
 }
 
+// ---- FASE 8B (R1–R4): rodada de garantia -------------------------------------
+// R1: pedir permissão disponível também no estado denied (deadlock pós-reinstalação)
+ok("R1: Pedir permissão em default E denied", app.includes('perm !== "granted" && perm !== "unsupported" && <button onClick={onRequestPermission}'));
+// R2: skill por modo, selecionável pelo nome
+ok("R2: SkillSection com seletor pelo nome", app.includes("Skill (pelo nome)") && app.includes("<SkillSection ctx={ctx}"));
+ok("R2: análise nativa envia a skill do modo", readFileSync(join(here, "..", "src", "persistence.js"), "utf8").includes('doc.config.appMode === "operador" ? doc.skillOperador : doc.skill'));
+ok("R2: rota N2 escolhe a skill pelo modo", mainPy.includes('"skillOperador" if modo == "operador" else "skill"'));
+ok("R2: defaults da skill de mesa nos dois lados",
+  readFileSync(join(here, "..", "src", "catalog.js"), "utf8").includes("defaultSkillTextOperador") &&
+  readFileSync(join(here, "..", "..", "server", "app", "defaults.py"), "utf8").includes("default_skill_text_operador"));
+// R3: paleta idêntica ao mock + positivos/negativos/textos do modo
+ok("R3: card do mock (#10161a) e negativo (#ef4444)", app.includes('bgCard: "#10161a"') && app.includes('negative: "#ef4444"'));
+ok("R3: textos frios do mock (muted/faint)", app.includes('textMuted: "#93a5ad"') && app.includes('textFaint: "#5b6d75"'));
+ok("R3: chip do modo SÓLIDO (accent + onAccent)", /modeChip && <span style=\{\{[^}]*background: T\.accent, color: T\.onAccent/.test(app));
+// R4: decisões da mesa no REC_STYLE + filtros/nota/histórico por modo
+ok("R4: REC_STYLE cobre COMPRAR/VENDER/AGUARDAR/NÃO OPERAR", app.includes('"COMPRAR": [T.positive') && app.includes('"NÃO OPERAR": [T.textMuted'));
+ok("R4: filtros da watchlist por modo", app.includes("cp.filtroAlta") && app.includes("cp.filtroBaixa"));
+ok("R4: nota do stop/alvo e histórico por modo", app.includes("ctx.cp.notaStopAlvo") && app.includes("cp.vazioHistorico"));
+
 console.log(fails ? `\n${fails} falha(s)` : "\ntodos os testes passaram");
 process.exit(fails ? 1 : 0);
