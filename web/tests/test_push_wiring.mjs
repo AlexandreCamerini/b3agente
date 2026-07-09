@@ -64,6 +64,22 @@ ok("entitlements: aps-environment presente", ent.includes("aps-environment"));
     ok(`config SINCRONIZADO: ${plugin} com banner+list (sem 'alert')`,
       opts.includes("banner") && opts.includes("list") && !opts.includes("alert"));
   }
+
+  // ---- qa/27: packageClassList precisa listar as classes nativas ----------
+  // BUG que motivou: no repositório tudo bate (Package.swift, AppDelegate,
+  // presentationOptions), mas o BINÁRIO instalado no iPhone pode não conter
+  // o plugin de verdade quando o cache de resolução de pacotes do Xcode
+  // (DerivedData + org.swift.swiftpm) fica preso a uma versão antiga do
+  // cap sync. Sintoma no aparelho: o app some de Ajustes -> Notificações e
+  // qualquer chamada nativa ao plugin (ex.: Diagnóstico) fica pendurada em
+  // vez de responder. Este guardião tranca a PARTE que dá pra travar por
+  // código — o resto (cache do Xcode) é responsabilidade de
+  // scripts/reparo-plugin-nativo.sh, que roda depois de qualquer cap sync
+  // suspeito.
+  const classes = synced.packageClassList || [];
+  for (const cls of ["LocalNotificationsPlugin", "PushNotificationsPlugin"]) {
+    ok(`config SINCRONIZADO: packageClassList inclui ${cls}`, classes.includes(cls));
+  }
 }
 
 console.log(fails ? `\n${fails} falha(s)` : "\ntodos os testes passaram");
