@@ -128,6 +128,7 @@ function serverStore() {
     registerPushToken: (token) => api.pushRegisterToken(token),   // FASE 3.3b: APNs (exige conta)
     scanProgress: () => api.scanProgress(),                        // BLOCO B1
     obsLogs: (n, level, cat) => api.obsLogs(n, level, cat),        // FASE 5: logs do servidor
+    analysisOutcomesStats: (modo) => api.analysisOutcomesStats(modo), // qa/30 (Fase A): eficiência da IA
     agentStatus: () => api.agentStatus(),                          // BLOCO D3
     agentLog: (n) => api.agentLog(n),                              // FASE 3: Diário do operador
     agentRunNow: () => api.agentRunNow(),                          // BLOCO D4
@@ -525,9 +526,17 @@ function deviceStore() {
     // FASE 2 (2.1): deep do Radar — roda no servidor; o aparelho só consome.
     // FASE 8B (B3): o modo é local-first no iOS — vai explícito no corpo/query
     // (o cache do deep no servidor é por modo; mesa × professor não se misturam).
+    // qa/29 (B-model): scanDeep era a ÚNICA chamada de IA que não mandava
+    // `config` (doc.config, com o BYOK/modelo do aparelho) — analyze() e
+    // analyzeStopAlvo() sempre mandaram. Sem login (scope=None) e sem BYOK
+    // no corpo, o servidor cai em `_ai_apply_managed` sem gerenciada
+    // disponível e devolve a config vazia recebida → llm.py explode com
+    // "Nenhum modelo de IA configurado." Isso é a causa-raiz de "Plano da
+    // mesa (IA) não acha o modelo": o clique nunca mandava o modelo do
+    // aparelho pro servidor.
     async scanDeep(body) {
       ensure();
-      return api.scanDeep({ ...(body || {}), appMode: doc.config.appMode || "estudo" });
+      return api.scanDeep({ config: doc.config, ...(body || {}), appMode: doc.config.appMode || "estudo" });
     },
     async scanDeepEstimate(p, n, t) {
       ensure();
@@ -551,6 +560,7 @@ function deviceStore() {
     },
     async scanProgress() { ensure(); return api.scanProgress(); },   // BLOCO B1
     async obsLogs(n, level, cat) { ensure(); return api.obsLogs(n, level, cat); }, // FASE 5
+    async analysisOutcomesStats(modo) { ensure(); return api.analysisOutcomesStats(modo); }, // qa/30 (Fase A)
     async agentStatus() { ensure(); return api.agentStatus(); },     // BLOCO D3
     async agentRunNow() { ensure(); return api.agentRunNow(); },     // BLOCO D4
     async pushTest() { ensure(); return api.pushTest(); },           // BLOCO E2

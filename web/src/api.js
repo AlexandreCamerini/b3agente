@@ -259,4 +259,7 @@ export const api = {
     if (cat) q.push("cat=" + encodeURIComponent(cat));
     return req("GET", "/api/obs/logs" + (q.length ? "?" + q.join("&") : ""), undefined, 15000);
   },
+  // qa/30 (Fase A): autoavaliação da IA — estatísticas do painel "Eficiência
+  // da IA" (Perfil → Observabilidade). `modo` opcional filtra estudo/operador.
+  analysisOutcomesStats: (modo) => req("GET", "/api/analysis-outcomes/stats" + (modo ? "?modo=" + encodeURIComponent(modo) : ""), undefined, 15000),
 };

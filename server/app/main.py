@@ -19,6 +19,7 @@ from . import candles as candles_mod  # Objetivo 4: período de candles configur
 from . import candle_cache  # Objetivo 5: cache de candles (delta + revalida último)
 from . import scanner  # BLOCO 3: radar de mercado (varredura do universo)
 from . import radar_daily  # FASE 4 (1.3): varredura automática 1x/dia + sob demanda
+from . import analysis_outcomes  # qa/30 (Fase A): autoavaliação da IA (N1/N2 vs. comportamento real)
 from . import scan_deep  # FASE 1 (N1): aprofundamento IA do top-N do Radar
 from . import technical_snapshot  # FASE 1 (STU): fonte única de N1/N2/N3
 from . import agent as agent_mod  # FASE 3: agente autônomo server-side
@@ -603,6 +604,7 @@ async def scan_deep_run(body: dict = Body(default={}), scope: Optional[str] = De
         # antes o deep refazia build_context com outro corte e podia divergir.
         snap = await technical_snapshot.get(t, p, lambda rng: yahoo.get_history(t, rng=rng))
         sres = snap["setups"]
+        plano = setups.plano_do_resultado(sres, close=snap.get("close"))
         setups_payload = {
             "snapshotId": snap["snapshotId"],
             "confluencia": sres.get("confluencia"), "veredito": sres.get("veredito"),
@@ -610,10 +612,27 @@ async def scan_deep_run(body: dict = Body(default={}), scope: Optional[str] = De
             "condicoesDetectadas": snap["conditions"],
             # FASE 8B (B3): o plano determinístico entra no pacote — a mesa é
             # OBRIGADA a ser coerente com ele (regra 10 do OPERADOR_PRO).
-            "planoOperacional": setups.plano_do_resultado(sres, close=snap.get("close")),
+            "planoOperacional": plano,
         }
         res = await llm.analyze_deep(ai_config, profile, t, snap["context"], setups_payload, modo=modo)
         _consume_ai()  # cota gasta POR CHAMADA bem-sucedida (cache não gasta)
+        # qa/30 (Fase A): registra a análise pra autoavaliação futura (10
+        # pregões — job em analysis_outcomes.py). Só quando há plano acionável
+        # (COMPRAR/VENDER com stop/alvo1 definidos); AGUARDAR/NÃO OPERAR não
+        # tem risco definido pra virar estatística. Best-effort: nunca derruba
+        # a resposta ao usuário.
+        try:
+            if plano.get("decisao") in (setups.DECISAO_COMPRAR, setups.DECISAO_VENDER):
+                analysis_outcomes.registrar(
+                    _conn, ticker=t, modo=modo, tipo="n1",
+                    modelo=f"{ai_config.get('provider')}:{ai_config.get('model')}",
+                    setup=sres.get("melhor"), recomendacao=res.get("planoEstudo"),
+                    stop=plano.get("stop"), alvo=plano.get("alvo1"),
+                    preco=snap.get("close"), snapshot_id=snap.get("snapshotId"),
+                    user_id=scope,
+                )
+        except Exception as e:  # noqa: BLE001 — registro é best-effort
+            print(f"[analysis-outcomes] registro N1 falhou p/ {t}: {e}")
         return res
 
     try:
@@ -671,6 +690,21 @@ async def analyze_technical_model(ticker: str, body: dict = Body(default={}), sc
     except Exception as e:  # noqa: BLE001
         raise HTTPException(502, llm.public_error(e))
     _consume_ai()  # conta a cota só no sucesso
+    # qa/30 (Fase A): registra a análise pra autoavaliação futura (N2, texto
+    # livre — só entra na estatística quando o modelo devolveu proposal com
+    # stop E alvo definidos; registrar() já descarta o resto). Best-effort.
+    try:
+        prop = result.get("proposal") or {}
+        analysis_outcomes.registrar(
+            _conn, ticker=t, modo=modo, tipo="n2",
+            modelo=f"{config.get('provider')}:{config.get('model')}",
+            setup=None, recomendacao=(result.get("kpis") or {}).get("recomendacao"),
+            stop=prop.get("stop"), alvo=prop.get("alvo"),
+            preco=(quote or {}).get("price"), snapshot_id=snap.get("snapshotId"),
+            user_id=scope,
+        )
+    except Exception as e:  # noqa: BLE001 — registro é best-effort
+        print(f"[analysis-outcomes] registro N2 falhou p/ {t}: {e}")
     payload = {
         "kpis": result.get("kpis"),
         "detail": result.get("detail"),
@@ -885,6 +919,22 @@ async def analysis_log(ticker: str, body: dict = Body(default={}), scope: Option
     entry.setdefault("at", now_str())
     store.push_analysis_log(_conn, t, entry, user_id=scope)
     return store.public_state(_conn, user_id=scope)
+
+
+# qa/30 (Fase A) — autoavaliação da IA: lista crua (debug/detalhe) e
+# estatísticas agregadas (painel "Eficiência da IA" em Observabilidade).
+# Fora do public_state DE PROPÓSITO — pode crescer até 500 registros e não
+# precisa ir em toda resposta de ação da carteira, só quando a tela é aberta.
+@app.get("/api/analysis-outcomes")
+async def get_analysis_outcomes(scope: Optional[str] = Depends(current_scope)):
+    return {"outcomes": db.kv_get(_conn, "analysisOutcomes", [], user_id=scope) or []}
+
+
+@app.get("/api/analysis-outcomes/stats")
+async def get_analysis_outcomes_stats(modo: Optional[str] = None, tipo: Optional[str] = None,
+                                       scope: Optional[str] = Depends(current_scope)):
+    outcomes = db.kv_get(_conn, "analysisOutcomes", [], user_id=scope) or []
+    return analysis_outcomes.compute_stats(outcomes, modo=modo, tipo=tipo)
 
 
 # FASE 3.3b — registro do token de push do aparelho (exige conta).

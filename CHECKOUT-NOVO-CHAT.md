@@ -1,18 +1,19 @@
 # CHECKOUT — retomada em novo chat (BolsIA)
-*Atualizado em 09/07/2026 · estado: build F9-20260709-5 aguardando instalação/confirmação no aparelho · pendências = item B da matriz qa/26*
+*Atualizado em 09/07/2026 · estado: build F9-20260709-7 aguardando instalação/confirmação no aparelho · pendências = Fase B (trades reais) + item B(resto)/C/D/E da matriz qa/26 + itens do pedido de prompt/radar/copy*
 
 ## 1. Estado exato do projeto
 
-- **Código/git:** tudo commitado e enviado (`main == origin/main`). Backend no
-  Railway redeploya no push. Suítes locais (sandbox, offline): **19/20
-  backend + 23/23 web — verdes** (1 pulada por dependência ausente no
+- **Código/git:** tudo commitado localmente nesta sessão (sandbox sem rede —
+  push feito da próxima vez que rodar `entregar.sh` no Mac). Backend no
+  Railway redeploya no push. Suítes locais (sandbox, offline): **20/20
+  backend + 26/26 web — verdes** (1 pulada por dependência ausente no
   sandbox; rode `bash operar.sh testes` no Mac para o pytest completo).
 - **Entrega:** `bash entregar.sh "msg"` faz a cadeia inteira (testes → git →
   build → cap sync → patch do AppDelegate → espelho de chunks → verificação de
   carimbo) e abre o Xcode. `bash entregar.sh --so-verificar` só audita.
 - **Carimbo de build (protocolo obrigatório):** `web/src/version.js` →
   aparece no rodapé do Perfil e no `/api/health`. NENHUMA avaliação funcional
-  vale sem o carimbo conferido no aparelho. Atual: **F9-20260709-5**.
+  vale sem o carimbo conferido no aparelho. Atual: **F9-20260709-7**.
 - **Últimos eventos (nesta ordem):**
   1. O bundle do iPhone foi AMPUTADO por um bug do entregar.sh (chunks de
      import dinâmico apagados → "plugin não instalado"). Corrigido + guardião
@@ -30,22 +31,48 @@
      (boxing `{ p }` em todos os 9 call sites) + guardião
      `test_notify_plugin_boxing.mjs`. **Confirmado funcionando pelo usuário
      no aparelho físico** após esta correção.
+  4. Novo pedido do Alex (com mocks `dois-apps-em-um.html` e
+     `modo-operador.html` anexados): cores dos gráficos erradas no Modo
+     Operador, fraseologia não acompanha a identidade, Radar sem "análise
+     inicial rápida", "Plano da mesa (IA)" não achava o modelo, nova feature
+     de guardar todas as análises pra medir eficiência depois, e "desenhar o
+     prompt como especialista no Claude". **qa/29** resolveu os dois
+     primeiros itens funcionais (cores + modelo não encontrado).
+  5. Feature de eficiência modelada com o Alex via AskUserQuestion
+     (**qa/30**: autoavaliação da IA e trades reais são features SEPARADAS;
+     prazo fixo de 10 pregões; N1+N2 alimentam a estatística; job no
+     servidor) e a Fase A (autoavaliação da IA) **implementada e testada**
+     (**qa/31**): novo módulo `analysis_outcomes.py`, captura em N1/N2, job
+     diário no scheduler existente, painel "Eficiência da IA" em Perfil →
+     Observabilidade. Fase B (trades reais) segue não iniciada.
 
 ## 2. PENDÊNCIAS — o que ainda NÃO foi validado (fonte: `qa/26-matriz-revalidacao.md`)
 
 - **A · Notificações (A1–A6):** ✅ CONFIRMADO funcionando no aparelho após
   qa/28 (build F9-20260709-5). Falta só reconfirmar A5/A6 (push remoto)
   formalmente — dependem das envs APNs no Railway (`APNS_SANDBOX=1`).
-- **B · Identidade/Modo Operador (B1–B7):** ⏳ AINDA NÃO REPORTADO. O usuário
-  mencionou "identidade parcial" de forma genérica, sem apontar quais dos 7
-  itens falharam nem o que a tela mostrou. Os guardiões de tema
-  (`test_copy_theme.mjs`, `test_modo_operador.mjs`) já passam no
-  repositório — se ainda falhar no aparelho, é preciso o mesmo nível de
-  detalhe que resolveu o item A (item exato + o que a tela mostra + console
-  se travar).
+- **B · Identidade/Modo Operador (B1–B7):** ⏳ PARCIAL. qa/29 corrigiu as
+  cores dos gráficos (sparkline + Patrimônio Simulado) que ficavam azuis no
+  Modo Operador — falta confirmação no aparelho com build F9-20260709-6.
+  Fraseologia (copy.js) ainda sem auditoria completa contra os mocks. Os
+  guardiões de tema (`test_copy_theme.mjs`, `test_modo_operador.mjs`,
+  `test_chart_colors_theme_aware.mjs`) passam no repositório.
 - **C · IA nas duas vozes (C1–C5):** não testado nesta rodada.
 - **D · Conta/Login (D1–D4):** não testado nesta rodada.
 - **E · Plataforma (E1–E4):** não testado nesta rodada.
+
+**Fora da matriz, do pedido mais recente do Alex (mocks anexados):**
+- ✅ "Plano da mesa (IA)" não achava o modelo LLM — corrigido em qa/29
+  (`persistence.js` `scanDeep()` não mandava `config`/BYOK pro servidor).
+  Falta confirmação no aparelho.
+- ⏳ Radar sem "análise inicial rápida" — não investigado ainda.
+- ⏳ "Desenhar o prompt como especialista no Claude" — escopo não confirmado
+  com o Alex (provável: revisar `skill`/`skillOperador` em `llm.py`/config).
+- ✅ Nova feature (eficiência das análises) — modelada em qa/30, Fase A
+  (autoavaliação da IA) IMPLEMENTADA em qa/31 (código pronto, testado,
+  aguardando confirmação no aparelho com F9-20260709-7; validação real do
+  job de avaliação só depois de ~10 pregões). Fase B (trades reais, mock
+  `modo-operador.html` tela 4) ainda NÃO iniciada.
 
 **Como reportar no novo chat:** só as falhas, formato `A5 FALHA — <o que viu>`.
 Se travar sem mensagem clara, o Web Inspector do Safari (Desenvolver → nome
@@ -114,29 +141,64 @@ usar de novo antes de especular causa.
   proxy do plugin `LocalNotifications` em `notify.js`. Corrigido com boxing
   `{ p }` nos 9 call sites + guardião. **Confirmado funcionando no
   aparelho.** Build F9-20260709-5.
+- **F9 (qa/29)**: pedido do Alex com mocks (`dois-apps-em-um.html`,
+  `modo-operador.html`) — 2 de 5 itens resolvidos: (1) `OpsSparkline` e
+  `CapitalCurve` em `App.jsx` usavam `T.x` (var() cru) em `fill=`/`stroke=`
+  SVG, mesma classe de bug do `PriceChart` antigo — agora os 3 usam
+  `usePalette()`. (2) `persistence.js` `scanDeep()` era a única chamada de
+  IA que não mandava `config` (BYOK/modelo do aparelho) pro servidor —
+  corrigido para mandar igual `analyze()`/`analyzeStopAlvo()`. Guardiões:
+  `test_chart_colors_theme_aware.mjs`, `test_scandeep_config.mjs`. Build
+  F9-20260709-6. Restam: fraseologia (copy.js), Radar sem análise inicial
+  rápida, redesenho do prompt, feature de guardar análises p/ eficiência.
+- **F9 (qa/30)**: modelagem da feature de eficiência com o Alex
+  (AskUserQuestion) — duas features SEPARADAS (autoavaliação da IA × trades
+  reais), prazo fixo de 10 pregões, N1+N2 alimentam a estatística, job no
+  servidor reaproveitando o scheduler do Radar diário. Design doc, nada
+  implementado ainda nesta etapa.
+- **F9 (qa/31)**: Fase A (autoavaliação da IA) IMPLEMENTADA. Novo módulo
+  `server/app/analysis_outcomes.py` (registro, avaliação pura, métricas, job
+  diário); captura best-effort em N1 (`scan_deep_run`) e N2
+  (`analyze_technical_model`); endpoints
+  `/api/analysis-outcomes`+`/stats`; painel "Eficiência da IA" em Perfil →
+  Observabilidade. Guardiões: `test_analysis_outcomes.py` (13 casos),
+  `test_analysis_outcomes_ui.mjs` (4 casos). Build F9-20260709-7. Fase B
+  (trades reais) segue não iniciada.
 
 ## 5. Prompt pronto para o novo chat
 
 ```
-Contexto: leia CHECKOUT-NOVO-CHAT.md, qa/26-matriz-revalidacao.md, qa/27 e
-qa/28 na raiz do repo b3-agente. Regras do projeto valem (baseline verde,
-causa-raiz, guardião por bug, carimbo de build antes de qualquer avaliação,
-docs em qa/). Se uma chamada nativa de plugin "trava" sem erro, ver
-armadilha #8 antes de suspeitar de cache/build.
+Contexto: leia CHECKOUT-NOVO-CHAT.md, qa/26-matriz-revalidacao.md, qa/27,
+qa/28, qa/29, qa/30 e qa/31 na raiz do repo b3-agente. Regras do projeto
+valem (baseline verde, causa-raiz, guardião por bug, carimbo de build antes
+de qualquer avaliação, docs em qa/). Se uma chamada nativa de plugin "trava"
+sem erro, ver armadilha #8 antes de suspeitar de cache/build.
 
-Estado: build F9-20260709-5 instalado e confirmado no rodapé do Perfil.
+Estado: build F9-20260709-7 instalado e confirmado no rodapé do Perfil.
 [SE NÃO: rode 'bash entregar.sh "retomada"' + Xcode ⇧⌘K + Run primeiro.]
 
 Item A (notificações/push): CONFIRMADO OK pelo usuário.
+qa/29: cores dos gráficos no Modo Operador + "Plano da mesa" sem modelo —
+CORRIGIDOS, aguardando confirmação no aparelho.
+qa/31: Fase A da eficiência da IA (autoavaliação, painel em Observabilidade)
+IMPLEMENTADA E TESTADA, aguardando confirmação no aparelho com F9-20260709-7
+— o job de avaliação só produz resultado depois de ~10 pregões, então "nº de
+avaliadas > 0" só é verificável daqui a 2 semanas, não agora.
 
-Resultado do item B (Identidade/Modo Operador) e dos itens C/D/E da matriz
-qa/26 no aparelho:
+Resultado no aparelho (cores certas? plano da mesa roda? painel Eficiência
+da IA aparece?) + item B(resto)/C/D/E da matriz qa/26:
 - <liste aqui APENAS as falhas, ex.: B2 FALHA — sparkline continua azul>
 - <...>
+
+Ainda pendentes do pedido anterior do Alex (não iniciados): Fase B da
+eficiência (trades reais, mock modo-operador.html tela 4 — modelo já em
+qa/30 seção B), fraseologia não acompanha a identidade (auditar copy.js
+contra os mocks), Radar sem "análise inicial rápida", "desenhar o prompt
+como especialista no Claude" (escopo não confirmado).
 
 Tarefa: para cada falha, diagnostique a causa-raiz (Logs do servidor,
 Diagnóstico do app, console do Web Inspector se algo travar sem erro claro),
 corrija cirurgicamente com teste-guardião, rode as suítes completas e feche
-com qa/29 + roteiro de hard stop. Ao final, rode
+com qa/32 + roteiro de hard stop. Ao final, rode
 'bash entregar.sh --so-verificar' e me passe o novo carimbo.
 ```

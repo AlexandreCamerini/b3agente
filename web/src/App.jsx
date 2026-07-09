@@ -690,6 +690,11 @@ function openedAt(history, t, pos) {
 // 2.3 (b): mini-sparkline do preço com marcadores ▲compra/▼venda nas datas das
 // operações (candles vêm de /api/technicals — o mesmo STU de tudo).
 function OpsSparkline({ candles, ops }) {
+  // qa/29 (B2): atributos de apresentação SVG (fill=/stroke=) não resolvem
+  // var(--x) de forma confiável neste WebKit — mesma causa-raiz já
+  // documentada para PriceChart (linha ~92). Usa usePalette() (hex
+  // resolvido, já mesclado com o override do Modo Operador) em vez de T.x.
+  const P = usePalette();
   const cs = candles || [];
   const closes = cs.map((c) => c.close);
   if (closes.length < 2) return null;
@@ -709,10 +714,10 @@ function OpsSparkline({ candles, ops }) {
   }
   return (
     <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-label="Preço com marcações de operações">
-      <path d={linePath(closes, mn, mx, W, H)} fill="none" stroke={T.textFaint} strokeWidth="1.4" />
+      <path d={linePath(closes, mn, mx, W, H)} fill="none" stroke={P.textFaint} strokeWidth="1.4" />
       {marks.map((mk, i) => mk.buy
-        ? <path key={i} d={`M ${mk.x} ${mk.y - 5} L ${mk.x - 4} ${mk.y + 3} L ${mk.x + 4} ${mk.y + 3} Z`} fill={T.positive} />
-        : <path key={i} d={`M ${mk.x} ${mk.y + 5} L ${mk.x - 4} ${mk.y - 3} L ${mk.x + 4} ${mk.y - 3} Z`} fill={T.negative} />)}
+        ? <path key={i} d={`M ${mk.x} ${mk.y - 5} L ${mk.x - 4} ${mk.y + 3} L ${mk.x + 4} ${mk.y + 3} Z`} fill={P.positive} />
+        : <path key={i} d={`M ${mk.x} ${mk.y + 5} L ${mk.x - 4} ${mk.y - 3} L ${mk.x + 4} ${mk.y - 3} Z`} fill={P.negative} />)}
     </svg>
   );
 }
@@ -1309,6 +1314,10 @@ function TechnicalModal({ ticker, name, quote, position, onClose, period }) {
 // Curva de capital (Fase B1): série real de patrimônio a partir de equitySnapshots,
 // com retorno acumulado e drawdown (queda desde o pico). Determinístico, sem IA.
 function CapitalCurve({ ctx }) {
+  // qa/29 (B2): mesma causa-raiz do OpsSparkline — fill=/stroke= em SVG não
+  // resolve var(--x) de forma confiável neste WebKit. usePalette() dá o hex
+  // já mesclado com o override do Modo Operador.
+  const P = usePalette();
   const { data, quotes } = ctx;
   const m = portfolioMetrics(data.positions, quotes, data.cash);
   const patr = m.patr;
@@ -1346,10 +1355,10 @@ function CapitalCurve({ ctx }) {
       </div>
       <div style={{ marginTop: "12px", position: "relative", height: "92px", borderRadius: "10px", overflow: "hidden", background: T.bgBase, border: `1px solid ${T.borderFaint}` }}>
         <svg viewBox="0 0 300 92" preserveAspectRatio="none" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
-          <line x1="0" y1="84" x2="300" y2="84" stroke={T.chartGrid} strokeWidth="1" />
+          <line x1="0" y1="84" x2="300" y2="84" stroke={P.chartGrid} strokeWidth="1" />
           {hasSeries
-            ? <path d={path} fill="none" stroke={up ? T.positive : T.negative} strokeWidth="2" />
-            : <path d="M0,72 C60,66 110,58 150,52 C200,45 250,40 300,30" fill="none" stroke={T.textFaint} strokeWidth="2" strokeOpacity="0.35" strokeDasharray="4 4" />}
+            ? <path d={path} fill="none" stroke={up ? P.positive : P.negative} strokeWidth="2" />
+            : <path d="M0,72 C60,66 110,58 150,52 C200,45 250,40 300,30" fill="none" stroke={P.textFaint} strokeWidth="2" strokeOpacity="0.35" strokeDasharray="4 4" />}
         </svg>
       </div>
       {hasSeries ? (
@@ -2666,6 +2675,11 @@ function ObservabilidadeScreen({ ctx }) {
   const [diario, setDiario] = useState(null);
   const [runSt, setRunSt] = useState("");
   const [pushSt, setPushSt] = useState("");
+  // qa/30 (Fase A): eficiência da IA — quanto das análises (N1+N2) bateram
+  // alvo/stop vs. o comportamento real do ativo. Muda no máximo 1x/dia (job
+  // do servidor), por isso não entra no intervalo de 15s dos demais cards.
+  const [efic, setEfic] = useState(null);
+  const [eficErr, setEficErr] = useState("");
   // FASE 5: logs detalhados do servidor (restritos ao admin — 403 esconde a seção)
   const [obs, setObs] = useState(null);          // { logs, stats } | null
   const [obsDenied, setObsDenied] = useState(false);
@@ -2676,6 +2690,10 @@ function ObservabilidadeScreen({ ctx }) {
   }, []);
   const loadDiario = useCallback(async () => {
     try { setDiario(await store.agentLog(60)); } catch { /* diário é observabilidade; não quebra a tela */ }
+  }, []);
+  const loadEficiencia = useCallback(async () => {
+    try { setEfic(await store.analysisOutcomesStats()); setEficErr(""); }
+    catch (e) { setEficErr((e && e.message) || String(e)); }
   }, []);
   const loadObs = useCallback(async () => {
     try { setObs(await store.obsLogs(120, obsLevel || undefined)); setObsDenied(false); }
@@ -2690,6 +2708,9 @@ function ObservabilidadeScreen({ ctx }) {
     const id = setInterval(() => { loadSrv(); loadDiario(); loadObs(); }, 15000);
     return () => clearInterval(id);
   }, [loadSrv, loadDiario, loadObs]);
+  // qa/30 (Fase A): carrega 1x (sem o intervalo de 15s dos demais — muda no
+  // máximo 1x/dia via job do servidor).
+  useEffect(() => { loadEficiencia(); }, [loadEficiencia]);
   const rodarAgora = async () => {
     setRunSt("disparando…");
     try {
@@ -2777,6 +2798,56 @@ function ObservabilidadeScreen({ ctx }) {
               </div>
             ))}
           </div>
+        )}
+      </div>
+
+      {/* qa/30 (Fase A) — EFICIÊNCIA DA IA: quanto das análises (Plano da
+          mesa/N1 + Aprofundar/N2 com stop/alvo definidos) bateram o alvo, o
+          stop, ou expiraram a favor/contra em 10 pregões — autoavaliação da
+          IA contra o que o ativo realmente fez depois. Job do servidor roda
+          1x/dia; esta tela só lê o resultado (nada calcula aqui). */}
+      <div style={{ marginTop: "14px", ...card, padding: "14px 16px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", marginBottom: "9px" }}>
+          <div style={{ fontSize: "11px", fontWeight: 800, color: T.textSecondary, letterSpacing: "0.05em" }}>EFICIÊNCIA DA IA</div>
+          <button onClick={loadEficiencia} style={{ background: "transparent", border: "none", color: T.textFaint, fontSize: "11px", fontWeight: 800, padding: "4px" }}>↻ atualizar</button>
+        </div>
+        {eficErr && <div style={{ color: T.negative, fontSize: "11.5px" }}>indisponível: {eficErr}</div>}
+        {!eficErr && !efic && <div style={{ color: T.textFaint, fontSize: "11.5px" }}>carregando…</div>}
+        {efic && efic.totalAnalises === 0 && (
+          <div style={{ fontSize: "11.5px", color: T.textFaint, lineHeight: 1.5 }}>Nenhuma análise com plano de stop/alvo definido ainda. Use "Plano da mesa (IA)" no Radar ou "Aprofundar com IA" num ativo — cada uma entra aqui e é conferida 10 pregões depois.</div>
+        )}
+        {efic && efic.totalAnalises > 0 && (
+          <>
+            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+              <div style={{ flex: "1 1 90px", minWidth: "80px" }}>
+                <div style={{ fontFamily: MONO, fontSize: "18px", fontWeight: 800, color: efic.taxaAcerto == null ? T.textFaint : (efic.taxaAcerto >= 50 ? T.positive : T.negative) }}>{efic.taxaAcerto == null ? "—" : efic.taxaAcerto + "%"}</div>
+                <div style={{ fontSize: "10px", color: T.textFaint, fontWeight: 700, letterSpacing: "0.04em" }}>TAXA DE ACERTO</div>
+              </div>
+              <div style={{ flex: "1 1 90px", minWidth: "80px" }}>
+                <div style={{ fontFamily: MONO, fontSize: "18px", fontWeight: 800, color: efic.rMedio == null ? T.textFaint : (efic.rMedio >= 0 ? T.positive : T.negative) }}>{efic.rMedio == null ? "—" : (efic.rMedio >= 0 ? "+" : "") + efic.rMedio + "R"}</div>
+                <div style={{ fontSize: "10px", color: T.textFaint, fontWeight: 700, letterSpacing: "0.04em" }}>R MÉDIO / ANÁLISE</div>
+              </div>
+              <div style={{ flex: "1 1 90px", minWidth: "80px" }}>
+                <div style={{ fontFamily: MONO, fontSize: "18px", fontWeight: 800, color: T.textSecondary }}>{efic.avaliadas}</div>
+                <div style={{ fontSize: "10px", color: T.textFaint, fontWeight: 700, letterSpacing: "0.04em" }}>AVALIADAS</div>
+              </div>
+              <div style={{ flex: "1 1 90px", minWidth: "80px" }}>
+                <div style={{ fontFamily: MONO, fontSize: "18px", fontWeight: 800, color: T.textSecondary }}>{efic.pendentes}</div>
+                <div style={{ fontSize: "10px", color: T.textFaint, fontWeight: 700, letterSpacing: "0.04em" }}>AGUARDANDO PRAZO</div>
+              </div>
+            </div>
+            {efic.porSetup && Object.keys(efic.porSetup).length > 0 && (
+              <p style={{ marginTop: "9px", marginBottom: 0, fontSize: "11px", color: T.textMuted, lineHeight: 1.6 }}>
+                Por setup:{" "}
+                {Object.entries(efic.porSetup).map(([s, v], i, arr) => (
+                  <span key={s} style={{ fontFamily: MONO }}>{s} <b>{v.acerto}/{v.total}</b>{i < arr.length - 1 ? " · " : ""}</span>
+                ))}
+              </p>
+            )}
+            <p style={{ marginTop: "8px", marginBottom: 0, fontSize: "10.5px", color: T.textFaint, lineHeight: 1.5 }}>
+              Prazo fixo de 10 pregões por análise; conta só quem tinha stop e alvo definidos. Isto é autoavaliação estatística da IA sobre dados passados — não é garantia de resultado futuro.
+            </p>
+          </>
         )}
       </div>
 

@@ -194,13 +194,18 @@ async def scheduler_loop(conn, quotes_getter, notify_push=None, interval_s: int 
     `notify_push(user_id, title, body)` (opcional) envia APNs por ação executada.
     FASE 4 (1.3): `radar_fetch` (opcional) habilita a varredura diária do Radar
     — 1x/dia útil no horário configurado, FORA do gate de pregão (8h45 é
-    pré-abertura), reusando este mesmo laço (sem segundo scheduler)."""
+    pré-abertura), reusando este mesmo laço (sem segundo scheduler).
+    qa/30 (Fase A): o mesmo `radar_fetch` também alimenta a avaliação diária
+    das análises pendentes (analysis_outcomes) — outro hook no mesmo laço,
+    sem scheduler novo."""
     interval = interval_s or int(os.environ.get("B3_AGENT_INTERVAL_S") or INTERVAL_S_DEFAULT)
     while True:
         try:
             if radar_fetch is not None and not kill_switch_on():
                 from . import radar_daily  # import local: sem ciclo de import
                 await radar_daily.maybe_run(conn, radar_fetch, notify_push=notify_push)
+                from . import analysis_outcomes  # qa/30 (Fase A): import local, sem ciclo de import
+                await analysis_outcomes.maybe_run(conn, radar_fetch)
             if not kill_switch_on() and in_market_hours():
                 _t0 = time.monotonic()
                 _erros = []
@@ -239,10 +244,12 @@ def status_snapshot(conn, interval_s: int = None) -> dict:
     if NEXT_RUN_AT["ts"]:
         prox = max(0, int(NEXT_RUN_AT["ts"] - time.time()))
     from . import radar_daily  # import local: sem ciclo de import
+    from . import analysis_outcomes  # qa/30 (Fase A): import local, sem ciclo de import
     return {
         "killSwitch": kill_switch_on(),
         "pregaoAberto": in_market_hours(),
         "radarDiario": dict(radar_daily.LAST_DAILY),  # FASE 4 (1.3)
+        "avaliacaoAnalises": dict(analysis_outcomes.LAST_EVAL),  # qa/30 (Fase A)
         "intervaloS": interval_s or int(os.environ.get("B3_AGENT_INTERVAL_S") or INTERVAL_S_DEFAULT),
         "usuariosHabilitados": len(list_server_users(conn)),
         "ultimoCiclo": dict(LAST_RUN),
