@@ -49,7 +49,9 @@ ok("push exige permissão concedida (botão desabilitado sem ela)", /onAtivarPus
 // ---- 4) Operador IA sem controle duplicado ----------------------------------
 ok("Operador IA não tem mais botão próprio de push", !app.includes("Ativar push das ações"));
 ok("Operador IA aponta para a central (atalho)", app.includes("A.openNotifCentral()"));
-ok("atalho navega direto para a Config (perfilView config)", /openNotifCentral:.*setPerfilView\("config"\).*setTab\("perfil"\)/.test(app));
+// qa/32: Notificações virou área DEDICADA do Perfil (antes vivia dentro da
+// Config) — o atalho passou a navegar direto pra ela em vez de "config".
+ok("atalho navega direto para Notificações (perfilView notificacoes)", /openNotifCentral:.*setPerfilView\("notificacoes"\).*setTab\("perfil"\)/.test(app));
 
 console.log(fails ? `\n${fails} falha(s)` : "\ntodos os testes passaram");
 process.exit(fails ? 1 : 0);

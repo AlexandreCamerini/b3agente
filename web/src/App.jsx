@@ -1693,13 +1693,24 @@ function PerfilHub({ ctx, onOpen }) {
       <DrillRow onClick={() => ctx.openAuth && ctx.openAuth()} title={ctx.authUser ? "Conta" : "Entrar ou criar conta"} sub={ctx.authUser ? ((((ctx.authUser.name || "").trim()) || (/@privaterelay\.appleid\.com$/i.test(ctx.authUser.email || "") ? "Sua conta Apple" : ctx.authUser.email) || "conectado") + " · toque para gerenciar") : "Opcional — salva sua carteira e sincroniza entre aparelhos"} icon={
         <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden><circle cx="12" cy="8.5" r="3.6" fill="none" stroke="currentColor" strokeWidth="1.9" /><path d="M5 19.5c0-3.6 3.1-5.5 7-5.5s7 1.9 7 5.5" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" /></svg>
       } />
-      <DrillRow onClick={() => onOpen("config")} title="Conta & preferências" sub="Perfil de risco, IA & skill, aparência, notificações, orçamento" icon={
+      <DrillRow onClick={() => onOpen("config")} title="Conta & preferências" sub="Perfil de risco, aparência, período de candles, orçamento" icon={
         <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" strokeWidth="1.9" /><path d="M12 3v2.5M12 18.5V21M21 12h-2.5M5.5 12H3M18.4 5.6l-1.8 1.8M7.4 16.6l-1.8 1.8M18.4 18.4l-1.8-1.8M7.4 7.4 5.6 5.6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" /></svg>
       } />
-      {/* FASE 3: "Operador IA" já é aba principal — o antigo drill duplicava a
-          mesma tela aqui dentro. Este link agora vai para a OBSERVABILIDADE
-          (status do servidor + Diário + testes), que não tem outro lugar. */}
-      <DrillRow onClick={() => onOpen("observabilidade")} title="Observabilidade" sub={ag.serverEnabled ? "Status, Diário e testes do Operador no servidor" : "Ligue o Operador no servidor para ver o status aqui"} icon={
+      {/* qa/32: Perfil virou um monólito (7 seções empilhadas) — reorganizado
+          em áreas dedicadas a pedido do Alex. Cada uma tinha lugar próprio: */}
+      <DrillRow onClick={() => onOpen("ia")} title="Configurações de IA" sub="Modelo do agente, skills por modo e prompts" icon={
+        <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden><path d="M12 3a5 5 0 0 1 5 5c0 2-1.2 3.1-2 4-.6.7-1 1.3-1 2.3h-4c0-1-.4-1.6-1-2.3-.8-.9-2-2-2-4a5 5 0 0 1 5-5Z" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" /><path d="M10 17.5h4M10.5 20h3" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" /></svg>
+      } />
+      <DrillRow onClick={() => onOpen("notificacoes")} title="Notificações" sub={notifOn ? "Ativas — stop, alvo, agente e variação" : "Desativadas — toque para ativar"} icon={
+        <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden><path d="M6 10.5a6 6 0 0 1 12 0c0 4 1.3 5.3 1.8 6H4.2c.5-.7 1.8-2 1.8-6Z" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" /><path d="M10 19.5a2 2 0 0 0 4 0" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" /></svg>
+      } />
+      <DrillRow onClick={() => onOpen("eficiencia")} title="Eficiência da IA" sub="Quanto das análises bateram alvo/stop (autoavaliação)" icon={
+        <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden><circle cx="12" cy="12" r="7.5" fill="none" stroke="currentColor" strokeWidth="1.7" /><circle cx="12" cy="12" r="3.5" fill="none" stroke="currentColor" strokeWidth="1.7" /><circle cx="12" cy="12" r="0.9" fill="currentColor" stroke="none" /></svg>
+      } />
+      {/* FASE 3: "Operador IA" já é aba principal — este link vai para os
+          detalhes técnicos (status do servidor, Diário, diagnóstico QA e
+          logs), que não têm outro lugar. */}
+      <DrillRow onClick={() => onOpen("logs")} title="Logs & debug" sub={ag.serverEnabled ? "Status, Diário e diagnóstico do Operador no servidor" : "Servidor, diagnóstico QA e logs técnicos"} icon={
         <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden><path d="M4 18v-5M9.5 18v-9M15 18V7M20 18v-3" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" /></svg>
       } />
       <div style={{ fontSize: "11.5px", color: T.textFaint, marginTop: "2px", lineHeight: 1.5 }}>
@@ -2285,7 +2296,7 @@ function AgenteScreen({ ctx }) {
       A.flash && A.flash("Operador no servidor " + (on ? "ATIVADO ✓ (confirmado)" : "desativado."));
     } catch (e) {
       const msg = (e && e.message) || String(e);
-      A.flash && A.flash("Não deu para " + (on ? "ativar" : "desativar") + ": " + msg + (/(timeout|abort)/i.test(msg) ? " — o servidor pode estar ocupado numa varredura; veja Perfil → Observabilidade (os requests lentos aparecem como [slow] nos logs do Railway). Tente de novo em instantes." : ""));
+      A.flash && A.flash("Não deu para " + (on ? "ativar" : "desativar") + ": " + msg + (/(timeout|abort)/i.test(msg) ? " — o servidor pode estar ocupado numa varredura; veja Perfil → Logs & debug (os requests lentos aparecem como [slow] nos logs do Railway). Tente de novo em instantes." : ""));
       loadSrv();
     } finally { setSrvBusy(false); }
   };
@@ -2293,7 +2304,7 @@ function AgenteScreen({ ctx }) {
     <div>
       <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 700 }}>Operador IA</h1>
       <p style={{ margin: "6px 0 0", color: T.textMuted, fontSize: "13px", maxWidth: "600px", lineHeight: 1.5 }}>
-        Seu operador autônomo da carteira SIMULADA: monitora as posições, protege stop/alvo pelas regras que você define e registra cada decisão — no servidor, mesmo com o app fechado. Status detalhado, Diário e testes ficam em <b>Perfil → Observabilidade</b>.
+        Seu operador autônomo da carteira SIMULADA: monitora as posições, protege stop/alvo pelas regras que você define e registra cada decisão — no servidor, mesmo com o app fechado. Status detalhado, Diário e testes ficam em <b>Perfil → Logs & debug</b>.
       </p>
 
       {/* FASE 3 — agente no SERVIDOR: roda mesmo com o app fechado */}
@@ -2676,150 +2687,148 @@ function PromptsSection({ ctx }) {
   );
 }
 
-// FASE 3 — OBSERVABILIDADE (movida do Operador IA para o Perfil, a pedido do
-// Alex: status detalhado do servidor, Diário do operador (ações + push) e as
-// ações de diagnóstico "Rodar ciclo agora" / "Testar push agora". O Operador
-// IA (aba principal) fica só com a configuração; aqui é só ver o que houve.
-function ObservabilidadeScreen({ ctx }) {
-  const { data, A } = ctx;
+// qa/32 — CONFIGURAÇÕES DE IA: modelo/provedor do agente + skills por modo +
+// prompts, que antes viviam espalhados dentro de "Conta & preferências"
+// (monólito de 7 seções). Reorganizado a pedido do Alex.
+function AiConfigScreen({ ctx }) {
+  const { data, A, test } = ctx;
+  const c = data.config;
+  const sectionTitle = { fontSize: "13px", fontWeight: 800, letterSpacing: "0.04em", color: T.accent };
+  const seg = (on) => ({ flex: 1, padding: "10px", borderRadius: "8px", fontWeight: 600, fontSize: "13px", border: `1px solid ${on ? T.accent : T.borderSubtle}`, background: on ? T.accentTint : T.bgPanel, color: on ? T.accent : T.textMuted });
+  const testColor = test.status === "ok" ? T.positive : test.status === "error" ? T.negative : T.accent;
+  const testBg = test.status === "ok" ? T.positiveTint10 : test.status === "error" ? T.negativeTint10 : T.accentTint10;
+  const suggest = { anthropic: "Ex.: claude-sonnet-4 · claude-haiku-4", openai: "Ex.: gpt-4.1 · gpt-4o-mini", google: "Ex.: gemini-2.5-pro · gemini-2.5-flash", local: "Ex.: llama-3.1-70b · qwen2.5-72b" }[c.provider];
+  return (
+    <div>
+      <h1 style={{ margin: "0 0 6px", fontSize: "22px", fontWeight: 700 }}>Configurações de IA</h1>
+      <p style={{ margin: "0 0 18px", color: T.textMuted, fontSize: "12.5px", lineHeight: 1.5, maxWidth: "560px" }}>
+        Modelo/provedor do agente, instruções (skills) por modo e prompts — tudo que molda como a IA analisa e responde.
+      </p>
+
+      {/* A) Modelo de IA */}
+      <div style={{ ...card, padding: "17px 18px" }}>
+        <div style={sectionTitle}>MODELO DE IA DO AGENTE</div>
+        <p style={{ margin: "6px 0 16px", color: T.textMuted, fontSize: "12.5px", lineHeight: 1.5, maxWidth: "560px" }}>Provedor e modelo usados para gerar as análises. A chave nunca é exibida depois de salva e fica apenas {isNative ? "neste aparelho" : "no servidor"}.</p>
+
+        <label style={{ display: "block", marginBottom: "14px" }}>
+          <span style={{ display: "block", fontSize: "12px", color: T.textMuted, marginBottom: "6px" }}>Provedor</span>
+          <select value={c.provider} onChange={(e) => A.saveConfig({ provider: e.target.value })} style={field}>
+            <option value="anthropic">Anthropic</option>
+            <option value="openai">OpenAI</option>
+            <option value="google">Google</option>
+            <option value="local">Compatível / Local</option>
+          </select>
+        </label>
+
+        <label style={{ display: "block", marginBottom: "14px" }}>
+          <span style={{ display: "block", fontSize: "12px", color: T.textMuted, marginBottom: "6px" }}>Modelo</span>
+          <input type="text" value={c.model} onChange={(e) => A.editConfig({ model: e.target.value })} onBlur={(e) => A.saveConfig({ model: e.target.value })} placeholder="nome-do-modelo" style={{ ...field, fontFamily: MONO }} />
+          <span style={{ display: "block", fontSize: "11px", color: T.textFaint, marginTop: "5px", fontFamily: MONO }}>{suggest}</span>
+        </label>
+
+        <div style={{ marginBottom: "14px" }}>
+          <span style={{ display: "block", fontSize: "12px", color: T.textMuted, marginBottom: "6px" }}>Origem da chave</span>
+          <div style={{ display: "flex", gap: "8px" }}>
+            <button onClick={() => A.saveConfig({ keySource: "env" })} aria-pressed={c.keySource === "env"} style={seg(c.keySource === "env")}>Variável de ambiente</button>
+            <button onClick={() => A.saveConfig({ keySource: "manual" })} aria-pressed={c.keySource === "manual"} style={seg(c.keySource === "manual")}>Digitar aqui</button>
+          </div>
+        </div>
+
+        {c.keySource === "env" && (
+          <div style={{ background: T.bgBase, border: `1px solid ${T.borderSubtle}`, borderRadius: "8px", padding: "12px 13px", marginBottom: "14px", fontSize: "12.5px", color: T.textSecondary, lineHeight: 1.5 }}>
+            Lendo a chave da variável <span style={{ fontFamily: MONO, color: T.accent }}>{c.envVar}</span> (ou <span style={{ fontFamily: MONO, color: T.accent }}>B3_AGENTE_API_KEY</span>) no servidor. O valor nunca é exibido.
+          </div>
+        )}
+        {c.keySource === "manual" && c.keyStored && (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", background: T.bgBase, border: `1px solid ${T.borderSubtle}`, borderRadius: "8px", padding: "11px 13px", marginBottom: "14px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "9px" }}>
+              <span style={{ fontFamily: MONO, letterSpacing: "2px", color: T.textMuted }}>••••••••••••</span>
+              <span style={{ fontSize: "11px", color: T.positive, fontWeight: 700 }}>chave configurada ✅ <span style={{ color: T.textFaint, fontWeight: 500 }}>{isNative ? "(neste aparelho)" : "(no servidor)"}</span></span>
+            </div>
+            <button onClick={A.clearKey} style={{ padding: "7px 12px", borderRadius: "7px", border: `1px solid ${T.borderSubtle}`, background: "transparent", color: T.textSecondary, fontSize: "12px", fontWeight: 600 }}>Substituir</button>
+          </div>
+        )}
+        {c.keySource === "manual" && !c.keyStored && (
+          <div style={{ display: "flex", gap: "8px", marginBottom: "14px" }}>
+            <input type="password" value={ctx.keyDraft} onChange={(e) => ctx.setKeyDraft(e.target.value)} placeholder="cole a chave de API" aria-label="Chave de API" style={{ ...field, flex: 1, fontFamily: MONO }} />
+            <button onClick={A.saveKey} style={{ padding: "10px 15px", borderRadius: "8px", border: `1px solid ${T.accent}`, background: T.accentTint, color: T.accent, fontWeight: 700, fontSize: "13px" }}>Salvar chave</button>
+          </div>
+        )}
+
+        {c.provider === "local" && (
+          <label style={{ display: "block", marginBottom: "14px" }}>
+            <span style={{ display: "block", fontSize: "12px", color: T.textMuted, marginBottom: "6px" }}>Base URL</span>
+            <input type="text" value={c.baseUrl} onChange={(e) => A.editConfig({ baseUrl: e.target.value })} onBlur={(e) => A.saveConfig({ baseUrl: e.target.value })} placeholder="http://localhost:11434/v1" style={{ ...field, fontFamily: MONO }} />
+          </label>
+        )}
+
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+          <button onClick={A.test} disabled={test.status === "testing"} style={{ padding: "10px 16px", borderRadius: "8px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textPrimary, fontWeight: 600, fontSize: "13px", display: "flex", alignItems: "center", gap: "8px" }}>
+            {test.status === "testing" && <Spinner size={13} />} {test.status === "testing" ? "Testando…" : "Testar conexão"}
+          </button>
+          {(test.status === "ok" || test.status === "error") && (
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 12px", borderRadius: "8px", background: testBg, border: `1px solid ${testColor}` }}>
+              <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: testColor }} />
+              <span style={{ fontSize: "12.5px", color: testColor, whiteSpace: "pre-wrap", lineHeight: 1.45 }}>{test.msg}</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* B) Skill — FASE 8B (R2): UMA instrução do agente POR SKILL/MODO,
+          selecionada PELO NOME. O seletor abre por padrão na skill do modo
+          ativo; a análise usa automaticamente a skill do modo em uso. */}
+      <SkillSection ctx={ctx} sectionTitle={sectionTitle} />
+
+      {/* C) Config de LLMs e Prompts (FASE 2) */}
+      <PromptsSection ctx={ctx} />
+    </div>
+  );
+}
+
+// qa/32 — NOTIFICAÇÕES: área dedicada (antes era só mais uma seção dentro de
+// "Conta & preferências"). NotifSection já era autossuficiente — só ganhou
+// uma tela própria.
+function NotificacoesScreen({ ctx }) {
+  return (
+    <div>
+      <h1 style={{ margin: "0 0 18px", fontSize: "22px", fontWeight: 700 }}>Notificações</h1>
+      <NotifSection ctx={ctx} />
+    </div>
+  );
+}
+
+// qa/32 (Fase A) — EFICIÊNCIA DA IA: área dedicada, extraída da antiga
+// Observabilidade. Quanto das análises (Plano da mesa/N1 + Aprofundar/N2 com
+// stop/alvo definidos) bateram o alvo, o stop, ou expiraram a favor/contra em
+// 10 pregões — autoavaliação da IA contra o que o ativo realmente fez depois.
+// Job do servidor roda 1x/dia; esta tela só lê o resultado (nada calcula aqui).
+function EficienciaIAScreen({ ctx }) {
   const logged = !!ctx.authUser;
-  const [srv, setSrv] = useState(null);
-  const [srvErr, setSrvErr] = useState("");
-  const [diario, setDiario] = useState(null);
-  const [runSt, setRunSt] = useState("");
-  const [pushSt, setPushSt] = useState("");
-  // qa/30 (Fase A): eficiência da IA — quanto das análises (N1+N2) bateram
-  // alvo/stop vs. o comportamento real do ativo. Muda no máximo 1x/dia (job
-  // do servidor), por isso não entra no intervalo de 15s dos demais cards.
   const [efic, setEfic] = useState(null);
   const [eficErr, setEficErr] = useState("");
-  // FASE 5: logs detalhados do servidor (restritos ao admin — 403 esconde a seção)
-  const [obs, setObs] = useState(null);          // { logs, stats } | null
-  const [obsDenied, setObsDenied] = useState(false);
-  const [obsLevel, setObsLevel] = useState("");  // "" (tudo) | warn | error
-  const loadSrv = useCallback(async () => {
-    try { setSrv(await store.agentStatus()); setSrvErr(""); }
-    catch (e) { setSrvErr((e && e.message) || String(e)); }
-  }, []);
-  const loadDiario = useCallback(async () => {
-    try { setDiario(await store.agentLog(60)); } catch { /* diário é observabilidade; não quebra a tela */ }
-  }, []);
   const loadEficiencia = useCallback(async () => {
     try { setEfic(await store.analysisOutcomesStats()); setEficErr(""); }
     catch (e) { setEficErr((e && e.message) || String(e)); }
   }, []);
-  const loadObs = useCallback(async () => {
-    try { setObs(await store.obsLogs(120, obsLevel || undefined)); setObsDenied(false); }
-    catch (e) {
-      const msg = (e && e.message) || "";
-      if (/403|restrito|administrador/i.test(msg)) setObsDenied(true); // conta não-admin: seção some
-      /* erro de rede: mantém o que tem — logs são observabilidade, não quebram a tela */
-    }
-  }, [obsLevel]);
-  useEffect(() => {
-    loadSrv(); loadDiario(); loadObs();
-    const id = setInterval(() => { loadSrv(); loadDiario(); loadObs(); }, 15000);
-    return () => clearInterval(id);
-  }, [loadSrv, loadDiario, loadObs]);
-  // qa/30 (Fase A): carrega 1x (sem o intervalo de 15s dos demais — muda no
-  // máximo 1x/dia via job do servidor).
-  useEffect(() => { loadEficiencia(); }, [loadEficiencia]);
-  const rodarAgora = async () => {
-    setRunSt("disparando…");
-    try {
-      const s = await store.agentRunNow();
-      setRunSt(s.mensagem || "ciclo iniciado — acompanhe o Diário abaixo");
-      setTimeout(() => { loadDiario(); loadSrv(); }, 3000);
-      setTimeout(() => { loadDiario(); A.putAgent({}); }, 10000);
-    } catch (e) { setRunSt((e && e.message) || String(e)); }
-  };
-  const testarPush = async () => {
-    setPushSt("testando…");
-    try { const r = await store.pushTest(); setPushSt("push de teste enviado (" + r.enviados + "/" + r.total + " aparelho(s)) ✓"); loadDiario(); }
-    catch (e) { setPushSt((e && e.message) || String(e)); loadDiario(); }
-  };
+  useEffect(() => { if (logged) loadEficiencia(); }, [logged, loadEficiencia]);
   if (!logged) {
     return (
       <div>
-        <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 700 }}>Observabilidade</h1>
+        <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 700 }}>Eficiência da IA</h1>
         <p style={{ margin: "10px 0 0", color: T.textMuted, fontSize: "13px", lineHeight: 1.5, maxWidth: "480px" }}>
-          Entre na conta para ver o status do Operador no servidor, o Diário de ações/push e rodar diagnósticos — sem conta, o agente roda só em foreground e não há nada do servidor para observar.
+          Entre na conta para ver a autoavaliação da IA — quanto das análises com stop/alvo definidos bateram o alvo, o stop, ou expiraram, calculado no servidor.
         </p>
       </div>
     );
   }
   return (
     <div>
-      <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 700 }}>Observabilidade</h1>
+      <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 700 }}>Eficiência da IA</h1>
       <p style={{ margin: "6px 0 0", color: T.textMuted, fontSize: "13px", maxWidth: "600px", lineHeight: 1.5 }}>
-        O que o Operador IA fez no servidor — status do ciclo, o Diário de cada passada (com duração e erros) e testes de push, tudo num só lugar.
+        Autoavaliação da IA contra o que o ativo realmente fez depois — nada aqui é garantia de resultado futuro.
       </p>
       <div style={{ marginTop: "16px", ...card, padding: "14px 16px" }}>
-        <div style={{ fontSize: "11px", fontWeight: 800, color: T.textSecondary, letterSpacing: "0.05em", marginBottom: "9px" }}>STATUS DO SERVIDOR</div>
-        {srvErr && <div style={{ color: T.negative, fontSize: "11.5px" }}>status indisponível: {srvErr}</div>}
-        {!srvErr && !srv && <div style={{ color: T.textFaint, fontSize: "11.5px" }}>consultando o servidor…</div>}
-        {srv && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 14px", color: T.textMuted, fontSize: "11.5px" }}>
-            <span>pregão: <b style={{ color: srv.pregaoAberto ? T.positive : T.textFaint }}>{srv.pregaoAberto ? "aberto" : "fechado"}</b></span>
-            <span>ciclo: <b style={{ color: T.textSecondary, fontFamily: MONO }}>{Math.round((srv.intervaloS || 300) / 60)} min</b></span>
-            <span>kill-switch: <b style={{ color: srv.killSwitch ? T.negative : T.positive }}>{srv.killSwitch ? "LIGADO" : "desligado"}</b></span>
-            <span>usuários com o operador ligado: <b style={{ color: T.textSecondary, fontFamily: MONO }}>{srv.usuariosHabilitados ?? "—"}</b></span>
-            <span>último ciclo: <b style={{ color: T.textSecondary, fontFamily: MONO }}>{(srv.ultimoCiclo || {}).at || "ainda não rodou"}{(srv.passadas && srv.passadas[0]) ? ` (${srv.passadas[0].duracaoS}s)` : ""}</b></span>
-            {srv.proximaPassadaEmS != null && <span>próxima passada: <b style={{ color: T.textSecondary, fontFamily: MONO }}>~{srv.proximaPassadaEmS >= 60 ? Math.round(srv.proximaPassadaEmS / 60) + " min" : srv.proximaPassadaEmS + "s"}</b></span>}
-            {(srv.ultimoCiclo || {}).erro && <span style={{ color: T.negative }}>erro: <b>{srv.ultimoCiclo.erro}</b></span>}
-            <span>push: <b style={{ color: (srv.push || {}).configurado ? T.positive : T.textFaint }}>{(srv.push || {}).configurado ? "configurado" : "não configurado"}</b>{(srv.push || {}).meusAparelhos ? ` · ${srv.push.meusAparelhos} aparelho(s) meu(s)` : ""}</span>
-          </div>
-        )}
-        <div style={{ display: "flex", gap: "8px", marginTop: "11px", flexWrap: "wrap", alignItems: "center" }}>
-          <button onClick={rodarAgora} style={{ padding: "8px 13px", borderRadius: "9px", border: `1px solid ${T.accent}`, background: T.accent, color: T.onAccent, fontWeight: 800, fontSize: "11.5px" }}>▶ Rodar ciclo agora (servidor)</button>
-          <button onClick={testarPush} style={{ padding: "8px 13px", borderRadius: "9px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 700, fontSize: "11.5px" }}>Testar push agora</button>
-          {runSt && <span style={{ color: T.textMuted, fontSize: "11.5px" }}>{runSt}</span>}
-          {pushSt && <span style={{ color: T.textMuted, fontSize: "11.5px" }}>{pushSt}</span>}
-        </div>
-      </div>
-
-      {/* DIÁRIO DO OPERADOR: o log vivo do servidor — o que rodou, quanto
-          demorou, o que falhou e por quê (inclui as tentativas de push). */}
-      <div style={{ marginTop: "14px", ...card, padding: "14px 16px" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", marginBottom: "8px" }}>
-          <div style={{ fontSize: "11px", fontWeight: 800, color: T.textSecondary, letterSpacing: "0.05em" }}>DIÁRIO DO OPERADOR (servidor)</div>
-          <button onClick={loadDiario} style={{ background: "transparent", border: "none", color: T.textFaint, fontSize: "11px", fontWeight: 800, padding: "4px" }}>↻ atualizar</button>
-        </div>
-        {!diario && <div style={{ fontSize: "11.5px", color: T.textFaint }}>carregando o diário…</div>}
-        {diario && (!diario.log || diario.log.length === 0) && (
-          <div style={{ fontSize: "11.5px", color: T.textFaint, lineHeight: 1.5 }}>Nenhum registro ainda — ligue o operador no servidor (aba Operador IA), toque em "Rodar ciclo agora" ou "Testar push agora"; cada tentativa entra aqui com o resultado exato.</div>
-        )}
-        {diario && (diario.log || []).slice(0, 30).map((e, i) => {
-          const kc = e.kind === "buy" ? T.positive : e.kind === "warn" ? "#fbbf24" : e.kind === "error" ? T.negative : T.textFaint;
-          return (
-            <div key={i} style={{ display: "flex", gap: "9px", alignItems: "flex-start", padding: "7px 0", borderTop: i ? `1px solid ${T.borderFaint}` : "none" }}>
-              <span style={{ width: 7, height: 7, borderRadius: "50%", background: kc, flex: "none", marginTop: "5px" }} />
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: "11.5px", color: e.kind === "error" ? T.negative : T.textSecondary, lineHeight: 1.5 }}>{e.text}</div>
-                <div style={{ fontFamily: MONO, fontSize: "10px", color: T.textFaint, marginTop: "1px" }}>{e.time || ""}</div>
-              </div>
-            </div>
-          );
-        })}
-        {srv && srv.passadas && srv.passadas.length > 0 && (
-          <div style={{ marginTop: "11px", paddingTop: "9px", borderTop: `1px solid ${T.borderFaint}` }}>
-            <div style={{ fontSize: "10px", fontWeight: 800, color: T.textFaint, letterSpacing: "0.05em", marginBottom: "5px" }}>PASSADAS DO SCHEDULER (todas as contas)</div>
-            {srv.passadas.slice(0, 5).map((p, i) => (
-              <div key={i} style={{ display: "flex", gap: "10px", fontFamily: MONO, fontSize: "10.5px", color: T.textMuted, padding: "3px 0" }}>
-                <span>{p.at}</span><span>{p.duracaoS}s</span><span>{p.usuarios} usuário(s)</span><span>{p.executadas} exec.</span>
-                {p.erros && p.erros.length > 0 && <span style={{ color: T.negative }}>{p.erros.length} erro(s)</span>}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* qa/30 (Fase A) — EFICIÊNCIA DA IA: quanto das análises (Plano da
-          mesa/N1 + Aprofundar/N2 com stop/alvo definidos) bateram o alvo, o
-          stop, ou expiraram a favor/contra em 10 pregões — autoavaliação da
-          IA contra o que o ativo realmente fez depois. Job do servidor roda
-          1x/dia; esta tela só lê o resultado (nada calcula aqui). */}
-      <div style={{ marginTop: "14px", ...card, padding: "14px 16px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", marginBottom: "9px" }}>
           <div style={{ fontSize: "11px", fontWeight: 800, color: T.textSecondary, letterSpacing: "0.05em" }}>EFICIÊNCIA DA IA</div>
           <button onClick={loadEficiencia} style={{ background: "transparent", border: "none", color: T.textFaint, fontSize: "11px", fontWeight: 800, padding: "4px" }}>↻ atualizar</button>
@@ -2863,47 +2872,297 @@ function ObservabilidadeScreen({ ctx }) {
           </>
         )}
       </div>
+    </div>
+  );
+}
 
-      {/* FASE 5 — LOGS DETALHADOS DO SERVIDOR: toda request (rota, status,
-          duração), lentidões, erros e eventos de auth/agente, direto do ring
-          buffer do backend — sem precisar abrir o painel do Railway. Restrito
-          ao admin (B3_ADMIN_EMAILS ou a primeira conta criada). */}
-      {!obsDenied && (
-        <div style={{ marginTop: "14px", ...card, padding: "14px 16px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", marginBottom: "8px", flexWrap: "wrap" }}>
-            <div style={{ fontSize: "11px", fontWeight: 800, color: T.textSecondary, letterSpacing: "0.05em" }}>LOGS DO SERVIDOR (detalhado)</div>
-            <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
-              {["", "warn", "error"].map((lv) => (
-                <button key={lv || "all"} onClick={() => setObsLevel(lv)} style={{ padding: "4px 9px", borderRadius: "999px", border: `1px solid ${obsLevel === lv ? T.accent : T.borderSubtle}`, background: obsLevel === lv ? T.accentTint : "transparent", color: obsLevel === lv ? T.accent : T.textFaint, fontSize: "10.5px", fontWeight: 800 }}>
-                  {lv === "" ? "tudo" : lv === "warn" ? "lentos+erros" : "só erros"}
-                </button>
-              ))}
-              <button onClick={loadObs} style={{ background: "transparent", border: "none", color: T.textFaint, fontSize: "11px", fontWeight: 800, padding: "4px" }}>↻</button>
+// qa/32 — LOGS & DEBUG: fusão de duas telas técnicas que viviam separadas —
+// "Servidor do app" + "Diagnóstico QA" (antes dentro de Conta & preferências,
+// disponíveis mesmo sem login) e "Observabilidade" (status do servidor,
+// Diário do operador, logs detalhados — exige login). Mesmo comportamento de
+// antes, só que reunido num único lugar de "coisas técnicas".
+function LogsDebugScreen({ ctx }) {
+  const { data, A } = ctx;
+  const c = data.config;
+  const logged = !!ctx.authUser;
+  const sectionTitle = { fontSize: "13px", fontWeight: 800, letterSpacing: "0.04em", color: T.accent };
+
+  // --- Servidor do app + Diagnóstico QA (ex-ConfigScreen) ---
+  const [srvTest, setSrvTest] = useState({ status: null, msg: "" });
+  const [diagState, setDiagState] = useState({ status: null, text: "" });
+  const handleTestServer = async () => {
+    setSrvTest({ status: "testing", msg: "Testando…" });
+    const r = await testServer(c.serverUrl);
+    setSrvTest({ status: r.ok ? "ok" : "error", msg: r.message });
+  };
+  const runFullDiagnostic = async () => {
+    setDiagState({ status: "testing", text: "Executando diagnóstico…" });
+    const lines = [];
+    const stamp = new Date().toISOString();
+    lines.push("BolsIA · Diagnóstico iOS/WebView");
+    lines.push("Gerado em: " + stamp);
+    lines.push("");
+    try {
+      const rt = describeRuntimeConfig();
+      lines.push("[Runtime]");
+      lines.push("nativeMode=" + rt.nativeMode);
+      lines.push("apiBase=" + rt.apiBase);
+      lines.push("serverUrlConfig=" + (c.serverUrl || "(vazio)"));
+      lines.push("");
+    } catch (e) { lines.push("[Runtime] ERRO: " + (e.message || e)); }
+    try {
+      const srv = await testServer(c.serverUrl);
+      lines.push("[Servidor /api/health]");
+      lines.push((srv.ok ? "OK" : "FALHA") + " - " + srv.message);
+      lines.push("");
+    } catch (e) { lines.push("[Servidor] ERRO: " + (e.message || e)); lines.push(""); }
+    try {
+      const ia = await store.testConfig();
+      lines.push("[IA /api/config/test]");
+      lines.push((ia.ok ? "OK" : "FALHA") + " - " + (ia.message || "sem mensagem"));
+      if (ia.provider || ia.model || ia.keySource) lines.push("config=" + [ia.provider ? "provider=" + ia.provider : "", ia.model ? "model=" + ia.model : "", ia.keySource ? "keySource=" + ia.keySource : ""].filter(Boolean).join(", "));
+      if (ia.action) lines.push("ação=" + ia.action);
+      if (ia.hint) lines.push("dica=" + ia.hint);
+      lines.push("");
+    } catch (e) { lines.push("[IA] ERRO: " + (e.message || e)); lines.push(""); }
+    try {
+      const nd = await notify.diag();
+      lines.push("[Notificações]");
+      lines.push("isNative=" + nd.isNative);
+      lines.push("pluginLoaded=" + nd.pluginLoaded);
+      lines.push("hasSchedule=" + !!nd.hasSchedule);
+      lines.push("hasRequest=" + !!nd.hasRequest);
+      lines.push("permission=" + nd.permission);
+      if (nd.error) lines.push("erro=" + nd.error);
+      if (nd.permission === "granted") {
+        const id = await notify.schedule("BolsIA · teste QA", "Validação técnica de notificação local agendada.", new Date(Date.now() + 8000));
+        lines.push("scheduledTestId=" + (id == null ? "falhou" : id));
+        lines.push("ação=se estiver no iPhone, mande o app para segundo plano por 8 segundos para ver o banner.");
+      } else {
+        lines.push("ação=ative a permissão em Configurações → Notificações e rode o teste novamente.");
+      }
+      lines.push("");
+    } catch (e) { lines.push("[Notificações] ERRO: " + (e.message || e)); lines.push(""); }
+    lines.push("Checklist de correção rápida:");
+    lines.push("1. API base deve ser URL absoluta, ex.: https://b3-production-8fc0.up.railway.app");
+    lines.push("2. Se keySource=manual no iPhone, a chave precisa estar salva no próprio app.");
+    lines.push("3. Se permissão=denied, corrigir em Ajustes do iOS → Notificações → BolsIA.");
+    lines.push("4. Reinstale/recompile após mudanças de plugin: npm install && npx cap sync ios.");
+    setDiagState({ status: "done", text: lines.join("\n") });
+  };
+  const copyDiag = async () => {
+    try {
+      await navigator.clipboard.writeText(diagState.text || "");
+      setDiagState((d) => ({ ...d, status: "done", text: (d.text || "") + "\n\n[UI] Relatório copiado para a área de transferência." }));
+    } catch {
+      setDiagState((d) => ({ ...d, status: "done", text: (d.text || "") + "\n\n[UI] Não foi possível copiar automaticamente. Selecione e copie o texto acima." }));
+    }
+  };
+  const srvColor = srvTest.status === "ok" ? T.positive : srvTest.status === "error" ? T.negative : T.accent;
+
+  // --- Observabilidade: status do servidor, Diário, logs (ex-ObservabilidadeScreen) ---
+  const [srv, setSrv] = useState(null);
+  const [srvErr, setSrvErr] = useState("");
+  const [diario, setDiario] = useState(null);
+  const [runSt, setRunSt] = useState("");
+  const [pushSt, setPushSt] = useState("");
+  // FASE 5: logs detalhados do servidor (restritos ao admin — 403 esconde a seção)
+  const [obs, setObs] = useState(null);          // { logs, stats } | null
+  const [obsDenied, setObsDenied] = useState(false);
+  const [obsLevel, setObsLevel] = useState("");  // "" (tudo) | warn | error
+  const loadSrv = useCallback(async () => {
+    try { setSrv(await store.agentStatus()); setSrvErr(""); }
+    catch (e) { setSrvErr((e && e.message) || String(e)); }
+  }, []);
+  const loadDiario = useCallback(async () => {
+    try { setDiario(await store.agentLog(60)); } catch { /* diário é observabilidade; não quebra a tela */ }
+  }, []);
+  const loadObs = useCallback(async () => {
+    try { setObs(await store.obsLogs(120, obsLevel || undefined)); setObsDenied(false); }
+    catch (e) {
+      const msg = (e && e.message) || "";
+      if (/403|restrito|administrador/i.test(msg)) setObsDenied(true); // conta não-admin: seção some
+      /* erro de rede: mantém o que tem — logs são observabilidade, não quebram a tela */
+    }
+  }, [obsLevel]);
+  useEffect(() => {
+    loadSrv(); loadDiario(); loadObs();
+    const id = setInterval(() => { loadSrv(); loadDiario(); loadObs(); }, 15000);
+    return () => clearInterval(id);
+  }, [loadSrv, loadDiario, loadObs]);
+  const rodarAgora = async () => {
+    setRunSt("disparando…");
+    try {
+      const s = await store.agentRunNow();
+      setRunSt(s.mensagem || "ciclo iniciado — acompanhe o Diário abaixo");
+      setTimeout(() => { loadDiario(); loadSrv(); }, 3000);
+      setTimeout(() => { loadDiario(); A.putAgent({}); }, 10000);
+    } catch (e) { setRunSt((e && e.message) || String(e)); }
+  };
+  const testarPush = async () => {
+    setPushSt("testando…");
+    try { const r = await store.pushTest(); setPushSt("push de teste enviado (" + r.enviados + "/" + r.total + " aparelho(s)) ✓"); loadDiario(); }
+    catch (e) { setPushSt((e && e.message) || String(e)); loadDiario(); }
+  };
+
+  return (
+    <div>
+      <h1 style={{ margin: "0 0 6px", fontSize: "22px", fontWeight: 700 }}>Logs & debug</h1>
+      <p style={{ margin: "0 0 18px", color: T.textMuted, fontSize: "12.5px", lineHeight: 1.5, maxWidth: "580px" }}>
+        Servidor do app, diagnóstico técnico e — para quem tem conta — status do Operador no servidor, Diário e logs detalhados.
+      </p>
+
+      {/* Servidor do app (somente no iPhone) */}
+      {isNative && (
+        <div style={{ ...card, padding: "17px 18px", marginBottom: "16px" }}>
+          <div style={sectionTitle}>SERVIDOR DO APP</div>
+          <p style={{ margin: "6px 0 14px", color: T.textMuted, fontSize: "12.5px", lineHeight: 1.5, maxWidth: "560px" }}>
+            O app já vem apontado para o servidor de <b>produção</b> — não precisa configurar nada para usar (login, cotações e IA funcionam de fábrica). Este campo é um <b>override de desenvolvimento</b>: preencha só para testar contra um Mac na rede local; deixe vazio para voltar à produção. Vale para o aparelho inteiro (qualquer conta).
+          </p>
+          <label style={{ display: "block", marginBottom: "12px" }}>
+            <span style={{ display: "block", fontSize: "12px", color: T.textMuted, marginBottom: "6px" }}>Override do servidor (opcional — vazio = produção)</span>
+            <input type="text" value={c.serverUrl || ""} onChange={(e) => A.editConfig({ serverUrl: e.target.value })} onBlur={(e) => A.saveConfig({ serverUrl: e.target.value })} placeholder="vazio = produção · dev: http://192.168.0.12:8787" style={{ ...field, fontFamily: MONO }} />
+          </label>
+          <div style={{ margin: "0 0 12px", fontFamily: MONO, fontSize: "11px", color: T.textFaint }}>em uso agora: {getApiBase()}</div>
+          <button onClick={handleTestServer} style={{ padding: "9px 14px", borderRadius: "8px", border: `1px solid ${T.accent}`, background: T.accentTint10, color: T.accent, fontWeight: 700, fontSize: "13px" }}>Testar conexão</button>
+          {srvTest.status && srvTest.status !== "testing" && (
+            <div style={{ marginTop: "10px", fontSize: "12.5px", color: srvColor }}>{srvTest.msg}</div>
+          )}
+          {srvTest.status === "testing" && <div style={{ marginTop: "10px", fontSize: "12.5px", color: T.textMuted }}><Spinner /> {srvTest.msg}</div>}
+        </div>
+      )}
+
+      <div style={{ ...card, padding: "17px 18px", marginBottom: "16px" }}>
+        <div style={sectionTitle}>DIAGNÓSTICO QA · iOS / IA / NOTIFICAÇÕES</div>
+        <p style={{ margin: "6px 0 14px", color: T.textMuted, fontSize: "12.5px", lineHeight: 1.5, maxWidth: "560px" }}>
+          Executa um teste integrado da URL do servidor, configuração da IA e plugin de notificações. Use este relatório para entender exatamente onde está a falha.
+        </p>
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+          <button onClick={runFullDiagnostic} disabled={diagState.status === "testing"} style={{ padding: "10px 14px", borderRadius: "8px", border: `1px solid ${T.accent}`, background: T.accentTint, color: T.accent, fontWeight: 800, fontSize: "13px", display: "inline-flex", alignItems: "center", gap: "8px" }}>
+            {diagState.status === "testing" && <Spinner size={13} />} Rodar diagnóstico completo
+          </button>
+          {diagState.text && (
+            <button onClick={copyDiag} style={{ padding: "10px 14px", borderRadius: "8px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 700, fontSize: "13px" }}>Copiar relatório</button>
+          )}
+        </div>
+        {diagState.text && (
+          <pre style={{ marginTop: "12px", maxHeight: "260px", overflow: "auto", whiteSpace: "pre-wrap", wordBreak: "break-word", background: T.bgBase, border: `1px solid ${T.borderSubtle}`, borderRadius: "10px", padding: "12px", color: T.textSecondary, fontFamily: MONO, fontSize: "11px", lineHeight: 1.5 }}>{diagState.text}</pre>
+        )}
+      </div>
+
+      {!logged && (
+        <div style={{ ...card, padding: "14px 16px" }}>
+          <div style={{ fontSize: "11px", fontWeight: 800, color: T.textSecondary, letterSpacing: "0.05em", marginBottom: "6px" }}>STATUS DO SERVIDOR</div>
+          <p style={{ margin: 0, color: T.textMuted, fontSize: "13px", lineHeight: 1.5 }}>
+            Entre na conta para ver o status do Operador no servidor, o Diário de ações/push e os logs detalhados — sem conta, o agente roda só em foreground e não há nada do servidor para observar.
+          </p>
+        </div>
+      )}
+
+      {logged && (
+        <>
+          <div style={{ ...card, padding: "14px 16px" }}>
+            <div style={{ fontSize: "11px", fontWeight: 800, color: T.textSecondary, letterSpacing: "0.05em", marginBottom: "9px" }}>STATUS DO SERVIDOR</div>
+            {srvErr && <div style={{ color: T.negative, fontSize: "11.5px" }}>status indisponível: {srvErr}</div>}
+            {!srvErr && !srv && <div style={{ color: T.textFaint, fontSize: "11.5px" }}>consultando o servidor…</div>}
+            {srv && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 14px", color: T.textMuted, fontSize: "11.5px" }}>
+                <span>pregão: <b style={{ color: srv.pregaoAberto ? T.positive : T.textFaint }}>{srv.pregaoAberto ? "aberto" : "fechado"}</b></span>
+                <span>ciclo: <b style={{ color: T.textSecondary, fontFamily: MONO }}>{Math.round((srv.intervaloS || 300) / 60)} min</b></span>
+                <span>kill-switch: <b style={{ color: srv.killSwitch ? T.negative : T.positive }}>{srv.killSwitch ? "LIGADO" : "desligado"}</b></span>
+                <span>usuários com o operador ligado: <b style={{ color: T.textSecondary, fontFamily: MONO }}>{srv.usuariosHabilitados ?? "—"}</b></span>
+                <span>último ciclo: <b style={{ color: T.textSecondary, fontFamily: MONO }}>{(srv.ultimoCiclo || {}).at || "ainda não rodou"}{(srv.passadas && srv.passadas[0]) ? ` (${srv.passadas[0].duracaoS}s)` : ""}</b></span>
+                {srv.proximaPassadaEmS != null && <span>próxima passada: <b style={{ color: T.textSecondary, fontFamily: MONO }}>~{srv.proximaPassadaEmS >= 60 ? Math.round(srv.proximaPassadaEmS / 60) + " min" : srv.proximaPassadaEmS + "s"}</b></span>}
+                {(srv.ultimoCiclo || {}).erro && <span style={{ color: T.negative }}>erro: <b>{srv.ultimoCiclo.erro}</b></span>}
+                <span>push: <b style={{ color: (srv.push || {}).configurado ? T.positive : T.textFaint }}>{(srv.push || {}).configurado ? "configurado" : "não configurado"}</b>{(srv.push || {}).meusAparelhos ? ` · ${srv.push.meusAparelhos} aparelho(s) meu(s)` : ""}</span>
+              </div>
+            )}
+            <div style={{ display: "flex", gap: "8px", marginTop: "11px", flexWrap: "wrap", alignItems: "center" }}>
+              <button onClick={rodarAgora} style={{ padding: "8px 13px", borderRadius: "9px", border: `1px solid ${T.accent}`, background: T.accent, color: T.onAccent, fontWeight: 800, fontSize: "11.5px" }}>▶ Rodar ciclo agora (servidor)</button>
+              <button onClick={testarPush} style={{ padding: "8px 13px", borderRadius: "9px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 700, fontSize: "11.5px" }}>Testar push agora</button>
+              {runSt && <span style={{ color: T.textMuted, fontSize: "11.5px" }}>{runSt}</span>}
+              {pushSt && <span style={{ color: T.textMuted, fontSize: "11.5px" }}>{pushSt}</span>}
             </div>
           </div>
-          {obs && obs.stats && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "5px 12px", color: T.textFaint, fontSize: "10.5px", fontFamily: MONO, marginBottom: "8px" }}>
-              <span>uptime {Math.floor((obs.stats.uptimeS || 0) / 3600)}h{Math.floor(((obs.stats.uptimeS || 0) % 3600) / 60)}m</span>
-              {Object.entries(obs.stats.porCategoria || {}).map(([c, lv]) => (
-                <span key={c}>{c}: {Object.entries(lv).map(([k, v]) => k + "=" + v).join(" ")}</span>
-              ))}
+
+          {/* DIÁRIO DO OPERADOR: o log vivo do servidor — o que rodou, quanto
+              demorou, o que falhou e por quê (inclui as tentativas de push). */}
+          <div style={{ marginTop: "14px", ...card, padding: "14px 16px" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", marginBottom: "8px" }}>
+              <div style={{ fontSize: "11px", fontWeight: 800, color: T.textSecondary, letterSpacing: "0.05em" }}>DIÁRIO DO OPERADOR (servidor)</div>
+              <button onClick={loadDiario} style={{ background: "transparent", border: "none", color: T.textFaint, fontSize: "11px", fontWeight: 800, padding: "4px" }}>↻ atualizar</button>
             </div>
-          )}
-          {!obs && <div style={{ fontSize: "11.5px", color: T.textFaint }}>carregando logs do servidor…</div>}
-          {obs && (obs.logs || []).length === 0 && <div style={{ fontSize: "11.5px", color: T.textFaint }}>nenhum evento registrado {obsLevel ? "neste filtro" : "desde o boot"}.</div>}
-          <div style={{ maxHeight: "300px", overflowY: "auto" }}>
-            {obs && (obs.logs || []).map((e, i) => {
-              const lc = e.level === "error" ? T.negative : e.level === "warn" ? "#fbbf24" : T.textFaint;
+            {!diario && <div style={{ fontSize: "11.5px", color: T.textFaint }}>carregando o diário…</div>}
+            {diario && (!diario.log || diario.log.length === 0) && (
+              <div style={{ fontSize: "11.5px", color: T.textFaint, lineHeight: 1.5 }}>Nenhum registro ainda — ligue o operador no servidor (aba Operador IA), toque em "Rodar ciclo agora" ou "Testar push agora"; cada tentativa entra aqui com o resultado exato.</div>
+            )}
+            {diario && (diario.log || []).slice(0, 30).map((e, i) => {
+              const kc = e.kind === "buy" ? T.positive : e.kind === "warn" ? "#fbbf24" : e.kind === "error" ? T.negative : T.textFaint;
               return (
-                <div key={i} style={{ display: "flex", gap: "8px", alignItems: "flex-start", padding: "4px 0", borderTop: i ? `1px solid ${T.borderFaint}` : "none", fontFamily: MONO, fontSize: "10.5px", lineHeight: 1.5 }}>
-                  <span style={{ color: T.textFaint, flex: "none" }}>{e.ts}</span>
-                  <span style={{ color: lc, fontWeight: 800, flex: "none", minWidth: "36px" }}>{e.cat}</span>
-                  <span style={{ color: e.level === "error" ? T.negative : T.textMuted, wordBreak: "break-word" }}>{e.msg}</span>
+                <div key={i} style={{ display: "flex", gap: "9px", alignItems: "flex-start", padding: "7px 0", borderTop: i ? `1px solid ${T.borderFaint}` : "none" }}>
+                  <span style={{ width: 7, height: 7, borderRadius: "50%", background: kc, flex: "none", marginTop: "5px" }} />
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: "11.5px", color: e.kind === "error" ? T.negative : T.textSecondary, lineHeight: 1.5 }}>{e.text}</div>
+                    <div style={{ fontFamily: MONO, fontSize: "10px", color: T.textFaint, marginTop: "1px" }}>{e.time || ""}</div>
+                  </div>
                 </div>
               );
             })}
+            {srv && srv.passadas && srv.passadas.length > 0 && (
+              <div style={{ marginTop: "11px", paddingTop: "9px", borderTop: `1px solid ${T.borderFaint}` }}>
+                <div style={{ fontSize: "10px", fontWeight: 800, color: T.textFaint, letterSpacing: "0.05em", marginBottom: "5px" }}>PASSADAS DO SCHEDULER (todas as contas)</div>
+                {srv.passadas.slice(0, 5).map((p, i) => (
+                  <div key={i} style={{ display: "flex", gap: "10px", fontFamily: MONO, fontSize: "10.5px", color: T.textMuted, padding: "3px 0" }}>
+                    <span>{p.at}</span><span>{p.duracaoS}s</span><span>{p.usuarios} usuário(s)</span><span>{p.executadas} exec.</span>
+                    {p.erros && p.erros.length > 0 && <span style={{ color: T.negative }}>{p.erros.length} erro(s)</span>}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-        </div>
+
+          {/* FASE 5 — LOGS DETALHADOS DO SERVIDOR: toda request (rota, status,
+              duração), lentidões, erros e eventos de auth/agente, direto do ring
+              buffer do backend — sem precisar abrir o painel do Railway. Restrito
+              ao admin (B3_ADMIN_EMAILS ou a primeira conta criada). */}
+          {!obsDenied && (
+            <div style={{ marginTop: "14px", ...card, padding: "14px 16px" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", marginBottom: "8px", flexWrap: "wrap" }}>
+                <div style={{ fontSize: "11px", fontWeight: 800, color: T.textSecondary, letterSpacing: "0.05em" }}>LOGS DO SERVIDOR (detalhado)</div>
+                <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                  {["", "warn", "error"].map((lv) => (
+                    <button key={lv || "all"} onClick={() => setObsLevel(lv)} style={{ padding: "4px 9px", borderRadius: "999px", border: `1px solid ${obsLevel === lv ? T.accent : T.borderSubtle}`, background: obsLevel === lv ? T.accentTint : "transparent", color: obsLevel === lv ? T.accent : T.textFaint, fontSize: "10.5px", fontWeight: 800 }}>
+                      {lv === "" ? "tudo" : lv === "warn" ? "lentos+erros" : "só erros"}
+                    </button>
+                  ))}
+                  <button onClick={loadObs} style={{ background: "transparent", border: "none", color: T.textFaint, fontSize: "11px", fontWeight: 800, padding: "4px" }}>↻</button>
+                </div>
+              </div>
+              {obs && obs.stats && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "5px 12px", color: T.textFaint, fontSize: "10.5px", fontFamily: MONO, marginBottom: "8px" }}>
+                  <span>uptime {Math.floor((obs.stats.uptimeS || 0) / 3600)}h{Math.floor(((obs.stats.uptimeS || 0) % 3600) / 60)}m</span>
+                  {Object.entries(obs.stats.porCategoria || {}).map(([c2, lv]) => (
+                    <span key={c2}>{c2}: {Object.entries(lv).map(([k, v]) => k + "=" + v).join(" ")}</span>
+                  ))}
+                </div>
+              )}
+              {!obs && <div style={{ fontSize: "11.5px", color: T.textFaint }}>carregando logs do servidor…</div>}
+              {obs && (obs.logs || []).length === 0 && <div style={{ fontSize: "11.5px", color: T.textFaint }}>nenhum evento registrado {obsLevel ? "neste filtro" : "desde o boot"}.</div>}
+              <div style={{ maxHeight: "300px", overflowY: "auto" }}>
+                {obs && (obs.logs || []).map((e, i) => {
+                  const lc = e.level === "error" ? T.negative : e.level === "warn" ? "#fbbf24" : T.textFaint;
+                  return (
+                    <div key={i} style={{ display: "flex", gap: "8px", alignItems: "flex-start", padding: "4px 0", borderTop: i ? `1px solid ${T.borderFaint}` : "none", fontFamily: MONO, fontSize: "10.5px", lineHeight: 1.5 }}>
+                      <span style={{ color: T.textFaint, flex: "none" }}>{e.ts}</span>
+                      <span style={{ color: lc, fontWeight: 800, flex: "none", minWidth: "36px" }}>{e.cat}</span>
+                      <span style={{ color: e.level === "error" ? T.negative : T.textMuted, wordBreak: "break-word" }}>{e.msg}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -3376,84 +3635,10 @@ function DeepModal({ t, d, onClose, onAvaliar, cp }) {
 }
 
 function ConfigScreen({ ctx }) {
-  const { data, A, test, themePref } = ctx;
+  const { data, A, themePref } = ctx;
   const c = data.config;
   const sectionTitle = { fontSize: "13px", fontWeight: 800, letterSpacing: "0.04em", color: T.accent };
   const seg = (on) => ({ flex: 1, padding: "10px", borderRadius: "8px", fontWeight: 600, fontSize: "13px", border: `1px solid ${on ? T.accent : T.borderSubtle}`, background: on ? T.accentTint : T.bgPanel, color: on ? T.accent : T.textMuted });
-  const testColor = test.status === "ok" ? T.positive : test.status === "error" ? T.negative : T.accent;
-  const testBg = test.status === "ok" ? T.positiveTint10 : test.status === "error" ? T.negativeTint10 : T.accentTint10;
-  const suggest = { anthropic: "Ex.: claude-sonnet-4 · claude-haiku-4", openai: "Ex.: gpt-4.1 · gpt-4o-mini", google: "Ex.: gemini-2.5-pro · gemini-2.5-flash", local: "Ex.: llama-3.1-70b · qwen2.5-72b" }[c.provider];
-  const [srvTest, setSrvTest] = useState({ status: null, msg: "" });
-  const [diagState, setDiagState] = useState({ status: null, text: "" });
-  const handleTestServer = async () => {
-    setSrvTest({ status: "testing", msg: "Testando…" });
-    const r = await testServer(c.serverUrl);
-    setSrvTest({ status: r.ok ? "ok" : "error", msg: r.message });
-  };
-  const runFullDiagnostic = async () => {
-    setDiagState({ status: "testing", text: "Executando diagnóstico…" });
-    const lines = [];
-    const stamp = new Date().toISOString();
-    lines.push("BolsIA · Diagnóstico iOS/WebView");
-    lines.push("Gerado em: " + stamp);
-    lines.push("");
-    try {
-      const rt = describeRuntimeConfig();
-      lines.push("[Runtime]");
-      lines.push("nativeMode=" + rt.nativeMode);
-      lines.push("apiBase=" + rt.apiBase);
-      lines.push("serverUrlConfig=" + (c.serverUrl || "(vazio)"));
-      lines.push("");
-    } catch (e) { lines.push("[Runtime] ERRO: " + (e.message || e)); }
-    try {
-      const srv = await testServer(c.serverUrl);
-      lines.push("[Servidor /api/health]");
-      lines.push((srv.ok ? "OK" : "FALHA") + " - " + srv.message);
-      lines.push("");
-    } catch (e) { lines.push("[Servidor] ERRO: " + (e.message || e)); lines.push(""); }
-    try {
-      const ia = await store.testConfig();
-      lines.push("[IA /api/config/test]");
-      lines.push((ia.ok ? "OK" : "FALHA") + " - " + (ia.message || "sem mensagem"));
-      if (ia.provider || ia.model || ia.keySource) lines.push("config=" + [ia.provider ? "provider=" + ia.provider : "", ia.model ? "model=" + ia.model : "", ia.keySource ? "keySource=" + ia.keySource : ""].filter(Boolean).join(", "));
-      if (ia.action) lines.push("ação=" + ia.action);
-      if (ia.hint) lines.push("dica=" + ia.hint);
-      lines.push("");
-    } catch (e) { lines.push("[IA] ERRO: " + (e.message || e)); lines.push(""); }
-    try {
-      const nd = await notify.diag();
-      lines.push("[Notificações]");
-      lines.push("isNative=" + nd.isNative);
-      lines.push("pluginLoaded=" + nd.pluginLoaded);
-      lines.push("hasSchedule=" + !!nd.hasSchedule);
-      lines.push("hasRequest=" + !!nd.hasRequest);
-      lines.push("permission=" + nd.permission);
-      if (nd.error) lines.push("erro=" + nd.error);
-      if (nd.permission === "granted") {
-        const id = await notify.schedule("BolsIA · teste QA", "Validação técnica de notificação local agendada.", new Date(Date.now() + 8000));
-        lines.push("scheduledTestId=" + (id == null ? "falhou" : id));
-        lines.push("ação=se estiver no iPhone, mande o app para segundo plano por 8 segundos para ver o banner.");
-      } else {
-        lines.push("ação=ative a permissão em Configurações → Notificações e rode o teste novamente.");
-      }
-      lines.push("");
-    } catch (e) { lines.push("[Notificações] ERRO: " + (e.message || e)); lines.push(""); }
-    lines.push("Checklist de correção rápida:");
-    lines.push("1. API base deve ser URL absoluta, ex.: https://b3-production-8fc0.up.railway.app");
-    lines.push("2. Se keySource=manual no iPhone, a chave precisa estar salva no próprio app.");
-    lines.push("3. Se permissão=denied, corrigir em Ajustes do iOS → Notificações → BolsIA.");
-    lines.push("4. Reinstale/recompile após mudanças de plugin: npm install && npx cap sync ios.");
-    setDiagState({ status: "done", text: lines.join("\n") });
-  };
-  const copyDiag = async () => {
-    try {
-      await navigator.clipboard.writeText(diagState.text || "");
-      setDiagState((d) => ({ ...d, status: "done", text: (d.text || "") + "\n\n[UI] Relatório copiado para a área de transferência." }));
-    } catch {
-      setDiagState((d) => ({ ...d, status: "done", text: (d.text || "") + "\n\n[UI] Não foi possível copiar automaticamente. Selecione e copie o texto acima." }));
-    }
-  };
-  const srvColor = srvTest.status === "ok" ? T.positive : srvTest.status === "error" ? T.negative : T.accent;
   return (
     <div>
       <h1 style={{ margin: "0 0 18px", fontSize: "22px", fontWeight: 700 }}>Configurações</h1>
@@ -3492,9 +3677,6 @@ function ConfigScreen({ ctx }) {
           ))}
         </div>
       </div>
-
-      {/* Notificações locais de movimentos da carteira */}
-      <NotifSection ctx={ctx} />
 
       {/* Orçamento inicial SIMULADO — vira o caixa e entra no contexto da IA */}
       <div style={{ ...card, padding: "17px 18px", marginBottom: "16px" }}>
@@ -3581,122 +3763,6 @@ function ConfigScreen({ ctx }) {
           </div>
         );
       })()}
-
-      {/* Servidor do app (somente no iPhone) */}
-      {isNative && (
-        <div style={{ ...card, padding: "17px 18px", marginBottom: "16px" }}>
-          <div style={sectionTitle}>SERVIDOR DO APP</div>
-          <p style={{ margin: "6px 0 14px", color: T.textMuted, fontSize: "12.5px", lineHeight: 1.5, maxWidth: "560px" }}>
-            O app já vem apontado para o servidor de <b>produção</b> — não precisa configurar nada para usar (login, cotações e IA funcionam de fábrica). Este campo é um <b>override de desenvolvimento</b>: preencha só para testar contra um Mac na rede local; deixe vazio para voltar à produção. Vale para o aparelho inteiro (qualquer conta).
-          </p>
-          <label style={{ display: "block", marginBottom: "12px" }}>
-            <span style={{ display: "block", fontSize: "12px", color: T.textMuted, marginBottom: "6px" }}>Override do servidor (opcional — vazio = produção)</span>
-            <input type="text" value={c.serverUrl || ""} onChange={(e) => A.editConfig({ serverUrl: e.target.value })} onBlur={(e) => A.saveConfig({ serverUrl: e.target.value })} placeholder="vazio = produção · dev: http://192.168.0.12:8787" style={{ ...field, fontFamily: MONO }} />
-          </label>
-          <div style={{ margin: "0 0 12px", fontFamily: MONO, fontSize: "11px", color: T.textFaint }}>em uso agora: {getApiBase()}</div>
-          <button onClick={handleTestServer} style={{ padding: "9px 14px", borderRadius: "8px", border: `1px solid ${T.accent}`, background: T.accentTint10, color: T.accent, fontWeight: 700, fontSize: "13px" }}>Testar conexão</button>
-          {srvTest.status && srvTest.status !== "testing" && (
-            <div style={{ marginTop: "10px", fontSize: "12.5px", color: srvColor }}>{srvTest.msg}</div>
-          )}
-          {srvTest.status === "testing" && <div style={{ marginTop: "10px", fontSize: "12.5px", color: T.textMuted }}><Spinner /> {srvTest.msg}</div>}
-        </div>
-      )}
-
-      <div style={{ ...card, padding: "17px 18px", marginBottom: "16px" }}>
-        <div style={sectionTitle}>DIAGNÓSTICO QA · iOS / IA / NOTIFICAÇÕES</div>
-        <p style={{ margin: "6px 0 14px", color: T.textMuted, fontSize: "12.5px", lineHeight: 1.5, maxWidth: "560px" }}>
-          Executa um teste integrado da URL do servidor, configuração da IA e plugin de notificações. Use este relatório para entender exatamente onde está a falha.
-        </p>
-        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-          <button onClick={runFullDiagnostic} disabled={diagState.status === "testing"} style={{ padding: "10px 14px", borderRadius: "8px", border: `1px solid ${T.accent}`, background: T.accentTint, color: T.accent, fontWeight: 800, fontSize: "13px", display: "inline-flex", alignItems: "center", gap: "8px" }}>
-            {diagState.status === "testing" && <Spinner size={13} />} Rodar diagnóstico completo
-          </button>
-          {diagState.text && (
-            <button onClick={copyDiag} style={{ padding: "10px 14px", borderRadius: "8px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 700, fontSize: "13px" }}>Copiar relatório</button>
-          )}
-        </div>
-        {diagState.text && (
-          <pre style={{ marginTop: "12px", maxHeight: "260px", overflow: "auto", whiteSpace: "pre-wrap", wordBreak: "break-word", background: T.bgBase, border: `1px solid ${T.borderSubtle}`, borderRadius: "10px", padding: "12px", color: T.textSecondary, fontFamily: MONO, fontSize: "11px", lineHeight: 1.5 }}>{diagState.text}</pre>
-        )}
-      </div>
-
-      {/* A) Modelo de IA */}
-      <div style={{ ...card, padding: "17px 18px" }}>
-        <div style={sectionTitle}>MODELO DE IA DO AGENTE</div>
-        <p style={{ margin: "6px 0 16px", color: T.textMuted, fontSize: "12.5px", lineHeight: 1.5, maxWidth: "560px" }}>Provedor e modelo usados para gerar as análises. A chave nunca é exibida depois de salva e fica apenas {isNative ? "neste aparelho" : "no servidor"}.</p>
-
-        <label style={{ display: "block", marginBottom: "14px" }}>
-          <span style={{ display: "block", fontSize: "12px", color: T.textMuted, marginBottom: "6px" }}>Provedor</span>
-          <select value={c.provider} onChange={(e) => A.saveConfig({ provider: e.target.value })} style={field}>
-            <option value="anthropic">Anthropic</option>
-            <option value="openai">OpenAI</option>
-            <option value="google">Google</option>
-            <option value="local">Compatível / Local</option>
-          </select>
-        </label>
-
-        <label style={{ display: "block", marginBottom: "14px" }}>
-          <span style={{ display: "block", fontSize: "12px", color: T.textMuted, marginBottom: "6px" }}>Modelo</span>
-          <input type="text" value={c.model} onChange={(e) => A.editConfig({ model: e.target.value })} onBlur={(e) => A.saveConfig({ model: e.target.value })} placeholder="nome-do-modelo" style={{ ...field, fontFamily: MONO }} />
-          <span style={{ display: "block", fontSize: "11px", color: T.textFaint, marginTop: "5px", fontFamily: MONO }}>{suggest}</span>
-        </label>
-
-        <div style={{ marginBottom: "14px" }}>
-          <span style={{ display: "block", fontSize: "12px", color: T.textMuted, marginBottom: "6px" }}>Origem da chave</span>
-          <div style={{ display: "flex", gap: "8px" }}>
-            <button onClick={() => A.saveConfig({ keySource: "env" })} aria-pressed={c.keySource === "env"} style={seg(c.keySource === "env")}>Variável de ambiente</button>
-            <button onClick={() => A.saveConfig({ keySource: "manual" })} aria-pressed={c.keySource === "manual"} style={seg(c.keySource === "manual")}>Digitar aqui</button>
-          </div>
-        </div>
-
-        {c.keySource === "env" && (
-          <div style={{ background: T.bgBase, border: `1px solid ${T.borderSubtle}`, borderRadius: "8px", padding: "12px 13px", marginBottom: "14px", fontSize: "12.5px", color: T.textSecondary, lineHeight: 1.5 }}>
-            Lendo a chave da variável <span style={{ fontFamily: MONO, color: T.accent }}>{c.envVar}</span> (ou <span style={{ fontFamily: MONO, color: T.accent }}>B3_AGENTE_API_KEY</span>) no servidor. O valor nunca é exibido.
-          </div>
-        )}
-        {c.keySource === "manual" && c.keyStored && (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", background: T.bgBase, border: `1px solid ${T.borderSubtle}`, borderRadius: "8px", padding: "11px 13px", marginBottom: "14px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "9px" }}>
-              <span style={{ fontFamily: MONO, letterSpacing: "2px", color: T.textMuted }}>••••••••••••</span>
-              <span style={{ fontSize: "11px", color: T.positive, fontWeight: 700 }}>chave configurada ✅ <span style={{ color: T.textFaint, fontWeight: 500 }}>{isNative ? "(neste aparelho)" : "(no servidor)"}</span></span>
-            </div>
-            <button onClick={A.clearKey} style={{ padding: "7px 12px", borderRadius: "7px", border: `1px solid ${T.borderSubtle}`, background: "transparent", color: T.textSecondary, fontSize: "12px", fontWeight: 600 }}>Substituir</button>
-          </div>
-        )}
-        {c.keySource === "manual" && !c.keyStored && (
-          <div style={{ display: "flex", gap: "8px", marginBottom: "14px" }}>
-            <input type="password" value={ctx.keyDraft} onChange={(e) => ctx.setKeyDraft(e.target.value)} placeholder="cole a chave de API" aria-label="Chave de API" style={{ ...field, flex: 1, fontFamily: MONO }} />
-            <button onClick={A.saveKey} style={{ padding: "10px 15px", borderRadius: "8px", border: `1px solid ${T.accent}`, background: T.accentTint, color: T.accent, fontWeight: 700, fontSize: "13px" }}>Salvar chave</button>
-          </div>
-        )}
-
-        {c.provider === "local" && (
-          <label style={{ display: "block", marginBottom: "14px" }}>
-            <span style={{ display: "block", fontSize: "12px", color: T.textMuted, marginBottom: "6px" }}>Base URL</span>
-            <input type="text" value={c.baseUrl} onChange={(e) => A.editConfig({ baseUrl: e.target.value })} onBlur={(e) => A.saveConfig({ baseUrl: e.target.value })} placeholder="http://localhost:11434/v1" style={{ ...field, fontFamily: MONO }} />
-          </label>
-        )}
-
-        <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
-          <button onClick={A.test} disabled={test.status === "testing"} style={{ padding: "10px 16px", borderRadius: "8px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textPrimary, fontWeight: 600, fontSize: "13px", display: "flex", alignItems: "center", gap: "8px" }}>
-            {test.status === "testing" && <Spinner size={13} />} {test.status === "testing" ? "Testando…" : "Testar conexão"}
-          </button>
-          {(test.status === "ok" || test.status === "error") && (
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 12px", borderRadius: "8px", background: testBg, border: `1px solid ${testColor}` }}>
-              <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: testColor }} />
-              <span style={{ fontSize: "12.5px", color: testColor, whiteSpace: "pre-wrap", lineHeight: 1.45 }}>{test.msg}</span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* B) Skill — FASE 8B (R2): UMA instrução do agente POR SKILL/MODO,
-          selecionada PELO NOME. O seletor abre por padrão na skill do modo
-          ativo; a análise usa automaticamente a skill do modo em uso. */}
-      <SkillSection ctx={ctx} sectionTitle={sectionTitle} />
-
-      {/* C) Config de LLMs e Prompts (FASE 2) */}
-      <PromptsSection ctx={ctx} />
 
       {/* Ponto único do aviso completo + boas-vindas */}
       <div style={{ display: "flex", gap: "10px", marginTop: "16px", flexWrap: "wrap" }}>
@@ -4041,7 +4107,7 @@ export default function App() {
   const [quotesLoading, setQuotesLoading] = useState(false);
   const [tab, setTab] = useState("evolucao");
   const [carteiraView, setCarteiraView] = useState("main"); // main | historico
-  const [perfilView, setPerfilView] = useState("hub");       // hub | config | observabilidade
+  const [perfilView, setPerfilView] = useState("hub");       // hub | config | ia | notificacoes | eficiencia | logs
   const navigate = (t) => { setCarteiraView("main"); setPerfilView("hub"); setTab(t); };
   const [analysis, setAnalysis] = useState({});
   const [expanded, setExpanded] = useState({});
@@ -4224,7 +4290,7 @@ export default function App() {
     refreshQuotes,
     go: (t) => { setCarteiraView("main"); setPerfilView("hub"); setTab(t); },
     // FASE 6 (fix 4): atalho direto para a CENTRAL de notificações (Config)
-    openNotifCentral: () => { setCarteiraView("main"); setPerfilView("config"); setTab("perfil"); },
+    openNotifCentral: () => { setCarteiraView("main"); setPerfilView("notificacoes"); setTab("perfil"); },
     openCatalog: () => { setCatalogSel(data ? [...data.watchlist] : []); setCatalogOpen(true); },
     closeCatalog: () => setCatalogOpen(false),
     saveCatalog: async () => {
@@ -4840,9 +4906,15 @@ export default function App() {
             : (<><CapitalCurve ctx={ctx} /><CarteiraScreen ctx={ctx} /><div style={{ marginTop: "14px" }}><button onClick={() => setCarteiraView("historico")} style={{ width: "100%", minHeight: "48px", padding: "13px", borderRadius: "13px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 700, fontSize: "13.5px", display: "flex", alignItems: "center", justifyContent: "space-between" }}><span>Ver histórico de operações</span><span aria-hidden style={{ color: T.textFaint }}>›</span></button></div></>))}
           {tab === "perfil" && (perfilView === "config"
             ? (<><BackHeader title="Conta & preferências" onBack={() => setPerfilView("hub")} /><ConfigScreen ctx={ctx} /></>)
-            : perfilView === "observabilidade"
-              ? (<><BackHeader title="Observabilidade" onBack={() => setPerfilView("hub")} /><ObservabilidadeScreen ctx={ctx} /></>)
-              : <PerfilHub ctx={ctx} onOpen={setPerfilView} />)}
+            : perfilView === "ia"
+              ? (<><BackHeader title="Configurações de IA" onBack={() => setPerfilView("hub")} /><AiConfigScreen ctx={ctx} /></>)
+              : perfilView === "notificacoes"
+                ? (<><BackHeader title="Notificações" onBack={() => setPerfilView("hub")} /><NotificacoesScreen ctx={ctx} /></>)
+                : perfilView === "eficiencia"
+                  ? (<><BackHeader title="Eficiência da IA" onBack={() => setPerfilView("hub")} /><EficienciaIAScreen ctx={ctx} /></>)
+                  : perfilView === "logs"
+                    ? (<><BackHeader title="Logs & debug" onBack={() => setPerfilView("hub")} /><LogsDebugScreen ctx={ctx} /></>)
+                    : <PerfilHub ctx={ctx} onOpen={setPerfilView} />)}
         </div>
       </main>
 
