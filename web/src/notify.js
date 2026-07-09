@@ -27,7 +27,7 @@ export async function diag() {
   const out = { isNative, pluginLoaded: false, permission: "?", error: null };
   try {
     if (isNative) {
-      const p = await plugin();
+      const { p } = await plugin();
       out.pluginLoaded = !!p;
       out.hasSchedule = !!(p && p.schedule);
       out.hasRequest = !!(p && p.requestPermissions);
@@ -52,7 +52,7 @@ export async function diag() {
 export async function getPending() {
   try {
     if (isNative) {
-      const p = await plugin();
+      const { p } = await plugin();
       if (!p || !p.getPending) return [];
       const r = await p.getPending();
       return ((r && r.notifications) || []).map((n) => ({ id: n.id, title: n.title || "", at: (n.schedule && n.schedule.at) || null }));
@@ -63,9 +63,22 @@ export async function getPending() {
   }
 }
 
+// qa/28 — BUG GRAVE (thenable auto-chaining): o objeto do plugin nativo
+// (LocalNotifications) é um proxy que responde a QUALQUER nome de método,
+// inclusive "then". Se ele for o valor de RETORNO de uma async function (ou
+// resolvido/retornado dentro de um .then()), o motor JS o trata como uma
+// Promise "thenable" e chama .then() nele — o Capacitor traduz isso numa
+// chamada de bridge nativa pro método "then", que não existe:
+// "LocalNotifications.then() is not implemented on ios". Isso quebrava TODA
+// chamada nativa deste módulo (Diagnóstico, Pedir permissão, agendar, etc.),
+// mesmo com o plugin corretamente linkado no binário — por isso os
+// guardiões de build (que só conferem arquivos, não comportamento em
+// runtime) nunca pegaram isso. Fix: nunca deixar o proxy do plugin ser o
+// valor "solto" que atravessa um return/resolve — ele viaja sempre DENTRO
+// de um objeto comum ({ p }), que não é thenable.
 async function plugin() {
-  if (!isNative) return null;
-  if (_plugin) return _plugin;
+  if (!isNative) return { p: null };
+  if (_plugin) return { p: _plugin };
   try {
     const mod = await import("@capacitor/local-notifications");
     _plugin = mod.LocalNotifications;
@@ -74,13 +87,13 @@ async function plugin() {
     ndbg("FALHA ao importar @capacitor/local-notifications:", (e && e.message) || e);
     _plugin = null;
   }
-  return _plugin;
+  return { p: _plugin };
 }
 
 // Estado da permissao: "granted" | "denied" | "default" | "unsupported".
 export async function getPermission() {
   if (isNative) {
-    const p = await plugin();
+    const { p } = await plugin();
     if (!p) return "unsupported";
     try {
       const r = await p.checkPermissions();
@@ -96,7 +109,7 @@ export async function getPermission() {
 // Pede permissao. Chamar a partir de um gesto do usuario (ligar o toggle).
 export async function requestPermission() {
   if (isNative) {
-    const p = await plugin();
+    const { p } = await plugin();
     if (!p) { ndbg("requestPermission: plugin indisponível (import falhou ou app não recompilado)"); return "unsupported"; }
     try {
       const r = await p.requestPermissions();
@@ -157,7 +170,7 @@ export async function setup() {
   _setupDone = true;
   if (!isNative) return;
   try {
-    const p = await plugin();
+    const { p } = await plugin();
     if (p && p.addListener) {
       p.addListener("localNotificationReceived", (n) => ndbg("recebida (foreground):", n && n.title));
     }
@@ -171,7 +184,7 @@ const _webTimers = new Map();
 export async function send(title, body) {
   try {
     if (isNative) {
-      const p = await plugin();
+      const { p } = await plugin();
       if (!p) return false;
       if (!_channelReady && p.createChannel) {
         try { await p.createChannel({ id: "carteira", name: "Movimentos da carteira", importance: 4 }); } catch { /* iOS ignora */ }
@@ -223,7 +236,7 @@ export async function schedule(title, body, at, id) {
   const nid = (id != null ? id : _nextId()) || 1;
   try {
     if (isNative) {
-      const p = await plugin();
+      const { p } = await plugin();
       if (!p) return null;
       if (!_channelReady && p.createChannel) {
         try { await p.createChannel({ id: "carteira", name: "Movimentos da carteira", importance: 4 }); } catch { /* iOS ignora */ }
@@ -266,7 +279,7 @@ export async function cancel(id) {
     const h = _webTimers.get(id);
     if (h != null) { clearTimeout(h); _webTimers.delete(id); }
     if (isNative) {
-      const p = await plugin();
+      const { p } = await plugin();
       if (!p || !p.cancel) return false;
       await p.cancel({ notifications: [{ id }] });
       return true;
@@ -282,7 +295,7 @@ export async function cancel(id) {
 export async function cancelAll() {
   try {
     if (isNative) {
-      const p = await plugin();
+      const { p } = await plugin();
       if (!p) return false;
       if (p.getPending && p.cancel) {
         const pend = await p.getPending();
