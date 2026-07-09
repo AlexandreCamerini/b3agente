@@ -1337,6 +1337,7 @@ function CapitalCurve({ ctx }) {
   // resolve var(--x) de forma confiável neste WebKit. usePalette() dá o hex
   // já mesclado com o override do Modo Operador.
   const P = usePalette();
+  const gid = useMemo(() => "capArea" + Math.random().toString(36).slice(2, 8), []);
   const { data, quotes } = ctx;
   const m = portfolioMetrics(data.positions, quotes, data.cash);
   const patr = m.patr;
@@ -1374,9 +1375,19 @@ function CapitalCurve({ ctx }) {
       </div>
       <div style={{ marginTop: "12px", position: "relative", height: "92px", borderRadius: "10px", overflow: "hidden", background: T.bgBase, border: `1px solid ${T.borderFaint}` }}>
         <svg viewBox="0 0 300 92" preserveAspectRatio="none" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
+          <defs>
+            <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor={up ? P.positive : P.negative} stopOpacity="0.28" />
+              <stop offset="1" stopColor={up ? P.positive : P.negative} stopOpacity="0" />
+            </linearGradient>
+          </defs>
           <line x1="0" y1="84" x2="300" y2="84" stroke={P.chartGrid} strokeWidth="1" />
           {hasSeries
-            ? <path d={path} fill="none" stroke={up ? P.positive : P.negative} strokeWidth="2" />
+            ? (<>
+                {/* qa/mock v2: ÁREA preenchida (gradiente na cor do modo) sob a linha */}
+                <path d={`${path} L300,92 L0,92 Z`} fill={`url(#${gid})`} stroke="none" />
+                <path d={path} fill="none" stroke={up ? P.positive : P.negative} strokeWidth="2" />
+              </>)
             : <path d="M0,72 C60,66 110,58 150,52 C200,45 250,40 300,30" fill="none" stroke={P.textFaint} strokeWidth="2" strokeOpacity="0.35" strokeDasharray="4 4" />}
         </svg>
       </div>
@@ -1448,6 +1459,32 @@ function EvolucaoScreen({ ctx }) {
         </p>
       </div>
 
+      {/* qa/mock v2: HERO-CARROSSEL das oportunidades — os setups da watchlist
+          viram cards swipeable com anel de confluência (antes eram uma lista de
+          texto dentro do Resumo). Mesma navegação (abre a Watchlist). */}
+      {!novato && alertas.length > 0 && (
+        <div>
+          <div style={{ fontSize: "10.5px", fontWeight: 700, color: T.textFaint, letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: "9px" }}>{cp.kickerSetups}</div>
+          <div style={{ display: "flex", gap: "12px", overflowX: "auto", scrollSnapType: "x mandatory", margin: "0 -18px", padding: "2px 18px 6px", WebkitOverflowScrolling: "touch" }}>
+            {alertas.slice(0, 8).map((r) => (
+              <button key={r.ticker} onClick={() => A.go("mercado")} style={{ ...card, scrollSnapAlign: "center", flex: "0 0 84%", maxWidth: "330px", borderLeft: `3px solid ${T.accent}`, padding: "15px 16px", textAlign: "left", cursor: "pointer" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                      <span style={{ fontFamily: MONO, fontWeight: 800, fontSize: "16px", color: T.textPrimary }}>{r.ticker}</span>
+                      <span style={{ padding: "3px 9px", borderRadius: "999px", background: T.accentTint10, color: (REC_STYLE[r.veredito] || [T.textMuted])[0], fontSize: "11px", fontWeight: 800 }}>{r.veredito}</span>
+                    </div>
+                    <div style={{ fontSize: "12px", color: T.textMuted, marginTop: "6px", lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.melhorSetup || "Setup técnico"}</div>
+                  </div>
+                  <ConfluenceRing conf={r.confluencia} size={52} />
+                </div>
+                <div style={{ marginTop: "12px", fontSize: "12px", fontWeight: 700, color: T.accent }}>{cp.btnVerWatchlist} →</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* FASE 2 (2.2): estado vazio elegante — onboarding do funil */}
       {novato && (
         <div style={{ ...card, padding: "20px 18px", textAlign: "center", border: `1px dashed ${T.borderDashed}` }}>
@@ -1480,19 +1517,8 @@ function EvolucaoScreen({ ctx }) {
               ))}
             </div>
           )}
-          {alertas.length > 0 && (
-            <div style={{ marginTop: "12px", paddingTop: "10px", borderTop: `1px solid ${T.borderFaint}` }}>
-              <div style={{ fontSize: "10.5px", fontWeight: 700, color: T.textFaint, letterSpacing: "0.05em" }}>{cp.kickerSetups}</div>
-              {alertas.slice(0, 4).map((r) => (
-                <button key={r.ticker} onClick={() => A.go("mercado")} style={{ display: "flex", width: "100%", gap: "8px", alignItems: "center", padding: "7px 0", background: "transparent", border: "none", borderTop: `1px solid ${T.borderFaint}`, fontSize: "12px", textAlign: "left" }}>
-                  <span style={{ fontFamily: MONO, fontWeight: 800, color: T.textPrimary }}>{r.ticker}</span>
-                  <span style={{ color: (REC_STYLE[r.veredito] || [T.textMuted])[0], fontWeight: 700 }}>{r.veredito}</span>
-                  <span style={{ color: T.textMuted }}>{r.melhorSetup || ""}</span>
-                  <span style={{ marginLeft: "auto", fontFamily: MONO, color: T.textSecondary, fontWeight: 700 }}>{r.confluencia}%</span>
-                </button>
-              ))}
-            </div>
-          )}
+          {/* qa/mock v2: os setups da watchlist saíram desta lista de texto e
+              agora são o hero-carrossel acima (mesma navegação p/ a Watchlist). */}
           <div style={{ fontSize: "10px", color: T.textFaint, marginTop: "10px" }}>{cp.rodape}</div>
         </div>
       )}
@@ -1678,6 +1704,24 @@ function TermoOperadorModal({ ctx, onClose }) {
   );
 }
 
+// qa/mock v2: tile de acesso do Perfil — entrada visual (ícone em chip + título
+// + subtítulo). `wide` = card de largura total com chevron; senão, célula de grid.
+function ProfileTile({ icon, title, sub, onClick, wide }) {
+  return (
+    <button onClick={onClick} style={{ display: "flex", flexDirection: wide ? "row" : "column", alignItems: wide ? "center" : "flex-start", gap: wide ? "13px" : "9px", minHeight: wide ? "auto" : "98px", padding: "14px", borderRadius: "14px", border: `1px solid ${T.borderSubtle}`, background: T.bgCard, textAlign: "left", cursor: "pointer", boxShadow: "0 8px 24px -14px rgba(0,0,0,0.5)" }}>
+      <span style={{ width: 34, height: 34, flex: "none", borderRadius: "10px", background: T.accentTint, color: T.accent, display: "flex", alignItems: "center", justifyContent: "center" }} aria-hidden>{icon}</span>
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span style={{ display: "block", fontSize: "13.5px", fontWeight: 700, color: T.textPrimary }}>{title}</span>
+        {sub ? <span style={{ display: "block", fontSize: "11.5px", color: T.textMuted, marginTop: "2px", lineHeight: 1.4 }}>{sub}</span> : null}
+      </span>
+      {wide ? <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden style={{ flex: "none", color: T.textFaint }}><polyline points="9 5 16 12 9 19" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg> : null}
+    </button>
+  );
+}
+
+const hubGroup = { fontSize: "10px", fontWeight: 800, letterSpacing: "0.08em", color: T.textFaint, textTransform: "uppercase", margin: "8px 2px 0" };
+const hubGrid = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" };
+
 function PerfilHub({ ctx, onOpen }) {
   const { data } = ctx;
   const name = ((data.config && data.config.userName) || "").trim();
@@ -1696,30 +1740,40 @@ function PerfilHub({ ctx, onOpen }) {
 
       <ModoTrabalhoCard ctx={ctx} />
 
-      <DrillRow onClick={() => ctx.openAuth && ctx.openAuth()} title={ctx.authUser ? "Conta" : "Entrar ou criar conta"} sub={ctx.authUser ? ((((ctx.authUser.name || "").trim()) || (/@privaterelay\.appleid\.com$/i.test(ctx.authUser.email || "") ? "Sua conta Apple" : ctx.authUser.email) || "conectado") + " · toque para gerenciar") : "Opcional — salva sua carteira e sincroniza entre aparelhos"} icon={
-        <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden><circle cx="12" cy="8.5" r="3.6" fill="none" stroke="currentColor" strokeWidth="1.9" /><path d="M5 19.5c0-3.6 3.1-5.5 7-5.5s7 1.9 7 5.5" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" /></svg>
+      {/* qa/mock v2: hub reorganizado em BLOCOS com tiles (entradas visuais), no
+          lugar da pilha de linhas de mesmo peso. NENHUM destino removido — cada
+          tile abre a MESMA sub-tela de antes (config/ia/notificacoes/eficiencia/
+          logs) e a Conta segue no openAuth. */}
+      <div style={hubGroup}>Conta</div>
+      <ProfileTile wide onClick={() => ctx.openAuth && ctx.openAuth()} title={ctx.authUser ? "Conta" : "Entrar ou criar conta"} sub={ctx.authUser ? ((((ctx.authUser.name || "").trim()) || (/@privaterelay\.appleid\.com$/i.test(ctx.authUser.email || "") ? "Sua conta Apple" : ctx.authUser.email) || "conectado") + " · toque para gerenciar") : "Opcional — salva sua carteira e sincroniza entre aparelhos"} icon={
+        <svg width="19" height="19" viewBox="0 0 24 24" aria-hidden><circle cx="12" cy="8.5" r="3.6" fill="none" stroke="currentColor" strokeWidth="1.9" /><path d="M5 19.5c0-3.6 3.1-5.5 7-5.5s7 1.9 7 5.5" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" /></svg>
       } />
-      <DrillRow onClick={() => onOpen("config")} title="Conta & preferências" sub="Perfil de risco, aparência, período de candles, orçamento" icon={
-        <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" strokeWidth="1.9" /><path d="M12 3v2.5M12 18.5V21M21 12h-2.5M5.5 12H3M18.4 5.6l-1.8 1.8M7.4 16.6l-1.8 1.8M18.4 18.4l-1.8-1.8M7.4 7.4 5.6 5.6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" /></svg>
+
+      <div style={hubGroup}>Personalização e simulação</div>
+      <ProfileTile wide onClick={() => onOpen("config")} title="Conta & preferências" sub="Perfil de risco, aparência, período de candles, orçamento" icon={
+        <svg width="19" height="19" viewBox="0 0 24 24" aria-hidden><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" strokeWidth="1.9" /><path d="M12 3v2.5M12 18.5V21M21 12h-2.5M5.5 12H3M18.4 5.6l-1.8 1.8M7.4 16.6l-1.8 1.8M18.4 18.4l-1.8-1.8M7.4 7.4 5.6 5.6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" /></svg>
       } />
-      {/* qa/32: Perfil virou um monólito (7 seções empilhadas) — reorganizado
-          em áreas dedicadas a pedido do Alex. Cada uma tinha lugar próprio: */}
-      <DrillRow onClick={() => onOpen("ia")} title="Configurações de IA" sub="Modelo do agente, skills por modo e prompts" icon={
-        <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden><path d="M12 3a5 5 0 0 1 5 5c0 2-1.2 3.1-2 4-.6.7-1 1.3-1 2.3h-4c0-1-.4-1.6-1-2.3-.8-.9-2-2-2-4a5 5 0 0 1 5-5Z" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" /><path d="M10 17.5h4M10.5 20h3" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" /></svg>
-      } />
-      <DrillRow onClick={() => onOpen("notificacoes")} title="Notificações" sub={notifOn ? "Ativas — stop, alvo, agente e variação" : "Desativadas — toque para ativar"} icon={
-        <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden><path d="M6 10.5a6 6 0 0 1 12 0c0 4 1.3 5.3 1.8 6H4.2c.5-.7 1.8-2 1.8-6Z" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" /><path d="M10 19.5a2 2 0 0 0 4 0" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" /></svg>
-      } />
-      <DrillRow onClick={() => onOpen("eficiencia")} title="Eficiência da IA" sub="Quanto das análises bateram alvo/stop (autoavaliação)" icon={
-        <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden><circle cx="12" cy="12" r="7.5" fill="none" stroke="currentColor" strokeWidth="1.7" /><circle cx="12" cy="12" r="3.5" fill="none" stroke="currentColor" strokeWidth="1.7" /><circle cx="12" cy="12" r="0.9" fill="currentColor" stroke="none" /></svg>
-      } />
-      {/* FASE 3: "Operador IA" já é aba principal — este link vai para os
-          detalhes técnicos (status do servidor, Diário, diagnóstico QA e
-          logs), que não têm outro lugar. */}
-      <DrillRow onClick={() => onOpen("logs")} title="Logs & debug" sub={ag.serverEnabled ? "Status, Diário e diagnóstico do Operador no servidor" : "Servidor, diagnóstico QA e logs técnicos"} icon={
-        <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden><path d="M4 18v-5M9.5 18v-9M15 18V7M20 18v-3" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" /></svg>
-      } />
-      <div style={{ fontSize: "11.5px", color: T.textFaint, marginTop: "2px", lineHeight: 1.5 }}>
+
+      <div style={hubGroup}>IA e desempenho</div>
+      <div style={hubGrid}>
+        <ProfileTile onClick={() => onOpen("ia")} title="Configurações de IA" sub="Modelo, skills por modo e prompts" icon={
+          <svg width="19" height="19" viewBox="0 0 24 24" aria-hidden><path d="M12 3a5 5 0 0 1 5 5c0 2-1.2 3.1-2 4-.6.7-1 1.3-1 2.3h-4c0-1-.4-1.6-1-2.3-.8-.9-2-2-2-4a5 5 0 0 1 5-5Z" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" /><path d="M10 17.5h4M10.5 20h3" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" /></svg>
+        } />
+        <ProfileTile onClick={() => onOpen("eficiencia")} title="Eficiência da IA" sub="Quanto bateu alvo/stop" icon={
+          <svg width="19" height="19" viewBox="0 0 24 24" aria-hidden><circle cx="12" cy="12" r="7.5" fill="none" stroke="currentColor" strokeWidth="1.7" /><circle cx="12" cy="12" r="3.5" fill="none" stroke="currentColor" strokeWidth="1.7" /><circle cx="12" cy="12" r="0.9" fill="currentColor" stroke="none" /></svg>
+        } />
+      </div>
+
+      <div style={hubGroup}>Notificações e avançado</div>
+      <div style={hubGrid}>
+        <ProfileTile onClick={() => onOpen("notificacoes")} title="Notificações" sub={notifOn ? "Ativas — stop, alvo, agente" : "Desativadas — toque p/ ativar"} icon={
+          <svg width="19" height="19" viewBox="0 0 24 24" aria-hidden><path d="M6 10.5a6 6 0 0 1 12 0c0 4 1.3 5.3 1.8 6H4.2c.5-.7 1.8-2 1.8-6Z" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" /><path d="M10 19.5a2 2 0 0 0 4 0" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" /></svg>
+        } />
+        <ProfileTile onClick={() => onOpen("logs")} title="Logs & debug" sub={ag.serverEnabled ? "Status e Diário do Operador" : "Servidor e logs técnicos"} icon={
+          <svg width="19" height="19" viewBox="0 0 24 24" aria-hidden><path d="M4 18v-5M9.5 18v-9M15 18V7M20 18v-3" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" /></svg>
+        } />
+      </div>
+      <div style={{ fontSize: "11.5px", color: T.textFaint, marginTop: "8px", lineHeight: 1.5 }}>
         Notificações {notifOn ? "ativas" : "desativadas"} · {ctx.cp.rodape}
       </div>
       {/* FASE 8B: carimbo do build instalado — se não bater com a entrega,
@@ -1851,6 +1905,12 @@ function MercadoScreen({ ctx }) {
                       <div style={{ fontSize: "18px", fontWeight: 700 }}>{q.error ? "—" : "R$ " + price(q.price)}</div>
                       <div style={{ fontSize: "12.5px", fontWeight: 700, color: q.error ? T.textFaint : chColor }}>{q.error ? "sem cotação" : pct(q.change)}</div>
                     </>
+                  )}
+                  {/* qa/mock v2: sparkline do período (série `spark` do scan), alinhado ao bloco de preço */}
+                  {sc && Array.isArray(sc.spark) && sc.spark.length > 1 && (
+                    <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "7px" }}>
+                      <Sparkline data={sc.spark} width={84} height={22} />
+                    </div>
                   )}
                 </div>
               </div>
@@ -3197,6 +3257,45 @@ function LogsDebugScreen({ ctx }) {
    o score é INTENSIDADE de sinais, não direção. Período = candlePeriod da
    Config (mesma config nos dois stores). */
 const RADAR_PERIOD_LABEL = { "1mo": "1M", "3mo": "3M", "6mo": "6M", "1y": "1A", "2y": "2A" };
+// qa/mock v2: SPARKLINE inline (série de fechamentos vinda do scan — campo
+// `spark`) para os cards da Watchlist. Cor pela direção do período. usePalette()
+// dá o hex resolvido (var(--x) não resolve em atributo SVG neste WebKit).
+function Sparkline({ data, width = 84, height = 22 }) {
+  const P = usePalette();
+  const vals = (data || []).filter((v) => typeof v === "number" && isFinite(v));
+  if (vals.length < 2) return null;
+  const mn = Math.min(...vals), mx = Math.max(...vals), sp = (mx - mn) || 1;
+  const up = vals[vals.length - 1] >= vals[0];
+  const pts = vals.map((v, i) => [(i / (vals.length - 1)) * width, (height - 2) - ((v - mn) / sp) * (height - 4)]);
+  const d = pts.map((pt, i) => (i ? "L" : "M") + pt[0].toFixed(1) + "," + pt[1].toFixed(1)).join(" ");
+  return (
+    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} style={{ flex: "none", display: "block" }} aria-hidden>
+      <path d={d} fill="none" stroke={up ? P.positive : P.negative} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+// qa/mock v2: ANEL de confluência — substitui a barra plana. Cor por tier
+// (forte/moderada/fraca), % no centro. Usa usePalette() (hex resolvido, já com
+// override do Modo Operador) — var(--x) não resolve em atributo SVG neste WebKit.
+function ConfluenceRing({ conf, size = 54, label = true }) {
+  const P = usePalette();
+  const c = Math.max(0, Math.min(100, Number(conf) || 0));
+  const cx = size / 2;
+  const r = cx - 4;
+  const C = 2 * Math.PI * r;
+  const off = C * (1 - c / 100);
+  const col = c >= 75 ? P.positive : c >= 50 ? P.accent : P.textFaint;
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ flex: "none" }} role="img" aria-label={`Confluência ${c}%`}>
+      <circle cx={cx} cy={cx} r={r} fill="none" stroke={P.borderFaint} strokeWidth="4" />
+      <circle cx={cx} cy={cx} r={r} fill="none" stroke={col} strokeWidth="4" strokeLinecap="round"
+        strokeDasharray={C.toFixed(1)} strokeDashoffset={off.toFixed(1)} transform={`rotate(-90 ${cx} ${cx})`} />
+      {label && <text x={cx} y={cx} textAnchor="middle" dominantBaseline="central" fontFamily={MONO} fontSize={Math.round(size * 0.26)} fontWeight="800" fill={P.textPrimary}>{c}%</text>}
+    </svg>
+  );
+}
+
 function RadarScreen({ ctx }) {
   const { data, cp } = ctx;   // FASE 8B (B1): fraseologia por modo
   const period = (data.config && data.config.candlePeriod) || "1y";
@@ -3415,12 +3514,12 @@ function RadarScreen({ ctx }) {
               {plano && plano.decisao !== "COMPRAR" && plano.decisao !== "VENDER" && plano.motivo && (
                 <div style={{ marginTop: "9px", fontSize: "11.5px", color: T.textMuted, lineHeight: 1.5 }}>{plano.motivo}</div>
               )}
-              <div style={{ marginTop: "10px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "10.5px", color: T.textFaint, letterSpacing: "0.05em", marginBottom: "4px" }}>
-                  <span>CONFLUÊNCIA DO SETUP</span><span style={{ fontFamily: MONO, fontWeight: 800, color: T.textSecondary }}>{r.confluencia}%</span>
-                </div>
-                <div style={{ height: "6px", borderRadius: "999px", background: T.bgBase, border: `1px solid ${T.borderFaint}`, overflow: "hidden" }}>
-                  <div style={{ width: (r.confluencia || 0) + "%", height: "100%", background: vColor, borderRadius: "999px" }} />
+              {/* qa/mock v2: anel de confluência no lugar da barra plana. */}
+              <div style={{ marginTop: "12px", display: "flex", alignItems: "center", gap: "13px" }}>
+                <ConfluenceRing conf={r.confluencia} size={54} />
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: "10.5px", color: T.textFaint, letterSpacing: "0.05em", fontWeight: 700 }}>CONFLUÊNCIA DO SETUP</div>
+                  <div style={{ fontSize: "12px", color: T.textMuted, marginTop: "3px", lineHeight: 1.4 }}>{tierOf(r.confluencia)[0]} {tierOf(r.confluencia)[1]} · aderência ao padrão de estudo</div>
                 </div>
               </div>
               {/* FASE 3 (mock v2): régua do PLANO — invalidação → gatilho → alvo, com o preço "agora" */}
@@ -4908,6 +5007,9 @@ export default function App() {
     <ThemeCtx.Provider value={{ key: themeKey, mode: appMode }}>
     <div {...shell}>
       <GlobalStyle />
+      {/* qa/mock v2: FRISO de modo — barra fina no topo na cor do modo (sinal
+          redundante de identidade, além do acento + linha de modo no Topbar). */}
+      <div aria-hidden style={{ height: "3px", flex: "none", background: `linear-gradient(90deg, ${T.accent}, ${T.accentSoft})` }} />
       <Ticker items={tickerItems} live={Object.keys(quotes).length > 0} />
       <Topbar patr={patr} dia={dia} caixa={data.cash} name={firstName} modeChip={cp.chipModo} onProfile={() => { setPerfilView("hub"); setTab("perfil"); }} />
 

@@ -269,6 +269,11 @@ async def run_scan(period: Optional[str] = None, universe: Optional[str] = None,
                     "close": snap.get("close"),
                     "variacaoPeriodoPct": snap.get("variacaoPeriodoPct"),
                     "candles": snap["periodBars"],
+                    # qa/mock v2 (sparkline da Watchlist): série COMPACTA de
+                    # fechamentos (últimos ~32 candles do MESMO snapshot). Só isto
+                    # vai para o cliente desenhar o sparkline — nada de OHLC cru.
+                    "spark": [round(c["close"], 2) for c in (snap.get("candles") or [])[-32:]
+                              if isinstance(c, dict) and isinstance(c.get("close"), (int, float))],
                     "cacheStatus": hist.get("cacheStatus"),
                     # FASE 7 (F7.1): plano operacional determinístico do melhor
                     # setup (Modo Operador). Sempre anexado — é derivado dos

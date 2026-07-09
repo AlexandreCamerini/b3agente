@@ -1,6 +1,45 @@
-# Entrega — Intervalo do ciclo do Operador (configurável) + início da identidade
+# Entrega — Intervalo do ciclo do Operador + implementação do modelo de design
 
 > As alterações **já estão aplicadas no seu clone** (esta sessão editou os arquivos reais). Este documento é o checkout: o que mudou, como validar e como publicar.
+
+## ⚠️ Para VER as mudanças (build/cache — não é código)
+O código e o `dist` já contêm tudo. Se o app não mudar, é build antigo/cache:
+1. **`BUILD_ID` agora é `F9-20260709-12`** — confira no rodapé do Perfil. Se mostrar outro, está em build velho.
+2. **Web (PWA):** o service worker cacheia o bundle. DevTools → Application → Service Workers → *Unregister* + *Update on reload*, ou feche todas as abas.
+3. **iOS:** `./scripts/instalar-iphone.sh` (builda + `cap sync`) e reinstale pelo Xcode.
+
+---
+
+## Modelo de design implementado (nesta rodada)
+Tudo em `web/src/App.jsx`, com componentes reutilizáveis e patches cirúrgicos:
+- **`ConfluenceRing`** — anel de confluência (cor por tier, % no centro) **substitui a barra plana** do Radar.
+- **`CapitalCurve`** — curva de patrimônio ganhou **área preenchida** (gradiente na cor do modo) sob a linha; id de gradiente único por instância; estado vazio preservado.
+- **Friso de modo** — barra de 3px no topo na cor do modo (sinal redundante, além do acento + linha de modo).
+- **Home = hero-carrossel** — os setups da watchlist viram **cards swipeable com anel** (antes: lista de texto no Resumo). Mesma navegação (abre a Watchlist), mostra até 8. `destaque`, DeepModal, curva, streak, coach e atalhos **intactos**.
+- **Perfil em tiles agrupados** (`ProfileTile`) — blocos Conta · Personalização e simulação · IA e desempenho · Notificações e avançado. **Todos os 6 destinos preservados** (openAuth, config, ia, notificacoes, eficiencia, logs) + ModoTrabalhoCard + rodapé.
+
+### Nada de funcionalidade removida (revisado)
+- Radar: o % de confluência agora fica no centro do anel + rótulo de tier (nenhum dado perdido).
+- Home: a lista de setups do Resumo foi **consolidada** no hero-carrossel (mesmos dados/navegação), não removida.
+- Histórico de operações: já tinha tela/rota própria (`carteiraView === "historico"`) — intacto.
+- **Prompts de IA verificados:** `store.analyze` resolve o prompt no servidor (default/custom via `llmPrompts` sincronizado); `runStopAlvoFor` escolhe `carteiraStopAlvoOperador || carteiraStopAlvo` (custom) com fallback. **Nenhuma dessas rotas foi tocada.**
+
+### Sparkline da Watchlist — IMPLEMENTADO (data-layer)
+- **Backend `server/app/scanner.py`:** cada resultado do scan agora inclui `spark` — série **compacta** de fechamentos (últimos ~32 candles do MESMO snapshot, arredondados). Nada de OHLC cru; payload minúsculo.
+- **Frontend `App.jsx`:** novo componente `Sparkline` (linha de fechamentos, cor pela direção) renderizado no card da Watchlist, alinhado sob o bloco de preço. Guard `Array.isArray(sc.spark)` — se o scan for de cache antigo (sem `spark`), simplesmente não desenha (sem quebrar). Aparece após o 1º scan pós-deploy.
+- `test_scanner.py` não quebra: `spark` é aditivo; a asserção de `candles` (contagem) segue intacta.
+- **Requer deploy do backend** (`atualizar-servidor.sh`) além do `instalar-iphone.sh`.
+- `BUILD_ID` agora **`F9-20260709-12`**.
+
+### Validação desta rodada
+- Parse JSX/JS (TypeScript) de `App.jsx`/`copy.js`/`persistence.js`/`version.js` — OK.
+- **30/30** suítes `web/tests/*.mjs` — PASS.
+- `py_compile` de todo `server/app` — OK.
+- Revisão de alinhamento (carrossel com edge-bleed e peek do próximo card; anel alinhado ao bloco de texto; grid de tiles 2 col; friso) — OK.
+
+---
+
+## (Rodada anterior, ainda válida)
 
 ## O que foi feito
 
