@@ -1,19 +1,19 @@
 # CHECKOUT — retomada em novo chat (BolsIA)
-*Atualizado em 09/07/2026 · estado: build F9-20260709-7 aguardando instalação/confirmação no aparelho · pendências = Fase B (trades reais) + item B(resto)/C/D/E da matriz qa/26 + itens do pedido de prompt/radar/copy*
+*Atualizado em 10/07/2026 · estado: build F9-20260709-8 aguardando instalação/confirmação no aparelho · pendências = decisões de UX (badge/paleta avançada/reorg do Perfil, ver qa/32) + Fase B (trades reais) + item B(resto)/C/D/E da matriz qa/26*
 
 ## 1. Estado exato do projeto
 
 - **Código/git:** tudo commitado localmente nesta sessão (sandbox sem rede —
   push feito da próxima vez que rodar `entregar.sh` no Mac). Backend no
   Railway redeploya no push. Suítes locais (sandbox, offline): **20/20
-  backend + 26/26 web — verdes** (1 pulada por dependência ausente no
+  backend + 28/28 web — verdes** (1 pulada por dependência ausente no
   sandbox; rode `bash operar.sh testes` no Mac para o pytest completo).
 - **Entrega:** `bash entregar.sh "msg"` faz a cadeia inteira (testes → git →
   build → cap sync → patch do AppDelegate → espelho de chunks → verificação de
   carimbo) e abre o Xcode. `bash entregar.sh --so-verificar` só audita.
 - **Carimbo de build (protocolo obrigatório):** `web/src/version.js` →
   aparece no rodapé do Perfil e no `/api/health`. NENHUMA avaliação funcional
-  vale sem o carimbo conferido no aparelho. Atual: **F9-20260709-7**.
+  vale sem o carimbo conferido no aparelho. Atual: **F9-20260709-8**.
 - **Últimos eventos (nesta ordem):**
   1. O bundle do iPhone foi AMPUTADO por um bug do entregar.sh (chunks de
      import dinâmico apagados → "plugin não instalado"). Corrigido + guardião
@@ -45,6 +45,18 @@
      (**qa/31**): novo módulo `analysis_outcomes.py`, captura em N1/N2, job
      diário no scheduler existente, painel "Eficiência da IA" em Perfil →
      Observabilidade. Fase B (trades reais) segue não iniciada.
+  6. Novo pedido do Alex, usando a persona "Apple Product Engineer Sênior"
+     (rascunhada em outra sessão) como lente de rigor (**qa/32**): (a)
+     página intermediária de login CORRIGIDA — sessão restaurada fecha o
+     portão sozinha, sem exigir toque em "Entrar"; (b) cópia "e-mail oculto"
+     como título CORRIGIDA (agora "Sua conta Apple"); (c) causa-raiz real de
+     "paletas iguais" encontrada — `MODE_OPERADOR.light` não tinha NENHUMA
+     diferenciação de fundo/texto/bordas, só acento — CORRIGIDO. (d)
+     Validação + propostas (AINDA NÃO IMPLEMENTADAS, aguardando decisão do
+     Alex): reorganizar o Perfil em áreas dedicadas (o mapeamento mostrou
+     que "Conta & preferências" hoje empilha 7 seções distintas), redesenho
+     do badge "MODO OPERADOR" no header, e quanto mais diferenciar as
+     paletas além do chrome já corrigido.
 
 ## 2. PENDÊNCIAS — o que ainda NÃO foi validado (fonte: `qa/26-matriz-revalidacao.md`)
 
@@ -169,32 +181,38 @@ usar de novo antes de especular causa.
 
 ```
 Contexto: leia CHECKOUT-NOVO-CHAT.md, qa/26-matriz-revalidacao.md, qa/27,
-qa/28, qa/29, qa/30 e qa/31 na raiz do repo b3-agente. Regras do projeto
-valem (baseline verde, causa-raiz, guardião por bug, carimbo de build antes
-de qualquer avaliação, docs em qa/). Se uma chamada nativa de plugin "trava"
-sem erro, ver armadilha #8 antes de suspeitar de cache/build.
+qa/28, qa/29, qa/30, qa/31 e qa/32 na raiz do repo b3-agente. Regras do
+projeto valem (baseline verde, causa-raiz, guardião por bug, carimbo de
+build antes de qualquer avaliação, docs em qa/). Se uma chamada nativa de
+plugin "trava" sem erro, ver armadilha #8 antes de suspeitar de cache/build.
 
-Estado: build F9-20260709-7 instalado e confirmado no rodapé do Perfil.
+Estado: build F9-20260709-8 instalado e confirmado no rodapé do Perfil.
 [SE NÃO: rode 'bash entregar.sh "retomada"' + Xcode ⇧⌘K + Run primeiro.]
 
 Item A (notificações/push): CONFIRMADO OK pelo usuário.
 qa/29: cores dos gráficos no Modo Operador + "Plano da mesa" sem modelo —
 CORRIGIDOS, aguardando confirmação no aparelho.
 qa/31: Fase A da eficiência da IA (autoavaliação, painel em Observabilidade)
-IMPLEMENTADA E TESTADA, aguardando confirmação no aparelho com F9-20260709-7
-— o job de avaliação só produz resultado depois de ~10 pregões, então "nº de
-avaliadas > 0" só é verificável daqui a 2 semanas, não agora.
+IMPLEMENTADA E TESTADA, aguardando confirmação no aparelho — o job de
+avaliação só produz resultado depois de ~10 pregões, então "nº de avaliadas
+> 0" só é verificável daqui a 2 semanas, não agora.
+qa/32: página intermediária de login, cópia "e-mail oculto" e paleta light
+do Operador — CORRIGIDOS, aguardando confirmação no aparelho. Propostas de
+badge/paleta-avançada/reorganização do Perfil em áreas dedicadas — decisão
+do Alex ainda pendente (ver qa/32 seção 8 e o chat onde foram propostas).
 
 Resultado no aparelho (cores certas? plano da mesa roda? painel Eficiência
-da IA aparece?) + item B(resto)/C/D/E da matriz qa/26:
+da IA aparece? login sem tela intermediária? paleta light diferenciada?) +
+item B(resto)/C/D/E da matriz qa/26:
 - <liste aqui APENAS as falhas, ex.: B2 FALHA — sparkline continua azul>
 - <...>
 
-Ainda pendentes do pedido anterior do Alex (não iniciados): Fase B da
-eficiência (trades reais, mock modo-operador.html tela 4 — modelo já em
-qa/30 seção B), fraseologia não acompanha a identidade (auditar copy.js
-contra os mocks), Radar sem "análise inicial rápida", "desenhar o prompt
-como especialista no Claude" (escopo não confirmado).
+Ainda pendentes do pedido anterior do Alex (não iniciados): decisão sobre
+as propostas de UX do qa/32 (badge, paleta avançada, reorg do Perfil em 5
+áreas), Fase B da eficiência (trades reais, mock modo-operador.html tela 4
+— modelo já em qa/30 seção B), fraseologia não acompanha a identidade
+(auditar copy.js contra os mocks), Radar sem "análise inicial rápida",
+"desenhar o prompt como especialista no Claude" (escopo não confirmado).
 
 Tarefa: para cada falha, diagnostique a causa-raiz (Logs do servidor,
 Diagnóstico do app, console do Web Inspector se algo travar sem erro claro),

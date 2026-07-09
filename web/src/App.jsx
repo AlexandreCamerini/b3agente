@@ -77,12 +77,19 @@ const MODE_OPERADOR = {
     onAccent: "#04170b", knob: "#182126", navDotIdle: "#27343b", chartAxis: "#5e6f77",
   },
   light: {
+    // qa/32: faltavam bgBase/bgPanel/borders/text — o override em LIGHT só
+    // trocava acento/positivo/negativo, então Estudo × Operador ficavam com
+    // o MESMO chrome (fundo/cartão/bordas/texto) em tema claro. Mesma lógica
+    // relativa do dark (base levemente mais fria/grafite que o Estudo).
+    bgBase: "#eef1f0", bgPanel: "#f6f8f7", bgCard: "#ffffff", bgToast: "#16211c",
+    borderSubtle: "#d7e0dc", borderFaint: "#e6ece9", borderDashed: "#c3d1cb", borderToast: "#24483a",
+    textMuted: "#4f5f5a", textDim: "#5c6d67", textFaint: "#8a9994",
     accent: "#15803d", accentSoft: "#166534",
     positive: "#15803d", negative: "#dc2626",
     accentTint: "rgba(21,128,61,0.12)", accentTintHi: "rgba(21,128,61,0.20)", accentTint10: "rgba(21,128,61,0.10)",
     positiveTint: "rgba(21,128,61,0.12)", positiveTint10: "rgba(21,128,61,0.10)",
     negativeTint: "rgba(220,38,38,0.12)", negativeTint10: "rgba(220,38,38,0.10)",
-    onAccent: "#ffffff",
+    onAccent: "#ffffff", knob: "#d7e0dc", navDotIdle: "#c3d1cb", chartAxis: "#7a8b85",
   },
 };
 const modeVarBlock = (name) => Object.entries(MODE_OPERADOR[name]).map(([k, v]) => `${VARKEY(k)}:${v}`).join(";");
@@ -432,7 +439,9 @@ function AuthModal({ ctx, onClose }) {
     // avisos chegam nele via relay da Apple), mas confunde na tela. Preferimos
     // o NOME e explicamos o relay + como compartilhar o e-mail verdadeiro.
     const isRelay = /@privaterelay\.appleid\.com$/i.test(user.email || "");
-    const displayId = (user.name || "").trim() || (isRelay ? "Conta Apple (e-mail oculto)" : (user.email || user.id));
+    // qa/32: "e-mail oculto" como TÍTULO soa como erro/problema — a explicação
+    // do relay já vem detalhada logo abaixo (isRelay). Título neutro aqui.
+    const displayId = (user.name || "").trim() || (isRelay ? "Sua conta Apple" : (user.email || user.id));
     return wrap(
       <div>
         <div style={{ fontSize: "13px", color: T.textMuted, marginBottom: "4px" }}>Conectado como</div>
@@ -489,7 +498,7 @@ function WelcomeAuthScreen({ ctx, onAuthed, onSkip }) {
   const user = ctx.authUser;
   const restoring = !user && hasSession();
   // FASE 8B (P1): e-mail de relay da Apple não é rótulo de gente — usa o nome
-  const userLabel = user ? ((user.name || "").trim() || (/@privaterelay\.appleid\.com$/i.test(user.email || "") ? "Conta Apple (e-mail oculto)" : user.email) || "sua conta") : "";
+  const userLabel = user ? ((user.name || "").trim() || (/@privaterelay\.appleid\.com$/i.test(user.email || "") ? "Sua conta Apple" : user.email) || "sua conta") : "";
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 85, background: T.bgBase, display: "flex", alignItems: "center", justifyContent: "center", padding: "18px", overflowY: "auto" }}>
       <div style={{ width: "100%", maxWidth: "420px", ...card, padding: "26px 24px" }}>
@@ -567,9 +576,13 @@ function Topbar({ patr, dia, caixa, name, onProfile, modeChip }) {
         <div style={{ minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: "7px", minWidth: 0 }}>
             <div style={{ fontWeight: 700, fontSize: "18px", lineHeight: 1.05, letterSpacing: "-0.01em" }}>Bols<span style={IA_GRAD}>IA</span></div>
-            {/* FASE 8B (B2/R3): identidade permanente do modo — chip sólido e
-                legível (o usuário PRECISA saber onde está, sem esforço) */}
-            {modeChip && <span style={{ padding: "4px 10px", borderRadius: "999px", background: T.accent, color: T.onAccent, fontSize: "10px", fontWeight: 800, letterSpacing: "0.08em", whiteSpace: "nowrap", flex: "none" }}>{modeChip}</span>}
+            {/* FASE 8B (B2/R3): identidade permanente do modo — chip legível
+                (o usuário PRECISA saber onde está, sem esforço).
+                qa/32: pill CONTORNADO (borda + tint translúcido, igual ao
+                padrão já usado em botões/filtros selecionados no resto do
+                app) em vez de preenchimento sólido — menos "adesivo colado"
+                ao lado da logo, mais integrado à UI. */}
+            {modeChip && <span style={{ padding: "3px 9px", borderRadius: "999px", border: `1px solid ${T.accent}`, background: T.accentTint, color: T.accent, fontSize: "10px", fontWeight: 800, letterSpacing: "0.08em", whiteSpace: "nowrap", flex: "none" }}>{modeChip}</span>}
           </div>
           {name ? <div style={{ fontSize: "11px", color: T.textMuted, marginTop: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Olá, {name}</div> : null}
         </div>
@@ -1677,7 +1690,7 @@ function PerfilHub({ ctx, onOpen }) {
 
       <ModoTrabalhoCard ctx={ctx} />
 
-      <DrillRow onClick={() => ctx.openAuth && ctx.openAuth()} title={ctx.authUser ? "Conta" : "Entrar ou criar conta"} sub={ctx.authUser ? ((((ctx.authUser.name || "").trim()) || (/@privaterelay\.appleid\.com$/i.test(ctx.authUser.email || "") ? "Conta Apple (e-mail oculto)" : ctx.authUser.email) || "conectado") + " · toque para gerenciar") : "Opcional — salva sua carteira e sincroniza entre aparelhos"} icon={
+      <DrillRow onClick={() => ctx.openAuth && ctx.openAuth()} title={ctx.authUser ? "Conta" : "Entrar ou criar conta"} sub={ctx.authUser ? ((((ctx.authUser.name || "").trim()) || (/@privaterelay\.appleid\.com$/i.test(ctx.authUser.email || "") ? "Sua conta Apple" : ctx.authUser.email) || "conectado") + " · toque para gerenciar") : "Opcional — salva sua carteira e sincroniza entre aparelhos"} icon={
         <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden><circle cx="12" cy="8.5" r="3.6" fill="none" stroke="currentColor" strokeWidth="1.9" /><path d="M5 19.5c0-3.6 3.1-5.5 7-5.5s7 1.9 7 5.5" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" /></svg>
       } />
       <DrillRow onClick={() => onOpen("config")} title="Conta & preferências" sub="Perfil de risco, IA & skill, aparência, notificações, orçamento" icon={
@@ -4178,6 +4191,17 @@ export default function App() {
         const r = await auth.me();
         if (alive && r && r.user) {
           setAuthUser(r.user);
+          // qa/32: sessão restaurada com sucesso = identidade já confirmada
+          // pelo servidor — exigir um toque extra em "Entrar" no portão de
+          // abertura (WelcomeAuthScreen) é uma página intermediária sem
+          // propósito. Fecha o portão sozinho (mesmo efeito de tocar
+          // "Entrar" manualmente) e marca `welcomeShownRef` ANTES do outro
+          // efeito (boot gate, abaixo) rodar — senão ele reabriria a tela ao
+          // ver `welcomeShownRef.current` ainda falso.
+          welcomeShownRef.current = true;
+          setWelcomeAuthOpen(false);
+          setData((d) => (d ? { ...d, config: { ...d.config, onboarded: true } } : d));
+          try { await store.putConfig({ onboarded: true }); } catch { /* silencioso, mesma política de markOnboarded */ }
           // FASE 8B (N2 — fix "identidade se perde"): no iOS o APARELHO é a
           // fonte da verdade (local-first). O estado do SERVIDOR sobrescrevia
           // o doc local — appMode/termo/risco voltavam ao padrão a cada boot

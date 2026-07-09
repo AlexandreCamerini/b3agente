@@ -97,7 +97,11 @@ ok("R2: defaults da skill de mesa nos dois lados",
 // R3: paleta idêntica ao mock + positivos/negativos/textos do modo
 ok("R3: card do mock (#10161a) e negativo (#ef4444)", app.includes('bgCard: "#10161a"') && app.includes('negative: "#ef4444"'));
 ok("R3: textos frios do mock (muted/faint)", app.includes('textMuted: "#93a5ad"') && app.includes('textFaint: "#5b6d75"'));
-ok("R3: chip do modo SÓLIDO (accent + onAccent)", /modeChip && <span style=\{\{[^}]*background: T\.accent, color: T\.onAccent/.test(app));
+// qa/32: chip do modo passou de preenchimento SÓLIDO pra CONTORNADO (borda +
+// tint translúcido) — decisão do Alex (AskUserQuestion) sobre o redesenho do
+// badge no header. Substitui a asserção antiga (sólido); ver
+// test_mode_badge_outlined.mjs pro guardião completo do novo padrão.
+ok("R3: chip do modo CONTORNADO (borda + accentTint)", /modeChip && <span style=\{\{[^}]*border: `1px solid \$\{T\.accent\}`, background: T\.accentTint, color: T\.accent/.test(app));
 // R4: decisões da mesa no REC_STYLE + filtros/nota/histórico por modo
 ok("R4: REC_STYLE cobre COMPRAR/VENDER/AGUARDAR/NÃO OPERAR", app.includes('"COMPRAR": [T.positive') && app.includes('"NÃO OPERAR": [T.textMuted'));
 ok("R4: filtros da watchlist por modo", app.includes("cp.filtroAlta") && app.includes("cp.filtroBaixa"));
