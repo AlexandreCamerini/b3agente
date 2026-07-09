@@ -134,7 +134,7 @@ if [[ -n "${VITE_GOOGLE_IOS_CLIENT_ID:-}" && -f "$PLIST" ]]; then
   fi
 fi
 
-if [[ "$OPEN_XCODE" -eq 1 ]]; then say "Abrindo no Xcode..."; "$CAP" open ios || warn "Nao consegui abrir o Xcode. Abra web/ios/App/App.xcworkspace."; fi
+if [[ "$OPEN_XCODE" -eq 1 ]]; then say "Abrindo no Xcode..."; "$CAP" open ios || warn "Nao consegui abrir o Xcode. Abra manualmente: web/ios/App/App.xcodeproj (projeto SPM, sem .xcworkspace)."; fi
 
 cat <<EOF
 

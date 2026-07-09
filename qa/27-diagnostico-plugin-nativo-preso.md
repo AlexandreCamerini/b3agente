@@ -119,6 +119,26 @@ verdade com o app fechado depende das chaves APNs configuradas no Railway
 "Ativar push" mesmo assim disser "falta configurar as chaves APNs", esse é
 um problema DIFERENTE (config do servidor, não do app) — reporte separado.
 
+## 5b. Bug adicional encontrado ao tentar seguir o roteiro: `App.xcworkspace` não existe
+
+O Alex tentou abrir o Xcode e reportou: "não existe o arquivo App.xcworkspace".
+Causa-raiz: este projeto é **100% SPM, sem CocoaPods/Podfile** — só existe
+`ios/App/App.xcodeproj`; `App.xcworkspace` só existiria com CocoaPods. Três
+scripts (`instalar-iphone.sh`, `setup-ios.sh`, e o `reparo-plugin-nativo.sh`
+desta própria rodada) tinham o fallback `open ios/App/App.xcworkspace` para
+quando `npx cap open ios` falha — arquivo inexistente, comando falha, e o
+usuário fica sem saber qual arquivo abrir.
+
+**Fix:** os três scripts agora tentam `App.xcworkspace` e caem para
+`App.xcodeproj` (o arquivo real deste projeto) antes de desistir. **Guardião
+novo:** `web/tests/test_ios_open_target.mjs` tranca que todo script com
+fallback de abertura do Xcode também saiba abrir o `.xcodeproj`.
+
+**Ação imediata para o Alex, sem precisar rodar o script de novo:** abra
+diretamente `web/ios/App/App.xcodeproj` (duplo clique no Finder, ou
+`open web/ios/App/App.xcodeproj` no Terminal) e siga o roteiro da seção 5 a
+partir do passo 1 (File → Packages → Reset Package Caches).
+
 ## 6. Pendências desta rodada
 
 - **Item B (Identidade/Modo Operador, B1–B7):** o Alex reportou "identidade

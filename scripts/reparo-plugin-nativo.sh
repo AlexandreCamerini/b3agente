@@ -86,7 +86,15 @@ else
 fi
 
 say "6/6 · Abrindo o Xcode"
-npx cap open ios >/dev/null 2>&1 || open ios/App/App.xcworkspace 2>/dev/null || warn "abra manualmente web/ios/App/App.xcworkspace"
+# Projeto é 100% SPM (sem CocoaPods/Podfile) — o arquivo certo é o
+# .xcodeproj, NÃO .xcworkspace (esse só existiria com CocoaPods). Abrir o
+# workspace errado é o motivo de "não existe o arquivo App.xcworkspace".
+if ! npx cap open ios >/dev/null 2>&1; then
+  if [ -d ios/App/App.xcworkspace ]; then open ios/App/App.xcworkspace
+  elif [ -d ios/App/App.xcodeproj ]; then open ios/App/App.xcodeproj
+  else warn "abra manualmente: web/ios/App/App.xcodeproj (este projeto usa SPM, não tem .xcworkspace)"
+  fi
+fi
 
 cat << 'FIM'
 

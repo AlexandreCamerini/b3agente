@@ -68,7 +68,12 @@ if [ -f "$PLIST" ]; then
 fi
 
 say "8) Abrindo o Xcode"
-npx cap open ios || open ios/App/App.xcworkspace || true
+# Projeto é 100% SPM (sem CocoaPods) — o arquivo certo é o .xcodeproj.
+if ! npx cap open ios; then
+  if [ -d ios/App/App.xcworkspace ]; then open ios/App/App.xcworkspace
+  elif [ -d ios/App/App.xcodeproj ]; then open ios/App/App.xcodeproj
+  fi
+fi
 cat << 'FIM'
 
   PASSOS FINAIS (no Xcode):
