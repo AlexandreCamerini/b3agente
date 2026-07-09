@@ -38,6 +38,11 @@ RUN_HISTORY: list = []           # [{at, duracaoS, usuarios, executadas, erros:[
 RUN_HISTORY_MAX = 12
 NEXT_RUN_AT = {"ts": None}       # epoch da próxima passada do scheduler
 _CYCLE_BUSY: set = set()          # escopos com ciclo em andamento
+# Intervalo do ciclo POR USUÁRIO (agent.intervalMin, min): o laço acorda na
+# cadência base (env B3_AGENT_INTERVAL_S) e só roda o ciclo de um usuário se já
+# passou o intervalo DELE desde a última passada — assim cada conta escolhe a
+# frequência (default 15 min). A granularidade mínima é a cadência base.
+LAST_USER_RUN: dict = {}          # {uid: epoch da última passada efetiva}
 
 
 def _push_run_history(entry: dict):
@@ -76,6 +81,7 @@ def agent_params(ag: dict) -> dict:
         "trailingPct": float(ag.get("trailingPct") or 5.0),
         "maxOpsDia": int(ag.get("maxOpsDia") or 3),
         "maxValorOp": float(ag.get("maxValorOp") or 0),
+        "intervalMin": max(1, min(240, int(ag.get("intervalMin") or 15))),
     }
 
 
@@ -210,7 +216,15 @@ async def scheduler_loop(conn, quotes_getter, notify_push=None, interval_s: int 
                 _t0 = time.monotonic()
                 _erros = []
                 LAST_RUN.update(at=datetime.now(BRT).strftime("%d/%m %H:%M"), usuarios=0, executadas=0, erro=None)
+                _agora = time.time()
                 for uid in list_server_users(conn):
+                    # Gate por usuário: respeita o intervalMin DELE (default 15).
+                    _ag = store.get(conn, "agent", user_id=uid) or {}
+                    _int_s = agent_params(_ag)["intervalMin"] * 60
+                    _ult = LAST_USER_RUN.get(uid, 0)
+                    if _agora - _ult < _int_s - 1:
+                        continue  # ainda não deu o intervalo deste usuário
+                    LAST_USER_RUN[uid] = _agora
                     LAST_RUN["usuarios"] += 1
                     try:
                         r = await run_cycle_for(conn, uid, quotes_getter, origem="agendado")

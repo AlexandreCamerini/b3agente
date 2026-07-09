@@ -32,22 +32,22 @@ const PALETTE = {
     borderSubtle: "#232a35", borderFaint: "#1b212b", borderDashed: "#2f3a48", borderToast: "#2b3340",
     textPrimary: "#e7ecf3", textSecondary: "#c3ccd8", textMuted: "#9aa6b6", textDim: "#8a96a6",
     textFaint: "#5b6675", textBright: "#dfe6ef",
-    accent: "#3B82F6", accentSoft: "#9DBEFF", positive: "#34d399", negative: "#fb7185",
+    accent: "#f0b429", accentSoft: "#ffd873", positive: "#34d399", negative: "#fb7185",
     knob: "#1b212b", navDotIdle: "#2b333f", confirmOkText: "#06231a",
-    accentTint: "rgba(59,130,246,0.14)", accentTintHi: "rgba(59,130,246,0.26)", accentTint10: "rgba(59,130,246,0.10)",
+    accentTint: "rgba(240,180,41,0.14)", accentTintHi: "rgba(240,180,41,0.26)", accentTint10: "rgba(240,180,41,0.10)",
     positiveTint: "rgba(52,211,153,0.12)", positiveTint10: "rgba(52,211,153,0.10)",
     negativeTint: "rgba(251,113,133,0.12)", negativeTint10: "rgba(251,113,133,0.10)",
     scrim: "rgba(5,7,11,0.68)",
-    chartGrid: "rgba(255,255,255,0.04)", chartBorder: "rgba(255,255,255,0.08)", chartAxis: "#6b7384", lineSubtle: "rgba(255,255,255,0.18)", onAccent: "#ffffff",
+    chartGrid: "rgba(255,255,255,0.04)", chartBorder: "rgba(255,255,255,0.08)", chartAxis: "#6b7384", lineSubtle: "rgba(255,255,255,0.18)", onAccent: "#20160a",
   },
   light: {
     bgBase: "#f3f4f7", bgPanel: "#ffffff", bgCard: "#ffffff", bgToast: "#222936",
     borderSubtle: "#e3e6ec", borderFaint: "#edeff3", borderDashed: "#d2d8e0", borderToast: "#39414f",
     textPrimary: "#11161d", textSecondary: "#2d3742", textMuted: "#5d6775", textDim: "#6b7480",
     textFaint: "#98a1ad", textBright: "#0a0e13",
-    accent: "#2563EB", accentSoft: "#1d4ed8", positive: "#10976a", negative: "#d6455f",
+    accent: "#b45309", accentSoft: "#92400e", positive: "#10976a", negative: "#d6455f",
     knob: "#dfe3e9", navDotIdle: "#c4cad3", confirmOkText: "#ffffff",
-    accentTint: "rgba(37,99,235,0.12)", accentTintHi: "rgba(37,99,235,0.20)", accentTint10: "rgba(37,99,235,0.10)",
+    accentTint: "rgba(180,83,9,0.12)", accentTintHi: "rgba(180,83,9,0.20)", accentTint10: "rgba(180,83,9,0.10)",
     positiveTint: "rgba(16,151,106,0.12)", positiveTint10: "rgba(16,151,106,0.10)",
     negativeTint: "rgba(214,69,95,0.12)", negativeTint10: "rgba(214,69,95,0.10)",
     scrim: "rgba(15,20,28,0.45)",
@@ -576,15 +576,21 @@ function Topbar({ patr, dia, caixa, name, onProfile, modeChip }) {
         <div style={{ minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: "7px", minWidth: 0 }}>
             <div style={{ fontWeight: 700, fontSize: "18px", lineHeight: 1.05, letterSpacing: "-0.01em" }}>Bols<span style={IA_GRAD}>IA</span></div>
-            {/* FASE 8B (B2/R3): identidade permanente do modo — chip legível
-                (o usuário PRECISA saber onde está, sem esforço).
-                qa/32: pill CONTORNADO (borda + tint translúcido, igual ao
-                padrão já usado em botões/filtros selecionados no resto do
-                app) em vez de preenchimento sólido — menos "adesivo colado"
-                ao lado da logo, mais integrado à UI. */}
-            {modeChip && <span style={{ padding: "3px 9px", borderRadius: "999px", border: `1px solid ${T.accent}`, background: T.accentTint, color: T.accent, fontSize: "10px", fontWeight: 800, letterSpacing: "0.08em", whiteSpace: "nowrap", flex: "none" }}>{modeChip}</span>}
           </div>
-          {name ? <div style={{ fontSize: "11px", color: T.textMuted, marginTop: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Olá, {name}</div> : null}
+          {/* qa/mock v2 (racionalização): o badge de modo SAIU de ao lado do
+              wordmark (apertado contra o patrimônio) e virou uma LINHA de modo
+              própria sob a marca — ponto (na cor do modo) + rótulo + nome.
+              Simétrico nos dois modos (Estudo e Operador têm chipModo). */}
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "4px", minWidth: 0 }}>
+            {modeChip && (<>
+              <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: T.accent, flex: "none", boxShadow: `0 0 0 3px ${T.accentTint}` }} />
+              <span style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.07em", color: T.accent, whiteSpace: "nowrap", flex: "none" }}>{modeChip}</span>
+            </>)}
+            {name ? (<>
+              {modeChip && <span style={{ color: T.textFaint, fontSize: "11px", flex: "none" }}>·</span>}
+              <span style={{ fontSize: "11px", color: T.textMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</span>
+            </>) : null}
+          </div>
         </div>
       </div>
       <div style={{ textAlign: "right", flex: "none", fontFamily: MONO }}>
@@ -2351,6 +2357,23 @@ function AgenteScreen({ ctx }) {
             Valor máx. por operação (R$, 0 = sem teto)
             <input type="number" min="0" step="100" value={ag.maxValorOp || 0} onChange={(e) => putAg({ maxValorOp: +e.target.value })} style={{ ...field, marginTop: "5px" }} />
           </label>
+        </div>
+        {/* Intervalo do ciclo POR USUÁRIO (agent.intervalMin): com que frequência
+            o Operador no servidor reavalia as posições durante o pregão. O laço do
+            servidor acorda na cadência base e só roda o ciclo deste usuário quando
+            passou o intervalo escolhido (granularidade mínima = cadência base). */}
+        <div style={{ marginTop: "14px", paddingTop: "13px", borderTop: `1px solid ${T.borderFaint}` }}>
+          <div style={{ fontSize: "12px", color: T.textMuted }}>Intervalo do ciclo <span style={{ color: T.textFaint }}>· com que frequência a mesa reavalia durante o pregão</span></div>
+          <div style={{ display: "flex", gap: "8px", marginTop: "8px", flexWrap: "wrap" }}>
+            {[5, 15, 30, 60].map((mn) => {
+              const on = (ag.intervalMin || 15) === mn;
+              return (
+                <button key={mn} onClick={() => putAg({ intervalMin: mn })} style={{ flex: 1, minWidth: "64px", padding: "10px", borderRadius: "10px", border: `1px solid ${on ? T.accent : T.borderSubtle}`, background: on ? T.accentTint : T.bgBase, color: on ? T.accent : T.textSecondary, fontWeight: 800, fontSize: "12px" }}>
+                  {mn} min
+                </button>
+              );
+            })}
+          </div>
         </div>
         {logged && (
           <div style={{ marginTop: "13px", paddingTop: "12px", borderTop: `1px solid ${T.borderFaint}` }}>

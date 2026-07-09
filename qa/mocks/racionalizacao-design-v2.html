@@ -1,0 +1,632 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>BolsIA — Racionalização de Design (mock v2)</title>
+<style>
+  :root{
+    --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:20px; --sp-6:24px; --sp-8:32px;
+    --r-card:14px; --r-inner:10px; --r-pill:999px;
+    --mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+    --sans:-apple-system,system-ui,'Segoe UI',Helvetica,Arial,sans-serif;
+    --shadow:0 1px 0 rgba(255,255,255,.03), 0 8px 24px -12px rgba(0,0,0,.55);
+    --brand-a:#3B82F6; --brand-b:#22D3EE;
+  }
+  .app.mode-estudo{
+    --bg-base:#0b0e14; --bg-panel:#0d111a; --bg-card:#11151c;
+    --border-subtle:#232a35; --border-faint:#1b212b; --border-dashed:#2f3a48;
+    --text-primary:#e7ecf3; --text-secondary:#c3ccd8; --text-muted:#9aa6b6; --text-faint:#5b6675;
+    --accent:#f0b429; --accent-soft:#ffd873; --on-accent:#20160a;
+    --accent-tint:rgba(240,180,41,.14); --accent-tint10:rgba(240,180,41,.10);
+    --positive:#34d399; --negative:#fb7185; --grid:rgba(255,255,255,.05);
+  }
+  .app.mode-operador{
+    --bg-base:#0a0d10; --bg-panel:#0d1216; --bg-card:#10161a;
+    --border-subtle:#1e2a30; --border-faint:#182126; --border-dashed:#2a3a42;
+    --text-primary:#e7ecf3; --text-secondary:#c3ccd8; --text-muted:#93a5ad; --text-faint:#5b6d75;
+    --accent:#22c55e; --accent-soft:#86efac; --on-accent:#04170b;
+    --accent-tint:rgba(34,197,94,.14); --accent-tint10:rgba(34,197,94,.10);
+    --positive:#22c55e; --negative:#ef4444; --grid:rgba(255,255,255,.05);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#05070b;color:#c3ccd8;font-family:var(--sans);
+    display:flex;flex-direction:column;align-items:center;gap:18px;padding:24px 12px 60px}
+  .devbar{display:flex;gap:20px;flex-wrap:wrap;justify-content:center;align-items:center;
+    background:#0d1117;border:1px solid #1c2530;border-radius:14px;padding:12px 18px;max-width:820px}
+  .devbar h2{margin:0;font-size:13px;color:#e7ecf3;font-weight:700}
+  .devbar .sub{font-size:11.5px;color:#7a8698;max-width:560px;line-height:1.5}
+  .seg{display:inline-flex;background:#11161d;border:1px solid #232a35;border-radius:999px;padding:3px}
+  .seg button{border:none;background:transparent;color:#9aa6b6;font-weight:700;font-size:12px;
+    padding:7px 15px;border-radius:999px;cursor:pointer;font-family:var(--sans)}
+  .seg.est button.on{background:#f0b429;color:#20160a}
+  .seg.opr button.on{background:#22c55e;color:#04170b}
+  .app .seg button.on{background:var(--accent);color:var(--on-accent)}
+
+  .phone{width:390px;max-width:96vw;height:820px;border-radius:44px;background:#000;
+    padding:11px;box-shadow:0 0 0 2px #1a2230, 0 30px 80px -20px rgba(0,0,0,.8);flex:none}
+  .app{width:100%;height:100%;border-radius:34px;overflow:hidden;background:var(--bg-base);
+    color:var(--text-primary);font-family:var(--sans);display:flex;flex-direction:column;position:relative;
+    transition:background .35s ease,color .35s ease}
+  .frise{height:3px;background:linear-gradient(90deg,var(--accent),var(--accent-soft));flex:none}
+
+  /* HEADER — badge agora vive numa linha própria sob o wordmark (dot + rótulo), integrado */
+  .topbar{flex:none;display:flex;align-items:center;gap:11px;padding:11px 15px 12px;
+    background:var(--bg-panel);border-bottom:1px solid var(--border-subtle)}
+  .wordmark{font-weight:700;font-size:18px;letter-spacing:-.01em;line-height:1}
+  .wordmark .ia{background:linear-gradient(135deg,var(--brand-a),var(--brand-b));
+    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .modeline{display:flex;align-items:center;gap:6px;margin-top:4px}
+  .modeline .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex:none;
+    box-shadow:0 0 0 3px var(--accent-tint)}
+  .modeline .lbl{font-size:10px;font-weight:800;letter-spacing:.07em;color:var(--accent)}
+  .modeline .sep{color:var(--text-faint);font-size:11px}
+  .modeline .who{font-size:11px;color:var(--text-muted)}
+  .patr{margin-left:auto;text-align:right;font-family:var(--mono)}
+  .patr .v{font-weight:700;font-size:16px;color:var(--text-primary)}
+  .patr .d{font-size:10.5px;font-weight:700;margin-top:2px}
+  .avatar{flex:none;width:38px;height:38px;border-radius:50%;border:1px solid var(--border-subtle);
+    background:var(--accent);color:var(--on-accent);font-weight:800;font-size:15px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center}
+
+  .screen{flex:1;overflow-y:auto;padding:16px 15px 26px;display:none;flex-direction:column;gap:16px}
+  .screen.on{display:flex}
+  .screen::-webkit-scrollbar{width:0}
+
+  .titlerow{display:flex;align-items:flex-start;gap:10px}
+  h1.title{margin:0;font-size:22px;font-weight:700;letter-spacing:-.01em;flex:1}
+  .lead{margin:5px 0 0;color:var(--text-muted);font-size:12.5px;line-height:1.5}
+  .infoBtn{flex:none;width:28px;height:28px;border-radius:50%;border:1px solid var(--border-subtle);
+    background:transparent;color:var(--text-muted);font-size:13px;cursor:pointer;margin-top:2px}
+  .kicker{font-size:10.5px;font-weight:700;color:var(--text-faint);letter-spacing:.06em;text-transform:uppercase}
+  .card{background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:var(--r-card);box-shadow:var(--shadow)}
+  .pad{padding:16px 17px}
+  .mono{font-family:var(--mono)}
+  .pos{color:var(--positive)} .neg{color:var(--negative)} .acc{color:var(--accent)}
+  .pill{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:800}
+  .row{display:flex;align-items:center;gap:10px}
+  .btn{border:none;border-radius:var(--r-inner);font-weight:800;font-size:13px;cursor:pointer;
+    padding:12px 14px;font-family:var(--sans);min-height:44px}
+  .btn.primary{background:var(--accent);color:var(--on-accent)}
+  .btn.ghost{background:var(--accent-tint10);color:var(--accent);border:1px solid var(--accent)}
+  .btn.sec{background:var(--bg-base);color:var(--text-secondary);border:1px solid var(--border-subtle)}
+  .btn.full{width:100%}
+
+  .carousel{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;margin:0 -15px;padding:2px 15px 4px;scrollbar-width:none}
+  .carousel::-webkit-scrollbar{height:0}
+  .hero{scroll-snap-align:center;flex:0 0 88%;background:var(--bg-card);border:1px solid var(--border-subtle);
+    border-left:3px solid var(--accent);border-radius:var(--r-card);padding:16px 17px;box-shadow:var(--shadow)}
+  .dots{display:flex;gap:6px;justify-content:center;margin-top:2px}
+  .dots i{width:6px;height:6px;border-radius:999px;background:var(--border-subtle);display:block}
+  .dots i.on{background:var(--accent);width:16px}
+
+  .strip{display:flex;gap:16px;flex-wrap:wrap}
+  .strip .m .l{font-size:9.5px;color:var(--text-faint);letter-spacing:.04em;text-transform:uppercase}
+  .strip .m .n{font-family:var(--mono);font-weight:700;font-size:17px;margin-top:2px}
+
+  .lrow{display:flex;align-items:center;gap:11px;padding:11px 0;border-top:1px solid var(--border-faint);
+    width:100%;background:transparent;border-left:none;border-right:none;border-bottom:none;text-align:left;cursor:pointer;color:var(--text-primary)}
+  .lrow:first-of-type{border-top:none}
+  .tk{font-family:var(--mono);font-weight:800;font-size:14px}
+  .muted{color:var(--text-muted);font-size:12px}
+  .faint{color:var(--text-faint)}
+  .chev{margin-left:auto;color:var(--text-faint)}
+  .criteria{margin-top:9px;padding:11px;border-radius:var(--r-inner);background:var(--bg-base);border:1px solid var(--border-faint);display:none}
+  .criteria.on{display:block}
+  .crit{display:flex;gap:7px;align-items:flex-start;margin-top:6px;font-size:11.5px;line-height:1.45}
+  .linkrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--border-faint)}
+  .qlink{display:inline-flex;align-items:center;gap:6px;padding:8px 11px;border-radius:999px;
+    background:var(--accent-tint10);color:var(--accent);border:1px solid var(--accent);font-size:11.5px;font-weight:700;cursor:pointer}
+  .qlink.n{background:var(--bg-base);color:var(--text-secondary);border-color:var(--border-subtle)}
+
+  .toggle{width:46px;height:27px;border-radius:999px;background:var(--border-subtle);position:relative;cursor:pointer;flex:none;transition:background .2s}
+  .toggle.on{background:var(--accent)}
+  .toggle b{position:absolute;top:3px;left:3px;width:21px;height:21px;border-radius:50%;background:#fff;transition:left .2s}
+  .toggle.on b{left:22px}
+
+  /* Perfil — tiles agrupados (pontos de acesso visualmente interessantes) */
+  .grouphead{font-size:10px;font-weight:800;letter-spacing:.08em;color:var(--text-faint);text-transform:uppercase;margin:6px 2px 0}
+  .tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .tile{background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:var(--r-card);
+    padding:14px;text-align:left;cursor:pointer;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:9px;min-height:96px}
+  .tile.wide{grid-column:1 / -1;flex-direction:row;align-items:center;min-height:auto}
+  .ic{width:34px;height:34px;border-radius:10px;background:var(--accent-tint);color:var(--accent);
+    display:flex;align-items:center;justify-content:center;flex:none}
+  .tile .t{font-size:13.5px;font-weight:700;color:var(--text-primary)}
+  .tile .s{font-size:11px;color:var(--text-muted);line-height:1.4}
+
+  .tabbar{flex:none;display:flex;background:var(--bg-panel);border-top:1px solid var(--border-subtle);padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
+  .tab{flex:1;background:transparent;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 2px;color:var(--text-muted);font-size:10px;font-weight:600;font-family:var(--sans)}
+  .tab.on{color:var(--accent);font-weight:700}
+
+  .sheet-bg{position:absolute;inset:0;background:rgba(5,7,11,.66);display:none;align-items:flex-end;z-index:9}
+  .sheet-bg.on{display:flex}
+  .sheet{width:100%;background:var(--bg-panel);border-top:1px solid var(--border-subtle);border-radius:20px 20px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom))}
+  .sheet h3{margin:0 0 8px;font-size:14px}
+  .sheet p{margin:0;font-size:12px;line-height:1.6;color:var(--text-muted)}
+  .grabber{width:38px;height:4px;border-radius:999px;background:var(--border-subtle);margin:0 auto 14px}
+  .note{font-size:10.5px;color:var(--text-faint);margin-top:8px;line-height:1.5}
+  .tag{font-size:9px;font-weight:800;letter-spacing:.06em;color:var(--accent);border:1px solid var(--accent);border-radius:6px;padding:2px 6px}
+  .backrow{display:flex;align-items:center;gap:8px;margin-bottom:2px}
+  .back{width:34px;height:34px;border-radius:9px;border:none;background:transparent;color:var(--text-secondary);cursor:pointer;font-size:18px}
+</style>
+</head>
+<body>
+
+<div class="devbar">
+  <div>
+    <h2>BolsIA · mock de racionalização de design (v2)</h2>
+    <div class="sub">Ajustes do feedback: badge reposicionado (linha própria sob o wordmark), <b>nenhuma função removida</b> — análises de IA e históricos ganharam pontos de acesso; e a tela de <b>Perfil/Config</b> foi reorganizada em blocos com entradas visuais. Abra o Perfil pelo avatar no canto superior direito.</div>
+  </div>
+  <div style="text-align:center">
+    <div class="sub" style="margin-bottom:5px">Modo</div>
+    <div class="seg" id="modeSeg">
+      <button data-mode="estudo" class="on est">Estudo</button>
+      <button data-mode="operador" class="opr">Operador</button>
+    </div>
+  </div>
+</div>
+
+<div class="phone">
+  <div class="app mode-estudo" id="app">
+    <div class="frise"></div>
+
+    <!-- HEADER — badge na linha do modo, avatar abre Perfil -->
+    <div class="topbar">
+      <svg width="38" height="38" viewBox="0 0 32 32" aria-hidden style="flex:none">
+        <defs><linearGradient id="lm" x1="6" y1="3" x2="26" y2="29" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#3B82F6"/><stop offset="1" stop-color="#22D3EE"/></linearGradient></defs>
+        <rect width="32" height="32" rx="8" fill="#0b0e14"/>
+        <rect x=".6" y=".6" width="30.8" height="30.8" rx="7.4" fill="none" stroke="#3B82F6" stroke-opacity=".3" stroke-width="1.1"/>
+        <rect x="15.1" y="10.5" width="1.8" height="15" rx=".9" fill="url(#lm)"/>
+        <rect x="11.6" y="14.4" width="8.8" height="9.6" rx="2.5" fill="url(#lm)"/>
+        <path d="M16 3.4C16.5 7.2 17.6 8.3 21.4 8.8 17.6 9.3 16.5 10.4 16 14.2 15.5 10.4 14.4 9.3 10.6 8.8 14.4 8.3 15.5 7.2 16 3.4Z" fill="url(#lm)"/>
+        <circle cx="16" cy="8.8" r=".95" fill="#fff" fill-opacity=".9"/>
+      </svg>
+      <div style="min-width:0">
+        <div class="wordmark">Bols<span class="ia">IA</span></div>
+        <div class="modeline">
+          <span class="dot"></span><span class="lbl" id="modeLbl">MODO ESTUDO</span>
+          <span class="sep">·</span><span class="who">Alex</span>
+        </div>
+      </div>
+      <div class="patr">
+        <div class="v">R$ 10.482,10</div>
+        <div class="d pos">▲ +1,3%</div>
+      </div>
+      <button class="avatar" onclick="setTab('perfil')" aria-label="Perfil e configurações">A</button>
+    </div>
+
+    <!-- ===================== ACOMPANHAR ===================== -->
+    <div class="screen on" data-screen="evolucao">
+      <div class="titlerow">
+        <div style="flex:1">
+          <h1 class="title" id="homeHi">Vamos estudar o mercado hoje, Alex?</h1>
+          <p class="lead" id="homeLead">Há 3 setup(s) para estudar na sua watchlist.</p>
+        </div>
+        <button class="infoBtn" onclick="openSheet('disc')">ⓘ</button>
+      </div>
+      <div>
+        <div class="kicker" style="margin-bottom:8px" id="heroKicker">Melhor oportunidade de hoje</div>
+        <div class="carousel" id="carousel" onscroll="syncDots()"></div>
+        <div class="dots" id="dots"></div>
+      </div>
+      <div class="card pad">
+        <div class="kicker">Resumo do dia</div>
+        <div class="strip" style="margin-top:10px">
+          <div class="m"><div class="l">Carteira no dia</div><div class="n pos">+R$ 132,40</div></div>
+          <div class="m"><div class="l">Acumulado</div><div class="n pos">+4,8%</div></div>
+          <div class="m"><div class="l">Operações hoje</div><div class="n">2</div></div>
+        </div>
+      </div>
+      <div class="card pad" id="equityHome"></div>
+      <div class="card pad">
+        <div class="kicker" id="moreKicker">Mais oportunidades</div>
+        <div id="miniList" style="margin-top:6px"></div>
+      </div>
+    </div>
+
+    <!-- ===================== RADAR ===================== -->
+    <div class="screen" data-screen="radar">
+      <div class="titlerow">
+        <div style="flex:1">
+          <h1 class="title" id="radarTitle">Radar de mercado</h1>
+          <p class="lead" id="radarSub">Varredura do universo com o motor de sinais.</p>
+        </div>
+        <button class="infoBtn" onclick="openSheet('disc')">ⓘ</button>
+      </div>
+      <div id="radarCards"></div>
+    </div>
+
+    <!-- ===================== WATCHLIST ===================== -->
+    <div class="screen" data-screen="mercado">
+      <div class="titlerow">
+        <div style="flex:1">
+          <h1 class="title" id="wlTitle">Watchlist</h1>
+          <p class="lead" id="wlSub">Seus ativos em estudo, ordenados por oportunidade.</p>
+        </div>
+        <button class="infoBtn" onclick="openSheet('disc')">ⓘ</button>
+      </div>
+      <div class="card pad"><div id="wlRows"></div></div>
+    </div>
+
+    <!-- ===================== PORTFÓLIO ===================== -->
+    <div class="screen" data-screen="carteira">
+      <div class="titlerow">
+        <div style="flex:1">
+          <h1 class="title" id="ptTitle">Portfólio</h1>
+          <p class="lead" id="ptSub">Sua carteira simulada.</p>
+        </div>
+        <button class="infoBtn" onclick="openSheet('disc')">ⓘ</button>
+      </div>
+      <div class="card pad" id="equityPort"></div>
+      <div id="posCards"></div>
+      <!-- HISTÓRICO preservado, com ponto de acesso visual -->
+      <button class="card pad row" style="width:100%;text-align:left;cursor:pointer;gap:12px" onclick="openSheet('hist')">
+        <span class="ic"><svg width="18" height="18" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.9"/><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <span style="flex:1">
+          <span style="display:block;font-size:13.5px;font-weight:700">Histórico de operações</span>
+          <span class="muted" id="histSub">Todas as compras e vendas simuladas, com resultado em R$.</span>
+        </span>
+        <span class="chev">›</span>
+      </button>
+    </div>
+
+    <!-- ===================== OPERADOR IA ===================== -->
+    <div class="screen" data-screen="agente">
+      <div class="titlerow">
+        <div style="flex:1">
+          <h1 class="title">Operador IA</h1>
+          <p class="lead">Operador autônomo da carteira simulada: monitora posições, protege stop/alvo e registra cada decisão.</p>
+        </div>
+        <button class="infoBtn" onclick="openSheet('disc')">ⓘ</button>
+      </div>
+      <div class="card pad" style="border-color:var(--accent)">
+        <div class="row">
+          <div>
+            <div class="row" style="gap:8px">
+              <div style="font-weight:700;font-size:15px">Operador no servidor</div>
+              <span class="tag">24×5</span>
+            </div>
+            <div class="muted" style="margin-top:4px;max-width:200px;line-height:1.5">Roda a cada ciclo do pregão, mesmo com o app fechado.</div>
+          </div>
+          <div class="toggle on" onclick="this.classList.toggle('on')" style="margin-left:auto"><b></b></div>
+        </div>
+        <div class="row" style="gap:8px;margin-top:14px;padding-top:13px;border-top:1px solid var(--border-faint)">
+          <button class="btn ghost" style="flex:1;min-height:40px">Executar (vende no stop/alvo)</button>
+          <button class="btn sec" style="flex:1;min-height:40px">Apenas sinalizar</button>
+        </div>
+      </div>
+      <div class="card pad">
+        <div class="kicker">Regras &amp; limites</div>
+        <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:10px">
+          <span class="pill" style="border:1px solid var(--accent);color:var(--accent);background:var(--accent-tint)">✓ Regra: stop</span>
+          <span class="pill" style="border:1px solid var(--accent);color:var(--accent);background:var(--accent-tint)">✓ Regra: alvo</span>
+          <span class="pill" style="border:1px solid var(--border-subtle);color:var(--text-muted)">Trailing</span>
+        </div>
+        <div class="row" style="gap:12px;margin-top:14px;flex-wrap:wrap">
+          <div style="flex:1;min-width:130px"><div class="muted">Teto de operações/dia</div><div class="card pad mono" style="padding:9px 11px;margin-top:5px;font-weight:700">3</div></div>
+          <div style="flex:1;min-width:130px"><div class="muted">Valor máx./operação</div><div class="card pad mono" style="padding:9px 11px;margin-top:5px;font-weight:700">R$ 1.500</div></div>
+        </div>
+        <div style="margin-top:14px;padding-top:13px;border-top:1px solid var(--border-faint)">
+          <div class="row"><div class="muted" style="flex:1">Intervalo do ciclo <span class="faint">· com que frequência a mesa reavalia, durante o pregão</span></div></div>
+          <div class="seg" id="intSeg" style="background:var(--bg-base);border-color:var(--border-subtle);margin-top:9px">
+            <button style="padding:8px 14px;font-size:12px" onclick="pickInt(this)">5 min</button>
+            <button class="on" style="padding:8px 14px;font-size:12px" onclick="pickInt(this)">15 min</button>
+            <button style="padding:8px 14px;font-size:12px" onclick="pickInt(this)">30 min</button>
+            <button style="padding:8px 14px;font-size:12px" onclick="pickInt(this)">60 min</button>
+          </div>
+        </div>
+      </div>
+      <!-- Diário (histórico de decisões do agente) + notificações — preservados -->
+      <div class="row" style="gap:10px;flex-wrap:wrap">
+        <button class="qlink" onclick="openSheet('diario')"><svg width="14" height="14" viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/><path d="M8 10h8M8 14h6" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg> Diário do operador</button>
+        <button class="qlink n">Notificações e push →</button>
+      </div>
+    </div>
+
+    <!-- ===================== PERFIL / CONFIG (reorganizado) ===================== -->
+    <div class="screen" data-screen="perfil">
+      <div class="backrow">
+        <button class="back" onclick="setTab('evolucao')">‹</button>
+        <h1 class="title" style="font-size:20px">Perfil</h1>
+      </div>
+
+      <!-- cabeçalho de perfil -->
+      <div class="row" style="gap:13px">
+        <div style="width:52px;height:52px;border-radius:15px;background:var(--accent);color:var(--on-accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:22px;flex:none">A</div>
+        <div>
+          <div style="font-size:18px;font-weight:700">Alex</div>
+          <div class="muted">Perfil moderado · horizonte swing</div>
+        </div>
+      </div>
+
+      <!-- MODO DE TRABALHO — mora aqui, com troca clara -->
+      <div class="card pad">
+        <div class="kicker">Modo de trabalho</div>
+        <div class="row" style="margin-top:10px;gap:10px">
+          <div style="flex:1">
+            <div style="font-size:13.5px;font-weight:700" id="modoName">Modo Estudo — o professor</div>
+            <div class="muted" style="margin-top:2px;line-height:1.45" id="modoDesc">Ensina o porquê de cada setup, sem imperativos de ordem.</div>
+          </div>
+          <div class="seg" style="background:var(--bg-base);border-color:var(--border-subtle)">
+            <button id="mEst" class="on" style="padding:7px 12px;font-size:11px" onclick="setMode('estudo')">Estudo</button>
+            <button id="mOpr" style="padding:7px 12px;font-size:11px" onclick="setMode('operador')">Operador</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- GRUPO: CONTA -->
+      <div class="grouphead">Conta</div>
+      <button class="tile wide">
+        <span class="ic"><svg width="18" height="18" viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="3.6" fill="none" stroke="currentColor" stroke-width="1.9"/><path d="M5 19.5c0-3.6 3.1-5.5 7-5.5s7 1.9 7 5.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg></span>
+        <span style="flex:1"><span class="t">Conta</span><br><span class="s">alex@… · Apple conectado — sincroniza entre aparelhos</span></span>
+        <span class="chev">›</span>
+      </button>
+
+      <!-- GRUPO: PREFERÊNCIAS (2 col) -->
+      <div class="grouphead">Personalização &amp; simulação</div>
+      <div class="tiles">
+        <button class="tile" onclick="openSheet('prefs')">
+          <span class="ic"><svg width="18" height="18" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.9"/><path d="M12 3v2.5M12 18.5V21M21 12h-2.5M5.5 12H3M18.4 5.6l-1.8 1.8M7.4 16.6l-1.8 1.8M18.4 18.4l-1.8-1.8M7.4 7.4 5.6 5.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></span>
+          <span><span class="t">Preferências</span><br><span class="s">Nome, aparência, período de candles</span></span>
+        </button>
+        <button class="tile" onclick="openSheet('prefs')">
+          <span class="ic"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M4 18V7M4 7l6-3 4 3 6-3v11l-6 3-4-3-6 3z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></span>
+          <span><span class="t">Orçamento &amp; risco</span><br><span class="s">Capital simulado e perfil do operador</span></span>
+        </button>
+      </div>
+
+      <!-- GRUPO: IA & DESEMPENHO -->
+      <div class="grouphead">IA &amp; desempenho</div>
+      <div class="tiles">
+        <button class="tile">
+          <span class="ic"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M12 3a5 5 0 0 1 5 5c0 2-1.2 3.1-2 4-.6.7-1 1.3-1 2.3h-4c0-1-.4-1.6-1-2.3-.8-.9-2-2-2-4a5 5 0 0 1 5-5Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M10 17.5h4M10.5 20h3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span>
+          <span><span class="t">Configurações de IA</span><br><span class="s">Modelo, skills por modo e prompts</span></span>
+        </button>
+        <button class="tile">
+          <span class="ic"><svg width="18" height="18" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7.5" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="12" r="3.5" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="12" r=".9" fill="currentColor"/></svg></span>
+          <span><span class="t">Eficiência da IA</span><br><span class="s">Quanto bateu alvo/stop</span></span>
+        </button>
+      </div>
+
+      <!-- GRUPO: NOTIFICAÇÕES & AVANÇADO -->
+      <div class="grouphead">Notificações &amp; avançado</div>
+      <div class="tiles">
+        <button class="tile">
+          <span class="ic"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M6 10.5a6 6 0 0 1 12 0c0 4 1.3 5.3 1.8 6H4.2c.5-.7 1.8-2 1.8-6Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M10 19.5a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span>
+          <span><span class="t">Notificações</span><br><span class="s">Stop, alvo, agente e variação</span></span>
+        </button>
+        <button class="tile">
+          <span class="ic"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M4 18v-5M9.5 18v-9M15 18V7M20 18v-3" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg></span>
+          <span><span class="t">Logs &amp; debug</span><br><span class="s">Status do servidor e diagnóstico</span></span>
+        </button>
+      </div>
+
+      <div class="note">Nada foi removido — as 6 áreas do Perfil de hoje continuam, agrupadas em blocos com entradas visuais. Cada tile abre a mesma sub-tela focada de antes. <span class="mono">build …</span></div>
+    </div>
+
+    <div class="tabbar" id="tabbar"></div>
+
+    <div class="sheet-bg" id="sheet" onclick="closeSheet(event)">
+      <div class="sheet" onclick="event.stopPropagation()">
+        <div class="grabber"></div>
+        <h3 id="sheetTitle">—</h3>
+        <div id="sheetBody"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const COPY = {
+  estudo:{ lbl:"MODO ESTUDO", hi:"Vamos estudar o mercado hoje, Alex?", lead:"Há 3 setup(s) para estudar na sua watchlist.",
+    heroKicker:"Melhor oportunidade de hoje", moreKicker:"Mais oportunidades",
+    radarTitle:"Radar de mercado", radarSub:"Varredura do universo com o motor de sinais.",
+    wlTitle:"Watchlist", wlSub:"Seus ativos em estudo, ordenados por oportunidade.",
+    ptTitle:"Portfólio", ptSub:"Sua carteira simulada — dinheiro de estudo, decisões de verdade.",
+    ctaSetup:"Aprofundar com IA", ctaSell:"Simular venda", histSub:"Todas as compras e vendas simuladas, com resultado em R$.",
+    modoName:"Modo Estudo — o professor", modoDesc:"Ensina o porquê de cada setup, sem imperativos de ordem.",
+    disc:"Radar educacional: descreve condições técnicas e setups didáticos detectados em dados passados, sem garantia de resultado e sem qualquer recomendação de investimento. A confluência mede a aderência do ativo a um padrão de estudo (percentual de critérios atendidos), não probabilidade de acerto."},
+  operador:{ lbl:"MODO OPERADOR", hi:"Mesa aberta, Alex.", lead:"3 plano(s) válido(s) hoje · 2 gatilho(s) próximos do preço.",
+    heroKicker:"Melhor plano da mesa hoje", moreKicker:"Mais planos",
+    radarTitle:"Mesa de oportunidades", radarSub:"Decisão objetiva: entrada, stop, alvos e R:R — abaixo de 1,5:1 a mesa não opera.",
+    wlTitle:"Monitoramento", wlSub:"Ativos monitorados com plano válido.",
+    ptTitle:"Posições", ptSub:"Suas posições e o plano de cada uma — risco controlado em R.",
+    ctaSetup:"Plano da mesa (IA)", ctaSell:"Registrar saída", histSub:"Todas as entradas e saídas registradas, com resultado em R.",
+    modoName:"Modo Operador — a mesa", modoDesc:"Plano objetivo por ativo: o quê, quando, quanto — com disciplina de risco.",
+    disc:"Esta análise possui finalidade educacional e utiliza cenários probabilísticos. Não representa garantia de resultado nem recomendação personalizada. Operações no mercado envolvem risco de perda: use stop, dimensione a posição e respeite o plano. O BolsIA não envia ordens a corretoras — toda execução é sua."}
+};
+const SHEETS = {
+  disc:()=>({title:"Sobre este conteúdo",html:`<p>${COPY[mode].disc}</p>`}),
+  hist:()=>({title:"Histórico de operações",html:histHtml()}),
+  diario:()=>({title:"Diário do operador",html:`<p>Registro de cada decisão do agente no servidor — stop protegido, alvo realizado, parcial, "não operar". Preservado; abre a tela cheia no app.</p>`+histHtml()}),
+  prefs:()=>({title:"Preferências",html:`<p class="muted" style="margin-bottom:10px">Amostra — no app abre em tela cheia. Nada mudou de conteúdo, só a organização de acesso.</p>
+    <div style="font-size:12px;color:var(--text-secondary);line-height:1.9">• Nome e aparência (Claro / Escuro / Sistema)<br>• Período de candles (1M · 3M · 6M · 1A · 2A)<br>• Orçamento simulado + recomeçar do zero<br>• Perfil do operador (risco, horizonte)</div>`})
+};
+const OPS = [
+  {tk:"PETR4", verd:{est:"Estudar alta",opr:"Compra"}, setup:"Stormer 9.2", conf:82, close:37.14, inval:35.90, gat:37.40, alvo:39.80, read:"Fechou acima da 9 e da 21; IFR saindo de sobrevenda. Gatilho na máxima de ontem."},
+  {tk:"VALE3", verd:{est:"Estudar alta",opr:"Compra"}, setup:"IFR2", conf:64, close:61.20, inval:59.80, gat:61.55, alvo:63.90, read:"IFR2 abaixo de 30 num pivot de alta; contexto de tendência preservado."},
+  {tk:"ITUB4", verd:{est:"Monitorar",opr:"Aguardar"}, setup:"Inside Bar", conf:41, close:33.05, inval:32.40, gat:33.35, alvo:34.60, read:"Barra de dentro no topo; falta rompimento para validar o plano."}
+];
+const WL = [
+  {tk:"PETR4", close:37.14, ch:+1.8, conf:82, spark:[34.2,34.6,34.1,35.0,35.4,35.1,36.0,36.8,37.14]},
+  {tk:"VALE3", close:61.20, ch:+0.6, conf:64, spark:[60.1,60.4,59.9,60.6,60.2,60.9,61.0,60.7,61.20]},
+  {tk:"ITUB4", close:33.05, ch:-0.4, conf:41, spark:[33.4,33.2,33.5,33.1,33.3,33.0,33.2,33.1,33.05]},
+  {tk:"WEGE3", close:52.80, ch:+2.1, conf:58, spark:[50.4,50.9,51.2,50.8,51.6,52.0,52.3,52.5,52.80]}
+];
+const POS = [
+  {tk:"PETR4", qty:100, avg:35.60, close:37.14, pnl:+154.0, inval:35.90, gat:37.40, alvo:39.80, spark:[35.6,35.9,35.7,36.2,36.6,36.4,36.9,37.0,37.14]},
+  {tk:"BBAS3", qty:80, avg:27.10, close:26.55, pnl:-44.0, inval:26.20, gat:27.30, alvo:28.90, spark:[27.1,27.0,26.8,27.0,26.7,26.6,26.9,26.7,26.55]}
+];
+const EQUITY = [10000,10040,9990,10120,10210,10180,10305,10360,10482];
+const HIST = [
+  {d:"09/07",t:"PETR4",type:"COMPRA",qty:100,price:35.60,pnl:null},
+  {d:"08/07",t:"VALE3",type:"VENDA",qty:50,price:62.10,pnl:+95.0},
+  {d:"05/07",t:"BBAS3",type:"COMPRA",qty:80,price:27.10,pnl:null},
+  {d:"02/07",t:"WEGE3",type:"VENDA",qty:40,price:51.00,pnl:-32.0}
+];
+
+function ring(conf){
+  const R=19,C=2*Math.PI*R,off=C*(1-conf/100);
+  const col=conf>=75?'var(--positive)':conf>=50?'var(--accent)':'var(--text-faint)';
+  return `<svg width="46" height="46" viewBox="0 0 46 46" style="flex:none">
+    <circle cx="23" cy="23" r="${R}" fill="none" stroke="var(--border-faint)" stroke-width="4.5"/>
+    <circle cx="23" cy="23" r="${R}" fill="none" stroke="${col}" stroke-width="4.5" stroke-linecap="round"
+      stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}" transform="rotate(-90 23 23)"/>
+    <text x="23" y="24" text-anchor="middle" dominant-baseline="middle" font-family="var(--mono)" font-size="11.5" font-weight="800" fill="var(--text-primary)">${conf}%</text></svg>`;
+}
+function sparkline(vals,w=64,h=22){
+  const mn=Math.min(...vals),mx=Math.max(...vals),sp=(mx-mn)||1,up=vals[vals.length-1]>=vals[0];
+  const pts=vals.map((v,i)=>[(i/(vals.length-1))*w,(h-2)-((v-mn)/sp)*(h-4)]);
+  const d=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="flex:none"><path d="${d}" fill="none" stroke="${up?'var(--positive)':'var(--negative)'}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
+function equityArea(vals,retStr,up){
+  const W=300,H=92,mn=Math.min(...vals),mx=Math.max(...vals),sp=(mx-mn)||1;
+  const pts=vals.map((v,i)=>[(i/(vals.length-1))*W,84-((v-mn)/sp)*72]);
+  const line=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
+  const area=line+` L${W},92 L0,92 Z`,col=up?'var(--positive)':'var(--negative)',gid='g'+Math.random().toString(36).slice(2,7);
+  return `<div class="kicker">Patrimônio simulado</div>
+    <div class="row" style="align-items:baseline;gap:12px;margin-top:4px;flex-wrap:wrap">
+      <div class="mono" style="font-size:26px;font-weight:700">R$ 10.482,10</div>
+      <div class="mono ${up?'pos':'neg'}" style="font-size:14px;font-weight:700">${retStr} vs. início</div></div>
+    <div style="margin-top:12px;height:92px;border-radius:10px;overflow:hidden;background:var(--bg-base);border:1px solid var(--border-faint)">
+      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="width:100%;height:100%;display:block">
+        <defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${col}" stop-opacity=".34"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></linearGradient></defs>
+        <line x1="0" y1="84" x2="${W}" y2="84" stroke="var(--grid)" stroke-width="1"/>
+        <path d="${area}" fill="url(#${gid})"/><path d="${line}" fill="none" stroke="${col}" stroke-width="2"/></svg></div>
+    <div class="strip" style="margin-top:12px">
+      <div class="m"><div class="l">Retorno acumulado</div><div class="n ${up?'pos':'neg'}">${retStr}</div></div>
+      <div class="m"><div class="l">Drawdown</div><div class="n neg">-2,1%</div></div>
+      <div class="m"><div class="l">Dias registrados</div><div class="n">9</div></div></div>`;
+}
+function planRuler(inval,gat,alvo,cur){
+  const nums=[inval,gat,alvo,cur],mn=Math.min(...nums),mx=Math.max(...nums),sp=(mx-mn)||1,pos=v=>8+((v-mn)/sp)*84;
+  return `<div style="margin-top:13px"><div class="kicker" style="margin-bottom:12px">Plano do setup (didático)</div>
+    <div style="position:relative;height:26px">
+      <div style="position:absolute;top:11px;left:8px;right:8px;height:2px;background:var(--border-subtle)"></div>
+      <div style="position:absolute;top:8px;left:${pos(inval)}%;width:2px;height:8px;background:var(--negative)"></div>
+      <div style="position:absolute;top:8px;left:${pos(gat)}%;width:2px;height:8px;background:var(--accent)"></div>
+      <div style="position:absolute;top:8px;left:${pos(alvo)}%;width:2px;height:8px;background:var(--positive)"></div>
+      <div style="position:absolute;top:2px;left:${pos(cur)}%;transform:translateX(-50%);width:10px;height:10px;border-radius:50%;background:var(--text-primary);border:2px solid var(--bg-card)"></div></div>
+    <div class="row mono" style="justify-content:space-between;font-size:10px;margin-top:2px">
+      <span class="neg">inval ${inval.toFixed(2)}</span><span class="acc">gatilho ${gat.toFixed(2)}</span><span class="pos">alvo ${alvo.toFixed(2)}</span></div></div>`;
+}
+function histHtml(){
+  return `<div>`+HIST.map((h,i)=>`<div class="row mono" style="gap:8px;font-size:11.5px;padding:7px 0;${i?'border-top:1px solid var(--border-faint)':''}">
+    <span class="faint" style="width:38px">${h.d}</span>
+    <span style="font-weight:800;color:${h.type==='COMPRA'?'var(--positive)':'var(--negative)'}">${h.type==='COMPRA'?'▲':'▼'}</span>
+    <span style="font-weight:700">${h.t}</span><span class="muted">${h.qty} × R$ ${h.price.toFixed(2)}</span>
+    ${h.pnl!=null?`<span style="margin-left:auto;font-weight:700;color:${h.pnl>=0?'var(--positive)':'var(--negative)'}">${h.pnl>=0?'+':'−'}R$ ${Math.abs(h.pnl).toFixed(2)}</span>`:'<span style="margin-left:auto" class="faint">—</span>'}
+  </div>`).join('')+`</div>`;
+}
+
+let mode='estudo';
+function verd(o){return mode==='estudo'?o.verd.est:o.verd.opr;}
+function pillColor(v){return /baixa|venda/i.test(v)?'var(--negative)':/alta|compra/i.test(v)?'var(--positive)':'var(--text-muted)';}
+function heroCard(o){const v=verd(o),c=pillColor(v);
+  return `<div class="hero"><div class="row">
+    <span class="tk" style="font-size:17px">${o.tk}</span>
+    <span class="pill" style="color:${c};background:var(--accent-tint10)">${v}</span>
+    <span style="margin-left:auto">${ring(o.conf)}</span></div>
+    <div class="muted" style="margin-top:10px;line-height:1.55">${o.read}</div>
+    ${planRuler(o.inval,o.gat,o.alvo,o.close)}
+    <button class="btn primary full" style="margin-top:13px">${COPY[mode].ctaSetup}</button></div>`;}
+function radarCard(o){const v=verd(o),c=pillColor(v),id='c'+o.tk;
+  return `<div class="card pad" style="margin-bottom:14px"><div class="row">
+    <span class="tk" style="font-size:16px">${o.tk}</span>
+    <span class="pill" style="color:${c};background:var(--accent-tint10)">${v}</span>
+    <span class="muted" style="margin-left:auto">${o.setup}</span>${ring(o.conf)}</div>
+    ${planRuler(o.inval,o.gat,o.alvo,o.close)}
+    <div class="row" style="gap:8px;margin-top:13px">
+      <button class="btn ghost" style="flex:1">${COPY[mode].ctaSetup}</button>
+      <button class="btn sec" style="flex:1">+ ${mode==='estudo'?'Watchlist':'Monitorar'}</button></div>
+    <button class="btn" style="background:transparent;color:var(--accent);padding:8px 0;min-height:auto;margin-top:6px" onclick="document.getElementById('${id}').classList.toggle('on')">+ Ver critérios do setup</button>
+    <div class="criteria" id="${id}">
+      <div class="crit"><span class="pos" style="font-weight:800">✓</span><span class="muted">Preço acima da média de 9 e 21 períodos</span></div>
+      <div class="crit"><span class="pos" style="font-weight:800">✓</span><span class="muted">IFR saindo de zona de sobrevenda</span></div>
+      <div class="crit"><span class="faint" style="font-weight:800">○</span><span class="faint">Rompimento da máxima anterior (gatilho pendente)</span></div></div></div>`;}
+function wlRow(o){const c=o.ch>=0?'pos':'neg';
+  return `<button class="lrow"><span class="tk">${o.tk}</span>
+    <span class="mono muted">R$ ${o.close.toFixed(2)}</span>
+    <span class="mono ${c}" style="font-size:11.5px;font-weight:700">${o.ch>=0?'+':''}${o.ch.toFixed(1)}%</span>
+    <span style="margin-left:auto">${sparkline(o.spark)}</span>
+    <span class="mono" style="font-weight:800;width:38px;text-align:right;color:${o.conf>=75?'var(--positive)':o.conf>=50?'var(--accent)':'var(--text-faint)'}">${o.conf}%</span>
+    <span class="chev">›</span></button>`;}
+function posCard(o){const c=o.pnl>=0?'pos':'neg';
+  return `<div class="card pad" style="margin-bottom:14px"><div class="row">
+    <span class="tk" style="font-size:16px">${o.tk}</span>
+    <span class="muted">${o.qty} × R$ ${o.avg.toFixed(2)}</span>
+    <span style="margin-left:auto">${sparkline(o.spark,72,26)}</span>
+    <span class="mono ${c}" style="font-weight:800">${o.pnl>=0?'+':'−'}R$ ${Math.abs(o.pnl).toFixed(2)}</span></div>
+    ${planRuler(o.inval,o.gat,o.alvo,o.close)}
+    <div class="row" style="gap:8px;margin-top:13px">
+      <button class="btn primary" style="flex:1">${COPY[mode].ctaSell}</button>
+      <button class="btn sec" style="flex:1">Leitura da IA</button></div></div>`;}
+function miniRow(o){const v=verd(o);
+  return `<button class="lrow"><span class="tk">${o.tk}</span><span class="muted">${o.setup}</span>
+    <span style="margin-left:auto;color:${pillColor(v)};font-size:11px;font-weight:700">${v}</span>
+    <span class="mono" style="font-weight:800;color:var(--accent)">${o.conf}%</span></button>`;}
+
+const TABS=[
+  {id:'evolucao',label:'Acompanhar',icon:a=>`<polyline points="3 17 9 11 13 15 21 7" fill="none" stroke="${a}" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/><polyline points="16 7 21 7 21 12" fill="none" stroke="${a}" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>`},
+  {id:'radar',label:'Radar',icon:a=>`<circle cx="12" cy="12" r="8.5" fill="none" stroke="${a}" stroke-width="1.9"/><circle cx="12" cy="12" r="4.2" fill="none" stroke="${a}" stroke-width="1.9"/><line x1="12" y1="12" x2="18" y2="6" stroke="${a}" stroke-width="1.9" stroke-linecap="round"/><circle cx="12" cy="12" r="1.4" fill="${a}"/>`},
+  {id:'mercado',label:()=>mode==='estudo'?'Watchlist':'Monitorar',icon:a=>`<rect x="14.5" y="9" width="1.6" height="7" rx=".8" fill="${a}"/><rect x="11" y="11" width="8" height="6.5" rx="2" fill="${a}"/><path d="M15 3.6C15.4 6 16.2 6.7 18.6 7.1 16.2 7.5 15.4 8.3 15 10.7 14.6 8.3 13.8 7.5 11.4 7.1 13.8 6.7 14.6 6 15 3.6Z" fill="${a}"/>`},
+  {id:'carteira',label:()=>mode==='estudo'?'Portfólio':'Posições',icon:a=>`<rect x="3" y="6" width="18" height="13" rx="2.5" fill="none" stroke="${a}" stroke-width="1.9"/><path d="M3 9h13a2 2 0 0 1 2 2" fill="none" stroke="${a}" stroke-width="1.9"/><circle cx="17" cy="13" r="1.4" fill="${a}"/>`},
+  {id:'agente',label:'Operador IA',icon:a=>`<rect x="5" y="7" width="14" height="11" rx="2.5" fill="none" stroke="${a}" stroke-width="1.9"/><line x1="12" y1="4" x2="12" y2="7" stroke="${a}" stroke-width="1.9" stroke-linecap="round"/><circle cx="12" cy="3.4" r="1.1" fill="${a}"/><circle cx="9.4" cy="11.5" r="1.1" fill="${a}"/><circle cx="14.6" cy="11.5" r="1.1" fill="${a}"/><path d="M9.6 15h4.8" stroke="${a}" stroke-width="1.9" stroke-linecap="round"/>`}
+];
+let activeTab='evolucao';
+function renderTabs(){
+  document.getElementById('tabbar').innerHTML=TABS.map(t=>{
+    const on=t.id===activeTab,col=on?'var(--accent)':'var(--text-muted)',lb=typeof t.label==='function'?t.label():t.label;
+    return `<button class="tab ${on?'on':''}" onclick="setTab('${t.id}')"><svg width="22" height="22" viewBox="0 0 24 24">${t.icon(col)}</svg>${lb}</button>`;
+  }).join('');
+}
+function setTab(id){activeTab=id;document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('on',s.dataset.screen===id));
+  // Perfil não é aba — nenhum item da tab bar fica aceso nele
+  renderTabs();}
+function setMode(m){
+  mode=m;
+  document.getElementById('app').className='app mode-'+m;
+  document.querySelectorAll('#modeSeg button').forEach(x=>x.classList.toggle('on',x.dataset.mode===m));
+  document.getElementById('mEst').classList.toggle('on',m==='estudo');
+  document.getElementById('mOpr').classList.toggle('on',m==='operador');
+  renderAll();renderTabs();
+}
+function renderAll(){
+  const C=COPY[mode];
+  document.getElementById('modeLbl').textContent=C.lbl;
+  document.getElementById('homeHi').textContent=C.hi;
+  document.getElementById('homeLead').textContent=C.lead;
+  document.getElementById('heroKicker').textContent=C.heroKicker;
+  document.getElementById('moreKicker').textContent=C.moreKicker;
+  document.getElementById('radarTitle').textContent=C.radarTitle;
+  document.getElementById('radarSub').textContent=C.radarSub;
+  document.getElementById('wlTitle').textContent=C.wlTitle;
+  document.getElementById('wlSub').textContent=C.wlSub;
+  document.getElementById('ptTitle').textContent=C.ptTitle;
+  document.getElementById('ptSub').textContent=C.ptSub;
+  document.getElementById('histSub').textContent=C.histSub;
+  document.getElementById('modoName').textContent=C.modoName;
+  document.getElementById('modoDesc').textContent=C.modoDesc;
+  document.getElementById('carousel').innerHTML=OPS.map(heroCard).join('');
+  document.getElementById('miniList').innerHTML=OPS.map(miniRow).join('');
+  document.getElementById('equityHome').innerHTML=equityArea(EQUITY,'+4,8%',true);
+  document.getElementById('equityPort').innerHTML=equityArea(EQUITY,'+4,8%',true);
+  document.getElementById('radarCards').innerHTML=OPS.map(radarCard).join('');
+  document.getElementById('wlRows').innerHTML=WL.map(wlRow).join('');
+  document.getElementById('posCards').innerHTML=POS.map(posCard).join('');
+  document.getElementById('dots').innerHTML=OPS.map((_,i)=>`<i class="${i===0?'on':''}"></i>`).join('');
+}
+function syncDots(){const c=document.getElementById('carousel');const i=Math.round(c.scrollLeft/(c.scrollWidth/OPS.length));
+  [...document.getElementById('dots').children].forEach((d,j)=>d.classList.toggle('on',j===i));}
+function openSheet(key){const s=SHEETS[key]();document.getElementById('sheetTitle').textContent=s.title;
+  document.getElementById('sheetBody').innerHTML=s.html;document.getElementById('sheet').classList.add('on');}
+function closeSheet(){document.getElementById('sheet').classList.remove('on');}
+function pickInt(btn){[...document.getElementById('intSeg').children].forEach(b=>b.classList.toggle('on',b===btn));}
+document.getElementById('modeSeg').addEventListener('click',e=>{const b=e.target.closest('button[data-mode]');if(b)setMode(b.dataset.mode);});
+setMode('estudo');renderTabs();
+</script>
+</body>
+</html>

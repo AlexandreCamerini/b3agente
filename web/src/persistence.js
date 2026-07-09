@@ -689,7 +689,7 @@ function deviceStore() {
       // chegava ao backend e o toggle "não funcionava". Agora vão por chamada
       // LIVE (erro sobe para a UI; nada de estado fantasma) e o resultado
       // confirmado pelo servidor é espelhado no doc local.
-      const SERVER_KEYS = ["serverEnabled", "mode", "rules", "trailingPct", "maxOpsDia", "maxValorOp", "lastSeenAt"];
+      const SERVER_KEYS = ["serverEnabled", "mode", "rules", "trailingPct", "maxOpsDia", "maxValorOp", "intervalMin", "lastSeenAt"];
       const sb = {};
       for (const k of SERVER_KEYS) if (k in (b || {})) sb[k] = b[k];
       if (Object.keys(sb).length) {

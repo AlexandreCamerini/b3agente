@@ -50,7 +50,7 @@ ok("nav fala a língua do modo", app.includes('["mercado", (cp && cp.tituloWatch
 // ---- 3) B2: tema por modo ----------------------------------------------------
 ok("override .b3-mode-operador com verde-mercado", app.includes('accent: "#22c55e"') && app.includes("b3-mode-operador.b3-theme-dark"));
 ok("classe aplicada no html pelo appMode", app.includes('html.classList.toggle("b3-mode-operador", appMode === "operador")'));
-ok("chip do modo no Topbar", app.includes("modeChip={cp.chipModo}") && app.includes("{modeChip && <span"));
+ok("chip do modo no Topbar", app.includes("modeChip={cp.chipModo}") && app.includes("{modeChip && (<>"));
 ok("theme-color acompanha o modo", app.includes('appMode === "operador" ? "#0a0d10"'));
 ok("transição só durante a troca (classe temporária)", app.includes("b3-mode-switch") && app.includes('html.classList.remove("b3-mode-switch")'));
 
@@ -97,11 +97,11 @@ ok("R2: defaults da skill de mesa nos dois lados",
 // R3: paleta idêntica ao mock + positivos/negativos/textos do modo
 ok("R3: card do mock (#10161a) e negativo (#ef4444)", app.includes('bgCard: "#10161a"') && app.includes('negative: "#ef4444"'));
 ok("R3: textos frios do mock (muted/faint)", app.includes('textMuted: "#93a5ad"') && app.includes('textFaint: "#5b6d75"'));
-// qa/32: chip do modo passou de preenchimento SÓLIDO pra CONTORNADO (borda +
-// tint translúcido) — decisão do Alex (AskUserQuestion) sobre o redesenho do
-// badge no header. Substitui a asserção antiga (sólido); ver
-// test_mode_badge_outlined.mjs pro guardião completo do novo padrão.
-ok("R3: chip do modo CONTORNADO (borda + accentTint)", /modeChip && <span style=\{\{[^}]*border: `1px solid \$\{T\.accent\}`, background: T\.accentTint, color: T\.accent/.test(app));
+// qa/mock v2 (racionalização): o badge deixou de ser pill (sólido→contornado)
+// e virou uma LINHA de modo sob o wordmark — ponto (halo accentTint) + rótulo
+// (color T.accent). Simétrico nos dois modos. Guardião completo do novo padrão
+// em test_mode_badge_outlined.mjs.
+ok("R3: chip do modo como linha (ponto accentTint + rótulo T.accent)", app.includes("{modeChip && (<>") && /boxShadow: `0 0 0 3px \$\{T\.accentTint\}`/.test(app));
 // R4: decisões da mesa no REC_STYLE + filtros/nota/histórico por modo
 ok("R4: REC_STYLE cobre COMPRAR/VENDER/AGUARDAR/NÃO OPERAR", app.includes('"COMPRAR": [T.positive') && app.includes('"NÃO OPERAR": [T.textMuted'));
 ok("R4: filtros da watchlist por modo", app.includes("cp.filtroAlta") && app.includes("cp.filtroBaixa"));

@@ -18,7 +18,7 @@ export const COPY = {
   estudo: {
     // identidade
     marcaSufixo: "Estudo",
-    chipModo: null, // sem chip — é o app padrão
+    chipModo: "MODO ESTUDO", // qa/mock v2: badge simétrico — os DOIS modos têm chip (antes só Operador)
 
     // saudação/tratamento (Acompanhar)
     saudacao: (nome) => (nome ? `Vamos estudar o mercado hoje, ${nome}?` : "Vamos estudar o mercado hoje?"),
