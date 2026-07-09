@@ -72,6 +72,7 @@ Categorias: `req` (cada chamada, com duração) · `slow` (demorou >2s) · `err`
 | App diz "Sem conexão com o servidor" | iPhone: Perfil → Conta & preferências → endereço do servidor → Testar conexão |
 | Radar lento logo após publicar | Normal só na 1ª varredura de um ativo NOVO; se estiver lento sempre, confira o volume `/data` no Railway |
 | Push não chega | Aba Operador IA → "Ativar push das ações" (deve dar "push ativo ✓"); depois Observabilidade → "Testar push agora" — a mensagem de erro diz exatamente o quê corrigir |
+| Botão "Pedir permissão"/"Diagnóstico" de notificações não faz nada (trava) | Não é cache — é o bug documentado em `qa/28`. Confirme o carimbo do build (rodapé do Perfil) é o mais recente; se já for, o bug já está corrigido. Se acontecer de novo com uma função nova, veja a armadilha #8 do `CHECKOUT-NOVO-CHAT.md` antes de investigar cache/Xcode |
 | "Muitas tentativas de login" | É a proteção contra ataques: aguarde 15 min (ou confira se alguém está tentando entrar na sua conta) |
 | Esqueci o que mudou na última entrega | Leia `ATUALIZAR-Git-Railway-iOS.md` (sempre descreve a entrega atual) |
 
