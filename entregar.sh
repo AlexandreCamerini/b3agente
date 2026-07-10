@@ -26,6 +26,16 @@ die(){ printf "  \033[31m[X]\033[0m %s\n" "$*" >&2; exit 1; }
 BUILD_LOCAL="$(sed -n 's/.*BUILD_ID = "\([^"]*\)".*/\1/p' web/src/version.js)"
 [ -n "$BUILD_LOCAL" ] || die "web/src/version.js sem BUILD_ID — o carimbo é obrigatório"
 
+# FASE 9.2: o carimbo do SERVIDOR é sincronizado AUTOMATICAMENTE a partir do
+# version.js — as entregas 5–13 esqueceram o passo manual e o servidor ficou
+# preso na -4, gerando "servidor ≠ local" falso na verificação para sempre.
+SRV_ATUAL="$(sed -n 's/.*SERVER_BUILD_ID = "\([^"]*\)".*/\1/p' server/app/main.py)"
+if [ "$SRV_ATUAL" != "$BUILD_LOCAL" ] && [ "${1:-}" != "--so-verificar" ]; then
+  sed -i '' "s/SERVER_BUILD_ID = \"[^\"]*\"/SERVER_BUILD_ID = \"$BUILD_LOCAL\"/" server/app/main.py 2>/dev/null \
+    || sed -i "s/SERVER_BUILD_ID = \"[^\"]*\"/SERVER_BUILD_ID = \"$BUILD_LOCAL\"/" server/app/main.py
+  ok "carimbo do servidor sincronizado: $SRV_ATUAL → $BUILD_LOCAL"
+fi
+
 build_no_bundle(){ # $1 = dir de assets
   grep -rho 'F[0-9A-Za-z]\{1,6\}-[0-9]\{8\}-[0-9]\{1,3\}' "$1" 2>/dev/null | sort -u | tail -1
 }
