@@ -54,5 +54,22 @@ for (const name of ["OpsSparkline", "CapitalCurve", "PriceChart"]) {
     !/(?:fill|stroke)=\{T\./.test(body));
 }
 
+// ---- qa/34: fim dos hex soltos fora do token system ---------------------------
+// (a) os CANDLES do PriceChart eram #22c55e/#f43f5e fixos — a única parte do
+//     gráfico que ignorava tema/modo depois do fix qa/29. Agora P.positive/negative.
+const pc = functionBody("PriceChart");
+ok("qa/34: candles do PriceChart pela paleta do modo (sem #22c55e fixo)",
+  !!pc && pc.includes("upColor: P.positive") && !/#22c55e/i.test(pc));
+// (b) o âmbar de aviso (#fbbf24, diário/logs) virou token `warn` do PALETTE —
+//     nenhuma ocorrência solta fora da definição do token.
+ok("qa/34: token warn definido nos dois temas",
+  /warn:\s*"#fbbf24"/.test(src) && /warn:\s*"#a16207"/.test(src));
+ok("qa/34: nenhum #fbbf24 solto fora do PALETTE",
+  (src.match(/#fbbf24/gi) || []).length === 1);
+// (c) critério de aceite da auditoria: ZERO hex azul inline fora do
+//     PALETTE/marca (Google #4285F4 é marca de terceiro, permitida).
+ok("qa/34: zero hex azul inline (critério §6 da auditoria)",
+  !/#(3b82f6|2563eb|22d3ee|60a5fa|1d4ed8|6366f1)/i.test(src));
+
 console.log(fails ? `\n${fails} falha(s)` : "\ntodos os testes passaram");
 process.exit(fails ? 1 : 0);

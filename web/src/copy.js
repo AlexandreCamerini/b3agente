@@ -17,7 +17,8 @@ import { DISCLAIMERS } from "./disclaimers.js";
 export const COPY = {
   estudo: {
     // identidade
-    marcaSufixo: "Estudo",
+    // (qa/34: `marcaSufixo` removida — era chave órfã; a identidade do modo no
+    //  topo vem da LINHA DE MODO (chipModo + dot), não de sufixo no wordmark.)
     chipModo: "MODO ESTUDO", // qa/mock v2: badge simétrico — os DOIS modos têm chip (antes só Operador)
 
     // saudação/tratamento (Acompanhar)
@@ -28,11 +29,24 @@ export const COPY = {
         : "Mercado sem setups claros na sua watchlist — bom dia para revisar os conceitos.",
 
     // abas
+    tabRadar: "Radar", // qa/34: rótulo CURTO da aba inferior (a tela usa tituloRadar)
     tituloRadar: "Radar de mercado",
     subtituloRadar: "Varredura do universo com o motor de sinais: quais condições técnicas estão ativas em cada papel, para você estudar — sem qualquer recomendação.",
     tituloWatchlist: "Watchlist",
+    subtituloWatchlist: "Seus ativos em estudo, ordenados por oportunidade (confluência do snapshot). A análise completa abre no card.",
     tituloPortfolio: "Portfólio",
     subtituloPortfolio: "Sua carteira SIMULADA — dinheiro de estudo, decisões de verdade.",
+
+    // onboarding (home vazia) — qa/34: antes hardcodado na voz de Estudo
+    welcomeTitulo: "Bem-vindo ao seu simulador",
+    welcomeCorpo: "A jornada tem 3 passos: descubra oportunidades no Radar, acompanhe os melhores na Watchlist e simule operações no Portfólio — tudo com dinheiro simulado e leitura educacional.",
+    welcomeCta: "Começar pelo Radar →",
+
+    // Radar — bloco "como funciona" + CTAs de monitoramento (qa/34)
+    comoAnalisaTitulo: "COMO O RADAR ANALISA",
+    comoAnalisaCorpo: "Cada ativo é comparado a setups didáticos clássicos, descritos como um checklist de critérios objetivos. A confluência é o percentual ponderado de critérios atendidos — mede aderência ao padrão em dados passados, não probabilidade de resultado. O veredito é sempre de estudo, nunca uma ordem.",
+    btnAddMonitor: "+ Watchlist",
+    jaMonitorado: "✓ Na watchlist",
 
     // ações
     btnComprar: "Simular compra",
@@ -73,7 +87,6 @@ export const COPY = {
 
   operador: {
     // identidade
-    marcaSufixo: "Operador",
     chipModo: "MODO OPERADOR",
 
     // saudação/tratamento (Acompanhar) — tom de mesa
@@ -84,11 +97,24 @@ export const COPY = {
         : "Nenhum plano com vantagem estatística hoje. Não operar também é posição.",
 
     // abas
+    tabRadar: "Mesa", // qa/34: a aba dizia "Radar" enquanto a tela é "Mesa de oportunidades"
     tituloRadar: "Mesa de oportunidades",
     subtituloRadar: "Varredura do universo com decisão objetiva por ativo: plano de entrada, stop na invalidação, alvos e R:R — abaixo de 1,5:1 a mesa não opera.",
     tituloWatchlist: "Monitoramento",
+    subtituloWatchlist: "Seus ativos monitorados, ordenados por oportunidade (confluência do snapshot). O plano de cada um abre no card.",
     tituloPortfolio: "Posições",
     subtituloPortfolio: "Suas posições e o plano de cada uma — risco controlado em R, parciais no alvo 1.",
+
+    // onboarding (home vazia) — qa/34: voz de mesa
+    welcomeTitulo: "Bem-vindo à sua mesa de operações",
+    welcomeCorpo: "O fluxo da mesa: a Mesa de oportunidades varre o universo e monta o plano, o Monitoramento acompanha os ativos armados e as Posições controlam risco e resultado em R. A execução é sempre sua, na corretora.",
+    welcomeCta: "Abrir a Mesa de oportunidades →",
+
+    // Mesa — bloco "como funciona" + CTAs de monitoramento (qa/34)
+    comoAnalisaTitulo: "COMO A MESA DECIDE",
+    comoAnalisaCorpo: "Cada ativo é comparado a setups clássicos, como um checklist de critérios objetivos. A confluência é o percentual ponderado de critérios atendidos. Sobre ela a mesa monta o plano: entrada, stop na invalidação e alvos com R:R mínimo de 1,5:1 — abaixo disso, não se opera. Nenhuma ordem é enviada à corretora; a execução é sua.",
+    btnAddMonitor: "+ Monitorar",
+    jaMonitorado: "✓ Monitorado",
 
     // ações
     btnComprar: "Registrar entrada",
@@ -119,7 +145,9 @@ export const COPY = {
     notifStopCorpo: (t, preco, stop) => `${t} a R$ ${preco} rompeu o stop de R$ ${stop}. Execute a saída na corretora — o plano manda.`,
     notifAlvoTitulo: (t) => `ALVO no preço · ${t}`,
     notifAlvoCorpo: (t, preco, alvo) => `${t} a R$ ${preco} tocou o alvo de R$ ${alvo}. Realize a parcial e suba o stop — disciplina.`,
-    notifVarTitulo: (t) => `Movimento forte · ${t}`,
+    // qa/34: título antes IDÊNTICO ao do Estudo — agora segue o padrão de mesa
+    // dos irmãos (STOP executável / ALVO no preço: palavra-chave em caixa-alta).
+    notifVarTitulo: (t) => `MOVIMENTO forte · ${t}`,
     notifVarCorpo: (t, ch, preco) => `${t} ${ch} no dia (R$ ${preco}). Confira se algum plano armado foi atingido.`,
 
     // rodapé/disclaimer

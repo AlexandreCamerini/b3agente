@@ -47,6 +47,31 @@ ok("saudação + resumo do dia na voz do modo", app.includes("cp.saudacao(") && 
 ok("toasts de compra/venda na voz do modo", app.includes("cp.toastCompra(") && app.includes("cp.toastVenda("));
 ok("nav fala a língua do modo", app.includes('["mercado", (cp && cp.tituloWatchlist)'));
 
+// ---- qa/34: fraseologia nas superfícies secundárias ---------------------------
+// Auditoria (item B, resto): trechos hardcodados na voz de Estudo vazavam para
+// o Operador; 3 chaves diferenciadas existiam no dicionário mas nunca chegavam
+// à tela (órfãs). Cada assert tranca um dos gaps corrigidos.
+ok("qa/34: aba do Radar fala a língua do modo (Radar × Mesa)",
+  app.includes('["radar", (cp && cp.tabRadar)') && COPY.estudo.tabRadar !== COPY.operador.tabRadar);
+ok("qa/34: onboarding da home na voz do modo",
+  app.includes("cp.welcomeTitulo") && app.includes("cp.welcomeCorpo") && app.includes("cp.welcomeCta")
+  && !app.includes("Bem-vindo ao seu simulador"));
+ok("qa/34: subtítulo da watchlist na voz do modo",
+  app.includes("cp.subtituloWatchlist") && !app.includes("Seus ativos em estudo, ordenados"));
+ok("qa/34: botão de análise usa a chave (fim da órfã btnAnalise)",
+  app.includes('"✨ " + cp.btnAnalise') && !app.includes('"✨ Analisar com IA"'));
+ok("qa/34: subtítulo do portfólio ligado (fim da órfã subtituloPortfolio)",
+  app.includes("cp.subtituloPortfolio"));
+ok("qa/34: bloco 'como analisa' na voz do modo (fim do 'sempre de estudo' na mesa)",
+  app.includes("cp.comoAnalisaTitulo") && app.includes("cp.comoAnalisaCorpo")
+  && !app.includes("O veredito é sempre de estudo"));
+ok("qa/34: CTA de monitoramento do Radar na voz do modo",
+  app.includes("{cp.btnAddMonitor}") && app.includes("{cp.jaMonitorado}"));
+ok("qa/34: notifVarTitulo diverge entre os modos (era a única chave idêntica)",
+  COPY.estudo.notifVarTitulo("X") !== COPY.operador.notifVarTitulo("X"));
+ok("qa/34: marcaSufixo removida dos dois modos (chave órfã — modeline a substituiu)",
+  !("marcaSufixo" in COPY.estudo) && !("marcaSufixo" in COPY.operador));
+
 // ---- 3) B2: tema por modo ----------------------------------------------------
 ok("override .b3-mode-operador com verde-mercado", app.includes('accent: "#22c55e"') && app.includes("b3-mode-operador.b3-theme-dark"));
 ok("classe aplicada no html pelo appMode", app.includes('html.classList.toggle("b3-mode-operador", appMode === "operador")'));
