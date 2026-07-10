@@ -115,24 +115,30 @@ const usePalette = () => {
 // Logo do app: "mesa de operações" — candles âmbar sobre fundo escuro, com uma
 // fita (ticker tape). Mantém o fundo escuro nos dois temas (identidade de ícone).
 function LogoMark({ size = 32, radius }) {
+  // qa/mock v2: o candle+spark do logo agora seguem o ACENTO DO MODO (âmbar no
+  // Estudo, verde no Operador) — antes eram azul→ciano fixos e destoavam da
+  // paleta. usePalette() dá o hex resolvido (var(--x) não vale em SVG aqui);
+  // fundo escuro do ícone é mantido. id do gradiente único por instância.
+  const P = usePalette();
+  const gid = useMemo(() => "bolsiaLM" + Math.random().toString(36).slice(2, 7), []);
   const r = radius != null ? radius : Math.round(size * 0.26);
   const rx = (r / size) * 32;
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" fill="none" aria-hidden role="img" style={{ display: "block", flex: "none" }}>
       <defs>
-        <linearGradient id="bolsiaLM" x1="6" y1="3" x2="26" y2="29" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#3B82F6" />
-          <stop offset="1" stopColor="#22D3EE" />
+        <linearGradient id={gid} x1="6" y1="3" x2="26" y2="29" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor={P.accent} />
+          <stop offset="1" stopColor={P.accentSoft} />
         </linearGradient>
       </defs>
       <rect x="0" y="0" width="32" height="32" rx={rx} fill="#0b0e14" />
-      <rect x="0.6" y="0.6" width="30.8" height="30.8" rx={rx - 0.6} fill="none" stroke="#3B82F6" strokeOpacity="0.30" strokeWidth="1.1" />
+      <rect x="0.6" y="0.6" width="30.8" height="30.8" rx={rx - 0.6} fill="none" stroke={P.accent} strokeOpacity="0.30" strokeWidth="1.1" />
       {/* pavio do candle */}
-      <rect x="15.1" y="10.5" width="1.8" height="15" rx="0.9" fill="url(#bolsiaLM)" />
+      <rect x="15.1" y="10.5" width="1.8" height="15" rx="0.9" fill={`url(#${gid})`} />
       {/* corpo do candle */}
-      <rect x="11.6" y="14.4" width="8.8" height="9.6" rx="2.5" fill="url(#bolsiaLM)" />
+      <rect x="11.6" y="14.4" width="8.8" height="9.6" rx="2.5" fill={`url(#${gid})`} />
       {/* spark de IA na ponta */}
-      <path d="M16 3.4 C16.5 7.2 17.6 8.3 21.4 8.8 C17.6 9.3 16.5 10.4 16 14.2 C15.5 10.4 14.4 9.3 10.6 8.8 C14.4 8.3 15.5 7.2 16 3.4 Z" fill="url(#bolsiaLM)" />
+      <path d="M16 3.4 C16.5 7.2 17.6 8.3 21.4 8.8 C17.6 9.3 16.5 10.4 16 14.2 C15.5 10.4 14.4 9.3 10.6 8.8 C14.4 8.3 15.5 7.2 16 3.4 Z" fill={`url(#${gid})`} />
       <circle cx="16" cy="8.8" r="0.95" fill="#fff" fillOpacity="0.9" />
     </svg>
   );
@@ -146,7 +152,9 @@ function saveLastEmail(e) { try { const v = String(e || "").trim(); if (v) local
 const MONO = "ui-monospace,'SF Mono',Menlo,Consolas,monospace";
 const SANS = "-apple-system, system-ui, 'Segoe UI', Helvetica, Arial, sans-serif";
 // BolsIA: "IA" recebe o gradiente da marca (azul → ciano).
-const IA_GRAD = { background: "linear-gradient(135deg,#3B82F6,#22D3EE)", WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent" };
+// qa/mock v2: o "IA" do wordmark segue o ACENTO DO MODO (var(--accent) resolve
+// em CSS de elemento DOM, ao contrário de atributo SVG) — antes azul→ciano fixo.
+const IA_GRAD = { background: "linear-gradient(135deg,var(--accent),var(--accent-soft))", WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent" };
 
 const nf2 = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const price = (n) => (n == null || isNaN(n) ? "—" : nf2.format(n));
@@ -1443,7 +1451,13 @@ function EvolucaoScreen({ ctx }) {
   const ec = equityCurve(data.equitySnapshots, (data.config || {}).initialBudget, m.patr, new Date().toISOString().slice(0, 10));
   const hoje = (() => { const d = new Date(); const p2 = (n) => String(n).padStart(2, "0"); return `${p2(d.getDate())}/${p2(d.getMonth() + 1)}/${d.getFullYear()}`; })();
   const opsHoje = (data.history || []).filter((h) => String(h.date || "").startsWith(hoje));
-  const alertas = ((wlScan && wlScan.results) || []).filter((r) => (r.veredito || "").startsWith("Estudar"));
+  // qa/mock v2: o hero-carrossel mostra as MELHORES oportunidades da watchlist
+  // (qualquer setup com confluência > 0, ordenado do maior p/ o menor) — antes
+  // só entravam vereditos "Estudar", então em pregão sem gatilho o carrossel
+  // sumia. O veredito específico continua no pill de cada card.
+  const alertas = ((wlScan && wlScan.results) || [])
+    .filter((r) => (r.confluencia || 0) > 0)
+    .sort((a, b) => (b.confluencia || 0) - (a.confluencia || 0));
   const novato = (data.positions || []).length === 0 && (data.watchlist || []).length === 0;
   const it = destaque.item;
   const dColor = (m.dayVal || 0) >= 0 ? T.positive : T.negative;
