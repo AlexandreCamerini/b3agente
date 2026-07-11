@@ -39,7 +39,9 @@ ok("persistence.js expõe scan nos dois stores", scanDefs.length >= 2);
 // 4) App.jsx: aba + tela + período da config + disclaimer
 const appSrc = src("App.jsx");
 // Rodada final (autorizada): rótulo definitivo "Radar" (id preservado).
-ok("aba radar na navegação (Radar)", /\[\s*"radar",\s*"Radar"\s*\]/.test(appSrc));
+// qa/34: o rótulo da aba agora fala a língua do modo — cp.tabRadar
+// ("Radar" no Estudo × "Mesa" no Operador), com fallback "Radar".
+ok("aba radar na navegação (cp.tabRadar, fallback Radar)", /\[\s*"radar",\s*\(cp && cp\.tabRadar\) \|\| "Radar"\s*\]/.test(appSrc));
 ok("ícone radar no NavIcon", /radar:\s*<>/.test(appSrc));
 ok("RadarScreen definida", appSrc.includes("function RadarScreen"));
 ok("RadarScreen renderizada na aba", /tab === "radar" && <RadarScreen/.test(appSrc));
@@ -54,7 +56,10 @@ ok("trecho da RadarScreen localizado", radarChunk.length > 500);
 ok("RadarScreen sem linguagem imperativa", !IMPERATIVE.test(radarChunk));
 ok("confluência rotulada na tela", /CONFLU/.test(radarChunk));
 ok("veredito educacional renderizado", /r\.veredito/.test(radarChunk));
-ok("seção 'Como o Radar analisa' presente", /COMO O RADAR ANALISA/.test(radarChunk));
+// qa/34: o título e o corpo da seção vêm da fraseologia do modo
+// (comoAnalisaTitulo/comoAnalisaCorpo) — antes "COMO O RADAR ANALISA" era
+// hardcoded e o corpo ("veredito é sempre de estudo") vazava para o Operador.
+ok("seção 'Como o Radar analisa' presente (via copy.js)", /cp\.comoAnalisaTitulo/.test(radarChunk) && /cp\.comoAnalisaCorpo/.test(radarChunk));
 ok("checklist de critérios do setup na tela", /criterios/.test(radarChunk) && /Ver critérios do setup/.test(radarChunk));
 
 // BLOCO D — login persistido (e-mail lembrado + AutoFill do Chaveiro)

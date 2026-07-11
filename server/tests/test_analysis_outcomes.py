@@ -150,6 +150,95 @@ def test_compute_stats_filtra_por_modo_e_recorte_por_setup():
     assert st_all["totalAnalises"] == 3
 
 
+# ===== qa/35 (P2): expectância + calibração + CSV (puras) =====
+def _outcome_conf(resultado, r, confianca=None, recomendacao="Estudar alta"):
+    return {"resultado": resultado, "rMultiple": r, "modo": "estudo", "tipo": "n1",
+            "setup": "IFR2", "confianca": confianca, "recomendacao": recomendacao}
+
+
+def test_normalizar_confianca_escala_unica():
+    # N1 (confianca) e N2 (conviccao) caem na MESMA escala
+    assert ao.normalizar_confianca("moderada") == "moderada"
+    assert ao.normalizar_confianca("baixa") == "baixa"
+    assert ao.normalizar_confianca("Muito Alto") == "alta"
+    assert ao.normalizar_confianca("Alto") == "alta"
+    assert ao.normalizar_confianca("Médio") == "moderada"
+    assert ao.normalizar_confianca("Baixo") == "baixa"
+    assert ao.normalizar_confianca(None) is None
+    assert ao.normalizar_confianca("banana") is None
+
+
+def test_registrar_guarda_confianca_normalizada():
+    conn = _fresh_db()
+    ao.registrar(conn, ticker="PETR4", modo="estudo", tipo="n2", modelo="x", setup=None,
+                 recomendacao="Estudar alta", stop=9.0, alvo=11.0, preco=10.0,
+                 snapshot_id=None, confianca="Muito Alto", user_id=None)
+    outcomes = db.kv_get(conn, "analysisOutcomes", [], user_id=None)
+    assert outcomes[0]["confianca"] == "alta"
+    conn.close()
+
+
+def test_compute_stats_expectancia_e_profit_factor():
+    # 12 avaliadas (>= MIN_N=10): 8 ganhos de +1R, 4 perdas de -1R
+    outcomes = [_outcome_conf("alvo", 1.0) for _ in range(8)] + \
+               [_outcome_conf("stop", -1.0) for _ in range(4)]
+    st = ao.compute_stats(outcomes)
+    assert st["expectanciaInsuficiente"] is False
+    assert st["expectancia"] == round((8 - 4) / 12, 2)
+    assert st["profitFactor"] == 2.0  # 8 / |-4|
+    assert st["minN"] == ao.MIN_N
+
+
+def test_compute_stats_expectancia_n_insuficiente():
+    # 5 avaliadas (< MIN_N): nada de % enganosa — regra do produto
+    outcomes = [_outcome_conf("alvo", 1.0) for _ in range(5)]
+    st = ao.compute_stats(outcomes)
+    assert st["expectanciaInsuficiente"] is True
+    assert st["expectancia"] is None
+    assert st["profitFactor"] is None
+
+
+def test_compute_stats_profit_factor_sem_perdas_vira_inf():
+    outcomes = [_outcome_conf("alvo", 1.0) for _ in range(10)]
+    st = ao.compute_stats(outcomes)
+    assert st["profitFactor"] == "inf"  # serializável em JSON (não float inf)
+
+
+def test_compute_stats_calibracao_por_confianca_e_decisao():
+    # 10 de confiança alta (7 acertos) + 3 de baixa (célula insuficiente)
+    outcomes = [_outcome_conf("alvo" if i < 7 else "stop", 1.0 if i < 7 else -1.0, "alta")
+                for i in range(10)] + \
+               [_outcome_conf("stop", -1.0, "baixa", recomendacao="Não operar") for _ in range(3)]
+    st = ao.compute_stats(outcomes)
+    alta = st["porConfianca"]["alta"]
+    assert alta["n"] == 10 and alta["insuficiente"] is False and alta["taxaAcerto"] == 70.0
+    baixa = st["porConfianca"]["baixa"]
+    assert baixa["n"] == 3 and baixa["insuficiente"] is True and baixa["taxaAcerto"] is None
+    assert st["porDecisao"]["Estudar alta"]["n"] == 10
+    assert st["porDecisao"]["Não operar"]["insuficiente"] is True
+
+
+def test_compute_stats_sem_confianca_cai_no_bucket_sem_declaracao():
+    outcomes = [_outcome_conf("alvo", 1.0, None) for _ in range(10)]
+    st = ao.compute_stats(outcomes)
+    assert st["porConfianca"]["—"]["n"] == 10
+
+
+def test_to_csv_colunas_fixas_e_escape():
+    outcomes = [{"id": "a1", "ticker": "PETR4", "modo": "estudo", "tipo": "n1",
+                 "modelo": "prov:mod", "setup": 'IFR2 "clássico", B', "recomendacao": None,
+                 "confianca": "alta", "stopProposto": 9.0, "alvoProposto": 11.0,
+                 "precoNaAnalise": 10.0, "snapshotId": None, "criadoEm": "2026-07-10T12:00:00+00:00",
+                 "prazoPregoes": 10, "resultado": "alvo", "precoResolucao": 11.0,
+                 "rMultiple": 1.0, "resolvidoEm": "2026-07-15"}]
+    csv = ao.to_csv(outcomes)
+    linhas = csv.strip().split("\n")
+    assert linhas[0].startswith("id,ticker,modo,tipo,modelo,setup,recomendacao,confianca,")
+    assert '"IFR2 ""clássico"", B"' in linhas[1]   # vírgula+aspas escapadas
+    assert ",," in linhas[1]                        # None vira célula VAZIA (nunca inferida)
+    assert ao.to_csv([]) .startswith("id,ticker")   # só cabeçalho quando vazio
+
+
 # ===== avaliar_pendentes (fetch injetado) =====
 def test_avaliar_pendentes_atualiza_e_isola_por_escopo():
     conn = _fresh_db()

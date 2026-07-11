@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BolsIA — Fundamento × Técnica (mock v1 · GATE)</title>
+<style>
+  :root{
+    --bg:#0b0e14; --panel:#0d111a; --card:#11151c; --border:#232a35; --border2:#1b212b;
+    --txt:#e7ecf3; --txt2:#c3ccd8; --mut:#9aa6b6; --faint:#5b6675;
+    --accent:#f0b429; --accent-soft:#ffd873; --on-accent:#20160a;
+    --tint:rgba(240,180,41,.14); --tint10:rgba(240,180,41,.10);
+    --pos:#34d399; --neg:#fb7185;
+    --mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+  }
+  body.opr{
+    --accent:#22c55e; --accent-soft:#86efac; --on-accent:#04170b;
+    --tint:rgba(34,197,94,.14); --tint10:rgba(34,197,94,.10);
+    --bg:#0a0d10; --panel:#0d1216; --card:#10161a; --border:#1e2a30; --border2:#182126;
+    --pos:#22c55e; --neg:#ef4444;
+  }
+  *{box-sizing:border-box;margin:0}
+  body{background:var(--bg);color:var(--txt);font-family:-apple-system,system-ui,'Segoe UI',sans-serif;
+    max-width:560px;margin:0 auto;padding:0 16px 60px}
+  .frise{height:3px;background:linear-gradient(90deg,var(--accent),var(--accent-soft));margin:0 -16px}
+  h1{font-size:19px;margin:18px 0 4px}
+  .sub{color:var(--mut);font-size:12.5px;line-height:1.55;max-width:520px}
+  .gate{margin:14px 0;padding:12px 14px;border:1px dashed var(--accent);border-radius:12px;
+    background:var(--tint10);font-size:12px;color:var(--txt2);line-height:1.55}
+  .seg{display:flex;gap:6px;margin:16px 0;background:var(--panel);border:1px solid var(--border);
+    border-radius:999px;padding:4px;width:max-content}
+  .seg button{border:none;background:transparent;color:var(--mut);font-weight:800;font-size:11px;
+    letter-spacing:.05em;padding:7px 14px;border-radius:999px;cursor:pointer}
+  .seg button.on{background:var(--accent);color:var(--on-accent)}
+  .kicker{font-size:10.5px;font-weight:800;letter-spacing:.06em;color:var(--faint);margin:22px 0 8px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:15px 16px;margin-bottom:12px;
+    box-shadow:0 1px 0 rgba(255,255,255,.03),0 8px 24px -12px rgba(0,0,0,.5)}
+  .row{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+  .tk{font-family:var(--mono);font-weight:800;font-size:16px}
+  .mut{color:var(--mut);font-size:11.5px} .faint{color:var(--faint)}
+  .px{font-family:var(--mono);text-align:right}
+  .px .p{font-size:16px;font-weight:700} .px .v{font-size:12px;font-weight:700;color:var(--pos)}
+  .pills{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-top:10px}
+  .pill{padding:5px 11px;border-radius:999px;font-size:11px;font-weight:800}
+  .pill.dec{background:rgba(52,211,153,.15);color:var(--pos)}
+  .pill.conf{border:1px solid var(--border);color:var(--mut);font-size:10px;letter-spacing:.04em;background:transparent}
+  /* chip de FUNDAMENTO — a novidade deste mock */
+  .fchip{display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:7px;
+    font-size:10px;font-weight:800;letter-spacing:.04em;border:1px solid var(--border)}
+  .fchip b{font-family:var(--mono);font-size:11px}
+  .fA{color:var(--pos);border-color:var(--pos)} .fB{color:var(--accent);border-color:var(--accent)}
+  .fC{color:var(--neg);border-color:var(--neg)} .fND{color:var(--faint)}
+  .leitura{margin-top:9px;font-size:11.5px;color:var(--mut);line-height:1.5}
+  .rebaixo{margin-top:8px;padding:9px 11px;border-radius:9px;background:var(--tint10);
+    border-left:3px solid var(--accent);font-size:11px;color:var(--txt2);line-height:1.5}
+  table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px}
+  td{padding:5px 0;border-top:1px solid var(--border2);color:var(--mut)}
+  td.v{font-family:var(--mono);text-align:right;color:var(--txt2);font-weight:700}
+  td.nd{text-align:right;color:var(--faint);font-style:italic}
+  .note{font-size:10.5px;color:var(--faint);line-height:1.5;margin-top:10px}
+  .principio{display:flex;gap:9px;font-size:12px;color:var(--txt2);line-height:1.5;padding:7px 0;border-top:1px solid var(--border2)}
+  .principio b{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="frise"></div>
+<h1>Fundamento × Técnica — mock do GATE (F10.2)</h1>
+<p class="sub">Como o fundamento entra <b>sem violar os princípios da mesa</b>: filtro de qualidade e contexto — nunca gatilho de timing. Nada disto está no app; implementação só após o OK.</p>
+
+<div class="gate">⚠ <b>GATE DE APROVAÇÃO</b> · O spike (qa/35) já provou a fonte: brapi.dev free entrega os módulos completos SÓ nos 4 tickers de teste; para o universo (~100), a recomendação da pesquisa é <b>bolsai free (200 req/dia) como fonte primária</b> + brapi como complemento. Score calculado em Python (fundamentals.py, já com guardião) — a LLM não calcula nada.</div>
+
+<div class="seg"><button class="on" onclick="mode(false,this)">MODO ESTUDO</button><button onclick="mode(true,this)">MODO OPERADOR</button></div>
+
+<div class="kicker">1 · CARD DO RADAR — chip de score (única mudança no card)</div>
+<div class="card">
+  <div class="row">
+    <div>
+      <div class="tk">PETR4</div>
+      <div class="mut">248 candles no período</div>
+    </div>
+    <div class="px"><div class="p">R$ 39,64</div><div class="v">+2,1% no período</div></div>
+  </div>
+  <div class="pills">
+    <span class="pill dec">▲ Estudar alta</span>
+    <span class="pill conf">confiança MODERADA</span>
+    <span class="fchip fA">FUNDAMENTO <b>A</b></span>
+    <span class="mut">IFR2 · 5/7 critérios</span>
+  </div>
+  <div class="leitura">IFR2 com gatilho em R$ 40,10, invalidação em R$ 38,60. Fundamento sólido (P/L 4,8 · ROE 24% · dívida 2,9× EBITDA).</div>
+  <div class="note">O chip abre a seção completa (bloco 3). Ticker sem cobertura → <span class="fchip fND">FUNDAMENTO <b>—</b></span> sem dado, sem penalização.</div>
+</div>
+
+<div class="kicker">2 · REBAIXAMENTO OBJETIVO — quando técnica e fundamento divergem</div>
+<div class="card">
+  <div class="row">
+    <div>
+      <div class="tk">MGLU3</div>
+      <div class="mut">251 candles no período</div>
+    </div>
+    <div class="px"><div class="p">R$ 11,02</div><div class="v" style="color:var(--neg)">−1,4% no período</div></div>
+  </div>
+  <div class="pills">
+    <span class="pill dec">▲ Estudar alta</span>
+    <span class="pill conf" style="text-decoration:line-through;opacity:.6">confiança ALTA</span>
+    <span class="pill conf">confiança MODERADA ↓</span>
+    <span class="fchip fC">FUNDAMENTO <b>C</b></span>
+  </div>
+  <div class="rebaixo"><b>Regra objetiva (sem exceção):</b> decisão técnica operável + score C ⇒ a confiança declarada desce <b>1 degrau</b> (alta→moderada→baixa), com esta linha explicando o porquê. Score B: sem efeito. Score A: <b>não sobe</b> a confiança — fundamento só filtra para baixo, nunca empurra para cima (não é gatilho). O plano técnico (gatilho/stop/alvo/R:R) <b>não muda nada</b>.</div>
+</div>
+
+<div class="kicker">3 · SEÇÃO "FUNDAMENTO" NO N2 (Aprofundar / Plano da mesa)</div>
+<div class="card">
+  <div class="row"><div class="tk">ITUB4 <span class="fchip fA" style="margin-left:6px">FUNDAMENTO <b>A</b></span></div><div class="mut">ref. 1T26 · fonte: bolsai/brapi</div></div>
+  <table>
+    <tr><td>P/L</td><td class="v">11,2</td></tr>
+    <tr><td>ROE</td><td class="v">22,4%</td></tr>
+    <tr><td>Dividend yield</td><td class="v">8,0%</td></tr>
+    <tr><td>Margem líquida</td><td class="v">12,1%</td></tr>
+    <tr><td>Dívida/EBITDA</td><td class="nd">sem dado (financeira)</td></tr>
+    <tr><td>Crescimento receita (a/a)</td><td class="v">+4,1%</td></tr>
+  </table>
+  <div class="note">Célula sem dado fica "sem dado" — nunca inferência. Pilar sem dado não pontua nem penaliza o score. Dados trimestrais, cache de 7 dias no servidor.</div>
+</div>
+
+<div class="kicker">PRINCÍPIOS (invariantes — valem nos 2 modos)</div>
+<div class="card">
+  <div class="principio" style="border-top:none"><span>1.</span><span><b>Técnica manda no plano.</b> Gatilho, stop, alvo e R:R mínimo 1,5:1 vêm SÓ do setup técnico. Fundamento nunca cria nem antecipa entrada.</span></div>
+  <div class="principio"><span>2.</span><span><b>Fundamento = filtro de qualidade.</b> Score A/B/C por 3 pilares objetivos: valuation (P/L 0–20), rentabilidade (ROE ≥ 10% e margem &gt; 0), solidez (dívida/EBITDA ≤ 3).</span></div>
+  <div class="principio"><span>3.</span><span><b>Só rebaixa, nunca promove.</b> Score C rebaixa a confiança 1 degrau com aviso explícito; A não sobe nada.</span></div>
+  <div class="principio"><span>4.</span><span><b>Sem dado ≠ dado ruim.</b> Fonte indisponível = "sem dado", sem penalização e sem inferência.</span></div>
+  <div class="principio"><span>5.</span><span>"Não operar também é posição" e os disclaimers por modo continuam intactos.</span></div>
+</div>
+
+<script>
+function mode(opr, btn){
+  document.body.classList.toggle('opr', opr);
+  document.querySelectorAll('.seg button').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  // fraseologia por modo (amostra)
+  document.querySelectorAll('.pill.dec').forEach(p=>{ p.textContent = opr ? '▲ COMPRAR — no rompimento' : '▲ Estudar alta'; });
+}
+</script>
+</body>
+</html>
