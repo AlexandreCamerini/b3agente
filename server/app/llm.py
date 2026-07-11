@@ -78,6 +78,10 @@ FORMAT = "\n".join([
     '  "stopSugerido": 0.0,',
     '  "alvoSugerido": 0.0',
     "}",
+    # qa/39 (P1-2): teto de confiança também NO CONTRATO (o servidor impõe
+    # pós-resposta; pedir no prompt reduz retrabalho e explica o porquê).
+    "Sem 2º timeframe nos dados (dataQuality.multiTimeframe=false), o valor",
+    "maximo permitido de `conviccao` e 'Médio' — declare essa limitacao no corpo.",
     "O campo `recomendacao` NAO e recomendacao de investimento; e um PLANO EDUCACIONAL",
     "para estudo no simulador. Nao use 'comprar' ou 'vender'.",
     "O campo `corpo` e a analise em MARKDOWN (titulos, negrito, listas) — sera",
@@ -311,7 +315,23 @@ async def analyze_structured(config: dict, skill: dict, profile: dict, account: 
     raw = await _call_llm(config, key, system, user, 1800)
     if not raw:
         raise RuntimeError("A LLM nao retornou texto.")
-    return parse_rich(raw)
+    r = parse_rich(raw)
+    k = (r.get("kpis") or {}) if isinstance(r, dict) else {}
+    # qa/39 (P1-1): vocabulário da MESA no N2 operador — a normalização
+    # educacional do kpi.py reescrevia COMPRAR→"Estudar alta" e derrubava
+    # "AGUARDAR CONFIRMAÇÃO"; o FORMAT_PRO pedia o enum da mesa mas a decisão
+    # nunca chegava à UI (que já tem estilo pronto p/ esses valores).
+    if operador and k.get("recomendacao"):
+        _PRO = {"Estudar alta": "COMPRAR", "Estudar baixa": "VENDER",
+                "Aguardar": "AGUARDAR CONFIRMAÇÃO", "Monitorar": "AGUARDAR CONFIRMAÇÃO",
+                "Não operar": "NÃO OPERAR", "Reduzir risco": "Reduzir risco"}
+        k["recomendacao"] = _PRO.get(k["recomendacao"], "AGUARDAR CONFIRMAÇÃO")
+    # qa/39 (P1-2): teto de confiança IMPOSTO no N2 (o N1 já impunha na l.~597;
+    # aqui só o prompt pedia). Sem 2º timeframe, conviccao máxima = Médio.
+    if k.get("conviccao") in ("Muito Alto", "Alto") and not (
+            (context.get("dataQuality") or {}).get("multiTimeframe")):
+        k["conviccao"] = "Médio"
+    return r
 
 async def analyze(config: dict, skill: dict, profile: dict, account: dict, ticker: str, quote: dict, history: dict):
     key = resolve_key(config)
@@ -580,7 +600,10 @@ async def analyze_deep(config: dict, profile: dict, ticker: str, context: dict, 
         raise RuntimeError("A LLM nao retornou texto.")
     data = _parse_json_loose(raw)
     if not isinstance(data, dict):
-        return _deep_fallback(raw)
+        # qa/39: o fallback também passa pela validação por MODO — antes ele
+        # retornava direto e, no operador, entregava "Monitorar" (vocabulário
+        # de estudo) sem passar pelo enum PRO.
+        data = _deep_fallback(raw)
     data.setdefault("modelosUtilizados", [])
     # FASE 8B (B3): validação do rótulo por MODO — mesa usa decisões diretas;
     # estudo mantém o vocabulário educacional. Valor fora do conjunto vira o
@@ -594,7 +617,9 @@ async def analyze_deep(config: dict, profile: dict, ticker: str, context: dict, 
         if data.get("planoEstudo") not in ("Estudar alta", "Estudar baixa", "Monitorar", "Aguardar", "Não operar"):
             data["planoEstudo"] = "Monitorar"
     conf = str(data.get("confianca") or "").lower()
-    data["confianca"] = conf if conf in ("baixa", "moderada") else "moderada"  # teto sem 2º timeframe
+    # qa/39: default seguro é "baixa" — valor ausente/inválido caía em
+    # "moderada", transformando o TETO em PISO de confiança.
+    data["confianca"] = conf if conf in ("baixa", "moderada") else "baixa"
     return data
 
 
@@ -655,6 +680,7 @@ def parse_carteira(raw: str, ticker: str) -> dict:
     # FASE 1 (N3): cenários estruturados conservador/moderado/agressivo com
     # memória de cálculo — a UI pré-preenche com 1 toque; usuário SEMPRE confirma.
     cenarios = []
+    preco_ref = _num(chosen.get("precoAtual"))
     for c in (chosen.get("cenarios") or []):
         if not isinstance(c, dict):
             continue
@@ -664,12 +690,20 @@ def parse_carteira(raw: str, ticker: str) -> dict:
         cs, ca = _num(c.get("stop")), _num(c.get("alvo"))
         if cs is None and ca is None:
             continue
+        # qa/39 (P1-3): R:R RECOMPUTADO com os números devolvidos — o modelo
+        # podia declarar "2,0" com stop/alvo que dão 1,0 e passar limpo pelo
+        # gate. |alvo−preço| / |preço−stop| vale para os dois lados (a venda
+        # tem stop acima e alvo abaixo). Sem os 3 números, cai no declarado.
+        rr_calc = None
+        if preco_ref is not None and cs is not None and ca is not None and preco_ref != cs:
+            rr_calc = round(abs(ca - preco_ref) / abs(preco_ref - cs), 2)
+        rr_final = rr_calc if rr_calc is not None else _num(c.get("riscoRetorno"))
         cenarios.append({
             "perfil": perfil, "stop": cs, "alvo": ca,
-            "riscoRetorno": _num(c.get("riscoRetorno")),
+            "riscoRetorno": rr_final,
             "memoriaCalculo": str(c.get("memoriaCalculo") or ""),
             "rrDesfavoravel": bool(c.get("rrDesfavoravel")) or (
-                c.get("riscoRetorno") is not None and _num(c.get("riscoRetorno")) is not None and _num(c.get("riscoRetorno")) < 1.5
+                rr_final is not None and rr_final < 1.5
             ),
         })
     modelos = [m for m in (chosen.get("modelosUtilizados") or []) if isinstance(m, dict)]
@@ -717,8 +751,11 @@ async def analyze_carteira(config: dict, profile: dict, account: dict, ticker: s
     # FASE 8B (B4/N3): no modo OPERADOR o prompt configurável do usuário ganha
     # a camada de MESA por cima (tom direto + conclusões canônicas + limites) —
     # o formato do array por ativo NÃO muda (o popup já parseia).
+    # qa/39 (P1-4): o modo ESTUDO também ganha a camada de guardrails do
+    # SERVIDOR — antes o system era só o prompt salvo (editável pelo usuário):
+    # em conta gerenciada, o floor regulatório inteiro ficava apagável.
     voz = ("\n\n" + GUARDRAILS_PRO + "\nFale como mesa de operações: stop na invalidação técnica, "
-           "alvos com R:R explícito e uma linha de racional por número.") if is_operador(config) else ""
+           "alvos com R:R explícito e uma linha de racional por número.") if is_operador(config) else ("\n\n" + GUARDRAILS)
     system = instruction + voz + ((("\n\n" + pl)) if pl else "") + cenarios_ext + (
         "\n\nResponda SOMENTE com o array JSON especificado, sem texto fora dele e sem cercas ```."
     )

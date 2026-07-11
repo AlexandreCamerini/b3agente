@@ -262,6 +262,10 @@ def _avaliar_entry(entry: dict, candles: list) -> Optional[dict]:
             break
     if resultado is None:
         c = janela[prazo - 1]
+        # qa/39: candle de expiração sem close (dado sujo) → mantém pendente
+        # (o loop de stop/alvo já protege high/low; este ramo não protegia).
+        if c.get("close") is None:
+            return None
         fechou_a_favor = (c["close"] >= preco0) == lado_compra
         resultado = "expirou_pos" if fechou_a_favor else "expirou_neg"
         preco_resolucao, resolvido_em = c["close"], c["date"]
