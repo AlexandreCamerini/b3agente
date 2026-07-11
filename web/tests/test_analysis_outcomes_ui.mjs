@@ -99,6 +99,12 @@ await (async () => {
   assert.ok(/CALIBRAÇÃO DA CONFIANÇA/.test(src) && /efic\.porConfianca/.test(src), "camada (c): calibração na tela");
   assert.ok(/efic\.porDecisao/.test(src), "camada (c): recorte por decisão na tela");
   assert.ok(/n insuficiente/.test(src) && /insuficiente\b/.test(src), "régua de amostra mínima visível");
+  // qa/35-fix: os cards aparecem já com totalAnalises>0 (mostrando "aguardando
+  // o prazo"), NÃO só quando avaliadas>0 — senão somem inteiros por 10 pregões.
+  const expBloco = src.slice(src.indexOf("qa/35 (P2a): EXPECTÂNCIA"), src.indexOf("qa/35 (P2): export CSV do registro bruto"));
+  assert.ok(!/efic\.avaliadas > 0 &&/.test(expBloco), "expectância/calibração NÃO podem gate em avaliadas>0 (some por 10 pregões)");
+  assert.ok((expBloco.match(/efic\.totalAnalises > 0 &&/g) || []).length >= 2, "expectância e calibração gate em totalAnalises>0");
+  assert.ok(/Aguardando o prazo/.test(expBloco), "aviso de prazo enquanto avaliadas===0");
   assert.ok(/Exportar CSV/.test(src) && /store\.analysisOutcomesCsv\(\)/.test(src), "botão de export ligado no store");
   ok("qa/35: painel exibe expectância + calibração + export, com n mínimo");
 })();
