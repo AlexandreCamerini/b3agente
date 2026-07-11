@@ -3046,12 +3046,15 @@ function EficienciaIAScreen({ ctx }) {
       </div>
 
       {/* qa/35 (P2a): EXPECTÂNCIA — a vantagem esperada por análise, em R.
-          Cálculo 100% no servidor (analysis_outcomes.compute_stats). */}
-      {efic && efic.avaliadas > 0 && (
+          Cálculo 100% no servidor (analysis_outcomes.compute_stats).
+          qa/35-fix: gate por totalAnalises (não avaliadas) — o card precisa
+          aparecer JÁ com "n insuficiente" enquanto as análises não resolvem
+          (10 pregões); antes sumia inteiro e parecia feature faltando. */}
+      {efic && efic.totalAnalises > 0 && (
         <div style={{ marginTop: "14px", ...card, padding: "14px 16px" }}>
           <div style={{ fontSize: "11px", fontWeight: 800, color: T.textSecondary, letterSpacing: "0.05em", marginBottom: "9px" }}>EXPECTÂNCIA</div>
           {efic.expectanciaInsuficiente ? (
-            <div style={{ fontSize: "11.5px", color: T.textFaint, lineHeight: 1.5 }}>n insuficiente — expectância e profit factor aparecem a partir de {efic.minN || 10} análises avaliadas (hoje: {efic.avaliadas}).</div>
+            <div style={{ fontSize: "11.5px", color: T.textFaint, lineHeight: 1.5 }}>{efic.avaliadas === 0 ? `Aguardando o prazo — expectância e profit factor aparecem quando ${efic.minN || 10} análises completarem os 10 pregões (avaliadas até agora: 0).` : `n insuficiente — expectância e profit factor aparecem a partir de ${efic.minN || 10} análises avaliadas (hoje: ${efic.avaliadas}).`}</div>
           ) : (
             <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
               <div style={{ flex: "1 1 110px", minWidth: "100px" }}>
@@ -3068,17 +3071,25 @@ function EficienciaIAScreen({ ctx }) {
       )}
 
       {/* qa/35 (P2c): CALIBRAÇÃO — a confiança que a IA declarou bate com o
-          acerto real? Cada célula respeita o n mínimo do servidor. */}
-      {efic && efic.avaliadas > 0 && (
+          acerto real? Cada célula respeita o n mínimo do servidor.
+          qa/35-fix: idem — gate por totalAnalises, com aviso de prazo quando
+          nada resolveu ainda. */}
+      {efic && efic.totalAnalises > 0 && (
         <div style={{ marginTop: "14px", ...card, padding: "14px 16px" }}>
           <div style={{ fontSize: "11px", fontWeight: 800, color: T.textSecondary, letterSpacing: "0.05em", marginBottom: "6px" }}>CALIBRAÇÃO DA CONFIANÇA</div>
           <p style={{ margin: "0 0 8px", fontSize: "11px", color: T.textFaint, lineHeight: 1.5 }}>Acerto real por confiança declarada — se "alta" não acerta mais que "baixa", a confiança da IA está descalibrada.</p>
-          {["alta", "moderada", "baixa", "—"].filter((k) => efic.porConfianca && efic.porConfianca[k]).map((k) => celula(k === "—" ? "sem declaração" : "confiança " + k, efic.porConfianca[k]))}
-          {efic.porDecisao && Object.keys(efic.porDecisao).length > 0 && (
-            <div style={{ marginTop: "10px", paddingTop: "9px", borderTop: `1px solid ${T.borderFaint}` }}>
-              <div style={{ fontSize: "10px", fontWeight: 800, color: T.textFaint, letterSpacing: "0.05em", marginBottom: "4px" }}>POR DECISÃO</div>
-              {Object.entries(efic.porDecisao).map(([k, c]) => celula(k, c))}
-            </div>
+          {efic.avaliadas === 0 ? (
+            <div style={{ fontSize: "11.5px", color: T.textFaint, lineHeight: 1.5 }}>Aguardando o prazo — a calibração aparece conforme as análises completam os 10 pregões.</div>
+          ) : (
+            <>
+              {["alta", "moderada", "baixa", "—"].filter((k) => efic.porConfianca && efic.porConfianca[k]).map((k) => celula(k === "—" ? "sem declaração" : "confiança " + k, efic.porConfianca[k]))}
+              {efic.porDecisao && Object.keys(efic.porDecisao).length > 0 && (
+                <div style={{ marginTop: "10px", paddingTop: "9px", borderTop: `1px solid ${T.borderFaint}` }}>
+                  <div style={{ fontSize: "10px", fontWeight: 800, color: T.textFaint, letterSpacing: "0.05em", marginBottom: "4px" }}>POR DECISÃO</div>
+                  {Object.entries(efic.porDecisao).map(([k, c]) => celula(k, c))}
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
