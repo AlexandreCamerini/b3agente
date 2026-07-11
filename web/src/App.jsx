@@ -826,6 +826,13 @@ function comprasDaPosicao(history, t) {
   return qty > 0 ? compras : [];
 }
 
+// qa/40: rótulo de decisão por MODO — o `veredito` do scanner é vocabulário
+// de ESTUDO por construção ("Estudar alta/baixa"); na MESA a decisão exibida
+// vem do PLANO determinístico (COMPRAR/VENDER/AGUARDAR CONFIRMAÇÃO/NÃO
+// OPERAR), que o scan sempre anexa. Fallback: o próprio veredito.
+const decisaoDoModo = (item, operador) =>
+  (operador && item && item.plano && item.plano.decisao) ? item.plano.decisao : (item || {}).veredito;
+
 const REC_STYLE = {
   "Estudar alta": [T.positive, T.positiveTint10],
   "Estudar baixa": [T.negative, T.negativeTint10],
@@ -1512,6 +1519,7 @@ function EvolucaoScreen({ ctx }) {
   // STU + finance.js), operações de hoje, alertas de setups na watchlist e o
   // destaque de oportunidade (1 leitura N1/dia autorizada, cache por snapshot).
   const { data, quotes, A, wlScan, destaque, cp } = ctx;   // FASE 8B (B1)
+  const operador = (data.config && data.config.appMode) === "operador"; // qa/40: pill de decisão por modo
   const name = ((data.config && data.config.userName) || "").trim().split(/\s+/)[0] || "";
   const streak = (data.config && data.config.streak && data.config.streak.days) || 0;
   const [deepOpen, setDeepOpen] = useState(false);
@@ -1559,7 +1567,7 @@ function EvolucaoScreen({ ctx }) {
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
                       <span style={{ fontFamily: MONO, fontWeight: 800, fontSize: "16px", color: T.textPrimary }}>{r.ticker}</span>
-                      <span style={{ padding: "3px 9px", borderRadius: "999px", background: T.accentTint10, color: (REC_STYLE[r.veredito] || [T.textMuted])[0], fontSize: "11px", fontWeight: 800 }}>{r.veredito}</span>
+                      <span style={{ padding: "3px 9px", borderRadius: "999px", background: T.accentTint10, color: (REC_STYLE[decisaoDoModo(r, operador)] || [T.textMuted])[0], fontSize: "11px", fontWeight: 800 }}>{decisaoDoModo(r, operador)}</span>
                     </div>
                     <div style={{ fontSize: "12px", color: T.textMuted, marginTop: "6px", lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.melhorSetup || "Setup técnico"}</div>
                   </div>
@@ -1622,7 +1630,7 @@ function EvolucaoScreen({ ctx }) {
             <>
               <div style={{ display: "flex", alignItems: "center", gap: "9px", flexWrap: "wrap", marginTop: "9px" }}>
                 <span style={{ fontFamily: MONO, fontWeight: 800, fontSize: "17px" }}>{it.ticker}</span>
-                <span style={{ padding: "4px 10px", borderRadius: "999px", background: (REC_STYLE[it.veredito] || [T.textMuted, T.bgBase])[1], color: (REC_STYLE[it.veredito] || [T.textMuted])[0], fontSize: "11px", fontWeight: 800 }}>{it.veredito}</span>
+                <span style={{ padding: "4px 10px", borderRadius: "999px", background: (REC_STYLE[decisaoDoModo(it, operador)] || [T.textMuted, T.bgBase])[1], color: (REC_STYLE[decisaoDoModo(it, operador)] || [T.textMuted])[0], fontSize: "11px", fontWeight: 800 }}>{decisaoDoModo(it, operador)}</span>
                 <span style={{ fontSize: "11.5px", color: T.textMuted }}>{it.melhorSetup || ""} · <b style={{ fontFamily: MONO }}>{it.confluencia}%</b></span>
                 {/* qa/35 (P1): snapshotId REMOVIDO das telas de consumo — o hash
                     técnico vazava cru pro usuário; rastreabilidade agora só em
@@ -2015,6 +2023,7 @@ function MercadoScreen({ ctx }) {
   // direção; histórico de operações por ativo (formatos a+b no card, c no
   // detalhe expandido). A análise N2 segue abrindo como detalhe do card.
   const { data, quotes, analysis, expanded, analysisModel, setAnalysisModel, A, quotesAt, quotesLoading, wlScan, wlScanLoading, cp } = ctx;
+  const operador = (data.config && data.config.appMode) === "operador"; // qa/40: pill de decisão por modo
   const [dirFilter, setDirFilter] = useState("todos");   // todos | alta | baixa | neutro
   const [opsOpen, setOpsOpen] = useState({});            // ticker -> histórico aberto
   const [sparks, setSparks] = useState({});              // ticker -> candles (lazy)
@@ -2105,7 +2114,8 @@ function MercadoScreen({ ctx }) {
           // FASE 2 (2.3): dados de oportunidade do STU + histórico do ativo
           const sc = scanBy[t];
           const [tierDot, tierLabel] = tierOf(sc && sc.confluencia);
-          const [vColor, vBg] = REC_STYLE[(sc || {}).veredito] || [T.textMuted, T.bgBase];
+          const rotuloDec = decisaoDoModo(sc, operador); // qa/40: mesa mostra a decisão do plano
+          const [vColor, vBg] = REC_STYLE[rotuloDec] || [T.textMuted, T.bgBase];
           const melhorSet = sc && (sc.setups || [])[0];
           const buyMeta = sc ? {
             setup: sc.melhorSetup || undefined, veredito: sc.veredito, confluencia: sc.confluencia,
@@ -2148,7 +2158,7 @@ function MercadoScreen({ ctx }) {
               {/* FASE 2 (2.3): flag de oportunidade explícita + estado no funil */}
               <div style={{ display: "flex", alignItems: "center", gap: "7px", flexWrap: "wrap", marginTop: "10px" }}>
                 <span style={{ padding: "4px 10px", borderRadius: "999px", background: T.bgBase, border: `1px solid ${T.borderSubtle}`, fontSize: "11px", fontWeight: 800, color: T.textSecondary }}>{tierDot} {tierLabel}{sc ? " · " + (sc.confluencia || 0) + "%" : ""}</span>
-                {sc && sc.veredito && <span style={{ padding: "4px 10px", borderRadius: "999px", background: vBg, color: vColor, fontSize: "11px", fontWeight: 800 }}>{sc.veredito}</span>}
+                {rotuloDec && <span style={{ padding: "4px 10px", borderRadius: "999px", background: vBg, color: vColor, fontSize: "11px", fontWeight: 800 }}>{rotuloDec}</span>}
                 {sc && sc.melhorSetup && <span style={{ fontSize: "11px", color: T.textMuted }}>{sc.melhorSetup}</span>}
               </div>
               {/* FASE 2 (2.3a): linha-resumo do histórico de operações do ativo */}
@@ -3914,7 +3924,9 @@ function RadarScreen({ ctx }) {
                 {plano ? (
                   <span style={{ padding: "5px 11px", borderRadius: "999px", background: opStyle[1], color: opStyle[0], fontSize: "11.5px", fontWeight: 800 }}>{opStyle[2]}{plano.decisao}</span>
                 ) : (
-                  <span style={{ padding: "5px 11px", borderRadius: "999px", background: vBg, color: vColor, fontSize: "11.5px", fontWeight: 800 }}>{r.veredito}</span>
+                  // qa/40: fallback também passa pelo helper — se um resultado
+                  // antigo em cache vier sem `plano`, a mesa não vê "Estudar alta".
+                  <span style={{ padding: "5px 11px", borderRadius: "999px", background: vBg, color: vColor, fontSize: "11.5px", fontWeight: 800 }}>{decisaoDoModo(r, operador)}</span>
                 )}
                 {/* qa/34 (P3): pill de confiança (tierOf) ao lado da decisão, como no
                     mock modo-operador.html ("confiança MODERADA"). */}

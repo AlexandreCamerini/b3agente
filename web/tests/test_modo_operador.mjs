@@ -56,7 +56,12 @@ ok("versão do termo é fonte única (disclaimers.js)", disc.includes('TERMO_OPE
 // ---- 4) Radar: plano gated pelo modo; Estudo intocado -----------------------
 ok("plano só no modo operador", app.includes('const operador = (data.config && data.config.appMode) === "operador";') && app.includes("const plano = operador ? r.plano : null;"));
 ok("decisões coloridas (COMPRAR/VENDER/AGUARDAR)", app.includes('"COMPRAR": [T.positive') && app.includes('"VENDER": [T.negative') && app.includes('"AGUARDAR CONFIRMAÇÃO": [T.accent'));
-ok("veredito educacional segue no ramo estudo", /plano \? \(\s*<span[^]*?\) : \(\s*<span[^]*?\{r\.veredito\}/.test(app));
+// qa/40: o fallback passou a usar decisaoDoModo(r, operador) — no ESTUDO o
+// helper devolve exatamente r.veredito (comportamento preservado); na mesa,
+// se um cache antigo vier sem plano, devolve a decisão em vez de "Estudar alta".
+ok("veredito educacional segue no ramo estudo (via decisaoDoModo)",
+  /plano \? \(\s*<span[^]*?\) : \([^]*?\{decisaoDoModo\(r, operador\)\}/.test(app)
+  && /\(operador && item && item\.plano && item\.plano\.decisao\) \? item\.plano\.decisao : \(item \|\| \{\}\)\.veredito/.test(app));
 ok("stop rotulado como invalidação do setup", app.includes("Stop (invalidação do setup)"));
 ok("sizing usa capital real OU simulado com aviso", app.includes("capital simulado — defina o real na Config"));
 ok("disclaimer da persona no modo operador", app.includes('=== "operador" ? DISCLAIMERS.operador : DISCLAIMERS.radar'));
