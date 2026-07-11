@@ -117,10 +117,18 @@ chamado — não explodiu).
 rede — fixture do payload real) inclui `test_spike_nao_esta_integrado`, que
 FALHA se scanner/llm/scan_deep/setups importarem `fundamentals` antes do OK.
 
-**Decisões pendentes do gate (F10.2):** (i) aprovar o desenho do mock;
-(ii) fonte primária: bolsai free (recomendado — exige conta) × só brapi
-(4 tickers) × brapi Pro pago; (iii) opções: fica fora por ora (COTAHIST é
-EOD e sem IV) ou entra como fase própria.
+**Decisões do gate (Alex, 10/07/2026 via AskUserQuestion):**
+1. **Mock APROVADO** — F10.2 implementa exatamente o desenho (chip A/B/C,
+   seção Fundamento no N2, rebaixamento de 1 degrau quando score C,
+   fundamento nunca promove nem toca o plano técnico). O guardião
+   anti-integração sai junto com a implementação.
+2. **Fonte primária: bolsai free** (usebolsai.com, 200 req/dia) para o
+   universo; brapi como complemento (4 tickers completos + proventos).
+   **Pré-requisito da F10.2: o Alex precisa criar a conta/chave na bolsai**
+   (login Google em usebolsai.com) e passar a chave via env do Railway
+   (`BOLSAI_API_KEY`) — nunca no código.
+3. **Opções B3: FORA por ora** — caminho pago documentado aqui (brapi Pro
+   é o mais simples se/quando entrar).
 
 ## Validação
 
