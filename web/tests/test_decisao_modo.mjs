@@ -39,5 +39,13 @@ ok("KpiBlock é mode-aware (rótulo por modo)",
 ok("KpiBlock recebe operador do MercadoScreen",
   /<KpiBlock kpis=\{an\.kpis\} operador=\{operador\}/.test(app));
 
+// qa/40: o VALOR da decisão no KpiBlock também é mapeado no render (cache antigo
+// de estudo → mesa), não só o rótulo. Reporte do Alex: "no DECISÃO DA MESA
+// está estudar baixa".
+ok("recDoModo mapeia estudo→mesa no render", /recDoModo = \(rec, operador\) =>/.test(app)
+  && /REC_PRO_MAP = \{/.test(app) && /"Estudar baixa": "VENDER"/.test(app));
+ok("KpiBlock exibe rec mapeado (não kpis.recomendacao cru)",
+  /const rec = recDoModo\(kpis\.recomendacao, operador\)/.test(app) && /fontSize: "14px", color: recColor \}\}>\{rec\}</.test(app));
+
 console.log(fails ? `\n${fails} falha(s)` : "\ntodos os testes passaram");
 process.exit(fails ? 1 : 0);
