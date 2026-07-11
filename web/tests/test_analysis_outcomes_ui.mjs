@@ -63,4 +63,54 @@ await (async () => {
   ok("wiring: ObservabilidadeScreen carrega e exibe a eficiência da IA");
 })();
 
+// ===== qa/35 (P2): expectância + calibração + export CSV =====
+
+// 5) analysisOutcomesCsv é GET em /export.csv e devolve TEXTO cru (não JSON).
+await (async () => {
+  let captured = null;
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url, opts) => {
+    captured = { url: String(url), method: (opts && opts.method) || "GET" };
+    return { ok: true, status: 200, headers: { get: () => "text/csv" }, text: async () => "id,ticker\na1,PETR4\n" };
+  };
+  try {
+    const csv = await api.analysisOutcomesCsv();
+    assert.equal(captured.method, "GET");
+    assert.ok(captured.url.includes("/api/analysis-outcomes/export.csv"), "rota do export");
+    assert.ok(csv.startsWith("id,ticker"), "devolve o texto do CSV, sem parse JSON");
+  } finally { globalThis.fetch = realFetch; }
+  ok("qa/35: export CSV via GET /api/analysis-outcomes/export.csv (texto)");
+})();
+
+// 6) paridade dos stores para o CSV.
+await (async () => {
+  const src = readFileSync(new URL("../src/persistence.js", import.meta.url), "utf8");
+  const hits = (src.match(/\banalysisOutcomesCsv\s*[:(]/g) || []).length;
+  assert.ok(hits >= 2, "analysisOutcomesCsv nos DOIS stores (achado " + hits + "x)");
+  ok("qa/35: paridade — analysisOutcomesCsv nos dois stores");
+})();
+
+// 7) a tela exibe as camadas aprovadas (a: expectância; c: calibração) e
+// respeita a régua de amostra mínima (n insuficiente — nunca % enganosa).
+await (async () => {
+  const src = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
+  assert.ok(/EXPECTÂNCIA/.test(src) && /efic\.expectancia\b/.test(src), "camada (a): expectância na tela");
+  assert.ok(/PROFIT FACTOR/.test(src) && /efic\.profitFactor/.test(src), "camada (a): profit factor na tela");
+  assert.ok(/CALIBRAÇÃO DA CONFIANÇA/.test(src) && /efic\.porConfianca/.test(src), "camada (c): calibração na tela");
+  assert.ok(/efic\.porDecisao/.test(src), "camada (c): recorte por decisão na tela");
+  assert.ok(/n insuficiente/.test(src) && /insuficiente\b/.test(src), "régua de amostra mínima visível");
+  assert.ok(/Exportar CSV/.test(src) && /store\.analysisOutcomesCsv\(\)/.test(src), "botão de export ligado no store");
+  ok("qa/35: painel exibe expectância + calibração + export, com n mínimo");
+})();
+
+// 8) o servidor captura a confiança declarada nos DOIS registros (N1/N2) e o
+// backend expõe o endpoint CSV — wiring estático no main.py.
+await (async () => {
+  const py = readFileSync(new URL("../../server/app/main.py", import.meta.url), "utf8");
+  assert.ok(/confianca=res\.get\("confianca"\)/.test(py), "N1 registra a confiança declarada");
+  assert.ok(/confianca=\(result\.get\("kpis"\) or \{\}\)\.get\("conviccao"\)/.test(py), "N2 registra a convicção dos kpis");
+  assert.ok(/analysis-outcomes\/export\.csv/.test(py), "endpoint do export CSV existe");
+  ok("qa/35: main.py captura confiança (N1+N2) e expõe o CSV");
+})();
+
 console.log("\n" + passed + " testes ok — contrato da eficiência da IA e paridade preservada");

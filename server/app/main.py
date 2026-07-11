@@ -11,7 +11,7 @@ from pathlib import Path
 
 from fastapi import Body, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import db, indicators, llm, plan, setups, store, technical_models, tickers, yahoo
@@ -629,6 +629,7 @@ async def scan_deep_run(body: dict = Body(default={}), scope: Optional[str] = De
                     setup=sres.get("melhor"), recomendacao=res.get("planoEstudo"),
                     stop=plano.get("stop"), alvo=plano.get("alvo1"),
                     preco=snap.get("close"), snapshot_id=snap.get("snapshotId"),
+                    confianca=res.get("confianca"),  # qa/35 P2c: calibração declarada×real
                     user_id=scope,
                 )
         except Exception as e:  # noqa: BLE001 — registro é best-effort
@@ -701,6 +702,9 @@ async def analyze_technical_model(ticker: str, body: dict = Body(default={}), sc
             setup=None, recomendacao=(result.get("kpis") or {}).get("recomendacao"),
             stop=prop.get("stop"), alvo=prop.get("alvo"),
             preco=(quote or {}).get("price"), snapshot_id=snap.get("snapshotId"),
+            # qa/35 P2c: no N2 a confiança declarada é a `conviccao` dos kpis
+            # (Muito Alto|Alto|Médio|Baixo) — normalizar_confianca traduz.
+            confianca=(result.get("kpis") or {}).get("conviccao"),
             user_id=scope,
         )
     except Exception as e:  # noqa: BLE001 — registro é best-effort
@@ -935,6 +939,16 @@ async def get_analysis_outcomes_stats(modo: Optional[str] = None, tipo: Optional
                                        scope: Optional[str] = Depends(current_scope)):
     outcomes = db.kv_get(_conn, "analysisOutcomes", [], user_id=scope) or []
     return analysis_outcomes.compute_stats(outcomes, modo=modo, tipo=tipo)
+
+
+# qa/35 (P2): export CSV do registro bruto — o usuário leva a estatística pra
+# planilha. Texto simples (o app compartilha/copia); célula vazia = sem dado.
+@app.get("/api/analysis-outcomes/export.csv")
+async def get_analysis_outcomes_csv(scope: Optional[str] = Depends(current_scope)):
+    outcomes = db.kv_get(_conn, "analysisOutcomes", [], user_id=scope) or []
+    csv = analysis_outcomes.to_csv(outcomes)
+    return PlainTextResponse(csv, media_type="text/csv; charset=utf-8",
+                             headers={"Content-Disposition": "attachment; filename=bolsia-eficiencia-ia.csv"})
 
 
 # FASE 3.3b — registro do token de push do aparelho (exige conta).

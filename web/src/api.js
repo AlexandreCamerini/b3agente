@@ -262,4 +262,12 @@ export const api = {
   // qa/30 (Fase A): autoavaliação da IA — estatísticas do painel "Eficiência
   // da IA" (Perfil → Observabilidade). `modo` opcional filtra estudo/operador.
   analysisOutcomesStats: (modo) => req("GET", "/api/analysis-outcomes/stats" + (modo ? "?modo=" + encodeURIComponent(modo) : ""), undefined, 15000),
+  // qa/35 (P2): export CSV da eficiência — TEXTO puro, não passa pelo parse
+  // JSON do req() (readBody embrulharia em {_raw}).
+  analysisOutcomesCsv: async () => {
+    if (nativeMode && !runtimeBase) throw new Error("Endereço do servidor não configurado. " + ADDR_HINT);
+    const res = await fetchWithTimeout(runtimeBase + "/api/analysis-outcomes/export.csv", { method: "GET", headers: authHeaders(false) }, 15000);
+    if (!res.ok) throw new Error("Export falhou (HTTP " + res.status + ")");
+    return res.text();
+  },
 };

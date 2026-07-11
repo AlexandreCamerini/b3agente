@@ -1567,7 +1567,9 @@ function EvolucaoScreen({ ctx }) {
                 <span style={{ fontFamily: MONO, fontWeight: 800, fontSize: "17px" }}>{it.ticker}</span>
                 <span style={{ padding: "4px 10px", borderRadius: "999px", background: (REC_STYLE[it.veredito] || [T.textMuted, T.bgBase])[1], color: (REC_STYLE[it.veredito] || [T.textMuted])[0], fontSize: "11px", fontWeight: 800 }}>{it.veredito}</span>
                 <span style={{ fontSize: "11.5px", color: T.textMuted }}>{it.melhorSetup || ""} · <b style={{ fontFamily: MONO }}>{it.confluencia}%</b></span>
-                {it.snapshotId && <span style={{ fontFamily: MONO, fontSize: "10.5px", color: T.textFaint }}>#{it.snapshotId}</span>}
+                {/* qa/35 (P1): snapshotId REMOVIDO das telas de consumo — o hash
+                    técnico vazava cru pro usuário; rastreabilidade agora só em
+                    Perfil → Logs & debug. */}
               </div>
               {destaque.deep && destaque.deep.deep && destaque.deep.deep.resumo && (
                 <div style={{ marginTop: "9px", fontSize: "12.5px", color: T.textSecondary, lineHeight: 1.6 }}>{destaque.deep.deep.resumo}</div>
@@ -1983,7 +1985,7 @@ function MercadoScreen({ ctx }) {
                 </div>
               )}
 
-              {an.modelLabel && expanded[t] && <div style={{ marginTop: "10px", display: "inline-flex", alignItems: "center", gap: "6px", padding: "6px 8px", borderRadius: "999px", background: T.bgBase, border: `1px solid ${T.borderSubtle}`, color: T.textMuted, fontSize: "11px" }}>Modelo: <b style={{ color: T.textSecondary }}>{an.modelLabel}</b>{an.candlesSentToLLM ? <span>· {an.candlesSentToLLM} candles enviados</span> : null}{an.snapshotId ? <span style={{ fontFamily: MONO }}>· snapshot #{an.snapshotId}</span> : null}</div>}
+              {an.modelLabel && expanded[t] && <div style={{ marginTop: "10px", display: "inline-flex", alignItems: "center", gap: "6px", padding: "6px 8px", borderRadius: "999px", background: T.bgBase, border: `1px solid ${T.borderSubtle}`, color: T.textMuted, fontSize: "11px" }}>Modelo: <b style={{ color: T.textSecondary }}>{an.modelLabel}</b>{an.candlesSentToLLM ? <span>· {an.candlesSentToLLM} candles enviados</span> : null}</div>}
               {/* BLOCO C1 — CTA ÚNICO pós-análise, condicionado à LEITURA:
                   favorável → sugestão de quantidade; neutra → sem sugestão;
                   desfavorável → discreto + aviso (nunca sugerir qtd contra a leitura). */}
@@ -2096,7 +2098,8 @@ function StopAlvoModal({ ctx }) {
             {loading && <SweepGauge compact label="Alvo & stop com IA" steps={["ATR, suportes e resistências", "cenários por perfil", "memória de cálculo"]} />}
           </div>
           <div style={{ fontSize: "12.5px", color: T.textMuted, marginTop: "4px", lineHeight: 1.5 }}>Perfil <b>{(data.profile || {}).risco || "—"}</b> · {ctx.cp.notaStopAlvo}</div>
-          {r.snapshotId && <div style={{ fontFamily: MONO, fontSize: "10.5px", color: T.textFaint, marginTop: "5px" }}>Análise baseada no snapshot #{r.snapshotId}{r.snapshotAt ? " · " + r.snapshotAt : ""}</div>}
+          {/* qa/35 (P1): o hash saiu; a data dos dados é o que importa pro usuário. */}
+          {r.snapshotAt && <div style={{ fontFamily: MONO, fontSize: "10.5px", color: T.textFaint, marginTop: "5px" }}>Análise baseada nos dados de {r.snapshotAt}</div>}
         </div>
         <div style={{ padding: "16px 18px", overflowY: "auto" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", marginBottom: "10px" }}>
@@ -2259,7 +2262,6 @@ function CarteiraScreen({ ctx }) {
                         Entrada pelo setup <b style={{ color: T.textSecondary }}>{se.setup || "—"}</b>
                         {se.gatilho != null && <span> · gatilho R$ {price(se.gatilho)}</span>}
                         {gatStatus && <span> · <b style={{ color: gatStatus[1] }}>{gatStatus[0]}</b></span>}
-                        {se.snapshotId && <span style={{ fontFamily: MONO, color: T.textFaint }}> · #{se.snapshotId}</span>}
                       </div>
                     )}
                     {p.stop == null && <div style={{ marginTop: "6px", fontSize: "11px", fontWeight: 700, color: T.negative }}>⚠ Posição sem stop definido — defina pela régua acima ou peça a sugestão da IA.</div>}
@@ -2953,11 +2955,35 @@ function EficienciaIAScreen({ ctx }) {
   const logged = !!ctx.authUser;
   const [efic, setEfic] = useState(null);
   const [eficErr, setEficErr] = useState("");
+  const [csvSt, setCsvSt] = useState("");
   const loadEficiencia = useCallback(async () => {
     try { setEfic(await store.analysisOutcomesStats()); setEficErr(""); }
     catch (e) { setEficErr((e && e.message) || String(e)); }
   }, []);
   useEffect(() => { if (logged) loadEficiencia(); }, [logged, loadEficiencia]);
+  // qa/35 (P2): export CSV — compartilha (iOS share sheet) com fallback de
+  // copiar pra área de transferência.
+  const exportCsv = async () => {
+    setCsvSt("gerando…");
+    try {
+      const csv = await store.analysisOutcomesCsv();
+      if (navigator.share) {
+        try { await navigator.share({ title: "BolsIA — eficiência da IA (CSV)", text: csv }); setCsvSt("compartilhado ✓"); return; } catch { /* usuário cancelou — cai pro clipboard */ }
+      }
+      await navigator.clipboard.writeText(csv);
+      setCsvSt("CSV copiado ✓ — cole numa planilha");
+    } catch (e) { setCsvSt("falhou: " + ((e && e.message) || String(e))); }
+  };
+  // qa/35 (P2c): linha de UMA célula de calibração — respeita o n mínimo do
+  // servidor ("n insuficiente" em vez de % enganosa; regra do produto).
+  const celula = (rotulo, c) => (
+    <div key={rotulo} style={{ display: "flex", justifyContent: "space-between", gap: "8px", fontSize: "11.5px", padding: "4px 0", color: T.textMuted }}>
+      <span>{rotulo} <span style={{ color: T.textFaint, fontFamily: MONO }}>n={c.n}</span></span>
+      {c.insuficiente
+        ? <span style={{ color: T.textFaint }}>n insuficiente (mín. {(efic && efic.minN) || 10})</span>
+        : <b style={{ fontFamily: MONO, color: c.taxaAcerto >= 50 ? T.positive : T.negative }}>{c.taxaAcerto}%{c.rMedio != null ? ` · ${c.rMedio >= 0 ? "+" : ""}${c.rMedio}R` : ""}</b>}
+    </div>
+  );
   if (!logged) {
     return (
       <div>
@@ -3018,6 +3044,52 @@ function EficienciaIAScreen({ ctx }) {
           </>
         )}
       </div>
+
+      {/* qa/35 (P2a): EXPECTÂNCIA — a vantagem esperada por análise, em R.
+          Cálculo 100% no servidor (analysis_outcomes.compute_stats). */}
+      {efic && efic.avaliadas > 0 && (
+        <div style={{ marginTop: "14px", ...card, padding: "14px 16px" }}>
+          <div style={{ fontSize: "11px", fontWeight: 800, color: T.textSecondary, letterSpacing: "0.05em", marginBottom: "9px" }}>EXPECTÂNCIA</div>
+          {efic.expectanciaInsuficiente ? (
+            <div style={{ fontSize: "11.5px", color: T.textFaint, lineHeight: 1.5 }}>n insuficiente — expectância e profit factor aparecem a partir de {efic.minN || 10} análises avaliadas (hoje: {efic.avaliadas}).</div>
+          ) : (
+            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+              <div style={{ flex: "1 1 110px", minWidth: "100px" }}>
+                <div style={{ fontFamily: MONO, fontSize: "18px", fontWeight: 800, color: efic.expectancia == null ? T.textFaint : (efic.expectancia >= 0 ? T.positive : T.negative) }}>{efic.expectancia == null ? "—" : (efic.expectancia >= 0 ? "+" : "") + efic.expectancia + "R"}</div>
+                <div style={{ fontSize: "10px", color: T.textFaint, fontWeight: 700, letterSpacing: "0.04em" }}>EXPECTÂNCIA / ANÁLISE</div>
+              </div>
+              <div style={{ flex: "1 1 110px", minWidth: "100px" }}>
+                <div style={{ fontFamily: MONO, fontSize: "18px", fontWeight: 800, color: efic.profitFactor == null ? T.textFaint : ((efic.profitFactor === "inf" || efic.profitFactor >= 1) ? T.positive : T.negative) }}>{efic.profitFactor == null ? "—" : efic.profitFactor === "inf" ? "∞" : efic.profitFactor}</div>
+                <div style={{ fontSize: "10px", color: T.textFaint, fontWeight: 700, letterSpacing: "0.04em" }}>PROFIT FACTOR</div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* qa/35 (P2c): CALIBRAÇÃO — a confiança que a IA declarou bate com o
+          acerto real? Cada célula respeita o n mínimo do servidor. */}
+      {efic && efic.avaliadas > 0 && (
+        <div style={{ marginTop: "14px", ...card, padding: "14px 16px" }}>
+          <div style={{ fontSize: "11px", fontWeight: 800, color: T.textSecondary, letterSpacing: "0.05em", marginBottom: "6px" }}>CALIBRAÇÃO DA CONFIANÇA</div>
+          <p style={{ margin: "0 0 8px", fontSize: "11px", color: T.textFaint, lineHeight: 1.5 }}>Acerto real por confiança declarada — se "alta" não acerta mais que "baixa", a confiança da IA está descalibrada.</p>
+          {["alta", "moderada", "baixa", "—"].filter((k) => efic.porConfianca && efic.porConfianca[k]).map((k) => celula(k === "—" ? "sem declaração" : "confiança " + k, efic.porConfianca[k]))}
+          {efic.porDecisao && Object.keys(efic.porDecisao).length > 0 && (
+            <div style={{ marginTop: "10px", paddingTop: "9px", borderTop: `1px solid ${T.borderFaint}` }}>
+              <div style={{ fontSize: "10px", fontWeight: 800, color: T.textFaint, letterSpacing: "0.05em", marginBottom: "4px" }}>POR DECISÃO</div>
+              {Object.entries(efic.porDecisao).map(([k, c]) => celula(k, c))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* qa/35 (P2): export CSV do registro bruto */}
+      {efic && efic.totalAnalises > 0 && (
+        <div style={{ marginTop: "14px", display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+          <button onClick={exportCsv} style={{ padding: "9px 14px", borderRadius: "8px", border: `1px solid ${T.accent}`, background: T.accentTint10, color: T.accent, fontWeight: 700, fontSize: "12px" }}>Exportar CSV</button>
+          {csvSt && <span style={{ fontSize: "11px", color: T.textMuted }}>{csvSt}</span>}
+        </div>
+      )}
     </div>
   );
 }
@@ -3157,6 +3229,35 @@ function LogsDebugScreen({ ctx }) {
       <p style={{ margin: "0 0 18px", color: T.textMuted, fontSize: "12.5px", lineHeight: 1.5, maxWidth: "580px" }}>
         Servidor do app, diagnóstico técnico e — para quem tem conta — status do Operador no servidor, Diário e logs detalhados.
       </p>
+
+      {/* qa/35 (P1): RASTREABILIDADE — o snapshotId saiu das telas de consumo
+          (Radar/N2/stop-alvo/posições) e vive SÓ aqui: uma linha por análise
+          recente com o hash do STU, para auditar qual snapshot embasou o quê. */}
+      {(() => {
+        const rows = [];
+        for (const [t, a] of Object.entries(ctx.analysis || {})) {
+          if (a && a.snapshotId) rows.push({ t, kind: "análise", id: a.snapshotId, at: a.snapshotAt || a.at || "" });
+        }
+        for (const [t, s] of Object.entries(ctx.stopAlvo || {})) {
+          if (s && s.snapshotId) rows.push({ t, kind: "stop/alvo", id: s.snapshotId, at: s.snapshotAt || s.at || "" });
+        }
+        if (!rows.length) return null;
+        rows.sort((x, y) => String(y.at).localeCompare(String(x.at)));
+        return (
+          <div style={{ ...card, padding: "17px 18px", marginBottom: "16px" }}>
+            <div style={sectionTitle}>SNAPSHOTS DAS ANÁLISES</div>
+            <p style={{ margin: "6px 0 10px", color: T.textMuted, fontSize: "12.5px", lineHeight: 1.5, maxWidth: "560px" }}>
+              Hash do snapshot técnico (STU) que embasou cada análise recente — rastreabilidade de QA; não aparece nas telas de uso.
+            </p>
+            {rows.slice(0, 20).map((r2, i) => (
+              <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: "8px", fontFamily: MONO, fontSize: "11px", color: T.textFaint, padding: "4px 0", borderTop: i ? `1px solid ${T.borderFaint}` : "none" }}>
+                <span style={{ color: T.textMuted }}>{r2.t} · {r2.kind}</span>
+                <span>snapshot #{r2.id}{r2.at ? " · " + r2.at : ""}</span>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
 
       {/* Servidor do app (somente no iPhone) */}
       {isNative && (
@@ -3544,7 +3645,7 @@ function RadarScreen({ ctx }) {
                     <span style={{ fontFamily: MONO, fontWeight: 800, fontSize: "16px", letterSpacing: "0.02em" }}>{r.ticker}</span>
                     {posR && <PosPill qty={posR.qty} />}
                   </div>
-                  <div style={{ color: T.textMuted, fontSize: "11.5px", marginTop: "3px" }}>{r.candles} candles no período{r.snapshotId ? <span style={{ fontFamily: MONO, color: T.textFaint }}> · snapshot #{r.snapshotId}</span> : null}</div>
+                  <div style={{ color: T.textMuted, fontSize: "11.5px", marginTop: "3px" }}>{r.candles} candles no período</div>
                 </div>
                 <div style={{ textAlign: "right", fontFamily: MONO, minWidth: "92px" }}>
                   <div style={{ fontSize: "16px", fontWeight: 700 }}>{r.close != null ? "R$ " + price(r.close) : "—"}</div>
