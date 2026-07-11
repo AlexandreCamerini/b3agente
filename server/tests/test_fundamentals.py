@@ -204,6 +204,76 @@ def test_get_cached_nunca_vai_a_rede():
     conn.close()
 
 
+def test_fetch_merged_pula_brapi_no_warm_em_massa():
+    """qa/36-fix: no warm em massa (brapi_complemento=False) a brapi NÃO é
+    chamada quando a bolsai já respondeu — evita martelar o brapi rate-limited
+    no universo inteiro."""
+    brapi_calls = []
+    m = fu._fetch_merged(
+        "WEGE3", bolsai_key="fake", brapi_complemento=False,
+        fetch_bolsai=lambda tk, key: PAYLOAD_BOLSAI,
+        fetch_brapi=lambda tk, tok: brapi_calls.append(tk) or {"results": []},
+    )
+    assert m["fonte"] == "bolsai" and brapi_calls == []   # brapi não foi chamada
+    # mas se a bolsai falhar, a brapi entra como primário mesmo com flag off
+    m2 = fu._fetch_merged(
+        "WEGE3", bolsai_key="fake", brapi_complemento=False,
+        fetch_bolsai=lambda tk, key: (_ for _ in ()).throw(RuntimeError("bolsai fora")),
+        fetch_brapi=lambda tk, tok: PAYLOAD_PETR4,
+    )
+    assert m2 is not None and m2["fonte"] == "brapi"
+
+
+def test_warm_universe_respeita_limit():
+    conn = _fresh_db()
+    calls = []
+    fake = lambda t: calls.append(t) or {"ticker": t, "pl": 10.0, "roe": 0.15,
+                                         "margemLiquida": 0.1, "dividaEbitda": 1.0, "fonte": "bolsai"}
+    n = fu.warm_universe(conn, ["A", "B", "C", "D"], fetch_merged=fake, limit=2)
+    assert n == 2 and len(calls) == 2   # corta na metade; resto vai no próximo dia
+    conn.close()
+
+
+def test_maybe_warm_pula_sem_chave_bolsai(monkeypatch):
+    """qa/36-fix (INCIDENTE): sem BOLSAI_API_KEY o warm NÃO roda — era o que
+    martelava o brapi no universo e (síncrono no event loop) derrubava o
+    servidor. Sem chave = no-op."""
+    import asyncio as _asyncio
+    conn = _fresh_db()
+    monkeypatch.delenv("BOLSAI_API_KEY", raising=False)
+    fu.LAST_WARM["date"] = None
+    called = []
+    monkeypatch.setattr(fu, "warm_universe", lambda *a, **k: called.append(1) or 0)
+    r = _asyncio.run(fu.maybe_warm(conn, ["PETR4"]))
+    assert r is None and called == []   # não chamou warm_universe
+    conn.close()
+
+
+def test_maybe_warm_roda_em_thread_com_chave(monkeypatch):
+    """Com a chave, maybe_warm roda o warm via asyncio.to_thread (fora do event
+    loop). Verifica que delega e grava a telemetria."""
+    import asyncio as _asyncio
+    conn = _fresh_db()
+    monkeypatch.setenv("BOLSAI_API_KEY", "fake")
+    fu.LAST_WARM["date"] = None
+    monkeypatch.setattr(fu, "warm_universe", lambda *a, **k: 7)
+    r = _asyncio.run(fu.maybe_warm(conn, ["PETR4", "VALE3"]))
+    assert r == 7 and fu.LAST_WARM["aquecidos"] == 7
+    conn.close()
+
+
+def test_main_importa_fundamentals_e_scan_enrich_nao_quebra():
+    """qa/36-fix (INCIDENTE): main.py referenciava `fundamentals` SEM importar
+    → /api/scan estourava NameError (HTTP 500) → Radar/Mesa morto. Guardião
+    que chama _enrich_fundamentos DE VERDADE (o ponto exato que quebrava) —
+    um teste que só faz `import app.main` NÃO pega (o erro é em runtime)."""
+    from app import main as m
+    assert hasattr(m, "fundamentals"), "main.py não importou fundamentals"
+    # sem cache aquecido → payload volta intacto, e SEM exceção (o que faltava)
+    out = m._enrich_fundamentos({"results": [{"ticker": "PETR4"}, {"ticker": "VALE3"}]})
+    assert out["results"][0]["ticker"] == "PETR4"
+
+
 def test_integracao_esta_ligada_no_backend():
     """qa/36: o oposto do guardião do spike — agora fundamentals DEVE estar
     integrado: scan enriquecido (main.py), warm no scheduler (agent.py)."""
@@ -212,10 +282,16 @@ def test_integracao_esta_ligada_no_backend():
     main_src = (app_dir / "main.py").read_text(encoding="utf-8")
     assert "_enrich_fundamentos" in main_src, "scan não enriquece com fundamento"
     assert "fundamentals.get_cached" in main_src, "scan deve ler SÓ o cache (get_cached)"
-    assert "fundamentals.get_fundamentals(_conn, t)" in main_src, "N2 deve buscar fundamento inline"
+    assert "fundamentals.get_fundamentals" in main_src, "N2 deve buscar fundamento inline"
     assert "rebaixa_confianca" in main_src, "N2 deve aplicar o rebaixamento"
     agent_src = (app_dir / "agent.py").read_text(encoding="utf-8")
     assert "fundamentals.maybe_warm" in agent_src, "warm job não está no scheduler"
+    # qa/36-fix (INCIDENTE): o I/O bloqueante NUNCA pode rodar no event loop.
+    fu_src = (app_dir / "fundamentals.py").read_text(encoding="utf-8")
+    assert "asyncio.to_thread" in fu_src, "warm deve rodar em thread, não no event loop"
+    assert "not _bolsai_key()" in fu_src, "warm deve pular sem BOLSAI_API_KEY"
+    assert "await asyncio.to_thread(fundamentals.get_fundamentals" in main_src, \
+        "N2 deve buscar fundamento em thread (não bloquear o event loop)"
 
 
 if __name__ == "__main__":

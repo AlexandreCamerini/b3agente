@@ -32,7 +32,9 @@ brapi automaticamente.
 """
 from __future__ import annotations
 
+import asyncio
 import os
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -211,10 +213,13 @@ def _fetch_bolsai_raw(ticker: str, api_key: str) -> dict:
 
 
 def _fetch_merged(ticker: str, *, bolsai_key: Optional[str],
-                  fetch_bolsai=None, fetch_brapi=None) -> Optional[dict]:
+                  fetch_bolsai=None, fetch_brapi=None,
+                  brapi_complemento: bool = True) -> Optional[dict]:
     """Busca da fonte primária (bolsai) + complemento (brapi para o DY e os 4
     tickers completos). Cada fonte é best-effort: uma fora não derruba a
-    outra. Fetchers injetáveis para teste."""
+    outra. `brapi_complemento=False` PULA a brapi — usado no warm em massa
+    (não martelar o brapi rate-limited no universo inteiro; o DY é
+    complementado depois, sob demanda, no N2). Fetchers injetáveis p/ teste."""
     fetch_bolsai = fetch_bolsai or _fetch_bolsai_raw
     fetch_brapi = fetch_brapi or _fetch_brapi_raw
     primario = None
@@ -223,12 +228,14 @@ def _fetch_merged(ticker: str, *, bolsai_key: Optional[str],
             primario = parse_bolsai(fetch_bolsai(ticker, bolsai_key))
         except Exception:  # noqa: BLE001 — bolsai fora → tenta brapi como primário
             primario = None
-    # brapi: complemento SEMPRE (traz DY); vira primário se a bolsai falhou.
+    # brapi: complemento (traz DY); vira primário se a bolsai falhou. Pulado no
+    # warm em massa se já temos o primário da bolsai.
     complemento = None
-    try:
-        complemento = parse_brapi(fetch_brapi(ticker, None))
-    except Exception:  # noqa: BLE001
-        complemento = None
+    if brapi_complemento or primario is None:
+        try:
+            complemento = parse_brapi(fetch_brapi(ticker, None))
+        except Exception:  # noqa: BLE001
+            complemento = None
     return merge_fundamentos(primario, complemento)
 
 
@@ -276,12 +283,27 @@ def _hoje_iso() -> str:
     return datetime.now(timezone.utc).date().isoformat()
 
 
-def warm_universe(conn, tickers, *, fetch_merged=None, now=None) -> int:
+WARM_THROTTLE_S = 0.4   # espaçamento entre fetches (respeita rate limit da fonte)
+WARM_MAX_POR_RUN = 60   # teto por passada — cobre o universo em 2 dias com folga
+
+
+def warm_universe(conn, tickers, *, fetch_merged=None, now=None,
+                  throttle_s: float = 0.0, limit: Optional[int] = None) -> int:
     """Aquece o cache dos tickers cujo fundamento está ausente ou vencido.
-    Retorna quantos foram (re)buscados. Best-effort por ticker."""
+    Retorna quantos foram (re)buscados. Best-effort por ticker. SÍNCRONO e
+    BLOQUEANTE de propósito — DEVE rodar via asyncio.to_thread (nunca no event
+    loop; ver maybe_warm). `throttle_s` espaça as chamadas à fonte externa;
+    `limit` corta a passada (o resto vai no próximo dia)."""
     now = now or datetime.now(timezone.utc)
+    # warm em massa usa SÓ a bolsai (não martela o brapi no universo inteiro).
+    if fetch_merged is None:
+        key = _bolsai_key()
+        def fetch_merged(t):  # noqa: E306 — closure captura a chave do env
+            return _fetch_merged(t, bolsai_key=key, brapi_complemento=False)
     n = 0
     for t in tickers:
+        if limit is not None and n >= limit:
+            break
         cached = db.kv_get(conn, _key(t), None, user_id=None)
         fresco = False
         if cached and cached.get("fetchedAt"):
@@ -294,18 +316,25 @@ def warm_universe(conn, tickers, *, fetch_merged=None, now=None) -> int:
         try:
             if get_fundamentals(conn, t, fetch_merged=fetch_merged, now=now):
                 n += 1
+                if throttle_s:
+                    time.sleep(throttle_s)  # ok: roda em thread, não no event loop
         except Exception:  # noqa: BLE001 — 1 ticker não trava o job
             continue
     return n
 
 
 async def maybe_warm(conn, tickers) -> Optional[int]:
-    """Hook do scheduler: aquece no máximo 1x/dia (o TTL de 7 dias garante
-    que só rebusca o que venceu; rodar diário é barato e converge)."""
-    if LAST_WARM["date"] == _hoje_iso():
+    """Hook do scheduler: aquece no máximo 1x/dia. CRÍTICO: o warm faz I/O de
+    rede BLOQUEANTE (httpx síncrono) — roda em thread (asyncio.to_thread) para
+    NÃO congelar o event loop do servidor (senão o app perde a conexão durante
+    o job). Só roda se houver BOLSAI_API_KEY: a bolsai é a fonte do universo;
+    sem a chave, aquecer via brapi seria inútil (só 4 tickers) e rate-limited."""
+    if LAST_WARM["date"] == _hoje_iso() or not _bolsai_key():
         return None
     try:
-        n = warm_universe(conn, tickers)
+        n = await asyncio.to_thread(
+            warm_universe, conn, tickers,
+            throttle_s=WARM_THROTTLE_S, limit=WARM_MAX_POR_RUN)
         LAST_WARM.update(date=_hoje_iso(), aquecidos=n, erro=None)
         return n
     except Exception as e:  # noqa: BLE001 — nunca derruba o laço do scheduler

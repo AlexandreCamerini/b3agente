@@ -20,6 +20,7 @@ from . import candle_cache  # Objetivo 5: cache de candles (delta + revalida úl
 from . import scanner  # BLOCO 3: radar de mercado (varredura do universo)
 from . import radar_daily  # FASE 4 (1.3): varredura automática 1x/dia + sob demanda
 from . import analysis_outcomes  # qa/30 (Fase A): autoavaliação da IA (N1/N2 vs. comportamento real)
+from . import fundamentals  # qa/36 (F10.2): fundamento × técnica (score, cache, rebaixamento)
 from . import scan_deep  # FASE 1 (N1): aprofundamento IA do top-N do Radar
 from . import technical_snapshot  # FASE 1 (STU): fonte única de N1/N2/N3
 from . import agent as agent_mod  # FASE 3: agente autônomo server-side
@@ -551,16 +552,21 @@ async def apple_app_site_association():
 # fundamento atualiza independente do resultado do dia. Ticker não aquecido →
 # sem campo (a UI mostra "sem dado"), nunca inferência.
 def _enrich_fundamentos(payload: dict) -> dict:
-    results = (payload or {}).get("results")
-    if not isinstance(results, list):
-        return payload
-    for r in results:
-        f = fundamentals.get_cached(_conn, r.get("ticker") or "")
-        if f and f.get("score"):
-            r["fundamento"] = {k: f.get(k) for k in
-                               ("score", "pl", "roe", "dy", "margemLiquida",
-                                "dividaEbitda", "crescReceita", "crescLucro",
-                                "setor", "referencia", "fonte")}
+    # Best-effort TOTAL: o fundamento é um overlay — NADA aqui pode derrubar o
+    # scan (o Radar/Mesa é core). Qualquer falha → devolve o payload intacto.
+    try:
+        results = (payload or {}).get("results")
+        if not isinstance(results, list):
+            return payload
+        for r in results:
+            f = fundamentals.get_cached(_conn, r.get("ticker") or "")
+            if f and f.get("score"):
+                r["fundamento"] = {k: f.get(k) for k in
+                                   ("score", "pl", "roe", "dy", "margemLiquida",
+                                    "dividaEbitda", "crescReceita", "crescLucro",
+                                    "setor", "referencia", "fonte")}
+    except Exception as e:  # noqa: BLE001 — overlay nunca quebra o scan
+        print(f"[fundamentals] enrich falhou (scan segue): {e}")
     return payload
 
 
@@ -736,7 +742,9 @@ async def analyze_technical_model(ticker: str, body: dict = Body(default={}), sc
     conf_final = analysis_outcomes.normalizar_confianca((result.get("kpis") or {}).get("conviccao"))
     rebaixado = False
     try:
-        fundamento = fundamentals.get_fundamentals(_conn, t)
+        # get_fundamentals faz I/O de rede BLOQUEANTE (httpx síncrono) — roda
+        # em thread para não congelar o event loop durante a resposta do N2.
+        fundamento = await asyncio.to_thread(fundamentals.get_fundamentals, _conn, t)
         operavel = prop.get("stop") is not None and prop.get("alvo") is not None
         conf_final, rebaixado = fundamentals.rebaixa_confianca(
             conf_final, (fundamento or {}).get("score"), operavel)
