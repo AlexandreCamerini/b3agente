@@ -212,6 +212,11 @@ async def scheduler_loop(conn, quotes_getter, notify_push=None, interval_s: int 
                 await radar_daily.maybe_run(conn, radar_fetch, notify_push=notify_push)
                 from . import analysis_outcomes  # qa/30 (Fase A): import local, sem ciclo de import
                 await analysis_outcomes.maybe_run(conn, radar_fetch)
+                # qa/36 (F10.2): aquece o cache de fundamentos do universo 1x/dia
+                # (o TTL de 7 dias garante que só rebusca o vencido). Cache-only
+                # no scan → o job é a única via de rede; best-effort.
+                from . import fundamentals, scanner  # import local: sem ciclo
+                await fundamentals.maybe_warm(conn, scanner.get_universe())
             if not kill_switch_on() and in_market_hours():
                 _t0 = time.monotonic()
                 _erros = []
