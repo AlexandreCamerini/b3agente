@@ -77,6 +77,23 @@ def test_score_fundamento_pilares():
     assert fu.score_fundamento(None) is None
 
 
+def test_score_exige_minimo_de_pilares_com_dado():
+    """qa/37 (revisão do operador): cobertura fina (< MIN_PILARES) NÃO ganha
+    letra — evita 'B' de uma única métrica boa e, sobretudo, um 'C' de uma
+    única métrica ruim disparando rebaixamento indevido."""
+    assert fu.MIN_PILARES == 2
+    # só 1 pilar com dado (P/L bom) → dados insuficientes, não "B"
+    assert fu.score_fundamento({"pl": 10.0}) is None
+    # só 1 pilar com dado (P/L ruim) → None, e NÃO vira "C" (não rebaixa)
+    ruim = {"pl": 40.0}
+    assert fu.score_fundamento(ruim) is None
+    assert fu.rebaixa_confianca("alta", fu.score_fundamento(ruim), True) == ("alta", False)
+    # 2 pilares com dado → volta a pontuar normalmente
+    assert fu.score_fundamento({"pl": 10.0, "dividaEbitda": 1.0}) == "A"
+    # banco (P/L + ROE/margem com dado; dívida sem dado) = 2 pilares → pontua
+    assert fu.score_fundamento(fu.parse_bolsai(PAYLOAD_BOLSAI)) == "A"
+
+
 def test_get_fundamentals_cacheia_e_respeita_ttl():
     conn = _fresh_db()
     calls = []

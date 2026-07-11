@@ -146,16 +146,29 @@ def merge_fundamentos(primario: Optional[dict], complemento: Optional[dict]) -> 
     return out
 
 
+MIN_PILARES = 2   # score exige ≥2 pilares COM dado (senão "dados insuficientes")
+
+# NOTA (revisão do operador sênior, qa/37): a banda de P/L é ABSOLUTA e
+# sector-blind — um growth legítimo (P/L alto) é penalizado e uma cíclica no
+# topo do ciclo (P/L baixo) é premiada. É aceitável para um FILTRO A/B/C de
+# primeira passada (não é gatilho, não move o plano), mas um refino
+# sector-relativo (P/L e P/VP vs. mediana do setor) é trabalho futuro quando
+# houver dado setorial confiável. Documentado, não inferido.
+
+
 def score_fundamento(f: Optional[dict]) -> Optional[str]:
     """Score A/B/C — FILTRO DE QUALIDADE, nunca gatilho de timing (princípio
     do gate). Três pilares, 1 ponto cada; pilar sem dado NÃO pontua nem
-    penaliza (entra no denominador só se houver dado):
+    penaliza:
       valuation      → P/L entre 0 e 20;
       rentabilidade  → ROE >= 10% E margem líquida > 0;
       solidez        → dívida/EBITDA <= 3 (sem dado em financeiras → pilar
                        neutro, não conta).
-    A/B/C = >=2/3, 1, 0 pontos entre os pilares COM dado; None se nenhum
-    pilar tiver dado (sem dado → sem score, nunca chute)."""
+    A/B/C = >=2 / 1 / 0 pontos entre os pilares COM dado. `None` (sem score,
+    "dados insuficientes") quando MENOS de MIN_PILARES têm dado — evita rotular
+    (e rebaixar a confiança de) um ativo com base numa única métrica, coerente
+    com a doutrina do app ('n insuficiente em vez de % enganosa') e o princípio
+    #11 do operador (dado insuficiente → sem recomendação definitiva)."""
     if not f:
         return None
     pilares = []
@@ -167,8 +180,8 @@ def score_fundamento(f: Optional[dict]) -> Optional[str]:
         pilares.append(roe_ok and mg_ok)
     if f.get("dividaEbitda") is not None:
         pilares.append(f["dividaEbitda"] <= 3.0)
-    if not pilares:
-        return None
+    if len(pilares) < MIN_PILARES:
+        return None   # cobertura fina → sem score, nunca uma letra enganosa
     pontos = sum(pilares)
     if pontos >= 2:
         return "A"
