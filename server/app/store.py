@@ -84,6 +84,8 @@ def set_config(conn, patch: dict, user_id=None) -> dict:
         cfg["userName"] = patch["userName"].strip()[:40]
     if "onboarded" in patch:
         cfg["onboarded"] = bool(patch["onboarded"])
+    if "tourSeen" in patch:  # qa/38 (Help): tour de 1º uso só aparece 1x
+        cfg["tourSeen"] = bool(patch["tourSeen"])
     if patch.get("candlePeriod") in ("1mo", "3mo", "6mo", "1y", "2y"):
         cfg["candlePeriod"] = patch["candlePeriod"]
     if isinstance(patch.get("streak"), dict):

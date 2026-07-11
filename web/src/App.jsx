@@ -1813,6 +1813,136 @@ function ProfileTile({ icon, title, sub, onClick, wide }) {
 const hubGroup = { fontSize: "10px", fontWeight: 800, letterSpacing: "0.08em", color: T.textFaint, textTransform: "uppercase", margin: "8px 2px 0" };
 const hubGrid = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" };
 
+// qa/38 (Help): conteúdo do guia — mode-aware (usa os rótulos de tela de cp,
+// que já mudam entre Estudo/Operador) e honesto sobre "tudo simulado". Uma
+// fonte só, reusada pela tela de Ajuda, pelo tour e pelo doc externo (AJUDA.md).
+function ajudaSecoes(cp, operador) {
+  const tRadar = cp.tituloRadar, tWl = cp.tituloWatchlist, tPort = cp.tituloPortfolio;
+  const aprofundar = cp.btnAprofundar; // "Aprofundar com IA" / "Plano da mesa (IA)"
+  return [
+    ["O que é o BolsIA", [
+      "Um app educacional de análise técnica da B3. Ele varre o mercado, mostra oportunidades de estudo e deixa você simular uma carteira — tudo com dinheiro fictício.",
+      "Nada aqui é ordem real nem recomendação personalizada: nenhuma ordem é enviada à corretora. O objetivo é aprender a ler o mercado com disciplina.",
+    ]],
+    ["Os dois modos", [
+      "O app tem dois modos, com a mesma base técnica e vozes diferentes. **Estudo** é um professor: explica o porquê de cada setup. **Operador** é uma mesa de operações: dá o plano objetivo (entrada, stop, alvo, risco).",
+      "Você troca em Perfil → Modo de trabalho. O modo muda a cor, os rótulos e o tom — mas a execução e o risco são sempre seus.",
+      operador ? "Você está no Modo Operador agora." : "Você está no Modo Estudo agora.",
+    ]],
+    ["Acompanhar (início)", [
+      "A tela inicial resume seu dia: melhores oportunidades da sua watchlist, a curva do patrimônio simulado, sua sequência de estudo e um lembrete do que fazer a seguir.",
+      "É o ponto de partida — dali você vai para o " + tRadar + ".",
+    ]],
+    [tRadar, [
+      "Varre o universo de ações e lista, por ativo: o veredito, a **confluência** (anel de 0–100% = quanto o ativo bate com um setup clássico), uma leitura rápida e o mini-gráfico de preço.",
+      "Em cada card você pode " + (operador ? "abrir o **" + aprofundar + "** (leitura da IA) ou **monitorar** o ativo." : "abrir o **" + aprofundar + "** (leitura da IA) ou levar para a **" + tWl + "**."),
+      "A confluência mede aderência ao padrão em dados passados — não é probabilidade de resultado.",
+    ]],
+    [tWl, [
+      "Seus ativos " + (operador ? "monitorados" : "em estudo") + ", ordenados por oportunidade. Cada linha tem um mini-gráfico e abre a análise completa.",
+      "Use para acompanhar de perto os ativos que te interessam antes de simular uma operação.",
+    ]],
+    [tPort, [
+      "Sua carteira **simulada**: patrimônio, resultado do dia e cada posição com a régua do plano (invalidação → gatilho → alvo).",
+      "Você simula compras e vendas, define stop e alvo, e acompanha o resultado em R — sem risco de dinheiro real.",
+    ]],
+    ["Operador IA", [
+      "Um agente que acompanha as posições da carteira simulada e age pelas regras que você define (proteger stop, realizar no alvo). Com conta, roda no servidor 24×5, mesmo com o app fechado.",
+      "Você escolhe **Executar** (ele simula a saída no stop/alvo) ou **Apenas sinalizar** (só avisa), define regras e tetos, e o intervalo de reavaliação. Sempre sobre a carteira simulada.",
+    ]],
+    ["Fundamento (A/B/C)", [
+      "Ao lado do sinal técnico, alguns ativos mostram um selo de **fundamento**: A (sólido), B (regular) ou C (fraco), por valuation, rentabilidade e solidez.",
+      "É um **filtro de qualidade**, nunca um gatilho de compra: a técnica manda no plano. Quando a decisão técnica é operável mas o fundamento é fraco (C), a confiança desce um degrau. Sem dado de fundamento, o app mostra “sem dado” — nunca inventa.",
+    ]],
+    ["Eficiência da IA", [
+      "O app guarda cada análise com stop/alvo e, 10 pregões depois, confere se bateu o alvo, o stop ou expirou. Isso vira estatística: taxa de acerto, expectância (vantagem média em R), calibração da confiança e a curva de R acumulado.",
+      "Enquanto não há amostra suficiente, aparece “n insuficiente” ou “aguardando o prazo” — em vez de um número enganoso. É autoavaliação sobre o passado, não garantia de futuro.",
+    ]],
+    ["Avisos importantes", [
+      "Tudo no BolsIA é **educacional e simulado**. Não é recomendação de investimento nem promessa de resultado. Operar no mercado real envolve risco de perda.",
+      "Use sempre stop, dimensione a posição e respeite seu plano de risco. As decisões e a execução são suas.",
+    ]],
+  ];
+}
+
+// Passos do tour de primeiro uso (funil). Curto, aponta o caminho.
+function tourPassos(cp) {
+  return [
+    ["Bem-vindo ao BolsIA", "Um app para **estudar** o mercado da B3 com uma carteira simulada. Tudo aqui é educacional — nenhuma ordem real é enviada."],
+    ["1 · Descubra no " + cp.tituloRadar, "O " + cp.tituloRadar + " varre o mercado e mostra os ativos com setup, com confluência e leitura rápida."],
+    ["2 · Acompanhe na " + cp.tituloWatchlist, "Leve os melhores para a " + cp.tituloWatchlist + " e acompanhe de perto antes de agir."],
+    ["3 · Simule no " + cp.tituloPortfolio, "Simule compras e vendas no " + cp.tituloPortfolio + " — com stop, alvo e risco em R, sem dinheiro real."],
+  ];
+}
+
+// Render inline de **negrito** simples (sem HTML injetado).
+function AjudaTexto({ children }) {
+  const parts = String(children).split(/(\*\*[^*]+\*\*)/g);
+  return <p style={{ margin: "0 0 9px", fontSize: "13px", color: T.textSecondary, lineHeight: 1.6 }}>{parts.map((p, i) => p.startsWith("**") && p.endsWith("**") ? <b key={i} style={{ color: T.textPrimary }}>{p.slice(2, -2)}</b> : <span key={i}>{p}</span>)}</p>;
+}
+
+// qa/38 (Help): TELA DE AJUDA — accordion "Como funciona", uma seção por área.
+function AjudaScreen({ ctx }) {
+  const cp = ctx.cp;
+  const operador = (ctx.data.config && ctx.data.config.appMode) === "operador";
+  const secoes = ajudaSecoes(cp, operador);
+  const [aberta, setAberta] = useState(0);
+  return (
+    <div>
+      <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 700 }}>Como funciona</h1>
+      <p style={{ margin: "6px 0 0", color: T.textMuted, fontSize: "13px", lineHeight: 1.5, maxWidth: "600px" }}>
+        Um guia rápido de cada parte do app. Toque numa seção para abrir.
+      </p>
+      <button onClick={() => ctx.A.openTour && ctx.A.openTour()} style={{ marginTop: "12px", padding: "9px 14px", borderRadius: "8px", border: `1px solid ${T.accent}`, background: T.accentTint10, color: T.accent, fontWeight: 700, fontSize: "12px" }}>▶ Ver o tour de novo</button>
+      <div style={{ marginTop: "14px", display: "flex", flexDirection: "column", gap: "8px" }}>
+        {secoes.map(([titulo, paras], i) => {
+          const on = aberta === i;
+          return (
+            <div key={i} style={{ ...card, padding: "0", overflow: "hidden" }}>
+              <button onClick={() => setAberta(on ? -1 : i)} aria-expanded={on} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", padding: "14px 16px", background: "transparent", border: "none", color: T.textPrimary, fontWeight: 700, fontSize: "14px", textAlign: "left" }}>
+                <span>{titulo}</span>
+                <span aria-hidden style={{ color: T.accent, fontWeight: 800, flex: "none" }}>{on ? "−" : "+"}</span>
+              </button>
+              {on && (
+                <div style={{ padding: "0 16px 14px" }}>
+                  {paras.map((p, j) => <AjudaTexto key={j}>{p}</AjudaTexto>)}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <div style={{ marginTop: "16px", padding: "12px 14px", borderRadius: "11px", background: T.bgBase, border: `1px solid ${T.borderSubtle}`, fontSize: "11px", color: T.textFaint, lineHeight: 1.55 }}>
+        {DISCLAIMERS.appBanner}
+      </div>
+    </div>
+  );
+}
+
+// qa/38 (Help): TOUR de primeiro uso — passo a passo curto do funil.
+function TourModal({ ctx }) {
+  const [i, setI] = useState(0);
+  const passos = tourPassos(ctx.cp);
+  const ultimo = i >= passos.length - 1;
+  const fechar = () => ctx.A.closeTour && ctx.A.closeTour();
+  const [titulo, corpo] = passos[i];
+  return (
+    <div onClick={fechar} style={{ position: "fixed", inset: 0, zIndex: 75, background: T.scrim, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "0" }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: "460px", ...card, borderBottomLeftRadius: 0, borderBottomRightRadius: 0, padding: "22px 20px calc(22px + env(safe-area-inset-bottom))" }}>
+        <div style={{ display: "flex", gap: "5px", marginBottom: "14px" }}>
+          {passos.map((_, k) => <span key={k} style={{ flex: 1, height: "3px", borderRadius: "999px", background: k <= i ? T.accent : T.borderSubtle }} />)}
+        </div>
+        <div style={{ fontSize: "18px", fontWeight: 800, marginBottom: "8px" }}>{titulo}</div>
+        <AjudaTexto>{corpo}</AjudaTexto>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", marginTop: "16px" }}>
+          <button onClick={fechar} style={{ background: "transparent", border: "none", color: T.textMuted, fontWeight: 700, fontSize: "13px", padding: "8px 4px" }}>Pular</button>
+          <button onClick={() => (ultimo ? fechar() : setI(i + 1))} style={{ padding: "11px 22px", borderRadius: "10px", border: "none", background: T.accent, color: T.onAccent, fontWeight: 800, fontSize: "14px" }}>{ultimo ? "Começar" : "Próximo"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function PerfilHub({ ctx, onOpen }) {
   const { data } = ctx;
   const name = ((data.config && data.config.userName) || "").trim();
@@ -1864,6 +1994,11 @@ function PerfilHub({ ctx, onOpen }) {
           <svg width="19" height="19" viewBox="0 0 24 24" aria-hidden><path d="M4 18v-5M9.5 18v-9M15 18V7M20 18v-3" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" /></svg>
         } />
       </div>
+      <div style={hubGroup}>Ajuda</div>
+      <ProfileTile wide onClick={() => onOpen("ajuda")} title="Como funciona" sub="Guia rápido de cada tela + tour do app" icon={
+        <svg width="19" height="19" viewBox="0 0 24 24" aria-hidden><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="1.8" /><path d="M9.5 9.2a2.6 2.6 0 0 1 5 .9c0 1.7-2.5 2-2.5 3.6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /><circle cx="12" cy="17" r="0.6" fill="currentColor" stroke="currentColor" strokeWidth="0.8" /></svg>
+      } />
+
       <div style={{ fontSize: "11.5px", color: T.textFaint, marginTop: "8px", lineHeight: 1.5 }}>
         Notificações {notifOn ? "ativas" : "desativadas"} · {ctx.cp.rodape}
       </div>
@@ -4559,6 +4694,7 @@ export default function App() {
   const sysDark = () => (typeof window !== "undefined" && window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)").matches : true);
   const [sysIsDark, setSysIsDark] = useState(sysDark);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [tourOpen, setTourOpen] = useState(false);  // qa/38 (Help): tour de primeiro uso
   const [welcomeOpen, setWelcomeOpen] = useState(false);
   const [stopAlvoFor, setStopAlvoFor] = useState(null); // FASE 3: ticker do popup de stop/alvo (individual)
   const [stopAlvo, setStopAlvo] = useState({}); // FASE 3: resultados por ticker { loading, stop, alvo, explicacao, operar, error }
@@ -4566,6 +4702,7 @@ export default function App() {
   const [authUser, setAuthUser] = useState(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [welcomeAuthOpen, setWelcomeAuthOpen] = useState(false); // tela de abertura (login)
+  const tourShownRef = useRef(false); // qa/38 (Help): tour aparece 1x no 1º uso
   const welcomeShownRef = useRef(false);
   const themePref = (data && data.config && data.config.theme) || (typeof localStorage !== "undefined" && localStorage.getItem("b3-theme")) || "dark";
   const themeKey = themePref === "system" ? (sysIsDark ? "dark" : "light") : themePref;
@@ -4657,6 +4794,15 @@ export default function App() {
   useEffect(() => {
     loadState();
   }, [loadState]);
+  // qa/38 (Help): abre o tour UMA vez no primeiro uso — depois que o portão de
+  // abertura (login) fecha e só se `tourSeen` ainda não foi marcado. Guardado
+  // por ref para não reabrir; o Ver tour de novo (Ajuda) usa A.openTour.
+  useEffect(() => {
+    if (tourShownRef.current || !data || !data.config) return;
+    if (welcomeAuthOpen || welcomeOpen) return;      // espera o portão fechar
+    tourShownRef.current = true;
+    if (!data.config.tourSeen) setTourOpen(true);
+  }, [data, welcomeAuthOpen, welcomeOpen]);
   // FASE 3.3a — ao abrir o app, resume as ações do agente server-side desde a
   // última visita (agentLog vs. agent.lastSeenAt) com notificação local.
   const agentSummaryDone = useRef(false);
@@ -4935,6 +5081,14 @@ export default function App() {
     },
     openAbout: () => setAboutOpen(true),
     closeAbout: () => setAboutOpen(false),
+    // qa/38 (Help): tour de primeiro uso. Ao fechar, marca tourSeen no doc
+    // local (não reaparece); best-effort no servidor.
+    openTour: () => setTourOpen(true),
+    closeTour: () => {
+      setTourOpen(false);
+      setData((d) => (d ? { ...d, config: { ...d.config, tourSeen: true } } : d));
+      try { store.putConfig({ tourSeen: true }); } catch { /* silencioso */ }
+    },
     setNotif: async (patch) => {
       const p = { ...patch };
       // momento certo: ao LIGAR o mestre, pede permissão do sistema
@@ -5347,7 +5501,9 @@ export default function App() {
                   ? (<><BackHeader title="Eficiência da IA" onBack={() => setPerfilView("hub")} /><EficienciaIAScreen ctx={ctx} /></>)
                   : perfilView === "logs"
                     ? (<><BackHeader title="Logs & debug" onBack={() => setPerfilView("hub")} /><LogsDebugScreen ctx={ctx} /></>)
-                    : <PerfilHub ctx={ctx} onOpen={setPerfilView} />)}
+                    : perfilView === "ajuda"
+                      ? (<><BackHeader title="Como funciona" onBack={() => setPerfilView("hub")} /><AjudaScreen ctx={ctx} /></>)
+                      : <PerfilHub ctx={ctx} onOpen={setPerfilView} />)}
         </div>
       </main>
 
@@ -5367,6 +5523,7 @@ export default function App() {
         />
       )}
       {aboutOpen && <AboutModal onClose={A.closeAbout} />}
+      {tourOpen && <TourModal ctx={ctx} />}
       {authOpen && <AuthModal ctx={ctx} onClose={() => setAuthOpen(false)} />}
       {stopAlvoFor && <StopAlvoModal ctx={ctx} />}
       {welcomeAuthOpen && (
