@@ -32,5 +32,12 @@ const mer = app.slice(app.lastIndexOf("function MercadoScreen("), app.indexOf("f
 ok("EvolucaoScreen define operador", /const operador = \(data\.config && data\.config\.appMode\) === "operador"/.test(evo));
 ok("MercadoScreen define operador", /const operador = \(data\.config && data\.config\.appMode\) === "operador"/.test(mer));
 
+// qa/40: o KpiBlock (análise expandida no Monitoramento) troca o rótulo
+// "PLANO EDUCACIONAL" por "DECISÃO DA MESA" no operador — e recebe a flag.
+ok("KpiBlock é mode-aware (rótulo por modo)",
+  /operador \? "DECISÃO DA MESA" : "PLANO EDUCACIONAL"/.test(app));
+ok("KpiBlock recebe operador do MercadoScreen",
+  /<KpiBlock kpis=\{an\.kpis\} operador=\{operador\}/.test(app));
+
 console.log(fails ? `\n${fails} falha(s)` : "\ntodos os testes passaram");
 process.exit(fails ? 1 : 0);

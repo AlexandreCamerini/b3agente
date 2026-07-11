@@ -875,7 +875,7 @@ function KpiCell({ label, value, color, prefix }) {
   );
 }
 
-function KpiBlock({ kpis }) {
+function KpiBlock({ kpis, operador }) {
   const [recColor, recBg] = REC_STYLE[kpis.recomendacao] || [T.textMuted, T.bgBase];
   const [dirColor, dirArrow] = DIR_STYLE[kpis.direcao] || [T.textMuted, ""];
   return (
@@ -883,12 +883,15 @@ function KpiBlock({ kpis }) {
       {kpis.recomendacao && (
         <div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", padding: "10px 12px", borderRadius: "9px", background: recBg, border: `1px solid ${recColor}` }}>
-            <span style={{ fontSize: "10px", letterSpacing: "0.06em", color: T.textFaint }}>PLANO EDUCACIONAL</span>
+            {/* qa/40: rótulo e rodapé por MODO — na mesa "PLANO EDUCACIONAL" não
+                cabe; a decisão é da mesa, a execução é do usuário. */}
+            <span style={{ fontSize: "10px", letterSpacing: "0.06em", color: T.textFaint }}>{operador ? "DECISÃO DA MESA" : "PLANO EDUCACIONAL"}</span>
             <span style={{ fontWeight: 800, fontSize: "14px", color: recColor }}>{kpis.recomendacao}</span>
           </div>
-          {/* FASE 3 (item 3): rodapé educacional fixo, sob cada sinal */}
           <div style={{ fontSize: "10px", color: T.textFaint, marginTop: "6px", lineHeight: 1.5 }}>
-            Sinal gerado para fins educacionais — não é recomendação de compra ou venda.
+            {operador
+              ? "Decisão da mesa sobre dados passados — a execução e o risco são seus, na sua corretora. Não é ordem nem recomendação personalizada."
+              : "Sinal gerado para fins educacionais — não é recomendação de compra ou venda."}
           </div>
         </div>
       )}
@@ -2220,7 +2223,7 @@ function MercadoScreen({ ctx }) {
                 );
               })()}
 
-              {an.kpis && <KpiBlock kpis={an.kpis} />}
+              {an.kpis && <KpiBlock kpis={an.kpis} operador={operador} />}
               {an.loading && (
                 <div style={{ marginTop: "12px" }}>
                   <SweepGauge compact label={"Analisando " + t} steps={["consultando histórico", "calculando indicadores", "IA lendo as 5 famílias"]} />
