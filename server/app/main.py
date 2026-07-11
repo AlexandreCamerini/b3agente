@@ -545,6 +545,25 @@ async def apple_app_site_association():
 # rankeada de condições técnicas detectadas + disclaimer no payload. A 1ª
 # varredura aquece o candle_cache (pode levar dezenas de segundos); as
 # seguintes são rápidas (cache fresh/delta + cache do resultado por 60s).
+# qa/36 (F10.2): anexa o fundamento (score A/B/C + métricas) a cada ativo do
+# scan — SÓ do cache (get_cached nunca vai à rede; o job semanal aquece). Fora
+# do scanner de propósito: mantém o scanner sem dependência de db e o
+# fundamento atualiza independente do resultado do dia. Ticker não aquecido →
+# sem campo (a UI mostra "sem dado"), nunca inferência.
+def _enrich_fundamentos(payload: dict) -> dict:
+    results = (payload or {}).get("results")
+    if not isinstance(results, list):
+        return payload
+    for r in results:
+        f = fundamentals.get_cached(_conn, r.get("ticker") or "")
+        if f and f.get("score"):
+            r["fundamento"] = {k: f.get(k) for k in
+                               ("score", "pl", "roe", "dy", "margemLiquida",
+                                "dividaEbitda", "crescReceita", "crescLucro",
+                                "setor", "referencia", "fonte")}
+    return payload
+
+
 @app.get("/api/scan")
 async def scan(period: Optional[str] = None, tickers: Optional[str] = None,
                force: Optional[int] = None, scope: Optional[str] = Depends(current_scope)):
@@ -553,14 +572,14 @@ async def scan(period: Optional[str] = None, tickers: Optional[str] = None,
     # armazenado, e só recomputa no primeiro acesso do dia ou com ?force=1
     # (botão "Varrer novamente"). A varredura manual substitui a do dia.
     if tickers:
-        return await scanner.run_scan(period=period, universe=tickers, fetch=yahoo.get_history)
+        return _enrich_fundamentos(await scanner.run_scan(period=period, universe=tickers, fetch=yahoo.get_history))
     p = candles_mod.normalize_period(period)
     if not force:
         stored = radar_daily.get_stored(_conn, p)
         if stored:
-            return stored
+            return _enrich_fundamentos(stored)
     payload = await scanner.run_scan(period=p, fetch=yahoo.get_history)
-    return radar_daily.store_result(_conn, p, payload, origem="manual")
+    return _enrich_fundamentos(radar_daily.store_result(_conn, p, payload, origem="manual"))
 
 
 # FASE 1 (N1) — aprofundamento IA do Radar: híbrido por custo (scanner grátis
@@ -709,6 +728,20 @@ async def analyze_technical_model(ticker: str, body: dict = Body(default={}), sc
         )
     except Exception as e:  # noqa: BLE001 — registro é best-effort
         print(f"[analysis-outcomes] registro N2 falhou p/ {t}: {e}")
+    # qa/36 (F10.2): fundamento no N2 — busca INLINE (1 ticker, latência ok) +
+    # rebaixamento de confiança quando técnica operável diverge de fundamento
+    # fraco (score C). O fundamento NÃO muda o plano (stop/alvo/gatilho); só
+    # filtra a confiança pra baixo. Best-effort: falha não derruba a análise.
+    fundamento = None
+    conf_final = analysis_outcomes.normalizar_confianca((result.get("kpis") or {}).get("conviccao"))
+    rebaixado = False
+    try:
+        fundamento = fundamentals.get_fundamentals(_conn, t)
+        operavel = prop.get("stop") is not None and prop.get("alvo") is not None
+        conf_final, rebaixado = fundamentals.rebaixa_confianca(
+            conf_final, (fundamento or {}).get("score"), operavel)
+    except Exception as e:  # noqa: BLE001 — fundamento é overlay, nunca bloqueia
+        print(f"[fundamentals] N2 falhou p/ {t}: {e}")
     payload = {
         "kpis": result.get("kpis"),
         "detail": result.get("detail"),
@@ -723,6 +756,10 @@ async def analyze_technical_model(ticker: str, body: dict = Body(default={}), sc
         "snapshotId": snap["snapshotId"],
         "snapshotAt": snap["asOf"],
         "setupsRadar": context.get("setupsRadar"),
+        # qa/36: fundamento (score + métricas) + resultado do rebaixamento.
+        "fundamento": fundamento,
+        "confiancaFinal": conf_final,
+        "rebaixadoPorFundamento": rebaixado,
         "at": now_str(),
     }
     if not body.get("config"):

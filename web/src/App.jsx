@@ -894,6 +894,56 @@ function KpiBlock({ kpis }) {
   );
 }
 
+// qa/36 (F10.2): FUNDAMENTO — chip de score A/B/C (filtro de qualidade, nunca
+// gatilho) e tabela de métricas. Cor por score; "sem dado" explícito, nunca
+// inferência. score ausente → nada renderiza (ticker sem cobertura).
+const SCORE_COLOR = { A: "positive", B: "accent", C: "negative" };
+function FundamentoChip({ f }) {
+  if (!f || !f.score) return null;
+  const c = T[SCORE_COLOR[f.score] || "textFaint"];
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", padding: "4px 9px", borderRadius: "7px", fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em", border: `1px solid ${c}`, color: c }}>
+      FUNDAMENTO <b style={{ fontFamily: MONO, fontSize: "11px" }}>{f.score}</b>
+    </span>
+  );
+}
+// fração → percentual pt-BR (0.244 → "24,4%"); null/NaN → null (vira "sem dado")
+const fracPct = (v) => (v == null || isNaN(v) ? null : (v * 100).toFixed(1).replace(".", ",") + "%");
+const num1 = (v) => (v == null || isNaN(v) ? null : Number(v).toFixed(1).replace(".", ","));
+function FundamentoTabela({ f }) {
+  if (!f) return null;
+  const linhas = [
+    ["P/L", num1(f.pl)],
+    ["ROE", fracPct(f.roe)],
+    ["Dividend yield", fracPct(f.dy)],
+    ["Margem líquida", fracPct(f.margemLiquida)],
+    ["Dívida/EBITDA", f.dividaEbitda == null ? null : num1(f.dividaEbitda) + "×"],
+    ["Crescimento receita (5a)", fracPct(f.crescReceita)],
+  ];
+  return (
+    <div style={{ marginTop: "12px", ...card, padding: "13px 15px" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", marginBottom: "6px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <span style={{ fontSize: "11px", fontWeight: 800, letterSpacing: "0.05em", color: T.textSecondary }}>FUNDAMENTO</span>
+          <FundamentoChip f={f} />
+        </div>
+        <span style={{ fontSize: "10px", color: T.textFaint }}>{f.referencia ? "ref. " + f.referencia : ""}{f.fonte ? " · " + f.fonte : ""}</span>
+      </div>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
+        <tbody>
+          {linhas.map(([k, v], i) => (
+            <tr key={i}>
+              <td style={{ padding: "5px 0", borderTop: i ? `1px solid ${T.borderFaint}` : "none", color: T.textMuted }}>{k}</td>
+              <td style={{ padding: "5px 0", borderTop: i ? `1px solid ${T.borderFaint}` : "none", textAlign: "right", fontFamily: MONO, fontWeight: 700, color: v == null ? T.textFaint : T.textSecondary, fontStyle: v == null ? "italic" : "normal" }}>{v == null ? "sem dado" : v}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div style={{ fontSize: "10px", color: T.textFaint, lineHeight: 1.5, marginTop: "8px" }}>Filtro de qualidade (valuation · rentabilidade · solidez), não é gatilho de compra. Célula "sem dado" não pontua nem penaliza. Fonte indisponível = sem inferência.</div>
+    </div>
+  );
+}
+
 // Lista rotulada (confirmações/invalidações/cuidados) — render seguro em React,
 // sem HTML injetado (XSS-safe por construção).
 function LabeledList({ title, items, icon, color }) {
@@ -1009,6 +1059,13 @@ function AnalysisView({ an }) {
             {d.fatos.map((f, i) => <li key={i} style={{ fontSize: "13px", color: T.textPrimary, lineHeight: 1.5 }}><MdInline text={f} /></li>)}
           </ul>
           <div style={{ fontSize: "10px", color: T.textFaint, marginTop: "9px", lineHeight: 1.5 }}>Contexto informativo com base nos dados disponíveis — sem garantia de completude ou atualidade. Não é recomendação de compra ou venda.</div>
+        </div>
+      )}
+      {/* qa/36 (F10.2): seção Fundamento + nota do rebaixamento de confiança. */}
+      {an.fundamento && <FundamentoTabela f={an.fundamento} />}
+      {an.rebaixadoPorFundamento && (
+        <div style={{ marginTop: "9px", padding: "9px 11px", borderRadius: "9px", background: T.accentTint10, borderLeft: `3px solid ${T.accent}`, fontSize: "11px", color: T.textSecondary, lineHeight: 1.5 }}>
+          Confiança rebaixada para <b>{an.confiancaFinal}</b>: a decisão técnica é operável, mas o fundamento é fraco (score C). O plano técnico não muda — só a confiança desce um degrau.
         </div>
       )}
       <AiNote at={an.at} />
@@ -3677,6 +3734,9 @@ function RadarScreen({ ctx }) {
                 {/* qa/34 (P3): pill de confiança (tierOf) ao lado da decisão, como no
                     mock modo-operador.html ("confiança MODERADA"). */}
                 <span style={{ padding: "4px 9px", borderRadius: "999px", border: `1px solid ${T.borderSubtle}`, color: T.textMuted, fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em" }}>confiança {tierLabel.toUpperCase()}</span>
+                {/* qa/36 (F10.2): chip de score de fundamento (filtro de qualidade)
+                    — do cache do servidor; ausente = ticker sem cobertura. */}
+                <FundamentoChip f={r.fundamento} />
                 {r.melhorSetup && <span style={{ fontSize: "11.5px", color: T.textMuted }}>{r.melhorSetup}{critTot > 0 ? ` · ${critOk}/${critTot} critérios` : ""}</span>}
               </div>
               {/* qa/34 (P1): leitura inicial rápida no Modo Estudo — o `motivo`
@@ -4521,7 +4581,7 @@ export default function App() {
         const seed = {};
         for (const t of Object.keys(s.analyses)) {
           const a = s.analyses[t] || {};
-          seed[t] = { loading: false, text: a.text || a.analysis || "", markdown: a.markdown || a.text || a.analysis || "", kpis: a.kpis || null, detail: a.detail || null, proposal: a.proposal || null, model: a.model || null, modelLabel: a.modelLabel || null, technicalContext: a.technicalContext || null, candlesSentToLLM: a.candlesSentToLLM || null, snapshotId: a.snapshotId || null, snapshotAt: a.snapshotAt || null, at: a.at || null };
+          seed[t] = { loading: false, text: a.text || a.analysis || "", markdown: a.markdown || a.text || a.analysis || "", kpis: a.kpis || null, detail: a.detail || null, proposal: a.proposal || null, model: a.model || null, modelLabel: a.modelLabel || null, technicalContext: a.technicalContext || null, candlesSentToLLM: a.candlesSentToLLM || null, snapshotId: a.snapshotId || null, snapshotAt: a.snapshotAt || null, fundamento: a.fundamento || null, confiancaFinal: a.confiancaFinal || null, rebaixadoPorFundamento: !!a.rebaixadoPorFundamento, at: a.at || null };
         }
         if (Object.keys(seed).length) setAnalysis((cur) => ({ ...seed, ...cur }));
       }
@@ -4634,7 +4694,7 @@ export default function App() {
           return { qty: p.qty, avg: p.avg, stop: p.stop, alvo: p.alvo, resultadoAtual: res != null ? Math.round(res * 100) / 100 : null };
         })();
         const r = await store.analyze(t, { model: analysisModel, position: posCtx });
-        setAnalysis((a) => ({ ...a, [t]: { loading: false, text: r.text || r.analysis || "", markdown: r.markdown || r.text || r.analysis || "", kpis: r.kpis || null, detail: r.detail || null, proposal: r.proposal || null, model: r.model, modelLabel: r.modelLabel, technicalContext: r.technicalContext || null, candles: r.candles, candlesSentToLLM: r.candlesSentToLLM, snapshotId: r.snapshotId || null, snapshotAt: r.snapshotAt || null, at: r.at, quote: r.quote } }));
+        setAnalysis((a) => ({ ...a, [t]: { loading: false, text: r.text || r.analysis || "", markdown: r.markdown || r.text || r.analysis || "", kpis: r.kpis || null, detail: r.detail || null, proposal: r.proposal || null, model: r.model, modelLabel: r.modelLabel, technicalContext: r.technicalContext || null, candles: r.candles, candlesSentToLLM: r.candlesSentToLLM, snapshotId: r.snapshotId || null, snapshotAt: r.snapshotAt || null, fundamento: r.fundamento || null, confiancaFinal: r.confiancaFinal || null, rebaixadoPorFundamento: !!r.rebaixadoPorFundamento, at: r.at, quote: r.quote } }));
         // FASE 2 (2.5): telemetria didática — registra o que a IA disse (para
         // comparar depois com o que aconteceu). Best-effort, nunca bloqueia.
         try {
