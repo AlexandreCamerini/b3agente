@@ -570,6 +570,21 @@ def _enrich_fundamentos(payload: dict) -> dict:
     return payload
 
 
+# qa/37 (F10.2): diagnóstico de fundamento por ticker — confirma a fonte real
+# (bolsai/brapi) e o parse assim que a BOLSAI_API_KEY entra no Railway (o
+# cliente da bolsai foi construído contra o formato documentado, sem validação
+# ao vivo). Cache-first (TTL 7d); ?force=1 refaz o fetch. I/O bloqueante via
+# thread (não congela o event loop). Dado público, sem escopo.
+@app.get("/api/fundamentals/{ticker}")
+async def fundamentals_one(ticker: str, force: Optional[int] = None):
+    f = await asyncio.to_thread(fundamentals.get_fundamentals, _conn, ticker, force=bool(force))
+    return {
+        "ticker": ticker.upper(),
+        "temChaveBolsai": bool(fundamentals._bolsai_key()),
+        "fundamento": f,
+    }
+
+
 @app.get("/api/scan")
 async def scan(period: Optional[str] = None, tickers: Optional[str] = None,
                force: Optional[int] = None, scope: Optional[str] = Depends(current_scope)):

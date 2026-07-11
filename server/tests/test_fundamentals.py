@@ -309,6 +309,10 @@ def test_integracao_esta_ligada_no_backend():
     assert "not _bolsai_key()" in fu_src, "warm deve pular sem BOLSAI_API_KEY"
     assert "await asyncio.to_thread(fundamentals.get_fundamentals" in main_src, \
         "N2 deve buscar fundamento em thread (não bloquear o event loop)"
+    # qa/37: endpoint de diagnóstico existe e também usa thread (nunca bloqueia).
+    assert '@app.get("/api/fundamentals/{ticker}")' in main_src, "falta o endpoint de diagnóstico"
+    assert main_src.count("await asyncio.to_thread(fundamentals.get_fundamentals") >= 2, \
+        "diagnóstico também deve rodar get_fundamentals em thread"
 
 
 if __name__ == "__main__":
