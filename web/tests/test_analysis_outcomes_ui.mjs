@@ -109,6 +109,18 @@ await (async () => {
   ok("qa/35: painel exibe expectância + calibração + export, com n mínimo");
 })();
 
+// 9) qa/37 (P2e): curva de R acumulado + drawdown no painel.
+await (async () => {
+  const src = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
+  assert.ok(/CURVA DE R ACUMULADO/.test(src) && /efic\.curvaR/.test(src), "card da curva de R na tela");
+  assert.ok(/function RCurve\(/.test(src) && /<RCurve pts=\{efic\.curvaR\}/.test(src), "componente RCurve renderizado");
+  assert.ok(/efic\.rAcumulado/.test(src) && /efic\.drawdownMax/.test(src), "R acumulado e drawdown exibidos");
+  assert.ok(/Aguardando o prazo/.test(src), "estado vazio (aguardando 10 pregões) coberto");
+  // usePalette (hex resolvido) no SVG, não var() cru — mesmo contrato do Sparkline
+  assert.ok(/function RCurve[\s\S]{0,400}usePalette\(\)/.test(src), "RCurve usa usePalette (SVG theme-aware)");
+  ok("qa/37: curva de R acumulado + drawdown no painel de eficiência");
+})();
+
 // 8) o servidor captura a confiança declarada nos DOIS registros (N1/N2) e o
 // backend expõe o endpoint CSV — wiring estático no main.py.
 await (async () => {
