@@ -157,6 +157,23 @@ def parse_rich(raw: str) -> dict:
         detail["fatos"] = _str_list(obj.get("fatosRelevantes") or obj.get("fatos"))
         proposal["stop"] = _num(obj.get("stopSugerido"))
         proposal["alvo"] = _num(obj.get("alvoSugerido"))
+        # qa/40 (regra do produto: modelo NÃO inventa número): sanidade dos
+        # níveis devolvidos — preço <= 0 (o "0.0" do template passava como
+        # proposta!), stop==alvo, ou geometria incoerente com a direção
+        # declarada (alta exige alvo>stop; baixa o inverso) ⇒ níveis viram
+        # None ("sem dado" > número inventado).
+        st, av = proposal["stop"], proposal["alvo"]
+        if st is not None and st <= 0:
+            proposal["stop"] = st = None
+        if av is not None and av <= 0:
+            proposal["alvo"] = av = None
+        if st is not None and av is not None:
+            rec = str(obj.get("recomendacao") or "")
+            dr = str(obj.get("direcao") or "")
+            alta = rec in ("Estudar alta", "COMPRAR") or (rec == "" and dr == "Alta")
+            baixa = rec in ("Estudar baixa", "VENDER") or (rec == "" and dr == "Baixa")
+            if st == av or (alta and av <= st) or (baixa and av >= st):
+                proposal["stop"] = proposal["alvo"] = None
         corpo = str(obj.get("corpo") or obj.get("markdown") or obj.get("analise") or "").strip()
         # remove cercas de markdown que a IA as vezes embrulha em volta do corpo
         corpo = re.sub(r"^```[a-zA-Z]*\n?", "", corpo)

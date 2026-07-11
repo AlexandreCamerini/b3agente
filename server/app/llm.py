@@ -336,12 +336,29 @@ async def analyze_structured(config: dict, skill: dict, profile: dict, account: 
 async def analyze(config: dict, skill: dict, profile: dict, account: dict, ticker: str, quote: dict, history: dict):
     key = resolve_key(config)
     pl = _profile_line(profile)
-    system = (skill.get("text") or "") + "\n" + GUARDRAILS + ("\n" + pl if pl else "") + "\n" + FORMAT
+    # qa/40 (reporte do Alex): este caminho era SEMPRE educacional — no modo
+    # Operador devolvia "Estudar alta" na cara da mesa. Agora segue o mesmo
+    # branch por modo do analyze_structured (piso do SERVIDOR, vale mesmo que
+    # o cliente mande a skill errada), com re-map PRO e teto de convicção
+    # (caminho legado não tem 2º timeframe → teto sempre).
+    operador = is_operador(config)
+    if operador:
+        system = (skill.get("text") or "") + "\n" + GUARDRAILS_PRO + ("\n" + pl if pl else "") + "\n" + FORMAT_PRO
+    else:
+        system = (skill.get("text") or "") + "\n" + GUARDRAILS + ("\n" + pl if pl else "") + "\n" + FORMAT
     user = _build_user_prompt(ticker, quote, history, profile, account)
     raw = await _call_llm(config, key, system, user, 1300)
     if not raw:
         raise RuntimeError("A LLM nao retornou texto.")
     r = parse_rich(raw)
+    k = (r.get("kpis") or {}) if isinstance(r, dict) else {}
+    if operador and k.get("recomendacao"):
+        _PRO = {"Estudar alta": "COMPRAR", "Estudar baixa": "VENDER",
+                "Aguardar": "AGUARDAR CONFIRMAÇÃO", "Monitorar": "AGUARDAR CONFIRMAÇÃO",
+                "Não operar": "NÃO OPERAR", "Reduzir risco": "Reduzir risco"}
+        k["recomendacao"] = _PRO.get(k["recomendacao"], "AGUARDAR CONFIRMAÇÃO")
+    if k.get("conviccao") in ("Muito Alto", "Alto"):
+        k["conviccao"] = "Médio"  # timeframe único: teto imposto
     # {kpis, detail, proposal, markdown, text}
     return r
 
