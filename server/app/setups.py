@@ -614,10 +614,22 @@ def plano_operacional(setup, close=None):
     alvo2 = setup.get("alvoSugerido")
     if alvo2 is None:
         alvo2 = gatilho + 2 * risco if alta else gatilho - 2 * risco
-    alvo1 = gatilho + risco if alta else gatilho - risco
     risco_real = abs(entrada - stop)
     if risco_real <= 0:
         return _plano_vazio("Risco nulo entre entrada e stop — plano inválido, não operar.")
+    # qa/39 (QA do operador): o ALVO1 é 1R DA ENTRADA REAL — ancorar no gatilho
+    # fazia o motivo prometer "parcial em 1R" que virava 0,4R na entrada a
+    # mercado. Agora a promessa e o número são o mesmo.
+    alvo1 = entrada + risco_real if alta else entrada - risco_real
+    # qa/39 (QA do operador): o alvo FINAL precisa estar do lado do LUCRO —
+    # o abs() no R:R mascarava alvo2 abaixo do stop numa compra ("R:R 1,6"
+    # matematicamente positivo para um plano absurdo). Também rejeita projeção
+    # que não cabe acima de zero (venda com stop largo em papel barato geraria
+    # alvo NEGATIVO — número fisicamente impossível, dado inventado).
+    alvo_lado_certo = (alvo2 > entrada) if alta else (alvo2 < entrada)
+    if not alvo_lado_certo or alvo1 <= 0 or alvo2 <= 0:
+        return {**_plano_vazio(""), "setup": setup.get("nome"), "lado": lado,
+                "motivo": "Projeção de alvo incoerente com o lado do setup — sem plano executável, não operar."}
     rr1 = abs(alvo1 - entrada) / risco_real
     rr2 = abs(alvo2 - entrada) / risco_real
     if rr2 < RR_MINIMO:
@@ -647,6 +659,12 @@ def plano_do_resultado(sres, close=None):
     Melhor setup direcional => plano; só neutro => AGUARDAR; nada => NÃO OPERAR."""
     setups_list = (sres or {}).get("setups") or []
     direcionais = [s for s in setups_list if s.get("lado") in ("alta", "baixa")]
+    # qa/39 (QA do operador): prioriza o melhor direcional COM níveis executáveis
+    # (gatilho+invalidação). Antes, um setup legado sem níveis no topo do ranking
+    # derrubava o plano em NÃO OPERAR mesmo havendo um 9.1 executável logo abaixo.
+    com_niveis = [s for s in direcionais if s.get("gatilho") is not None and s.get("invalidacao") is not None]
+    if com_niveis:
+        return plano_operacional(com_niveis[0], close=close)
     if direcionais:
         return plano_operacional(direcionais[0], close=close)
     if setups_list:

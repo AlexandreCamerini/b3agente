@@ -35,6 +35,9 @@ _MAPS = {
         "estudo de baixa": "Estudar baixa",
         "monitorar": "Monitorar",
         "aguardar": "Aguardar",
+        # qa/39 (P1-1): valor do enum PRO (FORMAT_PRO) — normaliza para o
+        # intermediário educacional; o analyze_structured re-mapeia p/ mesa.
+        "aguardar confirmacao": "Aguardar",
         "nao operar": "Não operar",
         "não operar": "Não operar",
         "reduzir risco": "Reduzir risco",

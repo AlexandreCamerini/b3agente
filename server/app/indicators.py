@@ -90,12 +90,18 @@ def rsi(closes: List[float], p: int = 14) -> List[Optional[float]]:
         losses += max(-ch, 0.0)
     ag = gains / p
     al = losses / p
-    out[p] = 100.0 if al == 0 else 100 - 100 / (1 + ag / al)
+    # qa/39 (QA do operador): série FLAT (ganho=0 E perda=0) é RSI indefinido —
+    # convenção neutra 50, não 100 ("sobrecomprado" falso em papel parado).
+    def _rsi_val(g, l):
+        if l == 0:
+            return 50.0 if g == 0 else 100.0
+        return 100 - 100 / (1 + g / l)
+    out[p] = _rsi_val(ag, al)
     for i in range(p + 1, len(closes)):
         ch = closes[i] - closes[i - 1]
         ag = (ag * (p - 1) + max(ch, 0.0)) / p
         al = (al * (p - 1) + max(-ch, 0.0)) / p
-        out[i] = 100.0 if al == 0 else 100 - 100 / (1 + ag / al)
+        out[i] = _rsi_val(ag, al)
     return out
 
 
