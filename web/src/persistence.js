@@ -343,6 +343,7 @@ function deviceStore() {
       if (patch.theme === "dark" || patch.theme === "light" || patch.theme === "system") c.theme = patch.theme;
       if (typeof patch.userName === "string") c.userName = patch.userName.trim().slice(0, 40);
       if ("onboarded" in patch) c.onboarded = !!patch.onboarded;
+      if ("tourSeen" in patch) c.tourSeen = !!patch.tourSeen;  // qa/38 (Help): tour de 1º uso só aparece 1x
       if (typeof patch.candlePeriod === "string" && ["1mo", "3mo", "6mo", "1y", "2y"].includes(patch.candlePeriod)) c.candlePeriod = patch.candlePeriod;
       if (patch.streak && typeof patch.streak === "object") c.streak = { days: parseInt(patch.streak.days, 10) || 0, last: String(patch.streak.last || "") };
       if (patch.notif && typeof patch.notif === "object") {
