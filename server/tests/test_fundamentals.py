@@ -131,24 +131,29 @@ def test_get_fundamentals_fonte_fora_usa_cache_velho():
 
 # ===== qa/36 (F10.2): bolsai primária + merge + rebaixamento + warm =====
 
-# Fixture do formato DOCUMENTADO da bolsai (GET /fundamentals/{ticker}).
+# Fixture da resposta REAL da bolsai (validada ao vivo em 11/07/2026 via o
+# endpoint de diagnóstico): ROE/margem/CAGR vêm em PERCENTUAL (31.0 = 31%).
 PAYLOAD_BOLSAI = {"data": {
     "ticker": "WEGE3", "sector": "Bens Industriais", "reference_date": "2026-03-31",
-    "pl": 18.4, "pvp": 5.2, "roe": 0.31, "net_margin": 0.17,
-    "net_debt_ebitda": -0.3, "cagr_revenue_5y": 0.19, "cagr_earnings_5y": 0.21,
+    "pl": 18.4, "pvp": 5.2, "roe": 31.0, "net_margin": 17.0,
+    "net_debt_ebitda": -0.3, "cagr_revenue_5y": 19.0, "cagr_earnings_5y": 21.0,
     # DY não vem no free da bolsai:
     "dividend_yield": None,
 }}
 
 
-def test_parse_bolsai_formato_documentado():
+def test_parse_bolsai_converte_percentual_para_fracao():
     f = fu.parse_bolsai(PAYLOAD_BOLSAI)
     assert f["ticker"] == "WEGE3" and f["fonte"] == "bolsai"
-    assert f["pl"] == 18.4 and f["roe"] == 0.31
-    assert f["dividaEbitda"] == -0.3      # net_debt_ebitda direto, sem conta
+    assert f["pl"] == 18.4                # ratio: NÃO converte
+    assert f["roe"] == 0.31               # 31.0% → 0.31 (fração, como a brapi)
+    assert f["margemLiquida"] == 0.17     # 17.0% → 0.17
+    assert f["crescReceita"] == 0.19 and f["crescLucro"] == 0.21
+    assert f["dividaEbitda"] == -0.3      # ratio: net_debt_ebitda direto
     assert f["dy"] is None                # free não traz DY
     assert fu.parse_bolsai({}) is None
-    assert fu.score_fundamento(f) == "A"  # P/L<20 ok + ROE/margem ok + dívida<3 ok
+    # score usa o threshold real (ROE>=0.10) sobre a fração — não o 0.1% quebrado
+    assert fu.score_fundamento(f) == "A"
 
 
 def test_merge_completa_dy_da_brapi_sem_sobrescrever():

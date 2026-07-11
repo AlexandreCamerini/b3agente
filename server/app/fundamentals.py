@@ -99,26 +99,36 @@ def parse_brapi(payload: dict) -> Optional[dict]:
     }
 
 
+def _pct_para_frac(v) -> Optional[float]:
+    """qa/37 (validação ao vivo): a bolsai devolve ROE/margem/CAGR/DY como
+    PERCENTUAL (24.17 = 24,17%), enquanto a brapi e todo o resto do app usam
+    FRAÇÃO (0.2417). Normaliza dividindo por 100 — sem isso o threshold do
+    score (ROE>=0.10) e o fracPct da UI (×100) quebram."""
+    n = _num(v)
+    return None if n is None else n / 100.0
+
+
 def parse_bolsai(payload: dict) -> Optional[dict]:
     """Extrai as métricas do JSON da bolsai (GET /fundamentals/{ticker}) para
     o MESMO formato interno de parse_brapi. PURO. A bolsai já entrega os
-    indicadores calculados; a bolsai reporta net_debt_ebitda direto (sem a
-    conta que a brapi exige). DY não vem no free (recurso PRO) → None,
-    completado pela brapi depois. Campo ausente/nulo = None, sempre."""
+    indicadores calculados e reporta net_debt_ebitda direto. ROE/margem/CAGR/DY
+    vêm em PERCENTUAL → convertidos para fração (_pct_para_frac) para bater com
+    a brapi e o resto do app. DY normalmente None no free (recurso PRO),
+    completado pela brapi. Campo ausente/nulo = None, sempre."""
     d = (payload or {}).get("data") or payload or {}
     if not d or not (d.get("ticker") or d.get("symbol")):
         return None
     return {
         "ticker": d.get("ticker") or d.get("symbol"),
         "setor": d.get("sector") or d.get("setor"),
-        "pl": _num(d.get("pl")),
-        "pvp": _num(d.get("pvp")),
-        "roe": _num(d.get("roe")),
-        "dy": _num(d.get("dividend_yield")),  # normalmente None no free
-        "margemLiquida": _num(d.get("net_margin")),
-        "dividaEbitda": _num(d.get("net_debt_ebitda")),
-        "crescReceita": _num(d.get("cagr_revenue_5y")),
-        "crescLucro": _num(d.get("cagr_earnings_5y")),
+        "pl": _num(d.get("pl")),                       # ratio — não converte
+        "pvp": _num(d.get("pvp")),                     # ratio
+        "roe": _pct_para_frac(d.get("roe")),           # % → fração
+        "dy": _pct_para_frac(d.get("dividend_yield")), # % → fração (se vier)
+        "margemLiquida": _pct_para_frac(d.get("net_margin")),
+        "dividaEbitda": _num(d.get("net_debt_ebitda")),  # ratio
+        "crescReceita": _pct_para_frac(d.get("cagr_revenue_5y")),
+        "crescLucro": _pct_para_frac(d.get("cagr_earnings_5y")),
         "referencia": d.get("reference_date") or None,
         "fonte": "bolsai",
     }
