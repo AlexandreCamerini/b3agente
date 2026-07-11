@@ -833,6 +833,17 @@ function comprasDaPosicao(history, t) {
 const decisaoDoModo = (item, operador) =>
   (operador && item && item.plano && item.plano.decisao) ? item.plano.decisao : (item || {}).veredito;
 
+// qa/40: mapa de decisão educacional → mesa, aplicado NO RENDER. O servidor já
+// devolve o vocabulário certo para análises NOVAS (analyze_structured/analyze),
+// mas análises ANTIGAS em cache guardam "Estudar alta/baixa" — mapear aqui
+// garante que a mesa nunca exiba a voz de estudo, seja qual for a idade do dado.
+const REC_PRO_MAP = {
+  "Estudar alta": "COMPRAR", "Estudar baixa": "VENDER",
+  "Aguardar": "AGUARDAR CONFIRMAÇÃO", "Monitorar": "AGUARDAR CONFIRMAÇÃO",
+  "Não operar": "NÃO OPERAR",
+};
+const recDoModo = (rec, operador) => (operador && REC_PRO_MAP[rec]) ? REC_PRO_MAP[rec] : rec;
+
 const REC_STYLE = {
   "Estudar alta": [T.positive, T.positiveTint10],
   "Estudar baixa": [T.negative, T.negativeTint10],
@@ -876,7 +887,9 @@ function KpiCell({ label, value, color, prefix }) {
 }
 
 function KpiBlock({ kpis, operador }) {
-  const [recColor, recBg] = REC_STYLE[kpis.recomendacao] || [T.textMuted, T.bgBase];
+  // qa/40: a decisão exibida segue o MODO (mapeia cache antigo de estudo→mesa).
+  const rec = recDoModo(kpis.recomendacao, operador);
+  const [recColor, recBg] = REC_STYLE[rec] || [T.textMuted, T.bgBase];
   const [dirColor, dirArrow] = DIR_STYLE[kpis.direcao] || [T.textMuted, ""];
   return (
     <div style={{ marginTop: "12px", display: "grid", gap: "8px" }}>
@@ -886,7 +899,7 @@ function KpiBlock({ kpis, operador }) {
             {/* qa/40: rótulo e rodapé por MODO — na mesa "PLANO EDUCACIONAL" não
                 cabe; a decisão é da mesa, a execução é do usuário. */}
             <span style={{ fontSize: "10px", letterSpacing: "0.06em", color: T.textFaint }}>{operador ? "DECISÃO DA MESA" : "PLANO EDUCACIONAL"}</span>
-            <span style={{ fontWeight: 800, fontSize: "14px", color: recColor }}>{kpis.recomendacao}</span>
+            <span style={{ fontWeight: 800, fontSize: "14px", color: recColor }}>{rec}</span>
           </div>
           <div style={{ fontSize: "10px", color: T.textFaint, marginTop: "6px", lineHeight: 1.5 }}>
             {operador
@@ -2218,7 +2231,7 @@ function MercadoScreen({ ctx }) {
                 }
                 return (
                   <button onClick={() => A.openBuy(t, undefined, buyMeta)} style={{ marginTop: "10px", width: "100%", minHeight: "42px", padding: "9px", borderRadius: "10px", border: `1px solid ${T.borderSubtle}`, background: T.bgBase, color: T.textSecondary, fontWeight: 700, fontSize: "12.5px" }}>
-                    {cp.btnComprar}… <span style={{ color: T.textFaint, fontWeight: 600 }}>(leitura: {(an.kpis && an.kpis.recomendacao) || "neutra"})</span>
+                    {cp.btnComprar}… <span style={{ color: T.textFaint, fontWeight: 600 }}>(leitura: {recDoModo((an.kpis && an.kpis.recomendacao), operador) || "neutra"})</span>
                   </button>
                 );
               })()}
