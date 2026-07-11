@@ -224,6 +224,36 @@ def test_compute_stats_sem_confianca_cai_no_bucket_sem_declaracao():
     assert st["porConfianca"]["—"]["n"] == 10
 
 
+def test_compute_stats_curva_r_e_drawdown():
+    # 12 avaliados (>= MIN_N): sequência de R com um vale no meio para testar DD.
+    # ordena por resolvidoEm; monto datas crescentes.
+    rs = [1.0, 1.0, -1.0, -1.0, 1.0, 1.0, 1.0, -1.0, 1.0, 1.0, 1.0, 1.0]
+    outcomes = []
+    for i, r in enumerate(rs):
+        o = _outcome_conf("alvo" if r > 0 else "stop", r)
+        o["resolvidoEm"] = f"2026-07-{i+1:02d}"
+        outcomes.append(o)
+    st = ao.compute_stats(outcomes)
+    # curva acumulada: 1,2,1,0,1,2,3,2,3,4,5,6
+    assert st["curvaR"] == [1.0, 2.0, 1.0, 0.0, 1.0, 2.0, 3.0, 2.0, 3.0, 4.0, 5.0, 6.0]
+    assert st["rAcumulado"] == 6.0
+    # pico 2 (i=1) → vale 0 (i=3) = drawdown 2.0; depois pico 3 → vale 2 = 1.0. máx=2.0
+    assert st["drawdownMax"] == 2.0
+
+
+def test_compute_stats_drawdown_n_insuficiente():
+    outcomes = [_outcome_conf("alvo", 1.0) for _ in range(5)]  # < MIN_N
+    st = ao.compute_stats(outcomes)
+    assert st["curvaR"] == [1.0, 2.0, 3.0, 4.0, 5.0]  # curva sempre monta
+    assert st["drawdownMax"] is None                   # métrica só com MIN_N
+    assert st["rAcumulado"] == 5.0
+
+
+def test_compute_stats_sem_avaliados_curva_vazia():
+    st = ao.compute_stats([_outcome_conf("pendente", None)])
+    assert st["curvaR"] == [] and st["rAcumulado"] is None and st["drawdownMax"] is None
+
+
 def test_to_csv_colunas_fixas_e_escape():
     outcomes = [{"id": "a1", "ticker": "PETR4", "modo": "estudo", "tipo": "n1",
                  "modelo": "prov:mod", "setup": 'IFR2 "clássico", B', "recomendacao": None,

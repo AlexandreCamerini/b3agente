@@ -3151,6 +3151,34 @@ function EficienciaIAScreen({ ctx }) {
         </div>
       )}
 
+      {/* qa/37 (P2e): CURVA DE R ACUMULADO + DRAWDOWN — a "equity curve" em R
+          das análises resolvidas (soma dos R-múltiplos na ordem de resolução).
+          Cálculo 100% no servidor. Sem comparação com IBOV (R de análise não
+          compara com retorno de índice). */}
+      {efic && efic.totalAnalises > 0 && (
+        <div style={{ marginTop: "14px", ...card, padding: "14px 16px" }}>
+          <div style={{ fontSize: "11px", fontWeight: 800, color: T.textSecondary, letterSpacing: "0.05em", marginBottom: "6px" }}>CURVA DE R ACUMULADO</div>
+          {(!efic.curvaR || efic.curvaR.length === 0) ? (
+            <div style={{ fontSize: "11.5px", color: T.textFaint, lineHeight: 1.5 }}>Aguardando o prazo — a curva aparece conforme as análises completam os 10 pregões.</div>
+          ) : (
+            <>
+              <RCurve pts={efic.curvaR} />
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginTop: "10px" }}>
+                <div style={{ flex: "1 1 90px", minWidth: "80px" }}>
+                  <div style={{ fontFamily: MONO, fontSize: "18px", fontWeight: 800, color: efic.rAcumulado == null ? T.textFaint : (efic.rAcumulado >= 0 ? T.positive : T.negative) }}>{efic.rAcumulado == null ? "—" : (efic.rAcumulado >= 0 ? "+" : "") + efic.rAcumulado + "R"}</div>
+                  <div style={{ fontSize: "10px", color: T.textFaint, fontWeight: 700, letterSpacing: "0.04em" }}>R ACUMULADO</div>
+                </div>
+                <div style={{ flex: "1 1 90px", minWidth: "80px" }}>
+                  <div style={{ fontFamily: MONO, fontSize: "18px", fontWeight: 800, color: efic.drawdownMax == null ? T.textFaint : T.negative }}>{efic.drawdownMax == null ? "n insuf." : "−" + efic.drawdownMax + "R"}</div>
+                  <div style={{ fontSize: "10px", color: T.textFaint, fontWeight: 700, letterSpacing: "0.04em" }}>DRAWDOWN MÁX.</div>
+                </div>
+              </div>
+              <div style={{ fontSize: "10px", color: T.textFaint, lineHeight: 1.5, marginTop: "8px" }}>Soma dos R-múltiplos na ordem de resolução. Drawdown = maior queda do pico, em R. Autoavaliação sobre dados passados, não é garantia de resultado.</div>
+            </>
+          )}
+        </div>
+      )}
+
       {/* qa/35 (P2): export CSV do registro bruto */}
       {efic && efic.totalAnalises > 0 && (
         <div style={{ marginTop: "14px", display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
@@ -3159,6 +3187,28 @@ function EficienciaIAScreen({ ctx }) {
         </div>
       )}
     </div>
+  );
+}
+
+// qa/37 (P2e): mini-gráfico da curva de R acumulado. Linha de base 0 tracejada;
+// cor pela ponta (verde >=0, vermelho <0). usePalette() (hex resolvido — var()
+// não resolve em atributo SVG neste WebKit, mesmo padrão do Sparkline).
+function RCurve({ pts, width = 300, height = 64 }) {
+  const P = usePalette();
+  const vals = (pts || []).filter((v) => typeof v === "number" && isFinite(v));
+  if (!vals.length) return null;
+  const serie = vals.length === 1 ? [0, vals[0]] : [0, ...vals]; // ancora em 0
+  const mn = Math.min(0, ...serie), mx = Math.max(0, ...serie), sp = (mx - mn) || 1;
+  const x = (i) => (i / (serie.length - 1)) * (width - 2) + 1;
+  const y = (v) => (height - 3) - ((v - mn) / sp) * (height - 6);
+  const d = serie.map((v, i) => (i ? "L" : "M") + x(i).toFixed(1) + "," + y(v).toFixed(1)).join(" ");
+  const up = vals[vals.length - 1] >= 0;
+  const y0 = y(0);
+  return (
+    <svg width="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" style={{ display: "block", height: height }} aria-hidden>
+      <line x1="1" y1={y0.toFixed(1)} x2={width - 1} y2={y0.toFixed(1)} stroke={P.textFaint} strokeWidth="1" strokeDasharray="3 3" opacity="0.6" />
+      <path d={d} fill="none" stroke={up ? P.positive : P.negative} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
 

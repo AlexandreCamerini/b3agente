@@ -151,6 +151,27 @@ def compute_stats(outcomes: list, modo: Optional[str] = None, tipo: Optional[str
         por_confianca.setdefault(o.get("confianca") or "—", []).append(o)
         por_decisao.setdefault((o.get("recomendacao") or "—").strip() or "—", []).append(o)
 
+    # --- qa/37 P2e: curva de R acumulado + drawdown -----------------------------
+    # Ordena os avaliados por data de resolução e soma os R-múltiplos → a curva
+    # de R acumulado (equity curve em R). Drawdown máximo = maior queda do pico
+    # até um vale posterior, em R. Só R interno — nenhum dado externo (o "vs
+    # IBOV" foi descartado: R-múltiplo de análise não compara com retorno de
+    # índice). A curva aparece com qualquer nº de pontos; o drawdown numérico
+    # respeita MIN_N (amostra pequena não vira métrica enganosa).
+    ordenados = sorted(
+        [o for o in resolvidos if o.get("rMultiple") is not None],
+        key=lambda o: (o.get("resolvidoEm") or "", o.get("criadoEm") or ""))
+    curva_r = []
+    acc = pico = 0.0
+    dd_max = 0.0
+    for o in ordenados:
+        acc = round(acc + o["rMultiple"], 2)
+        curva_r.append(acc)
+        pico = max(pico, acc)
+        dd_max = max(dd_max, pico - acc)
+    drawdown_max = round(dd_max, 2) if suficiente and curva_r else None
+    r_acumulado = curva_r[-1] if curva_r else None
+
     return {
         "totalAnalises": len(filtrado),
         "avaliadas": len(resolvidos),
@@ -165,6 +186,10 @@ def compute_stats(outcomes: list, modo: Optional[str] = None, tipo: Optional[str
         "expectanciaInsuficiente": not suficiente,
         "porConfianca": {k: _celula(v) for k, v in por_confianca.items()},
         "porDecisao": {k: _celula(v) for k, v in por_decisao.items()},
+        # qa/37 P2e: curva de R acumulado (para o gráfico) + drawdown máximo.
+        "curvaR": curva_r,
+        "rAcumulado": r_acumulado,
+        "drawdownMax": drawdown_max,
     }
 
 
