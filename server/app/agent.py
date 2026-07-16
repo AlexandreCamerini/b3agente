@@ -178,8 +178,10 @@ async def _run_cycle_inner(conn, scope, quotes_getter, origem: str, t0: float) -
     return {"events": events, "executed": executed}
 
 
-def list_server_users(conn) -> list:
-    """Usuários com o agente server-side LIGADO (varre o kv 'u:<id>:agent')."""
+def _agent_rows(conn) -> list:
+    """(uid, ag) de todo usuário com seção `agent` no kv. Extraído de
+    list_server_users para ser reusado sem duplicar a query — o contrato de
+    list_server_users NÃO muda (mesma varredura, mesmo retorno)."""
     rows = conn.execute("SELECT key, value FROM kv WHERE key LIKE 'u:%:agent'").fetchall()
     out = []
     import json as _json
@@ -188,9 +190,67 @@ def list_server_users(conn) -> list:
             ag = _json.loads(value)
         except (ValueError, TypeError):
             continue
-        if isinstance(ag, dict) and ag.get("serverEnabled"):
-            out.append(key[len("u:"):-len(":agent")])
+        if isinstance(ag, dict):
+            out.append((key[len("u:"):-len(":agent")], ag))
     return out
+
+
+def list_server_users(conn) -> list:
+    """Usuários com o agente server-side LIGADO (varre o kv 'u:<id>:agent')."""
+    return [uid for uid, ag in _agent_rows(conn) if ag.get("serverEnabled")]
+
+
+def list_protecao_sem_operador(conn) -> list:
+    """qa/41 (H6): usuários com stop/alvo ARMADO numa posição e o Operador no
+    servidor DESLIGADO.
+
+    Por que isto existe: "proteção armada" (stop/alvo na posição) e "Operador
+    no servidor" (serverEnabled) são controles SEPARADOS, e armar o primeiro
+    não liga o segundo. `/api/cycle` e `/api/agent/run-now` — os caminhos do
+    app ABERTO — chamam run_cycle_for direto, sem consultar serverEnabled;
+    este laço consulta. Resultado: quem arma o stop sem ligar o Operador vê a
+    ordem executar com o app aberto e NADA acontecer com o app fechado.
+    Parece bug do agente; é assimetria de contrato entre os dois caminhos.
+
+    O laço não pode ligar o Operador por conta própria (é decisão do usuário —
+    e ligar sozinho seria pior: executaria ordem que ninguém pediu). O que ele
+    PODE é parar de ser silencioso: contar no status e avisar no Diário."""
+    out = []
+    for uid, ag in _agent_rows(conn):
+        if ag.get("serverEnabled"):
+            continue                                   # já é cuidado pelo laço
+        par = agent_params(ag)
+        if not (par["rules"]["stop"] or par["rules"]["alvo"]):
+            continue                                   # nem stop nem alvo valem para ele
+        for p in (store.get(conn, "positions", user_id=uid) or []):
+            if ((par["rules"]["stop"] and p.get("stop") is not None) or
+                    (par["rules"]["alvo"] and p.get("alvo") is not None)):
+                out.append(uid)
+                break
+    return out
+
+
+def _avisar_protecao_sem_operador(conn) -> int:
+    """qa/41 (H6): avisa NO DIÁRIO, 1x/dia, quem tem proteção armada sem o
+    Operador ligado. Gate persistido no kv (não em memória) — senão o deploy
+    zeraria e o aviso repetiria. Best-effort: nunca derruba o laço."""
+    n = 0
+    hoje = _today()
+    for uid in list_protecao_sem_operador(conn):
+        try:
+            if db.kv_get(conn, "avisoProtecaoSemOperador", None, user_id=uid) == hoje:
+                continue
+            store.push_agent_log(conn, [{"time": _now_str(), "kind": "warn", "text": (
+                "Você tem stop/alvo armado numa posição, mas o Operador no servidor está "
+                "DESLIGADO. Sem ele, a proteção só é avaliada enquanto o app está aberto — "
+                "com o app fechado, ninguém acompanha o preço por você. Ligue em "
+                "Perfil → Operador para o servidor acompanhar suas posições no pregão."
+            )}], user_id=uid)
+            db.kv_set(conn, "avisoProtecaoSemOperador", hoje, user_id=uid)
+            n += 1
+        except Exception as e:  # noqa: BLE001 — aviso nunca derruba o laço
+            print(f"[agent] aviso de proteção sem operador falhou para {uid[:8]}…: {e}")
+    return n
 
 
 async def scheduler_loop(conn, quotes_getter, notify_push=None, interval_s: int = None, once: bool = False,
@@ -218,6 +278,11 @@ async def scheduler_loop(conn, quotes_getter, notify_push=None, interval_s: int 
                 from . import fundamentals, scanner  # import local: sem ciclo
                 await fundamentals.maybe_warm(conn, scanner.get_universe())
             if not kill_switch_on() and in_market_hours():
+                # qa/41 (H6): durante o pregão, quem tem proteção armada e o
+                # Operador desligado é avisado no Diário (1x/dia). O laço passa
+                # por cima dessa gente por contrato — mas em silêncio ela achava
+                # que estava protegida.
+                _avisar_protecao_sem_operador(conn)
                 _t0 = time.monotonic()
                 _erros = []
                 LAST_RUN.update(at=datetime.now(BRT).strftime("%d/%m %H:%M"), usuarios=0, executadas=0, erro=None)
@@ -271,6 +336,11 @@ def status_snapshot(conn, interval_s: int = None) -> dict:
         "avaliacaoAnalises": dict(analysis_outcomes.LAST_EVAL),  # qa/30 (Fase A)
         "intervaloS": interval_s or int(os.environ.get("B3_AGENT_INTERVAL_S") or INTERVAL_S_DEFAULT),
         "usuariosHabilitados": len(list_server_users(conn)),
+        # qa/41 (H6): quantos têm stop/alvo armado com o Operador DESLIGADO —
+        # o laço os ignora por contrato e eles executam só com o app aberto.
+        # > 0 aqui explica "o Operador só funciona quando abro o app" sem que
+        # exista bug nenhum no laço. Contagem, nunca identidade (sem PII).
+        "protecaoSemOperador": len(list_protecao_sem_operador(conn)),
         "ultimoCiclo": dict(LAST_RUN),
         "proximaPassadaEmS": prox,
         "passadas": list(reversed(RUN_HISTORY)),  # mais recente primeiro

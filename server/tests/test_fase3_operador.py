@@ -156,6 +156,116 @@ def test_push_sem_token_registrado():
     c.close()
 
 
+# ---------------------------------------------------------------------------
+# qa/41 (H6) — "proteção armada" x "Operador no servidor" são controles
+# SEPARADOS. Quem arma stop/alvo sem ligar o serverEnabled é ignorado pelo laço
+# (por contrato) mas executa via /api/cycle com o app ABERTO — daí o sintoma
+# "o Operador só funciona quando abro o app", sem bug nenhum no laço.
+# ---------------------------------------------------------------------------
+
+def test_protecao_sem_operador_detecta_stop_armado_com_server_desligado():
+    c = _conn()
+    _user(c, uid="u1", positions=[{"t": "PETR4", "qty": 100, "avg": 10, "stop": 9.5}],
+          ag={"serverEnabled": False})
+    assert agent.list_server_users(c) == [], "u1 não deve ser cuidado pelo laço"
+    assert agent.list_protecao_sem_operador(c) == ["u1"], \
+        "u1 tem stop armado e Operador desligado — tem que ser detectado"
+    c.close()
+
+
+def test_protecao_sem_operador_ignora_quem_tem_operador_ligado():
+    """Quem ligou o Operador NÃO está desprotegido — o laço cuida dele."""
+    c = _conn()
+    _user(c, uid="u1", positions=[{"t": "PETR4", "qty": 100, "avg": 10, "stop": 9.5}],
+          ag={"serverEnabled": True})
+    assert agent.list_server_users(c) == ["u1"]
+    assert agent.list_protecao_sem_operador(c) == []
+    c.close()
+
+
+def test_protecao_sem_operador_ignora_quem_nao_tem_nada_armado():
+    """Sem stop nem alvo não há proteção para avaliar — não é caso do H6."""
+    c = _conn()
+    _user(c, uid="u1", positions=[{"t": "PETR4", "qty": 100, "avg": 10}],
+          ag={"serverEnabled": False})
+    assert agent.list_protecao_sem_operador(c) == []
+    c.close()
+
+
+def test_protecao_sem_operador_respeita_regra_desligada():
+    """Stop no papel mas rules.stop=False: o agente não avaliaria mesmo."""
+    c = _conn()
+    _user(c, uid="u1", positions=[{"t": "PETR4", "qty": 100, "avg": 10, "stop": 9.5}],
+          ag={"serverEnabled": False, "rules": {"stop": False, "alvo": False}})
+    assert agent.list_protecao_sem_operador(c) == []
+    c.close()
+
+
+def test_list_server_users_nao_mudou_de_contrato():
+    """_agent_rows foi extraído de list_server_users — o retorno é o MESMO.
+    Guardião: é a função que decide quem o laço atende (provado em produção)."""
+    c = _conn()
+    _user(c, uid="u1", ag={"serverEnabled": True})
+    _user(c, uid="u2", ag={"serverEnabled": False})
+    _user(c, uid="u3", ag={"serverEnabled": True})
+    assert sorted(agent.list_server_users(c)) == ["u1", "u3"]
+    c.close()
+
+
+def test_aviso_de_protecao_sem_operador_entra_no_diario_1x_por_dia():
+    """O laço ignora essa gente por contrato — mas em SILÊNCIO ela achava que
+    estava protegida. O aviso não pode repetir a cada passada (5 min)."""
+    c = _conn()
+    _user(c, uid="u1", positions=[{"t": "PETR4", "qty": 100, "avg": 10, "stop": 9.5}],
+          ag={"serverEnabled": False})
+    assert agent._avisar_protecao_sem_operador(c) == 1
+    log = db.kv_get(c, "agentLog", [], user_id="u1")
+    assert len(log) == 1 and log[0]["kind"] == "warn"
+    assert "Operador no servidor está DESLIGADO" in log[0]["text"]
+    assert "app fechado" in log[0]["text"], "o aviso tem que explicar o efeito real"
+    # 2ª passada no mesmo dia: nada de novo (gate persistido no kv)
+    assert agent._avisar_protecao_sem_operador(c) == 0
+    assert len(db.kv_get(c, "agentLog", [], user_id="u1")) == 1, "aviso repetiu no mesmo dia"
+    c.close()
+
+
+def test_gate_do_aviso_e_persistido_e_sobrevive_ao_deploy():
+    """Em memória, o gate zeraria a cada deploy e o Diário encheria de avisos."""
+    c = _conn()
+    _user(c, uid="u1", positions=[{"t": "PETR4", "qty": 100, "avg": 10, "stop": 9.5}],
+          ag={"serverEnabled": False})
+    agent._avisar_protecao_sem_operador(c)
+    assert db.kv_get(c, "avisoProtecaoSemOperador", None, user_id="u1") == agent._today()
+    c.close()
+
+
+def test_status_expoe_protecao_sem_operador_sem_pii():
+    """O status devolve CONTAGEM, nunca a identidade de quem está exposto."""
+    c = _conn()
+    _user(c, uid="u1", positions=[{"t": "PETR4", "qty": 100, "avg": 10, "stop": 9.5}],
+          ag={"serverEnabled": False})
+    _user(c, uid="u2", positions=[{"t": "VALE3", "qty": 100, "avg": 10, "alvo": 12.0}],
+          ag={"serverEnabled": False})
+    st = agent.status_snapshot(c)
+    assert st["protecaoSemOperador"] == 2
+    assert st["usuariosHabilitados"] == 0
+    assert "u1" not in repr(st) and "u2" not in repr(st), "status não pode vazar uid"
+    c.close()
+
+
+def test_laco_avisa_dentro_do_pregao():
+    """Ancoragem: sem a chamada no laço, o aviso nunca sai."""
+    import pathlib
+    src = (pathlib.Path(__file__).resolve().parents[1] / "app" / "agent.py").read_text(encoding="utf-8")
+    assert src.count("                _avisar_protecao_sem_operador(conn)") == 1, \
+        "o laço tem que avisar (1 chamada, dentro do gate de pregão)"
+    assert src.count("def _avisar_protecao_sem_operador") == 1
+    assert src.count("def list_protecao_sem_operador") == 1
+    # o aviso vive DENTRO do gate de pregão (não gasta passada de madrugada)
+    corpo = src.split("if not kill_switch_on() and in_market_hours():", 1)[1]
+    assert "_avisar_protecao_sem_operador(conn)" in corpo.split("await asyncio.sleep(interval)", 1)[0]
+
+
 if __name__ == "__main__":
     import sys
     fails = 0

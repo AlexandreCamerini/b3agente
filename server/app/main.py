@@ -1077,6 +1077,9 @@ async def agent_status(scope: Optional[str] = Depends(current_scope)):
     st = agent_mod.status_snapshot(_conn)
     ag = store.get(_conn, "agent", user_id=scope) or {}
     st["meuServerEnabled"] = bool(ag.get("serverEnabled"))
+    # qa/41 (H6): EU tenho stop/alvo armado com o Operador desligado? Se True,
+    # minha proteção só é avaliada com o app aberto — e isso não é bug do laço.
+    st["minhaProtecaoSemOperador"] = bool(scope) and scope in agent_mod.list_protecao_sem_operador(_conn)
     st["push"] = {"configurado": push.is_configured(),
                   "topic": os.environ.get("APNS_TOPIC") or None,
                   "sandbox": os.environ.get("APNS_SANDBOX") == "1",
