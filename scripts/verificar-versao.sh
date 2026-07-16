@@ -19,7 +19,7 @@
 
 set -uo pipefail
 
-VERSION="2.2"   # bump a cada mudança de comportamento. A saída imprime isto:
+VERSION="2.3"   # bump a cada mudança de comportamento. A saída imprime isto:
                 # rodar a versão errada por engano é a falha mais provável aqui.
 
 API_URL="${BOLSIA_API_URL:-https://b3agente-production.up.railway.app}"
@@ -133,15 +133,35 @@ if quer railway; then
   if ! command -v curl >/dev/null 2>&1; then
     reg railway INDET "curl ausente"
   else
-    HTTP="$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "$API_URL/health" 2>/dev/null)"
-    info "GET $API_URL/health -> ${HTTP:-timeout}"
+    # NÃO assumir /health: o app monta routers com prefixo (ex.: /api/health).
+    # Descobre o path real no openapi.json antes de desistir.
+    OPENAPI="$(curl -s --max-time 20 "$API_URL/openapi.json" 2>/dev/null)"
+    HEALTH_PATH="$(printf '%s' "$OPENAPI" | python3 -c \
+      'import sys,json
+try:
+    p=[k for k in json.load(sys.stdin).get("paths",{}) if k.rstrip("/").endswith("health")]
+    print(sorted(p, key=len)[0] if p else "")
+except Exception: print("")' 2>/dev/null)"
+    HEALTH_PATH="${HEALTH_PATH:-/health}"
+
+    HTTP="$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "$API_URL$HEALTH_PATH" 2>/dev/null)"
+    info "GET $API_URL$HEALTH_PATH -> ${HTTP:-timeout}"
 
     if [[ "$HTTP" == "200" ]]; then
-      BODY="$(curl -s --max-time 15 "$API_URL/health")"
+      BODY="$(curl -s --max-time 15 "$API_URL$HEALTH_PATH")"
+      # aceita commit sob várias chaves comuns
       PROD_SHA="$(printf '%s' "$BODY" | python3 -c \
-        'import sys,json;d=json.load(sys.stdin);print(d.get("commit") or "")' 2>/dev/null)"
-      if [[ -z "$PROD_SHA" || "$PROD_SHA" == "unknown" ]]; then
-        reg railway INDET "/health responde mas não expõe commit — ver §instrumentação"
+        'import sys,json
+try:
+    d=json.load(sys.stdin)
+    for k in ("commit","sha","git_commit","version","revision","build"):
+        v=d.get(k)
+        if isinstance(v,str) and v and v!="unknown": print(v); break
+    else: print("")
+except Exception: print("")' 2>/dev/null)"
+      if [[ -z "$PROD_SHA" ]]; then
+        info "corpo: $(printf '%s' "$BODY" | head -c 200)"
+        reg railway INDET "$HEALTH_PATH responde 200 mas não expõe commit — adicione RAILWAY_GIT_COMMIT_SHA"
       elif [[ -n "$HEAD_SHA" && "${PROD_SHA:0:7}" == "${HEAD_SHA:0:7}" ]]; then
         reg railway OK "produção em ${PROD_SHA:0:7} == HEAD"
       else
@@ -151,7 +171,7 @@ if quer railway; then
     elif [[ "$HTTP" == "404" ]]; then
       # backend vivo (FastAPI respondeu), mas sem rota de versão.
       # Fallback: comparar rotas do openapi.json vs. decoradores no código.
-      ROTAS_PROD="$(curl -s --max-time 20 "$API_URL/openapi.json" 2>/dev/null | python3 -c \
+      ROTAS_PROD="$(printf '%s' "$OPENAPI" | python3 -c \
         'import sys,json
 try: print("\n".join(sorted(json.load(sys.stdin).get("paths",{}))))
 except Exception: pass' 2>/dev/null)"
