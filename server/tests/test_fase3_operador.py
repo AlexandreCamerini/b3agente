@@ -93,6 +93,12 @@ def test_scheduler_alimenta_historico_de_passadas():
     c = _conn()
     _user(c)
     agent.RUN_HISTORY.clear()
+    # qa/42: LAST_USER_RUN é estado global do módulo (gate de intervalMin por
+    # usuário) e test_agent.py também roda o scheduler_loop — rodando a suíte
+    # INTEIRA, o uid chegava aqui já "rodado há <15min" e era pulado
+    # (usuarios=0). Passava isolado e falhava em conjunto. Não é bug de
+    # produção: lá cada boot começa com o dict vazio.
+    agent.LAST_USER_RUN.clear()
     # força "pregão aberto" e sem kill-switch monkeypatchando a janela
     orig = agent.in_market_hours
     agent.in_market_hours = lambda now=None: True

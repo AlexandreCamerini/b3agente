@@ -311,15 +311,25 @@ def _hoje() -> str:
     return datetime.now(BRT).date().isoformat()
 
 
+def last_run_date(conn) -> Optional[str]:
+    """qa/42 (FinOps): gate PERSISTIDO (mesmo padrão de
+    radar_daily.last_run_date). O `LAST_EVAL` em memória zera a cada deploy —
+    o job inteiro rodava de novo, e ele baixa 6 meses de candles por ticker
+    pendente POR USUÁRIO. Em dia de vários deploys, era Nx a mesma rede."""
+    return db.kv_get(conn, "analysisOutcomesLastRun", None, user_id=None)
+
+
 async def maybe_run(conn, fetch) -> Optional[int]:
     """Hook do scheduler: roda no máximo 1x/dia (mesmo padrão de
     radar_daily.maybe_run) — não precisa de horário fixo, só de rodar depois
-    do fechamento do pregão pelo menos uma vez por dia."""
-    if LAST_EVAL["date"] == _hoje():
+    do fechamento do pregão pelo menos uma vez por dia.
+    qa/42: o gate é persistido (kv), não só memória — deploy não re-executa."""
+    if LAST_EVAL["date"] == _hoje() or last_run_date(conn) == _hoje():
         return None
     try:
         n = await avaliar_pendentes(conn, fetch)
         LAST_EVAL.update(date=_hoje(), avaliadas=n, erro=None)
+        db.kv_set(conn, "analysisOutcomesLastRun", _hoje(), user_id=None)
         return n
     except Exception as e:  # noqa: BLE001 — nunca derruba o laço do agente
         LAST_EVAL["erro"] = str(e)[:200]

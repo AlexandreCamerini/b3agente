@@ -227,19 +227,32 @@ async def delete_account(user: dict = Depends(require_user)):
 # LOGADO cai na IA gerenciada (modelo barato do servidor) sob cota diária +
 # rate limit por usuário. Anônimo e sem BYOK seguem o comportamento atual.
 # ===========================================================================
-def _ai_apply_managed(scope, config):
+def _ai_apply_managed(scope, config, custo: int = 1):
     """Retorna (config_efetiva, consume). Levanta 402 se a cota/rate bloquear.
-    Chame consume() APÓS o LLM responder com sucesso (falha não gasta cota)."""
+    Chame consume() APÓS o LLM responder com sucesso (falha não gasta cota).
+
+    qa/42 (FinOps): `custo` = quantas análises este request pode disparar
+    (o /api/scan/deep faz até MAX_TOP_N). Sem isso, o check media 1 e o
+    consume contava N — a cota era furada em até +9 por request."""
     if llm.resolve_key(config):                      # BYOK utilizável → sem cota
         return config, (lambda: None)
     mcfg = managed.managed_config()
     if scope and mcfg:                               # logado + gerenciada habilitada
-        ok, reason = metering.check(_conn, scope, quota=managed.daily_quota(), rate_per_min=managed.rate_per_min())
+        ok, reason = metering.check(_conn, scope, quota=managed.daily_quota(),
+                                    rate_per_min=managed.rate_per_min(), custo=custo,
+                                    cap_global=managed.global_daily_cap())
         if not ok:
             raise HTTPException(402, reason)
         # FASE 8B (B4): a config gerenciada é só a CHAVE/modelo — o modo de
         # trabalho do usuário viaja junto (senão a mesa falava como professor).
-        return {**mcfg, "appMode": (config or {}).get("appMode")}, (lambda: metering.consume(_conn, scope))
+        # qa/42 (FinOps): `candlePeriod` TAMBÉM viaja. A config gerenciada
+        # substituía a do usuário e o candlePeriod se perdia → normalize_period
+        # (None) caía no default "1y" = 252 candles, mesmo com "1mo" escolhido:
+        # ~7x mais tokens de input, JUSTO no caminho que gasta a chave do
+        # servidor. Quem paga era quem mandava o prompt mais caro.
+        return ({**mcfg, "appMode": (config or {}).get("appMode"),
+                 "candlePeriod": (config or {}).get("candlePeriod")},
+                (lambda: metering.consume(_conn, scope)))
     return config, (lambda: None)                    # sem BYOK e sem gerenciada: llm dará erro acionável
 
 
@@ -303,6 +316,23 @@ async def obs_logs(n: int = 200, level: Optional[str] = None, cat: Optional[str]
     if not _is_obs_admin(user):
         raise HTTPException(403, "Logs do servidor são restritos ao administrador (defina B3_ADMIN_EMAILS no Railway).")
     return {"logs": obslog.recent(n, level=level, cat=cat), "stats": obslog.stats()}
+
+
+# qa/42 (FinOps) — quanto a IA custou HOJE. Antes não havia como responder:
+# nenhum caller lia o `usage` e não existia contador agregado (só cota por
+# usuário). Restrito ao admin: é dado do servidor, não do usuário.
+@app.get("/api/obs/usage")
+async def obs_usage(user: dict = Depends(require_user)):
+    if not _is_obs_admin(user):
+        raise HTTPException(403, "Uso da IA é restrito ao administrador (defina B3_ADMIN_EMAILS no Railway).")
+    cap = managed.global_daily_cap()
+    return {
+        "tokens": llm.usage_snapshot(),              # por modelo, do dia (memória: zera no deploy)
+        "analisesGerenciadas": metering.global_snapshot(_conn, cap),  # persistido, todos os usuários
+        "iaGerenciadaAtiva": bool(managed.managed_config()),
+        "tetoGlobalDia": cap,                        # None = ilimitado (B3_MANAGED_GLOBAL_DAILY_CAP)
+        "cotaPorUsuarioDia": managed.daily_quota(),
+    }
 
 
 # FASE 8B (diagnóstico): carimbo de build do BACKEND — confirma qual código o
@@ -551,7 +581,7 @@ async def apple_app_site_association():
 # do scanner de propósito: mantém o scanner sem dependência de db e o
 # fundamento atualiza independente do resultado do dia. Ticker não aquecido →
 # sem campo (a UI mostra "sem dado"), nunca inferência.
-def _enrich_fundamentos(payload: dict) -> dict:
+def _enrich_fundamentos_sync(payload: dict) -> dict:
     # Best-effort TOTAL: o fundamento é um overlay — NADA aqui pode derrubar o
     # scan (o Radar/Mesa é core). Qualquer falha → devolve o payload intacto.
     try:
@@ -568,6 +598,14 @@ def _enrich_fundamentos(payload: dict) -> dict:
     except Exception as e:  # noqa: BLE001 — overlay nunca quebra o scan
         print(f"[fundamentals] enrich falhou (scan segue): {e}")
     return payload
+
+
+async def _enrich_fundamentos(payload: dict) -> dict:
+    """qa/42 (FinOps): o overlay faz UMA leitura SQLite por resultado — 74 no
+    universo default. Rodava SÍNCRONO dentro do `async def scan`, travando o
+    event loop inteiro (1 worker: ninguém mais é atendido). `db.py` é
+    thread-local, então a thread tem conexão própria — seguro."""
+    return await asyncio.to_thread(_enrich_fundamentos_sync, payload)
 
 
 # qa/37 (F10.2): diagnóstico de fundamento por ticker — confirma a fonte real
@@ -592,15 +630,19 @@ async def scan(period: Optional[str] = None, tickers: Optional[str] = None,
     # computando na hora (barato); universo completo serve o RESULTADO DO DIA
     # armazenado, e só recomputa no primeiro acesso do dia ou com ?force=1
     # (botão "Varrer novamente"). A varredura manual substitui a do dia.
+    # qa/42 (FinOps): todo o I/O SQLite deste caminho vai para thread — o
+    # overlay lê 74 linhas e o store_result grava ~150 KB de JSON; síncronos
+    # aqui, congelavam o event loop a cada Radar.
     if tickers:
-        return _enrich_fundamentos(await scanner.run_scan(period=period, universe=tickers, fetch=yahoo.get_history))
+        return await _enrich_fundamentos(await scanner.run_scan(period=period, universe=tickers, fetch=yahoo.get_history))
     p = candles_mod.normalize_period(period)
     if not force:
-        stored = radar_daily.get_stored(_conn, p)
+        stored = await asyncio.to_thread(radar_daily.get_stored, _conn, p)
         if stored:
-            return _enrich_fundamentos(stored)
+            return await _enrich_fundamentos(stored)
     payload = await scanner.run_scan(period=p, fetch=yahoo.get_history)
-    return _enrich_fundamentos(radar_daily.store_result(_conn, p, payload, origem="manual"))
+    salvo = await asyncio.to_thread(radar_daily.store_result, _conn, p, payload, origem="manual")
+    return await _enrich_fundamentos(salvo)
 
 
 # FASE 1 (N1) — aprofundamento IA do Radar: híbrido por custo (scanner grátis
@@ -635,7 +677,9 @@ async def scan_deep_run(body: dict = Body(default={}), scope: Optional[str] = De
     modo = (body or {}).get("appMode") or (config or {}).get("appMode")
     profile = (body or {}).get("profile") or store.get(_conn, "profile", user_id=scope)
     n = scan_deep.resolve_top_n((body or {}).get("topN"), config)
-    ai_config, _consume_ai = _ai_apply_managed(scope, config)  # cota/rate ANTES de gastar
+    # qa/42 (FinOps): `custo=n` — este request dispara ATÉ n chamadas de LLM
+    # (1 por ticker do top-N). Reservar na cota impede o overrun de +9.
+    ai_config, _consume_ai = _ai_apply_managed(scope, config, custo=n)  # cota/rate ANTES de gastar
     payload = await scanner.run_scan(period=p, universe=(body or {}).get("tickers"), fetch=yahoo.get_history)
 
     async def deep_call(item):

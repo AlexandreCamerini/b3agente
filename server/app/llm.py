@@ -3,8 +3,62 @@ JSON dos KPIs), chama o provedor e devolve (texto, kpis). Tambem testa conexao.
 As chaves ficam no servidor (web) ou sao enviadas pelo handset (iOS)."""
 import os
 import json
+from datetime import datetime, timezone
 
 import httpx
+
+
+# qa/42 (FinOps): telemetria de TOKENS. Nenhum caller lia o `usage` da resposta
+# — o app gastava sem saber quanto, e era impossível estimar custo real (ou
+# decidir modelo) sem isso. Em memória de propósito: é observabilidade, zera no
+# deploy; quem conta análises para efeito de COTA é o metering (persistido).
+USAGE = {"day": None, "calls": 0, "inputTokens": 0, "outputTokens": 0, "porModelo": {}}
+
+
+def _usage_day() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+
+def _norm_usage(data: dict):
+    """(input, output) normalizando os 3 formatos: Anthropic (input_tokens/
+    output_tokens), OpenAI (prompt_tokens/completion_tokens) e Google
+    (usageMetadata.promptTokenCount/candidatesTokenCount)."""
+    u = data.get("usage")
+    if isinstance(u, dict):
+        return (u.get("input_tokens", u.get("prompt_tokens")),
+                u.get("output_tokens", u.get("completion_tokens")))
+    g = data.get("usageMetadata")
+    if isinstance(g, dict):
+        return (g.get("promptTokenCount"), g.get("candidatesTokenCount"))
+    return (None, None)
+
+
+def record_usage(config, data) -> None:
+    """Contabiliza tokens de UMA chamada. Best-effort TOTAL: telemetria jamais
+    derruba a análise (provedor sem `usage` no corpo → simplesmente ignora)."""
+    try:
+        i, o = _norm_usage(data or {})
+        if i is None and o is None:
+            return
+        hoje = _usage_day()
+        if USAGE["day"] != hoje:
+            USAGE.update(day=hoje, calls=0, inputTokens=0, outputTokens=0, porModelo={})
+        i, o = int(i or 0), int(o or 0)
+        USAGE["calls"] += 1
+        USAGE["inputTokens"] += i
+        USAGE["outputTokens"] += o
+        pm = USAGE["porModelo"].setdefault(str((config or {}).get("model") or "?"),
+                                           {"calls": 0, "inputTokens": 0, "outputTokens": 0})
+        pm["calls"] += 1
+        pm["inputTokens"] += i
+        pm["outputTokens"] += o
+    except Exception:  # noqa: BLE001 — telemetria nunca quebra a análise
+        pass
+
+
+def usage_snapshot() -> dict:
+    """Consumo de tokens do dia (por modelo). Base para estimar custo real."""
+    return {**USAGE, "porModelo": {k: dict(v) for k, v in USAGE["porModelo"].items()}}
 
 
 class LLMUserError(RuntimeError):
@@ -187,6 +241,7 @@ async def _call_anthropic(config, key, system, user, max_tokens):
     data = _safe_json_response(r)
     if r.status_code != 200:
         raise _provider_error(config, r.status_code, (data.get("error") or {}).get("message"))
+    record_usage(config, data)  # qa/42 (FinOps)
     return "".join(b.get("text", "") for b in data.get("content", []) if b.get("type") == "text").strip()
 
 
@@ -206,6 +261,7 @@ async def _call_openai_compatible(base_url, config, key, system, user, max_token
             data = _safe_json_response(r)
     if r.status_code != 200:
         raise _provider_error(config, r.status_code, (data.get("error") or {}).get("message"))
+    record_usage(config, data)  # qa/42 (FinOps)
     return (((data.get("choices") or [{}])[0].get("message") or {}).get("content") or "").strip()
 
 
@@ -224,6 +280,7 @@ async def _call_google(config, key, system, user, max_tokens):
     data = _safe_json_response(r)
     if r.status_code != 200:
         raise _provider_error(config, r.status_code, (data.get("error") or {}).get("message"))
+    record_usage(config, data)  # qa/42 (FinOps)
     cand = (data.get("candidates") or [{}])[0]
     return "".join(p.get("text", "") for p in ((cand.get("content") or {}).get("parts") or [])).strip()
 

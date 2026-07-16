@@ -17,10 +17,30 @@ import time
 from . import db
 
 SECTION = "aiUsage"
+GLOBAL_SECTION = "aiUsageGlobal"   # qa/42: contador GLOBAL (kv sem escopo de usuário)
 
 
 def _today() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+
+def _load_global(conn) -> dict:
+    g = db.kv_get(conn, GLOBAL_SECTION, None, user_id=None)
+    if not isinstance(g, dict) or g.get("day") != _today():
+        return {"day": _today(), "count": 0}
+    if not isinstance(g.get("count"), int):
+        g["count"] = 0
+    return g
+
+
+def global_snapshot(conn, cap=None) -> dict:
+    """qa/42 (FinOps): quanto a IA gerenciada gastou HOJE somando todos os
+    usuários. Antes não existia contador agregado — a cota era só por usuário,
+    então o gasto do servidor era (nº de usuários) × cota, SEM teto superior."""
+    g = _load_global(conn)
+    used = int(g.get("count", 0))
+    return {"day": g["day"], "used": used, "cap": cap,
+            "remaining": None if cap is None else max(0, cap - used)}
 
 
 def _load(conn, user_id) -> dict:
@@ -38,21 +58,47 @@ def _save(conn, user_id, u) -> None:
     db.kv_set(conn, SECTION, u, user_id=user_id)
 
 
-def check(conn, user_id, *, quota, rate_per_min, _now=None):
+def check(conn, user_id, *, quota, rate_per_min, custo=1, cap_global=None, _now=None):
     """(permitido, motivo). Registra o uso para o rate limit; NÃO consome a cota
-    diária (isso é no consume, após sucesso)."""
+    diária (isso é no consume, após sucesso).
+
+    qa/42 (FinOps): `custo` = quantas análises ESTE request pode disparar.
+    O /api/scan/deep chamava check 1x e consume até 10x (1 por ticker do
+    top-N) — quem tinha 19/20 passava no check e terminava em 29. Reservar o
+    custo na COTA fecha o furo. O rate limit segue contando 1 por REQUEST
+    (ele existe para impedir martelar): reservar 10 slots num teto de 6/min
+    bloquearia todo deep."""
     u = _load(conn, user_id)
     now = time.time() if _now is None else _now
+    custo = max(1, int(custo or 1))
     u["rl"] = [t for t in u["rl"] if (now - t) < 60.0]
     if rate_per_min is not None and len(u["rl"]) >= rate_per_min:
         _save(conn, user_id, u)
         return (False, "Muitas análises em pouco tempo. Aguarde alguns segundos e tente de novo.")
-    if quota is not None and u["count"] >= quota:
+    if quota is not None and u["count"] + custo > quota:
         _save(conn, user_id, u)
+        restam = max(0, quota - int(u.get("count", 0)))
+        if custo > 1 and restam > 0:
+            return (False, (
+                "Esta varredura profunda faria %d análises e você tem %d restante(s) "
+                "hoje (limite diário: %d). Reduza o número de ativos, use sua própria "
+                "chave (BYOK) em Perfil → Conta & preferências para análises "
+                "ilimitadas, ou volte amanhã." % (custo, restam, quota)
+            ))
         return (False, (
             "Você atingiu o limite diário de %d análises com a IA do app. "
             "Use sua própria chave (BYOK) em Perfil → Conta & preferências para "
             "análises ilimitadas, ou volte amanhã." % quota
+        ))
+    # qa/42 (FinOps): teto GLOBAL — a última linha de defesa do bolso. Sem ele,
+    # o gasto do servidor era (nº de usuários) × cota/dia, ilimitado por cima.
+    # cap_global=None (default) => ilimitado => comportamento anterior intacto.
+    if cap_global is not None and _load_global(conn)["count"] + custo > cap_global:
+        _save(conn, user_id, u)
+        return (False, (
+            "A IA do app atingiu o limite de uso de hoje (teto global do servidor). "
+            "Use sua própria chave (BYOK) em Perfil → Conta & preferências para "
+            "análises ilimitadas, ou volte amanhã."
         ))
     u["rl"].append(now)
     _save(conn, user_id, u)
@@ -60,10 +106,14 @@ def check(conn, user_id, *, quota, rate_per_min, _now=None):
 
 
 def consume(conn, user_id) -> int:
-    """Conta UMA análise gerenciada (chamar após o LLM responder com sucesso)."""
+    """Conta UMA análise gerenciada (chamar após o LLM responder com sucesso).
+    qa/42: conta no contador do usuário E no global (teto de gasto do servidor)."""
     u = _load(conn, user_id)
     u["count"] = int(u.get("count", 0)) + 1
     _save(conn, user_id, u)
+    g = _load_global(conn)
+    g["count"] = int(g.get("count", 0)) + 1
+    db.kv_set(conn, GLOBAL_SECTION, g, user_id=None)
     return u["count"]
 
 

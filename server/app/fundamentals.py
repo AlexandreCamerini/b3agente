@@ -346,19 +346,31 @@ def warm_universe(conn, tickers, *, fetch_merged=None, now=None,
     return n
 
 
+def last_warm_date(conn) -> Optional[str]:
+    """qa/42 (FinOps): gate PERSISTIDO (mesmo padrão de
+    radar_daily.last_run_date). O `LAST_WARM` em memória zera a cada deploy e o
+    warm rodava de novo: 60 req/run contra o free tier de 200/dia da bolsai —
+    4 deploys num dia ESTOURAVAM a cota e o fundamento parava de aquecer."""
+    return db.kv_get(conn, "fundamentalsLastWarm", None, user_id=None)
+
+
 async def maybe_warm(conn, tickers) -> Optional[int]:
     """Hook do scheduler: aquece no máximo 1x/dia. CRÍTICO: o warm faz I/O de
     rede BLOQUEANTE (httpx síncrono) — roda em thread (asyncio.to_thread) para
     NÃO congelar o event loop do servidor (senão o app perde a conexão durante
     o job). Só roda se houver BOLSAI_API_KEY: a bolsai é a fonte do universo;
-    sem a chave, aquecer via brapi seria inútil (só 4 tickers) e rate-limited."""
+    sem a chave, aquecer via brapi seria inútil (só 4 tickers) e rate-limited.
+    qa/42: o gate é persistido (kv), não só memória — deploy não re-executa."""
     if LAST_WARM["date"] == _hoje_iso() or not _bolsai_key():
+        return None
+    if last_warm_date(conn) == _hoje_iso():
         return None
     try:
         n = await asyncio.to_thread(
             warm_universe, conn, tickers,
             throttle_s=WARM_THROTTLE_S, limit=WARM_MAX_POR_RUN)
         LAST_WARM.update(date=_hoje_iso(), aquecidos=n, erro=None)
+        db.kv_set(conn, "fundamentalsLastWarm", _hoje_iso(), user_id=None)
         return n
     except Exception as e:  # noqa: BLE001 — nunca derruba o laço do scheduler
         LAST_WARM["erro"] = str(e)[:200]
