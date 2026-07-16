@@ -132,6 +132,51 @@ estrutural para divergir — a única divergência real entre os dois caminhos �
 Prova definitiva exigiria um stop atingido de verdade (ou um usuário de teste com stop colado no
 preço) — não feito nesta sessão por ser escrita em dado de produção.
 
+## VEREDITO FINAL — H6 DESCARTADO (16/07/2026, 20:49 BRT, medido em produção)
+
+O H6 foi respondido pelo próprio servidor, sem depender de resposta humana e sem ler dado
+pessoal. `agent.list_protecao_sem_operador` foi implantado e o `/api/agent/status` respondeu:
+
+```
+usuariosHabilitados : 2   (Operador LIGADO)
+protecaoSemOperador : 0   (stop/alvo armado com Operador DESLIGADO)
+```
+
+**`protecaoSemOperador: 0` ⇒ H6 DESCARTADO.** Ninguém tem proteção armada com o Operador
+desligado. Quem tem stop/alvo, tem o Operador ligado — e o laço cuida dele (provado: 7 passadas
+consecutivas com o app fechado).
+
+### As SEIS hipóteses caíram. Não existe bug.
+
+O que resta é a explicação da PERCEPÇÃO, e ela é aritmética, não defeito:
+
+1. **O gate `intervalMin` é de 30–60 min**, não 5. Medido nas passadas de 16/07: 10:03 rodou os
+   2 usuários (primeira passada em pregão após o boot); o próximo só voltou às **10:33** — 30 min
+   depois; o outro não voltou até 10:36 (>30 min). O laço acorda de 5 em 5 min, mas o ciclo de
+   CADA usuário respeita o `intervalMin` dele (`agent.py:229-231`).
+2. **`/api/agent/run-now` (botão "rodar agora", app aberto) ignora esse gate** e dispara na hora.
+3. **`executadas: 0` em todas as passadas** — nenhum stop/alvo foi atingido na janela observada.
+
+Somando: quem abre o app e clica vê executar na hora; quem fecha e espera 5 min não vê nada,
+porque o gate dele é 30–60 min — e, mesmo quando o ciclo roda, ele não executa nada se nenhum
+stop bateu. Nada disso é bug. É intervalo mal calibrado versus expectativa, agravado por
+`ultimoCiclo` ter passado o dia em `null` por um motivo inocente (o container bootou 00:57 BRT,
+fora do pregão).
+
+### O que foi entregue (não é correção de bug — é fim do silêncio)
+
+`protecaoSemOperador` (contagem, sem PII) e `minhaProtecaoSemOperador` (por usuário) no status,
+mais aviso no Diário 1x/dia para quem estiver na situação. Hoje o contador é 0 — o valor é
+preventivo: **no dia em que alguém armar um stop sem ligar o Operador, o servidor avisa em vez
+de deixar a pessoa achar que está protegida.** O laço NÃO liga o Operador sozinho: seria pior
+(executaria ordem que ninguém pediu).
+
+### Recomendação (decisão do Alex, não do agente)
+
+O `intervalMin` de 30–60 min é o que produz a sensação de "não funciona". Se a proteção é para
+valer, 5–15 min é mais coerente com stop/alvo — mas é decisão de produto (custo de Yahoo e de
+ciclo). Não mexi: não estava no escopo e não há bug.
+
 ## Pendências registradas (fora de escopo, NÃO patchear nesta sessão)
 
 - `asyncio.get_event_loop()` deprecado em `main.py:1107` e `:1123` — roda sob loop ativo, não é bug.
