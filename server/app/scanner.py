@@ -62,7 +62,31 @@ DISCLAIMER = (
     "Use para estudar como os padrões se formam."
 )
 
-_SCAN_CACHE: dict = {}      # "period|t1,t2,..." -> (monotonic_ts, payload)
+SCAN_CACHE_MAX = 16         # qa/42: teto de entradas do cache (RAM do container)
+
+_SCAN_CACHE: dict = {}      # "period|t1,t2,..." (tickers ORDENADOS) -> (monotonic_ts, payload)
+
+
+def _cache_key(p: str, uni: list) -> str:
+    """qa/42 (FinOps): a chave usa os tickers ORDENADOS. `?tickers=A,B` e
+    `?tickers=B,A` pediam a MESMA varredura e criavam DUAS entradas — N tickers
+    davam até N! chaves distintas (~150 KB cada) num cache sem teto, num
+    endpoint sem auth: OOM dirigido pelo cliente. Ordenar é correto porque o
+    payload NÃO depende da ordem de entrada (run_scan ordena o `results` por
+    confluência, com o ticker como desempate)."""
+    return p + "|" + ",".join(sorted(uni))
+
+
+def _cache_put(ck: str, now_m: float, payload: dict) -> None:
+    """qa/42 (FinOps): guarda com TETO. Antes o TTL só era visto na LEITURA —
+    entrada expirada nunca saía da memória e o dict crescia sem limite."""
+    _SCAN_CACHE[ck] = (now_m, payload)
+    if len(_SCAN_CACHE) <= SCAN_CACHE_MAX:
+        return
+    for k in [k for k, v in _SCAN_CACHE.items() if now_m - v[0] >= SCAN_TTL_S]:
+        del _SCAN_CACHE[k]                       # 1º: as já expiradas
+    while len(_SCAN_CACHE) > SCAN_CACHE_MAX:     # 2º: a mais antiga (LRU por inserção)
+        del _SCAN_CACHE[min(_SCAN_CACHE, key=lambda k: _SCAN_CACHE[k][0])]
 
 
 def reset():
@@ -223,7 +247,7 @@ async def run_scan(period: Optional[str] = None, universe: Optional[str] = None,
     keep = candles_mod.resolve_keep(p)
     uni = get_universe(universe)
 
-    ck = p + "|" + ",".join(uni)
+    ck = _cache_key(p, uni)
     now_m = time.monotonic()
     hit = _SCAN_CACHE.get(ck)
     if hit and (now_m - hit[0]) < SCAN_TTL_S:
@@ -302,5 +326,5 @@ async def run_scan(period: Optional[str] = None, universe: Optional[str] = None,
         "disclaimer": DISCLAIMER,
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
     }
-    _SCAN_CACHE[ck] = (now_m, payload)
+    _cache_put(ck, now_m, payload)
     return payload

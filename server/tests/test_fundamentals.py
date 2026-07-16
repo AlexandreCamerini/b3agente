@@ -5,6 +5,7 @@ spike de 10/07/2026, PETR4), fetch injetado no teste de cache. A prova de
 rede ao vivo foi feita uma vez na rodada do spike (registrada no qa/35);
 o guardião não depende de fonte externa.
 """
+import asyncio
 import sqlite3
 from datetime import datetime, timedelta, timezone
 
@@ -292,8 +293,29 @@ def test_main_importa_fundamentals_e_scan_enrich_nao_quebra():
     from app import main as m
     assert hasattr(m, "fundamentals"), "main.py não importou fundamentals"
     # sem cache aquecido → payload volta intacto, e SEM exceção (o que faltava)
-    out = m._enrich_fundamentos({"results": [{"ticker": "PETR4"}, {"ticker": "VALE3"}]})
+    # qa/42: _enrich_fundamentos virou async (I/O SQLite via to_thread, fora do
+    # event loop). O guardião segue chamando o caminho REAL — agora com await.
+    out = asyncio.run(m._enrich_fundamentos({"results": [{"ticker": "PETR4"}, {"ticker": "VALE3"}]}))
     assert out["results"][0]["ticker"] == "PETR4"
+
+
+def test_enrich_fundamentos_nao_bloqueia_event_loop():
+    """qa/42 (FinOps): o overlay faz 1 leitura SQLite por resultado (74 no
+    universo). Síncrono dentro do `async def scan`, congelava o event loop —
+    com 1 worker, ninguém mais era atendido. Guardião: o enrich TEM que ser
+    awaitable e delegar o I/O para thread."""
+    import inspect
+    import pathlib
+    from app import main as m
+    assert inspect.iscoroutinefunction(m._enrich_fundamentos), \
+        "_enrich_fundamentos precisa ser async (I/O fora do event loop)"
+    main_src = (pathlib.Path(__file__).resolve().parents[1] / "app" / "main.py").read_text(encoding="utf-8")
+    assert main_src.count("asyncio.to_thread(_enrich_fundamentos_sync") == 1, \
+        "o enrich deve delegar o I/O SQLite via asyncio.to_thread"
+    # o endpoint /api/scan não pode ter sobrado nenhuma chamada SEM await
+    for linha in main_src.splitlines():
+        if "_enrich_fundamentos(" in linha and "def " not in linha and "to_thread" not in linha:
+            assert "await _enrich_fundamentos(" in linha, f"call site sem await: {linha.strip()}"
 
 
 def test_integracao_esta_ligada_no_backend():

@@ -107,6 +107,10 @@ def test_scheduler_uma_passada_so_usuarios_habilitados():
     db.kv_set(c, "positions", [{"t": "FFFF3", "qty": 100, "avg": 10, "stop": 9.5}], user_id="u2")
     db.kv_set(c, "agent", {"autonomous": True}, user_id="u2")
     assert agent.list_server_users(c) == ["u1"]
+    # qa/42: LAST_USER_RUN é estado global do módulo (gate de intervalMin) e
+    # test_fase3_operador.py roda o mesmo scheduler com o mesmo uid — sem este
+    # clear, o teste passa ou falha CONFORME A ORDEM da suíte.
+    agent.LAST_USER_RUN.clear()
     brt_ok = datetime(2026, 7, 1, 14, 0, tzinfo=timezone(timedelta(hours=-3)))
     assert agent.in_market_hours(brt_ok)
     asyncio.run(agent.scheduler_loop(c, _quotes({"EEEE3": 9.0, "FFFF3": 9.0}), interval_s=1, once=True))

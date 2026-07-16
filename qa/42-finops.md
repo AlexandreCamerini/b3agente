@@ -199,3 +199,53 @@ contramedida e sem meio de recuperar espaço.
 
 **Não medido:** valor em dólar (sem telemetria de tokens e sem acesso a billing pela CLI);
 limites de RAM/CPU do container e tamanho do volume (só no dashboard); nº real de usuários.
+
+---
+
+## 10. Aplicado (16/07/2026) — 6 dos 7 itens
+
+Suíte: **291 passed** (baseline era 274+1 falha pré-existente). Endpoints exercitados de verdade
+com TestClient (não só funções isoladas).
+
+| # | Item | Onde | Estado |
+|---|---|---|---|
+| 1 | `_SCAN_CACHE`: teto (`SCAN_CACHE_MAX=16`) + chave com tickers **ordenados** | `scanner.py:65-90` | ✅ |
+| 2 | `_enrich_fundamentos` async via `to_thread` (+ `radar_daily.get_stored`/`store_result`) | `main.py:573-578,605-615` | ✅ |
+| 3 | Gates diários **persistidos** no kv (padrão `radar_daily`) | `analysis_outcomes.py`, `fundamentals.py` | ✅ |
+| 4 | Cota reserva `custo=n` no `/api/scan/deep` | `metering.py:check`, `main.py:_ai_apply_managed` | ✅ |
+| 5 | Teto **global** de gasto (`B3_MANAGED_GLOBAL_DAILY_CAP`, default None) + telemetria de tokens + `GET /api/obs/usage` | `metering.py`, `managed.py`, `llm.py`, `main.py` | ✅ |
+| 6 | `candlePeriod` preservado na config gerenciada | `main.py:_ai_apply_managed` | ✅ |
+| 7 | Cache de resposta N2/N3 por `snapshotId` | — | ❌ **não aplicado** |
+
+**Decisões de projeto tomadas no caminho (ficam registradas):**
+
+- **`/api/scan` NÃO foi autenticado.** É público por design (`current_scope` → None sem token:
+  "rotas de dados funcionam sem login"); exigir auth quebraria o app para deslogado e mexeria em
+  `web/src/` (proibido). O teto + a chave normalizada **matam o vetor de OOM** sem tocar no
+  contrato — as N! permutações viram 1 entrada. Autenticar continua sendo defesa em profundidade
+  desejável, mas é decisão de produto.
+- **O `custo` entra na COTA, não no rate limit.** Reservar 10 slots num teto de 6/min bloquearia
+  todo `/api/scan/deep`. O rate existe para impedir martelar (1 por request); quem protege o
+  bolso é a cota. `custo=1` (default) é matematicamente idêntico ao comportamento anterior.
+- **Teto global default = None (ilimitado).** Aditivo: sem a env, produção não muda.
+- **Bug de teste pré-existente corrigido:** `test_scheduler_alimenta_historico_de_passadas`
+  falhava na suíte completa **já no `main`** (274 passed + 1 failed, verificado com `git stash`).
+  `LAST_USER_RUN` é global do módulo e `test_agent.py` roda o mesmo scheduler com o mesmo uid →
+  o resultado dependia da ORDEM da suíte. `clear()` nos dois. Não é bug de produção (lá cada boot
+  começa com o dict vazio).
+
+### Item 7 — por que NÃO foi aplicado
+
+`analyze_structured(config, skill, profile, account, ticker, context, modo)`: a resposta depende
+da **skill** (editável pelo usuário), do **profile** e do **account**. Cachear por
+`(ticker, snapshotId, modo)` — o padrão do `_DEEP_CACHE` atual — **vazaria análise personalizada
+entre usuários**. Uma chave correta precisa incluir o `scope` + um hash de
+`(skill, profile, account, model)`, e isso é decisão de design, não fix mecânico.
+
+Além disso, o ganho hoje é do **usuário** (BYOK), não do dono: com a IA gerenciada desligada, este
+item não economiza um centavo seu. Fica como pendência com a chave a definir.
+
+**Achado adjacente (novo, não corrigido):** o `_DEEP_CACHE` existente (`scan_deep.py:37`) já tem
+chave `(ticker, period, snapshotId, modo)` **sem `profile`**, e `analyze_deep` **recebe** profile.
+Dois usuários com perfis diferentes podem compartilhar a mesma resposta. Vale investigar em frente
+própria — é privacidade, não custo.

@@ -38,6 +38,21 @@ def managed_config():
     return cfg
 
 
+def global_daily_cap():
+    """qa/42 (FinOps): teto GLOBAL de análises gerenciadas por dia, somando
+    TODOS os usuários (env B3_MANAGED_GLOBAL_DAILY_CAP). None = ilimitado
+    (default: comportamento anterior intacto). É a única defesa contra o gasto
+    escalar com o nº de usuários — a cota diária é POR usuário e não agrega."""
+    raw = (os.environ.get("B3_MANAGED_GLOBAL_DAILY_CAP") or "").strip()
+    if not raw:
+        return None
+    try:
+        n = int(raw)
+    except (TypeError, ValueError):
+        return None
+    return n if n > 0 else None
+
+
 def _int_env(name: str, default: int) -> int:
     try:
         return int(os.environ.get(name, str(default)))
