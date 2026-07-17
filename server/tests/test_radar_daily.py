@@ -120,3 +120,73 @@ def test_push_best_effort_para_quem_tem_token():
         assert enviados == ["u1"]
     finally:
         os.environ.pop("B3_SCAN_UNIVERSE", None)
+
+
+# ---------------------------------------------------------------------------
+# qa/43 — push do Radar diário NOMEIA o top-N. O ranking já era calculado
+# (run_scan ordena por confluência) e o push jogava fora: "74 ativos
+# analisados" mandava o usuário garimpar. Guardrail: o VEREDITO vai junto —
+# o ranking não separa alta de baixa, então "VALE3 100%" sozinho seria lido
+# como alta (o caso real de 16/07 era "Estudar baixa").
+# ---------------------------------------------------------------------------
+
+def test_push_body_nomeia_top3_com_veredito():
+    payload = {"results": [
+        {"ticker": "VALE3", "confluencia": 100, "veredito": "Estudar baixa"},
+        {"ticker": "PETR4", "confluencia": 86, "veredito": "Estudar alta"},
+        {"ticker": "ITUB4", "confluencia": 71, "veredito": "Monitorar"},
+        {"ticker": "MGLU3", "confluencia": 60, "veredito": "Estudar alta"},
+    ]}
+    body = radar_daily.push_body(payload)
+    assert "VALE3 100% estudar baixa" in body
+    assert "PETR4 86% estudar alta" in body
+    assert "ITUB4 71% monitorar" in body
+    assert "MGLU3" not in body, "top-3: o 4º não entra"
+    assert "4 ativos analisados" in body
+
+
+def test_push_body_sempre_diz_o_lado_nunca_so_o_percentual():
+    """O ranking é por confluência PURA (não separa alta de baixa). Sem o
+    veredito, 'VALE3 100%' seria lido como alta — e o topo real de 16/07 era
+    BAIXA. Este teste existe para que ninguém 'simplifique' o corpo depois."""
+    body = radar_daily.push_body({"results": [
+        {"ticker": "VALE3", "confluencia": 100, "veredito": "Estudar baixa"}]})
+    assert "estudar baixa" in body, "o lado do setup NUNCA pode sumir do push"
+    assert "VALE3 100%" in body
+
+
+def test_push_body_sem_setup_nao_inventa_destaque():
+    """Confluência 0 não é destaque — nada de nomear ativo à toa."""
+    body = radar_daily.push_body({"results": [
+        {"ticker": "VALE3", "confluencia": 0, "veredito": "Sem setup no momento"},
+        {"ticker": "PETR4", "confluencia": 0, "veredito": "Sem setup no momento"}]})
+    assert "VALE3" not in body and "PETR4" not in body
+    assert "nenhum setup em destaque" in body
+    assert "2 ativo(s) analisados" in body
+
+
+def test_push_body_aguenta_payload_degradado():
+    """Best-effort: campo faltando não pode derrubar o job do Radar."""
+    for p in ({}, {"results": []}, {"results": [{"ticker": "X"}]},
+              {"results": [{"confluencia": 90, "veredito": "Estudar alta"}]}):
+        body = radar_daily.push_body(p)
+        assert isinstance(body, str) and body, "push_body tem que devolver texto sempre"
+
+
+def test_push_body_respeita_o_guardrail_regulatorio():
+    """O corpo do push é texto de OUTPUT: os imperativos de operação proibidos
+    em llm/scanner valem aqui também."""
+    import re
+    body = radar_daily.push_body({"results": [
+        {"ticker": "PETR4", "confluencia": 92, "veredito": "Estudar alta"}]}).lower()
+    for pat in (r"\bcompre\b", r"\bvenda\s+(agora|j[áa])", r"\bentre\s+agora\b",
+                r"\bdeve\s+comprar\b", r"\brecomendo\s+(comprar|vender)\b"):
+        assert not re.search(pat, body), f"push com imperativo de operação: {pat}"
+
+
+def test_run_daily_usa_o_push_body():
+    """Ancoragem: sem isto o push volta a ser o texto genérico."""
+    import pathlib
+    src = (pathlib.Path(__file__).resolve().parents[1] / "app" / "radar_daily.py").read_text(encoding="utf-8")
+    assert src.count("corpo = push_body(payload)") == 1
+    assert src.count("Varredura automática concluída: {n} ativo(s)") == 0, "sobrou o texto antigo"

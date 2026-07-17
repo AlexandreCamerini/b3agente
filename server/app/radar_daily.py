@@ -96,6 +96,34 @@ def _push_audience(conn) -> list:
     return out
 
 
+PUSH_TOP_N = 3          # qa/43: quantos destaques cabem no corpo do push
+
+
+def push_body(payload: dict, top: int = PUSH_TOP_N) -> str:
+    """qa/43: corpo do push do Radar diário.
+
+    Antes dizia só "Varredura automática concluída: 74 ativo(s) analisados" —
+    o ranking JÁ estava calculado (run_scan ordena por confluência) e o push
+    jogava fora, mandando o usuário garimpar 74 linhas. Agora nomeia o top-N.
+
+    O VEREDITO é obrigatório, não enfeite: o ranking é por confluência PURA e
+    não separa alta de baixa (scanner: sort por -confluencia). O topo pode ser
+    "Estudar baixa" — foi o caso de VALE3 100% em 16/07. Dizer só "VALE3 100%"
+    faria o usuário ler como alta e comprar na queda. Vocabulário do produto
+    ("confluência" = aderência ao padrão de estudo, como o DISCLAIMER define),
+    sem verbo de ordem de operação — o guardrail regulatório vale aqui também.
+    """
+    results = payload.get("results") or []
+    n = len(results)
+    destaques = [r for r in results[:top]
+                 if (r.get("confluencia") or 0) > 0 and r.get("ticker") and r.get("veredito")]
+    if not destaques:
+        return f"Varredura concluída: {n} ativo(s) analisados, nenhum setup em destaque hoje. Abra o Radar para estudar."
+    itens = " · ".join(f"{r['ticker']} {int(r['confluencia'])}% {str(r['veredito']).lower()}"
+                       for r in destaques)
+    return f"Maior confluência: {itens}. Abra para ver o plano e o risco ({n} ativos analisados)."
+
+
 async def run_daily(conn, fetch, notify_push=None, origem: str = "automática") -> dict:
     """Roda a varredura do dia, armazena e (opcional) avisa por push."""
     t0 = time.monotonic()
@@ -109,11 +137,10 @@ async def run_daily(conn, fetch, notify_push=None, origem: str = "automática") 
         erro=None,
     )
     if notify_push and origem == "automática":
-        n = len(payload.get("results") or [])
+        corpo = push_body(payload)   # qa/43: nomeia o top-N em vez de só contar
         for uid in _push_audience(conn):
             try:
-                await notify_push(uid, "Radar do dia pronto 📡",
-                                  f"Varredura automática concluída: {n} ativo(s) analisados. Abra o Radar para estudar.")
+                await notify_push(uid, "Radar do dia 📡", corpo)
             except Exception:  # noqa: BLE001 — push é best-effort
                 pass
     return annotated
