@@ -1,0 +1,135 @@
+"""
+llm.py — ponto único de acesso ao Claude no BolsIA.
+
+Depois deste arquivo, NENHUM outro módulo deve importar anthropic/httpx nem
+montar payload da API na mão. Todo mundo chama `ask()` daqui. É o que faz o
+teto de gasto e o cache valerem para a app inteira.
+"""
+
+from __future__ import annotations
+
+import logging
+import os
+from contextlib import asynccontextmanager
+from typing import Any
+
+import asyncpg
+from fastapi import FastAPI, HTTPException
+
+from claude_gateway import (
+    AgentProfile,
+    AppBudget,
+    BudgetExceeded,
+    CircuitOpen,
+    ClaudeGateway,
+    GovernedGateway,
+    IterationCapExceeded,
+    PostgresBudgetStore,
+    TurnResult,
+)
+
+logger = logging.getLogger("bolsia.llm")
+
+APP_ID = "bolsia"
+
+# ---------------------------------------------------------------------------
+# PREFIXO ESTÁVEL = o que fica em cache e corta a maior parte da conta.
+# Regra: não muda entre requests -> vai no `system`.
+#        muda a cada request (ticker, período, pergunta) -> vai na mensagem.
+#
+# GOTCHA SILENCIOSO: o mínimo de cache do claude-opus-4-8 é ~1024 tokens.
+# Prompt menor NÃO é cacheado e a API não avisa. O gateway loga um WARNING.
+# ---------------------------------------------------------------------------
+ANALISTA = AgentProfile(
+    name="analista-b3",
+    model="claude-opus-4-8",
+    system=(
+        "Você é um operador sênior de análise técnica do mercado brasileiro (B3).\n"
+        # >>> COLE AQUI todo o prompt fixo do BolsIA: metodologia, formato de
+        # >>> saída, regras de risco, disclaimers, exemplos.
+    ),
+    default_ttl="5m",
+)
+
+# Tarefa simples não precisa de Opus. Haiku custa ~1/5.
+TRIAGEM = AgentProfile(
+    name="triagem",
+    model="claude-haiku-4-5",
+    system="Você classifica e roteia pedidos do BolsIA. Responda curto e objetivo.",
+    default_ttl="5m",
+)
+
+_gw: ClaudeGateway | None = None
+_gov: GovernedGateway | None = None
+_pool: asyncpg.Pool | None = None
+
+
+async def startup() -> None:
+    global _gw, _gov, _pool
+    database_url = os.environ["DATABASE_URL"]   # use a string POOLED do Neon
+    os.environ["ANTHROPIC_API_KEY"]             # falha cedo se faltar
+
+    _pool = await asyncpg.create_pool(database_url, min_size=1, max_size=5,
+                                      command_timeout=30)
+    _gw = ClaudeGateway(on_telemetry=_log_cost)
+    _gov = GovernedGateway(_gw, PostgresBudgetStore(_pool))
+    _gov.register_app(AppBudget(
+        app_id=APP_ID,
+        monthly_cap_usd=float(os.getenv("BOLSIA_MONTHLY_CAP_USD", "10")),
+        daily_cap_usd=float(os.getenv("BOLSIA_DAILY_CAP_USD", "1")),
+        hard=True,
+        max_concurrency=3,
+    ))
+    logger.info("llm: gateway pronto (app=%s)", APP_ID)
+
+
+async def shutdown() -> None:
+    if _gw:
+        await _gw.aclose()
+    if _pool:
+        await _pool.close()
+    logger.info("llm: encerrado")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await startup()
+    try:
+        yield
+    finally:
+        await shutdown()
+
+
+def _log_cost(model: str, t) -> None:
+    logger.info("claude[%s] cache_hit=%.0f%% in=%d out=%d custo=$%.5f",
+                model, t.cache_hit_ratio * 100, t.total_input_tokens,
+                t.output_tokens, t.cost_usd)
+
+
+async def ask(
+    prompt: str,
+    *,
+    agent: AgentProfile = ANALISTA,
+    max_tokens: int = 1024,
+    context: list[dict[str, Any]] | None = None,
+) -> TurnResult:
+    """Uma pergunta ao Claude, com teto, cache e disjuntor aplicados."""
+    if _gov is None:
+        raise RuntimeError("llm.startup() não chamado — registre o lifespan no FastAPI.")
+    try:
+        return await _gov.complete(APP_ID, agent, prompt,
+                                   max_tokens=max_tokens, context=context)
+    except BudgetExceeded as e:
+        logger.warning("teto estourado: %s", e)
+        raise HTTPException(402, "Limite de uso do período atingido.") from e
+    except CircuitOpen as e:
+        logger.error("circuito aberto: %s", e)
+        raise HTTPException(503, "Serviço de análise temporariamente indisponível.",
+                            headers={"Retry-After": str(int(e.reopen_in) + 1)}) from e
+    except IterationCapExceeded as e:
+        logger.error("loop de agente: %s", e)
+        raise HTTPException(500, "A análise não convergiu.") from e
+
+
+async def ask_text(prompt: str, **kw) -> str:
+    return (await ask(prompt, **kw)).text
