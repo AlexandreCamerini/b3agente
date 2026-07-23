@@ -7,3 +7,5 @@ pytest>=8.0
 # o login por e-mail/senha e o app funcionam sem isto.
 PyJWT[crypto]>=2.8
 h2>=4.1
+asyncpg>=0.29
+claude-gateway[postgres] @ git+https://github.com/AlexandreCamerini/claude-gateway.git@v0.1.0
