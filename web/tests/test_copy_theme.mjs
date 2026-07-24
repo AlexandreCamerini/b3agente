@@ -82,7 +82,7 @@ ok("transição só durante a troca (classe temporária)", app.includes("b3-mode
 // ---- 4) B4: notificações + backend ------------------------------------------
 ok("notificações de stop/alvo/variação na voz do modo",
   app.includes("cp.notifStopTitulo(") && app.includes("cp.notifAlvoTitulo(") && app.includes("cp.notifVarTitulo("));
-ok("managed preserva o appMode (mesa não vira professor)", mainPy.includes('{**mcfg, "appMode": (config or {}).get("appMode")}'));
+ok("managed preserva o appMode (mesa não vira professor)", mainPy.includes('{**mcfg, "appMode": (config or {}).get("appMode")'));
 ok("N3 ganha a camada de mesa no modo operador", llmPy.includes("is_operador(config)") && llmPy.includes("Fale como mesa de opera"));
 
 // ---- UX: prevenções de plataforma -------------------------------------------
