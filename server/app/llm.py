@@ -25,8 +25,15 @@ def _norm_usage(data: dict):
     (usageMetadata.promptTokenCount/candidatesTokenCount)."""
     u = data.get("usage")
     if isinstance(u, dict):
-        return (u.get("input_tokens", u.get("prompt_tokens")),
-                u.get("output_tokens", u.get("completion_tokens")))
+        entrada = u.get("input_tokens", u.get("prompt_tokens"))
+        # Com prompt caching, input_tokens traz SÓ os tokens novos. Os lidos e
+        # escritos no cache vêm em campos separados — somá-los mantém a
+        # telemetria (e a cota) honesta em vez de subestimar o consumo.
+        if entrada is not None:
+            entrada = (int(entrada)
+                       + int(u.get("cache_read_input_tokens") or 0)
+                       + int(u.get("cache_creation_input_tokens") or 0))
+        return (entrada, u.get("output_tokens", u.get("completion_tokens")))
     g = data.get("usageMetadata")
     if isinstance(g, dict):
         return (g.get("promptTokenCount"), g.get("candidatesTokenCount"))
@@ -231,12 +238,50 @@ def _safe_json_response(resp: httpx.Response):
 LLM_TEMPERATURE = 0.2
 
 
+
+# --- prompt caching (gateway) -----------------------------------------------
+# Mínimo cacheável por modelo. Abaixo disso a API IGNORA o cache_control em
+# SILÊNCIO: paga-se a escrita e nunca se lê. Por isso é condicional.
+_CACHE_MIN = {
+    "claude-fable-5": 512,
+    "claude-opus-4-8": 1024,
+    "claude-opus-4-7": 2048,
+    "claude-opus-4-6": 4096,
+    "claude-opus-4-5": 4096,
+    "claude-sonnet-5": 1024,
+    "claude-sonnet-4-6": 1024,
+    "claude-sonnet-4-5": 1024,
+    "claude-haiku-4-5": 4096,
+}
+# ~3.2 chars/token em português (conservador: subestimar evita write inútil).
+_CHARS_POR_TOKEN = 3.2
+
+
+def _system_cacheavel(model: str, system: str):
+    """Devolve o `system` como bloco com cache_control se o prefixo atingir o
+    mínimo do modelo; caso contrário devolve a string original (sem cache).
+
+    Ganho: nas chamadas seguintes com o MESMO system, o prefixo é lido a 10%
+    do preço de entrada. Cenário ideal: Radar N1, que faz N chamadas em
+    sequência com system idêntico."""
+    minimo = None
+    for prefixo, valor in _CACHE_MIN.items():
+        if (model or "").startswith(prefixo):
+            minimo = valor
+            break
+    if minimo is None:
+        return system  # modelo desconhecido: não arrisca write inútil
+    if len(system) / _CHARS_POR_TOKEN < minimo:
+        return system  # abaixo do mínimo: cachear seria pagar sem receber
+    return [{"type": "text", "text": system,
+             "cache_control": {"type": "ephemeral"}}]
+
 async def _call_anthropic(config, key, system, user, max_tokens):
     async with httpx.AsyncClient(timeout=60) as c:
         r = await c.post(
             "https://api.anthropic.com/v1/messages",
             headers={"content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01"},
-            json={"model": config["model"], "max_tokens": max_tokens, "temperature": LLM_TEMPERATURE, "system": system, "messages": [{"role": "user", "content": user}]},
+            json={"model": config["model"], "max_tokens": max_tokens, "temperature": LLM_TEMPERATURE, "system": _system_cacheavel(config["model"], system), "messages": [{"role": "user", "content": user}]},
         )
     data = _safe_json_response(r)
     if r.status_code != 200:
