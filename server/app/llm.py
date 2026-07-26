@@ -7,6 +7,8 @@ from datetime import datetime, timezone
 
 import httpx
 
+from . import skill_ref
+
 
 # qa/42 (FinOps): telemetria de TOKENS. Nenhum caller lia o `usage` da resposta
 # — o app gastava sem saber quanto, e era impossível estimar custo real (ou
@@ -118,6 +120,10 @@ GUARDRAILS = "\n".join([
     "Baseie-se em dados PASSADOS; nao ha garantia de repeticao.",
     "Se o cenario for indefinido, diga que o melhor e nao operar.",
     "Nada do que voce escrever e recomendacao de investimento.",
+    # Opção B (Tema 2): a leitura de estudo FECHA com um veredito claro, como a
+    # referência — assertividade sem verbo de ordem.
+    "Termine SEMPRE com UMA conclusao de estudo, textualmente:",
+    "'" + "' | '".join(skill_ref.CONCLUSOES_EDU) + "'",
 ])
 
 FORMAT = "\n".join([
@@ -473,30 +479,26 @@ async def analyze(config: dict, skill: dict, profile: dict, account: dict, ticke
 # confiança, cenários) produz LEITURA DE ESTUDO no vocabulário fixo.
 # ===========================================================================
 
+# Persona do modo ESTUDO (professor): metodologia canônica (skill_ref) + função
+# de ensino + vocabulário/limite regulatório. A metodologia NÃO é reescrita aqui
+# — vem da fonte única, fiel à skill analise-tecnica-b3.
 OPERADOR_EDUCACIONAL = "\n".join([
     "# Persona (metodologia: operador sênior de AT da B3, em função de PROFESSOR)",
-    "Disciplina, objetividade e rigor estatístico. Explique primeiro em linguagem",
-    "simples, depois o termo técnico. Nunca confunda convicção com certeza.",
+    skill_ref.PERSONA_BASE,
+    "Função: ENSINAR o raciocínio de uma mesa profissional, não emitir ordem real.",
+    "Explique primeiro em linguagem simples, depois o termo técnico. Leitura para",
+    "celular: didática e direta, sem prolixidade.",
     "",
-    "# Regras metodológicas invioláveis",
-    "1. NUNCA invente preço, indicador, volume, fato ou notícia: use SOMENTE o",
-    "   pacote técnico pré-calculado fornecido. Todo número citado vem dele.",
-    "2. Nunca prometa lucro nem percentual de acerto; probabilidades apenas",
-    "   relativas (baixa/moderada/alta), nunca % sem base estatística.",
-    "3. Nunca fundamente a leitura em UM indicador isolado: peso maior em",
-    "   estrutura de preço + volume + confluência entre famílias.",
-    "4. Sinais conflitantes => a leitura é 'Aguardar' ou 'Não operar'.",
-    "5. SEMPRE informe o que INVALIDA a tese de estudo (nível ou condição).",
-    "6. Diferencie: cenário confirmado, em formação e especulativo.",
-    "7. Movimento excessivamente esticado: diga explicitamente.",
-    "8. Sem oportunidade de estudo => frase fixa: 'Sem setup no momento — não",
-    "   há leitura com vantagem estatística clara.'",
-    "9. Respeite dataQuality do pacote: serieCurta/volumeAusente/multiTimeframe",
-    "   limitam o teto de confiança (hoje, sem 2º timeframe, teto = moderada);",
-    "   DECLARE as limitações em vez de compensá-las com inferência.",
-    "10. PROIBIDO verbo de ordem (compre/venda/entre agora) e a palavra",
-    "    'recomendação' de investimento. Vocabulário fixo do plano de estudo:",
-    "    'Estudar alta' | 'Estudar baixa' | 'Monitorar' | 'Aguardar' | 'Não operar'.",
+    skill_ref.PRINCIPIOS,
+    "",
+    skill_ref.ASSERTIVIDADE,
+    "",
+    "# Vocabulário e limite regulatório do modo ESTUDO",
+    "PROIBIDO verbo de ordem (compre/venda/entre agora) e a palavra 'recomendação'",
+    "de investimento — isto é conteúdo EDUCACIONAL. Vocabulário fixo do plano de",
+    "estudo: " + skill_ref.decisoes_txt("educacional") + ".",
+    "Sem oportunidade de estudo => frase fixa: '"
+    + skill_ref.vocab["educacional"]["sem_setup"] + "'.",
 ])
 
 DEEP_FORMAT = "\n".join([
@@ -532,43 +534,32 @@ DEEP_FORMAT = "\n".join([
 # "recomendação personalizada" (o perfil só dimensiona o risco). O aviso
 # obrigatório da persona é acrescentado pela UI (DISCLAIMERS.operador).
 # ============================================================================
-CONCLUSOES_PRO = [
-    "A operação está tecnicamente validada, desde que a condição de entrada seja confirmada.",
-    "O cenário é promissor, mas ainda exige confirmação.",
-    "Os sinais são conflitantes. A melhor decisão é aguardar.",
-    "Não há uma operação com vantagem estatística clara neste momento.",
-]
+# Conclusões canônicas: fonte única em skill_ref (referência analise-tecnica-b3).
+CONCLUSOES_PRO = skill_ref.CONCLUSOES
 
+# Persona do modo OPERADOR (mesa): MESMA metodologia canônica (skill_ref), função
+# de mesa que orienta o cliente e vocabulário de decisão fiel à referência.
 OPERADOR_PRO = "\n".join([
     "# Persona (metodologia: operador sênior de AT da B3, em função de MESA DE OPERAÇÕES)",
-    "Disciplina, objetividade e rigor estatístico. Fale como uma mesa orienta o",
-    "cliente: direto, curto e acionável — o quê, quando, quanto e onde a tese",
-    "morre. Sem rodeios didáticos; o cliente já sabe os conceitos.",
+    skill_ref.PERSONA_BASE,
+    "Função: orientar o cliente como uma mesa — direto, curto e acionável: o quê,",
+    "quando, quanto e onde a tese morre. Sem rodeios didáticos; o cliente já sabe",
+    "os conceitos.",
     "",
-    "# Regras metodológicas invioláveis",
-    "1. NUNCA invente preço, indicador, volume, fato ou notícia: use SOMENTE o",
-    "   pacote técnico pré-calculado fornecido. Todo número citado vem dele.",
-    "2. Nunca prometa lucro, retorno ou percentual de acerto; probabilidades",
-    "   apenas relativas (baixa/moderada/alta), nunca % sem base estatística.",
-    "3. Nunca fundamente a decisão em UM indicador isolado: peso maior em",
-    "   estrutura de preço + volume + confluência entre famílias.",
-    "4. Sinais conflitantes => decisão 'AGUARDAR CONFIRMAÇÃO' ou 'NÃO OPERAR'.",
-    "5. SEMPRE informe o nível/condição que INVALIDA a tese (o stop é técnico,",
-    "   nunca arbitrário).",
-    "6. Diferencie: cenário confirmado, em formação e especulativo.",
-    "7. Movimento excessivamente esticado: não perseguir preço — diga.",
-    "8. Sem vantagem estatística => frase fixa: 'Não há uma operação com",
-    "   vantagem estatística clara neste momento.'",
-    "9. Respeite dataQuality do pacote: serieCurta/volumeAusente/multiTimeframe",
-    "   limitam o teto de confiança (sem 2º timeframe, teto = moderada);",
-    "   DECLARE as limitações em vez de compensá-las com inferência.",
-    "10. Vocabulário de DECISÃO obrigatório: 'COMPRAR' | 'VENDER' |",
-    "    'AGUARDAR CONFIRMAÇÃO' | 'NÃO OPERAR' — sempre COERENTE com o plano",
-    "    determinístico fornecido no pacote (entrada/stop/alvos/R:R); nunca o",
-    "    contradiga nem crie níveis que não estejam nele.",
-    "11. O plano é técnico e a execução é do usuário na corretora dele; isto",
-    "    não é aconselhamento personalizado — o perfil informado só dimensiona",
-    "    o risco (% por operação), nunca muda a leitura técnica.",
+    skill_ref.PRINCIPIOS,
+    "",
+    skill_ref.ASSERTIVIDADE,
+    "",
+    "# Vocabulário de DECISÃO do modo MESA",
+    "Decisão obrigatória: " + skill_ref.decisoes_txt("operador") + " — sempre",
+    "COERENTE com o plano determinístico fornecido no pacote (entrada/stop/alvos/",
+    "R:R); nunca o contradiga nem crie níveis que não estejam nele. O stop é",
+    "técnico (ligado à invalidação), nunca arbitrário.",
+    "Sem vantagem estatística => frase fixa: '"
+    + skill_ref.vocab["operador"]["sem_setup"] + "'.",
+    "A execução é do usuário na corretora dele; isto não é aconselhamento",
+    "personalizado — o perfil informado só dimensiona o risco (% por operação),",
+    "nunca muda a leitura técnica.",
 ])
 
 GUARDRAILS_PRO = "\n".join([
@@ -692,10 +683,13 @@ async def analyze_deep(config: dict, profile: dict, ticker: str, context: dict, 
     key = resolve_key(config)
     pl = _profile_line(profile)
     operador = (modo == "operador") or (modo is None and is_operador(config))
+    # N1 recebe o pacote técnico COMPLETO + candles: é onde o contrato de dados
+    # (defasagem, ≥50 candles, volume, teto multi-timeframe) tem o que validar.
+    cd = "\n" + skill_ref.CONTRATO_DADOS
     if operador:
-        system = OPERADOR_PRO + "\n" + GUARDRAILS_PRO + (("\n" + pl) if pl else "") + "\n" + PRO_DEEP_FORMAT
+        system = OPERADOR_PRO + cd + "\n" + GUARDRAILS_PRO + (("\n" + pl) if pl else "") + "\n" + PRO_DEEP_FORMAT
     else:
-        system = OPERADOR_EDUCACIONAL + "\n" + GUARDRAILS + (("\n" + pl) if pl else "") + "\n" + DEEP_FORMAT
+        system = OPERADOR_EDUCACIONAL + cd + "\n" + GUARDRAILS + (("\n" + pl) if pl else "") + "\n" + DEEP_FORMAT
     user = "\n".join([
         f"Ativo: {ticker} ({name_of(ticker)}) - B3 · Aprofundamento do Radar (nível 1).",
         (f"Snapshot técnico #{context.get('snapshotId')} ({context.get('snapshotAt')}): todos os números vêm DELE — mesma fonte do Radar; `planoEstudo` deve ser coerente com o veredito dos setups abaixo." if isinstance(context, dict) and context.get("snapshotId") else ""),

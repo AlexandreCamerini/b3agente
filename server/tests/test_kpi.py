@@ -114,3 +114,42 @@ def test_parse_rich_markdown_robusto():
     # lixo total -> ainda devolve estrutura com markdown nao-vazio
     r4 = parse_rich("")
     assert isinstance(r4["markdown"], str) and len(r4["markdown"]) > 0
+
+
+def test_normalize_markdown_dialetos_de_llm():
+    from app.kpi import normalize_markdown as N
+    # negrito-itálico (asterisco triplo e underscore triplo) -> negrito
+    assert N("Isto é ***muito*** forte") == "Isto é **muito** forte"
+    assert N("Isto é ___muito___ forte") == "Isto é **muito** forte"
+    # underscore: __x__ -> **x** ; _x_ -> *x* (só como ênfase, não intra-palavra)
+    assert N("veja __isto__ agora") == "veja **isto** agora"
+    assert N("veja _isto_ agora") == "veja *isto* agora"
+    assert N("nome stop_loss intacto") == "nome stop_loss intacto"
+    # links viram o rótulo; strikethrough perde a marca
+    assert N("veja [a B3](https://b3.com.br) hoje") == "veja a B3 hoje"
+    assert N("~~cancelado~~ agora") == "cancelado agora"
+    # citação perde o "> "; régua vira separação em branco
+    assert N("> uma citação") == "uma citação"
+    assert "-" not in N("linha um\n\n---\n\nlinha dois")
+    # tabela markdown -> linhas legíveis, separador some
+    tab = "| Nível | Valor |\n|---|---|\n| Stop | 10,00 |\n| Alvo | 12,00 |"
+    got = N(tab)
+    assert "Nível — Valor" in got and "Stop — 10,00" in got and "---" not in got
+    # cerca ``` interna: marca some, miolo permanece
+    assert "```" not in N("texto\n```\ncodigo\n```\nfim")
+    # o que já está no subconjunto passa intacto
+    assert N("## Título\n- item **um**\n- item *dois*") == "## Título\n- item **um**\n- item *dois*"
+    # idempotente: normalizar de novo não muda
+    assert N(N(tab)) == N(tab)
+
+
+def test_parse_rich_normaliza_corpo_com_dialeto_estranho():
+    from app.kpi import parse_rich
+    raw = ('{"direcao":"alta","corpo":"## Leitura\\n'
+           'Tendência ***forte*** com [suporte](http://x) em __10,00__.\\n'
+           '> risco de reversão"}')
+    r = parse_rich(raw)
+    md = r["markdown"]
+    assert "***" not in md and "__" not in md and "](" not in md
+    assert "**forte**" in md and "suporte" in md and "**10,00**" in md
+    assert "> risco" not in md and "risco de reversão" in md

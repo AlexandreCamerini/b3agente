@@ -41,6 +41,7 @@ from typing import Optional
 import httpx  # mesma pilha HTTP do resto do backend (yahoo.py) — traz certifi
 
 from . import db
+from . import skill_ref
 
 BRAPI_BASE = "https://brapi.dev/api/quote/"
 MODULES = "summaryProfile,defaultKeyStatistics,financialData"
@@ -156,7 +157,9 @@ def merge_fundamentos(primario: Optional[dict], complemento: Optional[dict]) -> 
     return out
 
 
-MIN_PILARES = 2   # score exige ≥2 pilares COM dado (senão "dados insuficientes")
+# Thresholds e mínimo de pilares: FONTE ÚNICA no skill_ref (doutrina canônica,
+# junto da metodologia técnica). Aqui só o alias local, comportamento idêntico.
+MIN_PILARES = skill_ref.FUND_MIN_PILARES   # score exige ≥N pilares COM dado
 
 # NOTA (revisão do operador sênior, qa/37): a banda de P/L é ABSOLUTA e
 # sector-blind — um growth legítimo (P/L alto) é penalizado e uma cíclica no
@@ -183,13 +186,13 @@ def score_fundamento(f: Optional[dict]) -> Optional[str]:
         return None
     pilares = []
     if f.get("pl") is not None:
-        pilares.append(0 < f["pl"] <= 20)
+        pilares.append(0 < f["pl"] <= skill_ref.FUND_PL_MAX)
     if f.get("roe") is not None or f.get("margemLiquida") is not None:
-        roe_ok = (f.get("roe") or 0) >= 0.10
+        roe_ok = (f.get("roe") or 0) >= skill_ref.FUND_ROE_MIN
         mg_ok = (f.get("margemLiquida") or 0) > 0
         pilares.append(roe_ok and mg_ok)
     if f.get("dividaEbitda") is not None:
-        pilares.append(f["dividaEbitda"] <= 3.0)
+        pilares.append(f["dividaEbitda"] <= skill_ref.FUND_DIVIDA_EBITDA_MAX)
     if len(pilares) < MIN_PILARES:
         return None   # cobertura fina → sem score, nunca uma letra enganosa
     pontos = sum(pilares)

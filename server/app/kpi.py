@@ -138,6 +138,88 @@ def _synth_markdown(detail: dict) -> str:
     return "\n".join(lines).strip()
 
 
+# O front renderiza um SUBCONJUNTO de markdown (App.jsx `Markdown`/`MdInline`):
+# títulos ## , **negrito**, *itálico*, `código`, listas - / * / • e numeradas,
+# parágrafos. Cada LLM emite um dialeto diferente — GPT/Gemini mandam ***triplo***,
+# __underscore__, [links](url), > citações, tabelas | a | b |, --- e cercas ```
+# internas — que o renderizador cospe LITERAIS. Normalizar aqui (na origem, no
+# servidor) conserta para QUALQUER modelo de uma vez, sem tocar o front.
+_HR_RE = re.compile(r"^\s*([-*_])(?:\s*\1){2,}\s*$")          # ---  ***  ___  - - -
+_FENCE_RE = re.compile(r"^\s*```+[a-zA-Z0-9]*\s*$")            # cerca de bloco de código
+_QUOTE_RE = re.compile(r"^\s*>+\s?")                           # > citação
+_TABLE_SEP_RE = re.compile(r"^\s*\|?[\s:|-]*-[\s:|-]*\|?\s*$")  # |---|:--:|
+_LINK_RE = re.compile(r"\[([^\]]+)\]\((?:[^)]*)\)")           # [texto](url) -> texto
+_AUTOLINK_RE = re.compile(r"<(https?://[^>\s]+)>")             # <url> -> url
+_STRIKE_RE = re.compile(r"~~([^~]+)~~")                        # ~~riscado~~ -> riscado
+_TRIPLE_RE = re.compile(r"(?:\*\*\*|___)([^*_]+?)(?:\*\*\*|___)")  # ***x*** / ___x___ -> **x**
+_UBOLD_RE = re.compile(r"__([^_]+?)__")                        # __x__ -> **x**
+_UITALIC_RE = re.compile(r"(?<![\w_])_([^_]+?)_(?![\w_])")     # _x_ (emphasis) -> *x*
+
+
+def _norm_inline(s: str) -> str:
+    """Converte ênfases/links de dialetos variados para o subconjunto do front."""
+    s = _LINK_RE.sub(r"\1", s)
+    s = _AUTOLINK_RE.sub(r"\1", s)
+    s = _STRIKE_RE.sub(r"\1", s)
+    s = _TRIPLE_RE.sub(r"**\1**", s)   # negrito-itálico -> negrito (front não aninha)
+    s = _UBOLD_RE.sub(r"**\1**", s)
+    s = _UITALIC_RE.sub(r"*\1*", s)
+    return s
+
+
+def _row_cells(line: str) -> list:
+    """Células de uma linha de tabela markdown, sem os pipes das bordas."""
+    line = line.strip()
+    if line.startswith("|"):
+        line = line[1:]
+    if line.endswith("|"):
+        line = line[:-1]
+    return [c.strip() for c in line.split("|")]
+
+
+def normalize_markdown(md: str) -> str:
+    """Reduz o corpo ao dialeto que o front sabe renderizar. Model-agnostic:
+    o mesmo texto sai igual venha de qualquer LLM. Nunca levanta exceção."""
+    if not md:
+        return md
+    src = str(md).replace("\r\n", "\n").replace("\r", "\n")
+    lines = src.split("\n")
+    out = []
+    in_fence = False
+    for i, raw in enumerate(lines):
+        # cercas ``` : entra/sai de bloco de código; a marca some, o miolo vira texto
+        if _FENCE_RE.match(raw):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            out.append(raw.rstrip())
+            continue
+        # setext: linha só de === logo abaixo de texto vira título ATX. (--- fica
+        # como régua: converter arriscaria comer uma régua legítima em título.)
+        if out and out[-1].strip() and not out[-1].lstrip().startswith(("#", "-", "*", "•")) \
+                and re.match(r"^\s*=+\s*$", raw):
+            out[-1] = "## " + out[-1].strip(); continue
+        # régua horizontal isolada -> linha em branco (separa blocos)
+        if _HR_RE.match(raw):
+            out.append(""); continue
+        # tabela: cabeçalho + separador + linhas -> cada linha em texto legível,
+        # o separador some (o front não tem tabela).
+        if "|" in raw and i + 1 < len(lines) and _TABLE_SEP_RE.match(lines[i + 1]) \
+                and raw.strip().count("|") >= 1:
+            out.append(" — ".join(c for c in _row_cells(raw) if c)); continue
+        if _TABLE_SEP_RE.match(raw) and "|" in raw:
+            continue  # linha separadora da tabela
+        if raw.strip().startswith("|") and raw.strip().endswith("|") and "|" in raw.strip()[1:-1]:
+            out.append(" — ".join(c for c in _row_cells(raw) if c)); continue
+        # citação: tira o "> " e mantém a linha
+        line = _QUOTE_RE.sub("", raw)
+        out.append(_norm_inline(line.rstrip()))
+    # colapsa 3+ linhas em branco em no máximo uma
+    txt = "\n".join(out)
+    txt = re.sub(r"\n{3,}", "\n\n", txt)
+    return txt.strip()
+
+
 def parse_rich(raw: str) -> dict:
     """Resposta estruturada da IA: KPIs + resumo + listas + corpo (markdown) +
     stop/alvo sugeridos. SEMPRE devolve o mesmo formato; nunca levanta excecao.
@@ -180,8 +262,12 @@ def parse_rich(raw: str) -> dict:
         corpo = re.sub(r"\n?```$", "", corpo).strip()
         text = (raw[:s] + raw[e:])
     text = text.replace("```json", "").replace("```", "").strip()
-    # corpo final (markdown), sempre nao-vazio:
-    markdown = corpo or _synth_markdown(detail) or text or "_A IA não retornou um corpo de análise legível._"
+    # corpo final (markdown), sempre nao-vazio. Normalizado ao subconjunto que o
+    # front renderiza — blindagem model-agnostic contra a troca de LLM (cada
+    # modelo formata diferente); cobre corpo, síntese e texto bruto.
+    markdown = normalize_markdown(
+        corpo or _synth_markdown(detail) or text
+    ) or "_A IA não retornou um corpo de análise legível._"
     return {"kpis": kpis, "detail": detail, "proposal": proposal, "markdown": markdown, "text": text}
 
 
