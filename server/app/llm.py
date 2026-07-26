@@ -295,6 +295,7 @@ async def _call_anthropic(config, key, system, user, max_tokens):
         # (espelha a guarda do caminho OpenAI para o1/gpt-5). Descoberto pelo
         # masstest-agentes-llm em produção.
         if r.status_code == 400 and "temperature" in str((data.get("error") or {}).get("message") or "").lower():
+            print("[anthropic] modelo rejeitou temperature — repetindo sem o parâmetro")
             body.pop("temperature", None)
             r = await c.post(url, headers=headers, json=body)
             data = _safe_json_response(r)
