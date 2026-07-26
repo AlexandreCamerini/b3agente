@@ -28,3 +28,6 @@ web/ios/
 
 # chaves privadas (APNs etc.) — NUNCA versionar
 *.p8
+
+# script solto de prova do cache (não faz parte da entrega)
+06_provar_cache.py
