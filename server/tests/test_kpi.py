@@ -116,6 +116,20 @@ def test_parse_rich_markdown_robusto():
     assert isinstance(r4["markdown"], str) and len(r4["markdown"]) > 0
 
 
+def test_geometria_incoerente_anulada_para_rec_nao_direcional():
+    """Achado do masstest-agentes-llm (MGLU3/estudo): 'Monitorar' + direcao=Baixa
+    com alvo ACIMA do stop é incoerente e deve anular stop/alvo (sem dado > número
+    inventado). Antes só anulava quando a recomendação era direcional ou vazia."""
+    raw = ('{"recomendacao":"Monitorar","direcao":"Baixa","resumo":"x","corpo":"y",'
+           '"stopSugerido":4.55,"alvoSugerido":4.92}')  # baixa mas alvo>stop
+    r = parse_rich(raw)
+    assert r["proposal"]["stop"] is None and r["proposal"]["alvo"] is None
+    # coerente (baixa, alvo<stop) permanece
+    ok = parse_rich('{"recomendacao":"Aguardar","direcao":"Baixa","corpo":"y",'
+                    '"stopSugerido":4.92,"alvoSugerido":4.55}')
+    assert ok["proposal"]["stop"] == 4.92 and ok["proposal"]["alvo"] == 4.55
+
+
 def test_normalize_markdown_dialetos_de_llm():
     from app.kpi import normalize_markdown as N
     # negrito-itálico (asterisco triplo e underscore triplo) -> negrito

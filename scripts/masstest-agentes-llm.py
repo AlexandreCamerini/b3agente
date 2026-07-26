@@ -148,11 +148,28 @@ def check(ticker, mode, tech, res, hard, soft):
     S(any(w in md.lower() for w in ("alta", "baixa", "lateral", "aguard", "não operar", "nao operar")),
       "corpo não declara direção clara (mole)")
 
-    # MOLE: anti-alucinação — números R$ do corpo dentro da faixa plausível
+    # MOLE: anti-alucinação — PREÇOS citados no corpo devem existir no pacote
+    # técnico. Monta o universo legítimo (OHLC dos candles + indicadores + stop/
+    # alvo) e só cobra os números com MAGNITUDE de preço — valores pequenos são
+    # risco/ATR/distância/capital, não preço (evita falso positivo).
     if lo and hi:
-        for m in re.findall(r"R\$\s*([0-9]+[.,][0-9]{2})", md):
+        legit = set()
+        for c in (tech.get("candles") or []):
+            for kk in ("open", "high", "low", "close"):
+                if isinstance(c.get(kk), (int, float)):
+                    legit.add(round(c[kk], 2))
+        for v in (tech.get("indicators") or {}).values():
+            if isinstance(v, (int, float)):
+                legit.add(round(v, 2))
+        for v in (prop.get("stop"), prop.get("alvo")):
+            if isinstance(v, (int, float)):
+                legit.add(round(v, 2))
+        for m in re.findall(r"R\$\s*(\d[\d.]*,\d{2}|\d+\.\d{2})", md):
             v = float(m.replace(".", "").replace(",", ".")) if m.count(",") == 1 else float(m.replace(",", ""))
-            S(lo * 0.6 <= v <= hi * 1.6, f"valor R$ {m} fora do pacote técnico [{lo:.2f},{hi:.2f}] (mole)")
+            if not (lo * 0.7 <= v <= hi * 1.3):
+                continue  # fora da banda de preço = capital/risco/ATR/montante, não preço
+            if not any(abs(v - g) <= max(0.02, g * 0.005) for g in legit):
+                S(False, f"preço R$ {m} não consta no pacote técnico (mole)")
 
 
 def main():
@@ -165,14 +182,22 @@ def main():
     limit = None
     tickers = []
     i = 0
+    def _val(flag):
+        if i + 1 >= len(args):
+            print(f"ERRO: {flag} exige um valor."); sys.exit(2)
+        return args[i + 1]
     while i < len(args):
         a = args[i]
         if a == "--modes":
-            modes = args[i + 1].split(","); i += 2
+            modes = _val(a).split(","); i += 2
         elif a == "--period":
-            period = args[i + 1]; i += 2
+            period = _val(a); i += 2
         elif a == "--limit":
-            limit = int(args[i + 1]); i += 2
+            v = _val(a)
+            if not v.isdigit():
+                print(f"ERRO: --limit precisa ser um número inteiro (recebi {v!r}). "
+                      "Provável paste grudado — limpe a linha (Ctrl-U) e cole de novo."); sys.exit(2)
+            limit = int(v); i += 2
         else:
             tickers.append(a.upper()); i += 1
     if not tickers:

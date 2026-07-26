@@ -252,8 +252,13 @@ def parse_rich(raw: str) -> dict:
         if st is not None and av is not None:
             rec = str(obj.get("recomendacao") or "")
             dr = str(obj.get("direcao") or "")
-            alta = rec in ("Estudar alta", "COMPRAR") or (rec == "" and dr == "Alta")
-            baixa = rec in ("Estudar baixa", "VENDER") or (rec == "" and dr == "Baixa")
+            # O LADO vem da recomendação quando ela é DIRECIONAL; senão (Monitorar/
+            # Aguardar/Não operar/vazio) cai na `direcao`. Antes só caía na direcao
+            # com rec vazio, então um 'Monitorar' com direcao=Baixa e alvo ACIMA do
+            # stop passava incoerente (achado do masstest-agentes-llm: MGLU3).
+            _dir = ("Estudar alta", "Estudar baixa", "COMPRAR", "VENDER")
+            alta = rec in ("Estudar alta", "COMPRAR") or (rec not in _dir and dr == "Alta")
+            baixa = rec in ("Estudar baixa", "VENDER") or (rec not in _dir and dr == "Baixa")
             if st == av or (alta and av <= st) or (baixa and av >= st):
                 proposal["stop"] = proposal["alvo"] = None
         corpo = str(obj.get("corpo") or obj.get("markdown") or obj.get("analise") or "").strip()

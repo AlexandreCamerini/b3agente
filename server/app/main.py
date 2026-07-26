@@ -337,7 +337,7 @@ async def obs_usage(user: dict = Depends(require_user)):
 
 # FASE 8B (diagnóstico): carimbo de build do BACKEND — confirma qual código o
 # Railway está rodando (o front tem o dele em web/src/version.js).
-SERVER_BUILD_ID = "F9-20260726-04"  # rebuild limpo: garante llm.py com retry sem temperature.
+SERVER_BUILD_ID = "F9-20260726-05"  # anula stop/alvo incoerente em rec não-direcional (MGLU3).
 # Normalmente sincronizado pelo entregar.sh a partir de web/src/version.js; num deploy
 # SÓ de backend (sem rebuild do front) bumpamos aqui para /api/health rastrear o servidor.
 
