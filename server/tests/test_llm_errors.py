@@ -91,3 +91,39 @@ if __name__ == "__main__":
             fn()
             print("ok", name)
     print("TODOS OS TESTES DE ERROS DA LLM PASSARAM")
+
+
+def test_anthropic_repete_sem_temperature_quando_deprecado(monkeypatch):
+    """Regressão (achado do masstest-agentes-llm): claude-opus-4-8 responde 400
+    '`temperature` is deprecated' — o backend deve repetir UMA vez sem o
+    parâmetro em vez de estourar 502 e bloquear toda análise."""
+    chamadas = []
+
+    class FakeResp:
+        def __init__(self, status, data):
+            self.status_code = status
+            self._d = data
+            self.text = ""
+        def json(self):
+            return self._d
+
+    class FakeClient:
+        def __init__(self, *a, **k):
+            pass
+        async def __aenter__(self):
+            return self
+        async def __aexit__(self, *a):
+            return False
+        async def post(self, url, headers=None, json=None):
+            chamadas.append(dict(json))   # snapshot: o body é mutado in-place no retry
+            if "temperature" in json:
+                return FakeResp(400, {"error": {"message": "`temperature` is deprecated for this model."}})
+            return FakeResp(200, {"content": [{"type": "text", "text": "ok"}],
+                                  "usage": {"input_tokens": 1, "output_tokens": 1}})
+
+    monkeypatch.setattr(llm.httpx, "AsyncClient", FakeClient)
+    out = asyncio.run(llm._call_anthropic(
+        {"model": "claude-opus-4-8", "provider": "anthropic"}, "k", "sys", "usr", 100))
+    assert out == "ok"
+    assert len(chamadas) == 2                      # 1ª com temperature (400), 2ª sem
+    assert "temperature" in chamadas[0] and "temperature" not in chamadas[1]

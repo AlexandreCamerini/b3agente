@@ -283,13 +283,21 @@ def _system_cacheavel(model: str, system: str):
              "cache_control": {"type": "ephemeral"}}]
 
 async def _call_anthropic(config, key, system, user, max_tokens):
+    url = "https://api.anthropic.com/v1/messages"
+    headers = {"content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01"}
+    body = {"model": config["model"], "max_tokens": max_tokens, "temperature": LLM_TEMPERATURE,
+            "system": _system_cacheavel(config["model"], system), "messages": [{"role": "user", "content": user}]}
     async with httpx.AsyncClient(timeout=60) as c:
-        r = await c.post(
-            "https://api.anthropic.com/v1/messages",
-            headers={"content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01"},
-            json={"model": config["model"], "max_tokens": max_tokens, "temperature": LLM_TEMPERATURE, "system": _system_cacheavel(config["model"], system), "messages": [{"role": "user", "content": user}]},
-        )
-    data = _safe_json_response(r)
+        r = await c.post(url, headers=headers, json=body)
+        data = _safe_json_response(r)
+        # Guarda de compatibilidade: modelos novos da Anthropic (claude-opus-4-8…)
+        # DEPRECARAM `temperature` e respondem 400 — repete UMA vez sem o parâmetro
+        # (espelha a guarda do caminho OpenAI para o1/gpt-5). Descoberto pelo
+        # masstest-agentes-llm em produção.
+        if r.status_code == 400 and "temperature" in str((data.get("error") or {}).get("message") or "").lower():
+            body.pop("temperature", None)
+            r = await c.post(url, headers=headers, json=body)
+            data = _safe_json_response(r)
     if r.status_code != 200:
         raise _provider_error(config, r.status_code, (data.get("error") or {}).get("message"))
     record_usage(config, data)  # qa/42 (FinOps)
@@ -318,17 +326,21 @@ async def _call_openai_compatible(base_url, config, key, system, user, max_token
 
 async def _call_google(config, key, system, user, max_tokens):
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{config['model']}:generateContent?key={key}"
+    headers = {"content-type": "application/json"}
+    body = {
+        "systemInstruction": {"parts": [{"text": system}]},
+        "contents": [{"role": "user", "parts": [{"text": user}]}],
+        "generationConfig": {"maxOutputTokens": max_tokens, "temperature": LLM_TEMPERATURE},
+    }
     async with httpx.AsyncClient(timeout=60) as c:
-        r = await c.post(
-            url,
-            headers={"content-type": "application/json"},
-            json={
-                "systemInstruction": {"parts": [{"text": system}]},
-                "contents": [{"role": "user", "parts": [{"text": user}]}],
-                "generationConfig": {"maxOutputTokens": max_tokens, "temperature": LLM_TEMPERATURE},
-            },
-        )
-    data = _safe_json_response(r)
+        r = await c.post(url, headers=headers, json=body)
+        data = _safe_json_response(r)
+        # Mesma guarda dos outros provedores: se o modelo rejeitar `temperature`,
+        # repete UMA vez sem o parâmetro.
+        if r.status_code == 400 and "temperature" in str((data.get("error") or {}).get("message") or "").lower():
+            body["generationConfig"].pop("temperature", None)
+            r = await c.post(url, headers=headers, json=body)
+            data = _safe_json_response(r)
     if r.status_code != 200:
         raise _provider_error(config, r.status_code, (data.get("error") or {}).get("message"))
     record_usage(config, data)  # qa/42 (FinOps)
