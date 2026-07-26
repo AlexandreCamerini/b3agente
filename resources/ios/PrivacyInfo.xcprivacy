@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Manifesto de privacidade do BolsIA (obrigatório pela Apple desde 2024).
+  Fonte VERSIONADA: scripts/ios-testflight.sh copia para web/ios/App/App/.
+
+  Cobre as "required-reason APIs" que o Capacitor usa (UserDefaults). O app NÃO
+  faz tracking e NÃO usa IDFA. NSPrivacyCollectedDataTypes está vazio para o
+  TestFlight (mais tolerante); ANTES da submissão à App Store, declare os dados
+  que o app realmente coleta para conta/login (ex.: e-mail) — ver TESTFLIGHT.md.
+-->
+<plist version="1.0">
+<dict>
+  <key>NSPrivacyTracking</key>
+  <false/>
+  <key>NSPrivacyTrackingDomains</key>
+  <array/>
+  <key>NSPrivacyCollectedDataTypes</key>
+  <array/>
+  <key>NSPrivacyAccessedAPITypes</key>
+  <array>
+    <dict>
+      <key>NSPrivacyAccessedAPIType</key>
+      <string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+      <key>NSPrivacyAccessedAPITypeReasons</key>
+      <array>
+        <!-- CA92.1: acessar UserDefaults do próprio app (Capacitor Preferences). -->
+        <string>CA92.1</string>
+      </array>
+    </dict>
+  </array>
+</dict>
+</plist>
