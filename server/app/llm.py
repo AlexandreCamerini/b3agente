@@ -529,8 +529,9 @@ DEEP_FORMAT = "\n".join([
     '  "planoEstudo": "Estudar alta|Estudar baixa|Monitorar|Aguardar|Não operar",',
     '  "modelosUtilizados": [{"nome": "...", "oQueE": "...", "oQueMede": "...", "limitacoes": "..."}]',
     "}",
-    "modelosUtilizados cobre CADA metodologia usada (setups, ADX, MACD, Bollinger...):",
-    "o app ensina, não opina. `confianca` respeita o teto do dataQuality.",
+    "modelosUtilizados cobre os ATÉ 4 modelos MAIS RELEVANTES para esta leitura",
+    "(não todos — priorize os que sustentam a tese): o app ensina, não opina.",
+    "`confianca` respeita o teto do dataQuality.",
     "SEJA CONCISO (leitura no celular): 'resumo' em até 3 frases; cada 'leitura'",
     "de setup em até 2 frases; cada cenário em 1 frase; até 3 'riscos' de 1 frase",
     "cada; 'invalidacao' em 1 frase. Clareza didática vale mais que exaustividade —",
@@ -718,10 +719,11 @@ async def analyze_deep(config: dict, profile: dict, ticker: str, context: dict, 
         "cenários de ESTUDO alta/baixa/neutro e os riscos. Sem verbo de ordem.",
         "Saia somente no JSON obrigatório.",
     ])
-    # FASE 6 (fix 2): 1600 tokens truncava leituras com muitos setups — JSON
-    # inválido caía no fallback e o modal mostrava texto quebrado. 2200 dá
-    # folga mantendo a instrução de concisão como controle principal.
-    raw = await _call_llm(config, key, system, user, 2200)
+    # FASE 6 (fix 2): 1600 tokens truncava leituras com muitos setups. 2200 ainda
+    # truncava o ESTUDO (modelosUtilizados p/ CADA modelo) — o masstest-agentes-llm-n1
+    # pegou 100% dos estudos caindo no _deep_fallback. 3200 + o corte de
+    # modelosUtilizados p/ os 4 principais resolve; concisão segue como controle.
+    raw = await _call_llm(config, key, system, user, 3200)
     if not raw:
         raise RuntimeError("A LLM nao retornou texto.")
     data = _parse_json_loose(raw)
