@@ -135,3 +135,23 @@ def test_status_snapshot_shape():
     st = agent.status_snapshot(c, interval_s=60)
     assert set(["killSwitch", "pregaoAberto", "intervaloS", "usuariosHabilitados", "ultimoCiclo", "agoraBRT"]) <= set(st)
     assert st["usuariosHabilitados"] == 1 and st["intervaloS"] == 60
+
+
+def test_heartbeat_persistido_prova_laco_vivo_fora_do_pregao():
+    """P2: sem heartbeat, status_snapshot não distingue vivo de morto. Antes de
+    qualquer tick, lacoVivo=False; após um tick do laço (mesmo FORA do pregão),
+    o heartbeat persiste e lacoVivo=True — sobrevive a deploy (é kv/SQLite)."""
+    c = _conn()
+    _seed(c, [], {"serverEnabled": True})
+    # nada bateu ainda → não há prova de vida
+    st0 = agent.status_snapshot(c, interval_s=60)
+    assert st0["heartbeat"]["lacoVivo"] is False and st0["heartbeat"]["haS"] is None
+    # um tick FORA do pregão (sábado): corpo do ciclo não roda, mas o heartbeat sim
+    sabado = datetime(2026, 7, 4, 14, 0, tzinfo=timezone(timedelta(hours=-3)))
+    assert not agent.in_market_hours(sabado)
+    agent.LAST_USER_RUN.clear()
+    asyncio.run(agent.scheduler_loop(c, _quotes({}), interval_s=1, once=True))
+    st1 = agent.status_snapshot(c, interval_s=60)
+    assert st1["heartbeat"]["lacoVivo"] is True
+    assert st1["heartbeat"]["haS"] is not None and st1["heartbeat"]["haS"] < 60
+    assert st1["heartbeat"]["atBRT"]  # rótulo do último tick presente

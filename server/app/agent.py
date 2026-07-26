@@ -266,6 +266,19 @@ async def scheduler_loop(conn, quotes_getter, notify_push=None, interval_s: int 
     sem scheduler novo."""
     interval = interval_s or int(os.environ.get("B3_AGENT_INTERVAL_S") or INTERVAL_S_DEFAULT)
     while True:
+        # P2 (liveness): heartbeat PERSISTIDO a CADA tick, FORA do gate de pregão.
+        # O corpo do ciclo (e o registro de passada) só roda dentro do pregão, então
+        # off-hours não havia sinal nenhum e o deploy zerava o estado em memória —
+        # impossível distinguir "vivo, pregão fechado" de "morto". O heartbeat bate
+        # sempre, sobrevive ao deploy (kv/SQLite) e é o que o status expõe como lacoVivo.
+        try:
+            db.kv_set(conn, "agentHeartbeat", {
+                "ts": time.time(),
+                "pregaoAberto": in_market_hours(),
+                "atBRT": datetime.now(BRT).strftime("%d/%m %H:%M"),
+            }, user_id=None)
+        except Exception as e:  # noqa: BLE001 — heartbeat nunca derruba o laço
+            print(f"[agent] heartbeat: {e}")
         try:
             if radar_fetch is not None and not kill_switch_on():
                 from . import radar_daily  # import local: sem ciclo de import
@@ -329,9 +342,21 @@ def status_snapshot(conn, interval_s: int = None) -> dict:
         prox = max(0, int(NEXT_RUN_AT["ts"] - time.time()))
     from . import radar_daily  # import local: sem ciclo de import
     from . import analysis_outcomes  # qa/30 (Fase A): import local, sem ciclo de import
+    # P2 (liveness): heartbeat persistido (sobrevive a deploy e bate fora do pregão).
+    intervalo = interval_s or int(os.environ.get("B3_AGENT_INTERVAL_S") or INTERVAL_S_DEFAULT)
+    hb = db.kv_get(conn, "agentHeartbeat", None, user_id=None) or {}
+    hb_ha_s = int(time.time() - hb["ts"]) if hb.get("ts") else None
+    # vivo se bateu dentro de ~2,5 intervalos (tolera 1 tick perdido + folga)
+    laco_vivo = hb_ha_s is not None and hb_ha_s < intervalo * 2.5
     return {
         "killSwitch": kill_switch_on(),
         "pregaoAberto": in_market_hours(),
+        "heartbeat": {
+            "atBRT": hb.get("atBRT"),
+            "haS": hb_ha_s,
+            "pregaoAbertoNoTick": hb.get("pregaoAberto"),
+            "lacoVivo": laco_vivo,
+        },
         "radarDiario": dict(radar_daily.LAST_DAILY),  # FASE 4 (1.3)
         "avaliacaoAnalises": dict(analysis_outcomes.LAST_EVAL),  # qa/30 (Fase A)
         "intervaloS": interval_s or int(os.environ.get("B3_AGENT_INTERVAL_S") or INTERVAL_S_DEFAULT),

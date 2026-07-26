@@ -94,6 +94,30 @@ def test_plano_do_resultado_prioriza_direcional():
     assert setups.plano_do_resultado({"setups": []})["decisao"] == setups.DECISAO_NAO_OPERAR
 
 
+def test_plano_nao_flipa_contra_o_lado_dominante():
+    """P1 (medido em produção, VALE3): o melhor direcional é BAIXA (define o
+    veredito 'Estudar baixa'), mas não tem níveis; um setup de ALTA abaixo tem.
+    O plano NÃO pode virar COMPRAR contra a confluência (Princípios 9 e 4) —
+    fica no lado dominante: VENDER se houver níveis, senão AGUARDAR."""
+    # dominante baixa SEM níveis + alta COM níveis abaixo ⇒ nunca COMPRAR
+    sres = {"setups": [
+        {"nome": "Pullback à média", "lado": "baixa", "confluencia": 100},  # topo, sem níveis
+        {"nome": "Setup 9.2", "lado": "alta", "confluencia": 86,
+         "gatilho": 78.0, "invalidacao": 74.0, "alvoSugerido": 84.0},
+    ]}
+    p = setups.plano_do_resultado(sres, close=75.24)
+    assert p["decisao"] != setups.DECISAO_COMPRAR
+    assert p["decisao"] == setups.DECISAO_NAO_OPERAR   # lado dominante sem níveis executáveis
+    # dominante baixa COM níveis ⇒ VENDER (não COMPRAR do setup de alta)
+    sres2 = {"setups": [
+        {"nome": "123 de topo", "lado": "baixa", "confluencia": 100,
+         "gatilho": 74.0, "invalidacao": 78.0, "alvoSugerido": 66.0},
+        {"nome": "Setup 9.2", "lado": "alta", "confluencia": 86,
+         "gatilho": 78.0, "invalidacao": 74.0, "alvoSugerido": 84.0},
+    ]}
+    assert setups.plano_do_resultado(sres2, close=75.24)["decisao"] == setups.DECISAO_VENDER
+
+
 def test_vocabulario_do_modo_estudo_intocado():
     # guardrail: detect_setups segue com o veredito EDUCACIONAL — o plano é
     # um campo paralelo e não altera o shape/vocabulário existente.

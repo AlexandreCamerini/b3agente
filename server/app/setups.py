@@ -659,14 +659,18 @@ def plano_do_resultado(sres, close=None):
     Melhor setup direcional => plano; só neutro => AGUARDAR; nada => NÃO OPERAR."""
     setups_list = (sres or {}).get("setups") or []
     direcionais = [s for s in setups_list if s.get("lado") in ("alta", "baixa")]
-    # qa/39 (QA do operador): prioriza o melhor direcional COM níveis executáveis
-    # (gatilho+invalidação). Antes, um setup legado sem níveis no topo do ranking
-    # derrubava o plano em NÃO OPERAR mesmo havendo um 9.1 executável logo abaixo.
-    com_niveis = [s for s in direcionais if s.get("gatilho") is not None and s.get("invalidacao") is not None]
-    if com_niveis:
-        return plano_operacional(com_niveis[0], close=close)
-    if direcionais:
-        return plano_operacional(direcionais[0], close=close)
-    if setups_list:
-        return plano_operacional(setups_list[0], close=close)
-    return _plano_vazio("Nenhum setup com confluência mínima — não há operação com vantagem estatística clara neste momento.")
+    if not direcionais:
+        if setups_list:
+            return plano_operacional(setups_list[0], close=close)
+        return _plano_vazio("Nenhum setup com confluência mínima — não há operação com vantagem estatística clara neste momento.")
+    # Princípios 9 (confluência) e 4 (sinais conflitantes) da skill: o plano segue
+    # o LADO DOMINANTE — o do melhor direcional, o MESMO do veredito. O qa/39
+    # prioriza setup com níveis executáveis (gatilho+invalidação); sem travar o
+    # lado, porém, isso FLIPAVA a decisão quando o topo da confluência não tinha
+    # níveis e um setup OPOSTO abaixo tinha — o plano recomendava COMPRAR num ativo
+    # cujo veredito era "Estudar baixa" (medido em produção: ~14% dos ativos).
+    # Preferir níveis executáveis segue valendo — mas DENTRO do lado dominante.
+    lado = direcionais[0]["lado"]
+    mesmo_lado = [s for s in direcionais if s.get("lado") == lado]
+    com_niveis = [s for s in mesmo_lado if s.get("gatilho") is not None and s.get("invalidacao") is not None]
+    return plano_operacional((com_niveis or mesmo_lado)[0], close=close)
