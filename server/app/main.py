@@ -20,6 +20,7 @@ from . import candle_cache  # Objetivo 5: cache de candles (delta + revalida úl
 from . import scanner  # BLOCO 3: radar de mercado (varredura do universo)
 from . import radar_daily  # FASE 4 (1.3): varredura automática 1x/dia + sob demanda
 from . import analysis_outcomes  # qa/30 (Fase A): autoavaliação da IA (N1/N2 vs. comportamento real)
+from . import ai_activity  # qa/45: custo (R$) + histórico de comportamento da IA
 from . import fundamentals  # qa/36 (F10.2): fundamento × técnica (score, cache, rebaixamento)
 from . import scan_deep  # FASE 1 (N1): aprofundamento IA do top-N do Radar
 from . import technical_snapshot  # FASE 1 (STU): fonte única de N1/N2/N3
@@ -337,7 +338,7 @@ async def obs_usage(user: dict = Depends(require_user)):
 
 # FASE 8B (diagnóstico): carimbo de build do BACKEND — confirma qual código o
 # Railway está rodando (o front tem o dele em web/src/version.js).
-SERVER_BUILD_ID = "F9-20260726-07"  # N1 estudo não trunca mais (max_tokens 3200 + modelos top-4).
+SERVER_BUILD_ID = "F9-20260726-08"  # N1 estudo não trunca mais (max_tokens 3200 + modelos top-4).
 # Normalmente sincronizado pelo entregar.sh a partir de web/src/version.js; num deploy
 # SÓ de backend (sem rebuild do front) bumpamos aqui para /api/health rastrear o servidor.
 
@@ -700,8 +701,13 @@ async def scan_deep_run(body: dict = Body(default={}), scope: Optional[str] = De
             # OBRIGADA a ser coerente com ele (regra 10 do OPERADOR_PRO).
             "planoOperacional": plano,
         }
-        res = await llm.analyze_deep(ai_config, profile, t, snap["context"], setups_payload, modo=modo)
+        with llm.collect_usage() as _uso:  # qa/45: custo desta leitura do Radar
+            res = await llm.analyze_deep(ai_config, profile, t, snap["context"], setups_payload, modo=modo)
         _consume_ai()  # cota gasta POR CHAMADA bem-sucedida (cache não gasta)
+        try:
+            ai_activity.registrar_uso(_conn, scope=scope, ticker=t, tipo="Radar", usos=_uso)
+        except Exception as e:  # noqa: BLE001
+            print(f"[ai-activity] registro N1 falhou p/ {t}: {e}")
         # qa/30 (Fase A): registra a análise pra autoavaliação futura (10
         # pregões — job em analysis_outcomes.py). Só quando há plano acionável
         # (COMPRAR/VENDER com stop/alvo1 definidos); AGUARDAR/NÃO OPERAR não
@@ -773,9 +779,14 @@ async def analyze_technical_model(ticker: str, body: dict = Body(default={}), sc
     if isinstance(body.get("position"), dict):
         context["userPosition"] = {k: body["position"].get(k) for k in ("qty", "avg", "stop", "alvo", "resultadoAtual")}
     try:
-        result = await llm.analyze_structured(config, skill, profile, account, t, context, modo=modo)
+        with llm.collect_usage() as _uso:  # qa/45: captura tokens desta chamada
+            result = await llm.analyze_structured(config, skill, profile, account, t, context, modo=modo)
     except Exception as e:  # noqa: BLE001
         raise HTTPException(502, llm.public_error(e))
+    try:
+        ai_activity.registrar_uso(_conn, scope=scope, ticker=t, tipo="Análise", usos=_uso)
+    except Exception as e:  # noqa: BLE001 — atividade é overlay, nunca quebra a análise
+        print(f"[ai-activity] registro N2 falhou p/ {t}: {e}")
     _consume_ai()  # conta a cota só no sucesso
     # qa/30 (Fase A): registra a análise pra autoavaliação futura (N2, texto
     # livre — só entra na estatística quando o modelo devolveu proposal com
@@ -874,9 +885,14 @@ async def analyze(ticker: str, body: dict = Body(default={}), scope: Optional[st
         "snapshotAt": snap["asOf"],
     }
     try:
-        result = await llm.analyze(config, skill, profile, account, t, quote, history_data)
+        with llm.collect_usage() as _uso:  # qa/45
+            result = await llm.analyze(config, skill, profile, account, t, quote, history_data)
     except Exception as e:  # noqa: BLE001
         raise HTTPException(502, llm.public_error(e))
+    try:
+        ai_activity.registrar_uso(_conn, scope=scope, ticker=t, tipo="Análise", usos=_uso)
+    except Exception as e:  # noqa: BLE001
+        print(f"[ai-activity] registro (analyze) falhou p/ {t}: {e}")
     _consume_ai()  # conta a cota só no sucesso
     at = now_str()
     payload = {
@@ -954,9 +970,14 @@ async def carteira_stopalvo(ticker: str, body: dict = Body(default={}), scope: O
             "dataQuality": _ctx.get("dataQuality"),
         }
     try:
-        res = await llm.analyze_carteira(config, profile, account, t, quote, history_data, prompt, tech_context=tech_context)
+        with llm.collect_usage() as _uso:  # qa/45
+            res = await llm.analyze_carteira(config, profile, account, t, quote, history_data, prompt, tech_context=tech_context)
     except Exception as e:  # noqa: BLE001
         raise HTTPException(502, llm.public_error(e))
+    try:
+        ai_activity.registrar_uso(_conn, scope=scope, ticker=t, tipo="Carteira", usos=_uso)
+    except Exception as e:  # noqa: BLE001
+        print(f"[ai-activity] registro N3 falhou p/ {t}: {e}")
     _consume_ai()  # conta a cota só no sucesso
     return {"t": t, "quote": quote, "at": now_str(),
             "snapshotId": (snap or {}).get("snapshotId"), "snapshotAt": (snap or {}).get("asOf"), **res}
@@ -1045,6 +1066,12 @@ async def get_analysis_outcomes_stats(modo: Optional[str] = None, tipo: Optional
                                        scope: Optional[str] = Depends(current_scope)):
     outcomes = db.kv_get(_conn, "analysisOutcomes", [], user_id=scope) or []
     return analysis_outcomes.compute_stats(outcomes, modo=modo, tipo=tipo)
+
+
+# qa/45: Atividade da IA — custo estimado (R$) acumulado + histórico por chamada.
+@app.get("/api/ai-activity")
+async def get_ai_activity(scope: Optional[str] = Depends(current_scope)):
+    return ai_activity.snapshot(_conn, scope)
 
 
 # qa/35 (P2): export CSV do registro bruto — o usuário leva a estatística pra

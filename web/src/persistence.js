@@ -129,6 +129,7 @@ function serverStore() {
     scanProgress: () => api.scanProgress(),                        // BLOCO B1
     obsLogs: (n, level, cat) => api.obsLogs(n, level, cat),        // FASE 5: logs do servidor
     analysisOutcomesStats: (modo) => api.analysisOutcomesStats(modo), // qa/30 (Fase A): eficiência da IA
+    aiActivity: () => api.aiActivity(), // qa/45: custo + histórico da IA
     analysisOutcomesCsv: () => api.analysisOutcomesCsv(),          // qa/35 (P2): export CSV
     agentStatus: () => api.agentStatus(),                          // BLOCO D3
     agentLog: (n) => api.agentLog(n),                              // FASE 3: Diário do operador
@@ -563,6 +564,7 @@ function deviceStore() {
     async scanProgress() { ensure(); return api.scanProgress(); },   // BLOCO B1
     async obsLogs(n, level, cat) { ensure(); return api.obsLogs(n, level, cat); }, // FASE 5
     async analysisOutcomesStats(modo) { ensure(); return api.analysisOutcomesStats(modo); }, // qa/30 (Fase A)
+    async aiActivity() { ensure(); return api.aiActivity(); }, // qa/45
     async analysisOutcomesCsv() { ensure(); return api.analysisOutcomesCsv(); }, // qa/35 (P2)
     async agentStatus() { ensure(); return api.agentStatus(); },     // BLOCO D3
     async agentRunNow() { ensure(); return api.agentRunNow(); },     // BLOCO D4

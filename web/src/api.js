@@ -262,6 +262,7 @@ export const api = {
   // qa/30 (Fase A): autoavaliação da IA — estatísticas do painel "Eficiência
   // da IA" (Perfil → Observabilidade). `modo` opcional filtra estudo/operador.
   analysisOutcomesStats: (modo) => req("GET", "/api/analysis-outcomes/stats" + (modo ? "?modo=" + encodeURIComponent(modo) : ""), undefined, 15000),
+  aiActivity: () => req("GET", "/api/ai-activity", undefined, 15000), // qa/45: custo + histórico da IA
   // qa/35 (P2): export CSV da eficiência — TEXTO puro, não passa pelo parse
   // JSON do req() (readBody embrulharia em {_raw}).
   analysisOutcomesCsv: async () => {

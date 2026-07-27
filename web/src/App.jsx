@@ -2013,6 +2013,9 @@ function PerfilHub({ ctx, onOpen }) {
         <ProfileTile onClick={() => onOpen("eficiencia")} title="Eficiência da IA" sub="Quanto bateu alvo/stop" icon={
           <svg width="19" height="19" viewBox="0 0 24 24" aria-hidden><circle cx="12" cy="12" r="7.5" fill="none" stroke="currentColor" strokeWidth="1.7" /><circle cx="12" cy="12" r="3.5" fill="none" stroke="currentColor" strokeWidth="1.7" /><circle cx="12" cy="12" r="0.9" fill="currentColor" stroke="none" /></svg>
         } />
+        <ProfileTile onClick={() => onOpen("atividade")} title="Atividade da IA" sub="Custo estimado e histórico" icon={
+          <svg width="19" height="19" viewBox="0 0 24 24" aria-hidden><path d="M4 19V5M4 19h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /><path d="M8 15l3-4 3 2 4-6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        } />
       </div>
 
       <div style={hubGroup}>Notificações e avançado</div>
@@ -3166,6 +3169,85 @@ function NotificacoesScreen({ ctx }) {
     <div>
       <h1 style={{ margin: "0 0 18px", fontSize: "22px", fontWeight: 700 }}>Notificações</h1>
       <NotifSection ctx={ctx} />
+    </div>
+  );
+}
+
+// qa/45 — ATIVIDADE DA IA: custo estimado (R$) acumulado + histórico de cada
+// chamada (Radar/Análise/Carteira). Tokens vêm capturados por chamada (qa/42);
+// o servidor converte em R$ (estimativa). Esta tela só lê.
+function AtividadeIAScreen({ ctx }) {
+  const logged = !!ctx.authUser;
+  const [ati, setAti] = useState(null);
+  const [err, setErr] = useState("");
+  const carregar = useCallback(async () => {
+    try { setAti(await store.aiActivity()); setErr(""); }
+    catch (e) { setErr((e && e.message) || String(e)); }
+  }, []);
+  useEffect(() => { carregar(); }, [carregar]);
+  const brl = (v) => "R$ " + (Number(v || 0)).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const kfmt = (n) => (n >= 1000 ? (n / 1000).toFixed(1).replace(".", ",") + "k" : String(n || 0));
+  const t = (ati && ati.total) || {};
+  const hoje = (ati && ati.hoje) || {};
+  const recentes = (ati && ati.recentes) || [];
+  const dataStr = (iso) => { try { const d = new Date(iso); const p = (x) => String(x).padStart(2, "0"); return `${p(d.getDate())}/${p(d.getMonth() + 1)} ${p(d.getHours())}:${p(d.getMinutes())}`; } catch { return ""; } };
+  const cellStat = (label, valor, cor) => (
+    <div style={{ flex: "1 1 90px", minWidth: "84px" }}>
+      <div style={{ fontFamily: MONO, fontSize: "18px", fontWeight: 800, color: cor || T.textPrimary }}>{valor}</div>
+      <div style={{ fontSize: "10px", color: T.textFaint, fontWeight: 700, letterSpacing: "0.04em" }}>{label}</div>
+    </div>
+  );
+  return (
+    <div>
+      <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 700 }}>Atividade da IA</h1>
+      <p style={{ margin: "6px 0 0", color: T.textMuted, fontSize: "13px", maxWidth: "600px", lineHeight: 1.5 }}>
+        Quanto a IA gastou (estimativa em R$) e o histórico de cada leitura — Radar, Análise e Carteira. O custo real depende do provedor/modelo; aqui é uma estimativa por tokens.
+      </p>
+      <div style={{ marginTop: "16px", ...card, padding: "14px 16px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", marginBottom: "10px" }}>
+          <div style={{ fontSize: "11px", fontWeight: 800, color: T.textSecondary, letterSpacing: "0.05em" }}>CUSTO ESTIMADO</div>
+          <button onClick={carregar} style={{ background: "transparent", border: "none", color: T.textFaint, fontSize: "11px", fontWeight: 800, padding: "4px" }}>↻ atualizar</button>
+        </div>
+        {err && <div style={{ color: T.negative, fontSize: "11.5px" }}>indisponível: {err}</div>}
+        {!err && !ati && <div style={{ color: T.textFaint, fontSize: "11.5px" }}>carregando…</div>}
+        {ati && (
+          <>
+            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+              {cellStat("ACUMULADO", brl(t.custo), T.accent)}
+              {cellStat("HOJE", brl(hoje.custo), (hoje.custo || 0) > 0 ? T.textPrimary : T.textFaint)}
+              {cellStat("CHAMADAS", kfmt(t.calls), T.textSecondary)}
+              {cellStat("TOKENS", kfmt((t.inTok || 0) + (t.outTok || 0)), T.textSecondary)}
+            </div>
+            <div style={{ fontSize: "10px", color: T.textFaint, lineHeight: 1.5, marginTop: "9px" }}>
+              Estimativa por preço de tabela dos modelos × câmbio (US$ 1 ≈ R$ {(ati.usdBrl || 5.4).toFixed(2).replace(".", ",")}). BYOK ou gerenciado. Não é fatura — é referência.
+            </div>
+          </>
+        )}
+      </div>
+
+      {ati && recentes.length > 0 && (
+        <div style={{ marginTop: "14px", ...card, padding: "14px 16px" }}>
+          <div style={{ fontSize: "11px", fontWeight: 800, color: T.textSecondary, letterSpacing: "0.05em", marginBottom: "8px" }}>HISTÓRICO</div>
+          {recentes.map((r, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", padding: "8px 0", borderTop: i ? `1px solid ${T.borderFaint}` : "none" }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: "12.5px", color: T.textPrimary, fontWeight: 700 }}>
+                  <span style={{ fontFamily: MONO }}>{r.ticker || "—"}</span>
+                  <span style={{ color: T.textFaint, fontWeight: 600 }}> · {r.tipo}</span>
+                </div>
+                <div style={{ fontSize: "10.5px", color: T.textFaint, marginTop: "2px" }}>{dataStr(r.at)} · {kfmt((r.inTok || 0) + (r.outTok || 0))} tok · {(r.model || "").replace(/^claude-/, "")}</div>
+              </div>
+              <div style={{ fontFamily: MONO, fontSize: "12.5px", fontWeight: 700, color: T.textSecondary, whiteSpace: "nowrap" }}>{brl(r.custo)}</div>
+            </div>
+          ))}
+        </div>
+      )}
+      {ati && recentes.length === 0 && !err && (
+        <div style={{ marginTop: "14px", fontSize: "12px", color: T.textFaint, lineHeight: 1.5 }}>Nenhuma leitura de IA registrada ainda. Use "Aprofundar com IA" no Radar, "Análise" na Watchlist ou "Stop/alvo" na Carteira — cada uma aparece aqui com o custo estimado.</div>
+      )}
+      <div style={{ marginTop: "14px", fontSize: "10.5px", color: T.textFaint, lineHeight: 1.5 }}>
+        Só chamadas de IA gerenciada e BYOK que retornam uso de tokens entram na conta. A estimativa reinicia o "hoje" à meia-noite; o acumulado é desde o primeiro uso.
+      </div>
     </div>
   );
 }
@@ -5533,6 +5615,8 @@ export default function App() {
                 ? (<><BackHeader title="Notificações" onBack={() => setPerfilView("hub")} /><NotificacoesScreen ctx={ctx} /></>)
                 : perfilView === "eficiencia"
                   ? (<><BackHeader title="Eficiência da IA" onBack={() => setPerfilView("hub")} /><EficienciaIAScreen ctx={ctx} /></>)
+                  : perfilView === "atividade"
+                    ? (<><BackHeader title="Atividade da IA" onBack={() => setPerfilView("hub")} /><AtividadeIAScreen ctx={ctx} /></>)
                   : perfilView === "logs"
                     ? (<><BackHeader title="Logs & debug" onBack={() => setPerfilView("hub")} /><LogsDebugScreen ctx={ctx} /></>)
                     : perfilView === "ajuda"

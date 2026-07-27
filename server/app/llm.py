@@ -42,6 +42,25 @@ def _norm_usage(data: dict):
     return (None, None)
 
 
+# qa/45: coletor por-operação (ContextVar = isolado por task async, sem estado
+# global compartilhado). A ROTA abre `collect_usage()`, o record_usage anexa
+# (in,out,model), a rota lê e persiste UMA linha de Atividade com ticker/tipo.
+# Não altera o fluxo da chamada.
+import contextlib
+import contextvars
+_USAGE_COLLECT = contextvars.ContextVar("usage_collect", default=None)
+
+
+@contextlib.contextmanager
+def collect_usage():
+    lst = []
+    tok = _USAGE_COLLECT.set(lst)
+    try:
+        yield lst
+    finally:
+        _USAGE_COLLECT.reset(tok)
+
+
 def record_usage(config, data) -> None:
     """Contabiliza tokens de UMA chamada. Best-effort TOTAL: telemetria jamais
     derruba a análise (provedor sem `usage` no corpo → simplesmente ignora)."""
@@ -49,6 +68,10 @@ def record_usage(config, data) -> None:
         i, o = _norm_usage(data or {})
         if i is None and o is None:
             return
+        # qa/45: alimenta o coletor por-operação (se a rota abriu um).
+        _col = _USAGE_COLLECT.get()
+        if _col is not None:
+            _col.append((int(i or 0), int(o or 0), str((config or {}).get("model") or "?")))
         hoje = _usage_day()
         if USAGE["day"] != hoje:
             USAGE.update(day=hoje, calls=0, inputTokens=0, outputTokens=0, porModelo={})
