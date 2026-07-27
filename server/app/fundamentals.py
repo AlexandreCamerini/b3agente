@@ -169,6 +169,15 @@ MIN_PILARES = skill_ref.FUND_MIN_PILARES   # score exige ≥N pilares COM dado
 # houver dado setorial confiável. Documentado, não inferido.
 
 
+# qa/46: setor financeiro — o pilar de solidez (dívida/EBITDA) não se aplica.
+_SETOR_FINANCEIRO = ("financ", "banco", "bank", "segur", "insur", "credit")
+
+
+def _e_financeira(f: dict) -> bool:
+    s = str((f or {}).get("setor") or "").lower()
+    return any(p in s for p in _SETOR_FINANCEIRO)
+
+
 def score_fundamento(f: Optional[dict]) -> Optional[str]:
     """Score A/B/C — FILTRO DE QUALIDADE, nunca gatilho de timing (princípio
     do gate). Três pilares, 1 ponto cada; pilar sem dado NÃO pontua nem
@@ -191,7 +200,11 @@ def score_fundamento(f: Optional[dict]) -> Optional[str]:
         roe_ok = (f.get("roe") or 0) >= skill_ref.FUND_ROE_MIN
         mg_ok = (f.get("margemLiquida") or 0) > 0
         pilares.append(roe_ok and mg_ok)
-    if f.get("dividaEbitda") is not None:
+    # qa/46 (reporte do Alex, BBAS3): para BANCOS/financeiras, dívida/EBITDA NÃO
+    # é métrica de solidez — o passivo é funding, não dívida industrial (BBAS3
+    # dava 12,5× e derrubava o score injustamente). Ignora o pilar de solidez
+    # no setor financeiro (mesmo efeito de "sem dado": neutro, não penaliza).
+    if f.get("dividaEbitda") is not None and not _e_financeira(f):
         pilares.append(f["dividaEbitda"] <= skill_ref.FUND_DIVIDA_EBITDA_MAX)
     if len(pilares) < MIN_PILARES:
         return None   # cobertura fina → sem score, nunca uma letra enganosa

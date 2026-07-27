@@ -1008,8 +1008,37 @@ function MdInline({ text }) {
   }
   return <>{out}</>;
 }
+// qa/46: se o corpo chegar como JSON CRU (parse do servidor falhou, ou é uma
+// análise ANTIGA em cache), extrai o campo de texto em vez de despejar o objeto.
+// Repara quebras/tab reais dentro das strings (JSON "bonito" da LLM é inválido).
+function corpoDeJson(raw) {
+  let s = String(raw == null ? "" : raw).trim();
+  if (!s.startsWith("{") || !/"(corpo|markdown|resumo|analise|analysis)"\s*:/.test(s)) return raw;
+  const tryParse = (str) => { try { return JSON.parse(str); } catch { return null; } };
+  let obj = tryParse(s);
+  if (!obj) {
+    let out = "", inStr = false, esc = false;
+    for (const ch of s) {
+      if (inStr) {
+        if (esc) { out += ch; esc = false; continue; }
+        if (ch === "\\") { out += ch; esc = true; continue; }
+        if (ch === '"') { out += ch; inStr = false; continue; }
+        if (ch === "\n") { out += "\\n"; continue; }
+        if (ch === "\r") { out += "\\r"; continue; }
+        if (ch === "\t") { out += "\\t"; continue; }
+        out += ch; continue;
+      }
+      if (ch === '"') inStr = true;
+      out += ch;
+    }
+    obj = tryParse(out);
+  }
+  if (obj && typeof obj === "object") return obj.corpo || obj.markdown || obj.resumo || obj.analise || obj.analysis || raw;
+  return raw;
+}
 function Markdown({ text }) {
-  let src = String(text == null ? "" : text).replace(/\r\n/g, "\n");
+  const _t = corpoDeJson(text);
+  let src = String(_t == null ? "" : _t).replace(/\r\n/g, "\n");
   // qa/44: modelos que escapam a quebra (\n / \t LITERAIS) faziam o corpo virar
   // UM bloco só ("completamente desformatado"). Desescapa antes de quebrar em
   // linhas — rede de segurança p/ qualquer LLM, além do normalize_markdown do server.

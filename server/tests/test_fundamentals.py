@@ -95,6 +95,26 @@ def test_score_exige_minimo_de_pilares_com_dado():
     assert fu.score_fundamento(fu.parse_bolsai(PAYLOAD_BOLSAI)) == "A"
 
 
+def test_banco_ignora_divida_ebitda():
+    """qa/46 (reporte do Alex, BBAS3): dívida/EBITDA não é métrica de solidez
+    para financeiras (BBAS3 dava 12,5× e derrubava o score). Ignora o pilar de
+    solidez no setor financeiro; o score passa a refletir só valuation+rentab."""
+    banco = {"setor": "Bancos", "pl": 9.2, "roe": 0.066, "margemLiquida": 0.048, "dividaEbitda": 12.5}
+    assert fu._e_financeira(banco) is True
+    # valuation ok (9.2), rentabilidade falha (ROE 6.6% < 10%), solidez IGNORADA
+    # → 2 pilares com dado, 1 ponto → B (justo, por mérito, não pela dívida)
+    assert fu.score_fundamento(banco) == "B"
+    # mesmo banco com ROE alto → A (a dívida 12,5× NÃO derruba)
+    banco_bom = {**banco, "roe": 0.20}
+    assert fu.score_fundamento(banco_bom) == "A"
+    # empresa NÃO-financeira com a mesma dívida 12,5× → solidez conta e penaliza
+    ind = {"setor": "Bens Industriais", "pl": 9.2, "roe": 0.20, "margemLiquida": 0.1, "dividaEbitda": 12.5}
+    assert fu._e_financeira(ind) is False
+    assert fu.score_fundamento(ind) == "A"  # 2 de 3 (valuation+rentab), solidez falha → ainda A
+    ind_fraco = {**ind, "pl": 40.0}  # valuation falha + solidez falha = 1 de 3 → B
+    assert fu.score_fundamento(ind_fraco) == "B"
+
+
 def test_get_fundamentals_cacheia_e_respeita_ttl():
     conn = _fresh_db()
     calls = []
