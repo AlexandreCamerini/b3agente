@@ -663,18 +663,25 @@ def _parse_json_loose(raw: str):
     txt = (raw or "").strip()
     txt = _re2.sub(r"^```(?:json)?", "", txt).strip()
     txt = _re2.sub(r"```$", "", txt).strip()
-    try:
-        return _json.loads(txt)
-    except (ValueError, TypeError):
-        pass
+    # qa/46: repara quebras/tab REAIS dentro de strings JSON (a LLM emite JSON
+    # "bonito" multi-linha, que é inválido) — senão o parse falha e o app cospe
+    # o JSON inteiro. repair_json é seguro fora de strings (no-op).
+    from .kpi import repair_json as _rep
+    for cand in (txt, _rep(txt)):
+        try:
+            return _json.loads(cand)
+        except (ValueError, TypeError):
+            pass
     for opener, closer in (("{", "}"), ("[", "]")):
         s = txt.find(opener)
         e = txt.rfind(closer)
         if s != -1 and e > s:
-            try:
-                return _json.loads(txt[s:e + 1])
-            except (ValueError, TypeError):
-                continue
+            bloco = txt[s:e + 1]
+            for cand in (bloco, _rep(bloco)):
+                try:
+                    return _json.loads(cand)
+                except (ValueError, TypeError):
+                    continue
     return None
 
 

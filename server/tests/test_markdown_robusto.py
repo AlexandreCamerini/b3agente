@@ -49,6 +49,26 @@ def test_deep_normaliza_campos_de_texto(monkeypatch):
     assert d["riscos"][0] == "r"               # strike removido
 
 
+def test_json_com_newline_real_no_corpo_nao_despeja(monkeypatch):
+    """qa/46 (reporte do Alex): a LLM devolveu JSON com QUEBRAS REAIS dentro da
+    string `corpo` (JSON inválido) → json.loads falhava → o app despejava o JSON
+    inteiro na tela. repair_json escapa as control chars dentro das strings."""
+    raw = ('{"direcao":"Alta","conviccao":"Médio","qualidade":"Boa",'
+           '"recomendacao":"COMPRAR","resumo":"ok",'
+           '"corpo":"## Resumo executivo\nBBAS3 recuou.\n- item 1\n- item 2"}')
+    r = kpi.parse_rich(raw)
+    assert r["kpis"] and r["kpis"]["direcao"] == "Alta"
+    assert r["markdown"].startswith("## Resumo executivo")
+    assert '"corpo"' not in r["markdown"]      # NÃO despeja o JSON
+    assert r["markdown"].count("\n") >= 3       # quebras preservadas p/ o markdown
+
+
+def test_repair_json_nao_toca_fora_de_string():
+    # newline ENTRE campos (fora de string) é JSON válido — não deve virar \\n
+    ok = '{\n  "a": "x",\n  "b": "y"\n}'
+    assert kpi._loads_tolerante(ok) == {"a": "x", "b": "y"}
+
+
 def test_carteira_normaliza_explicacao():
     from app import llm
     raw = '[{"ativo":"PETR4","explicacao":"Base.\\\\n\\\\n__ok__","operar":true,"stop":9,"alvo":11}]'

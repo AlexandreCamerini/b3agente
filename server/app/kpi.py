@@ -69,6 +69,43 @@ def normalize_kpis(obj) -> Optional[dict]:
     return None
 
 
+def repair_json(s: str) -> str:
+    """qa/46: escapa quebras/tab REAIS que a LLM deixa DENTRO de strings JSON
+    (ex.: `"corpo": "## Título<newline>texto"`). JSON não permite control chars
+    crus em strings — sem isso, json.loads falha e o app despeja o JSON inteiro.
+    Percorre respeitando o estado de string/escape (não toca fora de strings)."""
+    out = []
+    in_str = False
+    esc = False
+    for ch in s:
+        if in_str:
+            if esc:
+                out.append(ch); esc = False; continue
+            if ch == "\\":
+                out.append(ch); esc = True; continue
+            if ch == '"':
+                out.append(ch); in_str = False; continue
+            if ch == "\n":
+                out.append("\\n"); continue
+            if ch == "\r":
+                out.append("\\r"); continue
+            if ch == "\t":
+                out.append("\\t"); continue
+            out.append(ch); continue
+        if ch == '"':
+            in_str = True
+        out.append(ch)
+    return "".join(out)
+
+
+def _loads_tolerante(blob: str):
+    """json.loads com reparo de control chars crus como 2ª tentativa."""
+    try:
+        return json.loads(blob)
+    except (ValueError, TypeError):
+        return json.loads(repair_json(blob))  # pode levantar de novo → o chamador trata
+
+
 def _first_json(raw: str):
     """Extrai o primeiro objeto JSON balanceado (respeita strings/escapes)."""
     start = raw.find("{")
@@ -95,7 +132,7 @@ def _first_json(raw: str):
                 if depth == 0:
                     blob = raw[start:i + 1]
                     try:
-                        return json.loads(blob), start, i + 1
+                        return _loads_tolerante(blob), start, i + 1
                     except (ValueError, TypeError):
                         break
         start = raw.find("{", start + 1)
