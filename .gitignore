@@ -31,3 +31,7 @@ web/ios/
 
 # script solto de prova do cache (não faz parte da entrega)
 06_provar_cache.py
+
+# qa/46: spec local de trabalho — untracked; o git add -A do entregar.sh a varria
+# pro commit e amendava o hash, divergindo do origin a cada entrega.
+ESPEC-Modo-Estudo-Ensino-otimizado.md
