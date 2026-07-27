@@ -991,7 +991,9 @@ function LabeledList({ title, items, icon, color }) {
 // listas (- / *), listas numeradas e parágrafos.
 function MdInline({ text }) {
   const out = [];
-  let rest = String(text == null ? "" : text);
+  // qa/44: alguns modelos escapam as quebras (\n / \t LITERAIS) — vira sujeira
+  // no meio do texto inline. Normaliza para espaço (campo inline não tem linha).
+  let rest = String(text == null ? "" : text).replace(/\\r\\n|\\n|\\r/g, " ").replace(/\\t/g, " ");
   let key = 0;
   const re = /(\*\*([^*]+)\*\*|\*([^*]+)\*|\u0060([^\u0060]+)\u0060)/;
   let guard = 0;
@@ -1007,7 +1009,11 @@ function MdInline({ text }) {
   return <>{out}</>;
 }
 function Markdown({ text }) {
-  let src = String(text == null ? "" : text).replace(/\r\n/g, "\n").trim();
+  let src = String(text == null ? "" : text).replace(/\r\n/g, "\n");
+  // qa/44: modelos que escapam a quebra (\n / \t LITERAIS) faziam o corpo virar
+  // UM bloco só ("completamente desformatado"). Desescapa antes de quebrar em
+  // linhas — rede de segurança p/ qualquer LLM, além do normalize_markdown do server.
+  src = src.replace(/\\r\\n|\\n|\\r/g, "\n").replace(/\\t/g, "  ").trim();
   // remove cercas de markdown que às vezes embrulham o corpo inteiro
   src = src.replace(/^\u0060{3}[a-zA-Z]*\n?/, "").replace(/\n?\u0060{3}$/, "").trim();
   if (!src) return null;

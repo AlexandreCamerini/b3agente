@@ -183,6 +183,11 @@ def normalize_markdown(md: str) -> str:
     if not md:
         return md
     src = str(md).replace("\r\n", "\n").replace("\r", "\n")
+    # qa/44: modelos que escapam a quebra devolvem \n / \t LITERAIS (dois
+    # caracteres) — sem desescapar, o corpo inteiro vira UMA linha ("texto
+    # completamente desformatado"). Model-agnostic: conserta na origem.
+    if "\\n" in src or "\\t" in src:
+        src = src.replace("\\r\\n", "\n").replace("\\n", "\n").replace("\\t", "  ")
     lines = src.split("\n")
     out = []
     in_fence = False

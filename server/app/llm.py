@@ -748,6 +748,24 @@ async def analyze_deep(config: dict, profile: dict, ticker: str, context: dict, 
     # qa/39: default seguro é "baixa" — valor ausente/inválido caía em
     # "moderada", transformando o TETO em PISO de confiança.
     data["confianca"] = conf if conf in ("baixa", "moderada") else "baixa"
+    # qa/44: o N1 (deep) NÃO passava pelo normalize_markdown (só o N2 passava) —
+    # com outra LLM os campos de texto saíam no dialeto cru / com \n literal.
+    # Normaliza aqui os campos de texto livre renderizados como markdown.
+    from . import kpi as _kpi
+    if isinstance(data.get("resumo"), str):
+        data["resumo"] = _kpi.normalize_markdown(data["resumo"])
+    if isinstance(data.get("invalidacao"), str):
+        data["invalidacao"] = _kpi.normalize_markdown(data["invalidacao"])
+    if isinstance(data.get("leituraSetups"), list):
+        for s in data["leituraSetups"]:
+            if isinstance(s, dict) and isinstance(s.get("leitura"), str):
+                s["leitura"] = _kpi.normalize_markdown(s["leitura"])
+    if isinstance(data.get("cenarios"), dict):
+        for k2 in ("alta", "baixa", "neutro"):
+            if isinstance(data["cenarios"].get(k2), str):
+                data["cenarios"][k2] = _kpi.normalize_markdown(data["cenarios"][k2])
+    if isinstance(data.get("riscos"), list):
+        data["riscos"] = [_kpi.normalize_markdown(x) if isinstance(x, str) else x for x in data["riscos"]]
     return data
 
 
@@ -835,9 +853,12 @@ def parse_carteira(raw: str, ticker: str) -> dict:
             ),
         })
     modelos = [m for m in (chosen.get("modelosUtilizados") or []) if isinstance(m, dict)]
+    # qa/44: a explicação da carteira (N3) também vira markdown no app — normaliza
+    # (dialeto + \n literal) para qualquer LLM, como o N2 já fazia.
+    from . import kpi as _kpi
     return {
         "proposal": proposal,
-        "explicacao": str(chosen.get("explicacao") or ""),
+        "explicacao": _kpi.normalize_markdown(str(chosen.get("explicacao") or "")),
         "operar": operar,
         "precoAtual": _num(chosen.get("precoAtual")),
         "cenarios": cenarios,
