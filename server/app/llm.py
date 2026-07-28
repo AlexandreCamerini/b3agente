@@ -328,9 +328,18 @@ def _system_cacheavel(model: str, system: str):
     return [{"type": "text", "text": system,
              "cache_control": {"type": "ephemeral"}}]
 
+# qa/48 (reporte do Alex, BEEF3): modelos com RACIOCÍNIO por padrão (Claude 5:
+# sonnet-5/opus…) gastam o teto de saída "pensando" e são cortados ANTES de
+# escrever o texto (stop_reason=max_tokens, só bloco `thinking`) → resposta
+# vazia. `max_tokens` é TETO, não alvo: sobe-lo é grátis p/ modelos curtos (só
+# paga o que gera) e dá espaço p/ o modelo pensar E responder. Piso generoso.
+_ANTHROPIC_MAX_TOKENS_FLOOR = 8000
+
+
 async def _call_anthropic(config, key, system, user, max_tokens):
     url = "https://api.anthropic.com/v1/messages"
     headers = {"content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01"}
+    max_tokens = max(max_tokens, _ANTHROPIC_MAX_TOKENS_FLOOR)
     body = {"model": config["model"], "max_tokens": max_tokens, "temperature": LLM_TEMPERATURE,
             "system": _system_cacheavel(config["model"], system), "messages": [{"role": "user", "content": user}]}
     async with httpx.AsyncClient(timeout=60) as c:

@@ -42,6 +42,23 @@ def test_anthropic_200_sem_texto_levanta_diagnostico(monkeypatch):
     assert "max_tokens" in e.value.payload["message"]
 
 
+def test_anthropic_aplica_piso_de_max_tokens(monkeypatch):
+    """qa/48 (BEEF3): modelos com thinking gastavam max_tokens pensando e eram
+    cortados antes do texto. O caminho Anthropic agora impõe um piso generoso
+    (teto, não alvo → grátis p/ modelos curtos)."""
+    visto = {}
+
+    async def fake_post(self, url, **kw):
+        visto["max_tokens"] = kw["json"]["max_tokens"]
+        return _resp({"stop_reason": "end_turn",
+                      "content": [{"type": "text", "text": "leitura ok"}]})
+    monkeypatch.setattr(httpx.AsyncClient, "post", fake_post)
+    out = asyncio.run(llm._call_anthropic(
+        {"provider": "anthropic", "model": "claude-sonnet-5"}, "k", "s", "u", 1800))
+    assert out == "leitura ok"
+    assert visto["max_tokens"] >= llm._ANTHROPIC_MAX_TOKENS_FLOOR
+
+
 def test_openai_200_sem_conteudo_levanta_diagnostico(monkeypatch):
     async def fake_post(self, url, **kw):
         return _resp({"choices": [{"finish_reason": "length",
