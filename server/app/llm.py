@@ -372,9 +372,24 @@ async def _call_google(config, key, system, user, max_tokens):
     return "".join(p.get("text", "") for p in ((cand.get("content") or {}).get("parts") or [])).strip()
 
 
+# Default por provedor: um modelo VAZIO não deve derrubar TODA análise
+# (reporte do Alex: "nenhuma análise funciona" = missing_model sistêmico).
+# Escolhas baratas e capazes; o usuário sobrepõe em Configurações → Modelo de IA.
+_MODELO_DEFAULT = {
+    "anthropic": "claude-haiku-4-5",
+    "openai": "gpt-4o-mini",
+    "google": "gemini-1.5-flash",
+}
+
+
 async def _call_llm(config, key, system, user, max_tokens):
     if not (config.get("model") or "").strip():
-        raise _cfg_payload(config, "Nenhum modelo de IA configurado.", action="Informe um modelo em Configurações → Modelo de IA.", code="missing_model")
+        fallback = _MODELO_DEFAULT.get((config.get("provider") or "").strip())
+        if fallback:
+            print("[llm] modelo vazio p/ provider=%s → fallback %s" % (config.get("provider"), fallback))
+            config = {**config, "model": fallback}
+        else:
+            raise _cfg_payload(config, "Nenhum modelo de IA configurado.", action="Informe um modelo em Configurações → Modelo de IA.", code="missing_model")
     if not key:
         raise _cfg_payload(config, "Nenhuma chave de API disponível para a IA.", action="Escolha 'Variável de ambiente' no Railway/servidor ou 'Digitar aqui' e salve a chave no iPhone.", hint="No iPhone a chave manual não é herdada da web; ela fica no armazenamento local do app.", code="missing_key")
     provider = config.get("provider")
