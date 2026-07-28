@@ -169,13 +169,76 @@ MIN_PILARES = skill_ref.FUND_MIN_PILARES   # score exige ≥N pilares COM dado
 # houver dado setorial confiável. Documentado, não inferido.
 
 
+# qa/47 — MAPA DE SETOR ESTÁTICO do universo B3. A API (bolsai) devolve `setor`
+# nulo para quase todo ticker (só os 4 do brapi têm) — então o fix do banco NÃO
+# disparava e não havia base p/ valuation setorial. Classificação pública da B3,
+# agrupada por COMPARABILIDADE de valuation. Editável; fallback = banda absoluta.
+SETOR_B3 = {
+    # financeiro (bancos, seguros, bolsa, holdings financeiras)
+    "ITUB4": "financeiro", "BBDC4": "financeiro", "BBDC3": "financeiro",
+    "BBAS3": "financeiro", "B3SA3": "financeiro", "BPAC11": "financeiro",
+    "ITSA4": "financeiro", "BBSE3": "financeiro", "CXSE3": "financeiro",
+    # petróleo & gás
+    "PETR4": "petroleo_gas", "PETR3": "petroleo_gas", "PRIO3": "petroleo_gas",
+    "VBBR3": "petroleo_gas", "UGPA3": "petroleo_gas", "CSAN3": "petroleo_gas",
+    # materiais básicos (mineração, siderurgia, papel & celulose)
+    "VALE3": "materiais", "GGBR4": "materiais", "CSNA3": "materiais",
+    "USIM5": "materiais", "CMIN3": "materiais", "BRAP4": "materiais", "SUZB3": "materiais",
+    # utilities (energia elétrica, saneamento)
+    "ELET3": "utilities", "ELET6": "utilities", "EQTL3": "utilities",
+    "ENGI11": "utilities", "ENEV3": "utilities", "EGIE3": "utilities",
+    "CPLE6": "utilities", "CMIG4": "utilities", "TAEE11": "utilities",
+    "CPFE3": "utilities", "AURE3": "utilities", "SBSP3": "utilities",
+    # consumo & varejo
+    "ABEV3": "consumo", "LREN3": "consumo", "MGLU3": "consumo",
+    "RADL3": "consumo", "JBSS3": "consumo", "RENT3": "consumo",
+    # saúde
+    "RDOR3": "saude", "HAPV3": "saude",
+    # industrial / bens de capital / logística
+    "WEGE3": "industrial", "EMBR3": "industrial", "RAIL3": "industrial",
+    # construção / imobiliário
+    "CYRE3": "imobiliario", "MRVE3": "imobiliario",
+    # telecom
+    "VIVT3": "telecom", "TIMS3": "telecom",
+    # tecnologia
+    "TOTS3": "tech",
+}
+
+# Teto de P/L por setor (valuation RELATIVA — cada setor tem faixa típica).
+# Estimativa editável; fallback = FUND_PL_MAX (banda absoluta) p/ setor desconhecido.
+SETOR_PL_MAX = {
+    "financeiro": 12.0, "petroleo_gas": 10.0, "materiais": 12.0,
+    "utilities": 15.0, "consumo": 22.0, "saude": 30.0,
+    "industrial": 25.0, "imobiliario": 12.0, "telecom": 15.0, "tech": 35.0,
+}
+
+# Rótulo amigável do bucket para exibição (fundamento no app).
+SETOR_LABEL = {
+    "financeiro": "Financeiro", "petroleo_gas": "Petróleo e Gás",
+    "materiais": "Materiais Básicos", "utilities": "Utilities (energia/saneamento)",
+    "consumo": "Consumo e Varejo", "saude": "Saúde",
+    "industrial": "Industrial", "imobiliario": "Construção e Imobiliário",
+    "telecom": "Telecom", "tech": "Tecnologia",
+}
+
 # qa/46: setor financeiro — o pilar de solidez (dívida/EBITDA) não se aplica.
-_SETOR_FINANCEIRO = ("financ", "banco", "bank", "segur", "insur", "credit")
+_SETOR_FINANCEIRO_TXT = ("financ", "banco", "bank", "segur", "insur", "credit")
+
+
+def setor_bucket(f: dict) -> Optional[str]:
+    """Bucket de setor do ticker: mapa estático (canônico) tem prioridade;
+    senão infere do texto de `setor` da API. None = desconhecido."""
+    t = str((f or {}).get("ticker") or "").upper().replace(".SA", "")
+    if t in SETOR_B3:
+        return SETOR_B3[t]
+    s = str((f or {}).get("setor") or "").lower()
+    if any(p in s for p in _SETOR_FINANCEIRO_TXT):
+        return "financeiro"
+    return None
 
 
 def _e_financeira(f: dict) -> bool:
-    s = str((f or {}).get("setor") or "").lower()
-    return any(p in s for p in _SETOR_FINANCEIRO)
+    return setor_bucket(f) == "financeiro"
 
 
 def score_fundamento(f: Optional[dict]) -> Optional[str]:
@@ -194,8 +257,12 @@ def score_fundamento(f: Optional[dict]) -> Optional[str]:
     if not f:
         return None
     pilares = []
+    # qa/47: valuation RELATIVA ao setor — cada setor tem faixa típica de P/L
+    # (banco ~12, tech ~35). Antes uma banda absoluta (20) penalizava growth e
+    # premiava cíclica. Setor desconhecido → banda absoluta (fallback).
+    pl_max = SETOR_PL_MAX.get(setor_bucket(f), skill_ref.FUND_PL_MAX)
     if f.get("pl") is not None:
-        pilares.append(0 < f["pl"] <= skill_ref.FUND_PL_MAX)
+        pilares.append(0 < f["pl"] <= pl_max)
     if f.get("roe") is not None or f.get("margemLiquida") is not None:
         roe_ok = (f.get("roe") or 0) >= skill_ref.FUND_ROE_MIN
         mg_ok = (f.get("margemLiquida") or 0) > 0
@@ -289,7 +356,7 @@ def get_fundamentals(conn, ticker: str, *, fetch_merged=None, now=None,
     if not force and cached and cached.get("fetchedAt"):
         try:
             if now - datetime.fromisoformat(cached["fetchedAt"]) < timedelta(days=TTL_DIAS):
-                return cached
+                return _finalizar(cached)  # qa/47: score recomputado na leitura
         except ValueError:
             pass  # fetchedAt corrompido → refaz
     if fetch_merged is None:
@@ -303,15 +370,34 @@ def get_fundamentals(conn, ticker: str, *, fetch_merged=None, now=None,
     if f is None:
         return cached or None
     f["fetchedAt"] = now.isoformat()
-    f["score"] = score_fundamento(f)
+    # qa/47: setor pelo mapa estático + score (a API devolve setor nulo p/ quase
+    # todo ticker). _finalizar centraliza o preenchimento e o cálculo do score.
+    f = _finalizar(f)
     db.kv_set(conn, _key(ticker), f, user_id=None)
     return f
 
 
+def _finalizar(f: Optional[dict]) -> Optional[dict]:
+    """qa/47: preenche o setor (mapa estático) e RECOMPUTA o score a partir das
+    métricas — o score é DERIVADO, então recomputar na leitura faz mudanças de
+    regra (ex.: banco/valuation setorial) valerem NA HORA, sem esperar o cache
+    de 7 dias expirar. Não re-grava (leitura não escreve). Copia p/ não mutar."""
+    if not f:
+        return f
+    out = dict(f)
+    if not out.get("setor"):
+        b = setor_bucket(out)
+        if b:
+            out["setor"] = SETOR_LABEL.get(b, b)
+    out["score"] = score_fundamento(out)
+    return out
+
+
 def get_cached(conn, ticker: str) -> Optional[dict]:
     """Só o cache — NUNCA vai à rede. É o que o SCAN usa (varredura tem que
-    ser rápida). None = ainda não aquecido pelo job semanal."""
-    return db.kv_get(conn, _key(ticker), None, user_id=None)
+    ser rápida). None = ainda não aquecido pelo job semanal. O score é
+    recomputado na leitura (qa/47) para refletir a regra atual."""
+    return _finalizar(db.kv_get(conn, _key(ticker), None, user_id=None))
 
 
 # --- job semanal de aquecimento do cache (padrão radar_daily.maybe_run) ------

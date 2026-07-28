@@ -115,6 +115,31 @@ def test_banco_ignora_divida_ebitda():
     assert fu.score_fundamento(ind_fraco) == "B"
 
 
+def test_valuation_setorial_e_mapa_estatico():
+    """qa/47: mapa de setor estático (a API devolve setor nulo p/ o universo) —
+    faz o fix do banco disparar SEM depender da API E aplica teto de P/L POR
+    SETOR (valuation relativa), não uma banda absoluta única."""
+    # BBAS3: setor nulo na API, mas o mapa o classifica como financeiro
+    bbas = {"ticker": "BBAS3", "setor": None, "pl": 9.2, "roe": 0.066,
+            "margemLiquida": 0.048, "dividaEbitda": 12.5}
+    assert fu.setor_bucket(bbas) == "financeiro"   # pelo TICKER, não pela API
+    assert fu._e_financeira(bbas) is True           # o fix do banco agora dispara
+    assert fu.score_fundamento(bbas) == "B"         # dívida ignorada; B por mérito
+    # WEGE3 (industrial, P/L 30): banda absoluta 20 reprovaria valuation; o teto
+    # setorial (25) também, mas a rentabilidade forte + solidez → A (não é morto).
+    wege = {"ticker": "WEGE3", "setor": None, "pl": 30.4, "roe": 0.35,
+            "margemLiquida": 0.17, "dividaEbitda": -0.3}
+    assert fu.setor_bucket(wege) == "industrial"
+    assert fu.score_fundamento(wege) == "A"
+    # ticker FORA do universo, setor desconhecido → fallback banda absoluta
+    unk = {"ticker": "XPTO3", "pl": 18.0, "roe": 0.12, "margemLiquida": 0.1, "dividaEbitda": 2.0}
+    assert fu.setor_bucket(unk) is None
+    assert fu.score_fundamento(unk) == "A"          # 18 <= FUND_PL_MAX (20)
+    # o mapa e os tetos cobrem os mesmos buckets
+    assert set(fu.SETOR_PL_MAX) == set(fu.SETOR_LABEL)
+    assert all(b in fu.SETOR_PL_MAX for b in set(fu.SETOR_B3.values()))
+
+
 def test_get_fundamentals_cacheia_e_respeita_ttl():
     conn = _fresh_db()
     calls = []
