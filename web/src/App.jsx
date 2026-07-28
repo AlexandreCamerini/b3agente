@@ -3101,7 +3101,10 @@ function AiConfigScreen({ ctx }) {
   const seg = (on) => ({ flex: 1, padding: "10px", borderRadius: "8px", fontWeight: 600, fontSize: "13px", border: `1px solid ${on ? T.accent : T.borderSubtle}`, background: on ? T.accentTint : T.bgPanel, color: on ? T.accent : T.textMuted });
   const testColor = test.status === "ok" ? T.positive : test.status === "error" ? T.negative : T.accent;
   const testBg = test.status === "ok" ? T.positiveTint10 : test.status === "error" ? T.negativeTint10 : T.accentTint10;
-  const suggest = { anthropic: "Ex.: claude-sonnet-4 · claude-haiku-4", openai: "Ex.: gpt-4.1 · gpt-4o-mini", google: "Ex.: gemini-2.5-pro · gemini-2.5-flash", local: "Ex.: llama-3.1-70b · qwen2.5-72b" }[c.provider];
+  // qa/48: recomenda o modelo rápido/barato primeiro. Modelos que "raciocinam"
+  // (sonnet-5/opus…) são mais lentos e caros por análise — bom p/ profundidade,
+  // não p/ uso corriqueiro. Nomes atualizados p/ a linha atual.
+  const suggest = { anthropic: "Recomendado: claude-haiku-4-5 (rápido/barato) · claude-sonnet-5 (raciocina, +caro)", openai: "Recomendado: gpt-4o-mini (barato) · gpt-4o", google: "Recomendado: gemini-2.5-flash (barato) · gemini-2.5-pro", local: "Ex.: llama-3.1-70b · qwen2.5-72b" }[c.provider];
   return (
     <div>
       <h1 style={{ margin: "0 0 6px", fontSize: "22px", fontWeight: 700 }}>Configurações de IA</h1>
