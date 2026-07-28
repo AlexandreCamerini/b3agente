@@ -120,6 +120,29 @@ def _cfg_payload(config: dict, message: str, *, action=None, hint=None, code=Non
     )
 
 
+def _texto_vazio_error(config: dict, motivo=None, blocos=None) -> LLMUserError:
+    """qa/48 (reporte do Alex "A LLM não retornou texto"): resposta 200 mas sem
+    texto. Em vez de um erro opaco, carrega o MOTIVO de parada do provedor
+    (max_tokens|refusal|content_filter…) e o(s) tipo(s) de bloco recebidos, para
+    a causa aparecer na tela — e distinguir 'cortou por tamanho' de 'recusou'."""
+    m = str(motivo or "").lower()
+    tipos = ""
+    if isinstance(blocos, list):
+        tipos = ",".join(sorted({str(b.get("type")) for b in blocos if isinstance(b, dict)}))
+    if m in ("max_tokens", "length"):
+        msg = "A IA cortou a resposta por limite de tamanho antes de escrever o texto."
+        action = "Tente de novo; se persistir, use um modelo com mais capacidade de saída."
+    elif "refus" in m or "safety" in m or "content_filter" in m or "recitation" in m:
+        msg = "A IA recusou responder (filtro de conteúdo/segurança do provedor)."
+        action = "Reformule ou troque o modelo em Configurações → Modelo de IA."
+    else:
+        msg = "A IA retornou uma resposta vazia."
+        action = "Tente de novo; se persistir, revise o modelo/chave em Configurações → Modelo de IA."
+    detalhe = "; ".join(x for x in (f"motivo={motivo}" if motivo else "", f"blocos={tipos}" if tipos else "") if x)
+    return _cfg_payload(config, msg + (f" ({detalhe})" if detalhe else ""),
+                        action=action, code="empty_response")
+
+
 def public_error(exc: Exception) -> dict:
     if isinstance(exc, LLMUserError):
         return exc.payload
@@ -325,7 +348,10 @@ async def _call_anthropic(config, key, system, user, max_tokens):
     if r.status_code != 200:
         raise _provider_error(config, r.status_code, (data.get("error") or {}).get("message"))
     record_usage(config, data)  # qa/42 (FinOps)
-    return "".join(b.get("text", "") for b in data.get("content", []) if b.get("type") == "text").strip()
+    texto = "".join(b.get("text", "") for b in data.get("content", []) if b.get("type") == "text").strip()
+    if not texto:
+        raise _texto_vazio_error(config, data.get("stop_reason"), data.get("content"))
+    return texto
 
 
 async def _call_openai_compatible(base_url, config, key, system, user, max_tokens):
@@ -345,7 +371,11 @@ async def _call_openai_compatible(base_url, config, key, system, user, max_token
     if r.status_code != 200:
         raise _provider_error(config, r.status_code, (data.get("error") or {}).get("message"))
     record_usage(config, data)  # qa/42 (FinOps)
-    return (((data.get("choices") or [{}])[0].get("message") or {}).get("content") or "").strip()
+    ch0 = (data.get("choices") or [{}])[0]
+    texto = ((ch0.get("message") or {}).get("content") or "").strip()
+    if not texto:
+        raise _texto_vazio_error(config, ch0.get("finish_reason"), None)
+    return texto
 
 
 async def _call_google(config, key, system, user, max_tokens):
@@ -369,7 +399,10 @@ async def _call_google(config, key, system, user, max_tokens):
         raise _provider_error(config, r.status_code, (data.get("error") or {}).get("message"))
     record_usage(config, data)  # qa/42 (FinOps)
     cand = (data.get("candidates") or [{}])[0]
-    return "".join(p.get("text", "") for p in ((cand.get("content") or {}).get("parts") or [])).strip()
+    texto = "".join(p.get("text", "") for p in ((cand.get("content") or {}).get("parts") or [])).strip()
+    if not texto:
+        raise _texto_vazio_error(config, cand.get("finishReason"), None)
+    return texto
 
 
 # Default por provedor: um modelo VAZIO não deve derrubar TODA análise

@@ -338,7 +338,7 @@ async def obs_usage(user: dict = Depends(require_user)):
 
 # FASE 8B (diagnóstico): carimbo de build do BACKEND — confirma qual código o
 # Railway está rodando (o front tem o dele em web/src/version.js).
-SERVER_BUILD_ID = "F9-20260728-01"  # qa/48: modelo vazio cai em default por provedor (não derruba toda análise).
+SERVER_BUILD_ID = "F9-20260728-02"  # qa/48: erro de resposta vazia agora é diagnóstico (motivo de parada + tipo de bloco).
 # Normalmente sincronizado pelo entregar.sh a partir de web/src/version.js; num deploy
 # SÓ de backend (sem rebuild do front) bumpamos aqui para /api/health rastrear o servidor.
 
