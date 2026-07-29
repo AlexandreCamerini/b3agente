@@ -17,7 +17,11 @@ const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if 
 
 // camada de API
 ok("api.js expõe aiModels (GET /api/ai/models)", /aiModels:\s*\(\)\s*=>\s*req\("GET",\s*"\/api\/ai\/models"\)/.test(api));
-ok("store (persistence) expõe aiModels", /aiModels:\s*\(\)\s*=>\s*api\.aiModels\(\)/.test(persistence));
+// BUG qa/49 (reporte do Alex "aiModels is not a function"): o app nativo usa
+// deviceStore, o web usa serverStore — AMBOS precisam expor aiModels.
+ok("serverStore expõe aiModels", /aiModels:\s*\(\)\s*=>\s*api\.aiModels\(\)/.test(persistence));
+ok("deviceStore (nativo) expõe aiModels", /async aiModels\(\)\s*\{\s*ensure\(\);\s*return api\.aiModels\(\);/.test(persistence));
+ok("App.jsx chama aiModels com guarda (não derruba a tela)", /typeof store\.aiModels === "function"/.test(app));
 
 // AiConfigScreen busca o catálogo e deriva a spec do modelo atual
 ok("AiConfigScreen busca o catálogo via store.aiModels()", /store\.aiModels\(\)\.then/.test(app));

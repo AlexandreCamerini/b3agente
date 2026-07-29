@@ -3104,7 +3104,11 @@ function AiConfigScreen({ ctx }) {
   const [catalogo, setCatalogo] = useState(null);
   useEffect(() => {
     let vivo = true;
-    store.aiModels().then((r) => { if (vivo) setCatalogo(r); }).catch(() => {});
+    // guarda: se o store não expõe aiModels (build antigo), cai no fallback de
+    // texto livre em vez de derrubar a tela ("aiModels is not a function").
+    if (typeof store.aiModels === "function") {
+      store.aiModels().then((r) => { if (vivo) setCatalogo(r); }).catch(() => {});
+    }
     return () => { vivo = false; };
   }, []);
   const modelos = (catalogo && catalogo.catalog && catalogo.catalog[c.provider]) || [];
@@ -3113,6 +3117,8 @@ function AiConfigScreen({ ctx }) {
   const aceitaTemp = specAtual ? specAtual.temperature : true; // custom/desconhecido: permissivo
   const tempDefault = (catalogo && catalogo.temperatureDefault != null) ? catalogo.temperatureDefault : 0.2;
   const tetoDefault = specAtual ? specAtual.maxTokens : "";
+  const tetoCap = specAtual ? specAtual.maxTokensCap : undefined;   // #3: teto máximo por modelo
+  const tempMaxUI = specAtual ? specAtual.tempMax : 2;              // #2: Anthropic só até 1.0
   const sectionTitle = { fontSize: "13px", fontWeight: 800, letterSpacing: "0.04em", color: T.accent };
   const seg = (on) => ({ flex: 1, padding: "10px", borderRadius: "8px", fontWeight: 600, fontSize: "13px", border: `1px solid ${on ? T.accent : T.borderSubtle}`, background: on ? T.accentTint : T.bgPanel, color: on ? T.accent : T.textMuted });
   const testColor = test.status === "ok" ? T.positive : test.status === "error" ? T.negative : T.accent;
@@ -3174,17 +3180,18 @@ function AiConfigScreen({ ctx }) {
           <div style={{ display: "flex", gap: "10px", marginBottom: "14px", flexWrap: "wrap" }}>
             <label style={{ flex: 1, minWidth: "140px" }}>
               <span style={{ display: "block", fontSize: "12px", color: T.textMuted, marginBottom: "6px" }}>Teto de saída (max tokens)</span>
-              <input type="number" min="256" step="256"
+              <input type="number" min="256" step="256" max={tetoCap || undefined}
                 value={c.maxTokens != null ? c.maxTokens : (tetoDefault || "")}
                 onChange={(e) => A.editConfig({ maxTokens: e.target.value === "" ? null : Number(e.target.value) })}
                 onBlur={(e) => A.saveConfig({ maxTokens: e.target.value === "" ? null : Number(e.target.value) })}
                 placeholder={String(tetoDefault || "")} style={{ ...field, fontFamily: MONO }} />
               {specAtual && specAtual.thinking && <span style={{ display: "block", fontSize: "10.5px", color: T.textFaint, marginTop: "4px", lineHeight: 1.35 }}>Modelo raciocina — precisa de folga; o servidor não deixa abaixo do mínimo seguro.</span>}
+              {tetoCap ? <span style={{ display: "block", fontSize: "10.5px", color: T.textFaint, marginTop: "4px" }}>máx. {tetoCap}</span> : null}
             </label>
             <label style={{ flex: 1, minWidth: "140px" }}>
               <span style={{ display: "block", fontSize: "12px", color: T.textMuted, marginBottom: "6px" }}>Temperatura</span>
               {aceitaTemp ? (
-                <input type="number" min="0" max="2" step="0.1"
+                <input type="number" min="0" max={tempMaxUI} step="0.1"
                   value={c.temperature != null ? c.temperature : tempDefault}
                   onChange={(e) => A.editConfig({ temperature: e.target.value === "" ? null : Number(e.target.value) })}
                   onBlur={(e) => A.saveConfig({ temperature: e.target.value === "" ? null : Number(e.target.value) })}

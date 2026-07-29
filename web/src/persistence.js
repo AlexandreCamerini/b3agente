@@ -566,6 +566,7 @@ function deviceStore() {
     async obsLogs(n, level, cat) { ensure(); return api.obsLogs(n, level, cat); }, // FASE 5
     async analysisOutcomesStats(modo) { ensure(); return api.analysisOutcomesStats(modo); }, // qa/30 (Fase A)
     async aiActivity() { ensure(); return api.aiActivity(); }, // qa/45
+    async aiModels() { ensure(); return api.aiModels(); }, // qa/49: catálogo de modelos (deviceStore/nativo)
     async analysisOutcomesCsv() { ensure(); return api.analysisOutcomesCsv(); }, // qa/35 (P2)
     async agentStatus() { ensure(); return api.agentStatus(); },     // BLOCO D3
     async agentRunNow() { ensure(); return api.agentRunNow(); },     // BLOCO D4

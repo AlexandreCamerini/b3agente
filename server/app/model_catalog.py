@@ -23,35 +23,39 @@ default permissivo — o guard de retry-sem-temperature no llm.py é a rede.
 FOLGA_RACIOCINIO = 8000
 # Teto padrão p/ modelos diretos (texto curto/estruturado): teto, não alvo.
 TETO_PADRAO = 4096
+# tempMax: a Anthropic aceita temperatura só até 1.0; OpenAI/Google até 2.0.
+# maxTokensCap = teto de saída MÁXIMO aceito (valores conservadores/seguros p/
+# evitar 400 "max_tokens too large"). Ambos clampados no _params_efetivos
+# (autoridade) e refletidos como `max` nos campos da UI.
 
 CATALOG = {
     "anthropic": [
         {"id": "claude-haiku-4-5", "label": "Claude Haiku 4.5", "tier": "Econômico · rápido (recomendado)",
-         "temperature": True, "maxTokens": TETO_PADRAO, "thinking": False},
+         "temperature": True, "tempMax": 1.0, "maxTokens": TETO_PADRAO, "maxTokensCap": 8192, "thinking": False},
         {"id": "claude-sonnet-5", "label": "Claude Sonnet 5", "tier": "Avançado · raciocina (+caro)",
-         "temperature": False, "maxTokens": FOLGA_RACIOCINIO, "thinking": True},
+         "temperature": False, "tempMax": 1.0, "maxTokens": FOLGA_RACIOCINIO, "maxTokensCap": 16000, "thinking": True},
         {"id": "claude-opus-5", "label": "Claude Opus 5", "tier": "Máximo · raciocina (caro/lento)",
-         "temperature": False, "maxTokens": FOLGA_RACIOCINIO, "thinking": True},
+         "temperature": False, "tempMax": 1.0, "maxTokens": FOLGA_RACIOCINIO, "maxTokensCap": 16000, "thinking": True},
     ],
     "openai": [
         {"id": "gpt-4o-mini", "label": "GPT-4o mini", "tier": "Econômico · rápido (recomendado)",
-         "temperature": True, "maxTokens": TETO_PADRAO, "thinking": False},
+         "temperature": True, "tempMax": 2.0, "maxTokens": TETO_PADRAO, "maxTokensCap": 16000, "thinking": False},
         {"id": "gpt-4o", "label": "GPT-4o", "tier": "Avançado",
-         "temperature": True, "maxTokens": TETO_PADRAO, "thinking": False},
+         "temperature": True, "tempMax": 2.0, "maxTokens": TETO_PADRAO, "maxTokensCap": 16000, "thinking": False},
         {"id": "o4-mini", "label": "o4-mini (raciocínio)", "tier": "Avançado · raciocina",
-         "temperature": False, "maxTokens": FOLGA_RACIOCINIO, "thinking": True},
+         "temperature": False, "tempMax": 2.0, "maxTokens": FOLGA_RACIOCINIO, "maxTokensCap": 16000, "thinking": True},
     ],
     "google": [
         {"id": "gemini-2.5-flash", "label": "Gemini 2.5 Flash", "tier": "Econômico · rápido (recomendado)",
-         "temperature": True, "maxTokens": TETO_PADRAO, "thinking": False},
+         "temperature": True, "tempMax": 2.0, "maxTokens": TETO_PADRAO, "maxTokensCap": 8192, "thinking": False},
         {"id": "gemini-2.5-pro", "label": "Gemini 2.5 Pro", "tier": "Avançado",
-         "temperature": True, "maxTokens": 8192, "thinking": False},
+         "temperature": True, "tempMax": 2.0, "maxTokens": 8192, "maxTokensCap": 8192, "thinking": False},
     ],
     # Compatível/Local (openai-compatible): modelo é livre (texto), sem catálogo.
     "local": [],
 }
 
-_DEFAULT_SPEC = {"temperature": True, "maxTokens": TETO_PADRAO, "thinking": False}
+_DEFAULT_SPEC = {"temperature": True, "tempMax": 2.0, "maxTokens": TETO_PADRAO, "maxTokensCap": 16000, "thinking": False}
 
 
 def spec(provider: str, model: str) -> dict:

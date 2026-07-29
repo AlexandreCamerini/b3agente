@@ -344,11 +344,18 @@ def _params_efetivos(config: dict, max_tokens_pedido: int):
     if sp.get("temperature"):
         t = config.get("temperature")
         temperatura = float(t) if isinstance(t, (int, float)) and not isinstance(t, bool) else LLM_TEMPERATURE
+        tmax = sp.get("tempMax")  # #2: Anthropic aceita só até 1.0 — clampa
+        if isinstance(tmax, (int, float)):
+            temperatura = max(0.0, min(float(tmax), temperatura))
     else:
         temperatura = None
     tu = config.get("maxTokens")
     teto_user = int(tu) if isinstance(tu, (int, float)) and not isinstance(tu, bool) and tu > 0 else 0
     teto = max(int(max_tokens_pedido), int(sp.get("maxTokens") or 0), teto_user)
+    cap = int(sp.get("maxTokensCap") or 0)  # #3: teto de saída máximo do modelo
+    if cap:
+        teto = min(teto, cap)
+    teto = max(teto, int(max_tokens_pedido))  # nunca abaixo do necessário da chamada
     return temperatura, teto
 
 

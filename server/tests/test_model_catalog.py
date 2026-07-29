@@ -10,10 +10,17 @@ from app import llm
 def test_todo_modelo_tem_campos_obrigatorios():
     for provider, modelos in mc.CATALOG.items():
         for m in modelos:
-            assert set(m) >= {"id", "label", "tier", "temperature", "maxTokens", "thinking"}, (provider, m)
+            assert set(m) >= {"id", "label", "tier", "temperature", "tempMax", "maxTokens", "maxTokensCap", "thinking"}, (provider, m)
             assert isinstance(m["temperature"], bool)
             assert isinstance(m["thinking"], bool)
             assert m["maxTokens"] >= 1
+            assert m["maxTokensCap"] >= m["maxTokens"]  # o teto máximo nunca corta o default
+            assert 0 < m["tempMax"] <= 2.0
+
+
+def test_anthropic_tem_teto_de_temperatura_1():
+    for m in mc.CATALOG["anthropic"]:
+        assert m["tempMax"] == 1.0, m["id"]  # #2: Anthropic recusa temperature > 1
 
 
 def test_modelos_que_raciocinam_recusam_temperature_e_tem_folga():
@@ -50,6 +57,14 @@ def test_params_efetivos_respeita_catalogo_e_usuario():
     _, mt4 = llm._params_efetivos(
         {"provider": "openai", "model": "gpt-4o-mini", "maxTokens": 100}, 1300)
     assert mt4 >= 1300
+    # #2: temperatura clampada ao teto do provedor (Anthropic → 1.0)
+    t5, _ = llm._params_efetivos(
+        {"provider": "anthropic", "model": "claude-haiku-4-5", "temperature": 1.8}, 1800)
+    assert t5 == 1.0
+    # #3: teto de saída clampado ao maxTokensCap do modelo (haiku → 8192)
+    _, mt6 = llm._params_efetivos(
+        {"provider": "anthropic", "model": "claude-haiku-4-5", "maxTokens": 999999}, 1800)
+    assert mt6 == 8192
 
 
 def test_store_persiste_e_limpa_parametros(tmp_path):
