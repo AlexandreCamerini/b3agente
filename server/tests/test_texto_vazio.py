@@ -42,21 +42,37 @@ def test_anthropic_200_sem_texto_levanta_diagnostico(monkeypatch):
     assert "max_tokens" in e.value.payload["message"]
 
 
-def test_anthropic_aplica_piso_de_max_tokens(monkeypatch):
-    """qa/48 (BEEF3): modelos com thinking gastavam max_tokens pensando e eram
-    cortados antes do texto. O caminho Anthropic agora impõe um piso generoso
-    (teto, não alvo → grátis p/ modelos curtos)."""
+def test_anthropic_modelo_que_raciocina_tem_teto_alto_e_sem_temperature(monkeypatch):
+    """qa/48+49 (BEEF3): modelos com thinking gastavam max_tokens pensando e eram
+    cortados antes do texto. Agora o teto vem do CATÁLOGO (sonnet-5 → folga de
+    raciocínio) e `temperature` é OMITIDA do body (o modelo recusa)."""
+    from app import model_catalog
     visto = {}
 
     async def fake_post(self, url, **kw):
-        visto["max_tokens"] = kw["json"]["max_tokens"]
+        visto["body"] = kw["json"]
         return _resp({"stop_reason": "end_turn",
                       "content": [{"type": "text", "text": "leitura ok"}]})
     monkeypatch.setattr(httpx.AsyncClient, "post", fake_post)
     out = asyncio.run(llm._call_anthropic(
         {"provider": "anthropic", "model": "claude-sonnet-5"}, "k", "s", "u", 1800))
     assert out == "leitura ok"
-    assert visto["max_tokens"] >= llm._ANTHROPIC_MAX_TOKENS_FLOOR
+    assert visto["body"]["max_tokens"] >= model_catalog.FOLGA_RACIOCINIO
+    assert "temperature" not in visto["body"]  # modelo que raciocina → omite
+
+
+def test_anthropic_modelo_rapido_envia_temperature(monkeypatch):
+    """Modelo direto (haiku-4-5) ACEITA temperature → vai no body."""
+    visto = {}
+
+    async def fake_post(self, url, **kw):
+        visto["body"] = kw["json"]
+        return _resp({"stop_reason": "end_turn",
+                      "content": [{"type": "text", "text": "ok"}]})
+    monkeypatch.setattr(httpx.AsyncClient, "post", fake_post)
+    asyncio.run(llm._call_anthropic(
+        {"provider": "anthropic", "model": "claude-haiku-4-5"}, "k", "s", "u", 1800))
+    assert "temperature" in visto["body"]
 
 
 def test_openai_200_sem_conteudo_levanta_diagnostico(monkeypatch):

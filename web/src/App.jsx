@@ -3097,6 +3097,22 @@ function PromptsSection({ ctx }) {
 function AiConfigScreen({ ctx }) {
   const { data, A, test } = ctx;
   const c = data.config;
+  // qa/49 (pedido do Alex): catálogo de modelos (fonte única no servidor) → a UI
+  // vira uma listbox por provedor + os parâmetros que CADA modelo aceita (temp,
+  // teto de saída), com defaults editáveis e armazenados. Fallback p/ texto livre
+  // se o catálogo não carregar (offline / servidor não configurado).
+  const [catalogo, setCatalogo] = useState(null);
+  useEffect(() => {
+    let vivo = true;
+    store.aiModels().then((r) => { if (vivo) setCatalogo(r); }).catch(() => {});
+    return () => { vivo = false; };
+  }, []);
+  const modelos = (catalogo && catalogo.catalog && catalogo.catalog[c.provider]) || [];
+  const specAtual = modelos.find((m) => m.id === c.model) || null;
+  const modeloCustom = !!c.model && !specAtual && modelos.length > 0;
+  const aceitaTemp = specAtual ? specAtual.temperature : true; // custom/desconhecido: permissivo
+  const tempDefault = (catalogo && catalogo.temperatureDefault != null) ? catalogo.temperatureDefault : 0.2;
+  const tetoDefault = specAtual ? specAtual.maxTokens : "";
   const sectionTitle = { fontSize: "13px", fontWeight: 800, letterSpacing: "0.04em", color: T.accent };
   const seg = (on) => ({ flex: 1, padding: "10px", borderRadius: "8px", fontWeight: 600, fontSize: "13px", border: `1px solid ${on ? T.accent : T.borderSubtle}`, background: on ? T.accentTint : T.bgPanel, color: on ? T.accent : T.textMuted });
   const testColor = test.status === "ok" ? T.positive : test.status === "error" ? T.negative : T.accent;
@@ -3119,7 +3135,7 @@ function AiConfigScreen({ ctx }) {
 
         <label style={{ display: "block", marginBottom: "14px" }}>
           <span style={{ display: "block", fontSize: "12px", color: T.textMuted, marginBottom: "6px" }}>Provedor</span>
-          <select value={c.provider} onChange={(e) => A.saveConfig({ provider: e.target.value })} style={field}>
+          <select value={c.provider} onChange={(e) => { const p = e.target.value; const lst = (catalogo && catalogo.catalog && catalogo.catalog[p]) || []; A.saveConfig({ provider: p, model: lst[0] ? lst[0].id : "" }); }} style={field}>
             <option value="anthropic">Anthropic</option>
             <option value="openai">OpenAI</option>
             <option value="google">Google</option>
@@ -3129,9 +3145,58 @@ function AiConfigScreen({ ctx }) {
 
         <label style={{ display: "block", marginBottom: "14px" }}>
           <span style={{ display: "block", fontSize: "12px", color: T.textMuted, marginBottom: "6px" }}>Modelo</span>
-          <input type="text" value={c.model} onChange={(e) => A.editConfig({ model: e.target.value })} onBlur={(e) => A.saveConfig({ model: e.target.value })} placeholder="nome-do-modelo" style={{ ...field, fontFamily: MONO }} />
-          <span style={{ display: "block", fontSize: "11px", color: T.textFaint, marginTop: "5px", fontFamily: MONO }}>{suggest}</span>
+          {modelos.length > 0 ? (
+            <>
+              <select
+                value={modeloCustom ? "__custom__" : (c.model || "")}
+                onChange={(e) => { const v = e.target.value; if (v === "__custom__") { A.saveConfig({ model: "" }); return; } A.saveConfig({ model: v, maxTokens: null, temperature: null }); }}
+                style={field}
+              >
+                {(!c.model || modeloCustom) && <option value="">Escolha um modelo…</option>}
+                {modelos.map((m) => <option key={m.id} value={m.id}>{m.label} — {m.tier}</option>)}
+                <option value="__custom__">Personalizado (digitar)…</option>
+              </select>
+              {(modeloCustom || !c.model) && (
+                <input type="text" value={c.model} onChange={(e) => A.editConfig({ model: e.target.value })} onBlur={(e) => A.saveConfig({ model: e.target.value })} placeholder="nome-do-modelo" style={{ ...field, fontFamily: MONO, marginTop: "8px" }} />
+              )}
+              <span style={{ display: "block", fontSize: "11px", color: T.textFaint, marginTop: "5px", lineHeight: 1.4 }}>{modeloCustom ? suggest : "A lista traz os modelos testados. Ao escolher, os parâmetros abaixo já vêm com o default seguro do modelo."}</span>
+            </>
+          ) : (
+            <>
+              <input type="text" value={c.model} onChange={(e) => A.editConfig({ model: e.target.value })} onBlur={(e) => A.saveConfig({ model: e.target.value })} placeholder="nome-do-modelo" style={{ ...field, fontFamily: MONO }} />
+              <span style={{ display: "block", fontSize: "11px", color: T.textFaint, marginTop: "5px", fontFamily: MONO }}>{suggest}</span>
+            </>
+          )}
         </label>
+
+        {/* qa/49: parâmetros que ESTE modelo aceita — defaults do catálogo, editáveis e armazenados. */}
+        {!!c.model && (
+          <div style={{ display: "flex", gap: "10px", marginBottom: "14px", flexWrap: "wrap" }}>
+            <label style={{ flex: 1, minWidth: "140px" }}>
+              <span style={{ display: "block", fontSize: "12px", color: T.textMuted, marginBottom: "6px" }}>Teto de saída (max tokens)</span>
+              <input type="number" min="256" step="256"
+                value={c.maxTokens != null ? c.maxTokens : (tetoDefault || "")}
+                onChange={(e) => A.editConfig({ maxTokens: e.target.value === "" ? null : Number(e.target.value) })}
+                onBlur={(e) => A.saveConfig({ maxTokens: e.target.value === "" ? null : Number(e.target.value) })}
+                placeholder={String(tetoDefault || "")} style={{ ...field, fontFamily: MONO }} />
+              {specAtual && specAtual.thinking && <span style={{ display: "block", fontSize: "10.5px", color: T.textFaint, marginTop: "4px", lineHeight: 1.35 }}>Modelo raciocina — precisa de folga; o servidor não deixa abaixo do mínimo seguro.</span>}
+            </label>
+            <label style={{ flex: 1, minWidth: "140px" }}>
+              <span style={{ display: "block", fontSize: "12px", color: T.textMuted, marginBottom: "6px" }}>Temperatura</span>
+              {aceitaTemp ? (
+                <input type="number" min="0" max="2" step="0.1"
+                  value={c.temperature != null ? c.temperature : tempDefault}
+                  onChange={(e) => A.editConfig({ temperature: e.target.value === "" ? null : Number(e.target.value) })}
+                  onBlur={(e) => A.saveConfig({ temperature: e.target.value === "" ? null : Number(e.target.value) })}
+                  style={{ ...field, fontFamily: MONO }} />
+              ) : (
+                <div style={{ ...field, color: T.textFaint, fontSize: "11.5px", lineHeight: 1.35, background: T.bgBase, height: "auto" }}>
+                  Este modelo raciocina — usa a temperatura padrão (o parâmetro não é aceito na API).
+                </div>
+              )}
+            </label>
+          </div>
+        )}
 
         <div style={{ marginBottom: "14px" }}>
           <span style={{ display: "block", fontSize: "12px", color: T.textMuted, marginBottom: "6px" }}>Origem da chave</span>

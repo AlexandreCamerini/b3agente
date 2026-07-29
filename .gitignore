@@ -35,3 +35,7 @@ web/ios/
 # qa/46: spec local de trabalho — untracked; o git add -A do entregar.sh a varria
 # pro commit e amendava o hash, divergindo do origin a cada entrega.
 ESPEC-Modo-Estudo-Ensino-otimizado.md
+
+# ferramentas locais do Claude Code (launch.json de preview, worktrees, sessão)
+# — nunca versionar; evita o git add -A do entregar.sh varrer pro commit.
+.claude/

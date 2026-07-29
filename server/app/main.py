@@ -24,6 +24,7 @@ from . import ai_activity  # qa/45: custo (R$) + histórico de comportamento da 
 from . import fundamentals  # qa/36 (F10.2): fundamento × técnica (score, cache, rebaixamento)
 from . import scan_deep  # FASE 1 (N1): aprofundamento IA do top-N do Radar
 from . import technical_snapshot  # FASE 1 (STU): fonte única de N1/N2/N3
+from . import model_catalog  # qa/49: catálogo de modelos por provedor + parâmetros aceitos
 from . import agent as agent_mod  # FASE 3: agente autônomo server-side
 from . import siwa  # FASE 4 (Bloco 2): Sign in with Apple — exchange + revoke
 from . import push  # FASE 3.3b: APNs (no-op sem configuração)
@@ -270,6 +271,14 @@ async def ai_quota(scope: Optional[str] = Depends(current_scope)):
     return {"managed": avail, "loggedIn": True, "byok": byok, "quota": snap}
 
 
+@app.get("/api/ai/models")
+async def ai_models():
+    """qa/49: catálogo de modelos por provedor + parâmetros aceitos (fonte única
+    p/ a listbox do app). `temperatureDefault` = valor sugerido quando o modelo
+    aceita temperatura."""
+    return {"catalog": model_catalog.catalog_publico(), "temperatureDefault": llm.LLM_TEMPERATURE}
+
+
 def now_str() -> str:
     return datetime.now().strftime("%d/%m/%Y %H:%M")
 
@@ -338,7 +347,7 @@ async def obs_usage(user: dict = Depends(require_user)):
 
 # FASE 8B (diagnóstico): carimbo de build do BACKEND — confirma qual código o
 # Railway está rodando (o front tem o dele em web/src/version.js).
-SERVER_BUILD_ID = "F9-20260728-04"  # qa/48: piso de max_tokens no Anthropic (modelos com thinking não são mais cortados antes do texto).
+SERVER_BUILD_ID = "F9-20260728-05"  # qa/48: piso de max_tokens no Anthropic (modelos com thinking não são mais cortados antes do texto).
 # Normalmente sincronizado pelo entregar.sh a partir de web/src/version.js; num deploy
 # SÓ de backend (sem rebuild do front) bumpamos aqui para /api/health rastrear o servidor.
 

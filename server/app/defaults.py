@@ -155,7 +155,7 @@ def default_state() -> dict:
     return {
         "config": {
             "provider": "anthropic",   # anthropic | openai | google | local
-            "model": "claude-sonnet-5",
+            "model": "claude-haiku-4-5",  # padrão econômico/rápido (qa/48); sonnet-5 raciocina e é mais caro
             "keySource": "env",        # env | manual
             "apiKey": "",              # so preenchido se keySource == manual; nunca retornado
             "baseUrl": "",

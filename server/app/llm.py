@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 import httpx
 
 from . import skill_ref
+from . import model_catalog
 
 
 # qa/42 (FinOps): telemetria de TOKENS. Nenhum caller lia o `usage` da resposta
@@ -328,20 +329,37 @@ def _system_cacheavel(model: str, system: str):
     return [{"type": "text", "text": system,
              "cache_control": {"type": "ephemeral"}}]
 
-# qa/48 (reporte do Alex, BEEF3): modelos com RACIOCÍNIO por padrão (Claude 5:
-# sonnet-5/opus…) gastam o teto de saída "pensando" e são cortados ANTES de
-# escrever o texto (stop_reason=max_tokens, só bloco `thinking`) → resposta
-# vazia. `max_tokens` é TETO, não alvo: sobe-lo é grátis p/ modelos curtos (só
-# paga o que gera) e dá espaço p/ o modelo pensar E responder. Piso generoso.
-_ANTHROPIC_MAX_TOKENS_FLOOR = 8000
+# qa/49 (pedido do Alex): os parâmetros de cada chamada saem do CATÁLOGO
+# (model_catalog) — o modelo escolhido determina se `temperature` vai no body e
+# qual o teto de saída. Resolve a classe de erros do qa/48: modelos que
+# RACIOCINAM recusam temperature e precisam de teto alto (pensam DENTRO do
+# max_tokens; abaixo do necessário são cortados antes de escrever o texto).
+def _params_efetivos(config: dict, max_tokens_pedido: int):
+    """(temperatura, max_tokens) efetivos p/ (provider, model), respeitando o que
+    o modelo ACEITA (catálogo) e a escolha do usuário. temperatura=None → OMITIR
+    do body (modelo raciocina e exige o default). O teto nunca cai abaixo do que
+    a chamada precisa nem do piso do modelo — é teto, não alvo (só paga o gerado);
+    o usuário pode subir, não starvar a saída."""
+    sp = model_catalog.spec(config.get("provider"), config.get("model"))
+    if sp.get("temperature"):
+        t = config.get("temperature")
+        temperatura = float(t) if isinstance(t, (int, float)) and not isinstance(t, bool) else LLM_TEMPERATURE
+    else:
+        temperatura = None
+    tu = config.get("maxTokens")
+    teto_user = int(tu) if isinstance(tu, (int, float)) and not isinstance(tu, bool) and tu > 0 else 0
+    teto = max(int(max_tokens_pedido), int(sp.get("maxTokens") or 0), teto_user)
+    return temperatura, teto
 
 
 async def _call_anthropic(config, key, system, user, max_tokens):
     url = "https://api.anthropic.com/v1/messages"
     headers = {"content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01"}
-    max_tokens = max(max_tokens, _ANTHROPIC_MAX_TOKENS_FLOOR)
-    body = {"model": config["model"], "max_tokens": max_tokens, "temperature": LLM_TEMPERATURE,
+    temperatura, max_tokens = _params_efetivos(config, max_tokens)
+    body = {"model": config["model"], "max_tokens": max_tokens,
             "system": _system_cacheavel(config["model"], system), "messages": [{"role": "user", "content": user}]}
+    if temperatura is not None:
+        body["temperature"] = temperatura
     async with httpx.AsyncClient(timeout=60) as c:
         r = await c.post(url, headers=headers, json=body)
         data = _safe_json_response(r)
@@ -365,8 +383,11 @@ async def _call_anthropic(config, key, system, user, max_tokens):
 
 async def _call_openai_compatible(base_url, config, key, system, user, max_tokens):
     url = base_url.rstrip("/") + "/chat/completions"
-    body = {"model": config["model"], "max_tokens": max_tokens, "temperature": LLM_TEMPERATURE,
+    temperatura, max_tokens = _params_efetivos(config, max_tokens)
+    body = {"model": config["model"], "max_tokens": max_tokens,
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}]}
+    if temperatura is not None:
+        body["temperature"] = temperatura
     async with httpx.AsyncClient(timeout=60) as c:
         r = await c.post(url, headers={"content-type": "application/json", "authorization": "Bearer " + key}, json=body)
         data = _safe_json_response(r)
@@ -390,10 +411,14 @@ async def _call_openai_compatible(base_url, config, key, system, user, max_token
 async def _call_google(config, key, system, user, max_tokens):
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{config['model']}:generateContent?key={key}"
     headers = {"content-type": "application/json"}
+    temperatura, max_tokens = _params_efetivos(config, max_tokens)
+    gen = {"maxOutputTokens": max_tokens}
+    if temperatura is not None:
+        gen["temperature"] = temperatura
     body = {
         "systemInstruction": {"parts": [{"text": system}]},
         "contents": [{"role": "user", "parts": [{"text": user}]}],
-        "generationConfig": {"maxOutputTokens": max_tokens, "temperature": LLM_TEMPERATURE},
+        "generationConfig": gen,
     }
     async with httpx.AsyncClient(timeout=60) as c:
         r = await c.post(url, headers=headers, json=body)

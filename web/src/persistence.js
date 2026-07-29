@@ -130,6 +130,7 @@ function serverStore() {
     obsLogs: (n, level, cat) => api.obsLogs(n, level, cat),        // FASE 5: logs do servidor
     analysisOutcomesStats: (modo) => api.analysisOutcomesStats(modo), // qa/30 (Fase A): eficiência da IA
     aiActivity: () => api.aiActivity(), // qa/45: custo + histórico da IA
+    aiModels: () => api.aiModels(), // qa/49: catálogo de modelos + parâmetros
     analysisOutcomesCsv: () => api.analysisOutcomesCsv(),          // qa/35 (P2): export CSV
     agentStatus: () => api.agentStatus(),                          // BLOCO D3
     agentLog: (n) => api.agentLog(n),                              // FASE 3: Diário do operador

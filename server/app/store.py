@@ -76,6 +76,20 @@ def set_config(conn, patch: dict, user_id=None) -> dict:
         cfg["apiKey"] = patch["apiKey"]
     if patch.get("clearKey") is True:
         cfg["apiKey"] = ""
+    # qa/49: parâmetros por-modelo (temperatura / teto de saída). null com a chave
+    # presente = limpar → volta ao default do catálogo (llm._params_efetivos).
+    if "maxTokens" in patch:
+        mt = patch.get("maxTokens")
+        if isinstance(mt, (int, float)) and not isinstance(mt, bool):
+            cfg["maxTokens"] = max(256, min(200_000, int(mt)))
+        elif mt is None:
+            cfg.pop("maxTokens", None)
+    if "temperature" in patch:
+        tp = patch.get("temperature")
+        if isinstance(tp, (int, float)) and not isinstance(tp, bool):
+            cfg["temperature"] = max(0.0, min(2.0, round(float(tp), 2)))
+        elif tp is None:
+            cfg.pop("temperature", None)
     if isinstance(patch.get("initialBudget"), (int, float)):
         cfg["initialBudget"] = max(100.0, min(100_000_000.0, round(float(patch["initialBudget"]), 2)))
     if patch.get("theme") in ("dark", "light", "system"):
