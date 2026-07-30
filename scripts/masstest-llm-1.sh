@@ -6,5 +6,5 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 : "${BOLSIA_API_KEY:?exporte a chave antes:  read -rs BOLSIA_API_KEY && export BOLSIA_API_KEY}"
 export BOLSIA_PROVIDER="${BOLSIA_PROVIDER:-anthropic}"
-export BOLSIA_MODEL="${BOLSIA_MODEL:-claude-opus-4-8}"
+export BOLSIA_MODEL="${BOLSIA_MODEL:-claude-sonnet-5}"
 exec python3 scripts/masstest-agentes-llm.py PETR4 --modes estudo --limit 1
