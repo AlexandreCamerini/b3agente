@@ -38,11 +38,15 @@ CATALOG = {
          "temperature": False, "tempMax": 1.0, "maxTokens": FOLGA_RACIOCINIO, "maxTokensCap": 16000, "thinking": True},
     ],
     "openai": [
+        # ids verificados na doc da OpenAI (jul/2026): gpt-4o/o4-mini foram
+        # aposentados; linha atual é GPT-5. gpt-4o-mini segue como o econômico.
+        # GPT-5/o-series RACIOCINAM: temperatura omitida + usam max_completion_tokens
+        # (o llm.py troca no retry). thinking=True aqui é o viés seguro (nunca erra).
         {"id": "gpt-4o-mini", "label": "GPT-4o mini", "tier": "Econômico · rápido (recomendado)",
          "temperature": True, "tempMax": 2.0, "maxTokens": TETO_PADRAO, "maxTokensCap": 16000, "thinking": False},
-        {"id": "gpt-4o", "label": "GPT-4o", "tier": "Avançado",
-         "temperature": True, "tempMax": 2.0, "maxTokens": TETO_PADRAO, "maxTokensCap": 16000, "thinking": False},
-        {"id": "o4-mini", "label": "o4-mini (raciocínio)", "tier": "Avançado · raciocina",
+        {"id": "gpt-5.4-mini", "label": "GPT-5.4 mini", "tier": "Avançado · econômico",
+         "temperature": False, "tempMax": 2.0, "maxTokens": FOLGA_RACIOCINIO, "maxTokensCap": 16000, "thinking": True},
+        {"id": "gpt-5.6-terra", "label": "GPT-5.6 Terra", "tier": "Máximo · equilibra custo/qualidade",
          "temperature": False, "tempMax": 2.0, "maxTokens": FOLGA_RACIOCINIO, "maxTokensCap": 16000, "thinking": True},
     ],
     "google": [

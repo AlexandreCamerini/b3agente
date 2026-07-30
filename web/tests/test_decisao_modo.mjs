@@ -36,8 +36,12 @@ ok("MercadoScreen define operador", /const operador = \(data\.config && data\.co
 // "PLANO EDUCACIONAL" por "DECISÃO DA MESA" no operador — e recebe a flag.
 ok("KpiBlock é mode-aware (rótulo por modo)",
   /operador \? "DECISÃO DA MESA" : "PLANO EDUCACIONAL"/.test(app));
-ok("KpiBlock recebe operador do MercadoScreen",
-  /<KpiBlock kpis=\{an\.kpis\} operador=\{operador\}/.test(app));
+// qa/49 (v11): o KpiBlock saiu do card do ativo — a decisão virou a MANCHETE
+// única `decM` (decisaoDoModo do plano, com fallback p/ recDoModo da IA), que
+// segue mode-aware ("DECISÃO DA MESA" no operador).
+ok("watchlist: decisão é a manchete única decM (mode-aware)",
+  /const decM = rotuloDec \|\| \(kp\.recomendacao/.test(app)
+  && /operador \? "DECISÃO DA MESA" : "PLANO EDUCACIONAL"/.test(app));
 
 // qa/40: o VALOR da decisão no KpiBlock também é mapeado no render (cache antigo
 // de estudo → mesa), não só o rótulo. Reporte do Alex: "no DECISÃO DA MESA

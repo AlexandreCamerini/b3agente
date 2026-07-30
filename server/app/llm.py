@@ -398,13 +398,22 @@ async def _call_openai_compatible(base_url, config, key, system, user, max_token
     async with httpx.AsyncClient(timeout=60) as c:
         r = await c.post(url, headers={"content-type": "application/json", "authorization": "Bearer " + key}, json=body)
         data = _safe_json_response(r)
-        # Guarda de compatibilidade: modelos de raciocínio da OpenAI (o1/gpt-5…)
-        # rejeitam `temperature` ≠ 1 — repete UMA vez sem o parâmetro (BYOK é
-        # livre; a consistência fica por conta do prompt/snapshot nesses modelos).
-        if r.status_code == 400 and "temperature" in str((data.get("error") or {}).get("message") or "").lower():
-            body.pop("temperature", None)
-            r = await c.post(url, headers={"content-type": "application/json", "authorization": "Bearer " + key}, json=body)
-            data = _safe_json_response(r)
+        # Guarda de compatibilidade da OpenAI (o-series/GPT-5…): esses modelos
+        # (a) rejeitam `temperature` ≠ 1 e (b) EXIGEM `max_completion_tokens` no
+        # lugar de `max_tokens`. Corrige o que a mensagem de 400 acusar e repete
+        # UMA vez. (verificado na doc jul/2026 — qa/49.2)
+        if r.status_code == 400:
+            _msg = str((data.get("error") or {}).get("message") or "").lower()
+            _mudou = False
+            if "temperature" in _msg:
+                body.pop("temperature", None); _mudou = True
+            if "max_completion_tokens" in _msg or ("max_tokens" in _msg and ("not supported" in _msg or "unsupported" in _msg)):
+                _v = body.pop("max_tokens", None)
+                if _v is not None:
+                    body["max_completion_tokens"] = _v; _mudou = True
+            if _mudou:
+                r = await c.post(url, headers={"content-type": "application/json", "authorization": "Bearer " + key}, json=body)
+                data = _safe_json_response(r)
     if r.status_code != 200:
         raise _provider_error(config, r.status_code, (data.get("error") or {}).get("message"))
     record_usage(config, data)  # qa/42 (FinOps)

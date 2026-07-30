@@ -2178,6 +2178,23 @@ function MercadoScreen({ ctx }) {
             invalidacao: melhorSet && melhorSet.invalidacao,
           } : undefined;
           const os = opsSummary(data.history, t);
+          // qa/49 (v11): dados da posição p/ o hero (régua reusada do card de posições)
+          const pos = (data.positions || []).find((p) => p.t === t);
+          const cur = q.price != null ? q.price : (pos ? pos.avg : null);
+          const pnl = pos && cur != null ? (cur - pos.avg) * pos.qty : null;
+          const pnlPct = pos && cur != null && pos.avg > 0 ? (cur / pos.avg - 1) * 100 : null;
+          const rrPos = pos && pos.stop != null && pos.alvo != null && cur != null && cur > pos.stop ? (pos.alvo - cur) / (cur - pos.stop) : null;
+          const diasPos = pos ? daysSince(openedAt(data.history, t, pos)) : null;
+          const patrimonio = (data.cash || 0) + (data.positions || []).reduce((s, pp) => s + pp.qty * (((quotes[pp.t] || {}).price) || pp.avg || 0), 0);
+          const pctCapPos = pos && patrimonio > 0 && cur != null ? (pos.qty * cur / patrimonio) * 100 : null;
+          const kp = an.kpis || {};
+          const fscore = an.fundamento && an.fundamento.score;
+          // manchete única: decisão do plano (scan) e, sem scan, a recomendação da IA
+          const decM = rotuloDec || (kp.recomendacao ? recDoModo(kp.recomendacao, operador) : null);
+          const [decColor, decBg] = REC_STYLE[decM] || [vColor, vBg];
+          const chip = (label, value, col) => (
+            <span style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "999px", background: T.bgBase, color: T.textSecondary, fontWeight: 700 }}>{label} <b style={{ fontWeight: 800, color: col || T.textPrimary }}>{value}</b></span>
+          );
           return (
             <div key={t} style={{ ...card, padding: "14px 15px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "10px" }}>
@@ -2188,33 +2205,81 @@ function MercadoScreen({ ctx }) {
                   </div>
                   <div style={{ color: T.textMuted, fontSize: "12px", marginTop: "3px" }}>{name}</div>
                 </div>
-                <div style={{ textAlign: "right", fontFamily: MONO, minWidth: "92px" }}>
-                  {q.price == null && !q.error && quotesLoading ? (
-                    <>
-                      <div className="sk" style={{ height: "18px", width: "84px", marginLeft: "auto" }} />
-                      <div className="sk" style={{ height: "11px", width: "52px", marginLeft: "auto", marginTop: "6px" }} />
-                    </>
-                  ) : (
-                    <>
-                      <div style={{ fontSize: "18px", fontWeight: 700 }}>{q.error ? "—" : "R$ " + price(q.price)}</div>
-                      <div style={{ fontSize: "12.5px", fontWeight: 700, color: q.error ? T.textFaint : chColor }}>{q.error ? "sem cotação" : pct(q.change)}</div>
-                    </>
-                  )}
-                  {/* qa/mock v2: sparkline do período (série `spark` do scan), alinhado ao bloco de preço */}
-                  {sc && Array.isArray(sc.spark) && sc.spark.length > 1 && (
-                    <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "7px" }}>
-                      <Sparkline data={sc.spark} width={84} height={22} />
-                    </div>
-                  )}
+                <div style={{ display: "flex", alignItems: "flex-start", gap: "9px" }}>
+                  <div style={{ textAlign: "right", fontFamily: MONO, minWidth: "72px" }}>
+                    {q.price == null && !q.error && quotesLoading ? (
+                      <>
+                        <div className="sk" style={{ height: "18px", width: "70px", marginLeft: "auto" }} />
+                        <div className="sk" style={{ height: "11px", width: "46px", marginLeft: "auto", marginTop: "6px" }} />
+                      </>
+                    ) : (
+                      <>
+                        <div style={{ fontSize: "16px", fontWeight: 700 }}>{q.error ? "—" : "R$ " + price(q.price)}</div>
+                        <div style={{ fontSize: "12px", fontWeight: 700, color: q.error ? T.textFaint : chColor }}>{q.error ? "sem cotação" : pct(q.change)}</div>
+                      </>
+                    )}
+                  </div>
+                  {/* qa/49 (v11): o mini-gráfico vira o ACESSO ao candlestick, à direita do preço */}
+                  <button onClick={() => A.openTech(t)} disabled={q.error} aria-label="Abrir gráfico de velas" style={{ background: T.bgBase, border: `1px solid ${T.borderSubtle}`, borderRadius: "9px", padding: "6px 7px 4px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}>
+                    {sc && Array.isArray(sc.spark) && sc.spark.length > 1 ? <Sparkline data={sc.spark} width={44} height={18} /> : <span aria-hidden style={{ fontSize: "14px" }}>📈</span>}
+                    <span style={{ fontSize: "9px", color: T.accent, fontWeight: 800 }}>velas ⤢</span>
+                  </button>
                 </div>
               </div>
 
-              {/* FASE 2 (2.3): flag de oportunidade explícita + estado no funil */}
-              <div style={{ display: "flex", alignItems: "center", gap: "7px", flexWrap: "wrap", marginTop: "10px" }}>
-                <span style={{ padding: "4px 10px", borderRadius: "999px", background: T.bgBase, border: `1px solid ${T.borderSubtle}`, fontSize: "11px", fontWeight: 800, color: T.textSecondary }}>{tierDot} {tierLabel}{sc ? " · " + (sc.confluencia || 0) + "%" : ""}</span>
-                {rotuloDec && <span style={{ padding: "4px 10px", borderRadius: "999px", background: vBg, color: vColor, fontSize: "11px", fontWeight: 800 }}>{rotuloDec}</span>}
-                {sc && sc.melhorSetup && <span style={{ fontSize: "11px", color: T.textMuted }}>{sc.melhorSetup}</span>}
-              </div>
+              {/* qa/49 (v11): POSIÇÃO — resumo (em carteira · cotas · PM · resultado) */}
+              {pos && (
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "11.5px", padding: "6px 9px", background: T.bgBase, borderRadius: "8px", marginTop: "10px" }}>
+                  <span style={{ color: T.textSecondary }}>em carteira · {pos.qty} cotas · PM {price(pos.avg)}</span>
+                  {pnl != null && <span style={{ fontFamily: MONO, fontWeight: 800, color: pnl >= 0 ? T.positive : T.negative }}>{moneySigned(pnl)} · {pct(pnlPct)}</span>}
+                </div>
+              )}
+
+              {/* qa/49 (v11): MANCHETE ÚNICA — decisão da mesa (o veredito do plano,
+                  já conciliado por decisaoDoModo). Antes competia com o tier/COMPRAR. */}
+              {decM && (
+                <div style={{ marginTop: "11px", background: decBg, borderRadius: "9px", padding: "9px 11px" }}>
+                  <div style={{ fontSize: "10px", letterSpacing: "0.04em", color: decColor }}>{operador ? "DECISÃO DA MESA" : "PLANO EDUCACIONAL"}{pos ? " · você está comprado" : ""}</div>
+                  <div style={{ fontSize: "17px", fontWeight: 800, color: decColor }}>{decM}</div>
+                </div>
+              )}
+
+              {/* qa/49 (v11): ANÁLISE — indicadores unificados em chips (mesmo peso);
+                  confluência e fundamento deixam de ser vereditos concorrentes. */}
+              {(kp.direcao || (sc && sc.confluencia != null) || fscore || (sc && sc.melhorSetup)) && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "11px" }}>
+                  {kp.direcao && chip("direção", kp.direcao, (DIR_STYLE[kp.direcao] || [T.textPrimary])[0])}
+                  {kp.conviccao && chip("convicção", kp.conviccao)}
+                  {kp.qualidade && chip("qualidade", kp.qualidade)}
+                  {sc && sc.confluencia != null && chip("confluência", (sc.confluencia || 0) + "%", T.accent)}
+                  {fscore && chip("fundamento", fscore, T[SCORE_COLOR[fscore]] || T.textPrimary)}
+                  {sc && sc.melhorSetup && <span style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "999px", background: T.bgBase, color: T.textMuted }}>{sc.melhorSetup}</span>}
+                </div>
+              )}
+
+              {/* qa/49 (v11): POSIÇÃO NO RISCO — a régua reusada do card de posições. */}
+              {pos && (pos.stop != null || pos.alvo != null) && (
+                <>
+                  <PlanRuler
+                    caption="POSIÇÃO NO RISCO"
+                    marks={[pos.stop != null && { v: pos.stop, color: T.negative }, pos.alvo != null && { v: pos.alvo, color: T.positive }].filter(Boolean)}
+                    cur={cur}
+                    curLabel={cur != null ? "agora " + price(cur) : null}
+                    legend={[
+                      { k: "STOP", v: pos.stop, color: T.negative, sub: pos.stop != null && cur > 0 ? "−" + Math.abs(((cur - pos.stop) / cur) * 100).toFixed(1) + "%" : null },
+                      { k: "P. MÉDIO", v: pos.avg },
+                      { k: "ALVO", v: pos.alvo, color: T.positive, sub: pos.alvo != null && cur > 0 ? "+" + Math.abs(((pos.alvo - cur) / cur) * 100).toFixed(1) + "%" : null },
+                    ]}
+                  />
+                  {(rrPos != null || diasPos != null || pctCapPos != null) && (
+                    <div style={{ display: "flex", gap: "10px", fontSize: "10.5px", color: T.textSecondary, marginTop: "9px", flexWrap: "wrap" }}>
+                      {rrPos != null && <span>R:R <b style={{ color: T.textPrimary, fontWeight: 700 }}>{rrPos.toFixed(1)}</b></span>}
+                      {diasPos != null && <span>· {diasPos} dias</span>}
+                      {pctCapPos != null && <span>· {pctCapPos.toFixed(0)}% do patrimônio</span>}
+                    </div>
+                  )}
+                </>
+              )}
               {/* FASE 2 (2.3a): linha-resumo do histórico de operações do ativo */}
               {os.n > 0 && (
                 <button onClick={() => toggleOps(t)} aria-expanded={!!opsOpen[t]} style={{ marginTop: "8px", width: "100%", minHeight: "34px", padding: "7px 10px", borderRadius: "9px", border: `1px solid ${T.borderFaint}`, background: T.bgBase, color: T.textMuted, fontWeight: 700, fontSize: "11.5px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -2274,7 +2339,8 @@ function MercadoScreen({ ctx }) {
                 );
               })()}
 
-              {an.kpis && <KpiBlock kpis={an.kpis} operador={operador} />}
+              {/* qa/49 (v11): KpiBlock removido — decisão virou manchete única e
+                  direção/convicção/qualidade viraram chips no setor Análise. */}
               {an.loading && (
                 <div style={{ marginTop: "12px" }}>
                   <SweepGauge compact label={"Analisando " + t} steps={["consultando histórico", "calculando indicadores", "IA lendo as 5 famílias"]} />
