@@ -108,3 +108,30 @@ def test_contrato_de_dados_chega_ao_n1(monkeypatch):
         asyncio.run(llm.analyze_deep({"appMode": modo}, {}, "PETR4",
                                      {"snapshotId": "s1"}, {"setups": []}, modo=modo))
         assert "multiTimeframe" in seen["system"]  # CONTRATO_DADOS presente
+
+
+def test_didatica_so_no_estudo_e_ensina_correlacao():
+    """Feature didática (objetivo do produto): o modo Estudo ensina a cadeia
+    indicador→correlação→decisão; a mesa (operador) NÃO recebe a diretriz."""
+    assert "DIVERGEM" in skill_ref.DIDATICA and "confluenciaEntreFamilias" in skill_ref.DIDATICA
+    assert skill_ref.DIDATICA in llm.OPERADOR_EDUCACIONAL          # N1 estudo
+    assert skill_ref.DIDATICA not in llm.OPERADOR_PRO              # mesa não ensina, decide
+    # sem verbo de ordem (o guardião varre via OPERADOR_EDUCACIONAL, mas trava aqui também)
+    low = skill_ref.DIDATICA.lower()
+    assert "compre" not in low and "venda agora" not in low
+
+
+def test_didatica_no_system_do_estudo_nao_do_operador(monkeypatch):
+    """O caminho legado /api/analyze leva DIDATICA no Estudo e não no Operador."""
+    import asyncio
+    seen = {}
+
+    async def spy(config, key, system, user, max_tokens):
+        seen[config.get("appMode")] = system
+        return '{"direcao":"Alta","recomendacao":"Estudar alta","corpo":"x"}'
+    monkeypatch.setattr(llm, "_call_llm", spy)
+    monkeypatch.setattr(llm, "resolve_key", lambda cfg: "k")
+    asyncio.run(llm.analyze({"appMode": "estudo"}, {"text": "s"}, {}, {}, "PETR4", {}, {"candles": []}))
+    asyncio.run(llm.analyze({"appMode": "operador"}, {"text": "s"}, {}, {}, "PETR4", {}, {"candles": []}))
+    assert skill_ref.DIDATICA in seen["estudo"]
+    assert skill_ref.DIDATICA not in seen["operador"]

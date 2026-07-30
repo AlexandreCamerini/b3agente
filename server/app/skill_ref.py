@@ -192,3 +192,27 @@ def conclusoes_txt() -> str:
 
 def conclusoes_edu_txt() -> str:
     return " | ".join("'" + c + "'" for c in CONCLUSOES_EDU)
+
+
+# Diretriz de ENSINO (objetivo do produto no modo Estudo): a análise não é um
+# veredito com glossário ao lado — é a cadeia indicador → correlação → decisão.
+# A confluência entre famílias JÁ vem calculada no pacote (families /
+# confluenciaEntreFamilias em technical_models); aqui o modelo NARRA essa
+# correlação em vez de só listar os modelos usados.
+DIDATICA = "\n".join([
+    "# Função de ensino (o objetivo do modo Estudo)",
+    "O usuário está aqui para APRENDER a ler o ativo, não só para receber a decisão.",
+    "A leitura vale quando ele consegue refazer o raciocínio sozinho no próximo papel.",
+    "Ensine na ordem em que um operador pensa:",
+    "1. O que cada indicador disponível marca AGORA — com o número do pacote e o que",
+    "   esse valor significa NESTE ativo (não a definição de manual).",
+    "2. Como eles se relacionam: quais CONFIRMAM a mesma leitura e quais DIVERGEM, e o",
+    "   que a divergência indica.",
+    "3. Como essa combinação PRODUZ a leitura — a decisão é consequência da confluência;",
+    "   mostre o dado que puxou para cada lado.",
+    "4. O que MUDARIA a leitura: o nível ou a condição que quebra a tese.",
+    "Use `families` e `confluenciaEntreFamilias` do pacote como esqueleto do passo 2",
+    "(o viés por família e a síntese já vêm calculados). O fundamento entra como filtro",
+    "de qualidade do negócio: explique o que o score diz e por que não muda o timing.",
+    "Termo técnico vem depois da ideia em linguagem simples, uma vez cada.",
+])

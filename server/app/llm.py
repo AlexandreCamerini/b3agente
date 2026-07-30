@@ -297,6 +297,8 @@ LLM_TEMPERATURE = 0.2
 # SILÊNCIO: paga-se a escrita e nunca se lê. Por isso é condicional.
 _CACHE_MIN = {
     "claude-fable-5": 512,
+    "claude-mythos-5": 512,
+    "claude-opus-5": 512,
     "claude-opus-4-8": 1024,
     "claude-opus-4-7": 2048,
     "claude-opus-4-6": 4096,
@@ -552,7 +554,7 @@ async def analyze_structured(config: dict, skill: dict, profile: dict, account: 
             "Diferencie fato calculado, inferencia tecnica e incerteza. Seja direto e didatico para leitura em celular.",
             "Priorize contexto, risco, invalidacao, stop tecnico e nao-operacao quando os sinais forem conflitantes.",
         ])
-        system = (skill.get("text") or "") + "\n" + super_operator + "\n" + GUARDRAILS + ("\n" + pl if pl else "") + "\n" + FORMAT
+        system = (skill.get("text") or "") + "\n" + super_operator + "\n" + skill_ref.DIDATICA + "\n" + GUARDRAILS + ("\n" + pl if pl else "") + "\n" + FORMAT
     user = _build_structured_prompt(ticker, context, profile, account)
     raw = await _call_llm(config, key, system, user, 1800)
     if not raw:
@@ -587,7 +589,7 @@ async def analyze(config: dict, skill: dict, profile: dict, account: dict, ticke
     if operador:
         system = (skill.get("text") or "") + "\n" + GUARDRAILS_PRO + ("\n" + pl if pl else "") + "\n" + FORMAT_PRO
     else:
-        system = (skill.get("text") or "") + "\n" + GUARDRAILS + ("\n" + pl if pl else "") + "\n" + FORMAT
+        system = (skill.get("text") or "") + "\n" + skill_ref.DIDATICA + "\n" + GUARDRAILS + ("\n" + pl if pl else "") + "\n" + FORMAT
     user = _build_user_prompt(ticker, quote, history, profile, account)
     raw = await _call_llm(config, key, system, user, 1300)
     if not raw:
@@ -626,6 +628,8 @@ OPERADOR_EDUCACIONAL = "\n".join([
     skill_ref.PRINCIPIOS,
     "",
     skill_ref.ASSERTIVIDADE,
+    "",
+    skill_ref.DIDATICA,
     "",
     "# Vocabulário e limite regulatório do modo ESTUDO",
     "PROIBIDO verbo de ordem (compre/venda/entre agora) e a palavra 'recomendação'",

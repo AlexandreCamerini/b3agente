@@ -127,3 +127,14 @@ def test_anthropic_repete_sem_temperature_quando_deprecado(monkeypatch):
     assert out == "ok"
     assert len(chamadas) == 2                      # 1ª com temperature (400), 2ª sem
     assert "temperature" in chamadas[0] and "temperature" not in chamadas[1]
+
+
+def test_cache_min_cobre_todo_modelo_anthropic_do_catalogo():
+    """Gap achado ao otimizar o Modo Estudo: o listbox oferecia claude-opus-5 mas
+    ele não estava em _CACHE_MIN — gateway cai no ramo 'modelo desconhecido' e NÃO
+    cacheia em silêncio (paga input cheio por análise). Invariante: todo modelo
+    Anthropic ofertado ao usuário tem mínimo cacheável definido."""
+    from app import model_catalog
+    ofertados = {m["id"] for m in model_catalog.CATALOG.get("anthropic", [])}
+    faltando = ofertados - set(llm._CACHE_MIN)
+    assert not faltando, f"modelos no catálogo sem _CACHE_MIN (não cacheiam): {faltando}"
