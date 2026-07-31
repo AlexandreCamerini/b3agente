@@ -4,8 +4,10 @@ O que estes testes protegem:
   • trocar de fonte é CONFIGURAÇÃO (env), não refatoração — é o que torna o
     risco de depender do Yahoo sem contrato reversível barato;
   • o plano B falha ALTO e explica o que falta, em vez de existir meia-boca;
-  • o gatilho do plano B é um NÚMERO observável (taxa de não-200 > 2% em 3
-    pregões), não uma impressão — sem isso, "temos plano B" é conversa.
+  • o gatilho do plano B é um NÚMERO observável (taxa de FALHA > 2% em 3
+    pregões), não uma impressão — sem isso, "temos plano B" é conversa;
+  • FALHA inclui 200 com série VAZIA, não só não-200 — foi assim que o feed
+    de B3 sumiu em 31/07/2026, sem levantar um único erro.
 Offline: o provedor é injetável.
 """
 import asyncio
@@ -18,14 +20,17 @@ from app import candle_provider as cp
 class _Fake(cp.CandleProvider):
     nome = "yahoo"   # se passa pelo memo de get_provider()
 
-    def __init__(self, erro_em=()):
+    def __init__(self, erro_em=(), vazio_em=()):
         self.chamadas = []
         self.erro_em = set(erro_em)
+        self.vazio_em = set(vazio_em)   # 200 com série VAZIA — o caso de 31/07
 
     async def history(self, ticker, rng, interval="1d"):
         self.chamadas.append((ticker, rng, interval))
         if ticker in self.erro_em:
             raise RuntimeError("provedor fora do ar")
+        if ticker in self.vazio_em:
+            return {"t": ticker, "currency": "BRL", "candles": []}
         return {"t": ticker, "currency": "BRL",
                 "candles": [{"date": "2026-07-30", "open": 1, "high": 2, "low": 1, "close": 2, "volume": 10}]}
 
@@ -95,17 +100,17 @@ def test_gatilho_do_plano_b_e_um_numero():
     try:
         for _ in range(99):
             asyncio.run(cp.get_history("PETR4", "1d", "15m"))
-        assert cp.snapshot()["alerta"] is False          # 0 erros
+        assert cp.snapshot()["alerta"] is False          # 0 falhas
         with pytest.raises(RuntimeError):
             asyncio.run(cp.get_history("RUIM3", "1d", "15m"))
         s = cp.snapshot()
-        assert s["requisicoes"] == 100 and s["taxaErro"] == 0.01
+        assert s["requisicoes"] == 100 and s["taxaFalha"] == 0.01
         assert s["alerta"] is False                      # 1% < limiar
         for _ in range(2):
             with pytest.raises(RuntimeError):
                 asyncio.run(cp.get_history("RUIM3", "1d", "15m"))
         s = cp.snapshot()
-        assert s["taxaErro"] > cp._LIMIAR_ERRO and s["alerta"] is True
+        assert s["taxaFalha"] > cp._LIMIAR_ERRO and s["alerta"] is True
     finally:
         _limpa()
 
@@ -117,6 +122,60 @@ def test_amostra_pequena_nao_dispara_alarme():
         with pytest.raises(RuntimeError):
             asyncio.run(cp.get_history("RUIM3", "1d", "15m"))
         s = cp.snapshot()
-        assert s["taxaErro"] == 1.0 and s["alerta"] is False   # 1 requisição só
+        assert s["taxaFalha"] == 1.0 and s["alerta"] is False   # 1 requisição só
+    finally:
+        _limpa()
+
+
+def test_resposta_vazia_conta_como_falha():
+    """REGRESSÃO de 31/07/2026 — o pregão em que o alarme foi cego.
+
+    Naquele dia o Yahoo devolveu HTTP 200 em 360 requisições seguidas, com
+    `marketState: REGULAR` e ZERO velas de B3, por 2 horas de mercado aberto,
+    enquanto entregava AAPL em tempo real. Contando só não-200, a taxa ficava
+    em 0,00 e o alerta em `false`: a produção passaria o pregão sem dado
+    intraday e o painel diria que estava tudo bem.
+    """
+    _limpa()
+    cp.set_provider(_Fake(vazio_em={"PETR4"}))
+    try:
+        for _ in range(60):
+            out = asyncio.run(cp.get_history("PETR4", "1d", "15m"))
+            assert out["candles"] == []          # 200, sem exceção, série vazia
+        s = cp.snapshot()
+        assert s["erros"] == 0, "não houve não-200 — era exatamente esse o disfarce"
+        assert s["vazios"] == 60
+        assert s["falhas"] == 60 and s["taxaFalha"] == 1.0
+        assert s["alerta"] is True, "o gatilho do plano B TEM que disparar nesse cenário"
+    finally:
+        _limpa()
+
+
+def test_snapshot_mostra_a_idade_da_serie():
+    """Diagnóstico direto: uma última vela de ontem durante o pregão é feed
+    morto, qualquer que seja o status HTTP."""
+    _limpa()
+    cp.set_provider(_Fake())
+    try:
+        asyncio.run(cp.get_history("PETR4", "1d", "15m"))
+        dia = list(cp.snapshot()["porDia"].values())[0]
+        assert dia["15m"]["ultimaVela"] == "2026-07-30"
+    finally:
+        _limpa()
+
+
+def test_mistura_de_erro_e_vazio_soma_na_mesma_taxa():
+    _limpa()
+    cp.set_provider(_Fake(erro_em={"RUIM3"}, vazio_em={"VAZIO3"}))
+    try:
+        for _ in range(48):
+            asyncio.run(cp.get_history("PETR4", "1d", "15m"))
+        asyncio.run(cp.get_history("VAZIO3", "1d", "15m"))
+        with pytest.raises(RuntimeError):
+            asyncio.run(cp.get_history("RUIM3", "1d", "15m"))
+        s = cp.snapshot()
+        assert s["requisicoes"] == 50 and s["erros"] == 1 and s["vazios"] == 1
+        assert s["falhas"] == 2 and s["taxaFalha"] == 0.04
+        assert s["alerta"] is True          # 4% > 2%
     finally:
         _limpa()

@@ -33,23 +33,39 @@ from . import yahoo
 # deploy, como o `llm.usage_snapshot()`. Persistir isso custaria escrita em
 # disco para observar uma coisa que o próprio deploy reinicia.
 _JANELA_DIAS = 3          # a janela do gatilho do plano B
-_LIMIAR_ERRO = 0.02       # 2% de não-200 aciona a decisão
+_LIMIAR_ERRO = 0.02       # 2% de FALHA aciona a decisão
 
-_uso: dict = {}           # "AAAA-MM-DD" -> {intervalo: {req, erros, ms, velas}}
+# LIÇÃO DE 31/07/2026 — a primeira versão disto contava falha como "não-200" e
+# era CEGA para o que de fato aconteceu. Naquele pregão o Yahoo devolveu
+# HTTP 200 em 360 requisições seguidas, `marketState: REGULAR`, e ZERO velas de
+# B3 durante 2 horas de mercado aberto — enquanto entregava AAPL em tempo real.
+# A taxa de erro ficou em 0,00 e o alerta em `false`: o alarme detectava
+# bloqueio e não via a falha mais provável desta fonte, que é sumir em silêncio.
+# Resposta vazia agora CONTA como falha. Não existe caso legítimo em que o app
+# pede candles e zero candles está certo — ticker inexistente vem como 404, que
+# já era contado.
+_uso: dict = {}   # "AAAA-MM-DD" -> {intervalo: {req, erros, vazios, ms, velas, ultimaVela}}
 
 
 def _hoje() -> str:
     return time.strftime("%Y-%m-%d", time.localtime())
 
 
-def _registra(interval: str, ms: float, velas: int, erro: bool) -> None:
+def _registra(interval: str, ms: float, velas: int, erro: bool, ultima=None) -> None:
     dia = _uso.setdefault(_hoje(), {})
-    r = dia.setdefault(interval or "1d", {"req": 0, "erros": 0, "ms": 0.0, "velas": 0})
+    r = dia.setdefault(interval or "1d",
+                       {"req": 0, "erros": 0, "vazios": 0, "ms": 0.0, "velas": 0, "ultimaVela": None})
     r["req"] += 1
     r["ms"] += ms
     r["velas"] += velas
     if erro:
         r["erros"] += 1
+    elif velas == 0:
+        r["vazios"] += 1          # 200 sem série: o modo de falha de 31/07
+    if ultima:
+        # Idade da série é diagnóstico direto: uma última vela de ontem durante
+        # o pregão é feed morto, qualquer que seja o status HTTP.
+        r["ultimaVela"] = ultima
     # mantém só a janela do gatilho (+1 dia de folga para virada de data)
     for d in sorted(_uso.keys())[:-(_JANELA_DIAS + 1)]:
         del _uso[d]
@@ -63,21 +79,26 @@ def reset() -> None:
 def snapshot() -> dict:
     """Uso do fetch de candles, por dia e por intervalo, + o gatilho do plano B.
 
-    `alerta=True` significa: a taxa de erro passou do limiar na janela — hora de
-    reabrir a Decisão 1 do ADR-001, com número na mão.
+    FALHA = não-200 (bloqueio, 404, timeout) **ou** 200 com série vazia (o feed
+    sumiu em silêncio). `alerta=True` significa que a taxa passou do limiar na
+    janela — hora de reabrir a Decisão 1 do ADR-001, com número na mão.
     """
     dias = sorted(_uso.keys())[-_JANELA_DIAS:]
     req = sum(r["req"] for d in dias for r in _uso[d].values())
     erros = sum(r["erros"] for d in dias for r in _uso[d].values())
-    taxa = (erros / req) if req else 0.0
+    vazios = sum(r["vazios"] for d in dias for r in _uso[d].values())
+    falhas = erros + vazios
+    taxa = (falhas / req) if req else 0.0
     return {
         "provedor": provider_name(),
         "porDia": {d: {iv: {**r, "msMedio": round(r["ms"] / r["req"]) if r["req"] else 0}
                        for iv, r in _uso[d].items()} for d in dias},
         "janelaDias": _JANELA_DIAS,
         "requisicoes": req,
-        "erros": erros,
-        "taxaErro": round(taxa, 4),
+        "erros": erros,          # não-200
+        "vazios": vazios,        # 200 com zero velas
+        "falhas": falhas,
+        "taxaFalha": round(taxa, 4),
         "limiarAlerta": _LIMIAR_ERRO,
         "alerta": bool(req >= 50 and taxa > _LIMIAR_ERRO),
     }
@@ -177,5 +198,7 @@ async def get_history(ticker: str, rng: str = "1mo", interval: str = "1d") -> di
     except Exception:
         _registra(interval, (time.perf_counter() - t0) * 1000, 0, erro=True)
         raise
-    _registra(interval, (time.perf_counter() - t0) * 1000, len(out.get("candles") or []), erro=False)
+    velas = out.get("candles") or []
+    _registra(interval, (time.perf_counter() - t0) * 1000, len(velas), erro=False,
+              ultima=(velas[-1].get("date") if velas else None))
     return out
