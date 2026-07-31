@@ -351,9 +351,11 @@ continua valendo para os dois modos.
 1c.[ ] **Carimbo da barra na interface** — toda afirmação de timing mostra a
        barra e o horário de fechamento dela. Sem isso a frase insinua tempo
        real e vira falsa. Requisito da Decisão 2.
-1d.[ ] **Detectar lacuna na série intraday** — buraco de horas no meio do
-       pregão precisa ser visível (o de 31/07 não teria sido). Candidato:
-       comparar nº de velas recebidas com o esperado para o horário.
+1d.[x] ~~Detectar lacuna na série intraday~~ — FEITO: `candles.detectar_lacunas`
+       (início tardio, buracos no meio, cobertura), ligado ao `dataQuality` do
+       STU. Série furada derruba `tetoConfianca` para "baixa". Validado contra a
+       série real de 31/07 (cobertura 0,45, 11 velas faltando) e contra a de
+       30/07 (cobertura 1,0, sem lacuna).
 1b.[ ] **STU intraday calcula sobre velas FECHADAS** — descartar a última vela
        (a que o `merge_candles` revalida) e carimbar `snapshotAt` com a última
        barra fechada. Teste: gatilho não pode mudar entre duas leituras da mesma

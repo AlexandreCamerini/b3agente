@@ -135,6 +135,15 @@ def build(ticker: str, raw_candles: list, period: Optional[str], interval: str =
     ctx = technical_models.build_context(ticker, None, cs, model="completo", tail_n=k)
     first, last = sl["candles"][0], sl["candles"][-1]
     chg = ((last["close"] - first["close"]) / first["close"] * 100) if first.get("close") else 0.0
+    # ADR-001 (1d): série FURADA mente com cara de certa. A lacuna entra no
+    # dataQuality (que a IA já lê) e no topo do snapshot, para a UI poder avisar.
+    lacunas = candles_mod.detectar_lacunas(sl["candles"], interval)
+    if isinstance(ctx.get("dataQuality"), dict):
+        ctx["dataQuality"]["lacunaIntraday"] = lacunas["temLacuna"]
+        ctx["dataQuality"]["velasFaltando"] = lacunas["velasFaltando"]
+        if lacunas["temLacuna"]:
+            # Série furada não sustenta leitura confiante, por mais candles que tenha.
+            ctx["dataQuality"]["tetoConfianca"] = "baixa"
     sid = _snapshot_id(ticker, p, fp, interval or "1d")
     ctx["snapshotId"] = sid
     ctx["snapshotAt"] = last.get("date")
@@ -157,6 +166,7 @@ def build(ticker: str, raw_candles: list, period: Optional[str], interval: str =
         # ("barra das 11:30, fechada") em vez de insinuar tempo real.
         "asOf": last.get("date"),
         "barraEmFormacao": barra_em_formacao,
+        "lacunas": lacunas,
         "generatedAt": time.strftime("%Y-%m-%dT%H:%M:%S"),
         "candles": sl["candles"],
         "indicators": sl["indicators"],

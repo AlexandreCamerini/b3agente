@@ -54,6 +54,82 @@ def bars_per_session(interval: Optional[str]) -> int:
     return BARS_PER_SESSION.get((interval or DEFAULT_INTERVAL).strip().lower(), 1)
 
 
+# ADR-001 (item 1d) — LACUNA na série intraday.
+#
+# Em 31/07/2026 o feed de B3 do Yahoo passou as 3 primeiras horas do pregão sem
+# publicar nada e, quando voltou às 13:02, a manhã (10:00–12:45) NÃO foi
+# preenchida. A série ficou com um buraco de 2h45 e o app não tinha como saber:
+# a instrumentação detecta série VAZIA, não série FURADA. Indicador calculado
+# sobre série furada mente com cara de certo.
+ABERTURA_MIN = 10 * 60      # pregão da B3 abre às 10:00 BRT
+_TOLERANCIA = 1.5           # folga na grade: a vela em formação chega com o
+                            # timestamp do último negócio, fora do alinhamento
+INTERVALO_MIN = {"1m": 1, "2m": 2, "5m": 5, "15m": 15, "30m": 30,
+                 "60m": 60, "1h": 60, "90m": 90}
+
+
+def _minutos(date_str: str):
+    """"AAAA-MM-DD HH:MM" -> (data, minutos do dia). None se for diário."""
+    if not isinstance(date_str, str) or " " not in date_str:
+        return None
+    dia, hora = date_str.split(" ", 1)
+    try:
+        h, m = hora.split(":")[:2]
+        return dia, int(h) * 60 + int(m)
+    except (ValueError, IndexError):
+        return None
+
+
+def detectar_lacunas(candles: list, interval: Optional[str] = None) -> dict:
+    """Buracos na grade temporal da série intraday. PURO.
+
+    Olha só o ÚLTIMO pregão presente — é onde a lacuna importa para a decisão.
+    No diário devolve `temLacuna: False`: lá a grade tem feriado e pregão curto,
+    e cobrar regularidade daria falso positivo sem valor.
+    """
+    passo = INTERVALO_MIN.get((interval or "1d").strip().lower())
+    vazio = {"temLacuna": False, "buracos": [], "velasFaltando": 0,
+             "inicioTardio": None, "cobertura": None}
+    if not passo or not candles:
+        return vazio
+
+    pontos = [(_minutos(c.get("date")), c.get("date")) for c in candles]
+    pontos = [(p, d) for p, d in pontos if p]
+    if not pontos:
+        return vazio
+
+    ultimo_dia = pontos[-1][0][0]
+    sessao = [(p[1], d) for p, d in pontos if p[0] == ultimo_dia]
+    if not sessao:
+        return vazio
+
+    buracos = []
+    faltando = 0
+    for (m1, d1), (m2, d2) in zip(sessao, sessao[1:]):
+        salto = m2 - m1
+        if salto > passo * _TOLERANCIA:
+            n = max(1, round(salto / passo) - 1)
+            faltando += n
+            buracos.append({"de": d1, "ate": d2, "velasFaltando": n})
+
+    # Início tardio: a série do dia deveria começar na abertura.
+    primeiro = sessao[0][0]
+    tardio = None
+    if primeiro > ABERTURA_MIN + passo * _TOLERANCIA:
+        n = max(1, round((primeiro - ABERTURA_MIN) / passo))
+        faltando += n
+        tardio = sessao[0][1]
+
+    esperadas = max(1, round((sessao[-1][0] - ABERTURA_MIN) / passo) + 1)
+    return {
+        "temLacuna": bool(buracos or tardio),
+        "buracos": buracos[:5],
+        "velasFaltando": faltando,
+        "inicioTardio": tardio,
+        "cobertura": round(len(sessao) / esperadas, 3),
+    }
+
+
 def resolve_keep(period: Optional[str], interval: Optional[str] = None) -> int:
     """Quantas velas exibir/enviar para o período pedido, NO INTERVALO pedido.
 
