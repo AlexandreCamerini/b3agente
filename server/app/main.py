@@ -1045,6 +1045,29 @@ async def agent(body: dict = Body(default={}), scope: Optional[str] = Depends(cu
     return store.public_state(_conn, user_id=scope)
 
 
+async def _intraday_fetch(ticker: str, rng: str, interval: str):
+    """ADR-001 (item 7): fetch da passada intraday. Passa pelo provedor único,
+    então a instrumentação e o gatilho do plano B valem aqui também — é
+    justamente o caminho onde o feed de B3 sumiu em 31/07."""
+    return await candle_provider.get_history(ticker, rng=rng, interval=interval)
+
+
+@app.get("/api/intraday")
+async def intraday_pass(scope: Optional[str] = Depends(current_scope)):
+    """Última passada intraday (GLOBAL — o universo é o mesmo para todos).
+
+    Serve o ARMAZENADO, nunca dispara varredura: a passada é do laço, e um
+    endpoint que varre sob demanda transformaria custo O(1) em O(requisições).
+    """
+    from . import intraday as intraday_mod
+    stored = intraday_mod.get_stored(_conn)
+    if not stored:
+        return {"disponivel": False, "interval": intraday_mod.INTERVALO,
+                "motivo": "nenhuma passada ainda (roda dentro do pregão)",
+                "ultima": intraday_mod.LAST_PASS}
+    return {"disponivel": True, **stored}
+
+
 async def _snapshot_para_trailing(ticker: str):
     """F2: insumo técnico do trailing dinâmico (ATR e velas), pelo MESMO STU que
     N1/N2/N3 leem — nada de um segundo caminho de candles com outro número.
@@ -1215,7 +1238,8 @@ async def _start_agent_scheduler():
     asyncio.get_event_loop().create_task(
         agent_mod.scheduler_loop(_conn, yahoo.get_quotes, notify_push=_notify,
                                  radar_fetch=candle_provider.get_history,  # FASE 4 (1.3)
-                                 snapshot_getter=_snapshot_para_trailing)  # F2
+                                 snapshot_getter=_snapshot_para_trailing,  # F2
+                                 intraday_fetch=_intraday_fetch)  # ADR-001 item 7
     )
     # FASE 5 (lançamento): higiene de sessões — purga as expiradas no boot e a
     # cada 24h (o resolve_session já apaga lazy a sessão consultada; isto cobre

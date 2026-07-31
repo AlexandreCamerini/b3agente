@@ -46,6 +46,9 @@ _CYCLE_BUSY: set = set()          # escopos com ciclo em andamento
 # passou o intervalo DELE desde a última passada — assim cada conta escolhe a
 # frequência (default 15 min). A granularidade mínima é a cadência base.
 LAST_USER_RUN: dict = {}          # {uid: epoch da última passada efetiva}
+# ADR-001 (item 7): quando a última passada INTRADAY global rodou (monotonic).
+# Global e não por usuário — a passada é uma só para todo mundo.
+_LAST_INTRADAY: dict = {"ts": None}
 
 
 def _push_run_history(entry: dict):
@@ -353,7 +356,7 @@ def _avisar_protecao_sem_operador(conn) -> int:
 
 
 async def scheduler_loop(conn, quotes_getter, notify_push=None, interval_s: int = None, once: bool = False,
-                         radar_fetch=None, snapshot_getter=None):
+                         radar_fetch=None, snapshot_getter=None, intraday_fetch=None):
     """Laço do servidor: a cada N min (env B3_AGENT_INTERVAL_S), dentro do
     pregão e sem kill-switch, roda o ciclo de cada usuário habilitado.
     `notify_push(user_id, title, body)` (opcional) envia APNs por ação executada.
@@ -390,6 +393,16 @@ async def scheduler_loop(conn, quotes_getter, notify_push=None, interval_s: int 
                 from . import fundamentals, scanner  # import local: sem ciclo
                 await fundamentals.maybe_warm(conn, scanner.get_universe())
             if not kill_switch_on() and in_market_hours():
+                # ADR-001 (item 7): passada INTRADAY, GLOBAL, uma por acordar do
+                # laço. Roda ANTES do ciclo por usuário de propósito — assim o
+                # Radar intraday do pregão já está fresco quando cada usuário é
+                # avaliado. Custo O(1) em usuários (65 requisições, 0,45 s
+                # medidos), chave de cache e de armazenamento próprias: o
+                # caminho do Radar DIÁRIO não é tocado.
+                if intraday_fetch is not None:
+                    from . import intraday  # import local: sem ciclo de import
+                    if await intraday.maybe_run(conn, intraday_fetch, last_ts=_LAST_INTRADAY["ts"]):
+                        _LAST_INTRADAY["ts"] = time.monotonic()
                 # qa/41 (H6): durante o pregão, quem tem proteção armada e o
                 # Operador desligado é avisado no Diário (1x/dia). O laço passa
                 # por cima dessa gente por contrato — mas em silêncio ela achava

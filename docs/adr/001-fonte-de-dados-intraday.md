@@ -356,21 +356,25 @@ continua valendo para os dois modos.
        STU. Série furada derruba `tetoConfianca` para "baixa". Validado contra a
        série real de 31/07 (cobertura 0,45, 11 velas faltando) e contra a de
        30/07 (cobertura 1,0, sem lacuna).
-1b.[ ] **STU intraday calcula sobre velas FECHADAS** — descartar a última vela
+1b.[x] ~~STU intraday calcula sobre velas FECHADAS~~ — FEITO (`bd3d2db`). — descartar a última vela
        (a que o `merge_candles` revalida) e carimbar `snapshotAt` com a última
        barra fechada. Teste: gatilho não pode mudar entre duas leituras da mesma
        barra em formação.
-2. [ ] `merge_candles` chaveado por timestamp completo, no fuso da bolsa, com
+2. [x] ~~`merge_candles` chaveado por timestamp completo~~ — FEITO (`0425617`):, no fuso da bolsa, com
        teste que prove que 617 velas de `15m × 1mo` continuam 617.
-3. [ ] Intervalo na identidade do snapshot (`_snapshot_id` e `_SNAP_CACHE`), com
+3. [x] ~~Intervalo na identidade do snapshot~~ — FEITO (`0425617`): (`_snapshot_id` e `_SNAP_CACHE`), com
        teste de colisão diário × intraday.
-4. [ ] `candle_cache` aceita modo sem L2 (intraday memória-apenas), preservando o
+4. [x] ~~`candle_cache` sem L2 no intraday~~ — FEITO (`0425617`): (intraday memória-apenas), preservando o
        write-through do diário.
-5. [ ] Interface `CandleProvider` com o Yahoo como implementação única; brapi Pro
+5. [x] ~~Interface `CandleProvider`~~ — FEITO (`ce840d7`): com o Yahoo como implementação única; brapi Pro
        documentada, não implementada.
-6. [ ] Instrumentar o fetch intraday em `/api/obs/usage` (requisições, não-200,
+6. [x] ~~Instrumentar o fetch intraday~~ — FEITO (`ce840d7` + `39f2910`): em `/api/obs/usage` (requisições, não-200,
        latência) — é o gatilho da Decisão 1.
-7. [ ] Passada intraday no `scheduler_loop`, global, dentro de `in_market_hours()`,
-       sem tocar o caminho do Radar diário.
-8. [ ] `scripts/masstest-agentes.py` com 0 violações antes e depois.
+7. [x] ~~Passada intraday no `scheduler_loop`~~ — FEITO: `app/intraday.py`,
+       global, 15m canônico, dentro de `in_market_hours()`, gap mínimo de 240 s,
+       kill switch próprio (`B3_INTRADAY_OFF`) e endpoint `/api/intraday` que
+       serve o ARMAZENADO (varrer sob demanda viraria custo O(requisições)).
+       Validado com dado real: 5 ativos em 1,83 s, asOf na barra fechada,
+       lacuna detectada (cobertura 0,5 no pregão quebrado de 31/07).
+8. [x] ~~`scripts/masstest-agentes.py` com 0 violações~~ — conferido a cada entrega: antes e depois.
 9. [ ] Item separado, fora deste ADR: os 9 ativos que o Yahoo não serve.
