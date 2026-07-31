@@ -1,0 +1,29 @@
+Using SSH key from file /Users/acamerini/.ssh/bora_railway_ed25519.pub: acamerini@Alexandres-MacBook-Pro.local
+======================================================================
+MEDIÇÃO YAHOO — DE DENTRO DA RAILWAY · modo=bloqueio
+2026-07-31 00:28:12Z · universo: 65 ativos (app.scanner) · teto: 300 requisições · aborta no 1º 429/401/403
+======================================================================
+
+[0] Identidade de saída
+    IP visto de fora: 152.55.177.38 · região: sfo
+    sessão: cookie=sim crumb=sim (via app.yahoo)
+
+[1] Uma requisição (15m × 1d, PETR4)
+    status=200 velas=29 50ms 3.7KB
+
+[2] Cinco requisições sequenciais (linha de base de latência)
+    p50=50ms max=64ms (residencial em 30/07: p50 173ms)
+
+[3] Uma rodada do universo (65 ativos) na concorrência de HOJE (4)
+    65/65 ok em 0.89s p50=50ms p95=82ms status={200: 65}
+
+[4] Mesma rodada a conc=8 e conc=16 (o que o laço intraday usaria)
+    conc=8   65/65 ok em 0.45s p50=49ms p95=97ms status={200: 65}
+    conc=16  65/65 ok em 0.26s p50=49ms p95=79ms status={200: 65}
+
+[5] Sustentado: 1 rodada(s) seguida(s) a conc=8 (simula 5 min do laço de 5 min)
+    rodada 1: 65/65 ok em 0.42s p50=49ms status={200: 65}
+
+======================================================================
+TOTAL: 266 requisições em 19.0s · sem bloqueio nos degraus executados
+JSON>>> {"modo": "bloqueio", "quando_utc": "2026-07-31T00:28:12+00:00", "dados": {"ip": "152.55.177.38", "regiao": "sfo", "degrau1": {"status": 200, "ms": 49.982357770204544, "bytes": 3741, "n": 29, "ultimo": 1785441600}, "degrau2": {"p50_ms": 50, "max_ms": 64}, "degrau3": {"wall_s": 0.89, "status": {"200": 65}, "p50_ms": 50, "p95_ms": 82, "bytes": 246280, "ok": 65}, "degrau4": {"8": {"wall_s": 0.45, "status": {"200": 65}, "p50_ms": 49, "p95_ms": 97, "bytes": 246280, "ok": 65}, "16": {"wall_s": 0.26, "status": {"200": 65}, "p50_ms": 49, "p95_ms": 79, "bytes": 246280, "ok": 65}}, "degrau5": [{"wall_s": 0.42, "status": {"200": 65}, "p50_ms": 49, "p95_ms": 97, "bytes": 246280, "ok": 65}]}, "veredito": "sem bloqueio nos degraus executados", "requisicoes": 266, "parede_s": 19.0}

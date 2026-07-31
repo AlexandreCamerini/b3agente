@@ -39,3 +39,7 @@ ESPEC-Modo-Estudo-Ensino-otimizado.md
 # ferramentas locais do Claude Code (launch.json de preview, worktrees, sessão)
 # — nunca versionar; evita o git add -A do entregar.sh varrer pro commit.
 .claude/
+
+# saídas das medições pontuais do Yahoo (scripts/medir-yahoo-*) — evidência
+# fica em docs/ quando vale guardar; o resto é rascunho de execução.
+medicao-railway-*.txt
