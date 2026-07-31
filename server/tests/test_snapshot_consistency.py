@@ -147,3 +147,52 @@ if __name__ == "__main__":
     print()
     print("TODOS OS TESTES DE CONSISTÊNCIA DO SNAPSHOT PASSARAM" if fails == 0 else str(fails) + " TESTE(S) FALHARAM")
     sys.exit(0 if fails == 0 else 1)
+
+
+# ---------------------------------------------------------------------------
+# ADR-001 (Decisão 5) — o INTERVALO faz parte da identidade do snapshot.
+# Sem isso, diário e intraday do mesmo ativo disputam a mesma entrada de cache
+# e o snapshotId que amarra N1/N2/N3 não diz de qual timeframe veio a leitura.
+# ---------------------------------------------------------------------------
+
+def _mk_intraday(n=120):
+    """Velas de 15m do MESMO dia — a chave carrega o horário (yahoo._candle_key)."""
+    out = []
+    for i in range(n):
+        base = 40 + i * 0.05
+        h, m = 10 + (i // 4), (i % 4) * 15
+        out.append({"date": f"2026-07-30 {h % 24:02d}:{m:02d}",
+                    "open": base, "high": base + 0.2, "low": base - 0.2,
+                    "close": base + 0.05, "volume": 5000 + i})
+    return out
+
+
+def test_intervalo_entra_na_identidade_do_snapshot():
+    _reset_caches()
+    diario = technical_snapshot.build("TESTE3", _mk_candles(), "6mo")
+    intra = technical_snapshot.build("TESTE3", _mk_intraday(), "6mo", interval="15m")
+    assert diario["snapshotId"] != intra["snapshotId"], "ids não podem colidir entre timeframes"
+    assert diario["interval"] == "1d" and intra["interval"] == "15m"
+
+
+def test_intraday_nao_despeja_o_snapshot_diario_do_cache():
+    """A colisão real: com a chave (ticker, período), pedir o intraday
+    invalidava o snapshot diário e vice-versa, num vaivém a cada ciclo."""
+    _reset_caches()
+    cs = _mk_candles()
+    d1 = technical_snapshot.build("TESTE3", cs, "6mo")
+    technical_snapshot.build("TESTE3", _mk_intraday(), "6mo", interval="15m")
+    d2 = technical_snapshot.build("TESTE3", list(cs), "6mo")
+    assert d2 is d1, "o snapshot diário tem que continuar em cache, intocado"
+
+
+def test_id_do_diario_nao_muda_com_a_entrada_do_parametro():
+    """Compatibilidade: o snapshotId de tudo que já existe não pode mudar — ele
+    aparece na UI e em análises gravadas. Por isso o intervalo só entra no hash
+    quando NÃO é diário."""
+    _reset_caches()
+    cs = _mk_candles()
+    explicito = technical_snapshot.build("TESTE3", cs, "6mo", interval="1d")
+    _reset_caches()
+    implicito = technical_snapshot.build("TESTE3", cs, "6mo")
+    assert explicito["snapshotId"] == implicito["snapshotId"]

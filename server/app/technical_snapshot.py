@@ -47,8 +47,16 @@ def _fingerprint(cs: list, keep: int) -> str:
     ))
 
 
-def _snapshot_id(ticker: str, period: str, fp: str) -> str:
-    raw = json.dumps([ticker, period, fp], ensure_ascii=False, separators=(",", ":"))
+def _snapshot_id(ticker: str, period: str, fp: str, interval: str = "1d") -> str:
+    """ADR-001 (Decisão 5): o INTERVALO entra na identidade.
+
+    Sem ele, um snapshot diário e um intraday do mesmo ativo e período geram
+    ids que não se distinguem, e o `snapshotId` que amarra N1/N2/N3 não diz de
+    qual timeframe veio a leitura — a "contradição entre camadas" que o
+    masstest existe para pegar. O default "1d" mantém o id de todo o app
+    inalterado (o argumento nem entra no hash quando é diário)."""
+    campos = [ticker, period, fp] if (interval or "1d") == "1d" else [ticker, period, fp, interval]
+    raw = json.dumps(campos, ensure_ascii=False, separators=(",", ":"))
     return hashlib.sha1(raw.encode("utf-8")).hexdigest()[:8]
 
 
@@ -62,7 +70,7 @@ def _compact_setups(sres: dict) -> list:
     return out
 
 
-def build(ticker: str, raw_candles: list, period: Optional[str]) -> dict:
+def build(ticker: str, raw_candles: list, period: Optional[str], interval: str = "1d") -> dict:
     """Constrói (ou reaproveita, se o insumo não mudou) o STU de um ativo.
 
     Puro em relação à rede: recebe os candles crus (de candle_cache/testes) e
@@ -74,7 +82,9 @@ def build(ticker: str, raw_candles: list, period: Optional[str]) -> dict:
     if not cs:
         raise ValueError("sem histórico para " + ticker)
     fp = _fingerprint(cs, keep_req)
-    key = (ticker, p)
+    # ADR-001: o intervalo faz parte da CHAVE do cache de snapshot. Antes,
+    # (ticker, período) fazia diário e intraday disputarem a mesma entrada.
+    key = (ticker, p, interval or "1d")
     hit = _SNAP_CACHE.get(key)
     if hit is not None and hit.get("_fingerprint") == fp:
         return hit
@@ -90,7 +100,7 @@ def build(ticker: str, raw_candles: list, period: Optional[str]) -> dict:
     ctx = technical_models.build_context(ticker, None, cs, model="completo", tail_n=k)
     first, last = sl["candles"][0], sl["candles"][-1]
     chg = ((last["close"] - first["close"]) / first["close"] * 100) if first.get("close") else 0.0
-    sid = _snapshot_id(ticker, p, fp)
+    sid = _snapshot_id(ticker, p, fp, interval or "1d")
     ctx["snapshotId"] = sid
     ctx["snapshotAt"] = last.get("date")
     ctx["setupsRadar"] = {  # N2 lê os MESMOS setups que o Radar exibiu
@@ -104,6 +114,7 @@ def build(ticker: str, raw_candles: list, period: Optional[str]) -> dict:
         "_fingerprint": fp,
         "ticker": ticker,
         "period": p,
+        "interval": interval or "1d",
         "periodBars": k,
         "asOf": last.get("date"),
         "generatedAt": time.strftime("%Y-%m-%dT%H:%M:%S"),
@@ -121,9 +132,11 @@ def build(ticker: str, raw_candles: list, period: Optional[str]) -> dict:
     return snapshot
 
 
-async def get(ticker: str, period: Optional[str], loader) -> dict:
+async def get(ticker: str, period: Optional[str], loader, interval: str = "1d") -> dict:
     """STU cache-first via candle_cache. `loader(rng)` é o fetch injetado
-    (produção: lambda rng: yahoo.get_history(t, rng=rng); testes: fake)."""
-    hist = await candle_cache.load(ticker, loader)
-    snap = build(ticker, hist.get("candles") or [], period)
+    (produção: lambda rng: yahoo.get_history(t, rng=rng); testes: fake).
+
+    `interval` segmenta cache de candles E identidade do snapshot (ADR-001)."""
+    hist = await candle_cache.load(ticker, loader, interval=interval or "1d")
+    snap = build(ticker, hist.get("candles") or [], period, interval=interval or "1d")
     return {**snap, "currency": hist.get("currency", "BRL"), "cacheStatus": hist.get("cacheStatus")}

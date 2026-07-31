@@ -30,6 +30,38 @@ RECENT_RANGE = "1mo"   # janela buscada nas próximas vezes (delta + revalidaç�
 _MAX = 600             # ~2,4 anos de pregões; teto de tamanho
 _MIN_DELTA_INTERVAL = 45.0  # não rebusca o delta se atualizou há < 45s
 
+# ADR-001 — janelas POR INTERVALO. Pedir `2y` com `5m` devolve HTTP 422, e
+# `max` com intervalo intraday devolve velas MENSAIS com status 200 (medido em
+# 30/07/2026). Os limites abaixo são os máximos REAIS que o Yahoo aceita, com
+# folga para SMA200/EMA72 na carga fria.
+_RANGES = {
+    "1m":  ("7d", "1d"),     # 1m só vai até 7 dias
+    "2m":  ("1mo", "1d"),
+    "5m":  ("1mo", "1d"),
+    "15m": ("1mo", "1d"),
+    "30m": ("1mo", "1d"),
+    "90m": ("1mo", "1d"),
+    "60m": ("6mo", "5d"),    # horário aceita até 2y; 6mo já dá 855 velas
+    "1h":  ("6mo", "5d"),
+}
+
+
+def ranges_for(interval: str) -> tuple:
+    """(janela cheia, janela do delta) do intervalo. Default = diário."""
+    return _RANGES.get(interval or "1d", (FULL_RANGE, RECENT_RANGE))
+
+
+def persiste_no_l2(interval: str) -> bool:
+    """ADR-001 (Decisão 4): o L2 é SÓ do diário.
+
+    O L2 existe para não rebaixar 2 anos de candles diários a cada redeploy.
+    Essa razão não transfere para o intraday, onde a janela cheia é UMA
+    requisição: reidratar o universo inteiro custou 0,45 s medidos da produção.
+    Persistir custaria 1,65 GB/dia de reescrita (o blob inteiro é regravado a
+    cada update) para poupar esse 0,45 s. Intraday vive só no L1.
+    """
+    return (interval or "1d") not in ("1m", "2m", "5m", "15m", "30m", "60m", "90m", "1h")
+
 _CACHE: dict = {}      # "SYMBOL@interval" -> {"candles":[...], "currency":str, "at":float}
 
 # ------------------------- L2 persistente (SQLite) --------------------------
@@ -87,8 +119,15 @@ def _key(symbol: str, interval: str) -> str:
 
 
 def merge_candles(old: list, new: list) -> list:
-    """Funde mantendo 1 candle por data; `new` SOBRESCREVE `old` na mesma data
-    (revalida o último/atual). Resultado ordenado por data, sem fabricar nada."""
+    """Funde mantendo 1 candle por CHAVE; `new` SOBRESCREVE `old` na mesma
+    chave (revalida o último/atual). Ordenado pela chave, sem fabricar nada.
+
+    A chave é o campo `date`, cuja RESOLUÇÃO acompanha o intervalo: "AAAA-MM-DD"
+    no diário e "AAAA-MM-DD HH:MM" (fuso da bolsa) no intraday — ver
+    `yahoo._candle_key`. Com data sozinha, 617 velas de 15m viravam 22 chaves e
+    96% dos candles sumiam em silêncio. Os dois formatos ordenam
+    lexicograficamente na ordem cronológica, e nunca se misturam na mesma
+    entrada porque a chave do cache já segmenta por intervalo."""
     by_date = {}
     for c in old or []:
         d = c.get("date")
@@ -124,11 +163,14 @@ async def load(
     """
     t = now if now is not None else time.time()
     k = _key(symbol, interval)
+    full_range, recent_range = ranges_for(interval)
+    l2 = persiste_no_l2(interval)
     ent = _CACHE.get(k)
 
     # FASE 5: L1 vazio => tenta reidratar do L2 (SQLite). Série persistida entra
     # como cache existente: o fluxo abaixo busca só o DELTA recente, não os 2 anos.
-    if (not ent or not ent.get("candles")):
+    # ADR-001: intraday não usa L2 nem na leitura — reidratar custa 1 requisição.
+    if l2 and (not ent or not ent.get("candles")):
         persisted = _db_get(k)
         if persisted:
             _CACHE[k] = ent = persisted
@@ -138,17 +180,20 @@ async def load(
         # 1 retry em janela menor (símbolos com histórico curto/instável no Yahoo)
         # e, persistindo, erro LIMPO e amigável para a UI exibir no card.
         try:
-            full = await fetch(FULL_RANGE)
+            full = await fetch(full_range)
         except Exception:  # noqa: BLE001
             try:
-                full = await fetch("1y")
+                # Retry em janela menor. No diário era "1y"; no intraday a
+                # janela menor é a do delta — "1y" com 5m só devolveria 422.
+                full = await fetch("1y" if l2 else recent_range)
             except Exception:  # noqa: BLE001
                 raise ValueError(
                     f"Sem histórico disponível para {symbol} no provedor de dados — tente novamente mais tarde ou avalie outro ativo."
                 )
         candles = (full.get("candles") or [])[-_MAX:]
         _CACHE[k] = {"candles": candles, "currency": full.get("currency", "BRL"), "at": t}
-        _db_put(k, _CACHE[k])  # FASE 5: write-through no L2 (sobrevive a redeploy)
+        if l2:
+            _db_put(k, _CACHE[k])  # FASE 5: write-through no L2 (sobrevive a redeploy)
         return {"t": symbol, "currency": _CACHE[k]["currency"], "candles": candles, "cacheStatus": "miss"}
 
     # já atualizado há pouco: serve do cache sem bater no provedor
@@ -158,7 +203,7 @@ async def load(
     # cache hit: busca só a janela recente, funde e revalida o último candle.
     # BLOCO A1: falha do delta NÃO derruba — serve o cache existente (stale).
     try:
-        recent = await fetch(RECENT_RANGE)
+        recent = await fetch(recent_range)
     except Exception:  # noqa: BLE001
         return {"t": symbol, "currency": ent.get("currency", "BRL"), "candles": ent["candles"], "cacheStatus": "stale"}
     merged = merge_candles(ent["candles"], recent.get("candles") or [])[-_MAX:]
@@ -166,5 +211,6 @@ async def load(
     ent["at"] = t
     if recent.get("currency"):
         ent["currency"] = recent["currency"]
-    _db_put(k, ent)  # FASE 5: write-through no L2
+    if l2:
+        _db_put(k, ent)  # FASE 5: write-through no L2
     return {"t": symbol, "currency": ent.get("currency", "BRL"), "candles": merged, "cacheStatus": "delta"}

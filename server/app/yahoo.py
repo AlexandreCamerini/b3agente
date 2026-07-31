@@ -190,25 +190,58 @@ def _round(x):
     return round(x, 2) if isinstance(x, (int, float)) else None
 
 
-async def get_history(ticker: str, rng: str = "1mo") -> dict:
+# Intervalos em que UM DIA tem VÁRIAS velas. Neles a data sozinha não
+# identifica a vela: 617 velas de `15m x 1mo` colapsam em 22 chaves (medido em
+# 30/07/2026). A identidade precisa carregar o HORÁRIO.
+INTRADAY_INTERVALS = {"1m", "2m", "5m", "15m", "30m", "60m", "90m", "1h"}
+
+
+def _candle_key(epoch: int, interval: str, gmtoffset) -> str:
+    """Identidade da vela.
+
+    Diário (e acima): "AAAA-MM-DD" — inalterado, é o que o app inteiro já usa.
+    Intraday: "AAAA-MM-DD HH:MM" no FUSO DA BOLSA, não em UTC. O `gmtoffset`
+    vem do próprio Yahoo (America/Sao_Paulo, -10800); sem ele, cai em -3h, que
+    é o horário da B3. Ordena lexicograficamente na ordem cronológica, então
+    `merge_candles` continua podendo ordenar por string.
+    """
+    if interval not in INTRADAY_INTERVALS:
+        return time.strftime("%Y-%m-%d", time.gmtime(epoch))
+    off = gmtoffset if isinstance(gmtoffset, (int, float)) else -10800
+    return time.strftime("%Y-%m-%d %H:%M", time.gmtime(epoch + off))
+
+
+async def get_history(ticker: str, rng: str = "1mo", interval: str = "1d") -> dict:
     async with httpx.AsyncClient(timeout=20, follow_redirects=True) as client:
-        data = await _yfetch(client, "/v8/finance/chart/" + yahoo_symbol(ticker), {"range": rng, "interval": "1d"})
+        data = await _yfetch(client, "/v8/finance/chart/" + yahoo_symbol(ticker),
+                             {"range": rng, "interval": interval, "includePrePost": "false"})
     result = ((data.get("chart") or {}).get("result") or [None])[0]
     if not result:
         raise RuntimeError("Yahoo: sem historico para " + ticker)
+    meta = result.get("meta") or {}
+    # O Yahoo aceita `range=max` com intervalo intraday e devolve HTTP 200 com
+    # velas MENSAIS (dataGranularity=1mo) — degrada em silêncio. Recusar aqui é
+    # melhor que servir dado mensal rotulado como intraday.
+    gran = meta.get("dataGranularity")
+    if interval in INTRADAY_INTERVALS and gran and gran != interval and not (
+            interval in ("60m", "1h") and gran in ("60m", "1h")):
+        raise RuntimeError(
+            f"Yahoo devolveu granularidade '{gran}' para o intervalo '{interval}' "
+            f"de {ticker} (range={rng}) — dado fora do pedido, descartado.")
     ts = result.get("timestamp") or []
     q = ((result.get("indicators") or {}).get("quote") or [{}])[0]
+    off = meta.get("gmtoffset")
     candles = []
     for i, t in enumerate(ts):
         close = (q.get("close") or [None] * len(ts))[i]
         if close is None:
             continue
         candles.append({
-            "date": time.strftime("%Y-%m-%d", time.gmtime(t)),
+            "date": _candle_key(t, interval, off),
             "open": _round((q.get("open") or [None] * len(ts))[i]),
             "high": _round((q.get("high") or [None] * len(ts))[i]),
             "low": _round((q.get("low") or [None] * len(ts))[i]),
             "close": _round(close),
             "volume": (q.get("volume") or [None] * len(ts))[i],
         })
-    return {"t": ticker, "currency": (result.get("meta") or {}).get("currency", "BRL"), "candles": candles}
+    return {"t": ticker, "currency": meta.get("currency", "BRL"), "candles": candles}

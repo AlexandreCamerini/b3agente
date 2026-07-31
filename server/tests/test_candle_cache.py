@@ -221,3 +221,83 @@ if __name__ == "__main__":
             fn()
             print("ok", name)
     print("TODOS OS TESTES DE CACHE DE CANDLES PASSARAM")
+
+
+# ---------------------------------------------------------------------------
+# ADR-001 — janelas por intervalo e L2 só do diário (itens 5 e 7 do backlog)
+# ---------------------------------------------------------------------------
+
+def test_ranges_por_intervalo_respeitam_o_limite_real_do_yahoo():
+    """Medido em 30/07/2026: `2y` com `5m` dá HTTP 422 e `1m` só vai até 7d.
+    Pedir a janela do diário no intraday seria erro garantido."""
+    assert cc.ranges_for("1d") == (cc.FULL_RANGE, cc.RECENT_RANGE)
+    assert cc.ranges_for(None) == (cc.FULL_RANGE, cc.RECENT_RANGE)
+    assert cc.ranges_for("1m") == ("7d", "1d")       # 1mo com 1m → 422
+    assert cc.ranges_for("5m") == ("1mo", "1d")
+    assert cc.ranges_for("15m") == ("1mo", "1d")
+    assert cc.ranges_for("1h") == ("6mo", "5d")
+
+
+def test_intraday_nao_persiste_no_l2():
+    """ADR-001 (Decisão 4): persistir intraday custaria 1,65 GB/dia de
+    reescrita (o blob inteiro é regravado a cada update) para poupar 0,45 s de
+    reidratação. O diário continua com write-through."""
+    conn = _fresh_l2()
+    cc.reset()
+    cc.configure_db(conn)
+    try:
+        assert cc.persiste_no_l2("1d") is True
+        assert cc.persiste_no_l2("5m") is False
+        assert cc.persiste_no_l2("1m") is False
+
+        async def fetch(rng):
+            return {"currency": "BRL", "candles": [_c(f"2026-05-30 1{i}:00", 10 + i) for i in range(5)]}
+
+        asyncio.run(cc.load("PETR4", fetch, interval="5m", now=1000.0))
+        # nada foi para o SQLite...
+        assert cc._db_get("PETR4@5m") is None
+        # ...e o "redeploy" refaz a série cheia, sem reidratar
+        cc._CACHE.clear()
+        janelas = []
+
+        async def fetch2(rng):
+            janelas.append(rng)
+            return {"currency": "BRL", "candles": [_c("2026-05-30 10:00", 10)]}
+
+        r = asyncio.run(cc.load("PETR4", fetch2, interval="5m", now=2000.0))
+        assert r["cacheStatus"] == "miss"
+        assert janelas == ["1mo"]        # janela CHEIA do 5m, não a do diário
+    finally:
+        cc.configure_db(None)
+        cc.reset()
+
+
+def test_diario_continua_persistindo():
+    """Guardião de não-regressão: o L2 do diário é a razão de o módulo existir."""
+    conn = _fresh_l2()
+    cc.reset()
+    cc.configure_db(conn)
+    try:
+        async def fetch(rng):
+            return {"currency": "BRL", "candles": [_c(f"2026-05-{i:02d}", 10 + i) for i in range(1, 6)]}
+
+        asyncio.run(cc.load("VALE3", fetch, now=1000.0))
+        assert cc._db_get("VALE3@1d") is not None
+    finally:
+        cc.configure_db(None)
+        cc.reset()
+
+
+def test_merge_nao_colapsa_velas_intraday_do_mesmo_dia():
+    """O bloqueador medido: com `date` sem horário, 617 velas de 15m viravam 22
+    chaves. Com a chave completa, 26 velas do MESMO dia continuam 26."""
+    dia = "2026-07-30"
+    velas = [_c(f"{dia} {10 + i // 4:02d}:{(i % 4) * 15:02d}", 40 + i * 0.1) for i in range(26)]
+    m = cc.merge_candles([], velas)
+    assert len(m) == 26
+    assert len({c["date"] for c in m}) == 26
+    # ordenação cronológica pela string
+    assert m[0]["date"] == f"{dia} 10:00" and m[-1]["date"] == f"{dia} 16:15"
+    # revalidação da última vela continua funcionando na resolução de minuto
+    m2 = cc.merge_candles(m, [_c(f"{dia} 16:15", 99)])
+    assert len(m2) == 26 and m2[-1]["close"] == 99
