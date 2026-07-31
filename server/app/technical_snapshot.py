@@ -77,7 +77,9 @@ def build(ticker: str, raw_candles: list, period: Optional[str], interval: str =
     deriva tudo deterministicamente. Levanta ValueError sem histórico válido.
     """
     p = candles_mod.normalize_period(period)
-    keep_req = candles_mod.resolve_keep(p)
+    # ADR-002 (Decisão 3): a janela é contada em VELAS DO INTERVALO, não em
+    # pregões — senão "1mo" com 15m entregava 22 velas (5,5h) em vez de um mês.
+    keep_req = candles_mod.resolve_keep(p, interval)
     cs = indicators.sanitize_candles(raw_candles or [])
     if not cs:
         raise ValueError("sem histórico para " + ticker)

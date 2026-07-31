@@ -70,3 +70,35 @@ if __name__ == "__main__":
             fn()
             print("ok", name)
     print("TODOS OS TESTES DE PERIODO DE CANDLES PASSARAM")
+
+
+# ---------------------------------------------------------------------------
+# ADR-002 (Decisão 3) — a janela é contada em VELAS DO INTERVALO, não em pregões
+# ---------------------------------------------------------------------------
+
+def test_resolve_keep_diario_inalterado():
+    """Compatibilidade dura: o diário é o caminho de produção de hoje."""
+    for p, esperado in (("1mo", 22), ("3mo", 66), ("6mo", 126), ("1y", 252), ("2y", 504)):
+        assert cm.resolve_keep(p) == esperado
+        assert cm.resolve_keep(p, "1d") == esperado
+        assert cm.resolve_keep(p, None) == esperado
+
+
+def test_resolve_keep_intraday_conta_velas_e_nao_pregoes():
+    """A armadilha medida: com 15m, 'ver 1mo' entregava 22 velas de 15 minutos
+    — 5,5 HORAS de contexto para quem pediu um mês, sem erro nenhum."""
+    assert cm.resolve_keep("1mo", "15m") == 22 * 29     # 638 velas, não 22
+    assert cm.resolve_keep("1mo", "5m") == 22 * 85
+    assert cm.resolve_keep("1mo", "30m") == 22 * 15
+    assert cm.resolve_keep("6mo", "60m") == 126 * 8
+    # 22 velas de 15m seriam menos de um pregão — o bug em uma linha
+    assert cm.resolve_keep("1mo", "15m") > cm.bars_per_session("15m")
+
+
+def test_bars_per_session_bate_com_a_medicao():
+    """Medido no Yahoo em 30/07/2026 (PETR4, pregão 10:00–17:00 BRT)."""
+    assert cm.bars_per_session("1m") == 418
+    assert cm.bars_per_session("15m") == 29
+    assert cm.bars_per_session("1d") == 1
+    assert cm.bars_per_session("60m") == cm.bars_per_session("1h") == 8
+    assert cm.bars_per_session("desconhecido") == 1     # degrada como diário

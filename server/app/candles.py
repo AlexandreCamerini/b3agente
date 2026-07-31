@@ -31,15 +31,36 @@ FETCH_RANGE = "2y"        # warmup fixo para médias longas (recorta-se depois)
 VALID_INTERVALS = ("1d", "1wk")
 DEFAULT_INTERVAL = "1d"
 
+# ADR-002 (Decisão 3) — quantas velas cada intervalo tem em UM pregão.
+# Medido no Yahoo em 30/07/2026 com PETR4 (pregão 10:00–17:00 BRT):
+#   1m=418  2m=210  5m=85  15m=29  30m=15  60m=8  90m=6
+# Sem isto, `resolve_keep("1mo")` devolvia 22 — vinte e dois PREGÕES — e com
+# interval=15m isso virava 22 VELAS DE 15 MINUTOS: 5,5 horas de contexto para
+# quem pediu um mês. Não levantava exceção; só entregava análise curta demais.
+BARS_PER_SESSION = {
+    "1m": 418, "2m": 210, "5m": 85, "15m": 29, "30m": 15,
+    "60m": 8, "1h": 8, "90m": 6,
+    "1d": 1, "1wk": 1,
+}
+
 
 def normalize_period(period: Optional[str]) -> str:
     p = (period or "").strip().lower()
     return p if p in PERIOD_BARS else DEFAULT_PERIOD
 
 
-def resolve_keep(period: Optional[str]) -> int:
-    """Quantos candles diários exibir/enviar para o período pedido."""
-    return PERIOD_BARS[normalize_period(period)]
+def bars_per_session(interval: Optional[str]) -> int:
+    """Velas do intervalo em um pregão. Desconhecido ⇒ 1 (trata como diário)."""
+    return BARS_PER_SESSION.get((interval or DEFAULT_INTERVAL).strip().lower(), 1)
+
+
+def resolve_keep(period: Optional[str], interval: Optional[str] = None) -> int:
+    """Quantas velas exibir/enviar para o período pedido, NO INTERVALO pedido.
+
+    `pregões do período × velas por pregão`. Com `interval="1d"` (o default) o
+    resultado é idêntico ao de sempre — o diário não muda em nada.
+    """
+    return PERIOD_BARS[normalize_period(period)] * bars_per_session(interval)
 
 
 def period_to_range(period: Optional[str]) -> str:

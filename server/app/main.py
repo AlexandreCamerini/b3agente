@@ -23,6 +23,7 @@ from . import analysis_outcomes  # qa/30 (Fase A): autoavaliação da IA (N1/N2 
 from . import ai_activity  # qa/45: custo (R$) + histórico de comportamento da IA
 from . import fundamentals  # qa/36 (F10.2): fundamento × técnica (score, cache, rebaixamento)
 from . import scan_deep  # FASE 1 (N1): aprofundamento IA do top-N do Radar
+from . import candle_provider  # ADR-001: ponto único de entrada de candles
 from . import technical_snapshot  # FASE 1 (STU): fonte única de N1/N2/N3
 from . import model_catalog  # qa/49: catálogo de modelos por provedor + parâmetros aceitos
 from . import agent as agent_mod  # FASE 3: agente autônomo server-side
@@ -342,6 +343,10 @@ async def obs_usage(user: dict = Depends(require_user)):
         "iaGerenciadaAtiva": bool(managed.managed_config()),
         "tetoGlobalDia": cap,                        # None = ilimitado (B3_MANAGED_GLOBAL_DAILY_CAP)
         "cotaPorUsuarioDia": managed.daily_quota(),
+        # ADR-001 (Decisão 5): o fetch de candles é instrumentado como a IA já
+        # era. `candles.alerta=true` é o gatilho declarado do plano B — taxa de
+        # não-200 acima de 2% em 3 pregões reabre a decisão de provedor.
+        "candles": candle_provider.snapshot(),
     }
 
 
@@ -501,7 +506,7 @@ async def history(ticker: str, period: Optional[str] = None, scope: Optional[str
     t = _normalize_ticker(ticker)
     if len(t) < 4:
         raise HTTPException(400, "Ticker invalido.")
-    h = await yahoo.get_history(t, rng=candles_mod.period_to_range(period))  # Objetivo 4
+    h = await candle_provider.get_history(t, rng=candles_mod.period_to_range(period))  # Objetivo 4
     h["candles"] = indicators.sanitize_candles(h.get("candles"))
     return h
 
@@ -553,7 +558,7 @@ async def technicals(ticker: str, period: Optional[str] = None, scope: Optional[
     # novos (gráfico com snapshotId diferente do Radar); o STU já é fingerprint-
     # cached e o candle_cache já protege a rede (fresh < 45s).
     try:
-        snap = await technical_snapshot.get(t, period, lambda rng: yahoo.get_history(t, rng=rng))
+        snap = await technical_snapshot.get(t, period, lambda rng: candle_provider.get_history(t, rng=rng))
     except ValueError:
         raise HTTPException(502, "Sem historico para " + t)
     payload = {
@@ -646,13 +651,13 @@ async def scan(period: Optional[str] = None, tickers: Optional[str] = None,
     # overlay lê 74 linhas e o store_result grava ~150 KB de JSON; síncronos
     # aqui, congelavam o event loop a cada Radar.
     if tickers:
-        return await _enrich_fundamentos(await scanner.run_scan(period=period, universe=tickers, fetch=yahoo.get_history))
+        return await _enrich_fundamentos(await scanner.run_scan(period=period, universe=tickers, fetch=candle_provider.get_history))
     p = candles_mod.normalize_period(period)
     if not force:
         stored = await asyncio.to_thread(radar_daily.get_stored, _conn, p)
         if stored:
             return await _enrich_fundamentos(stored)
-    payload = await scanner.run_scan(period=p, fetch=yahoo.get_history)
+    payload = await scanner.run_scan(period=p, fetch=candle_provider.get_history)
     salvo = await asyncio.to_thread(radar_daily.store_result, _conn, p, payload, origem="manual")
     return await _enrich_fundamentos(salvo)
 
@@ -676,7 +681,7 @@ async def scan_deep_estimate(period: Optional[str] = None, topN: Optional[int] =
     n = scan_deep.resolve_top_n(topN, cfg)
     # FASE 8B (B3): cache do deep é por MODO — iOS manda ?appMode; web usa a config
     modo = appMode or (cfg or {}).get("appMode")
-    payload = await scanner.run_scan(period=p, universe=tickers, fetch=yahoo.get_history)
+    payload = await scanner.run_scan(period=p, universe=tickers, fetch=candle_provider.get_history)
     return scan_deep.estimate(payload, n, p, modo=modo)
 
 
@@ -692,13 +697,13 @@ async def scan_deep_run(body: dict = Body(default={}), scope: Optional[str] = De
     # qa/42 (FinOps): `custo=n` — este request dispara ATÉ n chamadas de LLM
     # (1 por ticker do top-N). Reservar na cota impede o overrun de +9.
     ai_config, _consume_ai = _ai_apply_managed(scope, config, custo=n)  # cota/rate ANTES de gastar
-    payload = await scanner.run_scan(period=p, universe=(body or {}).get("tickers"), fetch=yahoo.get_history)
+    payload = await scanner.run_scan(period=p, universe=(body or {}).get("tickers"), fetch=candle_provider.get_history)
 
     async def deep_call(item):
         t = item["ticker"]
         # FASE 1 (STU): contexto E setups saem do MESMO snapshot do scan —
         # antes o deep refazia build_context com outro corte e podia divergir.
-        snap = await technical_snapshot.get(t, p, lambda rng: yahoo.get_history(t, rng=rng))
+        snap = await technical_snapshot.get(t, p, lambda rng: candle_provider.get_history(t, rng=rng))
         sres = snap["setups"]
         plano = setups.plano_do_resultado(sres, close=snap.get("close"))
         setups_payload = {
@@ -776,7 +781,7 @@ async def analyze_technical_model(ticker: str, body: dict = Body(default={}), sc
     # snapshot determinístico (não afetam o id).
     try:
         snap = await technical_snapshot.get(t, (config or {}).get("candlePeriod"),
-                                            lambda rng: yahoo.get_history(t, rng=rng))
+                                            lambda rng: candle_provider.get_history(t, rng=rng))
     except ValueError:
         raise HTTPException(502, "Sem historico para " + t)
     opt_status = await _options_status_for_llm(t) if model in ("opcoes", "completo") else {"available": None, "reason": "Não consultado para este modelo."}
@@ -883,7 +888,7 @@ async def analyze(ticker: str, body: dict = Body(default={}), scope: Optional[st
     # technical_snapshot, com o mesmo candle_cache por baixo).
     try:
         snap = await technical_snapshot.get(t, (config or {}).get("candlePeriod"),
-                                            lambda rng: yahoo.get_history(t, rng=rng))
+                                            lambda rng: candle_provider.get_history(t, rng=rng))
     except ValueError:
         raise HTTPException(502, "Sem historico para " + t)
     history_data = {
@@ -951,7 +956,7 @@ async def carteira_stopalvo(ticker: str, body: dict = Body(default={}), scope: O
     snap = None
     try:
         snap = await technical_snapshot.get(t, (config or {}).get("candlePeriod"),
-                                            lambda rng: yahoo.get_history(t, rng=rng))
+                                            lambda rng: candle_provider.get_history(t, rng=rng))
     except Exception:  # noqa: BLE001 — histórico indisponível não bloqueia (IA declara)
         snap = None
     history_data = {
@@ -1051,7 +1056,7 @@ async def _snapshot_para_trailing(ticker: str):
     """
     try:
         return await technical_snapshot.get(ticker, None,
-                                            lambda rng: yahoo.get_history(ticker, rng=rng))
+                                            lambda rng: candle_provider.get_history(ticker, rng=rng))
     except Exception:  # noqa: BLE001 — insumo do trailing nunca derruba o ciclo
         return None
 
@@ -1209,7 +1214,7 @@ async def _start_agent_scheduler():
         await push.send_to_user(_conn, uid, title, body)
     asyncio.get_event_loop().create_task(
         agent_mod.scheduler_loop(_conn, yahoo.get_quotes, notify_push=_notify,
-                                 radar_fetch=yahoo.get_history,  # FASE 4 (1.3)
+                                 radar_fetch=candle_provider.get_history,  # FASE 4 (1.3)
                                  snapshot_getter=_snapshot_para_trailing)  # F2
     )
     # FASE 5 (lançamento): higiene de sessões — purga as expiradas no boot e a
