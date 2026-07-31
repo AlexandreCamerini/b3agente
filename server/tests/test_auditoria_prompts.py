@@ -159,6 +159,35 @@ def test_a8_rr_min_fonte_unica():
         assert skill_ref.RR_MIN_TXT + ":1" in prompts[chave], chave
 
 
+# ===== A8ii — prompts de carteira compõem do canônico + paridade cliente ====
+
+def test_a8ii_prompts_de_carteira_compoem_do_canonico():
+    prompts = defaults.default_llm_prompts()
+    for chave in ("carteiraStopAlvo", "carteiraStopAlvoOperador"):
+        assert skill_ref.PRINCIPIOS_N3 in prompts[chave], chave
+        assert skill_ref.DISCLAIMER in prompts[chave], chave
+        # contrato de saída intacto (o popup parseia este array)
+        for campo in ('"ativo"', '"precoAtual"', '"stop"', '"alvo"',
+                      '"explicacao"', '"operar"', "null"):
+            assert campo in prompts[chave], f"{chave}: {campo}"
+
+
+def test_a8ii_paridade_defaults_carteira_com_catalog_js():
+    """web/src/catalog.js espelha o TEXTO dos defaults do servidor (o aparelho
+    monta o estado sem servidor). Byte a byte: divergiu, este teste acusa."""
+    import os
+    import re
+    caminho = os.path.join(os.path.dirname(__file__), "..", "..",
+                           "web", "src", "catalog.js")
+    with open(caminho, encoding="utf-8") as f:
+        src = f.read()
+    prompts = defaults.default_llm_prompts()
+    for chave in ("carteiraStopAlvo", "carteiraStopAlvoOperador"):
+        m = re.search(chave + r":\s*`([^`]*)`", src)
+        assert m, f"literal de {chave} não encontrado no catalog.js"
+        assert m.group(1) == prompts[chave], f"{chave} divergiu do servidor"
+
+
 # ===== M3 — regra explícita de null para stop/alvo sem referência ===========
 
 def test_m3_format_pede_null_nunca_zero():

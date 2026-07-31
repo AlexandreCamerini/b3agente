@@ -62,10 +62,43 @@ def default_skill_text_operador() -> str:
     ])
 
 
+def _formato_array_carteira(frases: str) -> str:
+    """Contrato de saída do N3 (array por ativo, parseado pelo popup) — comum
+    aos dois modos; só o tamanho da explicação muda."""
+    return (
+        "Formato de saída: retorne SOMENTE um JSON (nada fora dele), um objeto por\n"
+        "ativo:\n"
+        "[\n"
+        "  {\n"
+        '    "ativo": "PETR4",\n'
+        '    "precoAtual": 38.50,\n'
+        '    "stop": 36.20,\n'
+        '    "alvo": 43.00,\n'
+        '    "explicacao": "…' + frases + '…",\n'
+        '    "operar": true\n'
+        "  }\n"
+        "]"
+    )
+
+
+# Fecho dos prompts de carteira: DISCLAIMER canônico como enquadramento.
+_ENQUADRAMENTO_CARTEIRA = (
+    "Enquadramento (não copie este parágrafo para o JSON): " + skill_ref.DISCLAIMER
+)
+
+
 def default_llm_prompts() -> dict:
     """FASE 2/3: coleção de prompts indexada por chave (extensível). O prompt da
     carteira analisa CADA ATIVO INDIVIDUALMENTE (saída em array por ativo) e
-    mantém o enquadramento educacional (sugestão por perfil, não recomendação)."""
+    mantém o enquadramento educacional (sugestão por perfil, não recomendação).
+
+    Auditoria 2026-07-31 (A8ii): os blocos invioláveis COMPÕEM do canônico
+    (skill_ref.PRINCIPIOS_N3 + DISCLAIMER) em vez de reescrever — o formato de
+    saída permanece intacto. Prompts são persistidos por usuário (llmPrompts):
+    a recomposição vale para DEFAULTS novos; estado existente não é migrado.
+    IMPORTANTE: web/src/catalog.js espelha o TEXTO final destes defaults (o
+    aparelho monta o estado sem servidor) — paridade travada byte a byte em
+    test_auditoria_prompts.py; mudou aqui, mude lá."""
     return {
         "carteiraStopAlvo": (
             "Você é um analista técnico educacional da B3. Sua tarefa é analisar CADA\n"
@@ -82,35 +115,21 @@ def default_llm_prompts() -> dict:
             "Cada análise é INDIVIDUAL: avalie cada ativo isoladamente. Não produza um\n"
             "número único para a carteira inteira; o stop/alvo de um ativo não influencia\n"
             "o do outro.\n"
-            "Regras invioláveis:\n"
+            + skill_ref.PRINCIPIOS_N3 + "\n"
+            "Regras específicas do modo ESTUDO:\n"
             "- Conteúdo EDUCACIONAL e dinheiro SIMULADO — deixe isso explícito.\n"
             "- A proposta é uma SUGESTÃO por perfil, NÃO recomendação de compra ou venda,\n"
             "  nem sinal de entrada.\n"
-            "- NUNCA prometa lucro nem use linguagem de ganho garantido.\n"
             "- Dimensione o STOP para limitar a perda por operação conforme a tolerância\n"
             "  do perfil.\n"
-            "- Defina o ALVO por uma relação risco:retorno de NO MÍNIMO "
-            + skill_ref.RR_MIN_TXT + ":1; abaixo\n"
-            "  disso, trate como cenário de estudo desfavorável ou use \"operar\": false.\n"
-            "- Se os dados forem insuficientes ou estiverem distorcidos (baixa liquidez,\n"
-            "  evento de redução de capital, etc.) ou o cenário estiver indefinido, diga\n"
-            "  que o melhor é AGUARDAR / não operar — não force números.\n"
+            "- Abaixo do R:R mínimo, trate como cenário de estudo desfavorável ou use\n"
+            '  "operar": false.\n'
             "Para cada ativo, explique em 2 a 4 frases, em linguagem simples, o raciocínio\n"
             "por trás dos números.\n"
-            "Formato de saída: retorne SOMENTE um JSON (nada fora dele), um objeto por\n"
-            "ativo:\n"
-            "[\n"
-            "  {\n"
-            '    "ativo": "PETR4",\n'
-            '    "precoAtual": 38.50,\n'
-            '    "stop": 36.20,\n'
-            '    "alvo": 43.00,\n'
-            '    "explicacao": "…2 a 4 frases…",\n'
-            '    "operar": true\n'
-            "  }\n"
-            "]\n"
+            + _formato_array_carteira("2 a 4 frases") + "\n"
             'Quando recomendar aguardar, use "operar": false e stop/alvo como null,\n'
-            'explicando o porquê em "explicacao".'
+            'explicando o porquê em "explicacao".\n'
+            + _ENQUADRAMENTO_CARTEIRA
         ),
         # FASE 8B (N4) — versão MESA DE OPERAÇÕES do mesmo contrato (usada
         # quando config.appMode == "operador"). MESMO formato de saída (o popup
@@ -124,34 +143,20 @@ def default_llm_prompts() -> dict:
             "  histórico, indicadores e contexto técnico pré-calculado). NÃO invente dados.\n"
             "- O PERFIL do cliente dimensiona o risco (tolerância de perda por operação);\n"
             "  ele NÃO muda a leitura técnica.\n"
-            "Regras invioláveis:\n"
+            + skill_ref.PRINCIPIOS_N3 + "\n"
+            "Regras específicas do modo MESA:\n"
             "- O STOP fica na INVALIDAÇÃO TÉCNICA da posição (suporte/resistência, extremo\n"
             "  do setup, ATR) — nunca num percentual arbitrário.\n"
-            "- O ALVO precisa render relação risco:retorno de NO MÍNIMO "
-            + skill_ref.RR_MIN_TXT + ":1 (ideal " + skill_ref.RR_IDEAL_TXT + ":1 ou\n"
-            '  melhor). Abaixo disso, a posição não compensa: "operar": false.\n'
-            "- Nunca prometa lucro nem percentual de acerto. Dados passados não garantem\n"
-            "  repetição.\n"
-            '- Dados insuficientes/distorcidos ou cenário indefinido => "operar": false —\n'
+            '- Abaixo do R:R mínimo, a posição não compensa: "operar": false —\n'
             "  não operar também é posição.\n"
             "- A execução é do cliente, na corretora dele; isto não é recomendação\n"
             "  personalizada de investimento.\n"
             "Para cada ativo, dê a explicação em 1 a 3 frases de mesa: nível técnico do\n"
             "stop, R:R do alvo e a condição que cancela o plano.\n"
-            "Formato de saída: retorne SOMENTE um JSON (nada fora dele), um objeto por\n"
-            "ativo:\n"
-            "[\n"
-            "  {\n"
-            '    "ativo": "PETR4",\n'
-            '    "precoAtual": 38.50,\n'
-            '    "stop": 36.20,\n'
-            '    "alvo": 43.00,\n'
-            '    "explicacao": "…1 a 3 frases…",\n'
-            '    "operar": true\n'
-            "  }\n"
-            "]\n"
+            + _formato_array_carteira("1 a 3 frases") + "\n"
             'Quando a posição não compensar, use "operar": false e stop/alvo como null,\n'
-            'dizendo objetivamente o porquê em "explicacao".'
+            'dizendo objetivamente o porquê em "explicacao".\n'
+            + _ENQUADRAMENTO_CARTEIRA
         ),
     }
 

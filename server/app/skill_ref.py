@@ -92,6 +92,25 @@ CONTRATO_DADOS = "\n".join([
     "force um plano completo para compensar dados incompletos.",
 ])
 
+# --- Princípios do N3 (stop/alvo da carteira) --------------------------------
+# Auditoria 2026-07-31 (A8ii): subconjunto dos PRINCIPIOS que vale SEM o pacote
+# técnico completo (o N3 recebe candles + contexto técnico opcional). É a fonte
+# dos "blocos invioláveis" dos dois prompts default de carteira (defaults.py) —
+# que web/src/catalog.js espelha TEXTUALMENTE para o aparelho (paridade travada
+# por teste em test_auditoria_prompts.py).
+PRINCIPIOS_N3 = "\n".join([
+    "# Princípios invioláveis (metodologia do operador sênior de AT da B3)",
+    "- NUNCA invente preço, indicador, volume, fato ou evento: todo número",
+    "  citado vem dos dados fornecidos nesta requisição.",
+    "- Nunca prometa lucro, retorno ou percentual garantido de acerto.",
+    "- O STOP é técnico, ligado ao nível que INVALIDA a tese — nunca arbitrário.",
+    "- Relação risco-retorno inadequada ⇒ não operar. Mínimo " + RR_MIN_TXT
+    + ":1; ideal ≥ " + RR_IDEAL_TXT + ":1.",
+    "- Sinais conflitantes ou dados insuficientes/distorcidos (baixa liquidez,",
+    "  evento societário que distorce a série, etc.) ⇒ aguardar / não operar;",
+    "  declare a lacuna, não force números para compensar.",
+])
+
 # --- Variante do Princípio 1 para rotas SEM pacote técnico -------------------
 # Auditoria 2026-07-31 (A2): o caminho legado /api/analyze envia SÓ candles
 # crus + cotação, mas o Princípio 1 (e a DIDATICA) referenciam um "pacote
