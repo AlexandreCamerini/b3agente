@@ -32,8 +32,15 @@ function bodyOf(src, anchor) {
 // ---- deviceStore.putAgent encaminha os parâmetros do SERVIDOR --------------
 const dev = bodyOf(pers, "async putAgent(b)");
 ok("deviceStore.putAgent localizado", !!dev);
-ok("deviceStore encaminha serverEnabled/mode/rules/... via api.putAgent",
-  !!dev && dev.includes('"serverEnabled", "mode", "rules", "trailingPct", "maxOpsDia", "maxValorOp"') && dev.includes("api.putAgent(sb)"));
+// A asserção checa CHAVE A CHAVE, não a string literal da lista: antes, só
+// reformatar a linha (ou acrescentar uma chave no meio) quebrava o teste sem
+// que nada do contrato tivesse mudado. F2 acrescentou trailingMode/AtrMult/
+// Lookback — sem elas na lista, o usuário não consegue escolher o critério.
+ok("deviceStore encaminha os parâmetros do servidor via api.putAgent",
+  !!dev && ["serverEnabled", "mode", "rules", "trailingPct", "trailingMode",
+            "trailingAtrMult", "trailingLookback", "maxOpsDia", "maxValorOp",
+            "intervalMin", "lastSeenAt"].every((k) => dev.includes(`"${k}"`))
+        && dev.includes("api.putAgent(sb)"));
 ok("deviceStore exige sessão para ligar o servidor",
   !!dev && dev.includes("sync.hasSession()") && dev.includes("Entre na sua conta"));
 ok("deviceStore espelha a resposta confirmada no doc local",

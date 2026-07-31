@@ -277,6 +277,15 @@ def set_agent(conn, patch: dict, user_id=None) -> dict:
         ag["rules"] = {**cur, **{k: bool(v) for k, v in patch["rules"].items() if k in ("stop", "alvo", "trailing")}}
     if isinstance(patch.get("trailingPct"), (int, float)):
         ag["trailingPct"] = max(1.0, min(20.0, float(patch["trailingPct"])))
+    # F2 — trailing dinâmico. Os limites espelham os de `agent.agent_params`:
+    # aqui é a fronteira de ENTRADA (nada inválido entra no kv), lá é a rede de
+    # segurança de LEITURA (dado antigo ou escrito por outra via não quebra).
+    if patch.get("trailingMode") in ("percentual", "atr", "estrutura"):
+        ag["trailingMode"] = patch["trailingMode"]
+    if isinstance(patch.get("trailingAtrMult"), (int, float)):
+        ag["trailingAtrMult"] = max(1.0, min(4.0, float(patch["trailingAtrMult"])))
+    if isinstance(patch.get("trailingLookback"), (int, float)):
+        ag["trailingLookback"] = max(2, min(20, round(patch["trailingLookback"])))
     if isinstance(patch.get("maxOpsDia"), (int, float)):
         ag["maxOpsDia"] = max(1, min(20, round(patch["maxOpsDia"])))
     if isinstance(patch.get("maxValorOp"), (int, float)):

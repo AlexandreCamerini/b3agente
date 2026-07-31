@@ -9,7 +9,10 @@ Parâmetros por usuário (seção `agent`, decisão 3.2):
   serverEnabled  bool   — liga o modo servidor (exige conta; anônimo segue foreground)
   mode           str    — "executar" (vende no stop/alvo) | "sinalizar" (só registra/avisa)
   rules          dict   — {stop: bool, alvo: bool, trailing: bool}
-  trailingPct    float  — distância do trailing stop (default 5%)
+  trailingMode   str    — "percentual" (default) | "atr" | "estrutura"   [F2]
+  trailingPct    float  — distância do trailing PERCENTUAL (default 5%)
+  trailingAtrMult float — múltiplo do ATR(14) no modo "atr" (default 2,0) [F2]
+  trailingLookback int  — nº de candles da mínima no modo "estrutura" (default 5) [F2]
   maxOpsDia      int    — teto de operações executadas por dia (default 3)
   maxValorOp     float  — teto de valor por operação (0 = sem teto)
 
@@ -68,6 +71,78 @@ def in_market_hours(now: datetime = None) -> bool:
     return now.weekday() < 5 and 10 <= now.hour < 18
 
 
+# ---------------------------------------------------------------------------
+# F2 — Trailing dinâmico (segue estrutura/volatilidade, não um % fixo)
+#
+# O trailing percentual continua sendo o DEFAULT: quem já tem `trailingPct`
+# configurado não muda de comportamento por causa desta entrega. Os modos
+# técnicos são opt-in explícito.
+#
+# A INVARIANTE é a mesma dos três modos e não é negociável: o stop só SOBE.
+# `nivel_trailing` calcula o nível bruto; quem aplica compara com o stop atual
+# e só grava se for maior. O guardião `test_trailing_sobe_o_stop_e_nunca_desce`
+# cobre o modo percentual; `test_trailing_dinamico_nunca_afrouxa` cobre os outros.
+# ---------------------------------------------------------------------------
+TRAILING_MODES = ("percentual", "atr", "estrutura")
+ATR_MULT_DEFAULT, ATR_MULT_MIN, ATR_MULT_MAX = 2.0, 1.0, 4.0
+LOOKBACK_DEFAULT, LOOKBACK_MIN, LOOKBACK_MAX = 5, 2, 20
+
+
+def contexto_trailing(snap: dict) -> dict:
+    """Extrai do STU só o que o trailing precisa — ATR(14) e as velas.
+
+    Isola a regra da FORMA do snapshot: `nivel_trailing` fica pura e testável
+    com um dict de duas chaves, sem montar um STU inteiro no teste.
+    """
+    ind = (snap or {}).get("indicators") or {}
+    atr = None
+    for v in reversed(ind.get("atr14") or []):
+        if isinstance(v, (int, float)):
+            atr = float(v)
+            break
+    return {"atr": atr, "candles": (snap or {}).get("candles") or []}
+
+
+def _minima_recente(candles: list, n: int):
+    """Menor mínima das últimas `n` velas — o nível que invalida a tese de alta
+    (Princípio 6 da skill: sempre declarar o ponto de invalidação)."""
+    lows = [c.get("low") for c in (candles or [])[-n:] if isinstance(c.get("low"), (int, float))]
+    return min(lows) if lows else None
+
+
+def nivel_trailing(mode: str, price: float, par: dict, ctx: dict = None):
+    """Nível BRUTO do trailing, ANTES da monotonicidade. PURO.
+
+    Devolve (nivel|None, descricao). A descrição vai para o Diário — o app
+    ensina o mecanismo, então ela nomeia o critério e o número que o gerou.
+
+    Sem o insumo técnico (ATR ou velas ausentes), cai para o percentual e DIZ
+    que caiu. Silêncio aqui deixaria a posição protegida por uma regra que o
+    usuário não escolheu, sem nada no Diário denunciando a troca.
+    """
+    ctx = ctx or {}
+    pct = par.get("trailingPct") or 5.0
+
+    def _percentual(sufixo: str = ""):
+        return round(price * (1 - pct / 100.0), 2), f"{pct:.0f}% abaixo do preço{sufixo}"
+
+    if mode == "atr":
+        atr = ctx.get("atr")
+        if not atr or atr <= 0:
+            return _percentual(" (sem ATR disponível — critério técnico indisponível)")
+        k = par.get("trailingAtrMult") or ATR_MULT_DEFAULT
+        return round(price - k * atr, 2), f"{k:.1f}× o ATR(14) de R$ {atr:.2f} abaixo do preço"
+
+    if mode == "estrutura":
+        n = int(par.get("trailingLookback") or LOOKBACK_DEFAULT)
+        minima = _minima_recente(ctx.get("candles"), n)
+        if minima is None:
+            return _percentual(" (sem candles disponíveis — critério técnico indisponível)")
+        return round(minima, 2), f"na mínima das últimas {n} velas (R$ {minima:.2f})"
+
+    return _percentual()
+
+
 def agent_params(ag: dict) -> dict:
     """Normaliza a seção agent para os parâmetros do servidor (defaults sãos)."""
     ag = ag or {}
@@ -78,6 +153,10 @@ def agent_params(ag: dict) -> dict:
         "rules": {"stop": rules.get("stop", True) is not False,
                   "alvo": rules.get("alvo", True) is not False,
                   "trailing": bool(rules.get("trailing"))},
+        # F2: default "percentual" preserva o comportamento de quem já usa o agente.
+        "trailingMode": ag.get("trailingMode") if ag.get("trailingMode") in TRAILING_MODES else "percentual",
+        "trailingAtrMult": max(ATR_MULT_MIN, min(ATR_MULT_MAX, float(ag.get("trailingAtrMult") or ATR_MULT_DEFAULT))),
+        "trailingLookback": max(LOOKBACK_MIN, min(LOOKBACK_MAX, int(ag.get("trailingLookback") or LOOKBACK_DEFAULT))),
         "trailingPct": float(ag.get("trailingPct") or 5.0),
         "maxOpsDia": int(ag.get("maxOpsDia") or 3),
         "maxValorOp": float(ag.get("maxValorOp") or 0),
@@ -95,7 +174,7 @@ def _bump_ops(conn, scope, ag):
     return n
 
 
-async def run_cycle_for(conn, scope, quotes_getter, origem: str = "agendado") -> dict:
+async def run_cycle_for(conn, scope, quotes_getter, origem: str = "agendado", snapshot_getter=None) -> dict:
     """UM ciclo do agente para UM escopo (usuário ou anônimo). Portado do
     /api/cycle e estendido com modo/tetos/trailing. Retorna {events, executed}.
     `quotes_getter(tickers) -> {t: {price, ...}}` é injetado (fake nos testes).
@@ -108,7 +187,7 @@ async def run_cycle_for(conn, scope, quotes_getter, origem: str = "agendado") ->
     _CYCLE_BUSY.add(key)
     t0 = time.monotonic()
     try:
-        return await _run_cycle_inner(conn, scope, quotes_getter, origem, t0)
+        return await _run_cycle_inner(conn, scope, quotes_getter, origem, t0, snapshot_getter)
     except Exception as e:  # noqa: BLE001 — erro do ciclo vira LOG, nunca silêncio
         if scope:
             store.push_agent_log(conn, [{"time": _now_str(), "kind": "error",
@@ -118,13 +197,30 @@ async def run_cycle_for(conn, scope, quotes_getter, origem: str = "agendado") ->
         _CYCLE_BUSY.discard(key)
 
 
-async def _run_cycle_inner(conn, scope, quotes_getter, origem: str, t0: float) -> dict:
+async def _run_cycle_inner(conn, scope, quotes_getter, origem: str, t0: float, snapshot_getter=None) -> dict:
     positions = store.get(conn, "positions", user_id=scope) or []
     ag = store.get(conn, "agent", user_id=scope) or {}
     par = agent_params(ag)
     quotes_data = await quotes_getter([p["t"] for p in positions]) if positions else {}
     sem_cotacao = [p["t"] for p in positions if (quotes_data.get(p["t"]) or {}).get("price") is None]
     events, executed = [], 0
+
+    # F2: insumo técnico do trailing dinâmico. Só busca quando o modo escolhido
+    # PRECISA — no percentual (default) o ciclo continua custando exatamente o
+    # que custava. Falha de um ticker não derruba o ciclo: `nivel_trailing` cai
+    # para o percentual e a descrição no Diário denuncia a troca.
+    ctxs = {}
+    if (par["rules"]["trailing"] and par["trailingMode"] != "percentual"
+            and snapshot_getter is not None and positions):
+        for p in positions:
+            try:
+                snap = await snapshot_getter(p["t"])
+                if snap:
+                    ctxs[p["t"]] = contexto_trailing(snap)
+            except Exception as e:  # noqa: BLE001 — insumo do trailing é best-effort
+                events.append({"time": _now_str(), "kind": "warn",
+                               "text": f"Trailing técnico de {p['t']}: contexto indisponível ({e}). "
+                                       f"Usando o percentual neste ciclo."})
     for pos in list(positions):
         q = quotes_data.get(pos["t"]) or {}
         price = q.get("price")
@@ -132,12 +228,15 @@ async def _run_cycle_inner(conn, scope, quotes_getter, origem: str, t0: float) -
             continue
         # Trailing stop (regra opcional): SOBE o stop conforme o preço avança;
         # nunca desce. Registro descritivo — o app ensina o mecanismo.
+        # F2: o critério vem de `trailingMode` (percentual | atr | estrutura).
+        # A monotonicidade é aplicada AQUI, uma vez, para os três modos — nenhum
+        # critério novo pode afrouxar o stop sem passar por esta comparação.
         if par["rules"]["trailing"] and pos.get("stop") is not None:
-            novo = round(price * (1 - par["trailingPct"] / 100.0), 2)
-            if novo > pos["stop"]:
+            novo, criterio = nivel_trailing(par["trailingMode"], price, par, ctxs.get(pos["t"]))
+            if novo is not None and novo > pos["stop"]:
                 store.set_position(conn, pos["t"], stop=novo, alvo=None, has_stop=True, has_alvo=False, user_id=scope)
                 events.append({"time": _now_str(), "kind": "info",
-                               "text": f"Trailing: stop de {pos['t']} ajustado para R$ {novo:.2f} ({par['trailingPct']:.0f}% abaixo do preço)."})
+                               "text": f"Trailing: stop de {pos['t']} ajustado para R$ {novo:.2f} ({criterio})."})
                 pos = {**pos, "stop": novo}
         breach_stop = par["rules"]["stop"] and pos.get("stop") is not None and price <= pos["stop"]
         hit_alvo = par["rules"]["alvo"] and pos.get("alvo") is not None and price >= pos["alvo"]
@@ -254,7 +353,7 @@ def _avisar_protecao_sem_operador(conn) -> int:
 
 
 async def scheduler_loop(conn, quotes_getter, notify_push=None, interval_s: int = None, once: bool = False,
-                         radar_fetch=None):
+                         radar_fetch=None, snapshot_getter=None):
     """Laço do servidor: a cada N min (env B3_AGENT_INTERVAL_S), dentro do
     pregão e sem kill-switch, roda o ciclo de cada usuário habilitado.
     `notify_push(user_id, title, body)` (opcional) envia APNs por ação executada.
@@ -310,7 +409,7 @@ async def scheduler_loop(conn, quotes_getter, notify_push=None, interval_s: int 
                     LAST_USER_RUN[uid] = _agora
                     LAST_RUN["usuarios"] += 1
                     try:
-                        r = await run_cycle_for(conn, uid, quotes_getter, origem="agendado")
+                        r = await run_cycle_for(conn, uid, quotes_getter, origem="agendado", snapshot_getter=snapshot_getter)
                         LAST_RUN["executadas"] += r["executed"]
                         if notify_push and r["executed"]:
                             acts = [e["text"] for e in r["events"] if e.get("kind") == "buy"]
