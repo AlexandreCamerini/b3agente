@@ -1,6 +1,6 @@
 # ADR-001: Fonte de dados intraday e onde esse dado vive
 
-**Status:** Proposto — uma variável aberta (§ Decisão 2)
+**Status:** Proposto — granularidade decidida (15m); pendente a VALIDAÇÃO do atraso (§ Decisão 2)
 **Data:** 2026-07-31
 **Decisor:** Alex
 **Base empírica:** [`docs/MEDICAO-Yahoo-Intraday-2026-07-30.md`](../MEDICAO-Yahoo-Intraday-2026-07-30.md) — nada aqui é estimativa quando existe medição.
@@ -82,37 +82,75 @@ o Alex a tomou. O papel deste ADR é garantir que ela seja **reversível barato*
 
 ---
 
-## Decisão 2 — Granularidade: regra, não número (ABERTA até 11h BRT de 31/07)
+## Decisão 2 — Granularidade: **15m, sobre velas FECHADAS**
 
-A granularidade não pode ser escolhida por gosto: ela é **função do atraso do
-feed**, que ainda não foi medido (a medição de 30/07 caiu com o pregão fechado;
-rotina agendada para 31/07 às 11h BRT).
+**Decisão do Alex em 31/07:** adotar `15m` como granularidade do intraday, em vez
+de deixar a escolha pendurada na medição de atraso. O produto é, nesta fase, um
+**modelo de treinamento** — assertividade e verificabilidade valem mais que
+resolução.
 
-**Regra que este ADR fixa:** a duração da barra precisa ser **no mínimo o dobro
-do atraso mediano do feed**.
+**Regra que continua valendo:** a duração da barra precisa ser **no mínimo o
+dobro do atraso mediano do feed**.
 
 O raciocínio: o produto só pode falar em "a condição ocorreu" se a barra em que
 ela ocorreu já for conhecida. Se o atraso for maior que a duração da barra, o
-sistema está permanentemente mais de uma barra atrás do mercado, e a afirmação
-é falsa por construção. O fator 2 é a margem para o jitter da rede (p95 medido:
+sistema está permanentemente mais de uma barra atrás do mercado, e a afirmação é
+falsa por construção. O fator 2 é a margem para o jitter da rede (p95 medido:
 97 ms — irrelevante) e para o tempo de ciclo do laço.
 
-| Atraso mediano medido | Granularidade | O que o produto pode dizer |
+| Atraso mediano | Granularidade honesta | O que o produto pode dizer |
 |---|---|---|
-| ≤ 2,5 min | **5m** | "a condição ocorreu às 11:35" |
-| ≤ 7,5 min | **15m** | "a condição ocorreu na barra das 11:30" |
-| > 7,5 min | **30m ou 60m** | timing sai do produto; o dado vira contexto, não gatilho |
+| ≤ 2,5 min | 5m | "a condição ocorreu às 11:35" |
+| **≤ 7,5 min** | **15m ← adotado** | "a condição ocorreu na barra das 11:30" |
+| > 7,5 min | 30m ou 60m | timing sai do produto; o dado vira contexto, não gatilho |
 
-**Preferência declarada, a ser confirmada pela medição: 5m.** Justificativa
-independente do atraso: 1m custa 14× mais em parse e armazenamento (418 velas/dia
-contra 85) e traz **2,5% de fechamentos nulos** contra praticamente zero em
-15m — buraco que a metodologia teria de tolerar sem ganhar resolução que os
-setups do `skill_ref` explorem. E 15m dá só 29 pontos de decisão por pregão.
+### Por que 15m e não 5m
 
-**Este ADR não é aceitável enquanto esta seção estiver aberta.** Se o atraso vier
-acima de 7,5 min, a F1 muda de natureza — deixa de ser "timing" e vira "contexto
-intradiário", e o vocabulário do Operador precisa ser revisto antes de qualquer
-implementação.
+1. **Cobre quase toda a faixa plausível de atraso.** Com `5m`, a decisão depende
+   de um número que ainda não existe. Com `15m`, só um atraso acima de 7,5 min a
+   derruba — a medição deixa de **escolher** e passa a **validar**.
+2. **Série mais limpa.** Medido em PETR4: `1m` traz 2,5% de fechamentos nulos,
+   `15m` traz **1 vela** em 617. E PETR4 é a ação mais líquida da bolsa — na
+   cauda do universo (COGN3, AURE3, IGTI11) o buraco é maior. Indicador sobre
+   série esburacada mente, e o Radar varre 65 ativos, não um.
+3. **Casa com o horizonte real do produto.** O laço reavalia a cada 5 min e o
+   Radar é diário: o horizonte é swing, não scalping. `1m`/`5m` só se pagariam
+   num produto que executa na hora.
+4. **Custo.** 29 velas/pregão/ativo contra 85 do `5m` e 418 do `1m`.
+
+29 pontos de decisão por pregão são poucos para day trade e suficientes para o
+que este produto faz.
+
+### Sobre velas FECHADAS — a parte que importa mais que a granularidade
+
+**Nenhum gatilho pode ser lido na vela em formação.** Ela muda até fechar: às
+11:32 a barra das 11:30 ainda tem 13 minutos de mudança pela frente, e uma
+condição vista ali pode simplesmente deixar de existir às 11:45.
+
+Isso não é hipotético neste código: o `candle_cache` **revalida a última vela por
+contrato** (`merge_candles`: "fresco vence"), então a última vela da série é
+sempre a que ainda está se formando. Com o laço de 5 min e velas de 15m, cada
+barra seria lida três vezes antes de existir de verdade.
+
+Para um modelo de treinamento a diferença é entre uma afirmação verificável e
+uma que não é:
+
+- ✅ "a condição ocorreu na barra das 11:30, que fechou às 11:45"
+- ❌ "a condição está ocorrendo agora"
+
+**Consequência de implementação:** no intraday, o STU calcula sobre a série
+**menos a última vela**, e o carimbo (`snapshotAt`) é o da última barra fechada.
+O diário fica como está — lá a "vela em formação" é o pregão do dia, e o produto
+já é explícito sobre isso.
+
+### O que a medição das 11h ainda decide
+
+Ela deixou de escolher a granularidade, mas **não virou dispensável**:
+
+- atraso ≤ 7,5 min → `15m` confirmado, o ADR é aceito como está;
+- atraso > 7,5 min (ex.: os 15 min clássicos de feed atrasado de bolsa) → **nem
+  `15m` passa na regra**. O piso vira `30m` e o vocabulário de timing sai do
+  Operador. Este ADR volta à mesa.
 
 ---
 
@@ -225,7 +263,8 @@ ordem. O Estudo continua sem eixo de tempo. O `test_guardrail_imperativo`
 continua valendo para os dois modos.
 
 **A revisitar**
-- Se o atraso vier acima de 7,5 min → Decisão 2 muda e a F1 muda de natureza.
+- Se o atraso vier acima de 7,5 min → nem `15m` passa na regra: piso vira 30m e o
+  vocabulário de timing sai do Operador.
 - Se a taxa de não-200 passar de 2% em 3 pregões → Decisão 1 aciona o plano B.
 - Se a F3 exigir histórico intraday → Decisão 4 volta à mesa.
 
@@ -233,8 +272,13 @@ continua valendo para os dois modos.
 
 ## Action items
 
-1. [ ] **Fechar a Decisão 2** com a medição de atraso das 11h BRT de 31/07
-       (rotina `trig_01Gj96hZAqj9ExHur6WEUyP7`). Sem isso o ADR não é aceito.
+1. [ ] **Validar a Decisão 2** com a medição de atraso das 11h BRT de 31/07
+       (rotina `trig_01Gj96hZAqj9ExHur6WEUyP7`). `15m` está adotado; a medição
+       confirma ou obriga a subir para 30m.
+1b.[ ] **STU intraday calcula sobre velas FECHADAS** — descartar a última vela
+       (a que o `merge_candles` revalida) e carimbar `snapshotAt` com a última
+       barra fechada. Teste: gatilho não pode mudar entre duas leituras da mesma
+       barra em formação.
 2. [ ] `merge_candles` chaveado por timestamp completo, no fuso da bolsa, com
        teste que prove que 617 velas de `15m × 1mo` continuam 617.
 3. [ ] Intervalo na identidade do snapshot (`_snapshot_id` e `_SNAP_CACHE`), com
