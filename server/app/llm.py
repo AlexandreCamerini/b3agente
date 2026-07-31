@@ -202,8 +202,17 @@ FORMAT = "\n".join([
     "renderizado no app; nao use HTML, apenas markdown simples.",
     "stopSugerido e alvoSugerido sao referencias TECNICAS em reais para estudo",
     "e gestao de risco simulada, coerentes com ATR, suportes e resistencias.",
+    # M3 (auditoria): o exemplo "0.0" sem regra de null induzia numero inventado
+    # (o kpi.py ja anula <=0 em codigo; aqui o pedido explica o porque).
+    "Sem referencia tecnica para stop ou alvo, use null (nunca 0.0 nem chute).",
     "Cada lista deve ter de 1 a 4 itens curtos. Nao escreva absolutamente nada fora",
     "do objeto JSON.",
+    # A4/M5 (auditoria): o "Termine SEMPRE..." dos GUARDRAILS precisa de um
+    # ENDEREÇO dentro do contrato JSON — senao a conclusao some ou sai fora do
+    # objeto e arrisca o parse. (No FORMAT_PRO este bloco e trocado pela versao
+    # da mesa, no sufixo.)
+    "O `corpo` FECHA com UMA das conclusoes de estudo canonicas, textualmente,",
+    "e COERENTE com a `recomendacao`.",
     # FASE 8B (revisão de eficiência dos defaults): leitura é no celular — o
     # corpo enxuto vale nos DOIS modos; clareza > exaustividade.
     "SEJA CONCISO: `corpo` em ate 12 linhas de markdown; corte redundancia,",
@@ -212,10 +221,15 @@ FORMAT = "\n".join([
 
 
 def _profile_line(profile: dict) -> str:
+    # Auditoria 2026-07-31 (A1): o cabeçalho antigo ("ajuste recomendacao... a
+    # ELE") era a definição literal de recomendação personalizada — o oposto do
+    # que OPERADOR_PRO e o DISCLAIMER declaram. O perfil DIMENSIONA o risco;
+    # a leitura técnica e a decisão não mudam com ele.
     if not isinstance(profile, dict) or not profile:
         return ""
     return (
-        "Perfil do operador (ajuste recomendacao, stop e alvo a ELE): "
+        "Perfil do operador (dimensione stop, alvo e tamanho de posicao ao perfil; "
+        "a leitura tecnica e a decisao NAO mudam com o perfil): "
         f"risco {profile.get('risco', 'moderado')}, "
         f"horizonte {profile.get('horizonte', 'swing')}, "
         f"tolerancia de perda por operacao {profile.get('toleranciaPerdaPct', 2)}%, "
@@ -241,7 +255,10 @@ def resolve_key(config: dict) -> str:
     return config.get("apiKey") or ""
 
 
-def _build_user_prompt(ticker: str, quote: dict, history: dict, profile: dict = None, account: dict = None) -> str:
+def _build_user_prompt(ticker: str, quote: dict, history: dict, profile: dict = None, account: dict = None, fecho: str = None) -> str:
+    # M4 (auditoria): `fecho` parametriza a frase final por superfície/modo —
+    # o N3 espera um ARRAY (não "o JSON") e a mesa não produz leitura
+    # "educacional". Sem `fecho`, mantém a frase do modo estudo (legado).
     lines = [f"Ativo: {ticker} ({name_of(ticker)}) - B3"]
     pl = _profile_line(profile)
     if pl:
@@ -261,7 +278,7 @@ def _build_user_prompt(ticker: str, quote: dict, history: dict, profile: dict = 
     for c in history.get("candles", []):
         lines.append("\t".join(str(c.get(k)) for k in ("date", "open", "high", "low", "close", "volume")))
     lines.append("")
-    lines.append(f"Com base nas instrucoes, no PERFIL e nestes dados reais, produza a leitura tecnica educacional de {ticker} no JSON exigido.")
+    lines.append(fecho or f"Com base nas instrucoes, no PERFIL e nestes dados reais, produza a leitura tecnica educacional de {ticker} no JSON exigido.")
     return "\n".join(lines)
 
 
@@ -524,7 +541,10 @@ def _build_structured_prompt(ticker: str, context: dict, profile: dict = None, a
         "4. Se o cenario for indefinido, use recomendacao='Não operar' ou 'Aguardar'.",
         "5. Use o bloco `families` (leitura por familia + confluenciaEntreFamilias) como espinha da analise: explique cada familia e a sintese.",
         "6. Respeite `dataQuality` (serie curta/volume/multi-timeframe limitam o teto de confianca — declare as limitacoes).",
-        "7. Termine o campo `corpo` com a secao '## Modelos utilizados' explicando CADA metodologia aplicada (o que e, o que mede, limitacoes) — o app ensina, nao opina.",
+        # A5 (auditoria): "CADA metodologia" x corpo de 12 linhas era o MESMO
+        # squeeze que estourou o N1 (100% de fallback por truncamento) — recebe
+        # o mesmo remedio do DEEP_FORMAT: ate 4 modelos mais relevantes.
+        "7. Termine o campo `corpo` com a secao '## Modelos utilizados' explicando os ATE 4 modelos MAIS RELEVANTES para esta leitura (priorize os que sustentam a tese; o que e, o que mede, limitacoes) — o app ensina, nao opina.",
         "8. Saia somente no JSON obrigatorio.",
     ])
     return "\n".join(lines)
@@ -532,29 +552,36 @@ def _build_structured_prompt(ticker: str, context: dict, profile: dict = None, a
 
 async def analyze_structured(config: dict, skill: dict, profile: dict, account: dict, ticker: str, context: dict, modo: str = None):
     key = resolve_key(config)
-    pl = _profile_line(profile)
     # FASE 8B (B3): N2 por modo — professor (educacional, intacto) × mesa de
     # operações (decisão direta). Mesmas chaves de saída; muda persona/tom.
+    # Auditoria 2026-07-31 (A7): os blocos abaixo declaram só a FUNÇÃO — a
+    # persona base + princípios já vêm do skill.text (fonte canônica); repetir
+    # a persona em outras palavras gerava duas vozes no mesmo system. E o
+    # PERFIL sai do system (vive só no user prompt): dedup + cache de prompt
+    # não fragmenta mais por usuário.
     operador = (modo == "operador") or (modo is None and is_operador(config))
+    # A3 (auditoria): o N2 recebe o MESMO pacote com dataQuality que o N1 —
+    # o contrato de qualidade de dados vale aqui também.
+    cd = "\n" + skill_ref.CONTRATO_DADOS
     if operador:
         mesa = "\n".join([
-            "# Persona",
-            "Voce e a MESA DE OPERACOES do cliente na B3: analise tecnica, leitura de",
-            "candles, risco e disciplina. Oriente direto: decisao, plano e onde a tese",
+            "# Funcao nesta analise (mesa)",
+            "Oriente direto como MESA DE OPERACOES: decisao, plano e onde a tese",
             "morre — sem aula; uma linha de racional por decisao basta.",
             "Diferencie fato calculado, inferencia tecnica e incerteza. Nao-operacao e",
             "resultado de primeira classe quando os sinais conflitam.",
         ])
-        system = (skill.get("text") or "") + "\n" + mesa + "\n" + GUARDRAILS_PRO + ("\n" + pl if pl else "") + "\n" + FORMAT_PRO
+        system = (skill.get("text") or "") + "\n" + mesa + cd + "\n" + GUARDRAILS_PRO + "\n" + FORMAT_PRO
     else:
         super_operator = "\n".join([
-            "# Persona",
-            "Voce e um super operador educacional da B3 especializado em analise tecnica, leitura de candles, risco e psicologia de mercado.",
-            "Sua funcao e ENSINAR o raciocinio de uma mesa profissional, nao emitir ordem operacional real.",
-            "Diferencie fato calculado, inferencia tecnica e incerteza. Seja direto e didatico para leitura em celular.",
-            "Priorize contexto, risco, invalidacao, stop tecnico e nao-operacao quando os sinais forem conflitantes.",
+            "# Funcao nesta analise (professor)",
+            "ENSINE o raciocinio de uma mesa profissional da B3, sem emitir ordem",
+            "operacional real. Direto e didatico para leitura em celular.",
+            "Diferencie fato calculado, inferencia tecnica e incerteza. Priorize",
+            "contexto, risco, invalidacao, stop tecnico e nao-operacao quando os",
+            "sinais forem conflitantes.",
         ])
-        system = (skill.get("text") or "") + "\n" + super_operator + "\n" + skill_ref.DIDATICA + "\n" + GUARDRAILS + ("\n" + pl if pl else "") + "\n" + FORMAT
+        system = (skill.get("text") or "") + "\n" + super_operator + "\n" + skill_ref.DIDATICA + cd + "\n" + GUARDRAILS + "\n" + FORMAT
     user = _build_structured_prompt(ticker, context, profile, account)
     raw = await _call_llm(config, key, system, user, 1800)
     if not raw:
@@ -579,18 +606,26 @@ async def analyze_structured(config: dict, skill: dict, profile: dict, account: 
 
 async def analyze(config: dict, skill: dict, profile: dict, account: dict, ticker: str, quote: dict, history: dict):
     key = resolve_key(config)
-    pl = _profile_line(profile)
     # qa/40 (reporte do Alex): este caminho era SEMPRE educacional — no modo
     # Operador devolvia "Estudar alta" na cara da mesa. Agora segue o mesmo
     # branch por modo do analyze_structured (piso do SERVIDOR, vale mesmo que
     # o cliente mande a skill errada), com re-map PRO e teto de convicção
     # (caminho legado não tem 2º timeframe → teto sempre).
     operador = is_operador(config)
+    # Auditoria 2026-07-31 (A2b): esta rota envia SÓ candles crus — o Princípio 1
+    # do skill.text (e a DIDATICA) referenciam um "pacote técnico" que aqui não
+    # existe. A variante canônica SOBRESCREVE essas referências (nenhum número
+    # inventado; indicador só se derivável dos candles, com o cálculo no corpo).
+    # (A7): perfil sai do system — já vive no user prompt (cache não fragmenta).
+    sem_pacote = "\n" + skill_ref.PRINCIPIO_DADOS_SEM_PACOTE
     if operador:
-        system = (skill.get("text") or "") + "\n" + GUARDRAILS_PRO + ("\n" + pl if pl else "") + "\n" + FORMAT_PRO
+        system = (skill.get("text") or "") + sem_pacote + "\n" + GUARDRAILS_PRO + "\n" + FORMAT_PRO
     else:
-        system = (skill.get("text") or "") + "\n" + skill_ref.DIDATICA + "\n" + GUARDRAILS + ("\n" + pl if pl else "") + "\n" + FORMAT
-    user = _build_user_prompt(ticker, quote, history, profile, account)
+        system = (skill.get("text") or "") + sem_pacote + "\n" + skill_ref.DIDATICA + "\n" + GUARDRAILS + "\n" + FORMAT
+    # M4 (auditoria): a mesa não produz leitura "educacional" — fecho por modo.
+    fecho = (f"Com base nas instrucoes, no PERFIL e nestes dados reais, produza a leitura tecnica de {ticker} no JSON exigido."
+             if operador else None)
+    user = _build_user_prompt(ticker, quote, history, profile, account, fecho=fecho)
     raw = await _call_llm(config, key, system, user, 1300)
     if not raw:
         raise RuntimeError("A LLM nao retornou texto.")
@@ -657,6 +692,14 @@ DEEP_FORMAT = "\n".join([
     "modelosUtilizados cobre os ATÉ 4 modelos MAIS RELEVANTES para esta leitura",
     "(não todos — priorize os que sustentam a tese): o app ensina, não opina.",
     "`confianca` respeita o teto do dataQuality.",
+    # A6a (auditoria, decisão provisória — ver comentário na validação do
+    # analyze_deep): o teto declarado resolve a contradição com o PROCESSO §9.
+    "Por desenho deste aprofundamento, `confianca` PÁRA em 'moderada' mesmo com",
+    "confirmação multi-timeframe — 'alta' não existe neste contrato.",
+    # A4 (auditoria): endereço do fecho canônico exigido pelos GUARDRAILS —
+    # espelha o PRO_DEEP_FORMAT (que já fecha o resumo com a conclusão da mesa).
+    "O 'resumo' TERMINA com UMA das conclusões de estudo canônicas, textualmente,",
+    "COERENTE com o `planoEstudo`.",
     "SEJA CONCISO (leitura no celular): 'resumo' em até 3 frases; cada 'leitura'",
     "de setup em até 2 frases; cada cenário em 1 frase; até 3 'riscos' de 1 frase",
     "cada; 'invalidacao' em 1 frase. Clareza didática vale mais que exaustividade —",
@@ -724,7 +767,17 @@ FORMAT_PRO = FORMAT.replace(
 ).replace(
     "O campo `recomendacao` NAO e recomendacao de investimento; e um PLANO EDUCACIONAL\npara estudo no simulador. Nao use 'comprar' ou 'vender'.",
     "O campo `recomendacao` e a DECISAO da mesa, coerente com o plano deterministico\nfornecido; a execucao e sempre do usuario, na corretora dele.",
-) + "\nSEJA CONCISO (mesa, leitura no celular): `corpo` em ate 10 linhas de markdown,\nabrindo com 'Resumo executivo' (2 frases) e fechando com a conclusao canonica."
+).replace(
+    # A4 (auditoria): o fecho do modo ESTUDO sai — a versao da mesa entra no
+    # sufixo abaixo (conclusao canonica da mesa, nao a de estudo).
+    "O `corpo` FECHA com UMA das conclusoes de estudo canonicas, textualmente,\ne COERENTE com a `recomendacao`.\n",
+    "",
+).replace(
+    # M1 (auditoria): sem DOIS limites de linhas — o "12" herdado do FORMAT sai;
+    # o sufixo da mesa pede 10.
+    "SEJA CONCISO: `corpo` em ate 12 linhas de markdown; corte redundancia,\nnao corte o raciocinio.",
+    "",
+) + "\nSEJA CONCISO (mesa, leitura no celular): `corpo` em ate 10 linhas de markdown,\nabrindo com 'Resumo executivo' (2 frases) e fechando com a conclusao canonica,\nCOERENTE com a `recomendacao`."
 
 # N1 (deep) no modo operador: mesmas CHAVES do DEEP_FORMAT (o DeepModal já
 # renderiza), com semântica de mesa — planoEstudo vira a DECISÃO.
@@ -745,6 +798,11 @@ PRO_DEEP_FORMAT = "\n".join([
     "}",
     "`planoEstudo` é a DECISÃO da mesa e deve ser COERENTE com o plano",
     "determinístico do pacote (entrada/stop/alvos/R:R) — nunca o contradiga.",
+    # A6a (auditoria): mesmo teto documentado do DEEP_FORMAT.
+    "Por desenho deste aprofundamento, `confianca` PÁRA em 'moderada' mesmo com",
+    "confirmação multi-timeframe — 'alta' não existe neste contrato.",
+    "A conclusão canônica que fecha o 'resumo' deve ser COERENTE com o",
+    "`planoEstudo`.",
     "SEJA CONCISO (mesa): 'resumo' em até 3 frases; cada 'leitura' em até 2;",
     "cada cenário em 1 frase; até 3 'riscos' de 1 frase; 'invalidacao' em 1.",
 ])
@@ -831,13 +889,17 @@ async def analyze_deep(config: dict, profile: dict, ticker: str, context: dict, 
     operador = (modo == "operador") or (modo is None and is_operador(config))
     # N1 recebe o pacote técnico COMPLETO + candles: é onde o contrato de dados
     # (defasagem, ≥50 candles, volume, teto multi-timeframe) tem o que validar.
+    # Auditoria 2026-07-31 (A7): perfil SÓ no user prompt — no system ele
+    # fragmentava o cache entre usuários (o Radar N1 faz N chamadas seguidas
+    # com system idêntico; é o cenário ideal do prompt caching).
     cd = "\n" + skill_ref.CONTRATO_DADOS
     if operador:
-        system = OPERADOR_PRO + cd + "\n" + GUARDRAILS_PRO + (("\n" + pl) if pl else "") + "\n" + PRO_DEEP_FORMAT
+        system = OPERADOR_PRO + cd + "\n" + GUARDRAILS_PRO + "\n" + PRO_DEEP_FORMAT
     else:
-        system = OPERADOR_EDUCACIONAL + cd + "\n" + GUARDRAILS + (("\n" + pl) if pl else "") + "\n" + DEEP_FORMAT
+        system = OPERADOR_EDUCACIONAL + cd + "\n" + GUARDRAILS + "\n" + DEEP_FORMAT
     user = "\n".join([
         f"Ativo: {ticker} ({name_of(ticker)}) - B3 · Aprofundamento do Radar (nível 1).",
+        (pl if pl else ""),
         (f"Snapshot técnico #{context.get('snapshotId')} ({context.get('snapshotAt')}): todos os números vêm DELE — mesma fonte do Radar; `planoEstudo` deve ser coerente com o veredito dos setups abaixo." if isinstance(context, dict) and context.get("snapshotId") else ""),
         "",
         "SETUPS DETECTADOS (determinístico, com checklist e confluência %):",
@@ -868,6 +930,9 @@ async def analyze_deep(config: dict, profile: dict, ticker: str, context: dict, 
     # FASE 8B (B3): validação do rótulo por MODO — mesa usa decisões diretas;
     # estudo mantém o vocabulário educacional. Valor fora do conjunto vira o
     # neutro do modo (nunca vaza vocabulário de um modo no outro).
+    # M2 (auditoria): 'Reduzir risco' é extensão do N2 (gestão de posição já
+    # aberta); o N1 aprofunda um CANDIDATO do Radar, sem posição a reduzir —
+    # por isso o enum do plano não inclui a extensão, de propósito.
     if operador:
         if str(data.get("planoEstudo") or "").upper() not in _DECISOES_PRO:
             data["planoEstudo"] = "AGUARDAR CONFIRMAÇÃO"
@@ -879,6 +944,12 @@ async def analyze_deep(config: dict, profile: dict, ticker: str, context: dict, 
     conf = str(data.get("confianca") or "").lower()
     # qa/39: default seguro é "baixa" — valor ausente/inválido caía em
     # "moderada", transformando o TETO em PISO de confiança.
+    # A6a (auditoria 2026-07-31, decisão PROVISÓRIA): o teto permanente em
+    # "moderada" (sem "alta" mesmo com multiTimeframe=true) fica DOCUMENTADO
+    # como conservadorismo do aprofundamento — e declarado no DEEP_FORMAT/
+    # PRO_DEEP_FORMAT para não contradizer o PROCESSO §9 no mesmo prompt.
+    # Se o Alex optar por (b): incluir "alta" aqui e nos dois formatos, gated
+    # por dataQuality.multiTimeframe (enforcement em código, como o N2 faz).
     data["confianca"] = conf if conf in ("baixa", "moderada") else "baixa"
     # qa/44: o N1 (deep) NÃO passava pelo normalize_markdown (só o N2 passava) —
     # com outra LLM os campos de texto saíam no dialeto cru / com \n literal.
@@ -981,7 +1052,7 @@ def parse_carteira(raw: str, ticker: str) -> dict:
             "riscoRetorno": rr_final,
             "memoriaCalculo": str(c.get("memoriaCalculo") or ""),
             "rrDesfavoravel": bool(c.get("rrDesfavoravel")) or (
-                rr_final is not None and rr_final < 1.5
+                rr_final is not None and rr_final < skill_ref.RR_MIN
             ),
         })
     modelos = [m for m in (chosen.get("modelosUtilizados") or []) if isinstance(m, dict)]
@@ -1006,7 +1077,6 @@ async def analyze_carteira(config: dict, profile: dict, account: dict, ticker: s
     resistências da janela, bandas e viés — e a resposta passa a incluir
     `cenarios` (conservador/moderado/agressivo) com memória de cálculo."""
     key = resolve_key(config)
-    pl = _profile_line(profile)
     instruction = (prompt or "").strip()
     cenarios_ext = ""
     if tech_context:
@@ -1024,7 +1094,7 @@ async def analyze_carteira(config: dict, profile: dict, account: dict, ticker: s
             "- stop TÉCNICO ligado à invalidação (suporte/mínima local e/ou k×ATR do",
             "  CONTEXTO TÉCNICO fornecido) — nunca arbitrário; alvo em resistência ou",
             "  múltiplos de ATR. Todo número citado VEM do contexto (não invente).",
-            "- riscoRetorno = (alvo−preço)/(preço−stop); se < 1,5 marque",
+            "- riscoRetorno = (alvo−preço)/(preço−stop); se < " + skill_ref.RR_MIN_TXT + " marque",
             '  "rrDesfavoravel": true (cenário fica rotulado como estudo).',
             "- Ajuste as distâncias ao PERFIL (tolerância de perda) e ao capital.",
             "- Sem verbo de ordem; são sugestões PARA ESTUDO que o usuário confirma.",
@@ -1037,10 +1107,23 @@ async def analyze_carteira(config: dict, profile: dict, account: dict, ticker: s
     # em conta gerenciada, o floor regulatório inteiro ficava apagável.
     voz = ("\n\n" + GUARDRAILS_PRO + "\nFale como mesa de operações: stop na invalidação técnica, "
            "alvos com R:R explícito e uma linha de racional por número.") if is_operador(config) else ("\n\n" + GUARDRAILS)
-    system = instruction + voz + ((("\n\n" + pl)) if pl else "") + cenarios_ext + (
+    # A4 (auditoria 2026-07-31): o "Termine SEMPRE..." dos guardrails precisa de
+    # ENDEREÇO neste contrato (array com `explicacao`) — senão a conclusão sai
+    # fora do JSON e arrisca o parse.
+    voz += ("\nNo formato deste prompt (array por ativo), a conclusão canônica "
+            "exigida acima FECHA a `explicacao` de cada ativo — nada fora do array.")
+    # A3 (auditoria): o N3 propõe stop/alvo — o número mais sensível; o contrato
+    # de qualidade de dados vale aqui também, na camada do SERVIDOR (sobrevive
+    # a prompt editado pelo usuário, como os guardrails do qa/39 P1-4).
+    voz += "\n" + skill_ref.CONTRATO_DADOS
+    # (A7): perfil sai do system — já vive no user prompt (_build_user_prompt).
+    system = instruction + voz + cenarios_ext + (
         "\n\nResponda SOMENTE com o array JSON especificado, sem texto fora dele e sem cercas ```."
     )
-    user = _build_user_prompt(ticker, quote, history, profile, account)
+    # M4 (auditoria): o fecho genérico pedia "o JSON exigido" (singular, voz de
+    # estudo) — aqui o contrato é um ARRAY e vale nos dois modos.
+    user = _build_user_prompt(ticker, quote, history, profile, account,
+                              fecho=f"Com base nas instrucoes, no PERFIL e nestes dados reais, produza a analise de stop/alvo de {ticker} no ARRAY JSON especificado (um objeto por ativo).")
     if tech_context:
         user += "\n\nCONTEXTO TÉCNICO PRÉ-CALCULADO (ATR, suportes/resistências da janela, bandas, viés) — use ESTES números:\n" + json.dumps(tech_context, ensure_ascii=False, separators=(",", ":"))
     raw = await _call_llm(config, key, system, user, 1300 if tech_context else 900)

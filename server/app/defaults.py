@@ -7,6 +7,9 @@ função (professor × mesa) e o vocabulário de decisão. São editáveis pelo 
 from . import skill_ref
 
 # Contrato de saída (mesmas CHAVES que a UI parseia) — comum aos dois modos.
+# Auditoria 2026-07-31 (A7): redundância DELIBERADA com o FORMAT do llm.py —
+# a skill é editável pelo usuário; se ele trocar o texto e perder este bloco,
+# o FORMAT (camada do servidor) continua garantindo o contrato. Manter os dois.
 _CONTRATO_SAIDA = "\n".join([
     "# Contrato de saída (OBRIGATÓRIO)",
     "Responda com UM único objeto JSON, sem texto fora dele e sem cercas de",
@@ -86,7 +89,8 @@ def default_llm_prompts() -> dict:
             "- NUNCA prometa lucro nem use linguagem de ganho garantido.\n"
             "- Dimensione o STOP para limitar a perda por operação conforme a tolerância\n"
             "  do perfil.\n"
-            "- Defina o ALVO por uma relação risco:retorno de NO MÍNIMO 1,5:1; abaixo\n"
+            "- Defina o ALVO por uma relação risco:retorno de NO MÍNIMO "
+            + skill_ref.RR_MIN_TXT + ":1; abaixo\n"
             "  disso, trate como cenário de estudo desfavorável ou use \"operar\": false.\n"
             "- Se os dados forem insuficientes ou estiverem distorcidos (baixa liquidez,\n"
             "  evento de redução de capital, etc.) ou o cenário estiver indefinido, diga\n"
@@ -123,7 +127,8 @@ def default_llm_prompts() -> dict:
             "Regras invioláveis:\n"
             "- O STOP fica na INVALIDAÇÃO TÉCNICA da posição (suporte/resistência, extremo\n"
             "  do setup, ATR) — nunca num percentual arbitrário.\n"
-            "- O ALVO precisa render relação risco:retorno de NO MÍNIMO 1,5:1 (ideal 2:1 ou\n"
+            "- O ALVO precisa render relação risco:retorno de NO MÍNIMO "
+            + skill_ref.RR_MIN_TXT + ":1 (ideal " + skill_ref.RR_IDEAL_TXT + ":1 ou\n"
             '  melhor). Abaixo disso, a posição não compensa: "operar": false.\n'
             "- Nunca prometa lucro nem percentual de acerto. Dados passados não garantem\n"
             "  repetição.\n"

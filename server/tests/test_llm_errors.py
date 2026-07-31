@@ -60,6 +60,10 @@ def test_format_pro_troca_vocabulario_sem_trocar_contrato():
     assert "PLANO EDUCACIONAL" not in llm.FORMAT_PRO
     for chave in ('"direcao"', '"conviccao"', '"qualidade"', '"resumo"', '"corpo"', '"stopSugerido"', '"alvoSugerido"'):
         assert chave in llm.FORMAT_PRO, "chave do contrato sumiu no PRO: " + chave
+    # M1 (auditoria 2026-07-31): o FORMAT_PRO pedia 12 E 10 linhas — o limite
+    # herdado do FORMAT tem de sair; só o da mesa (10) fica.
+    assert "12 linhas" not in llm.FORMAT_PRO
+    assert "10 linhas" in llm.FORMAT_PRO
     # e o educacional permanece intacto
     assert '"recomendacao": "Estudar alta|Estudar baixa|Monitorar|Aguardar|Não operar|Reduzir risco",' in llm.FORMAT
 

@@ -22,6 +22,17 @@ PERSONA_BASE = "\n".join([
     "probabilidade, risco e retorno é favorável.",
 ])
 
+# --- Relação risco-retorno mínima/ideal — fonte única do número --------------
+# Auditoria 2026-07-31 (A8): o "1,5" vivia como literal em 4 lugares (aqui,
+# 2 prompts de carteira em defaults.py e o cenarios_ext do N3) — mesma classe
+# de drift que este módulo nasceu para eliminar. Mudou o R:R do produto? Muda
+# AQUI e todos os pontos (prompt e código) acompanham.
+RR_MIN = 1.5
+RR_IDEAL = 2.0
+# Formato pt-BR para interpolação em prompts ("1,5" / "2").
+RR_MIN_TXT = f"{RR_MIN:g}".replace(".", ",")
+RR_IDEAL_TXT = f"{RR_IDEAL:g}".replace(".", ",")
+
 # --- Princípios invioláveis (referência §51-64: os 11 princípios) ------------
 # Mode-agnostic. O item de VOCABULÁRIO de decisão fica na camada de modo.
 PRINCIPIOS = "\n".join([
@@ -31,7 +42,8 @@ PRINCIPIOS = "\n".join([
     "2. Nunca prometa lucro, retorno ou percentual garantido de acerto.",
     "3. Não confunda convicção com certeza.",
     "4. Sinais conflitantes ⇒ aguardar ou não operar.",
-    "5. Relação risco-retorno inadequada ⇒ não operar. Mínimo 1,5:1; ideal ≥ 2:1.",
+    "5. Relação risco-retorno inadequada ⇒ não operar. Mínimo " + RR_MIN_TXT
+    + ":1; ideal ≥ " + RR_IDEAL_TXT + ":1.",
     "6. SEMPRE informe o ponto (nível/condição) que INVALIDA a tese.",
     "7. Diferencie cenário confirmado, em formação e especulativo.",
     "8. Antes de qualquer entrada, verifique se o movimento já está esticado —",
@@ -78,6 +90,25 @@ CONTRATO_DADOS = "\n".join([
     "- Eventos próximos (ex.: resultado) na janela do plano: cite como risco.",
     "Dois ou mais critérios falhando ⇒ a conclusão é aguardar / não operar; nunca",
     "force um plano completo para compensar dados incompletos.",
+])
+
+# --- Variante do Princípio 1 para rotas SEM pacote técnico -------------------
+# Auditoria 2026-07-31 (A2): o caminho legado /api/analyze envia SÓ candles
+# crus + cotação, mas o Princípio 1 (e a DIDATICA) referenciam um "pacote
+# técnico pré-calculado" que ali não existe — para citar RSI/médias o modelo
+# teria de calcular por conta própria (violando o princípio) ou se recusar.
+# Este bloco SOBRESCREVE essas referências na rota, mantendo o espírito:
+# nenhum número inventado.
+PRINCIPIO_DADOS_SEM_PACOTE = "\n".join([
+    "# Dados desta análise (SOBRESCREVE o Princípio 1 e referências ao 'pacote')",
+    "NESTA análise NÃO há pacote técnico pré-calculado: você recebe APENAS a",
+    "cotação e os candles crus fornecidos. Instruções acima ou abaixo que citem",
+    "o 'pacote', `families` ou `confluenciaEntreFamilias` não se aplicam aqui.",
+    "Use SOMENTE os candles fornecidos; cite um indicador apenas se ele for",
+    "derivável aritmeticamente deles — e mostre o cálculo no corpo.",
+    "Indicador ou dado que exigiria fonte ausente (fluxo, book, opções, notícia):",
+    "declare a ausência em vez de estimar. Na dúvida, a lacuna vale mais que o",
+    "número.",
 ])
 
 # --- Conclusões canônicas (referência §169-173) ------------------------------
