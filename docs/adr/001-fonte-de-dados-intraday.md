@@ -1,6 +1,7 @@
 # ADR-001: Fonte de dados intraday e onde esse dado vive
 
-**Status:** Proposto — granularidade decidida (15m); pendente a VALIDAÇÃO do atraso (§ Decisão 2)
+**Status:** **Aceito** — atraso medido em 31/07 (15,0 min constantes); regra do "dobro do atraso" corrigida.
+Risco aberto: lacuna de 3h no feed em 31/07 (§ Decisão 2, "O achado que NÃO era o esperado")
 **Data:** 2026-07-31
 **Decisor:** Alex
 **Base empírica:** [`docs/MEDICAO-Yahoo-Intraday-2026-07-30.md`](../MEDICAO-Yahoo-Intraday-2026-07-30.md) — nada aqui é estimativa quando existe medição.
@@ -57,9 +58,14 @@ configuração em vez de refatoração — e custa pouco, porque
 depois do incidente do 401.
 
 **Gatilho declarado para acionar o plano B** (sem isso, "temos um plano B" é
-conversa): taxa de não-200 no fetch intraday acima de **2% em uma janela de 3
+conversa): taxa de **FALHA** no fetch intraday acima de **2% em uma janela de 3
 pregões**, observada pela instrumentação da Decisão 5. Nesse ponto a decisão
 volta para o Alex com número, não com impressão.
+
+**FALHA = não-200 _ou_ 200 com série vazia.** A definição original só contava
+não-200 e teria dormido durante o incidente de 31/07, em que 360 requisições
+consecutivas voltaram 200 com zero velas (§ Decisão 2). Corrigido no mesmo dia,
+com regressão.
 
 ### Opções consideradas
 
@@ -82,33 +88,62 @@ o Alex a tomou. O papel deste ADR é garantir que ela seja **reversível barato*
 
 ---
 
-## Decisão 2 — Granularidade: **15m, sobre velas FECHADAS**
+## Decisão 2 — Granularidade: **15m, sobre velas FECHADAS** · MEDIDA E CONFIRMADA
 
-**Decisão do Alex em 31/07:** adotar `15m` como granularidade do intraday, em vez
-de deixar a escolha pendurada na medição de atraso. O produto é, nesta fase, um
-**modelo de treinamento** — assertividade e verificabilidade valem mais que
-resolução.
+**Decisão do Alex em 31/07:** adotar `15m`, em vez de deixar a escolha pendurada
+na medição. O produto é, nesta fase, um **modelo de treinamento** —
+assertividade e verificabilidade valem mais que resolução.
 
-**Regra que continua valendo:** a duração da barra precisa ser **no mínimo o
-dobro do atraso mediano do feed**.
+**Medição de 31/07/2026, 13:04 BRT, pregão aberto, do IP de produção:**
 
-O raciocínio: o produto só pode falar em "a condição ocorreu" se a barra em que
-ela ocorreu já for conhecida. Se o atraso for maior que a duração da barra, o
-sistema está permanentemente mais de uma barra atrás do mercado, e a afirmação é
-falsa por construção. O fator 2 é a margem para o jitter da rede (p95 medido:
-97 ms — irrelevante) e para o tempo de ciclo do laço.
-
-| Atraso mediano | Granularidade honesta | O que o produto pode dizer |
+| Intervalo | Lag do último negócio | Idade da barra utilizável |
 |---|---|---|
-| ≤ 2,5 min | 5m | "a condição ocorreu às 11:35" |
-| **≤ 7,5 min** | **15m ← adotado** | "a condição ocorreu na barra das 11:30" |
-| > 7,5 min | 30m ou 60m | timing sai do produto; o dado vira contexto, não gatilho |
+| `1m` | **15,0 min** | 15–16 min |
+| `5m` | **15,1 min** | 15–20 min |
+| `15m` | **15,1 min** | 15–30 min |
+| `30m` | **15,1 min** | 30–60 min |
+
+Idêntico em PETR4, VALE3, BBDC4 e MGLU3, e estável em 15,0–15,2 min ao longo de
+25 minutos de amostragem. **Não é jitter: é atraso deliberado e constante de 15
+minutos**, a assinatura padrão de feed de bolsa não licenciado.
+
+### A regra do "dobro do atraso" estava ERRADA — a medição a derrubou
+
+A versão anterior deste ADR fixava: *a barra tem que durar no mínimo o dobro do
+atraso*. Com 15 min de lag, isso exigiria `30m` e reprovaria os `15m`.
+
+A regra está errada, e a tabela acima mostra por quê: **engrossar a barra piora a
+informação**. A idade da barra utilizável é `atraso + duração da barra` — subir de
+`15m` para `30m` leva a staleness de 15–30 min para 30–60 min. A regra empurraria
+para a decisão pior.
+
+O erro conceitual foi tratar o atraso como algo que a granularidade compensa. Não
+compensa: **os 15 minutos são constantes e independem do intervalo escolhido.**
+
+**Regra corrigida:** o atraso do feed não escolhe a granularidade — ele decide
+**se timing é uma feature viável e o que o produto pode afirmar**. A granularidade
+é escolhida por resolução e qualidade de série (ver "Por que 15m e não 5m").
+
+### O que o produto pode e não pode dizer, com 15 min de atraso
+
+- ❌ "a condição **está ocorrendo agora**" — falso por construção, sempre, por 15 min.
+- ✅ "a condição ocorreu **na barra das 12:45, que fechou às 13:00**" — verdadeiro
+  e auditável.
+
+Para o horizonte swing do produto (Operador reavaliando a cada 5 min, Radar
+diário), um gatilho com 15–30 min de idade é utilizável. Para day trade, não
+seria — e o produto não é day trade.
+
+**Obrigação de interface:** toda afirmação de timing carrega o carimbo da barra e
+o horário de fechamento dela. Sem o carimbo, a frase insinua tempo real e vira
+falsa. Isto é requisito, não enfeite.
 
 ### Por que 15m e não 5m
 
-1. **Cobre quase toda a faixa plausível de atraso.** Com `5m`, a decisão depende
-   de um número que ainda não existe. Com `15m`, só um atraso acima de 7,5 min a
-   derruba — a medição deixa de **escolher** e passa a **validar**.
+1. **Melhor relação entre frescor e ruído, dado o atraso medido.** Com 15 min de
+   lag constante, `5m` entrega staleness de 15–20 min contra 15–30 min do `15m` —
+   ganho marginal, ao custo de 3× mais velas e de uma série visivelmente mais
+   suja. `1m` seria 14× o volume por 1 minuto de frescor.
 2. **Série mais limpa.** Medido em PETR4: `1m` traz 2,5% de fechamentos nulos,
    `15m` traz **1 vela** em 617. E PETR4 é a ação mais líquida da bolsa — na
    cauda do universo (COGN3, AURE3, IGTI11) o buraco é maior. Indicador sobre
@@ -143,14 +178,52 @@ uma que não é:
 O diário fica como está — lá a "vela em formação" é o pregão do dia, e o produto
 já é explícito sobre isso.
 
-### O que a medição das 11h ainda decide
+### O achado que NÃO era o esperado — e que ameaça a Decisão 1, não a 2
 
-Ela deixou de escolher a granularidade, mas **não virou dispensável**:
+A medição de 31/07 revelou algo mais grave que o atraso, e por acaso: **o feed de
+B3 do Yahoo passou as primeiras 3 horas do pregão sem publicar absolutamente
+nada.**
 
-- atraso ≤ 7,5 min → `15m` confirmado, o ADR é aceito como está;
-- atraso > 7,5 min (ex.: os 15 min clássicos de feed atrasado de bolsa) → **nem
-  `15m` passa na regra**. O piso vira `30m` e o vocabulário de timing sai do
-  Operador. Este ADR volta à mesa.
+Cronologia medida (360 amostras de 2 em 2 min, 3 ativos, 2 intervalos):
+
+| Hora BRT | Estado |
+|---|---|
+| 10:00 | abertura da B3 (dia de pregão normal, [calendário oficial](https://www.b3.com.br/pt_br/solucoes/plataformas/puma-trading-system/para-participantes-e-traders/calendario-de-negociacao/feriados/) confere) |
+| 10:08 → 12:10 | **zero velas**, em 360 amostras. `regularMarketTime` congelado em `30/07 17:05:39` — o MESMO segundo, sempre |
+| 13:02 | primeira vela do dia aparece, começando às **12:45** |
+| 13:28 | série continua começando em 12:45 — **a manhã não foi preenchida** |
+
+Discriminante decisivo, no mesmo instante e pelo mesmo endpoint:
+
+| Símbolo | Velas hoje | Lag |
+|---|---|---|
+| AAPL | 22 | **0 min** |
+| VALE (ADR em NY) | 22 | **0 min** |
+| PETR4.SA | 0 | 1.147 min |
+| ^BVSP | 0 | 1.135 min |
+
+O Yahoo estava **saudável e em tempo real** para os EUA enquanto não entregava
+nada de B3. Não é feriado, não é bloqueio, não é rate limit, não é o IP da
+Railway: é o feed de B3 sumindo em silêncio, com HTTP 200 e
+`marketState: REGULAR`.
+
+**Consequências:**
+
+1. **~2h45 de pregão sumiram da série** e não retornaram. Indicador calculado
+   sobre série com buraco de três horas mente, e o produto não teria como saber.
+2. **A instrumentação da Decisão 5 era cega para isto** — contava falha como
+   não-200, e aqui todos os 360 retornos foram 200. Corrigido no mesmo dia:
+   resposta vazia agora conta como falha (`vazios`, `taxaFalha`), com regressão
+   que reproduz este pregão.
+3. **O risco da Decisão 1 deixou de ser teórico.** "Sem contrato, sem SLA" saiu
+   do papel no segundo dia de observação. Em 30/07 o mesmo pedido devolveu 617
+   velas de `15m`; em 31/07, nada por 3 horas.
+
+**Um pregão não faz padrão** — por isso a Decisão 1 NÃO muda aqui. Mas fica o
+gatilho explícito: **se a lacuna se repetir em outro pregão, a Decisão 1 volta à
+mesa**, e a brapi Pro (R$ 116,66/mês) deixa de ser plano B teórico. O orçamento
+de US$ 0 foi aprovado com a informação de que o Yahoo funcionava; essa
+informação mudou.
 
 ---
 
@@ -263,8 +336,8 @@ ordem. O Estudo continua sem eixo de tempo. O `test_guardrail_imperativo`
 continua valendo para os dois modos.
 
 **A revisitar**
-- Se o atraso vier acima de 7,5 min → nem `15m` passa na regra: piso vira 30m e o
-  vocabulário de timing sai do Operador.
+- Se a LACUNA de 31/07 se repetir em outro pregão → a Decisão 1 (fonte única
+  gratuita) volta à mesa, não a Decisão 2.
 - Se a taxa de não-200 passar de 2% em 3 pregões → Decisão 1 aciona o plano B.
 - Se a F3 exigir histórico intraday → Decisão 4 volta à mesa.
 
@@ -272,9 +345,15 @@ continua valendo para os dois modos.
 
 ## Action items
 
-1. [ ] **Validar a Decisão 2** com a medição de atraso das 11h BRT de 31/07
-       (rotina `trig_01Gj96hZAqj9ExHur6WEUyP7`). `15m` está adotado; a medição
-       confirma ou obriga a subir para 30m.
+1. [x] ~~Validar a Decisão 2 com a medição de atraso~~ — FEITO em 31/07:
+       15,0 min constantes. `15m` confirmado; a regra do "dobro do atraso" foi
+       corrigida (engrossar a barra piorava a informação).
+1c.[ ] **Carimbo da barra na interface** — toda afirmação de timing mostra a
+       barra e o horário de fechamento dela. Sem isso a frase insinua tempo
+       real e vira falsa. Requisito da Decisão 2.
+1d.[ ] **Detectar lacuna na série intraday** — buraco de horas no meio do
+       pregão precisa ser visível (o de 31/07 não teria sido). Candidato:
+       comparar nº de velas recebidas com o esperado para o horário.
 1b.[ ] **STU intraday calcula sobre velas FECHADAS** — descartar a última vela
        (a que o `merge_candles` revalida) e carimbar `snapshotAt` com a última
        barra fechada. Teste: gatilho não pode mudar entre duas leituras da mesma
