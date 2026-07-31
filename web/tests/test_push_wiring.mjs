@@ -7,12 +7,22 @@
 // capability e as chaves APNs corretas. Este teste tranca o contrato no
 // texto dos arquivos nativos (mesmo padrão dos demais guardians).
 // Roda sem build: `node web/tests/test_push_wiring.mjs`.
-import { readFileSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const read = (p) => readFileSync(join(here, "..", ...p), "utf8");
+
+// `web/ios/` é GITIGNORADA — é gerada pelo `cap sync` e existe só no clone
+// principal. Num worktree este guardião estourava ENOENT e derrubava o
+// `operar.sh testes` inteiro, escondendo o resultado das outras 39 suítes.
+// Pular com aviso mantém o gate honesto onde ele PODE rodar (o clone, que é de
+// onde sai a entrega para o iPhone) sem dar falso vermelho onde não pode.
+if (!existsSync(join(here, "..", "ios", "App", "App", "AppDelegate.swift"))) {
+  console.log("PULOU — projeto iOS ausente (web/ios/ é gitignorada; rode no clone principal, após cap sync).");
+  process.exit(0);
+}
 
 let fails = 0;
 const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if (!cond) fails++; };

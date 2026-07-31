@@ -6,13 +6,22 @@
 // verdade (pixels decodificados, não bytes) entre resources/ e o asset do
 // Xcode, e tranca os requisitos da App Store (1024×1024, sem canal alpha).
 // Roda sem build: `node web/tests/test_ios_assets.mjs`.
-import { readFileSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import zlib from "zlib";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const p = (...xs) => join(here, "..", ...xs);
+
+// `web/ios/` é GITIGNORADA — gerada pelo `cap sync`, existe só no clone
+// principal. Num worktree este guardião estourava ENOENT e derrubava o
+// `operar.sh testes` inteiro. O gate continua valendo onde importa: no clone,
+// que é de onde a entrega para o iPhone realmente sai.
+if (!existsSync(p("ios", "App", "App", "Assets.xcassets"))) {
+  console.log("PULOU — projeto iOS ausente (web/ios/ é gitignorada; rode no clone principal, após cap sync).");
+  process.exit(0);
+}
 
 let fails = 0;
 const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if (!cond) fails++; };
