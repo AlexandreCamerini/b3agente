@@ -196,3 +196,63 @@ def test_id_do_diario_nao_muda_com_a_entrada_do_parametro():
     _reset_caches()
     implicito = technical_snapshot.build("TESTE3", cs, "6mo")
     assert explicito["snapshotId"] == implicito["snapshotId"]
+
+
+# ---------------------------------------------------------------------------
+# ADR-001 (item 1b) — o STU intraday analisa só barras FECHADAS.
+# A última vela da série é SEMPRE a em formação: `merge_candles` a revalida por
+# contrato. Ler um gatilho nela é afirmar algo que ainda pode desocorrer.
+# ---------------------------------------------------------------------------
+
+def test_intraday_descarta_a_barra_em_formacao():
+    _reset_caches()
+    velas = _mk_intraday(120)
+    snap = technical_snapshot.build("TESTE3", velas, "6mo", interval="15m")
+    assert snap["asOf"] == velas[-2]["date"], "asOf tem que ser a última barra FECHADA"
+    assert snap["barraEmFormacao"] == velas[-1]["date"]
+    assert snap["candles"][-1]["date"] == velas[-2]["date"]
+    # e o preço de referência é o da barra fechada, não o da que está mudando
+    # (round: sanitize_candles normaliza em 2 casas)
+    assert snap["close"] == round(velas[-2]["close"], 2)
+
+
+def test_diario_nao_descarta_nada():
+    """No diário a 'vela em formação' é o pregão do dia — descartá-la jogaria
+    fora o dia inteiro, e o produto já é explícito sobre isso."""
+    _reset_caches()
+    cs = _mk_candles(120)
+    snap = technical_snapshot.build("TESTE3", cs, "6mo")
+    assert snap["asOf"] == cs[-1]["date"]
+    assert snap["barraEmFormacao"] is None
+    assert len(snap["candles"]) == min(len(cs), snap["periodBars"])
+
+
+def test_gatilho_nao_muda_enquanto_a_barra_se_forma():
+    """O ponto da regra: a MESMA barra em formação, com preços diferentes ao
+    longo dos 15 minutos, não pode alterar a leitura. Só o fechamento dela —
+    que vira a penúltima na leitura seguinte — pode."""
+    _reset_caches()
+    base = _mk_intraday(120)
+    a = technical_snapshot.build("TESTE3", base, "6mo", interval="15m")
+
+    # mesma série, mas a última vela (em formação) disparou 8%: é o cenário que
+    # antes mudaria veredito e setups no meio da barra.
+    mexida = [dict(c) for c in base]
+    mexida[-1] = {**mexida[-1], "close": mexida[-1]["close"] * 1.08,
+                  "high": mexida[-1]["high"] * 1.08}
+    _reset_caches()
+    b = technical_snapshot.build("TESTE3", mexida, "6mo", interval="15m")
+
+    assert a["snapshotId"] == b["snapshotId"], "barra em formação não pode gerar snapshot novo"
+    assert a["setups"]["veredito"] == b["setups"]["veredito"]
+    assert a["scoreTecnico"] == b["scoreTecnico"]
+
+
+def test_serie_curta_demais_nao_fica_sem_nada():
+    """Descartar a última de uma série de 1 vela deixaria o STU sem insumo —
+    melhor manter e deixar o dataQuality reclamar do tamanho."""
+    _reset_caches()
+    uma = _mk_intraday(1)
+    snap = technical_snapshot.build("TESTE3", uma, "6mo", interval="15m")
+    assert snap["asOf"] == uma[-1]["date"]
+    assert snap["barraEmFormacao"] is None

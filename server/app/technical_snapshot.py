@@ -70,11 +70,39 @@ def _compact_setups(sres: dict) -> list:
     return out
 
 
+def _descarta_barra_em_formacao(cs: list, interval: str) -> tuple:
+    """ADR-001 (item 1b): no intraday, a ÚLTIMA vela é descartada.
+
+    Por quê: `candle_cache.merge_candles` revalida a última vela por contrato
+    ("fresco vence"), justamente para atualizar o candle corrente. Ou seja, a
+    última vela da série é sempre a que ainda está se formando. Com o laço de 5
+    min e barras de 15m, cada barra seria lida TRÊS vezes antes de existir de
+    verdade — e uma condição vista às 11:32 pode não existir mais às 11:45.
+
+    Por que descartar SEMPRE, e não só quando a barra está aberta: saber se ela
+    fechou exigiria o relógio, e o STU é determinístico por contrato (mesmo
+    insumo ⇒ mesmo snapshotId). Trocar isso por um snapshot que muda sozinho
+    com o tempo quebraria a amarração de N1/N2/N3. O preço é uma barra de
+    latência, constante e declarada — barato perto de afirmar que algo ocorreu
+    quando ainda pode desocorrer.
+
+    O diário não muda: lá a "vela em formação" é o pregão do dia, o produto já
+    é explícito sobre isso, e descartá-la jogaria fora o dia inteiro.
+    """
+    if (interval or "1d") not in candles_mod.BARS_PER_SESSION or interval in ("1d", "1wk"):
+        return cs, None
+    if len(cs) < 2:            # série curta demais: descartar deixaria nada
+        return cs, None
+    return cs[:-1], cs[-1].get("date")
+
+
 def build(ticker: str, raw_candles: list, period: Optional[str], interval: str = "1d") -> dict:
     """Constrói (ou reaproveita, se o insumo não mudou) o STU de um ativo.
 
     Puro em relação à rede: recebe os candles crus (de candle_cache/testes) e
     deriva tudo deterministicamente. Levanta ValueError sem histórico válido.
+
+    No INTRADAY analisa só barras FECHADAS (ver `_descarta_barra_em_formacao`).
     """
     p = candles_mod.normalize_period(period)
     # ADR-002 (Decisão 3): a janela é contada em VELAS DO INTERVALO, não em
@@ -83,6 +111,11 @@ def build(ticker: str, raw_candles: list, period: Optional[str], interval: str =
     cs = indicators.sanitize_candles(raw_candles or [])
     if not cs:
         raise ValueError("sem histórico para " + ticker)
+    # ADR-001 (1b): antes de QUALQUER cálculo — indicadores, setups e o
+    # fingerprint têm que enxergar a mesma série, a das barras fechadas.
+    cs, barra_em_formacao = _descarta_barra_em_formacao(cs, interval)
+    if not cs:
+        raise ValueError("sem barra fechada para " + ticker)
     fp = _fingerprint(cs, keep_req)
     # ADR-001: o intervalo faz parte da CHAVE do cache de snapshot. Antes,
     # (ticker, período) fazia diário e intraday disputarem a mesma entrada.
@@ -118,7 +151,12 @@ def build(ticker: str, raw_candles: list, period: Optional[str], interval: str =
         "period": p,
         "interval": interval or "1d",
         "periodBars": k,
+        # ADR-001 (1b): `asOf` é a última barra FECHADA — é dela que o produto
+        # pode dizer "a condição ocorreu". `barraEmFormacao` é a que foi
+        # descartada: existe no payload para a UI/IA poderem ser explícitas
+        # ("barra das 11:30, fechada") em vez de insinuar tempo real.
         "asOf": last.get("date"),
+        "barraEmFormacao": barra_em_formacao,
         "generatedAt": time.strftime("%Y-%m-%dT%H:%M:%S"),
         "candles": sl["candles"],
         "indicators": sl["indicators"],
