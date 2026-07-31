@@ -2700,6 +2700,15 @@ function HistoricoScreen({ ctx }) {
   );
 }
 
+// F2 — o app ENSINA o mecanismo: cada critério de trailing diz o que observa e
+// o que isso implica. Vocabulário descritivo, sem verbo de ordem de operação
+// (guardrail regulatório), e sem prometer resultado.
+const TRAILING_CRITERIOS = [
+  ["percentual", "Percentual", "O stop acompanha o preço a uma distância fixa em %. Simples e previsível, mas ignora se o papel está calmo ou agitado — a mesma distância vale para os dois casos."],
+  ["atr", "Volatilidade (ATR)", "A distância vem do ATR(14), que mede a oscilação típica do papel. Em pregões agitados o stop fica mais longe; em pregões calmos, mais perto."],
+  ["estrutura", "Estrutura", "O stop vai para a menor mínima das últimas velas — o nível cuja perda invalidaria a tese de alta. Segue o desenho do gráfico, não uma conta sobre o preço."],
+];
+
 function AgenteScreen({ ctx }) {
   const { data, A, cycleBusy } = ctx;
   const ag = data.agent;
@@ -2792,6 +2801,51 @@ function AgenteScreen({ ctx }) {
             );
           })}
         </div>
+        {/* F2 — critério do trailing. Só aparece com o trailing LIGADO: sem ele
+            o seletor seria decoração. E só o campo do critério escolhido é
+            exibido — três campos simultâneos, dois deles inertes, ensinariam
+            errado sobre o que está governando o stop. */}
+        {!!rules.trailing && (
+          <div style={{ marginTop: "14px", paddingTop: "13px", borderTop: `1px solid ${T.borderFaint}` }}>
+            <div style={{ fontSize: "12px", color: T.textMuted }}>Critério do trailing <span style={{ color: T.textFaint }}>· o que define até onde o stop sobe</span></div>
+            <div style={{ display: "flex", gap: "8px", marginTop: "8px", flexWrap: "wrap" }}>
+              {TRAILING_CRITERIOS.map(([m, lb]) => {
+                const on = (ag.trailingMode || "percentual") === m;
+                return (
+                  <button key={m} onClick={() => putAg({ trailingMode: m })} style={{ flex: 1, minWidth: "104px", padding: "10px", borderRadius: "10px", border: `1px solid ${on ? T.accent : T.borderSubtle}`, background: on ? T.accentTint : T.bgBase, color: on ? T.accent : T.textSecondary, fontWeight: 800, fontSize: "12px" }}>
+                    {lb}
+                  </button>
+                );
+              })}
+            </div>
+            <p style={{ margin: "9px 0 0", fontSize: "11.5px", lineHeight: 1.5, color: T.textFaint }}>
+              {(TRAILING_CRITERIOS.find(([m]) => m === (ag.trailingMode || "percentual")) || TRAILING_CRITERIOS[0])[2]}
+            </p>
+            <div style={{ marginTop: "10px", maxWidth: "260px" }}>
+              {(ag.trailingMode || "percentual") === "percentual" && (
+                <label style={{ fontSize: "12px", color: T.textMuted }}>
+                  Distância do preço (%)
+                  <input type="number" min="1" max="20" step="0.5" value={ag.trailingPct ?? 5} onChange={(e) => putAg({ trailingPct: +e.target.value })} style={{ ...field, marginTop: "5px" }} />
+                </label>
+              )}
+              {(ag.trailingMode || "percentual") === "atr" && (
+                <label style={{ fontSize: "12px", color: T.textMuted }}>
+                  Múltiplo do ATR(14)
+                  <input type="number" min="1" max="4" step="0.5" value={ag.trailingAtrMult ?? 2} onChange={(e) => putAg({ trailingAtrMult: +e.target.value })} style={{ ...field, marginTop: "5px" }} />
+                </label>
+              )}
+              {(ag.trailingMode || "percentual") === "estrutura" && (
+                <label style={{ fontSize: "12px", color: T.textMuted }}>
+                  Velas consideradas na mínima
+                  <input type="number" min="2" max="20" step="1" value={ag.trailingLookback ?? 5} onChange={(e) => putAg({ trailingLookback: +e.target.value })} style={{ ...field, marginTop: "5px" }} />
+                </label>
+              )}
+            </div>
+            <p style={{ margin: "9px 0 0", fontSize: "11px", lineHeight: 1.5, color: T.textFaint }}>
+              Em qualquer critério o stop só sobe — nunca desce. Se o dado técnico faltar num ciclo, a mesa usa o percentual e registra isso no Diário.
+            </p>
+          </div>
+        )}
         <div style={{ marginTop: "13px", display: "flex", gap: "12px", flexWrap: "wrap" }}>
           <label style={{ flex: 1, minWidth: "150px", fontSize: "12px", color: T.textMuted }}>
             Teto de operações/dia
