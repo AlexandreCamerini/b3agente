@@ -323,3 +323,21 @@ fallback de `planoEstudo`, default de `confianca`), além do pedido no prompt.
   raciocinam; LLM_TEMPERATURE=0.2).
 - FORMAT_PRO derivado por `.replace()` é frágil **mas guardado por teste**
   (`test_llm_errors.py:~58`) — pode manter, só somar o assert do M1.
+
+---
+
+## 7. Status de execução (2026-08-01)
+
+A1–A8 e M1–M5 foram aplicados no PR #4 (`34e6f0f` + `181ac5a`), guardiões em
+`server/tests/test_auditoria_prompts.py`. As pendências ficaram assim:
+
+| Pendência | Status |
+|---|---|
+| **A6** teto de confiança do N1 | **Resolvida como A6b**: o bloco `intraday15m` (F1) tornou o 2º timeframe REAL — `confianca: "alta"` existe nos dois formatos do N1, gated em código por `dataQuality.multiTimeframe` (lacuna severa NÃO promove). |
+| **Migração de `llmPrompts`** | **Feita** (segura por hash): só quem tem o texto IGUAL a um default de geração anterior (git) sobe para o novo; edição de usuário é intocável. `defaults.LEGACY_PROMPT_SHA256` + `store.ensure_defaults`. |
+| **A2a** rota legada `/api/analyze` | Telemetria de uso adicionada (`LEGACY_ANALYZE` em `/api/obs/usage`). Zero sustentado por algumas semanas de builds novos ⇒ aposentar. |
+| **A9** janela de candles | **Intocada** — segue exigindo medição com o masstest LLM (BYOK, pago) antes de qualquer corte. |
+
+Masstest determinístico: as 32 violações `fund_score_incoerente` reportadas em
+2026-08-01 são PRÉ-EXISTENTES (reproduzem em `main` sem estas mudanças) e têm
+task própria — não são regressão dos prompts.

@@ -82,6 +82,26 @@ Em **Settings → Variables** do serviço:
   versão **web**. Se quiser que ela sobreviva a novos deploys, crie um
   **Volume** (Settings → Volumes) montado, por ex., em `/data`, e defina
   `B3_DB_PATH=/data/b3_agente.db`. Para o uso no iPhone, pode ignorar.
+- **Passada intraday** (ADR-001 item 7; defaults já são os valores medidos —
+  só defina para AJUSTAR):
+  - `B3_INTRADAY_OFF=1` — kill switch próprio (não desliga o Operador);
+  - `B3_INTRADAY_GAP_S` — gap mínimo entre passadas, em s (default 240;
+    envelope 60–3600);
+  - `B3_INTRADAY_CONC` — requisições simultâneas ao provedor (default 8;
+    envelope 1–16);
+  - `B3_INTRADAY_PERIOD` — janela buscada (`1mo` default | `5d`; fora da
+    matriz legal do ADR-002 cai no default com log).
+  - O intervalo (15m) é CANÔNICO (ADR-002 Decisão 5) e não tem variável.
+
+> **Cuidado com o NOME da variável**: em 2026-08-01 uma `B3_MANAGED_LLM_KEY `
+> (com espaço no fim) ficou meses no Railway sem nunca ser lida — a IA
+> gerenciada parecia configurada e estava desligada. O servidor agora loga no
+> boot qualquer variável `B3_*`/`APNS_*` com espaço no nome.
+
+> **Plano**: a conta do Railway é o plano pago de **US$ 20/mês** (não é free
+> tier/trial) — o container 24/7, o volume e o egress são cobertos por essa
+> franquia de uso; os números de custo incremental do intraday (ver
+> `docs/MEDICAO-Yahoo-Intraday-2026-07-30.md`) valem como uso adicional.
 
 ---
 

@@ -26,7 +26,9 @@ Cinco frentes, duas famílias:
 | F4 | **Web no Railway** | Servir o app web do próprio backend, com camada de segurança |
 | F5 | **Módulo de administração** | Papéis, visão operacional e controles — hoje inexistente |
 
-Restrição transversal: **custo**. Railway + IA + fetch de dados; toda decisão de
+Restrição transversal: **custo** (contexto 2026-08-01: o Railway é o plano
+pago de US$ 20/mês, não free tier — há franquia, mas o princípio de custo
+O(1) em usuários continua valendo). Railway + IA + fetch de dados; toda decisão de
 arquitetura declara o impacto de custo antes de ser adotada.
 
 ## 2. Lentes a acionar

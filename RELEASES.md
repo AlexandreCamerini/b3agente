@@ -57,3 +57,36 @@ corrigido.
 - TestFlight manual: rename App ID "AppID Prod"→"BolsIA" no portal, criar app no
   App Store Connect, APNs produção coordenado, Archive/upload.
 - Revogar a chave de API que apareceu em texto puro durante os testes.
+
+## F10-20260801-01 — F1 (timing de entrada) + pendências da auditoria
+
+**Backend-only** (sem rebuild do front; carimbo bumpado à mão em `main.py`).
+
+- **F1 — timing de entrada** (`server/app/timing.py` + `GET /api/timing/{ticker}`):
+  determinístico, O(1) por consulta (lê os armazenados globais Radar diário +
+  passada intraday; zero fetch/LLM). Estados: `sem_plano | sem_dado | armado |
+  gatilho | esticado` — gatilho é a condição do plano diário verificada na
+  barra 15m FECHADA; >0,5R além vira `esticado` (Princípio 8, mesmo
+  `ZONA_PERSEGUICAO` do plano). Lacuna severa (cobertura <70%) ⇒ `sem_dado`.
+  Vocabulário canônico por modo em `skill_ref.TIMING` (estudo sem verbo de
+  ordem; mesa direta), ressalva do atraso (~15 min) sempre presente. O
+  veredito 15m viaja como CONTEXTO com aviso de calibragem (ADR-002 D4), nunca
+  como gate. **UI fica para o v11 (sessão do AtivoCard).**
+- **A6b**: N1 ganha `confianca: "alta"` — gated em código por
+  `dataQuality.multiTimeframe`, que agora é REAL: o N1 anexa o bloco
+  `intraday15m` da passada fresca (`timing.enriquecer_contexto`, pura, nunca
+  muta o cache de snapshot).
+- **Migração `llmPrompts`**: default antigo (hash no git) sobe para o novo;
+  edição do usuário intocável (`defaults.LEGACY_PROMPT_SHA256`).
+- **Configs intraday por env**: `B3_INTRADAY_GAP_S|CONC|PERIOD` com envelope e
+  fallback logado; 15m segue canônico (sem variável).
+- **A2a**: telemetria `legacyAnalyze` em `/api/obs/usage` para aposentar a
+  rota legada com evidência.
+- **FinOps/Railway**: corrigida em produção a variável `B3_MANAGED_LLM_KEY `
+  (espaço no fim — a IA gerenciada estava silenciosamente DESLIGADA); aviso de
+  higiene de env no boot; docs atualizados com o plano pago de US$ 20/mês.
+  Falta (Alex): apagar a variável defeituosa no dashboard e definir
+  `B3_MANAGED_GLOBAL_DAILY_CAP` antes de abrir a base.
+- Suíte: **445 testes** (eram 415) — `test_timing.py` novo, guardiões de
+  migração/env/A6b. Masstest determinístico: 32 violações `fund_score_incoerente`
+  PRÉ-EXISTENTES (task própria), sem regressão daqui.

@@ -3,6 +3,20 @@
 Data: 16/07/2026 · read-only, zero patch · produção `b3agente-production.up.railway.app`
 Método: leitura de código + `railway variables` (nomes, valores nunca lidos) + `railway status`.
 
+> **Adendo 2026-08-01 — duas premissas mudaram desde esta análise:**
+> 1. **Plano Railway**: a conta é o plano pago de **US$ 20/mês** (não free
+>    tier/trial). O container/volume/egress consomem a franquia desse plano.
+> 2. **LLM deixou de ser custo ZERO**: o Alex configurou a IA gerenciada, mas a
+>    variável foi criada como `B3_MANAGED_LLM_KEY ` (espaço no fim) e ficou
+>    MESES sem ser lida — a feature parecia ligada e estava desligada.
+>    Corrigido em 2026-08-01 (variável com o nome exato; a defeituosa deve ser
+>    apagada no dashboard). Com a IA gerenciada ATIVA, as defesas em vigor são:
+>    cota POR USUÁRIO `B3_MANAGED_DAILY_QUOTA` (default 20/dia), rate
+>    `B3_MANAGED_RATE_PER_MIN` (default 6/min) e o teto GLOBAL
+>    `B3_MANAGED_GLOBAL_DAILY_CAP` — **este último segue AUSENTE (ilimitado)**;
+>    definir antes de abrir a base de usuários. O §1 abaixo descreve o estado
+>    de 16/07 e permanece como registro histórico.
+
 ---
 
 ## 1. Veredito: onde o dinheiro está hoje
