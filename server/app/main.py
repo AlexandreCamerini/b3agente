@@ -11,7 +11,7 @@ from pathlib import Path
 
 from fastapi import Body, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import db, indicators, llm, plan, setups, store, technical_models, tickers, yahoo
@@ -1312,6 +1312,26 @@ async def _start_agent_scheduler():
             await asyncio.sleep(24 * 3600)
     asyncio.get_event_loop().create_task(_session_gc())
 
+
+# ---- Instalar o iOS Ad Hoc via link (fora do TestFlight) — 2026-08-01 ------
+# NÃO é distribuição pública: só funciona em aparelhos cujo UDID foi
+# registrado no Apple Developer portal ANTES do build (pegue o UDID plugando
+# o iPhone no Mac — Xcode > Window > Devices and Simulators — nunca por um
+# "coletor" web: aquele protocolo depende de um payload assinado que não dá
+# pra verificar sem um iPhone físico, risco alto para uma ferramenta de teste
+# só usada por pouca gente). server/ios_dist é publicado por
+# scripts/publicar-ipa.sh a partir do .ipa exportado no Xcode como Ad Hoc
+# (nunca "App Store Connect"). Dormente até esse diretório existir — mesmo
+# padrão do web_dist. Precisa ser ABERTO NO SAFARI do iPhone (itms-services
+# não funciona em outro navegador nem em preview de app de mensagem).
+_IOS_DIST = Path(__file__).resolve().parent.parent / "ios_dist"
+if _IOS_DIST.exists():
+    @app.get("/ios/manifest.plist")
+    async def _ios_manifest():
+        # Content-Type text/xml é a convenção da Apple p/ OTA distribution;
+        # StaticFiles não reconhece a extensão .plist e serviria octet-stream.
+        return FileResponse(str(_IOS_DIST / "manifest.plist"), media_type="text/xml")
+    app.mount("/ios", StaticFiles(directory=str(_IOS_DIST), html=True), name="ios")
 
 # ---- Servir o app web em producao (mesma origem) — F4 mínimo (2026-08-01) ---
 # O serviço do Railway tem rootDirectory=/server (ver server/railway.json): o
