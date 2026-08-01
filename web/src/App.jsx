@@ -2075,7 +2075,7 @@ function PerfilHub({ ctx, onOpen }) {
 // abas (watchlist, radar, posições, home). Recebe um view-model normalizado
 // (vm) + contexto; o núcleo (identidade, manchete única, chips de análise) é
 // idêntico em todo o sistema. Extraído do card da watchlist.
-function AtivoCard({ vm, contexto = "watchlist" }) {
+function AtivoCard({ vm, contexto = "watchlist", children }) {
   const { t, q, an, name, chColor, sc, pos, cur, pnl, pnlPct, rrPos, diasPos, pctCapPos, kp, fscore, decM, decColor, decBg, os, buyMeta, operador, quotesLoading, expanded, opsOpen, opsSpark, onToggleOps, A, cp, data } = vm;
   const chip = (label, value, col) => (
     <span style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "999px", background: T.bgBase, color: T.textSecondary, fontWeight: 700 }}>{label} <b style={{ fontWeight: 800, color: col || T.textPrimary }}>{value}</b></span>
@@ -2105,7 +2105,7 @@ function AtivoCard({ vm, contexto = "watchlist" }) {
                     )}
                   </div>
                   {/* qa/49 (v11): o mini-gráfico vira o ACESSO ao candlestick, à direita do preço */}
-                  <button onClick={() => A.openTech(t)} disabled={q.error} aria-label="Abrir gráfico de velas" style={{ background: T.bgBase, border: `1px solid ${T.borderSubtle}`, borderRadius: "9px", padding: "6px 7px 4px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}>
+                  <button onClick={() => A.openTech && A.openTech(t)} disabled={q.error} aria-label="Abrir gráfico de velas" style={{ background: T.bgBase, border: `1px solid ${T.borderSubtle}`, borderRadius: "9px", padding: "6px 7px 4px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}>
                     {sc && Array.isArray(sc.spark) && sc.spark.length > 1 ? <Sparkline data={sc.spark} width={44} height={18} /> : <span aria-hidden style={{ fontSize: "14px" }}>📈</span>}
                     <span style={{ fontSize: "9px", color: T.accent, fontWeight: 800 }}>velas ⤢</span>
                   </button>
@@ -2131,7 +2131,7 @@ function AtivoCard({ vm, contexto = "watchlist" }) {
 
               {/* qa/49 (v11): ANÁLISE — indicadores unificados em chips (mesmo peso);
                   confluência e fundamento deixam de ser vereditos concorrentes. */}
-              {(kp.direcao || (sc && sc.confluencia != null) || fscore || (sc && sc.melhorSetup)) && (
+              {contexto !== "radar" && (kp.direcao || (sc && sc.confluencia != null) || fscore || (sc && sc.melhorSetup)) && (
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "11px" }}>
                   {kp.direcao && chip("direção", kp.direcao, (DIR_STYLE[kp.direcao] || [T.textPrimary])[0])}
                   {kp.conviccao && chip("convicção", kp.conviccao)}
@@ -2142,7 +2142,10 @@ function AtivoCard({ vm, contexto = "watchlist" }) {
                 </div>
               )}
 
-              {/* qa/49 (v11): POSIÇÃO NO RISCO — a régua reusada do card de posições. */}
+              {/* qa/49 (v11): CAUDA por contexto — sem children, a cauda da watchlist
+                  (posição no risco + histórico + CTAs); com children, a aba pluga a sua. */}
+              {children || (<>
+              {/* POSIÇÃO NO RISCO — a régua reusada do card de posições. */}
               {pos && (pos.stop != null || pos.alvo != null) && (
                 <>
                   <PlanRuler
@@ -2257,6 +2260,7 @@ function AtivoCard({ vm, contexto = "watchlist" }) {
                   </button>
                 )}
               </div>
+              </>)}
             </div>
   );
 }
@@ -4240,34 +4244,19 @@ function RadarScreen({ ctx }) {
           const tierLabel = tierOf(r.confluencia)[1];
           const critTot = s0 ? (s0.criterios || []).length : 0;
           const critOk = s0 ? (s0.criterios || []).filter((c) => c.ok).length : 0;
+          // qa/49 (v11, incremento 2): o Radar usa o CARD ÚNICO no cabeçalho
+          // (identidade + preço + manchete). O corpo rico do Radar (plano,
+          // confluence ring, aprofundar, critérios) segue como children.
+          const decMr = decisaoDoModo(r, operador);
+          const [decColorR, decBgR] = REC_STYLE[decMr] || [vColor, vBg];
+          const nameR = (data.catalog.find((c) => c.t === r.ticker) || {}).n || r.ticker;
+          const pnlR = posR && r.close != null ? (r.close - posR.avg) * posR.qty : null;
+          const pnlPctR = posR && r.close != null && posR.avg > 0 ? (r.close / posR.avg - 1) * 100 : null;
+          const radarVm = { t: r.ticker, name: nameR, q: { price: r.close, change: r.variacaoPeriodoPct, error: false }, chColor, sc: { spark: r.spark, confluencia: r.confluencia, melhorSetup: r.melhorSetup }, pos: posR, cur: r.close, pnl: pnlR, pnlPct: pnlPctR, kp: {}, fscore: r.fundamento && r.fundamento.score, decM: decMr, decColor: decColorR, decBg: decBgR, quotesLoading: false, operador, A: ctx.A };
           return (
-            <div key={r.ticker} style={{ ...card, padding: "14px 15px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "10px" }}>
-                <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "7px", flexWrap: "wrap" }}>
-                    <span style={{ fontFamily: MONO, fontWeight: 800, fontSize: "16px", letterSpacing: "0.02em" }}>{r.ticker}</span>
-                    {posR && <PosPill qty={posR.qty} />}
-                  </div>
-                  <div style={{ color: T.textMuted, fontSize: "11.5px", marginTop: "3px" }}>{r.candles} candles no período</div>
-                </div>
-                <div style={{ textAlign: "right", fontFamily: MONO, minWidth: "92px" }}>
-                  <div style={{ fontSize: "16px", fontWeight: 700 }}>{r.close != null ? "R$ " + price(r.close) : "—"}</div>
-                  <div style={{ fontSize: "12px", fontWeight: 700, color: chColor }}>{pct(r.variacaoPeriodoPct)} no período</div>
-                  {/* qa/34 (P3): sparkline do payload — o campo `spark` já vinha
-                      no scan do Radar e só era usado na Watchlist. */}
-                  {Array.isArray(r.spark) && r.spark.length > 1 && (
-                    <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "5px" }}><Sparkline data={r.spark} width={84} height={20} /></div>
-                  )}
-                </div>
-              </div>
+            <AtivoCard key={r.ticker} vm={radarVm} contexto="radar">
               <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", marginTop: "11px" }}>
-                {plano ? (
-                  <span style={{ padding: "5px 11px", borderRadius: "999px", background: opStyle[1], color: opStyle[0], fontSize: "11.5px", fontWeight: 800 }}>{opStyle[2]}{plano.decisao}</span>
-                ) : (
-                  // qa/40: fallback também passa pelo helper — se um resultado
-                  // antigo em cache vier sem `plano`, a mesa não vê "Estudar alta".
-                  <span style={{ padding: "5px 11px", borderRadius: "999px", background: vBg, color: vColor, fontSize: "11.5px", fontWeight: 800 }}>{decisaoDoModo(r, operador)}</span>
-                )}
+                {/* qa/49: a decisão vem da MANCHETE do AtivoCard; aqui fica a confiança/fundamento/setup */}
                 {/* qa/34 (P3): pill de confiança (tierOf) ao lado da decisão, como no
                     mock modo-operador.html ("confiança MODERADA"). */}
                 <span style={{ padding: "4px 9px", borderRadius: "999px", border: `1px solid ${T.borderSubtle}`, color: T.textMuted, fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em" }}>confiança {tierLabel.toUpperCase()}</span>
@@ -4374,7 +4363,7 @@ function RadarScreen({ ctx }) {
                   )}
                 </div>
               )}
-            </div>
+            </AtivoCard>
           );
         })}
       </div>

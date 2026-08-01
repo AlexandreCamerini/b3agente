@@ -29,7 +29,7 @@ ok("KpiBlock não é mais renderizado no card do ativo", !/an\.kpis && <KpiBlock
 // posição no risco: régua reusada + acesso ao candlestick
 const reguas = (app.match(/caption="POSIÇÃO NO RISCO"/g) || []).length;
 ok("régua POSIÇÃO NO RISCO reusada também no hero (≥2 usos)", reguas >= 2);
-ok("acesso ao candlestick por botão (velas → openTech)", /aria-label="Abrir gráfico de velas"[\s\S]{0,220}A\.openTech\(t\)|onClick=\{\(\) => A\.openTech\(t\)\}[\s\S]{0,220}Abrir gráfico de velas/.test(app));
+ok("acesso ao candlestick por botão (velas → openTech, com guarda)", /onClick=\{\(\) => A\.openTech && A\.openTech\(t\)\}[\s\S]{0,240}Abrir gráfico de velas/.test(app));
 
 // qa/49 (v11, incremento 1): card único <AtivoCard> — a watchlist renderiza
 // pelo componente (fonte única), não mais inline. Próximas abas herdam o mesmo.

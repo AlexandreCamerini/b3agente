@@ -352,7 +352,7 @@ async def obs_usage(user: dict = Depends(require_user)):
 
 # FASE 8B (diagnóstico): carimbo de build do BACKEND — confirma qual código o
 # Railway está rodando (o front tem o dele em web/src/version.js).
-SERVER_BUILD_ID = "F10-20260731-02"  # qa/49 (v11): card único <AtivoCard> extraído — watchlist renderiza pelo componente.
+SERVER_BUILD_ID = "F10-20260731-03"  # qa/49 (v11): card único <AtivoCard> extraído — watchlist renderiza pelo componente.
 # Normalmente sincronizado pelo entregar.sh a partir de web/src/version.js; num deploy
 # SÓ de backend (sem rebuild do front) bumpamos aqui para /api/health rastrear o servidor.
 

@@ -49,9 +49,10 @@ if (radar) {
   ok("P1: plano operacional segue exclusivo do Operador (operador ? r.plano : null)",
     /operador\s*\?\s*r\.plano\s*:\s*null/.test(radar));
 
-  // P3a — sparkline no card do Radar com o campo `spark` do payload.
-  ok("P3a: card do Radar renderiza <Sparkline> com r.spark",
-    /<Sparkline\s+data=\{r\.spark\}/.test(radar));
+  // P3a — sparkline com o `spark` do payload. qa/49 (v11): o Radar passa
+  // `r.spark` ao CARD ÚNICO (radarVm.sc.spark) e o AtivoCard o renderiza.
+  ok("P3a: Radar alimenta o card único com r.spark (→ Sparkline no AtivoCard)",
+    /sc: \{ spark: r\.spark/.test(radar) && /<Sparkline data=\{sc\.spark\}/.test(src));
 
   // P3b — pill de confiança derivada de tierOf + contagem de critérios.
   ok("P3b: pill de confiança usa tierOf(r.confluencia)",
