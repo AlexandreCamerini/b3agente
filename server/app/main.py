@@ -347,12 +347,15 @@ async def obs_usage(user: dict = Depends(require_user)):
         # era. `candles.alerta=true` é o gatilho declarado do plano B — taxa de
         # não-200 acima de 2% em 3 pregões reabre a decisão de provedor.
         "candles": candle_provider.snapshot(),
+        # A2a (auditoria): uso da rota legada /api/analyze desde o deploy —
+        # zero sustentado = builds antigos morreram, a rota pode aposentar.
+        "legacyAnalyze": dict(LEGACY_ANALYZE),
     }
 
 
 # FASE 8B (diagnóstico): carimbo de build do BACKEND — confirma qual código o
 # Railway está rodando (o front tem o dele em web/src/version.js).
-SERVER_BUILD_ID = "F10-20260731-03"  # qa/49 (v11): card único <AtivoCard> extraído — watchlist renderiza pelo componente.
+SERVER_BUILD_ID = "F10-20260801-01"  # F1 timing de entrada + A6b (alta gated) + migração llmPrompts + configs intraday por env.
 # Normalmente sincronizado pelo entregar.sh a partir de web/src/version.js; num deploy
 # SÓ de backend (sem rebuild do front) bumpamos aqui para /api/health rastrear o servidor.
 
@@ -698,6 +701,12 @@ async def scan_deep_run(body: dict = Body(default={}), scope: Optional[str] = De
     # (1 por ticker do top-N). Reservar na cota impede o overrun de +9.
     ai_config, _consume_ai = _ai_apply_managed(scope, config, custo=n)  # cota/rate ANTES de gastar
     payload = await scanner.run_scan(period=p, universe=(body or {}).get("tickers"), fetch=candle_provider.get_history)
+    # F1/A6b: a passada intraday GLOBAL (se fresca) vira o 2º timeframe REAL do
+    # N1 — lida UMA vez por request (kv, sem fetch); por ticker só o resumo.
+    from . import intraday as intraday_mod
+    from . import timing as timing_mod
+    intra_stored = await asyncio.to_thread(intraday_mod.get_stored, _conn)
+    intra_fresca = intraday_mod.passada_fresca(intra_stored)
 
     async def deep_call(item):
         t = item["ticker"]
@@ -715,8 +724,14 @@ async def scan_deep_run(body: dict = Body(default={}), scope: Optional[str] = De
             # OBRIGADA a ser coerente com ele (regra 10 do OPERADOR_PRO).
             "planoOperacional": plano,
         }
+        # F1/A6b: bloco intraday15m no pacote => dataQuality.multiTimeframe
+        # vira true e o teto de `confianca` do N1 sobe para 'alta' (PROCESSO
+        # §9). enriquecer_contexto é pura e copia — o snap é cacheado e
+        # compartilhado; mutar o dict do cache vazaria o bloco.
+        contexto = timing_mod.enriquecer_contexto(
+            snap["context"], intraday_mod.resumo_do_ticker(intra_stored, t), intra_fresca)
         with llm.collect_usage() as _uso:  # qa/45: custo desta leitura do Radar
-            res = await llm.analyze_deep(ai_config, profile, t, snap["context"], setups_payload, modo=modo)
+            res = await llm.analyze_deep(ai_config, profile, t, contexto, setups_payload, modo=modo)
         _consume_ai()  # cota gasta POR CHAMADA bem-sucedida (cache não gasta)
         try:
             ai_activity.registrar_uso(_conn, scope=scope, ticker=t, tipo="Radar", usos=_uso)
@@ -861,8 +876,17 @@ async def analyze_technical_model(ticker: str, body: dict = Body(default={}), sc
     return {"t": t, "quote": quote, **payload}
 
 
+# A2a (auditoria de prompts): nenhum cliente ATUAL chama esta rota (o store
+# usa o N2). Ela vive para builds antigos; este contador diz QUANDO ela morreu
+# de verdade — zerado por deploy, visível em /api/obs/usage. Quando ficar em
+# zero por algumas semanas de builds novos, aposentar a rota.
+LEGACY_ANALYZE = {"count": 0, "last": None}
+
+
 @app.post("/api/analyze/{ticker}")
 async def analyze(ticker: str, body: dict = Body(default={}), scope: Optional[str] = Depends(current_scope)):
+    LEGACY_ANALYZE["count"] += 1
+    LEGACY_ANALYZE["last"] = now_str()
     t = _normalize_ticker(ticker)
     if len(t) < 4:
         raise HTTPException(400, "Ticker invalido.")
@@ -1068,6 +1092,29 @@ async def intraday_pass(scope: Optional[str] = Depends(current_scope)):
     return {"disponivel": True, **stored}
 
 
+@app.get("/api/timing/{ticker}")
+async def timing_de_entrada(ticker: str, appMode: Optional[str] = None,
+                            scope: Optional[str] = Depends(current_scope)):
+    """F1 — timing de entrada de UM ativo: plano diário × barra 15m FECHADA.
+
+    Determinístico e O(1): lê os DOIS armazenados globais (Radar diário +
+    passada intraday), nunca dispara fetch nem LLM. O vocabulário segue o modo
+    (iOS manda ?appMode; web cai na config do escopo) — enquadramento
+    regulatório: condição objetiva do plano, nunca "sinal em tempo real".
+    """
+    from . import intraday as intraday_mod
+    from . import timing as timing_mod
+    t = _normalize_ticker(ticker)
+    if len(t) < 4:
+        raise HTTPException(400, "Ticker invalido.")
+    cfg = store.get(_conn, "config", user_id=scope) or {}
+    modo = appMode or cfg.get("appMode") or "estudo"
+    p = candles_mod.normalize_period(None)   # período CANÔNICO do Radar diário
+    radar_stored = await asyncio.to_thread(radar_daily.get_stored, _conn, p)
+    intra_stored = await asyncio.to_thread(intraday_mod.get_stored, _conn)
+    return timing_mod.montar(radar_stored, intra_stored, t, modo)
+
+
 async def _snapshot_para_trailing(ticker: str):
     """F2: insumo técnico do trailing dinâmico (ATR e velas), pelo MESMO STU que
     N1/N2/N3 leem — nada de um segundo caminho de candles com outro número.
@@ -1233,6 +1280,16 @@ async def push_test(user: dict = Depends(require_user)):
 # FASE 3.1 — scheduler do agente server-side (kill-switch: B3_AGENT_KILL=1).
 @app.on_event("startup")
 async def _start_agent_scheduler():
+    # Higiene de env (2026-08-01): achamos em produção uma variável chamada
+    # "B3_MANAGED_LLM_KEY " (espaço no fim) — os.environ.get do nome exato
+    # nunca a lê e a feature fica DESLIGADA em silêncio. Um aviso no boot
+    # transforma esse silêncio em diagnóstico de 1 linha.
+    suspeitas = [k for k in os.environ
+                 if k != k.strip() and k.strip().startswith(("B3_", "APNS_", "APPLE_", "BOLSAI"))]
+    if suspeitas:
+        obslog.log("env", "variáveis com espaço no NOME (nunca são lidas): "
+                   + ", ".join(repr(k) for k in suspeitas), level="error")
+
     async def _notify(uid, title, body):
         await push.send_to_user(_conn, uid, title, body)
     asyncio.get_event_loop().create_task(

@@ -103,12 +103,12 @@ def test_a5_n2_pede_top4_modelos_nao_cada():
     assert "CADA metodologia" not in p
 
 
-# ===== A6a — teto de confiança do N1 documentado (decisão provisória) =======
+# ===== A6b (F1) — "alta" existe, gated pelo 2º timeframe REAL ===============
 
-def test_a6_teto_de_confianca_declarado_e_imposto(monkeypatch):
+def test_a6_alta_gated_por_multitimeframe(monkeypatch):
     for fmt in (llm.DEEP_FORMAT, llm.PRO_DEEP_FORMAT):
-        assert "PÁRA em 'moderada'" in fmt
-    # enforcement: "alta" não sobrevive (vira o default seguro "baixa")
+        assert "baixa|moderada|alta" in fmt
+        assert "multiTimeframe=true" in fmt
     seen = {}
 
     async def call(config, key, system, user, max_tokens):
@@ -116,7 +116,20 @@ def test_a6_teto_de_confianca_declarado_e_imposto(monkeypatch):
         return '{"resumo":"x","planoEstudo":"Aguardar","confianca":"alta"}'
     monkeypatch.setattr(llm, "_call_llm", call)
     monkeypatch.setattr(llm, "resolve_key", lambda cfg: "k")
+    # sem multi-timeframe: "alta" declarada vira o TETO "moderada" (não o
+    # default "baixa" — a leitura foi forte; a lacuna é só a confirmação)
     d = asyncio.run(llm.analyze_deep({}, {}, "PETR4", {}, {"setups": []}, modo="estudo"))
+    assert d["confianca"] == "moderada"
+    # com multi-timeframe REAL (bloco intraday15m alimentado): "alta" sobrevive
+    ctx = {"dataQuality": {"multiTimeframe": True}, "intraday15m": {"asOf": "x"}}
+    d = asyncio.run(llm.analyze_deep({}, {}, "PETR4", ctx, {"setups": []}, modo="estudo"))
+    assert d["confianca"] == "alta"
+    # valor inválido segue caindo no default seguro
+
+    async def call_invalida(config, key, system, user, max_tokens):
+        return '{"resumo":"x","planoEstudo":"Aguardar","confianca":"altíssima"}'
+    monkeypatch.setattr(llm, "_call_llm", call_invalida)
+    d = asyncio.run(llm.analyze_deep({}, {}, "PETR4", ctx, {"setups": []}, modo="estudo"))
     assert d["confianca"] == "baixa"
 
 
@@ -193,3 +206,33 @@ def test_a8ii_paridade_defaults_carteira_com_catalog_js():
 def test_m3_format_pede_null_nunca_zero():
     assert "use null (nunca 0.0" in llm.FORMAT
     assert "use null (nunca 0.0" in llm.FORMAT_PRO  # herdado na derivação
+
+
+# ===== Pendência 2 (2026-08-01) — migração dos llmPrompts nunca editados ====
+
+def test_migracao_llmprompts_default_antigo_sobe_edicao_fica(monkeypatch, tmp_path):
+    import hashlib
+
+    from app import db, store
+    c = db.connect(str(tmp_path / "b3.db"))
+    antigo = "DEFAULT DE GERAÇÃO ANTERIOR (nunca editado pelo usuário)"
+    editado = "MEU PROMPT PERSONALIZADO — não é default de geração nenhuma"
+    monkeypatch.setitem(defaults.LEGACY_PROMPT_SHA256, "carteiraStopAlvo",
+                        {hashlib.sha256(antigo.encode()).hexdigest()})
+    db.kv_set(c, "llmPrompts", {"carteiraStopAlvo": antigo,
+                                "carteiraStopAlvoOperador": editado}, user_id="u1")
+    store.ensure_defaults(c, user_id="u1")
+    lp = db.kv_get(c, "llmPrompts", user_id="u1")
+    novo = defaults.default_llm_prompts()
+    assert lp["carteiraStopAlvo"] == novo["carteiraStopAlvo"], "default antigo tinha que subir"
+    assert lp["carteiraStopAlvoOperador"] == editado, "edição do usuário é INTOCÁVEL"
+
+
+def test_hashes_legados_existem_e_nao_incluem_o_default_atual():
+    """Sanidade da lista de migração: não vazia e NUNCA contém a geração
+    atual (senão a migração reescreveria o default vigente em loop)."""
+    import hashlib
+    novo = defaults.default_llm_prompts()
+    for chave, hs in defaults.LEGACY_PROMPT_SHA256.items():
+        assert hs, chave
+        assert hashlib.sha256(novo[chave].encode()).hexdigest() not in hs, chave

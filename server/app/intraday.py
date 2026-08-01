@@ -36,10 +36,41 @@ from .scanner import get_universe
 
 BRT = timezone(timedelta(hours=-3))
 
-INTERVALO = "15m"          # ADR-002 Decisão 5: o canônico do Radar intraday
-PERIODO = "1mo"            # janela do STU; com 15m dá ~638 velas (SMA200 com folga)
-CONCORRENCIA = 8           # medido: 65 ativos em 0,45 s a conc=16; 8 é folgado
-GAP_MIN_S = 240            # não repete a passada antes disso (laço acorda a 300 s)
+
+def _env_int(nome: str, default: int, minimo: int, maximo: int) -> int:
+    """Override por env com envelope: valor fora da faixa (ou não numérico) cai
+    no default COM LOG — configuração inválida nunca vira comportamento
+    silencioso nem derruba o import."""
+    raw = (os.environ.get(nome) or "").strip()
+    if not raw:
+        return default
+    try:
+        v = int(raw)
+    except ValueError:
+        print(f"[intraday] {nome}={raw!r} não é inteiro — usando default {default}")
+        return default
+    if not (minimo <= v <= maximo):
+        print(f"[intraday] {nome}={v} fora do envelope [{minimo},{maximo}] — usando default {default}")
+        return default
+    return v
+
+
+def _env_periodo(default: str) -> str:
+    """Janela da passada. Envelope da matriz legal do ADR-002 (15m precisa de
+    SMA200 => >= ~7 pregões); '1mo' é a linha default da matriz."""
+    raw = (os.environ.get("B3_INTRADAY_PERIOD") or "").strip()
+    if not raw:
+        return default
+    if raw not in ("5d", "1mo"):
+        print(f"[intraday] B3_INTRADAY_PERIOD={raw!r} fora da matriz legal (5d|1mo) — usando {default}")
+        return default
+    return raw
+
+
+INTERVALO = "15m"          # ADR-002 Decisão 5: o canônico do Radar intraday — NÃO configurável
+PERIODO = _env_periodo("1mo")             # janela do STU; com 15m dá ~638 velas (SMA200 com folga)
+CONCORRENCIA = _env_int("B3_INTRADAY_CONC", 8, 1, 16)     # medido: 65 ativos em 0,45 s a conc=16
+GAP_MIN_S = _env_int("B3_INTRADAY_GAP_S", 240, 60, 3600)  # não repete a passada antes disso
 CHAVE = "intradayPass"
 
 # Telemetria em memória (aparece no status_snapshot da Observabilidade).
@@ -143,3 +174,37 @@ async def maybe_run(conn, fetch, last_ts: Optional[float] = None) -> Optional[di
         LAST_PASS["erro"] = str(e)[:200]
         print(f"[intraday] passada falhou: {e}")
         return None
+
+
+# ---------------------------------------------------------------------------
+# F1 (timing de entrada) — leitura da passada armazenada, por ativo.
+# ---------------------------------------------------------------------------
+
+# Uma passada "fresca" tem no máximo 2 barras de 15m de idade: acima disso, o
+# fechamento guardado já não descreve o presente e o timing vira sem_dado.
+FRESCURA_MAX_S = 2 * 15 * 60
+
+
+def resumo_do_ticker(stored: Optional[dict], ticker: str) -> Optional[dict]:
+    """O resumo de UM ativo dentro da passada armazenada (None se ausente)."""
+    if not isinstance(stored, dict):
+        return None
+    for r in stored.get("resultados") or []:
+        if isinstance(r, dict) and r.get("ticker") == ticker:
+            return r
+    return None
+
+
+def passada_fresca(stored: Optional[dict], agora: Optional[datetime] = None,
+                   max_idade_s: int = FRESCURA_MAX_S) -> bool:
+    """A passada armazenada ainda descreve o AGORA? (idade <= max_idade_s).
+    `at` é gravado em isoformat BRT pela run_pass; formato inesperado => False
+    (dado que não se consegue datar não sustenta decisão de timing)."""
+    if not isinstance(stored, dict) or not stored.get("at"):
+        return False
+    try:
+        at = datetime.fromisoformat(stored["at"])
+    except (ValueError, TypeError):
+        return False
+    ref = agora if agora is not None else datetime.now(BRT)
+    return (ref - at).total_seconds() <= max_idade_s

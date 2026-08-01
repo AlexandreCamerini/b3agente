@@ -237,3 +237,31 @@ def test_laco_sem_intraday_fetch_nao_muda_nada(monkeypatch):
     asyncio.run(agent_mod.scheduler_loop(c, quotes, once=True))
     assert intraday.get_stored(c) is None
     assert agent_mod._LAST_INTRADAY["ts"] is None
+
+
+# ------------------- configs por env (envelope, defaults) -------------------
+
+def test_env_overrides_dentro_do_envelope_e_fallback_no_invalido(monkeypatch):
+    """B3_INTRADAY_GAP_S/CONC/PERIOD sobrescrevem; valor inválido ou fora do
+    envelope cai no default COM LOG (nunca comportamento silencioso); o
+    intervalo 15m é CANÔNICO (ADR-002 Decisão 5) e não tem override."""
+    import importlib
+
+    from app import intraday as mod
+    try:
+        monkeypatch.setenv("B3_INTRADAY_GAP_S", "300")
+        monkeypatch.setenv("B3_INTRADAY_CONC", "4")
+        monkeypatch.setenv("B3_INTRADAY_PERIOD", "5d")
+        importlib.reload(mod)
+        assert mod.GAP_MIN_S == 300 and mod.CONCORRENCIA == 4 and mod.PERIODO == "5d"
+
+        monkeypatch.setenv("B3_INTRADAY_GAP_S", "10")      # abaixo do envelope
+        monkeypatch.setenv("B3_INTRADAY_CONC", "abc")      # não numérico
+        monkeypatch.setenv("B3_INTRADAY_PERIOD", "2y")     # fora da matriz legal
+        importlib.reload(mod)
+        assert mod.GAP_MIN_S == 240 and mod.CONCORRENCIA == 8 and mod.PERIODO == "1mo"
+        assert mod.INTERVALO == "15m"
+    finally:
+        for k in ("B3_INTRADAY_GAP_S", "B3_INTRADAY_CONC", "B3_INTRADAY_PERIOD"):
+            monkeypatch.delenv(k, raising=False)
+        importlib.reload(mod)   # restaura os defaults para os demais testes

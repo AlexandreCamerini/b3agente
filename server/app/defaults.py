@@ -86,6 +86,22 @@ _ENQUADRAMENTO_CARTEIRA = (
     "Enquadramento (não copie este parágrafo para o JSON): " + skill_ref.DISCLAIMER
 )
 
+# Migração dos llmPrompts (pendência 2 da auditoria, executada em 2026-08-01):
+# sha256 de TODAS as gerações ANTERIORES dos textos default (extraídas do git —
+# b9bf737/34e6f0f para o educacional; 34e6f0f para o operador). Usuário cujo
+# prompt salvo bate com uma delas NUNCA editou o texto → recebe o default novo
+# no próximo ensure_defaults. Texto que não bate com nenhuma é edição do
+# usuário e fica intocado. Gen nova no default => acrescente o hash da antiga.
+LEGACY_PROMPT_SHA256 = {
+    "carteiraStopAlvo": {
+        "1227244362d0740687e8b893f44a27cd5f3119faf9ae903c009ecd30bde1c65b",
+        "ecdfea67063ebc0736829cbb8e3b284e6b4c8ec5783bc92777b386c53b920d81",
+    },
+    "carteiraStopAlvoOperador": {
+        "021b5ac9827417685ac52f7aed77745828b2da783ff9816f44eda8dc7258a375",
+    },
+}
+
 
 def default_llm_prompts() -> dict:
     """FASE 2/3: coleção de prompts indexada por chave (extensível). O prompt da

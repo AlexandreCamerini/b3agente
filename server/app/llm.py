@@ -685,17 +685,20 @@ DEEP_FORMAT = "\n".join([
     '  "cenarios": {"alta": "condição + o que confirmaria", "baixa": "condição + o que confirmaria", "neutro": "quando a leitura é ficar de fora"},',
     '  "riscos": ["riscos objetivos da leitura"],',
     '  "invalidacao": "nível/condição que invalida a tese de estudo",',
-    '  "confianca": "baixa|moderada",',
+    '  "confianca": "baixa|moderada|alta",',
     '  "planoEstudo": "Estudar alta|Estudar baixa|Monitorar|Aguardar|Não operar",',
     '  "modelosUtilizados": [{"nome": "...", "oQueE": "...", "oQueMede": "...", "limitacoes": "..."}]',
     "}",
     "modelosUtilizados cobre os ATÉ 4 modelos MAIS RELEVANTES para esta leitura",
     "(não todos — priorize os que sustentam a tese): o app ensina, não opina.",
     "`confianca` respeita o teto do dataQuality.",
-    # A6a (auditoria, decisão provisória — ver comentário na validação do
-    # analyze_deep): o teto declarado resolve a contradição com o PROCESSO §9.
-    "Por desenho deste aprofundamento, `confianca` PÁRA em 'moderada' mesmo com",
-    "confirmação multi-timeframe — 'alta' não existe neste contrato.",
+    # A6b (F1): com o bloco intraday15m no pacote o 2º timeframe é REAL —
+    # 'alta' passa a existir exatamente como o PROCESSO §9 define, e o
+    # servidor impõe o teto quando o multi-timeframe não veio (validação do
+    # analyze_deep).
+    "'alta' SÓ é permitida com confirmação multi-timeframe REAL nos dados",
+    "(dataQuality.multiTimeframe=true e bloco `intraday15m` presente); sem",
+    "ela, o teto é 'moderada'.",
     # A4 (auditoria): endereço do fecho canônico exigido pelos GUARDRAILS —
     # espelha o PRO_DEEP_FORMAT (que já fecha o resumo com a conclusão da mesa).
     "O 'resumo' TERMINA com UMA das conclusões de estudo canônicas, textualmente,",
@@ -792,15 +795,16 @@ PRO_DEEP_FORMAT = "\n".join([
     '  "cenarios": {"alta": "gatilho + plano se confirmar", "baixa": "onde a tese morre + ação", "neutro": "quando ficar de fora"},',
     '  "riscos": ["riscos objetivos do plano (curtos)"],',
     '  "invalidacao": "nível/condição EXATA que cancela o plano",',
-    '  "confianca": "baixa|moderada",',
+    '  "confianca": "baixa|moderada|alta",',
     '  "planoEstudo": "COMPRAR|VENDER|AGUARDAR CONFIRMAÇÃO|NÃO OPERAR",',
     '  "modelosUtilizados": [{"nome": "...", "oQueE": "...", "oQueMede": "...", "limitacoes": "..."}]',
     "}",
     "`planoEstudo` é a DECISÃO da mesa e deve ser COERENTE com o plano",
     "determinístico do pacote (entrada/stop/alvos/R:R) — nunca o contradiga.",
-    # A6a (auditoria): mesmo teto documentado do DEEP_FORMAT.
-    "Por desenho deste aprofundamento, `confianca` PÁRA em 'moderada' mesmo com",
-    "confirmação multi-timeframe — 'alta' não existe neste contrato.",
+    # A6b (F1): mesma regra do DEEP_FORMAT — 'alta' gated pelo 2º timeframe real.
+    "'alta' SÓ é permitida com confirmação multi-timeframe REAL nos dados",
+    "(dataQuality.multiTimeframe=true e bloco `intraday15m` presente); sem",
+    "ela, o teto é 'moderada'.",
     "A conclusão canônica que fecha o 'resumo' deve ser COERENTE com o",
     "`planoEstudo`.",
     "SEJA CONCISO (mesa): 'resumo' em até 3 frases; cada 'leitura' em até 2;",
@@ -944,13 +948,16 @@ async def analyze_deep(config: dict, profile: dict, ticker: str, context: dict, 
     conf = str(data.get("confianca") or "").lower()
     # qa/39: default seguro é "baixa" — valor ausente/inválido caía em
     # "moderada", transformando o TETO em PISO de confiança.
-    # A6a (auditoria 2026-07-31, decisão PROVISÓRIA): o teto permanente em
-    # "moderada" (sem "alta" mesmo com multiTimeframe=true) fica DOCUMENTADO
-    # como conservadorismo do aprofundamento — e declarado no DEEP_FORMAT/
-    # PRO_DEEP_FORMAT para não contradizer o PROCESSO §9 no mesmo prompt.
-    # Se o Alex optar por (b): incluir "alta" aqui e nos dois formatos, gated
-    # por dataQuality.multiTimeframe (enforcement em código, como o N2 faz).
-    data["confianca"] = conf if conf in ("baixa", "moderada") else "baixa"
+    # A6b (F1, 2026-08-01): o bloco intraday15m tornou o 2º timeframe REAL —
+    # "alta" existe, mas SÓ quando dataQuality.multiTimeframe=true no pacote
+    # (enforcement aqui, como o N2 faz com a convicção). Sem multi-timeframe,
+    # "alta" declarada vira "moderada" (teto), nunca o default "baixa": o
+    # modelo leu confluência forte; a lacuna é só o timeframe de confirmação.
+    multi_tf = bool(((context or {}).get("dataQuality") or {}).get("multiTimeframe"))
+    if conf == "alta" and not multi_tf:
+        conf = "moderada"
+    permitidas = ("baixa", "moderada", "alta") if multi_tf else ("baixa", "moderada")
+    data["confianca"] = conf if conf in permitidas else "baixa"
     # qa/44: o N1 (deep) NÃO passava pelo normalize_markdown (só o N2 passava) —
     # com outra LLM os campos de texto saíam no dialeto cru / com \n literal.
     # Normaliza aqui os campos de texto livre renderizados como markdown.

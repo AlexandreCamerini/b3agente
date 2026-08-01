@@ -230,6 +230,37 @@ vocab = {
 }
 
 
+# --- Vocabulário de TIMING de entrada (F1) por modo --------------------------
+# Mesma regra do `vocab`: o educacional descreve a CONDIÇÃO de estudo (sem verbo
+# de ordem); o operador fala como mesa. Os ESTADOS são os do timing.py (fonte
+# determinística — nenhuma LLM decide timing): gatilho, armado, esticado,
+# sem_plano, sem_dado. O enquadramento regulatório é o do produto: timing é a
+# leitura de uma condição objetiva do plano determinístico, nunca "sinal".
+TIMING = {
+    "operador": {
+        "gatilho": "Gatilho de entrada ATINGIDO na vela de {hora} — condição do plano cumprida.",
+        "armado": "Plano armado — o gatilho ainda não foi atingido.",
+        "esticado": "Preço esticado além da zona (>0,5R do gatilho) — não perseguir; espere reteste ou novo setup.",
+        "sem_plano": "Sem plano operável agora — não há gatilho para vigiar.",
+        "sem_dado": "Sem dado intraday confiável — timing indisponível.",
+    },
+    "educacional": {
+        "gatilho": "A condição de estudo foi atingida na vela de {hora} — o nível do plano de estudo foi alcançado.",
+        "armado": "Cenário de estudo armado — a condição ainda não ocorreu.",
+        "esticado": "Movimento esticado além da zona de estudo (>0,5R) — o estudo desaconselha perseguir preço.",
+        "sem_plano": "Sem leitura de estudo operável agora — não há condição a acompanhar.",
+        "sem_dado": "Sem dado intraday confiável — leitura de timing indisponível.",
+    },
+}
+
+
+def timing_txt(modo: str, estado: str, hora: str = "") -> str:
+    """Frase canônica do estado de timing no vocabulário do modo."""
+    t = TIMING.get(modo if modo in TIMING else "educacional", TIMING["educacional"])
+    frase = t.get(estado) or t["sem_dado"]
+    return frase.replace("{hora}", hora or "?")
+
+
 def decisoes_txt(modo: str) -> str:
     """Enum de decisão do modo, como string 'A | B | C' para o contrato."""
     v = vocab.get(modo, vocab["educacional"])

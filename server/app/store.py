@@ -9,6 +9,14 @@ from .catalog import CATALOG, CATALOG_TICKERS, is_catalog_ticker
 SECTIONS = ["config", "skill", "skillOperador", "llmPrompts", "watchlist", "cash", "positions", "history", "agent", "analyses", "profile", "custom"]
 
 
+def _eh_default_antigo(chave: str, texto: str) -> bool:
+    """O texto salvo é um default de GERAÇÃO ANTERIOR (nunca editado)? A lista
+    de hashes vive em defaults.LEGACY_PROMPT_SHA256 — ver o comentário lá."""
+    import hashlib
+    legado = defaults.LEGACY_PROMPT_SHA256.get(chave) or set()
+    return hashlib.sha256(texto.encode()).hexdigest() in legado
+
+
 def ensure_defaults(conn, user_id=None) -> None:
     d = defaults.default_state()
     for key in SECTIONS:
@@ -46,6 +54,12 @@ def ensure_defaults(conn, user_id=None) -> None:
     changed = False
     for k, v in d["llmPrompts"].items():
         if not isinstance(lp.get(k), str):
+            lp[k] = v
+            changed = True
+        elif lp[k] != v and _eh_default_antigo(k, lp[k]):
+            # Migração (auditoria 2026-08-01): o texto salvo é um DEFAULT de
+            # geração anterior — o usuário nunca editou; sobe para o default
+            # novo (que compõe do canônico). Texto editado nunca entra aqui.
             lp[k] = v
             changed = True
     if changed:
