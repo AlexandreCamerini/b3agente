@@ -355,7 +355,7 @@ async def obs_usage(user: dict = Depends(require_user)):
 
 # FASE 8B (diagnóstico): carimbo de build do BACKEND — confirma qual código o
 # Railway está rodando (o front tem o dele em web/src/version.js).
-SERVER_BUILD_ID = "F10-20260801-01"  # F1 timing de entrada + A6b (alta gated) + migração llmPrompts + configs intraday por env.
+SERVER_BUILD_ID = "F10-20260801-02"  # F4 mínimo: web publicada em server/web_dist (mesma origem, sem CORS novo).
 # Normalmente sincronizado pelo entregar.sh a partir de web/src/version.js; num deploy
 # SÓ de backend (sem rebuild do front) bumpamos aqui para /api/health rastrear o servidor.
 
@@ -1313,7 +1313,14 @@ async def _start_agent_scheduler():
     asyncio.get_event_loop().create_task(_session_gc())
 
 
-# ---- Servir o app web em producao (mesma origem) ----
-_DIST = Path(__file__).resolve().parent.parent.parent / "web" / "dist"
+# ---- Servir o app web em producao (mesma origem) — F4 mínimo (2026-08-01) ---
+# O serviço do Railway tem rootDirectory=/server (ver server/railway.json): o
+# builder NUNCA enxerga a árvore ../web fora dessa raiz. Por isso o bundle vive
+# em server/web_dist — TRACKED no git (não é `web/dist`, que segue efêmero e
+# gitignored) — publicado com `scripts/publicar-web.sh`, que builda, copia e
+# sincroniza o carimbo (mesmo padrão do entregar.sh, sem o passo de iOS).
+# Same-origin: web/src/api.js já resolve caminho relativo fora do modo nativo,
+# então nenhuma mudança de CORS foi necessária.
+_DIST = Path(__file__).resolve().parent.parent / "web_dist"
 if _DIST.exists():
     app.mount("/", StaticFiles(directory=str(_DIST), html=True), name="web")
