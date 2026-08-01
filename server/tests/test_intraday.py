@@ -199,6 +199,9 @@ def test_laco_do_agente_dispara_a_passada_e_respeita_o_gate(monkeypatch):
     c = _conn()
     agent_mod._LAST_INTRADAY["ts"] = None
     monkeypatch.setattr(agent_mod, "in_market_hours", lambda *a, **k: True)
+    # `intraday` importa in_market_hours para o PRÓPRIO namespace: sem este
+    # segundo patch o teste só passava com o pregão aberto de verdade.
+    monkeypatch.setattr(intraday, "in_market_hours", lambda *a, **k: True)
     monkeypatch.setattr(agent_mod, "list_server_users", lambda conn: [])
     monkeypatch.setattr(intraday, "get_universe", lambda: ["AAAA3"])
 
