@@ -31,5 +31,10 @@ const reguas = (app.match(/caption="POSIÇÃO NO RISCO"/g) || []).length;
 ok("régua POSIÇÃO NO RISCO reusada também no hero (≥2 usos)", reguas >= 2);
 ok("acesso ao candlestick por botão (velas → openTech)", /aria-label="Abrir gráfico de velas"[\s\S]{0,220}A\.openTech\(t\)|onClick=\{\(\) => A\.openTech\(t\)\}[\s\S]{0,220}Abrir gráfico de velas/.test(app));
 
+// qa/49 (v11, incremento 1): card único <AtivoCard> — a watchlist renderiza
+// pelo componente (fonte única), não mais inline. Próximas abas herdam o mesmo.
+ok("AtivoCard é o componente único do ativo", /function AtivoCard\(\{ vm/.test(app));
+ok("watchlist renderiza via <AtivoCard vm=…>", /<AtivoCard key=\{t\} vm=\{\{/.test(app));
+
 if (fails) { console.error(`\n${fails} falha(s)`); process.exit(1); }
 console.log("\ntodos os testes passaram");
