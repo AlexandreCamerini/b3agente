@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # B3 Agente - lancador com auto-instalacao.
-#   bash scripts/run.sh           # DEV:  cria o ambiente se faltar, sobe backend (8787) + Vite (5173)
+#   bash scripts/run.sh           # DEV:  cria o ambiente se faltar, sobe backend (8787) + Vite (5174)
 #   bash scripts/run.sh --prod    # PROD: build web + 1 servidor (8787)
 #   bash scripts/run.sh --stop    # encerra e libera as portas
 #   bash scripts/run.sh --status  # mostra o que esta no ar
@@ -19,7 +19,7 @@ if [ -z "$SERVER_DIR" ]; then
 fi
 WEB_DIR="$ROOT/web"; [ -d "$WEB_DIR" ] || WEB_DIR="$SERVER_DIR/../web"
 
-PORT="${PORT:-8787}"; VITE_PORT=5173
+PORT="${PORT:-8787}"; VITE_PORT="${VITE_PORT:-5174}"
 MODE="dev"
 case "${1:-}" in
   --prod) MODE="prod";; --stop) MODE="stop";; --status) MODE="status";; --dev|"") MODE="dev";;
@@ -30,7 +30,20 @@ esac
 VENV="$SERVER_DIR/.venv"
 venv_py(){ if [ -x "$VENV/bin/python" ]; then echo "$VENV/bin/python"; else echo "$VENV/Scripts/python.exe"; fi; }
 
-free_port(){ local p="$1"; if command -v lsof >/dev/null 2>&1; then local pids; pids="$(lsof -ti tcp:"$p" 2>/dev/null || true)"; [ -n "$pids" ] && kill $pids 2>/dev/null || true; fi; }
+# Mata SÓ o que é NOSSO na porta (cwd == $ROOT ou $SERVER_DIR) — nunca um
+# processo de outro projeto que por acaso esteja na mesma porta. Regra do
+# ~/.claude/CLAUDE.md: "Nunca matar processo que não é seu."
+free_port(){
+  local p="$1"; command -v lsof >/dev/null 2>&1 || return 0
+  local pid cwd
+  for pid in $(lsof -ti tcp:"$p" 2>/dev/null || true); do
+    cwd="$(lsof -a -p "$pid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p')"
+    case "$cwd" in
+      "$ROOT"|"$ROOT"/*|"$SERVER_DIR"|"$SERVER_DIR"/*) kill "$pid" 2>/dev/null || true ;;
+      *) echo "  [!] porta $p ocupada por PID $pid de OUTRO projeto (cwd=$cwd) — não vou matar. Libere manualmente ou rode noutra porta." >&2 ;;
+    esac
+  done
+}
 lan_ip(){ (command -v ipconfig >/dev/null 2>&1 && ipconfig getifaddr en0 2>/dev/null) || (hostname -I 2>/dev/null | awk '{print $1}') || echo "127.0.0.1"; }
 
 # cria o venv + instala dependencias se ainda nao existir

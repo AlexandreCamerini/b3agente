@@ -29,6 +29,10 @@ export default defineConfig({
     }),
   ],
   server: {
+    // Porta registrada em ~/.claude/portas.md para este projeto — a 5173 é do
+    // ~/dev/Bora/web. strictPort: nunca cair em outra porta em silêncio.
+    port: 5174,
+    strictPort: true,
     proxy: {
       "/api": { target: "http://localhost:8787", changeOrigin: true },
     },
