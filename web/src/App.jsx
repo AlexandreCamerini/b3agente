@@ -2071,6 +2071,56 @@ function PerfilHub({ ctx, onOpen }) {
   );
 }
 
+// F1 (timing de entrada): estilo por estado — [cor, fundo, rótulo operador,
+// rótulo estudo]. Os rótulos do estudo descrevem a CONDIÇÃO, sem verbo de
+// ordem (a frase do backend já respeita o vocabulário por modo).
+const TIMING_STYLE = {
+  gatilho: [T.positive, "rgba(52,211,153,.12)", "● GATILHO ATINGIDO", "● CONDIÇÃO ATINGIDA"],
+  armado: [T.accent, T.accentTint10, "◔ PLANO ARMADO", "◔ CONDIÇÃO ARMADA"],
+  esticado: [T.negative, "rgba(248,113,113,.12)", "⚠ ESTICADO", "⚠ MOVIMENTO ESTICADO"],
+  sem_dado: [T.textFaint, T.bgBase, "◌ SEM DADO 15M", "◌ SEM DADO 15M"],
+};
+
+// F1: badge do TIMING no card do ativo. Consulta /api/timing (determinístico,
+// O(1) no servidor — plano diário × barra 15m FECHADA; zero fetch/LLM) e só
+// ocupa espaço quando há plano a vigiar: sem_plano é silêncio, não ruído.
+// Honestidade do dado: mostra a hora da barra fechada (asOf) e as ressalvas
+// do backend (atraso ~15 min do feed; lacuna na série).
+function TimingBadge({ t, operador }) {
+  const [r, setR] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    setR(null);
+    store.timing(t)
+      .then((res) => { if (alive) setR(res); })
+      .catch(() => { /* badge é best-effort: sem timing, o card segue inteiro */ });
+    return () => { alive = false; };
+  }, [t, operador]);
+  if (!r || !TIMING_STYLE[r.estado]) return null;
+  const [cor, bg, rotOp, rotEdu] = TIMING_STYLE[r.estado];
+  const hora = typeof r.asOf === "string" && r.asOf.includes(" ") ? r.asOf.split(" ")[1].slice(0, 5) : "";
+  const emR = (x) => x.toFixed(1).replace(".", ",") + "R";
+  const nivel = operador ? "gatilho" : "nível";
+  return (
+    <div style={{ marginTop: "9px", padding: "8px 11px", borderRadius: "9px", background: bg, border: `1px solid ${T.borderFaint}` }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+        <span style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.05em", color: cor }}>{operador ? rotOp : rotEdu}</span>
+        {hora && <span style={{ fontSize: "10px", color: T.textFaint, fontFamily: MONO }}>barra 15m de {hora}</span>}
+        {r.estado === "armado" && r.distanciaEmR != null && (
+          <span style={{ fontSize: "10px", color: T.textMuted, fontFamily: MONO }}>a {emR(r.distanciaEmR)} do {nivel}</span>
+        )}
+        {(r.estado === "gatilho" || r.estado === "esticado") && r.excedenteEmR != null && (
+          <span style={{ fontSize: "10px", color: T.textMuted, fontFamily: MONO }}>+{emR(r.excedenteEmR)} além do {nivel}</span>
+        )}
+      </div>
+      <div style={{ fontSize: "11.5px", color: T.textSecondary, marginTop: "4px", lineHeight: 1.45 }}>{r.frase}</div>
+      {Array.isArray(r.ressalvas) && r.ressalvas.length > 0 && (
+        <div style={{ fontSize: "10px", color: T.textFaint, marginTop: "4px", lineHeight: 1.4 }}>{r.ressalvas.join(" ")}</div>
+      )}
+    </div>
+  );
+}
+
 // qa/49 (v11): CARD ÚNICO DO ATIVO — fonte única de renderização em todas as
 // abas (watchlist, radar, posições, home). Recebe um view-model normalizado
 // (vm) + contexto; o núcleo (identidade, manchete única, chips de análise) é
@@ -2128,6 +2178,11 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
                   <div style={{ fontSize: "17px", fontWeight: 800, color: decColor }}>{decM}</div>
                 </div>
               )}
+
+              {/* F1: TIMING DE ENTRADA logo abaixo da manchete — o estado
+                  determinístico (plano diário × barra 15m fechada) em todas as
+                  superfícies do card; o próprio badge se cala sem plano. */}
+              <TimingBadge t={t} operador={operador} />
 
               {/* qa/49 (v11): ANÁLISE — indicadores unificados em chips (mesmo peso);
                   confluência e fundamento deixam de ser vereditos concorrentes. */}

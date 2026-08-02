@@ -355,7 +355,7 @@ async def obs_usage(user: dict = Depends(require_user)):
 
 # FASE 8B (diagnóstico): carimbo de build do BACKEND — confirma qual código o
 # Railway está rodando (o front tem o dele em web/src/version.js).
-SERVER_BUILD_ID = "F10-20260801-02"  # F4 mínimo: web publicada em server/web_dist (mesma origem, sem CORS novo).
+SERVER_BUILD_ID = "F10-20260802-01"  # F4 mínimo: web publicada em server/web_dist (mesma origem, sem CORS novo).
 # Normalmente sincronizado pelo entregar.sh a partir de web/src/version.js; num deploy
 # SÓ de backend (sem rebuild do front) bumpamos aqui para /api/health rastrear o servidor.
 

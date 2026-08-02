@@ -230,6 +230,10 @@ export const api = {
   pushAnalysisLog: (t, entry) => req("POST", "/api/analysis-log/" + encodeURIComponent(t), entry || {}),   // FASE 2 (2.5)
   pushRegisterToken: (token) => req("POST", "/api/push/register-token", { token }),                        // FASE 3.3b
   scanProgress: () => req("GET", "/api/scan/progress", undefined, 10000),        // BLOCO B1
+  // F1 (timing de entrada): estado determinístico plano diário × barra 15m
+  // FECHADA — O(1) no servidor, zero fetch/LLM. iOS manda ?appMode (modo é
+  // local-first no aparelho); web omite e o servidor usa a config do escopo.
+  timing: (t, appMode) => req("GET", "/api/timing/" + encodeURIComponent(t) + (appMode ? "?appMode=" + encodeURIComponent(appMode) : ""), undefined, 15000),
   agentStatus: () => req("GET", "/api/agent/status", undefined, 15000),          // BLOCO D3
   agentRunNow: () => req("POST", "/api/agent/run-now", {}),                      // BLOCO D4 + FASE 3: responde na hora (ciclo em background)
   agentLog: (n) => req("GET", "/api/agent/log" + (n ? "?n=" + n : "")),           // FASE 3: Diário do operador
