@@ -90,3 +90,33 @@ corrigido.
 - Suíte: **445 testes** (eram 415) — `test_timing.py` novo, guardiões de
   migração/env/A6b. Masstest determinístico: 32 violações `fund_score_incoerente`
   PRÉ-EXISTENTES (task própria), sem regressão daqui.
+
+## F10-20260803-01 — F4 completo (acamerini.app) + F5 admin (só ver)
+
+- **F4 completo — domínio próprio**: `acamerini.app` adicionado como domínio
+  customizado no Railway. **Pendente (Alex)**: criar os registros DNS no
+  provedor — CNAME `@` → `7lawwovg.up.railway.app` + TXT
+  `_railway-verify` → `railway-verify=e100b392a4092b827e97d2adfb298a07cf95d8fa8df56c8d750447569c05dfe5`
+  (pode levar até 72h para propagar).
+- **Cadastro obrigatório SÓ em `acamerini.app`** (decisão do Alex): a URL do
+  Railway e o app iOS continuam com o modo convidado intacto — nada muda para
+  quem já usa. Portão implementado como middleware `gate_cadastro_obrigatorio`
+  por HOST da requisição, ativado por `B3_GATED_HOSTS` (vazio por default =
+  dormente; **Alex ainda precisa configurar essa env no Railway** com
+  `acamerini.app` quando o DNS estiver propagado). Allowlist por PREFIXO
+  (`/api/auth/*`, `/api/health`) para nunca travar login nem monitoramento.
+- **Cabeçalhos de segurança** (`X-Content-Type-Options`, `X-Frame-Options`,
+  HSTS) em toda resposta, universais. CSP ficou de fora de propósito — o app é
+  SPA React com estilo inline em toda parte; entra como tarefa própria,
+  testada visualmente antes de produção.
+- **F5 — painel de admin v1 SÓ VER** (decisão do Alex: sem ação nesta
+  versão): `GET /api/admin/summary` reúne usuários cadastrados (sem
+  pass_hash), uso de IA, saúde do agente e o estado do gate — atrás do MESMO
+  portão de admin dos logs do servidor (`B3_ADMIN_EMAILS` ou a 1ª conta
+  criada). UI em Perfil → Logs & debug, ao lado da Observabilidade.
+- Achado nos próprios testes: reimportar `app.main` sem isolar `B3_DB_PATH`
+  bate no banco REAL do dev — os dois arquivos de teste novos isolam com
+  banco temporário + restauração do módulo original.
+- Suíte: **458 testes** (eram 445) — `test_gate_cadastro.py`,
+  `test_admin_summary.py`, `test_admin_ui.mjs` novos; suíte completa roda 2x
+  seguidas sem diferença (checagem de pureza).

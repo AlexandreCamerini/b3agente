@@ -107,39 +107,62 @@ novo vai **substituir/ativar**. Ignorá-las quebra teste verde ou duplica códig
 
 **Aceite:** alvo só se move com critério declarado e auditável; o R:R recalculado permanece coerente; nenhuma contradição veredito↔plano (invariante que o masstest já cobre).
 
-### F4 — Web no Railway com segurança, sob `acamerini.app`
+### F4 — Web no Railway com segurança, sob `acamerini.app` — ✅ FEITO (2026-08-02)
 
-**Domínio definido: `https://acamerini.app/`** — onde o Alex hospedará suas
-aplicações (plural). Decidir **como o BolsIA se encaixa**: subdomínio
-(`bolsia.acamerini.app`, isola por app — recomendado quando há várias apps) ou
-caminho (`acamerini.app/bolsia`). No Railway isso é *custom domain* no serviço +
-CNAME/registro no provedor de DNS + TLS automático.
+**Domínio: `acamerini.app` (ápice, sem subdomínio nem caminho)** — decisão já
+registrada em `~/.claude/portas.md` antes mesmo deste checkout precisar
+perguntar (quase-conflito com o MyData em 31/07, resolvido dando o ápice ao
+BolsIA e `mydata.acamerini.app` ao MyData). Adicionado no Railway
+(`railway domain acamerini.app`); **pendente (Alex)**: criar no provedor de
+DNS o CNAME `@` → `7lawwovg.up.railway.app` + o TXT de verificação (até 72h
+para propagar).
 
-**Migração da URL-base (ripple real):** a API hoje é `b3agente-production.up.railway.app`,
-**hardcoded** em `web/src/api.js`, `scripts/verificar-versao.sh`,
-`scripts/atualizar-servidor.sh`, `scripts/configurar-apns.sh`, `scripts/atualizar.sh`,
-`scripts/masstest-agentes-llm*.py` e testes (`web/tests/test_api_*.mjs`). Apontar
-para `acamerini.app` exige uma **fonte única da URL-base** (env/config), não achar
-e trocar em N lugares. O app iOS aponta pela Config e por `web/capacitor.config`.
+**Não houve ripple de URL-base**: `web/src/api.js` já resolve caminho
+relativo (`/api/...`) fora do modo nativo — funciona em QUALQUER domínio que
+sirva o mesmo `web_dist`, sem hardcode novo. O iOS continua apontando para a
+Railway URL (`PROD_BASE`) de propósito — **decisão do Alex foi que o iOS não
+entra no cadastro obrigatório**, então ele não deveria migrar para
+`acamerini.app` mesmo.
 
-**Opções de hospedagem do bundle (com custo):** (a) build do web no mesmo serviço
-(Railway com Node+Python no build, raiz muda para o repo); (b) segundo serviço só
-para o estático; (c) versionar o `dist/` (rápido, mas suja o git e desalinha carimbo).
+**Hospedagem**: opção (a) do que este documento cogitava — mesmo serviço do
+Railway, via `server/web_dist` (rootDirectory continua `/server`; ver F4
+mínimo, já em produção desde 2026-08-01).
 
-**Camada de segurança a definir:** o app tem login por sessão. Falta: `CORS` sai de
-`allow_origins=["*"]` para a origem `acamerini.app` (e subdomínios que forem servir);
-cookie de sessão com `Secure`/`SameSite`/domínio vs manter `Bearer`; cabeçalhos de
-segurança (CSP compatível com o bundle, HSTS sob o domínio próprio); rate-limit de borda.
+**Camada de segurança — decisão do Alex (2026-08-02): cadastro obrigatório SÓ
+em `acamerini.app`**, não em todo o produto. Implementado como middleware
+por HOST (`gate_cadastro_obrigatorio`, dormente via `B3_GATED_HOSTS` até o
+Alex configurar a env). CORS **não mudou** — `allow_origins=["*"]` continua
+necessário para o app iOS (origem `capacitor://`) chamar a API; como a web
+serve front+API na MESMA origem, CORS não era o mecanismo certo para esta
+decisão específica de qualquer forma. Cookie de sessão: **não existe** —
+o app usa Bearer token desde sempre, então "Secure/SameSite" não se aplica
+(não há cookie a endurecer). Cabeçalhos de segurança básicos (X-Content-Type-
+Options, X-Frame-Options, HSTS) entraram, universais. **CSP ficou de fora**
+— SPA React com estilo inline em toda parte; uma CSP errada quebraria a
+renderização inteira. Rate-limit de borda: não entrou nesta rodada.
 
-**Aceite:** o app web abre em `https://…acamerini.app/` (TLS válido); `/api/health`
-intacto; CORS restrito à origem própria; carimbo do front bate com `web/src/version.js`;
-nenhuma rota de API exposta sem o controle de hoje; a URL-base vem de UMA fonte.
+**Gap conhecido, não fechado**: o front NÃO tem tratamento visual dedicado
+para o erro `cadastro_obrigatorio` (401) — hoje, se um visitante tentar
+"Usar sem conta" em `acamerini.app`, vê o erro genérico da API em vez de uma
+tela "crie sua conta para usar este domínio". Só dá para testar de verdade
+depois que o DNS propagar.
 
-### F5 — Módulo de administração
+**Aceite original revisado**: `/api/health` intacto ✓; carimbo do front bate
+com `version.js` ✓; nenhuma rota de API perde controle de acesso ✓
+(o gate é ADITIVO); TLS válido em `acamerini.app` — pendente do DNS.
 
-**Do zero:** `auth.py` não tem papéis. Definir o modelo (campo em `users` × tabela de papéis), como o primeiro admin nasce (variável de ambiente no Railway é o caminho comum), e o que o admin **vê** (usuários, cota, saúde do agente, uso de IA — já há `/api/obs/usage` e `status_snapshot`) e o que ele **faz** (kill switch, cota por usuário, reprocessar Radar).
+### F5 — Módulo de administração — ✅ v1 FEITO (2026-08-02, SÓ VER)
 
-**Aceite:** rota administrativa nega acesso a não-admin por padrão; ação administrativa fica registrada; nenhum dado sensível de usuário aparece em log ou resposta.
+**Decisão do Alex**: v1 só observa, sem ação nenhuma (kill switch/cota por
+usuário/reprocessar Radar ficam para uma v2, se precisar). Sem tabela de
+papéis nova — reaproveitou o portão que `/api/obs/logs` e `/api/obs/usage`
+já tinham (`_is_obs_admin`: `B3_ADMIN_EMAILS` ou a 1ª conta criada).
+`GET /api/admin/summary`: usuários cadastrados (sem pass_hash/provider_sub),
+uso de IA, saúde do agente, estado do gate do F4. UI em Perfil → Logs & debug.
+
+**Aceite**: nega acesso a não-admin (403, testado) ✓; nenhum dado sensível
+vaza (guardião trava ausência de pass_hash) ✓; "ação administrativa fica
+registrada" não se aplica — não existe ação nesta v1.
 
 ---
 

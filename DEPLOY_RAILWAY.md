@@ -92,6 +92,15 @@ Em **Settings → Variables** do serviço:
   - `B3_INTRADAY_PERIOD` — janela buscada (`1mo` default | `5d`; fora da
     matriz legal do ADR-002 cai no default com log).
   - O intervalo (15m) é CANÔNICO (ADR-002 Decisão 5) e não tem variável.
+- **`B3_GATED_HOSTS`** (F4 completo, 2026-08-02) — domínios (separados por
+  vírgula) onde o cadastro é OBRIGATÓRIO (sem modo convidado). Vazio por
+  default: ninguém é afetado. Ex.: `B3_GATED_HOSTS=acamerini.app`. A URL do
+  Railway e o app iOS NUNCA entram nessa lista — continuam com o modo
+  convidado, é por isso que a variável precisa ser explícita e não um
+  comportamento automático do domínio custom.
+- **`B3_ADMIN_EMAILS`** — quem vê `/api/obs/logs`, `/api/obs/usage` e o painel
+  de admin (F5, `/api/admin/summary`). Lista separada por vírgula; sem a env,
+  só a PRIMEIRA conta criada no banco é admin.
 
 > **Cuidado com o NOME da variável**: em 2026-08-01 uma `B3_MANAGED_LLM_KEY `
 > (com espaço no fim) ficou meses no Railway sem nunca ser lida — a IA
