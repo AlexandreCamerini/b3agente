@@ -233,6 +233,91 @@ def test_set_agent_valida_os_campos_do_trailing_dinamico():
     assert db.kv_get(c, "agent", user_id="u1")["trailingMode"] == "estrutura"  # não sobrescreve
 
 
+# ---------------------------------------------------------------------------
+# F3 — Alvo dinâmico. Reusa a mesma série/ATR real de PETR4 da F2 (linha 103):
+# alvo e trailing compartilham o insumo técnico, e um número redondo esconderia
+# a divergência que o critério por ATR existe para produzir.
+# ---------------------------------------------------------------------------
+def test_avaliar_alvo_dinamico_estende_dentro_do_limite():
+    pos = {"alvo": 45.0, "stop": 36.0, "avg": 38.0, "alvoExtensoes": 0}
+    novo, criterio = agent.avaliar_alvo_dinamico(45.5, pos, {"atr": PETR4_ATR})
+    assert novo == 46.45                    # 45,00 + 1,5 × 0,97
+    assert "extensão 1/2" in criterio and "R:R 4.2" in criterio
+
+
+def test_avaliar_alvo_dinamico_nao_dispara_antes_de_bater_o_alvo():
+    pos = {"alvo": 45.0, "stop": 36.0, "avg": 38.0}
+    assert agent.avaliar_alvo_dinamico(44.9, pos, {"atr": PETR4_ATR}) == (None, None)
+
+
+def test_avaliar_alvo_dinamico_respeita_o_limite_de_extensoes():
+    pos = {"alvo": 45.0, "stop": 36.0, "avg": 38.0, "alvoExtensoes": agent.MAX_ALVO_EXTENSOES}
+    assert agent.avaliar_alvo_dinamico(45.5, pos, {"atr": PETR4_ATR}) == (None, None)
+
+
+def test_avaliar_alvo_dinamico_recusa_sem_rr_minimo():
+    """Alvo original já fraco (R:R 0,5:1, abaixo do Princípio 5) — a extensão
+    NÃO valida um plano que já nasceu fora da doutrina."""
+    pos = {"alvo": 39.0, "stop": 36.0, "avg": 38.0, "alvoExtensoes": 0}
+    assert agent.avaliar_alvo_dinamico(39.1, pos, {"atr": PETR4_ATR}) == (None, None)
+
+
+def test_avaliar_alvo_dinamico_sem_atr_nao_estende():
+    pos = {"alvo": 45.0, "stop": 36.0, "avg": 38.0, "alvoExtensoes": 0}
+    assert agent.avaliar_alvo_dinamico(45.5, pos, {}) == (None, None)
+    assert agent.avaliar_alvo_dinamico(45.5, pos, None) == (None, None)
+
+
+def test_alvo_dinamico_estende_duas_vezes_e_fecha_na_terceira():
+    c = _conn()
+    _seed(c, [{"t": "PETR4", "qty": 100, "avg": 38.0, "stop": 36.0, "alvo": 45.0}],
+          {"serverEnabled": True, "mode": "executar", "rules": {"alvo": True}, "alvoDinamico": True})
+    snap = _snap(PETR4_REAL, PETR4_ATR)
+
+    r1 = _run(c, {"PETR4": 45.5}, snapshot_getter=snap)
+    pos = db.kv_get(c, "positions", user_id="u1")[0]
+    assert pos["alvo"] == 46.45 and pos["alvoExtensoes"] == 1
+    assert r1["executed"] == 0
+    assert any("Alvo dinâmico" in e["text"] for e in r1["events"])
+
+    r2 = _run(c, {"PETR4": 46.5}, snapshot_getter=snap)
+    pos = db.kv_get(c, "positions", user_id="u1")[0]
+    assert pos["alvo"] == 47.91 and pos["alvoExtensoes"] == 2
+    assert r2["executed"] == 0
+
+    r3 = _run(c, {"PETR4": 48.0}, snapshot_getter=snap)     # 3ª batida: limite estourado
+    assert r3["executed"] == 1
+    assert db.kv_get(c, "positions", user_id="u1") == []
+    assert any("alvo atingido" in e["text"] for e in r3["events"])
+
+
+def test_alvo_dinamico_desligado_fecha_normal_compat():
+    """Compatibilidade: quem nunca ligou `alvoDinamico` continua fechando no
+    alvo — a F3 não muda comportamento de quem não pediu."""
+    c = _conn()
+    _seed(c, [{"t": "PETR4", "qty": 100, "avg": 38.0, "stop": 36.0, "alvo": 45.0}],
+          {"serverEnabled": True, "mode": "executar", "rules": {"alvo": True}})
+    r = _run(c, {"PETR4": 45.5}, snapshot_getter=_snap(PETR4_REAL, PETR4_ATR))
+    assert r["executed"] == 1
+    assert db.kv_get(c, "positions", user_id="u1") == []
+
+
+def test_agent_params_default_alvo_dinamico_desligado():
+    assert agent.agent_params({})["alvoDinamico"] is False
+    assert agent.agent_params({"alvoDinamico": True})["alvoDinamico"] is True
+
+
+def test_set_agent_grava_alvo_dinamico():
+    """Guardião do bug real: o toggle da UI faz PUT /api/agent → store.set_agent
+    PRECISA aceitar `alvoDinamico`, senão o clique não persiste em silêncio
+    (mesma armadilha que trailingMode/serverEnabled já tiveram)."""
+    c = _conn()
+    store.set_agent(c, {"alvoDinamico": True}, user_id="u1")
+    assert db.kv_get(c, "agent", user_id="u1")["alvoDinamico"] is True
+    store.set_agent(c, {"alvoDinamico": False}, user_id="u1")
+    assert db.kv_get(c, "agent", user_id="u1")["alvoDinamico"] is False
+
+
 def test_kill_switch_e_janela_de_pregao():
     os.environ["B3_AGENT_KILL"] = "1"
     try:

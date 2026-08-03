@@ -120,3 +120,30 @@ corrigido.
 - Suíte: **458 testes** (eram 445) — `test_gate_cadastro.py`,
   `test_admin_summary.py`, `test_admin_ui.mjs` novos; suíte completa roda 2x
   seguidas sem diferença (checagem de pureza).
+
+## F10-20260803-02 — F3: alvo dinâmico
+
+- **Decisão do Alex (2026-08-03)**: gatilho por **extensão de ATR** — quando
+  o preço já bate o alvo com força (1,5× o ATR(14) além do alvo batido) e o
+  R:R recalculado continua ≥ 1,5:1 (Princípio 5 da skill), o alvo é
+  ESTENDIDO em vez de fechar a posição. Freio contra correr atrás do preço
+  indefinidamente: **no máximo 2 extensões por posição** (contador
+  `alvoExtensoes` na própria posição) — não configurável, v1 simples.
+- **Opt-in** via `agent.alvoDinamico` (default `false`): quem nunca ligou
+  continua fechando no alvo, como sempre — mesmo padrão de compatibilidade
+  do `trailingMode` (F2).
+- Reusa o mesmo insumo técnico do trailing dinâmico (ATR(14) do STU) —
+  `_run_cycle_inner` busca o contexto técnico uma vez quando trailing técnico
+  OU alvo dinâmico precisam dele.
+- **Bug pego em teste de UI ao vivo, não pelos testes automatizados**: o
+  toggle da UI fazia `PUT /api/agent`, mas `store.set_agent` não tinha
+  `alvoDinamico` no whitelist de escrita — o clique voltava 200 e não
+  persistia nada, em silêncio. Corrigido antes do commit; ganhou guardião
+  dedicado (`test_set_agent_grava_alvo_dinamico`) para não se repetir.
+- UI: toggle "Alvo dinâmico ligado" na aba Operador IA, ao lado do critério
+  de trailing — só aparece com a regra de alvo ligada.
+- Suíte: **467 testes** (eram 458) — `test_agent.py` ganhou 8 casos (função
+  pura, integração de 3 rodadas até fechar, compat com o toggle desligado,
+  validação de escrita); suíte completa roda 2x seguidas sem diferença.
+  Masstest determinístico: mesmas 32 violações `fund_score_incoerente`
+  PRÉ-EXISTENTES, 0 novas.

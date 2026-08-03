@@ -67,12 +67,11 @@ verde**. Conferido no código em 2026-07-30.
 Não são entregas prontas — são pré-existências triviais que o desenvolvimento
 novo vai **substituir/ativar**. Ignorá-las quebra teste verde ou duplica código.
 
-1. **F2 (trailing dinâmico) — existe um trailing trivial de % fixo.**
-   `server/app/agent.py:135` ajusta o stop a `trailingPct` (default 5%), de forma
-   monotônica, com o guardião `test_trailing_sobe_o_stop_e_nunca_desce`. **Isso não
-   é a feature** — a feature é o trailing **dinâmico** (ATR/estrutura). O trabalho
-   novo o substitui/estende **preservando a monotonicidade e o guardião**, e sem
-   descartar quem já tem `trailingPct` configurado.
+1. **F2 (trailing dinâmico) — ✅ FEITO, ver seção 4.** Descrição original
+   (histórica, já resolvida): existia um trailing trivial de % fixo em
+   `server/app/agent.py:135`; a feature dinâmica (ATR/estrutura) foi
+   construída por cima, preservando a monotonicidade e o guardião, sem
+   descartar quem já tinha `trailingPct` configurado.
 2. **F4 (web no Railway) — o mount existe, mas está inerte.**
    `server/app/main.py:1213` monta `web/dist` em `/` *se existir*; mas `web/dist/`
    está no `.gitignore:15` e a raiz do deploy é `server/` (`server/railway.json`,
@@ -95,17 +94,39 @@ novo vai **substituir/ativar**. Ignorá-las quebra teste verde ou duplica códig
 
 **Aceite:** dado intraday chega ao STU com `snapshotId` próprio; o Radar diário continua com o mesmo custo de hoje; `scripts/masstest-agentes.py` segue com 0 violações.
 
-### F2 — Trailing dinâmico
+### F2 — Trailing dinâmico — ✅ FEITO (commits `5f6a618`, `ad11848`)
 
-**Decisão:** qual critério (ATR × mínimas dos últimos N candles × abaixo do rompimento) e se substitui ou convive com o percentual atual (compatibilidade: usuários já têm `trailingPct` configurado).
+**Decisão tomada**: três critérios convivem (`trailingMode`: percentual |
+atr | estrutura), percentual continua DEFAULT — compatibilidade com quem já
+tinha `trailingPct`. Implementado em `server/app/agent.py`
+(`nivel_trailing`, `contexto_trailing`); UI na aba Operador IA. **Nota
+2026-08-03**: esta seção ficou tempos sem o marcador de "feito" — o código
+já estava pronto desde antes da F1, mas o checkout nunca foi atualizado.
+Confira o estado real no código/`git log`, não só neste documento.
 
-**Aceite:** monotonicidade preservada (o guardião atual continua verde); trailing dinâmico nunca afrouxa o stop; teste com série real onde percentual e técnico divergem.
+**Aceite**: monotonicidade preservada (guardião `test_trailing_dinamico_nunca_afrouxa`) ✓; nunca afrouxa o stop, inclusive com ATR maior ou preço recuando ✓; série real de PETR4 onde percentual e técnico divergem ✓.
 
-### F3 — Alvo dinâmico
+### F3 — Alvo dinâmico — ✅ FEITO (2026-08-03)
 
-**Decisão:** o que é "indicação clara" o suficiente para mover um alvo, e o que impede o alvo de correr indefinidamente atrás do preço. Precisa casar com o Princípio 5 da skill (R:R mínimo 1,5:1) e com o plano determinístico já existente (`setups.plano_operacional`).
+**Decisão do Alex**: gatilho por extensão de ATR (1,5× o ATR(14) além do alvo
+batido); freio contra correr atrás do preço indefinidamente = limite de 2
+extensões por posição + R:R recalculado precisa continuar ≥ 1,5:1 (Princípio
+5). Opt-in via `agent.alvoDinamico` (default `false`, compat com quem nunca
+ligou). Implementado em `server/app/agent.py` (`avaliar_alvo_dinamico`,
+`MAX_ALVO_EXTENSOES=2`, `ALVO_ATR_MULT=1.5`), reusando o mesmo insumo técnico
+(ATR) que o trailing dinâmico (F2) já buscava do STU.
 
-**Aceite:** alvo só se move com critério declarado e auditável; o R:R recalculado permanece coerente; nenhuma contradição veredito↔plano (invariante que o masstest já cobre).
+**Achado**: o toggle da UI (`PUT /api/agent`) não persistia — `store.set_agent`
+não tinha `alvoDinamico` no whitelist de escrita (só o lado de leitura em
+`agent_params` tinha sido feito). Pego em teste de UI AO VIVO no browser, não
+pelos testes automatizados (que testavam `agent_params`/`avaliar_alvo_dinamico`
+diretamente, sem passar pelo `PUT`). Corrigido; ganhou guardião dedicado.
+
+**Aceite**: alvo só se move com critério declarado e auditável (evento no
+Diário nomeia o número) ✓; R:R recalculado permanece coerente (guardião:
+extensão sobre alvo originalmente fraco, R:R<1,5, é recusada) ✓; suíte 467
+testes, 2 rodadas seguidas sem diferença ✓; masstest determinístico sem
+violação nova ✓.
 
 ### F4 — Web no Railway com segurança, sob `acamerini.app` — ✅ FEITO (2026-08-02)
 

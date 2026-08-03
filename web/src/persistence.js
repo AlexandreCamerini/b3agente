@@ -704,9 +704,10 @@ function deviceStore() {
       // F2: trailingMode/trailingAtrMult/trailingLookback entram AQUI ou o
       // usuário nunca consegue escolher o critério — o backend aceita, mas o
       // patch nem sai do app (mesma armadilha que já engoliu o serverEnabled).
+      // F3: alvoDinamico entra pela mesma razão.
       const SERVER_KEYS = ["serverEnabled", "mode", "rules", "trailingPct", "trailingMode",
-                           "trailingAtrMult", "trailingLookback", "maxOpsDia", "maxValorOp",
-                           "intervalMin", "lastSeenAt"];
+                           "trailingAtrMult", "trailingLookback", "alvoDinamico", "maxOpsDia",
+                           "maxValorOp", "intervalMin", "lastSeenAt"];
       const sb = {};
       for (const k of SERVER_KEYS) if (k in (b || {})) sb[k] = b[k];
       if (Object.keys(sb).length) {

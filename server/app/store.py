@@ -300,6 +300,9 @@ def set_agent(conn, patch: dict, user_id=None) -> dict:
         ag["trailingAtrMult"] = max(1.0, min(4.0, float(patch["trailingAtrMult"])))
     if isinstance(patch.get("trailingLookback"), (int, float)):
         ag["trailingLookback"] = max(2, min(20, round(patch["trailingLookback"])))
+    # F3 — alvo dinâmico: mesmo padrão de entrada validada do F2.
+    if isinstance(patch.get("alvoDinamico"), bool):
+        ag["alvoDinamico"] = patch["alvoDinamico"]
     if isinstance(patch.get("maxOpsDia"), (int, float)):
         ag["maxOpsDia"] = max(1, min(20, round(patch["maxOpsDia"])))
     if isinstance(patch.get("maxValorOp"), (int, float)):
@@ -310,7 +313,8 @@ def set_agent(conn, patch: dict, user_id=None) -> dict:
     return ag
 
 
-def set_position(conn, t: str, stop=None, alvo=None, has_stop=False, has_alvo=False, user_id=None) -> None:
+def set_position(conn, t: str, stop=None, alvo=None, has_stop=False, has_alvo=False,
+                  alvo_extensoes=None, user_id=None) -> None:
     positions = get(conn, "positions", user_id=user_id)
     for p in positions:
         if p["t"] == t:
@@ -318,6 +322,11 @@ def set_position(conn, t: str, stop=None, alvo=None, has_stop=False, has_alvo=Fa
                 p["stop"] = None if stop in (None, "") else float(stop)
             if has_alvo:
                 p["alvo"] = None if alvo in (None, "") else float(alvo)
+            # F3 — alvo dinâmico: contador de quantas vezes JÁ estendeu (o
+            # freio de MAX_ALVO_EXTENSOES em agent.py lê daqui). None = não
+            # mexe (chamadas antigas, ex. o trailing ajustando só o stop).
+            if alvo_extensoes is not None:
+                p["alvoExtensoes"] = int(alvo_extensoes)
     db.kv_set(conn, "positions", positions, user_id=user_id)
 
 

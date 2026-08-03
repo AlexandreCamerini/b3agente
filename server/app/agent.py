@@ -13,6 +13,7 @@ Parâmetros por usuário (seção `agent`, decisão 3.2):
   trailingPct    float  — distância do trailing PERCENTUAL (default 5%)
   trailingAtrMult float — múltiplo do ATR(14) no modo "atr" (default 2,0) [F2]
   trailingLookback int  — nº de candles da mínima no modo "estrutura" (default 5) [F2]
+  alvoDinamico   bool   — estende o alvo por ATR em vez de fechar, opt-in (default False) [F3]
   maxOpsDia      int    — teto de operações executadas por dia (default 3)
   maxValorOp     float  — teto de valor por operação (0 = sem teto)
 
@@ -146,6 +147,56 @@ def nivel_trailing(mode: str, price: float, par: dict, ctx: dict = None):
     return _percentual()
 
 
+# ---------------------------------------------------------------------------
+# F3 — Alvo dinâmico. Quando o preço já bateu o alvo com força (extensão de
+# ATR clara), estende em vez de fechar — decisão do Alex (2026-08-03): o
+# critério é ATR (reusa o mesmo ATR(14) do trailing técnico), opt-in via
+# `agent.alvoDinamico` (quem não ligou continua fechando no alvo, como sempre).
+#
+# O que trava a corrida atrás do preço: MAX_ALVO_EXTENSOES por posição é o
+# freio de verdade (não configurável — v1 simples, decisão do Alex). O R:R
+# recalculado (Princípio 5, mínimo 1,5:1) é a segunda trava — garante que uma
+# extensão nunca é aplicada sobre uma geometria degenerada (ex.: stop já
+# quase colado no preço). Nenhuma das duas muda o stop; quem sobe o stop é o
+# trailing (F2), sempre monotônico.
+# ---------------------------------------------------------------------------
+MAX_ALVO_EXTENSOES = 2
+ALVO_ATR_MULT = 1.5
+RR_MINIMO = 1.5
+
+
+def _rr(avg, stop, alvo):
+    """R:R do plano (Princípio 5 da skill). None se a geometria não fecha."""
+    if avg is None or stop is None or alvo is None:
+        return None
+    risco = avg - stop
+    if risco <= 0:
+        return None
+    return (alvo - avg) / risco
+
+
+def avaliar_alvo_dinamico(price: float, pos: dict, ctx: dict = None):
+    """F3, PURA: se o preço já bateu o alvo e ainda sobra ATR/R:R, devolve
+    (novo_alvo, descricao) para ESTENDER em vez de fechar a posição. Devolve
+    (None, None) quando não há extensão a fazer — nesse caso o chamador segue
+    o fechamento normal de stop/alvo."""
+    alvo, stop, avg = pos.get("alvo"), pos.get("stop"), pos.get("avg")
+    if alvo is None or price < alvo:
+        return None, None
+    usadas = int(pos.get("alvoExtensoes") or 0)
+    if usadas >= MAX_ALVO_EXTENSOES:
+        return None, None
+    atr = (ctx or {}).get("atr")
+    if not atr or atr <= 0:
+        return None, None
+    novo_alvo = round(alvo + ALVO_ATR_MULT * atr, 2)
+    rr = _rr(avg, stop, novo_alvo)
+    if rr is None or rr < RR_MINIMO:
+        return None, None
+    return novo_alvo, (f"extensão {usadas + 1}/{MAX_ALVO_EXTENSOES}: alvo levado a R$ {novo_alvo:.2f} "
+                        f"({ALVO_ATR_MULT:.1f}× o ATR(14) de R$ {atr:.2f} além do alvo batido; R:R {rr:.1f}:1)")
+
+
 def agent_params(ag: dict) -> dict:
     """Normaliza a seção agent para os parâmetros do servidor (defaults sãos)."""
     ag = ag or {}
@@ -161,6 +212,8 @@ def agent_params(ag: dict) -> dict:
         "trailingAtrMult": max(ATR_MULT_MIN, min(ATR_MULT_MAX, float(ag.get("trailingAtrMult") or ATR_MULT_DEFAULT))),
         "trailingLookback": max(LOOKBACK_MIN, min(LOOKBACK_MAX, int(ag.get("trailingLookback") or LOOKBACK_DEFAULT))),
         "trailingPct": float(ag.get("trailingPct") or 5.0),
+        # F3: default False preserva quem já usa `rules.alvo` como fecha-no-alvo.
+        "alvoDinamico": bool(ag.get("alvoDinamico")),
         "maxOpsDia": int(ag.get("maxOpsDia") or 3),
         "maxValorOp": float(ag.get("maxValorOp") or 0),
         "intervalMin": max(1, min(240, int(ag.get("intervalMin") or 15))),
@@ -208,22 +261,23 @@ async def _run_cycle_inner(conn, scope, quotes_getter, origem: str, t0: float, s
     sem_cotacao = [p["t"] for p in positions if (quotes_data.get(p["t"]) or {}).get("price") is None]
     events, executed = [], 0
 
-    # F2: insumo técnico do trailing dinâmico. Só busca quando o modo escolhido
-    # PRECISA — no percentual (default) o ciclo continua custando exatamente o
-    # que custava. Falha de um ticker não derruba o ciclo: `nivel_trailing` cai
-    # para o percentual e a descrição no Diário denuncia a troca.
+    # F2/F3: insumo técnico (ATR) do trailing dinâmico E do alvo dinâmico — os
+    # dois reusam o mesmo contexto. Só busca quando algum dos dois PRECISA; no
+    # percentual sem alvo dinâmico o ciclo continua custando o que custava.
+    # Falha de um ticker não derruba o ciclo: cada critério cai para o default
+    # dele e a descrição no Diário denuncia a troca.
     ctxs = {}
-    if (par["rules"]["trailing"] and par["trailingMode"] != "percentual"
-            and snapshot_getter is not None and positions):
+    if ((par["rules"]["trailing"] and par["trailingMode"] != "percentual") or par["alvoDinamico"]) \
+            and snapshot_getter is not None and positions:
         for p in positions:
             try:
                 snap = await snapshot_getter(p["t"])
                 if snap:
                     ctxs[p["t"]] = contexto_trailing(snap)
-            except Exception as e:  # noqa: BLE001 — insumo do trailing é best-effort
+            except Exception as e:  # noqa: BLE001 — insumo técnico é best-effort
                 events.append({"time": _now_str(), "kind": "warn",
-                               "text": f"Trailing técnico de {p['t']}: contexto indisponível ({e}). "
-                                       f"Usando o percentual neste ciclo."})
+                               "text": f"Contexto técnico de {p['t']}: indisponível ({e}). "
+                                       f"Usando os defaults neste ciclo."})
     for pos in list(positions):
         q = quotes_data.get(pos["t"]) or {}
         price = q.get("price")
@@ -243,6 +297,19 @@ async def _run_cycle_inner(conn, scope, quotes_getter, origem: str, t0: float, s
                 pos = {**pos, "stop": novo}
         breach_stop = par["rules"]["stop"] and pos.get("stop") is not None and price <= pos["stop"]
         hit_alvo = par["rules"]["alvo"] and pos.get("alvo") is not None and price >= pos["alvo"]
+        # F3: alvo batido, sem stop rompido — antes de fechar, tenta ESTENDER.
+        # Só quando o Alex ligou (`alvoDinamico`); senão o comportamento de
+        # sempre (fecha no alvo) continua intacto.
+        if hit_alvo and not breach_stop and par["alvoDinamico"]:
+            novo_alvo, criterio = avaliar_alvo_dinamico(price, pos, ctxs.get(pos["t"]))
+            if novo_alvo is not None:
+                usadas = int(pos.get("alvoExtensoes") or 0) + 1
+                store.set_position(conn, pos["t"], alvo=novo_alvo, has_alvo=True,
+                                    alvo_extensoes=usadas, user_id=scope)
+                events.append({"time": _now_str(), "kind": "info",
+                               "text": f"Alvo dinâmico: {pos['t']} {criterio}."})
+                pos = {**pos, "alvo": novo_alvo, "alvoExtensoes": usadas}
+                hit_alvo = False
         if not (breach_stop or hit_alvo):
             continue
         motivo = "stop atingido" if breach_stop else "alvo atingido"

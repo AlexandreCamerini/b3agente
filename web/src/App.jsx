@@ -2917,6 +2917,22 @@ function AgenteScreen({ ctx }) {
             </p>
           </div>
         )}
+        {/* F3 — alvo dinâmico: só aparece com a regra de alvo LIGADA. Sem
+            parâmetro extra (critério fixo: ATR, no máx. 2 extensões por
+            posição) — decisão do Alex (2026-08-03) foi manter o v1 simples. */}
+        {rules.alvo !== false && (
+          <div style={{ marginTop: "14px", paddingTop: "13px", borderTop: `1px solid ${T.borderFaint}` }}>
+            <div style={{ fontSize: "12px", color: T.textMuted }}>Alvo dinâmico <span style={{ color: T.textFaint }}>· estende o alvo em vez de fechar, quando o preço já bate com força</span></div>
+            <div style={{ marginTop: "8px" }}>
+              <button onClick={() => putAg({ alvoDinamico: !ag.alvoDinamico })} style={{ padding: "8px 12px", borderRadius: "999px", border: `1px solid ${ag.alvoDinamico ? T.accent : T.borderSubtle}`, background: ag.alvoDinamico ? T.accentTint : T.bgBase, color: ag.alvoDinamico ? T.accent : T.textMuted, fontWeight: 700, fontSize: "11.5px" }}>
+                {ag.alvoDinamico ? "✓ " : ""}Alvo dinâmico ligado
+              </button>
+            </div>
+            <p style={{ margin: "9px 0 0", fontSize: "11.5px", lineHeight: 1.5, color: T.textFaint }}>
+              Quando o preço bate o alvo, se ainda sobrar 1,5× o ATR(14) de fôlego e o R:R recalculado continuar ≥ 1,5:1 (Princípio 5), o alvo é estendido — no máximo 2 vezes por posição. Depois disso, ou sem esse fôlego, o fechamento simulado da posição acontece normalmente.
+            </p>
+          </div>
+        )}
         <div style={{ marginTop: "13px", display: "flex", gap: "12px", flexWrap: "wrap" }}>
           <label style={{ flex: 1, minWidth: "150px", fontSize: "12px", color: T.textMuted }}>
             Teto de operações/dia
