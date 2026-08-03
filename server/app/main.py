@@ -212,6 +212,59 @@ async def auth_logout(authorization: Optional[str] = Header(default=None)):
     return {"ok": True}
 
 
+# ===========================================================================
+# F4 completo (2026-08-02) — cadastro obrigatório, SÓ nos domínios listados.
+#
+# Decisão do Alex: acamerini.app fecha (sem modo convidado); a URL do Railway
+# e o app iOS continuam exatamente como estão (Decisão A permanece intacta
+# para eles). B3_GATED_HOSTS vazio = ninguém é afetado — dormente até o
+# Railway apontar de verdade para acamerini.app (mesmo padrão do
+# web_dist/ios_dist: existe no código, só liga quando configurado).
+#
+# Allowlist por PREFIXO (não por rota individual, então uma rota de auth nova
+# amanhã já nasce acessível): /api/auth/* (senão ninguém consegue logar) e
+# /api/health (monitoramento não é dado de usuário).
+# ===========================================================================
+_GATED_HOSTS = {h.strip().lower() for h in (os.environ.get("B3_GATED_HOSTS") or "").split(",") if h.strip()}
+_GATE_ALLOWLIST_PREFIXES = ("/api/auth/", "/api/health")
+
+
+def _has_valid_session(request: Request) -> bool:
+    header = request.headers.get("authorization") or ""
+    parts = header.split(None, 1)
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        return False
+    return auth.resolve_session(_conn, parts[1].strip()) is not None
+
+
+@app.middleware("http")
+async def gate_cadastro_obrigatorio(request: Request, call_next):
+    path = request.url.path
+    if _GATED_HOSTS and path.startswith("/api/") and not path.startswith(_GATE_ALLOWLIST_PREFIXES):
+        host = (request.headers.get("host") or "").split(":")[0].lower()
+        if host in _GATED_HOSTS and not _has_valid_session(request):
+            return JSONResponse(status_code=401, content={
+                "detail": "Cadastro obrigatório neste domínio. Faça login ou crie sua conta.",
+                "code": "cadastro_obrigatorio",
+            })
+    return await call_next(request)
+
+
+# Cabeçalhos de segurança — universais, de baixo risco (não dependem do
+# B3_GATED_HOSTS): nenhum deles muda comportamento visível do app, só reduz
+# superfície de ataque. CSP fica de fora aqui de propósito: o app é um SPA
+# React com estilo INLINE em toda parte (style={{...}}) — uma CSP errada
+# quebraria a renderização inteira sem aviso; entra como tarefa própria,
+# testada visualmente antes de ir para produção (ver PENDÊNCIAS-F4.md).
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    resp = await call_next(request)
+    resp.headers["X-Content-Type-Options"] = "nosniff"
+    resp.headers["X-Frame-Options"] = "DENY"
+    resp.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return resp
+
+
 @app.delete("/api/account")
 async def delete_account(user: dict = Depends(require_user)):
     """Item 5 — exclusão de conta in-app: apaga todos os dados do usuário,
@@ -332,10 +385,7 @@ async def obs_logs(n: int = 200, level: Optional[str] = None, cat: Optional[str]
 # qa/42 (FinOps) — quanto a IA custou HOJE. Antes não havia como responder:
 # nenhum caller lia o `usage` e não existia contador agregado (só cota por
 # usuário). Restrito ao admin: é dado do servidor, não do usuário.
-@app.get("/api/obs/usage")
-async def obs_usage(user: dict = Depends(require_user)):
-    if not _is_obs_admin(user):
-        raise HTTPException(403, "Uso da IA é restrito ao administrador (defina B3_ADMIN_EMAILS no Railway).")
+def _usage_snapshot() -> dict:
     cap = managed.global_daily_cap()
     return {
         "tokens": llm.usage_snapshot(),              # por modelo, do dia (memória: zera no deploy)
@@ -353,9 +403,37 @@ async def obs_usage(user: dict = Depends(require_user)):
     }
 
 
+@app.get("/api/obs/usage")
+async def obs_usage(user: dict = Depends(require_user)):
+    if not _is_obs_admin(user):
+        raise HTTPException(403, "Uso da IA é restrito ao administrador (defina B3_ADMIN_EMAILS no Railway).")
+    return _usage_snapshot()
+
+
+# F5 (2026-08-02, decisão do Alex: v1 SÓ VER — sem ação nenhuma). Mesmo portão
+# de admin que obs/usage e obs/logs já usavam (_is_obs_admin); nada novo em
+# termos de quem pode acessar, só um painel que junta o que já existia
+# espalhado (uso de IA, usuários cadastrados, saúde do agente) num lugar só.
+@app.get("/api/admin/summary")
+async def admin_summary(user: dict = Depends(require_user)):
+    if not _is_obs_admin(user):
+        raise HTTPException(403, "Painel de administração é restrito ao administrador (defina B3_ADMIN_EMAILS no Railway).")
+    usuarios = db.list_users(_conn)
+    return {
+        "usuarios": usuarios,
+        "totalUsuarios": len(usuarios),
+        "usoIA": _usage_snapshot(),
+        "agente": agent_mod.status_snapshot(_conn),
+        "gate": {
+            "hostsFechados": sorted(_GATED_HOSTS),
+            "ativo": bool(_GATED_HOSTS),
+        },
+    }
+
+
 # FASE 8B (diagnóstico): carimbo de build do BACKEND — confirma qual código o
 # Railway está rodando (o front tem o dele em web/src/version.js).
-SERVER_BUILD_ID = "F10-20260802-01"  # F4 mínimo: web publicada em server/web_dist (mesma origem, sem CORS novo).
+SERVER_BUILD_ID = "F10-20260803-01"  # F4 mínimo: web publicada em server/web_dist (mesma origem, sem CORS novo).
 # Normalmente sincronizado pelo entregar.sh a partir de web/src/version.js; num deploy
 # SÓ de backend (sem rebuild do front) bumpamos aqui para /api/health rastrear o servidor.
 

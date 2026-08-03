@@ -238,6 +238,16 @@ def delete_session(conn: sqlite3.Connection, token: str) -> None:
     conn.commit()
 
 
+def list_users(conn: sqlite3.Connection, limit: int = 500) -> list:
+    """F5 (admin, só ver): usuários cadastrados, mais recente primeiro. NUNCA
+    inclui pass_hash — mesmas colunas de get_user_by_id (sem a senha)."""
+    rows = conn.execute(
+        "SELECT id, email, provider, provider_sub, name, created_at FROM users "
+        "ORDER BY created_at DESC LIMIT ?", (limit,)
+    ).fetchall()
+    return [_user_row(r) for r in rows]
+
+
 def _user_row(row):
     if row is None:
         return None

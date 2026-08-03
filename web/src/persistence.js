@@ -129,6 +129,7 @@ function serverStore() {
     scanProgress: () => api.scanProgress(),                        // BLOCO B1
     timing: (t) => api.timing(t),                                  // F1: modo vem da config do escopo no servidor
     obsLogs: (n, level, cat) => api.obsLogs(n, level, cat),        // FASE 5: logs do servidor
+    adminSummary: () => api.adminSummary(),                        // F5: painel de admin (só ver)
     analysisOutcomesStats: (modo) => api.analysisOutcomesStats(modo), // qa/30 (Fase A): eficiência da IA
     aiActivity: () => api.aiActivity(), // qa/45: custo + histórico da IA
     aiModels: () => api.aiModels(), // qa/49: catálogo de modelos + parâmetros
@@ -567,6 +568,7 @@ function deviceStore() {
     // F1: no aparelho o modo é local-first (como no scanDeep) — vai explícito.
     async timing(t) { ensure(); return api.timing(t, doc.config.appMode || "estudo"); },
     async obsLogs(n, level, cat) { ensure(); return api.obsLogs(n, level, cat); }, // FASE 5
+    async adminSummary() { ensure(); return api.adminSummary(); }, // F5: painel de admin (só ver)
     async analysisOutcomesStats(modo) { ensure(); return api.analysisOutcomesStats(modo); }, // qa/30 (Fase A)
     async aiActivity() { ensure(); return api.aiActivity(); }, // qa/45
     async aiModels() { ensure(); return api.aiModels(); }, // qa/49: catálogo de modelos (deviceStore/nativo)

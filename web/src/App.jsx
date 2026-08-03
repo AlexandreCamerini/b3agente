@@ -3865,11 +3865,23 @@ function LogsDebugScreen({ ctx }) {
       /* erro de rede: mantém o que tem — logs são observabilidade, não quebram a tela */
     }
   }, [obsLevel]);
+  // F5 (2026-08-02, v1 SÓ VER): mesmo padrão do obsDenied acima — 403 esconde
+  // a seção inteira em vez de mostrar erro (é o mesmo portão de admin que os
+  // logs já usam; quem não é admin nem sabe que a seção existiria).
+  const [admin, setAdmin] = useState(null);
+  const [adminDenied, setAdminDenied] = useState(false);
+  const loadAdmin = useCallback(async () => {
+    try { setAdmin(await store.adminSummary()); setAdminDenied(false); }
+    catch (e) {
+      const msg = (e && e.message) || "";
+      if (/403|restrito|administrador/i.test(msg)) setAdminDenied(true);
+    }
+  }, []);
   useEffect(() => {
-    loadSrv(); loadDiario(); loadObs();
-    const id = setInterval(() => { loadSrv(); loadDiario(); loadObs(); }, 15000);
+    loadSrv(); loadDiario(); loadObs(); loadAdmin();
+    const id = setInterval(() => { loadSrv(); loadDiario(); loadObs(); loadAdmin(); }, 15000);
     return () => clearInterval(id);
-  }, [loadSrv, loadDiario, loadObs]);
+  }, [loadSrv, loadDiario, loadObs, loadAdmin]);
   const rodarAgora = async () => {
     setRunSt("disparando…");
     try {
@@ -4068,6 +4080,50 @@ function LogsDebugScreen({ ctx }) {
                     </div>
                   );
                 })}
+              </div>
+            </div>
+          )}
+
+          {/* F5 (2026-08-02) — PAINEL DE ADMINISTRAÇÃO, v1 SÓ VER (decisão do
+              Alex: sem ação nenhuma nesta versão — nenhum botão aqui muda
+              estado de ninguém). Mesmo portão de admin dos logs acima. */}
+          {!adminDenied && admin && (
+            <div style={{ marginTop: "14px", ...card, padding: "14px 16px" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", marginBottom: "10px" }}>
+                <div style={{ fontSize: "11px", fontWeight: 800, color: T.textSecondary, letterSpacing: "0.05em" }}>ADMINISTRAÇÃO</div>
+                <button onClick={loadAdmin} style={{ background: "transparent", border: "none", color: T.textFaint, fontSize: "11px", fontWeight: 800, padding: "4px" }}>↻</button>
+              </div>
+
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "5px 14px", color: T.textFaint, fontSize: "10.5px", fontFamily: MONO, marginBottom: "12px" }}>
+                <span>{admin.totalUsuarios} usuário(s) cadastrado(s)</span>
+                <span>IA gerenciada: {admin.usoIA.iaGerenciadaAtiva ? "ativa" : "desligada"}</span>
+                <span>cadastro obrigatório: {admin.gate.ativo ? admin.gate.hostsFechados.join(", ") : "nenhum domínio (todos abertos)"}</span>
+              </div>
+
+              <div style={{ fontSize: "10.5px", fontWeight: 800, color: T.textMuted, marginBottom: "6px" }}>USUÁRIOS</div>
+              <div style={{ maxHeight: "220px", overflowY: "auto", marginBottom: "12px" }}>
+                {admin.usuarios.length === 0 && <div style={{ fontSize: "11.5px", color: T.textFaint }}>nenhum usuário cadastrado ainda.</div>}
+                {admin.usuarios.map((u, i) => (
+                  <div key={u.id} style={{ display: "flex", justifyContent: "space-between", gap: "8px", padding: "4px 0", borderTop: i ? `1px solid ${T.borderFaint}` : "none", fontFamily: MONO, fontSize: "10.5px" }}>
+                    <span style={{ color: T.textMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{u.email || "(sem e-mail)"} · {u.provider}</span>
+                    <span style={{ color: T.textFaint, flex: "none" }}>{u.created_at}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ fontSize: "10.5px", fontWeight: 800, color: T.textMuted, marginBottom: "6px" }}>USO DE IA (hoje)</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "5px 14px", color: T.textFaint, fontSize: "10.5px", fontFamily: MONO, marginBottom: "12px" }}>
+                <span>cota/usuário/dia: {admin.usoIA.cotaPorUsuarioDia ?? "—"}</span>
+                <span>teto global/dia: {admin.usoIA.tetoGlobalDia ?? "ilimitado"}</span>
+                {admin.usoIA.legacyAnalyze && admin.usoIA.legacyAnalyze.count > 0 && (
+                  <span style={{ color: T.warn }}>rota legada: {admin.usoIA.legacyAnalyze.count} chamada(s) desde o deploy</span>
+                )}
+              </div>
+
+              <div style={{ fontSize: "10.5px", fontWeight: 800, color: T.textMuted, marginBottom: "6px" }}>AGENTE (servidor)</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "5px 14px", color: T.textFaint, fontSize: "10.5px", fontFamily: MONO }}>
+                <span>kill switch: {admin.agente.killSwitch ? "ligado (parado)" : "desligado (rodando)"}</span>
+                <span>intervalo: {admin.agente.intervaloS}s</span>
               </div>
             </div>
           )}

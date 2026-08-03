@@ -264,6 +264,9 @@ export const api = {
     if (cat) q.push("cat=" + encodeURIComponent(cat));
     return req("GET", "/api/obs/logs" + (q.length ? "?" + q.join("&") : ""), undefined, 15000);
   },
+  // F5 (2026-08-02): painel de admin v1 SÓ VER — restrito ao admin (mesmo
+  // portão de obsLogs/obsUsage). Usuários, uso de IA, saúde do agente, gate.
+  adminSummary: () => req("GET", "/api/admin/summary", undefined, 15000),
   // qa/30 (Fase A): autoavaliação da IA — estatísticas do painel "Eficiência
   // da IA" (Perfil → Observabilidade). `modo` opcional filtra estudo/operador.
   analysisOutcomesStats: (modo) => req("GET", "/api/analysis-outcomes/stats" + (modo ? "?modo=" + encodeURIComponent(modo) : ""), undefined, 15000),
