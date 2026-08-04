@@ -92,12 +92,20 @@ chamado — não explodiu).
   bolsai free como fonte primária do universo; brapi como complemento**
   (4 tickers completos + proventos desses 4). Requer criar conta/chave na
   bolsai (ação do Alex).
-- **Opções B3:** gratuito = COTAHIST oficial (EOD D-1, calls/puts com
-  strike/vencimento, sem IV/gregas; parsers prontos: `b3fileparser` etc.).
-  Pagos documentados sem compromisso: **brapi Pro** (chain + gregas + IV,
-  R$ 116,66/mês — mesmo fornecedor dos fundamentos), **OpLab PRO**
-  (R$ 154–185/mês, mas API "somente uso pessoal e não comercial" — exigiria
-  autorização expressa), **B3 UP2DATA** (institucional, sob consulta).
+- **Opções B3:** ~~gratuito = COTAHIST oficial~~ — **CORRIGIDO 2026-08-04**:
+  investigação equivalente no MyData (`cvm-financas`, sessão "MyData Camada
+  de Apresentação") concluiu que **os Termos de Uso da B3 proíbem
+  redistribuição/republicação/reformatação do COTAHIST sem autorização
+  escrita, sem regime de exceção** — "grátis" aqui não significa livre de
+  restrição de uso. Não usar COTAHIST como fonte de opções sem revisar essa
+  restrição primeiro. Pagos documentados sem compromisso: **brapi Pro**
+  (chain + gregas + IV, R$ 116,66/mês — mesmo fornecedor dos fundamentos),
+  **OpLab PRO** (R$ 154–185/mês, mas API "somente uso pessoal e não
+  comercial" — exigiria autorização expressa), **B3 UP2DATA** (institucional,
+  sob consulta). O MyData já tem cliente HTTP do brapi pronto (não é
+  scraper, apesar do nome antigo `scrap`) capaz de pedir a cadeia de opções
+  — falta decidir se entra como dado de terceiro MARCADO (nunca como
+  origem). Ver [[opcoes-b3-fonte-de-dados]] na memória.
 - Capacidade nunca é o gargalo (433 req/mês ≈ 3% do free brapi;
   100 req ≤ 200/dia bolsai) — **profundidade** é.
 
