@@ -248,6 +248,9 @@ TIMING = {
         # 10h. Sem ela, o card acusava avaria de feed toda noite.
         "fora_pregao": "Fora do pregão — última barra de 15m às {hora}; nada a vigiar até a abertura.",
         "fora_pregao_sem_hora": "Fora do pregão — nada a vigiar até a abertura.",
+        # Pregão aberto, primeira barra de 15m do dia ainda não fechou: a última
+        # evidência é do pregão anterior e não sustenta estado de hoje.
+        "aguardando_barra": "Pregão aberto — aguardando a primeira barra de 15m do dia fechar; até lá, sem leitura de gatilho.",
     },
     "educacional": {
         "gatilho": "A condição de estudo foi atingida na vela de {hora} — o nível do plano de estudo foi alcançado.",
@@ -257,6 +260,7 @@ TIMING = {
         "sem_dado": "Sem dado intraday confiável — leitura de timing indisponível.",
         "fora_pregao": "Fora do pregão — última barra de 15m às {hora}; a condição volta a ser verificada na abertura.",
         "fora_pregao_sem_hora": "Fora do pregão — a condição volta a ser verificada na abertura.",
+        "aguardando_barra": "Pregão aberto — a primeira barra de 15m do dia ainda não fechou; a condição de hoje só pode ser verificada depois disso.",
     },
 }
 

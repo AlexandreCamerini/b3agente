@@ -34,8 +34,19 @@ ok("sem_plano é silêncio (estado fora do TIMING_STYLE => null)", /if \(!r \|\|
 ok("estados visíveis: gatilho, armado, esticado, sem_dado", /gatilho: \[/.test(app) && /armado: \[/.test(app) && /esticado: \[/.test(app) && /sem_dado: \[/.test(app));
 
 // carimbo e ressalvas: a hora da barra fechada (asOf) + ressalvas do backend
-ok("badge mostra a hora da barra 15m fechada (asOf)", /barra 15m de \{hora\}/.test(app) && /r\.asOf\.split\(" "\)\[1\]\.slice\(0, 5\)/.test(app));
+ok("badge mostra a hora da barra 15m fechada (asOf)", /barra 15m de \$\{hora\}/.test(app) && /r\.asOf\.split\(" "\)\[1\]\.slice\(0, 5\)/.test(app));
 ok("badge exibe as ressalvas do backend (atraso/lacuna)", /r\.ressalvas\.join\(" "\)/.test(app));
+
+// HONESTIDADE DA IDADE DO DADO (2026-08-05): o mesmo estado `sem_dado` tem três
+// leituras diferentes, e confundi-las já produziu card mentindo — "sem dado
+// confiável" toda noite (era pregão fechado) e "armado/gatilho" de manhã com a
+// barra de ONTEM. As variantes vêm de flags do backend, não de estado novo.
+ok("variante fora do pregão (foraDoPregao => rótulo próprio)",
+   /fora_pregao: \[/.test(app) && /r\.foraDoPregao \? "fora_pregao"/.test(app));
+ok("variante barra do pregão anterior (barraDeOutroDia => rótulo próprio)",
+   /aguardando_barra: \[/.test(app) && /r\.barraDeOutroDia \? "aguardando_barra"/.test(app));
+ok("barra de outro dia mostra a DATA, não só a hora (senão esconde a idade)",
+   /r\.barraDeOutroDia \? `última barra \$\{r\.asOf\}`/.test(app));
 
 // vocabulário por modo: frase pronta do servidor; rótulo do estudo sem verbo de ordem
 ok("frase por modo vem PRONTA do backend ({r.frase})", /\{r\.frase\}/.test(app));

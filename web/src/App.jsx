@@ -2087,6 +2087,10 @@ const TIMING_STYLE = {
   // 18h às 10h, todo dia) "SEM DADO 15M" acusava avaria onde só havia pregão
   // encerrado. O servidor marca isso em `foraDoPregao`.
   fora_pregao: [T.textFaint, T.bgBase, "◌ FORA DO PREGÃO", "◌ FORA DO PREGÃO"],
+  // Pregão aberto, mas a última barra FECHADA ainda é de ontem (primeiros
+  // minutos do dia + atraso do feed). Sem isto, o card afirmava estado de hoje
+  // — inclusive "gatilho atingido" — com evidência do pregão anterior.
+  aguardando_barra: [T.textFaint, T.bgBase, "◌ AGUARDANDO 1ª BARRA", "◌ AGUARDANDO 1ª BARRA"],
 };
 
 // F1: badge do TIMING no card do ativo. Consulta /api/timing (determinístico,
@@ -2105,7 +2109,8 @@ function TimingBadge({ t, operador }) {
     return () => { alive = false; };
   }, [t, operador]);
   if (!r || !TIMING_STYLE[r.estado]) return null;
-  const [cor, bg, rotOp, rotEdu] = TIMING_STYLE[r.foraDoPregao ? "fora_pregao" : r.estado];
+  const variante = r.foraDoPregao ? "fora_pregao" : r.barraDeOutroDia ? "aguardando_barra" : r.estado;
+  const [cor, bg, rotOp, rotEdu] = TIMING_STYLE[variante];
   const hora = typeof r.asOf === "string" && r.asOf.includes(" ") ? r.asOf.split(" ")[1].slice(0, 5) : "";
   const emR = (x) => x.toFixed(1).replace(".", ",") + "R";
   const nivel = operador ? "gatilho" : "nível";
@@ -2113,7 +2118,13 @@ function TimingBadge({ t, operador }) {
     <div style={{ marginTop: "9px", padding: "8px 11px", borderRadius: "9px", background: bg, border: `1px solid ${T.borderFaint}` }}>
       <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
         <span style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.05em", color: cor }}>{operador ? rotOp : rotEdu}</span>
-        {hora && <span style={{ fontSize: "10px", color: T.textFaint, fontFamily: MONO }}>barra 15m de {hora}</span>}
+        {hora && (
+          <span style={{ fontSize: "10px", color: T.textFaint, fontFamily: MONO }}>
+            {/* barra de outro dia: a hora sozinha ("16:45") esconde que o dado é
+                do pregão anterior — aqui a data vem junto. */}
+            {r.barraDeOutroDia ? `última barra ${r.asOf}` : `barra 15m de ${hora}`}
+          </span>
+        )}
         {r.estado === "armado" && r.distanciaEmR != null && (
           <span style={{ fontSize: "10px", color: T.textMuted, fontFamily: MONO }}>a {emR(r.distanciaEmR)} do {nivel}</span>
         )}

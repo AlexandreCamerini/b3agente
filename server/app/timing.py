@@ -28,6 +28,7 @@ Estados (skill_ref.TIMING dá a frase por modo):
 """
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Optional
 
 from . import intraday
@@ -46,6 +47,11 @@ RESSALVA_CALIBRAGEM = ("O veredito/confluência 15m é contexto, não critério:
                        "(ADR-002 Decisão 4).")
 
 
+def _agora_brt() -> datetime:
+    """Relógio do pregão (BRT) — mesma referência da passada intraday."""
+    return datetime.now(intraday.BRT)
+
+
 def _hora_de(as_of: Optional[str]) -> str:
     """'2026-07-31 15:15' -> '15:15' (rótulo humano da barra fechada)."""
     if not isinstance(as_of, str) or " " not in as_of:
@@ -54,7 +60,8 @@ def _hora_de(as_of: Optional[str]) -> str:
 
 
 def avaliar(plano: Optional[dict], resumo15m: Optional[dict],
-            passada_ok: bool = True, pregao_aberto: bool = True) -> dict:
+            passada_ok: bool = True, pregao_aberto: bool = True,
+            data_sessao: Optional[str] = None) -> dict:
     """Núcleo PURO do timing: plano diário × barra 15m fechada => estado.
 
     `plano` é o dict de setups.plano_operacional/plano_do_resultado (diário);
@@ -86,6 +93,17 @@ def avaliar(plano: Optional[dict], resumo15m: Optional[dict],
                     "motivo": "Fora do pregão — sem barra nova para verificar a condição."}
         return {**base, "estado": "sem_dado",
                 "motivo": "Sem passada intraday fresca para o ativo."}
+    # A passada ser fresca NÃO garante que a barra seja de hoje: nos primeiros
+    # minutos do pregão (e enquanto o atraso do feed corre) a última barra
+    # FECHADA ainda é a do pregão anterior. Sem esta checagem o timing afirmaria
+    # estado do dia com evidência de ontem — no limite, "GATILHO ATINGIDO" para
+    # um cruzamento que aconteceu no fechamento anterior.
+    data_barra = str((resumo15m or {}).get("asOf") or "")[:10]
+    if data_sessao and data_barra and data_barra != data_sessao:
+        return {**base, "estado": "sem_dado", "barraDeOutroDia": True,
+                "asOf": (resumo15m or {}).get("asOf"),
+                "motivo": ("Última barra de 15m fechada ainda é do pregão anterior "
+                           "(%s) — nada de hoje para verificar." % data_barra)}
     cobertura = (resumo15m or {}).get("cobertura")
     if (resumo15m or {}).get("lacuna") and isinstance(cobertura, (int, float)) \
             and cobertura < COBERTURA_MIN:
@@ -158,7 +176,8 @@ def montar(radar_stored: Optional[dict], intra_stored: Optional[dict],
     resumo = intraday.resumo_do_ticker(intra_stored, ticker)
     fresca = intraday.passada_fresca(intra_stored, agora=agora)
     aberto = intraday.in_market_hours(agora) if agora is not None else intraday.in_market_hours()
-    aval = avaliar(plano, resumo, passada_ok=fresca, pregao_aberto=aberto)
+    hoje = (agora or _agora_brt()).date().isoformat()
+    aval = avaliar(plano, resumo, passada_ok=fresca, pregao_aberto=aberto, data_sessao=hoje)
     if item is None:
         aval = {"estado": "sem_plano",
                 "motivo": "Ativo fora do Radar diário armazenado (ou Radar ainda não rodou hoje)."}
@@ -169,12 +188,20 @@ def montar(radar_stored: Optional[dict], intra_stored: Optional[dict],
     # FRASE e a ressalva mudam: falar de "atraso de 15 min" com o mercado
     # fechado insinua que existiria barra nova se o feed fosse melhor.
     fora = bool(aval.get("foraDoPregao"))
+    ontem = bool(aval.get("barraDeOutroDia"))
     chave_frase = estado
     hora_barra = _hora_de(aval.get("asOf"))
     if fora:
         chave_frase = "fora_pregao" if hora_barra else "fora_pregao_sem_hora"
         ressalvas = [("Mercado fechado — a última barra de 15m é de %s." % hora_barra)
                      if hora_barra else "Mercado fechado — sem barra de 15m nova desde o fechamento."]
+    elif ontem:
+        # Pregão aberto, mas a evidência ainda é do dia anterior: dizer "~15 min
+        # de atraso" aqui erraria a idade do dado por horas.
+        chave_frase = "aguardando_barra"
+        ressalvas = ["Última barra de 15m FECHADA: %s (pregão anterior). A leitura "
+                     "de hoje começa quando a primeira barra do dia fechar."
+                     % (aval.get("asOf") or "—")]
     else:
         ressalvas = [RESSALVA_ATRASO]
     if aval.get("lacuna"):

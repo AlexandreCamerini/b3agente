@@ -24,7 +24,15 @@ PLANO_VENDA = {"decisao": "VENDER", "lado": "baixa", "setup": "PFR",
                "riscoPorAcao": 2.0, "motivo": "x"}
 
 
-def _r15(close, lacuna=False, cobertura=1.0, as_of="2026-08-03 15:15"):
+def _hoje() -> str:
+    return datetime.now(BRT).date().isoformat()
+
+
+# `as_of` default = barra DE HOJE às 15:15. Data fixa aqui faria a suíte
+# quebrar de um dia para o outro agora que o timing recusa barra de outro
+# pregão (test_avaliar_barra_de_ontem_nao_vira_estado_de_hoje).
+def _r15(close, lacuna=False, cobertura=1.0, as_of=None):
+    as_of = as_of or (_hoje() + " 15:15")
     return {"ticker": "AAAA3", "close": close, "asOf": as_of,
             "barraEmFormacao": "2026-08-03 15:17", "lacuna": lacuna,
             "cobertura": cobertura, "veredito": "compra", "confluencia": 80,
@@ -155,6 +163,43 @@ def test_montar_dentro_do_pregao_mantem_a_frase_antiga():
     assert r["estado"] == "sem_dado" and not r.get("foraDoPregao")
     assert r["frase"] == skill_ref.timing_txt("educacional", "sem_dado")
     assert timing.RESSALVA_ATRASO in r["ressalvas"]
+
+
+# --- barra do pregão ANTERIOR não sustenta estado de hoje --------------------
+# A passada ser fresca não faz a barra ser de hoje: nos primeiros minutos do
+# pregão (mais o atraso do feed) a última FECHADA ainda é a de ontem.
+
+def test_avaliar_barra_de_ontem_nao_vira_estado_de_hoje():
+    r = timing.avaliar(PLANO_COMPRA, _r15(41.0, as_of="2026-08-04 16:45"),
+                       data_sessao="2026-08-05")
+    assert r["estado"] == "sem_dado"
+    assert r["barraDeOutroDia"] is True
+    assert "pregão anterior" in r["motivo"]
+
+
+def test_avaliar_gatilho_de_ontem_nao_e_anunciado_como_de_hoje():
+    # o caso grave: 41.0 cruzou a entrada de 40.0 — mas ONTEM, no fechamento.
+    r = timing.avaliar(PLANO_COMPRA, _r15(41.0, as_of="2026-08-04 16:45"),
+                       data_sessao="2026-08-05")
+    assert r["estado"] != "gatilho"
+
+
+def test_avaliar_barra_de_hoje_segue_avaliando_normalmente():
+    r = timing.avaliar(PLANO_COMPRA, _r15(41.0, as_of="2026-08-05 10:15"),
+                       data_sessao="2026-08-05")
+    assert r["estado"] == "gatilho"
+    assert not r.get("barraDeOutroDia")
+
+
+def test_montar_aguardando_primeira_barra_do_dia():
+    abertura = datetime(2026, 8, 5, 10, 7, tzinfo=BRT)      # 7 min de pregão
+    intra = _intra(at=abertura, as_of="2026-08-04 16:45")   # passada fresca, barra de ontem
+    r = timing.montar(_radar(), intra, "AAAA3", "estudo", agora=abertura)
+    assert r["estado"] == "sem_dado" and r["barraDeOutroDia"] is True
+    assert "primeira barra" in r["frase"]
+    assert any("pregão anterior" in s for s in r["ressalvas"])
+    # a ressalva dos ~15 min sai: aqui o dado tem horas, não minutos
+    assert timing.RESSALVA_ATRASO not in r["ressalvas"]
 
 
 def test_montar_ativo_fora_do_radar():
