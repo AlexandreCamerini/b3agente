@@ -5,6 +5,69 @@ Notas por versão. Carimbo canônico do backend em `/api/health`
 
 ---
 
+## Agosto/2026 — Camada de entendimento, assistente e aviso de condição atingida
+
+O app passa a **ensinar através do uso**: cada número que a tela afirma tem uma
+explicação alcançável ali mesmo, feita com aquele dado. Origem: o card dizia
+"◔ PLANO ARMADO · a 0,9R do gatilho" e quem nunca operou não tinha como saber o
+que isso significa.
+
+> **Carimbo: `F10-20260805-05`**. ADRs [006](docs/adr/006-camada-de-entendimento.md)
+> e [007](docs/adr/007-assistente-e-push-do-gatilho.md). Inventário das telas em
+> [docs/didatica-inventario.md](docs/didatica-inventario.md); estado e pendências
+> em [ESTADO-Didatica.md](ESTADO-Didatica.md).
+
+### Camada de entendimento (custo zero)
+- **`conceitos.py`**: sete conceitos (`gatilho`, `stop`, `alvo`, `r`,
+  `confluencia`, `fundamento`, `barra15m`), determinísticos, servidos pelo
+  backend como `skill_ref.TIMING` já fazia. Nenhuma chamada de LLM.
+- **Ancorado no dado em exibição**: cada parágrafo cita os números daquele card
+  naquele instante. Campo ausente **derruba o parágrafo** — nunca estima.
+- **"O que o app NÃO faz" vem primeiro**: quem vê "condição atingida" pergunta
+  antes de tudo se o app comprou alguma coisa.
+- **Duas vias**: aparece sozinha na estreia (uma vez, uma instância só) e fica
+  permanente no "?" ao lado do termo, com alvo de toque de 44×44.
+- **"Veja também"** encadeia os conceitos dentro da folha, com os mesmos dados
+  — gatilho → R → stop é como eles realmente se explicam.
+- **Modo Operador intacto**, provado por teste que congela as chaves de
+  `/api/timing` nos dois modos; a didática mora em rotas novas.
+- **Desligável sem rebuild**: `B3_DIDATICA_OFF=1`.
+
+### Assistente de IA (opt-in, com teto)
+- `POST /api/assistente` recebe `{modo, tela, snapshot, pergunta}` e responde no
+  vocabulário do modo. O snapshot é o view-model que a tela já usou — nada de
+  raspar DOM, e conteúdo de tela é **dado, não instrução**.
+- Montagem cache-aware sobre `llm._system_cacheavel`, **verificada em chamada
+  real**: 4.118 tokens escritos no cache na 1ª pergunta e lidos na 2ª, com 112
+  tokens novos. Custo em `ai_activity` com tipo próprio; teto **do assistente**
+  por escopo/dia (`B3_ASSISTENTE_TETO_BRL`, padrão R$ 1) — contador próprio,
+  para gasto de análise não fechar a porta de quem não perguntou nada. Chave
+  própria (BYOK) não é freada pelo teto.
+- Exige conta: `scope=None` é um balde compartilhado por todos os anônimos.
+- Desligável: `B3_ASSISTENTE_OFF=1`.
+
+### Aviso de condição atingida (push, opt-in)
+- `timing_watch.py` no laço que já existe. **Consentimento, modo e universo
+  vivem no servidor** (`kv:pushPrefs`), alimentados pelo registro do token — no
+  aparelho a `config` é local e o servidor nunca a viu.
+- Hora da barra **no título** (no iOS o corpo trunca), vocabulário de Estudo nos
+  dois modos, frase de `skill_ref.timing_txt`, silencioso (priority 5).
+- `esticado` não notifica; teto de 6/dia e 1 por ativo/dia; vários ativos na
+  abertura viram uma mensagem só.
+- O toque leva ao card do ativo. Desligável: `B3_TIMING_PUSH_KILL=1`.
+
+### Correções de honestidade encontradas na verificação ao vivo
+- **Texto invertido no gatilho**: `excedenteEmR` volta em dois estados que pedem
+  leituras opostas — o app dizia "movimento esticado, não perseguir" no instante
+  em que a condição acabou de valer.
+- **Risco por ação negativo**: com stop no lucro, o conceito exibia
+  "1R vale R$ -4,12 por ação". Virou invariante de domínio.
+- **Assistente chamando condição de "sinal"**: a primeira resposta real disse
+  "é o sinal de que chegou a hora de agir", em Modo Estudo. O prefixo passou a
+  proibir explicitamente, com guardião.
+
+---
+
 ## Julho/2026 — Fidelidade da análise, agentes verificados e ferramental
 
 Versão de consolidação: a análise técnica e fundamental passou a ter uma fonte

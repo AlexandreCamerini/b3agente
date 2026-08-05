@@ -71,6 +71,68 @@ def tokens_for(conn, user_id: str) -> list:
     return db.kv_get(conn, "pushTokens", [], user_id=user_id) or []
 
 
+# ------------------- preferências e universo do push (kv) -------------------
+# Por que isto existe (revisão do supervisor, 2026-08-05): no aparelho a
+# `config` é LOCAL — `deviceStore.putConfig` grava em localStorage e NUNCA
+# chama a API (persistence.js). Ou seja: a audiência do APNs é exatamente
+# aquela cuja preferência, watchlist e modo o servidor não consegue ler. Um
+# push server-side decidido por `config` avisaria sobre ativos que a pessoa
+# removeu, no vocabulário do modo errado, e ignoraria o interruptor desligado.
+#
+# O único caminho que SEMPRE chega ao servidor é o registro do token
+# (`registerPushToken`, nos dois stores). Então é por ele que a preferência, o
+# modo e o universo viajam. Opt-in por decisão de produto: classe nova de
+# alerta nasce DESLIGADA — o padrão `False` aqui é deliberado.
+PREFS_PADRAO = {"gatilho": False, "modo": "estudo", "universo": [], "at": None}
+UNIVERSO_MAX = 60
+VALIDADE_DIAS = 7   # universo mais velho que isto não vale (aparelho sumiu)
+
+
+def prefs_for(conn, user_id: str) -> dict:
+    p = db.kv_get(conn, "pushPrefs", None, user_id=user_id)
+    if not isinstance(p, dict):
+        return dict(PREFS_PADRAO)
+    return {**PREFS_PADRAO, **p}
+
+
+def set_prefs(conn, user_id: str, patch: dict) -> dict:
+    """Aplica um patch de preferências do push. Allowlist explícita: chave
+    desconhecida é descartada (mesma disciplina do store.set_config)."""
+    p = prefs_for(conn, user_id)
+    patch = patch if isinstance(patch, dict) else {}
+    if "gatilho" in patch:
+        p["gatilho"] = bool(patch["gatilho"])
+    if patch.get("modo") in ("estudo", "operador"):
+        p["modo"] = patch["modo"]
+    if isinstance(patch.get("universo"), list):
+        vistos, uni = set(), []
+        for t in patch["universo"]:
+            t = str(t or "").strip().upper()[:12]
+            if t and t not in vistos:
+                vistos.add(t)
+                uni.append(t)
+        p["universo"] = uni[:UNIVERSO_MAX]
+    p["at"] = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime())
+    db.kv_set(conn, "pushPrefs", p, user_id=user_id)
+    return p
+
+
+def universo_valido(prefs: dict, agora: Optional[float] = None) -> list:
+    """Universo só vale se foi renovado recentemente — aparelho que parou de
+    abrir o app não deve continuar gerando push sobre uma lista congelada."""
+    at = (prefs or {}).get("at")
+    if not at:
+        return []
+    try:
+        import calendar  # `at` é gravado em UTC (gmtime): timegm, não mktime
+        t = calendar.timegm(time.strptime(at, "%Y-%m-%dT%H:%M:%S"))
+    except (ValueError, TypeError):
+        return []
+    if ((agora if agora is not None else time.time()) - t) > VALIDADE_DIAS * 86400:
+        return []
+    return list((prefs or {}).get("universo") or [])
+
+
 # --------------------------------- envio -----------------------------------
 # FASE 6 (fix 5): tradutor dos `reason` do APNs em instrução EXATA (pt-BR).
 # O caso que motivou: BadEnvironmentKeyInToken — a chave .p8 foi criada no
@@ -106,7 +168,9 @@ def explain_reason(reason: str) -> str:
 
 def env_label() -> str:
     return "sandbox (APNS_SANDBOX=1)" if os.environ.get("APNS_SANDBOX") == "1" else "produção"
-async def send_to_user(conn, user_id: str, title: str, body: str) -> dict:
+async def send_to_user(conn, user_id: str, title: str, body: str,
+                       som: bool = True, prioridade: str = "10",
+                       client=None, extra: Optional[dict] = None) -> dict:
     """Envia o push a todos os aparelhos do usuário.
 
     FASE 3 (observabilidade do push): devolve um DIAGNÓSTICO completo, não
@@ -114,6 +178,13 @@ async def send_to_user(conn, user_id: str, title: str, body: str) -> dict:
     de "sem token" de "token(s) rejeitado(s)" para logar (e mostrar) o motivo
     certo, em vez da mensagem genérica que escondia qual dos três era.
     {"sent": int, "total": int, "detalhes": [str, ...]}
+
+    `som`/`prioridade` são parâmetros porque nem toda classe de aviso merece o
+    mesmo peso: uma execução do Operador é priority 10 com som; um aviso de
+    condição de estudo atingida entra silencioso (priority 5), que é o que a
+    Apple recomenda para conteúdo informativo — e o que uma mesa aprovaria
+    para um simulador. `client` permite reusar UM cliente HTTP no fan-out do
+    laço, em vez de abrir uma conexão nova por usuário.
     """
     if not is_configured():
         return {"sent": 0, "total": 0, "detalhes": ["APNs não configurado no servidor (variáveis do Railway ausentes)"]}
@@ -121,20 +192,32 @@ async def send_to_user(conn, user_id: str, title: str, body: str) -> dict:
     if not toks:
         return {"sent": 0, "total": 0, "detalhes": []}
     import httpx
-    payload = {"aps": {"alert": {"title": title, "body": body}, "sound": "default"}}
+    aps = {"alert": {"title": title, "body": body}}
+    if som:
+        aps["sound"] = "default"
+    payload = {"aps": aps}
+    # `extra` viaja FORA do `aps` (convenção da Apple para dados do app) e é o
+    # que dá DESTINO ao toque: sem o ticker aqui, o app abre na aba inicial e
+    # não há nada sobre o ativo em lugar nenhum da tela — interrupção sem
+    # destino é a pior categoria de push que existe.
+    for k, v in (extra or {}).items():
+        if v is not None and k != "aps":
+            payload[k] = v
     sent = 0
     keep = list(toks)
     detalhes = []
-    async with httpx.AsyncClient(http2=True, timeout=10) as client:
+
+    async def _enviar(cli):
+        nonlocal sent
         for tk in toks:
             try:
-                r = await client.post(
+                r = await cli.post(
                     _host() + "/3/device/" + tk,
                     headers={
                         "authorization": "bearer " + _jwt(),
                         "apns-topic": os.environ["APNS_TOPIC"],
                         "apns-push-type": "alert",
-                        "apns-priority": "10",
+                        "apns-priority": str(prioridade),
                     },
                     content=json.dumps(payload),
                 )
@@ -155,6 +238,12 @@ async def send_to_user(conn, user_id: str, title: str, body: str) -> dict:
                         keep.remove(tk)
             except Exception as e:  # noqa: BLE001 — push é best-effort
                 detalhes.append(f"{tk[:10]}…: erro de rede ({e})")
+
+    if client is not None:
+        await _enviar(client)
+    else:
+        async with httpx.AsyncClient(http2=True, timeout=10) as cli:
+            await _enviar(cli)
     if keep != toks:
         db.kv_set(conn, "pushTokens", keep, user_id=user_id)
     return {"sent": sent, "total": len(toks), "detalhes": detalhes}

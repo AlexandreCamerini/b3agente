@@ -4,7 +4,7 @@ de IA. Cuidado com falsos positivos: 'sobrevenda'/'sobrevendido' são estados
 técnicos válidos — os padrões usam fronteira de palavra."""
 import re
 
-from app import llm, scan_deep, scanner, setups
+from app import assistente, conceitos, llm, scan_deep, scanner, setups, skill_ref
 
 PROIBIDOS = [
     r"\bcompre\b", r"\bcomprem\b", r"\bvenda\s+(agora|j[áa]|imediata)",
@@ -27,6 +27,22 @@ FONTES = {
     "llm.GUARDRAILS_PRO": llm.GUARDRAILS_PRO,
     "llm.FORMAT_PRO": llm.FORMAT_PRO,
     "llm.PRO_DEEP_FORMAT": llm.PRO_DEEP_FORMAT,
+    # 2026-08-05 (revisão do supervisor): faltavam aqui justamente os textos que
+    # chegam ao usuário SEM passar por LLM nenhuma — as frases canônicas de
+    # timing e, agora, o catálogo de conceitos. Texto determinístico é o que
+    # mais precisa desta varredura: ninguém o revisa em runtime.
+    "skill_ref.TIMING": "\n".join(f for m in skill_ref.TIMING.values() for f in m.values()),
+    # Parágrafo condicional é `(estados, texto)` — a varredura pega o texto dos
+    # dois formatos, senão o texto de um estado inteiro escaparia do guardião.
+    # O prefixo do assistente é texto FIXO que vira instrução de sistema numa
+    # LLM aberta a pergunta livre — é o que mais precisa da varredura.
+    "assistente.system_prefixo(estudo)": assistente.system_prefixo("educacional"),
+    "assistente.system_prefixo(operador)": assistente.system_prefixo("operador"),
+    "conceitos.CONCEITOS": "\n".join(
+        (p[1] if isinstance(p, tuple) else p)
+        for c in conceitos.CONCEITOS.values()
+        for p in (list(c["naoAcontece"]) + list(c["oQueE"]) + list(c["oQueAcontece"])
+                  + list(c["titulo"].values()))),
 }
 
 

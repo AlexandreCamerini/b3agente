@@ -21,6 +21,17 @@ import sys
 import urllib.request
 import collections
 
+# Reusa a REGRA do produto em vez de reimplementá-la. Este guardião chegou a
+# duplicar a fórmula do score de fundamento e envelheceu sozinho: em 2026-08-05
+# produzia 32 alarmes falsos em produção por ignorar duas decisões já tomadas
+# (qa/47, P/L relativo ao setor; qa/46, dívida/EBITDA neutra em financeiras).
+# Falso positivo em massa é pior que guardião ausente — ensina a ignorar a saída.
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "server"))
+try:
+    from app.fundamentals import score_fundamento as _score_fundamento
+except Exception:  # noqa: BLE001 — sem o pacote local, a checagem é pulada
+    _score_fundamento = None
+
 BASE = os.environ.get("BOLSIA_API_URL", "https://b3agente-production.up.railway.app").rstrip("/")
 PERIODS = sys.argv[1:] or ["1mo", "3mo", "6mo", "1y"]
 VEREDITOS = {"Estudar alta", "Estudar baixa", "Monitorar", "Aguardar",
@@ -108,16 +119,13 @@ def check(period, x):
         sc = f.get("score")
         if sc not in ("A", "B", "C", None):
             viol["fund_score_invalido"].append((period, t, sc))
-        pil = []
-        if f.get("pl") is not None:
-            pil.append(0 < f["pl"] <= 20)
-        if f.get("roe") is not None or f.get("margemLiquida") is not None:
-            pil.append((f.get("roe") or 0) >= 0.10 and (f.get("margemLiquida") or 0) > 0)
-        if f.get("dividaEbitda") is not None:
-            pil.append(f["dividaEbitda"] <= 3.0)
-        esperado = None if len(pil) < 2 else ("A" if sum(pil) >= 2 else ("B" if sum(pil) == 1 else "C"))
-        if sc != esperado:
-            viol["fund_score_incoerente"].append((period, t, f"score={sc} esperado={esperado} pilares={pil}"))
+        if _score_fundamento is not None:
+            esperado = _score_fundamento(f)
+            if sc != esperado:
+                viol["fund_score_incoerente"].append(
+                    (period, t, f"score={sc} esperado={esperado} "
+                                f"pl={f.get('pl')} roe={f.get('roe')} "
+                                f"mg={f.get('margemLiquida')} dl={f.get('dividaEbitda')}"))
 
     if not x.get("snapshotAt"):
         viol["sem_snapshotAt"].append((period, t, ""))

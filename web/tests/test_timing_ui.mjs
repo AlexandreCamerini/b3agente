@@ -26,8 +26,8 @@ ok("serverStore expõe timing (modo fica com o servidor)", /timing: \(t\) => api
 ok("deviceStore expõe timing com appMode local-first", /async timing\(t\) \{ ensure\(\); return api\.timing\(t, doc\.config\.appMode \|\| "estudo"\); \}/.test(persistence));
 
 // badge no card único
-ok("TimingBadge existe e busca via store.timing", /function TimingBadge\(\{ t, operador \}\)/.test(app) && /store\.timing\(t\)/.test(app));
-ok("AtivoCard renderiza <TimingBadge> (todas as superfícies)", /<TimingBadge t=\{t\} operador=\{operador\} \/>/.test(app));
+ok("TimingBadge existe e busca via store.timing", /function TimingBadge\(\{ t, operador,/.test(app) && /store\.timing\(t\)/.test(app));
+ok("AtivoCard renderiza <TimingBadge> (todas as superfícies)", /<TimingBadge t=\{t\} operador=\{operador\}/.test(app));
 
 // honestidade: sem_plano não vira ruído; estados cobertos são os 4 visíveis
 ok("sem_plano é silêncio (estado fora do TIMING_STYLE => null)", /if \(!r \|\| !TIMING_STYLE\[r\.estado\]\) return null;/.test(app) && !/sem_plano:/.test(app));

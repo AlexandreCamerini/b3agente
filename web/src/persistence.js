@@ -125,7 +125,25 @@ function serverStore() {
     scanDeep: (body) => api.scanDeep(body),                       // FASE 2 (2.1): N1 deep
     scanDeepEstimate: (p, n, t) => api.scanDeepEstimate(p, n, t), // FASE 2 (2.1): custo antes
     pushAnalysisLog: (t, entry) => api.pushAnalysisLog(t, entry), // FASE 2 (2.5): telemetria didática
-    registerPushToken: (token) => api.pushRegisterToken(token),   // FASE 3.3b: APNs (exige conta)
+    registerPushToken: (token, extra) => api.pushRegisterToken(token, extra),   // FASE 3.3b: APNs (exige conta)
+    // Paridade com o deviceStore: MESMA assinatura (sem argumento) e mesmo
+    // contrato — o store monta o corpo, quem chama não precisa saber a forma.
+    // Assinaturas diferentes aqui já seriam um bug silencioso: `App.jsx` chama
+    // um nome só, e um `{}` faz o servidor não gravar nada devolvendo ok.
+    // O push lê uma fonte só (`pushPrefs`), então o web também a alimenta.
+    syncPushPrefs: async () => {
+      const s = await sync.readState();
+      const c = (s && s.config) || {};
+      const n = (c.notif && typeof c.notif === "object") ? c.notif : {};
+      const uni = [];
+      for (const t of (s.watchlist || [])) if (t && !uni.includes(t)) uni.push(t);
+      for (const p of (s.positions || [])) if (p && p.t && !uni.includes(p.t)) uni.push(p.t);
+      return api.pushRegisterToken("", { prefs: { gatilho: !!(n.enabled && n.gatilho) }, modo: c.appMode || "estudo", universo: uni });
+    },
+    // Camada de entendimento: no web o modo vem da config do escopo no servidor.
+    conceitos: (modo, resumido) => api.conceitos(modo, resumido),
+    conceito: (cid, body) => api.conceito(cid, body),
+    assistente: (body) => api.assistente(body),
     scanProgress: () => api.scanProgress(),                        // BLOCO B1
     timing: (t) => api.timing(t),                                  // F1: modo vem da config do escopo no servidor
     obsLogs: (n, level, cat) => api.obsLogs(n, level, cat),        // FASE 5: logs do servidor
@@ -249,7 +267,9 @@ function deviceStore() {
       if (!["1mo", "3mo", "6mo", "1y", "2y"].includes(doc.config.candlePeriod)) doc.config.candlePeriod = "1y";
       if (!doc.config.streak || typeof doc.config.streak !== "object") doc.config.streak = { days: 0, last: "" };
       if (!Array.isArray(doc.equitySnapshots)) doc.equitySnapshots = [];
-      if (!doc.config.notif || typeof doc.config.notif !== "object") doc.config.notif = { enabled: false, stop: true, alvo: true, agente: true, variacao: true };
+      if (!doc.config.notif || typeof doc.config.notif !== "object") doc.config.notif = { enabled: false, stop: true, alvo: true, agente: true, variacao: true, gatilho: false };
+      if (typeof doc.config.notif.gatilho !== "boolean") doc.config.notif.gatilho = false;  // classe nova: opt-in
+      if (!Array.isArray(doc.config.conceitosVistos)) doc.config.conceitosVistos = [];      // camada de entendimento
       // FASE 8B (R2): skill da mesa — backfill em docs antigos
       if (!doc.skillOperador || typeof doc.skillOperador !== "object" || typeof doc.skillOperador.text !== "string") {
         doc.skillOperador = { name: "Mesa B3 - Operador v1", text: defaultSkillTextOperador() };
@@ -358,6 +378,33 @@ function deviceStore() {
     return e ? e.data : null;
   }
 
+  // Push do gatilho: o que o SERVIDOR precisa saber e não tem como descobrir.
+  // Consentimento é conjunção — o mestre `enabled` e a classe `gatilho`; uma
+  // classe nova não pode ligar sozinha por cima do interruptor geral.
+  function _pushPrefsLocais() {
+    const c = (doc && doc.config) || {};
+    const n = (c.notif && typeof c.notif === "object") ? c.notif : {};
+    const uni = [];
+    for (const t of (doc.watchlist || [])) if (t && !uni.includes(t)) uni.push(t);
+    for (const p of (doc.positions || [])) if (p && p.t && !uni.includes(p.t)) uni.push(p.t);
+    return { prefs: { gatilho: !!(n.enabled && n.gatilho) }, modo: c.appMode || "estudo", universo: uni };
+  }
+
+  // O universo muda em watchlist, compra, venda e no interruptor — quatro ou
+  // cinco pontos na UI. Deixar a UI lembrar de sincronizar é garantir que um
+  // dia ela esqueça, e o esquecimento significa push sobre a lista de ontem:
+  // exatamente a falha que este mecanismo existe para matar. Então o STORE
+  // dispara sozinho, com debounce (rajada de compras vira uma chamada só) e
+  // best-effort (sem rede, o carimbo velho já perde a validade em 7 dias).
+  let _prefsTimer = null;
+  function _agendarSyncPrefs() {
+    if (_prefsTimer) clearTimeout(_prefsTimer);
+    _prefsTimer = setTimeout(() => {
+      _prefsTimer = null;
+      api.pushRegisterToken("", _pushPrefsLocais()).catch(() => { /* silencioso */ });
+    }, 1500);
+  }
+
   return {
     isNative: true,
     async getState() {
@@ -380,9 +427,20 @@ function deviceStore() {
       if (typeof patch.candlePeriod === "string" && ["1mo", "3mo", "6mo", "1y", "2y"].includes(patch.candlePeriod)) c.candlePeriod = patch.candlePeriod;
       if (patch.streak && typeof patch.streak === "object") c.streak = { days: parseInt(patch.streak.days, 10) || 0, last: String(patch.streak.last || "") };
       if (patch.notif && typeof patch.notif === "object") {
-        const base = (c.notif && typeof c.notif === "object") ? c.notif : { enabled: false, stop: true, alvo: true, agente: true, variacao: true };
-        for (const k of ["enabled", "stop", "alvo", "agente", "variacao"]) if (k in patch.notif) base[k] = !!patch.notif[k];
+        const base = (c.notif && typeof c.notif === "object") ? c.notif : { enabled: false, stop: true, alvo: true, agente: true, variacao: true, gatilho: false };
+        for (const k of ["enabled", "stop", "alvo", "agente", "variacao", "gatilho"]) if (k in patch.notif) base[k] = !!patch.notif[k];
         c.notif = base;
+        _agendarSyncPrefs();   // o interruptor do push mora no servidor, não aqui
+      }
+      // Camada de entendimento: espelho EXATO do store.set_config — UNIÃO,
+      // nunca substituição (dois aparelhos do mesmo usuário não se apagam).
+      if (Array.isArray(patch.conceitosVistos)) {
+        const atual = Array.isArray(c.conceitosVistos) ? c.conceitosVistos : [];
+        for (const raw of patch.conceitosVistos) {
+          const cid = String(raw || "").slice(0, 40);
+          if (cid && !atual.includes(cid)) atual.push(cid);
+        }
+        c.conceitosVistos = atual.slice(0, 200);
       }
       // FASE 7 (F7.1) — Modo Operador (espelho exato do store.py.set_config):
       // termo primeiro; "operador" só liga com termo já aceito (nunca sem aceite).
@@ -391,6 +449,7 @@ function deviceStore() {
       }
       if (patch.appMode === "estudo" || patch.appMode === "operador") {
         if (!(patch.appMode === "operador" && !(c.operadorTermo && typeof c.operadorTermo === "object"))) c.appMode = patch.appMode;
+        _agendarSyncPrefs();   // o vocabulário do push segue o modo do aparelho
       }
       if (patch.risco && typeof patch.risco === "object") {
         const base = (c.risco && typeof c.risco === "object") ? c.risco : { pctPorTrade: 1.0, capital: null };
@@ -428,6 +487,7 @@ function deviceStore() {
       const set = new Set(tickers);
       doc.watchlist = knownTickers().filter((t) => set.has(t));
       write();
+      _agendarSyncPrefs();   // o universo do push é watchlist ∪ posições
       return pub();
     },
     async addWatchlistTicker(ticker) {
@@ -590,13 +650,31 @@ function deviceStore() {
       return pub();
     },
     // FASE 3.3b: o token vai SEMPRE ao servidor (push é da conta).
-    async registerPushToken(token) {
+    // O servidor NÃO enxerga a config deste aparelho — `putConfig` aqui é
+    // local, nunca chama a API. Então consentimento, modo e universo só
+    // chegam lá por ESTA chamada, e por isso ela os anexa sempre, mesmo
+    // quando quem chamou não passou nada.
+    async registerPushToken(token, extra) {
       ensure();
-      return api.pushRegisterToken(token);
+      return api.pushRegisterToken(token, { ..._pushPrefsLocais(), ...(extra || {}) });
     },
+    // Reenvia só as preferências (token vazio é ignorado no servidor). Chamado
+    // quando o interruptor muda ou a watchlist muda — sem isso o servidor
+    // continuaria pushando sobre a lista de ontem.
+    async syncPushPrefs() { ensure(); return api.pushRegisterToken("", _pushPrefsLocais()); },
     async scanProgress() { ensure(); return api.scanProgress(); },   // BLOCO B1
     // F1: no aparelho o modo é local-first (como no scanDeep) — vai explícito.
     async timing(t) { ensure(); return api.timing(t, doc.config.appMode || "estudo"); },
+    // Camada de entendimento: modo local-first, mesma regra do timing.
+    async conceitos(modo, resumido) { ensure(); return api.conceitos(modo || doc.config.appMode || "estudo", resumido); },
+    async conceito(cid, body) { ensure(); return api.conceito(cid, { modo: doc.config.appMode || "estudo", ...(body || {}) }); },
+    // Assistente: no aparelho o MODELO e a CHAVE são locais — o servidor não
+    // os tem. Mandar `config` no corpo é o que evita repetir o qa/29
+    // ("Nenhum modelo de IA configurado" em produção, só no iPhone).
+    async assistente(body) {
+      ensure();
+      return api.assistente({ modo: doc.config.appMode || "estudo", config: { ...doc.config }, ...(body || {}) });
+    },
     async obsLogs(n, level, cat) { ensure(); return api.obsLogs(n, level, cat); }, // FASE 5
     async adminSummary() { ensure(); return api.adminSummary(); }, // F5: painel de admin (só ver)
     async analysisOutcomesStats(modo) { ensure(); return api.analysisOutcomesStats(modo); }, // qa/30 (Fase A)
@@ -752,6 +830,7 @@ function deviceStore() {
       if (m) { entry.setup = m.setup; entry.snapshotId = m.snapshotId; }
       doc.history.unshift(entry);
       write();
+      _agendarSyncPrefs();   // posição nova entra no universo do push
       const out = pub();
       out.priceUsed = +price.toFixed(2);
       return out;
@@ -776,6 +855,7 @@ function deviceStore() {
       doc.cash = +(doc.cash + sold * price).toFixed(2);
       doc.history.unshift({ date: now(), type: "VENDA", t, qty: sold, price: +price.toFixed(2), pnl });
       write();
+      _agendarSyncPrefs();   // posição encerrada sai do universo do push
       const out = pub();
       out.priceUsed = +price.toFixed(2);
       return out;

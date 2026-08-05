@@ -536,6 +536,59 @@ def _avisar_protecao_sem_operador(conn) -> int:
     return n
 
 
+async def _avisar_gatilhos(conn) -> int:
+    """Vigia do gatilho: varre quem consentiu e envia o aviso de condição
+    atingida. Isolado do `notify_push` do Operador de propósito — esta classe
+    vai SILENCIOSA (priority 5, sem som) e com o payload carregando o ticker,
+    para o toque na notificação ter destino.
+
+    O fan-out é concorrente com UM cliente HTTP compartilhado: `send_to_user`
+    abre uma conexão por chamada e espera até 10 s por token, em série. Com N
+    usuários isso travaria a passada intraday e o ciclo de todo mundo atrás.
+    """
+    # imports locais: sem ciclo de import (timing_watch → timing → intraday)
+    from . import candles as candles_mod, intraday, push, radar_daily, timing_watch
+    if timing_watch.kill_switch_on():
+        return 0
+    import httpx
+    p = candles_mod.normalize_period(None)   # período CANÔNICO do Radar diário
+    radar_stored = radar_daily.get_stored(conn, p)
+    intra_stored = intraday.get_stored(conn)
+    async with httpx.AsyncClient(http2=True, timeout=10) as cliente:
+        async def _enviar(uid, titulo, corpo, tickers):
+            # `t` SÓ no aviso de um ativo. No agregado ("3 ativos · condição
+            # atingida"), mandar `tickers[0]` faria o toque levar em silêncio a
+            # UM deles e fixar a explicação nos números dele — o mesmo erro de
+            # ticker trocado que a reserva da eleição existe para evitar, e
+            # justamente no caminho da abertura, quando mais gente é avisada.
+            extra = {"kind": "timing"}
+            if len(tickers) == 1:
+                extra["t"] = tickers[0]
+            try:
+                # `send_to_user` NÃO levanta nos casos que importam: devolve
+                # sent=0 para APNs não configurado, aparelho sem token, HTTP
+                # não-200 e token rejeitado. Logar "enviado" sem ler o retorno
+                # faria o Diário afirmar uma entrega que não houve — e a vaga
+                # do dia já foi gasta (`avisados` é gravado antes do envio).
+                # Todo o `_REASON_HELP` existe para não perder essa distinção.
+                r = await push.send_to_user(conn, uid, titulo, corpo, som=False,
+                                            prioridade="5", client=cliente, extra=extra)
+                alvos = ", ".join(tickers)
+                if r.get("sent"):
+                    txt, kind = (f"Aviso de condição atingida enviado a {r['sent']}/{r['total']} "
+                                 f"aparelho(s): {alvos}."), "info"
+                else:
+                    detalhes = "; ".join(r.get("detalhes") or []) or "nenhum aparelho registrado"
+                    txt, kind = (f"Aviso de condição atingida NÃO entregue ({alvos}): {detalhes}. "
+                                 "O aviso deste ativo não se repete hoje — abra o app para ver o "
+                                 "estado atual."), "warn"
+                store.push_agent_log(conn, [{"time": _now_str(), "kind": kind, "text": txt}],
+                                     user_id=uid)
+            except Exception as e:  # noqa: BLE001 — push é best-effort
+                print(f"[timing_watch] envio para {uid[:8]}… falhou: {e}")
+        return await timing_watch.maybe_run(conn, radar_stored, intra_stored, _enviar)
+
+
 async def scheduler_loop(conn, quotes_getter, notify_push=None, interval_s: int = None, once: bool = False,
                          radar_fetch=None, snapshot_getter=None, intraday_fetch=None, option_quotes_getter=None):
     """Laço do servidor: a cada N min (env B3_AGENT_INTERVAL_S), dentro do
@@ -584,6 +637,20 @@ async def scheduler_loop(conn, quotes_getter, notify_push=None, interval_s: int 
                     from . import intraday  # import local: sem ciclo de import
                     if await intraday.maybe_run(conn, intraday_fetch, last_ts=_LAST_INTRADAY["ts"]):
                         _LAST_INTRADAY["ts"] = time.monotonic()
+                        # Vigia do gatilho. Ele próprio ignora barra já varrida
+                        # (`timing_watch._ULTIMA_BARRA`), então pendurar aqui é
+                        # só para casar com dado fresco — não é o que evita
+                        # repetir. `try` PRÓPRIO: sem ele, uma falha
+                        # aqui (get_stored, httpx, qualquer coisa a montante do
+                        # `maybe_run`, que se protege sozinho) cairia no except
+                        # do laço e stop/alvo de TODOS os usuários deixariam de
+                        # ser avaliados nesta passada. O componente mais novo
+                        # não pode derrubar o mais crítico.
+                        if notify_push is not None:
+                            try:
+                                await _avisar_gatilhos(conn)
+                            except Exception as e:  # noqa: BLE001
+                                print(f"[timing_watch] gancho falhou: {e}")
                 # qa/41 (H6): durante o pregão, quem tem proteção armada e o
                 # Operador desligado é avisado no Diário (1x/dia). O laço passa
                 # por cima dessa gente por contrato — mas em silêncio ela achava

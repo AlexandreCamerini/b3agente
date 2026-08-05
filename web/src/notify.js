@@ -364,3 +364,26 @@ export async function registerPush(sendTokenToServer) {
     return { ok: false, reason: (e && e.message) || String(e) };
   }
 }
+
+// Toque na notificação → DESTINO. Sem isto o push do gatilho abriria o app na
+// aba inicial, sem nada sobre o ativo em lugar nenhum da tela: interrupção sem
+// destino é a pior categoria de push que existe. O servidor manda `t` (ticker)
+// e `kind` FORA do `aps` (convenção da Apple para dados do app).
+//
+// O conteúdo da notificação é DADO, não instrução: só o ticker é lido, ele é
+// validado contra o formato da B3, e nada mais do payload muda o que o app faz.
+export async function onPushTap(handler) {
+  if (!isNative) return false;
+  try {
+    const mod = await import("@capacitor/push-notifications");
+    await mod.PushNotifications.addListener("pushNotificationActionPerformed", (acao) => {
+      const d = (acao && acao.notification && acao.notification.data) || {};
+      const t = String(d.t || "").trim().toUpperCase().slice(0, 12);
+      if (/^[A-Z]{4}\d{1,2}$/.test(t)) handler(t, String(d.kind || ""));
+    });
+    return true;
+  } catch (e) {
+    ndbg("listener de toque no push indisponível:", (e && e.message) || e);
+    return false;   // build sem o plugin: o app segue inteiro, só sem o atalho
+  }
+}

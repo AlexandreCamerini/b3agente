@@ -122,10 +122,19 @@ def set_config(conn, patch: dict, user_id=None) -> dict:
         cfg["streak"] = {"days": int(days) if isinstance(days, (int, float)) else 0, "last": str(last or "")}
     if isinstance(patch.get("notif"), dict):
         base = cfg.get("notif") if isinstance(cfg.get("notif"), dict) else {}
-        for k in ("enabled", "stop", "alvo", "agente", "variacao"):
+        for k in ("enabled", "stop", "alvo", "agente", "variacao", "gatilho"):
             if k in patch["notif"]:
                 base[k] = bool(patch["notif"][k])
         cfg["notif"] = base
+    # Camada de entendimento: UNIÃO, nunca substituição — dois aparelhos do
+    # mesmo usuário não podem apagar o que o outro já marcou como visto.
+    if isinstance(patch.get("conceitosVistos"), list):
+        atual = cfg.get("conceitosVistos") if isinstance(cfg.get("conceitosVistos"), list) else []
+        for cid in patch["conceitosVistos"]:
+            cid = str(cid or "")[:40]
+            if cid and cid not in atual:
+                atual.append(cid)
+        cfg["conceitosVistos"] = atual[:200]
     # FASE 7 (F7.1) — Modo Operador: modo de trabalho, termo aceito e risco.
     # Regra: ativar "operador" EXIGE o termo (aceitoEm+versao) já registrado ou
     # vindo no MESMO patch — nunca liga sem aceite explícito.

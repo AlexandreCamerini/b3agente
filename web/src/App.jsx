@@ -765,14 +765,14 @@ function OpsSparkline({ candles, ops }) {
 // FASE 3 (mock v2 aprovado): RÉGUA universal do plano/risco — um só modelo
 // mental no funil: marcas (invalidação/gatilho/alvo ou stop/alvo) + ponto
 // "agora". Reaproveitada pelo card do Radar e do Portfólio.
-function PlanRuler({ caption, marks, cur, curLabel, legend }) {
+function PlanRuler({ caption, marks, cur, curLabel, legend, captionExtra }) {
   const nums = [...(marks || []).map((m) => m && m.v), cur].filter((v) => typeof v === "number" && isFinite(v));
   if (nums.length < 2) return null;
   const mn = Math.min(...nums), mx = Math.max(...nums);
   const posOf = (v) => 8 + ((v - mn) / ((mx - mn) || 1)) * 84;
   return (
     <div style={{ marginTop: "13px" }}>
-      {caption && <div style={{ fontSize: "10.5px", color: T.textFaint, letterSpacing: "0.05em", fontWeight: 700, marginBottom: "15px" }}>{caption}</div>}
+      {caption && <div style={{ fontSize: "10.5px", color: T.textFaint, letterSpacing: "0.05em", fontWeight: 700, marginBottom: "15px", display: "flex", alignItems: "center", gap: "6px" }}>{caption}{captionExtra}</div>}
       <div style={{ position: "relative", height: "8px", borderRadius: "999px", background: `linear-gradient(90deg, ${T.negativeTint} 0%, ${T.knob} 40%, ${T.knob} 60%, ${T.positiveTint} 100%)` }}>
         {(marks || []).filter((m) => m && typeof m.v === "number").map((m, i) => (
           <div key={i} style={{ position: "absolute", top: "-3px", bottom: "-3px", width: "2.5px", borderRadius: "2px", transform: "translateX(-50%)", left: posOf(m.v) + "%", background: m.color }} />
@@ -2093,21 +2093,275 @@ const TIMING_STYLE = {
   aguardando_barra: [T.textFaint, T.bgBase, "◌ AGUARDANDO 1ª BARRA", "◌ AGUARDANDO 1ª BARRA"],
 };
 
+// ---- Camada de entendimento: a FOLHA de explicação ------------------------
+// Por que folha (bottom sheet) e não um bloco dentro do card: o AtivoCard já
+// afirma 18 coisas (docs/didatica-inventario.md) e o TimingBadge sozinho ocupa
+// 3 linhas, entre a manchete de decisão e os chips. Não cabe mais bloco no
+// fluxo vertical — e conteúdo que cresce debaixo do polegar de um iniciante,
+// numa lista de 6 cards, faz ele tocar no botão errado. A folha abre SOBRE o
+// card: não reflui a lista, comporta as três perguntas com folga, e é o mesmo
+// gesto para todos os conceitos (uma afordância, não dezoito).
+const CONCEITO_BLOCOS = [
+  // Ordem deliberada: quem acabou de ver "condição atingida" pergunta antes de
+  // tudo se o app comprou alguma coisa. Essa resposta não pode ser a terceira.
+  ["naoAcontece", "O QUE O APP NÃO FAZ"],
+  ["oQueE", "O QUE É"],
+  ["oQueAcontece", "O QUE ACONTECE"],
+];
+
+// A AFORDÂNCIA ÚNICA. O inventário conta 18 afirmações no card; dezoito
+// interações diferentes seriam dezoito coisas a aprender antes de aprender o
+// conteúdo. Um gesto só: tocar no "?" ao lado do termo.
+// Alvo de 44×44 (mínimo da HIG) com o círculo de 18px por dentro; a margem
+// negativa devolve o espaço, então o layout não muda em lugar nenhum.
+function ConceitoDot({ cid, dados, rotulo, A, didatica }) {
+  if (!A || !didatica || !didatica.ligada) return null;
+  return (
+    <button onClick={(e) => { e.stopPropagation(); A.openConceito(cid, dados); }}
+      aria-label={"O que é " + rotulo + "?"} title={"O que é " + rotulo + "?"}
+      style={{ width: "44px", height: "44px", margin: "-13px", padding: 0, background: "transparent", border: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", flex: "none", verticalAlign: "middle" }}>
+      <span aria-hidden style={{ width: "18px", height: "18px", borderRadius: "999px", border: `1px solid ${T.borderSubtle}`, color: T.textFaint, fontSize: "11px", fontWeight: 800, lineHeight: "16px", textAlign: "center" }}>?</span>
+    </button>
+  );
+}
+
+// Fase 4 — o ASSISTENTE, dentro da folha do conceito.
+// Duas camadas com custos diferentes: a explicação acima é determinística e
+// grátis; isto aqui chama LLM. Por isso é opt-in por toque, mostra o que sobra
+// do teto do dia, e qualquer falha degrada para "a explicação acima continua
+// valendo" — nunca deixa a pessoa sem resposta.
+function AssistenteBox({ cid, dados }) {
+  const [aberto, setAberto] = useState(false);
+  const [q, setQ] = useState("");
+  const [r, setR] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [erro, setErro] = useState("");
+  const perguntar = async () => {
+    const pergunta = q.trim();
+    if (!pergunta || busy) return;
+    setBusy(true); setErro(""); setR(null);
+    try {
+      // O snapshot é o MESMO view-model que ancorou a explicação — nada de
+      // raspar a tela: o que vai é dado estruturado, auditável.
+      const res = await store.assistente({ tela: "conceito:" + cid, snapshot: dados || {}, pergunta });
+      setR(res);
+    } catch (e) {
+      setErro((e && e.message) || String(e));
+    } finally { setBusy(false); }
+  };
+  if (!aberto) {
+    return (
+      <button onClick={() => setAberto(true)}
+        style={{ width: "100%", minHeight: "44px", marginBottom: "10px", borderRadius: "11px", border: `1px dashed ${T.borderSubtle}`, background: "transparent", color: T.textMuted, fontWeight: 700, fontSize: "12.5px" }}>
+        Ainda com dúvida? Pergunte à IA sobre estes números
+      </button>
+    );
+  }
+  return (
+    <div style={{ marginBottom: "12px", padding: "12px", borderRadius: "11px", background: T.bgBase, border: `1px solid ${T.borderFaint}` }}>
+      <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.08em", color: T.textFaint, marginBottom: "8px" }}>PERGUNTE SOBRE ESTA TELA</div>
+      <textarea value={q} onChange={(e) => setQ(e.target.value)} rows={2} maxLength={400}
+        placeholder="Ex.: por que o gatilho está nesse preço e não em outro?"
+        style={{ width: "100%", boxSizing: "border-box", padding: "10px", borderRadius: "9px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textPrimary, fontSize: "13px", resize: "vertical" }} />
+      <button onClick={perguntar} disabled={busy || !q.trim()}
+        style={{ width: "100%", minHeight: "40px", marginTop: "8px", borderRadius: "9px", border: "none", background: busy || !q.trim() ? T.bgPanel : T.accentTint10, color: busy || !q.trim() ? T.textFaint : T.accent, fontWeight: 800, fontSize: "12.5px" }}>
+        {busy ? "pensando…" : "Perguntar"}
+      </button>
+      {erro && (
+        <div style={{ marginTop: "9px", fontSize: "12px", color: T.textSecondary, lineHeight: 1.5 }}>
+          {erro}
+          <div style={{ color: T.textFaint, fontSize: "11px", marginTop: "4px" }}>A explicação acima continua valendo — ela não depende da IA.</div>
+        </div>
+      )}
+      {r && r.texto && (
+        <div style={{ marginTop: "10px" }}>
+          <div style={{ fontSize: "13px", color: T.textSecondary, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{r.texto}</div>
+          <AiNote />
+          {r.restanteHojeBRL != null && (
+            <div style={{ fontSize: "10px", color: T.textFaint, marginTop: "2px" }}>
+              Resta hoje ≈ R$ {Number(r.restanteHojeBRL).toFixed(2).replace(".", ",")} de uso da IA.
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ConceitoSheet({ cid, dados, onClose, onTrocar, didatica, voltar }) {
+  const [c, setC] = useState(null);
+  const [erro, setErro] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    setC(null); setErro(false);
+    store.conceito(cid, { dados })
+      .then((r) => { if (alive) setC(r); })
+      .catch(() => { if (alive) setErro(true); });
+    return () => { alive = false; };
+  }, [cid, dados]);
+  return (
+    // zIndex 86: acima de TODOS os outros overlays (tour 75, sobre 80, auth 82,
+    // ajuda 84, portão de abertura 85). Esta é a única folha que abre SOZINHA,
+    // e a via proativa é one-shot por conceito, para sempre — ficar por baixo
+    // significaria queimar a estreia sem ninguém ler nada.
+    <div onClick={onClose} role="dialog" aria-label="Explicação"
+      style={{ position: "fixed", inset: 0, zIndex: 86, background: T.scrim, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+      <div onClick={(e) => e.stopPropagation()}
+        style={{ width: "100%", maxWidth: "520px", background: T.bgPanel, borderTop: `1px solid ${T.borderSubtle}`, borderRadius: "18px 18px 0 0", padding: "16px 18px calc(18px + env(safe-area-inset-bottom))", maxHeight: "82vh", overflowY: "auto" }}>
+        <div style={{ width: "38px", height: "4px", borderRadius: "999px", background: T.borderSubtle, margin: "0 auto 12px" }} aria-hidden />
+        {/* A cadeia precisa de volta: quem segue stop → R → gatilho não pode
+            ter como única saída fechar tudo e recomeçar. */}
+        {voltar && (
+          <button onClick={voltar} aria-label="Voltar ao conceito anterior"
+            style={{ minHeight: "36px", padding: "0 12px 0 6px", marginBottom: "6px", borderRadius: "999px", border: "none", background: "transparent", color: T.textMuted, fontSize: "12px", fontWeight: 700 }}>‹ voltar</button>
+        )}
+        {erro && <p style={{ margin: 0, fontSize: "13px", color: T.textMuted }}>Não consegui carregar a explicação agora. O card continua válido.</p>}
+        {!c && !erro && <div className="sk" style={{ height: "120px", width: "100%" }} />}
+        {c && (
+          <>
+            <h2 style={{ margin: "0 0 4px", fontSize: "18px", fontWeight: 800, color: T.textPrimary }}>{c.titulo}</h2>
+            <div style={{ fontSize: "10.5px", color: T.textFaint, marginBottom: "12px" }}>Explicação com os números deste ativo, agora.</div>
+            {CONCEITO_BLOCOS.map(([chave, rotulo]) => (
+              (c[chave] || []).length > 0 && (
+                <div key={chave} style={{ marginBottom: "14px" }}>
+                  <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.08em", color: chave === "naoAcontece" ? T.negative : T.accent, marginBottom: "6px" }}>{rotulo}</div>
+                  {c[chave].map((p, i) => (
+                    <p key={i} style={{ margin: "0 0 8px", fontSize: "13.5px", lineHeight: 1.6, color: T.textSecondary }}>{p}</p>
+                  ))}
+                </div>
+              )
+            ))}
+            {/* VEJA TAMBÉM. Os conceitos deste app se explicam em cadeia —
+                gatilho precisa de R, R precisa de stop. Encadear aqui dentro
+                evita encher o card de "?" (o inventário conta 18 afirmações) e
+                mantém a pessoa no fio do raciocínio em vez de mandá-la caçar. */}
+            {(c.veja || []).length > 0 && didatica && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "7px", margin: "2px 0 14px" }}>
+                {c.veja.map((vid) => {
+                  const alvo = ((didatica.conceitos || []).find((x) => x && x.id === vid));
+                  if (!alvo) return null;
+                  return (
+                    <button key={vid} onClick={() => onTrocar(vid)}
+                      style={{ fontSize: "11.5px", padding: "8px 12px", minHeight: "36px", borderRadius: "999px", border: `1px solid ${T.borderSubtle}`, background: T.bgBase, color: T.textSecondary, fontWeight: 700 }}>
+                      {alvo.titulo} →
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {/* ASSISTENTE (Fase 4) — a camada PAGA, dentro da folha: é aqui
+                que a pessoa já está com a dúvida, e o snapshot é o mesmo que
+                ancorou a explicação. Fica atrás de um toque para o custo ser
+                sempre uma escolha, nunca um efeito de abrir a tela. */}
+            {didatica && didatica.assistente && <AssistenteBox cid={cid} dados={dados} />}
+            <button onClick={onClose} style={{ width: "100%", minHeight: "44px", borderRadius: "11px", border: `1px solid ${T.accent}`, background: T.accentTint10, color: T.accent, fontWeight: 800, fontSize: "13px" }}>Entendi</button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // F1: badge do TIMING no card do ativo. Consulta /api/timing (determinístico,
 // O(1) no servidor — plano diário × barra 15m FECHADA; zero fetch/LLM) e só
 // ocupa espaço quando há plano a vigiar: sem_plano é silêncio, não ruído.
 // Honestidade do dado: mostra a hora da barra fechada (asOf) e as ressalvas
 // do backend (atraso ~15 min do feed; lacuna na série).
-function TimingBadge({ t, operador }) {
+// ELEIÇÃO DE INSTÂNCIA para a via proativa. O AtivoCard renderiza por ticker e
+// a watchlist padrão tem 6: os seis montam juntos, todos leem "ainda não viu",
+// e sem isto ou a folha abre seis vezes ou uma corrida decide qual abre.
+// O primeiro badge que chega ao efeito vira o DONO e é o único que pode abrir;
+// os demais ficam só com a afordância permanente. JS é single-threaded, então
+// a eleição é determinística — não é heurística de tempo.
+//
+// Por que não amarrar no card EXPANDIDO (que seria a instância óbvia): `expanded`
+// só liga depois de uma análise de IA (`A.analyze`), que exige modelo configurado
+// e custa dinheiro. A via proativa ficaria inalcançável justamente para o
+// iniciante absoluto que ela existe para atender.
+const _proativoDono = { t: null };
+
+// O push do gatilho abre o app com um ativo específico em mente. Sem esta
+// reserva, a eleição cairia no primeiro badge cuja rede responder (quase sempre
+// o primeiro da watchlist) e a pessoa — que acabou de ler "BBAS3" na tela de
+// bloqueio — receberia a explicação com os números de OUTRO ativo, gastando a
+// única chance proativa que existe.
+function reservarDonoProativo(t) { if (t) _proativoDono.t = t; }
+
+// Camada de entendimento (`didatica`, `vistos`, `proativo`, `A`): a afordância
+// permanente é o "?" no rótulo — o mesmo gesto de todos os conceitos.
+function TimingBadge({ t, operador, didatica, vistos, proativo, A, dadosDoCard, onDadosTiming }) {
   const [r, setR] = useState(null);
+  const proativoFeitoRef = useRef(false);
   useEffect(() => {
     let alive = true;
     setR(null);
     store.timing(t)
-      .then((res) => { if (alive) setR(res); })
+      .then((res) => {
+        if (!alive) return;
+        setR(res);
+        // Devolve os números do PLANO ao card. Sem isto, o bundle do card não
+        // teria `entrada` e seguir o "veja também" da confluência até o
+        // gatilho entregaria o conceito sem o preço combinado — texto de
+        // manual no lugar da explicação ancorada. Dispara uma vez por busca.
+        if (onDadosTiming && res && res.entrada != null) {
+          onDadosTiming({ entrada: res.entrada, stop: res.stop, estado: res.estado,
+                          // Risco do PLANO (entrada − stop). É o número certo
+                          // para explicar stop e R: o da posição (`avg − stop`)
+                          // mede outra coisa e fica negativo com stop no lucro.
+                          riscoPorAcao: res.riscoPorAcao,
+                          distancia: res.distancia, distanciaEmR: res.distanciaEmR,
+                          excedenteEmR: res.excedenteEmR, asOf: res.asOf });
+        }
+      })
       .catch(() => { /* badge é best-effort: sem timing, o card segue inteiro */ });
     return () => { alive = false; };
   }, [t, operador]);
+
+  // DOIS gates, não um. `timing.avaliar` monta entrada/stop/lado ANTES de
+  // decidir o estado, então fora do pregão o `sem_dado` volta COM os números do
+  // plano do dia. Amarrar a afordância permanente ao estado vivo apagava a
+  // explicação das 18h às 10h — justamente quando a pessoa navega com calma.
+  // O conceito "gatilho" não deixa de ser explicável porque o mercado fechou.
+  const temPlano = !!r && r.entrada != null;
+  const estadoVivo = !!r && ["armado", "gatilho", "esticado"].includes(r.estado)
+    && !r.foraDoPregao && !r.barraDeOutroDia;
+  const didaticaOk = !!(didatica && didatica.ligada) && temPlano;
+  // `estado` viaja junto porque `excedenteEmR` volta em DOIS estados
+  // (gatilho e esticado) que pedem leituras OPOSTAS — sem ele, o texto diria
+  // "movimento esticado, não persiga" no instante em que a condição valeu.
+  // Sem estado vivo, os parágrafos por estado somem no backend e sobra a
+  // definição + os números + a idade do dado: a leitura certa com o mercado
+  // fechado, sem nenhuma linha de código a mais.
+  // UM bundle: o do card por baixo, o do timing por cima. Sem a fusão, seguir
+  // o "veja também" da confluência até o gatilho entregaria o conceito sem
+  // `entrada`, e o caminho inverso entregaria o stop sem `precoAtual` — a
+  // ancoragem quebrando justamente no encadeamento. `entrada`/`stop` do PLANO
+  // (timing) prevalecem sobre os da posição: são o que o card está afirmando.
+  const dados = temPlano ? {
+    ...(dadosDoCard || {}),
+    ticker: t, entrada: r.entrada, stop: r.stop,
+    ...(estadoVivo ? {
+      estado: r.estado, distancia: r.distancia,
+      distanciaEmR: r.distanciaEmR, excedenteEmR: r.excedenteEmR,
+    } : {}),
+  } : null;
+
+  useEffect(() => {
+    // Via proativa: UMA vez, numa instância só, e só no Estudo (o Operador não
+    // recebe camada didática proativa — decisão fechada da spec).
+    // `proativo` já carrega "nenhum outro overlay aberto": a folha é one-shot
+    // POR CONCEITO, para sempre. Abrir sob o tour ou sob o portão de abertura
+    // queimaria o tiro único sem ninguém ler nada. Aqui a regra é ADIAR — o
+    // efeito reroda quando a tela ficar livre, e a estreia se preserva.
+    if (!proativo || operador || proativoFeitoRef.current) return;
+    if (!didaticaOk || !estadoVivo || !A || (vistos || []).includes("gatilho")) return;
+    if (_proativoDono.t && _proativoDono.t !== t) return;   // outro card já é o dono
+    _proativoDono.t = t;
+    proativoFeitoRef.current = true;
+    A.openConceito("gatilho", dados);
+    A.marcarConceitoVisto("gatilho");
+  }, [proativo, operador, didaticaOk, estadoVivo, vistos, A, dados, t]);
+
   if (!r || !TIMING_STYLE[r.estado]) return null;
   const variante = r.foraDoPregao ? "fora_pregao" : r.barraDeOutroDia ? "aguardando_barra" : r.estado;
   const [cor, bg, rotOp, rotEdu] = TIMING_STYLE[variante];
@@ -2118,12 +2372,21 @@ function TimingBadge({ t, operador }) {
     <div style={{ marginTop: "9px", padding: "8px 11px", borderRadius: "9px", background: bg, border: `1px solid ${T.borderFaint}` }}>
       <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
         <span style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.05em", color: cor }}>{operador ? rotOp : rotEdu}</span>
+        {/* Afordância PERMANENTE: depois da primeira vez, a explicação continua
+            a um toque, no mesmo lugar onde o termo aparece. */}
+        {didaticaOk && <ConceitoDot cid="gatilho" dados={dados} rotulo={"o " + nivel} A={A} didatica={didatica} />}
         {hora && (
           <span style={{ fontSize: "10px", color: T.textFaint, fontFamily: MONO }}>
             {/* barra de outro dia: a hora sozinha ("16:45") esconde que o dado é
                 do pregão anterior — aqui a data vem junto. */}
             {r.barraDeOutroDia ? `última barra ${r.asOf}` : `barra 15m de ${hora}`}
           </span>
+        )}
+        {/* "barra de 15 minutos" e o atraso do feed são o conceito que mais
+            produz erro de leitura em iniciante: ele acha que vê o agora. */}
+        {hora && didatica && didatica.ligada && (
+          <ConceitoDot cid="barra15m" rotulo="a barra de 15 minutos" A={A} didatica={didatica}
+            dados={{ ...(dados || dadosDoCard || {}), ticker: t, hora, asOf: r.asOf }} />
         )}
         {r.estado === "armado" && r.distanciaEmR != null && (
           <span style={{ fontSize: "10px", color: T.textMuted, fontFamily: MONO }}>a {emR(r.distanciaEmR)} do {nivel}</span>
@@ -2263,7 +2526,7 @@ function OpcoesCamada({ t, cur, open, onToggle, chain, chainLoading, opContract,
 // (vm) + contexto; o núcleo (identidade, manchete única, chips de análise) é
 // idêntico em todo o sistema. Extraído do card da watchlist.
 function AtivoCard({ vm, contexto = "watchlist", children }) {
-  const { t, q, an, name, chColor, sc, pos, cur, pnl, pnlPct, rrPos, diasPos, pctCapPos, kp, fscore, decM, decColor, decBg, os, buyMeta, operador, quotesLoading, expanded, opsOpen, opsSpark, onToggleOps, A, cp, data } = vm;
+  const { t, q, an, name, chColor, sc, pos, cur, pnl, pnlPct, rrPos, diasPos, pctCapPos, kp, fscore, decM, decColor, decBg, os, buyMeta, operador, quotesLoading, expanded, opsOpen, opsSpark, onToggleOps, A, cp, data, didatica, overlayLivre } = vm;
   const chip = (label, value, col) => (
     <span style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "999px", background: T.bgBase, color: T.textSecondary, fontWeight: 700 }}>{label} <b style={{ fontWeight: 800, color: col || T.textPrimary }}>{value}</b></span>
   );
@@ -2297,6 +2560,26 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
     }
   };
 
+  // UM bundle de dados para TODOS os conceitos deste card. Bundles parciais
+  // por dot pareciam mais enxutos e quebravam o encadeamento: seguir "veja
+  // também" da confluência para o stop entregava o conceito sem `stop` nem
+  // `precoAtual`, e a pessoa recebia texto de manual — a Decisão 3 da spec
+  // falhando justamente no caminho construído para ela. O superset é seguro
+  // porque o `campos` de cada conceito é allowlist no backend: o que não
+  // serve àquele conceito é descartado lá, não aqui.
+  const riscoDaPosicao = (pos && pos.stop != null && pos.avg != null)
+    ? +(pos.avg - pos.stop).toFixed(2) : null;   // negativo (stop no lucro) o backend recusa
+  // Os números do PLANO chegam do TimingBadge (que já os busca) — assim o
+  // bundle é um só de verdade e o encadeamento não perde a ancoragem.
+  const [dadosTiming, setDadosTiming] = useState(null);
+  const dadosDoCard = {
+    ticker: t, precoAtual: cur,
+    stop: pos ? pos.stop : null, alvo: pos ? pos.alvo : null,
+    riscoPorAcao: riscoDaPosicao, rr: rrPos,
+    confluencia: sc ? sc.confluencia : null, melhorSetup: sc ? sc.melhorSetup : null,
+    fundamento: fscore || null,
+    ...(dadosTiming || {}),   // entrada/stop/estado do plano prevalecem
+  };
   const myOptionPositions = ((data && data.optionPositions) || []).filter((p) => p.underlying === t);
   const doBuyOption = async (contrato) => {
     setOpBusy(contrato.contractSymbol);
@@ -2310,7 +2593,8 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
   };
 
   return (
-            <div key={t} style={{ ...card, padding: "14px 15px" }}>
+            // id: alvo do scroll quando o usuário chega por um toque no push.
+            <div key={t} id={"ativo-" + t} style={{ ...card, padding: "14px 15px" }}>
               {opOpen ? (
                 // ESPINHA: o que sustenta a checagem "opção respeita a leitura do
                 // ativo" (Princípio 5/9) continua CONFERÍVEL — números, não um selo.
@@ -2376,7 +2660,14 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
               {/* F1: TIMING DE ENTRADA logo abaixo da manchete — o estado
                   determinístico (plano diário × barra 15m fechada) em todas as
                   superfícies do card; o próprio badge se cala sem plano. */}
-              <TimingBadge t={t} operador={operador} />
+              {/* A via proativa vive numa superfície só (a Watchlist, onde a
+                  pessoa acompanha de perto) e numa instância só — a eleição
+                  está em `_proativoDono`. O Radar fica de fora: lá o card é
+                  vitrine de descoberta, não lugar de parar para aprender. */}
+              <TimingBadge t={t} operador={operador} didatica={didatica} A={A}
+                dadosDoCard={dadosDoCard} onDadosTiming={setDadosTiming}
+                proativo={contexto !== "radar" && overlayLivre}
+                vistos={(data && data.config && data.config.conceitosVistos) || []} />
 
               {/* qa/49 (v11): ANÁLISE — indicadores unificados em chips (mesmo peso);
                   confluência e fundamento deixam de ser vereditos concorrentes. */}
@@ -2386,7 +2677,9 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
                   {kp.conviccao && chip("convicção", kp.conviccao)}
                   {kp.qualidade && chip("qualidade", kp.qualidade)}
                   {sc && sc.confluencia != null && chip("confluência", (sc.confluencia || 0) + "%", T.accent)}
+                  {sc && sc.confluencia != null && <ConceitoDot cid="confluencia" rotulo="a confluência" A={A} didatica={didatica} dados={dadosDoCard} />}
                   {fscore && chip("fundamento", fscore, T[SCORE_COLOR[fscore]] || T.textPrimary)}
+                  {fscore && <ConceitoDot cid="fundamento" rotulo="o fundamento" A={A} didatica={didatica} dados={dadosDoCard} />}
                   {sc && sc.melhorSetup && <span style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "999px", background: T.bgBase, color: T.textMuted }}>{sc.melhorSetup}</span>}
                 </div>
               )}
@@ -2418,6 +2711,13 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
               {pos && (pos.stop != null || pos.alvo != null) && (
                 <>
                   <PlanRuler
+                    // A régua aparece com stop OU alvo. Fixar `cid="stop"`
+                    // fazia quem armou só o alvo ver um "?" explicando um
+                    // nível que não está no card — e sem stop não há de onde
+                    // encadear até `alvo`, que não tem afordância própria.
+                    captionExtra={<ConceitoDot cid={pos.stop != null ? "stop" : "alvo"}
+                      rotulo={pos.stop != null ? "o stop" : "o alvo"}
+                      A={A} didatica={didatica} dados={dadosDoCard} />}
                     caption="POSIÇÃO NO RISCO"
                     marks={[pos.stop != null && { v: pos.stop, color: T.negative }, pos.alvo != null && { v: pos.alvo, color: T.positive }].filter(Boolean)}
                     cur={cur}
@@ -2431,6 +2731,7 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
                   {(rrPos != null || diasPos != null || pctCapPos != null) && (
                     <div style={{ display: "flex", gap: "10px", fontSize: "10.5px", color: T.textSecondary, marginTop: "9px", flexWrap: "wrap" }}>
                       {rrPos != null && <span>R:R <b style={{ color: T.textPrimary, fontWeight: 700 }}>{rrPos.toFixed(1)}</b></span>}
+                      {rrPos != null && <ConceitoDot cid="r" rotulo="o R" A={A} didatica={didatica} dados={dadosDoCard} />}
                       {diasPos != null && <span>· {diasPos} dias</span>}
                       {pctCapPos != null && <span>· {pctCapPos.toFixed(0)}% do patrimônio</span>}
                     </div>
@@ -2660,7 +2961,7 @@ function MercadoScreen({ ctx }) {
           const chip = (label, value, col) => (
             <span style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "999px", background: T.bgBase, color: T.textSecondary, fontWeight: 700 }}>{label} <b style={{ fontWeight: 800, color: col || T.textPrimary }}>{value}</b></span>
           );
-          return <AtivoCard key={t} vm={{ t, q, an, name, chColor, sc, pos, cur, pnl, pnlPct, rrPos, diasPos, pctCapPos, kp, fscore, decM, decColor, decBg, os, buyMeta, operador, quotesLoading, expanded: !!expanded[t], opsOpen: !!opsOpen[t], opsSpark: sparks[t], onToggleOps: () => toggleOps(t), A, cp, data }} contexto="watchlist" />;
+          return <AtivoCard key={t} vm={{ t, q, an, name, chColor, sc, pos, cur, pnl, pnlPct, rrPos, diasPos, pctCapPos, kp, fscore, decM, decColor, decBg, os, buyMeta, operador, quotesLoading, expanded: !!expanded[t], opsOpen: !!opsOpen[t], opsSpark: sparks[t], onToggleOps: () => toggleOps(t), A, cp, data, didatica: ctx.didatica, overlayLivre: ctx.overlayLivre }} contexto="watchlist" />;
         })}
       </div>
     </div>
@@ -3351,6 +3652,19 @@ function NotifSection({ ctx }) {
       <Toggle on={nf.enabled && nf[key] !== false} onClick={() => nf.enabled && A.setNotif({ [key]: !(nf[key] !== false) })} label={label} />
     </div>
   );
+  // Variante OPT-IN: `row` acima trata ausente como LIGADO (opt-out), o que é
+  // adequado para avisos sobre a SUA carteira. O aviso de condição atingida é
+  // outra coisa — é a única classe disparada por evento de MERCADO, e a única
+  // que chega sem você ter feito nada. Classe assim nasce desligada.
+  const rowOptIn = (key, label, desc) => (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", padding: "10px 0", opacity: nf.enabled ? 1 : 0.45 }}>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: "13px", fontWeight: 600 }}>{label}</div>
+        <div style={{ fontSize: "11.5px", color: T.textFaint, lineHeight: 1.4 }}>{desc}</div>
+      </div>
+      <Toggle on={nf.enabled && nf[key] === true} onClick={() => nf.enabled && A.setNotif({ [key]: !(nf[key] === true) })} label={label} />
+    </div>
+  );
   return (
     <div style={{ ...card, padding: "17px 18px", marginBottom: "16px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
@@ -3371,6 +3685,10 @@ function NotifSection({ ctx }) {
         {row("alvo", "Alvo atingido", "Quando o preço alcança o seu alvo.")}
         {row("agente", "Operações do agente", "Compra/venda automática do agente autônomo.")}
         {row("variacao", "Movimentos fortes", "Variação relevante de uma posição no dia (±5%).")}
+        {rowOptIn("gatilho", "Condição de estudo atingida",
+          "Quando uma vela de 15 min FECHA no gatilho de um ativo que você acompanha. "
+          + "Vem com ~15 min de atraso do feed e nunca é ordem — no máximo 6 avisos por dia, "
+          + "1 por ativo. Exige conta e push ativo neste aparelho.")}
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "12px", flexWrap: "wrap" }}>
@@ -4595,7 +4913,7 @@ function RadarScreen({ ctx }) {
           const nameR = (data.catalog.find((c) => c.t === r.ticker) || {}).n || r.ticker;
           const pnlR = posR && r.close != null ? (r.close - posR.avg) * posR.qty : null;
           const pnlPctR = posR && r.close != null && posR.avg > 0 ? (r.close / posR.avg - 1) * 100 : null;
-          const radarVm = { t: r.ticker, name: nameR, q: { price: r.close, change: r.variacaoPeriodoPct, error: false }, chColor, sc: { spark: r.spark, confluencia: r.confluencia, melhorSetup: r.melhorSetup }, pos: posR, cur: r.close, pnl: pnlR, pnlPct: pnlPctR, kp: {}, fscore: r.fundamento && r.fundamento.score, decM: decMr, decColor: decColorR, decBg: decBgR, quotesLoading: false, operador, A: ctx.A };
+          const radarVm = { t: r.ticker, name: nameR, q: { price: r.close, change: r.variacaoPeriodoPct, error: false }, chColor, sc: { spark: r.spark, confluencia: r.confluencia, melhorSetup: r.melhorSetup }, pos: posR, cur: r.close, pnl: pnlR, pnlPct: pnlPctR, kp: {}, fscore: r.fundamento && r.fundamento.score, decM: decMr, decColor: decColorR, decBg: decBgR, quotesLoading: false, operador, A: ctx.A, data: ctx.data, didatica: ctx.didatica, overlayLivre: ctx.overlayLivre };
           return (
             <AtivoCard key={r.ticker} vm={radarVm} contexto="radar">
               <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", marginTop: "11px" }}>
@@ -5238,6 +5556,11 @@ export default function App() {
   const [sysIsDark, setSysIsDark] = useState(sysDark);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);  // qa/38 (Help): tour de primeiro uso
+  // Camada de entendimento: catálogo (buscado 1x) e a folha aberta no momento.
+  // `didatica.ligada` vem do backend — desligar em produção é variável de
+  // ambiente, não build de iOS.
+  const [didatica, setDidatica] = useState(null);
+  const [conceitoAberto, setConceitoAberto] = useState(null);  // {cid, dados}
   const [welcomeOpen, setWelcomeOpen] = useState(false);
   const [stopAlvoFor, setStopAlvoFor] = useState(null); // FASE 3: ticker do popup de stop/alvo (individual)
   const [stopAlvo, setStopAlvo] = useState({}); // FASE 3: resultados por ticker { loading, stop, alvo, explicacao, operar, error }
@@ -5337,6 +5660,47 @@ export default function App() {
   useEffect(() => {
     loadState();
   }, [loadState]);
+  // Toque no aviso de condição atingida → a tela do ativo, não a aba inicial.
+  // Registrado UMA vez, no boot. `reservarDonoProativo` garante que, se for a
+  // estreia da pessoa no conceito, a explicação venha com os números do ativo
+  // que a interrompeu — e não do primeiro card que a rede devolver.
+  useEffect(() => {
+    notify.onPushTap(async (t) => {
+      // O universo do push é watchlist ∪ POSIÇÕES, mas a tela lista só a
+      // watchlist — e "tem posição, não está na watchlist" é estado normal
+      // (o modal do catálogo SUBSTITUI a lista inteira). Sem garantir o ativo
+      // aqui, o toque levaria a uma tela sem ele em lugar nenhum.
+      try {
+        const s = await store.getState();
+        const wl = (s && s.watchlist) || [];
+        if (!wl.includes(t)) await store.putWatchlist([...wl, t]);
+      } catch { /* sem rede o scroll falha; a navegação ainda vale */ }
+      setTab("mercado");
+      // A reserva da eleição só vale se o card EXISTE. Reservar antes de
+      // confirmar prenderia `_proativoDono` num ticker que nunca monta, e
+      // nenhum outro card conseguiria abrir a folha proativa até a pessoa
+      // deslogar — o push mataria a estreia da camada que ele alimenta.
+      for (const ms of [300, 1200]) {
+        setTimeout(() => {
+          const el = document.getElementById("ativo-" + t);
+          if (!el) return;
+          reservarDonoProativo(t);
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }, ms);
+      }
+    });
+  }, []);
+  // Camada de entendimento: catálogo buscado UMA vez por modo. Custo zero (é
+  // texto determinístico do backend, sem LLM). Falha aqui é silêncio proposital
+  // — sem catálogo o app segue inteiro, apenas sem as afordâncias de explicação.
+  const modoApp = (data && data.config && data.config.appMode) || "estudo";
+  useEffect(() => {
+    let alive = true;
+    store.conceitos(modoApp)
+      .then((r) => { if (alive) setDidatica(r); })
+      .catch(() => { if (alive) setDidatica({ ligada: false, conceitos: [] }); });
+    return () => { alive = false; };
+  }, [modoApp]);
   // qa/38 (Help): abre o tour UMA vez no primeiro uso — depois que o portão de
   // abertura (login) fecha e só se `tourSeen` ainda não foi marcado. Guardado
   // por ref para não reabrir; o Ver tour de novo (Ajuda) usa A.openTour.
@@ -5643,13 +6007,42 @@ export default function App() {
     },
     openAbout: () => setAboutOpen(true),
     closeAbout: () => setAboutOpen(false),
+    // Camada de entendimento. `openConceito` leva os NÚMEROS do card junto —
+    // a explicação é daquele ativo naquele instante, não de manual.
+    // `trilha` guarda os conceitos por onde a pessoa passou nesta abertura —
+    // é o que dá o "‹ voltar" da cadeia. Abrir pelo card sempre recomeça.
+    openConceito: (cid, dados) => setConceitoAberto({ cid, dados: dados || null, trilha: [] }),
+    trocarConceito: (cid) => setConceitoAberto((c) => (c ? { ...c, cid, trilha: [...(c.trilha || []), c.cid] } : c)),
+    voltarConceito: () => setConceitoAberto((c) => {
+      const tr = (c && c.trilha) || [];
+      if (!tr.length) return c;
+      return { ...c, cid: tr[tr.length - 1], trilha: tr.slice(0, -1) };
+    }),
+    closeConceito: () => setConceitoAberto(null),
+    // Marca o conceito como visto: a via proativa dispara UMA vez; depois de
+    // marcado, a explicação segue a um toque na mesma afordância.
+    marcarConceitoVisto: (cid) => {
+      setData((d) => {
+        if (!d) return d;
+        const atual = Array.isArray(d.config.conceitosVistos) ? d.config.conceitosVistos : [];
+        if (atual.includes(cid)) return d;
+        return { ...d, config: { ...d.config, conceitosVistos: [...atual, cid] } };
+      });
+      // `.catch` na PROMESSA, não `try/catch`: o try síncrono não pega um
+      // reject (é o padrão herdado do closeTour, que tem o mesmo furo).
+      // Falhar aqui só faz a folha reaparecer — melhor que quebrar o fluxo.
+      store.putConfig({ conceitosVistos: [cid] }).catch(() => { /* silencioso */ });
+    },
+    reservarDonoProativo,
     // qa/38 (Help): tour de primeiro uso. Ao fechar, marca tourSeen no doc
     // local (não reaparece); best-effort no servidor.
     openTour: () => setTourOpen(true),
     closeTour: () => {
       setTourOpen(false);
       setData((d) => (d ? { ...d, config: { ...d.config, tourSeen: true } } : d));
-      try { store.putConfig({ tourSeen: true }); } catch { /* silencioso */ }
+      // `.catch` na promessa: o try/catch síncrono que estava aqui não pegava
+      // um reject — o tour reapareceria no próximo boot em silêncio.
+      store.putConfig({ tourSeen: true }).catch(() => { /* silencioso */ });
     },
     setNotif: async (patch) => {
       const p = { ...patch };
@@ -5885,6 +6278,7 @@ export default function App() {
   // (login/logout/exclusão) — evita vazar análises/cotações entre contas.
   const _resetScopeState = () => {
     setAnalysis({}); setExpanded({}); setQuotes({}); setWlScan(null); setDestaque({ stage: "idle" });
+    _proativoDono.t = null;   // conta nova recomeça elegível à via proativa
     notifRef.current = {};
   };
 
@@ -5894,6 +6288,11 @@ export default function App() {
     sellModal, setSellModal, wlScan, wlScanLoading, destaque,
     themePref, themeKey, aboutOpen,
     stopAlvo, stopAlvoFor,
+    didatica, conceitoAberto,   // camada de entendimento
+    // A folha proativa ADIA enquanto houver outro overlay na tela: ela é
+    // one-shot por conceito, para sempre, e abrir sob o portão de abertura ou
+    // sob o tour queimaria a estreia sem ninguém ler.
+    overlayLivre: !tourOpen && !aboutOpen && !welcomeOpen && !welcomeAuthOpen && !conceitoAberto,
     goMercado: () => setTab("mercado"),
     // FASE 2 (2.1): ponte Descobrir → Avaliar. Garante o ativo na watchlist,
     // navega para Avaliar e dispara a análise N2 daquele ativo.
@@ -6087,6 +6486,15 @@ export default function App() {
       )}
       {aboutOpen && <AboutModal onClose={A.closeAbout} />}
       {tourOpen && <TourModal ctx={ctx} />}
+      {conceitoAberto && (
+        <ConceitoSheet cid={conceitoAberto.cid} dados={conceitoAberto.dados}
+          didatica={didatica} onClose={A.closeConceito}
+          // Troca o conceito MANTENDO os dados do card: a allowlist do backend
+          // filtra o que serve a cada um, então o encadeamento segue ancorado
+          // no mesmo ativo em vez de virar texto de manual.
+          onTrocar={A.trocarConceito}
+          voltar={(conceitoAberto.trilha || []).length ? A.voltarConceito : null} />
+      )}
       {authOpen && <AuthModal ctx={ctx} onClose={() => setAuthOpen(false)} />}
       {stopAlvoFor && <StopAlvoModal ctx={ctx} />}
       {welcomeAuthOpen && (

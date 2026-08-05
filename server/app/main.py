@@ -31,6 +31,7 @@ from . import agent as agent_mod  # FASE 3: agente autônomo server-side
 from . import siwa  # FASE 4 (Bloco 2): Sign in with Apple — exchange + revoke
 from . import push  # FASE 3.3b: APNs (no-op sem configuração)
 from . import obslog  # FASE 5: observabilidade (log estruturado + ring buffer)
+from . import conceitos  # camada de entendimento: catálogo determinístico (custo zero)
 from .catalog import is_catalog_ticker
 from .options_api import router as options_router
 from .options_provider_yahoo import get_options as _get_options_for_status
@@ -1257,6 +1258,90 @@ async def timing_de_entrada(ticker: str, appMode: Optional[str] = None,
     return timing_mod.montar(radar_stored, intra_stored, t, modo)
 
 
+# --------------------- Camada de entendimento (didática) ---------------------
+# ISOLAMENTO POR CONSTRUÇÃO: estes endpoints são NOVOS e o `/api/timing` acima
+# fica intocado. É deliberado — a spec sugeria embutir o conceito na resposta
+# que já existe, mas aí "o payload do Operador é idêntico ao de hoje" viraria
+# promessa a ser testada em vez de fato estrutural. Rota nova não muda rota
+# velha, e o guardião de isolamento não tem como ser burlado.
+# Custo: zero LLM em qualquer caminho — texto determinístico servido do
+# backend, como `skill_ref.TIMING` já faz com as frases de estado.
+@app.get("/api/conceitos")
+async def get_conceitos(modo: Optional[str] = None, resumido: bool = False,
+                        scope: Optional[str] = Depends(current_scope)):
+    """Catálogo genérico (sem os números de nenhum card) + estado das chaves de
+    desligamento. O front busca uma vez e usa para saber o que existe."""
+    cfg = store.get(_conn, "config", user_id=scope) or {}
+    voc = "operador" if (modo or cfg.get("appMode")) == "operador" else "educacional"
+    return {"ligada": conceitos.didatica_ligada(),
+            "assistente": conceitos.assistente_ligado(),
+            "modo": voc,
+            "conceitos": conceitos.catalogo(voc, resumido)}
+
+
+@app.post("/api/conceito/{cid}")
+async def post_conceito(cid: str, body: dict = Body(default={}),
+                        scope: Optional[str] = Depends(current_scope)):
+    """Conceito ANCORADO nos números que o card está exibindo agora.
+
+    Os números vêm do chamador (o front já os tem de `/api/timing`) e passam
+    pelo formatador; campo ausente derruba o parágrafo que dependia dele —
+    nenhuma estimativa entra no lugar (Princípio 1). É POST por causa do corpo,
+    não por ter efeito: a rota não escreve nada."""
+    b = body or {}
+    # Camada desligada NÃO é 404: o front precisa distinguir "some a afordância"
+    # de "id errado", e 404 nos dois casos deixava a UI sem como decidir.
+    if not conceitos.didatica_ligada():
+        return {"ligada": False, "id": str(cid)[:40]}
+    cfg = store.get(_conn, "config", user_id=scope) or {}
+    voc = "operador" if (b.get("modo") or cfg.get("appMode")) == "operador" else "educacional"
+    c = conceitos.montar(str(cid)[:40], voc,
+                         b.get("dados") if isinstance(b.get("dados"), dict) else None,
+                         bool(b.get("resumido")))
+    if c is None:
+        raise HTTPException(404, "Conceito não existe no catálogo.")
+    return {"ligada": True, **c}
+
+
+# Fase 4 — ASSISTENTE de entendimento (camada paga, sob demanda).
+@app.post("/api/assistente")
+async def post_assistente(body: dict = Body(default={}), user: dict = Depends(require_user)):
+    """Pergunta livre sobre a tela atual, respondida no vocabulário do modo.
+
+    EXIGE CONTA por um motivo técnico, não comercial: `ai_activity` grava com
+    `user_id=scope`, e `scope=None` é UM balde compartilhado por TODOS os
+    anônimos — um teto por escopo ali deixaria um usuário esgotar a cota de
+    todo mundo. Quem não tem conta continua com a camada determinística, que é
+    completa e não gasta nada.
+    """
+    from . import assistente as assist
+    b = body or {}
+    scope = user["id"]
+    pergunta = str(b.get("pergunta") or "").strip()
+    if not pergunta:
+        raise HTTPException(400, "Escreva a sua pergunta sobre esta tela.")
+    # `config` no CORPO é o caminho do iPhone: lá o modelo e a chave vivem no
+    # aparelho, e o servidor não os tem. Omitir isto foi o que produziu
+    # "Nenhum modelo de IA configurado" em produção no scanDeep (qa/29).
+    config = b.get("config") or store.get(_conn, "config", user_id=scope)
+    modo = b.get("modo") or (config or {}).get("appMode") or "estudo"
+    # Chave PRÓPRIA dispensa o teto: ele protege o bolso do Alex, e barrar
+    # alguém de gastar o próprio dinheiro é atrito que faz o app parecer
+    # quebrado. Quem usa a chave gerenciada segue sob cota e sob teto.
+    byok = bool(llm.resolve_key(config))
+    config, _consume_ai = _ai_apply_managed(scope, config)
+    try:
+        r = await assist.responder(_conn, config, scope, modo,
+                                   b.get("tela"), b.get("snapshot"), pergunta,
+                                   byok=byok)
+    except assist.TetoAtingido as e:
+        raise HTTPException(429, str(e))
+    except Exception as e:  # noqa: BLE001 — erro do provedor vira texto público
+        raise HTTPException(502, llm.public_error(e))
+    _consume_ai()
+    return r
+
+
 async def _snapshot_para_trailing(ticker: str):
     """F2: insumo técnico do trailing dinâmico (ATR e velas), pelo MESMO STU que
     N1/N2/N3 leem — nada de um segundo caminho de candles com outro número.
@@ -1329,18 +1414,37 @@ async def get_analysis_outcomes_csv(scope: Optional[str] = Depends(current_scope
 
 
 # FASE 3.3b — registro do token de push do aparelho (exige conta).
+# 2026-08-05: a chamada passa a carregar TAMBÉM o consentimento, o modo e o
+# universo de ativos. Motivo: no aparelho a `config` é local (deviceStore grava
+# em localStorage e nunca chama a API), então o servidor não tem outro jeito de
+# saber se a pessoa quer o aviso de gatilho, em que vocabulário, e sobre quais
+# ativos. Este é o único caminho que SEMPRE chega ao servidor nos dois stores.
 @app.post("/api/push/register-token")
 async def push_register(body: dict = Body(default={}), user: dict = Depends(require_user)):
     uid = user["id"]
-    toks = push.register_token(_conn, uid, (body or {}).get("token") or "")
+    b = body or {}
+    antes = len(push.tokens_for(_conn, uid))
+    toks = push.register_token(_conn, uid, b.get("token") or "")
+    if any(k in b for k in ("prefs", "modo", "universo")):
+        prefs = dict(b.get("prefs") or {})
+        if b.get("modo"):
+            prefs["modo"] = b["modo"]
+        if isinstance(b.get("universo"), list):
+            prefs["universo"] = b["universo"]
+        push.set_prefs(_conn, uid, prefs)
     # FASE 3 (observabilidade do push): a ativação também entra no Diário —
     # antes, uma falha no registro (ou sucesso silencioso) não deixava rastro.
+    # 2026-08-05: só quando um aparelho NOVO entra. A mesma rota passou a ser o
+    # canal de sincronismo das preferências (`syncPushPrefs` chama com token
+    # vazio a cada troca de watchlist) — logar sempre encheria o Diário do
+    # usuário de "aparelho registrado (0 token(s))", que é falso.
     configurado = push.is_configured()
-    store.push_agent_log(_conn, [{
-        "time": now_str(), "kind": "info" if configurado else "warn",
-        "text": f"Push: aparelho registrado ({len(toks)} token(s) no total). APNs no servidor: "
-                + ("configurado ✓" if configurado else "AINDA NÃO configurado — rode scripts/configurar-apns.sh"),
-    }], user_id=uid)
+    if len(toks) > antes:
+        store.push_agent_log(_conn, [{
+            "time": now_str(), "kind": "info" if configurado else "warn",
+            "text": f"Push: aparelho registrado ({len(toks)} token(s) no total). APNs no servidor: "
+                    + ("configurado ✓" if configurado else "AINDA NÃO configurado — rode scripts/configurar-apns.sh"),
+        }], user_id=uid)
     return {"ok": True, "tokens": len(toks), "apnsConfigured": configurado}
 
 

@@ -228,7 +228,14 @@ export const api = {
   },
   scanDeep: (body) => req("POST", "/api/scan/deep", body || {}, 240000),
   pushAnalysisLog: (t, entry) => req("POST", "/api/analysis-log/" + encodeURIComponent(t), entry || {}),   // FASE 2 (2.5)
-  pushRegisterToken: (token) => req("POST", "/api/push/register-token", { token }),                        // FASE 3.3b
+  // FASE 3.3b + push do gatilho: o corpo carrega TAMBÉM consentimento, modo e
+  // universo — no aparelho a config é local e o servidor não tem outra via.
+  pushRegisterToken: (token, extra) => req("POST", "/api/push/register-token", { token, ...(extra || {}) }),
+  // Camada de entendimento (custo zero: texto determinístico do backend).
+  conceitos: (modo, resumido) => req("GET", "/api/conceitos?modo=" + encodeURIComponent(modo || "estudo") + (resumido ? "&resumido=true" : ""), undefined, 15000),
+  conceito: (cid, body) => req("POST", "/api/conceito/" + encodeURIComponent(cid), body || {}, 15000),
+  // Assistente (camada PAGA): exige conta e leva o snapshot da tela.
+  assistente: (body) => req("POST", "/api/assistente", body || {}, TIMEOUT_LLM),
   scanProgress: () => req("GET", "/api/scan/progress", undefined, 10000),        // BLOCO B1
   // F1 (timing de entrada): estado determinístico plano diário × barra 15m
   // FECHADA — O(1) no servidor, zero fetch/LLM. iOS manda ?appMode (modo é

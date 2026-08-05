@@ -194,7 +194,14 @@ def default_state() -> dict:
             "notif": {                 # notificacoes LOCAIS de movimentos da carteira
                 "enabled": False,      # mestre (pede permissao quando ligado)
                 "stop": True, "alvo": True, "agente": True, "variacao": True,
+                # Classe NOVA (2026-08-05): aviso de condição/gatilho atingido.
+                # Nasce DESLIGADA de propósito — é a única que interrompe fora
+                # do app por evento de mercado, e alerta de mercado é opt-in.
+                "gatilho": False,
             },
+            # Camada de entendimento: ids de conceito que o usuário já viu
+            # (a explicação aparece sozinha UMA vez; depois fica a um toque).
+            "conceitosVistos": [],
             # FASE 7 (F7.1) — Modo Operador
             "appMode": "estudo",       # estudo | operador (operador exige termo aceito)
             "operadorTermo": None,     # {aceitoEm, versao} registrado no aceite
