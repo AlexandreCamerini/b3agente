@@ -141,6 +141,10 @@ function serverStore() {
     optionsExpirations: (t) => api.optionsExpirations(t),
     optionsChain: (t, expiration) => api.optionsChain(t, expiration),
     analyzeOption: (body) => api.analyzeOption(body),
+    optionsGate: (t) => api.optionsGate(t),                        // v2: gate de descobribilidade
+    optionsBuy: (body) => api.optionsBuy(body),                    // v2 (ADR-003/004)
+    optionsSell: (body) => api.optionsSell(body),                  // v2 (ADR-005)
+    putOptionPosition: (contractId, b) => api.putOptionPosition(contractId, b),
     cachedTechnicals: (_t, _period) => null,
     buy: (t, qty, meta) => api.buy(t, qty, meta),  // FASE 2 (2.4): mesma interface do deviceStore
     sell: (t, qty) => api.sell(t, qty),
@@ -286,6 +290,7 @@ function deviceStore() {
       llmPrompts: doc.llmPrompts || defaultLlmPrompts(),
       custom: doc.custom || [],
       equitySnapshots: doc.equitySnapshots || [],
+      optionPositions: doc.optionPositions || [],  // v2 (ADR-003)
     };
   }
   const symbolsFor = () => [...new Set([...(doc.watchlist || []), ...doc.positions.map((p) => p.t)])].join(",");
@@ -299,6 +304,30 @@ function deviceStore() {
     const price = r && r.quotes && r.quotes[t] ? r.quotes[t].price : null;
     if (price == null) throw new Error("Sem cotacao para " + t);
     return price;
+  }
+
+  // v2 (ADR-003/005): espelho de store.py.sell_option/close_option_vencida —
+  // venda TOTAL/PARCIAL de um contrato, `motivo` estruturado desde o início.
+  function _sellOptionLocal(pos, price, qty, motivo) {
+    let sold = pos.qty;
+    if (typeof qty === "number" && qty > 0) sold = Math.min(pos.qty, Math.max(100, Math.round(qty / 100) * 100));
+    const pnl = +((price - pos.avg) * sold).toFixed(2);
+    if (sold >= pos.qty) {
+      doc.optionPositions = (doc.optionPositions || []).filter((p) => p.id !== pos.id);
+    } else {
+      pos.qty = pos.qty - sold;
+    }
+    doc.cash = +(doc.cash + sold * price).toFixed(2);
+    doc.history.unshift({ date: now(), type: "VENDA", t: pos.id, underlying: pos.underlying, kind: "opcao", qty: sold, price: +price.toFixed(2), pnl, motivo });
+    return pnl;
+  }
+
+  // v2 (ADR-005): valor intrínseco na liquidação por vencimento — pode ser
+  // ZERO (perda total do prêmio). Espelho de agent.intrinseco_opcao.
+  function _intrinsecoOpcao(pos, spot) {
+    const strike = pos.strike || 0;
+    if (pos.optionType === "put") return Math.max(0, strike - spot);
+    return Math.max(0, spot - strike);
   }
 
   // Cache dos dados tecnicos do ativo (no aparelho), separado do doc principal
@@ -501,6 +530,7 @@ function deviceStore() {
       const budget = typeof doc.config.initialBudget === "number" ? doc.config.initialBudget : 10000;
       doc.cash = +budget.toFixed(2);
       doc.positions = [];
+      doc.optionPositions = [];  // v2 (ADR-003)
       doc.history = [];
       doc.analyses = {};
       doc.agent.events = [{ time: "Inicio", kind: "info", text: "Carteira reiniciada com o orçamento simulado de R$ " + budget.toFixed(2) + "." }];
@@ -588,6 +618,74 @@ function deviceStore() {
       ensure();
       return api.analyzeOption(body);
     },
+    // v2 (ADR-003/004): gate/cadeia sempre vêm do servidor (dado de mercado
+    // não se duplica no aparelho); compra/venda gravam no doc LOCAL, espelho
+    // de store.py.buy_option/sell_option — mesma regra do resto do deviceStore.
+    async optionsGate(t) {
+      ensure();
+      return api.optionsGate(t);
+    },
+    async optionsBuy(body) {
+      ensure();
+      const chain = await api.optionsChain(body.underlying, body.expiration);
+      if (chain.providerStatus !== "ok") throw new Error("Cotação de opções indisponível no momento — tente novamente.");
+      const contrato = [...(chain.calls || []), ...(chain.puts || [])].find((c) => c.contractSymbol === body.contractSymbol);
+      if (!contrato) throw new Error("Contrato não encontrado na cadeia atual.");
+      const price = contrato.lastPrice;
+      if (typeof price !== "number" || price <= 0) throw new Error("Sem prêmio disponível para este contrato.");
+      const qty = Math.max(100, Math.round((body.qty || 0) / 100) * 100);
+      if (qty * price > doc.cash) throw new Error("Caixa insuficiente.");
+      const m = sanitizeTradeMeta(body.meta);
+      const cid = body.contractSymbol;
+      const ex = (doc.optionPositions || []).find((p) => p.id === cid);
+      if (ex) {
+        const tot = ex.qty + qty;
+        ex.avg = +(((ex.avg * ex.qty) + price * qty) / tot).toFixed(2);
+        ex.qty = tot;
+        if (m) ex.setupEntrada = m;
+      } else {
+        const pos = {
+          id: cid, underlying: body.underlying, optionType: contrato.optionType, strike: contrato.strike,
+          expiration: chain.expiration, qty, avg: +price.toFixed(2), stop: null, alvo: null, abertaEm: now(),
+          ivEntrada: contrato.impliedVolatility ?? null, deltaEntrada: null, hv21Entrada: null,
+        };
+        if (m) pos.setupEntrada = m;
+        doc.optionPositions = [...(doc.optionPositions || []), pos];
+      }
+      doc.cash = +(doc.cash - qty * price).toFixed(2);
+      const entry = { date: now(), type: "COMPRA", t: cid, underlying: body.underlying, kind: "opcao", qty, price: +price.toFixed(2), pnl: null };
+      if (m) { entry.setup = m.setup; entry.snapshotId = m.snapshotId; }
+      doc.history.unshift(entry);
+      write();
+      const out = pub();
+      out.priceUsed = +price.toFixed(2);
+      return out;
+    },
+    async optionsSell(body) {
+      ensure();
+      const pos = (doc.optionPositions || []).find((p) => p.id === body.contractSymbol);
+      if (!pos) throw new Error("Sem posição em " + body.contractSymbol);
+      const chain = await api.optionsChain(pos.underlying, pos.expiration);
+      if (chain.providerStatus !== "ok") throw new Error("Cotação de opções indisponível no momento — tente novamente.");
+      const contrato = [...(chain.calls || []), ...(chain.puts || [])].find((c) => c.contractSymbol === body.contractSymbol);
+      const price = contrato && contrato.lastPrice;
+      if (typeof price !== "number") throw new Error("Sem prêmio disponível para este contrato.");
+      _sellOptionLocal(pos, price, typeof body.qty === "number" ? body.qty : null, "manual");
+      write();
+      const out = pub();
+      out.priceUsed = +price.toFixed(2);
+      return out;
+    },
+    async putOptionPosition(contractId, b) {
+      ensure();
+      const pos = (doc.optionPositions || []).find((p) => p.id === contractId);
+      if (pos) {
+        if ("stop" in b) pos.stop = b.stop === "" || b.stop == null ? null : Number(b.stop);
+        if ("alvo" in b) pos.alvo = b.alvo === "" || b.alvo == null ? null : Number(b.alvo);
+      }
+      write();
+      return pub();
+    },
     cachedTechnicals(t, period) {
       return getCachedTech(t, period);
     },
@@ -628,6 +726,7 @@ function deviceStore() {
         profile: doc.profile,
         custom: doc.custom || [],
         equitySnapshots: doc.equitySnapshots || [],
+        optionPositions: doc.optionPositions || [],  // v2 (ADR-003)
       };
     },
     async buy(t, qty, meta) {
@@ -738,6 +837,52 @@ function deviceStore() {
             events.push({ time: "Agora", kind: "buy", text: `Protecao automatica: ${pos.t} vendido (${motivo}) a R$ ${price.toFixed(2)}.` });
           } else {
             events.push({ time: "Agora", kind: "warn", text: `Atencao: ${pos.t} com ${motivo} (R$ ${price.toFixed(2)}). Modo autonomo desligado.` });
+          }
+        }
+      }
+      // v2 (ADR-005): optionPositions avaliadas no MESMO ciclo — vencimento
+      // tem prioridade sobre stop/alvo. Tratamento simplificado (sem F2/F3/
+      // tetos, mesma divergência já documentada do resto deste ciclo), mas
+      // SEM esse ramo o usuário majoritariamente-iOS teria contratos vencendo
+      // sem liquidar — o motivo pelo qual o ADR exige replicar aqui.
+      const opts = doc.optionPositions || [];
+      if (opts.length) {
+        const pares = [...new Set(opts.map((p) => p.underlying + "|" + p.expiration))];
+        const chains = {};
+        for (const key of pares) {
+          const [underlying, expiration] = key.split("|");
+          try { chains[key] = await api.optionsChain(underlying, expiration); }
+          catch { chains[key] = null; }
+        }
+        const hoje = new Date().toISOString().slice(0, 10);
+        for (const pos of [...(doc.optionPositions || [])]) {
+          const chain = chains[pos.underlying + "|" + pos.expiration];
+          if (!chain || chain.providerStatus !== "ok") continue;  // ADR-004: sem cotação confiável, tenta no próximo ciclo
+          const spot = chain.underlyingPrice;
+          const contrato = [...(chain.calls || []), ...(chain.puts || [])].find((c) => c.contractSymbol === pos.id);
+          const price = contrato && contrato.lastPrice;
+          if (pos.expiration && pos.expiration <= hoje) {
+            if (typeof spot !== "number") continue;
+            const intrinseco = _intrinsecoOpcao(pos, spot);
+            if (doc.agent.autonomous) {
+              _sellOptionLocal(pos, intrinseco, null, "vencimento");
+              events.push({ time: "Agora", kind: "warn", text: `Vencimento: ${pos.id} (${pos.underlying}) liquidado pelo intrínseco (R$ ${intrinseco.toFixed(2)}/ação).` });
+            } else {
+              events.push({ time: "Agora", kind: "warn", text: `Atenção: ${pos.id} (${pos.underlying}) venceu hoje. Modo autônomo desligado — liquide manualmente.` });
+            }
+            continue;
+          }
+          if (typeof price !== "number") continue;
+          const breachStop = pos.stop != null && price <= pos.stop;
+          const hitAlvo = pos.alvo != null && price >= pos.alvo;
+          if (breachStop || hitAlvo) {
+            const motivo = breachStop ? "stop" : "alvo";
+            if (doc.agent.autonomous) {
+              _sellOptionLocal(pos, price, null, motivo);
+              events.push({ time: "Agora", kind: "buy", text: `Proteção simulada: opção ${pos.id} (${pos.underlying}) vendida (${motivo} atingido) a R$ ${price.toFixed(2)}.` });
+            } else {
+              events.push({ time: "Agora", kind: "warn", text: `Atenção: opção ${pos.id} com ${motivo} atingido (R$ ${price.toFixed(2)}). Modo autônomo desligado.` });
+            }
           }
         }
       }

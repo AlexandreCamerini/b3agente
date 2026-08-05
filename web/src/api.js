@@ -241,6 +241,11 @@ export const api = {
   optionsExpirations: (t) => req("GET", "/api/options/expirations/" + encodeURIComponent(t), undefined, 30000),
   optionsChain: (t, expiration) => req("GET", "/api/options/chain/" + encodeURIComponent(t) + (expiration ? "?expiration=" + encodeURIComponent(expiration) : ""), undefined, 30000),
   analyzeOption: (body) => req("POST", "/api/options/analyze", body, TIMEOUT_LLM),
+  // v2 (ADR-003/004/005): gate de descobribilidade + carteira simulada de opções.
+  optionsGate: (t) => req("GET", "/api/options/gate/" + encodeURIComponent(t), undefined, 30000),
+  optionsBuy: (body) => req("POST", "/api/options/buy", body),
+  optionsSell: (body) => req("POST", "/api/options/sell", body),
+  putOptionPosition: (contractId, b) => req("PUT", "/api/options/position/" + encodeURIComponent(contractId), b),
   buy: (t, qty, meta) => req("POST", "/api/buy", meta ? { t, qty, meta } : { t, qty }),   // FASE 2 (2.4): setup de entrada
   sell: (t, qty) => req("POST", "/api/sell", qty ? { t, qty } : { t }),                    // FASE 2 (2.4): venda parcial
   putPosition: (t, b) => req("PUT", "/api/position/" + t, b),

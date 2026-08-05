@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BolsIA — Opções como camada do AtivoCard (mock v1 · GATE)</title>
+<style>
+  :root{
+    --bg:#0b0e14; --panel:#0d111a; --card:#11151c; --border:#232a35; --border2:#1b212b;
+    --txt:#e7ecf3; --txt2:#c3ccd8; --mut:#9aa6b6; --faint:#5b6675;
+    --accent:#f0b429; --accent-soft:#ffd873; --on-accent:#20160a;
+    --tint:rgba(240,180,41,.14); --tint10:rgba(240,180,41,.10);
+    --pos:#34d399; --neg:#fb7185;
+    --mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+  }
+  body.opr{
+    --accent:#22c55e; --accent-soft:#86efac; --on-accent:#04170b;
+    --tint:rgba(34,197,94,.14); --tint10:rgba(34,197,94,.10);
+    --bg:#0a0d10; --panel:#0d1216; --card:#10161a; --border:#1e2a30; --border2:#182126;
+    --pos:#22c55e; --neg:#ef4444;
+  }
+  *{box-sizing:border-box;margin:0}
+  body{background:var(--bg);color:var(--txt);font-family:-apple-system,system-ui,'Segoe UI',sans-serif;
+    max-width:560px;margin:0 auto;padding:0 16px 60px}
+  .frise{height:3px;background:linear-gradient(90deg,var(--accent),var(--accent-soft));margin:0 -16px}
+  h1{font-size:19px;margin:18px 0 4px}
+  .sub{color:var(--mut);font-size:12.5px;line-height:1.55;max-width:520px}
+  .gate{margin:14px 0;padding:12px 14px;border:1px dashed var(--accent);border-radius:12px;
+    background:var(--tint10);font-size:12px;color:var(--txt2);line-height:1.55}
+  .seg{display:flex;gap:6px;margin:16px 0;background:var(--panel);border:1px solid var(--border);
+    border-radius:999px;padding:4px;width:max-content}
+  .seg button{border:none;background:transparent;color:var(--mut);font-weight:800;font-size:11px;
+    letter-spacing:.05em;padding:7px 14px;border-radius:999px;cursor:pointer}
+  .seg button.on{background:var(--accent);color:var(--on-accent)}
+  .kicker{font-size:10.5px;font-weight:800;letter-spacing:.06em;color:var(--faint);margin:22px 0 8px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:15px 16px;margin-bottom:12px;
+    box-shadow:0 1px 0 rgba(255,255,255,.03),0 8px 24px -12px rgba(0,0,0,.5)}
+  .row{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+  .tk{font-family:var(--mono);font-weight:800;font-size:16px}
+  .mut{color:var(--mut);font-size:11.5px} .faint{color:var(--faint)}
+  .px{font-family:var(--mono);text-align:right}
+  .px .p{font-size:16px;font-weight:700} .px .v{font-size:12px;font-weight:700;color:var(--pos)}
+  .headline{margin-top:11px;font-size:13px;color:var(--txt2);line-height:1.5;padding:9px 11px;
+    border-radius:9px;background:var(--tint10);border-left:3px solid var(--accent)}
+  .chips{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
+  .chip{padding:5px 10px;border-radius:7px;font-size:10.5px;font-weight:700;border:1px solid var(--border);color:var(--mut)}
+
+  /* ---- linha de opções (colapsada) ---- */
+  .oplink{margin-top:11px;padding-top:10px;border-top:1px solid var(--border2);
+    display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none}
+  .oplink .lbl{font-size:12px;color:var(--txt2);display:flex;align-items:center;gap:7px}
+  .oplink .lbl b{color:var(--accent)}
+  .oplink .chev{color:var(--faint);font-size:11px;transition:transform .15s}
+  .oplink.open .chev{transform:rotate(180deg)}
+  .explainer{margin-top:6px;font-size:10.5px;color:var(--faint);line-height:1.5}
+
+  /* ---- painel expandido de opções ---- */
+  .oppanel{margin-top:10px;padding:12px;border-radius:11px;background:var(--panel);border:1px solid var(--border2)}
+  .opcontract{padding:10px 0;border-top:1px solid var(--border2)}
+  .opcontract:first-child{border-top:none;padding-top:2px}
+  .opchead{display:flex;justify-content:space-between;align-items:baseline}
+  .opchead .tag{font-family:var(--mono);font-weight:800;font-size:12.5px}
+  .opchead .tag .call{color:var(--pos)} .opchead .tag .put{color:var(--neg)}
+  .opchead .premio{font-family:var(--mono);font-size:13px;font-weight:700;text-align:right}
+  .op5{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;margin-top:8px;font-size:11px}
+  .op5 .k{color:var(--faint)} .op5 .v{color:var(--txt2);font-weight:700;text-align:right;font-family:var(--mono)}
+  .liq{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:6px;font-size:9.5px;font-weight:800}
+  .liq.ok{background:rgba(52,211,153,.15);color:var(--pos)}
+  .liq.dificil{background:rgba(240,180,41,.15);color:var(--accent)}
+  .liq.sem{background:rgba(251,113,133,.15);color:var(--neg)}
+
+  /* ---- régua strike/breakeven (reuso do PlanRuler) ---- */
+  .ruler{margin-top:9px;position:relative;height:34px}
+  .ruler .track{position:absolute;top:15px;left:0;right:0;height:3px;background:var(--border);border-radius:2px}
+  .ruler .fill{position:absolute;top:15px;height:3px;background:var(--accent);border-radius:2px;opacity:.5}
+  .ruler .mark{position:absolute;top:9px;width:2px;height:15px;border-radius:1px}
+  .ruler .mark.strike{background:var(--faint)}
+  .ruler .mark.cur{background:var(--txt)}
+  .ruler .mark.be{background:var(--accent)}
+  .ruler .lbl{position:absolute;top:0;font-size:9px;color:var(--faint);white-space:nowrap;transform:translateX(-50%)}
+  .ruler .lbl.strong{color:var(--txt2);font-weight:700;font-family:var(--mono)}
+
+  .theta{margin-top:9px;font-size:10.5px;color:var(--mut);display:flex;align-items:center;gap:5px}
+  .aprofundar{margin-top:10px;text-align:center;font-size:10.5px;color:var(--faint);
+    border-top:1px dashed var(--border2);padding-top:8px;cursor:pointer}
+
+  .breadcrumb{margin:26px 0 10px;font-size:11px;color:var(--faint);display:flex;align-items:center;gap:6px}
+  .breadcrumb b{color:var(--txt2)}
+  .disclaimer{margin-top:14px;font-size:10.5px;color:var(--faint);line-height:1.6;
+    border-top:1px solid var(--border2);padding-top:10px}
+  .note{font-size:10.5px;color:var(--faint);line-height:1.5;margin-top:8px}
+</style>
+</head>
+<body>
+<div class="frise"></div>
+<h1>Opções como camada do AtivoCard — mock v1</h1>
+<p class="sub">Síntese do painel de especialistas (técnica + dados + UX + arquitetura) convocado via
+<code>CHECKOUT-V2-Opcoes-otimizado.md</code>. Nada disto está no app; implementação só após o OK — ver
+<code>docs/v2-opcoes-proposta.md</code> para o racional completo.</p>
+
+<div class="gate">⚠ <b>GATE DE APROVAÇÃO</b> · Camada dentro do card (não aba irmã), só compra a seco de 1 perna,
+presente nos dois modos com o vocabulário que cada um já usa. Fonte de dados continua Yahoo (degradado)
+até o MyData entregar brapi como terceiro marcado — ver ADR-004 proposto.</div>
+
+<div class="seg"><button class="on" onclick="mode(false,this)">MODO ESTUDO</button><button onclick="mode(true,this)">MODO OPERADOR</button></div>
+
+<div class="kicker">1 · CARD COLAPSADO — estado default (maioria dos usuários só quer a ação)</div>
+<div class="card">
+  <div class="row">
+    <div>
+      <div class="tk">PETR4</div>
+      <div class="mut">Petrobras PN</div>
+    </div>
+    <div class="px">
+      <div class="p">R$ 38,24</div>
+      <div class="v">▲ 1,4%</div>
+    </div>
+  </div>
+  <div class="headline estudo">Tendência de alta se sustenta acima de R$ 37,60 — plano de estudo com R:R 2,1:1.</div>
+  <div class="headline operador" style="display:none">Compra na força acima de R$ 38,00, stop em R$ 37,60 · R:R 2,1:1.</div>
+  <div class="chips">
+    <div class="chip">Direção: Alta</div>
+    <div class="chip">Convicção: Moderada</div>
+    <div class="chip">Confluência: 3/4</div>
+  </div>
+  <div class="oplink" onclick="toggleOp(this)">
+    <div class="lbl">⚡ opções · <b>call 38</b> · R$ 0,72 · 24 dias</div>
+    <div class="chev">▾</div>
+  </div>
+  <div class="explainer">Toque para ver as opções líquidas deste ativo — instrumento diferente, com prazo e risco próprios.</div>
+</div>
+
+<div class="kicker">2 · CARD EXPANDIDO — 2 contratos + régua reusada</div>
+<div class="card">
+  <div class="row">
+    <div>
+      <div class="tk">PETR4</div>
+      <div class="mut">Petrobras PN</div>
+    </div>
+    <div class="px">
+      <div class="p">R$ 38,24</div>
+      <div class="v">▲ 1,4%</div>
+    </div>
+  </div>
+  <div class="headline estudo">Tendência de alta se sustenta acima de R$ 37,60 — plano de estudo com R:R 2,1:1.</div>
+  <div class="headline operador" style="display:none">Compra na força acima de R$ 38,00, stop em R$ 37,60 · R:R 2,1:1.</div>
+  <div class="chips">
+    <div class="chip">Direção: Alta</div>
+    <div class="chip">Convicção: Moderada</div>
+    <div class="chip">Confluência: 3/4</div>
+  </div>
+
+  <div class="oplink open" onclick="toggleOp(this)">
+    <div class="lbl">⚡ opções de PETR4</div>
+    <div class="chev">▾</div>
+  </div>
+
+  <div class="oppanel">
+    <div class="opcontract">
+      <div class="opchead">
+        <div class="tag"><span class="call">CALL</span> PETRH340 · strike 38</div>
+        <div class="premio">R$ 0,72</div>
+      </div>
+      <div class="op5">
+        <div class="k">Custo total (100 cotas)</div><div class="v">R$ 72,00 — risco máximo</div>
+        <div class="k">Até onde precisa ir</div><div class="v">R$ 38,72 (+1,3%)</div>
+        <div class="k">Até quando</div><div class="v">24 dias · vence 15/08</div>
+        <div class="k">Tendência do ativo sustenta?</div><div class="v" style="color:var(--pos)">Sim</div>
+      </div>
+      <div class="ruler">
+        <div class="track"></div>
+        <div class="fill" style="left:20%;width:15%"></div>
+        <div class="mark strike" style="left:20%"></div>
+        <div class="lbl" style="left:20%">strike<br><span class="strong">38,00</span></div>
+        <div class="mark cur" style="left:35%"></div>
+        <div class="lbl" style="left:35%">agora<br><span class="strong">38,24</span></div>
+        <div class="mark be" style="left:50%"></div>
+        <div class="lbl" style="left:50%">breakeven<br><span class="strong">38,72</span></div>
+      </div>
+      <div class="theta"><span class="liq ok">NEGOCIÁVEL</span> spread 4% · <span class="mut">custo de esperar: ~2,1% do prêmio/semana</span></div>
+    </div>
+
+    <div class="opcontract">
+      <div class="opchead">
+        <div class="tag"><span class="put">PUT</span> PETRT360 · strike 36</div>
+        <div class="premio">R$ 0,58</div>
+      </div>
+      <div class="op5">
+        <div class="k">Custo total (100 cotas)</div><div class="v">R$ 58,00 — risco máximo</div>
+        <div class="k">Até onde precisa ir</div><div class="v">R$ 35,42 (−7,4%)</div>
+        <div class="k">Até quando</div><div class="v">24 dias · vence 15/08</div>
+        <div class="k">Tendência do ativo sustenta?</div><div class="v" style="color:var(--neg)">Não — ativo em alta</div>
+      </div>
+      <div class="theta"><span class="liq dificil">DIFÍCIL</span> spread 11% · <span class="mut">custo de esperar: ~3,4% do prêmio/semana</span></div>
+    </div>
+
+    <div class="aprofundar">Ver cadeia completa · gregas · IV vs HV ▸</div>
+  </div>
+</div>
+
+<div class="breadcrumb"><b>PETR4</b> › <span>Opções</span> — overlay ticker-scoped ao tocar "ver cadeia completa"</div>
+<div class="note">Mesmo padrão já usado por indicadores (<code>openTech</code>/<code>techFor</code>): mantém o
+contexto do ativo no <code>BackHeader</code> em vez de navegar para uma tela "opções" genérica.</div>
+
+<div class="kicker">3 · SEM LIQUIDEZ — o selo bloqueia a camada de comprar</div>
+<div class="card">
+  <div class="row">
+    <div><div class="tk">CSAN3</div><div class="mut">Cosan ON</div></div>
+    <div class="px"><div class="p">R$ 8,91</div><div class="v" style="color:var(--neg)">▼ 0,6%</div></div>
+  </div>
+  <div class="oppanel" style="margin-top:11px">
+    <div class="opcontract">
+      <div class="opchead"><div class="tag"><span class="call">CALL</span> CSNAH90 · strike 9</div><div class="premio">R$ 0,31</div></div>
+      <div class="theta"><span class="liq sem">SEM MERCADO</span> <span class="mut">sem book — comprar aqui trava a perna sem saída antes do vencimento</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="disclaimer">Opções têm risco elevado e podem perder 100% do prêmio — este é o resultado
+comum, não uma exceção. A camada é conteúdo educacional, dinheiro fictício, e não representa
+recomendação de investimento. O score é apenas educacional e não gera ordem de compra ou venda.</div>
+
+<script>
+function mode(isOp, btn){
+  document.body.classList.toggle('opr', isOp);
+  document.querySelectorAll('.seg button').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  document.querySelectorAll('.headline.estudo').forEach(e=>e.style.display = isOp ? 'none' : '');
+  document.querySelectorAll('.headline.operador').forEach(e=>e.style.display = isOp ? '' : 'none');
+}
+function toggleOp(el){ el.classList.toggle('open'); }
+</script>
+</body>
+</html>

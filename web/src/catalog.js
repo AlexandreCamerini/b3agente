@@ -207,5 +207,6 @@ export function defaultState() {
       experiencia: "intermediario",
     },
     custom: [],
+    optionPositions: [],  // v2 (ADR-003): coleção própria, nunca mistura com positions
   };
 }

@@ -24,6 +24,7 @@ export function backfillStructural(doc, defaults) {
   if (!Array.isArray(d.watchlist)) d.watchlist = Array.isArray(def.watchlist) ? [...def.watchlist] : [];
   if (!Array.isArray(d.positions)) d.positions = []; // nunca fabrica posições
   if (!Array.isArray(d.history)) d.history = [];      // nunca fabrica histórico
+  if (!Array.isArray(d.optionPositions)) d.optionPositions = []; // v2 (ADR-003): idem, nunca fabrica
 
   if (typeof d.cash !== "number" || !Number.isFinite(d.cash)) {
     d.cash = d.config && typeof d.config.initialBudget === "number" ? d.config.initialBudget : 10000;

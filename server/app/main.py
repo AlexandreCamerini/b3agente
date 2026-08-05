@@ -24,6 +24,7 @@ from . import ai_activity  # qa/45: custo (R$) + histórico de comportamento da 
 from . import fundamentals  # qa/36 (F10.2): fundamento × técnica (score, cache, rebaixamento)
 from . import scan_deep  # FASE 1 (N1): aprofundamento IA do top-N do Radar
 from . import candle_provider  # ADR-001: ponto único de entrada de candles
+from . import options_provider_yahoo  # v2: cotação de contratos (ADR-003/004/005)
 from . import technical_snapshot  # FASE 1 (STU): fonte única de N1/N2/N3
 from . import model_catalog  # qa/49: catálogo de modelos por provedor + parâmetros aceitos
 from . import agent as agent_mod  # FASE 3: agente autônomo server-side
@@ -1141,6 +1142,69 @@ async def position(ticker: str, body: dict = Body(default={}), scope: Optional[s
     return store.public_state(_conn, user_id=scope)
 
 
+# ---- Carteira: opções (v2 — ADR-003/004/005) ----
+@app.post("/api/options/buy")
+async def buy_option(body: dict = Body(default={}), scope: Optional[str] = Depends(current_scope)):
+    """Compra simulada de UM contrato de opção. ADR-004: bloqueia a execução
+    quando o provedor está degradado — nunca preenche `avg` com um preço que
+    o próprio sistema classificou como não confiável."""
+    underlying = _normalize_ticker(str(body.get("underlying") or ""))
+    contract_symbol = str(body.get("contractSymbol") or "")
+    qty = int(body.get("qty") or 0)
+    if len(underlying) < 4 or not contract_symbol or qty <= 0:
+        raise HTTPException(400, "Contrato de opção inválido.")
+    chain = await options_provider_yahoo.get_options(underlying, body.get("expiration"))
+    if chain.get("providerStatus") != "ok":
+        raise HTTPException(502, "Cotação de opções indisponível no momento — tente novamente.")
+    contrato = next((c for c in [*chain.get("calls", []), *chain.get("puts", [])]
+                      if c.get("contractSymbol") == contract_symbol), None)
+    if not contrato:
+        raise HTTPException(404, "Contrato não encontrado na cadeia atual.")
+    price = contrato.get("lastPrice")
+    if not isinstance(price, (int, float)) or price <= 0:
+        raise HTTPException(502, "Sem prêmio disponível para este contrato.")
+    if qty * price > store.get(_conn, "cash", user_id=scope):
+        raise HTTPException(400, "Caixa insuficiente.")
+    contract = {
+        "id": contract_symbol, "underlying": underlying,
+        "optionType": contrato.get("optionType"), "strike": contrato.get("strike"),
+        "expiration": chain.get("expiration"),
+        "ivEntrada": contrato.get("impliedVolatility"),
+    }
+    store.buy_option(_conn, contract, qty, price, user_id=scope, meta=body.get("meta"))
+    out = store.public_state(_conn, user_id=scope)
+    out["priceUsed"] = round(price, 2)
+    return out
+
+
+@app.post("/api/options/sell")
+async def sell_option(body: dict = Body(default={}), scope: Optional[str] = Depends(current_scope)):
+    contract_symbol = str(body.get("contractSymbol") or "")
+    pos = next((p for p in store.get(_conn, "optionPositions", user_id=scope) if p["id"] == contract_symbol), None)
+    if not pos:
+        raise HTTPException(400, "Sem posição em " + contract_symbol)
+    chain = await options_provider_yahoo.get_options(pos["underlying"], pos.get("expiration"))
+    if chain.get("providerStatus") != "ok":
+        raise HTTPException(502, "Cotação de opções indisponível no momento — tente novamente.")
+    contrato = next((c for c in [*chain.get("calls", []), *chain.get("puts", [])]
+                      if c.get("contractSymbol") == contract_symbol), None)
+    price = contrato.get("lastPrice") if contrato else None
+    if not isinstance(price, (int, float)):
+        raise HTTPException(502, "Sem prêmio disponível para este contrato.")
+    _qty = body.get("qty")
+    store.sell_option(_conn, contract_symbol, price, user_id=scope, qty=int(_qty) if _qty else None, motivo="manual")
+    out = store.public_state(_conn, user_id=scope)
+    out["priceUsed"] = round(price, 2)
+    return out
+
+
+@app.put("/api/options/position/{contract_id}")
+async def option_position(contract_id: str, body: dict = Body(default={}), scope: Optional[str] = Depends(current_scope)):
+    store.set_option_position(_conn, contract_id, stop=body.get("stop"), alvo=body.get("alvo"),
+                               has_stop=("stop" in body), has_alvo=("alvo" in body), user_id=scope)
+    return store.public_state(_conn, user_id=scope)
+
+
 @app.put("/api/agent")
 async def agent(body: dict = Body(default={}), scope: Optional[str] = Depends(current_scope)):
     store.set_agent(_conn, body or {}, user_id=scope)
@@ -1215,7 +1279,8 @@ async def cycle(scope: Optional[str] = Depends(current_scope)):
     # scheduler do servidor) — este endpoint (ciclo foreground) o reusa.
     positions = store.get(_conn, "positions", user_id=scope)
     await agent_mod.run_cycle_for(_conn, scope, yahoo.get_quotes,
-                                  snapshot_getter=_snapshot_para_trailing)  # F2
+                                  snapshot_getter=_snapshot_para_trailing,  # F2
+                                  option_quotes_getter=options_provider_yahoo.get_options)  # v2
     out = store.public_state(_conn, user_id=scope)
     out["quotes"] = await yahoo.get_quotes([p["t"] for p in positions]) if positions else {}
     return out
@@ -1310,7 +1375,8 @@ async def agent_run_now(user: dict = Depends(require_user)):
     async def _bg():
         try:
             await agent_mod.run_cycle_for(_conn, uid, yahoo.get_quotes, origem="manual",
-                                          snapshot_getter=_snapshot_para_trailing)  # F2
+                                          snapshot_getter=_snapshot_para_trailing,  # F2
+                                          option_quotes_getter=options_provider_yahoo.get_options)  # v2
         except Exception as e:  # noqa: BLE001 — o erro já foi para o agentLog
             print(f"[agent] run-now de {uid} falhou: {e}")
 
@@ -1374,7 +1440,8 @@ async def _start_agent_scheduler():
         agent_mod.scheduler_loop(_conn, yahoo.get_quotes, notify_push=_notify,
                                  radar_fetch=candle_provider.get_history,  # FASE 4 (1.3)
                                  snapshot_getter=_snapshot_para_trailing,  # F2
-                                 intraday_fetch=_intraday_fetch)  # ADR-001 item 7
+                                 intraday_fetch=_intraday_fetch,  # ADR-001 item 7
+                                 option_quotes_getter=options_provider_yahoo.get_options)  # v2
     )
     # FASE 5 (lançamento): higiene de sessões — purga as expiradas no boot e a
     # cada 24h (o resolve_session já apaga lazy a sessão consultada; isto cobre

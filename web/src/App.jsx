@@ -2121,6 +2121,124 @@ function TimingBadge({ t, operador }) {
   );
 }
 
+// v2 (ADR-003/004/005) — UM contrato de opção, dentro do accordion (só 1
+// aberto por vez — decisão do painel: corta mais altura que esconder o
+// ativo). Os 5 campos são os que a lente técnica marcou como carregando
+// informação (não ruído) para quem está aprendendo; gregas completas e IV
+// vs HV ficam de fora desta camada por decisão de escopo (proposta §2).
+function OpcaoContrato({ c, cur, chain, isOpen, onToggle, sustains, pos, onBuy, onSell, busy }) {
+  const premio = c.lastPrice;
+  const custoTotal = typeof premio === "number" ? premio * 100 : null;
+  const breakeven = c.breakeven;
+  const distPct = typeof breakeven === "number" && cur ? ((breakeven - cur) / cur) * 100 : null;
+  const liq = c.liquidity || {};
+  const liqLabel = (liq.score || 0) >= 55 ? ["NEGOCIÁVEL", T.positive, T.positiveTint10]
+    : (liq.score || 0) >= 30 ? ["DIFÍCIL", T.accent, T.accentTint10] : ["SEM MERCADO", T.negative, T.negativeTint10];
+  const thetaSemanaPct = c.blackScholes && typeof c.blackScholes.theta === "number" && custoTotal
+    ? Math.abs((c.blackScholes.theta * 7 * 100 / custoTotal) * 100) : null;
+  const bloqueado = !chain || chain.providerStatus !== "ok"; // ADR-004
+  return (
+    <div style={{ borderTop: `1px solid ${T.borderFaint}` }}>
+      <div onClick={onToggle} role="button" tabIndex={0} style={{ padding: "9px 0", display: "flex", justifyContent: "space-between", alignItems: "baseline", cursor: "pointer" }}>
+        <span style={{ fontFamily: MONO, fontWeight: 800, fontSize: "12.5px" }}>
+          <span style={{ color: c.optionType === "call" ? T.positive : T.negative }}>{c.optionType === "call" ? "CALL" : "PUT"}</span> {c.contractSymbol} · strike {price(c.strike)}
+        </span>
+        <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <span style={{ fontFamily: MONO, fontSize: "13px", fontWeight: 700 }}>{typeof premio === "number" ? "R$ " + price(premio) : "—"}</span>
+          <span aria-hidden style={{ color: T.textFaint, fontSize: "10px", display: "inline-block", transform: isOpen ? "rotate(180deg)" : "none" }}>▾</span>
+        </span>
+      </div>
+      {isOpen && (
+        <div style={{ paddingBottom: "11px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 14px", fontSize: "11px" }}>
+            <div style={{ color: T.textFaint }}>Custo (100 cotas)</div>
+            <div style={{ textAlign: "right", fontWeight: 700, color: T.textSecondary, fontFamily: MONO }}>{custoTotal != null ? "R$ " + price(custoTotal) + " — risco máximo" : "—"}</div>
+            <div style={{ color: T.textFaint }}>Até onde (breakeven)</div>
+            <div style={{ textAlign: "right", fontWeight: 700, color: T.textSecondary, fontFamily: MONO }}>{breakeven != null ? "R$ " + price(breakeven) + (distPct != null ? " (" + (distPct >= 0 ? "+" : "") + distPct.toFixed(1) + "%)" : "") : "—"}</div>
+            <div style={{ color: T.textFaint }}>Até quando</div>
+            <div style={{ textAlign: "right", fontWeight: 700, color: T.textSecondary, fontFamily: MONO }}>{c.daysToExpiration != null ? c.daysToExpiration + " dias" : "—"}{chain && chain.expiration ? " · vence " + chain.expiration.split("-").reverse().join("/") : ""}</div>
+            <div style={{ color: T.textFaint }}>Tendência sustenta?</div>
+            <div style={{ textAlign: "right", fontWeight: 700, fontFamily: MONO, color: sustains == null ? T.textFaint : sustains ? T.positive : T.negative }}>{sustains == null ? "indefinido" : sustains ? "Sim" : "Não"}</div>
+          </div>
+          <PlanRuler
+            marks={[typeof c.strike === "number" && { v: c.strike, color: T.textFaint }, typeof breakeven === "number" && { v: breakeven, color: T.accent }].filter(Boolean)}
+            cur={cur} curLabel={cur != null ? "agora " + price(cur) : null}
+            legend={[{ k: "STRIKE", v: c.strike }, { k: "AGORA", v: cur }, { k: "BREAKEVEN", v: breakeven, color: T.accent }]}
+          />
+          <div style={{ marginTop: "9px", fontSize: "10.5px", color: T.textMuted, display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+            <span style={{ padding: "2px 7px", borderRadius: "6px", fontSize: "9.5px", fontWeight: 800, background: liqLabel[2], color: liqLabel[1] }}>{liqLabel[0]}</span>
+            {liq.spreadPct != null && <span>spread {liq.spreadPct.toFixed(0)}%</span>}
+            {thetaSemanaPct != null && <span>· custo de esperar: ~{thetaSemanaPct.toFixed(1)}% do prêmio/semana</span>}
+          </div>
+          <div style={{ fontSize: "10px", color: T.textFaint, marginTop: "8px", lineHeight: 1.5 }}>
+            Perder 100% do prêmio é o resultado comum desta simulação, não uma exceção. Conteúdo educacional, dinheiro simulado — não é recomendação de investimento.
+          </div>
+          {pos ? (
+            <div style={{ marginTop: "9px" }}>
+              <div style={{ fontSize: "11px", color: T.textSecondary, marginBottom: "6px" }}>Em carteira · {pos.qty} cotas · prêmio médio R$ {price(pos.avg)}</div>
+              <button onClick={onSell} disabled={busy || bloqueado} style={{ width: "100%", minHeight: "38px", borderRadius: "9px", border: `1px solid ${T.negative}`, background: "transparent", color: T.negative, fontWeight: 800, fontSize: "12px" }}>
+                {busy ? "Vendendo…" : "Vender posição"}
+              </button>
+            </div>
+          ) : (
+            <button onClick={onBuy} disabled={busy || bloqueado || custoTotal == null} style={{ marginTop: "9px", width: "100%", minHeight: "40px", borderRadius: "9px", border: `1px solid ${T.accent}`, background: T.accentTint, color: T.accent, fontWeight: 800, fontSize: "12.5px" }}>
+              {busy ? "Comprando…" : bloqueado ? "Indisponível — cotação de opções degradada" : "Comprar — " + (custoTotal != null ? "R$ " + price(custoTotal) : "…") + " (100 cotas)"}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// v2 (ADR-003/004/005) — linha colapsada + painel expandido ("A acoplado").
+// Gate de descobribilidade: só existe se `/api/options/gate` confirmar
+// liquidez (chamado 1x por card em AtivoCard, best-effort). A cadeia completa
+// só é buscada quando o usuário abre — zero fetch novo por padrão (proposta §5).
+function OpcoesCamada({ t, cur, open, onToggle, chain, chainLoading, opContract, setOpContract, opShowAll, setOpShowAll, myPositions, decColor, onBuy, onSell, busy }) {
+  const contratos = chain && chain.providerStatus === "ok"
+    ? [...(chain.calls || []), ...(chain.puts || [])].sort((a, b) => Math.abs((a.strike || 0) - (cur || 0)) - Math.abs((b.strike || 0) - (cur || 0)))
+    : [];
+  const visiveis = opShowAll ? contratos : contratos.slice(0, 2);
+  // Princípio 5/9: opção nunca contradiz a leitura do ativo — sem leitura
+  // clara (decColor neutro), "indefinido" em vez de forçar Sim/Não.
+  const sustains = (optionType) => decColor === T.positive ? optionType === "call" : decColor === T.negative ? optionType === "put" : null;
+  const posFor = (id) => myPositions.find((p) => p.id === id);
+  return (
+    <div>
+      <div onClick={onToggle} role="button" tabIndex={0} style={{ marginTop: "11px", paddingTop: "10px", borderTop: `1px solid ${T.borderFaint}`, display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}>
+        <span style={{ fontSize: "12px", color: T.textSecondary, display: "flex", alignItems: "center", gap: "7px" }}>
+          <span style={{ color: T.accent }}>⚡</span> {open ? "opções de " + t : "opções líquidas disponíveis"}
+        </span>
+        <span aria-hidden style={{ color: T.textFaint, fontSize: "11px", display: "inline-block", transform: open ? "rotate(180deg)" : "none" }}>▾</span>
+      </div>
+      {!open && <div style={{ marginTop: "6px", fontSize: "10.5px", color: T.textFaint, lineHeight: 1.5 }}>Toque para ver — só compra a seco (1 perna), risco = prêmio pago.</div>}
+      {open && (
+        <div style={{ marginTop: "10px", padding: "2px 12px", borderRadius: "11px", background: T.bgBase, border: `1px solid ${T.borderFaint}` }}>
+          {chainLoading && <div style={{ padding: "12px 0", fontSize: "11.5px", color: T.textFaint }}>Carregando cadeia de opções…</div>}
+          {!chainLoading && chain && chain.providerStatus !== "ok" && (
+            <div style={{ padding: "12px 0", fontSize: "11.5px", color: T.textFaint, lineHeight: 1.5 }}>{chain.warning || "Cotação de opções indisponível no momento. Tente novamente em alguns minutos."}</div>
+          )}
+          {!chainLoading && chain && chain.providerStatus === "ok" && contratos.length === 0 && (
+            <div style={{ padding: "12px 0", fontSize: "11.5px", color: T.textFaint }}>Nenhum contrato retornado para este vencimento.</div>
+          )}
+          {visiveis.map((c) => (
+            <OpcaoContrato key={c.contractSymbol} c={c} cur={cur} chain={chain}
+              isOpen={opContract === c.contractSymbol} onToggle={() => setOpContract(opContract === c.contractSymbol ? null : c.contractSymbol)}
+              sustains={sustains(c.optionType)} pos={posFor(c.contractSymbol)}
+              onBuy={() => onBuy(c)} onSell={() => onSell(c.contractSymbol)} busy={busy === c.contractSymbol} />
+          ))}
+          {!opShowAll && contratos.length > 2 && (
+            <button onClick={() => setOpShowAll(true)} style={{ width: "100%", padding: "9px 0", background: "transparent", border: "none", borderTop: `1px dashed ${T.borderFaint}`, color: T.textFaint, fontSize: "10.5px", fontWeight: 700 }}>
+              Ver mais {contratos.length - 2} contrato{contratos.length - 2 > 1 ? "s" : ""} ▾
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // qa/49 (v11): CARD ÚNICO DO ATIVO — fonte única de renderização em todas as
 // abas (watchlist, radar, posições, home). Recebe um view-model normalizado
 // (vm) + contexto; o núcleo (identidade, manchete única, chips de análise) é
@@ -2130,8 +2248,65 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
   const chip = (label, value, col) => (
     <span style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "999px", background: T.bgBase, color: T.textSecondary, fontWeight: 700 }}>{label} <b style={{ fontWeight: 800, color: col || T.textPrimary }}>{value}</b></span>
   );
+
+  // v2 (ADR-003/004/005) — camada de opções: self-contained no AtivoCard (o
+  // mesmo card serve Watchlist e Radar; nenhuma das duas telas precisa de
+  // código novo). "A acoplado": 1 controle só — abrir opções encolhe a
+  // identidade do ativo para uma espinha persistente (números, não selo) e
+  // fecha a cauda (posição/histórico/CTA), que voltaria a competir por altura.
+  const [opOpen, setOpOpen] = useState(false);
+  const [opGate, setOpGate] = useState(null);
+  const [opChain, setOpChain] = useState(null);
+  const [opChainLoading, setOpChainLoading] = useState(false);
+  const [opContract, setOpContract] = useState(null);
+  const [opShowAll, setOpShowAll] = useState(false);
+  const [opBusy, setOpBusy] = useState(null);
+
+  useEffect(() => {
+    let alive = true;
+    setOpGate(null);
+    store.optionsGate(t).then((r) => { if (alive) setOpGate(r); }).catch(() => { /* gate é best-effort: sem ele, a linha só não aparece */ });
+    return () => { alive = false; };
+  }, [t]);
+
+  const toggleOp = () => {
+    const next = !opOpen;
+    setOpOpen(next);
+    if (next && !opChain && !opChainLoading) {
+      setOpChainLoading(true);
+      store.optionsChain(t).then((r) => setOpChain(r)).catch(() => setOpChain({ providerStatus: "degraded", calls: [], puts: [] })).finally(() => setOpChainLoading(false));
+    }
+  };
+
+  const myOptionPositions = ((data && data.optionPositions) || []).filter((p) => p.underlying === t);
+  const doBuyOption = async (contrato) => {
+    setOpBusy(contrato.contractSymbol);
+    try { await A.buyOption(t, contrato, opChain.expiration, buyMeta); }
+    finally { setOpBusy(null); }
+  };
+  const doSellOption = async (contractId) => {
+    setOpBusy(contractId);
+    try { await A.sellOption(contractId); }
+    finally { setOpBusy(null); }
+  };
+
   return (
             <div key={t} style={{ ...card, padding: "14px 15px" }}>
+              {opOpen ? (
+                // ESPINHA: o que sustenta a checagem "opção respeita a leitura do
+                // ativo" (Princípio 5/9) continua CONFERÍVEL — números, não um selo.
+                <div style={{ padding: "9px 10px", borderRadius: "9px", background: T.bgBase, border: `1px solid ${T.borderFaint}` }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontSize: "12px", flexWrap: "wrap", gap: "6px" }}>
+                    <span><b style={{ fontFamily: MONO, fontSize: "13px" }}>{t}</b> {q.error ? "—" : "R$ " + price(q.price)} {!q.error && <span style={{ color: T.textFaint }}>({pct(q.change)})</span>}</span>
+                    {(kp.direcao || kp.conviccao) && <span style={{ color: T.textSecondary, fontWeight: 700, fontSize: "11px" }}>{[kp.direcao, kp.conviccao].filter(Boolean).join(" · ")}</span>}
+                  </div>
+                  <div style={{ marginTop: "6px", fontSize: "10.5px", color: T.textMuted, display: "flex", gap: "10px", flexWrap: "wrap", fontFamily: MONO }}>
+                    {pos && pos.stop != null && <span>stop <b style={{ color: T.textSecondary }}>{price(pos.stop)}</b></span>}
+                    {pos && pos.alvo != null && <span>alvo <b style={{ color: T.textSecondary }}>{price(pos.alvo)}</b></span>}
+                    {decM && <span>veredito <b style={{ color: decColor, fontFamily: "inherit" }}>{decM}</b></span>}
+                  </div>
+                </div>
+              ) : (<>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "10px" }}>
                 <div>
                   <div style={{ display: "flex", alignItems: "center", gap: "7px", flexWrap: "wrap" }}>
@@ -2196,10 +2371,26 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
                   {sc && sc.melhorSetup && <span style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "999px", background: T.bgBase, color: T.textMuted }}>{sc.melhorSetup}</span>}
                 </div>
               )}
+              </>)}
+
+              {/* v2 (ADR-003/004/005): linha de opções — só aparece com liquidez
+                  confirmada pelo gate (1 chamada leve por card, best-effort). */}
+              {opGate && opGate.liquida && (
+                <OpcoesCamada
+                  t={t} cur={q.price} open={opOpen} onToggle={toggleOp}
+                  chain={opChain} chainLoading={opChainLoading}
+                  opContract={opContract} setOpContract={setOpContract}
+                  opShowAll={opShowAll} setOpShowAll={setOpShowAll}
+                  myPositions={myOptionPositions} decColor={decColor}
+                  onBuy={doBuyOption} onSell={doSellOption} busy={opBusy}
+                />
+              )}
 
               {/* qa/49 (v11): CAUDA por contexto — sem children, a cauda da watchlist
-                  (posição no risco + histórico + CTAs); com children, a aba pluga a sua. */}
-              {children || (<>
+                  (posição no risco + histórico + CTAs); com children, a aba pluga a sua.
+                  v2: fechada enquanto a camada de opções está aberta — ela reclama o
+                  espaço que a identidade do ativo cedeu para a espinha. */}
+              {!opOpen && (children || (<>
               {/* POSIÇÃO NO RISCO — a régua reusada do card de posições. */}
               {pos && (pos.stop != null || pos.alvo != null) && (
                 <>
@@ -2315,7 +2506,7 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
                   </button>
                 )}
               </div>
-              </>)}
+              </>))}
             </div>
   );
 }
@@ -2363,7 +2554,9 @@ function MercadoScreen({ ctx }) {
           <InfoDot onClick={A.openAbout} />
         </div>
         <div style={{ display: "flex", gap: "8px" }}>
-          <button onClick={() => A.go("opcoes")} style={{ minHeight: "36px", padding: "7px 12px", borderRadius: "10px", border: `1px solid ${T.borderSubtle}`, background: T.bgBase, color: T.textSecondary, fontWeight: 700, fontSize: "12px" }}>Opções ▸</button>
+          {/* v2 (ADR-003/004/005): botão isolado removido — a camada de opções
+              agora vive dentro de cada AtivoCard (linha ⚡ opções, com gate de
+              liquidez), substituindo este acesso genérico (proposta §2). */}
           <IconBtn label="Atualizar cotações" onClick={A.refreshQuotes} busy={quotesLoading}>↻</IconBtn>
           <IconBtn label="Editar watchlist" onClick={A.openCatalog}>✎</IconBtn>
         </div>
@@ -5460,6 +5653,25 @@ export default function App() {
     },
     setStop: async (t, v) => { try { const s = await store.putPosition(t, { stop: v }); setData(s); } catch (e) { flash("Erro: " + (e.message || e)); } },
     setAlvo: async (t, v) => { try { const s = await store.putPosition(t, { alvo: v }); setData(s); } catch (e) { flash("Erro: " + (e.message || e)); } },
+    // v2 (ADR-003/004): compra a seco de 1 contrato (100 cotas). O servidor
+    // recusa (502) se a cotação estiver degradada — nunca preenche `avg` com
+    // um preço que o próprio sistema não confia.
+    buyOption: async (underlying, contract, expiration, meta) => {
+      try {
+        const s = await store.optionsBuy({ underlying, contractSymbol: contract.contractSymbol, expiration, qty: 100, meta: meta || undefined });
+        setData(s);
+        flash("Opção " + contract.contractSymbol + " comprada — 100 cotas a R$ " + price(s.priceUsed) + ".");
+      } catch (e) { flash("Compra de opção: " + (e.message || e)); }
+    },
+    sellOption: async (contractId) => {
+      try {
+        const s = await store.optionsSell({ contractSymbol: contractId });
+        setData(s);
+        flash("Opção " + contractId + " vendida.");
+      } catch (e) { flash("Venda de opção: " + (e.message || e)); }
+    },
+    setOptionStop: async (contractId, v) => { try { const s = await store.putOptionPosition(contractId, { stop: v }); setData(s); } catch (e) { flash("Erro: " + (e.message || e)); } },
+    setOptionAlvo: async (contractId, v) => { try { const s = await store.putOptionPosition(contractId, { alvo: v }); setData(s); } catch (e) { flash("Erro: " + (e.message || e)); } },
     applyProposal: async (t, stop, alvo) => {
       try {
         const s = await store.putPosition(t, { stop, alvo });

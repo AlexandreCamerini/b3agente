@@ -197,6 +197,114 @@ def avaliar_alvo_dinamico(price: float, pos: dict, ctx: dict = None):
                         f"({ALVO_ATR_MULT:.1f}× o ATR(14) de R$ {atr:.2f} além do alvo batido; R:R {rr:.1f}:1)")
 
 
+# ---------------------------------------------------------------------------
+# Opções (v2) — ADR-003 (coleção própria `optionPositions`), ADR-004 (só age
+# sobre cotação com providerStatus "ok" — nunca simula execução sobre dado
+# degradado) e ADR-005 (fechamento por vencimento, motivo estruturado).
+#
+# `option_quotes_getter(underlying, expiration) -> payload` é injetado (fake
+# nos testes; `options_provider_yahoo.get_options` em produção). 1 fetch por
+# VENCIMENTO aberto, não por contrato — várias posições no mesmo
+# ativo/vencimento dividem a mesma chamada.
+# ---------------------------------------------------------------------------
+def intrinseco_opcao(pos: dict, spot: float) -> float:
+    """Valor intrínseco na liquidação por vencimento — pode ser ZERO (perda
+    total do prêmio). PURA."""
+    strike = pos.get("strike") or 0.0
+    if pos.get("optionType") == "put":
+        return max(0.0, float(strike) - float(spot))
+    return max(0.0, float(spot) - float(strike))
+
+
+async def _option_quotes(option_quotes_getter, opts: list) -> dict:
+    pares = sorted({(p.get("underlying"), p.get("expiration")) for p in opts
+                     if p.get("underlying") and p.get("expiration")})
+    out = {}
+    for underlying, expiration in pares:
+        try:
+            out[(underlying, expiration)] = await option_quotes_getter(underlying, expiration)
+        except Exception:  # noqa: BLE001 — 1 vencimento indisponível não derruba o ciclo
+            out[(underlying, expiration)] = None
+    return out
+
+
+async def _avaliar_opcoes(conn, scope, ag, par, option_quotes_getter, executed: int, events: list) -> int:
+    """Segunda passada do ciclo: `optionPositions`, separada da de `positions`
+    porque a unidade (prêmio, não preço do ativo) e o terceiro motivo de saída
+    (vencimento) não têm equivalente em ação. Retorna o `executed` atualizado."""
+    opts = store.get(conn, "optionPositions", user_id=scope) or []
+    if not opts or option_quotes_getter is None:
+        return executed
+    quotes = await _option_quotes(option_quotes_getter, opts)
+    hoje = _today()
+    for pos in list(opts):
+        payload = quotes.get((pos.get("underlying"), pos.get("expiration")))
+        # ADR-004: sem cotação confiável, nem liquida por vencimento nem avalia
+        # stop/alvo neste ciclo — o mesmo tratamento best-effort que ação já tem
+        # para "sem cotação"; tenta de novo no próximo ciclo.
+        if not payload or payload.get("providerStatus") != "ok":
+            continue
+        spot = payload.get("underlyingPrice")
+        contrato = next((c for c in (payload.get("calls") or []) + (payload.get("puts") or [])
+                          if c.get("contractSymbol") == pos.get("id")), None)
+        price = contrato.get("lastPrice") if contrato else None
+        if pos.get("expiration") and str(pos["expiration"]) <= hoje:
+            if not isinstance(spot, (int, float)):
+                continue
+            intrinseco = intrinseco_opcao(pos, float(spot))
+            store.close_option_vencida(conn, pos["id"], intrinseco, user_id=scope)
+            executed += 1
+            _bump_ops(conn, scope, store.get(conn, "agent", user_id=scope) or ag)
+            events.append({"time": _now_str(), "kind": "warn",
+                           "text": f"Vencimento: {pos['id']} ({pos.get('underlying')}) liquidado pelo "
+                                   f"intrínseco (R$ {intrinseco:.2f}/ação)."})
+            continue
+        if price is None:
+            continue
+        # F2 (trailing técnico): ATR é em R$ do ativo-objeto, unidade incompatível
+        # com prêmio — cai sempre no percentual, nomeado no Diário quando o modo
+        # configurado era técnico (proposta §3, "o que quebra em agent.py").
+        if par["rules"]["trailing"] and pos.get("stop") is not None:
+            novo, criterio = nivel_trailing("percentual", price, par, None)
+            if par["trailingMode"] != "percentual":
+                criterio += " — trailing técnico não se aplica a prêmio de opção, caiu no percentual"
+            if novo is not None and novo > pos["stop"]:
+                store.set_option_position(conn, pos["id"], stop=novo, has_stop=True, user_id=scope)
+                events.append({"time": _now_str(), "kind": "info",
+                               "text": f"Trailing: stop de {pos['id']} ajustado para R$ {novo:.2f} ({criterio})."})
+                pos = {**pos, "stop": novo}
+        breach_stop = par["rules"]["stop"] and pos.get("stop") is not None and price <= pos["stop"]
+        hit_alvo = par["rules"]["alvo"] and pos.get("alvo") is not None and price >= pos["alvo"]
+        # F3 (alvo dinâmico) não se aplica a opção — mesma unidade quebrada do
+        # trailing técnico; opção sempre fecha no alvo, sem extensão.
+        if not (breach_stop or hit_alvo):
+            continue
+        motivo = "stop" if breach_stop else "alvo"
+        valor_op = price * (pos.get("qty") or 0)
+        if par["mode"] != "executar":
+            events.append({"time": _now_str(), "kind": "warn",
+                           "text": f"Sinal do agente: opção {pos['id']} com {motivo} atingido (R$ {price:.2f}). "
+                                   f"Modo 'apenas sinalizar' — nenhuma operação feita."})
+            continue
+        if _ops_today(ag) + executed >= par["maxOpsDia"]:
+            events.append({"time": _now_str(), "kind": "warn",
+                           "text": f"Teto diário de operações atingido ({par['maxOpsDia']}). "
+                                   f"{pos['id']} com {motivo} atingido ficou registrado, sem execução."})
+            continue
+        if par["maxValorOp"] > 0 and valor_op > par["maxValorOp"]:
+            events.append({"time": _now_str(), "kind": "warn",
+                           "text": f"Teto por operação (R$ {par['maxValorOp']:.2f}) excedido em {pos['id']} "
+                                   f"(R$ {valor_op:.2f}). Registrado, sem execução."})
+            continue
+        store.sell_option(conn, pos["id"], price, user_id=scope, motivo=motivo)
+        executed += 1
+        _bump_ops(conn, scope, store.get(conn, "agent", user_id=scope) or ag)
+        events.append({"time": _now_str(), "kind": "buy",
+                       "text": f"Proteção simulada: opção {pos['id']} ({pos.get('underlying')}) vendida "
+                               f"({motivo} atingido) a R$ {price:.2f}."})
+    return executed
+
+
 def agent_params(ag: dict) -> dict:
     """Normaliza a seção agent para os parâmetros do servidor (defaults sãos)."""
     ag = ag or {}
@@ -230,10 +338,14 @@ def _bump_ops(conn, scope, ag):
     return n
 
 
-async def run_cycle_for(conn, scope, quotes_getter, origem: str = "agendado", snapshot_getter=None) -> dict:
+async def run_cycle_for(conn, scope, quotes_getter, origem: str = "agendado", snapshot_getter=None,
+                        option_quotes_getter=None) -> dict:
     """UM ciclo do agente para UM escopo (usuário ou anônimo). Portado do
     /api/cycle e estendido com modo/tetos/trailing. Retorna {events, executed}.
     `quotes_getter(tickers) -> {t: {price, ...}}` é injetado (fake nos testes).
+    `option_quotes_getter(underlying, expiration) -> payload` (v2, ADR-003/004/005)
+    avalia `optionPositions` — None desliga a segunda passada sem quebrar quem
+    ainda não tem contratos abertos.
 
     FASE 3 (Operador): instrumentado — guard de sobreposição, duração medida,
     início/erros registrados no agentLog (o Diário da UI mostra o que houve)."""
@@ -243,7 +355,7 @@ async def run_cycle_for(conn, scope, quotes_getter, origem: str = "agendado", sn
     _CYCLE_BUSY.add(key)
     t0 = time.monotonic()
     try:
-        return await _run_cycle_inner(conn, scope, quotes_getter, origem, t0, snapshot_getter)
+        return await _run_cycle_inner(conn, scope, quotes_getter, origem, t0, snapshot_getter, option_quotes_getter)
     except Exception as e:  # noqa: BLE001 — erro do ciclo vira LOG, nunca silêncio
         if scope:
             store.push_agent_log(conn, [{"time": _now_str(), "kind": "error",
@@ -253,7 +365,8 @@ async def run_cycle_for(conn, scope, quotes_getter, origem: str = "agendado", sn
         _CYCLE_BUSY.discard(key)
 
 
-async def _run_cycle_inner(conn, scope, quotes_getter, origem: str, t0: float, snapshot_getter=None) -> dict:
+async def _run_cycle_inner(conn, scope, quotes_getter, origem: str, t0: float, snapshot_getter=None,
+                           option_quotes_getter=None) -> dict:
     positions = store.get(conn, "positions", user_id=scope) or []
     ag = store.get(conn, "agent", user_id=scope) or {}
     par = agent_params(ag)
@@ -331,6 +444,7 @@ async def _run_cycle_inner(conn, scope, quotes_getter, origem: str, t0: float, s
         _bump_ops(conn, scope, store.get(conn, "agent", user_id=scope) or ag)
         events.append({"time": _now_str(), "kind": "buy",
                        "text": f"Proteção simulada: {pos['t']} vendido ({motivo}) a R$ {price:.2f}."})
+    executed = await _avaliar_opcoes(conn, scope, ag, par, option_quotes_getter, executed, events)
     dur = time.monotonic() - t0
     resumo = f"Ciclo ({origem}) em {dur:.1f}s · {len(positions)} posição(ões) · {executed} execução(ões)"
     if sem_cotacao:
@@ -423,7 +537,7 @@ def _avisar_protecao_sem_operador(conn) -> int:
 
 
 async def scheduler_loop(conn, quotes_getter, notify_push=None, interval_s: int = None, once: bool = False,
-                         radar_fetch=None, snapshot_getter=None, intraday_fetch=None):
+                         radar_fetch=None, snapshot_getter=None, intraday_fetch=None, option_quotes_getter=None):
     """Laço do servidor: a cada N min (env B3_AGENT_INTERVAL_S), dentro do
     pregão e sem kill-switch, roda o ciclo de cada usuário habilitado.
     `notify_push(user_id, title, body)` (opcional) envia APNs por ação executada.
@@ -489,7 +603,8 @@ async def scheduler_loop(conn, quotes_getter, notify_push=None, interval_s: int 
                     LAST_USER_RUN[uid] = _agora
                     LAST_RUN["usuarios"] += 1
                     try:
-                        r = await run_cycle_for(conn, uid, quotes_getter, origem="agendado", snapshot_getter=snapshot_getter)
+                        r = await run_cycle_for(conn, uid, quotes_getter, origem="agendado", snapshot_getter=snapshot_getter,
+                                                option_quotes_getter=option_quotes_getter)
                         LAST_RUN["executadas"] += r["executed"]
                         if notify_push and r["executed"]:
                             acts = [e["text"] for e in r["events"] if e.get("kind") == "buy"]

@@ -6,7 +6,7 @@ from datetime import datetime
 from . import db, defaults
 from .catalog import CATALOG, CATALOG_TICKERS, is_catalog_ticker
 
-SECTIONS = ["config", "skill", "skillOperador", "llmPrompts", "watchlist", "cash", "positions", "history", "agent", "analyses", "profile", "custom"]
+SECTIONS = ["config", "skill", "skillOperador", "llmPrompts", "watchlist", "cash", "positions", "history", "agent", "analyses", "profile", "custom", "optionPositions"]
 
 
 def _eh_default_antigo(chave: str, texto: str) -> bool:
@@ -161,6 +161,7 @@ def reset_portfolio(conn, user_id=None) -> dict:
         budget = defaults.default_state()["config"]["initialBudget"]
     db.kv_set(conn, "cash", round(float(budget), 2), user_id=user_id)
     db.kv_set(conn, "positions", [], user_id=user_id)
+    db.kv_set(conn, "optionPositions", [], user_id=user_id)
     db.kv_set(conn, "history", [], user_id=user_id)
     ag = get(conn, "agent", user_id=user_id)
     ag["events"] = [{"time": "Inicio", "kind": "info", "text": "Carteira reiniciada com o orcamento simulado de R$ " + ("%.2f" % budget) + "."}]
@@ -406,6 +407,99 @@ def sell(conn, t: str, price: float, user_id=None, qty=None):
     return pnl
 
 
+# ---------- optionPositions (ADR-003: coleção própria, nunca mistura com `positions`) ----------
+def buy_option(conn, contract: dict, qty: int, price: float, user_id=None, meta=None) -> None:
+    """Compra simulada de UM contrato de opção. `contract` traz id (contractSymbol,
+    chave primária e de cotação — ADR-003) / underlying / optionType / strike /
+    expiration, vindos do provider. `price` é o PRÊMIO por ação, mesma unidade
+    de `avg` — nunca o preço do ativo-objeto."""
+    qty = max(100, round(qty / 100) * 100)
+    opts = get(conn, "optionPositions", user_id=user_id)
+    cash = get(conn, "cash", user_id=user_id)
+    history = get(conn, "history", user_id=user_id)
+    m = _sanitize_trade_meta(meta)
+    cid = contract.get("id")
+    existing = next((p for p in opts if p["id"] == cid), None)
+    if existing:
+        total = existing["qty"] + qty
+        existing["avg"] = round((existing["avg"] * existing["qty"] + price * qty) / total, 2)
+        existing["qty"] = total
+        if m:
+            existing["setupEntrada"] = m
+    else:
+        pos = {
+            "id": cid, "underlying": contract.get("underlying"),
+            "optionType": contract.get("optionType"), "strike": contract.get("strike"),
+            "expiration": contract.get("expiration"),
+            "qty": qty, "avg": round(price, 2), "stop": None, "alvo": None,
+            "abertaEm": now_str(),
+            "ivEntrada": contract.get("ivEntrada"), "deltaEntrada": contract.get("deltaEntrada"),
+            "hv21Entrada": contract.get("hv21Entrada"),
+        }
+        if m:
+            pos["setupEntrada"] = m
+        opts.append(pos)
+    cash = round(cash - qty * price, 2)
+    entry = {"date": now_str(), "type": "COMPRA", "t": cid, "underlying": contract.get("underlying"),
+             "kind": "opcao", "qty": qty, "price": round(price, 2), "pnl": None}
+    if m.get("setup"):
+        entry["setup"] = m["setup"]
+    if m.get("snapshotId"):
+        entry["snapshotId"] = m["snapshotId"]
+    history.insert(0, entry)
+    db.kv_set(conn, "optionPositions", opts, user_id=user_id)
+    db.kv_set(conn, "cash", cash, user_id=user_id)
+    db.kv_set(conn, "history", history, user_id=user_id)
+
+
+def set_option_position(conn, contract_id: str, stop=None, alvo=None, has_stop=False, has_alvo=False, user_id=None) -> None:
+    opts = get(conn, "optionPositions", user_id=user_id)
+    for p in opts:
+        if p["id"] == contract_id:
+            if has_stop:
+                p["stop"] = None if stop in (None, "") else float(stop)
+            if has_alvo:
+                p["alvo"] = None if alvo in (None, "") else float(alvo)
+    db.kv_set(conn, "optionPositions", opts, user_id=user_id)
+
+
+def sell_option(conn, contract_id: str, price: float, user_id=None, qty=None, motivo: str = "manual"):
+    """Venda simulada TOTAL ou PARCIAL de um contrato. `motivo` (ADR-005):
+    'manual' | 'stop' | 'alvo' | 'vencimento' — estruturado desde o início,
+    ao contrário do texto descartável que `positions`/history de ação usa
+    hoje. Vencimento passa por `close_option_vencida`, nunca chama esta
+    função com preço negociado."""
+    opts = get(conn, "optionPositions", user_id=user_id)
+    pos = next((p for p in opts if p["id"] == contract_id), None)
+    if not pos:
+        return None
+    cash = get(conn, "cash", user_id=user_id)
+    history = get(conn, "history", user_id=user_id)
+    sold = pos["qty"]
+    if isinstance(qty, (int, float)) and qty > 0:
+        sold = min(pos["qty"], max(100, round(qty / 100) * 100))
+    pnl = round((price - pos["avg"]) * sold, 2)
+    if sold >= pos["qty"]:
+        opts = [p for p in opts if p["id"] != contract_id]
+    else:
+        pos["qty"] = pos["qty"] - sold  # parcial: avg preservado
+    cash = round(cash + sold * price, 2)
+    history.insert(0, {"date": now_str(), "type": "VENDA", "t": contract_id, "underlying": pos.get("underlying"),
+                        "kind": "opcao", "qty": sold, "price": round(price, 2), "pnl": pnl, "motivo": motivo})
+    db.kv_set(conn, "optionPositions", opts, user_id=user_id)
+    db.kv_set(conn, "cash", cash, user_id=user_id)
+    db.kv_set(conn, "history", history, user_id=user_id)
+    return pnl
+
+
+def close_option_vencida(conn, contract_id: str, valor_intrinseco: float, user_id=None):
+    """ADR-005: liquidação por expiração. Preço = valor intrínseco na data do
+    vencimento — pode ser ZERO (perda total do prêmio), sem que nenhum stop
+    tenha sido rompido. Nunca chamada com preço negociado; motivo sempre
+    'vencimento'."""
+    return sell_option(conn, contract_id, max(0.0, float(valor_intrinseco)), user_id=user_id, motivo="vencimento")
+
+
 def push_events(conn, events: list, cap: int = 50, user_id=None) -> dict:
     ag = get(conn, "agent", user_id=user_id)
     ag["events"] = (events + ag.get("events", []))[:cap]
@@ -470,6 +564,7 @@ def public_state(conn, user_id=None) -> dict:
         "watchlist": get(conn, "watchlist", user_id=user_id),
         "cash": get(conn, "cash", user_id=user_id),
         "positions": get(conn, "positions", user_id=user_id),
+        "optionPositions": get(conn, "optionPositions", user_id=user_id),  # ADR-003
         "history": get(conn, "history", user_id=user_id),
         "agent": get(conn, "agent", user_id=user_id),
         "analyses": get(conn, "analyses", user_id=user_id),

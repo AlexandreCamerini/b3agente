@@ -131,6 +131,30 @@ async def chain(ticker: str, expiration: Optional[str] = None):
         raise HTTPException(503, str(e))
 
 
+@router.get("/gate/{ticker}")
+async def liquidity_gate(ticker: str):
+    """Gate de descobribilidade (proposta v2 §2): a linha de opções no card só
+    aparece se o ativo tem ao menos 1 contrato líquido no vencimento mais
+    próximo. Best-effort e barato — reusa o cache de 300s do provider (mesma
+    chamada de `chain`/`expirations`), sem enriquecer com BSM/técnico (isso só
+    roda quando o usuário abre a cadeia completa)."""
+    t = _normalize_ticker(ticker)
+    if len(t) < 4:
+        raise HTTPException(400, "Ticker inválido.")
+    try:
+        data = await get_options(t)
+    except yahoo.QuoteUnavailable:
+        return {"ticker": t, "liquida": False, "providerStatus": "degraded"}
+    if data.get("providerStatus") != "ok":
+        return {"ticker": t, "liquida": False, "providerStatus": data.get("providerStatus")}
+    contratos = [*data.get("calls", []), *data.get("puts", [])]
+    liquida = any(
+        liquidity_score(c.get("volume"), c.get("openInterest"), c.get("bid"), c.get("ask"))["score"] >= 40
+        for c in contratos
+    )
+    return {"ticker": t, "liquida": liquida, "providerStatus": "ok"}
+
+
 @router.post("/analyze")
 async def analyze_options(body: dict = Body(default={})):
     t = _normalize_ticker(str((body or {}).get("ticker") or ""))

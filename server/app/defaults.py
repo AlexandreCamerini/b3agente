@@ -234,4 +234,5 @@ def default_state() -> dict:
             "experiencia": "intermediario",  # iniciante | intermediario | avancado
         },
         "custom": [],                   # tickers adicionados pelo usuario (validados no Yahoo): [{t,n}]
+        "optionPositions": [],          # ADR-003: coleção própria — nunca mistura com `positions`
     }
