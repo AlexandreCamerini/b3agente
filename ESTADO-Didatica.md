@@ -15,12 +15,19 @@ Branch: `claude/didatica-assistente-push` (no clone principal, não no worktree)
 |---|---|
 | 1 — fundação (catálogo, flags, `conceitosVistos`) + 0a (prefs do push no servidor) | **feita, aprovada em revisão** |
 | 2 — conceito `gatilho` ponta a ponta | **feita, aprovada em revisão** |
-| 0b — push de condição atingida | **feita, em revisão** |
-| 3 — demais conceitos (`stop`, `alvo`, `r`, `confluencia`, `fundamento`, `barra15m`) | **feita, em revisão** |
-| 4 — assistente de IA com snapshot da tela | não começada |
-| 5 — ADRs, RELEASES, carimbo, deploy | não começada |
+| 0b — push de condição atingida | **feita** (backend no ar; o toque exige build iOS) |
+| 3 — demais conceitos (`stop`, `alvo`, `r`, `confluencia`, `fundamento`, `barra15m`) | **feita** |
+| 4 — assistente de IA com snapshot da tela | **feita** |
+| 5 — ADRs, RELEASES, carimbo, deploy | **feita** |
 
-**Nada commitado. Nada deployado. Nenhum build de iOS gerado.**
+**No ar em produção: `F10-20260805-05`** (2026-08-05). Verificado após o deploy:
+catálogo com 7 conceitos, conceito ancorado com os números reais do card, folha
+proativa abrindo uma vez, cadeia "veja também", assistente exigindo conta (401),
+`/api/timing` com as mesmas 20 chaves e sem campo novo, zero erros de console.
+
+**Falta o build de iOS** (`bash instalar.sh --iphone`): o push do gatilho e o
+listener de toque são código de app. Até lá, o aparelho do Alex segue em
+`F10-20260805-04` e não recebe o aviso.
 
 A ordem foi trocada (era 0 → 1 → 2 → …) porque a Fase 0 original dependia de
 uma sincronização que não existia — ver "decisões" abaixo.
