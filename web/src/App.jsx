@@ -2083,6 +2083,10 @@ const TIMING_STYLE = {
   armado: [T.accent, T.accentTint10, "◔ PLANO ARMADO", "◔ CONDIÇÃO ARMADA"],
   esticado: [T.negative, "rgba(248,113,113,.12)", "⚠ ESTICADO", "⚠ MOVIMENTO ESTICADO"],
   sem_dado: [T.textFaint, T.bgBase, "◌ SEM DADO 15M", "◌ SEM DADO 15M"],
+  // Variante de rótulo do mesmo estado `sem_dado`: com o mercado fechado (das
+  // 18h às 10h, todo dia) "SEM DADO 15M" acusava avaria onde só havia pregão
+  // encerrado. O servidor marca isso em `foraDoPregao`.
+  fora_pregao: [T.textFaint, T.bgBase, "◌ FORA DO PREGÃO", "◌ FORA DO PREGÃO"],
 };
 
 // F1: badge do TIMING no card do ativo. Consulta /api/timing (determinístico,
@@ -2101,7 +2105,7 @@ function TimingBadge({ t, operador }) {
     return () => { alive = false; };
   }, [t, operador]);
   if (!r || !TIMING_STYLE[r.estado]) return null;
-  const [cor, bg, rotOp, rotEdu] = TIMING_STYLE[r.estado];
+  const [cor, bg, rotOp, rotEdu] = TIMING_STYLE[r.foraDoPregao ? "fora_pregao" : r.estado];
   const hora = typeof r.asOf === "string" && r.asOf.includes(" ") ? r.asOf.split(" ")[1].slice(0, 5) : "";
   const emR = (x) => x.toFixed(1).replace(".", ",") + "R";
   const nivel = operador ? "gatilho" : "nível";

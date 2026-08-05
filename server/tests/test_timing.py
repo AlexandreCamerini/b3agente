@@ -116,6 +116,47 @@ def test_montar_passada_velha_vira_sem_dado():
     assert r["estado"] == "sem_dado"
 
 
+# --- fora do pregão: passada velha é o NORMAL, não avaria --------------------
+# Das 18h às 10h a passada intraday está velha por definição. O estado segue
+# `sem_dado` (não há timing a ler), mas acusar "sem dado confiável" fazia o card
+# noturno parecer quebrado todo dia.
+
+def test_avaliar_fora_do_pregao_marca_o_motivo_certo():
+    r = timing.avaliar(PLANO_COMPRA, _r15(41.0), passada_ok=False, pregao_aberto=False)
+    assert r["estado"] == "sem_dado"
+    assert r["foraDoPregao"] is True
+    assert "Fora do pregão" in r["motivo"]
+
+
+def test_avaliar_dentro_do_pregao_passada_velha_segue_sendo_falta_de_dado():
+    r = timing.avaliar(PLANO_COMPRA, _r15(41.0), passada_ok=False, pregao_aberto=True)
+    assert r["estado"] == "sem_dado"
+    assert not r.get("foraDoPregao")
+    assert "fresca" in r["motivo"]
+
+
+def test_montar_fora_do_pregao_troca_frase_e_ressalva():
+    noite = datetime(2026, 8, 5, 2, 0, tzinfo=BRT)          # quarta, 2h da manhã
+    velha = _intra(at=noite - timedelta(hours=8))
+    r = timing.montar(_radar(), velha, "AAAA3", "estudo", agora=noite)
+    assert r["estado"] == "sem_dado" and r["foraDoPregao"] is True
+    assert "Fora do pregão" in r["frase"]
+    assert "15:15" in r["frase"]                             # a hora da última barra
+    assert any("Mercado fechado" in s for s in r["ressalvas"])
+    # a ressalva de atraso do feed some: com o mercado fechado ela insinuaria
+    # que existiria barra nova se o feed fosse melhor
+    assert timing.RESSALVA_ATRASO not in r["ressalvas"]
+
+
+def test_montar_dentro_do_pregao_mantem_a_frase_antiga():
+    meio_dia = datetime(2026, 8, 5, 14, 0, tzinfo=BRT)
+    velha = _intra(at=meio_dia - timedelta(seconds=intraday.FRESCURA_MAX_S + 60))
+    r = timing.montar(_radar(), velha, "AAAA3", "estudo", agora=meio_dia)
+    assert r["estado"] == "sem_dado" and not r.get("foraDoPregao")
+    assert r["frase"] == skill_ref.timing_txt("educacional", "sem_dado")
+    assert timing.RESSALVA_ATRASO in r["ressalvas"]
+
+
 def test_montar_ativo_fora_do_radar():
     r = timing.montar({"results": []}, _intra(), "AAAA3", "estudo")
     assert r["estado"] == "sem_plano"

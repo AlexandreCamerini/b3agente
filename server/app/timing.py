@@ -20,6 +20,8 @@ O que este módulo é — e o que ele deliberadamente NÃO é:
 Estados (skill_ref.TIMING dá a frase por modo):
   sem_plano  — o Radar diário não tem plano operável para o ativo;
   sem_dado   — sem passada intraday fresca/confiável (lacuna severa conta);
+               fora do pregão o estado é o mesmo, mas vem com `foraDoPregao`
+               e frase própria: mercado fechado é o normal, não avaria;
   armado     — plano existe, gatilho ainda não atingido na barra fechada;
   gatilho    — barra de 15m FECHADA cruzou a entrada no lado do plano;
   esticado   — cruzou além da zona de perseguição: não entrar.
@@ -52,7 +54,7 @@ def _hora_de(as_of: Optional[str]) -> str:
 
 
 def avaliar(plano: Optional[dict], resumo15m: Optional[dict],
-            passada_ok: bool = True) -> dict:
+            passada_ok: bool = True, pregao_aberto: bool = True) -> dict:
     """Núcleo PURO do timing: plano diário × barra 15m fechada => estado.
 
     `plano` é o dict de setups.plano_operacional/plano_do_resultado (diário);
@@ -73,6 +75,15 @@ def avaliar(plano: Optional[dict], resumo15m: Optional[dict],
             "setup": plano.get("setup")}
     close = (resumo15m or {}).get("close")
     if not passada_ok or close is None:
+        # Fora do pregão a passada VELHA é o esperado, não uma avaria: não há
+        # barra nova para verificar a condição enquanto o mercado está fechado.
+        # O estado continua `sem_dado` (não há leitura de timing mesmo), mas o
+        # motivo/frase deixam de acusar dado ruim — a mensagem antiga fazia o
+        # card noturno parecer quebrado todo dia, das 18h às 10h.
+        if not pregao_aberto:
+            return {**base, "estado": "sem_dado", "foraDoPregao": True,
+                    "asOf": (resumo15m or {}).get("asOf"),
+                    "motivo": "Fora do pregão — sem barra nova para verificar a condição."}
         return {**base, "estado": "sem_dado",
                 "motivo": "Sem passada intraday fresca para o ativo."}
     cobertura = (resumo15m or {}).get("cobertura")
@@ -146,14 +157,26 @@ def montar(radar_stored: Optional[dict], intra_stored: Optional[dict],
     plano = (item or {}).get("plano")
     resumo = intraday.resumo_do_ticker(intra_stored, ticker)
     fresca = intraday.passada_fresca(intra_stored, agora=agora)
-    aval = avaliar(plano, resumo, passada_ok=fresca)
+    aberto = intraday.in_market_hours(agora) if agora is not None else intraday.in_market_hours()
+    aval = avaliar(plano, resumo, passada_ok=fresca, pregao_aberto=aberto)
     if item is None:
         aval = {"estado": "sem_plano",
                 "motivo": "Ativo fora do Radar diário armazenado (ou Radar ainda não rodou hoje)."}
 
     vocabulario = "operador" if modo == "operador" else "educacional"
     estado = aval["estado"]
-    ressalvas = [RESSALVA_ATRASO]
+    # Fora do pregão o estado segue `sem_dado` (não há timing a ler), mas a
+    # FRASE e a ressalva mudam: falar de "atraso de 15 min" com o mercado
+    # fechado insinua que existiria barra nova se o feed fosse melhor.
+    fora = bool(aval.get("foraDoPregao"))
+    chave_frase = estado
+    hora_barra = _hora_de(aval.get("asOf"))
+    if fora:
+        chave_frase = "fora_pregao" if hora_barra else "fora_pregao_sem_hora"
+        ressalvas = [("Mercado fechado — a última barra de 15m é de %s." % hora_barra)
+                     if hora_barra else "Mercado fechado — sem barra de 15m nova desde o fechamento."]
+    else:
+        ressalvas = [RESSALVA_ATRASO]
     if aval.get("lacuna"):
         ressalvas.append("Série 15m do dia tem lacuna (cobertura %s)."
                          % (aval.get("cobertura"),))
@@ -167,7 +190,7 @@ def montar(radar_stored: Optional[dict], intra_stored: Optional[dict],
         "ticker": ticker,
         "modo": vocabulario,
         **aval,
-        "frase": skill_ref.timing_txt(vocabulario, estado, _hora_de(aval.get("asOf"))),
+        "frase": skill_ref.timing_txt(vocabulario, chave_frase, hora_barra),
         "ressalvas": ressalvas,
         "contexto15m": contexto15m,
         "vereditoDiario": (item or {}).get("veredito"),

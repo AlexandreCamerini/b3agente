@@ -243,6 +243,11 @@ TIMING = {
         "esticado": "Preço esticado além da zona (>0,5R do gatilho) — não perseguir; espere reteste ou novo setup.",
         "sem_plano": "Sem plano operável agora — não há gatilho para vigiar.",
         "sem_dado": "Sem dado intraday confiável — timing indisponível.",
+        # `fora_pregao` NÃO é estado do timing.py: é a variante de frase do
+        # `sem_dado` quando a causa é o mercado fechado — o normal das 18h às
+        # 10h. Sem ela, o card acusava avaria de feed toda noite.
+        "fora_pregao": "Fora do pregão — última barra de 15m às {hora}; nada a vigiar até a abertura.",
+        "fora_pregao_sem_hora": "Fora do pregão — nada a vigiar até a abertura.",
     },
     "educacional": {
         "gatilho": "A condição de estudo foi atingida na vela de {hora} — o nível do plano de estudo foi alcançado.",
@@ -250,6 +255,8 @@ TIMING = {
         "esticado": "Movimento esticado além da zona de estudo (>0,5R) — o estudo desaconselha perseguir preço.",
         "sem_plano": "Sem leitura de estudo operável agora — não há condição a acompanhar.",
         "sem_dado": "Sem dado intraday confiável — leitura de timing indisponível.",
+        "fora_pregao": "Fora do pregão — última barra de 15m às {hora}; a condição volta a ser verificada na abertura.",
+        "fora_pregao_sem_hora": "Fora do pregão — a condição volta a ser verificada na abertura.",
     },
 }
 
