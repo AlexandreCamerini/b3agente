@@ -872,7 +872,11 @@ const TECH_MODELS = [
   ["volatilidade", "Volatilidade", "ATR e amplitude"],
   ["suporte_resistencia", "Suporte/Resist.", "Regiões de preço"],
   ["swing_trade", "Swing", "Risco/retorno didático"],
-  ["opcoes", "Opções", "Ativo objeto + yfinance"],
+  // v2: o modelo "opcoes" sai do seletor ENQUANTO a fonte não devolver cadeia.
+  // Ele continua inteiro no backend (technical_models.py + _options_status_for_llm);
+  // com a cadeia vazia, escolhê-lo só gastava uma chamada de LLM para dizer
+  // "não há opções para este ativo". Devolver = reinserir esta linha:
+  //   ["opcoes", "Opções", "Ativo objeto + yfinance"],
 ];
 
 function KpiCell({ label, value, color, prefix }) {
@@ -2195,7 +2199,24 @@ function OpcaoContrato({ c, cur, chain, isOpen, onToggle, sustains, pos, onBuy, 
 // Gate de descobribilidade: só existe se `/api/options/gate` confirmar
 // liquidez (chamado 1x por card em AtivoCard, best-effort). A cadeia completa
 // só é buscada quando o usuário abre — zero fetch novo por padrão (proposta §5).
-function OpcoesCamada({ t, cur, open, onToggle, chain, chainLoading, opContract, setOpContract, opShowAll, setOpShowAll, myPositions, decColor, onBuy, onSell, busy }) {
+function OpcoesCamada({ t, cur, open, onToggle, chain, chainLoading, opContract, setOpContract, opShowAll, setOpShowAll, myPositions, decColor, onBuy, onSell, busy, indisponivel, providerStatus }) {
+  // Sem liquidez: linha PRESENTE e apagada, com o motivo. Não abre (abrir só
+  // gastaria um fetch para mostrar uma lista vazia) e não some — o usuário
+  // precisa conseguir distinguir "a fonte não tem dado" de "isto não existe".
+  if (indisponivel) {
+    return (
+      <div style={{ marginTop: "11px", paddingTop: "10px", borderTop: `1px solid ${T.borderFaint}` }}>
+        <div style={{ fontSize: "12px", color: T.textFaint, display: "flex", alignItems: "center", gap: "7px" }}>
+          <span>⚡</span> opções indisponíveis
+        </div>
+        <div style={{ marginTop: "6px", fontSize: "10.5px", color: T.textFaint, lineHeight: 1.5 }}>
+          {providerStatus === "ok"
+            ? "A fonte de dados não está devolvendo cadeia de opções da B3 — não há contrato para estudar aqui até isso mudar."
+            : "Cotação de opções indisponível no momento. Tente novamente em alguns minutos."}
+        </div>
+      </div>
+    );
+  }
   const contratos = chain && chain.providerStatus === "ok"
     ? [...(chain.calls || []), ...(chain.puts || [])].sort((a, b) => Math.abs((a.strike || 0) - (cur || 0)) - Math.abs((b.strike || 0) - (cur || 0)))
     : [];
@@ -2373,10 +2394,14 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
               )}
               </>)}
 
-              {/* v2 (ADR-003/004/005): linha de opções — só aparece com liquidez
-                  confirmada pelo gate (1 chamada leve por card, best-effort). */}
-              {opGate && opGate.liquida && (
+              {/* v2 (ADR-003/004/005): linha de opções. O gate (1 chamada leve por
+                  card, best-effort) decide o ESTADO da linha, não mais a existência
+                  dela: sem liquidez a linha aparece dizendo POR QUE não há o que
+                  operar. Esconder por completo fazia a camada inteira sumir do app
+                  quando a fonte degradava — indistinguível de "não foi entregue". */}
+              {opGate && (
                 <OpcoesCamada
+                  indisponivel={!opGate.liquida} providerStatus={opGate.providerStatus}
                   t={t} cur={q.price} open={opOpen} onToggle={toggleOp}
                   chain={opChain} chainLoading={opChainLoading}
                   opContract={opContract} setOpContract={setOpContract}
@@ -5177,152 +5202,11 @@ function SellModal({ ctx }) {
   );
 }
 
-function OptionsScreen({ ctx }) {
-  const { data, A } = ctx;
-  const defaultTicker = (data && data.watchlist && data.watchlist[0]) || "PETR4";
-  const [ticker, setTicker] = useState(defaultTicker);
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState("");
-  const [chain, setChain] = useState(null);
-  const [expiration, setExpiration] = useState("");
-  const [side, setSide] = useState("calls");
-  const [selected, setSelected] = useState(null);
-  const [analysis, setOptAnalysis] = useState(null);
-
-  const contracts = (chain && chain[side]) || [];
-  const topContracts = contracts
-    .slice()
-    .sort((a, b) => ((b.openInterest || 0) + (b.volume || 0)) - ((a.openInterest || 0) + (a.volume || 0)))
-    .slice(0, 18);
-
-  const loadChain = useCallback(async (nextExpiration) => {
-    const t = String(ticker || "").trim().toUpperCase();
-    if (!t) return;
-    setLoading(true); setErr(""); setSelected(null); setOptAnalysis(null);
-    try {
-      const r = await store.optionsChain(t, nextExpiration || expiration || undefined);
-      setChain(r);
-      if (!expiration && r.expiration) setExpiration(r.expiration);
-      if ((!r.calls || !r.calls.length) && (!r.puts || !r.puts.length)) {
-        setErr(r.warning || "O provedor não retornou opções para este ativo/vencimento.");
-      }
-    } catch (e) {
-      setErr(e.message || String(e));
-      setChain(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [ticker, expiration]);
-
-  useEffect(() => { loadChain(undefined); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
-
-  const chooseExpiration = async (v) => {
-    setExpiration(v);
-    await loadChain(v);
-  };
-
-  const analyze = async (c) => {
-    setSelected(c); setOptAnalysis({ loading: true });
-    try {
-      const r = await store.analyzeOption({ ticker, expiration: chain && chain.expiration, contractSymbol: c.contractSymbol });
-      setOptAnalysis({ loading: false, ...r });
-    } catch (e) {
-      setOptAnalysis({ loading: false, error: e.message || String(e) });
-    }
-  };
-
-  const small = { fontSize: "11px", color: T.textFaint };
-  const cell = { padding: "8px 7px", borderBottom: `1px solid ${T.borderFaint}`, fontSize: "12px", whiteSpace: "nowrap" };
-
-  return (
-    <div style={{ display: "grid", gap: "14px" }}>
-      <div style={{ ...card, padding: "16px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "flex-start", flexWrap: "wrap" }}>
-          <div>
-            <div style={kicker}>B3 AGENTE OPÇÕES · EDUCACIONAL</div>
-            <h2 style={{ margin: "4px 0 6px", fontSize: "22px" }}>Cadeia de opções e score de risco</h2>
-            <p style={{ margin: 0, color: T.textMuted, fontSize: "13px", lineHeight: 1.45 }}>
-              Estudo de calls/puts com liquidez, volatilidade, Black-Scholes, gregos e risco. Não é recomendação de investimento.
-            </p>
-          </div>
-          <button onClick={() => A.go("mercado")} style={{ padding: "9px 12px", borderRadius: "9px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 700 }}>Ver ações</button>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: "10px", marginTop: "14px" }}>
-          <input value={ticker} onChange={(e) => setTicker(e.target.value.toUpperCase())} placeholder="PETR4" style={field} />
-          <select value={expiration} onChange={(e) => chooseExpiration(e.target.value)} style={field}>
-            {(chain && chain.expirations && chain.expirations.length ? chain.expirations : [expiration].filter(Boolean)).map((x) => <option key={x} value={x}>{x}</option>)}
-          </select>
-          <button onClick={() => loadChain(undefined)} disabled={loading} style={{ padding: "10px 14px", borderRadius: "9px", border: `1px solid ${T.accent}`, background: T.accentTint, color: T.accent, fontWeight: 800 }}>{loading ? "Buscando…" : "Buscar"}</button>
-        </div>
-      </div>
-
-      {err && <div style={{ ...card, padding: "13px", borderColor: T.accent, color: T.accent, fontSize: "13px" }}>{err}</div>}
-
-      {chain && <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0,1fr))", gap: "10px" }}>
-        <Metric title="Ativo objeto" value={chain.ticker || ticker} sub={chain.symbol || "Yahoo"} />
-        <Metric title="Preço base" value={money(chain.underlyingPrice)} sub={chain.currency || ""} />
-        <Metric title="Vol hist. 21d" value={chain.technical && chain.technical.hv21 ? (chain.technical.hv21 * 100).toFixed(1) + "%" : "—"} sub="HV anualizada" />
-        <Metric title="Tendência" value={(chain.technical && chain.technical.trend) || "—"} sub="Leitura simples" />
-      </div>}
-
-      {chain && <div style={{ ...card, overflow: "hidden" }}>
-        <div style={{ display: "flex", borderBottom: `1px solid ${T.borderSubtle}` }}>
-          {[['calls','Calls'], ['puts','Puts']].map(([id, label]) => (
-            <button key={id} onClick={() => { setSide(id); setSelected(null); setOptAnalysis(null); }} style={{ flex: 1, padding: "12px", border: "none", borderBottom: side === id ? `2px solid ${T.accent}` : "2px solid transparent", background: side === id ? T.accentTint10 : T.bgCard, color: side === id ? T.accent : T.textMuted, fontWeight: 800 }}>{label}</button>
-          ))}
-        </div>
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: MONO }}>
-            <thead>
-              <tr style={{ color: T.textFaint, textAlign: "right" }}>
-                <th style={{ ...cell, textAlign: "left" }}>Contrato</th><th style={cell}>Strike</th><th style={cell}>Último</th><th style={cell}>Bid/Ask</th><th style={cell}>Vol</th><th style={cell}>OI</th><th style={cell}>IV</th><th style={cell}>Liq.</th><th style={cell}>Score</th>
-              </tr>
-            </thead>
-            <tbody>
-              {topContracts.map((c) => (
-                <tr key={c.contractSymbol || c.strike} onClick={() => analyze(c)} style={{ cursor: "pointer", background: selected && selected.contractSymbol === c.contractSymbol ? T.accentTint10 : "transparent" }}>
-                  <td style={{ ...cell, textAlign: "left", color: T.textPrimary, fontWeight: 700 }}>{c.contractSymbol || "—"}</td>
-                  <td style={cell}>{price(c.strike)}</td><td style={cell}>{price(c.lastPrice)}</td><td style={cell}>{price(c.bid)} / {price(c.ask)}</td><td style={cell}>{c.volume || 0}</td><td style={cell}>{c.openInterest || 0}</td><td style={cell}>{c.impliedVolatility ? (c.impliedVolatility * 100).toFixed(1) + "%" : "—"}</td><td style={cell}>{c.liquidity ? c.liquidity.score : "—"}</td><td style={{ ...cell, color: c.educationalScore && c.educationalScore.score >= 60 ? T.positive : T.accent }}>{c.educationalScore ? c.educationalScore.score : "—"}</td>
-                </tr>
-              ))}
-              {!topContracts.length && <tr><td colSpan="9" style={{ padding: "18px", color: T.textMuted, textAlign: "center" }}>Sem contratos retornados para este vencimento.</td></tr>}
-            </tbody>
-          </table>
-        </div>
-      </div>}
-
-      {selected && <div style={{ ...card, padding: "15px" }}>
-        <div style={kicker}>CONTRATO SELECIONADO</div>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: "10px", alignItems: "baseline", flexWrap: "wrap" }}>
-          <h3 style={{ margin: "4px 0", fontFamily: MONO }}>{selected.contractSymbol}</h3>
-          <span style={{ color: T.textMuted, fontSize: "13px" }}>Breakeven: {price(selected.breakeven)} · Theta/dia: {selected.blackScholes ? selected.blackScholes.theta : "—"}</span>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0,1fr))", gap: "8px", marginTop: "8px" }}>
-          <Metric title="Delta" value={selected.blackScholes ? selected.blackScholes.delta : "—"} sub="sensibilidade" />
-          <Metric title="Gamma" value={selected.blackScholes ? selected.blackScholes.gamma : "—"} sub="aceleração" />
-          <Metric title="Vega" value={selected.blackScholes ? selected.blackScholes.vega : "—"} sub="volatilidade" />
-          <Metric title="Theo." value={selected.blackScholes ? price(selected.blackScholes.theoretical) : "—"} sub="Black-Scholes" />
-          <Metric title="Prob. ITM" value={selected.blackScholes ? (selected.blackScholes.prob_itm * 100).toFixed(1) + "%" : "—"} sub="aprox." />
-        </div>
-        {analysis && <div style={{ marginTop: "12px", padding: "12px", borderRadius: "10px", background: T.bgBase, border: `1px solid ${T.borderSubtle}`, color: analysis.error ? T.negative : T.textSecondary, fontSize: "13px", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
-          {analysis.loading ? "Gerando leitura educacional…" : analysis.error ? analysis.error : ((analysis.riskFlags || []).join("\n") + "\n\n" + (analysis.markdown || ""))}
-        </div>}
-        <p style={{ ...small, marginTop: "10px" }}>Opções têm risco elevado e podem perder 100% do prêmio. O score é apenas educacional e não gera ordem de compra ou venda.</p>
-      </div>}
-    </div>
-  );
-}
-
-function Metric({ title, value, sub }) {
-  return (
-    <div style={{ ...card, padding: "10px", background: T.bgPanel }}>
-      <div style={{ fontSize: "10px", color: T.textFaint, letterSpacing: "0.05em" }}>{title}</div>
-      <div style={{ marginTop: "3px", fontWeight: 800, fontFamily: MONO, fontSize: "15px", color: T.textPrimary }}>{value == null ? "—" : value}</div>
-      {sub && <div style={{ marginTop: "2px", fontSize: "11px", color: T.textMuted }}>{sub}</div>}
-    </div>
-  );
-}
-
+// v2: a tela solta de opções (OptionsScreen) e seu ajudante Metric foram
+// removidos aqui — a camada de opções passou a viver DENTRO do AtivoCard
+// (OpcoesCamada) e nada mais navegava até a tela: o botão de entrada saiu com
+// a v2 e a rota `tab === "opcoes"` ficou órfã. O backend que ela consumia
+// (/api/options/chain e /api/options/analyze) continua no ar.
 
 /* --------------------------------- App ----------------------------------- */
 export default function App() {
@@ -6166,7 +6050,6 @@ export default function App() {
           {tab === "evolucao" && <EvolucaoScreen ctx={ctx} />}
           {tab === "mercado" && <MercadoScreen ctx={ctx} />}
           {tab === "radar" && <RadarScreen ctx={ctx} />}
-          {tab === "opcoes" && (<><BackHeader title="Estudo de opções" onBack={() => setTab("mercado")} /><OptionsScreen ctx={ctx} /></>)}
           {tab === "agente" && <AgenteScreen ctx={ctx} />}
           {tab === "carteira" && (carteiraView === "historico"
             ? (<><BackHeader title="Histórico de operações" onBack={() => setCarteiraView("main")} /><HistoricoScreen ctx={ctx} /></>)
