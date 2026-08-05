@@ -2203,24 +2203,7 @@ function OpcaoContrato({ c, cur, chain, isOpen, onToggle, sustains, pos, onBuy, 
 // Gate de descobribilidade: só existe se `/api/options/gate` confirmar
 // liquidez (chamado 1x por card em AtivoCard, best-effort). A cadeia completa
 // só é buscada quando o usuário abre — zero fetch novo por padrão (proposta §5).
-function OpcoesCamada({ t, cur, open, onToggle, chain, chainLoading, opContract, setOpContract, opShowAll, setOpShowAll, myPositions, decColor, onBuy, onSell, busy, indisponivel, providerStatus }) {
-  // Sem liquidez: linha PRESENTE e apagada, com o motivo. Não abre (abrir só
-  // gastaria um fetch para mostrar uma lista vazia) e não some — o usuário
-  // precisa conseguir distinguir "a fonte não tem dado" de "isto não existe".
-  if (indisponivel) {
-    return (
-      <div style={{ marginTop: "11px", paddingTop: "10px", borderTop: `1px solid ${T.borderFaint}` }}>
-        <div style={{ fontSize: "12px", color: T.textFaint, display: "flex", alignItems: "center", gap: "7px" }}>
-          <span>⚡</span> opções indisponíveis
-        </div>
-        <div style={{ marginTop: "6px", fontSize: "10.5px", color: T.textFaint, lineHeight: 1.5 }}>
-          {providerStatus === "ok"
-            ? "A fonte de dados não está devolvendo cadeia de opções da B3 — não há contrato para estudar aqui até isso mudar."
-            : "Cotação de opções indisponível no momento. Tente novamente em alguns minutos."}
-        </div>
-      </div>
-    );
-  }
+function OpcoesCamada({ t, cur, open, onToggle, chain, chainLoading, opContract, setOpContract, opShowAll, setOpShowAll, myPositions, decColor, onBuy, onSell, busy }) {
   const contratos = chain && chain.providerStatus === "ok"
     ? [...(chain.calls || []), ...(chain.puts || [])].sort((a, b) => Math.abs((a.strike || 0) - (cur || 0)) - Math.abs((b.strike || 0) - (cur || 0)))
     : [];
@@ -2398,14 +2381,14 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
               )}
               </>)}
 
-              {/* v2 (ADR-003/004/005): linha de opções. O gate (1 chamada leve por
-                  card, best-effort) decide o ESTADO da linha, não mais a existência
-                  dela: sem liquidez a linha aparece dizendo POR QUE não há o que
-                  operar. Esconder por completo fazia a camada inteira sumir do app
-                  quando a fonte degradava — indistinguível de "não foi entregue". */}
-              {opGate && (
+              {/* v2 (ADR-003/004/005): linha de opções — só existe com liquidez
+                  confirmada pelo gate (1 chamada leve por card, best-effort).
+                  Enquanto a fonte não devolver cadeia da B3, ela não aparece em
+                  card nenhum: o estado de indisponibilidade chegou a ser exibido
+                  e virou seis avisos idênticos por tela, pior que o silêncio. O
+                  porquê da ausência mora no ADR-004, não no card. */}
+              {opGate && opGate.liquida && (
                 <OpcoesCamada
-                  indisponivel={!opGate.liquida} providerStatus={opGate.providerStatus}
                   t={t} cur={q.price} open={opOpen} onToggle={toggleOp}
                   chain={opChain} chainLoading={opChainLoading}
                   opContract={opContract} setOpContract={setOpContract}
