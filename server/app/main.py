@@ -1276,6 +1276,10 @@ async def get_conceitos(modo: Optional[str] = None, resumido: bool = False,
     return {"ligada": conceitos.didatica_ligada(),
             "assistente": conceitos.assistente_ligado(),
             "modo": voc,
+            # Toque longo: setorId → conceito primário. O front declara as
+            # regiões; o QUE cada uma explica decide-se aqui — repontear um
+            # setor é deploy do Railway, não build de iOS.
+            "setores": conceitos.setores(),
             "conceitos": conceitos.catalogo(voc, resumido)}
 
 
@@ -1320,6 +1324,12 @@ async def post_assistente(body: dict = Body(default={}), user: dict = Depends(re
     pergunta = str(b.get("pergunta") or "").strip()
     if not pergunta:
         raise HTTPException(400, "Escreva a sua pergunta sobre esta tela.")
+    # `tela: "setor:<id>"` valida contra o REGISTRO, antes de gastar qualquer
+    # coisa: id que o backend não conhece é 400, nunca contexto de prompt. A
+    # allowlist é o próprio SETORES — a mesma fonte que o catálogo serve.
+    tela = str(b.get("tela") or "")
+    if tela.startswith("setor:") and tela[len("setor:"):] not in conceitos.SETORES:
+        raise HTTPException(400, "Setor desconhecido.")
     # `config` no CORPO é o caminho do iPhone: lá o modelo e a chave vivem no
     # aparelho, e o servidor não os tem. Omitir isto foi o que produziu
     # "Nenhum modelo de IA configurado" em produção no scanDeep (qa/29).

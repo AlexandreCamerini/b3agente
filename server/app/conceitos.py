@@ -232,7 +232,10 @@ CONCEITOS = {
             "O número olha o passado do ativo, não o futuro do mercado. Notícia, "
             "resultado e evento societário não estão nele.",
         ],
-        "veja": ["gatilho"],
+        # `fundamento` entra na cadeia porque o setor "analise" (toque longo na
+        # linha de chips) abre AQUI: sem esse elo, o fundamento só seria
+        # alcançável acertando o dedo no chip pequeno — o mais interno.
+        "veja": ["fundamento", "gatilho"],
     },
     "fundamento": {
         "titulo": {"educacional": "O fundamento (A, B ou C)",
@@ -422,6 +425,38 @@ def montar(cid: str, modo: str = "educacional", dados: Optional[dict] = None,
         # vira link morto que responde 404 na cara do usuário.
         "veja": [v for v in (c.get("veja") or []) if v in CONCEITOS],
     }
+
+
+# --- Registro de SETORES (toque longo) ---------------------------------------
+# O gesto do front declara REGIÕES; quem decide o que cada região explica é
+# este registro. Motivo (spec do toque longo): a restrição mais cara do projeto
+# é o build iOS — com o mapeamento aqui, repontear um setor ou mudar o
+# encadeamento é deploy do Railway; só região NOVA na tela exige
+# `instalar.sh --iphone`. Ele também é a allowlist de `tela: "setor:<id>"` no
+# /api/assistente: id fora daqui é 400, nunca prompt.
+#
+# `risco` e `alvo` são setores distintos da MESMA régua: o front declara o id
+# conforme o número que a régua está exibindo (régua só com alvo É o setor
+# alvo) — regra herdada do guardião "a régua com só alvo não oferece um '?'
+# que explica o stop".
+SETORES = {
+    "timing": "gatilho",        # o badge inteiro do timing de entrada
+    "barra": "barra15m",        # o carimbo da hora, DENTRO do badge (mais interno)
+    "analise": "confluencia",   # a linha de chips da análise
+    "fundamento": "fundamento", # o chip do fundamento, DENTRO da linha (mais interno)
+    "risco": "stop",            # a régua de posição exibindo stop
+    "alvo": "alvo",             # a régua de posição exibindo só alvo
+    "r": "r",                   # a linha do R:R
+}
+
+
+def setores() -> dict:
+    """setorId → conceito primário. Vazio com a camada desligada — o front usa
+    a ausência para não armar o gesto."""
+    if not didatica_ligada():
+        return {}
+    # Só aponta para conceito que EXISTE — a mesma regra do "veja também".
+    return {s: cid for s, cid in SETORES.items() if cid in CONCEITOS}
 
 
 def catalogo(modo: str = "educacional", resumido: bool = False) -> list:

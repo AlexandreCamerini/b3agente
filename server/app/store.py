@@ -135,6 +135,15 @@ def set_config(conn, patch: dict, user_id=None) -> dict:
             if cid and cid not in atual:
                 atual.append(cid)
         cfg["conceitosVistos"] = atual[:200]
+    # Toque longo: contadores MONOTÔNICOS (max, nunca substituição) — dois
+    # aparelhos do mesmo usuário não rebobinam a dica nem a medição um do outro.
+    if isinstance(patch.get("gestoUso"), dict):
+        base = cfg.get("gestoUso") if isinstance(cfg.get("gestoUso"), dict) else {}
+        for k in ("aberturas", "gesto", "botao"):
+            v = patch["gestoUso"].get(k)
+            if isinstance(v, (int, float)) and not isinstance(v, bool):
+                base[k] = max(int(base.get(k) or 0), min(int(v), 100_000))
+        cfg["gestoUso"] = base
     # FASE 7 (F7.1) — Modo Operador: modo de trabalho, termo aceito e risco.
     # Regra: ativar "operador" EXIGE o termo (aceitoEm+versao) já registrado ou
     # vindo no MESMO patch — nunca liga sem aceite explícito.

@@ -202,6 +202,10 @@ def default_state() -> dict:
             # Camada de entendimento: ids de conceito que o usuário já viu
             # (a explicação aparece sozinha UMA vez; depois fica a um toque).
             "conceitosVistos": [],
+            # Toque longo: `aberturas` decide quando a dica do rodapé some;
+            # `gesto`/`botao` medem descoberta (é esse contador que calibra o
+            # N da dica e os 600 ms com dado real, não opinião).
+            "gestoUso": {"aberturas": 0, "gesto": 0, "botao": 0},
             # FASE 7 (F7.1) — Modo Operador
             "appMode": "estudo",       # estudo | operador (operador exige termo aceito)
             "operadorTermo": None,     # {aceitoEm, versao} registrado no aceite

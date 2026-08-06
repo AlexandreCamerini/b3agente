@@ -46,10 +46,18 @@ ok("falha de rede na folha não quebra o card",
    /Não consegui carregar a explicação agora\. O card continua válido\./.test(app));
 
 // --------------------------------------------------------------- duas vias
-ok("via PERMANENTE: uma afordância ÚNICA ('?') abre o conceito ancorado",
-   /function ConceitoDot\(\{ cid, dados, rotulo, A, didatica \}\)/.test(app)
-   && /A\.openConceito\(cid, dados\)/.test(app)
-   && /aria-label=\{"O que é " \+ rotulo \+ "\?"\}/.test(app));
+// A via permanente virou o GESTO (segurar o setor) — o "?" de 18px repetido
+// era ruído, não convite. O contrato: um gesto só, setor declarado, conceito
+// primário vindo do REGISTRO do backend (didatica.setores). Os detalhes do
+// gesto (600ms, cancelamentos, setor interno) têm guardião próprio:
+// test_setor_gesto.mjs.
+ok("via PERMANENTE: segurar o setor abre o conceito ancorado (SetorAlvo)",
+   /function SetorAlvo\(\{ setorId, dados, rotulo, A, didatica/.test(app)
+   && /A\.abrirSetor\(setorId, cid, dados, origem\)/.test(app));
+ok("o conceito do setor vem do REGISTRO do backend, nunca de dict do front",
+   /didatica\.setores\) \? didatica\.setores\[setorId\] : null/.test(app));
+ok("nenhum ConceitoDot sobrou no card (o ponto de entrada único é a dica)",
+   !/ConceitoDot/.test(app) && /function DicaGesto\(/.test(app));
 ok("via PROATIVA: abre uma vez e marca como visto",
    /A\.openConceito\("gatilho", dados\);\s*\n\s*A\.marcarConceitoVisto\("gatilho"\);/.test(app));
 ok("proativa só dispara se ainda NÃO foi vista",
@@ -71,25 +79,24 @@ ok("a folha ADIA enquanto houver outro overlay (não queima a estreia)",
 ok("a folha fica ACIMA de todos os outros overlays (zIndex 86 > portão 85)",
    /zIndex: 86, background: T\.scrim, display: "flex", alignItems: "flex-end"/.test(app));
 
-// ------------------------------------------------ acessibilidade do toque
-// Este é o ÚNICO acesso permanente à camada e vai se repetir em todos os
-// conceitos do inventário — nasce no tamanho mínimo da HIG (44pt).
-ok("o '?' tem alvo de toque de 44×44 com o círculo de 18px por dentro",
-   /width: "44px", height: "44px", margin: "-13px"/.test(app)
-   && /width: "18px", height: "18px", borderRadius: "999px"/.test(app));
+// ------------------------------------------------ acessibilidade do gesto
+// VoiceOver e teclado não têm "segurar 600ms" — cada setor carrega um botão
+// só-para-leitor que abre a mesma folha. O gesto é a via visual, nunca a única.
+ok("cada setor tem caminho acessível equivalente (botão sr-only)",
+   /aria-label=\{"O que é " \+ rotulo \+ "\?"\} style=\{SR_ONLY\}/.test(app)
+   && /clipPath: "inset\(50%\)"/.test(app));
 
 // ------------------------------------ Fase 3: cobertura e encadeamento
-// O inventário conta 18 afirmações no card. Dezoito interações diferentes
-// seriam 18 coisas a aprender antes do conteúdo — daí UM gesto só, e o
-// encadeamento "veja também" dentro da folha em vez de mais "?" na tela.
-for (const [cid, onde] of [["barra15m", "badge de timing"], ["confluencia", "chip"],
-                           ["fundamento", "chip"], ["r", "linha R:R"]]) {
-  ok(`conceito '${cid}' tem afordância (${onde})`,
-     new RegExp('<ConceitoDot cid="' + cid + '"').test(app));
+// O inventário conta 18 afirmações no card. O gesto é UM só; a cobertura vem
+// dos SETORES declarados — cada bloco que afirma número tem o seu.
+for (const [setor, onde] of [["barra", "carimbo da hora no badge"], ["analise", "linha de chips"],
+                             ["fundamento", "chip do fundamento"], ["r", "linha R:R"]]) {
+  ok(`setor '${setor}' declarado (${onde})`,
+     new RegExp('setorId="' + setor + '"').test(app));
 }
-// `stop` e `alvo` dividem a afordância da régua (ver o rodapé do inventário).
-ok("conceitos 'stop'/'alvo' têm afordância na régua de risco",
-   /cid=\{pos\.stop != null \? "stop" : "alvo"\}/.test(app));
+// `risco` e `alvo` dividem a régua: o setor segue o número EXIBIDO.
+ok("a régua declara o setor conforme o número exibido (risco vs alvo)",
+   /setorId=\{pos\.stop != null \? "risco" : "alvo"\}/.test(app));
 // UM bundle para todos os dots. Bundles parciais por dot quebravam o
 // encadeamento: seguir da confluência para o stop entregava o conceito sem
 // `stop` nem `precoAtual`, e a pessoa recebia texto de manual — a ancoragem
@@ -103,8 +110,8 @@ ok("'veja também' encadeia mantendo os mesmos dados",
 ok("a cadeia tem VOLTA (trilha), não só 'fechar tudo'",
    /voltarConceito: \(\) => setConceitoAberto/.test(app)
    && /‹ voltar/.test(app));
-ok("a régua com só alvo não oferece um '?' que explica o stop",
-   /cid=\{pos\.stop != null \? "stop" : "alvo"\}/.test(app));
+ok("a régua com só alvo não explica um stop que não está no card",
+   /setorId=\{pos\.stop != null \? "risco" : "alvo"\}/.test(app));
 ok("'veja também' só mostra conceito que o catálogo conhece",
    /\(didatica\.conceitos \|\| \[\]\)\.find\(\(x\) => x && x\.id === vid\)/.test(app));
 

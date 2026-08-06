@@ -270,6 +270,7 @@ function deviceStore() {
       if (!doc.config.notif || typeof doc.config.notif !== "object") doc.config.notif = { enabled: false, stop: true, alvo: true, agente: true, variacao: true, gatilho: false };
       if (typeof doc.config.notif.gatilho !== "boolean") doc.config.notif.gatilho = false;  // classe nova: opt-in
       if (!Array.isArray(doc.config.conceitosVistos)) doc.config.conceitosVistos = [];      // camada de entendimento
+      if (!doc.config.gestoUso || typeof doc.config.gestoUso !== "object") doc.config.gestoUso = { aberturas: 0, gesto: 0, botao: 0 };  // toque longo: dica + medição
       // FASE 8B (R2): skill da mesa — backfill em docs antigos
       if (!doc.skillOperador || typeof doc.skillOperador !== "object" || typeof doc.skillOperador.text !== "string") {
         doc.skillOperador = { name: "Mesa B3 - Operador v1", text: defaultSkillTextOperador() };
@@ -441,6 +442,17 @@ function deviceStore() {
           if (cid && !atual.includes(cid)) atual.push(cid);
         }
         c.conceitosVistos = atual.slice(0, 200);
+      }
+      // Toque longo: contadores MONOTÔNICOS (espelho EXATO do store.set_config)
+      // — max, nunca substituição: dois aparelhos do mesmo usuário não
+      // rebobinam a dica nem a medição um do outro.
+      if (patch.gestoUso && typeof patch.gestoUso === "object") {
+        const base = (c.gestoUso && typeof c.gestoUso === "object") ? c.gestoUso : { aberturas: 0, gesto: 0, botao: 0 };
+        for (const k of ["aberturas", "gesto", "botao"]) {
+          const v = patch.gestoUso[k];
+          if (typeof v === "number" && isFinite(v)) base[k] = Math.max(base[k] || 0, Math.min(Math.floor(v), 100000));
+        }
+        c.gestoUso = base;
       }
       // FASE 7 (F7.1) — Modo Operador (espelho exato do store.py.set_config):
       // termo primeiro; "operador" só liga com termo já aceito (nunca sem aceite).

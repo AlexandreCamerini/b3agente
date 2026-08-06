@@ -2109,18 +2109,83 @@ const CONCEITO_BLOCOS = [
   ["oQueAcontece", "O QUE ACONTECE"],
 ];
 
-// A AFORDÂNCIA ÚNICA. O inventário conta 18 afirmações no card; dezoito
-// interações diferentes seriam dezoito coisas a aprender antes de aprender o
-// conteúdo. Um gesto só: tocar no "?" ao lado do termo.
-// Alvo de 44×44 (mínimo da HIG) com o círculo de 18px por dentro; a margem
-// negativa devolve o espaço, então o layout não muda em lugar nenhum.
-function ConceitoDot({ cid, dados, rotulo, A, didatica }) {
-  if (!A || !didatica || !didatica.ligada) return null;
+// A AFORDÂNCIA ÚNICA agora é um GESTO: segurar o setor da tela. O "?" de 18px
+// repetido (até 6 por card, 36 numa watchlist rolada) era lido como ruído
+// tipográfico, não como convite — medido no aparelho, passava despercebido.
+// O gesto tem o mesmo alvo do conteúdo que explica: impossível ser pequeno.
+//
+// SETOR É REGIÃO DECLARADA, não inferência: cada bloco do card se envolve num
+// SetorAlvo com um `setorId`; o QUE cada id explica vem do REGISTRO servido
+// pelo backend (didatica.setores) — repontear um setor é deploy do Railway,
+// não build de iOS. O setor mais interno sob o dedo vence (stopPropagation no
+// pointerdown: o de fora nem arma).
+const GESTO_MS = 600;            // o callout do iOS ensina ~500ms; 2s ninguém sustenta
+const GESTO_TOLERANCIA_PX = 10;  // além disso o dedo está rolando, não segurando
+
+// Caminho ACESSÍVEL equivalente: VoiceOver e teclado não têm "segurar 600ms".
+// Cada setor carrega um botão só-para-leitor ("O que é X?") que abre a mesma
+// folha — o gesto é a via visual, nunca a única.
+const SR_ONLY = { position: "absolute", width: "1px", height: "1px", padding: 0, margin: "-1px", overflow: "hidden", clipPath: "inset(50%)", whiteSpace: "nowrap", border: 0 };
+
+function SetorAlvo({ setorId, dados, rotulo, A, didatica, ativo = true, style, children }) {
+  const st = useRef({ t: null, x: 0, y: 0, armado: false, disparado: false });
+  const cid = (didatica && didatica.ligada && didatica.setores) ? didatica.setores[setorId] : null;
+  // Sem registro (camada desligada, backend antigo) ou sem condição a
+  // explicar (`ativo`), o setor vira um contêiner comum — gesto desarmado.
+  if (!cid || !A || !ativo) return <div style={style}>{children}</div>;
+  const abrir = (origem) => A.abrirSetor(setorId, cid, dados, origem);
+  const limpar = () => { const s = st.current; if (s.t) clearTimeout(s.t); s.t = null; s.armado = false; };
+  const onPointerDown = (e) => {
+    e.stopPropagation();               // setor mais interno vence: o de fora nem arma
+    const s = st.current;
+    if (s.t || s.armado) { limpar(); return; }   // segundo dedo cancela o gesto
+    s.x = e.clientX; s.y = e.clientY; s.disparado = false;
+    s.t = setTimeout(() => { s.t = null; s.armado = true; }, GESTO_MS);
+  };
+  const onPointerMove = (e) => {
+    const s = st.current;
+    if (!s.t && !s.armado) return;
+    // mover além da tolerância é ROLAGEM: cancela o gesto, nunca a rolagem
+    if (Math.hypot(e.clientX - s.x, e.clientY - s.y) > GESTO_TOLERANCIA_PX) limpar();
+  };
+  const onPointerUp = () => {
+    // A folha abre no SOLTAR do dedo (não no estouro do timer): abrir com o
+    // dedo ainda na tela deixava o pointerup cair no scrim recém-montado e
+    // fechar a folha no mesmo gesto que a abriu.
+    const s = st.current;
+    if (s.armado) { s.disparado = true; abrir("gesto"); }
+    limpar();
+  };
+  const onClickCapture = (e) => {
+    // o clique fantasma que segue o gesto não pode vazar para o conteúdo
+    const s = st.current;
+    if (s.disparado) { s.disparado = false; e.stopPropagation(); e.preventDefault(); }
+  };
   return (
-    <button onClick={(e) => { e.stopPropagation(); A.openConceito(cid, dados); }}
-      aria-label={"O que é " + rotulo + "?"} title={"O que é " + rotulo + "?"}
-      style={{ width: "44px", height: "44px", margin: "-13px", padding: 0, background: "transparent", border: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", flex: "none", verticalAlign: "middle" }}>
-      <span aria-hidden style={{ width: "18px", height: "18px", borderRadius: "999px", border: `1px solid ${T.borderSubtle}`, color: T.textFaint, fontSize: "11px", fontWeight: 800, lineHeight: "16px", textAlign: "center" }}>?</span>
+    <div onPointerDown={onPointerDown} onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp} onPointerCancel={limpar} onPointerLeave={limpar}
+      onClickCapture={onClickCapture}
+      style={{ position: "relative", ...style, WebkitTouchCallout: "none", WebkitUserSelect: "none", userSelect: "none" }}>
+      {children}
+      <button onClick={(e) => { e.stopPropagation(); abrir("botao"); }}
+        aria-label={"O que é " + rotulo + "?"} style={SR_ONLY}>?</button>
+    </div>
+  );
+}
+
+// O ponto de entrada VISÍVEL que ensina o gesto — some sozinho depois que as
+// primeiras aberturas passaram (config.gestoUso.aberturas), porque dica
+// permanente em 6 cards viraria o mesmo ruído que o "?" repetido era. Quem
+// nunca descobre o gesto continua com este botão enquanto ele durar e com o
+// caminho de leitor de tela para sempre.
+const DICA_GESTO_ABERTURAS = 5;
+function DicaGesto({ A, didatica, dados, gestoUso }) {
+  if (!A || !didatica || !didatica.ligada || !didatica.setores || !didatica.setores.timing) return null;
+  if (((gestoUso && gestoUso.aberturas) || 0) >= DICA_GESTO_ABERTURAS) return null;
+  return (
+    <button onClick={() => A.abrirSetor("timing", didatica.setores.timing, dados, "botao")}
+      style={{ width: "100%", minHeight: "34px", marginTop: "9px", padding: "6px 10px", borderRadius: "9px", border: `1px dashed ${T.borderFaint}`, background: "transparent", color: T.textFaint, fontSize: "11px", fontWeight: 700 }}>
+      segure um valor deste card para entender o que ele afirma
     </button>
   );
 }
@@ -2130,7 +2195,7 @@ function ConceitoDot({ cid, dados, rotulo, A, didatica }) {
 // grátis; isto aqui chama LLM. Por isso é opt-in por toque, mostra o que sobra
 // do teto do dia, e qualquer falha degrada para "a explicação acima continua
 // valendo" — nunca deixa a pessoa sem resposta.
-function AssistenteBox({ cid, dados }) {
+function AssistenteBox({ cid, dados, setor }) {
   const [aberto, setAberto] = useState(false);
   const [q, setQ] = useState("");
   const [r, setR] = useState(null);
@@ -2143,7 +2208,9 @@ function AssistenteBox({ cid, dados }) {
     try {
       // O snapshot é o MESMO view-model que ancorou a explicação — nada de
       // raspar a tela: o que vai é dado estruturado, auditável.
-      const res = await store.assistente({ tela: "conceito:" + cid, snapshot: dados || {}, pergunta });
+      // `tela` diz de ONDE a pessoa pergunta: aberta pelo gesto é o setor
+      // (allowlist no backend); depois de navegar a cadeia, o conceito.
+      const res = await store.assistente({ tela: setor ? "setor:" + setor : "conceito:" + cid, snapshot: dados || {}, pergunta });
       setR(res);
     } catch (e) {
       setErro((e && e.message) || String(e));
@@ -2188,7 +2255,7 @@ function AssistenteBox({ cid, dados }) {
   );
 }
 
-function ConceitoSheet({ cid, dados, onClose, onTrocar, didatica, voltar }) {
+function ConceitoSheet({ cid, dados, setor, onClose, onTrocar, didatica, voltar }) {
   const [c, setC] = useState(null);
   const [erro, setErro] = useState(false);
   useEffect(() => {
@@ -2253,7 +2320,7 @@ function ConceitoSheet({ cid, dados, onClose, onTrocar, didatica, voltar }) {
                 que a pessoa já está com a dúvida, e o snapshot é o mesmo que
                 ancorou a explicação. Fica atrás de um toque para o custo ser
                 sempre uma escolha, nunca um efeito de abrir a tela. */}
-            {didatica && didatica.assistente && <AssistenteBox cid={cid} dados={dados} />}
+            {didatica && didatica.assistente && <AssistenteBox cid={cid} dados={dados} setor={setor} />}
             <button onClick={onClose} style={{ width: "100%", minHeight: "44px", borderRadius: "11px", border: `1px solid ${T.accent}`, background: T.accentTint10, color: T.accent, fontWeight: 800, fontSize: "13px" }}>Entendi</button>
           </>
         )}
@@ -2337,9 +2404,14 @@ function TimingBadge({ t, operador, didatica, vistos, proativo, A, dadosDoCard, 
   // `entrada`, e o caminho inverso entregaria o stop sem `precoAtual` — a
   // ancoragem quebrando justamente no encadeamento. `entrada`/`stop` do PLANO
   // (timing) prevalecem sobre os da posição: são o que o card está afirmando.
+  // `hora`/`asOf` entram no bundle porque o setor "timing" abre o gatilho e a
+  // cadeia "veja também" leva à barra15m — sem eles o elo entregaria o
+  // conceito da barra sem o carimbo que o ancora.
+  const horaDados = typeof r?.asOf === "string" && r.asOf.includes(" ")
+    ? { hora: r.asOf.split(" ")[1].slice(0, 5), asOf: r.asOf } : {};
   const dados = temPlano ? {
     ...(dadosDoCard || {}),
-    ticker: t, entrada: r.entrada, stop: r.stop,
+    ticker: t, entrada: r.entrada, stop: r.stop, ...horaDados,
     ...(estadoVivo ? {
       estado: r.estado, distancia: r.distancia,
       distanciaEmR: r.distanciaEmR, excedenteEmR: r.excedenteEmR,
@@ -2369,24 +2441,28 @@ function TimingBadge({ t, operador, didatica, vistos, proativo, A, dadosDoCard, 
   const emR = (x) => x.toFixed(1).replace(".", ",") + "R";
   const nivel = operador ? "gatilho" : "nível";
   return (
-    <div style={{ marginTop: "9px", padding: "8px 11px", borderRadius: "9px", background: bg, border: `1px solid ${T.borderFaint}` }}>
+    // Afordância PERMANENTE: segurar o badge abre o conceito do gatilho — o
+    // alvo é o próprio bloco que afirma o estado, não um "?" ao lado dele.
+    // Exige só o PLANO (`didaticaOk`): fora do pregão a explicação continua
+    // alcançável, com a leitura de mercado fechado que o backend já serve.
+    <SetorAlvo setorId="timing" dados={dados} rotulo={"o " + nivel} A={A} didatica={didatica}
+      ativo={didaticaOk}
+      style={{ marginTop: "9px", padding: "8px 11px", borderRadius: "9px", background: bg, border: `1px solid ${T.borderFaint}` }}>
       <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
         <span style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.05em", color: cor }}>{operador ? rotOp : rotEdu}</span>
-        {/* Afordância PERMANENTE: depois da primeira vez, a explicação continua
-            a um toque, no mesmo lugar onde o termo aparece. */}
-        {didaticaOk && <ConceitoDot cid="gatilho" dados={dados} rotulo={"o " + nivel} A={A} didatica={didatica} />}
         {hora && (
-          <span style={{ fontSize: "10px", color: T.textFaint, fontFamily: MONO }}>
-            {/* barra de outro dia: a hora sozinha ("16:45") esconde que o dado é
-                do pregão anterior — aqui a data vem junto. */}
-            {r.barraDeOutroDia ? `última barra ${r.asOf}` : `barra 15m de ${hora}`}
-          </span>
-        )}
-        {/* "barra de 15 minutos" e o atraso do feed são o conceito que mais
-            produz erro de leitura em iniciante: ele acha que vê o agora. */}
-        {hora && didatica && didatica.ligada && (
-          <ConceitoDot cid="barra15m" rotulo="a barra de 15 minutos" A={A} didatica={didatica}
-            dados={{ ...(dados || dadosDoCard || {}), ticker: t, hora, asOf: r.asOf }} />
+          // "barra de 15 minutos" e o atraso do feed são o conceito que mais
+          // produz erro de leitura em iniciante — o carimbo é o setor MAIS
+          // INTERNO do badge: o dedo nele explica a barra, fora dele o gatilho.
+          <SetorAlvo setorId="barra" rotulo="a barra de 15 minutos" A={A} didatica={didatica}
+            dados={{ ...(dados || dadosDoCard || {}), ticker: t, hora, asOf: r.asOf }}
+            style={{ display: "inline-flex", alignItems: "center" }}>
+            <span style={{ fontSize: "10px", color: T.textFaint, fontFamily: MONO }}>
+              {/* barra de outro dia: a hora sozinha ("16:45") esconde que o dado é
+                  do pregão anterior — aqui a data vem junto. */}
+              {r.barraDeOutroDia ? `última barra ${r.asOf}` : `barra 15m de ${hora}`}
+            </span>
+          </SetorAlvo>
         )}
         {r.estado === "armado" && r.distanciaEmR != null && (
           <span style={{ fontSize: "10px", color: T.textMuted, fontFamily: MONO }}>a {emR(r.distanciaEmR)} do {nivel}</span>
@@ -2399,7 +2475,7 @@ function TimingBadge({ t, operador, didatica, vistos, proativo, A, dadosDoCard, 
       {Array.isArray(r.ressalvas) && r.ressalvas.length > 0 && (
         <div style={{ fontSize: "10px", color: T.textFaint, marginTop: "4px", lineHeight: 1.4 }}>{r.ressalvas.join(" ")}</div>
       )}
-    </div>
+    </SetorAlvo>
   );
 }
 
@@ -2672,16 +2748,25 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
               {/* qa/49 (v11): ANÁLISE — indicadores unificados em chips (mesmo peso);
                   confluência e fundamento deixam de ser vereditos concorrentes. */}
               {contexto !== "radar" && (kp.direcao || (sc && sc.confluencia != null) || fscore || (sc && sc.melhorSetup)) && (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "11px" }}>
+                // Setor ANALISE: segurar a linha de chips abre a confluência
+                // (e a cadeia "veja também" leva ao fundamento). O chip do
+                // fundamento é o setor mais interno: o dedo NELE explica o
+                // fundamento direto, sem passar pela cadeia.
+                <SetorAlvo setorId="analise" rotulo="a confluência" A={A} didatica={didatica}
+                  dados={dadosDoCard} ativo={!!(sc && sc.confluencia != null)}
+                  style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "11px" }}>
                   {kp.direcao && chip("direção", kp.direcao, (DIR_STYLE[kp.direcao] || [T.textPrimary])[0])}
                   {kp.conviccao && chip("convicção", kp.conviccao)}
                   {kp.qualidade && chip("qualidade", kp.qualidade)}
                   {sc && sc.confluencia != null && chip("confluência", (sc.confluencia || 0) + "%", T.accent)}
-                  {sc && sc.confluencia != null && <ConceitoDot cid="confluencia" rotulo="a confluência" A={A} didatica={didatica} dados={dadosDoCard} />}
-                  {fscore && chip("fundamento", fscore, T[SCORE_COLOR[fscore]] || T.textPrimary)}
-                  {fscore && <ConceitoDot cid="fundamento" rotulo="o fundamento" A={A} didatica={didatica} dados={dadosDoCard} />}
+                  {fscore && (
+                    <SetorAlvo setorId="fundamento" rotulo="o fundamento" A={A} didatica={didatica}
+                      dados={dadosDoCard} style={{ display: "inline-flex" }}>
+                      {chip("fundamento", fscore, T[SCORE_COLOR[fscore]] || T.textPrimary)}
+                    </SetorAlvo>
+                  )}
                   {sc && sc.melhorSetup && <span style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "999px", background: T.bgBase, color: T.textMuted }}>{sc.melhorSetup}</span>}
-                </div>
+                </SetorAlvo>
               )}
               </>)}
 
@@ -2710,28 +2795,33 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
               {/* POSIÇÃO NO RISCO — a régua reusada do card de posições. */}
               {pos && (pos.stop != null || pos.alvo != null) && (
                 <>
-                  <PlanRuler
-                    // A régua aparece com stop OU alvo. Fixar `cid="stop"`
-                    // fazia quem armou só o alvo ver um "?" explicando um
-                    // nível que não está no card — e sem stop não há de onde
-                    // encadear até `alvo`, que não tem afordância própria.
-                    captionExtra={<ConceitoDot cid={pos.stop != null ? "stop" : "alvo"}
-                      rotulo={pos.stop != null ? "o stop" : "o alvo"}
-                      A={A} didatica={didatica} dados={dadosDoCard} />}
-                    caption="POSIÇÃO NO RISCO"
-                    marks={[pos.stop != null && { v: pos.stop, color: T.negative }, pos.alvo != null && { v: pos.alvo, color: T.positive }].filter(Boolean)}
-                    cur={cur}
-                    curLabel={cur != null ? "agora " + price(cur) : null}
-                    legend={[
-                      { k: "STOP", v: pos.stop, color: T.negative, sub: pos.stop != null && cur > 0 ? "−" + Math.abs(((cur - pos.stop) / cur) * 100).toFixed(1) + "%" : null },
-                      { k: "P. MÉDIO", v: pos.avg },
-                      { k: "ALVO", v: pos.alvo, color: T.positive, sub: pos.alvo != null && cur > 0 ? "+" + Math.abs(((pos.alvo - cur) / cur) * 100).toFixed(1) + "%" : null },
-                    ]}
-                  />
+                  {/* A régua aparece com stop OU alvo. O setor segue o número
+                      EXIBIDO: régua só com alvo É o setor "alvo" — quem armou
+                      só o alvo não recebe a explicação de um stop que não está
+                      no card (regra herdada do guardião da afordância antiga). */}
+                  <SetorAlvo setorId={pos.stop != null ? "risco" : "alvo"}
+                    rotulo={pos.stop != null ? "o stop" : "o alvo"}
+                    A={A} didatica={didatica} dados={dadosDoCard}>
+                    <PlanRuler
+                      caption="POSIÇÃO NO RISCO"
+                      marks={[pos.stop != null && { v: pos.stop, color: T.negative }, pos.alvo != null && { v: pos.alvo, color: T.positive }].filter(Boolean)}
+                      cur={cur}
+                      curLabel={cur != null ? "agora " + price(cur) : null}
+                      legend={[
+                        { k: "STOP", v: pos.stop, color: T.negative, sub: pos.stop != null && cur > 0 ? "−" + Math.abs(((cur - pos.stop) / cur) * 100).toFixed(1) + "%" : null },
+                        { k: "P. MÉDIO", v: pos.avg },
+                        { k: "ALVO", v: pos.alvo, color: T.positive, sub: pos.alvo != null && cur > 0 ? "+" + Math.abs(((pos.alvo - cur) / cur) * 100).toFixed(1) + "%" : null },
+                      ]}
+                    />
+                  </SetorAlvo>
                   {(rrPos != null || diasPos != null || pctCapPos != null) && (
                     <div style={{ display: "flex", gap: "10px", fontSize: "10.5px", color: T.textSecondary, marginTop: "9px", flexWrap: "wrap" }}>
-                      {rrPos != null && <span>R:R <b style={{ color: T.textPrimary, fontWeight: 700 }}>{rrPos.toFixed(1)}</b></span>}
-                      {rrPos != null && <ConceitoDot cid="r" rotulo="o R" A={A} didatica={didatica} dados={dadosDoCard} />}
+                      {rrPos != null && (
+                        <SetorAlvo setorId="r" rotulo="o R" A={A} didatica={didatica}
+                          dados={dadosDoCard} style={{ display: "inline-flex" }}>
+                          <span>R:R <b style={{ color: T.textPrimary, fontWeight: 700 }}>{rrPos.toFixed(1)}</b></span>
+                        </SetorAlvo>
+                      )}
                       {diasPos != null && <span>· {diasPos} dias</span>}
                       {pctCapPos != null && <span>· {pctCapPos.toFixed(0)}% do patrimônio</span>}
                     </div>
@@ -2831,6 +2921,15 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
                 )}
               </div>
               </>))}
+              {/* Dica do GESTO: o único ponto de entrada visível da camada de
+                  entendimento — ensina "segure para entender" nas primeiras
+                  aberturas e some (config.gestoUso.aberturas). Só na
+                  watchlist: o Radar é vitrine, não lugar de parar para
+                  aprender (mesma regra da via proativa). */}
+              {contexto !== "radar" && (
+                <DicaGesto A={A} didatica={didatica} dados={dadosDoCard}
+                  gestoUso={(data && data.config && data.config.gestoUso) || null} />
+              )}
             </div>
   );
 }
@@ -5710,6 +5809,19 @@ export default function App() {
     tourShownRef.current = true;
     if (!data.config.tourSeen) setTourOpen(true);
   }, [data, welcomeAuthOpen, welcomeOpen]);
+  // Toque longo: conta UMA abertura do app por boot — é o relógio que apaga a
+  // dica do gesto (DICA_GESTO_ABERTURAS). Para de gravar logo depois que a
+  // dica morreu: contador de dica não precisa crescer para sempre.
+  const gestoBootRef = useRef(false);
+  useEffect(() => {
+    if (gestoBootRef.current || !data || !data.config) return;
+    gestoBootRef.current = true;
+    const g = { aberturas: 0, gesto: 0, botao: 0, ...(data.config.gestoUso || {}) };
+    if (g.aberturas >= DICA_GESTO_ABERTURAS + 3) return;
+    g.aberturas += 1;
+    setData((d) => (d ? { ...d, config: { ...d.config, gestoUso: g } } : d));
+    store.putConfig({ gestoUso: g }).catch(() => { /* silencioso */ });
+  }, [data]);
   // FASE 3.3a — ao abrir o app, resume as ações do agente server-side desde a
   // última visita (agentLog vs. agent.lastSeenAt) com notificação local.
   const agentSummaryDone = useRef(false);
@@ -6012,7 +6124,24 @@ export default function App() {
     // `trilha` guarda os conceitos por onde a pessoa passou nesta abertura —
     // é o que dá o "‹ voltar" da cadeia. Abrir pelo card sempre recomeça.
     openConceito: (cid, dados) => setConceitoAberto({ cid, dados: dados || null, trilha: [] }),
-    trocarConceito: (cid) => setConceitoAberto((c) => (c ? { ...c, cid, trilha: [...(c.trilha || []), c.cid] } : c)),
+    // Toque longo: abre o conceito primário do SETOR (registro do backend) e
+    // conta a descoberta — `gesto` × `botao` é o dado que calibra o N da dica
+    // e os 600ms; sem ele os dois números viram opinião para sempre.
+    abrirSetor: (setorId, cid, dados, origem) => {
+      setConceitoAberto({ cid, dados: dados || null, trilha: [], setor: setorId });
+      setData((d) => {
+        if (!d) return d;
+        const g = { aberturas: 0, gesto: 0, botao: 0, ...((d.config && d.config.gestoUso) || {}) };
+        const k = origem === "gesto" ? "gesto" : "botao";
+        g[k] = (g[k] || 0) + 1;
+        // `.catch` na promessa (padrão do marcarConceitoVisto): falhar aqui só
+        // perde um tique de medição — nunca a folha.
+        store.putConfig({ gestoUso: g }).catch(() => { /* silencioso */ });
+        return { ...d, config: { ...d.config, gestoUso: g } };
+      });
+    },
+    // navegar pela cadeia sai do setor: a tela passa a ser o conceito.
+    trocarConceito: (cid) => setConceitoAberto((c) => (c ? { ...c, cid, setor: null, trilha: [...(c.trilha || []), c.cid] } : c)),
     voltarConceito: () => setConceitoAberto((c) => {
       const tr = (c && c.trilha) || [];
       if (!tr.length) return c;
@@ -6488,6 +6617,7 @@ export default function App() {
       {tourOpen && <TourModal ctx={ctx} />}
       {conceitoAberto && (
         <ConceitoSheet cid={conceitoAberto.cid} dados={conceitoAberto.dados}
+          setor={conceitoAberto.setor || null}
           didatica={didatica} onClose={A.closeConceito}
           // Troca o conceito MANTENDO os dados do card: a allowlist do backend
           // filtra o que serve a cada um, então o encadeamento segue ancorado
