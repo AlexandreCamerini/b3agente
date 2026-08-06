@@ -10,6 +10,10 @@ investimento e o app nunca promete lucro.
 - **Backend** — **FastAPI + SQLite** (Python): cotações, análise da LLM e
   persistência da versão web.
 
+**Visão de conjunto:** [docs/ARQUITETURA.md](docs/ARQUITETURA.md) — topologia,
+fronteiras entre o motor determinístico e a camada LLM, caminho de entrega e
+pendências. As decisões individuais moram em [docs/adr/](docs/adr/).
+
 ---
 
 

@@ -8,11 +8,17 @@
 #
 # Cadeia (aborta no primeiro elo ruim, com instrução exata):
 #   1. suítes (backend offline + web)            — nunca entrega com teste falhando
-#   2. commit + push (Railway redeploya sozinho) — backend no ar
-#   3. npm install + vite build                  — dist/ com o BUILD_ID atual
+#   2. build do web + server/web_dist            — o front que o Railway serve
+#   3. commit + push (Railway redeploya sozinho) — backend E web no ar
 #   4. cap sync ios + LIMPEZA de assets órfãos   — bundle do iPhone íntegro
 #   5. VERIFICAÇÃO: BUILD_ID igual em version.js, dist/ e ios/public/
 #   6. abre o Xcode com o lembrete do Clean Build Folder
+#
+# A ORDEM build→commit não é estética. O Railway serve o front de
+# server/web_dist (rootDirectory=/server; ../web fica fora do build context),
+# então buildar DEPOIS do push deixava a web de produção uma entrega atrás —
+# backend novo servindo front velho, com o carimbo de /api/health dizendo que
+# estava tudo certo. Foi assim até 2026-08-06.
 #
 # Depois do Run no iPhone: Perfil → rodapé DEVE mostrar o mesmo build.
 set -uo pipefail
@@ -51,6 +57,11 @@ verificar(){
     local BD; BD="$(build_no_bundle web/dist/assets)"
     [ "$BD" = "$BUILD_LOCAL" ] && ok "dist/ contém $BD" || { warn "dist/ contém '${BD:-nada}' ≠ $BUILD_LOCAL — rode a cadeia completa"; RC=1; }
   else warn "web/dist ausente — nunca buildou aqui"; RC=1; fi
+  # front de PRODUÇÃO (server/web_dist é a única árvore que o Railway enxerga)
+  if [ -d server/web_dist/assets ]; then
+    local BW; BW="$(build_no_bundle server/web_dist/assets)"
+    [ "$BW" = "$BUILD_LOCAL" ] && ok "server/web_dist contém $BW" || { warn "server/web_dist contém '${BW:-nada}' ≠ $BUILD_LOCAL — a web de produção ficaria atrasada; rode 'bash scripts/publicar-web.sh'"; RC=1; }
+  else warn "server/web_dist ausente — a web de produção não seria servida"; RC=1; fi
   # bundle do iOS
   if [ -d web/ios/App/App/public/assets ]; then
     local BI; BI="$(build_no_bundle web/ios/App/App/public/assets)"
@@ -75,7 +86,21 @@ MSG="${1:-entrega}"
 say "1/6 · Suítes (backend + web)"
 bash executar.sh --testes >/dev/null 2>&1 && ok "todas as suítes verdes" || die "teste falhando — rode 'bash operar.sh testes' para ver qual. NUNCA entregue vermelho."
 
-say "2/6 · Git (commit + push → Railway redeploya)"
+say "2/6 · Build do web + publicação em server/web_dist"
+cd web
+npm install --silent >/dev/null 2>&1 || die "npm install falhou (veja: cd web && npm install)"
+npx vite build >/dev/null 2>&1 || die "vite build falhou (veja: cd web && npx vite build)"
+BD="$(build_no_bundle dist/assets)"
+[ "$BD" = "$BUILD_LOCAL" ] || die "dist buildado com '$BD' ≠ $BUILD_LOCAL — version.js divergente?"
+ok "dist com o carimbo $BD"
+cd ..
+# A publicação mora no publicar-web.sh (um lugar só decide o que vai para
+# onde); aqui só reusamos o dist recém-buildado, sem rebuildar.
+bash scripts/publicar-web.sh --so-publicar >/dev/null 2>&1 \
+  || die "publicação em server/web_dist falhou (veja: bash scripts/publicar-web.sh --so-publicar)"
+ok "server/web_dist publicado — entra no commit do próximo elo"
+
+say "3/6 · Git (commit + push → Railway redeploya backend E web)"
 if [ -n "$(git status --porcelain)" ]; then
   git add -A && git commit -m "$MSG" >/dev/null || die "commit falhou"
   ok "commit: $(git log -1 --format='%h %s')"
@@ -84,15 +109,8 @@ else
 fi
 git push >/dev/null 2>&1 && ok "push feito" || die "push falhou — confira a rede/credenciais e rode de novo"
 
-say "3/6 · Build do web (npm install + vite build)"
-cd web
-npm install --silent >/dev/null 2>&1 || die "npm install falhou (veja: cd web && npm install)"
-npx vite build >/dev/null 2>&1 || die "vite build falhou (veja: cd web && npx vite build)"
-BD="$(build_no_bundle dist/assets)"
-[ "$BD" = "$BUILD_LOCAL" ] || die "dist buildado com '$BD' ≠ $BUILD_LOCAL — version.js divergente?"
-ok "dist com o carimbo $BD"
-
 say "4/6 · cap sync ios + limpeza de assets órfãos"
+cd web
 npx cap sync ios >/dev/null 2>&1 || die "cap sync falhou (veja: cd web && npx cap sync ios)"
 # FASE 9: o AppDelegate PERDE os callbacks do APNs quando a pasta ios/ é
 # regenerada (é gitignorada) — reaplica o patch idempotente SEMPRE.
