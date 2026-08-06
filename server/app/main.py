@@ -1307,6 +1307,43 @@ async def post_conceito(cid: str, body: dict = Body(default={}),
     return {"ligada": True, **c}
 
 
+# O PET — resumo determinístico da tela, para o mascote falar/exibir.
+# Custo zero: nenhuma LLM aqui. Toda frase sai pronta do servidor (lei do
+# vocabulário): as de estado vêm de timing.montar (skill_ref.TIMING), e as
+# conectivas moram NESTA rota — o front nunca compõe texto.
+@app.get("/api/pet/resumo")
+async def get_pet_resumo(modo: Optional[str] = None,
+                         scope: Optional[str] = Depends(current_scope)):
+    from . import intraday as intraday_mod
+    from . import timing as timing_mod
+    if not conceitos.didatica_ligada():
+        return {"ligada": False}
+    cfg = store.get(_conn, "config", user_id=scope) or {}
+    operador = (modo or cfg.get("appMode")) == "operador"
+    voc = "operador" if operador else "educacional"
+    wl = [t for t in (store.get(_conn, "watchlist", user_id=scope) or []) if isinstance(t, str)][:12]
+    p = candles_mod.normalize_period(None)
+    radar_stored = await asyncio.to_thread(radar_daily.get_stored, _conn, p)
+    intra_stored = await asyncio.to_thread(intraday_mod.get_stored, _conn)
+    itens = []
+    for t in wl:
+        r = timing_mod.montar(radar_stored, intra_stored, t, "operador" if operador else "estudo")
+        if r and r.get("estado") not in (None, "sem_plano") and r.get("frase"):
+            itens.append({"ticker": t, "estado": r["estado"], "frase": r["frase"]})
+    # "O que o app NÃO faz" vem PRIMEIRO — regra da casa (conceitos.py).
+    fala = ["O app não compra nem vende nada: a carteira é simulada e a "
+            "decisão é sempre sua."]
+    if itens:
+        fala.append("Na sua lista de hoje:")
+        fala += [f"{i['ticker']}: {i['frase']}" for i in itens]
+        fala.append("As leituras têm a idade da barra de 15 minutos — "
+                    "nunca são o agora.")
+    else:
+        fala.append("O Radar ainda não tem planos armazenados para os ativos "
+                    "que você acompanha. Assim que houver, eu explico cada um.")
+    return {"ligada": True, "modo": voc, "itens": itens, "fala": fala}
+
+
 # Fase 4 — ASSISTENTE de entendimento (camada paga, sob demanda).
 @app.post("/api/assistente")
 async def post_assistente(body: dict = Body(default={}), user: dict = Depends(require_user)):
@@ -1324,12 +1361,15 @@ async def post_assistente(body: dict = Body(default={}), user: dict = Depends(re
     pergunta = str(b.get("pergunta") or "").strip()
     if not pergunta:
         raise HTTPException(400, "Escreva a sua pergunta sobre esta tela.")
-    # `tela: "setor:<id>"` valida contra o REGISTRO, antes de gastar qualquer
-    # coisa: id que o backend não conhece é 400, nunca contexto de prompt. A
-    # allowlist é o próprio SETORES — a mesma fonte que o catálogo serve.
+    # `tela: "setor:<id>"` e `tela: "pet:<id>"` validam contra os REGISTROS,
+    # antes de gastar qualquer coisa: id que o backend não conhece é 400,
+    # nunca contexto de prompt. As allowlists são SETORES e PET_TELAS — as
+    # mesmas fontes que o catálogo e o pet servem.
     tela = str(b.get("tela") or "")
     if tela.startswith("setor:") and tela[len("setor:"):] not in conceitos.SETORES:
         raise HTTPException(400, "Setor desconhecido.")
+    if tela.startswith("pet:") and tela[len("pet:"):] not in conceitos.PET_TELAS:
+        raise HTTPException(400, "Tela desconhecida.")
     # `config` no CORPO é o caminho do iPhone: lá o modelo e a chave vivem no
     # aparelho, e o servidor não os tem. Omitir isto foi o que produziu
     # "Nenhum modelo de IA configurado" em produção no scanDeep (qa/29).

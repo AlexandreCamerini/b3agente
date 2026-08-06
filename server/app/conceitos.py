@@ -459,6 +459,12 @@ def setores() -> dict:
     return {s: cid for s, cid in SETORES.items() if cid in CONCEITOS}
 
 
+# Telas que o PET conhece — allowlist de `tela: "pet:<id>"` no /api/assistente,
+# irmã da SETORES. O pet da v1 vive na Watchlist (aba "mercado"); tela nova
+# entra AQUI antes de existir no front.
+PET_TELAS = ("mercado",)
+
+
 def catalogo(modo: str = "educacional", resumido: bool = False) -> list:
     """Todos os conceitos SEM dados do card (texto genérico). Serve o prefixo
     estável do assistente e a tela de ajuda; a versão ancorada vem de montar."""

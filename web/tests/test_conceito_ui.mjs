@@ -46,18 +46,18 @@ ok("falha de rede na folha não quebra o card",
    /Não consegui carregar a explicação agora\. O card continua válido\./.test(app));
 
 // --------------------------------------------------------------- duas vias
-// A via permanente virou o GESTO (segurar o setor) — o "?" de 18px repetido
-// era ruído, não convite. O contrato: um gesto só, setor declarado, conceito
-// primário vindo do REGISTRO do backend (didatica.setores). Os detalhes do
-// gesto (600ms, cancelamentos, setor interno) têm guardião próprio:
-// test_setor_gesto.mjs.
-ok("via PERMANENTE: segurar o setor abre o conceito ancorado (SetorAlvo)",
+// A via permanente é TOQUE no termo SUBLINHADO (padrão Duolingo) — o "?" de
+// 18px repetido era ruído, e o toque longo caiu no teste ao vivo (sem
+// indicação + seleção de texto). O contrato: setor declarado, conceito
+// primário do REGISTRO do backend (didatica.setores), indicação no próprio
+// termo. Os detalhes do toque têm guardião próprio: test_setor_toque.mjs.
+ok("via PERMANENTE: tocar o setor abre o conceito ancorado (SetorAlvo)",
    /function SetorAlvo\(\{ setorId, dados, rotulo, A, didatica/.test(app)
    && /A\.abrirSetor\(setorId, cid, dados, origem\)/.test(app));
 ok("o conceito do setor vem do REGISTRO do backend, nunca de dict do front",
    /didatica\.setores\) \? didatica\.setores\[setorId\] : null/.test(app));
-ok("nenhum ConceitoDot sobrou no card (o ponto de entrada único é a dica)",
-   !/ConceitoDot/.test(app) && /function DicaGesto\(/.test(app));
+ok("nenhum ConceitoDot sobrou no card (a indicação é o sublinhado pontilhado)",
+   !/ConceitoDot/.test(app) && /const SUBLINHADO = /.test(app));
 ok("via PROATIVA: abre uma vez e marca como visto",
    /A\.openConceito\("gatilho", dados\);\s*\n\s*A\.marcarConceitoVisto\("gatilho"\);/.test(app));
 ok("proativa só dispara se ainda NÃO foi vista",

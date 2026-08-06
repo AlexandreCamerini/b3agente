@@ -236,6 +236,8 @@ export const api = {
   conceito: (cid, body) => req("POST", "/api/conceito/" + encodeURIComponent(cid), body || {}, 15000),
   // Assistente (camada PAGA): exige conta e leva o snapshot da tela.
   assistente: (body) => req("POST", "/api/assistente", body || {}, TIMEOUT_LLM),
+  // O PET: resumo determinístico da tela (custo zero; frases prontas do servidor).
+  petResumo: (modo) => req("GET", "/api/pet/resumo?modo=" + encodeURIComponent(modo || "estudo"), undefined, 15000),
   scanProgress: () => req("GET", "/api/scan/progress", undefined, 10000),        // BLOCO B1
   // F1 (timing de entrada): estado determinístico plano diário × barra 15m
   // FECHADA — O(1) no servidor, zero fetch/LLM. iOS manda ?appMode (modo é

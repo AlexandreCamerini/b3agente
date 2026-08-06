@@ -27,7 +27,9 @@ ok("removida a pill antiga tier+confluência ao lado da decisão", !/\{tierDot\}
 ok("KpiBlock não é mais renderizado no card do ativo", !/an\.kpis && <KpiBlock/.test(app));
 
 // posição no risco: régua reusada + acesso ao candlestick
-const reguas = (app.match(/caption="POSIÇÃO NO RISCO"/g) || []).length;
+// A caption aceita string OU nó (a camada de entendimento sublinha o termo
+// no card único) — o contrato aqui é a RÉGUA reusada, não a forma da prop.
+const reguas = (app.match(/caption=\{?(<span style=\{SUBLINHADO\}>)?"?POSIÇÃO NO RISCO/g) || []).length;
 ok("régua POSIÇÃO NO RISCO reusada também no hero (≥2 usos)", reguas >= 2);
 ok("acesso ao candlestick por botão (velas → openTech, com guarda)", /onClick=\{\(\) => A\.openTech && A\.openTech\(t\)\}[\s\S]{0,240}Abrir gráfico de velas/.test(app));
 

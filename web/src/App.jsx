@@ -2109,84 +2109,48 @@ const CONCEITO_BLOCOS = [
   ["oQueAcontece", "O QUE ACONTECE"],
 ];
 
-// A AFORDÂNCIA ÚNICA agora é um GESTO: segurar o setor da tela. O "?" de 18px
-// repetido (até 6 por card, 36 numa watchlist rolada) era lido como ruído
-// tipográfico, não como convite — medido no aparelho, passava despercebido.
-// O gesto tem o mesmo alvo do conteúdo que explica: impossível ser pequeno.
+// A AFORDÂNCIA ÚNICA é o padrão do Duolingo: termo explicável carrega um
+// SUBLINHADO PONTILHADO e abre a explicação com um TOQUE simples. A versão
+// anterior (toque longo) caiu no teste ao vivo por três defeitos que se
+// compõem: sem indicação ninguém sabia onde segurar; segurando em qualquer
+// lugar, fora dos setores quem respondia era a SELEÇÃO DE TEXTO do sistema;
+// e toque longo só funciona com alvo óbvio — num card de texto, nunca é.
+// O tap resolve os três: a indicação mora no próprio termo, o gesto é o mais
+// universal que existe, e tap não seleciona texto nem compete com rolagem.
 //
 // SETOR É REGIÃO DECLARADA, não inferência: cada bloco do card se envolve num
 // SetorAlvo com um `setorId`; o QUE cada id explica vem do REGISTRO servido
 // pelo backend (didatica.setores) — repontear um setor é deploy do Railway,
-// não build de iOS. O setor mais interno sob o dedo vence (stopPropagation no
-// pointerdown: o de fora nem arma).
-const GESTO_MS = 600;            // o callout do iOS ensina ~500ms; 2s ninguém sustenta
-const GESTO_TOLERANCIA_PX = 10;  // além disso o dedo está rolando, não segurando
+// não build de iOS. O setor mais interno sob o dedo vence (stopPropagation
+// no click: o de fora nem vê o toque).
+//
+// A convenção visual, aplicada UMA vez por setor (só no termo-âncora):
+const SUBLINHADO = { textDecorationLine: "underline", textDecorationStyle: "dotted", textDecorationColor: T.textFaint, textUnderlineOffset: "3px", textDecorationThickness: "1px" };
 
-// Caminho ACESSÍVEL equivalente: VoiceOver e teclado não têm "segurar 600ms".
-// Cada setor carrega um botão só-para-leitor ("O que é X?") que abre a mesma
-// folha — o gesto é a via visual, nunca a única.
+// Caminho ACESSÍVEL nomeado: cada setor carrega um botão só-para-leitor
+// ("O que é X?") — o VoiceOver lê a pergunta, não o número sublinhado.
 const SR_ONLY = { position: "absolute", width: "1px", height: "1px", padding: 0, margin: "-1px", overflow: "hidden", clipPath: "inset(50%)", whiteSpace: "nowrap", border: 0 };
 
 function SetorAlvo({ setorId, dados, rotulo, A, didatica, ativo = true, style, children }) {
-  const st = useRef({ t: null, x: 0, y: 0, armado: false, disparado: false });
   const cid = (didatica && didatica.ligada && didatica.setores) ? didatica.setores[setorId] : null;
   // Sem registro (camada desligada, backend antigo) ou sem condição a
-  // explicar (`ativo`), o setor vira um contêiner comum — gesto desarmado.
+  // explicar (`ativo`), o setor vira um contêiner comum — toque desarmado.
   if (!cid || !A || !ativo) return <div style={style}>{children}</div>;
   const abrir = (origem) => A.abrirSetor(setorId, cid, dados, origem);
-  const limpar = () => { const s = st.current; if (s.t) clearTimeout(s.t); s.t = null; s.armado = false; };
-  const onPointerDown = (e) => {
-    e.stopPropagation();               // setor mais interno vence: o de fora nem arma
-    const s = st.current;
-    if (s.t || s.armado) { limpar(); return; }   // segundo dedo cancela o gesto
-    s.x = e.clientX; s.y = e.clientY; s.disparado = false;
-    s.t = setTimeout(() => { s.t = null; s.armado = true; }, GESTO_MS);
-  };
-  const onPointerMove = (e) => {
-    const s = st.current;
-    if (!s.t && !s.armado) return;
-    // mover além da tolerância é ROLAGEM: cancela o gesto, nunca a rolagem
-    if (Math.hypot(e.clientX - s.x, e.clientY - s.y) > GESTO_TOLERANCIA_PX) limpar();
-  };
-  const onPointerUp = () => {
-    // A folha abre no SOLTAR do dedo (não no estouro do timer): abrir com o
-    // dedo ainda na tela deixava o pointerup cair no scrim recém-montado e
-    // fechar a folha no mesmo gesto que a abriu.
-    const s = st.current;
-    if (s.armado) { s.disparado = true; abrir("gesto"); }
-    limpar();
-  };
-  const onClickCapture = (e) => {
-    // o clique fantasma que segue o gesto não pode vazar para o conteúdo
-    const s = st.current;
-    if (s.disparado) { s.disparado = false; e.stopPropagation(); e.preventDefault(); }
+  const onClick = (e) => {
+    // setor mais interno vence; o toque não vaza para o card por baixo
+    e.stopPropagation();
+    abrir("toque");
   };
   return (
-    <div onPointerDown={onPointerDown} onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp} onPointerCancel={limpar} onPointerLeave={limpar}
-      onClickCapture={onClickCapture}
-      style={{ position: "relative", ...style, WebkitTouchCallout: "none", WebkitUserSelect: "none", userSelect: "none" }}>
+    // `userSelect: none` fica: impede o toque duplo apressado de virar
+    // seleção. `touchAction` NÃO é tocado — a rolagem segue do sistema.
+    <div onClick={onClick}
+      style={{ position: "relative", cursor: "pointer", ...style, WebkitTouchCallout: "none", WebkitUserSelect: "none", userSelect: "none" }}>
       {children}
       <button onClick={(e) => { e.stopPropagation(); abrir("botao"); }}
         aria-label={"O que é " + rotulo + "?"} style={SR_ONLY}>?</button>
     </div>
-  );
-}
-
-// O ponto de entrada VISÍVEL que ensina o gesto — some sozinho depois que as
-// primeiras aberturas passaram (config.gestoUso.aberturas), porque dica
-// permanente em 6 cards viraria o mesmo ruído que o "?" repetido era. Quem
-// nunca descobre o gesto continua com este botão enquanto ele durar e com o
-// caminho de leitor de tela para sempre.
-const DICA_GESTO_ABERTURAS = 5;
-function DicaGesto({ A, didatica, dados, gestoUso }) {
-  if (!A || !didatica || !didatica.ligada || !didatica.setores || !didatica.setores.timing) return null;
-  if (((gestoUso && gestoUso.aberturas) || 0) >= DICA_GESTO_ABERTURAS) return null;
-  return (
-    <button onClick={() => A.abrirSetor("timing", didatica.setores.timing, dados, "botao")}
-      style={{ width: "100%", minHeight: "34px", marginTop: "9px", padding: "6px 10px", borderRadius: "9px", border: `1px dashed ${T.borderFaint}`, background: "transparent", color: T.textFaint, fontSize: "11px", fontWeight: 700 }}>
-      segure um valor deste card para entender o que ele afirma
-    </button>
   );
 }
 
@@ -2195,7 +2159,7 @@ function DicaGesto({ A, didatica, dados, gestoUso }) {
 // grátis; isto aqui chama LLM. Por isso é opt-in por toque, mostra o que sobra
 // do teto do dia, e qualquer falha degrada para "a explicação acima continua
 // valendo" — nunca deixa a pessoa sem resposta.
-function AssistenteBox({ cid, dados, setor }) {
+function AssistenteBox({ cid, dados, setor, tela }) {
   const [aberto, setAberto] = useState(false);
   const [q, setQ] = useState("");
   const [r, setR] = useState(null);
@@ -2208,9 +2172,10 @@ function AssistenteBox({ cid, dados, setor }) {
     try {
       // O snapshot é o MESMO view-model que ancorou a explicação — nada de
       // raspar a tela: o que vai é dado estruturado, auditável.
-      // `tela` diz de ONDE a pessoa pergunta: aberta pelo gesto é o setor
-      // (allowlist no backend); depois de navegar a cadeia, o conceito.
-      const res = await store.assistente({ tela: setor ? "setor:" + setor : "conceito:" + cid, snapshot: dados || {}, pergunta });
+      // `tela` diz de ONDE a pessoa pergunta: o pet passa a dele pronta;
+      // aberta pelo toque no setor é o setor (allowlist no backend); depois
+      // de navegar a cadeia, o conceito.
+      const res = await store.assistente({ tela: tela || (setor ? "setor:" + setor : "conceito:" + cid), snapshot: dados || {}, pergunta });
       setR(res);
     } catch (e) {
       setErro((e && e.message) || String(e));
@@ -2322,6 +2287,145 @@ function ConceitoSheet({ cid, dados, setor, onClose, onTrocar, didatica, voltar 
                 sempre uma escolha, nunca um efeito de abrir a tela. */}
             {didatica && didatica.assistente && <AssistenteBox cid={cid} dados={dados} setor={setor} />}
             <button onClick={onClose} style={{ width: "100%", minHeight: "44px", borderRadius: "11px", border: `1px solid ${T.accent}`, background: T.accentTint10, color: T.accent, fontWeight: 800, fontSize: "13px" }}>Entendi</button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ---- O PET: mascote do assistente (referência: pet do Codex / Duo) --------
+// A voz é a do SISTEMA: `speechSynthesis` no WKWebView usa o mesmo
+// AVSpeechSynthesizer do iOS (vozes pt-BR nativas) — um código só para web e
+// iPhone, sem plugin. Regras herdadas da casa: o que o pet FALA é frase
+// pronta do servidor (/api/pet/resumo — lei do vocabulário); a LLM continua
+// opt-in atrás do resumo grátis; Operador não tem pet (mesmo isolamento da
+// via proativa).
+const _vozViva = { u: null };   // Safari mata a utterance no GC sem referência viva
+function falarTexto(texto, { onStart, onEnd } = {}) {
+  try {
+    const synth = window.speechSynthesis;
+    if (!synth || typeof SpeechSynthesisUtterance === "undefined") { onEnd && onEnd("indisponivel"); return false; }
+    synth.cancel();
+    const u = new SpeechSynthesisUtterance(String(texto || ""));
+    u.lang = "pt-BR";
+    // getVoices é assíncrono na 1ª chamada — sem voz explícita o sistema
+    // escolhe pela `lang`, que é o comportamento correto de fallback.
+    const voz = (synth.getVoices() || []).find((v) => v && /^pt(-|_)BR/i.test(v.lang || ""));
+    if (voz) u.voice = voz;
+    u.onstart = () => onStart && onStart();
+    u.onend = () => onEnd && onEnd();
+    u.onerror = () => onEnd && onEnd("erro");
+    _vozViva.u = u;
+    synth.speak(u);
+    return true;
+  } catch { onEnd && onEnd("erro"); return false; }
+}
+function calarVoz() { try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch { /* melhor mudo que quebrado */ } }
+
+// A coruja: emoji + timers, zero assets (espelho web do PoC SwiftUI do Alex —
+// piscar a cada 4s, boca ciclando a 150ms enquanto fala, "respira" ao falar).
+const CORUJA_BOCAS = ["😮", "😯", "🗣️", "😃"];
+function Coruja({ falando, tamanho = 72 }) {
+  const [piscando, setPiscando] = useState(false);
+  const [boca, setBoca] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => {
+      setPiscando(true);
+      setTimeout(() => setPiscando(false), 200);
+    }, 4000);
+    return () => clearInterval(t);
+  }, []);
+  useEffect(() => {
+    if (!falando) return;
+    const t = setInterval(() => setBoca((b) => b + 1), 150);
+    return () => clearInterval(t);
+  }, [falando]);
+  return (
+    <div aria-hidden style={{ width: tamanho + 28 + "px", height: tamanho + 28 + "px", borderRadius: "50%", background: falando ? T.positiveTint10 || T.accentTint : T.bgBase, border: `1px solid ${T.borderFaint}`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", transition: "transform 0.3s ease, background 0.3s ease", transform: falando ? "scale(1.06)" : "scale(1)" }}>
+      <span style={{ fontSize: tamanho * 0.72 + "px", lineHeight: 1 }}>{piscando ? "🙈" : "🦉"}</span>
+      <span style={{ fontSize: tamanho * 0.3 + "px", lineHeight: 1, marginTop: "-6px", minHeight: tamanho * 0.32 + "px" }}>{falando ? CORUJA_BOCAS[boca % CORUJA_BOCAS.length] : "​"}</span>
+    </div>
+  );
+}
+
+// O FAB do pet: presença permanente e discreta na Watchlist do Estudo. Ele
+// NUNCA abre folha sozinho — o único one-shot proativo do app continua sendo
+// o do gatilho (decisão da spec: dois espontâneos viram ruído).
+function PetFab({ onOpen }) {
+  return (
+    <button onClick={onOpen} aria-label="Abrir o assistente BolsIA"
+      style={{ position: "fixed", right: "14px", bottom: "92px", zIndex: 60, width: "54px", height: "54px", borderRadius: "50%", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, boxShadow: "0 4px 14px rgba(0,0,0,0.35)", fontSize: "28px", lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <span aria-hidden>🦉</span>
+    </button>
+  );
+}
+
+// A folha do pet, em DOIS estágios com custos diferentes: o resumo
+// determinístico (grátis, para todo mundo — inclusive anônimo) e a pergunta
+// livre (LLM, exige conta, teto do assistente). O botão "ouvir" lê o resumo
+// com a voz do sistema; sem voz no aparelho, o texto continua inteiro — a
+// voz é conforto, nunca dependência.
+function PetSheet({ onClose, didatica }) {
+  const [r, setR] = useState(null);
+  const [erro, setErro] = useState(false);
+  const [falando, setFalando] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    store.petResumo()
+      .then((res) => { if (alive) setR(res); })
+      .catch(() => { if (alive) setErro(true); });
+    // fechar/desmontar CALA a voz — coruja falando sozinha atrás de outra
+    // tela é exatamente o tipo de fantasma que não pode existir.
+    return () => { alive = false; calarVoz(); };
+  }, []);
+  const temVoz = typeof window !== "undefined" && !!window.speechSynthesis;
+  const ouvir = () => {
+    if (falando) { calarVoz(); setFalando(false); return; }
+    const ok = falarTexto(((r && r.fala) || []).join(" "), {
+      onStart: () => setFalando(true),
+      onEnd: () => setFalando(false),
+    });
+    if (!ok) setFalando(false);
+  };
+  return (
+    <div onClick={() => { calarVoz(); onClose(); }} role="dialog" aria-label="Assistente BolsIA"
+      style={{ position: "fixed", inset: 0, zIndex: 86, background: T.scrim, display: "flex", alignItems: "flex-end" }}>
+      <div onClick={(e) => e.stopPropagation()}
+        style={{ width: "100%", maxHeight: "82vh", overflowY: "auto", background: T.bgPanel, borderRadius: "18px 18px 0 0", padding: "16px 16px 22px", boxSizing: "border-box" }}>
+        <div aria-hidden style={{ width: "44px", height: "4px", borderRadius: "999px", background: T.borderSubtle, margin: "0 auto 12px" }} />
+        <div style={{ display: "flex", alignItems: "center", gap: "14px", marginBottom: "12px" }}>
+          <Coruja falando={falando} />
+          <div>
+            <div style={{ fontSize: "16px", fontWeight: 800, color: T.textPrimary }}>BolsIA te explica esta tela</div>
+            <div style={{ fontSize: "11.5px", color: T.textFaint, marginTop: "2px" }}>Resumo com as frases do estudo — sem custo, sem ordem de compra.</div>
+          </div>
+        </div>
+        {!r && !erro && <div className="sk" style={{ height: "56px", width: "100%", borderRadius: "10px" }} />}
+        {erro && (
+          <div style={{ fontSize: "12.5px", color: T.textSecondary, lineHeight: 1.5 }}>
+            Não consegui montar o resumo agora. Os cards continuam valendo.
+          </div>
+        )}
+        {r && r.ligada === false && (
+          <div style={{ fontSize: "12.5px", color: T.textSecondary, lineHeight: 1.5 }}>
+            A camada de explicações está desligada no momento.
+          </div>
+        )}
+        {r && r.ligada && (
+          <>
+            {/* O que o pet fala é EXATAMENTE o que exibe — mesma lista `fala`
+                do backend, nenhuma composição local. */}
+            <div style={{ fontSize: "13px", color: T.textSecondary, lineHeight: 1.6, marginBottom: "12px" }}>
+              {(r.fala || []).map((f, i) => <p key={i} style={{ margin: "0 0 8px" }}>{f}</p>)}
+            </div>
+            <button onClick={ouvir} disabled={!temVoz}
+              style={{ width: "100%", minHeight: "44px", marginBottom: "10px", borderRadius: "11px", border: `1px solid ${temVoz ? T.accent : T.borderFaint}`, background: temVoz ? T.accentTint10 : "transparent", color: temVoz ? T.accent : T.textFaint, fontWeight: 800, fontSize: "13px" }}>
+              {temVoz ? (falando ? "◼ Parar" : "🔊 Ouvir esta explicação") : "Voz indisponível neste aparelho — o texto acima continua valendo"}
+            </button>
+            {didatica && didatica.assistente && (
+              <AssistenteBox tela="pet:mercado" dados={{ itens: (r.itens || []) }} />
+            )}
           </>
         )}
       </div>
@@ -2449,7 +2553,8 @@ function TimingBadge({ t, operador, didatica, vistos, proativo, A, dadosDoCard, 
       ativo={didaticaOk}
       style={{ marginTop: "9px", padding: "8px 11px", borderRadius: "9px", background: bg, border: `1px solid ${T.borderFaint}` }}>
       <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-        <span style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.05em", color: cor }}>{operador ? rotOp : rotEdu}</span>
+        {/* termo-âncora do setor: o sublinhado pontilhado É a indicação */}
+        <span style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.05em", color: cor, ...(didaticaOk ? SUBLINHADO : {}) }}>{operador ? rotOp : rotEdu}</span>
         {hora && (
           // "barra de 15 minutos" e o atraso do feed são o conceito que mais
           // produz erro de leitura em iniciante — o carimbo é o setor MAIS
@@ -2457,7 +2562,7 @@ function TimingBadge({ t, operador, didatica, vistos, proativo, A, dadosDoCard, 
           <SetorAlvo setorId="barra" rotulo="a barra de 15 minutos" A={A} didatica={didatica}
             dados={{ ...(dados || dadosDoCard || {}), ticker: t, hora, asOf: r.asOf }}
             style={{ display: "inline-flex", alignItems: "center" }}>
-            <span style={{ fontSize: "10px", color: T.textFaint, fontFamily: MONO }}>
+            <span style={{ fontSize: "10px", color: T.textFaint, fontFamily: MONO, ...SUBLINHADO }}>
               {/* barra de outro dia: a hora sozinha ("16:45") esconde que o dado é
                   do pregão anterior — aqui a data vem junto. */}
               {r.barraDeOutroDia ? `última barra ${r.asOf}` : `barra 15m de ${hora}`}
@@ -2603,8 +2708,10 @@ function OpcoesCamada({ t, cur, open, onToggle, chain, chainLoading, opContract,
 // idêntico em todo o sistema. Extraído do card da watchlist.
 function AtivoCard({ vm, contexto = "watchlist", children }) {
   const { t, q, an, name, chColor, sc, pos, cur, pnl, pnlPct, rrPos, diasPos, pctCapPos, kp, fscore, decM, decColor, decBg, os, buyMeta, operador, quotesLoading, expanded, opsOpen, opsSpark, onToggleOps, A, cp, data, didatica, overlayLivre } = vm;
-  const chip = (label, value, col) => (
-    <span style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "999px", background: T.bgBase, color: T.textSecondary, fontWeight: 700 }}>{label} <b style={{ fontWeight: 800, color: col || T.textPrimary }}>{value}</b></span>
+  const chip = (label, value, col, explicavel) => (
+    // `explicavel` põe o pontilhado no RÓTULO do chip — a indicação da camada
+    // de entendimento (toque abre o conceito; o setor envolve o chip).
+    <span style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "999px", background: T.bgBase, color: T.textSecondary, fontWeight: 700 }}><span style={explicavel ? SUBLINHADO : undefined}>{label}</span> <b style={{ fontWeight: 800, color: col || T.textPrimary }}>{value}</b></span>
   );
 
   // v2 (ADR-003/004/005) — camada de opções: self-contained no AtivoCard (o
@@ -2758,11 +2865,11 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
                   {kp.direcao && chip("direção", kp.direcao, (DIR_STYLE[kp.direcao] || [T.textPrimary])[0])}
                   {kp.conviccao && chip("convicção", kp.conviccao)}
                   {kp.qualidade && chip("qualidade", kp.qualidade)}
-                  {sc && sc.confluencia != null && chip("confluência", (sc.confluencia || 0) + "%", T.accent)}
+                  {sc && sc.confluencia != null && chip("confluência", (sc.confluencia || 0) + "%", T.accent, true)}
                   {fscore && (
                     <SetorAlvo setorId="fundamento" rotulo="o fundamento" A={A} didatica={didatica}
                       dados={dadosDoCard} style={{ display: "inline-flex" }}>
-                      {chip("fundamento", fscore, T[SCORE_COLOR[fscore]] || T.textPrimary)}
+                      {chip("fundamento", fscore, T[SCORE_COLOR[fscore]] || T.textPrimary, true)}
                     </SetorAlvo>
                   )}
                   {sc && sc.melhorSetup && <span style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "999px", background: T.bgBase, color: T.textMuted }}>{sc.melhorSetup}</span>}
@@ -2803,7 +2910,7 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
                     rotulo={pos.stop != null ? "o stop" : "o alvo"}
                     A={A} didatica={didatica} dados={dadosDoCard}>
                     <PlanRuler
-                      caption="POSIÇÃO NO RISCO"
+                      caption={<span style={SUBLINHADO}>POSIÇÃO NO RISCO</span>}
                       marks={[pos.stop != null && { v: pos.stop, color: T.negative }, pos.alvo != null && { v: pos.alvo, color: T.positive }].filter(Boolean)}
                       cur={cur}
                       curLabel={cur != null ? "agora " + price(cur) : null}
@@ -2819,7 +2926,7 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
                       {rrPos != null && (
                         <SetorAlvo setorId="r" rotulo="o R" A={A} didatica={didatica}
                           dados={dadosDoCard} style={{ display: "inline-flex" }}>
-                          <span>R:R <b style={{ color: T.textPrimary, fontWeight: 700 }}>{rrPos.toFixed(1)}</b></span>
+                          <span><span style={SUBLINHADO}>R:R</span> <b style={{ color: T.textPrimary, fontWeight: 700 }}>{rrPos.toFixed(1)}</b></span>
                         </SetorAlvo>
                       )}
                       {diasPos != null && <span>· {diasPos} dias</span>}
@@ -2921,15 +3028,6 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
                 )}
               </div>
               </>))}
-              {/* Dica do GESTO: o único ponto de entrada visível da camada de
-                  entendimento — ensina "segure para entender" nas primeiras
-                  aberturas e some (config.gestoUso.aberturas). Só na
-                  watchlist: o Radar é vitrine, não lugar de parar para
-                  aprender (mesma regra da via proativa). */}
-              {contexto !== "radar" && (
-                <DicaGesto A={A} didatica={didatica} dados={dadosDoCard}
-                  gestoUso={(data && data.config && data.config.gestoUso) || null} />
-              )}
             </div>
   );
 }
@@ -5660,6 +5758,7 @@ export default function App() {
   // ambiente, não build de iOS.
   const [didatica, setDidatica] = useState(null);
   const [conceitoAberto, setConceitoAberto] = useState(null);  // {cid, dados}
+  const [petOpen, setPetOpen] = useState(false);               // folha do pet (mascote)
   const [welcomeOpen, setWelcomeOpen] = useState(false);
   const [stopAlvoFor, setStopAlvoFor] = useState(null); // FASE 3: ticker do popup de stop/alvo (individual)
   const [stopAlvo, setStopAlvo] = useState({}); // FASE 3: resultados por ticker { loading, stop, alvo, explicacao, operar, error }
@@ -5809,19 +5908,6 @@ export default function App() {
     tourShownRef.current = true;
     if (!data.config.tourSeen) setTourOpen(true);
   }, [data, welcomeAuthOpen, welcomeOpen]);
-  // Toque longo: conta UMA abertura do app por boot — é o relógio que apaga a
-  // dica do gesto (DICA_GESTO_ABERTURAS). Para de gravar logo depois que a
-  // dica morreu: contador de dica não precisa crescer para sempre.
-  const gestoBootRef = useRef(false);
-  useEffect(() => {
-    if (gestoBootRef.current || !data || !data.config) return;
-    gestoBootRef.current = true;
-    const g = { aberturas: 0, gesto: 0, botao: 0, ...(data.config.gestoUso || {}) };
-    if (g.aberturas >= DICA_GESTO_ABERTURAS + 3) return;
-    g.aberturas += 1;
-    setData((d) => (d ? { ...d, config: { ...d.config, gestoUso: g } } : d));
-    store.putConfig({ gestoUso: g }).catch(() => { /* silencioso */ });
-  }, [data]);
   // FASE 3.3a — ao abrir o app, resume as ações do agente server-side desde a
   // última visita (agentLog vs. agent.lastSeenAt) com notificação local.
   const agentSummaryDone = useRef(false);
@@ -6124,15 +6210,16 @@ export default function App() {
     // `trilha` guarda os conceitos por onde a pessoa passou nesta abertura —
     // é o que dá o "‹ voltar" da cadeia. Abrir pelo card sempre recomeça.
     openConceito: (cid, dados) => setConceitoAberto({ cid, dados: dados || null, trilha: [] }),
-    // Toque longo: abre o conceito primário do SETOR (registro do backend) e
-    // conta a descoberta — `gesto` × `botao` é o dado que calibra o N da dica
-    // e os 600ms; sem ele os dois números viram opinião para sempre.
+    // Abre o conceito primário do SETOR (registro do backend) e conta a
+    // descoberta — `gesto` (toques no sublinhado) × `botao` (sr-only) mede se
+    // a convenção do pontilhado está sendo encontrada. O nome do campo fica
+    // `gesto` por estabilidade do merge monotônico nos dois stores.
     abrirSetor: (setorId, cid, dados, origem) => {
       setConceitoAberto({ cid, dados: dados || null, trilha: [], setor: setorId });
       setData((d) => {
         if (!d) return d;
         const g = { aberturas: 0, gesto: 0, botao: 0, ...((d.config && d.config.gestoUso) || {}) };
-        const k = origem === "gesto" ? "gesto" : "botao";
+        const k = origem === "toque" ? "gesto" : "botao";
         g[k] = (g[k] || 0) + 1;
         // `.catch` na promessa (padrão do marcarConceitoVisto): falhar aqui só
         // perde um tique de medição — nunca a folha.
@@ -6421,7 +6508,7 @@ export default function App() {
     // A folha proativa ADIA enquanto houver outro overlay na tela: ela é
     // one-shot por conceito, para sempre, e abrir sob o portão de abertura ou
     // sob o tour queimaria a estreia sem ninguém ler.
-    overlayLivre: !tourOpen && !aboutOpen && !welcomeOpen && !welcomeAuthOpen && !conceitoAberto,
+    overlayLivre: !tourOpen && !aboutOpen && !welcomeOpen && !welcomeAuthOpen && !conceitoAberto && !petOpen,
     goMercado: () => setTab("mercado"),
     // FASE 2 (2.1): ponte Descobrir → Avaliar. Garante o ativo na watchlist,
     // navega para Avaliar e dispara a análise N2 daquele ativo.
@@ -6615,6 +6702,12 @@ export default function App() {
       )}
       {aboutOpen && <AboutModal onClose={A.closeAbout} />}
       {tourOpen && <TourModal ctx={ctx} />}
+      {/* O PET: só na Watchlist do Estudo, com a tela livre — e NUNCA abre
+          sozinho. O FAB some sob overlays para não competir com folha aberta. */}
+      {tab === "mercado" && appMode !== "operador" && didatica && didatica.ligada && ctx.overlayLivre && (
+        <PetFab onOpen={() => setPetOpen(true)} />
+      )}
+      {petOpen && <PetSheet didatica={didatica} onClose={() => setPetOpen(false)} />}
       {conceitoAberto && (
         <ConceitoSheet cid={conceitoAberto.cid} dados={conceitoAberto.dados}
           setor={conceitoAberto.setor || null}

@@ -144,6 +144,8 @@ function serverStore() {
     conceitos: (modo, resumido) => api.conceitos(modo, resumido),
     conceito: (cid, body) => api.conceito(cid, body),
     assistente: (body) => api.assistente(body),
+    petResumo: (modo) => api.petResumo(modo),                      // pet: modo pode ficar com o servidor
+
     scanProgress: () => api.scanProgress(),                        // BLOCO B1
     timing: (t) => api.timing(t),                                  // F1: modo vem da config do escopo no servidor
     obsLogs: (n, level, cat) => api.obsLogs(n, level, cat),        // FASE 5: logs do servidor
@@ -687,6 +689,7 @@ function deviceStore() {
       ensure();
       return api.assistente({ modo: doc.config.appMode || "estudo", config: { ...doc.config }, ...(body || {}) });
     },
+    async petResumo() { ensure(); return api.petResumo(doc.config.appMode || "estudo"); }, // pet: modo local-first (iPhone)
     async obsLogs(n, level, cat) { ensure(); return api.obsLogs(n, level, cat); }, // FASE 5
     async adminSummary() { ensure(); return api.adminSummary(); }, // F5: painel de admin (só ver)
     async analysisOutcomesStats(modo) { ensure(); return api.analysisOutcomesStats(modo); }, // qa/30 (Fase A)
