@@ -3443,9 +3443,28 @@ function CarteiraScreen({ ctx }) {
               )}
               {editFor === p.t && (
                 <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "10px", flexWrap: "wrap", padding: "10px 11px", borderRadius: "10px", background: T.bgBase, border: `1px solid ${T.borderFaint}` }}>
-                  <input type="number" step="0.01" placeholder="stop" aria-label={"Stop de " + p.t} defaultValue={p.stop ?? ""} onBlur={(e) => A.setStop(p.t, e.target.value)} style={{ ...field, width: "92px", fontFamily: MONO, padding: "7px 9px" }} />
-                  <input type="number" step="0.01" placeholder="alvo" aria-label={"Alvo de " + p.t} defaultValue={p.alvo ?? ""} onBlur={(e) => A.setAlvo(p.t, e.target.value)} style={{ ...field, width: "92px", fontFamily: MONO, padding: "7px 9px" }} />
-                  <div style={{ fontSize: "11px", color: T.textFaint, flex: 1, minWidth: "140px", lineHeight: 1.4 }}>Sai do campo para salvar — a régua acima reflete na hora. MV <span style={{ fontFamily: MONO, color: T.textPrimary, fontWeight: 600 }}>{money(p.qty * cur)}</span></div>
+                  {/* Sair do campo VAZIO não apaga mais — um blur sem querer (troca de
+                      app, notificação, interrupção) não pode zerar a proteção da posição.
+                      Limpar de propósito agora é uma ação explícita: o botão ✕. */}
+                  <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                    <input key={"stop-" + p.t + "-" + (p.stop ?? "vazio")} type="number" step="0.01" placeholder="stop" aria-label={"Stop de " + p.t} defaultValue={p.stop ?? ""}
+                      onBlur={(e) => { const v = e.target.value; if (v.trim() !== "") A.setStop(p.t, v); }}
+                      style={{ ...field, width: "92px", fontFamily: MONO, padding: "7px 9px" }} />
+                    {p.stop != null && (
+                      <button type="button" onClick={() => A.setStop(p.t, "")} aria-label={"Limpar stop de " + p.t}
+                        style={{ minWidth: "26px", minHeight: "26px", borderRadius: "7px", border: `1px solid ${T.borderFaint}`, background: "transparent", color: T.textFaint, fontSize: "12px" }}>✕</button>
+                    )}
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                    <input key={"alvo-" + p.t + "-" + (p.alvo ?? "vazio")} type="number" step="0.01" placeholder="alvo" aria-label={"Alvo de " + p.t} defaultValue={p.alvo ?? ""}
+                      onBlur={(e) => { const v = e.target.value; if (v.trim() !== "") A.setAlvo(p.t, v); }}
+                      style={{ ...field, width: "92px", fontFamily: MONO, padding: "7px 9px" }} />
+                    {p.alvo != null && (
+                      <button type="button" onClick={() => A.setAlvo(p.t, "")} aria-label={"Limpar alvo de " + p.t}
+                        style={{ minWidth: "26px", minHeight: "26px", borderRadius: "7px", border: `1px solid ${T.borderFaint}`, background: "transparent", color: T.textFaint, fontSize: "12px" }}>✕</button>
+                    )}
+                  </div>
+                  <div style={{ fontSize: "11px", color: T.textFaint, flex: 1, minWidth: "140px", lineHeight: 1.4 }}>Sai do campo para salvar — deixar vazio não apaga; use ✕ para limpar. A régua acima reflete na hora. MV <span style={{ fontFamily: MONO, color: T.textPrimary, fontWeight: 600 }}>{money(p.qty * cur)}</span></div>
                 </div>
               )}
             </div>
