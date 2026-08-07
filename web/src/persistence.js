@@ -2,11 +2,16 @@
 //
 //  - WEB: a fonte da verdade e o servidor (FastAPI + SQLite). A chave da API
 //    fica no servidor e nunca volta ao cliente.
-//  - iPHONE (nativo): a fonte da verdade e o PROPRIO APARELHO. Todo o estado
-//    (config + chave, skill, watchlist, carteira, historico, agente) e salvo
-//    no armazenamento do WebView (localStorage do WKWebView, que persiste entre
-//    aberturas do app). O servidor so e usado para cotacoes e analise; para
-//    analisar, o aparelho envia a config + chave no corpo da requisicao.
+//  - iPHONE (nativo): local-first para tudo, com UMA exceção. Config, skill,
+//    watchlist, histórico e agente ficam no PRÓPRIO APARELHO (localStorage do
+//    WKWebView). Carteira (buy/sell/putPosition) TAMBÉM fica local quando
+//    ninguém está logado — mas com CONTA, o servidor é quem executa e devolve
+//    o estado confirmado: é o servidor (não o aparelho) que o Operador no
+//    servidor lê para vigiar stop/alvo/trailing com o app FECHADO, e um dado
+//    que só existe no aparelho é invisível pra ele (bug real, confirmado em
+//    2026-08-07 — o Alex configurava stop no iPhone e o servidor nunca via).
+//    Sem conta, o servidor só serve cotações e análise; para analisar, o
+//    aparelho envia a config + chave no corpo da requisição.
 //
 // App.jsx fala apenas com `store`; a diferenca de plataforma fica escondida aqui.
 import { Capacitor } from "@capacitor/core";
@@ -14,7 +19,8 @@ import { api, setApiBase, setNativeMode } from "./api.js";
 import { CATALOG, CATALOG_TICKERS, defaultState, defaultSkillText, defaultSkillTextOperador, defaultLlmPrompts } from "./catalog.js";
 import { backfillStructural } from "./migrate.js";
 // FASE 2: camada de sync (token + cache otimista + fila offline). serverStore
-// passa a falar com o servidor ATRAVÉS dela; deviceStore segue local-first.
+// fala com o servidor ATRAVÉS dela; deviceStore segue local-first, EXCETO a
+// carteira quando logado (ver cabeçalho do arquivo).
 import * as sync from "./sync.js";
 
 // Normaliza a entrada do usuario igual ao servidor: sem espacos, MAIUSCULAS,
@@ -407,6 +413,17 @@ function deviceStore() {
       _prefsTimer = null;
       api.pushRegisterToken("", _pushPrefsLocais()).catch(() => { /* silencioso */ });
     }, 1500);
+  }
+
+  // Logado: buy/sell/putPosition passam a mão pro servidor (ele calcula preço,
+  // executa e é quem o Operador no servidor lê) — isto absorve a resposta
+  // CONFIRMADA por ele no doc local, nunca o que o aparelho tinha calculado
+  // sozinho. Mesma regra do putAgent: nunca fingir sucesso local.
+  function _adotarCarteiraDoServidor(r) {
+    if (!r) return;
+    if (Array.isArray(r.positions)) doc.positions = r.positions;
+    if (typeof r.cash === "number") doc.cash = r.cash;
+    if (Array.isArray(r.history)) doc.history = r.history;
   }
 
   return {
@@ -826,8 +843,22 @@ function deviceStore() {
         optionPositions: doc.optionPositions || [],  // v2 (ADR-003)
       };
     },
+    // Logado: o servidor EXECUTA (preço, cash, posição, histórico) e devolve
+    // o estado confirmado — é ele, não o aparelho, que o Operador no servidor
+    // consulta. Sem conta: local, como sempre (nada muda pra quem usa sem
+    // login). Erro do servidor SOBE (sem try/catch aqui) — a mesma regra do
+    // putAgent: nunca fingir sucesso local quando o servidor recusou.
     async buy(t, qty, meta) {
       ensure();
+      if (sync.hasSession()) {
+        const r = await api.buy(t, qty, meta);
+        _adotarCarteiraDoServidor(r);
+        write();
+        _agendarSyncPrefs();
+        const out = pub();
+        out.priceUsed = r && r.priceUsed;
+        return out;
+      }
       const price = await priceOf(t);
       qty = Math.max(100, Math.round(qty / 100) * 100);
       if (qty * price > doc.cash) throw new Error("Caixa insuficiente.");
@@ -856,6 +887,15 @@ function deviceStore() {
     },
     async sell(t, qty) {
       ensure();
+      if (sync.hasSession()) {
+        const r = await api.sell(t, qty);
+        _adotarCarteiraDoServidor(r);
+        write();
+        _agendarSyncPrefs();
+        const out = pub();
+        out.priceUsed = r && r.priceUsed;
+        return out;
+      }
       const pos = doc.positions.find((p) => p.t === t);
       if (!pos) throw new Error("Sem posicao em " + t);
       const price = await priceOf(t);
@@ -881,6 +921,12 @@ function deviceStore() {
     },
     async putPosition(t, b) {
       ensure();
+      if (sync.hasSession()) {
+        const r = await api.putPosition(t, b);
+        _adotarCarteiraDoServidor(r);
+        write();
+        return pub();
+      }
       const pos = doc.positions.find((p) => p.t === t);
       if (pos) {
         if ("stop" in b) pos.stop = b.stop === "" || b.stop == null ? null : Number(b.stop);
