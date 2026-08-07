@@ -16,6 +16,7 @@ import * as notify from "./notify.js";
 import Boris from "./pet/Boris.jsx";
 import BorisChat from "./pet/BorisChat.jsx";
 import BorisIntro from "./pet/BorisIntro.jsx";
+import { falarTexto, calarVoz } from "./pet/vozBoris.js";
 
 /* =============================================================================
    BolsIA — simulador EDUCACIONAL de paper trading da B3.
@@ -2298,33 +2299,12 @@ function ConceitoSheet({ cid, dados, setor, onClose, onTrocar, didatica, voltar 
 }
 
 // ---- O PET: mascote do assistente (referência: pet do Codex / Duo) --------
-// A voz é a do SISTEMA: `speechSynthesis` no WKWebView usa o mesmo
-// AVSpeechSynthesizer do iOS (vozes pt-BR nativas) — um código só para web e
-// iPhone, sem plugin. Regras herdadas da casa: o que o pet FALA é frase
-// pronta do servidor (/api/pet/resumo — lei do vocabulário); a LLM continua
-// opt-in atrás do resumo grátis; Operador não tem pet (mesmo isolamento da
-// via proativa).
-const _vozViva = { u: null };   // Safari mata a utterance no GC sem referência viva
-function falarTexto(texto, { onStart, onEnd } = {}) {
-  try {
-    const synth = window.speechSynthesis;
-    if (!synth || typeof SpeechSynthesisUtterance === "undefined") { onEnd && onEnd("indisponivel"); return false; }
-    synth.cancel();
-    const u = new SpeechSynthesisUtterance(String(texto || ""));
-    u.lang = "pt-BR";
-    // getVoices é assíncrono na 1ª chamada — sem voz explícita o sistema
-    // escolhe pela `lang`, que é o comportamento correto de fallback.
-    const voz = (synth.getVoices() || []).find((v) => v && /^pt(-|_)BR/i.test(v.lang || ""));
-    if (voz) u.voice = voz;
-    u.onstart = () => onStart && onStart();
-    u.onend = () => onEnd && onEnd();
-    u.onerror = () => onEnd && onEnd("erro");
-    _vozViva.u = u;
-    synth.speak(u);
-    return true;
-  } catch { onEnd && onEnd("erro"); return false; }
-}
-function calarVoz() { try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch { /* melhor mudo que quebrado */ } }
+// A voz mora em `./pet/vozBoris.js` — web/PWA usa `speechSynthesis`; o app
+// nativo Capacitor usa o plugin de TTS nativo (WKWebView não confia no
+// `speechSynthesis`, ver cabeçalho de `Boris.jsx`). Regras herdadas da casa:
+// o que o pet FALA é frase pronta do servidor (/api/pet/resumo — lei do
+// vocabulário); a LLM continua opt-in atrás do resumo grátis; Operador não
+// tem pet (mesmo isolamento da via proativa).
 
 // A coruja: Boris (CSS puro, ver web/src/pet/Boris.jsx) — piscar, respiração,
 // boca sincronizada com a fala e olhar que segue, tudo dirigido por ref.
@@ -2333,10 +2313,16 @@ function calarVoz() { try { if (window.speechSynthesis) window.speechSynthesis.c
 // NUNCA abre folha sozinho — o único one-shot proativo do app continua sendo
 // o do gatilho (decisão da spec: dois espontâneos viram ruído).
 function PetFab({ onOpen }) {
+  // Recorte do Boris animado dentro do círculo do FAB: a "cena" do Boris é
+  // 490×655 (retrato); em vez de espremer o corpo inteiro num botão de 54px,
+  // ampliamos e deslocamos pra cima para mostrar só a cabeça — o mesmo
+  // truque de avatar circular de qualquer mascote em miniatura.
   return (
     <button onClick={onOpen} aria-label="Abrir o assistente BolsIA"
-      style={{ position: "fixed", right: "14px", bottom: "92px", zIndex: 60, width: "54px", height: "54px", borderRadius: "50%", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, boxShadow: "0 4px 14px rgba(0,0,0,0.35)", fontSize: "28px", lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <span aria-hidden>🦉</span>
+      style={{ position: "fixed", right: "14px", bottom: "92px", zIndex: 60, width: "54px", height: "54px", borderRadius: "50%", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, boxShadow: "0 4px 14px rgba(0,0,0,0.35)", overflow: "hidden", display: "flex", alignItems: "flex-start", justifyContent: "center" }}>
+      <div aria-hidden style={{ transform: "translateY(-14px) scale(1.24)", transformOrigin: "top center" }}>
+        <Boris size={54} reduced />
+      </div>
     </button>
   );
 }

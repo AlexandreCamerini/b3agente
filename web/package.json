@@ -11,16 +11,17 @@
     "ios": "vite build && cap sync ios && cap open ios"
   },
   "dependencies": {
+    "@capacitor-community/text-to-speech": "^8.0.2",
     "@capacitor/app": "^8.0.0",
     "@capacitor/app-launcher": "^8.0.0",
     "@capacitor/core": "^8.0.0",
     "@capacitor/local-notifications": "^8.0.0",
-    "@capacitor/status-bar": "^8.0.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "lightweight-charts": "^4.2.0",
     "@capacitor/push-notifications": "^8.0.0",
-    "@capgo/capacitor-social-login": "latest"
+    "@capacitor/status-bar": "^8.0.0",
+    "@capgo/capacitor-social-login": "latest",
+    "lightweight-charts": "^4.2.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@capacitor/cli": "^8.0.0",

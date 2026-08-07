@@ -27,6 +27,7 @@ const app = readFileSync(join(here, "..", "src", "App.jsx"), "utf8");
 const persistence = readFileSync(join(here, "..", "src", "persistence.js"), "utf8");
 const apiSrc = readFileSync(join(here, "..", "src", "api.js"), "utf8");
 const borisSrc = readFileSync(join(here, "..", "src", "pet", "Boris.jsx"), "utf8");
+const vozSrc = readFileSync(join(here, "..", "src", "pet", "vozBoris.js"), "utf8");
 
 let fails = 0;
 const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if (!cond) fails++; };
@@ -52,15 +53,20 @@ ok("camada desligada tem mensagem própria (não é erro)",
    /r\.ligada === false/.test(app));
 
 // ------------------------------------------------------------------ a voz
-ok("a voz usa pt-BR e escolhe voz do sistema quando houver",
-   /u\.lang = "pt-BR";/.test(app) && /\/\^pt\(-\|_\)BR\/i\.test\(v\.lang/.test(app));
+// A voz mora em ./pet/vozBoris.js (web usa speechSynthesis; nativo usa o
+// plugin de TTS) — App.jsx só importa `falarTexto`/`calarVoz`, não define.
+ok("App.jsx NÃO define mais falarTexto/calarVoz — importa de ./pet/vozBoris.js",
+   /import \{ falarTexto, calarVoz \} from ["']\.\/pet\/vozBoris\.js["'];/.test(app)
+   && !/^function falarTexto\(/m.test(app) && !/^function calarVoz\(/m.test(app));
+ok("vozBoris: web usa pt-BR e escolhe voz do sistema quando houver",
+   /u\.lang = "pt-BR";/.test(vozSrc) && /\/\^pt\(-\|_\)BR\/i\.test\(v\.lang/.test(vozSrc));
 ok("fechar a folha CALA a voz (scrim e desmontagem)",
    /onClick=\{\(\) => \{ calarVoz\(\); onClose\(\); \}\}/.test(app)
    && /return \(\) => \{ alive = false; calarVoz\(\); \};/.test(app));
 ok("sem speechSynthesis o botão vira aviso e o TEXTO segue inteiro",
    /Voz indisponível neste aparelho — o texto acima continua valendo/.test(app));
-ok("Safari: a utterance fica referenciada (GC não mata a fala no meio)",
-   /const _vozViva = \{ u: null \};/.test(app) && /_vozViva\.u = u;/.test(app));
+ok("vozBoris: Safari — a utterance fica referenciada (GC não mata a fala no meio)",
+   /const _vozViva = \{ u: null \};/.test(vozSrc) && /_vozViva\.u = u;/.test(vozSrc));
 
 // --------------------------------------------------------------- o mascote
 // F1: a coruja emoji (Coruja) saiu; Boris.jsx (CSS puro, animado) entrou no
@@ -75,6 +81,9 @@ ok("a coruja emoji (Coruja) NÃO existe mais como componente em App.jsx",
 ok("falarTexto dirige a boca do Boris: talk() ao começar, stop() ao terminar",
    /onStart: \(\) => \{ setFalando\(true\); borisRef\.current\?\.talk\(\); \}/.test(app)
    && /onEnd: \(\) => \{ setFalando\(false\); borisRef\.current\?\.stop\(\); \}/.test(app));
+ok("o FAB do pet usa <Boris> recortado, não mais o emoji solto",
+   /function PetFab\(/.test(app)
+   && (() => { const m = app.match(/function PetFab\([\s\S]*?\n\}\n/); return !!m && /<Boris size=\{54\}/.test(m[0]) && !/<span aria-hidden>🦉<\/span>/.test(m[0]); })());
 
 // ---------------------------------------------------------- Boris.jsx (F1)
 ok("Boris.jsx importa o PNG como asset do Vite (nada de data-URI embutido)",
