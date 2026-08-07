@@ -3518,6 +3518,14 @@ function AgenteScreen({ ctx }) {
   const logged = !!ctx.authUser;
   const rules = (ag.rules && typeof ag.rules === "object") ? ag.rules : {};
   const putAg = (patch) => A.putAgent(patch);
+  // Fase A (trava Modo Estudo): "Executar" só existe em Modo Operador — o
+  // backend (agent.agent_params/store.set_agent) já trava a leitura e a
+  // escrita; aqui é só a UI não OFERECER o que o servidor vai recusar.
+  const operador = (data.config && data.config.appMode) === "operador";
+  // Defensivo: se o dado local ainda tem "executar" salvo de antes desta
+  // migração (ou não sincronizou), a UI mostra "sinalizar" mesmo assim —
+  // nunca exibe um estado que o backend já rejeitou.
+  const modoEfetivo = operador ? (ag.mode || (ag.autonomous ? "executar" : "sinalizar")) : "sinalizar";
   // FASE 6 (fix 4): a ativação/teste do push moraram aqui e na Observabilidade —
   // agora vivem na CENTRAL de notificações (Perfil → Conta & preferências).
   // Este atalho só leva o usuário para lá.
@@ -3565,7 +3573,7 @@ function AgenteScreen({ ctx }) {
           <div>
             <div style={{ fontSize: "21px", fontWeight: 800, letterSpacing: "-0.01em", color: (ag.serverEnabled && logged) ? T.accent : T.textFaint }}>
               {(ag.serverEnabled && logged) ? "ATIVO" : "INATIVO"}
-              <span style={{ fontSize: "13px", fontWeight: 700, color: T.textMuted }}> · {(ag.mode || (ag.autonomous ? "executar" : "sinalizar")) === "executar" ? "Executar" : "Apenas sinalizar"}</span>
+              <span style={{ fontSize: "13px", fontWeight: 700, color: T.textMuted }}> · {modoEfetivo === "executar" ? "Executar" : "Apenas sinalizar"}</span>
             </div>
             <p style={{ margin: "5px 0 0", color: T.textMuted, fontSize: "12.5px", lineHeight: 1.5, maxWidth: "440px" }}>
               {logged ? "Roda no servidor a cada ciclo do pregão, mesmo com o app fechado. As regras do card abaixo valem para ele." : "Requer conta: sem login, o agente segue funcionando apenas com o app aberto (modo atual)."}
@@ -3579,14 +3587,22 @@ function AgenteScreen({ ctx }) {
         </div>
         <div style={{ marginTop: "14px", paddingTop: "13px", borderTop: `1px solid ${T.borderFaint}`, display: "flex", gap: "8px", flexWrap: "wrap" }}>
           {["executar", "sinalizar"].map((m) => {
-            const on = (ag.mode || (ag.autonomous ? "executar" : "sinalizar")) === m;
+            const on = modoEfetivo === m;
+            const desabilitado = m === "executar" && !operador;
             return (
-              <button key={m} onClick={() => putAg({ mode: m })} style={{ flex: 1, minWidth: "140px", padding: "10px", borderRadius: "10px", border: `1px solid ${on ? T.accent : T.borderSubtle}`, background: on ? T.accentTint : T.bgBase, color: on ? T.accent : T.textSecondary, fontWeight: 800, fontSize: "12px" }}>
+              <button key={m} onClick={() => !desabilitado && putAg({ mode: m })} disabled={desabilitado}
+                title={desabilitado ? "Disponível no Modo Operador — em Modo Estudo o agente só orienta" : undefined}
+                style={{ flex: 1, minWidth: "140px", padding: "10px", borderRadius: "10px", border: `1px solid ${on ? T.accent : T.borderSubtle}`, background: on ? T.accentTint : T.bgBase, color: desabilitado ? T.textFaint : (on ? T.accent : T.textSecondary), fontWeight: 800, fontSize: "12px", opacity: desabilitado ? 0.6 : 1, cursor: desabilitado ? "not-allowed" : "pointer" }}>
                 {m === "executar" ? "Executar (vende no stop/alvo)" : "Apenas sinalizar"}
               </button>
             );
           })}
         </div>
+        {!operador && (
+          <p style={{ margin: "9px 0 0", fontSize: "11.5px", lineHeight: 1.5, color: T.textFaint }}>
+            Disponível no Modo Operador — em Modo Estudo o agente só orienta, nunca vende sozinho.
+          </p>
+        )}
       </div>
 
       {/* qa/34: REGRAS & LIMITES — agrupamento das regras (stop/alvo/trailing),
@@ -3693,6 +3709,41 @@ function AgenteScreen({ ctx }) {
         </div>
       </div>
 
+      {/* Fase C (docs/plano-operador-entrada-e-modos.md) — entrada automática:
+          mesma trava condicional de exibição/uso que a Fase A já estabeleceu
+          para o botão "Executar" (seção inteira desabilitada fora do
+          Operador, com o mesmo tipo de texto explicativo). O slider allocPct
+          que morava solto no card "Modo local" (decorativo até a Fase B)
+          agora mora aqui — é aqui que ele passou a ter efeito real. */}
+      <div style={{ marginTop: "16px", ...card, padding: "16px 17px" }}>
+        <div style={{ fontSize: "10.5px", fontWeight: 800, letterSpacing: "0.06em", color: T.textFaint }}>ENTRADA AUTOMÁTICA</div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "14px", marginTop: "8px" }}>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: "15px" }}>{ag.entradaAuto && operador ? "Entrar automaticamente" : "Apenas avisar"}</div>
+            <p style={{ margin: "4px 0 0", color: T.textMuted, fontSize: "12.5px", lineHeight: 1.5, maxWidth: "440px" }}>
+              Quando o gatilho de entrada dispara para um plano de COMPRA da watchlist, decide se a mesa compra sozinha (lote redondo, dentro do teto abaixo) ou só avisa, como hoje.
+            </p>
+          </div>
+          <Toggle on={!!ag.entradaAuto && operador} onClick={() => operador && putAg({ entradaAuto: !ag.entradaAuto })} label="Entrar automaticamente" />
+        </div>
+        <div style={{ marginTop: "16px", paddingTop: "15px", borderTop: `1px solid ${T.borderFaint}`, opacity: operador ? 1 : 0.6 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <label htmlFor="alloc" style={{ fontWeight: 600, fontSize: "14px" }}>Alocação por operação</label>
+            <span style={{ fontFamily: MONO, fontSize: "15px", fontWeight: 600, color: T.accent }}>{ag.allocPct}%</span>
+          </div>
+          <input id="alloc" type="range" min="1" max="20" step="1" value={ag.allocPct} disabled={!operador} onChange={(e) => A.setAlloc(+e.target.value)} style={{ width: "100%", marginTop: "10px", accentColor: T.accent }} />
+          <div style={{ fontSize: "12px", color: T.textFaint, marginTop: "4px" }}>Quando ligado, cada entrada automática usa até {ag.allocPct}% do caixa disponível — nunca mais, mesmo que o valor não feche num lote redondo (aí a entrada não acontece naquele ciclo).</div>
+        </div>
+        <p style={{ margin: "12px 0 0", fontSize: "11.5px", lineHeight: 1.5, color: T.textFaint }}>
+          Só entra sozinha em plano de COMPRA — um setup de baixa (VENDER) nunca vira ordem automática, continua só aviso, em qualquer modo.
+        </p>
+        {!operador && (
+          <p style={{ margin: "9px 0 0", fontSize: "11.5px", lineHeight: 1.5, color: T.textFaint }}>
+            Disponível no Modo Operador — em Modo Estudo a entrada continua só por aviso.
+          </p>
+        )}
+      </div>
+
       <div style={{ marginTop: "16px", ...card, padding: "16px 17px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "14px" }}>
           <div>
@@ -3700,14 +3751,6 @@ function AgenteScreen({ ctx }) {
             <p style={{ margin: "4px 0 0", color: T.textMuted, fontSize: "12.5px", lineHeight: 1.5, maxWidth: "440px" }}>Complemento do operador no servidor: com o app aberto, o ciclo local também protege stop/alvo. Sem conta, é o único modo disponível.</p>
           </div>
           <Toggle on={ag.autonomous} onClick={() => A.toggleAuto(!ag.autonomous)} label="Modo autônomo" />
-        </div>
-        <div style={{ marginTop: "16px", paddingTop: "15px", borderTop: `1px solid ${T.borderFaint}` }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <label htmlFor="alloc" style={{ fontWeight: 600, fontSize: "14px" }}>Alocação por operação</label>
-            <span style={{ fontFamily: MONO, fontSize: "15px", fontWeight: 600, color: T.accent }}>{ag.allocPct}%</span>
-          </div>
-          <input id="alloc" type="range" min="1" max="20" step="1" value={ag.allocPct} onChange={(e) => A.setAlloc(+e.target.value)} style={{ width: "100%", marginTop: "10px", accentColor: T.accent }} />
-          <div style={{ fontSize: "12px", color: T.textFaint, marginTop: "4px" }}>Percentual de referência do patrimônio por nova posição (paper trading).</div>
         </div>
 
         <div style={{ marginTop: "16px", paddingTop: "15px", borderTop: `1px solid ${T.borderFaint}` }}>

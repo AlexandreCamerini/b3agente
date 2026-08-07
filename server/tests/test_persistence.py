@@ -143,6 +143,11 @@ def test_custom_ticker_e_watchlist():
 
 def test_agente_intervalo_persiste():
     conn, path = _fresh_db()
+    # Fase A (trava Modo Estudo): `autonomous=True` só persiste em Modo
+    # Operador — este teste é sobre intervalMin/autonomous persistirem, não
+    # sobre a trava, então liga o Operador primeiro (mesmo patch aceita o
+    # termo, exigido por set_config para aceitar appMode="operador").
+    store.set_config(conn, {"operadorTermo": {"aceitoEm": "2026-01-01", "versao": "1"}, "appMode": "operador"})
     assert store.get(conn, "agent")["intervalMin"] == 15
     store.set_agent(conn, {"autonomous": True, "intervalMin": 30})
     store.set_agent(conn, {"intervalMin": 9999})   # clamp para <=240

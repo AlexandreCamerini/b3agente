@@ -12,6 +12,11 @@ def _conn():
     d = tempfile.mkdtemp()
     c = db.connect(os.path.join(d, "b3.db"))
     store.ensure_defaults(c, user_id="u1")
+    # Fase A (trava Modo Estudo): estes testes exercitam a EXECUÇÃO do
+    # agente (mode="executar"), não a trava em si — precisam do Modo
+    # Operador para o comportamento de antes desta entrega continuar valendo.
+    # A trava tem suíte própria em test_agent_modo_estudo.py.
+    store.set_config(c, {"operadorTermo": {"aceitoEm": "2026-01-01", "versao": "1"}, "appMode": "operador"}, user_id="u1")
     return c
 
 

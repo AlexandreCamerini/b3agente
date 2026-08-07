@@ -905,7 +905,7 @@ function deviceStore() {
       // F3: alvoDinamico entra pela mesma razão.
       const SERVER_KEYS = ["serverEnabled", "mode", "rules", "trailingPct", "trailingMode",
                            "trailingAtrMult", "trailingLookback", "alvoDinamico", "maxOpsDia",
-                           "maxValorOp", "intervalMin", "lastSeenAt"];
+                           "maxValorOp", "intervalMin", "lastSeenAt", "entradaAuto"];
       const sb = {};
       for (const k of SERVER_KEYS) if (k in (b || {})) sb[k] = b[k];
       if (Object.keys(sb).length) {

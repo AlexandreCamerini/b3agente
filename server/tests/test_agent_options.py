@@ -11,6 +11,10 @@ def _conn():
     d = tempfile.mkdtemp()
     c = db.connect(os.path.join(d, "b3.db"))
     store.ensure_defaults(c, user_id="u1")
+    # Fase A (trava Modo Estudo): estes testes exercitam a EXECUÇÃO de opções
+    # (mode="executar"), não a trava em si — precisam do Modo Operador para o
+    # comportamento de antes desta entrega continuar valendo.
+    store.set_config(c, {"operadorTermo": {"aceitoEm": "2026-01-01", "versao": "1"}, "appMode": "operador"}, user_id="u1")
     return c
 
 

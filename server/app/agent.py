@@ -305,13 +305,121 @@ async def _avaliar_opcoes(conn, scope, ag, par, option_quotes_getter, executed: 
     return executed
 
 
-def agent_params(ag: dict) -> dict:
-    """Normaliza a seção agent para os parâmetros do servidor (defaults sãos)."""
+# ---------------------------------------------------------------------------
+# Fase B (plano operador-entrada-e-modos) — entrada automática. Compra 1 lote
+# quando o TIMING do dia (não o Radar diário sozinho) confirma que a condição
+# de entrada foi atingida AGORA, dentro do % do caixa configurado. D5: só o
+# lado COMPRA é executável — `store.py` não tem posição vendida/short, então
+# um plano de baixa (`decisaoDiaria == "VENDER"`) nunca vira ordem automática,
+# só o aviso/push de sempre.
+# ---------------------------------------------------------------------------
+async def _avaliar_entradas(conn, scope, ag, par, app_mode, positions, executed: int, events: list,
+                            agora=None) -> int:
+    """Terceira passada do ciclo (depois de saída e de opções): watchlist menos
+    quem já está em `positions` (a MESMA lista carregada no topo do ciclo, de
+    propósito — reentrar no ticker que talvez tenha acabado de ser vendido
+    NESTE ciclo não faz sentido). Só roda em Modo Operador com `entradaAuto`
+    ligado (D1, aplicado aqui por defesa em profundidade — `set_agent` já
+    impede `entradaAuto=True` de ser salvo fora do Operador). Retorna o
+    `executed` atualizado."""
+    if not (par["entradaAuto"] and app_mode == "operador"):
+        return executed
+    # imports locais: mesmo padrão do resto do arquivo — evita ciclo de import
+    # (timing_watch → timing → intraday; radar_daily/intraday não dependem de
+    # agent). Carregados SÓ aqui dentro do guard acima: quem não ligou a
+    # feature não paga a leitura extra de kv por ciclo.
+    from . import candles as candles_mod, intraday, radar_daily, timing, timing_watch
+    p = candles_mod.normalize_period(None)   # período CANÔNICO do Radar diário
+    radar_stored = radar_daily.get_stored(conn, p)
+    intra_stored = intraday.get_stored(conn)
+
+    watchlist = store.get(conn, "watchlist", user_id=scope) or []
+    em_posicao = {pos["t"] for pos in (positions or [])}
+    candidatos = [t for t in watchlist if t not in em_posicao]
+    if not candidatos:
+        return executed
+
+    hoje = _today()
+    tw_estado = timing_watch._zera_se_virou_o_dia(
+        db.kv_get(conn, "timingWatch", None, user_id=scope) or {"dia": "", "ultimo": {}, "avisados": []}, hoje)
+    tw_mudou = False
+
+    for ticker in candidatos:
+        r = timing.montar(radar_stored, intra_stored, ticker, "operador", agora=agora)
+        if r.get("estado") != "gatilho" or r.get("decisaoDiaria") != "COMPRAR":
+            continue  # D5: só COMPRAR executa; VENDER/demais estados seguem só informativos
+        price = r.get("fechamento15m")
+        if not isinstance(price, (int, float)) or price <= 0:
+            continue
+        cash = store.get(conn, "cash", user_id=scope) or 0.0
+        orcamento = cash * (par["allocPct"] / 100.0)
+        # Arredonda SEMPRE para BAIXO — lotes de 100. `store.buy` sozinho
+        # arredondaria para CIMA (max(100, round(qty/100)*100)) e estouraria o
+        # % prometido; a decisão de não executar precisa ser tomada AQUI, antes
+        # de chamar store.buy.
+        qty = int(orcamento // price // 100) * 100
+        if qty < 100:
+            events.append({"time": _now_str(), "kind": "warn",
+                           "text": f"Entrada automática: orçamento de {par['allocPct']:.0f}% do caixa "
+                                   f"(R$ {orcamento:.2f}) não cobre 1 lote de {ticker} a R$ {price:.2f} — "
+                                   f"sem execução, aviso mantido."})
+            continue
+        if _ops_today(ag) + executed >= par["maxOpsDia"]:
+            events.append({"time": _now_str(), "kind": "warn",
+                           "text": f"Teto diário de operações atingido ({par['maxOpsDia']}). Entrada "
+                                   f"automática em {ticker} (gatilho de entrada atingido) ficou registrada, "
+                                   f"sem execução."})
+            continue
+        valor_op = qty * price
+        if par["maxValorOp"] > 0 and valor_op > par["maxValorOp"]:
+            events.append({"time": _now_str(), "kind": "warn",
+                           "text": f"Teto por operação (R$ {par['maxValorOp']:.2f}) excedido na entrada "
+                                   f"automática de {ticker} (R$ {valor_op:.2f}). Registrado, sem execução."})
+            continue
+        store.buy(conn, ticker, qty, price, user_id=scope, meta={"setup": r.get("setup")})
+        executed += 1
+        _bump_ops(conn, scope, store.get(conn, "agent", user_id=scope) or ag)
+        events.append({"time": _now_str(), "kind": "buy",
+                       "text": f"Entrada automática: {ticker} comprado ({qty} ações, "
+                               f"{par['allocPct']:.0f}% do caixa) a R$ {price:.2f} — gatilho de entrada "
+                               f"atingido."})
+        # Dedupe com o push do vigia (timing_watch): marca o ticker como já
+        # avisado hoje, senão o push "condição atingida" competiria com a
+        # compra real já feita neste mesmo ciclo — mesma chave/formato que
+        # `timing_watch._estado` usa, só gravada aqui em vez de por ele.
+        tw_estado["ultimo"][ticker] = "gatilho"
+        if ticker not in tw_estado["avisados"]:
+            tw_estado["avisados"].append(ticker)
+        tw_mudou = True
+
+    if tw_mudou:
+        db.kv_set(conn, "timingWatch", tw_estado, user_id=scope)
+    return executed
+
+
+def agent_params(ag: dict, app_mode: str = None) -> dict:
+    """Normaliza a seção agent para os parâmetros do servidor (defaults sãos).
+
+    `app_mode` é o `config.appMode` do usuário (não a seção `agent`) — quem
+    chama e SABE o modo do usuário deve passar; `None` (default) preserva o
+    comportamento de antes desta trava, para os poucos chamadores que varrem
+    muitos usuários sem carregar a config de cada um (ver
+    `list_protecao_sem_operador`)."""
     ag = ag or {}
     rules = ag.get("rules") if isinstance(ag.get("rules"), dict) else {}
+    mode = ag.get("mode") if ag.get("mode") in ("executar", "sinalizar") else ("executar" if ag.get("autonomous") else "sinalizar")
+    # Trava estrutural (Fase A do plano, D1): Modo Estudo é educacional — o
+    # agente NUNCA executa ordem automática ali, e isso não é preferência
+    # configurável, é filosofia do app. `store.set_agent` já evita gravar
+    # "executar" fora do Modo Operador, mas a leitura precisa da MESMA trava:
+    # dado antigo (de antes desta entrega) ou escrito por outra via não pode
+    # reabrir a lacuna. `app_mode is None` é o único jeito de pular a trava —
+    # reservado a quem não tem o appMode do usuário à mão (ver acima).
+    if app_mode is not None and app_mode != "operador":
+        mode = "sinalizar"
     return {
         "serverEnabled": bool(ag.get("serverEnabled")),
-        "mode": ag.get("mode") if ag.get("mode") in ("executar", "sinalizar") else ("executar" if ag.get("autonomous") else "sinalizar"),
+        "mode": mode,
         "rules": {"stop": rules.get("stop", True) is not False,
                   "alvo": rules.get("alvo", True) is not False,
                   "trailing": bool(rules.get("trailing"))},
@@ -325,6 +433,15 @@ def agent_params(ag: dict) -> dict:
         "maxOpsDia": int(ag.get("maxOpsDia") or 3),
         "maxValorOp": float(ag.get("maxValorOp") or 0),
         "intervalMin": max(1, min(240, int(ag.get("intervalMin") or 15))),
+        # Fase B (entrada automática): default False preserva quem nunca ligou;
+        # a trava de MODO (Operador) fica em `_avaliar_entradas`, que recebe o
+        # `app_mode` separadamente — mesma razão de `mode` acima, mas o teste
+        # de defesa em profundidade cobre a função, não este dict.
+        "entradaAuto": bool(ag.get("entradaAuto")),
+        # D4: `allocPct` já existia (UI + modelo de dados) mas era decorativo —
+        # agora alimenta o cálculo de quantidade da entrada automática. Mesmo
+        # range/default de sempre (1–20%, default 5%), teto absoluto no backend.
+        "allocPct": max(1, min(20, float(ag.get("allocPct") or 5))),
     }
 
 
@@ -369,7 +486,13 @@ async def _run_cycle_inner(conn, scope, quotes_getter, origem: str, t0: float, s
                            option_quotes_getter=None) -> dict:
     positions = store.get(conn, "positions", user_id=scope) or []
     ag = store.get(conn, "agent", user_id=scope) or {}
-    par = agent_params(ag)
+    # Trava estrutural (Fase A): o ciclo PRECISA saber o appMode real do
+    # usuário para decidir se "executar" vale — sem isto, `agent_params`
+    # ficaria cego e um `mode="executar"` salvo (migração incompleta, escrita
+    # por outra via) executaria ordem em Modo Estudo.
+    cfg = store.get(conn, "config", user_id=scope) or {}
+    app_mode = cfg.get("appMode") if isinstance(cfg, dict) else None
+    par = agent_params(ag, app_mode=app_mode)
     quotes_data = await quotes_getter([p["t"] for p in positions]) if positions else {}
     sem_cotacao = [p["t"] for p in positions if (quotes_data.get(p["t"]) or {}).get("price") is None]
     events, executed = [], 0
@@ -445,6 +568,11 @@ async def _run_cycle_inner(conn, scope, quotes_getter, origem: str, t0: float, s
         events.append({"time": _now_str(), "kind": "buy",
                        "text": f"Proteção simulada: {pos['t']} vendido ({motivo}) a R$ {price:.2f}."})
     executed = await _avaliar_opcoes(conn, scope, ag, par, option_quotes_getter, executed, events)
+    # Fase B: entrada automática — DEPOIS da saída (stop/alvo) e das opções,
+    # de propósito (não faz sentido abrir posição nova no mesmo ciclo em que
+    # talvez feche outra do mesmo ticker). Early return interno cobre
+    # entradaAuto=False/Modo Estudo sem custo extra de kv.
+    executed = await _avaliar_entradas(conn, scope, ag, par, app_mode, positions, executed, events)
     dur = time.monotonic() - t0
     resumo = f"Ciclo ({origem}) em {dur:.1f}s · {len(positions)} posição(ões) · {executed} execução(ões)"
     if sem_cotacao:
@@ -502,6 +630,12 @@ def list_protecao_sem_operador(conn) -> list:
     for uid, ag in _agent_rows(conn):
         if ag.get("serverEnabled"):
             continue                                   # já é cuidado pelo laço
+        # Sem app_mode de propósito: esta função varre TODO usuário com seção
+        # `agent` no kv (via _agent_rows) sem carregar a config de cada um —
+        # custaria uma leitura extra por usuário só para contar. Não é um
+        # ponto de execução (só conta quem tem stop/alvo ARMADO), então a
+        # trava da Fase A não se aplica aqui: `rules.stop`/`rules.alvo` não
+        # mudam com o appMode.
         par = agent_params(ag)
         if not (par["rules"]["stop"] or par["rules"]["alvo"]):
             continue                                   # nem stop nem alvo valem para ele
@@ -662,6 +796,13 @@ async def scheduler_loop(conn, quotes_getter, notify_push=None, interval_s: int 
                 _agora = time.time()
                 for uid in list_server_users(conn):
                     # Gate por usuário: respeita o intervalMin DELE (default 15).
+                    # Sem app_mode de propósito: só o campo `intervalMin` é lido
+                    # aqui, e ele não muda com o appMode — buscar `config` a
+                    # cada usuário a cada tick só para isto seria leitura extra
+                    # sem efeito. A trava de verdade (mode="executar" só em
+                    # Modo Operador) mora dentro de `run_cycle_for`/
+                    # `_run_cycle_inner`, chamado logo abaixo — é lá que a
+                    # execução de fato acontece.
                     _ag = store.get(conn, "agent", user_id=uid) or {}
                     _int_s = agent_params(_ag)["intervalMin"] * 60
                     _ult = LAST_USER_RUN.get(uid, 0)

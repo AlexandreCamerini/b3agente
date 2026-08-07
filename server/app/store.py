@@ -158,6 +158,28 @@ def set_config(conn, patch: dict, user_id=None) -> dict:
             pass  # sem termo aceito, o modo NÃO muda (silencioso e seguro)
         else:
             cfg["appMode"] = patch["appMode"]
+            # Fase A, D1 — migração silenciosa: quem SAI do Modo Operador com
+            # `agent.mode="executar"` salvo não pode ficar em Modo Estudo com
+            # uma ordem automática ainda armada até o próximo set_agent. A
+            # trava de LEITURA (agent.agent_params) já cobre o ciclo, mas o
+            # dado salvo ficaria inconsistente com o que a UI e o Diário
+            # mostram. Só mexe ao SAIR de "operador" — entrar nele não
+            # precisa (set_agent já trava a escrita de "executar" fora dele).
+            if cfg["appMode"] != "operador":
+                ag = get(conn, "agent", user_id=user_id)
+                mudou = False
+                if ag.get("mode") == "executar":
+                    ag["mode"] = "sinalizar"
+                    mudou = True
+                # Fase B — mesma migração: entrada automática armada não pode
+                # sobreviver à saída do Operador (a trava de LEITURA em
+                # `_avaliar_entradas` já cobre o ciclo, mas o dado salvo
+                # ficaria inconsistente com a UI/Diário até o próximo set_agent).
+                if ag.get("entradaAuto"):
+                    ag["entradaAuto"] = False
+                    mudou = True
+                if mudou:
+                    db.kv_set(conn, "agent", ag, user_id=user_id)
     if isinstance(patch.get("risco"), dict):
         base = cfg.get("risco") if isinstance(cfg.get("risco"), dict) else {}
         r = patch["risco"]
@@ -296,17 +318,44 @@ def set_watchlist(conn, tickers: list, user_id=None) -> list:
 
 def set_agent(conn, patch: dict, user_id=None) -> dict:
     ag = get(conn, "agent", user_id=user_id)
+    # Trava estrutural (Fase A, D1): Modo Estudo nunca executa ordem
+    # automática — vale na ESCRITA, não só na leitura (agent.agent_params).
+    # Sem isto, um patch {"mode": "executar"} gravaria o valor mesmo fora do
+    # Modo Operador; a leitura protegeria o ciclo, mas o dado salvo ficaria
+    # inconsistente com o que a UI mostra e com qualquer outro lugar que leia
+    # `agent.mode` direto do kv.
+    cfg = get(conn, "config", user_id=user_id)
+    operador = isinstance(cfg, dict) and cfg.get("appMode") == "operador"
     if isinstance(patch.get("autonomous"), bool):
-        ag["autonomous"] = patch["autonomous"]
+        # Campo legado (fallback de `mode` em agent_params): mesma trava —
+        # "autonomous=True" fora do Operador equivale a "executar" fora dele.
+        ag["autonomous"] = patch["autonomous"] and operador
     if isinstance(patch.get("allocPct"), (int, float)):
         ag["allocPct"] = max(1, min(20, round(patch["allocPct"])))
+    if isinstance(patch.get("entradaAuto"), bool):
+        # Fase B, mesma trava de `mode="executar"` acima: entrada automática
+        # também exige Modo Operador — reusa a MESMA leitura de `cfg`/`operador`
+        # já calculada nesta função, sem repetir a query.
+        ag["entradaAuto"] = patch["entradaAuto"] if operador else False
     if isinstance(patch.get("intervalMin"), (int, float)):
         ag["intervalMin"] = max(1, min(240, round(patch["intervalMin"])))
     # FASE 3.2 — parâmetros do agente server-side (aditivo)
     if isinstance(patch.get("serverEnabled"), bool):
         ag["serverEnabled"] = patch["serverEnabled"]
     if patch.get("mode") in ("executar", "sinalizar"):
-        ag["mode"] = patch["mode"]
+        novo_modo = patch["mode"]
+        if novo_modo == "executar" and not operador:
+            novo_modo = "sinalizar"  # trava: só o Modo Operador pode gravar "executar"
+        ag["mode"] = novo_modo
+        # Acoplamento mode="executar" ↔ serverEnabled (Fase A): "quero
+        # executar" sem "rodar em background" é exatamente o estado ambíguo
+        # descrito em agent.py:486-500 (proteção só avaliada com o app
+        # aberto) — a hipótese principal do stop batido com a posição
+        # mantida. Só liga quando o patch NÃO trouxe serverEnabled junto (não
+        # sobrescreve uma escolha explícita do mesmo request) e o valor salvo
+        # ainda não é True (idempotente).
+        if novo_modo == "executar" and "serverEnabled" not in patch and ag.get("serverEnabled") is not True:
+            ag["serverEnabled"] = True
     if isinstance(patch.get("rules"), dict):
         cur = ag.get("rules") if isinstance(ag.get("rules"), dict) else {}
         ag["rules"] = {**cur, **{k: bool(v) for k, v in patch["rules"].items() if k in ("stop", "alvo", "trailing")}}
