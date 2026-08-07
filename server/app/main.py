@@ -435,7 +435,7 @@ async def admin_summary(user: dict = Depends(require_user)):
 
 # FASE 8B (diagnóstico): carimbo de build do BACKEND — confirma qual código o
 # Railway está rodando (o front tem o dele em web/src/version.js).
-SERVER_BUILD_ID = "F10-20260807-05"  # F11: assistente Boris — base de conhecimento B3 (kb.py) e roteamento KB→LLM em /api/assistente.
+SERVER_BUILD_ID = "F10-20260807-06"  # F3: alvo dinâmico (extensão por ATR, freio 2× + R:R 1,5:1).
 # Normalmente sincronizado pelo entregar.sh a partir de web/src/version.js; num deploy
 # SÓ de backend (sem rebuild do front) bumpamos aqui para /api/health rastrear o servidor.
 
@@ -1116,6 +1116,7 @@ async def buy(body: dict = Body(default={}), scope: Optional[str] = Depends(curr
     if qty * price > store.get(_conn, "cash", user_id=scope):
         raise HTTPException(400, "Caixa insuficiente.")
     store.buy(_conn, t, qty, price, user_id=scope, meta=body.get("meta"))  # FASE 2 (2.4)
+    _disparar_ciclo_imediato(scope)  # 2026-08-07: reavalia na hora, não espera o próximo tick
     out = store.public_state(_conn, user_id=scope)
     out["priceUsed"] = round(price, 2)
     return out
@@ -1132,6 +1133,7 @@ async def sell(body: dict = Body(default={}), scope: Optional[str] = Depends(cur
         raise HTTPException(502, "Sem cotacao para " + t)
     _qty = body.get("qty")  # FASE 2 (2.4): venda parcial opcional (lotes de 100)
     store.sell(_conn, t, quote["price"], user_id=scope, qty=int(_qty) if _qty else None)
+    _disparar_ciclo_imediato(scope)  # 2026-08-07: reavalia na hora, não espera o próximo tick
     out = store.public_state(_conn, user_id=scope)
     out["priceUsed"] = round(quote["price"], 2)
     return out
@@ -1140,6 +1142,7 @@ async def sell(body: dict = Body(default={}), scope: Optional[str] = Depends(cur
 @app.put("/api/position/{ticker}")
 async def position(ticker: str, body: dict = Body(default={}), scope: Optional[str] = Depends(current_scope)):
     store.set_position(_conn, ticker.upper(), stop=body.get("stop"), alvo=body.get("alvo"), has_stop=("stop" in body), has_alvo=("alvo" in body), user_id=scope)
+    _disparar_ciclo_imediato(scope)  # 2026-08-07: stop/alvo recém-armado é avaliado na hora
     return store.public_state(_conn, user_id=scope)
 
 
@@ -1609,6 +1612,27 @@ async def post_assistente(body: dict = Body(default={}), scope: Optional[str] = 
     _consume_ai()
     r["fonte"] = "llm"
     return r
+
+
+def _disparar_ciclo_imediato(scope: Optional[str]) -> None:
+    """2026-08-07: quando o usuário MEXE numa posição (compra, venda, define
+    stop/alvo), o gatilho recém-armado só era avaliado no próximo tick do
+    scheduler — até `intervalMin` (60min hoje na conta que motivou isto).
+    Dispara o MESMO ciclo em background (mesma técnica de /api/agent/run-now:
+    task solta, nunca bloqueia a resposta da compra/venda/stop) pra reavaliar
+    na hora. Só pra quem tem conta — anônimo não tem Operador no servidor."""
+    if not scope or agent_mod.kill_switch_on():
+        return
+
+    async def _bg():
+        try:
+            await agent_mod.run_cycle_for(_conn, scope, yahoo.get_quotes, origem="imediato",
+                                          snapshot_getter=_snapshot_para_trailing,
+                                          option_quotes_getter=options_provider_yahoo.get_options)
+        except Exception as e:  # noqa: BLE001 — o erro já foi para o agentLog
+            print(f"[agent] ciclo imediato de {scope} falhou: {e}")
+
+    asyncio.get_event_loop().create_task(_bg())
 
 
 async def _snapshot_para_trailing(ticker: str):
