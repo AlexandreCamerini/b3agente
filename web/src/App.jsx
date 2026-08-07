@@ -1782,11 +1782,13 @@ function ModoTrabalhoCard({ ctx }) {
     if (m === mode) return;
     if (m === "operador" && !c.operadorTermo) { setTermoOpen(true); return; }
     await A.saveConfig({ appMode: m });
-    // FASE 8B (N2): a troca de identidade LEVA À TELA INICIAL — o usuário vê
-    // o app inteiro na identidade nova (tema, chip, saudação, abas), em vez
-    // de continuar parado no Perfil sem perceber a mudança.
-    A.go("evolucao");
-    A.flash(m === "operador" ? "Modo Operador ativado — mesa aberta." : "Modo Estudo ativado — bons estudos.");
+    // qa/audit-2026-08-07: a troca de modo reinicia o app INTEIRO — não só
+    // navega pra home. `appMode` é lido de forma independente em mais de
+    // 10 lugares do código (telas, disclaimers, gates de Executar/entrada
+    // automática); um reload garante que TODOS reflitam o modo novo, em
+    // vez de confiar que cada tela vai perceber a mudança de estado sozinha.
+    A.flash(m === "operador" ? "Modo Operador ativado — reiniciando…" : "Modo Estudo ativado — reiniciando…");
+    setTimeout(() => window.location.reload(), 700);
   };
   const segBtn = (on) => ({ flex: 1, border: "none", borderRadius: "9px", padding: "10px", fontWeight: 800, fontSize: "13px", background: on ? T.accent : "transparent", color: on ? T.onAccent : T.textMuted });
   return (
@@ -1835,8 +1837,11 @@ function TermoOperadorModal({ ctx, onClose }) {
       // termo PRIMEIRO (mesmo patch): os stores só aceitam "operador" com ele
       await A.saveConfig({ operadorTermo: { aceitoEm: new Date().toISOString(), versao: TERMO_OPERADOR_VERSAO }, appMode: "operador" });
       onClose();
-      A.go("evolucao"); // FASE 8B (N2): aterrissa na home com a identidade nova
-      A.flash("Modo Operador ativado — mesa aberta.");
+      // qa/audit-2026-08-07: mesmo reinício completo de escolher() — ver o
+      // comentário lá. Esta é a OUTRA porta de entrada pro Modo Operador (1ª
+      // ativação, com termo), e as duas precisam da mesma garantia.
+      A.flash("Modo Operador ativado — reiniciando…");
+      setTimeout(() => window.location.reload(), 700);
     } catch (e) { A.flash("Erro ao ativar: " + (e.message || e)); }
     finally { setBusy(false); }
   };
@@ -3595,8 +3600,11 @@ function AgenteScreen({ ctx }) {
             const on = modoEfetivo === m;
             const desabilitado = m === "executar" && !operador;
             return (
+              // qa/audit-2026-08-07: `title` sozinho é invisível em toque (WKWebView
+              // não tem hover) — o botão desabilitado não podia depender só dele.
+              // O aviso visível abaixo agora tem um link direto pra onde a troca de
+              // verdade acontece; antes explicava o motivo mas não dizia onde ir.
               <button key={m} onClick={() => !desabilitado && putAg({ mode: m })} disabled={desabilitado}
-                title={desabilitado ? "Disponível no Modo Operador — em Modo Estudo o agente só orienta" : undefined}
                 style={{ flex: 1, minWidth: "140px", padding: "10px", borderRadius: "10px", border: `1px solid ${on ? T.accent : T.borderSubtle}`, background: on ? T.accentTint : T.bgBase, color: desabilitado ? T.textFaint : (on ? T.accent : T.textSecondary), fontWeight: 800, fontSize: "12px", opacity: desabilitado ? 0.6 : 1, cursor: desabilitado ? "not-allowed" : "pointer" }}>
                 {m === "executar" ? "Executar (vende no stop/alvo)" : "Apenas sinalizar"}
               </button>
@@ -3605,7 +3613,10 @@ function AgenteScreen({ ctx }) {
         </div>
         {!operador && (
           <p style={{ margin: "9px 0 0", fontSize: "11.5px", lineHeight: 1.5, color: T.textFaint }}>
-            Disponível no Modo Operador — em Modo Estudo o agente só orienta, nunca vende sozinho.
+            Disponível no Modo Operador — em Modo Estudo o agente só orienta, nunca vende sozinho.{" "}
+            <button onClick={() => A.go("perfil")} style={{ background: "transparent", border: "none", padding: 0, color: T.accent, fontWeight: 800, fontSize: "11.5px", textDecoration: "underline" }}>
+              Trocar para Modo Operador →
+            </button>
           </p>
         )}
       </div>
@@ -3744,7 +3755,10 @@ function AgenteScreen({ ctx }) {
         </p>
         {!operador && (
           <p style={{ margin: "9px 0 0", fontSize: "11.5px", lineHeight: 1.5, color: T.textFaint }}>
-            Disponível no Modo Operador — em Modo Estudo a entrada continua só por aviso.
+            Disponível no Modo Operador — em Modo Estudo a entrada continua só por aviso.{" "}
+            <button onClick={() => A.go("perfil")} style={{ background: "transparent", border: "none", padding: 0, color: T.accent, fontWeight: 800, fontSize: "11.5px", textDecoration: "underline" }}>
+              Trocar para Modo Operador →
+            </button>
           </p>
         )}
       </div>

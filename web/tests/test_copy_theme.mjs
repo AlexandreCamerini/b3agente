@@ -96,8 +96,12 @@ ok("usePalette mescla o override do modo (gráficos verdes na mesa)", app.includ
 // N2: iOS local-first — estado do servidor NUNCA sobrescreve o doc do aparelho
 ok("boot (auth.me) não sobrescreve o doc local no nativo", app.includes("if (isNative) await loadState();"));
 ok("login/register/oauth preservam o doc local no nativo", (app.match(/if \(!isNative && r && r\.state\) setData\(r\.state\); else await loadState\(\);/g) || []).length === 3);
-// N2: trocar de modo aterrissa na tela inicial com a identidade nova
-ok("troca de modo navega para a home", (app.match(/A\.go\("evolucao"\)/g) || []).length >= 2);
+// N2 (revisado 2026-08-07, auditoria de controle de ordens): trocar de modo
+// não navega mais — REINICIA o app inteiro. `appMode` é lido de forma
+// independente em mais de 10 lugares; só um reload garante que todos
+// reflitam a identidade nova. Ver docs/auditoria-controle-ordens-parametros.md.
+ok("troca de modo REINICIA o app (reload), nas DUAS portas de entrada (escolher/ativar)",
+   (app.match(/setTimeout\(\(\) => window\.location\.reload\(\), 700\)/g) || []).length === 2);
 // N4: prompts LLM por modo (professor × mesa), com fallback
 ok("copy: prompt do stop/alvo escolhido pelo modo", app.includes("lp.carteiraStopAlvoOperador || lp.carteiraStopAlvo"));
 ok("defaults do cliente têm o prompt da mesa", readFileSync(join(here, "..", "src", "catalog.js"), "utf8").includes("carteiraStopAlvoOperador"));
