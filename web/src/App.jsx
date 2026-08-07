@@ -13,6 +13,9 @@ try { console.log("[b3] build", BUILD_ID); } catch { /* noop */ }
 import { canAddTicker, canAnalyze } from "./plan.js";
 import { portfolioMetrics, dayReturnPct, equityCurve, markPrice, sizingPlano } from "./finance.js";
 import * as notify from "./notify.js";
+import Boris from "./pet/Boris.jsx";
+import BorisChat from "./pet/BorisChat.jsx";
+import BorisIntro from "./pet/BorisIntro.jsx";
 
 /* =============================================================================
    BolsIA — simulador EDUCACIONAL de paper trading da B3.
@@ -2323,31 +2326,8 @@ function falarTexto(texto, { onStart, onEnd } = {}) {
 }
 function calarVoz() { try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch { /* melhor mudo que quebrado */ } }
 
-// A coruja: emoji + timers, zero assets (espelho web do PoC SwiftUI do Alex —
-// piscar a cada 4s, boca ciclando a 150ms enquanto fala, "respira" ao falar).
-const CORUJA_BOCAS = ["😮", "😯", "🗣️", "😃"];
-function Coruja({ falando, tamanho = 72 }) {
-  const [piscando, setPiscando] = useState(false);
-  const [boca, setBoca] = useState(0);
-  useEffect(() => {
-    const t = setInterval(() => {
-      setPiscando(true);
-      setTimeout(() => setPiscando(false), 200);
-    }, 4000);
-    return () => clearInterval(t);
-  }, []);
-  useEffect(() => {
-    if (!falando) return;
-    const t = setInterval(() => setBoca((b) => b + 1), 150);
-    return () => clearInterval(t);
-  }, [falando]);
-  return (
-    <div aria-hidden style={{ width: tamanho + 28 + "px", height: tamanho + 28 + "px", borderRadius: "50%", background: falando ? T.positiveTint10 || T.accentTint : T.bgBase, border: `1px solid ${T.borderFaint}`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", transition: "transform 0.3s ease, background 0.3s ease", transform: falando ? "scale(1.06)" : "scale(1)" }}>
-      <span style={{ fontSize: tamanho * 0.72 + "px", lineHeight: 1 }}>{piscando ? "🙈" : "🦉"}</span>
-      <span style={{ fontSize: tamanho * 0.3 + "px", lineHeight: 1, marginTop: "-6px", minHeight: tamanho * 0.32 + "px" }}>{falando ? CORUJA_BOCAS[boca % CORUJA_BOCAS.length] : "​"}</span>
-    </div>
-  );
-}
+// A coruja: Boris (CSS puro, ver web/src/pet/Boris.jsx) — piscar, respiração,
+// boca sincronizada com a fala e olhar que segue, tudo dirigido por ref.
 
 // O FAB do pet: presença permanente e discreta na Watchlist do Estudo. Ele
 // NUNCA abre folha sozinho — o único one-shot proativo do app continua sendo
@@ -2366,25 +2346,40 @@ function PetFab({ onOpen }) {
 // livre (LLM, exige conta, teto do assistente). O botão "ouvir" lê o resumo
 // com a voz do sistema; sem voz no aparelho, o texto continua inteiro — a
 // voz é conforto, nunca dependência.
-function PetSheet({ onClose, didatica }) {
+function PetSheet({ onClose, didatica, tela, snapshot }) {
+  // F4: qual aba o pet está explicando — "mercado" se ninguém disser (mesmo
+  // comportamento de antes, quando só existia essa tela).
+  const telaAtual = tela || "mercado";
   const [r, setR] = useState(null);
   const [erro, setErro] = useState(false);
   const [falando, setFalando] = useState(false);
+  // F5: chat completo (histórico) é uma ABA dentro da mesma folha — não
+  // substitui `AssistenteBox` (pergunta única, sem histórico), que continua
+  // servindo o `ConceitoSheet` sem mudança nenhuma. Fecha junto com a folha
+  // (não persiste entre aberturas — cada visita começa do resumo rápido).
+  const [chatAberto, setChatAberto] = useState(false);
+  const borisRef = useRef(null);
   useEffect(() => {
     let alive = true;
-    store.petResumo()
+    setR(null); setErro(false);
+    // Trocar de tela com o chat aberto misturaria histórico de UMA tela com
+    // snapshot de OUTRA — volta pro resumo rápido, que é sempre correto.
+    setChatAberto(false);
+    store.petResumo(telaAtual)
       .then((res) => { if (alive) setR(res); })
       .catch(() => { if (alive) setErro(true); });
     // fechar/desmontar CALA a voz — coruja falando sozinha atrás de outra
     // tela é exatamente o tipo de fantasma que não pode existir.
     return () => { alive = false; calarVoz(); };
-  }, []);
+  }, [telaAtual]);
   const temVoz = typeof window !== "undefined" && !!window.speechSynthesis;
   const ouvir = () => {
-    if (falando) { calarVoz(); setFalando(false); return; }
+    if (falando) { calarVoz(); setFalando(false); borisRef.current?.stop(); return; }
+    // falarTexto continua dona da voz (GC do Safari, calar ao fechar); aqui
+    // só DIRIGIMOS a boca do Boris pelos callbacks que ela já expõe.
     const ok = falarTexto(((r && r.fala) || []).join(" "), {
-      onStart: () => setFalando(true),
-      onEnd: () => setFalando(false),
+      onStart: () => { setFalando(true); borisRef.current?.talk(); },
+      onEnd: () => { setFalando(false); borisRef.current?.stop(); },
     });
     if (!ok) setFalando(false);
   };
@@ -2395,7 +2390,7 @@ function PetSheet({ onClose, didatica }) {
         style={{ width: "100%", maxHeight: "82vh", overflowY: "auto", background: T.bgPanel, borderRadius: "18px 18px 0 0", padding: "16px 16px 22px", boxSizing: "border-box" }}>
         <div aria-hidden style={{ width: "44px", height: "4px", borderRadius: "999px", background: T.borderSubtle, margin: "0 auto 12px" }} />
         <div style={{ display: "flex", alignItems: "center", gap: "14px", marginBottom: "12px" }}>
-          <Coruja falando={falando} />
+          <Boris ref={borisRef} size={72} />
           <div>
             <div style={{ fontSize: "16px", fontWeight: 800, color: T.textPrimary }}>BolsIA te explica esta tela</div>
             <div style={{ fontSize: "11.5px", color: T.textFaint, marginTop: "2px" }}>Resumo com as frases do estudo — sem custo, sem ordem de compra.</div>
@@ -2423,8 +2418,30 @@ function PetSheet({ onClose, didatica }) {
               style={{ width: "100%", minHeight: "44px", marginBottom: "10px", borderRadius: "11px", border: `1px solid ${temVoz ? T.accent : T.borderFaint}`, background: temVoz ? T.accentTint10 : "transparent", color: temVoz ? T.accent : T.textFaint, fontWeight: 800, fontSize: "13px" }}>
               {temVoz ? (falando ? "◼ Parar" : "🔊 Ouvir esta explicação") : "Voz indisponível neste aparelho — o texto acima continua valendo"}
             </button>
+            {/* F4: o formato de `pet:mercado` NÃO muda (itens vêm da própria
+                resposta do resumo, como sempre); as outras 6 telas usam o
+                snapshot que o App já montou a partir do MESMO view-model que
+                a tela renderiza (ctx/data — nunca raspagem de tela). */}
             {didatica && didatica.assistente && (
-              <AssistenteBox tela="pet:mercado" dados={{ itens: (r.itens || []) }} />
+              chatAberto ? (
+                // F5: chat completo, com histórico — mesmo par tela/snapshot
+                // de `AssistenteBox` abaixo, só que agora lembrando o que já
+                // foi perguntado NESTA folha.
+                <BorisChat key={telaAtual}
+                  tela={"pet:" + telaAtual}
+                  snapshot={telaAtual === "mercado" ? { itens: (r.itens || []) } : (snapshot || {})}
+                  borisRef={borisRef} falarTexto={falarTexto} calarVoz={calarVoz}
+                  onFechar={() => setChatAberto(false)} />
+              ) : (
+                <>
+                  <button onClick={() => setChatAberto(true)}
+                    style={{ width: "100%", minHeight: "44px", marginBottom: "10px", borderRadius: "11px", border: `1px solid ${T.borderSubtle}`, background: "transparent", color: T.textSecondary, fontWeight: 700, fontSize: "12.5px" }}>
+                    💬 Conversar com o Boris (lembra o que você já perguntou)
+                  </button>
+                  <AssistenteBox tela={"pet:" + telaAtual}
+                    dados={telaAtual === "mercado" ? { itens: (r.itens || []) } : (snapshot || {})} />
+                </>
+              )
             )}
           </>
         )}
@@ -5759,6 +5776,12 @@ export default function App() {
   const [didatica, setDidatica] = useState(null);
   const [conceitoAberto, setConceitoAberto] = useState(null);  // {cid, dados}
   const [petOpen, setPetOpen] = useState(false);               // folha do pet (mascote)
+  // F6: fonte ÚNICA que liga o pet — o FAB e o "Conversar agora" da
+  // apresentação chamam a MESMA função (nunca duplicam a chamada que abre),
+  // preservando o invariante "o pet só abre por ação explícita" que
+  // `test_pet_ui.mjs` já trava contando ocorrências literais.
+  const abrirPet = () => setPetOpen(true);
+  const [borisIntroOpen, setBorisIntroOpen] = useState(false); // F6: apresentação do Boris (1x)
   const [welcomeOpen, setWelcomeOpen] = useState(false);
   const [stopAlvoFor, setStopAlvoFor] = useState(null); // FASE 3: ticker do popup de stop/alvo (individual)
   const [stopAlvo, setStopAlvo] = useState({}); // FASE 3: resultados por ticker { loading, stop, alvo, explicacao, operar, error }
@@ -5768,6 +5791,7 @@ export default function App() {
   const [welcomeAuthOpen, setWelcomeAuthOpen] = useState(false); // tela de abertura (login)
   const tourShownRef = useRef(false); // qa/38 (Help): tour aparece 1x no 1º uso
   const welcomeShownRef = useRef(false);
+  const borisIntroShownRef = useRef(false); // F6: apresentação do Boris aparece 1x por boot
   const themePref = (data && data.config && data.config.theme) || (typeof localStorage !== "undefined" && localStorage.getItem("b3-theme")) || "dark";
   const themeKey = themePref === "system" ? (sysIsDark ? "dark" : "light") : themePref;
   useEffect(() => {
@@ -5908,6 +5932,21 @@ export default function App() {
     tourShownRef.current = true;
     if (!data.config.tourSeen) setTourOpen(true);
   }, [data, welcomeAuthOpen, welcomeOpen]);
+  // F6: apresenta o Boris UMA vez, na primeira vez que a pessoa chega na aba
+  // inicial (Mercado/Watchlist) depois que o portão de abertura fecha — e só
+  // se a camada de entendimento estiver ligada nesta conta (sem `didatica`
+  // não há FAB para explicar). Mesmo portão de overlays que `ctx.overlayLivre`
+  // usa (tour incluído: a intro espera o tour terminar, nunca some por cima
+  // dele) para não abrir em cima de outra folha. Guardado por ref — decide
+  // uma vez por boot e nunca reavalia (não reabre ao voltar pra Mercado).
+  useEffect(() => {
+    if (borisIntroShownRef.current || !data || !data.config) return;
+    if (tourOpen || aboutOpen || welcomeOpen || welcomeAuthOpen || conceitoAberto || petOpen) return; // espera o portão fechar
+    if (tab !== "mercado") return;             // só na aba inicial (Watchlist)
+    if (!(didatica && didatica.ligada)) return; // só com a camada de entendimento ligada
+    borisIntroShownRef.current = true;
+    if (!data.config.borisIntroVisto) setBorisIntroOpen(true);
+  }, [data, tourOpen, aboutOpen, welcomeOpen, welcomeAuthOpen, conceitoAberto, petOpen, tab, didatica]);
   // FASE 3.3a — ao abrir o app, resume as ações do agente server-side desde a
   // última visita (agentLog vs. agent.lastSeenAt) com notificação local.
   const agentSummaryDone = useRef(false);
@@ -6508,7 +6547,7 @@ export default function App() {
     // A folha proativa ADIA enquanto houver outro overlay na tela: ela é
     // one-shot por conceito, para sempre, e abrir sob o portão de abertura ou
     // sob o tour queimaria a estreia sem ninguém ler.
-    overlayLivre: !tourOpen && !aboutOpen && !welcomeOpen && !welcomeAuthOpen && !conceitoAberto && !petOpen,
+    overlayLivre: !tourOpen && !aboutOpen && !welcomeOpen && !welcomeAuthOpen && !conceitoAberto && !petOpen && !borisIntroOpen,
     goMercado: () => setTab("mercado"),
     // FASE 2 (2.1): ponte Descobrir → Avaliar. Garante o ativo na watchlist,
     // navega para Avaliar e dispara a análise N2 daquele ativo.
@@ -6530,6 +6569,13 @@ export default function App() {
     markOnboarded: async () => {
       setData((d) => (d ? { ...d, config: { ...d.config, onboarded: true } } : d));
       try { await store.putConfig({ onboarded: true }); } catch { /* silencioso */ }
+    },
+    // F6: fecha a apresentação do Boris e grava `borisIntroVisto` — nunca
+    // mais reaparece sozinha (mesmo espelho de `markOnboarded`).
+    marcarBorisIntroVisto: async () => {
+      setBorisIntroOpen(false);
+      setData((d) => (d ? { ...d, config: { ...d.config, borisIntroVisto: true } } : d));
+      try { await store.putConfig({ borisIntroVisto: true }); } catch { /* silencioso */ }
     },
     // FASE 2 — conta opcional. Handlers guardados; erros sobem para o AuthModal.
     // FASE 8 (A3): toda TROCA de escopo (entrar OU sair) limpa os estados
@@ -6609,6 +6655,88 @@ export default function App() {
     if (!data) return [];
     return (data.watchlist || []).map((t) => { const q = quotes[t] || {}; return { t, priceStr: price(q.price), chStr: pct(q.change), color: (q.change || 0) >= 0 ? T.positive : T.negative, arrow: (q.change || 0) >= 0 ? "▲" : "▼" }; });
   }, [data, quotes]);
+
+  // F4 (Boris em todas as telas): qual aba o pet está explicando agora.
+  // Histórico é sub-tela de Carteira (carteiraView), as demais mapeiam 1:1
+  // com `tab`. As sub-telas do Perfil (config/ia/notificações/…) todas caem
+  // em "perfil" — a tabela do plano não pede granularidade ali.
+  const petTela = tab === "carteira" ? (carteiraView === "historico" ? "historico" : "carteira") : tab;
+
+  // O snapshot por tela é o MESMO view-model que a tela já usa para renderizar
+  // (D6 do plano): nada de raspar tela, nada de conta nova. "mercado" segue
+  // FORA daqui de propósito — o formato dele já existe e não muda (vem de
+  // `r.itens`, dentro do próprio PetSheet, depois que /api/pet/resumo responde).
+  const petSnapshot = useMemo(() => {
+    if (!data) return {};
+    switch (petTela) {
+      case "carteira": {
+        const m = portfolioMetrics(data.positions, quotes, data.cash);
+        return {
+          posicoes: (data.positions || []).map((p) => ({ ticker: p.t, qty: p.qty, precoMedio: p.avg, stop: p.stop, alvo: p.alvo })),
+          caixa: data.cash,
+          resultadoAberto: m.openPnL,
+          resultadoAbertoPct: m.openPct,
+          patrimonio: m.patr,
+        };
+      }
+      case "evolucao": {
+        const m = portfolioMetrics(data.positions, quotes, data.cash);
+        const diaPct = dayReturnPct(m.patr, m.dayVal);
+        const hoje = new Date().toISOString().slice(0, 10);
+        const ec = equityCurve(data.equitySnapshots, (data.config || {}).initialBudget, m.patr, hoje);
+        return {
+          patrimonio: m.patr,
+          resultadoDia: m.dayVal,
+          resultadoDiaPct: diaPct,
+          retornoAcumuladoPct: ec.retAcum,
+          drawdownPct: ec.drawdown,
+        };
+      }
+      case "radar": {
+        // O Radar em si guarda o resultado da varredura em estado LOCAL da tela
+        // (não em `ctx`) — reaproveitar exigiria içar esse estado. `wlScan` é o
+        // scan da MESMA família (confluência + setup, `store.scan`) que já vive
+        // em `ctx` e alimenta a Home; é o candidato mais próximo sem içar
+        // estado. Decisão registrada aqui: candidatos ficam restritos à
+        // watchlist, não ao universo completo do Radar.
+        const results = (wlScan && wlScan.results) || [];
+        return {
+          candidatos: results.slice(0, 12).map((r) => ({ ticker: r.ticker, confluencia: r.confluencia, melhorSetup: r.melhorSetup, decisao: r.plano && r.plano.decisao })),
+        };
+      }
+      case "agente": {
+        const ag = data.agent || {};
+        return {
+          ativo: !!ag.serverEnabled,
+          modo: ag.mode || (ag.autonomous ? "executar" : "sinalizar"),
+          regras: ag.rules || {},
+        };
+      }
+      case "historico": {
+        const h = data.history || [];
+        const fechadas = h.filter((x) => x && x.pnl != null);
+        const pnlTotal = fechadas.reduce((s, x) => s + (Number(x.pnl) || 0), 0);
+        return {
+          operacoes: h.slice(-12).map((x) => ({ data: x.date, tipo: x.type, ticker: x.t, qty: x.qty, preco: x.price, pnl: x.pnl })),
+          totalOperacoes: h.length,
+          pnlTotalFechadas: pnlTotal,
+        };
+      }
+      case "perfil": {
+        const cfg = data.config || {};
+        const prof = data.profile || {};
+        return {
+          modo: cfg.appMode || "estudo",
+          orcamentoInicial: cfg.initialBudget,
+          risco: prof.risco,
+          horizonte: prof.horizonte,
+          notificacoesAtivas: !!(cfg.notif && cfg.notif.enabled),
+        };
+      }
+      default:
+        return {};
+    }
+  }, [petTela, data, quotes, wlScan]);
 
   const shell = {
     className: "b3 b3-shell b3-theme-" + themeKey,
@@ -6702,12 +6830,24 @@ export default function App() {
       )}
       {aboutOpen && <AboutModal onClose={A.closeAbout} />}
       {tourOpen && <TourModal ctx={ctx} />}
-      {/* O PET: só na Watchlist do Estudo, com a tela livre — e NUNCA abre
-          sozinho. O FAB some sob overlays para não competir com folha aberta. */}
-      {tab === "mercado" && appMode !== "operador" && didatica && didatica.ligada && ctx.overlayLivre && (
-        <PetFab onOpen={() => setPetOpen(true)} />
+      {/* O PET: em QUALQUER aba do Estudo (F4), com a tela livre — e NUNCA abre
+          sozinho. O FAB some sob overlays para não competir com folha aberta,
+          e o modo Operador continua sem pet (mesmo isolamento da via
+          proativa) — as duas regras herdadas da v1, só a restrição de aba saiu. */}
+      {appMode !== "operador" && didatica && didatica.ligada && ctx.overlayLivre && (
+        <PetFab onOpen={abrirPet} />
       )}
-      {petOpen && <PetSheet didatica={didatica} onClose={() => setPetOpen(false)} />}
+      {petOpen && <PetSheet didatica={didatica} tela={petTela} snapshot={petSnapshot} onClose={() => setPetOpen(false)} />}
+      {/* F6: apresentação do Boris, 1x — "Conversar agora" abre a MESMA folha
+          do pet que o FAB abriria (reaproveita petOpen, não duplica chat);
+          "Depois" só fecha. Os dois marcam borisIntroVisto (nunca mais volta
+          sozinha). */}
+      {borisIntroOpen && (
+        <BorisIntro
+          onConversar={() => { ctx.marcarBorisIntroVisto(); abrirPet(); }}
+          onDepois={() => ctx.marcarBorisIntroVisto()}
+        />
+      )}
       {conceitoAberto && (
         <ConceitoSheet cid={conceitoAberto.cid} dados={conceitoAberto.dados}
           setor={conceitoAberto.setor || null}

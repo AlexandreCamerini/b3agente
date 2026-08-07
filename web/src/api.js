@@ -234,10 +234,17 @@ export const api = {
   // Camada de entendimento (custo zero: texto determinístico do backend).
   conceitos: (modo, resumido) => req("GET", "/api/conceitos?modo=" + encodeURIComponent(modo || "estudo") + (resumido ? "&resumido=true" : ""), undefined, 15000),
   conceito: (cid, body) => req("POST", "/api/conceito/" + encodeURIComponent(cid), body || {}, 15000),
-  // Assistente (camada PAGA): exige conta e leva o snapshot da tela.
+  // Base de conhecimento (Fase F3): busca pública, custo zero, sem conta —
+  // mesma camada que /api/assistente já consulta primeiro por dentro.
+  kbBuscar: (q, modo) => req("GET", "/api/kb/buscar?q=" + encodeURIComponent(q || "") + (modo ? "&modo=" + encodeURIComponent(modo) : ""), undefined, 15000),
+  // Assistente: a KB responde primeiro (grátis, sem conta); só cai para a
+  // LLM (camada PAGA, exige conta) quando ela não cobre — o servidor decide
+  // sozinho e devolve `fonte: "kb" | "llm"`.
   assistente: (body) => req("POST", "/api/assistente", body || {}, TIMEOUT_LLM),
-  // O PET: resumo determinístico da tela (custo zero; frases prontas do servidor).
-  petResumo: (modo) => req("GET", "/api/pet/resumo?modo=" + encodeURIComponent(modo || "estudo"), undefined, 15000),
+  // O PET: resumo determinístico da tela (custo zero; frases prontas do
+  // servidor). F4: `tela` escolhe QUAL aba resumir — allowlist é
+  // conceitos.PET_TELAS, o mesmo registro do /api/assistente.
+  petResumo: (modo, tela) => req("GET", "/api/pet/resumo?modo=" + encodeURIComponent(modo || "estudo") + "&tela=" + encodeURIComponent(tela || "mercado"), undefined, 15000),
   scanProgress: () => req("GET", "/api/scan/progress", undefined, 10000),        // BLOCO B1
   // F1 (timing de entrada): estado determinístico plano diário × barra 15m
   // FECHADA — O(1) no servidor, zero fetch/LLM. iOS manda ?appMode (modo é

@@ -143,8 +143,9 @@ function serverStore() {
     // Camada de entendimento: no web o modo vem da config do escopo no servidor.
     conceitos: (modo, resumido) => api.conceitos(modo, resumido),
     conceito: (cid, body) => api.conceito(cid, body),
+    kbBuscar: (q, modo) => api.kbBuscar(q, modo),
     assistente: (body) => api.assistente(body),
-    petResumo: (modo) => api.petResumo(modo),                      // pet: modo pode ficar com o servidor
+    petResumo: (tela) => api.petResumo(undefined, tela),           // pet: modo fica com o servidor; F4: tela escolhe a aba
 
     scanProgress: () => api.scanProgress(),                        // BLOCO B1
     timing: (t) => api.timing(t),                                  // F1: modo vem da config do escopo no servidor
@@ -427,6 +428,7 @@ function deviceStore() {
       if (typeof patch.userName === "string") c.userName = patch.userName.trim().slice(0, 40);
       if ("onboarded" in patch) c.onboarded = !!patch.onboarded;
       if ("tourSeen" in patch) c.tourSeen = !!patch.tourSeen;  // qa/38 (Help): tour de 1º uso só aparece 1x
+      if ("borisIntroVisto" in patch) c.borisIntroVisto = !!patch.borisIntroVisto;  // F6: apresentação do Boris só aparece 1x
       if (typeof patch.candlePeriod === "string" && ["1mo", "3mo", "6mo", "1y", "2y"].includes(patch.candlePeriod)) c.candlePeriod = patch.candlePeriod;
       if (patch.streak && typeof patch.streak === "object") c.streak = { days: parseInt(patch.streak.days, 10) || 0, last: String(patch.streak.last || "") };
       if (patch.notif && typeof patch.notif === "object") {
@@ -682,6 +684,8 @@ function deviceStore() {
     // Camada de entendimento: modo local-first, mesma regra do timing.
     async conceitos(modo, resumido) { ensure(); return api.conceitos(modo || doc.config.appMode || "estudo", resumido); },
     async conceito(cid, body) { ensure(); return api.conceito(cid, { modo: doc.config.appMode || "estudo", ...(body || {}) }); },
+    // KB: modo local-first, mesma regra do conceitos/timing.
+    async kbBuscar(q, modo) { ensure(); return api.kbBuscar(q, modo || doc.config.appMode || "estudo"); },
     // Assistente: no aparelho o MODELO e a CHAVE são locais — o servidor não
     // os tem. Mandar `config` no corpo é o que evita repetir o qa/29
     // ("Nenhum modelo de IA configurado" em produção, só no iPhone).
@@ -689,7 +693,7 @@ function deviceStore() {
       ensure();
       return api.assistente({ modo: doc.config.appMode || "estudo", config: { ...doc.config }, ...(body || {}) });
     },
-    async petResumo() { ensure(); return api.petResumo(doc.config.appMode || "estudo"); }, // pet: modo local-first (iPhone)
+    async petResumo(tela) { ensure(); return api.petResumo(doc.config.appMode || "estudo", tela); }, // pet: modo local-first (iPhone); F4: tela escolhe a aba
     async obsLogs(n, level, cat) { ensure(); return api.obsLogs(n, level, cat); }, // FASE 5
     async adminSummary() { ensure(); return api.adminSummary(); }, // F5: painel de admin (só ver)
     async analysisOutcomesStats(modo) { ensure(); return api.analysisOutcomesStats(modo); }, // qa/30 (Fase A)
