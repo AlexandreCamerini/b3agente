@@ -261,7 +261,13 @@ def cli():
 
 
 def test_rota_exige_conta(cli):
-    r = cli.post("/api/assistente", json={"pergunta": "o que é gatilho?"})
+    # Fase F3: "o que é gatilho?" agora é respondida pela KB, grátis e sem
+    # conta (é exatamente o comportamento novo — ver test_assistente_kb.py).
+    # Este guardião cobre o caminho que AINDA exige conta: uma pergunta sobre
+    # um número específico da tela, que a KB (glossário genérico) não cobre.
+    r = cli.post("/api/assistente", json={
+        "pergunta": "por que o gatilho está em 43,09 e não em outro preço",
+    })
     assert r.status_code in (401, 403), "anônimo compartilha UM balde de cota"
 
 

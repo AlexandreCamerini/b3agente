@@ -435,7 +435,7 @@ async def admin_summary(user: dict = Depends(require_user)):
 
 # FASE 8B (diagnóstico): carimbo de build do BACKEND — confirma qual código o
 # Railway está rodando (o front tem o dele em web/src/version.js).
-SERVER_BUILD_ID = "F10-20260806-02"  # F3: alvo dinâmico (extensão por ATR, freio 2× + R:R 1,5:1).
+SERVER_BUILD_ID = "F11-20260807-01"  # F11: assistente Boris — base de conhecimento B3 (kb.py) e roteamento KB→LLM em /api/assistente.
 # Normalmente sincronizado pelo entregar.sh a partir de web/src/version.js; num deploy
 # SÓ de backend (sem rebuild do front) bumpamos aqui para /api/health rastrear o servidor.
 
@@ -1308,31 +1308,28 @@ async def post_conceito(cid: str, body: dict = Body(default={}),
 
 
 # O PET — resumo determinístico da tela, para o mascote falar/exibir.
-# Custo zero: nenhuma LLM aqui. Toda frase sai pronta do servidor (lei do
-# vocabulário): as de estado vêm de timing.montar (skill_ref.TIMING), e as
-# conectivas moram NESTA rota — o front nunca compõe texto.
-@app.get("/api/pet/resumo")
-async def get_pet_resumo(modo: Optional[str] = None,
-                         scope: Optional[str] = Depends(current_scope)):
-    from . import intraday as intraday_mod
+# Custo zero: nenhuma LLM aqui, nenhum fetch ao vivo (Yahoo) — só o que já
+# está armazenado (posições/config/agentLog no KV, radar/intraday nas
+# passadas periódicas). Toda frase sai pronta do servidor (lei do
+# vocabulário): as de estado vêm de timing.montar (skill_ref.TIMING) quando
+# aplicável, e as conectivas moram NESTAS funções — o front nunca compõe
+# texto. "O que o app NÃO faz" vem SEMPRE primeiro (regra de conceitos.py).
+_PET_NAO_FAZ = ("O app não compra nem vende nada: a carteira é simulada e a "
+                "decisão é sempre sua.")
+
+
+def _pet_resumo_mercado(scope: Optional[str], radar_stored: Optional[dict],
+                        intra_stored: Optional[dict], operador: bool) -> dict:
+    """`pet:mercado` — formato ORIGINAL, intocado (F1). Itens da watchlist com
+    o timing de entrada de cada um."""
     from . import timing as timing_mod
-    if not conceitos.didatica_ligada():
-        return {"ligada": False}
-    cfg = store.get(_conn, "config", user_id=scope) or {}
-    operador = (modo or cfg.get("appMode")) == "operador"
-    voc = "operador" if operador else "educacional"
     wl = [t for t in (store.get(_conn, "watchlist", user_id=scope) or []) if isinstance(t, str)][:12]
-    p = candles_mod.normalize_period(None)
-    radar_stored = await asyncio.to_thread(radar_daily.get_stored, _conn, p)
-    intra_stored = await asyncio.to_thread(intraday_mod.get_stored, _conn)
     itens = []
     for t in wl:
         r = timing_mod.montar(radar_stored, intra_stored, t, "operador" if operador else "estudo")
         if r and r.get("estado") not in (None, "sem_plano") and r.get("frase"):
             itens.append({"ticker": t, "estado": r["estado"], "frase": r["frase"]})
-    # "O que o app NÃO faz" vem PRIMEIRO — regra da casa (conceitos.py).
-    fala = ["O app não compra nem vende nada: a carteira é simulada e a "
-            "decisão é sempre sua."]
+    fala = [_PET_NAO_FAZ]
     if itens:
         fala.append("Na sua lista de hoje:")
         fala += [f"{i['ticker']}: {i['frase']}" for i in itens]
@@ -1341,23 +1338,233 @@ async def get_pet_resumo(modo: Optional[str] = None,
     else:
         fala.append("O Radar ainda não tem planos armazenados para os ativos "
                     "que você acompanha. Assim que houver, eu explico cada um.")
-    return {"ligada": True, "modo": voc, "itens": itens, "fala": fala}
+    return {"itens": itens, "fala": fala}
 
 
-# Fase 4 — ASSISTENTE de entendimento (camada paga, sob demanda).
+def _pet_resumo_carteira(scope: Optional[str], intra_stored: Optional[dict]) -> dict:
+    """`pet:carteira` — posições, preço médio, caixa e resultado aberto. O
+    preço de marcação é o ÚLTIMO FECHAMENTO DE 15 MIN armazenado (mesma fonte
+    do intraday do pet:mercado) — nunca um fetch ao vivo nesta rota."""
+    from . import intraday as intraday_mod
+    positions = [p for p in (store.get(_conn, "positions", user_id=scope) or []) if isinstance(p, dict)]
+    cash = float(store.get(_conn, "cash", user_id=scope) or 0)
+    fala = [_PET_NAO_FAZ]
+    if not positions:
+        fala.append(f"Sua carteira simulada ainda não tem posições. Caixa disponível: R$ {cash:.2f}.")
+        return {"fala": fala, "posicoes": 0, "caixa": cash}
+    linhas, pnl_total, com_preco = [], 0.0, 0
+    for p in positions[:12]:
+        t = p.get("t"); qty = float(p.get("qty") or 0); avg = float(p.get("avg") or 0)
+        r = intraday_mod.resumo_do_ticker(intra_stored, t) if t else None
+        close = r.get("close") if (r and isinstance(r.get("close"), (int, float))) else None
+        if close is not None:
+            pnl = (close - avg) * qty
+            pnl_total += pnl; com_preco += 1
+            sinal = "+" if pnl >= 0 else "-"
+            linhas.append(f"{t}: {qty:.0f} cotas, PM R$ {avg:.2f}, resultado aberto {sinal}R$ {abs(pnl):.2f}.")
+        else:
+            linhas.append(f"{t}: {qty:.0f} cotas, PM R$ {avg:.2f} — sem cotação intraday armazenada agora.")
+    fala.append(f"Você tem {len(positions)} posição(ões) na carteira simulada, caixa de R$ {cash:.2f}.")
+    fala += linhas
+    if com_preco:
+        sinal = "+" if pnl_total >= 0 else "-"
+        fala.append(f"Resultado aberto das posições com cotação disponível: {sinal}R$ {abs(pnl_total):.2f}.")
+    fala.append("Os preços usam o fechamento da barra de 15 minutos — nunca são o agora.")
+    return {"fala": fala, "posicoes": len(positions), "caixa": cash}
+
+
+def _pet_resumo_evolucao(scope: Optional[str], intra_stored: Optional[dict]) -> dict:
+    """`pet:evolucao` — patrimônio agora e retorno acumulado desde o orçamento
+    inicial. Mesma fórmula de `finance.js: equityCurve` (base = orçamento
+    inicial; sem ele, o 1º snapshot). Sem quotes ao vivo, "resultado do dia"
+    (que depende da variação % do pregão) fica fora — simplificação
+    deliberada desta rota custo-zero."""
+    from . import intraday as intraday_mod
+    positions = [p for p in (store.get(_conn, "positions", user_id=scope) or []) if isinstance(p, dict)]
+    cash = float(store.get(_conn, "cash", user_id=scope) or 0)
+    cfg = store.get(_conn, "config", user_id=scope) or {}
+    budget = cfg.get("initialBudget")
+    snaps = [s for s in (store.get(_conn, "equitySnapshots", user_id=scope) or [])
+             if isinstance(s, dict) and isinstance(s.get("patrimonio"), (int, float))]
+    pos_val = 0.0
+    for p in positions:
+        t = p.get("t"); qty = float(p.get("qty") or 0); avg = float(p.get("avg") or 0)
+        r = intraday_mod.resumo_do_ticker(intra_stored, t) if t else None
+        close = r.get("close") if (r and isinstance(r.get("close"), (int, float))) else None
+        pos_val += qty * (close if close is not None else avg)
+    patrimonio = cash + pos_val
+    base = float(budget) if isinstance(budget, (int, float)) and budget > 0 else (
+        snaps[0]["patrimonio"] if snaps else patrimonio)
+    ret_acum = ((patrimonio - base) / base * 100) if base > 0 else 0.0
+    fala = [_PET_NAO_FAZ,
+           f"Seu patrimônio simulado agora é R$ {patrimonio:.2f} (caixa R$ {cash:.2f} + posições R$ {pos_val:.2f})."]
+    if snaps or (isinstance(budget, (int, float)) and budget > 0):
+        fala.append(f"Desde o orçamento inicial, o retorno acumulado é de {ret_acum:+.1f}%.")
+    else:
+        fala.append("Ainda não há orçamento inicial nem snapshots suficientes para traçar a curva de patrimônio.")
+    fala.append("O valor das posições usa o fechamento da barra de 15 minutos — nunca é o agora.")
+    return {"fala": fala, "patrimonio": patrimonio, "retornoAcumuladoPct": ret_acum}
+
+
+def _pet_resumo_radar(p: str) -> dict:
+    """`pet:radar` — os candidatos da varredura DO DIA já armazenada
+    (`radar_daily.get_stored`), a MESMA fonte que a aba usa quando não força
+    uma varredura nova. Nenhum scan é disparado aqui."""
+    radar_stored = radar_daily.get_stored(_conn, p)
+    results = [r for r in ((radar_stored or {}).get("results") or []) if isinstance(r, dict)]
+    fala = [_PET_NAO_FAZ]
+    if not results:
+        fala.append("O Radar ainda não tem uma varredura do dia armazenada. Assim que houver, eu explico os destaques.")
+        return {"fala": fala, "candidatos": 0}
+    top = sorted(results, key=lambda r: -(r.get("confluencia") or 0))[:8]
+    fala.append(f"A varredura do dia encontrou {len(results)} ativo(s); os de maior confluência:")
+    for r in top:
+        conf = r.get("confluencia")
+        conf_txt = f"{conf:.0f}%" if isinstance(conf, (int, float)) else "—"
+        setup = r.get("melhorSetup") or "sem setup nomeado"
+        fala.append(f"{r.get('ticker')}: confluência {conf_txt} · {setup}")
+    fala.append("Confluência é quantas famílias de indicadores concordam — não é garantia de resultado.")
+    return {"fala": fala, "candidatos": len(top)}
+
+
+def _pet_resumo_agente(scope: Optional[str]) -> dict:
+    """`pet:agente` — estado do Operador, regras ativas e as últimas decisões
+    do Diário (`agentLog`, o mesmo que alimenta /api/agent/log)."""
+    ag = store.get(_conn, "agent", user_id=scope) or {}
+    ativo = bool(ag.get("serverEnabled"))
+    modo_ag = ag.get("mode") or ("executar" if ag.get("autonomous") else "sinalizar")
+    rules = ag.get("rules") if isinstance(ag.get("rules"), dict) else {}
+    regras_on = [k for k in ("stop", "alvo") if rules.get(k) is not False]
+    if rules.get("trailing"):
+        regras_on.append("trailing")
+    fala = [_PET_NAO_FAZ]
+    if ativo:
+        fala.append(f"O Operador está ATIVO no servidor, modo \"{'executar' if modo_ag == 'executar' else 'apenas sinalizar'}\".")
+    else:
+        fala.append("O Operador está INATIVO no servidor — ele só age enquanto o app estiver aberto, no modo atual.")
+    fala.append("Regras ligadas: " + ", ".join(regras_on) + "." if regras_on else "Nenhuma regra de proteção está ligada agora.")
+    log = [e for e in (store.get(_conn, "agentLog", user_id=scope) or []) if isinstance(e, dict)]
+    ultimas = log[-3:]
+    if ultimas:
+        fala.append("Últimas decisões registradas:")
+        fala += [f"· {e.get('text') or e.get('kind') or 'evento'}" for e in reversed(ultimas)]
+    else:
+        fala.append("Ainda não há decisões registradas no Diário do agente.")
+    return {"fala": fala, "ativo": ativo, "modo": modo_ag}
+
+
+def _pet_resumo_historico(scope: Optional[str]) -> dict:
+    """`pet:historico` — operações fechadas e o agregado de resultado."""
+    hist = [h for h in (store.get(_conn, "history", user_id=scope) or []) if isinstance(h, dict)]
+    fala = [_PET_NAO_FAZ]
+    if not hist:
+        fala.append("Ainda não há operações no seu histórico simulado.")
+        return {"fala": fala, "operacoes": 0}
+    fechadas = [h for h in hist if isinstance(h.get("pnl"), (int, float))]
+    fala.append(f"Seu histórico simulado tem {len(hist)} operação(ões) registradas.")
+    if fechadas:
+        pnl_total = sum(h["pnl"] for h in fechadas)
+        ganhas = sum(1 for h in fechadas if h["pnl"] > 0)
+        sinal = "+" if pnl_total >= 0 else "-"
+        fala.append(f"Das {len(fechadas)} com resultado calculado, {ganhas} fecharam positivas; agregado {sinal}R$ {abs(pnl_total):.2f}.")
+    ultimo = hist[-1]
+    fala.append(f"Mais recente: {ultimo.get('type')} de {ultimo.get('t')} em {ultimo.get('date')}.")
+    return {"fala": fala, "operacoes": len(hist)}
+
+
+def _pet_resumo_perfil(scope: Optional[str], cfg: dict) -> dict:
+    """`pet:perfil` — modo, orçamento, risco e notificações. A tela com menos
+    "o que explicar"; resumo deliberadamente mais simples que as demais."""
+    prof = store.get(_conn, "profile", user_id=scope) or {}
+    modo_app = cfg.get("appMode") or "estudo"
+    budget = cfg.get("initialBudget")
+    risco = prof.get("risco")
+    notif_on = bool((cfg.get("notif") or {}).get("enabled"))
+    fala = [_PET_NAO_FAZ, f"Você está no modo {'Operador' if modo_app == 'operador' else 'Estudo'}."]
+    if isinstance(budget, (int, float)) and budget > 0:
+        fala.append(f"Orçamento inicial simulado: R$ {float(budget):.2f}.")
+    if risco:
+        fala.append(f"Seu perfil de risco cadastrado é \"{risco}\".")
+    fala.append("Notificações estão " + ("ativas" if notif_on else "desativadas") + ".")
+    return {"fala": fala, "modo": modo_app, "notificacoesAtivas": notif_on}
+
+
+@app.get("/api/pet/resumo")
+async def get_pet_resumo(modo: Optional[str] = None, tela: Optional[str] = None,
+                         scope: Optional[str] = Depends(current_scope)):
+    """F4: `tela` escolhe QUAL aba resumir — mesma allowlist do /api/assistente
+    (`conceitos.PET_TELAS`); tela ausente ou desconhecida cai em "mercado"
+    (comportamento de antes da F4, quando só essa tela existia)."""
+    from . import intraday as intraday_mod
+    if not conceitos.didatica_ligada():
+        return {"ligada": False}
+    aba = tela if tela in conceitos.PET_TELAS else "mercado"
+    cfg = store.get(_conn, "config", user_id=scope) or {}
+    operador = (modo or cfg.get("appMode")) == "operador"
+    voc = "operador" if operador else "educacional"
+    if aba == "mercado":
+        p = candles_mod.normalize_period(None)
+        radar_stored = await asyncio.to_thread(radar_daily.get_stored, _conn, p)
+        intra_stored = await asyncio.to_thread(intraday_mod.get_stored, _conn)
+        extra = _pet_resumo_mercado(scope, radar_stored, intra_stored, operador)
+    elif aba == "carteira":
+        intra_stored = await asyncio.to_thread(intraday_mod.get_stored, _conn)
+        extra = _pet_resumo_carteira(scope, intra_stored)
+    elif aba == "evolucao":
+        intra_stored = await asyncio.to_thread(intraday_mod.get_stored, _conn)
+        extra = _pet_resumo_evolucao(scope, intra_stored)
+    elif aba == "radar":
+        p = candles_mod.normalize_period(None)
+        extra = _pet_resumo_radar(p)
+    elif aba == "agente":
+        extra = _pet_resumo_agente(scope)
+    elif aba == "historico":
+        extra = _pet_resumo_historico(scope)
+    else:  # "perfil"
+        extra = _pet_resumo_perfil(scope, cfg)
+    return {"ligada": True, "modo": voc, "tela": aba, **extra}
+
+
+# Fase F3 — a KB (grátis, pública) tenta responder ANTES da LLM (paga, exige
+# conta). `GET /api/kb/buscar` expõe a mesma busca por conta própria: útil
+# para quem quer consultar o glossário sem passar pelo fluxo do assistente
+# (uso futuro/opcional do front), e serve de prova em separado de que a busca
+# funciona sem autenticação nenhuma.
+@app.get("/api/kb/buscar")
+async def get_kb_buscar(q: str = "", modo: Optional[str] = None,
+                        scope: Optional[str] = Depends(current_scope)):
+    """Busca pública na base de conhecimento — sem custo, sem conta.
+
+    Sem corte de confiança (isso é `kb.resolver()`, usado só dentro de
+    `/api/assistente`): aqui é busca de verdade, devolve os verbetes mais
+    relevantes mesmo quando a pontuação é baixa — quem decide o que fazer com
+    isso é quem chamou."""
+    from . import kb
+    cfg = store.get(_conn, "config", user_id=scope) or {}
+    voc = "operador" if (modo or cfg.get("appMode")) == "operador" else "educacional"
+    achados = kb.buscar(q, limite=5)
+    return {"query": q, "resultados": [kb.formatar(v, voc) for v in achados]}
+
+
+# Fase 4/F3 — ASSISTENTE de entendimento. A KB (grátis) responde primeiro; só
+# quando ela não cobre a pergunta com confiança é que a rota cai para a LLM
+# (paga, sob conta).
 @app.post("/api/assistente")
-async def post_assistente(body: dict = Body(default={}), user: dict = Depends(require_user)):
+async def post_assistente(body: dict = Body(default={}), scope: Optional[str] = Depends(current_scope)):
     """Pergunta livre sobre a tela atual, respondida no vocabulário do modo.
 
-    EXIGE CONTA por um motivo técnico, não comercial: `ai_activity` grava com
-    `user_id=scope`, e `scope=None` é UM balde compartilhado por TODOS os
-    anônimos — um teto por escopo ali deixaria um usuário esgotar a cota de
-    todo mundo. Quem não tem conta continua com a camada determinística, que é
-    completa e não gasta nada.
+    Roteamento KB → LLM (Fase F3): `kb.resolver(...)` tenta a base determinís-
+    tica primeiro — grátis, sem conta, sem tocar `ai_activity` nem o teto de
+    custo. Só quando ela devolve `None` (não cobre com confiança) é que a rota
+    exige conta e cai para a LLM. EXIGIR CONTA no caminho LLM é motivo
+    técnico, não comercial: `ai_activity` grava com `user_id=scope`, e
+    `scope=None` é UM balde compartilhado por TODOS os anônimos — um teto por
+    escopo ali deixaria um usuário esgotar a cota de todo mundo. Quem não tem
+    conta e faz uma pergunta que a KB não cobre continua com a camada
+    determinística completa (o "?" de cada card) — só não tem a LLM.
     """
-    from . import assistente as assist
+    from . import assistente as assist, kb
     b = body or {}
-    scope = user["id"]
     pergunta = str(b.get("pergunta") or "").strip()
     if not pergunta:
         raise HTTPException(400, "Escreva a sua pergunta sobre esta tela.")
@@ -1375,20 +1582,32 @@ async def post_assistente(body: dict = Body(default={}), user: dict = Depends(re
     # "Nenhum modelo de IA configurado" em produção no scanDeep (qa/29).
     config = b.get("config") or store.get(_conn, "config", user_id=scope)
     modo = b.get("modo") or (config or {}).get("appMode") or "estudo"
+    voc = "operador" if modo == "operador" else "educacional"
+    resolvido_pela_kb = kb.resolver(pergunta, voc)
+    if resolvido_pela_kb is not None:
+        return resolvido_pela_kb
+    if not scope:
+        raise HTTPException(401, "Faça login para continuar.")
     # Chave PRÓPRIA dispensa o teto: ele protege o bolso do Alex, e barrar
     # alguém de gastar o próprio dinheiro é atrito que faz o app parecer
     # quebrado. Quem usa a chave gerenciada segue sob cota e sob teto.
     byok = bool(llm.resolve_key(config))
     config, _consume_ai = _ai_apply_managed(scope, config)
+    # F5: `historico` (últimos turnos da MESMA conversa) é opcional — sem ele
+    # o comportamento é o de antes, pergunta isolada. Vem do CORPO porque é
+    # estado da conversa que o front já tem (mensagens trocadas), não algo
+    # que o servidor guarda entre chamadas.
+    historico = b.get("historico")
     try:
         r = await assist.responder(_conn, config, scope, modo,
                                    b.get("tela"), b.get("snapshot"), pergunta,
-                                   byok=byok)
+                                   byok=byok, historico=historico)
     except assist.TetoAtingido as e:
         raise HTTPException(429, str(e))
     except Exception as e:  # noqa: BLE001 — erro do provedor vira texto público
         raise HTTPException(502, llm.public_error(e))
     _consume_ai()
+    r["fonte"] = "llm"
     return r
 
 

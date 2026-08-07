@@ -189,6 +189,7 @@ def default_state() -> dict:
             "theme": "dark",           # dark | light | system
             "userName": "",            # nome do usuario para personalizacao sobria
             "onboarded": False,        # tela de boas-vindas ja vista? (lida na init)
+            "borisIntroVisto": False,  # F6: apresentacao do Boris ja vista? (1x, na aba Mercado)
             "candlePeriod": "1y",      # Objetivo 4: janela de candles (1mo|3mo|6mo|1y|2y)
             "streak": {"days": 0, "last": ""},  # consistencia (dias seguidos abrindo)
             "notif": {                 # notificacoes LOCAIS de movimentos da carteira

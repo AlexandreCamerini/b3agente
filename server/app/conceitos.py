@@ -460,9 +460,9 @@ def setores() -> dict:
 
 
 # Telas que o PET conhece — allowlist de `tela: "pet:<id>"` no /api/assistente,
-# irmã da SETORES. O pet da v1 vive na Watchlist (aba "mercado"); tela nova
-# entra AQUI antes de existir no front.
-PET_TELAS = ("mercado",)
+# irmã da SETORES. F4: o pet passou a existir em TODAS as abas do app — tela
+# nova entra AQUI antes de existir no front.
+PET_TELAS = ("mercado", "carteira", "evolucao", "radar", "agente", "historico", "perfil")
 
 
 def catalogo(modo: str = "educacional", resumido: bool = False) -> list:
