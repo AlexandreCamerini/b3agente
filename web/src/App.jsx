@@ -30,39 +30,64 @@ import { falarTexto, calarVoz } from "./pet/vozBoris.js";
 // LIGHT = mesma identidade adaptada para leitura confortável (cores semânticas,
 // contraste adequado — boas práticas iOS). DOM usa var(--x); gráficos (canvas/
 // SVG) usam a paleta REAL via ThemeCtx, pois var() não resolve em canvas.
+// Brand Book v2 (2026-08-08) — cores de MARCA. Não são tokens de tema nem de
+// modo: o âmbar é do Bóris (logo, ícone, mascote) e o verde/rosa são o SINAL
+// universal de compra/venda. "Não muda com tema ou modo", diz o Brand Book —
+// por isso ficam fora de PALETTE/MODE_OPERADOR, que são justamente os dois
+// eixos que mudam.
+const BRAND = {
+  amber: "#f2a93b", amberDark: "#c9791b",
+  green: "#34d399", // compra
+  red: "#f26d6d",   // venda
+};
+// Brand Book v2 formaliza DOIS EIXOS INDEPENDENTES:
+//   1. TEMA (claro/escuro, segue o sistema operacional) — muda a base neutra.
+//   2. MODO DE USO (Estudo/Operador) — muda a cor de ACENTO (MODE_* abaixo).
+// A Fase 3 tinha colapsado parte disso: o Estudo usava o âmbar da marca como
+// acento, então "cor de marca" e "cor de estado da UI" eram a mesma coisa. v2
+// separa: o acento de modo substitui o âmbar em CTAs e destaques; o âmbar fica
+// reservado à marca em qualquer tela. Estudo é o acento FRIO (tom de
+// progresso), Operador é o verde (dado ao vivo).
 const PALETTE = {
-  // Fase 3 (rebranding Boris+, 2026-08-08): valores do dark retunados para
-  // baterem exatamente com os tokens do Brand Book (--brand-bg/-ink/-muted/
-  // -line/-amber/-green/-red). O Brand Book só especifica DARK — light segue
-  // com a paleta antiga (sem fonte de verdade nova pra ela ainda). accent
-  // âmbar e positive verde já eram quase os mesmos hex antes; o resto
-  // (fundos, bordas, texto) muda pra alinhar com a marca.
+  // Base = modo ESTUDO. O Operador entra como override em MODE_OPERADOR.
+  // Neutros do dark e do light vêm literais do bloco "Design tokens" de v2:
+  // --bg/--bg-2/--panel/--line/--ink/--muted/--muted-2. O light era a
+  // pendência aberta da Fase 3 ("Brand Book só especifica dark") — v2 fecha.
   dark: {
     bgBase: "#10121a", bgPanel: "#161927", bgCard: "#1b1f2e", bgToast: "#1b1f2e",
     borderSubtle: "#2c3245", borderFaint: "#20242f", borderDashed: "#3a4258", borderToast: "#3a4258",
     textPrimary: "#eef1f8", textSecondary: "#c9d1e6", textMuted: "#9aa3bd", textDim: "#8890a8",
     textFaint: "#6f7797", textBright: "#f6f8fc",
-    accent: "#f2a93b", accentSoft: "#ffc978", positive: "#34d399", negative: "#f26d6d",
+    accent: "#4f8cff", accentSoft: "#8fb6ff", positive: BRAND.green, negative: BRAND.red,
     knob: "#20242f", navDotIdle: "#2c3245", confirmOkText: "#04251a",
-    accentTint: "rgba(242,169,59,0.14)", accentTintHi: "rgba(242,169,59,0.26)", accentTint10: "rgba(242,169,59,0.10)",
+    accentTint: "rgba(79,140,255,0.14)", accentTintHi: "rgba(79,140,255,0.26)", accentTint10: "rgba(79,140,255,0.10)",
     positiveTint: "rgba(52,211,153,0.12)", positiveTint10: "rgba(52,211,153,0.10)",
     negativeTint: "rgba(242,109,109,0.12)", negativeTint10: "rgba(242,109,109,0.10)",
     scrim: "rgba(5,6,10,0.68)",
-    chartGrid: "rgba(255,255,255,0.04)", chartBorder: "rgba(255,255,255,0.08)", chartAxis: "#6f7797", lineSubtle: "rgba(255,255,255,0.18)", onAccent: "#20160a",
+    chartGrid: "rgba(255,255,255,0.04)", chartBorder: "rgba(255,255,255,0.08)", chartAxis: "#6f7797", lineSubtle: "rgba(255,255,255,0.18)", onAccent: "#0a1224",
     warn: "#fbbf24", // qa/34: âmbar de aviso (diário/logs) — antes hex solto fora do token system
   },
   light: {
-    bgBase: "#f3f4f7", bgPanel: "#ffffff", bgCard: "#ffffff", bgToast: "#222936",
-    borderSubtle: "#e3e6ec", borderFaint: "#edeff3", borderDashed: "#d2d8e0", borderToast: "#39414f",
-    textPrimary: "#11161d", textSecondary: "#2d3742", textMuted: "#5d6775", textDim: "#6b7480",
-    textFaint: "#98a1ad", textBright: "#0a0e13",
-    accent: "#b45309", accentSoft: "#92400e", positive: "#10976a", negative: "#d6455f",
-    knob: "#dfe3e9", navDotIdle: "#c4cad3", confirmOkText: "#ffffff",
-    accentTint: "rgba(180,83,9,0.12)", accentTintHi: "rgba(180,83,9,0.20)", accentTint10: "rgba(180,83,9,0.10)",
-    positiveTint: "rgba(16,151,106,0.12)", positiveTint10: "rgba(16,151,106,0.10)",
-    negativeTint: "rgba(214,69,95,0.12)", negativeTint10: "rgba(214,69,95,0.10)",
+    // Neutros literais de v2. Antes o painel e o card eram os dois #ffffff —
+    // v2 separa --bg-2 (#eef0f7) de --panel (#ffffff), então o painel volta a
+    // ter um degrau de profundidade sobre o card, como no dark.
+    bgBase: "#f7f8fc", bgPanel: "#eef0f7", bgCard: "#ffffff", bgToast: "#222936",
+    borderSubtle: "#e2e5f0", borderFaint: "#edeff5", borderDashed: "#d3d8e6", borderToast: "#39414f",
+    textPrimary: "#10121a", textSecondary: "#2d3444", textMuted: "#5b6178", textDim: "#6b7288",
+    textFaint: "#7a8099", textBright: "#080a12",
+    // Acento do Estudo no claro: #2f6fe0 é o hex literal de v2 (AA 4,70 sobre
+    // #ffffff). positive/negative NÃO são o verde/rosa crus da marca aqui: em
+    // fundo claro eles medem 1,92:1 e 2,92:1, e neste app essas duas cores são
+    // TEXTO em 72 lugares (valores de P&L), não só badge. Estes são os tons
+    // mais próximos da marca que passam AA — mesma matiz, luminosidade menor.
+    // Ver o bloco "sinal universal" no relatório da entrega.
+    accent: "#2f6fe0", accentSoft: "#2559b8", positive: "#1c825d", negative: "#c6464c",
+    knob: "#dfe3ee", navDotIdle: "#c4cad8", confirmOkText: "#ffffff",
+    accentTint: "rgba(47,111,224,0.12)", accentTintHi: "rgba(47,111,224,0.20)", accentTint10: "rgba(47,111,224,0.10)",
+    positiveTint: "rgba(28,130,93,0.12)", positiveTint10: "rgba(28,130,93,0.10)",
+    negativeTint: "rgba(198,70,76,0.12)", negativeTint10: "rgba(198,70,76,0.10)",
     scrim: "rgba(15,20,28,0.45)",
-    chartGrid: "rgba(0,0,0,0.05)", chartBorder: "rgba(0,0,0,0.10)", chartAxis: "#8a93a0", lineSubtle: "rgba(0,0,0,0.16)", onAccent: "#ffffff",
+    chartGrid: "rgba(0,0,0,0.05)", chartBorder: "rgba(0,0,0,0.10)", chartAxis: "#8a90a0", lineSubtle: "rgba(0,0,0,0.16)", onAccent: "#ffffff",
     warn: "#a16207", // qa/34: âmbar de aviso legível sobre fundo claro
   },
 };
@@ -77,20 +102,18 @@ const themeVarBlock = (name) => Object.entries(PALETTE[name]).map(([k, v]) => `$
 // grafite frio, cards #10161a, textos frios, verde #22c55e como acento E
 // como positivo, vermelho #ef4444 — identidade impossível de confundir.
 const MODE_OPERADOR = {
-  // Fase 3 (rebranding Boris+): o Brand Book não separa cor por modo — só
-  // define UM verde (--brand-green, compra) e UM vermelho (--brand-red,
-  // venda) pro sistema inteiro. Convergindo o acento do Operador pro MESMO
-  // verde da marca (em vez do #22c55e antigo, uma tonalidade própria só
-  // dele) a semântica fica consistente: verde = compra em qualquer modo. A
-  // diferenciação de leiaute Estudo×Operador continua — fundo/cartão/borda
-  // seguem mais frios/escuros que o Estudo, só retunados pra família de
-  // tons da marca (antes eram um azul-acinzentado fora da paleta nova).
+  // Brand Book v2: o Operador é o eixo "modo de uso" com acento VERDE
+  // (#34d399 escuro / #0f9d63 claro), independente do tema. O verde do acento
+  // coincide com o verde de compra por desenho da marca — é o mesmo
+  // --brand-green. A diferenciação de leiaute Estudo×Operador continua e ficou
+  // MAIS forte com v2: o Estudo agora tem acento frio próprio (azul), então os
+  // dois modos não disputam mais o âmbar.
   dark: {
     bgBase: "#0a0c12", bgPanel: "#10131c", bgCard: "#141926", bgToast: "#141926",
     borderSubtle: "#242c40", borderFaint: "#1a2030", borderDashed: "#323c54", borderToast: "#323c54",
     textMuted: "#93a3c0", textDim: "#8492ac", textFaint: "#5b6890",
-    accent: "#34d399", accentSoft: "#7ee9c4",
-    positive: "#34d399", negative: "#f26d6d",
+    accent: BRAND.green, accentSoft: "#7ee9c4",
+    positive: BRAND.green, negative: BRAND.red,
     accentTint: "rgba(52,211,153,0.14)", accentTintHi: "rgba(52,211,153,0.26)", accentTint10: "rgba(52,211,153,0.10)",
     positiveTint: "rgba(52,211,153,0.13)", positiveTint10: "rgba(52,211,153,0.10)",
     negativeTint: "rgba(242,109,109,0.13)", negativeTint10: "rgba(242,109,109,0.10)",
@@ -101,15 +124,21 @@ const MODE_OPERADOR = {
     // trocava acento/positivo/negativo, então Estudo × Operador ficavam com
     // o MESMO chrome (fundo/cartão/bordas/texto) em tema claro. Mesma lógica
     // relativa do dark (base levemente mais fria/grafite que o Estudo).
-    bgBase: "#eef1f0", bgPanel: "#f6f8f7", bgCard: "#ffffff", bgToast: "#16211c",
-    borderSubtle: "#d7e0dc", borderFaint: "#e6ece9", borderDashed: "#c3d1cb", borderToast: "#24483a",
-    textMuted: "#4f5f5a", textDim: "#5c6d67", textFaint: "#8a9994",
-    accent: "#15803d", accentSoft: "#166534",
-    positive: "#15803d", negative: "#dc2626",
-    accentTint: "rgba(21,128,61,0.12)", accentTintHi: "rgba(21,128,61,0.20)", accentTint10: "rgba(21,128,61,0.10)",
-    positiveTint: "rgba(21,128,61,0.12)", positiveTint10: "rgba(21,128,61,0.10)",
-    negativeTint: "rgba(220,38,38,0.12)", negativeTint10: "rgba(220,38,38,0.10)",
-    onAccent: "#ffffff", knob: "#d7e0dc", navDotIdle: "#c3d1cb", chartAxis: "#7a8b85",
+    // Base neutra do Operador no claro: mesma lógica relativa do dark (um
+    // degrau mais frio/grafite que o Estudo), agora derivada dos neutros de v2.
+    bgBase: "#f2f6f4", bgPanel: "#e9efec", bgCard: "#ffffff", bgToast: "#16211c",
+    borderSubtle: "#dce5e1", borderFaint: "#e8efec", borderDashed: "#c8d6d0", borderToast: "#24483a",
+    textMuted: "#4f5f5a", textDim: "#5c6d67", textFaint: "#7a8a85",
+    // v2 especifica #0f9d63 para o acento do Operador no claro, mas ele mede
+    // 3,49:1 sobre #ffffff — reprova AA como texto e como fundo de CTA com
+    // texto branco. #0d8353 é o mesmo tom (matiz 155° preservada) na
+    // luminosidade que passa (4,78:1). Mesmo critério do positive/negative.
+    accent: "#0d8353", accentSoft: "#0a6b44",
+    positive: "#1c825d", negative: "#c6464c",
+    accentTint: "rgba(13,131,83,0.12)", accentTintHi: "rgba(13,131,83,0.20)", accentTint10: "rgba(13,131,83,0.10)",
+    positiveTint: "rgba(28,130,93,0.12)", positiveTint10: "rgba(28,130,93,0.10)",
+    negativeTint: "rgba(198,70,76,0.12)", negativeTint10: "rgba(198,70,76,0.10)",
+    onAccent: "#ffffff", knob: "#dce5e1", navDotIdle: "#c8d6d0", chartAxis: "#7a8b85",
   },
 };
 const modeVarBlock = (name) => Object.entries(MODE_OPERADOR[name]).map(([k, v]) => `${VARKEY(k)}:${v}`).join(";");
@@ -139,10 +168,11 @@ const usePalette = () => {
 // a animação): cabeçalho, telas de auth/onboarding — tudo abaixo de ~64px
 // onde a coruja animada (Boris.jsx) perderia legibilidade.
 function LogoMark({ size = 32, radius }) {
-  // Óculos/bico/selo seguem o ACENTO DO MODO (âmbar no Estudo, verde no
-  // Operador) — mesmo princípio do ícone antigo; rosto/orelhas ficam no azul-
-  // marinho fixo da marca (não muda com tema nem modo, é a "pele" do Bóris).
-  const P = usePalette();
+  // Brand Book v2, regra explícita: "nunca recolorir os óculos fora do âmbar
+  // da marca". Até a Fase 3 os óculos/bico/selo seguiam o acento do MODO
+  // (viravam verde no Operador) — v2 fecha essa porta: o âmbar é identidade de
+  // marca, não estado de UI, então o símbolo é idêntico em Estudo e Operador,
+  // claro e escuro. Rosto/orelhas seguem no azul-marinho fixo ("pele" do Bóris).
   const r = radius != null ? radius : Math.round(size * 0.26);
   const rx = (r / size) * 64;
   return (
@@ -154,16 +184,16 @@ function LogoMark({ size = 32, radius }) {
       {/* rosto */}
       <circle cx="32" cy="34" r="26" fill="#2a3a6b" />
       {/* óculos redondos */}
-      <circle cx="22" cy="32" r="10" fill="none" stroke={P.accent} strokeWidth="3.2" />
-      <circle cx="42" cy="32" r="10" fill="none" stroke={P.accent} strokeWidth="3.2" />
-      <path d="M30 32 Q32 29 34 32" fill="none" stroke={P.accent} strokeWidth="3.2" />
+      <circle cx="22" cy="32" r="10" fill="none" stroke={BRAND.amber} strokeWidth="3.2" />
+      <circle cx="42" cy="32" r="10" fill="none" stroke={BRAND.amber} strokeWidth="3.2" />
+      <path d="M30 32 Q32 29 34 32" fill="none" stroke={BRAND.amber} strokeWidth="3.2" />
       <circle cx="22" cy="32" r="4" fill="#eef1f8" />
       <circle cx="42" cy="32" r="4" fill="#eef1f8" />
       {/* bico */}
-      <path d="M32 42 L27.5 49 L36.5 49 Z" fill={P.accent} />
+      <path d="M32 42 L27.5 49 L36.5 49 Z" fill={BRAND.amber} />
       {/* selo "+" */}
       <circle cx="51" cy="50" r="10" fill="#161927" />
-      <circle cx="51" cy="50" r="9" fill={P.accent} />
+      <circle cx="51" cy="50" r="9" fill={BRAND.amber} />
       <path d="M51 45.5V54.5M46.5 50H55.5" stroke="#161927" strokeWidth="2.4" strokeLinecap="round" />
     </svg>
   );
@@ -186,7 +216,7 @@ const DISPLAY = "'Fredoka', " + SANS;
 // (--brand-amber), NUNCA gradiente e NUNCA a cor do modo. Antes (marca
 // "BolsIA") o "IA" seguia o acento do modo (`IA_GRAD`, azul→ciano/degradê); o "+" é
 // identidade de marca, não estado de UI — fica igual em Estudo e Operador.
-const PLUS_STYLE = { color: "#f2a93b" };
+const PLUS_STYLE = { color: BRAND.amber };
 
 const nf2 = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const price = (n) => (n == null || isNaN(n) ? "—" : nf2.format(n));
@@ -5907,7 +5937,14 @@ export default function App() {
     try { localStorage.setItem("b3-theme", themePref); } catch { /* ignore */ }
     try {
       const meta = document.querySelector('meta[name="theme-color"]');
-      if (meta) meta.setAttribute("content", appMode === "operador" ? "#0a0c12" : (themeKey === "light" ? "#f3f4f7" : "#10121a"));
+      // Lê o bgBase que a UI está de fato usando (tema × modo) em vez de
+      // repetir hex à mão — era assim que o #f3f4f7 do light antigo sobrevivia
+      // aqui depois da paleta mudar, e que o Operador no tema CLARO pintava a
+      // barra do navegador de escuro (usava o bgBase do Operador dark sempre).
+      const esquema = appMode === "operador"
+        ? { ...PALETTE[themeKey], ...MODE_OPERADOR[themeKey] }
+        : PALETTE[themeKey];
+      if (meta) meta.setAttribute("content", esquema.bgBase);
     } catch { /* ignore */ }
   }, [themeKey, themePref, appMode]);
   const cfgTimer = useRef(null);
@@ -6853,7 +6890,16 @@ export default function App() {
   }, [petTela, data, quotes, wlScan]);
 
   const shell = {
-    className: "b3 b3-shell b3-theme-" + themeKey,
+    // O shell REDECLARA o bloco de tema (.b3-theme-dark/-light), então precisa
+    // redeclarar o modo junto. O override do modo é um seletor COMPOSTO
+    // (.b3-mode-operador.b3-theme-dark) e as duas classes têm que estar no
+    // MESMO elemento: com só "b3-theme-dark" aqui, a regra base do tema vencia
+    // dentro do shell e todo var(--accent) da árvore voltava pro acento do
+    // ESTUDO — o modo só sobrevivia no <html>, acima do app inteiro. Defeito
+    // antigo que ficou invisível enquanto o acento do Estudo era o âmbar da
+    // marca (parecia cor de marca); com o azul do Brand Book v2 ele apareceu na
+    // hora, porque o Operador passou a se pintar de Estudo.
+    className: "b3 b3-shell b3-theme-" + themeKey + (appMode === "operador" ? " b3-mode-operador" : ""),
     style: { boxSizing: "border-box", background: T.bgBase, color: T.textPrimary, fontFamily: SANS, display: "flex", flexDirection: "column", WebkitFontSmoothing: "antialiased", paddingTop: "env(safe-area-inset-top)", overflow: "hidden" },
   };
   const firstName = ((data && data.config && data.config.userName) || "").trim().split(/\s+/)[0] || "";

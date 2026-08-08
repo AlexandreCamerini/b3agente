@@ -77,10 +77,21 @@ ok("qa/34: marcaSufixo removida dos dois modos (chave órfã — modeline a subs
 // MESMO verde da marca (--brand-green, #34d399) — antes uma tonalidade
 // própria (#22c55e) sem lastro no Brand Book (que só define um verde/um
 // vermelho pro sistema inteiro, não um por modo).
-ok("override .b3-mode-operador com verde-mercado (verde da marca)", app.includes('accent: "#34d399"') && app.includes("b3-mode-operador.b3-theme-dark"));
+// Brand Book v2: esse verde deixou de ser hex solto e virou BRAND.green, a
+// constante de marca. O valor não mudou — mudou a forma de escrever. Quem
+// garante que BRAND.green ainda é #34d399 é test_brand_book_v2_tokens.mjs.
+ok("override .b3-mode-operador com verde-mercado (verde da marca)", /accent: (BRAND\.green|"#34d399")/.test(app) && app.includes("b3-mode-operador.b3-theme-dark"));
 ok("classe aplicada no html pelo appMode", app.includes('html.classList.toggle("b3-mode-operador", appMode === "operador")'));
 ok("chip do modo no Topbar", app.includes("modeChip={cp.chipModo}") && app.includes("{modeChip && (<>"));
-ok("theme-color acompanha o modo", app.includes('appMode === "operador" ? "#0a0c12"'));
+// Brand Book v2: a barra do navegador deixou de repetir hex à mão e passou a
+// ler o bgBase do esquema em vigor (tema × modo) — é o que garante que ela
+// acompanhe TAMBÉM o tema, não só o modo (Operador no claro pintava escuro).
+ok("theme-color acompanha o modo E o tema (lê o bgBase do esquema)",
+   /const esquema = appMode === "operador"/.test(app) && app.includes('meta.setAttribute("content", esquema.bgBase)'));
+// O shell redeclara o tema — tem que redeclarar o modo junto, senão o
+// override composto (.b3-mode-operador.b3-theme-*) não alcança a árvore.
+ok("shell carrega a classe do modo junto com a do tema",
+   app.includes('"b3 b3-shell b3-theme-" + themeKey + (appMode === "operador" ? " b3-mode-operador" : "")'));
 ok("transição só durante a troca (classe temporária)", app.includes("b3-mode-switch") && app.includes('html.classList.remove("b3-mode-switch")'));
 
 // ---- 4) B4: notificações + backend ------------------------------------------
@@ -130,7 +141,8 @@ ok("R2: defaults da skill de mesa nos dois lados",
 // R3: paleta idêntica ao mock + positivos/negativos/textos do modo
 // Fase 3 (rebranding Boris+): valores retunados pra família da marca — ver
 // comentário de MODE_OPERADOR em App.jsx.
-ok("R3: card do Operador (#141926) e negativo (vermelho da marca)", app.includes('bgCard: "#141926"') && app.includes('negative: "#f26d6d"'));
+// (v2: o vermelho/rosa da marca também virou constante — BRAND.red.)
+ok("R3: card do Operador (#141926) e negativo (vermelho da marca)", app.includes('bgCard: "#141926"') && /negative: (BRAND\.red|"#f26d6d")/.test(app));
 ok("R3: textos frios do Operador (muted/faint)", app.includes('textMuted: "#93a3c0"') && app.includes('textFaint: "#5b6890"'));
 // qa/mock v2 (racionalização): o badge deixou de ser pill (sólido→contornado)
 // e virou uma LINHA de modo sob o wordmark — ponto (halo accentTint) + rótulo

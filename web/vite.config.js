@@ -14,11 +14,13 @@ export default defineConfig({
       injectRegister: null,
       includeAssets: ["apple-touch-icon.png"],
       manifest: {
-        name: "BolsIA",
-        short_name: "BolsIA",
-        description: "Simulador educacional de paper trading da B3.",
-        theme_color: "#0b0e14",
-        background_color: "#0b0e14",
+        name: "Boris+",
+        short_name: "Boris+",
+        // Brand Book v2 — subtítulo da loja + tagline, nesta ordem.
+        description: "Treine com mercado real. Aprenda a operar sem pôr dinheiro em risco.",
+        // --bg do tema escuro (Brand Book v2); antes era o #0b0e14 da era BolsIA.
+        theme_color: "#10121a",
+        background_color: "#10121a",
         display: "standalone",
         icons: [
           { src: "icon-192.png", sizes: "192x192", type: "image/png" },
