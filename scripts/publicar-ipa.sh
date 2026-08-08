@@ -19,7 +19,7 @@
 #      local.
 #
 #   bash scripts/publicar-ipa.sh /caminho/para/BolsIA.ipa [URL_BASE]
-#   URL_BASE default: https://b3agente-production.up.railway.app
+#   URL_BASE default: https://boris.semente.dev
 #
 # Depois: revise, rode a suíte, commit + push (Railway redeploya sozinho).
 # Cada novo testador = repita 1-4 (o app precisa ser reexportado incluindo o
@@ -34,7 +34,7 @@ ok(){ printf "  \033[32m[OK]\033[0m %s\n" "$*"; }
 die(){ printf "  \033[31m[X]\033[0m %s\n" "$*" >&2; exit 1; }
 
 IPA="${1:-}"
-BASE="${2:-https://b3agente-production.up.railway.app}"
+BASE="${2:-https://boris.semente.dev}"
 [ -n "$IPA" ] && [ -f "$IPA" ] || die "uso: bash scripts/publicar-ipa.sh /caminho/para/BolsIA.ipa [URL_BASE]"
 
 PBXPROJ="web/ios/App/App.xcodeproj/project.pbxproj"

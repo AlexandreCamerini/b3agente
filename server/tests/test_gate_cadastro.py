@@ -76,7 +76,7 @@ def test_host_listado_sem_sessao_e_401(monkeypatch):
 def test_host_nao_listado_passa_mesmo_com_gate_ativo(monkeypatch):
     """A URL do Railway e o app iOS não usam esse Host — continuam livres."""
     c, _ = _client_com_gate(monkeypatch, "acamerini.app")
-    r = c.get("/api/state", headers={"host": "b3agente-production.up.railway.app"})
+    r = c.get("/api/state", headers={"host": "boris.semente.dev"})
     assert r.status_code == 200
 
 

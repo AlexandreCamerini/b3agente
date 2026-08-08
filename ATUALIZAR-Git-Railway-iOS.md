@@ -125,7 +125,7 @@ Xcode: Product → Clean Build Folder → instalar no iPhone.
 ## 5) HARD STOP — roteiro de teste no aparelho
 
 1. **Servidor/login:** apague o app, instale o build novo, abra SEM configurar
-   nada → a Config deve mostrar "em uso agora: https://b3agente-production…" e
+   nada → a Config deve mostrar "em uso agora: https://boris.semente.dev…" e
    o login por e-mail deve funcionar direto. Feche e reabra o app 2×: nada de
    recadastrar servidor.
 2. **Leitura IA:** Radar → "Aprofundar com IA" em 2–3 ativos → texto com

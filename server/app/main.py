@@ -435,7 +435,7 @@ async def admin_summary(user: dict = Depends(require_user)):
 
 # FASE 8B (diagnóstico): carimbo de build do BACKEND — confirma qual código o
 # Railway está rodando (o front tem o dele em web/src/version.js).
-SERVER_BUILD_ID = "F10-20260808-05"  # F3: alvo dinâmico (extensão por ATR, freio 2× + R:R 1,5:1).
+SERVER_BUILD_ID = "F10-20260808-06"  # F3: alvo dinâmico (extensão por ATR, freio 2× + R:R 1,5:1).
 # Normalmente sincronizado pelo entregar.sh a partir de web/src/version.js; num deploy
 # SÓ de backend (sem rebuild do front) bumpamos aqui para /api/health rastrear o servidor.
 
@@ -661,7 +661,7 @@ async def technicals(ticker: str, period: Optional[str] = None, scope: Optional[
 # ---- BLOCO D: AutoFill nativo do iOS (Chaveiro) ----
 # O iOS só oferece usuário+senha salvos dentro do app se o domínio declarar o
 # vínculo via este arquivo + capability "Associated Domains" no Xcode com
-# `webcredentials:b3agente-production.up.railway.app`. O appID vem da env
+# `webcredentials:boris.semente.dev`. O appID vem da env
 # B3_APPLE_APP_ID no formato TEAMID.bundleid (ex.: ABCDE12345.com.b3.agente).
 @app.get("/.well-known/apple-app-site-association")
 async def apple_app_site_association():

@@ -18,7 +18,7 @@
 set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]:-$0}")"
 ROOT="$(pwd)"
-RAILWAY_URL="https://b3agente-production.up.railway.app"
+RAILWAY_URL="https://boris.semente.dev"
 
 say(){ printf "\n\033[1m== %s ==\033[0m\n" "$*"; }
 ok(){ printf "  \033[32m[OK]\033[0m %s\n" "$*"; }

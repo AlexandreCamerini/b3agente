@@ -25,7 +25,7 @@ const ok = (name, cond, extra) => {
 };
 
 // ---- 1) contrato do api.js (comportamento real, em Node) -------------------
-ok("PROD_BASE aponta para o Railway de produção", PROD_BASE === "https://b3agente-production.up.railway.app");
+ok("PROD_BASE aponta para o Railway de produção", PROD_BASE === "https://boris.semente.dev");
 
 // web (não-nativo): vazio = mesma origem
 setNativeMode(false);

@@ -4,7 +4,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 MSG="${1:-atualizacao}"
-RAILWAY_URL="https://b3agente-production.up.railway.app"
+RAILWAY_URL="https://boris.semente.dev"
 REPO_URL="https://github.com/AlexandreCamerini/b3agente.git"
 
 # ---------------------------------------------------------------------------

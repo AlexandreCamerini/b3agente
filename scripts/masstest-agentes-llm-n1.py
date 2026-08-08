@@ -21,7 +21,7 @@ import sys
 import urllib.request
 import urllib.error
 
-BASE = os.environ.get("BOLSIA_API_URL", "https://b3agente-production.up.railway.app").rstrip("/")
+BASE = os.environ.get("BOLSIA_API_URL", "https://boris.semente.dev").rstrip("/")
 PROVIDER = os.environ.get("BOLSIA_PROVIDER")
 MODEL = os.environ.get("BOLSIA_MODEL")
 API_KEY = os.environ.get("BOLSIA_API_KEY")

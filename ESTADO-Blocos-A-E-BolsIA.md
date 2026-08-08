@@ -92,7 +92,7 @@ O que esta rodada entrega:
 - **AutoFill nativo do iOS**: `autocomplete="username"` no e-mail,
   `current-password`/`new-password` na senha — o Chaveiro passa a oferecer as
   credenciais com FaceID. Passo nativo (uma vez, no Xcode): capability
-  **Associated Domains** com `webcredentials:b3agente-production.up.railway.app`.
+  **Associated Domains** com `webcredentials:boris.semente.dev`.
 - **Servidor**: novo `GET /.well-known/apple-app-site-association`
   (webcredentials) — defina no Railway `B3_APPLE_APP_ID=TEAMID.bundleid`
   (o Team ID está em Xcode → Signing).
@@ -127,7 +127,7 @@ O que esta rodada entrega:
 | Script | Faz |
 |---|---|
 | `scripts/instalar-iphone.sh [--recriar-ios]` | deps → assets → build → (recria ios/) → **cap sync com verificação do plugin** → nome BolsIA → abre Xcode com passo a passo |
-| `scripts/atualizar-servidor.sh "msg"` | commit → push → espera o deploy do b3agente-production → smoke do `/api/scan` v2 |
+| `scripts/atualizar-servidor.sh "msg"` | commit → push → espera o deploy do boris.semente.dev → smoke do `/api/scan` v2 |
 | `scripts/gen-assets.sh` | ícones iOS completos + splash + ícones web da fonte única |
 
 ## Validação executada (sandbox)

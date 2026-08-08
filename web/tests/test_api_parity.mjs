@@ -15,10 +15,10 @@ const ok = (name) => { console.log("ok", name); passed++; };
 await (async () => {
   setNativeMode(true);
   setApiBase(""); // sem override manual
-  assert.strictEqual(getApiBase(), "https://b3agente-production.up.railway.app");
+  assert.strictEqual(getApiBase(), "https://boris.semente.dev");
   const realFetch = globalThis.fetch;
   globalThis.fetch = async (url) => {
-    assert.ok(String(url).startsWith("https://b3agente-production.up.railway.app/api/"), "deveria chamar a produção");
+    assert.ok(String(url).startsWith("https://boris.semente.dev/api/"), "deveria chamar a produção");
     return { ok: true, status: 200, text: async () => JSON.stringify({ okState: true }) };
   };
   try {
@@ -86,7 +86,7 @@ await (async () => {
   setApiBase("");
   const realFetch = globalThis.fetch;
   globalThis.fetch = async (url) => {
-    assert.ok(String(url).startsWith("https://b3agente-production.up.railway.app/api/health"));
+    assert.ok(String(url).startsWith("https://boris.semente.dev/api/health"));
     return { ok: true, status: 200, text: async () => JSON.stringify({ ok: true }) };
   };
   try {

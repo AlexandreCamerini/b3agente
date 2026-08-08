@@ -22,7 +22,7 @@ set -uo pipefail
 VERSION="2.3"   # bump a cada mudança de comportamento. A saída imprime isto:
                 # rodar a versão errada por engano é a falha mais provável aqui.
 
-API_URL="${BOLSIA_API_URL:-https://b3agente-production.up.railway.app}"
+API_URL="${BOLSIA_API_URL:-https://boris.semente.dev}"
 BRANCH="${BOLSIA_BRANCH:-main}"
 
 DO_FETCH=1

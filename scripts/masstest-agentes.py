@@ -32,7 +32,7 @@ try:
 except Exception:  # noqa: BLE001 — sem o pacote local, a checagem é pulada
     _score_fundamento = None
 
-BASE = os.environ.get("BOLSIA_API_URL", "https://b3agente-production.up.railway.app").rstrip("/")
+BASE = os.environ.get("BOLSIA_API_URL", "https://boris.semente.dev").rstrip("/")
 PERIODS = sys.argv[1:] or ["1mo", "3mo", "6mo", "1y"]
 VEREDITOS = {"Estudar alta", "Estudar baixa", "Monitorar", "Aguardar",
              "Não operar", "Sem setup no momento"}

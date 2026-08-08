@@ -8,7 +8,7 @@ Requisitos (env):
     BOLSIA_PROVIDER   anthropic | openai | google | local
     BOLSIA_MODEL      id do modelo (ex.: claude-opus-4-8, gpt-4o, gemini-1.5-pro)
     BOLSIA_API_KEY    sua chave do provedor (BYOK)
-    BOLSIA_API_URL    (opcional) default https://b3agente-production.up.railway.app
+    BOLSIA_API_URL    (opcional) default https://boris.semente.dev
     BOLSIA_BASE_URL   (opcional) base p/ provider openai-compatible/local
     BOLSIA_AUTH       (opcional) valor do header Authorization p/ usar skill/perfil
                       do SEU escopo; sem ele, o backend usa os defaults canônicos.
@@ -32,7 +32,7 @@ import sys
 import urllib.request
 import urllib.error
 
-BASE = os.environ.get("BOLSIA_API_URL", "https://b3agente-production.up.railway.app").rstrip("/")
+BASE = os.environ.get("BOLSIA_API_URL", "https://boris.semente.dev").rstrip("/")
 PROVIDER = os.environ.get("BOLSIA_PROVIDER")
 MODEL = os.environ.get("BOLSIA_MODEL")
 API_KEY = os.environ.get("BOLSIA_API_KEY")

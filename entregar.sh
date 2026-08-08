@@ -68,7 +68,7 @@ verificar(){
     [ "$BI" = "$BUILD_LOCAL" ] && ok "bundle do iOS contém $BI" || { warn "bundle do iOS contém '${BI:-nada}' ≠ $BUILD_LOCAL — falta cap sync"; RC=1; }
   else warn "web/ios/App/App/public ausente — rode cap sync"; RC=1; fi
   # servidor
-  local URL="${RAILWAY_URL:-https://b3agente-production.up.railway.app}"
+  local URL="${RAILWAY_URL:-https://boris.semente.dev}"
   local SRV; SRV="$(curl -fsS --max-time 8 "$URL/api/health" 2>/dev/null | sed -n 's/.*"build"[": ]*\([^"]*\)".*/\1/p')"
   if [ -n "$SRV" ]; then
     [ "$SRV" = "$BUILD_LOCAL" ] && ok "servidor no ar com $SRV" || warn "servidor no ar com '$SRV' ≠ $BUILD_LOCAL (deploy em andamento? aguarde ~2min)"

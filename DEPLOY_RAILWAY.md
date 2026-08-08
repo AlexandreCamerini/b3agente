@@ -22,7 +22,7 @@ funciona de qualquer rede — não precisa mais estar na mesma Wi‑Fi do Mac.
    - O **Start Command** já vem do `railway.json`
      (`uvicorn app.main:app --host 0.0.0.0 --port $PORT`). Não precisa mexer.
 4. **Settings → Networking → Generate Domain** para criar a URL pública
-   (algo como `https://b3agente-production.up.railway.app`).
+   (algo como `https://boris.semente.dev`).
 5. Aguarde o deploy. Teste no navegador:
    `https://SEU-APP.up.railway.app/api/health` → deve responder `{"ok":true}`.
 

@@ -86,7 +86,7 @@ FIM
 fi
 
 say "3/3 · Verificando no servidor"
-URL="https://b3agente-production.up.railway.app"
+URL="https://boris.semente.dev"
 for i in 1 2 3 4 5 6; do
   ST=$(curl -s "$URL/api/agent/status" 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); p=d.get('push') or {}; print('configurado' if p.get('configurado') else 'pendente')" 2>/dev/null || echo "erro")
   [ "$ST" = "configurado" ] && { ok "APNs CONFIGURADO no servidor ✓"; break; }

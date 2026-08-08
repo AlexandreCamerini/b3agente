@@ -651,7 +651,14 @@ function Topbar({ patr, dia, caixa, name, onProfile, modeChip }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "10px 16px", borderBottom: `1px solid ${T.borderSubtle}`, background: T.bgPanel, flex: "none" }}>
       <div style={{ display: "flex", alignItems: "center", gap: "11px", marginRight: "auto", minWidth: 0 }}>
-        <LogoMark size={42} />
+        {/* Decisão do Alex (2026-08-08): no título do app o ícone é o BÓRIS
+            INTEIRO, não o símbolo estático. A figura tem proporção 490×655
+            (≈3:4, a mesma que o Brand Book manda preservar), então o que cabe
+            no espaço reservado é a ALTURA: 42px de altura ⇒ 31px de largura.
+            `reduced` desliga piscada e microanimações ociosas — a marca no
+            cabeçalho fica presente sem virar movimento permanente atrás do
+            conteúdo (e sem um segundo laço de animação junto com o do FAB). */}
+        <div style={{ flex: "none", lineHeight: 0 }}><Boris size={31} reduced /></div>
         <div style={{ minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: "7px", minWidth: 0 }}>
             <div style={{ fontFamily: DISPLAY, fontWeight: 600, fontSize: "18px", lineHeight: 1.05, letterSpacing: "-0.01em" }}>Boris<span style={PLUS_STYLE}>+</span></div>
@@ -2384,15 +2391,20 @@ function ConceitoSheet({ cid, dados, setor, onClose, onTrocar, didatica, voltar 
 // NUNCA abre folha sozinho — o único one-shot proativo do app continua sendo
 // o do gatilho (decisão da spec: dois espontâneos viram ruído).
 function PetFab({ onOpen }) {
-  // Recorte do Boris animado dentro do círculo do FAB: a "cena" do Boris é
-  // 490×655 (retrato); em vez de espremer o corpo inteiro num botão de 54px,
-  // ampliamos e deslocamos pra cima para mostrar só a cabeça — o mesmo
-  // truque de avatar circular de qualquer mascote em miniatura.
+  // Decisão do Alex (2026-08-08): o Bóris aparece INTEIRO e SEM BOLHA. Antes
+  // era um avatar circular — botão de 54px com fundo, borda e sombra, e a cena
+  // do Boris (490×655) ampliada e deslocada pra cima para mostrar só a cabeça.
+  // Agora o corpo inteiro cabe no MESMO espaço reservado: a proporção manda na
+  // altura (54px de altura ⇒ 40px de largura), e o botão continua 54×54 para
+  // não encolher a área de toque abaixo do mínimo de 44px do iOS.
+  // A sombra saiu do círculo e foi para a SILHUETA (drop-shadow segue o
+  // recorte do PNG): não é bolha, é o que separa a coruja do conteúdo quando
+  // ela passa por cima de um card claro.
   return (
     <button onClick={onOpen} aria-label="Abrir o assistente Boris+"
-      style={{ position: "fixed", right: "14px", bottom: "92px", zIndex: 60, width: "54px", height: "54px", borderRadius: "50%", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, boxShadow: "0 4px 14px rgba(0,0,0,0.35)", overflow: "hidden", display: "flex", alignItems: "flex-start", justifyContent: "center" }}>
-      <div aria-hidden style={{ transform: "translateY(-14px) scale(1.24)", transformOrigin: "top center" }}>
-        <Boris size={54} reduced />
+      style={{ position: "fixed", right: "14px", bottom: "92px", zIndex: 60, width: "54px", height: "54px", borderRadius: 0, border: "none", background: "transparent", padding: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div aria-hidden style={{ lineHeight: 0, filter: "drop-shadow(0 3px 6px rgba(0,0,0,0.45))" }}>
+        <Boris size={40} reduced />
       </div>
     </button>
   );
@@ -4703,7 +4715,7 @@ function LogsDebugScreen({ ctx }) {
       lines.push("");
     } catch (e) { lines.push("[Notificações] ERRO: " + (e.message || e)); lines.push(""); }
     lines.push("Checklist de correção rápida:");
-    lines.push("1. API base deve ser URL absoluta, ex.: https://b3-production-8fc0.up.railway.app");
+    lines.push("1. API base deve ser URL absoluta, ex.: https://boris.semente.dev");
     lines.push("2. Se keySource=manual no iPhone, a chave precisa estar salva no próprio app.");
     lines.push("3. Se permissão=denied, corrigir em Ajustes do iOS → Notificações → Boris+.");
     lines.push("4. Reinstale/recompile após mudanças de plugin: npm install && npx cap sync ios.");

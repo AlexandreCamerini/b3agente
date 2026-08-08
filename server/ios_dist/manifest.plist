@@ -11,7 +11,7 @@
 					<key>kind</key>
 					<string>software-package</string>
 					<key>url</key>
-					<string>https://b3agente-production.up.railway.app/ios/BolsIA.ipa</string>
+					<string>https://boris.semente.dev/ios/BolsIA.ipa</string>
 				</dict>
 			</array>
 			<key>metadata</key>

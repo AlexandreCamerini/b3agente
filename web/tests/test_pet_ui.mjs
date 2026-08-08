@@ -89,9 +89,30 @@ ok("a coruja emoji (Coruja) NÃO existe mais como componente em App.jsx",
 // BorisChat.jsx (por RESPOSTA do chat), já travado em test_boris_chat.mjs.
 ok("App.jsx NÃO tem mais o handler `ouvir` do resumo (voz virou responsabilidade só do BorisChat)",
    !/const ouvir = \(\) => \{/.test(app));
-ok("o FAB do pet usa <Boris> recortado, não mais o emoji solto",
+// 2026-08-08 (decisão do Alex): o FAB deixou de ser avatar circular recortado
+// na cabeça e passou a mostrar o Bóris INTEIRO, SEM BOLHA. O que este guardião
+// tranca agora: continua sendo <Boris> (nunca o emoji solto), não voltou a ter
+// chrome de bolha (fundo/borda/raio) e a área de toque segue nos 54px que o
+// iOS exige — a figura encolhe, o alvo não.
+ok("o FAB do pet mostra o Boris INTEIRO e sem bolha, com alvo de toque de 54px",
    /function PetFab\(/.test(app)
-   && (() => { const m = app.match(/function PetFab\([\s\S]*?\n\}\n/); return !!m && /<Boris size=\{54\}/.test(m[0]) && !/<span aria-hidden>🦉<\/span>/.test(m[0]); })());
+   && (() => {
+     const m = app.match(/function PetFab\([\s\S]*?\n\}\n/);
+     if (!m) return false;
+     const fab = m[0];
+     const semEmoji = !/<span aria-hidden>🦉<\/span>/.test(fab);
+     const temBoris = /<Boris size=\{40\} reduced \/>/.test(fab);
+     const semBolha = /background: "transparent"/.test(fab) && /border: "none"/.test(fab)
+       && !/borderRadius: "50%"/.test(fab) && !/overflow: "hidden"/.test(fab);
+     const semRecorte = !/scale\(1\.24\)/.test(fab) && !/translateY\(-14px\)/.test(fab);
+     const alvo = /width: "54px", height: "54px"/.test(fab);
+     return semEmoji && temBoris && semBolha && semRecorte && alvo;
+   })());
+// Mesma decisão no título do app: o cabeçalho troca o símbolo estático pelo
+// Bóris inteiro, dimensionado pela ALTURA do espaço reservado (42px ⇒ 31px de
+// largura, proporção 490×655 do Brand Book preservada).
+ok("o título do app usa o Boris inteiro em vez do símbolo estático",
+   /<Boris size=\{31\} reduced \/>/.test(app));
 
 // ---------------------------------------------------------- Boris.jsx (F1)
 ok("Boris.jsx importa o PNG como asset do Vite (nada de data-URI embutido)",

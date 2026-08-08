@@ -15,7 +15,12 @@ const ADDR_HINT = "Configure o endereço do servidor em Perfil → Conta & prefe
 // mais falhava até o usuário digitar o servidor (e redigitar quando o campo
 // se perdia entre escopos). Agora: campo vazio => produção; o campo manual
 // vira APENAS override de desenvolvimento (Mac na rede local).
-export const PROD_BASE = "https://b3agente-production.up.railway.app";
+// 2026-08-08: o endereço de produção passou a ser o domínio próprio
+// `boris.semente.dev` (decisão do Alex: TODO endpoint sai por ele). A URL
+// interna do Railway continua respondendo, mas ninguém no código deve apontar
+// para ela — trocar de provedor ou de serviço não pode exigir rebuild do app
+// nativo, e o app nativo é justamente quem carrega este valor embutido.
+export const PROD_BASE = "https://boris.semente.dev";
 
 export function setNativeMode(on) {
   nativeMode = !!on;
