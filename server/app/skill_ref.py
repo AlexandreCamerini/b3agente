@@ -1,4 +1,4 @@
-"""Fonte canônica da metodologia de análise técnica do BolsIA.
+"""Fonte canônica da metodologia de análise técnica do Boris+.
 
 Deriva FIELMENTE da skill `analise-tecnica-b3` (Operador Sênior de AT da B3):
 persona, princípios invioláveis, processo de análise, contrato de dados e as
@@ -210,7 +210,7 @@ FUNDAMENTOS = "\n".join([
 # (Tema 2): aproxima o educacional da referência mantendo o disclaimer — NÃO
 # está em uso; existe para o antes/depois de decisão jurídica do produto.
 # Nota de fidelidade: a referência tem 4 decisões (comprar/vender/aguardar/não
-# operar). 'Monitorar' e 'Reduzir risco' são EXTENSÕES do produto BolsIA — estados
+# operar). 'Monitorar' e 'Reduzir risco' são EXTENSÕES do produto Boris+ — estados
 # de watchlist e de saída parcial que a UI já estiliza (REC_STYLE) e o kpi.py
 # normaliza. Ficam aqui, documentados, para o canônico casar com o contrato de
 # saída (FORMAT/FORMAT_PRO) em vez de divergir dele em silêncio.

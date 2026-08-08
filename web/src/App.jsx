@@ -19,7 +19,7 @@ import BorisIntro from "./pet/BorisIntro.jsx";
 import { falarTexto, calarVoz } from "./pet/vozBoris.js";
 
 /* =============================================================================
-   BolsIA — simulador EDUCACIONAL de paper trading da B3.
+   Boris+ — simulador EDUCACIONAL de paper trading da B3.
    Identidade "mesa de operações": fundo quase-preto, acento índigo (IA), números mono.
    Todo o estado é persistido no backend (sobrevive a reinício). A análise
    técnica é feita PELA LLM configurada, sob demanda, por ativo.
@@ -31,18 +31,24 @@ import { falarTexto, calarVoz } from "./pet/vozBoris.js";
 // contraste adequado — boas práticas iOS). DOM usa var(--x); gráficos (canvas/
 // SVG) usam a paleta REAL via ThemeCtx, pois var() não resolve em canvas.
 const PALETTE = {
+  // Fase 3 (rebranding Boris+, 2026-08-08): valores do dark retunados para
+  // baterem exatamente com os tokens do Brand Book (--brand-bg/-ink/-muted/
+  // -line/-amber/-green/-red). O Brand Book só especifica DARK — light segue
+  // com a paleta antiga (sem fonte de verdade nova pra ela ainda). accent
+  // âmbar e positive verde já eram quase os mesmos hex antes; o resto
+  // (fundos, bordas, texto) muda pra alinhar com a marca.
   dark: {
-    bgBase: "#0b0e14", bgPanel: "#0d111a", bgCard: "#11151c", bgToast: "#1b2230",
-    borderSubtle: "#232a35", borderFaint: "#1b212b", borderDashed: "#2f3a48", borderToast: "#2b3340",
-    textPrimary: "#e7ecf3", textSecondary: "#c3ccd8", textMuted: "#9aa6b6", textDim: "#8a96a6",
-    textFaint: "#5b6675", textBright: "#dfe6ef",
-    accent: "#f0b429", accentSoft: "#ffd873", positive: "#34d399", negative: "#fb7185",
-    knob: "#1b212b", navDotIdle: "#2b333f", confirmOkText: "#06231a",
-    accentTint: "rgba(240,180,41,0.14)", accentTintHi: "rgba(240,180,41,0.26)", accentTint10: "rgba(240,180,41,0.10)",
+    bgBase: "#10121a", bgPanel: "#161927", bgCard: "#1b1f2e", bgToast: "#1b1f2e",
+    borderSubtle: "#2c3245", borderFaint: "#20242f", borderDashed: "#3a4258", borderToast: "#3a4258",
+    textPrimary: "#eef1f8", textSecondary: "#c9d1e6", textMuted: "#9aa3bd", textDim: "#8890a8",
+    textFaint: "#6f7797", textBright: "#f6f8fc",
+    accent: "#f2a93b", accentSoft: "#ffc978", positive: "#34d399", negative: "#f26d6d",
+    knob: "#20242f", navDotIdle: "#2c3245", confirmOkText: "#04251a",
+    accentTint: "rgba(242,169,59,0.14)", accentTintHi: "rgba(242,169,59,0.26)", accentTint10: "rgba(242,169,59,0.10)",
     positiveTint: "rgba(52,211,153,0.12)", positiveTint10: "rgba(52,211,153,0.10)",
-    negativeTint: "rgba(251,113,133,0.12)", negativeTint10: "rgba(251,113,133,0.10)",
-    scrim: "rgba(5,7,11,0.68)",
-    chartGrid: "rgba(255,255,255,0.04)", chartBorder: "rgba(255,255,255,0.08)", chartAxis: "#6b7384", lineSubtle: "rgba(255,255,255,0.18)", onAccent: "#20160a",
+    negativeTint: "rgba(242,109,109,0.12)", negativeTint10: "rgba(242,109,109,0.10)",
+    scrim: "rgba(5,6,10,0.68)",
+    chartGrid: "rgba(255,255,255,0.04)", chartBorder: "rgba(255,255,255,0.08)", chartAxis: "#6f7797", lineSubtle: "rgba(255,255,255,0.18)", onAccent: "#20160a",
     warn: "#fbbf24", // qa/34: âmbar de aviso (diário/logs) — antes hex solto fora do token system
   },
   light: {
@@ -71,16 +77,24 @@ const themeVarBlock = (name) => Object.entries(PALETTE[name]).map(([k, v]) => `$
 // grafite frio, cards #10161a, textos frios, verde #22c55e como acento E
 // como positivo, vermelho #ef4444 — identidade impossível de confundir.
 const MODE_OPERADOR = {
+  // Fase 3 (rebranding Boris+): o Brand Book não separa cor por modo — só
+  // define UM verde (--brand-green, compra) e UM vermelho (--brand-red,
+  // venda) pro sistema inteiro. Convergindo o acento do Operador pro MESMO
+  // verde da marca (em vez do #22c55e antigo, uma tonalidade própria só
+  // dele) a semântica fica consistente: verde = compra em qualquer modo. A
+  // diferenciação de leiaute Estudo×Operador continua — fundo/cartão/borda
+  // seguem mais frios/escuros que o Estudo, só retunados pra família de
+  // tons da marca (antes eram um azul-acinzentado fora da paleta nova).
   dark: {
-    bgBase: "#0a0d10", bgPanel: "#0d1216", bgCard: "#10161a", bgToast: "#16211c",
-    borderSubtle: "#1e2a30", borderFaint: "#182126", borderDashed: "#2a3a42", borderToast: "#24483a",
-    textMuted: "#93a5ad", textDim: "#84959d", textFaint: "#5b6d75",
-    accent: "#22c55e", accentSoft: "#86efac",
-    positive: "#22c55e", negative: "#ef4444",
-    accentTint: "rgba(34,197,94,0.14)", accentTintHi: "rgba(34,197,94,0.26)", accentTint10: "rgba(34,197,94,0.10)",
-    positiveTint: "rgba(34,197,94,0.13)", positiveTint10: "rgba(34,197,94,0.10)",
-    negativeTint: "rgba(239,68,68,0.13)", negativeTint10: "rgba(239,68,68,0.10)",
-    onAccent: "#04170b", knob: "#182126", navDotIdle: "#27343b", chartAxis: "#5e6f77",
+    bgBase: "#0a0c12", bgPanel: "#10131c", bgCard: "#141926", bgToast: "#141926",
+    borderSubtle: "#242c40", borderFaint: "#1a2030", borderDashed: "#323c54", borderToast: "#323c54",
+    textMuted: "#93a3c0", textDim: "#8492ac", textFaint: "#5b6890",
+    accent: "#34d399", accentSoft: "#7ee9c4",
+    positive: "#34d399", negative: "#f26d6d",
+    accentTint: "rgba(52,211,153,0.14)", accentTintHi: "rgba(52,211,153,0.26)", accentTint10: "rgba(52,211,153,0.10)",
+    positiveTint: "rgba(52,211,153,0.13)", positiveTint10: "rgba(52,211,153,0.10)",
+    negativeTint: "rgba(242,109,109,0.13)", negativeTint10: "rgba(242,109,109,0.10)",
+    onAccent: "#04251a", knob: "#1a2030", navDotIdle: "#242c40", chartAxis: "#5b6890",
   },
   light: {
     // qa/32: faltavam bgBase/bgPanel/borders/text — o override em LIGHT só
@@ -118,34 +132,39 @@ const usePalette = () => {
   return mode === "operador" ? { ...base, ...(MODE_OPERADOR[key] || {}) } : base;
 };
 
-// Logo do app: "mesa de operações" — candles âmbar sobre fundo escuro, com uma
-// fita (ticker tape). Mantém o fundo escuro nos dois temas (identidade de ícone).
+// Logo do app: símbolo estático do Brand Book (Fase 3, 2026-08-08) — o rosto
+// do Bóris (óculos redondos + tufos de orelha) com o "+" como selo colado à
+// armação. Substitui o ícone antigo (candle+ticker-tape da era "BolsIA").
+// Usado nos contextos "estáticos" que o Brand Book reserva pro símbolo (não
+// a animação): cabeçalho, telas de auth/onboarding — tudo abaixo de ~64px
+// onde a coruja animada (Boris.jsx) perderia legibilidade.
 function LogoMark({ size = 32, radius }) {
-  // qa/mock v2: o candle+spark do logo agora seguem o ACENTO DO MODO (âmbar no
-  // Estudo, verde no Operador) — antes eram azul→ciano fixos e destoavam da
-  // paleta. usePalette() dá o hex resolvido (var(--x) não vale em SVG aqui);
-  // fundo escuro do ícone é mantido. id do gradiente único por instância.
+  // Óculos/bico/selo seguem o ACENTO DO MODO (âmbar no Estudo, verde no
+  // Operador) — mesmo princípio do ícone antigo; rosto/orelhas ficam no azul-
+  // marinho fixo da marca (não muda com tema nem modo, é a "pele" do Bóris).
   const P = usePalette();
-  const gid = useMemo(() => "bolsiaLM" + Math.random().toString(36).slice(2, 7), []);
   const r = radius != null ? radius : Math.round(size * 0.26);
-  const rx = (r / size) * 32;
+  const rx = (r / size) * 64;
   return (
-    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" aria-hidden role="img" style={{ display: "block", flex: "none" }}>
-      <defs>
-        <linearGradient id={gid} x1="6" y1="3" x2="26" y2="29" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor={P.accent} />
-          <stop offset="1" stopColor={P.accentSoft} />
-        </linearGradient>
-      </defs>
-      <rect x="0" y="0" width="32" height="32" rx={rx} fill="#0b0e14" />
-      <rect x="0.6" y="0.6" width="30.8" height="30.8" rx={rx - 0.6} fill="none" stroke={P.accent} strokeOpacity="0.30" strokeWidth="1.1" />
-      {/* pavio do candle */}
-      <rect x="15.1" y="10.5" width="1.8" height="15" rx="0.9" fill={`url(#${gid})`} />
-      {/* corpo do candle */}
-      <rect x="11.6" y="14.4" width="8.8" height="9.6" rx="2.5" fill={`url(#${gid})`} />
-      {/* spark de IA na ponta */}
-      <path d="M16 3.4 C16.5 7.2 17.6 8.3 21.4 8.8 C17.6 9.3 16.5 10.4 16 14.2 C15.5 10.4 14.4 9.3 10.6 8.8 C14.4 8.3 15.5 7.2 16 3.4 Z" fill={`url(#${gid})`} />
-      <circle cx="16" cy="8.8" r="0.95" fill="#fff" fillOpacity="0.9" />
+    <svg width={size} height={size} viewBox="0 0 64 64" fill="none" aria-hidden role="img" style={{ display: "block", flex: "none" }}>
+      <rect x="0" y="0" width="64" height="64" rx={rx} fill="#161927" />
+      {/* tufos de orelha */}
+      <path d="M14 16 L22 27 L10 27 Z" fill="#2a3a6b" />
+      <path d="M50 16 L42 27 L54 27 Z" fill="#2a3a6b" />
+      {/* rosto */}
+      <circle cx="32" cy="34" r="26" fill="#2a3a6b" />
+      {/* óculos redondos */}
+      <circle cx="22" cy="32" r="10" fill="none" stroke={P.accent} strokeWidth="3.2" />
+      <circle cx="42" cy="32" r="10" fill="none" stroke={P.accent} strokeWidth="3.2" />
+      <path d="M30 32 Q32 29 34 32" fill="none" stroke={P.accent} strokeWidth="3.2" />
+      <circle cx="22" cy="32" r="4" fill="#eef1f8" />
+      <circle cx="42" cy="32" r="4" fill="#eef1f8" />
+      {/* bico */}
+      <path d="M32 42 L27.5 49 L36.5 49 Z" fill={P.accent} />
+      {/* selo "+" */}
+      <circle cx="51" cy="50" r="10" fill="#161927" />
+      <circle cx="51" cy="50" r="9" fill={P.accent} />
+      <path d="M51 45.5V54.5M46.5 50H55.5" stroke="#161927" strokeWidth="2.4" strokeLinecap="round" />
     </svg>
   );
 }
@@ -156,11 +175,18 @@ function loadLastEmail() { try { return localStorage.getItem(LAST_EMAIL_KEY) || 
 function saveLastEmail(e) { try { const v = String(e || "").trim(); if (v) localStorage.setItem(LAST_EMAIL_KEY, v); } catch { /* ignore */ } }
 
 const MONO = "ui-monospace,'SF Mono',Menlo,Consolas,monospace";
-const SANS = "-apple-system, system-ui, 'Segoe UI', Helvetica, Arial, sans-serif";
-// BolsIA: "IA" recebe o gradiente da marca (azul → ciano).
-// qa/mock v2: o "IA" do wordmark segue o ACENTO DO MODO (var(--accent) resolve
-// em CSS de elemento DOM, ao contrário de atributo SVG) — antes azul→ciano fixo.
-const IA_GRAD = { background: "linear-gradient(135deg,var(--accent),var(--accent-soft))", WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent" };
+// Fase 3 (rebranding Boris+, 2026-08-08): corpo do app em Nunito (marca) —
+// stack de sistema como fallback se a fonte não carregar (offline no
+// WKWebView, por exemplo); mesmo princípio de qualquer outro dado remoto
+// deste app, nunca trava por falta de rede.
+const SANS = "'Nunito', -apple-system, system-ui, 'Segoe UI', Helvetica, Arial, sans-serif";
+// Display: Fredoka 600 — títulos, wordmark, números de destaque (Brand Book).
+const DISPLAY = "'Fredoka', " + SANS;
+// Boris+: o "+" do wordmark é o acento fixo da marca — âmbar chapado
+// (--brand-amber), NUNCA gradiente e NUNCA a cor do modo. Antes (marca
+// "BolsIA") o "IA" seguia o acento do modo (`IA_GRAD`, azul→ciano/degradê); o "+" é
+// identidade de marca, não estado de UI — fica igual em Estudo e Operador.
+const PLUS_STYLE = { color: "#f2a93b" };
 
 const nf2 = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const price = (n) => (n == null || isNaN(n) ? "—" : nf2.format(n));
@@ -296,7 +322,7 @@ function OnboardingModal({ name, budget, risco, onComplete }) {
       <div style={{ width: "100%", maxWidth: "460px", ...card, padding: "26px 24px", maxHeight: "92vh", overflowY: "auto" }}>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", marginBottom: "16px" }}>
           <LogoMark size={60} />
-          <div style={{ fontSize: "21px", fontWeight: 800, marginTop: "12px", letterSpacing: "-0.01em" }}>Bols<span style={IA_GRAD}>IA</span></div>
+          <div style={{ fontFamily: DISPLAY, fontSize: "21px", fontWeight: 600, marginTop: "12px", letterSpacing: "-0.01em" }}>Boris<span style={PLUS_STYLE}>+</span></div>
           <div style={{ fontSize: "13px", color: T.accent, fontWeight: 600, marginTop: "2px" }}>sua mesa de operações para aprender</div>
         </div>
         <p style={{ color: T.textSecondary, fontSize: "13px", lineHeight: 1.6, margin: "0 0 16px", textAlign: "center" }}>
@@ -474,7 +500,7 @@ function AuthModal({ ctx, onClose }) {
         )}
         {isRelay && (
           <div style={{ fontSize: "11px", color: T.textFaint, lineHeight: 1.55, marginBottom: "14px" }}>
-            Você entrou com a Apple usando <b>Ocultar e-mail</b> — o endereço {user.email} é um retransmissor privado da Apple (nossas mensagens chegam no seu e-mail real por ele). Para compartilhar o e-mail verdadeiro: Ajustes → seu nome → Início de Sessão e Segurança → Iniciar sessão com a Apple → BolsIA → parar de usar → e entre de novo escolhendo "Compartilhar meu e-mail".
+            Você entrou com a Apple usando <b>Ocultar e-mail</b> — o endereço {user.email} é um retransmissor privado da Apple (nossas mensagens chegam no seu e-mail real por ele). Para compartilhar o e-mail verdadeiro: Ajustes → seu nome → Início de Sessão e Segurança → Iniciar sessão com a Apple → Boris+ → parar de usar → e entre de novo escolhendo "Compartilhar meu e-mail".
           </div>
         )}
         <p style={{ color: T.textMuted, fontSize: "12px", lineHeight: 1.6, margin: "0 0 16px" }}>
@@ -527,8 +553,8 @@ function WelcomeAuthScreen({ ctx, onAuthed, onSkip }) {
       <div style={{ width: "100%", maxWidth: "420px", ...card, padding: "26px 24px" }}>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", marginBottom: "18px" }}>
           <LogoMark size={56} />
-          <div style={{ fontSize: "21px", fontWeight: 800, marginTop: "10px", letterSpacing: "-0.01em" }}>Bols<span style={IA_GRAD}>IA</span></div>
-          <div style={{ fontSize: "13px", color: T.accent, fontWeight: 600, marginTop: "2px" }}>Dados reais da bolsa · capital simulado</div>
+          <div style={{ fontFamily: DISPLAY, fontSize: "21px", fontWeight: 600, marginTop: "10px", letterSpacing: "-0.01em" }}>Boris<span style={PLUS_STYLE}>+</span></div>
+          <div style={{ fontSize: "13px", color: T.accent, fontWeight: 600, marginTop: "2px" }}>Aprenda a operar. Sem pôr dinheiro em risco.</div>
           <p style={{ color: T.textMuted, fontSize: "12.5px", lineHeight: 1.6, margin: "12px 0 0" }}>
             Treine operações com <b>cotações reais</b> e <b>dinheiro simulado</b>, com uma <b>IA</b> que explica cada decisão. Conteúdo <b>educacional</b> — não é recomendação de investimento.
           </p>
@@ -598,7 +624,7 @@ function Topbar({ patr, dia, caixa, name, onProfile, modeChip }) {
         <LogoMark size={42} />
         <div style={{ minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: "7px", minWidth: 0 }}>
-            <div style={{ fontWeight: 700, fontSize: "18px", lineHeight: 1.05, letterSpacing: "-0.01em" }}>Bols<span style={IA_GRAD}>IA</span></div>
+            <div style={{ fontFamily: DISPLAY, fontWeight: 600, fontSize: "18px", lineHeight: 1.05, letterSpacing: "-0.01em" }}>Boris<span style={PLUS_STYLE}>+</span></div>
           </div>
           {/* qa/mock v2 (racionalização): o badge de modo SAIU de ao lado do
               wordmark (apertado contra o patrimônio) e virou uma LINHA de modo
@@ -1902,7 +1928,7 @@ function ajudaSecoes(cp, operador) {
   const tRadar = cp.tituloRadar, tWl = cp.tituloWatchlist, tPort = cp.tituloPortfolio;
   const aprofundar = cp.btnAprofundar; // "Aprofundar com IA" / "Plano da mesa (IA)"
   return [
-    ["O que é o BolsIA", [
+    ["O que é o Boris+", [
       "Um app educacional de análise técnica da B3. Ele varre o mercado, mostra oportunidades de estudo e deixa você simular uma carteira — tudo com dinheiro fictício.",
       "Nada aqui é ordem real nem recomendação personalizada: nenhuma ordem é enviada à corretora. O objetivo é aprender a ler o mercado com disciplina.",
     ]],
@@ -1941,7 +1967,7 @@ function ajudaSecoes(cp, operador) {
       "Enquanto não há amostra suficiente, aparece “n insuficiente” ou “aguardando o prazo” — em vez de um número enganoso. É autoavaliação sobre o passado, não garantia de futuro.",
     ]],
     ["Avisos importantes", [
-      "Tudo no BolsIA é **educacional e simulado**. Não é recomendação de investimento nem promessa de resultado. Operar no mercado real envolve risco de perda.",
+      "Tudo no Boris+ é **educacional e simulado**. Não é recomendação de investimento nem promessa de resultado. Operar no mercado real envolve risco de perda.",
       "Use sempre stop, dimensione a posição e respeite seu plano de risco. As decisões e a execução são suas.",
     ]],
   ];
@@ -1950,7 +1976,7 @@ function ajudaSecoes(cp, operador) {
 // Passos do tour de primeiro uso (funil). Curto, aponta o caminho.
 function tourPassos(cp) {
   return [
-    ["Bem-vindo ao BolsIA", "Um app para **estudar** o mercado da B3 com uma carteira simulada. Tudo aqui é educacional — nenhuma ordem real é enviada."],
+    ["Bem-vindo ao Boris+", "Um app para **estudar** o mercado da B3 com uma carteira simulada. Tudo aqui é educacional — nenhuma ordem real é enviada."],
     ["1 · Descubra no " + cp.tituloRadar, "O " + cp.tituloRadar + " varre o mercado e mostra os ativos com setup, com confluência e leitura rápida."],
     ["2 · Acompanhe na " + cp.tituloWatchlist, "Leve os melhores para a " + cp.tituloWatchlist + " e acompanhe de perto antes de agir."],
     ["3 · Simule no " + cp.tituloPortfolio, "Simule compras e vendas no " + cp.tituloPortfolio + " — com stop, alvo e risco em R, sem dinheiro real."],
@@ -2333,7 +2359,7 @@ function PetFab({ onOpen }) {
   // ampliamos e deslocamos pra cima para mostrar só a cabeça — o mesmo
   // truque de avatar circular de qualquer mascote em miniatura.
   return (
-    <button onClick={onOpen} aria-label="Abrir o assistente BolsIA"
+    <button onClick={onOpen} aria-label="Abrir o assistente Boris+"
       style={{ position: "fixed", right: "14px", bottom: "92px", zIndex: 60, width: "54px", height: "54px", borderRadius: "50%", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, boxShadow: "0 4px 14px rgba(0,0,0,0.35)", overflow: "hidden", display: "flex", alignItems: "flex-start", justifyContent: "center" }}>
       <div aria-hidden style={{ transform: "translateY(-14px) scale(1.24)", transformOrigin: "top center" }}>
         <Boris size={54} reduced />
@@ -2376,7 +2402,7 @@ function PetSheet({ onClose, didatica, tela, snapshot }) {
     return () => { alive = false; calarVoz(); };
   }, [telaAtual]);
   return (
-    <div onClick={() => { calarVoz(); onClose(); }} role="dialog" aria-label="Assistente BolsIA"
+    <div onClick={() => { calarVoz(); onClose(); }} role="dialog" aria-label="Assistente Boris+"
       style={{ position: "fixed", inset: 0, zIndex: 86, background: T.scrim, display: "flex", alignItems: "flex-end" }}>
       <div onClick={(e) => e.stopPropagation()}
         style={{ width: "100%", maxHeight: "82vh", overflowY: "auto", background: T.bgPanel, borderRadius: "18px 18px 0 0", padding: "16px 16px 22px", boxSizing: "border-box" }}>
@@ -3843,7 +3869,7 @@ function NotifSection({ ctx }) {
   }, []);
   const statusText = {
     granted: "Permissão concedida.",
-    denied: "Permissão negada — o iOS só pergunta UMA vez; reative em Ajustes → Notificações → BolsIA (botão abaixo).",
+    denied: "Permissão negada — o iOS só pergunta UMA vez; reative em Ajustes → Notificações → Boris+ (botão abaixo).",
     default: "Permissão ainda não solicitada — toque em Pedir permissão.",
     unsupported: isNative ? "Indisponível neste app — recompile (npm install + cap sync) para registrar o plugin." : "Seu navegador não suporta notificações.",
   }[perm] || "";
@@ -3853,14 +3879,14 @@ function NotifSection({ ctx }) {
     setMsg("Solicitando permissão do sistema…");
     const p = await notify.requestPermission();
     setPerm(p);
-    setMsg(p === "granted" ? "Permissão concedida. Agora use o teste agendado." : (p === "denied" ? "O iOS não vai perguntar de novo — use o botão Abrir Ajustes e ative Notificações → BolsIA." : "Plugin ou navegador não suportou a permissão."));
+    setMsg(p === "granted" ? "Permissão concedida. Agora use o teste agendado." : (p === "denied" ? "O iOS não vai perguntar de novo — use o botão Abrir Ajustes e ative Notificações → Boris+." : "Plugin ou navegador não suportou a permissão."));
   };
   // FASE 6 (fix 4): caminho REAL quando a permissão já foi negada — o pedido
   // via app nunca mais dispara; só os Ajustes resolvem. Com o plugin ausente
   // no build, degrada para o passo a passo manual.
   const onOpenSettings = async () => {
     const okOpen = await notify.openSettings();
-    if (!okOpen) setMsg("Não deu para abrir os Ajustes automaticamente (recompile o app com npm install + cap sync). Caminho manual: Ajustes → Notificações → BolsIA → Permitir.");
+    if (!okOpen) setMsg("Não deu para abrir os Ajustes automaticamente (recompile o app com npm install + cap sync). Caminho manual: Ajustes → Notificações → Boris+ → Permitir.");
     else setMsg("Nos Ajustes: Notificações → Permitir notificações. Ao voltar, o status atualiza sozinho.");
   };
   // FASE 6 (fix 4): PUSH DO SERVIDOR unificado aqui (antes vivia no Operador
@@ -3883,7 +3909,7 @@ function NotifSection({ ctx }) {
     finally { setPushBusy(false); }
   };
   const onTest = async () => {
-    const id = await notify.schedule("BolsIA · teste imediato", "Teste técnico de notificação local.", new Date(Date.now() + (isNative ? 5000 : 500)));
+    const id = await notify.schedule("Boris+ · teste imediato", "Teste técnico de notificação local.", new Date(Date.now() + (isNative ? 5000 : 500)));
     setMsg(id != null
       ? (isNative ? "Teste agendado para 5s. Coloque o app em segundo plano para ver o banner; com app aberto, o iOS pode apenas registrar a entrega." : "Notificação de teste enviada/agendada.")
       : "Não foi possível enviar agora — verifique permissão, plugin e recompilação do app.");
@@ -3908,9 +3934,9 @@ function NotifSection({ ctx }) {
     if (isNative && raw.pendingCount == null && !raw.error) {
       veredito = { ok: false, texto: "Este build é ANTIGO (não tem o campo pendingCount). As correções de notificação não estão instaladas — rode scripts/instalar-iphone.sh e reinstale pelo Xcode." };
     } else if (isNative && !raw.pluginLoaded) {
-      veredito = { ok: false, texto: "O plugin de notificações NÃO está dentro do app instalado — por isso o BolsIA nem aparece em Ajustes → Notificações. Rode scripts/instalar-iphone.sh (ele faz build + cap sync + abre o Xcode) e reinstale no aparelho." };
+      veredito = { ok: false, texto: "O plugin de notificações NÃO está dentro do app instalado — por isso o Boris+ nem aparece em Ajustes → Notificações. Rode scripts/instalar-iphone.sh (ele faz build + cap sync + abre o Xcode) e reinstale no aparelho." };
     } else if (raw.permission !== "granted") {
-      veredito = { ok: false, texto: "Plugin ok, mas sem permissão do sistema. Toque em Pedir permissão (SEMPRE toque nele primeiro — depois de reinstalar o app, é este pedido que faz o BolsIA voltar a aparecer em Ajustes → Notificações). Se o iOS não perguntar, aí sim use Abrir Ajustes." };
+      veredito = { ok: false, texto: "Plugin ok, mas sem permissão do sistema. Toque em Pedir permissão (SEMPRE toque nele primeiro — depois de reinstalar o app, é este pedido que faz o Boris+ voltar a aparecer em Ajustes → Notificações). Se o iOS não perguntar, aí sim use Abrir Ajustes." };
     } else {
       veredito = { ok: true, texto: "Tudo pronto: plugin no build e permissão concedida. Use o teste agendado (30s) e feche o app — a entrega passa a ser responsabilidade do iOS (confira Foco/Resumo Programado se não chegar)." };
     }
@@ -3967,7 +3993,7 @@ function NotifSection({ ctx }) {
       <div style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "12px", flexWrap: "wrap" }}>
         {/* FASE 8B (R1 — fix da regressão): "Pedir permissão" fica disponível
             SEMPRE que não está concedida (default E denied). Motivo: após
-            REINSTALAR o app, o iOS pode reportar "denied" herdado e o BolsIA
+            REINSTALAR o app, o iOS pode reportar "denied" herdado e o Boris+
             some de Ajustes → Notificações até um novo requestPermissions —
             só mostrar "Abrir Ajustes" criava um beco sem saída. Pedir com
             denied é inofensivo e re-registra o app na lista de Ajustes. */}
@@ -4392,7 +4418,7 @@ function EficienciaIAScreen({ ctx }) {
     try {
       const csv = await store.analysisOutcomesCsv();
       if (navigator.share) {
-        try { await navigator.share({ title: "BolsIA — eficiência da IA (CSV)", text: csv }); setCsvSt("compartilhado ✓"); return; } catch { /* usuário cancelou — cai pro clipboard */ }
+        try { await navigator.share({ title: "Boris+ — eficiência da IA (CSV)", text: csv }); setCsvSt("compartilhado ✓"); return; } catch { /* usuário cancelou — cai pro clipboard */ }
       }
       await navigator.clipboard.writeText(csv);
       setCsvSt("CSV copiado ✓ — cole numa planilha");
@@ -4602,7 +4628,7 @@ function LogsDebugScreen({ ctx }) {
     setDiagState({ status: "testing", text: "Executando diagnóstico…" });
     const lines = [];
     const stamp = new Date().toISOString();
-    lines.push("BolsIA · Diagnóstico iOS/WebView");
+    lines.push("Boris+ · Diagnóstico iOS/WebView");
     lines.push("Gerado em: " + stamp);
     lines.push("");
     try {
@@ -4638,7 +4664,7 @@ function LogsDebugScreen({ ctx }) {
       lines.push("permission=" + nd.permission);
       if (nd.error) lines.push("erro=" + nd.error);
       if (nd.permission === "granted") {
-        const id = await notify.schedule("BolsIA · teste QA", "Validação técnica de notificação local agendada.", new Date(Date.now() + 8000));
+        const id = await notify.schedule("Boris+ · teste QA", "Validação técnica de notificação local agendada.", new Date(Date.now() + 8000));
         lines.push("scheduledTestId=" + (id == null ? "falhou" : id));
         lines.push("ação=se estiver no iPhone, mande o app para segundo plano por 8 segundos para ver o banner.");
       } else {
@@ -4649,7 +4675,7 @@ function LogsDebugScreen({ ctx }) {
     lines.push("Checklist de correção rápida:");
     lines.push("1. API base deve ser URL absoluta, ex.: https://b3-production-8fc0.up.railway.app");
     lines.push("2. Se keySource=manual no iPhone, a chave precisa estar salva no próprio app.");
-    lines.push("3. Se permissão=denied, corrigir em Ajustes do iOS → Notificações → BolsIA.");
+    lines.push("3. Se permissão=denied, corrigir em Ajustes do iOS → Notificações → Boris+.");
     lines.push("4. Reinstale/recompile após mudanças de plugin: npm install && npx cap sync ios.");
     setDiagState({ status: "done", text: lines.join("\n") });
   };
@@ -5311,7 +5337,7 @@ function RadarScreen({ ctx }) {
   );
 }
 
-// BLOCO B2 — SweepGauge: o "radar girando" do BolsIA. Um componente para TODA
+// BLOCO B2 — SweepGauge: o "radar girando" do Boris+. Um componente para TODA
 // operação longa. Dois modos: determinado (progress {feitos,total,atual,fase,
 // ultimos} do /api/scan/progress) e indeterminado (steps: etapas nomeadas que
 // rotacionam). Anel cônico com varredura, ticker pulsando no centro, contador
@@ -5613,7 +5639,7 @@ function ConfigScreen({ ctx }) {
           <span aria-hidden style={{ fontWeight: 700, color: T.accent }}>ⓘ</span> Sobre · Aviso legal
         </button>
       </div>
-      <div style={{ textAlign: "center", fontSize: "11px", color: T.textFaint, marginTop: "12px" }}>BolsIA · simulador educacional · {DISCLAIMERS.short}</div>
+      <div style={{ textAlign: "center", fontSize: "11px", color: T.textFaint, marginTop: "12px" }}>Boris+ · simulador educacional · {DISCLAIMERS.short}</div>
     </div>
   );
 }
@@ -5881,7 +5907,7 @@ export default function App() {
     try { localStorage.setItem("b3-theme", themePref); } catch { /* ignore */ }
     try {
       const meta = document.querySelector('meta[name="theme-color"]');
-      if (meta) meta.setAttribute("content", appMode === "operador" ? "#0a0d10" : (themeKey === "light" ? "#f3f4f7" : "#0b0e14"));
+      if (meta) meta.setAttribute("content", appMode === "operador" ? "#0a0c12" : (themeKey === "light" ? "#f3f4f7" : "#10121a"));
     } catch { /* ignore */ }
   }, [themeKey, themePref, appMode]);
   const cfgTimer = useRef(null);
@@ -6043,7 +6069,7 @@ export default function App() {
       if (acts.length > 0) {
         const msg = "O agente fez " + acts.length + " ação(ões) simulada(s) desde sua última visita — veja em Automatizar.";
         flash(msg);
-        notify.send("Agente BolsIA", msg);
+        notify.send("Agente Boris+", msg);
       }
       if (log.length) store.putAgent({ lastSeenAt: new Date().toISOString() }).catch(() => {});
     } catch { /* resumo é best-effort */ }
@@ -6388,7 +6414,7 @@ export default function App() {
         const perm = await notify.requestPermission();
         if (perm !== "granted") {
           p.enabled = false;
-          if (perm === "denied") flash("Permissão negada. Ative em Ajustes → Notificações → BolsIA.");
+          if (perm === "denied") flash("Permissão negada. Ative em Ajustes → Notificações → Boris+.");
           else flash(isNative ? "Plugin de notificações não registrado. Rode 'npm install' e recompile (cap sync)." : "Notificações não são suportadas neste navegador.");
         } else {
           notify.send("Notificações ativadas", "Você será avisado sobre stop, alvo e movimentos da carteira.");

@@ -304,7 +304,7 @@ def _fetch_brapi_raw(ticker: str, token: Optional[str] = None) -> dict:
     if token:
         params["token"] = token
     r = httpx.get(BRAPI_BASE + ticker.upper(), params=params,
-                  headers={"User-Agent": "BolsIA/qa36"}, timeout=TIMEOUT_S)
+                  headers={"User-Agent": "Boris+/qa36"}, timeout=TIMEOUT_S)
     r.raise_for_status()
     return r.json()
 
@@ -312,7 +312,7 @@ def _fetch_brapi_raw(ticker: str, token: Optional[str] = None) -> dict:
 def _fetch_bolsai_raw(ticker: str, api_key: str) -> dict:
     """I/O da bolsai (fonte primária). Header X-API-Key obrigatório."""
     r = httpx.get(BOLSAI_BASE + ticker.upper(),
-                  headers={"X-API-Key": api_key, "User-Agent": "BolsIA/qa36"},
+                  headers={"X-API-Key": api_key, "User-Agent": "Boris+/qa36"},
                   timeout=TIMEOUT_S)
     r.raise_for_status()
     return r.json()

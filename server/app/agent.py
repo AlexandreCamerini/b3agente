@@ -824,7 +824,7 @@ async def scheduler_loop(conn, quotes_getter, notify_push=None, interval_s: int 
                             acts = [e["text"] for e in r["events"] if e.get("kind") == "buy"]
                             for txt in acts:
                                 try:
-                                    await notify_push(uid, "Agente BolsIA (simulado)", txt)
+                                    await notify_push(uid, "Agente Boris+ (simulado)", txt)
                                 except Exception:  # noqa: BLE001 — push é best-effort
                                     pass
                     except Exception as e:  # noqa: BLE001 — 1 usuário não derruba o laço

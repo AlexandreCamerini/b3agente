@@ -1,4 +1,4 @@
-"""BolsIA - backend FastAPI.
+"""Boris+ - backend FastAPI.
 Persistencia em SQLite (web). Cotacoes via Yahoo, analise via LLM.
 O cliente iOS persiste no proprio aparelho e envia config/skill no corpo do
 /api/analyze; o cliente web usa a config persistida aqui.
@@ -36,7 +36,7 @@ from .catalog import is_catalog_ticker
 from .options_api import router as options_router
 from .options_provider_yahoo import get_options as _get_options_for_status
 
-app = FastAPI(title="BolsIA API")
+app = FastAPI(title="Boris+ API")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"], allow_methods=["*"], allow_headers=["*"], allow_credentials=False,
@@ -435,7 +435,7 @@ async def admin_summary(user: dict = Depends(require_user)):
 
 # FASE 8B (diagnóstico): carimbo de build do BACKEND — confirma qual código o
 # Railway está rodando (o front tem o dele em web/src/version.js).
-SERVER_BUILD_ID = "F10-20260808-03"  # F3: alvo dinâmico (extensão por ATR, freio 2× + R:R 1,5:1).
+SERVER_BUILD_ID = "F10-20260808-04"  # F3: alvo dinâmico (extensão por ATR, freio 2× + R:R 1,5:1).
 # Normalmente sincronizado pelo entregar.sh a partir de web/src/version.js; num deploy
 # SÓ de backend (sem rebuild do front) bumpamos aqui para /api/health rastrear o servidor.
 
@@ -1837,7 +1837,7 @@ async def push_test(user: dict = Depends(require_user)):
         store.push_agent_log(_conn, [{"time": now_str(), "kind": "error",
                                       "text": "Push: teste pedido, mas APNs NÃO está configurado no servidor (faltam variáveis no Railway — rode scripts/configurar-apns.sh)."}], user_id=uid)
         raise HTTPException(409, "APNs não configurado no servidor — rode scripts/configurar-apns.sh e confira as 4 variáveis no Railway.")
-    r = await push.send_to_user(_conn, uid, "BolsIA — teste de push", "Push do Operador IA funcionando. ✓")
+    r = await push.send_to_user(_conn, uid, "Boris+ — teste de push", "Push do Operador IA funcionando. ✓")
     if r["total"] == 0:
         store.push_agent_log(_conn, [{"time": now_str(), "kind": "warn",
                                       "text": "Push: teste pedido, mas NENHUM aparelho está registrado — toque em 'Ativar push das ações' no iPhone primeiro."}], user_id=uid)

@@ -35,7 +35,7 @@ const IA_GRAD = { background: "linear-gradient(135deg,var(--accent),var(--accent
 
 export default function BorisIntro({ onConversar, onDepois }) {
   return (
-    <div role="dialog" aria-label="Conheça o Boris, o assistente do BolsIA"
+    <div role="dialog" aria-label="Conheça o Boris, o assistente do Boris+"
       style={{ position: "fixed", inset: 0, zIndex: 87, background: T.scrim, display: "flex", alignItems: "center", justifyContent: "center", padding: "18px", overflowY: "auto" }}>
       <div style={{ width: "100%", maxWidth: "420px", background: T.bgCard, border: `1px solid ${T.borderSubtle}`, borderRadius: "18px", padding: "24px 22px", boxSizing: "border-box" }}>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", marginBottom: "16px" }}>
@@ -44,7 +44,7 @@ export default function BorisIntro({ onConversar, onDepois }) {
             Este é o <span style={IA_GRAD}>Boris</span>
           </div>
           <div style={{ fontSize: "12.5px", color: T.textFaint, marginTop: "2px" }}>
-            O assistente do BolsIA nesta tela e em todas as outras
+            O assistente do Boris+ nesta tela e em todas as outras
           </div>
         </div>
 

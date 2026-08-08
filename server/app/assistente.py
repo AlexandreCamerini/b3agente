@@ -88,7 +88,7 @@ def _regras(modo: str) -> str:
     voc = skill_ref.vocab.get(modo, skill_ref.vocab["educacional"])
     linhas = [
         "# Função",
-        "Você responde dúvidas de quem está OLHANDO uma tela do BolsIA, um app",
+        "Você responde dúvidas de quem está OLHANDO uma tela do Boris+, um app",
         "educacional de bolsa com carteira SIMULADA. A pessoa pode ser iniciante",
         "absoluta: explique em linguagem simples e vá direto ao ponto dela.",
         "",

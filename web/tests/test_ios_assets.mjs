@@ -1,4 +1,4 @@
-// FASE 8B (P3) — Guardião: a arte do app DENTRO do projeto iOS é a do BolsIA.
+// FASE 8B (P3) — Guardião: a arte do app DENTRO do projeto iOS é a do Boris+.
 //
 // BUG: o AppIcon.appiconset ainda tinha o ícone padrão do template Capacitor
 // (o gen-assets.sh nunca chegou a valer — recriar a pasta ios/ apaga assets),

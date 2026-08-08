@@ -7,7 +7,7 @@ export const DISCLAIMERS = {
 
   // Banner principal (cabeçalho do app)
   appBanner:
-    "BolsIA é um simulador EDUCACIONAL: usa cotações reais do mercado (Yahoo Finance) e dinheiro SIMULADO. Nada aqui sugere operar com dinheiro real nem constitui recomendação de investimento.",
+    "Boris+ é um simulador EDUCACIONAL: usa cotações reais do mercado (Yahoo Finance) e dinheiro SIMULADO. Nada aqui sugere operar com dinheiro real nem constitui recomendação de investimento.",
 
   // Aviso obrigatório em TODO conteúdo gerado por IA (análise, KPIs, stop, alvo)
   aiContent:
@@ -31,11 +31,11 @@ export const DISCLAIMERS = {
 
   // FASE 7 — Modo Operador (aviso obrigatório da persona, em toda saída do modo)
   operador:
-    "Esta análise possui finalidade educacional e utiliza cenários probabilísticos. Não representa garantia de resultado nem recomendação personalizada de investimento. Operações no mercado financeiro envolvem risco de perda, sendo indispensáveis o uso de stop, o dimensionamento adequado da posição e o respeito ao plano de risco. O BolsIA não envia ordens a corretoras — toda execução é sua.",
+    "Esta análise possui finalidade educacional e utiliza cenários probabilísticos. Não representa garantia de resultado nem recomendação personalizada de investimento. Operações no mercado financeiro envolvem risco de perda, sendo indispensáveis o uso de stop, o dimensionamento adequado da posição e o respeito ao plano de risco. O Boris+ não envia ordens a corretoras — toda execução é sua.",
 
   // FASE 7 — Termo de responsabilidade (aceite obrigatório na 1ª ativação)
   operadorTermo:
-    "O Modo Operador é uma ferramenta de DECISÃO e DISCIPLINA. O BolsIA não envia ordens a corretoras, não garante resultado e não faz recomendação personalizada de investimento (não substitui um analista credenciado). Os planos apresentados são cenários probabilísticos calculados sobre dados passados pelos detectores determinísticos do app; podem estar errados e o mercado pode se mover contra qualquer plano. Toda execução — e todo resultado, inclusive PERDAS — é de responsabilidade exclusivamente sua. Operar exige stop em toda posição, dimensionamento pela sua tolerância a risco e disciplina para aceitar os planos 'NÃO OPERAR'. Ao ativar, você declara que entende e aceita estes termos.",
+    "O Modo Operador é uma ferramenta de DECISÃO e DISCIPLINA. O Boris+ não envia ordens a corretoras, não garante resultado e não faz recomendação personalizada de investimento (não substitui um analista credenciado). Os planos apresentados são cenários probabilísticos calculados sobre dados passados pelos detectores determinísticos do app; podem estar errados e o mercado pode se mover contra qualquer plano. Toda execução — e todo resultado, inclusive PERDAS — é de responsabilidade exclusivamente sua. Operar exige stop em toda posição, dimensionamento pela sua tolerância a risco e disciplina para aceitar os planos 'NÃO OPERAR'. Ao ativar, você declara que entende e aceita estes termos.",
 };
 
 export const TERMO_OPERADOR_VERSAO = "1.0";

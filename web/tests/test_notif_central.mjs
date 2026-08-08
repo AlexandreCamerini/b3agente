@@ -33,7 +33,7 @@ ok("dependência @capacitor/app-launcher no package.json", !!pkg.dependencies["@
 // ---- 2) botões coerentes com os estados REAIS do iOS ------------------------
 // FASE 8B (R1): contrato ATUALIZADO — pedir permissão fica disponível em
 // default E denied. Depois de reinstalar o app, o iOS pode reportar "denied"
-// herdado e o BolsIA some de Ajustes → Notificações até um novo request;
+// herdado e o Boris+ some de Ajustes → Notificações até um novo request;
 // só oferecer "Abrir Ajustes" criava beco sem saída (a regressão relatada).
 ok("'Pedir permissão' disponível quando não concedida (default+denied)", app.includes('perm !== "granted" && perm !== "unsupported" && <button onClick={onRequestPermission}'));
 ok("'Abrir Ajustes' no estado denied", app.includes('perm === "denied" && isNative && <button onClick={onOpenSettings}'));

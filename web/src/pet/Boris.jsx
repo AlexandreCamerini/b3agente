@@ -1,5 +1,5 @@
 /**
- * Boris.jsx — pet digital falante do BolsIA (coruja).
+ * Boris.jsx — pet digital falante do Boris+ (coruja).
  * Drop-in React. Sem dependencias, sem build extra, sem rede.
  * Roda igual no PWA e no WKWebView (Capacitor).
  *
@@ -230,7 +230,7 @@ const Boris = forwardRef(function Boris({ size = 300, reduced = false, rate = 1,
   return (
     <div className="boris-root" ref={rootRef} style={{ width:size, height:Math.round(size*655/490) }} aria-hidden="false">
       <div className="boris-stage" ref={stageRef} data-state="idle" style={{ transform:`scale(${scale})` }}
-           role="img" aria-label="Bóris, coruja mascote do BolsIA">
+           role="img" aria-label="Bóris, coruja mascote do Boris+">
         <div className="platform" />
         <div className="owl-body">
           <div className="breath">

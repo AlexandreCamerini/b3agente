@@ -5,7 +5,7 @@
 //     no ramo ESTUDO; fallback seguro para modo desconhecido;
 //  2) B1: as telas leem ctx.cp.* — os textos sensíveis não estão mais
 //     hardcodados no App.jsx (títulos, botões, empty states, toasts, saudação);
-//  3) B2: override de tema .b3-mode-operador (verde #22c55e), classe aplicada
+//  3) B2: override de tema .b3-mode-operador (verde #34d399), classe aplicada
 //     no html, chip do modo no Topbar, theme-color por modo, transição só na troca;
 //  4) B4: notificações (stop/alvo/variação) na voz do modo; managed preserva
 //     o appMode; N3 ganha a camada de mesa no modo operador.
@@ -73,10 +73,14 @@ ok("qa/34: marcaSufixo removida dos dois modos (chave órfã — modeline a subs
   !("marcaSufixo" in COPY.estudo) && !("marcaSufixo" in COPY.operador));
 
 // ---- 3) B2: tema por modo ----------------------------------------------------
-ok("override .b3-mode-operador com verde-mercado", app.includes('accent: "#22c55e"') && app.includes("b3-mode-operador.b3-theme-dark"));
+// Fase 3 (rebranding Boris+, 2026-08-08): o verde do Operador convergiu pro
+// MESMO verde da marca (--brand-green, #34d399) — antes uma tonalidade
+// própria (#22c55e) sem lastro no Brand Book (que só define um verde/um
+// vermelho pro sistema inteiro, não um por modo).
+ok("override .b3-mode-operador com verde-mercado (verde da marca)", app.includes('accent: "#34d399"') && app.includes("b3-mode-operador.b3-theme-dark"));
 ok("classe aplicada no html pelo appMode", app.includes('html.classList.toggle("b3-mode-operador", appMode === "operador")'));
 ok("chip do modo no Topbar", app.includes("modeChip={cp.chipModo}") && app.includes("{modeChip && (<>"));
-ok("theme-color acompanha o modo", app.includes('appMode === "operador" ? "#0a0d10"'));
+ok("theme-color acompanha o modo", app.includes('appMode === "operador" ? "#0a0c12"'));
 ok("transição só durante a troca (classe temporária)", app.includes("b3-mode-switch") && app.includes('html.classList.remove("b3-mode-switch")'));
 
 // ---- 4) B4: notificações + backend ------------------------------------------
@@ -124,8 +128,10 @@ ok("R2: defaults da skill de mesa nos dois lados",
   readFileSync(join(here, "..", "src", "catalog.js"), "utf8").includes("defaultSkillTextOperador") &&
   readFileSync(join(here, "..", "..", "server", "app", "defaults.py"), "utf8").includes("default_skill_text_operador"));
 // R3: paleta idêntica ao mock + positivos/negativos/textos do modo
-ok("R3: card do mock (#10161a) e negativo (#ef4444)", app.includes('bgCard: "#10161a"') && app.includes('negative: "#ef4444"'));
-ok("R3: textos frios do mock (muted/faint)", app.includes('textMuted: "#93a5ad"') && app.includes('textFaint: "#5b6d75"'));
+// Fase 3 (rebranding Boris+): valores retunados pra família da marca — ver
+// comentário de MODE_OPERADOR em App.jsx.
+ok("R3: card do Operador (#141926) e negativo (vermelho da marca)", app.includes('bgCard: "#141926"') && app.includes('negative: "#f26d6d"'));
+ok("R3: textos frios do Operador (muted/faint)", app.includes('textMuted: "#93a3c0"') && app.includes('textFaint: "#5b6890"'));
 // qa/mock v2 (racionalização): o badge deixou de ser pill (sólido→contornado)
 // e virou uma LINHA de modo sob o wordmark — ponto (halo accentTint) + rótulo
 // (color T.accent). Simétrico nos dois modos. Guardião completo do novo padrão
