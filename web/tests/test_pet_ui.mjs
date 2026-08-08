@@ -101,7 +101,9 @@ ok("o FAB do pet mostra o Boris INTEIRO e sem bolha, com alvo de toque de 54px",
      if (!m) return false;
      const fab = m[0];
      const semEmoji = !/<span aria-hidden>🦉<\/span>/.test(fab);
-     const temBoris = /<Boris size=\{40\} reduced \/>/.test(fab);
+     // ANIMADO de propósito (decisão do Alex): nada de `reduced` aqui — o FAB
+     // pisca e respira. O `reduced` fica só no Boris do título.
+     const temBoris = /<Boris size=\{40\} \/>/.test(fab) && !/<Boris[^>]*reduced/.test(fab);
      const semBolha = /background: "transparent"/.test(fab) && /border: "none"/.test(fab)
        && !/borderRadius: "50%"/.test(fab) && !/overflow: "hidden"/.test(fab);
      const semRecorte = !/scale\(1\.24\)/.test(fab) && !/translateY\(-14px\)/.test(fab);

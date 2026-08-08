@@ -581,11 +581,26 @@ function WelcomeAuthScreen({ ctx, onAuthed, onSkip }) {
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 85, background: T.bgBase, display: "flex", alignItems: "center", justifyContent: "center", padding: "18px", overflowY: "auto" }}>
       <div style={{ width: "100%", maxWidth: "420px", ...card, padding: "26px 24px" }}>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", marginBottom: "18px" }}>
-          <LogoMark size={56} />
-          <div style={{ fontFamily: DISPLAY, fontSize: "21px", fontWeight: 600, marginTop: "10px", letterSpacing: "-0.01em" }}>Boris<span style={PLUS_STYLE}>+</span></div>
-          <div style={{ fontSize: "13px", color: T.accent, fontWeight: 600, marginTop: "2px" }}>Aprenda a operar. Sem pôr dinheiro em risco.</div>
-          <p style={{ color: T.textMuted, fontSize: "12.5px", lineHeight: 1.6, margin: "12px 0 0" }}>
+        {/* Decisão do Alex (2026-08-08): esta é a primeira tela que alguém vê,
+            então a marca ocupa o espaço que merece. O empilhamento antigo
+            (símbolo 56px em cima, nome em 21px embaixo, tudo centralizado)
+            gastava altura e entregava um nome menor que o texto do formulário.
+            Agora é uma LINHA: o Bóris inteiro e ANIMADO à esquerda, o nome em
+            40px à direita, com a tagline ancorada sob ele. A coruja em 88px de
+            largura (117 de altura, proporção do Brand Book) equilibra o peso do
+            nome sem empurrar o formulário para fora da dobra. */}
+        <div style={{ marginBottom: "18px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "14px" }}>
+            <div aria-hidden style={{ flex: "none", lineHeight: 0 }}><Boris size={88} /></div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontFamily: DISPLAY, fontSize: "40px", fontWeight: 600, lineHeight: 1.0, letterSpacing: "-0.02em" }}>Boris<span style={PLUS_STYLE}>+</span></div>
+              {/* Quebra na fronteira das duas frases: em qualquer largura o
+                  corte cai onde a tagline já é escrita, nunca no meio de
+                  "Sem pôr dinheiro". */}
+              <div style={{ fontSize: "13px", color: T.accent, fontWeight: 600, marginTop: "7px", lineHeight: 1.35 }}>Aprenda a operar.<br />Sem pôr dinheiro em risco.</div>
+            </div>
+          </div>
+          <p style={{ color: T.textMuted, fontSize: "12.5px", lineHeight: 1.6, margin: "16px 0 0", textAlign: "center" }}>
             Treine operações com <b>cotações reais</b> e <b>dinheiro simulado</b>, com uma <b>IA</b> que explica cada decisão. Conteúdo <b>educacional</b> — não é recomendação de investimento.
           </p>
         </div>
@@ -2403,8 +2418,13 @@ function PetFab({ onOpen }) {
   return (
     <button onClick={onOpen} aria-label="Abrir o assistente Boris+"
       style={{ position: "fixed", right: "14px", bottom: "92px", zIndex: 60, width: "54px", height: "54px", borderRadius: 0, border: "none", background: "transparent", padding: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      {/* Decisão do Alex (2026-08-08): o FAB ANIMA. Sem `reduced` ele pisca,
+          respira e faz as quebras de ociosidade — é o assistente sinalizando
+          que está vivo e à mão. O do título continua `reduced`: lá a coruja é
+          marca, e movimento permanente no cabeçalho competiria com o conteúdo.
+          Um laço de animação, não dois. */}
       <div aria-hidden style={{ lineHeight: 0, filter: "drop-shadow(0 3px 6px rgba(0,0,0,0.45))" }}>
-        <Boris size={40} reduced />
+        <Boris size={40} />
       </div>
     </button>
   );
