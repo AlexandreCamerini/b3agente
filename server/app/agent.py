@@ -339,7 +339,13 @@ async def _avaliar_entradas(conn, scope, ag, par, app_mode, positions, executed:
     if not candidatos:
         return executed
 
-    hoje = _today()
+    # `hoje` precisa vir de `agora` quando fornecido (mesmo idioma de
+    # timing.py:179) — `_today()` sozinho usa o relógio REAL, e um teste com
+    # `agora` fixo no passado gravaria `timingWatch.dia` com a data de hoje
+    # de verdade; na leitura seguinte a data não bateria, `_zera_se_virou_o_dia`
+    # descartaria o estado de dedup, e o vigia reavisaria um ticker que a
+    # entrada automática já comprou neste mesmo ciclo.
+    hoje = (agora or datetime.now(BRT)).date().isoformat()
     tw_estado = timing_watch._zera_se_virou_o_dia(
         db.kv_get(conn, "timingWatch", None, user_id=scope) or {"dia": "", "ultimo": {}, "avisados": []}, hoje)
     tw_mudou = False

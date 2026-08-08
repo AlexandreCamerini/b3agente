@@ -1781,7 +1781,17 @@ function ModoTrabalhoCard({ ctx }) {
   const escolher = async (m) => {
     if (m === mode) return;
     if (m === "operador" && !c.operadorTermo) { setTermoOpen(true); return; }
-    await A.saveConfig({ appMode: m });
+    try {
+      await A.saveConfig({ appMode: m });
+    } catch (e) {
+      // qa/audit-2026-08-08: putConfig agora pode chamar o servidor (sync do
+      // appMode) — antes era 100% local e nunca falhava. Sem este catch, uma
+      // falha de rede aqui vira promise rejeitada sem aviso nenhum: o
+      // aparelho muda de modo local mas o servidor nunca sabe, e nenhum
+      // reload acontece — pior que um erro visível.
+      A.flash("Não consegui confirmar a troca de modo com o servidor: " + (e.message || e));
+      return;
+    }
     // qa/audit-2026-08-07: a troca de modo reinicia o app INTEIRO — não só
     // navega pra home. `appMode` é lido de forma independente em mais de
     // 10 lugares do código (telas, disclaimers, gates de Executar/entrada
@@ -5960,6 +5970,29 @@ export default function App() {
 
   useEffect(() => {
     loadState();
+  }, [loadState]);
+  // qa/audit-2026-08-08: getState() só rodava no boot — qualquer mudança feita
+  // só do lado do servidor (Operador autônomo com o app fechado, opção
+  // negociada, reset por outro aparelho da mesma conta) nunca voltava pra
+  // tela até a próxima compra/venda LOCAL. Reconfirma o estado sempre que o
+  // app volta pro primeiro plano: `visibilitychange` cobre o navegador; no
+  // iOS nativo o WKWebView nem sempre dispara esse evento de forma confiável
+  // ao voltar de segundo plano, então soma-se o listener do plugin
+  // `@capacitor/app` (import dinâmico — só existe runtime no nativo).
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === "visible") loadState(); };
+    document.addEventListener("visibilitychange", onVisible);
+    let removeAppListener = null;
+    if (isNative) {
+      import("@capacitor/app").then(({ App: CapApp }) => {
+        CapApp.addListener("appStateChange", ({ isActive }) => { if (isActive) loadState(); })
+          .then((h) => { removeAppListener = () => h.remove(); });
+      }).catch(() => { /* plugin ausente: visibilitychange segue cobrindo */ });
+    }
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      if (removeAppListener) removeAppListener();
+    };
   }, [loadState]);
   // Toque no aviso de condição atingida → a tela do ativo, não a aba inicial.
   // Registrado UMA vez, no boot. `reservarDonoProativo` garante que, se for a

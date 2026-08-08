@@ -36,7 +36,10 @@ ok("o botão Executar/sinalizar NÃO depende mais de `title` (invisível em toqu
    !/title=\{desabilitado \? "Disponível no Modo Operador/.test(blocoBotoes));
 
 // ---- restart completo ao trocar de Modo de trabalho -----------------------
-const escolher = app.slice(app.indexOf("const escolher = async (m) =>"), app.indexOf("const escolher = async (m) =>") + 900);
+// qa/audit-2026-08-08: janela alargada de 900 -> 1400 — a função ganhou um
+// try/catch (sync de appMode com o servidor pode falhar por rede) sem
+// mudar o contrato que este guardião prova.
+const escolher = app.slice(app.indexOf("const escolher = async (m) =>"), app.indexOf("const escolher = async (m) =>") + 1400);
 ok("escolher() localizado", escolher.includes("saveConfig"));
 ok("escolher() reinicia o app (reload) em vez de só navegar",
    /setTimeout\(\(\) => window\.location\.reload\(\), 700\)/.test(escolher));

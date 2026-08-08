@@ -422,14 +422,32 @@ function deviceStore() {
   function _adotarCarteiraDoServidor(r) {
     if (!r) return;
     if (Array.isArray(r.positions)) doc.positions = r.positions;
+    if (Array.isArray(r.optionPositions)) doc.optionPositions = r.optionPositions;
     if (typeof r.cash === "number") doc.cash = r.cash;
     if (Array.isArray(r.history)) doc.history = r.history;
   }
 
   return {
     isNative: true,
+    // qa/audit-2026-08-08: getState() era só leitura LOCAL — nada no app puxava
+    // o servidor de volta depois do boot. Toda mutação que acontece só do lado
+    // do servidor (Operador autônomo vendendo com o app fechado, opção
+    // comprada/vendida antes deste fix, reset feito por outro aparelho da
+    // mesma conta) nunca chegava até aqui: a tela ficava com o caixa/posições
+    // de antes, indefinidamente, enquanto o Boris (que lê o banco direto)
+    // já mostrava o valor real — sintoma "a tela está certa, só o Boris erra"
+    // é exatamente essa lacuna. Logado, cada getState() agora confirma
+    // cash/posições/histórico com o servidor, best-effort: falha de rede
+    // mantém o doc local (offline continua funcionando), nunca trava a tela.
     async getState() {
       ensure();
+      if (sync.hasSession()) {
+        try {
+          const r = await api.getState();
+          _adotarCarteiraDoServidor(r);
+          write();
+        } catch { /* offline: doc local segue valendo */ }
+      }
       return pub();
     },
     async putConfig(patch) {
@@ -480,10 +498,13 @@ function deviceStore() {
       if (patch.operadorTermo && typeof patch.operadorTermo === "object" && patch.operadorTermo.aceitoEm && patch.operadorTermo.versao) {
         c.operadorTermo = { aceitoEm: String(patch.operadorTermo.aceitoEm).slice(0, 40), versao: String(patch.operadorTermo.versao).slice(0, 10) };
       }
+      let syncModoServidor = false;
       if (patch.appMode === "estudo" || patch.appMode === "operador") {
         if (!(patch.appMode === "operador" && !(c.operadorTermo && typeof c.operadorTermo === "object"))) c.appMode = patch.appMode;
         _agendarSyncPrefs();   // o vocabulário do push segue o modo do aparelho
+        syncModoServidor = true;
       }
+      if ("operadorTermo" in patch) syncModoServidor = true;
       if (patch.risco && typeof patch.risco === "object") {
         const base = (c.risco && typeof c.risco === "object") ? c.risco : { pctPorTrade: 1.0, capital: null };
         if (typeof patch.risco.pctPorTrade === "number") base.pctPorTrade = Math.max(0.25, Math.min(5, +patch.risco.pctPorTrade.toFixed(2)));
@@ -493,6 +514,18 @@ function deviceStore() {
       }
       write();
       setApiBase(doc.config.serverUrl); // se mudou o endereco do Mac, ja passa a valer
+      // qa/audit-2026-08-08: appMode/operadorTermo eram 100% locais mesmo
+      // logado — o servidor nunca aprendia a troca de modo, então toda trava
+      // que depende dele (`store.set_agent`: entradaAuto, mode="executar")
+      // ficava presa em "estudo" pra sempre, mesmo com o aparelho em
+      // Operador. Sincroniza só os DOIS campos que os gates do servidor
+      // precisam — nunca a apiKey, que segue exclusiva do aparelho. Erro
+      // sobe (sem engolir): os dois chamadores (ModoTrabalhoCard.escolher,
+      // TermoOperadorModal.ativar) já fazem `await` antes do reload, então a
+      // troca de modo não "termina" sem o servidor confirmar.
+      if (syncModoServidor && sync.hasSession()) {
+        await api.putConfig({ appMode: c.appMode, operadorTermo: c.operadorTermo });
+      }
       return pub();
     },
     async testConfig() {
@@ -621,6 +654,16 @@ function deviceStore() {
     async resetPortfolio() {
       ensure();
       const budget = typeof doc.config.initialBudget === "number" ? doc.config.initialBudget : 10000;
+      if (sync.hasSession()) {
+        // qa/audit-2026-08-08: reset só gravava local, mesmo logado — o
+        // servidor (e o Operador que lê de lá) nunca soube da carteira zerada.
+        const r = await api.resetPortfolio();
+        _adotarCarteiraDoServidor(r);
+        doc.analyses = {};
+        doc.agent.events = [{ time: "Inicio", kind: "info", text: "Carteira reiniciada com o orçamento simulado de R$ " + doc.cash.toFixed(2) + "." }];
+        write();
+        return pub();
+      }
       doc.cash = +budget.toFixed(2);
       doc.positions = [];
       doc.optionPositions = [];  // v2 (ADR-003)
@@ -741,6 +784,16 @@ function deviceStore() {
     },
     async optionsBuy(body) {
       ensure();
+      // qa/audit-2026-08-08: opções nunca chegavam ao servidor mesmo logado —
+      // mesma causa raiz de buy/sell antes de 41fe428, agora fechada aqui.
+      if (sync.hasSession()) {
+        const r = await api.optionsBuy(body);
+        _adotarCarteiraDoServidor(r);
+        write();
+        const out = pub();
+        out.priceUsed = r && r.priceUsed;
+        return out;
+      }
       const chain = await api.optionsChain(body.underlying, body.expiration);
       if (chain.providerStatus !== "ok") throw new Error("Cotação de opções indisponível no momento — tente novamente.");
       const contrato = [...(chain.calls || []), ...(chain.puts || [])].find((c) => c.contractSymbol === body.contractSymbol);
@@ -777,6 +830,14 @@ function deviceStore() {
     },
     async optionsSell(body) {
       ensure();
+      if (sync.hasSession()) {
+        const r = await api.optionsSell(body);
+        _adotarCarteiraDoServidor(r);
+        write();
+        const out = pub();
+        out.priceUsed = r && r.priceUsed;
+        return out;
+      }
       const pos = (doc.optionPositions || []).find((p) => p.id === body.contractSymbol);
       if (!pos) throw new Error("Sem posição em " + body.contractSymbol);
       const chain = await api.optionsChain(pos.underlying, pos.expiration);
@@ -792,6 +853,12 @@ function deviceStore() {
     },
     async putOptionPosition(contractId, b) {
       ensure();
+      if (sync.hasSession()) {
+        const r = await api.putOptionPosition(contractId, b);
+        _adotarCarteiraDoServidor(r);
+        write();
+        return pub();
+      }
       const pos = (doc.optionPositions || []).find((p) => p.id === contractId);
       if (pos) {
         if ("stop" in b) pos.stop = b.stop === "" || b.stop == null ? null : Number(b.stop);
