@@ -3531,7 +3531,7 @@ function AgenteScreen({ ctx }) {
   // Fase A (trava Modo Estudo): "Executar" só existe em Modo Operador — o
   // backend (agent.agent_params/store.set_agent) já trava a leitura e a
   // escrita; aqui é só a UI não OFERECER o que o servidor vai recusar.
-  const operador = (data.config && data.config.appMode) === "operador";
+  const { operador } = ctx;
   // Defensivo: se o dado local ainda tem "executar" salvo de antes desta
   // migração (ou não sincronizou), a UI mostra "sinalizar" mesmo assim —
   // nunca exibe um estado que o backend já rejeitou.
@@ -3572,6 +3572,23 @@ function AgenteScreen({ ctx }) {
       <p style={{ margin: "6px 0 0", color: T.textMuted, fontSize: "13px", maxWidth: "600px", lineHeight: 1.5 }}>
         Seu operador autônomo da carteira SIMULADA: monitora as posições, protege stop/alvo pelas regras que você define e registra cada decisão — no servidor, mesmo com o app fechado. Status detalhado, Diário e testes ficam em <b>Perfil → Logs & debug</b>.
       </p>
+
+      {/* qa/audit-2026-08-07 (itens 3+4): resumo do modo do app, ANTES de
+          qualquer controle desta tela. Esta tela ("Operador IA") configura os
+          PARÂMETROS do agente; quem liga o Modo Operador de verdade é OUTRO
+          interruptor (Perfil → Modo de trabalho) — a auditoria achou que
+          nada aqui deixava essa distinção clara, e foi a causa raiz de
+          "não me deixa selecionar Executar". Agora o modo aparece primeiro,
+          sempre visível, com o link direto pra trocar. */}
+      <div style={{ marginTop: "14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", padding: "10px 14px", borderRadius: "10px", background: T.bgBase, border: `1px solid ${T.borderFaint}` }}>
+        <div style={{ fontSize: "12px", color: T.textSecondary }}>
+          Modo do app: <b style={{ color: operador ? T.accent : T.textPrimary }}>{operador ? "📈 Operador" : "🎓 Estudo"}</b>
+          <span style={{ color: T.textFaint }}> — {operador ? "decisões diretas liberadas" : "só orienta, nunca decide sozinho"}</span>
+        </div>
+        <button onClick={() => A.go("perfil")} style={{ background: "transparent", border: "none", padding: 0, color: T.accent, fontWeight: 800, fontSize: "11.5px", textDecoration: "underline", flex: "none" }}>
+          Trocar →
+        </button>
+      </div>
 
       {/* qa/34 (§7 da auditoria, aprovado): CARD-HERÓI — um ESTADO dominante no
           topo (ATIVO/INATIVO · modo), o toggle como único CTA de peso. As regras
@@ -6600,6 +6617,12 @@ export default function App() {
   };
 
   const ctx = {
+    // qa/audit-2026-08-07 (item 5): fonte ÚNICA de "estamos em Modo Operador?"
+    // — antes recalculado de forma independente em 10+ lugares do arquivo.
+    // Novo código deve ler `ctx.operador`, não redevirar de data.config.appMode.
+    // `data` pode ser null no boot (antes do 1º getState resolver) — o `ctx`
+    // é montado incondicionalmente a cada render, então o guard vem primeiro.
+    operador: !!(data && data.config && data.config.appMode === "operador"),
     data, quotes, analysis, expanded, analysisModel, setAnalysisModel, A, quotesAt, quotesLoading, test, keyDraft, setKeyDraft, cp,
     catalogSel, setCatalogSel, buyModal, setBuyModal, cycleBusy, addState, setAddState,
     sellModal, setSellModal, wlScan, wlScanLoading, destaque,

@@ -24,8 +24,12 @@ const fimAprox = app.indexOf("\nfunction ", inicio + 10);
 const screen = app.slice(inicio, fimAprox > inicio ? fimAprox : undefined);
 
 // -------------------------------------------------------- appMode/operador
-ok("AgenteScreen deriva `operador` de data.config.appMode (mesmo padrão do resto do app)",
-   /const operador = \(data\.config && data\.config\.appMode\) === "operador";/.test(screen));
+// qa/audit-2026-08-07 (item 5): fonte única — `ctx.operador` é computado UMA
+// vez (junto do resto de `ctx`), não mais redevirado dentro de cada tela.
+ok("AgenteScreen lê `operador` de ctx (fonte única, não redevira de data.config)",
+   /const \{ operador \} = ctx;/.test(screen));
+ok("ctx expõe `operador` computado de data.config.appMode, com guard pra data=null no boot",
+   /operador: !!\(data && data\.config && data\.config\.appMode === "operador"\),/.test(app));
 
 // --------------------------------------------------- botão "Executar" preso
 ok("o botão \"Executar\" tem uma condição de disabled ligada a appMode !== operador",

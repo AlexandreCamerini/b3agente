@@ -27,8 +27,8 @@ const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if 
 const linksModoOperador = (app.match(/Trocar para Modo Operador →/g) || []).length;
 ok("existem os DOIS links \"Trocar para Modo Operador →\" (Executar/sinalizar + Entrada automática)",
    linksModoOperador === 2);
-ok("o link chama A.go(\"perfil\") — mesma tela do card Modo de trabalho",
-   (app.match(/onClick=\{\(\) => A\.go\("perfil"\)\}/g) || []).length === 2);
+ok("o link chama A.go(\"perfil\") — mesma tela do card Modo de trabalho (+ a tira de status sempre visível, item 3 da auditoria)",
+   (app.match(/onClick=\{\(\) => A\.go\("perfil"\)\}/g) || []).length === 3);
 
 // ---- item 2: `title` não é mais a explicação do botão Executar/sinalizar ---
 const blocoBotoes = app.slice(app.indexOf('{["executar", "sinalizar"].map'), app.indexOf('{["executar", "sinalizar"].map') + 900);

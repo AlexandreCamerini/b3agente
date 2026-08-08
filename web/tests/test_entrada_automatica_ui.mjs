@@ -29,8 +29,11 @@ ok("existe uma seção \"Entrada automática\" (ENTRADA AUTOMÁTICA) no JSX",
    /ENTRADA AUTOM[ÁA]TICA/.test(screen));
 
 // ------------------------------------------------------- travada fora do Operador
-ok("a seção usa o mesmo `operador` derivado de appMode (padrão da Fase A)",
-   /const operador = \(data\.config && data\.config\.appMode\) === "operador";/.test(screen));
+// qa/audit-2026-08-07 (item 5): `operador` agora vem de ctx (fonte única) —
+// a seção usa a MESMA variável que o resto de AgenteScreen (é o mesmo escopo
+// de função), não uma cópia local.
+ok("a seção usa o mesmo `operador` derivado de ctx (fonte única, padrão da Fase A)",
+   /const \{ operador \} = ctx;/.test(screen));
 ok("o toggle \"Entrar automaticamente\" só liga quando `operador`",
    /<Toggle on=\{!!ag\.entradaAuto && operador\}/.test(screen));
 ok("o clique do toggle é guardado por `operador` (não dispara fora do Operador)",
