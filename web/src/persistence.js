@@ -1159,8 +1159,15 @@ export const auth = {
     if (r && r.user) _deviceScope(r.user.id);
     return r;
   },
-  async oauth({ provider, idToken } = {}) {
+  // qa/audit-2026-08-08: `name` e `authorizationCode` chegavam de App.jsx mas
+  // eram descartados aqui antes de montar `body` — a Apple só manda o nome no
+  // 1º consentimento (LOGIN-SOCIAL.md D1) e o authorizationCode é o que
+  // habilita o revoke na exclusão de conta (D7); sem os dois, o servidor
+  // nunca recebia nenhum dos dois, silenciosamente, desde a FASE 4.
+  async oauth({ provider, idToken, name, authorizationCode } = {}) {
     const body = { provider, idToken };
+    if (name) body.name = name;
+    if (authorizationCode) body.authorizationCode = authorizationCode;
     const seed = _seedBody(); if (seed) body.seed = seed;
     const r = await api.authOAuth(body);
     sync.saveToken(r.token); if (r.state) sync.cacheSet(r.state);
