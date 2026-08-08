@@ -110,11 +110,18 @@ ok("o FAB do pet mostra o Boris INTEIRO e sem bolha, com alvo de toque de 54px",
      const alvo = /width: "54px", height: "54px"/.test(fab);
      return semEmoji && temBoris && semBolha && semRecorte && alvo;
    })());
-// Mesma decisão no título do app: o cabeçalho troca o símbolo estático pelo
-// Bóris inteiro, dimensionado pela ALTURA do espaço reservado (42px ⇒ 31px de
-// largura, proporção 490×655 do Brand Book preservada).
-ok("o título do app usa o Boris inteiro em vez do símbolo estático",
-   /<Boris size=\{31\} reduced \/>/.test(app));
+// O cabeçalho passou por três formas em 08/08/2026: símbolo estático →
+// Bóris inteiro → SEM ÍCONE, com o nome maior no lugar. Quem carrega a marca
+// ali é o wordmark. Este guardião tranca a forma final: nenhum <Boris> no
+// Topbar (o único da tela principal é o do FAB) e o nome em 27px.
+ok("o título do app não tem ícone — a marca é o nome, maior",
+   (() => {
+     const m = app.match(/function Topbar\([\s\S]*?\n\}\n/);
+     if (!m) return false;
+     const topbar = m[0];
+     return !/<Boris\b/.test(topbar) && !/<LogoMark\b/.test(topbar)
+       && /fontSize: "27px"[^}]*\}\}>Boris<span style=\{PLUS_STYLE\}>\+<\/span>/.test(topbar);
+   })());
 
 // ---------------------------------------------------------- Boris.jsx (F1)
 ok("Boris.jsx importa o PNG como asset do Vite (nada de data-URI embutido)",

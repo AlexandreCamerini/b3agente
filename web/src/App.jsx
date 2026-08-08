@@ -665,18 +665,16 @@ function Topbar({ patr, dia, caixa, name, onProfile, modeChip }) {
   const arrow = up ? "▲" : "▼";
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "10px 16px", borderBottom: `1px solid ${T.borderSubtle}`, background: T.bgPanel, flex: "none" }}>
+      {/* Decisão do Alex (2026-08-08): o cabeçalho fica SEM ícone — nem o Bóris
+          nem o símbolo estático. Quem carrega a marca aqui é o nome, e é ele
+          que cresce: 18px → 27px. A troca é direta, os ~42px que o ícone e o
+          gap ocupavam viram espaço do wordmark, e a barra não fica mais alta.
+          O Bóris segue presente onde tem função: animado no FAB (o assistente)
+          e grande na tela de login. */}
       <div style={{ display: "flex", alignItems: "center", gap: "11px", marginRight: "auto", minWidth: 0 }}>
-        {/* Decisão do Alex (2026-08-08): no título do app o ícone é o BÓRIS
-            INTEIRO, não o símbolo estático. A figura tem proporção 490×655
-            (≈3:4, a mesma que o Brand Book manda preservar), então o que cabe
-            no espaço reservado é a ALTURA: 42px de altura ⇒ 31px de largura.
-            `reduced` desliga piscada e microanimações ociosas — a marca no
-            cabeçalho fica presente sem virar movimento permanente atrás do
-            conteúdo (e sem um segundo laço de animação junto com o do FAB). */}
-        <div style={{ flex: "none", lineHeight: 0 }}><Boris size={31} reduced /></div>
         <div style={{ minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: "7px", minWidth: 0 }}>
-            <div style={{ fontFamily: DISPLAY, fontWeight: 600, fontSize: "18px", lineHeight: 1.05, letterSpacing: "-0.01em" }}>Boris<span style={PLUS_STYLE}>+</span></div>
+            <div style={{ fontFamily: DISPLAY, fontWeight: 600, fontSize: "27px", lineHeight: 1.0, letterSpacing: "-0.015em" }}>Boris<span style={PLUS_STYLE}>+</span></div>
           </div>
           {/* qa/mock v2 (racionalização): o badge de modo SAIU de ao lado do
               wordmark (apertado contra o patrimônio) e virou uma LINHA de modo
@@ -2470,7 +2468,12 @@ function PetSheet({ onClose, didatica, tela, snapshot }) {
         style={{ width: "100%", maxHeight: "82vh", overflowY: "auto", background: T.bgPanel, borderRadius: "18px 18px 0 0", padding: "16px 16px 22px", boxSizing: "border-box" }}>
         <div aria-hidden style={{ width: "44px", height: "4px", borderRadius: "999px", background: T.borderSubtle, margin: "0 auto 12px" }} />
         <div style={{ display: "flex", alignItems: "center", gap: "14px", marginBottom: "12px" }}>
-          <Boris ref={borisRef} size={72} />
+          {/* `flex: none` não é enfeite: o Boris desenha a cena em posição
+              ABSOLUTA dentro da própria raiz, então quando o flex encolhe essa
+              raiz (aqui ia de 72px para 42px, espremida pelo texto ao lado) a
+              coruja NÃO acompanha — ela transborda e cai por cima do título.
+              Mesmo cuidado do FAB e da tela de login. */}
+          <div style={{ flex: "none", lineHeight: 0 }}><Boris ref={borisRef} size={72} /></div>
           <div>
             <div style={{ fontSize: "16px", fontWeight: 800, color: T.textPrimary }}>Converse com o Boris</div>
             <div style={{ fontSize: "11.5px", color: T.textFaint, marginTop: "2px" }}>Ele já sabe o que esta tela mostra — sem custo pra perguntar o óbvio, e sem ordem de compra.</div>
