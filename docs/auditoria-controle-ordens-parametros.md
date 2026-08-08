@@ -121,9 +121,20 @@ com clareza sobre qual depende de qual.**
   correto ele existir e ficar sem efeito enquanto `appMode !== "operador"`
   (é exatamente a trava da Fase A funcionando).
 
-## Próximo passo
+## Status (atualizado 2026-08-07)
 
-Itens 1 e 2 são pequenos, mecânicos, e resolvem o sintoma relatado agora —
-proponho fazer os dois já. Itens 3-5 são maiores (tela nova, decisão de
-nomenclatura, refactor) e merecem aprovação separada antes de eu montar
-código. Confirma o escopo?
+- **Item 1** (link visível) — feito, F10-20260807-07.
+- **Item 2** (`title` não é mais a única explicação) — feito, F10-20260807-07.
+- **Item 3** (resumo dos interruptores no topo) — feito, F10-20260807-08: linha
+  "Modo do app: Estudo/Operador" SEMPRE visível, antes de qualquer controle,
+  com link "Trocar →".
+- **Item 4** (colisão de nome) — resolvido pelo item 3, sem renomear nada: a
+  linha deixa a distinção explícita ("Modo do app" ≠ o nome da tela).
+- **Item 5** (fonte única de `operador`) — PARCIAL: `ctx.operador` criado e
+  `AgenteScreen` migrada. Os outros 9+ lugares do arquivo que ainda
+  redevivam `appMode === "operador"` localmente continuam como estavam —
+  escopo maior, não migrado nesta rodada.
+
+Bug pego na verificação ao vivo (não chegou a subir): a primeira versão de
+`ctx.operador` não guardava `data` contra `null` — quebrava a tela inteira
+no boot, antes do primeiro `getState` resolver. Corrigido antes do commit.
