@@ -40,9 +40,13 @@ ok("falarNativo/falarWeb preservam a assinatura (texto, {onStart, onEnd}) — ne
    /function falarNativo\(texto, \{ onStart, onEnd \} = \{\}\)/.test(vozSrc)
    && /function falarWeb\(texto, \{ onStart, onEnd \} = \{\}\)/.test(vozSrc));
 
-ok("os DOIS call sites (PetSheet.ouvir / BorisChat.enviarAgora) continuam usando falarTexto/calarVoz — sem novo caminho de voz",
-   /const ok = falarTexto\(\(\(r && r\.fala\) \|\| \[\]\)\.join\(" "\)/.test(app)
-   && /const ok = falarTexto \? falarTexto\(resp\.texto, \{/.test(borisChat));
+// Fase 1 (2026-08-08): PetSheet.ouvir (o botão sobre o resumo) saiu junto com
+// o resumo — BorisChat.enviarAgora é o ÚNICO call site de voz que resta,
+// mas continua sem caminho novo (mesma falarTexto/calarVoz de sempre).
+ok("App.jsx NÃO chama mais falarTexto sozinho fora do BorisChat (o handler `ouvir` do resumo saiu)",
+   !/const ouvir = \(\) => \{/.test(app));
+ok("BorisChat.enviarAgora continua usando falarTexto/calarVoz — sem novo caminho de voz",
+   /const ok = falarTexto \? falarTexto\(resp\.texto, \{/.test(borisChat));
 
 if (fails) { console.error(`\n${fails} falha(s)`); process.exit(1); }
 console.log("\ntodos os testes passaram");

@@ -4,14 +4,19 @@
 //
 //  1. O PET NUNCA ABRE SOZINHO. O único one-shot proativo do app é o do
 //     gatilho; um segundo espontâneo viraria ruído e queimaria a confiança.
-//  2. EM QUALQUER ABA DO ESTUDO (F4). Operador não tem pet (mesmo isolamento
-//     da via proativa) e o FAB some sob overlays — só a restrição de aba
-//     saiu; as outras duas condições continuam de pé.
-//  3. O QUE O PET FALA É O QUE EXIBE — a lista `fala` do backend, sem
-//     composição local (lei do vocabulário).
-//  4. VOZ É CONFORTO, NUNCA DEPENDÊNCIA: sem speechSynthesis o botão explica
-//     e o texto continua; fechar a folha CALA a voz (nada de coruja
-//     fantasma falando atrás de outra tela).
+//  2. EM QUALQUER ABA, EM QUALQUER MODO DE TRABALHO (Fase 1 da auditoria de
+//     UX, 2026-08-08: o Boris passou a existir em Modo Operador também — o
+//     vocabulário já variava por modo em assistente.py/_pet_resumo_*, só
+//     faltava o FAB aparecer lá). O FAB continua sumindo sob overlays.
+//  3. A FOLHA ABRE DIRETO NO CHAT — o resumo automático (parágrafo lido
+//     antes de qualquer interação) saiu; no lugar, `r.perguntas` (vindo do
+//     MESMO /api/pet/resumo, campo novo) vira sugestões clicáveis no estado
+//     vazio da conversa (ver test_boris_chat.mjs para o contrato dentro do
+//     BorisChat).
+//  4. VOZ É CONFORTO, NUNCA DEPENDÊNCIA: fechar a folha CALA a voz (nada de
+//     coruja fantasma falando atrás de outra tela) — a leitura em voz alta
+//     agora é por RESPOSTA do chat (mecanismo já existente em BorisChat),
+//     não mais um botão dedicado sobre o resumo.
 //  5. A pergunta LLM do pet vai com `tela: "pet:<aba ativa>"` (allowlist no
 //     backend) e o snapshot é o view-model que a tela já usa — dado, não
 //     instrução. F4: as 7 abas do plano têm snapshot próprio.
@@ -33,22 +38,23 @@ let fails = 0;
 const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if (!cond) fails++; };
 
 // ------------------------------------------------------------------ o FAB
-ok("F4: o pet não depende mais da aba — só appMode/didática/overlay livre",
-   /appMode !== "operador" && didatica && didatica\.ligada && ctx\.overlayLivre && \(\s*\n\s*<PetFab/.test(app));
+ok("Fase 1: o FAB NÃO exclui mais o Modo Operador — só didática/overlay livre",
+   /didatica && didatica\.ligada && ctx\.overlayLivre && \(\s*\n\s*<PetFab/.test(app));
+ok("o gate do FAB não checa mais `appMode` nenhum",
+   !/appMode !== "operador" && didatica && didatica\.ligada && ctx\.overlayLivre/.test(app));
 ok("F4: a condição do FAB NÃO checa mais `tab === \"mercado\"`",
-   !/tab === "mercado" && appMode !== "operador" && didatica && didatica\.ligada/.test(app));
+   !/tab === "mercado" && didatica && didatica\.ligada && ctx\.overlayLivre/.test(app));
 ok("o pet NUNCA abre sozinho (só o onOpen do FAB liga petOpen)",
    (app.match(/setPetOpen\(true\)/g) || []).length === 1);
 ok("a folha do pet entra no portão de overlays (proativa adia sob o pet)",
    /overlayLivre: !tourOpen && !aboutOpen && !welcomeOpen && !welcomeAuthOpen && !conceitoAberto && !petOpen/.test(app));
 
 // ------------------------------------------------------------- o conteúdo
-ok("o resumo vem do backend PARA A TELA ATIVA e o pet exibe a MESMA lista `fala` que leria",
+ok("Fase 1: a folha busca o resumo da TELA ATIVA (perguntas + itens), sem mais renderizar `fala` como texto",
    /store\.petResumo\(telaAtual\)/.test(app)
-   && /\(r\.fala \|\| \[\]\)\.map\(/.test(app)
-   && /falarTexto\(\(\(r && r\.fala\) \|\| \[\]\)\.join\(" "\)/.test(app));
+   && !/\(r\.fala \|\| \[\]\)\.map\(/.test(app));
 ok("falha de rede degrada com honestidade (os cards continuam valendo)",
-   /Não consegui montar o resumo agora\. Os cards continuam valendo\./.test(app));
+   /Não consegui preparar o contexto desta tela agora\. Os cards continuam valendo\./.test(app));
 ok("camada desligada tem mensagem própria (não é erro)",
    /r\.ligada === false/.test(app));
 
@@ -63,8 +69,8 @@ ok("vozBoris: web usa pt-BR e escolhe voz do sistema quando houver",
 ok("fechar a folha CALA a voz (scrim e desmontagem)",
    /onClick=\{\(\) => \{ calarVoz\(\); onClose\(\); \}\}/.test(app)
    && /return \(\) => \{ alive = false; calarVoz\(\); \};/.test(app));
-ok("sem speechSynthesis o botão vira aviso e o TEXTO segue inteiro",
-   /Voz indisponível neste aparelho — o texto acima continua valendo/.test(app));
+ok("Fase 1: a folha não tem mais um botão dedicado de 'ouvir' sobre o resumo (voz agora é por resposta do chat)",
+   !/Ouvir esta explicação/.test(app) && !/Voz indisponível neste aparelho/.test(app));
 ok("vozBoris: Safari — a utterance fica referenciada (GC não mata a fala no meio)",
    /const _vozViva = \{ u: null \};/.test(vozSrc) && /_vozViva\.u = u;/.test(vozSrc));
 
@@ -78,9 +84,11 @@ ok("a folha do pet usa <Boris> por ref (não mais o emoji)",
    /<Boris ref=\{borisRef\} size=\{72\} \/>/.test(app));
 ok("a coruja emoji (Coruja) NÃO existe mais como componente em App.jsx",
    !/function Coruja\(/.test(app) && !/CORUJA_BOCAS/.test(app));
-ok("falarTexto dirige a boca do Boris: talk() ao começar, stop() ao terminar",
-   /onStart: \(\) => \{ setFalando\(true\); borisRef\.current\?\.talk\(\); \}/.test(app)
-   && /onEnd: \(\) => \{ setFalando\(false\); borisRef\.current\?\.stop\(\); \}/.test(app));
+// Fase 1: o `ouvir`/`falando` dedicado ao resumo saiu de App.jsx junto com o
+// parágrafo que ele lia — falarTexto→talk()/stop() agora só existe dentro de
+// BorisChat.jsx (por RESPOSTA do chat), já travado em test_boris_chat.mjs.
+ok("App.jsx NÃO tem mais o handler `ouvir` do resumo (voz virou responsabilidade só do BorisChat)",
+   !/const ouvir = \(\) => \{/.test(app));
 ok("o FAB do pet usa <Boris> recortado, não mais o emoji solto",
    /function PetFab\(/.test(app)
    && (() => { const m = app.match(/function PetFab\([\s\S]*?\n\}\n/); return !!m && /<Boris size=\{54\}/.test(m[0]) && !/<span aria-hidden>🦉<\/span>/.test(m[0]); })());
@@ -103,13 +111,13 @@ ok("nenhum arquivo do pet (App.jsx, Boris.jsx) tem string literal data:image (o 
 ok("F4: a pergunta do pet interpola a TELA ATIVA (pet:<aba>), não mais fixa em pet:mercado",
    /tela=\{"pet:" \+ telaAtual\}/.test(app));
 ok("F4: pet:mercado NÃO mudou de formato — snapshot continua `{ itens: (r.itens || []) }`",
-   /dados=\{telaAtual === "mercado" \? \{ itens: \(r\.itens \|\| \[\]\) \} : \(snapshot \|\| \{\}\)\}/.test(app));
-ok("a LLM continua opt-in atrás do resumo grátis (AssistenteBox/BorisChat, não chamada direta)",
-   // F5: o gate `didatica.assistente` agora escolhe ENTRE o chat completo
-   // (histórico) e a pergunta única — as duas formas continuam atrás do
-   // mesmo opt-in, nenhuma delas dispara sozinha.
-   /didatica && didatica\.assistente && \(\s*\n\s*chatAberto \? \(/.test(app)
-   && /<AssistenteBox tela=\{"pet:" \+ telaAtual\}/.test(app));
+   /snapshot=\{telaAtual === "mercado" \? \{ itens: \(r\.itens \|\| \[\]\) \} : \(snapshot \|\| \{\}\)\}/.test(app));
+ok("Fase 1: `perguntas` do resumo vira `sugestoes` do chat (chips contextuais no lugar do resumo)",
+   /sugestoes=\{r\.perguntas \|\| \[\]\}/.test(app));
+ok("a LLM continua opt-in atrás da didática grátis (BorisChat, não chamada direta) — só o chat existe agora, sem AssistenteBox nem toggle de resumo",
+   /didatica && didatica\.assistente \? \(/.test(app)
+   && /<BorisChat key=\{telaAtual\}/.test(app)
+   && !/chatAberto/.test(app));
 
 // ---------------------------------------------------- F4: presença nas 7 abas
 // A folha do pet passa a existir em toda aba; cada uma tem um `tela: "pet:<id>"`
@@ -134,9 +142,8 @@ for (const aba of ABAS_PET) {
 ok("petResumo existe nos DOIS stores, agora recebendo `tela`",
    /petResumo: \(tela\) => api\.petResumo\(undefined, tela\)/.test(persistence)
    && /async petResumo\(tela\) \{ ensure\(\); return api\.petResumo\(doc\.config\.appMode \|\| "estudo", tela\); \}/.test(persistence));
-ok("api.petResumo chama GET /api/pet/resumo com o modo E a tela",
-   /petResumo: \(modo, tela\) => req\("GET", "\/api\/pet\/resumo\?modo="/.test(apiSrc)
-   && /&tela=" \+ encodeURIComponent\(tela \|\| "mercado"\)/.test(apiSrc));
+ok("Fase 1: api.petResumo manda `tela` sempre, mas `modo` SÓ quando fornecido (web omite de propósito e deixa o servidor decidir pela config do escopo — mesmo contrato de `timing`)",
+   /petResumo: \(modo, tela\) => req\("GET", "\/api\/pet\/resumo\?tela=" \+ encodeURIComponent\(tela \|\| "mercado"\) \+ \(modo \? "&modo=" \+ encodeURIComponent\(modo\) : ""\)/.test(apiSrc));
 
 if (fails) { console.error(`\n${fails} falha(s)`); process.exit(1); }
 console.log("\ntodos os testes passaram");

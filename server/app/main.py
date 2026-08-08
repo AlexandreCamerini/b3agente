@@ -435,7 +435,7 @@ async def admin_summary(user: dict = Depends(require_user)):
 
 # FASE 8B (diagnóstico): carimbo de build do BACKEND — confirma qual código o
 # Railway está rodando (o front tem o dele em web/src/version.js).
-SERVER_BUILD_ID = "F10-20260808-02"  # F3: alvo dinâmico (extensão por ATR, freio 2× + R:R 1,5:1).
+SERVER_BUILD_ID = "F10-20260808-03"  # F3: alvo dinâmico (extensão por ATR, freio 2× + R:R 1,5:1).
 # Normalmente sincronizado pelo entregar.sh a partir de web/src/version.js; num deploy
 # SÓ de backend (sem rebuild do front) bumpamos aqui para /api/health rastrear o servidor.
 
@@ -1341,20 +1341,33 @@ def _pet_resumo_mercado(scope: Optional[str], radar_stored: Optional[dict],
     else:
         fala.append("O Radar ainda não tem planos armazenados para os ativos "
                     "que você acompanha. Assim que houver, eu explico cada um.")
-    return {"itens": itens, "fala": fala}
+    if operador:
+        perguntas = ["Qual ativo da lista está mais perto do gatilho?",
+                     "Por que a leitura tem até 15 minutos de atraso?"]
+        if itens:
+            perguntas.insert(0, f"O que fazer com {itens[0]['ticker']} nesse estado?")
+    else:
+        perguntas = ["O que esse estado de timing quer dizer?",
+                     "Por que a leitura muda a cada 15 minutos?"]
+        if itens:
+            perguntas.insert(0, f"Por que {itens[0]['ticker']} está em \"{itens[0]['estado']}\"?")
+    return {"itens": itens, "fala": fala, "perguntas": perguntas[:3]}
 
 
-def _pet_resumo_carteira(scope: Optional[str], intra_stored: Optional[dict]) -> dict:
+def _pet_resumo_carteira(scope: Optional[str], intra_stored: Optional[dict], operador: bool) -> dict:
     """`pet:carteira` — posições, preço médio, caixa e resultado aberto. O
     preço de marcação é o ÚLTIMO FECHAMENTO DE 15 MIN armazenado (mesma fonte
     do intraday do pet:mercado) — nunca um fetch ao vivo nesta rota."""
     from . import intraday as intraday_mod
     positions = [p for p in (store.get(_conn, "positions", user_id=scope) or []) if isinstance(p, dict)]
     cash = float(store.get(_conn, "cash", user_id=scope) or 0)
+    perguntas = (["Qual posição está mais perto do stop?", "Por que 'aberto' não é o mesmo que realizado?"]
+                 if operador else
+                 ["O que é preço médio?", "Por que meu resultado aberto muda sem eu vender?"])
     fala = [_PET_NAO_FAZ]
     if not positions:
         fala.append(f"Sua carteira simulada ainda não tem posições. Caixa disponível: R$ {cash:.2f}.")
-        return {"fala": fala, "posicoes": 0, "caixa": cash}
+        return {"fala": fala, "posicoes": 0, "caixa": cash, "perguntas": perguntas}
     linhas, pnl_total, com_preco = [], 0.0, 0
     for p in positions[:12]:
         t = p.get("t"); qty = float(p.get("qty") or 0); avg = float(p.get("avg") or 0)
@@ -1373,10 +1386,10 @@ def _pet_resumo_carteira(scope: Optional[str], intra_stored: Optional[dict]) -> 
         sinal = "+" if pnl_total >= 0 else "-"
         fala.append(f"Resultado aberto das posições com cotação disponível: {sinal}R$ {abs(pnl_total):.2f}.")
     fala.append("Os preços usam o fechamento da barra de 15 minutos — nunca são o agora.")
-    return {"fala": fala, "posicoes": len(positions), "caixa": cash}
+    return {"fala": fala, "posicoes": len(positions), "caixa": cash, "perguntas": perguntas}
 
 
-def _pet_resumo_evolucao(scope: Optional[str], intra_stored: Optional[dict]) -> dict:
+def _pet_resumo_evolucao(scope: Optional[str], intra_stored: Optional[dict], operador: bool) -> dict:
     """`pet:evolucao` — patrimônio agora e retorno acumulado desde o orçamento
     inicial. Mesma fórmula de `finance.js: equityCurve` (base = orçamento
     inicial; sem ele, o 1º snapshot). Sem quotes ao vivo, "resultado do dia"
@@ -1406,19 +1419,25 @@ def _pet_resumo_evolucao(scope: Optional[str], intra_stored: Optional[dict]) -> 
     else:
         fala.append("Ainda não há orçamento inicial nem snapshots suficientes para traçar a curva de patrimônio.")
     fala.append("O valor das posições usa o fechamento da barra de 15 minutos — nunca é o agora.")
-    return {"fala": fala, "patrimonio": patrimonio, "retornoAcumuladoPct": ret_acum}
+    perguntas = (["O que está puxando o resultado desde o início?", "Como leio esse drawdown?"]
+                 if operador else
+                 ["O que é retorno acumulado?", "Por que meu patrimônio pode cair sem eu operar?"])
+    return {"fala": fala, "patrimonio": patrimonio, "retornoAcumuladoPct": ret_acum, "perguntas": perguntas}
 
 
-def _pet_resumo_radar(p: str) -> dict:
+def _pet_resumo_radar(p: str, operador: bool) -> dict:
     """`pet:radar` — os candidatos da varredura DO DIA já armazenada
     (`radar_daily.get_stored`), a MESMA fonte que a aba usa quando não força
     uma varredura nova. Nenhum scan é disparado aqui."""
     radar_stored = radar_daily.get_stored(_conn, p)
     results = [r for r in ((radar_stored or {}).get("results") or []) if isinstance(r, dict)]
+    perguntas = (["Qual setup tem mais confluência agora?", "O que essa varredura NÃO garante?"]
+                 if operador else
+                 ["O que é confluência?", "Por que um ativo aparece no topo da varredura?"])
     fala = [_PET_NAO_FAZ]
     if not results:
         fala.append("O Radar ainda não tem uma varredura do dia armazenada. Assim que houver, eu explico os destaques.")
-        return {"fala": fala, "candidatos": 0}
+        return {"fala": fala, "candidatos": 0, "perguntas": perguntas}
     top = sorted(results, key=lambda r: -(r.get("confluencia") or 0))[:8]
     fala.append(f"A varredura do dia encontrou {len(results)} ativo(s); os de maior confluência:")
     for r in top:
@@ -1427,10 +1446,10 @@ def _pet_resumo_radar(p: str) -> dict:
         setup = r.get("melhorSetup") or "sem setup nomeado"
         fala.append(f"{r.get('ticker')}: confluência {conf_txt} · {setup}")
     fala.append("Confluência é quantas famílias de indicadores concordam — não é garantia de resultado.")
-    return {"fala": fala, "candidatos": len(top)}
+    return {"fala": fala, "candidatos": len(top), "perguntas": perguntas}
 
 
-def _pet_resumo_agente(scope: Optional[str]) -> dict:
+def _pet_resumo_agente(scope: Optional[str], operador: bool) -> dict:
     """`pet:agente` — estado do Operador, regras ativas e as últimas decisões
     do Diário (`agentLog`, o mesmo que alimenta /api/agent/log)."""
     ag = store.get(_conn, "agent", user_id=scope) or {}
@@ -1453,16 +1472,22 @@ def _pet_resumo_agente(scope: Optional[str]) -> dict:
         fala += [f"· {e.get('text') or e.get('kind') or 'evento'}" for e in reversed(ultimas)]
     else:
         fala.append("Ainda não há decisões registradas no Diário do agente.")
-    return {"fala": fala, "ativo": ativo, "modo": modo_ag}
+    perguntas = (["Por que essa regra está desligada?", "O que motivou a última decisão do Diário?"]
+                 if operador else
+                 ["O que muda entre 'sinalizar' e 'executar'?", "Por que o Operador só age com o app aberto às vezes?"])
+    return {"fala": fala, "ativo": ativo, "modo": modo_ag, "perguntas": perguntas}
 
 
-def _pet_resumo_historico(scope: Optional[str]) -> dict:
+def _pet_resumo_historico(scope: Optional[str], operador: bool) -> dict:
     """`pet:historico` — operações fechadas e o agregado de resultado."""
     hist = [h for h in (store.get(_conn, "history", user_id=scope) or []) if isinstance(h, dict)]
+    perguntas = (["Qual foi minha operação mais recente?", "Como está minha taxa de acerto?"]
+                 if operador else
+                 ["O que esse resultado agregado me ensina?", "Uma operação fechada positiva sempre foi uma decisão boa?"])
     fala = [_PET_NAO_FAZ]
     if not hist:
         fala.append("Ainda não há operações no seu histórico simulado.")
-        return {"fala": fala, "operacoes": 0}
+        return {"fala": fala, "operacoes": 0, "perguntas": perguntas}
     fechadas = [h for h in hist if isinstance(h.get("pnl"), (int, float))]
     fala.append(f"Seu histórico simulado tem {len(hist)} operação(ões) registradas.")
     if fechadas:
@@ -1472,14 +1497,20 @@ def _pet_resumo_historico(scope: Optional[str]) -> dict:
         fala.append(f"Das {len(fechadas)} com resultado calculado, {ganhas} fecharam positivas; agregado {sinal}R$ {abs(pnl_total):.2f}.")
     ultimo = hist[-1]
     fala.append(f"Mais recente: {ultimo.get('type')} de {ultimo.get('t')} em {ultimo.get('date')}.")
-    return {"fala": fala, "operacoes": len(hist)}
+    return {"fala": fala, "operacoes": len(hist), "perguntas": perguntas}
 
 
-def _pet_resumo_perfil(scope: Optional[str], cfg: dict) -> dict:
+def _pet_resumo_perfil(scope: Optional[str], cfg: dict, operador: bool) -> dict:
     """`pet:perfil` — modo, orçamento, risco e notificações. A tela com menos
-    "o que explicar"; resumo deliberadamente mais simples que as demais."""
+    "o que explicar"; resumo deliberadamente mais simples que as demais.
+
+    `operador` (não `cfg.get("appMode")` sozinho) decide o texto E as
+    perguntas — mesma regra das demais telas: o app nativo manda seu
+    `appMode` LOCAL via query `modo` (persistence.js), que pode estar à
+    frente do que o servidor tem gravado; usar só `cfg` aqui mostraria um
+    modo desatualizado justamente na tela que fala sobre o modo."""
     prof = store.get(_conn, "profile", user_id=scope) or {}
-    modo_app = cfg.get("appMode") or "estudo"
+    modo_app = "operador" if operador else "estudo"
     budget = cfg.get("initialBudget")
     risco = prof.get("risco")
     notif_on = bool((cfg.get("notif") or {}).get("enabled"))
@@ -1489,7 +1520,10 @@ def _pet_resumo_perfil(scope: Optional[str], cfg: dict) -> dict:
     if risco:
         fala.append(f"Seu perfil de risco cadastrado é \"{risco}\".")
     fala.append("Notificações estão " + ("ativas" if notif_on else "desativadas") + ".")
-    return {"fala": fala, "modo": modo_app, "notificacoesAtivas": notif_on}
+    perguntas = (["O que trava se eu ligar entrada automática?", "Onde ajusto o % de risco por trade?"]
+                 if operador else
+                 ["O que muda entre Modo Estudo e Modo Operador?", "Por que meu perfil de risco importa?"])
+    return {"fala": fala, "modo": modo_app, "notificacoesAtivas": notif_on, "perguntas": perguntas}
 
 
 @app.get("/api/pet/resumo")
@@ -1512,19 +1546,19 @@ async def get_pet_resumo(modo: Optional[str] = None, tela: Optional[str] = None,
         extra = _pet_resumo_mercado(scope, radar_stored, intra_stored, operador)
     elif aba == "carteira":
         intra_stored = await asyncio.to_thread(intraday_mod.get_stored, _conn)
-        extra = _pet_resumo_carteira(scope, intra_stored)
+        extra = _pet_resumo_carteira(scope, intra_stored, operador)
     elif aba == "evolucao":
         intra_stored = await asyncio.to_thread(intraday_mod.get_stored, _conn)
-        extra = _pet_resumo_evolucao(scope, intra_stored)
+        extra = _pet_resumo_evolucao(scope, intra_stored, operador)
     elif aba == "radar":
         p = candles_mod.normalize_period(None)
-        extra = _pet_resumo_radar(p)
+        extra = _pet_resumo_radar(p, operador)
     elif aba == "agente":
-        extra = _pet_resumo_agente(scope)
+        extra = _pet_resumo_agente(scope, operador)
     elif aba == "historico":
-        extra = _pet_resumo_historico(scope)
+        extra = _pet_resumo_historico(scope, operador)
     else:  # "perfil"
-        extra = _pet_resumo_perfil(scope, cfg)
+        extra = _pet_resumo_perfil(scope, cfg, operador)
     return {"ligada": True, "modo": voc, "tela": aba, **extra}
 
 

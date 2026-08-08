@@ -58,7 +58,7 @@ function useSTT() {
   return { suportado: !!SR, ouvindo, iniciar, parar };
 }
 
-export default function BorisChat({ tela, snapshot, borisRef, falarTexto, calarVoz, onFechar }) {
+export default function BorisChat({ tela, snapshot, sugestoes, borisRef, falarTexto, calarVoz }) {
   const { mensagens, enviar, pensando, erro } = useBorisBrain({ tela, snapshot });
   const [q, setQ] = useState("");
   const stt = useSTT();
@@ -97,20 +97,23 @@ export default function BorisChat({ tela, snapshot, borisRef, falarTexto, calarV
 
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
-        <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.08em", color: T.textFaint }}>CONVERSA COM O BORIS</div>
-        {onFechar && (
-          <button onClick={onFechar} aria-label="Voltar ao resumo rápido"
-            style={{ minHeight: "30px", padding: "0 10px", borderRadius: "999px", border: "none", background: "transparent", color: T.textMuted, fontSize: "11.5px", fontWeight: 700 }}>
-            ‹ resumo rápido
-          </button>
-        )}
-      </div>
       <div ref={listRef} style={{ maxHeight: "260px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "8px", padding: "2px", marginBottom: "10px" }}>
         {mensagens.length === 0 && (
-          <div style={{ fontSize: "12.5px", color: T.textFaint, padding: "6px 2px" }}>
-            Pergunte qualquer coisa sobre esta tela — o Boris lembra o que vocês já conversaram aqui.
-          </div>
+          sugestoes && sugestoes.length > 0 ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px", padding: "2px 0" }}>
+              <div style={{ fontSize: "12.5px", color: T.textFaint }}>Pergunte ao Boris sobre esta tela:</div>
+              {sugestoes.map((p, i) => (
+                <button key={i} onClick={() => enviarAgora(p)} disabled={pensando}
+                  style={{ textAlign: "left", padding: "9px 12px", borderRadius: "12px", border: `1px solid ${T.borderSubtle}`, background: T.bgBase, color: T.textSecondary, fontSize: "12.5px", fontWeight: 600 }}>
+                  {p}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div style={{ fontSize: "12.5px", color: T.textFaint, padding: "6px 2px" }}>
+              Pergunte qualquer coisa sobre esta tela — o Boris lembra o que vocês já conversaram aqui.
+            </div>
+          )
         )}
         {mensagens.map((m, i) => (
           <div key={i} style={{
@@ -143,7 +146,7 @@ export default function BorisChat({ tela, snapshot, borisRef, falarTexto, calarV
       {erro && (
         <div style={{ marginBottom: "8px", fontSize: "12px", color: T.textSecondary, lineHeight: 1.5 }}>
           {erro}
-          <div style={{ color: T.textFaint, fontSize: "11px", marginTop: "4px" }}>O resumo rápido continua valendo — ele não depende da IA.</div>
+          <div style={{ color: T.textFaint, fontSize: "11px", marginTop: "4px" }}>Os cards da tela continuam valendo — eles não dependem da IA.</div>
         </div>
       )}
       <div style={{ display: "flex", gap: "8px", alignItems: "flex-end" }}>

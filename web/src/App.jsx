@@ -2347,25 +2347,27 @@ function PetFab({ onOpen }) {
 // livre (LLM, exige conta, teto do assistente). O botão "ouvir" lê o resumo
 // com a voz do sistema; sem voz no aparelho, o texto continua inteiro — a
 // voz é conforto, nunca dependência.
+// qa/audit-2026-08-08 (Fase 1): o resumo automático (parágrafo determinístico
+// lido antes de qualquer interação) saiu como superfície principal — o Alex
+// achou que "não fazia muito sentido" abrir a folha e primeiro ter que ler
+// (ou mandar ler em voz alta) um texto antes de poder perguntar algo. No
+// lugar: a folha abre DIRETO no chat, com 2-3 perguntas sugeridas (vindas do
+// MESMO `/api/pet/resumo`, que segue existindo — só o campo `perguntas` é
+// novo) como chips clicáveis no estado vazio da conversa. `fala`/`itens`
+// continuam chegando (mercado ainda usa `itens` como snapshot da LLM) — só
+// pararam de ser TEXTO renderizado. Voz: como não há mais um parágrafo fixo
+// para "ouvir", a leitura em voz alta passa a ser por RESPOSTA do chat (já
+// existia em BorisChat via falarTexto) — nenhum mecanismo de voz novo.
 function PetSheet({ onClose, didatica, tela, snapshot }) {
   // F4: qual aba o pet está explicando — "mercado" se ninguém disser (mesmo
   // comportamento de antes, quando só existia essa tela).
   const telaAtual = tela || "mercado";
   const [r, setR] = useState(null);
   const [erro, setErro] = useState(false);
-  const [falando, setFalando] = useState(false);
-  // F5: chat completo (histórico) é uma ABA dentro da mesma folha — não
-  // substitui `AssistenteBox` (pergunta única, sem histórico), que continua
-  // servindo o `ConceitoSheet` sem mudança nenhuma. Fecha junto com a folha
-  // (não persiste entre aberturas — cada visita começa do resumo rápido).
-  const [chatAberto, setChatAberto] = useState(false);
   const borisRef = useRef(null);
   useEffect(() => {
     let alive = true;
     setR(null); setErro(false);
-    // Trocar de tela com o chat aberto misturaria histórico de UMA tela com
-    // snapshot de OUTRA — volta pro resumo rápido, que é sempre correto.
-    setChatAberto(false);
     store.petResumo(telaAtual)
       .then((res) => { if (alive) setR(res); })
       .catch(() => { if (alive) setErro(true); });
@@ -2373,17 +2375,6 @@ function PetSheet({ onClose, didatica, tela, snapshot }) {
     // tela é exatamente o tipo de fantasma que não pode existir.
     return () => { alive = false; calarVoz(); };
   }, [telaAtual]);
-  const temVoz = typeof window !== "undefined" && !!window.speechSynthesis;
-  const ouvir = () => {
-    if (falando) { calarVoz(); setFalando(false); borisRef.current?.stop(); return; }
-    // falarTexto continua dona da voz (GC do Safari, calar ao fechar); aqui
-    // só DIRIGIMOS a boca do Boris pelos callbacks que ela já expõe.
-    const ok = falarTexto(((r && r.fala) || []).join(" "), {
-      onStart: () => { setFalando(true); borisRef.current?.talk(); },
-      onEnd: () => { setFalando(false); borisRef.current?.stop(); },
-    });
-    if (!ok) setFalando(false);
-  };
   return (
     <div onClick={() => { calarVoz(); onClose(); }} role="dialog" aria-label="Assistente BolsIA"
       style={{ position: "fixed", inset: 0, zIndex: 86, background: T.scrim, display: "flex", alignItems: "flex-end" }}>
@@ -2393,14 +2384,14 @@ function PetSheet({ onClose, didatica, tela, snapshot }) {
         <div style={{ display: "flex", alignItems: "center", gap: "14px", marginBottom: "12px" }}>
           <Boris ref={borisRef} size={72} />
           <div>
-            <div style={{ fontSize: "16px", fontWeight: 800, color: T.textPrimary }}>BolsIA te explica esta tela</div>
-            <div style={{ fontSize: "11.5px", color: T.textFaint, marginTop: "2px" }}>Resumo com as frases do estudo — sem custo, sem ordem de compra.</div>
+            <div style={{ fontSize: "16px", fontWeight: 800, color: T.textPrimary }}>Converse com o Boris</div>
+            <div style={{ fontSize: "11.5px", color: T.textFaint, marginTop: "2px" }}>Ele já sabe o que esta tela mostra — sem custo pra perguntar o óbvio, e sem ordem de compra.</div>
           </div>
         </div>
         {!r && !erro && <div className="sk" style={{ height: "56px", width: "100%", borderRadius: "10px" }} />}
         {erro && (
           <div style={{ fontSize: "12.5px", color: T.textSecondary, lineHeight: 1.5 }}>
-            Não consegui montar o resumo agora. Os cards continuam valendo.
+            Não consegui preparar o contexto desta tela agora. Os cards continuam valendo.
           </div>
         )}
         {r && r.ligada === false && (
@@ -2409,42 +2400,21 @@ function PetSheet({ onClose, didatica, tela, snapshot }) {
           </div>
         )}
         {r && r.ligada && (
-          <>
-            {/* O que o pet fala é EXATAMENTE o que exibe — mesma lista `fala`
-                do backend, nenhuma composição local. */}
-            <div style={{ fontSize: "13px", color: T.textSecondary, lineHeight: 1.6, marginBottom: "12px" }}>
-              {(r.fala || []).map((f, i) => <p key={i} style={{ margin: "0 0 8px" }}>{f}</p>)}
+          didatica && didatica.assistente ? (
+            // F4: o formato de `pet:mercado` NÃO muda (itens vêm da própria
+            // resposta do resumo, como sempre); as outras 6 telas usam o
+            // snapshot que o App já montou a partir do MESMO view-model que
+            // a tela renderiza (ctx/data — nunca raspagem de tela).
+            <BorisChat key={telaAtual}
+              tela={"pet:" + telaAtual}
+              snapshot={telaAtual === "mercado" ? { itens: (r.itens || []) } : (snapshot || {})}
+              sugestoes={r.perguntas || []}
+              borisRef={borisRef} falarTexto={falarTexto} calarVoz={calarVoz} />
+          ) : (
+            <div style={{ fontSize: "12.5px", color: T.textSecondary, lineHeight: 1.5 }}>
+              O chat com o Boris está desativado no momento.
             </div>
-            <button onClick={ouvir} disabled={!temVoz}
-              style={{ width: "100%", minHeight: "44px", marginBottom: "10px", borderRadius: "11px", border: `1px solid ${temVoz ? T.accent : T.borderFaint}`, background: temVoz ? T.accentTint10 : "transparent", color: temVoz ? T.accent : T.textFaint, fontWeight: 800, fontSize: "13px" }}>
-              {temVoz ? (falando ? "◼ Parar" : "🔊 Ouvir esta explicação") : "Voz indisponível neste aparelho — o texto acima continua valendo"}
-            </button>
-            {/* F4: o formato de `pet:mercado` NÃO muda (itens vêm da própria
-                resposta do resumo, como sempre); as outras 6 telas usam o
-                snapshot que o App já montou a partir do MESMO view-model que
-                a tela renderiza (ctx/data — nunca raspagem de tela). */}
-            {didatica && didatica.assistente && (
-              chatAberto ? (
-                // F5: chat completo, com histórico — mesmo par tela/snapshot
-                // de `AssistenteBox` abaixo, só que agora lembrando o que já
-                // foi perguntado NESTA folha.
-                <BorisChat key={telaAtual}
-                  tela={"pet:" + telaAtual}
-                  snapshot={telaAtual === "mercado" ? { itens: (r.itens || []) } : (snapshot || {})}
-                  borisRef={borisRef} falarTexto={falarTexto} calarVoz={calarVoz}
-                  onFechar={() => setChatAberto(false)} />
-              ) : (
-                <>
-                  <button onClick={() => setChatAberto(true)}
-                    style={{ width: "100%", minHeight: "44px", marginBottom: "10px", borderRadius: "11px", border: `1px solid ${T.borderSubtle}`, background: "transparent", color: T.textSecondary, fontWeight: 700, fontSize: "12.5px" }}>
-                    💬 Conversar com o Boris (lembra o que você já perguntou)
-                  </button>
-                  <AssistenteBox tela={"pet:" + telaAtual}
-                    dados={telaAtual === "mercado" ? { itens: (r.itens || []) } : (snapshot || {})} />
-                </>
-              )
-            )}
-          </>
+          )
         )}
       </div>
     </div>
@@ -6948,11 +6918,12 @@ export default function App() {
       )}
       {aboutOpen && <AboutModal onClose={A.closeAbout} />}
       {tourOpen && <TourModal ctx={ctx} />}
-      {/* O PET: em QUALQUER aba do Estudo (F4), com a tela livre — e NUNCA abre
-          sozinho. O FAB some sob overlays para não competir com folha aberta,
-          e o modo Operador continua sem pet (mesmo isolamento da via
-          proativa) — as duas regras herdadas da v1, só a restrição de aba saiu. */}
-      {appMode !== "operador" && didatica && didatica.ligada && ctx.overlayLivre && (
+      {/* O PET: em QUALQUER aba, em QUALQUER modo de trabalho (Fase 1 da
+          auditoria de UX, 2026-08-08, reverteu a restrição a Operador — o
+          vocabulário já variava por modo em assistente.py/_pet_resumo_*;
+          faltava só deixar o FAB aparecer) — e NUNCA abre sozinho. O FAB
+          some sob overlays para não competir com folha aberta. */}
+      {didatica && didatica.ligada && ctx.overlayLivre && (
         <PetFab onOpen={abrirPet} />
       )}
       {petOpen && <PetSheet didatica={didatica} tela={petTela} snapshot={petSnapshot} onClose={() => setPetOpen(false)} />}

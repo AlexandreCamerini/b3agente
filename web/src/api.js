@@ -244,7 +244,15 @@ export const api = {
   // O PET: resumo determinístico da tela (custo zero; frases prontas do
   // servidor). F4: `tela` escolhe QUAL aba resumir — allowlist é
   // conceitos.PET_TELAS, o mesmo registro do /api/assistente.
-  petResumo: (modo, tela) => req("GET", "/api/pet/resumo?modo=" + encodeURIComponent(modo || "estudo") + "&tela=" + encodeURIComponent(tela || "mercado"), undefined, 15000),
+  // qa/audit-2026-08-08 (Fase 1): `modo` forçava "estudo" quando ausente —
+  // no WEB, `serverStore.petResumo` chama SEM modo de propósito ("pet: modo
+  // fica com o servidor"), mas isso mandava `?modo=estudo` explícito mesmo
+  // assim, e `get_pet_resumo` dá precedência ao query param sobre
+  // `cfg.appMode` — então o resumo (fala/perguntas) do web SEMPRE saía no
+  // vocabulário de Estudo, mesmo com a conta em Modo Operador. Mesmo
+  // contrato de `timing` acima: omitir o param deixa o servidor decidir
+  // pela config do escopo.
+  petResumo: (modo, tela) => req("GET", "/api/pet/resumo?tela=" + encodeURIComponent(tela || "mercado") + (modo ? "&modo=" + encodeURIComponent(modo) : ""), undefined, 15000),
   scanProgress: () => req("GET", "/api/scan/progress", undefined, 10000),        // BLOCO B1
   // F1 (timing de entrada): estado determinístico plano diário × barra 15m
   // FECHADA — O(1) no servidor, zero fetch/LLM. iOS manda ?appMode (modo é

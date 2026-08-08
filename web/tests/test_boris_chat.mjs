@@ -9,7 +9,7 @@
 //     junto — o corpo bate com `/api/assistente` real.
 //  3. O HISTÓRICO tem teto (6 turnos) — mesmo N do backend
 //     (`assistente.MAX_HISTORICO_TURNOS`), pra não divergir em silêncio.
-//  4. A VOZ é dirigida pelo MESMO mecanismo do resumo: `falarTexto`/
+//  4. A VOZ é dirigida pelo MESMO mecanismo de antes: `falarTexto`/
 //     `calarVoz` chegam por prop (não um segundo caminho de voz); o Boris
 //     entra em "thinking" enquanto espera e volta a falar (`talk()/stop()`)
 //     quando a resposta chega.
@@ -17,6 +17,11 @@
 //     prefixo `webkit`) existir — a ausência não quebra nada.
 //  6. `AssistenteBox` (pergunta única, sem histórico) continua existindo e
 //     sendo usada por `ConceitoSheet` sem mudança nenhuma.
+//  7. Fase 1 (2026-08-08): BorisChat perdeu `onFechar` (não existe mais
+//     alternância com um "resumo rápido") e ganhou `sugestoes` — perguntas
+//     prontas do backend (`/api/pet/resumo`'s `perguntas`) que aparecem como
+//     chips clicáveis SÓ no estado vazio da conversa (histórico zerado);
+//     clicar chama `enviarAgora`, igual a digitar e mandar.
 //
 // Roda sem build: `node web/tests/test_boris_chat.mjs`.
 import { readFileSync } from "fs";
@@ -52,9 +57,19 @@ ok("useBorisBrain tem teto de turnos e manda só os últimos ao backend",
    /MAX_HISTORICO = 6/.test(brainSrc)
    && /mensagensRef\.current\s*\n?\s*\.slice\(-MAX_HISTORICO\)/.test(brainSrc));
 
+// --------------------------------------------------- Fase 1: sugestões
+ok("BorisChat recebe `sugestoes` (perguntas prontas) e NÃO recebe mais `onFechar` (resumo/chat deixou de alternar)",
+   /function BorisChat\(\{ tela, snapshot, sugestoes, borisRef, falarTexto, calarVoz \}\)/.test(chatSrc));
+ok("as sugestões só aparecem no estado VAZIO (histórico zerado) e cada uma chama enviarAgora ao clicar",
+   /mensagens\.length === 0 && \(\s*\n\s*sugestoes && sugestoes\.length > 0 \? \(/.test(chatSrc)
+   && /sugestoes\.map\(\(p, i\) => \(/.test(chatSrc)
+   && /onClick=\{\(\) => enviarAgora\(p\)\}/.test(chatSrc));
+ok("sem sugestões, o placeholder antigo continua valendo (nunca uma conversa vazia sem orientação)",
+   /Pergunte qualquer coisa sobre esta tela — o Boris lembra o que vocês já conversaram aqui\./.test(chatSrc));
+
 // ----------------------------------------------------------------- a voz
-ok("BorisChat recebe falarTexto/calarVoz por PROP (mesmo mecanismo do PetSheet, não um segundo caminho)",
-   /function BorisChat\(\{ tela, snapshot, borisRef, falarTexto, calarVoz, onFechar \}\)/.test(chatSrc));
+ok("BorisChat recebe falarTexto/calarVoz por PROP (mesmo mecanismo de antes, não um segundo caminho)",
+   /function BorisChat\(\{ tela, snapshot, sugestoes, borisRef, falarTexto, calarVoz \}\)/.test(chatSrc));
 ok("BorisChat NÃO chama Boris.speak() diretamente (só talk()\\/stop() via falarTexto)",
    !/borisRef\.current\.speak\(/.test(chatSrc) && !/borisRef\.current\?\.speak\(/.test(chatSrc));
 ok("Boris entra em 'thinking' antes de perguntar e falarTexto dirige talk()/stop() na resposta",
