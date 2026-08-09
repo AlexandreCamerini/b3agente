@@ -508,6 +508,19 @@ function deviceStore() {
         syncModoServidor = true;
       }
       if ("operadorTermo" in patch) syncModoServidor = true;
+      // 2026-08-09: orçamento SÓ no aparelho (local-first, como o resto da
+      // config) nunca chegava ao servidor — MAS resetPortfolio() logado abaixo
+      // chama api.resetPortfolio(), que roda no servidor e lê o
+      // config.initialBudget DE LÁ. Resultado no iOS, só com conta: editar o
+      // orçamento no aparelho não tinha efeito nenhum no servidor, e
+      // "Recomeçar do zero" reiniciava com o orçamento VELHO (ou o default
+      // 10000) que o servidor nunca tinha aprendido — mesma classe de bug do
+      // fix de appMode/operadorTermo logo abaixo, achado só depois porque o
+      // sintoma ("some para 10000") é indistinguível do bug de debounce já
+      // corrigido em App.jsx. `risco.capital==null` também usa initialBudget
+      // como fallback em cálculos que rodam NO SERVIDOR (sizing do Operador,
+      // scanDeep) — sem isto, aqueles cálculos também usariam o valor errado.
+      if (typeof patch.initialBudget === "number") syncModoServidor = true;
       if (patch.risco && typeof patch.risco === "object") {
         const base = (c.risco && typeof c.risco === "object") ? c.risco : { pctPorTrade: 1.0, capital: null };
         if (typeof patch.risco.pctPorTrade === "number") base.pctPorTrade = Math.max(0.25, Math.min(5, +patch.risco.pctPorTrade.toFixed(2)));
@@ -533,7 +546,8 @@ function deviceStore() {
       // TermoOperadorModal.ativar) já fazem `await` antes do reload, então a
       // troca de modo não "termina" sem o servidor confirmar.
       if (syncModoServidor && sync.hasSession()) {
-        await api.putConfig({ appMode: c.appMode, operadorTermo: c.operadorTermo });
+        await api.putConfig({ appMode: c.appMode, operadorTermo: c.operadorTermo,
+                              initialBudget: c.initialBudget });
       }
       return pub();
     },
