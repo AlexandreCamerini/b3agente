@@ -6526,8 +6526,22 @@ export default function App() {
       if (cfgTimer.current) clearTimeout(cfgTimer.current);
       cfgTimer.current = setTimeout(() => { flushCfg(); }, 600);
     },
+    // Bug confirmado (2026-08-09, residual do fix da Parte 1 da mesma
+    // entrega): digitar um orçamento novo e tocar em "Recomeçar do zero"
+    // sem esperar corria contra o MESMO debounce de 600ms — o reset lê
+    // `initialBudget` de onde quer que ele esteja persistido AGORA (DB do
+    // servidor via `store.reset_portfolio`, ou `doc.config` local no
+    // aparelho offline), e nenhum dos dois sabia do valor recém-digitado
+    // até o flush do config acontecer. saveConfig() já tinha esse cuidado
+    // (flushCfg antes do próprio patch) — resetPortfolio não tinha nenhum,
+    // e é justamente a ação que MAIS depende do orçamento estar em dia.
     resetPortfolio: async () => {
-      try { const s = await store.resetPortfolio(); setData(s); flash("Carteira reiniciada com o orçamento simulado."); }
+      try {
+        await flushCfg();  // manda o orçamento pendente ANTES do reset ler o valor salvo
+        const s = await store.resetPortfolio();
+        setData(s);
+        flash("Carteira reiniciada com o orçamento simulado.");
+      }
       catch (e) { flash("Erro: " + (e.message || e)); }
     },
     setTheme: async (v) => {

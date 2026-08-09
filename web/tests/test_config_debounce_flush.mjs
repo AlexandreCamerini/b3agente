@@ -17,9 +17,17 @@
 //   3. O campo de orçamento não tinha onBlur — ao contrário de
 //      model/baseUrl/serverUrl (mesmo padrão editConfig+onBlur=saveConfig),
 //      sair do campo não flusheava nada.
+//   4. (achado depois do fix acima, mesma entrega) resetPortfolio() não
+//      flusheava NADA antes de "Recomeçar do zero" — e é a ação que MAIS
+//      depende do orçamento estar em dia: o reset lê `initialBudget` de
+//      onde ele estiver persistido NA HORA (DB do servidor, ou doc.config
+//      local offline), então digitar um valor novo e tocar em reset antes
+//      dos 600ms corria contra o mesmo debounce e reiniciava com o valor
+//      VELHO — sem erro, sem aviso.
 // Fix: cfgPending (patch acumulado) + flushCfg() como único ponto que decide
 // "hora de mandar" — chamado pelo timer, por saveConfig ANTES do próprio
-// patch, pelo onBlur do campo, e pelo listener de ida a segundo plano.
+// patch, pelo onBlur do campo, pelo listener de ida a segundo plano, e por
+// resetPortfolio ANTES de ler o orçamento salvo.
 //
 // Roda sem build: `node web/tests/test_config_debounce_flush.mjs`.
 import { readFileSync } from "fs";
@@ -85,6 +93,17 @@ ok("appStateChange (nativo) também flusheia ao inativar",
 const depsMatch = src.match(/\}\), \[data, catalogSel, buyModal, sellModal, keyDraft, refreshQuotes, flash, analysisModel, wlScanLoading, destaque, quotes(.*?)\]\);/);
 ok("array de deps do A localizado", !!depsMatch);
 ok("flushCfg está nas deps do A", depsMatch && depsMatch[1].includes("flushCfg"));
+
+// --- 7) resetPortfolio flusheia o orçamento pendente ANTES de ler o salvo --
+const resetMatch = src.match(/resetPortfolio: async \(\) => \{([\s\S]*?)\n\s{4}\},/);
+ok("resetPortfolio localizado", !!resetMatch);
+ok("resetPortfolio chama flushCfg() antes de store.resetPortfolio() — reset não pode correr contra o debounce",
+   resetMatch && (() => {
+     const body = resetMatch[1];
+     const iFlush = body.indexOf("flushCfg()");
+     const iReset = body.indexOf("store.resetPortfolio()");
+     return iFlush >= 0 && iReset >= 0 && iFlush < iReset;
+   })());
 
 console.log(fails ? `\n${fails} FALHA(S) NO FLUSH DE CONFIG` : "\nFLUSH DE CONFIG (ORÇAMENTO) OK");
 process.exit(fails ? 1 : 0);
