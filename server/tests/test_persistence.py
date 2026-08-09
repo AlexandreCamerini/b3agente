@@ -190,6 +190,46 @@ def test_backfill_orcamento_em_estado_antigo():
 
 
 
+def test_boris_config_persiste_apos_reinicio():
+    """Tela de config do Boris (F10-20260809): voz, presença do FAB. Mesma
+    prova de round-trip do orçamento (Parte 1 da mesma entrega) — o defeito
+    daquela parte era exatamente um campo que a UI escrevia e o servidor
+    descartava em silêncio por não estar na allowlist de set_config."""
+    conn, path = _fresh_db()
+    cfg0 = store.get(conn, "config")
+    assert cfg0["vozAtiva"] is True   # default ligado
+    assert cfg0["vozId"] == ""
+    assert cfg0["fabVisivel"] is True  # default visível nos dois modos
+
+    store.set_config(conn, {"vozAtiva": False, "vozId": "com.apple.voice.Luciana", "fabVisivel": False})
+    conn.close()
+
+    conn2 = db.connect(path)  # reabre o MESMO arquivo = reinicio
+    cfg = store.get(conn2, "config")
+    assert cfg["vozAtiva"] is False
+    assert cfg["vozId"] == "com.apple.voice.Luciana"
+    assert cfg["fabVisivel"] is False
+    conn2.close()
+
+
+def test_backfill_config_boris_em_estado_antigo():
+    """Doc anterior a F10-20260809 (sem vozAtiva/vozId/fabVisivel) ganha os
+    defaults no backfill — mesmo mecanismo que já cobre theme/notif/appMode."""
+    import app.db as db
+    conn, path = _fresh_db()
+    db.kv_set(conn, "config", {
+        "provider": "anthropic", "model": "", "keySource": "env", "apiKey": "", "baseUrl": "",
+        "theme": "dark", "userName": "", "notif": {"enabled": False}, "onboarded": True,
+        "streak": {"days": 0, "last": ""}, "candlePeriod": "1y", "appMode": "estudo",
+    })
+    store.ensure_defaults(conn)
+    cfg = store.get(conn, "config")
+    assert cfg["vozAtiva"] is True
+    assert cfg["vozId"] == ""
+    assert cfg["fabVisivel"] is True
+    conn.close()
+
+
 def test_watchlist_add_persiste_apos_reabrir():
     conn, path = _fresh_db()
     # simula o caminho do add: grava custom + watchlist (como store.add_custom/set_watchlist)

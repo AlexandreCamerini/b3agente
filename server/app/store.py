@@ -34,7 +34,7 @@ def ensure_defaults(conn, user_id=None) -> None:
         cfg["initialBudget"] = float(cur_cash) if isinstance(cur_cash, (int, float)) else d["config"]["initialBudget"]
         db.kv_set(conn, "config", cfg, user_id=user_id)
     cfg = db.kv_get(conn, "config", None, user_id=user_id)
-    if isinstance(cfg, dict) and ("theme" not in cfg or "userName" not in cfg or "notif" not in cfg or "onboarded" not in cfg or "streak" not in cfg or "candlePeriod" not in cfg or "appMode" not in cfg):
+    if isinstance(cfg, dict) and ("theme" not in cfg or "userName" not in cfg or "notif" not in cfg or "onboarded" not in cfg or "streak" not in cfg or "candlePeriod" not in cfg or "appMode" not in cfg or "vozAtiva" not in cfg):
         cfg.setdefault("theme", d["config"]["theme"])
         cfg.setdefault("userName", d["config"]["userName"])
         cfg.setdefault("notif", dict(d["config"]["notif"]))
@@ -45,6 +45,10 @@ def ensure_defaults(conn, user_id=None) -> None:
         cfg.setdefault("appMode", "estudo")
         cfg.setdefault("operadorTermo", None)
         cfg.setdefault("risco", dict(d["config"].get("risco") or {"pctPorTrade": 1.0, "capital": None}))
+        # Tela de configuração do Boris (backfill de docs antigos)
+        cfg.setdefault("vozAtiva", d["config"]["vozAtiva"])
+        cfg.setdefault("vozId", d["config"]["vozId"])
+        cfg.setdefault("fabVisivel", d["config"]["fabVisivel"])
         db.kv_set(conn, "config", cfg, user_id=user_id)
     # FASE 2: backfill da coleção de prompts e de chaves novas, preservando
     # prompts já editados pelo usuário.
@@ -180,6 +184,15 @@ def set_config(conn, patch: dict, user_id=None) -> dict:
                     mudou = True
                 if mudou:
                     db.kv_set(conn, "agent", ag, user_id=user_id)
+    # Tela de configuração do Boris: voz, presença do FAB. O aviso espontâneo
+    # (5º controle) não tem campo próprio — usa o `notif.gatilho` já tratado
+    # acima, então não precisa de handler aqui.
+    if "vozAtiva" in patch:
+        cfg["vozAtiva"] = bool(patch["vozAtiva"])
+    if isinstance(patch.get("vozId"), str):
+        cfg["vozId"] = patch["vozId"][:200]
+    if "fabVisivel" in patch:
+        cfg["fabVisivel"] = bool(patch["fabVisivel"])
     if isinstance(patch.get("risco"), dict):
         base = cfg.get("risco") if isinstance(cfg.get("risco"), dict) else {}
         r = patch["risco"]

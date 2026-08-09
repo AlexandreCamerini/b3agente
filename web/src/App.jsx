@@ -16,7 +16,7 @@ import * as notify from "./notify.js";
 import Boris from "./pet/Boris.jsx";
 import BorisChat from "./pet/BorisChat.jsx";
 import BorisIntro from "./pet/BorisIntro.jsx";
-import { falarTexto, calarVoz } from "./pet/vozBoris.js";
+import { falarTexto, calarVoz, setVozConfig, listarVozes } from "./pet/vozBoris.js";
 
 /* =============================================================================
    Boris+ — simulador EDUCACIONAL de paper trading da B3.
@@ -2149,7 +2149,7 @@ function PerfilHub({ ctx, onOpen }) {
 
       <div style={hubGroup}>IA e desempenho</div>
       <div style={hubGrid}>
-        <ProfileTile onClick={() => onOpen("ia")} title="Configurações de IA" sub="Modelo, skills por modo e prompts" icon={
+        <ProfileTile onClick={() => onOpen("ia")} title="Configurações de IA" sub="Modelo, skills por modo, prompts e o Boris — voz, presença, avisos" icon={
           <svg width="19" height="19" viewBox="0 0 24 24" aria-hidden><path d="M12 3a5 5 0 0 1 5 5c0 2-1.2 3.1-2 4-.6.7-1 1.3-1 2.3h-4c0-1-.4-1.6-1-2.3-.8-.9-2-2-2-4a5 5 0 0 1 5-5Z" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" /><path d="M10 17.5h4M10.5 20h3" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" /></svg>
         } />
         <ProfileTile onClick={() => onOpen("eficiencia")} title="Eficiência da IA" sub="Quanto bateu alvo/stop" icon={
@@ -4210,6 +4210,84 @@ function PromptsSection({ ctx }) {
   );
 }
 
+// F10-20260809 — BÓRIS: voz, presença do FAB e o único aviso espontâneo do
+// app, todos aqui porque é aqui que "Configurações de IA" já vive. Decisão
+// tomada com o Alex sobre as três colisões desta tela:
+//   1. O prompt/modelo que o Boris usa para CONVERSAR é o MESMO configurado
+//      acima em "Modelo de IA do agente" (assistente.py chama llm._call_llm
+//      com esse config) — não duplica campo nenhum. As REGRAS de conduta do
+//      Boris (vocabulário por modo, limites do que ele pode afirmar,
+//      disclaimer) são fixas por desenho em skill_ref.py: cache de prompt
+//      (10% do preço) e enquadramento educacional/regulatório não são um
+//      texto livre editável por usuário — texto solto ali é risco de
+//      compliance, não um campo de config.
+//   2. O aviso espontâneo NÃO é um canal novo — é o MESMO `notif.gatilho`
+//      que já existe em Perfil → Notificações ("Condição de estudo
+//      atingida"). Continua valendo "só um canal proativo" (o resumo do
+//      audit de 2026-08-08); isto é um SEGUNDO PONTO DE ACESSO ao mesmo
+//      interruptor, não um segundo canal.
+//   3. FAB visível por padrão nos DOIS modos — preserva a Fase 1 de hoje
+//      (facd836); o interruptor é pra quem quiser esconder, não reversão.
+function BorisConfigSection({ ctx, sectionTitle }) {
+  const { data, A } = ctx;
+  const c = data.config || {};
+  const nf = c.notif || {};
+  const vozAtiva = c.vozAtiva !== false;   // default LIGADO
+  const fabVisivel = c.fabVisivel !== false; // default LIGADO nos dois modos
+  const [vozes, setVozes] = useState([]);
+  useEffect(() => {
+    let vivo = true;
+    listarVozes().then((vs) => { if (vivo) setVozes(vs); }).catch(() => {});
+    return () => { vivo = false; };
+  }, []);
+  const row = (label, desc, child) => (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", padding: "11px 0", borderTop: `1px solid ${T.borderFaint}` }}>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: "13px", fontWeight: 600 }}>{label}</div>
+        <div style={{ fontSize: "11.5px", color: T.textFaint, lineHeight: 1.4, maxWidth: "420px" }}>{desc}</div>
+      </div>
+      {child}
+    </div>
+  );
+  return (
+    <div style={{ marginTop: "14px", ...card, padding: "17px 18px" }}>
+      <div style={sectionTitle}>BÓRIS — VOZ, PRESENÇA E AVISOS</div>
+      <p style={{ margin: "6px 0 4px", color: T.textMuted, fontSize: "12.5px", lineHeight: 1.5, maxWidth: "580px" }}>
+        O Boris conversa com o modelo configurado acima, em "Modelo de IA do agente" — não há um segundo modelo só dele.
+        As regras de conduta (vocabulário por modo, o que ele pode e não pode afirmar) são fixas, para manter o
+        enquadramento educacional em qualquer conta.
+      </p>
+
+      {row("Falar as respostas", "Lê em voz alta cada resposta do chat.",
+        <Toggle on={vozAtiva} onClick={() => A.saveConfig({ vozAtiva: !vozAtiva })} label="Falar as respostas" />)}
+
+      {vozAtiva && (
+        vozes.length > 0 ? (
+          <div style={{ padding: "11px 0", borderTop: `1px solid ${T.borderFaint}` }}>
+            <span style={{ display: "block", fontSize: "12px", color: T.textMuted, marginBottom: "6px" }}>Voz</span>
+            <select value={c.vozId || ""} onChange={(e) => A.saveConfig({ vozId: e.target.value })} style={field}>
+              <option value="">Padrão do sistema</option>
+              {vozes.map((v) => <option key={v.id} value={v.id}>{v.nome}</option>)}
+            </select>
+          </div>
+        ) : (
+          <div style={{ padding: "11px 0", borderTop: `1px solid ${T.borderFaint}`, fontSize: "11.5px", color: T.textFaint, lineHeight: 1.4 }}>
+            Nenhuma voz em português encontrada neste aparelho — o Boris usa a voz padrão do sistema.
+          </div>
+        )
+      )}
+
+      {row("Assistente na tela", "O Boris flutuante (FAB), disponível em qualquer aba, nos dois modos de trabalho.",
+        <Toggle on={fabVisivel} onClick={() => A.saveConfig({ fabVisivel: !fabVisivel })} label="Mostrar o Boris na tela" />)}
+
+      {row("Avisos espontâneos", nf.enabled
+        ? "Quando uma condição de estudo que você acompanha é atingida — o mesmo aviso de Perfil → Notificações."
+        : "Exige notificações ativas — ligue em Perfil → Notificações antes de usar este interruptor.",
+        <Toggle on={!!(nf.enabled && nf.gatilho === true)} onClick={() => nf.enabled && A.setNotif({ gatilho: !(nf.gatilho === true) })} label="Avisar sobre condições atingidas" />)}
+    </div>
+  );
+}
+
 // qa/32 — CONFIGURAÇÕES DE IA: modelo/provedor do agente + skills por modo +
 // prompts, que antes viviam espalhados dentro de "Conta & preferências"
 // (monólito de 7 seções). Reorganizado a pedido do Alex.
@@ -4250,7 +4328,7 @@ function AiConfigScreen({ ctx }) {
     <div>
       <h1 style={{ margin: "0 0 6px", fontSize: "22px", fontWeight: 700 }}>Configurações de IA</h1>
       <p style={{ margin: "0 0 18px", color: T.textMuted, fontSize: "12.5px", lineHeight: 1.5, maxWidth: "560px" }}>
-        Modelo/provedor do agente, instruções (skills) por modo e prompts — tudo que molda como a IA analisa e responde.
+        Modelo/provedor do agente, instruções (skills) por modo, prompts, e o Boris — voz, presença na tela e avisos.
       </p>
 
       {/* A) Modelo de IA */}
@@ -4380,6 +4458,9 @@ function AiConfigScreen({ ctx }) {
 
       {/* C) Config de LLMs e Prompts (FASE 2) */}
       <PromptsSection ctx={ctx} />
+
+      {/* D) Boris — voz, presença do FAB, aviso espontâneo (F10-20260809) */}
+      <BorisConfigSection ctx={ctx} sectionTitle={sectionTitle} />
     </div>
   );
 }
@@ -6109,6 +6190,16 @@ export default function App() {
       if (removeAppListener) removeAppListener();
     };
   }, [loadState]);
+  // Controles de voz da tela de config do Boris (1º e 2º) chegam em
+  // vozBoris.js por SETTER, não por prop — BorisChat já recebe
+  // falarTexto/calarVoz como import direto do módulo, não via ctx, então
+  // prop-drilling exigiria mudar essa cadeia inteira. Mesmo padrão de
+  // setApiBase/setAuthToken (api.js/sync.js): módulo externo, sincronizado
+  // aqui sempre que a config muda.
+  useEffect(() => {
+    if (!data || !data.config) return;
+    setVozConfig({ ativa: data.config.vozAtiva !== false, vozId: data.config.vozId || "" });
+  }, [data && data.config && data.config.vozAtiva, data && data.config && data.config.vozId]);
   // Toque no aviso de condição atingida → a tela do ativo, não a aba inicial.
   // Registrado UMA vez, no boot. `reservarDonoProativo` garante que, se for a
   // estreia da pessoa no conceito, a explicação venha com os números do ativo
@@ -7109,8 +7200,11 @@ export default function App() {
           auditoria de UX, 2026-08-08, reverteu a restrição a Operador — o
           vocabulário já variava por modo em assistente.py/_pet_resumo_*;
           faltava só deixar o FAB aparecer) — e NUNCA abre sozinho. O FAB
-          some sob overlays para não competir com folha aberta. */}
-      {didatica && didatica.ligada && ctx.overlayLivre && (
+          some sob overlays para não competir com folha aberta.
+          F10-20260809: `fabVisivel` é o 3º controle da tela de config do
+          Boris — default LIGADO nos dois modos (preserva a Fase 1 de
+          propósito; o interruptor é opção pra esconder, não reversão). */}
+      {didatica && didatica.ligada && ctx.overlayLivre && data.config.fabVisivel !== false && (
         <PetFab onOpen={abrirPet} />
       )}
       {petOpen && <PetSheet didatica={didatica} tela={petTela} snapshot={petSnapshot} onClose={() => setPetOpen(false)} />}

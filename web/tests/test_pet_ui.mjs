@@ -38,8 +38,10 @@ let fails = 0;
 const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if (!cond) fails++; };
 
 // ------------------------------------------------------------------ o FAB
-ok("Fase 1: o FAB NÃO exclui mais o Modo Operador — só didática/overlay livre",
-   /didatica && didatica\.ligada && ctx\.overlayLivre && \(\s*\n\s*<PetFab/.test(app));
+ok("Fase 1: o FAB NÃO exclui mais o Modo Operador — só didática/overlay livre (+ F10-20260809: fabVisivel, o 3º controle da tela do Boris)",
+   /didatica && didatica\.ligada && ctx\.overlayLivre && data\.config\.fabVisivel !== false && \(\s*\n\s*<PetFab/.test(app));
+ok("fabVisivel é opt-OUT (default visível) — preserva a Fase 1 em vez de revertê-la",
+   /ctx\.overlayLivre && data\.config\.fabVisivel !== false/.test(app));
 ok("o gate do FAB não checa mais `appMode` nenhum",
    !/appMode !== "operador" && didatica && didatica\.ligada && ctx\.overlayLivre/.test(app));
 ok("F4: a condição do FAB NÃO checa mais `tab === \"mercado\"`",
@@ -62,7 +64,7 @@ ok("camada desligada tem mensagem própria (não é erro)",
 // A voz mora em ./pet/vozBoris.js (web usa speechSynthesis; nativo usa o
 // plugin de TTS) — App.jsx só importa `falarTexto`/`calarVoz`, não define.
 ok("App.jsx NÃO define mais falarTexto/calarVoz — importa de ./pet/vozBoris.js",
-   /import \{ falarTexto, calarVoz \} from ["']\.\/pet\/vozBoris\.js["'];/.test(app)
+   /import \{ falarTexto, calarVoz(, setVozConfig, listarVozes)? \} from ["']\.\/pet\/vozBoris\.js["'];/.test(app)
    && !/^function falarTexto\(/m.test(app) && !/^function calarVoz\(/m.test(app));
 ok("vozBoris: web usa pt-BR e escolhe voz do sistema quando houver",
    /u\.lang = "pt-BR";/.test(vozSrc) && /\/\^pt\(-\|_\)BR\/i\.test\(v\.lang/.test(vozSrc));

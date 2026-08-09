@@ -274,6 +274,9 @@ function deviceStore() {
       if (typeof doc.config.userName !== "string") doc.config.userName = "";
       if (typeof doc.config.onboarded !== "boolean") doc.config.onboarded = false;
       if (!["1mo", "3mo", "6mo", "1y", "2y"].includes(doc.config.candlePeriod)) doc.config.candlePeriod = "1y";
+      if (typeof doc.config.vozAtiva !== "boolean") doc.config.vozAtiva = true;
+      if (typeof doc.config.vozId !== "string") doc.config.vozId = "";
+      if (typeof doc.config.fabVisivel !== "boolean") doc.config.fabVisivel = true;
       if (!doc.config.streak || typeof doc.config.streak !== "object") doc.config.streak = { days: 0, last: "" };
       if (!Array.isArray(doc.equitySnapshots)) doc.equitySnapshots = [];
       if (!doc.config.notif || typeof doc.config.notif !== "object") doc.config.notif = { enabled: false, stop: true, alvo: true, agente: true, variacao: true, gatilho: false };
@@ -512,6 +515,12 @@ function deviceStore() {
         else if (typeof patch.risco.capital === "number") base.capital = Math.max(100, Math.min(100000000, +patch.risco.capital.toFixed(2)));
         c.risco = base;
       }
+      // Tela de configuração do Boris — espelho exato do store.py.set_config.
+      // Sem isto, o campo escrito aqui nunca chegaria no servidor via sync: o
+      // MESMO defeito de allowlist que causava o orçamento voltando a 10000.
+      if ("vozAtiva" in patch) c.vozAtiva = !!patch.vozAtiva;
+      if (typeof patch.vozId === "string") c.vozId = patch.vozId.slice(0, 200);
+      if ("fabVisivel" in patch) c.fabVisivel = !!patch.fabVisivel;
       write();
       setApiBase(doc.config.serverUrl); // se mudou o endereco do Mac, ja passa a valer
       // qa/audit-2026-08-08: appMode/operadorTermo eram 100% locais mesmo

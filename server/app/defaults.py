@@ -212,6 +212,12 @@ def default_state() -> dict:
             "appMode": "estudo",       # estudo | operador (operador exige termo aceito)
             "operadorTermo": None,     # {aceitoEm, versao} registrado no aceite
             "risco": {"pctPorTrade": 1.0, "capital": None},  # sizing (capital None => usa initialBudget)
+            # Tela de configuração do Boris (F10-20260809): voz, presença do
+            # FAB e o único canal de aviso espontâneo (o mesmo `notif.gatilho`
+            # acima — não é um segundo canal, só um segundo ponto de acesso).
+            "vozAtiva": True,          # lê as respostas em voz alta? default ligado (comportamento de sempre)
+            "vozId": "",               # voiceURI escolhida; "" = a plataforma decide
+            "fabVisivel": True,        # assistente flutuante visível? default ligado nos dois modos
         },
         "skill": {"name": "Mesa B3 - Educacional v1", "text": default_skill_text()},
         # FASE 8B (R2): instrução do agente POR MODO, selecionável pelo nome
