@@ -77,10 +77,31 @@ ok("qa/34: marcaSufixo removida dos dois modos (chave órfã — modeline a subs
 // MESMO verde da marca (--brand-green, #34d399) — antes uma tonalidade
 // própria (#22c55e) sem lastro no Brand Book (que só define um verde/um
 // vermelho pro sistema inteiro, não um por modo).
-// Brand Book v2: esse verde deixou de ser hex solto e virou BRAND.green, a
-// constante de marca. O valor não mudou — mudou a forma de escrever. Quem
-// garante que BRAND.green ainda é #34d399 é test_brand_book_v2_tokens.mjs.
-ok("override .b3-mode-operador com verde-mercado (verde da marca)", /accent: (BRAND\.green|"#34d399")/.test(app) && app.includes("b3-mode-operador.b3-theme-dark"));
+// 08/08/2026: o acento do Operador deixou de ser verde e virou DOURADO
+// (#d4af37), por paleta nova do Alex. O verde da marca voltou a ser só sinal
+// de compra. O que este guardião sempre quis provar continua igual — que
+// existe um override de modo, com acento PRÓPRIO, preso ao seletor composto —
+// então o teste passa a checar isso, e não um hex específico (esse fica em
+// test_brand_book_v2_tokens.mjs, junto com a medição de contraste).
+ok("override .b3-mode-operador tem acento próprio, diferente do Estudo",
+   (() => {
+     const bloco = (nome) => {
+       const i = app.indexOf(`const ${nome} = `);
+       if (i < 0) return "";
+       let d = 0, ini = app.indexOf("{", i), j = ini;
+       for (; j < app.length; j++) { if (app[j] === "{") d++; else if (app[j] === "}") { d--; if (!d) break; } }
+       return app.slice(ini, j + 1);
+     };
+     const acento = (b, esquema) => {
+       const i = b.indexOf(esquema + ": {");
+       const m = /accent: "(#[0-9a-f]{6})"/i.exec(b.slice(i));
+       return m && m[1].toLowerCase();
+     };
+     const estudo = acento(bloco("PALETTE"), "dark");
+     const operador = acento(bloco("MODE_OPERADOR"), "dark");
+     return !!estudo && !!operador && estudo !== operador
+       && app.includes("b3-mode-operador.b3-theme-dark");
+   })());
 ok("classe aplicada no html pelo appMode", app.includes('html.classList.toggle("b3-mode-operador", appMode === "operador")'));
 ok("chip do modo no Topbar", app.includes("modeChip={cp.chipModo}") && app.includes("{modeChip && (<>"));
 // Brand Book v2: a barra do navegador deixou de repetir hex à mão e passou a

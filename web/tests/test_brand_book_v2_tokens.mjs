@@ -104,14 +104,26 @@ for (const tema of ["dark", "light"]) {
 }
 
 // === 3. dois eixos: o acento é do MODO, não da marca =======================
-ok("acento do Estudo no escuro é o azul frio #4f8cff", estudo.dark.accent === "#4f8cff");
-ok("acento do Estudo no claro é o azul #2f6fe0", estudo.light.accent === "#2f6fe0");
-ok("acento do Operador no escuro é o verde da marca", operador.dark.accent === BRAND.green);
+// Paleta de acentos entregue pelo Alex em 08/08/2026, hex a hex, no lugar do
+// azul/verde que o Brand Book v2 sugeria: Estudo = azul-esverdeado, Operador =
+// dourado. Só o dourado do tema CLARO saiu do hex literal (#9c7a1f media
+// 4,03:1 e reprovava AA; #8a6c1c é o mesmo tom um degrau mais escuro) — a
+// checagem de contraste da seção 5 é quem justifica e defende esse desvio.
+ok("acento do Estudo no escuro é o azul-esverdeado #2fa8a0", estudo.dark.accent === "#2fa8a0");
+ok("acento do Estudo no claro é o azul-esverdeado #1f7d76", estudo.light.accent === "#1f7d76");
+ok("acento do Operador no escuro é o dourado #d4af37", operador.dark.accent === "#d4af37");
+ok("acento do Operador no claro é o dourado #8a6c1c", operador.light.accent === "#8a6c1c");
 ok("Estudo e Operador têm acentos DIFERENTES no escuro", estudo.dark.accent !== operador.dark.accent);
 ok("Estudo e Operador têm acentos DIFERENTES no claro", estudo.light.accent !== operador.light.accent);
 ok("o âmbar da marca NÃO é acento de nenhum modo (v2 reserva pra marca)",
    ![estudo.dark.accent, estudo.light.accent, operador.dark.accent, operador.light.accent]
      .includes(BRAND.amber));
+// O verde/rosa da marca são SINAL (compra/venda). Desde a paleta nova nenhum
+// deles é também acento — antes o verde acumulava os dois papéis no Operador,
+// e um botão primário verde dizia a mesma coisa que um "+R$" verde.
+ok("nenhum acento reusa o verde ou o rosa de sinal",
+   ![estudo.dark.accent, estudo.light.accent, operador.dark.accent, operador.light.accent]
+     .some((a) => a === BRAND.green || a === BRAND.red));
 
 // === 4. sinal de compra/venda ==============================================
 ok("escuro: positive é o verde cru da marca", estudo.dark.positive === BRAND.green);

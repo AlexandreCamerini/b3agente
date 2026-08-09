@@ -46,8 +46,16 @@ const BRAND = {
 // A Fase 3 tinha colapsado parte disso: o Estudo usava o âmbar da marca como
 // acento, então "cor de marca" e "cor de estado da UI" eram a mesma coisa. v2
 // separa: o acento de modo substitui o âmbar em CTAs e destaques; o âmbar fica
-// reservado à marca em qualquer tela. Estudo é o acento FRIO (tom de
-// progresso), Operador é o verde (dado ao vivo).
+// reservado à marca em qualquer tela.
+//
+// QUAIS acentos, porém, é decisão do Alex, e ela mudou em 08/08/2026 (paleta
+// entregue hex a hex): Estudo = AZUL-ESVERDEADO (#2fa8a0 escuro / #1f7d76
+// claro), Operador = DOURADO (#d4af37 / #8a6c1c). Antes eram o azul frio e o
+// verde que o v2 sugeria. Ganho colateral: o verde deixou de acumular dois
+// papéis — era acento do Operador E sinal de compra ao mesmo tempo, então um
+// botão primário verde e um "+R$" verde diziam coisas diferentes com a mesma
+// cor. Agora BRAND.green/BRAND.red só significam compra/venda, em modo nenhum
+// eles são acento.
 const PALETTE = {
   // Base = modo ESTUDO. O Operador entra como override em MODE_OPERADOR.
   // Neutros do dark e do light vêm literais do bloco "Design tokens" de v2:
@@ -58,13 +66,13 @@ const PALETTE = {
     borderSubtle: "#2c3245", borderFaint: "#20242f", borderDashed: "#3a4258", borderToast: "#3a4258",
     textPrimary: "#eef1f8", textSecondary: "#c9d1e6", textMuted: "#9aa3bd", textDim: "#8890a8",
     textFaint: "#6f7797", textBright: "#f6f8fc",
-    accent: "#4f8cff", accentSoft: "#8fb6ff", positive: BRAND.green, negative: BRAND.red,
+    accent: "#2fa8a0", accentSoft: "#5cc4bd", positive: BRAND.green, negative: BRAND.red,
     knob: "#20242f", navDotIdle: "#2c3245", confirmOkText: "#04251a",
-    accentTint: "rgba(79,140,255,0.14)", accentTintHi: "rgba(79,140,255,0.26)", accentTint10: "rgba(79,140,255,0.10)",
+    accentTint: "rgba(47,168,160,0.14)", accentTintHi: "rgba(47,168,160,0.26)", accentTint10: "rgba(47,168,160,0.10)",
     positiveTint: "rgba(52,211,153,0.12)", positiveTint10: "rgba(52,211,153,0.10)",
     negativeTint: "rgba(242,109,109,0.12)", negativeTint10: "rgba(242,109,109,0.10)",
     scrim: "rgba(5,6,10,0.68)",
-    chartGrid: "rgba(255,255,255,0.04)", chartBorder: "rgba(255,255,255,0.08)", chartAxis: "#6f7797", lineSubtle: "rgba(255,255,255,0.18)", onAccent: "#0a1224",
+    chartGrid: "rgba(255,255,255,0.04)", chartBorder: "rgba(255,255,255,0.08)", chartAxis: "#6f7797", lineSubtle: "rgba(255,255,255,0.18)", onAccent: "#04231f",
     warn: "#fbbf24", // qa/34: âmbar de aviso (diário/logs) — antes hex solto fora do token system
   },
   light: {
@@ -81,9 +89,9 @@ const PALETTE = {
     // TEXTO em 72 lugares (valores de P&L), não só badge. Estes são os tons
     // mais próximos da marca que passam AA — mesma matiz, luminosidade menor.
     // Ver o bloco "sinal universal" no relatório da entrega.
-    accent: "#2f6fe0", accentSoft: "#2559b8", positive: "#1c825d", negative: "#c6464c",
+    accent: "#1f7d76", accentSoft: "#166861", positive: "#1c825d", negative: "#c6464c",
     knob: "#dfe3ee", navDotIdle: "#c4cad8", confirmOkText: "#ffffff",
-    accentTint: "rgba(47,111,224,0.12)", accentTintHi: "rgba(47,111,224,0.20)", accentTint10: "rgba(47,111,224,0.10)",
+    accentTint: "rgba(31,125,118,0.12)", accentTintHi: "rgba(31,125,118,0.20)", accentTint10: "rgba(31,125,118,0.10)",
     positiveTint: "rgba(28,130,93,0.12)", positiveTint10: "rgba(28,130,93,0.10)",
     negativeTint: "rgba(198,70,76,0.12)", negativeTint10: "rgba(198,70,76,0.10)",
     scrim: "rgba(15,20,28,0.45)",
@@ -102,22 +110,24 @@ const themeVarBlock = (name) => Object.entries(PALETTE[name]).map(([k, v]) => `$
 // grafite frio, cards #10161a, textos frios, verde #22c55e como acento E
 // como positivo, vermelho #ef4444 — identidade impossível de confundir.
 const MODE_OPERADOR = {
-  // Brand Book v2: o Operador é o eixo "modo de uso" com acento VERDE
-  // (#34d399 escuro / #0f9d63 claro), independente do tema. O verde do acento
-  // coincide com o verde de compra por desenho da marca — é o mesmo
-  // --brand-green. A diferenciação de leiaute Estudo×Operador continua e ficou
-  // MAIS forte com v2: o Estudo agora tem acento frio próprio (azul), então os
-  // dois modos não disputam mais o âmbar.
+  // O Operador é o eixo "modo de uso": acento DOURADO (#d4af37 escuro /
+  // #8a6c1c claro), independente do tema — paleta entregue pelo Alex em
+  // 08/08/2026, no lugar do verde que o Brand Book v2 sugeria. A leitura é
+  // direta: dourado = mesa/dinheiro no Operador, azul-esverdeado = estudo.
+  // Além de separar melhor os dois modos (matizes opostas, não dois tons da
+  // mesma família), tira do verde o papel duplo de acento E sinal de compra.
+  // A diferenciação de leiaute continua: fundo/cartão/borda seguem mais frios
+  // que os do Estudo.
   dark: {
     bgBase: "#0a0c12", bgPanel: "#10131c", bgCard: "#141926", bgToast: "#141926",
     borderSubtle: "#242c40", borderFaint: "#1a2030", borderDashed: "#323c54", borderToast: "#323c54",
     textMuted: "#93a3c0", textDim: "#8492ac", textFaint: "#5b6890",
-    accent: BRAND.green, accentSoft: "#7ee9c4",
+    accent: "#d4af37", accentSoft: "#e6c766",
     positive: BRAND.green, negative: BRAND.red,
-    accentTint: "rgba(52,211,153,0.14)", accentTintHi: "rgba(52,211,153,0.26)", accentTint10: "rgba(52,211,153,0.10)",
+    accentTint: "rgba(212,175,55,0.14)", accentTintHi: "rgba(212,175,55,0.26)", accentTint10: "rgba(212,175,55,0.10)",
     positiveTint: "rgba(52,211,153,0.13)", positiveTint10: "rgba(52,211,153,0.10)",
     negativeTint: "rgba(242,109,109,0.13)", negativeTint10: "rgba(242,109,109,0.10)",
-    onAccent: "#04251a", knob: "#1a2030", navDotIdle: "#242c40", chartAxis: "#5b6890",
+    onAccent: "#241b06", knob: "#1a2030", navDotIdle: "#242c40", chartAxis: "#5b6890",
   },
   light: {
     // qa/32: faltavam bgBase/bgPanel/borders/text — o override em LIGHT só
@@ -129,13 +139,17 @@ const MODE_OPERADOR = {
     bgBase: "#f2f6f4", bgPanel: "#e9efec", bgCard: "#ffffff", bgToast: "#16211c",
     borderSubtle: "#dce5e1", borderFaint: "#e8efec", borderDashed: "#c8d6d0", borderToast: "#24483a",
     textMuted: "#4f5f5a", textDim: "#5c6d67", textFaint: "#7a8a85",
-    // v2 especifica #0f9d63 para o acento do Operador no claro, mas ele mede
-    // 3,49:1 sobre #ffffff — reprova AA como texto e como fundo de CTA com
-    // texto branco. #0d8353 é o mesmo tom (matiz 155° preservada) na
-    // luminosidade que passa (4,78:1). Mesmo critério do positive/negative.
-    accent: "#0d8353", accentSoft: "#0a6b44",
+    // O Alex passou #9c7a1f para o dourado no claro; ele mede 4,03:1 sobre
+    // #ffffff — reprova AA (4,5) tanto como texto quanto como fundo de CTA com
+    // rótulo branco, e o rótulo do botão primário tem 15px em negrito, longe do
+    // limiar de "texto grande" que aceitaria 3:1. #8a6c1c é o MESMO dourado
+    // (matiz 44° preservada), só um degrau mais escuro, e passa (4,93:1). Foi o
+    // único dos quatro acentos que precisou de ajuste — os outros três entraram
+    // exatamente como vieram. Mesmo critério aplicado ao positive/negative do
+    // tema claro, e medido por test_brand_book_v2_tokens.mjs.
+    accent: "#8a6c1c", accentSoft: "#7d621a",
     positive: "#1c825d", negative: "#c6464c",
-    accentTint: "rgba(13,131,83,0.12)", accentTintHi: "rgba(13,131,83,0.20)", accentTint10: "rgba(13,131,83,0.10)",
+    accentTint: "rgba(138,108,28,0.12)", accentTintHi: "rgba(138,108,28,0.20)", accentTint10: "rgba(138,108,28,0.10)",
     positiveTint: "rgba(28,130,93,0.12)", positiveTint10: "rgba(28,130,93,0.10)",
     negativeTint: "rgba(198,70,76,0.12)", negativeTint10: "rgba(198,70,76,0.10)",
     onAccent: "#ffffff", knob: "#dce5e1", navDotIdle: "#c8d6d0", chartAxis: "#7a8b85",
