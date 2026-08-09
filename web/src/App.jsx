@@ -5640,6 +5640,10 @@ function ConfigScreen({ ctx }) {
                 type="number" min="100" step="100" inputMode="decimal"
                 value={Number.isFinite(data.config.initialBudget) ? data.config.initialBudget : 10000}
                 onChange={(e) => { const v = parseFloat(e.target.value); A.saveBudget(Number.isFinite(v) ? v : 0); }}
+                // Sair do campo não pode depender só do relógio de 600ms — os
+                // outros campos deste mesmo padrão (model/baseUrl/serverUrl)
+                // já flusheiam no blur; este era o único que não tinha.
+                onBlur={A.flushCfg}
                 style={{ ...field, fontFamily: MONO, fontWeight: 700, fontSize: "16px" }}
               />
             </div>
@@ -5997,6 +6001,21 @@ export default function App() {
     } catch { /* ignore */ }
   }, [themeKey, themePref, appMode]);
   const cfgTimer = useRef(null);
+  // Bug confirmado (2026-08-09): orçamento (e nome, e qualquer campo editado
+  // via editConfig) definido e perdido no restart. O debounce de 600ms só
+  // guardava o TIMER, não o PATCH pendente — três caminhos descartavam a
+  // escrita sem nunca mandá-la pro store: (1) saveConfig cancelava o timer
+  // pendente de outro campo sem enviá-lo, então editar orçamento e em
+  // seguida tocar em candlePeriod/provider/model perdia o orçamento em
+  // silêncio; (2) fechar/backgroundear o app dentro da janela de 600ms mata
+  // o setTimeout sem nunca escrever — exatamente o que "reiniciar do zero
+  // logo depois de mudar o valor" testa; (3) o campo de orçamento não tinha
+  // onBlur, então sair do campo não flusheava nada. cfgPending guarda o
+  // patch acumulado; flushCfg() (definido em A, abaixo) é o único lugar que
+  // decide "hora de mandar" — chamado pelo timer, por saveConfig antes de
+  // aplicar o próprio patch, pelo onBlur do campo, e pelo listener de
+  // background/app-state. Sem isso, closures diferentes.
+  const cfgPending = useRef(null);
   const cycleRef = useRef(null);
   // Pull-to-refresh (mobile) sobre o scroller principal.
   const mainRef = useRef(null);
@@ -6062,12 +6081,26 @@ export default function App() {
   // ao voltar de segundo plano, então soma-se o listener do plugin
   // `@capacitor/app` (import dinâmico — só existe runtime no nativo).
   useEffect(() => {
-    const onVisible = () => { if (document.visibilityState === "visible") loadState(); };
+    // Bug confirmado (2026-08-09): orçamento (e outros campos deste debounce)
+    // editado e perdido no restart — "reiniciar do zero logo depois de mudar
+    // o valor" mata o setTimeout pendente de flushCfg ANTES dos 600ms, e a
+    // escrita nunca chega no store. Indo pra SEGUNDO PLANO — o instante em
+    // que o app pode ser encerrado a qualquer momento — flusheia o que
+    // estiver pendente. Mesmo par de fontes que já cobre "voltar pro
+    // primeiro plano" logo abaixo: visibilitychange no navegador,
+    // appStateChange no WKWebView (nem sempre dispara visibilitychange).
+    const onVisible = () => {
+      if (document.visibilityState === "visible") loadState();
+      else if (flushCfgRef.current) flushCfgRef.current();
+    };
     document.addEventListener("visibilitychange", onVisible);
     let removeAppListener = null;
     if (isNative) {
       import("@capacitor/app").then(({ App: CapApp }) => {
-        CapApp.addListener("appStateChange", ({ isActive }) => { if (isActive) loadState(); })
+        CapApp.addListener("appStateChange", ({ isActive }) => {
+          if (isActive) loadState();
+          else if (flushCfgRef.current) flushCfgRef.current();
+        })
           .then((h) => { removeAppListener = () => h.remove(); });
       }).catch(() => { /* plugin ausente: visibilitychange segue cobrindo */ });
     }
@@ -6198,6 +6231,27 @@ export default function App() {
     if (data) refreshQuotes();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data && Array.isArray(data.watchlist) ? data.watchlist.join(",") : ""]);
+
+  // Envia AGORA o patch acumulado em cfgPending — o único lugar que decide
+  // "hora de mandar pro store". Chamado pelo próprio debounce (após 600ms),
+  // por saveConfig (que ANTES cancelava o timer alheio sem nunca enviar o
+  // patch dele — via este flush, o patch pendente sai primeiro), pelo onBlur
+  // do campo de orçamento, e pelo listener de app indo pra segundo plano
+  // (cobre "reiniciar do zero logo depois de editar", que matava o setTimeout
+  // pendente sem nunca escrever nada). Idempotente: nada pendente = no-op.
+  const flushCfg = useCallback(async () => {
+    if (cfgTimer.current) { clearTimeout(cfgTimer.current); cfgTimer.current = null; }
+    const pending = cfgPending.current;
+    cfgPending.current = null;
+    if (!pending) return;
+    try { const s = await store.putConfig(pending); setData(s); }
+    catch (e) { flash("Config: " + (e.message || e)); }
+  }, [flash]);
+  // cycleRef já é o padrão deste componente pra "closure sempre atual sem
+  // reiniciar o effect" — mesmo motivo aqui: o listener de background é
+  // registrado uma vez (deps de loadState) e precisa do flushCfg mais recente.
+  const flushCfgRef = useRef(null);
+  flushCfgRef.current = flushCfg;
 
   const A = useMemo(() => ({
     flash,  // FASE 3: telas dão feedback padronizado (Operador IA usa)
@@ -6372,13 +6426,14 @@ export default function App() {
     setAlloc: async (v) => { setData((d) => ({ ...d, agent: { ...d.agent, allocPct: v } })); try { await store.putAgent({ allocPct: v }); } catch (e) { flash("Erro: " + (e.message || e)); } },
     setAgentInterval: async (v) => { setData((d) => ({ ...d, agent: { ...d.agent, intervalMin: v } })); try { await store.putAgent({ intervalMin: v }); } catch (e) { flash("Erro: " + (e.message || e)); } },
     saveBudget: (v) => {
-      // orçamento simulado: controlado + persistido com debounce
+      // orçamento simulado: controlado + persistido com debounce. O patch vai
+      // pra cfgPending (não só o timer) — é o que permite flushCfg() mandar
+      // este valor de imediato se o app for pra segundo plano, se o campo
+      // perder o foco, ou se outro campo de config for salvo antes dos 600ms.
       setData((d) => ({ ...d, config: { ...d.config, initialBudget: v } }));
+      cfgPending.current = { ...(cfgPending.current || {}), initialBudget: v };
       if (cfgTimer.current) clearTimeout(cfgTimer.current);
-      cfgTimer.current = setTimeout(() => {
-        cfgTimer.current = null;
-        store.putConfig({ initialBudget: v }).then((s) => setData(s)).catch((e) => flash("Orçamento: " + (e.message || e)));
-      }, 600);
+      cfgTimer.current = setTimeout(() => { flushCfg(); }, 600);
     },
     resetPortfolio: async () => {
       try { const s = await store.resetPortfolio(); setData(s); flash("Carteira reiniciada com o orçamento simulado."); }
@@ -6391,9 +6446,14 @@ export default function App() {
     },
     saveName: (v) => {
       setData((d) => ({ ...d, config: { ...d.config, userName: v } }));
+      cfgPending.current = { ...(cfgPending.current || {}), userName: v };
       if (cfgTimer.current) clearTimeout(cfgTimer.current);
-      cfgTimer.current = setTimeout(() => { cfgTimer.current = null; store.putConfig({ userName: v }).then((s) => setData(s)).catch((e) => flash("Nome: " + (e.message || e))); }, 600);
+      cfgTimer.current = setTimeout(() => { flushCfg(); }, 600);
     },
+    // Manda AGORA o que estiver pendente (orçamento/nome/qualquer editConfig
+    // em voo). onBlur do campo de orçamento chama isto — sair do campo não
+    // pode depender só do relógio de 600ms.
+    flushCfg,
     // FASE 2: edição/salvamento da coleção de prompts (mesmo padrão do skill).
     editPrompt: (key, text) => setData((d) => ({ ...d, llmPrompts: { ...(d.llmPrompts || {}), [key]: text } })),
     savePrompt: async (key) => {
@@ -6524,15 +6584,21 @@ export default function App() {
       } catch (e) { flash("Ciclo: " + (e.message || e)); }
       finally { setCycleBusy(false); }
     },
-    saveConfig: async (patch) => { if (cfgTimer.current) { clearTimeout(cfgTimer.current); cfgTimer.current = null; } try { const s = await store.putConfig(patch); setData(s); setTest({ status: null, msg: "" }); } catch (e) { flash("Config: " + (e.message || e)); } },
+    // Antes: cancelava o timer pendente de OUTRO campo (orçamento/nome) sem
+    // nunca enviar o patch dele — tocar em candlePeriod/provider/model logo
+    // depois de editar o orçamento apagava o orçamento em silêncio. Agora:
+    // manda o que estiver pendente primeiro, depois o patch deste campo.
+    saveConfig: async (patch) => {
+      await flushCfg();
+      try { const s = await store.putConfig(patch); setData(s); setTest({ status: null, msg: "" }); }
+      catch (e) { flash("Config: " + (e.message || e)); }
+    },
     editConfig: (patch) => {
       // atualiza o campo na hora (controlado) e persiste com debounce
       setData((d) => ({ ...d, config: { ...d.config, ...patch } }));
+      cfgPending.current = { ...(cfgPending.current || {}), ...patch };
       if (cfgTimer.current) clearTimeout(cfgTimer.current);
-      cfgTimer.current = setTimeout(() => {
-        cfgTimer.current = null;
-        store.putConfig(patch).then((s) => setData(s)).catch((e) => flash("Config: " + (e.message || e)));
-      }, 600);
+      cfgTimer.current = setTimeout(() => { flushCfg(); }, 600);
     },
     saveKey: async () => {
       if (!keyDraft.trim()) return;
@@ -6597,7 +6663,7 @@ export default function App() {
   // FASE 4 (1.1): TODO estado LIDO no corpo do A precisa estar nas deps —
   // sellModal ausente deixava confirmSell com closure de null (venda muda,
   // botão silenciosamente inerte). Guardado por web/tests/test_wiring_deps.mjs.
-  }), [data, catalogSel, buyModal, sellModal, keyDraft, refreshQuotes, flash, analysisModel, wlScanLoading, destaque, quotes]);
+  }), [data, catalogSel, buyModal, sellModal, keyDraft, refreshQuotes, flash, analysisModel, wlScanLoading, destaque, quotes, flushCfg]);
 
   // Mantém a referência do ciclo sempre atual (sem reiniciar o timer a cada render)
   cycleRef.current = A.cycle;
