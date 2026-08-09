@@ -178,3 +178,46 @@ def test_buscar_e_verbete_funcionam():
 
     assert kb.buscar("") == []
     assert kb.buscar("   ") == []
+
+
+# ------------------------------------------------- mecânica B3 (2026-08-09)
+def test_mecanica_b3_cobre_perguntas_gerais_de_iniciante():
+    """KB nova (mercado_ref.py + verbetes mkt-*): tipos de ordem, day trade x
+    swing, tributação, proventos, liquidação e índices — perguntas de mecânica
+    de mercado que um iniciante faz e que NÃO dependem do snapshot da tela.
+    Cobertas pela KB grátis, cada uma resolve para o verbete certo."""
+    casos = {
+        "tipos de ordem": "mkt-tipos-ordem",
+        "o que é day trade": "mkt-day-trade-swing",
+        "como funciona a tributação de ações": "mkt-tributacao",
+        "o que são dividendos": "mkt-proventos",
+        "quando o dinheiro cai depois de vender": "mkt-liquidacao",
+        "o que é ibovespa": "mkt-indices",
+    }
+    for pergunta, id_esperado in casos.items():
+        resolvido = kb.resolver(pergunta, "educacional")
+        assert resolvido is not None, f"KB não resolveu: {pergunta!r}"
+        assert resolvido["id"] == id_esperado, \
+            f"{pergunta!r} resolveu para {resolvido['id']!r}, esperava {id_esperado!r}"
+
+
+def test_tributacao_cita_numeros_de_mercado_ref_nao_hardcoded():
+    """Os números de alíquota/teto vêm de `mercado_ref.py` (fonte única que a
+    regulação pode mudar) — não de prosa hardcoded no verbete."""
+    from app import mercado_ref
+    v = kb.verbete("mkt-tributacao")
+    edu = v["texto"]["educacional"]
+    assert str(mercado_ref.SWING_ALIQUOTA_PCT) in edu
+    assert str(mercado_ref.DAY_TRADE_ALIQUOTA_PCT) in edu
+    assert mercado_ref.DARF_CODIGO in edu
+
+
+def test_proventos_nao_arrisca_numero_da_reforma_2026_sem_ressalva():
+    """Caução da pesquisa pausada (memória `kb-mecanica-b3-plano`): a reforma
+    2026 (LC 224/2025) é complexa demais para resumir em uma faixa fixa sem
+    risco de ficar desatualizada — o verbete deve apontar para a fonte oficial
+    em vez de arriscar um número como se fosse definitivo."""
+    v = kb.verbete("mkt-proventos")
+    for modo in ("educacional", "operador"):
+        texto = _normalizar(v["texto"][modo])
+        assert "receita federal" in texto or "contador" in texto

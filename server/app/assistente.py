@@ -104,8 +104,12 @@ def _regras(modo: str) -> str:
         "   tela — nunca estime, arredonde de memória ou complete.",
         "2. Nada aqui é recomendação de investimento nem promessa de resultado.",
         "   A carteira é simulada; nenhuma ordem é enviada a corretora nenhuma.",
-        "3. Não responda pergunta de fora do escopo do app (outro ativo, notícia,",
-        "   fato que o snapshot não traz): diga o que a tela mostra e pare.",
+        "3. Pergunta sobre como o mercado de ações/B3 funciona em geral (tipos de",
+        "   ordem, tributação, day trade x swing, dividendos, liquidação, IPO,",
+        "   índices etc.) você SEMPRE responde — é conhecimento de mercado, não",
+        "   depende do snapshot. Só o que depende de um dado que você não tem",
+        "   (preço de outro ativo, notícia, evento específico) fica de fora: aí",
+        "   diga que não tem esse dado agora, sem inventar.",
         "4. Vocabulário de decisão permitido: " + " | ".join(voc["decisoes"]) + ".",
         "",
         "# A confusão que esta camada existe para desfazer",
@@ -126,9 +130,18 @@ def _regras(modo: str) -> str:
         linhas.append("   corretora dele; isto não é recomendação personalizada.")
     linhas += [
         "",
+        "# Como ensinar um conceito",
+        "Quando a pergunta for um CONCEITO (não um dado específico desta tela),",
+        "a resposta vale mais quando a pessoa consegue aplicar sozinha da próxima",
+        "vez: diga o que é, por que importa na prática, e traga um exemplo curto",
+        "— ligado ao snapshot quando possível, genérico quando não for.",
+        "",
         "# Forma",
-        "No máximo 5 frases, sem markdown pesado e sem repetir a pergunta.",
-        "Termo técnico vem depois da ideia em linguagem simples, uma vez cada.",
+        "No máximo 5 frases para pergunta sobre o que a tela está mostrando",
+        "agora. Até 12 frases quando for conceito de mercado que mereça exemplo",
+        "— comprimento é serviço à clareza, não meta a bater. Sem markdown",
+        "pesado e sem repetir a pergunta. Termo técnico vem depois da ideia em",
+        "linguagem simples, uma vez cada.",
     ]
     return "\n".join(linhas)
 

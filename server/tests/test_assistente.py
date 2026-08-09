@@ -94,6 +94,31 @@ def test_vocabulario_por_modo_no_prefixo():
     assert "COMPRAR" in ope and "sem verbo de ordem" not in ope
 
 
+def test_prefixo_responde_mercado_geral_mesmo_fora_do_snapshot():
+    """2026-08-09: a regra 3 restringia a resposta ao que o snapshot trazia,
+    recusando qualquer pergunta de mecânica de mercado (tipos de ordem,
+    tributação, day trade...) que um iniciante faz sem estar ligada a um dado
+    da tela. Loosened a pedido do Alex: pergunta de mercado GERAL sempre é
+    respondida; só o que depende de dado ausente (outro ativo, notícia)
+    continua fora."""
+    s = assistente.system_prefixo("educacional")
+    assert "mercado de ações" in s.lower() or "mercado de acoes" in s.lower()
+    assert "sempre responde" in s.lower()
+    # a exceção genuína (dado que falta) continua explícita, não desapareceu
+    assert "preço de outro ativo" in s.lower() or "notícia" in s.lower()
+
+
+def test_prefixo_permite_resposta_mais_longa_para_conceito():
+    """Cap de frases deixou de ser um número fixo — vira serviço à clareza:
+    5 frases para pergunta sobre a tela, até 12 quando for conceito que
+    mereça exemplo. `system_prefixo` continua igual para toda pergunta do
+    mesmo modo (a variação é de critério, não de bytes — senão quebra o
+    cache, ver test_prefixo_e_identico_entre_chamadas)."""
+    s = assistente.system_prefixo("educacional")
+    assert "12 frases" in s
+    assert "5 frases" in s
+
+
 # ------------------------------------------- snapshot é dado, não instrução
 def test_snapshot_entra_como_dado_e_o_prefixo_declara_isso():
     s = assistente.system_prefixo("educacional")

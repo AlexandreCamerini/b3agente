@@ -53,7 +53,7 @@ import re
 import unicodedata
 from typing import Optional
 
-from . import conceitos, skill_ref
+from . import conceitos, mercado_ref, skill_ref
 from .technical_models import MODELS
 
 
@@ -1178,6 +1178,209 @@ _MERCADO_B3 = [
             ),
         },
         "veja": [],
+    },
+    {
+        "id": "mkt-tipos-ordem",
+        "termos": ("tipos de ordem", "ordem limitada", "ordem a mercado",
+                   "ordem stop", "como enviar uma ordem"),
+        "texto": {
+            "educacional": (
+                "A B3 (sistema PUMA) reconhece " + str(len(mercado_ref.TIPOS_ORDEM_OFICIAIS))
+                + " tipos de ordem; os dois que aparecem mais na rotina de quem está "
+                "começando são a ORDEM LIMITADA (define um preço máximo de compra ou "
+                "mínimo de venda — só executa nesse preço ou melhor, mas pode não "
+                "executar se o mercado não chegar lá) e a ORDEM A MERCADO (executa "
+                "imediatamente pelo melhor preço disponível no momento, sem garantia "
+                "de qual será esse preço). Existe também a ORDEM STOP, que fica "
+                "inativa até o preço tocar um gatilho definido — aí vira ordem "
+                "limitada ou a mercado, dependendo do tipo. O simulador do app não "
+                "manda ordem nenhuma para a B3; a carteira é hipotética."
+            ),
+            "operador": (
+                "Tipos de ordem B3 (PUMA): Limitada (preço-teto/piso, pode não "
+                "executar), A Mercado (executa já, preço não garantido), Stop "
+                "(inativa até tocar gatilho, daí vira limitada/mercado). Outros "
+                "tipos oficiais: A Mercado com Proteção, Stop com Proteção, Direta, "
+                "RLP. Carteira do app é simulada — nenhuma ordem sai daqui."
+            ),
+        },
+        "veja": ["mkt-carteira-simulada"],
+    },
+    {
+        "id": "mkt-day-trade-swing",
+        "termos": ("day trade", "swing trade", "diferença entre day trade e swing",
+                   "operar no mesmo dia"),
+        "texto": {
+            "educacional": (
+                "A diferença entre day trade e swing trade é só o TEMPO entre compra "
+                "e venda. Day trade é comprar e vender o MESMO ativo no MESMO dia — "
+                "zera a posição antes do pregão fechar. Swing trade é manter a "
+                "posição de um dia para o outro, por qualquer período. Essa distinção "
+                "importa além da estratégia: a Receita Federal tributa os dois "
+                "regimes com regras e alíquotas diferentes (ver tributação de ações)."
+            ),
+            "operador": (
+                "Day trade: compra e venda do mesmo papel no mesmo pregão, zera no "
+                "dia. Swing trade: posição carregada de um dia para outro. Regimes "
+                "fiscais diferentes — ver mkt-tributacao."
+            ),
+        },
+        "veja": ["mkt-tributacao"],
+    },
+    {
+        "id": "mkt-tributacao",
+        "termos": ("tributação", "tributacao", "imposto de renda ações",
+                   "imposto sobre ações", "darf", "ir sobre ações",
+                   "isenção de imposto ações"),
+        "texto": {
+            "educacional": (
+                "Imposto de Renda sobre ações tem regra separada por regime. No "
+                "SWING TRADE, a alíquota é " + str(mercado_ref.SWING_ALIQUOTA_PCT)
+                + "% sobre o lucro, com isenção quando a SOMA DAS VENDAS do mês fica "
+                "até R$ " + f"{mercado_ref.SWING_ISENCAO_TETO_VENDAS_MES:,.0f}".replace(",", ".")
+                + " — repare que o teto é sobre o total vendido, não sobre o lucro; é "
+                "o erro mais comum. No DAY TRADE, a alíquota é "
+                + str(mercado_ref.DAY_TRADE_ALIQUOTA_PCT)
+                + "% sobre o lucro do dia, sem isenção nenhuma, qualquer valor. Nos "
+                "dois casos, quando há imposto devido, o recolhimento é feito por "
+                "DARF (código " + mercado_ref.DARF_CODIGO + "), com prazo "
+                + mercado_ref.DARF_PRAZO_TXT
+                + " — a corretora não recolhe isso automaticamente, é uma "
+                "responsabilidade de quem investe. A carteira do app é simulada e "
+                "não gera obrigação fiscal nenhuma; isto é só para entender como "
+                "funcionaria numa operação real."
+            ),
+            "operador": (
+                "Ações: swing " + str(mercado_ref.SWING_ALIQUOTA_PCT) + "% sobre "
+                "lucro, isento até R$ "
+                + f"{mercado_ref.SWING_ISENCAO_TETO_VENDAS_MES:,.0f}".replace(",", ".")
+                + " em VENDAS/mês (não lucro). Day trade "
+                + str(mercado_ref.DAY_TRADE_ALIQUOTA_PCT)
+                + "% sobre lucro, sem isenção. DARF " + mercado_ref.DARF_CODIGO + ", "
+                + mercado_ref.DARF_PRAZO_TXT + ". Apuração é responsabilidade de quem "
+                "investe, corretora não recolhe sozinha. Carteira do app: simulada, "
+                "sem efeito fiscal."
+            ),
+        },
+        "veja": ["mkt-day-trade-swing", "mkt-proventos", "mkt-carteira-simulada"],
+    },
+    {
+        "id": "mkt-proventos",
+        "termos": ("dividendo", "dividendos", "jcp", "juros sobre capital próprio",
+                   "provento", "proventos"),
+        "texto": {
+            "educacional": (
+                "Dividendo e JCP (juros sobre capital próprio) são duas formas da "
+                "empresa distribuir lucro a quem tem ação — o mecanismo em si não "
+                "depende da estratégia (vale tanto para quem opera quanto para quem só "
+                "carrega o papel). A tributação de proventos mudou em 2026 (Lei "
+                "Complementar 224/2025) e ficou mais complexa do que caberia resumir "
+                "aqui com segurança: há faixas de retenção, teto por empresa e regra "
+                "de transição para o que já tinha sido aprovado antes da lei. Em vez "
+                "de arriscar um número desatualizado, o caminho mais seguro é "
+                "conferir a regra em vigor diretamente na Receita Federal ou com um "
+                "contador antes de decidir algo com base nisso."
+            ),
+            "operador": (
+                "Dividendo/JCP: distribuição de lucro ao acionista. Tributação mudou "
+                "em 2026 (LC 224/2025) — faixas, teto por empresa e transição, "
+                "demais complexa para resumir em um número fixo aqui. Confirmar regra "
+                "vigente na Receita Federal/contador antes de decisão real."
+            ),
+        },
+        "veja": ["mkt-tributacao"],
+    },
+    {
+        "id": "mkt-liquidacao",
+        "termos": ("liquidação", "liquidacao", "d+2", "quando o dinheiro cai",
+                   "prazo de liquidação"),
+        "texto": {
+            "educacional": (
+                "Liquidação é o prazo entre fechar uma operação na bolsa e o dinheiro "
+                "(ou o ativo) efetivamente mudar de dono. Hoje esse prazo é D+"
+                + str(mercado_ref.LIQUIDACAO_DIAS_HOJE)
+                + " — quem vende uma ação só vê o dinheiro disponível " +
+                str(mercado_ref.LIQUIDACAO_DIAS_HOJE) + " dias úteis depois do "
+                "pregão em que a venda aconteceu, não no mesmo dia. A B3 tem um "
+                "projeto para reduzir esse prazo (D+1), mas é apenas um " +
+                mercado_ref.LIQUIDACAO_D1_STATUS_TXT + " — o prazo real hoje continua "
+                "sendo D+" + str(mercado_ref.LIQUIDACAO_DIAS_HOJE) + "."
+            ),
+            "operador": (
+                "Liquidação hoje: D+" + str(mercado_ref.LIQUIDACAO_DIAS_HOJE)
+                + " (dinheiro/ativo só disponível 2 dias úteis após o pregão). D+1 é "
+                + mercado_ref.LIQUIDACAO_D1_STATUS_TXT + " — não vigente ainda."
+            ),
+        },
+        "veja": [],
+    },
+    {
+        "id": "mkt-termo-futuro",
+        "termos": ("mercado a termo", "mercado futuro", "contrato futuro",
+                   "termo x futuro"),
+        "texto": {
+            "educacional": (
+                "Mercado à vista (o que o app simula) é comprar/vender o ativo para "
+                "liquidação quase imediata. Mercado a TERMO e mercado FUTURO são "
+                "diferentes: nos dois, compra e venda são combinadas hoje para "
+                "liquidar numa data futura — a diferença entre eles é que o termo tem "
+                "vencimento livremente negociado entre as partes, e o futuro segue "
+                "vencimentos padronizados pela bolsa, com ajuste diário de ganhos e "
+                "perdas até lá. São instrumentos mais avançados, usados sobretudo "
+                "para proteção (hedge) ou alavancagem — fora do que a carteira "
+                "simulada do app registra hoje."
+            ),
+            "operador": (
+                "À vista (o que o app simula): liquidação quase imediata. Termo: "
+                "vencimento livre entre as partes. Futuro: vencimento padronizado, "
+                "ajuste diário. Hedge/alavancagem — fora do escopo da carteira "
+                "simulada."
+            ),
+        },
+        "veja": ["mkt-carteira-simulada"],
+    },
+    {
+        "id": "mkt-ipo",
+        "termos": ("ipo", "abertura de capital", "oferta pública inicial",
+                   "estreia na bolsa"),
+        "texto": {
+            "educacional": (
+                "IPO (Initial Public Offering, ou oferta pública inicial) é o "
+                "momento em que uma empresa vende ações ao público pela primeira vez "
+                "e passa a ser negociada na bolsa. Antes do IPO, o papel simplesmente "
+                "não existe na B3 — o app só consegue acompanhar um ativo depois "
+                "dessa estreia. Ação recém-listada costuma ter histórico de preço "
+                "curto, o que deixa indicadores que dependem de muitos candles "
+                "(médias longas, por exemplo) menos confiáveis por um tempo."
+            ),
+            "operador": (
+                "IPO: primeira venda pública das ações, início da negociação em "
+                "bolsa. Antes disso, o ticker não existe na B3. Papel recém-listado: "
+                "histórico curto, indicadores de janela longa menos confiáveis."
+            ),
+        },
+        "veja": ["mkt-ticker"],
+    },
+    {
+        "id": "mkt-indices",
+        "termos": ("ibovespa", "ibov", "ifix", "índice da bolsa", "indice da bolsa",
+                   "o que é o ibovespa"),
+        "texto": {
+            "educacional": (
+                "Um índice de bolsa mede o desempenho médio de uma cesta de ativos, "
+                "servindo de termômetro do mercado. O IBOVESPA (IBOV) é o principal "
+                "índice de ações da B3, formado pelas ações mais negociadas; o IFIX "
+                "é o equivalente para fundos imobiliários. Nenhum índice é um ativo "
+                "que se compra diretamente — quem quer exposição a ele costuma usar "
+                "um ETF que o replica (ex.: BOVA11 para o Ibovespa)."
+            ),
+            "operador": (
+                "Índice = termômetro de uma cesta de ativos. IBOV: principal índice "
+                "de ações da B3. IFIX: equivalente para FIIs. Não se compra o índice "
+                "direto — via ETF que replica (ex.: BOVA11)."
+            ),
+        },
+        "veja": ["mkt-etf"],
     },
 ]
 
