@@ -1,5 +1,5 @@
 # LOGIN-SOCIAL.md — Roteiro guiado: Sign in with Apple + Google
-*FASE 4 · Bloco 2 · BolsIA (`com.alexandrecamerini.bolsia`)*
+*FASE 4 · Bloco 2 · Boris+ (`com.alexandrecamerini.bolsia`)*
 
 O código já está pronto neste zip (ponte nativa `web/src/social.js`, endpoint
 `/api/auth/oauth` com hint de nome, revoke SIWA na exclusão de conta, plugins
@@ -20,7 +20,7 @@ está feito — só confira)*
   Apple** e ✅ **Push Notifications** → Save.
 
 **A2. Chave "Sign in with Apple" (para o REVOKE na exclusão de conta)**
-- Mesma área → **Keys** → **+** → Key Name: `BolsIA SIWA` → marcar **Sign in
+- Mesma área → **Keys** → **+** → Key Name: `Boris+ SIWA` → marcar **Sign in
   with Apple** → ao lado, **Configure** → Primary App ID:
   `com.alexandrecamerini.bolsia` → Save → Continue → Register → **Download**
   (⚠️ baixa UMA vez — guarde fora do git, junto do .p8 do push).
@@ -42,25 +42,25 @@ SIWA_PRIVATE_KEY = <conteúdo INTEIRO do AuthKey_XXXX.p8 do A2, com as linhas BE
 
 **B1. Projeto**
 - console.cloud.google.com → seletor de projeto (topo) → **New Project** →
-  Name: `BolsIA` → Create → selecione o projeto criado.
+  Name: `Boris+` → Create → selecione o projeto criado.
 
 **B2. Tela de consentimento (Branding)**
 - Menu ☰ → APIs & Services → **OAuth consent screen** → Get started →
-  App name: `BolsIA` · User support email: seu e-mail → Audience:
+  App name: `Boris+` · User support email: seu e-mail → Audience:
   **External** → Contact: seu e-mail → Finish/Create.
 - Em **Audience → Publishing status**: clique **Publish app** (sem isso, só
   contas de teste conseguem logar).
 
 **B3. Credencial iOS**
 - APIs & Services → **Credentials** → **+ Create credentials** → **OAuth
-  client ID** → Application type: **iOS** → Name: `BolsIA iOS` → Bundle ID:
+  client ID** → Application type: **iOS** → Name: `Boris+ iOS` → Bundle ID:
   `com.alexandrecamerini.bolsia` → Create.
 - **Copie o Client ID** (formato `NUMERO-xxxx.apps.googleusercontent.com`).
   → é o **GOOGLE_IOS_CLIENT_ID**.
 
 **B4. Credencial Web (é o `aud` que o servidor valida)**
 - **+ Create credentials** → **OAuth client ID** → Application type: **Web
-  application** → Name: `BolsIA Server` → Create (sem redirect URIs).
+  application** → Name: `Boris+ Server` → Create (sem redirect URIs).
 - **Copie o Client ID** → é o **GOOGLE_WEB_CLIENT_ID**.
 
 **B5. Railway → Variables**
@@ -116,7 +116,7 @@ bash scripts/setup-ios.sh        # cap sync + URL scheme do Google no Info.plist
 | D4 | **Logout** | "Você saiu da conta."; app segue funcionando anônimo (local-first) |
 | D5 | **Dois usuários isolados** | Logar com Apple, comprar um ativo, sair; logar com Google: carteira NÃO pode mostrar a posição do outro |
 | D6 | **Anônimo → conta (semente)** | Sem login, montar carteira; criar conta: os dados locais viram a conta (first-login seed) |
-| D7 | **Exclusão de conta** (Perfil → Sua conta → Excluir) | App volta ao anônimo; para conta Apple, o Diário/retorno registra o revoke; em Ajustes → Apple ID → Sign-In & Security → Sign in with Apple, o BolsIA some da lista |
+| D7 | **Exclusão de conta** (Perfil → Sua conta → Excluir) | App volta ao anônimo; para conta Apple, o Diário/retorno registra o revoke; em Ajustes → Apple ID → Sign-In & Security → Sign in with Apple, o Boris+ some da lista |
 | D8 | **Falha configurada** (opcional) | Sem `GOOGLE_CLIENT_ID` no Railway, o login Google mostra o erro acionável do servidor (não trava a tela) |
 
 Se algo falhar: me mande a mensagem exata (a nota sob os botões e/ou o

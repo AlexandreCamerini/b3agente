@@ -1,4 +1,4 @@
-# MERCADO & RENTABILIZAÇÃO — BolsIA
+# MERCADO & RENTABILIZAÇÃO — Boris+
 *FASE 4 · Bloco 4 · visão de operador de bolsa + dev sênior de produto*
 
 ## 1. Posicionamento: qual guerra NÃO vamos lutar
@@ -16,7 +16,7 @@ próxima vez?"**
 
 **Job to be done:** "Já tenho conta na corretora e medo de errar. Quero
 treinar decisões com dados reais e receber feedback que me ensine o
-raciocínio, sem arriscar meu dinheiro." O BolsIA é o único posicionado como
+raciocínio, sem arriscar meu dinheiro." O Boris+ é o único posicionado como
 **academia de decisão**: pipeline técnico determinístico + IA que explica em
 vocabulário educacional + operador autônomo simulado que mostra disciplina
 de risco funcionando + jornada completa (Radar → Avaliar → Operar →
@@ -31,7 +31,7 @@ sem arriscar um centavo."*
 A alavanca é a **cota de IA gerenciada** (decisão já travada). O desenho
 abaixo protege o hábito no grátis e cobra pela profundidade e pelo servidor:
 
-| | **Grátis** | **BolsIA Pro** |
+| | **Grátis** | **Boris+ Pro** |
 |---|---|---|
 | Paper trading, carteira, KPIs | Ilimitado | Ilimitado |
 | Radar diário (varredura armazenada) | ✅ (custo marginal ~zero) | ✅ |

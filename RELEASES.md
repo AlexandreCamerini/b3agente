@@ -1,5 +1,7 @@
 # Releases — BolsIA
 
+> **Nota (10/08/2026):** BolsIA foi renomeado para **Boris+**. Documentos anteriores a esta data preservam o nome da época — são registro histórico, não erro.
+
 Notas por versão. Carimbo canônico do backend em `/api/health`
 (`SERVER_BUILD_ID`); front em `web/src/version.js` (rodapé do Perfil).
 

@@ -217,10 +217,10 @@ fi
 # 8c. llm.py íntegro
 if [ -f server/app/llm.py ]; then
   if grep -q "claude_gateway\|GovernedGateway" server/app/llm.py 2>/dev/null; then
-    bad "server/app/llm.py contém o TEMPLATE do gateway, não o módulo do BolsIA"; nota
+    bad "server/app/llm.py contém o TEMPLATE do gateway, não o módulo do Boris+"; nota
     cmd "git checkout -- server/app/llm.py"
   elif grep -q "DEEP_FORMAT" server/app/llm.py 2>/dev/null; then
-    ok "server/app/llm.py é o módulo original do BolsIA"
+    ok "server/app/llm.py é o módulo original do Boris+"
   fi
 fi
 

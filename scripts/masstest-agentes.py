@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Teste massivo dos agentes DETERMINÍSTICOS do BolsIA (scanner/setups/plano/
+"""Teste massivo dos agentes DETERMINÍSTICOS do Boris+ (scanner/setups/plano/
 fundamento) contra produção — GRÁTIS, sem custo de LLM. Varre o universo inteiro
 em vários timeframes (force=1) e valida os invariantes que a skill
 analise-tecnica-b3 e o produto exigem. Sai 0 se tudo passa, 1 se há violação —

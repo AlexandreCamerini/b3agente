@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# git-do-zero.sh — BolsIA (b3-agente)
+# git-do-zero.sh — Boris+ (b3-agente)
 # Reconstrói o repositório Git DO ZERO e publica no GitHub em um comando.
 #
 #   bash scripts/git-do-zero.sh                       # usa o repo padrão (b3agente)
@@ -83,7 +83,7 @@ if git diff --cached --name-only | grep -qE "(^|/)(node_modules|\.venv|dist)/|^w
 fi
 ok "sem arquivos proibidos no commit"
 git -c user.name="${GIT_NAME:-Alexandre Camerini}" -c user.email="${GIT_EMAIL:-alex@bolsia.local}" \
-  commit -qm "BolsIA — bootstrap do repositório (app completo: backend FastAPI + web React/Capacitor + scripts + testes)"
+  commit -qm "Boris+ — bootstrap do repositório (app completo: backend FastAPI + web React/Capacitor + scripts + testes)"
 ok "commit inicial com $N_ARQ arquivos"
 
 say "5/5 · Remote e push"

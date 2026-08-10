@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# operar.sh — BolsIA (b3-agente) · operação do dia a dia em UM comando.
+# operar.sh — Boris+ (b3-agente) · operação do dia a dia em UM comando.
 #
 #   bash operar.sh status      # saúde do servidor (Railway) e do ambiente local
 #   bash operar.sh testes      # roda TODAS as suítes (backend + web)

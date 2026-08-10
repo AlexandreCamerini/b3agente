@@ -6,7 +6,7 @@ set -euo pipefail
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 PB="/usr/libexec/PlistBuddy"
 INFO="$REPO/web/ios/App/App/Info.plist"
-DESC="O app acessa o backend do BolsIA na sua rede local."
+DESC="O app acessa o backend do Boris+ na sua rede local."
 
 [[ -x "$PB" ]] || { echo "[X] PlistBuddy nao encontrado (precisa de macOS)."; exit 1; }
 [[ -f "$INFO" ]] || { echo "[X] Nao achei $INFO. Rode antes: bash scripts/setup-ios.sh --api-base http://SEU_IP:8787"; exit 1; }

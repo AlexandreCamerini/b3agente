@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# atualizar.sh — BolsIA (b3-agente) · aplica a ENTREGA (files.zip) e atualiza o servidor.
+# atualizar.sh — Boris+ (b3-agente) · aplica a ENTREGA (files.zip) e atualiza o servidor.
 #
 #   bash atualizar.sh ~/Downloads/files.zip "feat: pipeline IA 3 niveis"
 #   bash atualizar.sh ~/Downloads/files.zip --somente-aplicar   # aplica+valida, sem git/deploy

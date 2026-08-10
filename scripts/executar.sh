@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# executar.sh — BolsIA (b3-agente) · execução em UM comando.
+# executar.sh — Boris+ (b3-agente) · execução em UM comando.
 #
 #   bash scripts/executar.sh              # DEV: backend :8787 + Vite :5173 (auto-instala se faltar)
 #   bash scripts/executar.sh --prod       # PROD local: build do web + 1 servidor único :8787

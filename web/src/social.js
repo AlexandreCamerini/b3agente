@@ -1,6 +1,6 @@
 // FASE 4 (Bloco 2) — Ponte NATIVA de login social (Apple + Google).
 //
-// Contrato (já esperado pelos botões do App.jsx): window.__bolsiaSocial =
+// Contrato (já esperado pelos botões do App.jsx): window.__borisSocial =
 //   { apple: () => Promise<res>, google: () => Promise<res> }
 // onde res = { idToken, name?, authorizationCode? }.
 //
@@ -75,7 +75,7 @@ async function signIn(provider) {
 export function registerSocialBridge() {
   if (typeof window === "undefined") return false;
   if (!Capacitor.isNativePlatform()) { sdbg("web/PWA: ponte nativa não registrada (e-mail segue como caminho)."); return false; }
-  window.__bolsiaSocial = {
+  window.__borisSocial = {
     apple: () => signIn("apple").catch((e) => { sdbg("apple FALHOU:", (e && e.message) || e); throw e; }),
     google: () => signIn("google").catch((e) => { sdbg("google FALHOU:", (e && e.message) || e); throw e; }),
   };

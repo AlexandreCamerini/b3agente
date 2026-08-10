@@ -1,10 +1,10 @@
-# BolsIA — Como funciona
+# Boris+ — Como funciona
 
 > Documento de referência (suporte / App Store / onboarding). Espelha a tela
 > **Perfil → Como funciona** do app. Mantido junto do código
 > (`web/src/App.jsx` → `ajudaSecoes`) — ao mudar um, atualize o outro.
 
-**BolsIA é um app educacional de análise técnica da B3.** Ele varre o mercado,
+**Boris+ é um app educacional de análise técnica da B3.** Ele varre o mercado,
 mostra oportunidades de estudo e deixa você simular uma carteira — tudo com
 dinheiro fictício. Nada aqui é ordem real nem recomendação personalizada:
 nenhuma ordem é enviada à corretora.
@@ -90,7 +90,7 @@ o passado, não garantia de futuro. Dá para exportar tudo em CSV.
 
 ## Avisos importantes
 
-Tudo no BolsIA é **educacional e simulado**. Não é recomendação de investimento
+Tudo no Boris+ é **educacional e simulado**. Não é recomendação de investimento
 nem promessa de resultado. Operar no mercado real envolve risco de perda. Use
 sempre stop, dimensione a posição e respeite seu plano de risco. As decisões e
 a execução são suas.

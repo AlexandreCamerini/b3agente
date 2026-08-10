@@ -1,7 +1,7 @@
-# GUIA DE OPERAÇÃO — BolsIA
+# GUIA DE OPERAÇÃO — Boris+
 *Para quem NÃO é desenvolvedor. Tudo em comandos únicos, na pasta do projeto.*
 
-O BolsIA tem três "casas": o **código** (esta pasta, versionada no GitHub), o
+O Boris+ tem três "casas": o **código** (esta pasta, versionada no GitHub), o
 **servidor** (Railway — roda o backend e o site) e o **app do iPhone**
 (instalado pelo Xcode/TestFlight). Este guia cobre o dia a dia das três.
 

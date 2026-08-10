@@ -18,7 +18,7 @@ export default defineConfig({
         short_name: "Boris+",
         // Brand Book v2 — subtítulo da loja + tagline, nesta ordem.
         description: "Treine com mercado real. Aprenda a operar sem pôr dinheiro em risco.",
-        // --bg do tema escuro (Brand Book v2); antes era o #0b0e14 da era BolsIA.
+        // --bg do tema escuro (Brand Book v2); antes era o #0b0e14 da era Boris+.
         theme_color: "#10121a",
         background_color: "#10121a",
         display: "standalone",

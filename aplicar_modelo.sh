@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# aplicar_modelo.sh — valida o BolsIA e aplica o modelo default.
+# aplicar_modelo.sh — valida o Boris+ e aplica o modelo default.
 # Rode na RAIZ do b3-agente.
 #
 #   ./aplicar_modelo.sh              # VALIDA e mostra o que faria (não altera)
@@ -80,7 +80,7 @@ for f in medir_cache.py modelos.py reset_bolsia.sh setup.sh integrar_gateway.sh 
   [ -f "$f" ] && EXTERNOS="${EXTERNOS} $f"
 done
 if [ -n "$EXTERNOS" ]; then
-  warn "presentes no repo (não pertencem ao BolsIA):"
+  warn "presentes no repo (não pertencem ao Boris+):"
   for f in $EXTERNOS; do echo "      $f"; done
   if [ "$MODO" = "aplicar" ]; then
     mkdir -p "${HOME}/Downloads/claude-scripts"
@@ -140,7 +140,7 @@ fi
 hd "5 — Confirmações de arquitetura (só leitura)"
 if grep -q "sqlite3" server/app/db.py 2>/dev/null; then
   ok "SQLite em arquivo confirmado"
-  echo "      -> BolsIA fica no Railway (volume persistente)."
+  echo "      -> Boris+ fica no Railway (volume persistente)."
   echo "      -> Cloud Run apagaria os dados a cada scale-to-zero. NÃO migrar."
 fi
 [ -f requirements.txt ] && warn "existe requirements.txt na raiz (o app usa server/)" \

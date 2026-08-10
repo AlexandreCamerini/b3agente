@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# verificar-arquivos.sh — BolsIA (b3-agente)
+# verificar-arquivos.sh — Boris+ (b3-agente)
 # Fonte ÚNICA da verdade do manifesto: confere se TODOS os arquivos necessários
 # para o app funcionar estão presentes, antes de qualquer git/deploy.
 # Usado por git-do-zero.sh e atualizar.sh; pode ser rodado sozinho:

@@ -16,7 +16,7 @@ let fails = 0;
 const ok = (n, c) => { console.log((c ? "ok " : "FALHOU ") + n); if (!c) fails++; };
 
 // ponte: contrato e resiliência
-ok("social.js registra window.__bolsiaSocial", social.includes("window.__bolsiaSocial ="));
+ok("social.js registra window.__borisSocial", social.includes("window.__borisSocial ="));
 ok("ponte só no nativo (isNativePlatform)", social.includes("isNativePlatform()"));
 ok("plugin único capgo: import tardio", social.includes('import("@capgo/capacitor-social-login")'));
 ok("apple: pede scopes email+name (1º consentimento)", social.includes('["email", "name"]'));

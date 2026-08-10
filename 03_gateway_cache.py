@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-03_gateway_cache.py — implementa o GATEWAY dentro do llm.py do BolsIA.
+03_gateway_cache.py — implementa o GATEWAY dentro do llm.py do Boris+.
 
     python3 03_gateway_cache.py            # mostra o diff (não altera)
     python3 03_gateway_cache.py --aplicar  # aplica com backup + validação
@@ -17,7 +17,7 @@ O QUE PRESERVA
 POR QUE CONDICIONAL
     Abaixo do mínimo do modelo a API aceita o cache_control e IGNORA em
     silêncio: você paga a escrita e nunca lê. Aplicar sempre seria pior que
-    não aplicar. Haiku 4.5 exige 4.096 tokens; os prompts do BolsIA têm
+    não aplicar. Haiku 4.5 exige 4.096 tokens; os prompts do Boris+ têm
     ~1.100-1.200. Só Opus/Sonnet/Fable se beneficiam.
 """
 from __future__ import annotations
@@ -191,7 +191,7 @@ Limites conhecidos
   - analyze_structured fica ABAIXO de 1.024 no piso medido: para cachear ali,
     é preciso reordenar (estático primeiro, variável por último) e engordar o
     prefixo. Isso mexe na composição dos prompts — é decisão sua, não faço aqui.
-  - Ganho esperado no BolsIA: 4-9%. O prefixo é pequeno perto do contexto e o
+  - Ganho esperado no Boris+: 4-9%. O prefixo é pequeno perto do contexto e o
     output domina o custo. No orc o mesmo mecanismo rende 35-60%.
 """, 36))
     return 0

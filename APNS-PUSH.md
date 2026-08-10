@@ -19,7 +19,7 @@ No serviço → Variables:
 - `APNS_TEAM_ID` = seu Team ID
 - `APNS_KEY_ID`  = o Key ID da chave
 - `APNS_AUTH_KEY` = o CONTEÚDO do .p8 (abra no editor e cole o PEM inteiro)
-- `APNS_TOPIC` = bundle id do app (o mesmo do Xcode, ex.: `com.bolsia.app`)
+- `APNS_TOPIC` = bundle id do app (o mesmo do Xcode, ex.: `com.alexandrecamerini.bolsia`)
 - `APNS_SANDBOX` = `1` só para build de desenvolvimento (TestFlight/App Store: remova)
 
 ## 4) Ativar no app

@@ -7,7 +7,7 @@
 
 Por que este script existe
 --------------------------
-A telemetria do BolsIA não consegue mostrar o cache: o _norm_usage SOMA
+A telemetria do Boris+ não consegue mostrar o cache: o _norm_usage SOMA
 cache_read + cache_creation + input para manter a cota honesta, então o total
 de tokens fica igual com ou sem cache. O ganho do caching é no PREÇO (leitura
 custa 10% do input), não na contagem. A prova tem que vir da API.
@@ -119,7 +119,7 @@ def main() -> int:
         return 1
     chave = (os.environ.get("ANTHROPIC_API_KEY") or "").strip()
     if not chave:
-        mal("defina ANTHROPIC_API_KEY (a mesma que o BolsIA usa)")
+        mal("defina ANTHROPIC_API_KEY (a mesma que o Boris+ usa)")
         return 1
 
     tit("1. Preparando")
@@ -175,7 +175,7 @@ def main() -> int:
                 print(f"    input da 2ª chamada com cache: ${com:.6f}")
                 print(f"    economia no input: {(1 - com/sem) * 100:.0f}%")
         print("""
-    Lembre: no BolsIA o input é pequeno perto do contexto técnico e o output
+    Lembre: no Boris+ o input é pequeno perto do contexto técnico e o output
     domina o custo. A economia no TOTAL da chamada fica em 4-9%, não nesse
     percentual do input isolado.""")
         return 0

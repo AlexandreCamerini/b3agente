@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
-# atualizar-identidade.sh — BolsIA · migra a identidade de produção em 1 comando.
+# atualizar-identidade.sh — Boris+ · migra a identidade de produção em 1 comando.
 #
 #   bash scripts/atualizar-identidade.sh            # aplica + verifica
 #   bash scripts/atualizar-identidade.sh --verificar # só verifica (não muda nada)
 #
-# DECISÃO TRAVADA (Fase 4 "Fechamento"):
-#   appId   = com.alexandrecamerini.bolsia
-#   appName = BolsIA
+# DECISÃO (10/08/2026 — aposentadoria do nome BolsIA):
+#   appId   = com.alexandrecamerini.bolsia   ← MANTIDO de propósito. O bundle id
+#             é a identidade do app na Apple: trocá-lo publica OUTRO app, quebra
+#             todo login Sign in with Apple (o `sub` é emitido por bundle id) e
+#             deixa órfã cada instalação existente. O usuário nunca o vê.
+#   appName = Boris+
 #
 # O que este script cobre (idempotente — rodar 2x não muda nada):
 #   web/capacitor.config.ts        appId + appName
@@ -20,8 +23,10 @@
 #   server/tests/test_fase3_operador.py  APNS_TOPIC do ambiente de teste
 #
 # O que NÃO muda (codinome interno permanece — decisão do projeto):
-#   pastas b3-agente/, package.json "b3-agente-web", env vars B3_*,
-#   registros históricos em qa/ (diário e auditorias antigas são HISTÓRICO).
+#   pastas b3-agente/, package.json "b3-agente-web", env vars B3_*, chaves de
+#   armazenamento b3-* (dado de usuário!), o bundle id acima, e registros
+#   históricos (qa/, ESTADO-*, CHECKOUT-*, RELEASES.md, PROPOSTA-*) — reescrever
+#   o nome da época falsificaria o que foi decidido nela.
 #
 # Depois de rodar, os passos MANUAIS (uma vez) estão no
 # ATUALIZAR-Git-Railway-iOS.md, seção "Migração de identidade":
@@ -31,7 +36,7 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]:-$0}")/.."
 
 APP_ID="com.alexandrecamerini.bolsia"
-APP_NAME="BolsIA"
+APP_NAME="Boris+"
 OLD_ID="com.exemplo.b3agente"
 
 say(){ printf "\n\033[1m== %s ==\033[0m\n" "$*"; }
@@ -56,7 +61,7 @@ aplicar(){
   perl -0777 -pi -e "s{name:\s*\"B3 Agente\"}{name: \"$APP_NAME\"}g; s{short_name:\s*\"B3 Agente\"}{short_name: \"$APP_NAME\"}g" web/vite.config.js
   ok "vite.config.js (manifest PWA)"
 
-  perl -0777 -pi -e "s{B3 Agente é um simulador}{$APP_NAME é um simulador}" web/src/disclaimers.js
+  perl -0777 -pi -e "s{B3 Agente é um simulador}{$APP_NAME é um simulador}; s{BolsIA é um simulador}{$APP_NAME é um simulador}" web/src/disclaimers.js
   ok "disclaimers.js (banner)"
 
   perl -0777 -pi -e "s{\Q$OLD_ID\E}{$APP_ID}g" scripts/configurar-apns.sh
@@ -65,10 +70,10 @@ aplicar(){
   perl -0777 -pi -e "s{com\.seunome\.b3agente}{$APP_ID}g" scripts/setup-ios.sh
   ok "setup-ios.sh (exemplo do aviso)"
 
-  perl -0777 -pi -e "s{backend do B3 Agente}{backend do $APP_NAME}" scripts/ios-allow-http.sh
+  perl -0777 -pi -e "s{backend do B3 Agente}{backend do $APP_NAME}; s{backend do BolsIA}{backend do $APP_NAME}" scripts/ios-allow-http.sh
   ok "ios-allow-http.sh (descrição ATS)"
 
-  perl -0777 -pi -e "s{\"\"\"B3 Agente - backend}{\"\"\"$APP_NAME - backend}; s{title=\"B3 Agente API\"}{title=\"$APP_NAME API\"}" server/app/main.py
+  perl -0777 -pi -e "s{\"\"\"B3 Agente - backend}{\"\"\"$APP_NAME - backend}; s{\"\"\"BolsIA - backend}{\"\"\"$APP_NAME - backend}; s{title=\"B3 Agente API\"}{title=\"$APP_NAME API\"}; s{title=\"BolsIA API\"}{title=\"$APP_NAME API\"}" server/app/main.py
   ok "main.py (docstring + título do /docs)"
 
   perl -0777 -pi -e "s{\Q$OLD_ID\E}{$APP_ID}g" server/tests/test_fase3_operador.py
@@ -111,6 +116,22 @@ verificar(){
     FALHAS=1
   else
     ok "zero referência ao placeholder (fora do histórico em qa/)"
+  fi
+
+  # Marca aposentada: "BolsIA" (case-sensitive — o bundle id é minúsculo e
+  # escapa por natureza) não pode sobrar em arquivo VIVO. Histórico fica.
+  say "Grep final — marca aposentada (BolsIA) fora do histórico"
+  local MARCA
+  MARCA="$(git grep -l "BolsIA" -- \
+      ':!qa' ':!ESTADO-*' ':!CHECKOUT-*' ':!RELEASES.md' ':!PROPOSTA-*' \
+      ':!AUDITORIA-PROMPTS-LLM.md' ':!09-*' ':!10-*' ':!11-*' \
+      ':!RENOMEAR-*' ':!server/ios_dist' ':!scripts/atualizar-identidade.sh' \
+      ':!POLITICA-PRIVACIDADE.md' 2>/dev/null || true)"
+  if [[ -n "$MARCA" ]]; then
+    warn "BolsIA ainda vivo em:"; echo "$MARCA" | sed 's/^/      /'
+    FALHAS=1
+  else
+    ok "zero BolsIA fora do histórico (POLITICA mantém o '(anteriormente BolsIA)' de propósito)"
   fi
 
   [[ "$FALHAS" -eq 0 ]] && say "IDENTIDADE OK ✅" || die "identidade INCOMPLETA — veja avisos acima"

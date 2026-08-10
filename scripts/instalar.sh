@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# instalar.sh — BolsIA (b3-agente) · instalação em UM comando.
+# instalar.sh — Boris+ (b3-agente) · instalação em UM comando.
 #
 #   bash scripts/instalar.sh              # ambiente local: backend (venv+deps) + web (npm)
 #   bash scripts/instalar.sh --iphone     # cadeia completa do iPhone (build+sync+pod+Xcode)

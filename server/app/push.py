@@ -5,7 +5,7 @@ Env necessárias (Railway → Variables):
   APNS_TEAM_ID    — Team ID da conta Apple Developer
   APNS_KEY_ID     — Key ID da chave de push (.p8)
   APNS_AUTH_KEY   — conteúdo do .p8 (colar o PEM inteiro) OU caminho do arquivo
-  APNS_TOPIC      — bundle id do app (ex.: com.bolsia.app)
+  APNS_TOPIC      — bundle id do app (ex.: com.alexandrecamerini.bolsia)
   APNS_SANDBOX    — "1" para o ambiente de desenvolvimento (TestFlight usa produção)
 
 Tokens de aparelho ficam na seção kv `pushTokens` por usuário (cap 5,

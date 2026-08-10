@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# instalar-iphone.sh — BolsIA (b3-agente)
+# instalar-iphone.sh — Boris+ (b3-agente)
 # Cadeia COMPLETA de atualização do app no iPhone, com verificação em cada elo.
 # É este script que garante que o plugin de notificações entra no binário —
 # a causa do app nem aparecer em Ajustes -> Notificacoes era build sem sync.
@@ -59,12 +59,12 @@ grep -q "local-notifications" /tmp/capsync.log \
   && ok "plugin de notificações SINCRONIZADO no projeto nativo" \
   || die "cap sync não listou o local-notifications — o problema das notificações continuaria. Confira o package.json e rode de novo."
 
-say "7) Identidade: nome sob o ícone = BolsIA"
+say "7) Identidade: nome sob o ícone = Boris+"
 PLIST="ios/App/App/Info.plist"
 if [ -f "$PLIST" ]; then
-  /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName BolsIA" "$PLIST" 2>/dev/null \
-    || /usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string BolsIA" "$PLIST"
-  ok "CFBundleDisplayName = BolsIA"
+  /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName Boris+" "$PLIST" 2>/dev/null \
+    || /usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string Boris+" "$PLIST"
+  ok "CFBundleDisplayName = Boris+"
 fi
 
 say "8) Abrindo o Xcode"
@@ -81,7 +81,7 @@ cat << 'FIM'
    2. Product -> Run (▶). Aguarde instalar no aparelho.
    3. No app: Perfil -> Config -> Notificações -> botão DIAGNÓSTICO.
       Esperado: plugin carregado = true. Toque "Pedir permissão" ->
-      o BolsIA passa a aparecer em Ajustes -> Notificações.
+      o Boris+ passa a aparecer em Ajustes -> Notificações.
    4. Teste agendado (30s) -> feche o app -> o banner deve chegar.
 
   Se o SPM reclamar de capacitor-swift-pm (rede/credenciais):

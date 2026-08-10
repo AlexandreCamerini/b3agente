@@ -18,7 +18,7 @@
 #      "App Store Connect" — é outro fluxo) > exporte o .ipa para um caminho
 #      local.
 #
-#   bash scripts/publicar-ipa.sh /caminho/para/BolsIA.ipa [URL_BASE]
+#   bash scripts/publicar-ipa.sh /caminho/para/o-seu.ipa [URL_BASE]
 #   URL_BASE default: https://boris.semente.dev
 #
 # Depois: revise, rode a suíte, commit + push (Railway redeploya sozinho).
@@ -35,7 +35,7 @@ die(){ printf "  \033[31m[X]\033[0m %s\n" "$*" >&2; exit 1; }
 
 IPA="${1:-}"
 BASE="${2:-https://boris.semente.dev}"
-[ -n "$IPA" ] && [ -f "$IPA" ] || die "uso: bash scripts/publicar-ipa.sh /caminho/para/BolsIA.ipa [URL_BASE]"
+[ -n "$IPA" ] && [ -f "$IPA" ] || die "uso: bash scripts/publicar-ipa.sh /caminho/para/o-seu.ipa [URL_BASE]"
 
 PBXPROJ="web/ios/App/App.xcodeproj/project.pbxproj"
 [ -f "$PBXPROJ" ] || die "$PBXPROJ não encontrado — rode 'npx cap sync ios' primeiro"
@@ -45,8 +45,8 @@ BUILD="$(sed -n 's/.*CURRENT_PROJECT_VERSION = \([^;]*\);.*/\1/p' "$PBXPROJ" | h
 
 say "1/3 · Copiar o .ipa para server/ios_dist (única árvore que o Railway enxerga)"
 mkdir -p server/ios_dist
-cp "$IPA" server/ios_dist/BolsIA.ipa
-ok "server/ios_dist/BolsIA.ipa ($(du -h server/ios_dist/BolsIA.ipa | cut -f1)) — versão $VERSION build $BUILD"
+cp "$IPA" server/ios_dist/boris.ipa
+ok "server/ios_dist/boris.ipa ($(du -h server/ios_dist/boris.ipa | cut -f1)) — versão $VERSION build $BUILD"
 
 say "2/3 · Gerar manifest.plist"
 cat > server/ios_dist/manifest.plist <<PLIST
@@ -63,7 +63,7 @@ cat > server/ios_dist/manifest.plist <<PLIST
 					<key>kind</key>
 					<string>software-package</string>
 					<key>url</key>
-					<string>$BASE/ios/BolsIA.ipa</string>
+					<string>$BASE/ios/boris.ipa</string>
 				</dict>
 			</array>
 			<key>metadata</key>
@@ -75,20 +75,20 @@ cat > server/ios_dist/manifest.plist <<PLIST
 				<key>kind</key>
 				<string>software</string>
 				<key>title</key>
-				<string>BolsIA</string>
+				<string>Boris+</string>
 			</dict>
 		</dict>
 	</array>
 </plist>
 PLIST
-ok "manifest.plist gerado (versão $VERSION, ipa em $BASE/ios/BolsIA.ipa)"
+ok "manifest.plist gerado (versão $VERSION, ipa em $BASE/ios/boris.ipa)"
 
 say "3/3 · Gerar página de instalação (server/ios_dist/index.html)"
 cat > server/ios_dist/index.html <<HTML
 <!doctype html>
 <html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Instalar BolsIA</title>
+<title>Instalar Boris+</title>
 <style>
 body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#0b0e14;
 color:#eee;text-align:center;padding:3rem 1.5rem;margin:0}
@@ -99,7 +99,7 @@ p.aviso{color:#999;font-size:.9rem;margin-top:2.5rem;max-width:32em;margin-left:
 margin-right:auto;line-height:1.5}
 </style></head>
 <body>
-<h1>BolsIA</h1>
+<h1>Boris+</h1>
 <p>Instalação direta (Ad Hoc) — versão $VERSION.</p>
 <p>Só funciona em aparelhos já cadastrados para este build.</p>
 <a class="btn" href="itms-services://?action=download-manifest&url=$BASE/ios/manifest.plist">Instalar no iPhone</a>

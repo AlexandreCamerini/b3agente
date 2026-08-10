@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ios-patch-appdelegate.sh — BolsIA · reaplica o bloco APNs→Capacitor no
+# ios-patch-appdelegate.sh — Boris+ · reaplica o bloco APNs→Capacitor no
 # AppDelegate.swift. IDEMPOTENTE (rodar 2× não duplica).
 #
 # POR QUE EXISTE: web/ios/ é gitignorado e é REGENERADO por setup-ios.sh /

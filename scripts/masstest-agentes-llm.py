@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Teste massivo dos agentes de NARRAÇÃO LLM do BolsIA (N2 · /api/analyze).
+"""Teste massivo dos agentes de NARRAÇÃO LLM do Boris+ (N2 · /api/analyze).
 CUSTA TOKEN REAL — cada ticker×modo é uma chamada de LLM. BYOK: você fornece o
 provedor/modelo/chave; o backend chama a LLM. Controle o custo pelo nº de tickers
 e --limit. Sai 0 se todos os invariantes DUROS passam, 1 se algum falha.

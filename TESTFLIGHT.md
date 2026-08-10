@@ -1,10 +1,10 @@
-# TestFlight — checklist de distribuição do BolsIA
+# TestFlight — checklist de distribuição do Boris+
 
 Fluxo para subir o app iOS ao TestFlight. Itens **[script]** eu automatizei;
 **[Xcode]** e **[portal]** são manuais (você faz). O backend é à parte
 (`DEPLOY_RAILWAY.md`); push em detalhe no `APNS-PUSH.md`.
 
-Bundle id: `com.alexandrecamerini.bolsia` · Team: `LC65399YC9` · Nome: **BolsIA**
+Bundle id: `com.alexandrecamerini.bolsia` · Team: `LC65399YC9` · Nome: **Boris+**
 
 ---
 
@@ -25,7 +25,7 @@ Bundle id: `com.alexandrecamerini.bolsia` · Team: `LC65399YC9` · Nome: **BolsI
 
 ## 2. Apple Developer (portal)
 
-4. **[portal]** Renomeie o **App ID**: `AppID Prod` → **BolsIA**
+4. **[portal]** Renomeie o **App ID**: `AppID Prod` → **Boris+**
    (developer.apple.com → Identifiers). *Não* muda o bundle id; é só o display
    name que hoje bloqueia/atrapalha a distribuição.
 5. **[portal]** No App ID, confirme as capabilities: **Push Notifications** e
@@ -36,7 +36,7 @@ Bundle id: `com.alexandrecamerini.bolsia` · Team: `LC65399YC9` · Nome: **BolsI
 ## 3. App Store Connect (uma vez)
 
 7. **[portal]** Crie o app: My Apps → **+** → novo app, bundle id
-   `com.alexandrecamerini.bolsia`, nome **BolsIA**, idioma pt-BR.
+   `com.alexandrecamerini.bolsia`, nome **Boris+**, idioma pt-BR.
 8. **[portal]** Preencha **App Privacy** (dados coletados). O app tem contas/login
    → declare pelo menos **e-mail** (vinculado à identidade, uso: funcionalidade do
    app; sem tracking). Isso deve BATER com o `PrivacyInfo.xcprivacy`.

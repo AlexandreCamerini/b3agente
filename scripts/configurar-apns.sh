@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# configurar-apns.sh — BolsIA · configura o push (APNs) no Railway em 1 comando.
+# configurar-apns.sh — Boris+ · configura o push (APNs) no Railway em 1 comando.
 #
 #   bash scripts/configurar-apns.sh ~/Downloads/AuthKey_22Y76F52NJ.p8
 #   bash scripts/configurar-apns.sh ~/Downloads/AuthKey_22Y76F52NJ.p8 --sandbox   # build de desenvolvimento

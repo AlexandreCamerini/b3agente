@@ -1,7 +1,7 @@
-# ESPEC — Análises Técnicas do BolsIA
+# ESPEC — Análises Técnicas do Boris+
 **Fonte metodológica:** skill `analise-tecnica-b3` (Operador Sênior de AT da B3)
 **Adaptação obrigatória:** a skill produz DECISÃO OPERACIONAL (comprar/vender);
-o BolsIA é educacional por guardrail regulatório inegociável. Esta espec adota
+o Boris+ é educacional por guardrail regulatório inegociável. Esta espec adota
 a METODOLOGIA da skill (contrato de dados, validação, confluência, stop por
 invalidação/ATR, cenários, teto de confiança) traduzida para o vocabulário
 educacional fixo: **"Estudar alta" · "Estudar baixa" · "Monitorar" ·

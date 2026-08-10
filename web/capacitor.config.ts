@@ -4,7 +4,7 @@ const config: CapacitorConfig = {
   // Troque para o seu identificador (formato reverse-DNS). Use algo único e
   // estável — depois de publicado/instalado, mudar o appId cria "outro app".
   appId: "com.alexandrecamerini.bolsia",
-  appName: "BolsIA",
+  appName: "Boris+",
   webDir: "dist",
   backgroundColor: "#0b0e14",
   ios: {

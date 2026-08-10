@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# reparo-plugin-nativo.sh — BolsIA · repara o caso "app sumiu de Ajustes ->
+# reparo-plugin-nativo.sh — Boris+ · repara o caso "app sumiu de Ajustes ->
 # Notificações + Diagnóstico trava + Ativar push travado (permissão nunca
 # vira granted)".
 #
@@ -103,7 +103,7 @@ cat << 'FIM'
       no topo terminar (pode levar 1-2min) ANTES de continuar.
    2. File -> Packages -> Resolve Package Versions. Espere terminar de novo.
    3. Product -> Clean Build Folder (Shift+Cmd+K).
-   4. NO IPHONE: apague o app BolsIA da tela (toque e segure -> Remover App).
+   4. NO IPHONE: apague o app Boris+ da tela (toque e segure -> Remover App).
       Isso limpa o registro antigo do app em Ajustes -> Notificações.
    5. No Xcode: selecione o SEU IPHONE no topo (não o simulador) e Product -> Run.
 
@@ -112,7 +112,7 @@ cat << 'FIM'
    2. Perfil -> Notificações -> DIAGNÓSTICO. Agora deve responder na hora
       (não travar) com "plugin nativo carregado: true".
    3. Se aparecer true e "permissão do sistema: default", toque em Pedir
-      permissão -> o BolsIA deve aparecer em Ajustes -> Notificações.
+      permissão -> o Boris+ deve aparecer em Ajustes -> Notificações.
    4. Reporte o texto exato do Diagnóstico se ainda travar ou der false —
       nesse caso o problema não é mais cache, precisa de outro diagnóstico.
 FIM

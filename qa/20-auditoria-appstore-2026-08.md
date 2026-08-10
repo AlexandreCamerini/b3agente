@@ -203,3 +203,9 @@ respostas de revisor sobre simulação educacional.*
 Guardiões: `server/tests/test_politica_privacidade.py` (6) + `web/tests/test_qa20_appstore.mjs` (15). Suítes: 753 backend + 67 web.
 
 **Seguem manuais (✋):** B1 causa-raiz (rodar o build novo e ler o painel/console), B4 (`--apns-prod` + `APNS_SANDBOX`), B6 (marca + ficha), labels do Connect, conta demo, screenshots.
+
+**B6 — atualização 10/08:** marca decidida: **Boris+** em tudo que o usuário vê
+(`appName` do Capacitor, título, PWA, disclaimers, docs vivas — ver commit do
+rename). Bundle id `com.alexandrecamerini.bolsia` MANTIDO (trocar publicaria
+outro app e quebraria todo login SIWA). ✋ resta renomear o app no App Store
+Connect para "Boris+" e refazer screenshots.

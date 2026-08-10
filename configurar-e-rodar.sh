@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# configurar-e-rodar.sh — BolsIA (b3-agente) · do zero ao app rodando, UM comando.
+# configurar-e-rodar.sh — Boris+ (b3-agente) · do zero ao app rodando, UM comando.
 #
 # Orquestra os scripts que já existem (instalar.sh → configura; executar.sh → roda),
 # valida os pré-requisitos ANTES de tentar, e orienta a chave de IA. Não duplica

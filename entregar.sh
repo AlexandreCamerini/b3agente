@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# entregar.sh — BolsIA · ENTREGA COMPLETA em um comando, com verificação de
+# entregar.sh — Boris+ · ENTREGA COMPLETA em um comando, com verificação de
 # carimbo em CADA elo da cadeia. Criado na FASE 9 porque "a fase não apareceu"
 # quase sempre era um elo solto entre código → git → dist → bundle iOS → Xcode.
 #

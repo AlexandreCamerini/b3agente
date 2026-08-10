@@ -1,5 +1,7 @@
 # Sumário — Refatoração para Opções
 
+> **Nota (10/08/2026):** BolsIA foi renomeado para **Boris+**. Documentos anteriores a esta data preservam o nome da época — são registro histórico, não erro.
+
 ## O que foi implementado
 
 Foi criada a base do módulo **B3 Agente Opções** sem reescrever a carteira atual de ações.

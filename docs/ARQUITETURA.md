@@ -1,4 +1,4 @@
-# Arquitetura técnica do BolsIA
+# Arquitetura técnica do Boris+
 
 > Última revisão: 2026-08-06 (build F10-20260806-01). Este documento é a
 > visão de conjunto; a decisão detalhada mora em cada ADR (`docs/adr/`) e o

@@ -178,7 +178,7 @@ const usePalette = () => {
 
 // Logo do app: símbolo estático do Brand Book (Fase 3, 2026-08-08) — o rosto
 // do Bóris (óculos redondos + tufos de orelha) com o "+" como selo colado à
-// armação. Substitui o ícone antigo (candle+ticker-tape da era "BolsIA").
+// armação. Substitui o ícone antigo (candle+ticker-tape da era "Boris+").
 // Usado nos contextos "estáticos" que o Brand Book reserva pro símbolo (não
 // a animação): cabeçalho, telas de auth/onboarding — tudo abaixo de ~64px
 // onde a coruja animada (Boris.jsx) perderia legibilidade.
@@ -229,7 +229,7 @@ const SANS = "'Nunito', -apple-system, system-ui, 'Segoe UI', Helvetica, Arial, 
 const DISPLAY = "'Fredoka', " + SANS;
 // Boris+: o "+" do wordmark é o acento fixo da marca — âmbar chapado
 // (--brand-amber), NUNCA gradiente e NUNCA a cor do modo. Antes (marca
-// "BolsIA") o "IA" seguia o acento do modo (`IA_GRAD`, azul→ciano/degradê); o "+" é
+// "Boris+") o "IA" seguia o acento do modo (`IA_GRAD`, azul→ciano/degradê); o "+" é
 // identidade de marca, não estado de UI — fica igual em Estudo e Operador.
 const PLUS_STYLE = { color: BRAND.amber };
 
@@ -424,7 +424,7 @@ function GoogleGlyph() {
   );
 }
 // Botões de login social (UI). Caminho nativo (Apple/Google) fica pronto: quando
-// os plugins Capacitor expuserem `window.__bolsiaSocial.{apple,google}()` para
+// os plugins Capacitor expuserem `window.__borisSocial.{apple,google}()` para
 // devolver o idToken, o clique chama ctx.oauth e autentica. Sem isso (estado
 // atual), mostra um aviso amigável e mantém o e-mail como caminho principal.
 function SocialAuthButtons({ ctx }) {
@@ -443,7 +443,7 @@ function SocialAuthButtons({ ctx }) {
   );
   const go = async (provider) => {
     setNote("");
-    const bridge = (typeof window !== "undefined" && window.__bolsiaSocial) || null;
+    const bridge = (typeof window !== "undefined" && window.__borisSocial) || null;
     if (bridge && typeof bridge[provider] === "function") {
       setBusy(provider);
       try {

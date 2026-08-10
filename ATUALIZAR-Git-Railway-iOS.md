@@ -69,7 +69,7 @@
 
 ## 0) POR QUE "a fase não apareceu" — a cadeia de entrega (leia 1×)
 
-As telas do BolsIA moram no APP DO IPHONE, não no Railway. O Railway roda só a
+As telas do Boris+ moram no APP DO IPHONE, não no Railway. O Railway roda só a
 API (o deploy sobe apenas a pasta `server/`; `web/dist` nem é versionado —
 abrir a URL do Railway no navegador NUNCA mostra tela nova). Toda mudança de
 tela (a FASE 8B inteira, inclusive) exige RECONSTRUIR e REINSTALAR o app:
@@ -173,7 +173,7 @@ Xcode: Product → Clean Build Folder → instalar no iPhone.
     do "Ocultar e-mail";
     (b) termo do Modo Operador: deve liberar o aceite mesmo sem rolagem
     (texto que cabe) e com rolagem quando não cabe;
-    (c) ícone: reinstalar pelo Xcode → ícone do BolsIA na home e splash com a
+    (c) ícone: reinstalar pelo Xcode → ícone do Boris+ na home e splash com a
     arte certa (exige Clean Build Folder);
     (d) cérebro por modo: no modo OPERADOR, "Aprofundar com IA" deve responder
     como MESA (decisão direta + plano coerente com o card + conclusão
