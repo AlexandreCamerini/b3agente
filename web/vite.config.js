@@ -33,7 +33,13 @@ export default defineConfig({
   server: {
     // Porta registrada em ~/.claude/portas.md para este projeto — a 5173 é do
     // ~/dev/Bora/web. strictPort: nunca cair em outra porta em silêncio.
-    port: 5174,
+    //
+    // PORT só entra quando quem sobe o servidor ATRIBUI a porta — um segundo
+    // worktree rodando em paralelo, ou o harness com `autoPort`. Isso não
+    // afrouxa a regra acima: continua não existindo fallback silencioso (sem
+    // PORT é 5174 ou erro), o que muda é poder haver escolha explícita de
+    // quem chama. Sem isto, dois worktrees do mesmo projeto não sobem juntos.
+    port: Number(process.env.PORT) || 5174,
     strictPort: true,
     proxy: {
       "/api": { target: "http://localhost:8787", changeOrigin: true },

@@ -14,7 +14,16 @@ let fails = 0;
 const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if (!cond) fails++; };
 
 // manchete única
-ok("manchete única: decM = decisão do plano OU recomendação da IA", /const decM = rotuloDec \|\| \(kp\.recomendacao/.test(app));
+// REVERSÃO DELIBERADA (2026-08-09). Este guardião travava
+// `decM = rotuloDec || (kp.recomendacao …)` — a manchete caía na recomendação
+// da IA quando não havia plano determinístico. O Radar NUNCA teve esse
+// fallback: lá a manchete é sempre `decisaoDoModo(r, operador)`. Resultado: o
+// mesmo ativo, no mesmo lugar da tela, saía de fontes diferentes conforme a
+// aba — e o usuário lia uma recomendação aqui e outra ali.
+// A regra passa a ser: o motor decide, a IA explica (também é o que o
+// guardrail regulatório pede). Sem plano, a ausência é DITA.
+ok("manchete única: decM vem SÓ do motor determinístico", /const decM = rotuloDec \|\| null;/.test(app));
+ok("sem plano, a ausência é dita e não preenchida pela IA", /Sem leitura do motor para este ativo agora/.test(app));
 ok("manchete rotula DECISÃO DA MESA (operador) e mostra decM", /"DECISÃO DA MESA"/.test(app) && /fontWeight: 800[^}]*\}\}>\{decM\}</.test(app));
 
 // confluência/fundamento como chips (insumos), não vereditos

@@ -105,3 +105,39 @@ if __name__ == "__main__":
             fn()
             print("ok", name)
     print("TODOS OS TESTES DO SCAN DEEP PASSARAM")
+
+
+# ---------------------------------------------------------------------------
+# O cache do N1 é GLOBAL (sem user_id). Sem a identidade do LEITOR na chave,
+# a leitura escrita para um perfil era servida a outro — e a resposta paga
+# com a chave de IA de um usuário ia para outro (BYOK inclusive).
+# ---------------------------------------------------------------------------
+
+def test_leitor_fp_separa_perfis_e_modelos():
+    from app import scan_deep as sd
+    conservador = {"risco": "conservador", "toleranciaPerdaPct": 2, "experiencia": "iniciante"}
+    arrojado = {"risco": "arrojado", "toleranciaPerdaPct": 9, "experiencia": "avancado"}
+    cfg = {"provider": "anthropic", "model": "claude-haiku-4-5", "keySource": "env"}
+
+    assert sd.leitor_fp(conservador, cfg) == sd.leitor_fp(dict(conservador), dict(cfg))
+    assert sd.leitor_fp(conservador, cfg) != sd.leitor_fp(arrojado, cfg), \
+        "perfil de risco entra no prompt: leituras diferentes não podem compartilhar cache"
+    assert sd.leitor_fp(conservador, cfg) != sd.leitor_fp(conservador, {**cfg, "model": "gpt-4o"})
+    assert sd.leitor_fp(conservador, cfg) != sd.leitor_fp(conservador, {**cfg, "keySource": "manual"}), \
+        "BYOK e chave gerenciada não podem se servir da mesma resposta"
+
+
+def test_cache_do_deep_nao_vaza_entre_leitores():
+    from app import scan_deep as sd
+    sd.reset()
+    item = {"ticker": "PETR4", "snapshotId": "abc123", "confluencia": 100}
+    a, b = sd.leitor_fp({"risco": "conservador"}, {"model": "m1"}), sd.leitor_fp({"risco": "arrojado"}, {"model": "m1"})
+    assert sd._key(item, "1y", "estudo", a) != sd._key(item, "1y", "estudo", b)
+
+
+def test_estimativa_usa_a_mesma_chave_da_execucao():
+    """Se a estimativa e o run_deep divergirem, a UI promete 'já em cache' e o
+    deep cobra a chamada mesmo assim."""
+    import pathlib
+    src = (pathlib.Path(__file__).resolve().parents[1] / "app" / "main.py").read_text(encoding="utf-8")
+    assert src.count("scan_deep.leitor_fp") == 2, "as DUAS rotas do N1 precisam da mesma identidade"

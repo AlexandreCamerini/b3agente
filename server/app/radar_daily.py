@@ -25,6 +25,10 @@ from . import candles as candles_mod
 
 BRT = timezone(timedelta(hours=-3))
 HHMM_DEFAULT = "08:45"
+# Hora em que a vela DIÁRIA de um pregão está consolidada (após o leilão de
+# fechamento e o after-market). Não é o horário do pregão: é o instante a
+# partir do qual uma leitura que não enxergou aquele dia está atrasada.
+FECHAMENTO_H = 18
 
 # Telemetria em memória (aparece no status_snapshot da Observabilidade)
 LAST_DAILY = {"date": None, "atLabel": None, "duracaoS": None, "erro": None}
@@ -74,9 +78,104 @@ def store_result(conn, period: str, payload: dict, origem: str) -> dict:
     return annotated
 
 
-def get_stored(conn, period: str) -> Optional[dict]:
+def get_bruto(conn, period: str) -> Optional[dict]:
+    """O armazenado como está, sem julgar validade — é nele que a herança
+    escreve (`merge_leituras`) e dele que a telemetria lê."""
     hit = db.kv_get(conn, _key(period), user_id=None)
     return hit if isinstance(hit, dict) and hit.get("results") is not None else None
+
+
+def ultimo_fechamento(now: Optional[datetime] = None) -> Optional[datetime]:
+    """Último fechamento de pregão já consolidado antes de `now`."""
+    now = now or datetime.now(BRT)
+    for i in range(0, 10):          # 10 dias cobrem qualquer emenda de feriado
+        d = now - timedelta(days=i)
+        if d.weekday() >= 5:
+            continue
+        fech = d.replace(hour=FECHAMENTO_H, minute=0, second=0, microsecond=0)
+        if fech <= now:
+            return fech
+    return None
+
+
+def esta_vencida(scan_at: Optional[str], now: Optional[datetime] = None) -> bool:
+    """A leitura armazenada venceu quando um pregão FECHOU depois dela.
+
+    Este é o portão que faltava. `get_stored` só perguntava se o dict tinha
+    `results`, então sábado e domingo (quando `should_run` não roda) o payload
+    de sexta 08:45 — que enxergou até quinta — era servido indefinidamente,
+    enquanto a Watchlist recalculava e já lia o fechamento de sexta. Resultado:
+    o mesmo papel com dois vereditos ao mesmo tempo.
+
+    Não é uma janela de tempo arbitrária ("expira em 24h"): o que invalida uma
+    leitura técnica é o mercado ter produzido um candle que ela não viu.
+
+    Carimbo ausente ou ilegível conta como vencido — servir sem saber a idade é
+    afirmar o que não se sabe.
+    """
+    if not scan_at:
+        return True
+    try:
+        t = datetime.fromisoformat(str(scan_at))
+    except (TypeError, ValueError):
+        return True
+    if t.tzinfo is None:
+        t = t.replace(tzinfo=BRT)
+    fech = ultimo_fechamento(now)
+    return bool(fech and t < fech)
+
+
+def get_stored(conn, period: str, now: Optional[datetime] = None) -> Optional[dict]:
+    """A leitura que o Radar pode servir — ou None, se um pregão já a venceu.
+
+    Devolver None é o contrato: quem chamou recomputa. É mais barato recomputar
+    uma vez por pregão fechado do que exibir duas verdades sobre o mesmo ativo.
+    """
+    hit = get_bruto(conn, period)
+    if hit is None:
+        return None
+    return None if esta_vencida(hit.get("scanAt"), now=now) else hit
+
+
+def _ordena(results: list) -> list:
+    """Mesma chave do `scanner.run_scan` — confluência, intensidade, ticker."""
+    return sorted(results, key=lambda r: (-(r.get("confluencia") or 0),
+                                          -(r.get("score_tecnico") or 0),
+                                          r.get("ticker") or ""))
+
+
+def merge_leituras(conn, period: str, rows: Optional[list]) -> Optional[dict]:
+    """"Atualizou o ativo numa tela, todas as outras herdam."
+
+    A Watchlist recalcula a cada request (subconjunto pequeno, barato); o Radar
+    serve o armazenado. Sem esta herança, durante o próprio pregão as duas
+    divergem de novo — o diário mantém de propósito a vela do dia em formação
+    (`technical_snapshot._descarta_barra_em_formacao`), então a leitura viva
+    anda durante o dia enquanto o retrato das 08:45 fica parado.
+
+    Escreve no armazenado só o que de fato mudou (`snapshotId` diferente) e
+    reordena, porque o Radar é rankeado por confluência. Custo: zero varredura
+    nova — aproveita o que a outra tela já calculou.
+    """
+    bruto = get_bruto(conn, period)
+    if bruto is None:
+        return None
+    novos = {r.get("ticker"): r for r in (rows or []) if isinstance(r, dict) and r.get("ticker")}
+    if not novos:
+        return bruto
+    results = list(bruto.get("results") or [])
+    mudou = False
+    for i, r in enumerate(results):
+        n = novos.get(r.get("ticker"))
+        if n and n.get("snapshotId") and n.get("snapshotId") != r.get("snapshotId"):
+            results[i] = n
+            mudou = True
+    if not mudou:
+        return bruto
+    atualizado = dict(bruto)
+    atualizado["results"] = _ordena(results)
+    db.kv_set(conn, _key(period), atualizado, user_id=None)
+    return atualizado
 
 
 def last_run_date(conn) -> Optional[str]:

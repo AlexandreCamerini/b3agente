@@ -5,7 +5,11 @@ import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 const here = dirname(fileURLToPath(import.meta.url));
-const app = readFileSync(join(here, "..", "src", "App.jsx"), "utf8");
+// 09/08/2026: `corpoDeJson`/`Markdown` saíram de `App.jsx` para `markdown.jsx`,
+// para o chat do Boris poder usar o MESMO renderizador (ele não pode importar
+// de `App.jsx` — import circular). A invariante guardada aqui é a blindagem
+// contra JSON cru no render, não o arquivo onde ela mora.
+const app = readFileSync(join(here, "..", "src", "markdown.jsx"), "utf8");
 let fails = 0;
 const ok = (n, c) => { console.log((c ? "ok " : "FALHOU ") + n); if (!c) fails++; };
 

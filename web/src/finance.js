@@ -58,7 +58,16 @@ export function equityCurve(snapshots, budget, livePatr, todayYmd) {
     (s) => s && typeof s.patrimonio === "number" && isFinite(s.patrimonio)
   );
   const series = snaps.map((s) => s.patrimonio);
-  const b = Number(budget) || 0;
+  // BASE = o capital com que ESTA série começou, carimbado no 1º snapshot
+  // (`base`). O `initialBudget` corrente só entra quando ainda não há série.
+  //
+  // Antes a base era sempre o `initialBudget`, que a pessoa edita livremente na
+  // Config sem que caixa ou posições mudem — e o "retorno acumulado" de meses
+  // era reescrito por uma digitação. Era daí que saía o +9990% sem operação
+  // nenhuma por trás. Retorno é (patrimônio de hoje ÷ capital que entrou); o
+  // divisor não pode ser um campo de formulário.
+  const carimbada = snaps.find((s) => typeof s.base === "number" && s.base > 0);
+  const b = carimbada ? carimbada.base : (Number(budget) || 0);
   const base = b > 0 ? b : (series.length ? series[0] : (Number(livePatr) || 0));
 
   // série de exibição: baseline (orçamento) → snapshots, com o ÚLTIMO ponto

@@ -316,3 +316,40 @@ def test_config_no_corpo_e_o_caminho_do_iphone():
     src = inspect.getsource(main.post_assistente)
     assert 'b.get("config")' in src
     assert 'store.get(_conn, "config"' in src
+
+
+# ---------------------------------------------------------------------------
+# Reporte do Alex (09/08/2026): "o texto do chat do FAB continua ruim… não
+# poderia usar o mesmo objeto que é utilizado no resultado das análises de IA?
+# ele está com o formato perfeito."
+#
+# A análise sempre passou por `kpi.normalize_markdown`; o assistente não. Pior:
+# o prompt mandava "sem markdown" e o modelo usava assim mesmo — os asteriscos
+# chegavam à tela. Agora os dois caminhos usam a MESMA tubulação.
+# ---------------------------------------------------------------------------
+
+def test_prompt_do_assistente_pede_markdown_como_a_analise():
+    from app import assistente
+    sistema = assistente._sistema("estudo") if hasattr(assistente, "_sistema") else None
+    import pathlib
+    src = (pathlib.Path(__file__).resolve().parents[1] / "app" / "assistente.py").read_text(encoding="utf-8")
+    assert "Sem markdown" not in src, "o prompt ainda proíbe markdown que o modelo usa mesmo assim"
+    assert "markdown simples" in src and "MESMO dialeto da análise" in src
+
+
+def test_resposta_do_assistente_passa_pela_normalizacao_da_analise():
+    import pathlib
+    src = (pathlib.Path(__file__).resolve().parents[1] / "app" / "assistente.py").read_text(encoding="utf-8")
+    assert "_kpi.normalize_markdown" in src, \
+        "a resposta do assistente voltou a sair sem normalizar"
+
+
+def test_normalizacao_conserta_o_que_chegava_quebrado_na_tela():
+    """Os três estragos que o front não conseguia recuperar sozinho."""
+    from app.kpi import normalize_markdown
+    # 1) quebras ESCAPADAS: o corpo inteiro virava uma linha só
+    assert "\n" in normalize_markdown("Linha um.\\nLinha dois.")
+    # 2) cerca de código embrulhando a resposta
+    assert "```" not in normalize_markdown("```markdown\n**Oi**\n```")
+    # 3) o negrito continua intacto para o front renderizar
+    assert "**Oi**" in normalize_markdown("```markdown\n**Oi**\n```")

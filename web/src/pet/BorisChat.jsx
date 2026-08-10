@@ -17,6 +17,10 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { useBorisBrain } from "./useBorisBrain.js";
+// O mesmo renderizador que a análise do card usa. Mora em `markdown.jsx` (e
+// não em `App.jsx`) justamente para este arquivo poder importá-lo sem o
+// import circular descrito no cabeçalho.
+import { Markdown } from "../markdown.jsx";
 
 // Mesmos NOMES de variável CSS que `App.jsx` (`const T = ...` sobre
 // `PALETTE`) já injeta em `:root` — só os tokens que este componente usa.
@@ -118,7 +122,11 @@ export default function BorisChat({ tela, snapshot, sugestoes, borisRef, falarTe
         {mensagens.map((m, i) => (
           <div key={i} style={{
             maxWidth: "88%", padding: "9px 12px", borderRadius: "14px", fontSize: "13px", lineHeight: 1.45,
-            whiteSpace: "pre-wrap",
+            // `pre-wrap` só na fala do usuário: o que a pessoa digitou é texto
+            // literal. A resposta do Boris vem em markdown e passa a ser
+            // RENDERIZADA — antes caía aqui como texto cru e o `**negrito**`,
+            // os `##` e as listas apareciam com os símbolos à mostra.
+            whiteSpace: m.papel === "usuario" ? "pre-wrap" : "normal",
             alignSelf: m.papel === "usuario" ? "flex-end" : "flex-start",
             background: m.papel === "usuario" ? T.accentTint10 : T.bgBase,
             border: `1px solid ${m.papel === "usuario" ? T.accent : T.borderFaint}`,
@@ -126,7 +134,17 @@ export default function BorisChat({ tela, snapshot, sugestoes, borisRef, falarTe
             borderBottomRightRadius: m.papel === "usuario" ? "4px" : "14px",
             borderBottomLeftRadius: m.papel === "usuario" ? "14px" : "4px",
           }}>
-            {m.texto}
+            {/* Quem está falando, dito com todas as letras. A cor e o lado da
+                bolha sozinhos não bastam: numa conversa longa, rolando, é
+                fácil perder de vista de quem é a fala — e a do Boris carrega
+                enquadramento educacional que a da pessoa não tem. */}
+            {m.papel === "boris" && (
+              <div style={{ display: "flex", alignItems: "center", gap: "5px", marginBottom: "5px", fontSize: "10px", fontWeight: 800, letterSpacing: "0.05em", color: T.accent }}>
+                <span aria-hidden>🦉</span> BORIS
+                {m.fonte && m.fonte !== "llm" && <span style={{ color: T.textFaint, fontWeight: 600, letterSpacing: 0 }}>· da base do app</span>}
+              </div>
+            )}
+            {m.papel === "boris" ? <Markdown text={m.texto} /> : m.texto}
             {m.papel === "boris" && m.fonte === "llm" && (
               <div style={{ marginTop: "6px", fontSize: "10px", color: T.textFaint }}>
                 ⓘ Conteúdo educacional de IA · não é recomendação
@@ -153,7 +171,13 @@ export default function BorisChat({ tela, snapshot, sugestoes, borisRef, falarTe
         <textarea value={q} onChange={(e) => setQ(e.target.value)} rows={1} maxLength={MAX_PERGUNTA}
           onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); enviarAgora(); } }}
           placeholder="Escreve pro Boris…"
-          style={{ flex: 1, boxSizing: "border-box", padding: "10px", borderRadius: "9px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textPrimary, fontSize: "13px", resize: "vertical", minHeight: "40px" }} />
+          // fontSize 16px NÃO é escolha estética: abaixo disso o iOS dá zoom
+          // automático ao focar o campo — e NÃO desfaz ao sair. Era isso que
+          // "desconfigurava o tamanho da tela" a cada uso do chat: o app
+          // ficava ampliado depois de fechar. Corrigir aqui preserva o
+          // pinch-zoom do usuário, ao contrário de travar `maximum-scale` no
+          // viewport, que tira a ampliação de quem precisa dela.
+          style={{ flex: 1, boxSizing: "border-box", padding: "10px", borderRadius: "9px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textPrimary, fontSize: "16px", resize: "vertical", minHeight: "40px" }} />
         {stt.suportado && (
           <button type="button" onClick={mic} disabled={pensando} aria-label="Falar com o Boris"
             style={{ minHeight: "40px", minWidth: "44px", borderRadius: "9px", border: `1px solid ${stt.ouvindo ? T.accent : T.borderSubtle}`, background: stt.ouvindo ? T.accentTint10 : "transparent", color: stt.ouvindo ? T.accent : T.textMuted, fontSize: "16px" }}>

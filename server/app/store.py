@@ -20,8 +20,13 @@ def _eh_default_antigo(chave: str, texto: str) -> bool:
 def ensure_defaults(conn, user_id=None) -> None:
     d = defaults.default_state()
     for key in SECTIONS:
-        if db.kv_get(conn, key, None) is None:
-            db.kv_set(conn, key, d[key])
+        # `user_id` faltava nas DUAS chamadas: o laço lia e escrevia sempre no
+        # escopo legado, então semear a conta de um usuário novo não gravava
+        # nada no escopo dele — funcionava só porque `store.get` cai no default
+        # na leitura. Passou a importar quando o web deixou de herdar o escopo
+        # anônimo: agora esta é a única semeadura de uma conta nova.
+        if db.kv_get(conn, key, None, user_id=user_id) is None:
+            db.kv_set(conn, key, d[key], user_id=user_id)
     # backfill de campos novos em estados ja existentes
     ag = db.kv_get(conn, "agent", None, user_id=user_id)
     if isinstance(ag, dict) and "intervalMin" not in ag:
@@ -110,6 +115,14 @@ def set_config(conn, patch: dict, user_id=None) -> dict:
             cfg.pop("temperature", None)
     if isinstance(patch.get("initialBudget"), (int, float)):
         cfg["initialBudget"] = max(100.0, min(100_000_000.0, round(float(patch["initialBudget"]), 2)))
+        # O CAIXA ACOMPANHA — enquanto a simulação não começou. Escolher o
+        # orçamento (no onboarding ou na Config) só mexia em `config`, e o
+        # "disponível" continuava no valor antigo: a pessoa punha R$ 50.000 e
+        # via R$ 10.000 para operar. Com posição ou histórico já existentes o
+        # caixa NÃO é mexido — ali ele é resultado das operações, e sobrescrever
+        # seria inventar ou destruir dinheiro no meio da simulação.
+        if not get(conn, "positions", user_id=user_id) and not get(conn, "history", user_id=user_id):
+            db.kv_set(conn, "cash", cfg["initialBudget"], user_id=user_id)
     if patch.get("theme") in ("dark", "light", "system"):
         cfg["theme"] = patch["theme"]
     if isinstance(patch.get("userName"), str):
@@ -222,6 +235,10 @@ def reset_portfolio(conn, user_id=None) -> dict:
     ag["events"] = [{"time": "Inicio", "kind": "info", "text": "Carteira reiniciada com o orcamento simulado de R$ " + ("%.2f" % budget) + "."}]
     db.kv_set(conn, "agent", ag, user_id=user_id)
     db.kv_set(conn, "analyses", {}, user_id=user_id)
+    # A SÉRIE DE PATRIMÔNIO TAMBÉM ZERA. Ela sobrevivia ao "Recomeçar do zero":
+    # a curva exibida e o drawdown passavam a misturar os pontos da simulação
+    # anterior com os da nova, com bases diferentes — número sem significado.
+    db.kv_set(conn, "equitySnapshots", [], user_id=user_id)
     return public_state(conn, user_id=user_id)
 
 
@@ -617,11 +634,22 @@ def upsert_snapshot(conn, snap: dict, user_id=None) -> list:
     cur = get(conn, "equitySnapshots", user_id=user_id) or []
     if not data:
         return cur
+    # BASE DA SÉRIE: o capital com que ESTA simulação começou, carimbado no
+    # snapshot. Sem isto, o "retorno acumulado" era medido contra
+    # `config.initialBudget` — um campo que a pessoa edita a qualquer momento,
+    # sem que caixa ou posições mudem. Digitar 380 num patrimônio de 37.908
+    # produzia +9876% sem nenhuma operação ter acontecido. O carimbo é gravado
+    # UMA vez (o 1º snapshot da série manda) e não é reescrito depois.
+    cfg = get(conn, "config", user_id=user_id) or {}
+    base_atual = cfg.get("initialBudget")
+    anteriores = [s for s in cur if isinstance(s, dict) and isinstance(s.get("base"), (int, float))]
+    base = anteriores[0]["base"] if anteriores else _snap_num(base_atual)
     rec = {
         "data": data,
         "patrimonio": _snap_num((snap or {}).get("patrimonio")),
         "caixa": _snap_num((snap or {}).get("caixa")),
         "posicoesValor": _snap_num((snap or {}).get("posicoesValor")),
+        "base": base,
     }
     snaps = [s for s in cur if isinstance(s, dict) and s.get("data") != data]
     snaps.append(rec)

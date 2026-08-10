@@ -35,12 +35,16 @@ def test_escopos_de_usuario_sao_isolados():
     pb = store.public_state(conn, user_id=ub)
     assert pa["config"]["userName"] == "Alice"
     assert pb["config"]["userName"] == "Bruno"
-    # ambos começam com as posições-demo (PETR4 300); a COMPRA de A (200) só
-    # afeta A — prova de isolamento sem depender de escopo vazio.
+    # 09/08/2026: a carteira passou a começar ZERADA (as posições-demo não
+    # tinham sido pagas e inflavam o retorno acumulado — ver defaults.py). O
+    # isolamento é o mesmo, provado agora pela compra: só A fica com a posição.
     qa = next(p["qty"] for p in pa["positions"] if p["t"] == "PETR4")
-    qb = next(p["qty"] for p in pb["positions"] if p["t"] == "PETR4")
-    assert qa == 500          # 300 demo + 200 comprados
-    assert qb == 300          # B intacto
+    assert qa == 200                                    # só o que A comprou
+    assert pb["positions"] == []                        # B intacto
+    # e o caixa de cada um reflete o PRÓPRIO orçamento menos a própria operação
+    # (escolher o orçamento com a carteira vazia passou a atualizar o caixa)
+    assert pa["cash"] == round(25000.0 - 200 * 40.0, 2)   # 25.000 − 8.000
+    assert pb["cash"] == 7000.0                            # Bruno não operou
     assert pa["config"]["initialBudget"] == 25000.0
     assert pb["config"]["initialBudget"] == 7000.0
     conn.close()
@@ -134,3 +138,51 @@ if __name__ == "__main__":
             fn()
             print("ok", name)
     print("TODOS OS TESTES MULTIUSUARIO PASSARAM")
+
+
+# ---------------------------------------------------------------------------
+# Reporte do Alex (09/08/2026): "quando entro com um usuário novo o sistema
+# não entra zerado". Causa: no web a conta nova era semeada com uma CÓPIA do
+# escopo anônimo/global — um balde único do servidor. Fazia sentido quando
+# existia "usar sem conta"; sem ele, só herda sobra (inclusive de terceiros).
+# ---------------------------------------------------------------------------
+
+def test_conta_nova_no_web_comeca_limpa_e_nao_herda_o_escopo_anonimo():
+    from fastapi.testclient import TestClient
+    from app import main
+
+    # sujeira no escopo anônimo, como um servidor em uso teria
+    store.buy(main._conn, "PETR4", 300, 36.8, user_id=None)
+    store.set_config(main._conn, {"userName": "Anônimo Anterior"}, user_id=None)
+
+    email = "novo_%d@teste.local" % abs(hash(str(main)) % 10**6)
+    with TestClient(main.app) as c:
+        r = c.post("/api/auth/register", json={"email": email, "password": "senha12345"})
+        assert r.status_code == 200, r.text
+        st = r.json()["state"]
+    assert st["positions"] == [], "conta nova herdou posição do escopo anônimo"
+    assert st["history"] == [], "conta nova herdou histórico de outra pessoa"
+    assert st["config"]["userName"] != "Anônimo Anterior", "conta nova herdou identidade alheia"
+    assert st["cash"] == st["config"]["initialBudget"]
+
+
+def test_escolher_o_orcamento_atualiza_o_disponivel():
+    """"O valor de orçamento disponível continua com problemas de atualização."
+
+    `set_config` gravava `initialBudget` e não tocava no caixa: a pessoa
+    escolhia R$ 50.000 no onboarding e seguia com R$ 10.000 para operar.
+    """
+    conn, _ = _fresh_db()
+    store.set_config(conn, {"initialBudget": 50000}, user_id="u1")
+    assert store.get(conn, "cash", user_id="u1") == 50000.0
+
+
+def test_orcamento_nao_reescreve_o_caixa_com_a_simulacao_em_andamento():
+    """Com posição aberta o caixa é RESULTADO das operações — sobrescrevê-lo
+    inventaria dinheiro no meio do jogo."""
+    conn, _ = _fresh_db()
+    store.set_config(conn, {"initialBudget": 10000}, user_id="u2")
+    store.buy(conn, "PETR4", 100, 40.0, user_id="u2")
+    caixa_apos_compra = store.get(conn, "cash", user_id="u2")
+    store.set_config(conn, {"initialBudget": 90000}, user_id="u2")
+    assert store.get(conn, "cash", user_id="u2") == caixa_apos_compra
