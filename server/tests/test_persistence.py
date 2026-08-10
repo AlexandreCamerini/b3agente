@@ -418,3 +418,72 @@ def test_comprar_debita_o_caixa_e_o_patrimonio_nao_cresce_sozinho():
     patr_depois = depois["cash"] + sum(p["qty"] * p["avg"] for p in depois["positions"])
     assert round(patr_depois, 2) == round(patr_antes, 2), \
         "a compra criou patrimônio do nada"
+
+
+# ---------------------------------------------------------------------------
+# MIGRAÇÃO: corrigir `defaults.py` só valia para instalações NOVAS. Quem já
+# tinha o app seguia com a carteira de fábrica não paga (+236% na abertura).
+# ---------------------------------------------------------------------------
+
+def _instalar_carteira_demo(c, user_id=None):
+    """Recria o estado que o app trazia de fábrica até F10-20260809-05."""
+    db.kv_set(c, "positions", [
+        {"t": "PETR4", "qty": 300, "avg": 36.8, "stop": None, "alvo": None},
+        {"t": "ITUB4", "qty": 200, "avg": 31.1, "stop": None, "alvo": None},
+        {"t": "VALE3", "qty": 100, "avg": 63.4, "stop": None, "alvo": None},
+    ], user_id=user_id)
+    db.kv_set(c, "history", [
+        {"date": "18/06/2026 11:02", "type": "COMPRA", "t": "PETR4", "qty": 300, "price": 36.8, "pnl": None},
+        {"date": "17/06/2026 10:12", "type": "COMPRA", "t": "ITUB4", "qty": 200, "price": 31.1, "pnl": None},
+        {"date": "12/06/2026 09:58", "type": "COMPRA", "t": "VALE3", "qty": 100, "price": 63.4, "pnl": None},
+    ], user_id=user_id)
+    db.kv_set(c, "cash", 10000.0, user_id=user_id)   # INTACTO: ninguém pagou
+
+
+def test_migracao_remove_a_carteira_de_fabrica_de_estado_existente():
+    c, _ = _fresh_db()
+    _instalar_carteira_demo(c)
+    db.kv_set(c, "equitySnapshots", [{"data": "2026-08-01", "patrimonio": 37908}], user_id=None)
+    assert store.migrar_carteira_demo(c, user_id=None) is True
+    assert store.get(c, "positions", user_id=None) == []
+    assert store.get(c, "history", user_id=None) == []
+    assert store.get(c, "equitySnapshots", user_id=None) == [], \
+        "a série foi medida sobre o patrimônio inflado — não pode sobreviver"
+    # idempotente
+    assert store.migrar_carteira_demo(c, user_id=None) is False
+
+
+def test_migracao_roda_sozinha_no_ensure_defaults():
+    c, _ = _fresh_db()
+    _instalar_carteira_demo(c)
+    store.ensure_defaults(c)
+    assert store.get(c, "positions", user_id=None) == []
+
+
+def test_migracao_NAO_TOCA_carteira_real():
+    """O caixa é a prova: numa carteira de verdade, comprar debita."""
+    c, _ = _fresh_db()
+    _instalar_carteira_demo(c)
+    db.kv_set(c, "cash", 4200.0, user_id=None)          # caixa mexido = operou
+    assert store.migrar_carteira_demo(c, user_id=None) is False
+    assert len(store.get(c, "positions", user_id=None)) == 3
+
+
+def test_migracao_NAO_TOCA_quem_so_parece_com_a_demo():
+    """Mesmos papéis, quantidade diferente: é posição da pessoa."""
+    c, _ = _fresh_db()
+    _instalar_carteira_demo(c)
+    pos = store.get(c, "positions", user_id=None)
+    pos[0]["qty"] = 400                                  # comprou mais PETR4
+    db.kv_set(c, "positions", pos, user_id=None)
+    assert store.migrar_carteira_demo(c, user_id=None) is False
+
+
+def test_migracao_preserva_operacoes_reais_no_historico():
+    c, _ = _fresh_db()
+    _instalar_carteira_demo(c)
+    hist = store.get(c, "history", user_id=None)
+    minha = {"date": "01/08/2026 10:00", "type": "VENDA", "t": "PETR4", "qty": 100, "price": 40.0, "pnl": 320.0}
+    db.kv_set(c, "history", [minha] + hist, user_id=None)
+    store.migrar_carteira_demo(c, user_id=None)
+    assert store.get(c, "history", user_id=None) == [minha]

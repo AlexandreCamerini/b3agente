@@ -36,9 +36,18 @@ web/ios/
 # pro commit e amendava o hash, divergindo do origin a cada entrega.
 ESPEC-Modo-Estudo-Ensino-otimizado.md
 
-# ferramentas locais do Claude Code (launch.json de preview, worktrees, sessão)
-# — nunca versionar; evita o git add -A do entregar.sh varrer pro commit.
-.claude/
+# ferramentas locais do Claude Code (worktrees, sessão, settings.local) — não
+# versionar; evita o git add -A do entregar.sh varrer pro commit.
+#
+# `.claude/*` em vez de `.claude/`: com a barra o git nem DESCE no diretório e
+# a exceção abaixo seria ignorada. Worktrees e settings.local seguem de fora
+# (casam com a estrela); só o launch.json é resgatado.
+.claude/*
+# EXCEÇÃO: a config dos servidores de preview é ferramenta de time, não de
+# máquina — toda entrada dela deriva o caminho de `git rev-parse
+# --git-common-dir` e funciona em qualquer clone ou worktree. Mantenha assim:
+# um caminho absoluto aqui dentro quebra o repositório para todo mundo.
+!.claude/launch.json
 
 # saídas das medições pontuais do Yahoo (scripts/medir-yahoo-*) — evidência
 # fica em docs/ quando vale guardar; o resto é rascunho de execução.

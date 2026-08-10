@@ -73,6 +73,60 @@ def ensure_defaults(conn, user_id=None) -> None:
             changed = True
     if changed:
         db.kv_set(conn, "llmPrompts", lp, user_id=user_id)
+    migrar_carteira_demo(conn, user_id=user_id)
+
+
+# Assinatura EXATA da carteira fabricada que o app trazia de fábrica até
+# F10-20260809-05 (defaults.py e catalog.js). Fica aqui, e não em defaults,
+# porque é história: o default novo já nasce vazio.
+_CARTEIRA_DEMO = [("PETR4", 300, 36.8), ("ITUB4", 200, 31.1), ("VALE3", 100, 63.4)]
+
+
+def _e_a_carteira_demo(positions, cash, cfg) -> bool:
+    """As posições são a carteira de fábrica, e NUNCA foram pagas?
+
+    Os dois lados importam. A assinatura sozinha não basta (alguém poderia ter
+    comprado esses papéis nessas quantidades); o caixa INTACTO no orçamento é o
+    que prova que ninguém pagou por elas — numa carteira real, comprar debita.
+    """
+    if not isinstance(positions, list) or len(positions) != len(_CARTEIRA_DEMO):
+        return False
+    achado = {(p.get("t"), p.get("qty"), p.get("avg")) for p in positions if isinstance(p, dict)}
+    if achado != set(_CARTEIRA_DEMO):
+        return False
+    orcamento = (cfg or {}).get("initialBudget")
+    return isinstance(cash, (int, float)) and isinstance(orcamento, (int, float)) \
+        and round(float(cash), 2) == round(float(orcamento), 2)
+
+
+def migrar_carteira_demo(conn, user_id=None) -> bool:
+    """Remove a carteira de fábrica de estados JÁ EXISTENTES.
+
+    Corrigir `defaults.py` só resolveu instalações novas: quem já tinha o app
+    seguia com R$ 23.600 em ações não pagas, retorno acumulado de +236% na
+    abertura e três COMPRAS de junho no histórico que ninguém fez.
+
+    Não é um reset: só apaga o que casa com a assinatura de fábrica E tem o
+    caixa intacto. Qualquer operação real (uma compra, uma venda, um ajuste de
+    quantidade) quebra a assinatura ou move o caixa, e o estado passa incólume.
+    Idempotente — rodar de novo não faz nada.
+    """
+    positions = db.kv_get(conn, "positions", None, user_id=user_id)
+    cash = db.kv_get(conn, "cash", None, user_id=user_id)
+    cfg = db.kv_get(conn, "config", None, user_id=user_id)
+    if not _e_a_carteira_demo(positions, cash, cfg):
+        return False
+    db.kv_set(conn, "positions", [], user_id=user_id)
+    # O histórico some junto: eram os registros das MESMAS compras fabricadas.
+    hist = db.kv_get(conn, "history", None, user_id=user_id) or []
+    tickers = {t for t, _q, _a in _CARTEIRA_DEMO}
+    sobra = [h for h in hist if not (isinstance(h, dict) and h.get("type") == "COMPRA"
+                                     and h.get("t") in tickers)]
+    db.kv_set(conn, "history", sobra, user_id=user_id)
+    # A série de patrimônio foi medida sobre esse patrimônio inflado.
+    db.kv_set(conn, "equitySnapshots", [], user_id=user_id)
+    print(f"[migracao] carteira de fábrica removida (user={user_id or 'legado'})")
+    return True
 
 
 def get(conn, key, user_id=None):

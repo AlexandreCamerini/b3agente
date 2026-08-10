@@ -17,7 +17,7 @@
 import { Capacitor } from "@capacitor/core";
 import { api, setApiBase, setNativeMode } from "./api.js";
 import { CATALOG, CATALOG_TICKERS, defaultState, defaultSkillText, defaultSkillTextOperador, defaultLlmPrompts } from "./catalog.js";
-import { backfillStructural } from "./migrate.js";
+import { backfillStructural, limparCarteiraDemo } from "./migrate.js";
 // FASE 2: camada de sync (token + cache otimista + fila offline). serverStore
 // fala com o servidor ATRAVÉS dela; deviceStore segue local-first, EXCETO a
 // carteira quando logado (ver cabeçalho do arquivo).
@@ -265,6 +265,7 @@ function deviceStore() {
       // positions/history arrays; cash número) ANTES dos backfills abaixo, que
       // assumem doc.config/doc.agent. Evita tela branca em doc antigo/parcial.
       backfillStructural(doc, defaultState());
+      limparCarteiraDemo(doc);   // tira a carteira de fábrica não paga de docs antigos
       if (!doc.analyses || typeof doc.analyses !== "object") doc.analyses = {};
       if (typeof doc.config.serverUrl !== "string") doc.config.serverUrl = "";
       // FASE 6 (fix 1): a chave GLOBAL do aparelho vence o doc do escopo —

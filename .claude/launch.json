@@ -1,0 +1,61 @@
+{
+  "_comentario": [
+    "Servidores de preview. TODA entrada é independente de máquina — nada de",
+    "caminho para o home de ninguém: o clone principal é derivado em runtime de",
+    "`git rev-parse --git-common-dir`, que aponta para o .git de verdade a",
+    "partir de qualquer worktree (mesma técnica do scripts/test.sh).",
+    "",
+    "Sufixo `-clone`: roda o código do CLONE PRINCIPAL mesmo estando num",
+    "worktree — útil para comparar comportamento antes/depois de uma mudança.",
+    "",
+    "`api` não tem autoPort de propósito: o proxy do Vite aponta para",
+    "localhost:8787 fixo (web/vite.config.js), então essa porta é requisito."
+  ],
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "web", "run", "dev"],
+      "port": 5174,
+      "autoPort": true
+    },
+    {
+      "name": "api",
+      "runtimeExecutable": "/bin/sh",
+      "runtimeArgs": [
+        "-c",
+        "PY=server/.venv/bin/python; [ -x \"$PY\" ] || PY=\"$(dirname \"$(git rev-parse --git-common-dir)\")/server/.venv/bin/python\"; exec \"$PY\" -m uvicorn app.main:app --host 0.0.0.0 --port 8787 --app-dir server"
+      ],
+      "port": 8787
+    },
+    {
+      "name": "web-clone",
+      "runtimeExecutable": "/bin/sh",
+      "runtimeArgs": [
+        "-c",
+        "exec npm --prefix \"$(dirname \"$(git rev-parse --git-common-dir)\")/web\" run dev"
+      ],
+      "port": 5174,
+      "autoPort": true
+    },
+    {
+      "name": "api-clone",
+      "runtimeExecutable": "/bin/sh",
+      "runtimeArgs": [
+        "-c",
+        "R=\"$(dirname \"$(git rev-parse --git-common-dir)\")\"; exec \"$R/server/.venv/bin/python\" -m uvicorn app.main:app --host 0.0.0.0 --port 8787 --app-dir \"$R/server\""
+      ],
+      "port": 8787
+    },
+    {
+      "name": "api-clone-didatica-off",
+      "runtimeExecutable": "/bin/sh",
+      "runtimeArgs": [
+        "-c",
+        "R=\"$(dirname \"$(git rev-parse --git-common-dir)\")\"; B3_DIDATICA_OFF=1 exec \"$R/server/.venv/bin/python\" -m uvicorn app.main:app --host 0.0.0.0 --port 8787 --app-dir \"$R/server\""
+      ],
+      "port": 8787
+    }
+  ]
+}
