@@ -21,9 +21,61 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet" />
     <title>Boris+</title>
-    <script type="module" crossorigin src="/assets/index-7zKRleqI.js"></script>
+    <script type="module" crossorigin src="/assets/index-C8DES8DE.js"></script>
   <link rel="manifest" href="/manifest.webmanifest"></head>
   <body style="margin: 0; background: #10121a">
     <div id="root"></div>
+    <script>
+      // Guarda de BOOT (qa/20, B1). Se o JavaScript morrer ANTES de o React
+      // montar, a tela ficava PRETA — só o fundo da WebView, nada para ler,
+      // indiagnosticável no aparelho sem cabo + Web Inspector. Isto pinta o
+      // ERRO REAL (mensagem + stack) no lugar do preto.
+      //
+      // Regras para nunca atrapalhar um boot saudável:
+      //  • só age com o #root ainda VAZIO — depois de montado, quem cuida é o
+      //    ErrorBoundary do main.jsx;
+      //  • falha de recurso: só <script> (chunk do app). Fonte do Google
+      //    Fonts falhando offline NÃO é erro de boot;
+      //  • se o app montar mesmo assim, o painel se remove sozinho.
+      (function () {
+        var mostrado = false;
+        function rootVazio() {
+          var r = document.getElementById("root");
+          return !r || r.children.length === 0;
+        }
+        function esc(s) {
+          return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+        }
+        function painel(resumo, detalhe) {
+          if (mostrado || !rootVazio()) return;
+          mostrado = true;
+          var el = document.createElement("div");
+          el.setAttribute("style", "position:fixed;inset:0;z-index:99999;background:#10121a;color:#eef1f8;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;padding:28px 20px;padding-top:calc(28px + env(safe-area-inset-top));overflow:auto;box-sizing:border-box");
+          el.innerHTML = '<div style="max-width:460px;margin:0 auto">'
+            + '<div style="font-size:17px;font-weight:700;margin-bottom:8px">O app não conseguiu abrir</div>'
+            + '<p style="font-size:13px;line-height:1.5;color:#9aa6b6;margin:0 0 14px">' + resumo + '</p>'
+            + '<button onclick="location.reload()" style="min-height:44px;padding:11px 22px;border-radius:9px;border:1px solid #f2a93b;background:rgba(242,169,59,.15);color:#f2a93b;font-weight:700;font-size:14px">Tentar de novo</button>'
+            + '<pre style="margin-top:14px;padding:10px;border-radius:8px;background:rgba(255,255,255,.05);color:#9aa6b6;font-size:11px;line-height:1.45;white-space:pre-wrap;word-break:break-word">' + detalhe + '</pre></div>';
+          document.body.appendChild(el);
+          // Falso positivo (ex.: rejeição benigna na janela do boot): se o app
+          // montar, o painel sai de cena sozinho.
+          setTimeout(function () { if (!rootVazio()) { try { el.remove(); } catch (e) { /* noop */ } } }, 1500);
+        }
+        window.addEventListener("error", function (e) {
+          if (e && e.target && e.target !== window && e.target.tagName) {
+            if (e.target.tagName === "SCRIPT") {
+              painel("Um arquivo do app não carregou.", esc(e.target.src || ""));
+            }
+            return; // LINK/IMG falhando (fonte offline etc.) não é erro de boot
+          }
+          var err = e && e.error;
+          painel("Um erro impediu o app de iniciar.", esc((err && (err.stack || err.message)) || (e && e.message) || ""));
+        }, true);
+        window.addEventListener("unhandledrejection", function (e) {
+          var r = e && e.reason;
+          painel("Um erro impediu o app de iniciar.", esc((r && (r.stack || r.message)) || r || ""));
+        });
+      })();
+    </script>
   </body>
 </html>

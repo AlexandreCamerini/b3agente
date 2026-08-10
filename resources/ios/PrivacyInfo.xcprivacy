@@ -1,13 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!--
-  Manifesto de privacidade do BolsIA (obrigatório pela Apple desde 2024).
+  Manifesto de privacidade do app (obrigatório pela Apple desde 2024).
   Fonte VERSIONADA: scripts/ios-testflight.sh copia para web/ios/App/App/.
 
-  Cobre as "required-reason APIs" que o Capacitor usa (UserDefaults). O app NÃO
-  faz tracking e NÃO usa IDFA. NSPrivacyCollectedDataTypes está vazio para o
-  TestFlight (mais tolerante); ANTES da submissão à App Store, declare os dados
-  que o app realmente coleta para conta/login (ex.: e-mail) — ver TESTFLIGHT.md.
+  qa/20 (B2): NSPrivacyCollectedDataTypes deixou de ser vazio. Com o login
+  OBRIGATORIO (F10-20260810-01), TODO usuario tem e-mail, identificador de
+  conta, token de push e conteudo (carteira simulada) tratados pelo servidor —
+  o manifesto tem que dizer o MESMO que os App Privacy labels do Connect.
+  Tudo vinculado a conta, NADA usado para tracking (sem ads, sem IDFA).
 -->
 <plist version="1.0">
 <dict>
@@ -16,7 +17,60 @@
   <key>NSPrivacyTrackingDomains</key>
   <array/>
   <key>NSPrivacyCollectedDataTypes</key>
-  <array/>
+  <array>
+    <dict>
+      <key>NSPrivacyCollectedDataType</key>
+      <string>NSPrivacyCollectedDataTypeEmailAddress</string>
+      <key>NSPrivacyCollectedDataTypeLinked</key>
+      <true/>
+      <key>NSPrivacyCollectedDataTypeTracking</key>
+      <false/>
+      <key>NSPrivacyCollectedDataTypePurposes</key>
+      <array>
+        <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+      </array>
+    </dict>
+    <dict>
+      <key>NSPrivacyCollectedDataType</key>
+      <string>NSPrivacyCollectedDataTypeUserID</string>
+      <key>NSPrivacyCollectedDataTypeLinked</key>
+      <true/>
+      <key>NSPrivacyCollectedDataTypeTracking</key>
+      <false/>
+      <key>NSPrivacyCollectedDataTypePurposes</key>
+      <array>
+        <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+      </array>
+    </dict>
+    <dict>
+      <!-- Token de push (APNs): so existe se a pessoa ativar notificacoes;
+           quando existe, e vinculado a conta. -->
+      <key>NSPrivacyCollectedDataType</key>
+      <string>NSPrivacyCollectedDataTypeDeviceID</string>
+      <key>NSPrivacyCollectedDataTypeLinked</key>
+      <true/>
+      <key>NSPrivacyCollectedDataTypeTracking</key>
+      <false/>
+      <key>NSPrivacyCollectedDataTypePurposes</key>
+      <array>
+        <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+      </array>
+    </dict>
+    <dict>
+      <!-- Carteira SIMULADA, watchlist, historico de estudo e preferencias —
+           o conteudo que sincroniza entre aparelhos. -->
+      <key>NSPrivacyCollectedDataType</key>
+      <string>NSPrivacyCollectedDataTypeOtherUserContent</string>
+      <key>NSPrivacyCollectedDataTypeLinked</key>
+      <true/>
+      <key>NSPrivacyCollectedDataTypeTracking</key>
+      <false/>
+      <key>NSPrivacyCollectedDataTypePurposes</key>
+      <array>
+        <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+      </array>
+    </dict>
+  </array>
   <key>NSPrivacyAccessedAPITypes</key>
   <array>
     <dict>
@@ -24,7 +78,7 @@
       <string>NSPrivacyAccessedAPICategoryUserDefaults</string>
       <key>NSPrivacyAccessedAPITypeReasons</key>
       <array>
-        <!-- CA92.1: acessar UserDefaults do próprio app (Capacitor Preferences). -->
+        <!-- CA92.1: acessar UserDefaults do proprio app (Capacitor Preferences). -->
         <string>CA92.1</string>
       </array>
     </dict>

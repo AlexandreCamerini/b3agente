@@ -430,6 +430,17 @@ function GoogleGlyph() {
 function SocialAuthButtons({ ctx }) {
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState("");
+  // qa/20 (B5): no app NATIVO, sem os client ids do Google gravados no build
+  // (VITE_GOOGLE_IOS_CLIENT_ID / VITE_GOOGLE_WEB_CLIENT_ID), o toque no botão
+  // só pode terminar em erro — e botão visível que falha é rejeição de
+  // revisão (2.1). Então ele SOME nesse build e volta sozinho quando o build
+  // for feito com as vars (o URL scheme entra pelo setup-ios.sh). No web o
+  // comportamento fica como era: a ponte nem registra e o aviso amigável
+  // aponta o e-mail como caminho.
+  const googleOk = !isNative || Boolean(
+    (import.meta.env && import.meta.env.VITE_GOOGLE_IOS_CLIENT_ID)
+    && (import.meta.env && import.meta.env.VITE_GOOGLE_WEB_CLIENT_ID)
+  );
   const go = async (provider) => {
     setNote("");
     const bridge = (typeof window !== "undefined" && window.__bolsiaSocial) || null;
@@ -455,9 +466,11 @@ function SocialAuthButtons({ ctx }) {
       <button onClick={() => go("apple")} disabled={!!busy} aria-label="Continuar com a Apple" style={{ ...btn, border: "none", background: "#000", color: "#fff", opacity: busy && busy !== "apple" ? 0.6 : 1 }}>
         <AppleGlyph /> Continuar com a Apple
       </button>
-      <button onClick={() => go("google")} disabled={!!busy} aria-label="Continuar com o Google" style={{ ...btn, border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textPrimary, opacity: busy && busy !== "google" ? 0.6 : 1 }}>
-        <GoogleGlyph /> Continuar com o Google
-      </button>
+      {googleOk && (
+        <button onClick={() => go("google")} disabled={!!busy} aria-label="Continuar com o Google" style={{ ...btn, border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textPrimary, opacity: busy && busy !== "google" ? 0.6 : 1 }}>
+          <GoogleGlyph /> Continuar com o Google
+        </button>
+      )}
       {note && <p style={{ color: T.textMuted, fontSize: "11.5px", lineHeight: 1.5, margin: "2px 0 0", textAlign: "center" }}>{note}</p>}
       <div style={{ display: "flex", alignItems: "center", gap: "10px", color: T.textFaint, fontSize: "11px", margin: "14px 0" }}>
         <span style={{ flex: 1, height: "1px", background: T.borderSubtle }} /> ou com e-mail <span style={{ flex: 1, height: "1px", background: T.borderSubtle }} />

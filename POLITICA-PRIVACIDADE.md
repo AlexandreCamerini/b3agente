@@ -1,19 +1,19 @@
-# Política de Privacidade — BolsIA
+# Política de Privacidade — Boris+
 
-*Última atualização: 07/07/2026*
+*Última atualização: 10/08/2026*
 
-O **BolsIA** é um simulador educacional de paper trading da bolsa
-brasileira: usa cotações reais de mercado e dinheiro exclusivamente
-SIMULADO. Este documento explica, em linguagem direta, quais dados tratamos
-e por quê.
+O **Boris+** (anteriormente BolsIA) é um simulador educacional de paper
+trading da bolsa brasileira: usa cotações reais de mercado e dinheiro
+exclusivamente SIMULADO. Este documento explica, em linguagem direta, quais
+dados tratamos e por quê.
 
 ## 1. O que coletamos
 
-**Sem conta (modo local):** nada é enviado aos nossos servidores em seu
-nome. Sua carteira simulada, watchlist e configurações ficam armazenadas no
-seu próprio aparelho.
+O uso do app requer uma conta — é ela que mantém sua carteira simulada
+salva, sincronizada entre aparelhos e apagável por você. No iPhone, os dados
+do app também ficam armazenados no próprio aparelho.
 
-**Com conta (opcional):**
+**Com a sua conta:**
 - **E-mail e nome** — para criar e identificar sua conta. No login com a
   Apple você pode usar o recurso "Ocultar meu e-mail" (recebemos apenas o
   endereço de retransmissão da Apple).
@@ -57,11 +57,11 @@ fora do código-fonte. Nenhum sistema é infalível, mas seguimos o princípio
 de coletar o mínimo necessário.
 
 ## 7. Crianças
-O BolsIA é um app educacional sem conteúdo sensível, mas não é direcionado a
+O app é educacional e sem conteúdo sensível, mas não é direcionado a
 menores de 13 anos e não coleta conscientemente dados de crianças.
 
 ## 8. Aviso educacional
-O BolsIA não é corretora, consultoria ou casa de análise. Nada no app
+O Boris+ não é corretora, consultoria ou casa de análise. Nada no app
 constitui recomendação de investimento. Conteúdo gerado por IA baseia-se em
 dados passados e não garante resultados.
 

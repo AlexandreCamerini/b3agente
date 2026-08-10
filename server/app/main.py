@@ -444,7 +444,7 @@ async def admin_summary(user: dict = Depends(require_user)):
 
 # FASE 8B (diagnóstico): carimbo de build do BACKEND — confirma qual código o
 # Railway está rodando (o front tem o dele em web/src/version.js).
-SERVER_BUILD_ID = "F10-20260810-01"  # F3: alvo dinâmico (extensão por ATR, freio 2× + R:R 1,5:1).
+SERVER_BUILD_ID = "F10-20260810-02"  # F3: alvo dinâmico (extensão por ATR, freio 2× + R:R 1,5:1).
 # Normalmente sincronizado pelo entregar.sh a partir de web/src/version.js; num deploy
 # SÓ de backend (sem rebuild do front) bumpamos aqui para /api/health rastrear o servidor.
 
@@ -1955,6 +1955,85 @@ async def _start_agent_scheduler():
 # registrado no Apple Developer portal ANTES do build (pegue o UDID plugando
 # o iPhone no Mac — Xcode > Window > Devices and Simulators — nunca por um
 # "coletor" web: aquele protocolo depende de um payload assinado que não dá
+# ---- qa/20 (B3): política de privacidade em URL PÚBLICA ----
+# O App Store Connect exige uma Privacy Policy URL; até aqui o texto existia
+# só como POLITICA-PRIVACIDADE.md no repo, sem rota nenhuma. Fonte ÚNICA: o
+# próprio .md (o que se versiona é o que se publica). Render mínimo de
+# markdown — títulos, negrito e listas, o dialeto que o documento usa — para
+# leitura confortável no navegador; nada de dependência nova.
+_POLITICA_MD = Path(__file__).resolve().parent.parent.parent / "POLITICA-PRIVACIDADE.md"
+
+
+def _politica_html(md: str) -> str:
+    import html as _html
+    import re as _re
+
+    def inline(t: str) -> str:
+        t = _html.escape(t)
+        return _re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", t)
+
+    corpo, lista, para = [], [], []
+
+    def fecha_lista():
+        nonlocal lista
+        if lista:
+            corpo.append("<ul>" + "".join(f"<li>{x}</li>" for x in lista) + "</ul>")
+            lista = []
+
+    def fecha_para():
+        nonlocal para
+        if para:
+            # O .md é prosa com quebra "dura" a ~76 colunas; em markdown a
+            # quebra simples é espaço. Juntar ANTES do inline também deixa o
+            # **negrito** que atravessa linhas ser convertido.
+            corpo.append("<p>" + inline(" ".join(para)) + "</p>")
+            para = []
+
+    for raw in md.split("\n"):
+        linha = raw.rstrip()
+        if not linha.strip():
+            fecha_para(); fecha_lista(); continue
+        m = _re.match(r"^(#{1,3})\s+(.*)$", linha)
+        if m:
+            fecha_para(); fecha_lista()
+            corpo.append(f"<h{len(m.group(1))}>{inline(m.group(2))}</h{len(m.group(1))}>")
+            continue
+        b = _re.match(r"^\s*-\s+(.*)$", linha)
+        if b:
+            fecha_para(); lista.append(inline(b.group(1))); continue
+        # Continuação de item: no .md a prosa do bullet segue nas linhas
+        # seguintes com indentação — pertence ao MESMO <li>, não a um <p>.
+        if lista and raw.startswith("  "):
+            lista[-1] += " " + inline(linha.strip()); continue
+        i = _re.match(r"^\*([^*].*)\*$", linha.strip())
+        if i:
+            fecha_para(); fecha_lista()
+            corpo.append(f"<p><em>{_html.escape(i.group(1))}</em></p>")
+            continue
+        fecha_lista(); para.append(linha)
+    fecha_para(); fecha_lista()
+    return (
+        "<!doctype html><html lang=\"pt-BR\"><head><meta charset=\"utf-8\"/>"
+        "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/>"
+        "<title>Política de Privacidade — Boris+</title>"
+        "<style>body{margin:0;background:#10121a;color:#eef1f8;font:16px/1.6 system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}"
+        "main{max-width:720px;margin:0 auto;padding:40px 22px}h1{font-size:26px}h2{font-size:19px;margin-top:28px}"
+        "p,li{color:#c6cede}em{color:#9aa6b6}strong{color:#eef1f8}ul{padding-left:22px}</style></head>"
+        "<body><main>" + "".join(corpo) + "</main></body></html>"
+    )
+
+
+@app.get("/privacidade")
+@app.get("/privacy")
+async def politica_privacidade():
+    try:
+        md = _POLITICA_MD.read_text(encoding="utf-8")
+    except OSError:
+        raise HTTPException(404, "Política indisponível.")
+    from fastapi.responses import HTMLResponse
+    return HTMLResponse(_politica_html(md))
+
+
 # pra verificar sem um iPhone físico, risco alto para uma ferramenta de teste
 # só usada por pouca gente). server/ios_dist é publicado por
 # scripts/publicar-ipa.sh a partir do .ipa exportado no Xcode como Ad Hoc

@@ -134,6 +134,22 @@ if [[ -n "${VITE_GOOGLE_IOS_CLIENT_ID:-}" && -f "$PLIST" ]]; then
   fi
 fi
 
+# qa/20 (R4) — strings de permissao de VOZ. Hoje o botao de ditado do chat nem
+# renderiza no WKWebView (a API SpeechRecognition nao existe la), entao nenhuma
+# permissao e pedida. Mas se um iOS futuro expuser a API, o toque derrubaria o
+# app por falta destas strings — e crash em revisao e rejeicao certa. Seguro de
+# duas linhas, idempotente, sobrevive ao cap sync por rodar aqui.
+if [[ -f "$PLIST" ]]; then
+  if ! /usr/libexec/PlistBuddy -c "Print :NSMicrophoneUsageDescription" "$PLIST" >/dev/null 2>&1; then
+    /usr/libexec/PlistBuddy -c "Add :NSMicrophoneUsageDescription string O microfone é usado apenas quando você toca no botão de ditado para perguntar ao Boris por voz." "$PLIST"
+    ok "NSMicrophoneUsageDescription adicionada"
+  fi
+  if ! /usr/libexec/PlistBuddy -c "Print :NSSpeechRecognitionUsageDescription" "$PLIST" >/dev/null 2>&1; then
+    /usr/libexec/PlistBuddy -c "Add :NSSpeechRecognitionUsageDescription string O reconhecimento de fala converte sua pergunta em texto no chat do Boris." "$PLIST"
+    ok "NSSpeechRecognitionUsageDescription adicionada"
+  fi
+fi
+
 if [[ "$OPEN_XCODE" -eq 1 ]]; then say "Abrindo no Xcode..."; "$CAP" open ios || warn "Nao consegui abrir o Xcode. Abra manualmente: web/ios/App/App.xcodeproj (projeto SPM, sem .xcworkspace)."; fi
 
 cat <<EOF
