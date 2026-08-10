@@ -1,6 +1,7 @@
 """Integracao com a LLM (httpx async). Monta o prompt (skill + dados + formato
 JSON dos KPIs), chama o provedor e devolve (texto, kpis). Tambem testa conexao.
 As chaves ficam no servidor (web) ou sao enviadas pelo handset (iOS)."""
+import hashlib
 import os
 import json
 from datetime import datetime, timezone
@@ -550,8 +551,10 @@ def _build_structured_prompt(ticker: str, context: dict, profile: dict = None, a
     return "\n".join(lines)
 
 
-async def analyze_structured(config: dict, skill: dict, profile: dict, account: dict, ticker: str, context: dict, modo: str = None):
-    key = resolve_key(config)
+def _structured_prompts(config: dict, skill: dict, profile: dict, account: dict,
+                        ticker: str, context: dict, modo: str = None) -> tuple:
+    """(system, user) do N2 — extraído para que o REUSO possa ser decidido pela
+    identidade do prompt, sem duplicar as regras de montagem aqui e lá."""
     # FASE 8B (B3): N2 por modo — professor (educacional, intacto) × mesa de
     # operações (decisão direta). Mesmas chaves de saída; muda persona/tom.
     # Auditoria 2026-07-31 (A7): os blocos abaixo declaram só a FUNÇÃO — a
@@ -583,6 +586,32 @@ async def analyze_structured(config: dict, skill: dict, profile: dict, account: 
         ])
         system = (skill.get("text") or "") + "\n" + super_operator + "\n" + skill_ref.DIDATICA + cd + "\n" + GUARDRAILS + "\n" + FORMAT
     user = _build_structured_prompt(ticker, context, profile, account)
+    return system, user, operador
+
+
+def prompt_fingerprint(config: dict, skill: dict, profile: dict, account: dict,
+                       ticker: str, context: dict, modo: str = None) -> str:
+    """Identidade EXATA da pergunta que seria feita à LLM no N2.
+
+    Duas chamadas com esta mesma impressão produziriam a mesma resposta, então
+    a resposta guardada continua válida — reaproveitar não degrada nada.
+
+    Hash do prompt em vez de uma lista de campos (ticker, perfil, conta,
+    posição, modo, modelo…) de propósito: a lista envelheceria em silêncio no
+    dia em que alguém acrescentasse um campo ao prompt e esquecesse de somá-lo
+    aqui — e o sintoma seria justamente o que estamos consertando, análise
+    velha exibida como atual. O provedor/modelo entram porque a mesma pergunta
+    a modelos diferentes é outra resposta.
+    """
+    system, user, _ = _structured_prompts(config, skill, profile, account, ticker, context, modo)
+    cru = json.dumps([system, user, (config or {}).get("provider"), (config or {}).get("model")],
+                     ensure_ascii=False, separators=(",", ":"))
+    return hashlib.sha1(cru.encode("utf-8")).hexdigest()[:16]
+
+
+async def analyze_structured(config: dict, skill: dict, profile: dict, account: dict, ticker: str, context: dict, modo: str = None):
+    key = resolve_key(config)
+    system, user, operador = _structured_prompts(config, skill, profile, account, ticker, context, modo)
     raw = await _call_llm(config, key, system, user, 1800)
     if not raw:
         raise RuntimeError("A LLM nao retornou texto.")

@@ -37,10 +37,14 @@ ok("MercadoScreen define operador", /const operador = \(data\.config && data\.co
 ok("KpiBlock é mode-aware (rótulo por modo)",
   /operador \? "DECISÃO DA MESA" : "PLANO EDUCACIONAL"/.test(app));
 // qa/49 (v11): o KpiBlock saiu do card do ativo — a decisão virou a MANCHETE
-// única `decM` (decisaoDoModo do plano, com fallback p/ recDoModo da IA), que
-// segue mode-aware ("DECISÃO DA MESA" no operador).
-ok("watchlist: decisão é a manchete única decM (mode-aware)",
-  /const decM = rotuloDec \|\| \(kp\.recomendacao/.test(app)
+// única `decM`, mode-aware ("DECISÃO DA MESA" no operador).
+// REVERSÃO DELIBERADA (2026-08-09): o fallback para `recDoModo(kp.recomendacao)`
+// saiu. Ele existia para a manchete nunca ficar vazia, mas criava uma SEGUNDA
+// fonte para o mesmo espaço visual — e só na Watchlist, porque o Radar sempre
+// usou o motor. Dava para ler uma recomendação numa aba e outra na outra.
+// Agora: o motor decide, a IA explica; sem plano, a ausência é declarada.
+ok("watchlist: decisão é a manchete única decM (mode-aware, só do motor)",
+  /const decM = rotuloDec \|\| null;/.test(app)
   && /operador \? "DECISÃO DA MESA" : "PLANO EDUCACIONAL"/.test(app));
 
 // qa/40: o VALOR da decisão no KpiBlock também é mapeado no render (cache antigo

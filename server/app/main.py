@@ -116,12 +116,21 @@ def _apply_seed(user_id: str, body: dict) -> None:
                               (que contém a chave BYOK; nunca trafega ao cliente).
     Em todos os casos só semeia se a conta ainda estiver vazia."""
     seed = body.get("seed", "__default__") if isinstance(body, dict) else "__default__"
-    if seed is False:
-        store.ensure_defaults(_conn, user_id=user_id)
-    elif isinstance(seed, dict):
+    if isinstance(seed, dict):
+        # iOS: o doc é local-first e pertence a quem está no aparelho — semear
+        # com ele preserva o que a pessoa já fez ali (inclusive a chave BYOK).
         store.seed_user_from(_conn, user_id, seed)
     else:
-        store.seed_user_from(_conn, user_id, store.export_sections(_conn, user_id=None))
+        # WEB: conta nova COMEÇA LIMPA (09/08/2026).
+        #
+        # Antes o web caía em `export_sections(user_id=None)` — uma cópia do
+        # escopo ANÔNIMO/global. Isso fazia sentido enquanto existia "usar sem
+        # conta": a pessoa acumulava dados antes de se cadastrar e não podia
+        # perdê-los. Removido o modo anônimo, ninguém mais acumula nada ali —
+        # e o escopo anônimo é um BALDE ÚNICO do servidor: num servidor
+        # compartilhado, toda conta nova nascia herdando a sobra de quem passou
+        # por ali antes (foi assim que a carteira-demo apareceu numa conta nova).
+        store.ensure_defaults(_conn, user_id=user_id)
 
 
 def _auth_payload(user: dict) -> dict:
@@ -435,7 +444,7 @@ async def admin_summary(user: dict = Depends(require_user)):
 
 # FASE 8B (diagnóstico): carimbo de build do BACKEND — confirma qual código o
 # Railway está rodando (o front tem o dele em web/src/version.js).
-SERVER_BUILD_ID = "F10-20260809-05"  # F3: alvo dinâmico (extensão por ATR, freio 2× + R:R 1,5:1).
+SERVER_BUILD_ID = "F10-20260810-01"  # F3: alvo dinâmico (extensão por ATR, freio 2× + R:R 1,5:1).
 # Normalmente sincronizado pelo entregar.sh a partir de web/src/version.js; num deploy
 # SÓ de backend (sem rebuild do front) bumpamos aqui para /api/health rastrear o servidor.
 
@@ -723,6 +732,12 @@ async def fundamentals_one(ticker: str, force: Optional[int] = None):
     }
 
 
+# Serializa a revalidação do Radar (varredura do universo inteiro): sem ele,
+# o primeiro acesso após um fechamento de pregão dispara uma varredura por
+# usuário simultâneo.
+_revalida_radar = asyncio.Lock()
+
+
 @app.get("/api/scan")
 async def scan(period: Optional[str] = None, tickers: Optional[str] = None,
                force: Optional[int] = None, scope: Optional[str] = Depends(current_scope)):
@@ -733,13 +748,29 @@ async def scan(period: Optional[str] = None, tickers: Optional[str] = None,
     # qa/42 (FinOps): todo o I/O SQLite deste caminho vai para thread — o
     # overlay lê 74 linhas e o store_result grava ~150 KB de JSON; síncronos
     # aqui, congelavam o event loop a cada Radar.
-    if tickers:
-        return await _enrich_fundamentos(await scanner.run_scan(period=period, universe=tickers, fetch=candle_provider.get_history))
     p = candles_mod.normalize_period(period)
+    if tickers:
+        payload = await scanner.run_scan(period=p, universe=tickers, fetch=candle_provider.get_history)
+        # UM ATIVO, UMA LEITURA: o que a Watchlist acabou de calcular passa a
+        # valer para o Radar também. Sem isto, as duas telas exibiam vereditos
+        # contraditórios do mesmo papel durante o pregão.
+        await asyncio.to_thread(radar_daily.merge_leituras, _conn, p, payload.get("results"))
+        return await _enrich_fundamentos(payload)
     if not force:
         stored = await asyncio.to_thread(radar_daily.get_stored, _conn, p)
         if stored:
             return await _enrich_fundamentos(stored)
+        # Vencida (um pregão fechou depois dela) e sem varredura do dia ainda.
+        # O lock evita que N usuários abrindo o Radar no mesmo minuto disparem
+        # N varreduras do universo inteiro — a 1ª grava, as demais servem.
+        async with _revalida_radar:
+            stored = await asyncio.to_thread(radar_daily.get_stored, _conn, p)
+            if stored:
+                return await _enrich_fundamentos(stored)
+            payload = await scanner.run_scan(period=p, fetch=candle_provider.get_history)
+            salvo = await asyncio.to_thread(radar_daily.store_result, _conn, p, payload,
+                                            origem="revalidação")
+            return await _enrich_fundamentos(salvo)
     payload = await scanner.run_scan(period=p, fetch=candle_provider.get_history)
     salvo = await asyncio.to_thread(radar_daily.store_result, _conn, p, payload, origem="manual")
     return await _enrich_fundamentos(salvo)
@@ -765,7 +796,10 @@ async def scan_deep_estimate(period: Optional[str] = None, topN: Optional[int] =
     # FASE 8B (B3): cache do deep é por MODO — iOS manda ?appMode; web usa a config
     modo = appMode or (cfg or {}).get("appMode")
     payload = await scanner.run_scan(period=p, universe=tickers, fetch=candle_provider.get_history)
-    return scan_deep.estimate(payload, n, p, modo=modo)
+    # Mesma identidade de leitor da rota que gasta — senão a estimativa promete
+    # "já está em cache" e o deep cobra a chamada assim mesmo.
+    leitor = scan_deep.leitor_fp(store.get(_conn, "profile", user_id=scope), cfg)
+    return scan_deep.estimate(payload, n, p, modo=modo, leitor=leitor)
 
 
 @app.post("/api/scan/deep")
@@ -838,7 +872,11 @@ async def scan_deep_run(body: dict = Body(default={}), scope: Optional[str] = De
         return res
 
     try:
-        return await scan_deep.run_deep(payload, n, p, deep_call, modo=modo)
+        # O cache do N1 é GLOBAL: sem a identidade do leitor, a leitura escrita
+        # para um perfil era servida a outro, e a resposta paga com a chave de
+        # um usuário ia para outro.
+        return await scan_deep.run_deep(payload, n, p, deep_call, modo=modo,
+                                        leitor=scan_deep.leitor_fp(profile, ai_config))
     except Exception as e:  # noqa: BLE001
         raise HTTPException(502, llm.public_error(e))
 
@@ -887,6 +925,28 @@ async def analyze_technical_model(ticker: str, body: dict = Body(default={}), sc
     # FASE 2 (2.4): reanálise SITUADA — a posição do usuário entra no pacote.
     if isinstance(body.get("position"), dict):
         context["userPosition"] = {k: body["position"].get(k) for k in ("qty", "avg", "stop", "alvo", "resultadoAtual")}
+    # UM ATIVO, UMA LEITURA (camada de IA): a análise guardada continua válida
+    # enquanto a PERGUNTA for a mesma. `promptFp` é o hash do prompt final —
+    # muda o snapshot, o perfil, a conta, a posição, o modo ou o modelo, e ela
+    # vence sozinha. Vale para os dois stores: o cliente manda a impressão do
+    # que está exibindo e o servidor diz se ainda serve, sem gastar IA nem cota.
+    #
+    # Não é só economia: sem isto a análise NUNCA vencia — o `snapshotId` era
+    # gravado e nunca comparado, então uma leitura de outro pregão ficava no
+    # card ao lado do veredito fresco, sem nada dizendo a idade dela.
+    prompt_fp = llm.prompt_fingerprint(config, skill, profile, account, t, context, modo=modo)
+    # Na web o servidor guarda a análise, então ele consulta a PRÓPRIA cópia em
+    # vez de confiar no que o cliente mandou — o `A.analyze` do front é
+    # memoizado sem `analysis` nas dependências e enviaria uma impressão velha.
+    # No aparelho (iOS manda `config`) nada é persistido aqui: aí vale a
+    # impressão que o device envia, e ele fica com a cópia dele.
+    guardada = None if body.get("config") else (store.get(_conn, "analyses", user_id=scope) or {}).get(t)
+    fp_conhecida = body.get("promptFp") or (guardada or {}).get("promptFp")
+    if fp_conhecida and fp_conhecida == prompt_fp:
+        if guardada:
+            return {"t": t, "quote": quote, "reaproveitada": True, **guardada}
+        return {"t": t, "quote": quote, "reaproveitada": True, "promptFp": prompt_fp,
+                "snapshotId": snap["snapshotId"], "snapshotAt": snap["asOf"], "at": now_str()}
     try:
         with llm.collect_usage() as _uso:  # qa/45: captura tokens desta chamada
             result = await llm.analyze_structured(config, skill, profile, account, t, context, modo=modo)
@@ -944,6 +1004,7 @@ async def analyze_technical_model(ticker: str, body: dict = Body(default={}), sc
         "candlesSentToLLM": (context.get("historyStats") or {}).get("candlesSentToLLM"),
         "snapshotId": snap["snapshotId"],
         "snapshotAt": snap["asOf"],
+        "promptFp": prompt_fp,   # identidade da pergunta — governa o reuso
         "setupsRadar": context.get("setupsRadar"),
         # qa/36: fundamento (score + métricas) + resultado do rebaixamento.
         "fundamento": fundamento,

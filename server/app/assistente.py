@@ -28,6 +28,7 @@ import os
 from typing import Optional
 
 from . import ai_activity, conceitos, db, llm, skill_ref
+from . import kpi as _kpi   # normalize_markdown: mesma normalização da análise
 
 TIPO = "assistente"          # separa este gasto da análise no painel de IA
 MAX_TOKENS = 900             # resposta curta por contrato; teto, não alvo
@@ -139,9 +140,14 @@ def _regras(modo: str) -> str:
         "# Forma",
         "No máximo 5 frases para pergunta sobre o que a tela está mostrando",
         "agora. Até 12 frases quando for conceito de mercado que mereça exemplo",
-        "— comprimento é serviço à clareza, não meta a bater. Sem markdown",
-        "pesado e sem repetir a pergunta. Termo técnico vem depois da ideia em",
-        "linguagem simples, uma vez cada.",
+        "— comprimento é serviço à clareza, não meta a bater. Sem repetir a",
+        "pergunta. Termo técnico vem depois da ideia em linguagem simples,",
+        "uma vez cada.",
+        "",
+        "Escreva em markdown simples, o MESMO dialeto da análise do ativo:",
+        "**negrito** para o que a pessoa precisa reter, listas com `- ` quando",
+        "forem itens de verdade, `##` só se a resposta tiver seções. Nada de",
+        "tabela, HTML ou bloco de código.",
     ]
     return "\n".join(linhas)
 
@@ -292,7 +298,13 @@ async def responder(conn, config: dict, scope, modo: str, tela: str,
     except Exception as e:  # noqa: BLE001 — contabilidade nunca derruba a resposta
         print(f"[assistente] registro de custo falhou: {e}")
     _somar_gasto(conn, scope, usos)
-    return {"texto": (texto or "").strip(),
+    # MESMA TUBULAÇÃO DA ANÁLISE. O prompt pedia "sem markdown", mas o modelo
+    # usava assim mesmo e nada limpava depois — o `**negrito**` chegava com os
+    # asteriscos à mostra. A análise do ativo nunca teve esse problema porque
+    # passa por `kpi.normalize_markdown`, que reduz a saída ao dialeto que o
+    # front sabe renderizar (desescapa \n literais, tira cercas ```, converte
+    # setext em ATX) de forma model-agnostic. O assistente passa a usar o mesmo.
+    return {"texto": _kpi.normalize_markdown((texto or "").strip()),
             "prefixoCacheavel": prefixo_cacheavel(config.get("model") or "", system),
             # Com chave própria não há teto — o campo some em vez de mostrar um
             # número que não significa nada para quem paga a própria conta.

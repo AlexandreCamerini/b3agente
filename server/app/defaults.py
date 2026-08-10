@@ -224,17 +224,21 @@ def default_state() -> dict:
         "skillOperador": {"name": "Mesa B3 - Operador v1", "text": default_skill_text_operador()},
         "llmPrompts": default_llm_prompts(),
         "watchlist": ["PETR4", "VALE3", "ITUB4", "BBDC4", "BBAS3", "B3SA3"],
+        # A CARTEIRA COMEÇA ZERADA — caixa = orçamento, sem posições, sem
+        # histórico. Antes o estado inicial trazia R$ 23.600 em PETR4/ITUB4/
+        # VALE3 com o caixa INTACTO nos R$ 10.000: ações que nunca foram pagas.
+        # Consequências, todas visíveis ao usuário:
+        #   • patrimônio de abertura ~R$ 33.600 contra "orçamento" de R$ 10.000,
+        #     ou seja +236% de retorno acumulado antes da primeira operação;
+        #   • o histórico exibia três COMPRAS com datas de junho que a pessoa
+        #     nunca fez;
+        #   • como o caixa nunca foi debitado, cada compra ADICIONAVA
+        #     patrimônio — comprar bastava para o "retorno" subir.
+        # `reset_portfolio` já produzia o estado correto (caixa = orçamento,
+        # posições vazias); só a abertura divergia dele.
         "cash": 10000.0,
-        "positions": [
-            {"t": "PETR4", "qty": 300, "avg": 36.8, "stop": None, "alvo": None},
-            {"t": "ITUB4", "qty": 200, "avg": 31.1, "stop": None, "alvo": None},
-            {"t": "VALE3", "qty": 100, "avg": 63.4, "stop": None, "alvo": None},
-        ],
-        "history": [
-            {"date": "18/06/2026 11:02", "type": "COMPRA", "t": "PETR4", "qty": 300, "price": 36.8, "pnl": None},
-            {"date": "17/06/2026 10:12", "type": "COMPRA", "t": "ITUB4", "qty": 200, "price": 31.1, "pnl": None},
-            {"date": "12/06/2026 09:58", "type": "COMPRA", "t": "VALE3", "qty": 100, "price": 63.4, "pnl": None},
-        ],
+        "positions": [],
+        "history": [],
         "agent": {
             "autonomous": False,
             "allocPct": 5,

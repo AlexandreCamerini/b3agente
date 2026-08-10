@@ -17,7 +17,7 @@
 import { Capacitor } from "@capacitor/core";
 import { api, setApiBase, setNativeMode } from "./api.js";
 import { CATALOG, CATALOG_TICKERS, defaultState, defaultSkillText, defaultSkillTextOperador, defaultLlmPrompts } from "./catalog.js";
-import { backfillStructural } from "./migrate.js";
+import { backfillStructural, limparCarteiraDemo } from "./migrate.js";
 // FASE 2: camada de sync (token + cache otimista + fila offline). serverStore
 // fala com o servidor ATRAVÉS dela; deviceStore segue local-first, EXCETO a
 // carteira quando logado (ver cabeçalho do arquivo).
@@ -124,7 +124,11 @@ function serverStore() {
     putSnapshot: (snap) => sync.mutate("putSnapshot", [snap]),
     resetPortfolio: () => sync.mutate("resetPortfolio", []),
     getQuotes: () => api.getQuotes(), // servidor conhece watchlist+posicoes
-    analyze: (t, opts) => api.analyzeTechnical(t, { model: (opts && opts.model) || "completo", position: (opts && opts.position) || undefined }),
+    // `promptFp` = identidade da análise já exibida. O servidor compara com a
+    // pergunta atual: igual ⇒ devolve `reaproveitada` sem gastar IA; diferente
+    // ⇒ a leitura antiga venceu e é refeita. É o que impede análise de outro
+    // pregão de ficar no card ao lado do veredito fresco.
+    analyze: (t, opts) => api.analyzeTechnical(t, { model: (opts && opts.model) || "completo", position: (opts && opts.position) || undefined, promptFp: (opts && opts.promptFp) || undefined }),
     analyzeStopAlvo: (t, opts) => api.carteiraStopAlvo(t, (opts && opts.prompt) ? { prompt: opts.prompt } : {}),
     technicals: (t, period) => api.technicals(t, period),
     scan: (period, tickers, force) => api.scan(period, tickers, force), // BLOCO 3 + FASE 2 + FASE 4 (1.3: force)
@@ -261,6 +265,7 @@ function deviceStore() {
       // positions/history arrays; cash número) ANTES dos backfills abaixo, que
       // assumem doc.config/doc.agent. Evita tela branca em doc antigo/parcial.
       backfillStructural(doc, defaultState());
+      limparCarteiraDemo(doc);   // tira a carteira de fábrica não paga de docs antigos
       if (!doc.analyses || typeof doc.analyses !== "object") doc.analyses = {};
       if (typeof doc.config.serverUrl !== "string") doc.config.serverUrl = "";
       // FASE 6 (fix 1): a chave GLOBAL do aparelho vence o doc do escopo —
@@ -653,15 +658,27 @@ function deviceStore() {
       ensure();
       return api.getQuotes(symbolsFor());
     },
-    async analyze(t) {
+    async analyze(t, opts) {
       ensure();
       const account = { cash: doc.cash, budget: doc.config.initialBudget };
       // FASE 8B (R2): a skill enviada acompanha o MODO do aparelho (mesa × professor)
       const skillAtiva = doc.config.appMode === "operador" ? doc.skillOperador : doc.skill;
-      const r = await api.analyzeTechnical(t, { config: doc.config, skill: skillAtiva, profile: doc.profile, account, model: (arguments[1] && arguments[1].model) || "completo", position: (arguments[1] && arguments[1].position) || undefined });
       if (!doc.analyses) doc.analyses = {};
+      const guardada = doc.analyses[t] || null;
+      // Paridade com o serverStore: o aparelho também manda a identidade do que
+      // já exibe, para o servidor decidir reuso × vencimento.
+      const r = await api.analyzeTechnical(t, { config: doc.config, skill: skillAtiva, profile: doc.profile, account, model: (opts && opts.model) || "completo", position: (opts && opts.position) || undefined, promptFp: (opts && opts.promptFp) || (guardada && guardada.promptFp) || undefined });
+      if (r && r.reaproveitada && guardada) {
+        // A pergunta não mudou: a leitura guardada continua sendo a resposta.
+        doc.analyses[t] = { ...guardada, at: r.at, snapshotId: r.snapshotId || guardada.snapshotId, snapshotAt: r.snapshotAt || guardada.snapshotAt };
+        write();
+        return { ...guardada, ...doc.analyses[t], quote: r.quote, reaproveitada: true };
+      }
       const body = r.markdown || r.text || r.analysis || "";
-      doc.analyses[t] = { kpis: r.kpis || null, detail: r.detail || null, proposal: r.proposal || null, markdown: body, text: r.text || r.analysis || "", model: r.model, modelLabel: r.modelLabel, technicalContext: r.technicalContext || null, candlesSentToLLM: r.candlesSentToLLM, at: r.at };
+      // `snapshotId`/`snapshotAt`/`promptFp` eram DESCARTADOS aqui — o aparelho
+      // guardava a análise sem nenhuma marca da idade dela, então no iOS não
+      // havia como saber que a leitura era de outro pregão nem reaproveitá-la.
+      doc.analyses[t] = { kpis: r.kpis || null, detail: r.detail || null, proposal: r.proposal || null, markdown: body, text: r.text || r.analysis || "", model: r.model, modelLabel: r.modelLabel, technicalContext: r.technicalContext || null, candlesSentToLLM: r.candlesSentToLLM, snapshotId: r.snapshotId || null, snapshotAt: r.snapshotAt || null, promptFp: r.promptFp || null, at: r.at };
       write();
       return r;
     },

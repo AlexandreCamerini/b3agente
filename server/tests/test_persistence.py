@@ -344,3 +344,146 @@ if __name__ == "__main__":
             fn()
             print("ok", name)
     print("TODOS OS TESTES DE PERSISTENCIA PASSARAM")
+
+
+# ---------------------------------------------------------------------------
+# "+9990% de acumulado" (reporte do Alex, 09/08/2026) — número sem base real.
+# Duas causas somadas, ambas travadas aqui.
+# ---------------------------------------------------------------------------
+
+def test_base_do_retorno_nao_muda_quando_o_orcamento_e_editado():
+    """A base é o capital com que a SÉRIE começou, carimbado no 1º snapshot.
+
+    Era `config.initialBudget`, um campo editável: digitar outro valor
+    reescrevia o retorno de meses sem nenhuma operação ter acontecido.
+    """
+    c, _ = _fresh_db()
+    store.set_config(c, {"initialBudget": 10000})
+    store.upsert_snapshot(c, {"data": "2026-08-01", "patrimonio": 10500}, user_id=None)
+    store.set_config(c, {"initialBudget": 380})          # a pessoa edita o campo
+    store.upsert_snapshot(c, {"data": "2026-08-02", "patrimonio": 10800}, user_id=None)
+    snaps = store.get(c, "equitySnapshots", user_id=None)
+    assert [s["base"] for s in snaps] == [10000, 10000], \
+        "o orçamento editado reescreveu a base histórica do retorno"
+
+
+def test_recomecar_do_zero_zera_a_serie_de_patrimonio():
+    """A curva sobrevivia ao reset e passava a misturar duas simulações com
+    bases diferentes — curva e drawdown viravam número sem significado."""
+    c, _ = _fresh_db()
+    store.set_config(c, {"initialBudget": 10000})
+    store.upsert_snapshot(c, {"data": "2026-08-01", "patrimonio": 99000}, user_id=None)
+    store.reset_portfolio(c, user_id=None)
+    assert store.get(c, "equitySnapshots", user_id=None) == [], \
+        "a série da simulação anterior sobreviveu ao Recomeçar do zero"
+
+
+def test_base_carimbada_sobrevive_a_snapshot_do_mesmo_dia():
+    """Reabrir o app no mesmo dia sobrescreve o registro — sem perder a base."""
+    c, _ = _fresh_db()
+    store.set_config(c, {"initialBudget": 5000})
+    store.upsert_snapshot(c, {"data": "2026-08-01", "patrimonio": 5100}, user_id=None)
+    store.set_config(c, {"initialBudget": 1})
+    store.upsert_snapshot(c, {"data": "2026-08-01", "patrimonio": 5200}, user_id=None)
+    snaps = store.get(c, "equitySnapshots", user_id=None)
+    assert len(snaps) == 1 and snaps[0]["base"] == 5000
+
+
+def test_carteira_comeca_zerada_e_o_caixa_bate_com_o_orcamento():
+    """A abertura do app não pode exibir retorno que ninguém produziu.
+
+    O estado inicial trazia R$ 23.600 em posições com o caixa INTACTO nos
+    R$ 10.000 — ações não pagas. Patrimônio de abertura ~R$ 33.600 sobre um
+    orçamento de R$ 10.000 = +236% antes da primeira operação. Pior: como o
+    caixa nunca fora debitado, comprar AUMENTAVA o patrimônio.
+    """
+    c, _ = _fresh_db()
+    st = store.public_state(c, user_id=None)
+    assert st["positions"] == [], "carteira de abertura tem posição não paga"
+    assert st["history"] == [], "histórico de abertura tem compra que ninguém fez"
+    assert st["cash"] == st["config"]["initialBudget"], \
+        "caixa de abertura tem que ser exatamente o orçamento"
+
+
+def test_comprar_debita_o_caixa_e_o_patrimonio_nao_cresce_sozinho():
+    """Invariante do simulador: comprar TROCA caixa por ações, não cria valor."""
+    c, _ = _fresh_db()
+    antes = store.public_state(c, user_id=None)
+    patr_antes = antes["cash"]
+    store.buy(c, "PETR4", 100, 40.0, user_id=None)
+    depois = store.public_state(c, user_id=None)
+    custo = 100 * 40.0
+    assert depois["cash"] == round(patr_antes - custo, 2)
+    # patrimônio marcado ao PREÇO DE COMPRA não muda com a operação em si
+    patr_depois = depois["cash"] + sum(p["qty"] * p["avg"] for p in depois["positions"])
+    assert round(patr_depois, 2) == round(patr_antes, 2), \
+        "a compra criou patrimônio do nada"
+
+
+# ---------------------------------------------------------------------------
+# MIGRAÇÃO: corrigir `defaults.py` só valia para instalações NOVAS. Quem já
+# tinha o app seguia com a carteira de fábrica não paga (+236% na abertura).
+# ---------------------------------------------------------------------------
+
+def _instalar_carteira_demo(c, user_id=None):
+    """Recria o estado que o app trazia de fábrica até F10-20260809-05."""
+    db.kv_set(c, "positions", [
+        {"t": "PETR4", "qty": 300, "avg": 36.8, "stop": None, "alvo": None},
+        {"t": "ITUB4", "qty": 200, "avg": 31.1, "stop": None, "alvo": None},
+        {"t": "VALE3", "qty": 100, "avg": 63.4, "stop": None, "alvo": None},
+    ], user_id=user_id)
+    db.kv_set(c, "history", [
+        {"date": "18/06/2026 11:02", "type": "COMPRA", "t": "PETR4", "qty": 300, "price": 36.8, "pnl": None},
+        {"date": "17/06/2026 10:12", "type": "COMPRA", "t": "ITUB4", "qty": 200, "price": 31.1, "pnl": None},
+        {"date": "12/06/2026 09:58", "type": "COMPRA", "t": "VALE3", "qty": 100, "price": 63.4, "pnl": None},
+    ], user_id=user_id)
+    db.kv_set(c, "cash", 10000.0, user_id=user_id)   # INTACTO: ninguém pagou
+
+
+def test_migracao_remove_a_carteira_de_fabrica_de_estado_existente():
+    c, _ = _fresh_db()
+    _instalar_carteira_demo(c)
+    db.kv_set(c, "equitySnapshots", [{"data": "2026-08-01", "patrimonio": 37908}], user_id=None)
+    assert store.migrar_carteira_demo(c, user_id=None) is True
+    assert store.get(c, "positions", user_id=None) == []
+    assert store.get(c, "history", user_id=None) == []
+    assert store.get(c, "equitySnapshots", user_id=None) == [], \
+        "a série foi medida sobre o patrimônio inflado — não pode sobreviver"
+    # idempotente
+    assert store.migrar_carteira_demo(c, user_id=None) is False
+
+
+def test_migracao_roda_sozinha_no_ensure_defaults():
+    c, _ = _fresh_db()
+    _instalar_carteira_demo(c)
+    store.ensure_defaults(c)
+    assert store.get(c, "positions", user_id=None) == []
+
+
+def test_migracao_NAO_TOCA_carteira_real():
+    """O caixa é a prova: numa carteira de verdade, comprar debita."""
+    c, _ = _fresh_db()
+    _instalar_carteira_demo(c)
+    db.kv_set(c, "cash", 4200.0, user_id=None)          # caixa mexido = operou
+    assert store.migrar_carteira_demo(c, user_id=None) is False
+    assert len(store.get(c, "positions", user_id=None)) == 3
+
+
+def test_migracao_NAO_TOCA_quem_so_parece_com_a_demo():
+    """Mesmos papéis, quantidade diferente: é posição da pessoa."""
+    c, _ = _fresh_db()
+    _instalar_carteira_demo(c)
+    pos = store.get(c, "positions", user_id=None)
+    pos[0]["qty"] = 400                                  # comprou mais PETR4
+    db.kv_set(c, "positions", pos, user_id=None)
+    assert store.migrar_carteira_demo(c, user_id=None) is False
+
+
+def test_migracao_preserva_operacoes_reais_no_historico():
+    c, _ = _fresh_db()
+    _instalar_carteira_demo(c)
+    hist = store.get(c, "history", user_id=None)
+    minha = {"date": "01/08/2026 10:00", "type": "VENDA", "t": "PETR4", "qty": 100, "price": 40.0, "pnl": 320.0}
+    db.kv_set(c, "history", [minha] + hist, user_id=None)
+    store.migrar_carteira_demo(c, user_id=None)
+    assert store.get(c, "history", user_id=None) == [minha]

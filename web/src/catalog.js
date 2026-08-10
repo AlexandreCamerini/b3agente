@@ -181,17 +181,13 @@ export function defaultState() {
     skill: { name: "Mesa B3 - Educacional v1", text: defaultSkillText() },
     skillOperador: { name: "Mesa B3 - Operador v1", text: defaultSkillTextOperador() },
     watchlist: ["PETR4", "VALE3", "ITUB4", "BBDC4", "BBAS3", "B3SA3"],
+    // Espelho de `server/app/defaults.py` — a carteira começa ZERADA. As
+    // posições de exemplo que existiam aqui não tinham sido pagas (o caixa
+    // ficava intacto), então a primeira abertura já mostrava retorno acumulado
+    // de +236% e um histórico de compras que a pessoa nunca fez.
     cash: 10000.0,
-    positions: [
-      { t: "PETR4", qty: 300, avg: 36.8, stop: null, alvo: null },
-      { t: "ITUB4", qty: 200, avg: 31.1, stop: null, alvo: null },
-      { t: "VALE3", qty: 100, avg: 63.4, stop: null, alvo: null },
-    ],
-    history: [
-      { date: "18/06/2026 11:02", type: "COMPRA", t: "PETR4", qty: 300, price: 36.8, pnl: null },
-      { date: "17/06/2026 10:12", type: "COMPRA", t: "ITUB4", qty: 200, price: 31.1, pnl: null },
-      { date: "12/06/2026 09:58", type: "COMPRA", t: "VALE3", qty: 100, price: 63.4, pnl: null },
-    ],
+    positions: [],
+    history: [],
     agent: {
       autonomous: false,
       allocPct: 5,

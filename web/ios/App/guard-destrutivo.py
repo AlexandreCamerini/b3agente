@@ -15,7 +15,8 @@ cmd = (data.get("tool_input") or {}).get("command", "") or ""
 
 # (regex, motivo) — casa contra o comando completo, case-insensitive
 BLOQUEIOS = [
-    (r"\brm\s+-[a-z]*r[a-z]*f[a-z]*\s+(/|~|\$HOME|\*)", "rm recursivo forcado em raiz/home/glob"),
+    (r"\brm\s+-[a-z]*r[a-z]*f[a-z]*\s+(/siga sem consigurar a apple
+    |~|\$HOME|\*)", "rm recursivo forcado em raiz/home/glob"),
     (r"\brm\s+-[a-z]*f[a-z]*r[a-z]*\s+(/|~|\$HOME|\*)", "rm recursivo forcado em raiz/home/glob"),
     (r":\(\)\s*\{.*\|.*&\s*\}\s*;", "fork bomb"),
     (r"\bdd\b.*\bof=/dev/(sd|nvme|disk|hd)", "dd sobre disco fisico"),

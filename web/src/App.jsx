@@ -7,6 +7,7 @@ import { createChart, ColorType, CrosshairMode, LineStyle } from "lightweight-ch
 import { sampleTechnicals } from "./demo.js";
 import { DISCLAIMERS, TERMO_OPERADOR_VERSAO } from "./disclaimers.js";
 import { copyFor } from "./copy.js";
+import { Markdown, MdInline } from "./markdown.jsx";
 import { BUILD_ID } from "./version.js";
 // carimbo no console: prova de qual build está rodando (device/web)
 try { console.log("[b3] build", BUILD_ID); } catch { /* noop */ }
@@ -276,6 +277,17 @@ function GlobalStyle() {
          o Safari NÃO dar zoom automático ao focar (pulo de tela clássico). */
       .b3, .b3 *{ -webkit-tap-highlight-color: transparent; }
       .b3 input,.b3 textarea,.b3 select{ font:inherit; font-size:16px; }
+      /* …mas a regra acima vinha sendo DERROTADA: um fontSize inline no style
+         do elemento tem precedência sobre a folha de estilo, e quase todo campo
+         do app tem um. O sintoma era o app ficar ampliado depois de usar o chat
+         — o iOS dá zoom ao focar campo com fonte < 16px e não desfaz ao sair.
+         Em tela de toque a regra passa a vencer o inline; no ponteiro fino
+         (desktop) os tamanhos densos dos painéis de config seguem valendo.
+         Preferido a travar maximum-scale no viewport, que tiraria o
+         pinch-zoom de quem precisa ampliar. */
+      @media (pointer: coarse){
+        .b3 input,.b3 textarea,.b3 select{ font-size:16px !important; }
+      }
       /* FASE 8B (B2): troca de modo com transição suave — a classe entra por
          ~450ms só durante a troca (não pesa nas interações normais). */
       .b3-mode-switch, .b3-mode-switch *{ transition: background-color .35s ease, color .35s ease, border-color .35s ease, fill .35s ease !important; }
@@ -581,7 +593,7 @@ function AuthModal({ ctx, onClose }) {
 // Tela de ABERTURA (welcome = login). Mantém o local-first (decisão A): o link
 // "usar sem conta" no rodapé leva ao onboarding anônimo (orçamento/risco).
 // Self-contained e undefined-safe — não acessa campos de `data`.
-function WelcomeAuthScreen({ ctx, onAuthed, onSkip }) {
+function WelcomeAuthScreen({ ctx, onAuthed }) {
   // BLOCO D: quem já usou entra pré-preenchido — e-mail lembrado + modo login.
   // BLOCO 2: boot gate. Se a sessão salva já foi restaurada (auth.me), mostra
   // "Conectado como X" + Entrar. Se há token salvo mas o /auth/me ainda não
@@ -639,10 +651,16 @@ function WelcomeAuthScreen({ ctx, onAuthed, onSkip }) {
               </div>
             )}
             <AuthForm ctx={ctx} onDone={onAuthed} />
+            {/* "Usar sem conta" REMOVIDO (decisão do Alex, 09/08/2026). O modo
+                anônimo escrevia num balde de kv COMPARTILHADO por todos os
+                anônimos (`db._scoped` devolve a chave crua quando não há
+                escopo): carteira, análises e cota de IA de pessoas diferentes
+                caíam no mesmo lugar. Além disso a carteira não sobrevivia à
+                troca de aparelho, que é a promessa do produto. */}
             <div style={{ marginTop: "16px", paddingTop: "14px", borderTop: `1px solid ${T.borderSubtle}`, textAlign: "center" }}>
-              <button onClick={() => onSkip && onSkip()} style={{ background: "transparent", border: "none", color: T.textMuted, fontSize: "12.5px", fontWeight: 600, textDecoration: "underline", padding: "4px" }}>
-                Usar sem conta
-              </button>
+              <span style={{ color: T.textFaint, fontSize: "11.5px", lineHeight: 1.5 }}>
+                A conta é o que mantém sua carteira simulada salva e disponível em qualquer aparelho.
+              </span>
             </div>
           </>
         )}
@@ -1084,114 +1102,6 @@ function LabeledList({ title, items, icon, color }) {
   );
 }
 
-// Renderizador de markdown SEGURO (subconjunto), em React puro — sem HTML cru,
-// compatível com mobile. Suporta ## títulos, **negrito**, *itálico*, `código`,
-// listas (- / *), listas numeradas e parágrafos.
-function MdInline({ text }) {
-  const out = [];
-  // qa/44: alguns modelos escapam as quebras (\n / \t LITERAIS) — vira sujeira
-  // no meio do texto inline. Normaliza para espaço (campo inline não tem linha).
-  let rest = String(text == null ? "" : text).replace(/\\r\\n|\\n|\\r/g, " ").replace(/\\t/g, " ");
-  let key = 0;
-  const re = /(\*\*([^*]+)\*\*|\*([^*]+)\*|\u0060([^\u0060]+)\u0060)/;
-  let guard = 0;
-  while (guard++ < 500) {
-    const m = re.exec(rest);
-    if (!m) { if (rest) out.push(rest); break; }
-    if (m.index > 0) out.push(rest.slice(0, m.index));
-    if (m[2] != null) out.push(<strong key={key++}>{m[2]}</strong>);
-    else if (m[3] != null) out.push(<em key={key++}>{m[3]}</em>);
-    else if (m[4] != null) out.push(<code key={key++} style={{ fontFamily: MONO, fontSize: "0.92em", background: "rgba(255,255,255,0.06)", padding: "0 4px", borderRadius: "4px" }}>{m[4]}</code>);
-    rest = rest.slice(m.index + m[0].length);
-  }
-  return <>{out}</>;
-}
-// qa/46: se o corpo chegar como JSON CRU (parse do servidor falhou, ou é uma
-// análise ANTIGA em cache), extrai o campo de texto em vez de despejar o objeto.
-// Repara quebras/tab reais dentro das strings (JSON "bonito" da LLM é inválido).
-function corpoDeJson(raw) {
-  let s = String(raw == null ? "" : raw).trim();
-  if (!s.startsWith("{") || !/"(corpo|markdown|resumo|analise|analysis)"\s*:/.test(s)) return raw;
-  const tryParse = (str) => { try { return JSON.parse(str); } catch { return null; } };
-  let obj = tryParse(s);
-  if (!obj) {
-    let out = "", inStr = false, esc = false;
-    for (const ch of s) {
-      if (inStr) {
-        if (esc) { out += ch; esc = false; continue; }
-        if (ch === "\\") { out += ch; esc = true; continue; }
-        if (ch === '"') { out += ch; inStr = false; continue; }
-        if (ch === "\n") { out += "\\n"; continue; }
-        if (ch === "\r") { out += "\\r"; continue; }
-        if (ch === "\t") { out += "\\t"; continue; }
-        out += ch; continue;
-      }
-      if (ch === '"') inStr = true;
-      out += ch;
-    }
-    obj = tryParse(out);
-  }
-  if (obj && typeof obj === "object") return obj.corpo || obj.markdown || obj.resumo || obj.analise || obj.analysis || raw;
-  return raw;
-}
-function Markdown({ text }) {
-  const _t = corpoDeJson(text);
-  let src = String(_t == null ? "" : _t).replace(/\r\n/g, "\n");
-  // qa/44: modelos que escapam a quebra (\n / \t LITERAIS) faziam o corpo virar
-  // UM bloco só ("completamente desformatado"). Desescapa antes de quebrar em
-  // linhas — rede de segurança p/ qualquer LLM, além do normalize_markdown do server.
-  src = src.replace(/\\r\\n|\\n|\\r/g, "\n").replace(/\\t/g, "  ").trim();
-  // remove cercas de markdown que às vezes embrulham o corpo inteiro
-  src = src.replace(/^\u0060{3}[a-zA-Z]*\n?/, "").replace(/\n?\u0060{3}$/, "").trim();
-  if (!src) return null;
-  const lines = src.split("\n");
-  const blocks = [];
-  let para = [];
-  let list = null; // { ordered, items: [] }
-  const flushPara = () => { if (para.length) { blocks.push({ type: "p", lines: para }); para = []; } };
-  const flushList = () => { if (list) { blocks.push({ type: "list", ordered: list.ordered, items: list.items }); list = null; } };
-  for (const raw of lines) {
-    const line = raw.replace(/\s+$/, "");
-    const h = /^(#{1,4})\s*(.+)$/.exec(line);
-    const bul = /^\s*[-*•]\s+(.*)$/.exec(line);
-    const num = /^\s*\d+[.\u0029]\s+(.*)$/.exec(line);
-    if (!line.trim()) { flushPara(); flushList(); continue; }
-    if (h) { flushPara(); flushList(); blocks.push({ type: "h", level: h[1].length, text: h[2] }); continue; }
-    if (bul) { flushPara(); if (!list || list.ordered) { flushList(); list = { ordered: false, items: [] }; } list.items.push(bul[1]); continue; }
-    if (num) { flushPara(); if (!list || !list.ordered) { flushList(); list = { ordered: true, items: [] }; } list.items.push(num[1]); continue; }
-    flushList(); para.push(line);
-  }
-  flushPara(); flushList();
-  return (
-    <div style={{ display: "grid", gap: "9px" }}>
-      {blocks.map((b, i) => {
-        if (b.type === "h") {
-          const size = b.level <= 1 ? "15px" : b.level === 2 ? "14px" : "13px";
-          return <div key={i} style={{ fontSize: size, fontWeight: 800, color: T.textPrimary }}><MdInline text={b.text} /></div>;
-        }
-        if (b.type === "list") {
-          if (b.ordered) {
-            return <ol key={i} style={{ margin: 0, paddingLeft: "20px", display: "grid", gap: "5px" }}>{b.items.map((it, j) => <li key={j} style={{ fontSize: "13px", lineHeight: 1.55, color: T.textSecondary }}><MdInline text={it} /></li>)}</ol>;
-          }
-          return (
-            <ul key={i} style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: "5px" }}>
-              {b.items.map((it, j) => (
-                <li key={j} style={{ display: "flex", gap: "8px", alignItems: "flex-start", fontSize: "13px", lineHeight: 1.55, color: T.textSecondary }}>
-                  <span style={{ color: T.accent, flex: "none", marginTop: "1px" }}>•</span><span><MdInline text={it} /></span>
-                </li>
-              ))}
-            </ul>
-          );
-        }
-        return (
-          <p key={i} style={{ margin: 0, fontSize: "13px", lineHeight: 1.6, color: T.textSecondary }}>
-            {b.lines.map((l, j) => (<span key={j}>{j > 0 && <br />}<MdInline text={l} /></span>))}
-          </p>
-        );
-      })}
-    </div>
-  );
-}
 
 // Análise formatada da IA, renderizada NO card (progressive disclosure).
 function AnalysisView({ an }) {
@@ -2316,7 +2226,11 @@ function AssistenteBox({ cid, dados, setor, tela }) {
       )}
       {r && r.texto && (
         <div style={{ marginTop: "10px" }}>
-          <div style={{ fontSize: "13px", color: T.textSecondary, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{r.texto}</div>
+          {/* MESMA resposta de `/api/assistente` que o chat do Boris exibe, e
+              ela vem em markdown. Aqui era renderizada crua — o `**negrito**`
+              aparecia com os asteriscos. Corrigir só o chat deixou este ponto
+              para trás porque são duas superfícies do mesmo endpoint. */}
+          <div style={{ fontSize: "13px", color: T.textSecondary, lineHeight: 1.6 }}><Markdown text={r.texto} /></div>
           <AiNote />
           {r.restanteHojeBRL != null && (
             <div style={{ fontSize: "10px", color: T.textFaint, marginTop: "2px" }}>
@@ -2800,7 +2714,7 @@ function OpcoesCamada({ t, cur, open, onToggle, chain, chainLoading, opContract,
 // (vm) + contexto; o núcleo (identidade, manchete única, chips de análise) é
 // idêntico em todo o sistema. Extraído do card da watchlist.
 function AtivoCard({ vm, contexto = "watchlist", children }) {
-  const { t, q, an, name, chColor, sc, pos, cur, pnl, pnlPct, rrPos, diasPos, pctCapPos, kp, fscore, decM, decColor, decBg, os, buyMeta, operador, quotesLoading, expanded, opsOpen, opsSpark, onToggleOps, A, cp, data, didatica, overlayLivre } = vm;
+  const { t, q, an, name, chColor, sc, pos, cur, pnl, pnlPct, rrPos, diasPos, pctCapPos, kp, fscore, decM, decColor, decBg, anVencida, os, buyMeta, operador, quotesLoading, expanded, opsOpen, opsSpark, onToggleOps, A, cp, data, didatica, overlayLivre } = vm;
   const chip = (label, value, col, explicavel) => (
     // `explicavel` põe o pontilhado no RÓTULO do chip — a indicação da camada
     // de entendimento (toque abre o conceito; o setor envolve o chip).
@@ -2904,7 +2818,20 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
                     ) : (
                       <>
                         <div style={{ fontSize: "16px", fontWeight: 700 }}>{q.error ? "—" : "R$ " + price(q.price)}</div>
-                        <div style={{ fontSize: "12px", fontWeight: 700, color: q.error ? T.textFaint : chColor }}>{q.error ? "sem cotação" : pct(q.change)}</div>
+                        {/* Duas variações diferentes já dividiram este slot sem
+                            rótulo: a do DIA (cotação viva) e a do PERÍODO
+                            inteiro do snapshot. Mesmo formato, ordens de
+                            grandeza distintas — o mesmo papel parecia cair
+                            −0,74% numa tela e −11,72% na outra. Cada uma agora
+                            diz de que janela está falando. */}
+                        <div style={{ fontSize: "12px", fontWeight: 700, color: q.error ? T.textFaint : chColor }}>
+                          {q.error ? "sem cotação" : pct(q.change != null ? q.change : q.changePeriodo)}
+                        </div>
+                        {!q.error && q.change == null && q.changePeriodo != null && (
+                          <div style={{ fontSize: "9.5px", fontWeight: 700, color: T.textFaint, letterSpacing: "0.03em" }}>
+                            no período · fechamento
+                          </div>
+                        )}
                       </>
                     )}
                   </div>
@@ -2926,10 +2853,29 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
 
               {/* qa/49 (v11): MANCHETE ÚNICA — decisão da mesa (o veredito do plano,
                   já conciliado por decisaoDoModo). Antes competia com o tier/COMPRAR. */}
-              {decM && (
+              {decM ? (
                 <div style={{ marginTop: "11px", background: decBg, borderRadius: "9px", padding: "9px 11px" }}>
                   <div style={{ fontSize: "10px", letterSpacing: "0.04em", color: decColor }}>{operador ? "DECISÃO DA MESA" : "PLANO EDUCACIONAL"}{pos ? " · você está comprado" : ""}</div>
                   <div style={{ fontSize: "17px", fontWeight: 800, color: decColor }}>{decM}</div>
+                </div>
+              ) : contexto !== "radar" && (
+                /* Ausência DITA. Antes este espaço era preenchido com a
+                   recomendação da IA, criando uma segunda fonte para a mesma
+                   manchete — e a contradição entre telas que isso gera. */
+                <div style={{ marginTop: "11px", background: T.bgBase, borderRadius: "9px", padding: "9px 11px", border: `1px solid ${T.borderFaint}` }}>
+                  <div style={{ fontSize: "10px", letterSpacing: "0.04em", color: T.textFaint }}>{operador ? "DECISÃO DA MESA" : "PLANO EDUCACIONAL"}</div>
+                  <div style={{ fontSize: "12.5px", color: T.textMuted, marginTop: "2px" }}>Sem leitura do motor para este ativo agora — toque em ↻ reordenar para varrer de novo.</div>
+                </div>
+              )}
+
+              {/* A análise da IA saiu de um snapshot anterior ao que o card
+                  está exibindo. Marcar em vez de esconder: sumir com ela seria
+                  o mesmo silêncio que deixava leitura velha passar por atual. */}
+              {anVencida && (
+                <div style={{ marginTop: "9px", padding: "7px 10px", borderRadius: "8px", background: T.bgBase, border: `1px dashed ${T.borderSubtle}` }}>
+                  <span style={{ fontSize: "11px", color: T.textMuted }}>
+                    ⏳ A leitura da IA abaixo é de outro momento do mercado{an.snapshotAt ? ` (${an.snapshotAt})` : ""} — reanalise para atualizar.
+                  </span>
                 </div>
               )}
 
@@ -3082,7 +3028,11 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
                 }
                 return (
                   <button onClick={() => A.openBuy(t, undefined, buyMeta)} style={{ marginTop: "10px", width: "100%", minHeight: "42px", padding: "9px", borderRadius: "10px", border: `1px solid ${T.borderSubtle}`, background: T.bgBase, color: T.textSecondary, fontWeight: 700, fontSize: "12.5px" }}>
-                    {cp.btnComprar}… <span style={{ color: T.textFaint, fontWeight: 600 }}>(leitura: {recDoModo((an.kpis && an.kpis.recomendacao), operador) || "neutra"})</span>
+                    {/* A leitura da IA vivia AQUI, a dois centímetros da
+                        manchete determinística — quando discordavam, a
+                        contradição estava no mesmo card. A manchete acima já
+                        diz a decisão; o botão não repete nem concorre. */}
+                    {cp.btnComprar}…
                   </button>
                 );
               })()}
@@ -3246,12 +3196,21 @@ function MercadoScreen({ ctx }) {
           const kp = an.kpis || {};
           const fscore = an.fundamento && an.fundamento.score;
           // manchete única: decisão do plano (scan) e, sem scan, a recomendação da IA
-          const decM = rotuloDec || (kp.recomendacao ? recDoModo(kp.recomendacao, operador) : null);
+          // UMA FONTE PARA A MANCHETE. Antes, sem plano determinístico, a
+          // manchete caía na `recomendacao` da IA — enquanto o Radar sempre usou
+          // o motor. Mesmo ativo, mesmo lugar da tela, fontes diferentes: era
+          // possível ler uma coisa aqui e outra lá. A IA explica, não decide
+          // (também é o que o guardrail regulatório exige). Sem plano, a
+          // ausência é DITA logo abaixo, não preenchida com opinião.
+          const decM = rotuloDec || null;
+          // A análise da IA foi escrita sobre um snapshot; se o motor já está
+          // em outro, ela é leitura de outro momento e precisa dizer isso.
+          const anVencida = !!(an.snapshotId && sc.snapshotId && an.snapshotId !== sc.snapshotId);
           const [decColor, decBg] = REC_STYLE[decM] || [vColor, vBg];
           const chip = (label, value, col) => (
             <span style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "999px", background: T.bgBase, color: T.textSecondary, fontWeight: 700 }}>{label} <b style={{ fontWeight: 800, color: col || T.textPrimary }}>{value}</b></span>
           );
-          return <AtivoCard key={t} vm={{ t, q, an, name, chColor, sc, pos, cur, pnl, pnlPct, rrPos, diasPos, pctCapPos, kp, fscore, decM, decColor, decBg, os, buyMeta, operador, quotesLoading, expanded: !!expanded[t], opsOpen: !!opsOpen[t], opsSpark: sparks[t], onToggleOps: () => toggleOps(t), A, cp, data, didatica: ctx.didatica, overlayLivre: ctx.overlayLivre }} contexto="watchlist" />;
+          return <AtivoCard key={t} vm={{ t, q, an, name, chColor, sc, pos, cur, pnl, pnlPct, rrPos, diasPos, pctCapPos, kp, fscore, decM, decColor, decBg, anVencida, os, buyMeta, operador, quotesLoading, expanded: !!expanded[t], opsOpen: !!opsOpen[t], opsSpark: sparks[t], onToggleOps: () => toggleOps(t), A, cp, data, didatica: ctx.didatica, overlayLivre: ctx.overlayLivre }} contexto="watchlist" />;
         })}
       </div>
     </div>
@@ -5288,7 +5247,9 @@ function RadarScreen({ ctx }) {
         </span>
         {res && res.scanAtLabel && (
           <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "6px 10px", borderRadius: "999px", background: T.bgBase, border: `1px solid ${T.borderSubtle}`, color: T.textMuted, fontSize: "11px", fontWeight: 700 }}>
-            {res.scanAuto ? "📡 Varredura automática de hoje" : "↻ Última varredura (manual)"} · {res.scanAtLabel}
+            {res.scanOrigem === "revalidação"
+              ? "↻ Releitura após o fechamento"
+              : res.scanAuto ? "📡 Varredura automática de hoje" : "↻ Última varredura (manual)"} · {res.scanAtLabel}
           </span>
         )}
         {res && (
@@ -5339,7 +5300,20 @@ function RadarScreen({ ctx }) {
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))", gap: "14px" }}>
         {results.map((r) => {
-          const chColor = (r.variacaoPeriodoPct || 0) >= 0 ? T.positive : T.negative;
+          // UM ATIVO, UMA LEITURA: o preço/variação sai da MESMA fonte que a
+          // Watchlist usa (/api/quotes). Antes o Radar injetava `r.close` e
+          // `r.variacaoPeriodoPct` — a variação do PERÍODO INTEIRO (1 ano) — no
+          // mesmo slot onde a Watchlist põe a variação do DIA, com a mesma
+          // formatação e sem rótulo: TIMS3 aparecia −0,74% numa tela e −11,72%
+          // na outra. Fora da watchlist não há cotação viva; aí mostramos o
+          // fechamento do snapshot, dito com todas as letras.
+          const qViva = (ctx.quotes || {})[r.ticker];
+          const temCotacao = !!(qViva && qViva.price != null);
+          const qR = temCotacao
+            ? { price: qViva.price, change: qViva.change, error: false }
+            : { price: r.close, change: null, error: false, fechamento: true,
+                changePeriodo: r.variacaoPeriodoPct };
+          const chColor = ((temCotacao ? qViva.change : r.variacaoPeriodoPct) || 0) >= 0 ? T.positive : T.negative;
           const [vColor, vBg] = REC_STYLE[r.veredito] || [T.textMuted, T.bgBase];
           const isOpen = openTicker === r.ticker;
           // FASE 3 (mock v2): posição no portfólio + presença na watchlist + plano do setup
@@ -5370,9 +5344,12 @@ function RadarScreen({ ctx }) {
           const decMr = decisaoDoModo(r, operador);
           const [decColorR, decBgR] = REC_STYLE[decMr] || [vColor, vBg];
           const nameR = (data.catalog.find((c) => c.t === r.ticker) || {}).n || r.ticker;
-          const pnlR = posR && r.close != null ? (r.close - posR.avg) * posR.qty : null;
-          const pnlPctR = posR && r.close != null && posR.avg > 0 ? (r.close / posR.avg - 1) * 100 : null;
-          const radarVm = { t: r.ticker, name: nameR, q: { price: r.close, change: r.variacaoPeriodoPct, error: false }, chColor, sc: { spark: r.spark, confluencia: r.confluencia, melhorSetup: r.melhorSetup }, pos: posR, cur: r.close, pnl: pnlR, pnlPct: pnlPctR, kp: {}, fscore: r.fundamento && r.fundamento.score, decM: decMr, decColor: decColorR, decBg: decBgR, quotesLoading: false, operador, A: ctx.A, data: ctx.data, didatica: ctx.didatica, overlayLivre: ctx.overlayLivre };
+          // P&L pelo MESMO preço que o card exibe — senão o Radar mostra um
+          // resultado e a Carteira mostra outro para a mesma posição.
+          const precoR = temCotacao ? qViva.price : r.close;
+          const pnlR = posR && precoR != null ? (precoR - posR.avg) * posR.qty : null;
+          const pnlPctR = posR && precoR != null && posR.avg > 0 ? (precoR / posR.avg - 1) * 100 : null;
+          const radarVm = { t: r.ticker, name: nameR, q: qR, chColor, sc: { spark: r.spark, confluencia: r.confluencia, melhorSetup: r.melhorSetup }, pos: posR, cur: precoR, pnl: pnlR, pnlPct: pnlPctR, kp: {}, fscore: r.fundamento && r.fundamento.score, decM: decMr, decColor: decColorR, decBg: decBgR, quotesLoading: false, operador, A: ctx.A, data: ctx.data, didatica: ctx.didatica, overlayLivre: ctx.overlayLivre };
           return (
             <AtivoCard key={r.ticker} vm={radarVm} contexto="radar">
               <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", marginTop: "11px" }}>
@@ -6127,7 +6104,7 @@ export default function App() {
         const seed = {};
         for (const t of Object.keys(s.analyses)) {
           const a = s.analyses[t] || {};
-          seed[t] = { loading: false, text: a.text || a.analysis || "", markdown: a.markdown || a.text || a.analysis || "", kpis: a.kpis || null, detail: a.detail || null, proposal: a.proposal || null, model: a.model || null, modelLabel: a.modelLabel || null, technicalContext: a.technicalContext || null, candlesSentToLLM: a.candlesSentToLLM || null, snapshotId: a.snapshotId || null, snapshotAt: a.snapshotAt || null, fundamento: a.fundamento || null, confiancaFinal: a.confiancaFinal || null, rebaixadoPorFundamento: !!a.rebaixadoPorFundamento, at: a.at || null };
+          seed[t] = { loading: false, text: a.text || a.analysis || "", markdown: a.markdown || a.text || a.analysis || "", kpis: a.kpis || null, detail: a.detail || null, proposal: a.proposal || null, model: a.model || null, modelLabel: a.modelLabel || null, technicalContext: a.technicalContext || null, candlesSentToLLM: a.candlesSentToLLM || null, snapshotId: a.snapshotId || null, snapshotAt: a.snapshotAt || null, promptFp: a.promptFp || null, fundamento: a.fundamento || null, confiancaFinal: a.confiancaFinal || null, rebaixadoPorFundamento: !!a.rebaixadoPorFundamento, at: a.at || null };
         }
         if (Object.keys(seed).length) setAnalysis((cur) => ({ ...seed, ...cur }));
       }
@@ -6372,8 +6349,14 @@ export default function App() {
           const res = q.price != null ? (q.price - p.avg) * p.qty : null;
           return { qty: p.qty, avg: p.avg, stop: p.stop, alvo: p.alvo, resultadoAtual: res != null ? Math.round(res * 100) / 100 : null };
         })();
+        // A impressão da análise atual NÃO é lida daqui de propósito: `A` é
+        // memoizado e `analysis` não está nas suas dependências, então esta
+        // leitura viria de um render antigo (é o "bug da venda silenciosa" que
+        // `test_wiring_deps.mjs` guarda). Cada store busca a própria cópia: na
+        // web o servidor consulta o `analyses` do escopo; no aparelho o
+        // deviceStore lê o `doc.analyses[t]` dele.
         const r = await store.analyze(t, { model: analysisModel, position: posCtx });
-        setAnalysis((a) => ({ ...a, [t]: { loading: false, text: r.text || r.analysis || "", markdown: r.markdown || r.text || r.analysis || "", kpis: r.kpis || null, detail: r.detail || null, proposal: r.proposal || null, model: r.model, modelLabel: r.modelLabel, technicalContext: r.technicalContext || null, candles: r.candles, candlesSentToLLM: r.candlesSentToLLM, snapshotId: r.snapshotId || null, snapshotAt: r.snapshotAt || null, fundamento: r.fundamento || null, confiancaFinal: r.confiancaFinal || null, rebaixadoPorFundamento: !!r.rebaixadoPorFundamento, at: r.at, quote: r.quote } }));
+        setAnalysis((a) => ({ ...a, [t]: { loading: false, text: r.text || r.analysis || "", markdown: r.markdown || r.text || r.analysis || "", kpis: r.kpis || null, detail: r.detail || null, proposal: r.proposal || null, model: r.model, modelLabel: r.modelLabel, technicalContext: r.technicalContext || null, candles: r.candles, candlesSentToLLM: r.candlesSentToLLM, snapshotId: r.snapshotId || null, snapshotAt: r.snapshotAt || null, promptFp: r.promptFp || null, fundamento: r.fundamento || null, confiancaFinal: r.confiancaFinal || null, rebaixadoPorFundamento: !!r.rebaixadoPorFundamento, at: r.at, quote: r.quote } }));
         // FASE 2 (2.5): telemetria didática — registra o que a IA disse (para
         // comparar depois com o que aconteceu). Best-effort, nunca bloqueia.
         try {
@@ -6902,6 +6885,20 @@ export default function App() {
     notifRef.current = {};
   };
 
+  // Sair da conta (ou excluí-la) volta para o PORTÃO DE LOGIN.
+  //
+  // Antes ia para `setWelcomeOpen(true)` — o modal de ONBOARDING (orçamento e
+  // perfil de risco). Quem acabou de sair não está configurando nada; e desde
+  // que o acesso sem conta foi removido, login é a única porta do app. O
+  // onboarding continua existindo, no lugar dele: depois do próximo login,
+  // quando a conta ainda não tiver passado por ele.
+  const _voltarAoLogin = () => {
+    setWelcomeOpen(false);        // fecha o onboarding, se estava aberto
+    setAuthOpen(false);           // e o modal de conta da Config
+    welcomeShownRef.current = true;  // o efeito de boot não reabre por cima
+    setWelcomeAuthOpen(true);
+  };
+
   const ctx = {
     // qa/audit-2026-08-07 (item 5): fonte ÚNICA de "estamos em Modo Operador?"
     // — antes recalculado de forma independente em 10+ lugares do arquivo.
@@ -7000,7 +6997,7 @@ export default function App() {
       await loadState();
       refreshQuotes();
       setCarteiraView("main"); setPerfilView("hub"); setTab("evolucao");
-      welcomeShownRef.current = true; setWelcomeOpen(true);
+      _voltarAoLogin();
       flash("Você saiu da conta.");
     },
     deleteAccount: async () => {
@@ -7010,7 +7007,7 @@ export default function App() {
       await loadState();
       refreshQuotes();
       setCarteiraView("main"); setPerfilView("hub"); setTab("evolucao");
-      welcomeShownRef.current = true; setWelcomeOpen(true);
+      _voltarAoLogin();
       flash("Conta excluída.");
     },
   };
@@ -7247,12 +7244,15 @@ export default function App() {
       {welcomeAuthOpen && (
         <WelcomeAuthScreen
           ctx={ctx}
-          onAuthed={() => { setWelcomeAuthOpen(false); ctx.markOnboarded(); }}
-          onSkip={() => {
-            // BLOCO 2 (boot gate): "usar sem conta" só roda o onboarding
-            // (orçamento/risco) para quem NUNCA concluiu; veterano entra direto.
+          onAuthed={() => {
+            // O onboarding (orçamento/perfil de risco) rodava pelo caminho do
+            // "usar sem conta". Com ele removido, quem entra logando PRECISA
+            // passar por aqui — senão herda o orçamento padrão sem nunca ter
+            // escolhido, e a base do retorno acumulado vira um número que a
+            // pessoa não reconhece. Veterano (já onboarded) entra direto.
             setWelcomeAuthOpen(false);
             if (!(data.config && data.config.onboarded)) setWelcomeOpen(true);
+            else ctx.markOnboarded();
           }}
         />
       )}
