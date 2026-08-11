@@ -406,3 +406,79 @@ async def get_quotes(tickers: list) -> dict:
                 out[t] = {"t": t, "price": None, "change": 0,
                           "error": "sem cotação (brapi sem orçamento, backup desligado)"}
     return out
+
+
+# ---------------------------------------------------------------------------
+# Fonte EXCLUSIVA do ciclo do agente (decisão do Alex, 11/08)
+# ---------------------------------------------------------------------------
+# O motor de execução (agent.py: run_cycle_for/scheduler_loop) decide
+# compra/venda/stop/alvo a partir da cotação — é o consumidor mais crítico do
+# app. `get_quote`/`get_quotes` acima fazem primário+backup (bom para
+# tela/watchlist: sempre mostra ALGUM preço). Para o ciclo isso é ERRADO: se a
+# base de preço trocar de fonte NO MEIO da avaliação das posições, o mesmo
+# ciclo mistura preços de duas origens diferentes — inconsistência que o
+# CLAUDE.md proíbe ("cálculos determinísticos", "não invente valores").
+#
+# Por isso o agente usa uma fonte ÚNICA e EXCLUSIVA (`B3_AGENT_QUOTE_SOURCE`,
+# "brapi" xor "yahoo" — nunca os dois). Falha na fonte escolhida NÃO cai para
+# a outra: vira marcador de erro por ticker, no mesmo formato que
+# `yahoo.get_quotes` já usa para falha parcial — o agente já sabe pular
+# posição sem preço (agent.py: `if price is None: continue`), então essa
+# resiliência é reaproveitada, só sem cruzar fonte.
+AGENT_QUOTE_SOURCES = ("brapi", "yahoo")
+
+
+def agent_quote_source() -> str:
+    """Fonte configurada para o ciclo do agente. Default `brapi` — decisão do
+    Alex de 11/08: 'daqui pra frente usaremos brapi [nesse ponto] se os testes
+    derem certo'. `B3_AGENT_QUOTE_SOURCE=yahoo` volta para a fonte antiga."""
+    s = (os.environ.get("B3_AGENT_QUOTE_SOURCE") or "brapi").strip().lower()
+    if s not in AGENT_QUOTE_SOURCES:
+        raise ValueError(
+            f"B3_AGENT_QUOTE_SOURCE='{s}' desconhecido. Opções: {', '.join(AGENT_QUOTE_SOURCES)}.")
+    return s
+
+
+async def _quote_brapi_or_raise(ticker: str) -> dict:
+    """Como `_quote_brapi`, mas NUNCA engole a falha — o chamador (modo
+    exclusivo) decide se ela vira marcador de erro por ticker. Reusa cache
+    compartilhado, orçamento (fatia `spot`) e o acervo (`atualiza_vela_do_dia`)
+    — mesma infraestrutura da fronteira com backup, sem duplicar."""
+    if not brapi.tem_token():
+        raise QuoteUnavailable(f"brapi sem BRAPI_TOKEN — fonte exclusiva do agente para {ticker}.")
+    q = brapi.quote_cached(ticker, _spot_ttl())
+    if q is not None:
+        return {**q, "source": "brapi"}
+    if not brapi_budget.pode_gastar("spot"):
+        raise QuoteUnavailable(f"orçamento da brapi esgotado — sem cota p/ {ticker} agora.")
+    brapi_budget.debita("spot")
+    q = await brapi.fetch_quote(ticker)   # propaga BrapiIndisponivel se falhar
+    from . import candle_cache
+    candle_cache.atualiza_vela_do_dia(ticker, q.get("price"), src="brapi",
+                                      currency=q.get("currency"))
+    return {**q, "source": "brapi"}
+
+
+async def get_quotes_exclusive(tickers: list, source: Optional[str] = None) -> dict:
+    """Cotações do CICLO DO AGENTE. Uma fonte só, do início ao fim do lote —
+    nunca cai para a outra em caso de falha. `source` explícito é só para
+    teste; em produção sempre vem de `agent_quote_source()`.
+
+    Payload no mesmo contrato de `yahoo.get_quotes`
+    ({t: {price, change, previousClose, currency, source, ...}}); ticker cuja
+    fonte falhou vem com `price: None` e `error` — o agente já pula posição
+    sem preço, então nada muda no motor de regras além de QUEM serviu o dado.
+    """
+    src = source or agent_quote_source()
+    if src == "yahoo":
+        got = await yahoo.get_quotes(tickers)
+        return {t: ({**q, "source": "yahoo"} if isinstance(q, dict) else q)
+                for t, q in got.items()}
+    out = {}
+    for t in tickers:
+        try:
+            out[t] = await _quote_brapi_or_raise(t)
+        except Exception as e:  # noqa: BLE001 — vira marcador; NUNCA tenta o yahoo
+            out[t] = {"t": t, "price": None, "change": 0, "source": "brapi",
+                      "error": f"fonte exclusiva (brapi) sem cotação: {e}"}
+    return out

@@ -150,3 +150,33 @@ que faz parte do funcionamento da bolsa (leilão de fechamento) e roda uma vez.
   duplicar.
 - Se o gratuito limitar range histórico, warmup de médias longas continua no
   Yahoo — mais um motivo para o backup nunca ser removido.
+
+## Adendo (11/08/2026, noite) — fonte EXCLUSIVA para o ciclo do agente
+
+Auditoria geral pós-Fase 5 achou um gap de escopo: o ciclo do Operador
+(`agent_mod.run_cycle_for`/`scheduler_loop`, que decide compra/venda/stop/alvo)
+chamava `yahoo.get_quotes` direto, nunca passou pelo `candle_provider` —
+diferente de tela/watchlist/N1/N2, que já usam a fronteira com
+primário+backup desde a Fase 5.
+
+**Decisão do Alex:** para esse consumidor específico, NÃO usar o padrão
+primário+backup (que pode trocar de fonte no meio do lote). O motor de
+execução usa uma fonte **única e excludente** — brapi OU Yahoo, nunca os
+dois na mesma leitura — porque misturar fontes dentro do mesmo ciclo violaria
+o princípio de cálculo determinístico do CLAUDE.md. Falha na fonte escolhida
+vira marcador de erro **por ticker** (mesmo formato que `yahoo.get_quotes` já
+usava para falha parcial — `agent.py` já pula posição sem preço); nunca cai
+para a outra fonte.
+
+- Implementado em `candle_provider.get_quotes_exclusive()` +
+  `agent_quote_source()`.
+- **Env nova: `B3_AGENT_QUOTE_SOURCE`** — `brapi` (default) ou `yahoo`.
+  Valor desconhecido levanta erro alto, mesmo padrão de `B3_CANDLE_PROVIDER`.
+- Default é `brapi` porque a suíte canônica ficou verde (819 backend + 67
+  web) com o modo exclusivo ligado — condição que o Alex pôs para a virada
+  ("usaremos brapi se os testes derem certo"). Rollback: `B3_AGENT_QUOTE_SOURCE=yahoo`.
+- Sobre o Achado 2 da mesma auditoria (default de produção projeta ~9× a cota
+  com o universo/intervalo de fábrica): **aceito como está por decisão do
+  Alex** — `SPOT_INTERVALO_DEFAULT_S` e `B3_BRAPI_COTA_MES` não mudam; a
+  brapi cobre a abertura do pregão e o Yahoo assume o resto do dia via
+  hard-stop, comportamento já existente do orçamento (Fase 2).

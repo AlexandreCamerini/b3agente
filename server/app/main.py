@@ -1765,7 +1765,7 @@ def _disparar_ciclo_imediato(scope: Optional[str]) -> None:
 
     async def _bg():
         try:
-            await agent_mod.run_cycle_for(_conn, scope, yahoo.get_quotes, origem="imediato",
+            await agent_mod.run_cycle_for(_conn, scope, candle_provider.get_quotes_exclusive, origem="imediato",
                                           snapshot_getter=_snapshot_para_trailing,
                                           option_quotes_getter=options_provider_yahoo.get_options)
         except Exception as e:  # noqa: BLE001 — o erro já foi para o agentLog
@@ -1795,11 +1795,11 @@ async def cycle(scope: Optional[str] = Depends(current_scope)):
     # FASE 3.1: o motor de regras foi PORTADO para agent.py (roda também no
     # scheduler do servidor) — este endpoint (ciclo foreground) o reusa.
     positions = store.get(_conn, "positions", user_id=scope)
-    await agent_mod.run_cycle_for(_conn, scope, yahoo.get_quotes,
+    await agent_mod.run_cycle_for(_conn, scope, candle_provider.get_quotes_exclusive,
                                   snapshot_getter=_snapshot_para_trailing,  # F2
                                   option_quotes_getter=options_provider_yahoo.get_options)  # v2
     out = store.public_state(_conn, user_id=scope)
-    out["quotes"] = await yahoo.get_quotes([p["t"] for p in positions]) if positions else {}
+    out["quotes"] = await candle_provider.get_quotes_exclusive([p["t"] for p in positions]) if positions else {}
     return out
 
 
@@ -1910,7 +1910,7 @@ async def agent_run_now(user: dict = Depends(require_user)):
 
     async def _bg():
         try:
-            await agent_mod.run_cycle_for(_conn, uid, yahoo.get_quotes, origem="manual",
+            await agent_mod.run_cycle_for(_conn, uid, candle_provider.get_quotes_exclusive, origem="manual",
                                           snapshot_getter=_snapshot_para_trailing,  # F2
                                           option_quotes_getter=options_provider_yahoo.get_options)  # v2
         except Exception as e:  # noqa: BLE001 — o erro já foi para o agentLog
@@ -1973,7 +1973,7 @@ async def _start_agent_scheduler():
     async def _notify(uid, title, body):
         await push.send_to_user(_conn, uid, title, body)
     asyncio.get_event_loop().create_task(
-        agent_mod.scheduler_loop(_conn, yahoo.get_quotes, notify_push=_notify,
+        agent_mod.scheduler_loop(_conn, candle_provider.get_quotes_exclusive, notify_push=_notify,
                                  radar_fetch=candle_provider.get_history,  # FASE 4 (1.3)
                                  snapshot_getter=_snapshot_para_trailing,  # F2
                                  intraday_fetch=_intraday_fetch,  # ADR-001 item 7

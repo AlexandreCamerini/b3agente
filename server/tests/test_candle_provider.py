@@ -15,6 +15,7 @@ import asyncio
 import pytest
 
 from app import candle_provider as cp
+from app import yahoo
 
 
 class _Fake(cp.CandleProvider):
@@ -438,3 +439,116 @@ def test_spot_primario_yahoo_preserva_comportamento(monkeypatch):
         assert q["source"] == "yahoo" and q["price"] == 1.0
     finally:
         _limpa()
+
+
+# ---------------------------------------------------------------------------
+# Fonte EXCLUSIVA do ciclo do agente (decisão do Alex, 11/08) — sem failover
+# ---------------------------------------------------------------------------
+def test_agent_quote_source_default_brapi_e_valida(monkeypatch):
+    monkeypatch.delenv("B3_AGENT_QUOTE_SOURCE", raising=False)
+    assert cp.agent_quote_source() == "brapi"
+    monkeypatch.setenv("B3_AGENT_QUOTE_SOURCE", "yahoo")
+    assert cp.agent_quote_source() == "yahoo"
+    monkeypatch.setenv("B3_AGENT_QUOTE_SOURCE", "invalida")
+    with pytest.raises(ValueError, match="desconhecido"):
+        cp.agent_quote_source()
+
+
+def test_exclusive_yahoo_nunca_toca_orcamento_da_brapi(monkeypatch):
+    from app import brapi_budget as bb
+    debitos = []
+    monkeypatch.setattr(bb, "debita", lambda fatia, n=1, now=None: debitos.append(fatia))
+
+    async def fake_yahoo(ts):
+        return {t: {"t": t, "price": 9.9, "change": 0.0,
+                    "previousClose": 9.8, "currency": "BRL"} for t in ts}
+    monkeypatch.setattr(yahoo, "get_quotes", fake_yahoo)
+    out = asyncio.run(cp.get_quotes_exclusive(["PETR4", "VALE3"], source="yahoo"))
+    assert out["PETR4"]["source"] == "yahoo" and out["PETR4"]["price"] == 9.9
+    assert debitos == []
+
+
+def test_exclusive_brapi_sucesso_debita_e_marca_source(monkeypatch):
+    from app import brapi, brapi_budget as bb
+    monkeypatch.setenv("BRAPI_TOKEN", "tok-teste")
+    brapi.reset_quote_cache()
+    monkeypatch.setattr(bb, "pode_gastar", lambda fatia, now=None: True)
+    debitos = []
+    monkeypatch.setattr(bb, "debita", lambda fatia, n=1, now=None: debitos.append(fatia))
+
+    async def fake_fetch(symbol, params):
+        return {"results": [{"symbol": symbol, "regularMarketPrice": 42.0,
+                             "regularMarketPreviousClose": 41.0, "currency": "BRL"}]}
+    monkeypatch.setattr(brapi, "_fetch_json", fake_fetch)
+    try:
+        out = asyncio.run(cp.get_quotes_exclusive(["PETR4"], source="brapi"))
+        assert out["PETR4"]["source"] == "brapi" and out["PETR4"]["price"] == 42.0
+        assert debitos == ["spot"]
+    finally:
+        brapi.reset_quote_cache()
+
+
+def test_exclusive_brapi_sem_orcamento_NAO_cai_pro_yahoo(monkeypatch):
+    """O ponto central da decisão: orçamento esgotado vira marcador de erro
+    NO PRÓPRIO ticker — nunca busca no Yahoo por trás."""
+    from app import brapi, brapi_budget as bb
+    monkeypatch.setenv("BRAPI_TOKEN", "tok-teste")
+    brapi.reset_quote_cache()
+    monkeypatch.setattr(bb, "pode_gastar", lambda fatia, now=None: False)
+
+    async def yahoo_nao_deveria_ser_chamado(ts):
+        raise AssertionError("modo exclusivo NUNCA pode chamar o yahoo como backup")
+    monkeypatch.setattr(yahoo, "get_quotes", yahoo_nao_deveria_ser_chamado)
+    try:
+        out = asyncio.run(cp.get_quotes_exclusive(["PETR4"], source="brapi"))
+        assert out["PETR4"]["price"] is None
+        assert out["PETR4"]["source"] == "brapi"
+        assert "orçamento" in out["PETR4"]["error"] or "cota" in out["PETR4"]["error"]
+    finally:
+        brapi.reset_quote_cache()
+
+
+def test_exclusive_brapi_sem_token_NAO_cai_pro_yahoo(monkeypatch):
+    from app import brapi
+    monkeypatch.delenv("BRAPI_TOKEN", raising=False)
+    brapi.reset_quote_cache()
+
+    async def yahoo_nao_deveria_ser_chamado(ts):
+        raise AssertionError("modo exclusivo NUNCA pode chamar o yahoo como backup")
+    monkeypatch.setattr(yahoo, "get_quotes", yahoo_nao_deveria_ser_chamado)
+    out = asyncio.run(cp.get_quotes_exclusive(["PETR4"], source="brapi"))
+    assert out["PETR4"]["price"] is None and "BRAPI_TOKEN" in out["PETR4"]["error"]
+
+
+def test_exclusive_falha_de_um_ticker_nao_derruba_o_lote(monkeypatch):
+    """Um ticker falhar não pode zerar os demais — mesma resiliência
+    per-ticker que yahoo.get_quotes já tinha, só sem cruzar fonte."""
+    from app import brapi, brapi_budget as bb
+    monkeypatch.setenv("BRAPI_TOKEN", "tok-teste")
+    brapi.reset_quote_cache()
+    monkeypatch.setattr(bb, "pode_gastar", lambda fatia, now=None: True)
+    monkeypatch.setattr(bb, "debita", lambda fatia, n=1, now=None: None)
+
+    async def fake_fetch(symbol, params):
+        if symbol == "RUIM3":
+            raise brapi.BrapiIndisponivel("fora do ar")
+        return {"results": [{"symbol": symbol, "regularMarketPrice": 10.0,
+                             "regularMarketPreviousClose": 9.5, "currency": "BRL"}]}
+    monkeypatch.setattr(brapi, "_fetch_json", fake_fetch)
+    try:
+        out = asyncio.run(cp.get_quotes_exclusive(["PETR4", "RUIM3"], source="brapi"))
+        assert out["PETR4"]["price"] == 10.0
+        assert out["RUIM3"]["price"] is None and "error" in out["RUIM3"]
+    finally:
+        brapi.reset_quote_cache()
+
+
+def test_exclusive_usa_agent_quote_source_quando_nao_passado(monkeypatch):
+    monkeypatch.setenv("B3_AGENT_QUOTE_SOURCE", "yahoo")
+
+    async def fake_yahoo(ts):
+        return {t: {"t": t, "price": 1.0, "change": 0.0,
+                    "previousClose": 1.0, "currency": "BRL"} for t in ts}
+    monkeypatch.setattr(yahoo, "get_quotes", fake_yahoo)
+    out = asyncio.run(cp.get_quotes_exclusive(["PETR4"]))   # sem `source=` explícito
+    assert out["PETR4"]["source"] == "yahoo"
