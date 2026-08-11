@@ -159,18 +159,40 @@ VEREDITOS = {"Estudar alta", "Estudar baixa", "Monitorar", "Sem setup no momento
 
 
 def test_scan_rankeia_tolera_falha_e_tem_disclaimer():
+    """GUARDIÃO ATUALIZADO COM NOTA (2026-08-11, Refactor A / ADR-009 /
+    docs/refactor/ESPEC-A): a ordenação por confluência do melhor setup foi
+    DELIBERADAMENTE substituída pelo eixo regime + momentum relativo
+    (`regime.ranquear`) — confluência media aderência a padrão em dado
+    passado, não vantagem estatística, e virou só desempate final. O que
+    este guardião passa a proteger: a ordenação segue `radarScore`
+    decrescente, e os campos novos existem em todo resultado. O contrato
+    antigo da UI (confluencia/veredito/plano/spark) permanece guardado —
+    a UI não muda."""
     payload = _run(scanner.run_scan(period="1y", universe="AAAA3,BBBB3,CCCC3", fetch=_fake_fetch))
     assert payload["disclaimer"] == scanner.DISCLAIMER
     assert payload["universeSize"] == 3 and payload["scanned"] == 2
     assert [e["ticker"] for e in payload["errors"]] == ["CCCC3"]
-    # BLOCO B (Radar v2): ranking por confluência do melhor setup; score desempata
-    confs = [r["confluencia"] for r in payload["results"]]
-    assert confs == sorted(confs, reverse=True)
+    # ADR-009: ordena a TUPLA (tier do regime > momentum relativo > gatilho
+    # alinhado > confluência > ticker) — confluência NÃO ordena mais; o
+    # radarScore exibido é derivado (momentum + bônus de gatilho), sem o tier.
+    from app import regime as regime_mod
+    chave = lambda r: (-regime_mod._TIER.get(r["regime"]["regime"], 0),
+                       -(r.get("momentumRelPct") or -1.0),
+                       0 if r.get("gatilhoAlinhado") else 1,
+                       -(r.get("confluencia") or 0), r["ticker"])
+    assert [r["ticker"] for r in payload["results"]] == \
+        [r["ticker"] for r in sorted(payload["results"], key=chave)]
     assert payload["modelo"] and all({"nome", "descricao"} == set(m) for m in payload["modelo"])
     for r in payload["results"]:
         assert "condicoes_detectadas" in r and "timestamp" not in r  # timestamp é do payload
         assert r["veredito"] in VEREDITOS
-        assert 0 <= r["confluencia"] <= 100
+        assert 0 <= r["confluencia"] <= 100          # contrato da UI preservado
+        assert "plano" in r and "spark" in r         # idem (handoff, passo 3)
+        # campos novos do eixo (ESPEC-A §3 / handoff passo 3)
+        assert r["regime"]["regime"] in ("tendencia_alta", "tendencia_baixa",
+                                         "lateral", "indefinido")
+        assert 0 <= (r["momentumRelPct"] if r["momentumRelPct"] is not None else 0) <= 100
+        assert isinstance(r["gatilhoAlinhado"], bool)
         for stp in r["setups"]:
             assert stp["criterios"] and 0 <= stp["confluencia"] <= 100
     assert payload["timestamp"]
