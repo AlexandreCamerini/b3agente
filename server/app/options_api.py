@@ -6,7 +6,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Body, HTTPException
 
-from . import indicators, tickers, yahoo
+from . import candle_provider, indicators, tickers, yahoo
 from .options_provider_yahoo import get_options
 from .options_quant import black_scholes, breakeven, educational_score, historical_volatility, intrinsic_value, liquidity_score, years_to_expiration
 
@@ -37,7 +37,8 @@ def _spot_from_chain_or_quote(chain: dict, quote: Optional[dict]) -> Optional[fl
 
 
 async def _technical_context(t: str) -> dict:
-    hist = await yahoo.get_history(t, rng="1y")
+    # ADR-008 (Fase 5): ponto único — 1y sai do plano free e roteia pro backup.
+    hist = await candle_provider.get_history(t, rng="1y")
     candles = indicators.sanitize_candles(hist.get("candles"))
     closes = [c.get("close") for c in candles if c.get("close")]
     comp = indicators.compute(candles) if candles else {"summary": {}}
@@ -111,7 +112,7 @@ async def chain(ticker: str, expiration: Optional[str] = None):
         data = await get_options(t, expiration)
         quote = None
         try:
-            quote = await yahoo.get_quote(t)
+            quote = await candle_provider.get_quote(t)
         except Exception:
             quote = None
         spot = _spot_from_chain_or_quote(data, quote)

@@ -116,6 +116,12 @@ def init_db(conn: sqlite3.Connection) -> None:
         " at REAL NOT NULL"          # epoch da última atualização
         ")"
     )
+    # ADR-008 (Fase 4): fonte da última escrita da série ("yahoo" | "brapi").
+    # Migração idempotente — bancos existentes ganham a coluna; NULL = legado.
+    try:
+        conn.execute("ALTER TABLE candle_cache ADD COLUMN src TEXT")
+    except sqlite3.OperationalError:
+        pass   # coluna já existe
     conn.commit()
 
 

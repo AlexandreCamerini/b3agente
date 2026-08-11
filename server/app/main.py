@@ -16,6 +16,7 @@ from fastapi.staticfiles import StaticFiles
 
 from . import db, indicators, llm, plan, setups, store, technical_models, tickers, yahoo
 from . import candles as candles_mod  # Objetivo 4: período de candles configurável
+from . import brapi_budget  # ADR-008: orçamento de requisições da brapi (Fase 2)
 from . import candle_cache  # Objetivo 5: cache de candles (delta + revalida último)
 from . import scanner  # BLOCO 3: radar de mercado (varredura do universo)
 from . import radar_daily  # FASE 4 (1.3): varredura automática 1x/dia + sob demanda
@@ -47,6 +48,9 @@ store.ensure_defaults(_conn)
 # FASE 5 (performance): liga o L2 persistente do cache de candles (SQLite no
 # volume /data) — redeploy do Railway reidrata e busca só o delta recente.
 candle_cache.configure_db(_conn)
+# ADR-008 (Fase 2): o contador de orçamento da brapi persiste no mesmo SQLite —
+# sem isto o teto diário zeraria a cada deploy (degrada a proteção da cota).
+brapi_budget.configure_db(_conn)
 app.include_router(options_router)
 
 
@@ -444,7 +448,7 @@ async def admin_summary(user: dict = Depends(require_user)):
 
 # FASE 8B (diagnóstico): carimbo de build do BACKEND — confirma qual código o
 # Railway está rodando (o front tem o dele em web/src/version.js).
-SERVER_BUILD_ID = "F10-20260810-04"  # F3: alvo dinâmico (extensão por ATR, freio 2× + R:R 1,5:1).
+SERVER_BUILD_ID = "F10-20260812-01"  # ADR-008: brapi free master (diário/spot) + orçamento; Yahoo backup/intraday.
 # Normalmente sincronizado pelo entregar.sh a partir de web/src/version.js; num deploy
 # SÓ de backend (sem rebuild do front) bumpamos aqui para /api/health rastrear o servidor.
 
@@ -526,7 +530,7 @@ async def watchlist_add(body: dict = Body(default={}), scope: Optional[str] = De
     if not t or len(t) < 4:
         raise HTTPException(400, "Informe um ticker valido da B3 (ex.: PETR4).")
     try:
-        q = await yahoo.get_quote(t)
+        q = await candle_provider.get_quote(t)
         transient = False
     except yahoo.QuoteUnavailable:
         q, transient = None, True
@@ -565,7 +569,7 @@ async def validate(ticker: str, scope: Optional[str] = Depends(current_scope)):
     if not t or len(t) < 4:
         raise HTTPException(400, "Informe um ticker valido da B3 (ex.: PETR4).")
     try:
-        q = await yahoo.get_quote(t)
+        q = await candle_provider.get_quote(t)
         transient = False
     except yahoo.QuoteUnavailable:
         q, transient = None, True
@@ -589,7 +593,7 @@ async def quotes(symbols: Optional[str] = None, scope: Optional[str] = Depends(c
         wl = store.get(_conn, "watchlist", user_id=scope)
         pos = [p["t"] for p in store.get(_conn, "positions", user_id=scope)]
         wanted = list(dict.fromkeys(wl + pos))
-    data = await yahoo.get_quotes(wanted)
+    data = await candle_provider.get_quotes(wanted)
     return {"quotes": data, "at": now_str()}
 
 
@@ -905,7 +909,7 @@ async def analyze_technical_model(ticker: str, body: dict = Body(default={}), sc
         "budget": (store.get(_conn, "config", user_id=scope) or {}).get("initialBudget"),
     }
     try:
-        quote = await yahoo.get_quote(t)
+        quote = await candle_provider.get_quote(t)
     except Exception:
         quote = None
     # FASE 1 (STU): N2 lê o MESMO snapshot que o Radar (N1) — nunca refetch,
@@ -1045,7 +1049,7 @@ async def analyze(ticker: str, body: dict = Body(default={}), scope: Optional[st
         "budget": (store.get(_conn, "config", user_id=scope) or {}).get("initialBudget"),
     }
     try:
-        quote = await yahoo.get_quote(t)
+        quote = await candle_provider.get_quote(t)
     except Exception:
         quote = None
     # FASE 1 (STU): a mesma janela/candles do snapshot que N1/N2/N3 leem —
@@ -1112,7 +1116,7 @@ async def carteira_stopalvo(ticker: str, body: dict = Body(default={}), scope: O
     _key_prompt = "carteiraStopAlvoOperador" if modo == "operador" else "carteiraStopAlvo"
     prompt = (body or {}).get("prompt") or _lp.get(_key_prompt) or _lp.get("carteiraStopAlvo") or ""
     try:
-        quote = await yahoo.get_quote(t)
+        quote = await candle_provider.get_quote(t)
     except Exception:
         quote = None
     # FASE 1 (STU): o N3 responde OUTRA pergunta (gestão de risco) mas lê os
@@ -1170,7 +1174,7 @@ async def buy(body: dict = Body(default={}), scope: Optional[str] = Depends(curr
     t = _normalize_ticker(t)
     if len(t) < 4:
         raise HTTPException(400, "Ticker invalido.")
-    quote = await yahoo.get_quote(t)
+    quote = await candle_provider.get_quote(t)
     if not quote or quote.get("price") is None:
         raise HTTPException(502, "Sem cotacao para " + t)
     price = quote["price"]
@@ -1189,7 +1193,7 @@ async def sell(body: dict = Body(default={}), scope: Optional[str] = Depends(cur
     pos = next((p for p in store.get(_conn, "positions", user_id=scope) if p["t"] == t), None)
     if not pos:
         raise HTTPException(400, "Sem posicao em " + t)
-    quote = await yahoo.get_quote(t)
+    quote = await candle_provider.get_quote(t)
     if not quote or quote.get("price") is None:
         raise HTTPException(502, "Sem cotacao para " + t)
     _qty = body.get("qty")  # FASE 2 (2.4): venda parcial opcional (lotes de 100)

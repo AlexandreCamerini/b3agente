@@ -301,3 +301,66 @@ def test_merge_nao_colapsa_velas_intraday_do_mesmo_dia():
     # revalidação da última vela continua funcionando na resolução de minuto
     m2 = cc.merge_candles(m, [_c(f"{dia} 16:15", 99)])
     assert len(m2) == 26 and m2[-1]["close"] == 99
+
+
+# ---------------------------------------------------------------------------
+# ADR-008 (Fase 4) — fonte da série no cache e acervo próprio de histórico
+# ---------------------------------------------------------------------------
+def test_load_registra_e_devolve_a_fonte():
+    """`src` = fonte da última escrita. Miss grava a do warmup; delta atualiza
+    para a fonte que serviu o recente (com a inversão: warmup yahoo → delta
+    brapi). É o metadado que a didática declara — a IDENTIDADE do snapshot não
+    muda com a fonte porque o dado diário é idêntico entre elas (validado ao
+    vivo em 11/08/2026: 21 pregões de PETR4 com open/close/volume iguais)."""
+    cc.reset()
+    cc.configure_db(None, enabled=False)
+
+    async def fetch_warmup(rng):
+        return {"candles": [{"date": "2026-08-07", "open": 1, "high": 2,
+                             "low": 1, "close": 2, "volume": 10}],
+                "currency": "BRL", "source": "yahoo"}
+
+    out = asyncio.run(cc.load("PETR4", fetch_warmup, now=1000.0))
+    assert out["cacheStatus"] == "miss" and out["source"] == "yahoo"
+
+    async def fetch_delta(rng):
+        return {"candles": [{"date": "2026-08-10", "open": 2, "high": 3,
+                             "low": 2, "close": 3, "volume": 20}],
+                "currency": "BRL", "source": "brapi"}
+
+    out = asyncio.run(cc.load("PETR4", fetch_delta, now=2000.0))
+    assert out["cacheStatus"] == "delta" and out["source"] == "brapi"
+    # o ACERVO acumula: warmup yahoo + delta brapi na mesma série (errata da
+    # decisão 3 do ADR-008 — merge diário entre fontes é permitido)
+    assert [c["date"] for c in out["candles"]] == ["2026-08-07", "2026-08-10"]
+
+    # stale (delta falhou) preserva a fonte conhecida
+    async def fetch_falha(rng):
+        raise RuntimeError("fora do ar")
+    out = asyncio.run(cc.load("PETR4", fetch_falha, now=3000.0))
+    assert out["cacheStatus"] == "stale" and out["source"] == "brapi"
+
+
+def test_fonte_sobrevive_ao_l2(tmp_path):
+    """O acervo próprio (pedido do Alex, 11/08) mora no L2: série E fonte
+    sobrevivem a restart/deploy, inclusive em banco criado ANTES da coluna
+    `src` (migração idempotente do db.py)."""
+    import sqlite3 as _sq
+    from app import db as _db
+    conn = _sq.connect(":memory:")
+    _db.init_db(conn)   # schema oficial, com a migração da coluna src
+    cc.reset()
+    cc.configure_db(conn, enabled=True)
+
+    async def fetch(rng):
+        return {"candles": [{"date": "2026-08-10", "open": 1, "high": 2,
+                             "low": 1, "close": 2, "volume": 10}],
+                "currency": "BRL", "source": "brapi"}
+
+    asyncio.run(cc.load("WEGE3", fetch, now=1000.0))
+    cc.reset()                      # "restart": L1 esvazia
+    async def fetch_nao_chamado(rng):
+        raise AssertionError("delta antes da janela mínima não deve buscar")
+    out = asyncio.run(cc.load("WEGE3", fetch_nao_chamado, now=1010.0))
+    assert out["cacheStatus"] == "fresh" and out["source"] == "brapi"
+    cc.configure_db(None, enabled=False)
