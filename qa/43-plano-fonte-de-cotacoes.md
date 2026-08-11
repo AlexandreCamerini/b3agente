@@ -2,6 +2,15 @@
 
 **Data:** 2026-08-11 · **Decisão:** [ADR-008](../docs/adr/008-fonte-de-cotacoes-selecionavel.md) (brapi free master para diário+spot; Yahoo backup e dono do intraday; orçamento diário ≈ 700 req restrito ao pregão) · **Custo:** R$ 0
 
+> **EXECUÇÃO (madrugada de 11→12/08, autorizada pelo Alex "siga sem minha
+> intervenção"):** Fases 0–5 implementadas e commitadas; suíte canônica verde
+> (786 pytest + 60 suítes web); prova ao vivo com token real via `railway run`
+> (cliente brapi servindo; roteamento honrando janela de pregão; paridade de
+> close brapi×Yahoo ao vivo). Decisão adicional do Alex (11/08) incorporada na
+> Fase 4: **o L2 é o acervo próprio de histórico** — o delta diário da brapi
+> (≤3mo) estende a série local dia a dia, contornando a limitação de 3 meses
+> do plano. Pendências no fim do arquivo.
+
 Porta de saída de TODA fase: `bash scripts/executar.sh --testes` verde (as duas
 suítes — pytest e `web/tests/*.mjs`). Front editado → `npx vite build`.
 Publicação → `scripts/bump.sh` antes de `publicar-web.sh`. Nada entra na branch
@@ -158,6 +167,24 @@ Plano Pro/intraday pago (upgrade futuro; o consumo por fatia no `/api/status`
 circuito persistente; opções pela brapi; troca de bundle id / renames
 `b3-agente`/`B3_*`/`b3-*`; token commitado; editar `web_dist` sem `bump.sh`;
 baseline declarada só com `scripts/test.sh`.
+
+## Pendências pós-execução (12/08)
+
+1. **Virar a chave em produção** (decisão do Alex): definir no Railway
+   `B3_CANDLE_PROVIDER=brapi` (o default de código segue `yahoo`;
+   `B3_CANDLE_FALLBACK` default já é `yahoo` quando o primário não é yahoo).
+   Sem essa env, o deploy do PR não muda comportamento nenhum.
+2. **Delay do spot em pregão** (ressalva da Fase 0): amostragem de 1h entre
+   10h–17h BRT; decide se o TTL base do spot (5 min) fica ou alonga.
+3. **Fase 6 restante**: didática declarando fonte/atraso nos textos (o dado
+   `source` já sai em candles, cache e spot; falta o texto citá-lo) e a
+   verificação ao vivo com servidor local completo.
+4. **Reset da cota**: o header sugeriu reset DIÁRIO (remaining voltou a ~15k
+   na madrugada seguinte ao spike) — confirmar no painel da conta; se for
+   diário, o teto local pode subir de ~700 para o limite diário real
+   (`B3_BRAPI_COTA_MES` ajusta sem deploy).
+5. ~~Persistência do orçamento em produção~~ — FECHADA na própria execução:
+   `main.py` liga `brapi_budget.configure_db(_conn)` junto do L2 no boot.
 
 ## Riscos abertos
 

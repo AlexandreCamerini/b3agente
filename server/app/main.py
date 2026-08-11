@@ -16,6 +16,7 @@ from fastapi.staticfiles import StaticFiles
 
 from . import db, indicators, llm, plan, setups, store, technical_models, tickers, yahoo
 from . import candles as candles_mod  # Objetivo 4: período de candles configurável
+from . import brapi_budget  # ADR-008: orçamento de requisições da brapi (Fase 2)
 from . import candle_cache  # Objetivo 5: cache de candles (delta + revalida último)
 from . import scanner  # BLOCO 3: radar de mercado (varredura do universo)
 from . import radar_daily  # FASE 4 (1.3): varredura automática 1x/dia + sob demanda
@@ -47,6 +48,9 @@ store.ensure_defaults(_conn)
 # FASE 5 (performance): liga o L2 persistente do cache de candles (SQLite no
 # volume /data) — redeploy do Railway reidrata e busca só o delta recente.
 candle_cache.configure_db(_conn)
+# ADR-008 (Fase 2): o contador de orçamento da brapi persiste no mesmo SQLite —
+# sem isto o teto diário zeraria a cada deploy (degrada a proteção da cota).
+brapi_budget.configure_db(_conn)
 app.include_router(options_router)
 
 
