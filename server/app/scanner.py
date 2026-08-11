@@ -31,6 +31,7 @@ from typing import Optional
 
 from . import candle_cache, indicators, setups, technical_snapshot
 from . import candles as candles_mod
+from . import regime
 from .tickers import normalize_ticker
 
 # Aproximação da composição do IBOV (ativos líquidos da B3). Atualizável a cada
@@ -267,7 +268,7 @@ async def run_scan(period: Optional[str] = None, universe: Optional[str] = None,
             await asyncio.sleep(wait)
         return await fetch(symbol, rng)
 
-    results, errors = [], []
+    results, errors, snaps = [], [], {}
     _progress_reset(len(uni), p)
 
     async def scan_one(symbol):
@@ -279,6 +280,7 @@ async def run_scan(period: Optional[str] = None, universe: Optional[str] = None,
                 # Único — a MESMA fonte que N2/N3 leem. Se o insumo não mudou,
                 # o snapshot (e o snapshotId) é reaproveitado.
                 snap = technical_snapshot.build(symbol, hist.get("candles") or [], p)
+                snaps[symbol] = snap
                 sres = snap["setups"]
                 results.append({
                     "ticker": symbol,
@@ -311,9 +313,11 @@ async def run_scan(period: Optional[str] = None, universe: Optional[str] = None,
 
     await asyncio.gather(*(scan_one(s) for s in uni))
     _progress_done()
-    # BLOCO B: rankeia por confluência do melhor setup; score de
-    # intensidade desempata; ticker estabiliza.
-    results.sort(key=lambda r: (-r["confluencia"], -r["score_tecnico"], r["ticker"]))
+    # FASE 2 (A): eixo de seleção = REGIME + MOMENTUM RELATIVO (cross-sectional).
+    # A confluência do setup vira só desempate final (ver regime.ranquear e o
+    # ADR "eixo-de-selecao"). Precisa de TODOS os snapshots juntos — por isso
+    # aqui, depois do gather.
+    regime.ranquear(results, snaps)
 
     payload = {
         "period": p,
