@@ -364,3 +364,37 @@ def test_fonte_sobrevive_ao_l2(tmp_path):
     out = asyncio.run(cc.load("WEGE3", fetch_nao_chamado, now=1010.0))
     assert out["cacheStatus"] == "fresh" and out["source"] == "brapi"
     cc.configure_db(None, enabled=False)
+
+
+# ---------------------------------------------------------------------------
+# ADR-008 (controle de utilização) — spot alimenta a vela do dia no acervo
+# ---------------------------------------------------------------------------
+def test_spot_atualiza_vela_do_dia():
+    """2 spots no mesmo dia → UMA vela, high/low esticados, close = último.
+    O que este guardião protege: nada buscado (e pago em cota) se perde — o
+    spot vira dado do acervo de onde os indicadores saem."""
+    import time as _t
+    cc.reset()
+    cc.configure_db(None, enabled=False)
+    hoje = _t.strftime("%Y-%m-%d", _t.gmtime(_t.time() - 3 * 3600))
+    cc._CACHE[cc._key("PETR4", "1d")] = {
+        "candles": [{"date": "2000-01-03", "open": 1, "high": 2, "low": 1,
+                     "close": 2, "volume": 10}],
+        "currency": "BRL", "at": 0, "src": "yahoo"}
+    assert cc.atualiza_vela_do_dia("PETR4", 42.10, src="brapi") is True
+    assert cc.atualiza_vela_do_dia("PETR4", 41.80, src="brapi") is True
+    serie = cc._CACHE[cc._key("PETR4", "1d")]["candles"]
+    assert [c["date"] for c in serie] == ["2000-01-03", hoje]
+    vela = serie[-1]
+    assert vela["open"] == 42.10 and vela["close"] == 41.80
+    assert vela["high"] == 42.10 and vela["low"] == 41.80
+    assert cc._CACHE[cc._key("PETR4", "1d")]["src"] == "brapi"
+
+
+def test_spot_nao_cria_acervo_do_nada():
+    """Sem série 1d existente, o spot NÃO cria entrada — uma série de 1 vela
+    faria load() pular o warmup FULL_RANGE."""
+    cc.reset()
+    cc.configure_db(None, enabled=False)
+    assert cc.atualiza_vela_do_dia("ZZZZ3", 10.0, src="brapi") is False
+    assert cc._key("ZZZZ3", "1d") not in cc._CACHE

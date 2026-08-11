@@ -122,6 +122,14 @@ def _regras(modo: str) -> str:
         "'hora de agir', 'chegou o momento' e equivalentes: elas transformam",
         "uma leitura de condição em convocação, que é o erro mais caro que um",
         "iniciante comete aqui.",
+        "",
+        "# Fonte e idade do dado (declare quando falar de frescor)",
+        "O dado intraday (velas de 15m, timing) vem do Yahoo Finance, com",
+        "cerca de 15 minutos de atraso medido. O diário e a cotação vêm da",
+        "brapi quando disponível, com o Yahoo como reserva automática — quando",
+        "o dado da tela trouxer o campo `source`, cite a fonte por nome ao",
+        "comentar atualização ou atraso. Fonte indisponível se DECLARA, nunca",
+        "se estima: sem dado fresco, diga a idade do que existe e pare aí.",
     ]
     if voc.get("proibe_verbo_ordem"):
         linhas.append("5. Modo ESTUDO: descreva a CONDIÇÃO, sem verbo de ordem e sem a")

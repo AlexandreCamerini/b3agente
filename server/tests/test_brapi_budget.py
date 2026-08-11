@@ -120,3 +120,46 @@ def test_snapshot_expoe_previsao_e_verdade_do_header(monkeypatch):
     assert s["fatias"]["spot"]["gasto"] == 1 and s["tetoDia"] == 714
     assert s["headerRateLimit"]["x-ratelimit-remaining"] == "14980"
     assert s["emPregao"] is True
+
+
+# ---------------------------------------------------------------------------
+# Controle de utilização: intervalo → projeção mensal (determinística)
+# ---------------------------------------------------------------------------
+def test_projecao_e_pura_e_deterministica():
+    p = bb.projecao(300, universo_n=65, cota=15000)
+    # spot: 65 × (26100//300=87) × 21 = 118755; delta: 65×21=1365; fund: 1365//7=195
+    assert p["detalhe"] == {"spot": 118755, "delta": 1365, "fundamentos": 195}
+    assert p["chamadasMes"] == 120315
+    assert p["cabeNaCota"] is False
+    assert p["percentualDaCota"] == round(120315 / 15000 * 100, 1)
+    # intervalo mínimo seguro: refresh_max = (15000−1560)/(65×21) ≈ 9,84/pregão
+    # → 26100/9,84 ≈ 2652s (+1)
+    assert 2600 < p["intervaloMinimoSeguro"] < 2700
+    # e o mínimo seguro de fato cabe
+    p2 = bb.projecao(p["intervaloMinimoSeguro"], universo_n=65, cota=15000)
+    assert p2["cabeNaCota"] is True
+
+
+def test_projecao_universo_zero_nao_divide_por_zero():
+    p = bb.projecao(300, universo_n=0, cota=15000)
+    assert p["chamadasMes"] == 0 and p["cabeNaCota"] is True
+    assert p["intervaloMinimoSeguro"] is None
+
+
+def test_intervalo_configuravel_persiste_e_alimenta_snapshot():
+    conn = sqlite3.connect(":memory:")
+    conn.execute("CREATE TABLE kv (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+    bb.configure_db(conn)
+    assert bb.spot_intervalo_s() == 300          # default
+    bb.set_spot_intervalo(600)
+    bb.reset()                                    # "restart"
+    bb.configure_db(conn)
+    assert bb.spot_intervalo_s() == 600          # veio do kv
+    s = bb.snapshot(now=TER_11H)
+    assert s["spotIntervaloS"] == 600
+    assert s["projecaoMes"]["intervaloS"] == 600
+    assert s["projecaoMes"]["chamadasMes"] == bb.projecao(600, bb._universo_n())["chamadasMes"]
+
+
+def test_intervalo_minimo_de_30s():
+    assert bb.set_spot_intervalo(5) == 30

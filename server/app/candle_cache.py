@@ -231,3 +231,60 @@ async def load(
         _db_put(k, ent)  # FASE 5: write-through no L2
     return {"t": symbol, "currency": ent.get("currency", "BRL"), "candles": merged,
             "cacheStatus": "delta", "source": ent.get("src")}
+
+
+# ---------------------------------------------------------------------------
+# ADR-008 (controle de utilização): NADA buscado se perde — o spot alimenta a
+# vela do dia corrente do ACERVO próprio (a série 1d que o L2 persiste).
+# ---------------------------------------------------------------------------
+_BRT_OFF = -3 * 3600
+
+
+def atualiza_vela_do_dia(symbol: str, price, src: str = None,
+                         currency: str = None, volume=None, now: float = None) -> bool:
+    """Dobra um spot na vela diária de HOJE: high/low esticam, close atualiza.
+
+    Só atua quando a série 1d JÁ EXISTE no cache/L2 — criar uma entrada de
+    vela única faria `load()` pular o warmup FULL_RANGE e nascer uma série de
+    1 candle. Devolve True se gravou. Não mexe em `at` (não é revalidação de
+    série; o delta continua no seu próprio ritmo).
+    """
+    if not isinstance(price, (int, float)):
+        return False
+    k = _key(symbol, "1d")
+    ent = _CACHE.get(k)
+    if (not ent or not ent.get("candles")) and persiste_no_l2("1d"):
+        persisted = _db_get(k)
+        if persisted:
+            _CACHE[k] = ent = persisted
+    if not ent or not ent.get("candles"):
+        return False
+    t = now if now is not None else time.time()
+    hoje = time.strftime("%Y-%m-%d", time.gmtime(t + _BRT_OFF))
+    p = round(float(price), 2)
+    ultima = ent["candles"][-1]
+    if ultima.get("date") == hoje:
+        ultima["close"] = p
+        if isinstance(ultima.get("high"), (int, float)):
+            ultima["high"] = max(ultima["high"], p)
+        else:
+            ultima["high"] = p
+        if isinstance(ultima.get("low"), (int, float)):
+            ultima["low"] = min(ultima["low"], p)
+        else:
+            ultima["low"] = p
+        if isinstance(volume, (int, float)) and volume >= (ultima.get("volume") or 0):
+            ultima["volume"] = volume
+    elif ultima.get("date", "") < hoje:
+        ent["candles"].append({"date": hoje, "open": p, "high": p, "low": p,
+                               "close": p, "volume": volume if isinstance(volume, (int, float)) else 0})
+        ent["candles"] = ent["candles"][-_MAX:]
+    else:
+        return False   # spot mais velho que a série — nunca reescreve o passado
+    if src:
+        ent["src"] = src
+    if currency:
+        ent["currency"] = currency
+    if persiste_no_l2("1d"):
+        _db_put(k, ent)
+    return True
