@@ -1049,6 +1049,11 @@ function KpiBlock({ kpis, operador }) {
 // qa/36 (F10.2): FUNDAMENTO — chip de score A/B/C (filtro de qualidade, nunca
 // gatilho) e tabela de métricas. Cor por score; "sem dado" explícito, nunca
 // inferência. score ausente → nada renderiza (ticker sem cobertura).
+// ADR-008: rótulo de exibição da fonte do dado (CLAUDE.md #3 — todo dado de
+// mercado declara a fonte). `source` no payload é sempre "brapi" | "yahoo";
+// qualquer outro valor (fonte nova, futuro) aparece como veio, sem mascarar.
+const FONTE_LABEL = (source) => (source === "brapi" ? "brapi" : source === "yahoo" ? "Yahoo" : source);
+
 const SCORE_COLOR = { A: "positive", B: "accent", C: "negative" };
 function FundamentoChip({ f }) {
   if (!f || !f.score) return null;
@@ -2865,7 +2870,16 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
                         </div>
                         {!q.error && q.change == null && q.changePeriodo != null && (
                           <div style={{ fontSize: "9.5px", fontWeight: 700, color: T.textFaint, letterSpacing: "0.03em" }}>
-                            no período · fechamento
+                            no período · fechamento{q.source ? " · " + FONTE_LABEL(q.source) : ""}
+                          </div>
+                        )}
+                        {/* ADR-008: princípio #3 do CLAUDE.md — dado de mercado
+                            exibe a FONTE. `source` vem em todo payload de
+                            candle_provider (brapi com Yahoo de reserva); sem
+                            isso a tela nunca dizia de onde o preço veio. */}
+                        {!q.error && q.change != null && q.source && (
+                          <div style={{ fontSize: "9.5px", fontWeight: 700, color: T.textFaint, letterSpacing: "0.03em" }}>
+                            {FONTE_LABEL(q.source)}
                           </div>
                         )}
                       </>
@@ -5138,10 +5152,47 @@ function LogsDebugScreen({ ctx }) {
               </div>
 
               <div style={{ fontSize: "10.5px", fontWeight: 800, color: T.textMuted, marginBottom: "6px" }}>AGENTE (servidor)</div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "5px 14px", color: T.textFaint, fontSize: "10.5px", fontFamily: MONO }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "5px 14px", color: T.textFaint, fontSize: "10.5px", fontFamily: MONO, marginBottom: admin.usoIA.candles ? "12px" : 0 }}>
                 <span>kill switch: {admin.agente.killSwitch ? "ligado (parado)" : "desligado (rodando)"}</span>
                 <span>intervalo: {admin.agente.intervaloS}s</span>
               </div>
+
+              {/* ADR-008: o painel já buscava admin.usoIA.candles (snapshot do
+                  candle_provider) mas nunca renderizava nada — fonte ativa,
+                  fallback e orçamento da brapi ficavam invisíveis mesmo pra
+                  admin. */}
+              {admin.usoIA.candles && (() => {
+                const c = admin.usoIA.candles;
+                const orc = c.orcamentoBrapi;
+                const proj = orc && orc.projecaoMes;
+                const rl = orc && orc.headerRateLimit;
+                return (
+                  <>
+                    <div style={{ fontSize: "10.5px", fontWeight: 800, color: T.textMuted, marginBottom: "6px" }}>FONTE DE COTAÇÕES</div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "5px 14px", color: T.textFaint, fontSize: "10.5px", fontFamily: MONO, marginBottom: orc ? "6px" : 0 }}>
+                      <span>provedor: {FONTE_LABEL(c.provedor)}{c.fallback ? " (backup: " + FONTE_LABEL(c.fallback) + ")" : ""}</span>
+                      <span style={c.alerta ? { color: T.negative } : undefined}>
+                        falha ({c.janelaDias}d): {(c.taxaFalha * 100).toFixed(1)}%{c.alerta ? " ⚠ acima do limiar" : ""}
+                      </span>
+                    </div>
+                    {orc && (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "5px 14px", color: T.textFaint, fontSize: "10.5px", fontFamily: MONO }}>
+                        <span>orçamento brapi: {orc.total}/{orc.tetoDia} hoje · cota {orc.cotaMes}/mês</span>
+                        <span>intervalo do spot: {orc.spotIntervaloS}s</span>
+                        {proj && (
+                          <span style={proj.cabeNaCota === false ? { color: T.negative } : undefined}>
+                            projeção do mês: {proj.chamadasMes}/{proj.cotaMes} ({proj.percentualDaCota}%){proj.cabeNaCota === false ? " · NÃO CABE" : ""}
+                          </span>
+                        )}
+                        {rl && rl["x-ratelimit-remaining"] && (
+                          <span>brapi diz: {rl["x-ratelimit-remaining"]}/{rl["x-ratelimit-limit"] || "?"} restantes</span>
+                        )}
+                        <span>{orc.emPregao ? "em pregão" : "fora do pregão"}</span>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           )}
         </>
