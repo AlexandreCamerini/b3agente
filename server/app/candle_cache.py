@@ -88,13 +88,14 @@ def _db_get(k: str) -> Optional[dict]:
         c = _conn()
         if c is None:
             return None
-        row = c.execute("SELECT currency, candles, at FROM candle_cache WHERE k = ?", (k,)).fetchone()
+        row = c.execute("SELECT currency, candles, at, src FROM candle_cache WHERE k = ?", (k,)).fetchone()
         if not row:
             return None
         candles = json.loads(row[1])
         if not isinstance(candles, list) or not candles:
             return None
-        return {"candles": candles, "currency": row[0] or "BRL", "at": float(row[2] or 0)}
+        return {"candles": candles, "currency": row[0] or "BRL",
+                "at": float(row[2] or 0), "src": row[3]}
     except Exception:  # noqa: BLE001 — L2 é otimização, nunca derruba
         return None
 
@@ -105,9 +106,11 @@ def _db_put(k: str, ent: dict) -> None:
         if c is None:
             return
         c.execute(
-            "INSERT INTO candle_cache(k, currency, candles, at) VALUES(?,?,?,?) "
-            "ON CONFLICT(k) DO UPDATE SET currency=excluded.currency, candles=excluded.candles, at=excluded.at",
-            (k, ent.get("currency", "BRL"), json.dumps(ent.get("candles") or []), float(ent.get("at") or 0)),
+            "INSERT INTO candle_cache(k, currency, candles, at, src) VALUES(?,?,?,?,?) "
+            "ON CONFLICT(k) DO UPDATE SET currency=excluded.currency, "
+            "candles=excluded.candles, at=excluded.at, src=excluded.src",
+            (k, ent.get("currency", "BRL"), json.dumps(ent.get("candles") or []),
+             float(ent.get("at") or 0), ent.get("src")),
         )
         c.commit()
     except Exception:  # noqa: BLE001
@@ -191,26 +194,40 @@ async def load(
                     f"Sem histórico disponível para {symbol} no provedor de dados — tente novamente mais tarde ou avalie outro ativo."
                 )
         candles = (full.get("candles") or [])[-_MAX:]
-        _CACHE[k] = {"candles": candles, "currency": full.get("currency", "BRL"), "at": t}
+        _CACHE[k] = {"candles": candles, "currency": full.get("currency", "BRL"),
+                     "at": t, "src": full.get("source")}
         if l2:
             _db_put(k, _CACHE[k])  # FASE 5: write-through no L2 (sobrevive a redeploy)
-        return {"t": symbol, "currency": _CACHE[k]["currency"], "candles": candles, "cacheStatus": "miss"}
+        return {"t": symbol, "currency": _CACHE[k]["currency"], "candles": candles,
+                "cacheStatus": "miss", "source": _CACHE[k]["src"]}
 
     # já atualizado há pouco: serve do cache sem bater no provedor
     if (t - ent.get("at", 0)) < _MIN_DELTA_INTERVAL:
-        return {"t": symbol, "currency": ent.get("currency", "BRL"), "candles": ent["candles"], "cacheStatus": "fresh"}
+        return {"t": symbol, "currency": ent.get("currency", "BRL"), "candles": ent["candles"],
+                "cacheStatus": "fresh", "source": ent.get("src")}
 
     # cache hit: busca só a janela recente, funde e revalida o último candle.
     # BLOCO A1: falha do delta NÃO derruba — serve o cache existente (stale).
     try:
         recent = await fetch(recent_range)
     except Exception:  # noqa: BLE001
-        return {"t": symbol, "currency": ent.get("currency", "BRL"), "candles": ent["candles"], "cacheStatus": "stale"}
+        return {"t": symbol, "currency": ent.get("currency", "BRL"), "candles": ent["candles"],
+                "cacheStatus": "stale", "source": ent.get("src")}
+    # ADR-008 (Fase 4, errata da decisão 3): no DIÁRIO o merge entre fontes é
+    # PERMITIDO — warmup Yahoo (2y) + delta brapi (1mo) convivem porque ambas
+    # entregam o print BRUTO do mesmo pregão (validado ao vivo em 11/08/2026:
+    # 21 dias de PETR4 com open/close/volume IDÊNTICOS; o cliente brapi usa
+    # `close`, nunca `adjustedClose`). `src` registra a fonte da última escrita
+    # — é o acervo próprio de histórico pedido pelo Alex em 11/08: o L2
+    # acumula os deltas diários e a série sobrevive a deploy.
     merged = merge_candles(ent["candles"], recent.get("candles") or [])[-_MAX:]
     ent["candles"] = merged
     ent["at"] = t
+    if recent.get("source"):
+        ent["src"] = recent["source"]
     if recent.get("currency"):
         ent["currency"] = recent["currency"]
     if l2:
         _db_put(k, ent)  # FASE 5: write-through no L2
-    return {"t": symbol, "currency": ent.get("currency", "BRL"), "candles": merged, "cacheStatus": "delta"}
+    return {"t": symbol, "currency": ent.get("currency", "BRL"), "candles": merged,
+            "cacheStatus": "delta", "source": ent.get("src")}

@@ -91,11 +91,21 @@ que faz parte do funcionamento da bolsa (leilão de fechamento) e roda uma vez.
    `B3_CANDLE_FALLBACK=yahoo`, `BRAPI_TOKEN` por ambiente no Railway,
    `B3_BRAPI_COTA_MES=15000` (ajustável sem deploy se o plano mudar). Nada de
    escolha na UI.
-3. **Cache com identidade de fonte no registro** — chave `(symbol, interval)`
-   fica; entrada ganha `src`; merge só entre mesma fonte, fonte diferente =
-   substituição completa; `snapshotId` inclui `src` no fingerprint.
-   *Trade-off:* failover paga um warmup; é o preço de nunca fundir séries com
-   ajuste/atraso diferentes (`adjustedClose` da brapi ≠ `close` do Yahoo).
+3. **Cache com fonte no registro** — chave `(symbol, interval)` fica; entrada
+   ganha `src` (fonte da última escrita, persistida no L2).
+   **ERRATA (11/08, Fase 4):** no DIÁRIO o merge entre fontes é PERMITIDO —
+   a inversão obriga warmup Yahoo (2y) + delta brapi (≤3mo) a conviverem na
+   mesma série, e a validação ao vivo mostrou 21 pregões de PETR4 com
+   open/close/volume IDÊNTICOS entre as fontes (o print bruto da B3 é o
+   mesmo; o cliente brapi usa `close`, nunca `adjustedClose`). Pela mesma
+   razão o `snapshotId` NÃO carrega a fonte: ele identifica o DADO, o dado
+   diário é idêntico, e carimbar a origem invalidaria análises N1/N2 pagas a
+   cada failover sem mudança real. A regra "substituição, nunca merge"
+   sobrevive onde o risco existe: séries ajustadas (nunca usar
+   `adjustedClose`) e intraday (fonte única por construção — Yahoo).
+   Este `src` acumulado no L2 é também o **acervo próprio de histórico**
+   pedido pelo Alex: o delta diário estende a série local dia a dia e ela
+   sobrevive a deploy.
 4. **Failover por requisição + por orçamento** — cai pro Yahoo em três
    situações: exceção, série vazia, ou orçamento esgotado. Retorno à brapi:
    automático no pregão seguinte (orçamento renova por dia).
