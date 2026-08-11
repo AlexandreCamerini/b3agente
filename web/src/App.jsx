@@ -3248,18 +3248,24 @@ function StopAlvoModal({ ctx }) {
   const est = base != null ? (localProposal(base, data.profile) || {}) : {};
   const loading = !!r.loading;
   const done = r.loading === false;
+  // Decisão do Alex (10/08/2026): a IA pode DESACONSELHAR, nunca vetar a
+  // proteção. `operar === false` virou parecer exibido como aviso; antes ele
+  // zerava stop/alvo, escondia os cenários e desabilitava o Aplicar — quem já
+  // estava posicionado saía do modal SEM o nível de proteção, o oposto do que
+  // "não operar" quer dizer. Se a IA (prompt salvo antigo) não devolver
+  // números, a estimativa determinística pelo perfil assume — stop sempre há.
   const aguardar = r.operar === false;
-  const fromAI = done && !aguardar && (r.stop != null || r.alvo != null);
+  const fromAI = done && (r.stop != null || r.alvo != null);
   // FASE 2 (1.3/2.3): CENÁRIOS estruturados (conservador/moderado/agressivo)
   // com memória de cálculo — 1 toque escolhe; o Aplicar continua manual.
   const cen = r.cenarios || [];
   const [selPerfil, setSelPerfil] = useState(null);
   const chosen = cen.length ? (cen.find((c) => c.perfil === selPerfil) || cen.find((c) => c.perfil === ((data.profile || {}).risco || "moderado")) || cen[0]) : null;
-  // enquanto carrega/erro, mostra a estimativa por perfil como prévia
-  const stop = aguardar ? null : (chosen && chosen.stop != null ? chosen.stop : (r.stop != null ? r.stop : (fromAI ? null : est.stop)));
-  const alvo = aguardar ? null : (chosen && chosen.alvo != null ? chosen.alvo : (r.alvo != null ? r.alvo : (fromAI ? null : est.alvo)));
+  // cadeia: cenário escolhido → resposta da IA → estimativa pelo perfil
+  const stop = chosen && chosen.stop != null ? chosen.stop : (r.stop != null ? r.stop : (loading ? est.stop : (fromAI ? null : est.stop)));
+  const alvo = chosen && chosen.alvo != null ? chosen.alvo : (r.alvo != null ? r.alvo : (loading ? est.alvo : (fromAI ? null : est.alvo)));
   const why = r.explicacao || (loading ? "" : est.rationale) || "";
-  const canApply = !loading && !aguardar && (stop != null || alvo != null);
+  const canApply = !loading && (stop != null || alvo != null);
   const apply = () => A.applyStopAlvoFor(t, stop != null ? stop : null, alvo != null ? alvo : null);
   return (
     <div onClick={A.closeStopAlvo} style={{ position: "fixed", inset: 0, zIndex: 55, background: T.scrim, display: "flex", alignItems: "center", justifyContent: "center", padding: "18px" }}>
@@ -3280,7 +3286,7 @@ function StopAlvoModal({ ctx }) {
             </span>
             {q.price != null && <span style={{ fontFamily: MONO, fontSize: "12px", color: T.textMuted }}>atual R$ {price(q.price)}</span>}
           </div>
-          {!aguardar && cen.length > 0 && (
+          {cen.length > 0 && (
             <div style={{ display: "flex", gap: "7px", marginBottom: "11px" }}>
               {cen.map((c) => {
                 const on = chosen && chosen.perfil === c.perfil;
@@ -3292,7 +3298,14 @@ function StopAlvoModal({ ctx }) {
               })}
             </div>
           )}
-          {!aguardar && (
+          {aguardar && (
+            /* O parecer vira AVISO — os números ficam. Proteger posição nunca
+               é proibido; a decisão de aplicar segue sendo da pessoa. */
+            <div style={{ marginBottom: "11px", padding: "10px 12px", borderRadius: "10px", background: T.bgBase, border: `1px dashed ${T.borderSubtle}`, fontSize: "12px", color: T.textSecondary, lineHeight: 1.55 }}>
+              A leitura da IA é de <b>não abrir/não manter</b> esta operação agora. Ainda assim, os níveis de proteção continuam disponíveis — definir stop é sempre uma opção sua.
+            </div>
+          )}
+          {(
             <div style={{ display: "flex", gap: "14px" }}>
               <div style={{ flex: 1, padding: "11px 12px", borderRadius: "10px", background: T.bgBase, border: `1px solid ${T.negative}` }}>
                 <div style={{ fontSize: "9.5px", color: T.textFaint, letterSpacing: "0.04em" }}>STOP</div>

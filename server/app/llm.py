@@ -1058,9 +1058,11 @@ def parse_carteira(raw: str, ticker: str) -> dict:
     operar = None if operar is None else bool(operar)
     stop = _num(chosen.get("stop"))
     alvo = _num(chosen.get("alvo"))
-    if operar is False:
-        stop = None
-        alvo = None
+    # Decisão do Alex (10/08/2026): `operar: false` é PARECER, nunca veto.
+    # Antes este bloco APAGAVA stop/alvo quando a IA desaconselhava — e o N3
+    # roda sobre posição que a pessoa JÁ CARREGA: ficar sem o nível de proteção
+    # deixa a posição mais exposta, não menos. Os números passam sempre; a UI
+    # exibe o parecer como aviso e o Aplicar continua nas mãos do usuário.
     proposal = {"stop": stop, "alvo": alvo} if (stop is not None or alvo is not None) else None
     # FASE 1 (N3): cenários estruturados conservador/moderado/agressivo com
     # memória de cálculo — a UI pré-preenche com 1 toque; usuário SEMPRE confirma.

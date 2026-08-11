@@ -61,3 +61,31 @@ def test_parse_carteira_sem_cenarios_segue_compativel():
     raw = '[{"ativo":"VALE3","operar":true,"stop":60.0,"alvo":66.0,"explicacao":"x"}]'
     res = llm.parse_carteira(raw, "VALE3")
     assert res["proposal"] == {"stop": 60.0, "alvo": 66.0} and res["cenarios"] == []
+
+
+def test_parse_carteira_operar_false_NAO_apaga_os_niveis_de_protecao():
+    """Decisão do Alex (10/08/2026): o usuário nunca é proibido de usar stop.
+
+    Antes, `operar: false` fazia o parse ZERAR stop/alvo — e o N3 roda sobre
+    posição que a pessoa já carrega: sair do modal sem o nível de proteção
+    deixa a posição MAIS exposta. O parecer da IA continua no payload
+    (`operar`), mas os números passam sempre.
+    """
+    raw = ('[{"ativo":"PETR4","operar":false,"stop":36.3,"alvo":41.1,'
+           '"precoAtual":38.3,"explicacao":"R:R abaixo do minimo — aguardar"}]')
+    res = llm.parse_carteira(raw, "PETR4")
+    assert res["operar"] is False, "o parecer da IA tem que continuar visível"
+    assert res["proposal"] == {"stop": 36.3, "alvo": 41.1}, \
+        "operar=false voltou a apagar o stop — o veto que o Alex proibiu"
+
+
+def test_ui_do_stop_alvo_nunca_bloqueia_o_aplicar_pelo_parecer():
+    """Guardião da camada de UI (mesmo padrão dos demais guardiões de fonte)."""
+    import pathlib
+    src = (pathlib.Path(__file__).resolve().parents[2] / "web" / "src" / "App.jsx").read_text(encoding="utf-8")
+    assert "const canApply = !loading && (stop != null || alvo != null);" in src, \
+        "o Aplicar voltou a ser desabilitado pelo parecer da IA"
+    assert "aguardar ? null :" not in src, \
+        "os números voltaram a ser suprimidos quando a IA desaconselha"
+    assert "definir stop é sempre uma opção sua" in src, \
+        "o parecer tem que virar AVISO visível, não bloqueio silencioso"

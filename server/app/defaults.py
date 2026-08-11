@@ -96,9 +96,13 @@ LEGACY_PROMPT_SHA256 = {
     "carteiraStopAlvo": {
         "1227244362d0740687e8b893f44a27cd5f3119faf9ae903c009ecd30bde1c65b",
         "ecdfea67063ebc0736829cbb8e3b284e6b4c8ec5783bc92777b386c53b920d81",
+        # 10/08/2026 — geração que mandava zerar stop/alvo com operar=false
+        "72f5394e112fd23f14d1618c5efc7e764a3cb5778aabb486bf3e8446de966056",
     },
     "carteiraStopAlvoOperador": {
         "021b5ac9827417685ac52f7aed77745828b2da783ff9816f44eda8dc7258a375",
+        # 10/08/2026 — idem (o stop nunca é proibido)
+        "c0b27d0bc97f4a96e46bb1d23a89ac93decbf34732c9adb04875c9545ba01bc8",
     },
 }
 
@@ -143,8 +147,9 @@ def default_llm_prompts() -> dict:
             "Para cada ativo, explique em 2 a 4 frases, em linguagem simples, o raciocínio\n"
             "por trás dos números.\n"
             + _formato_array_carteira("2 a 4 frases") + "\n"
-            'Quando recomendar aguardar, use "operar": false e stop/alvo como null,\n'
-            'explicando o porquê em "explicacao".\n'
+            'Quando recomendar aguardar, use "operar": false — e MESMO ASSIM devolva\n'
+            'stop e alvo técnicos: quem já está posicionado precisa do nível de\n'
+            'proteção, e definir stop nunca é proibido. Explique em "explicacao".\n'
             + _ENQUADRAMENTO_CARTEIRA
         ),
         # FASE 8B (N4) — versão MESA DE OPERAÇÕES do mesmo contrato (usada
@@ -170,8 +175,9 @@ def default_llm_prompts() -> dict:
             "Para cada ativo, dê a explicação em 1 a 3 frases de mesa: nível técnico do\n"
             "stop, R:R do alvo e a condição que cancela o plano.\n"
             + _formato_array_carteira("1 a 3 frases") + "\n"
-            'Quando a posição não compensar, use "operar": false e stop/alvo como null,\n'
-            'dizendo objetivamente o porquê em "explicacao".\n'
+            'Quando a posição não compensar, use "operar": false — e MESMO ASSIM devolva\n'
+            'stop e alvo técnicos: o stop é a proteção de quem já está posicionado e\n'
+            'nunca é omitido. Diga objetivamente o porquê em "explicacao".\n'
             + _ENQUADRAMENTO_CARTEIRA
         ),
     }

@@ -123,8 +123,9 @@ ativo:
     "operar": true
   }
 ]
-Quando recomendar aguardar, use "operar": false e stop/alvo como null,
-explicando o porquê em "explicacao".
+Quando recomendar aguardar, use "operar": false — e MESMO ASSIM devolva
+stop e alvo técnicos: quem já está posicionado precisa do nível de
+proteção, e definir stop nunca é proibido. Explique em "explicacao".
 Enquadramento (não copie este parágrafo para o JSON): Esta análise possui finalidade educacional e utiliza cenários probabilísticos. Não representa garantia de resultado nem recomendação personalizada de investimento. Operações no mercado financeiro envolvem risco de perda, sendo indispensáveis o uso de stop, o dimensionamento adequado da posição e o respeito ao plano de risco.`,
 
     // FASE 8B (N4) — versão MESA DE OPERAÇÕES do mesmo contrato (usada quando
@@ -168,8 +169,9 @@ ativo:
     "operar": true
   }
 ]
-Quando a posição não compensar, use "operar": false e stop/alvo como null,
-dizendo objetivamente o porquê em "explicacao".
+Quando a posição não compensar, use "operar": false — e MESMO ASSIM devolva
+stop e alvo técnicos: o stop é a proteção de quem já está posicionado e
+nunca é omitido. Diga objetivamente o porquê em "explicacao".
 Enquadramento (não copie este parágrafo para o JSON): Esta análise possui finalidade educacional e utiliza cenários probabilísticos. Não representa garantia de resultado nem recomendação personalizada de investimento. Operações no mercado financeiro envolvem risco de perda, sendo indispensáveis o uso de stop, o dimensionamento adequado da posição e o respeito ao plano de risco.`,
   };
 }
