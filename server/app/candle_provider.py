@@ -332,8 +332,10 @@ QuoteUnavailable = yahoo.QuoteUnavailable
 
 
 def _spot_ttl() -> float:
-    return (brapi.QUOTE_TTL_DEGRADADO if brapi_budget.degradado("spot")
-            else brapi.QUOTE_TTL_BASE)
+    """TTL do spot = intervalo configurado (controle de utilização); o soft
+    stop continua alongando (3×) quando a fatia passa de 80%."""
+    base = brapi_budget.spot_intervalo_s()
+    return base * 3 if brapi_budget.degradado("spot") else base
 
 
 async def _quote_brapi(ticker: str):
@@ -349,9 +351,15 @@ async def _quote_brapi(ticker: str):
         return None
     brapi_budget.debita("spot")
     try:
-        return {**(await brapi.fetch_quote(ticker)), "source": "brapi"}
+        q = await brapi.fetch_quote(ticker)
     except Exception:  # noqa: BLE001 — falha do spot brapi degrada p/ backup
         return None
+    # NADA buscado se perde: o spot pago em cota alimenta a vela do dia no
+    # acervo próprio (import tardio; candle_cache não importa este módulo).
+    from . import candle_cache
+    candle_cache.atualiza_vela_do_dia(ticker, q.get("price"), src="brapi",
+                                      currency=q.get("currency"))
+    return {**q, "source": "brapi"}
 
 
 async def get_quote(ticker: str) -> dict:

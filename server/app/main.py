@@ -425,6 +425,39 @@ async def obs_usage(user: dict = Depends(require_user)):
     return _usage_snapshot()
 
 
+# ADR-008 (controle de utilização): o INTERVALO entre atualizações de spot é o
+# parâmetro; a projeção responde NA HORA quantas chamadas/mês ele custa. GET
+# simula sem aplicar; POST só aplica com {"aplicar": true} explícito. Mesmo
+# portão de admin das rotas obs/* — nada novo em quem pode acessar.
+@app.get("/api/obs/brapi/projecao")
+async def obs_brapi_projecao(intervaloS: Optional[int] = None,
+                             user: dict = Depends(require_user)):
+    if not _is_obs_admin(user):
+        raise HTTPException(403, "Controle da brapi é restrito ao administrador (defina B3_ADMIN_EMAILS no Railway).")
+    alvo = intervaloS if intervaloS is not None else brapi_budget.spot_intervalo_s()
+    return {
+        "vigenteS": brapi_budget.spot_intervalo_s(),
+        "projecao": brapi_budget.projecao(alvo, brapi_budget._universo_n()),
+        "aplicado": False,
+    }
+
+
+@app.post("/api/obs/brapi/projecao")
+async def obs_brapi_projecao_aplicar(body: dict = Body(default={}),
+                                     user: dict = Depends(require_user)):
+    if not _is_obs_admin(user):
+        raise HTTPException(403, "Controle da brapi é restrito ao administrador (defina B3_ADMIN_EMAILS no Railway).")
+    try:
+        alvo = int(body.get("intervaloS"))
+    except (TypeError, ValueError):
+        raise HTTPException(400, "Informe intervaloS (segundos, inteiro >= 30).")
+    proj = brapi_budget.projecao(alvo, brapi_budget._universo_n())
+    if not body.get("aplicar"):
+        return {"vigenteS": brapi_budget.spot_intervalo_s(), "projecao": proj, "aplicado": False}
+    vigente = brapi_budget.set_spot_intervalo(alvo)
+    return {"vigenteS": vigente, "projecao": proj, "aplicado": True}
+
+
 # F5 (2026-08-02, decisão do Alex: v1 SÓ VER — sem ação nenhuma). Mesmo portão
 # de admin que obs/usage e obs/logs já usavam (_is_obs_admin); nada novo em
 # termos de quem pode acessar, só um painel que junta o que já existia

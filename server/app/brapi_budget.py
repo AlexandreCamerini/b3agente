@@ -164,10 +164,106 @@ def snapshot(now: Optional[datetime] = None) -> dict:
         "emPregao": em_pregao(now),
         # o que a PRÓPRIA brapi disse na última resposta (verdade > previsão)
         "headerRateLimit": dict(brapi.LAST_RATELIMIT),
+        # controle de utilização: intervalo vigente + o que ele custa no mês
+        "spotIntervaloS": spot_intervalo_s(),
+        "projecaoMes": projecao(spot_intervalo_s(), _universo_n()),
     }
 
 
 def reset() -> None:
     """Para testes."""
-    global _estado
+    global _estado, _spot_intervalo_mem
     _estado = {}
+    _spot_intervalo_mem = None
+
+
+# ---------------------------------------------------------------------------
+# Controle de utilização (ADR-008, Fase 6+): intervalo → projeção mensal
+# ---------------------------------------------------------------------------
+# O parâmetro de operação é o INTERVALO entre atualizações de spot; a projeção
+# responde na hora quantas chamadas/mês aquele intervalo custa no PIOR CASO
+# (universo inteiro refrescado a cada intervalo, pregão cheio). O consumo real
+# tende a ser menor (cache compartilhado + demanda), e as fatias continuam
+# sendo o teto duro — a projeção é instrumento de decisão, não de bloqueio.
+JANELA_PREGAO_S = int(7.25 * 3600)   # 10:00–17:15 BRT
+_SPOT_INTERVALO_KV = "brapiSpotIntervaloS"
+SPOT_INTERVALO_DEFAULT_S = 300
+_spot_intervalo_mem: Optional[int] = None
+
+
+def spot_intervalo_s() -> int:
+    """Intervalo vigente entre atualizações de spot (alimenta o TTL da
+    fronteira). Ordem: memória → kv (sobrevive a deploy) → default 300s."""
+    global _spot_intervalo_mem
+    if _spot_intervalo_mem is not None:
+        return _spot_intervalo_mem
+    if _DB_ENABLED:
+        try:
+            row = _DB_CONN.execute("SELECT value FROM kv WHERE key = ?",
+                                   (_SPOT_INTERVALO_KV,)).fetchone()
+            if row:
+                _spot_intervalo_mem = max(30, int(json.loads(row[0])))
+                return _spot_intervalo_mem
+        except Exception:  # noqa: BLE001
+            pass
+    _spot_intervalo_mem = SPOT_INTERVALO_DEFAULT_S
+    return _spot_intervalo_mem
+
+
+def set_spot_intervalo(segundos: int) -> int:
+    """Aplica um intervalo novo (mínimo 30s). Persiste no kv — sem deploy."""
+    global _spot_intervalo_mem
+    s = max(30, int(segundos))
+    _spot_intervalo_mem = s
+    if _DB_ENABLED:
+        try:
+            _DB_CONN.execute(
+                "INSERT INTO kv(key, value) VALUES(?, ?) "
+                "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                (_SPOT_INTERVALO_KV, json.dumps(s)))
+            _DB_CONN.commit()
+        except Exception:  # noqa: BLE001
+            pass
+    return s
+
+
+def projecao(intervalo_s: int, universo_n: int, cota: Optional[int] = None) -> dict:
+    """PURA e determinística: quanto custa/mês um intervalo de spot.
+
+    chamadasMes = spot (universo × janela/intervalo × 21 pregões)
+                + delta diário (universo × 21)
+                + fundamentos (universo × 21/7 — TTL de 7 dias).
+    `intervaloMinimoSeguro` é o menor intervalo cujo total cabe na cota.
+    """
+    cota = cota if cota is not None else cota_mes()
+    intervalo_s = max(1, int(intervalo_s))
+    universo_n = max(0, int(universo_n))
+    spot_mes = universo_n * (JANELA_PREGAO_S // intervalo_s) * PREGOES_MES
+    delta_mes = universo_n * PREGOES_MES
+    fund_mes = (universo_n * PREGOES_MES) // 7
+    total = spot_mes + delta_mes + fund_mes
+    sobra_para_spot = cota - delta_mes - fund_mes
+    if universo_n and sobra_para_spot > 0:
+        refresh_max_por_ticker = sobra_para_spot / (universo_n * PREGOES_MES)
+        minimo = (int(JANELA_PREGAO_S // refresh_max_por_ticker) + 1
+                  if refresh_max_por_ticker >= 1 else None)
+    else:
+        minimo = None
+    return {
+        "intervaloS": intervalo_s,
+        "universoN": universo_n,
+        "cotaMes": cota,
+        "chamadasMes": total,
+        "detalhe": {"spot": spot_mes, "delta": delta_mes, "fundamentos": fund_mes},
+        "percentualDaCota": round(total / cota * 100, 1) if cota else None,
+        "cabeNaCota": bool(cota and total <= cota),
+        "intervaloMinimoSeguro": minimo,
+    }
+
+
+def _universo_n() -> int:
+    from . import scanner   # import tardio (sem ciclo no boot)
+    try:
+        return len(scanner.get_universe())
+    except Exception:  # noqa: BLE001
+        return 0
