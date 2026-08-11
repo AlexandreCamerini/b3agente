@@ -1,6 +1,6 @@
 # ADR-008: brapi (plano gratuito) como fonte master; Yahoo como backup
 
-**Status:** Aceito em direção (decisão do Alex, 11/08/2026: "brapi master, plano gratuito, Yahoo de backup, dividir as 15.000 requisições, só no período de funcionamento da bolsa") — condicionado à validação da Fase 0 do plano (qa/43)
+**Status:** Aceito em direção (decisão do Alex, 11/08/2026: "brapi master, plano gratuito, Yahoo de backup, dividir as 15.000 requisições, só no período de funcionamento da bolsa"). **Fase 0 executada em 11/08 com token real** ([MEDICAO-Brapi-2026-08-11](../MEDICAO-Brapi-2026-08-11.md)) — gate aprovado com ressalva (delay do spot pendente de medição em pregão)
 **Data:** 2026-08-11
 **Decisor:** Alex
 **Base empírica:** doc viva da brapi (`https://brapi.dev/docs` e `https://brapi.dev/pricing`, consultadas em 11/08/2026) + spike ao vivo contra `https://brapi.dev/api/quote/PETR4` no sandbox gratuito (11/08/2026, payloads reais abaixo). A cota de **15.000 req/mês do plano gratuito é premissa informada pelo Alex** — a página pública de pricing só exibe Startup e Pro; a Fase 0 confirma com o token real.
@@ -32,16 +32,22 @@ requisições.
 | Endpoint `/api/available` lista o universo sem token | 200 com lista de tickers |
 | **Intraday 1m–90m é exclusivo do plano Pro** (nem o Startup pago tem) | pricing 11/08: Startup "apenas 1d"; Pro "1m…3mo" |
 
-**Premissa + a confirmar na Fase 0 (com token gratuito — custo R$ 0):**
+**Confirmado na Fase 0 com token real (11/08/2026, [medição](../MEDICAO-Brapi-2026-08-11.md)):**
 
-- Cota de **15.000 req/mês** (número do Alex) e como reseta (mensal? diário?).
-- Tickers por requisição no gratuito (hipótese conservadora do plano: **1**).
-- Intervalos permitidos no gratuito (hipótese: **só `1d`** — coerente com o
-  pricing; o 15m que funcionou no sandbox vale só para os 4 tickers de teste).
-- Range histórico permitido (o cache precisa de `2y` para warmup de médias
-  longas — se o gratuito limitar a 1 ano como o Startup, o warmup fica no
-  Yahoo).
-- Atraso real do dado no gratuito.
+- Cota **15.000** confirmada por header (`x-ratelimit-limit: 15000`); janela de
+  reset não exposta nos headers — presumida mensal, confirmar no painel.
+- **1 ticker por requisição** (`QUOTES_PER_REQUEST_EXCEEDED` ao enviar 3).
+- **Só `1d`** de intervalo (`INVALID_INTERVAL` para 15m fora do sandbox).
+- **Range máximo `3mo`** (`INVALID_RANGE` para 2y; permitidos: 1d/5d/1mo/3mo) —
+  warmup `2y` e período default `1y` do app ficam **definitivamente no Yahoo**;
+  a brapi free serve spot + delta diário de até 3mo.
+- **Requisição recusada por plano DEBITA a cota** — validação client-side de
+  intervalo/range antes de chamar é obrigatória; erro de plano é guarda de
+  teste, não caminho normal.
+- `close` ≠ `adjustedClose` em 25/62 velas do ITSA4 (3mo) — confirma a regra
+  "fonte diferente = substituição, nunca merge".
+- **Pendente:** atraso real do spot (medição feita fora de pregão; repetir
+  amostragem de 1h em pregão — decide só o TTL da fatia de spot).
 
 ## Decisão
 

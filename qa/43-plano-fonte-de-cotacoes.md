@@ -9,29 +9,30 @@ de submissão da App Store sem ok do Alex.
 
 ---
 
-## Fase 0 — Spike com token gratuito (custo R$ 0) — GATE
+## Fase 0 — Spike com token gratuito — EXECUTADA em 11/08 ✅ (ressalva: delay)
 
-Criar a conta gratuita, definir `BRAPI_TOKEN` **só no ambiente local**, rodar
-script descartável (scratchpad) e escrever `docs/MEDICAO-Brapi-<data>.md` no
-formato da medição do Yahoo. Confirma as premissas do ADR:
+Resultado completo em [`docs/MEDICAO-Brapi-2026-08-11.md`](../docs/MEDICAO-Brapi-2026-08-11.md)
+(via `railway run`, 8 requisições). Resumo do que muda nas fases seguintes:
 
-1. **Cota real do gratuito** — é 15.000/mês? Reset mensal ou diário? O que a
-   API devolve ao estourar (código/mensagem — o orçamento local precisa
-   reconhecer)?
-2. **Tickers por requisição** com token free (hipótese: 1; se for mais, o
-   orçamento do ADR é refeito para melhor).
-3. **Intervalos permitidos** com token free em ticker fora do sandbox
-   (WEGE3/BBAS3): `1d` ok? `15m` recusa com qual erro? (hipótese: só `1d`).
-4. **Range máximo** no free: `2y` diário funciona? (decide onde mora o warmup
-   de médias longas — brapi ou Yahoo).
-5. **Atraso real do spot** durante pregão: `regularMarketTime` vs relógio,
-   amostrado por 1h.
-6. **`adjustedClose` vs `close`** num ticker com provento recente (valida a
-   regra "fonte diferente = substituição, nunca merge").
+1. Cota **15.000 confirmada** por header (`x-ratelimit-limit`); reset não
+   exposto — presumido mensal, confirmar no painel da conta.
+2. **1 ticker/req** (`QUOTES_PER_REQUEST_EXCEEDED`) — orçamento do ADR mantido.
+3. **Só `1d`** (`INVALID_INTERVAL` fora do sandbox) — roteamento por intervalo
+   confirmado.
+4. **Range máximo `3mo`** (`INVALID_RANGE` para 2y; permitidos 1d/5d/1mo/3mo)
+   — **novo**: warmup e histórico ≥6mo ficam definitivamente no Yahoo; a brapi
+   serve spot + delta de até 3mo. A Fase 3 ganha guarda de range além da de
+   intervalo.
+5. **Recusa por plano DEBITA cota** — **novo**: validação client-side de
+   intervalo/range/lote ANTES de chamar; erro de plano vira guarda de teste.
+6. `close`≠`adjustedClose` em 25/62 velas (ITSA4 3mo) — regra de substituição
+   confirmada com dado real.
+7. `x-ratelimit-remaining` vem em toda resposta — o contador local do
+   orçamento (Fase 2) **reconcilia** com o header e expõe ambos no
+   `/api/status`.
 
-**Aceite:** cada item com número/erro literal, ou "não confirmado + por quê".
-Se a cota real for muito menor que 15k ou o `1d` não vier confiável, parar e
-voltar ao ADR — custo do aprendizado: zero.
+**Pendência aberta (não bloqueia Fases 1–4):** delay real do spot em pregão
+(amostragem de 1h, 10h–17h BRT) — decide o TTL da fatia de spot na Fase 5.
 
 ## Fase 1 — Cliente brapi + `BrapiProvider.history()` real
 
