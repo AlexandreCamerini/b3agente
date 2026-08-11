@@ -18,6 +18,7 @@ from . import db, indicators, llm, plan, setups, store, technical_models, ticker
 from . import candles as candles_mod  # Objetivo 4: período de candles configurável
 from . import brapi_budget  # ADR-008: orçamento de requisições da brapi (Fase 2)
 from . import candle_cache  # Objetivo 5: cache de candles (delta + revalida último)
+from . import regime  # qa/44 (B, ADR-009): classifica regime p/ gravar no outcome
 from . import scanner  # BLOCO 3: radar de mercado (varredura do universo)
 from . import radar_daily  # FASE 4 (1.3): varredura automática 1x/dia + sob demanda
 from . import analysis_outcomes  # qa/30 (Fase A): autoavaliação da IA (N1/N2 vs. comportamento real)
@@ -902,6 +903,10 @@ async def scan_deep_run(body: dict = Body(default={}), scope: Optional[str] = De
                     stop=plano.get("stop"), alvo=plano.get("alvo1"),
                     preco=snap.get("close"), snapshot_id=snap.get("snapshotId"),
                     confianca=res.get("confianca"),  # qa/35 P2c: calibração declarada×real
+                    # qa/44 (B, ADR-009): regime NO MOMENTO da análise — classificado
+                    # aqui, não lido de snap (o A anexa regime ao resultado do SCAN,
+                    # não ao snapshot técnico que o N1 recebe).
+                    regime=regime.classificar(snap).get("regime"),
                     user_id=scope,
                 )
         except Exception as e:  # noqa: BLE001 — registro é best-effort
@@ -1008,6 +1013,8 @@ async def analyze_technical_model(ticker: str, body: dict = Body(default={}), sc
             # qa/35 P2c: no N2 a confiança declarada é a `conviccao` dos kpis
             # (Muito Alto|Alto|Médio|Baixo) — normalizar_confianca traduz.
             confianca=(result.get("kpis") or {}).get("conviccao"),
+            # qa/44 (B, ADR-009): mesma classificação do N1, no momento da análise.
+            regime=regime.classificar(snap).get("regime"),
             user_id=scope,
         )
     except Exception as e:  # noqa: BLE001 — registro é best-effort

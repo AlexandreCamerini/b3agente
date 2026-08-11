@@ -326,6 +326,74 @@ def test_scopes_com_outcomes_ve_escopo_legado_e_por_usuario():
     conn.close()
 
 
+# ===== qa/44 (B, ADR-009): regime gravado + porRegime/porSetupRegime =====
+def test_registrar_grava_regime():
+    conn = _fresh_db()
+    ao.registrar(conn, ticker="PETR4", modo="operador", tipo="n1", modelo="anthropic:claude",
+                 setup="IFR2", recomendacao="COMPRAR", stop=37.60, alvo=40.05, preco=38.57,
+                 snapshot_id="snap1", user_id="u1", regime="tendencia_alta")
+    o = db.kv_get(conn, "analysisOutcomes", [], user_id="u1")[0]
+    assert o["regime"] == "tendencia_alta"
+    conn.close()
+
+
+def test_registrar_sem_regime_grava_none_retrocompativel():
+    """Chamador antigo (ou fluxo sem snapshot técnico) não passa `regime` —
+    o registro continua válido, só sem o campo preenchido."""
+    conn = _fresh_db()
+    ao.registrar(conn, ticker="PETR4", modo="operador", tipo="n2", modelo="x",
+                 setup=None, recomendacao="COMPRAR", stop=37.60, alvo=40.05, preco=38.57,
+                 snapshot_id="snap1", user_id="u1")
+    o = db.kv_get(conn, "analysisOutcomes", [], user_id="u1")[0]
+    assert o["regime"] is None
+    conn.close()
+
+
+def _outcome_regime(resultado, r, regime=None, setup="IFR2"):
+    return {"resultado": resultado, "rMultiple": r, "modo": "estudo", "tipo": "n1",
+            "setup": setup, "regime": regime}
+
+
+def test_compute_stats_por_regime_segmenta_e_respeita_min_n():
+    outcomes = ([_outcome_regime("alvo", 1.0, regime="tendencia_alta")] * 3
+                + [_outcome_regime("stop", -1.0, regime="lateral")] * 12)
+    st = ao.compute_stats(outcomes)
+    # amostra pequena (3, tendência_alta): insuficiente, sem porcentagem
+    assert st["porRegime"]["tendencia_alta"]["insuficiente"] is True
+    assert st["porRegime"]["tendencia_alta"]["taxaAcerto"] is None
+    # amostra suficiente (12, lateral): métrica real
+    assert st["porRegime"]["lateral"]["insuficiente"] is False
+    assert st["porRegime"]["lateral"]["taxaAcerto"] == 0.0
+    assert st["porRegime"]["lateral"]["rMedio"] == -1.0
+
+
+def test_compute_stats_registro_sem_regime_cai_no_traco():
+    outcomes = [_outcome_regime("alvo", 1.0, regime=None)]
+    st = ao.compute_stats(outcomes)
+    assert "—" in st["porRegime"]
+    assert list(st["porRegime"].keys()) == ["—"]
+
+
+def test_compute_stats_por_setup_regime_combina_as_duas_chaves():
+    outcomes = ([_outcome_regime("alvo", 1.0, regime="tendencia_alta", setup="IFR2")] * 11
+                + [_outcome_regime("stop", -1.0, regime="lateral", setup="IFR2")] * 11
+                + [_outcome_regime("alvo", 0.5, regime="tendencia_alta", setup="9.1")] * 3)
+    st = ao.compute_stats(outcomes)
+    assert st["porSetupRegime"]["IFR2 @ tendencia_alta"]["taxaAcerto"] == 100.0
+    assert st["porSetupRegime"]["IFR2 @ lateral"]["taxaAcerto"] == 0.0
+    # amostra pequena (3): insuficiente, chave ainda existe (não descartada)
+    assert st["porSetupRegime"]["9.1 @ tendencia_alta"]["insuficiente"] is True
+
+
+def test_compute_stats_setup_none_normaliza_para_traco_no_par():
+    """N2 registra setup=None (não tem roster de setups) — a chave do par
+    normaliza para '—', igual ao porSetup de sempre; nunca vira 'None @ x'."""
+    outcomes = [_outcome_regime("alvo", 1.0, regime="tendencia_alta", setup=None)]
+    st = ao.compute_stats(outcomes)
+    assert "— @ tendencia_alta" in st["porSetupRegime"]
+    assert not any(k.startswith("None") for k in st["porSetupRegime"])
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_") and callable(fn):
