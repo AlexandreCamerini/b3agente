@@ -34,6 +34,12 @@ PLAN_RANGES = {"1d", "5d", "1mo", "3mo"}
 _BRT_OFF = -3 * 3600
 
 
+# Última leitura dos headers de cota da PRÓPRIA brapi (verdade > previsão do
+# orçamento local). Atualizada a cada resposta HTTP; `brapi_budget.snapshot()`
+# expõe no /api/status para reconciliação a olho.
+LAST_RATELIMIT: dict = {}
+
+
 class BrapiIndisponivel(RuntimeError):
     """Falha transitória ou resposta imprestável — quem chama decide degradar."""
 
@@ -82,6 +88,9 @@ async def _fetch_json(symbol: str, params: dict) -> dict:
         try:
             async with httpx.AsyncClient(timeout=TIMEOUT_S) as client:
                 r = await client.get(BASE + symbol, params=params, headers=headers)
+            for h in ("x-ratelimit-limit", "x-ratelimit-remaining"):
+                if h in r.headers:
+                    LAST_RATELIMIT[h] = r.headers[h]
             if r.status_code >= 500:
                 last = BrapiIndisponivel(f"brapi HTTP {r.status_code}")
             else:
