@@ -66,13 +66,25 @@ def test_provedor_vem_do_ambiente(monkeypatch):
     assert cp.get_provider().nome == "yahoo"      # default
 
 
-def test_plano_b_falha_alto_e_diz_o_que_falta():
-    """Um provedor não implementado tem que gritar. Silêncio aqui viraria
-    'sem histórico disponível' genérico no dia em que o Yahoo cair."""
-    with pytest.raises(NotImplementedError) as e:
+def test_plano_b_falha_alto_e_diz_o_que_falta(monkeypatch):
+    """GUARDIÃO ATUALIZADO COM NOTA (11/08/2026, ADR-008/qa-43 Fase 1): o
+    BrapiProvider deixou de ser stub e virou implementação real — a exceção
+    mudou de NotImplementedError para as falhas-altas do cliente. A REGRA
+    protegida é a mesma: silêncio aqui viraria 'sem histórico disponível'
+    genérico. Dois gritos distintos:
+      • pedido fora do plano gratuito → ForaDoPlano SEM tocar a rede
+        (recusa da brapi debita cota — medição de 11/08);
+      • sem BRAPI_TOKEN → RuntimeError dizendo exatamente o que falta."""
+    from app import brapi
+    with pytest.raises(brapi.ForaDoPlano) as e:
         asyncio.run(cp.BrapiProvider().history("PETR4", "1d", "15m"))
+    assert "plano" in str(e.value)
+
+    monkeypatch.delenv("BRAPI_TOKEN", raising=False)
+    with pytest.raises(RuntimeError) as e:
+        asyncio.run(cp.BrapiProvider().history("PETR4", "1mo", "1d"))
     msg = str(e.value)
-    assert "BRAPI_TOKEN" in msg and "ADR-001" in msg
+    assert "BRAPI_TOKEN" in msg and "ADR-008" in msg
 
 
 def test_instrumentacao_conta_requisicoes_e_erros():

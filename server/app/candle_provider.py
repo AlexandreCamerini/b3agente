@@ -23,7 +23,7 @@ import os
 import time
 from typing import Optional
 
-from . import yahoo
+from . import brapi, yahoo
 
 # ---------------------------------------------------------------------------
 # Instrumentação (ADR-001, Decisão 5)
@@ -134,26 +134,18 @@ class YahooProvider(CandleProvider):
 
 
 class BrapiProvider(CandleProvider):
-    """PLANO B documentado, NÃO implementado (ADR-001, Decisão 1).
+    """Era o plano B do ADR-001; implementado como fonte MASTER de diário/spot
+    pelo ADR-008 (plano GRATUITO — limites medidos em 11/08/2026, ver
+    `docs/MEDICAO-Brapi-2026-08-11.md`): só `1d`, range até 3mo, 1 ticker/req.
 
-    brapi Pro: R$ 116,66/mês no anual, intraday 1m–90m, 20 tickers por
-    requisição, delay ~5 min, 500k requisições/mês. No volume do Radar isso é
-    1,7% da cota. Exige `BRAPI_TOKEN`.
-
-    Falha ALTO de propósito: se alguém apontar o provedor para cá sem
-    implementar, o erro diz exatamente o que falta — melhor que um provedor
-    meia-boca que nunca foi exercitado contra a API real.
-    """
+    A postura de falhar ALTO permanece nos dois casos que importam: pedido fora
+    do plano (`brapi.ForaDoPlano`, SEM tocar a rede — recusa debita cota) e
+    `BRAPI_TOKEN` ausente (RuntimeError explicando o que falta)."""
 
     nome = "brapi"
 
     async def history(self, ticker: str, rng: str, interval: str = "1d") -> dict:
-        raise NotImplementedError(
-            "Provedor brapi não implementado. É o plano B do ADR-001 e exige: "
-            "assinar a brapi Pro, definir BRAPI_TOKEN, mapear o payload para o "
-            "formato interno (inclusive a chave da vela com horário no fuso da "
-            "bolsa) e validar contra a API real antes de virar a chave."
-        )
+        return await brapi.get_history(ticker, rng=rng, interval=interval)
 
 
 _PROVEDORES = {"yahoo": YahooProvider, "brapi": BrapiProvider}
