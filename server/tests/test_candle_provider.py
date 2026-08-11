@@ -37,6 +37,7 @@ class _Fake(cp.CandleProvider):
 
 def _limpa():
     cp.set_provider(None)
+    cp.set_fallback(None)
     cp.reset()
 
 
@@ -190,4 +191,133 @@ def test_mistura_de_erro_e_vazio_soma_na_mesma_taxa():
         assert s["falhas"] == 2 and s["taxaFalha"] == 0.04
         assert s["alerta"] is True          # 4% > 2%
     finally:
+        _limpa()
+
+
+# ---------------------------------------------------------------------------
+# ADR-008 (Fase 3) — roteamento por plano/orçamento e failover por requisição
+# ---------------------------------------------------------------------------
+class _FakeNome(_Fake):
+    """_Fake com nome configurável (primário 'brapi' e backup 'yahoo')."""
+
+    def __init__(self, nome, **kw):
+        super().__init__(**kw)
+        self.nome = nome
+
+
+def _dupla(monkeypatch, *, prim_kw=None, fb_kw=None, pode_gastar=True):
+    """Monta primário 'brapi' + backup 'yahoo' com orçamento controlado."""
+    from app import brapi_budget as bb
+    _limpa()
+    # o memo de get_provider() só mantém o injetado se o nome casa com a env
+    monkeypatch.setenv("B3_CANDLE_PROVIDER", "brapi")
+    prim = _FakeNome("brapi", **(prim_kw or {}))
+    fb = _FakeNome("yahoo", **(fb_kw or {}))
+    cp.set_provider(prim)
+    cp.set_fallback(fb)
+    monkeypatch.setattr(bb, "pode_gastar", lambda fatia, now=None: pode_gastar)
+    debitos = []
+    monkeypatch.setattr(bb, "debita", lambda fatia, n=1, now=None: debitos.append(fatia))
+    return prim, fb, debitos
+
+
+def test_intraday_vai_direto_ao_backup_sem_cota_nem_falha(monkeypatch):
+    """Plano gratuito não tem intraday: o pedido nem encosta na brapi —
+    recusa DEBITARIA cota (medição 11/08) e contaria falha falsa no gatilho."""
+    prim, fb, debitos = _dupla(monkeypatch)
+    try:
+        out = asyncio.run(cp.get_history("PETR4", "1d", "15m"))
+        assert out["source"] == "yahoo" and out["candles"]
+        assert prim.chamadas == [] and len(fb.chamadas) == 1
+        assert debitos == []
+        assert "brapi" not in cp.snapshot()["porProvedor"]
+    finally:
+        _limpa()
+
+
+def test_range_longo_vai_direto_ao_backup(monkeypatch):
+    """Warmup 2y/1y é do Yahoo em definitivo (free permite até 3mo)."""
+    prim, fb, _ = _dupla(monkeypatch)
+    try:
+        out = asyncio.run(cp.get_history("PETR4", "2y", "1d"))
+        assert out["source"] == "yahoo" and prim.chamadas == []
+    finally:
+        _limpa()
+
+
+def test_pedido_dentro_do_plano_debita_e_sai_com_source_brapi(monkeypatch):
+    prim, fb, debitos = _dupla(monkeypatch)
+    try:
+        out = asyncio.run(cp.get_history("PETR4", "1mo", "1d"))
+        assert out["source"] == "brapi" and fb.chamadas == []
+        assert debitos == ["delta"]
+    finally:
+        _limpa()
+
+
+def test_falha_do_primario_cai_no_backup_na_mesma_requisicao(monkeypatch):
+    prim, fb, _ = _dupla(monkeypatch, prim_kw={"erro_em": {"PETR4"}})
+    try:
+        out = asyncio.run(cp.get_history("PETR4", "1mo", "1d"))
+        assert out["source"] == "yahoo" and out["candles"]
+        pp = cp.snapshot()["porProvedor"]
+        assert pp["brapi"]["falhas"] == 1 and pp["yahoo"]["falhas"] == 0
+    finally:
+        _limpa()
+
+
+def test_serie_vazia_do_primario_cai_no_backup(monkeypatch):
+    """O modo de falha de 31/07 (200 com zero velas) também aciona o backup."""
+    prim, fb, _ = _dupla(monkeypatch, prim_kw={"vazio_em": {"PETR4"}})
+    try:
+        out = asyncio.run(cp.get_history("PETR4", "1mo", "1d"))
+        assert out["source"] == "yahoo" and out["candles"]
+        assert cp.snapshot()["porProvedor"]["brapi"]["vazios"] == 1
+    finally:
+        _limpa()
+
+
+def test_orcamento_esgotado_poupa_a_brapi(monkeypatch):
+    prim, fb, debitos = _dupla(monkeypatch, pode_gastar=False)
+    try:
+        out = asyncio.run(cp.get_history("PETR4", "1mo", "1d"))
+        assert out["source"] == "yahoo" and prim.chamadas == []
+        assert debitos == []
+    finally:
+        _limpa()
+
+
+def test_sem_backup_orcamento_nao_vira_sem_dado(monkeypatch):
+    """Proteção de cota não pode negar dado quando não há alternativa."""
+    from app import brapi_budget as bb
+    _limpa()
+    monkeypatch.setenv("B3_CANDLE_PROVIDER", "brapi")
+    prim = _FakeNome("brapi")
+    cp.set_provider(prim)
+    cp.set_fallback(None)
+    monkeypatch.setenv("B3_CANDLE_FALLBACK", "")     # backup desligado
+    monkeypatch.setattr(bb, "pode_gastar", lambda fatia, now=None: False)
+    try:
+        out = asyncio.run(cp.get_history("PETR4", "1mo", "1d"))
+        assert out["source"] == "brapi" and len(prim.chamadas) == 1
+    finally:
+        monkeypatch.delenv("B3_CANDLE_FALLBACK", raising=False)
+        _limpa()
+
+
+def test_alerta_mede_o_primario_nao_a_media(monkeypatch):
+    """Com backup saudável, a média global esconderia o primário caindo —
+    60 falhas brapi + 60 sucessos yahoo dão 50% global, e o alerta TEM que
+    disparar olhando só o primário (100% de falha)."""
+    prim, fb, _ = _dupla(monkeypatch, prim_kw={"erro_em": {"PETR4"}})
+    monkeypatch.setenv("B3_CANDLE_PROVIDER", "brapi")
+    try:
+        for _ in range(60):
+            asyncio.run(cp.get_history("PETR4", "1mo", "1d"))
+        s = cp.snapshot()
+        assert s["porProvedor"]["brapi"]["taxaFalha"] == 1.0
+        assert s["porProvedor"]["yahoo"]["taxaFalha"] == 0.0
+        assert s["alerta"] is True
+    finally:
+        monkeypatch.delenv("B3_CANDLE_PROVIDER", raising=False)
         _limpa()

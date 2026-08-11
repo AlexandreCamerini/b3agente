@@ -11,19 +11,24 @@ depois do incidente do 401.
 taxa de não-200 acima de 2% numa janela de 3 pregões, lida por `snapshot()` e
 exposta em `/api/obs/usage`. Nesse ponto a decisão volta para o Alex COM DADO.
 
-**O que NÃO está aqui.** A brapi Pro (R$ 116,66/mês, intraday 1m–90m, 20 tickers
-por requisição, delay ~5 min) está documentada e deliberadamente NÃO
-implementada: implementar um provedor que ninguém exercita é código morto que
-apodrece. `_BrapiProvider` existe como esqueleto que falha alto, para que o dia
-de acioná-lo comece com um erro claro em vez de uma busca no histórico do git.
+**ADR-008 (11/08/2026) inverteu o primário.** A brapi (plano GRATUITO) é a
+fonte master de candles DIÁRIOS; o Yahoo é o backup — e continua dono do
+intraday e do histórico longo, que o plano gratuito não cobre (só `1d`, range
+até `3mo`, medição em `docs/MEDICAO-Brapi-2026-08-11.md`). O roteamento aqui
+decide por plano (fora do plano → backup direto, sem rede nem cota), por
+orçamento (`brapi_budget`, hard stop → backup) e por falha (exceção ou série
+vazia → backup na mesma requisição). O payload sai com `source` dizendo quem
+serviu — fontes têm atrasos e ajustes diferentes, e o cache (Fase 4) usa isso
+para NUNCA fundir séries de origens distintas.
 
-Stdlib + httpx via `yahoo.py`. Testável offline (o provedor é injetável).
+Stdlib + httpx via `yahoo.py`/`brapi.py`. Testável offline (primário e backup
+são injetáveis).
 """
 import os
 import time
 from typing import Optional
 
-from . import brapi, yahoo
+from . import brapi, brapi_budget, yahoo
 
 # ---------------------------------------------------------------------------
 # Instrumentação (ADR-001, Decisão 5)
@@ -45,23 +50,33 @@ _LIMIAR_ERRO = 0.02       # 2% de FALHA aciona a decisão
 # pede candles e zero candles está certo — ticker inexistente vem como 404, que
 # já era contado.
 _uso: dict = {}   # "AAAA-MM-DD" -> {intervalo: {req, erros, vazios, ms, velas, ultimaVela}}
+# ADR-008: com dois provedores ativos, a média dos dois cegaria o gatilho —
+# esta dimensão paralela guarda o agregado POR PROVEDOR, e o `alerta` passa a
+# ser calculado sobre o PRIMÁRIO.
+_uso_prov: dict = {}   # "AAAA-MM-DD" -> {provedor: {req, erros, vazios}}
 
 
 def _hoje() -> str:
     return time.strftime("%Y-%m-%d", time.localtime())
 
 
-def _registra(interval: str, ms: float, velas: int, erro: bool, ultima=None) -> None:
+def _registra(interval: str, ms: float, velas: int, erro: bool, ultima=None,
+              provedor: str = "?") -> None:
     dia = _uso.setdefault(_hoje(), {})
     r = dia.setdefault(interval or "1d",
                        {"req": 0, "erros": 0, "vazios": 0, "ms": 0.0, "velas": 0, "ultimaVela": None})
     r["req"] += 1
     r["ms"] += ms
     r["velas"] += velas
+    p = _uso_prov.setdefault(_hoje(), {}).setdefault(
+        provedor, {"req": 0, "erros": 0, "vazios": 0})
+    p["req"] += 1
     if erro:
         r["erros"] += 1
+        p["erros"] += 1
     elif velas == 0:
         r["vazios"] += 1          # 200 sem série: o modo de falha de 31/07
+        p["vazios"] += 1
     if ultima:
         # Idade da série é diagnóstico direto: uma última vela de ontem durante
         # o pregão é feed morto, qualquer que seja o status HTTP.
@@ -69,11 +84,14 @@ def _registra(interval: str, ms: float, velas: int, erro: bool, ultima=None) -> 
     # mantém só a janela do gatilho (+1 dia de folga para virada de data)
     for d in sorted(_uso.keys())[:-(_JANELA_DIAS + 1)]:
         del _uso[d]
+    for d in sorted(_uso_prov.keys())[:-(_JANELA_DIAS + 1)]:
+        del _uso_prov[d]
 
 
 def reset() -> None:
     """Para testes."""
     _uso.clear()
+    _uso_prov.clear()
 
 
 def snapshot() -> dict:
@@ -89,10 +107,29 @@ def snapshot() -> dict:
     vazios = sum(r["vazios"] for d in dias for r in _uso[d].values())
     falhas = erros + vazios
     taxa = (falhas / req) if req else 0.0
+
+    # Agregado POR PROVEDOR na mesma janela (ADR-008): o `alerta` mede o
+    # PRIMÁRIO — com failover ativo, a média global esconderia o primário
+    # caindo atrás de um backup saudável.
+    por_prov: dict = {}
+    for d in sorted(_uso_prov.keys())[-_JANELA_DIAS:]:
+        for nome, p in _uso_prov[d].items():
+            acc = por_prov.setdefault(nome, {"req": 0, "erros": 0, "vazios": 0})
+            for k in ("req", "erros", "vazios"):
+                acc[k] += p[k]
+    for nome, acc in por_prov.items():
+        f = acc["erros"] + acc["vazios"]
+        acc["falhas"] = f
+        acc["taxaFalha"] = round(f / acc["req"], 4) if acc["req"] else 0.0
+    prim = por_prov.get(provider_name(), {"req": req, "falhas": falhas,
+                                          "taxaFalha": round(taxa, 4)})
     return {
         "provedor": provider_name(),
+        "fallback": fallback_name() or None,
         "porDia": {d: {iv: {**r, "msMedio": round(r["ms"] / r["req"]) if r["req"] else 0}
                        for iv, r in _uso[d].items()} for d in dias},
+        "porProvedor": por_prov,
+        "orcamentoBrapi": brapi_budget.snapshot() if provider_name() == "brapi" else None,
         "janelaDias": _JANELA_DIAS,
         "requisicoes": req,
         "erros": erros,          # não-200
@@ -100,7 +137,7 @@ def snapshot() -> dict:
         "falhas": falhas,
         "taxaFalha": round(taxa, 4),
         "limiarAlerta": _LIMIAR_ERRO,
-        "alerta": bool(req >= 50 and taxa > _LIMIAR_ERRO),
+        "alerta": bool(prim["req"] >= 50 and prim["taxaFalha"] > _LIMIAR_ERRO),
     }
 
 
@@ -175,22 +212,110 @@ def set_provider(p: Optional[CandleProvider]) -> None:
     _ativo = p
 
 
-async def get_history(ticker: str, rng: str = "1mo", interval: str = "1d") -> dict:
-    """Ponto ÚNICO de entrada de candles do app. Mesma assinatura de
-    `yahoo.get_history`, para os chamadores trocarem sem cerimônia.
+# -- backup (ADR-008) -------------------------------------------------------
+_fallback: Optional[CandleProvider] = None
+_fb_injetado = False
 
-    A INSTRUMENTAÇÃO mora aqui, na fronteira — não dentro de um provedor. Se
-    vivesse no `YahooProvider`, trocar de fonte (que é justamente o momento em
-    que se quer medir) apagaria o contador e o gatilho do plano B pararia de
-    existir sem ninguém notar.
-    """
+
+def fallback_name() -> str:
+    """Env `B3_CANDLE_FALLBACK`; vazio desliga. Default: `yahoo` quando o
+    primário NÃO é o Yahoo (a inversão do ADR-008 nasce com backup), nada
+    quando o primário é o Yahoo (comportamento pré-ADR-008 preservado)."""
+    fb = os.environ.get("B3_CANDLE_FALLBACK")
+    if fb is None:
+        return "yahoo" if provider_name() != "yahoo" else ""
+    return fb.strip().lower()
+
+
+def get_fallback() -> Optional[CandleProvider]:
+    global _fallback
+    if _fb_injetado:
+        return _fallback
+    nome = fallback_name()
+    if not nome or nome == provider_name():
+        return None
+    if _fallback is None or _fallback.nome != nome:
+        cls = _PROVEDORES.get(nome)
+        if cls is None:      # backup mal configurado não pode derrubar o app
+            return None
+        _fallback = cls()
+    return _fallback
+
+
+def set_fallback(p: Optional[CandleProvider]) -> None:
+    """Injeção para testes. `None` volta ao resolvido por env."""
+    global _fallback, _fb_injetado
+    _fallback = p
+    _fb_injetado = p is not None
+
+
+async def _chama(p: CandleProvider, ticker: str, rng: str, interval: str) -> dict:
+    """Uma chamada instrumentada. A INSTRUMENTAÇÃO mora aqui, na fronteira —
+    não dentro de um provedor. Se vivesse no `YahooProvider`, trocar de fonte
+    (que é justamente o momento em que se quer medir) apagaria o contador e o
+    gatilho do plano B pararia de existir sem ninguém notar."""
     t0 = time.perf_counter()
     try:
-        out = await get_provider().history(ticker, rng, interval)
+        out = await p.history(ticker, rng, interval)
     except Exception:
-        _registra(interval, (time.perf_counter() - t0) * 1000, 0, erro=True)
+        _registra(interval, (time.perf_counter() - t0) * 1000, 0, erro=True,
+                  provedor=p.nome)
         raise
     velas = out.get("candles") or []
     _registra(interval, (time.perf_counter() - t0) * 1000, len(velas), erro=False,
-              ultima=(velas[-1].get("date") if velas else None))
+              ultima=(velas[-1].get("date") if velas else None), provedor=p.nome)
+    return out
+
+
+async def get_history(ticker: str, rng: str = "1mo", interval: str = "1d") -> dict:
+    """Ponto ÚNICO de entrada de candles do app. Mesma assinatura de
+    `yahoo.get_history`; o payload ganha `source` = provedor que serviu.
+
+    Roteamento (ADR-008, nesta ordem):
+      1. PLANO — pedido que o plano gratuito da brapi não cobre (intraday,
+         range longo) vai DIRETO ao backup: sem rede, sem cota, sem falsa
+         falha no gatilho.
+      2. ORÇAMENTO — sem saldo na fatia/fora da janela de pregão, o backup
+         assume; sem backup configurado, a chamada segue (proteção de cota
+         não pode virar "sem dado" quando não há alternativa).
+      3. FALHA — exceção OU série vazia (o modo de 31/07) → backup na mesma
+         requisição.
+    """
+    prim = get_provider()
+    fb = get_fallback()
+
+    if prim.nome == "brapi":
+        try:
+            brapi.valida_plano(rng, interval)
+        except brapi.ForaDoPlano:
+            if fb is None:
+                raise
+            out = await _chama(fb, ticker, rng, interval)
+            out["source"] = fb.nome
+            return out
+        if brapi_budget.pode_gastar("delta"):
+            brapi_budget.debita("delta")
+        elif fb is not None:
+            out = await _chama(fb, ticker, rng, interval)
+            out["source"] = fb.nome
+            return out
+
+    try:
+        out = await _chama(prim, ticker, rng, interval)
+    except Exception:
+        if fb is None:
+            raise
+        out = await _chama(fb, ticker, rng, interval)
+        out["source"] = fb.nome
+        return out
+
+    if not (out.get("candles") or []) and fb is not None:
+        try:
+            alt = await _chama(fb, ticker, rng, interval)
+        except Exception:
+            alt = None
+        if alt and (alt.get("candles") or []):
+            alt["source"] = fb.nome
+            return alt
+    out["source"] = prim.nome
     return out
