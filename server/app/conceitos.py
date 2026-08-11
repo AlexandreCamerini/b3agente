@@ -99,8 +99,9 @@ CONCEITOS = {
             "Vale por vela FECHADA, não por qualquer toque no preço. Preço que "
             "encosta no gatilho e volta atrás dentro da mesma vela não cumpre a "
             "condição — foi ruído, não rompimento.",
-            "A leitura tem a idade da vela: o feed tem cerca de 15 minutos de "
-            "atraso medido. O que você vê já aconteceu; nunca é agora.",
+            "A leitura tem a idade da vela: o feed intraday (Yahoo Finance) tem "
+            "cerca de 15 minutos de atraso medido. O que você vê já aconteceu; "
+            "nunca é agora.",
             (("armado",),
              "Neste momento falta {distancia} até o {nivel} — {distanciaEmR} na "
              "régua de risco deste plano."),
@@ -290,8 +291,9 @@ CONCEITOS = {
             "oscilação dentro dela é o que transforma um plano em impulso.",
         ],
         "oQueAcontece": [
-            "Some a isso o atraso do feed, de cerca de 15 minutos medidos: o "
-            "que a tela afirma já aconteceu, e pode ter mudado.",
+            "Some a isso o atraso do feed intraday (Yahoo Finance), de cerca "
+            "de 15 minutos medidos: o que a tela afirma já aconteceu, e pode "
+            "ter mudado.",
             "Por isso toda afirmação de timing no app carrega a hora da barra. "
             "Se um dia você vir uma sem carimbo, desconfie dela.",
             "Nada disso invalida o estudo — invalida só a pretensão de reagir "
