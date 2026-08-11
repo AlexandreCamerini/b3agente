@@ -18,8 +18,9 @@ até `3mo`, medição em `docs/MEDICAO-Brapi-2026-08-11.md`). O roteamento aqui
 decide por plano (fora do plano → backup direto, sem rede nem cota), por
 orçamento (`brapi_budget`, hard stop → backup) e por falha (exceção ou série
 vazia → backup na mesma requisição). O payload sai com `source` dizendo quem
-serviu — fontes têm atrasos e ajustes diferentes, e o cache (Fase 4) usa isso
-para NUNCA fundir séries de origens distintas.
+serviu — no DIÁRIO as fontes entregam o MESMO print bruto da B3 (validado em
+11/08: 21 pregões idênticos), então o cache (Fase 4) funde warmup Yahoo com
+delta brapi e registra a fonte da última escrita como metadado.
 
 Stdlib + httpx via `yahoo.py`/`brapi.py`. Testável offline (primário e backup
 são injetáveis).
@@ -318,4 +319,82 @@ async def get_history(ticker: str, rng: str = "1mo", interval: str = "1d") -> di
             alt["source"] = fb.nome
             return alt
     out["source"] = prim.nome
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Spot (ADR-008, Fase 5) — mesma fronteira, mesmo roteamento
+# ---------------------------------------------------------------------------
+# Contrato de erro preservado: os chamadores já tratam `yahoo.QuoteUnavailable`
+# como indisponibilidade transitória (503) — a fronteira levanta a MESMA classe
+# quando nem primário nem backup servem.
+QuoteUnavailable = yahoo.QuoteUnavailable
+
+
+def _spot_ttl() -> float:
+    return (brapi.QUOTE_TTL_DEGRADADO if brapi_budget.degradado("spot")
+            else brapi.QUOTE_TTL_BASE)
+
+
+async def _quote_brapi(ticker: str):
+    """Spot pela brapi respeitando cache compartilhado e orçamento.
+    Devolve o payload ou None (sem token / sem orçamento / falha) — quem
+    decide o backup é a fronteira."""
+    if not brapi.tem_token():
+        return None
+    q = brapi.quote_cached(ticker, _spot_ttl())
+    if q is not None:
+        return {**q, "source": "brapi"}
+    if not brapi_budget.pode_gastar("spot"):
+        return None
+    brapi_budget.debita("spot")
+    try:
+        return {**(await brapi.fetch_quote(ticker)), "source": "brapi"}
+    except Exception:  # noqa: BLE001 — falha do spot brapi degrada p/ backup
+        return None
+
+
+async def get_quote(ticker: str) -> dict:
+    """Ponto único do spot. Primário brapi → cache/orçamento → backup Yahoo.
+    Payload no contrato de `yahoo.get_quote` + `source`."""
+    if provider_name() == "brapi":
+        q = await _quote_brapi(ticker)
+        if q is not None:
+            return q
+        fb = get_fallback()
+        if fb is None:
+            raise QuoteUnavailable(
+                "Cotação indisponível: brapi sem token/orçamento e nenhum backup configurado.")
+        out = await yahoo.get_quote(ticker)
+        return {**out, "source": "yahoo"} if isinstance(out, dict) else out
+    out = await yahoo.get_quote(ticker)
+    return {**out, "source": "yahoo"} if isinstance(out, dict) else out
+
+
+async def get_quotes(tickers: list) -> dict:
+    """Lote de spots. No free da brapi é 1 ticker/req — o cache compartilhado
+    absorve a maior parte; o que faltar e couber no orçamento vai à brapi, o
+    resto desce em lote único para o backup (batch do Yahoo)."""
+    if provider_name() != "brapi":
+        got = await yahoo.get_quotes(tickers)
+        return {t: ({**q, "source": "yahoo"} if isinstance(q, dict) else q)
+                for t, q in got.items()}
+
+    out, faltam = {}, []
+    for t in tickers:
+        q = await _quote_brapi(t) if brapi.tem_token() else None
+        if q is not None:
+            out[t] = q
+        else:
+            faltam.append(t)
+    if faltam:
+        fb = get_fallback()
+        if fb is not None:
+            got = await yahoo.get_quotes(faltam)
+            for t, q in got.items():
+                out[t] = {**q, "source": "yahoo"} if isinstance(q, dict) else q
+        else:
+            for t in faltam:
+                out[t] = {"t": t, "price": None, "change": 0,
+                          "error": "sem cotação (brapi sem orçamento, backup desligado)"}
     return out

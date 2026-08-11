@@ -321,3 +321,120 @@ def test_alerta_mede_o_primario_nao_a_media(monkeypatch):
     finally:
         monkeypatch.delenv("B3_CANDLE_PROVIDER", raising=False)
         _limpa()
+
+
+# ---------------------------------------------------------------------------
+# ADR-008 (Fase 5) — spot atrás da mesma fronteira
+# ---------------------------------------------------------------------------
+def _spot_env(monkeypatch, *, token=True, pode_gastar=True):
+    from app import brapi, brapi_budget as bb
+    _limpa()
+    brapi.reset_quote_cache()
+    monkeypatch.setenv("B3_CANDLE_PROVIDER", "brapi")
+    if token:
+        monkeypatch.setenv("BRAPI_TOKEN", "tok-teste")
+    else:
+        monkeypatch.delenv("BRAPI_TOKEN", raising=False)
+    monkeypatch.setattr(bb, "pode_gastar", lambda fatia, now=None: pode_gastar)
+    debitos = []
+    monkeypatch.setattr(bb, "debita", lambda fatia, n=1, now=None: debitos.append(fatia))
+    return debitos
+
+
+def test_spot_brapi_debita_fatia_spot_e_carimba_source(monkeypatch):
+    from app import brapi
+    debitos = _spot_env(monkeypatch)
+
+    async def fake_fetch(symbol, params):
+        assert params == {}          # spot puro: sem range/interval
+        return {"results": [{"symbol": symbol, "longName": "Petrobras PN",
+                             "regularMarketPrice": 42.23,
+                             "regularMarketPreviousClose": 40.87,
+                             "currency": "BRL"}]}
+    monkeypatch.setattr(brapi, "_fetch_json", fake_fetch)
+    try:
+        q = asyncio.run(cp.get_quote("PETR4"))
+        assert q["source"] == "brapi" and q["price"] == 42.23
+        assert q["previousClose"] == 40.87 and q["name"] == "Petrobras PN"
+        assert debitos == ["spot"]
+        # segunda chamada: cache compartilhado absorve — sem novo débito
+        q2 = asyncio.run(cp.get_quote("PETR4"))
+        assert q2["price"] == 42.23 and debitos == ["spot"]
+    finally:
+        brapi.reset_quote_cache()
+        _limpa()
+
+
+def test_spot_sem_orcamento_cai_no_backup_sem_debitar(monkeypatch):
+    from app import brapi, yahoo
+    debitos = _spot_env(monkeypatch, pode_gastar=False)
+
+    async def fake_yahoo(t):
+        return {"t": t, "price": 10.0, "change": 1.0,
+                "previousClose": 9.9, "currency": "BRL"}
+    monkeypatch.setattr(yahoo, "get_quote", fake_yahoo)
+    try:
+        q = asyncio.run(cp.get_quote("WEGE3"))
+        assert q["source"] == "yahoo" and q["price"] == 10.0
+        assert debitos == []
+    finally:
+        brapi.reset_quote_cache()
+        _limpa()
+
+
+def test_spot_sem_token_vai_direto_ao_backup(monkeypatch):
+    from app import brapi, yahoo
+    debitos = _spot_env(monkeypatch, token=False)
+
+    async def fake_yahoo(t):
+        return {"t": t, "price": 5.5, "change": 0.0,
+                "previousClose": 5.5, "currency": "BRL"}
+    monkeypatch.setattr(yahoo, "get_quote", fake_yahoo)
+    try:
+        q = asyncio.run(cp.get_quote("ITSA4"))
+        assert q["source"] == "yahoo" and debitos == []
+    finally:
+        brapi.reset_quote_cache()
+        _limpa()
+
+
+def test_spot_em_lote_mistura_cache_brapi_e_batch_yahoo(monkeypatch):
+    from app import brapi, yahoo
+    debitos = _spot_env(monkeypatch)
+
+    async def fake_fetch(symbol, params):
+        if symbol == "PETR4":
+            return {"results": [{"symbol": symbol, "regularMarketPrice": 42.0,
+                                 "regularMarketPreviousClose": 41.0, "currency": "BRL"}]}
+        raise brapi.BrapiIndisponivel("fora do ar p/ " + symbol)
+    monkeypatch.setattr(brapi, "_fetch_json", fake_fetch)
+
+    async def fake_batch(ts):
+        return {t: {"t": t, "price": 7.7, "change": 0.5,
+                    "previousClose": 7.6, "currency": "BRL"} for t in ts}
+    monkeypatch.setattr(yahoo, "get_quotes", fake_batch)
+    try:
+        out = asyncio.run(cp.get_quotes(["PETR4", "VALE3"]))
+        assert out["PETR4"]["source"] == "brapi" and out["PETR4"]["price"] == 42.0
+        assert out["VALE3"]["source"] == "yahoo" and out["VALE3"]["price"] == 7.7
+        # débito só para o que a brapi de fato buscou (VALE3 falhou mas debitou
+        # a tentativa — comportamento honesto: a requisição saiu)
+        assert debitos == ["spot", "spot"]
+    finally:
+        brapi.reset_quote_cache()
+        _limpa()
+
+
+def test_spot_primario_yahoo_preserva_comportamento(monkeypatch):
+    from app import yahoo
+    _limpa()
+
+    async def fake_yahoo(t):
+        return {"t": t, "price": 1.0, "change": 0.0,
+                "previousClose": 1.0, "currency": "BRL"}
+    monkeypatch.setattr(yahoo, "get_quote", fake_yahoo)
+    try:
+        q = asyncio.run(cp.get_quote("PETR4"))
+        assert q["source"] == "yahoo" and q["price"] == 1.0
+    finally:
+        _limpa()

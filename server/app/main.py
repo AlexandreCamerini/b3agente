@@ -526,7 +526,7 @@ async def watchlist_add(body: dict = Body(default={}), scope: Optional[str] = De
     if not t or len(t) < 4:
         raise HTTPException(400, "Informe um ticker valido da B3 (ex.: PETR4).")
     try:
-        q = await yahoo.get_quote(t)
+        q = await candle_provider.get_quote(t)
         transient = False
     except yahoo.QuoteUnavailable:
         q, transient = None, True
@@ -565,7 +565,7 @@ async def validate(ticker: str, scope: Optional[str] = Depends(current_scope)):
     if not t or len(t) < 4:
         raise HTTPException(400, "Informe um ticker valido da B3 (ex.: PETR4).")
     try:
-        q = await yahoo.get_quote(t)
+        q = await candle_provider.get_quote(t)
         transient = False
     except yahoo.QuoteUnavailable:
         q, transient = None, True
@@ -589,7 +589,7 @@ async def quotes(symbols: Optional[str] = None, scope: Optional[str] = Depends(c
         wl = store.get(_conn, "watchlist", user_id=scope)
         pos = [p["t"] for p in store.get(_conn, "positions", user_id=scope)]
         wanted = list(dict.fromkeys(wl + pos))
-    data = await yahoo.get_quotes(wanted)
+    data = await candle_provider.get_quotes(wanted)
     return {"quotes": data, "at": now_str()}
 
 
@@ -905,7 +905,7 @@ async def analyze_technical_model(ticker: str, body: dict = Body(default={}), sc
         "budget": (store.get(_conn, "config", user_id=scope) or {}).get("initialBudget"),
     }
     try:
-        quote = await yahoo.get_quote(t)
+        quote = await candle_provider.get_quote(t)
     except Exception:
         quote = None
     # FASE 1 (STU): N2 lê o MESMO snapshot que o Radar (N1) — nunca refetch,
@@ -1045,7 +1045,7 @@ async def analyze(ticker: str, body: dict = Body(default={}), scope: Optional[st
         "budget": (store.get(_conn, "config", user_id=scope) or {}).get("initialBudget"),
     }
     try:
-        quote = await yahoo.get_quote(t)
+        quote = await candle_provider.get_quote(t)
     except Exception:
         quote = None
     # FASE 1 (STU): a mesma janela/candles do snapshot que N1/N2/N3 leem —
@@ -1112,7 +1112,7 @@ async def carteira_stopalvo(ticker: str, body: dict = Body(default={}), scope: O
     _key_prompt = "carteiraStopAlvoOperador" if modo == "operador" else "carteiraStopAlvo"
     prompt = (body or {}).get("prompt") or _lp.get(_key_prompt) or _lp.get("carteiraStopAlvo") or ""
     try:
-        quote = await yahoo.get_quote(t)
+        quote = await candle_provider.get_quote(t)
     except Exception:
         quote = None
     # FASE 1 (STU): o N3 responde OUTRA pergunta (gestão de risco) mas lê os
@@ -1170,7 +1170,7 @@ async def buy(body: dict = Body(default={}), scope: Optional[str] = Depends(curr
     t = _normalize_ticker(t)
     if len(t) < 4:
         raise HTTPException(400, "Ticker invalido.")
-    quote = await yahoo.get_quote(t)
+    quote = await candle_provider.get_quote(t)
     if not quote or quote.get("price") is None:
         raise HTTPException(502, "Sem cotacao para " + t)
     price = quote["price"]
@@ -1189,7 +1189,7 @@ async def sell(body: dict = Body(default={}), scope: Optional[str] = Depends(cur
     pos = next((p for p in store.get(_conn, "positions", user_id=scope) if p["t"] == t), None)
     if not pos:
         raise HTTPException(400, "Sem posicao em " + t)
-    quote = await yahoo.get_quote(t)
+    quote = await candle_provider.get_quote(t)
     if not quote or quote.get("price") is None:
         raise HTTPException(502, "Sem cotacao para " + t)
     _qty = body.get("qty")  # FASE 2 (2.4): venda parcial opcional (lotes de 100)

@@ -160,3 +160,75 @@ async def get_history(ticker: str, rng: str = "1mo", interval: str = "1d",
             "volume": v.get("volume"),
         })
     return {"t": symbol, "currency": r.get("currency", "BRL"), "candles": candles}
+
+
+# ---------------------------------------------------------------------------
+# Spot (ADR-008, Fase 5) — cotação atual, 1 ticker por requisição no free
+# ---------------------------------------------------------------------------
+# Cache COMPARTILHADO entre usuários: o consumo escala com o universo × TTL,
+# não com o número de usuários. O TTL é decidido pela fronteira (dinâmico:
+# alonga sob soft stop do orçamento) — aqui só se armazena.
+_quote_cache: dict = {}   # symbol -> (epoch, payload)
+QUOTE_TTL_BASE = 300      # 5 min — meia atualização anunciada do free (15 min)
+QUOTE_TTL_DEGRADADO = 900  # 15 min — soft stop da fatia de spot
+
+
+def tem_token() -> bool:
+    return bool(_token())
+
+
+def quote_cached(ticker: str, ttl: float = QUOTE_TTL_BASE):
+    """Cotação do cache compartilhado, se fresca o bastante. NUNCA faz rede."""
+    symbol = normalize_ticker(ticker)
+    ent = _quote_cache.get(symbol)
+    if ent and (time.time() - ent[0]) < ttl:
+        return ent[1]
+    return None
+
+
+def _map_quote(r: dict) -> dict:
+    """Mesmo contrato de `yahoo._map_quote_row` (paridade de payload)."""
+    price = r.get("regularMarketPrice")
+    prev = r.get("regularMarketPreviousClose")
+    change = r.get("regularMarketChangePercent")
+    if change is None and price is not None and prev:
+        change = (price - prev) / prev * 100
+    return {
+        "t": normalize_ticker(str(r.get("symbol") or "")),
+        "name": r.get("longName") or r.get("shortName") or "",
+        "price": price,
+        "change": change or 0,
+        "previousClose": prev,
+        "currency": r.get("currency", "BRL"),
+    }
+
+
+async def fetch_quote(ticker: str, *, fetch_json=None) -> dict:
+    """Busca o spot na brapi (SEMPRE faz rede — quem controla cota/cache é a
+    fronteira `candle_provider.get_quote`). Sem parâmetros de range/interval:
+    o endpoint puro devolve só a cotação, sem série."""
+    if not _token():
+        raise RuntimeError(
+            "BRAPI_TOKEN ausente no ambiente. A brapi é a fonte master do "
+            "ADR-008; sem o token o spot cai no backup.")
+    symbol = normalize_ticker(ticker)
+    fetch = fetch_json or _fetch_json
+    data = await fetch(symbol, {})
+    if not isinstance(data, dict) or data.get("error"):
+        msg = (data or {}).get("message") if isinstance(data, dict) else None
+        code = (data or {}).get("code") if isinstance(data, dict) else None
+        raise BrapiIndisponivel(
+            f"brapi recusou spot de {symbol} ({code or 'sem código'}): {msg or data!r}")
+    results = data.get("results") or []
+    if not results:
+        raise BrapiIndisponivel(f"brapi: sem cotação para {symbol}")
+    q = _map_quote(results[0])
+    if q.get("price") is None:
+        raise BrapiIndisponivel(f"brapi: cotação sem preço para {symbol}")
+    _quote_cache[symbol] = (time.time(), q)
+    return q
+
+
+def reset_quote_cache() -> None:
+    """Para testes."""
+    _quote_cache.clear()
