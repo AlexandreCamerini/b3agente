@@ -60,11 +60,18 @@ def _key() -> str:
 def registrar(conn, *, ticker: str, modo: Optional[str], tipo: str, modelo: str,
               setup: Optional[str], recomendacao: Optional[str],
               stop: Optional[float], alvo: Optional[float], preco: Optional[float],
-              snapshot_id: Optional[str], confianca=None, user_id=None) -> None:
+              snapshot_id: Optional[str], confianca=None, user_id=None,
+              regime: Optional[str] = None) -> None:
     """Grava 1 análise (N1 ou N2) pra avaliação futura. Só faz sentido quando
     stop/alvo/preço estão definidos (sem risco não dá pra medir R-multiple nem
     decidir lado da operação) — o chamador filtra ANTES de chamar aqui.
-    Nunca levanta: best-effort, o chamador decide se loga a falha."""
+    Nunca levanta: best-effort, o chamador decide se loga a falha.
+
+    `regime` (qa/44, Refactor B / ADR-009→B): regime de mercado NO MOMENTO da
+    análise (saída de `regime.classificar()["regime"]`), gravado pelo chamador
+    — este módulo não importa `regime.py` para não acoplar avaliação a
+    seleção. None = análise anterior ao B ou fluxo sem snapshot técnico
+    (retrocompatível: cai na célula "—" em compute_stats)."""
     if stop is None or alvo is None or preco is None or stop == alvo:
         return
     entry = {
@@ -76,6 +83,9 @@ def registrar(conn, *, ticker: str, modo: Optional[str], tipo: str, modelo: str,
         # qa/35 (P2c): confiança DECLARADA pela IA na hora da análise — vira a
         # base da calibração (declarada × acerto real). None = IA não declarou.
         "confianca": normalizar_confianca(confianca),
+        # qa/44 (B, ADR-009): regime de mercado no momento da análise — a
+        # chave que falta pro loop de validação segmentar por regime.
+        "regime": regime,
         "criadoEm": datetime.now(timezone.utc).isoformat(),
         "prazoPregoes": HORIZON_PREGOES,
         "resultado": "pendente",
@@ -151,6 +161,21 @@ def compute_stats(outcomes: list, modo: Optional[str] = None, tipo: Optional[str
         por_confianca.setdefault(o.get("confianca") or "—", []).append(o)
         por_decisao.setdefault((o.get("recomendacao") or "—").strip() or "—", []).append(o)
 
+    # --- qa/44 (B, ADR-009): segmentação por regime de mercado -----------------
+    # Reusa _celula (mesma régua de MIN_N das demais segmentações). Registros
+    # sem regime (anteriores ao B) caem em "—", sem quebrar a agregação —
+    # retrocompatibilidade explícita, não acidente. `porSetupRegime` responde
+    # a pergunta que o CLAUDE.md/skill exigem: "este setup tem expectância
+    # positiva em tendência mas negativa em lateral?" — setup ausente (N2, que
+    # não tem roster de setups) também normaliza para "—".
+    por_regime: dict = {}
+    por_setup_regime: dict = {}
+    for o in resolvidos:
+        rg = o.get("regime") or "—"
+        por_regime.setdefault(rg, []).append(o)
+        chave = f"{o.get('setup') or '—'} @ {rg}"
+        por_setup_regime.setdefault(chave, []).append(o)
+
     # --- qa/37 P2e: curva de R acumulado + drawdown -----------------------------
     # Ordena os avaliados por data de resolução e soma os R-múltiplos → a curva
     # de R acumulado (equity curve em R). Drawdown máximo = maior queda do pico
@@ -186,6 +211,9 @@ def compute_stats(outcomes: list, modo: Optional[str] = None, tipo: Optional[str
         "expectanciaInsuficiente": not suficiente,
         "porConfianca": {k: _celula(v) for k, v in por_confianca.items()},
         "porDecisao": {k: _celula(v) for k, v in por_decisao.items()},
+        # qa/44 (B, ADR-009): recorte por regime e por (setup × regime).
+        "porRegime": {k: _celula(v) for k, v in por_regime.items()},
+        "porSetupRegime": {k: _celula(v) for k, v in por_setup_regime.items()},
         # qa/37 P2e: curva de R acumulado (para o gráfico) + drawdown máximo.
         "curvaR": curva_r,
         "rAcumulado": r_acumulado,
