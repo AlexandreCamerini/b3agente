@@ -1059,6 +1059,29 @@ function FundamentoChip({ f }) {
     </span>
   );
 }
+// ADR-009 (Refactor A): o Radar passou a ordenar por regime+momentum relativo
+// em vez de só confluência — sem indicador, a ordem nova parece arbitrária.
+// Mesmo padrão visual do FundamentoChip (chip determinístico, motor puro:
+// regime.classificar). "indefinido" não aparece — sem média nem ADX não há
+// leitura, mesma postura de FundamentoChip sem score. Base degradada (SMA50,
+// sem janela de 200 candles) se declara no próprio chip — CLAUDE.md exige
+// avisar quando o dado é insuficiente, nunca estimar em silêncio.
+const REGIME_STYLE = {
+  tendencia_alta: ["positive", "ALTA"],
+  tendencia_baixa: ["negative", "BAIXA"],
+  lateral: ["textMuted", "LATERAL"],
+};
+function RegimeChip({ regime }) {
+  if (!regime || !regime.regime || regime.regime === "indefinido") return null;
+  const [corKey, label] = REGIME_STYLE[regime.regime] || ["textFaint", regime.regime.toUpperCase()];
+  const c = T[corKey];
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", padding: "4px 9px", borderRadius: "7px", fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em", border: `1px solid ${c}`, color: c }}>
+      REGIME <b style={{ fontFamily: MONO, fontSize: "11px" }}>{label}</b>
+      {regime.confiavel === false && <span style={{ fontWeight: 400, opacity: 0.75 }}>·SMA50</span>}
+    </span>
+  );
+}
 // fração → percentual pt-BR (0.244 → "24,4%"); null/NaN → null (vira "sem dado")
 const fracPct = (v) => (v == null || isNaN(v) ? null : (v * 100).toFixed(1).replace(".", ",") + "%");
 const num1 = (v) => (v == null || isNaN(v) ? null : Number(v).toFixed(1).replace(".", ","));
@@ -5386,7 +5409,10 @@ function RadarScreen({ ctx }) {
                 {/* qa/36 (F10.2): chip de score de fundamento (filtro de qualidade)
                     — do cache do servidor; ausente = ticker sem cobertura. */}
                 <FundamentoChip f={r.fundamento} />
-                {r.melhorSetup && <span style={{ fontSize: "11.5px", color: T.textMuted }}>{r.melhorSetup}{critTot > 0 ? ` · ${critOk}/${critTot} critérios` : ""}</span>}
+                {/* ADR-009 (Refactor A): regime é o eixo novo de ordenação do
+                    Radar — o chip torna visível por que a ordem mudou. */}
+                <RegimeChip regime={r.regime} />
+                {r.melhorSetup && <span style={{ fontSize: "11.5px", color: T.textMuted }}>{r.melhorSetup}{critTot > 0 ? ` · ${critOk}/${critTot} critérios` : ""}{r.gatilhoAlinhado ? " · alinhado ao regime" : ""}</span>}
               </div>
               {/* qa/34 (P1): leitura inicial rápida no Modo Estudo — o `motivo`
                   determinístico do plano (setups.py) sempre veio no payload, mas
