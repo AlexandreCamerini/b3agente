@@ -17,6 +17,11 @@ web/dist/
 # plataforma nativa gerada pelo Capacitor
 web/ios/
 
+# archive/export locais do xcodebuild (scripts/gerar-adhoc.sh) — o .ipa final
+# vai pra server/ios_dist (tracked, é o que o Railway serve); isto aqui é
+# só o passo intermediário, refaz a cada rodada.
+build/
+
 # logs do lancador
 .run-logs/
 
