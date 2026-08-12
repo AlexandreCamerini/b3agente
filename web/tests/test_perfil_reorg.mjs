@@ -13,6 +13,18 @@
 //     seções que se mudaram — sem duplicação de UI;
 //  4) o roteamento (perfilView) cobre as 6 rotas;
 //  5) o atalho de notificações (A.openNotifCentral) aponta pra área nova.
+//
+// ATUALIZAÇÃO 2026-08-12 (qa/45 Decisão 1, pedido do Alex "pode seguir com a
+// decisão 1 (as 5 telas)"): reversão deliberada dos nomes de tile trancados
+// acima — "Conta & preferências"→"Preferências", "Configurações de IA"→
+// "IA & Boris", "Logs & debug"→"Diagnóstico" — e nasce uma tela nova,
+// FonteDadosScreen, que herda o bloco SERVIDOR DO APP (saiu de
+// LogsDebugScreen, onde configuração de aparelho vivia dentro de um painel de
+// diagnóstico) e o bloco FONTE DE COTAÇÕES (saiu de dentro do painel de
+// Administração de LogsDebugScreen). Conteúdo idêntico, endereço novo — "nada
+// some, tudo migra". Os testes abaixo foram atualizados para os nomes e a
+// composição de telas atuais; nenhum conteúdo verificado foi removido, só
+// realocado nas asserções que seguem o código.
 // Roda sem device nem build: `node web/tests/test_perfil_reorg.mjs`.
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
@@ -30,17 +42,19 @@ const hubEnd = app.indexOf("function MercadoScreen(");
 const hub = app.slice(hubStart, hubEnd);
 ok("PerfilHub localizado", hubStart > -1 && hubEnd > hubStart);
 ok("hub: Conta (auth)", hub.includes('ctx.openAuth && ctx.openAuth()'));
-ok("hub: Conta & preferências → config", hub.includes('onOpen("config")'));
-ok("hub: Configurações de IA → ia", hub.includes('onOpen("ia")') && hub.includes('title="Configurações de IA"'));
+ok("hub: Preferências → config", hub.includes('onOpen("config")') && hub.includes('title="Preferências"'));
+ok("hub: IA & Boris → ia", hub.includes('onOpen("ia")') && hub.includes('title="IA & Boris"'));
 ok("hub: Notificações → notificacoes", hub.includes('onOpen("notificacoes")') && hub.includes('title="Notificações"'));
 ok("hub: Eficiência da IA → eficiencia", hub.includes('onOpen("eficiencia")') && hub.includes('title="Eficiência da IA"'));
-ok("hub: Logs & debug → logs", hub.includes('onOpen("logs")') && hub.includes('title="Logs & debug"'));
+ok("hub: Fonte de dados → fonteDados", hub.includes('onOpen("fonteDados")') && hub.includes('title="Fonte de dados"'));
+ok("hub: Diagnóstico → logs", hub.includes('onOpen("logs")') && hub.includes('title="Diagnóstico"'));
 
 // ---- 2) Telas novas existem; monólito antigo não existe mais -------------
 ok("AiConfigScreen existe", /function AiConfigScreen\(\{ ctx \}\)/.test(app));
 ok("NotificacoesScreen existe", /function NotificacoesScreen\(\{ ctx \}\)/.test(app));
 ok("EficienciaIAScreen existe", /function EficienciaIAScreen\(\{ ctx \}\)/.test(app));
 ok("LogsDebugScreen existe", /function LogsDebugScreen\(\{ ctx \}\)/.test(app));
+ok("FonteDadosScreen existe (qa/45 Decisão 1)", /function FonteDadosScreen\(\{ ctx \}\)/.test(app));
 ok("ObservabilidadeScreen (monólito antigo) não existe mais", !/function ObservabilidadeScreen/.test(app));
 
 // ---- 3) ConfigScreen ficou SLIM (sem duplicar o que se mudou) ------------
@@ -73,19 +87,29 @@ const notifScreen = app.slice(notifScreenStart, notifScreenEnd);
 ok("NotificacoesScreen usa <NotifSection", notifScreen.includes("<NotifSection ctx={ctx}"));
 
 const logsStart = app.indexOf("function LogsDebugScreen(");
-const logsEnd = app.indexOf("function CatalogModal(");
+const logsEnd = app.indexOf("function FonteDadosScreen(");
 const logs = app.slice(logsStart, logsEnd);
-ok("LogsDebugScreen tem SERVIDOR DO APP", logs.includes("SERVIDOR DO APP"));
+ok("LogsDebugScreen NÃO tem mais SERVIDOR DO APP (mudou p/ FonteDadosScreen)", !logs.includes("SERVIDOR DO APP"));
+ok("LogsDebugScreen NÃO tem mais FONTE DE COTAÇÕES (mudou p/ FonteDadosScreen)", !logs.includes("FONTE DE COTAÇÕES"));
 ok("LogsDebugScreen tem DIAGNÓSTICO QA", logs.includes("DIAGNÓSTICO QA"));
 ok("LogsDebugScreen tem STATUS DO SERVIDOR", logs.includes("STATUS DO SERVIDOR"));
 ok("LogsDebugScreen tem DIÁRIO DO OPERADOR", logs.includes("DIÁRIO DO OPERADOR"));
 ok("LogsDebugScreen tem LOGS DO SERVIDOR (detalhado)", logs.includes("LOGS DO SERVIDOR (detalhado)"));
 
-// ---- 5) Roteamento cobre as 6 rotas ---------------------------------------
+// ---- 4b) FonteDadosScreen herda os dois blocos extraídos (qa/45 Decisão 1) -
+const fdStart = app.indexOf("function FonteDadosScreen(");
+const fdEnd = app.indexOf("/* BLOCO 3 — Radar de mercado");
+const fd = app.slice(fdStart, fdEnd);
+ok("FonteDadosScreen localizado", fdStart > -1 && fdEnd > fdStart);
+ok("FonteDadosScreen tem SERVIDOR DO APP", fd.includes("SERVIDOR DO APP"));
+ok("FonteDadosScreen tem FONTE DE COTAÇÕES", fd.includes("FONTE DE COTAÇÕES"));
+
+// ---- 5) Roteamento cobre as 7 rotas ---------------------------------------
 ok("rota: config → ConfigScreen", /perfilView === "config"[\s\S]{0,120}<ConfigScreen ctx=\{ctx\} \/>/.test(app));
 ok("rota: ia → AiConfigScreen", /perfilView === "ia"[\s\S]{0,120}<AiConfigScreen ctx=\{ctx\} \/>/.test(app));
 ok("rota: notificacoes → NotificacoesScreen", /perfilView === "notificacoes"[\s\S]{0,120}<NotificacoesScreen ctx=\{ctx\} \/>/.test(app));
 ok("rota: eficiencia → EficienciaIAScreen", /perfilView === "eficiencia"[\s\S]{0,120}<EficienciaIAScreen ctx=\{ctx\} \/>/.test(app));
+ok("rota: fonteDados → FonteDadosScreen", /perfilView === "fonteDados"[\s\S]{0,120}<FonteDadosScreen ctx=\{ctx\} \/>/.test(app));
 ok("rota: logs → LogsDebugScreen", /perfilView === "logs"[\s\S]{0,120}<LogsDebugScreen ctx=\{ctx\} \/>/.test(app));
 
 // ---- 6) Atalho de notificações aponta pra área nova -----------------------

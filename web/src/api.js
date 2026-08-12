@@ -301,6 +301,11 @@ export const api = {
   // F5 (2026-08-02): painel de admin v1 SÓ VER — restrito ao admin (mesmo
   // portão de obsLogs/obsUsage). Usuários, uso de IA, saúde do agente, gate.
   adminSummary: () => req("GET", "/api/admin/summary", undefined, 15000),
+  // ADR-008 (controle de utilização): simula (GET) e aplica (POST) o
+  // intervalo de atualização do spot da brapi — mesmo portão de admin.
+  // GET sem intervaloS devolve a projeção do intervalo vigente.
+  brapiProjecao: (intervaloS) => req("GET", "/api/obs/brapi/projecao" + (intervaloS != null ? "?intervaloS=" + encodeURIComponent(intervaloS) : ""), undefined, 15000),
+  brapiProjecaoAplicar: (intervaloS) => req("POST", "/api/obs/brapi/projecao", { intervaloS, aplicar: true }, 15000),
   // qa/30 (Fase A): autoavaliação da IA — estatísticas do painel "Eficiência
   // da IA" (Perfil → Observabilidade). `modo` opcional filtra estudo/operador.
   analysisOutcomesStats: (modo) => req("GET", "/api/analysis-outcomes/stats" + (modo ? "?modo=" + encodeURIComponent(modo) : ""), undefined, 15000),

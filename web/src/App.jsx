@@ -2094,13 +2094,13 @@ function PerfilHub({ ctx, onOpen }) {
       } />
 
       <div style={hubGroup}>Personalização e simulação</div>
-      <ProfileTile wide onClick={() => onOpen("config")} title="Conta & preferências" sub="Perfil de risco, aparência, período de candles, orçamento" icon={
+      <ProfileTile wide onClick={() => onOpen("config")} title="Preferências" sub="Perfil de risco, aparência, período de candles, orçamento" icon={
         <svg width="19" height="19" viewBox="0 0 24 24" aria-hidden><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" strokeWidth="1.9" /><path d="M12 3v2.5M12 18.5V21M21 12h-2.5M5.5 12H3M18.4 5.6l-1.8 1.8M7.4 16.6l-1.8 1.8M18.4 18.4l-1.8-1.8M7.4 7.4 5.6 5.6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" /></svg>
       } />
 
       <div style={hubGroup}>IA e desempenho</div>
       <div style={hubGrid}>
-        <ProfileTile onClick={() => onOpen("ia")} title="Configurações de IA" sub="Modelo, skills por modo, prompts e o Boris — voz, presença, avisos" icon={
+        <ProfileTile onClick={() => onOpen("ia")} title="IA & Boris" sub="Modelo, skills por modo, prompts e o Boris — voz, presença, avisos" icon={
           <svg width="19" height="19" viewBox="0 0 24 24" aria-hidden><path d="M12 3a5 5 0 0 1 5 5c0 2-1.2 3.1-2 4-.6.7-1 1.3-1 2.3h-4c0-1-.4-1.6-1-2.3-.8-.9-2-2-2-4a5 5 0 0 1 5-5Z" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" /><path d="M10 17.5h4M10.5 20h3" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" /></svg>
         } />
         <ProfileTile onClick={() => onOpen("eficiencia")} title="Eficiência da IA" sub="Quanto bateu alvo/stop" icon={
@@ -2116,7 +2116,10 @@ function PerfilHub({ ctx, onOpen }) {
         <ProfileTile onClick={() => onOpen("notificacoes")} title="Notificações" sub={notifOn ? "Ativas — stop, alvo, agente" : "Desativadas — toque p/ ativar"} icon={
           <svg width="19" height="19" viewBox="0 0 24 24" aria-hidden><path d="M6 10.5a6 6 0 0 1 12 0c0 4 1.3 5.3 1.8 6H4.2c.5-.7 1.8-2 1.8-6Z" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" /><path d="M10 19.5a2 2 0 0 0 4 0" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" /></svg>
         } />
-        <ProfileTile onClick={() => onOpen("logs")} title="Logs & debug" sub={ag.serverEnabled ? "Status e Diário do Operador" : "Servidor e logs técnicos"} icon={
+        <ProfileTile onClick={() => onOpen("fonteDados")} title="Fonte de dados" sub="Provedor de cotações, orçamento e servidor do app" icon={
+          <svg width="19" height="19" viewBox="0 0 24 24" aria-hidden><path d="M4 17c3-2 13-2 16 0M6 12.5c2.5-1.5 9.5-1.5 12 0M9 8c1.5-1 4.5-1 6 0" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" /><circle cx="12" cy="20" r="1.1" fill="currentColor" stroke="none" /></svg>
+        } />
+        <ProfileTile onClick={() => onOpen("logs")} title="Diagnóstico" sub={ag.serverEnabled ? "Status e Diário do Operador" : "Logs técnicos"} icon={
           <svg width="19" height="19" viewBox="0 0 24 24" aria-hidden><path d="M4 18v-5M9.5 18v-9M15 18V7M20 18v-3" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" /></svg>
         } />
       </div>
@@ -4348,7 +4351,7 @@ function AiConfigScreen({ ctx }) {
   const suggest = { anthropic: "Recomendado: claude-haiku-4-5 (rápido/barato) · claude-sonnet-5 (raciocina, +caro)", openai: "Recomendado: gpt-4o-mini (barato) · gpt-4o", google: "Recomendado: gemini-2.5-flash (barato) · gemini-2.5-pro", local: "Ex.: llama-3.1-70b · qwen2.5-72b" }[c.provider];
   return (
     <div>
-      <h1 style={{ margin: "0 0 6px", fontSize: "22px", fontWeight: 700 }}>Configurações de IA</h1>
+      <h1 style={{ margin: "0 0 6px", fontSize: "22px", fontWeight: 700 }}>IA & Boris</h1>
       <p style={{ margin: "0 0 18px", color: T.textMuted, fontSize: "12.5px", lineHeight: 1.5, maxWidth: "560px" }}>
         Modelo/provedor do agente, instruções (skills) por modo, prompts, e o Boris — voz, presença na tela e avisos.
       </p>
@@ -4798,14 +4801,8 @@ function LogsDebugScreen({ ctx }) {
   const logged = !!ctx.authUser;
   const sectionTitle = { fontSize: "13px", fontWeight: 800, letterSpacing: "0.04em", color: T.accent };
 
-  // --- Servidor do app + Diagnóstico QA (ex-ConfigScreen) ---
-  const [srvTest, setSrvTest] = useState({ status: null, msg: "" });
+  // --- Diagnóstico QA (ex-ConfigScreen) ---
   const [diagState, setDiagState] = useState({ status: null, text: "" });
-  const handleTestServer = async () => {
-    setSrvTest({ status: "testing", msg: "Testando…" });
-    const r = await testServer(c.serverUrl);
-    setSrvTest({ status: r.ok ? "ok" : "error", msg: r.message });
-  };
   const runFullDiagnostic = async () => {
     setDiagState({ status: "testing", text: "Executando diagnóstico…" });
     const lines = [];
@@ -4869,7 +4866,6 @@ function LogsDebugScreen({ ctx }) {
       setDiagState((d) => ({ ...d, status: "done", text: (d.text || "") + "\n\n[UI] Não foi possível copiar automaticamente. Selecione e copie o texto acima." }));
     }
   };
-  const srvColor = srvTest.status === "ok" ? T.positive : srvTest.status === "error" ? T.negative : T.accent;
 
   // --- Observabilidade: status do servidor, Diário, logs (ex-ObservabilidadeScreen) ---
   const [srv, setSrv] = useState(null);
@@ -4930,9 +4926,9 @@ function LogsDebugScreen({ ctx }) {
 
   return (
     <div>
-      <h1 style={{ margin: "0 0 6px", fontSize: "22px", fontWeight: 700 }}>Logs & debug</h1>
+      <h1 style={{ margin: "0 0 6px", fontSize: "22px", fontWeight: 700 }}>Diagnóstico</h1>
       <p style={{ margin: "0 0 18px", color: T.textMuted, fontSize: "12.5px", lineHeight: 1.5, maxWidth: "580px" }}>
-        Servidor do app, diagnóstico técnico e — para quem tem conta — status do Operador no servidor, Diário e logs detalhados.
+        Diagnóstico técnico e — para quem tem conta — status do Operador no servidor, Diário e logs detalhados.
       </p>
 
       {/* qa/35 (P1): RASTREABILIDADE — o snapshotId saiu das telas de consumo
@@ -4963,26 +4959,6 @@ function LogsDebugScreen({ ctx }) {
           </div>
         );
       })()}
-
-      {/* Servidor do app (somente no iPhone) */}
-      {isNative && (
-        <div style={{ ...card, padding: "17px 18px", marginBottom: "16px" }}>
-          <div style={sectionTitle}>SERVIDOR DO APP</div>
-          <p style={{ margin: "6px 0 14px", color: T.textMuted, fontSize: "12.5px", lineHeight: 1.5, maxWidth: "560px" }}>
-            O app já vem apontado para o servidor de <b>produção</b> — não precisa configurar nada para usar (login, cotações e IA funcionam de fábrica). Este campo é um <b>override de desenvolvimento</b>: preencha só para testar contra um Mac na rede local; deixe vazio para voltar à produção. Vale para o aparelho inteiro (qualquer conta).
-          </p>
-          <label style={{ display: "block", marginBottom: "12px" }}>
-            <span style={{ display: "block", fontSize: "12px", color: T.textMuted, marginBottom: "6px" }}>Override do servidor (opcional — vazio = produção)</span>
-            <input type="text" value={c.serverUrl || ""} onChange={(e) => A.editConfig({ serverUrl: e.target.value })} onBlur={(e) => A.saveConfig({ serverUrl: e.target.value })} placeholder="vazio = produção · dev: http://192.168.0.12:8787" style={{ ...field, fontFamily: MONO }} />
-          </label>
-          <div style={{ margin: "0 0 12px", fontFamily: MONO, fontSize: "11px", color: T.textFaint }}>em uso agora: {getApiBase()}</div>
-          <button onClick={handleTestServer} style={{ padding: "9px 14px", borderRadius: "8px", border: `1px solid ${T.accent}`, background: T.accentTint10, color: T.accent, fontWeight: 700, fontSize: "13px" }}>Testar conexão</button>
-          {srvTest.status && srvTest.status !== "testing" && (
-            <div style={{ marginTop: "10px", fontSize: "12.5px", color: srvColor }}>{srvTest.msg}</div>
-          )}
-          {srvTest.status === "testing" && <div style={{ marginTop: "10px", fontSize: "12.5px", color: T.textMuted }}><Spinner /> {srvTest.msg}</div>}
-        </div>
-      )}
 
       <div style={{ ...card, padding: "17px 18px", marginBottom: "16px" }}>
         <div style={sectionTitle}>DIAGNÓSTICO QA · iOS / IA / NOTIFICAÇÕES</div>
@@ -5152,50 +5128,198 @@ function LogsDebugScreen({ ctx }) {
               </div>
 
               <div style={{ fontSize: "10.5px", fontWeight: 800, color: T.textMuted, marginBottom: "6px" }}>AGENTE (servidor)</div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "5px 14px", color: T.textFaint, fontSize: "10.5px", fontFamily: MONO, marginBottom: admin.usoIA.candles ? "12px" : 0 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "5px 14px", color: T.textFaint, fontSize: "10.5px", fontFamily: MONO }}>
                 <span>kill switch: {admin.agente.killSwitch ? "ligado (parado)" : "desligado (rodando)"}</span>
                 <span>intervalo: {admin.agente.intervaloS}s</span>
               </div>
-
-              {/* ADR-008: o painel já buscava admin.usoIA.candles (snapshot do
-                  candle_provider) mas nunca renderizava nada — fonte ativa,
-                  fallback e orçamento da brapi ficavam invisíveis mesmo pra
-                  admin. */}
-              {admin.usoIA.candles && (() => {
-                const c = admin.usoIA.candles;
-                const orc = c.orcamentoBrapi;
-                const proj = orc && orc.projecaoMes;
-                const rl = orc && orc.headerRateLimit;
-                return (
-                  <>
-                    <div style={{ fontSize: "10.5px", fontWeight: 800, color: T.textMuted, marginBottom: "6px" }}>FONTE DE COTAÇÕES</div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: "5px 14px", color: T.textFaint, fontSize: "10.5px", fontFamily: MONO, marginBottom: orc ? "6px" : 0 }}>
-                      <span>provedor: {FONTE_LABEL(c.provedor)}{c.fallback ? " (backup: " + FONTE_LABEL(c.fallback) + ")" : ""}</span>
-                      <span style={c.alerta ? { color: T.negative } : undefined}>
-                        falha ({c.janelaDias}d): {(c.taxaFalha * 100).toFixed(1)}%{c.alerta ? " ⚠ acima do limiar" : ""}
-                      </span>
-                    </div>
-                    {orc && (
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: "5px 14px", color: T.textFaint, fontSize: "10.5px", fontFamily: MONO }}>
-                        <span>orçamento brapi: {orc.total}/{orc.tetoDia} hoje · cota {orc.cotaMes}/mês</span>
-                        <span>intervalo do spot: {orc.spotIntervaloS}s</span>
-                        {proj && (
-                          <span style={proj.cabeNaCota === false ? { color: T.negative } : undefined}>
-                            projeção do mês: {proj.chamadasMes}/{proj.cotaMes} ({proj.percentualDaCota}%){proj.cabeNaCota === false ? " · NÃO CABE" : ""}
-                          </span>
-                        )}
-                        {rl && rl["x-ratelimit-remaining"] && (
-                          <span>brapi diz: {rl["x-ratelimit-remaining"]}/{rl["x-ratelimit-limit"] || "?"} restantes</span>
-                        )}
-                        <span>{orc.emPregao ? "em pregão" : "fora do pregão"}</span>
-                      </div>
-                    )}
-                  </>
-                );
-              })()}
             </div>
           )}
         </>
+      )}
+    </div>
+  );
+}
+
+// qa/45 (Decisão 1): FONTE DE DADOS nasce da extração de dois blocos que
+// moravam soltos — o override de servidor (estava em "Logs & debug",
+// misturado com diagnóstico) e o painel de fonte de cotações (estava atrás
+// do portão de admin, dentro de "Administração"). Mesmo conteúdo, mesma
+// regra de quem vê o quê (override: qualquer conta no iPhone; cotações:
+// só admin) — só o endereço muda.
+function FonteDadosScreen({ ctx }) {
+  const { data, A } = ctx;
+  const c = data.config;
+  const sectionTitle = { fontSize: "13px", fontWeight: 800, letterSpacing: "0.04em", color: T.accent };
+
+  const [srvTest, setSrvTest] = useState({ status: null, msg: "" });
+  const handleTestServer = async () => {
+    setSrvTest({ status: "testing", msg: "Testando…" });
+    const r = await testServer(c.serverUrl);
+    setSrvTest({ status: r.ok ? "ok" : "error", msg: r.message });
+  };
+  const srvColor = srvTest.status === "ok" ? T.positive : srvTest.status === "error" ? T.negative : T.accent;
+
+  const [admin, setAdmin] = useState(null);
+  const [adminDenied, setAdminDenied] = useState(false);
+  const loadAdmin = useCallback(async () => {
+    try { setAdmin(await store.adminSummary()); setAdminDenied(false); }
+    catch (e) {
+      const msg = (e && e.message) || "";
+      if (/403|restrito|administrador/i.test(msg)) setAdminDenied(true); // conta não-admin: seção some
+    }
+  }, []);
+  useEffect(() => {
+    loadAdmin();
+    const id = setInterval(loadAdmin, 15000);
+    return () => clearInterval(id);
+  }, [loadAdmin]);
+
+  const candles = (!adminDenied && admin && admin.usoIA && admin.usoIA.candles) ? admin.usoIA.candles : null;
+  const orc = candles && candles.orcamentoBrapi;
+  const proj = orc && orc.projecaoMes;
+  const rl = orc && orc.headerRateLimit;
+
+  // ADR-008 (controle de utilização, pedido do Alex): o intervalo do spot é
+  // PARAMETRIZÁVEL aqui — mudar o campo SIMULA (GET, sem aplicar) quantas
+  // chamadas/mês aquele intervalo custaria; só grava ao tocar "Aplicar"
+  // (POST aplicar:true). Nunca aplica sozinho enquanto o admin digita.
+  const [intervaloInput, setIntervaloInput] = useState("");
+  const [intervaloSeeded, setIntervaloSeeded] = useState(false);
+  const [sim, setSim] = useState(null);   // resposta do GET: { vigenteS, projecao, aplicado }
+  const [simBusy, setSimBusy] = useState(false);
+  const [simErr, setSimErr] = useState("");
+  const [applyBusy, setApplyBusy] = useState(false);
+  const [applyMsg, setApplyMsg] = useState("");
+  useEffect(() => {
+    if (!intervaloSeeded && orc && orc.spotIntervaloS != null) {
+      setIntervaloInput(String(orc.spotIntervaloS));
+      setIntervaloSeeded(true);
+    }
+  }, [intervaloSeeded, orc]);
+  useEffect(() => {
+    if (!intervaloSeeded) return;
+    const n = parseInt(intervaloInput, 10);
+    if (!Number.isFinite(n) || n < 30) { setSim(null); return; }
+    setSimErr("");
+    const id = setTimeout(async () => {
+      setSimBusy(true);
+      try { setSim(await store.brapiProjecao(n)); }
+      catch (e) { setSimErr((e && e.message) || String(e)); }
+      finally { setSimBusy(false); }
+    }, 450); // debounce: não simula a cada tecla, só quando o admin pausa
+    return () => clearTimeout(id);
+  }, [intervaloInput, intervaloSeeded]);
+  const intervaloNum = parseInt(intervaloInput, 10);
+  const intervaloValido = Number.isFinite(intervaloNum) && intervaloNum >= 30;
+  const intervaloInalterado = !!(orc && intervaloValido && intervaloNum === orc.spotIntervaloS);
+  const simProj = sim && sim.projecao;
+  const aplicarIntervalo = async () => {
+    if (!intervaloValido) { setApplyMsg("Informe um intervalo válido (mínimo 30s)."); return; }
+    setApplyBusy(true);
+    setApplyMsg("");
+    try {
+      const r = await store.brapiProjecaoAplicar(intervaloNum);
+      setApplyMsg(`Aplicado — intervalo vigente agora: ${r.vigenteS}s.`);
+      loadAdmin();
+    } catch (e) {
+      setApplyMsg((e && e.message) || String(e));
+    } finally {
+      setApplyBusy(false);
+    }
+  };
+
+  return (
+    <div>
+      <h1 style={{ margin: "0 0 6px", fontSize: "22px", fontWeight: 700 }}>Fonte de dados</h1>
+      <p style={{ margin: "0 0 18px", color: T.textMuted, fontSize: "12.5px", lineHeight: 1.5, maxWidth: "580px" }}>
+        Servidor do app e a fonte das cotações usadas no simulador — provedor ativo, backup e orçamento de requisições.
+      </p>
+
+      {isNative && (
+        <div style={{ ...card, padding: "17px 18px", marginBottom: "16px" }}>
+          <div style={sectionTitle}>SERVIDOR DO APP</div>
+          <p style={{ margin: "6px 0 14px", color: T.textMuted, fontSize: "12.5px", lineHeight: 1.5, maxWidth: "560px" }}>
+            O app já vem apontado para o servidor de <b>produção</b> — não precisa configurar nada para usar (login, cotações e IA funcionam de fábrica). Este campo é um <b>override de desenvolvimento</b>: preencha só para testar contra um Mac na rede local; deixe vazio para voltar à produção. Vale para o aparelho inteiro (qualquer conta).
+          </p>
+          <label style={{ display: "block", marginBottom: "12px" }}>
+            <span style={{ display: "block", fontSize: "12px", color: T.textMuted, marginBottom: "6px" }}>Override do servidor (opcional — vazio = produção)</span>
+            <input type="text" value={c.serverUrl || ""} onChange={(e) => A.editConfig({ serverUrl: e.target.value })} onBlur={(e) => A.saveConfig({ serverUrl: e.target.value })} placeholder="vazio = produção · dev: http://192.168.0.12:8787" style={{ ...field, fontFamily: MONO }} />
+          </label>
+          <div style={{ margin: "0 0 12px", fontFamily: MONO, fontSize: "11px", color: T.textFaint }}>em uso agora: {getApiBase()}</div>
+          <button onClick={handleTestServer} style={{ padding: "9px 14px", borderRadius: "8px", border: `1px solid ${T.accent}`, background: T.accentTint10, color: T.accent, fontWeight: 700, fontSize: "13px" }}>Testar conexão</button>
+          {srvTest.status && srvTest.status !== "testing" && (
+            <div style={{ marginTop: "10px", fontSize: "12.5px", color: srvColor }}>{srvTest.msg}</div>
+          )}
+          {srvTest.status === "testing" && <div style={{ marginTop: "10px", fontSize: "12.5px", color: T.textMuted }}><Spinner /> {srvTest.msg}</div>}
+        </div>
+      )}
+
+      {candles && (
+        <div style={{ ...card, padding: "17px 18px" }}>
+          <div style={sectionTitle}>FONTE DE COTAÇÕES</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "5px 14px", color: T.textFaint, fontSize: "10.5px", fontFamily: MONO, marginTop: "10px", marginBottom: orc ? "6px" : 0 }}>
+            <span>provedor: {FONTE_LABEL(candles.provedor)}{candles.fallback ? " (backup: " + FONTE_LABEL(candles.fallback) + ")" : ""}</span>
+            <span style={candles.alerta ? { color: T.negative } : undefined}>
+              falha ({candles.janelaDias}d): {(candles.taxaFalha * 100).toFixed(1)}%{candles.alerta ? " ⚠ acima do limiar" : ""}
+            </span>
+          </div>
+          {orc && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "5px 14px", color: T.textFaint, fontSize: "10.5px", fontFamily: MONO }}>
+              <span>orçamento brapi: {orc.total}/{orc.tetoDia} hoje · cota {orc.cotaMes}/mês</span>
+              <span>intervalo do spot: {orc.spotIntervaloS}s</span>
+              {proj && (
+                <span style={proj.cabeNaCota === false ? { color: T.negative } : undefined}>
+                  projeção do mês: {proj.chamadasMes}/{proj.cotaMes} ({proj.percentualDaCota}%){proj.cabeNaCota === false ? " · NÃO CABE" : ""}
+                </span>
+              )}
+              {rl && rl["x-ratelimit-remaining"] && (
+                <span>brapi diz: {rl["x-ratelimit-remaining"]}/{rl["x-ratelimit-limit"] || "?"} restantes</span>
+              )}
+              <span>{orc.emPregao ? "em pregão" : "fora do pregão"}</span>
+            </div>
+          )}
+
+          {orc && (
+            <div style={{ marginTop: "16px", paddingTop: "14px", borderTop: `1px solid ${T.borderFaint}` }}>
+              <div style={{ fontSize: "10.5px", fontWeight: 800, color: T.textMuted, marginBottom: "8px" }}>AJUSTAR INTERVALO DO SPOT</div>
+              <p style={{ margin: "0 0 10px", color: T.textFaint, fontSize: "11.5px", lineHeight: 1.5, maxWidth: "520px" }}>
+                Mude o intervalo (segundos, mínimo 30) para ver na hora quantas chamadas/mês ele custaria — a conta só simula; grava só ao tocar "Aplicar".
+              </p>
+              <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+                <input type="number" min={30} step={10} value={intervaloInput} onChange={(e) => setIntervaloInput(e.target.value)} style={{ ...field, width: "110px", fontFamily: MONO }} />
+                <span style={{ fontSize: "11.5px", color: T.textFaint }}>segundos</span>
+                <button onClick={aplicarIntervalo} disabled={applyBusy || simBusy || !intervaloValido || intervaloInalterado} style={{ padding: "8px 13px", borderRadius: "8px", border: `1px solid ${T.accent}`, background: T.accent, color: T.onAccent, fontWeight: 800, fontSize: "12px", opacity: (applyBusy || simBusy || !intervaloValido || intervaloInalterado) ? 0.5 : 1 }}>
+                  {applyBusy ? "Aplicando…" : "Aplicar"}
+                </button>
+              </div>
+              {intervaloInput !== "" && !intervaloValido && (
+                <div style={{ marginTop: "6px", fontSize: "11px", color: T.negative }}>mínimo 30s</div>
+              )}
+              {simBusy && <div style={{ marginTop: "8px", fontSize: "11.5px", color: T.textFaint }}><Spinner size={12} /> simulando…</div>}
+              {simErr && <div style={{ marginTop: "8px", fontSize: "11.5px", color: T.negative }}>{simErr}</div>}
+              {!simBusy && simProj && (
+                <div style={{ marginTop: "10px", display: "flex", flexWrap: "wrap", gap: "5px 14px", color: T.textFaint, fontSize: "10.5px", fontFamily: MONO }}>
+                  <span style={{ color: simProj.cabeNaCota === false ? T.negative : T.positive }}>
+                    simulação: {simProj.chamadasMes}/{simProj.cotaMes} por mês ({simProj.percentualDaCota}%){simProj.cabeNaCota === false ? " · NÃO CABE NA COTA" : " · cabe na cota"}
+                  </span>
+                  <span>spot {simProj.detalhe.spot} · delta {simProj.detalhe.delta} · fundamentos {simProj.detalhe.fundamentos}</span>
+                  {simProj.cabeNaCota === false && simProj.intervaloMinimoSeguro != null && (
+                    <span>intervalo mínimo seguro: {simProj.intervaloMinimoSeguro}s</span>
+                  )}
+                </div>
+              )}
+              {applyMsg && <div style={{ marginTop: "8px", fontSize: "11.5px", color: T.textMuted }}>{applyMsg}</div>}
+            </div>
+          )}
+        </div>
+      )}
+
+      {!isNative && !candles && (
+        <div style={{ ...card, padding: "14px 16px" }}>
+          <p style={{ margin: 0, color: T.textMuted, fontSize: "13px", lineHeight: 1.5 }}>
+            O provedor de cotações (brapi, com Yahoo de backup) e o orçamento de requisições são visíveis aqui para contas de administração; o override de servidor só existe no app iOS.
+          </p>
+        </div>
       )}
     </div>
   );
@@ -5747,7 +5871,7 @@ function ConfigScreen({ ctx }) {
   const seg = (on) => ({ flex: 1, padding: "10px", borderRadius: "8px", fontWeight: 600, fontSize: "13px", border: `1px solid ${on ? T.accent : T.borderSubtle}`, background: on ? T.accentTint : T.bgPanel, color: on ? T.accent : T.textMuted });
   return (
     <div>
-      <h1 style={{ margin: "0 0 18px", fontSize: "22px", fontWeight: 700 }}>Configurações</h1>
+      <h1 style={{ margin: "0 0 18px", fontSize: "22px", fontWeight: 700 }}>Preferências</h1>
 
       {/* Personalização — nome e aparência (tema) */}
       <div style={{ ...card, padding: "17px 18px", marginBottom: "16px" }}>
@@ -7276,17 +7400,19 @@ export default function App() {
             ? (<><BackHeader title="Histórico de operações" onBack={() => setCarteiraView("main")} /><HistoricoScreen ctx={ctx} /></>)
             : (<><CapitalCurve ctx={ctx} /><CarteiraScreen ctx={ctx} /><div style={{ marginTop: "14px" }}><button onClick={() => setCarteiraView("historico")} style={{ width: "100%", minHeight: "48px", padding: "13px", borderRadius: "13px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 700, fontSize: "13.5px", display: "flex", alignItems: "center", justifyContent: "space-between" }}><span>Ver histórico de operações</span><span aria-hidden style={{ color: T.textFaint }}>›</span></button></div></>))}
           {tab === "perfil" && (perfilView === "config"
-            ? (<><BackHeader title="Conta & preferências" onBack={() => setPerfilView("hub")} /><ConfigScreen ctx={ctx} /></>)
+            ? (<><BackHeader title="Preferências" onBack={() => setPerfilView("hub")} /><ConfigScreen ctx={ctx} /></>)
             : perfilView === "ia"
-              ? (<><BackHeader title="Configurações de IA" onBack={() => setPerfilView("hub")} /><AiConfigScreen ctx={ctx} /></>)
+              ? (<><BackHeader title="IA & Boris" onBack={() => setPerfilView("hub")} /><AiConfigScreen ctx={ctx} /></>)
               : perfilView === "notificacoes"
                 ? (<><BackHeader title="Notificações" onBack={() => setPerfilView("hub")} /><NotificacoesScreen ctx={ctx} /></>)
                 : perfilView === "eficiencia"
                   ? (<><BackHeader title="Eficiência da IA" onBack={() => setPerfilView("hub")} /><EficienciaIAScreen ctx={ctx} /></>)
                   : perfilView === "atividade"
                     ? (<><BackHeader title="Atividade da IA" onBack={() => setPerfilView("hub")} /><AtividadeIAScreen ctx={ctx} /></>)
+                  : perfilView === "fonteDados"
+                    ? (<><BackHeader title="Fonte de dados" onBack={() => setPerfilView("hub")} /><FonteDadosScreen ctx={ctx} /></>)
                   : perfilView === "logs"
-                    ? (<><BackHeader title="Logs & debug" onBack={() => setPerfilView("hub")} /><LogsDebugScreen ctx={ctx} /></>)
+                    ? (<><BackHeader title="Diagnóstico" onBack={() => setPerfilView("hub")} /><LogsDebugScreen ctx={ctx} /></>)
                     : perfilView === "ajuda"
                       ? (<><BackHeader title="Como funciona" onBack={() => setPerfilView("hub")} /><AjudaScreen ctx={ctx} /></>)
                       : <PerfilHub ctx={ctx} onOpen={setPerfilView} />)}
