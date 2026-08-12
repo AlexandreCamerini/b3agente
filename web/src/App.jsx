@@ -5179,6 +5179,55 @@ function FonteDadosScreen({ ctx }) {
   const proj = orc && orc.projecaoMes;
   const rl = orc && orc.headerRateLimit;
 
+  // ADR-008 (controle de utilização, pedido do Alex): o intervalo do spot é
+  // PARAMETRIZÁVEL aqui — mudar o campo SIMULA (GET, sem aplicar) quantas
+  // chamadas/mês aquele intervalo custaria; só grava ao tocar "Aplicar"
+  // (POST aplicar:true). Nunca aplica sozinho enquanto o admin digita.
+  const [intervaloInput, setIntervaloInput] = useState("");
+  const [intervaloSeeded, setIntervaloSeeded] = useState(false);
+  const [sim, setSim] = useState(null);   // resposta do GET: { vigenteS, projecao, aplicado }
+  const [simBusy, setSimBusy] = useState(false);
+  const [simErr, setSimErr] = useState("");
+  const [applyBusy, setApplyBusy] = useState(false);
+  const [applyMsg, setApplyMsg] = useState("");
+  useEffect(() => {
+    if (!intervaloSeeded && orc && orc.spotIntervaloS != null) {
+      setIntervaloInput(String(orc.spotIntervaloS));
+      setIntervaloSeeded(true);
+    }
+  }, [intervaloSeeded, orc]);
+  useEffect(() => {
+    if (!intervaloSeeded) return;
+    const n = parseInt(intervaloInput, 10);
+    if (!Number.isFinite(n) || n < 30) { setSim(null); return; }
+    setSimErr("");
+    const id = setTimeout(async () => {
+      setSimBusy(true);
+      try { setSim(await store.brapiProjecao(n)); }
+      catch (e) { setSimErr((e && e.message) || String(e)); }
+      finally { setSimBusy(false); }
+    }, 450); // debounce: não simula a cada tecla, só quando o admin pausa
+    return () => clearTimeout(id);
+  }, [intervaloInput, intervaloSeeded]);
+  const intervaloNum = parseInt(intervaloInput, 10);
+  const intervaloValido = Number.isFinite(intervaloNum) && intervaloNum >= 30;
+  const intervaloInalterado = !!(orc && intervaloValido && intervaloNum === orc.spotIntervaloS);
+  const simProj = sim && sim.projecao;
+  const aplicarIntervalo = async () => {
+    if (!intervaloValido) { setApplyMsg("Informe um intervalo válido (mínimo 30s)."); return; }
+    setApplyBusy(true);
+    setApplyMsg("");
+    try {
+      const r = await store.brapiProjecaoAplicar(intervaloNum);
+      setApplyMsg(`Aplicado — intervalo vigente agora: ${r.vigenteS}s.`);
+      loadAdmin();
+    } catch (e) {
+      setApplyMsg((e && e.message) || String(e));
+    } finally {
+      setApplyBusy(false);
+    }
+  };
+
   return (
     <div>
       <h1 style={{ margin: "0 0 6px", fontSize: "22px", fontWeight: 700 }}>Fonte de dados</h1>
@@ -5227,6 +5276,39 @@ function FonteDadosScreen({ ctx }) {
                 <span>brapi diz: {rl["x-ratelimit-remaining"]}/{rl["x-ratelimit-limit"] || "?"} restantes</span>
               )}
               <span>{orc.emPregao ? "em pregão" : "fora do pregão"}</span>
+            </div>
+          )}
+
+          {orc && (
+            <div style={{ marginTop: "16px", paddingTop: "14px", borderTop: `1px solid ${T.borderFaint}` }}>
+              <div style={{ fontSize: "10.5px", fontWeight: 800, color: T.textMuted, marginBottom: "8px" }}>AJUSTAR INTERVALO DO SPOT</div>
+              <p style={{ margin: "0 0 10px", color: T.textFaint, fontSize: "11.5px", lineHeight: 1.5, maxWidth: "520px" }}>
+                Mude o intervalo (segundos, mínimo 30) para ver na hora quantas chamadas/mês ele custaria — a conta só simula; grava só ao tocar "Aplicar".
+              </p>
+              <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+                <input type="number" min={30} step={10} value={intervaloInput} onChange={(e) => setIntervaloInput(e.target.value)} style={{ ...field, width: "110px", fontFamily: MONO }} />
+                <span style={{ fontSize: "11.5px", color: T.textFaint }}>segundos</span>
+                <button onClick={aplicarIntervalo} disabled={applyBusy || simBusy || !intervaloValido || intervaloInalterado} style={{ padding: "8px 13px", borderRadius: "8px", border: `1px solid ${T.accent}`, background: T.accent, color: T.onAccent, fontWeight: 800, fontSize: "12px", opacity: (applyBusy || simBusy || !intervaloValido || intervaloInalterado) ? 0.5 : 1 }}>
+                  {applyBusy ? "Aplicando…" : "Aplicar"}
+                </button>
+              </div>
+              {intervaloInput !== "" && !intervaloValido && (
+                <div style={{ marginTop: "6px", fontSize: "11px", color: T.negative }}>mínimo 30s</div>
+              )}
+              {simBusy && <div style={{ marginTop: "8px", fontSize: "11.5px", color: T.textFaint }}><Spinner size={12} /> simulando…</div>}
+              {simErr && <div style={{ marginTop: "8px", fontSize: "11.5px", color: T.negative }}>{simErr}</div>}
+              {!simBusy && simProj && (
+                <div style={{ marginTop: "10px", display: "flex", flexWrap: "wrap", gap: "5px 14px", color: T.textFaint, fontSize: "10.5px", fontFamily: MONO }}>
+                  <span style={{ color: simProj.cabeNaCota === false ? T.negative : T.positive }}>
+                    simulação: {simProj.chamadasMes}/{simProj.cotaMes} por mês ({simProj.percentualDaCota}%){simProj.cabeNaCota === false ? " · NÃO CABE NA COTA" : " · cabe na cota"}
+                  </span>
+                  <span>spot {simProj.detalhe.spot} · delta {simProj.detalhe.delta} · fundamentos {simProj.detalhe.fundamentos}</span>
+                  {simProj.cabeNaCota === false && simProj.intervaloMinimoSeguro != null && (
+                    <span>intervalo mínimo seguro: {simProj.intervaloMinimoSeguro}s</span>
+                  )}
+                </div>
+              )}
+              {applyMsg && <div style={{ marginTop: "8px", fontSize: "11.5px", color: T.textMuted }}>{applyMsg}</div>}
             </div>
           )}
         </div>
