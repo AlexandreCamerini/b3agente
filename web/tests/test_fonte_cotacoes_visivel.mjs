@@ -2,8 +2,14 @@
 // horário da última atualização e se são em tempo real, atrasados ou
 // históricos." O backend já mandava `source` em todo payload de cotação
 // desde a Fase 5, mas nada na UI mostrava. Guardião: trava a legenda de
-// fonte no card do preço e a seção "FONTE DE COTAÇÕES" no painel de
-// Administração (que já buscava admin.usoIA.candles e nunca renderizava).
+// fonte no card do preço e a seção "FONTE DE COTAÇÕES" (que já buscava
+// admin.usoIA.candles e nunca renderizava).
+//
+// ATUALIZAÇÃO 2026-08-12 (qa/45 Decisão 1): a seção "FONTE DE COTAÇÕES"
+// saiu de dentro do painel de Administração (LogsDebugScreen) e ganhou tela
+// própria, FonteDadosScreen, acessível direto do Perfil — reversão
+// deliberada da localização original deste guardião, sem perda de conteúdo
+// (mesmos campos, mesmo portão de admin via admin.usoIA.candles).
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -26,19 +32,21 @@ ok("legenda de fonte no ramo de cotação viva",
 ok("legenda de fonte junto do fallback 'fechamento'",
   /no período · fechamento\{q\.source \? " · " \+ FONTE_LABEL\(q\.source\) : ""\}/.test(appSrc));
 
-// 3) seção nova no painel de Administração, lendo o que já era buscado
-//    (admin.usoIA.candles) — v1 SÓ VER, mesmo portão de admin de sempre
-const adminBlock = appSrc.slice(appSrc.indexOf("PAINEL DE ADMINISTRAÇÃO"), appSrc.indexOf("PAINEL DE ADMINISTRAÇÃO") + 6000);
-ok("seção FONTE DE COTAÇÕES existe no painel admin", adminBlock.includes("FONTE DE COTAÇÕES"));
+// 3) seção mora na FonteDadosScreen (qa/45 Decisão 1), lendo o que já era
+//    buscado (admin.usoIA.candles) — v1 SÓ VER, mesmo portão de admin de sempre
+const fdIdx = appSrc.indexOf("function FonteDadosScreen(");
+const fdBlock = appSrc.slice(fdIdx, appSrc.indexOf("/* BLOCO 3 — Radar de mercado", fdIdx));
+ok("FonteDadosScreen localizada", fdIdx > -1);
+ok("seção FONTE DE COTAÇÕES existe na FonteDadosScreen", fdBlock.includes("FONTE DE COTAÇÕES"));
 ok("lê admin.usoIA.candles (dado que já era buscado, nunca renderizado)",
-  adminBlock.includes("admin.usoIA.candles"));
-ok("mostra provedor + fallback", /provedor: \{FONTE_LABEL\(c\.provedor\)\}/.test(adminBlock));
-ok("mostra orçamento (teto/dia, cota/mês)", /orçamento brapi: \{orc\.total\}\/\{orc\.tetoDia\}/.test(adminBlock));
-ok("mostra intervalo do spot vigente", /intervalo do spot: \{orc\.spotIntervaloS\}s/.test(adminBlock));
+  fdBlock.includes("admin.usoIA.candles"));
+ok("mostra provedor + fallback", /provedor: \{FONTE_LABEL\(candles\.provedor\)\}/.test(fdBlock));
+ok("mostra orçamento (teto/dia, cota/mês)", /orçamento brapi: \{orc\.total\}\/\{orc\.tetoDia\}/.test(fdBlock));
+ok("mostra intervalo do spot vigente", /intervalo do spot: \{orc\.spotIntervaloS\}s/.test(fdBlock));
 ok("mostra projeção do mês e marca quando NÃO CABE",
-  /projeção do mês:.*NÃO CABE/.test(adminBlock));
+  /projeção do mês:.*NÃO CABE/.test(fdBlock));
 ok("degrada sem orçamento (Yahoo primário) — orc é opcional, nunca quebra",
-  /\{orc && \(/.test(adminBlock));
+  /\{orc && \(/.test(fdBlock));
 
 console.log(fails === 0 ? "\nTUDO OK" : `\n${fails} FALHA(S)`);
 process.exit(fails === 0 ? 0 : 1);
