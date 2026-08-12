@@ -1,9 +1,23 @@
 # qa/45 — Auditoria da configuração, proposta de reorganização e sessão de fonte de cotações
 
-**Data:** 2026-08-11 · **Status:** auditoria + proposta, nenhum código muda nesta
-rodada · **Pedido por:** Alex ("reorganizar toda a parte de configuração...
-log misturado com configuração, duas configurações de conta, sessão de fonte
-de cotações com estatística inteligente e escolha de outro provedor")
+**Data:** 2026-08-11 · **Status:** SUPERADO — ver nota abaixo · **Pedido por:**
+Alex ("reorganizar toda a parte de configuração... log misturado com
+configuração, duas configurações de conta, sessão de fonte de cotações com
+estatística inteligente e escolha de outro provedor")
+
+> **Nota de 2026-08-12 (revisão pós-auditoria do PR #13)**: a Decisão 1
+> (mapa de telas) e o Bloco 1 + Bloco 2 da Decisão 3 (tela "Fonte de dados",
+> leitura e ajuste de intervalo) descritos abaixo **já foram implementados**
+> — PR #14, "qa/45 Decisão 1: Perfil reorganizado — 5 telas, Fonte de dados
+> nova" e "Fonte de dados: intervalo do spot vira parametrizável", mergeados
+> em `main` antes deste PR #13. Este documento fica registrado como está
+> (histórico não se reescreve) para preservar o raciocínio original; para o
+> estado atual da aplicação, ver `qa/46-auditoria-observabilidade-governanca.md`
+> em `main` (esse arquivo não existe nesta branch — foi adicionado depois,
+> direto em `main`, via PR #15).
+> As citações `App.jsx:linha` da Parte 1 abaixo foram corrigidas para bater
+> com o código desta PR (que antecede a reorganização), mas a estrutura que
+> elas descrevem ("hoje") não é mais o estado de `main`.
 
 ---
 
@@ -21,12 +35,14 @@ de cotações com estatística inteligente e escolha de outro provedor")
 | "Notificações" | `onOpen("notificacoes")` | Preferências de push | logado |
 | "Logs & debug" | `onOpen("logs")` | 8 seções heterogêneas (ver 1.3) | todos (parte), admin (parte) |
 
-`App.jsx:2092,2097,2103,2106,2109,2116,2119`.
+`App.jsx:2064,2069,2075,2078,2081,2088,2091` (corrigido em 2026-08-12 — a
+citação original tinha um deslocamento de +28 linhas, herdado de uma versão
+do arquivo posterior à desta PR).
 
 ### 1.2 A duplicidade de "conta" (confirmada)
 
-`App.jsx:2092` — tile "Conta" abre um **modal de auth** (`ctx.openAuth()`), não
-uma tela do sistema de navegação por `onOpen`. `App.jsx:2097` — tile "Conta &
+`App.jsx:2064` — tile "Conta" abre um **modal de auth** (`ctx.openAuth()`), não
+uma tela do sistema de navegação por `onOpen`. `App.jsx:2069` — tile "Conta &
 preferências" abre a tela `ConfigScreen` (`onOpen("config")`), cujo `<h1>`
 interno diz **"Configurações"** (`App.jsx:5673`) — um terceiro nome para o
 mesmo lugar. Resultado: três rótulos ("Conta", "Conta & preferências",
@@ -49,13 +65,16 @@ sistemas diferentes — a senha está no modal atrás do OUTRO tile.
 
 Coerente e enxuta — **isto não precisa mudar**. O problema não é aqui.
 
-### 1.4 `IAScreen` — "Configurações de IA"
+### 1.4 `AiConfigScreen` — "Configurações de IA"
 
-`App.jsx:4304-4448`: MODELO DE IA DO AGENTE, INSTRUÇÕES DO AGENTE (SKILLS),
-CONFIG DE LLMs E PROMPTS, BÓRIS — VOZ/PRESENÇA/AVISOS. Também coerente — tudo
-ali é, de fato, configuração de IA. **Não precisa mudar.**
+`App.jsx:4279-4451` (corrigido em 2026-08-12 — nome do componente e range).
+Quatro seções dentro desse range: INSTRUÇÕES DO AGENTE/SKILLS (`4136`, via
+`<SkillSection`), CONFIG DE LLMs E PROMPTS (`~4175`, via `<PromptsSection`),
+BÓRIS — VOZ/PRESENÇA/AVISOS (`4239`), MODELO DE IA DO AGENTE (`4321`).
+Também coerente — tudo ali é, de fato, configuração de IA. **Não precisa
+mudar.**
 
-### 1.5 `LogsScreen` ("Logs & debug") — onde a mistura está de verdade
+### 1.5 `LogsDebugScreen` ("Logs & debug") — onde a mistura está de verdade
 
 `App.jsx:4896` em diante, na ordem em que aparecem na tela:
 
@@ -150,7 +169,7 @@ nada some, tudo migra:
 | **Preferências** | "Conta & preferências" (renomeia; conteúdo idêntico) | Personalização, período de candles, orçamento simulado, perfil de risco — `ConfigScreen` como está |
 | **IA & Boris** | "Configurações de IA" (renomeia; conteúdo idêntico) | Sem mudança de conteúdo |
 | **Fonte de dados** *(nova)* | fatia de "Logs & debug" (SERVIDOR DO APP + FONTE DE COTAÇÕES) | Ver decisão 3 |
-| **Diagnóstico** | resto de "Logs & debug" (snapshots, diário, logs detalhados, admin de usuários/IA) | Puro log/status, sem campo editável |
+| **Diagnóstico** | resto de "Logs & debug" (snapshots, diagnóstico QA · iOS/IA/notificações, status do Operador no servidor, diário, logs detalhados, admin de usuários/IA) | Puro log/status, sem campo editável |
 
 "Eficiência da IA" e "Atividade da IA" ficam onde estão — já são telas
 coerentes de uma coisa só. **Trade-off**: 5 em vez de 7 tiles no Perfil reduz
@@ -182,10 +201,20 @@ Uma tela nova, visível a **todo usuário logado** (não só admin — ver decis
 1.6), com dois blocos:
 
 **Bloco 1 — hoje (leitura, sempre visível):**
-- Provedor ativo e reserva (brapi/Yahoo), com o rótulo já criado (`FONTE_LABEL`).
-- Frescor medido: "brapi ~70s de atraso · Yahoo ~15min" (números reais de
-  `docs/MEDICAO-Brapi-2026-08-11.md`) — texto fixo, não recalculado ao vivo
-  (evita prometer precisão que a amostra não sustenta).
+- Provedor ativo e reserva (brapi/Yahoo) — precisa de um rótulo de exibição
+  novo (`FONTE_LABEL` não existe nesta PR; nasceu depois, no PR #12 — ao
+  implementar esta decisão, criar ou reusar o que existir em `main` no
+  momento).
+- Frescor: **`docs/MEDICAO-Brapi-2026-08-11.md` marca o delay real do spot
+  em pregão como "não confirmado"** — a medição de referência foi feita às
+  01:31 BRT, fora de pregão, e o próprio documento lista "repetir a
+  amostragem em pregão" como pendência aberta da Fase 0. *(Correção de
+  2026-08-12: a versão original desta linha citava "brapi ~70s de atraso ·
+  Yahoo ~15min" como "números reais" dessa fonte — o arquivo não contém
+  esses números; era um dado não confirmado apresentado como medido,
+  contra o princípio #4 do CLAUDE.md do repo.)* Até uma medição real em
+  pregão existir, a tela não deve mostrar um valor de delay fixo — mostrar
+  "frescor não medido ainda" ou equivalente, nunca um número inventado.
 - Consumo da cota do mês (gasto/teto), com o disclaimer de que é um recurso
   compartilhado entre todos os usuários do app, não individual.
 
@@ -258,7 +287,7 @@ Ancorado no que já existe em `plan.py`, sem reinventar:
 | | Gratuito | Pago |
 |---|---|---|
 | Watchlist/análises | limite via `can_add_ticker`/`can_analyze` (hoje `None` = ilimitado) | ilimitado |
-| Modelo de IA | BYOK obrigatório (chave própria) — estratégia já declarada | + opção de IA gerenciada pelo app (sem precisar de chave própria) |
+| Modelo de IA | BYOK obrigatório (chave própria) — estratégia já declarada | + opção de IA gerenciada pelo app (sem precisar de chave própria) — **candidata, PENDENTE de decisão do Alex** (ver `docs/adr/010`, seção "O que é comercial"; corrigido em 2026-08-12 — esta tabela apresentava como fechado algo que o próprio documento, linha 263, e o ADR-010 classificam como não decidido) |
 | Fonte de cotações | brapi/Yahoo (o que está em produção) | mesmo — não é diferencial de plano, é infraestrutura do app |
 | Features avançadas | — | candidatas: histórico de outcomes por regime (qa/44 B2), alvo dinâmico, IA gerenciada sem cota diária apertada |
 
@@ -303,7 +332,13 @@ consistente com a proibição de "enriquecimento rápido" do CLAUDE.md.
   transparência do princípio #3 pra todo usuário.
 
 **Pode esperar**: Bloco 2 (ajuste de intervalo) — depende só de wiring, mas
-sem urgência de produto.
+sem urgência de produto. *(Nota de 2026-08-12: isto vale para o Bloco 2 como
+descrito aqui — controle **admin-only**, sem gate comercial, que é o que de
+fato foi implementado no PR #14. É diferente do que o `docs/adr/010` discute
+sob "features avançadas do plano pago": uma hipotética versão FUTURA em que
+o próprio usuário pagante ajustaria seu intervalo — essa sim depende de
+repensar a arquitetura de orçamento por-usuário e continua pendente de
+decisão do Alex, sem relação com o wiring admin-only já entregue.)*
 
 **Depende de decisão comercial do Alex** (preço, loja, IAP, o que exatamente
 é premium): tudo do modelo de planos (decisão 6) além do que já existe em
