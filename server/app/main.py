@@ -509,6 +509,24 @@ async def analytics_summary(dias: int = 30, passos: Optional[str] = None, user: 
     }
 
 
+# ADR-012 (Fase 1): agregado cross-usuário de "Eficiência da IA" (mesmo motor
+# de analysis_outcomes.compute_stats que já roda por-usuário em
+# /api/analysis-outcomes/stats) pro portal admin. Recomputado 1x/dia pelo
+# hook do scheduler (analysis_outcomes.maybe_run, cache_conn=_analytics_conn)
+# — o GET só lê o cache. Cold-start (cache ainda não rodou 1x, ex. logo após
+# o deploy desta feature): calcula uma vez na hora em vez de deixar o admin
+# com tela vazia até a próxima passada diária.
+@app.get("/api/analytics/ia-eficiencia")
+async def analytics_ia_eficiencia(user: dict = Depends(require_user)):
+    if not _is_obs_admin(user):
+        raise HTTPException(403, "Eficiência da IA agregada é restrita ao administrador (defina B3_ADMIN_EMAILS no Railway).")
+    cached = analytics.get_cache(_analytics_conn, "ia_eficiencia")
+    if cached is None:
+        analytics.set_cache(_analytics_conn, "ia_eficiencia", analysis_outcomes.compute_stats_all_users(_conn))
+        cached = analytics.get_cache(_analytics_conn, "ia_eficiencia")
+    return {**cached["value"], "computedAt": cached["computedAt"]}
+
+
 # F5 (2026-08-02, decisão do Alex: v1 SÓ VER — sem ação nenhuma). Mesmo portão
 # de admin que obs/usage e obs/logs já usavam (_is_obs_admin); nada novo em
 # termos de quem pode acessar, só um painel que junta o que já existia
