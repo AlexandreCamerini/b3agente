@@ -174,6 +174,131 @@ function Comportamento() {
   );
 }
 
+// ADR-012 (Fase 1): agregado cross-usuário de "Eficiência da IA" — mesmo
+// motor de analysis_outcomes.compute_stats que já roda por-usuário no app
+// consumidor (EficienciaIAScreen, web/src/App.jsx). Componente de gráfico e
+// leitura de célula portados de lá (mesmo padrão visual, sem lib nova).
+function RCurve({ pts, width = 300, height = 64 }) {
+  const vals = (pts || []).filter((v) => typeof v === "number" && isFinite(v));
+  if (!vals.length) return null;
+  const serie = vals.length === 1 ? [0, vals[0]] : [0, ...vals]; // ancora em 0
+  const mn = Math.min(0, ...serie), mx = Math.max(0, ...serie), sp = (mx - mn) || 1;
+  const x = (i) => (i / (serie.length - 1)) * (width - 2) + 1;
+  const y = (v) => (height - 3) - ((v - mn) / sp) * (height - 6);
+  const d = serie.map((v, i) => (i ? "L" : "M") + x(i).toFixed(1) + "," + y(v).toFixed(1)).join(" ");
+  const up = vals[vals.length - 1] >= 0;
+  const y0 = y(0);
+  return (
+    <svg width="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" style={{ display: "block", height }} aria-hidden>
+      <line x1="1" y1={y0.toFixed(1)} x2={width - 1} y2={y0.toFixed(1)} stroke={T.faint} strokeWidth="1" strokeDasharray="3 3" opacity="0.6" />
+      <path d={d} fill="none" stroke={up ? T.positive : T.negative} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function Celula({ rotulo, c, minN }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", gap: "8px", fontSize: "12px", padding: "5px 0", color: T.muted, borderBottom: `1px solid ${T.border}` }}>
+      <span>{rotulo} <span style={{ color: T.faint, fontFamily: MONO }}>n={c.n}</span></span>
+      {c.insuficiente
+        ? <span style={{ color: T.faint }}>n insuficiente (mín. {minN || 10})</span>
+        : <b style={{ fontFamily: MONO, color: c.taxaAcerto >= 50 ? T.positive : T.negative }}>{c.taxaAcerto}%{c.rMedio != null ? ` · ${c.rMedio >= 0 ? "+" : ""}${c.rMedio}R` : ""}</b>}
+    </div>
+  );
+}
+
+function Kpi({ label, value, tone }) {
+  const col = tone === "positive" ? T.positive : tone === "negative" ? T.negative : T.text;
+  return (
+    <div style={{ flex: "1 1 100px", minWidth: "90px" }}>
+      <div style={{ fontFamily: MONO, fontSize: "18px", fontWeight: 800, color: value == null ? T.faint : col }}>{value == null ? "—" : value}</div>
+      <div style={{ fontSize: "10px", color: T.faint, fontWeight: 700, letterSpacing: "0.04em" }}>{label}</div>
+    </div>
+  );
+}
+
+function EficienciaIA() {
+  const { loading, error, data, reload } = useFetch(() => api.iaEficiencia(), []);
+  const minN = data?.minN || 10;
+  return (
+    <>
+      <Card title="Eficiência da IA — agregado de todos os usuários" right={<button onClick={reload} style={btnGhost}>↻ atualizar</button>}>
+        <Estado loading={loading} error={error} empty={data && data.totalAnalises === 0}>
+          {data && data.totalAnalises > 0 && (
+            <>
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                <Kpi label="TAXA DE ACERTO" value={data.taxaAcerto == null ? null : data.taxaAcerto + "%"} tone={data.taxaAcerto == null ? undefined : (data.taxaAcerto >= 50 ? "positive" : "negative")} />
+                <Kpi label="R MÉDIO / ANÁLISE" value={data.rMedio == null ? null : (data.rMedio >= 0 ? "+" : "") + data.rMedio + "R"} tone={data.rMedio == null ? undefined : (data.rMedio >= 0 ? "positive" : "negative")} />
+                <Kpi label="AVALIADAS" value={data.avaliadas} />
+                <Kpi label="AGUARDANDO PRAZO" value={data.pendentes} />
+              </div>
+              {data.porSetup && Object.keys(data.porSetup).length > 0 && (
+                <p style={{ marginTop: "10px", marginBottom: 0, fontSize: "11.5px", color: T.muted, lineHeight: 1.6 }}>
+                  Por setup:{" "}
+                  {Object.entries(data.porSetup).map(([s, v], i, arr) => (
+                    <span key={s} style={{ fontFamily: MONO }}>{s} <b>{v.acerto}/{v.total}</b>{i < arr.length - 1 ? " · " : ""}</span>
+                  ))}
+                </p>
+              )}
+            </>
+          )}
+        </Estado>
+        <div style={{ marginTop: "10px", fontSize: "10.5px", color: T.faint, lineHeight: 1.5 }}>
+          Autoavaliação interna do sistema (prazo fixo de 10 pregões por análise, só quem tinha stop/alvo definidos) — não é garantia de resultado futuro.
+          {data?.computedAt && <> Calculado em {new Date(data.computedAt).toLocaleString("pt-BR")}.</>}
+        </div>
+      </Card>
+
+      {data && data.totalAnalises > 0 && (
+        <Card title="Expectância">
+          {data.expectanciaInsuficiente ? (
+            <div style={{ fontSize: "12px", color: T.faint, lineHeight: 1.5 }}>
+              {data.avaliadas === 0
+                ? `Aguardando o prazo — expectância e profit factor aparecem quando ${minN} análises completarem os 10 pregões.`
+                : `n insuficiente — a partir de ${minN} análises avaliadas (hoje: ${data.avaliadas}).`}
+            </div>
+          ) : (
+            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+              <Kpi label="EXPECTÂNCIA / ANÁLISE" value={data.expectancia == null ? null : (data.expectancia >= 0 ? "+" : "") + data.expectancia + "R"} tone={data.expectancia == null ? undefined : (data.expectancia >= 0 ? "positive" : "negative")} />
+              <Kpi label="PROFIT FACTOR" value={data.profitFactor == null ? null : (data.profitFactor === "inf" ? "∞" : data.profitFactor)} tone={data.profitFactor == null ? undefined : ((data.profitFactor === "inf" || data.profitFactor >= 1) ? "positive" : "negative")} />
+            </div>
+          )}
+        </Card>
+      )}
+
+      {data && data.totalAnalises > 0 && (
+        <Card title="Calibração da confiança declarada">
+          {data.avaliadas === 0 ? (
+            <div style={{ fontSize: "12px", color: T.faint }}>Aguardando o prazo — a calibração aparece conforme as análises completam os 10 pregões.</div>
+          ) : (
+            <>
+              {["alta", "moderada", "baixa", "—"].filter((k) => data.porConfianca && data.porConfianca[k]).map((k) => (
+                <Celula key={k} rotulo={k === "—" ? "sem declaração" : "confiança " + k} c={data.porConfianca[k]} minN={minN} />
+              ))}
+            </>
+          )}
+        </Card>
+      )}
+
+      {data && data.totalAnalises > 0 && (
+        <Card title="Curva de R acumulado">
+          {(!data.curvaR || data.curvaR.length === 0) ? (
+            <div style={{ fontSize: "12px", color: T.faint }}>Aguardando o prazo — a curva aparece conforme as análises completam os 10 pregões.</div>
+          ) : (
+            <>
+              <RCurve pts={data.curvaR} />
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginTop: "10px" }}>
+                <Kpi label="R ACUMULADO" value={data.rAcumulado == null ? null : (data.rAcumulado >= 0 ? "+" : "") + data.rAcumulado + "R"} tone={data.rAcumulado == null ? undefined : (data.rAcumulado >= 0 ? "positive" : "negative")} />
+                <Kpi label="DRAWDOWN MÁX." value={data.drawdownMax == null ? "n insuf." : "−" + data.drawdownMax + "R"} tone={data.drawdownMax == null ? undefined : "negative"} />
+              </div>
+            </>
+          )}
+        </Card>
+      )}
+    </>
+  );
+}
+
 const btnGhost = { background: "transparent", border: `1px solid ${T.border}`, color: T.muted, borderRadius: "6px", padding: "4px 10px", fontSize: "11.5px", cursor: "pointer" };
 const selectStyle = { background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: "6px", padding: "4px 8px", fontSize: "12px" };
 
@@ -229,6 +354,7 @@ const VIEWS = [
   { id: "visaoGeral", label: "Visão Geral", C: VisaoGeral },
   { id: "custos", label: "Custos", C: Custos },
   { id: "comportamento", label: "Comportamento do Usuário", C: Comportamento },
+  { id: "eficienciaIA", label: "Eficiência da IA", C: EficienciaIA },
 ];
 
 export default function App() {

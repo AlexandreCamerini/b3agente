@@ -30,6 +30,13 @@
       "port": 8787
     },
     {
+      "name": "admin",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "web-admin", "run", "dev"],
+      "port": 5175,
+      "autoPort": true
+    },
+    {
       "name": "web-clone",
       "runtimeExecutable": "/bin/sh",
       "runtimeArgs": [

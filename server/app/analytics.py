@@ -104,6 +104,17 @@ def init_db(conn: sqlite3.Connection) -> None:
         " PRIMARY KEY(day, event)"
         ")"
     )
+    # ADR-012: cache genérico p/ agregados caros do portal admin (ex.
+    # eficiência da IA cross-usuário) — 1 linha por chave, recomputada 1x/dia
+    # pelo hook do scheduler que "dono" da chave escolher. Evita recálculo
+    # síncrono pesado em toda request GET do admin.
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS admin_cache ("
+        " key TEXT PRIMARY KEY,"
+        " value TEXT NOT NULL,"
+        " computed_at TEXT NOT NULL"
+        ")"
+    )
     conn.commit()
 
 
@@ -182,6 +193,24 @@ def purge_older_than(conn, cutoff_day: str) -> int:
 
 def enabled() -> bool:
     return not os.environ.get("B3_ANALYTICS_OFF")
+
+
+# --------------------------- cache genérico (ADR-012) -----------------------
+
+def set_cache(conn, key: str, value) -> None:
+    conn.execute(
+        "INSERT INTO admin_cache(key, value, computed_at) VALUES(?,?,?) "
+        "ON CONFLICT(key) DO UPDATE SET value = excluded.value, computed_at = excluded.computed_at",
+        (key, json.dumps(value, ensure_ascii=False), datetime.now(timezone.utc).isoformat()),
+    )
+    conn.commit()
+
+
+def get_cache(conn, key: str) -> Optional[dict]:
+    row = conn.execute("SELECT value, computed_at FROM admin_cache WHERE key = ?", (key,)).fetchone()
+    if not row:
+        return None
+    return {"value": json.loads(row[0]), "computedAt": row[1]}
 
 
 async def maybe_run(conn, _now: Optional[float] = None) -> Optional[dict]:

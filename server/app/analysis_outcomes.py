@@ -221,6 +221,19 @@ def compute_stats(outcomes: list, modo: Optional[str] = None, tipo: Optional[str
     }
 
 
+def compute_stats_all_users(conn, modo: Optional[str] = None, tipo: Optional[str] = None) -> dict:
+    """ADR-012 (Fase 1): agregado cross-usuário pro portal admin. Reaproveita
+    `_scopes_com_outcomes` (já varria todos os escopos pra `avaliar_pendentes`)
+    e `compute_stats` (puro, já testado) por cima da concatenação. NUNCA
+    devolve `user_id` nem a lista bruta de outcomes — só o dict agregado, que
+    já respeita MIN_N por célula (evita reidentificar usuário por amostra
+    pequena). Chamador (endpoint admin) não deve expor outcomes crus."""
+    todos: list = []
+    for uid in _scopes_com_outcomes(conn):
+        todos.extend(db.kv_get(conn, _key(), [], user_id=uid) or [])
+    return compute_stats(todos, modo=modo, tipo=tipo)
+
+
 def to_csv(outcomes: list) -> str:
     """Export CSV das análises registradas (qa/35 P2) — colunas fixas, uma
     linha por análise; célula vazia = dado indisponível (nunca inferido)."""
@@ -347,17 +360,28 @@ def last_run_date(conn) -> Optional[str]:
     return db.kv_get(conn, "analysisOutcomesLastRun", None, user_id=None)
 
 
-async def maybe_run(conn, fetch) -> Optional[int]:
+async def maybe_run(conn, fetch, cache_conn=None) -> Optional[int]:
     """Hook do scheduler: roda no máximo 1x/dia (mesmo padrão de
     radar_daily.maybe_run) — não precisa de horário fixo, só de rodar depois
     do fechamento do pregão pelo menos uma vez por dia.
-    qa/42: o gate é persistido (kv), não só memória — deploy não re-executa."""
+    qa/42: o gate é persistido (kv), não só memória — deploy não re-executa.
+
+    `cache_conn` (ADR-012, opcional — conexão de analytics.db): quando
+    presente, recalcula o agregado cross-usuário do portal admin no MESMO
+    job, sem scheduler novo — o admin nunca vê cálculo síncrono pesado numa
+    request GET."""
     if LAST_EVAL["date"] == _hoje() or last_run_date(conn) == _hoje():
         return None
     try:
         n = await avaliar_pendentes(conn, fetch)
         LAST_EVAL.update(date=_hoje(), avaliadas=n, erro=None)
         db.kv_set(conn, "analysisOutcomesLastRun", _hoje(), user_id=None)
+        if cache_conn is not None:
+            try:
+                from . import analytics as analytics_mod  # import local: sem ciclo de import
+                analytics_mod.set_cache(cache_conn, "ia_eficiencia", compute_stats_all_users(conn))
+            except Exception as e:  # noqa: BLE001 — cache nunca derruba a avaliação que já rodou
+                print(f"[analysis-outcomes] refresh do cache admin falhou: {e}")
         return n
     except Exception as e:  # noqa: BLE001 — nunca derruba o laço do agente
         LAST_EVAL["erro"] = str(e)[:200]
