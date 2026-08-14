@@ -221,17 +221,25 @@ def compute_stats(outcomes: list, modo: Optional[str] = None, tipo: Optional[str
     }
 
 
-def compute_stats_all_users(conn, modo: Optional[str] = None, tipo: Optional[str] = None) -> dict:
-    """ADR-012 (Fase 1): agregado cross-usuário pro portal admin. Reaproveita
-    `_scopes_com_outcomes` (já varria todos os escopos pra `avaliar_pendentes`)
-    e `compute_stats` (puro, já testado) por cima da concatenação. NUNCA
-    devolve `user_id` nem a lista bruta de outcomes — só o dict agregado, que
-    já respeita MIN_N por célula (evita reidentificar usuário por amostra
-    pequena). Chamador (endpoint admin) não deve expor outcomes crus."""
+def outcomes_de_todos_os_usuarios(conn) -> list:
+    """ADR-012 (Fase 3): outcomes CRUS de todos os escopos concatenados — para
+    módulos que precisam cruzar por `snapshotId` (ver automacao.py). Sem
+    MIN_N nem agregação; quem chama decide o que fazer com a granularidade
+    individual. Não identifica usuário (outcomes não carregam `user_id`)."""
     todos: list = []
     for uid in _scopes_com_outcomes(conn):
         todos.extend(db.kv_get(conn, _key(), [], user_id=uid) or [])
-    return compute_stats(todos, modo=modo, tipo=tipo)
+    return todos
+
+
+def compute_stats_all_users(conn, modo: Optional[str] = None, tipo: Optional[str] = None) -> dict:
+    """ADR-012 (Fase 1): agregado cross-usuário pro portal admin. Reaproveita
+    `outcomes_de_todos_os_usuarios` e `compute_stats` (puro, já testado) por
+    cima da concatenação. NUNCA devolve `user_id` nem a lista bruta de
+    outcomes — só o dict agregado, que já respeita MIN_N por célula (evita
+    reidentificar usuário por amostra pequena). Chamador (endpoint admin) não
+    deve expor outcomes crus."""
+    return compute_stats(outcomes_de_todos_os_usuarios(conn), modo=modo, tipo=tipo)
 
 
 def to_csv(outcomes: list) -> str:

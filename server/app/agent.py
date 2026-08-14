@@ -310,7 +310,7 @@ async def _avaliar_opcoes(conn, scope, ag, par, option_quotes_getter, executed: 
                            "text": f"Teto por operação (R$ {par['maxValorOp']:.2f}) excedido em {pos['id']} "
                                    f"(R$ {valor_op:.2f}). Registrado, sem execução."})
             continue
-        store.sell_option(conn, pos["id"], price, user_id=scope, motivo=motivo)
+        store.sell_option(conn, pos["id"], price, user_id=scope, motivo=motivo, origem="automatico")  # ADR-012 (Fase 3)
         executed += 1
         _bump_ops(conn, scope, store.get(conn, "agent", user_id=scope) or ag)
         events.append({"time": _now_str(), "kind": "buy",
@@ -396,7 +396,7 @@ async def _avaliar_entradas(conn, scope, ag, par, app_mode, positions, executed:
                            "text": f"Teto por operação (R$ {par['maxValorOp']:.2f}) excedido na entrada "
                                    f"automática de {ticker} (R$ {valor_op:.2f}). Registrado, sem execução."})
             continue
-        store.buy(conn, ticker, qty, price, user_id=scope, meta={"setup": r.get("setup")})
+        store.buy(conn, ticker, qty, price, user_id=scope, meta={"setup": r.get("setup")}, origem="automatico")  # ADR-012 (Fase 3)
         executed += 1
         _bump_ops(conn, scope, store.get(conn, "agent", user_id=scope) or ag)
         events.append({"time": _now_str(), "kind": "buy",
@@ -582,7 +582,7 @@ async def _run_cycle_inner(conn, scope, quotes_getter, origem: str, t0: float, s
             events.append({"time": _now_str(), "kind": "warn",
                            "text": f"Teto por operação (R$ {par['maxValorOp']:.2f}) excedido em {pos['t']} (R$ {valor_op:.2f}). Registrado, sem execução."})
             continue
-        store.sell(conn, pos["t"], price, user_id=scope)
+        store.sell(conn, pos["t"], price, user_id=scope, origem="automatico")  # ADR-012 (Fase 3)
         executed += 1
         _bump_ops(conn, scope, store.get(conn, "agent", user_id=scope) or ag)
         events.append({"time": _now_str(), "kind": "buy",
@@ -780,6 +780,11 @@ async def scheduler_loop(conn, quotes_getter, notify_push=None, interval_s: int 
                 await analytics_mod.maybe_run(analytics_conn)
             except Exception as e:  # noqa: BLE001 — analytics nunca derruba o laço
                 print(f"[analytics] hook do scheduler falhou: {e}")
+            try:
+                from . import automacao  # ADR-012 (Fase 3): import local, sem ciclo de import
+                automacao.maybe_refresh_cache(conn, analytics_conn)
+            except Exception as e:  # noqa: BLE001 — automação nunca derruba o laço
+                print(f"[automacao] hook do scheduler falhou: {e}")
         try:
             if radar_fetch is not None and not kill_switch_on():
                 from . import radar_daily  # import local: sem ciclo de import

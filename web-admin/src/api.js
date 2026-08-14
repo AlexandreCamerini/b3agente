@@ -53,4 +53,5 @@ export const api = {
   obsUsage: () => req("GET", "/api/obs/usage"),
   analyticsSummary: (dias) => req("GET", "/api/analytics/summary" + (dias ? "?dias=" + encodeURIComponent(dias) : "")),
   iaEficiencia: () => req("GET", "/api/analytics/ia-eficiencia"),
+  automacao: () => req("GET", "/api/analytics/automacao"),
 };

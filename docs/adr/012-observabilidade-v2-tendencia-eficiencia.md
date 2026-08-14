@@ -1,10 +1,10 @@
 # ADR-012: Portal de Observabilidade v2 — tendência no tempo, eficiência da IA e da automação
 
-**Status:** Proposto — Fases 1 (Eficiência da IA agregada) e 2 (tendência
-para Comportamento do Usuário) implementadas. Fases 3-5 (automação +
-correlação análise↔operação, série temporal para Visão Geral/Custos,
-redesenho visual) seguem o mesmo faseamento, cada uma com aprovação própria
-antes de começar.
+**Status:** Proposto — Fases 1 (Eficiência da IA agregada), 2 (tendência
+para Comportamento do Usuário) e 3 (automação + correlação
+análise↔operação) implementadas. Fases 4-5 (série temporal para Visão
+Geral/Custos, redesenho visual) seguem o mesmo faseamento, cada uma com
+aprovação própria antes de começar.
 **Data:** 2026-08-14 · **Companion:** ADR-011 (v1 do portal, já em produção)
 
 ---
@@ -91,17 +91,29 @@ real por usuário) por uma aproximação errada. Ele continua no dado bruto,
 com o limite de `RETENCAO_DIAS` (90 dias) já existente — a UI mostra essa
 limitação explicitamente, não a esconde.
 
-### Fase 3 — Automação + correlação análise↔operação (planejada)
+### Fase 3 — Automação + correlação análise↔operação (implementada)
 
-`store.buy`/`sell`/`buy_option`/`sell_option` ganham `origem: str = "manual"`
-(default preserva as chamadas manuais existentes); os 3 call-sites do
-Operador automático em `agent.py` passam `origem="automatico"`. Histórico
-anterior à mudança fica sem `origem` — não é reescrito retroativamente.
-Correlação por `snapshotId` (já existe nos dois lados: `history` e
-`analysisOutcomes`) responde "das análises registradas, quantas viraram
-ordem, com que origem, e o resultado bateu com o que a análise previu?" —
-sem fabricar "tempo de reação" nem "slippage vs. previsto" (dado que não
-existe hoje).
+`store.buy`/`sell`/`buy_option`/`sell_option` ganharam `origem: str =
+"manual"` (default preserva as chamadas manuais de `main.py` sem alteração).
+Os 3 call-sites do Operador automático em `agent.py` passam
+`origem="automatico"`. `close_option_vencida` (liquidação por expiração,
+ADR-005) ganhou `origem="sistema"` — DELIBERADAMENTE separado de
+`automatico`: expiração é liquidação mecânica obrigatória, roda igual com o
+Operador ligado ou desligado, não é uma decisão do agente; misturar inflaria
+a métrica de eficiência da automação com eventos que o Operador não
+escolheu. Histórico anterior à mudança fica sem a chave `origem` (bucket
+"desconhecida") — não é reescrito retroativamente.
+
+Novo módulo `automacao.py`: `resumo_por_origem` (contagem + PnL agregado por
+origem, cross-usuário) e `correlacao_analise_operacao` (cruza `history` com
+`analysisOutcomes` por `snapshotId` — a chave que já existia nos dois
+lados). Cobertura é PARCIAL por natureza (`snapshotId` é campo opcional que
+o cliente manda na hora da ordem) e o percentual de cobertura é sempre
+mostrado explicitamente, nunca escondido atrás de um número que pareça
+completo. **Não implementa** "tempo de reação" nem "slippage vs. previsto"
+— esse dado não existe no sistema hoje, não foi fabricado. Mesmo padrão de
+cache diário da Fase 1 (`automacao.maybe_refresh_cache`, hook no
+scheduler), com cold-start no endpoint.
 
 ### Fase 4 — Série temporal para Visão Geral e Custos (planejada)
 
