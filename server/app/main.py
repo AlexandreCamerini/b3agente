@@ -22,6 +22,7 @@ from . import regime  # qa/44 (B, ADR-009): classifica regime p/ gravar no outco
 from . import scanner  # BLOCO 3: radar de mercado (varredura do universo)
 from . import radar_daily  # FASE 4 (1.3): varredura automática 1x/dia + sob demanda
 from . import analysis_outcomes  # qa/30 (Fase A): autoavaliação da IA (N1/N2 vs. comportamento real)
+from . import automacao  # ADR-012 (Fase 3): eficiência das operações automáticas do Operador
 from . import ai_activity  # qa/45: custo (R$) + histórico de comportamento da IA
 from . import fundamentals  # qa/36 (F10.2): fundamento × técnica (score, cache, rebaixamento)
 from . import scan_deep  # FASE 1 (N1): aprofundamento IA do top-N do Radar
@@ -528,6 +529,25 @@ async def analytics_ia_eficiencia(user: dict = Depends(require_user)):
         analytics.set_cache(_analytics_conn, "ia_eficiencia", analysis_outcomes.compute_stats_all_users(_conn))
         cached = analytics.get_cache(_analytics_conn, "ia_eficiencia")
     return {**cached["value"], "computedAt": cached["computedAt"]}
+
+
+# ADR-012 (Fase 3): eficiência das operações automáticas (origem manual ×
+# automatico × sistema) + correlação com as análises que a IA registrou (via
+# snapshotId). Mesmo padrão de cache diário de ia-eficiencia — o hook do
+# scheduler (automacao.maybe_refresh_cache) recomputa 1x/dia; cold-start
+# calcula uma vez na hora.
+@app.get("/api/analytics/automacao")
+async def analytics_automacao(user: dict = Depends(require_user)):
+    if not _is_obs_admin(user):
+        raise HTTPException(403, "Automação é restrita ao administrador (defina B3_ADMIN_EMAILS no Railway).")
+    resumo = analytics.get_cache(_analytics_conn, "automacao_resumo")
+    correlacao = analytics.get_cache(_analytics_conn, "automacao_correlacao")
+    if resumo is None or correlacao is None:
+        analytics.set_cache(_analytics_conn, "automacao_resumo", automacao.resumo_por_origem(_conn))
+        analytics.set_cache(_analytics_conn, "automacao_correlacao", automacao.correlacao_analise_operacao(_conn))
+        resumo = analytics.get_cache(_analytics_conn, "automacao_resumo")
+        correlacao = analytics.get_cache(_analytics_conn, "automacao_correlacao")
+    return {**resumo["value"], "correlacaoAnaliseOperacao": correlacao["value"], "computedAt": resumo["computedAt"]}
 
 
 # F5 (2026-08-02, decisão do Alex: v1 SÓ VER — sem ação nenhuma). Mesmo portão

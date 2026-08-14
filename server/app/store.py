@@ -484,6 +484,22 @@ def set_position(conn, t: str, stop=None, alvo=None, has_stop=False, has_alvo=Fa
     db.kv_set(conn, "positions", positions, user_id=user_id)
 
 
+def scopes_com_history(conn) -> list:
+    """ADR-012 (Fase 3): todo user_id (+ escopo legado, `None`) com `history`
+    gravado — mesmo padrão de `analysis_outcomes._scopes_com_outcomes`,
+    reaproveitado por `automacao.py` pra agregar ordens cross-usuário."""
+    rows = conn.execute(
+        "SELECT key FROM kv WHERE key LIKE 'u:%:history' OR key = 'history'"
+    ).fetchall()
+    out = []
+    for (key,) in rows:
+        if key == "history":
+            out.append(None)
+        else:
+            out.append(key[len("u:"):-len(":history")])
+    return out
+
+
 def _sanitize_trade_meta(meta) -> dict:
     """FASE 2 (2.4): contexto de ENTRADA registrado na compra — setup que a
     originou (do STU da F1), gatilho/invalidação e snapshotId. Só campos
@@ -503,7 +519,7 @@ def _sanitize_trade_meta(meta) -> dict:
     return out
 
 
-def buy(conn, t: str, qty: int, price: float, user_id=None, meta=None) -> None:
+def buy(conn, t: str, qty: int, price: float, user_id=None, meta=None, origem: str = "manual") -> None:
     qty = max(100, round(qty / 100) * 100)
     positions = get(conn, "positions", user_id=user_id)
     cash = get(conn, "cash", user_id=user_id)
@@ -523,7 +539,12 @@ def buy(conn, t: str, qty: int, price: float, user_id=None, meta=None) -> None:
             pos["setupEntrada"] = m
         positions.append(pos)
     cash = round(cash - qty * price, 2)
-    entry = {"date": now_str(), "type": "COMPRA", "t": t, "qty": qty, "price": round(price, 2), "pnl": None}
+    # ADR-012 (Fase 3): `origem` (manual|automatico) — quem disparou a ordem,
+    # não confundir com `motivo` de sell_option (POR QUE vendeu). Sempre
+    # gravado (nunca condicional como setup/snapshotId) — histórico ANTERIOR
+    # a esta mudança fica sem a chave (None no .get), não é reescrito.
+    entry = {"date": now_str(), "type": "COMPRA", "t": t, "qty": qty, "price": round(price, 2), "pnl": None,
+             "origem": origem}
     if m.get("setup"):
         entry["setup"] = m["setup"]
     if m.get("snapshotId"):
@@ -534,7 +555,7 @@ def buy(conn, t: str, qty: int, price: float, user_id=None, meta=None) -> None:
     db.kv_set(conn, "history", history, user_id=user_id)
 
 
-def sell(conn, t: str, price: float, user_id=None, qty=None):
+def sell(conn, t: str, price: float, user_id=None, qty=None, origem: str = "manual"):
     """Venda simulada TOTAL (comportamento original, qty=None) ou PARCIAL
     (FASE 2/2.4): qty é normalizado para lotes de 100; parcial mantém o preço
     médio (PnL realizado proporcional); >= posição vira total."""
@@ -553,7 +574,8 @@ def sell(conn, t: str, price: float, user_id=None, qty=None):
     else:
         pos["qty"] = pos["qty"] - sold  # parcial: avg preservado
     cash = round(cash + sold * price, 2)
-    history.insert(0, {"date": now_str(), "type": "VENDA", "t": t, "qty": sold, "price": round(price, 2), "pnl": pnl})
+    history.insert(0, {"date": now_str(), "type": "VENDA", "t": t, "qty": sold, "price": round(price, 2), "pnl": pnl,
+                        "origem": origem})
     db.kv_set(conn, "positions", positions, user_id=user_id)
     db.kv_set(conn, "cash", cash, user_id=user_id)
     db.kv_set(conn, "history", history, user_id=user_id)
@@ -561,7 +583,7 @@ def sell(conn, t: str, price: float, user_id=None, qty=None):
 
 
 # ---------- optionPositions (ADR-003: coleção própria, nunca mistura com `positions`) ----------
-def buy_option(conn, contract: dict, qty: int, price: float, user_id=None, meta=None) -> None:
+def buy_option(conn, contract: dict, qty: int, price: float, user_id=None, meta=None, origem: str = "manual") -> None:
     """Compra simulada de UM contrato de opção. `contract` traz id (contractSymbol,
     chave primária e de cotação — ADR-003) / underlying / optionType / strike /
     expiration, vindos do provider. `price` é o PRÊMIO por ação, mesma unidade
@@ -594,7 +616,7 @@ def buy_option(conn, contract: dict, qty: int, price: float, user_id=None, meta=
         opts.append(pos)
     cash = round(cash - qty * price, 2)
     entry = {"date": now_str(), "type": "COMPRA", "t": cid, "underlying": contract.get("underlying"),
-             "kind": "opcao", "qty": qty, "price": round(price, 2), "pnl": None}
+             "kind": "opcao", "qty": qty, "price": round(price, 2), "pnl": None, "origem": origem}
     if m.get("setup"):
         entry["setup"] = m["setup"]
     if m.get("snapshotId"):
@@ -616,12 +638,18 @@ def set_option_position(conn, contract_id: str, stop=None, alvo=None, has_stop=F
     db.kv_set(conn, "optionPositions", opts, user_id=user_id)
 
 
-def sell_option(conn, contract_id: str, price: float, user_id=None, qty=None, motivo: str = "manual"):
+def sell_option(conn, contract_id: str, price: float, user_id=None, qty=None, motivo: str = "manual",
+                 origem: str = "manual"):
     """Venda simulada TOTAL ou PARCIAL de um contrato. `motivo` (ADR-005):
     'manual' | 'stop' | 'alvo' | 'vencimento' — estruturado desde o início,
     ao contrário do texto descartável que `positions`/history de ação usa
     hoje. Vencimento passa por `close_option_vencida`, nunca chama esta
-    função com preço negociado."""
+    função com preço negociado.
+
+    `origem` (ADR-012, Fase 3): manual|automatico — QUEM disparou a venda,
+    independente de `motivo` (POR QUE). Um stop batido pelo Operador
+    automático é motivo='stop', origem='automatico'; o mesmo stop fechado
+    manualmente pelo usuário é motivo='stop', origem='manual'."""
     opts = get(conn, "optionPositions", user_id=user_id)
     pos = next((p for p in opts if p["id"] == contract_id), None)
     if not pos:
@@ -638,7 +666,8 @@ def sell_option(conn, contract_id: str, price: float, user_id=None, qty=None, mo
         pos["qty"] = pos["qty"] - sold  # parcial: avg preservado
     cash = round(cash + sold * price, 2)
     history.insert(0, {"date": now_str(), "type": "VENDA", "t": contract_id, "underlying": pos.get("underlying"),
-                        "kind": "opcao", "qty": sold, "price": round(price, 2), "pnl": pnl, "motivo": motivo})
+                        "kind": "opcao", "qty": sold, "price": round(price, 2), "pnl": pnl, "motivo": motivo,
+                        "origem": origem})
     db.kv_set(conn, "optionPositions", opts, user_id=user_id)
     db.kv_set(conn, "cash", cash, user_id=user_id)
     db.kv_set(conn, "history", history, user_id=user_id)
@@ -649,8 +678,15 @@ def close_option_vencida(conn, contract_id: str, valor_intrinseco: float, user_i
     """ADR-005: liquidação por expiração. Preço = valor intrínseco na data do
     vencimento — pode ser ZERO (perda total do prêmio), sem que nenhum stop
     tenha sido rompido. Nunca chamada com preço negociado; motivo sempre
-    'vencimento'."""
-    return sell_option(conn, contract_id, max(0.0, float(valor_intrinseco)), user_id=user_id, motivo="vencimento")
+    'vencimento'.
+
+    `origem='sistema'` (ADR-012, Fase 3): NÃO é 'automatico' — expiração é
+    liquidação mecânica obrigatória, roda IGUAL com o Operador ligado ou
+    desligado, não é uma decisão do agente. Misturar com 'automatico' inflaria
+    ou distorceria a métrica de eficiência da automação com eventos que o
+    Operador não escolheu."""
+    return sell_option(conn, contract_id, max(0.0, float(valor_intrinseco)), user_id=user_id,
+                       motivo="vencimento", origem="sistema")
 
 
 def push_events(conn, events: list, cap: int = 50, user_id=None) -> dict:

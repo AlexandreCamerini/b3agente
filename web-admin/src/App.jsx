@@ -348,6 +348,54 @@ function EficienciaIA() {
   );
 }
 
+const ORIGEM_LABEL = { manual: "Manual", automatico: "Automático (Operador)", sistema: "Sistema (expiração)", desconhecida: "Desconhecida (histórico antigo)" };
+
+// ADR-012 (Fase 3): eficiência das operações automáticas — contagem/PnL por
+// origem + correlação análise↔operação por snapshotId.
+function Automacao() {
+  const { loading, error, data, reload } = useFetch(() => api.automacao(), []);
+  const cor = data?.correlacaoAnaliseOperacao;
+  return (
+    <>
+      <Card title="Ordens por origem" right={<button onClick={reload} style={btnGhost}>↻ atualizar</button>}>
+        <Estado loading={loading} error={error} empty={data && data.totalOrdens === 0}>
+          {data && data.totalOrdens > 0 && Object.entries(data.porOrigem || {}).map(([origem, v]) => (
+            <Kv key={origem} label={ORIGEM_LABEL[origem] || origem}
+                value={v.ordens + " ordem(ns) · PnL " + (v.pnlContagem > 0 ? (v.pnlTotal >= 0 ? "+" : "") + "R$ " + v.pnlTotal.toFixed(2) + " (" + v.pnlContagem + " venda(s))" : "— (sem venda ainda)")}
+                tone={v.pnlContagem === 0 ? undefined : (v.pnlTotal >= 0 ? "positive" : "negative")} />
+          ))}
+        </Estado>
+        <div style={{ marginTop: "10px", fontSize: "10.5px", color: T.faint, lineHeight: 1.5 }}>
+          "Sistema" = liquidação por expiração de opção (ADR-005) — não é decisão do Operador, por isso separada de "Automático".
+          {data?.computedAt && <> Calculado em {new Date(data.computedAt).toLocaleString("pt-BR")}.</>}
+        </div>
+      </Card>
+
+      {cor && (
+        <Card title="Análise → operação (correlação por snapshotId)">
+          <Estado loading={loading} error={error} empty={cor.ordensDeEntrada === 0}>
+            {cor.ordensDeEntrada > 0 && (
+              <>
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                  <Kpi label="ORDENS DE ENTRADA" value={cor.ordensDeEntrada} />
+                  <Kpi label="COBERTURA (COM SNAPSHOT)" value={cor.coberturaPct == null ? null : cor.coberturaPct + "%"} />
+                  <Kpi label="VINCULADAS A ANÁLISE" value={cor.vinculadasComAnaliseRegistrada} />
+                  <Kpi label="RESOLVIDAS" value={cor.resolvidas} />
+                  <Kpi label="SEGUIU ANÁLISE C/ SUCESSO" value={cor.seguiuAnaliseComSucesso} tone={cor.resolvidas > 0 ? (cor.seguiuAnaliseComSucesso / cor.resolvidas >= 0.5 ? "positive" : "negative") : undefined} />
+                </div>
+              </>
+            )}
+          </Estado>
+          <div style={{ marginTop: "10px", fontSize: "10.5px", color: T.faint, lineHeight: 1.5 }}>
+            Cobertura é parcial por natureza: `snapshotId` é campo opcional enviado pelo cliente na hora da ordem, nem toda ordem carrega — o número acima nunca é escondido atrás de uma métrica que pareça completa.
+            Não mede tempo de reação nem slippage vs. previsto (esse dado não existe no sistema hoje).
+          </div>
+        </Card>
+      )}
+    </>
+  );
+}
+
 const btnGhost = { background: "transparent", border: `1px solid ${T.border}`, color: T.muted, borderRadius: "6px", padding: "4px 10px", fontSize: "11.5px", cursor: "pointer" };
 const selectStyle = { background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: "6px", padding: "4px 8px", fontSize: "12px" };
 
@@ -404,6 +452,7 @@ const VIEWS = [
   { id: "custos", label: "Custos", C: Custos },
   { id: "comportamento", label: "Comportamento do Usuário", C: Comportamento },
   { id: "eficienciaIA", label: "Eficiência da IA", C: EficienciaIA },
+  { id: "automacao", label: "Automação", C: Automacao },
 ];
 
 export default function App() {
