@@ -418,6 +418,9 @@ def _usage_snapshot() -> dict:
         # A2a (auditoria): uso da rota legada /api/analyze desde o deploy —
         # zero sustentado = builds antigos morreram, a rota pode aposentar.
         "legacyAnalyze": dict(LEGACY_ANALYZE),
+        # qa/46 (Fase 2): candle_cache.stats() já existia, sem endpoint — só
+        # liga o fio (L2/SQLite: nº de candles + idade por symbol@interval).
+        "cacheCandles": candle_cache.stats(),
     }
 
 
