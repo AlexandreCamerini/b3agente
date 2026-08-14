@@ -2144,6 +2144,16 @@ if _IOS_DIST.exists():
         return FileResponse(str(_IOS_DIST / "manifest.plist"), media_type="text/xml")
     app.mount("/ios", StaticFiles(directory=str(_IOS_DIST), html=True), name="ios")
 
+# ---- ADR-011/qa/47: portal de observabilidade em /admin/* (mesmo container,
+# sem infra nova — decisão do Alex, 2026-08-14). Bundle PÚBLICO (como o do
+# app consumidor abaixo) — o gate de verdade é _is_obs_admin nas rotas
+# /api/obs/*, /api/agent/status, /api/analytics/summary, não no arquivo
+# estático. Precisa vir ANTES do mount "/" (catch-all), senão nunca seria
+# alcançado. Publicado com scripts/publicar-admin.sh.
+_ADMIN_DIST = Path(__file__).resolve().parent.parent / "admin_dist"
+if _ADMIN_DIST.exists():
+    app.mount("/admin", StaticFiles(directory=str(_ADMIN_DIST), html=True), name="admin")
+
 # ---- Servir o app web em producao (mesma origem) — F4 mínimo (2026-08-01) ---
 # O serviço do Railway tem rootDirectory=/server (ver server/railway.json): o
 # builder NUNCA enxerga a árvore ../web fora dessa raiz. Por isso o bundle vive
