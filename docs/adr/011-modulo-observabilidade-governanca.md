@@ -105,6 +105,15 @@ superfície), fora do escopo de leitura deste módulo.
   para o módulo novo — não há uma segunda implementação para manter em
   sincronia.
 
+## Atualização (2026-08-14, ADR-012)
+
+A Decisão 6 acima ("paleta mínima, própria desta app, não reusa
+web/src/App.jsx") foi **superada por decisão explícita do Alex** na Fase 5
+do ADR-012: o portal passou a usar os tokens do Brand Book v2 (tema escuro,
+acento do modo Operador). Texto original preservado acima, não reescrito —
+ver `docs/adr/012-observabilidade-v2-tendencia-eficiencia.md` (Fase 5) para
+a decisão e os valores aplicados.
+
 ## Referência cruzada
 
 - `qa/46-auditoria-observabilidade-governanca.md` — auditoria completa,

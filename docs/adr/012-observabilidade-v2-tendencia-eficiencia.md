@@ -1,10 +1,6 @@
 # ADR-012: Portal de Observabilidade v2 — tendência no tempo, eficiência da IA e da automação
 
-**Status:** Proposto — Fases 1 (Eficiência da IA agregada), 2 (tendência
-para Comportamento do Usuário), 3 (automação + correlação
-análise↔operação) e 4 (série temporal para Visão Geral/Custos)
-implementadas. Fase 5 (redesenho visual) segue o mesmo faseamento, com
-aprovação própria antes de começar.
+**Status:** Implementado (Fases 1-5 completas).
 **Data:** 2026-08-14 · **Companion:** ADR-011 (v1 do portal, já em produção)
 
 ---
@@ -138,11 +134,22 @@ que o cache AO VIVO estava vazio (o estado `empty` cobria a seção inteira)
 — corrigido pra mostrar a tendência histórica independente do estado
 momentâneo do cache.
 
-### Fase 5 — Redesenho visual executivo (planejada)
+### Fase 5 — Redesenho visual executivo (implementada)
 
-Reorganiza as 5 telas com hierarquia executiva (KPIs no topo, drill-down
-abaixo), reaproveitando tokens do Brand Book v2 já usados no app consumidor.
-Zero métrica nova, só layout.
+**Decisão explícita do Alex (2026-08-14)**: trocar a paleta própria do
+portal (azul, ADR-011 Decisão 6) pelos tokens do Brand Book v2 — supersede
+aquela decisão, ver nota em `docs/adr/011-modulo-observabilidade-governanca.md`.
+Tema escuro, acento do modo Operador (dourado `#d4af37`/`onAccent
+#241b06`), fontes Fredoka (display) + Nunito (corpo) carregadas via Google
+Fonts (mesmo link do app consumidor). Valores copiados literal de
+`web/src/App.jsx` (`PALETTE.dark` + `MODE_OPERADOR.dark` + `BRAND`).
+
+Hierarquia executiva: novo componente `ResumoExecutivo` (KPIs de topo,
+reaproveitando `Kpi` já usado desde a Fase 1) no início de Visão Geral,
+Custos e Comportamento do Usuário — as 3 telas que eram listas planas de
+`Kv`. Eficiência da IA e Automação já seguiam o padrão desde que nasceram
+(Fases 1 e 3) e não precisaram de reestruturação, só herdam a paleta nova.
+Zero métrica nova — só layout/tokens visuais.
 
 ### Fora de escopo desta rodada
 

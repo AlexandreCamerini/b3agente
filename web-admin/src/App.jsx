@@ -1,15 +1,19 @@
 import { useState, useEffect, useCallback } from "react";
 import { api, getToken, setToken } from "./api.js";
 
-// ADR-011 Decisão 6: vocabulário visual de ops densa em dado — grid de
-// status, fonte MONO pra número/timestamp, sem paradigma mobile-first do
-// app consumidor. Paleta mínima, própria desta app (não reusa web/src/App.jsx).
+// ADR-012 (Fase 5): tokens do Brand Book v2, tema escuro, acento do modo
+// Operador (dourado) — SUPERSEDE a Decisão 6 do ADR-011 ("paleta mínima,
+// própria desta app"), decisão explícita do Alex (2026-08-14). Valores
+// copiados literal de web/src/App.jsx (PALETTE.dark + MODE_OPERADOR.dark +
+// BRAND) — portal dark-only, não precisa do proxy CSS-var/tema-claro de lá.
 const T = {
-  bg: "#0b0e14", card: "#12151d", border: "#232838",
-  text: "#e7ebf3", muted: "#8b93a7", faint: "#5b6377",
-  accent: "#4f8cff", positive: "#3ecb8f", negative: "#f2555a", warn: "#e0a33e",
+  bg: "#10121a", card: "#1b1f2e", border: "#2c3245", borderFaint: "#20242f",
+  text: "#eef1f8", muted: "#9aa3bd", faint: "#6f7797",
+  accent: "#d4af37", onAccent: "#241b06", positive: "#34d399", negative: "#f26d6d", warn: "#fbbf24",
 };
-const MONO = "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+const MONO = "ui-monospace,'SF Mono',Menlo,Consolas,monospace";
+const SANS = "'Nunito', -apple-system, system-ui, 'Segoe UI', Helvetica, Arial, sans-serif";
+const DISPLAY = "'Fredoka', " + SANS;
 
 function Kv({ label, value, tone }) {
   const col = tone === "positive" ? T.positive : tone === "negative" ? T.negative : tone === "warn" ? T.warn : T.text;
@@ -59,53 +63,88 @@ function useFetch(fetcher, deps) {
 // sem duplicar lógica de desenho).
 const paraSparkline = (serie) => (serie || []).map((p) => ({ count: p.value }));
 
+// ADR-012 (Fase 5): resumo executivo — KPIs de maior nível no topo de cada
+// tela, drill-down em cards abaixo. Mesmo componente Kpi já usado em
+// Eficiência da IA/Automação (Fases 1/3), só reaproveitado aqui.
+const card = { background: T.card, border: `1px solid ${T.border}`, borderRadius: "12px" };
+function ResumoExecutivo({ children }) {
+  return (
+    <div style={{ ...card, padding: "16px 18px", marginBottom: "16px", display: "flex", gap: "10px", flexWrap: "wrap" }}>
+      {children}
+    </div>
+  );
+}
+
 function VisaoGeral() {
   const { loading, error, data, reload } = useFetch(() => api.agentStatus(), []);
   const { data: tend } = useFetch(() => api.tendencias(30), []);
   return (
-    <Card title="Visão Geral" right={<button onClick={reload} style={btnGhost}>↻ atualizar</button>}>
-      <Estado loading={loading} error={error}>
-        {data && (
-          <>
-            <Kv label="Kill-switch" value={data.killSwitch ? "LIGADO" : "desligado"} tone={data.killSwitch ? "negative" : undefined} />
-            <Kv label="Pregão" value={data.pregaoAberto ? "aberto" : "fechado"} />
-            <Kv label="Usuários habilitados (Operador)" value={data.usuariosHabilitados} />
-            <Kv label="Proteção sem Operador" value={data.protecaoSemOperador} tone={data.protecaoSemOperador > 0 ? "warn" : undefined} />
-            <Kv label="Heartbeat — laço vivo" value={data.heartbeat?.lacoVivo ? "sim" : "NÃO"} tone={data.heartbeat?.lacoVivo ? "positive" : "negative"} />
-            <Kv label="Heartbeat — última batida" value={data.heartbeat?.atBRT || "—"} />
-            <Kv label="Próxima passada" value={data.proximaPassadaEmS != null ? data.proximaPassadaEmS + "s" : "—"} />
-            <Kv label="Último ciclo — executadas" value={data.ultimoCiclo?.executadas ?? "—"} />
-            <Kv label="Último ciclo — erro" value={data.ultimoCiclo?.erro || "nenhum"} tone={data.ultimoCiclo?.erro ? "negative" : undefined} />
-            <Kv label="Radar diário — última varredura" value={data.radarDiario?.date || "nunca rodou"} />
-            <Kv label="Radar diário — erro" value={data.radarDiario?.erro || "nenhum"} tone={data.radarDiario?.erro ? "negative" : undefined} />
-            <EventoComSerie label="Radar diário — duração" value={data.radarDiario?.duracaoS != null ? data.radarDiario.duracaoS + "s" : "—"} serie={paraSparkline(tend?.radar_diario_duracao_s)} />
-            <Kv label="Avaliação de análises — última" value={data.avaliacaoAnalises?.date || "nunca rodou"} />
-            <Kv label="Aquecimento de fundamentos — última" value={data.aquecimentoFundamentos?.date || "nunca rodou"} />
-            <Kv label="Aquecimento de fundamentos — aquecidos" value={data.aquecimentoFundamentos?.aquecidos ?? "—"} />
-            <Kv label="Intraday — última passada" value={data.intraday?.atLabel || "nunca rodou"} />
-            <Kv label="Intraday — ativos com lacuna" value={data.intraday?.comLacuna ?? "—"} />
-            <EventoComSerie label="Push automático — falhas hoje" value={data.pushAutomaticoFalhasHoje?.falhas ?? 0} serie={paraSparkline(tend?.push_automatico_falhas_dia)} />
-          </>
-        )}
-      </Estado>
-    </Card>
+    <>
+      {data && (
+        <ResumoExecutivo>
+          <Kpi label="KILL-SWITCH" value={data.killSwitch ? "LIGADO" : "desligado"} tone={data.killSwitch ? "negative" : "positive"} />
+          <Kpi label="PREGÃO" value={data.pregaoAberto ? "aberto" : "fechado"} />
+          <Kpi label="LAÇO VIVO" value={data.heartbeat?.lacoVivo ? "sim" : "NÃO"} tone={data.heartbeat?.lacoVivo ? "positive" : "negative"} />
+          <Kpi label="USUÁRIOS C/ OPERADOR" value={data.usuariosHabilitados} />
+          <Kpi label="PROTEÇÃO SEM OPERADOR" value={data.protecaoSemOperador} tone={data.protecaoSemOperador > 0 ? "negative" : "positive"} />
+        </ResumoExecutivo>
+      )}
+      <Card title="Ciclo do agente" right={<button onClick={reload} style={btnGhost}>↻ atualizar</button>}>
+        <Estado loading={loading} error={error}>
+          {data && (
+            <>
+              <Kv label="Heartbeat — última batida" value={data.heartbeat?.atBRT || "—"} />
+              <Kv label="Próxima passada" value={data.proximaPassadaEmS != null ? data.proximaPassadaEmS + "s" : "—"} />
+              <Kv label="Último ciclo — executadas" value={data.ultimoCiclo?.executadas ?? "—"} />
+              <Kv label="Último ciclo — erro" value={data.ultimoCiclo?.erro || "nenhum"} tone={data.ultimoCiclo?.erro ? "negative" : undefined} />
+            </>
+          )}
+        </Estado>
+      </Card>
+      <Card title="Radar, aquecimento & push">
+        <Estado loading={loading} error={error}>
+          {data && (
+            <>
+              <Kv label="Radar diário — última varredura" value={data.radarDiario?.date || "nunca rodou"} />
+              <Kv label="Radar diário — erro" value={data.radarDiario?.erro || "nenhum"} tone={data.radarDiario?.erro ? "negative" : undefined} />
+              <EventoComSerie label="Radar diário — duração" value={data.radarDiario?.duracaoS != null ? data.radarDiario.duracaoS + "s" : "—"} serie={paraSparkline(tend?.radar_diario_duracao_s)} />
+              <Kv label="Avaliação de análises — última" value={data.avaliacaoAnalises?.date || "nunca rodou"} />
+              <Kv label="Aquecimento de fundamentos — última" value={data.aquecimentoFundamentos?.date || "nunca rodou"} />
+              <Kv label="Aquecimento de fundamentos — aquecidos" value={data.aquecimentoFundamentos?.aquecidos ?? "—"} />
+              <Kv label="Intraday — última passada" value={data.intraday?.atLabel || "nunca rodou"} />
+              <Kv label="Intraday — ativos com lacuna" value={data.intraday?.comLacuna ?? "—"} />
+              <EventoComSerie label="Push automático — falhas hoje" value={data.pushAutomaticoFalhasHoje?.falhas ?? 0} serie={paraSparkline(tend?.push_automatico_falhas_dia)} />
+            </>
+          )}
+        </Estado>
+      </Card>
+    </>
   );
 }
 
 function Custos() {
   const { loading, error, data, reload } = useFetch(() => api.obsUsage(), []);
   const { data: tend } = useFetch(() => api.tendencias(30), []);
+  const tokensDia = Object.values(data?.tokens?.porModelo || {}).reduce((s, v) => s + (v.inputTokens || 0) + (v.outputTokens || 0), 0);
   return (
     <>
+      {data && (
+        <ResumoExecutivo>
+          <Kpi label="IA GERENCIADA" value={data.iaGerenciadaAtiva ? "ativa" : "desligada"} />
+          <Kpi label="ANÁLISES HOJE" value={(data.analisesGerenciadas?.used ?? "—") + "/" + (data.tetoGlobalDia ?? "∞")} />
+          <Kpi label="TOKENS/DIA" value={tokensDia} />
+          {data.candles?.orcamentoBrapi && <Kpi label="GASTO BRAPI HOJE" value={data.candles.orcamentoBrapi.total} tone={data.candles.orcamentoBrapi.total > data.candles.orcamentoBrapi.cotaMes ? "negative" : undefined} />}
+          <Kpi label="SÉRIES EM CACHE" value={Object.keys(data.cacheCandles || {}).length} />
+        </ResumoExecutivo>
+      )}
       <Card title="Uso de IA" right={<button onClick={reload} style={btnGhost}>↻ atualizar</button>}>
         <Estado loading={loading} error={error}>
           {data && (
             <>
-              <Kv label="IA gerenciada ativa" value={data.iaGerenciadaAtiva ? "sim" : "não"} />
               <Kv label="Cota por usuário/dia" value={data.cotaPorUsuarioDia ?? "ilimitada"} />
               <Kv label="Teto global/dia" value={data.tetoGlobalDia ?? "ilimitado"} />
               <EventoComSerie label="Análises gerenciadas — usado hoje" value={(data.analisesGerenciadas?.used ?? "—") + " · restante " + (data.analisesGerenciadas?.remaining ?? "—")} serie={paraSparkline(tend?.ia_analises_gerenciadas_dia)} />
-              <EventoComSerie label="Tokens/dia (todos os modelos)" value={Object.values(data.tokens?.porModelo || {}).reduce((s, v) => s + (v.inputTokens || 0) + (v.outputTokens || 0), 0) + " tokens"} serie={paraSparkline(tend?.custo_ia_tokens_dia)} />
+              <EventoComSerie label="Tokens/dia (todos os modelos)" value={tokensDia + " tokens"} serie={paraSparkline(tend?.custo_ia_tokens_dia)} />
               {Object.entries(data.tokens?.porModelo || {}).map(([modelo, v]) => (
                 <Kv key={modelo} label={"Tokens hoje — " + modelo} value={(v.total ?? v.tokens ?? JSON.stringify(v))} />
               ))}
@@ -188,8 +227,17 @@ function Comportamento() {
   const { loading, error, data, reload } = useFetch(() => api.analyticsSummary(dias), [dias]);
   const serieMap = {};
   (data?.serieDiariaPorEvento || []).forEach((s) => { serieMap[s.event] = s.serie; });
+  const passos = data?.funil?.passos || [];
+  const conversao = passos.length >= 2 && passos[0].usuarios > 0 ? Math.round(100 * passos[passos.length - 1].usuarios / passos[0].usuarios) : null;
   return (
     <>
+      {data && (
+        <ResumoExecutivo>
+          <Kpi label="EVENTOS NO PERÍODO" value={(data.adocaoPorFeature || []).reduce((s, r) => s + r.count, 0)} />
+          <Kpi label="USUÁRIOS ATIVOS (TOPO)" value={passos[0]?.usuarios ?? "—"} />
+          <Kpi label="CONVERSÃO DO FUNIL" value={conversao == null ? "—" : conversao + "%"} tone={conversao == null ? undefined : (conversao >= 20 ? "positive" : undefined)} />
+        </ResumoExecutivo>
+      )}
       <Card title="Adoção por feature" right={
         <select value={dias} onChange={(e) => setDias(Number(e.target.value))} style={selectStyle}>
           <option value={7}>7 dias</option>
@@ -445,16 +493,16 @@ function Login({ onLogin }) {
   };
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: T.bg }}>
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: T.bg, fontFamily: SANS }}>
       <form onSubmit={submit} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: "12px", padding: "28px", width: "320px" }}>
-        <div style={{ fontSize: "15px", fontWeight: 800, color: T.text, marginBottom: "4px" }}>Boris+ · Observabilidade</div>
+        <div style={{ fontFamily: DISPLAY, fontSize: "16px", fontWeight: 600, color: T.text, marginBottom: "4px" }}>Boris+ · Observabilidade</div>
         <div style={{ fontSize: "12px", color: T.muted, marginBottom: "18px" }}>Acesso restrito ao administrador.</div>
         <input type="email" placeholder="e-mail" value={email} onChange={(e) => setEmail(e.target.value)} required
                style={inputStyle} />
         <input type="password" placeholder="senha" value={password} onChange={(e) => setPassword(e.target.value)} required
                style={{ ...inputStyle, marginTop: "8px" }} />
         {error && <div style={{ color: T.negative, fontSize: "12px", marginTop: "10px" }}>{error}</div>}
-        <button type="submit" disabled={busy} style={{ marginTop: "16px", width: "100%", padding: "10px", borderRadius: "8px", border: "none", background: T.accent, color: "#fff", fontWeight: 700, fontSize: "13px", cursor: "pointer", opacity: busy ? 0.6 : 1 }}>
+        <button type="submit" disabled={busy} style={{ marginTop: "16px", width: "100%", padding: "10px", borderRadius: "8px", border: "none", background: T.accent, color: T.onAccent, fontWeight: 700, fontSize: "13px", cursor: "pointer", opacity: busy ? 0.6 : 1 }}>
           {busy ? "Entrando…" : "Entrar"}
         </button>
       </form>
@@ -498,15 +546,15 @@ export default function App() {
 
   const ViewC = VIEWS.find((v) => v.id === view)?.C || VisaoGeral;
   return (
-    <div style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: SANS }}>
       <div style={{ borderBottom: `1px solid ${T.border}`, padding: "12px 20px", display: "flex", alignItems: "center", gap: "20px" }}>
-        <div style={{ fontWeight: 800, fontSize: "14px" }}>Boris+ · Observabilidade</div>
+        <div style={{ fontFamily: DISPLAY, fontWeight: 600, fontSize: "15px" }}>Boris+ · Observabilidade</div>
         <nav style={{ display: "flex", gap: "4px", flex: 1 }}>
           {VIEWS.map((v) => (
             <button key={v.id} onClick={() => setView(v.id)}
                     style={{ padding: "7px 12px", borderRadius: "6px", border: "none", cursor: "pointer",
                              background: view === v.id ? T.accent : "transparent",
-                             color: view === v.id ? "#fff" : T.muted, fontSize: "12.5px", fontWeight: 700 }}>
+                             color: view === v.id ? T.onAccent : T.muted, fontSize: "12.5px", fontWeight: 700 }}>
               {v.label}
             </button>
           ))}
