@@ -115,6 +115,21 @@ def init_db(conn: sqlite3.Connection) -> None:
         " computed_at TEXT NOT NULL"
         ")"
     )
+    # ADR-012 (Fase 4): série temporal genérica p/ métricas hoje só em
+    # memória (custo de IA, orçamento brapi, cache de candles, falhas de
+    # push, duração do radar) — mesmo padrão EAV de analytics_daily, mas
+    # SEMÂNTICA DIFERENTE: aqui é um SNAPSHOT do que os dicts em memória
+    # diziam no momento em que o scheduler rodou, não um rollup de eventos
+    # já ingeridos. Um valor pode não bater com o painel "ao vivo" se o dia
+    # já avançou desde a última passada — isso é esperado, não bug.
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS obs_daily_metrics ("
+        " day TEXT NOT NULL,"
+        " metric TEXT NOT NULL,"
+        " value REAL NOT NULL,"
+        " PRIMARY KEY(day, metric)"
+        ")"
+    )
     conn.commit()
 
 
@@ -211,6 +226,44 @@ def get_cache(conn, key: str) -> Optional[dict]:
     if not row:
         return None
     return {"value": json.loads(row[0]), "computedAt": row[1]}
+
+
+# ---------------------- séries diárias de métrica (ADR-012, Fase 4) ---------
+
+METRICAS_CONHECIDAS = (
+    "custo_ia_tokens_dia", "ia_analises_gerenciadas_dia",
+    "brapi_requisicoes_janela3d", "brapi_erros_janela3d",
+    "cache_candles_series", "push_automatico_falhas_dia", "radar_diario_duracao_s",
+)
+
+
+def registrar_metricas_diarias(conn, day: str, metricas: dict) -> None:
+    """Grava (upsert, idempotente) o snapshot de HOJE — quem monta o dict
+    `metricas` decide o que capturar (ver agent.py); este módulo só persiste."""
+    for metric, value in metricas.items():
+        if value is None:
+            continue
+        conn.execute(
+            "INSERT INTO obs_daily_metrics(day, metric, value) VALUES(?,?,?) "
+            "ON CONFLICT(day, metric) DO UPDATE SET value = excluded.value",
+            (day, metric, float(value)),
+        )
+    conn.commit()
+
+
+def serie_metrica(conn, metric: str, dias: int = 30, _now: Optional[float] = None) -> list:
+    now = _now if _now is not None else time.time()
+    desde = (datetime.fromtimestamp(now, tz=BRT).date() - timedelta(days=dias)).isoformat()
+    rows = conn.execute(
+        "SELECT day, value FROM obs_daily_metrics WHERE metric = ? AND day >= ? ORDER BY day",
+        (metric, desde),
+    ).fetchall()
+    return [{"day": d, "value": v} for d, v in rows]
+
+
+def series_metricas(conn, metricas=None, dias: int = 30, _now: Optional[float] = None) -> dict:
+    alvo = list(metricas) if metricas else list(METRICAS_CONHECIDAS)
+    return {m: serie_metrica(conn, m, dias=dias, _now=_now) for m in alvo}
 
 
 async def maybe_run(conn, _now: Optional[float] = None) -> Optional[dict]:

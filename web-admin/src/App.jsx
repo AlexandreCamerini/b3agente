@@ -54,8 +54,14 @@ function useFetch(fetcher, deps) {
   return { ...state, reload };
 }
 
+// ADR-012 (Fase 4): converte a série {day,value} de /api/analytics/tendencias
+// pro formato {count} que Sparkline já espera (mesmo componente da Fase 2,
+// sem duplicar lógica de desenho).
+const paraSparkline = (serie) => (serie || []).map((p) => ({ count: p.value }));
+
 function VisaoGeral() {
   const { loading, error, data, reload } = useFetch(() => api.agentStatus(), []);
+  const { data: tend } = useFetch(() => api.tendencias(30), []);
   return (
     <Card title="Visão Geral" right={<button onClick={reload} style={btnGhost}>↻ atualizar</button>}>
       <Estado loading={loading} error={error}>
@@ -72,12 +78,13 @@ function VisaoGeral() {
             <Kv label="Último ciclo — erro" value={data.ultimoCiclo?.erro || "nenhum"} tone={data.ultimoCiclo?.erro ? "negative" : undefined} />
             <Kv label="Radar diário — última varredura" value={data.radarDiario?.date || "nunca rodou"} />
             <Kv label="Radar diário — erro" value={data.radarDiario?.erro || "nenhum"} tone={data.radarDiario?.erro ? "negative" : undefined} />
+            <EventoComSerie label="Radar diário — duração" value={data.radarDiario?.duracaoS != null ? data.radarDiario.duracaoS + "s" : "—"} serie={paraSparkline(tend?.radar_diario_duracao_s)} />
             <Kv label="Avaliação de análises — última" value={data.avaliacaoAnalises?.date || "nunca rodou"} />
             <Kv label="Aquecimento de fundamentos — última" value={data.aquecimentoFundamentos?.date || "nunca rodou"} />
             <Kv label="Aquecimento de fundamentos — aquecidos" value={data.aquecimentoFundamentos?.aquecidos ?? "—"} />
             <Kv label="Intraday — última passada" value={data.intraday?.atLabel || "nunca rodou"} />
             <Kv label="Intraday — ativos com lacuna" value={data.intraday?.comLacuna ?? "—"} />
-            <Kv label="Push automático — falhas hoje" value={data.pushAutomaticoFalhasHoje?.falhas ?? 0} tone={(data.pushAutomaticoFalhasHoje?.falhas ?? 0) > 0 ? "warn" : undefined} />
+            <EventoComSerie label="Push automático — falhas hoje" value={data.pushAutomaticoFalhasHoje?.falhas ?? 0} serie={paraSparkline(tend?.push_automatico_falhas_dia)} />
           </>
         )}
       </Estado>
@@ -87,6 +94,7 @@ function VisaoGeral() {
 
 function Custos() {
   const { loading, error, data, reload } = useFetch(() => api.obsUsage(), []);
+  const { data: tend } = useFetch(() => api.tendencias(30), []);
   return (
     <>
       <Card title="Uso de IA" right={<button onClick={reload} style={btnGhost}>↻ atualizar</button>}>
@@ -96,8 +104,8 @@ function Custos() {
               <Kv label="IA gerenciada ativa" value={data.iaGerenciadaAtiva ? "sim" : "não"} />
               <Kv label="Cota por usuário/dia" value={data.cotaPorUsuarioDia ?? "ilimitada"} />
               <Kv label="Teto global/dia" value={data.tetoGlobalDia ?? "ilimitado"} />
-              <Kv label="Análises gerenciadas — usado hoje" value={data.analisesGerenciadas?.used ?? "—"} />
-              <Kv label="Análises gerenciadas — restante hoje" value={data.analisesGerenciadas?.remaining ?? "—"} />
+              <EventoComSerie label="Análises gerenciadas — usado hoje" value={(data.analisesGerenciadas?.used ?? "—") + " · restante " + (data.analisesGerenciadas?.remaining ?? "—")} serie={paraSparkline(tend?.ia_analises_gerenciadas_dia)} />
+              <EventoComSerie label="Tokens/dia (todos os modelos)" value={Object.values(data.tokens?.porModelo || {}).reduce((s, v) => s + (v.inputTokens || 0) + (v.outputTokens || 0), 0) + " tokens"} serie={paraSparkline(tend?.custo_ia_tokens_dia)} />
               {Object.entries(data.tokens?.porModelo || {}).map(([modelo, v]) => (
                 <Kv key={modelo} label={"Tokens hoje — " + modelo} value={(v.total ?? v.tokens ?? JSON.stringify(v))} />
               ))}
@@ -118,21 +126,29 @@ function Custos() {
               {Object.entries(data.candles.orcamentoBrapi.fatias || {}).map(([fatia, f]) => (
                 <Kv key={fatia} label={"Fatia " + fatia} value={f.gasto + " / " + f.limite + (f.degradado ? " (degradado)" : "")} tone={f.degradado ? "warn" : undefined} />
               ))}
+              <EventoComSerie label="Requisições (janela 3 dias)" value={data.candles.requisicoes ?? "—"} serie={paraSparkline(tend?.brapi_requisicoes_janela3d)} />
+              <EventoComSerie label="Erros (janela 3 dias)" value={data.candles.erros ?? "—"} serie={paraSparkline(tend?.brapi_erros_janela3d)} />
             </>
           )}
         </Estado>
       </Card>
       <Card title="Cache de candles (L2)">
-        <Estado loading={loading} error={error} empty={data && Object.keys(data.cacheCandles || {}).length === 0}>
+        <Estado loading={loading} error={error}>
           {data && (
-            <div style={{ fontSize: "12.5px", color: T.muted }}>
-              {Object.keys(data.cacheCandles || {}).length} série(s) em cache — {Object.entries(data.cacheCandles || {}).slice(0, 20).map(([k, v]) => `${k} (${v.n})`).join(" · ")}
-            </div>
+            <>
+              <EventoComSerie label="Séries em cache" value={Object.keys(data.cacheCandles || {}).length} serie={paraSparkline(tend?.cache_candles_series)} />
+              <div style={{ fontSize: "12.5px", color: T.muted, marginTop: "6px" }}>
+                {Object.keys(data.cacheCandles || {}).length === 0
+                  ? "Nenhuma série em cache agora."
+                  : Object.entries(data.cacheCandles || {}).slice(0, 20).map(([k, v]) => `${k} (${v.n})`).join(" · ")}
+              </div>
+            </>
           )}
         </Estado>
       </Card>
       <div style={{ fontSize: "11.5px", color: T.faint, lineHeight: 1.5 }}>
         Mensalidade do Railway não é medida no código — ver qa/42-finops.md (custo externo, atualizado manualmente).
+        Gráficos de tendência são snapshot do momento em que o job diário rodou (ADR-012) — podem divergir do valor "ao vivo" acima se o dia já avançou desde a última passada.
       </div>
     </>
   );

@@ -66,6 +66,50 @@ def _registrar_push_falho() -> None:
     PUSH_FAIL_TODAY["falhas"] += 1
 
 
+# ADR-012 (Fase 4): campos hoje só em memória, capturados 1x/dia pro portal
+# admin ganhar tendência (Visão Geral/Custos). Gate persistido — mesmo
+# motivo de qa/42 pra analysis_outcomes: memória zera no deploy, sem gate
+# persistido um dia com vários deploys gravaria o snapshot várias vezes
+# (idempotente aqui, mas ainda assim redundante).
+LAST_METRICAS_DIARIAS: dict = {"date": None}
+
+
+def _coletar_metricas_diarias(conn) -> dict:
+    """Cada valor é o que os módulos em memória diziam NO MOMENTO em que o
+    job rodou — ver docstring de analytics.registrar_metricas_diarias sobre
+    a diferença pra rollup de eventos. Import local: sem ciclo de import."""
+    from . import candle_cache, candle_provider, managed, metering, llm, radar_daily
+
+    usage = llm.usage_snapshot()
+    tokens_dia = sum(
+        (m.get("inputTokens", 0) or 0) + (m.get("outputTokens", 0) or 0)
+        for m in (usage.get("porModelo") or {}).values()
+    )
+    ger = metering.global_snapshot(conn, managed.global_daily_cap())
+    cp = candle_provider.snapshot()
+
+    return {
+        "custo_ia_tokens_dia": tokens_dia,
+        "ia_analises_gerenciadas_dia": ger.get("used", 0),
+        # candle_provider.snapshot() é janela de 3 dias (_JANELA_DIAS), não
+        # só hoje — nome da métrica deixa isso explícito, não esconde.
+        "brapi_requisicoes_janela3d": cp.get("requisicoes", 0),
+        "brapi_erros_janela3d": cp.get("erros", 0),
+        "cache_candles_series": len(candle_cache.stats() or {}),
+        "push_automatico_falhas_dia": PUSH_FAIL_TODAY.get("falhas", 0),
+        "radar_diario_duracao_s": radar_daily.LAST_DAILY.get("duracaoS"),
+    }
+
+
+def _maybe_registrar_metricas_diarias(conn, analytics_conn) -> None:
+    hoje = _today()
+    if LAST_METRICAS_DIARIAS["date"] == hoje:
+        return
+    from . import analytics as analytics_mod  # import local: sem ciclo de import
+    analytics_mod.registrar_metricas_diarias(analytics_conn, hoje, _coletar_metricas_diarias(conn))
+    LAST_METRICAS_DIARIAS["date"] = hoje
+
+
 def _push_run_history(entry: dict):
     RUN_HISTORY.append(entry)
     del RUN_HISTORY[:-RUN_HISTORY_MAX]
@@ -785,6 +829,10 @@ async def scheduler_loop(conn, quotes_getter, notify_push=None, interval_s: int 
                 automacao.maybe_refresh_cache(conn, analytics_conn)
             except Exception as e:  # noqa: BLE001 — automação nunca derruba o laço
                 print(f"[automacao] hook do scheduler falhou: {e}")
+            try:
+                _maybe_registrar_metricas_diarias(conn, analytics_conn)
+            except Exception as e:  # noqa: BLE001 — métricas nunca derrubam o laço
+                print(f"[obs-metricas] hook do scheduler falhou: {e}")
         try:
             if radar_fetch is not None and not kill_switch_on():
                 from . import radar_daily  # import local: sem ciclo de import

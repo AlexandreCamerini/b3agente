@@ -54,4 +54,5 @@ export const api = {
   analyticsSummary: (dias) => req("GET", "/api/analytics/summary" + (dias ? "?dias=" + encodeURIComponent(dias) : "")),
   iaEficiencia: () => req("GET", "/api/analytics/ia-eficiencia"),
   automacao: () => req("GET", "/api/analytics/automacao"),
+  tendencias: (dias) => req("GET", "/api/analytics/tendencias" + (dias ? "?dias=" + encodeURIComponent(dias) : "")),
 };
