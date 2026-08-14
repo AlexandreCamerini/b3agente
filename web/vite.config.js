@@ -13,6 +13,14 @@ export default defineConfig({
       registerType: "autoUpdate",
       injectRegister: null,
       includeAssets: ["apple-touch-icon.png"],
+      // ADR-011/012: o portal de observabilidade (server/admin_dist) é
+      // servido na MESMA origem, em /admin/* — sem isto, o NavigationRoute
+      // padrão do Workbox intercepta QUALQUER navegação da origem (sem
+      // denylist) e serve o shell deste app no lugar do portal. Bug real
+      // reportado em produção: "/admin abre o app" em vez do portal.
+      workbox: {
+        navigateFallbackDenylist: [/^\/admin/],
+      },
       manifest: {
         name: "Boris+",
         short_name: "Boris+",
