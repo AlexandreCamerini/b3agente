@@ -86,8 +86,11 @@ const visEffectMatch = src.match(/const onVisible = \(\) => \{([\s\S]*?)\};\s*\n
 ok("listener de visibilitychange localizado", !!visEffectMatch);
 ok("visibilitychange flusheia ao ficar oculto (não só recarrega ao voltar)",
    visEffectMatch && /flushCfgRef\.current/.test(visEffectMatch[1]));
+// qa/47 (Fase 2, 2026-08-14): o branch ganhou track() de session_start/end
+// (analytics) ao lado do loadState()/flushCfgRef já existentes — guardião
+// atualizado, o flush de config ao inativar continua garantido.
 ok("appStateChange (nativo) também flusheia ao inativar",
-   /CapApp\.addListener\("appStateChange", \(\{ isActive \}\) => \{\s*if \(isActive\) loadState\(\);\s*else if \(flushCfgRef\.current\) flushCfgRef\.current\(\);/.test(src));
+   /CapApp\.addListener\("appStateChange", \(\{ isActive \}\) => \{\s*if \(isActive\) \{ track\("session_start", \{ trigger: "resume" \}\); loadState\(\); \}[\s\S]*?else \{ track\("session_end"\); flushAnalytics\(\); if \(flushCfgRef\.current\) flushCfgRef\.current\(\); \}/.test(src));
 
 // --- 6) flushCfg está nas deps do useMemo(A) — senão a closure fica velha --
 const depsMatch = src.match(/\}\), \[data, catalogSel, buyModal, sellModal, keyDraft, refreshQuotes, flash, analysisModel, wlScanLoading, destaque, quotes(.*?)\]\);/);
