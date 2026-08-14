@@ -13,6 +13,7 @@ server/data/
 # dependencias / builds do web
 node_modules/
 web/dist/
+web-admin/dist/
 
 # plataforma nativa gerada pelo Capacitor
 web/ios/
