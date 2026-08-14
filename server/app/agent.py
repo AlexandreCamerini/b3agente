@@ -730,7 +730,8 @@ async def _avisar_gatilhos(conn) -> int:
 
 
 async def scheduler_loop(conn, quotes_getter, notify_push=None, interval_s: int = None, once: bool = False,
-                         radar_fetch=None, snapshot_getter=None, intraday_fetch=None, option_quotes_getter=None):
+                         radar_fetch=None, snapshot_getter=None, intraday_fetch=None, option_quotes_getter=None,
+                         analytics_conn=None):
     """Laço do servidor: a cada N min (env B3_AGENT_INTERVAL_S), dentro do
     pregão e sem kill-switch, roda o ciclo de cada usuário habilitado.
     `notify_push(user_id, title, body)` (opcional) envia APNs por ação executada.
@@ -739,7 +740,11 @@ async def scheduler_loop(conn, quotes_getter, notify_push=None, interval_s: int 
     pré-abertura), reusando este mesmo laço (sem segundo scheduler).
     qa/30 (Fase A): o mesmo `radar_fetch` também alimenta a avaliação diária
     das análises pendentes (analysis_outcomes) — outro hook no mesmo laço,
-    sem scheduler novo."""
+    sem scheduler novo.
+    qa/47: `analytics_conn` (opcional, banco SEPARADO — ver analytics.py)
+    habilita o rollup+purga diário de eventos de comportamento — hook próprio,
+    independente do kill-switch do agente (não é execução de ordem) e do
+    gate de pregão (não depende de cotação)."""
     interval = interval_s or int(os.environ.get("B3_AGENT_INTERVAL_S") or INTERVAL_S_DEFAULT)
     while True:
         # P2 (liveness): heartbeat PERSISTIDO a CADA tick, FORA do gate de pregão.
@@ -755,6 +760,12 @@ async def scheduler_loop(conn, quotes_getter, notify_push=None, interval_s: int 
             }, user_id=None)
         except Exception as e:  # noqa: BLE001 — heartbeat nunca derruba o laço
             print(f"[agent] heartbeat: {e}")
+        if analytics_conn is not None:
+            try:
+                from . import analytics as analytics_mod  # import local: sem ciclo de import
+                await analytics_mod.maybe_run(analytics_conn)
+            except Exception as e:  # noqa: BLE001 — analytics nunca derruba o laço
+                print(f"[analytics] hook do scheduler falhou: {e}")
         try:
             if radar_fetch is not None and not kill_switch_on():
                 from . import radar_daily  # import local: sem ciclo de import
