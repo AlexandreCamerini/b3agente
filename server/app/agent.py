@@ -51,6 +51,20 @@ LAST_USER_RUN: dict = {}          # {uid: epoch da última passada efetiva}
 # Global e não por usuário — a passada é uma só para todo mundo.
 _LAST_INTRADAY: dict = {"ts": None}
 
+# qa/46 (Fase 2, item "push automático falho"): antes disto a falha de push
+# de uma ação EXECUTADA pelo agente era `except: pass` silencioso — ninguém
+# sabia que uma ordem rodou e o aviso não chegou. Contador reseta por dia
+# (mesmo padrão de fundamentals.LAST_WARM), incrementado só na falha real.
+PUSH_FAIL_TODAY: dict = {"date": None, "falhas": 0}
+
+
+def _registrar_push_falho() -> None:
+    hoje = _today()
+    if PUSH_FAIL_TODAY["date"] != hoje:
+        PUSH_FAIL_TODAY["date"] = hoje
+        PUSH_FAIL_TODAY["falhas"] = 0
+    PUSH_FAIL_TODAY["falhas"] += 1
+
 
 def _push_run_history(entry: dict):
     RUN_HISTORY.append(entry)
@@ -837,7 +851,7 @@ async def scheduler_loop(conn, quotes_getter, notify_push=None, interval_s: int 
                                 try:
                                     await notify_push(uid, "Agente Boris+ (simulado)", txt)
                                 except Exception:  # noqa: BLE001 — push é best-effort
-                                    pass
+                                    _registrar_push_falho()
                     except Exception as e:  # noqa: BLE001 — 1 usuário não derruba o laço
                         _erros.append(f"{uid[:8]}…: {e}")
                         print(f"[agent] ciclo de {uid} falhou: {e}")
@@ -861,6 +875,8 @@ def status_snapshot(conn, interval_s: int = None) -> dict:
         prox = max(0, int(NEXT_RUN_AT["ts"] - time.time()))
     from . import radar_daily  # import local: sem ciclo de import
     from . import analysis_outcomes  # qa/30 (Fase A): import local, sem ciclo de import
+    from . import fundamentals  # qa/46 (Fase 2): aquecimento de cache — hoje sem contador exposto
+    from . import intraday  # qa/46 (Fase 2): passada intraday global — hoje sem contador exposto
     # P2 (liveness): heartbeat persistido (sobrevive a deploy e bate fora do pregão).
     intervalo = interval_s or int(os.environ.get("B3_AGENT_INTERVAL_S") or INTERVAL_S_DEFAULT)
     hb = db.kv_get(conn, "agentHeartbeat", None, user_id=None) or {}
@@ -878,6 +894,11 @@ def status_snapshot(conn, interval_s: int = None) -> dict:
         },
         "radarDiario": dict(radar_daily.LAST_DAILY),  # FASE 4 (1.3)
         "avaliacaoAnalises": dict(analysis_outcomes.LAST_EVAL),  # qa/30 (Fase A)
+        # qa/46 (Fase 2): 3 contadores que existiam só em memória, sem endpoint —
+        # a função que os calcula já rodava; isto só liga o fio até o snapshot.
+        "aquecimentoFundamentos": dict(fundamentals.LAST_WARM),
+        "intraday": dict(intraday.LAST_PASS),
+        "pushAutomaticoFalhasHoje": dict(PUSH_FAIL_TODAY),
         "intervaloS": interval_s or int(os.environ.get("B3_AGENT_INTERVAL_S") or INTERVAL_S_DEFAULT),
         "usuariosHabilitados": len(list_server_users(conn)),
         # qa/41 (H6): quantos têm stop/alvo armado com o Operador DESLIGADO —
