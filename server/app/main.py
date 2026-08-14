@@ -34,6 +34,7 @@ from . import siwa  # FASE 4 (Bloco 2): Sign in with Apple — exchange + revoke
 from . import push  # FASE 3.3b: APNs (no-op sem configuração)
 from . import obslog  # FASE 5: observabilidade (log estruturado + ring buffer)
 from . import conceitos  # camada de entendimento: catálogo determinístico (custo zero)
+from . import analytics  # qa/47: eventos de comportamento (ingest + rollup + purga)
 from .catalog import is_catalog_ticker
 from .options_api import router as options_router
 from .options_provider_yahoo import get_options as _get_options_for_status
@@ -46,6 +47,7 @@ app.add_middleware(
 
 _conn = db.shared()  # FIX: conexão POR THREAD (pool do FastAPI) — ver db.py
 store.ensure_defaults(_conn)
+_analytics_conn = analytics.shared()  # qa/47: banco SEPARADO (ver analytics.default_db_path)
 # FASE 5 (performance): liga o L2 persistente do cache de candles (SQLite no
 # volume /data) — redeploy do Railway reidrata e busca só o delta recente.
 candle_cache.configure_db(_conn)
@@ -457,6 +459,51 @@ async def obs_brapi_projecao_aplicar(body: dict = Body(default={}),
         return {"vigenteS": brapi_budget.spot_intervalo_s(), "projecao": proj, "aplicado": False}
     vigente = brapi_budget.set_spot_intervalo(alvo)
     return {"vigenteS": vigente, "projecao": proj, "aplicado": True}
+
+
+# qa/47 (Fase 1 — infra só, sem client SDK/dashboard): ingest genérico de
+# eventos de comportamento. Rate limit reusa metering.py com uma SEÇÃO
+# própria (não mistura com a cota de IA gerenciada). 429 (não 402: não é
+# "cota paga", é proteção contra flood) — a mensagem de metering.check é
+# específica de IA, por isso não é repassada ao chamador aqui.
+def _analytics_quota_dia() -> int:
+    return int(os.environ.get("B3_ANALYTICS_QUOTA_DIA") or 5000)
+
+
+def _analytics_rate_min() -> int:
+    return int(os.environ.get("B3_ANALYTICS_RATE_MIN") or 30)
+
+
+@app.post("/api/analytics/events")
+async def analytics_events(body: dict = Body(default={}), user: dict = Depends(require_user)):
+    events = body.get("events")
+    ok, _reason = metering.check(
+        _conn, user["id"], quota=_analytics_quota_dia(), rate_per_min=_analytics_rate_min(),
+        custo=len(events) if isinstance(events, list) else 1,
+        section="analyticsEvents", global_section="analyticsEventsGlobal",
+    )
+    if not ok:
+        raise HTTPException(429, "Limite de envio de eventos de analytics excedido. Tente novamente mais tarde.")
+    try:
+        result = analytics.ingest(_analytics_conn, user["id"], events)
+    except ValueError as e:
+        obslog.log("analytics", f"ingest rejeitado (uid={user['id'][:8]}…): {e}", level="warn")
+        raise HTTPException(400, str(e))
+    metering.consume(_conn, user["id"], custo=result["accepted"],
+                     section="analyticsEvents", global_section="analyticsEventsGlobal")
+    return result
+
+
+@app.get("/api/analytics/summary")
+async def analytics_summary(dias: int = 30, passos: Optional[str] = None, user: dict = Depends(require_user)):
+    if not _is_obs_admin(user):
+        raise HTTPException(403, "Analytics de comportamento é restrito ao administrador (defina B3_ADMIN_EMAILS no Railway).")
+    lista_passos = [p.strip() for p in passos.split(",") if p.strip()] if passos else None
+    return {
+        "adocaoPorFeature": analytics.adocao_por_feature(_analytics_conn, dias=dias),
+        "funil": analytics.funil(_analytics_conn, lista_passos, dias=dias),
+        "shownVsDismissed": analytics.shown_vs_dismissed(_analytics_conn, dias=dias),
+    }
 
 
 # F5 (2026-08-02, decisão do Alex: v1 SÓ VER — sem ação nenhuma). Mesmo portão
@@ -1977,7 +2024,8 @@ async def _start_agent_scheduler():
                                  radar_fetch=candle_provider.get_history,  # FASE 4 (1.3)
                                  snapshot_getter=_snapshot_para_trailing,  # F2
                                  intraday_fetch=_intraday_fetch,  # ADR-001 item 7
-                                 option_quotes_getter=options_provider_yahoo.get_options)  # v2
+                                 option_quotes_getter=options_provider_yahoo.get_options,  # v2
+                                 analytics_conn=_analytics_conn)  # qa/47
     )
     # FASE 5 (lançamento): higiene de sessões — purga as expiradas no boot e a
     # cada 24h (o resolve_session já apaga lazy a sessão consultada; isto cobre
