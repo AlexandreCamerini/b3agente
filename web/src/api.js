@@ -306,6 +306,8 @@ export const api = {
   // GET sem intervaloS devolve a projeção do intervalo vigente.
   brapiProjecao: (intervaloS) => req("GET", "/api/obs/brapi/projecao" + (intervaloS != null ? "?intervaloS=" + encodeURIComponent(intervaloS) : ""), undefined, 15000),
   brapiProjecaoAplicar: (intervaloS) => req("POST", "/api/obs/brapi/projecao", { intervaloS, aplicar: true }, 15000),
+  // qa/47 (Fase 2): ingest em lote de eventos de comportamento — ver analytics.js.
+  analyticsEvents: (events) => req("POST", "/api/analytics/events", { events }, 15000),
   // qa/30 (Fase A): autoavaliação da IA — estatísticas do painel "Eficiência
   // da IA" (Perfil → Observabilidade). `modo` opcional filtra estudo/operador.
   analysisOutcomesStats: (modo) => req("GET", "/api/analysis-outcomes/stats" + (modo ? "?modo=" + encodeURIComponent(modo) : ""), undefined, 15000),

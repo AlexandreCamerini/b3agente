@@ -165,13 +165,13 @@ def test_funil_conta_so_quem_completa_em_sequencia():
     c = _conn()
     t0 = 1_800_000_000.0
     # u1: completa os dois passos, em ordem
-    analytics.ingest(c, "u1", [{"event": "onboarding_completed", "ts": t0}], _now=t0)
+    analytics.ingest(c, "u1", [{"event": "onboarding_step_completed", "ts": t0}], _now=t0)
     analytics.ingest(c, "u1", [{"event": "trade_simulated", "ts": t0 + 10}], _now=t0)
     # u2: só o primeiro passo
-    analytics.ingest(c, "u2", [{"event": "onboarding_completed", "ts": t0}], _now=t0)
+    analytics.ingest(c, "u2", [{"event": "onboarding_step_completed", "ts": t0}], _now=t0)
     r = analytics.funil(c, dias=30, _now=t0)
     passos = {p["passo"]: p["usuarios"] for p in r["passos"]}
-    assert passos["onboarding_completed"] == 2
+    assert passos["onboarding_step_completed"] == 2
     assert passos["trade_simulated"] == 1
 
 

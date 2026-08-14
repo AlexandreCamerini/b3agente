@@ -223,9 +223,11 @@ def adocao_por_feature(conn, dias: int = 30, _now: Optional[float] = None) -> li
 
 def funil(conn, passos: Optional[list] = None, dias: int = 30, _now: Optional[float] = None) -> dict:
     """Funil sequencial: um usuário só conta no passo i se também tiver feito
-    o passo i-1 num timestamp <=. Default de 2 passos — os únicos nomes que a
-    especificação perdida ainda menciona explicitamente (qa/47 Decisão 5)."""
-    passos = list(passos) if passos else ["onboarding_completed", "trade_simulated"]
+    o passo i-1 num timestamp <=. Default de 2 passos, taxonomia recuperada
+    (qa/47): `onboarding_step_completed` (dispara por PASSO — MIN(ts) aqui
+    marca "começou o onboarding", não "terminou"; a spec não nomeia o passo
+    final) → `trade_simulated`."""
+    passos = list(passos) if passos else ["onboarding_step_completed", "trade_simulated"]
     now = _now if _now is not None else time.time()
     desde = (datetime.fromtimestamp(now, tz=BRT).date() - timedelta(days=dias)).isoformat()
     por_passo = []

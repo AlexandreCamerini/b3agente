@@ -14,6 +14,7 @@ try { console.log("[b3] build", BUILD_ID); } catch { /* noop */ }
 import { canAddTicker, canAnalyze } from "./plan.js";
 import { portfolioMetrics, dayReturnPct, equityCurve, markPrice, sizingPlano } from "./finance.js";
 import * as notify from "./notify.js";
+import { track, setAnalyticsUser, flush as flushAnalytics } from "./analytics.js"; // qa/47 (Fase 2)
 import Boris from "./pet/Boris.jsx";
 import BorisChat from "./pet/BorisChat.jsx";
 import BorisIntro from "./pet/BorisIntro.jsx";
@@ -1640,6 +1641,12 @@ function EvolucaoScreen({ ctx }) {
     .filter((r) => (r.confluencia || 0) > 0)
     .sort((a, b) => (b.confluencia || 0) - (a.confluencia || 0));
   const novato = (data.positions || []).length === 0 && (data.watchlist || []).length === 0;
+  // qa/47 (Fase 2): "alerta" = o carrossel da Home, que puxa a atenção pra fora
+  // da tela padrão — NÃO o chip inline em cada card da Watchlist/Radar (isso
+  // dispararia 1 evento por card renderizado numa lista rolável, ruído puro).
+  useEffect(() => {
+    if (!novato && alertas.length > 0) track("setup_alert_shown", { n: alertas.length });
+  }, [novato, alertas.length]);
   const it = destaque.item;
   const dColor = (m.dayVal || 0) >= 0 ? T.positive : T.negative;
   const aColor = (ec.retAcum || 0) >= 0 ? T.positive : T.negative;
@@ -2789,6 +2796,7 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
     const next = !opOpen;
     setOpOpen(next);
     if (next && !opChain && !opChainLoading) {
+      track("options_chain_view", { ticker: t, contexto }); // qa/47 (Fase 2)
       setOpChainLoading(true);
       store.optionsChain(t).then((r) => setOpChain(r)).catch(() => setOpChain({ providerStatus: "degraded", calls: [], puts: [] })).finally(() => setOpChainLoading(false));
     }
@@ -3383,6 +3391,7 @@ function CarteiraScreen({ ctx }) {
   const [editFor, setEditFor] = useState(null);
   const [comprasOpen, setComprasOpen] = useState({});
   const { data, quotes, analysis, A, goMercado, cp } = ctx;   // FASE 8B (B1)
+  useEffect(() => { track("portfolio_view"); }, []);   // qa/47 (Fase 2)
   const byQ = (t) => quotes[t] || {};
   const m = portfolioMetrics(data.positions, quotes, data.cash);
   const positionsValue = m.posVal;
@@ -5382,6 +5391,7 @@ function RadarScreen({ ctx }) {
   const [batch, setBatch] = useState({ stage: "idle", busy: false, est: null, error: "" });
   const runDeep = useCallback(async (t) => {
     setDeepFor(t);
+    track("radar_result_opened", { ticker: t }); // qa/47 (Fase 2): "Aprofundar" — abrir a leitura completa do resultado
     setDeep((d) => (d[t] && (d[t].res || d[t].loading)) ? d : ({ ...d, [t]: { loading: true } }));
     try {
       const cur = deep[t];
@@ -5431,6 +5441,7 @@ function RadarScreen({ ctx }) {
     try {
       const r = await store.scan(p, undefined, force);
       setSt({ busy: false, res: r, error: "" });
+      track("radar_scan_run", { trigger: force ? "manual" : "auto", period: p }); // qa/47 (Fase 2)
     } catch (e) {
       setSt((s) => ({ ...s, busy: false, error: (e && e.message) || String(e) }));
     }
@@ -5660,7 +5671,10 @@ function RadarScreen({ ctx }) {
                 )}
               </div>
               {r.setups && r.setups.length > 0 && (
-                <button onClick={() => setOpenTicker(isOpen ? null : r.ticker)} style={{ marginTop: "10px", background: "transparent", border: "none", color: T.accent, fontSize: "12px", fontWeight: 700, padding: 0 }}>
+                <button onClick={() => {
+                  if (!isOpen) track("setup_alert_opened", { ticker: r.ticker }); // qa/47 (Fase 2)
+                  setOpenTicker(isOpen ? null : r.ticker);
+                }} style={{ marginTop: "10px", background: "transparent", border: "none", color: T.accent, fontSize: "12px", fontWeight: 700, padding: 0 }}>
                   {isOpen ? "− Ocultar critérios" : "+ Ver critérios do setup"}
                 </button>
               )}
@@ -6355,6 +6369,7 @@ export default function App() {
   }, [flash]);
 
   useEffect(() => {
+    track("session_start", { trigger: "boot" }); // qa/47 (Fase 2)
     loadState();
   }, [loadState]);
   // qa/audit-2026-08-08: getState() só rodava no boot — qualquer mudança feita
@@ -6375,16 +6390,16 @@ export default function App() {
     // primeiro plano" logo abaixo: visibilitychange no navegador,
     // appStateChange no WKWebView (nem sempre dispara visibilitychange).
     const onVisible = () => {
-      if (document.visibilityState === "visible") loadState();
-      else if (flushCfgRef.current) flushCfgRef.current();
+      if (document.visibilityState === "visible") { track("session_start", { trigger: "resume" }); loadState(); } // qa/47
+      else { track("session_end"); flushAnalytics(); if (flushCfgRef.current) flushCfgRef.current(); } // qa/47: flush antes de ir a background — no iOS o processo pode ser encerrado logo depois
     };
     document.addEventListener("visibilitychange", onVisible);
     let removeAppListener = null;
     if (isNative) {
       import("@capacitor/app").then(({ App: CapApp }) => {
         CapApp.addListener("appStateChange", ({ isActive }) => {
-          if (isActive) loadState();
-          else if (flushCfgRef.current) flushCfgRef.current();
+          if (isActive) { track("session_start", { trigger: "resume" }); loadState(); } // qa/47
+          else { track("session_end"); flushAnalytics(); if (flushCfgRef.current) flushCfgRef.current(); } // qa/47
         })
           .then((h) => { removeAppListener = () => h.remove(); });
       }).catch(() => { /* plugin ausente: visibilitychange segue cobrindo */ });
@@ -6409,7 +6424,8 @@ export default function App() {
   // estreia da pessoa no conceito, a explicação venha com os números do ativo
   // que a interrompeu — e não do primeiro card que a rede devolver.
   useEffect(() => {
-    notify.onPushTap(async (t) => {
+    notify.onPushTap(async (t, kind) => {
+      track("notification_tapped", { ticker: t, kind }); // qa/47 (Fase 2)
       // O universo do push é watchlist ∪ POSIÇÕES, mas a tela lista só a
       // watchlist — e "tem posição, não está na watchlist" é estado normal
       // (o modal do catálogo SUBSTITUI a lista inteira). Sem garantir o ativo
@@ -6499,6 +6515,7 @@ export default function App() {
         const r = await auth.me();
         if (alive && r && r.user) {
           setAuthUser(r.user);
+          setAnalyticsUser(r.user.id); // qa/47 (Fase 2)
           // qa/32: sessão restaurada com sucesso = identidade já confirmada
           // pelo servidor — exigir um toque extra em "Entrar" no portão de
           // abertura (WelcomeAuthScreen) é uma página intermediária sem
@@ -6626,6 +6643,7 @@ export default function App() {
         const total = !pos || sm.qty >= pos.qty;
         const st = await store.sell(sm.t, total ? undefined : sm.qty);
         setData(st); setSellModal(null);
+        track("trade_simulated", { side: "sell", ticker: sm.t, instrument: "equity" }); // qa/47 (Fase 2)
         flash(cp.toastVenda(total ? "total" : sm.qty + " cotas", sm.t)); // FASE 8B (B1)
       } catch (e) { flash("Venda: " + (e.message || e)); }
     },
@@ -6671,6 +6689,7 @@ export default function App() {
       try {
         const s = await store.buy(bm.t, bm.qty, bm.meta || undefined); // FASE 2 (2.4): setup de entrada
         setData(s); setBuyModal(null);
+        track("trade_simulated", { side: "buy", ticker: bm.t, instrument: "equity" }); // qa/47 (Fase 2)
         flash(cp.toastCompra(bm.qty, bm.t)); // FASE 8B (B1): voz do modo
         // FASE 2 (2.3): oferta IMEDIATA do N3 — modal com cenários; nada é
         // aplicado sem o toque do usuário (Fechar cancela sem efeito).
@@ -6680,7 +6699,11 @@ export default function App() {
       catch (e) { flash("Compra: " + (e.message || e)); }
     },
     sell: async (t) => {
-      try { const s = await store.sell(t); setData(s); flash(cp.toastVenda("total", t)); }
+      try {
+        const s = await store.sell(t); setData(s);
+        track("trade_simulated", { side: "sell", ticker: t, instrument: "equity" }); // qa/47 (Fase 2)
+        flash(cp.toastVenda("total", t));
+      }
       catch (e) { flash("Venda: " + (e.message || e)); }
     },
     setStop: async (t, v) => { try { const s = await store.putPosition(t, { stop: v }); setData(s); } catch (e) { flash("Erro: " + (e.message || e)); } },
@@ -6692,6 +6715,7 @@ export default function App() {
       try {
         const s = await store.optionsBuy({ underlying, contractSymbol: contract.contractSymbol, expiration, qty: 100, meta: meta || undefined });
         setData(s);
+        track("trade_simulated", { side: "buy", ticker: underlying, instrument: "option" }); // qa/47 (Fase 2)
         flash("Opção " + contract.contractSymbol + " comprada — 100 cotas a R$ " + price(s.priceUsed) + ".");
       } catch (e) { flash("Compra de opção: " + (e.message || e)); }
     },
@@ -6699,6 +6723,7 @@ export default function App() {
       try {
         const s = await store.optionsSell({ contractSymbol: contractId });
         setData(s);
+        track("trade_simulated", { side: "sell", contract: contractId, instrument: "option" }); // qa/47 (Fase 2)
         flash("Opção " + contractId + " vendida.");
       } catch (e) { flash("Venda de opção: " + (e.message || e)); }
     },
@@ -6817,7 +6842,15 @@ export default function App() {
     // a explicação é daquele ativo naquele instante, não de manual.
     // `trilha` guarda os conceitos por onde a pessoa passou nesta abertura —
     // é o que dá o "‹ voltar" da cadeia. Abrir pelo card sempre recomeça.
-    openConceito: (cid, dados) => setConceitoAberto({ cid, dados: dados || null, trilha: [] }),
+    // qa/47 (Fase 2): openConceito só é chamado pela via PROATIVA (gatilho em
+    // TimingBadge) — nenhum outro call site no app usa esta função (abertura
+    // manual passa por abrirSetor, abaixo). `viaProativa` marca a origem no
+    // próprio estado pra closeConceito saber se foi um "coach tip" fechado ou
+    // uma folha aberta manualmente — sem isso os dois se confundiriam.
+    openConceito: (cid, dados) => {
+      track("coach_tip_shown", { cid });
+      setConceitoAberto({ cid, dados: dados || null, trilha: [], viaProativa: true });
+    },
     // Abre o conceito primário do SETOR (registro do backend) e conta a
     // descoberta — `gesto` (toques no sublinhado) × `botao` (sr-only) mede se
     // a convenção do pontilhado está sendo encontrada. O nome do campo fica
@@ -6842,7 +6875,14 @@ export default function App() {
       if (!tr.length) return c;
       return { ...c, cid: tr[tr.length - 1], trilha: tr.slice(0, -1) };
     }),
-    closeConceito: () => setConceitoAberto(null),
+    // qa/47 (Fase 2): só conta como "dismissed" se a folha foi aberta pela via
+    // proativa (viaProativa). Simplificação deliberada — não distingue "fechou
+    // sem nada" de "navegou a fundo e fechou depois" (exigiria uma 2ª flag de
+    // interação); a taxonomia da fase 1 não pede essa granularidade.
+    closeConceito: () => setConceitoAberto((c) => {
+      if (c && c.viaProativa) track("coach_tip_dismissed", { cid: c.cid });
+      return null;
+    }),
     // Marca o conceito como visto: a via proativa dispara UMA vez; depois de
     // marcado, a explicação segue a um toque na mesma afordância.
     marcarConceitoVisto: (cid) => {
@@ -7184,7 +7224,7 @@ export default function App() {
     // o doc do aparelho e a identidade (appMode/termo/risco) "se perdia".
     login: async ({ email, password }) => {
       const r = await auth.login({ email, password });
-      if (r && r.user) setAuthUser(r.user);
+      if (r && r.user) { setAuthUser(r.user); setAnalyticsUser(r.user.id); } // qa/47 (Fase 2)
       _resetScopeState();
       if (!isNative && r && r.state) setData(r.state); else await loadState();
       refreshQuotes();
@@ -7193,7 +7233,7 @@ export default function App() {
     },
     register: async ({ email, password, name }) => {
       const r = await auth.register({ email, password, name });
-      if (r && r.user) setAuthUser(r.user);
+      if (r && r.user) { setAuthUser(r.user); setAnalyticsUser(r.user.id); } // qa/47 (Fase 2)
       _resetScopeState();
       if (!isNative && r && r.state) setData(r.state); else await loadState();
       refreshQuotes();
@@ -7204,7 +7244,7 @@ export default function App() {
     // obtido pelos plugins Capacitor quando configurados. O servidor já valida.
     oauth: async ({ provider, idToken, name, authorizationCode }) => {
       const r = await auth.oauth({ provider, idToken, name: name || undefined, authorizationCode: authorizationCode || undefined });
-      if (r && r.user) setAuthUser(r.user);
+      if (r && r.user) { setAuthUser(r.user); setAnalyticsUser(r.user.id); } // qa/47 (Fase 2)
       _resetScopeState();
       if (!isNative && r && r.state) setData(r.state); else await loadState();
       refreshQuotes();
@@ -7220,6 +7260,7 @@ export default function App() {
     logout: async () => {
       await auth.logout();
       setAuthUser(null);
+      setAnalyticsUser(null); // qa/47 (Fase 2)
       _resetScopeState();
       await loadState();
       refreshQuotes();
@@ -7230,6 +7271,7 @@ export default function App() {
     deleteAccount: async () => {
       await auth.deleteAccount();
       setAuthUser(null);
+      setAnalyticsUser(null); // qa/47 (Fase 2)
       _resetScopeState();
       await loadState();
       refreshQuotes();
@@ -7494,6 +7536,7 @@ export default function App() {
             if (name) A.saveName(name);
             if (budget) A.saveBudget(budget);
             if (risco) A.saveProfile({ risco });
+            track("onboarding_step_completed", { step: "config" }); // qa/47: único passo hoje (sem multi-step)
             setWelcomeOpen(false);
             ctx.markOnboarded();
           }}

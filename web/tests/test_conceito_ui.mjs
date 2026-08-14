@@ -134,8 +134,11 @@ ok("permanente exige só o PLANO; proativa exige estado vivo",
    && /if \(!didaticaOk \|\| !estadoVivo \|\|/.test(app));
 
 // ------------------------------------------- Fase 0b: o push tem DESTINO
+// qa/47 (Fase 2, 2026-08-14): assinatura ganhou `kind` (analytics de
+// notification_tapped) — guardião atualizado, comportamento de navegação
+// intacto (as 2 asserções seguintes continuam cobrindo isso).
 ok("toque no push leva ao ativo (aba + scroll até o card)",
-   /notify\.onPushTap\(async \(t\) => \{/.test(app)
+   /notify\.onPushTap\(async \(t, kind\) => \{/.test(app)
    && /setTab\("mercado"\)/.test(app)
    && /document\.getElementById\("ativo-" \+ t\)/.test(app));
 ok("o card do ativo tem id para o scroll", /id=\{"ativo-" \+ t\}/.test(app));
