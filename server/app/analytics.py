@@ -237,17 +237,59 @@ async def maybe_run(conn, _now: Optional[float] = None) -> Optional[dict]:
 
 
 # --------------------------- leitura (GET /api/analytics/summary) ----------
-# As 3 queries do plano (qa/47): direto de analytics_events (dado bruto, só
-# existe dentro da janela de retenção — precisão total nesse intervalo).
+# ADR-012 (Fase 2): adocao_por_feature e shown_vs_dismissed agora leem de
+# analytics_daily (rollup persistido, sobrevive além de RETENCAO_DIAS) em vez
+# do bruto — mesmo total, mais alcance no tempo. O rollup só cobre ATÉ ONTEM
+# (roda 1x/dia); HOJE é somado do bruto por cima pra não ter lacuna de "dado
+# de hoje só aparece amanhã". `funil` continua no bruto (ver docstring dele:
+# precisa da ORDEM de eventos por usuário, que analytics_daily não guarda —
+# não é migração possível sem perder o que o funil mede).
+
+def _hoje(now: float) -> str:
+    return datetime.fromtimestamp(now, tz=BRT).date().isoformat()
+
 
 def adocao_por_feature(conn, dias: int = 30, _now: Optional[float] = None) -> list:
     now = _now if _now is not None else time.time()
+    hoje = _hoje(now)
     desde = (datetime.fromtimestamp(now, tz=BRT).date() - timedelta(days=dias)).isoformat()
-    rows = conn.execute(
+    agg: dict = {}
+    for event, count, usuarios in conn.execute(
+        "SELECT event, SUM(count), SUM(distinct_users) FROM analytics_daily "
+        "WHERE day >= ? AND day < ? GROUP BY event", (desde, hoje),
+    ).fetchall():
+        agg[event] = {"count": count, "usuariosDistintos": usuarios}
+    for event, count, usuarios in conn.execute(
         "SELECT event, COUNT(*), COUNT(DISTINCT user_id) FROM analytics_events "
-        "WHERE day >= ? GROUP BY event ORDER BY COUNT(*) DESC", (desde,),
-    ).fetchall()
-    return [{"event": r[0], "count": r[1], "usuariosDistintos": r[2]} for r in rows]
+        "WHERE day = ? GROUP BY event", (hoje,),
+    ).fetchall():
+        cur = agg.setdefault(event, {"count": 0, "usuariosDistintos": 0})
+        cur["count"] += count
+        cur["usuariosDistintos"] += usuarios
+    resultado = [{"event": e, **v} for e, v in agg.items()]
+    resultado.sort(key=lambda r: r["count"], reverse=True)
+    return resultado
+
+
+def serie_diaria_por_evento(conn, dias: int = 30, _now: Optional[float] = None) -> list:
+    """ADR-012 (Fase 2): série diária por evento (um ponto {day, count} por
+    dia) — é o que habilita o gráfico de tendência na tela "Comportamento do
+    Usuário". Direto de analytics_daily (persistido) + hoje somado do bruto
+    (mesmo motivo de adocao_por_feature: rollup só cobre até ontem)."""
+    now = _now if _now is not None else time.time()
+    hoje = _hoje(now)
+    desde = (datetime.fromtimestamp(now, tz=BRT).date() - timedelta(days=dias)).isoformat()
+    por_evento: dict = {}
+    for event, day, count in conn.execute(
+        "SELECT event, day, count FROM analytics_daily WHERE day >= ? AND day < ? ORDER BY event, day",
+        (desde, hoje),
+    ).fetchall():
+        por_evento.setdefault(event, []).append({"day": day, "count": count})
+    for event, count in conn.execute(
+        "SELECT event, COUNT(*) FROM analytics_events WHERE day = ? GROUP BY event", (hoje,),
+    ).fetchall():
+        por_evento.setdefault(event, []).append({"day": hoje, "count": count})
+    return [{"event": e, "serie": pontos} for e, pontos in sorted(por_evento.items())]
 
 
 def funil(conn, passos: Optional[list] = None, dias: int = 30, _now: Optional[float] = None) -> dict:
@@ -255,7 +297,13 @@ def funil(conn, passos: Optional[list] = None, dias: int = 30, _now: Optional[fl
     o passo i-1 num timestamp <=. Default de 2 passos, taxonomia recuperada
     (qa/47): `onboarding_step_completed` (dispara por PASSO — MIN(ts) aqui
     marca "começou o onboarding", não "terminou"; a spec não nomeia o passo
-    final) → `trade_simulated`."""
+    final) → `trade_simulated`.
+
+    ADR-012 (Fase 2): DELIBERADAMENTE não migrado pra analytics_daily — o
+    funil precisa da ORDEM de eventos por usuário (MIN(ts) por passo,
+    comparado entre passos), e analytics_daily só guarda contagem agregada
+    do dia (sem user_id nem timestamp). Fica no bruto, então só enxerga
+    RETENCAO_DIAS (90 dias) pra trás — sem série histórica além disso."""
     passos = list(passos) if passos else ["onboarding_step_completed", "trade_simulated"]
     now = _now if _now is not None else time.time()
     desde = (datetime.fromtimestamp(now, tz=BRT).date() - timedelta(days=dias)).isoformat()
@@ -282,12 +330,23 @@ def funil(conn, passos: Optional[list] = None, dias: int = 30, _now: Optional[fl
 
 def shown_vs_dismissed(conn, dias: int = 30, _now: Optional[float] = None) -> list:
     """Convenção de nome (`*_shown` / `*_dismissed`), não lista fixa — a
-    spec perdida talvez usasse outra convenção; documentado como premissa."""
+    spec perdida talvez usasse outra convenção; documentado como premissa.
+
+    ADR-012 (Fase 2): mesma troca de fonte de adocao_por_feature —
+    analytics_daily (persistido) + hoje somado do bruto."""
     now = _now if _now is not None else time.time()
+    hoje = _hoje(now)
     desde = (datetime.fromtimestamp(now, tz=BRT).date() - timedelta(days=dias)).isoformat()
-    rows = conn.execute(
-        "SELECT event, COUNT(*) FROM analytics_events WHERE day >= ? GROUP BY event", (desde,),
-    ).fetchall()
+    contagem: dict = {}
+    for event, count in conn.execute(
+        "SELECT event, SUM(count) FROM analytics_daily WHERE day >= ? AND day < ? GROUP BY event", (desde, hoje),
+    ).fetchall():
+        contagem[event] = contagem.get(event, 0) + count
+    for event, count in conn.execute(
+        "SELECT event, COUNT(*) FROM analytics_events WHERE day = ? GROUP BY event", (hoje,),
+    ).fetchall():
+        contagem[event] = contagem.get(event, 0) + count
+    rows = list(contagem.items())
     pares: dict = {}
     for event, count in rows:
         if event.endswith("_shown"):

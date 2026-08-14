@@ -138,9 +138,40 @@ function Custos() {
   );
 }
 
+// ADR-012 (Fase 2): tendência no tempo de um evento — pontos diários de
+// analytics_daily (persistido, sobrevive além de RETENCAO_DIAS) + hoje ao
+// vivo. Sem cor por sinal (é contagem, nunca negativa) — mais simples que RCurve.
+function Sparkline({ pts, width = 110, height = 26 }) {
+  const vals = (pts || []).map((p) => p.count).filter((v) => typeof v === "number" && isFinite(v));
+  if (vals.length < 2) return <span style={{ fontSize: "10px", color: T.faint }}>sem série</span>;
+  const mn = Math.min(...vals), mx = Math.max(...vals), sp = (mx - mn) || 1;
+  const x = (i) => (i / (vals.length - 1)) * (width - 2) + 1;
+  const y = (v) => (height - 2) - ((v - mn) / sp) * (height - 4);
+  const d = vals.map((v, i) => (i ? "L" : "M") + x(i).toFixed(1) + "," + y(v).toFixed(1)).join(" ");
+  return (
+    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" style={{ display: "block", flexShrink: 0 }} aria-hidden>
+      <path d={d} fill="none" stroke={T.accent} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function EventoComSerie({ label, value, serie }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", padding: "7px 0", borderBottom: `1px solid ${T.border}` }}>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: "13px", color: T.muted }}>{label}</div>
+        <div style={{ fontFamily: MONO, fontWeight: 700, fontSize: "12.5px", color: T.text }}>{value}</div>
+      </div>
+      <Sparkline pts={serie} />
+    </div>
+  );
+}
+
 function Comportamento() {
   const [dias, setDias] = useState(30);
   const { loading, error, data, reload } = useFetch(() => api.analyticsSummary(dias), [dias]);
+  const serieMap = {};
+  (data?.serieDiariaPorEvento || []).forEach((s) => { serieMap[s.event] = s.serie; });
   return (
     <>
       <Card title="Adoção por feature" right={
@@ -152,7 +183,7 @@ function Comportamento() {
       }>
         <Estado loading={loading} error={error} empty={data && (data.adocaoPorFeature || []).length === 0}>
           {data && (data.adocaoPorFeature || []).map((r) => (
-            <Kv key={r.event} label={r.event} value={r.count + " eventos · " + r.usuariosDistintos + " usuário(s)"} />
+            <EventoComSerie key={r.event} label={r.event} value={r.count + " eventos · " + r.usuariosDistintos + " usuário(s)"} serie={serieMap[r.event]} />
           ))}
         </Estado>
       </Card>
@@ -162,11 +193,29 @@ function Comportamento() {
             <Kv key={p.passo} label={p.passo} value={p.usuarios + " usuário(s)"} />
           ))}
         </Estado>
+        <div style={{ marginTop: "8px", fontSize: "10.5px", color: T.faint, lineHeight: 1.5 }}>
+          Sem gráfico de tendência aqui: o funil depende da ORDEM de eventos por usuário, que só existe no dado bruto (90 dias de retenção) — o rollup diário não guarda isso.
+        </div>
       </Card>
       <Card title="Shown vs. dismissed" right={<button onClick={reload} style={btnGhost}>↻ atualizar</button>}>
         <Estado loading={loading} error={error} empty={data && (data.shownVsDismissed || []).length === 0}>
           {data && (data.shownVsDismissed || []).map((r) => (
-            <Kv key={r.feature} label={r.feature} value={r.shown + " mostrado(s) · " + r.dismissed + " fechado(s)"} />
+            <div key={r.feature} style={{ padding: "7px 0", borderBottom: `1px solid ${T.border}` }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", fontSize: "13px" }}>
+                <span style={{ color: T.muted }}>{r.feature}</span>
+                <span style={{ fontFamily: MONO, fontWeight: 700, color: T.text }}>{r.shown} mostrado(s) · {r.dismissed} fechado(s)</span>
+              </div>
+              <div style={{ display: "flex", gap: "10px", marginTop: "4px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                  <span style={{ fontSize: "9.5px", color: T.faint }}>mostrado</span>
+                  <Sparkline pts={serieMap[r.feature + "_shown"]} width={70} height={20} />
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                  <span style={{ fontSize: "9.5px", color: T.faint }}>fechado</span>
+                  <Sparkline pts={serieMap[r.feature + "_dismissed"]} width={70} height={20} />
+                </div>
+              </div>
+            </div>
           ))}
         </Estado>
       </Card>

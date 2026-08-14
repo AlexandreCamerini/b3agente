@@ -185,6 +185,79 @@ def test_shown_vs_dismissed_casa_por_prefixo():
     assert item["shown"] == 2 and item["dismissed"] == 1
 
 
+# ------------------- ADR-012 (Fase 2): fonte = analytics_daily + hoje --------
+
+def test_adocao_por_feature_inclui_rollup_alem_da_retencao():
+    c = _conn()
+    t_ontem = 1_800_000_000.0
+    dia_ontem = analytics._dia(t_ontem)
+    analytics.ingest(c, "u1", [{"event": "radar_shown"}, {"event": "radar_shown"}], _now=t_ontem)
+    analytics.ingest(c, "u2", [{"event": "radar_shown"}], _now=t_ontem)
+    analytics.rollup_day(c, dia_ontem)
+    analytics.purge_older_than(c, "9999-12-31")  # apaga TUDO do bruto — só sobra o rollup
+    t_hoje = t_ontem + 86400
+    r = analytics.adocao_por_feature(c, dias=30, _now=t_hoje)
+    item = next(x for x in r if x["event"] == "radar_shown")
+    assert item["count"] == 3 and item["usuariosDistintos"] == 2, \
+        "precisa sobreviver à purga do bruto — é exatamente o ganho desta fase"
+
+
+def test_adocao_por_feature_soma_rollup_de_ontem_com_bruto_de_hoje_sem_dobrar():
+    c = _conn()
+    t_ontem = 1_800_000_000.0
+    analytics.ingest(c, "u1", [{"event": "radar_shown"}], _now=t_ontem)
+    analytics.rollup_day(c, analytics._dia(t_ontem))
+    t_hoje = t_ontem + 86400
+    analytics.ingest(c, "u2", [{"event": "radar_shown"}], _now=t_hoje)  # NÃO rolado ainda
+    r = analytics.adocao_por_feature(c, dias=30, _now=t_hoje)
+    item = next(x for x in r if x["event"] == "radar_shown")
+    assert item["count"] == 2  # 1 do rollup de ontem + 1 do bruto de hoje
+
+
+def test_shown_vs_dismissed_inclui_rollup_alem_da_retencao():
+    c = _conn()
+    t_ontem = 1_800_000_000.0
+    analytics.ingest(c, "u1", [{"event": "nudge_x_shown"}, {"event": "nudge_x_shown"},
+                               {"event": "nudge_x_dismissed"}], _now=t_ontem)
+    analytics.rollup_day(c, analytics._dia(t_ontem))
+    analytics.purge_older_than(c, "9999-12-31")
+    t_hoje = t_ontem + 86400
+    r = analytics.shown_vs_dismissed(c, dias=30, _now=t_hoje)
+    item = next(x for x in r if x["feature"] == "nudge_x")
+    assert item["shown"] == 2 and item["dismissed"] == 1
+
+
+def test_serie_diaria_por_evento_um_ponto_por_dia():
+    c = _conn()
+    t_ontem = 1_800_000_000.0
+    dia_ontem = analytics._dia(t_ontem)
+    analytics.ingest(c, "u1", [{"event": "radar_shown"}, {"event": "radar_shown"}], _now=t_ontem)
+    analytics.rollup_day(c, dia_ontem)
+    t_hoje = t_ontem + 86400
+    dia_hoje = analytics._dia(t_hoje)
+    analytics.ingest(c, "u1", [{"event": "radar_shown"}], _now=t_hoje)
+    r = analytics.serie_diaria_por_evento(c, dias=30, _now=t_hoje)
+    item = next(x for x in r if x["event"] == "radar_shown")
+    dias = {p["day"]: p["count"] for p in item["serie"]}
+    assert dias[dia_ontem] == 2
+    assert dias[dia_hoje] == 1
+
+
+def test_funil_continua_no_bruto_nao_migrado():
+    """ADR-012 (Fase 2, decisão deliberada): funil não migra pra
+    analytics_daily (precisa da ordem por usuário) — este teste ancora que
+    ele SÓ enxerga o que está em analytics_events, mesmo com rollup feito."""
+    c = _conn()
+    t0 = 1_800_000_000.0
+    analytics.ingest(c, "u1", [{"event": "onboarding_step_completed", "ts": t0}], _now=t0)
+    analytics.rollup_day(c, analytics._dia(t0))
+    analytics.purge_older_than(c, "9999-12-31")  # some do bruto
+    r = analytics.funil(c, dias=30, _now=t0 + 86400)
+    passos = {p["passo"]: p["usuarios"] for p in r["passos"]}
+    assert passos["onboarding_step_completed"] == 0, \
+        "funil não lê analytics_daily — depois da purga, some (comportamento esperado e documentado)"
+
+
 # =============================================================================
 # Rotas — mesmo isolamento de test_admin_summary.py (B3_DB_PATH temporário,
 # app.main reimportado a cada teste para reler env de módulo).
@@ -263,6 +336,7 @@ def test_get_summary_e_admin_only(monkeypatch):
     assert r_admin.status_code == 200
     body = r_admin.json()
     assert "adocaoPorFeature" in body and "funil" in body and "shownVsDismissed" in body
+    assert "serieDiariaPorEvento" in body  # ADR-012 (Fase 2)
 
 
 def test_analytics_db_fica_no_mesmo_diretorio_do_b3_db_path(monkeypatch):
