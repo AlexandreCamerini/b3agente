@@ -506,6 +506,9 @@ async def analytics_summary(dias: int = 30, passos: Optional[str] = None, user: 
         "adocaoPorFeature": analytics.adocao_por_feature(_analytics_conn, dias=dias),
         "funil": analytics.funil(_analytics_conn, lista_passos, dias=dias),
         "shownVsDismissed": analytics.shown_vs_dismissed(_analytics_conn, dias=dias),
+        # ADR-012 (Fase 2): série diária por evento — habilita o gráfico de
+        # tendência no portal. Direto de analytics_daily (persistido).
+        "serieDiariaPorEvento": analytics.serie_diaria_por_evento(_analytics_conn, dias=dias),
     }
 
 

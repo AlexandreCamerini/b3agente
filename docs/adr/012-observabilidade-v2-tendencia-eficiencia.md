@@ -1,9 +1,10 @@
 # ADR-012: Portal de Observabilidade v2 — tendência no tempo, eficiência da IA e da automação
 
-**Status:** Proposto — Fase 1 (Eficiência da IA agregada) implementada. Fases
-2-5 (tendência para Comportamento do Usuário, automação + correlação
-análise↔operação, série temporal para Visão Geral/Custos, redesenho visual)
-seguem o mesmo faseamento, cada uma com aprovação própria antes de começar.
+**Status:** Proposto — Fases 1 (Eficiência da IA agregada) e 2 (tendência
+para Comportamento do Usuário) implementadas. Fases 3-5 (automação +
+correlação análise↔operação, série temporal para Visão Geral/Custos,
+redesenho visual) seguem o mesmo faseamento, cada uma com aprovação própria
+antes de começar.
 **Data:** 2026-08-14 · **Companion:** ADR-011 (v1 do portal, já em produção)
 
 ---
@@ -71,11 +72,24 @@ coletar:
   consumidor, sem lib nova). Rótulo fixo: "Autoavaliação interna do sistema
   — não é garantia de resultado futuro."
 
-### Fase 2 — Tendência para Comportamento do Usuário (planejada)
+### Fase 2 — Tendência para Comportamento do Usuário (implementada)
 
-Troca a fonte de `adocao_por_feature`/`funil`/`shown_vs_dismissed` de
-`analytics_events` bruto para `analytics_daily` (já populada 1x/dia, sem
-novo dado a coletar) — habilita gráfico de série sem criar nada novo.
+`adocao_por_feature` e `shown_vs_dismissed` passam a ler de `analytics_daily`
+(rollup persistido, sobrevive além de `RETENCAO_DIAS`) para tudo ANTES de
+hoje, somado ao dado bruto de HOJE (o rollup só cobre até ontem — sem essa
+soma haveria uma lacuna de 1 dia sempre visível). Nova função
+`serie_diaria_por_evento()` devolve um ponto `{day, count}` por dia por
+evento — é o que alimenta o novo gráfico de linha (`Sparkline`, sem lib
+nova) ao lado de cada linha em "Adoção por feature" e "Shown vs. dismissed"
+no portal.
+
+**`funil` foi DELIBERADAMENTE excluído desta migração** — ele depende da
+ORDEM de eventos por usuário (MIN(timestamp) por passo, comparado entre
+passos), e `analytics_daily` só guarda contagem agregada do dia, sem
+`user_id` nem timestamp. Migrar teria trocado o que o funil mede (sequência
+real por usuário) por uma aproximação errada. Ele continua no dado bruto,
+com o limite de `RETENCAO_DIAS` (90 dias) já existente — a UI mostra essa
+limitação explicitamente, não a esconde.
 
 ### Fase 3 — Automação + correlação análise↔operação (planejada)
 
