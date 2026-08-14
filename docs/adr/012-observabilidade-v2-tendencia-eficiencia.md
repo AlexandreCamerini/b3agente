@@ -1,9 +1,9 @@
 # ADR-012: Portal de Observabilidade v2 — tendência no tempo, eficiência da IA e da automação
 
 **Status:** Proposto — Fases 1 (Eficiência da IA agregada), 2 (tendência
-para Comportamento do Usuário) e 3 (automação + correlação
-análise↔operação) implementadas. Fases 4-5 (série temporal para Visão
-Geral/Custos, redesenho visual) seguem o mesmo faseamento, cada uma com
+para Comportamento do Usuário), 3 (automação + correlação
+análise↔operação) e 4 (série temporal para Visão Geral/Custos)
+implementadas. Fase 5 (redesenho visual) segue o mesmo faseamento, com
 aprovação própria antes de começar.
 **Data:** 2026-08-14 · **Companion:** ADR-011 (v1 do portal, já em produção)
 
@@ -115,13 +115,28 @@ completo. **Não implementa** "tempo de reação" nem "slippage vs. previsto"
 cache diário da Fase 1 (`automacao.maybe_refresh_cache`, hook no
 scheduler), com cold-start no endpoint.
 
-### Fase 4 — Série temporal para Visão Geral e Custos (planejada)
+### Fase 4 — Série temporal para Visão Geral e Custos (implementada)
 
 Nova tabela genérica em `analytics.db`, `obs_daily_metrics(day, metric,
-value)` (mesmo padrão EAV que `analytics_daily` já usa), populada 1x/dia
-pelo mesmo hook com os campos hoje só-memória (tokens/dia por modelo,
-orçamento brapi, cache de candles, falhas de push automático, duração do
-radar diário).
+value)` (mesmo padrão EAV que `analytics_daily` já usa) — SNAPSHOT do
+momento em que o scheduler roda, semântica diferente do rollup histórico de
+`analytics_daily` (documentado no código; evita confusão tipo "por que esse
+valor não bate com o painel ao vivo acima"). 7 métricas capturadas 1x/dia
+pelo mesmo hook (`agent._maybe_registrar_metricas_diarias`, gate próprio):
+`custo_ia_tokens_dia`, `ia_analises_gerenciadas_dia`,
+`brapi_requisicoes_janela3d`/`brapi_erros_janela3d` (nome deixa explícito
+que é janela de 3 dias, não só hoje — `candle_provider.snapshot()` nunca
+foi "hoje"), `cache_candles_series`, `push_automatico_falhas_dia`,
+`radar_diario_duracao_s`. Endpoint único `GET /api/analytics/tendencias?dias=N`
+devolve as 7 séries de uma vez (mesmo padrão de `/api/analytics/summary`).
+
+Visão Geral e Custos ganham sparkline (componente da Fase 2, reaproveitado)
+ao lado dos KPIs correspondentes — inclusive `radarDiario.duracaoS`, campo
+que a API já expunha e a UI nunca mostrava, corrigido nesta fase. Achado na
+verificação ao vivo: o card "Cache de candles" escondia o sparkline sempre
+que o cache AO VIVO estava vazio (o estado `empty` cobria a seção inteira)
+— corrigido pra mostrar a tendência histórica independente do estado
+momentâneo do cache.
 
 ### Fase 5 — Redesenho visual executivo (planejada)
 

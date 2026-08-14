@@ -550,6 +550,18 @@ async def analytics_automacao(user: dict = Depends(require_user)):
     return {**resumo["value"], "correlacaoAnaliseOperacao": correlacao["value"], "computedAt": resumo["computedAt"]}
 
 
+# ADR-012 (Fase 4): série diária dos campos hoje só em memória (custo de IA,
+# orçamento brapi, cache de candles, falhas de push, duração do radar) — o
+# que habilita gráfico de tendência em Visão Geral/Custos. Leitura direta
+# (sem cache: índice PRIMARY KEY(day,metric) já torna o SELECT barato) —
+# quem grava é o hook diário do scheduler (agent._maybe_registrar_metricas_diarias).
+@app.get("/api/analytics/tendencias")
+async def analytics_tendencias(dias: int = 30, user: dict = Depends(require_user)):
+    if not _is_obs_admin(user):
+        raise HTTPException(403, "Tendências são restritas ao administrador (defina B3_ADMIN_EMAILS no Railway).")
+    return analytics.series_metricas(_analytics_conn, dias=dias)
+
+
 # F5 (2026-08-02, decisão do Alex: v1 SÓ VER — sem ação nenhuma). Mesmo portão
 # de admin que obs/usage e obs/logs já usavam (_is_obs_admin); nada novo em
 # termos de quem pode acessar, só um painel que junta o que já existia
