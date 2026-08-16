@@ -29,14 +29,34 @@ PLAN_PRO = {
     "byok_required": False,
 }
 
-# Plano vigente do app HOJE: tudo liberado. No futuro isso vira por-usuario,
-# resolvido a partir do recibo de assinatura validado.
+# Plano vigente do app HOJE: tudo liberado (os limites de PLAN_FREE/PLAN_PRO
+# continuam None — ativa-los e decisao comercial pendente do ADR-010, nao
+# deste modulo). ACTIVE_PLAN fica so como fallback de quem nao tem `user`.
 ACTIVE_PLAN = PLAN_FREE
+
+PLANOS_POR_ID = {"free": PLAN_FREE, "pro": PLAN_PRO}
+_ORDEM_PLANO = ["free", "pro"]
 
 
 def current_plan(user: Optional[dict] = None) -> dict:
-    """HOJE: sempre o plano aberto. FUTURO: resolver pelo recibo do usuario."""
-    return ACTIVE_PLAN
+    """ADR-013: resolve pelo campo persistido `users.plan` (free|pro) em vez
+    do ACTIVE_PLAN global fixo. A VALIDACAO do recibo de loja que decide esse
+    campo continua pendente do ADR-010 — aqui so liga a leitura ao dado que
+    ja existe em `db.users.plan` (default 'free', sem override manual nesta
+    rodada). `user=None` (anonimo) cai no fallback ACTIVE_PLAN, igual antes."""
+    if not user:
+        return ACTIVE_PLAN
+    return PLANOS_POR_ID.get(user.get("plan") or "free", PLAN_FREE)
+
+
+def plan_at_least(plan_atual: dict, min_plan_id: str) -> bool:
+    """ADR-013: usado por `require_plan()` (server/app/main.py) para gates
+    futuros de plano — nenhuma rota usa isto ainda (ver ADR-013, item c)."""
+    atual_id = (plan_atual or {}).get("id", "free")
+    try:
+        return _ORDEM_PLANO.index(atual_id) >= _ORDEM_PLANO.index(min_plan_id)
+    except ValueError:
+        return False
 
 
 # ---- GANCHOS (hoje retornam sempre permitido) ----

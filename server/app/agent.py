@@ -123,7 +123,53 @@ def _now_str() -> str:
     return datetime.now(BRT).strftime("%d/%m %H:%M")
 
 
+# ADR-013 (Decisão "Rotas NOVAS propostas", grupo "Execução de ordens
+# automáticas"): o kill-switch ganha um toggle em runtime (admin_config),
+# além do env — mesmo padrão memória→DB→env que brapi_budget.py já usa,
+# generalizado aqui em vez de inventado de novo. Nenhum call site muda de
+# assinatura (kill_switch_on() continua sem args) — só passa a checar mais
+# uma fonte, na ordem memória → DB → env, antes de cair no default (off).
+_DB_CONN = None
+_DB_ENABLED = False
+_KILL_MEM = None  # None = não decidido ainda; True/False = já resolvido
+
+
+def configure_db(conn) -> None:
+    global _DB_CONN, _DB_ENABLED
+    _DB_CONN = conn
+    _DB_ENABLED = True
+
+
+def reset_kill_switch_cache() -> None:
+    """Só para testes — mesmo padrão de `brapi_budget.reset()`: a memória
+    NÃO é limpa por `configure_db` de propósito (produção nunca deveria
+    perder o cache num reconnect); testes que trocam de banco entre casos
+    chamam isto explicitamente para não vazar estado de um teste pro outro."""
+    global _KILL_MEM
+    _KILL_MEM = None
+
+
+def set_kill_switch(on: bool) -> bool:
+    """Chamado pela rota admin (`PUT /api/admin/agent/kill-switch`). Persiste
+    e atualiza a memória imediatamente — sem esperar o próximo boot."""
+    global _KILL_MEM
+    _KILL_MEM = bool(on)
+    if _DB_ENABLED:
+        from . import db
+        db.admin_config_set(_DB_CONN, "agentKillSwitch", bool(on), updated_by=None, updated_at=_now_str())
+    return _KILL_MEM
+
+
 def kill_switch_on() -> bool:
+    global _KILL_MEM
+    if _KILL_MEM is not None:
+        return _KILL_MEM
+    if _DB_ENABLED:
+        from . import db
+        override = db.admin_config_get(_DB_CONN, "agentKillSwitch")
+        if isinstance(override, bool):
+            _KILL_MEM = override
+            return _KILL_MEM
     return (os.environ.get("B3_AGENT_KILL") or "").strip() in ("1", "true", "TRUE", "yes")
 
 

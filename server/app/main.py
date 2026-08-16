@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import db, indicators, llm, plan, setups, store, technical_models, tickers, yahoo
+from . import db, defaults, indicators, llm, plan, setups, store, technical_models, tickers, yahoo
 from . import candles as candles_mod  # Objetivo 4: período de candles configurável
 from . import brapi_budget  # ADR-008: orçamento de requisições da brapi (Fase 2)
 from . import candle_cache  # Objetivo 5: cache de candles (delta + revalida último)
@@ -55,6 +55,10 @@ candle_cache.configure_db(_conn)
 # ADR-008 (Fase 2): o contador de orçamento da brapi persiste no mesmo SQLite —
 # sem isto o teto diário zeraria a cada deploy (degrada a proteção da cota).
 brapi_budget.configure_db(_conn)
+# ADR-013: kill-switch do agente ganha override em runtime (admin), mesmo
+# padrão memória→DB→env da brapi acima — sem isto o toggle admin nunca
+# checaria o SQLite.
+agent_mod.configure_db(_conn)
 app.include_router(options_router)
 
 
@@ -82,6 +86,9 @@ async def _unhandled_exception(request: Request, exc: Exception):
 from fastapi import Depends, Header  # noqa: E402
 from . import auth  # noqa: E402
 from . import managed, metering  # noqa: E402 — FASE 3: IA gerenciada (cota/rate)
+from . import rbac, audit  # noqa: E402 — ADR-013: RBAC por macro função + auditoria de escrita admin
+
+managed.configure_db(_conn)  # ADR-013: override de provider/model/cota via admin, antes do env
 
 
 def current_scope(authorization: Optional[str] = Header(default=None)) -> Optional[str]:
@@ -109,11 +116,39 @@ def require_user(authorization: Optional[str] = Header(default=None)) -> dict:
     return user
 
 
+# ADR-013 — RBAC por macro função: SEMPRE no backend, via Depends() — nunca só
+# escondendo botão na UI (restrição do ADR). Composição: require_permission()
+# exige sessão válida (require_user) E a permissão nomeada; substitui o antigo
+# `_is_obs_admin` binário nas 9 rotas admin que já existiam.
+def require_permission(perm: str):
+    def _dep(user: dict = Depends(require_user)) -> dict:
+        if not rbac.user_has_permission(_conn, user["id"], perm):
+            raise HTTPException(403, f"Requer a permissão '{perm}'.")
+        return user
+    return _dep
+
+
+def require_any_admin_permission():
+    """Para telas transversais (ex.: Auditoria) — qualquer papel administrativo
+    serve, não uma permissão específica."""
+    def _dep(user: dict = Depends(require_user)) -> dict:
+        if not rbac.permissions_for_user(_conn, user["id"]):
+            raise HTTPException(403, "Requer algum papel administrativo.")
+        return user
+    return _dep
+
+
 def _public_user(u: dict) -> dict:
-    """Nunca devolve pass_hash nem provider_sub ao cliente."""
+    """Nunca devolve pass_hash nem provider_sub ao cliente. ADR-013: inclui
+    `permissions` (cosmético — a UI esconde botão pela lista, mas toda rota
+    de escrita valida de novo no backend) e `plan` (eixo de monetização)."""
     if not u:
         return None
-    return {"id": u.get("id"), "email": u.get("email"), "name": u.get("name"), "provider": u.get("provider")}
+    return {
+        "id": u.get("id"), "email": u.get("email"), "name": u.get("name"), "provider": u.get("provider"),
+        "plan": u.get("plan") or "free",
+        "permissions": sorted(rbac.permissions_for_user(_conn, u["id"])) if u.get("id") else [],
+    }
 
 
 def _apply_seed(user_id: str, body: dict) -> None:
@@ -142,6 +177,10 @@ def _apply_seed(user_id: str, body: dict) -> None:
 
 
 def _auth_payload(user: dict) -> dict:
+    # ADR-013: bootstrap aditivo do papel administrativo — quem bate na MESMA
+    # lógica que `_is_obs_admin` usava (B3_ADMIN_EMAILS ou 1ª conta) recebe
+    # `role_admin` aqui, a cada login, sem precisar de script de migração.
+    rbac.ensure_bootstrap_role(_conn, user)
     token = auth.create_session(_conn, user["id"])
     return {"token": token, "user": _public_user(user), "state": store.public_state(_conn, user_id=user["id"])}
 
@@ -219,6 +258,9 @@ async def auth_oauth(request: Request, body: dict = Body(default={})):
 
 @app.get("/api/auth/me")
 async def auth_me(user: dict = Depends(require_user)):
+    # ADR-013: idempotente — cobre sessões que já existiam antes do deploy
+    # desta feature (senão o bootstrap só rodaria no PRÓXIMO login de verdade).
+    rbac.ensure_bootstrap_role(_conn, user)
     return {"user": _public_user(user), "state": store.public_state(_conn, user_id=user["id"])}
 
 
@@ -382,22 +424,13 @@ async def log_requests(request: Request, call_next):
 
 
 # ---- FASE 5: observabilidade consultável (Perfil → Observabilidade) --------
-def _is_obs_admin(user: dict) -> bool:
-    """Quem pode ver os logs do SERVIDOR (são globais, não por usuário):
-      - B3_ADMIN_EMAILS definido (lista separada por vírgula) => e-mail na lista;
-      - sem a env => apenas a PRIMEIRA conta criada (a do dono do app)."""
-    emails = [e.strip().lower() for e in (os.environ.get("B3_ADMIN_EMAILS") or "").split(",") if e.strip()]
-    if emails:
-        return bool(user.get("email")) and user["email"].lower() in emails
-    row = _conn.execute("SELECT id FROM users ORDER BY created_at ASC LIMIT 1").fetchone()
-    return bool(row) and row[0] == user.get("id")
-
-
+# ADR-013: o gate binário `_is_obs_admin` foi substituído por
+# `require_permission(...)` nomeada por grupo (macro função) — ver rbac.py.
+# O bootstrap (`B3_ADMIN_EMAILS` ou 1ª conta) preserva EXATAMENTE quem tinha
+# acesso antes, via `rbac.ensure_bootstrap_role`.
 @app.get("/api/obs/logs")
 async def obs_logs(n: int = 200, level: Optional[str] = None, cat: Optional[str] = None,
-                   user: dict = Depends(require_user)):
-    if not _is_obs_admin(user):
-        raise HTTPException(403, "Logs do servidor são restritos ao administrador (defina B3_ADMIN_EMAILS no Railway).")
+                   user: dict = Depends(require_permission("observabilidade.ver"))):
     return {"logs": obslog.recent(n, level=level, cat=cat), "stats": obslog.stats()}
 
 
@@ -426,21 +459,16 @@ def _usage_snapshot() -> dict:
 
 
 @app.get("/api/obs/usage")
-async def obs_usage(user: dict = Depends(require_user)):
-    if not _is_obs_admin(user):
-        raise HTTPException(403, "Uso da IA é restrito ao administrador (defina B3_ADMIN_EMAILS no Railway).")
+async def obs_usage(user: dict = Depends(require_permission("observabilidade.ver"))):
     return _usage_snapshot()
 
 
 # ADR-008 (controle de utilização): o INTERVALO entre atualizações de spot é o
 # parâmetro; a projeção responde NA HORA quantas chamadas/mês ele custa. GET
-# simula sem aplicar; POST só aplica com {"aplicar": true} explícito. Mesmo
-# portão de admin das rotas obs/* — nada novo em quem pode acessar.
+# simula sem aplicar; POST só aplica com {"aplicar": true} explícito.
 @app.get("/api/obs/brapi/projecao")
 async def obs_brapi_projecao(intervaloS: Optional[int] = None,
-                             user: dict = Depends(require_user)):
-    if not _is_obs_admin(user):
-        raise HTTPException(403, "Controle da brapi é restrito ao administrador (defina B3_ADMIN_EMAILS no Railway).")
+                             user: dict = Depends(require_permission("fontes_dados.configurar"))):
     alvo = intervaloS if intervaloS is not None else brapi_budget.spot_intervalo_s()
     return {
         "vigenteS": brapi_budget.spot_intervalo_s(),
@@ -451,9 +479,7 @@ async def obs_brapi_projecao(intervaloS: Optional[int] = None,
 
 @app.post("/api/obs/brapi/projecao")
 async def obs_brapi_projecao_aplicar(body: dict = Body(default={}),
-                                     user: dict = Depends(require_user)):
-    if not _is_obs_admin(user):
-        raise HTTPException(403, "Controle da brapi é restrito ao administrador (defina B3_ADMIN_EMAILS no Railway).")
+                                     user: dict = Depends(require_permission("fontes_dados.configurar"))):
     try:
         alvo = int(body.get("intervaloS"))
     except (TypeError, ValueError):
@@ -461,7 +487,11 @@ async def obs_brapi_projecao_aplicar(body: dict = Body(default={}),
     proj = brapi_budget.projecao(alvo, brapi_budget._universo_n())
     if not body.get("aplicar"):
         return {"vigenteS": brapi_budget.spot_intervalo_s(), "projecao": proj, "aplicado": False}
+    anterior = brapi_budget.spot_intervalo_s()
     vigente = brapi_budget.set_spot_intervalo(alvo)
+    # ADR-013: primeira rota migrada para o audit log — já era admin-gated e
+    # já escrevia estado em runtime, sem nenhum registro de quem mudou o quê.
+    audit.record(_conn, user["id"], "brapi_spot_intervalo", None, "intervaloS", anterior, vigente)
     return {"vigenteS": vigente, "projecao": proj, "aplicado": True}
 
 
@@ -499,9 +529,8 @@ async def analytics_events(body: dict = Body(default={}), user: dict = Depends(r
 
 
 @app.get("/api/analytics/summary")
-async def analytics_summary(dias: int = 30, passos: Optional[str] = None, user: dict = Depends(require_user)):
-    if not _is_obs_admin(user):
-        raise HTTPException(403, "Analytics de comportamento é restrito ao administrador (defina B3_ADMIN_EMAILS no Railway).")
+async def analytics_summary(dias: int = 30, passos: Optional[str] = None,
+                            user: dict = Depends(require_permission("observabilidade.ver"))):
     lista_passos = [p.strip() for p in passos.split(",") if p.strip()] if passos else None
     return {
         "adocaoPorFeature": analytics.adocao_por_feature(_analytics_conn, dias=dias),
@@ -521,9 +550,7 @@ async def analytics_summary(dias: int = 30, passos: Optional[str] = None, user: 
 # o deploy desta feature): calcula uma vez na hora em vez de deixar o admin
 # com tela vazia até a próxima passada diária.
 @app.get("/api/analytics/ia-eficiencia")
-async def analytics_ia_eficiencia(user: dict = Depends(require_user)):
-    if not _is_obs_admin(user):
-        raise HTTPException(403, "Eficiência da IA agregada é restrita ao administrador (defina B3_ADMIN_EMAILS no Railway).")
+async def analytics_ia_eficiencia(user: dict = Depends(require_permission("operador_ia.ver"))):
     cached = analytics.get_cache(_analytics_conn, "ia_eficiencia")
     if cached is None:
         analytics.set_cache(_analytics_conn, "ia_eficiencia", analysis_outcomes.compute_stats_all_users(_conn))
@@ -537,9 +564,7 @@ async def analytics_ia_eficiencia(user: dict = Depends(require_user)):
 # scheduler (automacao.maybe_refresh_cache) recomputa 1x/dia; cold-start
 # calcula uma vez na hora.
 @app.get("/api/analytics/automacao")
-async def analytics_automacao(user: dict = Depends(require_user)):
-    if not _is_obs_admin(user):
-        raise HTTPException(403, "Automação é restrita ao administrador (defina B3_ADMIN_EMAILS no Railway).")
+async def analytics_automacao(user: dict = Depends(require_permission("execucao_automatica.ver"))):
     resumo = analytics.get_cache(_analytics_conn, "automacao_resumo")
     correlacao = analytics.get_cache(_analytics_conn, "automacao_correlacao")
     if resumo is None or correlacao is None:
@@ -556,20 +581,15 @@ async def analytics_automacao(user: dict = Depends(require_user)):
 # (sem cache: índice PRIMARY KEY(day,metric) já torna o SELECT barato) —
 # quem grava é o hook diário do scheduler (agent._maybe_registrar_metricas_diarias).
 @app.get("/api/analytics/tendencias")
-async def analytics_tendencias(dias: int = 30, user: dict = Depends(require_user)):
-    if not _is_obs_admin(user):
-        raise HTTPException(403, "Tendências são restritas ao administrador (defina B3_ADMIN_EMAILS no Railway).")
+async def analytics_tendencias(dias: int = 30, user: dict = Depends(require_permission("observabilidade.ver"))):
     return analytics.series_metricas(_analytics_conn, dias=dias)
 
 
-# F5 (2026-08-02, decisão do Alex: v1 SÓ VER — sem ação nenhuma). Mesmo portão
-# de admin que obs/usage e obs/logs já usavam (_is_obs_admin); nada novo em
-# termos de quem pode acessar, só um painel que junta o que já existia
-# espalhado (uso de IA, usuários cadastrados, saúde do agente) num lugar só.
+# F5 (2026-08-02, decisão do Alex: v1 SÓ VER — sem ação nenhuma). Painel que
+# junta o que já existia espalhado (uso de IA, usuários cadastrados, saúde
+# do agente) num lugar só.
 @app.get("/api/admin/summary")
-async def admin_summary(user: dict = Depends(require_user)):
-    if not _is_obs_admin(user):
-        raise HTTPException(403, "Painel de administração é restrito ao administrador (defina B3_ADMIN_EMAILS no Railway).")
+async def admin_summary(user: dict = Depends(require_permission("observabilidade.ver"))):
     usuarios = db.list_users(_conn)
     return {
         "usuarios": usuarios,
@@ -581,6 +601,120 @@ async def admin_summary(user: dict = Depends(require_user)):
             "ativo": bool(_GATED_HOSTS),
         },
     }
+
+
+# ===========================================================================
+# ADR-013 — central de administração (web-admin/ deixa de ser SÓ VER). Cada
+# rota de ESCRITA grava uma linha em admin_audit_log, sem exceção "por
+# enquanto" (restrição do ADR). `apiKey`/`baseUrl` da IA gerenciada NUNCA
+# entram aqui — seguem só em env (segredo).
+# ===========================================================================
+_CONFIG_IA_CAMPOS = ("llmProvider", "llmModel", "llmDailyQuota", "llmRatePerMin", "llmGlobalDailyCap")
+
+
+@app.get("/api/admin/config/ia")
+async def admin_config_ia_get(user: dict = Depends(require_permission("llm.configurar"))):
+    return {campo: db.admin_config_get(_conn, campo) for campo in _CONFIG_IA_CAMPOS}
+
+
+@app.put("/api/admin/config/ia")
+async def admin_config_ia_put(body: dict = Body(default={}), user: dict = Depends(require_permission("llm.configurar"))):
+    body = body or {}
+    alterado = {}
+    for campo in _CONFIG_IA_CAMPOS:
+        if campo not in body:
+            continue
+        anterior = db.admin_config_get(_conn, campo)
+        novo = body[campo]
+        if anterior == novo:
+            continue
+        db.admin_config_set(_conn, campo, novo, updated_by=user["id"], updated_at=now_str())
+        audit.record(_conn, user["id"], "config_ia", None, campo, anterior, novo)
+        alterado[campo] = novo
+    return {"ok": True, "alterado": alterado, "vigente": {c: db.admin_config_get(_conn, c) for c in _CONFIG_IA_CAMPOS}}
+
+
+@app.get("/api/admin/agent/kill-switch")
+async def admin_kill_switch_get(user: dict = Depends(require_permission("execucao_automatica.ver"))):
+    return {"on": agent_mod.kill_switch_on()}
+
+
+@app.put("/api/admin/agent/kill-switch")
+async def admin_kill_switch_put(body: dict = Body(default={}), user: dict = Depends(require_permission("execucao_automatica.controlar"))):
+    anterior = agent_mod.kill_switch_on()
+    novo = bool((body or {}).get("on"))
+    agent_mod.set_kill_switch(novo)
+    if anterior != novo:
+        audit.record(_conn, user["id"], "agent_kill_switch", None, "on", anterior, novo)
+    return {"on": novo}
+
+
+@app.get("/api/admin/prompts")
+async def admin_prompts_get(user: dict = Depends(require_permission("prompts.editar"))):
+    """Para cada chave: o texto ATIVO (override do admin, se houver — senão o
+    default de código), se há override, e o default de código puro (para a
+    UI mostrar "diff contra o padrão")."""
+    codigo = defaults.default_llm_prompts()
+    overrides = db.prompt_override_get_all(_conn)
+    return {
+        chave: {
+            "ativo": overrides.get(chave, texto_codigo),
+            "temOverride": chave in overrides,
+            "codigoDefault": texto_codigo,
+        }
+        for chave, texto_codigo in codigo.items()
+    }
+
+
+@app.put("/api/admin/prompts/{chave}")
+async def admin_prompts_put(chave: str, body: dict = Body(default={}), user: dict = Depends(require_permission("prompts.editar"))):
+    """Publica um novo default GLOBAL para `chave`. NUNCA sobrescreve a edição
+    PESSOAL de um usuário (`PUT /api/llm-prompts`) — essa sempre tem
+    prioridade; ver `defaults.publicar_override_admin`/`store._eh_default_antigo`."""
+    novo_texto = (body or {}).get("texto")
+    if not isinstance(novo_texto, str) or not novo_texto.strip():
+        raise HTTPException(400, "Informe o campo 'texto' (não vazio).")
+    anterior = db.prompt_override_get(_conn, chave) or defaults.default_llm_prompts().get(chave)
+    try:
+        defaults.publicar_override_admin(_conn, chave, novo_texto, user["id"])
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    audit.record(_conn, user["id"], "prompt_default", chave, "texto", anterior, novo_texto)
+    return {"ok": True, "chave": chave}
+
+
+@app.get("/api/admin/users")
+async def admin_users_get(user: dict = Depends(require_permission("usuarios.gerenciar"))):
+    usuarios = db.list_users(_conn)
+    for u in usuarios:
+        u["roles"] = rbac.roles_for_user(_conn, u["id"])
+    return {"usuarios": usuarios, "gruposDisponiveis": sorted(rbac.GRUPOS) + [rbac.ROLE_ADMIN]}
+
+
+@app.post("/api/admin/users/{user_id}/roles")
+async def admin_users_roles_post(user_id: str, body: dict = Body(default={}), user: dict = Depends(require_permission("usuarios.gerenciar"))):
+    """`acao`: 'conceder' | 'revogar'. Sem override de plano nesta rodada
+    (decisão do Alex, ADR-013) — só papel de governança."""
+    role = str((body or {}).get("role") or "")
+    acao = str((body or {}).get("acao") or "conceder")
+    if not db.get_user_by_id(_conn, user_id):
+        raise HTTPException(404, "Usuário não encontrado.")
+    anterior = rbac.roles_for_user(_conn, user_id)
+    if acao == "revogar":
+        rbac.revoke_role(_conn, user_id, role)
+    else:
+        try:
+            rbac.grant_role(_conn, user_id, role, granted_by=user["id"])
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+    novo = rbac.roles_for_user(_conn, user_id)
+    audit.record(_conn, user["id"], "user_role", user_id, "roles", anterior, novo)
+    return {"ok": True, "userId": user_id, "roles": novo}
+
+
+@app.get("/api/admin/audit")
+async def admin_audit_get(n: int = 200, user: dict = Depends(require_any_admin_permission())):
+    return {"eventos": audit.recent(_conn, limit=max(1, min(1000, n)))}
 
 
 # FASE 8B (diagnóstico): carimbo de build do BACKEND — confirma qual código o
@@ -2199,10 +2333,10 @@ if _IOS_DIST.exists():
 
 # ---- ADR-011/qa/47: portal de observabilidade em /admin/* (mesmo container,
 # sem infra nova — decisão do Alex, 2026-08-14). Bundle PÚBLICO (como o do
-# app consumidor abaixo) — o gate de verdade é _is_obs_admin nas rotas
-# /api/obs/*, /api/agent/status, /api/analytics/summary, não no arquivo
-# estático. Precisa vir ANTES do mount "/" (catch-all), senão nunca seria
-# alcançado. Publicado com scripts/publicar-admin.sh.
+# app consumidor abaixo) — o gate de verdade é `require_permission(...)`
+# (ADR-013) nas rotas /api/obs/*, /api/admin/*, /api/analytics/*, não no
+# arquivo estático. Precisa vir ANTES do mount "/" (catch-all), senão nunca
+# seria alcançado. Publicado com scripts/publicar-admin.sh.
 _ADMIN_DIST = Path(__file__).resolve().parent.parent / "admin_dist"
 if _ADMIN_DIST.exists():
     app.mount("/admin", StaticFiles(directory=str(_ADMIN_DIST), html=True), name="admin")
