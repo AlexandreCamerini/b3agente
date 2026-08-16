@@ -49,10 +49,29 @@ async function req(method, path, body) {
 
 export const api = {
   login: (email, password) => req("POST", "/api/auth/login", { email, password }),
+  me: () => req("GET", "/api/auth/me"),
   agentStatus: () => req("GET", "/api/agent/status"),
   obsUsage: () => req("GET", "/api/obs/usage"),
   analyticsSummary: (dias) => req("GET", "/api/analytics/summary" + (dias ? "?dias=" + encodeURIComponent(dias) : "")),
   iaEficiencia: () => req("GET", "/api/analytics/ia-eficiencia"),
   automacao: () => req("GET", "/api/analytics/automacao"),
   tendencias: (dias) => req("GET", "/api/analytics/tendencias" + (dias ? "?dias=" + encodeURIComponent(dias) : "")),
+
+  // ADR-013 — central de administração (escrita, cada uma auditada no backend)
+  brapiProjecao: (intervaloS) => req("GET", "/api/obs/brapi/projecao" + (intervaloS ? "?intervaloS=" + encodeURIComponent(intervaloS) : "")),
+  brapiProjecaoAplicar: (intervaloS) => req("POST", "/api/obs/brapi/projecao", { intervaloS, aplicar: true }),
+
+  configIaGet: () => req("GET", "/api/admin/config/ia"),
+  configIaPut: (campos) => req("PUT", "/api/admin/config/ia", campos),
+
+  killSwitchGet: () => req("GET", "/api/admin/agent/kill-switch"),
+  killSwitchPut: (on) => req("PUT", "/api/admin/agent/kill-switch", { on }),
+
+  promptsGet: () => req("GET", "/api/admin/prompts"),
+  promptsPut: (chave, texto) => req("PUT", "/api/admin/prompts/" + encodeURIComponent(chave), { texto }),
+
+  usersGet: () => req("GET", "/api/admin/users"),
+  userRole: (userId, role, acao) => req("POST", "/api/admin/users/" + encodeURIComponent(userId) + "/roles", { role, acao }),
+
+  auditGet: (n) => req("GET", "/api/admin/audit" + (n ? "?n=" + encodeURIComponent(n) : "")),
 };

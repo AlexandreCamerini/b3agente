@@ -9,16 +9,24 @@ from .catalog import CATALOG, CATALOG_TICKERS, is_catalog_ticker
 SECTIONS = ["config", "skill", "skillOperador", "llmPrompts", "watchlist", "cash", "positions", "history", "agent", "analyses", "profile", "custom", "optionPositions"]
 
 
-def _eh_default_antigo(chave: str, texto: str) -> bool:
-    """O texto salvo é um default de GERAÇÃO ANTERIOR (nunca editado)? A lista
-    de hashes vive em defaults.LEGACY_PROMPT_SHA256 — ver o comentário lá."""
+def _eh_default_antigo(conn, chave: str, texto: str) -> bool:
+    """O texto salvo é um default de GERAÇÃO ANTERIOR (nunca editado)? Duas
+    fontes de hash conhecido, UNIÃO: `defaults.LEGACY_PROMPT_SHA256` (gerações
+    de código, commits antigos) + `prompt_default_history` no banco (ADR-013:
+    gerações publicadas por um admin em runtime). Texto que não bate com
+    nenhuma das duas é edição de verdade do usuário — fica intocado."""
     import hashlib
-    legado = defaults.LEGACY_PROMPT_SHA256.get(chave) or set()
+    legado = set(defaults.LEGACY_PROMPT_SHA256.get(chave) or set())
+    legado |= db.prompt_history_hashes(conn, chave)
     return hashlib.sha256(texto.encode()).hexdigest() in legado
 
 
 def ensure_defaults(conn, user_id=None) -> None:
     d = defaults.default_state()
+    # ADR-013 (Decisão 5a): o default de llmPrompts que semeia conta nova e
+    # que a migração abaixo compara é o ATIVO (override do admin, se houver)
+    # — nunca o código puro isolado do que o admin publicou.
+    d["llmPrompts"] = defaults.default_llm_prompts_ativo(conn)
     for key in SECTIONS:
         # `user_id` faltava nas DUAS chamadas: o laço lia e escrevia sempre no
         # escopo legado, então semear a conta de um usuário novo não gravava
@@ -65,7 +73,7 @@ def ensure_defaults(conn, user_id=None) -> None:
         if not isinstance(lp.get(k), str):
             lp[k] = v
             changed = True
-        elif lp[k] != v and _eh_default_antigo(k, lp[k]):
+        elif lp[k] != v and _eh_default_antigo(conn, k, lp[k]):
             # Migração (auditoria 2026-08-01): o texto salvo é um DEFAULT de
             # geração anterior — o usuário nunca editou; sobe para o default
             # novo (que compõe do canônico). Texto editado nunca entra aqui.

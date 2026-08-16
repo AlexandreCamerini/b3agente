@@ -414,13 +414,64 @@ function EficienciaIA() {
 
 const ORIGEM_LABEL = { manual: "Manual", automatico: "Automático (Operador)", sistema: "Sistema (expiração)", desconhecida: "Desconhecida (histórico antigo)" };
 
+// ADR-013 — kill-switch do agente em runtime (antes só B3_AGENT_KILL/env).
+// `execucao_automatica.ver` já dá a leitura (embutida na tela); o TOGGLE em
+// si só aparece pra quem também tem `.controlar` — a UI esconde o botão,
+// mas a rota valida a permissão de novo no backend de qualquer jeito.
+function KillSwitchBox({ user, reload }) {
+  const podeControlar = (user?.permissions || []).includes("execucao_automatica.controlar");
+  const { loading, error, data, reload: reloadKs } = useFetch(() => api.killSwitchGet(), []);
+  const [busy, setBusy] = useState(false);
+  const [erroAcao, setErroAcao] = useState("");
+
+  const alternar = async () => {
+    setBusy(true); setErroAcao("");
+    try {
+      await api.killSwitchPut(!data.on);
+      await reloadKs();
+      if (reload) reload();
+    } catch (e) {
+      setErroAcao((e && e.message) || "Falha ao alternar o kill-switch.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card title="Kill-switch do Operador (execução automática)">
+      <Estado loading={loading} error={error}>
+        {data && (
+          <>
+            <Kv label="Estado vigente" value={data.on ? "LIGADO (agente parado)" : "desligado (agente roda normalmente)"}
+                tone={data.on ? "negative" : "positive"} />
+            <div style={{ marginTop: "10px", fontSize: "11px", color: T.faint, lineHeight: 1.5 }}>
+              Override em runtime sobre a env B3_AGENT_KILL — some no próximo deploy só se ninguém mexer aqui de novo.
+            </div>
+            {podeControlar ? (
+              <button onClick={alternar} disabled={busy}
+                      style={{ ...btnGhost, marginTop: "10px", opacity: busy ? 0.6 : 1,
+                               borderColor: data.on ? T.positive : T.negative, color: data.on ? T.positive : T.negative }}>
+                {busy ? "Aplicando…" : data.on ? "Desligar kill-switch" : "Ligar kill-switch"}
+              </button>
+            ) : (
+              <div style={{ marginTop: "10px", fontSize: "11px", color: T.faint }}>Sem permissão para alternar (requer execucao_automatica.controlar).</div>
+            )}
+            {erroAcao && <div style={{ color: T.negative, fontSize: "12px", marginTop: "8px" }}>{erroAcao}</div>}
+          </>
+        )}
+      </Estado>
+    </Card>
+  );
+}
+
 // ADR-012 (Fase 3): eficiência das operações automáticas — contagem/PnL por
 // origem + correlação análise↔operação por snapshotId.
-function Automacao() {
+function Automacao({ user }) {
   const { loading, error, data, reload } = useFetch(() => api.automacao(), []);
   const cor = data?.correlacaoAnaliseOperacao;
   return (
     <>
+      <KillSwitchBox user={user} />
       <Card title="Ordens por origem" right={<button onClick={reload} style={btnGhost}>↻ atualizar</button>}>
         <Estado loading={loading} error={error} empty={data && data.totalOrdens === 0}>
           {data && data.totalOrdens > 0 && Object.entries(data.porOrigem || {}).map(([origem, v]) => (
@@ -460,6 +511,268 @@ function Automacao() {
   );
 }
 
+// ADR-013 — "Mudança de LLM": provider/model/cota/rate/teto global da IA
+// gerenciada, hoje só env (B3_MANAGED_LLM_*). `apiKey`/`baseUrl` NUNCA
+// entram aqui — segredo, fora do escopo desta tela por desenho do backend.
+function MudancaDeLLM({ user }) {
+  const podeEditar = (user?.permissions || []).includes("llm.configurar");
+  const { loading, error, data, reload } = useFetch(() => api.configIaGet(), []);
+  const [form, setForm] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  useEffect(() => { if (data && !form) setForm(data); }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const campo = (chave, label, placeholder) => (
+    <div style={{ marginBottom: "10px" }}>
+      <label style={{ display: "block", fontSize: "11px", color: T.muted, marginBottom: "4px" }}>{label}</label>
+      <input value={form?.[chave] ?? ""} placeholder={placeholder} disabled={!podeEditar}
+             onChange={(e) => setForm({ ...form, [chave]: e.target.value })}
+             style={inputStyle} />
+    </div>
+  );
+
+  const salvar = async () => {
+    setBusy(true); setMsg("");
+    try {
+      // Achado de revisão: campo vazio era simplesmente OMITIDO do body —
+      // não existia jeito de limpar um override já salvo. Agora manda TODOS
+      // os 5 campos sempre; vazio vira `null` explícito, que o backend lê
+      // como "reverte pro env" (db.admin_config_delete).
+      const payload = {};
+      for (const k of ["llmProvider", "llmModel"]) payload[k] = form[k] || null;
+      for (const k of ["llmDailyQuota", "llmRatePerMin", "llmGlobalDailyCap"]) {
+        if (form[k] === "" || form[k] == null) { payload[k] = null; continue; }
+        const n = Number(form[k]);
+        if (!Number.isNaN(n)) payload[k] = n;
+      }
+      const r = await api.configIaPut(payload);
+      setMsg(Object.keys(r.alterado || {}).length ? "Salvo — auditado." : "Nada mudou.");
+      // Achado de revisão: `form` nunca resincronizava com o servidor depois
+      // de salvar (o guard `!form` do efeito abaixo virava um one-shot).
+      // Limpar aqui faz o efeito rodar de novo quando o `reload()` trouxer
+      // o estado FRESCO — sem isso a UI podia mostrar um valor que já não
+      // era mais o vigente (ex.: um segundo admin mudou em paralelo).
+      setForm(null);
+      reload();
+    } catch (e) {
+      setMsg((e && e.message) || "Falha ao salvar.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card title="Mudança de LLM — IA gerenciada" right={<button onClick={reload} style={btnGhost}>↻ atualizar</button>}>
+      <Estado loading={loading} error={error}>
+        {form && (
+          <>
+            {campo("llmProvider", "Provider (override)", "vazio = usa B3_MANAGED_LLM_PROVIDER")}
+            {campo("llmModel", "Model (override)", "vazio = usa B3_MANAGED_LLM_MODEL")}
+            {campo("llmDailyQuota", "Cota diária por usuário", "vazio = usa B3_MANAGED_DAILY_QUOTA")}
+            {campo("llmRatePerMin", "Rate por minuto", "vazio = usa B3_MANAGED_RATE_PER_MIN")}
+            {campo("llmGlobalDailyCap", "Teto global/dia", "vazio = usa B3_MANAGED_GLOBAL_DAILY_CAP")}
+            {podeEditar && (
+              <button onClick={salvar} disabled={busy}
+                      style={{ marginTop: "6px", padding: "8px 14px", borderRadius: "8px", border: "none", background: T.accent, color: T.onAccent, fontWeight: 700, fontSize: "12.5px", cursor: "pointer", opacity: busy ? 0.6 : 1 }}>
+                {busy ? "Salvando…" : "Salvar (auditado)"}
+              </button>
+            )}
+            {msg && <div style={{ marginTop: "8px", fontSize: "12px", color: T.muted }}>{msg}</div>}
+            <div style={{ marginTop: "12px", fontSize: "10.5px", color: T.faint, lineHeight: 1.5 }}>
+              A chave da IA (apiKey) e a baseUrl continuam só em env — não editáveis por aqui.
+            </div>
+          </>
+        )}
+      </Estado>
+    </Card>
+  );
+}
+
+// ADR-013 — generaliza o padrão que POST /api/obs/brapi/projecao já usava
+// (a primeira rota admin-write migrada pro audit log).
+function FontesDeDados({ user }) {
+  const podeEditar = (user?.permissions || []).includes("fontes_dados.configurar");
+  const { loading, error, data, reload } = useFetch(() => api.brapiProjecao(), []);
+  const [intervalo, setIntervalo] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  const aplicar = async () => {
+    const n = Number(intervalo);
+    if (!n || n < 30) { setMsg("Informe um intervalo válido (segundos, ≥ 30)."); return; }
+    setBusy(true); setMsg("");
+    try {
+      await api.brapiProjecaoAplicar(n);
+      setMsg("Aplicado — auditado.");
+      reload();
+    } catch (e) {
+      setMsg((e && e.message) || "Falha ao aplicar.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card title="Fontes de dados — orçamento brapi" right={<button onClick={reload} style={btnGhost}>↻ atualizar</button>}>
+      <Estado loading={loading} error={error}>
+        {data && (
+          <>
+            <Kv label="Intervalo vigente entre atualizações de spot" value={data.vigenteS + "s"} />
+            <Kv label="Chamadas/mês projetadas no intervalo vigente" value={data.projecao?.chamadasMes ?? "—"} />
+            {podeEditar && (
+              <div style={{ marginTop: "10px", display: "flex", gap: "8px", alignItems: "center" }}>
+                <input value={intervalo} onChange={(e) => setIntervalo(e.target.value)} placeholder="novo intervalo (s)"
+                       style={{ ...inputStyle, width: "160px" }} />
+                <button onClick={aplicar} disabled={busy}
+                        style={{ padding: "9px 14px", borderRadius: "8px", border: "none", background: T.accent, color: T.onAccent, fontWeight: 700, fontSize: "12.5px", cursor: "pointer", opacity: busy ? 0.6 : 1 }}>
+                  {busy ? "Aplicando…" : "Aplicar (auditado)"}
+                </button>
+              </div>
+            )}
+            {msg && <div style={{ marginTop: "8px", fontSize: "12px", color: T.muted }}>{msg}</div>}
+          </>
+        )}
+      </Estado>
+    </Card>
+  );
+}
+
+// ADR-013 (Decisão 5a) — prompts default GLOBAIS editáveis. NUNCA sobrescreve
+// a edição PESSOAL de um usuário (`PUT /api/llm-prompts`, dele mesmo) — essa
+// sempre tem prioridade; mecanismo no backend (`store._eh_default_antigo`).
+function Prompts({ user }) {
+  const podeEditar = (user?.permissions || []).includes("prompts.editar");
+  const { loading, error, data, reload } = useFetch(() => api.promptsGet(), []);
+  const [chaveAberta, setChaveAberta] = useState(null);
+  const [texto, setTexto] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  const abrir = (chave, atual) => { setChaveAberta(chave); setTexto(atual); setMsg(""); };
+
+  const publicar = async () => {
+    setBusy(true); setMsg("");
+    try {
+      await api.promptsPut(chaveAberta, texto);
+      setMsg("Publicado — auditado. Contas que nunca editaram o próprio prompt migram no próximo login; quem editou fica intocado.");
+      reload();
+    } catch (e) {
+      setMsg((e && e.message) || "Falha ao publicar.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card title="Prompts — default global">
+      <Estado loading={loading} error={error}>
+        {data && Object.entries(data).map(([chave, info]) => (
+          <div key={chave} style={{ padding: "10px 0", borderBottom: `1px solid ${T.border}` }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: "13px", color: T.text, fontWeight: 700 }}>{chave}</span>
+              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                <span style={{ fontSize: "10.5px", color: info.temOverride ? T.accent : T.faint }}>
+                  {info.temOverride ? "editado pelo admin" : "default de código"}
+                </span>
+                {podeEditar && chaveAberta !== chave && (
+                  <button onClick={() => abrir(chave, info.ativo)} style={btnGhost}>editar</button>
+                )}
+              </div>
+            </div>
+            {chaveAberta === chave && (
+              <div style={{ marginTop: "8px" }}>
+                <textarea value={texto} onChange={(e) => setTexto(e.target.value)} rows={10}
+                          style={{ ...inputStyle, fontFamily: MONO, fontSize: "11.5px", resize: "vertical" }} />
+                <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
+                  <button onClick={publicar} disabled={busy}
+                          style={{ padding: "7px 12px", borderRadius: "8px", border: "none", background: T.accent, color: T.onAccent, fontWeight: 700, fontSize: "12px", cursor: "pointer", opacity: busy ? 0.6 : 1 }}>
+                    {busy ? "Publicando…" : "Publicar (auditado)"}
+                  </button>
+                  <button onClick={() => setChaveAberta(null)} style={btnGhost}>cancelar</button>
+                </div>
+                {msg && <div style={{ marginTop: "8px", fontSize: "11.5px", color: T.muted, lineHeight: 1.5 }}>{msg}</div>}
+              </div>
+            )}
+          </div>
+        ))}
+      </Estado>
+    </Card>
+  );
+}
+
+// ADR-013 — Usuários e papéis: atribuir/revogar um dos 7 grupos de macro
+// função. SEM override de plano nesta rodada (decisão do Alex) — só leitura.
+function Usuarios({ user }) {
+  const { loading, error, data, reload } = useFetch(() => api.usersGet(), []);
+  const [busyKey, setBusyKey] = useState(null);
+  const [msg, setMsg] = useState("");
+
+  const alternar = async (uid, role, tem) => {
+    setBusyKey(uid + role); setMsg("");
+    try {
+      await api.userRole(uid, role, tem ? "revogar" : "conceder");
+      reload();
+    } catch (e) {
+      setMsg((e && e.message) || "Falha ao alterar papel.");
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  return (
+    <Card title="Usuários e papéis">
+      <Estado loading={loading} error={error} empty={data && (data.usuarios || []).length === 0}>
+        {data && data.usuarios.map((u) => (
+          <div key={u.id} style={{ padding: "10px 0", borderBottom: `1px solid ${T.border}` }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}>
+              <span style={{ color: T.text }}>{u.email || u.id.slice(0, 10)}</span>
+              <span style={{ fontFamily: MONO, fontSize: "11px", color: T.faint }}>plano: {u.plan || "free"}</span>
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "6px" }}>
+              {(data.gruposDisponiveis || []).map((role) => {
+                const tem = (u.roles || []).includes(role);
+                return (
+                  <button key={role} onClick={() => alternar(u.id, role, tem)} disabled={busyKey === u.id + role}
+                          style={{ ...btnGhost, fontSize: "10.5px", padding: "3px 8px",
+                                   background: tem ? T.accent : "transparent", color: tem ? T.onAccent : T.muted,
+                                   borderColor: tem ? T.accent : T.border, opacity: busyKey === u.id + role ? 0.5 : 1 }}>
+                    {role}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </Estado>
+      {msg && <div style={{ marginTop: "8px", fontSize: "12px", color: T.negative }}>{msg}</div>}
+    </Card>
+  );
+}
+
+// ADR-013 — toda escrita admin (config, fontes, prompts, papéis) grava aqui,
+// sem exceção "por enquanto".
+function Auditoria() {
+  const { loading, error, data, reload } = useFetch(() => api.auditGet(200), []);
+  return (
+    <Card title="Auditoria" right={<button onClick={reload} style={btnGhost}>↻ atualizar</button>}>
+      <Estado loading={loading} error={error} empty={data && (data.eventos || []).length === 0}>
+        {data && data.eventos.map((e) => (
+          <div key={e.id} style={{ padding: "8px 0", borderBottom: `1px solid ${T.border}`, fontSize: "12px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", color: T.muted }}>
+              <span>{e.entity}{e.field ? " · " + e.field : ""}{e.entityId ? " · " + e.entityId : ""}</span>
+              <span style={{ fontFamily: MONO, fontSize: "10.5px", color: T.faint }}>{new Date(e.at).toLocaleString("pt-BR")}</span>
+            </div>
+            <div style={{ fontFamily: MONO, fontSize: "11px", color: T.text, marginTop: "2px" }}>
+              {JSON.stringify(e.oldValue)} → {JSON.stringify(e.newValue)}
+            </div>
+          </div>
+        ))}
+      </Estado>
+    </Card>
+  );
+}
+
 const btnGhost = { background: "transparent", border: `1px solid ${T.border}`, color: T.muted, borderRadius: "6px", padding: "4px 10px", fontSize: "11.5px", cursor: "pointer" };
 const selectStyle = { background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: "6px", padding: "4px 8px", fontSize: "12px" };
 
@@ -475,18 +788,19 @@ function Login({ onLogin }) {
     try {
       const r = await api.login(email.trim(), password);
       setToken(r.token);
-      // Login válido não implica admin — a própria API decide (_is_obs_admin).
-      // Confirma ANTES de considerar a sessão desta app estabelecida.
-      await api.obsUsage();
+      // ADR-013: login válido não implica NENHUM papel administrativo — a
+      // própria API decide (`permissions` em /api/auth/me). Não checa mais
+      // uma permissão específica (obs/usage): alguém com só `prompts.editar`
+      // é uma conta administrativa válida mesmo sem ver Observabilidade.
+      if (!(r.user.permissions || []).length) {
+        setToken(null);
+        setError("Login correto, mas esta conta não tem nenhum papel administrativo.");
+        return;
+      }
       onLogin(r.user);
     } catch (e2) {
-      if (e2 && e2.status === 403) {
-        setToken(null);
-        setError("Login correto, mas esta conta não tem acesso administrativo (B3_ADMIN_EMAILS).");
-      } else {
-        setToken(null);
-        setError((e2 && e2.message) || "Falha no login.");
-      }
+      setToken(null);
+      setError((e2 && e2.message) || "Falha no login.");
     } finally {
       setBusy(false);
     }
@@ -511,12 +825,21 @@ function Login({ onLogin }) {
 }
 const inputStyle = { width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: "8px", border: `1px solid ${T.border}`, background: T.bg, color: T.text, fontSize: "13px" };
 
+// ADR-013: `perm` gate é COSMÉTICO — esconde a aba de quem não tem a
+// permissão, mas toda rota que a tela chama valida de novo no backend
+// (require_permission). Telas sem `perm` (as 5 originais) continuam abertas
+// a qualquer papel administrativo, como sempre foram.
 const VIEWS = [
-  { id: "visaoGeral", label: "Visão Geral", C: VisaoGeral },
-  { id: "custos", label: "Custos", C: Custos },
-  { id: "comportamento", label: "Comportamento do Usuário", C: Comportamento },
-  { id: "eficienciaIA", label: "Eficiência da IA", C: EficienciaIA },
-  { id: "automacao", label: "Automação", C: Automacao },
+  { id: "visaoGeral", label: "Visão Geral", C: VisaoGeral, perm: "observabilidade.ver" },
+  { id: "custos", label: "Custos", C: Custos, perm: "observabilidade.ver" },
+  { id: "comportamento", label: "Comportamento do Usuário", C: Comportamento, perm: "observabilidade.ver" },
+  { id: "eficienciaIA", label: "Eficiência da IA", C: EficienciaIA, perm: "operador_ia.ver" },
+  { id: "automacao", label: "Automação", C: Automacao, perm: "execucao_automatica.ver" },
+  { id: "mudancaLLM", label: "Mudança de LLM", C: MudancaDeLLM, perm: "llm.configurar" },
+  { id: "fontesDados", label: "Fontes de dados", C: FontesDeDados, perm: "fontes_dados.configurar" },
+  { id: "prompts", label: "Prompts", C: Prompts, perm: "prompts.editar" },
+  { id: "usuarios", label: "Usuários e papéis", C: Usuarios, perm: "usuarios.gerenciar" },
+  { id: "auditoria", label: "Auditoria", C: Auditoria },
 ];
 
 export default function App() {
@@ -529,12 +852,18 @@ export default function App() {
   // encontrado ao testar: "Sair" limpava o token mas a tela não saía do ar.
   const [loggedIn, setLoggedIn] = useState(false);
   const [checking, setChecking] = useState(true);
-  const [view, setView] = useState("visaoGeral");
+  const [view, setView] = useState(null);
 
   useEffect(() => {
     if (!getToken()) { setChecking(false); return; }
-    api.obsUsage()
-      .then(() => { setLoggedIn(true); setChecking(false); }) // token válido — mantém sessão; e-mail some do header até recarregar, aceitável (não afeta acesso)
+    // ADR-013: usa /api/auth/me (não mais uma permissão específica) — o
+    // mesmo endpoint já dispara o bootstrap idempotente do papel admin pra
+    // sessões que existiam antes deste deploy.
+    api.me()
+      .then((r) => {
+        if (!(r.user.permissions || []).length) { setToken(null); setChecking(false); return; }
+        setUser(r.user); setLoggedIn(true); setChecking(false);
+      })
       .catch(() => { setToken(null); setChecking(false); });
   }, []);
 
@@ -544,17 +873,22 @@ export default function App() {
   if (checking) return <div style={{ minHeight: "100vh", background: T.bg, color: T.muted, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px" }}>Verificando sessão…</div>;
   if (!loggedIn) return <Login onLogin={handleLogin} />;
 
-  const ViewC = VIEWS.find((v) => v.id === view)?.C || VisaoGeral;
+  // ADR-013: filtro cosmético por permissão — toda rota que a tela chama
+  // valida de novo no backend, isto só evita mostrar uma aba que vai dar 403.
+  const perms = user?.permissions || [];
+  const visiveis = VIEWS.filter((v) => !v.perm || perms.includes(v.perm));
+  const viewAtual = visiveis.find((v) => v.id === view) ? view : visiveis[0]?.id;
+  const ViewC = visiveis.find((v) => v.id === viewAtual)?.C || VisaoGeral;
   return (
     <div style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: SANS }}>
       <div style={{ borderBottom: `1px solid ${T.border}`, padding: "12px 20px", display: "flex", alignItems: "center", gap: "20px" }}>
-        <div style={{ fontFamily: DISPLAY, fontWeight: 600, fontSize: "15px" }}>Boris+ · Observabilidade</div>
-        <nav style={{ display: "flex", gap: "4px", flex: 1 }}>
-          {VIEWS.map((v) => (
+        <div style={{ fontFamily: DISPLAY, fontWeight: 600, fontSize: "15px" }}>Boris+ · Administração</div>
+        <nav style={{ display: "flex", gap: "4px", flex: 1, flexWrap: "wrap" }}>
+          {visiveis.map((v) => (
             <button key={v.id} onClick={() => setView(v.id)}
                     style={{ padding: "7px 12px", borderRadius: "6px", border: "none", cursor: "pointer",
-                             background: view === v.id ? T.accent : "transparent",
-                             color: view === v.id ? T.onAccent : T.muted, fontSize: "12.5px", fontWeight: 700 }}>
+                             background: viewAtual === v.id ? T.accent : "transparent",
+                             color: viewAtual === v.id ? T.onAccent : T.muted, fontSize: "12.5px", fontWeight: 700 }}>
               {v.label}
             </button>
           ))}
@@ -563,7 +897,7 @@ export default function App() {
         <button onClick={handleLogout} style={btnGhost}>Sair</button>
       </div>
       <div style={{ maxWidth: "760px", margin: "0 auto", padding: "20px" }}>
-        <ViewC />
+        <ViewC user={user} />
       </div>
     </div>
   );

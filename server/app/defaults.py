@@ -107,6 +107,46 @@ LEGACY_PROMPT_SHA256 = {
 }
 
 
+# ADR-013 (Decisão 5a) — camada NOVA por cima do código, sem tocar este
+# arquivo em runtime: o admin pode editar o default GLOBAL de llmPrompts via
+# `prompt_defaults_override` (server/app/db.py); a edição do USUÁRIO sempre
+# tem prioridade — reusa `LEGACY_PROMPT_SHA256`/`_eh_default_antigo` (a lista
+# acima), só troca a FONTE do histórico de hashes de "hardcoded no código"
+# para "tabela `prompt_default_history`, que ganha uma linha a cada
+# publicação do admin". `defaults.py`/este dicionário nunca são escritos em
+# runtime — continuam sendo o piso de recuperação de desastre.
+def default_llm_prompts_ativo(conn) -> dict:
+    """Default GLOBAL vigente: override do admin se existir, senão o texto de
+    código (`default_llm_prompts()`) — nunca o override PESSOAL do usuário
+    (esse é outro dado, em `store.get(conn, "llmPrompts", user_id=...)`)."""
+    from . import db
+    base = default_llm_prompts()
+    overrides = db.prompt_override_get_all(conn)
+    if not overrides:
+        return base
+    return {**base, **{k: v for k, v in overrides.items() if k in base}}
+
+
+def publicar_override_admin(conn, chave: str, novo_texto: str, admin_user_id: str) -> None:
+    """Admin publica um novo texto para o default GLOBAL de `chave`. O texto
+    ATIVO anterior (override existente, ou o de código se nunca houve
+    override) entra em `prompt_default_history` — é esse histórico que
+    `store._eh_default_antigo` consulta para decidir se uma conta "nunca
+    editou" (migra pro novo) ou "editou de verdade" (fica intocada)."""
+    import hashlib
+    from datetime import datetime, timezone
+    from . import db
+
+    if chave not in default_llm_prompts():
+        raise ValueError(f"Chave de prompt desconhecida: {chave!r}")
+    anterior = db.prompt_override_get(conn, chave)
+    if anterior is None:
+        anterior = default_llm_prompts()[chave]
+    agora = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+    db.prompt_history_add(conn, chave, hashlib.sha256(anterior.encode()).hexdigest(), anterior, agora)
+    db.prompt_override_set(conn, chave, novo_texto, updated_by=admin_user_id, updated_at=agora)
+
+
 def default_llm_prompts() -> dict:
     """FASE 2/3: coleção de prompts indexada por chave (extensível). O prompt da
     carteira analisa CADA ATIVO INDIVIDUALMENTE (saída em array por ativo) e
