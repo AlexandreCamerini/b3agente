@@ -41,10 +41,10 @@ from . import skill_ref
 COBERTURA_MIN = 0.7
 
 RESSALVA_ATRASO = ("Condição verificada na última barra de 15m FECHADA — o feed "
-                   "tem ~15 min de atraso medido (ADR-001); não é tempo real.")
+                   "tem ~15 min de atraso medido; não é tempo real.")
 RESSALVA_CALIBRAGEM = ("O veredito/confluência 15m é contexto, não critério: os "
-                       "limiares de volatilidade/volume são calibrados no diário "
-                       "(ADR-002 Decisão 4).")
+                       "limiares de volatilidade/volume são calibrados no diário, "
+                       "não no intraday.")
 
 
 def _agora_brt() -> datetime:
@@ -205,8 +205,14 @@ def montar(radar_stored: Optional[dict], intra_stored: Optional[dict],
     else:
         ressalvas = [RESSALVA_ATRASO]
     if aval.get("lacuna"):
-        ressalvas.append("Série 15m do dia tem lacuna (cobertura %s)."
-                         % (aval.get("cobertura"),))
+        cobertura_pct = aval.get("cobertura")
+        if isinstance(cobertura_pct, (int, float)):
+            ressalvas.append("Série 15m do dia está incompleta (%.0f%% das barras "
+                             "esperadas) — a leitura pode não refletir o pregão inteiro."
+                             % (cobertura_pct * 100))
+        else:
+            ressalvas.append("Série 15m do dia está incompleta — a leitura pode não "
+                             "refletir o pregão inteiro.")
     contexto15m = None
     if resumo is not None:
         contexto15m = {"veredito": resumo.get("veredito"),

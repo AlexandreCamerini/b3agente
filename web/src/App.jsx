@@ -3205,6 +3205,8 @@ function MercadoScreen({ ctx }) {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", marginBottom: "9px" }}>
           <div>
             <div style={{ fontSize: "11px", color: T.textFaint, letterSpacing: "0.06em" }}>MODELO DE ANÁLISE</div>
+            {/* Mesma doutrina de server/app/skill_ref.py (PRINCIPIOS item 1):
+                mudança de redação ali deve refletir aqui. */}
             <div style={{ fontSize: "12px", color: T.textMuted, marginTop: "2px" }}>O backend calcula; a LLM interpreta os dados históricos.</div>
           </div>
         </div>
