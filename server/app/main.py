@@ -122,6 +122,13 @@ def require_user(authorization: Optional[str] = Header(default=None)) -> dict:
 # `_is_obs_admin` binário nas 9 rotas admin que já existiam.
 def require_permission(perm: str):
     def _dep(user: dict = Depends(require_user)) -> dict:
+        # Achado de revisão: só login/`/me` disparavam o bootstrap do
+        # `role_admin` — uma sessão/token anterior ao deploy desta feature
+        # (ou qualquer chamador que bata direto numa rota admin sem passar
+        # por `/me` antes) tomava 403 mesmo sendo admin legítimo. O antigo
+        # `_is_obs_admin` reavaliava a regra em TODA request; isto restaura
+        # esse comportamento no caminho que realmente importa (rota admin).
+        rbac.ensure_bootstrap_role(_conn, user)
         if not rbac.user_has_permission(_conn, user["id"], perm):
             raise HTTPException(403, f"Requer a permissão '{perm}'.")
         return user
@@ -132,6 +139,7 @@ def require_any_admin_permission():
     """Para telas transversais (ex.: Auditoria) — qualquer papel administrativo
     serve, não uma permissão específica."""
     def _dep(user: dict = Depends(require_user)) -> dict:
+        rbac.ensure_bootstrap_role(_conn, user)
         if not rbac.permissions_for_user(_conn, user["id"]):
             raise HTTPException(403, "Requer algum papel administrativo.")
         return user
@@ -610,6 +618,7 @@ async def admin_summary(user: dict = Depends(require_permission("observabilidade
 # entram aqui — seguem só em env (segredo).
 # ===========================================================================
 _CONFIG_IA_CAMPOS = ("llmProvider", "llmModel", "llmDailyQuota", "llmRatePerMin", "llmGlobalDailyCap")
+_LLM_PROVIDERS_VALIDOS = ("openai", "anthropic", "google", "local")
 
 
 @app.get("/api/admin/config/ia")
@@ -619,18 +628,34 @@ async def admin_config_ia_get(user: dict = Depends(require_permission("llm.confi
 
 @app.put("/api/admin/config/ia")
 async def admin_config_ia_put(body: dict = Body(default={}), user: dict = Depends(require_permission("llm.configurar"))):
+    """Achados de revisão corrigidos aqui:
+    - `llmProvider` só era validado contra a whitelist quando havia `baseUrl`
+      (managed.py) — um provider inválido digitado aqui quebrava a IA
+      gerenciada pra todo mundo, em silêncio. Valida ANTES de gravar.
+    - Não havia como limpar um override (campo vazio era omitido do body,
+      nunca chegava a apagar nada). `null`/`""` agora significa "reverter
+      pro env" — `db.admin_config_delete`."""
     body = body or {}
+    provider = body.get("llmProvider")
+    if provider not in (None, "") and provider not in _LLM_PROVIDERS_VALIDOS:
+        raise HTTPException(400, "Provider inválido — use um de: " + ", ".join(_LLM_PROVIDERS_VALIDOS) + " (ou vazio para limpar o override).")
     alterado = {}
     for campo in _CONFIG_IA_CAMPOS:
         if campo not in body:
             continue
         anterior = db.admin_config_get(_conn, campo)
-        novo = body[campo]
+        bruto = body[campo]
+        novo = None if bruto in (None, "") else bruto
         if anterior == novo:
             continue
-        db.admin_config_set(_conn, campo, novo, updated_by=user["id"], updated_at=now_str())
+        if novo is None:
+            db.admin_config_delete(_conn, campo)
+        else:
+            db.admin_config_set(_conn, campo, novo, updated_by=user["id"])
         audit.record(_conn, user["id"], "config_ia", None, campo, anterior, novo)
         alterado[campo] = novo
+    if alterado:
+        managed.reset_cache()
     return {"ok": True, "alterado": alterado, "vigente": {c: db.admin_config_get(_conn, c) for c in _CONFIG_IA_CAMPOS}}
 
 
@@ -643,7 +668,7 @@ async def admin_kill_switch_get(user: dict = Depends(require_permission("execuca
 async def admin_kill_switch_put(body: dict = Body(default={}), user: dict = Depends(require_permission("execucao_automatica.controlar"))):
     anterior = agent_mod.kill_switch_on()
     novo = bool((body or {}).get("on"))
-    agent_mod.set_kill_switch(novo)
+    agent_mod.set_kill_switch(novo, actor=user["id"])
     if anterior != novo:
         audit.record(_conn, user["id"], "agent_kill_switch", None, "on", anterior, novo)
     return {"on": novo}

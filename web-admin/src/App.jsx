@@ -535,13 +535,25 @@ function MudancaDeLLM({ user }) {
   const salvar = async () => {
     setBusy(true); setMsg("");
     try {
+      // Achado de revisão: campo vazio era simplesmente OMITIDO do body —
+      // não existia jeito de limpar um override já salvo. Agora manda TODOS
+      // os 5 campos sempre; vazio vira `null` explícito, que o backend lê
+      // como "reverte pro env" (db.admin_config_delete).
       const payload = {};
-      for (const k of ["llmProvider", "llmModel"]) if (form[k]) payload[k] = form[k];
+      for (const k of ["llmProvider", "llmModel"]) payload[k] = form[k] || null;
       for (const k of ["llmDailyQuota", "llmRatePerMin", "llmGlobalDailyCap"]) {
-        if (form[k] !== "" && form[k] != null) { const n = Number(form[k]); if (!Number.isNaN(n)) payload[k] = n; }
+        if (form[k] === "" || form[k] == null) { payload[k] = null; continue; }
+        const n = Number(form[k]);
+        if (!Number.isNaN(n)) payload[k] = n;
       }
       const r = await api.configIaPut(payload);
       setMsg(Object.keys(r.alterado || {}).length ? "Salvo — auditado." : "Nada mudou.");
+      // Achado de revisão: `form` nunca resincronizava com o servidor depois
+      // de salvar (o guard `!form` do efeito abaixo virava um one-shot).
+      // Limpar aqui faz o efeito rodar de novo quando o `reload()` trouxer
+      // o estado FRESCO — sem isso a UI podia mostrar um valor que já não
+      // era mais o vigente (ex.: um segundo admin mudou em paralelo).
+      setForm(null);
       reload();
     } catch (e) {
       setMsg((e && e.message) || "Falha ao salvar.");

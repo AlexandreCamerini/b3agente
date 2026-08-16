@@ -29,13 +29,15 @@ from fastapi.testclient import TestClient
 
 @pytest.fixture(autouse=True)
 def _isolado(monkeypatch):
-    from app import agent, brapi_budget
+    from app import agent, brapi_budget, managed
     original = sys.modules.get("app.main")
     brapi_budget.reset()
     agent.reset_kill_switch_cache()
+    managed.reset_cache()
     yield
     brapi_budget.reset()
     agent.reset_kill_switch_cache()
+    managed.reset_cache()
     if original is not None:
         sys.modules["app.main"] = original
     else:
@@ -280,3 +282,81 @@ def test_stop_alvo_nunca_ganha_gate_de_papel_ou_plano(monkeypatch):
     assert r.status_code == 200
     r2 = c.put("/api/options/position/FAKE123", json={"stop": 1.0, "alvo": 2.0}, headers=h)
     assert r2.status_code == 200
+
+
+# --------------------- correções da revisão de código -------------------------
+def test_config_ia_provider_invalido_e_400(monkeypatch):
+    c, _ = _client(monkeypatch)
+    admin = _registra(c, "dono@teste.com")
+    r = c.put("/api/admin/config/ia", json={"llmProvider": "opnai"}, headers=_auth(admin["token"]))
+    assert r.status_code == 400
+    assert c.get("/api/admin/config/ia", headers=_auth(admin["token"])).json()["llmProvider"] is None
+
+
+def test_config_ia_campo_vazio_limpa_o_override(monkeypatch):
+    c, _ = _client(monkeypatch)
+    admin = _registra(c, "dono@teste.com")
+    h = _auth(admin["token"])
+    c.put("/api/admin/config/ia", json={"llmProvider": "anthropic"}, headers=h)
+    assert c.get("/api/admin/config/ia", headers=h).json()["llmProvider"] == "anthropic"
+    r = c.put("/api/admin/config/ia", json={"llmProvider": ""}, headers=h)
+    assert r.status_code == 200
+    assert c.get("/api/admin/config/ia", headers=h).json()["llmProvider"] is None
+
+
+def test_config_ia_override_afeta_managed_config_sem_reiniciar(monkeypatch):
+    """Achado de revisão: managed.py ganhou cache — confirma que a rota
+    admin invalida o cache (senão a mudança só valeria depois de um restart)."""
+    monkeypatch.setenv("B3_MANAGED_LLM_KEY", "chave-fake")
+    c, main = _client(monkeypatch)
+    admin = _registra(c, "dono@teste.com")
+    assert main.managed.managed_config()["provider"] == "openai"
+    c.put("/api/admin/config/ia", json={"llmProvider": "anthropic"}, headers=_auth(admin["token"]))
+    assert main.managed.managed_config()["provider"] == "anthropic"
+
+
+def test_global_daily_cap_override_zero_bloqueia_tudo(monkeypatch):
+    """Achado de revisão: override=0 virava 'ilimitado' — o oposto do que um
+    admin quer ao digitar 0 num incidente de custo. A env B3_MANAGED_
+    GLOBAL_DAILY_CAP=0 continua significando ilimitado (guardião pré-
+    existente em test_qa42_finops.py) — só o override do admin muda."""
+    monkeypatch.setenv("B3_MANAGED_LLM_KEY", "chave-fake")
+    c, main = _client(monkeypatch)
+    admin = _registra(c, "dono@teste.com")
+    c.put("/api/admin/config/ia", json={"llmGlobalDailyCap": 0}, headers=_auth(admin["token"]))
+    assert main.managed.global_daily_cap() == 0
+
+
+def test_kill_switch_degrada_sem_derrubar_em_falha_do_db(monkeypatch):
+    """Achado de revisão: a leitura do DB não tinha try/except — uma falha
+    de SQLite propagava e podia pular o ciclo inteiro do scheduler."""
+    c, main = _client(monkeypatch)
+    _registra(c, "dono@teste.com")
+
+    def _explode(*a, **kw):
+        raise RuntimeError("SQLite indisponível (simulado)")
+
+    monkeypatch.setattr(main.db, "admin_config_get", _explode)
+    main.agent_mod.reset_kill_switch_cache()
+    assert main.agent_mod.kill_switch_on() is False  # nunca levanta, cai pro env (ausente => False)
+
+
+def test_kill_switch_updated_by_reflete_o_ator(monkeypatch):
+    c, main = _client(monkeypatch)
+    admin = _registra(c, "dono@teste.com")
+    c.put("/api/admin/agent/kill-switch", json={"on": True}, headers=_auth(admin["token"]))
+    row = main._conn.execute("SELECT updated_by FROM admin_config WHERE key = ?", ("agentKillSwitch",)).fetchone()
+    assert row[0] == admin["user"]["id"]
+
+
+def test_rota_admin_direto_dispara_bootstrap_sem_passar_por_me(monkeypatch):
+    """Achado de revisão: require_permission() não disparava o bootstrap —
+    só /api/auth/me e login/registro. Uma sessão que bata direto numa rota
+    admin (sem nunca ter chamado /me) precisa do MESMO bootstrap aditivo."""
+    c, main = _client(monkeypatch)
+    payload = _registra(c, "dono@teste.com")
+    # simula uma sessão "antiga": tem token válido mas nunca recebeu role_admin
+    main.rbac.revoke_role(main._conn, payload["user"]["id"], "role_admin")
+    assert main.rbac.roles_for_user(main._conn, payload["user"]["id"]) == []
+    r = c.get("/api/admin/summary", headers=_auth(payload["token"]))  # NUNCA chamou /me antes
+    assert r.status_code == 200

@@ -4,12 +4,20 @@ independente do diretorio de onde o app e iniciado.
 Modelo simples chave-valor: cada secao do estado (config, skill, watchlist,
 cash, positions, history, agent) e uma linha com o valor em JSON.
 """
+from datetime import datetime, timezone
 from typing import Optional
 import json
 import os
 import sqlite3
 import threading
 from pathlib import Path
+
+
+def _now_iso() -> str:
+    """Timestamp ISO único para as colunas de auditoria deste módulo — evita
+    que cada chamador gere o próprio formato (achado de revisão: agent.py e
+    main.py gravavam formatos diferentes na mesma coluna admin_config.updated_at)."""
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
 def default_db_path() -> str:
@@ -395,13 +403,23 @@ def admin_config_get(conn: sqlite3.Connection, key: str, default=None):
         return default
 
 
-def admin_config_set(conn: sqlite3.Connection, key: str, value, updated_by: str, updated_at: str) -> None:
+def admin_config_set(conn: sqlite3.Connection, key: str, value, updated_by: Optional[str] = None) -> None:
+    """`updated_at` é gerado AQUI (não recebido do chamador) — achado de
+    revisão: dois chamadores geravam o timestamp cada um com seu próprio
+    formato local, gravando valores incompatíveis na mesma coluna."""
     payload = json.dumps(value, ensure_ascii=False)
     conn.execute(
         "INSERT INTO admin_config(key, value, updated_by, updated_at) VALUES(?,?,?,?) "
         "ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_by = excluded.updated_by, updated_at = excluded.updated_at",
-        (key, payload, updated_by, updated_at),
+        (key, payload, updated_by, _now_iso()),
     )
+    conn.commit()
+
+
+def admin_config_delete(conn: sqlite3.Connection, key: str) -> None:
+    """Limpa um override — a leitura volta a cair no default do chamador
+    (env var). Sem isto não havia como reverter um override ruim."""
+    conn.execute("DELETE FROM admin_config WHERE key = ?", (key,))
     conn.commit()
 
 

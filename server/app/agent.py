@@ -131,7 +131,8 @@ def _now_str() -> str:
 # uma fonte, na ordem memória → DB → env, antes de cair no default (off).
 _DB_CONN = None
 _DB_ENABLED = False
-_KILL_MEM = None  # None = não decidido ainda; True/False = já resolvido
+_KILL_MEM = None       # None = sem override explícito ainda; True/False = override achado (DB ou set_kill_switch)
+_KILL_DB_CHECKED = False  # já confirmamos que o DB NÃO tem override neste processo? evita reconsultar a cada chamada
 
 
 def configure_db(conn) -> None:
@@ -145,31 +146,61 @@ def reset_kill_switch_cache() -> None:
     NÃO é limpa por `configure_db` de propósito (produção nunca deveria
     perder o cache num reconnect); testes que trocam de banco entre casos
     chamam isto explicitamente para não vazar estado de um teste pro outro."""
-    global _KILL_MEM
+    global _KILL_MEM, _KILL_DB_CHECKED
     _KILL_MEM = None
+    _KILL_DB_CHECKED = False
 
 
-def set_kill_switch(on: bool) -> bool:
+def set_kill_switch(on: bool, actor: str = None) -> bool:
     """Chamado pela rota admin (`PUT /api/admin/agent/kill-switch`). Persiste
-    e atualiza a memória imediatamente — sem esperar o próximo boot."""
+    e atualiza a memória imediatamente — sem esperar o próximo boot. `actor`
+    é o user_id de quem mudou (achado de revisão: ficava sempre None, sem
+    correspondência com quem `admin_audit_log` já registrava corretamente).
+    A escrita no banco é best-effort (try/except): falhar aqui não pode
+    impedir o kill-switch de valer NA MEMÓRIA — é o controle de emergência,
+    tem que responder mesmo com o SQLite indisponível."""
     global _KILL_MEM
     _KILL_MEM = bool(on)
     if _DB_ENABLED:
-        from . import db
-        db.admin_config_set(_DB_CONN, "agentKillSwitch", bool(on), updated_by=None, updated_at=_now_str())
+        try:
+            from . import db
+            db.admin_config_set(_DB_CONN, "agentKillSwitch", bool(on), updated_by=actor)
+        except Exception:  # noqa: BLE001 — mesmo padrão de brapi_budget.set_spot_intervalo
+            pass
     return _KILL_MEM
 
 
 def kill_switch_on() -> bool:
-    global _KILL_MEM
+    """Memória → DB (best-effort, só até confirmar se existe override) →
+    env (SEMPRE lido ao vivo) → default (desligado).
+
+    Achados de revisão corrigidos aqui: (a) a leitura do DB não tinha
+    try/except — uma falha do SQLite propagava pro `scheduler_loop` e podia
+    pular o ciclo INTEIRO (todas as checagens de stop/alvo) por causa só
+    desta checagem; (b) quando ninguém nunca mexeu no toggle (override
+    ausente, o caso mais comum), a função batia no SQLite em TODO tick do
+    scheduler — `_KILL_DB_CHECKED` faz essa consulta correr NO MÁXIMO uma
+    vez por processo quando não há override.
+
+    IMPORTANTE: ao contrário do intervalo da brapi, o resultado do ENV
+    nunca é cacheado em `_KILL_MEM` — só um override explícito (do DB ou de
+    `set_kill_switch`) é. `B3_AGENT_KILL` continua sendo lido AO VIVO em
+    toda chamada sem override (guardião: test_agent.py::
+    test_kill_switch_e_janela_de_pregao muda a env em runtime e espera
+    efeito imediato)."""
+    global _KILL_MEM, _KILL_DB_CHECKED
     if _KILL_MEM is not None:
         return _KILL_MEM
-    if _DB_ENABLED:
-        from . import db
-        override = db.admin_config_get(_DB_CONN, "agentKillSwitch")
-        if isinstance(override, bool):
-            _KILL_MEM = override
-            return _KILL_MEM
+    if _DB_ENABLED and not _KILL_DB_CHECKED:
+        try:
+            from . import db
+            override = db.admin_config_get(_DB_CONN, "agentKillSwitch")
+            if isinstance(override, bool):
+                _KILL_MEM = override
+                return _KILL_MEM
+        except Exception:  # noqa: BLE001
+            pass
+        _KILL_DB_CHECKED = True
     return (os.environ.get("B3_AGENT_KILL") or "").strip() in ("1", "true", "TRUE", "yes")
 
 

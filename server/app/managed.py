@@ -25,6 +25,12 @@ import os
 # caminho de trocar a chave.
 _DB_CONN = None
 _DB_ENABLED = False
+# Achado de revisão: `_override` fazia uma leitura SÍNCRONA de SQLite (sem
+# cache) em CADA chamada — até 5 por request de IA gerenciada (provider,
+# model, cota, rate, teto), no caminho mais quente do app. Cache em memória
+# aqui, mesmo padrão de `agent.kill_switch_on`/`brapi_budget.spot_intervalo_s`
+# — só é limpo por escrita admin (`reset_cache`, chamada pela rota) ou teste.
+_CACHE: dict = {}
 
 
 def configure_db(conn) -> None:
@@ -33,11 +39,26 @@ def configure_db(conn) -> None:
     _DB_ENABLED = True
 
 
+def reset_cache() -> None:
+    """Chamado pela rota admin após escrever (`PUT /api/admin/config/ia`) e
+    por testes que trocam de banco entre casos — mesmo motivo do
+    `agent.reset_kill_switch_cache()`/`brapi_budget.reset()`."""
+    global _CACHE
+    _CACHE = {}
+
+
 def _override(key: str, default=None):
     if not _DB_ENABLED:
         return default
-    from . import db
-    return db.admin_config_get(_DB_CONN, key, default)
+    if key in _CACHE:
+        return _CACHE[key]
+    try:
+        from . import db
+        val = db.admin_config_get(_DB_CONN, key, default)
+    except Exception:  # noqa: BLE001 — degrada pro default, nunca derruba o caminho de IA
+        val = default
+    _CACHE[key] = val
+    return val
 
 
 def managed_config():
@@ -66,10 +87,19 @@ def global_daily_cap():
     """qa/42 (FinOps): teto GLOBAL de análises gerenciadas por dia, somando
     TODOS os usuários (override admin, senão env B3_MANAGED_GLOBAL_DAILY_CAP).
     None = ilimitado. É a única defesa contra o gasto escalar com o nº de
-    usuários — a cota diária é POR usuário e não agrega."""
+    usuários — a cota diária é POR usuário e não agrega.
+
+    A env `B3_MANAGED_GLOBAL_DAILY_CAP=0` continua significando "ilimitado"
+    (test_qa42_finops.py:120, decisão deliberada — 0 num valor de deploy é
+    fácil de ser acidente/typo, e bloquear tudo em silêncio é pior que não
+    ter teto). O OVERRIDE do admin (ADR-013) é diferente: alguém digitando 0
+    no painel, ao vivo, num incidente de custo, tem intenção inequívoca de
+    bloquear — achado de revisão: antes isso também virava "ilimitado", o
+    oposto do que a pessoa pediu. `metering.check` já trata `count+custo>0`
+    corretamente (0 bloqueia qualquer uso), então só o override aceita 0."""
     override = _override("llmGlobalDailyCap")
     if override is not None:
-        return override if isinstance(override, int) and override > 0 else None
+        return override if isinstance(override, int) and override >= 0 else None
     raw = (os.environ.get("B3_MANAGED_GLOBAL_DAILY_CAP") or "").strip()
     if not raw:
         return None
