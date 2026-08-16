@@ -585,7 +585,7 @@ async def admin_summary(user: dict = Depends(require_user)):
 
 # FASE 8B (diagnóstico): carimbo de build do BACKEND — confirma qual código o
 # Railway está rodando (o front tem o dele em web/src/version.js).
-SERVER_BUILD_ID = "F10-20260816-01"  # texto didático de timing sem jargão interno (ADR-*/cobertura crua).
+SERVER_BUILD_ID = "F10-20260814-01"  # texto didático de timing sem jargão interno (ADR-*/cobertura crua).
 # Normalmente sincronizado pelo entregar.sh a partir de web/src/version.js; num deploy
 # SÓ de backend (sem rebuild do front) bumpamos aqui para /api/health rastrear o servidor.
 
