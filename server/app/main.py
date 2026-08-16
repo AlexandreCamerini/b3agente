@@ -744,7 +744,7 @@ async def admin_audit_get(n: int = 200, user: dict = Depends(require_any_admin_p
 
 # FASE 8B (diagnóstico): carimbo de build do BACKEND — confirma qual código o
 # Railway está rodando (o front tem o dele em web/src/version.js).
-SERVER_BUILD_ID = "F10-20260814-01"  # texto didático de timing sem jargão interno (ADR-*/cobertura crua).
+SERVER_BUILD_ID = "F10-20260816-02"  # ADR-013: RBAC por macro função + entitlements + central de administração.
 # Normalmente sincronizado pelo entregar.sh a partir de web/src/version.js; num deploy
 # SÓ de backend (sem rebuild do front) bumpamos aqui para /api/health rastrear o servidor.
 
