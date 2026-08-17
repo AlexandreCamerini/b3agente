@@ -16,6 +16,20 @@
 //   no servidor. Fix: initialBudget entra no MESMO sync explícito que
 //   appMode/operadorTermo já usam (`api.putConfig` quando `sync.hasSession()`).
 //
+// ATUALIZADO EM 2026-08-17 (reversão deliberada de FORMA, não de intenção).
+// A intenção continua idêntica e continua travada aqui: editar o orçamento no
+// aparelho TEM que chegar ao servidor. O que mudou é que o payload deixou de
+// ser o trio fixo {appMode, operadorTermo, initialBudget} e passou a levar só
+// o campo que o chamador mexeu.
+//
+// Por quê: mandar `appMode` de carona era um desliga-execução silencioso.
+// Editar só o ORÇAMENTO com o aparelho em Estudo enviava `appMode:"estudo"`;
+// o servidor lê isso como SAÍDA do Modo Operador e reescreve `agent.mode` de
+// "executar" para "sinalizar" (store.py, migração silenciosa), e voltar para
+// Operador não restaura. O Operador passava a só AVISAR, nunca executar —
+// relatado em produção em 2026-08-17. A forma do payload agora é guardada por
+// test_putconfig_so_o_que_mudou.mjs; este arquivo guarda o orçamento.
+//
 // Roda sem build: `node web/tests/test_device_budget_sync.mjs`.
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
@@ -42,19 +56,23 @@ function bodyOf(src, anchor) {
 const putConfigBody = bodyOf(src, "async putConfig(patch)");
 ok("deviceStore.putConfig localizado", !!putConfigBody);
 
-// --- 1) editar o orçamento marca a sincronização com o servidor ------------
-ok("initialBudget aciona syncModoServidor (mesma via de appMode/operadorTermo)",
-   !!putConfigBody && /typeof patch\.initialBudget === "number"\) syncModoServidor = true;/.test(putConfigBody));
+// --- 1) editar o orçamento entra no payload enviado ao servidor ------------
+ok("initialBudget entra no payload quando o patch o traz",
+   !!putConfigBody && /if \(typeof patch\.initialBudget === "number"\) enviar\.initialBudget = c\.initialBudget;/.test(putConfigBody));
 
-// --- 2) o payload enviado ao servidor leva o orçamento ----------------------
-ok("api.putConfig ao servidor inclui initialBudget (não só appMode/operadorTermo)",
-   !!putConfigBody && /api\.putConfig\(\{\s*appMode: c\.appMode, operadorTermo: c\.operadorTermo,\s*initialBudget: c\.initialBudget\s*\}\)/.test(putConfigBody));
+// --- 2) o orçamento chega ao servidor -------------------------------------
+ok("api.putConfig é chamado com o payload montado",
+   !!putConfigBody && /await api\.putConfig\(enviar\);/.test(putConfigBody));
+
+// --- 2b) e vai SOZINHO: appMode não pega carona (a regressão de 2026-08-17)
+ok("editar só o orçamento NÃO arrasta appMode junto",
+   !!putConfigBody && !/putConfig\(\{\s*appMode: c\.appMode, operadorTermo: c\.operadorTermo,\s*initialBudget: c\.initialBudget\s*\}\)/.test(putConfigBody));
 
 // --- 3) o sync só dispara com o patch pendente já mesclado em `c` ----------
 // (garante que manda o valor NOVO, não um c.initialBudget desatualizado —
 // a atribuição de c.initialBudget já acontece antes deste bloco no código)
 ok("atribuição de c.initialBudget vem ANTES do bloco de sync",
-   putConfigBody.indexOf("c.initialBudget = Math.max") < putConfigBody.indexOf("syncModoServidor && sync.hasSession()"));
+   putConfigBody.indexOf("c.initialBudget = Math.max") < putConfigBody.indexOf("const enviar = {}"));
 
 console.log(fails ? `\n${fails} FALHA(S) NO SYNC DE ORÇAMENTO DO APARELHO` : "\nSYNC DE ORÇAMENTO (DEVICE → SERVIDOR) OK");
 process.exit(fails ? 1 : 0);

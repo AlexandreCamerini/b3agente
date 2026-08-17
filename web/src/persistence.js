@@ -509,13 +509,10 @@ function deviceStore() {
       if (patch.operadorTermo && typeof patch.operadorTermo === "object" && patch.operadorTermo.aceitoEm && patch.operadorTermo.versao) {
         c.operadorTermo = { aceitoEm: String(patch.operadorTermo.aceitoEm).slice(0, 40), versao: String(patch.operadorTermo.versao).slice(0, 10) };
       }
-      let syncModoServidor = false;
       if (patch.appMode === "estudo" || patch.appMode === "operador") {
         if (!(patch.appMode === "operador" && !(c.operadorTermo && typeof c.operadorTermo === "object"))) c.appMode = patch.appMode;
         _agendarSyncPrefs();   // o vocabulário do push segue o modo do aparelho
-        syncModoServidor = true;
       }
-      if ("operadorTermo" in patch) syncModoServidor = true;
       // 2026-08-09: orçamento SÓ no aparelho (local-first, como o resto da
       // config) nunca chegava ao servidor — MAS resetPortfolio() logado abaixo
       // chama api.resetPortfolio(), que roda no servidor e lê o
@@ -528,7 +525,6 @@ function deviceStore() {
       // corrigido em App.jsx. `risco.capital==null` também usa initialBudget
       // como fallback em cálculos que rodam NO SERVIDOR (sizing do Operador,
       // scanDeep) — sem isto, aqueles cálculos também usariam o valor errado.
-      if (typeof patch.initialBudget === "number") syncModoServidor = true;
       if (patch.risco && typeof patch.risco === "object") {
         const base = (c.risco && typeof c.risco === "object") ? c.risco : { pctPorTrade: 1.0, capital: null };
         if (typeof patch.risco.pctPorTrade === "number") base.pctPorTrade = Math.max(0.25, Math.min(5, +patch.risco.pctPorTrade.toFixed(2)));
@@ -553,9 +549,27 @@ function deviceStore() {
       // sobe (sem engolir): os dois chamadores (ModoTrabalhoCard.escolher,
       // TermoOperadorModal.ativar) já fazem `await` antes do reload, então a
       // troca de modo não "termina" sem o servidor confirmar.
-      if (syncModoServidor && sync.hasSession()) {
-        await api.putConfig({ appMode: c.appMode, operadorTermo: c.operadorTermo,
-                              initialBudget: c.initialBudget });
+      // 2026-08-17: manda SÓ o campo que o chamador realmente mexeu. Antes ia
+      // sempre o trio {appMode, operadorTermo, initialBudget}, e o `appMode`
+      // de carona era um DESLIGA-EXECUÇÃO silencioso: editar o ORÇAMENTO com
+      // o aparelho em Estudo mandava `appMode:"estudo"` ao servidor, que lê
+      // isso como SAÍDA do Modo Operador e reescreve `agent.mode` de
+      // "executar" para "sinalizar" (store.py, migração silenciosa) — e voltar
+      // para Operador NÃO restaura (guardião test_entrar_no_operador_nao_mexe
+      // _no_mode_sinalizar). Sintoma: o gatilho avisa e a ordem nunca executa,
+      // com o app mostrando "executar" porque localmente está.
+      // Guardião: web/tests/test_putconfig_so_o_que_mudou.mjs
+      if (sync.hasSession()) {
+        const enviar = {};
+        if (patch.appMode === "estudo" || patch.appMode === "operador") enviar.appMode = c.appMode;
+        if ("operadorTermo" in patch) enviar.operadorTermo = c.operadorTermo;
+        if (typeof patch.initialBudget === "number") enviar.initialBudget = c.initialBudget;
+        // Ligar "operador" exige o termo no MESMO patch quando o servidor
+        // ainda não o tem (store.set_config) — some junto, nunca sozinho.
+        if (enviar.appMode === "operador" && !enviar.operadorTermo && c.operadorTermo) {
+          enviar.operadorTermo = c.operadorTermo;
+        }
+        if (Object.keys(enviar).length) await api.putConfig(enviar);
       }
       return pub();
     },
