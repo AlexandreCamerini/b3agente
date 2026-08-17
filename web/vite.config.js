@@ -24,6 +24,10 @@ export default defineConfig({
       manifest: {
         name: "Boris+",
         short_name: "Boris+",
+        // O default do plugin é "en" — o app é inteiro em PT-BR, e o manifesto
+        // é o que o macOS/Windows leem ao instalar como app.
+        lang: "pt-BR",
+        dir: "ltr",
         // Brand Book v2 — subtítulo da loja + tagline, nesta ordem.
         description: "Treine com mercado real. Aprenda a operar sem pôr dinheiro em risco.",
         // --bg do tema escuro (Brand Book v2); antes era o #0b0e14 da era Boris+.
