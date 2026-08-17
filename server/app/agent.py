@@ -205,9 +205,16 @@ def kill_switch_on() -> bool:
 
 
 def in_market_hours(now: datetime = None) -> bool:
-    """Janela aproximada do pregão B3 (BRT): seg–sex, 10:00–17:59."""
-    now = now or datetime.now(BRT)
-    return now.weekday() < 5 and 10 <= now.hour < 18
+    """A bolsa está negociando agora. Delega para `pregao.py`, que é a fonte
+    única — por aqui passam também intraday, timing e timing_watch.
+
+    Era `seg–sex, 10 <= hora < 18` ("janela aproximada", dizia o docstring):
+    tratava como pregão o call de fechamento, a zona morta até 17:30 e TODOS os
+    feriados da B3. Cada uma dessas janelas custava passada intraday (65 ativos)
+    e consulta de cotação por usuário, sem dado novo para buscar.
+    """
+    from . import pregao  # import local: sem ciclo (pregao não importa agent)
+    return pregao.in_market_hours(now)
 
 
 # ---------------------------------------------------------------------------
@@ -911,7 +918,12 @@ async def scheduler_loop(conn, quotes_getter, notify_push=None, interval_s: int 
             except Exception as e:  # noqa: BLE001 — métricas nunca derrubam o laço
                 print(f"[obs-metricas] hook do scheduler falhou: {e}")
         try:
-            if radar_fetch is not None and not kill_switch_on():
+            # `is_trading_day` (e não `in_market_hours`): estes jobs rodam FORA
+            # da janela de horário de propósito — o radar diário é 8h45, na
+            # pré-abertura. Mas em sábado, domingo e feriado da B3 não há dado
+            # novo para buscar, e antes eles rodavam assim mesmo.
+            from . import pregao  # import local: sem ciclo de import
+            if radar_fetch is not None and not kill_switch_on() and pregao.is_trading_day():
                 from . import radar_daily  # import local: sem ciclo de import
                 await radar_daily.maybe_run(conn, radar_fetch, notify_push=notify_push)
                 from . import analysis_outcomes  # qa/30 (Fase A): import local, sem ciclo de import

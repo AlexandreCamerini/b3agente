@@ -3,7 +3,8 @@
 O que estes testes protegem:
   • a cota de 15.000/mês é finita e recusa DEBITA cota — o controle é local e
     ANTES da chamada, então o contador tem que ser confiável;
-  • consumo só na janela de pregão (seg–sex 10:00–17:15 BRT);
+  • consumo só em DIA COM PREGÃO (calendário da B3, sem feriado) até 17:15
+    BRT — janela mais larga que a de execução, p/ caber o delta de fechamento;
   • fatia estourada consome da reserva; reserva esgotada bloqueia a fatia;
   • SOFT STOP a 80% (degradado → TTL alonga) e HARD STOP no teto do dia;
   • o contador sobrevive a restart (persistência no kv do SQLite);
@@ -52,6 +53,29 @@ def test_janela_de_pregao():
     assert bb.em_pregao(TER_17H10) is True       # delta pós-fechamento cabe
     assert bb.em_pregao(TER_18H) is False
     assert bb.em_pregao(SAB_11H) is False
+
+
+def test_orcamento_nao_libera_gasto_em_feriado():
+    """2026-08-17: o dia útil passou a vir de `pregao.is_trading_day`, então
+    feriado da B3 deixa de autorizar consumo. Antes, `em_pregao` só olhava
+    weekday e o comentário assumia que "feriado não gera demanda" — assumia
+    errado, porque o laço do agente também ignorava feriado e rodava o dia
+    inteiro."""
+    from datetime import datetime
+    natal_11h = datetime(2026, 12, 25, 11, 0, tzinfo=bb.BRT)   # sexta-feira
+    assert bb.em_pregao(natal_11h) is False
+    assert bb.pode_gastar("spot", now=natal_11h) is False
+
+
+def test_janela_do_orcamento_e_MAIS_LARGA_que_a_de_execucao():
+    """Distinção deliberada, e o `test_janela_de_pregao` acima é quem a protege:
+    executar ordem para às 16:55 (`pregao.in_market_hours`), mas o ORÇAMENTO vai
+    até 17:15 porque a passada de delta busca o preço de FECHAMENTO — gasto
+    legítimo, na única hora em que aquele dado existe. Achatar as duas janelas
+    numa só quebra o delta pós-fechamento."""
+    from app import pregao
+    assert pregao.in_market_hours(TER_17H10) is False   # não executa ordem
+    assert bb.em_pregao(TER_17H10) is True              # mas pode gastar cota
 
 
 def test_fora_da_janela_nao_gasta():
@@ -126,15 +150,21 @@ def test_snapshot_expoe_previsao_e_verdade_do_header(monkeypatch):
 # Controle de utilização: intervalo → projeção mensal (determinística)
 # ---------------------------------------------------------------------------
 def test_projecao_e_pura_e_deterministica():
+    # ATUALIZADO EM 2026-08-17: a janela do SPOT deixou de ser 7,25 h fixas
+    # (26100 s, herdadas da janela do orçamento) e passa a ser a de NEGOCIAÇÃO
+    # de verdade — 10:00–16:55 = 24900 s —, porque é só nela que o laço
+    # atualiza spot. Eram 1.200 s a mais por pregão, deixando a projeção ~5%
+    # pessimista. Os números caíram na mesma proporção; a intenção do teste
+    # (projeção pura e determinística) não mudou.
     p = bb.projecao(300, universo_n=65, cota=15000)
-    # spot: 65 × (26100//300=87) × 21 = 118755; delta: 65×21=1365; fund: 1365//7=195
-    assert p["detalhe"] == {"spot": 118755, "delta": 1365, "fundamentos": 195}
-    assert p["chamadasMes"] == 120315
+    # spot: 65 × (24900//300=83) × 21 = 113295; delta: 65×21=1365; fund: 1365//7=195
+    assert p["detalhe"] == {"spot": 113295, "delta": 1365, "fundamentos": 195}
+    assert p["chamadasMes"] == 114855
     assert p["cabeNaCota"] is False
-    assert p["percentualDaCota"] == round(120315 / 15000 * 100, 1)
+    assert p["percentualDaCota"] == round(114855 / 15000 * 100, 1)
     # intervalo mínimo seguro: refresh_max = (15000−1560)/(65×21) ≈ 9,84/pregão
-    # → 26100/9,84 ≈ 2652s (+1)
-    assert 2600 < p["intervaloMinimoSeguro"] < 2700
+    # → 24900/9,84 ≈ 2530s (+1). Caiu junto com a janela (era ~2652 com 26100s).
+    assert 2500 < p["intervaloMinimoSeguro"] < 2600
     # e o mínimo seguro de fato cabe
     p2 = bb.projecao(p["intervaloMinimoSeguro"], universo_n=65, cota=15000)
     assert p2["cabeNaCota"] is True

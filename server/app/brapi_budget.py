@@ -9,8 +9,10 @@ Política decidida no ADR-008:
   • fatia estourada consome da reserva; reserva esgotada = fatia bloqueada;
   • SOFT STOP a 80% da fatia (`degradado()` → quem chama alonga TTL);
   • HARD STOP a 100% do teto do dia (brapi silencia até o próximo pregão);
-  • consumo só na janela de pregão da B3 (seg–sex, 10:00–17:15 BRT — inclui a
-    passada de delta pós-fechamento). Fora dela, `pode_gastar()` é False.
+  • consumo só na janela de negociação da B3 — desde 2026-08-17 vem de
+    `pregao.py` (10:00–16:55, sem fim de semana e sem feriado), não mais de uma
+    janela própria de 10:00–17:15 que ignorava o calendário. Fora dela,
+    `pode_gastar()` é False.
 
 Persistência: contador do dia no `kv` do SQLite (sobrevive a deploy), mesma
 postura do L2 de `candle_cache` — a conexão é injetada no boot e a ausência
@@ -29,8 +31,6 @@ PREGOES_MES = 21
 _FRACOES = {"spot": 400 / 700, "delta": 150 / 700, "fund": 30 / 700}
 _SOFT = 0.8
 
-_JANELA_INI = 10 * 60          # 10:00 BRT
-_JANELA_FIM = 17 * 60 + 15     # 17:15 BRT (leilão de fechamento + delta)
 
 _DB_CONN = None
 _DB_ENABLED = False
@@ -69,14 +69,33 @@ def _hoje(now: Optional[datetime] = None) -> str:
     return (now or datetime.now(BRT)).strftime("%Y-%m-%d")
 
 
+# A janela do ORÇAMENTO é mais larga que a de EXECUÇÃO, de propósito: vai até
+# 17:15 para caber a passada de DELTA PÓS-FECHAMENTO, que busca o preço de
+# fechamento — gasto legítimo, na única hora em que aquele dado existe. Quem
+# executa ordem para às 16:55 (`pregao.in_market_hours`).
+_ORCAMENTO_FIM = 17 * 60 + 15     # 17:15 BRT
+
+
 def em_pregao(now: Optional[datetime] = None) -> bool:
-    """Janela de consumo: dia útil (seg–sex), 10:00–17:15 BRT. Feriado B3 sem
-    pregão não gera demanda de spot — o custo de tratá-lo como útil é ~zero."""
+    """Janela de CONSUMO da brapi: dia com pregão (calendário de `pregao.py`,
+    2026-08-17) entre a abertura e 17:15 BRT.
+
+    O que mudou: o dia útil agora vem de `pregao.is_trading_day`, então FERIADO
+    da B3 deixa de autorizar gasto. O comentário antigo aqui afirmava que
+    "feriado sem pregão não gera demanda, o custo de tratá-lo como útil é
+    ~zero" — a premissa era falsa, porque o `in_market_hours` de então também
+    ignorava feriado e o laço rodava o dia inteiro.
+
+    O FIM da janela continua em 17:15 e NÃO é o mesmo de `in_market_hours`:
+    achatar os dois quebra o delta pós-fechamento (guardião
+    `test_janela_de_pregao`, que pegou exatamente isso).
+    """
+    from . import pregao  # import local: sem ciclo (pregao não importa ninguém do app)
     n = now or datetime.now(BRT)
-    if n.weekday() >= 5:
+    if not pregao.is_trading_day(n.date()):
         return False
     minutos = n.hour * 60 + n.minute
-    return _JANELA_INI <= minutos <= _JANELA_FIM
+    return (pregao.ABERTURA[0] * 60 + pregao.ABERTURA[1]) <= minutos <= _ORCAMENTO_FIM
 
 
 # -- persistência -----------------------------------------------------------
@@ -185,7 +204,19 @@ def reset() -> None:
 # (universo inteiro refrescado a cada intervalo, pregão cheio). O consumo real
 # tende a ser menor (cache compartilhado + demanda), e as fatias continuam
 # sendo o teto duro — a projeção é instrumento de decisão, não de bloqueio.
-JANELA_PREGAO_S = int(7.25 * 3600)   # 10:00–17:15 BRT
+# Janela de negociação contínua, derivada do calendário (10:00–16:55 = 6h55).
+# Era 7,25 h fixas (10:00–17:15) — 1.200 s a mais do que a bolsa negocia, o que
+# deixava a projeção ~5% pessimista. Derivar evita as duas verdades divergirem.
+def _janela_pregao_s() -> int:
+    from . import pregao
+    ini = pregao.ABERTURA[0] * 3600 + pregao.ABERTURA[1] * 60
+    fim = pregao.FECHAMENTO[0] * 3600 + pregao.FECHAMENTO[1] * 60
+    if pregao.after_market_ligado():
+        fim = pregao.AFTER_FIM[0] * 3600 + pregao.AFTER_FIM[1] * 60
+    return fim - ini
+
+
+JANELA_PREGAO_S = _janela_pregao_s()
 _SPOT_INTERVALO_KV = "brapiSpotIntervaloS"
 SPOT_INTERVALO_DEFAULT_S = 300
 _spot_intervalo_mem: Optional[int] = None
