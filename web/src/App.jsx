@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo, createContext, useCo
 import { store, isNative, auth } from "./persistence.js";
 import { hasSession } from "./sync.js"; // BLOCO 2: welcome exibe estado da sessão salva
 import { defaultLlmPrompts } from "./catalog.js";
-import { testServer, describeRuntimeConfig, getApiBase } from "./api.js";
+import { testServer, describeRuntimeConfig, getApiBase, PROD_BASE } from "./api.js";
 import { createChart, ColorType, CrosshairMode, LineStyle } from "lightweight-charts";
 import { sampleTechnicals } from "./demo.js";
 import { DISCLAIMERS, TERMO_OPERADOR_VERSAO } from "./disclaimers.js";
@@ -2073,6 +2073,35 @@ function TourModal({ ctx }) {
   );
 }
 
+// ADR-014: abre a central de administração (web-admin/) dentro de um browser
+// in-app — o bundle nativo é local (sem server.url), então não dá pra
+// navegar pra /admin de dentro do próprio WKWebView do app. O handoff evita
+// levar o token de sessão de verdade pela URL (server/app/main.py, rotas
+// /api/admin/mobile-handoff[/exchange]).
+async function abrirAdminMobile(ctx) {
+  // Web: abre a aba JÁ, ainda no gesto síncrono do clique — window.open()
+  // chamado só depois do await abaixo perde a autorização do navegador e é
+  // bloqueado como popup, SEM erro (achado ao testar ao vivo). Nativo não
+  // usa window.open (Browser.open é chamada de plugin, não sofre disso).
+  const janela = !isNative ? window.open("", "_blank", "noopener") : null;
+  try {
+    const { codigo } = await store.adminMobileHandoff();
+    const origem = isNative ? (getApiBase() !== "(mesma origem)" ? getApiBase() : PROD_BASE) : window.location.origin;
+    const url = origem.replace(/\/$/, "") + "/admin/#handoff=" + encodeURIComponent(codigo);
+    if (isNative) {
+      const mod = await import("@capacitor/browser");
+      await mod.Browser.open({ url });
+    } else if (janela) {
+      janela.location.href = url;
+    } else {
+      window.open(url, "_blank", "noopener"); // já era bloqueado antes; tenta mesmo assim
+    }
+  } catch (e) {
+    if (janela) janela.close();
+    ctx.flash("Não foi possível abrir a administração: " + ((e && e.message) || e));
+  }
+}
+
 function PerfilHub({ ctx, onOpen }) {
   const { data } = ctx;
   const name = ((data.config && data.config.userName) || "").trim();
@@ -2130,6 +2159,19 @@ function PerfilHub({ ctx, onOpen }) {
           <svg width="19" height="19" viewBox="0 0 24 24" aria-hidden><path d="M4 18v-5M9.5 18v-9M15 18V7M20 18v-3" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" /></svg>
         } />
       </div>
+      {/* ADR-014: só quem tem alguma permissão administrativa (ADR-013) vê
+          este grupo — gate real é sempre o backend (require_any_admin_permission
+          nas rotas de handoff), isto aqui só evita mostrar um botão que ia
+          dar 403 pra quem não é admin. */}
+      {(ctx.authUser?.permissions || []).length > 0 && (
+        <>
+          <div style={hubGroup}>Administração</div>
+          <ProfileTile wide onClick={() => abrirAdminMobile(ctx)} title="Central de administração" sub="Observabilidade, custos, prompts e usuários — abre em janela separada" icon={
+            <svg width="19" height="19" viewBox="0 0 24 24" aria-hidden><rect x="4" y="4" width="16" height="16" rx="3" fill="none" stroke="currentColor" strokeWidth="1.7" /><path d="M4 9.5h16" stroke="currentColor" strokeWidth="1.7" /><circle cx="7.3" cy="6.7" r="0.7" fill="currentColor" stroke="none" /></svg>
+          } />
+        </>
+      )}
+
       <div style={hubGroup}>Ajuda</div>
       <ProfileTile wide onClick={() => onOpen("ajuda")} title="Como funciona" sub="Guia rápido de cada tela + tour do app" icon={
         <svg width="19" height="19" viewBox="0 0 24 24" aria-hidden><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="1.8" /><path d="M9.5 9.2a2.6 2.6 0 0 1 5 .9c0 1.7-2.5 2-2.5 3.6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /><circle cx="12" cy="17" r="0.6" fill="currentColor" stroke="currentColor" strokeWidth="0.8" /></svg>

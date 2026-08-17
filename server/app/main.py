@@ -742,6 +742,34 @@ async def admin_audit_get(n: int = 200, user: dict = Depends(require_any_admin_p
     return {"eventos": audit.recent(_conn, limit=max(1, min(1000, n)))}
 
 
+# ADR-014: handoff de sessão pro web-admin/ dentro do browser in-app do app
+# nativo. O bundle do web-admin/ é separado do app consumidor e não conhece
+# o token de sessão nativo — em vez de levar o token de sessão de verdade
+# (longa duração) pela URL do browser, mint um código de ~90s, uso único, e
+# só depois de trocado (endpoint seguinte) uma sessão plena nasce — nunca
+# na URL.
+@app.post("/api/admin/mobile-handoff")
+async def admin_mobile_handoff(user: dict = Depends(require_any_admin_permission())):
+    codigo = auth.create_session(_conn, user["id"], ttl_days=90 / 86400)
+    return {"codigo": codigo}
+
+
+@app.post("/api/admin/mobile-handoff/exchange")
+async def admin_mobile_handoff_exchange(body: dict = Body(default={})):
+    codigo = str(body.get("codigo", "")).strip()
+    user = auth.resolve_session(_conn, codigo)
+    if not user:
+        raise HTTPException(401, "Código de handoff inválido ou expirado.")
+    rbac.ensure_bootstrap_role(_conn, user)
+    if not rbac.permissions_for_user(_conn, user["id"]):
+        # NÃO revoga aqui: um token de sessão comum passado por engano/curiosidade
+        # não pode derrubar a sessão de quem não tinha nada a ver com handoff.
+        raise HTTPException(403, "Requer algum papel administrativo.")
+    auth.revoke_session(_conn, codigo)  # uso único — nunca reaproveitável
+    token = auth.create_session(_conn, user["id"])
+    return {"token": token, "user": _public_user(user)}
+
+
 # FASE 8B (diagnóstico): carimbo de build do BACKEND — confirma qual código o
 # Railway está rodando (o front tem o dele em web/src/version.js).
 SERVER_BUILD_ID = "F10-20260816-02"  # ADR-013: RBAC por macro função + entitlements + central de administração.

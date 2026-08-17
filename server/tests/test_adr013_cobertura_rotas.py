@@ -19,6 +19,11 @@ _PUBLICAS_CONHECIDAS = {
     ("GET", "/ios/manifest.plist"),
     ("GET", "/api/options/expirations/{ticker}"), ("GET", "/api/options/chain/{ticker}"),
     ("GET", "/api/options/gate/{ticker}"), ("POST", "/api/options/analyze"),
+    # ADR-014: troca o código de handoff (curto, uso único, minted só por quem
+    # já passou por require_any_admin_permission em /mobile-handoff) por uma
+    # sessão plena — a segurança está no código em si, não numa dependency
+    # de rota; sem sessão prévia não há como chegar aqui com um código válido.
+    ("POST", "/api/admin/mobile-handoff/exchange"),
 }
 
 
@@ -68,4 +73,4 @@ def test_allowlist_publica_nao_cresce_sem_atualizar_este_teste():
     cobre o caminho raro de uma rota nova nascer SEM dependency E já
     entrar direto na allowlist por engano: o tamanho serve de sinal humano
     de "isso cresceu, foi você que decidiu?" — não é uma trava rígida."""
-    assert len(_PUBLICAS_CONHECIDAS) == 15
+    assert len(_PUBLICAS_CONHECIDAS) == 16

@@ -1,5 +1,10 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import { api, getToken, setToken } from "./api.js";
+
+// ADR-014: editor padrão de texto longo. SOB DEMANDA — o CodeMirror leva o
+// bundle de 184KB para 810KB, e o portal abre em rede móvel dentro do app.
+// Só quem toca em "editar" paga esse download; quem só lê observabilidade não.
+const EditorTexto = lazy(() => import("./EditorTexto.jsx").then((m) => ({ default: m.EditorTexto })));
 
 // ADR-012 (Fase 5): tokens do Brand Book v2, tema escuro, acento do modo
 // Operador (dourado) — SUPERSEDE a Decisão 6 do ADR-011 ("paleta mínima,
@@ -20,7 +25,11 @@ function Kv({ label, value, tone }) {
   return (
     <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", padding: "7px 0", borderBottom: `1px solid ${T.border}`, fontSize: "13px" }}>
       <span style={{ color: T.muted }}>{label}</span>
-      <span style={{ fontFamily: MONO, fontWeight: 700, color: col, textAlign: "right" }}>{value}</span>
+      {/* ADR-014 (mobile): valor vem do backend e pode ser não-quebrável (URL,
+          traceback). Sem isto UMA linha dessas põe a PÁGINA INTEIRA em rolagem
+          horizontal no iPhone. `minWidth: 0` é obrigatório: item flex não
+          encolhe abaixo do min-content sem ele. */}
+      <span style={{ fontFamily: MONO, fontWeight: 700, color: col, textAlign: "right", minWidth: 0, overflowWrap: "anywhere" }}>{value}</span>
     </div>
   );
 }
@@ -28,7 +37,9 @@ function Kv({ label, value, tone }) {
 function Card({ title, children, right }) {
   return (
     <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: "10px", padding: "16px", marginBottom: "16px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+      {/* ADR-014 (mobile): sem wrap/gap, título longo espremia o botão `right`
+          ("↻ atualizar") a ~65px e o quebrava em duas linhas. */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px", flexWrap: "wrap", marginBottom: "10px" }}>
         <div style={{ fontSize: "11px", fontWeight: 800, color: T.faint, letterSpacing: "0.06em", textTransform: "uppercase" }}>{title}</div>
         {right}
       </div>
@@ -425,6 +436,12 @@ function KillSwitchBox({ user, reload }) {
   const [erroAcao, setErroAcao] = useState("");
 
   const alternar = async () => {
+    // ADR-014 (mobile): é a ação mais destrutiva do portal — parar a execução
+    // automática de todo mundo. Não pode depender de um toque preciso.
+    const pergunta = data.on
+      ? "Desligar o kill-switch? O agente volta a executar automaticamente."
+      : "Ligar o kill-switch? A execução automática PARA para todos os usuários.";
+    if (!window.confirm(pergunta)) return;
     setBusy(true); setErroAcao("");
     try {
       await api.killSwitchPut(!data.on);
@@ -449,7 +466,7 @@ function KillSwitchBox({ user, reload }) {
             </div>
             {podeControlar ? (
               <button onClick={alternar} disabled={busy}
-                      style={{ ...btnGhost, marginTop: "10px", opacity: busy ? 0.6 : 1,
+                      style={{ ...btnGhost, marginTop: "10px", padding: "13px 18px", width: "100%", opacity: busy ? 0.6 : 1,
                                borderColor: data.on ? T.positive : T.negative, color: data.on ? T.positive : T.negative }}>
                 {busy ? "Aplicando…" : data.on ? "Desligar kill-switch" : "Ligar kill-switch"}
               </button>
@@ -523,10 +540,13 @@ function MudancaDeLLM({ user }) {
 
   useEffect(() => { if (data && !form) setForm(data); }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const campo = (chave, label, placeholder) => (
+  // ADR-014 (mobile): `numerico` abre o teclado de números no iPhone — sem
+  // isto cota/rate/teto se digitam num teclado alfanumérico.
+  const campo = (chave, label, placeholder, numerico) => (
     <div style={{ marginBottom: "10px" }}>
       <label style={{ display: "block", fontSize: "11px", color: T.muted, marginBottom: "4px" }}>{label}</label>
       <input value={form?.[chave] ?? ""} placeholder={placeholder} disabled={!podeEditar}
+             inputMode={numerico ? "numeric" : undefined}
              onChange={(e) => setForm({ ...form, [chave]: e.target.value })}
              style={inputStyle} />
     </div>
@@ -569,9 +589,9 @@ function MudancaDeLLM({ user }) {
           <>
             {campo("llmProvider", "Provider (override)", "vazio = usa B3_MANAGED_LLM_PROVIDER")}
             {campo("llmModel", "Model (override)", "vazio = usa B3_MANAGED_LLM_MODEL")}
-            {campo("llmDailyQuota", "Cota diária por usuário", "vazio = usa B3_MANAGED_DAILY_QUOTA")}
-            {campo("llmRatePerMin", "Rate por minuto", "vazio = usa B3_MANAGED_RATE_PER_MIN")}
-            {campo("llmGlobalDailyCap", "Teto global/dia", "vazio = usa B3_MANAGED_GLOBAL_DAILY_CAP")}
+            {campo("llmDailyQuota", "Cota diária por usuário", "vazio = usa B3_MANAGED_DAILY_QUOTA", true)}
+            {campo("llmRatePerMin", "Rate por minuto", "vazio = usa B3_MANAGED_RATE_PER_MIN", true)}
+            {campo("llmGlobalDailyCap", "Teto global/dia", "vazio = usa B3_MANAGED_GLOBAL_DAILY_CAP", true)}
             {podeEditar && (
               <button onClick={salvar} disabled={busy}
                       style={{ marginTop: "6px", padding: "8px 14px", borderRadius: "8px", border: "none", background: T.accent, color: T.onAccent, fontWeight: 700, fontSize: "12.5px", cursor: "pointer", opacity: busy ? 0.6 : 1 }}>
@@ -620,12 +640,14 @@ function FontesDeDados({ user }) {
           <>
             <Kv label="Intervalo vigente entre atualizações de spot" value={data.vigenteS + "s"} />
             <Kv label="Chamadas/mês projetadas no intervalo vigente" value={data.projecao?.chamadasMes ?? "—"} />
+            {/* width fixo de 160px tomava 53% da linha no iPhone e o rótulo do
+                botão quebrava em duas. `flex: 1` + minWidth: 0 divide. */}
             {podeEditar && (
-              <div style={{ marginTop: "10px", display: "flex", gap: "8px", alignItems: "center" }}>
+              <div style={{ marginTop: "10px", display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
                 <input value={intervalo} onChange={(e) => setIntervalo(e.target.value)} placeholder="novo intervalo (s)"
-                       style={{ ...inputStyle, width: "160px" }} />
+                       inputMode="numeric" style={{ ...inputStyle, flex: 1, minWidth: 0, width: "auto" }} />
                 <button onClick={aplicar} disabled={busy}
-                        style={{ padding: "9px 14px", borderRadius: "8px", border: "none", background: T.accent, color: T.onAccent, fontWeight: 700, fontSize: "12.5px", cursor: "pointer", opacity: busy ? 0.6 : 1 }}>
+                        style={{ padding: "13px 16px", borderRadius: "8px", border: "none", background: T.accent, color: T.onAccent, fontWeight: 700, fontSize: "12.5px", cursor: "pointer", whiteSpace: "nowrap", opacity: busy ? 0.6 : 1 }}>
                   {busy ? "Aplicando…" : "Aplicar (auditado)"}
                 </button>
               </div>
@@ -642,6 +664,7 @@ function FontesDeDados({ user }) {
 // a edição PESSOAL de um usuário (`PUT /api/llm-prompts`, dele mesmo) — essa
 // sempre tem prioridade; mecanismo no backend (`store._eh_default_antigo`).
 function Prompts({ user }) {
+  const largo = useMediaQuery(LARGO);   // editor de prompt respira mais no celular
   const podeEditar = (user?.permissions || []).includes("prompts.editar");
   const { loading, error, data, reload } = useFetch(() => api.promptsGet(), []);
   const [chaveAberta, setChaveAberta] = useState(null);
@@ -669,8 +692,9 @@ function Prompts({ user }) {
       <Estado loading={loading} error={error}>
         {data && Object.entries(data).map(([chave, info]) => (
           <div key={chave} style={{ padding: "10px 0", borderBottom: `1px solid ${T.border}` }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontSize: "13px", color: T.text, fontWeight: 700 }}>{chave}</span>
+            {/* gap+wrap: a chave longa encostava literalmente no rótulo de estado */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+              <span style={{ fontSize: "13px", color: T.text, fontWeight: 700, overflowWrap: "anywhere" }}>{chave}</span>
               <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
                 <span style={{ fontSize: "10.5px", color: info.temOverride ? T.accent : T.faint }}>
                   {info.temOverride ? "editado pelo admin" : "default de código"}
@@ -680,19 +704,26 @@ function Prompts({ user }) {
                 )}
               </div>
             </div>
+            {/* ADR-014: editor PADRÃO do portal — realce markdown, prévia
+                read-only e tela cheia no mobile. Byte-exato por contrato
+                (ver o cabeçalho de EditorTexto.jsx). */}
             {chaveAberta === chave && (
-              <div style={{ marginTop: "8px" }}>
-                <textarea value={texto} onChange={(e) => setTexto(e.target.value)} rows={10}
-                          style={{ ...inputStyle, fontFamily: MONO, fontSize: "11.5px", resize: "vertical" }} />
-                <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
-                  <button onClick={publicar} disabled={busy}
-                          style={{ padding: "7px 12px", borderRadius: "8px", border: "none", background: T.accent, color: T.onAccent, fontWeight: 700, fontSize: "12px", cursor: "pointer", opacity: busy ? 0.6 : 1 }}>
-                    {busy ? "Publicando…" : "Publicar (auditado)"}
-                  </button>
-                  <button onClick={() => setChaveAberta(null)} style={btnGhost}>cancelar</button>
-                </div>
-                {msg && <div style={{ marginTop: "8px", fontSize: "11.5px", color: T.muted, lineHeight: 1.5 }}>{msg}</div>}
-              </div>
+              <Suspense fallback={<div style={{ padding: "12px 0", fontSize: "12px", color: T.muted }}>Carregando editor…</div>}>
+              <EditorTexto
+                valor={texto} onChange={setTexto} T={T} largo={largo}
+                titulo={chave} onFechar={() => setChaveAberta(null)}
+                acoes={
+                  <>
+                    <button onClick={publicar} disabled={busy}
+                            style={{ padding: "13px 16px", borderRadius: "8px", border: "none", background: T.accent, color: T.onAccent, fontWeight: 700, fontSize: "12px", cursor: "pointer", opacity: busy ? 0.6 : 1 }}>
+                      {busy ? "Publicando…" : "Publicar (auditado)"}
+                    </button>
+                    <button onClick={() => setChaveAberta(null)} style={btnGhost}>cancelar</button>
+                    {msg && <div style={{ flexBasis: "100%", fontSize: "11.5px", color: T.muted, lineHeight: 1.5 }}>{msg}</div>}
+                  </>
+                }
+              />
+              </Suspense>
             )}
           </div>
         ))}
@@ -709,6 +740,12 @@ function Usuarios({ user }) {
   const [msg, setMsg] = useState("");
 
   const alternar = async (uid, role, tem) => {
+    // ADR-014 (mobile): num alvo de toque pequeno, num portal que agora abre
+    // no celular, um dedo torto CONCEDE role_admin sem nenhum passo
+    // intermediário. Confirmação explícita porque o efeito é imediato e a
+    // escrita já vai auditada com o nome de quem clicou.
+    const rotulo = tem ? "Revogar" : "Conceder";
+    if (!window.confirm(`${rotulo} o papel "${role}" para este usuário?`)) return;
     setBusyKey(uid + role); setMsg("");
     try {
       await api.userRole(uid, role, tem ? "revogar" : "conceder");
@@ -725,8 +762,11 @@ function Usuarios({ user }) {
       <Estado loading={loading} error={error} empty={data && (data.usuarios || []).length === 0}>
         {data && data.usuarios.map((u) => (
           <div key={u.id} style={{ padding: "10px 0", borderBottom: `1px solid ${T.border}` }}>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}>
-              <span style={{ color: T.text }}>{u.email || u.id.slice(0, 10)}</span>
+            {/* overflowWrap: e-mail corporativo longo é palavra única sem
+                quebra — punha a PÁGINA INTEIRA em rolagem horizontal (medido:
+                documentElement 452px numa viewport de 390). */}
+            <div style={{ display: "flex", justifyContent: "space-between", gap: "8px", flexWrap: "wrap", fontSize: "13px" }}>
+              <span style={{ color: T.text, minWidth: 0, overflowWrap: "anywhere" }}>{u.email || u.id.slice(0, 10)}</span>
               <span style={{ fontFamily: MONO, fontSize: "11px", color: T.faint }}>plano: {u.plan || "free"}</span>
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "6px" }}>
@@ -734,7 +774,7 @@ function Usuarios({ user }) {
                 const tem = (u.roles || []).includes(role);
                 return (
                   <button key={role} onClick={() => alternar(u.id, role, tem)} disabled={busyKey === u.id + role}
-                          style={{ ...btnGhost, fontSize: "10.5px", padding: "3px 8px",
+                          style={{ ...btnGhost, fontSize: "11.5px", padding: "11px 12px",
                                    background: tem ? T.accent : "transparent", color: tem ? T.onAccent : T.muted,
                                    borderColor: tem ? T.accent : T.border, opacity: busyKey === u.id + role ? 0.5 : 1 }}>
                     {role}
@@ -752,6 +792,29 @@ function Usuarios({ user }) {
 
 // ADR-013 — toda escrita admin (config, fontes, prompts, papéis) grava aqui,
 // sem exceção "por enquanto".
+// ADR-014 (mobile): um evento `prompt` guarda o texto INTEIRO do prompt (o
+// backend grava assim de propósito — a auditoria precisa do valor real). Cru,
+// UMA linha dessas mede 1751px de altura no iPhone e sepulta a tela. Colapsa
+// por padrão; "ver completo" mostra o valor íntegro, sem truncar o registro.
+const LIMITE_VALOR = 160;
+
+function ValorAuditado({ old: oldValue, novo }) {
+  const [aberto, setAberto] = useState(false);
+  const texto = JSON.stringify(oldValue) + " → " + JSON.stringify(novo);
+  const longo = texto.length > LIMITE_VALOR;
+  return (
+    <div style={{ fontFamily: MONO, fontSize: "11px", color: T.text, marginTop: "2px", overflowWrap: "anywhere" }}>
+      {longo && !aberto ? texto.slice(0, LIMITE_VALOR) + "…" : texto}
+      {longo && (
+        <button onClick={() => setAberto(!aberto)}
+                style={{ ...btnGhost, display: "block", marginTop: "6px", fontSize: "11px" }}>
+          {aberto ? "recolher" : "ver completo"}
+        </button>
+      )}
+    </div>
+  );
+}
+
 function Auditoria() {
   const { loading, error, data, reload } = useFetch(() => api.auditGet(200), []);
   return (
@@ -759,13 +822,12 @@ function Auditoria() {
       <Estado loading={loading} error={error} empty={data && (data.eventos || []).length === 0}>
         {data && data.eventos.map((e) => (
           <div key={e.id} style={{ padding: "8px 0", borderBottom: `1px solid ${T.border}`, fontSize: "12px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", color: T.muted }}>
-              <span>{e.entity}{e.field ? " · " + e.field : ""}{e.entityId ? " · " + e.entityId : ""}</span>
+            {/* gap+wrap: o entityId é hex de 32 chars e encostava na data */}
+            <div style={{ display: "flex", justifyContent: "space-between", gap: "8px", flexWrap: "wrap", color: T.muted }}>
+              <span style={{ overflowWrap: "anywhere" }}>{e.entity}{e.field ? " · " + e.field : ""}{e.entityId ? " · " + e.entityId : ""}</span>
               <span style={{ fontFamily: MONO, fontSize: "10.5px", color: T.faint }}>{new Date(e.at).toLocaleString("pt-BR")}</span>
             </div>
-            <div style={{ fontFamily: MONO, fontSize: "11px", color: T.text, marginTop: "2px" }}>
-              {JSON.stringify(e.oldValue)} → {JSON.stringify(e.newValue)}
-            </div>
+            <ValorAuditado old={e.oldValue} novo={e.newValue} />
           </div>
         ))}
       </Estado>
@@ -773,14 +835,21 @@ function Auditoria() {
   );
 }
 
-const btnGhost = { background: "transparent", border: `1px solid ${T.border}`, color: T.muted, borderRadius: "6px", padding: "4px 10px", fontSize: "11.5px", cursor: "pointer" };
-const selectStyle = { background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: "6px", padding: "4px 8px", fontSize: "12px" };
+// ADR-014 (mobile): alvos de toque. O padding antigo ("4px 10px") dava 23.5px
+// de altura — metade do mínimo de 44pt da HIG, num portal que agora abre no
+// iPhone. `fontSize` 16px nos campos focáveis não é estética: abaixo disso o
+// WKWebView DÁ ZOOM na viewport ao focar e não volta, prendendo o admin numa
+// página ampliada.
+const btnGhost = { background: "transparent", border: `1px solid ${T.border}`, color: T.muted, borderRadius: "6px", padding: "11px 14px", fontSize: "12px", cursor: "pointer" };
+const selectStyle = { background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: "6px", padding: "10px 12px", fontSize: "16px" };
 
-function Login({ onLogin }) {
+function Login({ onLogin, avisoInicial }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  // ADR-014: quando o handoff do app falha (código expirado/já usado), o
+  // admin cai aqui — sem isto, a tela de login não dizia por quê.
+  const [error, setError] = useState(avisoInicial || "");
 
   const submit = async (e) => {
     e.preventDefault();
@@ -823,7 +892,206 @@ function Login({ onLogin }) {
     </div>
   );
 }
-const inputStyle = { width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: "8px", border: `1px solid ${T.border}`, background: T.bg, color: T.text, fontSize: "13px" };
+const inputStyle = { width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: "8px", border: `1px solid ${T.border}`, background: T.bg, color: T.text, fontSize: "16px" };
+
+// ── Cabeçalho responsivo (ADR-014) ──────────────────────────────────────
+// O header original era UM flex row disputando ~358pt entre título, 10 abas,
+// e-mail e Sair: no iPhone as abas viravam 10 linhas empilhadas e o e-mail +
+// Sair saíam da viewport (só `nav` tinha flexWrap; o pai não). Verificado ao
+// vivo por foto de iPhone, não inferido. Vira duas linhas — identidade e
+// navegação — com a nav rolando na horizontal no estreito.
+const LARGO = "(min-width: 900px) and (hover: hover)";
+
+function useMediaQuery(query) {
+  // Leitura síncrona no inicializador: sem isto o primeiro paint sai sempre
+  // no layout estreito e "pula" para o largo no desktop.
+  const [match, setMatch] = useState(
+    () => typeof window !== "undefined" && window.matchMedia(query).matches
+  );
+  useEffect(() => {
+    const mql = window.matchMedia(query);
+    const onChange = (e) => setMatch(e.matches);
+    setMatch(mql.matches);
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, [query]);
+  return match;
+}
+
+// Duas coisas que estilo inline não expressa: esconder a scrollbar do
+// scroller (Chrome/Windows desenharia uma barra fixa sob as abas) e o anel
+// de :focus-visible. Fica aqui em vez de um .css novo — o portal não tem um.
+const CSS_CABECALHO = `
+.adm-cab nav::-webkit-scrollbar { display: none; }
+.adm-cab button:focus-visible { outline: 2px solid ${T.accent}; outline-offset: 2px; }
+`;
+
+function NavAbas({ visiveis, viewAtual, setView, largo }) {
+  const ref = useRef(null);
+  const [fim, setFim] = useState(true); // true = nada mais à direita
+
+  const medir = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    setFim(el.scrollLeft + el.clientWidth >= el.scrollWidth - 4);
+  }, []);
+
+  useEffect(() => {
+    medir();
+    window.addEventListener("resize", medir);
+    return () => window.removeEventListener("resize", medir);
+  }, [medir, largo, visiveis.length]);
+
+  // Traz a aba ativa para o campo de visão. Cálculo manual em vez de
+  // scrollIntoView: no Safari o scrollIntoView também mexe no scroll
+  // VERTICAL da página, o que dá um pulo visível ao trocar de aba.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || largo) return;
+    const alvo = el.querySelector('[data-ativa="1"]');
+    if (!alvo) return;
+    const esq = alvo.offsetLeft - 16;
+    const dir = alvo.offsetLeft + alvo.offsetWidth - el.clientWidth + 16;
+    const suave = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const opts = { behavior: suave ? "smooth" : "auto" };
+    if (el.scrollLeft > esq) el.scrollTo({ left: Math.max(0, esq), ...opts });
+    else if (el.scrollLeft < dir) el.scrollTo({ left: dir, ...opts });
+  }, [viewAtual, largo]);
+
+  return (
+    <div style={{ position: "relative" }}>
+      <nav
+        ref={ref}
+        onScroll={medir}
+        aria-label="Seções da administração"
+        style={{
+          position: "relative",
+          display: "flex",
+          gap: "6px",
+          flexWrap: largo ? "wrap" : "nowrap",
+          overflowX: largo ? "visible" : "auto",
+          overflowY: largo ? "visible" : "hidden",
+          scrollSnapType: largo ? "none" : "x proximity",
+          WebkitOverflowScrolling: "touch",
+          scrollbarWidth: "none",
+          msOverflowStyle: "none",
+          // Sangria até a borda: o corte de uma aba na borda é a affordance
+          // de "tem mais". Os 3px verticais dão espaço ao anel de foco
+          // (overflowY: hidden cortaria o outline).
+          margin: "-3px -16px",
+          padding: "3px 16px",
+          scrollPaddingLeft: "16px",
+          scrollPaddingRight: "16px",
+        }}
+      >
+        {visiveis.map((v) => {
+          const ativa = viewAtual === v.id;
+          return (
+            <button
+              key={v.id}
+              data-ativa={ativa ? "1" : undefined}
+              aria-current={ativa ? "page" : undefined}
+              onClick={() => setView(v.id)}
+              style={{
+                flex: "0 0 auto",
+                scrollSnapAlign: "start",
+                display: "inline-flex",
+                alignItems: "center",
+                // 44pt de alvo de toque (HIG) no estreito; densidade de
+                // desktop preservada no largo.
+                minHeight: largo ? "34px" : "44px",
+                padding: largo ? "0 12px" : "0 14px",
+                borderRadius: "8px",
+                border: "none",
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+                background: ativa ? T.accent : "transparent",
+                color: ativa ? T.onAccent : T.muted,
+                fontFamily: "inherit",
+                fontSize: "12.5px",
+                fontWeight: 700,
+              }}
+            >
+              {v.label}
+            </button>
+          );
+        })}
+      </nav>
+      {!largo && !fim && (
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            right: 0, top: 0, bottom: 0,
+            width: "28px",
+            pointerEvents: "none",
+            background: `linear-gradient(90deg, ${T.bg}00, ${T.bg})`,
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function Cabecalho({ visiveis, viewAtual, setView, email, onSair }) {
+  const largo = useMediaQuery(LARGO);
+  return (
+    <header
+      className="adm-cab"
+      style={{
+        borderBottom: `1px solid ${T.border}`,
+        padding: "10px 16px",
+        display: "flex",
+        flexDirection: "column",
+        gap: "10px",
+      }}
+    >
+      <style>{CSS_CABECALHO}</style>
+      {/* Linha 1 — identidade. O grupo da direita tem flex-basis 240px: no
+          iPhone título + 240 não cabem, então o grupo desce para a própria
+          linha e o e-mail aparece completo; no desktop cabe tudo em uma
+          linha. Sem esse basis o flex espremeria o e-mail em vez de quebrar. */}
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "6px 16px" }}>
+        <div style={{ flex: "0 0 auto", fontFamily: DISPLAY, fontWeight: 600, fontSize: "15px", whiteSpace: "nowrap" }}>
+          Boris+ · Administração
+        </div>
+        <div style={{ flex: "1 1 240px", minWidth: 0, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "10px" }}>
+          {email && (
+            <span
+              title={email}
+              style={{
+                minWidth: 0,           // obrigatório: sem isto o item flex nunca
+                overflow: "hidden",    // encolhe abaixo do min-content e volta a vazar
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                fontSize: "12px",
+                color: T.faint,
+              }}
+            >
+              {email}
+            </span>
+          )}
+          <button
+            onClick={onSair}
+            style={{
+              ...btnGhost,
+              flex: "0 0 auto",   // nunca é o item empurrado para fora da tela
+              display: "inline-flex",
+              alignItems: "center",
+              minHeight: largo ? "32px" : "44px",
+              padding: largo ? "0 10px" : "0 14px",
+              fontSize: "12px",
+              fontFamily: "inherit",
+            }}
+          >
+            Sair
+          </button>
+        </div>
+      </div>
+      <NavAbas visiveis={visiveis} viewAtual={viewAtual} setView={setView} largo={largo} />
+    </header>
+  );
+}
 
 // ADR-013: `perm` gate é COSMÉTICO — esconde a aba de quem não tem a
 // permissão, mas toda rota que a tela chama valida de novo no backend
@@ -853,8 +1121,37 @@ export default function App() {
   const [loggedIn, setLoggedIn] = useState(false);
   const [checking, setChecking] = useState(true);
   const [view, setView] = useState(null);
+  // ADR-014: mensagem pro admin quando o handoff do app falha — sem isto a
+  // tela de login não dizia por que a sessão não veio (achado ao testar ao vivo).
+  const [handoffAviso, setHandoffAviso] = useState("");
 
   useEffect(() => {
+    // ADR-014: app nativo abre o web-admin/ com #handoff=<código> — troca por
+    // sessão plena antes de qualquer outra checagem. Hash limpo imediatamente:
+    // o código é de uso único, não deve sobreviver a um refresh nem ficar no
+    // histórico do browser in-app.
+    const m = (window.location.hash || "").match(/(?:^|[#&])handoff=([^&]+)/);
+    if (m) {
+      const codigo = decodeURIComponent(m[1]);
+      window.history.replaceState(null, "", window.location.pathname + window.location.search);
+      api.mobileHandoffExchange(codigo)
+        .then((r) => {
+          if (!(r.user.permissions || []).length) {
+            setToken(null); setUser(null); setLoggedIn(false); setChecking(false);
+            setHandoffAviso("Esta conta não tem nenhum papel administrativo.");
+            return;
+          }
+          setToken(r.token); setUser(r.user); setLoggedIn(true); setChecking(false);
+        })
+        // Código de handoff usado/expirado: nunca deixa a UI presa "logada"
+        // com um token que acabou de ser invalidado — mesmo reset completo
+        // do handleLogout, senão toda chamada seguinte 401 num limbo visual.
+        .catch(() => {
+          setToken(null); setUser(null); setLoggedIn(false); setChecking(false);
+          setHandoffAviso("O acesso vindo do app expirou ou já foi usado — abra a Central de administração de novo pelo app, ou entre com e-mail e senha abaixo.");
+        });
+      return;
+    }
     if (!getToken()) { setChecking(false); return; }
     // ADR-013: usa /api/auth/me (não mais uma permissão específica) — o
     // mesmo endpoint já dispara o bootstrap idempotente do papel admin pra
@@ -871,7 +1168,7 @@ export default function App() {
   const handleLogout = () => { setToken(null); setUser(null); setLoggedIn(false); };
 
   if (checking) return <div style={{ minHeight: "100vh", background: T.bg, color: T.muted, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px" }}>Verificando sessão…</div>;
-  if (!loggedIn) return <Login onLogin={handleLogin} />;
+  if (!loggedIn) return <Login onLogin={handleLogin} avisoInicial={handoffAviso} />;
 
   // ADR-013: filtro cosmético por permissão — toda rota que a tela chama
   // valida de novo no backend, isto só evita mostrar uma aba que vai dar 403.
@@ -881,22 +1178,14 @@ export default function App() {
   const ViewC = visiveis.find((v) => v.id === viewAtual)?.C || VisaoGeral;
   return (
     <div style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: SANS }}>
-      <div style={{ borderBottom: `1px solid ${T.border}`, padding: "12px 20px", display: "flex", alignItems: "center", gap: "20px" }}>
-        <div style={{ fontFamily: DISPLAY, fontWeight: 600, fontSize: "15px" }}>Boris+ · Administração</div>
-        <nav style={{ display: "flex", gap: "4px", flex: 1, flexWrap: "wrap" }}>
-          {visiveis.map((v) => (
-            <button key={v.id} onClick={() => setView(v.id)}
-                    style={{ padding: "7px 12px", borderRadius: "6px", border: "none", cursor: "pointer",
-                             background: viewAtual === v.id ? T.accent : "transparent",
-                             color: viewAtual === v.id ? T.onAccent : T.muted, fontSize: "12.5px", fontWeight: 700 }}>
-              {v.label}
-            </button>
-          ))}
-        </nav>
-        {user?.email && <span style={{ fontSize: "12px", color: T.faint }}>{user.email}</span>}
-        <button onClick={handleLogout} style={btnGhost}>Sair</button>
-      </div>
-      <div style={{ maxWidth: "760px", margin: "0 auto", padding: "20px" }}>
+      <Cabecalho
+        visiveis={visiveis}
+        viewAtual={viewAtual}
+        setView={setView}
+        email={user?.email}
+        onSair={handleLogout}
+      />
+      <div style={{ maxWidth: "760px", margin: "0 auto", padding: "20px 16px" }}>
         <ViewC user={user} />
       </div>
     </div>

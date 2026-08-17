@@ -161,6 +161,7 @@ function serverStore() {
     timing: (t) => api.timing(t),                                  // F1: modo vem da config do escopo no servidor
     obsLogs: (n, level, cat) => api.obsLogs(n, level, cat),        // FASE 5: logs do servidor
     adminSummary: () => api.adminSummary(),                        // F5: painel de admin (só ver)
+    adminMobileHandoff: () => api.adminMobileHandoff(),            // ADR-014: código de handoff pro web-admin/ embutido
     brapiProjecao: (intervaloS) => api.brapiProjecao(intervaloS),  // ADR-008: simula intervalo→custo/mês
     brapiProjecaoAplicar: (intervaloS) => api.brapiProjecaoAplicar(intervaloS), // ADR-008: aplica o intervalo
     analysisOutcomesStats: (modo) => api.analysisOutcomesStats(modo), // qa/30 (Fase A): eficiência da IA
@@ -798,6 +799,7 @@ function deviceStore() {
     async petResumo(tela) { ensure(); return api.petResumo(doc.config.appMode || "estudo", tela); }, // pet: modo local-first (iPhone); F4: tela escolhe a aba
     async obsLogs(n, level, cat) { ensure(); return api.obsLogs(n, level, cat); }, // FASE 5
     async adminSummary() { ensure(); return api.adminSummary(); }, // F5: painel de admin (só ver)
+    async adminMobileHandoff() { ensure(); return api.adminMobileHandoff(); }, // ADR-014
     async brapiProjecao(intervaloS) { ensure(); return api.brapiProjecao(intervaloS); }, // ADR-008
     async brapiProjecaoAplicar(intervaloS) { ensure(); return api.brapiProjecaoAplicar(intervaloS); }, // ADR-008
     async analysisOutcomesStats(modo) { ensure(); return api.analysisOutcomesStats(modo); }, // qa/30 (Fase A)

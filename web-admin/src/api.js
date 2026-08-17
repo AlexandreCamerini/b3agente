@@ -74,4 +74,8 @@ export const api = {
   userRole: (userId, role, acao) => req("POST", "/api/admin/users/" + encodeURIComponent(userId) + "/roles", { role, acao }),
 
   auditGet: (n) => req("GET", "/api/admin/audit" + (n ? "?n=" + encodeURIComponent(n) : "")),
+
+  // ADR-014: troca o código de handoff (mintado pelo app nativo) por uma
+  // sessão plena — usado só no boot, quando a URL chega com #handoff=.
+  mobileHandoffExchange: (codigo) => req("POST", "/api/admin/mobile-handoff/exchange", { codigo }),
 };

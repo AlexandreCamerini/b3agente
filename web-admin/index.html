@@ -11,6 +11,10 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet" />
+    <!-- ADR-014 (mobile): sem isto o `margin: 8px` default do user agent come
+         16px da largura no iPhone (374 úteis em vez de 390) e deixa uma faixa
+         clara em volta do tema escuro. -->
+    <style>body { margin: 0; }</style>
   </head>
   <body>
     <div id="root"></div>
