@@ -110,22 +110,33 @@ consolidado (REPORT-01), priorizado pelo Alex.
 
 ## Traceability
 
-Preenchido pelo roadmapper.
-
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| STORY-01..04 | TBD | Pending |
-| UX-01..04 | TBD | Pending |
-| CODE-01..04 | TBD | Pending |
-| GATE-01..03 | TBD | Pending |
-| ADMIN-01..03 | TBD | Pending |
-| REPORT-01 | TBD | Pending |
+| STORY-01 | Phase 1 | Pending |
+| STORY-02 | Phase 1 | Pending |
+| STORY-03 | Phase 1 | Pending |
+| STORY-04 | Phase 1 | Pending |
+| UX-01 | Phase 1 | Pending |
+| UX-02 | Phase 1 | Pending |
+| UX-03 | Phase 1 | Pending |
+| UX-04 | Phase 1 | Pending |
+| CODE-01 | Phase 1 | Pending |
+| CODE-02 | Phase 1 | Pending |
+| CODE-03 | Phase 1 | Pending |
+| CODE-04 | Phase 1 | Pending |
+| GATE-01 | Phase 1 | Pending |
+| GATE-02 | Phase 1 | Pending |
+| GATE-03 | Phase 1 | Pending |
+| ADMIN-01 | Phase 1 | Pending |
+| ADMIN-02 | Phase 1 | Pending |
+| ADMIN-03 | Phase 1 | Pending |
+| REPORT-01 | Phase 1 | Pending |
 
 **Coverage:**
 - v1 requirements: 19 total
-- Mapped to phases: 0 (pendente roadmap)
-- Unmapped: 19 ⚠️
+- Mapped to phases: 19/19 ✓
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-08-18*
-*Last updated: 2026-08-18 after initialization*
+*Last updated: 2026-08-18 after roadmap creation*
