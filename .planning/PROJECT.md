@@ -18,6 +18,20 @@ funciona — não decorou uma resposta, aprendeu o raciocínio — e só então 
 acesso a automações do Modo Operador. Se o storyline pedagógico não convencer,
 nada mais no produto importa.
 
+## Current Milestone: v1.1 Realismo de Mercado + Correções
+
+**Goal:** Fechar o gap entre o produto e um pregão real (status de mercado visível,
+ordens fora de horário represadas) e corrigir os 30 achados Crítico/Alto/Médio
+do `REPORT-01.md` (v1.0).
+
+**Target features:**
+- Status real de mercado (aberto/fechado, via `pregao.py`) visível na tela de
+  entrada/home — hoje só existe pós-login, na aba Operador
+- Ordem fora do horário de pregão vira pendente: executa no preço de abertura
+  do pregão seguinte, caixa reservado no pedido, cancelável enquanto pendente
+- Correção dos 2 Crítico + 8 Alto + 20 Médio do REPORT-01 (os 9 Baixo ficam
+  no backlog)
+
 ## Requirements
 
 ### Validated
@@ -58,18 +72,13 @@ nada mais no produto importa.
 
 ### Active
 
-- [ ] FIX-01: Corrigir os 2 achados Crítico do REPORT-01 (C-11: rótulo de
-      fonte hardcoded no `TechnicalModal`; C-30: estado degradado da cota
-      brapi invisível a usuário e admin) — violam o princípio 3 do CLAUDE.md
-- [ ] FIX-02: Corrigir os 8 achados Alto do REPORT-01 — ver bloco 1
-      ("Sugestão de sequenciamento" do relatório): transparência de
-      proveniência/frescor do dado (C-11, C-30) → robustez de erro/
-      observabilidade de falha do provedor (C-12, C-36) → guardiões
-      estruturais de paridade/regressão (C-20 antes de C-19) → ativação dos
-      hooks de gating comercial (C-31 antes de C-32) → visibilidade ativa de
-      incidentes operacionais (C-35 antes de C-37)
-- [ ] FIX-03 (backlog, não priorizado): os 20 achados Médio e 9 Baixo do
-      REPORT-01 — priorizar depois dos Críticos/Altos
+- [ ] MERC-01..04: Status real de mercado na tela de entrada + fila de
+      execução de ordens fora do horário de pregão (preço na abertura
+      seguinte, caixa reservado no pedido, cancelável enquanto pendente) —
+      ver `.planning/REQUIREMENTS.md` v1.1 para o detalhamento
+- [ ] FIX-C11..C39 (30 achados): Correção dos 2 Crítico + 8 Alto + 20 Médio
+      do REPORT-01 — ver `.planning/REQUIREMENTS.md` v1.1
+- [ ] Backlog (não mapeado a fase ainda): os 9 achados Baixo do REPORT-01
 - [ ] Decisão comercial pendente (Alex): números do plano gratuito/pago
       (ADR-010) — arquitetura já avaliada como pronta (REVIEW-04); falta só
       a decisão de negócio
@@ -109,7 +118,7 @@ nada mais no produto importa.
 - ADRs relevantes: 001/008 (fonte de dados), 006/007 (camada de entendimento
   e assistente), 010 (planos e cap gratuito — pendente comercial), 013 (RBAC),
   014 (admin mobile).
-- **v1.0 entregou a auditoria geral** (`.planning/phases/
+- **v1.0 entregou a auditoria geral** (`.planning/milestones/v1.0-phases/
   01-auditoria-diagn-stica-consolidada/REPORT-01.md`, 880 linhas, validado
   pelo Alex em checkpoint humano) — nenhuma correção de código foi
   implementada nesta milestone, por decisão explícita (fase diagnóstica).
@@ -169,4 +178,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-08-18 after v1.0 milestone*
+*Last updated: 2026-08-18 after starting v1.1 milestone*
