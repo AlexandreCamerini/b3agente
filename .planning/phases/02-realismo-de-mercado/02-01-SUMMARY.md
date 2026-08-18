@@ -76,10 +76,14 @@ o caminho de ordem imediata.
 - `cd server && ./.venv/bin/python -m pytest -q tests/test_ordens_pendentes.py` — 26 testes (mínimo pedido: 8 na Task 1, 18 na Task 2).
 - `cd server && ./.venv/bin/python -m pytest -q tests/test_ordens_pendentes.py tests/test_persistence.py` — 62 testes.
 - `cd server && ./.venv/bin/python -m pytest -q tests/` (suíte backend inteira) — **1002 passed**.
-- `bash scripts/executar.sh --testes` (suíte canônica) — backend 1002 passed;
-  74 arquivos `web/tests/*.mjs` rodados, 67 OK, 7 falhando por gap de
-  ambiente do worktree, não relacionado a este plano (ver "Known Issues"
-  abaixo e `deferred-items.md`).
+- `bash scripts/executar.sh --testes` (suíte canônica) — **saiu com código
+  de erro (7 falhas)**, NÃO zero: backend 1002 passed (todos verdes), mas
+  67/74 arquivos `web/tests/*.mjs` OK e 7 falhando. As 7 falhas têm causa
+  raiz idêntica e ambiental (`web/node_modules/@capacitor/*` ausente neste
+  worktree), não uma regressão deste plano — que não tocou nenhum arquivo
+  de `web/`. Ver "Known Issues" abaixo e `deferred-items.md`. O orquestrador
+  NÃO deve tratar a suíte canônica como 100% verde sem antes rodar `npm
+  install` em `web/` (ou confirmar que o ambiente de destino já a tem).
 - Todos os greps de `acceptance_criteria` do PLAN.md confirmados manualmente
   (símbolos exatos, `ORDER_LOCK` único, alias por identidade, `with ORDER_LOCK`
   ≥ 2 ocorrências, zero escrita em `history`, `origem="pendente"` nas duas
@@ -153,7 +157,7 @@ a T-02-06, T-02-36) e implementada conforme a mitigação descrita lá.
 
 ## Self-Check: PASSED
 
-- FOUND: server/app/pending_orders.py
+- FOUND: server/app/pending_orders.py (312 lines, min_lines required: 150)
 - FOUND: server/tests/test_ordens_pendentes.py
 - FOUND: commit b8f5f7f
 - FOUND: commit 16ba419
