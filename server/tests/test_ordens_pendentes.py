@@ -369,3 +369,62 @@ def test_executar_ordem_sincrona_tambem_funciona():
     eventos = asyncio.run(pending_orders.executar_pendentes(conn, None, sincrono))
     assert any(e.get("tag") == "pendente-executada" for e in eventos)
     assert pending_orders.listar(conn, None) == []
+
+
+# --------------------------------------------------------------------------
+# Ligação ao estado (Task 3): defaults, SECTIONS, public_state, scopes
+# --------------------------------------------------------------------------
+
+def test_pending_orders_persiste_apos_reinicio():
+    """Round-trip de persistência da seção nova, padrão
+    test_config_persiste_apos_reinicio (TESTING.md)."""
+    conn, path = _fresh_db()
+    pending_orders.criar_compra(conn, None, "PETR4", 100, 30.0)
+    conn.close()  # simula desligar o servidor
+    conn2 = db.connect(path)  # reabre o MESMO arquivo = reinicio
+    lista = pending_orders.listar(conn2, None)
+    assert len(lista) == 1
+    assert lista[0]["t"] == "PETR4"
+    conn2.close()
+
+
+def test_public_state_conta_nova_traz_pendingorders_vazio():
+    conn, _ = _fresh_db()
+    ps = store.public_state(conn, user_id=None)
+    assert ps["pendingOrders"] == []
+    assert ps["caixaReservado"] == 0
+
+
+def test_public_state_com_compra_pendente_traz_caixa_reservado():
+    conn, _ = _fresh_db()
+    cash_antes = store.get(conn, "cash")
+    pending_orders.criar_compra(conn, None, "PETR4", 100, 30.0)
+    ps = store.public_state(conn, user_id=None)
+    assert ps["caixaReservado"] == 3000.0
+    assert round(ps["cash"] + ps["caixaReservado"], 2) == round(cash_antes, 2)
+    assert len(ps["pendingOrders"]) == 1
+
+
+def test_scopes_com_pendentes_enxerga_so_quem_tem_pendente():
+    """Espelha test_scopes_com_history_varre_todos_os_escopos
+    (test_automacao.py): NÃO chamar ensure_defaults por usuário extra, pois
+    isso pré-semearia a seção vazia para todos e mascararia o filtro —
+    criar_compra é o único evento que grava a seção pendingOrders para u1;
+    u2 nunca toca o kv."""
+    conn, _ = _fresh_db()
+    pending_orders.criar_compra(conn, "u1", "PETR4", 100, 30.0)
+    escopos = store.scopes_com_pendentes(conn)
+    assert "u1" in escopos
+    assert "u2" not in escopos
+
+
+def test_user_sections_contem_pending_orders():
+    assert "pendingOrders" in store.USER_SECTIONS
+
+
+def test_caixa_reservado_delega_para_store():
+    """pending_orders.caixa_reservado e store.caixa_reservado são a MESMA
+    aritmética (fonte única) — não duas contas que podem divergir."""
+    conn, _ = _fresh_db()
+    pending_orders.criar_compra(conn, None, "PETR4", 100, 30.0)
+    assert pending_orders.caixa_reservado(conn, None) == store.caixa_reservado(conn, None)

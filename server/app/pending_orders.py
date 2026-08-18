@@ -81,10 +81,11 @@ def listar(conn, user_id=None) -> list:
 
 
 def caixa_reservado(conn, user_id=None) -> float:
-    """Soma dos `caixaReservado` das ordens pendentes de COMPRA. Valor
-    DERIVADO — não é um segundo saldo persistido, é recalculado na leitura."""
-    total = sum((o.get("caixaReservado") or 0) for o in _ler(conn, user_id=user_id) if o.get("tipo") == "COMPRA")
-    return round(total, 2)
+    """Delega para `store.caixa_reservado` — fonte ÚNICA da soma (comentário
+    completo lá, sobre por que ela vive no store e por que não duplica a
+    aritmética aqui). Mantido neste módulo por conveniência dos chamadores
+    que já usam `pending_orders.caixa_reservado`."""
+    return store.caixa_reservado(conn, user_id=user_id)
 
 
 def qty_reservada(conn, user_id=None, t: str = None) -> int:
