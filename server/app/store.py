@@ -1,12 +1,28 @@
 """Operacoes de estado sobre o kv store. Funcoes recebem a conexao para
 ficarem testaveis (o pytest cria a sua propria conexao em arquivo temporario).
 """
+import threading
 from datetime import datetime
 
 from . import db, defaults
 from .catalog import CATALOG, CATALOG_TICKERS, is_catalog_ticker
 
 SECTIONS = ["config", "skill", "skillOperador", "llmPrompts", "watchlist", "cash", "positions", "history", "agent", "analyses", "profile", "custom", "optionPositions"]
+
+# Fase 2 (MERC-02..04): trava ÚNICA de PROCESSO sobre o read-modify-write de
+# `cash`/`positions`. Nasce aqui (não em pending_orders.py) porque o dono
+# desses dois campos é este módulo, e o caminho de ordem IMEDIATA
+# (/api/buy, /api/sell em main.py, plano 02-02) precisa adquirir EXATAMENTE
+# esta mesma trava — pending_orders.ORDER_LOCK é um ALIAS deste objeto, não
+# uma trava distinta. Motivo: `db._ThreadLocalConnection` dá uma conexão
+# SQLite por thread do pool do FastAPI, então o SQLite sozinho não serializa
+# duas requisições concorrentes lendo e escrevendo o mesmo `cash` — sem esta
+# trava, duas escritas concorrentes reservariam/gastariam o mesmo caixa
+# (lost update / double-spend, ameaça T-02-02). Vale para UM processo; o
+# deploy do Railway é um serviço único (server/railway.json), então basta.
+# NÃO criar uma segunda trava de processo para ordens em nenhum outro módulo
+# do backend — esta é a ÚNICA.
+ORDER_LOCK = threading.RLock()
 
 
 def _eh_default_antigo(conn, chave: str, texto: str) -> bool:
