@@ -168,3 +168,204 @@ def test_qty_reservada_soma_vendas_do_ticker():
     pending_orders.criar_venda(conn, None, "PETR4", 100)
     assert pending_orders.qty_reservada(conn, None, "PETR4") == 100
     assert pending_orders.qty_reservada(conn, None, "VALE3") == 0
+
+
+# --------------------------------------------------------------------------
+# cancelar — devolução IMEDIATA (D-03), sem esperar o scheduler
+# --------------------------------------------------------------------------
+
+def test_cancelar_compra_devolve_caixa_sem_gravar_history():
+    conn, _ = _fresh_db()
+    cash_antes = store.get(conn, "cash")
+    registro = pending_orders.criar_compra(conn, None, "PETR4", 100, 30.0)
+    cancelado = pending_orders.cancelar(conn, None, registro["id"])
+    assert cancelado["id"] == registro["id"]
+    assert store.get(conn, "cash") == cash_antes
+    assert pending_orders.listar(conn, None) == []
+    assert store.get(conn, "history") == []
+
+
+def test_cancelar_venda_parcial_restaura_qty_e_avg():
+    conn, _ = _fresh_db()
+    store.buy(conn, "PETR4", 300, 30.0, user_id=None)
+    registro = pending_orders.criar_venda(conn, None, "PETR4", 100)
+    pending_orders.cancelar(conn, None, registro["id"])
+    positions = store.get(conn, "positions")
+    pos = next(p for p in positions if p["t"] == "PETR4")
+    assert pos["qty"] == 300
+    assert pos["avg"] == 30.0  # nenhuma reponderação espúria
+
+
+def test_cancelar_venda_total_faz_posicao_reaparecer():
+    conn, _ = _fresh_db()
+    store.buy(conn, "PETR4", 100, 30.0, user_id=None)
+    registro = pending_orders.criar_venda(conn, None, "PETR4", 100)
+    assert store.get(conn, "positions") == []
+    pending_orders.cancelar(conn, None, registro["id"])
+    positions = store.get(conn, "positions")
+    pos = next(p for p in positions if p["t"] == "PETR4")
+    assert pos["qty"] == 100
+    assert pos["avg"] == 30.0
+
+
+def test_cancelar_venda_com_recompra_no_meio_repondera_avg():
+    """100@10 (venda pendente) + usuário recompra 100@20 => cancelar devolve
+    100@10, resultado deve ser 200@15,00 (mesma fórmula de store.buy)."""
+    conn, _ = _fresh_db()
+    store.buy(conn, "PETR4", 100, 10.0, user_id=None)
+    registro = pending_orders.criar_venda(conn, None, "PETR4", 100)
+    assert store.get(conn, "positions") == []
+    store.buy(conn, "PETR4", 100, 20.0, user_id=None)  # recompra enquanto a venda está pendente
+    pending_orders.cancelar(conn, None, registro["id"])
+    positions = store.get(conn, "positions")
+    pos = next(p for p in positions if p["t"] == "PETR4")
+    assert pos["qty"] == 200
+    assert pos["avg"] == 15.0
+
+
+def test_cancelar_id_inexistente_levanta_erro_e_nao_muda_nada():
+    conn, _ = _fresh_db()
+    cash_antes = store.get(conn, "cash")
+    with pytest.raises(pending_orders.OrdemNaoPendente):
+        pending_orders.cancelar(conn, None, "po_inexistente")
+    assert store.get(conn, "cash") == cash_antes
+
+
+def test_cancelar_ordem_ja_cancelada_levanta_erro():
+    conn, _ = _fresh_db()
+    registro = pending_orders.criar_compra(conn, None, "PETR4", 100, 30.0)
+    pending_orders.cancelar(conn, None, registro["id"])
+    with pytest.raises(pending_orders.OrdemNaoPendente):
+        pending_orders.cancelar(conn, None, registro["id"])
+
+
+# --------------------------------------------------------------------------
+# executar_pendentes — preço do MOTOR (D-01), nunca inventado
+# --------------------------------------------------------------------------
+
+def _price_getter_fixo(preco, source="yahoo"):
+    chamadas = {"n": 0}
+
+    async def fake(ticker):
+        chamadas["n"] += 1
+        return {"price": preco, "source": source}
+    fake.chamadas = chamadas
+    return fake
+
+
+def test_executar_compra_usa_preco_do_motor_nao_a_referencia():
+    conn, _ = _fresh_db()
+    cash_antes = store.get(conn, "cash")
+    pending_orders.criar_compra(conn, None, "PETR4", 100, 30.0)
+    eventos = asyncio.run(pending_orders.executar_pendentes(conn, None, _price_getter_fixo(32.0)))
+    history = store.get(conn, "history")
+    assert history[0]["type"] == "COMPRA"
+    assert history[0]["origem"] == "pendente"
+    assert history[0]["price"] == 32.0
+    assert pending_orders.listar(conn, None) == []
+    assert pending_orders.caixa_reservado(conn, None) == 0
+    # preço de execução MAIOR que a referência: a diferença é acertada, não ignorada.
+    assert store.get(conn, "cash") == round(cash_antes - 100 * 32.0, 2)
+    assert any(e.get("tag") == "pendente-executada" and e.get("kind") == "buy" for e in eventos)
+
+
+def test_executar_compra_custo_real_excede_caixa_livre_auto_cancela():
+    """Preço de abertura sobe o suficiente para o caixa reservado + livre não
+    cobrir mais o custo: a ordem é CANCELADA automaticamente, o caixa volta
+    integralmente e o evento leva a tag pendente-cancelada (T-02-36)."""
+    conn, _ = _fresh_db()
+    registro = pending_orders.criar_compra(conn, None, "PETR4", 100, 30.0)  # reserva 3000
+    # simula o resto do caixa livre já ter sido gasto noutra operação,
+    # sobrando só R$ 1,00 livre — não cobre 100 ações a R$ 1000,00.
+    db.kv_set(conn, "cash", 1.0, user_id=None)
+    eventos = asyncio.run(pending_orders.executar_pendentes(conn, None, _price_getter_fixo(1000.0)))
+    assert pending_orders.listar(conn, None) == []
+    assert any(e.get("tag") == "pendente-cancelada" and e.get("kind") == "warn" for e in eventos)
+    # caixa reservado da COMPRA cancelada voltou integralmente (mais o resto usado na VALE3)
+    assert round(store.get(conn, "cash"), 2) == round(1.0 + registro["caixaReservado"], 2)
+    assert store.get(conn, "positions") == [] or all(p["t"] != "PETR4" for p in store.get(conn, "positions"))
+    history = store.get(conn, "history")
+    assert not any(h["t"] == "PETR4" for h in history)
+
+
+def test_executar_venda_usa_preco_do_motor_e_calcula_pnl_contra_avg_reservado():
+    conn, _ = _fresh_db()
+    store.buy(conn, "PETR4", 100, 10.0, user_id=None)
+    pending_orders.criar_venda(conn, None, "PETR4", 100)
+    eventos = asyncio.run(pending_orders.executar_pendentes(conn, None, _price_getter_fixo(15.0)))
+    history = store.get(conn, "history")
+    assert history[0]["type"] == "VENDA"
+    assert history[0]["origem"] == "pendente"
+    assert history[0]["pnl"] == 500.0  # (15-10)*100
+    assert store.get(conn, "positions") == []
+    assert any(e.get("tag") == "pendente-executada" for e in eventos)
+
+
+def test_executar_sem_preco_mantem_ordem_pendente_e_registra_erro():
+    conn, _ = _fresh_db()
+    cash_antes = store.get(conn, "cash")
+    positions_antes = store.get(conn, "positions")
+    pending_orders.criar_compra(conn, None, "PETR4", 100, 30.0)
+
+    async def sem_preco(ticker):
+        return {"price": None, "source": "yahoo"}
+
+    eventos = asyncio.run(pending_orders.executar_pendentes(conn, None, sem_preco))
+    assert eventos == []
+    lista = pending_orders.listar(conn, None)
+    assert len(lista) == 1
+    assert lista[0]["ultimoErro"] is not None
+    assert lista[0]["ultimaTentativaEm"] is not None
+    # cash idêntico ao caixa JÁ reservado na criação — não muda de novo aqui.
+    assert store.get(conn, "cash") == cash_antes - 3000.0
+    assert store.get(conn, "positions") == positions_antes
+
+
+def test_executar_price_getter_levanta_excecao_mantem_ordem_pendente():
+    """price_getter que levanta (ex.: candle_provider.QuoteUnavailable) cai no
+    mesmo caminho de erro do payload sem preço — nenhuma exceção de uma ordem
+    derruba as demais nem fabrica preço."""
+    conn, _ = _fresh_db()
+    cash_antes = store.get(conn, "cash")
+    pending_orders.criar_compra(conn, None, "PETR4", 100, 30.0)
+
+    async def explode(ticker):
+        raise RuntimeError("provedor fora do ar")
+
+    eventos = asyncio.run(pending_orders.executar_pendentes(conn, None, explode))
+    assert eventos == []
+    lista = pending_orders.listar(conn, None)
+    assert len(lista) == 1
+    assert "provedor fora do ar" in lista[0]["ultimoErro"]
+    assert store.get(conn, "cash") == cash_antes - 3000.0
+
+
+def test_executar_ordem_cancelada_durante_await_nao_ressuscita():
+    """T-02-04: se a ordem for cancelada ENQUANTO a cotação está sendo obtida,
+    executar_pendentes não deve ressuscitá-la nem aplicá-la — a re-checagem
+    do id dentro do lock deve pular a ordem silenciosamente."""
+    conn, _ = _fresh_db()
+    registro = pending_orders.criar_compra(conn, None, "PETR4", 100, 30.0)
+
+    async def cancela_no_meio_do_caminho(ticker):
+        pending_orders.cancelar(conn, None, registro["id"])
+        return {"price": 32.0, "source": "yahoo"}
+
+    eventos = asyncio.run(pending_orders.executar_pendentes(conn, None, cancela_no_meio_do_caminho))
+    assert eventos == []
+    assert pending_orders.listar(conn, None) == []
+    history = store.get(conn, "history")
+    assert not any(h.get("t") == "PETR4" for h in history)
+
+
+def test_executar_ordem_sincrona_tambem_funciona():
+    """price_getter pode ser SYNC (não só async) — inspect.isawaitable resolve."""
+    conn, _ = _fresh_db()
+    pending_orders.criar_compra(conn, None, "PETR4", 100, 30.0)
+
+    def sincrono(ticker):
+        return {"price": 30.0, "source": "yahoo"}
+
+    eventos = asyncio.run(pending_orders.executar_pendentes(conn, None, sincrono))
+    assert any(e.get("tag") == "pendente-executada" for e in eventos)
+    assert pending_orders.listar(conn, None) == []
