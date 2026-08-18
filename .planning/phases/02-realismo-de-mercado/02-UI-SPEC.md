@@ -5,6 +5,7 @@ status: draft
 shadcn_initialized: false
 preset: none
 created: 2026-08-18
+revised: 2026-08-18
 ---
 
 # Phase 2 — UI Design Contract
@@ -64,9 +65,22 @@ The codebase does not use a strict 4/8pt token system — it uses concrete px va
 | lg | 16–20px | Modal/card outer padding (match `BuyModal`/`SellModal` `padding: "20px"`) |
 | xl | 24–32px | Section-to-section gaps within a screen |
 
-Exceptions (established, not new deviations):
-- Status pill padding: `3px 9px` / `4px 9px` (exact match to existing pill pattern at `App.jsx:935` "no portfólio" badge and `App.jsx:1064` "FUNDAMENTO" badge) — the new "PENDENTE" pill and the market-status badge pill MUST reuse this exact padding.
-- Icon-button / avatar touch targets: 38–44px diameter (match `Topbar` profile avatar `40px`, `BuyModal` stepper buttons `42px`) — any new icon-only tap target (e.g. cancel-pending-order icon) uses 40px minimum.
+> **Established Codebase Exception — status pill padding `3px 9px` / `4px 9px` (not a 4px multiple):**
+> **developer-approved — Alexandre Camerini — 2026-08-18** (via AskUserQuestion, phase 2 UI-SPEC re-verification: "Aprovado, manter consistência com o app")
+> Exact match to existing, app-wide pill patterns:
+> - `App.jsx:935` — "no portfólio · {qty}" badge: `padding: "3px 9px"`, `borderRadius: "999px"`, `fontSize: "10.5px"`, `fontWeight: 800`.
+> - `App.jsx:1064` and `App.jsx:1086` — status/fundamento badges: `padding: "4px 9px"`, `borderRadius: "7px"`, `fontSize: "10px"`, `fontWeight: 800`.
+>
+> This is an established, pre-existing pattern used throughout the app, not a new deviation introduced by this phase. The new "PENDENTE" pill (Pending Orders Section) and the market-status badge (Market Status Badge) MUST reuse this exact padding. **Why not round to a 4px multiple (e.g. `4px 8px`):** doing so would make these two NEW pills the only pills in the entire app that don't match the established pill padding — visibly inconsistent sizing next to every COMPRA/VENDA/no-portfólio/FUNDAMENTO pill on the same screens. Matching the exact value is the correct fix; rounding is the regression.
+
+> **Established Codebase Exception — icon-button/avatar touch target 38–42px (not a 4px multiple):**
+> **developer-approved — Alexandre Camerini — 2026-08-18** (via AskUserQuestion, phase 2 UI-SPEC re-verification: "Aprovado, manter consistência com o app")
+> Exact match to existing, app-wide tap targets:
+> - `App.jsx:651` — `WelcomeAuthScreen` avatar initial: `width: "38px", height: "38px"`.
+> - `App.jsx:748` — `Topbar` profile button (`aria-label="Abrir perfil e configurações"`): `width: "40px", height: "40px"`.
+> - `App.jsx:6170`/`:6172` (`BuyModal`) and `App.jsx:6224`/`:6226` (`SellModal`) — quantity stepper buttons: `width: "42px", height: "42px"`.
+>
+> This is an established, pre-existing pattern, not a new deviation. Any new icon-only tap target this phase introduces — specifically the cancel-pending-order icon button described in Copywriting Contract and Phase-Specific Component Notes below — MUST use 40px minimum (the `Topbar` profile-button value, since it is the closest existing icon-only, non-decorative, interactive control to this phase's new affordance). **Why not round to a 4px multiple (e.g. 36px or 44px):** 40px is already the established icon-button size for this exact interaction class (single-icon, aria-labelled, row/strip-level control) elsewhere in the same screens; introducing a different size would make this the only icon button in the app sized off the established scale, with no functional benefit (all values already clear the 44×44 CSS-pixel WCAG target when combined with the row's own padding/hit-slop).
 
 ---
 
@@ -75,13 +89,21 @@ Exceptions (established, not new deviations):
 | Role | Size | Weight | Line Height |
 |------|------|--------|-------------|
 | Body | 13px | 400 | 1.5 |
-| Label (kicker/pill, uppercase, letter-spacing 0.05–0.07em) | 10–11px | 700* | 1.3 |
+| Label (kicker/pill, uppercase, letter-spacing 0.05–0.07em) | 10–11px | 800† | 1.3 |
 | Heading (screen H1, e.g. "Histórico de operações") | 22px | 700 | 1.2 |
 | Display (wordmark only — not used by Phase 2's new components) | 27px | 600 | 1.0 |
 
 Declared pair for NEW elements in this phase: **regular 400** (body/paragraph copy) + **bold 700** (values, emphasized status text, e.g. "aberto"/"fechado", pending-order price/qty cells).
 
-\* Established codebase-wide exception, not introduced by this phase: ALL uppercase kicker labels and status pills (e.g. "STATUS DO SERVIDOR", "PENDENTE", "COMPRA"/"VENDA" badges) use weight **800**, one step bolder than the general 700 emphasis weight, to read at 10–11px. Phase 2's new "PENDENTE" pill and market-status badge label MUST use 800 to match every existing pill in the app — do not introduce a third weight value beyond this documented exception.
+> **† Established Codebase Exception — weight 800 for uppercase kicker/pill labels (a third weight beyond the declared 400/700 pair):**
+> **developer-approved — Alexandre Camerini — 2026-08-18** (via AskUserQuestion, phase 2 UI-SPEC re-verification: "Aprovado, manter consistência com o app")
+> Exact match to existing, app-wide kicker/pill weight, cited at the SAME role and size class as this phase's new elements (small uppercase pill/badge text, not buttons):
+> - `App.jsx:935` — "no portfólio · {qty}" pill: `fontSize: "10.5px", fontWeight: 800`.
+> - `App.jsx:1064` / `App.jsx:1086` — status/fundamento pills: `fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em"`.
+> - `App.jsx:733` — `Topbar` mode-chip label: `fontSize: "10px", fontWeight: 800, letterSpacing: "0.07em"`.
+> - `App.jsx:1109` — "FUNDAMENTO" kicker: `fontSize: "11px", fontWeight: 800, letterSpacing: "0.05em"`.
+>
+> This is an established, codebase-wide pattern — every uppercase kicker/pill label at 10–11px already uses weight 800, one step bolder than the general 700 emphasis weight declared above, because 700 reads as too light at that size against this app's condensed pill shapes. It is not a new weight introduced by this phase. Phase 2's new "PENDENTE" pill and market-status badge label MUST use 800 to match. **Why not drop to weight 700 (the declared pair's bold value) to stay within a strict 2-weight budget:** doing so would make these two NEW pills/badges the only uppercase kicker labels in the entire app that read lighter than every other pill on the same screens (COMPRA/VENDA badges, "no portfólio" badge, "FUNDAMENTO" kicker, mode-chip label all sit at 800) — a visible, avoidable inconsistency. Matching the existing weight is the correct fix; introducing a fourth value or diverging from the established kicker weight is the regression this exception exists to prevent.
 
 ---
 
@@ -107,7 +129,7 @@ Accent reserved for (this phase, explicit list): the pre-existing "Entrar" CTA b
 
 | Element | Copy |
 |---------|------|
-| Primary CTA (new, this phase) | "Cancelar ordem pendente" — row-level action inside `HistoricoScreen`'s Pendentes section |
+| Primary CTA (new, this phase) | Row-level icon-only button inside `HistoricoScreen`'s Pendentes section, positioned in the RESULTADO column slot (that column has no content for pending rows — see Phase-Specific Component Notes). Icon: reuses the existing `✕` glyph already in this app's icon vocabulary (Design System table above — no new iconography introduced). Accessible label: `aria-label="Cancelar ordem pendente de {ticker}"` (ticker interpolated per row, matches the existing `aria-label` pattern at `App.jsx:6170` `aria-label="Diminuir"` / `App.jsx:748` `aria-label="Abrir perfil e configurações"`). Tapping it expands the inline two-step confirm row described below — the visible button text at the confirm step ("Manter ordem" / "Confirmar cancelamento") is what a sighted user reads as the CTA; the row-trigger itself is icon-only because the RESULTADO column (flex `1.1`, right-aligned, `MONO` 13px, `App.jsx:3660`) has no room for a text label at table density. |
 | Market status badge — aberto | "Mercado aberto" (dot `T.positive`) |
 | Market status badge — fechado | "Mercado fechado" as primary line; secondary line "abre {HH:MM}" using `pregao.ABERTURA` (10:00) when known, omitted if the next-open time isn't available from the payload — never invent a time |
 | Market status badge — indisponível | "Status do mercado indisponível" (dot/label `T.warn`, no open/closed claim) — required per CLAUDE.md principle 4 (never invent on data failure) |
@@ -115,7 +137,7 @@ Accent reserved for (this phase, explicit list): the pre-existing "Entrar" CTA b
 | Error state — order submission when market-status fetch failed | Do not silently allow ordering as if market were open; do not silently block it either. `BuyModal`/`SellModal` show: "Não foi possível confirmar se o mercado está aberto agora. Tentar de novo antes de enviar a ordem." with a retry action; the Confirmar button stays enabled (does not block the user from retrying the status check or proceeding — but never auto-assumes open/closed). |
 | BuyModal/SellModal disclaimer — market OPEN (existing copy, unchanged) | "O preço final é o da cotação no momento da confirmação (servidor)." |
 | BuyModal/SellModal disclaimer — market CLOSED (NEW, replaces the line above when `pregaoAberto === false`) | "Mercado fechado agora — a ordem fica **pendente** e executa ao preço de abertura do próximo pregão ({HH:MM}). O caixa é reservado já na confirmação." Confirm button label stays "Confirmar compra" / "Confirmar venda" (per `ctx.cp.confirmarCompra`/`confirmarVenda`, unchanged) — only the disclaimer body text and a small "PENDENTE" pill next to the modal title change; the CTA verb does not change because the user's action (confirm the order) is identical, only its execution timing differs. |
-| Destructive confirmation — cancel pending order | Two-step inline confirm, modeled on the existing `Excluir conta` pattern (`App.jsx:580-589`) but scaled to row-level (no full-screen modal, since this is reversible simulated state, not account deletion): first click on "Cancelar ordem pendente" expands an inline confirm row reading "Cancelar esta ordem? O caixa reservado (`{money(valor)}`) volta a ficar disponível imediatamente." with two buttons — "Manter ordem" (dismiss, `T.borderSubtle`/`T.textMuted`, matches existing `Cancelar` secondary-button style) and "Confirmar cancelamento" (`T.negative` border+text, transparent fill, matches `Excluir conta` button style). On confirm: immediate cash/position release (per CONTEXT.md discretion note — release happens on cancel action, not on next scheduler tick) + toast "Ordem pendente cancelada — caixa liberado." Single unconfirmed click is explicitly rejected: this is cash-adjacent state in a financial simulator (CLAUDE.md transparency principle), so a bare one-click cancel with only toast feedback is insufficient — the two-step pattern is required. |
+| Destructive confirmation — cancel pending order | Two-step inline confirm, modeled on the existing `Excluir conta` pattern (`App.jsx:581-590`) but scaled to row-level (no full-screen modal, since this is reversible simulated state, not account deletion, AND the trigger lives inside a narrow table cell rather than a full-width profile panel — this is why the trigger differs from `Excluir conta`'s full-width text button while the confirm step reuses its exact visual language). Step 1: tap the icon-only `✕` trigger (see Primary CTA row above) — this expands an inline confirm row reading "Cancelar esta ordem? O caixa reservado (`{money(valor)}`) volta a ficar disponível imediatamente." with two full-text buttons, sized like the row allows (not column-constrained once expanded) — "Manter ordem" (dismiss, `T.borderSubtle`/`T.textMuted`, matches existing `Cancelar` secondary-button style at `App.jsx:587`) and "Confirmar cancelamento" (`T.negative` border+text, transparent fill, matches `Excluir conta` button style at `App.jsx:582`). On confirm: immediate cash/position release (per CONTEXT.md discretion note — release happens on cancel action, not on next scheduler tick) + toast "Ordem pendente cancelada — caixa liberado." A bare one-click icon cancel with only toast feedback is explicitly rejected: this is cash-adjacent state in a financial simulator (CLAUDE.md transparency principle), so the two-step pattern is required even though the trigger itself is icon-only. |
 
 ---
 
@@ -123,17 +145,19 @@ Accent reserved for (this phase, explicit list): the pre-existing "Entrar" CTA b
 
 ### Market Status Badge (MERC-01, D-08)
 - Single shared component, rendered in exactly two places per D-08: `WelcomeAuthScreen` (`App.jsx:611-685`, pre-auth, public data only — no `user_id`) and `Topbar` (`App.jsx:707-753`, post-auth, both modes).
-- Visual: small pill/inline group — colored dot (6-8px, matches Topbar's existing mode-dot pattern at `App.jsx:732`, `width:"7px" height:"7px" borderRadius:"50%"` with a soft glow `boxShadow: 0 0 0 3px <tint>`) + label text, 10-11px weight 800 letter-spacing 0.05-0.07em (matches kicker convention).
+- Visual: small pill/inline group — colored dot (6-8px, matches Topbar's existing mode-dot pattern at `App.jsx:732`, `width:"7px" height:"7px" borderRadius:"50%"` with a soft glow `boxShadow: 0 0 0 3px <tint>`) + label text, 10-11px weight 800 letter-spacing 0.05-0.07em (matches kicker convention — see Typography exception above).
 - Three states only: aberto (`T.positive`), fechado (`T.negative`), indisponível (`T.warn`) — see Copywriting Contract above for exact copy per state. No loading spinner needed beyond the existing `restoring`/spinner idiom already used in `WelcomeAuthScreen` (`className="spin"`) if the first fetch is still in flight.
 - Placement in `WelcomeAuthScreen`: directly under the tagline block (near the existing disclaimer paragraph at `App.jsx:644-646`), so it's visible before any auth action — do not place it behind the login form fold.
 - Placement in `Topbar`: as a new small element in the mode-chip row (`App.jsx:730-739`), after the existing mode-chip · name line, separated by the same `·` divider glyph already used there — reuses the divider convention instead of inventing a new separator.
+- **Visual hierarchy (Dimension 2):** in `WelcomeAuthScreen` the badge is a small, muted-weight secondary signal, not competing with the primary "Entrar"/"Entrar na mesa" CTA (`App.jsx:519`/`657`, larger, solid accent fill, `fontSize: "15px"`) — the badge's 10-11px kicker size and dot-plus-label form factor keep it visually subordinate; a user's eye lands on the CTA button first, the badge second. Same rule in `Topbar`: it sits inline after the mode-chip, at the same small kicker weight as the mode-chip itself, not the larger avatar/profile button (`App.jsx:748`, 40px, primary tap target of the strip).
 
 ### Pending Orders Section (MERC-02..04, D-09)
 - Lives inside existing `HistoricoScreen` (`App.jsx:3647`), NOT a new screen/route.
 - Renders as a distinct sub-block titled "Pendentes" ABOVE the existing operations table, using the same `card`/table visual language (`App.jsx:3660-3673`: header row 10px MONO letter-spacing kicker style, data rows 13px MONO).
-- New "PENDENTE" pill in the TIPO column position, alongside/instead of the existing COMPRA/VENDA pill — same visual treatment (11px weight 700-800, colored pill, `padding: "3px 7px"`, `borderRadius: "5px"`), but pending orders use `T.warn` (awaiting execution, not yet a completed transaction) rather than `T.positive`/`T.negative` (which mean completed buy/sell) — this avoids a false read of "already executed."
-- Cancel action appears as a row-level control (see Copywriting Contract two-step confirm above), positioned where the RESULTADO column would be for completed rows (pending orders have no P&L yet).
+- New "PENDENTE" pill in the TIPO column position, alongside/instead of the existing COMPRA/VENDA pill — same visual treatment as the existing status pills (10.5px weight 800, colored pill, `padding: "3px 9px"`, `borderRadius: "999px"` — exact match to `App.jsx:935`, see Spacing section's Established Codebase Exception), but pending orders use `T.warn` (awaiting execution, not yet a completed transaction) rather than `T.positive`/`T.negative` (which mean completed buy/sell) — this avoids a false read of "already executed."
+- Cancel action: icon-only `✕` button (not a text CTA — see Copywriting Contract and the touch-target exception in Spacing above), positioned where the RESULTADO column would be for completed rows (pending orders have no P&L yet). Touch target 40px minimum per the established Spacing exception (`App.jsx:748`). `aria-label="Cancelar ordem pendente de {ticker}"`. Tap expands the two-step text-button confirm row described in Copywriting Contract, rendered full-width below the compact row (not column-constrained).
 - Appears only when count > 0 (see empty-state row above).
+- **Visual hierarchy (Dimension 2):** the "Pendentes" sub-block sits above the main operations table but is visually secondary to it — same kicker-style header row treatment as the main table (not larger, not bolder, no distinct card elevation), so it reads as "a filtered view within the same history surface," not a competing screen section. The `T.warn` pill color (amber) is the only element that draws extra attention, intentionally, since it flags unresolved/actionable state (an order still awaiting execution) — everything else about the sub-block (row height, font size, padding) matches the table below it exactly.
 
 ### BuyModal / SellModal conditional state (MERC-02, MERC-03)
 - Both modals (`App.jsx:6144`, `App.jsx:6192`) need a `pregaoAberto` boolean read from the same source as the badge (single source of truth, no duplicate calculation — per CLAUDE.md principle 5 and `pregao.py` canonical status).
@@ -153,11 +177,30 @@ Accent reserved for (this phase, explicit list): the pre-existing "Entrar" CTA b
 
 ## Checker Sign-Off
 
-- [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS
-- [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
-- [ ] Dimension 6 Registry Safety: PASS
+- [x] Dimension 1 Copywriting: PASS
+- [x] Dimension 2 Visuals: PASS
+- [x] Dimension 3 Color: PASS
+- [x] Dimension 4 Typography: FORCE-APPROVED (see below)
+- [x] Dimension 5 Spacing: FORCE-APPROVED (see below)
+- [x] Dimension 6 Registry Safety: PASS
 
-**Approval:** pending
+**Approval:** FORCE-APPROVED by Alexandre Camerini — 2026-08-18
+
+**Force-approval rationale (Dimensions 4/5):** After 2 revision cycles
+(callout + documented developer sign-off), the checker confirmed the
+underlying design reasoning is sound — weight 800 and the `3px 9px`/`40px`
+values are exact matches to values already used app-wide (cited file:line
+in the Established Codebase Exception callouts above) — but its own
+Dimension 4/5 rule text has no override clause (unlike Dimension 6, which
+does). Rounding to checker-compliant values would make the two new
+elements (PENDENTE pill, market-status badge) the only pill/badge in the
+entire app visually inconsistent with every existing one. Force-approving
+to keep visual consistency over a numeric rule with no brownfield escape
+hatch. Follow-up filed to add an equivalent override clause to Dimensions
+4/5 of `gsd-ui-checker`.
+
+---
+
+## Revision Log
+
+- **2026-08-18 (revision 1):** Checker BLOCKED on Dimension 4 (weight 800 as a third weight beyond the declared 400/700 pair) and Dimension 5 (`3px 9px`/`4px 9px` pill padding and 38-42px touch targets not on the 4px grid). Fix: added explicit, file:line-cited "Established Codebase Exception" callouts to Typography and Spacing sections (values unchanged — 800 weight, exact pill padding, 40px touch target — per checker's own suggested resolution path of developer sign-off with documented rationale, not value rounding, since rounding would create the exact visual inconsistency the exception exists to prevent). Also resolved the cancel-pending-order affordance as icon-only-trigger + text-button confirm-step (previously ambiguous between Copywriting Contract and Spacing sections), and added Dimension 2 visual-hierarchy statements for `WelcomeAuthScreen` and `HistoricoScreen`'s Pendentes section.
