@@ -60,11 +60,64 @@ paralelo no mesmo backend). Ticker `PETR4` (líquido, real), ordem de compra de 
 
 ## Achados
 
-(preenchido nas tasks 2 e 3)
+### F-STORY-01 — Passo 7 (explicação educacional) depende 100% de chamada de IA opcional, sem fallback determinístico
+- **Requisito:** STORY-01
+- **Severidade:** Médio — risco real ao Core Value, ainda não materializado em incidente documentado (D-04)
+- **Evidência:** `server/app/main.py:1362` (`POST /api/analyze/{ticker}`) exige `apiKey`/chave gerenciada; testado ao vivo com a conta `auditoria-story@local.test` sem chave configurada, retornou `HTTP 502 {"code":"missing_key"}` | mesmo comportamento em `POST /api/technical/analyze/{ticker}` (`main.py:1218`)
+- **Verificação:** ao vivo (API real, 502 medido) + código
+- **Impacto:** um usuário grátis sem chave BYOK e sem cota gerenciada disponível nunca recebe NENHUMA explicação de IA após operar — o Passo 7 da Experiência Principal, um dos dois de maior peso pro Core Value segundo o próprio plano desta auditoria, fica totalmente ausente para esse perfil, que é o mais comum na entrada do funil (grátis).
+- **Recomendação:** garantir que o Modo Estudo sempre produza alguma explicação mínima determinística (ex.: montar a explicação a partir do setup/indicador identificado via `conceitos.py`/`kb.py`, sem depender de LLM) quando a IA não estiver disponível, em vez de deixar o passo pedagógico central do produto 100% condicionado a uma chamada opcional.
+
+### F-STORY-02 — Ordem rejeitada não deixa rastro: sem `status`, sem `motivo de rejeição`, sem registro algum
+- **Requisito:** STORY-01
+- **Severidade:** Médio — risco real, não incidente documentado (D-04)
+- **Evidência:** `server/app/main.py:1501-1518` (`/api/buy`) e `:1521-1535` (`/api/sell`) — uma rejeição (`HTTPException(400, "Caixa insuficiente.")`) simplesmente retorna erro HTTP, sem qualquer chamada a `store.py` que persista a tentativa; testado ao vivo: `history[0]` após uma compra bem-sucedida tem `{"date","type":"COMPRA","t","qty","price","pnl":null,"origem":"manual"}` — nenhum campo `status`
+- **Verificação:** ao vivo (compra bem-sucedida exercitada) + código (ausência confirmada por leitura de `store.py`, sem função de log de tentativa rejeitada)
+- **Impacto:** CLAUDE.md exige explicitamente, na seção "Modelo de simulação", que o sistema mantenha "cada ordem simulada com preço, quantidade, horário, tipo, status e motivo de rejeição". Hoje só decisões bem-sucedidas viram registro persistente — o usuário não consegue revisar depois POR QUE uma ordem foi rejeitada, exatamente o caso mais educativo (ex.: estourou o limite de risco, caixa insuficiente).
+- **Recomendação:** registrar toda tentativa de ordem (aceita ou rejeitada) em `history`/estrutura equivalente com campo `status` (`executada`/`rejeitada`) e `motivo`, mesmo sem persistir posição.
+
+### F-STORY-03 — Passo 8 "comparar com o benchmark": não existe comparação com nenhum índice em lugar nenhum do código
+- **Requisito:** STORY-01
+- **Severidade:** Médio — risco real ao Core Value, sem incidente documentado (D-04)
+- **Evidência:** `web/src/finance.js:56-93` (`equityCurve`) calcula `retAcum`/`drawdown` só sobre a curva de patrimônio da própria carteira — nenhum parâmetro de índice externo; `web/src/App.jsx:4786-4789` tem um comentário explícito confirmando a ausência intencional: "Sem comparação com IBOV (R de análise não compara com retorno de índice)"; `grep -rn "Ibovespa\|IBOV\|benchmark" server/ web/src` não retorna nenhum cálculo, só esse comentário
+- **Verificação:** código
+- **Impacto:** o Passo 8 da Experiência Principal do CLAUDE.md ("registrar o aprendizado e comparar com um benchmark") está PARCIALMENTE ausente — o app registra e mostra retorno/drawdown da própria carteira, mas nunca contextualiza esse número contra o mercado (ex.: "você rendeu 3%, o Ibovespa rendeu 5% no período") — sem essa referência, o usuário leigo não consegue avaliar se o resultado foi bom ou ruim de fato, o que é justamente o tipo de raciocínio que o Core Value promete ensinar.
+- **Recomendação:** adicionar uma série de retorno do Ibovespa (já disponível via Yahoo, mesmo provedor usado para os ativos) à `equityCurve`, exibida lado a lado com o retorno da carteira simulada, mesmo que como adição incremental de baixo esforço.
+
+### F-STORY-04 — "Diário" (Perfil → Logs) é log operacional do agente, não uma jornada de aprendizado do usuário
+- **Requisito:** STORY-01
+- **Severidade:** Baixo — polimento/consistência, sem risco de produto (D-05)
+- **Evidência:** `web/src/App.jsx:4850-5039` — a tela "Diário" mostra `agent.events` (ex.: "Ciclo (imediato) em 0.0s · 1 posição(ões) · 0 execução(ões)"), evidenciado ao vivo em `GET /api/state` → `agent.events` após a compra de teste; não há em nenhum ponto do código um prompt de reflexão dirigido ao usuário (ex.: "o que você aprendeu com essa operação?")
+- **Verificação:** ao vivo (API real) + código
+- **Impacto:** o "registrar o aprendizado" do Passo 8 hoje só existe como telemetria técnica do agente automático (útil para depuração), não como um artefato pedagógico voltado ao usuário leigo — reforça, junto com F-STORY-03, que o Passo 8 é o elo mais fraco da jornada.
+- **Recomendação:** considerar (fase futura, fora do escopo desta auditoria) um resumo pós-operação em linguagem simples, distinto do log técnico do agente.
+
+### F-STORY-05 — Transição Estudo→Operador tem critério LEGAL (aceite de termo), mas nenhum critério PEDAGÓGICO de prontidão
+- **Requisito:** STORY-02
+- **Severidade:** Médio — risco real ao Core Value ("só então tem acesso"), sem incidente documentado (D-04)
+- **Evidência:** `web/src/App.jsx:1832` — `if (m === "operador" && !c.operadorTermo) { setTermoOpen(true); return; }`, o único gate antes de liberar o toggle; `server/app/store.py:235-239` confirma a mesma trava no backend (`if patch["appMode"] == "operador" and not isinstance(cfg.get("operadorTermo"), dict): pass  # sem termo aceito, o modo NÃO muda`); testado ao vivo via `PUT /api/config`: enviar `{"appMode":"operador"}` sozinho foi SILENCIOSAMENTE ignorado (retornou `appMode:"estudo"`), só mudou ao enviar `operadorTermo` junto — nenhum campo de progresso pedagógico (`conceitosVistos`, número de análises, tempo de uso) é consultado antes de liberar o modo
+- **Verificação:** ao vivo (API real, testado nos dois sentidos) + código
+- **Impacto:** um usuário pode entrar no app pela primeira vez e, na mesma sessão, sem executar uma única análise ou ordem, rolar um termo de responsabilidade e ativar o Modo Operador — o produto promete "só então" (depois de aprender) mas tecnicamente só verifica consentimento jurídico, não aprendizado algum.
+- **Recomendação:** considerar um critério mínimo de prontidão antes de liberar o toggle (ex.: N operações concluídas no Estudo, ou N conceitos vistos) — mesmo que soft (aviso, não bloqueio duro) — para que a transição tenha alguma relação real com o Core Value declarado, não só o aceite de responsabilidade legal.
+
+### F-STORY-06 — "Dois nomes Operador" (Operador IA × Modo Operador): faceta narrativa da dívida técnica já documentada
+- **Requisito:** STORY-02
+- **Severidade:** Baixo — já mitigado por link cruzado adicionado (F10-20260807-07); resta a hierarquia implícita (D-05)
+- **Possível duplicata:** CODE
+- **Evidência:** `.planning/codebase/CONCERNS.md:59-69` já documenta o achado técnico; `web/src/App.jsx` (`ModoTrabalhoCard`, ~linha 1825, e a navegação da aba "Operador IA") — nada no texto de nenhuma das duas telas explica que o agente autônomo ("Operador IA") só funciona DENTRO do Modo Operador (a trava é só reforçada em `agent.py:566`, nunca comunicada nesse sentido causal ao usuário)
+- **Verificação:** código/docs
+- **Impacto:** pedagogicamente, o usuário pode configurar o "Operador IA" sem entender por que ele não age (está fora do Modo Operador) — a lacuna é a mesma raiz de CONCERNS.md, mas o ângulo aqui é a ausência de explicação causal, não a duplicidade de nome em si.
+- **Recomendação:** uma frase de link causal nas duas telas ("Operador IA só executa dentro do Modo Operador") resolve a lacuna narrativa; a correção estrutural (card de status único) é do plano CODE.
 
 ## Verificado e conforme
 
-(preenchido nas tasks 2 e 3)
+- **STORY-01, Passo 4 (enviar ordem virtual):** compra manual testada ao vivo (`POST /api/buy {"t":"PETR4","qty":100}`) executa com preço real da cotação no momento (`priceUsed 42.47`), débito correto do caixa (`cash 5753.00 = 10000 - 100*42.47`) — cálculo determinístico confirmado, sem intervenção de IA (`server/app/main.py:1501-1518`).
+- **STORY-01, Passo 2 (fonte + horário do dado):** `GET /api/quotes` retorna `source` e o envelope tem `at`; front exibe ambos via `FONTE_LABEL()` e `quotesAt` (`web/src/App.jsx:1057,2927-2936,3234`) — atende ao princípio de transparência de dado do CLAUDE.md.
+- **STORY-01, falha de dado (Passo 7):** a chamada de IA sem chave retornou erro estruturado (`502`, `code:"missing_key"`, `action`/`hint` preenchidos) em vez de qualquer conteúdo fabricado — comportamento correto de "nunca invente valor" mesmo no caminho de falha, verificado ao vivo.
+- **STORY-02, Q3 (a troca acontece onde o usuário procuraria):** `ModoTrabalhoCard` fica no hub de Perfil (`web/src/App.jsx:1820-1868`), com toggle segmentado visível "🎓 Estudo / 📈 Operador" e texto explicando o que cada modo habilita — não está enterrada em sub-menu.
+- **STORY-02, Q1 (o produto diz o que muda):** o texto abaixo do toggle diz explicitamente a diferença ("Decisões diretas... com plano de entrada, stop, alvo e risco" no Operador vs. "Carteira simulada e leitura didática" no Estudo — `App.jsx:1860-1863`); vocabulário de timing também muda por modo, confirmado ao vivo (`GET /api/timing/PETR4?appMode=operador` retornou `modo:"operador"` com frase própria, distinta do vocabulário `educacional`).
+- **STORY-02, Q4 ("Modo Estudo nunca executa" — Fase A do `docs/plano-operador-entrada-e-modos.md`):** implementado com trava dupla — escrita (`store.set_agent`, impede gravar `mode:"executar"` fora do Operador) e leitura (`server/app/agent.py:559-570`, `if app_mode is not None and app_mode != "operador": mode = "sinalizar"`) — confirmado no código; a "Status: aguardando aprovação" no topo do documento está desatualizada (o código já referencia "Fase A" como entregue em `agent.py:559,637,642`), mas isso é achado de higiene de doc (Baixo), registrado aqui e não como F-STORY separado por não ter risco de produto associado.
+- **Guardrail CVM (manchete do card só do motor determinístico):** confirmado por código — `server/app/setups.py:484-521` (`produzir_leitura`, a função que calcula `veredito`) é 100% determinística (sem chamada de IA); `web/src/App.jsx:2958-2999` (comentário "MANCHETE ÚNICA — decisão da mesa (o veredito do plano)") renderiza esse mesmo campo determinístico como headline do card, nunca o campo `recomendacao` que a IA devolve em `/api/analyze` (que é um campo textual separado, dentro da análise livre, nunca promovido a manchete). **Este é o item mais crítico da régua e está CONFORME.**
 
 ## Cobertura de requisitos
 
