@@ -103,10 +103,9 @@ paralelo no mesmo backend). Ticker `PETR4` (líquido, real), ordem de compra de 
 ### F-STORY-06 — "Dois nomes Operador" (Operador IA × Modo Operador): faceta narrativa da dívida técnica já documentada
 - **Requisito:** STORY-02
 - **Severidade:** Baixo — já mitigado por link cruzado adicionado (F10-20260807-07); resta a hierarquia implícita (D-05)
-- **Possível duplicata:** CODE
 - **Evidência:** `.planning/codebase/CONCERNS.md:59-69` já documenta o achado técnico; `web/src/App.jsx` (`ModoTrabalhoCard`, ~linha 1825, e a navegação da aba "Operador IA") — nada no texto de nenhuma das duas telas explica que o agente autônomo ("Operador IA") só funciona DENTRO do Modo Operador (a trava é só reforçada em `agent.py:566`, nunca comunicada nesse sentido causal ao usuário)
 - **Verificação:** código/docs
-- **Impacto:** pedagogicamente, o usuário pode configurar o "Operador IA" sem entender por que ele não age (está fora do Modo Operador) — a lacuna é a mesma raiz de CONCERNS.md, mas o ângulo aqui é a ausência de explicação causal, não a duplicidade de nome em si.
+- **Impacto:** pedagogicamente, o usuário pode configurar o "Operador IA" sem entender por que ele não age (está fora do Modo Operador) — a lacuna é a mesma raiz de CONCERNS.md, mas o ângulo aqui é a ausência de explicação causal, não a duplicidade de nome em si. **Possível duplicata:** CODE (o mesmo ponto tem faceta de dívida técnica, tratada no plano 01-03).
 - **Recomendação:** uma frase de link causal nas duas telas ("Operador IA só executa dentro do Modo Operador") resolve a lacuna narrativa; a correção estrutural (card de status único) é do plano CODE.
 
 ### Tabela de cobertura didática (STORY-03)
