@@ -122,20 +122,54 @@
 
 ## Traceability
 
-Preenchido pelo roadmapper.
-
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| MERC-01..04 | TBD | Pending |
-| FIX-C11, FIX-C30 | TBD | Pending |
-| FIX-C12, FIX-C19, FIX-C20, FIX-C31, FIX-C32, FIX-C35, FIX-C36, FIX-C37 | TBD | Pending |
-| FIX-C01..C05, FIX-C13..C16, FIX-C21..C27, FIX-C33, FIX-C34, FIX-C38, FIX-C39 | TBD | Pending |
+| MERC-01 | Phase 2 | Pending |
+| MERC-02 | Phase 2 | Pending |
+| MERC-03 | Phase 2 | Pending |
+| MERC-04 | Phase 2 | Pending |
+| FIX-C11 | Phase 3 | Pending |
+| FIX-C30 | Phase 3 | Pending |
+| FIX-C12 | Phase 3 | Pending |
+| FIX-C19 | Phase 3 | Pending |
+| FIX-C20 | Phase 3 | Pending |
+| FIX-C31 | Phase 3 | Pending |
+| FIX-C32 | Phase 3 | Pending |
+| FIX-C35 | Phase 3 | Pending |
+| FIX-C36 | Phase 3 | Pending |
+| FIX-C37 | Phase 3 | Pending |
+| FIX-C01 | Phase 4 | Pending |
+| FIX-C02 | Phase 4 | Pending |
+| FIX-C03 | Phase 4 | Pending |
+| FIX-C04 | Phase 4 | Pending |
+| FIX-C05 | Phase 4 | Pending |
+| FIX-C13 | Phase 4 | Pending |
+| FIX-C14 | Phase 4 | Pending |
+| FIX-C15 | Phase 4 | Pending |
+| FIX-C16 | Phase 4 | Pending |
+| FIX-C21 | Phase 5 | Pending |
+| FIX-C22 | Phase 5 | Pending |
+| FIX-C23 | Phase 5 | Pending |
+| FIX-C24 | Phase 5 | Pending |
+| FIX-C25 | Phase 5 | Pending |
+| FIX-C26 | Phase 5 | Pending |
+| FIX-C27 | Phase 5 | Pending |
+| FIX-C33 | Phase 5 | Pending |
+| FIX-C34 | Phase 5 | Pending |
+| FIX-C38 | Phase 5 | Pending |
+| FIX-C39 | Phase 5 | Pending |
 
 **Coverage:**
 - v1.1 requirements: 34 total (4 MERC + 30 FIX)
-- Mapped to phases: 0 (pendente roadmap)
-- Unmapped: 34 ⚠️
+- Mapped to phases: 34/34 ✓
+- Unmapped: 0
+
+**Phase summary:**
+- Phase 2 (Realismo de Mercado): MERC-01..04 (4 requirements)
+- Phase 3 (Correção Crítico + Alto): FIX-C11, FIX-C30, FIX-C12, FIX-C19, FIX-C20, FIX-C31, FIX-C32, FIX-C35, FIX-C36, FIX-C37 (10 requirements)
+- Phase 4 (Correção Médio — Storyline & UX): FIX-C01..C05, FIX-C13..C16 (9 requirements)
+- Phase 5 (Correção Médio — Código, Gate & Admin): FIX-C21..C27, FIX-C33, FIX-C34, FIX-C38, FIX-C39 (11 requirements)
 
 ---
 *Requirements defined: 2026-08-18*
-*Last updated: 2026-08-18 after initialization*
+*Last updated: 2026-08-18 after roadmap creation (v1.1, Phases 2-5)*
