@@ -4,6 +4,145 @@
 **Escopo:** 5 dimensões (storyline pedagógico, UX/UI, código, gating de monetização,
 portal admin) — diagnóstico, sem nenhuma correção implementada.
 
+## Sumário executivo
+
+| Severidade | Qtd | Dimensões afetadas |
+|---|---|---|
+| Crítico | 2 | UX, GATE |
+| Alto | 8 | UX, CODE, GATE, ADMIN |
+| Médio | 20 | STORY, UX, CODE, GATE, ADMIN |
+| Baixo | 9 | STORY, UX, CODE |
+
+### Críticos
+
+- **C-11** — Rótulo de fonte de dado fixo e incorreto no painel técnico
+  (`TechnicalModal` sempre exibe "Fonte: Yahoo Finance", mesmo quando o dado
+  veio da brapi, que é a fonte MASTER de candles diários desde a ADR-008).
+  Viola o princípio 3 do CLAUDE.md — a informação de proveniência é ativamente
+  falsa, não apenas ausente. → Propagar `source`/`provedor` até o payload de
+  `/api/technicals` e trocar a string fixa por `FONTE_LABEL(data.source)`.
+- **C-30** — Estado `degradado` da cota brapi (TTL do cache de spot triplicado
+  quando o orçamento mensal passa de 80%) é invisível para usuário E admin,
+  sem nenhum timestamp/badge que reflita o dado mais velho. Viola o mesmo
+  princípio 3, de forma sistemática (todo mês, ao se aproximar do teto). →
+  Expor o estado `degradado` no payload de `/api/obs/usage` e refletir no
+  timestamp de "última atualização" mostrado ao usuário.
+
+### Altos
+
+- **C-12** — Erro de fonte de dado (ticker inválido em `/api/buy`) vaza
+  detalhe técnico interno (URL da Yahoo, parâmetro `crumb`) como HTTP 500 cru,
+  em vez do 502 limpo já implementado logo abaixo no código, que nunca é
+  alcançado. → Envolver `candle_provider.get_quote` num tratamento que
+  devolva preço nulo, replicando o padrão já usado em `get_quotes`.
+- **C-19** — Os guardiões de teste dos 3 bugs históricos travam o sintoma
+  exato já corrigido, não a classe do erro ("estado que muda num lugar que
+  outro não vê") — uma variante nova do mesmo padrão passaria pelos 3 sem
+  disparar nenhum. → Teste genérico de paridade (ver C-20) + "card de status
+  único" fecham a lacuna estrutural.
+- **C-20** — Paridade `deviceStore`×`serverStore`: 28 de 58 métodos (48%) sem
+  nenhuma referência em teste, sem guardião genérico que detectaria uma
+  assimetria futura — lacuna que já foi causa raiz de 2 incidentes
+  documentados. → Teste único que extraia as chaves dos dois stores e falhe
+  em qualquer assimetria.
+- **C-31** — Os hooks de gate (`can_add_ticker`, `can_analyze`) nunca resolvem
+  o plano por usuário — `current_plan(user)` existe e está correto mas nunca é
+  chamado; ligar o cap comercial hoje bloquearia igualmente contas `'pro'`. →
+  Passar `plan=plan.current_plan(user)` nos 3 call sites de `main.py`.
+- **C-32** — `can_analyze` (hook de plano) e `metering.check` (cota de IA
+  gerenciada) são dois gates concorrentes respondendo à mesma pergunta na
+  mesma requisição — ativar o passo 2 do ADR-010 sem reconciliar os dois cria
+  contagem duplicada. → Decidir se `can_analyze` vira wrapper de
+  `metering.check` antes de alimentá-lo com contador real.
+- **C-35** — O segundo kill-switch (`timing_watch`, controla o push do
+  gatilho) é invisível nas 10 abas do portal e só pode ser desligado por
+  redeploy — mesmo padrão de risco que já causou o incidente real de 2,5 dias,
+  agora numa superfície irmã. → Estender o padrão memória→DB→env do
+  `agent.kill_switch_on()` para `timing_watch` + 2º KPI na Visão Geral.
+- **C-36** — O painel de custos mostra `erros` mas nunca `vazios`/`alerta`/
+  `taxaFalha` — o backend já resolveu a cegueira do incidente real de
+  31/07/2026 (Yahoo 200 com zero velas), mas a UI reproduz a mesma cegueira na
+  apresentação. → Ligar os 3 campos já prontos no payload ao card "Orçamento
+  brapi" da aba Custos.
+- **C-37** — Não existe alerta de "kill-switch ligado há N horas em horário
+  de pregão" — é o mecanismo que, se existisse, teria encurtado o incidente
+  real de 2,5 dias para horas; o dado (timestamp da mudança) já existe no
+  `admin_audit_log`. → Card "ligado há Xh" na aba Automação, leitura do dado
+  já existente.
+
+### Leitura de conjunto
+
+- **O mesmo padrão — "o backend já calcula/corrige o dado certo, mas a
+  camada de apresentação nunca lê o campo pronto" — se repete em 3 dimensões
+  diferentes**: C-11/C-30 (UX/GATE, campo de proveniência/degradado nunca
+  chega ao payload consumido pela tela) e C-36 (ADMIN, o campo já está no
+  payload e a UI simplesmente não lê). Não é falta de dado, é falta de fiação
+  entre backend e UI — o padrão de correção é estruturalmente o mesmo nos 3
+  casos.
+- **GATE concentra o maior risco de "arquitetura pronta, mas inerte"**: os 3
+  achados Alto/Crítico de GATE (C-30, C-31, C-32) descrevem hooks e campos que
+  já existem e estão corretos, mas nunca são chamados/lidos pelos call sites
+  reais — ativar o gating comercial hoje exige tocar código, não só
+  configuração.
+- **ADMIN concentra o maior número de Altos (3 de 8)**: todos ligados à mesma
+  causa-raiz do incidente real do kill-switch — sinalização passiva sem
+  alerta ativo, repetida em 3 superfícies distintas (2º kill-switch, painel
+  de falha de provedor, ausência de alerta por duração).
+- **Divergência de calibração registrada explicitamente — C-21 (Médio)
+  discorda do exemplo textual do `01-CONTEXT.md`**, que cita os 3 bugs
+  históricos do padrão `appMode` como exemplo ilustrativo de Alto (D-03). A
+  investigação de código (F-CODE-01) mostrou que nenhum dos 3 bugs foi
+  causado por divergência real de leitura de `appMode` no mesmo render — a
+  atribuição do exemplo não se sustenta na evidência. Este relatório manteve
+  Médio com base na evidência, mas registra a divergência aqui porque depende
+  do julgamento do dono do produto, não só da régua objetiva — ver nota de
+  calibração completa na Metodologia e o achado `C-21` na seção Código.
+- **O que este relatório NÃO conseguiu verificar** (limitações herdadas da
+  wave 1): renderização visual real em nenhuma das 5 dimensões (sem
+  ferramenta de browser disponível nesta execução); saída real de resposta de
+  IA (Surface 3 de STORY-04, sem chave configurada no backend local);
+  comportamento do app nativo iOS; verificação visual ao vivo das 10 telas do
+  portal admin e do handoff mobile completo; payload real de `GET
+  /api/ai/quota`; 2 dos guardiões de teste mais relevantes desta auditoria
+  (`test_carteira_nativa_sincroniza.mjs`, `test_appmode_sincroniza_servidor.mjs`)
+  não puderam ser confirmados como passando neste worktree (falha de
+  ambiente, não de asserção — ver C-24).
+- **A separação cota-física-brapi × cap-comercial-de-IA está bem resolvida
+  na arquitetura** (ADR-010) — o risco real de GATE não é design, é ativação
+  incompleta dos call sites (C-31, C-32, C-33).
+
+### Sugestão de sequenciamento
+
+Agrupamento dos achados Críticos/Altos por dependência TÉCNICA (o que precisa
+vir antes do quê) — sem estimativa de tempo, sem prioridade de negócio (fica
+com o Alex):
+
+1. **Transparência de proveniência/frescor do dado de mercado** (C-11, C-30)
+   — ambos exigem que o payload de API carregue um campo novo
+   (`source`/`provedor` em `/api/technicals`; estado `degradado` por fatia em
+   `/api/obs/usage`) antes que qualquer UI possa consumi-lo corretamente.
+   Pré-requisito técnico do bloco 2.
+2. **Robustez do caminho de erro/observabilidade de falha do provedor de
+   dados** (C-12, C-36) — C-12 exige tratar a exceção crua de
+   `candle_provider.get_quote`; C-36 exige ligar campos que o backend já
+   calcula (`vazios`/`alerta`/`taxaFalha`) ao painel administrativo. Ambos
+   dependem do mesmo tipo de trabalho (expor dado de falha já calculado pela
+   camada certa).
+3. **Guardiões estruturais de paridade e regressão** (C-20, C-19) — C-20 (teste
+   genérico de paridade `deviceStore`×`serverStore`) é pré-requisito técnico
+   de C-19 (fechar a lacuna dos 3 guardiões que só cobrem sintoma): o teste
+   genérico de paridade é o mecanismo que fecharia a lacuna estrutural do
+   bug histórico #2.
+4. **Ativação dos hooks de gating comercial** (C-31 → C-32) — C-31 (call
+   sites passarem a resolver `current_plan(user)`) é pré-requisito técnico de
+   C-32 (reconciliar `can_analyze` com `metering.check`): sem plano resolvido
+   por usuário, não há base para decidir a arquitetura de contagem.
+5. **Visibilidade ativa de incidentes operacionais (kill-switches)** (C-35 →
+   C-37) — C-35 (expor o estado do 2º kill-switch no padrão memória→DB→env)
+   é pré-requisito técnico de C-37 (calcular "ligado há Xh" a partir do
+   `admin_audit_log`): só depois que os dois kill-switches estiverem
+   igualmente visíveis faz sentido calcular duração para os dois.
+
 ## Metodologia
 
 ### Régua de severidade (D-02..D-05, `01-CONTEXT.md`)
@@ -643,3 +782,68 @@ mascarando "vivo, mas parado" como "vivo, normal"):
 - Auditoria de escrita sem exceção: toda rota de escrita admin verificada passa por `require_permission`/gate nomeado.
 - Handoff mobile (ADR-014): 2 toques, TTL 90s de uso único (revogação em falha é ponto de atenção menor, risco residual baixo — só quem já É admin gera o código); 10 abas fluidas por design (`maxWidth:760px`, sem `<table>`, sem media query); pendências já mapeadas pelo próprio ADR-014, não bloqueantes.
 - ADMIN-03: conforme, sem achado `C-NN` dedicado.
+
+## Rastreabilidade de requisitos
+
+| Requisito | Dimensão | Achados (C-NN) | Status |
+|---|---|---|---|
+| STORY-01 | STORY | C-01, C-02, C-03, C-06 | com achados |
+| STORY-02 | STORY | C-04, C-07 | com achados |
+| STORY-03 | STORY | C-05, C-08, C-09 | com achados |
+| STORY-04 | STORY | C-10 | com achados |
+| UX-01 | UX | C-11, C-12, C-13, C-14 | com achados |
+| UX-02 | UX | C-17 | com achados |
+| UX-03 | UX | C-15, C-16, C-18 | com achados |
+| UX-04 | UX | C-10 (fundido com STORY-04) | com achados |
+| CODE-01 | CODE | C-19, C-21, C-28 | com achados |
+| CODE-02 | CODE | C-20, C-22 | com achados |
+| CODE-03 | CODE | C-23 (defeito original já corrigido — ver F-CODE-06 em "Verificado e conforme") | com achados |
+| CODE-04 | CODE | C-24, C-25, C-26, C-27, C-29 | com achados |
+| GATE-01 | GATE | C-31, C-32, C-33 | com achados |
+| GATE-02 | GATE | C-30, C-34 | com achados |
+| GATE-03 | GATE | nenhum — mapa técnico em "Features candidatas a tier pago" não revelou problema estrutural adicional além de GATE-01 | conforme |
+| ADMIN-01 | ADMIN | C-39 | com achados |
+| ADMIN-02 | ADMIN | C-35, C-36, C-37, C-38 | com achados |
+| ADMIN-03 | ADMIN | nenhum — handoff 2 toques, TTL 90s uso único, 10 abas fluidas por design, pendências do ADR-014 já mapeadas e não bloqueantes | conforme |
+| REPORT-01 | Consolidação | este documento (`REPORT-01.md`) | conforme — documento único, sumário executivo primeiro (D-07), 39 achados consolidados, 19 requisitos rastreados |
+
+## Passe de consistência final (Task 2c)
+
+- **Nenhum achado propõe correção implementada nem número comercial.** Todas
+  as 39 recomendações são sugestões de ação em prosa (ex.: "propagar
+  `source`...", "trocar `\|\| \"estudo\"\`..."); GATE-03 explicitamente evita
+  decidir preço/limite (fora de escopo, ver PROJECT.md Out of Scope).
+- **Nenhum achado sugere mudar o bundle id `com.alexandrecamerini.bolsia`.**
+  Achados de branding (C-07, "dois nomes Operador") tratam só de nomenclatura
+  de tela dentro do app, não do identificador de build.
+- **Nenhuma recomendação viola um guardrail do CLAUDE.md.** O guardrail CVM
+  (manchete só do motor determinístico) foi verificado CONFORME (seção
+  "Verificado e conforme" — Storyline); nenhuma recomendação propõe apagar
+  guardião de teste (C-19/C-20 propõem ADICIONAR guardiões, nunca remover os
+  existentes); nenhuma recomendação reescreve `qa/`/`ESTADO-*`/`CHECKOUT-*`;
+  as recomendações de paridade (C-20, C-22) reforçam, não enfraquecem, os
+  pares de arquivo obrigatórios.
+- **Nenhum segredo foi copiado para dentro do relatório.** Buscado por
+  padrões de chave de API (`sk-...`, `AIza...`) e por valores reais de
+  `BRAPI_TOKEN`/token de sessão — o relatório só cita NOMES de variável de
+  ambiente (ex. `B3_TIMING_PUSH_KILL`, `BRAPI_TOKEN`), nunca valores; contas
+  usadas na verificação são de teste isolado (`auditoria-story@local.test`,
+  `auditoria-ux@local.test`, `auditoria-admin@local.test`), não e-mail real de
+  usuário.
+- **Toda severidade citada no Sumário executivo bate com o detalhe da
+  dimensão** — os 2 Críticos (C-11, C-30) e os 8 Altos (C-12, C-19, C-20,
+  C-31, C-32, C-35, C-36, C-37) citados no sumário são exatamente os mesmos
+  rótulos `[Crítico]`/`[Alto]` usados nas seções de dimensão (confirmado por
+  contagem automatizada: 2 Crítico, 8 Alto, 20 Médio, 9 Baixo = 39).
+- **Os 6 Success Criteria da Phase 1 (`ROADMAP.md`) estão todos atendidos:**
+  (1) jornada STORY vs. 8 passos, transição de modo, cobertura educacional,
+  violações de promessa — C-01..C-10; (2) UX vs. 10 princípios, matriz de
+  estados, consistência Estudo/Operador, responsividade/acessibilidade, copy
+  — C-11..C-18; (3) dívida técnica com mapa de `appMode`, lacunas de
+  paridade, gate "Executar", cobertura da suíte — C-19..C-29; (4) gating
+  free→pago, transparência cota física × cap comercial, features candidatas
+  — C-30..C-34; (5) portal admin vs. RBAC, visibilidade do incidente do
+  kill-switch, usabilidade do handoff mobile — C-35..C-39; (6) todos os
+  achados consolidados num único documento, classificados por severidade e
+  dimensão, sem correção implementada — este documento. Nenhuma lacuna
+  declarada.
