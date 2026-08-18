@@ -94,7 +94,11 @@ Neither surface uses a strict 4/8pt grid — both use concrete px values matched
 | Inline disclaimer line spacing | `marginTop: "14px"` | TechnicalModal fonte line (C-11/C-30) — unchanged, text substitution only, no new spacing |
 | Icon-only button touch target | `44px` (existing `TechnicalModal` close button convention, `App.jsx:1462`) | Not introduced by this phase — no new icon-only buttons added |
 
-Exceptions: none — every new element reuses an established padding value cited above.
+> **Established Codebase Exception — `7px 0` row padding, `17px 18px` card padding, `14px` inline spacing (not 4px multiples):**
+> **developer-approved — Alexandre Camerini — 2026-08-18** (via AskUserQuestion, phase 3 UI-SPEC verification: "Aprovado, manter consistência com o app")
+> Exact match to the existing components being extended: `Kv`/`EventoComSerie` (`web-admin/src/App.jsx:26,226`), `FonteDadosScreen`'s card (`App.jsx:5312`). Not a new deviation — rounding to a 4px multiple would make these new rows visually inconsistent with every existing row/card of the same type on the same screens. Same precedent and rationale as `02-UI-SPEC.md`'s force-approved Dimensions 4/5 exceptions.
+
+Exceptions: none beyond the developer-approved established-codebase matches documented above — every new element reuses an established padding value cited above.
 
 ---
 
@@ -116,7 +120,11 @@ Exceptions: none — every new element reuses an established padding value cited
 | Kv value | 13px | 700, `MONO` | 1.4 | All new `Kv` values |
 | Explanatory caption | 11px | 400 | 1.5 | "Override em runtime sobre..." lines (C-35), best-effort disclaimer (C-37) |
 
-Declared pair for genuinely new text in this phase: **regular 400** (body/labels/captions) + **bold 700** (mono values) — matches both surfaces' existing established pair; no third weight introduced (unlike Phase 2, which needed an 800-weight exception for NEW pills — this phase adds only rows/cards that reuse the existing 800-weight kicker convention for titles that already exist at that weight, not a new instance of the exception).
+Declared pair for genuinely new text in this phase: **regular 400** (body/labels/captions) + **bold 700** (mono values).
+
+> **Established Codebase Exception — weight 800 for Card title (kicker), a third weight beyond the declared 400/700 pair:**
+> **developer-approved — Alexandre Camerini — 2026-08-18** (via AskUserQuestion, phase 3 UI-SPEC verification: "Aprovado, manter consistência com o app")
+> Exact match to the existing kicker/card-title weight convention used throughout `web-admin/src/App.jsx` (same role/size class — uppercase, 11px, letter-spacing — as every other Card title on the admin portal). Not a new deviation: the new "Kill-switch do push de gatilho (timing_watch)" Card title reuses the exact weight of every other Card title on the page it sits on. Dropping to 700 would make this the only Card title in the admin portal reading lighter than its siblings. Same precedent as `02-UI-SPEC.md`'s force-approved Dimension 4 exception.
 
 ---
 
@@ -207,6 +215,7 @@ The planner must sequence backend plumbing before the corresponding front-end re
 - New component (name at planner's discretion, e.g. `TimingWatchKillSwitchBox`) placed directly after the existing `<KillSwitchBox user={user} />` inside `Automacao` (`web-admin/src/App.jsx:491`), so the two kill-switches read as a matched pair on the same tab, in the same visual order they appear in REPORT-01's own incident-replay table (agent kill-switch first, timing_watch second).
 - Structurally an exact clone of `KillSwitchBox` (`web-admin/src/App.jsx:432-482`): same `Card`, same `Kv`, same caption, same button, same confirm-dialog pattern, same permission gate (`execucao_automatica.controlar` — no new permission string). Only the subsystem name, env var name, and on/off copy change (see Copywriting Contract).
 - New KPI in `VisaoGeral`'s existing KPI row (`web-admin/src/App.jsx:96`), sibling to `"KILL-SWITCH"`.
+- **Visual hierarchy (Dimension 2):** On the `Automacao` tab, the existing agent `KillSwitchBox` reads first (top position, unchanged) — the new `timing_watch` box is visually a secondary, matched sibling directly below it, same weight/size, no accent color on either, so neither competes for primary attention; the admin's eye lands on whichever is currently in the "on" (alert) state via `T.negative`, not on position. In `VisaoGeral`'s KPI row, the new KPI sits adjacent to the existing "KILL-SWITCH" KPI, same size/weight — two equal-weight KPIs, not a primary/secondary pair, since both represent the same class of operational risk.
 
 ### C-36 — Custos budget-failure visibility (Surface B only)
 - Extends the existing "Orçamento brapi (ADR-008)" `Card` (`web-admin/src/App.jsx:166-184`) — does NOT create a new Card. Three new rows inserted after the existing "Erros (janela 3 dias)" `EventoComSerie` (`:180`): vazios, taxa de falha, alerta do provedor (see Copywriting Contract for exact labels/values/tones).
@@ -230,11 +239,19 @@ The planner must sequence backend plumbing before the corresponding front-end re
 
 ## Checker Sign-Off
 
-- [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS
-- [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
-- [ ] Dimension 6 Registry Safety: PASS
+- [x] Dimension 1 Copywriting: PASS
+- [x] Dimension 2 Visuals: PASS (visual hierarchy statements added for C-35/C-37)
+- [x] Dimension 3 Color: PASS
+- [x] Dimension 4 Typography: FORCE-APPROVED (see below)
+- [x] Dimension 5 Spacing: FORCE-APPROVED (see below)
+- [x] Dimension 6 Registry Safety: PASS
 
-**Approval:** pending
+**Approval:** FORCE-APPROVED by Alexandre Camerini — 2026-08-18
+
+**Force-approval rationale (Dimensions 4/5):** Same precedent as
+`02-UI-SPEC.md` — weight 800 and the `7px 0`/`17px 18px`/`14px` values are
+exact matches to the existing components being extended (`Kv`/
+`EventoComSerie`, `FonteDadosScreen` card, admin Card-title kicker
+convention), cited file:line in the Established Codebase Exception
+callouts above, with recorded developer sign-off. Rounding would make the
+new elements visually inconsistent with the exact components they extend.
