@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from typing import Optional
 import json
 import os
+import secrets
 import sqlite3
 import threading
 from pathlib import Path
@@ -93,14 +94,46 @@ def init_db(conn: sqlite3.Connection) -> None:
     conn.execute(
         "CREATE TABLE IF NOT EXISTS users ("
         " id TEXT PRIMARY KEY,"
-        " email TEXT UNIQUE,"
+        " email TEXT UNIQUE,"                 # e-mail de EXIBIÇÃO da conta — pode não bater
+        " provider TEXT NOT NULL,"            # com o de toda identidade (ex.: Apple relay).
+        " provider_sub TEXT,"                 # LEGADO (2026-08-16): a 1ª identidade da conta,
+        " pass_hash TEXT,"                    # mantido só pra quem lê estas colunas direto sem
+        " name TEXT,"                         # passar por identities — nunca mais escrito depois
+        " created_at TEXT NOT NULL,"          # da migração (db.migrate_identities_from_users).
+        " plan TEXT NOT NULL DEFAULT 'free',"
+        " UNIQUE(provider, provider_sub)"
+        ")"
+    )
+    # 2026-08-17 — uma conta, VÁRIOS métodos de login. Antes `users` era
+    # 1 linha = 1 provedor: Google e Apple com o MESMO e-mail viravam contas
+    # diferentes (achado real: `upsert_oauth_user` sabia que colidia e criava
+    # uma TERCEIRA conta órfã, sem e-mail, só pra não violar o UNIQUE — ver
+    # comentário antigo removido de auth.py). `identities` desacopla "quem é a
+    # pessoa" (users) de "como ela provou quem é" (identities, N por pessoa).
+    #
+    # UNIQUE(provider, provider_sub) protege contra a MESMA identidade OAuth
+    # se prender a duas contas; para provider='email', provider_sub fica NULL
+    # (SQL trata cada NULL como distinto, então isso não barra nada aqui) — a
+    # unicidade de login por senha é o índice parcial abaixo, sobre email.
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS identities ("
+        " id TEXT PRIMARY KEY,"
+        " user_id TEXT NOT NULL REFERENCES users(id),"
         " provider TEXT NOT NULL,"            # 'email' | 'apple' | 'google'
-        " provider_sub TEXT,"                 # subject do provedor OIDC (apple/google)
-        " pass_hash TEXT,"                    # só para provider='email' (PBKDF2)
-        " name TEXT,"
+        " provider_sub TEXT,"                 # sub OIDC; NULL para 'email'
+        " email TEXT,"                        # e-mail QUE ESTA identidade apresentou
+        " pass_hash TEXT,"                    # só para provider='email'
         " created_at TEXT NOT NULL,"
         " UNIQUE(provider, provider_sub)"
         ")"
+    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_identities_user ON identities(user_id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_identities_email ON identities(email)")
+    # só um login por SENHA por e-mail — login social pode repetir e-mail
+    # entre identidades da MESMA conta (Google e Apple com o mesmo endereço).
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_identities_email_senha "
+        "ON identities(email) WHERE provider = 'email'"
     )
     conn.execute(
         "CREATE TABLE IF NOT EXISTS sessions ("
@@ -208,7 +241,38 @@ def init_db(conn: sqlite3.Connection) -> None:
         ")"
     )
     conn.execute("CREATE INDEX IF NOT EXISTS idx_prompt_history_chave ON prompt_default_history(chave, sha256)")
+
+    _migrate_identities_from_users(conn)
     conn.commit()
+
+
+def _migrate_identities_from_users(conn: sqlite3.Connection) -> None:
+    """Backfill idempotente (2026-08-17): toda `users` SEM nenhuma linha em
+    `identities` ganha uma, a partir das colunas legadas (provider/
+    provider_sub/pass_hash/email). Roda em TODO boot — barato (o `WHERE NOT
+    EXISTS` normalmente não acha nada depois da 1ª vez) e sem passo manual:
+    cobre a base de produção sozinha, sem script à parte pra rodar via ssh.
+
+    POR LINHA, nunca em lote: nenhuma outra rotina deste arquivo derruba o
+    boot por uma falha auxiliar (mesmo padrão de `candle_cache`/ADR-013 acima
+    — try/except e segue). Uma linha ruim (usuário legado com dado
+    inconsistente, por exemplo) não pode impedir o processo de subir."""
+    try:
+        rows = conn.execute(
+            "SELECT u.id, u.provider, u.provider_sub, u.pass_hash, u.email, u.created_at FROM users u "
+            "WHERE NOT EXISTS (SELECT 1 FROM identities i WHERE i.user_id = u.id)"
+        ).fetchall()
+    except sqlite3.OperationalError:
+        return  # tabela identities ainda não existe neste conn (não deveria, mas nunca derruba)
+    for uid, provider, sub, pass_hash, email, created_at in rows:
+        try:
+            conn.execute(
+                "INSERT INTO identities(id, user_id, provider, provider_sub, email, pass_hash, created_at) "
+                "VALUES(?,?,?,?,?,?,?)",
+                (secrets.token_hex(16), uid, provider, sub, email, pass_hash, created_at),
+            )
+        except sqlite3.Error as e:  # noqa: BLE001 — 1 conta ruim não trava o boot de ninguém
+            print(f"[db] migração de identities: {uid[:8]}… falhou: {e}")
 
 
 def _scoped(key: str, user_id: Optional[str]) -> str:
@@ -271,13 +335,75 @@ def get_user_by_email(conn: sqlite3.Connection, email: str):
     return u
 
 
-def get_user_by_provider(conn: sqlite3.Connection, provider: str, sub: str):
+# ------------------------------- identities ---------------------------------
+# 2026-08-17: uma conta (users) pode ter VÁRIAS identidades (métodos de
+# login) — Google, Apple, senha, cada uma com seu e-mail próprio. Ver
+# comentário completo em init_db(), acima da CREATE TABLE.
+_IDENTITY_COLS = "id, user_id, provider, provider_sub, email, pass_hash, created_at"
+
+
+def _identity_row(row):
+    if row is None:
+        return None
+    return {
+        "id": row[0], "user_id": row[1], "provider": row[2], "provider_sub": row[3],
+        "email": row[4], "pass_hash": row[5], "created_at": row[6],
+    }
+
+
+def get_identity_by_provider(conn: sqlite3.Connection, provider: str, sub):
     row = conn.execute(
-        f"SELECT {_USER_COLS} FROM users "
-        "WHERE provider = ? AND provider_sub = ?",
+        f"SELECT {_IDENTITY_COLS} FROM identities WHERE provider = ? AND provider_sub {'IS' if sub is None else '='} ?",
         (provider, sub),
     ).fetchone()
-    return _user_row(row)
+    return _identity_row(row)
+
+
+def get_identity_by_email_senha(conn: sqlite3.Connection, email: str):
+    """A identidade de SENHA (provider='email') pro login por e-mail — não
+    confundir com `get_user_by_email` (a conta, que pode ter e-mail de OUTRA
+    identidade como e-mail de exibição)."""
+    row = conn.execute(
+        f"SELECT {_IDENTITY_COLS} FROM identities WHERE provider = 'email' AND email = ?",
+        ((email or "").strip().lower(),),
+    ).fetchone()
+    return _identity_row(row)
+
+
+def find_user_id_by_verified_email(conn: sqlite3.Connection, email: str, exclude_user_id: str = None):
+    """Existe ALGUMA identidade (qualquer provedor, de OUTRA conta) com este
+    e-mail? Só chamar com e-mail que o PRÓPRIO chamador já confirmou
+    verificado (OAuth `email_verified`) — nunca com e-mail auto-declarado
+    (cadastro por senha), senão vira sequestro de conta: bastaria digitar o
+    e-mail de outra pessoa. `exclude_user_id` serve os dois chamadores: (a)
+    identidade NOVA — nada a excluir, a busca é livre; (b) identidade
+    EXISTENTE trocando de e-mail — exclui a própria conta, pra achar só
+    colisão com conta ALHEIA (mesmo teste de antes: em colisão, mantém)."""
+    e = (email or "").strip().lower()
+    if not e:
+        return None
+    row = conn.execute(
+        "SELECT user_id FROM identities WHERE email = ? AND user_id != ? LIMIT 1",
+        (e, exclude_user_id or ""),
+    ).fetchone()
+    return row[0] if row else None
+
+
+def insert_identity(conn: sqlite3.Connection, identity: dict) -> str:
+    iid = secrets.token_hex(16)
+    conn.execute(
+        "INSERT INTO identities(id, user_id, provider, provider_sub, email, pass_hash, created_at) "
+        "VALUES(?,?,?,?,?,?,?)",
+        (iid, identity["user_id"], identity["provider"], identity.get("provider_sub"),
+         identity.get("email"), identity.get("pass_hash"), _now_iso()),
+    )
+    conn.commit()
+    return iid
+
+
+def update_identity_email(conn: sqlite3.Connection, identity_id: str, email: str) -> None:
+    conn.execute("UPDATE identities SET email = ? WHERE id = ?", (email, identity_id))
+    conn.commit()
 
 
 def set_user_plan(conn: sqlite3.Connection, user_id: str, plan: str) -> None:

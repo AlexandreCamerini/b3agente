@@ -247,7 +247,8 @@ async def auth_oauth(request: Request, body: dict = Body(default={})):
         # fora do id_token — a ponte nativa o repassa como hint; usado apenas
         # na criação (upsert ignora em contas existentes).
         name = claims.get("name") or (str(body.get("name") or "").strip() or None)
-        user = auth.upsert_oauth_user(_conn, provider, claims["sub"], claims.get("email"), name)
+        user = auth.upsert_oauth_user(_conn, provider, claims["sub"], claims.get("email"), name,
+                                       email_verified=bool(claims.get("email_verified")))
     except auth.AuthError as e:
         auth.throttle_fail(rl_key)
         raise HTTPException(401, str(e))
@@ -772,7 +773,7 @@ async def admin_mobile_handoff_exchange(body: dict = Body(default={})):
 
 # FASE 8B (diagnóstico): carimbo de build do BACKEND — confirma qual código o
 # Railway está rodando (o front tem o dele em web/src/version.js).
-SERVER_BUILD_ID = "F10-20260817-07"  # fix: POLITICA-PRIVACIDADE.md movida pra dentro de server/ (404 em produção).
+SERVER_BUILD_ID = "F10-20260817-08"  # identities: uma conta, vários métodos de login (Google/Apple/senha).
 # Normalmente sincronizado pelo entregar.sh a partir de web/src/version.js; num deploy
 # SÓ de backend (sem rebuild do front) bumpamos aqui para /api/health rastrear o servidor.
 

@@ -88,28 +88,38 @@ def normalize_email(email: str) -> str:
 
 def register_email(conn, email: str, password: str, name: str = "") -> dict:
     e = normalize_email(email)
+    # Recusa se QUALQUER conta já exibe este e-mail — mesmo se ela nasceu por
+    # Google/Apple e nunca teve senha. 2026-08-17: continua CORRETO recusar
+    # (não virar auto-vínculo) — digitar o e-mail de outra pessoa não prova
+    # posse dele; só o sentido OAuth→conta-existente é seguro (upsert_oauth_
+    # user, com email_verified do provedor). Ver comentário lá.
     if db.get_user_by_email(conn, e):
         raise AuthError("Já existe uma conta com este e-mail.")
+    ph = hash_password(password)
     user = {
         "id": new_user_id(),
         "email": e,
         "provider": "email",
         "provider_sub": None,
-        "pass_hash": hash_password(password),
+        "pass_hash": ph,
         "name": (name or "").strip()[:40] or None,
         "created_at": _iso(_now()),
     }
     db.insert_user(conn, user)
+    db.insert_identity(conn, {"user_id": user["id"], "provider": "email", "provider_sub": None, "email": e, "pass_hash": ph})
     return db.get_user_by_id(conn, user["id"])
 
 
 def login_email(conn, email: str, password: str) -> dict:
     e = normalize_email(email)
-    u = db.get_user_by_email(conn, e)
+    # 2026-08-17: autentica contra a IDENTIDADE de senha (identities), não
+    # mais contra `users.pass_hash` direto — é o que sobrevive se um dia
+    # existir troca de senha sem trocar de conta.
+    identity = db.get_identity_by_email_senha(conn, e)
     # Mensagem genérica nos dois ramos: não revela se o e-mail existe.
-    if not u or not u.get("pass_hash") or not verify_password(password, u["pass_hash"]):
+    if not identity or not identity.get("pass_hash") or not verify_password(password, identity["pass_hash"]):
         raise AuthError("E-mail ou senha incorretos.")
-    return db.get_user_by_id(conn, u["id"])
+    return db.get_user_by_id(conn, identity["user_id"])
 
 
 # ------------------------------- sessões ------------------------------------
@@ -286,25 +296,48 @@ def verify_oauth_token(provider: str, id_token: str) -> dict:
     return {
         "sub": claims.get("sub"),
         "email": (claims.get("email") or "").strip().lower() or None,
+        # Google manda bool; Apple já mandou string "true"/"false" em versões
+        # antigas do id_token — normaliza os dois formatos.
+        "email_verified": str(claims.get("email_verified", "")).strip().lower() in ("true", "1"),
         "name": claims.get("name") or claims.get("given_name") or None,
     }
 
 
-def upsert_oauth_user(conn, provider: str, sub: str, email: str = None, name: str = None) -> dict:
-    """Encontra-ou-cria o usuário do provedor (idempotente por (provider, sub))."""
-    existing = db.get_user_by_provider(conn, provider, sub)
-    if existing:
+def upsert_oauth_user(conn, provider: str, sub: str, email: str = None, name: str = None, email_verified: bool = False) -> dict:
+    """Encontra-ou-cria o usuário do provedor (idempotente por (provider, sub)).
+
+    2026-08-17: login NOVO (provider+sub nunca visto) com e-mail VERIFICADO
+    pelo provedor anexa a identidade a uma conta EXISTENTE com esse e-mail,
+    em vez de criar uma conta órfã (achado real: Google e Apple com o mesmo
+    e-mail viravam contas separadas, e colidir com uma conta de senha
+    existente criava uma TERCEIRA conta, sem e-mail nenhum). Só este sentido
+    é seguro pra automação — o provedor provou criptograficamente a posse do
+    e-mail. `register_email` continua recusando o sentido inverso (cadastro
+    por senha nunca se anexa a uma conta OAuth só por e-mail digitado)."""
+    identity = db.get_identity_by_provider(conn, provider, sub)
+    if identity:
         # FASE 8B (R5): se o usuário REFEZ o consentimento na Apple escolhendo
-        # "Compartilhar meu e-mail", o novo login traz o e-mail REAL no lugar do
-        # @privaterelay — atualizamos a conta (sem colidir com o UNIQUE(email)).
+        # "Compartilhar meu e-mail", o novo login traz o e-mail REAL no lugar
+        # do @privaterelay — adota, MAS nunca em cima de colisão com OUTRA
+        # conta (mesma garantia de sempre; agora contra identities inteira,
+        # não só contra o e-mail de exibição de `users`).
         e = (email or "").strip().lower() or None
-        if e and e != (existing.get("email") or "") and not db.get_user_by_email(conn, e):
-            db.update_user_email(conn, existing["id"], e)
-            existing = db.get_user_by_id(conn, existing["id"])
-        return existing
+        if e and e != (identity.get("email") or "") and not db.find_user_id_by_verified_email(conn, e, exclude_user_id=identity["user_id"]):
+            db.update_identity_email(conn, identity["id"], e)
+            user = db.get_user_by_id(conn, identity["user_id"])
+            if user and user.get("email") != e and not db.get_user_by_email(conn, e):
+                db.update_user_email(conn, user["id"], e)
+        return db.get_user_by_id(conn, identity["user_id"])
+
     e = (email or "").strip().lower() or None
-    # Evita colisão de UNIQUE(email) se o mesmo e-mail já existe por outro meio:
-    # nesse caso, registra a conta OAuth sem e-mail (vínculo por (provider,sub)).
+    linked_user_id = db.find_user_id_by_verified_email(conn, e) if (e and email_verified) else None
+    if linked_user_id:
+        db.insert_identity(conn, {"user_id": linked_user_id, "provider": provider, "provider_sub": sub, "email": e})
+        return db.get_user_by_id(conn, linked_user_id)
+
+    # Sem vínculo verificado (ou sem e-mail): evita colisão de UNIQUE(email)
+    # se o mesmo e-mail já existe por outro meio — registra a conta OAuth sem
+    # e-mail (vínculo só por provider,sub), como sempre foi.
     if e and db.get_user_by_email(conn, e):
         e = None
     user = {
@@ -317,4 +350,5 @@ def upsert_oauth_user(conn, provider: str, sub: str, email: str = None, name: st
         "created_at": _iso(_now()),
     }
     db.insert_user(conn, user)
+    db.insert_identity(conn, {"user_id": user["id"], "provider": provider, "provider_sub": sub, "email": e})
     return db.get_user_by_id(conn, user["id"])

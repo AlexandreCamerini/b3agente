@@ -200,6 +200,86 @@ def test_oauth_atualiza_email_ao_recompartilhar():
     assert u3["email"] == "alex@exemplo.com"
 
 
+# -----------------------------------------------------------------------
+# 2026-08-17 — identities: uma conta, vários métodos de login. Achado real:
+# Google e Apple com o MESMO e-mail viravam contas SEPARADAS; colidir com
+# uma conta de senha existente criava uma TERCEIRA conta, órfã, sem e-mail
+# nenhum (o código antigo sabia disso e fazia assim mesmo — comentário
+# removido de auth.py confirmava). Estes testes travam o conserto.
+# -----------------------------------------------------------------------
+def test_google_com_email_verificado_anexa_a_conta_de_senha_existente():
+    conn, _ = _fresh_db()
+    u_senha = auth.register_email(conn, "alex@exemplo.com", "senha-forte-123", name="Alex")
+    u_google = auth.upsert_oauth_user(conn, "google", "sub-google-1", "alex@exemplo.com", "Alex",
+                                       email_verified=True)
+    assert u_google["id"] == u_senha["id"], "login Google deveria cair na MESMA conta, não criar órfã"
+    assert u_google["email"] == "alex@exemplo.com"
+    # a senha continua funcionando — anexar não troca o método de login existente
+    u_login = auth.login_email(conn, "alex@exemplo.com", "senha-forte-123")
+    assert u_login["id"] == u_senha["id"]
+
+
+def test_google_e_apple_com_mesmo_email_verificado_viram_a_mesma_conta():
+    conn, _ = _fresh_db()
+    a = auth.upsert_oauth_user(conn, "google", "sub-g", "alex@exemplo.com", "Alex", email_verified=True)
+    b = auth.upsert_oauth_user(conn, "apple", "sub-a", "alex@exemplo.com", None, email_verified=True)
+    assert a["id"] == b["id"]
+
+
+def test_email_nao_verificado_NAO_anexa_a_conta_existente():
+    """Sem `email_verified`, o provedor não provou posse — cria conta nova,
+    do jeito que sempre criou (nunca reivindica conta alheia sem prova)."""
+    conn, _ = _fresh_db()
+    u1 = auth.register_email(conn, "alex@exemplo.com", "senha-forte-123")
+    u2 = auth.upsert_oauth_user(conn, "google", "sub-nao-verif", "alex@exemplo.com", None,
+                                 email_verified=False)
+    assert u2["id"] != u1["id"]
+    assert u2["email"] is None, "mesma regra de sempre: e-mail colidido não vai pra conta nova"
+
+
+def test_cadastro_por_senha_nunca_se_anexa_a_conta_oauth_por_email_digitado():
+    """A ponta perigosa: NUNCA deixar cadastro por senha (e-mail
+    AUTO-DECLARADO, sem prova nenhuma) se anexar a uma conta OAuth existente
+    só porque o e-mail bate — isso seria sequestro de conta (digita o e-mail
+    de outra pessoa, ganha acesso). Continua recusando, como sempre."""
+    conn, _ = _fresh_db()
+    auth.upsert_oauth_user(conn, "google", "sub-victim", "vitima@exemplo.com", "Vítima",
+                            email_verified=True)
+    try:
+        auth.register_email(conn, "vitima@exemplo.com", "senha-do-atacante-1")
+        assert False, "deveria recusar — e-mail já pertence a outra conta"
+    except auth.AuthError:
+        pass
+
+
+def test_migracao_identities_cobre_conta_legada():
+    """Conta criada ANTES desta entrega (só em `users`, sem `identities`)
+    ganha a identidade retroativa no próximo boot — é o que cobre a base de
+    produção sem passo manual."""
+    conn, path = _fresh_db()
+    conn.close()
+    # simula uma conta "legada": insere direto em users, ignorando o
+    # register_email (que já cria a identidade) — é o estado de quem tinha
+    # conta ANTES desta entrega.
+    conn = db.connect(path)
+    legacy = {
+        "id": "legado-123", "email": "legado@exemplo.com", "provider": "email",
+        "provider_sub": None, "pass_hash": auth.hash_password("senha-legado-1"),
+        "name": "Legado", "created_at": "2026-01-01T00:00:00+00:00",
+    }
+    db.insert_user(conn, legacy)
+    conn.execute("DELETE FROM identities WHERE user_id = ?", (legacy["id"],))
+    conn.commit()
+    assert db.get_identity_by_email_senha(conn, "legado@exemplo.com") is None  # ainda não migrou
+
+    db.init_db(conn)  # é o que roda em todo boot — dispara o backfill
+
+    identidade = db.get_identity_by_email_senha(conn, "legado@exemplo.com")
+    assert identidade is not None and identidade["user_id"] == "legado-123"
+    u = auth.login_email(conn, "legado@exemplo.com", "senha-legado-1")
+    assert u["id"] == "legado-123"
+
+
 def test_purga_de_sessoes_expiradas():
     conn, _ = _fresh_db()
     u = auth.register_email(conn, "purge@x.com", "senha-purge-1")
