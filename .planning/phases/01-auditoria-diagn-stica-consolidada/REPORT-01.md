@@ -260,6 +260,31 @@ Sumário executivo (`### Leitura de conjunto`) e no texto que acompanha o
 checkpoint de validação (Task 3), porque é exatamente o tipo de julgamento
 que depende da memória do dono do produto, não só da régua objetiva.
 
+### Validação humana (checkpoint Task 3, 2026-08-18)
+
+O Alex (dono do produto) validou o sumário executivo e as listas de
+Críticos/Altos. Resultado, resumido aqui para auditabilidade (detalhe
+completo em cada achado citado e em `01-06-SUMMARY.md`):
+
+- **C-21** (Médio) — confirmado sem reclassificação: sem memória de incidente
+  adicional causado pela divergência de leitura de `appMode`, além dos 3 bugs
+  já documentados e já avaliados como não causados por ela.
+- **C-11** (Crítico) — confirmado sem reclassificação. Duas propostas
+  alternativas de solução foram discutidas e explicitamente descartadas
+  (fonte dupla por finalidade; listbox de configuração de fonte/frequência
+  para o usuário) — motivo do descarte registrado no próprio achado C-11.
+- **C-34** (Médio) — um "medidor de orçamento brapi visível ao usuário" foi
+  levantado como achado candidato durante a discussão do checkpoint;
+  avaliado com o mesmo critério de deduplicação da Task 1 e confirmado que
+  já é o mesmo fato que `F-GATE-05`/`C-34` documenta — não virou achado novo,
+  recebeu evidência adicional e recomendação estendida no próprio C-34.
+- **Nenhuma severidade mudou** nesta validação (0 linhas `**Reclassificado:**`
+  adicionadas) — a tabela de contagem do Sumário executivo permanece 2
+  Crítico, 8 Alto, 20 Médio, 9 Baixo (39 total).
+- Nenhuma correção de código foi implementada durante ou após esta
+  validação, consistente com a fase ser diagnóstica por decisão do próprio
+  Alex (`PROJECT.md`, Out of Scope).
+
 ## Achados por dimensão
 
 ### 1. Storyline pedagógico (STORY-01..04)
@@ -394,6 +419,10 @@ demais inferidos do código com a API real que os alimenta):
 - **Verificação:** API real (curl autenticado) + leitura do caminho de render
 - **Impacto:** o usuário lê "Fonte: Yahoo Finance" mesmo quando o dado veio da brapi — informação de proveniência ativamente falsa, não apenas ausente
 - **Recomendação:** propagar `source`/`provedor` do `candle_provider` até o payload de `/api/technicals` (o `candle_cache`/`technical_snapshot` já carregam essa informação para o Radar) e trocar a string fixa por `FONTE_LABEL(data.source)`, com fallback explícito se o campo faltar.
+- **Validação humana (checkpoint Task 3, 2026-08-18) — 2 propostas alternativas discutidas e explicitamente descartadas, registradas para não serem re-propostas sem contexto:**
+  - **Proposta 1 (descartada) — fonte dupla por finalidade** (brapi só para carteira/watchlist, Yahoo só para o Radar). **Motivo do descarte:** o Radar intraday (15m) JÁ usa Yahoo hoje, automaticamente — `brapi.PLAN_INTERVALS={"1d"}` rejeita 15m antes de tocar rede e cai pro fallback Yahoo sem debitar orçamento (`server/app/brapi.py:28,69-80`, `server/app/candle_provider.py:288-296`). O único uso real de brapi pelo Radar é o scan diário (~74 req/dia, fatia pequena do orçamento mensal) — o ganho de orçamento da proposta seria modesto, não o grande alívio que parecia à primeira vista.
+  - **Proposta 2 (descartada) — listbox de configuração para o usuário escolher fonte (brapi/Yahoo) e frequência de atualização, com medidor de cota visível.** **Motivo do descarte:** já foi proposto e rejeitado explicitamente no `docs/adr/008-fonte-de-cotacoes-selecionavel.md`, seção "Alternativas descartadas" ("Escolha de fonte na UI... descartados... usuário sem base para escolher; consumo dobrado sem histórico de divergência; L2 duplicado e failover frio") e item 2 das decisões fechadas do mesmo ADR ("Nada de escolha na UI"). Frequência configurável por usuário também esbarra no ADR-010 (orçamento é por-app, não por-usuário — dar controle de frequência a cada usuário individualmente quebra o modelo de orçamento compartilhado).
+  - Severidade mantida Crítico, sem reclassificação — nenhuma das duas propostas altera a evidência ou o impacto do achado original (rótulo ativamente errado).
 
 #### C-12 — Erro de fonte de dado vaza detalhe técnico interno e sai como 500, não 502 limpo [Alto]
 - **Dimensão:** UX | **Requisito:** UX-01 | **Origem:** F-UX-03
@@ -527,6 +556,7 @@ métodos têm ZERO referência em qualquer teste** (`_localSeed`,
 - **Verificação:** código (grep + leitura linha a linha das 26 ocorrências)
 - **Impacto:** hoje nenhum. Se uma tela nova ler `data.config.appMode` com uma terceira variante de normalização, não há lint/teste que force `ctx.operador` — a convenção depende só do comentário
 - **Recomendação:** migrar os 8 pontos de recomputação redundante para `ctx.operador` (mecânico, sem mudança de comportamento) e considerar teste estático (regex, padrão já usado nos guardiões de paridade) que falhe se `data.config.appMode` for lido fora de `App()`/`ctx.operador`.
+- **Validação humana (checkpoint Task 3, 2026-08-18):** Confirmado pelo Alex em validação humana — sem memória de incidente adicional causado por esta divergência, fora dos 3 bugs já documentados e já avaliados como não causados por leitura divergente de `appMode` no mesmo render. Severidade mantida Médio, sem reclassificação.
 
 #### C-22 — `default_skill_text()`/`defaultSkillText()` (prompt padrão do Modo Estudo) sem NENHUM guardião, diferente do par `carteiraStopAlvo*` que é byte-exato [Médio]
 - **Dimensão:** CODE | **Requisito:** CODE-02 | **Origem:** F-CODE-05
@@ -672,10 +702,11 @@ superfície, mas depende de `requires_subscription` sair do estado sempre
 #### C-34 — Painel de orçamento brapi é 100% admin-only; usuário comum não tem visibilidade do eixo físico de cota [Médio]
 - **Dimensão:** GATE | **Requisito:** GATE-02 | **Origem:** F-GATE-05
 - **Regra aplicada:** D-04 — risco real de opacidade, ainda não incidente documentado — distinto de C-30, que é a violação ativa do princípio quando o estado degradado ocorre
-- **Evidência:** `App.jsx:5201` (comentário "cotações: só admin") e `:5372-5375`
+- **Evidência:** `App.jsx:5201` (comentário "cotações: só admin") e `:5372-5375`; `server/app/brapi_budget.py:170-189` (`snapshot()`, já real e persistido, cobre tanto o estado NORMAL quanto o degradado) exposto hoje só via `GET /api/obs/usage` (`server/app/main.py:449-472`), protegido por `require_permission("observabilidade.ver")` — nenhuma superfície de `web/src/App.jsx` voltada ao usuário final lê esse payload
 - **Verificação:** código
-- **Impacto:** combinado com C-30, significa que não existe NENHUM canal, nem admin nem usuário, que sinalize em tempo real quando o app está em modo degradado
-- **Recomendação:** não é necessário expor orçamento bruto ao usuário final, mas o efeito do degradado (dado mais velho) precisa aparecer no timestamp que o usuário já vê — mesma mudança de C-30 resolve as duas questões.
+- **Impacto:** combinado com C-30, significa que não existe NENHUM canal, nem admin nem usuário, que sinalize em tempo real quando o app está em modo degradado. Isto vale tanto para o estado degradado quanto para o consumo NORMAL (percentual do orçamento mensal já usado) — o usuário nunca vê nenhum dos dois, só a cota de IA (`/api/ai/quota`)
+- **Recomendação:** não é necessário expor orçamento bruto ao usuário final, mas o efeito do degradado (dado mais velho) precisa aparecer no timestamp que o usuário já vê — mesma mudança de C-30 resolve as duas questões. **Se algum dia um medidor de consumo (consumo × limite) for exposto ao usuário final** (preventivo, antes de bater o degradado), o texto precisa deixar claro que é o consumo do APP INTEIRO (orçamento compartilhado, ADR-010), não uma cota pessoal dele — senão cria confusão nova com a cota de IA por conta que ele já vê em `/api/ai/quota`.
+- **Validação humana (checkpoint Task 3, 2026-08-18):** durante o checkpoint, foi levantada a hipótese de um "medidor de orçamento da brapi visível ao usuário" como achado novo. Avaliado com o mesmo critério de deduplicação da Task 1 e confirmado que **este achado (C-34/F-GATE-05) já cobre exatamente esse fato** ("o usuário comum nunca vê o orçamento brapi, nem em estado normal, nem degradado" — texto original de `F-GATE-05` em `FINDINGS-GATE.md`) — não é um achado novo, é o mesmo achado com evidência adicional (`brapi_budget.py:170-189`, `main.py:449-472`) e uma recomendação estendida (nota sobre app-wide vs. cota pessoal, acima). Não recebeu `C-NN` próprio nem foi fundido em C-30 (que é especificamente sobre o estado degradado, Crítico) — C-34 (Médio) permanece o achado correto para a visibilidade geral do eixo físico de cota. Severidade mantida Médio, sem reclassificação.
 
 ### 5. Portal de administração/observabilidade (ADMIN-01..03)
 
