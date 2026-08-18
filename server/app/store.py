@@ -1,12 +1,28 @@
 """Operacoes de estado sobre o kv store. Funcoes recebem a conexao para
 ficarem testaveis (o pytest cria a sua propria conexao em arquivo temporario).
 """
+import threading
 from datetime import datetime
 
 from . import db, defaults
 from .catalog import CATALOG, CATALOG_TICKERS, is_catalog_ticker
 
-SECTIONS = ["config", "skill", "skillOperador", "llmPrompts", "watchlist", "cash", "positions", "history", "agent", "analyses", "profile", "custom", "optionPositions"]
+SECTIONS = ["config", "skill", "skillOperador", "llmPrompts", "watchlist", "cash", "positions", "history", "agent", "analyses", "profile", "custom", "optionPositions", "pendingOrders"]
+
+# Fase 2 (MERC-02..04): trava ÚNICA de PROCESSO sobre o read-modify-write de
+# `cash`/`positions`. Nasce aqui (não em pending_orders.py) porque o dono
+# desses dois campos é este módulo, e o caminho de ordem IMEDIATA
+# (/api/buy, /api/sell em main.py, plano 02-02) precisa adquirir EXATAMENTE
+# esta mesma trava — pending_orders.ORDER_LOCK é um ALIAS deste objeto, não
+# uma trava distinta. Motivo: `db._ThreadLocalConnection` dá uma conexão
+# SQLite por thread do pool do FastAPI, então o SQLite sozinho não serializa
+# duas requisições concorrentes lendo e escrevendo o mesmo `cash` — sem esta
+# trava, duas escritas concorrentes reservariam/gastariam o mesmo caixa
+# (lost update / double-spend, ameaça T-02-02). Vale para UM processo; o
+# deploy do Railway é um serviço único (server/railway.json), então basta.
+# NÃO criar uma segunda trava de processo para ordens em nenhum outro módulo
+# do backend — esta é a ÚNICA.
+ORDER_LOCK = threading.RLock()
 
 
 def _eh_default_antigo(conn, chave: str, texto: str) -> bool:
@@ -508,6 +524,45 @@ def scopes_com_history(conn) -> list:
     return out
 
 
+def scopes_com_pendentes(conn) -> list:
+    """Fase 2 (MERC-02..04): todo user_id (+ escopo legado, `None`) com
+    `pendingOrders` gravado — mesma estrutura de `scopes_com_history`. É isto
+    que o scheduler (plano 02-03) varre para executar ordens pendentes na
+    abertura, e NÃO `agent.list_server_users`: uma ordem pendente é do
+    usuário mesmo que ele nunca tenha ligado o Modo Operador."""
+    rows = conn.execute(
+        "SELECT key FROM kv WHERE key LIKE 'u:%:pendingOrders' OR key = 'pendingOrders'"
+    ).fetchall()
+    out = []
+    for (key,) in rows:
+        if key == "pendingOrders":
+            out.append(None)
+        else:
+            out.append(key[len("u:"):-len(":pendingOrders")])
+    return out
+
+
+def caixa_reservado(conn, user_id=None) -> float:
+    """Soma dos `caixaReservado` das ordens pendentes de COMPRA — valor
+    DERIVADO, calculado na leitura a partir da lista de `pendingOrders`, não
+    é um segundo saldo persistido nem um segundo livro-caixa. É por isso que
+    NÃO viola D-05: o que D-05 proibiu foi criar um campo de saldo paralelo a
+    `cash` que precisasse ser sincronizado à mão (risco de dois ledgers
+    divergirem); aqui `cash` continua sendo a única fonte de verdade do
+    dinheiro livre, o débito segue o caminho de sempre (`buy`/`sell`), e
+    `caixaReservado` é só a soma dos reservados, exposta porque MERC-03 exige
+    mostrar esse valor na tela. Coincidência de nome com o termo citado em
+    D-05 é isso: coincidência de nome.
+
+    Implementado AQUI (não em `pending_orders.py`) para `public_state` poder
+    chamá-lo sem import circular — `pending_orders` importa `store`, nunca o
+    inverso. `pending_orders.caixa_reservado` delega para este (fonte
+    ÚNICA da aritmética, sem duplicação)."""
+    pendentes = get(conn, "pendingOrders", user_id=user_id) or []
+    total = sum((o.get("caixaReservado") or 0) for o in pendentes if isinstance(o, dict) and o.get("tipo") == "COMPRA")
+    return round(total, 2)
+
+
 def _sanitize_trade_meta(meta) -> dict:
     """FASE 2 (2.4): contexto de ENTRADA registrado na compra — setup que a
     originou (do STU da F1), gatilho/invalidação e snapshotId. Só campos
@@ -773,6 +828,8 @@ def public_state(conn, user_id=None) -> dict:
         "cash": get(conn, "cash", user_id=user_id),
         "positions": get(conn, "positions", user_id=user_id),
         "optionPositions": get(conn, "optionPositions", user_id=user_id),  # ADR-003
+        "pendingOrders": get(conn, "pendingOrders", user_id=user_id),      # Fase 2 (MERC-02..04)
+        "caixaReservado": caixa_reservado(conn, user_id=user_id),         # Fase 2: DERIVADO, ver caixa_reservado()
         "history": get(conn, "history", user_id=user_id),
         "agent": get(conn, "agent", user_id=user_id),
         "analyses": get(conn, "analyses", user_id=user_id),
