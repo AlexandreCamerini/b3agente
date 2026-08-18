@@ -110,15 +110,6 @@ disponível.
 - **Impacto:** nenhum usuário jamais verá esse estado, porque o motor não o produz; qualquer suposição de cobertura completa do princípio 9 no relatório consolidado (REPORT-01) precisa registrar esta lacuna explicitamente, não assumir "conforme" por analogia com a venda parcial.
 - **Recomendação:** decisão de produto, não código — declarar explicitamente (em copy ou documentação) que a simulação é sempre "tudo ou nada" por desenho (execução instantânea ao preço de mercado, sem book), o que é defensável dado o princípio 5 (determinismo), e não fingir cobertura do estado nesta fase de diagnóstico.
 
-## Verificado e conforme (parcial — continua na task 3)
-
-- Saldo/caixa/patrimônio sempre visíveis no `Topbar` global, testado ao vivo (princípio 1).
-- `POST /api/buy` com quantidade que estoura o caixa: rejeição limpa 400 "Caixa insuficiente.", testada ao vivo, com espelho no cálculo local do `BuyModal` antes mesmo do request.
-- Ciclo compra→venda completo testado ao vivo: histórico registra `COMPRA`/`VENDA` com `pnl`, sem invenção de número.
-- `GET /api/timing/PETR4` fora do pregão devolve estado, motivo e ressalva explícitos; front mapeia para rótulo dedicado "FORA DO PREGÃO" distinto do genérico "sem dado" — implementação já resolveu o bug histórico documentado no próprio comentário do código (`App.jsx:2199-2206`).
-- Grep dirigido por linguagem de enriquecimento/garantia/certeza em 9 arquivos (front+backend): zero violação real encontrada; todas as ocorrências de "garant"/"promet" são negações ("não garante", "nunca prometa") ou o guardrail explícito nos prompts de IA (`skill_ref.py`).
-- Degradação graciosa quando a IA está indisponível: `App.jsx:3420` mostra a estimativa determinística automática em vez de bloquear o usuário — reforça o princípio 6 na prática, não só na teoria.
-
 ### UX-02 — Consistência visual e hierarquia Estudo × Operador
 
 **O usuário sabe em qual modo está?** Sim, de forma persistente. `Topbar`
@@ -159,3 +150,140 @@ compartilhado; paleta e vocabulário por modo consistentes; o gate crítico do
 agente autônomo (vender de verdade vs. apenas sinalizar) comunica o modo atual com
 link de saída — cobertura completa dentro do que este nível de verificação
 permite avaliar (código + payload real, sem captura visual).
+
+### UX-03 — Responsivo e acessibilidade básica (Ativo, Operador IA, Carteira, Perfil)
+
+**Método:** sem Nível 1/2 (nenhum redimensionamento de viewport real nesta sessão —
+limitação já declarada em `## Método de verificação`). Responsivo e alvo de toque
+auditados por leitura das regras de layout no código; contraste calculado com a
+fórmula de luminância relativa do WCAG 2.x a partir dos hex do `Theme` do app
+(`web/src/App.jsx:60-153`), não medido em tela renderizada.
+
+**Responsivo:** os contêineres principais usam `width:"100%"` com `maxWidth`
+fixo (420-560px) e `padding` lateral consistente (`App.jsx` em dezenas de pontos,
+ex.: `355,379,545,624,1909,2062,2359,3365,5842,6086,6153,6207`) — o padrão de
+modal/tela é "encolhe até o `maxWidth`", que é o comportamento correto para telas
+estreitas de iPhone; não foi encontrado nenhum bloco com largura fixa em `px`
+maior que uma tela pequena (busca por `width: "[3-9]\d\d px"` não teve ocorrência
+de bloco de conteúdo, só SVGs internos com `viewBox` proporcional). Não é possível
+confirmar ausência de overflow horizontal sem renderização real — declarado como
+limitação, não como "conforme".
+
+**Alvo de toque:** botões de ação primária declaram `minHeight` explícito de
+40-48px (`App.jsx:6152-6188` BuyModal `minHeight:"44px"` no botão comprar;
+`3974` "Executar ciclo agora" `padding:"12px"`; `6170-6172` +/- do lote
+`width/height:"42px"`) — consistente com o alvo mínimo de ~44×44pt recomendado
+para WKWebView sem hover. Contraexemplo pontual: os toggles de accordion em
+`App.jsx:2706,2773` (`role="button"`, ver F-UX-06) não declaram `minHeight`,
+só `padding:"9px 0"` — a altura efetiva do alvo de toque depende só do texto
+interno, sem piso mínimo garantido.
+
+**Leitura de tela / semântica:** 74 ocorrências de `aria-` e 9 de `role=` em
+`App.jsx` — cobertura real, não decorativa: modais usam `role="dialog"
+aria-label="..."` (`2356,2487`), o switch de configuração usa `role="switch"
+aria-checked aria-label"` (`313`), ícones puramente decorativos usam
+`aria-hidden` (`195,2712,7488`), estados de progresso usam `role="status"
+aria-live="polite"` (`5783`). Zero `<img>` no arquivo — não há caso de imagem
+sem `alt` (não é um "achado ausente", é `N/A` genuíno).
+
+**Contraste** (calculado, luminância relativa WCAG, ver F-UX-07 abaixo).
+
+### F-UX-06 — Toggle "acordeão" com `role="button"` não responde a teclado
+- **Requisito:** UX-03
+- **Severidade:** Médio — risco real de exclusão de usuário que navega só por teclado/leitor de tela; ainda não materializado em incidente registrado (D-04).
+- **Evidência:** `web/src/App.jsx:2706` e `:2773` — `<div onClick={onToggle} role="button" tabIndex={0}>` (toggle de contrato de opção e de seção expansível). Busca por `onKeyDown|onKeyPress` no arquivo inteiro (`grep -n`) encontra **uma única ocorrência em 7599 linhas** (`App.jsx:6098`, e é para um `<input>` de busca, não relacionada). Um `<div>` com `role="button"` e `tabIndex={0}` fica focável por Tab e é anunciado como botão por leitor de tela, mas — diferente de um `<button>` nativo — o navegador não dispara `onClick` ao pressionar Enter/Espaço nele; sem `onKeyDown` explícito, a tecla não faz nada.
+- **Verificação:** código (grep dirigido + leitura dos dois pontos de uso).
+- **Impacto:** um usuário operando por teclado (ou testando com leitor de tela, que também costuma ativar via Enter) consegue *focar* o toggle mas não consegue *ativá-lo* — a seção nunca abre por teclado, só por toque/clique de mouse.
+- **Recomendação:** trocar o `<div role="button">` por um `<button>` nativo (herda ativação por teclado de graça, só precisa reset de estilo) ou adicionar `onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onToggle()}` nos dois pontos.
+
+### F-UX-07 — `textFaint` abaixo do mínimo de contraste WCAG AA para texto pequeno, nos dois temas
+- **Requisito:** UX-03
+- **Severidade:** Médio — risco real de legibilidade para usuário com baixa visão, ainda não incidente documentado (D-04).
+- **Evidência:** `web/src/App.jsx:70,87` — `textFaint: "#6f7797"` (tema escuro) sobre `bgBase: "#10121a"` calcula **4.24:1**; `textFaint: "#7a8099"` (tema claro) sobre `bgBase: "#f7f8fc"` calcula **3.68:1** (fórmula de luminância relativa WCAG 2.x, razão de contraste padrão). O mínimo AA para texto normal é 4,5:1 (3:1 só vale para texto grande ≥18pt/24px ou negrito ≥14pt/18.66px). `textFaint` é usado extensivamente em fonte pequena (10-11.5px) para conteúdo que não é decorativo: rótulos de fonte de dado (`2927,2936`), timestamps, disclaimers auxiliares e mensagens de erro secundárias (`2367,4595,4698,5077,5131`) — nenhum desses contextos qualifica como "texto grande".
+- **Verificação:** cálculo real a partir dos hex do tema (não medição em tela renderizada — ver limitação do método).
+- **Impacto:** usuários com baixa visão ou em ambientes de luz forte (uso mobile ao ar livre é o caso de uso típico do produto) podem não conseguir ler informação de proveniência do dado e mensagens de erro secundárias — que são justamente o conteúdo mais ligado à transparência exigida pelo princípio 3/10.
+- **Recomendação:** escurecer/clarear `textFaint` até atingir ≥4.5:1 nos dois temas, ou reservar a cor atual só para texto ≥14px que já cruze o limiar de "texto grande em negrito", auditando os usos atuais um a um.
+
+### F-UX-08 — Gate "Executar" desabilitado: aviso visível existe, mas sem vínculo semântico (`aria-describedby`)
+- **Requisito:** UX-03
+- **Severidade:** Baixo — o defeito original documentado em `docs/auditoria-controle-ordens-parametros.md` (depender só de `title`, invisível em toque) **já foi corrigido** no código atual; o que resta é um refinamento de acessibilidade, não uma falha funcional (D-05).
+- **Evidência:** `web/src/App.jsx:3780-3799` — o botão "Executar (vende no stop/alvo)" fica `disabled` fora do Modo Operador (`desabilitado = m === "executar" && !operador"`) e, quando desabilitado, um parágrafo logo abaixo explica o motivo com link direto ("Disponível no Modo Operador — em Modo Estudo o agente só orienta, nunca vende sozinho. Trocar para Modo Operador →", `3795-3799`) — isso já resolve a lacuna visual original (comentário do próprio código, `3784-3787`, confirma que foi uma correção deliberada de qa/audit-2026-08-07). Falta apenas a ligação semântica: o botão não tem `aria-describedby` apontando para o parágrafo de explicação, então um leitor de tela que navegue direto ao botão (sem ler o texto acima) não ouve o motivo.
+- **Verificação:** código (leitura direta do JSX, comparado com o achado histórico do CONCERNS.md).
+- **Impacto:** menor que o originalmente documentado — o motivo é visível e alcançável na mesma tela, só não está semanticamente amarrado ao controle para quem navega por leitor de tela em ordem não-linear.
+- **Possível duplicata:** CODE-03 (a faceta de dívida técnica/blast radius do mesmo gate pertence ao plano 01-03; este achado registra só a faceta de acessibilidade, já parcialmente corrigida).
+- **Recomendação:** adicionar `aria-describedby` no botão apontando para o `id` do parágrafo explicativo — mudança pequena, sem risco.
+
+### UX-04 — Copy contra as proibições do CLAUDE.md
+
+**Varredura executada** (grep dirigido, ver comando no plano) sobre
+`web/src/copy.js`, `disclaimers.js`, `catalog.js`, `App.jsx` e
+`server/app/skill_ref.py`, `conceitos.py`, `kb.py`, `mercado_ref.py`,
+`defaults.py`. Resultado: **zero violação real encontrada.**
+
+**Julgamento das ocorrências (nenhuma é violação):**
+- Todas as ocorrências de `garant`/`promet` são negações explícitas — "sem
+  garantia de resultado", "não representa garantia", "nunca prometa lucro",
+  "não garante resultado futuro" (`disclaimers.js:14,18,30,34,38`;
+  `catalog.js:47,66,98,145`; `skill_ref.py:42,105,167`; `kb.py:34,412,504,1193`)
+  — são o guardrail funcionando, não o problema.
+- Todas as ocorrências de `100%` são falsos positivos descartados: CSS
+  (`width:"100%"`, `height:"100%"`, `viewBox`), ou uso técnico correto
+  ("cálculo 100% no servidor", `App.jsx:4738,4788`; "persistência 100% no
+  aparelho", `catalog.js:2`; anel de confluência "0–100% = quanto o ativo bate
+  com um setup", `App.jsx:1968` — mede aderência a um padrão de estudo, não
+  probabilidade de acerto, e o próprio `conceitos.py:214-215` explica essa
+  distinção de propósito para o usuário: "Confluência NÃO é probabilidade de
+  dar certo").
+- Nenhuma ocorrência de "enriquec", "dinheiro rápido", "lucro certo", "sempre
+  ganha/acerta", "infalível", "nunca perde/erra" em qualquer dos 9 arquivos.
+
+**Frase canônica "Não há dados suficientes para concluir":** não existe
+verbatim em nenhum arquivo do repositório (busca direta por essa string e por
+"dados suficientes" não encontra o texto exato do CLAUDE.md). A **intenção**
+está implementada de forma consistente, em palavras equivalentes, em pelo
+menos 3 camadas independentes:
+- `server/app/skill_ref.py:54` (regra 11 do prompt de IA): "Dados
+  insuficientes ⇒ não produza uma leitura definitiva; declare a lacuna."
+- `server/app/assistente.py:103-105,126-132` (system prompt do assistente
+  conversacional): "Se a resposta exigir um número que não está lá, diga que
+  essa informação não aparece nesta tela — nunca estime..." e "Fonte
+  indisponível se DECLARA, nunca se estima: sem dado fresco, diga a idade do
+  que existe e pare aí."
+- `web/src/App.jsx:4671-4746` (UI de eficácia/expectância): "n insuficiente"
+  em vez de número, com o motivo explicado ao lado.
+
+Isto é PARCIAL, não uma violação: o comportamento exigido pelo princípio (não
+forçar conclusão sem dado) está implementado e verificado em 3 pontos
+independentes do sistema; só a string literal do CLAUDE.md nunca aparece
+verbatim em nenhuma tela.
+
+### F-UX-09 — Frase canônica de dado insuficiente nunca aparece verbatim
+- **Requisito:** UX-04
+- **Severidade:** Baixo — a substância do princípio está implementada em 3 camadas independentes (ver acima); é uma lacuna de padronização textual, não de comportamento (D-05).
+- **Evidência:** busca por "Não há dados suficientes para concluir" e por "dados suficientes" em `web/src/*.js`, `web/src/*.jsx` e `server/app/*.py` não encontra a string exata; os equivalentes funcionais estão em `skill_ref.py:54`, `assistente.py:103-105,126-132`, `App.jsx:4671-4746` (citados acima).
+- **Verificação:** código/docs (grep direto).
+- **Impacto:** nenhum no comportamento (o usuário sempre vê alguma declaração de insuficiência de dado quando aplicável); risco é só de inconsistência textual entre telas/vozes diferentes do produto, o que pode confundir alguém comparando o app ao texto do CLAUDE.md literalmente.
+- **Recomendação:** se o CLAUDE.md pretende a frase como um padrão textual literal (não só um comportamento), padronizar as ocorrências equivalentes para usar exatamente essa string onde fizer sentido gramatical; baixa prioridade, sem risco de produto.
+
+## Verificado e conforme
+
+- Saldo/caixa/patrimônio sempre visíveis no `Topbar` global, testado ao vivo (princípio 1).
+- `POST /api/buy` com quantidade que estoura o caixa: rejeição limpa 400 "Caixa insuficiente.", testada ao vivo, com espelho no cálculo local do `BuyModal` antes mesmo do request.
+- Ciclo compra→venda completo testado ao vivo: histórico registra `COMPRA`/`VENDA` com `pnl`, sem invenção de número.
+- `GET /api/timing/PETR4` fora do pregão devolve estado, motivo e ressalva explícitos; front mapeia para rótulo dedicado "FORA DO PREGÃO" distinto do genérico "sem dado" — implementação já resolveu o bug histórico documentado no próprio comentário do código (`App.jsx:2199-2206`).
+- Grep dirigido por linguagem de enriquecimento/garantia/certeza em 9 arquivos (front+backend): zero violação real encontrada; todas as ocorrências de "garant"/"promet" são negações ("não garante", "nunca prometa") ou o guardrail explícito nos prompts de IA (`skill_ref.py`).
+- Degradação graciosa quando a IA está indisponível: `App.jsx:3420` mostra a estimativa determinística automática em vez de bloquear o usuário — reforça o princípio 6 na prática, não só na teoria.
+- Chip de modo textual persistente ("MODO ESTUDO"/"MODO OPERADOR") em toda tela, paleta/vocabulário coerentes por modo, gate do agente autônomo comunica o modo atual com link de saída (princípio implícito de clareza/UX-02).
+- Modais usam `role="dialog"`+`aria-label`; switch de configuração usa `role="switch"`+`aria-checked`+`aria-label`; ícones decorativos usam `aria-hidden`; estados de progresso usam `role="status"`+`aria-live="polite"` — cobertura de semântica real, não perfunctória, em 74 pontos de `aria-`/9 de `role=`.
+- Zero uso de `<img>` sem `alt` (não há `<img>` no arquivo — N/A genuíno, não uma lacuna).
+- Botões de ação primária (comprar, vender, executar ciclo, +/- de lote) declaram `minHeight`/dimensão explícita ≥40px, consistente com alvo de toque em WKWebView sem hover.
+- Frase canônica de dado insuficiente do CLAUDE.md: comportamento implementado em 3 camadas independentes (prompt de IA, assistente conversacional, UI de eficácia), mesmo sem a string literal em nenhuma delas (ver F-UX-09).
+
+## Cobertura de requisitos
+
+| Requisito | Achados | Status |
+|---|---|---|
+| UX-01 | F-UX-01 (Crítico), F-UX-02 (Médio), F-UX-03 (Alto), F-UX-04 (Médio) | com achados |
+| UX-02 | F-UX-05 (Baixo) | com achados |
+| UX-03 | F-UX-06 (Médio), F-UX-07 (Médio), F-UX-08 (Baixo) | com achados |
+| UX-04 | F-UX-09 (Baixo) | com achados |
