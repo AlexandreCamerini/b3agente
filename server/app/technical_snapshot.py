@@ -189,4 +189,8 @@ async def get(ticker: str, period: Optional[str], loader, interval: str = "1d") 
     `interval` segmenta cache de candles E identidade do snapshot (ADR-001)."""
     hist = await candle_cache.load(ticker, loader, interval=interval or "1d")
     snap = build(ticker, hist.get("candles") or [], period, interval=interval or "1d")
-    return {**snap, "currency": hist.get("currency", "BRL"), "cacheStatus": hist.get("cacheStatus")}
+    # C-11 (REPORT-01): `source` já existia em candle_cache.load() nos 4
+    # caminhos de retorno (miss/fresh/stale/delta), mas morria aqui — o
+    # payload de /api/technicals nunca carregava a proveniência real do
+    # dado. Propaga tal e qual (None quando desconhecido — nunca um default).
+    return {**snap, "currency": hist.get("currency", "BRL"), "cacheStatus": hist.get("cacheStatus"), "source": hist.get("source")}
