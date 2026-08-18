@@ -126,7 +126,26 @@ silencioso.
      a exibir `vazios`/`alerta`/`taxaFalha`, não só `erros`; um alerta
      "kill-switch ligado há N horas em horário de pregão" aparece na aba
      Automação. [FIX-C35, FIX-C36, FIX-C37]
-**Plans**: TBD
+**Plans**: 6 plans
+Plans:
+**Wave 1**
+
+- [ ] 03-01-PLAN.md — Proveniência real e estado degradado no painel técnico (backend + app consumidor) [C-11, C-30]
+- [ ] 03-02-PLAN.md — Falha do provedor: erro limpo na cotação e visibilidade no painel de custos [C-12, C-36]
+- [ ] 03-03-PLAN.md — Guardiões estruturais: paridade genérica dos stores e leitura de appMode [C-20, C-19]
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 03-04-PLAN.md — Gate comercial resolve o plano real da conta e passa a ter contador único [C-31, C-32]
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 03-05-PLAN.md — 2º kill-switch (timing_watch): override em runtime, rotas admin e portal [C-35]
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 03-06-PLAN.md — Alerta ativo de "kill-switch ligado há N horas" + verificação humana da fase [C-37]
+
 **UI hint**: yes
 
 ### Phase 4: Correção Médio — Storyline & UX
@@ -221,6 +240,6 @@ gate.
 |-------|-----------|-----------------|--------|-----------|
 | 1. Auditoria Diagnóstica Consolidada | v1.0 | 6/6 | Complete | 2026-08-18 |
 | 2. Realismo de Mercado | v1.1 | 0/7 | Planned | - |
-| 3. Correção Crítico + Alto | v1.1 | 0/TBD | Not started | - |
+| 3. Correção Crítico + Alto | v1.1 | 0/6 | Planned | - |
 | 4. Correção Médio — Storyline & UX | v1.1 | 0/TBD | Not started | - |
 | 5. Correção Médio — Código, Gate & Admin | v1.1 | 0/TBD | Not started | - |
