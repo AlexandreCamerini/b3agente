@@ -119,7 +119,25 @@ None - nenhuma configuração de serviço externo necessária.
 *Phase: 03-corre-o-cr-tico-alto*
 *Completed: 2026-08-18*
 
+## TDD Gate Compliance
+
+**Warning:** ambas as tasks são `tdd="true"`, mas o RED (teste falhando, commit
+separado) não foi observado como gate isolado. Em ambas, o código de produção
+foi escrito primeiro (acompanhando de perto a `<action>` do plano), o arquivo
+de teste foi escrito e executado em seguida e já passou de primeira — sem um
+commit intermediário de teste-falhando. Cada task foi commitada como um único
+commit `feat` contendo implementação + teste (`be997cf` Task 1, `833216c`
+Task 2), não como o par RED→GREEN esperado pelo protocolo. Nenhum teste foi
+adicionado depois de constatado que "passava sem querer" (risco que o RED
+existe para pegar) — os testes cobrem exatamente o comportamento descrito nas
+`<behavior>`/`<acceptance_criteria>` de cada task e a suíte inteira permanece
+verde (976 backend + suíte web completa). Registrado aqui por disclosure, não
+como bloqueio: o código está correto e verificado, mas o processo não seguiu
+a separação de commits RED/GREEN documentada.
+
 ## Self-Check: PASSED
+
+- `git diff --stat 403432f..HEAD -- server/app/candle_cache.py server/app/candle_provider.py web-admin/src/App.jsx` retorna vazio (nenhuma alteração nos arquivos vetados pela acceptance criteria da Task 1)
 
 - FOUND: server/tests/test_fase3_proveniencia_technicals.py
 - FOUND: web/tests/test_fase3_fonte_technicals.mjs
