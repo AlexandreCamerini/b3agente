@@ -60,7 +60,7 @@ abertura seguinte.
 Plans:
 **Wave 1**
 
-- [ ] 02-01-PLAN.md — Motor determinístico de ordens pendentes (reserva de caixa/posição, cancelamento, execução)
+- [x] 02-01-PLAN.md — Motor determinístico de ordens pendentes (reserva de caixa/posição, cancelamento, execução)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -134,7 +134,7 @@ silencioso.
 Plans:
 **Wave 1**
 
-- [ ] 03-01-PLAN.md — Proveniência real e estado degradado no painel técnico (backend + app consumidor) [C-11, C-30]
+- [x] 03-01-PLAN.md — Proveniência real e estado degradado no painel técnico (backend + app consumidor) [C-11, C-30]
 - [ ] 03-02-PLAN.md — Falha do provedor: erro limpo na cotação e visibilidade no painel de custos [C-12, C-36]
 
 **Wave 2** *(blocked on Wave 1 completion)*
@@ -243,7 +243,7 @@ gate.
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|-----------------|--------|-----------|
 | 1. Auditoria Diagnóstica Consolidada | v1.0 | 6/6 | Complete | 2026-08-18 |
-| 2. Realismo de Mercado | v1.1 | 0/7 | Planned | - |
-| 3. Correção Crítico + Alto | v1.1 | 0/6 | Planned | - |
+| 2. Realismo de Mercado | v1.1 | 1/7 | In Progress|  |
+| 3. Correção Crítico + Alto | v1.1 | 1/6 | In Progress|  |
 | 4. Correção Médio — Storyline & UX | v1.1 | 0/TBD | Not started | - |
 | 5. Correção Médio — Código, Gate & Admin | v1.1 | 0/TBD | Not started | - |
