@@ -968,6 +968,20 @@ async def _options_status_for_llm(t: str) -> dict:
             "reason": str(e) or "O yfinance não retornou cadeia de opções para este ativo.",
         }
 
+def _degradado_spot() -> bool:
+    """C-30 (REPORT-01): indicador de orçamento nunca pode derrubar o painel
+    técnico. Devolve False quando o provedor vigente não é brapi (não existe
+    orçamento brapi para degradar) ou quando o cálculo falha por qualquer
+    motivo — principio 4 do CLAUDE.md exige mostrar o estado correto, e
+    "não sei" aqui é False, nunca uma invenção."""
+    try:
+        if candle_provider.provider_name() != "brapi":
+            return False
+        return bool(brapi_budget.degradado("spot"))
+    except Exception:  # noqa: BLE001
+        return False
+
+
 @app.get("/api/technicals/{ticker}")
 async def technicals(ticker: str, period: Optional[str] = None, scope: Optional[str] = Depends(current_scope)):
     t = _normalize_ticker(ticker)
@@ -992,6 +1006,12 @@ async def technicals(ticker: str, period: Optional[str] = None, scope: Optional[
         "snapshotId": snap["snapshotId"],
         "snapshotAt": snap["asOf"],
         "at": now_str(),
+        # C-11/C-30 (REPORT-01): proveniência real do dado + estado do
+        # orçamento brapi (TTL 3x quando degradado), para o painel técnico
+        # nunca mais afirmar uma fonte fixa incorreta nem esconder dado mais
+        # velho que o habitual.
+        "source": snap.get("source"),
+        "degradado": _degradado_spot(),
     }
     return payload
 
