@@ -17,7 +17,7 @@ seguintes (fora deste milestone).
 - Integer phases (1, 2, 3): Planned milestone work
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
-- [ ] **Phase 1: Auditoria Diagnóstica Consolidada** - Relatório único, classificado por severidade, cobrindo storyline pedagógico, UX/UI, código, gating de monetização e portal admin.
+- [x] **Phase 1: Auditoria Diagnóstica Consolidada** - Relatório único, classificado por severidade, cobrindo storyline pedagógico, UX/UI, código, gating de monetização e portal admin. (completed 2026-08-18)
 
 ## Phase Details
 
@@ -53,7 +53,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 01-06-PLAN.md — Consolidação: dedup entre dimensões, severidade normalizada, sumário executivo e rastreabilidade dos 19 requisitos (REPORT-01) → REPORT-01.md
+- [x] 01-06-PLAN.md — Consolidação: dedup entre dimensões, severidade normalizada, sumário executivo e rastreabilidade dos 19 requisitos (REPORT-01) → REPORT-01.md
 
 ## Progress
 
@@ -65,4 +65,4 @@ Phase 1 (single phase, coarse granularity — review/audit deliverable)
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Auditoria Diagnóstica Consolidada | 5/6 | In Progress|  |
+| 1. Auditoria Diagnóstica Consolidada | 6/6 | Complete   | 2026-08-18 |
