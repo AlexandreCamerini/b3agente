@@ -772,7 +772,7 @@ async def admin_mobile_handoff_exchange(body: dict = Body(default={})):
 
 # FASE 8B (diagnóstico): carimbo de build do BACKEND — confirma qual código o
 # Railway está rodando (o front tem o dele em web/src/version.js).
-SERVER_BUILD_ID = "F10-20260817-04"  # ADR-008/pregão: janela real da B3 (10:00–16:55) + calendário de feriados.
+SERVER_BUILD_ID = "F10-20260817-05"  # fix: POLITICA-PRIVACIDADE.md movida pra dentro de server/ (404 em produção).
 # Normalmente sincronizado pelo entregar.sh a partir de web/src/version.js; num deploy
 # SÓ de backend (sem rebuild do front) bumpamos aqui para /api/health rastrear o servidor.
 
@@ -2296,7 +2296,17 @@ async def _start_agent_scheduler():
 # próprio .md (o que se versiona é o que se publica). Render mínimo de
 # markdown — títulos, negrito e listas, o dialeto que o documento usa — para
 # leitura confortável no navegador; nada de dependência nova.
-_POLITICA_MD = Path(__file__).resolve().parent.parent.parent / "POLITICA-PRIVACIDADE.md"
+#
+# 2026-08-17: vivia na RAIZ do repo (um nível acima de server/). Achado
+# investigando os dados pro OAuth consent screen do Google (que EXIGE essa
+# URL): /privacidade estava 404 em produção — mesma classe de bug que
+# server/web_dist e server/admin_dist existem para evitar. rootDirectory do
+# Railway é /server (ver server/railway.json via publicar-web.sh/publicar-
+# admin.sh); qualquer coisa fora dessa árvore não vai no deploy, mesmo
+# versionada e mesmo passando nos testes locais (que rodam do checkout
+# completo, não do container). O .md morou "fora" desde o dia em que a rota
+# foi criada; só a IDA A PRODUÇÃO revelou.
+_POLITICA_MD = Path(__file__).resolve().parent.parent / "POLITICA-PRIVACIDADE.md"
 
 
 def _politica_html(md: str) -> str:

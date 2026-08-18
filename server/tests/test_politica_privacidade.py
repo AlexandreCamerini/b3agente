@@ -5,10 +5,28 @@ arquivo no repo. A rota serve o PRÓPRIO .md versionado (fonte única) com um
 render mínimo — e estes guardiões também impedem o texto de regredir para o
 mundo pré-login-obrigatório ("com conta (opcional)", "sem conta").
 """
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 
 from app import main
 from app.main import _politica_html
+
+
+def test_arquivo_mora_DENTRO_da_arvore_que_o_railway_enxerga():
+    """2026-08-17: o .md vivia na RAIZ do repo (um nível acima de server/) e
+    ficava 404 em produção — TestClient roda do checkout completo, então o
+    teste acima (test_rota_publica_serve_html_legivel) passava local mesmo
+    com o bug, sem nunca acusar. rootDirectory do Railway é /server (ver
+    server/railway.json); qualquer coisa fora dessa árvore some no deploy,
+    mesma classe de bug que server/web_dist e server/admin_dist existem para
+    evitar. Este teste ancora no CAMINHO, não no conteúdo — é o único jeito
+    de pegar essa regressão sem rodar em produção de verdade."""
+    server_dir = Path(__file__).resolve().parent.parent
+    assert server_dir in main._POLITICA_MD.parents, (
+        f"{main._POLITICA_MD} está fora de {server_dir} — invisível pro Railway "
+        "(rootDirectory=/server), mesmo existindo e mesmo passando local."
+    )
 
 
 def test_rota_publica_serve_html_legivel():
