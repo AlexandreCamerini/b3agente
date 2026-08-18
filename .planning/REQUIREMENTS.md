@@ -32,9 +32,16 @@
 
 - [ ] **FIX-C12**: Erro de fonte de dado não vaza detalhe técnico interno —
       sai como 502 limpo, não 500 cru (UX)
-- [ ] **FIX-C19**: Guardiões dos 3 bugs históricos de `appMode` passam a
-      travar a CLASSE do erro ("estado que muda num lugar que outro não
-      vê"), não só o sintoma exato já corrigido (CODE)
+- [ ] **FIX-C19**: Card de status único no topo da tela "Operador IA",
+      resumindo os 3 interruptores que decidem se uma ordem dispara (Modo
+      do app · Operador no servidor · Executar/sinalizar) com estado atual
+      de cada um e link direto pra trocar — mecanismo estrutural que
+      REPORT-01/docs/auditoria-controle-ordens-parametros.md recomendam
+      para o padrão-classe "estado que muda num lugar que outro não vê"
+      (dos 3 bugs históricos, só o de paridade de stores tem cobertura de
+      classe, via C-20; os outros 2 seguem só com guardião de sintoma —
+      este card não substitui teste, é a mitigação de visibilidade que o
+      próprio relatório aponta como pendente) (CODE)
 - [ ] **FIX-C20**: Teste genérico de paridade `deviceStore`×`serverStore` —
       falha em qualquer assimetria de método não documentada como
       intencional (CODE)

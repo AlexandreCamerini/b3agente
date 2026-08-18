@@ -28,12 +28,24 @@ fronteira/escopo que o relatório deixava em aberto.
   consumo×limite (C-34, Médio) fica pra fase 5; não construir agora pra
   evitar acoplar o Crítico a um escopo maior.
 
-### Fronteira C-19 × C-21 (appMode)
-- **D-02:** Fase 3 fecha C-19 com um TESTE ESTRUTURAL genérico que falha se
-  `data.config.appMode` for lido fora de `App()`/`ctx.operador` (regex sobre
-  `App.jsx`, no padrão dos guardiões de paridade existentes) — não faz a
-  migração dos 8 pontos de leitura redundante. Essa migração mecânica é
-  C-21, Médio, fase 5.
+### Fronteira C-19 × C-21 (appMode) — CORRIGIDO após achado do plan-checker
+- **D-02 (revisado):** A decisão original desta linha (testar leitura de
+  `appMode`) estava ERRADA — confundia C-19 com C-21, que são achados
+  diferentes. Releitura do `REPORT-01.md` (seção C-19) e de
+  `docs/auditoria-controle-ordens-parametros.md` (prioridade 3) mostra que
+  a recomendação real de C-19 é um **card de status único** no topo da tela
+  "Operador IA", ANTES de qualquer controle, resumindo os 3 interruptores
+  que decidem se uma ordem dispara — Modo do app (`appMode`), Operador no
+  servidor (`agent.serverEnabled`), Executar/sinalizar (`agent.mode`) — com
+  o estado atual de cada um e link direto pra trocar. Isso é visibilidade
+  estrutural (mitigação), não um teste de regressão — dos 3 bugs
+  históricos, só o de paridade de stores (bug 2) tem cobertura de CLASSE
+  hoje, via C-20; os outros 2 (blur salvando null, gatilho não propagado)
+  não têm relação com leitura de `appMode` e continuam só com guardião de
+  sintoma — o card não fecha essa lacuna de teste, só a de visibilidade,
+  que é exatamente o que REPORT-01 recomenda para esta fase.
+- Migração dos 8 pontos de leitura redundante de `appMode` continua sendo
+  C-21, Médio, fase 5 — não muda.
 
 ### Gating comercial — corrigir arquitetura, não ativar
 - **D-03:** C-31/C-32 corrigem a ARQUITETURA (hooks passam a resolver o
