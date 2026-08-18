@@ -1,10 +1,11 @@
 ---
 phase: 3
 slug: correcao-critico-alto
-status: draft
+status: approved
 shadcn_initialized: false
 preset: none
 created: 2026-08-18
+reviewed_at: 2026-08-18
 ---
 
 # Phase 3 — UI Design Contract
@@ -18,7 +19,7 @@ This phase touches **two separate, architecturally independent** React codebases
 - **Surface A — Consumer app** (`web/src/App.jsx`, ~7600 lines): two-axis token system (theme dark/light × mode Estudo/Operador), Brand Book v2, guardian-tested (`web/tests/test_brand_book_v2_tokens.mjs`). Touched by **FIX-C11, FIX-C30** (partial — the admin-gated `FonteDadosScreen` lives inside this file too).
 - **Surface B — Admin portal** (`web-admin/src/App.jsx`, ~1200 lines): single dark-only palette, hardcoded copy of `PALETTE.dark` + `MODE_OPERADOR.dark` (Operador gold accent fixed — ADR-012 Fase 5, `web-admin/src/App.jsx:9-13`). Touched by **FIX-C35, FIX-C36, FIX-C37, FIX-C30 (verify-only)**.
 
-FIX-C12, FIX-C19, FIX-C20, FIX-C31, FIX-C32 have **no UI surface** in this phase — see the "No-UI Requirements" section for the explicit scope guard against accidental UI additions.
+FIX-C12, FIX-C20, FIX-C31, FIX-C32 have **no UI surface** in this phase — see the "No-UI Requirements" section for the explicit scope guard against accidental UI additions. **FIX-C19 was re-scoped after a plan-checker finding** (see 03-CONTEXT.md D-02 revised) — it DOES have a UI surface now, a small status-summary card; see its own Phase-Specific Component Notes entry below, not the no-UI table.
 
 Every new/changed string and color below cites the exact existing pattern it must match — this phase extends established components (`KillSwitchBox`, the "Orçamento brapi" `Card`, the `TechnicalModal` fonte line), it does not introduce new visual language.
 
@@ -187,7 +188,7 @@ These requirements are in this phase but have **zero UI surface**. Listed here s
 | Requirement | Why no UI | What changes instead |
 |---|---|---|
 | **FIX-C12** | The correct user-facing message already exists and is already correct copy: `"Sem cotacao para " + t"` (`server/app/main.py:1509`, HTTP 502). The bug is that a crash upstream (`candle_provider.get_quote`, singular, uncaught) prevents this line from ever being reached — fixed by wrapping that call in the same try/except pattern `get_quotes` (plural) already uses. No new string, no new component. |
-| **FIX-C19, FIX-C20** | Structural test guardians only (regex-based, over `App.jsx` source and over `deviceStore`/`serverStore` method lists). Nothing renders differently to any user. |
+| **FIX-C20** | Structural test guardian only (regex-based, over `deviceStore`/`serverStore` method lists). Nothing renders differently to any user. (FIX-C19 was moved OUT of this table — see its own Phase-Specific Component Notes entry, it has a real UI surface.) |
 | **FIX-C31, FIX-C32** | Per CONTEXT.md D-03: architecture-only fix (`current_plan(user)` gets wired into the 3 call sites; gate-concurrency reconciled). `PLAN_FREE` limits stay `None` (unlimited) — **zero visible behavior change** this phase. Do not add any plan/quota UI element for this requirement; that is explicitly deferred (C-33/C-34, Phase 5). |
 
 ---
@@ -206,6 +207,21 @@ The planner must sequence backend plumbing before the corresponding front-end re
 ### C-11 — `TechnicalModal` fonte line (Surface A)
 - Single-line text substitution at `web/src/App.jsx:1511-1513`. No new component, no new spacing, no new color beyond what's already declared for that line.
 - Demo-data guard: when `demo === true` (server unavailable, sample data shown), the existing "Dados de exemplo (servidor indisponível)" banner (`App.jsx:~1461`) already discloses the data is fake — the fonte line should render `Fonte: —` in that path rather than attempting `FONTE_LABEL` on a sample payload's absent `source`, consistent with "never fabricate."
+
+### C-19 — status card único, topo de `AgenteScreen` (Surface A only) — ADDED after scope correction (see 03-CONTEXT.md D-02 revised)
+- New small summary card, placed as the FIRST element inside `AgenteScreen`'s return, BEFORE the existing `<h1>Operador IA</h1>` title block (`App.jsx:3730-3738`) — per REPORT-01/`docs/auditoria-controle-ordens-parametros.md` prioridade 3: "No topo... ANTES de qualquer controle".
+- **Visual hierarchy (Dimension 2):** This card sits ABOVE the existing hero card (`App.jsx:3761-3803`) but is deliberately LOWER visual weight than it — smaller text, no accent border, no CTA — it's a passive glanceable summary the eye passes over quickly, not a new focal point. The hero card (with its `Toggle` CTA) remains the screen's primary focal point; this new card is closer in weight to the existing descriptive `<p>` text than to the hero card.
+- **Color (Dimension 3) — corrected:** read-only status badges use `T.positive` for "on"/active states and `T.textFaint` for "off"/inactive states ONLY — **no `T.accent`** (accent stays reserved for the hero card's `Toggle` CTA and other primary actions, per the Color section's reserved-for list; these badges are passive, not actionable, so they don't compete for the same visual weight as accent-colored controls).
+- **Typography (Dimension 4):** 11px, weight 400, matching the existing small meta-text style used elsewhere on this screen (same role/size as the hero card's small labels, `App.jsx:3762`) — no new weight introduced (uses the phase's already-declared 400/700 pair; this text is 400, unbolded).
+- **Spacing (Dimension 5):** Exact reuse of the hero card's outer container padding/border-radius pattern (`App.jsx:3761`'s container styling) at a smaller scale — no new spacing values; row gap between the 3 badges follows the same `gap` value already used for badge rows elsewhere on this screen.
+- Three inline badges:
+  1. **Modo do app** — reads `ctx.operador` (canonical, per `App.jsx:7216-7218` comment — never re-derive from `data.config.appMode`). Label: "Estudo" / "Operador".
+  2. **Operador no servidor** — reads `ag.serverEnabled` (`data.agent`, already available in `AgenteScreen`, `App.jsx:3690`). Label: "Ligado" / "Desligado".
+  3. **Executar/sinalizar** — reads the SAME derived `modoEfetivo` the rest of the screen already uses (`App.jsx:3702`), not raw `ag.mode` (Modo Estudo forces "sinalizar" even if `ag.mode` is stale). Label: "Executar" / "Apenas sinalizar".
+- Each badge is a plain-text label + colored dot (no new component needed), NOT individually clickable/toggleable from this card (this is a read-only summary, not a control surface — controls stay where they already are, further down the screen).
+- One link at the end of the row: "Trocar modo →" — calls `A.go("perfil")` (existing pattern, already used twice on this same screen at `App.jsx:3752,3798`), navigating to the Perfil hub where `ModoTrabalhoCard` (`App.jsx:1825`) already lives. Does not deep-link into a sub-view (no `setPerfilView` target exists for this) — landing on the Perfil hub is enough, consistent with how the screen's existing links already behave.
+- Copywriting: three short labels, no explanatory paragraph (the explanation already exists below, in the screen's existing `<p>` description at `App.jsx:3736-3738` — this card is a glanceable summary, not a second explanation).
+- No backend change required — all 3 values already exist in `data`/`ctx` as read by this same screen today.
 
 ### C-30 — degraded-data visibility (Surface A × Surface B)
 - Three artifacts, cited individually in the Copywriting Contract: (a) consumer `TechnicalModal` fonte-line qualifier — NEW, (b) consumer `FonteDadosScreen` row — extends existing card, (c) web-admin Custos `f.degradado` — already exists, verify-only.
