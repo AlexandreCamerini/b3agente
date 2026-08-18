@@ -35,17 +35,24 @@ direto para priorizar as fases de correção seguintes (fora deste milestone).
   4. Relatório documenta se a arquitetura de gating (`plan.py`/`metering.py`) aguenta escalonamento free→pago sem reescrita estrutural, se a UI comunica com transparência a diferença entre cota física da brapi e cap comercial, e mapeia as features hoje candidatas a tier pago com esforço de ativação — sem decidir números comerciais (GATE-01..03).
   5. Relatório documenta cobertura do portal admin (`web-admin/`) contra os grupos RBAC do ADR-013, se a visibilidade operacional (kill-switch, orçamento brapi, métricas de IA) teria permitido detectar/agir mais rápido no incidente real de 2,5 dias, e a usabilidade do handoff mobile do ADR-014 (ADMIN-01..03).
   6. Todos os achados das 5 dimensões estão consolidados em um único documento (REPORT-01), classificados por severidade e dimensão, sem nenhuma sugestão de correção implementada — pronto para alimentar o roadmap de fases de correção seguintes.
-**Plans**: TBD
+**Plans**: 6 plans (5 em paralelo na wave 1, 1 de consolidação na wave 2)
 **UI hint**: yes
 
 Plans:
-- [ ] 01-01: TBD (refinado em /gsd:plan-phase 1)
+- [ ] 01-01-PLAN.md — Dimensão STORY: jornada pedagógica Estudo→Operador, verificada ao vivo contra os 8 passos (STORY-01..04) → FINDINGS-STORY.md
+- [ ] 01-02-PLAN.md — Dimensão UX: os 10 princípios obrigatórios, matriz de estados, responsivo/acessibilidade e copy (UX-01..04) → FINDINGS-UX.md
+- [ ] 01-03-PLAN.md — Dimensão CODE: mapa do `appMode`, lacunas de paridade, gate "Executar" e cobertura dos fluxos financeiros (CODE-01..04) → FINDINGS-CODE.md
+- [ ] 01-04-PLAN.md — Dimensão GATE: `plan.py`/`metering.py` frente ao escalonamento free→pago, cota brapi × cap comercial, features candidatas (GATE-01..03) → FINDINGS-GATE.md
+- [ ] 01-05-PLAN.md — Dimensão ADMIN: 10 abas × RBAC do ADR-013, replay do incidente do kill-switch, handoff mobile do ADR-014 (ADMIN-01..03) → FINDINGS-ADMIN.md
+- [ ] 01-06-PLAN.md — Consolidação: dedup entre dimensões, severidade normalizada, sumário executivo e rastreabilidade dos 19 requisitos (REPORT-01) → REPORT-01.md
 
 ## Progress
 
 **Execution Order:**
 Phase 1 (single phase, coarse granularity — review/audit deliverable)
+- Wave 1 (paralelo): 01-01, 01-02, 01-03, 01-04, 01-05
+- Wave 2 (depende de toda a wave 1): 01-06
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Auditoria Diagnóstica Consolidada | 0/TBD | Not started | - |
+| 1. Auditoria Diagnóstica Consolidada | 0/6 | Not started | - |
