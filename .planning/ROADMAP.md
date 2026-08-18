@@ -45,11 +45,11 @@ direto para priorizar as fases de correção seguintes (fora deste milestone).
 Plans:
 **Wave 1**
 
-- [ ] 01-01-PLAN.md — Dimensão STORY: jornada pedagógica Estudo→Operador, verificada ao vivo contra os 8 passos (STORY-01..04) → FINDINGS-STORY.md
-- [ ] 01-02-PLAN.md — Dimensão UX: os 10 princípios obrigatórios, matriz de estados, responsivo/acessibilidade e copy (UX-01..04) → FINDINGS-UX.md
-- [ ] 01-03-PLAN.md — Dimensão CODE: mapa do `appMode`, lacunas de paridade, gate "Executar" e cobertura dos fluxos financeiros (CODE-01..04) → FINDINGS-CODE.md
-- [ ] 01-04-PLAN.md — Dimensão GATE: `plan.py`/`metering.py` frente ao escalonamento free→pago, cota brapi × cap comercial, features candidatas (GATE-01..03) → FINDINGS-GATE.md
-- [ ] 01-05-PLAN.md — Dimensão ADMIN: 10 abas × RBAC do ADR-013, replay do incidente do kill-switch, handoff mobile do ADR-014 (ADMIN-01..03) → FINDINGS-ADMIN.md
+- [x] 01-01-PLAN.md — Dimensão STORY: jornada pedagógica Estudo→Operador, verificada ao vivo contra os 8 passos (STORY-01..04) → FINDINGS-STORY.md
+- [x] 01-02-PLAN.md — Dimensão UX: os 10 princípios obrigatórios, matriz de estados, responsivo/acessibilidade e copy (UX-01..04) → FINDINGS-UX.md
+- [x] 01-03-PLAN.md — Dimensão CODE: mapa do `appMode`, lacunas de paridade, gate "Executar" e cobertura dos fluxos financeiros (CODE-01..04) → FINDINGS-CODE.md
+- [x] 01-04-PLAN.md — Dimensão GATE: `plan.py`/`metering.py` frente ao escalonamento free→pago, cota brapi × cap comercial, features candidatas (GATE-01..03) → FINDINGS-GATE.md
+- [x] 01-05-PLAN.md — Dimensão ADMIN: 10 abas × RBAC do ADR-013, replay do incidente do kill-switch, handoff mobile do ADR-014 (ADMIN-01..03) → FINDINGS-ADMIN.md
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -65,4 +65,4 @@ Phase 1 (single phase, coarse granularity — review/audit deliverable)
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Auditoria Diagnóstica Consolidada | 0/6 | Not started | - |
+| 1. Auditoria Diagnóstica Consolidada | 5/6 | In Progress|  |
