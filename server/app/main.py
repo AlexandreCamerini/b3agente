@@ -772,7 +772,7 @@ async def admin_mobile_handoff_exchange(body: dict = Body(default={})):
 
 # FASE 8B (diagnóstico): carimbo de build do BACKEND — confirma qual código o
 # Railway está rodando (o front tem o dele em web/src/version.js).
-SERVER_BUILD_ID = "F10-20260817-06"  # fix: POLITICA-PRIVACIDADE.md movida pra dentro de server/ (404 em produção).
+SERVER_BUILD_ID = "F10-20260817-07"  # fix: POLITICA-PRIVACIDADE.md movida pra dentro de server/ (404 em produção).
 # Normalmente sincronizado pelo entregar.sh a partir de web/src/version.js; num deploy
 # SÓ de backend (sem rebuild do front) bumpamos aqui para /api/health rastrear o servidor.
 

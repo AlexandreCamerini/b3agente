@@ -118,6 +118,21 @@ function nomeDoIdToken(idToken) {
   }
 }
 
+// Mensagem por BUCKET de motivo (getNotDisplayedReason()/getSkippedReason()),
+// não um texto genérico só adivinhando "cookies de terceiros". Valores da doc
+// da GIS; qualquer coisa fora da lista cai no default.
+const MOTIVO_LEGIVEL = {
+  browser_not_supported: "Este navegador não suporta o login rápido do Google — tente o Chrome, ou use o e-mail abaixo.",
+  opt_out_or_no_session: "Você não está logado numa conta Google neste navegador — entre no Google primeiro, ou use o e-mail abaixo.",
+  secure_http_required: "Conexão insegura — recarregue a página em https e tente de novo.",
+  suppressed_by_user: "Você já dispensou o login rápido do Google antes — use o e-mail abaixo, ou limpe os dados do site para tentar de novo.",
+  unregistered_origin: "Este endereço não está autorizado no Google Cloud Console (config do app, não sua).",
+  missing_client_id: "Login Google mal configurado neste build (client id ausente).",
+  invalid_client: "Login Google mal configurado neste build (client id inválido).",
+  user_cancel: "Login cancelado.",
+  tap_outside: "Login cancelado.",
+};
+
 async function signInGoogleWeb() {
   if (!GOOGLE_WEB) {
     throw new Error("Login Google não configurado neste build (VITE_GOOGLE_WEB_CLIENT_ID).");
@@ -125,30 +140,43 @@ async function signInGoogleWeb() {
   const google = await loadGis();
   return new Promise((resolve, reject) => {
     let resolvido = false;
+    const encerra = (fn) => { if (resolvido) return; resolvido = true; clearTimeout(watchdog); fn(); };
+
+    // ACHADO AO VIVO (2026-08-17, produção): quando a notificação do prompt()
+    // não chega — reproduzido num navegador sem sessão Google nenhuma, GIS
+    // logou "Not signed in with the identity provider" e NUNCA chamou o
+    // callback de notificação — a Promise ficava presa pra sempre: botão
+    // girando, sem erro, sem explicação. O watchdog é a rede de segurança.
+    const watchdog = setTimeout(() => {
+      encerra(() => reject(new Error("O login do Google não respondeu — tente de novo ou use o e-mail abaixo.")));
+    }, 10000);
+
     google.accounts.id.initialize({
       client_id: GOOGLE_WEB,
       callback: (resp) => {
-        resolvido = true;
-        if (resp && resp.credential) resolve({ idToken: resp.credential, name: nomeDoIdToken(resp.credential) });
-        else reject(new Error("O Google não devolveu o token de identidade."));
+        encerra(() => {
+          if (resp && resp.credential) resolve({ idToken: resp.credential, name: nomeDoIdToken(resp.credential) });
+          else reject(new Error("O Google não devolveu o token de identidade."));
+        });
       },
       use_fedcm_for_prompt: true,
     });
     // prompt() em resposta a um clique é o caminho recomendado pelo Google
     // para disparar o One Tap a partir de um botão PRÓPRIO (o nosso, estilizado
     // igual ao da Apple) em vez do botão que a GIS renderizaria sozinha.
+    //
+    // Verificado ao vivo: funciona hoje, MAS o próprio GSI_LOGGER do Google
+    // avisa em runtime que isNotDisplayed()/isSkippedMoment() "may stop
+    // functioning when FedCM becomes mandatory" — a API de status pós-FedCM
+    // ainda não está documentada o bastante pra migrar com confiança.
     google.accounts.id.prompt((notification) => {
-      if (resolvido) return; // callback já resolveu/rejeitou — não sobrescreve
-      // Verificado ao vivo (2026-08-17): funciona hoje, MAS o próprio GSI_LOGGER
-      // do Google avisa em runtime que isNotDisplayed()/isSkippedMoment() "may
-      // stop functioning when FedCM becomes mandatory" — a API de status pós-
-      // FedCM ainda não está documentada o bastante pra migrar com confiança.
-      // Se um dia isso parar de disparar (bloqueio vira timeout silencioso em
-      // vez de erro), é aqui que revisitar.
-      const bloqueado = notification.isNotDisplayed?.() || notification.isSkippedMoment?.();
-      if (bloqueado) {
-        reject(new Error("O navegador bloqueou o login do Google (cookies de terceiros?) — use o e-mail abaixo."));
-      }
+      if (resolvido) return; // watchdog ou callback já encerrou — não sobrescreve
+      const naoMostrou = notification.isNotDisplayed?.();
+      const pulou = notification.isSkippedMoment?.();
+      if (!naoMostrou && !pulou) return; // segue esperando — o callback acima ainda pode vir
+      const motivo = (naoMostrou ? notification.getNotDisplayedReason?.() : notification.getSkippedReason?.()) || "unknown_reason";
+      sdbg("google (web) prompt bloqueado — motivo GIS:", motivo);
+      encerra(() => reject(new Error(MOTIVO_LEGIVEL[motivo] || ("O Google bloqueou o login (" + motivo + ") — use o e-mail abaixo."))));
     });
   });
 }

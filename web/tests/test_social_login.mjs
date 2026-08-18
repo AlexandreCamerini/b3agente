@@ -53,6 +53,24 @@ ok("usa FedCM (fim do 3rd-party-cookie prompt legado)",
   social.includes("use_fedcm_for_prompt: true"));
 ok("prompt() cancelado/bloqueado rejeita em vez de travar a Promise",
   social.includes("isNotDisplayed") && social.includes("isSkippedMoment"));
+
+// ATUALIZADO 2026-08-17 (achado ao vivo, produção): reproduzindo num
+// navegador sem sessão Google, a notificação do prompt() NUNCA chegava — GIS
+// logava "Not signed in with the identity provider" e nem o callback nem a
+// notificação disparavam. Sem watchdog, a Promise ficava presa pra sempre:
+// botão girando, sem erro. E o motivo do bloqueio (getNotDisplayedReason /
+// getSkippedReason) era descartado — só a mensagem genérica "cookies de
+// terceiros?" chegava ao usuário, sem dizer qual dos ~8 motivos reais era.
+ok("watchdog: nunca fica esperando a notificação para sempre",
+  social.includes("const watchdog = setTimeout(") && social.includes("10000"));
+ok("watchdog é limpo quando a resposta chega primeiro (não vaza timer)",
+  social.includes("clearTimeout(watchdog)"));
+ok("captura o motivo GRANULAR do bloqueio (não só true/false)",
+  social.includes("getNotDisplayedReason") && social.includes("getSkippedReason"));
+ok("mapa de mensagem por motivo (não é mais um texto genérico só)",
+  social.includes("MOTIVO_LEGIVEL") && social.includes("opt_out_or_no_session") && social.includes("browser_not_supported"));
+ok("motivo desconhecido ainda aparece na mensagem (nunca esconde o dado)",
+  social.includes('"O Google bloqueou o login (" + motivo + ")'));
 ok("nome do idToken é DECODIFICADO, nunca a fonte de confiança (servidor valida)",
   social.includes("nomeDoIdToken") && social.includes("o SERVIDOR é quem valida"));
 ok("App.jsx: gate do botão Google é diferente por plataforma (iOS precisa dos 2 client ids; web só do web)",
