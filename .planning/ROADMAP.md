@@ -110,10 +110,14 @@ silencioso.
 
   4. A suíte de teste ganha um guardião genérico que falha em qualquer
      assimetria de método entre `deviceStore` e `serverStore` não
-     documentada como intencional; os 3 guardiões dos bugs históricos de
-     `appMode` passam a travar a CLASSE do erro ("estado que muda num lugar
-     que outro não vê"), não só o sintoma exato já corrigido. [FIX-C20,
-     FIX-C19]
+     documentada como intencional (fecha a classe de erro do bug histórico
+     de paridade de stores). [FIX-C20] Um card de status único no topo de
+     "Operador IA" resume os 3 interruptores que decidem se uma ordem
+     dispara (Modo do app · Operador no servidor · Executar/sinalizar),
+     mitigando o padrão-classe "estado que muda num lugar que outro não vê"
+     por visibilidade — os outros 2 bugs históricos (blur salvando null,
+     gatilho não propagado) continuam com guardião de sintoma apenas, por
+     decisão explícita (fora do escopo desta fase). [FIX-C19]
 
   5. Uma conta com plano `'pro'` não é mais bloqueada pelos limites do plano
      gratuito — os hooks de gate (`can_add_ticker`/`can_analyze`) resolvem o
