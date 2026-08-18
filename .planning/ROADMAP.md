@@ -50,7 +50,15 @@ abertura seguinte.
      seguinte.
   5. Usuário pode cancelar uma ordem pendente a qualquer momento antes da
      execução, liberando o caixa reservado de volta ao disponível.
-**Plans**: TBD
+**Plans**: 7 plans
+Plans:
+- [ ] 02-01-PLAN.md — Motor determinístico de ordens pendentes (reserva de caixa/posição, cancelamento, execução)
+- [ ] 02-02-PLAN.md — Rotas: status público de mercado + ramo pendente em /api/buy e /api/sell + cancelamento
+- [ ] 02-03-PLAN.md — Execução automática no scheduler_loop + contadores no status do servidor
+- [ ] 02-04-PLAN.md — Cliente HTTP e os DOIS stores (paridade) + patrimônio com caixa reservado
+- [ ] 02-05-PLAN.md — Badge de status de mercado na tela de login e no Topbar
+- [ ] 02-06-PLAN.md — Modais com estado "mercado fechado", seção Pendentes e cancelamento em dois passos
+- [ ] 02-07-PLAN.md — Exercício ponta-a-ponta, suíte canônica e verificação visual (checkpoint)
 **UI hint**: yes
 
 ### Phase 3: Correção Crítico + Alto
@@ -169,7 +177,7 @@ gate.
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|-----------------|--------|-----------|
 | 1. Auditoria Diagnóstica Consolidada | v1.0 | 6/6 | Complete | 2026-08-18 |
-| 2. Realismo de Mercado | v1.1 | 0/TBD | Not started | - |
+| 2. Realismo de Mercado | v1.1 | 0/7 | Planned | - |
 | 3. Correção Crítico + Alto | v1.1 | 0/TBD | Not started | - |
 | 4. Correção Médio — Storyline & UX | v1.1 | 0/TBD | Not started | - |
 | 5. Correção Médio — Código, Gate & Admin | v1.1 | 0/TBD | Not started | - |
