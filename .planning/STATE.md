@@ -3,8 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Realismo de Mercado + Correções
 status: planning
-last_updated: "2026-08-18T20:15:03.976Z"
-last_activity: 2026-08-18
+stopped_at: Phase 2 context gathered
+last_updated: "2026-08-18T20:43:41.833Z"
+last_activity: 2026-08-18 — ROADMAP.md created for v1.1 (Phases 2-5), 34/34 requirements mapped
 progress:
   total_phases: 4
   completed_phases: 0
@@ -69,6 +70,7 @@ Recent decisions affecting current work:
   the report's "Sugestão de sequenciamento" already chains C-11→C-30,
   C-12→C-36, C-20→C-19, C-31→C-32, C-35→C-37 by technical prerequisite,
   not by product dimension.
+
 - Roadmap v1.1: the 20 Médio corrections split by cohesion, not severity
   alone — Phase 4 groups STORY+UX (user-facing: pedagogy, disclaimers,
   accessibility), Phase 5 groups CODE+GATE+ADMIN (technical: test
@@ -78,6 +80,7 @@ Recent decisions affecting current work:
   (C33/C34 touch the same call site as C31/C32 but as an independent
   parameter, not a prerequisite) that would have needlessly serialized
   work given config.json's parallelization:true.
+
 - Phase numbering continues from v1.0 (Phase 1) — v1.1 starts at Phase 2,
   no --reset-phase-numbers used.
 
@@ -100,9 +103,9 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-18T20:15:03.976Z
-Stopped at: ROADMAP.md and STATE.md written for v1.1 (Phases 2-5), REQUIREMENTS.md traceability updated
-Resume file: None
+Last session: 2026-08-18T20:43:41.822Z
+Stopped at: Phase 2 context gathered
+Resume file: .planning/phases/02-realismo-de-mercado/02-CONTEXT.md
 
 ## Operator Next Steps
 
