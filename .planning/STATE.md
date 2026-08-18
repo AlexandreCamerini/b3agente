@@ -4,12 +4,12 @@ milestone: v1.1
 milestone_name: Realismo de Mercado + Correções
 status: executing
 stopped_at: Phase 2 UI-SPEC force-approved
-last_updated: "2026-08-18T21:52:50.146Z"
-last_activity: 2026-08-18 -- Phase 2 planning complete
+last_updated: "2026-08-18T23:07:08.637Z"
+last_activity: 2026-08-18 -- Phase 3 planning complete
 progress:
   total_phases: 4
   completed_phases: 0
-  total_plans: 7
+  total_plans: 13
   completed_plans: 0
   percent: 0
 ---
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-08-18)
 Phase: 2 of 5 (Realismo de Mercado) — first phase of v1.1
 Plan: — (not yet planned)
 Status: Ready to execute
-Last activity: 2026-08-18 -- Phase 2 planning complete
+Last activity: 2026-08-18 -- Phase 3 planning complete
 
 Progress: [░░░░░░░░░░] 0% (v1.1)
 
