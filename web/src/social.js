@@ -72,9 +72,97 @@ async function signIn(provider) {
   return res;
 }
 
+// ---------------------------------------------------------------------------
+// Google no WEB/PWA (2026-08-17) — Google Identity Services (GIS), não o
+// plugin Capacitor acima (esse é nativo-only). Backend, rota e contrato de
+// `window.__borisSocial` já existiam prontos para isto desde a FASE 4; só
+// faltava QUEM registrasse a ponte no navegador.
+//
+// Apple fica de fora aqui de propósito — login web da Apple exige Services ID
+// + Return URL + verificação de domínio (peça de portal, não de código); é
+// trabalho separado, avaliado e não incluído nesta entrega.
+// ---------------------------------------------------------------------------
+const GIS_SRC = "https://accounts.google.com/gsi/client";
+let gisLoadP = null;
+
+function loadGis() {
+  if (typeof window !== "undefined" && window.google && window.google.accounts && window.google.accounts.id) {
+    return Promise.resolve(window.google);
+  }
+  if (!gisLoadP) {
+    gisLoadP = new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = GIS_SRC;
+      s.async = true;
+      s.defer = true;
+      s.onload = () => (window.google ? resolve(window.google) : reject(new Error("Google Identity Services carregou sem expor `google.accounts`.")));
+      s.onerror = () => reject(new Error("Não consegui carregar o script de login do Google."));
+      document.head.appendChild(s);
+    }).catch((e) => { gisLoadP = null; throw e; });
+  }
+  return gisLoadP;
+}
+
+// O idToken é um JWT; o SERVIDOR é quem valida assinatura/aud/exp (auth.py).
+// Decodificar o payload aqui é só para preencher `name` na primeira conta —
+// mesmo papel que o `profile` do plugin nativo já cumpre — nunca é a fonte de
+// confiança.
+function nomeDoIdToken(idToken) {
+  try {
+    const payload = idToken.split(".")[1];
+    const json = atob(payload.replace(/-/g, "+").replace(/_/g, "/"));
+    const claims = JSON.parse(decodeURIComponent(escape(json)));
+    return claims.name || [claims.given_name, claims.family_name].filter(Boolean).join(" ").trim() || null;
+  } catch {
+    return null; // best-effort — sem nome, a conta nasce sem, como já acontecia
+  }
+}
+
+async function signInGoogleWeb() {
+  if (!GOOGLE_WEB) {
+    throw new Error("Login Google não configurado neste build (VITE_GOOGLE_WEB_CLIENT_ID).");
+  }
+  const google = await loadGis();
+  return new Promise((resolve, reject) => {
+    let resolvido = false;
+    google.accounts.id.initialize({
+      client_id: GOOGLE_WEB,
+      callback: (resp) => {
+        resolvido = true;
+        if (resp && resp.credential) resolve({ idToken: resp.credential, name: nomeDoIdToken(resp.credential) });
+        else reject(new Error("O Google não devolveu o token de identidade."));
+      },
+      use_fedcm_for_prompt: true,
+    });
+    // prompt() em resposta a um clique é o caminho recomendado pelo Google
+    // para disparar o One Tap a partir de um botão PRÓPRIO (o nosso, estilizado
+    // igual ao da Apple) em vez do botão que a GIS renderizaria sozinha.
+    google.accounts.id.prompt((notification) => {
+      if (resolvido) return; // callback já resolveu/rejeitou — não sobrescreve
+      // Verificado ao vivo (2026-08-17): funciona hoje, MAS o próprio GSI_LOGGER
+      // do Google avisa em runtime que isNotDisplayed()/isSkippedMoment() "may
+      // stop functioning when FedCM becomes mandatory" — a API de status pós-
+      // FedCM ainda não está documentada o bastante pra migrar com confiança.
+      // Se um dia isso parar de disparar (bloqueio vira timeout silencioso em
+      // vez de erro), é aqui que revisitar.
+      const bloqueado = notification.isNotDisplayed?.() || notification.isSkippedMoment?.();
+      if (bloqueado) {
+        reject(new Error("O navegador bloqueou o login do Google (cookies de terceiros?) — use o e-mail abaixo."));
+      }
+    });
+  });
+}
+
 export function registerSocialBridge() {
   if (typeof window === "undefined") return false;
-  if (!Capacitor.isNativePlatform()) { sdbg("web/PWA: ponte nativa não registrada (e-mail segue como caminho)."); return false; }
+  if (!Capacitor.isNativePlatform()) {
+    if (!GOOGLE_WEB) { sdbg("web/PWA: VITE_GOOGLE_WEB_CLIENT_ID ausente — ponte não registrada."); return false; }
+    window.__borisSocial = {
+      google: () => signInGoogleWeb().catch((e) => { sdbg("google (web) FALHOU:", (e && e.message) || e); throw e; }),
+    };
+    sdbg("ponte registrada (google) via Google Identity Services — web/PWA.");
+    return true;
+  }
   window.__borisSocial = {
     apple: () => signIn("apple").catch((e) => { sdbg("apple FALHOU:", (e && e.message) || e); throw e; }),
     google: () => signIn("google").catch((e) => { sdbg("google FALHOU:", (e && e.message) || e); throw e; }),

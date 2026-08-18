@@ -36,8 +36,14 @@ ok("manifesto: nada usado para tracking",
 ok("required-reason do UserDefaults preservada (CA92.1)", priv.includes("CA92.1"));
 
 // --- B5: Google escondido sem config no nativo --------------------------------
+// ATUALIZADO 2026-08-17: virou ternário para o web também exigir o PRÓPRIO
+// client id (antes bastava `!isNative`, sem checar config nenhuma) — mas a
+// garantia que a 2.1 pede (nativo sem os 2 client ids = botão some) é a
+// MESMA; só a forma da guarda mudou. Ver test_social_login.mjs para a
+// checagem completa do ternário.
 const app = lê("..", "src", "App.jsx");
-ok("guarda googleOk definida", app.includes("const googleOk = !isNative || Boolean("));
+ok("guarda googleOk exige os 2 client ids no NATIVO",
+  app.includes("Boolean(import.meta.env?.VITE_GOOGLE_IOS_CLIENT_ID && import.meta.env?.VITE_GOOGLE_WEB_CLIENT_ID)"));
 ok("botão Google condicionado à guarda", app.includes("{googleOk && ("));
 ok("Apple continua incondicional e primeiro (4.8)",
   app.indexOf("Continuar com a Apple") > 0

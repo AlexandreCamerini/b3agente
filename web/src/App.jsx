@@ -435,13 +435,14 @@ function SocialAuthButtons({ ctx }) {
   // (VITE_GOOGLE_IOS_CLIENT_ID / VITE_GOOGLE_WEB_CLIENT_ID), o toque no botão
   // só pode terminar em erro — e botão visível que falha é rejeição de
   // revisão (2.1). Então ele SOME nesse build e volta sozinho quando o build
-  // for feito com as vars (o URL scheme entra pelo setup-ios.sh). No web o
-  // comportamento fica como era: a ponte nem registra e o aviso amigável
-  // aponta o e-mail como caminho.
-  const googleOk = !isNative || Boolean(
-    (import.meta.env && import.meta.env.VITE_GOOGLE_IOS_CLIENT_ID)
-    && (import.meta.env && import.meta.env.VITE_GOOGLE_WEB_CLIENT_ID)
-  );
+  // for feito com as vars (o URL scheme entra pelo setup-ios.sh).
+  // 2026-08-17: no web valia SEMPRE `true` aqui (a ponte nunca registrava, e
+  // o botão sempre caía no aviso). Agora que o web também loga de verdade via
+  // Google Identity Services, ele precisa do MESMO tipo de checagem — só que
+  // só de VITE_GOOGLE_WEB_CLIENT_ID (não usa client id iOS).
+  const googleOk = isNative
+    ? Boolean(import.meta.env?.VITE_GOOGLE_IOS_CLIENT_ID && import.meta.env?.VITE_GOOGLE_WEB_CLIENT_ID)
+    : Boolean(import.meta.env?.VITE_GOOGLE_WEB_CLIENT_ID);
   const go = async (provider) => {
     setNote("");
     const bridge = (typeof window !== "undefined" && window.__borisSocial) || null;

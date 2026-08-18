@@ -48,17 +48,21 @@ createRoot(document.getElementById("root")).render(
   </ErrorBoundary>
 );
 
+// FASE 4 (Bloco 2) + 2026-08-17: ponte de login social. Era importada só
+// dentro do `if` nativo — Google (via GIS) e Apple (nativo) SEMPRE existiram
+// no código, mas o web nunca chegava a chamar `registerSocialBridge()`, então
+// a ponte nunca registrava e o botão sempre caía no "chega em breve". Falha
+// de import não derruba o app (botões mantêm o aviso amigável).
+import("./social.js")
+  .then(({ registerSocialBridge }) => registerSocialBridge())
+  .catch(() => {});
+
 if (Capacitor.isNativePlatform()) {
   // Native (iOS): match the status bar to the dark theme.
   import("@capacitor/status-bar")
     .then(({ StatusBar, Style }) => {
       StatusBar.setStyle({ style: Style.Dark }).catch(() => {});
     })
-    .catch(() => {});
-  // FASE 4 (Bloco 2): ponte de login social (Apple/Google) — só no nativo;
-  // falha de import não derruba o app (botões mantêm o aviso amigável).
-  import("./social.js")
-    .then(({ registerSocialBridge }) => registerSocialBridge())
     .catch(() => {});
 } else if ("serviceWorker" in navigator) {
   // Web (desktop / mobile browser): enable the installable PWA.

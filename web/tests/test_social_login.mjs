@@ -25,8 +25,39 @@ ok("google: webClientId = client WEB (aud do idToken)", social.includes("webClie
 ok("retorno defensivo (result|direto; idToken|identityToken)", social.includes("r.idToken || r.identityToken"));
 ok("google: erro acionável quando não configurado", social.includes("VITE_GOOGLE_IOS_CLIENT_ID"));
 
-// boot: main.jsx registra a ponte no nativo sem derrubar o app
-ok("main.jsx importa social.js no caminho nativo", mainJsx.includes('import("./social.js")') && mainJsx.includes("registerSocialBridge"));
+// boot: main.jsx registra a ponte SEMPRE (nativo e web), sem derrubar o app
+// ATUALIZADO 2026-08-17: import vivia dentro do `if` nativo — Google (GIS) e
+// Apple sempre existiram no código, mas o web nunca chamava
+// `registerSocialBridge()`, então a ponte nunca registrava e o botão do
+// Google sempre caía no "chega em breve", mesmo com VITE_GOOGLE_WEB_CLIENT_ID
+// configurado. Import incondicional é a correção; import ainda dentro do
+// bloco nativo seria a REGRESSÃO que este teste passa a vigiar.
+ok("main.jsx importa social.js incondicionalmente (nativo E web)",
+  mainJsx.includes('import("./social.js")') && mainJsx.includes("registerSocialBridge"));
+ok("import de social.js está FORA do bloco `if (Capacitor.isNativePlatform())`",
+  mainJsx.indexOf('import("./social.js")') < mainJsx.indexOf("if (Capacitor.isNativePlatform())"));
+
+// ---------------------------------------------------------------------------
+// Google no WEB/PWA via Google Identity Services (2026-08-17) — Apple web
+// fica de fora de propósito (exige Services ID + Return URL + verificação de
+// domínio no portal Apple; trabalho separado, não incluído aqui).
+// ---------------------------------------------------------------------------
+ok("web registra SÓ google (Apple web não foi implementado nesta entrega)",
+  /if \(!Capacitor\.isNativePlatform\(\)\) \{[\s\S]{0,400}?window\.__borisSocial = \{\s*google:/.test(social)
+  && !/if \(!Capacitor\.isNativePlatform\(\)\) \{[\s\S]{0,400}?apple:/.test(social));
+ok("web sem VITE_GOOGLE_WEB_CLIENT_ID não registra ponte (sem botão que falha)",
+  social.includes("if (!GOOGLE_WEB) {") && social.includes("ponte não registrada"));
+ok("carrega o script oficial do Google Identity Services",
+  social.includes("https://accounts.google.com/gsi/client"));
+ok("usa FedCM (fim do 3rd-party-cookie prompt legado)",
+  social.includes("use_fedcm_for_prompt: true"));
+ok("prompt() cancelado/bloqueado rejeita em vez de travar a Promise",
+  social.includes("isNotDisplayed") && social.includes("isSkippedMoment"));
+ok("nome do idToken é DECODIFICADO, nunca a fonte de confiança (servidor valida)",
+  social.includes("nomeDoIdToken") && social.includes("o SERVIDOR é quem valida"));
+ok("App.jsx: gate do botão Google é diferente por plataforma (iOS precisa dos 2 client ids; web só do web)",
+  app.includes("isNative\n    ? Boolean(import.meta.env?.VITE_GOOGLE_IOS_CLIENT_ID")
+  && app.includes(": Boolean(import.meta.env?.VITE_GOOGLE_WEB_CLIENT_ID)"));
 
 // App.jsx: aceita string OU objeto e propaga name/authorizationCode
 ok("botões aceitam retorno string ou objeto da ponte", app.includes('typeof r === "string" ? { idToken: r }'));
