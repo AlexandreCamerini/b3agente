@@ -132,10 +132,10 @@ Plans:
 
 - [ ] 03-01-PLAN.md — Proveniência real e estado degradado no painel técnico (backend + app consumidor) [C-11, C-30]
 - [ ] 03-02-PLAN.md — Falha do provedor: erro limpo na cotação e visibilidade no painel de custos [C-12, C-36]
-- [ ] 03-03-PLAN.md — Guardiões estruturais: paridade genérica dos stores e leitura de appMode [C-20, C-19]
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
+- [ ] 03-03-PLAN.md — Guardião genérico de paridade dos stores + card de status único no topo do Operador IA [C-20, C-19]
 - [ ] 03-04-PLAN.md — Gate comercial resolve o plano real da conta e passa a ter contador único [C-31, C-32]
 
 **Wave 3** *(blocked on Wave 2 completion)*
