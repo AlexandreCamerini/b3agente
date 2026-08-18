@@ -42,10 +42,19 @@ básico" (decisão do Alex: não precisamos de precisão total)
 - **D-07 (múltiplas ordens pendentes no mesmo ticker):** Permitido, sem
   bloqueio nem substituição — cada ordem pendente é independente, processada
   na ordem em que foi criada.
-- **D-08 (onde exibir o status de mercado):** No `Topbar` (`App.jsx:707`,
-  renderizado em toda aba, já mostra patrimônio/caixa/variação do dia) — mais
-  visível que uma tela específica, e é o componente mais próximo de "o que o
-  usuário vê ao entrar no app".
+- **D-08 (onde exibir o status de mercado) — CORRIGIDO:** O pedido original
+  do Alex foi literal: "quando entra na aplicação e a página de entrada
+  mostra..." — isso é a tela de LOGIN (`WelcomeAuthScreen`, `App.jsx:611-685`),
+  ANTES de autenticar, não o Topbar pós-login. O roadmap (Success Criterion 1
+  da Phase 2) confirma: "Usuário não-logado, na tela de entrada/home, vê o
+  status real do mercado". Correção: o badge entra em `WelcomeAuthScreen`.
+  Isso exige uma rota pública/sem autenticação que exponha só
+  `pregao.is_trading_day()`+`in_market_hours()` (nenhum dado sensível — é
+  só "a B3 está aberta agora?", sem `user_id`). Verificar se já existe uma
+  rota pública equivalente antes de criar uma nova (ex.: `/api/health` já é
+  pública). TAMBÉM exibir no Topbar pós-login (`App.jsx:707`) — reforça a
+  visibilidade sem custo extra, já que os dois lugares podem consumir a
+  mesma fonte.
 - **D-09 (onde exibir ordens pendentes):** Dentro da `HistoricoScreen`
   existente (`App.jsx:3647`), seção "Pendentes" no topo, reusando o
   componente de tabela já existente — não criar tela nova.
