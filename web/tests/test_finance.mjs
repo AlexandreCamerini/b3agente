@@ -52,6 +52,54 @@ ok("markPrice 0 sem avg", markPrice({}, {}) === 0);
   ok("nulos: sem NaN", isFinite(m3.posVal) && isFinite(m3.patr) && isFinite(m3.openPnL));
 }
 
+// ---- portfolioMetrics: caixa reservado (Fase 2, MERC-02..04, D-05) ----
+{
+  // retrocompatibilidade: chamada com 3 argumentos (todos os call sites
+  // antigos) devolve EXATAMENTE os mesmos números de antes.
+  const positions = [{ t: "PETR4", qty: 100, avg: 30 }];
+  const quotes = { PETR4: { price: 33, change: 2 } };
+  const m3 = portfolioMetrics(positions, quotes, 1000);
+  ok("3 argumentos: retrocompatibilidade (patr sem reservado)", near(m3.patr, 1000 + 3300));
+}
+{
+  // conservação: caixa 10000 sem posições, patr == 10000; reservar 3000 numa
+  // ordem pendente (cash vira 7000, reservado 3000) não pode encolher o
+  // patrimônio exibido — dinheiro simulado não pode sumir da tela (D-05).
+  const antes = portfolioMetrics([], {}, 10000);
+  ok("conservação: antes da reserva, patr = caixa", near(antes.patr, 10000));
+  const depois = portfolioMetrics([], {}, 7000, 3000);
+  ok("conservação: depois da reserva, patr = caixa + reservado (dinheiro não some)", near(depois.patr, 10000));
+  ok("reservado exposto no retorno", near(depois.reservado, 3000));
+}
+{
+  // 4º argumento com posições: patr = cash + reservado + posVal
+  const positions = [{ t: "VALE3", qty: 50, avg: 60 }];
+  const quotes = { VALE3: { price: 54, change: -1 } };
+  const m = portfolioMetrics(positions, quotes, 5000, 1200);
+  // posVal = 50*54 = 2700
+  ok("4 argumentos com posições: patr = cash + reservado + posVal", near(m.patr, 5000 + 1200 + 2700));
+  ok("reservado exposto", near(m.reservado, 1200));
+}
+{
+  // reservado inválido é tratado como 0, nunca NaN/Infinity
+  for (const invalido of [undefined, null, NaN, "abc"]) {
+    const m = portfolioMetrics([], {}, 1000, invalido);
+    ok("reservado inválido (" + String(invalido) + ") vira 0", m.patr === 1000 && isFinite(m.patr) && m.reservado === 0);
+  }
+}
+{
+  // cost/openPnL/openPct/dayVal NÃO mudam com reservado — caixa reservado
+  // não é posição e não tem preço de marcação.
+  const positions = [{ t: "ITUB4", qty: 10, avg: 20 }];
+  const quotes = { ITUB4: { price: 25, change: 3 } };
+  const semReservado = portfolioMetrics(positions, quotes, 500);
+  const comReservado = portfolioMetrics(positions, quotes, 500, 2000);
+  ok("cost inalterado por reservado", near(comReservado.cost, semReservado.cost));
+  ok("openPnL inalterado por reservado", near(comReservado.openPnL, semReservado.openPnL));
+  ok("openPct inalterado por reservado", near(comReservado.openPct, semReservado.openPct));
+  ok("dayVal inalterado por reservado", near(comReservado.dayVal, semReservado.dayVal));
+}
+
 // ---- dayReturnPct ----
 ok("dayReturnPct base normal", near(dayReturnPct(1039, 39), (39 / 1000) * 100));
 ok("dayReturnPct base <= 0 → 0", dayReturnPct(0, 0) === 0);
