@@ -139,7 +139,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 03-03-PLAN.md — Guardião genérico de paridade dos stores + card de status único no topo do Operador IA [C-20, C-19]
+- [x] 03-03-PLAN.md — Guardião genérico de paridade dos stores + card de status único no topo do Operador IA [C-20, C-19]
 - [ ] 03-04-PLAN.md — Gate comercial resolve o plano real da conta e passa a ter contador único [C-31, C-32]
 
 **Wave 3** *(blocked on Wave 2 completion)*
@@ -244,6 +244,6 @@ gate.
 |-------|-----------|-----------------|--------|-----------|
 | 1. Auditoria Diagnóstica Consolidada | v1.0 | 6/6 | Complete | 2026-08-18 |
 | 2. Realismo de Mercado | v1.1 | 3/7 | In Progress|  |
-| 3. Correção Crítico + Alto | v1.1 | 2/6 | In Progress|  |
+| 3. Correção Crítico + Alto | v1.1 | 3/6 | In Progress|  |
 | 4. Correção Médio — Storyline & UX | v1.1 | 0/TBD | Not started | - |
 | 5. Correção Médio — Código, Gate & Admin | v1.1 | 0/TBD | Not started | - |
