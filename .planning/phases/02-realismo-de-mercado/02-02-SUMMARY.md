@@ -88,9 +88,9 @@ corrigido para somar o caixa reservado ao patrimônio.
 
 - `cd server && ./.venv/bin/python -m pytest -q tests/test_ordens_pendentes_rotas.py tests/test_gate_cadastro.py` — 12 passed (Task 1).
 - `cd server && ./.venv/bin/python -m pytest -q tests/test_ordens_pendentes_rotas.py tests/test_ciclo_imediato_apos_carteira.py` — 22 passed (Task 2).
-- `cd server && ./.venv/bin/python -m pytest -q tests/test_ordens_pendentes_rotas.py` — 23 passed (arquivo completo, Task 3).
-- `cd server && ./.venv/bin/python -m pytest -q tests/` (suíte backend inteira) — **1046 passed**.
-- `bash scripts/executar.sh --testes` (suíte canônica) — backend 1046 passed
+- `cd server && ./.venv/bin/python -m pytest -q tests/test_ordens_pendentes_rotas.py` — 24 passed (arquivo completo, Task 3 + 1 reforço pós-revisão: ver "Deviations").
+- `cd server && ./.venv/bin/python -m pytest -q tests/` (suíte backend inteira) — **1047 passed**.
+- `bash scripts/executar.sh --testes` (suíte canônica) — backend 1047 passed
   (verde); 67/74 arquivos `web/tests/*.mjs` OK e **7 falhando com a MESMA
   causa raiz já documentada no SUMMARY do plano 02-01**:
   `Cannot find package '@capacitor/core'` — `web/node_modules/@capacitor/*`
@@ -150,8 +150,21 @@ de sinal humano (`test_allowlist_publica_nao_cresce_sem_atualizar_este_
 teste`) atualizado de 16 para 17. Este é exatamente o cenário que o guardião
 foi desenhado para capturar — decisão consciente registrada, não bypass.
 
+### 4. [Reforço pós-revisão] Cobertura real do 401 anônimo em `/api/sell` fechado
+
+`test_sell_mercado_fechado_sem_sessao_responde_401` (Task 2) usava uma conta
+SEM posição — a checagem inicial de `pos` (`400 "Sem posicao"`) já barrava
+antes de chegar ao ramo `scope is None`, então o `assert status_code in
+(400, 401)` deixava o 401 de T-02-07 em `/api/sell` verificado só por
+inspeção de código, não por teste direto (o mesmo branch em `/api/buy` já
+tinha teste dedicado). Adicionado
+`test_sell_mercado_fechado_sem_sessao_com_posicao_no_balde_anonimo_
+responde_401`, que planta uma posição no escopo anônimo via `store.buy`
+direto e prova o 401 de fato, sem tocar a posição. Commit `ab6ca53`.
+
 Nenhum outro desvio. Sequência de commits TDD RED→GREEN seguida
-integralmente nas 3 tasks (6 commits: 3 pares RED/GREEN).
+integralmente nas 3 tasks (6 commits: 3 pares RED/GREEN), mais 1 commit de
+reforço de cobertura pós-autorrevisão.
 
 ## Known Issues (not blocking this plan)
 
@@ -190,6 +203,7 @@ lá.
 | 2 (GREEN) | `6ef4d29` | feat(02-02): ramo pendente em /api/buy e /api/sell + trava de exclusão mútua (GREEN) |
 | 3 (RED) | `93e6faf` | test(02-02): guardiões de DELETE /api/orders/pending/{id} e pet:evolucao (RED) |
 | 3 (GREEN) | `02d580b` | feat(02-02): DELETE /api/orders/pending/{id} (MERC-04) + patrimônio do Boris com caixa reservado (GREEN) |
+| reforço (pós-revisão) | `ab6ca53` | test(02-02): exercita de fato o 401 de escopo anônimo em /api/sell fechado |
 
 ## TDD Gate Compliance
 
@@ -200,10 +214,11 @@ necessário. Gate sequence íntegro nas 6 commits acima.
 
 ## Self-Check: PASSED
 
-- FOUND: server/tests/test_ordens_pendentes_rotas.py (470 linhas, mínimo pedido: 120)
+- FOUND: server/tests/test_ordens_pendentes_rotas.py (491 linhas, mínimo pedido: 120)
 - FOUND: commit 36ee497
 - FOUND: commit 341ab59
 - FOUND: commit 1154706
 - FOUND: commit 6ef4d29
 - FOUND: commit 93e6faf
 - FOUND: commit 02d580b
+- FOUND: commit ab6ca53
