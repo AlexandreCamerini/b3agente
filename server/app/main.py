@@ -1647,6 +1647,23 @@ async def sell(body: dict = Body(default={}), scope: Optional[str] = Depends(cur
     return out
 
 
+# Fase 2 (MERC-04, D-03): cancela uma ordem pendente a qualquer momento antes
+# da execução, devolvendo caixa/posição imediatamente (sem esperar o próximo
+# tick do scheduler). T-02-09 (IDOR): `pending_orders.cancelar` só enxerga a
+# lista do `user_id` recebido — não há busca cross-escopo. Um id de outra
+# conta simplesmente não aparece na lista do chamador, então vira o mesmo 404
+# de "não encontrada" — sem vazar se o id existe em outra conta.
+@app.delete("/api/orders/pending/{order_id}")
+async def cancel_pending_order(order_id: str, scope: Optional[str] = Depends(current_scope)):
+    if scope is None:
+        raise HTTPException(401, "Faça login para continuar.")
+    try:
+        pending_orders.cancelar(_conn, scope, order_id)
+    except pending_orders.OrdemNaoPendente as e:
+        raise HTTPException(404, str(e))
+    return store.public_state(_conn, user_id=scope)
+
+
 @app.put("/api/position/{ticker}")
 async def position(ticker: str, body: dict = Body(default={}), scope: Optional[str] = Depends(current_scope)):
     store.set_position(_conn, ticker.upper(), stop=body.get("stop"), alvo=body.get("alvo"), has_stop=("stop" in body), has_alvo=("alvo" in body), user_id=scope)
@@ -1902,10 +1919,20 @@ def _pet_resumo_evolucao(scope: Optional[str], intra_stored: Optional[dict], ope
     inicial. Mesma fórmula de `finance.js: equityCurve` (base = orçamento
     inicial; sem ele, o 1º snapshot). Sem quotes ao vivo, "resultado do dia"
     (que depende da variação % do pregão) fica fora — simplificação
-    deliberada desta rota custo-zero."""
+    deliberada desta rota custo-zero.
+
+    Fase 2 (02-02): soma `caixaReservado` (ordens pendentes de compra) ao
+    patrimônio — sem isto o Boris anunciaria um patrimônio MENOR que o da
+    tela no instante em que o usuário cria uma ordem pendente (o valor sai de
+    `cash` e entra em `caixaReservado`, mas continua sendo patrimônio do
+    usuário: volta ao caixa se a ordem for cancelada). Essa é exatamente a
+    classe de defeito "a tela está certa, só o Boris erra" da auditoria de
+    v1.0 — o `public_state` da tela já soma os dois (`store.py`), este
+    resumo tinha ficado para trás."""
     from . import intraday as intraday_mod
     positions = [p for p in (store.get(_conn, "positions", user_id=scope) or []) if isinstance(p, dict)]
     cash = float(store.get(_conn, "cash", user_id=scope) or 0)
+    reservado = store.caixa_reservado(_conn, user_id=scope)
     cfg = store.get(_conn, "config", user_id=scope) or {}
     budget = cfg.get("initialBudget")
     snaps = [s for s in (store.get(_conn, "equitySnapshots", user_id=scope) or [])
@@ -1916,12 +1943,15 @@ def _pet_resumo_evolucao(scope: Optional[str], intra_stored: Optional[dict], ope
         r = intraday_mod.resumo_do_ticker(intra_stored, t) if t else None
         close = r.get("close") if (r and isinstance(r.get("close"), (int, float))) else None
         pos_val += qty * (close if close is not None else avg)
-    patrimonio = cash + pos_val
+    patrimonio = cash + reservado + pos_val
     base = float(budget) if isinstance(budget, (int, float)) and budget > 0 else (
         snaps[0]["patrimonio"] if snaps else patrimonio)
     ret_acum = ((patrimonio - base) / base * 100) if base > 0 else 0.0
     fala = [_PET_NAO_FAZ,
            f"Seu patrimônio simulado agora é R$ {patrimonio:.2f} (caixa R$ {cash:.2f} + posições R$ {pos_val:.2f})."]
+    if reservado > 0:
+        fala.append(f"Desse total, R$ {reservado:.2f} está reservado para ordem(ns) pendente(s) — "
+                     "volta ao caixa se você cancelar antes da execução.")
     if snaps or (isinstance(budget, (int, float)) and budget > 0):
         fala.append(f"Desde o orçamento inicial, o retorno acumulado é de {ret_acum:+.1f}%.")
     else:
