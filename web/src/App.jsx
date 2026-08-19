@@ -3741,30 +3741,40 @@ function AgenteScreen({ ctx }) {
   };
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", gap: "2px" }}>
+      {/* C-19 (REPORT-01) · D-02 revisado (03-CONTEXT.md): card de status
+          único, PRIMEIRO elemento da tela, ANTES de qualquer controle — os
+          3 interruptores que decidem se uma ordem dispara: Modo do app,
+          Operador no servidor, Executar/sinalizar. Absorve a tira parcial
+          que vivia aqui e mostrava só 1 dos 3 (qa/audit-2026-08-07 itens
+          3+4, causa raiz registrada de "não me deixa selecionar Executar")
+          — card ÚNICO, não duas tiras. Read-only: nenhum badge altera
+          estado; a troca acontece só pelo link "Trocar modo →" (Perfil).
+          Cada badge lê a MESMA fonte canônica que o card-herói logo abaixo
+          usa — nunca contradiz o herói. */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", padding: "10px 14px", borderRadius: "10px", background: T.bgBase, border: `1px solid ${T.borderFaint}`, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "14px", flexWrap: "wrap" }}>
+          <span style={{ fontSize: "11px", fontWeight: 400, color: T.textSecondary }}>
+            Modo do app: <b style={{ color: operador ? T.positive : T.textFaint }}>{operador ? "📈 Operador" : "🎓 Estudo"}</b>
+          </span>
+          <span style={{ fontSize: "11px", fontWeight: 400, color: T.textSecondary }}>
+            Operador no servidor: <b style={{ color: (ag.serverEnabled && logged) ? T.positive : T.textFaint }}>{(ag.serverEnabled && logged) ? "Ligado" : "Desligado"}</b>
+          </span>
+          <span style={{ fontSize: "11px", fontWeight: 400, color: T.textSecondary }}>
+            Executar/sinalizar: <b style={{ color: modoEfetivo === "executar" ? T.positive : T.textFaint }}>{modoEfetivo === "executar" ? "Executar" : "Apenas sinalizar"}</b>
+          </span>
+        </div>
+        <button onClick={() => A.go("perfil")} style={{ background: "transparent", border: "none", padding: 0, color: T.accent, fontWeight: 800, fontSize: "11.5px", textDecoration: "underline", flex: "none" }}>
+          Trocar modo →
+        </button>
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: "2px", marginTop: "14px" }}>
         <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 700 }}>Operador IA</h1>
         <InfoDot onClick={A.openAbout} />
       </div>
       <p style={{ margin: "6px 0 0", color: T.textMuted, fontSize: "13px", maxWidth: "600px", lineHeight: 1.5 }}>
         Seu operador autônomo da carteira SIMULADA: monitora as posições, protege stop/alvo pelas regras que você define e registra cada decisão — no servidor, mesmo com o app fechado. Status detalhado, Diário e testes ficam em <b>Perfil → Logs & debug</b>.
       </p>
-
-      {/* qa/audit-2026-08-07 (itens 3+4): resumo do modo do app, ANTES de
-          qualquer controle desta tela. Esta tela ("Operador IA") configura os
-          PARÂMETROS do agente; quem liga o Modo Operador de verdade é OUTRO
-          interruptor (Perfil → Modo de trabalho) — a auditoria achou que
-          nada aqui deixava essa distinção clara, e foi a causa raiz de
-          "não me deixa selecionar Executar". Agora o modo aparece primeiro,
-          sempre visível, com o link direto pra trocar. */}
-      <div style={{ marginTop: "14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", padding: "10px 14px", borderRadius: "10px", background: T.bgBase, border: `1px solid ${T.borderFaint}` }}>
-        <div style={{ fontSize: "12px", color: T.textSecondary }}>
-          Modo do app: <b style={{ color: operador ? T.accent : T.textPrimary }}>{operador ? "📈 Operador" : "🎓 Estudo"}</b>
-          <span style={{ color: T.textFaint }}> — {operador ? "decisões diretas liberadas" : "só orienta, nunca decide sozinho"}</span>
-        </div>
-        <button onClick={() => A.go("perfil")} style={{ background: "transparent", border: "none", padding: 0, color: T.accent, fontWeight: 800, fontSize: "11.5px", textDecoration: "underline", flex: "none" }}>
-          Trocar →
-        </button>
-      </div>
 
       {/* qa/34 (§7 da auditoria, aprovado): CARD-HERÓI — um ESTADO dominante no
           topo (ATIVO/INATIVO · modo), o toggle como único CTA de peso. As regras
