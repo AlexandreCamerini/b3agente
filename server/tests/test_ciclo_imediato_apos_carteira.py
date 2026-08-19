@@ -25,6 +25,8 @@ import time
 import pytest
 from fastapi.testclient import TestClient
 
+from app import pregao as pregao_mod
+
 
 @pytest.fixture(autouse=True)
 def _app_main_isolado():
@@ -109,6 +111,12 @@ def test_buy_logado_dispara_ciclo_imediato(monkeypatch):
     client, main, chamadas = _cliente(monkeypatch)
     token, uid = _registrar(client, "imediato3@teste.com")
 
+    # Fase 2 (02-02): /api/buy passou a ramificar por pregao.in_market_hours()
+    # — este teste prova o disparo do ciclo IMEDIATO, que só existe no ramo
+    # "mercado aberto"; força aberto para não depender do relógio real da
+    # máquina que roda a suíte.
+    monkeypatch.setattr(pregao_mod, "in_market_hours", lambda now=None: True)
+
     async def _quote_fake(_t):
         return {"price": 10.0, "change": 0}
     monkeypatch.setattr(main.yahoo, "get_quote", _quote_fake)
@@ -126,6 +134,10 @@ def test_sell_logado_dispara_ciclo_imediato(monkeypatch):
     client, main, chamadas = _cliente(monkeypatch)
     token, uid = _registrar(client, "imediato4@teste.com")
     headers = {"authorization": f"Bearer {token}"}
+
+    # Fase 2 (02-02): mesma razão do teste de compra acima — força mercado
+    # aberto para exercitar o ramo IMEDIATO independente do relógio real.
+    monkeypatch.setattr(pregao_mod, "in_market_hours", lambda now=None: True)
 
     async def _quote_fake(_t):
         return {"price": 10.0, "change": 0}

@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import db, defaults, indicators, llm, plan, setups, store, technical_models, tickers, yahoo
+from . import db, defaults, indicators, llm, pending_orders, plan, setups, store, technical_models, tickers, yahoo
 from . import candles as candles_mod  # Objetivo 4: período de candles configurável
 from . import brapi_budget  # ADR-008: orçamento de requisições da brapi (Fase 2)
 from . import candle_cache  # Objetivo 5: cache de candles (delta + revalida último)
@@ -1544,28 +1544,66 @@ async def carteira_stopalvo(ticker: str, body: dict = Body(default={}), scope: O
 
 
 # ---- Carteira (preco do servidor = cotacao atual) ----
+# Fase 2 (MERC-02/03, D-01): fora do horário de pregão a ordem não executa ao
+# preço do momento — vira PENDENTE, com caixa/posição reservados na hora do
+# pedido (D-02/D-05/D-06), e só executa de verdade na abertura seguinte
+# (scheduler, plano 02-03). O booleano "mercado fechado" NUNCA vem do corpo
+# da requisição (T-02-10) — é sempre `pregao.in_market_hours()`, a autoridade
+# do servidor, porque é ela que decide se a ordem escapa do preço do momento.
 @app.post("/api/buy")
 async def buy(body: dict = Body(default={}), scope: Optional[str] = Depends(current_scope)):
+    from . import pregao  # import local: sem ciclo (mesmo padrão de agent.py:216)
     t = str(body.get("t", "")).upper()
     qty = int(body.get("qty") or 0)
     t = _normalize_ticker(t)
     if len(t) < 4:
         raise HTTPException(400, "Ticker invalido.")
+    # cotação continua sendo buscada mesmo com o mercado fechado: é ela que dá
+    # o precoReferencia da reserva (D-02) — sem preço não dá para reservar.
     quote = await candle_provider.get_quote(t)
     if not quote or quote.get("price") is None:
         raise HTTPException(502, "Sem cotacao para " + t)
     price = quote["price"]
-    if qty * price > store.get(_conn, "cash", user_id=scope):
-        raise HTTPException(400, "Caixa insuficiente.")
-    store.buy(_conn, t, qty, price, user_id=scope, meta=body.get("meta"))  # FASE 2 (2.4)
-    _disparar_ciclo_imediato(scope)  # 2026-08-07: reavalia na hora, não espera o próximo tick
+
+    if pregao.in_market_hours():
+        # T-02-35: caminho IMEDIATO e execução de PENDENTES (scheduler) escrevem
+        # o mesmo cash/positions da mesma conta na janela da abertura — a
+        # checagem de caixa e o débito precisam estar DENTRO da MESMA trava que
+        # pending_orders usa, senão duas escritas concorrentes reservam/gastam
+        # o mesmo caixa (lost update). A cotação (I/O de rede) já foi obtida
+        # ACIMA, fora da trava — nunca segurar um lock atravessando um await.
+        with store.ORDER_LOCK:
+            if qty * price > store.get(_conn, "cash", user_id=scope):
+                raise HTTPException(400, "Caixa insuficiente.")
+            store.buy(_conn, t, qty, price, user_id=scope, meta=body.get("meta"))  # FASE 2 (2.4)
+        _disparar_ciclo_imediato(scope)  # 2026-08-07: reavalia na hora, não espera o próximo tick
+        out = store.public_state(_conn, user_id=scope)
+        out["priceUsed"] = round(price, 2)
+        return out
+
+    # Mercado fechado: vira ordem pendente (D-01).
+    if scope is None:
+        # T-02-07: o escopo anônimo é um balde kv COMPARTILHADO entre todos os
+        # anônimos (App.jsx:669-674) — reservar caixa lá seria dinheiro de um
+        # aparecendo para outro.
+        raise HTTPException(401, "Ordens fora do horário de pregão exigem conta conectada — "
+                                  "entre para que a ordem fique guardada na sua carteira.")
+    try:
+        order = pending_orders.criar_compra(_conn, scope, t, qty, price, meta=body.get("meta"))
+    except pending_orders.CaixaInsuficiente as e:
+        raise HTTPException(400, str(e))
+    # sem _disparar_ciclo_imediato: não há posição nova para o agente avaliar ainda.
     out = store.public_state(_conn, user_id=scope)
-    out["priceUsed"] = round(price, 2)
+    out["pendente"] = True
+    out["order"] = order
+    out["priceUsed"] = None
+    out["precoReferencia"] = round(price, 2)
     return out
 
 
 @app.post("/api/sell")
 async def sell(body: dict = Body(default={}), scope: Optional[str] = Depends(current_scope)):
+    from . import pregao  # import local: sem ciclo (mesmo padrão de agent.py:216)
     t = str(body.get("t", "")).upper()
     pos = next((p for p in store.get(_conn, "positions", user_id=scope) if p["t"] == t), None)
     if not pos:
@@ -1573,11 +1611,39 @@ async def sell(body: dict = Body(default={}), scope: Optional[str] = Depends(cur
     quote = await candle_provider.get_quote(t)
     if not quote or quote.get("price") is None:
         raise HTTPException(502, "Sem cotacao para " + t)
+    price = quote["price"]
     _qty = body.get("qty")  # FASE 2 (2.4): venda parcial opcional (lotes de 100)
-    store.sell(_conn, t, quote["price"], user_id=scope, qty=int(_qty) if _qty else None)
-    _disparar_ciclo_imediato(scope)  # 2026-08-07: reavalia na hora, não espera o próximo tick
+
+    if pregao.in_market_hours():
+        # Mesma trava do caminho imediato de compra (T-02-35). A leitura de
+        # `pos` acima pode ficar fora, como estava, mas DENTRO da trava é
+        # obrigatório reler `positions` e revalidar: uma venda pendente
+        # executada no intervalo (scheduler) pode ter zerado a posição.
+        with store.ORDER_LOCK:
+            positions_atual = store.get(_conn, "positions", user_id=scope)
+            pos_atual = next((p for p in positions_atual if p["t"] == t), None)
+            if not pos_atual:
+                raise HTTPException(400, "Sem posicao em " + t)
+            store.sell(_conn, t, price, user_id=scope, qty=int(_qty) if _qty else None)
+        _disparar_ciclo_imediato(scope)  # 2026-08-07: reavalia na hora, não espera o próximo tick
+        out = store.public_state(_conn, user_id=scope)
+        out["priceUsed"] = round(price, 2)
+        return out
+
+    # Mercado fechado: vira ordem pendente (D-01), reservando a quantidade
+    # (D-06 — impede vender a mesma ação duas vezes em duas pendentes).
+    if scope is None:
+        raise HTTPException(401, "Ordens fora do horário de pregão exigem conta conectada — "
+                                  "entre para que a ordem fique guardada na sua carteira.")
+    try:
+        order = pending_orders.criar_venda(_conn, scope, t, int(_qty) if _qty else pos["qty"])
+    except pending_orders.PosicaoInsuficiente as e:
+        raise HTTPException(400, str(e))
     out = store.public_state(_conn, user_id=scope)
-    out["priceUsed"] = round(quote["price"], 2)
+    out["pendente"] = True
+    out["order"] = order
+    out["priceUsed"] = None
+    out["precoReferencia"] = round(price, 2)
     return out
 
 
