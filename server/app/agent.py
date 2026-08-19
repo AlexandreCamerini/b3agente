@@ -25,6 +25,7 @@ import asyncio
 import os
 import time
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 from . import db, store
 
@@ -209,6 +210,137 @@ def kill_switch_on() -> bool:
             pass
         _KILL_DB_CHECKED = True
     return (os.environ.get("B3_AGENT_KILL") or "").strip() in ("1", "true", "TRUE", "yes")
+
+
+def kill_switch_ligado_desde(conn) -> Optional[str]:
+    """`at` (ISO) da última transição do kill-switch para LIGADO, best-effort
+    a partir do `admin_audit_log` — ou `None` quando não há como saber.
+
+    C-37 / D-04 (03-CONTEXT.md): a ativação via rota admin
+    (`PUT /api/admin/agent/kill-switch`) grava auditoria
+    (`entity="agent_kill_switch", field="on"`); a ativação por
+    `B3_AGENT_KILL` no ambiente é lida AO VIVO por `kill_switch_on()` e NÃO
+    passa por `set_kill_switch`/`audit.record` — não deixa rastro nenhum.
+
+    `None` significa "não rastreável" (kill-switch desligado, OU ligado mas
+    sem registro de auditoria correspondente) — NUNCA "zero horas". Quem
+    chama esta função nunca deve inventar uma duração quando ela devolve
+    `None` (princípio 4 do CLAUDE.md).
+    """
+    try:
+        if not kill_switch_on():
+            return None
+        reg = db.audit_last(conn, "agent_kill_switch", "on")
+        if not reg or not reg.get("newValue"):
+            return None
+        return reg.get("at")
+    except Exception:  # noqa: BLE001 — best-effort, nunca propaga
+        return None
+
+
+# C-37 (REPORT-01): o sinal do kill-switch era 100% passivo — o heartbeat
+# continuava verde, mascarando "vivo, mas parado" como "vivo, normal" e foi
+# isso que deixou a execução automática de TODA a base parada por 2,5 dias
+# sem que ninguém notasse. `_ALERTA_KILL_LIMIAR_H` é só o limiar de TOM
+# (negativo) usado pela UI/push, não um gate de disparo — o alerta dispara
+# desde a 1ª passada dentro do pregão com o kill-switch ligado.
+_ALERTA_KILL_LIMIAR_H = 4
+_ALERTA_KILL_REPETE_S = 4 * 3600
+
+
+async def _alertar_kill_switch(conn, client=None) -> int:
+    """Hook do `scheduler_loop` (C-37): enquanto o kill-switch do agente
+    estiver ligado DENTRO do pregão, avisa ATIVAMENTE quem tem papel
+    administrativo — em vez de depender de alguém abrir o portal e notar o
+    KPI vermelho (D-04: "o admin também é um usuário, pode usar o push").
+
+    Dedupe persistido em kv (`agentKillSwitchAlerta`) — sobrevive a
+    redeploy: no máximo 1 push por episódio a cada `_ALERTA_KILL_REPETE_S`.
+    "Episódio" muda quando `desde` muda (reset do kill-switch limpa o
+    estado). Nunca consulta `push.prefs_for`: isto NÃO é uma classe de
+    aviso de mercado opt-in do usuário final, é aviso operacional para quem
+    tem papel administrativo — se o admin não tiver aparelho registrado,
+    `send_to_user` devolve `sent=0` sem levantar.
+    """
+    from . import push, rbac  # imports locais: sem ciclo de import
+
+    if not kill_switch_on():
+        try:
+            db.kv_set(conn, "agentKillSwitchAlerta", {}, user_id=None)
+        except Exception:  # noqa: BLE001 — reset é best-effort
+            pass
+        return 0
+    if not in_market_hours():
+        return 0
+
+    estado = db.kv_get(conn, "agentKillSwitchAlerta", {}, user_id=None) or {}
+    desde = kill_switch_ligado_desde(conn)
+    ultimo_aviso_ts = estado.get("ultimoAvisoTs")
+    if (estado.get("desde") == desde and isinstance(ultimo_aviso_ts, (int, float))
+            and (time.time() - ultimo_aviso_ts) < _ALERTA_KILL_REPETE_S):
+        return 0
+
+    horas = None
+    if desde is not None:
+        try:
+            agora = datetime.now(timezone.utc)
+            momento = datetime.fromisoformat(desde)
+            if momento.tzinfo is None:
+                momento = momento.replace(tzinfo=timezone.utc)
+            horas = int((agora - momento).total_seconds() // 3600)
+        except Exception:  # noqa: BLE001 — parse ruim não pode derrubar o alerta
+            horas = None
+
+    if horas is not None:
+        titulo = f"Kill-switch ligado há {horas}h em horário de pregão"
+        desde_brt = "?"
+        try:
+            momento = datetime.fromisoformat(desde)
+            if momento.tzinfo is None:
+                momento = momento.replace(tzinfo=timezone.utc)
+            desde_brt = momento.astimezone(BRT).strftime("%d/%m %H:%M")
+        except Exception:  # noqa: BLE001
+            pass
+        corpo = (f"A execução automática do Operador está parada desde {desde_brt}. "
+                 "Verifique no portal admin (aba Automação) se isso é intencional.")
+    else:
+        titulo = "Kill-switch do Operador ligado em horário de pregão"
+        corpo = ("O kill-switch do Operador está ligado, mas o horário exato não pôde ser "
+                 "determinado (ativado por variável de ambiente, sem registro de auditoria). "
+                 "Verifique no portal admin.")
+
+    enviados = 0
+    try:
+        import httpx
+
+        destinatarios = db.user_ids_with_roles(
+            conn, [rbac.ROLE_ADMIN] + [g for g in rbac.GRUPOS if "execucao_automatica.ver" in rbac.GRUPOS[g]]
+        )
+
+        async def _fan_out(cli):
+            nonlocal enviados
+            for uid in destinatarios:
+                try:
+                    r = await push.send_to_user(conn, uid, titulo, corpo, som=True, prioridade="10",
+                                                client=cli, extra={"kind": "admin_kill_switch"})
+                    if r.get("sent"):
+                        enviados += 1
+                except Exception as e:  # noqa: BLE001 — cada envio é best-effort, isolado
+                    print(f"[kill-switch-alerta] envio para {uid[:8]}… falhou: {e}")
+
+        if client is not None:
+            await _fan_out(client)
+        else:
+            async with httpx.AsyncClient(http2=True, timeout=10) as cliente:
+                await _fan_out(cliente)
+    except Exception as e:  # noqa: BLE001 — o hook inteiro nunca derruba o laço
+        print(f"[kill-switch-alerta] {e}")
+
+    try:
+        db.kv_set(conn, "agentKillSwitchAlerta", {"desde": desde, "ultimoAvisoTs": time.time()}, user_id=None)
+    except Exception:  # noqa: BLE001 — dedupe é best-effort
+        pass
+    return enviados
 
 
 def in_market_hours(now: datetime = None) -> bool:
@@ -909,6 +1041,19 @@ async def scheduler_loop(conn, quotes_getter, notify_push=None, interval_s: int 
             }, user_id=None)
         except Exception as e:  # noqa: BLE001 — heartbeat nunca derruba o laço
             print(f"[agent] heartbeat: {e}")
+        # C-37: alerta ATIVO de kill-switch ligado — pendurado AQUI, logo
+        # após o heartbeat e ANTES do primeiro portão do kill-switch mais
+        # abaixo neste laço (dentro do gate de pregão). Atrás do portão, o
+        # alerta seria silenciado exatamente pelo estado que precisa
+        # denunciar — é o mesmo erro do heartbeat que mascarou o incidente
+        # real (2,5 dias de execução automática parada sem ninguém notar).
+        # `try` PRÓPRIO, no padrão dos demais hooks deste laço: nenhuma
+        # falha do alerta pode derrubar o ciclo de stop/alvo de todos os
+        # usuários.
+        try:
+            await _alertar_kill_switch(conn)
+        except Exception as e:  # noqa: BLE001
+            print(f"[kill-switch-alerta] {e}")
         if analytics_conn is not None:
             try:
                 from . import analytics as analytics_mod  # import local: sem ciclo de import
