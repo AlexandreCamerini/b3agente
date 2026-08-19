@@ -35,6 +35,13 @@ BRT = timezone(timedelta(hours=-3))
 # passada; GET /api/agent/status expõe (fim do "não sei por que não roda").
 LAST_RUN = {"at": None, "usuarios": 0, "executadas": 0, "erro": None}
 
+# Fase 2 (MERC-02, plano 02-03): mesmo padrão de LAST_RUN, mas para a
+# execução de ordens pendentes — que varre `store.scopes_com_pendentes` (ver
+# comentário completo no bloco novo dentro de `scheduler_loop`), então
+# precisa do próprio contador (um usuário pode aparecer aqui sem nunca ter
+# ligado o Operador).
+LAST_PENDING = {"at": None, "escopos": 0, "executadas": 0, "canceladas": 0, "erro": None}
+
 # FASE 3 (Operador): observabilidade de verdade — anel com as últimas passadas
 # (duração, usuários, execuções, erros) + próxima passada + guard de
 # sobreposição de ciclo por usuário (um run-now não colide com o scheduler).
@@ -963,6 +970,75 @@ async def scheduler_loop(conn, quotes_getter, notify_push=None, interval_s: int 
                 # por cima dessa gente por contrato — mas em silêncio ela achava
                 # que estava protegida.
                 _avisar_protecao_sem_operador(conn)
+                # Fase 2 (MERC-02, plano 02-03): execução de ordens pendentes —
+                # MESMO gate do resto do bloco (kill-switch + pregão aberto).
+                # Roda ANTES do ciclo por usuário, logo abaixo, de propósito:
+                # uma ordem que acabou de executar já entra como posição
+                # avaliável pelo stop/alvo do Operador NESTA MESMA passada,
+                # não só na próxima. `try` PRÓPRIO: o comentário da linha 950
+                # explica a regra da casa — componente novo não pode derrubar
+                # o ciclo mais crítico (T-02-16).
+                try:
+                    from . import pending_orders  # import local: sem ciclo de import
+                    # Varre quem TEM ordem pendente gravada, não quem está no
+                    # Operador (a função abaixo do bloco, chamada logo mais):
+                    # ordem pendente é um pedido MANUAL do usuário,
+                    # independente do Operador estar ligado — senão quem está
+                    # em Modo Estudo ficaria com ordem presa pra sempre só por
+                    # nunca ter ligado o Operador no servidor.
+                    escopos = store.scopes_com_pendentes(conn)
+                    if escopos:
+                        # Reúne os tickers DISTINTOS de todas as ordens de
+                        # todos os escopos e pede UM lote só — orçamento da
+                        # brapi é de 15k requisições/mês pro app inteiro
+                        # (ADR-008), então a passada tem que ser O(tickers
+                        # distintos), nunca O(ordens).
+                        tickers = sorted({o["t"] for uid in escopos
+                                          for o in pending_orders.listar(conn, user_id=uid)})
+                        cotacoes = await quotes_getter(tickers) if tickers else {}
+
+                        def _price_getter(t, _c=cotacoes):
+                            # Sem rede — só LÊ do lote já buscado acima.
+                            return _c.get(t) or {"price": None}
+
+                        _executadas = 0
+                        _canceladas = 0
+                        for uid in escopos:
+                            try:
+                                eventos = await pending_orders.executar_pendentes(conn, uid, _price_getter)
+                            except Exception as e:  # noqa: BLE001 — 1 escopo não derruba os outros
+                                print(f"[pending-orders] escopo {str(uid)[:8]}…: {e}")
+                                continue
+                            for ev in eventos:
+                                _executou = ev.get("kind") == "buy"
+                                _cancelou = ev.get("tag") == "pendente-cancelada"
+                                if _executou:
+                                    _executadas += 1
+                                elif _cancelou:
+                                    _canceladas += 1
+                                # Push best-effort para execução E para
+                                # auto-cancelamento (mesmo padrão das linhas
+                                # 990-996: falha de push nunca propaga). O
+                                # filtro roda só sobre os eventos devolvidos
+                                # por `executar_pendentes` — nunca sobre o
+                                # `agentLog` inteiro, senão qualquer `warn` do
+                                # Operador viraria notificação. O `warn` de
+                                # cancelamento entra aqui de propósito: a
+                                # ordem some da seção "Pendentes" e o caixa
+                                # volta sozinho — sem push (e sem o toast do
+                                # plano 02-06) o usuário veria a ordem
+                                # evaporar sem motivo (T-02-36).
+                                if notify_push is not None and (_executou or _cancelou):
+                                    try:
+                                        await notify_push(uid, "Agente Boris+ (simulado)", ev["text"])
+                                    except Exception:  # noqa: BLE001 — push é best-effort
+                                        _registrar_push_falho()
+                        LAST_PENDING.update(at=datetime.now(BRT).strftime("%d/%m %H:%M"),
+                                            escopos=len(escopos), executadas=_executadas,
+                                            canceladas=_canceladas, erro=None)
+                except Exception as e:  # noqa: BLE001 — bloco novo não derruba o ciclo do Operador
+                    LAST_PENDING["erro"] = str(e)[:300]
+                    print(f"[pending-orders] bloco: {e}")
                 _t0 = time.monotonic()
                 _erros = []
                 LAST_RUN.update(at=datetime.now(BRT).strftime("%d/%m %H:%M"), usuarios=0, executadas=0, erro=None)
