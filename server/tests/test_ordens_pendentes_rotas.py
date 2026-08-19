@@ -371,3 +371,100 @@ def test_sell_revalida_posicao_dentro_da_trava(monkeypatch):
     r = client.post("/api/sell", json={"t": "PETR4"}, headers=headers)
     assert r.status_code == 400
     assert "PETR4" in r.json()["detail"]
+
+
+# =============================================================================
+# Task 3 — DELETE /api/orders/pending/{id} (MERC-04) + pet:evolucao
+# =============================================================================
+
+def test_delete_pendente_compra_devolve_caixa(monkeypatch):
+    client, main = _client(monkeypatch)
+    token, _uid = _registrar(client, "cancela-compra@boris.dev")
+    headers = {"authorization": f"Bearer {token}"}
+    _fechar_mercado(monkeypatch)
+    monkeypatch.setattr(main.candle_provider, "get_quote", _quote_fake_factory(price=10.0))
+    r = client.post("/api/buy", json={"t": "PETR4", "qty": 100}, headers=headers)
+    order_id = r.json()["order"]["id"]
+
+    r = client.delete(f"/api/orders/pending/{order_id}", headers=headers)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["cash"] == 10000.0
+    assert body["caixaReservado"] == 0
+    assert body["pendingOrders"] == []
+
+
+def test_delete_pendente_venda_restaura_posicao(monkeypatch):
+    client, main = _client(monkeypatch)
+    token, _uid = _registrar(client, "cancela-venda@boris.dev")
+    headers = {"authorization": f"Bearer {token}"}
+    _abrir_mercado(monkeypatch)
+    monkeypatch.setattr(main.candle_provider, "get_quote", _quote_fake_factory(price=10.0))
+    r = client.post("/api/buy", json={"t": "PETR4", "qty": 200}, headers=headers)
+    assert r.status_code == 200, r.text
+
+    _fechar_mercado(monkeypatch)
+    r = client.post("/api/sell", json={"t": "PETR4", "qty": 100}, headers=headers)
+    order_id = r.json()["order"]["id"]
+
+    r = client.delete(f"/api/orders/pending/{order_id}", headers=headers)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    pos = next(p for p in body["positions"] if p["t"] == "PETR4")
+    assert pos["qty"] == 200
+    assert pos["avg"] == 10.0
+    assert body["pendingOrders"] == []
+
+
+def test_delete_pendente_id_inexistente_responde_404(monkeypatch):
+    client, main = _client(monkeypatch)
+    token, _uid = _registrar(client, "cancela-404@boris.dev")
+    headers = {"authorization": f"Bearer {token}"}
+    r = client.delete("/api/orders/pending/po_inexistente", headers=headers)
+    assert r.status_code == 404
+    assert "detail" in r.json()
+
+
+def test_delete_pendente_sem_sessao_responde_401(monkeypatch):
+    client, _main = _client(monkeypatch)
+    r = client.delete("/api/orders/pending/po_qualquer")
+    assert r.status_code == 401
+
+
+def test_delete_pendente_de_outra_conta_responde_404_e_preserva_a_original(monkeypatch):
+    client, main = _client(monkeypatch)
+    token_a, _uid_a = _registrar(client, "conta-a@boris.dev")
+    token_b, _uid_b = _registrar(client, "conta-b@boris.dev")
+    headers_a = {"authorization": f"Bearer {token_a}"}
+    headers_b = {"authorization": f"Bearer {token_b}"}
+    _fechar_mercado(monkeypatch)
+    monkeypatch.setattr(main.candle_provider, "get_quote", _quote_fake_factory(price=10.0))
+    r = client.post("/api/buy", json={"t": "PETR4", "qty": 100}, headers=headers_a)
+    order_id = r.json()["order"]["id"]
+
+    r = client.delete(f"/api/orders/pending/{order_id}", headers=headers_b)
+    assert r.status_code == 404
+
+    estado_a = client.get("/api/state", headers=headers_a).json()
+    assert len(estado_a["pendingOrders"]) == 1
+    assert estado_a["pendingOrders"][0]["id"] == order_id
+
+
+def test_pet_evolucao_patrimonio_inclui_caixa_reservado(monkeypatch):
+    client, main = _client(monkeypatch)
+    token, _uid = _registrar(client, "pet-evolucao@boris.dev")
+    headers = {"authorization": f"Bearer {token}"}
+    antes = client.get("/api/pet/resumo", params={"tela": "evolucao"}, headers=headers)
+    assert antes.status_code == 200, antes.text
+    patrimonio_antes = antes.json()["patrimonio"]
+
+    _fechar_mercado(monkeypatch)
+    monkeypatch.setattr(main.candle_provider, "get_quote", _quote_fake_factory(price=10.0))
+    r = client.post("/api/buy", json={"t": "PETR4", "qty": 100}, headers=headers)
+    assert r.status_code == 200, r.text
+
+    depois = client.get("/api/pet/resumo", params={"tela": "evolucao"}, headers=headers)
+    assert depois.status_code == 200, depois.text
+    body = depois.json()
+    assert body["patrimonio"] == pytest.approx(patrimonio_antes)
+    assert any("reservad" in linha.lower() for linha in body["fala"])
