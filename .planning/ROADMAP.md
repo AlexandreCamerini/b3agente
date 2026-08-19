@@ -77,7 +77,7 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
-- [ ] 02-06-PLAN.md — Modais com estado "mercado fechado", seção Pendentes e cancelamento em dois passos
+- [x] 02-06-PLAN.md — Modais com estado "mercado fechado", seção Pendentes e cancelamento em dois passos
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
@@ -243,7 +243,7 @@ gate.
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|-----------------|--------|-----------|
 | 1. Auditoria Diagnóstica Consolidada | v1.0 | 6/6 | Complete | 2026-08-18 |
-| 2. Realismo de Mercado | v1.1 | 5/7 | In Progress|  |
+| 2. Realismo de Mercado | v1.1 | 6/7 | In Progress|  |
 | 3. Correção Crítico + Alto | v1.1 | 5/6 | In Progress|  |
 | 4. Correção Médio — Storyline & UX | v1.1 | 0/TBD | Not started | - |
 | 5. Correção Médio — Código, Gate & Admin | v1.1 | 0/TBD | Not started | - |
