@@ -42,7 +42,7 @@
       classe, via C-20; os outros 2 seguem só com guardião de sintoma —
       este card não substitui teste, é a mitigação de visibilidade que o
       próprio relatório aponta como pendente) (CODE) — comportamento reativo
-      entre componentes ainda pendente de verificação humana (03-HUMAN-UAT.md)
+      testado ao vivo e aprovado por Alex (03-HUMAN-UAT.md)
 - [x] **FIX-C20**: Teste genérico de paridade `deviceStore`×`serverStore` —
       falha em qualquer assimetria de método não documentada como
       intencional (CODE)
@@ -52,8 +52,9 @@
 - [x] **FIX-C32**: `can_analyze` e `metering.check` deixam de ser gates
       concorrentes na mesma requisição — lógica de contagem unificada (GATE)
 - [x] **FIX-C35**: Segundo kill-switch (`timing_watch`) ganha visibilidade e
-      toggle em runtime no portal admin (ADMIN) — fallback de permissão
-      ainda pendente de verificação humana (03-HUMAN-UAT.md)
+      toggle em runtime no portal admin (ADMIN) — fallback de permissão não
+      testável ao vivo pelo fluxo real do produto (RBAC agrupa `.ver` e
+      `.controlar`); Alex aceitou a garantia de código (03-HUMAN-UAT.md)
 - [x] **FIX-C36**: Painel de custos do admin passa a mostrar `vazios`/
       `alerta`/`taxaFalha`, não só `erros` (ADMIN)
 - [x] **FIX-C37**: Alerta de "kill-switch ligado há N horas em horário de
@@ -140,11 +141,11 @@
 | FIX-C11 | Phase 3 | Complete |
 | FIX-C30 | Phase 3 | Complete |
 | FIX-C12 | Phase 3 | Complete |
-| FIX-C19 | Phase 3 | Complete (human UAT pending) |
+| FIX-C19 | Phase 3 | Complete |
 | FIX-C20 | Phase 3 | Complete |
 | FIX-C31 | Phase 3 | Complete |
 | FIX-C32 | Phase 3 | Complete |
-| FIX-C35 | Phase 3 | Complete (human UAT pending) |
+| FIX-C35 | Phase 3 | Complete (fallback de permissão: garantia de código aceita, não testável ao vivo — ver 03-HUMAN-UAT.md) |
 | FIX-C36 | Phase 3 | Complete |
 | FIX-C37 | Phase 3 | Complete |
 | FIX-C01 | Phase 4 | Pending |
