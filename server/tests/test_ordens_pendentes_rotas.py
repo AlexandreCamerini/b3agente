@@ -253,6 +253,27 @@ def test_sell_mercado_fechado_sem_sessao_responde_401(monkeypatch):
     assert estado["pendingOrders"] == []
 
 
+def test_sell_mercado_fechado_sem_sessao_com_posicao_no_balde_anonimo_responde_401(monkeypatch):
+    """Variante da anterior que EXERCITA de verdade o ramo `scope is None`
+    de `/api/sell` (T-02-07): sem posição, a checagem inicial de `pos` já
+    barra com 400 antes de chegar lá — este teste planta uma posição no
+    escopo anônimo (`user_id=None`) diretamente pelo motor para provar que,
+    mesmo com posição disponível, o mercado fechado + sem sessão nunca cria
+    pendente no balde compartilhado."""
+    client, main = _client(monkeypatch)
+    main.store.buy(main._conn, "PETR4", 100, 10.0, user_id=None)
+    _fechar_mercado(monkeypatch)
+    monkeypatch.setattr(main.candle_provider, "get_quote", _quote_fake_factory(price=10.0))
+
+    r = client.post("/api/sell", json={"t": "PETR4"})
+    assert r.status_code == 401
+
+    estado = client.get("/api/state").json()
+    assert estado["pendingOrders"] == []
+    pos = next(p for p in estado["positions"] if p["t"] == "PETR4")
+    assert pos["qty"] == 100  # nada foi reservado/vendido
+
+
 def test_concorrencia_buy_bloqueia_enquanto_order_lock_esta_seguro(monkeypatch):
     client, main = _client(monkeypatch)
     token, uid = _registrar(client, "concorrencia-buy@boris.dev")
