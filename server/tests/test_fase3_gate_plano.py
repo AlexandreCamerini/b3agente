@@ -164,3 +164,78 @@ def test_d03_nenhum_limite_comercial_ativado():
     assert plan.PLAN_FREE["max_analyses_per_month"] is None
     assert plan.PLAN_PRO["max_watchlist"] is None
     assert plan.PLAN_PRO["max_analyses_per_month"] is None
+
+
+# ---------------------------------------------------------------------------
+# (h)-(i) C-32 — guardião ESTÁTICO: gate único, sem duplicidade escondida
+# ---------------------------------------------------------------------------
+
+def _main_source_sem_comentarios() -> str:
+    import pathlib
+    src = (pathlib.Path(__file__).resolve().parents[1] / "app" / "main.py").read_text(encoding="utf-8")
+    return "\n".join(l for l in src.splitlines() if not l.strip().startswith("#"))
+
+
+def test_plan_can_analyze_aparece_exatamente_uma_vez_no_main():
+    """Se algum dia uma rota nova copiar o padrão antigo (`plan.can_analyze`
+    direto, fora de `_gate_analise`), este guardião grita — é o mesmo bypass
+    do gate único que o T-03-15 do threat model cobre."""
+    assert _main_source_sem_comentarios().count("plan.can_analyze(") == 1
+
+
+def test_as_duas_rotas_de_analise_chamam_gate_analise():
+    # definição + /api/technical/analyze/{ticker} + /api/analyze/{ticker}
+    assert _main_source_sem_comentarios().count("_gate_analise(") >= 3
+
+
+# ---------------------------------------------------------------------------
+# (j)-(k) C-32 — gate único na ROTA real: precedência determinística
+# ---------------------------------------------------------------------------
+
+def _prepara_gate_de_analise(monkeypatch, main):
+    """Sem BYOK e com a IA gerenciada 'ligada' — só assim `_ai_apply_managed`
+    chega a chamar `metering.check` (scope logado + mcfg truthy), o que é
+    exigido pra exercitar a precedência PLANO -> METERING de verdade."""
+    monkeypatch.setattr(main.llm, "resolve_key", lambda _cfg: "")
+    monkeypatch.setattr(main.managed, "managed_config", lambda: {"provider": "openai", "model": "gpt-4o-mini"})
+
+
+def test_rota_analyze_nega_por_cota_da_metering_e_devolve_402_com_o_motivo(monkeypatch):
+    c, main = _client(monkeypatch)
+    _prepara_gate_de_analise(monkeypatch, main)
+    monkeypatch.setattr(main.metering, "check", lambda *_a, **_k: (False, "cota estourada"))
+    payload = _registra(c, "cota@teste.com")
+
+    r = c.post("/api/analyze/PETR4", json={}, headers=_auth(payload["token"]))
+    assert r.status_code == 402
+    assert r.json()["detail"] == "cota estourada"
+
+
+def test_rota_analyze_nega_por_limite_de_plano_sem_chamar_metering(monkeypatch):
+    """Prova de PRECEDÊNCIA determinística (não de dois gates correndo em
+    paralelo): quando o gate de plano nega, `metering.check` nunca roda."""
+    c, main = _client(monkeypatch)
+    _prepara_gate_de_analise(monkeypatch, main)
+    contador = {"n": 0}
+
+    def _conta_e_permite(*_a, **_k):
+        contador["n"] += 1
+        return (True, None)
+    monkeypatch.setattr(main.metering, "check", _conta_e_permite)
+    monkeypatch.setattr(main.plan, "can_analyze", lambda *_a, **_k: (False, "limite do plano free"))
+    payload = _registra(c, "limite@teste.com")
+
+    r = c.post("/api/analyze/PETR4", json={}, headers=_auth(payload["token"]))
+    assert r.status_code == 402
+    assert r.json()["detail"] == "limite do plano free"
+    assert contador["n"] == 0, "metering.check foi chamado mesmo com o gate de plano já tendo negado"
+
+
+# ---------------------------------------------------------------------------
+# (l) C-32 — o contrato de contagem escrito não pode ser apagado em silêncio
+# ---------------------------------------------------------------------------
+
+def test_plan_py_declara_por_escrito_que_metering_e_o_contador_unico():
+    import pathlib
+    src = pathlib.Path(plan.__file__).read_text(encoding="utf-8")
+    assert "metering" in src
