@@ -83,6 +83,20 @@ export const COPY = {
     // rodapé/disclaimer
     disclaimer: DISCLAIMERS.radar,
     rodape: "Ferramenta educacional — nada aqui é recomendação de investimento.",
+
+    // Fase 2 (MERC-01, D-08): status real do pregão — badge pré-login (Welcome)
+    // e pós-login (Topbar), mesma fonte (server/app/pregao.py). O fato é
+    // idêntico nos dois modos; só o tom muda — aqui o Estudo ensina que existe
+    // um horário fixo de pregão, no Operador (abaixo) o texto fica seco. Nunca
+    // inventar horário: a chave "fechado" só menciona "abre {HH:MM}" quando o
+    // chamador PASSA o horário — sem argumento, nunca compõe um horário
+    // (CLAUDE.md princípio 4).
+    mercadoAberto: "Mercado aberto",
+    mercadoFechado: (abertura) =>
+      abertura
+        ? `Mercado fechado — abre ${abertura} (a B3 só negocia em horário de pregão, em dias úteis)`
+        : "Mercado fechado",
+    mercadoIndisponivel: "Status do mercado indisponível",
   },
 
   operador: {
@@ -153,6 +167,12 @@ export const COPY = {
     // rodapé/disclaimer
     disclaimer: DISCLAIMERS.operador,
     rodape: "Mesa de decisão — a execução e o risco são seus. Nenhuma ordem é enviada à corretora.",
+
+    // Fase 2 (MERC-01, D-08): mesmo status/fonte do ramo estudo (acima), tom
+    // seco de mesa — o fato não muda entre modos, só a voz.
+    mercadoAberto: "Mercado aberto",
+    mercadoFechado: (abertura) => (abertura ? `Mercado fechado — abre ${abertura}` : "Mercado fechado"),
+    mercadoIndisponivel: "Status do mercado indisponível",
   },
 };
 
