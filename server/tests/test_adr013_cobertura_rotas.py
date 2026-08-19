@@ -24,6 +24,10 @@ _PUBLICAS_CONHECIDAS = {
     # sessão plena — a segurança está no código em si, não numa dependency
     # de rota; sem sessão prévia não há como chegar aqui com um código válido.
     ("POST", "/api/admin/mobile-handoff/exchange"),
+    # Fase 2 (02-02, MERC-01/T-02-08): status de pregão é dado PÚBLICO de
+    # calendário (aberto/fechado, horários) — nenhum user_id, nenhuma
+    # carteira. Consumida pela tela de LOGIN, antes de autenticar (D-08).
+    ("GET", "/api/market/status"),
 }
 
 
@@ -73,4 +77,4 @@ def test_allowlist_publica_nao_cresce_sem_atualizar_este_teste():
     cobre o caminho raro de uma rota nova nascer SEM dependency E já
     entrar direto na allowlist por engano: o tamanho serve de sinal humano
     de "isso cresceu, foi você que decidiu?" — não é uma trava rígida."""
-    assert len(_PUBLICAS_CONHECIDAS) == 16
+    assert len(_PUBLICAS_CONHECIDAS) == 17
