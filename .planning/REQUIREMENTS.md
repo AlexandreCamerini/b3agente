@@ -22,17 +22,17 @@
 
 ### Correção — Crítico (REPORT-01)
 
-- [ ] **FIX-C11**: Rótulo de fonte de dado no painel técnico (`TechnicalModal`)
+- [x] **FIX-C11**: Rótulo de fonte de dado no painel técnico (`TechnicalModal`)
       deixa de ser fixo/hardcoded e passa a refletir a fonte real que serviu
       o dado (UX, viola princípio 3)
-- [ ] **FIX-C30**: Estado `degradado` da cota brapi (TTL triplicado) passa a
+- [x] **FIX-C30**: Estado `degradado` da cota brapi (TTL triplicado) passa a
       ser visível a usuário e admin, não só inferível (GATE, viola princípio 3)
 
 ### Correção — Alto (REPORT-01)
 
-- [ ] **FIX-C12**: Erro de fonte de dado não vaza detalhe técnico interno —
+- [x] **FIX-C12**: Erro de fonte de dado não vaza detalhe técnico interno —
       sai como 502 limpo, não 500 cru (UX)
-- [ ] **FIX-C19**: Card de status único no topo da tela "Operador IA",
+- [x] **FIX-C19**: Card de status único no topo da tela "Operador IA",
       resumindo os 3 interruptores que decidem se uma ordem dispara (Modo
       do app · Operador no servidor · Executar/sinalizar) com estado atual
       de cada um e link direto pra trocar — mecanismo estrutural que
@@ -41,20 +41,22 @@
       (dos 3 bugs históricos, só o de paridade de stores tem cobertura de
       classe, via C-20; os outros 2 seguem só com guardião de sintoma —
       este card não substitui teste, é a mitigação de visibilidade que o
-      próprio relatório aponta como pendente) (CODE)
-- [ ] **FIX-C20**: Teste genérico de paridade `deviceStore`×`serverStore` —
+      próprio relatório aponta como pendente) (CODE) — comportamento reativo
+      entre componentes ainda pendente de verificação humana (03-HUMAN-UAT.md)
+- [x] **FIX-C20**: Teste genérico de paridade `deviceStore`×`serverStore` —
       falha em qualquer assimetria de método não documentada como
       intencional (CODE)
-- [ ] **FIX-C31**: Hooks de gate (`can_add_ticker`/`can_analyze`) passam a
+- [x] **FIX-C31**: Hooks de gate (`can_add_ticker`/`can_analyze`) passam a
       resolver o plano REAL do usuário, não o `ACTIVE_PLAN` global; código
       órfão `current_plan` é conectado ou removido (GATE)
-- [ ] **FIX-C32**: `can_analyze` e `metering.check` deixam de ser gates
+- [x] **FIX-C32**: `can_analyze` e `metering.check` deixam de ser gates
       concorrentes na mesma requisição — lógica de contagem unificada (GATE)
-- [ ] **FIX-C35**: Segundo kill-switch (`timing_watch`) ganha visibilidade e
-      toggle em runtime no portal admin (ADMIN)
-- [ ] **FIX-C36**: Painel de custos do admin passa a mostrar `vazios`/
+- [x] **FIX-C35**: Segundo kill-switch (`timing_watch`) ganha visibilidade e
+      toggle em runtime no portal admin (ADMIN) — fallback de permissão
+      ainda pendente de verificação humana (03-HUMAN-UAT.md)
+- [x] **FIX-C36**: Painel de custos do admin passa a mostrar `vazios`/
       `alerta`/`taxaFalha`, não só `erros` (ADMIN)
-- [ ] **FIX-C37**: Alerta de "kill-switch ligado há N horas em horário de
+- [x] **FIX-C37**: Alerta de "kill-switch ligado há N horas em horário de
       pregão" implementado (ADMIN)
 
 ### Correção — Médio (REPORT-01)
@@ -135,16 +137,16 @@
 | MERC-02 | Phase 2 | Complete |
 | MERC-03 | Phase 2 | Complete |
 | MERC-04 | Phase 2 | Complete |
-| FIX-C11 | Phase 3 | Pending |
-| FIX-C30 | Phase 3 | Pending |
-| FIX-C12 | Phase 3 | Pending |
-| FIX-C19 | Phase 3 | Pending |
-| FIX-C20 | Phase 3 | Pending |
-| FIX-C31 | Phase 3 | Pending |
-| FIX-C32 | Phase 3 | Pending |
-| FIX-C35 | Phase 3 | Pending |
-| FIX-C36 | Phase 3 | Pending |
-| FIX-C37 | Phase 3 | Pending |
+| FIX-C11 | Phase 3 | Complete |
+| FIX-C30 | Phase 3 | Complete |
+| FIX-C12 | Phase 3 | Complete |
+| FIX-C19 | Phase 3 | Complete (human UAT pending) |
+| FIX-C20 | Phase 3 | Complete |
+| FIX-C31 | Phase 3 | Complete |
+| FIX-C32 | Phase 3 | Complete |
+| FIX-C35 | Phase 3 | Complete (human UAT pending) |
+| FIX-C36 | Phase 3 | Complete |
+| FIX-C37 | Phase 3 | Complete |
 | FIX-C01 | Phase 4 | Pending |
 | FIX-C02 | Phase 4 | Pending |
 | FIX-C03 | Phase 4 | Pending |

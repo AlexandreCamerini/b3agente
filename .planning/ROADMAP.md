@@ -25,7 +25,7 @@ inteiras (2, 3, 4, 5) são trabalho planejado; fases decimais (2.1, 2.2)
 seriam inserções urgentes, se necessário.
 
 - [ ] **Phase 2: Realismo de Mercado** - Status real de pregão na tela de entrada e fila de execução para ordens fora de horário
-- [ ] **Phase 3: Correção Crítico + Alto** - Fecha as 2 violações de princípio (transparência de dado) e os 8 achados que já causaram incidente real ou bloqueiam decisão de negócio
+- [x] **Phase 3: Correção Crítico + Alto** - Fecha as 2 violações de princípio (transparência de dado) e os 8 achados que já causaram incidente real ou bloqueiam decisão de negócio (completed 2026-08-19)
 - [ ] **Phase 4: Correção Médio — Storyline & UX** - Fecha as lacunas pedagógicas e de experiência (STORY + UX) do REPORT-01
 - [ ] **Phase 5: Correção Médio — Código, Gate & Admin** - Fecha a dívida técnica, a ativação incompleta de gating e a observabilidade admin (CODE + GATE + ADMIN) do REPORT-01
 
@@ -148,7 +148,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 03-06-PLAN.md — Alerta ativo de "kill-switch ligado há N horas" + verificação humana da fase [C-37]
+- [x] 03-06-PLAN.md — Alerta ativo de "kill-switch ligado há N horas" + verificação humana da fase [C-37]
 
 **UI hint**: yes
 
@@ -244,6 +244,6 @@ gate.
 |-------|-----------|-----------------|--------|-----------|
 | 1. Auditoria Diagnóstica Consolidada | v1.0 | 6/6 | Complete | 2026-08-18 |
 | 2. Realismo de Mercado | v1.1 | 6/7 | In Progress|  |
-| 3. Correção Crítico + Alto | v1.1 | 5/6 | In Progress|  |
+| 3. Correção Crítico + Alto | v1.1 | 6/6 | Complete   | 2026-08-19 |
 | 4. Correção Médio — Storyline & UX | v1.1 | 0/TBD | Not started | - |
 | 5. Correção Médio — Código, Gate & Admin | v1.1 | 0/TBD | Not started | - |
