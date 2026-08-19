@@ -649,6 +649,14 @@ function WelcomeAuthScreen({ ctx, onAuthed }) {
           <p style={{ color: T.textMuted, fontSize: "12.5px", lineHeight: 1.6, margin: "16px 0 0", textAlign: "center" }}>
             Treine operações com <b>cotações reais</b> e <b>dinheiro simulado</b>, com uma <b>IA</b> que explica cada decisão. Conteúdo <b>educacional</b> — não é recomendação de investimento.
           </p>
+          {/* Fase 2 (MERC-01, D-08): status real do pregão, ANTES do login — a
+              rota é pública (nenhum user_id), então o badge só depende de
+              ctx.mercado/ctx.cp, nunca do estado da carteira (contrato desta
+              tela, comentário original acima). Secundário ao CTA "Entrar"
+              abaixo: mesmo tamanho de kicker do resto do app, sem fundo sólido. */}
+          <div style={{ display: "flex", justifyContent: "center", marginTop: "10px" }}>
+            <MarketStatusBadge mercado={ctx.mercado} cp={ctx.cp} />
+          </div>
         </div>
         {user ? (
           <>
@@ -729,7 +737,7 @@ function MarketStatusBadge({ mercado, cp }) {
   );
 }
 
-function Topbar({ patr, dia, caixa, name, onProfile, modeChip }) {
+function Topbar({ patr, dia, caixa, name, onProfile, modeChip, mercado, cp }) {
   const up = dia >= 0;
   const base = patr - dia;
   const pct = base > 0 ? (dia / base) * 100 : 0;
@@ -761,6 +769,12 @@ function Topbar({ patr, dia, caixa, name, onProfile, modeChip }) {
               {modeChip && <span style={{ color: T.textFaint, fontSize: "11px", flex: "none" }}>·</span>}
               <span style={{ fontSize: "11px", color: T.textMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</span>
             </>) : null}
+            {/* Fase 2 (MERC-01, D-08): mesmo badge da tela de login, reusando
+                o divisor "·" já usado nesta linha — não inventa separador
+                novo. Renderiza independentemente de modeChip/name (MERC-01
+                continua visível mesmo sem os dois). */}
+            {mercado && (modeChip || name) && <span style={{ color: T.textFaint, fontSize: "11px", flex: "none" }}>·</span>}
+            <MarketStatusBadge mercado={mercado} cp={cp} />
           </div>
         </div>
       </div>
@@ -1561,7 +1575,7 @@ function CapitalCurve({ ctx }) {
   const P = usePalette();
   const gid = useMemo(() => "capArea" + Math.random().toString(36).slice(2, 8), []);
   const { data, quotes } = ctx;
-  const m = portfolioMetrics(data.positions, quotes, data.cash);
+  const m = portfolioMetrics(data.positions, quotes, data.cash, data.caixaReservado || 0);
   const patr = m.patr;
   const budget = (data.config && data.config.initialBudget) || 0;
   const todayYmd = new Date().toISOString().slice(0, 10);
@@ -1661,7 +1675,7 @@ function EvolucaoScreen({ ctx }) {
     A.refreshWlScan();
     if (destaque.stage === "idle") A.loadDestaque(); // 1× por sessão — evita re-varrer o universo a cada visita
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  const m = portfolioMetrics(data.positions, quotes, data.cash);
+  const m = portfolioMetrics(data.positions, quotes, data.cash, data.caixaReservado || 0);
   const diaPct = dayReturnPct(m.patr, m.dayVal);
   const ec = equityCurve(data.equitySnapshots, (data.config || {}).initialBudget, m.patr, new Date().toISOString().slice(0, 10));
   const hoje = (() => { const d = new Date(); const p2 = (n) => String(n).padStart(2, "0"); return `${p2(d.getDate())}/${p2(d.getMonth() + 1)}/${d.getFullYear()}`; })();
@@ -3470,7 +3484,7 @@ function CarteiraScreen({ ctx }) {
   const { data, quotes, analysis, A, goMercado, cp } = ctx;   // FASE 8B (B1)
   useEffect(() => { track("portfolio_view"); }, []);   // qa/47 (Fase 2)
   const byQ = (t) => quotes[t] || {};
-  const m = portfolioMetrics(data.positions, quotes, data.cash);
+  const m = portfolioMetrics(data.positions, quotes, data.cash, data.caixaReservado || 0);
   const positionsValue = m.posVal;
   const total = m.patr;
   const cost = m.cost;
@@ -7258,7 +7272,7 @@ export default function App() {
     if (positions.length > 0 && !temCotacoes) return; // espera as cotações
     snapRanRef.current = true;
     const ymd = new Date().toISOString().slice(0, 10);
-    const m = portfolioMetrics(positions, quotes, data.cash);
+    const m = portfolioMetrics(positions, quotes, data.cash, data.caixaReservado || 0);
     store.putSnapshot({ data: ymd, patrimonio: m.patr, caixa: m.cash, posicoesValor: m.posVal })
       .then((s) => s && setData(s))
       .catch(() => { /* offline-first: silencioso */ });
@@ -7422,7 +7436,7 @@ export default function App() {
   // chips do topo
   const { patr, dia } = useMemo(() => {
     if (!data) return { patr: null, dia: 0 };
-    const m = portfolioMetrics(data.positions, quotes, data.cash);
+    const m = portfolioMetrics(data.positions, quotes, data.cash, data.caixaReservado || 0);
     return { patr: m.patr, dia: m.dayVal };
   }, [data, quotes]);
 
@@ -7445,7 +7459,7 @@ export default function App() {
     if (!data) return {};
     switch (petTela) {
       case "carteira": {
-        const m = portfolioMetrics(data.positions, quotes, data.cash);
+        const m = portfolioMetrics(data.positions, quotes, data.cash, data.caixaReservado || 0);
         return {
           posicoes: (data.positions || []).map((p) => ({ ticker: p.t, qty: p.qty, precoMedio: p.avg, stop: p.stop, alvo: p.alvo })),
           caixa: data.cash,
@@ -7455,7 +7469,7 @@ export default function App() {
         };
       }
       case "evolucao": {
-        const m = portfolioMetrics(data.positions, quotes, data.cash);
+        const m = portfolioMetrics(data.positions, quotes, data.cash, data.caixaReservado || 0);
         const diaPct = dayReturnPct(m.patr, m.dayVal);
         const hoje = new Date().toISOString().slice(0, 10);
         const ec = equityCurve(data.equitySnapshots, (data.config || {}).initialBudget, m.patr, hoje);
@@ -7562,7 +7576,7 @@ export default function App() {
           redundante de identidade, além do acento + linha de modo no Topbar). */}
       <div aria-hidden style={{ height: "3px", flex: "none", background: `linear-gradient(90deg, ${T.accent}, ${T.accentSoft})` }} />
       <Ticker items={tickerItems} live={Object.keys(quotes).length > 0} />
-      <Topbar patr={patr} dia={dia} caixa={data.cash} name={firstName} modeChip={cp.chipModo} onProfile={() => { setPerfilView("hub"); setTab("perfil"); }} />
+      <Topbar patr={patr} dia={dia} caixa={data.cash} name={firstName} modeChip={cp.chipModo} mercado={mercado} cp={cp} onProfile={() => { setPerfilView("hub"); setTab("perfil"); }} />
 
       <main ref={mainRef} style={{ position: "relative", flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
         {pullY > 0 && (

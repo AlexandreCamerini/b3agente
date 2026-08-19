@@ -87,5 +87,34 @@ ok("cleanup remove os listeners e o intervalo (removeEventListener + clearInterv
 ok("diagnóstico do Operador continua lendo srv.pregaoAberto (dado diferente de ctx.mercado)",
   app.includes("srv.pregaoAberto"));
 
+// ---- Task 3: render pré/pós-login + portfolioMetrics com caixa reservado ---
+const welcomeSrc = funcBody("WelcomeAuthScreen");
+ok("WelcomeAuthScreen contém MarketStatusBadge", welcomeSrc.includes("<MarketStatusBadge"));
+ok("WelcomeAuthScreen NÃO passou a referenciar ctx.data (contrato self-contained/undefined-safe)",
+  !welcomeSrc.includes("ctx.data"));
+ok("badge da tela de login usa ctx.mercado/ctx.cp (mesmo canal de sempre, sem sessão)",
+  /<MarketStatusBadge\s+mercado=\{ctx\.mercado\}\s+cp=\{ctx\.cp\}/.test(welcomeSrc));
+
+const topbarSrc = funcBody("Topbar");
+ok("Topbar contém MarketStatusBadge", topbarSrc.includes("<MarketStatusBadge"));
+ok("Topbar aceita mercado/cp como props", /function Topbar\(\{[^}]*\bmercado\b[^}]*\bcp\b[^}]*\}\)/.test(app));
+
+const chamadasPM = app.match(/portfolioMetrics\(([^)]*)\)/g) || [];
+ok("existem as 7 chamadas de portfolioMetrics( esperadas", chamadasPM.length === 7);
+ok("nenhuma chamada de portfolioMetrics( ficou com só 3 argumentos",
+  chamadasPM.every((call) => call.split(",").length >= 4));
+ok("as 7 chamadas de portfolioMetrics( passam data.caixaReservado (ou equivalente undefined-safe)",
+  chamadasPM.filter((c) => c.includes("caixaReservado")).length === 7);
+
+// caso numérico sobre a função PURA (não sobre o DOM): caixa reservado > 0
+// não faz o patrimônio cair — mesma prova que o guardião de 02-04 já faz em
+// finance.js, reforçada aqui do ponto de vista da UI que agora a alimenta.
+{
+  const semReserva = portfolioMetrics([{ t: "PETR4", qty: 100, avg: 30 }], { PETR4: { price: 30 } }, 1000, 0);
+  const comReserva = portfolioMetrics([{ t: "PETR4", qty: 100, avg: 30 }], { PETR4: { price: 30 } }, 700, 300);
+  ok("criar uma ordem pendente (cash -300, reservado +300) não faz o patrimônio da Topbar cair",
+    semReserva.patr === comReserva.patr);
+}
+
 console.log(fails ? `\n${fails} falha(s)` : "\ntodos os testes passaram");
 process.exit(fails ? 1 : 0);
