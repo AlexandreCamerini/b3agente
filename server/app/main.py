@@ -31,6 +31,7 @@ from . import options_provider_yahoo  # v2: cotação de contratos (ADR-003/004/
 from . import technical_snapshot  # FASE 1 (STU): fonte única de N1/N2/N3
 from . import model_catalog  # qa/49: catálogo de modelos por provedor + parâmetros aceitos
 from . import agent as agent_mod  # FASE 3: agente autônomo server-side
+from . import timing_watch  # FASE 3 (C-35): 2º kill-switch — push do gatilho
 from . import siwa  # FASE 4 (Bloco 2): Sign in with Apple — exchange + revoke
 from . import push  # FASE 3.3b: APNs (no-op sem configuração)
 from . import obslog  # FASE 5: observabilidade (log estruturado + ring buffer)
@@ -59,6 +60,10 @@ brapi_budget.configure_db(_conn)
 # padrão memória→DB→env da brapi acima — sem isto o toggle admin nunca
 # checaria o SQLite.
 agent_mod.configure_db(_conn)
+# C-35 (REPORT-01): o 2º kill-switch (push do gatilho) ganha o MESMO override
+# em runtime — sem isto o toggle admin nunca checaria o SQLite, igual ao caso
+# do agente acima.
+timing_watch.configure_db(_conn)
 app.include_router(options_router)
 
 
@@ -711,6 +716,25 @@ async def admin_kill_switch_put(body: dict = Body(default={}), user: dict = Depe
     agent_mod.set_kill_switch(novo, actor=user["id"])
     if anterior != novo:
         audit.record(_conn, user["id"], "agent_kill_switch", None, "on", anterior, novo)
+    return {"on": novo}
+
+
+# C-35 (REPORT-01): par de rotas irmão do kill-switch do agente acima —
+# adjacência deliberada (os dois interruptores lidos juntos). MESMAS
+# permissões (`execucao_automatica.ver`/`.controlar`) — nenhuma permissão
+# nova é criada; o 2º interruptor entra no grupo que já existia.
+@app.get("/api/admin/timing-watch/kill-switch")
+async def admin_timing_watch_kill_switch_get(user: dict = Depends(require_permission("execucao_automatica.ver"))):
+    return {"on": timing_watch.kill_switch_on()}
+
+
+@app.put("/api/admin/timing-watch/kill-switch")
+async def admin_timing_watch_kill_switch_put(body: dict = Body(default={}), user: dict = Depends(require_permission("execucao_automatica.controlar"))):
+    anterior = timing_watch.kill_switch_on()
+    novo = bool((body or {}).get("on"))
+    timing_watch.set_kill_switch(novo, actor=user["id"])
+    if anterior != novo:
+        audit.record(_conn, user["id"], "timing_watch_kill_switch", None, "on", anterior, novo)
     return {"on": novo}
 
 
@@ -2356,6 +2380,11 @@ async def agent_status(scope: Optional[str] = Depends(current_scope)):
                   "topic": os.environ.get("APNS_TOPIC") or None,
                   "sandbox": os.environ.get("APNS_SANDBOX") == "1",
                   "meusAparelhos": len(push.tokens_for(_conn, scope)) if scope else 0}
+    # C-35 (REPORT-01): estado do 2º kill-switch (push do gatilho) exposto AQUI
+    # (não dentro de agent.status_snapshot() — o snapshot é do agente; o push
+    # do gatilho é outro subsistema, misturar os dois criaria acoplamento que
+    # a rota não precisa).
+    st["timingWatchKillSwitch"] = timing_watch.kill_switch_on()
     return st
 
 
