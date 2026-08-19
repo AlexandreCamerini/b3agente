@@ -24,8 +24,14 @@ ok("a tira \"Modo do app\" existe em AgenteScreen, ANTES do card OPERADOR NO SER
    && screen.indexOf("Modo do app:") < screen.indexOf("OPERADOR NO SERVIDOR"));
 ok("mostra qual dos dois modos está ativo (Operador × Estudo), não um rótulo fixo",
    /\{operador \? "📈 Operador" : "🎓 Estudo"\}/.test(screen));
+// 2026-08-18 (fase 3, C-19/REPORT-01): a tira virou um card de 3 badges
+// (Modo do app · Operador no servidor · Executar/sinalizar) — os 2 badges
+// novos entre "Modo do app:" e o link empurraram a distância pra ~740
+// caracteres. Janela alargada pra 800 preservando a INTENÇÃO da asserção
+// (o link pro Perfil continua junto do bloco de status); assinatura não
+// muda, nenhuma asserção foi removida.
 ok("tem o link direto pra Perfil (mesmo destino do link de dentro dos cards)",
-   /Modo do app:[\s\S]{0,400}A\.go\("perfil"\)/.test(screen));
+   /Modo do app:[\s\S]{0,800}A\.go\("perfil"\)/.test(screen));
 ok("a tira aparece SEMPRE (não só quando desabilitado) — diferente dos avisos condicionais abaixo",
    !/\{!operador && \(\s*\n\s*<div style=\{\{ marginTop: "14px", display: "flex".*Modo do app/.test(screen));
 
