@@ -360,9 +360,14 @@ function AboutModal({ onClose }) {
         <p style={{ color: T.textSecondary, fontSize: "13.5px", lineHeight: 1.6, margin: "0 0 12px" }}>{DISCLAIMERS.appBanner}</p>
         <p style={{ color: T.textMuted, fontSize: "13px", lineHeight: 1.6, margin: "0 0 12px" }}>{DISCLAIMERS.aiContent}</p>
         <p style={{ color: T.textMuted, fontSize: "13px", lineHeight: 1.6, margin: "0 0 18px" }}>
-          As cotações vêm do Yahoo Finance e podem atrasar ou conter imprecisões. Stop, alvo e
-          recomendações são exercícios didáticos calculados a partir do seu perfil e de dados
-          passados — desempenho passado não garante resultado futuro.
+          {/* C-11 (REPORT-01): mesma classe de violação do princípio 3 do CLAUDE.md
+              (proveniência), corrigida por completude — brapi é a fonte MASTER
+              (ADR-008), Yahoo é backup/intraday; a string fixa antiga citava só o
+              backup como se fosse a única fonte. */}
+          As cotações vêm da brapi (fonte principal) e do Yahoo (backup) e podem atrasar
+          ou conter imprecisões. Stop, alvo e recomendações são exercícios didáticos
+          calculados a partir do seu perfil e de dados passados — desempenho passado não
+          garante resultado futuro.
         </p>
         <button onClick={onClose} style={{ width: "100%", padding: "12px", borderRadius: "10px", border: `1px solid ${T.accent}`, background: T.accentTint, color: T.accent, fontWeight: 800, fontSize: "14px" }}>Entendi</button>
       </div>
@@ -1508,8 +1513,15 @@ function TechnicalModal({ ticker, name, quote, position, onClose, period }) {
               <IndCell label="BOLLINGER INF." value={sm.bbLower} />
             </div>
 
+            {/* C-11/C-30 (REPORT-01): a fonte era uma string fixa incorreta (sempre
+                dizia ser o provedor backup, nunca a brapi), proveniência ativamente
+                falsa quando o dado vinha da brapi. Agora lê data.source de verdade
+                (ausência declarada com "—", nunca um palpite) e avisa quando o
+                orçamento brapi está degradado (dado mais velho). */}
             <div style={{ fontSize: "10.5px", color: T.textFaint, marginTop: "14px", lineHeight: 1.5 }}>
-              Fonte: Yahoo Finance{data.at && data.at !== "exemplo" ? " · " + data.at : ""}. Conteúdo educacional — não é recomendação de investimento.
+              Fonte: {data.source ? FONTE_LABEL(data.source) : "—"}{data.at && data.at !== "exemplo" ? " · " + data.at : ""}
+              {data.degradado && <span style={{ color: T.warn }}> · dado pode estar mais desatualizado que o habitual</span>}
+              . Conteúdo educacional — não é recomendação de investimento.
             </div>
           </>
         )}
@@ -5331,6 +5343,11 @@ function FonteDadosScreen({ ctx }) {
             <div style={{ display: "flex", flexWrap: "wrap", gap: "5px 14px", color: T.textFaint, fontSize: "10.5px", fontFamily: MONO }}>
               <span>orçamento brapi: {orc.total}/{orc.tetoDia} hoje · cota {orc.cotaMes}/mês</span>
               <span>intervalo do spot: {orc.spotIntervaloS}s</span>
+              {/* C-30 (REPORT-01): estado degradado (TTL 3x) do spot era invisível —
+                  espelha o idioma condicional já usado em candles.alerta acima. */}
+              <span style={orc.fatias && orc.fatias.spot && orc.fatias.spot.degradado ? { color: T.warn } : undefined}>
+                estado do orçamento: {orc.fatias && orc.fatias.spot && orc.fatias.spot.degradado ? "degradado (TTL 3×)" : "normal"}
+              </span>
               {proj && (
                 <span style={proj.cabeNaCota === false ? { color: T.negative } : undefined}>
                   projeção do mês: {proj.chamadasMes}/{proj.cotaMes} ({proj.percentualDaCota}%){proj.cabeNaCota === false ? " · NÃO CABE" : ""}
@@ -6100,7 +6117,10 @@ function CatalogModal({ ctx }) {
         </div>
 
         <div style={{ padding: "12px 18px", borderBottom: `1px solid ${T.borderSubtle}` }}>
-          <div style={{ fontSize: "11.5px", color: T.textMuted, marginBottom: "7px" }}>Adicionar outro ativo da B3 — digite o código; a existência é confirmada no Yahoo Finance.</div>
+          {/* C-11 (REPORT-01): mesma correção de proveniência — validate_outcome
+              consulta candle_provider.get_quote, que hoje é brapi primeiro, Yahoo
+              como backup (ADR-008), não mais só Yahoo. */}
+          <div style={{ fontSize: "11.5px", color: T.textMuted, marginBottom: "7px" }}>Adicionar outro ativo da B3 — digite o código; a existência é confirmada no provedor de cotações (brapi/Yahoo).</div>
           <div style={{ display: "flex", gap: "8px" }}>
             <input
               value={tk}

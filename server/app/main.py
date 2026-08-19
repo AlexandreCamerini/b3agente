@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import db, defaults, indicators, llm, plan, setups, store, technical_models, tickers, yahoo
+from . import db, defaults, indicators, llm, pending_orders, plan, setups, store, technical_models, tickers, yahoo
 from . import candles as candles_mod  # Objetivo 4: período de candles configurável
 from . import brapi_budget  # ADR-008: orçamento de requisições da brapi (Fase 2)
 from . import candle_cache  # Objetivo 5: cache de candles (delta + revalida último)
@@ -292,11 +292,15 @@ async def auth_logout(authorization: Optional[str] = Header(default=None)):
 # web_dist/ios_dist: existe no código, só liga quando configurado).
 #
 # Allowlist por PREFIXO (não por rota individual, então uma rota de auth nova
-# amanhã já nasce acessível): /api/auth/* (senão ninguém consegue logar) e
-# /api/health (monitoramento não é dado de usuário).
+# amanhã já nasce acessível): /api/auth/* (senão ninguém consegue logar),
+# /api/health (monitoramento não é dado de usuário) e /api/market (Fase 2,
+# MERC-01/D-08): status de pregão é dado PÚBLICO de calendário da B3 — sem
+# isto a tela de LOGIN no domínio gated não conseguiria mostrar o badge de
+# mercado aberto/fechado, e o gate devolveria 401 justamente na tela que ele
+# existe para empurrar o usuário a usar.
 # ===========================================================================
 _GATED_HOSTS = {h.strip().lower() for h in (os.environ.get("B3_GATED_HOSTS") or "").split(",") if h.strip()}
-_GATE_ALLOWLIST_PREFIXES = ("/api/auth/", "/api/health")
+_GATE_ALLOWLIST_PREFIXES = ("/api/auth/", "/api/health", "/api/market")
 
 
 def _has_valid_session(request: Request) -> bool:
@@ -783,6 +787,28 @@ async def health(scope: Optional[str] = Depends(current_scope)):
     return {"ok": True, "build": SERVER_BUILD_ID}
 
 
+# Fase 2 (MERC-01/D-08): status real do pregão, consumido pela tela de LOGIN
+# ANTES de autenticar — por isso é PÚBLICA de propósito, sem
+# `Depends(current_scope)`/`require_user` e sem NENHUM parâmetro de sessão
+# (essa ausência é a própria mitigação de T-02-08: a rota não pode nem
+# acidentalmente ler estado de usuário). É segura porque devolve só um
+# booleano de calendário público — nenhum `user_id`, nada de carteira —
+# calculado inteiramente por `pregao.py` (fonte única), nunca recalculado
+# aqui.
+@app.get("/api/market/status")
+async def market_status():
+    from . import pregao  # import local: sem ciclo (mesmo padrão de agent.py:216)
+    agora = datetime.now(pregao.BRT)
+    return {
+        "aberto": pregao.in_market_hours(),
+        "diaDePregao": pregao.is_trading_day(agora.date()),
+        "abertura": "%02d:%02d" % pregao.ABERTURA,
+        "fechamento": "%02d:%02d" % pregao.FECHAMENTO,
+        "agoraBRT": agora.strftime("%d/%m %H:%M"),
+        "afterMarket": pregao.after_market_ligado(),
+    }
+
+
 @app.get("/api/state")
 async def get_state(scope: Optional[str] = Depends(current_scope)):
     return store.public_state(_conn, user_id=scope)
@@ -968,6 +994,20 @@ async def _options_status_for_llm(t: str) -> dict:
             "reason": str(e) or "O yfinance não retornou cadeia de opções para este ativo.",
         }
 
+def _degradado_spot() -> bool:
+    """C-30 (REPORT-01): indicador de orçamento nunca pode derrubar o painel
+    técnico. Devolve False quando o provedor vigente não é brapi (não existe
+    orçamento brapi para degradar) ou quando o cálculo falha por qualquer
+    motivo — principio 4 do CLAUDE.md exige mostrar o estado correto, e
+    "não sei" aqui é False, nunca uma invenção."""
+    try:
+        if candle_provider.provider_name() != "brapi":
+            return False
+        return bool(brapi_budget.degradado("spot"))
+    except Exception:  # noqa: BLE001
+        return False
+
+
 @app.get("/api/technicals/{ticker}")
 async def technicals(ticker: str, period: Optional[str] = None, scope: Optional[str] = Depends(current_scope)):
     t = _normalize_ticker(ticker)
@@ -992,6 +1032,12 @@ async def technicals(ticker: str, period: Optional[str] = None, scope: Optional[
         "snapshotId": snap["snapshotId"],
         "snapshotAt": snap["asOf"],
         "at": now_str(),
+        # C-11/C-30 (REPORT-01): proveniência real do dado + estado do
+        # orçamento brapi (TTL 3x quando degradado), para o painel técnico
+        # nunca mais afirmar uma fonte fixa incorreta nem esconder dado mais
+        # velho que o habitual.
+        "source": snap.get("source"),
+        "degradado": _degradado_spot(),
     }
     return payload
 
@@ -1498,28 +1544,66 @@ async def carteira_stopalvo(ticker: str, body: dict = Body(default={}), scope: O
 
 
 # ---- Carteira (preco do servidor = cotacao atual) ----
+# Fase 2 (MERC-02/03, D-01): fora do horário de pregão a ordem não executa ao
+# preço do momento — vira PENDENTE, com caixa/posição reservados na hora do
+# pedido (D-02/D-05/D-06), e só executa de verdade na abertura seguinte
+# (scheduler, plano 02-03). O booleano "mercado fechado" NUNCA vem do corpo
+# da requisição (T-02-10) — é sempre `pregao.in_market_hours()`, a autoridade
+# do servidor, porque é ela que decide se a ordem escapa do preço do momento.
 @app.post("/api/buy")
 async def buy(body: dict = Body(default={}), scope: Optional[str] = Depends(current_scope)):
+    from . import pregao  # import local: sem ciclo (mesmo padrão de agent.py:216)
     t = str(body.get("t", "")).upper()
     qty = int(body.get("qty") or 0)
     t = _normalize_ticker(t)
     if len(t) < 4:
         raise HTTPException(400, "Ticker invalido.")
+    # cotação continua sendo buscada mesmo com o mercado fechado: é ela que dá
+    # o precoReferencia da reserva (D-02) — sem preço não dá para reservar.
     quote = await candle_provider.get_quote(t)
     if not quote or quote.get("price") is None:
         raise HTTPException(502, "Sem cotacao para " + t)
     price = quote["price"]
-    if qty * price > store.get(_conn, "cash", user_id=scope):
-        raise HTTPException(400, "Caixa insuficiente.")
-    store.buy(_conn, t, qty, price, user_id=scope, meta=body.get("meta"))  # FASE 2 (2.4)
-    _disparar_ciclo_imediato(scope)  # 2026-08-07: reavalia na hora, não espera o próximo tick
+
+    if pregao.in_market_hours():
+        # T-02-35: caminho IMEDIATO e execução de PENDENTES (scheduler) escrevem
+        # o mesmo cash/positions da mesma conta na janela da abertura — a
+        # checagem de caixa e o débito precisam estar DENTRO da MESMA trava que
+        # pending_orders usa, senão duas escritas concorrentes reservam/gastam
+        # o mesmo caixa (lost update). A cotação (I/O de rede) já foi obtida
+        # ACIMA, fora da trava — nunca segurar um lock atravessando um await.
+        with store.ORDER_LOCK:
+            if qty * price > store.get(_conn, "cash", user_id=scope):
+                raise HTTPException(400, "Caixa insuficiente.")
+            store.buy(_conn, t, qty, price, user_id=scope, meta=body.get("meta"))  # FASE 2 (2.4)
+        _disparar_ciclo_imediato(scope)  # 2026-08-07: reavalia na hora, não espera o próximo tick
+        out = store.public_state(_conn, user_id=scope)
+        out["priceUsed"] = round(price, 2)
+        return out
+
+    # Mercado fechado: vira ordem pendente (D-01).
+    if scope is None:
+        # T-02-07: o escopo anônimo é um balde kv COMPARTILHADO entre todos os
+        # anônimos (App.jsx:669-674) — reservar caixa lá seria dinheiro de um
+        # aparecendo para outro.
+        raise HTTPException(401, "Ordens fora do horário de pregão exigem conta conectada — "
+                                  "entre para que a ordem fique guardada na sua carteira.")
+    try:
+        order = pending_orders.criar_compra(_conn, scope, t, qty, price, meta=body.get("meta"))
+    except pending_orders.CaixaInsuficiente as e:
+        raise HTTPException(400, str(e))
+    # sem _disparar_ciclo_imediato: não há posição nova para o agente avaliar ainda.
     out = store.public_state(_conn, user_id=scope)
-    out["priceUsed"] = round(price, 2)
+    out["pendente"] = True
+    out["order"] = order
+    out["priceUsed"] = None
+    out["precoReferencia"] = round(price, 2)
     return out
 
 
 @app.post("/api/sell")
 async def sell(body: dict = Body(default={}), scope: Optional[str] = Depends(current_scope)):
+    from . import pregao  # import local: sem ciclo (mesmo padrão de agent.py:216)
     t = str(body.get("t", "")).upper()
     pos = next((p for p in store.get(_conn, "positions", user_id=scope) if p["t"] == t), None)
     if not pos:
@@ -1527,12 +1611,57 @@ async def sell(body: dict = Body(default={}), scope: Optional[str] = Depends(cur
     quote = await candle_provider.get_quote(t)
     if not quote or quote.get("price") is None:
         raise HTTPException(502, "Sem cotacao para " + t)
+    price = quote["price"]
     _qty = body.get("qty")  # FASE 2 (2.4): venda parcial opcional (lotes de 100)
-    store.sell(_conn, t, quote["price"], user_id=scope, qty=int(_qty) if _qty else None)
-    _disparar_ciclo_imediato(scope)  # 2026-08-07: reavalia na hora, não espera o próximo tick
+
+    if pregao.in_market_hours():
+        # Mesma trava do caminho imediato de compra (T-02-35). A leitura de
+        # `pos` acima pode ficar fora, como estava, mas DENTRO da trava é
+        # obrigatório reler `positions` e revalidar: uma venda pendente
+        # executada no intervalo (scheduler) pode ter zerado a posição.
+        with store.ORDER_LOCK:
+            positions_atual = store.get(_conn, "positions", user_id=scope)
+            pos_atual = next((p for p in positions_atual if p["t"] == t), None)
+            if not pos_atual:
+                raise HTTPException(400, "Sem posicao em " + t)
+            store.sell(_conn, t, price, user_id=scope, qty=int(_qty) if _qty else None)
+        _disparar_ciclo_imediato(scope)  # 2026-08-07: reavalia na hora, não espera o próximo tick
+        out = store.public_state(_conn, user_id=scope)
+        out["priceUsed"] = round(price, 2)
+        return out
+
+    # Mercado fechado: vira ordem pendente (D-01), reservando a quantidade
+    # (D-06 — impede vender a mesma ação duas vezes em duas pendentes).
+    if scope is None:
+        raise HTTPException(401, "Ordens fora do horário de pregão exigem conta conectada — "
+                                  "entre para que a ordem fique guardada na sua carteira.")
+    try:
+        order = pending_orders.criar_venda(_conn, scope, t, int(_qty) if _qty else pos["qty"])
+    except pending_orders.PosicaoInsuficiente as e:
+        raise HTTPException(400, str(e))
     out = store.public_state(_conn, user_id=scope)
-    out["priceUsed"] = round(quote["price"], 2)
+    out["pendente"] = True
+    out["order"] = order
+    out["priceUsed"] = None
+    out["precoReferencia"] = round(price, 2)
     return out
+
+
+# Fase 2 (MERC-04, D-03): cancela uma ordem pendente a qualquer momento antes
+# da execução, devolvendo caixa/posição imediatamente (sem esperar o próximo
+# tick do scheduler). T-02-09 (IDOR): `pending_orders.cancelar` só enxerga a
+# lista do `user_id` recebido — não há busca cross-escopo. Um id de outra
+# conta simplesmente não aparece na lista do chamador, então vira o mesmo 404
+# de "não encontrada" — sem vazar se o id existe em outra conta.
+@app.delete("/api/orders/pending/{order_id}")
+async def cancel_pending_order(order_id: str, scope: Optional[str] = Depends(current_scope)):
+    if scope is None:
+        raise HTTPException(401, "Faça login para continuar.")
+    try:
+        pending_orders.cancelar(_conn, scope, order_id)
+    except pending_orders.OrdemNaoPendente as e:
+        raise HTTPException(404, str(e))
+    return store.public_state(_conn, user_id=scope)
 
 
 @app.put("/api/position/{ticker}")
@@ -1790,10 +1919,20 @@ def _pet_resumo_evolucao(scope: Optional[str], intra_stored: Optional[dict], ope
     inicial. Mesma fórmula de `finance.js: equityCurve` (base = orçamento
     inicial; sem ele, o 1º snapshot). Sem quotes ao vivo, "resultado do dia"
     (que depende da variação % do pregão) fica fora — simplificação
-    deliberada desta rota custo-zero."""
+    deliberada desta rota custo-zero.
+
+    Fase 2 (02-02): soma `caixaReservado` (ordens pendentes de compra) ao
+    patrimônio — sem isto o Boris anunciaria um patrimônio MENOR que o da
+    tela no instante em que o usuário cria uma ordem pendente (o valor sai de
+    `cash` e entra em `caixaReservado`, mas continua sendo patrimônio do
+    usuário: volta ao caixa se a ordem for cancelada). Essa é exatamente a
+    classe de defeito "a tela está certa, só o Boris erra" da auditoria de
+    v1.0 — o `public_state` da tela já soma os dois (`store.py`), este
+    resumo tinha ficado para trás."""
     from . import intraday as intraday_mod
     positions = [p for p in (store.get(_conn, "positions", user_id=scope) or []) if isinstance(p, dict)]
     cash = float(store.get(_conn, "cash", user_id=scope) or 0)
+    reservado = store.caixa_reservado(_conn, user_id=scope)
     cfg = store.get(_conn, "config", user_id=scope) or {}
     budget = cfg.get("initialBudget")
     snaps = [s for s in (store.get(_conn, "equitySnapshots", user_id=scope) or [])
@@ -1804,12 +1943,15 @@ def _pet_resumo_evolucao(scope: Optional[str], intra_stored: Optional[dict], ope
         r = intraday_mod.resumo_do_ticker(intra_stored, t) if t else None
         close = r.get("close") if (r and isinstance(r.get("close"), (int, float))) else None
         pos_val += qty * (close if close is not None else avg)
-    patrimonio = cash + pos_val
+    patrimonio = cash + reservado + pos_val
     base = float(budget) if isinstance(budget, (int, float)) and budget > 0 else (
         snaps[0]["patrimonio"] if snaps else patrimonio)
     ret_acum = ((patrimonio - base) / base * 100) if base > 0 else 0.0
     fala = [_PET_NAO_FAZ,
            f"Seu patrimônio simulado agora é R$ {patrimonio:.2f} (caixa R$ {cash:.2f} + posições R$ {pos_val:.2f})."]
+    if reservado > 0:
+        fala.append(f"Desse total, R$ {reservado:.2f} está reservado para ordem(ns) pendente(s) — "
+                     "volta ao caixa se você cancelar antes da execução.")
     if snaps or (isinstance(budget, (int, float)) and budget > 0):
         fala.append(f"Desde o orçamento inicial, o retorno acumulado é de {ret_acum:+.1f}%.")
     else:

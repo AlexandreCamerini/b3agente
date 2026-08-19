@@ -364,7 +364,15 @@ async def _quote_brapi(ticker: str):
 
 async def get_quote(ticker: str) -> dict:
     """Ponto único do spot. Primário brapi → cache/orçamento → backup Yahoo.
-    Payload no contrato de `yahoo.get_quote` + `source`."""
+    Payload no contrato de `yahoo.get_quote` + `source`.
+
+    C-12 (REPORT-01): antes desta correção, o spot SINGULAR não tinha o
+    try/except que `get_quotes` (plural, abaixo) já tem há mais tempo —
+    exceção crua do Yahoo (URL completa + parâmetro `crumb`) subia até
+    virar HTTP 500 na resposta de `POST /api/buy`, reproduzido ao vivo com
+    `{"t":"XXXXX9"}`. `QuoteUnavailable` continua sendo relançada sem
+    alteração — é o contrato de indisponibilidade transitória (503) que os
+    chamadores já tratam; só a exceção crua do provedor vira preço nulo."""
     if provider_name() == "brapi":
         q = await _quote_brapi(ticker)
         if q is not None:
@@ -373,9 +381,23 @@ async def get_quote(ticker: str) -> dict:
         if fb is None:
             raise QuoteUnavailable(
                 "Cotação indisponível: brapi sem token/orçamento e nenhum backup configurado.")
-        out = await yahoo.get_quote(ticker)
+        try:
+            out = await yahoo.get_quote(ticker)
+        except QuoteUnavailable:
+            raise
+        except Exception as e:  # noqa: BLE001 — nunca vaza detalhe técnico do provedor (C-12)
+            print(f"[candle_provider] get_quote({ticker}) via yahoo (backup) falhou: {e}")
+            return {"t": ticker, "price": None, "change": 0,
+                    "error": "sem cotação (falha do provedor de dados)"}
         return {**out, "source": "yahoo"} if isinstance(out, dict) else out
-    out = await yahoo.get_quote(ticker)
+    try:
+        out = await yahoo.get_quote(ticker)
+    except QuoteUnavailable:
+        raise
+    except Exception as e:  # noqa: BLE001 — nunca vaza detalhe técnico do provedor (C-12)
+        print(f"[candle_provider] get_quote({ticker}) via yahoo falhou: {e}")
+        return {"t": ticker, "price": None, "change": 0,
+                "error": "sem cotação (falha do provedor de dados)"}
     return {**out, "source": "yahoo"} if isinstance(out, dict) else out
 
 

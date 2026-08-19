@@ -304,4 +304,5 @@ def default_state() -> dict:
         },
         "custom": [],                   # tickers adicionados pelo usuario (validados no Yahoo): [{t,n}]
         "optionPositions": [],          # ADR-003: coleção própria — nunca mistura com `positions`
+        "pendingOrders": [],            # Phase 2 (MERC-02..04): ordens fora do horário de pregão, aguardando abertura
     }
