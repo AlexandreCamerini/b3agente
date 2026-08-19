@@ -26,6 +26,8 @@ import importlib
 import os
 import sys
 import tempfile
+import threading
+import time
 
 import pytest
 from fastapi.testclient import TestClient
@@ -110,3 +112,262 @@ def test_market_status_host_gated_sem_sessao_passa_state_401(monkeypatch):
     headers = {"host": "acamerini.app"}
     assert client.get("/api/market/status", headers=headers).status_code == 200
     assert client.get("/api/state", headers=headers).status_code == 401
+
+
+# =============================================================================
+# Task 2 — ramo "fora do pregão -> pendente" em /api/buy e /api/sell (MERC-02/03)
+# =============================================================================
+
+def _fechar_mercado(monkeypatch, main=None):
+    monkeypatch.setattr(pregao_mod, "in_market_hours", lambda now=None: False)
+
+
+def _abrir_mercado(monkeypatch, main=None):
+    monkeypatch.setattr(pregao_mod, "in_market_hours", lambda now=None: True)
+
+
+def test_buy_mercado_aberto_nao_regride_comportamento_atual(monkeypatch):
+    client, main = _client(monkeypatch)
+    token, _uid = _registrar(client, "aberto-buy@boris.dev")
+    _abrir_mercado(monkeypatch)
+    monkeypatch.setattr(main.candle_provider, "get_quote", _quote_fake_factory(price=10.0))
+
+    r = client.post("/api/buy", json={"t": "PETR4", "qty": 100}, headers={"authorization": f"Bearer {token}"})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body.get("priceUsed") == 10.0
+    assert body.get("pendente") is not True
+    assert len(body["history"]) == 1
+
+
+def test_buy_mercado_fechado_cria_pendente_reserva_caixa_sem_history(monkeypatch):
+    client, main = _client(monkeypatch)
+    token, uid = _registrar(client, "fechado-buy@boris.dev")
+    _fechar_mercado(monkeypatch)
+    monkeypatch.setattr(main.candle_provider, "get_quote", _quote_fake_factory(price=10.0))
+
+    cash_antes = 10000.0
+    r = client.post("/api/buy", json={"t": "PETR4", "qty": 100}, headers={"authorization": f"Bearer {token}"})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["pendente"] is True
+    assert body["order"]["tipo"] == "COMPRA"
+    assert body["priceUsed"] is None
+    assert body["precoReferencia"] == 10.0
+    assert body["history"] == []
+    assert body["cash"] == cash_antes - 1000.0
+    assert body["caixaReservado"] == 1000.0
+    assert len(body["pendingOrders"]) == 1
+
+
+def test_buy_mercado_fechado_caixa_insuficiente_responde_400_sem_gravar(monkeypatch):
+    client, main = _client(monkeypatch)
+    token, _uid = _registrar(client, "fechado-caixa@boris.dev")
+    _fechar_mercado(monkeypatch)
+    monkeypatch.setattr(main.candle_provider, "get_quote", _quote_fake_factory(price=100000.0))
+
+    r = client.post("/api/buy", json={"t": "PETR4", "qty": 100}, headers={"authorization": f"Bearer {token}"})
+    assert r.status_code == 400
+    assert r.json()["detail"] == "Caixa insuficiente."
+
+    estado = client.get("/api/state", headers={"authorization": f"Bearer {token}"}).json()
+    assert estado["pendingOrders"] == []
+    assert estado["cash"] == 10000.0
+
+
+def test_buy_mercado_fechado_sem_cotacao_responde_502_sem_reservar(monkeypatch):
+    client, main = _client(monkeypatch)
+    token, _uid = _registrar(client, "fechado-semcotacao@boris.dev")
+    _fechar_mercado(monkeypatch)
+
+    async def _sem_cotacao(_t):
+        return {"price": None}
+    monkeypatch.setattr(main.candle_provider, "get_quote", _sem_cotacao)
+
+    r = client.post("/api/buy", json={"t": "PETR4", "qty": 100}, headers={"authorization": f"Bearer {token}"})
+    assert r.status_code == 502
+
+    estado = client.get("/api/state", headers={"authorization": f"Bearer {token}"}).json()
+    assert estado["pendingOrders"] == []
+    assert estado["cash"] == 10000.0
+
+
+def test_sell_mercado_fechado_reserva_quantidade_sem_history(monkeypatch):
+    client, main = _client(monkeypatch)
+    token, _uid = _registrar(client, "fechado-sell@boris.dev")
+    headers = {"authorization": f"Bearer {token}"}
+    _abrir_mercado(monkeypatch)
+    monkeypatch.setattr(main.candle_provider, "get_quote", _quote_fake_factory(price=10.0))
+    r = client.post("/api/buy", json={"t": "PETR4", "qty": 200}, headers=headers)
+    assert r.status_code == 200, r.text
+
+    _fechar_mercado(monkeypatch)
+    r = client.post("/api/sell", json={"t": "PETR4", "qty": 100}, headers=headers)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["pendente"] is True
+    assert body["order"]["tipo"] == "VENDA"
+    assert body["order"]["avgReservado"] == 10.0
+    assert len(body["history"]) == 1  # só a compra; a venda pendente não gravou history
+    pos = next(p for p in body["positions"] if p["t"] == "PETR4")
+    assert pos["qty"] == 100
+
+
+def test_body_pendente_true_durante_pregao_e_ignorado(monkeypatch):
+    client, main = _client(monkeypatch)
+    token, _uid = _registrar(client, "flag-ignorada@boris.dev")
+    _abrir_mercado(monkeypatch)
+    monkeypatch.setattr(main.candle_provider, "get_quote", _quote_fake_factory(price=10.0))
+
+    r = client.post("/api/buy", json={"t": "PETR4", "qty": 100, "pendente": True},
+                     headers={"authorization": f"Bearer {token}"})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body.get("pendente") is not True
+    assert body["priceUsed"] == 10.0
+
+
+def test_buy_mercado_fechado_sem_sessao_responde_401_sem_gravar(monkeypatch):
+    client, main = _client(monkeypatch)
+    _fechar_mercado(monkeypatch)
+    monkeypatch.setattr(main.candle_provider, "get_quote", _quote_fake_factory(price=10.0))
+
+    r = client.post("/api/buy", json={"t": "PETR4", "qty": 100})
+    assert r.status_code == 401
+
+    estado = client.get("/api/state").json()
+    assert estado["pendingOrders"] == []
+
+
+def test_sell_mercado_fechado_sem_sessao_responde_401(monkeypatch):
+    client, main = _client(monkeypatch)
+    _fechar_mercado(monkeypatch)
+    monkeypatch.setattr(main.candle_provider, "get_quote", _quote_fake_factory(price=10.0))
+
+    r = client.post("/api/sell", json={"t": "PETR4"})
+    assert r.status_code in (400, 401)
+    # sem posição nenhuma, o erro pode ser 400 "sem posicao" (checagem
+    # inicial, fora da trava) OU 401 se a ordem de checagem mudar — o que
+    # importa aqui é que NUNCA cria pendente no balde anônimo.
+    estado = client.get("/api/state").json()
+    assert estado["pendingOrders"] == []
+
+
+def test_concorrencia_buy_bloqueia_enquanto_order_lock_esta_seguro(monkeypatch):
+    client, main = _client(monkeypatch)
+    token, uid = _registrar(client, "concorrencia-buy@boris.dev")
+    headers = {"authorization": f"Bearer {token}"}
+    _abrir_mercado(monkeypatch)
+    monkeypatch.setattr(main.candle_provider, "get_quote", _quote_fake_factory(price=10.0))
+
+    resultados = {}
+
+    def _worker():
+        r = client.post("/api/buy", json={"t": "PETR4", "qty": 100}, headers=headers)
+        resultados["status"] = r.status_code
+
+    main.store.ORDER_LOCK.acquire()
+    try:
+        t = threading.Thread(target=_worker)
+        t.start()
+        time.sleep(0.3)
+        cash_durante = main.store.get(main._conn, "cash", user_id=uid)
+        history_durante = main.store.get(main._conn, "history", user_id=uid)
+        assert cash_durante == 10000.0
+        assert history_durante == []
+        assert t.is_alive(), "a requisicao deveria estar bloqueada pela trava"
+    finally:
+        main.store.ORDER_LOCK.release()
+    t.join(timeout=5)
+    assert not t.is_alive()
+    assert resultados.get("status") == 200
+    cash_depois = main.store.get(main._conn, "cash", user_id=uid)
+    history_depois = main.store.get(main._conn, "history", user_id=uid)
+    assert cash_depois == 9000.0
+    assert len(history_depois) == 1
+
+
+def test_concorrencia_sell_bloqueia_enquanto_order_lock_esta_seguro(monkeypatch):
+    client, main = _client(monkeypatch)
+    token, uid = _registrar(client, "concorrencia-sell@boris.dev")
+    headers = {"authorization": f"Bearer {token}"}
+    _abrir_mercado(monkeypatch)
+    monkeypatch.setattr(main.candle_provider, "get_quote", _quote_fake_factory(price=10.0))
+    r = client.post("/api/buy", json={"t": "PETR4", "qty": 100}, headers=headers)
+    assert r.status_code == 200, r.text
+
+    resultados = {}
+
+    def _worker():
+        r = client.post("/api/sell", json={"t": "PETR4"}, headers=headers)
+        resultados["status"] = r.status_code
+
+    main.store.ORDER_LOCK.acquire()
+    try:
+        t = threading.Thread(target=_worker)
+        t.start()
+        time.sleep(0.3)
+        history_durante = main.store.get(main._conn, "history", user_id=uid)
+        assert len(history_durante) == 1  # só a compra
+        assert t.is_alive(), "a requisicao deveria estar bloqueada pela trava"
+    finally:
+        main.store.ORDER_LOCK.release()
+    t.join(timeout=5)
+    assert not t.is_alive()
+    assert resultados.get("status") == 200
+    history_depois = main.store.get(main._conn, "history", user_id=uid)
+    assert len(history_depois) == 2
+
+
+def test_ordenacao_pendente_executada_depois_compra_imediata_nao_perde_escrita(monkeypatch):
+    import asyncio
+
+    from app import pending_orders
+
+    client, main = _client(monkeypatch)
+    token, uid = _registrar(client, "ordenacao@boris.dev")
+    headers = {"authorization": f"Bearer {token}"}
+    cash_inicial = 10000.0
+
+    _fechar_mercado(monkeypatch)
+    monkeypatch.setattr(main.candle_provider, "get_quote", _quote_fake_factory(price=10.0))
+    r = client.post("/api/buy", json={"t": "VALE3", "qty": 100}, headers=headers)
+    assert r.status_code == 200, r.text
+    custo_pendente_reservado = 1000.0
+    assert r.json()["cash"] == cash_inicial - custo_pendente_reservado
+
+    async def _price_getter(_t):
+        return {"price": 12.0, "source": "fake"}
+
+    asyncio.run(pending_orders.executar_pendentes(main._conn, uid, _price_getter))
+    custo_pendente_real = 100 * 12.0
+
+    _abrir_mercado(monkeypatch)
+    r = client.post("/api/buy", json={"t": "PETR4", "qty": 100}, headers=headers)
+    assert r.status_code == 200, r.text
+    custo_imediato = 100 * 10.0
+
+    estado = client.get("/api/state", headers=headers).json()
+    assert estado["cash"] == round(cash_inicial - custo_pendente_real - custo_imediato, 2)
+    assert len(estado["history"]) == 2
+
+
+def test_sell_revalida_posicao_dentro_da_trava(monkeypatch):
+    from app import pending_orders
+
+    client, main = _client(monkeypatch)
+    token, uid = _registrar(client, "revalida@boris.dev")
+    headers = {"authorization": f"Bearer {token}"}
+    _abrir_mercado(monkeypatch)
+    monkeypatch.setattr(main.candle_provider, "get_quote", _quote_fake_factory(price=10.0))
+    r = client.post("/api/buy", json={"t": "PETR4", "qty": 100}, headers=headers)
+    assert r.status_code == 200, r.text
+
+    # consome a posição inteira via cancelamento de uma venda pendente
+    # simulada diretamente no motor (sem passar por rota), imitando outra
+    # thread/execução esvaziando a posição entre a leitura e a escrita.
+    pending_orders.criar_venda(main._conn, uid, "PETR4", 100)
+
+    r = client.post("/api/sell", json={"t": "PETR4"}, headers=headers)
+    assert r.status_code == 400
+    assert "PETR4" in r.json()["detail"]
