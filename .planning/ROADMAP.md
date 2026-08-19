@@ -64,7 +64,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 02-02-PLAN.md — Rotas: status público de mercado + ramo pendente em /api/buy e /api/sell + cancelamento
+- [x] 02-02-PLAN.md — Rotas: status público de mercado + ramo pendente em /api/buy e /api/sell + cancelamento
 - [x] 02-03-PLAN.md — Execução automática no scheduler_loop + contadores no status do servidor
 
 **Wave 3** *(blocked on Wave 2 completion)*
@@ -243,7 +243,7 @@ gate.
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|-----------------|--------|-----------|
 | 1. Auditoria Diagnóstica Consolidada | v1.0 | 6/6 | Complete | 2026-08-18 |
-| 2. Realismo de Mercado | v1.1 | 2/7 | In Progress|  |
+| 2. Realismo de Mercado | v1.1 | 3/7 | In Progress|  |
 | 3. Correção Crítico + Alto | v1.1 | 2/6 | In Progress|  |
 | 4. Correção Médio — Storyline & UX | v1.1 | 0/TBD | Not started | - |
 | 5. Correção Médio — Código, Gate & Admin | v1.1 | 0/TBD | Not started | - |
