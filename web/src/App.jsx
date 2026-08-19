@@ -649,6 +649,14 @@ function WelcomeAuthScreen({ ctx, onAuthed }) {
           <p style={{ color: T.textMuted, fontSize: "12.5px", lineHeight: 1.6, margin: "16px 0 0", textAlign: "center" }}>
             Treine operações com <b>cotações reais</b> e <b>dinheiro simulado</b>, com uma <b>IA</b> que explica cada decisão. Conteúdo <b>educacional</b> — não é recomendação de investimento.
           </p>
+          {/* Fase 2 (MERC-01, D-08): status real do pregão, ANTES do login — a
+              rota é pública (nenhum user_id), então o badge só depende de
+              ctx.mercado/ctx.cp, nunca do estado da carteira (contrato desta
+              tela, comentário original acima). Secundário ao CTA "Entrar"
+              abaixo: mesmo tamanho de kicker do resto do app, sem fundo sólido. */}
+          <div style={{ display: "flex", justifyContent: "center", marginTop: "10px" }}>
+            <MarketStatusBadge mercado={ctx.mercado} cp={ctx.cp} />
+          </div>
         </div>
         {user ? (
           <>
@@ -709,7 +717,27 @@ function Ticker({ items, live }) {
   );
 }
 
-function Topbar({ patr, dia, caixa, name, onProfile, modeChip }) {
+// Fase 2 (MERC-01, D-08): badge único de status do pregão, alimentado pelo
+// estado `mercado` do root (ver useEffect de boot em App()) — renderizado
+// pré-login em WelcomeAuthScreen e pós-login em Topbar. Cores SÓ semânticas
+// (T.positive/T.negative/T.warn) — NUNCA T.accent: o acento muda de matiz
+// entre os modos Estudo/Operador e nem existe contexto de modo pré-login, e
+// o badge precisa renderizar IDÊNTICO nos dois pontos de render.
+function MarketStatusBadge({ mercado, cp }) {
+  // 1ª consulta ainda em voo: nada é afirmado (nunca "fechado" por default).
+  if (!mercado) return null;
+  const erro = !!mercado.erro;
+  const cor = erro ? T.warn : mercado.aberto ? T.positive : T.negative;
+  const label = erro ? cp.mercadoIndisponivel : mercado.aberto ? cp.mercadoAberto : cp.mercadoFechado(mercado.abertura);
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+      <span aria-hidden style={{ width: "7px", height: "7px", borderRadius: "50%", background: cor, flex: "none", boxShadow: `0 0 0 3px color-mix(in srgb, ${cor} 14%, transparent)` }} />
+      <span style={{ fontSize: "10.5px", fontWeight: 800, letterSpacing: "0.06em", color: cor, whiteSpace: "nowrap" }}>{label}</span>
+    </span>
+  );
+}
+
+function Topbar({ patr, dia, caixa, name, onProfile, modeChip, mercado, cp }) {
   const up = dia >= 0;
   const base = patr - dia;
   const pct = base > 0 ? (dia / base) * 100 : 0;
@@ -741,6 +769,12 @@ function Topbar({ patr, dia, caixa, name, onProfile, modeChip }) {
               {modeChip && <span style={{ color: T.textFaint, fontSize: "11px", flex: "none" }}>·</span>}
               <span style={{ fontSize: "11px", color: T.textMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</span>
             </>) : null}
+            {/* Fase 2 (MERC-01, D-08): mesmo badge da tela de login, reusando
+                o divisor "·" já usado nesta linha — não inventa separador
+                novo. Renderiza independentemente de modeChip/name (MERC-01
+                continua visível mesmo sem os dois). */}
+            {mercado && (modeChip || name) && <span style={{ color: T.textFaint, fontSize: "11px", flex: "none" }}>·</span>}
+            <MarketStatusBadge mercado={mercado} cp={cp} />
           </div>
         </div>
       </div>
@@ -1541,7 +1575,7 @@ function CapitalCurve({ ctx }) {
   const P = usePalette();
   const gid = useMemo(() => "capArea" + Math.random().toString(36).slice(2, 8), []);
   const { data, quotes } = ctx;
-  const m = portfolioMetrics(data.positions, quotes, data.cash);
+  const m = portfolioMetrics(data.positions, quotes, data.cash, data.caixaReservado || 0);
   const patr = m.patr;
   const budget = (data.config && data.config.initialBudget) || 0;
   const todayYmd = new Date().toISOString().slice(0, 10);
@@ -1641,7 +1675,7 @@ function EvolucaoScreen({ ctx }) {
     A.refreshWlScan();
     if (destaque.stage === "idle") A.loadDestaque(); // 1× por sessão — evita re-varrer o universo a cada visita
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  const m = portfolioMetrics(data.positions, quotes, data.cash);
+  const m = portfolioMetrics(data.positions, quotes, data.cash, data.caixaReservado || 0);
   const diaPct = dayReturnPct(m.patr, m.dayVal);
   const ec = equityCurve(data.equitySnapshots, (data.config || {}).initialBudget, m.patr, new Date().toISOString().slice(0, 10));
   const hoje = (() => { const d = new Date(); const p2 = (n) => String(n).padStart(2, "0"); return `${p2(d.getDate())}/${p2(d.getMonth() + 1)}/${d.getFullYear()}`; })();
@@ -3450,7 +3484,7 @@ function CarteiraScreen({ ctx }) {
   const { data, quotes, analysis, A, goMercado, cp } = ctx;   // FASE 8B (B1)
   useEffect(() => { track("portfolio_view"); }, []);   // qa/47 (Fase 2)
   const byQ = (t) => quotes[t] || {};
-  const m = portfolioMetrics(data.positions, quotes, data.cash);
+  const m = portfolioMetrics(data.positions, quotes, data.cash, data.caixaReservado || 0);
   const positionsValue = m.posVal;
   const total = m.patr;
   const cost = m.cost;
@@ -5071,6 +5105,12 @@ function LogsDebugScreen({ ctx }) {
             {!srvErr && !srv && <div style={{ color: T.textFaint, fontSize: "11.5px" }}>consultando o servidor…</div>}
             {srv && (
               <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 14px", color: T.textMuted, fontSize: "11.5px" }}>
+                {/* Fase 2 (MERC-01): `srv.pregaoAberto` (diagnóstico do Operador)
+                    e `ctx.mercado`/MarketStatusBadge (status público, pré/pós-
+                    login) COEXISTEM de propósito — não é duplicação a unificar.
+                    `srv.pregaoAberto` é o status do SERVIDOR (inclui kill-switch
+                    e heartbeat do agente); `ctx.mercado` é só "a B3 está aberta
+                    agora?" (pregao.py), sem nenhum estado de agente. */}
                 <span>pregão: <b style={{ color: srv.pregaoAberto ? T.positive : T.textFaint }}>{srv.pregaoAberto ? "aberto" : "fechado"}</b></span>
                 <span>ciclo: <b style={{ color: T.textSecondary, fontFamily: MONO }}>{Math.round((srv.intervaloS || 300) / 60)} min</b></span>
                 <span>kill-switch: <b style={{ color: srv.killSwitch ? T.negative : T.positive }}>{srv.killSwitch ? "LIGADO" : "desligado"}</b></span>
@@ -6331,6 +6371,43 @@ export default function App() {
   const [authUser, setAuthUser] = useState(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [welcomeAuthOpen, setWelcomeAuthOpen] = useState(false); // tela de abertura (login)
+  // Fase 2 (MERC-01, D-08): status real do pregão — UM estado no root, ÚNICA
+  // fonte para os dois pontos de render (WelcomeAuthScreen pré-login, Topbar
+  // pós-login). null = 1ª consulta em voo (o badge não afirma nada enquanto
+  // isso); { erro: true } = falha de rede (badge cai em "indisponível", nunca
+  // "chuta" aberto/fechado — CLAUDE.md princípio 4). A rota é pública
+  // (server/app/main.py:833), então a consulta roda ANTES de qualquer login.
+  const [mercado, setMercado] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    const consultarMercado = async () => {
+      try {
+        const r = await store.marketStatus();
+        if (alive) setMercado(r);
+      } catch {
+        // falha de rede não é erro do usuário: sem flash, cai em "indisponível".
+        if (alive) setMercado({ erro: true });
+      }
+    };
+    consultarMercado();
+    // Reconsulta quando o app volta pro primeiro plano — sem isso, quem
+    // deixa a tela aberta desde antes da abertura veria "fechado" às 10h05.
+    // Nome PRÓPRIO (não "onVisible" genérico): o guardião de
+    // test_config_debounce_flush.mjs faz match posicional pelo primeiro
+    // "onVisible" do arquivo — reusar o mesmo nome aqui quebraria aquele
+    // teste ao "roubar" o match do efeito de flush do debounce, mais abaixo.
+    const onVisibleMercado = () => { if (document.visibilityState === "visible") consultarMercado(); };
+    document.addEventListener("visibilitychange", onVisibleMercado);
+    window.addEventListener("focus", consultarMercado);
+    // 60s é suficiente: a granularidade do dado é de minutos, não de segundos.
+    const id = setInterval(consultarMercado, 60000);
+    return () => {
+      alive = false;
+      document.removeEventListener("visibilitychange", onVisibleMercado);
+      window.removeEventListener("focus", consultarMercado);
+      clearInterval(id);
+    };
+  }, []);
   const tourShownRef = useRef(false); // qa/38 (Help): tour aparece 1x no 1º uso
   const welcomeShownRef = useRef(false);
   const borisIntroShownRef = useRef(false); // F6: apresentação do Boris aparece 1x por boot
@@ -7199,7 +7276,7 @@ export default function App() {
     if (positions.length > 0 && !temCotacoes) return; // espera as cotações
     snapRanRef.current = true;
     const ymd = new Date().toISOString().slice(0, 10);
-    const m = portfolioMetrics(positions, quotes, data.cash);
+    const m = portfolioMetrics(positions, quotes, data.cash, data.caixaReservado || 0);
     store.putSnapshot({ data: ymd, patrimonio: m.patr, caixa: m.cash, posicoesValor: m.posVal })
       .then((s) => s && setData(s))
       .catch(() => { /* offline-first: silencioso */ });
@@ -7248,6 +7325,10 @@ export default function App() {
     // `data` pode ser null no boot (antes do 1º getState resolver) — o `ctx`
     // é montado incondicionalmente a cada render, então o guard vem primeiro.
     operador: !!(data && data.config && data.config.appMode === "operador"),
+    // Fase 2 (MERC-01, D-08): mesmo canal de sempre — WelcomeAuthScreen e o
+    // resto da árvore leem `ctx.mercado`, nunca recalculam o status em outro
+    // lugar. Ver o useEffect de boot do estado `mercado`, acima.
+    mercado,
     data, quotes, analysis, expanded, analysisModel, setAnalysisModel, A, quotesAt, quotesLoading, test, keyDraft, setKeyDraft, cp,
     catalogSel, setCatalogSel, buyModal, setBuyModal, cycleBusy, addState, setAddState,
     sellModal, setSellModal, wlScan, wlScanLoading, destaque,
@@ -7359,7 +7440,7 @@ export default function App() {
   // chips do topo
   const { patr, dia } = useMemo(() => {
     if (!data) return { patr: null, dia: 0 };
-    const m = portfolioMetrics(data.positions, quotes, data.cash);
+    const m = portfolioMetrics(data.positions, quotes, data.cash, data.caixaReservado || 0);
     return { patr: m.patr, dia: m.dayVal };
   }, [data, quotes]);
 
@@ -7382,7 +7463,7 @@ export default function App() {
     if (!data) return {};
     switch (petTela) {
       case "carteira": {
-        const m = portfolioMetrics(data.positions, quotes, data.cash);
+        const m = portfolioMetrics(data.positions, quotes, data.cash, data.caixaReservado || 0);
         return {
           posicoes: (data.positions || []).map((p) => ({ ticker: p.t, qty: p.qty, precoMedio: p.avg, stop: p.stop, alvo: p.alvo })),
           caixa: data.cash,
@@ -7392,7 +7473,7 @@ export default function App() {
         };
       }
       case "evolucao": {
-        const m = portfolioMetrics(data.positions, quotes, data.cash);
+        const m = portfolioMetrics(data.positions, quotes, data.cash, data.caixaReservado || 0);
         const diaPct = dayReturnPct(m.patr, m.dayVal);
         const hoje = new Date().toISOString().slice(0, 10);
         const ec = equityCurve(data.equitySnapshots, (data.config || {}).initialBudget, m.patr, hoje);
@@ -7499,7 +7580,7 @@ export default function App() {
           redundante de identidade, além do acento + linha de modo no Topbar). */}
       <div aria-hidden style={{ height: "3px", flex: "none", background: `linear-gradient(90deg, ${T.accent}, ${T.accentSoft})` }} />
       <Ticker items={tickerItems} live={Object.keys(quotes).length > 0} />
-      <Topbar patr={patr} dia={dia} caixa={data.cash} name={firstName} modeChip={cp.chipModo} onProfile={() => { setPerfilView("hub"); setTab("perfil"); }} />
+      <Topbar patr={patr} dia={dia} caixa={data.cash} name={firstName} modeChip={cp.chipModo} mercado={mercado} cp={cp} onProfile={() => { setPerfilView("hub"); setTab("perfil"); }} />
 
       <main ref={mainRef} style={{ position: "relative", flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
         {pullY > 0 && (
