@@ -12,6 +12,16 @@ Quando a monetizacao entrar, os limites abaixo passam a valer para o tier
 gratuito (PLAN_FREE) e o tier pago (PLAN_PRO) os afrouxa. O gate de assinatura
 (`requires_subscription`) deve consultar o recibo validado da loja (server-side
 receipt validation) — NUNCA confiar so no cliente.
+
+Contrato de contagem (C-32, fixado na fase 3 — server/app/main.py::_gate_analise):
+`server/app/metering.py` e o CONTADOR UNICO de uso de IA do app (cota DIARIA
+por usuario + teto global, persistidos no kv). `can_analyze` aqui embaixo e o
+gate de TIER comercial (MENSAL) e NUNCA mantem contagem propria — ele so LE o
+limite do plano e decide permitido/negado. Quando o ADR-010 ligar
+`max_analyses_per_month`, o valor de `used_this_month` passado a `can_analyze`
+TEM de derivar do ledger de `metering` (C-33, fase 5) — nunca de um segundo
+contador paralelo. Os dois gates (plano e metering) sao aplicados num UNICO
+ponto de decisao por requisicao (`_gate_analise`), nunca em paralelo.
 """
 from typing import Optional
 
@@ -72,7 +82,12 @@ def can_add_ticker(current_count: int, plan: Optional[dict] = None) -> tuple:
 
 def can_analyze(used_this_month: int, plan: Optional[dict] = None) -> tuple:
     """HOOK: limite de analises/mes no tier gratuito.
-    Retorna (permitido: bool, motivo: str|None)."""
+    Retorna (permitido: bool, motivo: str|None).
+
+    Esta funcao NUNCA mantem contador proprio — `used_this_month` e sempre
+    fornecido pelo chamador. O contador real de uso de IA e o de
+    `metering.py` (cota diaria); quando o limite mensal for ativado, o valor
+    aqui tem de vir do ledger de `metering` (C-33, fase 5)."""
     plan = plan or ACTIVE_PLAN
     limit = plan.get("max_analyses_per_month")
     if limit is not None and used_this_month >= limit:
