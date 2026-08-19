@@ -6392,14 +6392,18 @@ export default function App() {
     consultarMercado();
     // Reconsulta quando o app volta pro primeiro plano — sem isso, quem
     // deixa a tela aberta desde antes da abertura veria "fechado" às 10h05.
-    const onVisible = () => { if (document.visibilityState === "visible") consultarMercado(); };
-    document.addEventListener("visibilitychange", onVisible);
+    // Nome PRÓPRIO (não "onVisible" genérico): o guardião de
+    // test_config_debounce_flush.mjs faz match posicional pelo primeiro
+    // "onVisible" do arquivo — reusar o mesmo nome aqui quebraria aquele
+    // teste ao "roubar" o match do efeito de flush do debounce, mais abaixo.
+    const onVisibleMercado = () => { if (document.visibilityState === "visible") consultarMercado(); };
+    document.addEventListener("visibilitychange", onVisibleMercado);
     window.addEventListener("focus", consultarMercado);
     // 60s é suficiente: a granularidade do dado é de minutos, não de segundos.
     const id = setInterval(consultarMercado, 60000);
     return () => {
       alive = false;
-      document.removeEventListener("visibilitychange", onVisible);
+      document.removeEventListener("visibilitychange", onVisibleMercado);
       window.removeEventListener("focus", consultarMercado);
       clearInterval(id);
     };
