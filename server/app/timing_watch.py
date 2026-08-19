@@ -36,7 +36,12 @@ abaixo não são preferências:
     (usuário, ticker, DIA). E na primeira barra do dia vários ativos abrem já
     além da entrada — isso vira UMA mensagem, não N banners.
 
-Chave de desligamento: `B3_TIMING_PUSH_KILL=1`.
+Chave de desligamento: `B3_TIMING_PUSH_KILL=1` (env) OU override em runtime
+pelo portal admin (`PUT /api/admin/timing-watch/kill-switch`), persistido em
+`admin_config` — mesmo padrão memória→DB→env de `agent.kill_switch_on`
+(REPORT-01 C-35: antes deste ponto, o único jeito de reverter o interruptor
+do push era redeploy — o mesmo risco que já produziu o incidente do
+kill-switch do agente, ligado sem querer por 2,5 dias).
 """
 from __future__ import annotations
 
@@ -55,8 +60,85 @@ AGREGA_A_PARTIR_DE = 2
 ESTADO_ALVO = "gatilho"
 
 
+# C-35 (REPORT-01): o kill-switch do push de gatilho ganha o MESMO padrão
+# memória→DB→env que `agent.kill_switch_on` (ADR-013) já usa, generalizado
+# aqui em vez de inventado de novo. Nenhum call site muda de assinatura
+# (`kill_switch_on()` continua sem args) — só passa a checar mais uma fonte,
+# na ordem memória → DB → env, antes de cair no default (desligado).
+_DB_CONN = None
+_DB_ENABLED = False
+_KILL_MEM = None          # None = sem override explícito ainda; True/False = override achado (DB ou set_kill_switch)
+_KILL_DB_CHECKED = False  # já confirmamos que o DB NÃO tem override neste processo? evita reconsultar a cada chamada
+
+
+def configure_db(conn) -> None:
+    global _DB_CONN, _DB_ENABLED
+    _DB_CONN = conn
+    _DB_ENABLED = True
+
+
+def reset_kill_switch_cache() -> None:
+    """Só para testes — mesmo padrão de `agent.reset_kill_switch_cache`: a
+    memória NÃO é limpa por `configure_db` de propósito (produção nunca
+    deveria perder o cache num reconnect); testes que trocam de banco entre
+    casos chamam isto explicitamente para não vazar estado de um teste pro
+    outro."""
+    global _KILL_MEM, _KILL_DB_CHECKED
+    _KILL_MEM = None
+    _KILL_DB_CHECKED = False
+
+
+def set_kill_switch(on: bool, actor: str = None) -> bool:
+    """Chamado pela rota admin (`PUT /api/admin/timing-watch/kill-switch`).
+    Persiste e atualiza a memória imediatamente — sem esperar o próximo
+    boot. `actor` é o user_id de quem mudou (mesmo campo que
+    `admin_audit_log` já registra para a transição via `audit.record`).
+    A escrita no banco é best-effort (try/except): falhar aqui não pode
+    impedir o kill-switch de valer NA MEMÓRIA — é o controle de emergência,
+    tem que responder mesmo com o SQLite indisponível."""
+    global _KILL_MEM
+    _KILL_MEM = bool(on)
+    if _DB_ENABLED:
+        try:
+            db.admin_config_set(_DB_CONN, "timingWatchKillSwitch", bool(on), updated_by=actor)
+        except Exception:  # noqa: BLE001 — mesmo padrão de agent.set_kill_switch
+            pass
+    return _KILL_MEM
+
+
 def kill_switch_on() -> bool:
-    return os.environ.get("B3_TIMING_PUSH_KILL") == "1"
+    """Memória → DB (best-effort, só até confirmar se existe override) →
+    env (SEMPRE lido ao vivo) → default (desligado).
+
+    Mesmos achados de revisão corrigidos em `agent.kill_switch_on`, copiados
+    aqui de propósito: (a) a leitura do DB tem try/except — uma falha do
+    SQLite não pode propagar pro `scheduler_loop` e pular o ciclo INTEIRO por
+    causa só desta checagem; (b) quando ninguém nunca mexeu no toggle
+    (override ausente, o caso mais comum), a função bateria no SQLite em TODO
+    tick do scheduler sem o `_KILL_DB_CHECKED` — ele faz essa consulta correr
+    NO MÁXIMO uma vez por processo quando não há override.
+
+    IMPORTANTE: o resultado do ENV nunca é cacheado em `_KILL_MEM` — só um
+    override explícito (do DB ou de `set_kill_switch`) é. `B3_TIMING_PUSH_
+    KILL` continua sendo lido AO VIVO em toda chamada sem override.
+
+    Achado de revisão (C-35): a versão anterior aceitava só `== "1"`, mais
+    estrita que `agent.kill_switch_on`, que aceita `("1", "true", "TRUE",
+    "yes")` após `.strip()`. Ampliação deliberada aqui para os dois
+    interruptores terem o MESMO contrato — não é comportamento acidental."""
+    global _KILL_MEM, _KILL_DB_CHECKED
+    if _KILL_MEM is not None:
+        return _KILL_MEM
+    if _DB_ENABLED and not _KILL_DB_CHECKED:
+        try:
+            override = db.admin_config_get(_DB_CONN, "timingWatchKillSwitch")
+            if isinstance(override, bool):
+                _KILL_MEM = override
+                return _KILL_MEM
+        except Exception:  # noqa: BLE001
+            pass
+        _KILL_DB_CHECKED = True
+    return (os.environ.get("B3_TIMING_PUSH_KILL") or "").strip() in ("1", "true", "TRUE", "yes")
 
 
 # ---------------------------------------------------------------- estado por usuário
