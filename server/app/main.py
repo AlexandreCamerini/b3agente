@@ -292,11 +292,15 @@ async def auth_logout(authorization: Optional[str] = Header(default=None)):
 # web_dist/ios_dist: existe no código, só liga quando configurado).
 #
 # Allowlist por PREFIXO (não por rota individual, então uma rota de auth nova
-# amanhã já nasce acessível): /api/auth/* (senão ninguém consegue logar) e
-# /api/health (monitoramento não é dado de usuário).
+# amanhã já nasce acessível): /api/auth/* (senão ninguém consegue logar),
+# /api/health (monitoramento não é dado de usuário) e /api/market (Fase 2,
+# MERC-01/D-08): status de pregão é dado PÚBLICO de calendário da B3 — sem
+# isto a tela de LOGIN no domínio gated não conseguiria mostrar o badge de
+# mercado aberto/fechado, e o gate devolveria 401 justamente na tela que ele
+# existe para empurrar o usuário a usar.
 # ===========================================================================
 _GATED_HOSTS = {h.strip().lower() for h in (os.environ.get("B3_GATED_HOSTS") or "").split(",") if h.strip()}
-_GATE_ALLOWLIST_PREFIXES = ("/api/auth/", "/api/health")
+_GATE_ALLOWLIST_PREFIXES = ("/api/auth/", "/api/health", "/api/market")
 
 
 def _has_valid_session(request: Request) -> bool:
@@ -781,6 +785,28 @@ SERVER_BUILD_ID = "F10-20260817-08"  # identities: uma conta, vários métodos d
 @app.get("/api/health")
 async def health(scope: Optional[str] = Depends(current_scope)):
     return {"ok": True, "build": SERVER_BUILD_ID}
+
+
+# Fase 2 (MERC-01/D-08): status real do pregão, consumido pela tela de LOGIN
+# ANTES de autenticar — por isso é PÚBLICA de propósito, sem
+# `Depends(current_scope)`/`require_user` e sem NENHUM parâmetro de sessão
+# (essa ausência é a própria mitigação de T-02-08: a rota não pode nem
+# acidentalmente ler estado de usuário). É segura porque devolve só um
+# booleano de calendário público — nenhum `user_id`, nada de carteira —
+# calculado inteiramente por `pregao.py` (fonte única), nunca recalculado
+# aqui.
+@app.get("/api/market/status")
+async def market_status():
+    from . import pregao  # import local: sem ciclo (mesmo padrão de agent.py:216)
+    agora = datetime.now(pregao.BRT)
+    return {
+        "aberto": pregao.in_market_hours(),
+        "diaDePregao": pregao.is_trading_day(agora.date()),
+        "abertura": "%02d:%02d" % pregao.ABERTURA,
+        "fechamento": "%02d:%02d" % pregao.FECHAMENTO,
+        "agoraBRT": agora.strftime("%d/%m %H:%M"),
+        "afterMarket": pregao.after_market_ligado(),
+    }
 
 
 @app.get("/api/state")
