@@ -13,7 +13,7 @@ provides:
   - "qa/48-fase2-verificacao-e2e-ordens-pendentes.md: exercício ponta-a-ponta contra servidor uvicorn real (não TestClient), banco SQLite descartável — market/status público, buy pendente, cancelamento, execução forçada da passada do scheduler, fluxo de venda pendente, conta do caixa fechando em todos os passos"
   - "Aprovação humana registrada do badge de status de mercado e da seção Pendentes (web); iPhone/TestFlight declarado como limitação conhecida, não omitida"
   - "MERC-01 fechado no REQUIREMENTS.md (era o único dos 4 ainda pendente — dependia desta verificação humana)"
-affects: []
+affects: [testflight-verification, ios-deviceStore, ordens-pendentes-ios]
 
 tech-stack:
   added: []
