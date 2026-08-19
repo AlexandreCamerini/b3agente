@@ -465,6 +465,32 @@ function KillSwitchBox({ user, reload }) {
     }
   };
 
+  // C-37 (REPORT-01): o kill-switch ligado em pregão era um sinal 100%
+  // PASSIVO — só quem abrisse esta aba e notasse o "LIGADO" percebia. A
+  // duração torna visível HÁ QUANTO TEMPO, com a MESMA ressalva que o push
+  // do admin usa quando ela não é rastreável (ativação por B3_AGENT_KILL
+  // não passa pela rota, não deixa registro de auditoria) — nunca um número
+  // falsamente preciso. Só renderiza com data.on === true (D-04/03-UI-SPEC:
+  // nada de histórico de estado anterior). Deliberadamente NÃO adiciona a
+  // mesma mecânica ao kill-switch do timing_watch (TimingWatchKillSwitchBox
+  // abaixo) — requisito novo, não declarado.
+  let duracaoValor = "";
+  let duracaoTone = "warn";
+  if (data && data.on) {
+    if (data.rastreavel) {
+      const desdeFmt = data.desde
+        ? new Date(data.desde).toLocaleString("pt-BR", {
+            timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit",
+          })
+        : "?";
+      duracaoValor = `${data.horas}h (desde ${desdeFmt})`;
+      duracaoTone = data.horas >= 4 ? "negative" : "warn";
+    } else {
+      duracaoValor = "não calculável (ativado por variável de ambiente — sem registro de auditoria)";
+      duracaoTone = "warn";
+    }
+  }
+
   return (
     <Card title="Kill-switch do Operador (execução automática)">
       <Estado loading={loading} error={error}>
@@ -472,6 +498,7 @@ function KillSwitchBox({ user, reload }) {
           <>
             <Kv label="Estado vigente" value={data.on ? "LIGADO (agente parado)" : "desligado (agente roda normalmente)"}
                 tone={data.on ? "negative" : "positive"} />
+            {data.on && <Kv label="Ligado há" value={duracaoValor} tone={duracaoTone} />}
             <div style={{ marginTop: "10px", fontSize: "11px", color: T.faint, lineHeight: 1.5 }}>
               Override em runtime sobre a env B3_AGENT_KILL — some no próximo deploy só se ninguém mexer aqui de novo.
             </div>

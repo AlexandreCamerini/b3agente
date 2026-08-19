@@ -706,7 +706,24 @@ async def admin_config_ia_put(body: dict = Body(default={}), user: dict = Depend
 
 @app.get("/api/admin/agent/kill-switch")
 async def admin_kill_switch_get(user: dict = Depends(require_permission("execucao_automatica.ver"))):
-    return {"on": agent_mod.kill_switch_on()}
+    # C-37 (REPORT-01) / D-04 (03-CONTEXT.md): a duração é best-effort a
+    # partir do audit log — `desde` vem `None` quando não rastreável
+    # (ativação por env var `B3_AGENT_KILL`, sem registro de auditoria).
+    # `rastreavel` só é True quando `on` E `desde` existem — nunca afirmamos
+    # uma duração que não conseguimos provar.
+    on = agent_mod.kill_switch_on()
+    desde = agent_mod.kill_switch_ligado_desde(_conn) if on else None
+    horas = None
+    if desde is not None:
+        try:
+            from datetime import timezone as _tz
+            momento = datetime.fromisoformat(desde)
+            if momento.tzinfo is None:
+                momento = momento.replace(tzinfo=_tz.utc)
+            horas = int((datetime.now(_tz.utc) - momento).total_seconds() // 3600)
+        except Exception:  # noqa: BLE001 — parse ruim nunca derruba a rota
+            horas = None
+    return {"on": on, "desde": desde, "horas": horas, "rastreavel": bool(on and desde)}
 
 
 @app.put("/api/admin/agent/kill-switch")

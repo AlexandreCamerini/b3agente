@@ -15,6 +15,7 @@ como "vivo, normal"). Este arquivo cobre:
     desde/horas/rastreavel.
 """
 import asyncio
+import importlib
 import os
 import sys
 import tempfile
@@ -303,3 +304,91 @@ def test_query_sql_de_user_ids_with_roles_usa_placeholders_nunca_fstring():
     for linha in fonte.splitlines():
         assert not (linha.strip().startswith('f"SELECT') and "user_roles" in linha), \
             f"f-string interpolando a query de user_roles: {linha!r}"
+
+
+# ================================================================ Task 2: rota
+@pytest.fixture(autouse=True)
+def _isolado_main(monkeypatch):
+    from app import brapi_budget, managed
+    original = sys.modules.get("app.main")
+    brapi_budget.reset()
+    agent.reset_kill_switch_cache()
+    managed.reset_cache()
+    yield
+    brapi_budget.reset()
+    agent.reset_kill_switch_cache()
+    managed.reset_cache()
+    if original is not None:
+        sys.modules["app.main"] = original
+    else:
+        sys.modules.pop("app.main", None)
+
+
+def _client(monkeypatch):
+    monkeypatch.delenv("B3_ADMIN_EMAILS", raising=False)
+    d = tempfile.mkdtemp(prefix="b3_kill_switch_duracao_route_test_")
+    monkeypatch.setenv("B3_DB_PATH", os.path.join(d, "b3.db"))
+    sys.modules.pop("app.main", None)
+    from fastapi.testclient import TestClient
+    main = importlib.import_module("app.main")
+    return TestClient(main.app), main
+
+
+def _registra(c, email, senha="senhaboa123"):
+    r = c.post("/api/auth/register", json={"email": email, "password": senha})
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def _auth(token):
+    return {"authorization": f"Bearer {token}"}
+
+
+def test_rota_get_on_true_com_desde_conhecido(monkeypatch):
+    c, main = _client(monkeypatch)
+    admin = _registra(c, "dono@teste.com")
+    h = _auth(admin["token"])
+    c.put("/api/admin/agent/kill-switch", json={"on": True}, headers=h)
+    r = c.get("/api/admin/agent/kill-switch", headers=h)
+    assert r.status_code == 200
+    body = r.json()
+    assert body["on"] is True
+    assert body["desde"] is not None
+    assert isinstance(body["horas"], int)
+    assert body["rastreavel"] is True
+
+
+def test_rota_get_on_true_desde_nulo_quando_nao_rastreavel(monkeypatch):
+    c, main = _client(monkeypatch)
+    admin = _registra(c, "dono@teste.com")
+    h = _auth(admin["token"])
+    monkeypatch.setenv("B3_AGENT_KILL", "1")  # ativado por env, sem passar pela rota PUT
+    main.agent_mod.reset_kill_switch_cache()
+    r = c.get("/api/admin/agent/kill-switch", headers=h)
+    assert r.status_code == 200
+    body = r.json()
+    assert body["on"] is True
+    assert body["desde"] is None
+    assert body["horas"] is None
+    assert body["rastreavel"] is False
+
+
+def test_rota_get_on_false_desde_e_horas_nulos(monkeypatch):
+    c, main = _client(monkeypatch)
+    admin = _registra(c, "dono@teste.com")
+    h = _auth(admin["token"])
+    r = c.get("/api/admin/agent/kill-switch", headers=h)
+    assert r.status_code == 200
+    body = r.json()
+    assert body["on"] is False
+    assert body["desde"] is None
+    assert body["horas"] is None
+    assert body["rastreavel"] is False
+
+
+def test_rota_get_permissao_nao_mudou(monkeypatch):
+    c, main = _client(monkeypatch)
+    _registra(c, "dono@teste.com")
+    comum = _registra(c, "comum@teste.com")
+    r = c.get("/api/admin/agent/kill-switch", headers=_auth(comum["token"]))
+    assert r.status_code == 403
