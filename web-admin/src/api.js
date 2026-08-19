@@ -67,6 +67,10 @@ export const api = {
   killSwitchGet: () => req("GET", "/api/admin/agent/kill-switch"),
   killSwitchPut: (on) => req("PUT", "/api/admin/agent/kill-switch", { on }),
 
+  // C-35 (REPORT-01): kill-switch irmao — push do gatilho (timing_watch).
+  timingWatchKillSwitchGet: () => req("GET", "/api/admin/timing-watch/kill-switch"),
+  timingWatchKillSwitchPut: (on) => req("PUT", "/api/admin/timing-watch/kill-switch", { on }),
+
   promptsGet: () => req("GET", "/api/admin/prompts"),
   promptsPut: (chave, texto) => req("PUT", "/api/admin/prompts/" + encodeURIComponent(chave), { texto }),
 
