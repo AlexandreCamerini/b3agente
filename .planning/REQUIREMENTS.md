@@ -7,7 +7,7 @@
 
 ### Realismo de Mercado (funcionalidade nova)
 
-- [ ] **MERC-01**: Usuário vê o status real do mercado (aberto/fechado) na tela
+- [x] **MERC-01**: Usuário vê o status real do mercado (aberto/fechado) na tela
       de entrada/home, calculado por `pregao.py` (fonte única já existente:
       `is_trading_day()` + `in_market_hours()`) — hoje esse status só aparece
       pós-login, na aba Operador
@@ -131,7 +131,7 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| MERC-01 | Phase 2 | Pending |
+| MERC-01 | Phase 2 | Complete |
 | MERC-02 | Phase 2 | Complete |
 | MERC-03 | Phase 2 | Complete |
 | MERC-04 | Phase 2 | Complete |
