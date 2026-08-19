@@ -182,6 +182,15 @@ function serverStore() {
     cachedTechnicals: (_t, _period) => null,
     buy: (t, qty, meta) => api.buy(t, qty, meta),  // FASE 2 (2.4): mesma interface do deviceStore
     sell: (t, qty) => api.sell(t, qty),
+    // Fase 2 (MERC-01): roda ANTES do login (D-08) — sem ensure()/sessão,
+    // delegação pura. Existe nos DOIS stores só para não abrir exceção ao
+    // guardrail de paridade: a UI lê `store.marketStatus()`, nunca `api`
+    // direto, para que o guardião de paridade cubra o caminho.
+    marketStatus: () => api.marketStatus(),
+    // MERC-04: cancelar mexe em caixa real — chamada DIRETA, fora de
+    // sync.mutate/outbox (mesma decisão de buy/sell acima): reaplicar de
+    // fila offline poderia devolver caixa duas vezes (T-02-20).
+    cancelPendingOrder: (id) => api.cancelPendingOrder(id),
     putPosition: (t, b) => sync.mutate("putPosition", [t, b], (cur) => ({
       ...cur,
       positions: (cur.positions || []).map((p) => p.t === t ? {
@@ -332,6 +341,12 @@ function deviceStore() {
       custom: doc.custom || [],
       equitySnapshots: doc.equitySnapshots || [],
       optionPositions: doc.optionPositions || [],  // v2 (ADR-003)
+      // Fase 2 (realismo de mercado, MERC-02..04): ordem colocada fora do
+      // pregão fica pendente até a abertura seguinte; caixaReservado é a
+      // soma reservada nelas (D-05, debitada do cash na hora do PEDIDO —
+      // sem isto o patrimônio pareceria encolher sozinho ao criar a ordem).
+      pendingOrders: doc.pendingOrders || [],
+      caixaReservado: typeof doc.caixaReservado === "number" ? doc.caixaReservado : 0,
     };
   }
   const symbolsFor = () => [...new Set([...(doc.watchlist || []), ...doc.positions.map((p) => p.t)])].join(",");
@@ -436,6 +451,12 @@ function deviceStore() {
     if (Array.isArray(r.optionPositions)) doc.optionPositions = r.optionPositions;
     if (typeof r.cash === "number") doc.cash = r.cash;
     if (Array.isArray(r.history)) doc.history = r.history;
+    // Fase 2 (MERC-02..04): sem isto, uma ordem executada/cancelada pelo
+    // servidor (ex.: scheduler abriu o pregão) com o app fechado nunca
+    // sumiria da tela do iPhone — mesma classe de defeito do
+    // qa/audit-2026-08-08 comentado acima para positions/cash/history.
+    if (Array.isArray(r.pendingOrders)) doc.pendingOrders = r.pendingOrders;
+    if (typeof r.caixaReservado === "number") doc.caixaReservado = r.caixaReservado;
   }
 
   return {
@@ -724,6 +745,8 @@ function deviceStore() {
       doc.cash = +budget.toFixed(2);
       doc.positions = [];
       doc.optionPositions = [];  // v2 (ADR-003)
+      doc.pendingOrders = [];  // Fase 2 (MERC-02..04)
+      doc.caixaReservado = 0;
       doc.history = [];
       doc.analyses = {};
       doc.agent.events = [{ time: "Inicio", kind: "info", text: "Carteira reiniciada com o orçamento simulado de R$ " + budget.toFixed(2) + "." }];
@@ -968,6 +991,8 @@ function deviceStore() {
         custom: doc.custom || [],
         equitySnapshots: doc.equitySnapshots || [],
         optionPositions: doc.optionPositions || [],  // v2 (ADR-003)
+        pendingOrders: doc.pendingOrders || [],  // Fase 2 (MERC-02..04)
+        caixaReservado: typeof doc.caixaReservado === "number" ? doc.caixaReservado : 0,
       };
     },
     // Logado: o servidor EXECUTA (preço, cash, posição, histórico) e devolve
@@ -1045,6 +1070,28 @@ function deviceStore() {
       const out = pub();
       out.priceUsed = +price.toFixed(2);
       return out;
+    },
+    // Fase 2 (MERC-01): roda ANTES do login (D-08, badge na tela de entrada)
+    // — sem ensure()/sync.hasSession(), não toca no `doc` local. Existe nos
+    // DOIS stores só para não abrir exceção ao guardrail de paridade.
+    async marketStatus() {
+      return api.marketStatus();
+    },
+    // Fase 2 (MERC-04): COM sessão, delega ao servidor e adota o estado
+    // devolvido (caixa/posição já restaurados). SEM sessão, ordem pendente
+    // não existe localmente — o backend recusaria com 401 mesmo assim, e
+    // duplicar o motor de pendentes em JS seria criar uma segunda fonte de
+    // verdade financeira (proibido pelo princípio 5 do CLAUDE.md). Login é
+    // obrigatório no produto (App.jsx:669-674), então este ramo é defensivo.
+    async cancelPendingOrder(id) {
+      ensure();
+      if (sync.hasSession()) {
+        const r = await api.cancelPendingOrder(id);
+        _adotarCarteiraDoServidor(r);
+        write();
+        return pub();
+      }
+      throw new Error("Ordens pendentes exigem conta conectada.");
     },
     async putPosition(t, b) {
       ensure();

@@ -278,6 +278,14 @@ export const api = {
   buy: (t, qty, meta) => req("POST", "/api/buy", meta ? { t, qty, meta } : { t, qty }),   // FASE 2 (2.4): setup de entrada
   sell: (t, qty) => req("POST", "/api/sell", qty ? { t, qty } : { t }),                    // FASE 2 (2.4): venda parcial
   putPosition: (t, b) => req("PUT", "/api/position/" + t, b),
+  // Fase 2 (realismo de mercado, MERC-01): ÚNICA chamada do app que roda
+  // ANTES do login (D-08, badge na tela de entrada) — nunca pode depender de
+  // sessão nem de estado de conta. Rota pública, sem token.
+  marketStatus: () => req("GET", "/api/market/status"),
+  // MERC-04: cancela ordem pendente (mercado fechado). Id vem percent-encoded
+  // porque é gerado pelo servidor (`po_...`) e pode conter caracteres que a
+  // URL não aceita cru.
+  cancelPendingOrder: (id) => req("DELETE", "/api/orders/pending/" + encodeURIComponent(id)),
   putAgent: (b) => req("PUT", "/api/agent", b),
   cycle: () => req("POST", "/api/cycle"),
   // FASE 2 (auth multiusuário). register/login podem semear a conta (seed no
