@@ -80,6 +80,10 @@ Cada task foi commitada atomicamente:
 
 _Merge de recuperação do worktree (`claude/gsd-revisao-aplicacao-b9b4ef`, fast-forward, zero conflitos) feito antes da Task 1 — obrigatório pelo `known_environment_gaps` do prompt, não é parte do escopo do plano._
 
+## TDD Gate Compliance
+
+**Task 1 e Task 2 estão marcadas `tdd="true"` no PLAN, mas o gate RED→GREEN não foi seguido à risca.** Os três commits de task (`f557c98`, `af479fd`, `c2c5e4e`) são todos `feat(...)`, cada um já incluindo implementação + teste no mesmo commit — não existe nenhum commit `test(...)` isolado registrando um RED verificado (rodar a suíte nova ANTES da implementação e confirmar falha) antes do GREEN. Os testes foram escritos com a implementação já em mente (padrão clonado de `agent.py`, já validado em produção) e passaram na primeira execução; não houve verificação formal de que teriam falhado sem o código novo. Isto é uma lacuna de PROCESSO, não de cobertura — os 17 testes backend + 26 asserções front exercitam o comportamento descrito no `<behavior>` de cada task e passam, mas o par de commits RED/GREEN que o protocolo TDD exige não está no histórico. Registrado aqui em vez de fabricar uma história de commits falsa depois do fato.
+
 ## Files Created/Modified
 
 - `server/app/timing_watch.py` — `configure_db`, `reset_kill_switch_cache`, `set_kill_switch`, `kill_switch_on` reescrito (padrão memória→DB→env); docstring do módulo atualizado
