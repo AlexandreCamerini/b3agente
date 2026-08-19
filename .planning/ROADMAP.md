@@ -73,7 +73,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 02-05-PLAN.md — Badge de status de mercado na tela de login e no Topbar
+- [x] 02-05-PLAN.md — Badge de status de mercado na tela de login e no Topbar
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
@@ -243,7 +243,7 @@ gate.
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|-----------------|--------|-----------|
 | 1. Auditoria Diagnóstica Consolidada | v1.0 | 6/6 | Complete | 2026-08-18 |
-| 2. Realismo de Mercado | v1.1 | 4/7 | In Progress|  |
+| 2. Realismo de Mercado | v1.1 | 5/7 | In Progress|  |
 | 3. Correção Crítico + Alto | v1.1 | 5/6 | In Progress|  |
 | 4. Correção Médio — Storyline & UX | v1.1 | 0/TBD | Not started | - |
 | 5. Correção Médio — Código, Gate & Admin | v1.1 | 0/TBD | Not started | - |
