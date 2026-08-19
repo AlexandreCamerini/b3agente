@@ -3691,11 +3691,80 @@ function CarteiraScreen({ ctx }) {
 }
 
 function HistoricoScreen({ ctx }) {
-  const { data } = ctx;
+  const { data, A } = ctx;
   const head = (flex, text, right) => (<div style={{ flex, textAlign: right ? "right" : "left" }}>{text}</div>);
+  // Fase 2 (MERC-02..04, T-02-27/T-02-28): confirmação em DOIS passos, um id
+  // por vez (por construção do estado — abrir a de outra linha fecha a
+  // anterior). `enviando` trava os dois botões enquanto a chamada está em
+  // voo, para que um duplo toque não dispare duas chamadas de cancelamento
+  // (T-02-28 — o servidor recusaria a segunda com 404, mas a UI não deve
+  // provocar essa corrida).
+  const [confirmando, setConfirmando] = useState(null);
+  const [enviando, setEnviando] = useState(false);
+  const pendentes = data.pendingOrders || [];
   return (
     <div>
       <h1 style={{ margin: "0 0 16px", fontSize: "22px", fontWeight: 700 }}>Histórico de operações</h1>
+      {/* Fase 2 (MERC-02/03, D-09): SEM estado vazio próprio — a seção só
+          existe quando há pelo menos 1 ordem pendente (UI-SPEC). O caixa
+          reservado some da tela junto com a última pendente cancelada/
+          executada; não é um bloco fixo do histórico. */}
+      {pendentes.length > 0 && (
+        <div style={{ ...card, overflow: "hidden", marginBottom: "16px" }}>
+          <div style={{ padding: "11px 15px 9px", background: T.bgPanel, borderBottom: `1px solid ${T.borderSubtle}` }}>
+            <div style={{ fontSize: "10px", letterSpacing: "0.06em", color: T.textFaint, fontFamily: MONO, fontWeight: 700 }}>Pendentes</div>
+            <div style={{ fontSize: "11.5px", color: T.textMuted, marginTop: "3px", lineHeight: 1.4 }}>
+              {money(data.caixaReservado || 0)} reservado(s) — volta ao caixa (ou à posição, na venda) se a ordem for cancelada.
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: "10px", padding: "9px 15px", background: T.bgPanel, borderBottom: `1px solid ${T.borderSubtle}`, fontSize: "10px", letterSpacing: "0.06em", color: T.textFaint, fontFamily: MONO }}>
+            {head(1.6, "DATA")}{head(1, "TIPO")}{head(0.9, "ATIVO")}{head(0.6, "QTD", true)}{head(1, "PREÇO", true)}{head(1.1, "", true)}
+          </div>
+          {pendentes.map((o) => (
+            <div key={o.id}>
+              <div style={{ display: "flex", gap: "10px", alignItems: "center", padding: "12px 15px", borderBottom: `1px solid ${T.borderFaint}`, fontFamily: MONO, fontSize: "13px" }}>
+                <div style={{ flex: 1.6, color: T.textMuted, fontSize: "12px" }}>{o.criadaEm}</div>
+                <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "3px" }}>
+                  {/* T-02-31: cor SEMPRE T.warn aqui — as cores semânticas de
+                      compra/venda CONCLUÍDA significariam "já executou"; esta
+                      ordem ainda não. */}
+                  <span style={{ width: "fit-content", padding: "3px 9px", borderRadius: "999px", fontSize: "10.5px", fontWeight: 800, color: T.warn, background: "color-mix(in srgb, " + T.warn + " 14%, transparent)" }}>{ctx.cp.ordemPendentePill}</span>
+                  <span style={{ fontSize: "10px", fontWeight: 700, color: T.textFaint }}>{o.tipo}</span>
+                </div>
+                <div style={{ flex: 0.9, fontWeight: 700 }}>{o.t}</div>
+                <div style={{ flex: 0.6, textAlign: "right", color: T.textSecondary }}>{o.qty}</div>
+                <div style={{ flex: 1, textAlign: "right", color: T.textSecondary, fontSize: "12px" }}>{o.precoReferencia != null ? "ref. R$ " + price(o.precoReferencia) : "—"}</div>
+                <div style={{ flex: 1.1, textAlign: "right" }}>
+                  <button type="button" onClick={() => setConfirmando((c) => (c === o.id ? null : o.id))} aria-label={"Cancelar ordem pendente de " + o.t}
+                    style={{ width: "40px", height: "40px", borderRadius: "50%", border: `1px solid ${T.borderSubtle}`, background: "transparent", color: T.textFaint, fontSize: "15px", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+                </div>
+              </div>
+              {/* princípio 4: uma ordem que tentou executar e falhou não some
+                  em silêncio — o motivo fica visível na própria linha. */}
+              {o.ultimoErro && (
+                <div style={{ padding: "0 15px 9px", fontSize: "11px", color: T.warn, lineHeight: 1.4 }}>
+                  Última tentativa{o.ultimaTentativaEm ? " (" + o.ultimaTentativaEm + ")" : ""} falhou: {o.ultimoErro}
+                </div>
+              )}
+              {confirmando === o.id && (
+                <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "8px", padding: "10px 15px", borderBottom: `1px solid ${T.borderFaint}`, background: T.bgBase }}>
+                  <span style={{ flex: "1 1 220px", fontSize: "11.5px", color: T.textMuted, lineHeight: 1.4 }}>
+                    {o.tipo === "COMPRA"
+                      ? "Cancelar esta ordem? O caixa reservado (" + money(o.caixaReservado || 0) + ") volta a ficar disponível imediatamente."
+                      : "Cancelar esta ordem? As " + o.qty + " cotas reservadas voltam à posição imediatamente."}
+                  </span>
+                  <button type="button" disabled={enviando} onClick={() => setConfirmando(null)}
+                    style={{ padding: "9px 13px", borderRadius: "9px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textMuted, fontWeight: 700, fontSize: "13px" }}>Manter ordem</button>
+                  <button type="button" disabled={enviando} onClick={async () => {
+                    setEnviando(true);
+                    try { await A.cancelPendingOrder(o.id); } finally { setEnviando(false); setConfirmando(null); }
+                  }} style={{ padding: "9px 13px", borderRadius: "9px", border: `1px solid ${T.negative}`, background: "transparent", color: T.negative, fontWeight: 700, fontSize: "13px" }}>Confirmar cancelamento</button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
       {data.history.length === 0 ? (
         <div style={{ background: T.bgCard, border: `1px dashed ${T.borderDashed}`, borderRadius: "12px", padding: "34px 20px", textAlign: "center" }}>
           <div style={{ fontSize: "16px", fontWeight: 700 }}>Nenhuma operação ainda</div>
@@ -6688,6 +6757,23 @@ export default function App() {
         flash(msg);
         notify.send("Agente Boris+", msg);
       }
+      // Fase 2 (MERC-02..04, T-02-36): ordem pendente auto-cancelada na
+      // abertura (preço subiu e o caixa reservado não cobriu mais o custo,
+      // pending_orders.py) é a ÚNICA forma de uma pendente sumir sem o
+      // usuário ter pedido — sem este toast (e sem o push do plano 02-03)
+      // só apareceria no Diário do Operador, tela de diagnóstico, não
+      // caminho de usuário do Modo Estudo. Filtra pela TAG (não por
+      // `kind === "warn"` solto — outros avisos do Operador também usam
+      // `warn` e não devem virar toast aqui) e usa `e.text` INTEIRO: o texto
+      // já vem pronto do motor determinístico, a UI não recompõe a frase
+      // (guardrail: manchete vem sempre do motor, CLAUDE.md princípio 5).
+      // Disparado POR ÚLTIMO (depois do resumo de ações acima): é o que
+      // exige ação do usuário — revisar se quer recolocar a ordem.
+      const canceladas = news.filter((e) => e.tag === "pendente-cancelada");
+      for (const e of canceladas) {
+        flash(e.text);
+        notify.send("Boris+", e.text);
+      }
       if (log.length) store.putAgent({ lastSeenAt: new Date().toISOString() }).catch(() => {});
     } catch { /* resumo é best-effort */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -6907,6 +6993,16 @@ export default function App() {
     },
     setStop: async (t, v) => { try { const s = await store.putPosition(t, { stop: v }); setData(s); } catch (e) { flash("Erro: " + (e.message || e)); } },
     setAlvo: async (t, v) => { try { const s = await store.putPosition(t, { alvo: v }); setData(s); } catch (e) { flash("Erro: " + (e.message || e)); } },
+    // Fase 2 (MERC-04, D-03/T-02-29): cancela uma ordem pendente — adota o
+    // ESTADO DEVOLVIDO pelo servidor (nunca um palpite local de "caixa
+    // voltou"); erro (404/401/rede) vira flash, nunca finge sucesso.
+    cancelPendingOrder: async (id) => {
+      try {
+        const s = await store.cancelPendingOrder(id);
+        setData(s);
+        flash(cp.toastOrdemPendenteCancelada);
+      } catch (e) { flash("Cancelamento: " + (e.message || e)); }
+    },
     // v2 (ADR-003/004): compra a seco de 1 contrato (100 cotas). O servidor
     // recusa (502) se a cotação estiver degradada — nunca preenche `avg` com
     // um preço que o próprio sistema não confia.
