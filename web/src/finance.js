@@ -6,7 +6,12 @@
 //    médio da posição (`avg`) como piso estável — evita "tela piscando" para 0
 //    enquanto as cotações não chegaram. Em regime (cotações carregadas) o
 //    resultado é idêntico ao anterior.
-//  • Patrimônio = caixa + Σ (qty × preço).
+//  • Patrimônio = caixa + caixa reservado em ordens pendentes + Σ (qty ×
+//    preço). Fase 2 (MERC-02..04, D-05): a reserva de uma ordem pendente
+//    debita `cash` na hora do PEDIDO (reusa o caminho de débito existente),
+//    e sem somar o reservado de volta o app mostraria o patrimônio
+//    encolhendo sozinho ao criar uma ordem — dinheiro simulado sumindo da
+//    tela, o oposto da transparência que o produto promete.
 //  • Resultado aberto (P&L) = Σ (preço − avg) × qty ; % sobre o CUSTO.
 //  • Retorno do dia (R$) = Σ qty × preço × (variação%_do_ativo / 100), contando
 //    apenas posições com cotação real (com `change`).
@@ -22,7 +27,7 @@ export function markPrice(quote, position) {
   return avg;
 }
 
-export function portfolioMetrics(positions, quotes, cash) {
+export function portfolioMetrics(positions, quotes, cash, reservado) {
   const ps = Array.isArray(positions) ? positions : [];
   const q = quotes || {};
   let posVal = 0, cost = 0, openPnL = 0, dayVal = 0;
@@ -39,9 +44,10 @@ export function portfolioMetrics(positions, quotes, cash) {
     }
   }
   const c = Number(cash) || 0;
-  const patr = c + posVal;
+  const r = Number(reservado) || 0; // 4º parâmetro opcional (D-05); mesma defensiva do cash acima
+  const patr = c + r + posVal;
   const openPct = cost > 0 ? (openPnL / cost) * 100 : 0;
-  return { posVal, cost, openPnL, openPct, dayVal, patr, cash: c };
+  return { posVal, cost, openPnL, openPct, dayVal, patr, cash: c, reservado: r };
 }
 
 // Retorno do dia em %: variação do patrimônio no dia sobre a base de ontem
