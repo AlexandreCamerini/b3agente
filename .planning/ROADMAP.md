@@ -144,7 +144,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 03-05-PLAN.md — 2º kill-switch (timing_watch): override em runtime, rotas admin e portal [C-35]
+- [x] 03-05-PLAN.md — 2º kill-switch (timing_watch): override em runtime, rotas admin e portal [C-35]
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
@@ -244,6 +244,6 @@ gate.
 |-------|-----------|-----------------|--------|-----------|
 | 1. Auditoria Diagnóstica Consolidada | v1.0 | 6/6 | Complete | 2026-08-18 |
 | 2. Realismo de Mercado | v1.1 | 4/7 | In Progress|  |
-| 3. Correção Crítico + Alto | v1.1 | 4/6 | In Progress|  |
+| 3. Correção Crítico + Alto | v1.1 | 5/6 | In Progress|  |
 | 4. Correção Médio — Storyline & UX | v1.1 | 0/TBD | Not started | - |
 | 5. Correção Médio — Código, Gate & Admin | v1.1 | 0/TBD | Not started | - |
