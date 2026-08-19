@@ -162,6 +162,35 @@ def test_push_execucao_e_cancelamento_ignora_warn_preexistente(monkeypatch):
     assert agent.LAST_PENDING["canceladas"] == 1
 
 
+def test_venda_pendente_tambem_executa_pelo_hook_do_scheduler(monkeypatch):
+    """`executar_pendentes` já tinha guardião próprio pra VENDA (plano 02-01),
+    mas por um caminho de chamada direto — este teste prova a mesma coisa
+    através da FIAÇÃO NOVA do scheduler (uid vindo de `scopes_com_pendentes`,
+    lote batido pelo `quotes_getter`, push filtrado), que é um caminho de
+    código diferente e não coberto pelos testes de `pending_orders.py`."""
+    c = _conn()
+    store.ensure_defaults(c, user_id="u1")
+    db.kv_set(c, "positions", [{"t": "EEEE3", "qty": 200, "avg": 8.0, "stop": None, "alvo": None}],
+             user_id="u1")
+    pending_orders.criar_venda(c, "u1", "EEEE3", 100)  # reserva 100, sobram 100 em positions
+    _sem_operador(monkeypatch, aberto=True)
+    getter = _fake_quotes({"EEEE3": 9.0})
+    pushes = []
+
+    async def fake_notify(uid, title, body):
+        pushes.append((uid, title, body))
+
+    asyncio.run(agent.scheduler_loop(c, getter, notify_push=fake_notify, once=True))
+
+    assert pending_orders.listar(c, user_id="u1") == []  # ordem executou, some da fila
+    pos = store.get(c, "positions", user_id="u1")
+    assert next(p for p in pos if p["t"] == "EEEE3")["qty"] == 100  # 200 - 100 vendidas
+    historico = store.get(c, "history", user_id="u1")
+    assert historico and historico[0]["type"] == "VENDA" and historico[0]["origem"] == "pendente"
+    assert len(pushes) == 1 and "venda" in pushes[0][2].lower() and "executada" in pushes[0][2]
+    assert agent.LAST_PENDING["executadas"] == 1
+
+
 # --------------------------- Task 2: status_snapshot ------------------------
 
 def test_status_snapshot_ordens_pendentes_vazio():
