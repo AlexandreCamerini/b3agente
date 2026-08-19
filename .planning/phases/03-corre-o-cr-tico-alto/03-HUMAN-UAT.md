@@ -3,7 +3,7 @@ status: partial
 phase: 03-corre-o-cr-tico-alto
 source: [03-VERIFICATION.md]
 started: 2026-08-19T04:28:51Z
-updated: 2026-08-19T04:28:51Z
+updated: 2026-08-19T04:46:37Z
 ---
 
 ## Current Test
@@ -18,15 +18,15 @@ result: [pending]
 
 ### 2. Kill-switch do timing_watch — fallback de permissão (FIX-C35)
 expected: No portal admin, com uma conta que tem `execucao_automatica.ver` mas NÃO tem `execucao_automatica.controlar`, abrir a aba Automação. O box "Kill-switch do push de gatilho (timing_watch)" mostra o estado, mas o botão de alternância é substituído pela mensagem "Sem permissão para alternar (requer execucao_automatica.controlar)." — nenhum controle interativo aparece para essa conta.
-result: [pending]
+result: skipped — não testável ao vivo pelo fluxo real do produto: o papel `execucao_automatica` no RBAC (`server/app/rbac.py:24`) agrupa `.ver` e `.controlar` juntos; não existe hoje, na tela "Usuários e papéis" do admin, forma de conceder só `.ver`. Construir essa conta exigiria manipulação direta de banco ou edição temporária de `rbac.py` — Alex decidiu (2026-08-19) aceitar a garantia já verificada no nível de código em vez de forçar o estado: backend rejeita com 403 quem não tem `.controlar` (coberto por teste automatizado), e o front só renderiza o toggle quando a permissão existe (leitura direta do componente). Vale registrar como possível gap de granularidade do modelo RBAC para revisão futura, não como defeito desta fase.
 
 ## Summary
 
 total: 2
 passed: 0
 issues: 0
-pending: 2
-skipped: 0
+pending: 1
+skipped: 1
 blocked: 0
 
 ## Gaps
