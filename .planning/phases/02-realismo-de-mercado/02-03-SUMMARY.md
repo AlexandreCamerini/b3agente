@@ -74,6 +74,8 @@ Each task was committed atomically:
 
 1. **Task 1: Hook de execução de pendentes no scheduler_loop** - `d81140b` (feat)
 2. **Task 2: Contadores de ordens pendentes no status_snapshot** - `6993168` (feat)
+3. **Cobertura adicional (revisão pós-implementação): execução de VENDA
+   pendente pela fiação nova do scheduler** - `f04af1b` (test)
 
 _Nota: não seguiu RED→GREEN estrito por task — ver "Deviations from Plan" (nota de
 processo, sem impacto de cobertura)._
@@ -83,11 +85,12 @@ processo, sem impacto de cobertura)._
 - `server/app/agent.py` — `LAST_PENDING` (novo contador de módulo), bloco novo dentro de
   `scheduler_loop` (execução de pendentes, lote único de cotação, push de
   execução/cancelamento), chave `ordensPendentes` em `status_snapshot`.
-- `server/tests/test_ordens_pendentes_scheduler.py` — 9 guardiões: gate fechado/kill-switch
+- `server/tests/test_ordens_pendentes_scheduler.py` — 10 guardiões: gate fechado/kill-switch
   bloqueiam, usuário sem Operador ligado executa, lote único por ticker distinto,
   `quotes_getter` que explode não derruba o laço, push de execução E cancelamento
-  ignorando `warn` pré-existente, shape/contagem/cenário-de-kill-switch de
-  `ordensPendentes` no `status_snapshot`.
+  ignorando `warn` pré-existente, execução de VENDA pendente pela fiação NOVA do
+  scheduler (não só via `pending_orders.py` direto), shape/contagem/cenário-de-kill-switch
+  de `ordensPendentes` no `status_snapshot`.
 
 ## Decisions Made
 
@@ -157,12 +160,45 @@ processo, sem impacto de cobertura)._
   e está prevista no próprio `<action>` da Task 2).
 - **Committed in:** `d81140b` (Task 1).
 
+### 4. [Rule 2 - cobertura crítica ausente] Caminho de VENDA pendente não testado pela fiação nova
+
+- **Found during:** Revisão pós-implementação (advisor).
+- **Issue:** `test_push_execucao_e_cancelamento_ignora_warn_preexistente` só exercitava
+  COMPRA. O caminho de VENDA já tinha guardião em `test_ordens_pendentes.py` (plano
+  02-01), mas chamando `pending_orders.executar_pendentes` DIRETO — nunca passando pelo
+  `uid` vindo de `scopes_com_pendentes`, pelo lote do `quotes_getter` novo, nem pelo
+  filtro de push do bloco desta plano. Caminho de código diferente, sem cobertura.
+- **Fix:** `test_venda_pendente_tambem_executa_pelo_hook_do_scheduler` — posição
+  pré-existente, `criar_venda` reservando parte da quantidade, execução via
+  `scheduler_loop`, checando posição reduzida, `history` com `origem="pendente"` e push
+  disparado.
+- **Files modified:** `server/tests/test_ordens_pendentes_scheduler.py`.
+- **Verification:** `pytest -q tests/test_ordens_pendentes_scheduler.py` → 10 passed;
+  suíte completa → 1023 passed.
+- **Committed in:** `f04af1b`.
+
+### 5. [Verificação, sem mudança de código] `notify_push(uid=None, ...)` do escopo anônimo
+
+- **Found during:** Revisão pós-implementação (advisor) — `store.scopes_com_pendentes`
+  pode devolver `None` (balde anônimo legado), e o bloco novo chama `notify_push(uid,
+  ...)` para cada escopo, incluindo `None`.
+- **Verificado:** `main.py:_notify` → `push.send_to_user(conn, uid, ...)` →
+  `push.tokens_for(conn, user_id=None)` → `db.kv_get(conn, "pushTokens", [],
+  user_id=None)`, que devolve `[]` (nunca levanta). `send_to_user` retorna
+  `{"sent": 0, "total": 0, "detalhes": []}` sem exceção. Confirmado: o `try/except`
+  em torno do `await notify_push(...)` não é acionado para o escopo anônimo, então
+  `PUSH_FAIL_TODAY` (telemetria que outra parte do produto trata como sinal real,
+  qa/46) não é poluído com falsas falhas de push por causa deste bloco.
+- **Nenhum código alterado** — comportamento já correto por construção do `push.py`
+  existente; documentado aqui porque não é óbvio sem ler os dois módulos juntos.
+
 ---
 
 **Total deviations:** 1 Rule 3 (ambiente do worktree desatualizado), 1 nota de processo
 (venv local), 1 ajuste cosmético pós-implementação para casar com acceptance criteria
-literais. Nenhum impacto de escopo — todas as mudanças de código estão dentro do que o
-plano pediu.
+literais, 1 Rule 2 (cobertura de VENDA ausente, corrigida), 1 verificação sem mudança de
+código (push do escopo anônimo). Nenhum impacto de escopo — todas as mudanças de código
+estão dentro do que o plano pediu.
 
 ## Issues Encountered
 
@@ -198,3 +234,4 @@ None - nenhuma configuração de serviço externo.
 - FOUND: server/tests/test_ordens_pendentes_scheduler.py
 - FOUND: commit d81140b
 - FOUND: commit 6993168
+- FOUND: commit f04af1b
