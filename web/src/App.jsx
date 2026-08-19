@@ -3691,11 +3691,80 @@ function CarteiraScreen({ ctx }) {
 }
 
 function HistoricoScreen({ ctx }) {
-  const { data } = ctx;
+  const { data, A } = ctx;
   const head = (flex, text, right) => (<div style={{ flex, textAlign: right ? "right" : "left" }}>{text}</div>);
+  // Fase 2 (MERC-02..04, T-02-27/T-02-28): confirmação em DOIS passos, um id
+  // por vez (por construção do estado — abrir a de outra linha fecha a
+  // anterior). `enviando` trava os dois botões enquanto a chamada está em
+  // voo, para que um duplo toque não dispare duas chamadas de cancelamento
+  // (T-02-28 — o servidor recusaria a segunda com 404, mas a UI não deve
+  // provocar essa corrida).
+  const [confirmando, setConfirmando] = useState(null);
+  const [enviando, setEnviando] = useState(false);
+  const pendentes = data.pendingOrders || [];
   return (
     <div>
       <h1 style={{ margin: "0 0 16px", fontSize: "22px", fontWeight: 700 }}>Histórico de operações</h1>
+      {/* Fase 2 (MERC-02/03, D-09): SEM estado vazio próprio — a seção só
+          existe quando há pelo menos 1 ordem pendente (UI-SPEC). O caixa
+          reservado some da tela junto com a última pendente cancelada/
+          executada; não é um bloco fixo do histórico. */}
+      {pendentes.length > 0 && (
+        <div style={{ ...card, overflow: "hidden", marginBottom: "16px" }}>
+          <div style={{ padding: "11px 15px 9px", background: T.bgPanel, borderBottom: `1px solid ${T.borderSubtle}` }}>
+            <div style={{ fontSize: "10px", letterSpacing: "0.06em", color: T.textFaint, fontFamily: MONO, fontWeight: 700 }}>Pendentes</div>
+            <div style={{ fontSize: "11.5px", color: T.textMuted, marginTop: "3px", lineHeight: 1.4 }}>
+              {money(data.caixaReservado || 0)} reservado(s) — volta ao caixa (ou à posição, na venda) se a ordem for cancelada.
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: "10px", padding: "9px 15px", background: T.bgPanel, borderBottom: `1px solid ${T.borderSubtle}`, fontSize: "10px", letterSpacing: "0.06em", color: T.textFaint, fontFamily: MONO }}>
+            {head(1.6, "DATA")}{head(1, "TIPO")}{head(0.9, "ATIVO")}{head(0.6, "QTD", true)}{head(1, "PREÇO", true)}{head(1.1, "", true)}
+          </div>
+          {pendentes.map((o) => (
+            <div key={o.id}>
+              <div style={{ display: "flex", gap: "10px", alignItems: "center", padding: "12px 15px", borderBottom: `1px solid ${T.borderFaint}`, fontFamily: MONO, fontSize: "13px" }}>
+                <div style={{ flex: 1.6, color: T.textMuted, fontSize: "12px" }}>{o.criadaEm}</div>
+                <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "3px" }}>
+                  {/* T-02-31: cor SEMPRE T.warn aqui — as cores semânticas de
+                      compra/venda CONCLUÍDA significariam "já executou"; esta
+                      ordem ainda não. */}
+                  <span style={{ width: "fit-content", padding: "3px 9px", borderRadius: "999px", fontSize: "10.5px", fontWeight: 800, color: T.warn, background: "color-mix(in srgb, " + T.warn + " 14%, transparent)" }}>{ctx.cp.ordemPendentePill}</span>
+                  <span style={{ fontSize: "10px", fontWeight: 700, color: T.textFaint }}>{o.tipo}</span>
+                </div>
+                <div style={{ flex: 0.9, fontWeight: 700 }}>{o.t}</div>
+                <div style={{ flex: 0.6, textAlign: "right", color: T.textSecondary }}>{o.qty}</div>
+                <div style={{ flex: 1, textAlign: "right", color: T.textSecondary, fontSize: "12px" }}>{o.precoReferencia != null ? "ref. R$ " + price(o.precoReferencia) : "—"}</div>
+                <div style={{ flex: 1.1, textAlign: "right" }}>
+                  <button type="button" onClick={() => setConfirmando((c) => (c === o.id ? null : o.id))} aria-label={"Cancelar ordem pendente de " + o.t}
+                    style={{ width: "40px", height: "40px", borderRadius: "50%", border: `1px solid ${T.borderSubtle}`, background: "transparent", color: T.textFaint, fontSize: "15px", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+                </div>
+              </div>
+              {/* princípio 4: uma ordem que tentou executar e falhou não some
+                  em silêncio — o motivo fica visível na própria linha. */}
+              {o.ultimoErro && (
+                <div style={{ padding: "0 15px 9px", fontSize: "11px", color: T.warn, lineHeight: 1.4 }}>
+                  Última tentativa{o.ultimaTentativaEm ? " (" + o.ultimaTentativaEm + ")" : ""} falhou: {o.ultimoErro}
+                </div>
+              )}
+              {confirmando === o.id && (
+                <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "8px", padding: "10px 15px", borderBottom: `1px solid ${T.borderFaint}`, background: T.bgBase }}>
+                  <span style={{ flex: "1 1 220px", fontSize: "11.5px", color: T.textMuted, lineHeight: 1.4 }}>
+                    {o.tipo === "COMPRA"
+                      ? "Cancelar esta ordem? O caixa reservado (" + money(o.caixaReservado || 0) + ") volta a ficar disponível imediatamente."
+                      : "Cancelar esta ordem? As " + o.qty + " cotas reservadas voltam à posição imediatamente."}
+                  </span>
+                  <button type="button" disabled={enviando} onClick={() => setConfirmando(null)}
+                    style={{ padding: "9px 13px", borderRadius: "9px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textMuted, fontWeight: 700, fontSize: "13px" }}>Manter ordem</button>
+                  <button type="button" disabled={enviando} onClick={async () => {
+                    setEnviando(true);
+                    try { await A.cancelPendingOrder(o.id); } finally { setEnviando(false); setConfirmando(null); }
+                  }} style={{ padding: "9px 13px", borderRadius: "9px", border: `1px solid ${T.negative}`, background: "transparent", color: T.negative, fontWeight: 700, fontSize: "13px" }}>Confirmar cancelamento</button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
       {data.history.length === 0 ? (
         <div style={{ background: T.bgCard, border: `1px dashed ${T.borderDashed}`, borderRadius: "12px", padding: "34px 20px", textAlign: "center" }}>
           <div style={{ fontSize: "16px", fontWeight: 700 }}>Nenhuma operação ainda</div>
@@ -6218,12 +6287,22 @@ function BuyModal({ ctx }) {
   const name = (data.catalog.find((c) => c.t === t) || {}).n || t;
   const cost = (q.price || 0) * buyModal.qty;
   const ok = cost <= data.cash && q.price != null;
+  // Fase 2 (MERC-02/03, D-01/T-02-30): SEMPRE ctx.mercado — fonte única do
+  // badge (plano 02-05), nunca uma segunda consulta aqui. `fechado` decide o
+  // disclaimer/pill de PENDENTE; `statusIndisponivel` mostra o aviso de nova
+  // tentativa SEM bloquear o Confirmar (CLAUDE.md princípio 4: nunca chuta,
+  // nunca trava por dado ausente).
+  const fechado = ctx.mercado && ctx.mercado.aberto === false;
+  const statusIndisponivel = !!(ctx.mercado && ctx.mercado.erro);
   return (
     <div onClick={A.closeBuy} style={{ position: "fixed", inset: 0, zIndex: 50, background: T.scrim, display: "flex", alignItems: "center", justifyContent: "center", padding: "18px" }}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: "420px", ...card, borderRadius: "14px", padding: "20px" }}>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "10px" }}>
           <div>
-            <div style={{ fontSize: "11px", color: T.textFaint, letterSpacing: "0.06em" }}>COMPRA SIMULADA</div>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <div style={{ fontSize: "11px", color: T.textFaint, letterSpacing: "0.06em" }}>COMPRA SIMULADA</div>
+              {fechado && <span style={{ padding: "3px 9px", borderRadius: "999px", background: "color-mix(in srgb, " + T.warn + " 14%, transparent)", color: T.warn, fontSize: "10.5px", fontWeight: 800, whiteSpace: "nowrap" }}>{ctx.cp.ordemPendentePill}</span>}
+            </div>
             <div style={{ display: "flex", alignItems: "baseline", gap: "8px", marginTop: "3px" }}>
               <span style={{ fontFamily: MONO, fontWeight: 700, fontSize: "19px" }}>{t}</span>
               <span style={{ color: T.textMuted, fontSize: "13px" }}>{name}</span>
@@ -6247,7 +6326,13 @@ function BuyModal({ ctx }) {
           <span style={{ fontWeight: 700, fontSize: "15px" }}>{money(cost)}</span>
         </div>
         {!ok && q.price != null && <div style={{ fontSize: "12px", color: T.negative, marginTop: "8px" }}>Caixa insuficiente. Disponível: {money(data.cash)}</div>}
-        <div style={{ fontSize: "11px", color: T.textFaint, marginTop: "8px" }}>O preço final é o da cotação no momento da confirmação (servidor).</div>
+        <div style={{ fontSize: "11px", color: T.textFaint, marginTop: "8px" }}>{fechado ? ctx.cp.ordemPendenteAvisoCompra(ctx.mercado.abertura) : "O preço final é o da cotação no momento da confirmação (servidor)."}</div>
+        {statusIndisponivel && (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", marginTop: "10px", padding: "9px 11px", borderRadius: "9px", background: "color-mix(in srgb, " + T.warn + " 12%, transparent)", border: `1px solid ${T.warn}` }}>
+            <span style={{ fontSize: "11.5px", color: T.warn, lineHeight: 1.4 }}>{ctx.cp.mercadoStatusFalhouNaOrdem}</span>
+            <button type="button" onClick={ctx.recarregarMercado} style={{ flex: "none", padding: "6px 10px", borderRadius: "7px", border: `1px solid ${T.warn}`, background: "transparent", color: T.warn, fontWeight: 700, fontSize: "12px" }}>↻ Tentar de novo</button>
+          </div>
+        )}
         <div style={{ display: "flex", gap: "8px", marginTop: "16px" }}>
           <button onClick={A.closeBuy} style={{ flex: 1, padding: "11px", borderRadius: "9px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 600, fontSize: "14px" }}>Cancelar</button>
           <button onClick={A.confirmBuy} disabled={!ok} style={{ flex: 1.4, padding: "11px", borderRadius: "9px", border: `1px solid ${ok ? T.positive : T.borderSubtle}`, background: ok ? T.positive : T.knob, color: ok ? T.confirmOkText : T.textFaint, fontWeight: 800, fontSize: "14px" }}>{ctx.cp.confirmarCompra}</button>
@@ -6272,12 +6357,19 @@ function SellModal({ ctx }) {
   const pnl = (cur - pos.avg) * qty;
   const pnlColor = pnl >= 0 ? T.positive : T.negative;
   const step = (dir) => setSellModal((m) => ({ ...m, qty: Math.min(pos.qty, Math.max(100, (m.qty || pos.qty) + dir * 100)) }));
+  // Fase 2 (MERC-02/03, D-01/T-02-30): mesmo par derivado do BuyModal, mesma
+  // fonte única (ctx.mercado).
+  const fechado = ctx.mercado && ctx.mercado.aberto === false;
+  const statusIndisponivel = !!(ctx.mercado && ctx.mercado.erro);
   return (
     <div onClick={A.closeSell} style={{ position: "fixed", inset: 0, zIndex: 50, background: T.scrim, display: "flex", alignItems: "center", justifyContent: "center", padding: "18px" }}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: "420px", ...card, borderRadius: "14px", padding: "20px" }}>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "10px" }}>
           <div>
-            <div style={{ fontSize: "11px", color: T.textFaint, letterSpacing: "0.06em" }}>VENDA SIMULADA</div>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <div style={{ fontSize: "11px", color: T.textFaint, letterSpacing: "0.06em" }}>VENDA SIMULADA</div>
+              {fechado && <span style={{ padding: "3px 9px", borderRadius: "999px", background: "color-mix(in srgb, " + T.warn + " 14%, transparent)", color: T.warn, fontSize: "10.5px", fontWeight: 800, whiteSpace: "nowrap" }}>{ctx.cp.ordemPendentePill}</span>}
+            </div>
             <div style={{ display: "flex", alignItems: "baseline", gap: "8px", marginTop: "3px" }}>
               <span style={{ fontFamily: MONO, fontWeight: 700, fontSize: "19px" }}>{t}</span>
               <span style={{ color: T.textMuted, fontSize: "13px" }}>{pos.qty} cotas · PM R$ {price(pos.avg)}</span>
@@ -6304,7 +6396,13 @@ function SellModal({ ctx }) {
           <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: T.textMuted, fontSize: "13px" }}>Resultado estimado</span><span style={{ fontWeight: 700, fontSize: "15px", color: pnlColor }}>{moneySigned(pnl)}</span></div>
         </div>
         {!total && <div style={{ fontSize: "11px", color: T.textMuted, marginTop: "8px", lineHeight: 1.5 }}>Venda parcial: ficam {pos.qty - qty} cotas com o mesmo preço médio.</div>}
-        <div style={{ fontSize: "11px", color: T.textFaint, marginTop: "6px" }}>O preço final é o da cotação no momento da confirmação (servidor). Registro vai para o histórico do ativo.</div>
+        <div style={{ fontSize: "11px", color: T.textFaint, marginTop: "6px" }}>{fechado ? ctx.cp.ordemPendenteAvisoVenda(ctx.mercado.abertura) : "O preço final é o da cotação no momento da confirmação (servidor). Registro vai para o histórico do ativo."}</div>
+        {statusIndisponivel && (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", marginTop: "10px", padding: "9px 11px", borderRadius: "9px", background: "color-mix(in srgb, " + T.warn + " 12%, transparent)", border: `1px solid ${T.warn}` }}>
+            <span style={{ fontSize: "11.5px", color: T.warn, lineHeight: 1.4 }}>{ctx.cp.mercadoStatusFalhouNaOrdem}</span>
+            <button type="button" onClick={ctx.recarregarMercado} style={{ flex: "none", padding: "6px 10px", borderRadius: "7px", border: `1px solid ${T.warn}`, background: "transparent", color: T.warn, fontWeight: 700, fontSize: "12px" }}>↻ Tentar de novo</button>
+          </div>
+        )}
         <div style={{ display: "flex", gap: "8px", marginTop: "16px" }}>
           <button onClick={A.closeSell} style={{ flex: 1, padding: "11px", borderRadius: "9px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 600, fontSize: "14px" }}>Cancelar</button>
           <button onClick={A.confirmSell} style={{ flex: 1.4, padding: "11px", borderRadius: "9px", border: `1px solid ${T.negative}`, background: T.negativeTint10, color: T.negative, fontWeight: 800, fontSize: "14px" }}>{ctx.cp.confirmarVenda}{total ? " total" : " de " + qty}</button>
@@ -6378,6 +6476,11 @@ export default function App() {
   // "chuta" aberto/fechado — CLAUDE.md princípio 4). A rota é pública
   // (server/app/main.py:833), então a consulta roda ANTES de qualquer login.
   const [mercado, setMercado] = useState(null);
+  // Fase 2 (02-06, T-02-30): ref para a MESMA função de consulta do efeito
+  // abaixo — expor ctx.recarregarMercado (botão "tentar de novo" nos modais
+  // de compra/venda quando o status falhou) sem criar uma segunda consulta
+  // nem duplicar a lógica de aberto/fechado/indisponível.
+  const consultarMercadoRef = useRef(null);
   useEffect(() => {
     let alive = true;
     const consultarMercado = async () => {
@@ -6389,6 +6492,7 @@ export default function App() {
         if (alive) setMercado({ erro: true });
       }
     };
+    consultarMercadoRef.current = consultarMercado;
     consultarMercado();
     // Reconsulta quando o app volta pro primeiro plano — sem isso, quem
     // deixa a tela aberta desde antes da abertura veria "fechado" às 10h05.
@@ -6653,6 +6757,23 @@ export default function App() {
         flash(msg);
         notify.send("Agente Boris+", msg);
       }
+      // Fase 2 (MERC-02..04, T-02-36): ordem pendente auto-cancelada na
+      // abertura (preço subiu e o caixa reservado não cobriu mais o custo,
+      // pending_orders.py) é a ÚNICA forma de uma pendente sumir sem o
+      // usuário ter pedido — sem este toast (e sem o push do plano 02-03)
+      // só apareceria no Diário do Operador, tela de diagnóstico, não
+      // caminho de usuário do Modo Estudo. Filtra pela TAG (não por
+      // `kind === "warn"` solto — outros avisos do Operador também usam
+      // `warn` e não devem virar toast aqui) e usa `e.text` INTEIRO: o texto
+      // já vem pronto do motor determinístico, a UI não recompõe a frase
+      // (guardrail: manchete vem sempre do motor, CLAUDE.md princípio 5).
+      // Disparado POR ÚLTIMO (depois do resumo de ações acima): é o que
+      // exige ação do usuário — revisar se quer recolocar a ordem.
+      const canceladas = news.filter((e) => e.tag === "pendente-cancelada");
+      for (const e of canceladas) {
+        flash(e.text);
+        notify.send("Boris+", e.text);
+      }
       if (log.length) store.putAgent({ lastSeenAt: new Date().toISOString() }).catch(() => {});
     } catch { /* resumo é best-effort */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -6795,8 +6916,10 @@ export default function App() {
         const total = !pos || sm.qty >= pos.qty;
         const st = await store.sell(sm.t, total ? undefined : sm.qty);
         setData(st); setSellModal(null);
-        track("trade_simulated", { side: "sell", ticker: sm.t, instrument: "equity" }); // qa/47 (Fase 2)
-        flash(cp.toastVenda(total ? "total" : sm.qty + " cotas", sm.t)); // FASE 8B (B1)
+        // Fase 2 (MERC-02/03, D-01): analítica não pode confundir ordem
+        // PENDENTE (mercado fechado, nada executou) com venda concluída.
+        track("trade_simulated", { side: "sell", ticker: sm.t, instrument: "equity", pendente: !!st.pendente }); // qa/47 (Fase 2)
+        flash(st.pendente ? cp.toastOrdemPendente(sm.qty, sm.t) : cp.toastVenda(total ? "total" : sm.qty + " cotas", sm.t)); // FASE 8B (B1)
       } catch (e) { flash("Venda: " + (e.message || e)); }
     },
     // FASE 2 (2.3): scan do STU restrito aos ativos da watchlist — ordena os
@@ -6841,12 +6964,22 @@ export default function App() {
       try {
         const s = await store.buy(bm.t, bm.qty, bm.meta || undefined); // FASE 2 (2.4): setup de entrada
         setData(s); setBuyModal(null);
-        track("trade_simulated", { side: "buy", ticker: bm.t, instrument: "equity" }); // qa/47 (Fase 2)
-        flash(cp.toastCompra(bm.qty, bm.t)); // FASE 8B (B1): voz do modo
-        // FASE 2 (2.3): oferta IMEDIATA do N3 — modal com cenários; nada é
-        // aplicado sem o toque do usuário (Fechar cancela sem efeito).
-        setStopAlvoFor(bm.t);
-        A.runStopAlvoFor(bm.t);
+        // Fase 2 (MERC-02/03, D-01): analítica não pode confundir ordem
+        // PENDENTE (mercado fechado, nada executou) com compra concluída.
+        track("trade_simulated", { side: "buy", ticker: bm.t, instrument: "equity", pendente: !!s.pendente }); // qa/47 (Fase 2)
+        if (s.pendente) {
+          // Mercado fechado: a ordem fica pendente, SEM posição nova ainda —
+          // stop/alvo protegem uma posição que só nasce quando a pendente
+          // executar de verdade (scheduler, plano 02-03). Ofertar o N3 agora
+          // seria propor proteção para algo que não existe.
+          flash(cp.toastOrdemPendente(bm.qty, bm.t));
+        } else {
+          flash(cp.toastCompra(bm.qty, bm.t)); // FASE 8B (B1): voz do modo
+          // FASE 2 (2.3): oferta IMEDIATA do N3 — modal com cenários; nada é
+          // aplicado sem o toque do usuário (Fechar cancela sem efeito).
+          setStopAlvoFor(bm.t);
+          A.runStopAlvoFor(bm.t);
+        }
       }
       catch (e) { flash("Compra: " + (e.message || e)); }
     },
@@ -6860,6 +6993,16 @@ export default function App() {
     },
     setStop: async (t, v) => { try { const s = await store.putPosition(t, { stop: v }); setData(s); } catch (e) { flash("Erro: " + (e.message || e)); } },
     setAlvo: async (t, v) => { try { const s = await store.putPosition(t, { alvo: v }); setData(s); } catch (e) { flash("Erro: " + (e.message || e)); } },
+    // Fase 2 (MERC-04, D-03/T-02-29): cancela uma ordem pendente — adota o
+    // ESTADO DEVOLVIDO pelo servidor (nunca um palpite local de "caixa
+    // voltou"); erro (404/401/rede) vira flash, nunca finge sucesso.
+    cancelPendingOrder: async (id) => {
+      try {
+        const s = await store.cancelPendingOrder(id);
+        setData(s);
+        flash(cp.toastOrdemPendenteCancelada);
+      } catch (e) { flash("Cancelamento: " + (e.message || e)); }
+    },
     // v2 (ADR-003/004): compra a seco de 1 contrato (100 cotas). O servidor
     // recusa (502) se a cotação estiver degradada — nunca preenche `avg` com
     // um preço que o próprio sistema não confia.
@@ -7329,6 +7472,10 @@ export default function App() {
     // resto da árvore leem `ctx.mercado`, nunca recalculam o status em outro
     // lugar. Ver o useEffect de boot do estado `mercado`, acima.
     mercado,
+    // Fase 2 (02-06, T-02-30): botão "tentar de novo" do BuyModal/SellModal
+    // quando `ctx.mercado.erro` — chama a MESMA função do efeito de boot via
+    // ref, nunca uma segunda consulta.
+    recarregarMercado: () => { const fn = consultarMercadoRef.current; if (fn) fn(); },
     data, quotes, analysis, expanded, analysisModel, setAnalysisModel, A, quotesAt, quotesLoading, test, keyDraft, setKeyDraft, cp,
     catalogSel, setCatalogSel, buyModal, setBuyModal, cycleBusy, addState, setAddState,
     sellModal, setSellModal, wlScan, wlScanLoading, destaque,

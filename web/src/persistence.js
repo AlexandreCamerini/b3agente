@@ -1009,6 +1009,13 @@ function deviceStore() {
         _agendarSyncPrefs();
         const out = pub();
         out.priceUsed = r && r.priceUsed;
+        // Fase 2 (02-06): sem isto, o app nativo nunca sabia que uma ordem
+        // virou pendente (mercado fechado) — confirmBuy tomava o ramo de
+        // execução imediata (abria stop/alvo para uma posição que ainda não
+        // existe). pendingOrders/caixaReservado já eram adotados por
+        // _adotarCarteiraDoServidor; faltava só este flag da RESPOSTA (não
+        // faz parte do doc persistido, por isso pub() não o carrega sozinho).
+        out.pendente = !!(r && r.pendente);
         return out;
       }
       const price = await priceOf(t);
@@ -1046,6 +1053,7 @@ function deviceStore() {
         _agendarSyncPrefs();
         const out = pub();
         out.priceUsed = r && r.priceUsed;
+        out.pendente = !!(r && r.pendente); // Fase 2 (02-06): mesmo motivo do buy(), acima.
         return out;
       }
       const pos = doc.positions.find((p) => p.t === t);

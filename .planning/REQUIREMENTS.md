@@ -11,13 +11,13 @@
       de entrada/home, calculado por `pregao.py` (fonte única já existente:
       `is_trading_day()` + `in_market_hours()`) — hoje esse status só aparece
       pós-login, na aba Operador
-- [ ] **MERC-02**: Ordem colocada fora do horário de pregão fica com status
+- [x] **MERC-02**: Ordem colocada fora do horário de pregão fica com status
       "pendente" e executa ao preço de abertura do pregão seguinte (não ao
       preço do momento do pedido)
-- [ ] **MERC-03**: Caixa da ordem pendente é reservado no momento do pedido
+- [x] **MERC-03**: Caixa da ordem pendente é reservado no momento do pedido
       (fica indisponível para outras ordens) — só é debitado de fato na
       execução
-- [ ] **MERC-04**: Usuário pode cancelar uma ordem pendente a qualquer momento
+- [x] **MERC-04**: Usuário pode cancelar uma ordem pendente a qualquer momento
       antes da execução (abertura do pregão seguinte)
 
 ### Correção — Crítico (REPORT-01)
@@ -132,9 +132,9 @@
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | MERC-01 | Phase 2 | Pending |
-| MERC-02 | Phase 2 | Pending |
-| MERC-03 | Phase 2 | Pending |
-| MERC-04 | Phase 2 | Pending |
+| MERC-02 | Phase 2 | Complete |
+| MERC-03 | Phase 2 | Complete |
+| MERC-04 | Phase 2 | Complete |
 | FIX-C11 | Phase 3 | Pending |
 | FIX-C30 | Phase 3 | Pending |
 | FIX-C12 | Phase 3 | Pending |

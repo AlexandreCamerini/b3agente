@@ -29,8 +29,15 @@ for (const ev of EVENTOS) {
 }
 
 // --- trade_simulated cobre compra E venda, ação E opção ---------------------
-ok("trade_simulated: compra de ação (confirmBuy)", /track\("trade_simulated", \{ side: "buy", ticker: bm\.t, instrument: "equity" \}\)/.test(src));
-ok("trade_simulated: venda de ação (confirmSell)", /track\("trade_simulated", \{ side: "sell", ticker: sm\.t, instrument: "equity" \}\)/.test(src));
+// Fase 2 (02-06, MERC-02/03): confirmBuy/confirmSell passaram a acrescentar
+// `pendente: !!s.pendente`/`pendente: !!st.pendente` ao evento — sem isto a
+// analítica confundiria uma ordem PENDENTE (mercado fechado, nada executou
+// ainda) com uma compra/venda concluída. Guardião atualizado de propósito
+// (nota exigida por CLAUDE.md: "guardiões não se apagam, reversão
+// deliberada atualiza com nota") — o shape de ação/opção continua exato
+// porque buyOption/sellOption não passam por ordem pendente.
+ok("trade_simulated: compra de ação (confirmBuy)", /track\("trade_simulated", \{ side: "buy", ticker: bm\.t, instrument: "equity", pendente: !!s\.pendente \}\)/.test(src));
+ok("trade_simulated: venda de ação (confirmSell)", /track\("trade_simulated", \{ side: "sell", ticker: sm\.t, instrument: "equity", pendente: !!st\.pendente \}\)/.test(src));
 ok("trade_simulated: compra de opção (buyOption)", /track\("trade_simulated", \{ side: "buy", ticker: underlying, instrument: "option" \}\)/.test(src));
 ok("trade_simulated: venda de opção (sellOption)", /track\("trade_simulated", \{ side: "sell", contract: contractId, instrument: "option" \}\)/.test(src));
 

@@ -97,6 +97,24 @@ export const COPY = {
         ? `Mercado fechado — abre ${abertura} (a B3 só negocia em horário de pregão, em dias úteis)`
         : "Mercado fechado",
     mercadoIndisponivel: "Status do mercado indisponível",
+
+    // Fase 2 (MERC-02/03, D-01): BuyModal/SellModal com o mercado fechado —
+    // a ordem não some, vira PENDENTE. Mesmo fato nos dois modos, tom muda
+    // (aqui explica o "porquê" como o resto do vocabulário Estudo); nunca
+    // inventa horário — abertura só aparece quando `ctx.mercado.abertura`
+    // vier preenchido (mesma regra de mercadoFechado, acima).
+    ordemPendentePill: "PENDENTE",
+    ordemPendenteAvisoCompra: (abertura) =>
+      abertura
+        ? `Mercado fechado agora — a ordem fica pendente e executa ao preço de abertura do próximo pregão, às ${abertura}. O caixa já é reservado nesta confirmação.`
+        : "Mercado fechado agora — a ordem fica pendente até a abertura do próximo pregão. O caixa já é reservado nesta confirmação.",
+    ordemPendenteAvisoVenda: (abertura) =>
+      abertura
+        ? `Mercado fechado agora — a ordem fica pendente e executa ao preço de abertura do próximo pregão, às ${abertura}. As cotas já ficam reservadas nesta confirmação.`
+        : "Mercado fechado agora — a ordem fica pendente até a abertura do próximo pregão. As cotas já ficam reservadas nesta confirmação.",
+    mercadoStatusFalhouNaOrdem: "Não conseguimos confirmar se o mercado está aberto agora — tente de novo antes de enviar a ordem.",
+    toastOrdemPendente: (qty, t) => `Ordem pendente registrada: ${qty} ${t}. Executa na abertura do próximo pregão.`,
+    toastOrdemPendenteCancelada: "Ordem pendente cancelada — o valor reservado volta a ficar disponível.",
   },
 
   operador: {
@@ -173,6 +191,21 @@ export const COPY = {
     mercadoAberto: "Mercado aberto",
     mercadoFechado: (abertura) => (abertura ? `Mercado fechado — abre ${abertura}` : "Mercado fechado"),
     mercadoIndisponivel: "Status do mercado indisponível",
+
+    // Fase 2 (MERC-02/03, D-01): mesmo fato do ramo estudo (acima), tom seco
+    // de mesa.
+    ordemPendentePill: "PENDENTE",
+    ordemPendenteAvisoCompra: (abertura) =>
+      abertura
+        ? `Mercado fechado — ordem pendente, executa na abertura às ${abertura}. Caixa reservado agora.`
+        : "Mercado fechado — ordem pendente até a próxima abertura. Caixa reservado agora.",
+    ordemPendenteAvisoVenda: (abertura) =>
+      abertura
+        ? `Mercado fechado — ordem pendente, executa na abertura às ${abertura}. Cotas reservadas agora.`
+        : "Mercado fechado — ordem pendente até a próxima abertura. Cotas reservadas agora.",
+    mercadoStatusFalhouNaOrdem: "Status do mercado indisponível agora — tente de novo antes de enviar a ordem.",
+    toastOrdemPendente: (qty, t) => `Ordem pendente: ${qty} ${t}. Executa na abertura do próximo pregão.`,
+    toastOrdemPendenteCancelada: "Ordem pendente cancelada — caixa liberado.",
   },
 };
 
