@@ -115,6 +115,19 @@ None - no external service configuration required.
 - Nenhum bloqueio para as próximas plans da fase 3 (dependências apontadas em `03-CONTEXT.md`: C31→C32 já resolvida nesta plan).
 - Ação recomendada para o orquestrador/humano: rodar `npm install` em `web/` neste worktree (ou confirmar que o ambiente de merge/CI já tem `web/node_modules`) antes de tratar a suíte canônica como 100% verde — o gap está isolado e documentado, não bloqueia o merge do trabalho de backend desta plan.
 
+## Self-Check: PASSED
+
+- FOUND: `server/app/main.py`
+- FOUND: `server/app/plan.py`
+- FOUND: `server/tests/test_fase3_gate_plano.py`
+- FOUND: `.planning/phases/03-corre-o-cr-tico-alto/03-04-SUMMARY.md`
+- FOUND: `.planning/phases/03-corre-o-cr-tico-alto/deferred-items.md`
+- FOUND commit `1e89394` (test: guardião C-31)
+- FOUND commit `efc0305` (feat: os 3 call sites de gate, C-31)
+- FOUND commit `9c028e0` (test: guardião C-32)
+- FOUND commit `f9ea38e` (feat: `_gate_analise`, C-32)
+- FOUND commit `8b29ad4` (docs: SUMMARY + deferred-items)
+
 ---
 *Phase: 03-corre-o-cr-tico-alto*
 *Completed: 2026-08-18*
