@@ -94,6 +94,9 @@ function VisaoGeral() {
       {data && (
         <ResumoExecutivo>
           <Kpi label="KILL-SWITCH" value={data.killSwitch ? "LIGADO" : "desligado"} tone={data.killSwitch ? "negative" : "positive"} />
+          {/* C-35 (REPORT-01): 2º interruptor — o push do gatilho era invisível
+              e só saía por redeploy; KPI irmão do KILL-SWITCH acima. */}
+          <Kpi label="PUSH DO GATILHO" value={data.timingWatchKillSwitch ? "ligado" : "desligado"} tone={data.timingWatchKillSwitch ? "negative" : "positive"} />
           <Kpi label="PREGÃO" value={data.pregaoAberto ? "aberto" : "fechado"} />
           <Kpi label="LAÇO VIVO" value={data.heartbeat?.lacoVivo ? "sim" : "NÃO"} tone={data.heartbeat?.lacoVivo ? "positive" : "negative"} />
           <Kpi label="USUÁRIOS C/ OPERADOR" value={data.usuariosHabilitados} />
@@ -489,6 +492,63 @@ function KillSwitchBox({ user, reload }) {
   );
 }
 
+// C-35 (REPORT-01): 2º interruptor — o push do gatilho lia SÓ a env
+// B3_TIMING_PUSH_KILL, invisível em qualquer aba do portal, e o único jeito
+// de reverter era redeploy. Mesmo risco que já produziu o incidente do
+// kill-switch do agente (ligado sem querer, execução automática parada por
+// 2,5 dias) — clone estrutural EXATO de KillSwitchBox, mesma permissão
+// (execucao_automatica.controlar), só o cliente de API e os textos mudam.
+function TimingWatchKillSwitchBox({ user, reload }) {
+  const podeControlar = (user?.permissions || []).includes("execucao_automatica.controlar");
+  const { loading, error, data, reload: reloadKs } = useFetch(() => api.timingWatchKillSwitchGet(), []);
+  const [busy, setBusy] = useState(false);
+  const [erroAcao, setErroAcao] = useState("");
+
+  const alternar = async () => {
+    // ADR-014 (mobile): ação destrutiva — não pode depender de um toque preciso.
+    const pergunta = data.on
+      ? "Desligar o kill-switch do push de gatilho? O aviso de gatilho volta a ser enviado normalmente."
+      : "Ligar o kill-switch do push de gatilho? Nenhum aviso de gatilho será enviado a ninguém enquanto estiver ligado.";
+    if (!window.confirm(pergunta)) return;
+    setBusy(true); setErroAcao("");
+    try {
+      await api.timingWatchKillSwitchPut(!data.on);
+      await reloadKs();
+      if (reload) reload();
+    } catch (e) {
+      setErroAcao((e && e.message) || "Falha ao alternar o kill-switch.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card title="Kill-switch do push de gatilho (timing_watch)">
+      <Estado loading={loading} error={error}>
+        {data && (
+          <>
+            <Kv label="Estado vigente" value={data.on ? "LIGADO (push do gatilho parado)" : "desligado (push do gatilho roda normalmente)"}
+                tone={data.on ? "negative" : "positive"} />
+            <div style={{ marginTop: "10px", fontSize: "11px", color: T.faint, lineHeight: 1.5 }}>
+              Override em runtime sobre a env B3_TIMING_PUSH_KILL — some no próximo deploy só se ninguém mexer aqui de novo.
+            </div>
+            {podeControlar ? (
+              <button onClick={alternar} disabled={busy}
+                      style={{ ...btnGhost, marginTop: "10px", padding: "13px 18px", width: "100%", opacity: busy ? 0.6 : 1,
+                               borderColor: data.on ? T.positive : T.negative, color: data.on ? T.positive : T.negative }}>
+                {busy ? "Aplicando…" : data.on ? "Desligar kill-switch" : "Ligar kill-switch"}
+              </button>
+            ) : (
+              <div style={{ marginTop: "10px", fontSize: "11px", color: T.faint }}>Sem permissão para alternar (requer execucao_automatica.controlar).</div>
+            )}
+            {erroAcao && <div style={{ color: T.negative, fontSize: "12px", marginTop: "8px" }}>{erroAcao}</div>}
+          </>
+        )}
+      </Estado>
+    </Card>
+  );
+}
+
 // ADR-012 (Fase 3): eficiência das operações automáticas — contagem/PnL por
 // origem + correlação análise↔operação por snapshotId.
 function Automacao({ user }) {
@@ -497,6 +557,7 @@ function Automacao({ user }) {
   return (
     <>
       <KillSwitchBox user={user} />
+      <TimingWatchKillSwitchBox user={user} />
       <Card title="Ordens por origem" right={<button onClick={reload} style={btnGhost}>↻ atualizar</button>}>
         <Estado loading={loading} error={error} empty={data && data.totalOrdens === 0}>
           {data && data.totalOrdens > 0 && Object.entries(data.porOrigem || {}).map(([origem, v]) => (

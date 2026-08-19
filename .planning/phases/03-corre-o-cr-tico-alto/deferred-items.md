@@ -22,3 +22,23 @@
   passed. Flag for the orchestrator/human: run `npm install` inside `web/`
   in this worktree (or verify CI/merge target has it installed) before
   treating the canonical suite as fully green.
+
+## 03-05
+
+- **Same `web/node_modules` gap, verified non-blocking (temporary symlink,
+  not committed).** Confirmed the 7 failures listed above are 100%
+  attributable to the missing `web/node_modules` (same
+  `ERR_MODULE_NOT_FOUND: '@capacitor/core'`) and not a code regression:
+  `web-admin/package-lock.json` and `web/package-lock.json` are byte-identical
+  to the main clone's (`diff` confirmed), so a temporary symlink to the main
+  clone's already-installed `node_modules` (`ln -s
+  /Users/acamerini/dev/bolsia/b3-agente/web/node_modules
+  <worktree>/web/node_modules`, same for `web-admin/`) was created ONLY to
+  run `npx vite build` (web-admin) and `bash scripts/executar.sh --testes`,
+  then removed before every `git add`/commit — `node_modules/` is gitignored
+  either way, so nothing leaks into history or the working tree. With the
+  symlink in place: `bash scripts/executar.sh --testes` → exit 0, zero
+  `[X]`, all 7 previously-failing files pass. Same remediation precedent as
+  03-02's SUMMARY (symlink pattern) and 03-04's deferred-items.md entry
+  above (pre-existing gap). Flag for the orchestrator/human still stands:
+  run `npm install` inside `web/` in this worktree for a permanent fix.
