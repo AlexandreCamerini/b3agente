@@ -1095,6 +1095,18 @@ def status_snapshot(conn, interval_s: int = None) -> dict:
     from . import analysis_outcomes  # qa/30 (Fase A): import local, sem ciclo de import
     from . import fundamentals  # qa/46 (Fase 2): aquecimento de cache — hoje sem contador exposto
     from . import intraday  # qa/46 (Fase 2): passada intraday global — hoje sem contador exposto
+    from . import pending_orders  # Fase 2 (MERC-02, plano 02-03): import local, sem ciclo de import
+    # Fase 2 (MERC-02, plano 02-03): fila de ordens pendentes observável no
+    # mesmo payload que já mostra `killSwitch`. Lição direta do incidente do
+    # kill-switch de v1.0 (ligado sem querer, parou a execução de toda a base
+    # por 2,5 dias) — foi mascarado justamente porque o heartbeat batia antes
+    # do portão. Com ordens pendentes na jogada, um kill-switch esquecido
+    # deixa dinheiro reservado e ordem parada indefinidamente; o contador ao
+    # lado do `killSwitch`, no mesmo payload, é o que torna isso visível.
+    # Contagem, nunca identidade (sem PII) — mesma regra de
+    # `protecaoSemOperador`, logo abaixo.
+    _escopos_pendentes = store.scopes_com_pendentes(conn)
+    _total_pendentes = sum(len(pending_orders.listar(conn, user_id=uid)) for uid in _escopos_pendentes)
     # P2 (liveness): heartbeat persistido (sobrevive a deploy e bate fora do pregão).
     intervalo = interval_s or int(os.environ.get("B3_AGENT_INTERVAL_S") or INTERVAL_S_DEFAULT)
     hb = db.kv_get(conn, "agentHeartbeat", None, user_id=None) or {}
@@ -1117,6 +1129,11 @@ def status_snapshot(conn, interval_s: int = None) -> dict:
         "aquecimentoFundamentos": dict(fundamentals.LAST_WARM),
         "intraday": dict(intraday.LAST_PASS),
         "pushAutomaticoFalhasHoje": dict(PUSH_FAIL_TODAY),
+        "ordensPendentes": {
+            "total": _total_pendentes,
+            "escopos": len(_escopos_pendentes),
+            "ultimoCiclo": dict(LAST_PENDING),
+        },
         "intervaloS": interval_s or int(os.environ.get("B3_AGENT_INTERVAL_S") or INTERVAL_S_DEFAULT),
         "usuariosHabilitados": len(list_server_users(conn)),
         # qa/41 (H6): quantos têm stop/alvo armado com o Operador DESLIGADO —

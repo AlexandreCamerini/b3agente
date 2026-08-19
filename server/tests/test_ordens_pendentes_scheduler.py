@@ -160,3 +160,41 @@ def test_push_execucao_e_cancelamento_ignora_warn_preexistente(monkeypatch):
     assert pending_orders.listar(c, user_id="u2") == []  # cancelada some da fila
     assert agent.LAST_PENDING["executadas"] == 1
     assert agent.LAST_PENDING["canceladas"] == 1
+
+
+# --------------------------- Task 2: status_snapshot ------------------------
+
+def test_status_snapshot_ordens_pendentes_vazio():
+    c = _conn()
+    store.ensure_defaults(c, user_id="u1")
+    st = agent.status_snapshot(c)
+    assert "ordensPendentes" in st  # estado vazio é estado (princípio 9) — a chave nunca some
+    op = st["ordensPendentes"]
+    assert set(["total", "escopos", "ultimoCiclo"]) <= set(op)
+    assert op["total"] == 0
+    assert set(["at", "executadas", "canceladas", "erro"]) <= set(op["ultimoCiclo"])
+
+
+def test_status_snapshot_ordens_pendentes_conta_por_escopo():
+    c = _conn()
+    store.ensure_defaults(c, user_id="u1")
+    store.ensure_defaults(c, user_id="u2")
+    pending_orders.criar_compra(c, "u1", "EEEE3", 100, 10.0)
+    pending_orders.criar_compra(c, "u1", "FFFF3", 100, 10.0)
+    pending_orders.criar_compra(c, "u2", "GGGG3", 100, 10.0)
+    st = agent.status_snapshot(c)
+    assert st["ordensPendentes"]["total"] == 3
+    assert st["ordensPendentes"]["escopos"] == 2
+
+
+def test_status_snapshot_kill_switch_com_pendentes_denuncia_fila_represada():
+    c = _conn()
+    store.ensure_defaults(c, user_id="u1")
+    pending_orders.criar_compra(c, "u1", "EEEE3", 100, 10.0)
+    os.environ["B3_AGENT_KILL"] = "1"
+    try:
+        st = agent.status_snapshot(c)
+        assert st["killSwitch"] is True
+        assert st["ordensPendentes"]["total"] > 0
+    finally:
+        os.environ.pop("B3_AGENT_KILL", None)
