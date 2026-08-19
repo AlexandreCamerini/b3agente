@@ -518,6 +518,26 @@ def any_role_granted(conn: sqlite3.Connection) -> bool:
     return conn.execute("SELECT 1 FROM user_roles LIMIT 1").fetchone() is not None
 
 
+def user_ids_with_roles(conn: sqlite3.Connection, roles: list) -> list:
+    """Lista de `user_id` DISTINTOS com QUALQUER um dos papéis dados.
+
+    Uso INTERNO (scheduler/alertas do C-37) — NENHUMA rota HTTP deve chamar
+    esta função: enumerar quem tem papel administrativo é informação de
+    valor para um atacante (T-03-23). `roles_for_user` (acima) continua
+    sendo a única consulta exposta por rota, e é por usuário, não a lista
+    inteira.
+    """
+    if not roles:
+        return []
+    # Nunca f-string com a query inteira (guardião T-03-24): só os
+    # placeholders "?" variam com o tamanho da lista, os VALORES sempre
+    # viajam parametrizados — nenhum `role` é interpolado no texto do SQL.
+    placeholders = ",".join("?" for _ in roles)
+    sql = "SELECT DISTINCT user_id FROM user_roles WHERE role IN (" + placeholders + ")"
+    rows = conn.execute(sql, list(roles)).fetchall()
+    return [r[0] for r in rows]
+
+
 # --------------------------- ADR-013: admin_config ---------------------------
 def admin_config_get(conn: sqlite3.Connection, key: str, default=None):
     row = conn.execute("SELECT value FROM admin_config WHERE key = ?", (key,)).fetchone()
@@ -562,25 +582,48 @@ def audit_insert(conn: sqlite3.Connection, actor_user_id: str, at: str, entity: 
     conn.commit()
 
 
+def _audit_load(v):
+    if v is None:
+        return None
+    try:
+        return json.loads(v)
+    except (ValueError, TypeError):
+        return v
+
+
+def _audit_row_to_dict(r) -> dict:
+    """Mesmo shape usado por `audit_recent` e `audit_last` — extraído para
+    não duplicar o desempacotamento/`json.loads` das colunas."""
+    return {
+        "id": r[0], "actorUserId": r[1], "at": r[2], "entity": r[3],
+        "entityId": r[4], "field": r[5], "oldValue": _audit_load(r[6]), "newValue": _audit_load(r[7]),
+    }
+
+
 def audit_recent(conn: sqlite3.Connection, limit: int = 200) -> list:
     rows = conn.execute(
         "SELECT id, actor_user_id, at, entity, entity_id, field, old_value, new_value "
         "FROM admin_audit_log ORDER BY id DESC LIMIT ?", (limit,)
     ).fetchall()
-    out = []
-    for r in rows:
-        def _load(v):
-            if v is None:
-                return None
-            try:
-                return json.loads(v)
-            except (ValueError, TypeError):
-                return v
-        out.append({
-            "id": r[0], "actorUserId": r[1], "at": r[2], "entity": r[3],
-            "entityId": r[4], "field": r[5], "oldValue": _load(r[6]), "newValue": _load(r[7]),
-        })
-    return out
+    return [_audit_row_to_dict(r) for r in rows]
+
+
+def audit_last(conn: sqlite3.Connection, entity: str, field: Optional[str] = None):
+    """Registro mais recente (maior `id`) daquela entidade/campo, ou `None`.
+
+    Diferente de `audit_recent`: não varre os últimos N — consulta direto
+    pela entidade (e opcionalmente o campo), com `ORDER BY id DESC LIMIT 1`.
+    Uso: `agent.kill_switch_ligado_desde` (C-37) precisa só da última
+    transição de `entity="agent_kill_switch", field="on"`, não do histórico
+    inteiro."""
+    sql = "SELECT id, actor_user_id, at, entity, entity_id, field, old_value, new_value FROM admin_audit_log WHERE entity = ?"
+    params = [entity]
+    if field is not None:
+        sql += " AND field = ?"
+        params.append(field)
+    sql += " ORDER BY id DESC LIMIT 1"
+    row = conn.execute(sql, params).fetchone()
+    return _audit_row_to_dict(row) if row is not None else None
 
 
 # ------------------------- ADR-013: prompts (default) ------------------------
