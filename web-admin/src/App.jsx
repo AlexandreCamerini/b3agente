@@ -178,6 +178,14 @@ function Custos() {
               ))}
               <EventoComSerie label="Requisições (janela 3 dias)" value={data.candles.requisicoes ?? "—"} serie={paraSparkline(tend?.brapi_requisicoes_janela3d)} />
               <EventoComSerie label="Erros (janela 3 dias)" value={data.candles.erros ?? "—"} serie={paraSparkline(tend?.brapi_erros_janela3d)} />
+              {/* C-36 (REPORT-01): o incidente de 31/07/2026 foi HTTP 200 com
+                  ZERO velas por 2 horas de pregão — `erros` ficou em 0 e o
+                  painel não mostrava nada de errado. `vazios` é a contagem
+                  SEPARADA desse modo de falha; nunca fundir com `erros`
+                  (fundir reintroduz a mesma cegueira do incidente). */}
+              <Kv label="Respostas vazias (200 sem vela, janela 3 dias)" value={data.candles.vazios ?? "—"} tone={typeof data.candles.vazios === "number" && data.candles.vazios > 0 ? "warn" : undefined} />
+              <Kv label="Taxa de falha (erros + vazios / requisições, 3 dias)" value={typeof data.candles.taxaFalha === "number" ? (data.candles.taxaFalha * 100).toFixed(1) + "%" : "—"} tone={data.candles.alerta === true ? "negative" : undefined} />
+              <Kv label="Alerta do provedor primário" value={data.candles.alerta ? "⚠ acima do limiar de " + (data.candles.limiarAlerta * 100).toFixed(0) + "%" : "dentro do normal"} tone={data.candles.alerta ? "negative" : "positive"} />
             </>
           )}
         </Estado>
