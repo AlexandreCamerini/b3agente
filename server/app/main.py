@@ -103,6 +103,21 @@ def current_scope(authorization: Optional[str] = Header(default=None)) -> Option
     return user["id"] if user else None
 
 
+def _plano_do_escopo(scope: Optional[str]) -> dict:
+    """C-31: resolve o plano REAL da conta logada (`plan.current_plan`, código
+    órfão desde o ADR-013 — nenhum call site de gate passava `plan=`/`user=`,
+    então TODOS caíam no fallback global `ACTIVE_PLAN`, inclusive contas
+    'pro'). O eixo comercial NUNCA pode derrubar uma rota de dado/análise:
+    qualquer falha ao ler o usuário (ou escopo anônimo) degrada para
+    `plan.ACTIVE_PLAN` — o plano MENOS privilegiado, nunca um superior
+    (fail-closed, ver T-03-13/T-03-14 do threat model da fase 3)."""
+    try:
+        user = db.get_user_by_id(_conn, scope) if scope else None
+        return plan.current_plan(user)
+    except Exception:
+        return plan.ACTIVE_PLAN
+
+
 def require_user(authorization: Optional[str] = Header(default=None)) -> dict:
     """Exige sessão válida (rotas de conta: /me, /logout, DELETE /account)."""
     if not authorization:
@@ -893,7 +908,8 @@ async def watchlist_add(body: dict = Body(default={}), scope: Optional[str] = De
     if res["status"] != "ok":
         raise HTTPException(404, f"Ticker {t} nao encontrado na B3 (Yahoo Finance). Verifique o codigo.")
     # GANCHO FREEMIUM (hoje sempre permite): limite de ativos do tier gratuito.
-    allowed, reason = plan.can_add_ticker(len(store.get(_conn, "watchlist", user_id=scope)))
+    allowed, reason = plan.can_add_ticker(len(store.get(_conn, "watchlist", user_id=scope)),
+                                          plan=_plano_do_escopo(scope))
     if not allowed:
         raise HTTPException(402, reason)  # 402 Payment Required (fase futura)
     name = res["n"]
@@ -1266,7 +1282,7 @@ async def analyze_technical_model(ticker: str, body: dict = Body(default={}), sc
     t = _normalize_ticker(ticker)
     if len(t) < 4:
         raise HTTPException(400, "Ticker invalido.")
-    allowed, reason = plan.can_analyze(0)
+    allowed, reason = plan.can_analyze(0, plan=_plano_do_escopo(scope))
     if not allowed:
         raise HTTPException(402, reason)
     body = body or {}
@@ -1413,7 +1429,7 @@ async def analyze(ticker: str, body: dict = Body(default={}), scope: Optional[st
     if len(t) < 4:
         raise HTTPException(400, "Ticker invalido.")
     # GANCHO FREEMIUM (hoje sempre permite): limite de analises/mes do gratuito.
-    allowed, reason = plan.can_analyze(0)  # FUTURO: passar a contagem do mes do usuario
+    allowed, reason = plan.can_analyze(0, plan=_plano_do_escopo(scope))  # C-33 (fase 5): contagem real do mes do usuario
     if not allowed:
         raise HTTPException(402, reason)
     config = (body or {}).get("config") or store.get(_conn, "config", user_id=scope)
