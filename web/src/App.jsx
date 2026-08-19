@@ -709,6 +709,26 @@ function Ticker({ items, live }) {
   );
 }
 
+// Fase 2 (MERC-01, D-08): badge único de status do pregão, alimentado pelo
+// estado `mercado` do root (ver useEffect de boot em App()) — renderizado
+// pré-login em WelcomeAuthScreen e pós-login em Topbar. Cores SÓ semânticas
+// (T.positive/T.negative/T.warn) — NUNCA T.accent: o acento muda de matiz
+// entre os modos Estudo/Operador e nem existe contexto de modo pré-login, e
+// o badge precisa renderizar IDÊNTICO nos dois pontos de render.
+function MarketStatusBadge({ mercado, cp }) {
+  // 1ª consulta ainda em voo: nada é afirmado (nunca "fechado" por default).
+  if (!mercado) return null;
+  const erro = !!mercado.erro;
+  const cor = erro ? T.warn : mercado.aberto ? T.positive : T.negative;
+  const label = erro ? cp.mercadoIndisponivel : mercado.aberto ? cp.mercadoAberto : cp.mercadoFechado(mercado.abertura);
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+      <span aria-hidden style={{ width: "7px", height: "7px", borderRadius: "50%", background: cor, flex: "none", boxShadow: `0 0 0 3px color-mix(in srgb, ${cor} 14%, transparent)` }} />
+      <span style={{ fontSize: "10.5px", fontWeight: 800, letterSpacing: "0.06em", color: cor, whiteSpace: "nowrap" }}>{label}</span>
+    </span>
+  );
+}
+
 function Topbar({ patr, dia, caixa, name, onProfile, modeChip }) {
   const up = dia >= 0;
   const base = patr - dia;
@@ -5071,6 +5091,12 @@ function LogsDebugScreen({ ctx }) {
             {!srvErr && !srv && <div style={{ color: T.textFaint, fontSize: "11.5px" }}>consultando o servidor…</div>}
             {srv && (
               <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 14px", color: T.textMuted, fontSize: "11.5px" }}>
+                {/* Fase 2 (MERC-01): `srv.pregaoAberto` (diagnóstico do Operador)
+                    e `ctx.mercado`/MarketStatusBadge (status público, pré/pós-
+                    login) COEXISTEM de propósito — não é duplicação a unificar.
+                    `srv.pregaoAberto` é o status do SERVIDOR (inclui kill-switch
+                    e heartbeat do agente); `ctx.mercado` é só "a B3 está aberta
+                    agora?" (pregao.py), sem nenhum estado de agente. */}
                 <span>pregão: <b style={{ color: srv.pregaoAberto ? T.positive : T.textFaint }}>{srv.pregaoAberto ? "aberto" : "fechado"}</b></span>
                 <span>ciclo: <b style={{ color: T.textSecondary, fontFamily: MONO }}>{Math.round((srv.intervaloS || 300) / 60)} min</b></span>
                 <span>kill-switch: <b style={{ color: srv.killSwitch ? T.negative : T.positive }}>{srv.killSwitch ? "LIGADO" : "desligado"}</b></span>
@@ -6331,6 +6357,39 @@ export default function App() {
   const [authUser, setAuthUser] = useState(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [welcomeAuthOpen, setWelcomeAuthOpen] = useState(false); // tela de abertura (login)
+  // Fase 2 (MERC-01, D-08): status real do pregão — UM estado no root, ÚNICA
+  // fonte para os dois pontos de render (WelcomeAuthScreen pré-login, Topbar
+  // pós-login). null = 1ª consulta em voo (o badge não afirma nada enquanto
+  // isso); { erro: true } = falha de rede (badge cai em "indisponível", nunca
+  // "chuta" aberto/fechado — CLAUDE.md princípio 4). A rota é pública
+  // (server/app/main.py:833), então a consulta roda ANTES de qualquer login.
+  const [mercado, setMercado] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    const consultarMercado = async () => {
+      try {
+        const r = await store.marketStatus();
+        if (alive) setMercado(r);
+      } catch {
+        // falha de rede não é erro do usuário: sem flash, cai em "indisponível".
+        if (alive) setMercado({ erro: true });
+      }
+    };
+    consultarMercado();
+    // Reconsulta quando o app volta pro primeiro plano — sem isso, quem
+    // deixa a tela aberta desde antes da abertura veria "fechado" às 10h05.
+    const onVisible = () => { if (document.visibilityState === "visible") consultarMercado(); };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", consultarMercado);
+    // 60s é suficiente: a granularidade do dado é de minutos, não de segundos.
+    const id = setInterval(consultarMercado, 60000);
+    return () => {
+      alive = false;
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", consultarMercado);
+      clearInterval(id);
+    };
+  }, []);
   const tourShownRef = useRef(false); // qa/38 (Help): tour aparece 1x no 1º uso
   const welcomeShownRef = useRef(false);
   const borisIntroShownRef = useRef(false); // F6: apresentação do Boris aparece 1x por boot
@@ -7248,6 +7307,10 @@ export default function App() {
     // `data` pode ser null no boot (antes do 1º getState resolver) — o `ctx`
     // é montado incondicionalmente a cada render, então o guard vem primeiro.
     operador: !!(data && data.config && data.config.appMode === "operador"),
+    // Fase 2 (MERC-01, D-08): mesmo canal de sempre — WelcomeAuthScreen e o
+    // resto da árvore leem `ctx.mercado`, nunca recalculam o status em outro
+    // lugar. Ver o useEffect de boot do estado `mercado`, acima.
+    mercado,
     data, quotes, analysis, expanded, analysisModel, setAnalysisModel, A, quotesAt, quotesLoading, test, keyDraft, setKeyDraft, cp,
     catalogSel, setCatalogSel, buyModal, setBuyModal, cycleBusy, addState, setAddState,
     sellModal, setSellModal, wlScan, wlScanLoading, destaque,

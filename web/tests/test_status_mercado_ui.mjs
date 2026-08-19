@@ -40,5 +40,52 @@ ok("vocabulário de ordem proibido no ramo estudo não vazou pelas chaves novas"
     copyFor("estudo").mercadoAberto + copyFor("estudo").mercadoFechado("10:00") + copyFor("estudo").mercadoFechado() + copyFor("estudo").mercadoIndisponivel
   ));
 
+// ---- Task 2: estado único no root + MarketStatusBadge -----------------------
+const countOcorr = (re) => (app.match(re) || []).length;
+ok("store.marketStatus( aparece exatamente 1 vez em App.jsx (uma única fonte)",
+  countOcorr(/store\.marketStatus\(/g) === 1);
+
+function funcBody(nome) {
+  const i = app.indexOf(`function ${nome}(`);
+  if (i < 0) return "";
+  // pula a lista de parâmetros (pode ter chaves de destructuring, ex.:
+  // `function X({ a, b })`) até achar o "(" que fecha os parâmetros.
+  let pDepth = 0, k = app.indexOf("(", i);
+  for (; k < app.length; k++) {
+    if (app[k] === "(") pDepth++;
+    else if (app[k] === ")") { pDepth--; if (!pDepth) break; }
+  }
+  let depth = 0, start = app.indexOf("{", k), j = start;
+  for (; j < app.length; j++) {
+    if (app[j] === "{") depth++;
+    else if (app[j] === "}") { depth--; if (!depth) break; }
+  }
+  return app.slice(start, j + 1);
+}
+const badgeSrc = funcBody("MarketStatusBadge");
+ok("MarketStatusBadge está definido", badgeSrc.length > 0);
+ok("MarketStatusBadge é definido ANTES de Topbar", app.indexOf("function MarketStatusBadge") < app.indexOf("function Topbar"));
+ok("MarketStatusBadge usa T.positive, T.negative e T.warn (3 estados)",
+  badgeSrc.includes("T.positive") && badgeSrc.includes("T.negative") && badgeSrc.includes("T.warn"));
+ok("MarketStatusBadge NUNCA usa T.accent (precisa renderizar igual pré-login e nos dois modos)",
+  !/T\.accent/.test(badgeSrc));
+
+// efeito de boot: consulta + cleanup de listener/timer (T-02-25)
+const iEfeito = app.indexOf("const [mercado, setMercado] = useState(null);");
+const efeitoSrc = iEfeito >= 0 ? app.slice(iEfeito, iEfeito + 1800) : "";
+ok("useState(null) para `mercado` existe no root (carregando = nada afirmado)", iEfeito >= 0);
+ok("efeito de boot chama store.marketStatus()", efeitoSrc.includes("store.marketStatus()"));
+ok("falha de rede cai em { erro: true }, sem flash (não é erro do usuário)",
+  efeitoSrc.includes("setMercado({ erro: true })") && !/flash\(/.test(efeitoSrc.slice(0, efeitoSrc.indexOf("erro: true"))));
+ok("reconsulta em visibilitychange/focus", efeitoSrc.includes('"visibilitychange"') && efeitoSrc.includes('"focus"'));
+ok("cleanup remove os listeners e o intervalo (removeEventListener + clearInterval)",
+  efeitoSrc.includes("removeEventListener") && efeitoSrc.includes("clearInterval"));
+
+// tela de diagnóstico do Operador continua lendo srv.pregaoAberto (status do
+// SERVIDOR), coexistindo de propósito com ctx.mercado (status público) — não
+// deve ter sido substituída/removida por este plano.
+ok("diagnóstico do Operador continua lendo srv.pregaoAberto (dado diferente de ctx.mercado)",
+  app.includes("srv.pregaoAberto"));
+
 console.log(fails ? `\n${fails} falha(s)` : "\ntodos os testes passaram");
 process.exit(fails ? 1 : 0);
