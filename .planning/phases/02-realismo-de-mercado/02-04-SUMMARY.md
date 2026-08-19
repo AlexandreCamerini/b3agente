@@ -160,6 +160,27 @@ diferente do já documentado em 02-01/02-02:**
     toque `web/`. Recomenda-se provisionar `web/node_modules` no
     worktree/ambiente de execução ANTES do próximo plano que edite `web/src/`.
 
+**Suíte canônica (`bash scripts/executar.sh --testes`) — rodada de verdade,
+não substituída pela metade backend:**
+
+- Comando executado literalmente: `bash scripts/executar.sh --testes`.
+- **Saída: `EXIT_CANONICAL=1`.** Isto é ESPERADO neste worktree, não uma
+  regressão deste plano — `executar.sh --testes` seta `RC=1` se QUALQUER
+  `web/tests/*.mjs` falhar, e os MESMOS 7 arquivos do gap de `@capacitor/core`
+  acima falham aqui também (confirmado linha a linha na saída: mesma lista
+  exata — `test_appmode_sincroniza_servidor.mjs`,
+  `test_carteira_nativa_sincroniza.mjs`, `test_fase2_portfolio.mjs`,
+  `test_notif_central.mjs`, `test_notify.mjs`,
+  `test_oauth_repassa_name_e_code.mjs`, `test_pet_resumo_modo_web.mjs`).
+- Backend: **1047 passed** (suíte inteira, sem falha).
+- Web: 74/81 arquivos `[OK]`, incluindo os dois relevantes a este plano —
+  `test_ordens_pendentes_client.mjs` (novo) e `test_finance.mjs` (estendido)
+  — ambos `[OK]`. Os 7 `[X]` são exatamente os já listados acima.
+- **Conclusão explícita:** quem rodar `bash scripts/executar.sh --testes`
+  neste worktree verá exit 1 — isto é o gap de ambiente pré-existente
+  (`web/node_modules` vazio), não uma quebra introduzida por este plano.
+  Nenhum arquivo tocado por este plano está entre os 7 que falham.
+
 ## User Setup Required
 
 None - nenhuma configuração de serviço externo.
