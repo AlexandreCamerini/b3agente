@@ -84,6 +84,16 @@ Recent decisions affecting current work:
 - Phase numbering continues from v1.0 (Phase 1) — v1.1 starts at Phase 2,
   no --reset-phase-numbers used.
 
+### Roadmap Evolution
+
+- Phase 6 added: Instrumentação de Assertividade (ADR-015) — corrige a
+  medição de eficiência da IA (`analysis_outcomes`), que fabricava stops
+  (âncora no close em vez do gatilho) e inflava `n` por duplicação, na
+  direção otimista. Não vem do REPORT-01; nasceu de pesquisa ad-hoc
+  (quick task 260820-0hl) pedida pelo Alex sobre por que o produto fecha
+  mais por stop que por alvo. Sequenciada depois de Phase 5 por ordem de
+  fila (não há dependência técnica real com Phase 4/5).
+
 ### Pending Todos
 
 None yet.

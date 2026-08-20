@@ -104,6 +104,27 @@
 - [ ] **FIX-C39**: Aba "Auditoria" do portal admin ganha campo `perm`,
       alinhando com o padrão visual das outras 9 abas (ADMIN)
 
+### Assertividade da instrumentação (ADR-015)
+
+- [ ] **ADR15-01**: `analysis_outcomes.registrar` (N1 e N2) passa a gravar
+      `entrada`, `alvo2`, `rr2` e `confluencia` no outcome — hoje só grava
+      `stop`/`alvo1`/`preco`(=close), sem os campos que permitiriam corrigir a
+      âncora e segmentar por confluência
+- [ ] **ADR15-02**: `_avaliar_entry` exige toque no gatilho antes de abrir a
+      barreira tripla e usa `entrada` (não `close`) como `preco0` — registros
+      anteriores à mudança ficam marcados como não-comparáveis (campo de
+      versão de metodologia), nunca reconvertidos por inferência
+- [ ] **ADR15-03**: `compute_stats_all_users` deduplica por `snapshotId` antes
+      de agregar — hoje um mesmo plano determinístico pode ser contado
+      dezenas de vezes, inflando `n` além do `MIN_N=10`
+- [ ] **ADR15-04**: `store.sell()` ganha parâmetro `motivo` com paridade a
+      `sell_option()` — hoje a taxa stop×alvo de carteira (ação) não é
+      computável a partir do histórico
+- [ ] **ADR15-05**: `RR_MIN`/`RR_MINIMO` consolidado numa única constante-fonte
+      (`skill_ref.RR_MIN`) com guardião de teste cruzado — hoje existem 3
+      constantes Python independentes + 7 literais hardcoded no front, e só
+      uma delas é travada por teste
+
 ## Future Requirements (backlog — não mapeado a fase ainda)
 
 ### Correção — Baixo (REPORT-01, 9 achados)
@@ -129,6 +150,8 @@
 | Posição vendida/short | Não existe no modelo de dados |
 | Fonte dupla por finalidade (brapi carteira / Yahoo Radar) | Descartada no checkpoint da v1.0 — ganho modesto, Radar já usa Yahoo |
 | Escolha de fonte/frequência na UI do usuário | Já rejeitada no ADR-008 (duas vezes) e esbarra no orçamento ser por-app (ADR-010) |
+| Backtest determinístico com walk-forward (Alternativa 2, ADR-015) | Maior alavanca de assertividade, mas depende da instrumentação (ADR15-01..05) estar em produção primeiro — fase futura, não nesta |
+| Scraping do TradingView (Alternativa 3, ADR-015) | Rejeitada — sem API pública e ToS §3 proíbe nominalmente o uso pretendido |
 
 ## Traceability
 
@@ -168,10 +191,15 @@
 | FIX-C34 | Phase 5 | Pending |
 | FIX-C38 | Phase 5 | Pending |
 | FIX-C39 | Phase 5 | Pending |
+| ADR15-01 | Phase 6 | Pending |
+| ADR15-02 | Phase 6 | Pending |
+| ADR15-03 | Phase 6 | Pending |
+| ADR15-04 | Phase 6 | Pending |
+| ADR15-05 | Phase 6 | Pending |
 
 **Coverage:**
-- v1.1 requirements: 34 total (4 MERC + 30 FIX)
-- Mapped to phases: 34/34 ✓
+- v1.1 requirements: 39 total (4 MERC + 30 FIX + 5 ADR15)
+- Mapped to phases: 39/39 ✓
 - Unmapped: 0
 
 **Phase summary:**
@@ -179,7 +207,8 @@
 - Phase 3 (Correção Crítico + Alto): FIX-C11, FIX-C30, FIX-C12, FIX-C19, FIX-C20, FIX-C31, FIX-C32, FIX-C35, FIX-C36, FIX-C37 (10 requirements)
 - Phase 4 (Correção Médio — Storyline & UX): FIX-C01..C05, FIX-C13..C16 (9 requirements)
 - Phase 5 (Correção Médio — Código, Gate & Admin): FIX-C21..C27, FIX-C33, FIX-C34, FIX-C38, FIX-C39 (11 requirements)
+- Phase 6 (Correção da instrumentação de assertividade — ADR-015): ADR15-01..05 (5 requirements)
 
 ---
 *Requirements defined: 2026-08-18*
-*Last updated: 2026-08-18 after roadmap creation (v1.1, Phases 2-5)*
+*Last updated: 2026-08-20 — Phase 6 (ADR-015) adicionada após pesquisa de assertividade do motor*

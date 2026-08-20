@@ -3,7 +3,7 @@
 ## Milestones
 
 - ✅ **v1.0 Revisão Geral** — Phase 1 (shipped 2026-08-18) — [detalhes](milestones/v1.0-ROADMAP.md)
-- 🚧 **v1.1 Realismo de Mercado + Correções** — Phases 2-5 (in progress)
+- 🚧 **v1.1 Realismo de Mercado + Correções** — Phases 2-6 (in progress)
 
 ## Phases
 
@@ -28,6 +28,7 @@ seriam inserções urgentes, se necessário.
 - [x] **Phase 3: Correção Crítico + Alto** - Fecha as 2 violações de princípio (transparência de dado) e os 8 achados que já causaram incidente real ou bloqueiam decisão de negócio (completed 2026-08-19)
 - [ ] **Phase 4: Correção Médio — Storyline & UX** - Fecha as lacunas pedagógicas e de experiência (STORY + UX) do REPORT-01
 - [ ] **Phase 5: Correção Médio — Código, Gate & Admin** - Fecha a dívida técnica, a ativação incompleta de gating e a observabilidade admin (CODE + GATE + ADMIN) do REPORT-01
+- [ ] **Phase 6: Instrumentação de Assertividade (ADR-015)** - Conserta a medição de eficiência da IA (âncora errada, `n` inflado por duplicação, motivo de venda não persistido) antes de qualquer decisão de produto sobre o motor de recomendação
 
 ## Phase Details
 
@@ -247,3 +248,44 @@ gate.
 | 3. Correção Crítico + Alto | v1.1 | 6/6 | Complete   | 2026-08-19 |
 | 4. Correção Médio — Storyline & UX | v1.1 | 0/TBD | Not started | - |
 | 5. Correção Médio — Código, Gate & Admin | v1.1 | 0/TBD | Not started | - |
+
+### Phase 6: Instrumentação de Assertividade (ADR-015)
+
+**Goal**: A medição de eficiência da IA (`analysis_outcomes`) para de
+fabricar stops e de inflar `n` por duplicação — o painel "Eficiência da IA"
+passa a refletir o trade que o motor realmente propõe, não um trade
+fantasma ancorado no close do dia da análise. Nenhuma mudança nesta fase
+toca o motor de decisão em si (confluência, setup, plano operacional) nem
+move cálculo para julgamento de IA — são todas correções de instrumentação,
+conforme ADR-015 (Alternativa 1).
+**Depends on**: Nothing tecnicamente (as 5 correções são independentes do
+trabalho de Phase 4/5 — REPORT-01) — sequenciada depois de Phase 5 por
+ordem de fila, não por bloqueio técnico.
+**Requirements**: ADR15-01, ADR15-02, ADR15-03, ADR15-04, ADR15-05
+**Success Criteria** (what must be TRUE):
+
+  1. `analysis_outcomes.registrar` (N1 e N2, `main.py`) grava `entrada`,
+     `alvo2`, `rr2` e `confluencia` no outcome, além dos campos que já
+     grava hoje. [ADR15-01]
+
+  2. `_avaliar_entry` só abre a barreira tripla depois de o gatilho ser
+     tocado, e usa `entrada` (não `close`) como preço de referência.
+     Outcomes gravados antes da mudança ficam marcados como não-comparáveis
+     (campo de versão de metodologia) e `compute_stats`/`compute_stats_all_users`
+     não misturam as duas metodologias no mesmo agregado. [ADR15-02]
+
+  3. `compute_stats_all_users` deduplica registros pelo mesmo `snapshotId`
+     antes de agregar — um plano gravado N vezes conta como 1 observação.
+     [ADR15-03]
+
+  4. `store.sell()` aceita `motivo` com o mesmo contrato de `sell_option()`
+     (`'manual'|'stop'|'alvo'|'vencimento'`); os 3 call sites automáticos em
+     `agent.py` passam o motivo real (`breach_stop`/`hit_alvo`). [ADR15-04]
+
+  5. Existe uma única constante-fonte para o R:R mínimo (`skill_ref.RR_MIN`);
+     `setups.RR_MINIMO`, `agent.RR_MINIMO` e os literais do front
+     (`copy.js`, `catalog.js`, `App.jsx`) leem dela, e um teste guardião
+     cruzado falha se qualquer um divergir. [ADR15-05]
+**Plans**: TBD
+**UI hint**: no (mudança de backend/instrumentação — sem tela nova; o
+número exibido no painel "Eficiência da IA" muda, mas o componente não)
