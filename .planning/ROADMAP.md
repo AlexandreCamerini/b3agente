@@ -286,6 +286,20 @@ ordem de fila, não por bloqueio técnico.
      `setups.RR_MINIMO`, `agent.RR_MINIMO` e os literais do front
      (`copy.js`, `catalog.js`, `App.jsx`) leem dela, e um teste guardião
      cruzado falha se qualquer um divergir. [ADR15-05]
-**Plans**: TBD
+**Plans**: 5 plans (3 waves)
+Plans:
+**Wave 1**
+
+- [ ] 06-01-PLAN.md — `registrar()` grava entrada/alvo2/rr2/confluencia + versão de metodologia (ADR15-01)
+- [ ] 06-04-PLAN.md — `store.sell()` ganha `motivo`, em paridade com `sell_option()` (ADR15-04)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 06-02-PLAN.md — `_avaliar_entry` exige toque no gatilho e ancora o R-multiple em `entrada` (ADR15-02)
+- [ ] 06-05-PLAN.md — `RR_MIN` numa fonte única por camada + guardião de teste cruzado (ADR15-05)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 06-03-PLAN.md — agregado não mistura metodologias e deduplica por `snapshotId` (ADR15-02, ADR15-03)
 **UI hint**: no (mudança de backend/instrumentação — sem tela nova; o
 número exibido no painel "Eficiência da IA" muda, mas o componente não)
