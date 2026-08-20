@@ -312,9 +312,10 @@ direto da medição e da pesquisa deste ADR:
    Adendo 2. O lado comprado perde de segurar o mesmo papel por 1,49 pontos
    percentuais por operação (t = −32,6). O que parecia edge era beta de um
    período de alta.
-4. **Momentum relativo cross-sectional** — o ADR-009 já o implementou em
-   `regime.ranquear` mas nunca o isolou como sinal. É a família com mais lastro
-   acadêmico de toda a pesquisa.
+4. ~~**Momentum relativo cross-sectional.**~~ **Testado — ver Adendo 4.**
+   Direção certa em 6 de 6 configurações, mas o excesso sobre o mercado não
+   atinge significância (t = +0,6 a +1,1) e é o candidato mais exposto ao viés de
+   sobrevivência do universo. Não provado, não promissor.
 5. **Rompimento de canal (Donchian)** e **pairs trading** — famílias novas, a
    segunda com paper específico sobre o mercado brasileiro.
 
@@ -682,6 +683,80 @@ e agora com uma pergunta precisa em vez de uma varredura.
 python3 scripts/backtest_sinal.py --anos 15 --rng 15y --saida /tmp/longo.json
 python3 scripts/backtest_periodo.py /tmp/longo.json --rng 15y
 python3 scripts/backtest_sinal.py --anos 8 --rng 10y --intervalo 1wk --saida /tmp/sem.json
+```
+
+---
+
+## Adendo 4 (2026-08-20) — momentum relativo: direção certa, sem significância
+
+O candidato com maior lastro acadêmico da pesquisa externa, e que o ADR-009 já
+implementou dentro de `regime.ranquear()` como critério de ordenação — nunca
+medido como sinal.
+
+Natureza diferente dos setups: não é trade com stop e alvo, é carteira. Ranqueia
+o universo por momentum de formação 12-1 (12 meses pulando o mês mais recente, o
+pulo padrão da literatura para não capturar reversão de curto prazo), compra a
+cesta do topo, rebalanceia. Comparação contra o universo equal-weight.
+
+**165 períodos mensais, 2012-08 → 2026-07, 65 tickers:**
+
+| Carteira | Retorno médio | t | Sharpe a.a. |
+|---|---:|---:|---:|
+| **Topo de momentum** | **+1,128%** | +2,21 | **+0,60** |
+| Universo equal-weight (mercado) | +0,881% | +1,80 | +0,49 |
+| Fundo de momentum (o pior) | +0,457% | +0,55 | +0,15 |
+
+A ordenação sai **na direção correta** — topo > mercado > fundo. Mas o que
+interessa ao produto é o excesso sobre o mercado, e ele não tem significância:
+**+0,246 p.p./mês, t = +0,76**.
+
+**Varredura de 6 configurações, todas reportadas (não a melhor):**
+
+| Cesta | Manutenção | Excesso sobre o mercado | t |
+|---:|---:|---:|---:|
+| 5 | 1 mês | +0,255 p.p. | +0,59 |
+| 10 | 1 mês | +0,246 p.p. | +0,76 |
+| 15 | 1 mês | +0,284 p.p. | +1,11 |
+| 5 | 3 meses | +1,120 p.p. | +0,92 |
+| 10 | 3 meses | +0,631 p.p. | +0,70 |
+| 15 | 3 meses | +0,659 p.p. | +0,93 |
+
+Positivo em 6 de 6, com Sharpe superior ao mercado em 6 de 6. Nenhuma atinge
+|t| = 2. As configurações compartilham quase todo o dado, então a consistência de
+sinal **não** é evidência independente — mas também não é o padrão que ruído puro
+costuma produzir.
+
+### A ressalva que impede tratar isso como promissor
+
+**O viés de sobrevivência atinge o momentum muito mais que os setups.**
+`DEFAULT_UNIVERSE` é a lista de líquidas de *hoje*. Uma estratégia que compra
+vencedores dos últimos 12 meses, dentro de um universo pré-selecionado por ter
+sobrevivido e permanecido líquido, sofre dupla seleção. Parte ou todo o
++0,25 p.p./mês pode ser artefato disso.
+
+Nos setups esse viés era secundário — eles eram negativos *apesar* de o universo
+favorecê-los. Aqui ele é a explicação alternativa mais provável para o resultado.
+Testar de verdade exige composição histórica do índice (point-in-time), que não
+temos.
+
+### Onde isso deixa o momentum
+
+Categoricamente diferente dos setups, e vale registrar a diferença:
+
+| | Resultado | Leitura |
+|---|---|---|
+| 13 setups de price action | Negativo, t = −20 a −40 | **Refutado** |
+| Momentum relativo | Positivo, t = +0,6 a +1,1 | **Não provado** — nem confirmado nem refutado |
+
+"Não provado" não é "promissor". Com o viés de sobrevivência por cima, o
+resultado honesto é: momentum não entrega edge demonstrável neste universo e
+neste método, e a evidência que existe não separa efeito real de artefato de
+seleção.
+
+**Reprodução:**
+
+```
+python3 scripts/backtest_momentum.py --rng 15y --cesta 10 --manutencao 21
 ```
 
 ---
