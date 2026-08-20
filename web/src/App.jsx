@@ -1666,7 +1666,7 @@ function EvolucaoScreen({ ctx }) {
   // FASE 2 (2.2): Acompanhar vira a HOME — resumo do dia (determinístico, do
   // STU + finance.js), operações de hoje, alertas de setups na watchlist e o
   // destaque de oportunidade (1 leitura N1/dia autorizada, cache por snapshot).
-  const { data, quotes, A, wlScan, destaque, cp } = ctx;   // FASE 8B (B1)
+  const { data, quotes, A, wlScan, destaque, cp, mercado } = ctx;   // FASE 8B (B1)
   const operador = (data.config && data.config.appMode) === "operador"; // qa/40: pill de decisão por modo
   const name = ((data.config && data.config.userName) || "").trim().split(/\s+/)[0] || "";
   const streak = (data.config && data.config.streak && data.config.streak.days) || 0;
@@ -1702,6 +1702,14 @@ function EvolucaoScreen({ ctx }) {
       <div>
         {/* FASE 8B (B1/B4): saudação e resumo do dia na VOZ do modo (professor × mesa) */}
         <h1 style={{ margin: 0, fontSize: "23px", fontWeight: 700, letterSpacing: "-0.01em" }}>{cp.saudacao(name || null)}</h1>
+        {/* qa (prompt-master #1): a saudação era só estilo, sem relação com o
+            pregão real — mesma fonte única de sempre (ctx.mercado /
+            MarketStatusBadge, Fase 2 MERC-01/D-08), nunca uma segunda
+            consulta. Home é o primeiro lugar que o usuário vê ao abrir o
+            app; o status do mercado precisa estar ali, não só no Topbar. */}
+        <div style={{ marginTop: "4px" }}>
+          <MarketStatusBadge mercado={mercado} cp={cp} />
+        </div>
         <p style={{ margin: "5px 0 0", color: T.textMuted, fontSize: "13px", lineHeight: 1.5 }}>
           {cp.resumoDia(((wlScan && wlScan.results) || []).filter((r) => (r.confluencia || 0) > 0).length,
             ((wlScan && wlScan.results) || []).filter((r) => r.plano && (r.plano.decisao === "COMPRAR" || r.plano.decisao === "VENDER")).length)}
@@ -3357,7 +3365,7 @@ function MercadoScreen({ ctx }) {
           const decM = rotuloDec || null;
           // A análise da IA foi escrita sobre um snapshot; se o motor já está
           // em outro, ela é leitura de outro momento e precisa dizer isso.
-          const anVencida = !!(an.snapshotId && sc.snapshotId && an.snapshotId !== sc.snapshotId);
+          const anVencida = !!(an.snapshotId && sc && sc.snapshotId && an.snapshotId !== sc.snapshotId);
           const [decColor, decBg] = REC_STYLE[decM] || [vColor, vBg];
           const chip = (label, value, col) => (
             <span style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "999px", background: T.bgBase, color: T.textSecondary, fontWeight: 700 }}>{label} <b style={{ fontWeight: 800, color: col || T.textPrimary }}>{value}</b></span>

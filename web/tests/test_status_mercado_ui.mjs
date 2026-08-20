@@ -116,5 +116,17 @@ ok("as 7 chamadas de portfolioMetrics( passam data.caixaReservado (ou equivalent
     semReserva.patr === comReserva.patr);
 }
 
+// ---- Task 4 (prompt-master #1): Home (EvolucaoScreen/"Acompanhar") também
+// mostra o status real — a saudação sozinha ("Mesa aberta, Fulano.") não
+// dizia nada sobre o pregão de verdade. Mesmo canal de sempre (ctx.mercado),
+// sem segunda consulta — a saudação por nome continua existindo.
+const homeSrc = funcBody("EvolucaoScreen");
+ok("EvolucaoScreen destructura mercado de ctx", /const \{[^}]*\bmercado\b[^}]*\}\s*=\s*ctx;/.test(homeSrc));
+ok("EvolucaoScreen contém MarketStatusBadge", homeSrc.includes("<MarketStatusBadge"));
+ok("badge da Home usa a MESMA fonte (ctx.mercado, sem 2ª consulta)",
+  /<MarketStatusBadge\s+mercado=\{mercado\}\s+cp=\{cp\}/.test(homeSrc));
+ok("saudação por nome (cp.saudacao) continua na Home — não foi removida, só deixou de ser a única fonte de status",
+  homeSrc.includes("cp.saudacao(name || null)"));
+
 console.log(fails ? `\n${fails} falha(s)` : "\ntodos os testes passaram");
 process.exit(fails ? 1 : 0);
