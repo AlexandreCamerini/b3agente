@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-08-18)
 Phase: 2 (Realismo de Mercado) — EXECUTING
 Plan: 1 of 7
 Status: Executing Phase 2
-Last activity: 2026-08-18 -- Phase 2 execution started
+Last activity: 2026-08-20 - Completed quick task 260820-0hl: Pesquisa + design assertividade do motor (ADR-015)
 
 Progress: [░░░░░░░░░░] 0% (v1.1)
 
@@ -91,6 +91,12 @@ None yet.
 ### Blockers/Concerns
 
 None yet.
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260820-0hl | Pesquisa + design: assertividade do motor de recomendação (ADR-015) | 2026-08-20 | (pendente) | [260820-0hl-pesquisa-e-design-assertividade-do-motor](./quick/260820-0hl-pesquisa-e-design-assertividade-do-motor/) |
 
 ## Deferred Items
 
