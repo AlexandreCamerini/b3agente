@@ -761,6 +761,88 @@ python3 scripts/backtest_momentum.py --rng 15y --cesta 10 --manutencao 21
 
 ---
 
+## Adendo 5 (2026-08-20) — o Modo Operador de verdade: pior que o Modo Estudo
+
+**Lacuna que este adendo fecha, e ela era real:** tudo até aqui mediu stop fixo +
+alvo1 fixo (1R) — a mecânica do Modo **Estudo**. O Modo Operador tem trailing
+stop (`agent.py:366-428`, ATR 2× por padrão, stop só sobe) e alvo dinâmico com
+até 2 extensões de 1,5× ATR (`agent.py:444-478`). A afirmação "o motor perde
+dinheiro" estava medida sobre a máquina errada.
+
+Réplica fiel da ordem de checagem de `agent.py:804-836`: trailing primeiro, stop
+depois (contra `low`, empate a favor do stop), alvo por último (contra `high`),
+e com `alvoDinamico` ligado o alvo batido tenta estender antes de fechar. Teto de
+60 barras — o Operador não tem prazo fixo, e o trailing precisa de espaço.
+
+| Braço | n | Expectância | t | Acerto | Ganho médio | Perda média |
+|---|---:|---:|---:|---:|---:|---:|
+| **A · fixo** (stop + alvo 1R) — o que se mediu antes | 34.587 | **−0,115R** | −21,6 | 44,3% | +1,00R | −1,00R |
+| **B · trailing ATR 2×**, sem alvo | 34.587 | −0,160R | −17,8 | 25,3% | **+1,99R** | −0,89R |
+| **C · trailing + alvo dinâmico** (config real do Operador) | 34.587 | **−0,167R** | −22,3 | 25,3% | +1,96R | −0,89R |
+| **D · 50% em 1R + trailing no resto** | 34.587 | −0,142R | −22,6 | 37,0% | +1,09R | −0,92R |
+
+### A hipótese da assimetria estava mecanicamente certa e mesmo assim falhou
+
+O raciocínio que motivou o teste: com `alvo1 = entrada ± risco`, o alvo é
+exatamente 1R, e numa barreira simétrica a expectância é ≈ 2p − 1. Com p = 44,3%
+isso dá −0,114R **por aritmética**, independente da qualidade do sinal. A saída
+proposta era assimetria: cortar em 1R, deixar o vencedor correr.
+
+**A assimetria materializou exatamente como previsto** — o trailing dobrou o
+ganho médio (+1,00R → +1,99R) e ainda reduziu a perda média (−1,00R → −0,89R).
+Razão de payoff de 2,2:1, que é território profissional.
+
+**E a expectância piorou**, porque a taxa de acerto caiu de 44,3% para 25,3%:
+
+- A: 0,443 × 1,00 − 0,557 × 1,00 = **−0,114R**
+- B: 0,253 × 1,99 − 0,747 × 0,89 = **−0,162R**
+
+O trailing devolve o movimento antes de ele virar ganho, e faz isso com
+frequência suficiente para engolir todo o benefício do payoff. Não é falha de
+calibração do multiplicador — é o que acontece quando se aplica gestão de saída
+sofisticada sobre uma entrada sem informação.
+
+### O Operador real é o pior dos quatro
+
+A configuração que o produto de fato executa (C) entrega **−0,167R**, contra
+−0,115R do plano de Estudo. O alvo dinâmico piora um pouco o trailing puro: ele
+estende a posição justamente nos casos que estavam indo bem, e devolve.
+
+Isso vale para **todos os 17 pares setup × lado sem exceção** — nenhum melhora
+sob a mecânica do Operador. Até PFR (alta), que era o único nominalmente positivo
+no braço fixo (+0,009R), fica negativo em B, C e D.
+
+### O que isso ensina, e é a lição profissional de sempre
+
+**Gestão de risco não cria edge — ela limita estrago.** Trailing, alvo dinâmico,
+parcial: todos fazem exatamente o que prometem na distribuição de resultados
+(payoff sobe, perda média cai) e nenhum transforma expectância negativa em
+positiva. Não se gerencia a saída de uma entrada ruim até ela virar boa.
+
+**Consequência para a decisão:** o argumento de que "o Operador precisa ser
+medido antes de mexer nele" está atendido, e o resultado **fortalece** a urgência
+em vez de aliviá-la. O Modo Operador não é o Modo Estudo com proteção melhor —
+ele executa automaticamente, com dinheiro simulado do usuário, a pior das quatro
+mecânicas medidas.
+
+### O que este adendo NÃO testou
+
+- **Regime como gate de ativação** (volatilidade corrente decide qual família
+  opera). Continua sendo a leitura séria de "levar em conta dados atuais", e não
+  foi medida aqui.
+- **Sizing por volatilidade e gestão de carteira** (risco igual por posição, teto
+  de exposição bruta, limite de correlação). Vale registrar a aritmética: com
+  expectância negativa por operação, sizing melhor **reduz a velocidade da perda
+  e o drawdown, não a inverte**. É defesa contra ruína, não fonte de retorno.
+
+**Reprodução:**
+
+```
+python3 scripts/backtest_operador.py /tmp/linhas-h10.json --rng 5y
+```
+
+---
+
 ## Limitações
 
 - ~~**Período único.**~~ **Resolvido no Adendo 3**: reexecução sobre 2011–2026
