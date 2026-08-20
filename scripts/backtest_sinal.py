@@ -45,6 +45,34 @@ CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".cac
 # 1) Dados
 # --------------------------------------------------------------------------- #
 
+_ESPACAMENTO = {"1d": (0.5, 5.0), "1wk": (5.0, 9.0)}  # dias entre barras, min/max
+
+
+def _confere_granularidade(cs: list, intervalo: str, ticker: str, rng: str):
+    """O Yahoo degrada em SILÊNCIO: `range=max` devolve HTTP 200 com velas
+    MENSAIS mesmo pedindo `interval=1d` ou `1wk` (medido em 2026-08-20 —
+    PETR4/max devolveu 320 barras começando em 2000-02-01, 2000-03-01…).
+    O guard de `yahoo.get_history` só cobre intervalo intraday, então diário e
+    semanal passam batido e o backtest roda em cima de dado mensal rotulado
+    como diário. Recusar aqui é melhor que produzir número bonito e falso."""
+    if len(cs) < 3:
+        return
+    from datetime import date
+    def _d(s):
+        a, m, d = str(s)[:10].split("-")
+        return date(int(a), int(m), int(d))
+    gaps = sorted((_d(cs[i + 1]["date"]) - _d(cs[i]["date"])).days
+                  for i in range(len(cs) - 1))
+    mediana = gaps[len(gaps) // 2]
+    lo, hi = _ESPACAMENTO.get(intervalo, (0.0, 1e9))
+    if not (lo <= mediana <= hi):
+        raise RuntimeError(
+            f"{ticker}: pedi interval={intervalo} range={rng} e o Yahoo devolveu "
+            f"barras espaçadas por {mediana} dias (mediana) — granularidade "
+            f"errada, dado descartado. Use um range que o Yahoo honre "
+            f"(15y/1d, 10y/1wk); 'max' degrada para mensal.")
+
+
 async def carregar(ticker: str, rng: str, so_cache: bool, intervalo: str = "1d") -> list:
     """Candles com cache em disco (o Yahoo aperta quem insiste). `intervalo`
     entra na chave do cache — diário e semanal não podem disputar a mesma
@@ -56,11 +84,14 @@ async def carregar(ticker: str, rng: str, so_cache: bool, intervalo: str = "1d")
         path = legado
     if os.path.exists(path):
         with open(path) as f:
-            return json.load(f)
+            cs = json.load(f)
+        _confere_granularidade(cs, intervalo, ticker, rng)
+        return cs
     if so_cache:
         return []
     hist = await yahoo.get_history(ticker, rng=rng, interval=intervalo)
     cs = hist.get("candles") or []
+    _confere_granularidade(cs, intervalo, ticker, rng)  # antes de gravar cache
     with open(path, "w") as f:
         json.dump(cs, f)
     return cs

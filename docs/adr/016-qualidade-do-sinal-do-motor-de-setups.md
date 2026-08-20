@@ -5,8 +5,8 @@
 **Gatilho:** observação do dono do produto de que os ativos com confluência 100%
 para alta saíram majoritariamente por stop, com o usuário perdendo dinheiro.
 **Companion:** ADR-015 (medição). Este ADR é sobre o **sinal**, não sobre o medidor.
-**Harness:** `scripts/backtest_sinal.py`, `scripts/backtest_analise.py`,
-`scripts/backtest_placebo.py` — reexecutáveis, sem I/O de produção.
+**Harness:** `scripts/backtest_{sinal,analise,placebo,horizonte,comprado,periodo}.py`
+— reexecutáveis, sem I/O de produção.
 
 ---
 
@@ -396,45 +396,54 @@ entrada ser ruim.
 
 ### Variante 2 — barra semanal (o análogo direto do Pellin)
 
-Motor rodado sobre candles semanais, janela de 252 barras semanais (o que
-`resolve_keep("1y", "1wk")` daria), horizonte de 10 semanas, ~5 anos de sinais.
+> **CORREÇÃO (2026-08-20, mesma data).** A primeira execução desta variante usou
+> `range=max`, e o Yahoo devolveu HTTP 200 com velas **MENSAIS** — 320 barras a
+> partir de 2000-02-01 — tanto para `interval=1wk` quanto para `1d`. O guard de
+> granularidade de `yahoo.get_history` só cobre intervalos intraday, então a
+> degradação passou silenciosa. Os números publicados abaixo são da reexecução
+> com `range=10y`, que o Yahoo honra em barra semanal de verdade.
+> `scripts/backtest_sinal.py` ganhou `_confere_granularidade()`, que recusa a
+> série quando o espaçamento mediano entre barras não bate com o intervalo
+> pedido — o mesmo tipo de defesa que o ADR-001 já exigia para intraday.
+
+Motor rodado sobre candles semanais reais (`range=10y`), janela de 252 barras
+semanais (o que `resolve_keep("1y", "1wk")` daria), horizonte de 10 semanas.
 
 | Recorte | n | Expectância | IC95 | t | Acerto |
 |---|---:|---:|---|---:|---:|
-| **Geral semanal** | 956 | **−0,197R** | [−0,26; −0,14] | −6,5 | 40,9% |
-| IFR2 (alta) | 40 | +0,315R | [+0,03; +0,60] | +2,17 | 65,0% |
-| Setup 9.1 (alta) — *o setup do Pellin* | 61 | +0,094R | [−0,15; +0,34] | +0,74 | 55,7% |
-| Setup 9.3 (alta) | 126 | +0,051R | [−0,12; +0,22] | +0,58 | 53,2% |
-| Setup 9.2 (baixa) | 150 | −0,515R | [−0,65; −0,38] | −7,69 | 24,7% |
+| **Geral semanal** | 9.671 | **−0,167R** | — | — | 41,9% |
+| Comprado | 4.633 | −0,146R | [−0,17; −0,12] | −10,5 | 42,6% |
+| Vendido | 5.038 | −0,187R | [−0,21; −0,16] | −14,3 | 41,2% |
+| **IFR2 (alta)** | 263 | **+0,164R** | [+0,05; +0,28] | **+2,79** | 58,2% |
+| Setup 9.1 (alta) — *o setup do Pellin* | 552 | −0,070R | [−0,15; +0,01] | −1,72 | 46,2% |
+| Setup 9.3 (alta) | 1.152 | −0,096R | [−0,15; −0,04] | −3,39 | 45,1% |
+| Setup 9.2 (baixa) | 1.530 | −0,313R | [−0,36; −0,27] | −13,2 | 34,8% |
 
-**Hipótese não confirmada.** O agregado semanal é *pior* que o diário. Um único
-setup fica nominalmente significativo — IFR2 (alta), t = +2,17 — e não sobrevive
-à correção por seleção múltipla: com 16 configurações testadas o limiar prudente
-é |t| ≈ 2,35. Com n = 40, é indício, não resultado.
+**Hipótese não confirmada.** O agregado semanal é *pior* que o diário (−0,167R
+contra −0,104R), e os dois lados são claramente negativos.
 
-Sobre o Setup 9.1 especificamente, que motivou o teste: a **direção** do Pellin
-se confirma (positivo, 55,7% de acerto no lado comprado), a **magnitude** não
-(ele reportou 67% e relação lucro/prejuízo 5,34). Com n = 61 e t = +0,74, o
-resultado é compatível tanto com "há um efeito pequeno" quanto com "não há
-efeito". Não é base para decisão. Vale registrar que o n de Pellin (12–14
-operações por ativo × 4 ativos) é da mesma ordem do nosso — o problema de
-amostra é dos dois lados, e ele ainda excluiu custos e aluguel de ação.
+Sobre o **Setup 9.1**, que motivou o teste: com dado semanal real e n = 552, ele
+fica em −0,070R (t = −1,72). O resultado do Pellin **não se reproduz** — nem a
+magnitude (67% de acerto contra 46,2%) nem a direção. As diferenças de método
+que podem explicar: ele usou 4 ativos contra 74, período 2012–2021 contra
+2016–2026, e excluiu custos e aluguel de ação.
+
+**O IFR2 (alta) é a exceção que sobrevive.** +0,164R com n = 263 e t = +2,79 —
+acima do limiar deflacionado de |t| ≈ 2,4 para 17 configurações. É o único
+recorte de toda a investigação que passa por esse crivo. Ver o Adendo 2 para a
+ressalva que o qualifica.
 
 ### O achado que os dois testes produziram sem que fosse a pergunta
 
-O lado vendido é o que destrói o resultado, e a separação é muito mais nítida na
-barra semanal:
+O lado vendido é pior nos dois intervalos:
 
 | Lado | Semanal | Diário (h=10) |
 |---|---|---|
-| Comprado | **−0,042R** (t = −0,95 — indistinguível de zero) | −0,081R |
-| Vendido | **−0,356R** (t = −8,94) | −0,124R |
+| Comprado | −0,146R (t = −10,5) | −0,081R |
+| Vendido | −0,187R (t = −14,3) | −0,124R |
 
-No semanal, o lado comprado é estatisticamente indistinguível de zero e o
-vendido carrega praticamente todo o prejuízo. O padrão se repete em todos os
-horizontes diários e em todos os regimes. Isso **promove "só comprado" de item 3
-para item 1 da fila da Alternativa B** — é a mudança de maior efeito medido por
-menor esforço, e não depende de descobrir sinal novo.
+Os dois são claramente negativos. Isso motivou o teste do Adendo 2, que eliminou
+"só comprado" como remédio.
 
 Ressalva honesta antes de tratar isso como conclusão: o período medido
 (2021–2026 no semanal, 2023–2026 no diário) tem viés de alta estrutural, e
@@ -467,7 +476,7 @@ python3 scripts/backtest_horizonte.py /tmp/linhas-h{10,20,40,60}.json
 ## Adendo 2 (2026-08-20) — teste "só comprado": o que parecia edge era o mercado subindo
 
 O adendo anterior mostrou que o lado comprado é muito menos ruim que o vendido
-(−0,042R contra −0,356R no semanal) e promoveu "só comprado" a item 1 da fila.
+(−0,081R contra −0,124R no diário) e promoveu "só comprado" a item 1 da fila.
 Este teste responde se isso é sinal ou beta.
 
 A comparação é **pareada**: para cada sinal comprado, o retorno do trade (entra
@@ -490,15 +499,16 @@ geometria.
 | Setup − Segurar | **−1,493%** | **−32,6** | 34,6% dos casos |
 | Setup − Placebo | −0,166% | −4,4 | 47,3% dos casos |
 
-### Semanal — 480 operações compradas
+### Semanal — 4.625 operações compradas
 
 | Braço | Retorno médio/operação | t |
 |---|---:|---:|
-| Setup | −0,249% | −0,4 |
-| **Segurar a ação o mesmo prazo** | **+4,177%** | +4,2 |
-| Placebo (dia sorteado) | +1,957% | +3,3 |
+| Setup | −0,914% | −8,5 |
+| **Segurar a ação o mesmo prazo** | **+2,337%** | +11,7 |
+| Placebo (dia sorteado) | +0,913% | +8,5 |
 
-Setup − Segurar: **−4,426%**, t = −5,05, vence em 36,0% dos casos.
+Setup − Segurar: **−3,251%**, t = −18,2, vence em 36,7% dos casos.
+Setup − Placebo: −1,827%, t = −12,1.
 
 ### Leitura
 
@@ -567,11 +577,120 @@ python3 scripts/backtest_comprado.py /tmp/linhas-semanal.json --intervalo 1wk
 
 ---
 
+## Adendo 3 (2026-08-20) — 15 anos e regime de mercado: o confound está resolvido
+
+A limitação mais séria dos adendos anteriores era o período: 2023–2026 foi de
+alta, e num mercado que sobe "vender é ruim" e "segurar bate o setup" são o
+resultado esperado. Um sistema de trading justifica sua existência **justamente
+quando segurar é ruim** — isso nunca tinha sido testado.
+
+Reexecução com `range=15y`: **2011-08 → 2026-08, 125.938 sinais resolvidos**.
+
+### O agregado não se move
+
+| Período | n | Expectância | t | Acerto | PF |
+|---|---:|---:|---:|---:|---:|
+| 3 anos (2023–2026) | 32.095 | −0,104R | −19,7 | 44,8% | 0,80 |
+| **15 anos (2011–2026)** | **125.938** | **−0,105R** | **−39,6** | 44,6% | 0,79 |
+
+Quintuplicar o período e quadruplicar a amostra move a expectância em 0,001R.
+
+### Por regime, classificado pelo índice
+
+Anos rotulados pelo retorno do BOVA11 (ETF do Ibovespa) — não pelo retorno dos
+dias de sinal. Essa distinção importa: os setups são majoritariamente de
+reversão e disparam depois de queda, então a janela seguinte a um sinal tem
+drift positivo por construção. Classificar o ano por ela rotularia quase todo
+ano como "mercado a favor" — foi o que aconteceu na primeira tentativa, e o
+bucket de mercado adverso saiu vazio.
+
+| | Mercado a favor | Mercado contra |
+|---|---:|---:|
+| Anos | 2012, 2016–2020, 2022, 2023, 2025, 2026 | 2013, 2014, 2015, 2021, 2024 |
+| n | 82.835 | 43.103 |
+| **Motor (todos)** | **−0,091R** (t = −27,7) | **−0,132R** (t = −29,3) |
+| Motor comprado | −0,041R (t = −9,3) | −0,186R (t = −27,6) |
+| Motor vendido | −0,156R (t = −31,8) | −0,089R (t = −14,7) |
+| Setup comprado | −0,030%/op | −0,526%/op |
+| Segurar a ação | +2,304%/op | +0,903%/op |
+| Diferença | −2,334 p.p. (t = −77,4) | −1,429 p.p. (t = −33,7) |
+
+**O confound está resolvido, e o resultado piora.** Em mercado adverso o motor
+não melhora — vai de −0,091R para **−0,132R**. O lado vendido, que deveria ser
+onde um sistema ganha em queda, melhora de −0,156R para −0,089R e **continua
+negativo**: nem quando o mercado cai o motor consegue ganhar dinheiro vendendo.
+E o lado comprado piora bastante (−0,041R → −0,186R).
+
+Também em anos adversos, segurar a ação continua batendo o setup comprado
+(−1,429 p.p., t = −33,7).
+
+> Nota sobre "segurar" ser positivo mesmo em anos de baixa do índice: o
+> benchmark mede janelas de 10 pregões que começam num dia de sinal, e os setups
+> disparam após queda. Não é o retorno anual do índice, e não deveria ser lido
+> como tal. O que ele mede — e é o que importa aqui — é o custo de oportunidade
+> de operar o setup em vez de manter a posição naquelas mesmas janelas.
+
+**Conclusão:** os achados do ADR-016 não são artefato do período de alta. O motor
+é negativo em 15 anos, nos dois regimes, nos dois lados, com t entre −15 e −40.
+A recomendação (Alternativa A imediata) fica mais forte, não mais fraca.
+
+### Correção de integridade de dado descoberta neste adendo
+
+A primeira tentativa usou `range=max` e o Yahoo devolveu HTTP 200 com velas
+**mensais** — 320 barras a partir de 2000-02-01 — tanto para `interval=1d`
+quanto para `1wk`. O guard de `yahoo.get_history` só cobre intervalos intraday,
+então diário e semanal passam batido.
+
+Isso invalidou o teste de barra semanal do Adendo 1, que rodou em barra mensal.
+Os números daquele adendo foram **corrigidos** com a reexecução em `range=10y`.
+O que mudou de conclusão:
+
+- Semanal geral: −0,197R (n=956, mensal) → **−0,167R (n=9.671, semanal real)**.
+- Lado comprado semanal: −0,042R "indistinguível de zero" → **−0,146R
+  (t = −10,5)**. A afirmação de que o comprado era neutro no semanal **estava
+  errada** e vinha do dado contaminado.
+- Setup 9.1 (alta), o do Pellin: +0,094R (n=61) → **−0,070R (n=552, t = −1,72)**.
+  O resultado dele **não se reproduz** em barra semanal real.
+- IFR2 (alta): +0,315R (n=40, t=+2,17, não sobrevivia à deflação) → **+0,164R
+  (n=263, t=+2,79)** — com amostra 6× maior e agora **acima** do limiar
+  deflacionado de 2,4. É o único recorte de toda a investigação que passa nesse
+  crivo.
+
+`scripts/backtest_sinal.py` ganhou `_confere_granularidade()`, que recusa a série
+quando o espaçamento mediano entre barras não bate com o intervalo pedido.
+Ranges que o Yahoo honra: `15y`/`1d`, `10y`/`1wk`. `max` degrada para mensal.
+
+### O que isso faz com o IFR2
+
+O IFR2 (alta) agora é o único candidato que sobrevive a todos os crivos
+aplicados: positivo em barra semanal (+0,164R, t = +2,79, n = 263), acima do
+limiar deflacionado, e no diário é o único setup que bate o benchmark de segurar
+(+0,399 p.p., t = +2,2, n = 695).
+
+A ressalva do Adendo 2 continua valendo e é o que impede tratá-lo como feature:
+no diário ele bate o benchmark porque **segurar é ainda pior** (−0,670%), e o
+retorno próprio dele permanece negativo (−0,271%). No semanal, porém, a
+expectância própria é positiva. Os dois fatos juntos sustentam uma hipótese
+específica e testável: **o IFR2 pode ter edge real em horizonte semanal e não em
+diário** — que é exatamente o tipo de dependência de timeframe que a literatura
+de reversão à média prevê. Isso é a primeira coisa a investigar na Alternativa B,
+e agora com uma pergunta precisa em vez de uma varredura.
+
+**Reprodução:**
+
+```
+python3 scripts/backtest_sinal.py --anos 15 --rng 15y --saida /tmp/longo.json
+python3 scripts/backtest_periodo.py /tmp/longo.json --rng 15y
+python3 scripts/backtest_sinal.py --anos 8 --rng 10y --intervalo 1wk --saida /tmp/sem.json
+```
+
+---
+
 ## Limitações
 
-- **Período único.** 2023-07 a 2026-08 — um regime de mercado. O sinal do
-  resultado (negativo, t ≈ −20) é robusto o bastante para não depender disso, mas
-  a magnitude sim.
+- ~~**Período único.**~~ **Resolvido no Adendo 3**: reexecução sobre 2011–2026
+  (125.938 sinais) dá −0,105R contra os −0,104R de 3 anos, e o motor é negativo
+  tanto nos anos de alta quanto nos de baixa do índice — pior nos de baixa.
 - **Viés de sobrevivência.** `DEFAULT_UNIVERSE` é a lista de líquidas de hoje;
   empresas que saíram do índice no período não estão. Isso favorece o motor, não
   o contrário — o resultado real tende a ser pior.
