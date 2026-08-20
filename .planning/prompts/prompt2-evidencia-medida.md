@@ -27,6 +27,9 @@ O essencial, para você não propor o que já caiu:
   e fortemente exposto ao viés de sobrevivência do universo).
 - O lado comprado perde de **simplesmente segurar a ação** por 1,49 p.p. por
   operação (t=−32,6).
+- A instrumentação forward (`analysis_outcomes`) está quebrada e otimista;
+  a Phase 6 que a conserta está planejada e **não executada** em
+  `.planning/phases/06-instrumentacao-assertividade-adr015/`.
 
 **O único candidato vivo é o IFR2 (alta).** Em barra semanal real: +0,164R,
 n=263, t=+2,79 — acima do limiar deflacionado de 2,4, o único recorte de toda a
@@ -35,9 +38,6 @@ benchmark de segurar (+0,399 p.p., t=+2,2, n=695), mas ali bate porque segurar �
 ainda pior, e o retorno próprio dele segue negativo. A hipótese específica que
 isso sustenta: **o IFR2 pode ter edge em horizonte semanal e não em diário** —
 dependência de timeframe que a literatura de reversão à média prevê.
-- A instrumentação forward (`analysis_outcomes`) está quebrada e otimista;
-  a Phase 6 que a conserta está planejada e **não executada** em
-  `.planning/phases/06-instrumentacao-assertividade-adr015/`.
 
 O harness que produziu isso está em `scripts/backtest_*.py`, é determinístico,
 não usa LLM e não consome orçamento de brapi.
