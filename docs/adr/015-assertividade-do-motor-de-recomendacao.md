@@ -27,11 +27,15 @@ scraping do TradingView para embasar a revisão.
 4. **Em produção o volume é maior (392 registros, 159 resolvidos) e os dois
    bugs de instrumentação estão presentes em 100% dos registros** — não é
    artefato do banco local de dev.
-5. **TradingView está descartado**: sem API pública de dados e com o ToS
+5. **A segmentação por regime (tese do ADR-009) tem N=0 hoje, não N baixo.**
+   `regime` só começou a ser gravado em 2026-08-11; dos 159 outcomes já
+   resolvidos, nenhum tem `regime`. A primeira leva com `regime` só resolve
+   a partir de ~2026-08-25 (10 pregões após 08-11) — ver §2 (addendum).
+6. **TradingView está descartado**: sem API pública de dados e com o ToS
    proibindo nominalmente o uso pretendido (scraping, "price referencing",
    "algorithmic decision-making", "risk management programs" e "creating
    products or services based on TradingView content").
-6. **Nenhuma alternativa deste documento move cálculo do motor determinístico
+7. **Nenhuma alternativa deste documento move cálculo do motor determinístico
    para julgamento de IA.** Todos os defeitos encontrados são código
    determinístico medindo código determinístico — Princípio 5 do CLAUDE.md e
    o guardrail CVM (manchete só do motor) permanecem intactos em todas as
@@ -132,6 +136,41 @@ escala de produção** (66 planos × histórico do Yahoo é viável, mas é trab
 de implementação, fora do escopo desta pesquisa). Em dev, corrigir a âncora
 moveu o placar de 5:3 para 3:3 no mesmo conjunto de dados — a direção do
 viés é conhecida; a magnitude exata em produção, não.
+
+### Achado adicional — classificação de regime tem N=0, não N baixo (verificado 2026-08-20, pós-publicação)
+
+A pesquisa original citava (dev) "`regime` só existe em 7/57 registros" e
+classificava isso como amostra pequena para validar a tese do ADR-009
+(regime como eixo primário de seleção). Uma checagem adicional em produção
+mostra que o problema é mais estrutural do que "pequeno":
+
+| Grupo | n | Período | `resultado` |
+|---|---:|---|---|
+| Registros **com** `regime` gravado | 123 | 2026-08-11 → 2026-08-20 | **100% pendente** |
+| Registros **sem** `regime` gravado | 269 | 2026-07-09 → 2026-08-11 | alvo 44 · stop 105 · expirou 10 · pendente 110 |
+
+A captura de `regime` no outcome (qa/44) só entrou em produção em
+**2026-08-11**. Todo registro anterior a essa data nunca teve `regime`
+gravado — não é campo ausente por amostra pequena, é campo que não existia
+no código que gerou aqueles registros. Consequência direta: **dos 159
+registros já resolvidos hoje, 0 têm `regime`** — o cruzamento "este setup
+tem expectância diferente por regime?" (a tese do ADR-009) tem **N=0 hoje**,
+não N baixo.
+
+Verificado também: nenhum dos 123 registros com `regime` já passou de 14
+dias corridos desde a análise (o mais antigo é de 2026-08-11, há 9 dias). A
+barreira de tempo do `_avaliar_entry` é 10 pregões (~14 dias corridos) — a
+primeira leva de outcomes com `regime` só deve começar a resolver **a
+partir de ~2026-08-25**. Isso não é um bug a corrigir — é uma decisão de
+instrumentação recente que ainda não teve tempo de produzir dado. Vale só
+como calibração de expectativa: qualquer pergunta segmentada por regime
+feita antes dessa data não tem nenhum outcome resolvido para responder.
+
+**Correção a uma afirmação da pesquisa original:** o campo `confianca`, que
+a pesquisa citou como constante em `moderada` (57/57 em dev — "calibração
+impossível"), **não é constante em produção**: `moderada` 326 · `baixa` 39
+· `alta` 4 · `None` 23 (de 392). A calibração declarada×real é viável, ainda
+que com poucas células fora de `moderada`.
 
 ### Outras lacunas de instrumentação confirmadas
 

@@ -53,6 +53,20 @@ status: complete
   ser feita; o ADR documenta isso como gap de instrumentação (B4), não como
   dado inexistente por erro de busca.
 
+## Addendum (2026-08-20, pós-publicação) — classificação de regime
+
+A pedido do Alex, aprofundei a análise sobre a classificação de regime
+(`regime.py:classificar()`, tese do ADR-009) com mais uma consulta read-only
+em produção. Achado: a segmentação por regime tem **N=0 hoje, não N baixo**
+— `regime` só passou a ser gravado em 2026-08-11 (qa/44), os 269 registros
+anteriores nunca tiveram o campo, e nenhum dos 123 registros com `regime`
+ainda cruzou os 10 pregões (~14 dias corridos) para resolver. Primeira leva
+resolve a partir de ~2026-08-25. Também corrigi uma afirmação da pesquisa
+original: `confianca` não é constante em produção (era 100% `moderada` só em
+dev) — em prod tem `moderada` 326, `baixa` 39, `alta` 4, `None` 23.
+Atualizado em `docs/adr/015-*.md` (seção "Achado adicional — classificação
+de regime").
+
 ## Próximo passo
 
 Documento pronto para leitura/aprovação do Alex. Nenhuma implementação deve
