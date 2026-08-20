@@ -13,14 +13,28 @@ hipóteses já eliminadas).
 
 O essencial, para você não propor o que já caiu:
 
-- O motor de setups tem expectância **−0,104R** (n=32.095, t=−19,7) e **perde
-  para entrada em dia sorteado** por −0,088R (t=−12,4).
+- O motor de setups tem expectância **−0,105R** sobre **15 anos e 125.938
+  sinais** (t=−39,6) e **perde para entrada em dia sorteado** por −0,088R
+  (t=−12,4).
+- Negativo nos dois regimes de mercado: −0,091R em anos de alta do índice,
+  **−0,132R em anos de baixa**. Nem vendendo em ano de queda o motor ganha
+  (−0,089R). O confound de "período favorável" está resolvido.
 - A confluência não discrimina: 93,1% dos sinais valem 100%, porque em 2 dos 13
   setups esse é o único valor possível.
 - Já eliminados por medição: horizonte maior, barra semanal, só comprado,
-  filtro de média móvel, refazer só a confluência, regime como salvador.
+  filtro de média móvel, refazer só a confluência, regime como salvador,
+  **momentum relativo** (direção certa em 6/6 configurações, mas t = +0,6 a +1,1
+  e fortemente exposto ao viés de sobrevivência do universo).
 - O lado comprado perde de **simplesmente segurar a ação** por 1,49 p.p. por
   operação (t=−32,6).
+
+**O único candidato vivo é o IFR2 (alta).** Em barra semanal real: +0,164R,
+n=263, t=+2,79 — acima do limiar deflacionado de 2,4, o único recorte de toda a
+investigação que passa nesse crivo. No diário é o único setup que bate o
+benchmark de segurar (+0,399 p.p., t=+2,2, n=695), mas ali bate porque segurar é
+ainda pior, e o retorno próprio dele segue negativo. A hipótese específica que
+isso sustenta: **o IFR2 pode ter edge em horizonte semanal e não em diário** —
+dependência de timeframe que a literatura de reversão à média prevê.
 - A instrumentação forward (`analysis_outcomes`) está quebrada e otimista;
   a Phase 6 que a conserta está planejada e **não executada** em
   `.planning/phases/06-instrumentacao-assertividade-adr015/`.
@@ -39,15 +53,20 @@ avaliação de sinal. O usuário não aprende "compre quando o 9.2 aparecer";
 aprende "o 9.2 apareceu — e é assim que se descobre se ele vale alguma coisa".
 
 Você precisa **confrontar essa tese explicitamente no plano**, não assumi-la.
-Duas perguntas que o plano tem de responder antes de propor tela:
+Três perguntas que o plano tem de responder antes de propor tela:
 
 1. Um produto que mostra que seus próprios setups perdem dinheiro ainda tem
    proposta de valor? Se sim, qual exatamente, e o que no fluxo atual sustenta
    ou contradiz isso?
 2. O que acontece com o Modo Operador (execução automática) se o sinal que ele
-   executa é medido como negativo? Manter, restringir ou desligar é decisão de
-   produto — apresente o trade-off, com recomendação, e marque como decisão do
-   Alex.
+   executa é medido como negativo em 15 anos e nos dois regimes? Manter,
+   restringir ou desligar é decisão de produto — apresente o trade-off, com
+   recomendação, e marque como decisão do Alex. Enquanto não for decidido, cada
+   dia de operação é mais perda simulada para o usuário.
+3. O IFR2 semanal merece tratamento à parte na interface — o único setup com
+   evidência positiva que sobrevive à deflação? Ou expor um único vencedor entre
+   treze convida o usuário a operá-lo isoladamente, que é precisamente o
+   comportamento que a evidência não sustenta (n=263, e o diário contradiz)?
 
 Se você concluir que a tese não se sustenta, diga isso em uma frase e proponha
 a alternativa que sustenta — não entregue tela bonita sobre premissa furada.
