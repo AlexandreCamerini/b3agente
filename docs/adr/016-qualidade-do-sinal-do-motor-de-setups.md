@@ -370,6 +370,99 @@ explícita — não entra por dentro de uma dessas alternativas.
 
 ---
 
+## Adendo (2026-08-20) — teste de horizonte: hipótese eliminada, e o lado vendido aparece
+
+Rodamos o item 1 da fila da Alternativa B. Duas variantes, porque "horizonte
+maior" é ambíguo: alongar só a janela de avaliação não é a mesma coisa que
+operar em barra semanal — a segunda muda a própria detecção do setup, e é o que
+Pellin fez.
+
+### Variante 1 — mesmos setups diários, horizonte de avaliação maior
+
+| Horizonte | n | Expectância | t | Acerto | Não acionados |
+|---:|---:|---:|---:|---:|---:|
+| 10 pregões (produto) | 32.095 | −0,104R | −19,7 | 44,8% | 9.049 |
+| 20 pregões | 34.439 | −0,110R | −20,9 | 44,5% | 6.667 |
+| 40 pregões | 36.347 | −0,114R | −22,1 | 44,3% | 4.723 |
+| 60 pregões | 37.059 | −0,113R | −21,9 | 44,4% | 3.948 |
+
+**Hipótese eliminada.** A expectância não melhora — piora de leve e estabiliza.
+Nenhum dos 17 pares setup × lado melhora com significância em nenhum horizonte;
+os únicos que se movem na direção certa (IFR2 alta: −0,049 → −0,027; Inside Bar
+alta: −0,074 → −0,024) continuam negativos e não significativos. Dar mais tempo
+ao trade não resolve: o problema não é o alvo não dar tempo de chegar, é a
+entrada ser ruim.
+
+### Variante 2 — barra semanal (o análogo direto do Pellin)
+
+Motor rodado sobre candles semanais, janela de 252 barras semanais (o que
+`resolve_keep("1y", "1wk")` daria), horizonte de 10 semanas, ~5 anos de sinais.
+
+| Recorte | n | Expectância | IC95 | t | Acerto |
+|---|---:|---:|---|---:|---:|
+| **Geral semanal** | 956 | **−0,197R** | [−0,26; −0,14] | −6,5 | 40,9% |
+| IFR2 (alta) | 40 | +0,315R | [+0,03; +0,60] | +2,17 | 65,0% |
+| Setup 9.1 (alta) — *o setup do Pellin* | 61 | +0,094R | [−0,15; +0,34] | +0,74 | 55,7% |
+| Setup 9.3 (alta) | 126 | +0,051R | [−0,12; +0,22] | +0,58 | 53,2% |
+| Setup 9.2 (baixa) | 150 | −0,515R | [−0,65; −0,38] | −7,69 | 24,7% |
+
+**Hipótese não confirmada.** O agregado semanal é *pior* que o diário. Um único
+setup fica nominalmente significativo — IFR2 (alta), t = +2,17 — e não sobrevive
+à correção por seleção múltipla: com 16 configurações testadas o limiar prudente
+é |t| ≈ 2,35. Com n = 40, é indício, não resultado.
+
+Sobre o Setup 9.1 especificamente, que motivou o teste: a **direção** do Pellin
+se confirma (positivo, 55,7% de acerto no lado comprado), a **magnitude** não
+(ele reportou 67% e relação lucro/prejuízo 5,34). Com n = 61 e t = +0,74, o
+resultado é compatível tanto com "há um efeito pequeno" quanto com "não há
+efeito". Não é base para decisão. Vale registrar que o n de Pellin (12–14
+operações por ativo × 4 ativos) é da mesma ordem do nosso — o problema de
+amostra é dos dois lados, e ele ainda excluiu custos e aluguel de ação.
+
+### O achado que os dois testes produziram sem que fosse a pergunta
+
+O lado vendido é o que destrói o resultado, e a separação é muito mais nítida na
+barra semanal:
+
+| Lado | Semanal | Diário (h=10) |
+|---|---|---|
+| Comprado | **−0,042R** (t = −0,95 — indistinguível de zero) | −0,081R |
+| Vendido | **−0,356R** (t = −8,94) | −0,124R |
+
+No semanal, o lado comprado é estatisticamente indistinguível de zero e o
+vendido carrega praticamente todo o prejuízo. O padrão se repete em todos os
+horizontes diários e em todos os regimes. Isso **promove "só comprado" de item 3
+para item 1 da fila da Alternativa B** — é a mudança de maior efeito medido por
+menor esforço, e não depende de descobrir sinal novo.
+
+Ressalva honesta antes de tratar isso como conclusão: o período medido
+(2021–2026 no semanal, 2023–2026 no diário) tem viés de alta estrutural, e
+"vender é ruim" é o resultado esperado de um mercado que subiu. O teste que
+separa "o lado vendido é ruim" de "o período foi de alta" é medir o lado vendido
+num período de baixa — está fora do que estes dados cobrem.
+
+### Ressalvas destes testes
+
+- O semanal tem n = 956 contra 32.095 do diário: 33× menos amostra, intervalos de
+  confiança muito mais largos.
+- CPLE6 e EMBR3 devolveram 404 no Yahoo em intervalo semanal e ficaram fora.
+- A janela de 252 barras semanais faz "máxima do período" olhar 5 anos para trás
+  — fiel ao que `resolve_keep` daria, mas mais longo do que um operador semanal
+  usaria na prática. Janela semanal mais curta é variante não testada.
+- Os quatro horizontes diários compartilham os mesmos sinais de entrada, então
+  não são amostras independentes — a comparação entre eles é válida, somar as
+  significâncias não é.
+
+**Reprodução:**
+
+```
+python3 scripts/backtest_sinal.py --anos 3 --horizonte 40 --saida /tmp/h40.json
+python3 scripts/backtest_sinal.py --anos 5 --intervalo 1wk --rng max --saida /tmp/sem.json
+python3 scripts/backtest_horizonte.py /tmp/linhas-h{10,20,40,60}.json
+```
+
+---
+
 ## Limitações
 
 - **Período único.** 2023-07 a 2026-08 — um regime de mercado. O sinal do

@@ -37,7 +37,7 @@ from app import indicators, regime, setups, yahoo  # noqa: E402
 from app.scanner import DEFAULT_UNIVERSE  # noqa: E402
 
 JANELA = 252          # candles_mod.resolve_keep("1y") — a janela que o Radar usa
-HORIZONTE = 10        # analysis_outcomes.HORIZON_PREGOES
+HORIZONTE = 10        # analysis_outcomes.HORIZON_PREGOES (default do produto)
 CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".cache-backtest")
 
 
@@ -45,16 +45,21 @@ CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".cac
 # 1) Dados
 # --------------------------------------------------------------------------- #
 
-async def carregar(ticker: str, rng: str, so_cache: bool) -> list:
-    """Candles diários, com cache em disco (o Yahoo aperta quem insiste)."""
+async def carregar(ticker: str, rng: str, so_cache: bool, intervalo: str = "1d") -> list:
+    """Candles com cache em disco (o Yahoo aperta quem insiste). `intervalo`
+    entra na chave do cache — diário e semanal não podem disputar a mesma
+    entrada (mesma razão do ADR-001 para o cache de snapshot)."""
     os.makedirs(CACHE_DIR, exist_ok=True)
-    path = os.path.join(CACHE_DIR, f"{ticker}-{rng}.json")
+    path = os.path.join(CACHE_DIR, f"{ticker}-{rng}-{intervalo}.json")
+    legado = os.path.join(CACHE_DIR, f"{ticker}-{rng}.json")  # cache diário anterior
+    if intervalo == "1d" and not os.path.exists(path) and os.path.exists(legado):
+        path = legado
     if os.path.exists(path):
         with open(path) as f:
             return json.load(f)
     if so_cache:
         return []
-    hist = await yahoo.get_history(ticker, rng=rng, interval="1d")
+    hist = await yahoo.get_history(ticker, rng=rng, interval=intervalo)
     cs = hist.get("candles") or []
     with open(path, "w") as f:
         json.dump(cs, f)
@@ -76,24 +81,25 @@ def _summary_em(ind: dict, closes: list, t: int) -> dict:
             "adx14": v("adx14"), "diPlus": v("diPlus"), "diMinus": v("diMinus")}
 
 
-def sinais_do_ticker(ticker: str, cs: list, dias: int) -> list:
-    """Roda o motor dia a dia e devolve os planos acionáveis (COMPRAR/VENDER)."""
+def sinais_do_ticker(ticker: str, cs: list, dias: int,
+                     horizonte: int = HORIZONTE, janela: int = JANELA) -> list:
+    """Roda o motor barra a barra e devolve os planos acionáveis (COMPRAR/VENDER)."""
     cs = indicators.sanitize_candles(cs or [])
-    if len(cs) < JANELA + HORIZONTE + 10:
+    if len(cs) < janela + horizonte + 10:
         return []
     full = indicators.compute(cs)
     ind, closes = full["indicators"], [c["close"] for c in cs]
 
-    # Só avalia dias que têm janela cheia atrás E horizonte cheio à frente.
-    t0 = max(JANELA, len(cs) - HORIZONTE - dias)
-    t1 = len(cs) - HORIZONTE - 1
+    # Só avalia barras que têm janela cheia atrás E horizonte cheio à frente.
+    t0 = max(janela, len(cs) - horizonte - dias)
+    t1 = len(cs) - horizonte - 1
 
     out = []
     for t in range(t0, t1 + 1):
-        ini = max(0, t + 1 - JANELA)
-        janela = cs[ini:t + 1]
+        ini = max(0, t + 1 - janela)
+        bloco = cs[ini:t + 1]
         ind_slice = {k: arr[ini:t + 1] for k, arr in ind.items()}
-        sres = setups.detect_setups(janela, ind_slice)
+        sres = setups.detect_setups(bloco, ind_slice)
         plano = setups.plano_do_resultado(sres, close=cs[t]["close"])
         if plano.get("decisao") not in (setups.DECISAO_COMPRAR, setups.DECISAO_VENDER):
             continue
@@ -124,8 +130,8 @@ def sinais_do_ticker(ticker: str, cs: list, dias: int) -> list:
 # 3) Avaliação forward (barreira tripla ancorada no gatilho — ADR-015)
 # --------------------------------------------------------------------------- #
 
-def avaliar(sinal: dict, cs: list, alvo_campo: str) -> dict:
-    """Desfecho das próximas HORIZONTE barras. `resultado` ∈
+def avaliar(sinal: dict, cs: list, alvo_campo: str, horizonte: int = HORIZONTE) -> dict:
+    """Desfecho das próximas `horizonte` barras. `resultado` ∈
     {alvo, stop, sem_gatilho, expirou}. `r` é o múltiplo do risco do PLANO."""
     alvo = sinal.get(alvo_campo)
     if alvo is None:
@@ -136,8 +142,8 @@ def avaliar(sinal: dict, cs: list, alvo_campo: str) -> dict:
     if risco <= 0:
         return {"resultado": None, "r": None}
 
-    janela = cs[sinal["t"] + 1: sinal["t"] + 1 + HORIZONTE]
-    if len(janela) < HORIZONTE:
+    janela = cs[sinal["t"] + 1: sinal["t"] + 1 + horizonte]
+    if len(janela) < horizonte:
         return {"resultado": None, "r": None}
 
     # Entrada a mercado: o gatilho já rompeu, a entrada é imediata — a barreira
@@ -230,24 +236,32 @@ async def main():
     ap.add_argument("--rng", default="5y", help="range do Yahoo (warmup incluso)")
     ap.add_argument("--so-cache", action="store_true", help="não baixa nada")
     ap.add_argument("--saida", default="", help="grava as linhas cruas em JSON")
+    ap.add_argument("--horizonte", type=int, default=HORIZONTE,
+                    help="barras de avaliação (default 10 = o do produto)")
+    ap.add_argument("--intervalo", default="1d", choices=("1d", "1wk"),
+                    help="1wk roda o motor em barra SEMANAL (muda a detecção, não só a avaliação)")
+    ap.add_argument("--janela", type=int, default=JANELA, help="barras da janela do motor")
     args = ap.parse_args()
 
     uni = [t.strip().upper() for t in args.tickers.split(",") if t.strip()] or DEFAULT_UNIVERSE
-    dias = int(args.anos * 252)
+    por_ano = 252 if args.intervalo == "1d" else 52
+    dias = int(args.anos * por_ano)
+    unidade = "pregões" if args.intervalo == "1d" else "semanas"
 
-    print(f"universo: {len(uni)} tickers · janela do motor: {JANELA} barras · "
-          f"horizonte: {HORIZONTE} pregões · sinais dos últimos ~{dias} pregões")
+    print(f"universo: {len(uni)} tickers · intervalo: {args.intervalo} · "
+          f"janela do motor: {args.janela} barras · horizonte: {args.horizonte} {unidade} · "
+          f"sinais das últimas ~{dias} barras")
 
     sem = asyncio.Semaphore(4)
 
     async def um(tk):
         async with sem:
             try:
-                cs = await carregar(tk, args.rng, args.so_cache)
+                cs = await carregar(tk, args.rng, args.so_cache, args.intervalo)
             except Exception as e:  # noqa: BLE001 — ticker sem histórico não derruba a varredura
                 print(f"  ! {tk}: {e}", file=sys.stderr)
                 return tk, [], []
-            sinais = sinais_do_ticker(tk, cs, dias)
+            sinais = sinais_do_ticker(tk, cs, dias, args.horizonte, args.janela)
             cs_ok = indicators.sanitize_candles(cs or [])
             return tk, sinais, cs_ok
 
@@ -258,7 +272,7 @@ async def main():
         feitos += 1
         for s in sinais:
             for campo, destino in (("alvo1", linhas1), ("alvo2", linhas2)):
-                r = avaliar(s, cs_ok, campo)
+                r = avaliar(s, cs_ok, campo, args.horizonte)
                 if r["resultado"] is None:
                     continue
                 destino.append({**s, **r})
