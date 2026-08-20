@@ -771,6 +771,8 @@ function Prompts({ user }) {
   const abrir = (chave, atual) => { setChaveAberta(chave); setTexto(atual); setMsg(""); };
 
   const publicar = async () => {
+    const pergunta = "Publicar este prompt como default global? Isso vai pro ar imediatamente e afetará todas as contas que nunca customizaram o próprio prompt.";
+    if (!window.confirm(pergunta)) return;
     setBusy(true); setMsg("");
     try {
       await api.promptsPut(chaveAberta, texto);

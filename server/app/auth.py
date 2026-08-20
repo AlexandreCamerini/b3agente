@@ -176,6 +176,17 @@ def throttle_key(ip: str, email: str = "") -> str:
     return (ip or "?") + "|" + (email or "").strip().lower()
 
 
+def throttle_key_email_only(email: str = "") -> str:
+    """Chave SEM ip. `_client_ip` confia no primeiro valor de X-Forwarded-For,
+    que o próprio requisitante controla — trocar o header a cada tentativa
+    reseta o freio por (ip,email). Esta chave despreza o IP de propósito: o
+    e-mail/provider ALVO sozinho acumula as tentativas, então variar o IP não
+    escapa do freio. Usar em PARALELO com throttle_key(ip,email), nunca no
+    lugar dela — a chave (ip,email) ainda distingue IPs legítimos diferentes
+    tentando o mesmo e-mail de um único IP martelando e-mails diferentes."""
+    return "email-only|" + (email or "").strip().lower()
+
+
 def throttle_check(key: str, now: float = None) -> None:
     """Levanta AuthError se a chave estourou o limite. Chamar ANTES de validar."""
     import time as _t

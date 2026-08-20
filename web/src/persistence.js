@@ -491,6 +491,8 @@ function deviceStore() {
       if (typeof patch.apiKey === "string" && patch.apiKey) c.apiKey = patch.apiKey;
       if (patch.clearKey === true) c.apiKey = "";
       if (typeof patch.initialBudget === "number") c.initialBudget = Math.max(100, Math.min(100000000, +patch.initialBudget.toFixed(2)));
+      if (typeof patch.maxTokens === "number") c.maxTokens = Math.max(256, Math.min(200000, +Math.round(patch.maxTokens)));
+      if (typeof patch.temperature === "number") c.temperature = Math.max(0, Math.min(2, +patch.temperature.toFixed(2)));
       if (patch.theme === "dark" || patch.theme === "light" || patch.theme === "system") c.theme = patch.theme;
       if (typeof patch.userName === "string") c.userName = patch.userName.trim().slice(0, 40);
       if ("onboarded" in patch) c.onboarded = !!patch.onboarded;

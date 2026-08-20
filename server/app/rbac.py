@@ -75,6 +75,36 @@ def roles_for_user(conn, user_id: str) -> list:
     return db.roles_for_user(conn, user_id)
 
 
+# --------------------- ADR-013: auditoria filtrada por grupo -----------------
+# Mapeamento permissão → `entity` do admin_audit_log que ela dá direito de ver
+# (critério: a mesma área/grupo que a permissão administra na UI). Cobre toda
+# `entity` hoje gravada por `audit.record(...)` em main.py (grep por
+# "audit.record" confirma a lista). observabilidade.ver e operador_ia.ver são
+# só-leitura — não geram entrada própria no audit log, por isso não aparecem
+# aqui. `role_admin` não precisa de entrada própria: ele já tem TODAS as
+# permissões abaixo via `permissoes_do_papel`, então a união natural das
+# entidades já cobre o audit log inteiro.
+ENTIDADES_POR_PERMISSAO = {
+    "usuarios.gerenciar": {"user_role"},
+    "prompts.editar": {"prompt_default"},
+    "llm.configurar": {"config_ia"},
+    "fontes_dados.configurar": {"brapi_spot_intervalo"},
+    "execucao_automatica.ver": {"agent_kill_switch", "timing_watch_kill_switch"},
+    "execucao_automatica.controlar": {"agent_kill_switch", "timing_watch_kill_switch"},
+}
+
+
+def entidades_visiveis(conn, user_id: str) -> set:
+    """União das entidades do admin_audit_log que o usuário enxerga, pelas
+    permissões que tem. Vazio = não vê nenhum evento (mesmo assim só chega
+    aqui quem já passou por `require_any_admin_permission`, ou seja, tem
+    algum papel administrativo)."""
+    out = set()
+    for perm in permissions_for_user(conn, user_id):
+        out |= ENTIDADES_POR_PERMISSAO.get(perm, set())
+    return out
+
+
 # --------------------------- bootstrap aditivo -------------------------------
 def _is_admin_bootstrap(conn, user: dict) -> bool:
     """MESMA lógica que `_is_obs_admin` tinha em main.py antes deste ADR —

@@ -52,6 +52,9 @@ ok "$ARCHIVE gerado"
 say "2/4 · Exportar .ipa como Ad Hoc"
 TEAM_ID="$(sed -n 's/.*DEVELOPMENT_TEAM = \([A-Z0-9]*\);.*/\1/p' "$PBXPROJ" | head -1)"
 [ -n "$TEAM_ID" ] || die "DEVELOPMENT_TEAM não encontrado em $PBXPROJ"
+if [[ "$TEAM_ID" != "LC65399YC9" ]]; then
+  die "Team de assinatura é '$TEAM_ID', esperado 'LC65399YC9' (organização) — abra o Xcode, Signing & Capabilities, e corrija o Team antes de gerar o Ad Hoc. Um Team errado gera um .ipa que NÃO substitui o app já instalado no aparelho (silenciosamente)."
+fi
 cat > "$EXPORT_PLIST" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -101,6 +104,24 @@ for i in $(seq 1 30); do
 done
 [ "$UP" = "1" ] && ok "servidor já serve a versão $VERSION (não o deploy anterior)" \
   || echo "  aviso: ainda servindo versão anterior após ~3min — confira manualmente: $BASE/ios/manifest.plist"
+
+# Checagem extra: validar que o .ipa remoto está acessível e tem tamanho similar ao local
+LOCAL_SIZE="$(stat -f%z "$IPA")"
+REMOTE_RESPONSE="$(curl -sfI "$BASE/ios/boris.ipa" || true)"
+if [[ -n "$REMOTE_RESPONSE" ]]; then
+  REMOTE_SIZE="$(echo "$REMOTE_RESPONSE" | grep -i "^content-length:" | awk '{print $2}' | tr -d '\r')"
+  if [[ -n "$REMOTE_SIZE" ]]; then
+    if [[ "$REMOTE_SIZE" -eq "$LOCAL_SIZE" ]]; then
+      ok ".ipa remoto acessível com tamanho correto ($REMOTE_SIZE bytes)"
+    else
+      echo "  aviso: tamanho do .ipa remoto ($REMOTE_SIZE bytes) diferente do local ($LOCAL_SIZE bytes) — pode estar incompleto. Confira antes de mandar o link pro testador: $BASE/ios/"
+    fi
+  else
+    echo "  aviso: não consegui determinar o tamanho do .ipa remoto — confira manualmente se está completo: $BASE/ios/boris.ipa"
+  fi
+else
+  echo "  aviso: curl -I falhou para $BASE/ios/boris.ipa — confira a disponibilidade do .ipa antes de mandar o link pro testador."
+fi
 
 echo
 echo "  Abra no SAFARI DO IPHONE (obrigatório — outro navegador/app de mensagem não instala):"

@@ -132,6 +132,8 @@ if [[ -n "${VITE_GOOGLE_IOS_CLIENT_ID:-}" && -f "$PLIST" ]]; then
   else
     ok "URL scheme do Google Sign-In ja presente"
   fi
+else
+  warn "VITE_GOOGLE_IOS_CLIENT_ID não está no ambiente do shell — o URL scheme do Google NÃO foi adicionado ao Info.plist. Se o botão Google aparecer habilitado no app, a autenticação falhará (o Vite embute o client ID no JS via web/.env.local, mas este script bash injeta o URL scheme no Info.plist — são fontes diferentes). Rode antes deste script: set -a && source web/.env.local && set +a"
 fi
 
 # qa/20 (R4) — strings de permissao de VOZ. Hoje o botao de ditado do chat nem

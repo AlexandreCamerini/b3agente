@@ -224,14 +224,21 @@ def _client_ip(request: Request) -> str:
 @app.post("/api/auth/register")
 async def auth_register(request: Request, body: dict = Body(default={})):
     # FASE 5 (lançamento): freio de força bruta/enumeração também no registro.
+    # F10-20260819: chave (ip,email) sozinha é contornável trocando o IP a
+    # cada tentativa (X-Forwarded-For é auto-declarado) — chave email-only em
+    # PARALELO faz o e-mail-alvo acumular tentativas mesmo variando o IP.
     rl_key = auth.throttle_key(_client_ip(request), str(body.get("email", "")))
+    rl_key_email = auth.throttle_key_email_only(str(body.get("email", "")))
     try:
         auth.throttle_check(rl_key)
+        auth.throttle_check(rl_key_email)
         user = auth.register_email(_conn, body.get("email", ""), body.get("password", ""), body.get("name", ""))
     except auth.AuthError as e:
         auth.throttle_fail(rl_key)
+        auth.throttle_fail(rl_key_email)
         raise HTTPException(400, str(e))
     auth.throttle_clear(rl_key)
+    auth.throttle_clear(rl_key_email)
     _apply_seed(user["id"], body)
     return _auth_payload(user)
 
@@ -239,15 +246,20 @@ async def auth_register(request: Request, body: dict = Body(default={})):
 @app.post("/api/auth/login")
 async def auth_login(request: Request, body: dict = Body(default={})):
     # FASE 5 (lançamento): rate limit por (ip, e-mail) — sucesso zera o contador.
+    # F10-20260819: chave email-only em PARALELO — ver comentário em /api/auth/register.
     rl_key = auth.throttle_key(_client_ip(request), str(body.get("email", "")))
+    rl_key_email = auth.throttle_key_email_only(str(body.get("email", "")))
     try:
         auth.throttle_check(rl_key)
+        auth.throttle_check(rl_key_email)
         user = auth.login_email(_conn, body.get("email", ""), body.get("password", ""))
     except auth.AuthError as e:
         auth.throttle_fail(rl_key)
+        auth.throttle_fail(rl_key_email)
         obslog.log("auth", "login falhou (ip=" + _client_ip(request) + ")", level="warn")
         raise HTTPException(401, str(e))
     auth.throttle_clear(rl_key)
+    auth.throttle_clear(rl_key_email)
     _apply_seed(user["id"], body)   # idempotente: só semeia conta vazia
     return _auth_payload(user)
 
@@ -257,9 +269,12 @@ async def auth_oauth(request: Request, body: dict = Body(default={})):
     provider = str(body.get("provider", "")).lower()
     id_token = body.get("idToken") or body.get("id_token") or ""
     # FASE 5 (lançamento): mesmo freio das demais rotas de auth (por ip+provedor).
+    # F10-20260819: chave email-only em PARALELO — ver comentário em /api/auth/register.
     rl_key = auth.throttle_key(_client_ip(request), "oauth:" + provider)
+    rl_key_email = auth.throttle_key_email_only("oauth:" + provider)
     try:
         auth.throttle_check(rl_key)
+        auth.throttle_check(rl_key_email)
         claims = auth.verify_oauth_token(provider, id_token)
         if not claims.get("sub"):
             raise auth.AuthError("Token sem identificador de usuário.")
@@ -271,8 +286,10 @@ async def auth_oauth(request: Request, body: dict = Body(default={})):
                                        email_verified=bool(claims.get("email_verified")))
     except auth.AuthError as e:
         auth.throttle_fail(rl_key)
+        auth.throttle_fail(rl_key_email)
         raise HTTPException(401, str(e))
     auth.throttle_clear(rl_key)
+    auth.throttle_clear(rl_key_email)
     # FASE 4 (Bloco 2): SIWA — guarda o refresh_token para o revoke exigido na
     # exclusão de conta (5.1.1(v)). Best-effort: nunca bloqueia o login; o
     # resultado vai para o Diário (motivo exato, sem nunca logar o token).
@@ -809,6 +826,13 @@ async def admin_users_roles_post(user_id: str, body: dict = Body(default={}), us
     if acao == "revogar":
         rbac.revoke_role(_conn, user_id, role)
     else:
+        # Escalação de privilégio: "usuarios.gerenciar" concede QUALQUER papel
+        # (inclusive role_admin, o bootstrap com todas as permissões) — sem
+        # este freio, um titular só do grupo "usuarios" vira admin total de
+        # si mesmo ou de terceiros. Só quem já É role_admin pode conceder
+        # role_admin.
+        if role == rbac.ROLE_ADMIN and rbac.ROLE_ADMIN not in rbac.roles_for_user(_conn, user["id"]):
+            raise HTTPException(403, "Só um administrador (role_admin) pode conceder o papel role_admin.")
         try:
             rbac.grant_role(_conn, user_id, role, granted_by=user["id"])
         except ValueError as e:
@@ -820,7 +844,13 @@ async def admin_users_roles_post(user_id: str, body: dict = Body(default={}), us
 
 @app.get("/api/admin/audit")
 async def admin_audit_get(n: int = 200, user: dict = Depends(require_any_admin_permission())):
-    return {"eventos": audit.recent(_conn, limit=max(1, min(1000, n)))}
+    # ADR-013: "filtrado ao que a pessoa administra" — ver mapeamento e
+    # critério em rbac.ENTIDADES_POR_PERMISSAO. role_admin vê tudo porque a
+    # união das próprias permissões já cobre todas as entidades mapeadas.
+    eventos = audit.recent(_conn, limit=max(1, min(1000, n)))
+    entidades = rbac.entidades_visiveis(_conn, user["id"])
+    eventos = [e for e in eventos if e.get("entity") in entidades]
+    return {"eventos": eventos}
 
 
 # ADR-014: handoff de sessão pro web-admin/ dentro do browser in-app do app
@@ -853,7 +883,7 @@ async def admin_mobile_handoff_exchange(body: dict = Body(default={})):
 
 # FASE 8B (diagnóstico): carimbo de build do BACKEND — confirma qual código o
 # Railway está rodando (o front tem o dele em web/src/version.js).
-SERVER_BUILD_ID = "F10-20260820-01"  # v1.1: realismo de mercado (ordens pendentes) + correções crítico/alto.
+SERVER_BUILD_ID = "F10-20260820-02"  # v1.1: realismo de mercado (ordens pendentes) + correções crítico/alto.
 # Normalmente sincronizado pelo entregar.sh a partir de web/src/version.js; num deploy
 # SÓ de backend (sem rebuild do front) bumpamos aqui para /api/health rastrear o servidor.
 
@@ -1644,6 +1674,12 @@ async def buy(body: dict = Body(default={}), scope: Optional[str] = Depends(curr
         # o mesmo caixa (lost update). A cotação (I/O de rede) já foi obtida
         # ACIMA, fora da trava — nunca segurar um lock atravessando um await.
         with store.ORDER_LOCK:
+            # F10-20260819: `store.buy` normaliza qty pro lote de 100 mais
+            # próximo ANTES de debitar — checar caixa com a qty bruta do
+            # corpo permitia estourar o caixa (ex.: qty=150 passa na checagem
+            # bruta mas store.buy debita 200). Normaliza AQUI, na mesma forma,
+            # antes de comparar — espelha pending_orders.criar_compra.
+            qty = max(100, round(qty / 100) * 100)
             if qty * price > store.get(_conn, "cash", user_id=scope):
                 raise HTTPException(400, "Caixa insuficiente.")
             store.buy(_conn, t, qty, price, user_id=scope, meta=body.get("meta"))  # FASE 2 (2.4)
@@ -1684,6 +1720,18 @@ async def sell(body: dict = Body(default={}), scope: Optional[str] = Depends(cur
         raise HTTPException(502, "Sem cotacao para " + t)
     price = quote["price"]
     _qty = body.get("qty")  # FASE 2 (2.4): venda parcial opcional (lotes de 100)
+    # F10-20260819: `int(_qty) if _qty else None` tratava 0 (falsy em Python)
+    # como "campo ausente" e vendia a posição INTEIRA — pedir qty=0 de
+    # propósito virava venda total silenciosa. Distingue AUSENTE (None) de
+    # ZERO/NEGATIVO explícito (`is not None`) e rejeita o segundo caso.
+    _qty_val = None
+    if _qty is not None:
+        try:
+            _qty_val = int(_qty)
+        except (TypeError, ValueError):
+            raise HTTPException(400, "Quantidade inválida.")
+        if _qty_val <= 0:
+            raise HTTPException(400, "Quantidade inválida.")
 
     if pregao.in_market_hours():
         # Mesma trava do caminho imediato de compra (T-02-35). A leitura de
@@ -1695,7 +1743,7 @@ async def sell(body: dict = Body(default={}), scope: Optional[str] = Depends(cur
             pos_atual = next((p for p in positions_atual if p["t"] == t), None)
             if not pos_atual:
                 raise HTTPException(400, "Sem posicao em " + t)
-            store.sell(_conn, t, price, user_id=scope, qty=int(_qty) if _qty else None)
+            store.sell(_conn, t, price, user_id=scope, qty=_qty_val)
         _disparar_ciclo_imediato(scope)  # 2026-08-07: reavalia na hora, não espera o próximo tick
         out = store.public_state(_conn, user_id=scope)
         out["priceUsed"] = round(price, 2)
@@ -1707,7 +1755,7 @@ async def sell(body: dict = Body(default={}), scope: Optional[str] = Depends(cur
         raise HTTPException(401, "Ordens fora do horário de pregão exigem conta conectada — "
                                   "entre para que a ordem fique guardada na sua carteira.")
     try:
-        order = pending_orders.criar_venda(_conn, scope, t, int(_qty) if _qty else pos["qty"])
+        order = pending_orders.criar_venda(_conn, scope, t, _qty_val if _qty_val is not None else pos["qty"])
     except pending_orders.PosicaoInsuficiente as e:
         raise HTTPException(400, str(e))
     out = store.public_state(_conn, user_id=scope)
@@ -1763,6 +1811,11 @@ async def buy_option(body: dict = Body(default={}), scope: Optional[str] = Depen
     price = contrato.get("lastPrice")
     if not isinstance(price, (int, float)) or price <= 0:
         raise HTTPException(502, "Sem prêmio disponível para este contrato.")
+    # F10-20260819: mesma correção de /api/buy — `store.buy_option` normaliza
+    # qty pro lote de 100 mais próximo ANTES de debitar; normaliza AQUI antes
+    # de checar caixa, senão a checagem valida a qty bruta e o débito real sai
+    # maior.
+    qty = max(100, round(qty / 100) * 100)
     if qty * price > store.get(_conn, "cash", user_id=scope):
         raise HTTPException(400, "Caixa insuficiente.")
     contract = {

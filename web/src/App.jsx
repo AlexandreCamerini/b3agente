@@ -1496,7 +1496,7 @@ function TechnicalModal({ ticker, name, quote, position, onClose, period }) {
           <div style={{ display: "flex", alignItems: "baseline", gap: "9px" }}>
             <span style={{ fontSize: "21px", fontWeight: 800, fontFamily: MONO }}>{ticker}</span>
             {lastClose != null && <span style={{ fontSize: "15px", fontWeight: 700, fontFamily: MONO }}>R$ {Number(lastClose).toFixed(2)}</span>}
-            {quote && quote.change != null && <span style={{ fontSize: "12.5px", fontWeight: 700, color: quote.change >= 0 ? T.positive : T.negative }}>{quote.change >= 0 ? "+" : ""}{Number(quote.change).toFixed(2)}%</span>}
+            {quote && !quote.error && quote.change != null && <span style={{ fontSize: "12.5px", fontWeight: 700, color: quote.change >= 0 ? T.positive : T.negative }}>{quote.change >= 0 ? "+" : ""}{Number(quote.change).toFixed(2)}%</span>}
           </div>
           {name && <div style={{ fontSize: "12px", color: T.textMuted, marginTop: "1px" }}>{name}</div>}
         </div>

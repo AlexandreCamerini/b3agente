@@ -220,17 +220,25 @@ async def load(
     # `close`, nunca `adjustedClose`). `src` registra a fonte da última escrita
     # — é o acervo próprio de histórico pedido pelo Alex em 11/08: o L2
     # acumula os deltas diários e a série sobrevive a deploy.
-    merged = merge_candles(ent["candles"], recent.get("candles") or [])[-_MAX:]
+    novos = recent.get("candles") or []
+    merged = merge_candles(ent["candles"], novos)[-_MAX:]
     ent["candles"] = merged
-    ent["at"] = t
-    if recent.get("source"):
-        ent["src"] = recent["source"]
-    if recent.get("currency"):
-        ent["currency"] = recent["currency"]
+    if novos:
+        # só revalida frescor/fonte quando o provedor realmente trouxe candle
+        # novo — lista vazia é "sem novidade", não "confirmado agora" (CLAUDE.md
+        # princípio 4: não fabricar frescor/fonte quando o dado é desconhecido).
+        ent["at"] = t
+        if recent.get("source"):
+            ent["src"] = recent["source"]
+        if recent.get("currency"):
+            ent["currency"] = recent["currency"]
+        cache_status = "delta"
+    else:
+        cache_status = "stale"
     if l2:
         _db_put(k, ent)  # FASE 5: write-through no L2
     return {"t": symbol, "currency": ent.get("currency", "BRL"), "candles": merged,
-            "cacheStatus": "delta", "source": ent.get("src")}
+            "cacheStatus": cache_status, "source": ent.get("src")}
 
 
 # ---------------------------------------------------------------------------

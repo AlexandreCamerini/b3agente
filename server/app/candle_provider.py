@@ -387,7 +387,7 @@ async def get_quote(ticker: str) -> dict:
             raise
         except Exception as e:  # noqa: BLE001 — nunca vaza detalhe técnico do provedor (C-12)
             print(f"[candle_provider] get_quote({ticker}) via yahoo (backup) falhou: {e}")
-            return {"t": ticker, "price": None, "change": 0,
+            return {"t": ticker, "price": None, "change": None,
                     "error": "sem cotação (falha do provedor de dados)"}
         return {**out, "source": "yahoo"} if isinstance(out, dict) else out
     try:
@@ -396,7 +396,7 @@ async def get_quote(ticker: str) -> dict:
         raise
     except Exception as e:  # noqa: BLE001 — nunca vaza detalhe técnico do provedor (C-12)
         print(f"[candle_provider] get_quote({ticker}) via yahoo falhou: {e}")
-        return {"t": ticker, "price": None, "change": 0,
+        return {"t": ticker, "price": None, "change": None,
                 "error": "sem cotação (falha do provedor de dados)"}
     return {**out, "source": "yahoo"} if isinstance(out, dict) else out
 
@@ -425,7 +425,7 @@ async def get_quotes(tickers: list) -> dict:
                 out[t] = {**q, "source": "yahoo"} if isinstance(q, dict) else q
         else:
             for t in faltam:
-                out[t] = {"t": t, "price": None, "change": 0,
+                out[t] = {"t": t, "price": None, "change": None,
                           "error": "sem cotação (brapi sem orçamento, backup desligado)"}
     return out
 
@@ -501,6 +501,6 @@ async def get_quotes_exclusive(tickers: list, source: Optional[str] = None) -> d
         try:
             out[t] = await _quote_brapi_or_raise(t)
         except Exception as e:  # noqa: BLE001 — vira marcador; NUNCA tenta o yahoo
-            out[t] = {"t": t, "price": None, "change": 0, "source": "brapi",
+            out[t] = {"t": t, "price": None, "change": None, "source": "brapi",
                       "error": f"fonte exclusiva (brapi) sem cotação: {e}"}
     return out

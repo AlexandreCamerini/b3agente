@@ -109,7 +109,7 @@ def _map_quote_row(row: dict) -> dict:
         "t": t,
         "name": row.get("longName") or row.get("shortName") or "",
         "price": price,
-        "change": change or 0,
+        "change": change,
         "previousClose": prev,
         "currency": row.get("currency", "BRL"),
     }

@@ -197,7 +197,7 @@ def _map_quote(r: dict) -> dict:
         "t": normalize_ticker(str(r.get("symbol") or "")),
         "name": r.get("longName") or r.get("shortName") or "",
         "price": price,
-        "change": change or 0,
+        "change": change,
         "previousClose": prev,
         "currency": r.get("currency", "BRL"),
     }
