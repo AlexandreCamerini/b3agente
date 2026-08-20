@@ -58,3 +58,7 @@ ESPEC-Modo-Estudo-Ensino-otimizado.md
 # saídas das medições pontuais do Yahoo (scripts/medir-yahoo-*) — evidência
 # fica em docs/ quando vale guardar; o resto é rascunho de execução.
 medicao-railway-*.txt
+
+# cache de candles do harness de backtest (scripts/backtest_sinal.py) — dado
+# reproduzível por download, não pertence ao repositório
+.cache-backtest/
