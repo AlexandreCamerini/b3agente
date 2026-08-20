@@ -165,6 +165,56 @@ def test_papel_desconhecido_e_rejeitado(monkeypatch):
     assert r.status_code == 400
 
 
+def test_usuarios_gerenciar_nao_concede_role_admin_a_terceiro(monkeypatch):
+    """Achado da auditoria 2026-08-20 (crítico): quem só tem "usuarios.gerenciar"
+    conseguia conceder role_admin (todas as 7 permissões) a qualquer conta —
+    bypass total do modelo de menor privilégio. Só role_admin pode conceder
+    role_admin."""
+    c, _ = _client(monkeypatch)
+    admin = _registra(c, "dono@teste.com")
+    suporte = _registra(c, "suporte@teste.com")
+    vitima = _registra(c, "vitima@teste.com")
+    h_admin = _auth(admin["token"])
+    h_suporte = _auth(suporte["token"])
+
+    c.post(f"/api/admin/users/{suporte['user']['id']}/roles",
+          json={"role": "usuarios", "acao": "conceder"}, headers=h_admin)
+
+    r = c.post(f"/api/admin/users/{vitima['user']['id']}/roles",
+              json={"role": "role_admin", "acao": "conceder"}, headers=h_suporte)
+    assert r.status_code == 403, r.text
+    assert c.get("/api/admin/config/ia", headers=_auth(vitima["token"])).status_code == 403
+
+
+def test_usuarios_gerenciar_nao_concede_role_admin_a_si_mesmo(monkeypatch):
+    """Mesmo achado — caminho de autopromoção (concede role_admin à própria conta)."""
+    c, _ = _client(monkeypatch)
+    admin = _registra(c, "dono@teste.com")
+    suporte = _registra(c, "suporte@teste.com")
+    h_admin = _auth(admin["token"])
+    h_suporte = _auth(suporte["token"])
+
+    c.post(f"/api/admin/users/{suporte['user']['id']}/roles",
+          json={"role": "usuarios", "acao": "conceder"}, headers=h_admin)
+
+    r = c.post(f"/api/admin/users/{suporte['user']['id']}/roles",
+              json={"role": "role_admin", "acao": "conceder"}, headers=h_suporte)
+    assert r.status_code == 403, r.text
+    assert c.get("/api/admin/agent/kill-switch", headers=h_suporte).status_code == 403
+
+
+def test_role_admin_pode_conceder_role_admin(monkeypatch):
+    """O freio é só pra quem NÃO é role_admin — quem já é continua podendo
+    promover outra conta (senão nunca sairia do bootstrap de 1 admin só)."""
+    c, _ = _client(monkeypatch)
+    admin = _registra(c, "dono@teste.com")
+    outro = _registra(c, "co-admin@teste.com")
+    r = c.post(f"/api/admin/users/{outro['user']['id']}/roles",
+              json={"role": "role_admin", "acao": "conceder"}, headers=_auth(admin["token"]))
+    assert r.status_code == 200, r.text
+    assert c.get("/api/admin/config/ia", headers=_auth(outro["token"])).status_code == 200
+
+
 # ------------------------------- audit log -----------------------------------
 def test_config_ia_escreve_e_audita(monkeypatch):
     c, _ = _client(monkeypatch)
@@ -217,6 +267,35 @@ def test_grant_role_audita(monkeypatch):
     audit = c.get("/api/admin/audit", headers=h).json()["eventos"]
     ev = [e for e in audit if e["entity"] == "user_role" and e["entityId"] == outro["user"]["id"]]
     assert ev and "prompts" in ev[0]["newValue"]
+
+
+def test_auditoria_e_filtrada_ao_que_a_pessoa_administra(monkeypatch):
+    """Achado da auditoria 2026-08-20 (alto): GET /api/admin/audit devolvia o
+    log INTEIRO pra qualquer permissão administrativa, quando o ADR-013
+    promete "filtrado ao que a pessoa administra". Um editor só de prompts
+    não pode ver toggle de kill-switch, config de IA nem quem ganhou papel."""
+    c, _ = _client(monkeypatch)
+    admin = _registra(c, "dono@teste.com")
+    editor = _registra(c, "editor@teste.com")
+    h_admin = _auth(admin["token"])
+    h_editor = _auth(editor["token"])
+
+    c.post(f"/api/admin/users/{editor['user']['id']}/roles",
+          json={"role": "prompts", "acao": "conceder"}, headers=h_admin)
+    # gera eventos em entidades FORA do domínio do editor
+    c.put("/api/admin/agent/kill-switch", json={"on": True}, headers=h_admin)
+    c.put("/api/admin/config/ia", json={"llmDailyQuota": 42}, headers=h_admin)
+
+    audit_admin = c.get("/api/admin/audit", headers=h_admin).json()["eventos"]
+    entidades_admin = {e["entity"] for e in audit_admin}
+    assert {"agent_kill_switch", "config_ia", "user_role"} <= entidades_admin, \
+        "role_admin precisa continuar vendo o log inteiro"
+
+    audit_editor = c.get("/api/admin/audit", headers=h_editor).json()["eventos"]
+    entidades_editor = {e["entity"] for e in audit_editor}
+    assert "agent_kill_switch" not in entidades_editor
+    assert "config_ia" not in entidades_editor
+    assert "user_role" not in entidades_editor
 
 
 # --------------------------------- prompts ------------------------------------
