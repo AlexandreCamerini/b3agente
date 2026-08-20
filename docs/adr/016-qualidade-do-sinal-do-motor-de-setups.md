@@ -308,9 +308,10 @@ direto da medição e da pesquisa deste ADR:
    ordenados por confluência × ordenação aleatória dentro do subconjunto já
    filtrado × score de fatores não-correlatos. O controle nulo deste ADR já dá
    metade da resposta; falta isolar o efeito da ordenação.
-3. **Só comprado.** A venda é consistentemente pior (−0,124R contra −0,081R) em
-   todas as janelas. Restringir o produto ao lado comprado é a mudança de maior
-   efeito por menor esforço, e precisa ser medida antes de virar regra.
+3. ~~**Só comprado.**~~ **Testado e descartado como remédio autônomo** — ver
+   Adendo 2. O lado comprado perde de segurar o mesmo papel por 1,49 pontos
+   percentuais por operação (t = −32,6). O que parecia edge era beta de um
+   período de alta.
 4. **Momentum relativo cross-sectional** — o ADR-009 já o implementou em
    `regime.ranquear` mas nunca o isolou como sinal. É a família com mais lastro
    acadêmico de toda a pesquisa.
@@ -459,6 +460,109 @@ num período de baixa — está fora do que estes dados cobrem.
 python3 scripts/backtest_sinal.py --anos 3 --horizonte 40 --saida /tmp/h40.json
 python3 scripts/backtest_sinal.py --anos 5 --intervalo 1wk --rng max --saida /tmp/sem.json
 python3 scripts/backtest_horizonte.py /tmp/linhas-h{10,20,40,60}.json
+```
+
+---
+
+## Adendo 2 (2026-08-20) — teste "só comprado": o que parecia edge era o mercado subindo
+
+O adendo anterior mostrou que o lado comprado é muito menos ruim que o vendido
+(−0,042R contra −0,356R no semanal) e promoveu "só comprado" a item 1 da fila.
+Este teste responde se isso é sinal ou beta.
+
+A comparação é **pareada**: para cada sinal comprado, o retorno do trade (entra
+no gatilho, sai no stop, no alvo ou no fim do prazo) contra o retorno de ter
+comprado **o mesmo papel, no mesmo dia, e segurado pelo mesmo prazo**. Mesmo
+ativo, mesma janela, mesmo período — o que sobra da diferença é o que o setup
+adiciona. Um terceiro braço entra a mercado num dia sorteado com a mesma
+geometria.
+
+### Diário — 15.241 operações compradas
+
+| Braço | Retorno médio/operação | t | Operações positivas |
+|---|---:|---:|---:|
+| **Setup (entra no gatilho)** | **−0,186%** | −7,1 | 45,8% |
+| **Segurar a ação o mesmo prazo** | **+1,307%** | +25,2 | 58,8% |
+| Placebo (dia sorteado) | −0,020% | −0,8 | 49,6% |
+
+| Comparação pareada | Diferença | t | Setup vence em |
+|---|---:|---:|---:|
+| Setup − Segurar | **−1,493%** | **−32,6** | 34,6% dos casos |
+| Setup − Placebo | −0,166% | −4,4 | 47,3% dos casos |
+
+### Semanal — 480 operações compradas
+
+| Braço | Retorno médio/operação | t |
+|---|---:|---:|
+| Setup | −0,249% | −0,4 |
+| **Segurar a ação o mesmo prazo** | **+4,177%** | +4,2 |
+| Placebo (dia sorteado) | +1,957% | +3,3 |
+
+Setup − Segurar: **−4,426%**, t = −5,05, vence em 36,0% dos casos.
+
+### Leitura
+
+**"Só comprado" não é solução.** O lado comprado parecia aceitável em R porque R
+é normalizado pelo risco e esconde o custo de oportunidade. Em retorno absoluto,
+o setup comprado entrega ≈ 0 enquanto simplesmente segurar o mesmo papel pelo
+mesmo prazo entregou +1,3% (diário) e +4,2% (semanal). A diferença é de 32
+desvios-padrão no diário — não é ruído nem artefato de período.
+
+Em todos os setups menos um, comprar pelo sinal é pior do que comprar e esperar:
+
+| Setup (comprado, diário) | Setup % | Segurar % | Diferença | t |
+|---|---:|---:|---:|---:|
+| Setup 9.2 (alta) | −0,319 | +1,696 | −2,015 | −22,0 |
+| 123 de fundo (alta) | −0,193 | +2,691 | −2,884 | −23,3 |
+| Máx/Mín LW 9.4 (alta) | −0,296 | +1,468 | −1,764 | −14,6 |
+| Ponto Contínuo (alta) | −0,514 | +1,006 | −1,520 | −6,6 |
+| Inside Bar (alta) | −0,128 | +1,368 | −1,496 | −6,2 |
+| Setup 9.3 (alta) | −0,004 | +0,745 | −0,749 | −8,3 |
+| PFR (alta) | +0,165 | +0,996 | −0,831 | −3,4 |
+| Setup 9.1 (alta) | −0,052 | +0,442 | −0,493 | −2,9 |
+| **IFR2 (alta)** | **−0,271** | **−0,670** | **+0,399** | **+2,2** |
+
+**A exceção do IFR2 merece leitura cuidadosa, e não é o que parece.** É o único
+setup que bate o benchmark, em ambos os intervalos (diário +0,399%, t = +2,2,
+n = 695; semanal +7,738%, t = +2,0, n = 40). Mas ele bate porque **segurar é
+ainda pior**: o IFR2 dispara em papéis que continuam caindo (hold = −0,670%), e
+a saída no alvo captura o repique antes da queda seguir. O mecanismo é
+coerente com o que o setup se propõe a fazer — reversão à média com saída
+disciplinada — e é o único achado genuinamente interessante de toda a
+investigação.
+
+Ainda assim, **não é um produto**: o retorno do próprio setup continua negativo
+(−0,271% no diário). O IFR2 é uma forma menos ruim de ficar exposto a papéis que
+estão caindo, não uma estratégia com expectativa positiva. Com t = +2,2 contra
+um limiar deflacionado de ≈ 2,1 para 9 configurações, sobrevive por margem
+estreita — é candidato a investigação, não a decisão.
+
+### Efeito de custos
+
+As comparações pareadas são **invariantes a custo**: setup e benchmark pagam um
+round-trip cada, então o custo se cancela na diferença. O que o custo muda é o
+nível absoluto — a 0,2% de round-trip (emolumentos + slippage conservador), o
+setup diário vai de −0,186% para −0,386% por operação.
+
+O efeito de carteira é pior que isso e não está medido aqui: no mesmo período, a
+estratégia de setup faz dezenas de round-trips enquanto segurar faz um. Contar
+custo por operação subestima a diferença acumulada a favor de segurar.
+
+### Consequência para as alternativas
+
+Isto **rebaixa "só comprado" de item 1 para fora da fila** como remédio
+autônomo, e reforça a Alternativa A: um produto que ensina a entrar por esses
+sinais está ensinando algo pior do que comprar e esperar — no lado comprado,
+que era o menos ruim, e num período em que o mercado subiu.
+
+O item que sobe na fila é o IFR2 isolado (mecanismo de reversão com saída
+disciplinada), e mesmo ele como pergunta de pesquisa, não como feature.
+
+**Reprodução:**
+
+```
+python3 scripts/backtest_comprado.py /tmp/linhas-h10.json --intervalo 1d
+python3 scripts/backtest_comprado.py /tmp/linhas-semanal.json --intervalo 1wk
 ```
 
 ---
