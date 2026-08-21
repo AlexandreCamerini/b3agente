@@ -6,7 +6,7 @@ import { testServer, describeRuntimeConfig, getApiBase, PROD_BASE } from "./api.
 import { createChart, ColorType, CrosshairMode, LineStyle } from "lightweight-charts";
 import { sampleTechnicals } from "./demo.js";
 import { DISCLAIMERS, TERMO_OPERADOR_VERSAO } from "./disclaimers.js";
-import { copyFor, historicoTxt } from "./copy.js";
+import { copyFor, historicoTxt, entradaAutoTxt } from "./copy.js";
 import { Markdown, MdInline } from "./markdown.jsx";
 import { BUILD_ID } from "./version.js";
 // carimbo no console: prova de qual build está rodando (device/web)
@@ -3869,21 +3869,33 @@ function AgenteScreen({ ctx }) {
           estado; a troca acontece só pelo link "Trocar modo →" (Perfil).
           Cada badge lê a MESMA fonte canônica que o card-herói logo abaixo
           usa — nunca contradiz o herói. */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", padding: "10px 14px", borderRadius: "10px", background: T.bgBase, border: `1px solid ${T.borderFaint}`, flexWrap: "wrap" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "14px", flexWrap: "wrap" }}>
-          <span style={{ fontSize: "11px", fontWeight: 400, color: T.textSecondary }}>
-            Modo do app: <b style={{ color: operador ? T.positive : T.textFaint }}>{operador ? "📈 Operador" : "🎓 Estudo"}</b>
-          </span>
-          <span style={{ fontSize: "11px", fontWeight: 400, color: T.textSecondary }}>
-            Operador no servidor: <b style={{ color: (ag.serverEnabled && logged) ? T.positive : T.textFaint }}>{(ag.serverEnabled && logged) ? "Ligado" : "Desligado"}</b>
-          </span>
-          <span style={{ fontSize: "11px", fontWeight: 400, color: T.textSecondary }}>
-            Executar/sinalizar: <b style={{ color: modoEfetivo === "executar" ? T.positive : T.textFaint }}>{modoEfetivo === "executar" ? "Executar" : "Apenas sinalizar"}</b>
-          </span>
+      <div style={{ display: "flex", flexDirection: "column", gap: "8px", padding: "10px 14px", borderRadius: "10px", background: T.bgBase, border: `1px solid ${T.borderFaint}` }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "14px", flexWrap: "wrap" }}>
+            <span style={{ fontSize: "11px", fontWeight: 400, color: T.textSecondary }}>
+              Modo do app: <b style={{ color: operador ? T.positive : T.textFaint }}>{operador ? "📈 Operador" : "🎓 Estudo"}</b>
+            </span>
+            <span style={{ fontSize: "11px", fontWeight: 400, color: T.textSecondary }}>
+              Operador no servidor: <b style={{ color: (ag.serverEnabled && logged) ? T.positive : T.textFaint }}>{(ag.serverEnabled && logged) ? "Ligado" : "Desligado"}</b>
+            </span>
+            <span style={{ fontSize: "11px", fontWeight: 400, color: T.textSecondary }}>
+              Executar/sinalizar: <b style={{ color: modoEfetivo === "executar" ? T.positive : T.textFaint }}>{modoEfetivo === "executar" ? "Executar" : "Apenas sinalizar"}</b>
+            </span>
+          </div>
+          <button onClick={() => A.go("perfil")} style={{ background: "transparent", border: "none", padding: 0, color: T.accent, fontWeight: 800, fontSize: "11.5px", textDecoration: "underline", flex: "none" }}>
+            Trocar modo →
+          </button>
         </div>
-        <button onClick={() => A.go("perfil")} style={{ background: "transparent", border: "none", padding: 0, color: T.accent, fontWeight: 800, fontSize: "11.5px", textDecoration: "underline", flex: "none" }}>
-          Trocar modo →
-        </button>
+        {/* ADR-017 Bloco 4 (Plano 08-02): a entrada automática deixou de ser
+            suspensão cega e virou gate por elegibilidade medida — esta linha
+            é a transparência exigida pelo 08-UI-SPEC (aditiva, read-only,
+            nenhum toggle novo). O número do contraste é referência FIXA de
+            backtest (ADR-016/017), nunca cálculo vivo — os dois números
+            moram na MESMA string de copy.js, nunca separados. */}
+        <div>
+          <div style={{ fontSize: "11px", color: T.textMuted, lineHeight: 1.45 }}>{ctx.cp.entradaAuto.regra}</div>
+          <div style={{ fontSize: "11px", color: T.textFaint, lineHeight: 1.45, marginTop: "2px" }}>{ctx.cp.entradaAuto.contraste}</div>
+        </div>
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: "2px", marginTop: "14px" }}>
@@ -5949,11 +5961,48 @@ function RadarScreen({ ctx }) {
                   {isOpen ? "− Ocultar critérios" : "+ Ver critérios do setup"}
                 </button>
               )}
-              {isOpen && (r.setups || []).map((s, si) => (
+              {isOpen && (r.setups || []).map((s, si) => {
+                // ADR-017 Bloco 3/4 (Fase 8, Plano 04): histórico medido POR
+                // SETUP (não só a confluência) — reusa o MESMO HistoricoPill
+                // do nível ticker (Plano 08-03), com os números da janela
+                // visíveis (compacto=false: esta é a superfície de estudo do
+                // setup). "aposentado ≠ apagado" (ADR-017 Decisão 1): o setup
+                // continua na lista, com nome/critérios intactos — nenhum
+                // esmaecimento, risco ou remoção do item.
+                const estadoSetup = historicoEstado(s.historico, s.aposentado);
+                const modoJSSetup = operador ? "operador" : "estudo";
+                // predicado IDÊNTICO ao gate real do 08-02 (_avaliar_entradas):
+                // "elegivel is True" é a ÚNICA condição de "disponivel"; todo
+                // o resto (inelegivel/insuficiente/nunca_medido/aposentado)
+                // cai em "bloqueado" — a tela nunca promete mais que o gate.
+                const estadoGate = estadoSetup === "elegivel" ? "disponivel" : "bloqueado";
+                const refBrutoSetup = s.historico && (s.historico.medidoAte || s.historico.calculadoEm);
+                const refYmdSetup = refBrutoSetup ? String(refBrutoSetup).slice(0, 10) : null;
+                const hojeYmdSetup = (() => {
+                  const d = new Date();
+                  const p2 = (n) => String(n).padStart(2, "0");
+                  return d.getFullYear() + "-" + p2(d.getMonth() + 1) + "-" + p2(d.getDate());
+                })();
+                const velhoSetup = historicoDesatualizado(s.historico, hojeYmdSetup);
+                return (
                 <div key={si} style={{ marginTop: "9px", padding: "10px 11px", borderRadius: "10px", background: T.bgBase, border: `1px solid ${T.borderFaint}` }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: "8px", fontSize: "12px", fontWeight: 700 }}>
-                    <span>{s.nome}</span><span style={{ fontFamily: MONO, color: T.textSecondary }}>{s.confluencia}%</span>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px", fontSize: "12px", fontWeight: 700, flexWrap: "wrap" }}>
+                    <span>{s.nome}</span>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+                      <span style={{ fontFamily: MONO, color: T.textSecondary }}>{s.confluencia}%</span>
+                      <HistoricoPill historico={s.historico} aposentado={s.aposentado} operador={operador} compacto={false} />
+                    </span>
                   </div>
+                  {refYmdSetup && (
+                    <div style={{ marginTop: "4px", fontSize: "11px", color: velhoSetup ? T.textDim : T.textFaint }}>
+                      {velhoSetup ? "⏱ " : ""}Medido até {refYmdSetup}
+                    </div>
+                  )}
+                  {operador && (
+                    <div style={{ marginTop: "4px", fontSize: "11px", lineHeight: 1.45, color: T.textMuted }}>
+                      {entradaAutoTxt(modoJSSetup, estadoGate, { setup: s.nome, janelaRef: s.historico && s.historico.janelaRef })}
+                    </div>
+                  )}
                   {(s.criterios || []).map((cr, ci) => (
                     <div key={ci} style={{ display: "flex", gap: "7px", alignItems: "flex-start", marginTop: "6px", fontSize: "11.5px", lineHeight: 1.45 }}>
                       <span style={{ color: cr.ok ? T.positive : T.textFaint, fontWeight: 800, flex: "none" }}>{cr.ok ? "✓" : "○"}</span>
@@ -5961,7 +6010,8 @@ function RadarScreen({ ctx }) {
                     </div>
                   ))}
                 </div>
-              ))}
+                );
+              })}
               {r.condicoes_detectadas && r.condicoes_detectadas.length > 0 && (
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "11px" }}>
                   {r.condicoes_detectadas.slice(0, isOpen ? 99 : 3).map((cnd, i) => (
