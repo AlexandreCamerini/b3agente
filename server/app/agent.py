@@ -1035,7 +1035,10 @@ async def scheduler_loop(conn, quotes_getter, notify_push=None, interval_s: int 
     qa/47: `analytics_conn` (opcional, banco SEPARADO — ver analytics.py)
     habilita o rollup+purga diário de eventos de comportamento — hook próprio,
     independente do kill-switch do agente (não é execução de ordem) e do
-    gate de pregão (não depende de cotação)."""
+    gate de pregão (não depende de cotação).
+    ADR-017 (Bloco 1): o mesmo laço também avança o ledger de sinais
+    resolvidos — hook próprio, gate próprio (`B3_LEDGER_DAILY_HHMM`, default
+    09:15), lendo do `candle_cache` sem custo de rede."""
     interval = interval_s or int(os.environ.get("B3_AGENT_INTERVAL_S") or INTERVAL_S_DEFAULT)
     while True:
         # P2 (liveness): heartbeat PERSISTIDO a CADA tick, FORA do gate de pregão.
@@ -1095,6 +1098,21 @@ async def scheduler_loop(conn, quotes_getter, notify_push=None, interval_s: int 
                 # no scan → o job é a única via de rede; best-effort.
                 from . import fundamentals, scanner  # import local: sem ciclo
                 await fundamentals.maybe_warm(conn, scanner.get_universe())
+                # ADR-017 (Bloco 1): manutenção diária do ledger de sinais
+                # resolvidos — DEPOIS de radar_daily/fundamentals de propósito:
+                # o candle_cache já foi preenchido pelo Radar minutos antes, e
+                # este hook lê exatamente esse cache via `candle_cache.peek`,
+                # sem gastar requisição nova de brapi (ADR-008). `try/except`
+                # PRÓPRIO — segundo cinto além do try/except interno de
+                # `signal_ledger_job.maybe_run` (que já nunca propaga): nenhuma
+                # falha aqui pode chegar ao heartbeat, ao kill-switch ou ao
+                # ciclo de stop/alvo dos usuários, mesmo padrão de
+                # `_alertar_kill_switch`/`analytics_mod.maybe_run` acima.
+                try:
+                    from . import signal_ledger_job  # import local: sem ciclo de import
+                    await signal_ledger_job.maybe_run(conn)
+                except Exception as e:  # noqa: BLE001 — ledger nunca derruba o laço
+                    print(f"[ledger-diario] hook do scheduler falhou: {e}")
             if not kill_switch_on() and in_market_hours():
                 # ADR-001 (item 7): passada INTRADAY, GLOBAL, uma por acordar do
                 # laço. Roda ANTES do ciclo por usuário de propósito — assim o

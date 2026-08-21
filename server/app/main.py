@@ -37,6 +37,7 @@ from . import push  # FASE 3.3b: APNs (no-op sem configuração)
 from . import obslog  # FASE 5: observabilidade (log estruturado + ring buffer)
 from . import conceitos  # camada de entendimento: catálogo determinístico (custo zero)
 from . import analytics  # qa/47: eventos de comportamento (ingest + rollup + purga)
+from . import signal_ledger  # ADR-017 (Bloco 1): histórico medido por setup (ledger de sinais)
 from .catalog import is_catalog_ticker
 from .options_api import router as options_router
 from .options_provider_yahoo import get_options as _get_options_for_status
@@ -64,6 +65,14 @@ agent_mod.configure_db(_conn)
 # em runtime — sem isto o toggle admin nunca checaria o SQLite, igual ao caso
 # do agente acima.
 timing_watch.configure_db(_conn)
+# ADR-017 (Bloco 1): liga o provedor de histórico medido a detect_setups —
+# sem esta linha, detect_setups nunca anexa `historico` e regime.ranquear
+# nunca vê `elegivel`: todo o ledger existiria sem consequência nenhuma na
+# tela. Lambda (não import direto dentro de setups.py) de propósito: mantém
+# setups.py puro — sem I/O, sem banco —, o que permite a suíte inteira rodar
+# sem banco e evita I/O no caminho síncrono quente do STU (detect_setups
+# roda por request, em 8+ rotas).
+setups.set_historico_provider(lambda: signal_ledger.historico_snapshot(_conn))
 app.include_router(options_router)
 
 
