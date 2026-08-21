@@ -594,6 +594,13 @@ async def _avaliar_opcoes(conn, scope, ag, par, option_quotes_getter, executed: 
 # um plano de baixa (`decisaoDiaria == "VENDER"`) nunca vira ordem automática,
 # só o aviso/push de sempre.
 # ---------------------------------------------------------------------------
+# ADR-017 (Decisão 3, 2026-08-20): entrada automática SUSPENSA até a seleção
+# dinâmica (Bloco 1b) existir — nenhum setup hoje sustenta operação automática
+# com confiança (ADR-016: motor perde para o acaso). Flag em módulo (não um
+# `return` inline) para ficar testável: a suspensão em si tem teste próprio,
+# e os testes de mecânica (lote/orçamento/maxOpsDia/maxValorOp) desligam a
+# flag pra continuar cobrindo o que volta a valer quando o Bloco 1b ligar.
+ENTRADA_AUTO_SUSPENSA_ADR017 = True
 async def _avaliar_entradas(conn, scope, ag, par, app_mode, positions, executed: int, events: list,
                             agora=None) -> int:
     """Terceira passada do ciclo (depois de saída e de opções): watchlist menos
@@ -604,6 +611,8 @@ async def _avaliar_entradas(conn, scope, ag, par, app_mode, positions, executed:
     impede `entradaAuto=True` de ser salvo fora do Operador). Retorna o
     `executed` atualizado."""
     if not (par["entradaAuto"] and app_mode == "operador"):
+        return executed
+    if ENTRADA_AUTO_SUSPENSA_ADR017:
         return executed
     # imports locais: mesmo padrão do resto do arquivo — evita ciclo de import
     # (timing_watch → timing → intraday; radar_daily/intraday não dependem de

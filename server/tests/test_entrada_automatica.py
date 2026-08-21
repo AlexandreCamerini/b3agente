@@ -16,10 +16,25 @@ import os
 import tempfile
 from datetime import datetime
 
+import pytest
+
 from app import agent, candles, db, intraday, radar_daily, store, timing_watch
 
 HOJE = "2026-08-07"
 AGORA = datetime(2026, 8, 7, 14, 30, tzinfo=intraday.BRT)   # pregão aberto
+
+
+@pytest.fixture(autouse=True)
+def _desliga_suspensao_adr017(monkeypatch):
+    """ADR-017 (Decisão 3, 2026-08-20): entrada automática está SUSPENSA em
+    produção até a seleção dinâmica (Bloco 1b) existir
+    (`agent.ENTRADA_AUTO_SUSPENSA_ADR017 = True`). Este arquivo testa a
+    MECÂNICA (lote, orçamento, maxOpsDia, maxValorOp, dedupe com o vigia) —
+    correta hoje e a mesma que volta a valer quando a suspensão for
+    removida. Reversão deliberada: desliga a flag só neste arquivo de teste,
+    nunca no produto. A suspensão em si tem guardião próprio em
+    test_entrada_automatica_suspensa_adr017.py."""
+    monkeypatch.setattr(agent, "ENTRADA_AUTO_SUSPENSA_ADR017", False)
 
 
 def _conn(app_mode="operador"):

@@ -479,6 +479,20 @@ def _setups_br(c) -> list:
 
 MIN_CONFLUENCIA = 50  # setup só "conta" com metade ponderada dos critérios
 
+# ADR-017 (Bloco 0): faixa catastrófica do backtest de 15 anos do ADR-016
+# (ExpR ≤ -0,15R, ~126k sinais replay determinístico) — aposentado ≠ apagado.
+# O detector continua rodando e o setup aparece na lista pro usuário estudar
+# (com o número por perto), mas para de contar pra "melhor"/veredito
+# (COMPRAR/Estudar alta) e pro gatilhoAlinhado de regime.ranquear() — deixa
+# de ser tratado como operável. Tabela completa e critério em
+# docs/adr/017-revisao-de-setups-e-selecao-dinamica.md.
+SETUPS_APOSENTADOS = {
+    "Ponto Contínuo (alta)", "Ponto Contínuo (baixa)",
+    "Setup 9.2 (alta)", "Setup 9.2 (baixa)",
+    "Inside Bar (baixa)",
+    "Máx/Mín de Larry Williams — 9.4 (baixa)",
+}
+
 
 def detect_setups(candles: list, ind: dict) -> dict:
     """Avalia todos os setups e produz o veredito educacional do ativo.
@@ -498,6 +512,8 @@ def detect_setups(candles: list, ind: dict) -> dict:
         _setup_reversao(c, "alta"), _setup_reversao(c, "baixa"),
         _setup_compressao(c),
     ] + _setups_br(c)  # FASE 1: setups testados do mercado BR
+    for s in todos:
+        s["aposentado"] = s["nome"] in SETUPS_APOSENTADOS
     def _vale(s):
         # confluência mínima E todos os critérios que DEFINEM o setup presentes
         # (sem isso, mercado lateral "ganhava" pullback só por estar perto da média).
@@ -506,12 +522,15 @@ def detect_setups(candles: list, ind: dict) -> dict:
         return all(c["ok"] for c in s["criterios"] if c.get("obrigatorio"))
 
     ativos = sorted([s for s in todos if _vale(s)], key=lambda s: -s["confluencia"])
-    direcionais = [s for s in ativos if s["lado"] in ("alta", "baixa")]
+    # ADR-017: setup aposentado continua na lista (educacional, número junto),
+    # mas não concorre a "melhor" — não define mais o veredito/manchete.
+    operaveis = [s for s in ativos if not s["aposentado"]]
+    direcionais = [s for s in operaveis if s["lado"] in ("alta", "baixa")]
     if direcionais:
         melhor = direcionais[0]
         veredito = "Estudar alta" if melhor["lado"] == "alta" else "Estudar baixa"
-    elif ativos:
-        melhor = ativos[0]
+    elif operaveis:
+        melhor = operaveis[0]
         veredito = "Monitorar"
     else:
         melhor, veredito = None, "Sem setup no momento"
@@ -658,10 +677,14 @@ def plano_do_resultado(sres, close=None):
     """Plano do RESULTADO do detect_setups (o que o scanner anexa por ativo).
     Melhor setup direcional => plano; só neutro => AGUARDAR; nada => NÃO OPERAR."""
     setups_list = (sres or {}).get("setups") or []
-    direcionais = [s for s in setups_list if s.get("lado") in ("alta", "baixa")]
+    # ADR-017: o plano operacional (COMPRAR/VENDER) segue a mesma regra do
+    # veredito em detect_setups — setup aposentado aparece na lista pro
+    # usuário estudar, mas não vira base de plano.
+    operaveis = [s for s in setups_list if not s.get("aposentado")]
+    direcionais = [s for s in operaveis if s.get("lado") in ("alta", "baixa")]
     if not direcionais:
-        if setups_list:
-            return plano_operacional(setups_list[0], close=close)
+        if operaveis:
+            return plano_operacional(operaveis[0], close=close)
         return _plano_vazio("Nenhum setup com confluência mínima — não há operação com vantagem estatística clara neste momento.")
     # Princípios 9 (confluência) e 4 (sinais conflitantes) da skill: o plano segue
     # o LADO DOMINANTE — o do melhor direcional, o MESMO do veredito. O qa/39

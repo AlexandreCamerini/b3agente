@@ -195,9 +195,12 @@ def _gatilho_alinhado(resultado: dict, reg: dict) -> bool:
     - Setup contra o regime NÃO pontua (não somamos sinal desalinhado).
     """
     setups = resultado.get("setups") or []
-    if not setups:
+    # ADR-017: setup aposentado (faixa catastrófica do backtest, ADR-016) não
+    # conta pro gatilho alinhado — mesma regra de detect_setups/melhor.
+    operaveis = [s for s in setups if not s.get("aposentado")]
+    if not operaveis:
         return False
-    melhor = setups[0]  # já vem ordenado por confluência em setups.detect_setups
+    melhor = operaveis[0]  # já vem ordenado por confluência em setups.detect_setups
     lado = (melhor.get("lado") or "").lower()
     nome = (melhor.get("nome") or "").lower()
     if reg["regime"] in ("tendencia_alta", "tendencia_baixa"):
