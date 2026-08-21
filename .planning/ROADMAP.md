@@ -347,7 +347,7 @@ automática do Modo Operador volta a existir, mas só para o setup específico
 que a seleção dinâmica mediu como positivo, nunca mais uma suspensão cega.
 **Requirements**: ADR17-B34-01, ADR17-B34-02, ADR17-B34-03, ADR17-B34-04
 **Depends on:** Phase 7
-**Plans:** 2/5 plans executed
+**Plans:** 3/5 plans executed
 
 Plans:
 **Wave 1**
@@ -357,7 +357,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 08-03-PLAN.md — derivação pura dos estados em `finance.js`, componente `HistoricoPill` e consumo de `setupElegivel`/`setupHistorico` no Radar e na Watchlist
+- [x] 08-03-PLAN.md — derivação pura dos estados em `finance.js`, componente `HistoricoPill` e consumo de `setupElegivel`/`setupHistorico` no Radar e na Watchlist
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
