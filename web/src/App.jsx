@@ -3869,21 +3869,33 @@ function AgenteScreen({ ctx }) {
           estado; a troca acontece só pelo link "Trocar modo →" (Perfil).
           Cada badge lê a MESMA fonte canônica que o card-herói logo abaixo
           usa — nunca contradiz o herói. */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", padding: "10px 14px", borderRadius: "10px", background: T.bgBase, border: `1px solid ${T.borderFaint}`, flexWrap: "wrap" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "14px", flexWrap: "wrap" }}>
-          <span style={{ fontSize: "11px", fontWeight: 400, color: T.textSecondary }}>
-            Modo do app: <b style={{ color: operador ? T.positive : T.textFaint }}>{operador ? "📈 Operador" : "🎓 Estudo"}</b>
-          </span>
-          <span style={{ fontSize: "11px", fontWeight: 400, color: T.textSecondary }}>
-            Operador no servidor: <b style={{ color: (ag.serverEnabled && logged) ? T.positive : T.textFaint }}>{(ag.serverEnabled && logged) ? "Ligado" : "Desligado"}</b>
-          </span>
-          <span style={{ fontSize: "11px", fontWeight: 400, color: T.textSecondary }}>
-            Executar/sinalizar: <b style={{ color: modoEfetivo === "executar" ? T.positive : T.textFaint }}>{modoEfetivo === "executar" ? "Executar" : "Apenas sinalizar"}</b>
-          </span>
+      <div style={{ display: "flex", flexDirection: "column", gap: "8px", padding: "10px 14px", borderRadius: "10px", background: T.bgBase, border: `1px solid ${T.borderFaint}` }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "14px", flexWrap: "wrap" }}>
+            <span style={{ fontSize: "11px", fontWeight: 400, color: T.textSecondary }}>
+              Modo do app: <b style={{ color: operador ? T.positive : T.textFaint }}>{operador ? "📈 Operador" : "🎓 Estudo"}</b>
+            </span>
+            <span style={{ fontSize: "11px", fontWeight: 400, color: T.textSecondary }}>
+              Operador no servidor: <b style={{ color: (ag.serverEnabled && logged) ? T.positive : T.textFaint }}>{(ag.serverEnabled && logged) ? "Ligado" : "Desligado"}</b>
+            </span>
+            <span style={{ fontSize: "11px", fontWeight: 400, color: T.textSecondary }}>
+              Executar/sinalizar: <b style={{ color: modoEfetivo === "executar" ? T.positive : T.textFaint }}>{modoEfetivo === "executar" ? "Executar" : "Apenas sinalizar"}</b>
+            </span>
+          </div>
+          <button onClick={() => A.go("perfil")} style={{ background: "transparent", border: "none", padding: 0, color: T.accent, fontWeight: 800, fontSize: "11.5px", textDecoration: "underline", flex: "none" }}>
+            Trocar modo →
+          </button>
         </div>
-        <button onClick={() => A.go("perfil")} style={{ background: "transparent", border: "none", padding: 0, color: T.accent, fontWeight: 800, fontSize: "11.5px", textDecoration: "underline", flex: "none" }}>
-          Trocar modo →
-        </button>
+        {/* ADR-017 Bloco 4 (Plano 08-02): a entrada automática deixou de ser
+            suspensão cega e virou gate por elegibilidade medida — esta linha
+            é a transparência exigida pelo 08-UI-SPEC (aditiva, read-only,
+            nenhum toggle novo). O número do contraste é referência FIXA de
+            backtest (ADR-016/017), nunca cálculo vivo — os dois números
+            moram na MESMA string de copy.js, nunca separados. */}
+        <div>
+          <div style={{ fontSize: "11px", color: T.textMuted, lineHeight: 1.45 }}>{ctx.cp.entradaAuto.regra}</div>
+          <div style={{ fontSize: "11px", color: T.textFaint, lineHeight: 1.45, marginTop: "2px" }}>{ctx.cp.entradaAuto.contraste}</div>
+        </div>
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: "2px", marginTop: "14px" }}>
