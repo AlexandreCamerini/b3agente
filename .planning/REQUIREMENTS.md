@@ -140,7 +140,7 @@ o Bloco 1. Blocos 3 (interface) e 4 (IA) ficam para fases futuras.
       idempotente por `UNIQUE`, com as duas agregações SQL sobre o mesmo ledger:
       cumulativa (histórico exibido) e por janela fechada (elegibilidade), cada
       uma com carimbo (`medidoAte` / `calculadoEm` + `janelaRef`)
-- [ ] **ADR17-B1-02**: Bootstrap único e manual (15 anos × 74 tickers), fora do
+- [x] **ADR17-B1-02**: Bootstrap único e manual (15 anos × 74 tickers), fora do
       `scheduler_loop`, reexecutável, executável DENTRO do container do Railway
       (`rootDirectory=/server` — `scripts/` não existe lá)
 - [ ] **ADR17-B1-03**: Manutenção diária incremental no padrão de
@@ -237,7 +237,7 @@ o Bloco 1. Blocos 3 (interface) e 4 (IA) ficam para fases futuras.
 | ADR15-04 | Phase 6 | Pending |
 | ADR15-05 | Phase 6 | Complete |
 | ADR17-B1-01 | Phase 7 | Pending |
-| ADR17-B1-02 | Phase 7 | Pending |
+| ADR17-B1-02 | Phase 7 | Complete |
 | ADR17-B1-03 | Phase 7 | Pending |
 | ADR17-B1-04 | Phase 7 | Complete |
 | ADR17-B1-05 | Phase 7 | Pending |
