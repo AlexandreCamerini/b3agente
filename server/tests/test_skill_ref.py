@@ -135,3 +135,71 @@ def test_didatica_no_system_do_estudo_nao_do_operador(monkeypatch):
     asyncio.run(llm.analyze({"appMode": "operador"}, {"text": "s"}, {}, {}, "PETR4", {}, {"candles": []}))
     assert skill_ref.DIDATICA in seen["estudo"]
     assert skill_ref.DIDATICA not in seen["operador"]
+
+
+# --- ADR-017 Bloco 3 — vocabulário do histórico medido por setup ------------
+
+def test_historico_chaves_espelhadas_nos_dois_modos():
+    esperado = {"elegivel", "inelegivel", "insuficiente", "nunca_medido", "aposentado", "desatualizado"}
+    assert set(skill_ref.HISTORICO["operador"]) == esperado
+    assert set(skill_ref.HISTORICO["educacional"]) == esperado
+
+
+def test_historico_rotulo_chaves_espelhadas_sem_desatualizado():
+    esperado = {"elegivel", "inelegivel", "insuficiente", "nunca_medido", "aposentado"}
+    assert set(skill_ref.HISTORICO_ROTULO["operador"]) == esperado
+    assert set(skill_ref.HISTORICO_ROTULO["educacional"]) == esperado
+
+
+def test_entrada_auto_chaves_espelhadas_nos_dois_modos():
+    esperado = {"regra", "contraste", "por_setup_disponivel", "por_setup_bloqueado"}
+    assert set(skill_ref.ENTRADA_AUTO["operador"]) == esperado
+    assert set(skill_ref.ENTRADA_AUTO["educacional"]) == esperado
+
+
+def test_entrada_auto_placeholders_literais():
+    for modo in ("operador", "educacional"):
+        disp = skill_ref.ENTRADA_AUTO[modo]["por_setup_disponivel"]
+        bloq = skill_ref.ENTRADA_AUTO[modo]["por_setup_bloqueado"]
+        assert "{setup}" in disp and "{janelaRef}" in disp
+        assert "{setup}" in bloq and "{janelaRef}" not in bloq
+
+
+def test_entrada_auto_txt_interpola_disponivel():
+    t = skill_ref.entrada_auto_txt("operador", "disponivel", setup="IFR2 (alta)", janela_ref="2025")
+    assert "IFR2 (alta)" in t and "2025" in t and "{" not in t
+
+
+def test_entrada_auto_txt_falha_fechada_em_estado_desconhecido_vazio_ou_none():
+    esperado = skill_ref.ENTRADA_AUTO["operador"]["por_setup_bloqueado"].replace("{setup}", "X")
+    assert skill_ref.entrada_auto_txt("operador", "xpto", setup="X") == esperado
+    assert skill_ref.entrada_auto_txt("operador", "", setup="X") == esperado
+    assert skill_ref.entrada_auto_txt("operador", None, setup="X") == esperado
+
+
+def test_entrada_auto_contraste_tem_os_dois_numeros_juntos():
+    for modo in ("operador", "educacional"):
+        t = skill_ref.ENTRADA_AUTO[modo]["contraste"]
+        assert "−0,099R" in t and "+0,005R" in t
+
+
+def test_historico_txt_interpola_janela_e_medido_ate():
+    t1 = skill_ref.historico_txt("operador", "elegivel", janela="2025")
+    assert "2025" in t1 and "{janela}" not in t1
+    t2 = skill_ref.historico_txt("operador", "desatualizado", medido_ate="2026-08-19")
+    assert "2026-08-19" in t2 and "{medidoAte}" not in t2
+
+
+def test_historico_txt_fallback_modo_e_estado_desconhecidos():
+    assert skill_ref.historico_txt("banana", "elegivel", janela="2025") == \
+        skill_ref.historico_txt("educacional", "elegivel", janela="2025")
+    assert skill_ref.historico_txt("operador", "xpto") == skill_ref.HISTORICO["operador"]["nunca_medido"]
+    assert skill_ref.historico_txt("operador", None) == skill_ref.HISTORICO["operador"]["nunca_medido"]
+
+
+def test_historico_educacional_sem_verbo_de_ordem():
+    proibidos = ("COMPRAR", "VENDER", "COMPRE", "VENDA", "registrar entrada", "registrar saída")
+    for d in (skill_ref.HISTORICO["educacional"], skill_ref.HISTORICO_ROTULO["educacional"], skill_ref.ENTRADA_AUTO["educacional"]):
+        for v in d.values():
+            for p in proibidos:
+                assert p not in v, f"verbo de ordem '{p}' vazou para {v!r}"

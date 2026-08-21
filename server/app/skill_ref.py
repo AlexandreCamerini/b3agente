@@ -272,6 +272,96 @@ def timing_txt(modo: str, estado: str, hora: str = "") -> str:
     return frase.replace("{hora}", hora or "?")
 
 
+# --- Vocabulário do histórico medido por setup (ADR-017, Bloco 3) -----------
+# O Bloco 1 (Fase 7, `signal_ledger.py`) MEDE elegibilidade por setup/janela —
+# até aqui sem vitrine: o JSON já entrega `historico` (expR, n, elegivel,
+# janelaRef, medidoAte etc.) mas nenhuma tela mostrava, e nenhum vocabulário
+# canônico existia para os 6 estados desse dado. Esta seção é a fonte única
+# desse texto: o Bloco 3 (telas) e o Bloco 4 (religar `entradaAuto`) leem
+# daqui, nunca compõem frase nova no componente. Regra de `didatica-boris`:
+# resultado NEGATIVO (inelegível, aposentado) tem o MESMO peso visual/textual
+# que positivo — nenhuma manipulação de resultado, mesmo padrão de `TIMING`
+# acima. `ENTRADA_AUTO["contraste"]` é número FIXO de backtest (ADR-016/017),
+# não computação viva — não ligar a endpoint; mudar o número exige nova ADR.
+HISTORICO = {
+    "operador": {
+        "elegivel": "✓ ELEGÍVEL — vantagem estatística medida na janela {janela}.",
+        "inelegivel": "✗ NÃO ELEGÍVEL — sem vantagem estatística medida na janela {janela}.",
+        "insuficiente": "Amostra insuficiente (n<40) — ausência de evidência não é prova de mau desempenho.",
+        "nunca_medido": "Sem histórico medido ainda.",
+        "aposentado": "Padrão gráfico identificado, sem vantagem estatística medida (ADR-016).",
+        "desatualizado": "Medido até {medidoAte} — dado pode estar desatualizado.",
+    },
+    "educacional": {
+        "elegivel": "Estudo: vantagem estatística medida na janela {janela}.",
+        "inelegivel": "Estudo: sem vantagem estatística medida na janela {janela}.",
+        "insuficiente": "Amostra insuficiente (n<40) — ausência de evidência não é prova de mau desempenho.",
+        "nunca_medido": "Sem histórico medido ainda.",
+        "aposentado": "Padrão gráfico identificado, sem vantagem estatística medida (ADR-016).",
+        "desatualizado": "Medido até {medidoAte} — dado pode estar desatualizado.",
+    },
+}
+
+# Rótulo curto da pill (a frase inteira de HISTORICO é o texto acessível;
+# este dict é só o que a UI desenha no chip). Sem `desatualizado` — ele é
+# modificador de timestamp, nunca pill própria (08-UI-SPEC.md).
+HISTORICO_ROTULO = {
+    "operador": {
+        "elegivel": "✓ ELEGÍVEL",
+        "inelegivel": "✗ NÃO ELEGÍVEL",
+        "insuficiente": "AMOSTRA INSUFICIENTE (n<40)",
+        "nunca_medido": "SEM HISTÓRICO MEDIDO",
+        "aposentado": "APOSENTADO (ADR-016)",
+    },
+    "educacional": {
+        "elegivel": "VANTAGEM MEDIDA",
+        "inelegivel": "SEM VANTAGEM MEDIDA",
+        "insuficiente": "AMOSTRA INSUFICIENTE (n<40)",
+        "nunca_medido": "SEM HISTÓRICO MEDIDO",
+        "aposentado": "APOSENTADO (ADR-016)",
+    },
+}
+
+# Transparência do gate do Modo Operador (consumida pelo card de status único
+# do FIX-C19, Plano 08-04). `regra`/`contraste` são o texto agregado do card;
+# `por_setup_disponivel`/`por_setup_bloqueado` qualificam UM setup nomeado e
+# NÃO os substituem — quem as desenha é o item de lista de cada setup, onde o
+# nome e o estado de elegibilidade já estão na tela. Texto idêntico nos dois
+# modos porque é fato, não opinião (mantém a paridade de chaves exigida pelo
+# guardião cruzado).
+ENTRADA_AUTO = {
+    "operador": {
+        "regra": "Entrada automática só executa em setup com vantagem estatística medida na janela anterior — sem vantagem medida, o Operador sinaliza e não executa.",
+        "contraste": "Sem filtro: −0,099R por sinal (todos os setups, 15 anos) · Com filtro (setups elegíveis na janela anterior): +0,005R — estatisticamente um empate, não lucro.",
+        "por_setup_disponivel": "Entrada automática disponível para {setup} — elegibilidade medida em {janelaRef}.",
+        "por_setup_bloqueado": "Entrada automática bloqueada para {setup} — sem vantagem estatística medida nesta janela.",
+    },
+    "educacional": {
+        "regra": "No Modo Operador, a entrada automática só executa em setup com vantagem estatística medida na janela anterior — sem vantagem medida, ele sinaliza e não executa.",
+        "contraste": "Sem filtro: −0,099R por sinal (todos os setups, 15 anos) · Com filtro (setups elegíveis na janela anterior): +0,005R — estatisticamente um empate, não lucro.",
+        "por_setup_disponivel": "Entrada automática disponível para {setup} — elegibilidade medida em {janelaRef}.",
+        "por_setup_bloqueado": "Entrada automática bloqueada para {setup} — sem vantagem estatística medida nesta janela.",
+    },
+}
+
+
+def historico_txt(modo: str, estado: str, janela: str = "", medido_ate: str = "") -> str:
+    """Frase canônica de um estado do histórico medido, no vocabulário do modo."""
+    h = HISTORICO.get(modo if modo in HISTORICO else "educacional", HISTORICO["educacional"])
+    frase = h.get(estado) or h["nunca_medido"]
+    return frase.replace("{janela}", janela or "?").replace("{medidoAte}", medido_ate or "?")
+
+
+def entrada_auto_txt(modo: str, estado: str, setup: str = "", janela_ref: str = "") -> str:
+    """Frase de transparência do gate por setup — falha FECHADA: qualquer
+    estado que não seja literalmente 'disponivel' cai em `por_setup_bloqueado`,
+    nunca anuncia entrada automática disponível por engano."""
+    e = ENTRADA_AUTO.get(modo if modo in ENTRADA_AUTO else "educacional", ENTRADA_AUTO["educacional"])
+    chave = "por_setup_disponivel" if estado == "disponivel" else "por_setup_bloqueado"
+    frase = e[chave]
+    return frase.replace("{setup}", setup or "?").replace("{janelaRef}", janela_ref or "?")
+
+
 def decisoes_txt(modo: str) -> str:
     """Enum de decisão do modo, como string 'A | B | C' para o contrato."""
     v = vocab.get(modo, vocab["educacional"])
