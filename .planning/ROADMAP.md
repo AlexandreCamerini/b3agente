@@ -345,7 +345,11 @@ automática do Modo Operador volta a existir, mas só para o setup específico
 que a seleção dinâmica mediu como positivo, nunca mais uma suspensão cega.
 **Requirements**: ADR17-B34-01, ADR17-B34-02, ADR17-B34-03, ADR17-B34-04
 **Depends on:** Phase 7
-**Plans:** 0 plans
+**Plans:** 5 plans
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 8 to break down)
+- [ ] 08-01-PLAN.md — vocabulário canônico dos 6 estados do histórico medido em `skill_ref.py`, espelho byte-idêntico em `copy.js` e guardião cruzado
+- [ ] 08-02-PLAN.md — `_avaliar_entradas` troca a suspensão cega pelo gate de elegibilidade (`historico_snapshot`, só `elegivel is True` passa) + Adendo 2 no ADR-017
+- [ ] 08-03-PLAN.md — derivação pura dos estados em `finance.js`, componente `HistoricoPill` e consumo de `setupElegivel`/`setupHistorico` no Radar e na Watchlist
+- [ ] 08-04-PLAN.md — histórico por setup na lista do card (4 estados completos, aposentado rotulado) e linha de transparência do gate no card de status do Operador
+- [ ] 08-05-PLAN.md — build/carimbo/publicação e checkpoint humano bloqueante antes do deploy do religamento gated
