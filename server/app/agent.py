@@ -858,7 +858,8 @@ async def _run_cycle_inner(conn, scope, quotes_getter, origem: str, t0: float, s
             events.append({"time": _now_str(), "kind": "warn",
                            "text": f"Teto por operação (R$ {par['maxValorOp']:.2f}) excedido em {pos['t']} (R$ {valor_op:.2f}). Registrado, sem execução."})
             continue
-        store.sell(conn, pos["t"], price, user_id=scope, origem="automatico")  # ADR-012 (Fase 3)
+        store.sell(conn, pos["t"], price, user_id=scope, motivo="stop" if breach_stop else "alvo",
+                   origem="automatico")  # ADR-012 (Fase 3) / ADR15-04
         executed += 1
         _bump_ops(conn, scope, store.get(conn, "agent", user_id=scope) or ag)
         events.append({"time": _now_str(), "kind": "buy",
