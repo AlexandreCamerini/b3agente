@@ -110,7 +110,7 @@
       `entrada`, `alvo2`, `rr2` e `confluencia` no outcome — hoje só grava
       `stop`/`alvo1`/`preco`(=close), sem os campos que permitiriam corrigir a
       âncora e segmentar por confluência
-- [ ] **ADR15-02**: `_avaliar_entry` exige toque no gatilho antes de abrir a
+- [x] **ADR15-02**: `_avaliar_entry` exige toque no gatilho antes de abrir a
       barreira tripla e usa `entrada` (não `close`) como `preco0` — registros
       anteriores à mudança ficam marcados como não-comparáveis (campo de
       versão de metodologia), nunca reconvertidos por inferência
@@ -192,7 +192,7 @@
 | FIX-C38 | Phase 5 | Pending |
 | FIX-C39 | Phase 5 | Pending |
 | ADR15-01 | Phase 6 | Done (06-01) |
-| ADR15-02 | Phase 6 | Pending |
+| ADR15-02 | Phase 6 | Done (06-02) |
 | ADR15-03 | Phase 6 | Pending |
 | ADR15-04 | Phase 6 | Pending |
 | ADR15-05 | Phase 6 | Pending |
