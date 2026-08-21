@@ -6,7 +6,7 @@ afirma sobre os blocos montados — nunca chama provedor real.
 """
 import asyncio
 
-from app import defaults, llm, skill_ref
+from app import agent, defaults, llm, setups, skill_ref
 
 
 def _spy(seen):
@@ -170,6 +170,64 @@ def test_a8_rr_min_fonte_unica():
     prompts = defaults.default_llm_prompts()
     for chave in ("carteiraStopAlvo", "carteiraStopAlvoOperador"):
         assert skill_ref.RR_MIN_TXT + ":1" in prompts[chave], chave
+
+
+def test_a8iii_rr_min_fonte_unica_nos_dois_motores_e_no_front():
+    """ADR-015 (06-05): o "1,5" do R:R mínimo vivia como 3 constantes Python
+    independentes (skill_ref.RR_MIN, setups.RR_MINIMO, agent.RR_MINIMO) e 7
+    literais no front, com um único guardião (test_a8_rr_min_fonte_unica)
+    cobrindo só skill_ref. Este teste amarra os dois motores E o front à
+    mesma fonte — divergiu, acusa e diz qual arquivo.
+    """
+    import os
+    import re
+
+    # -- os dois motores leem em runtime de skill_ref -----------------------
+    assert setups.RR_MINIMO == skill_ref.RR_MIN == 1.5
+    assert agent.RR_MINIMO == skill_ref.RR_MIN == 1.5
+
+    # -- prova que é IMPORT, não um literal novo por acaso igual a 1.5 ------
+    # (leitura do código-fonte, como test_a8ii_paridade_defaults_carteira_com_catalog_js
+    # já faz com catalog.js — senão trocar skill_ref.RR_MIN por outro 1.5
+    # hardcoded em setups.py/agent.py passaria batido)
+    caminho_setups = os.path.join(os.path.dirname(__file__), "..", "app", "setups.py")
+    caminho_agent = os.path.join(os.path.dirname(__file__), "..", "app", "agent.py")
+    with open(caminho_setups, encoding="utf-8") as f:
+        src_setups = f.read()
+    with open(caminho_agent, encoding="utf-8") as f:
+        src_agent = f.read()
+    assert "RR_MINIMO = skill_ref.RR_MIN" in src_setups, \
+        "setups.py: RR_MINIMO não importa de skill_ref (literal solto?)"
+    assert "RR_MINIMO = skill_ref.RR_MIN" in src_agent, \
+        "agent.py: RR_MINIMO não importa de skill_ref (literal solto?)"
+
+    # -- ALVO_ATR_MULT é outro 1.5 (multiplicador de ATR), NÃO consolidar ---
+    assert agent.ALVO_ATR_MULT == 1.5
+    assert "ALVO_ATR_MULT = 1.5" in src_agent, \
+        "agent.py: ALVO_ATR_MULT deixou de ser literal próprio — não amarrar a RR_MIN"
+
+    # -- fonte única do front (finance.js) -----------------------------------
+    caminho_finance = os.path.join(os.path.dirname(__file__), "..", "..",
+                                   "web", "src", "finance.js")
+    with open(caminho_finance, encoding="utf-8") as f:
+        src_finance = f.read()
+    m_num = re.search(r"RR_MIN\s*=\s*([0-9.]+)", src_finance)
+    assert m_num, "web/src/finance.js: RR_MIN não encontrado no fonte"
+    assert float(m_num.group(1)) == skill_ref.RR_MIN
+    m_txt = re.search(r'RR_MIN_TXT\s*=\s*"([^"]+)"', src_finance)
+    assert m_txt, "web/src/finance.js: RR_MIN_TXT não encontrado no fonte"
+    assert m_txt.group(1) == skill_ref.RR_MIN_TXT
+
+    # -- literais (\d,\d):1 em copy.js/App.jsx/catalog.js batem com a fonte -
+    padrao = re.compile(r"\d,\d:1")
+    for nome in ("copy.js", "App.jsx", "catalog.js"):
+        caminho = os.path.join(os.path.dirname(__file__), "..", "..",
+                               "web", "src", nome)
+        with open(caminho, encoding="utf-8") as f:
+            src = f.read()
+        for ocorrencia in padrao.findall(src):
+            assert ocorrencia == skill_ref.RR_MIN_TXT + ":1", \
+                f"{nome}: '{ocorrencia}' diverge do R:R mínimo canônico ({skill_ref.RR_MIN_TXT}:1)"
 
 
 # ===== A8ii — prompts de carteira compõem do canônico + paridade cliente ====
