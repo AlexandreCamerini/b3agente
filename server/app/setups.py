@@ -495,6 +495,39 @@ SETUPS_APOSENTADOS = {
     "Máx/Mín de Larry Williams — 9.4 (baixa)",
 }
 
+# ADR-017 (Bloco 1): ponto de INJEÇÃO do histórico medido por setup, vindo
+# do ledger de sinais resolvidos — não um import direto. `setups.py` é puro
+# (sem I/O, sem relógio) e roda no caminho síncrono quente, por request —
+# um import de banco aqui acoplaria o módulo a uma tabela/leitura de disco,
+# quebraria as suítes que rodam sem banco e colocaria I/O onde hoje não há.
+# Quem liga a ponta é main.py, no boot (Plano 06); default None mantém o
+# contrato antigo (sem a chave "historico") intacto.
+_HISTORICO_PROVIDER = None
+
+
+def set_historico_provider(fn) -> None:
+    """Registra o provedor de histórico (Callable[[], dict] | None).
+
+    None desliga (default): detect_setups volta a não anexar "historico".
+    """
+    global _HISTORICO_PROVIDER
+    _HISTORICO_PROVIDER = fn
+
+
+def _historico_map():
+    """Chama o provedor uma vez; nunca deixa exceção derrubar detect_setups.
+
+    O histórico é informativo — a tela do usuário não pode cair por causa
+    dele. Devolve o dict se o provedor devolveu um dict; senão None.
+    """
+    if _HISTORICO_PROVIDER is None:
+        return None
+    try:
+        mapa = _HISTORICO_PROVIDER()
+    except Exception:
+        return None
+    return mapa if isinstance(mapa, dict) else None
+
 
 def detect_setups(candles: list, ind: dict) -> dict:
     """Avalia todos os setups e produz o veredito educacional do ativo.
@@ -514,8 +547,15 @@ def detect_setups(candles: list, ind: dict) -> dict:
         _setup_reversao(c, "alta"), _setup_reversao(c, "baixa"),
         _setup_compressao(c),
     ] + _setups_br(c)  # FASE 1: setups testados do mercado BR
+    # ADR-017 (Bloco 1): histórico medido é INFORMATIVO aqui — chamado UMA vez
+    # (não por setup) e anexado no MESMO laço que já marca "aposentado". Setup
+    # nunca medido recebe historico=None (informação honesta, diferente de
+    # "medido e ruim"); sem provedor configurado, a chave nem é criada.
+    hist_map = _historico_map()
     for s in todos:
         s["aposentado"] = s["nome"] in SETUPS_APOSENTADOS
+        if hist_map is not None:
+            s["historico"] = hist_map.get(s["nome"])
     def _vale(s):
         # confluência mínima E todos os critérios que DEFINEM o setup presentes
         # (sem isso, mercado lateral "ganhava" pullback só por estar perto da média).

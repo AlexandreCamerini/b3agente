@@ -41,6 +41,11 @@ INVARIANTES PRESERVADAS
 - Degradação declarada: janela sem 200 candles cai para SMA50 e marca
   `base="sma50"`, `confiavel=False`; sem change252 usa change63 e marca
   `momentumParcial=True`. Nunca compensa dado ausente com inferência.
+- ADR-017 (Bloco 1): `ranquear` também lê `setup["historico"]`, mas SÓ do
+  dict de setup que já chega pronto dentro de `resultados`/`snaps_por_ticker`
+  (anexado por `setups.detect_setups` via provedor injetado). Este módulo
+  continua sem tocar disco ou serviço externo — a leitura persistida vive
+  inteiramente do lado de quem monta o insumo, nunca aqui.
 """
 from __future__ import annotations
 
@@ -213,6 +218,40 @@ def _gatilho_alinhado(resultado: dict, reg: dict) -> bool:
 # Tier do regime como critério primário de ordenação.
 _TIER = {"tendencia_alta": 2, "tendencia_baixa": 2, "lateral": 1, "indefinido": 0}
 
+# ADR-017 (Bloco 1): peso da evidência medida (elegibilidade da janela anual
+# fechada) no radarScore. O corpo do score é o percentil de momentum (escala
+# 0–100), então ±10 desloca cerca de um decil — suficiente para desempatar no
+# eixo de evidência sem inverter o eixo de regime/momentum, que é o que o
+# ADR-016 (Adendo 7) validou. gatilhoAlinhado vale +5 (timing); a evidência
+# medida pesa o dobro do timing, e nenhum dos dois domina o momentum.
+W_HISTORICO_ELEGIVEL = 10.0
+W_HISTORICO_INELEGIVEL = -10.0
+
+
+def _elegibilidade(resultado: dict) -> tuple:
+    """Histórico/elegibilidade do melhor setup OPERÁVEL de um resultado.
+
+    Mesma seleção de _gatilho_alinhado (primeiro não-aposentado — a lista já
+    vem ordenada por confluência de setups.detect_setups). Devolve
+    (historico, elegivel):
+      - (None, None) quando não há setup operável ou o setup não tem
+        "historico" (nunca medido, ou provedor desligado);
+      - (historico, None) quando insuficiente=True OU elegivel is None —
+        ausência de evidência NUNCA vira "elegivel=False": amostra pequena
+        não é prova de mau desempenho (ADR-017, "Dois pisos de amostra");
+      - (historico, bool(elegivel)) no caso normal.
+    """
+    setups = resultado.get("setups") or []
+    operaveis = [s for s in setups if not s.get("aposentado")]
+    if not operaveis:
+        return None, None
+    historico = operaveis[0].get("historico")
+    if not historico:
+        return None, None
+    if historico.get("insuficiente") or historico.get("elegivel") is None:
+        return historico, None
+    return historico, bool(historico.get("elegivel"))
+
 
 def ranquear(resultados: list[dict], snaps_por_ticker: dict) -> list[dict]:
     """Ordena os resultados do scanner pelo NOVO eixo e anexa os campos.
@@ -225,11 +264,16 @@ def ranquear(resultados: list[dict], snaps_por_ticker: dict) -> list[dict]:
       "momentumRelPct": float|None   # percentil cross-sectional (0–100)
       "momentumParcial": bool
       "gatilhoAlinhado": bool
+      "setupHistorico": dict|None    # histórico do melhor setup OPERÁVEL (ADR-017 Bloco 1)
+      "setupElegivel": bool|None     # elegibilidade da janela fechada anterior
       "radarScore": float            # chave de ordenação, 0–100 + tiers
 
-    Ordena por (tier do regime, momentum relativo, gatilho alinhado,
-    -confluencia como desempate FINAL, ticker). A confluência cai de chave
-    primária para último critério de desempate.
+    Ordena por (tier do regime, momentum relativo, rank de elegibilidade,
+    gatilho alinhado, -confluencia como desempate FINAL, ticker). O rank de
+    elegibilidade entra ENTRE momentum e gatilho: a evidência medida pesa
+    mais que o timing, mas nunca ultrapassa o eixo de regime/momentum
+    validado no ADR-016 — esta fase não reabre esse eixo. A confluência cai
+    de chave primária para último critério de desempate.
     """
     # 1) regime + momentum bruto por ativo.
     brutos: list[Optional[float]] = []
@@ -247,16 +291,32 @@ def ranquear(resultados: list[dict], snaps_por_ticker: dict) -> list[dict]:
     for r, p in zip(resultados, pcts):
         r["momentumRelPct"] = p
         r["gatilhoAlinhado"] = _gatilho_alinhado(r, r["regime"])
+        r["setupHistorico"], r["setupElegivel"] = _elegibilidade(r)
         # radarScore: momentum relativo é o corpo; gatilho alinhado dá um empurrão
-        # pequeno (timing), nunca domina o eixo de evidência.
+        # pequeno (timing); a elegibilidade medida soma um termo próprio, nenhum
+        # dos dois domina o eixo de evidência (momentum).
         base = p if p is not None else 0.0
-        r["radarScore"] = round(base + (5.0 if r["gatilhoAlinhado"] else 0.0), 1)
+        if r["setupElegivel"] is True:
+            peso_hist = W_HISTORICO_ELEGIVEL
+        elif r["setupElegivel"] is False:
+            peso_hist = W_HISTORICO_INELEGIVEL
+        else:
+            peso_hist = 0.0
+        r["radarScore"] = round(base + (5.0 if r["gatilhoAlinhado"] else 0.0) + peso_hist, 1)
         r.pop("_momentumBruto", None)
 
     # 3) ordenação final.
+    def _rank_elegibilidade(r):
+        if r.get("setupElegivel") is True:
+            return 0
+        if r.get("setupElegivel") is None:
+            return 1
+        return 2
+
     resultados.sort(key=lambda r: (
         -_TIER.get(r["regime"]["regime"], 0),
         -(r.get("momentumRelPct") or -1.0),
+        _rank_elegibilidade(r),
         0 if r.get("gatilhoAlinhado") else 1,
         -(r.get("confluencia") or 0),   # confluência: só desempate final
         r["ticker"],

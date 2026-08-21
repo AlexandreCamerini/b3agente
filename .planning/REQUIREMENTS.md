@@ -151,11 +151,11 @@ o Bloco 1. Blocos 3 (interface) e 4 (IA) ficam para fases futuras.
       `server/app/yahoo.py`, cobrindo TODOS os intervalos — hoje só o intraday é
       verificado e diário/semanal passam batido (mesmo bug que produziu dado
       degradado silencioso na medição do ADR-016)
-- [ ] **ADR17-B1-05**: `detect_setups()` anexa campo informativo `historico`
+- [x] **ADR17-B1-05**: `detect_setups()` anexa campo informativo `historico`
       (`expR`, `n`, `medidoAte`, `elegivel`, `insuficiente`) lido de cache em
       processo. `_vale()` NÃO muda — setup com expectância negativa continua na
       tela, com o número junto (mandato didático)
-- [ ] **ADR17-B1-06**: `regime.ranquear()` consome `elegivel`/`expR` da janela
+- [x] **ADR17-B1-06**: `regime.ranquear()` consome `elegivel`/`expR` da janela
       fechada anterior como termo novo do `radarScore` e da ordenação. Piso
       `n≥40` literal (`backtest_pesos.py:69`); célula abaixo do piso nunca vira
       elegibilidade negativa
@@ -240,8 +240,8 @@ o Bloco 1. Blocos 3 (interface) e 4 (IA) ficam para fases futuras.
 | ADR17-B1-02 | Phase 7 | Complete |
 | ADR17-B1-03 | Phase 7 | Pending |
 | ADR17-B1-04 | Phase 7 | Complete |
-| ADR17-B1-05 | Phase 7 | Pending |
-| ADR17-B1-06 | Phase 7 | Pending |
+| ADR17-B1-05 | Phase 7 | Complete |
+| ADR17-B1-06 | Phase 7 | Complete |
 | ADR17-B1-07 | Phase 7 | Complete |
 
 **Coverage:**
