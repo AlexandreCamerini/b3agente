@@ -143,6 +143,30 @@ def merge_candles(old: list, new: list) -> list:
     return [by_date[d] for d in sorted(by_date.keys())]
 
 
+def peek(symbol: str, interval: str = "1d") -> list:
+    """Leitura do cache SEM rede — nunca busca (síncrona de propósito).
+
+    ADR-017 (Plano 04): o hook diário do ledger de sinais avança o cursor por
+    ticker sem gastar requisição extra de brapi (orçamento 15k/mês pro app
+    inteiro, ADR-008) — o Radar diário já pagou por estes candles minutos
+    antes. Contrato é "o que já foi buscado por outra rota", não "os candles
+    de hoje": se ninguém buscou, devolve vazio e quem chamou não avança
+    aquele ticker naquele dia. NUNCA sai buscando — isso transformaria um
+    job barato num segundo scanner. Reidrata do L2 quando o L1 está frio
+    (mesmo caminho de `load`); `[]` em intraday (L2 desligado, ADR-001
+    Decisão 4) ou sem nada em cache. `_MAX=600` candles diários (~2,4 anos)
+    folga a janela de 252 + horizonte de 10 do replay. Leitura: mutar o
+    retorno não é esperado por nenhum caller.
+    """
+    k = _key(symbol, interval)
+    ent = _CACHE.get(k)
+    if (not ent or not ent.get("candles")) and persiste_no_l2(interval):
+        persisted = _db_get(k)
+        if persisted:
+            _CACHE[k] = ent = persisted
+    return ent["candles"] if ent and ent.get("candles") else []
+
+
 def reset():
     """Para testes."""
     _CACHE.clear()
