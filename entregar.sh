@@ -35,8 +35,22 @@ BUILD_LOCAL="$(sed -n 's/.*BUILD_ID = "\([^"]*\)".*/\1/p' web/src/version.js)"
 # FASE 9.2: o carimbo do SERVIDOR é sincronizado AUTOMATICAMENTE a partir do
 # version.js — as entregas 5–13 esqueceram o passo manual e o servidor ficou
 # preso na -4, gerando "servidor ≠ local" falso na verificação para sempre.
+#
+# 2026-08-21: essa sincronia é de MÃO ÚNICA (servidor sempre puxado para o
+# valor do front) e não tinha guarda contra a direção oposta — um deploy
+# SÓ-backend (SERVER_BUILD_ID bumpado à mão em main.py, sem tocar version.js,
+# padrão documentado no comentário logo acima do campo) deixa o servidor na
+# FRENTE do front. Rodar entregar.sh depois disso REGREDIA o carimbo do
+# servidor pro valor antigo do front — aconteceu de verdade (F10-20260821-02
+# → -01), sem aviso, escondendo que o deploy só-backend tinha mesmo saído.
+# Carimbo é feito pra provar qual código está no ar; nunca deve andar pra
+# trás. Se o servidor está à frente, quem está desatualizado é o version.js
+# local — aborta e manda bumpar, em vez de apagar silenciosamente o avanço.
 SRV_ATUAL="$(sed -n 's/.*SERVER_BUILD_ID = "\([^"]*\)".*/\1/p' server/app/main.py)"
 if [ "$SRV_ATUAL" != "$BUILD_LOCAL" ] && [ "${1:-}" != "--so-verificar" ]; then
+  if [[ "$SRV_ATUAL" > "$BUILD_LOCAL" ]]; then
+    die "SERVER_BUILD_ID ($SRV_ATUAL) é mais novo que web/src/version.js ($BUILD_LOCAL) — sinal de deploy só-backend não refletido no front. Rode 'bash scripts/bump.sh' antes de entregar.sh (o carimbo nunca deve andar para trás)."
+  fi
   sed -i '' "s/SERVER_BUILD_ID = \"[^\"]*\"/SERVER_BUILD_ID = \"$BUILD_LOCAL\"/" server/app/main.py 2>/dev/null \
     || sed -i "s/SERVER_BUILD_ID = \"[^\"]*\"/SERVER_BUILD_ID = \"$BUILD_LOCAL\"/" server/app/main.py
   ok "carimbo do servidor sincronizado: $SRV_ATUAL → $BUILD_LOCAL"
