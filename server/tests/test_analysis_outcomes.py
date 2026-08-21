@@ -259,8 +259,14 @@ def test_avaliar_entry_n2_com_metodologia_2_mas_sem_entrada_resolve_por_preco():
 
 
 # ===== compute_stats (pura) =====
+# ADR15-03 (Plano 03): compute_stats passou a filtrar por metodologiaVersao
+# por padrão (metodologia=METODOLOGIA_ATUAL). Os fixtures abaixo já
+# representam a metodologia ATUAL nos testes deste bloco (nenhum deles testa
+# o comportamento do legado, que tem teste dedicado mais abaixo) — ganham
+# metodologiaVersao=2 para continuar comparáveis no agregado default.
 def _outcome(resultado, r_multiple=None, modo="estudo", tipo="n1", setup="IFR2"):
-    return {"resultado": resultado, "rMultiple": r_multiple, "modo": modo, "tipo": tipo, "setup": setup}
+    return {"resultado": resultado, "rMultiple": r_multiple, "modo": modo, "tipo": tipo,
+            "setup": setup, "metodologiaVersao": ao.METODOLOGIA_ATUAL}
 
 
 def test_compute_stats_taxa_acerto_e_r_medio():
@@ -336,8 +342,10 @@ def test_compute_stats_sem_sem_gatilho_e_nao_regressivo():
 
 # ===== qa/35 (P2): expectância + calibração + CSV (puras) =====
 def _outcome_conf(resultado, r, confianca=None, recomendacao="Estudar alta"):
+    # ADR15-03: metodologiaVersao=2 pelo mesmo motivo de _outcome() acima.
     return {"resultado": resultado, "rMultiple": r, "modo": "estudo", "tipo": "n1",
-            "setup": "IFR2", "confianca": confianca, "recomendacao": recomendacao}
+            "setup": "IFR2", "confianca": confianca, "recomendacao": recomendacao,
+            "metodologiaVersao": ao.METODOLOGIA_ATUAL}
 
 
 def test_normalizar_confianca_escala_unica():
@@ -553,8 +561,9 @@ def test_registrar_sem_regime_grava_none_retrocompativel():
 
 
 def _outcome_regime(resultado, r, regime=None, setup="IFR2"):
+    # ADR15-03: metodologiaVersao=2 pelo mesmo motivo de _outcome() acima.
     return {"resultado": resultado, "rMultiple": r, "modo": "estudo", "tipo": "n1",
-            "setup": setup, "regime": regime}
+            "setup": setup, "regime": regime, "metodologiaVersao": ao.METODOLOGIA_ATUAL}
 
 
 def test_compute_stats_por_regime_segmenta_e_respeita_min_n():

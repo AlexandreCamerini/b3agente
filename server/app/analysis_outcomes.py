@@ -174,14 +174,35 @@ def _celula(resolvidos: list) -> dict:
     }
 
 
-def compute_stats(outcomes: list, modo: Optional[str] = None, tipo: Optional[str] = None) -> dict:
+def compute_stats(outcomes: list, modo: Optional[str] = None, tipo: Optional[str] = None,
+                   metodologia: Optional[int] = METODOLOGIA_ATUAL) -> dict:
     """Agrega taxa de acerto / R médio / recorte por setup — usado pelo painel
     'Eficiência da IA'. Puro (sem I/O). qa/35 (P2, camadas a+c decididas com o
     Alex): + expectância (R médio por análise), profit factor e calibração da
     confiança declarada (alta×moderada×baixa) e por decisão. TODO cálculo aqui
-    em Python — a LLM não calcula nada."""
+    em Python — a LLM não calcula nada.
+
+    ADR-015 / ADR15-03: `metodologia` (default `METODOLOGIA_ATUAL`) filtra o
+    universo COMPARÁVEL antes de agregar taxaAcerto/expectância/segmentações —
+    somar outcome ancorado no close (metodologia 1) com outcome ancorado no
+    gatilho (metodologia 2) produziria de novo um número que parece um edge e
+    não é, a mesma classe de erro que o ADR-015 corrige. `metodologia=None` é
+    um escape hatch explícito (usado só por teste/diagnóstico) que desliga o
+    filtro e agrega tudo, sem declarar legado."""
     filtrado = [o for o in (outcomes or [])
                 if (modo is None or o.get("modo") == modo) and (tipo is None or o.get("tipo") == tipo)]
+    # `total_recorte`/`recorte` são o universo PRÉ-filtro de metodologia —
+    # `totalAnalises` e `pendentes` continuam contados sobre eles (ver
+    # comentários mais abaixo, no dict de retorno, para o motivo verificado
+    # de cada um). Só DEPOIS deste ponto o filtro de metodologia separa
+    # `filtrado` (comparável) de `legado` (fora do agregado, só declarado).
+    total_recorte = len(filtrado)
+    recorte = list(filtrado)
+    if metodologia is None:
+        legado: list = []
+    else:
+        legado = [o for o in filtrado if _metodologia(o) != metodologia]
+        filtrado = [o for o in filtrado if _metodologia(o) == metodologia]
     # ADR15-02: `sem_gatilho` (RESULTADOS_NEUTROS) sai de `resolvidos` — o
     # gatilho não foi tocado dentro do prazo, o trade não existiu; não é
     # acerto nem erro, e contá-lo como falha reproduziria, com outro nome, o
@@ -190,8 +211,22 @@ def compute_stats(outcomes: list, modo: Optional[str] = None, tipo: Optional[str
     # construção (todas iteram sobre `resolvidos`).
     resolvidos = [o for o in filtrado
                   if o.get("resultado") not in (None, "pendente") and o.get("resultado") not in RESULTADOS_NEUTROS]
-    pendentes = [o for o in filtrado if o.get("resultado") == "pendente"]
+    # `pendentes` conta sobre `recorte` (PRÉ-filtro de metodologia), não sobre
+    # `filtrado` (pós-filtro): um registro `pendente` ainda não foi medido por
+    # metodologia NENHUMA — não é "excluído do comparável", é "ainda não
+    # resolvido". Escopá-lo em `totalComparaveis` zeraria o contador logo após
+    # o deploy (o histórico é quase todo metodologia 1) e os dois fronts que
+    # RENDERIZAM esse número (`web/src/App.jsx:4851`, KPI "AGUARDANDO PRAZO"
+    # em `web-admin/src/App.jsx:368`) passariam a afirmar que nada está
+    # aguardando quando quase tudo está — princípios 4 e 9 do CLAUDE.md.
+    pendentes = [o for o in recorte if o.get("resultado") == "pendente"]
     nao_acionados = [o for o in filtrado if o.get("resultado") in RESULTADOS_NEUTROS]  # -> "naoAcionados" no retorno
+    # `metodologiaLegado.avaliadas` usa a MESMA régua de exclusão de
+    # `resolvidos` acima (fora pendente e fora RESULTADOS_NEUTROS) — só que
+    # sobre o recorte excluído pelo filtro de metodologia, nunca somado ao
+    # agregado comparável.
+    legado_avaliados = [o for o in legado
+                        if o.get("resultado") not in (None, "pendente") and o.get("resultado") not in RESULTADOS_NEUTROS]
     sucesso = [o for o in resolvidos if o.get("resultado") in RESULTADOS_SUCESSO]
     r_valores = [o["rMultiple"] for o in resolvidos if o.get("rMultiple") is not None]
     por_setup: dict = {}
@@ -242,6 +277,17 @@ def compute_stats(outcomes: list, modo: Optional[str] = None, tipo: Optional[str
         chave = f"{o.get('setup') or '—'} @ {rg}"
         por_setup_regime.setdefault(chave, []).append(o)
 
+    # --- ADR-015 / ADR15-02/03: segmentação por âncora de resolução ------------
+    # `metodologiaVersao` marca quais CAMPOS foram gravados; `ancora` marca
+    # qual âncora resolveu o registro. Um registro N2 é versão 2 e resolve
+    # com âncora `preco` — sem esta segmentação, o agregado default
+    # (`tipo=None`) juntaria N1 ancorado no gatilho com N2 ancorado no preço
+    # sob o mesmo rótulo `metodologia: 2`, que é exatamente a mistura
+    # não-sinalizada que o 06-CONTEXT.md proíbe.
+    por_ancora: dict = {}  # -> "porAncora" no retorno
+    for o in resolvidos:
+        por_ancora.setdefault(o.get("ancora") or "—", []).append(o)
+
     # --- qa/37 P2e: curva de R acumulado + drawdown -----------------------------
     # Ordena os avaliados por data de resolução e soma os R-múltiplos → a curva
     # de R acumulado (equity curve em R). Drawdown máximo = maior queda do pico
@@ -264,7 +310,23 @@ def compute_stats(outcomes: list, modo: Optional[str] = None, tipo: Optional[str
     r_acumulado = curva_r[-1] if curva_r else None
 
     return {
-        "totalAnalises": len(filtrado),
+        # ADR-015 / ADR15-03: significado de HOJE, PRÉ-filtro de
+        # metodologia — mantido de propósito. `web/src/App.jsx:4832` e
+        # `web-admin/src/App.jsx:361` fecham o painel inteiro ("Nenhuma
+        # análise com plano de stop/alvo definido ainda…") quando este
+        # número é 0. Como ~100% do histórico é metodologia 1, redefini-lo
+        # para a contagem pós-filtro mostraria esse empty-state para todo
+        # usuário que TEM análises — contra os princípios 4 e 9 do
+        # CLAUDE.md — e esconderia o próprio `metodologiaLegado`, que
+        # existe para declarar a exclusão. Esta fase é backend-only; a
+        # semântica do campo antigo é preservada e o número novo entra em
+        # campo novo (`totalComparaveis`).
+        "totalAnalises": total_recorte,
+        # Universo APÓS o filtro de metodologia — é dele que saem
+        # `avaliadas`/`naoAcionados`. `pendentes` é a exceção deliberada:
+        # sai do recorte PRÉ-filtro (ver comentário na variável `pendentes`
+        # acima).
+        "totalComparaveis": len(filtrado),
         "avaliadas": len(resolvidos),
         "pendentes": len(pendentes),
         # ADR15-02: gatilho não tocado dentro do prazo = o trade não
@@ -276,6 +338,13 @@ def compute_stats(outcomes: list, modo: Optional[str] = None, tipo: Optional[str
         "porSetup": por_setup,
         # qa/35 P2 (a+c) — minN vai junto pro painel explicar a régua.
         "minN": MIN_N,
+        # ADR-015 / ADR15-02: outcomes resolvidos com a âncora antiga (close
+        # do dia da análise) e com a nova (gatilho) medem coisas diferentes;
+        # somá-los produziria de novo um número que parece um edge e não é.
+        # O legado aparece DECLARADO, nunca somado, e nunca é reconvertido
+        # por inferência.
+        "metodologia": metodologia,
+        "metodologiaLegado": {"total": len(legado), "avaliadas": len(legado_avaliados)},
         "expectancia": expectancia,
         "profitFactor": ("inf" if profit_factor == float("inf") else profit_factor),
         "expectanciaInsuficiente": not suficiente,
@@ -284,6 +353,9 @@ def compute_stats(outcomes: list, modo: Optional[str] = None, tipo: Optional[str
         # qa/44 (B, ADR-009): recorte por regime e por (setup × regime).
         "porRegime": {k: _celula(v) for k, v in por_regime.items()},
         "porSetupRegime": {k: _celula(v) for k, v in por_setup_regime.items()},
+        # ADR-015 / ADR15-02/03: segmentação por âncora de resolução — ver
+        # comentário no laço acima.
+        "porAncora": {k: _celula(v) for k, v in por_ancora.items()},
         # qa/37 P2e: curva de R acumulado (para o gráfico) + drawdown máximo.
         "curvaR": curva_r,
         "rAcumulado": r_acumulado,
