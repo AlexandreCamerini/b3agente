@@ -27,6 +27,21 @@ MAX_DIAS = 180          # prune por idade — o que vier primeiro entre CAP e MA
 
 RESULTADOS_SUCESSO = ("alvo", "expirou_pos")
 RESULTADOS_FALHA = ("stop", "expirou_neg")
+RESULTADOS_NEUTROS = ("sem_gatilho",)
+# ADR-015 / ADR15-02: desfecho que NÃO é sucesso nem falha — o preço nunca
+# chegou ao gatilho dentro do prazo, então o trade não existiu. Contá-lo como
+# perda inflaria a taxa de stop pelo mesmo tipo de viés que o ADR-015
+# corrige. Quem conta "resolvidos" precisa excluí-lo — hoje são DOIS
+# consumidores (compute_stats e automacao.correlacao_analise_operacao).
+
+ANCORAS = ("gatilho", "mercado", "preco")
+# ADR-015 / ADR15-02: é a âncora que DE FATO resolveu o registro, carimbada
+# na resolução. NÃO confundir com `metodologiaVersao` (abaixo), que diz
+# quais campos foram GRAVADOS: um registro N2 é versão 2 e resolve com
+# âncora `preco`. Sem esse carimbo, o agregado do Plano 03 misturaria
+# registro ancorado no gatilho com registro ancorado no preço sob o mesmo
+# rótulo `metodologia: 2` — a mistura que o 06-CONTEXT.md proíbe
+# explicitamente.
 
 # qa/35 (P2, decidido com o Alex): células de segmentação com amostra menor
 # que isto mostram "n insuficiente" em vez de porcentagem enganosa.
@@ -296,7 +311,12 @@ def to_csv(outcomes: list) -> str:
             # posicionalmente não pode quebrar. Registro antigo (sem estas
             # chaves) exporta célula vazia via esc(None), nunca valor inferido.
             "entrada", "alvo2", "rr2", "confluencia", "entradaAMercado",
-            "metodologiaVersao")
+            "metodologiaVersao",
+            # ADR15-02: `ancora` (gatilho|mercado|preco) entrou no fim,
+            # depois de `metodologiaVersao`, pelo mesmo motivo — não quebra
+            # consumidor posicional. Registro ainda pendente (não resolvido)
+            # não tem `ancora` gravado, exporta célula vazia.
+            "ancora")
 
     def esc(v) -> str:
         if v is None:
@@ -336,16 +356,75 @@ def _pregoes_apos(candles: list, criado_em: str) -> list:
 
 def _avaliar_entry(entry: dict, candles: list) -> Optional[dict]:
     """Decide o resultado de UMA análise pendente dado o histórico de candles
-    do ativo. Retorna None se o prazo (10 pregões) ainda não completou —
-    mantém pendente. Sem I/O (candles injetados) — testável isoladamente."""
+    do ativo. Retorna None se o prazo (10 pregões, contado a partir do dia da
+    análise — decisão "prazo FIXO" com o Alex) ainda não completou — mantém
+    pendente. Sem I/O (candles injetados) — testável isoladamente.
+
+    ADR-015 / ADR15-02: três caminhos, cada um com a âncora carimbada em
+    `ancora` no dict devolvido:
+    - `"preco"` — caminho LEGADO (registro sem `metodologiaVersao`, sem
+      `entrada`) e também o registro N2 (versão 2 mas sem `entrada`, porque
+      N2 não tem plano determinístico em escopo): a barreira já está aberta
+      no candle 0, `preco0 = precoNaAnalise`. Byte-a-byte o comportamento
+      anterior a este plano — não convertido por inferência, porque
+      reconstruir `entrada` reintroduziria o viés que a mudança elimina.
+    - `"gatilho"` — plano "no rompimento do gatilho" (tipo default de
+      `setups.plano_operacional`): a barreira só abre depois de um candle
+      TOCAR `entrada`; se nenhum candle do prazo tocar, o resultado é
+      `"sem_gatilho"` (o trade nunca existiu — não é stop nem alvo).
+    - `"mercado"` — plano "a mercado (gatilho já rompido, dentro da zona)":
+      a entrada já é imediata (`setups.py:602-612` põe `entrada = close`),
+      então a barreira abre no candle 0 sem exigir toque — um gap contra a
+      posição no primeiro candle é `"stop"`, NUNCA `"sem_gatilho"` (senão o
+      caso adverso sairia do denominador, o viés otimista oposto ao que o
+      ADR-015 corrige).
+    """
     janela = _pregoes_apos(candles, entry["criadoEm"])
     prazo = entry.get("prazoPregoes") or HORIZON_PREGOES
     if len(janela) < prazo:
         return None
-    stop, alvo, preco0 = entry["stopProposto"], entry["alvoProposto"], entry["precoNaAnalise"]
+
+    stop, alvo = entry["stopProposto"], entry["alvoProposto"]
     lado_compra = alvo > stop  # geometria do plano garante isso (setups.py: stop sempre do lado oposto ao alvo)
+
+    entrada = entry.get("entrada")
+    v2_com_entrada = _metodologia(entry) >= 2 and entrada is not None
+    if not v2_com_entrada:
+        ancora = "preco"  # legado e N2 (versão 2 sem plano determinístico em escopo)
+    elif entry.get("entradaAMercado") is True:
+        ancora = "mercado"
+    else:
+        # `entradaAMercado` ausente/None num registro com `entrada` cai em
+        # "gatilho" — é o tipo default de `setups.plano_operacional` ("no
+        # rompimento do gatilho") e é a escolha conservadora (exige
+        # evidência de toque em vez de presumir entrada imediata).
+        ancora = "gatilho"
+
+    preco0 = float(entrada) if ancora in ("gatilho", "mercado") else entry["precoNaAnalise"]
+
+    if ancora == "gatilho":
+        i0 = None
+        for i, c in enumerate(janela[:prazo]):
+            hi, lo = c.get("high"), c.get("low")
+            if hi is None or lo is None:
+                continue
+            tocou = (hi >= entrada) if lado_compra else (lo <= entrada)
+            if tocou:
+                i0 = i
+                break
+        if i0 is None:
+            return {"resultado": "sem_gatilho", "precoResolucao": None,
+                     "resolvidoEm": janela[prazo - 1]["date"], "rMultiple": None,
+                     "ancora": "gatilho"}
+    else:
+        # "mercado"/"preco": em plano "a mercado" a entrada é IMEDIATA
+        # (setups.py:602-612 põe entrada = close); exigir toque faria o gap
+        # adverso do candle seguinte virar sem_gatilho e sair do
+        # denominador — viés otimista, o oposto do objetivo do ADR-015.
+        i0 = 0
+
     resultado = preco_resolucao = resolvido_em = None
-    for i, c in enumerate(janela[:prazo]):
+    for c in janela[i0:prazo]:
         hi, lo = c.get("high"), c.get("low")
         if hi is None or lo is None:
             continue
@@ -370,7 +449,7 @@ def _avaliar_entry(entry: dict, candles: list) -> Optional[dict]:
     ganho = (preco_resolucao - preco0) if lado_compra else (preco0 - preco_resolucao)
     r_multiple = round(ganho / risco, 2) if risco else None
     return {"resultado": resultado, "precoResolucao": preco_resolucao,
-            "resolvidoEm": resolvido_em, "rMultiple": r_multiple}
+            "resolvidoEm": resolvido_em, "rMultiple": r_multiple, "ancora": ancora}
 
 
 async def avaliar_pendentes(conn, fetch) -> int:

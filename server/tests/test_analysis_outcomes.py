@@ -167,6 +167,97 @@ def test_avaliar_entry_lado_venda_geometria_invertida():
     assert r["rMultiple"] > 0
 
 
+# ADR15-02: regressão do defeito central do ADR-015. MESMO fixture de
+# candles: metodologia antiga (âncora no close, `preco0=precoNaAnalise`)
+# abre a barreira no candle 0 e o dip do candle 1 (que nunca chega a tocar o
+# gatilho) já dispara stop — stop fica colado no preço de referência.
+# Metodologia nova (âncora no gatilho) só abre a barreira quando o preço
+# TOCA `entrada`; o dip anterior ao toque não conta, e o plano segue até
+# bater o alvo. É o placar 5:3 → 3:3 citado no ADR-015 ("Consequência
+# quantificada"), reproduzido aqui em miniatura: mesmo dado de mercado,
+# vereditos opostos.
+def _candles_regressao_ancora():
+    base = datetime.now(timezone.utc).date() + timedelta(days=1)
+    dados = [
+        {"high": 10.0, "low": 9.7, "close": 9.8},   # dip: toca stop legado, não toca gatilho v2
+        {"high": 10.3, "low": 9.9, "close": 10.2},  # ainda não toca o gatilho (10.5)
+        {"high": 10.6, "low": 10.2, "close": 10.5}, # toca o gatilho (10.5) — barreira v2 abre aqui
+        {"high": 11.6, "low": 10.4, "close": 11.5}, # bate o alvo (11.5)
+        {"high": 11.6, "low": 11.0, "close": 11.5}, # padding só para completar o prazo
+    ]
+    return [{"date": (base + timedelta(days=i)).isoformat(), "open": d["close"],
+             "volume": 1000, **d} for i, d in enumerate(dados)]
+
+
+def test_avaliar_entry_regressao_ancora_legado_stop_vs_gatilho_alvo():
+    candles = _candles_regressao_ancora()
+    entry_legado = _entry(stop=9.8, alvo=11.5, preco=10.0, prazo=5)  # sem `entrada`: metodologia 1
+    r_legado = ao._avaliar_entry(entry_legado, candles)
+    assert r_legado["resultado"] == "stop"  # dip do candle 1 já fura o stop colado no close
+    assert r_legado["ancora"] == "preco"
+
+    entry_v2 = {**entry_legado, "entrada": 10.5, "metodologiaVersao": 2, "entradaAMercado": False}
+    r_v2 = ao._avaliar_entry(entry_v2, candles)
+    assert r_v2["resultado"] == "alvo"  # o dip nunca tocou o gatilho — a barreira não tinha aberto
+    assert r_v2["ancora"] == "gatilho"
+
+
+# ADR15-02: anti-viés da entrada a mercado. MESMO fixture (gatilho nunca
+# tocado dentro do prazo): com `entradaAMercado=False` (plano "no rompimento
+# do gatilho") o trade nunca existiu → `sem_gatilho`. Com
+# `entradaAMercado=True` (plano "a mercado") a barreira abre no candle 0 e o
+# gap adverso do primeiro candle CONTA como stop — prova de que o caso
+# adverso não sai do denominador, que é exatamente o viés que o ADR-015
+# corrige.
+def _candles_gap_adverso():
+    base = datetime.now(timezone.utc).date() + timedelta(days=1)
+    dados = [{"high": 8.5, "low": 7.0, "close": 7.5},
+             {"high": 8.0, "low": 7.0, "close": 7.5},
+             {"high": 8.0, "low": 7.0, "close": 7.5}]
+    return [{"date": (base + timedelta(days=i)).isoformat(), "open": d["close"],
+             "volume": 1000, **d} for i, d in enumerate(dados)]
+
+
+def test_avaliar_entry_entrada_a_mercado_gap_adverso_conta_vs_rompimento_sem_gatilho():
+    candles = _candles_gap_adverso()
+    base_entry = {"ticker": "PETR4", "criadoEm": datetime.now(timezone.utc).isoformat(),
+                  "prazoPregoes": 3, "stopProposto": 9.0, "alvoProposto": 13.0,
+                  "precoNaAnalise": 10.0, "entrada": 11.0, "metodologiaVersao": 2}
+
+    r_rompimento = ao._avaliar_entry({**base_entry, "entradaAMercado": False}, candles)
+    assert r_rompimento["resultado"] == "sem_gatilho"
+    assert r_rompimento["ancora"] == "gatilho"
+    assert r_rompimento["rMultiple"] is None
+    assert r_rompimento["precoResolucao"] is None
+
+    r_mercado = ao._avaliar_entry({**base_entry, "entradaAMercado": True}, candles)
+    assert r_mercado["resultado"] == "stop"  # gap contra a posição no candle 0 conta
+    assert r_mercado["ancora"] == "mercado"
+
+
+def test_avaliar_entry_sem_gatilho_impossivel_para_entrada_a_mercado():
+    # assertiva explícita do <behavior>: sem_gatilho não existe pra esse tipo
+    candles = _candles([v for v in [7.5] * 3])
+    entry = {"ticker": "PETR4", "criadoEm": datetime.now(timezone.utc).isoformat(),
+             "prazoPregoes": 3, "stopProposto": 9.0, "alvoProposto": 13.0,
+             "precoNaAnalise": 10.0, "entrada": 11.0, "metodologiaVersao": 2,
+             "entradaAMercado": True}
+    r = ao._avaliar_entry(entry, candles)
+    assert r["resultado"] != "sem_gatilho"
+
+
+def test_avaliar_entry_n2_com_metodologia_2_mas_sem_entrada_resolve_por_preco():
+    # registro N2: metodologiaVersao=2 mas SEM `entrada` (não tem plano
+    # determinístico em escopo) — âncora é `preco`, não `gatilho`; a versão
+    # de metodologia sozinha NUNCA decide a âncora.
+    candles = _candles([10.0, 10.0, 12.5, 12.2, 12.2, 12.2, 12.2, 12.2, 12.2, 12.2])
+    entry = _entry(stop=9.0, alvo=12.0, preco=10.0, prazo=10)
+    entry["metodologiaVersao"] = 2
+    r = ao._avaliar_entry(entry, candles)
+    assert r["resultado"] == "alvo"
+    assert r["ancora"] == "preco"
+
+
 # ===== compute_stats (pura) =====
 def _outcome(resultado, r_multiple=None, modo="estudo", tipo="n1", setup="IFR2"):
     return {"resultado": resultado, "rMultiple": r_multiple, "modo": modo, "tipo": tipo, "setup": setup}
@@ -304,10 +395,12 @@ def test_compute_stats_sem_avaliados_curva_vazia():
 
 
 def test_to_csv_colunas_fixas_e_escape():
-    # ADR15-01: as 6 colunas novas (entrada/alvo2/rr2/confluencia/
-    # entradaAMercado/metodologiaVersao) entram no FIM da tupla — nunca no
-    # meio, para não quebrar quem consome o CSV posicionalmente. O contrato
-    # de "célula vazia = dado indisponível" não foi afrouxado, só estendido.
+    # ADR15-01: as 6 colunas (entrada/alvo2/rr2/confluencia/entradaAMercado/
+    # metodologiaVersao) entram no FIM da tupla — nunca no meio, para não
+    # quebrar quem consome o CSV posicionalmente. ADR15-02 (nota — guardião
+    # se ATUALIZA, não se afrouxa): mais 1 coluna, `ancora`, entrou depois de
+    # `metodologiaVersao`, pelo mesmo motivo. O contrato de "célula vazia =
+    # dado indisponível" segue intacto.
     outcomes = [{"id": "a1", "ticker": "PETR4", "modo": "estudo", "tipo": "n1",
                  "modelo": "prov:mod", "setup": 'IFR2 "clássico", B', "recomendacao": None,
                  "confianca": "alta", "stopProposto": 9.0, "alvoProposto": 11.0,
@@ -315,15 +408,16 @@ def test_to_csv_colunas_fixas_e_escape():
                  "prazoPregoes": 10, "resultado": "alvo", "precoResolucao": 11.0,
                  "rMultiple": 1.0, "resolvidoEm": "2026-07-15",
                  "entrada": 12.5, "alvo2": 15.0, "rr2": 2.0, "confluencia": 72,
-                 "entradaAMercado": False, "metodologiaVersao": 2}]
+                 "entradaAMercado": False, "metodologiaVersao": 2, "ancora": "gatilho"}]
     csv = ao.to_csv(outcomes)
     linhas = csv.strip().split("\n")
     assert linhas[0].startswith("id,ticker,modo,tipo,modelo,setup,recomendacao,confianca,")
-    assert linhas[0].endswith("entrada,alvo2,rr2,confluencia,entradaAMercado,metodologiaVersao")
+    assert linhas[0].endswith("entrada,alvo2,rr2,confluencia,entradaAMercado,metodologiaVersao,ancora")
     assert '"IFR2 ""clássico"", B"' in linhas[1]   # vírgula+aspas escapadas
     assert ",," in linhas[1]                        # None vira célula VAZIA (nunca inferida)
-    assert linhas[1].endswith("12.5,15.0,2.0,72,False,2")
+    assert linhas[1].endswith("12.5,15.0,2.0,72,False,2,gatilho")
     assert ao.to_csv([]) .startswith("id,ticker")   # só cabeçalho quando vazio
+    assert ao.to_csv([]).strip().split(",")[-1] == "ancora"
     # registro antigo (sem as chaves novas) exporta célula vazia, nunca valor inferido
     antigo = [{"id": "a2", "ticker": "VALE3", "modo": "estudo", "tipo": "n1", "modelo": "x",
                "setup": None, "recomendacao": None, "confianca": None, "stopProposto": 9.0,
@@ -331,7 +425,7 @@ def test_to_csv_colunas_fixas_e_escape():
                "criadoEm": "2026-01-01T00:00:00+00:00", "prazoPregoes": 10, "resultado": "pendente",
                "precoResolucao": None, "rMultiple": None, "resolvidoEm": None}]
     linha_antiga = ao.to_csv(antigo).strip().split("\n")[1]
-    assert linha_antiga.endswith(",,,,,,")  # 6 colunas novas vazias
+    assert linha_antiga.endswith(",,,,,,,")  # 7 colunas novas (6 do ADR15-01 + ancora) vazias
 
 
 # ===== avaliar_pendentes (fetch injetado) =====
