@@ -347,7 +347,7 @@ automática do Modo Operador volta a existir, mas só para o setup específico
 que a seleção dinâmica mediu como positivo, nunca mais uma suspensão cega.
 **Requirements**: ADR17-B34-01, ADR17-B34-02, ADR17-B34-03, ADR17-B34-04
 **Depends on:** Phase 7
-**Plans:** 3/5 plans executed
+**Plans:** 4/5 plans executed
 
 Plans:
 **Wave 1**
@@ -361,7 +361,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 08-04-PLAN.md — histórico por setup na lista do card (4 estados completos, aposentado rotulado) e linha de transparência do gate no card de status do Operador
+- [x] 08-04-PLAN.md — histórico por setup na lista do card (4 estados completos, aposentado rotulado) e linha de transparência do gate no card de status do Operador
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
