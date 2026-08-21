@@ -144,3 +144,47 @@ dia de `entradaAuto` ligado é mais perda simulada sem base estatística para ju
   dependiam disso precisam ser avisados (Bloco 3/4, vocabulário e estado de UI dedicados).
 - Nenhuma regra de decisão migra para julgamento de IA; toda a seleção continua auditável e
   testável isoladamente, como qualquer outro cálculo determinístico do motor.
+
+## Adendo 1 — implementação do Bloco 1 (2026-08-21)
+
+Os Planos 01-06 (fase `07-sele-o-din-mica-por-desempenho-hist-rico-ledger-de-sinais-re`)
+entregaram a Decisão 2 na íntegra. Módulo/arquivo entregue para cada item:
+
+| Item da Decisão 2 | Módulo/arquivo | Plano |
+|---|---|---|
+| Replay determinístico (barreira tripla), reprodutível | `server/app/signal_replay.py` | 01 |
+| Guard de granularidade do Yahoo, todos os intervalos | `server/app/yahoo.py` (`confere_granularidade`) | 01 |
+| Ledger de sinais resolvidos, duas agregações | `server/app/signal_ledger.py` | 02 |
+| Bootstrap manual (15 anos × 74 tickers), reexecutável | `server/app/signal_ledger_bootstrap.py`, `docs/OPERACAO-ledger-de-sinais.md` | 03 |
+| Manutenção diária incremental (cursor + fechamento de janela) | `server/app/signal_ledger_job.py` | 04 |
+| `detect_setups`/`regime.ranquear` consomem a evidência medida | `server/app/setups.py` (`set_historico_provider`), `server/app/regime.py` (`W_HISTORICO_ELEGIVEL`/`W_HISTORICO_INELEGIVEL`) | 05 |
+| Hook pendurado no `scheduler_loop` + provedor ligado no boot | `server/app/agent.py`, `server/app/main.py` | 06 |
+
+Três decisões de implementação que o ADR não previa, e que ficam registradas aqui:
+
+1. **Ledger write-on-resolution.** Não existe linha "pendente": `sinais_do_ticker` só avalia
+   barras que têm horizonte cheio À FRENTE (`t1 = len(cs) - horizonte - 1`), então o cursor
+   anda `horizonte` barras atrás da última barra fechada e todo sinal já nasce resolvido.
+   `status` distingue `resolvido` de `sem_gatilho` (o sinal nunca acionou), nunca "pendente vs.
+   resolvido" — não há estado parcial para reconciliar, o que torna o hook diário idempotente e
+   barato.
+2. **Cursor derivado do ledger, não uma chave `kv` paralela.** O hook diário deriva o ponto de
+   partida de `signal_ledger.data_sinal_maxima(conn, ticker)` (`MAX(data_sinal)` por ticker),
+   não de um marcador solto em `kv`. Uma chave paralela poderia divergir do dado real (ex.: após
+   um `--reset` do bootstrap) e exigiria reconciliação; o cursor derivado nunca diverge, porque
+   É o dado.
+3. **Bootstrap em `server/app/`, não em `scripts/`.** O Railway publica com
+   `rootDirectory=/server` — um comando em `scripts/` seria inexecutável em produção via
+   `railway ssh`. `signal_ledger_bootstrap.py` vive ao lado do resto do motor, com uma CLI
+   `argparse` completa (`python -m app.signal_ledger_bootstrap`), no mesmo precedente já usado
+   por `obslog.py`.
+
+**Pesos em `regime.ranquear` (ADR-017 Bloco 1, achado do Plano 05):** `W_HISTORICO_ELEGIVEL =
++10.0` / `W_HISTORICO_INELEGIVEL = -10.0`, contra `+5.0` do `gatilhoAlinhado` (timing) — a
+evidência medida pesa o dobro do timing, mas nenhum dos dois domina o eixo de momentum/regime
+que o ADR-016 (Adendo 7) validou; o corpo do `radarScore` é o percentil de momentum (0-100),
+então ±10 desloca cerca de um decil. O rank de elegibilidade entra na tupla de ordenação ENTRE
+`momentumRelPct` e `gatilhoAlinhado` — a evidência medida desempata acima do timing e abaixo do
+eixo de regime/momentum, nunca invertendo esse eixo. Ausência de evidência (amostra abaixo de
+`MIN_N_JANELA=40`, ou setup nunca medido) sempre resolve para `setupElegivel=None` — nunca
+`False` — e `radarScore` não é penalizado nesse caso (ADR-017, "Dois pisos de amostra").
