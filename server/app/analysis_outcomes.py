@@ -367,11 +367,69 @@ def outcomes_de_todos_os_usuarios(conn) -> list:
     """ADR-012 (Fase 3): outcomes CRUS de todos os escopos concatenados — para
     módulos que precisam cruzar por `snapshotId` (ver automacao.py). Sem
     MIN_N nem agregação; quem chama decide o que fazer com a granularidade
-    individual. Não identifica usuário (outcomes não carregam `user_id`)."""
+    individual. Não identifica usuário (outcomes não carregam `user_id`).
+    NUNCA deduplicar aqui: `automacao.py` cruza `history` × `analysisOutcomes`
+    por `snapshotId` e quebra se a lista crua sumir (ver `_dedup_por_snapshot`,
+    que vive só na camada de agregação cross-escopo, abaixo)."""
     todos: list = []
     for uid in _scopes_com_outcomes(conn):
         todos.extend(db.kv_get(conn, _key(), [], user_id=uid) or [])
     return todos
+
+
+def _dedup_por_snapshot(outcomes: list, modo: Optional[str] = None) -> list:
+    """ADR-015 / ADR15-03: colapsa registros duplicados do MESMO plano
+    determinístico gravado várias vezes sob o mesmo `snapshotId` — em
+    produção, 159 resolvidos eram só 66 planos distintos, um deles gravado
+    12 vezes; sem dedup, `MIN_N=10` não protege de nada (o piso de amostra é
+    inflado pela mesma observação repetida). Puro.
+
+    Chave de agrupamento — modo-independente no N1, modo-dependente no N2:
+    o stop/alvo do N1 vêm de `setups.plano_do_resultado`, cuja assinatura
+    NÃO recebe `modo` — o plano determinístico é idêntico nos dois modos,
+    então o mesmo `snapshotId` gravado em `estudo` e em `operador` é UMA
+    observação regravada, não duas. Manter `modo` na chave do N1 deixaria a
+    duplicação passar dobrada pelo agregado default (`modo=None`), que é o
+    número de manchete do painel. Já o N2 é a proposta da LLM, gerada com
+    prompt diferente por modo (`skill_ref`/`defaults`), portanto observações
+    distintas — o `modo` FICA na chave do N2.
+
+    `modo`, quando informado, PRÉ-filtra a lista antes de agrupar (a mesma
+    régua que `compute_stats` aplicaria em seguida — idempotente): é o que
+    permite ignorar `modo` na chave do N1 sem perder observação do recorte
+    pedido — ver `test_dedup_por_snapshot_com_modo_pre_filtra_e_preserva_observacao`.
+
+    Registro sem `snapshotId` nunca é deduplicado contra outro (sem
+    `snapshotId` não há evidência de duplicação) — entra na saída sem passar
+    pelo agrupamento. Dentro de um grupo duplicado, sobrevive o resolvido
+    (se houver) e, entre resolvidos, o de `criadoEm` mais antigo; empate
+    resolvido por `id` — determinístico, independente da ordem do kv."""
+    if modo is not None:
+        outcomes = [o for o in outcomes if o.get("modo") == modo]
+
+    grupos: dict = {}
+    ordem: list = []
+    sem_snapshot: list = []
+    for o in outcomes:
+        snap = o.get("snapshotId")
+        if not snap:
+            sem_snapshot.append(o)
+            continue
+        if o.get("tipo") == "n1":
+            chave = (snap, "n1")
+        else:
+            chave = (snap, o.get("modo"), o.get("tipo"))
+        if chave not in grupos:
+            ordem.append(chave)
+            grupos[chave] = []
+        grupos[chave].append(o)
+
+    def _rank(o: dict):
+        resolvido = 0 if o.get("resultado") not in (None, "pendente") else 1
+        return (resolvido, o.get("criadoEm") or "", o.get("id") or "")
+
+    sobreviventes = [min(grupos[chave], key=_rank) for chave in ordem]
+    return sem_snapshot + sobreviventes
 
 
 def compute_stats_all_users(conn, modo: Optional[str] = None, tipo: Optional[str] = None) -> dict:
@@ -380,8 +438,22 @@ def compute_stats_all_users(conn, modo: Optional[str] = None, tipo: Optional[str
     cima da concatenação. NUNCA devolve `user_id` nem a lista bruta de
     outcomes — só o dict agregado, que já respeita MIN_N por célula (evita
     reidentificar usuário por amostra pequena). Chamador (endpoint admin) não
-    deve expor outcomes crus."""
-    return compute_stats(outcomes_de_todos_os_usuarios(conn), modo=modo, tipo=tipo)
+    deve expor outcomes crus.
+
+    ADR-015 / ADR15-03: deduplica por `snapshotId` (`_dedup_por_snapshot`)
+    ANTES de agregar — 159 resolvidos → 66 planos distintos em produção, um
+    deles gravado 12 vezes; sem dedup, `MIN_N=10` não protege de nada.
+
+    ASSIMETRIA deliberada (decisão travada no 06-CONTEXT.md, ADR15-03 — não
+    mudar): o dedup vive SÓ nesta camada de agregação cross-escopo. O painel
+    do próprio usuário (`main.py:2419` → `compute_stats` com os outcomes
+    crus do escopo) continua contando duplicatas, então um usuário com um
+    plano regravado 12x verá um `n` maior no painel dele do que o agregado
+    deduplicado do admin sobre os mesmos dados — divergência intencional
+    (`compute_stats` puro não pode assumir escopo único), documentada aqui
+    porque é o tipo que vira chamado de suporte por-escopo × cross-usuário."""
+    return compute_stats(_dedup_por_snapshot(outcomes_de_todos_os_usuarios(conn), modo=modo),
+                         modo=modo, tipo=tipo)
 
 
 def to_csv(outcomes: list) -> str:
