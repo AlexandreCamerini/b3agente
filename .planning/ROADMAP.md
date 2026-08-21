@@ -338,8 +338,12 @@ Plans:
 
 ### Phase 8: Interface e IA da Seleção Dinâmica — vocabulário novo (skill_ref.py/copy.js), telas do Radar/Watchlist/Operador mostrando histórico medido por setup, religa entradaAuto do Modo Operador gated pela elegibilidade (ADR-017, Bloco 3/4)
 
-**Goal:** [To be planned]
-**Requirements**: TBD
+**Goal:** O histórico medido pelo Bloco 1 (elegibilidade, expectância por
+janela, amostra) ganha vitrine — vocabulário canônico por modo, Radar/
+Watchlist/card de setup mostrando o dado que já chega no JSON — e a entrada
+automática do Modo Operador volta a existir, mas só para o setup específico
+que a seleção dinâmica mediu como positivo, nunca mais uma suspensão cega.
+**Requirements**: ADR17-B34-01, ADR17-B34-02, ADR17-B34-03, ADR17-B34-04
 **Depends on:** Phase 7
 **Plans:** 0 plans
 

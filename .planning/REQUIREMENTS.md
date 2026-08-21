@@ -135,7 +135,7 @@ Bloco 0 do mesmo ADR (aposentar a faixa catastrófica de setups) foi entregue
 fora do fluxo GSD, direto em produção (commit 4a6e7e3, 2026-08-20). Esta fase é
 o Bloco 1. Blocos 3 (interface) e 4 (IA) ficam para fases futuras.
 
-- [ ] **ADR17-B1-01**: Ledger de sinais resolvidos — tabela no banco PRINCIPAL
+- [x] **ADR17-B1-01**: Ledger de sinais resolvidos — tabela no banco PRINCIPAL
       (`ticker, setup, lado, data_sinal, data_resolucao, resultado, r, status`),
       idempotente por `UNIQUE`, com as duas agregações SQL sobre o mesmo ledger:
       cumulativa (histórico exibido) e por janela fechada (elegibilidade), cada
@@ -164,6 +164,36 @@ o Bloco 1. Blocos 3 (interface) e 4 (IA) ficam para fases futuras.
       para `server/app/signal_replay.py`; o script vira wrapper fino, sem
       segunda implementação da barreira tripla. Direção de dependência
       preservada (scripts→app)
+
+### Interface e IA da Seleção Dinâmica (ADR-017, Bloco 3/4)
+
+O Bloco 1 (Phase 7) entrega o histórico medido por setup só no backend, sem
+vitrine — confirmado ao vivo (card do ativo idêntico ao de antes do deploy).
+Esta fase é o Bloco 3 (interface) + Bloco 4 (religamento do Modo Operador),
+puro consumo do que o Bloco 1 já calcula — nenhuma mudança em
+`regime.ranquear`, `detect_setups`, `signal_ledger.py` ou nos pesos
+`W_HISTORICO_*`.
+
+- [ ] **ADR17-B34-01**: Vocabulário novo (setup aposentado, elegibilidade
+      True/False/None, amostra insuficiente, dado desatualizado) em
+      `server/app/skill_ref.py` (padrão `vocab`/`TIMING`) com espelho em
+      `web/src/copy.js` (`COPY`), guardião de paridade de chaves
+      (`web/tests/test_vocabulario_espelho.mjs`) estendido para cobrir as
+      chaves novas
+- [ ] **ADR17-B34-02**: Radar/Watchlist exibem `setupElegivel`/
+      `setupHistorico` por ticker — dado já presente em cada resultado de
+      `/api/scan` (`regime.ranquear`, `scanner.py:320`), sem mudança de
+      backend
+- [ ] **ADR17-B34-03**: Card de setup individual exibe `historico` por
+      setup (`detect_setups`), cobrindo os 4 estados completos (nunca
+      medido, amostra insuficiente, dado desatualizado, aposentado) — nenhum
+      opcional, resultado negativo com o mesmo destaque visual que positivo
+- [ ] **ADR17-B34-04**: `_avaliar_entradas` (`agent.py`) troca a suspensão
+      cega (`ENTRADA_AUTO_SUSPENSA_ADR017`) por gate de elegibilidade do
+      setup específico do gatilho (`signal_ledger.historico_snapshot`,
+      import local sem ciclo) — só executa com `elegivel is True`; checkpoint
+      humano obrigatório antes do deploy em produção (muda comportamento
+      real de execução automática simulada)
 
 ## Future Requirements (backlog — não mapeado a fase ainda)
 
@@ -236,17 +266,21 @@ o Bloco 1. Blocos 3 (interface) e 4 (IA) ficam para fases futuras.
 | ADR15-03 | Phase 6 | Pending |
 | ADR15-04 | Phase 6 | Pending |
 | ADR15-05 | Phase 6 | Complete |
-| ADR17-B1-01 | Phase 7 | Pending |
+| ADR17-B1-01 | Phase 7 | Complete |
 | ADR17-B1-02 | Phase 7 | Complete |
 | ADR17-B1-03 | Phase 7 | Pending |
 | ADR17-B1-04 | Phase 7 | Complete |
 | ADR17-B1-05 | Phase 7 | Complete |
 | ADR17-B1-06 | Phase 7 | Complete |
 | ADR17-B1-07 | Phase 7 | Complete |
+| ADR17-B34-01 | Phase 8 | Pending |
+| ADR17-B34-02 | Phase 8 | Pending |
+| ADR17-B34-03 | Phase 8 | Pending |
+| ADR17-B34-04 | Phase 8 | Pending |
 
 **Coverage:**
-- v1.1 requirements: 46 total (4 MERC + 30 FIX + 5 ADR15 + 7 ADR17-B1)
-- Mapped to phases: 46/46 ✓
+- v1.1 requirements: 50 total (4 MERC + 30 FIX + 5 ADR15 + 7 ADR17-B1 + 4 ADR17-B34)
+- Mapped to phases: 50/50 ✓
 - Unmapped: 0
 
 **Phase summary:**
@@ -256,6 +290,7 @@ o Bloco 1. Blocos 3 (interface) e 4 (IA) ficam para fases futuras.
 - Phase 5 (Correção Médio — Código, Gate & Admin): FIX-C21..C27, FIX-C33, FIX-C34, FIX-C38, FIX-C39 (11 requirements)
 - Phase 6 (Correção da instrumentação de assertividade — ADR-015): ADR15-01..05 (5 requirements)
 - Phase 7 (Seleção dinâmica por desempenho histórico — ADR-017, Bloco 1): ADR17-B1-01..07 (7 requirements)
+- Phase 8 (Interface e IA da Seleção Dinâmica — ADR-017, Bloco 3/4): ADR17-B34-01..04 (4 requirements)
 
 ---
 *Requirements defined: 2026-08-18*
