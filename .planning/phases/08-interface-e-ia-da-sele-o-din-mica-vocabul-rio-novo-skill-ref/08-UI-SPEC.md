@@ -38,7 +38,7 @@ Declared values (must be multiples of 4):
 | md | 16px | Gap between the histórico block and neighboring card sections (Radar/Watchlist row, setup list item) |
 | lg | 24px | Not used in this phase (no new section-level container) |
 
-Exceptions: **`4px 10px` pill padding** — the established convention for every existing badge/chip in this codebase (`chip()` at `App.jsx:2866`, `TIMING_STYLE` consumers). New histórico/aposentado/insuficiente pills MUST reuse this exact padding, not introduce a new one. This is a pre-existing pattern being matched, not a new decision.
+Exceptions: **`4px 10px` pill padding** — the established convention for every existing badge/chip in this codebase (`chip()` at `App.jsx:2866`, `TIMING_STYLE` consumers). New histórico/aposentado/insuficiente pills MUST reuse this exact padding, not introduce a new one. This is a pre-existing pattern being matched, not a new decision. developer-approved — matches existing pattern — 2026-08-21
 
 ---
 
@@ -51,7 +51,7 @@ Exceptions: **`4px 10px` pill padding** — the established convention for every
 | Body / explanatory sentence (concept sheet, tooltip) | 13px | 400 | 1.5 |
 | Secondary metadata (timestamp, `medidoAte`, `janelaRef`) | 11px | 400 | 1.4 |
 
-Weights declared: **400 (regular, prose/metadata)** and **700 (bold, labels)**. Exception, reused verbatim from the existing `chip()`/`ConfluenceRing` micro-convention: numeric values inside a badge render at **800**, one step bolder than the 700 label next to them, to visually separate "what this is" from "the number." This is an existing codebase pattern (`App.jsx:2869`, `App.jsx:5566`), not a new weight tier introduced by this phase.
+Weights declared: **400 (regular, prose/metadata)** and **700 (bold, labels)**. Exception, reused verbatim from the existing `chip()`/`ConfluenceRing` micro-convention: numeric values inside a badge render at **800**, one step bolder than the 700 label next to them, to visually separate "what this is" from "the number." This is an existing codebase pattern (`App.jsx:2869`, `App.jsx:5566`), not a new weight tier introduced by this phase. developer-approved — matches existing pattern — 2026-08-21
 
 ---
 
@@ -143,6 +143,11 @@ Plus the two measured-eligibility states (elegível / inelegível) from the Colo
 - Radar/Watchlist ticker row: `setupElegivel`/`setupHistorico` next to `melhorSetup`/`confluencia%` (`App.jsx` ~1734, ~1796, ~5776-5790).
 - Setup list item inside the ativo card: `s.historico`/`s.aposentado` next to `s.nome`/`s.confluencia%` (`App.jsx` ~5873).
 - Operador status card: new row for `entradaAuto` per-setup gate state (extends FIX-C19 card, exact location TBD by planner — not yet built when this contract was written).
+
+**Focal point (Dimension 2 recommendation):** on all three screens, the new histórico/eligibility pill is a SECONDARY signal — it never competes with the primary anchor for first-read priority.
+- Radar/Watchlist ticker row: `melhorSetup` + `confluencia%` (via `ConfluenceRing`) stays the first thing the eye lands on; the histórico pill sits adjacent/below, read second.
+- Setup list item inside the ativo card: `s.nome` + `s.confluencia%` stays the primary anchor; `s.historico`/`s.aposentado` renders as a trailing pill, read after the setup name.
+- Operador status card: the existing gate summary (Modo do app · Operador no servidor · Executar/sinalizar, FIX-C19) stays the primary anchor; the new per-setup eligibility row is an additional line below it, not a replacement of the existing focal hierarchy.
 
 **Accessibility:** every new pill needs a screen-reader-readable equivalent of its visual glyph (`✓`/`✗` are not SR-friendly alone) — reuse the existing `role="img" aria-label` pattern from `ConfluenceRing` (`App.jsx:5562`) or the `SR_ONLY` + "O que é X?" button pattern from `SetorAlvo` (`App.jsx:2299-2306`), do not ship a bare Unicode glyph with no text alternative.
 
