@@ -197,3 +197,71 @@ def agregar_janela(conn, ano: int) -> dict:
     }
     db.kv_set(conn, K_JANELA, payload, user_id=None)
     return payload
+
+
+# ----------------------------------------------------------------------------
+# Provedor de histórico por setup (cache em processo)
+# ----------------------------------------------------------------------------
+
+# Por quê o cache: `detect_setups` roda por request no caminho síncrono quente
+# (STU → 8+ rotas). Uma query a banco por chamada multiplicaria I/O sob o
+# mesmo pool de threads do SQLite (mesmo padrão de `technical_snapshot._SNAP_CACHE`).
+# TTL de 300s é folgado porque o dado só muda uma vez por dia (hook diário) ou
+# uma vez por ano (fechamento de janela) — o cache nunca fica materialmente
+# atrasado.
+TTL_HISTORICO_S = 300
+_HIST_CACHE = {"at": 0.0, "data": None}
+
+
+def reset_cache() -> None:
+    """Para testes — força releitura na chamada seguinte."""
+    _HIST_CACHE["at"] = 0.0
+    _HIST_CACHE["data"] = None
+
+
+def _fundir(cumulativo: dict, janela: dict) -> dict:
+    por_setup_cum = (cumulativo or {}).get("porSetup") or {}
+    por_setup_jan = (janela or {}).get("porSetup") or {}
+    medido_ate = (cumulativo or {}).get("medidoAte")
+    janela_ref = (janela or {}).get("janelaRef")
+    calculado_em = (janela or {}).get("calculadoEm")
+    nomes = set(por_setup_cum) | set(por_setup_jan)
+    merged = {}
+    for nome in nomes:
+        c = por_setup_cum.get(nome) or {}
+        j = por_setup_jan.get(nome)
+        na_janela = j is not None
+        j = j or {}
+        merged[nome] = {
+            "expR": c.get("expR"),
+            "n": c.get("n", 0),
+            "medidoAte": medido_ate,
+            "elegivel": j.get("elegivel") if na_janela else None,
+            "insuficiente": j.get("insuficiente") if na_janela else True,
+            "expRJanela": j.get("expR"),
+            "nJanela": j.get("n", 0),
+            "janelaRef": janela_ref,
+            "calculadoEm": calculado_em,
+        }
+    return merged
+
+
+def historico_snapshot(conn, ttl_s: int = TTL_HISTORICO_S, now: Optional[float] = None) -> dict:
+    """Fonte de histórico por setup que `detect_setups` anexa e `regime.ranquear`
+    consome — CUSTA ZERO query dentro do TTL. Todo o corpo roda dentro de
+    try/except: essa função é chamada no caminho síncrono quente, uma exceção
+    de banco aqui não pode derrubar a tela do usuário por causa de um número
+    informativo — devolve o último snapshot em cache, ou `{}` se nunca houve
+    um (kv vazio / ledger nunca agregado também cai em `{}`, nunca inventa)."""
+    now = time.time() if now is None else now
+    if _HIST_CACHE["data"] is not None and (now - _HIST_CACHE["at"]) < ttl_s:
+        return _HIST_CACHE["data"]
+    try:
+        cumulativo = db.kv_get(conn, K_CUMULATIVO, user_id=None) or {}
+        janela = db.kv_get(conn, K_JANELA, user_id=None) or {}
+        merged = _fundir(cumulativo, janela)
+        _HIST_CACHE["data"] = merged
+        _HIST_CACHE["at"] = now
+        return merged
+    except Exception:  # noqa: BLE001 — falha de banco não derruba a tela por um dado informativo
+        return _HIST_CACHE["data"] or {}

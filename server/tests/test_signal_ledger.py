@@ -224,16 +224,16 @@ def test_agregar_janela_grava_no_kv_com_janela_ref_e_min_n(tmp_path):
 # ===== Task 3 — provedor de histórico por setup com cache em processo =======
 
 def _preparar_ledger_completo(conn):
-    """Um setup presente nas DUAS agregações (S1), um só na cumulativa (S_CUM),
-    um só na janela (S_JAN) — cobre os três ramos de `historico_snapshot`."""
+    """Um setup presente nas DUAS agregações (S1), um só na cumulativa (S_CUM —
+    sinal de 2024, fora da janela agregada de 2025), um só na janela (S_JAN —
+    registrado e agregado DEPOIS de `agregar_cumulativo`, nunca entra em
+    K_CUMULATIVO) — cobre os três ramos de `historico_snapshot`."""
     signal_ledger.registrar_linhas(conn, _linhas_setup("S1", 40, 1.0))
     signal_ledger.registrar_linhas(conn, [
-        {"ticker": "Z", "setup": "S_CUM", "lado": "alta", "data": "2025-01-01",
-         "resultado": "alvo", "r": 1.0, "dataResolucao": "2025-01-05"},
+        {"ticker": "Z", "setup": "S_CUM", "lado": "alta", "data": "2024-01-01",
+         "resultado": "alvo", "r": 1.0, "dataResolucao": "2024-01-05"},
     ])
     signal_ledger.agregar_cumulativo(conn)
-    # S_JAN só existe na agregação por janela: registra e agrega DEPOIS da
-    # cumulativa (que já rodou sem ele), então ele nunca aparece em K_CUMULATIVO.
     signal_ledger.registrar_linhas(conn, _linhas_setup("S_JAN", 40, 1.0))
     signal_ledger.agregar_janela(conn, 2025)
 
