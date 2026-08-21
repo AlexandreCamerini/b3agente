@@ -32,6 +32,26 @@ RESULTADOS_FALHA = ("stop", "expirou_neg")
 # que isto mostram "n insuficiente" em vez de porcentagem enganosa.
 MIN_N = 10
 
+METODOLOGIA_ATUAL = 2
+# ADR-015 / ADR15-01: `metodologiaVersao` declara QUAIS CAMPOS o registro
+# carrega no momento da GRAVAÇÃO — versão 1 (implícita, campo ausente) é o
+# formato anterior ao ADR-015, sem `entrada`; versão 2 é o formato do
+# ADR15-01 em diante, que carrega `entrada`/`entradaAMercado` quando o plano
+# determinístico os definiu (N1) ou fica None quando não (N2, sem plano em
+# escopo). Ele NÃO diz qual âncora resolveu o registro — isso é carimbado na
+# RESOLUÇÃO pelo campo `ancora` (Plano 02, ADR15-02), porque um registro N2 é
+# versão 2 e mesmo assim resolve pela âncora de PREÇO, não de gatilho.
+# Confundir os dois é reintroduzir, com outro nome, a mistura de
+# metodologias que o ADR-015 existe para corrigir. Registro antigo sem o
+# campo NUNCA é reescrito para ganhá-lo — default 1 é só para leitura.
+
+
+def _metodologia(entry: dict) -> int:
+    """Versão de metodologia de UM registro, com default para formato antigo
+    (campo ausente = versão 1, anterior ao ADR15-01). Puro; consumido pelos
+    Planos 02/03 para nunca misturar metodologias no mesmo agregado."""
+    return int(entry.get("metodologiaVersao") or 1)
+
 
 def normalizar_confianca(valor) -> Optional[str]:
     """Escala única de confiança declarada pela IA: N1 usa `confianca`
@@ -61,7 +81,10 @@ def registrar(conn, *, ticker: str, modo: Optional[str], tipo: str, modelo: str,
               setup: Optional[str], recomendacao: Optional[str],
               stop: Optional[float], alvo: Optional[float], preco: Optional[float],
               snapshot_id: Optional[str], confianca=None, user_id=None,
-              regime: Optional[str] = None) -> None:
+              regime: Optional[str] = None,
+              entrada: Optional[float] = None, alvo2: Optional[float] = None,
+              rr2: Optional[float] = None, confluencia: Optional[int] = None,
+              entrada_a_mercado: Optional[bool] = None) -> None:
     """Grava 1 análise (N1 ou N2) pra avaliação futura. Só faz sentido quando
     stop/alvo/preço estão definidos (sem risco não dá pra medir R-multiple nem
     decidir lado da operação) — o chamador filtra ANTES de chamar aqui.
@@ -86,6 +109,26 @@ def registrar(conn, *, ticker: str, modo: Optional[str], tipo: str, modelo: str,
         # qa/44 (B, ADR-009): regime de mercado no momento da análise — a
         # chave que falta pro loop de validação segmentar por regime.
         "regime": regime,
+        # ADR-015 / ADR15-01: campos que faltavam para ancorar a avaliação no
+        # gatilho do plano determinístico, não no ruído entre close e
+        # gatilho. Motivo verificado: 0 de 159 registros resolvidos em
+        # produção tinham `entrada` — sem ele `_avaliar_entry` mede a
+        # distância close↔gatilho, não a qualidade do motor. `entrada`/
+        # `alvo2`/`rr2` vêm do plano determinístico (N1); `confluencia` é
+        # descritiva do snapshot e existe também no N2. `entradaAMercado` é
+        # tri-estado deliberado: None = não sabemos (N2 ou registro sem
+        # plano), False = entrada no rompimento do gatilho, True = entrada a
+        # mercado (setups.py:602-612, `plano["tipo"]` já rompido dentro da
+        # zona de perseguição) — sem esse marcador o Plano 02 exigiria toque
+        # de gatilho num plano cuja entrada já é imediata, descartando
+        # silenciosamente o caso ADVERSO (gap contra a posição) do
+        # denominador.
+        "entrada": None if entrada is None else float(entrada),
+        "alvo2": None if alvo2 is None else float(alvo2),
+        "rr2": None if rr2 is None else float(rr2),
+        "confluencia": None if confluencia is None else int(confluencia),
+        "entradaAMercado": None if entrada_a_mercado is None else bool(entrada_a_mercado),
+        "metodologiaVersao": METODOLOGIA_ATUAL,
         "criadoEm": datetime.now(timezone.utc).isoformat(),
         "prazoPregoes": HORIZON_PREGOES,
         "resultado": "pendente",
@@ -248,7 +291,12 @@ def to_csv(outcomes: list) -> str:
     cols = ("id", "ticker", "modo", "tipo", "modelo", "setup", "recomendacao",
             "confianca", "stopProposto", "alvoProposto", "precoNaAnalise",
             "snapshotId", "criadoEm", "prazoPregoes", "resultado",
-            "precoResolucao", "rMultiple", "resolvidoEm")
+            "precoResolucao", "rMultiple", "resolvidoEm",
+            # ADR15-01: colunas novas SEMPRE no fim — quem consome o CSV
+            # posicionalmente não pode quebrar. Registro antigo (sem estas
+            # chaves) exporta célula vazia via esc(None), nunca valor inferido.
+            "entrada", "alvo2", "rr2", "confluencia", "entradaAMercado",
+            "metodologiaVersao")
 
     def esc(v) -> str:
         if v is None:

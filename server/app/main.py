@@ -1352,6 +1352,26 @@ async def scan_deep_run(body: dict = Body(default={}), scope: Optional[str] = De
                     # não ao snapshot técnico que o N1 recebe).
                     regime=regime.classificar(snap).get("regime"),
                     user_id=scope,
+                    # ADR-015 / ADR15-01: `entrada`/`alvo2`/`rr2` reusam o `plano`
+                    # já em escopo (não recalcular o plano do resultado nem
+                    # refazer o snapshot). `alvo=plano.get("alvo1")` acima
+                    # PERMANECE —
+                    # trocar a barreira de resolução de alvo1 para alvo2 seria
+                    # uma segunda mudança de comportamento fora do escopo deste
+                    # plano (06-CONTEXT.md, ADR15-02, último bullet).
+                    entrada=plano.get("entrada"), alvo2=plano.get("alvo2"), rr2=plano.get("rr2"),
+                    confluencia=sres.get("confluencia"),
+                    # setups.py:602-612 põe entrada=close (não o gatilho) quando o
+                    # gatilho já rompeu dentro da zona de perseguição; nesse caso
+                    # plano["tipo"] vale "a mercado (gatilho já rompido, dentro da
+                    # zona)". Sem esse marcador o Plano 02 exigiria "toque no
+                    # gatilho" num plano cuja entrada é IMEDIATA — um gap contra a
+                    # posição no candle seguinte (o caso ADVERSO) viraria
+                    # sem_gatilho e sairia do denominador: o mesmo viés otimista
+                    # que o ADR-015 existe para matar. startswith("a mercado") e
+                    # não igualdade com a frase inteira: o prefixo é o contrato,
+                    # o resto da frase é explicação para humano.
+                    entrada_a_mercado=str(plano.get("tipo") or "").startswith("a mercado"),
                 )
         except Exception as e:  # noqa: BLE001 — registro é best-effort
             print(f"[analysis-outcomes] registro N1 falhou p/ {t}: {e}")
@@ -1457,6 +1477,19 @@ async def analyze_technical_model(ticker: str, body: dict = Body(default={}), sc
             # qa/44 (B, ADR-009): mesma classificação do N1, no momento da análise.
             regime=regime.classificar(snap).get("regime"),
             user_id=scope,
+            # ADR-015 / ADR15-01: só `confluencia` — descritiva do snapshot,
+            # sem o problema abaixo. `entrada`/`alvo2`/`rr2`/`entrada_a_mercado`
+            # ficam de fora (None por default) DELIBERADAMENTE: no N2 o
+            # stop/alvo gravados acima vêm da `proposal` da LLM, ancorada no
+            # preço de mercado do momento — enxertar o `entrada` do plano
+            # determinístico (que não está em escopo aqui, e não deve passar
+            # a estar) produziria geometria incoerente (gatilho de um plano
+            # com stop/alvo de outro), a mesma classe de erro que o ADR-015
+            # corrige. Consequência que o Plano 02 honra explicitamente: um
+            # registro N2 é metodologiaVersao=2 mas resolve pela âncora de
+            # PREÇO, não pela de gatilho — a âncora efetiva é carimbada na
+            # resolução (campo `ancora`), nunca inferida da versão.
+            confluencia=(snap.get("setups") or {}).get("confluencia"),
         )
     except Exception as e:  # noqa: BLE001 — registro é best-effort
         print(f"[analysis-outcomes] registro N2 falhou p/ {t}: {e}")
