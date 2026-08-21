@@ -24,6 +24,8 @@ Setups cobertos (melhores práticas didáticas):
 """
 from typing import Optional
 
+from . import skill_ref
+
 # Janela de "recente" para eventos (cruzamentos etc.), em candles.
 RECENT = 3
 
@@ -575,7 +577,7 @@ MODEL_EXPLANATION = [
 #   • sem setup válido => NÃO OPERAR ("sem vantagem estatística").
 # =============================================================================
 
-RR_MINIMO = 1.5          # relação risco-retorno mínima aceitável (alvo final)
+RR_MINIMO = skill_ref.RR_MIN  # relação risco-retorno mínima aceitável (alvo final); ADR15-05: fonte única em skill_ref
 ZONA_PERSEGUICAO = 0.5   # até 0,5× o risco além do gatilho ainda dá entrada a mercado
 
 DECISAO_COMPRAR = "COMPRAR"

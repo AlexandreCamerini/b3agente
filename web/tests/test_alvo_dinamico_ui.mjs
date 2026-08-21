@@ -34,7 +34,11 @@ ok("bloco condicionado a rules.alvo !== false", antes.includes('rules.alvo !== f
 // ---- o app ensina o mecanismo --------------------------------------------
 ok("explica o critério por ATR", /1,5× o ATR\(14\)/.test(src));
 ok("declara o limite de extensões", /no máximo 2 vezes por posição/.test(src));
-ok("cita o piso de R:R do Princípio 5", /R:R recalculado continuar ≥ 1,5:1/.test(src));
+// ADR-015 (06-05): o "1,5:1" literal virou a expressão JSX {RR_MIN_TXT}:1 —
+// fonte única em web/src/finance.js, amarrada a server/app/skill_ref.py por
+// test_rr_min_fonte_unica.mjs. Atualização, não afrouxamento: o texto
+// renderizado continua "R:R recalculado continuar ≥ 1,5:1" (Princípio 5).
+ok("cita o piso de R:R do Princípio 5 (fonte única RR_MIN_TXT)", /R:R recalculado continuar ≥ \{RR_MIN_TXT\}:1/.test(src));
 
 // ---- a chave chega ao servidor -------------------------------------------
 ok('"alvoDinamico" está em SERVER_KEYS (senão o patch não sai do app)', pers.includes('"alvoDinamico"'));

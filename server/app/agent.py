@@ -27,7 +27,7 @@ import time
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from . import db, store
+from . import db, skill_ref, store
 
 INTERVAL_S_DEFAULT = 300
 BRT = timezone(timedelta(hours=-3))
@@ -442,8 +442,8 @@ def nivel_trailing(mode: str, price: float, par: dict, ctx: dict = None):
 # trailing (F2), sempre monotônico.
 # ---------------------------------------------------------------------------
 MAX_ALVO_EXTENSOES = 2
-ALVO_ATR_MULT = 1.5
-RR_MINIMO = 1.5
+ALVO_ATR_MULT = 1.5      # multiplicador de ATR do alvo dinâmico — NÃO é o R:R mínimo, não consolidar com RR_MINIMO
+RR_MINIMO = skill_ref.RR_MIN  # ADR15-05: fonte única em skill_ref (era literal 1.5 solto)
 
 
 def _rr(avg, stop, alvo):
