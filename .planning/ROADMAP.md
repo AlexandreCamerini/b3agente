@@ -3,7 +3,7 @@
 ## Milestones
 
 - ✅ **v1.0 Revisão Geral** — Phase 1 (shipped 2026-08-18) — [detalhes](milestones/v1.0-ROADMAP.md)
-- 🚧 **v1.1 Realismo de Mercado + Correções** — Phases 2-6 (in progress)
+- 🚧 **v1.1 Realismo de Mercado + Correções** — Phases 2-7 (in progress)
 
 ## Phases
 
@@ -29,6 +29,7 @@ seriam inserções urgentes, se necessário.
 - [ ] **Phase 4: Correção Médio — Storyline & UX** - Fecha as lacunas pedagógicas e de experiência (STORY + UX) do REPORT-01
 - [ ] **Phase 5: Correção Médio — Código, Gate & Admin** - Fecha a dívida técnica, a ativação incompleta de gating e a observabilidade admin (CODE + GATE + ADMIN) do REPORT-01
 - [x] **Phase 6: Instrumentação de Assertividade (ADR-015)** - Conserta a medição de eficiência da IA (âncora errada, `n` inflado por duplicação, motivo de venda não persistido) antes de qualquer decisão de produto sobre o motor de recomendação (completed 2026-08-21)
+- [x] **Phase 7: Seleção Dinâmica por Desempenho Histórico (ADR-017 Bloco 1)** - Ledger de sinais resolvidos, bootstrap, hook diário e `regime.ranquear()` passam a pesar cada setup pelo desempenho medido na janela anterior (completed 2026-08-21)
 
 ## Phase Details
 
@@ -248,6 +249,8 @@ gate.
 | 3. Correção Crítico + Alto | v1.1 | 6/6 | Complete   | 2026-08-19 |
 | 4. Correção Médio — Storyline & UX | v1.1 | 0/TBD | Not started | - |
 | 5. Correção Médio — Código, Gate & Admin | v1.1 | 0/TBD | Not started | - |
+| 6. Instrumentação de Assertividade (ADR-015) | v1.1 | 5/5 | Complete | 2026-08-21 |
+| 7. Seleção Dinâmica por Desempenho Histórico (ADR-017 Bloco 1) | v1.1 | 6/6 | Complete | 2026-08-21 |
 
 ### Phase 6: Instrumentação de Assertividade (ADR-015)
 
@@ -323,7 +326,7 @@ manual, manutenção diária incremental sem custo extra de brapi, e
 (`min_n=40`). Backend puro; a interface do histórico é o Bloco 3, fase futura.
 **Requirements**: ADR17-B1, ADR17-B1-01..07
 **Depends on:** Phase 6
-**Plans:** 5/6 plans executed
+**Plans:** 6/6 plans complete
 
 Plans:
 - [x] 07-01-PLAN.md — `signal_replay.py` (fonte única do replay determinístico) + guard de granularidade do Yahoo para todos os intervalos + `backtest_sinal.py` vira wrapper fino
@@ -331,4 +334,4 @@ Plans:
 - [x] 07-03-PLAN.md — bootstrap manual (`python -m app.signal_ledger_bootstrap`, executável dentro do container) + runbook em `docs/OPERACAO-ledger-de-sinais.md`
 - [x] 07-04-PLAN.md — `candle_cache.peek()` + hook diário incremental (`signal_ledger_job`) com fechamento de janela anual alinhado ao calendário da B3
 - [x] 07-05-PLAN.md — `detect_setups` anexa `historico` (provedor injetado, sem I/O) e `regime.ranquear` usa `elegivel` no `radarScore` e na ordenação
-- [ ] 07-06-PLAN.md — fiação: hook no `scheduler_loop`, provedor ligado no boot, adendo no ADR-017 e verificação AO VIVO em produção (checkpoint)
+- [x] 07-06-PLAN.md — fiação: hook no `scheduler_loop`, provedor ligado no boot, adendo no ADR-017 e verificação AO VIVO em produção (checkpoint)

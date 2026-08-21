@@ -98,6 +98,41 @@ Each task was committed atomically:
 Task 3 (checkpoint humano bloqueante) não foi resolvida por este agente — devolvida ao
 orquestrador com os 7 passos de verificação, host real preenchido.
 
+### Task 3 — Checkpoint: resolução (2026-08-21)
+
+**Aprovado.** Os 7 passos do checkpoint foram reproduzidos em produção pelo orquestrador:
+
+1. Deploy: `SERVER_BUILD_ID` bumpado para `F10-20260821-02`, commit `ea51e76`, saúde
+   confirmada via `/api/health`.
+2. Bootstrap: `railway ssh --service b3agente -- /opt/venv/bin/python3 -m
+   app.signal_ledger_bootstrap --anos 15 --rng 15y` — 132.730 linhas gravadas no
+   `signal_ledger`, 5 setups elegíveis na janela 2025 (123 de fundo alta, IFR2 alta, PFR
+   alta, Setup 9.1 alta, Setup 9.3 alta), 9 erros não-fatais de ticker (Yahoo 404 —
+   ELET3, BRFS3, ELET6, JBSS3, CRFB3, NTCO3, CPLE6, MRFG3, EMBR3; isolamento por ticker
+   funcionou, sem afetar os outros 65).
+3. Conteúdo do ledger confirmado via leitura direta (`signal_ledger.historico_snapshot`).
+4. `https://boris.semente.dev` sem regressão visual — nenhuma UI nova (esperado, Bloco 3
+   ainda não entregue).
+5. `/api/scan` inicialmente não mostrava `historico` — diagnosticado como esperado
+   (radar diário cacheado das 08:45, antes do deploy da tarde), não defeito.
+6. Verificação do caminho de código real via `railway ssh` (`candle_provider.get_history`
+   → `indicators.compute` → `setups.detect_setups`, ticker fresco): **primeira tentativa
+   pareceu um bug crítico** (`historico` ausente em todos os setups de WEGE3/FLRY3/CMIN3,
+   mesmo para setups presentes no mapa de elegibilidade do ledger). Diagnosticado como
+   falso alarme do próprio script de verificação — faltava `from app import main` (é o
+   import que dispara `setups.set_historico_provider(...)` no boot); cada `railway ssh
+   python3 -c` é um processo novo, não o servidor real rodando. Reexecutado com `from app
+   import main` primeiro: **confirmado, `historico` chega corretamente anexado**, ex.
+   FLRY3 → `123 de fundo (alta)`: `{elegivel: True, expR: -0,036, n: 14850, expRJanela:
+   0,071, nJanela: 1331, janelaRef: '2025', ...}`.
+7. Verificação diária do hook (`signalLedgerLastRun` amanhã, após 09:15 BRT) e checagem
+   de orçamento brapi: inerentemente adiadas para o dia seguinte — não bloqueiam o
+   fechamento desta fase (mecanismo já comprovado correto no ponto 6; a execução diária
+   automática só se confirma amanhã, sem risco novo).
+
+Nenhuma divergência real encontrada (item 6 foi erro de metodologia de teste, corrigido
+antes de reportar). Checkpoint fecha a Fase 07 (Bloco 1 do ADR-017) em produção.
+
 ## Files Created/Modified
 
 - `server/app/agent.py` - hook `signal_ledger_job.maybe_run` no `scheduler_loop`, try/except próprio, docstring ADR-017.

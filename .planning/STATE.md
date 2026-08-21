@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Realismo de Mercado + Correções
 status: executing
-stopped_at: Phase 2 UI-SPEC force-approved
-last_updated: "2026-08-21T10:29:07.629Z"
-last_activity: 2026-08-21 -- Phase 07 execution started
+stopped_at: Phase 7 checkpoint (07-06 Task 3) aprovado — Bloco 1 do ADR-017 verificado ao vivo em produção
+last_updated: "2026-08-21T16:00:00.000Z"
+last_activity: 2026-08-21 -- Phase 07 concluída (checkpoint aprovado, ledger em produção)
 progress:
   total_phases: 6
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 24
-  completed_plans: 18
-  percent: 50
+  completed_plans: 24
+  percent: 67
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-18)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Phase 07 — sele-o-din-mica-por-desempenho-hist-rico-ledger-de-sinais-re
+**Current focus:** Phase 4/5 — Correção Médio (REPORT-01), ainda não iniciadas
 
 ## Current Position
 
-Phase: 07 (sele-o-din-mica-por-desempenho-hist-rico-ledger-de-sinais-re) — EXECUTING
-Plan: 1 of 6
-Status: Executing Phase 07
-Last activity: 2026-08-21 -- Phase 07 execution started
+Phase: 07 (sele-o-din-mica-por-desempenho-hist-rico-ledger-de-sinais-re) — COMPLETE
+Plan: 6 of 6
+Status: Fase 07 concluída — checkpoint 07-06 aprovado, Bloco 1 do ADR-017 em produção
+Last activity: 2026-08-21 -- Phase 07 concluída (checkpoint aprovado, ledger em produção)
 
-Progress: [░░░░░░░░░░] 0% (v1.1)
+Progress: [██████░░░░] 67% (v1.1, 4/6 fases: 2,3,6,7 completas; 4,5 não iniciadas)
 
 ## Performance Metrics
 
@@ -133,11 +133,12 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-18T21:14:02.248Z
-Stopped at: Phase 2 UI-SPEC force-approved
-Resume file: .planning/phases/02-realismo-de-mercado/02-UI-SPEC.md
+Last session: 2026-08-21T16:00:00.000Z
+Stopped at: Phase 7 checkpoint (07-06 Task 3) aprovado — Fase 07 concluída
+Resume file: .planning/phases/07-sele-o-din-mica-por-desempenho-hist-rico-ledger-de-sinais-re/07-06-SUMMARY.md
 
 ## Operator Next Steps
 
-- Review ROADMAP.md draft (Phases 2-5) and approve, or request revisions
-- Once approved: `/gsd:plan-phase 2` to start planning Phase 2 (Realismo de Mercado)
+- Fases 4 e 5 (Correção Médio — REPORT-01) seguem não iniciadas, sem plano ainda: `/gsd:plan-phase 4` quando o Alex priorizar.
+- Bloco 3/4 do ADR-017 (interface do histórico no Radar/Watchlist, texto de IA) fica para fase futura — deferred, não escopo aberto.
+- 9 tickers com 404 no bootstrap do ledger (ELET3, BRFS3, ELET6, JBSS3, CRFB3, NTCO3, CPLE6, MRFG3, EMBR3) — prováveis renomeações/deslistagens; não investigado, não bloqueia a fase.
