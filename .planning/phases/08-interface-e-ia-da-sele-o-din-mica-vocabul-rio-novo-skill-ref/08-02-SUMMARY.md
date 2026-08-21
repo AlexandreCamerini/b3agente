@@ -101,3 +101,7 @@ None - no external service configuration required.
 ---
 *Phase: 08-interface-e-ia-da-sele-o-din-mica-vocabul-rio-novo-skill-ref*
 *Completed: 2026-08-21*
+
+## Self-Check: PASSED
+
+All modified files verified present on disk; commits 70cd2c1, ab5554c, 6497b72 verified in `git log`.
