@@ -44,7 +44,7 @@ patterns-established:
 requirements-completed: [ADR17-B34-02]
 
 # Metrics
-duration: ~50min
+duration: ~40min (leitura/exploração anterior ao 1º commit não tem timestamp registrado; ver nota em Performance)
 completed: 2026-08-21
 ---
 
@@ -54,9 +54,9 @@ completed: 2026-08-21
 
 ## Performance
 
-- **Duration:** ~50 min
-- **Started:** 2026-08-21T20:45:00-03:00 (approx.)
-- **Completed:** 2026-08-21T18:33:11-03:00
+- **Duration:** ~40 min (do 1º commit de código ao commit deste SUMMARY; a leitura de PLAN.md/UI-SPEC/08-01-SUMMARY/App.jsx anterior ao Task 1 não ficou com timestamp registrado)
+- **Started:** 2026-08-21T18:24:02-03:00 (timestamp do commit `9d68222`, Task 1)
+- **Completed:** 2026-08-21T18:35:41-03:00
 - **Tasks:** 3
 - **Files modified:** 3 (+ 1 criado)
 
