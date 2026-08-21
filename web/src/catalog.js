@@ -28,6 +28,10 @@ export const CATALOG = [
 export const CATALOG_TICKERS = CATALOG.map((c) => c.t);
 
 // FASE 8B (R2) — skill da MESA (Modo Operador). Espelho do defaults.py.
+// ADR-015 (06-05): o R:R mínimo abaixo fica LITERAL de propósito — texto
+// espelhado de default_skill_text_operador() (server/app/defaults.py), sem
+// guardião de paridade byte-a-byte próprio, mas amarrado à fonte única
+// (skill_ref.RR_MIN) por web/tests/test_rr_min_fonte_unica.mjs. Não interpolar.
 export function defaultSkillTextOperador() {
   return [
     "# Skill: Mesa B3 - Operador v1",
@@ -78,6 +82,13 @@ export function defaultSkillText() {
 // recomendação de compra/venda).
 export function defaultLlmPrompts() {
   return {
+    // ADR-015 (06-05): os R:R mínimo/ideal abaixo ficam LITERAIS de
+    // propósito — o guardião test_a8ii_paridade_defaults_carteira_com_catalog_js
+    // compara o CÓDIGO-FONTE deste template literal, byte a byte, com a
+    // string do servidor (default_llm_prompts() em server/app/defaults.py);
+    // interpolar aqui quebraria essa paridade. A amarração com a fonte única
+    // (skill_ref.RR_MIN) é feita por teste cruzado: test_a8iii (Python) e
+    // web/tests/test_rr_min_fonte_unica.mjs (JS), não por import.
     carteiraStopAlvo: `Você é um analista técnico educacional da B3. Sua tarefa é analisar CADA
 ATIVO INDIVIDUALMENTE e propor, para cada um, um STOP e um ALVO.
 Base da análise:
@@ -131,6 +142,10 @@ Enquadramento (não copie este parágrafo para o JSON): Esta análise possui fin
     // FASE 8B (N4) — versão MESA DE OPERAÇÕES do mesmo contrato (usada quando
     // config.appMode === "operador"). Mesmo formato de saída (o popup parseia
     // o MESMO array); muda a voz, o rigor de R:R e a disciplina.
+    // ADR-015 (06-05): mesma regra do literal acima — os R:R mínimo/ideal
+    // ficam literais (paridade byte-a-byte com defaults.py via
+    // test_a8ii_paridade_defaults_carteira_com_catalog_js); amarrados à fonte
+    // única por teste cruzado, não por import.
     carteiraStopAlvoOperador: `Você é a mesa de operações do cliente na B3. Sua tarefa é definir, para CADA
 ATIVO INDIVIDUALMENTE, o STOP e o ALVO da posição — números executáveis, direto
 ao ponto.

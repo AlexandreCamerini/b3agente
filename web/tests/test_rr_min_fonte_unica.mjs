@@ -9,11 +9,12 @@
 // manda o nome da variável literal para a tela do usuário.
 //
 // IMPORTANTE — RR_MIN_TXT NÃO é literal de fonte no Python: skill_ref.py
-// declara `RR_MIN = 1.5` (literal) e logo abaixo
-// `RR_MIN_TXT = f"{RR_MIN:g}".replace(".", ",")` (COMPUTADO em runtime). Por
-// isso o cruzamento aqui parseia só o NÚMERO com a regex `RR_MIN\s*=\s*([0-9.]+)`
-// e DERIVA o texto esperado em JS — nunca procura `RR_MIN_TXT = "1,5"` como
-// string literal do fonte Python (esse match falharia sempre).
+// declara `RR_MIN = 1.5` (literal) e logo abaixo deriva a versão pt-BR
+// (`f"{RR_MIN:g}".replace(".", ",")`, COMPUTADA em runtime). Por isso o
+// cruzamento aqui parseia só o NÚMERO com a regex `RR_MIN\s*=\s*([0-9.]+)`
+// e DERIVA o texto esperado em JS — nunca busca o nome da variável de texto
+// seguido de igual e aspas como string literal do fonte Python (esse match
+// falharia sempre, porque o valor não existe verbatim no arquivo).
 //
 // Caminhos resolvidos por `new URL(..., import.meta.url)`, nunca relativo ao
 // cwd: `scripts/executar.sh` roda os runners com cwd=web e saída para

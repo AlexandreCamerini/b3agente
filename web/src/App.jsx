@@ -12,7 +12,7 @@ import { BUILD_ID } from "./version.js";
 // carimbo no console: prova de qual build está rodando (device/web)
 try { console.log("[b3] build", BUILD_ID); } catch { /* noop */ }
 import { canAddTicker, canAnalyze } from "./plan.js";
-import { portfolioMetrics, dayReturnPct, equityCurve, markPrice, sizingPlano } from "./finance.js";
+import { portfolioMetrics, dayReturnPct, equityCurve, markPrice, sizingPlano, RR_MIN_TXT } from "./finance.js";
 import * as notify from "./notify.js";
 import { track, setAnalyticsUser, flush as flushAnalytics } from "./analytics.js"; // qa/47 (Fase 2)
 import Boris from "./pet/Boris.jsx";
@@ -4006,7 +4006,7 @@ function AgenteScreen({ ctx }) {
               </button>
             </div>
             <p style={{ margin: "9px 0 0", fontSize: "11.5px", lineHeight: 1.5, color: T.textFaint }}>
-              Quando o preço bate o alvo, se ainda sobrar 1,5× o ATR(14) de fôlego e o R:R recalculado continuar ≥ 1,5:1 (Princípio 5), o alvo é estendido — no máximo 2 vezes por posição. Depois disso, ou sem esse fôlego, o fechamento simulado da posição acontece normalmente.
+              Quando o preço bate o alvo, se ainda sobrar 1,5× o ATR(14) de fôlego e o R:R recalculado continuar ≥ {RR_MIN_TXT}:1 (Princípio 5), o alvo é estendido — no máximo 2 vezes por posição. Depois disso, ou sem esse fôlego, o fechamento simulado da posição acontece normalmente.
             </p>
           </div>
         )}
@@ -4344,7 +4344,7 @@ const PROMPT_META = {
   // FASE 8B (N4): cada modo tem o seu prompt — edite os dois separadamente.
   carteiraStopAlvoOperador: {
     label: "Prompt — Stop/alvo · Modo Operador (mesa)",
-    hint: "Usado no popup de stop/alvo quando o app está no Modo Operador. Voz de mesa: stop na invalidação técnica, R:R mínimo de 1,5:1, execução sempre do usuário. O guardrail de mesa é aplicado por cima automaticamente.",
+    hint: `Usado no popup de stop/alvo quando o app está no Modo Operador. Voz de mesa: stop na invalidação técnica, R:R mínimo de ${RR_MIN_TXT}:1, execução sempre do usuário. O guardrail de mesa é aplicado por cima automaticamente.`,
   },
 };
 

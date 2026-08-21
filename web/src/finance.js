@@ -20,6 +20,14 @@
 //    curva são o MESMO valor. (Se não houver orçamento, cai para o 1º snapshot.)
 //  • Drawdown = maior queda percentual desde o pico, sobre a MESMA curva exibida.
 
+// Relação risco-retorno mínima (piso 1,5:1) — espelho de
+// server/app/skill_ref.py (RR_MIN/RR_MIN_TXT). ADR-015 (06-05): fonte única
+// do front, amarrada ao backend por web/tests/test_rr_min_fonte_unica.mjs e
+// por test_a8iii em server/tests/test_auditoria_prompts.py. finance.js é o
+// módulo de números determinísticos do front — é onde a constante pertence.
+export const RR_MIN = 1.5;
+export const RR_MIN_TXT = "1,5"; // formato pt-BR para interpolação em texto
+
 export function markPrice(quote, position) {
   const px = quote && typeof quote.price === "number" && quote.price > 0 ? quote.price : null;
   if (px != null) return px;

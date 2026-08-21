@@ -13,6 +13,7 @@
 //  • funções para textos com variáveis: saudacao(nome), resumoDia(n, g);
 //  • vocabulário de ordem (comprar/vender) PROIBIDO no ramo estudo (guardião).
 import { DISCLAIMERS } from "./disclaimers.js";
+import { RR_MIN_TXT } from "./finance.js"; // ADR-015 (06-05): fonte única do R:R mínimo
 
 export const COPY = {
   estudo: {
@@ -131,7 +132,7 @@ export const COPY = {
     // abas
     tabRadar: "Mesa", // qa/34: a aba dizia "Radar" enquanto a tela é "Mesa de oportunidades"
     tituloRadar: "Mesa de oportunidades",
-    subtituloRadar: "Varredura do universo com decisão objetiva por ativo: plano de entrada, stop na invalidação, alvos e R:R — abaixo de 1,5:1 a mesa não opera.",
+    subtituloRadar: `Varredura do universo com decisão objetiva por ativo: plano de entrada, stop na invalidação, alvos e R:R — abaixo de ${RR_MIN_TXT}:1 a mesa não opera.`,
     tituloWatchlist: "Monitoramento",
     subtituloWatchlist: "Seus ativos monitorados, ordenados por oportunidade (confluência do snapshot). O plano de cada um abre no card.",
     tituloPortfolio: "Posições",
@@ -144,7 +145,7 @@ export const COPY = {
 
     // Mesa — bloco "como funciona" + CTAs de monitoramento (qa/34)
     comoAnalisaTitulo: "COMO A MESA DECIDE",
-    comoAnalisaCorpo: "Cada ativo é comparado a setups clássicos, como um checklist de critérios objetivos. A confluência é o percentual ponderado de critérios atendidos. Sobre ela a mesa monta o plano: entrada, stop na invalidação e alvos com R:R mínimo de 1,5:1 — abaixo disso, não se opera. Nenhuma ordem é enviada à corretora; a execução é sua.",
+    comoAnalisaCorpo: `Cada ativo é comparado a setups clássicos, como um checklist de critérios objetivos. A confluência é o percentual ponderado de critérios atendidos. Sobre ela a mesa monta o plano: entrada, stop na invalidação e alvos com R:R mínimo de ${RR_MIN_TXT}:1 — abaixo disso, não se opera. Nenhuma ordem é enviada à corretora; a execução é sua.`,
     btnAddMonitor: "+ Monitorar",
     jaMonitorado: "✓ Monitorado",
 
