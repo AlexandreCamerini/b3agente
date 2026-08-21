@@ -597,6 +597,164 @@ def test_compute_stats_setup_none_normaliza_para_traco_no_par():
     assert not any(k.startswith("None") for k in st["porSetupRegime"])
 
 
+# ===== ADR15-03 (Plano 03): compute_stats não mistura metodologias/âncoras =====
+def _outcome_v(resultado, r_multiple=None, metodologia_versao=2, ancora="gatilho",
+              modo="estudo", tipo="n1", setup="IFR2"):
+    o = {"resultado": resultado, "rMultiple": r_multiple, "modo": modo, "tipo": tipo,
+         "setup": setup}
+    if metodologia_versao is not None:
+        o["metodologiaVersao"] = metodologia_versao
+    if ancora is not None:
+        o["ancora"] = ancora
+    return o
+
+
+def test_compute_stats_default_filtra_metodologia_atual_e_declara_legado():
+    # 6 v2 (3 alvo, 3 stop) + 40 legados (sem metodologiaVersao) — default
+    # (metodologia=METODOLOGIA_ATUAL) agrega só os 6, declara os 40 à parte.
+    novo = [_outcome_v("alvo", 1.0)] * 3 + [_outcome_v("stop", -1.0)] * 3
+    velho = [{"resultado": "stop", "rMultiple": -1.0, "modo": "estudo", "tipo": "n1",
+              "setup": "IFR2"}] * 40  # sem metodologiaVersao -> _metodologia() == 1
+    st = ao.compute_stats(novo + velho)
+    assert st["totalAnalises"] == 46
+    assert st["totalComparaveis"] == 6
+    assert st["avaliadas"] == 6
+    assert st["taxaAcerto"] == 50.0
+    assert st["metodologia"] == ao.METODOLOGIA_ATUAL
+    assert st["metodologiaLegado"] == {"total": 40, "avaliadas": 40}
+    assert st["metodologiaLegado"]["total"] == st["totalAnalises"] - st["totalComparaveis"]
+
+
+def test_compute_stats_metodologia_none_desliga_o_filtro():
+    velho = [{"resultado": "stop", "rMultiple": -1.0, "modo": "estudo", "tipo": "n1",
+              "setup": "IFR2"}] * 40
+    st = ao.compute_stats(velho, metodologia=None)
+    assert st["avaliadas"] == 40
+    assert st["totalComparaveis"] == st["totalAnalises"] == 40
+    assert st["metodologiaLegado"] == {"total": 0, "avaliadas": 0}
+
+
+def test_compute_stats_metodologia_1_agrega_so_o_legado():
+    novo = [_outcome_v("alvo", 1.0)] * 3
+    velho = [{"resultado": "stop", "rMultiple": -1.0, "modo": "estudo", "tipo": "n1",
+              "setup": "IFR2"}] * 40
+    st = ao.compute_stats(novo + velho, metodologia=1)
+    assert st["avaliadas"] == 40
+    assert st["metodologiaLegado"] == {"total": 3, "avaliadas": 3}
+
+
+def test_compute_stats_lista_100_v2_metodologia_legado_zerado():
+    novo = [_outcome_v("alvo", 1.0)] * 10
+    st = ao.compute_stats(novo)
+    assert st["metodologiaLegado"] == {"total": 0, "avaliadas": 0}
+    assert st["totalComparaveis"] == st["totalAnalises"] == 10
+
+
+def test_compute_stats_pendente_legado_nao_some_do_contador():
+    # 2 pendentes legados + 1 pendente v2 + 1 resolvido v2
+    outcomes = [
+        {"resultado": "pendente", "modo": "estudo", "tipo": "n1", "setup": "IFR2"},
+        {"resultado": "pendente", "modo": "estudo", "tipo": "n1", "setup": "IFR2"},
+        _outcome_v("pendente"),
+        _outcome_v("alvo", 1.0),
+    ]
+    st = ao.compute_stats(outcomes)
+    assert st["totalAnalises"] == 4
+    assert st["totalComparaveis"] == 2
+    assert st["avaliadas"] == 1
+    assert st["pendentes"] == 3
+    assert st["naoAcionados"] == 0
+    assert st["metodologiaLegado"] == {"total": 2, "avaliadas": 0}
+
+
+def test_compute_stats_por_ancora_segmenta_resolvidos():
+    outcomes = [_outcome_v("alvo", 1.0, ancora="gatilho")] * 5 + \
+               [_outcome_v("alvo", 1.0, ancora="preco")] * 5
+    st = ao.compute_stats(outcomes)
+    assert sorted(st["porAncora"].keys()) == ["gatilho", "preco"]
+    assert st["porAncora"]["gatilho"]["n"] == 5
+    assert st["porAncora"]["preco"]["n"] == 5
+
+
+def test_compute_stats_por_ancora_resolvido_sem_ancora_cai_no_traco():
+    outcomes = [_outcome_v("alvo", 1.0, ancora=None)] * 3
+    st = ao.compute_stats(outcomes)
+    assert "—" in st["porAncora"]
+    assert st["porAncora"]["—"]["n"] == 3
+
+
+# ===== ADR15-03 (Plano 03): _dedup_por_snapshot =====
+def test_dedup_por_snapshot_mesmo_snapshot_n1_colapsa_para_1():
+    outcomes = [{"snapshotId": "s1", "modo": "operador", "tipo": "n1", "id": str(i),
+                 "criadoEm": "2026-01-0%d" % (i + 1), "resultado": "stop"} for i in range(9)]
+    out = ao._dedup_por_snapshot(outcomes)
+    assert len(out) == 1
+    assert out[0]["id"] == "0"
+
+
+def test_dedup_por_snapshot_n1_modo_independente():
+    outcomes = [{"snapshotId": "s1", "modo": "estudo", "tipo": "n1", "id": "a"},
+                {"snapshotId": "s1", "modo": "operador", "tipo": "n1", "id": "b"}]
+    assert len(ao._dedup_por_snapshot(outcomes)) == 1
+
+
+def test_dedup_por_snapshot_n2_modo_dependente():
+    outcomes = [{"snapshotId": "s1", "modo": "estudo", "tipo": "n2", "id": "a"},
+                {"snapshotId": "s1", "modo": "operador", "tipo": "n2", "id": "b"}]
+    assert len(ao._dedup_por_snapshot(outcomes)) == 2
+
+
+def test_dedup_por_snapshot_tipo_diferente_conta_2():
+    outcomes = [{"snapshotId": "s1", "modo": "estudo", "tipo": "n1", "id": "a"},
+                {"snapshotId": "s1", "modo": "estudo", "tipo": "n2", "id": "b"},
+                {"snapshotId": None, "modo": "estudo", "tipo": "n1", "id": "c"},
+                {"snapshotId": None, "modo": "estudo", "tipo": "n1", "id": "e"}]
+    assert len(ao._dedup_por_snapshot(outcomes)) == 4
+
+
+def test_dedup_por_snapshot_com_modo_pre_filtra_e_preserva_observacao():
+    outcomes = [{"snapshotId": "s1", "modo": "estudo", "tipo": "n1", "id": "a"},
+                {"snapshotId": "s1", "modo": "operador", "tipo": "n1", "id": "b"}]
+    out = ao._dedup_por_snapshot(outcomes, modo="operador")
+    assert len(out) == 1 and out[0]["id"] == "b"
+
+
+def test_dedup_por_snapshot_sobrevivente_resolvido_e_mais_antigo():
+    # entre 3 do mesmo grupo: 2 pendentes + 1 resolvido -> sobrevive o resolvido
+    outcomes = [
+        {"snapshotId": "s1", "modo": "estudo", "tipo": "n1", "id": "pend1",
+         "resultado": "pendente", "criadoEm": "2026-01-01"},
+        {"snapshotId": "s1", "modo": "estudo", "tipo": "n1", "id": "resolvido",
+         "resultado": "alvo", "criadoEm": "2026-01-05"},
+        {"snapshotId": "s1", "modo": "estudo", "tipo": "n1", "id": "pend2",
+         "resultado": "pendente", "criadoEm": "2026-01-02"},
+    ]
+    out = ao._dedup_por_snapshot(outcomes)
+    assert len(out) == 1 and out[0]["id"] == "resolvido"
+
+
+def test_compute_stats_all_users_deduplica_mas_outcomes_crus_preservam_duplicata():
+    conn = _fresh_db()
+    # mesmo snapshotId, mesmo N1, gravado 12x sob o escopo u1 (mesma classe do
+    # incidente de produção citado no ADR-015)
+    for i in range(12):
+        ao.registrar(conn, ticker="PETR4", modo="operador", tipo="n1", modelo="x",
+                     setup="IFR2", recomendacao="COMPRAR", stop=9.0, alvo=11.0, preco=10.0,
+                     snapshot_id="dup1", user_id="u1")
+    ao.registrar(conn, ticker="VALE3", modo="estudo", tipo="n1", modelo="x",
+                 setup="Stormer", recomendacao="COMPRAR", stop=9.0, alvo=11.0, preco=10.0,
+                 snapshot_id="dup2", user_id="u2")
+    crus = ao.outcomes_de_todos_os_usuarios(conn)
+    assert len(crus) == 13  # 12 duplicatas + 1 -- lista crua intacta
+
+    # registrar() carimba metodologiaVersao=2 (METODOLOGIA_ATUAL) em todo
+    # registro novo -- o default de compute_stats já os inclui, sem precisar
+    # desligar o filtro de metodologia para este teste.
+    st = ao.compute_stats_all_users(conn)
+    assert st["totalAnalises"] == 2  # deduplicado: 1 (dup1) + 1 (dup2)
+    conn.close()
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_") and callable(fn):
