@@ -18,23 +18,33 @@ from datetime import datetime
 
 import pytest
 
-from app import agent, candles, db, intraday, radar_daily, store, timing_watch
+from app import agent, candles, db, intraday, radar_daily, signal_ledger, store, timing_watch
 
 HOJE = "2026-08-07"
 AGORA = datetime(2026, 8, 7, 14, 30, tzinfo=intraday.BRT)   # pregão aberto
+SETUP = "IFR2 (alta)"  # nome real do catálogo (server/app/setups.py:303)
 
 
 @pytest.fixture(autouse=True)
-def _desliga_suspensao_adr017(monkeypatch):
-    """ADR-017 (Decisão 3, 2026-08-20): entrada automática está SUSPENSA em
-    produção até a seleção dinâmica (Bloco 1b) existir
-    (`agent.ENTRADA_AUTO_SUSPENSA_ADR017 = True`). Este arquivo testa a
-    MECÂNICA (lote, orçamento, maxOpsDia, maxValorOp, dedupe com o vigia) —
-    correta hoje e a mesma que volta a valer quando a suspensão for
-    removida. Reversão deliberada: desliga a flag só neste arquivo de teste,
-    nunca no produto. A suspensão em si tem guardião próprio em
-    test_entrada_automatica_suspensa_adr017.py."""
-    monkeypatch.setattr(agent, "ENTRADA_AUTO_SUSPENSA_ADR017", False)
+def _setup_elegivel_no_ledger(monkeypatch):
+    """ADR-017 (Decisão 3, 2026-08-20 → Adendo 2, 2026-08-21): desde a Fase 08
+    a entrada automática passa por um GATE DE ELEGIBILIDADE em vez da antiga
+    suspensão cega — `_avaliar_entradas` consulta
+    `signal_ledger.historico_snapshot` e só executa quando `elegivel is True`
+    para o setup do gatilho. Este arquivo testa a MECÂNICA (lote, orçamento,
+    maxOpsDia, maxValorOp, dedupe com o vigia), não o gate em si — o gate tem
+    guardião próprio em test_entrada_automatica_suspensa_adr017.py. Este stub
+    neutraliza o gate devolvendo o setup usado pelos cenários deste arquivo
+    (SETUP = "IFR2 (alta)") como elegível, com o shape completo de
+    `signal_ledger._fundir` (server/app/signal_ledger.py:222-246) — um stub
+    mais frouxo que o contrato real esconderia divergência de shape."""
+    signal_ledger.reset_cache()
+    monkeypatch.setattr(
+        signal_ledger, "historico_snapshot",
+        lambda conn, **kw: {SETUP: {"expR": 0.072, "n": 2934, "medidoAte": "2026-08-20",
+                                     "elegivel": True, "insuficiente": False,
+                                     "expRJanela": 0.072, "nJanela": 2934,
+                                     "janelaRef": "2025", "calculadoEm": "2026-08-21"}})
 
 
 def _conn(app_mode="operador"):
@@ -66,7 +76,7 @@ def _seed_radar(c, planos):
         lado = "alta" if decisao == "COMPRAR" else "baixa"
         results.append({"ticker": t, "veredito": "Estudar",
                         "plano": {"decisao": decisao, "lado": lado, "entrada": entrada,
-                                  "stop": stop, "riscoPorAcao": risco, "setup": "rompimento"}})
+                                  "stop": stop, "riscoPorAcao": risco, "setup": SETUP}})
     return radar_daily.store_result(c, period, {"results": results}, "manual")
 
 
