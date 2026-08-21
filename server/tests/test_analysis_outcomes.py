@@ -290,6 +290,50 @@ def test_compute_stats_filtra_por_modo_e_recorte_por_setup():
     assert st_all["totalAnalises"] == 3
 
 
+# ADR15-02: `sem_gatilho` (RESULTADOS_NEUTROS) sai de `avaliadas`/
+# `taxaAcerto`/expectância — contá-lo como falha reproduziria, com outro
+# nome, o viés de stop fantasma que o ADR-015 corrige.
+def test_compute_stats_sem_gatilho_fora_de_avaliadas_e_taxa_acerto():
+    outcomes = ([_outcome("alvo", 1.0) for _ in range(3)]
+                + [_outcome("stop", -1.0) for _ in range(2)]
+                + [_outcome("sem_gatilho", None) for _ in range(4)])
+    st = ao.compute_stats(outcomes)
+    assert st["totalAnalises"] == 9
+    assert st["avaliadas"] == 5
+    assert st["taxaAcerto"] == 60.0
+    assert st["naoAcionados"] == 4
+    assert st["pendentes"] == 0  # sem_gatilho não é pendente
+
+
+def test_compute_stats_sem_gatilho_fora_das_segmentacoes_e_da_curva_r():
+    outcomes = ([_outcome("alvo", 1.0, setup="IFR2") for _ in range(10)]
+                + [_outcome("sem_gatilho", None, setup="IFR2") for _ in range(10)])
+    st = ao.compute_stats(outcomes)
+    assert st["porSetup"]["IFR2"] == {"acerto": 10, "total": 10}  # os 10 sem_gatilho não entram
+    assert st["porConfianca"]["—"]["n"] == 10
+    assert st["porDecisao"]["—"]["n"] == 10
+    assert st["porRegime"]["—"]["n"] == 10
+    assert st["porSetupRegime"]["IFR2 @ —"]["n"] == 10
+    assert len(st["curvaR"]) == 10
+    assert st["naoAcionados"] == 10
+
+
+def test_compute_stats_sem_sem_gatilho_e_nao_regressivo():
+    # lista SEM nenhum sem_gatilho: naoAcionados é o único campo novo — o
+    # resto do dict permanece idêntico ao comportamento anterior a este plano.
+    outcomes = [
+        _outcome("alvo", 1.0), _outcome("alvo", 0.8), _outcome("stop", -1.0),
+        _outcome("expirou_pos", 0.3), _outcome("expirou_neg", -0.4),
+        _outcome("pendente"),
+    ]
+    st = ao.compute_stats(outcomes)
+    assert st["naoAcionados"] == 0
+    assert st["totalAnalises"] == 6
+    assert st["pendentes"] == 1
+    assert st["avaliadas"] == 5
+    assert st["taxaAcerto"] == 60.0
+
+
 # ===== qa/35 (P2): expectância + calibração + CSV (puras) =====
 def _outcome_conf(resultado, r, confianca=None, recomendacao="Estudar alta"):
     return {"resultado": resultado, "rMultiple": r, "modo": "estudo", "tipo": "n1",

@@ -182,8 +182,16 @@ def compute_stats(outcomes: list, modo: Optional[str] = None, tipo: Optional[str
     em Python — a LLM não calcula nada."""
     filtrado = [o for o in (outcomes or [])
                 if (modo is None or o.get("modo") == modo) and (tipo is None or o.get("tipo") == tipo)]
-    resolvidos = [o for o in filtrado if o.get("resultado") not in (None, "pendente")]
+    # ADR15-02: `sem_gatilho` (RESULTADOS_NEUTROS) sai de `resolvidos` — o
+    # gatilho não foi tocado dentro do prazo, o trade não existiu; não é
+    # acerto nem erro, e contá-lo como falha reproduziria, com outro nome, o
+    # viés de stop fantasma que o ADR-015 corrige. Como os neutros saem
+    # daqui, todas as segmentações/curva de R abaixo já ficam limpas por
+    # construção (todas iteram sobre `resolvidos`).
+    resolvidos = [o for o in filtrado
+                  if o.get("resultado") not in (None, "pendente") and o.get("resultado") not in RESULTADOS_NEUTROS]
     pendentes = [o for o in filtrado if o.get("resultado") == "pendente"]
+    nao_acionados = [o for o in filtrado if o.get("resultado") in RESULTADOS_NEUTROS]  # -> "naoAcionados" no retorno
     sucesso = [o for o in resolvidos if o.get("resultado") in RESULTADOS_SUCESSO]
     r_valores = [o["rMultiple"] for o in resolvidos if o.get("rMultiple") is not None]
     por_setup: dict = {}
@@ -259,6 +267,10 @@ def compute_stats(outcomes: list, modo: Optional[str] = None, tipo: Optional[str
         "totalAnalises": len(filtrado),
         "avaliadas": len(resolvidos),
         "pendentes": len(pendentes),
+        # ADR15-02: gatilho não tocado dentro do prazo = o trade não
+        # existiu; não é acerto nem erro, e por isso fica FORA de
+        # avaliadas/taxaAcerto/expectância — visível aqui em separado.
+        "naoAcionados": len(nao_acionados),
         "taxaAcerto": round(100 * len(sucesso) / len(resolvidos), 1) if resolvidos else None,
         "rMedio": round(sum(r_valores) / len(r_valores), 2) if r_valores else None,
         "porSetup": por_setup,

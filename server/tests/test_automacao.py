@@ -181,6 +181,53 @@ def test_correlacao_sem_ordens_devolve_cobertura_none_nao_zero_falso():
     conn.close()
 
 
+# ADR15-02: `sem_gatilho` (RESULTADOS_NEUTROS) passa em `vinculadasComAnalise
+# Registrada` mas NUNCA em `resolvidas` — o gatilho não foi tocado, o trade
+# nunca existiu; deixá-lo em `resolvidas` diluiria `seguiuAnaliseComSucesso /
+# resolvidas` no painel admin "Automação" com uma correlação que nunca
+# aconteceu.
+def test_correlacao_sem_gatilho_nao_conta_como_resolvida():
+    conn = _fresh_db()
+    ao.registrar(conn, ticker="PETR4", modo="operador", tipo="n1", modelo="x",
+                 setup="IFR2", recomendacao="COMPRAR", stop=37.0, alvo=40.0, preco=38.0,
+                 snapshot_id="snap-sem-gatilho", user_id="u1")
+    outs = db.kv_get(conn, "analysisOutcomes", [], user_id="u1")
+    outs[0].update(resultado="sem_gatilho", rMultiple=None, resolvidoEm="2026-08-20", ancora="gatilho")
+    db.kv_set(conn, "analysisOutcomes", outs, user_id="u1")
+    store.buy(conn, "PETR4", 100, 38.0, user_id="u1", origem="automatico",
+              meta={"snapshotId": "snap-sem-gatilho"})
+    r = automacao.correlacao_analise_operacao(conn)
+    assert r["vinculadasComAnaliseRegistrada"] == 1
+    assert r["resolvidas"] == 0
+    assert r["seguiuAnaliseComSucesso"] == 0
+    conn.close()
+
+
+def test_correlacao_cenario_misto_alvo_stop_sem_gatilho_pendente():
+    conn = _fresh_db()
+    cenarios = [
+        ("PETR4", "snap-alvo", "alvo", 1.0),
+        ("VALE3", "snap-stop", "stop", -1.0),
+        ("ITUB4", "snap-sem-gatilho", "sem_gatilho", None),
+        ("BBAS3", "snap-pendente", "pendente", None),
+    ]
+    for i, (ticker, snap, resultado, r_mult) in enumerate(cenarios):
+        ao.registrar(conn, ticker=ticker, modo="operador", tipo="n1", modelo="x",
+                     setup="IFR2", recomendacao="COMPRAR", stop=9.0, alvo=12.0, preco=10.0,
+                     snapshot_id=snap, user_id="u1")
+        if resultado != "pendente":
+            outs = db.kv_get(conn, "analysisOutcomes", [], user_id="u1")
+            outs[i].update(resultado=resultado, rMultiple=r_mult, resolvidoEm="2026-08-20")
+            db.kv_set(conn, "analysisOutcomes", outs, user_id="u1")
+        store.buy(conn, ticker, 100, 10.0, user_id="u1", origem="automatico",
+                  meta={"snapshotId": snap})
+    r = automacao.correlacao_analise_operacao(conn)
+    assert r["vinculadasComAnaliseRegistrada"] == 4
+    assert r["resolvidas"] == 2
+    assert r["seguiuAnaliseComSucesso"] == 1
+    conn.close()
+
+
 # ------------------------------- maybe_refresh_cache --------------------------
 
 def test_maybe_refresh_cache_popula_e_respeita_gate_diario():
