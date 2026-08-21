@@ -5843,7 +5843,13 @@ function RadarScreen({ ctx }) {
           const precoR = temCotacao ? qViva.price : r.close;
           const pnlR = posR && precoR != null ? (precoR - posR.avg) * posR.qty : null;
           const pnlPctR = posR && precoR != null && posR.avg > 0 ? (precoR / posR.avg - 1) * 100 : null;
-          const radarVm = { t: r.ticker, name: nameR, q: qR, chColor, sc: { spark: r.spark, confluencia: r.confluencia, melhorSetup: r.melhorSetup }, pos: posR, cur: precoR, pnl: pnlR, pnlPct: pnlPctR, kp: {}, fscore: r.fundamento && r.fundamento.score, decM: decMr, decColor: decColorR, decBg: decBgR, quotesLoading: false, operador, A: ctx.A, data: ctx.data, didatica: ctx.didatica, overlayLivre: ctx.overlayLivre };
+          // ADR-017 Bloco 3: `sc` do Radar continua um SUBCONJUNTO explícito de
+          // `r` (não `r` inteiro) — o AtivoCard do Radar renderiza um
+          // cabeçalho enxuto, e passar o resultado inteiro reintroduziria no
+          // card campos que o Radar decidiu não mostrar. setupHistorico/
+          // setupElegivel entram porque o HistoricoPill (chip abaixo) precisa
+          // deles no mesmo formato que a Watchlist já consome via `sc`.
+          const radarVm = { t: r.ticker, name: nameR, q: qR, chColor, sc: { spark: r.spark, confluencia: r.confluencia, melhorSetup: r.melhorSetup, setupHistorico: r.setupHistorico, setupElegivel: r.setupElegivel }, pos: posR, cur: precoR, pnl: pnlR, pnlPct: pnlPctR, kp: {}, fscore: r.fundamento && r.fundamento.score, decM: decMr, decColor: decColorR, decBg: decBgR, quotesLoading: false, operador, A: ctx.A, data: ctx.data, didatica: ctx.didatica, overlayLivre: ctx.overlayLivre };
           return (
             <AtivoCard key={r.ticker} vm={radarVm} contexto="radar">
               <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", marginTop: "11px" }}>
@@ -5858,6 +5864,12 @@ function RadarScreen({ ctx }) {
                     Radar — o chip torna visível por que a ordem mudou. */}
                 <RegimeChip regime={r.regime} />
                 {r.melhorSetup && <span style={{ fontSize: "11.5px", color: T.textMuted }}>{r.melhorSetup}{critTot > 0 ? ` · ${critOk}/${critTot} critérios` : ""}{r.gatilhoAlinhado ? " · alinhado ao regime" : ""}</span>}
+                {/* ADR-017 Bloco 3: mesma regra de secundariedade da Watchlist —
+                    entra depois do texto de melhorSetup, nunca antes da
+                    confluência/ConfluenceRing. */}
+                {r.melhorSetup && (
+                  <HistoricoPill historico={r.setupHistorico} elegivel={r.setupElegivel} operador={operador} />
+                )}
               </div>
               {/* qa/34 (P1): leitura inicial rápida no Modo Estudo — o `motivo`
                   determinístico do plano (setups.py) sempre veio no payload, mas
