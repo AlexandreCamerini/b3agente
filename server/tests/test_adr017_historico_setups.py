@@ -163,3 +163,152 @@ def test_set_historico_provider_none_restaura_default():
     r = _detect(_candles_rompimento())
     for s in r["setups"]:
         assert "historico" not in s
+
+
+# ------------------------------ Task 2: regime.ranquear ----------------------- #
+
+def _snap(close, sma200=None, sma50=None, adx=None, c63=None, c252=None, n=260,
+          setups=None):
+    """Mesmo shape do helper de test_regime.py."""
+    return {
+        "close": close,
+        "summary": {"sma200": sma200, "sma50": sma50, "adx14": adx},
+        "context": {"historyStats": {
+            "candlesAvailable": n, "change63dPct": c63, "change252dPct": c252,
+        }},
+        "setups": setups or [],
+    }
+
+
+def _setup_regime(nome, lado, confluencia, aposentado=False, historico=None):
+    s = {"nome": nome, "lado": lado, "confluencia": confluencia, "aposentado": aposentado}
+    if historico is not None:
+        s["historico"] = historico
+    return s
+
+
+_HIST_ELEGIVEL = {"expR": 0.20, "n": 60, "medidoAte": "2025-12-31",
+                   "elegivel": True, "insuficiente": False,
+                   "expRJanela": 0.25, "nJanela": 50, "janelaRef": "2025",
+                   "calculadoEm": "2026-01-05"}
+_HIST_INELEGIVEL = {"expR": -0.20, "n": 60, "medidoAte": "2025-12-31",
+                     "elegivel": False, "insuficiente": False,
+                     "expRJanela": -0.25, "nJanela": 50, "janelaRef": "2025",
+                     "calculadoEm": "2026-01-05"}
+_HIST_INSUFICIENTE = {"expR": None, "n": 12, "medidoAte": "2025-12-31",
+                       "elegivel": None, "insuficiente": True,
+                       "expRJanela": None, "nJanela": 12, "janelaRef": "2025",
+                       "calculadoEm": "2026-01-05"}
+
+
+def test_ranquear_anexa_setup_historico_e_elegivel_true():
+    s = [_setup_regime("Pullback à média (alta)", "alta", 70, historico=_HIST_ELEGIVEL)]
+    snap = _snap(30, sma200=25, adx=30, c63=10, c252=10, setups=s)
+    r = [{"ticker": "AAAA3", "confluencia": 70, "setups": s}]
+    out = regime.ranquear(r, {"AAAA3": snap})
+    assert out[0]["setupElegivel"] is True
+    assert out[0]["setupHistorico"] == _HIST_ELEGIVEL
+
+
+def test_elegivel_soma_dez_ao_radar_score():
+    s = [_setup_regime("Pullback à média (alta)", "alta", 70, historico=_HIST_ELEGIVEL)]
+    snap = _snap(30, sma200=25, adx=30, c63=10, c252=10, setups=s)
+    sem_hist = [_setup_regime("Pullback à média (alta)", "alta", 70)]
+    snap_sem = _snap(30, sma200=25, adx=30, c63=10, c252=10, setups=sem_hist)
+    com = regime.ranquear([{"ticker": "A1", "confluencia": 70, "setups": s}], {"A1": snap})
+    sem = regime.ranquear([{"ticker": "A2", "confluencia": 70, "setups": sem_hist}], {"A2": snap_sem})
+    assert round(com[0]["radarScore"] - sem[0]["radarScore"], 1) == 10.0
+
+
+def test_inelegivel_soma_menos_dez_ao_radar_score():
+    s = [_setup_regime("Pullback à média (alta)", "alta", 70, historico=_HIST_INELEGIVEL)]
+    snap = _snap(30, sma200=25, adx=30, c63=10, c252=10, setups=s)
+    sem_hist = [_setup_regime("Pullback à média (alta)", "alta", 70)]
+    snap_sem = _snap(30, sma200=25, adx=30, c63=10, c252=10, setups=sem_hist)
+    com = regime.ranquear([{"ticker": "A1", "confluencia": 70, "setups": s}], {"A1": snap})
+    sem = regime.ranquear([{"ticker": "A2", "confluencia": 70, "setups": sem_hist}], {"A2": snap_sem})
+    assert round(com[0]["radarScore"] - sem[0]["radarScore"], 1) == -10.0
+
+
+def test_insuficiente_nunca_penaliza():
+    s = [_setup_regime("Pullback à média (alta)", "alta", 70, historico=_HIST_INSUFICIENTE)]
+    snap = _snap(30, sma200=25, adx=30, c63=10, c252=10, setups=s)
+    r = regime.ranquear([{"ticker": "A1", "confluencia": 70, "setups": s}], {"A1": snap})
+    assert r[0]["setupElegivel"] is None
+
+
+def test_setup_sem_historico_soma_zero_e_elegivel_none():
+    s = [_setup_regime("Pullback à média (alta)", "alta", 70)]
+    snap = _snap(30, sma200=25, adx=30, c63=10, c252=10, setups=s)
+    r = regime.ranquear([{"ticker": "A1", "confluencia": 70, "setups": s}], {"A1": snap})
+    assert r[0]["setupElegivel"] is None
+    assert r[0]["setupHistorico"] is None
+
+
+def test_ordem_elegivel_antes_de_sem_historico_antes_de_inelegivel_mesmo_tier_e_momentum():
+    # Tickers em ordem alfabética INVERSA da elegibilidade esperada — se a
+    # ordenação nova não existir, o desempate por ticker (critério atual)
+    # produziria a ordem alfabética (AAAA/MMMM/ZZZZ), não a de elegibilidade.
+    s_eleg = [_setup_regime("Pullback à média (alta)", "alta", 70, historico=_HIST_ELEGIVEL)]
+    s_none = [_setup_regime("Pullback à média (alta)", "alta", 70)]
+    s_inel = [_setup_regime("Pullback à média (alta)", "alta", 70, historico=_HIST_INELEGIVEL)]
+    r = [
+        {"ticker": "AAAA3", "confluencia": 70, "setups": s_inel},
+        {"ticker": "MMMM3", "confluencia": 70, "setups": s_none},
+        {"ticker": "ZZZZ3", "confluencia": 70, "setups": s_eleg},
+    ]
+    snaps = {
+        "AAAA3": _snap(30, sma200=25, adx=30, c63=10, c252=10, setups=s_inel),
+        "MMMM3": _snap(30, sma200=25, adx=30, c63=10, c252=10, setups=s_none),
+        "ZZZZ3": _snap(30, sma200=25, adx=30, c63=10, c252=10, setups=s_eleg),
+    }
+    out = regime.ranquear(r, snaps)
+    assert [x["ticker"] for x in out] == ["ZZZZ3", "MMMM3", "AAAA3"]
+
+
+def test_momentum_maior_vence_elegibilidade_eixo_adr016_preservado():
+    # Ativo com momentum MAIOR mas setup INELEGÍVEL continua à frente do
+    # ativo com momentum MENOR e setup ELEGÍVEL — o eixo de regime/momentum
+    # validado no ADR-016 não pode ser invertido pela evidência de setup.
+    s_inel = [_setup_regime("Pullback à média (alta)", "alta", 70, historico=_HIST_INELEGIVEL)]
+    s_eleg = [_setup_regime("Pullback à média (alta)", "alta", 70, historico=_HIST_ELEGIVEL)]
+    r = [
+        {"ticker": "FORTE3", "confluencia": 70, "setups": s_inel},
+        {"ticker": "FRACO3", "confluencia": 70, "setups": s_eleg},
+    ]
+    snaps = {
+        "FORTE3": _snap(30, sma200=25, adx=30, c63=60, c252=60, setups=s_inel),  # momentum alto
+        "FRACO3": _snap(30, sma200=25, adx=30, c63=1, c252=1, setups=s_eleg),    # momentum baixo
+    }
+    out = regime.ranquear(r, snaps)
+    assert out[0]["ticker"] == "FORTE3"
+
+
+def test_resultado_sem_setups_operaveis_nao_levanta():
+    snap = _snap(30, sma200=25, adx=30, c63=10, c252=10, setups=[])
+    r = regime.ranquear([{"ticker": "A1", "confluencia": 0, "setups": []}], {"A1": snap})
+    assert r[0]["setupElegivel"] is None
+    assert r[0]["setupHistorico"] is None
+
+
+def test_resultado_so_com_aposentado_setupElegivel_none():
+    s = [_setup_regime("Setup 9.2 (alta)", "alta", 100, aposentado=True, historico=_HIST_ELEGIVEL)]
+    snap = _snap(30, sma200=25, adx=30, c63=10, c252=10, setups=s)
+    r = regime.ranquear([{"ticker": "A1", "confluencia": 100, "setups": s}], {"A1": snap})
+    assert r[0]["setupElegivel"] is None
+    assert r[0]["setupHistorico"] is None
+
+
+def test_nada_e_removido_len_preservado():
+    s_eleg = [_setup_regime("Pullback à média (alta)", "alta", 70, historico=_HIST_ELEGIVEL)]
+    s_inel = [_setup_regime("Pullback à média (alta)", "alta", 70, historico=_HIST_INELEGIVEL)]
+    r = [
+        {"ticker": "AAAA3", "confluencia": 70, "setups": s_eleg},
+        {"ticker": "BBBB3", "confluencia": 70, "setups": s_inel},
+    ]
+    snaps = {
+        "AAAA3": _snap(30, sma200=25, adx=30, c63=10, c252=10, setups=s_eleg),
+        "BBBB3": _snap(30, sma200=25, adx=30, c63=10, c252=10, setups=s_inel),
+    }
+    out = regime.ranquear(r, snaps)
+    assert len(out) == len(r)
