@@ -147,7 +147,7 @@ o Bloco 1. Blocos 3 (interface) e 4 (IA) ficam para fases futuras.
       `radar_daily.should_run()`/`maybe_run()`, pendurada no `scheduler_loop`,
       lendo do `candle_cache` sem consumir orçamento de brapi (ADR-008), com
       fechamento de janela ANUAL alinhado a `pregao.is_trading_day()`
-- [ ] **ADR17-B1-04**: Guard de granularidade do Yahoo portado para
+- [x] **ADR17-B1-04**: Guard de granularidade do Yahoo portado para
       `server/app/yahoo.py`, cobrindo TODOS os intervalos — hoje só o intraday é
       verificado e diário/semanal passam batido (mesmo bug que produziu dado
       degradado silencioso na medição do ADR-016)
@@ -159,7 +159,7 @@ o Bloco 1. Blocos 3 (interface) e 4 (IA) ficam para fases futuras.
       fechada anterior como termo novo do `radarScore` e da ordenação. Piso
       `n≥40` literal (`backtest_pesos.py:69`); célula abaixo do piso nunca vira
       elegibilidade negativa
-- [ ] **ADR17-B1-07**: Reprodutibilidade — as funções puras de replay
+- [x] **ADR17-B1-07**: Reprodutibilidade — as funções puras de replay
       (`sinais_do_ticker`, `avaliar`) promovidas de `scripts/backtest_sinal.py`
       para `server/app/signal_replay.py`; o script vira wrapper fino, sem
       segunda implementação da barreira tripla. Direção de dependência
@@ -239,10 +239,10 @@ o Bloco 1. Blocos 3 (interface) e 4 (IA) ficam para fases futuras.
 | ADR17-B1-01 | Phase 7 | Pending |
 | ADR17-B1-02 | Phase 7 | Pending |
 | ADR17-B1-03 | Phase 7 | Pending |
-| ADR17-B1-04 | Phase 7 | Pending |
+| ADR17-B1-04 | Phase 7 | Complete |
 | ADR17-B1-05 | Phase 7 | Pending |
 | ADR17-B1-06 | Phase 7 | Pending |
-| ADR17-B1-07 | Phase 7 | Pending |
+| ADR17-B1-07 | Phase 7 | Complete |
 
 **Coverage:**
 - v1.1 requirements: 46 total (4 MERC + 30 FIX + 5 ADR15 + 7 ADR17-B1)
