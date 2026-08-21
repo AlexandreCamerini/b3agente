@@ -594,13 +594,16 @@ async def _avaliar_opcoes(conn, scope, ag, par, option_quotes_getter, executed: 
 # um plano de baixa (`decisaoDiaria == "VENDER"`) nunca vira ordem automática,
 # só o aviso/push de sempre.
 # ---------------------------------------------------------------------------
-# ADR-017 (Decisão 3, 2026-08-20): entrada automática SUSPENSA até a seleção
-# dinâmica (Bloco 1b) existir — nenhum setup hoje sustenta operação automática
-# com confiança (ADR-016: motor perde para o acaso). Flag em módulo (não um
-# `return` inline) para ficar testável: a suspensão em si tem teste próprio,
-# e os testes de mecânica (lote/orçamento/maxOpsDia/maxValorOp) desligam a
-# flag pra continuar cobrindo o que volta a valer quando o Bloco 1b ligar.
-ENTRADA_AUTO_SUSPENSA_ADR017 = True
+# ADR-017 (Decisão 3, 2026-08-20 → Adendo 2, 2026-08-21): a antiga suspensão
+# cega (uma flag booleana que bloqueava TODO setup incondicionalmente) sempre
+# foi um gate reversível esperando o Bloco 1 (ledger de sinais + seleção
+# dinâmica, Fase 7). Com o Bloco 1 em produção desde 2026-08-21, a suspensão
+# vira um gate por elegibilidade MEDIDA do setup do gatilho: só executa quem a
+# janela anterior fechada mediu como positivo (`elegivel is True`). Hoje isso
+# restringe a entrada automática a 5 pares setup×lado (123 de fundo alta,
+# IFR2 alta, PFR alta, Setup 9.1 alta, Setup 9.3 alta) — sem lista hardcodada,
+# o dado decide e muda sozinho a cada virada de janela (ver Adendo 2 do
+# ADR-017).
 async def _avaliar_entradas(conn, scope, ag, par, app_mode, positions, executed: int, events: list,
                             agora=None) -> int:
     """Terceira passada do ciclo (depois de saída e de opções): watchlist menos
@@ -612,13 +615,12 @@ async def _avaliar_entradas(conn, scope, ag, par, app_mode, positions, executed:
     `executed` atualizado."""
     if not (par["entradaAuto"] and app_mode == "operador"):
         return executed
-    if ENTRADA_AUTO_SUSPENSA_ADR017:
-        return executed
     # imports locais: mesmo padrão do resto do arquivo — evita ciclo de import
     # (timing_watch → timing → intraday; radar_daily/intraday não dependem de
-    # agent). Carregados SÓ aqui dentro do guard acima: quem não ligou a
-    # feature não paga a leitura extra de kv por ciclo.
-    from . import candles as candles_mod, intraday, radar_daily, timing, timing_watch
+    # agent; signal_ledger idem, mesmo padrão de `signal_ledger_job` abaixo).
+    # Carregados SÓ aqui dentro do guard acima: quem não ligou a feature não
+    # paga a leitura extra de kv por ciclo.
+    from . import candles as candles_mod, intraday, radar_daily, signal_ledger, timing, timing_watch
     p = candles_mod.normalize_period(None)   # período CANÔNICO do Radar diário
     radar_stored = radar_daily.get_stored(conn, p)
     intra_stored = intraday.get_stored(conn)
@@ -628,6 +630,12 @@ async def _avaliar_entradas(conn, scope, ag, par, app_mode, positions, executed:
     candidatos = [t for t in watchlist if t not in em_posicao]
     if not candidatos:
         return executed
+
+    # ADR-017 Adendo 2: uma leitura só por chamada, fora do laço — o snapshot
+    # não muda entre candidatos do mesmo ciclo, e `historico_snapshot` já tem
+    # cache próprio (TTL 300s) e nunca levanta (devolve `{}` em falha de banco,
+    # o que faz o gate abaixo fechar para todos os candidatos, nunca abrir).
+    hist = signal_ledger.historico_snapshot(conn) or {}
 
     # `hoje` precisa vir de `agora` quando fornecido (mesmo idioma de
     # timing.py:179) — `_today()` sozinho usa o relógio REAL, e um teste com
@@ -644,6 +652,16 @@ async def _avaliar_entradas(conn, scope, ag, par, app_mode, positions, executed:
         r = timing.montar(radar_stored, intra_stored, ticker, "operador", agora=agora)
         if r.get("estado") != "gatilho" or r.get("decisaoDiaria") != "COMPRAR":
             continue  # D5: só COMPRAR executa; VENDER/demais estados seguem só informativos
+        nome_setup = r.get("setup")
+        if not nome_setup:
+            continue  # sem setup identificado, não há o que qualificar — bloqueia
+        # ADR-017 Adendo 2: só `elegivel is True` passa. `is not True` cobre no
+        # MESMO predicado os três casos negativos (False medido, None por
+        # amostra insuficiente/nunca medido, e chave ausente do snapshot) —
+        # bloqueio SILENCIOSO (sem events.append, sem log), porque isto não é
+        # erro, é o gate funcionando (08-CONTEXT.md, "Religamento do Operador").
+        if (hist.get(nome_setup) or {}).get("elegivel") is not True:
+            continue
         price = r.get("fechamento15m")
         if not isinstance(price, (int, float)) or price <= 0:
             continue

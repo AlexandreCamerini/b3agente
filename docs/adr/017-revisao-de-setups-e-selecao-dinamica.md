@@ -188,3 +188,36 @@ então ±10 desloca cerca de um decil. O rank de elegibilidade entra na tupla de
 eixo de regime/momentum, nunca invertendo esse eixo. Ausência de evidência (amostra abaixo de
 `MIN_N_JANELA=40`, ou setup nunca medido) sempre resolve para `setupElegivel=None` — nunca
 `False` — e `radarScore` não é penalizado nesse caso (ADR-017, "Dois pisos de amostra").
+
+## Adendo 2 — implementação do Bloco 4: religamento gated (2026-08-21)
+
+O Plano 08-02 (fase `08-interface-e-ia-da-sele-o-din-mica-vocabul-rio-novo-skill-ref`) entregou
+o item 4 do "Sequenciamento de entrega" na parte de religamento do Modo Operador — a vitrine
+(vocabulário + telas) fica com os Planos 08-01/08-03/08-04.
+
+(a) **A flag deixou de existir.** `agent.ENTRADA_AUTO_SUSPENSA_ADR017`, a suspensão booleana
+incondicional que bloqueava TODO setup desde a Decisão 3, foi removida de `server/app/agent.py`.
+Em seu lugar, `_avaliar_entradas` consulta `signal_ledger.historico_snapshot(conn)` (import
+local, mesmo padrão de `signal_ledger_job`) e aplica um gate por setup do gatilho.
+
+(b) **A regra exata:** `elegivel is True` para o setup do gatilho (`r.get("setup")`, o mesmo nome
+completo que `detect_setups()`/`timing.montar()` já produzem) libera a execução, com toda a
+mecânica de lote/orçamento/tetos/dedupe inalterada depois do gate. `elegivel is False`,
+`elegivel is None` (amostra insuficiente na janela ou setup nunca medido) e ausência do setup no
+snapshot bloqueiam, todos no mesmo predicado (`is not True`), em SILÊNCIO — sem `events.append`,
+sem log, porque isto não é erro, é o gate funcionando. Falha de leitura do ledger (`
+historico_snapshot` engole a exceção e devolve `{}`, contrato documentado em
+`server/app/signal_ledger.py:249-267`) faz todo lookup dar `None` — o gate falha FECHADO, nunca
+abre por causa de uma falha de banco.
+
+(c) **Foto do dado no bootstrap de produção de 2026-08-21** (não lista hardcodada — muda sozinho
+a cada virada de janela anual): 5 pares setup×lado elegíveis — 123 de fundo (alta), IFR2 (alta),
+PFR (alta), Setup 9.1 (alta), Setup 9.3 (alta). Na prática, hoje a entrada automática do Modo
+Operador fica restrita a esses 5, porque é isso que a janela anterior fechada mediu como
+positivo.
+
+(d) **Deploy em produção passa por checkpoint humano bloqueante** — mesmo padrão de rigor do
+Plano 07-06 (Bloco 1): este religamento muda comportamento real de execução automática de
+dinheiro simulado do usuário, e não é reversível sem novo deploy se algo sair errado. O
+checkpoint vive no Plano 08-05 desta mesma fase; o código deste Adendo 2 fica pronto e testado,
+mas NÃO vai ao ar até a aprovação explícita do Alex nesse checkpoint.
