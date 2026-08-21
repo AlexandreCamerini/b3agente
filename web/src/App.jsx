@@ -6,13 +6,13 @@ import { testServer, describeRuntimeConfig, getApiBase, PROD_BASE } from "./api.
 import { createChart, ColorType, CrosshairMode, LineStyle } from "lightweight-charts";
 import { sampleTechnicals } from "./demo.js";
 import { DISCLAIMERS, TERMO_OPERADOR_VERSAO } from "./disclaimers.js";
-import { copyFor } from "./copy.js";
+import { copyFor, historicoTxt } from "./copy.js";
 import { Markdown, MdInline } from "./markdown.jsx";
 import { BUILD_ID } from "./version.js";
 // carimbo no console: prova de qual build está rodando (device/web)
 try { console.log("[b3] build", BUILD_ID); } catch { /* noop */ }
 import { canAddTicker, canAnalyze } from "./plan.js";
-import { portfolioMetrics, dayReturnPct, equityCurve, markPrice, sizingPlano, RR_MIN_TXT } from "./finance.js";
+import { portfolioMetrics, dayReturnPct, equityCurve, markPrice, sizingPlano, RR_MIN_TXT, historicoEstado, historicoDesatualizado } from "./finance.js";
 import * as notify from "./notify.js";
 import { track, setAnalyticsUser, flush as flushAnalytics } from "./analytics.js"; // qa/47 (Fase 2)
 import Boris from "./pet/Boris.jsx";
@@ -3070,6 +3070,13 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
                     </SetorAlvo>
                   )}
                   {sc && sc.melhorSetup && <span style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "999px", background: T.bgBase, color: T.textMuted }}>{sc.melhorSetup}</span>}
+                  {/* ADR-017 Bloco 3: elegibilidade medida do melhor setup — só
+                      quando há melhor setup a qualificar (sem ele, o pill seria
+                      ruído, não estado). Sinal SECUNDÁRIO: entra depois do
+                      chip de melhorSetup, nunca antes da confluência/ConfluenceRing. */}
+                  {sc && sc.melhorSetup && (
+                    <HistoricoPill historico={sc.setupHistorico} elegivel={sc.setupElegivel} operador={operador} />
+                  )}
                 </SetorAlvo>
               )}
               </>)}
@@ -5568,6 +5575,69 @@ function ConfluenceRing({ conf, size = 54, label = true }) {
   );
 }
 
+// ADR-017 Bloco 3 (Fase 8, Plano 03) — vitrine, no nível do TICKER, da
+// elegibilidade medida do melhor setup (Bloco 1, Phase 7 já entrega
+// `setupHistorico`/`setupElegivel` em cada resultado de /api/scan). Sinal
+// SECUNDÁRIO (UI-SPEC "Focal point"): entra DEPOIS de melhorSetup/confluência
+// na linha de chips, nunca antes do ConfluenceRing. Contrato de cor é o
+// UI-SPEC aprovado — não escolha do implementador.
+const HISTORICO_PILL_STYLE = {
+  elegivel: [T.positive, T.positiveTint10],
+  inelegivel: [T.negative, T.negativeTint10], // MESMO peso visual do positivo — nunca dim
+  insuficiente: [T.textFaint, T.bgBase],
+  nunca_medido: [T.textFaint, T.bgBase],
+  aposentado: [T.textMuted, T.bgCard], // único estado com borda tracejada, ver pillStyle abaixo
+};
+function HistoricoPill({ historico, elegivel, aposentado, operador, hojeYmd, compacto }) {
+  // `elegivel` existe só por paridade defensiva com o par que
+  // `regime._elegibilidade` devolve (server/app/regime.py:231-253): as três
+  // saídas possíveis são (None,None), (historico,None) e (historico,bool(...))
+  // — `elegivel` NUNCA vem não-nulo com `historico` nulo. `historico` é a
+  // ÚNICA fonte do estado; não há ramo de reconciliação para uma divergência
+  // que o backend não produz.
+  const estado = historicoEstado(historico, aposentado);
+  const [cor, fundo] = HISTORICO_PILL_STYLE[estado] || HISTORICO_PILL_STYLE.nunca_medido;
+  const modoJS = operador ? "operador" : "estudo";
+  const cp = copyFor(modoJS);
+  const rotulo = cp.historicoRotulo[estado];
+  // hojeYmd default: derivado no ponto de USO, em horário LOCAL (nunca UTC —
+  // o componente aceita o argumento de fora só para permanecer testável).
+  const hoje = hojeYmd || (() => {
+    const d = new Date();
+    const p2 = (n) => String(n).padStart(2, "0");
+    return d.getFullYear() + "-" + p2(d.getMonth() + 1) + "-" + p2(d.getDate());
+  })();
+  const refBruto = historico && (historico.medidoAte || historico.calculadoEm);
+  const refYmd = refBruto ? String(refBruto).slice(0, 10) : null;
+  const velho = historicoDesatualizado(historico, hoje);
+  let ariaLabel = historicoTxt(modoJS, estado, { janela: historico && historico.janelaRef, medidoAte: refYmd });
+  if (velho) ariaLabel += " " + historicoTxt(modoJS, "desatualizado", { medidoAte: refYmd });
+  const pillStyle = { fontSize: "11px", fontWeight: 700, padding: "4px 10px", borderRadius: "999px", lineHeight: 1.2, background: fundo, color: cor };
+  // Modificador de desatualização (ADR-017 Decisão 2): degrada só o carimbo
+  // de tempo abaixo — o pill em si NUNCA muda de cor por causa da idade.
+  if (estado === "aposentado") pillStyle.border = "1px dashed " + T.borderDashed;
+  const expRJanela = historico && typeof historico.expRJanela === "number" ? historico.expRJanela : null;
+  const nJanela = historico && typeof historico.nJanela === "number" ? historico.nJanela : null;
+  const janelaRef = historico && historico.janelaRef ? historico.janelaRef : null;
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+      <span role="img" aria-label={ariaLabel} style={pillStyle}>{rotulo}</span>
+      {/* números da janela: null NUNCA vira 0 — a métrica ausente simplesmente
+          não é desenhada (regra de casa: null, nunca 0.0). */}
+      {!compacto && (expRJanela != null || nJanela != null || janelaRef) && (
+        <span style={{ fontSize: "11px", fontFamily: MONO, fontWeight: 800, color: T.textSecondary }}>
+          {expRJanela != null ? (expRJanela >= 0 ? "+" : "−") + Math.abs(expRJanela).toFixed(3).replace(".", ",") + "R" : ""}
+          {nJanela != null ? " n=" + nJanela : ""}
+          {janelaRef ? " " + janelaRef : ""}
+        </span>
+      )}
+      {velho && refYmd && (
+        <span style={{ fontSize: "11px", fontWeight: 400, lineHeight: 1.4, color: T.textDim }}>⏱ {refYmd}</span>
+      )}
+    </span>
+  );
+}
+
 function RadarScreen({ ctx }) {
   const { data, cp } = ctx;   // FASE 8B (B1): fraseologia por modo
   const period = (data.config && data.config.candlePeriod) || "1y";
@@ -5773,7 +5843,13 @@ function RadarScreen({ ctx }) {
           const precoR = temCotacao ? qViva.price : r.close;
           const pnlR = posR && precoR != null ? (precoR - posR.avg) * posR.qty : null;
           const pnlPctR = posR && precoR != null && posR.avg > 0 ? (precoR / posR.avg - 1) * 100 : null;
-          const radarVm = { t: r.ticker, name: nameR, q: qR, chColor, sc: { spark: r.spark, confluencia: r.confluencia, melhorSetup: r.melhorSetup }, pos: posR, cur: precoR, pnl: pnlR, pnlPct: pnlPctR, kp: {}, fscore: r.fundamento && r.fundamento.score, decM: decMr, decColor: decColorR, decBg: decBgR, quotesLoading: false, operador, A: ctx.A, data: ctx.data, didatica: ctx.didatica, overlayLivre: ctx.overlayLivre };
+          // ADR-017 Bloco 3: `sc` do Radar continua um SUBCONJUNTO explícito de
+          // `r` (não `r` inteiro) — o AtivoCard do Radar renderiza um
+          // cabeçalho enxuto, e passar o resultado inteiro reintroduziria no
+          // card campos que o Radar decidiu não mostrar. setupHistorico/
+          // setupElegivel entram porque o HistoricoPill (chip abaixo) precisa
+          // deles no mesmo formato que a Watchlist já consome via `sc`.
+          const radarVm = { t: r.ticker, name: nameR, q: qR, chColor, sc: { spark: r.spark, confluencia: r.confluencia, melhorSetup: r.melhorSetup, setupHistorico: r.setupHistorico, setupElegivel: r.setupElegivel }, pos: posR, cur: precoR, pnl: pnlR, pnlPct: pnlPctR, kp: {}, fscore: r.fundamento && r.fundamento.score, decM: decMr, decColor: decColorR, decBg: decBgR, quotesLoading: false, operador, A: ctx.A, data: ctx.data, didatica: ctx.didatica, overlayLivre: ctx.overlayLivre };
           return (
             <AtivoCard key={r.ticker} vm={radarVm} contexto="radar">
               <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", marginTop: "11px" }}>
@@ -5788,6 +5864,12 @@ function RadarScreen({ ctx }) {
                     Radar — o chip torna visível por que a ordem mudou. */}
                 <RegimeChip regime={r.regime} />
                 {r.melhorSetup && <span style={{ fontSize: "11.5px", color: T.textMuted }}>{r.melhorSetup}{critTot > 0 ? ` · ${critOk}/${critTot} critérios` : ""}{r.gatilhoAlinhado ? " · alinhado ao regime" : ""}</span>}
+                {/* ADR-017 Bloco 3: mesma regra de secundariedade da Watchlist —
+                    entra depois do texto de melhorSetup, nunca antes da
+                    confluência/ConfluenceRing. */}
+                {r.melhorSetup && (
+                  <HistoricoPill historico={r.setupHistorico} elegivel={r.setupElegivel} operador={operador} />
+                )}
               </div>
               {/* qa/34 (P1): leitura inicial rápida no Modo Estudo — o `motivo`
                   determinístico do plano (setups.py) sempre veio no payload, mas

@@ -1,5 +1,5 @@
 // Objetivo 3 — trava as fórmulas financeiras sobre entradas conhecidas.
-import { portfolioMetrics, dayReturnPct, equityCurve, markPrice } from "../src/finance.js";
+import { portfolioMetrics, dayReturnPct, equityCurve, markPrice, historicoEstado, historicoDesatualizado } from "../src/finance.js";
 
 let fails = 0;
 const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if (!cond) fails++; };
@@ -149,6 +149,34 @@ ok("dayReturnPct base <= 0 → 0", dayReturnPct(0, 0) === 0);
   const ec2 = equityCurve(null, 0, null, null);
   ok("tudo nulo: sem NaN", isFinite(ec2.retAcum) && isFinite(ec2.drawdown));
 }
+
+// ---- historicoEstado (ADR-017 Bloco 3, Plano 08-03) ----
+// precedência: aposentado > insuficiente > elegivel/inelegivel > nunca_medido
+ok("aposentado tem precedência sobre elegivel false", historicoEstado({ elegivel: false }, true) === "aposentado");
+ok("aposentado tem precedência mesmo sem historico", historicoEstado(null, true) === "aposentado");
+ok("nunca_medido: historico null", historicoEstado(null) === "nunca_medido");
+ok("nunca_medido: historico undefined", historicoEstado(undefined) === "nunca_medido");
+ok("nunca_medido: entrada malformada (string vazia)", historicoEstado("") === "nunca_medido");
+ok("nunca_medido: entrada malformada (número no lugar de objeto)", historicoEstado(42) === "nunca_medido");
+ok("insuficiente: insuficiente=true explícito", historicoEstado({ insuficiente: true, elegivel: null }) === "insuficiente");
+ok("insuficiente: elegivel null (fora da janela)", historicoEstado({ elegivel: null }) === "insuficiente");
+ok("insuficiente: objeto vazio (elegivel undefined)", historicoEstado({}) === "insuficiente");
+ok("elegivel: elegivel true", historicoEstado({ elegivel: true, insuficiente: false }) === "elegivel");
+ok("inelegivel: elegivel false, insuficiente false", historicoEstado({ elegivel: false, insuficiente: false }) === "inelegivel");
+
+// ---- historicoDesatualizado (ADR-017 Bloco 3, Plano 08-03) ----
+ok("sem carimbo nenhum: não degrada (ausência de evidência não é evidência de atraso)",
+  historicoDesatualizado({}, "2026-08-17") === false);
+ok("sexta → segunda: 1 dia útil, fim de semana não envelhece o dado",
+  historicoDesatualizado({ medidoAte: "2026-08-14" }, "2026-08-17") === false);
+ok("data no futuro: nunca degrada",
+  historicoDesatualizado({ medidoAte: "2026-08-20" }, "2026-08-17") === false);
+ok("calculadoEm sem medidoAte, além do limite de 2 dias úteis: degrada",
+  historicoDesatualizado({ medidoAte: null, calculadoEm: "2026-08-12T10:00:00Z" }, "2026-08-17") === true);
+ok("medidoAte além do limite de 2 dias úteis: degrada",
+  historicoDesatualizado({ medidoAte: "2026-08-12" }, "2026-08-17") === true);
+ok("data malformada (número no lugar de string): não degrada, sem exceção",
+  historicoDesatualizado({ medidoAte: 20260812 }, "2026-08-17") === false);
 
 console.log("\n" + (fails === 0 ? "TODOS OS TESTES DE FINANCE PASSARAM" : fails + " TESTE(S) FALHARAM"));
 process.exit(fails === 0 ? 0 : 1);

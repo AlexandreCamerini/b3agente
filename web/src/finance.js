@@ -127,3 +127,65 @@ export function sizingPlano(plano, capital, pctPorTrade) {
   }
   return { qtd, valorAprox: +(qtd * entrada).toFixed(2), riscoFinanceiro, pct, aviso: null };
 }
+
+// ---------------------------------------------------------------------------
+// ADR-017 Bloco 3 (Fase 8, Plano 03) — estado do histórico medido por setup.
+// Estas duas funções derivam ESTADO a partir do dicionário `historico` que o
+// backend já calculou (`signal_ledger._fundir`, consumido por
+// `server/app/regime.py`) — NENHUM número novo é computado aqui. A
+// precedência do estado "insuficiente" sobre "inelegivel" codifica o
+// princípio "Dois pisos de amostra" do ADR-017: ausência de evidência não é
+// evidência negativa. Puras: sem `Date.now()` interno (a data de hoje é
+// argumento), sem I/O, sem exceção para entrada malformada — entrada
+// inesperada cai sempre no default mais conservador (nunca vira "elegivel"
+// nem "inelegivel" por engano).
+// ---------------------------------------------------------------------------
+
+// Extrai {y,mo,d} do prefixo YYYY-MM-DD de uma string (aceita também um
+// ISO-8601 completo, ex.: `calculadoEm`). NUNCA usa `new Date(string)` — no
+// WKWebView isso interpreta a string em fuso local e desloca o dia.
+function _ymdParts(s) {
+  if (typeof s !== "string") return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+  if (!m) return null;
+  return { y: +m[1], mo: +m[2], d: +m[3] };
+}
+function _utcMs(parts) {
+  return Date.UTC(parts.y, parts.mo - 1, parts.d);
+}
+function _ehFimDeSemana(utcMs) {
+  const dow = new Date(utcMs).getUTCDay(); // 0=domingo, 6=sábado
+  return dow === 0 || dow === 6;
+}
+
+export function historicoEstado(historico, aposentado) {
+  if (aposentado === true) return "aposentado"; // precedência sobre tudo
+  if (!historico || typeof historico !== "object") return "nunca_medido";
+  if (historico.insuficiente === true || historico.elegivel == null) return "insuficiente";
+  if (historico.elegivel === true) return "elegivel";
+  if (historico.elegivel === false) return "inelegivel";
+  // defensivo: valor inesperado em `elegivel` nunca vira "inelegivel" sem
+  // veredito explícito — cai no mesmo estado neutro de "sem evidência".
+  return "insuficiente";
+}
+
+export function historicoDesatualizado(historico, hojeYmd) {
+  if (!historico || typeof historico !== "object") return false;
+  const ref = _ymdParts(historico.medidoAte || historico.calculadoEm);
+  const hoje = _ymdParts(hojeYmd);
+  // ausência de carimbo (ou de hojeYmd) não vira "dado velho" — a UI só
+  // degrada com evidência de data (regra: nunca inventar estado).
+  if (!ref || !hoje) return false;
+  const refMs = _utcMs(ref);
+  const hojeMs = _utcMs(hoje);
+  if (refMs >= hojeMs) return false; // hoje ou no futuro: nunca degrada
+  // conta 2 dias ÚTEIS para trás a partir de hoje (sábado/domingo não
+  // contam; feriados NÃO são considerados — limitação deliberada: erra
+  // sempre para o lado de "não degradar").
+  let limiteMs = hojeMs, uteis = 0;
+  while (uteis < 2) {
+    limiteMs -= 86400000;
+    if (!_ehFimDeSemana(limiteMs)) uteis++;
+  }
+  return refMs < limiteMs; // estritamente anterior ao limite
+}
