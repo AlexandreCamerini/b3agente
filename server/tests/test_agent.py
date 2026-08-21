@@ -58,6 +58,30 @@ def test_executa_venda_no_stop_e_registra_log():
     assert log and any("stop atingido" in e["text"] for e in log)
 
 
+def test_venda_por_stop_grava_motivo_stop_no_historico():
+    """ADR15-04: o call site automático passa o motivo curto ('stop'), não o
+    texto do Diário ('stop atingido')."""
+    c = _conn()
+    _seed(c, [{"t": "PETR4", "qty": 100, "avg": 40.0, "stop": 38.0, "alvo": 45.0}],
+          {"serverEnabled": True, "mode": "executar", "maxOpsDia": 3})
+    r = _run(c, {"PETR4": 37.5})
+    assert r["executed"] == 1
+    h = db.kv_get(c, "history", user_id="u1")[0]
+    assert h["type"] == "VENDA" and h["motivo"] == "stop" and h["origem"] == "automatico"
+    # texto do Diário continua o de sempre, não vira o valor do campo
+    assert any("stop atingido" in e["text"] for e in r["events"])
+
+
+def test_venda_por_alvo_grava_motivo_alvo_no_historico():
+    c = _conn()
+    _seed(c, [{"t": "VALE3", "qty": 100, "avg": 60.0, "stop": 55.0, "alvo": 65.0}],
+          {"serverEnabled": True, "mode": "executar", "maxOpsDia": 3})
+    r = _run(c, {"VALE3": 66.0})
+    assert r["executed"] == 1
+    h = db.kv_get(c, "history", user_id="u1")[0]
+    assert h["type"] == "VENDA" and h["motivo"] == "alvo" and h["origem"] == "automatico"
+
+
 def test_modo_sinalizar_nao_opera():
     c = _conn()
     _seed(c, [{"t": "VALE3", "qty": 100, "avg": 60.0, "stop": 58.0}],

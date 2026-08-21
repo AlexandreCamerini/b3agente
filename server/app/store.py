@@ -618,10 +618,21 @@ def buy(conn, t: str, qty: int, price: float, user_id=None, meta=None, origem: s
     db.kv_set(conn, "history", history, user_id=user_id)
 
 
-def sell(conn, t: str, price: float, user_id=None, qty=None, origem: str = "manual"):
+def sell(conn, t: str, price: float, user_id=None, qty=None, motivo: str = "manual", origem: str = "manual"):
     """Venda simulada TOTAL (comportamento original, qty=None) ou PARCIAL
     (FASE 2/2.4): qty é normalizado para lotes de 100; parcial mantém o preço
-    médio (PnL realizado proporcional); >= posição vira total."""
+    médio (PnL realizado proporcional); >= posição vira total.
+
+    `motivo` (ADR-015/ADR15-04): POR QUE vendeu — 'manual'|'stop'|'alvo'|
+    'vencimento' — mesmo contrato de `sell_option` (ADR-005), agora com
+    paridade também do lado de AÇÃO. `origem` (ADR-012, Fase 3): QUEM
+    disparou (manual|automatico|sistema), eixo independente de `motivo`. Um
+    stop batido pelo Operador automático é motivo='stop', origem='automatico';
+    o mesmo stop fechado à mão pelo usuário é motivo='stop', origem='manual'.
+
+    Histórico gravado ANTES desta mudança não tem a chave `motivo` — fica
+    `None` via `.get`, não é reescrito (mesmo padrão adotado quando `origem`
+    entrou, ADR-012)."""
     positions = get(conn, "positions", user_id=user_id)
     pos = next((p for p in positions if p["t"] == t), None)
     if not pos:
@@ -638,7 +649,7 @@ def sell(conn, t: str, price: float, user_id=None, qty=None, origem: str = "manu
         pos["qty"] = pos["qty"] - sold  # parcial: avg preservado
     cash = round(cash + sold * price, 2)
     history.insert(0, {"date": now_str(), "type": "VENDA", "t": t, "qty": sold, "price": round(price, 2), "pnl": pnl,
-                        "origem": origem})
+                        "motivo": motivo, "origem": origem})
     db.kv_set(conn, "positions", positions, user_id=user_id)
     db.kv_set(conn, "cash", cash, user_id=user_id)
     db.kv_set(conn, "history", history, user_id=user_id)

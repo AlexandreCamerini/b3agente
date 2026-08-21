@@ -96,6 +96,44 @@ def test_sell_parcial_arredonda_para_lote_e_qty_maior_vira_total():
     conn.close()
 
 
+def test_sell_motivo_default_manual_paridade_com_sell_option():
+    """ADR15-04: sell() ganha `motivo`, mesmo contrato de sell_option (ADR-005)."""
+    conn, _ = _fresh_db()
+    store.buy(conn, "PETR4", 200, 38.0, user_id="u1")
+    store.sell(conn, "PETR4", 40.0, user_id="u1")   # sem motivo/origem = default
+    h = store.get(conn, "history", user_id="u1")[0]
+    assert h["motivo"] == "manual" and h["origem"] == "manual"
+    conn.close()
+
+
+def test_sell_motivo_e_origem_sao_eixos_independentes():
+    conn, _ = _fresh_db()
+    store.buy(conn, "PETR4", 200, 38.0, user_id="u1")
+    store.sell(conn, "PETR4", 35.0, user_id="u1", motivo="stop", origem="automatico")
+    h = store.get(conn, "history", user_id="u1")[0]
+    assert h["motivo"] == "stop" and h["origem"] == "automatico"
+    conn.close()
+
+
+def test_sell_parcial_grava_motivo_sem_alterar_avg_nem_pnl():
+    conn, _ = _fresh_db()
+    store.buy(conn, "PETR4", 300, 38.0, user_id="u1")
+    pnl = store.sell(conn, "PETR4", 40.0, user_id="u1", qty=100, motivo="alvo", origem="automatico")
+    assert pnl == 200.0
+    pos = store.get(conn, "positions", user_id="u1")[0]
+    assert pos["qty"] == 200 and pos["avg"] == 38.0
+    h = store.get(conn, "history", user_id="u1")[0]
+    assert h["motivo"] == "alvo" and h["qty"] == 100 and h["pnl"] == 200.0
+    conn.close()
+
+
+def test_sell_sem_posicao_continua_devolvendo_none_sem_gravar():
+    conn, _ = _fresh_db()
+    assert store.sell(conn, "PETR4", 40.0, user_id="u1", motivo="stop") is None
+    assert store.get(conn, "history", user_id="u1") == []
+    conn.close()
+
+
 def test_historico_persiste_apos_reinicio_e_escopado_por_usuario():
     conn, path = _fresh_db()
     store.ensure_defaults(conn, user_id="u1")
