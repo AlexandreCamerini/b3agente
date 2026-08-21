@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Realismo de Mercado + Correções
-status: Fase 07 concluída — checkpoint 07-06 aprovado, Bloco 1 do ADR-017 em produção
+status: executing
 stopped_at: Phase 08 UI-SPEC approved
-last_updated: "2026-08-21T17:41:22.296Z"
-last_activity: 2026-08-21 -- Phase 07 concluída (checkpoint aprovado, ledger em produção)
+last_updated: "2026-08-21T20:28:28.599Z"
+last_activity: 2026-08-21 -- Phase 8 planning complete
 progress:
   total_phases: 7
   completed_phases: 4
-  total_plans: 24
+  total_plans: 29
   completed_plans: 24
   percent: 57
 ---
@@ -27,8 +27,8 @@ See: .planning/PROJECT.md (updated 2026-08-18)
 
 Phase: 08 (interface-e-ia-da-sele-o-din-mica-vocabul-rio-novo-skill-ref) — PLANNING
 Plan: UI-SPEC aprovado (6/6 dimensões); tasks ainda não geradas
-Status: CONTEXT.md + UI-SPEC.md prontos — próximo passo é spawnar o gsd-planner
-Last activity: 2026-08-21 -- Phase 08 UI-SPEC aprovado
+Status: Ready to execute
+Last activity: 2026-08-21 -- Phase 8 planning complete
 
 Progress: [██████░░░] 57% (v1.1, 4/7 fases: 2,3,6,7 completas; 4,5 não iniciadas; 8 em planejamento)
 
@@ -154,6 +154,9 @@ Resume file: .planning/phases/08-interface-e-ia-da-sele-o-din-mica-vocabul-rio-n
 
 ## Operator Next Steps
 
-- Fase 08 em planejamento: CONTEXT.md + UI-SPEC.md prontos e aprovados; próximo passo é spawnar o `gsd-planner` para gerar os PLAN.md das tasks.
+- Fase 08 planejada: 5 planos/4 waves, checker aprovado (iteração 2). Wave 4
+  (08-05) termina num checkpoint humano BLOQUEANTE antes de religar
+  `entradaAuto` em produção — não segue sem aprovação do Alex.
+  `/gsd:execute-phase 8`.
 - Fases 4 e 5 (Correção Médio — REPORT-01) seguem não iniciadas, sem plano ainda: `/gsd:plan-phase 4` quando o Alex priorizar.
 - 9 tickers com 404 no bootstrap do ledger (ELET3, BRFS3, ELET6, JBSS3, CRFB3, NTCO3, CPLE6, MRFG3, EMBR3) — prováveis renomeações/deslistagens; não investigado, não bloqueia a fase.

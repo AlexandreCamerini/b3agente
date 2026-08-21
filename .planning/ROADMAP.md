@@ -314,6 +314,7 @@ Plans:
 **Wave 3** *(blocked on Wave 2 completion)*
 
 - [x] 06-03-PLAN.md — agregado não mistura metodologias e deduplica por `snapshotId` (ADR15-02, ADR15-03)
+
 **UI hint**: no (mudança de backend/instrumentação — sem tela nova; o
 número exibido no painel "Eficiência da IA" muda, mas o componente não)
 
@@ -329,6 +330,7 @@ manual, manutenção diária incremental sem custo extra de brapi, e
 **Plans:** 6/6 plans complete
 
 Plans:
+
 - [x] 07-01-PLAN.md — `signal_replay.py` (fonte única do replay determinístico) + guard de granularidade do Yahoo para todos os intervalos + `backtest_sinal.py` vira wrapper fino
 - [x] 07-02-PLAN.md — tabela `signal_ledger` no banco principal, gravação idempotente, as duas agregações SQL (cumulativa e por janela) e o provedor de histórico com cache em processo
 - [x] 07-03-PLAN.md — bootstrap manual (`python -m app.signal_ledger_bootstrap`, executável dentro do container) + runbook em `docs/OPERACAO-ledger-de-sinais.md`
@@ -348,8 +350,19 @@ que a seleção dinâmica mediu como positivo, nunca mais uma suspensão cega.
 **Plans:** 5 plans
 
 Plans:
+**Wave 1**
+
 - [ ] 08-01-PLAN.md — vocabulário canônico dos 6 estados do histórico medido em `skill_ref.py`, espelho byte-idêntico em `copy.js` e guardião cruzado
 - [ ] 08-02-PLAN.md — `_avaliar_entradas` troca a suspensão cega pelo gate de elegibilidade (`historico_snapshot`, só `elegivel is True` passa) + Adendo 2 no ADR-017
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 08-03-PLAN.md — derivação pura dos estados em `finance.js`, componente `HistoricoPill` e consumo de `setupElegivel`/`setupHistorico` no Radar e na Watchlist
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 08-04-PLAN.md — histórico por setup na lista do card (4 estados completos, aposentado rotulado) e linha de transparência do gate no card de status do Operador
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 08-05-PLAN.md — build/carimbo/publicação e checkpoint humano bloqueante antes do deploy do religamento gated
