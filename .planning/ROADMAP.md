@@ -316,10 +316,19 @@ número exibido no painel "Eficiência da IA" muda, mas o componente não)
 
 ### Phase 7: Seleção Dinâmica por Desempenho Histórico — ledger de sinais resolvidos, bootstrap, hook diário, elegibilidade por setup em regime.ranquear (ADR-017, Bloco 1)
 
-**Goal:** [To be planned]
-**Requirements**: TBD
+**Goal:** O motor de decisão passa a pesar cada setup pelo desempenho que ele
+de fato teve — ledger de sinais resolvidos no banco principal, carga histórica
+manual, manutenção diária incremental sem custo extra de brapi, e
+`regime.ranquear()` consumindo elegibilidade por janela anual fechada
+(`min_n=40`). Backend puro; a interface do histórico é o Bloco 3, fase futura.
+**Requirements**: ADR17-B1, ADR17-B1-01..07
 **Depends on:** Phase 6
-**Plans:** 0 plans
+**Plans:** 6 plans (3 waves)
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 7 to break down)
+- [ ] 07-01-PLAN.md — `signal_replay.py` (fonte única do replay determinístico) + guard de granularidade do Yahoo para todos os intervalos + `backtest_sinal.py` vira wrapper fino
+- [ ] 07-02-PLAN.md — tabela `signal_ledger` no banco principal, gravação idempotente, as duas agregações SQL (cumulativa e por janela) e o provedor de histórico com cache em processo
+- [ ] 07-03-PLAN.md — bootstrap manual (`python -m app.signal_ledger_bootstrap`, executável dentro do container) + runbook em `docs/OPERACAO-ledger-de-sinais.md`
+- [ ] 07-04-PLAN.md — `candle_cache.peek()` + hook diário incremental (`signal_ledger_job`) com fechamento de janela anual alinhado ao calendário da B3
+- [ ] 07-05-PLAN.md — `detect_setups` anexa `historico` (provedor injetado, sem I/O) e `regime.ranquear` usa `elegivel` no `radarScore` e na ordenação
+- [ ] 07-06-PLAN.md — fiação: hook no `scheduler_loop`, provedor ligado no boot, adendo no ADR-017 e verificação AO VIVO em produção (checkpoint)
