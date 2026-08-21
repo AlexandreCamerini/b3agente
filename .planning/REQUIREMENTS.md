@@ -120,7 +120,7 @@
 - [ ] **ADR15-04**: `store.sell()` ganha parâmetro `motivo` com paridade a
       `sell_option()` — hoje a taxa stop×alvo de carteira (ação) não é
       computável a partir do histórico
-- [ ] **ADR15-05**: `RR_MIN`/`RR_MINIMO` consolidado numa única constante-fonte
+- [x] **ADR15-05**: `RR_MIN`/`RR_MINIMO` consolidado numa única constante-fonte
       (`skill_ref.RR_MIN`) com guardião de teste cruzado — hoje existem 3
       constantes Python independentes + 7 literais hardcoded no front, e só
       uma delas é travada por teste
@@ -195,7 +195,7 @@
 | ADR15-02 | Phase 6 | Pending |
 | ADR15-03 | Phase 6 | Pending |
 | ADR15-04 | Phase 6 | Pending |
-| ADR15-05 | Phase 6 | Pending |
+| ADR15-05 | Phase 6 | Complete |
 
 **Coverage:**
 - v1.1 requirements: 39 total (4 MERC + 30 FIX + 5 ADR15)
