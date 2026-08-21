@@ -335,3 +335,13 @@ Plans:
 - [x] 07-04-PLAN.md — `candle_cache.peek()` + hook diário incremental (`signal_ledger_job`) com fechamento de janela anual alinhado ao calendário da B3
 - [x] 07-05-PLAN.md — `detect_setups` anexa `historico` (provedor injetado, sem I/O) e `regime.ranquear` usa `elegivel` no `radarScore` e na ordenação
 - [x] 07-06-PLAN.md — fiação: hook no `scheduler_loop`, provedor ligado no boot, adendo no ADR-017 e verificação AO VIVO em produção (checkpoint)
+
+### Phase 8: Interface e IA da Seleção Dinâmica — vocabulário novo (skill_ref.py/copy.js), telas do Radar/Watchlist/Operador mostrando histórico medido por setup, religa entradaAuto do Modo Operador gated pela elegibilidade (ADR-017, Bloco 3/4)
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 7
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 8 to break down)

@@ -108,6 +108,21 @@ Recent decisions affecting current work:
   primeiro, para não contrastar retrospectivo × prospectivo com o
   prospectivo ainda quebrado).
 
+- Phase 8 added: Interface e IA da Seleção Dinâmica (ADR-017, Bloco 3/4) —
+  Bloco 1 (Phase 7) entregou o histórico medido por setup só no backend,
+  sem vitrine (confirmado ao vivo: card do ativo idêntico ao de antes do
+  deploy). Phase 8 é o Bloco 3/4 do ADR-017: vocabulário novo em
+  `skill_ref.py`/`copy.js` ("expectância negativa medida", "empate
+  estatístico, não lucro" — sem frase canônica hoje), telas do
+  Radar/Watchlist/Operador mostrando o `historico` que já chega no JSON,
+  e religa `entradaAuto` do Modo Operador (suspenso desde o Bloco 0,
+  `agent.ENTRADA_AUTO_SUSPENSA_ADR017`) gated pela elegibilidade da
+  seleção dinâmica — ver "Sequenciamento de entrega" item 4 e
+  "Consequências" em docs/adr/017-revisao-de-setups-e-selecao-dinamica.md.
+  Escolhida pelo Alex entre essa opção e as Fases 4/5 (Médio do
+  REPORT-01, ainda sem plano) por ser extensão direta do que acabou de
+  ir ao ar.
+
 ### Pending Todos
 
 None yet.
