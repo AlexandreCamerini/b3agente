@@ -106,7 +106,7 @@
 
 ### Assertividade da instrumentação (ADR-015)
 
-- [ ] **ADR15-01**: `analysis_outcomes.registrar` (N1 e N2) passa a gravar
+- [x] **ADR15-01**: `analysis_outcomes.registrar` (N1 e N2) passa a gravar
       `entrada`, `alvo2`, `rr2` e `confluencia` no outcome — hoje só grava
       `stop`/`alvo1`/`preco`(=close), sem os campos que permitiriam corrigir a
       âncora e segmentar por confluência
@@ -191,7 +191,7 @@
 | FIX-C34 | Phase 5 | Pending |
 | FIX-C38 | Phase 5 | Pending |
 | FIX-C39 | Phase 5 | Pending |
-| ADR15-01 | Phase 6 | Pending |
+| ADR15-01 | Phase 6 | Done (06-01) |
 | ADR15-02 | Phase 6 | Pending |
 | ADR15-03 | Phase 6 | Pending |
 | ADR15-04 | Phase 6 | Pending |
