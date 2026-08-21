@@ -323,11 +323,11 @@ manual, manutenção diária incremental sem custo extra de brapi, e
 (`min_n=40`). Backend puro; a interface do histórico é o Bloco 3, fase futura.
 **Requirements**: ADR17-B1, ADR17-B1-01..07
 **Depends on:** Phase 6
-**Plans:** 6 plans (3 waves)
+**Plans:** 2/6 plans executed
 
 Plans:
-- [ ] 07-01-PLAN.md — `signal_replay.py` (fonte única do replay determinístico) + guard de granularidade do Yahoo para todos os intervalos + `backtest_sinal.py` vira wrapper fino
-- [ ] 07-02-PLAN.md — tabela `signal_ledger` no banco principal, gravação idempotente, as duas agregações SQL (cumulativa e por janela) e o provedor de histórico com cache em processo
+- [x] 07-01-PLAN.md — `signal_replay.py` (fonte única do replay determinístico) + guard de granularidade do Yahoo para todos os intervalos + `backtest_sinal.py` vira wrapper fino
+- [x] 07-02-PLAN.md — tabela `signal_ledger` no banco principal, gravação idempotente, as duas agregações SQL (cumulativa e por janela) e o provedor de histórico com cache em processo
 - [ ] 07-03-PLAN.md — bootstrap manual (`python -m app.signal_ledger_bootstrap`, executável dentro do container) + runbook em `docs/OPERACAO-ledger-de-sinais.md`
 - [ ] 07-04-PLAN.md — `candle_cache.peek()` + hook diário incremental (`signal_ledger_job`) com fechamento de janela anual alinhado ao calendário da B3
 - [ ] 07-05-PLAN.md — `detect_setups` anexa `historico` (provedor injetado, sem I/O) e `regime.ranquear` usa `elegivel` no `radarScore` e na ordenação

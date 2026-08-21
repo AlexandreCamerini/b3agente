@@ -4,14 +4,14 @@ milestone: v1.1
 milestone_name: Realismo de Mercado + Correções
 status: executing
 stopped_at: Phase 2 UI-SPEC force-approved
-last_updated: "2026-08-21T03:01:18.832Z"
-last_activity: 2026-08-21 -- Phase 06 execution started
+last_updated: "2026-08-21T10:29:07.629Z"
+last_activity: 2026-08-21 -- Phase 07 execution started
 progress:
-  total_phases: 5
-  completed_phases: 2
-  total_plans: 18
-  completed_plans: 13
-  percent: 40
+  total_phases: 6
+  completed_phases: 3
+  total_plans: 24
+  completed_plans: 18
+  percent: 50
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-18)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Phase 06 — instrumentacao-assertividade-adr015
+**Current focus:** Phase 07 — sele-o-din-mica-por-desempenho-hist-rico-ledger-de-sinais-re
 
 ## Current Position
 
-Phase: 06 (instrumentacao-assertividade-adr015) — EXECUTING
-Plan: 1 of 5
-Status: Executing Phase 06
-Last activity: 2026-08-21 -- Phase 06 execution started
+Phase: 07 (sele-o-din-mica-por-desempenho-hist-rico-ledger-de-sinais-re) — EXECUTING
+Plan: 1 of 6
+Status: Executing Phase 07
+Last activity: 2026-08-21 -- Phase 07 execution started
 
 Progress: [░░░░░░░░░░] 0% (v1.1)
 
@@ -93,6 +93,7 @@ Recent decisions affecting current work:
   (quick task 260820-0hl) pedida pelo Alex sobre por que o produto fecha
   mais por stop que por alvo. Sequenciada depois de Phase 5 por ordem de
   fila (não há dependência técnica real com Phase 4/5).
+
 - Phase 7 added: Seleção Dinâmica por Desempenho Histórico (ADR-017, Bloco
   1) — o motor de setups tem expectância negativa (ADR-016, 15 anos,
   125.938 sinais); Bloco 0 do ADR-017 já aposentou a faixa catastrófica
