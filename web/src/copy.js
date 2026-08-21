@@ -116,6 +116,33 @@ export const COPY = {
     mercadoStatusFalhouNaOrdem: "Não conseguimos confirmar se o mercado está aberto agora — tente de novo antes de enviar a ordem.",
     toastOrdemPendente: (qty, t) => `Ordem pendente registrada: ${qty} ${t}. Executa na abertura do próximo pregão.`,
     toastOrdemPendenteCancelada: "Ordem pendente cancelada — o valor reservado volta a ficar disponível.",
+
+    // Fase 8 (ADR-017 Bloco 3): histórico medido por setup — espelho byte a
+    // byte de `server/app/skill_ref.py` (HISTORICO/HISTORICO_ROTULO/ENTRADA_AUTO,
+    // modo "educacional"). Placeholders "{janela}"/"{medidoAte}"/"{setup}"/
+    // "{janelaRef}" ficam LITERAIS aqui — a interpolação é dos helpers abaixo,
+    // não do dicionário (permite comparação byte a byte com o Python).
+    historico: {
+      elegivel: "Estudo: vantagem estatística medida na janela {janela}.",
+      inelegivel: "Estudo: sem vantagem estatística medida na janela {janela}.",
+      insuficiente: "Amostra insuficiente (n<40) — ausência de evidência não é prova de mau desempenho.",
+      nunca_medido: "Sem histórico medido ainda.",
+      aposentado: "Padrão gráfico identificado, sem vantagem estatística medida (ADR-016).",
+      desatualizado: "Medido até {medidoAte} — dado pode estar desatualizado.",
+    },
+    historicoRotulo: {
+      elegivel: "VANTAGEM MEDIDA",
+      inelegivel: "SEM VANTAGEM MEDIDA",
+      insuficiente: "AMOSTRA INSUFICIENTE (n<40)",
+      nunca_medido: "SEM HISTÓRICO MEDIDO",
+      aposentado: "APOSENTADO (ADR-016)",
+    },
+    entradaAuto: {
+      regra: "No Modo Operador, a entrada automática só executa em setup com vantagem estatística medida na janela anterior — sem vantagem medida, ele sinaliza e não executa.",
+      contraste: "Sem filtro: −0,099R por sinal (todos os setups, 15 anos) · Com filtro (setups elegíveis na janela anterior): +0,005R — estatisticamente um empate, não lucro.",
+      por_setup_disponivel: "Entrada automática disponível para {setup} — elegibilidade medida em {janelaRef}.",
+      por_setup_bloqueado: "Entrada automática bloqueada para {setup} — sem vantagem estatística medida nesta janela.",
+    },
   },
 
   operador: {
@@ -207,10 +234,56 @@ export const COPY = {
     mercadoStatusFalhouNaOrdem: "Status do mercado indisponível agora — tente de novo antes de enviar a ordem.",
     toastOrdemPendente: (qty, t) => `Ordem pendente: ${qty} ${t}. Executa na abertura do próximo pregão.`,
     toastOrdemPendenteCancelada: "Ordem pendente cancelada — caixa liberado.",
+
+    // Fase 8 (ADR-017 Bloco 3): espelho byte a byte de `server/app/skill_ref.py`
+    // (HISTORICO/HISTORICO_ROTULO/ENTRADA_AUTO, modo "operador").
+    historico: {
+      elegivel: "✓ ELEGÍVEL — vantagem estatística medida na janela {janela}.",
+      inelegivel: "✗ NÃO ELEGÍVEL — sem vantagem estatística medida na janela {janela}.",
+      insuficiente: "Amostra insuficiente (n<40) — ausência de evidência não é prova de mau desempenho.",
+      nunca_medido: "Sem histórico medido ainda.",
+      aposentado: "Padrão gráfico identificado, sem vantagem estatística medida (ADR-016).",
+      desatualizado: "Medido até {medidoAte} — dado pode estar desatualizado.",
+    },
+    historicoRotulo: {
+      elegivel: "✓ ELEGÍVEL",
+      inelegivel: "✗ NÃO ELEGÍVEL",
+      insuficiente: "AMOSTRA INSUFICIENTE (n<40)",
+      nunca_medido: "SEM HISTÓRICO MEDIDO",
+      aposentado: "APOSENTADO (ADR-016)",
+    },
+    entradaAuto: {
+      regra: "Entrada automática só executa em setup com vantagem estatística medida na janela anterior — sem vantagem medida, o Operador sinaliza e não executa.",
+      contraste: "Sem filtro: −0,099R por sinal (todos os setups, 15 anos) · Com filtro (setups elegíveis na janela anterior): +0,005R — estatisticamente um empate, não lucro.",
+      por_setup_disponivel: "Entrada automática disponível para {setup} — elegibilidade medida em {janelaRef}.",
+      por_setup_bloqueado: "Entrada automática bloqueada para {setup} — sem vantagem estatística medida nesta janela.",
+    },
   },
 };
 
 // Acesso seguro: modo desconhecido cai no Estudo (padrão do app).
 export function copyFor(mode) {
   return COPY[mode === "operador" ? "operador" : "estudo"];
+}
+
+// Espelho de `skill_ref.historico_txt` (Fase 8, ADR-017 Bloco 3): resolve o
+// modo pelo mesmo critério de `copyFor`, cai em `nunca_medido` se o estado
+// não existir, e interpola "{janela}"/"{medidoAte}".
+export function historicoTxt(mode, estado, vals) {
+  const h = copyFor(mode).historico;
+  const frase = h[estado] || h.nunca_medido;
+  return frase
+    .replace("{janela}", (vals && vals.janela) || "?")
+    .replace("{medidoAte}", (vals && vals.medidoAte) || "?");
+}
+
+// Espelho de `skill_ref.entrada_auto_txt`: falha FECHADA — só `estado ===
+// "disponivel"` libera a frase positiva; qualquer outro valor cai em
+// `por_setup_bloqueado`.
+export function entradaAutoTxt(mode, estado, vals) {
+  const e = copyFor(mode).entradaAuto;
+  const frase = estado === "disponivel" ? e.por_setup_disponivel : e.por_setup_bloqueado;
+  return frase
+    .replace("{setup}", (vals && vals.setup) || "?")
+    .replace("{janelaRef}", (vals && vals.janelaRef) || "?");
 }
