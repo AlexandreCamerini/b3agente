@@ -6,6 +6,8 @@ Task 1: schema da tabela `signal_ledger` no banco PRINCIPAL — idempotência de
 Task 2/3 acrescentam os testes de `signal_ledger.py` (gravação, agregações,
 provedor com cache).
 """
+import sqlite3
+
 from app import db, signal_ledger
 
 
@@ -217,3 +219,139 @@ def test_agregar_janela_grava_no_kv_com_janela_ref_e_min_n(tmp_path):
     assert salvo["janelaRef"] == "2025"
     assert salvo["minN"] == 40
     assert "calculadoEm" in salvo
+
+
+# ===== Task 3 — provedor de histórico por setup com cache em processo =======
+
+def _preparar_ledger_completo(conn):
+    """Um setup presente nas DUAS agregações (S1), um só na cumulativa (S_CUM),
+    um só na janela (S_JAN) — cobre os três ramos de `historico_snapshot`."""
+    signal_ledger.registrar_linhas(conn, _linhas_setup("S1", 40, 1.0))
+    signal_ledger.registrar_linhas(conn, [
+        {"ticker": "Z", "setup": "S_CUM", "lado": "alta", "data": "2025-01-01",
+         "resultado": "alvo", "r": 1.0, "dataResolucao": "2025-01-05"},
+    ])
+    signal_ledger.agregar_cumulativo(conn)
+    # S_JAN só existe na agregação por janela: registra e agrega DEPOIS da
+    # cumulativa (que já rodou sem ele), então ele nunca aparece em K_CUMULATIVO.
+    signal_ledger.registrar_linhas(conn, _linhas_setup("S_JAN", 40, 1.0))
+    signal_ledger.agregar_janela(conn, 2025)
+
+
+def test_historico_snapshot_funde_as_duas_agregacoes(tmp_path):
+    conn = _conn(tmp_path)
+    _preparar_ledger_completo(conn)
+    signal_ledger.reset_cache()
+    snap = signal_ledger.historico_snapshot(conn)
+    assert set(("expR", "n", "medidoAte", "elegivel", "insuficiente",
+                "expRJanela", "nJanela", "janelaRef", "calculadoEm")) <= set(snap["S1"])
+
+
+def test_historico_snapshot_setup_so_na_cumulativa(tmp_path):
+    conn = _conn(tmp_path)
+    _preparar_ledger_completo(conn)
+    signal_ledger.reset_cache()
+    snap = signal_ledger.historico_snapshot(conn)
+    s_cum = snap["S_CUM"]
+    assert s_cum["elegivel"] is None
+    assert s_cum["insuficiente"] is True
+    assert s_cum["nJanela"] == 0
+
+
+def test_historico_snapshot_setup_so_na_janela(tmp_path):
+    conn = _conn(tmp_path)
+    _preparar_ledger_completo(conn)
+    signal_ledger.reset_cache()
+    snap = signal_ledger.historico_snapshot(conn)
+    s_jan = snap["S_JAN"]
+    assert s_jan["expR"] is None
+    assert s_jan["n"] == 0
+
+
+def test_historico_snapshot_kv_vazio_devolve_dict_vazio(tmp_path):
+    conn = _conn(tmp_path)
+    signal_ledger.reset_cache()
+    assert signal_ledger.historico_snapshot(conn) == {}
+
+
+def test_historico_snapshot_usa_cache_dentro_do_ttl(tmp_path, monkeypatch):
+    conn = _conn(tmp_path)
+    _preparar_ledger_completo(conn)
+    signal_ledger.reset_cache()
+    chamadas = {"n": 0}
+    original = db.kv_get
+
+    def contado(*a, **kw):
+        chamadas["n"] += 1
+        return original(*a, **kw)
+
+    monkeypatch.setattr(db, "kv_get", contado)
+    signal_ledger.historico_snapshot(conn, now=1000.0)
+    apos_primeira = chamadas["n"]
+    assert apos_primeira > 0
+    signal_ledger.historico_snapshot(conn, now=1000.0 + 10.0)
+    assert chamadas["n"] == apos_primeira  # segunda chamada veio do cache
+
+
+def test_historico_snapshot_rele_apos_ttl_expirar(tmp_path, monkeypatch):
+    conn = _conn(tmp_path)
+    _preparar_ledger_completo(conn)
+    signal_ledger.reset_cache()
+    chamadas = {"n": 0}
+    original = db.kv_get
+
+    def contado(*a, **kw):
+        chamadas["n"] += 1
+        return original(*a, **kw)
+
+    monkeypatch.setattr(db, "kv_get", contado)
+    signal_ledger.historico_snapshot(conn, ttl_s=300, now=1000.0)
+    apos_primeira = chamadas["n"]
+    signal_ledger.historico_snapshot(conn, ttl_s=300, now=1000.0 + 301.0)
+    assert chamadas["n"] > apos_primeira
+
+
+def test_reset_cache_forca_releitura(tmp_path, monkeypatch):
+    conn = _conn(tmp_path)
+    _preparar_ledger_completo(conn)
+    signal_ledger.reset_cache()
+    chamadas = {"n": 0}
+    original = db.kv_get
+
+    def contado(*a, **kw):
+        chamadas["n"] += 1
+        return original(*a, **kw)
+
+    monkeypatch.setattr(db, "kv_get", contado)
+    signal_ledger.historico_snapshot(conn, now=1000.0)
+    apos_primeira = chamadas["n"]
+    signal_ledger.reset_cache()
+    signal_ledger.historico_snapshot(conn, now=1000.0 + 1.0)
+    assert chamadas["n"] > apos_primeira
+
+
+def test_historico_snapshot_excecao_de_banco_nao_propaga_sem_cache(tmp_path, monkeypatch):
+    conn = _conn(tmp_path)
+    signal_ledger.reset_cache()
+
+    def explode(*a, **kw):
+        raise sqlite3.OperationalError("banco fora do ar")
+
+    monkeypatch.setattr(db, "kv_get", explode)
+    assert signal_ledger.historico_snapshot(conn) == {}
+
+
+def test_historico_snapshot_excecao_de_banco_devolve_cache_anterior(tmp_path, monkeypatch):
+    conn = _conn(tmp_path)
+    _preparar_ledger_completo(conn)
+    signal_ledger.reset_cache()
+    primeiro = signal_ledger.historico_snapshot(conn, now=1000.0)
+    assert primeiro != {}
+
+    def explode(*a, **kw):
+        raise sqlite3.OperationalError("banco fora do ar")
+
+    monkeypatch.setattr(db, "kv_get", explode)
+    # TTL expirado força releitura, que agora explode — deve cair no cache anterior.
+    segundo = signal_ledger.historico_snapshot(conn, ttl_s=300, now=1000.0 + 301.0)
+    assert segundo == primeiro
