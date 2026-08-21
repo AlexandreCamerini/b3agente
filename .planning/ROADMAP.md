@@ -290,8 +290,8 @@ ordem de fila, não por bloqueio técnico.
 Plans:
 **Wave 1**
 
-- [ ] 06-01-PLAN.md — `registrar()` grava entrada/alvo2/rr2/confluencia + versão de metodologia (ADR15-01)
-- [ ] 06-04-PLAN.md — `store.sell()` ganha `motivo`, em paridade com `sell_option()` (ADR15-04)
+- [x] 06-01-PLAN.md — `registrar()` grava entrada/alvo2/rr2/confluencia + versão de metodologia (ADR15-01)
+- [x] 06-04-PLAN.md — `store.sell()` ganha `motivo`, em paridade com `sell_option()` (ADR15-04)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 

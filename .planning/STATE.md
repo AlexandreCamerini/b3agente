@@ -4,14 +4,14 @@ milestone: v1.1
 milestone_name: Realismo de Mercado + Correções
 status: executing
 stopped_at: Phase 2 UI-SPEC force-approved
-last_updated: "2026-08-18T23:18:24.149Z"
-last_activity: 2026-08-18 -- Phase 2 execution started
+last_updated: "2026-08-21T03:01:18.832Z"
+last_activity: 2026-08-21 -- Phase 06 execution started
 progress:
-  total_phases: 4
-  completed_phases: 0
-  total_plans: 13
-  completed_plans: 0
-  percent: 0
+  total_phases: 5
+  completed_phases: 2
+  total_plans: 18
+  completed_plans: 13
+  percent: 40
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-18)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Phase 2 — Realismo de Mercado
+**Current focus:** Phase 06 — instrumentacao-assertividade-adr015
 
 ## Current Position
 
-Phase: 2 (Realismo de Mercado) — EXECUTING
-Plan: 1 of 7
-Status: Executing Phase 2
-Last activity: 2026-08-20 - Completed quick task 260820-0hl: Pesquisa + design assertividade do motor (ADR-015)
+Phase: 06 (instrumentacao-assertividade-adr015) — EXECUTING
+Plan: 1 of 5
+Status: Executing Phase 06
+Last activity: 2026-08-21 -- Phase 06 execution started
 
 Progress: [░░░░░░░░░░] 0% (v1.1)
 
