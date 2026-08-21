@@ -843,6 +843,92 @@ python3 scripts/backtest_operador.py /tmp/linhas-h10.json --rng 5y
 
 ---
 
+## Adendo 6 (2026-08-20) — gate de regime e volatilidade: o espaço de soluções por regra se esgota
+
+Última hipótese viva: cada família só funciona no ambiente para o qual foi
+desenhada, e o produto dispara todas em todo lugar. `regime.classificar()` deixa
+de ser desempate de ordenação (ADR-009) e vira **porta** — sinal desalinhado é
+descartado, não rebaixado. Mais uma dimensão nunca medida: volatilidade corrente
+(ATR14/close no percentil da própria história do ativo), que é o insumo mais
+"atual" que o snapshot carrega.
+
+Base: 125.938 sinais, 15 anos, braço de saída fixo — o mais favorável, já que o
+Adendo 5 mostrou que a mecânica do Operador piora todos os 17 pares.
+
+| Recorte | n | Expectância | t | Acerto |
+|---|---:|---:|---:|---:|
+| Todos os sinais (o produto hoje) | 125.938 | −0,105R | −39,6 | 44,6% |
+| **Reversão em lateral** | 22.679 | **−0,051R** | −8,3 | 47,4% |
+| Reversão em volatilidade alta | 12.144 | −0,055R | −6,7 | 46,8% |
+| Reversão em lateral + vol. alta | 7.634 | −0,050R | −4,8 | 47,2% |
+| **Continuação alinhada à tendência** | 26.845 | **−0,128R** | −22,0 | 43,4% |
+| Continuação alinhada + vol. baixa/média | 18.110 | −0,119R | −16,7 | 43,8% |
+
+**O gate completo corta 60,7% dos sinais e o que sobra continua em −0,093R**
+(t = −22,0), contra −0,113R do que foi barrado. A separação existe — 0,021R — e é
+informação real, mas de magnitude irrelevante frente ao buraco.
+
+Dois achados dentro disso merecem registro:
+
+**A literatura acerta a direção.** Reversão em mercado lateral é o melhor recorte
+famíliar × regime de toda a investigação: −0,051R, metade do dano da base, com
+47,4% de acerto. É exatamente onde a teoria de reversão à média diz que ela deve
+funcionar. Só não é suficiente para cruzar o zero.
+
+**A tese do ADR-009 é refutada com mais força.** Continuação **alinhada** à
+tendência é **pior** que a base (−0,128R contra −0,105R). Alinhar o setup de
+continuação com o regime, que é o coração do ADR-009, piora o resultado em vez de
+melhorá-lo.
+
+### Volatilidade não carrega informação nenhuma
+
+| Volatilidade | n | Expectância | t |
+|---|---:|---:|---:|
+| Baixa | 41.509 | −0,113R | −24,1 |
+| Média | 41.539 | −0,100R | −21,6 |
+| Alta | 42.890 | −0,103R | −22,8 |
+
+Nulo limpo. A leitura mais literal de "levar em conta dados atuais" não separa
+nada.
+
+### Nenhuma célula sobrevive
+
+24 células família × regime × volatilidade com n ≥ 200. A melhor é
+`reversão · indefinido · alta`: +0,066R com n = 342 e **t = +1,37** — abaixo até
+do limiar solto de 2, quanto mais do deflacionado de 2,5 para 24 tentativas. E
+"indefinido" é a categoria degenerada do classificador (sem SMA200 confiável),
+não um regime de mercado.
+
+### O que este adendo encerra
+
+Todo mecanismo que um operador profissional acionaria foi medido:
+
+| Mecanismo | Resultado |
+|---|---|
+| Sinal de entrada | Refutado (15 anos, dois regimes, perde do acaso) |
+| Gestão de saída (trailing, alvo dinâmico, parcial) | Refutado — payoff sobe, acerto cai mais |
+| Horizonte (10/20/40/60) | Refutado |
+| Timeframe (semanal) | Refutado, exceto IFR2 |
+| Restrição de lado (só comprado) | Refutado — perde de segurar |
+| Gate de regime | Refutado — melhor combinação em −0,051R |
+| Filtro de volatilidade | Nulo |
+| Momentum relativo | Não provado, viés de sobrevivência |
+
+**Sobra o IFR2 semanal** (+0,164R, n = 263, t = +2,79) — e note que ele é
+reversão à média, coerente com o único recorte que a literatura acertou aqui.
+
+O espaço de soluções por engenharia de regra sobre este conjunto de sinais está
+esgotado. Não é falta de sofisticação na implementação: é ausência de sinal para
+gerenciar.
+
+**Reprodução:**
+
+```
+python3 scripts/backtest_gate.py /tmp/linhas-longo.json --rng 15y
+```
+
+---
+
 ## Limitações
 
 - ~~**Período único.**~~ **Resolvido no Adendo 3**: reexecução sobre 2011–2026
