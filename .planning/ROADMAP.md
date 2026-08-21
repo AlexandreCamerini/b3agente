@@ -295,8 +295,8 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 06-02-PLAN.md — `_avaliar_entry` exige toque no gatilho e ancora o R-multiple em `entrada` (ADR15-02)
-- [ ] 06-05-PLAN.md — `RR_MIN` numa fonte única por camada + guardião de teste cruzado (ADR15-05)
+- [x] 06-02-PLAN.md — `_avaliar_entry` exige toque no gatilho e ancora o R-multiple em `entrada` (ADR15-02)
+- [x] 06-05-PLAN.md — `RR_MIN` numa fonte única por camada + guardião de teste cruzado (ADR15-05)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
