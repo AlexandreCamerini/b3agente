@@ -33,11 +33,20 @@ from collections import defaultdict
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "server"))
 
-from app import indicators, regime, setups, yahoo  # noqa: E402
+from app import indicators, signal_replay, yahoo  # noqa: E402
 from app.scanner import DEFAULT_UNIVERSE  # noqa: E402
 
-JANELA = 252          # candles_mod.resolve_keep("1y") — a janela que o Radar usa
-HORIZONTE = 10        # analysis_outcomes.HORIZON_PREGOES (default do produto)
+# ADR-017 (Decisão 2, "Reprodutibilidade"): a barreira tripla e o replay
+# determinístico vivem em UM lugar só — server/app/signal_replay.py. Este
+# script é um wrapper fino: reexporta os nomes que os scripts irmãos
+# importam (backtest_placebo.py: CACHE_DIR/HORIZONTE/avaliar) e cuida só do
+# que é dele — cache em disco e apresentação/CLI. Nenhuma segunda
+# implementação da barreira tripla deve existir no repositório.
+JANELA = signal_replay.JANELA
+HORIZONTE = signal_replay.HORIZONTE
+sinais_do_ticker = signal_replay.sinais_do_ticker
+avaliar = signal_replay.avaliar
+agregar = signal_replay.agregar
 CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".cache-backtest")
 
 
@@ -45,38 +54,15 @@ CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".cac
 # 1) Dados
 # --------------------------------------------------------------------------- #
 
-_ESPACAMENTO = {"1d": (0.5, 5.0), "1wk": (5.0, 9.0)}  # dias entre barras, min/max
-
-
-def _confere_granularidade(cs: list, intervalo: str, ticker: str, rng: str):
-    """O Yahoo degrada em SILÊNCIO: `range=max` devolve HTTP 200 com velas
-    MENSAIS mesmo pedindo `interval=1d` ou `1wk` (medido em 2026-08-20 —
-    PETR4/max devolveu 320 barras começando em 2000-02-01, 2000-03-01…).
-    O guard de `yahoo.get_history` só cobre intervalo intraday, então diário e
-    semanal passam batido e o backtest roda em cima de dado mensal rotulado
-    como diário. Recusar aqui é melhor que produzir número bonito e falso."""
-    if len(cs) < 3:
-        return
-    from datetime import date
-    def _d(s):
-        a, m, d = str(s)[:10].split("-")
-        return date(int(a), int(m), int(d))
-    gaps = sorted((_d(cs[i + 1]["date"]) - _d(cs[i]["date"])).days
-                  for i in range(len(cs) - 1))
-    mediana = gaps[len(gaps) // 2]
-    lo, hi = _ESPACAMENTO.get(intervalo, (0.0, 1e9))
-    if not (lo <= mediana <= hi):
-        raise RuntimeError(
-            f"{ticker}: pedi interval={intervalo} range={rng} e o Yahoo devolveu "
-            f"barras espaçadas por {mediana} dias (mediana) — granularidade "
-            f"errada, dado descartado. Use um range que o Yahoo honre "
-            f"(15y/1d, 10y/1wk); 'max' degrada para mensal.")
-
-
 async def carregar(ticker: str, rng: str, so_cache: bool, intervalo: str = "1d") -> list:
     """Candles com cache em disco (o Yahoo aperta quem insiste). `intervalo`
     entra na chave do cache — diário e semanal não podem disputar a mesma
-    entrada (mesma razão do ADR-001 para o cache de snapshot)."""
+    entrada (mesma razão do ADR-001 para o cache de snapshot).
+
+    A validação de granularidade (`yahoo.confere_granularidade`) roda aqui
+    mesmo o CACHE EM DISCO já validado uma vez: `get_history` só valida o que
+    vem da rede; um cache gravado antes do guard existir pode conter dado
+    degradado."""
     os.makedirs(CACHE_DIR, exist_ok=True)
     path = os.path.join(CACHE_DIR, f"{ticker}-{rng}-{intervalo}.json")
     legado = os.path.join(CACHE_DIR, f"{ticker}-{rng}.json")  # cache diário anterior
@@ -85,161 +71,16 @@ async def carregar(ticker: str, rng: str, so_cache: bool, intervalo: str = "1d")
     if os.path.exists(path):
         with open(path) as f:
             cs = json.load(f)
-        _confere_granularidade(cs, intervalo, ticker, rng)
+        yahoo.confere_granularidade(cs, intervalo, ticker, rng)
         return cs
     if so_cache:
         return []
     hist = await yahoo.get_history(ticker, rng=rng, interval=intervalo)
     cs = hist.get("candles") or []
-    _confere_granularidade(cs, intervalo, ticker, rng)  # antes de gravar cache
+    yahoo.confere_granularidade(cs, intervalo, ticker, rng)  # antes de gravar cache
     with open(path, "w") as f:
         json.dump(cs, f)
     return cs
-
-
-# --------------------------------------------------------------------------- #
-# 2) Replay do motor
-# --------------------------------------------------------------------------- #
-
-def _summary_em(ind: dict, closes: list, t: int) -> dict:
-    """Mini-summary no dia t. Os indicadores são causais e alinhados ao array de
-    candles, então o valor no índice t é exatamente o que a produção teria
-    calculado naquele dia — não há vazamento de futuro."""
-    def v(nome):
-        arr = ind.get(nome) or []
-        return arr[t] if t < len(arr) else None
-    return {"close": closes[t], "sma200": v("sma200"), "sma50": v("sma50"),
-            "adx14": v("adx14"), "diPlus": v("diPlus"), "diMinus": v("diMinus")}
-
-
-def sinais_do_ticker(ticker: str, cs: list, dias: int,
-                     horizonte: int = HORIZONTE, janela: int = JANELA) -> list:
-    """Roda o motor barra a barra e devolve os planos acionáveis (COMPRAR/VENDER)."""
-    cs = indicators.sanitize_candles(cs or [])
-    if len(cs) < janela + horizonte + 10:
-        return []
-    full = indicators.compute(cs)
-    ind, closes = full["indicators"], [c["close"] for c in cs]
-
-    # Só avalia barras que têm janela cheia atrás E horizonte cheio à frente.
-    t0 = max(janela, len(cs) - horizonte - dias)
-    t1 = len(cs) - horizonte - 1
-
-    out = []
-    for t in range(t0, t1 + 1):
-        ini = max(0, t + 1 - janela)
-        bloco = cs[ini:t + 1]
-        ind_slice = {k: arr[ini:t + 1] for k, arr in ind.items()}
-        sres = setups.detect_setups(bloco, ind_slice)
-        plano = setups.plano_do_resultado(sres, close=cs[t]["close"])
-        if plano.get("decisao") not in (setups.DECISAO_COMPRAR, setups.DECISAO_VENDER):
-            continue
-        entrada, stop = plano.get("entrada"), plano.get("stop")
-        if entrada is None or stop is None or entrada == stop:
-            continue
-        reg = regime.classificar({"close": cs[t]["close"],
-                                  "summary": _summary_em(ind, closes, t),
-                                  "candlesAvailable": t + 1})
-        # A confluência que importa é a do setup QUE VIROU PLANO — não a global
-        # de `sres["confluencia"]` (que é a do melhor setup, podendo ser um
-        # neutro ou do lado oposto ao plano, ver plano_do_resultado).
-        nome = plano.get("setup")
-        conf = next((s.get("confluencia") for s in (sres.get("setups") or [])
-                     if s.get("nome") == nome), sres.get("confluencia"))
-        out.append({
-            "ticker": ticker, "data": cs[t]["date"], "t": t,
-            "setup": nome, "lado": plano.get("lado"),
-            "confluencia": conf,
-            "tipo": plano.get("tipo"), "entrada": entrada, "stop": stop,
-            "alvo1": plano.get("alvo1"), "alvo2": plano.get("alvo2"),
-            "rr2": plano.get("rr2"), "regime": reg.get("regime"),
-        })
-    return out
-
-
-# --------------------------------------------------------------------------- #
-# 3) Avaliação forward (barreira tripla ancorada no gatilho — ADR-015)
-# --------------------------------------------------------------------------- #
-
-def avaliar(sinal: dict, cs: list, alvo_campo: str, horizonte: int = HORIZONTE) -> dict:
-    """Desfecho das próximas `horizonte` barras. `resultado` ∈
-    {alvo, stop, sem_gatilho, expirou}. `r` é o múltiplo do risco do PLANO."""
-    alvo = sinal.get(alvo_campo)
-    if alvo is None:
-        return {"resultado": None, "r": None}
-    entrada, stop = sinal["entrada"], sinal["stop"]
-    compra = sinal["lado"] == "alta"
-    risco = abs(entrada - stop)
-    if risco <= 0:
-        return {"resultado": None, "r": None}
-
-    janela = cs[sinal["t"] + 1: sinal["t"] + 1 + horizonte]
-    if len(janela) < horizonte:
-        return {"resultado": None, "r": None}
-
-    # Entrada a mercado: o gatilho já rompeu, a entrada é imediata — a barreira
-    # abre na primeira barra, sem exigir toque (ADR-015 / ADR15-02).
-    a_mercado = str(sinal.get("tipo") or "").startswith("a mercado")
-    if a_mercado:
-        i0 = 0
-    else:
-        i0 = None
-        for i, c in enumerate(janela):
-            hi, lo = c.get("high"), c.get("low")
-            if hi is None or lo is None:
-                continue
-            if (compra and hi >= entrada) or (not compra and lo <= entrada):
-                i0 = i
-                break
-        if i0 is None:
-            return {"resultado": "sem_gatilho", "r": None}
-
-    for c in janela[i0:]:
-        hi, lo = c.get("high"), c.get("low")
-        if hi is None or lo is None:
-            continue
-        # Empate intrabar resolve a favor do stop (cenário conservador — mesma
-        # convenção de analysis_outcomes._avaliar_entry e agent.py).
-        bateu_stop = lo <= stop if compra else hi >= stop
-        bateu_alvo = hi >= alvo if compra else lo <= alvo
-        if bateu_stop:
-            return {"resultado": "stop", "r": -1.0}
-        if bateu_alvo:
-            return {"resultado": "alvo", "r": round(abs(alvo - entrada) / risco, 3)}
-
-    fim = janela[-1].get("close")
-    if fim is None:
-        return {"resultado": None, "r": None}
-    ganho = (fim - entrada) if compra else (entrada - fim)
-    return {"resultado": "expirou", "r": round(ganho / risco, 3)}
-
-
-# --------------------------------------------------------------------------- #
-# 4) Estatística
-# --------------------------------------------------------------------------- #
-
-def agregar(linhas: list) -> dict:
-    """Expectância em R e taxa de acerto. `sem_gatilho` fica FORA do
-    denominador: o trade não existiu, contá-lo como perda inflaria a taxa de
-    stop pelo mesmo viés que o ADR-015 corrige."""
-    resolvidos = [l for l in linhas if l["resultado"] in ("alvo", "stop", "expirou")]
-    n = len(resolvidos)
-    if not n:
-        return {"n": 0, "naoAcionados": sum(1 for l in linhas if l["resultado"] == "sem_gatilho")}
-    rs = [l["r"] for l in resolvidos]
-    ganhos = [r for r in rs if r > 0]
-    perdas = [-r for r in rs if r < 0]
-    return {
-        "n": n,
-        "naoAcionados": sum(1 for l in linhas if l["resultado"] == "sem_gatilho"),
-        "acerto": round(100.0 * len(ganhos) / n, 1),
-        "expectanciaR": round(sum(rs) / n, 3),
-        "somaR": round(sum(rs), 1),
-        "profitFactor": (round(sum(ganhos) / sum(perdas), 2) if perdas else None),
-        "stops": sum(1 for l in resolvidos if l["resultado"] == "stop"),
-        "alvos": sum(1 for l in resolvidos if l["resultado"] == "alvo"),
-        "expirou": sum(1 for l in resolvidos if l["resultado"] == "expirou"),
-    }
 
 
 def _tab(titulo: str, grupos: dict, min_n: int = 30):
