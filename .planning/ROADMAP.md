@@ -264,23 +264,33 @@ ordem de fila, não por bloqueio técnico.
 **Requirements**: ADR15-01, ADR15-02, ADR15-03, ADR15-04, ADR15-05
 **Success Criteria** (what must be TRUE):
 
-  1. `analysis_outcomes.registrar` (N1 e N2, `main.py`) grava `entrada`,
-     `alvo2`, `rr2` e `confluencia` no outcome, além dos campos que já
-     grava hoje. [ADR15-01]
+  1. `analysis_outcomes.registrar` grava `entrada`, `alvo2`, `rr2`,
+     `confluencia` e `entradaAMercado` no outcome do N1 (`main.py`), e
+     `confluencia` no outcome do N2 — o N2 não tem plano determinístico em
+     escopo e por isso não carrega geometria de gatilho. [ADR15-01]
 
   2. `_avaliar_entry` só abre a barreira tripla depois de o gatilho ser
-     tocado, e usa `entrada` (não `close`) como preço de referência.
-     Outcomes gravados antes da mudança ficam marcados como não-comparáveis
-     (campo de versão de metodologia) e `compute_stats`/`compute_stats_all_users`
-     não misturam as duas metodologias no mesmo agregado. [ADR15-02]
+     tocado — exceto no plano `a mercado` (`ancora='mercado'`, campo
+     `entradaAMercado: true`), cuja entrada é imediata: ali a barreira abre no
+     candle 0, sem exigir toque, para que o gap adverso do candle seguinte
+     continue no denominador em vez de virar `sem_gatilho`. Usa `entrada` (não
+     `close`) como preço de referência nos dois casos, e carimba no campo
+     `ancora` (`gatilho`\|`mercado`\|`preco`) a âncora que de fato resolveu cada
+     registro. Outcomes gravados antes da mudança ficam marcados como
+     não-comparáveis (campo de versão de metodologia) e
+     `compute_stats`/`compute_stats_all_users` não misturam as duas
+     metodologias — nem as duas âncoras — no mesmo agregado. [ADR15-02]
 
   3. `compute_stats_all_users` deduplica registros pelo mesmo `snapshotId`
      antes de agregar — um plano gravado N vezes conta como 1 observação.
      [ADR15-03]
 
   4. `store.sell()` aceita `motivo` com o mesmo contrato de `sell_option()`
-     (`'manual'|'stop'|'alvo'|'vencimento'`); os 3 call sites automáticos em
-     `agent.py` passam o motivo real (`breach_stop`/`hit_alvo`). [ADR15-04]
+     (`'manual'|'stop'|'alvo'|'vencimento'`); o ÚNICO call site automático de
+     `store.sell` em `agent.py` (linha ~852) passa o motivo real
+     (`breach_stop`/`hit_alvo`) — os demais call sites (`pending_orders.py`,
+     rota `/api/sell`) são vendas pedidas pelo usuário e ficam no default
+     `'manual'`. [ADR15-04]
 
   5. Existe uma única constante-fonte para o R:R mínimo (`skill_ref.RR_MIN`);
      `setups.RR_MINIMO`, `agent.RR_MINIMO` e os literais do front
