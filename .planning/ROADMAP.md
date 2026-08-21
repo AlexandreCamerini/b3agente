@@ -313,3 +313,13 @@ Plans:
 - [x] 06-03-PLAN.md — agregado não mistura metodologias e deduplica por `snapshotId` (ADR15-02, ADR15-03)
 **UI hint**: no (mudança de backend/instrumentação — sem tela nova; o
 número exibido no painel "Eficiência da IA" muda, mas o componente não)
+
+### Phase 7: Seleção Dinâmica por Desempenho Histórico — ledger de sinais resolvidos, bootstrap, hook diário, elegibilidade por setup em regime.ranquear (ADR-017, Bloco 1)
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 6
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 7 to break down)

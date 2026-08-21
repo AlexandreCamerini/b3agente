@@ -93,6 +93,19 @@ Recent decisions affecting current work:
   (quick task 260820-0hl) pedida pelo Alex sobre por que o produto fecha
   mais por stop que por alvo. Sequenciada depois de Phase 5 por ordem de
   fila (não há dependência técnica real com Phase 4/5).
+- Phase 7 added: Seleção Dinâmica por Desempenho Histórico (ADR-017, Bloco
+  1) — o motor de setups tem expectância negativa (ADR-016, 15 anos,
+  125.938 sinais); Bloco 0 do ADR-017 já aposentou a faixa catastrófica
+  (6 setups) fora do fluxo GSD normal, direto em produção (commit
+  4a6e7e3, 2026-08-20). Phase 7 é o Bloco 1: ledger de sinais resolvidos,
+  bootstrap único, hook diário incremental, guard de granularidade do
+  Yahoo, `regime.ranquear` consumindo elegibilidade por janela anual.
+  Arquitetura já desenhada e aprovada pelo Alex em Plan Mode — ver
+  docs/adr/017-revisao-de-setups-e-selecao-dinamica.md. Não depende de
+  Phase 4/5 (Médio do REPORT-01, ainda não iniciadas); sequenciada depois
+  de Phase 6 por ordem de fila real (Bloco 2 do ADR-017 pedia Phase 6
+  primeiro, para não contrastar retrospectivo × prospectivo com o
+  prospectivo ainda quebrado).
 
 ### Pending Todos
 
