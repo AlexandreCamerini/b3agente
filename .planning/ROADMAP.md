@@ -347,13 +347,13 @@ automática do Modo Operador volta a existir, mas só para o setup específico
 que a seleção dinâmica mediu como positivo, nunca mais uma suspensão cega.
 **Requirements**: ADR17-B34-01, ADR17-B34-02, ADR17-B34-03, ADR17-B34-04
 **Depends on:** Phase 7
-**Plans:** 5 plans
+**Plans:** 2/5 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 08-01-PLAN.md — vocabulário canônico dos 6 estados do histórico medido em `skill_ref.py`, espelho byte-idêntico em `copy.js` e guardião cruzado
-- [ ] 08-02-PLAN.md — `_avaliar_entradas` troca a suspensão cega pelo gate de elegibilidade (`historico_snapshot`, só `elegivel is True` passa) + Adendo 2 no ADR-017
+- [x] 08-01-PLAN.md — vocabulário canônico dos 6 estados do histórico medido em `skill_ref.py`, espelho byte-idêntico em `copy.js` e guardião cruzado
+- [x] 08-02-PLAN.md — `_avaliar_entradas` troca a suspensão cega pelo gate de elegibilidade (`historico_snapshot`, só `elegivel is True` passa) + Adendo 2 no ADR-017
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
