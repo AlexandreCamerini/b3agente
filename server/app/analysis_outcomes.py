@@ -174,14 +174,35 @@ def _celula(resolvidos: list) -> dict:
     }
 
 
-def compute_stats(outcomes: list, modo: Optional[str] = None, tipo: Optional[str] = None) -> dict:
+def compute_stats(outcomes: list, modo: Optional[str] = None, tipo: Optional[str] = None,
+                   metodologia: Optional[int] = METODOLOGIA_ATUAL) -> dict:
     """Agrega taxa de acerto / R médio / recorte por setup — usado pelo painel
     'Eficiência da IA'. Puro (sem I/O). qa/35 (P2, camadas a+c decididas com o
     Alex): + expectância (R médio por análise), profit factor e calibração da
     confiança declarada (alta×moderada×baixa) e por decisão. TODO cálculo aqui
-    em Python — a LLM não calcula nada."""
+    em Python — a LLM não calcula nada.
+
+    ADR-015 / ADR15-03: `metodologia` (default `METODOLOGIA_ATUAL`) filtra o
+    universo COMPARÁVEL antes de agregar taxaAcerto/expectância/segmentações —
+    somar outcome ancorado no close (metodologia 1) com outcome ancorado no
+    gatilho (metodologia 2) produziria de novo um número que parece um edge e
+    não é, a mesma classe de erro que o ADR-015 corrige. `metodologia=None` é
+    um escape hatch explícito (usado só por teste/diagnóstico) que desliga o
+    filtro e agrega tudo, sem declarar legado."""
     filtrado = [o for o in (outcomes or [])
                 if (modo is None or o.get("modo") == modo) and (tipo is None or o.get("tipo") == tipo)]
+    # `total_recorte`/`recorte` são o universo PRÉ-filtro de metodologia —
+    # `totalAnalises` e `pendentes` continuam contados sobre eles (ver
+    # comentários mais abaixo, no dict de retorno, para o motivo verificado
+    # de cada um). Só DEPOIS deste ponto o filtro de metodologia separa
+    # `filtrado` (comparável) de `legado` (fora do agregado, só declarado).
+    total_recorte = len(filtrado)
+    recorte = list(filtrado)
+    if metodologia is None:
+        legado: list = []
+    else:
+        legado = [o for o in filtrado if _metodologia(o) != metodologia]
+        filtrado = [o for o in filtrado if _metodologia(o) == metodologia]
     # ADR15-02: `sem_gatilho` (RESULTADOS_NEUTROS) sai de `resolvidos` — o
     # gatilho não foi tocado dentro do prazo, o trade não existiu; não é
     # acerto nem erro, e contá-lo como falha reproduziria, com outro nome, o
@@ -190,8 +211,22 @@ def compute_stats(outcomes: list, modo: Optional[str] = None, tipo: Optional[str
     # construção (todas iteram sobre `resolvidos`).
     resolvidos = [o for o in filtrado
                   if o.get("resultado") not in (None, "pendente") and o.get("resultado") not in RESULTADOS_NEUTROS]
-    pendentes = [o for o in filtrado if o.get("resultado") == "pendente"]
+    # `pendentes` conta sobre `recorte` (PRÉ-filtro de metodologia), não sobre
+    # `filtrado` (pós-filtro): um registro `pendente` ainda não foi medido por
+    # metodologia NENHUMA — não é "excluído do comparável", é "ainda não
+    # resolvido". Escopá-lo em `totalComparaveis` zeraria o contador logo após
+    # o deploy (o histórico é quase todo metodologia 1) e os dois fronts que
+    # RENDERIZAM esse número (`web/src/App.jsx:4851`, KPI "AGUARDANDO PRAZO"
+    # em `web-admin/src/App.jsx:368`) passariam a afirmar que nada está
+    # aguardando quando quase tudo está — princípios 4 e 9 do CLAUDE.md.
+    pendentes = [o for o in recorte if o.get("resultado") == "pendente"]
     nao_acionados = [o for o in filtrado if o.get("resultado") in RESULTADOS_NEUTROS]  # -> "naoAcionados" no retorno
+    # `metodologiaLegado.avaliadas` usa a MESMA régua de exclusão de
+    # `resolvidos` acima (fora pendente e fora RESULTADOS_NEUTROS) — só que
+    # sobre o recorte excluído pelo filtro de metodologia, nunca somado ao
+    # agregado comparável.
+    legado_avaliados = [o for o in legado
+                        if o.get("resultado") not in (None, "pendente") and o.get("resultado") not in RESULTADOS_NEUTROS]
     sucesso = [o for o in resolvidos if o.get("resultado") in RESULTADOS_SUCESSO]
     r_valores = [o["rMultiple"] for o in resolvidos if o.get("rMultiple") is not None]
     por_setup: dict = {}
@@ -242,6 +277,17 @@ def compute_stats(outcomes: list, modo: Optional[str] = None, tipo: Optional[str
         chave = f"{o.get('setup') or '—'} @ {rg}"
         por_setup_regime.setdefault(chave, []).append(o)
 
+    # --- ADR-015 / ADR15-02/03: segmentação por âncora de resolução ------------
+    # `metodologiaVersao` marca quais CAMPOS foram gravados; `ancora` marca
+    # qual âncora resolveu o registro. Um registro N2 é versão 2 e resolve
+    # com âncora `preco` — sem esta segmentação, o agregado default
+    # (`tipo=None`) juntaria N1 ancorado no gatilho com N2 ancorado no preço
+    # sob o mesmo rótulo `metodologia: 2`, que é exatamente a mistura
+    # não-sinalizada que o 06-CONTEXT.md proíbe.
+    por_ancora: dict = {}  # -> "porAncora" no retorno
+    for o in resolvidos:
+        por_ancora.setdefault(o.get("ancora") or "—", []).append(o)
+
     # --- qa/37 P2e: curva de R acumulado + drawdown -----------------------------
     # Ordena os avaliados por data de resolução e soma os R-múltiplos → a curva
     # de R acumulado (equity curve em R). Drawdown máximo = maior queda do pico
@@ -264,7 +310,23 @@ def compute_stats(outcomes: list, modo: Optional[str] = None, tipo: Optional[str
     r_acumulado = curva_r[-1] if curva_r else None
 
     return {
-        "totalAnalises": len(filtrado),
+        # ADR-015 / ADR15-03: significado de HOJE, PRÉ-filtro de
+        # metodologia — mantido de propósito. `web/src/App.jsx:4832` e
+        # `web-admin/src/App.jsx:361` fecham o painel inteiro ("Nenhuma
+        # análise com plano de stop/alvo definido ainda…") quando este
+        # número é 0. Como ~100% do histórico é metodologia 1, redefini-lo
+        # para a contagem pós-filtro mostraria esse empty-state para todo
+        # usuário que TEM análises — contra os princípios 4 e 9 do
+        # CLAUDE.md — e esconderia o próprio `metodologiaLegado`, que
+        # existe para declarar a exclusão. Esta fase é backend-only; a
+        # semântica do campo antigo é preservada e o número novo entra em
+        # campo novo (`totalComparaveis`).
+        "totalAnalises": total_recorte,
+        # Universo APÓS o filtro de metodologia — é dele que saem
+        # `avaliadas`/`naoAcionados`. `pendentes` é a exceção deliberada:
+        # sai do recorte PRÉ-filtro (ver comentário na variável `pendentes`
+        # acima).
+        "totalComparaveis": len(filtrado),
         "avaliadas": len(resolvidos),
         "pendentes": len(pendentes),
         # ADR15-02: gatilho não tocado dentro do prazo = o trade não
@@ -276,6 +338,13 @@ def compute_stats(outcomes: list, modo: Optional[str] = None, tipo: Optional[str
         "porSetup": por_setup,
         # qa/35 P2 (a+c) — minN vai junto pro painel explicar a régua.
         "minN": MIN_N,
+        # ADR-015 / ADR15-02: outcomes resolvidos com a âncora antiga (close
+        # do dia da análise) e com a nova (gatilho) medem coisas diferentes;
+        # somá-los produziria de novo um número que parece um edge e não é.
+        # O legado aparece DECLARADO, nunca somado, e nunca é reconvertido
+        # por inferência.
+        "metodologia": metodologia,
+        "metodologiaLegado": {"total": len(legado), "avaliadas": len(legado_avaliados)},
         "expectancia": expectancia,
         "profitFactor": ("inf" if profit_factor == float("inf") else profit_factor),
         "expectanciaInsuficiente": not suficiente,
@@ -284,6 +353,9 @@ def compute_stats(outcomes: list, modo: Optional[str] = None, tipo: Optional[str
         # qa/44 (B, ADR-009): recorte por regime e por (setup × regime).
         "porRegime": {k: _celula(v) for k, v in por_regime.items()},
         "porSetupRegime": {k: _celula(v) for k, v in por_setup_regime.items()},
+        # ADR-015 / ADR15-02/03: segmentação por âncora de resolução — ver
+        # comentário no laço acima.
+        "porAncora": {k: _celula(v) for k, v in por_ancora.items()},
         # qa/37 P2e: curva de R acumulado (para o gráfico) + drawdown máximo.
         "curvaR": curva_r,
         "rAcumulado": r_acumulado,
@@ -295,11 +367,69 @@ def outcomes_de_todos_os_usuarios(conn) -> list:
     """ADR-012 (Fase 3): outcomes CRUS de todos os escopos concatenados — para
     módulos que precisam cruzar por `snapshotId` (ver automacao.py). Sem
     MIN_N nem agregação; quem chama decide o que fazer com a granularidade
-    individual. Não identifica usuário (outcomes não carregam `user_id`)."""
+    individual. Não identifica usuário (outcomes não carregam `user_id`).
+    NUNCA deduplicar aqui: `automacao.py` cruza `history` × `analysisOutcomes`
+    por `snapshotId` e quebra se a lista crua sumir (ver `_dedup_por_snapshot`,
+    que vive só na camada de agregação cross-escopo, abaixo)."""
     todos: list = []
     for uid in _scopes_com_outcomes(conn):
         todos.extend(db.kv_get(conn, _key(), [], user_id=uid) or [])
     return todos
+
+
+def _dedup_por_snapshot(outcomes: list, modo: Optional[str] = None) -> list:
+    """ADR-015 / ADR15-03: colapsa registros duplicados do MESMO plano
+    determinístico gravado várias vezes sob o mesmo `snapshotId` — em
+    produção, 159 resolvidos eram só 66 planos distintos, um deles gravado
+    12 vezes; sem dedup, `MIN_N=10` não protege de nada (o piso de amostra é
+    inflado pela mesma observação repetida). Puro.
+
+    Chave de agrupamento — modo-independente no N1, modo-dependente no N2:
+    o stop/alvo do N1 vêm de `setups.plano_do_resultado`, cuja assinatura
+    NÃO recebe `modo` — o plano determinístico é idêntico nos dois modos,
+    então o mesmo `snapshotId` gravado em `estudo` e em `operador` é UMA
+    observação regravada, não duas. Manter `modo` na chave do N1 deixaria a
+    duplicação passar dobrada pelo agregado default (`modo=None`), que é o
+    número de manchete do painel. Já o N2 é a proposta da LLM, gerada com
+    prompt diferente por modo (`skill_ref`/`defaults`), portanto observações
+    distintas — o `modo` FICA na chave do N2.
+
+    `modo`, quando informado, PRÉ-filtra a lista antes de agrupar (a mesma
+    régua que `compute_stats` aplicaria em seguida — idempotente): é o que
+    permite ignorar `modo` na chave do N1 sem perder observação do recorte
+    pedido — ver `test_dedup_por_snapshot_com_modo_pre_filtra_e_preserva_observacao`.
+
+    Registro sem `snapshotId` nunca é deduplicado contra outro (sem
+    `snapshotId` não há evidência de duplicação) — entra na saída sem passar
+    pelo agrupamento. Dentro de um grupo duplicado, sobrevive o resolvido
+    (se houver) e, entre resolvidos, o de `criadoEm` mais antigo; empate
+    resolvido por `id` — determinístico, independente da ordem do kv."""
+    if modo is not None:
+        outcomes = [o for o in outcomes if o.get("modo") == modo]
+
+    grupos: dict = {}
+    ordem: list = []
+    sem_snapshot: list = []
+    for o in outcomes:
+        snap = o.get("snapshotId")
+        if not snap:
+            sem_snapshot.append(o)
+            continue
+        if o.get("tipo") == "n1":
+            chave = (snap, "n1")
+        else:
+            chave = (snap, o.get("modo"), o.get("tipo"))
+        if chave not in grupos:
+            ordem.append(chave)
+            grupos[chave] = []
+        grupos[chave].append(o)
+
+    def _rank(o: dict):
+        resolvido = 0 if o.get("resultado") not in (None, "pendente") else 1
+        return (resolvido, o.get("criadoEm") or "", o.get("id") or "")
+
+    sobreviventes = [min(grupos[chave], key=_rank) for chave in ordem]
+    return sem_snapshot + sobreviventes
 
 
 def compute_stats_all_users(conn, modo: Optional[str] = None, tipo: Optional[str] = None) -> dict:
@@ -308,8 +438,22 @@ def compute_stats_all_users(conn, modo: Optional[str] = None, tipo: Optional[str
     cima da concatenação. NUNCA devolve `user_id` nem a lista bruta de
     outcomes — só o dict agregado, que já respeita MIN_N por célula (evita
     reidentificar usuário por amostra pequena). Chamador (endpoint admin) não
-    deve expor outcomes crus."""
-    return compute_stats(outcomes_de_todos_os_usuarios(conn), modo=modo, tipo=tipo)
+    deve expor outcomes crus.
+
+    ADR-015 / ADR15-03: deduplica por `snapshotId` (`_dedup_por_snapshot`)
+    ANTES de agregar — 159 resolvidos → 66 planos distintos em produção, um
+    deles gravado 12 vezes; sem dedup, `MIN_N=10` não protege de nada.
+
+    ASSIMETRIA deliberada (decisão travada no 06-CONTEXT.md, ADR15-03 — não
+    mudar): o dedup vive SÓ nesta camada de agregação cross-escopo. O painel
+    do próprio usuário (`main.py:2419` → `compute_stats` com os outcomes
+    crus do escopo) continua contando duplicatas, então um usuário com um
+    plano regravado 12x verá um `n` maior no painel dele do que o agregado
+    deduplicado do admin sobre os mesmos dados — divergência intencional
+    (`compute_stats` puro não pode assumir escopo único), documentada aqui
+    porque é o tipo que vira chamado de suporte por-escopo × cross-usuário."""
+    return compute_stats(_dedup_por_snapshot(outcomes_de_todos_os_usuarios(conn), modo=modo),
+                         modo=modo, tipo=tipo)
 
 
 def to_csv(outcomes: list) -> str:

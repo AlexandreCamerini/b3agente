@@ -106,10 +106,14 @@
 
 ### Assertividade da instrumentação (ADR-015)
 
-- [x] **ADR15-01**: `analysis_outcomes.registrar` (N1 e N2) passa a gravar
-      `entrada`, `alvo2`, `rr2` e `confluencia` no outcome — hoje só grava
-      `stop`/`alvo1`/`preco`(=close), sem os campos que permitiriam corrigir a
-      âncora e segmentar por confluência
+- [x] **ADR15-01**: `analysis_outcomes.registrar` grava `entrada`,
+      `alvo2`, `rr2`, `confluencia` e `entradaAMercado` no outcome do N1, e
+      `confluencia` no outcome do N2 — hoje só grava `stop`/`alvo1`/`preco`(=close),
+      sem os campos que permitiriam corrigir a âncora e segmentar por
+      confluência. O N2 não tem plano determinístico em escopo
+      (`main.py:1416-1432`): seu `stop`/`alvo` vêm da proposta da LLM ancorada no
+      preço, e enxertar o `entrada` do plano determinístico produziria geometria
+      incoerente
 - [x] **ADR15-02**: `_avaliar_entry` exige toque no gatilho antes de abrir a
       barreira tripla e usa `entrada` (não `close`) como `preco0` — registros
       anteriores à mudança ficam marcados como não-comparáveis (campo de
