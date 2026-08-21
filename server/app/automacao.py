@@ -64,7 +64,12 @@ def correlacao_analise_operacao(conn) -> dict:
     """Cruza ordens de ENTRADA (COMPRA) com análises da IA por `snapshotId`.
     `seguiuAnaliseComSucesso` só conta análises já RESOLVIDAS (não
     'pendente') cujo resultado é sucesso (alvo|expirou_pos) — mesma régua de
-    analysis_outcomes.RESULTADOS_SUCESSO."""
+    analysis_outcomes.RESULTADOS_SUCESSO. Desfechos neutros
+    (analysis_outcomes.RESULTADOS_NEUTROS, ex.: `sem_gatilho` — ADR15-02)
+    também NÃO contam como resolvidos: o gatilho nunca foi tocado, a
+    correlação nunca aconteceu, e deixá-la em `resolvidas` diluiria
+    `seguiuAnaliseComSucesso / resolvidas` com um desfecho que não é acerto
+    nem erro."""
     ordens = _todas_as_ordens(conn)
     ordens_entrada = [o for o in ordens if o.get("type") == "COMPRA"]
     com_snapshot = [o for o in ordens_entrada if o.get("snapshotId")]
@@ -76,7 +81,9 @@ def correlacao_analise_operacao(conn) -> dict:
         {"origem": o.get("origem") or "desconhecida", "resultadoAnalise": por_snapshot[o["snapshotId"]].get("resultado")}
         for o in com_snapshot if o["snapshotId"] in por_snapshot
     ]
-    resolvidas = [v for v in vinculadas if v["resultadoAnalise"] not in (None, "pendente")]
+    resolvidas = [v for v in vinculadas
+                  if v["resultadoAnalise"] not in (None, "pendente", *analysis_outcomes.RESULTADOS_NEUTROS)]
+    nao_acionadas = [v for v in vinculadas if v["resultadoAnalise"] in analysis_outcomes.RESULTADOS_NEUTROS]
     sucesso = [v for v in resolvidas if v["resultadoAnalise"] in analysis_outcomes.RESULTADOS_SUCESSO]
 
     return {
@@ -85,6 +92,10 @@ def correlacao_analise_operacao(conn) -> dict:
         "coberturaPct": round(100 * len(com_snapshot) / len(ordens_entrada), 1) if ordens_entrada else None,
         "vinculadasComAnaliseRegistrada": len(vinculadas),
         "resolvidas": len(resolvidas),
+        # ADR15-02: aditivo — a fatia de `vinculadas` que ficou fora de
+        # `resolvidas` por ser sem_gatilho, para o painel mostrar o que saiu
+        # em vez de sumir com o número.
+        "naoAcionadas": len(nao_acionadas),
         "seguiuAnaliseComSucesso": len(sucesso),
     }
 
