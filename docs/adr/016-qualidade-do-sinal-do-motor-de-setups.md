@@ -661,6 +661,17 @@ O que mudou de conclusão:
 quando o espaçamento mediano entre barras não bate com o intervalo pedido.
 Ranges que o Yahoo honra: `15y`/`1d`, `10y`/`1wk`. `max` degrada para mensal.
 
+### Correção sobre o IFR2 no diário (amostra de 15 anos)
+
+A afirmação de que "no diário o retorno próprio do IFR2 segue negativo" vinha da
+amostra de 3 anos (n = 696, −0,049R, t = −1,3). Com 15 anos e n = 2.934 o sinal
+**inverte**: **+0,072R, t = +3,99, acerto 53,4%, profit factor 1,16** — acima do
+limiar deflacionado de 2,4 para 17 configurações.
+
+O IFR2 (alta) é, portanto, positivo e significativo nos **dois** intervalos com
+amostra grande: diário 15 anos (+0,072R, t = +3,99) e semanal 10 anos (+0,164R,
+t = +2,79). É o único setup do produto nessa condição.
+
 ### O que isso faz com o IFR2
 
 O IFR2 (alta) agora é o único candidato que sobrevive a todos os crivos
