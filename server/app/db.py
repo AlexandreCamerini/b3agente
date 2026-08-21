@@ -242,6 +242,51 @@ def init_db(conn: sqlite3.Connection) -> None:
     )
     conn.execute("CREATE INDEX IF NOT EXISTS idx_prompt_history_chave ON prompt_default_history(chave, sha256)")
 
+    # ADR-017 (Bloco 1, Decisão 2) — ledger de sinais resolvidos ("um ledger,
+    # duas leituras"). Vive no banco PRINCIPAL, não em `admin_cache`/
+    # `analytics.db` (server/app/analytics.py — esse é só observabilidade do
+    # portal admin): o motor de decisão (`detect_setups`, `regime.ranquear`)
+    # lê daqui, por request, e não pode depender de um banco separado que
+    # existe só para o portal.
+    #
+    # `status` distingue "sem_gatilho" (o sinal existiu mas nunca acionou) de
+    # "resolvido" (barreira tripla bateu alvo/stop ou expirou). `sem_gatilho`
+    # fica FORA do denominador da expectância — contá-lo como perda infla a
+    # taxa de stop pelo mesmo viés que o ADR-015 corrige (entrada nunca
+    # acionada não é uma perda de trade).
+    #
+    # A UNIQUE(ticker, setup, lado, data_sinal) existe porque o bootstrap
+    # (Plano 03) é reexecutável e o hook diário (Plano 04) pode sobrepor o
+    # cursor — nenhum dos dois pode inflar `n`, o denominador de toda decisão
+    # desta fase. `INSERT OR IGNORE` sobre essa UNIQUE é o que torna
+    # `signal_ledger.registrar_linhas` idempotente.
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS signal_ledger ("
+        " id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        " ticker TEXT NOT NULL,"
+        " setup TEXT NOT NULL,"           # nome exato de setups.detect_setups, ex. "IFR2 (alta)"
+        " lado TEXT,"                     # "alta" | "baixa" | NULL (setup neutro)
+        " data_sinal TEXT NOT NULL,"      # "AAAA-MM-DD" do candle da detecção
+        " data_resolucao TEXT,"           # "AAAA-MM-DD" do candle que fechou a barreira | NULL
+        " resultado TEXT,"                # "alvo" | "stop" | "expirou" | "sem_gatilho"
+        " r REAL,"                        # múltiplo do risco do plano | NULL
+        " status TEXT NOT NULL,"          # "resolvido" | "sem_gatilho"
+        " criado_em TEXT NOT NULL,"       # ISO UTC (db._now_iso())
+        " UNIQUE(ticker, setup, lado, data_sinal)"
+        ")"
+    )
+    # Varredura das duas agregações (por setup, filtrando faixa de datas).
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_signal_ledger_setup "
+        "ON signal_ledger(setup, lado, data_sinal)"
+    )
+    # Avanço do cursor incremental do hook diário (Plano 04): "candles novos
+    # deste ticker desde a última execução".
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_signal_ledger_ticker "
+        "ON signal_ledger(ticker, data_sinal)"
+    )
+
     _migrate_identities_from_users(conn)
     conn.commit()
 
