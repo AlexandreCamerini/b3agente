@@ -73,6 +73,55 @@ def test_registrar_prune_por_quantidade():
     conn.close()
 
 
+# ADR15-01: campos novos de instrumentação (entrada/alvo2/rr2/confluencia/
+# entradaAMercado) + carimbo de metodologiaVersao. Puramente aditivo — ver
+# 06-CONTEXT.md e docs/adr/015.
+def test_registrar_grava_campos_novos_do_plano_n1():
+    conn = _fresh_db()
+    ao.registrar(conn, ticker="PETR4", modo="operador", tipo="n1", modelo="anthropic:claude",
+                 setup="IFR2", recomendacao="COMPRAR", stop=37.60, alvo=40.05, preco=38.57,
+                 snapshot_id="snap1", user_id="u1",
+                 entrada=12.5, alvo2=15.0, rr2=2.0, confluencia=72, entrada_a_mercado=False)
+    o = db.kv_get(conn, "analysisOutcomes", [], user_id="u1")[0]
+    assert o["entrada"] == 12.5 and isinstance(o["entrada"], float)
+    assert o["alvo2"] == 15.0 and isinstance(o["alvo2"], float)
+    assert o["rr2"] == 2.0 and isinstance(o["rr2"], float)
+    assert o["confluencia"] == 72 and isinstance(o["confluencia"], int)
+    assert o["entradaAMercado"] is False
+    assert o["metodologiaVersao"] == 2
+    conn.close()
+
+
+def test_registrar_entrada_a_mercado_true():
+    conn = _fresh_db()
+    ao.registrar(conn, ticker="PETR4", modo="operador", tipo="n1", modelo="x",
+                 setup="IFR2", recomendacao="COMPRAR", stop=37.60, alvo=40.05, preco=38.57,
+                 snapshot_id="snap1", user_id="u1", entrada=12.5, entrada_a_mercado=True)
+    o = db.kv_get(conn, "analysisOutcomes", [], user_id="u1")[0]
+    assert o["entradaAMercado"] is True
+    conn.close()
+
+
+def test_registrar_sem_kwargs_novos_ainda_carimba_metodologia_2():
+    # N2 (e chamadas antigas): sem geometria de gatilho, mas o registro É da
+    # instrumentação nova — metodologiaVersao declara CAMPOS gravados, não a
+    # âncora que vai resolver o registro (Plano 02 decide isso separadamente).
+    conn = _fresh_db()
+    ao.registrar(conn, ticker="PETR4", modo="estudo", tipo="n2", modelo="x", setup=None,
+                 recomendacao="Estudar alta", stop=9.0, alvo=11.0, preco=10.0,
+                 snapshot_id=None, user_id="u1")
+    o = db.kv_get(conn, "analysisOutcomes", [], user_id="u1")[0]
+    assert o["entrada"] is None and o["alvo2"] is None and o["rr2"] is None
+    assert o["confluencia"] is None and o["entradaAMercado"] is None
+    assert o["metodologiaVersao"] == 2
+    conn.close()
+
+
+def test_metodologia_helper_default_e_versao_2():
+    assert ao._metodologia({}) == 1                          # registro antigo, sem o campo
+    assert ao._metodologia({"metodologiaVersao": 2}) == 2
+
+
 # ===== _avaliar_entry (pura, sem I/O) =====
 def _entry(stop=37.60, alvo=40.05, preco=38.57, prazo=10):
     return {"ticker": "PETR4", "criadoEm": datetime.now(timezone.utc).isoformat(),
@@ -255,18 +304,34 @@ def test_compute_stats_sem_avaliados_curva_vazia():
 
 
 def test_to_csv_colunas_fixas_e_escape():
+    # ADR15-01: as 6 colunas novas (entrada/alvo2/rr2/confluencia/
+    # entradaAMercado/metodologiaVersao) entram no FIM da tupla — nunca no
+    # meio, para não quebrar quem consome o CSV posicionalmente. O contrato
+    # de "célula vazia = dado indisponível" não foi afrouxado, só estendido.
     outcomes = [{"id": "a1", "ticker": "PETR4", "modo": "estudo", "tipo": "n1",
                  "modelo": "prov:mod", "setup": 'IFR2 "clássico", B', "recomendacao": None,
                  "confianca": "alta", "stopProposto": 9.0, "alvoProposto": 11.0,
                  "precoNaAnalise": 10.0, "snapshotId": None, "criadoEm": "2026-07-10T12:00:00+00:00",
                  "prazoPregoes": 10, "resultado": "alvo", "precoResolucao": 11.0,
-                 "rMultiple": 1.0, "resolvidoEm": "2026-07-15"}]
+                 "rMultiple": 1.0, "resolvidoEm": "2026-07-15",
+                 "entrada": 12.5, "alvo2": 15.0, "rr2": 2.0, "confluencia": 72,
+                 "entradaAMercado": False, "metodologiaVersao": 2}]
     csv = ao.to_csv(outcomes)
     linhas = csv.strip().split("\n")
     assert linhas[0].startswith("id,ticker,modo,tipo,modelo,setup,recomendacao,confianca,")
+    assert linhas[0].endswith("entrada,alvo2,rr2,confluencia,entradaAMercado,metodologiaVersao")
     assert '"IFR2 ""clássico"", B"' in linhas[1]   # vírgula+aspas escapadas
     assert ",," in linhas[1]                        # None vira célula VAZIA (nunca inferida)
+    assert linhas[1].endswith("12.5,15.0,2.0,72,False,2")
     assert ao.to_csv([]) .startswith("id,ticker")   # só cabeçalho quando vazio
+    # registro antigo (sem as chaves novas) exporta célula vazia, nunca valor inferido
+    antigo = [{"id": "a2", "ticker": "VALE3", "modo": "estudo", "tipo": "n1", "modelo": "x",
+               "setup": None, "recomendacao": None, "confianca": None, "stopProposto": 9.0,
+               "alvoProposto": 11.0, "precoNaAnalise": 10.0, "snapshotId": None,
+               "criadoEm": "2026-01-01T00:00:00+00:00", "prazoPregoes": 10, "resultado": "pendente",
+               "precoResolucao": None, "rMultiple": None, "resolvidoEm": None}]
+    linha_antiga = ao.to_csv(antigo).strip().split("\n")[1]
+    assert linha_antiga.endswith(",,,,,,")  # 6 colunas novas vazias
 
 
 # ===== avaliar_pendentes (fetch injetado) =====
