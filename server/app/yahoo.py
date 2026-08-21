@@ -211,6 +211,54 @@ def _candle_key(epoch: int, interval: str, gmtoffset) -> str:
     return time.strftime("%Y-%m-%d %H:%M", time.gmtime(epoch + off))
 
 
+# Espaçamento esperado (dias entre barras, min/max) para intervalos NÃO-intraday.
+# Intervalo ausente da tabela = sem checagem de espaçamento (é o caso do
+# intraday, coberto pelo guard de meta.dataGranularity abaixo). Mesma tabela
+# de `scripts/backtest_sinal._ESPACAMENTO`, ampliada para 5d/1mo/3mo — ADR-017.
+_ESPACAMENTO = {
+    "1d": (0.5, 5.0), "5d": (4.0, 9.0), "1wk": (5.0, 9.0),
+    "1mo": (26.0, 33.0), "3mo": (85.0, 95.0),
+}
+
+# Ordem de granularidade, do mais fino ao mais grosso — usada para recusar só
+# quando o Yahoo devolve algo MAIS GROSSO que o pedido (degradação silenciosa),
+# nunca por diferença de rótulo em granularidade igual ou mais fina.
+_GRANULARIDADE_ORDEM = {
+    "1m": 0, "2m": 1, "5m": 2, "15m": 3, "30m": 4, "60m": 5, "1h": 5, "90m": 6,
+    "1d": 7, "5d": 8, "1wk": 9, "1mo": 10, "3mo": 11,
+}
+
+
+def confere_granularidade(candles: list, interval: str, ticker: str, rng: str) -> None:
+    """O Yahoo degrada em SILÊNCIO: `range=max` devolve HTTP 200 com velas
+    MENSAIS mesmo pedindo `interval=1d` ou `1wk` (medido em 2026-08-20 —
+    PETR4/max devolveu 320 barras começando em 2000-02-01, 2000-03-01…). Este
+    guard mede o espaçamento MEDIANO entre barras consecutivas e recusa
+    quando ele não bate com a faixa esperada do intervalo pedido — o dado é
+    DESCARTADO com erro, nunca corrigido nem estimado (CLAUDE.md princípio 4).
+    Silencioso com menos de 3 candles (não há espaçamento a medir) ou com
+    intervalo fora da tabela (intraday, já coberto pelo guard de meta acima)."""
+    if len(candles) < 3 or interval not in _ESPACAMENTO:
+        return
+    from datetime import date
+
+    def _d(s):
+        a, m, d = str(s)[:10].split("-")
+        return date(int(a), int(m), int(d))
+
+    gaps = sorted((_d(candles[i + 1]["date"]) - _d(candles[i]["date"])).days
+                  for i in range(len(candles) - 1))
+    mediana = gaps[len(gaps) // 2]
+    lo, hi = _ESPACAMENTO[interval]
+    if not (lo <= mediana <= hi):
+        raise RuntimeError(
+            f"{ticker}: pedi interval={interval} range={rng} e o Yahoo devolveu "
+            f"barras espaçadas por {mediana} dias (mediana) — granularidade "
+            f"errada, dado DESCARTADO (nunca corrigido/estimado). Use um range "
+            f"que o Yahoo honre para este intervalo (ex.: 15y/1d, 10y/1wk); "
+            f"'max' degrada para mensal.")
+
+
 async def get_history(ticker: str, rng: str = "1mo", interval: str = "1d") -> dict:
     async with httpx.AsyncClient(timeout=20, follow_redirects=True) as client:
         data = await _yfetch(client, "/v8/finance/chart/" + yahoo_symbol(ticker),
@@ -223,11 +271,22 @@ async def get_history(ticker: str, rng: str = "1mo", interval: str = "1d") -> di
     # velas MENSAIS (dataGranularity=1mo) — degrada em silêncio. Recusar aqui é
     # melhor que servir dado mensal rotulado como intraday.
     gran = meta.get("dataGranularity")
-    if interval in INTRADAY_INTERVALS and gran and gran != interval and not (
-            interval in ("60m", "1h") and gran in ("60m", "1h")):
-        raise RuntimeError(
-            f"Yahoo devolveu granularidade '{gran}' para o intervalo '{interval}' "
-            f"de {ticker} (range={rng}) — dado fora do pedido, descartado.")
+    if interval in INTRADAY_INTERVALS:
+        if gran and gran != interval and not (
+                interval in ("60m", "1h") and gran in ("60m", "1h")):
+            raise RuntimeError(
+                f"Yahoo devolveu granularidade '{gran}' para o intervalo '{interval}' "
+                f"de {ticker} (range={rng}) — dado fora do pedido, descartado.")
+    elif gran and gran in _GRANULARIDADE_ORDEM and interval in _GRANULARIDADE_ORDEM:
+        # Fora do intraday, só recusa quando a granularidade devolvida é MAIS
+        # GROSSA que a pedida — igual ou mais fina não é o bug (é degradação
+        # que importa), e exigir igualdade estrita arriscaria derrubar todo
+        # fetch diário de produção por uma variação de rótulo do Yahoo.
+        if _GRANULARIDADE_ORDEM[gran] > _GRANULARIDADE_ORDEM[interval]:
+            raise RuntimeError(
+                f"Yahoo devolveu granularidade '{gran}' mais GROSSA que o "
+                f"intervalo pedido '{interval}' para {ticker} (range={rng}) — "
+                f"dado degradado, descartado.")
     ts = result.get("timestamp") or []
     q = ((result.get("indicators") or {}).get("quote") or [{}])[0]
     off = meta.get("gmtoffset")
@@ -244,4 +303,5 @@ async def get_history(ticker: str, rng: str = "1mo", interval: str = "1d") -> di
             "close": _round(close),
             "volume": (q.get("volume") or [None] * len(ts))[i],
         })
+    confere_granularidade(candles, interval, ticker, rng)
     return {"t": ticker, "currency": meta.get("currency", "BRL"), "candles": candles}
