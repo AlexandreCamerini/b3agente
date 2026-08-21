@@ -929,6 +929,94 @@ python3 scripts/backtest_gate.py /tmp/linhas-longo.json --rng 15y
 
 ---
 
+## Adendo 7 (2026-08-20) — pesar setups pelo desempenho histórico: a primeira coisa que funciona
+
+Proposta do dono do produto: usar o desempenho medido de cada setup como peso na
+confluência. Como a confluência é quase constante (93% dos sinais valem 100%),
+ponderá-la pelo skill do setup equivale a **selecionar setups por desempenho
+histórico** — foi assim que testamos, que é a forma limpa.
+
+Técnica legítima (*ensemble weighting by historical skill*), com uma condição
+necessária: **persistência**. Setup ruim no período passado precisa continuar
+ruim no próximo. Se o ranking embaralha, o peso de ontem é ruído aplicado ao
+amanhã.
+
+Protocolo anti-circularidade: o peso vem **sempre** de janela anterior e a
+avaliação é out-of-sample. Pesar pelo desempenho medido e avaliar na mesma
+amostra daria um número ótimo e falso.
+
+### A persistência existe, e é forte
+
+15 janelas de 8.395 sinais, 2012–2026. Correlação de postos entre o ranking de
+setups de janelas consecutivas:
+
+| | |
+|---|---|
+| **Spearman médio** | **+0,523** |
+| Erro-padrão | 0,070 |
+| **t contra zero** | **+7,52** |
+| Transições positivas | **13 de 14** |
+
+Este é o primeiro achado fortemente positivo da investigação. O ranking de
+setups **não** embaralha: quem foi ruim continua ruim.
+
+### A estratégia out-of-sample
+
+Seleciona pelos números da janela anterior, mede na seguinte:
+
+| Regra de seleção | n | Expectância | t | Acerto |
+|---|---:|---:|---:|---:|
+| Todos os sinais (o produto hoje) | 117.530 | **−0,099R** | −36,1 | 44,9% |
+| **Só os que foram positivos antes** | 18.936 | **+0,005R** | +0,67 | 50,2% |
+| Só o top 3 da janela anterior | 16.928 | −0,001R | −0,15 | 49,8% |
+| Só o top 1 da janela anterior | 6.035 | +0,008R | +0,64 | 50,3% |
+
+**A heurística elimina praticamente todo o déficit:** de −0,099R para ≈ 0. Um
+ganho de ~0,10R por operação, out-of-sample, com as três regras de seleção
+chegando ao mesmo lugar — não é uma regra escolhida a dedo entre muitas.
+
+### O que ela é, e o que ela não é
+
+**É um filtro que remove os piores, não um seletor que acha o bom.** A
+persistência do ranking é dominada pelos perdedores consistentes (9.2 baixa,
+Ponto Contínuo). Selecionar "os que foram positivos" é, na prática, parar de
+operar o que comprovadamente não funciona.
+
+**Ela leva ao empate, não ao lucro.** +0,005R com t = +0,67 é indistinguível de
+zero. E empate antes de custos é prejuízo depois deles.
+
+**O teto é baixo.** Repetindo a seleção com informação do futuro — impossível,
+serve só para dimensionar — o resultado é **+0,062R (t = +9,77)**. Mesmo com
+previsão perfeita de quais setups funcionariam, o teto é modesto. Não há um
+grande prêmio escondido esperando a regra de seleção certa.
+
+**Custa 84% dos sinais.** De 117.530 para 18.936. Profissionalmente isso é
+saudável (mesa boa opera pouco), mas muda o produto: o Radar teria uma fração do
+movimento atual.
+
+### Onde isso deixa a decisão
+
+É a única intervenção medida que muda o resultado de forma material, e é barata:
+não exige sinal novo, só ranking rotativo por desempenho medido — que o Bloco 1
+do prompt 2 já vai computar de qualquer forma.
+
+Mas não transforma o produto em gerador de alfa. Transforma um produto que perde
+0,10R por operação num produto que empata. Para a proposta educacional isso é
+uma mudança grande e honesta; para "o Operador ganha dinheiro", continua não
+sendo verdade.
+
+Ressalva metodológica: medido sobre o braço de saída fixo. O Adendo 5 mostrou que
+a mecânica real do Operador piora todos os 17 pares, então sob o Operador o
+resultado desta seleção seria pior que o empate acima.
+
+**Reprodução:**
+
+```
+python3 scripts/backtest_pesos.py /tmp/linhas-longo.json
+```
+
+---
+
 ## Limitações
 
 - ~~**Período único.**~~ **Resolvido no Adendo 3**: reexecução sobre 2011–2026
