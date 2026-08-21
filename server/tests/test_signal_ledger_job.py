@@ -8,16 +8,23 @@ Task 3: signal_ledger_job.should_run / maybe_fechar_janela / maybe_run —
 """
 from __future__ import annotations
 
+import asyncio
 import sqlite3
-from datetime import date, timedelta
+import threading
+from datetime import date, datetime, timedelta
 
 from app import candle_cache, db, signal_ledger, signal_ledger_job, signal_replay
+from app.signal_ledger_job import BRT
 
 
 def _conn():
     c = sqlite3.connect(":memory:")
     db.init_db(c)
     return c
+
+
+def _run(coro):
+    return asyncio.new_event_loop().run_until_complete(coro)
 
 
 def _candles(n=5, base_date="2026-08-01"):
@@ -232,3 +239,114 @@ class TestRunIncremental:
         monkeypatch.setattr(signal_ledger_job.signal_replay, "replay", fake_replay_com_linha)
         signal_ledger_job.run_incremental(conn, universo=["PETR4"])
         assert chamado["n"] == 1
+
+
+# --------------------------------------------------------------------------- #
+# Task 3: gate diário, fechamento de janela anual, maybe_run assíncrono
+# --------------------------------------------------------------------------- #
+
+class TestShouldRun:
+    def test_bloqueia_fim_de_semana(self):
+        sab = datetime(2026, 7, 4, 12, 0, tzinfo=BRT)
+        dom = datetime(2026, 7, 5, 12, 0, tzinfo=BRT)
+        assert signal_ledger_job.should_run(now=sab, last_date=None) is False
+        assert signal_ledger_job.should_run(now=dom, last_date=None) is False
+
+    def test_bloqueia_antes_do_horario_e_libera_depois(self, monkeypatch):
+        monkeypatch.delenv("B3_LEDGER_DAILY_HHMM", raising=False)
+        antes = datetime(2026, 7, 6, 9, 0, tzinfo=BRT)   # segunda, < 09:15
+        depois = datetime(2026, 7, 6, 9, 20, tzinfo=BRT)  # segunda, > 09:15
+        assert signal_ledger_job.should_run(now=antes, last_date=None) is False
+        assert signal_ledger_job.should_run(now=depois, last_date=None) is True
+
+    def test_bloqueia_quando_ja_rodou_hoje(self):
+        seg = datetime(2026, 7, 6, 15, 0, tzinfo=BRT)
+        assert signal_ledger_job.should_run(now=seg, last_date="2026-07-06") is False
+        assert signal_ledger_job.should_run(now=seg, last_date="2026-07-03") is True
+
+
+def test_hhmm_invalido_cai_no_default(monkeypatch):
+    monkeypatch.setenv("B3_LEDGER_DAILY_HHMM", "não-é-hora")
+    assert signal_ledger_job._hhmm() == signal_ledger_job.HHMM_DEFAULT
+
+
+def test_off_desliga_enabled_e_maybe_run(monkeypatch):
+    monkeypatch.setenv("B3_LEDGER_DAILY_OFF", "1")
+    assert signal_ledger_job.enabled() is False
+    conn = _conn()
+    assert _run(signal_ledger_job.maybe_run(conn)) is None
+
+
+class TestMaybeFecharJanela:
+    def test_marcador_ausente_fecha_ano_anterior_e_grava(self, monkeypatch):
+        conn = _conn()
+        monkeypatch.setattr(signal_ledger_job.pregao, "is_trading_day", lambda d=None: True)
+        now = datetime(2026, 8, 20, 10, 0, tzinfo=BRT)
+        resultado = signal_ledger_job.maybe_fechar_janela(conn, now=now)
+        assert resultado == "2025"
+        assert db.kv_get(conn, "signalLedgerJanelaFechada", user_id=None) == "2025"
+
+    def test_mesmo_ano_de_novo_devolve_none_e_nao_regrava(self, monkeypatch):
+        conn = _conn()
+        monkeypatch.setattr(signal_ledger_job.pregao, "is_trading_day", lambda d=None: True)
+        now = datetime(2026, 8, 20, 10, 0, tzinfo=BRT)
+        signal_ledger_job.maybe_fechar_janela(conn, now=now)
+        assert signal_ledger_job.maybe_fechar_janela(conn, now=now) is None
+
+    def test_dia_nao_util_devolve_none(self, monkeypatch):
+        conn = _conn()
+        monkeypatch.setattr(signal_ledger_job.pregao, "is_trading_day", lambda d=None: False)
+        now = datetime(2026, 8, 20, 10, 0, tzinfo=BRT)
+        assert signal_ledger_job.maybe_fechar_janela(conn, now=now) is None
+        assert db.kv_get(conn, "signalLedgerJanelaFechada", user_id=None) is None
+
+
+class TestMaybeRun:
+    def test_ja_rodou_hoje_devolve_none(self):
+        conn = _conn()
+        hoje = datetime.now(BRT).date().isoformat()
+        db.kv_set(conn, "signalLedgerLastRun", hoje, user_id=None)
+        assert _run(signal_ledger_job.maybe_run(conn)) is None
+
+    def test_excecao_em_run_incremental_e_capturada_e_registrada(self, monkeypatch):
+        conn = _conn()
+        monkeypatch.setattr(signal_ledger_job, "should_run", lambda **kw: True)
+        monkeypatch.setattr(signal_ledger_job, "enabled", lambda: True)
+
+        def _boom(conn_arg):
+            raise RuntimeError("boom incremental")
+
+        monkeypatch.setattr(signal_ledger_job, "run_incremental", _boom)
+        resultado = _run(signal_ledger_job.maybe_run(conn))
+        assert resultado is None
+        assert signal_ledger_job.LAST_RUN["erro"] is not None
+        assert "boom incremental" in signal_ledger_job.LAST_RUN["erro"]
+        # falha não grava o carimbo — precisa poder tentar de novo no próximo tick
+        assert signal_ledger_job.last_run_date(conn) is None
+
+    def test_sucesso_grava_last_run_e_atualiza_telemetria(self, monkeypatch):
+        conn = _conn()
+        monkeypatch.setattr(signal_ledger_job, "should_run", lambda **kw: True)
+        monkeypatch.setattr(signal_ledger_job, "enabled", lambda: True)
+        resumo_fake = {"tickers": 0, "novas": 0, "pulados": 0, "erros": []}
+        monkeypatch.setattr(signal_ledger_job, "run_incremental", lambda conn_arg: resumo_fake)
+        monkeypatch.setattr(signal_ledger_job, "maybe_fechar_janela", lambda conn_arg: None)
+        resultado = _run(signal_ledger_job.maybe_run(conn))
+        assert resultado == resumo_fake
+        assert signal_ledger_job.last_run_date(conn) == datetime.now(BRT).date().isoformat()
+        assert signal_ledger_job.LAST_RUN["erro"] is None
+        assert signal_ledger_job.LAST_RUN["novas"] == 0
+
+    def test_run_incremental_roda_fora_do_laco_de_eventos(self, monkeypatch):
+        conn = _conn()
+        monkeypatch.setattr(signal_ledger_job, "should_run", lambda **kw: True)
+        monkeypatch.setattr(signal_ledger_job, "enabled", lambda: True)
+        thread_ids = {"main": threading.get_ident()}
+
+        def fake_incremental(conn_arg):
+            thread_ids["worker"] = threading.get_ident()
+            return {"tickers": 0, "novas": 0, "pulados": 0, "erros": []}
+
+        monkeypatch.setattr(signal_ledger_job, "run_incremental", fake_incremental)
+        _run(signal_ledger_job.maybe_run(conn))
+        assert thread_ids["worker"] != thread_ids["main"]
