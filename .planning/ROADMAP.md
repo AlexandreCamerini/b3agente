@@ -28,7 +28,7 @@ seriam inserções urgentes, se necessário.
 - [x] **Phase 3: Correção Crítico + Alto** - Fecha as 2 violações de princípio (transparência de dado) e os 8 achados que já causaram incidente real ou bloqueiam decisão de negócio (completed 2026-08-19)
 - [ ] **Phase 4: Correção Médio — Storyline & UX** - Fecha as lacunas pedagógicas e de experiência (STORY + UX) do REPORT-01
 - [ ] **Phase 5: Correção Médio — Código, Gate & Admin** - Fecha a dívida técnica, a ativação incompleta de gating e a observabilidade admin (CODE + GATE + ADMIN) do REPORT-01
-- [ ] **Phase 6: Instrumentação de Assertividade (ADR-015)** - Conserta a medição de eficiência da IA (âncora errada, `n` inflado por duplicação, motivo de venda não persistido) antes de qualquer decisão de produto sobre o motor de recomendação
+- [x] **Phase 6: Instrumentação de Assertividade (ADR-015)** - Conserta a medição de eficiência da IA (âncora errada, `n` inflado por duplicação, motivo de venda não persistido) antes de qualquer decisão de produto sobre o motor de recomendação (completed 2026-08-21)
 
 ## Phase Details
 
@@ -310,6 +310,6 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 06-03-PLAN.md — agregado não mistura metodologias e deduplica por `snapshotId` (ADR15-02, ADR15-03)
+- [x] 06-03-PLAN.md — agregado não mistura metodologias e deduplica por `snapshotId` (ADR15-02, ADR15-03)
 **UI hint**: no (mudança de backend/instrumentação — sem tela nova; o
 número exibido no painel "Eficiência da IA" muda, mas o componente não)
