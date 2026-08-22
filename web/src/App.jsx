@@ -1890,12 +1890,32 @@ function DrillRow({ icon, title, sub, onClick }) {
 // ativação abre o termo com rolagem obrigatória + checkbox. Voltar ao Estudo
 // é livre. Mock aprovado: qa/mocks/modo-operador.html (tela 1).
 function ModoTrabalhoCard({ ctx }) {
-  const { data, A } = ctx;
+  const { data, A, goMercado } = ctx;
   const c = data.config || {};
   const mode = c.appMode === "operador" ? "operador" : "estudo";
   const [termoOpen, setTermoOpen] = useState(false);
+  // FIX-C04 (REPORT-01): critério pedagógico SOFT de prontidão, em cima do
+  // gate legal (operadorTermo) — nunca no lugar dele. Fail-open explícito
+  // (CLAUDE.md princípio 4): só um zero MEDIDO em `analyses` dispara o
+  // aviso; `analyses` ausente/indefinido (sinal desconhecido) nunca conta
+  // como zero.
+  const analises = data && data.analyses;
+  const prontidaoConhecida = analises && typeof analises === "object";
+  const nuncaAnalisou = prontidaoConhecida && Object.keys(analises).length === 0;
+  const [nudgeOperador, setNudgeOperador] = useState(false);
+  // `nudgeDispensadoRef` (não useState): "Ativar mesmo assim" precisa
+  // chamar escolher("operador") de novo NA MESMA função do handler de
+  // clique, no mesmo tick — um useState aqui leria o valor ANTIGO (closure
+  // do render corrente), porque a atualização de estado só vale a partir do
+  // próximo render. Um ref é lido/escrito de forma síncrona, então o
+  // segundo escolher() já enxerga a dispensa. Efeito prático idêntico ao
+  // que o UI-SPEC pede (nudge visto uma vez por sessão, nunca persistido em
+  // config) — só a mecânica interna muda para não quebrar a passagem direta
+  // pro gate legal.
+  const nudgeDispensadoRef = useRef(false);
   const escolher = async (m) => {
     if (m === mode) return;
+    if (m === "operador" && nuncaAnalisou && !nudgeDispensadoRef.current) { setNudgeOperador(true); return; }
     if (m === "operador" && !c.operadorTermo) { setTermoOpen(true); return; }
     try {
       await A.saveConfig({ appMode: m });
@@ -1924,6 +1944,16 @@ function ModoTrabalhoCard({ ctx }) {
         <button onClick={() => escolher("estudo")} style={segBtn(mode === "estudo")}>🎓 Estudo</button>
         <button onClick={() => escolher("operador")} style={segBtn(mode === "operador")}>📈 Operador</button>
       </div>
+      {nudgeOperador && (
+        <div style={{ marginTop: "10px", padding: "9px 11px", borderRadius: "9px", background: "color-mix(in srgb, " + T.warn + " 12%, transparent)", border: `1px solid ${T.warn}` }}>
+          <div style={{ fontSize: "11.5px", fontWeight: 700, color: T.warn }}>Você ainda não abriu nenhuma análise no Estudo.</div>
+          <div style={{ fontSize: "11.5px", color: T.textSecondary, lineHeight: 1.4, marginTop: "4px" }}>O Modo Operador libera decisões diretas — mas ele parte do que você já entende. Vale a pena estudar pelo menos um ativo antes de ativar.</div>
+          <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
+            <button type="button" onClick={() => { setNudgeOperador(false); goMercado(); }} style={{ flex: 1, minHeight: "40px", borderRadius: "9px", border: `1px solid ${T.accent}`, background: T.accentTint, color: T.accent, fontWeight: 700, fontSize: "12px" }}>Fazer uma análise no Estudo primeiro</button>
+            <button type="button" onClick={() => { nudgeDispensadoRef.current = true; setNudgeOperador(false); escolher("operador"); }} style={{ flex: "none", minHeight: "40px", padding: "0 10px", background: "transparent", border: "none", color: T.textMuted, fontWeight: 700, fontSize: "12px" }}>Ativar mesmo assim</button>
+          </div>
+        </div>
+      )}
       <div style={{ fontSize: "11.5px", color: T.textMuted, marginTop: "9px", lineHeight: 1.5 }}>
         {mode === "operador"
           ? <>Decisões diretas (comprar/vender/aguardar/não operar) com plano de entrada, stop, alvo e risco. Termo aceito em {(c.operadorTermo || {}).aceitoEm ? String(c.operadorTermo.aceitoEm).slice(0, 10) : "—"} (v{(c.operadorTermo || {}).versao || "?"}).</>
