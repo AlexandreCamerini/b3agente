@@ -3850,16 +3850,35 @@ function HistoricoScreen({ ctx }) {
           <div style={{ display: "flex", gap: "10px", padding: "11px 15px", background: T.bgPanel, borderBottom: `1px solid ${T.borderSubtle}`, fontSize: "10px", letterSpacing: "0.06em", color: T.textFaint, fontFamily: MONO }}>
             {head(1.6, "DATA")}{head(1, "TIPO")}{head(0.9, "ATIVO")}{head(0.6, "QTD", true)}{head(1, "PREÇO", true)}{head(1.1, "RESULTADO", true)}
           </div>
-          {data.history.map((h, i) => (
-            <div key={i} style={{ display: "flex", gap: "10px", alignItems: "center", padding: "12px 15px", borderBottom: `1px solid ${T.borderFaint}`, fontFamily: MONO, fontSize: "13px" }}>
-              <div style={{ flex: 1.6, color: T.textMuted, fontSize: "12px" }}>{h.date}</div>
-              <div style={{ flex: 1 }}><span style={{ fontSize: "11px", fontWeight: 700, padding: "3px 7px", borderRadius: "5px", color: h.type === "COMPRA" ? T.positive : T.negative, background: h.type === "COMPRA" ? T.positiveTint : T.negativeTint }}>{h.type}</span></div>
-              <div style={{ flex: 0.9, fontWeight: 700 }}>{h.t}</div>
-              <div style={{ flex: 0.6, textAlign: "right", color: T.textSecondary }}>{h.qty}</div>
-              <div style={{ flex: 1, textAlign: "right", color: T.textSecondary }}>R$ {price(h.price)}</div>
-              <div style={{ flex: 1.1, textAlign: "right", fontWeight: 600, color: h.pnl == null ? T.textFaint : h.pnl >= 0 ? T.positive : T.negative }}>{h.pnl == null ? "—" : moneySigned(h.pnl)}</div>
-            </div>
-          ))}
+          {data.history.map((h, i) => {
+            // FIX-C02 (Plano 04-05): entrada LEGADA (sem `status`) é tratada
+            // como executada — histórico não se reescreve. A condição é
+            // SEMPRE === "rejeitada", nunca !== "executada" (T-04-02/paridade).
+            const rejeitada = h.status === "rejeitada";
+            return (
+              <div key={i}>
+                <div style={{ display: "flex", gap: "10px", alignItems: "center", padding: "12px 15px", borderBottom: `1px solid ${T.borderFaint}`, fontFamily: MONO, fontSize: "13px" }}>
+                  <div style={{ flex: 1.6, color: T.textMuted, fontSize: "12px" }}>{h.date}</div>
+                  <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "6px" }}>
+                    <span style={{ fontSize: "11px", fontWeight: 700, padding: "3px 7px", borderRadius: "5px", color: rejeitada ? T.textFaint : (h.type === "COMPRA" ? T.positive : T.negative), background: rejeitada ? T.bgPanel : (h.type === "COMPRA" ? T.positiveTint : T.negativeTint) }}>{h.type}</span>
+                    {rejeitada && <span style={{ padding: "3px 9px", borderRadius: "999px", fontSize: "10.5px", fontWeight: 800, color: T.warn, background: "color-mix(in srgb, " + T.warn + " 14%, transparent)" }}>REJEITADA</span>}
+                  </div>
+                  <div style={{ flex: 0.9, fontWeight: 700 }}>{h.t}</div>
+                  <div style={{ flex: 0.6, textAlign: "right", color: T.textSecondary }}>{h.qty}</div>
+                  <div style={{ flex: 1, textAlign: "right", color: T.textSecondary }}>{h.price == null ? "—" : "R$ " + price(h.price)}</div>
+                  <div style={{ flex: 1.1, textAlign: "right", fontWeight: 600, color: rejeitada ? T.textFaint : (h.pnl == null ? T.textFaint : h.pnl >= 0 ? T.positive : T.negative) }}>{rejeitada ? "—" : (h.pnl == null ? "—" : moneySigned(h.pnl))}</div>
+                </div>
+                {/* princípio 4: uma ordem rejeitada não some em silêncio — o
+                    motivo fica visível na própria linha, mesmo padrão do
+                    ultimoErro das pendentes acima. */}
+                {rejeitada && h.motivo && (
+                  <div style={{ padding: "0 15px 9px", fontSize: "11px", color: T.warn, lineHeight: 1.4 }}>
+                    Rejeitada: {h.motivo}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -7122,7 +7141,14 @@ export default function App() {
         // PENDENTE (mercado fechado, nada executou) com venda concluída.
         track("trade_simulated", { side: "sell", ticker: sm.t, instrument: "equity", pendente: !!st.pendente }); // qa/47 (Fase 2)
         flash(st.pendente ? cp.toastOrdemPendente(sm.qty, sm.t) : cp.toastVenda(total ? "total" : sm.qty + " cotas", sm.t)); // FASE 8B (B1)
-      } catch (e) { flash("Venda: " + (e.message || e)); }
+      } catch (e) {
+        // FIX-C02 (Plano 04-05): o servidor já gravou a rejeição no histórico
+        // (status: "rejeitada") — sem este refresh, a tela só mostraria a
+        // entrada no próximo boot. Refresh best-effort: o toast do erro abaixo
+        // já informou o usuário, então uma falha aqui não pode quebrar o fluxo.
+        try { setData(await store.getState()); } catch { /* refresh best-effort */ }
+        flash("Venda: " + (e.message || e));
+      }
     },
     // FASE 2 (2.3): scan do STU restrito aos ativos da watchlist — ordena os
     // cards por oportunidade e alimenta os alertas do Acompanhar. Silencioso:
@@ -7183,7 +7209,12 @@ export default function App() {
           A.runStopAlvoFor(bm.t);
         }
       }
-      catch (e) { flash("Compra: " + (e.message || e)); }
+      catch (e) {
+        // FIX-C02 (Plano 04-05): mesmo refresh best-effort do confirmSell —
+        // o servidor já gravou a rejeição, a tela precisa mostrá-la agora.
+        try { setData(await store.getState()); } catch { /* refresh best-effort */ }
+        flash("Compra: " + (e.message || e));
+      }
     },
     sell: async (t) => {
       try {

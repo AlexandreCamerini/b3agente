@@ -40,6 +40,11 @@ function dbgOn() {
 }
 function dlog(stage, info) { if (dbgOn()) { try { console.log("[b3:add:" + stage + "]", info == null ? "" : info); } catch { /* ignore */ } } }
 
+// FIX-C02 (Plano 04-05): teto de entradas `status === "rejeitada"` mantidas
+// no `history` local — espelho exato de store.py.CAP_REJEICOES (paridade de
+// stores, CLAUDE.md).
+const CAP_REJEICOES_LOCAL = 100;
+
 // Fase B1: insere/atualiza o snapshot do dia (chave = `data`), sem duplicar.
 // FASE 2 (2.4): contexto de ENTRADA registrado na compra (setup do STU da F1)
 // — espelho exato de store.py._sanitize_trade_meta: só campos conhecidos,
@@ -360,6 +365,26 @@ function deviceStore() {
     const price = r && r.quotes && r.quotes[t] ? r.quotes[t].price : null;
     if (price == null) throw new Error("Sem cotacao para " + t);
     return price;
+  }
+
+  // FIX-C02 (Plano 04-05): espelho de store.py.registrar_rejeicao — grava o
+  // rastro de uma tentativa de ordem que NÃO executou no ramo LOCAL (sem
+  // sessão). NÃO toca cash/positions — rejeição não move dinheiro nenhum.
+  // `price=null` é aceito e preservado como null (nunca 0.0, convenção da
+  // casa/CLAUDE.md item 4). Poda: mantém no máximo CAP_REJEICOES_LOCAL
+  // entradas rejeitadas, descartando as mais antigas primeiro — entradas
+  // executadas (ou legadas sem `status`) nunca são tocadas (T-04-02).
+  // NÃO chama write() (mesmo padrão de _sellOptionLocal, abaixo) — o
+  // chamador grava depois de invocar, mantendo um único ponto de persistência
+  // por operação.
+  function _registrarRejeicaoLocal(tipo, t, qty, price, motivo) {
+    doc.history.unshift({ date: now(), type: tipo, t, qty, price: price == null ? null : +price.toFixed(2), pnl: null, status: "rejeitada", motivo, origem: "manual" });
+    const rejeitadasIdx = [];
+    doc.history.forEach((h, i) => { if (h && h.status === "rejeitada") rejeitadasIdx.push(i); });
+    if (rejeitadasIdx.length > CAP_REJEICOES_LOCAL) {
+      const descartar = new Set(rejeitadasIdx.slice(CAP_REJEICOES_LOCAL));
+      doc.history = doc.history.filter((_, i) => !descartar.has(i));
+    }
   }
 
   // v2 (ADR-003/005): espelho de store.py.sell_option/close_option_vencida —
@@ -1027,7 +1052,15 @@ function deviceStore() {
       }
       const price = await priceOf(t);
       qty = Math.max(100, Math.round(qty / 100) * 100);
-      if (qty * price > doc.cash) throw new Error("Caixa insuficiente.");
+      if (qty * price > doc.cash) {
+        // FIX-C02 (Plano 04-05): rastro da rejeição ANTES do throw — espelho
+        // de store.py.registrar_rejeicao, mesma frase do erro local (motivo
+        // e mensagem lançada precisam ser consistentes).
+        const motivo = "Caixa insuficiente.";
+        _registrarRejeicaoLocal("COMPRA", t, qty, price, motivo);
+        write();
+        throw new Error(motivo);
+      }
       // FASE 2 (2.4): contexto de ENTRADA (setup do STU) — espelho do store.py
       const m = sanitizeTradeMeta(meta);
       const ex = doc.positions.find((p) => p.t === t);
@@ -1042,7 +1075,7 @@ function deviceStore() {
         doc.positions.push(pos);
       }
       doc.cash = +(doc.cash - qty * price).toFixed(2);
-      const entry = { date: now(), type: "COMPRA", t, qty, price: +price.toFixed(2), pnl: null };
+      const entry = { date: now(), type: "COMPRA", t, qty, price: +price.toFixed(2), pnl: null, status: "executada" };
       if (m) { entry.setup = m.setup; entry.snapshotId = m.snapshotId; }
       doc.history.unshift(entry);
       write();
@@ -1064,7 +1097,15 @@ function deviceStore() {
         return out;
       }
       const pos = doc.positions.find((p) => p.t === t);
-      if (!pos) throw new Error("Sem posicao em " + t);
+      if (!pos) {
+        // FIX-C02 (Plano 04-05): rastro da rejeição ANTES do throw — mesma
+        // frase do erro local; sem posição, não há preço/lote a registrar
+        // (price=null, nunca 0.0, convenção da casa/CLAUDE.md item 4).
+        const motivo = "Sem posicao em " + t;
+        _registrarRejeicaoLocal("VENDA", t, (typeof qty === "number" && qty > 0) ? qty : null, null, motivo);
+        write();
+        throw new Error(motivo);
+      }
       const price = await priceOf(t);
       // FASE 2 (2.4): venda TOTAL (qty ausente, comportamento original) ou
       // PARCIAL em lotes de 100, com avg preservado — espelho do store.py.
@@ -1079,7 +1120,7 @@ function deviceStore() {
         pos.qty = pos.qty - sold;
       }
       doc.cash = +(doc.cash + sold * price).toFixed(2);
-      doc.history.unshift({ date: now(), type: "VENDA", t, qty: sold, price: +price.toFixed(2), pnl });
+      doc.history.unshift({ date: now(), type: "VENDA", t, qty: sold, price: +price.toFixed(2), pnl, status: "executada" });
       write();
       _agendarSyncPrefs();   // posição encerrada sai do universo do push
       const out = pub();
