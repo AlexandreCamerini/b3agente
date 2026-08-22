@@ -12,7 +12,7 @@ import { BUILD_ID } from "./version.js";
 // carimbo no console: prova de qual build está rodando (device/web)
 try { console.log("[b3] build", BUILD_ID); } catch { /* noop */ }
 import { canAddTicker, canAnalyze } from "./plan.js";
-import { portfolioMetrics, dayReturnPct, equityCurve, markPrice, sizingPlano, RR_MIN_TXT, historicoEstado, historicoDesatualizado, benchmarkSerie } from "./finance.js";
+import { portfolioMetrics, dayReturnPct, equityCurve, markPrice, sizingPlano, RR_MIN_TXT, historicoEstado, historicoDesatualizado, benchmarkSerie, concentracaoMaxima } from "./finance.js";
 import * as notify from "./notify.js";
 import { track, setAnalyticsUser, flush as flushAnalytics } from "./analytics.js"; // qa/47 (Fase 2)
 import Boris from "./pet/Boris.jsx";
@@ -252,6 +252,11 @@ const price = (n) => (n == null || isNaN(n) ? "—" : nf2.format(n));
 const money = (n) => (n == null || isNaN(n) ? "—" : "R$ " + nf2.format(n));
 const moneySigned = (n) => (n == null || isNaN(n) ? "—" : (n >= 0 ? "+R$ " : "−R$ ") + nf2.format(Math.abs(n)));
 const pct = (n) => (n == null || isNaN(n) ? "—" : (n >= 0 ? "+" : "−") + Math.abs(n).toFixed(2).replace(".", ",") + "%");
+
+// Plano 04-07 (FIX-C05): acima deste percentual de concentração num único
+// ativo, a Carteira avisa (aviso educacional, não bloqueio — CONTEXT.md).
+// Constante nomeada e única, não número mágico inline.
+const LIMIAR_CONCENTRACAO = 50;
 
 // Estimativa educacional de stop/alvo a partir do PERFIL + preço atual.
 // Usada como fallback quando a IA (servidor) não devolve `proposal` — assim a
@@ -3651,6 +3656,24 @@ function CarteiraScreen({ ctx }) {
         {kpi("CAIXA DISPONÍVEL", money(data.cash), T.textMuted)}
         {kpi("EM POSIÇÕES", money(positionsValue), T.textMuted)}
       </div>
+
+      {(() => {
+        const conc = concentracaoMaxima(data.positions, quotes, total);
+        if (!(conc && conc.pct > LIMIAR_CONCENTRACAO)) return null;
+        const pctArred = Math.round(conc.pct);
+        return (
+          <div style={{ padding: "13px 14px", borderRadius: "11px", background: "color-mix(in srgb, " + T.warn + " 12%, transparent)", border: `1px solid ${T.warn}`, marginBottom: "14px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "7px", marginBottom: "8px" }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden><circle cx="12" cy="12" r="9.5" fill="none" stroke={T.warn} strokeWidth="1.8" /><path d="M12 11v5M12 7.5h.01" stroke={T.warn} strokeWidth="2" strokeLinecap="round" /></svg>
+              <span style={{ fontSize: "11px", fontWeight: 800, color: T.warn, letterSpacing: "0.05em" }}>CONCENTRAÇÃO ALTA</span>
+            </div>
+            <div style={{ fontSize: "12.5px", color: T.textPrimary, lineHeight: 1.5 }}>{cp.concentracaoCorpo(conc.t, pctArred)}</div>
+            {ctx.didatica && ctx.didatica.ligada && (
+              <button type="button" onClick={() => A.abrirVerbete("diversificacao", { ticker: conc.t, pct: pctArred })} style={{ background: "transparent", border: "none", padding: 0, marginTop: "6px", color: T.accent, fontWeight: 700, fontSize: "12px", textDecoration: "none" }}>{cp.concentracaoLink}</button>
+            )}
+          </div>
+        );
+      })()}
 
       {data.positions.length === 0 && (
         <div style={{ background: T.bgCard, border: `1px dashed ${T.borderDashed}`, borderRadius: "12px", padding: "34px 20px", textAlign: "center" }}>
@@ -7458,6 +7481,12 @@ export default function App() {
         return { ...d, config: { ...d.config, gestoUso: g } };
       });
     },
+    // Plano 04-07 (FIX-C05): link comum "saiba mais" para um conceito, sem
+    // marcar telemetria — nem `openConceito` (via PROATIVA do gatilho,
+    // `track("coach_tip_shown")`, one-shot) nem `abrirSetor` (conta
+    // `gestoUso`, a medição do sublinhado pontilhado) servem aqui; usar
+    // qualquer uma contaminaria uma métrica que não é desta interação.
+    abrirVerbete: (cid, dados) => setConceitoAberto({ cid, dados: dados || null, trilha: [] }),
     // navegar pela cadeia sai do setor: a tela passa a ser o conceito.
     trocarConceito: (cid) => setConceitoAberto((c) => (c ? { ...c, cid, setor: null, trilha: [...(c.trilha || []), c.cid] } : c)),
     voltarConceito: () => setConceitoAberto((c) => {
