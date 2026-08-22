@@ -2770,7 +2770,7 @@ function OpcaoContrato({ c, cur, chain, isOpen, onToggle, sustains, pos, onBuy, 
   const bloqueado = !chain || chain.providerStatus !== "ok"; // ADR-004
   return (
     <div style={{ borderTop: `1px solid ${T.borderFaint}` }}>
-      <div onClick={onToggle} role="button" tabIndex={0} style={{ padding: "9px 0", display: "flex", justifyContent: "space-between", alignItems: "baseline", cursor: "pointer" }}>
+      <div onClick={onToggle} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggle(); } }} role="button" tabIndex={0} aria-expanded={isOpen} style={{ padding: "9px 0", display: "flex", justifyContent: "space-between", alignItems: "baseline", cursor: "pointer" }}>
         <span style={{ fontFamily: MONO, fontWeight: 800, fontSize: "12.5px" }}>
           <span style={{ color: c.optionType === "call" ? T.positive : T.negative }}>{c.optionType === "call" ? "CALL" : "PUT"}</span> {c.contractSymbol} · strike {price(c.strike)}
         </span>
@@ -2837,7 +2837,7 @@ function OpcoesCamada({ t, cur, open, onToggle, chain, chainLoading, opContract,
   const posFor = (id) => myPositions.find((p) => p.id === id);
   return (
     <div>
-      <div onClick={onToggle} role="button" tabIndex={0} style={{ marginTop: "11px", paddingTop: "10px", borderTop: `1px solid ${T.borderFaint}`, display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}>
+      <div onClick={onToggle} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggle(); } }} role="button" tabIndex={0} aria-expanded={open} style={{ marginTop: "11px", paddingTop: "10px", borderTop: `1px solid ${T.borderFaint}`, display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}>
         <span style={{ fontSize: "12px", color: T.textSecondary, display: "flex", alignItems: "center", gap: "7px" }}>
           <span style={{ color: T.accent }}>⚡</span> {open ? "opções de " + t : "opções líquidas disponíveis"}
         </span>
