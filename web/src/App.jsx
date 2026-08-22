@@ -67,7 +67,11 @@ const PALETTE = {
     bgBase: "#10121a", bgPanel: "#161927", bgCard: "#1b1f2e", bgToast: "#1b1f2e",
     borderSubtle: "#2c3245", borderFaint: "#20242f", borderDashed: "#3a4258", borderToast: "#3a4258",
     textPrimary: "#eef1f8", textSecondary: "#c9d1e6", textMuted: "#9aa3bd", textDim: "#8890a8",
-    textFaint: "#6f7797", textBright: "#f6f8fc",
+    // FIX-C16 (REPORT-01): o hex antigo media 4,24:1 contra bgBase — pior
+    // contra bgCard (3,71:1), abaixo do mínimo AA 4.5:1. Este é o mesmo tom
+    // com luminosidade ajustada (mesma metodologia do acento, ver comentário
+    // acima em BRAND/PALETTE): 5,19:1/4,85:1/4,55:1 (pior caso bgCard).
+    textFaint: "#7f86a2", textBright: "#f6f8fc",
     accent: "#2fa8a0", accentSoft: "#5cc4bd", positive: BRAND.green, negative: BRAND.red,
     knob: "#20242f", navDotIdle: "#2c3245", confirmOkText: "#04251a",
     accentTint: "rgba(47,168,160,0.14)", accentTintHi: "rgba(47,168,160,0.26)", accentTint10: "rgba(47,168,160,0.10)",
@@ -84,7 +88,10 @@ const PALETTE = {
     bgBase: "#f7f8fc", bgPanel: "#eef0f7", bgCard: "#ffffff", bgToast: "#222936",
     borderSubtle: "#e2e5f0", borderFaint: "#edeff5", borderDashed: "#d3d8e6", borderToast: "#39414f",
     textPrimary: "#10121a", textSecondary: "#2d3444", textMuted: "#5b6178", textDim: "#6b7288",
-    textFaint: "#7a8099", textBright: "#080a12",
+    // FIX-C16 (REPORT-01): o hex antigo media 3,68:1 contra bgBase — pior
+    // contra bgPanel (3,43:1), abaixo do mínimo AA 4.5:1. Este é o mesmo tom
+    // com luminosidade ajustada: 4,89:1/4,56:1 (pior caso bgPanel)/5,19:1.
+    textFaint: "#666c85", textBright: "#080a12",
     // Acento do Estudo no claro: #2f6fe0 é o hex literal de v2 (AA 4,70 sobre
     // #ffffff). positive/negative NÃO são o verde/rosa crus da marca aqui: em
     // fundo claro eles medem 1,92:1 e 2,92:1, e neste app essas duas cores são
@@ -123,7 +130,10 @@ const MODE_OPERADOR = {
   dark: {
     bgBase: "#0a0c12", bgPanel: "#10131c", bgCard: "#141926", bgToast: "#141926",
     borderSubtle: "#242c40", borderFaint: "#1a2030", borderDashed: "#323c54", borderToast: "#323c54",
-    textMuted: "#93a3c0", textDim: "#8492ac", textFaint: "#5b6890",
+    // FIX-C16 (REPORT-01): mesma chave/mesmo call site do Estudo, override
+    // do Modo Operador — o hex antigo media 3,20-3,56:1 (pior que o par do
+    // Estudo), abaixo de AA. Este passa: 4,564:1 pior caso (bgCard).
+    textMuted: "#93a3c0", textDim: "#8492ac", textFaint: "#7581a8",
     accent: "#d4af37", accentSoft: "#e6c766",
     positive: BRAND.green, negative: BRAND.red,
     accentTint: "rgba(212,175,55,0.14)", accentTintHi: "rgba(212,175,55,0.26)", accentTint10: "rgba(212,175,55,0.10)",
@@ -140,7 +150,10 @@ const MODE_OPERADOR = {
     // degrau mais frio/grafite que o Estudo), agora derivada dos neutros de v2.
     bgBase: "#f2f6f4", bgPanel: "#e9efec", bgCard: "#ffffff", bgToast: "#16211c",
     borderSubtle: "#dce5e1", borderFaint: "#e8efec", borderDashed: "#c8d6d0", borderToast: "#24483a",
-    textMuted: "#4f5f5a", textDim: "#5c6d67", textFaint: "#7a8a85",
+    // FIX-C16 (REPORT-01): mesma chave/mesmo call site do Estudo, override
+    // do Modo Operador — o hex antigo media 3,11-3,62:1, abaixo de AA. Este
+    // passa: 4,566:1 pior caso (bgPanel).
+    textMuted: "#4f5f5a", textDim: "#5c6d67", textFaint: "#616e6a",
     // O Alex passou #9c7a1f para o dourado no claro; ele mede 4,03:1 sobre
     // #ffffff — reprova AA (4,5) tanto como texto quanto como fundo de CTA com
     // rótulo branco, e o rótulo do botão primário tem 15px em negrito, longe do

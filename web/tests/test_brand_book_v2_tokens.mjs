@@ -91,11 +91,18 @@ ok("BRAND.red (venda) é #f26d6d", BRAND.red === "#f26d6d");
 // === 2. neutros: hex literais do bloco "Design tokens" de v2 ===============
 // dark: --bg #10121a, --bg-2 #161927, --panel #1b1f2e, --line #2c3245,
 //       --ink #eef1f8, --muted #9aa3bd, --muted-2 #6f7797
+//
+// FIX-C16 (REPORT-01, fechado na Fase 4): o Brand Book v2 especificava
+// --muted-2 #6f7797 (dark) / #7a8099 (light) — esses valores reprovavam AA
+// (3,43-4,24:1 conforme a superfície; pior contra bgCard/bgPanel do que
+// contra o bgBase que a auditoria original mediu). C-16 os substitui pelo
+// mesmo tom com luminosidade ajustada, mesma metodologia que a seção 3 deste
+// arquivo já usa para justificar o dourado claro #8a6c1c.
 const NEUTROS = {
   dark: { bgBase: "#10121a", bgPanel: "#161927", bgCard: "#1b1f2e", borderSubtle: "#2c3245",
-          textPrimary: "#eef1f8", textMuted: "#9aa3bd", textFaint: "#6f7797" },
+          textPrimary: "#eef1f8", textMuted: "#9aa3bd", textFaint: "#7f86a2" },
   light: { bgBase: "#f7f8fc", bgPanel: "#eef0f7", bgCard: "#ffffff", borderSubtle: "#e2e5f0",
-           textPrimary: "#10121a", textMuted: "#5b6178", textFaint: "#7a8099" },
+           textPrimary: "#10121a", textMuted: "#5b6178", textFaint: "#666c85" },
 };
 for (const tema of ["dark", "light"]) {
   for (const [k, v] of Object.entries(NEUTROS[tema])) {
@@ -162,6 +169,23 @@ for (const [nome, esquema] of [["Estudo", estudo], ["Operador", operador]]) {
     const emCima = contrast(p.onAccent, p.accent);
     ok(`${nome}/${tema}: onAccent ${p.onAccent} sobre o acento ${p.accent} = ${emCima.toFixed(2)}:1 (AA 4.5)`,
        emCima >= 4.5);
+  }
+}
+
+// FIX-C16 (REPORT-01): textFaint precisa passar AA nas TRÊS superfícies onde
+// ele de fato renderiza (fonte/timestamp/disclaimer aparecem sobre bgBase,
+// bgPanel E bgCard) — testar só o card (como os demais tokens acima) é a
+// omissão que originou o bug: o pior caso é bgCard no escuro e bgPanel no
+// claro, e um checador que olhasse só pra um dos dois deixaria o outro
+// passar por engano.
+for (const [nome, esquema] of [["Estudo", estudo], ["Operador", operador]]) {
+  for (const tema of ["dark", "light"]) {
+    const p = esquema[tema];
+    for (const superficie of ["bgBase", "bgPanel", "bgCard"]) {
+      const razao = contrast(p.textFaint, p[superficie]);
+      ok(`${nome}/${tema}: textFaint ${p.textFaint} sobre ${superficie} ${p[superficie]} = ${razao.toFixed(2)}:1 (AA 4.5, C-16)`,
+         razao >= 4.5);
+    }
   }
 }
 
