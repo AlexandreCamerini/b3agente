@@ -193,9 +193,9 @@ Core Value.
 Plans:
 **Wave 1**
 
-- [ ] 04-01-PLAN.md — Fontes determinísticas: verbete "diversificacao" + compositor da explicação sem IA
-- [ ] 04-02-PLAN.md — Motor: rastro da ordem rejeitada no histórico + série diária do Ibovespa
-- [ ] 04-03-PLAN.md — Front sem dependência: contraste AA de textFaint, acordeão por teclado, aviso de prontidão Estudo→Operador
+- [x] 04-01-PLAN.md — Fontes determinísticas: verbete "diversificacao" + compositor da explicação sem IA
+- [x] 04-02-PLAN.md — Motor: rastro da ordem rejeitada no histórico + série diária do Ibovespa
+- [x] 04-03-PLAN.md — Front sem dependência: contraste AA de textFaint, acordeão por teclado, aviso de prontidão Estudo→Operador
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -267,7 +267,7 @@ gate.
 | 1. Auditoria Diagnóstica Consolidada | v1.0 | 6/6 | Complete | 2026-08-18 |
 | 2. Realismo de Mercado | v1.1 | 7/7 | Complete   | 2026-08-19 |
 | 3. Correção Crítico + Alto | v1.1 | 6/6 | Complete   | 2026-08-19 |
-| 4. Correção Médio — Storyline & UX | v1.1 | 0/TBD | Not started | - |
+| 4. Correção Médio — Storyline & UX | v1.1 | 3/7 | In Progress|  |
 | 5. Correção Médio — Código, Gate & Admin | v1.1 | 0/TBD | Not started | - |
 | 6. Instrumentação de Assertividade (ADR-015) | v1.1 | 5/5 | Complete | 2026-08-21 |
 | 7. Seleção Dinâmica por Desempenho Histórico (ADR-017 Bloco 1) | v1.1 | 6/6 | Complete | 2026-08-21 |
