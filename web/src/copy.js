@@ -143,6 +143,16 @@ export const COPY = {
       por_setup_disponivel: "Entrada automática disponível para {setup} — elegibilidade medida em {janelaRef}.",
       por_setup_bloqueado: "Entrada automática bloqueada para {setup} — sem vantagem estatística medida nesta janela.",
     },
+
+    // Plano 04-07 (FIX-C05): aviso de concentração alta na Carteira, quando
+    // um único ativo passa de 50% do patrimônio simulado (LIMIAR_CONCENTRACAO
+    // em App.jsx). Rótulo/link são iguais nos dois modos (kicker/CTA, não
+    // voz); só o corpo forka — texto VERBATIM do UI-SPEC ("FIX-C05"), sem
+    // vocabulário de ordem de operação no ramo estudo.
+    concentracaoTitulo: "Concentração alta",
+    concentracaoCorpo: (ticker, pct) =>
+      `${ticker} sozinho responde por ${pct}% do seu patrimônio simulado. Diversificação reduz o quanto um único evento negativo pode derrubar a carteira inteira — vale estudar o conceito antes de aumentar ainda mais essa posição.`,
+    concentracaoLink: "saiba mais",
   },
 
   operador: {
@@ -258,6 +268,14 @@ export const COPY = {
       por_setup_disponivel: "Entrada automática disponível para {setup} — elegibilidade medida em {janelaRef}.",
       por_setup_bloqueado: "Entrada automática bloqueada para {setup} — sem vantagem estatística medida nesta janela.",
     },
+
+    // Plano 04-07 (FIX-C05): mesmo aviso do ramo estudo, tom de mesa — stop
+    // ruim carrega peso desproporcional, não "diversificação" como conceito
+    // de estudo. Chaves espelhadas (rótulo/link idênticos, ver ramo estudo).
+    concentracaoTitulo: "Concentração alta",
+    concentracaoCorpo: (ticker, pct) =>
+      `${ticker} concentra ${pct}% da carteira. Acima disso, um único stop ruim carrega peso desproporcional no resultado — considere o tamanho antes do próximo aporte no papel.`,
+    concentracaoLink: "saiba mais",
   },
 };
 

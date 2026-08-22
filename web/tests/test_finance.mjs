@@ -1,6 +1,6 @@
 // Objetivo 3 — trava as fórmulas financeiras sobre entradas conhecidas.
 import { readFileSync } from "fs";
-import { portfolioMetrics, dayReturnPct, equityCurve, markPrice, historicoEstado, historicoDesatualizado, benchmarkSerie } from "../src/finance.js";
+import { portfolioMetrics, dayReturnPct, equityCurve, markPrice, historicoEstado, historicoDesatualizado, benchmarkSerie, concentracaoMaxima } from "../src/finance.js";
 
 let fails = 0;
 const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if (!cond) fails++; };
@@ -270,6 +270,59 @@ ok("tudo nulo → null", benchmarkSerie(null, null) === null);
     try { benchmarkSerie([{}, { date: "x" }, null, { date: "2026-08-20", close: "abc" }], ["2026-08-20"]); return true; }
     catch { return false; }
   })());
+}
+
+// ---- concentracaoMaxima (Plano 04-07, Task 1, FIX-C05) ----
+{
+  // caso base do plano: PETR4 100@33=3300, VALE3 50@54=2700, patr=10000
+  const positions = [
+    { t: "PETR4", qty: 100, avg: 30 },
+    { t: "VALE3", qty: 50, avg: 60 },
+  ];
+  const quotes = { PETR4: { price: 33 }, VALE3: { price: 54 } };
+  const conc = concentracaoMaxima(positions, quotes, 10000);
+  ok("maior posição: ticker", conc.t === "PETR4");
+  ok("maior posição: valor", near(conc.valor, 3300));
+  ok("maior posição: pct", near(conc.pct, 33));
+}
+ok("positions vazio → null", concentracaoMaxima([], {}, 10000) === null);
+ok("patr <= 0 → null", concentracaoMaxima([{ t: "X", qty: 10, avg: 5 }], {}, 0) === null);
+ok("tudo nulo → null", concentracaoMaxima(null, null, null) === null);
+{
+  // sem cotação: usa avg (mesmo resultado que markPrice devolveria)
+  const positions = [{ t: "ITUB4", qty: 10, avg: 20 }];
+  const conc = concentracaoMaxima(positions, {}, 400);
+  ok("sem cotação: usa avg via markPrice", conc.t === "ITUB4" && near(conc.valor, 200) && near(conc.pct, 50));
+}
+{
+  // qty não numérico não produz NaN
+  const positions = [{ t: "ABC", qty: "abc", avg: 10 }, { t: "DEF", qty: 5, avg: 10 }];
+  const conc = concentracaoMaxima(positions, {}, 1000);
+  ok("qty inválido não produz NaN", isFinite(conc.valor) && isFinite(conc.pct));
+  ok("qty inválido vira 0 (DEF continua a maior posição)", conc.t === "DEF");
+}
+{
+  // empate exato de valor → devolve a PRIMEIRA da lista, determinístico
+  const positions = [
+    { t: "PRIMEIRO", qty: 10, avg: 10 },
+    { t: "SEGUNDO", qty: 10, avg: 10 },
+  ];
+  const conc = concentracaoMaxima(positions, {}, 1000);
+  ok("empate de valor: devolve a primeira da lista", conc.t === "PRIMEIRO");
+}
+{
+  // consistência com portfolioMetrics: soma dos valores == posVal
+  const positions = [
+    { t: "PETR4", qty: 100, avg: 30 },
+    { t: "VALE3", qty: 50, avg: 60 },
+    { t: "ITUB4", qty: 20, avg: 25 },
+  ];
+  const quotes = { PETR4: { price: 33 }, VALE3: { price: 54 }, ITUB4: { price: 28 } };
+  const patr = 20000;
+  const m = portfolioMetrics(positions, quotes, patr - (100 * 33 + 50 * 54 + 20 * 28));
+  let somaValores = 0;
+  for (const p of positions) somaValores += Number(p.qty) * markPrice(quotes[p.t] || {}, p);
+  ok("soma dos valores da concentração bate com portfolioMetrics.posVal", near(somaValores, m.posVal));
 }
 
 // finance.js segue puro: benchmarkSerie não faz I/O nem lê hora do sistema.
