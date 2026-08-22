@@ -371,3 +371,77 @@ def test_ticker_normalizado_no_registro_de_rejeicao(monkeypatch):
     estado = client.get("/api/state", headers=headers).json()
     assert estado["history"][0]["t"] == "PETR4"
     assert "petr4" not in str(estado["history"][0]["t"])
+
+
+# ===========================================================================
+# FIX-C03 — GET /api/benchmark/ibov
+# ===========================================================================
+
+def test_benchmark_ibov_200_com_contrato_esperado(cli, monkeypatch):
+    async def _serie(period=None):
+        return {"t": "^BVSP", "nome": "Ibovespa", "fonte": "yahoo",
+                "candles": [{"date": "2026-08-20", "close": 130000.0}], "asOf": "2026-08-20"}
+    monkeypatch.setattr(main.benchmark, "serie_ibov", _serie)
+
+    r = cli.get("/api/benchmark/ibov")
+    assert r.status_code == 200
+    body = r.json()
+    assert {"t", "nome", "fonte", "candles", "asOf"} <= set(body.keys())
+
+
+def test_benchmark_ibov_indisponivel_502_com_frase_unica(cli, monkeypatch):
+    async def _explode(period=None):
+        raise benchmark.BenchmarkIndisponivel("Ibovespa: provedor indisponivel no momento.")
+    monkeypatch.setattr(main.benchmark, "serie_ibov", _explode)
+
+    r = cli.get("/api/benchmark/ibov")
+    assert r.status_code == 502
+    assert r.json()["detail"] == "Comparação com o Ibovespa indisponível agora."
+
+
+def test_benchmark_ibov_mensagem_nao_vaza_detalhe_do_provedor(cli, monkeypatch):
+    async def _explode(period=None):
+        raise benchmark.BenchmarkIndisponivel(
+            "crumb invalido no host query1.finance.yahoo.com (cookie expirado)")
+    monkeypatch.setattr(main.benchmark, "serie_ibov", _explode)
+
+    msg = cli.get("/api/benchmark/ibov").json()["detail"]
+    for vazamento in ("crumb", "cookie", "yahoo.com", "query1"):
+        assert vazamento not in msg
+
+
+def test_benchmark_ibov_handler_nao_aceita_simbolo_do_cliente():
+    import inspect
+    sig = inspect.signature(main.benchmark_ibov)
+    assert not ({"ticker", "t", "symbol"} & set(sig.parameters.keys())), \
+        "a rota não pode aceitar símbolo do cliente (T-04-04) — só benchmark.SIMBOLO"
+
+
+def test_benchmark_ibov_cache_evita_segunda_chamada_ao_provedor(cli, monkeypatch):
+    benchmark.limpar_cache()
+    chamadas = {"n": 0}
+
+    async def _fake_yfetch(client, path, params, retries=3):
+        chamadas["n"] += 1
+        ts = [1735707600, 1735794000]
+        return {"chart": {"result": [{
+            "meta": {"gmtoffset": -10800, "dataGranularity": "1d"},
+            "timestamp": ts,
+            "indicators": {"quote": [{"close": [128000.0, 129000.0]}]},
+        }]}}
+    monkeypatch.setattr(yahoo, "_yfetch", _fake_yfetch)
+
+    r1 = cli.get("/api/benchmark/ibov")
+    r2 = cli.get("/api/benchmark/ibov")
+    assert r1.status_code == 200 and r2.status_code == 200
+    assert chamadas["n"] == 1, "o cache do módulo (TTL 900s) está no caminho da rota"
+    benchmark.limpar_cache()
+
+
+def test_benchmark_ibov_posicionado_antes_do_catch_all(cli):
+    """A ordem de `app.mount()` importa nesta base: `/` (catch-all do web_dist)
+    tem que continuar sendo o ÚLTIMO mount, senão a rota nova ficaria
+    inalcançável atrás dele."""
+    import pathlib
+    src = (pathlib.Path(__file__).resolve().parents[1] / "app" / "main.py").read_text(encoding="utf-8")
+    assert src.index('@app.get("/api/benchmark/ibov")') < src.index('app.mount("/",')

@@ -37,6 +37,7 @@ from . import push  # FASE 3.3b: APNs (no-op sem configuração)
 from . import obslog  # FASE 5: observabilidade (log estruturado + ring buffer)
 from . import conceitos  # camada de entendimento: catálogo determinístico (custo zero)
 from . import explicacao_det  # FIX-C01: fallback determinístico do Passo 7 sem IA
+from . import benchmark  # FIX-C03: série diária do Ibovespa (comparação no Passo 8)
 from . import analytics  # qa/47: eventos de comportamento (ingest + rollup + purga)
 from . import signal_ledger  # ADR-017 (Bloco 1): histórico medido por setup (ledger de sinais)
 from .catalog import is_catalog_ticker
@@ -1073,6 +1074,19 @@ async def history(ticker: str, period: Optional[str] = None, scope: Optional[str
     h = await candle_provider.get_history(t, rng=candles_mod.period_to_range(period))  # Objetivo 4
     h["candles"] = indicators.sanitize_candles(h.get("candles"))
     return h
+
+
+# FIX-C03: série diária do Ibovespa para o Passo 8 comparar com a carteira
+# simulada. Sem parâmetro de símbolo — `benchmark.SIMBOLO` é constante,
+# nunca vem do cliente (T-04-04: senão a rota vira proxy aberto pro Yahoo).
+# `scope` fica só por consistência com as demais rotas de dado de mercado;
+# a curva é pública, não decide nada por conta.
+@app.get("/api/benchmark/ibov")
+async def benchmark_ibov(period: Optional[str] = None, scope: Optional[str] = Depends(current_scope)):
+    try:
+        return await benchmark.serie_ibov(period)
+    except benchmark.BenchmarkIndisponivel:
+        raise HTTPException(502, "Comparação com o Ibovespa indisponível agora.")
 
 
 # ---- Analise tecnica: candles + indicadores (serie continua ~1 ano) ----
