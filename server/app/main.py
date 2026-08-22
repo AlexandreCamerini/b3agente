@@ -36,6 +36,7 @@ from . import siwa  # FASE 4 (Bloco 2): Sign in with Apple — exchange + revoke
 from . import push  # FASE 3.3b: APNs (no-op sem configuração)
 from . import obslog  # FASE 5: observabilidade (log estruturado + ring buffer)
 from . import conceitos  # camada de entendimento: catálogo determinístico (custo zero)
+from . import explicacao_det  # FIX-C01: fallback determinístico do Passo 7 sem IA
 from . import analytics  # qa/47: eventos de comportamento (ingest + rollup + purga)
 from . import signal_ledger  # ADR-017 (Bloco 1): histórico medido por setup (ledger de sinais)
 from .catalog import is_catalog_ticker
@@ -1407,7 +1408,18 @@ async def analyze_technical_model(ticker: str, body: dict = Body(default={}), sc
     config = body.get("config") or store.get(_conn, "config", user_id=scope)
     # FASE 8B (B3): captura o modo ANTES do managed (que pode recriar a config)
     modo = (config or {}).get("appMode")
-    config, _consume_ai = _gate_analise(scope, config)
+    # FIX-C01: o gate de plano/cota pode negar (402, ex.: cota gerenciada
+    # esgotada) — em vez de estourar pro cliente, marca a IA como indisponível
+    # e segue com o fallback determinístico (nunca 502 por falta de crédito).
+    ia_indisponivel = None
+    _consume_ai = lambda: None
+    try:
+        config, _consume_ai = _gate_analise(scope, config)
+    except HTTPException as e:
+        if e.status_code == 402:
+            ia_indisponivel = {"code": "quota", "mensagem": str(e.detail)}
+        else:
+            raise
     # FASE 8B (R2): a instrução do agente é POR MODO — a mesa usa a skill do
     # operador (iOS manda a certa no corpo; web escolhe pela config do escopo).
     skill = body.get("skill") or store.get(_conn, "skillOperador" if modo == "operador" else "skill", user_id=scope)
@@ -1459,11 +1471,50 @@ async def analyze_technical_model(ticker: str, body: dict = Body(default={}), sc
             return {"t": t, "quote": quote, "reaproveitada": True, **guardada}
         return {"t": t, "quote": quote, "reaproveitada": True, "promptFp": prompt_fp,
                 "snapshotId": snap["snapshotId"], "snapshotAt": snap["asOf"], "at": now_str()}
-    try:
-        with llm.collect_usage() as _uso:  # qa/45: captura tokens desta chamada
-            result = await llm.analyze_structured(config, skill, profile, account, t, context, modo=modo)
-    except Exception as e:  # noqa: BLE001
-        raise HTTPException(502, llm.public_error(e))
+    if ia_indisponivel is None:
+        try:
+            with llm.collect_usage() as _uso:  # qa/45: captura tokens desta chamada
+                result = await llm.analyze_structured(config, skill, profile, account, t, context, modo=modo)
+        except Exception as e:  # noqa: BLE001
+            pub = llm.public_error(e)
+            # T-04-01: SÓ o payload público sanitizado vira `mensagem` — nunca
+            # str(e)/repr(e)/traceback (poderiam carregar chave/URL/host do provedor).
+            ia_indisponivel = {"code": pub.get("code"), "mensagem": pub.get("message") or pub.get("detail")}
+
+    if ia_indisponivel is not None:
+        # FIX-C01: sem IA disponível (gate ou chamada) — explicação mínima
+        # determinística a partir do que o motor já calculou, no lugar de um
+        # card vazio ou 502. Efêmera por desenho: NÃO consome cota, NÃO
+        # persiste (o reuso por promptFp serviria o fallback pra sempre depois
+        # que a chave voltasse) e NÃO alimenta ai_activity/analysis_outcomes.
+        det = explicacao_det.montar(
+            t, snap, modo=("operador" if modo == "operador" else "educacional"), quote=quote)
+        payload = {
+            "kpis": None,
+            "detail": None,
+            "proposal": None,
+            "markdown": det["markdown"],
+            "text": None,
+            "model": model,
+            "modelLabel": context.get("modelLabel"),
+            "technicalContext": technical_models.compact_for_response(context),
+            "candles": snap["periodBars"],
+            "candlesSentToLLM": (context.get("historyStats") or {}).get("candlesSentToLLM"),
+            "snapshotId": snap["snapshotId"],
+            "snapshotAt": snap["asOf"],
+            "promptFp": prompt_fp,
+            "setupsRadar": context.get("setupsRadar"),
+            "fundamento": None,
+            "confiancaFinal": None,
+            "rebaixadoPorFundamento": None,
+            "at": now_str(),
+            "fonte": "deterministico",
+            "iaIndisponivel": ia_indisponivel,
+            "verbetes": det["verbetes"],
+            "semDados": det["semDados"],
+        }
+        return {"t": t, "quote": quote, **payload}
+
     try:
         ai_activity.registrar_uso(_conn, scope=scope, ticker=t, tipo="Análise", usos=_uso)
     except Exception as e:  # noqa: BLE001 — atividade é overlay, nunca quebra a análise
@@ -1538,6 +1589,8 @@ async def analyze_technical_model(ticker: str, body: dict = Body(default={}), sc
         "confiancaFinal": conf_final,
         "rebaixadoPorFundamento": rebaixado,
         "at": now_str(),
+        "fonte": "ia",
+        "iaIndisponivel": None,
     }
     if not body.get("config"):
         store.set_analysis(_conn, t, payload, user_id=scope)
@@ -1559,8 +1612,19 @@ async def analyze(ticker: str, body: dict = Body(default={}), scope: Optional[st
     if len(t) < 4:
         raise HTTPException(400, "Ticker invalido.")
     config = (body or {}).get("config") or store.get(_conn, "config", user_id=scope)
-    # GANCHO FREEMIUM (hoje sempre permite) + C-33 (fase 5): contagem real do mes do usuario
-    config, _consume_ai = _gate_analise(scope, config)
+    # FASE 8B (B3)/FIX-C01: modo capturado ANTES do gate (que pode recriar a config).
+    modo = (config or {}).get("appMode")
+    # FIX-C01: mesmo padrão da rota nova — 402 vira fallback determinístico, nunca 502.
+    ia_indisponivel = None
+    _consume_ai = lambda: None
+    try:
+        # GANCHO FREEMIUM (hoje sempre permite) + C-33 (fase 5): contagem real do mes do usuario
+        config, _consume_ai = _gate_analise(scope, config)
+    except HTTPException as e:
+        if e.status_code == 402:
+            ia_indisponivel = {"code": "quota", "mensagem": str(e.detail)}
+        else:
+            raise
     skill = (body or {}).get("skill") or store.get(_conn, "skill", user_id=scope)
     profile = (body or {}).get("profile") or store.get(_conn, "profile", user_id=scope)
     # capital simulado disponivel: handset envia no corpo; web usa o estado
@@ -1587,11 +1651,35 @@ async def analyze(ticker: str, body: dict = Body(default={}), scope: Optional[st
         "snapshotId": snap["snapshotId"],
         "snapshotAt": snap["asOf"],
     }
-    try:
-        with llm.collect_usage() as _uso:  # qa/45
-            result = await llm.analyze(config, skill, profile, account, t, quote, history_data)
-    except Exception as e:  # noqa: BLE001
-        raise HTTPException(502, llm.public_error(e))
+    if ia_indisponivel is None:
+        try:
+            with llm.collect_usage() as _uso:  # qa/45
+                result = await llm.analyze(config, skill, profile, account, t, quote, history_data)
+        except Exception as e:  # noqa: BLE001
+            pub = llm.public_error(e)
+            ia_indisponivel = {"code": pub.get("code"), "mensagem": pub.get("message") or pub.get("detail")}
+
+    if ia_indisponivel is not None:
+        # FIX-C01: mesmo fallback da rota nova (ver comentário lá) — efêmero,
+        # sem custo, sem persistência.
+        det = explicacao_det.montar(
+            t, snap, modo=("operador" if modo == "operador" else "educacional"), quote=quote)
+        payload = {
+            "kpis": None,
+            "detail": None,
+            "proposal": None,
+            "markdown": det["markdown"],
+            "text": None,
+            "snapshotId": snap["snapshotId"],
+            "snapshotAt": snap["asOf"],
+            "at": now_str(),
+            "fonte": "deterministico",
+            "iaIndisponivel": ia_indisponivel,
+            "verbetes": det["verbetes"],
+            "semDados": det["semDados"],
+        }
+        return {"t": t, "quote": quote, "candles": len(history_data["candles"]), **payload}
+
     try:
         ai_activity.registrar_uso(_conn, scope=scope, ticker=t, tipo="Análise", usos=_uso)
     except Exception as e:  # noqa: BLE001
@@ -1607,6 +1695,8 @@ async def analyze(ticker: str, body: dict = Body(default={}), scope: Optional[st
         "snapshotId": snap["snapshotId"],
         "snapshotAt": snap["asOf"],
         "at": at,
+        "fonte": "ia",
+        "iaIndisponivel": None,
     }
     # persiste a ultima analise do ativo (versao web); o handset persiste no aparelho
     if not (body or {}).get("config"):
