@@ -354,10 +354,17 @@ const InfoDot = ({ onClick }) => (
 );
 
 // Marcador MÍNIMO junto ao conteúdo de IA (o texto completo vive em "Sobre").
-const AiNote = ({ at }) => (
+// FIX-C01 (Plano 04-05): `source` rotula a origem real do texto — "ia"
+// (default, comportamento inalterado) ou "deterministico" (fallback do
+// backend quando a IA está indisponível, sem chamada de LLM nenhuma). Nunca
+// afirmar "conteúdo de IA" sobre texto que não passou por LLM (princípio 7
+// do CLAUDE.md) — o rótulo é status do app, por isso NÃO bifurca por modo.
+const AiNote = ({ at, source = "ia" }) => (
   <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "10px", color: T.textFaint, marginTop: "10px" }}>
     <span aria-hidden style={{ fontWeight: 700 }}>ⓘ</span>
-    <span>Conteúdo educacional de IA · não é recomendação{at ? " · " + at : ""}</span>
+    <span>{source === "deterministico"
+      ? "Explicação automática do app (sem IA) · baseada no setup/indicador detectado" + (at ? " · " + at : "")
+      : "Conteúdo educacional de IA · não é recomendação" + (at ? " · " + at : "")}</span>
   </div>
 );
 
@@ -1201,15 +1208,25 @@ function LabeledList({ title, items, icon, color }) {
 // Análise formatada da IA, renderizada NO card (progressive disclosure).
 function AnalysisView({ an }) {
   if (!an) return null;
+  // Erro real de rede/cliente ainda precisa aparecer — mas deixou de ser o
+  // caminho normal do usuário sem chave BYOK/cota: esse agora chega como 200
+  // com an.fonte === "deterministico" (FIX-C01, Plano 04-05).
   if (an.error) return <div style={{ color: T.negative, fontSize: "12.5px", lineHeight: 1.5 }}>{an.error}</div>;
   const d = an.detail || {};
   const body = an.markdown || d.resumo || an.text || an.analysis || "";
+  const source = an.fonte === "deterministico" ? "deterministico" : "ia";
+  // an.semDados (contrato do backend) ou corpo vazio no caminho determinístico
+  // (nem setup foi detectado) — frase MANDATÓRIA do CLAUDE.md, verbatim.
+  const semDados = an.semDados === true || (source === "deterministico" && !body);
   // FASE 1: a análise do ativo individual exibe SÓ texto. O stop/alvo
   // (an.proposal) foi desacoplado deste fluxo — a lógica permanece em
   // localProposal() e no estado an.proposal, e migra para a Carteira na Fase 3.
   return (
     <div style={{ display: "grid", gap: "2px" }}>
-      {body ? <Markdown text={body} /> : <div style={{ color: T.textMuted, fontSize: "13px" }}>A análise foi gerada, mas não veio texto legível. Tente reanalisar.</div>}
+      {an.iaIndisponivel && <div style={{ fontSize: "11px", color: T.textFaint, lineHeight: 1.4, marginBottom: "6px" }}>IA indisponível agora — mostrando a explicação automática do app, sem IA.</div>}
+      {semDados
+        ? <div style={{ color: T.textMuted, fontSize: "13px" }}>Não há dados suficientes para uma explicação agora.</div>
+        : (body ? <Markdown text={body} /> : <div style={{ color: T.textMuted, fontSize: "13px" }}>A análise foi gerada, mas não veio texto legível. Tente reanalisar.</div>)}
       {Array.isArray(d.fatos) && d.fatos.length > 0 && (
         <div style={{ marginTop: "14px", padding: "13px 14px", borderRadius: "11px", background: T.bgBase, border: `1px solid ${T.borderSubtle}` }}>
           <div style={{ display: "flex", alignItems: "center", gap: "7px", marginBottom: "8px" }}>
@@ -1229,7 +1246,7 @@ function AnalysisView({ an }) {
           Confiança rebaixada para <b>{an.confiancaFinal}</b>: a decisão técnica é operável, mas o fundamento é fraco (score C). O plano técnico não muda — só a confiança desce um degrau.
         </div>
       )}
-      <AiNote at={an.at} />
+      <AiNote at={an.at} source={source} />
     </div>
   );
 }
@@ -3833,16 +3850,35 @@ function HistoricoScreen({ ctx }) {
           <div style={{ display: "flex", gap: "10px", padding: "11px 15px", background: T.bgPanel, borderBottom: `1px solid ${T.borderSubtle}`, fontSize: "10px", letterSpacing: "0.06em", color: T.textFaint, fontFamily: MONO }}>
             {head(1.6, "DATA")}{head(1, "TIPO")}{head(0.9, "ATIVO")}{head(0.6, "QTD", true)}{head(1, "PREÇO", true)}{head(1.1, "RESULTADO", true)}
           </div>
-          {data.history.map((h, i) => (
-            <div key={i} style={{ display: "flex", gap: "10px", alignItems: "center", padding: "12px 15px", borderBottom: `1px solid ${T.borderFaint}`, fontFamily: MONO, fontSize: "13px" }}>
-              <div style={{ flex: 1.6, color: T.textMuted, fontSize: "12px" }}>{h.date}</div>
-              <div style={{ flex: 1 }}><span style={{ fontSize: "11px", fontWeight: 700, padding: "3px 7px", borderRadius: "5px", color: h.type === "COMPRA" ? T.positive : T.negative, background: h.type === "COMPRA" ? T.positiveTint : T.negativeTint }}>{h.type}</span></div>
-              <div style={{ flex: 0.9, fontWeight: 700 }}>{h.t}</div>
-              <div style={{ flex: 0.6, textAlign: "right", color: T.textSecondary }}>{h.qty}</div>
-              <div style={{ flex: 1, textAlign: "right", color: T.textSecondary }}>R$ {price(h.price)}</div>
-              <div style={{ flex: 1.1, textAlign: "right", fontWeight: 600, color: h.pnl == null ? T.textFaint : h.pnl >= 0 ? T.positive : T.negative }}>{h.pnl == null ? "—" : moneySigned(h.pnl)}</div>
-            </div>
-          ))}
+          {data.history.map((h, i) => {
+            // FIX-C02 (Plano 04-05): entrada LEGADA (sem `status`) é tratada
+            // como executada — histórico não se reescreve. A condição é
+            // SEMPRE === "rejeitada", nunca !== "executada" (T-04-02/paridade).
+            const rejeitada = h.status === "rejeitada";
+            return (
+              <div key={i}>
+                <div style={{ display: "flex", gap: "10px", alignItems: "center", padding: "12px 15px", borderBottom: `1px solid ${T.borderFaint}`, fontFamily: MONO, fontSize: "13px" }}>
+                  <div style={{ flex: 1.6, color: T.textMuted, fontSize: "12px" }}>{h.date}</div>
+                  <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "6px" }}>
+                    <span style={{ fontSize: "11px", fontWeight: 700, padding: "3px 7px", borderRadius: "5px", color: rejeitada ? T.textFaint : (h.type === "COMPRA" ? T.positive : T.negative), background: rejeitada ? T.bgPanel : (h.type === "COMPRA" ? T.positiveTint : T.negativeTint) }}>{h.type}</span>
+                    {rejeitada && <span style={{ padding: "3px 9px", borderRadius: "999px", fontSize: "10.5px", fontWeight: 800, color: T.warn, background: "color-mix(in srgb, " + T.warn + " 14%, transparent)" }}>REJEITADA</span>}
+                  </div>
+                  <div style={{ flex: 0.9, fontWeight: 700 }}>{h.t}</div>
+                  <div style={{ flex: 0.6, textAlign: "right", color: T.textSecondary }}>{h.qty}</div>
+                  <div style={{ flex: 1, textAlign: "right", color: T.textSecondary }}>{h.price == null ? "—" : "R$ " + price(h.price)}</div>
+                  <div style={{ flex: 1.1, textAlign: "right", fontWeight: 600, color: rejeitada ? T.textFaint : (h.pnl == null ? T.textFaint : h.pnl >= 0 ? T.positive : T.negative) }}>{rejeitada ? "—" : (h.pnl == null ? "—" : moneySigned(h.pnl))}</div>
+                </div>
+                {/* princípio 4: uma ordem rejeitada não some em silêncio — o
+                    motivo fica visível na própria linha, mesmo padrão do
+                    ultimoErro das pendentes acima. */}
+                {rejeitada && h.motivo && (
+                  <div style={{ padding: "0 15px 9px", fontSize: "11px", color: T.warn, lineHeight: 1.4 }}>
+                    Rejeitada: {h.motivo}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -6509,13 +6545,14 @@ function BuyModal({ ctx }) {
           <span style={{ fontWeight: 700, fontSize: "15px" }}>{money(cost)}</span>
         </div>
         {!ok && q.price != null && <div style={{ fontSize: "12px", color: T.negative, marginTop: "8px" }}>Caixa insuficiente. Disponível: {money(data.cash)}</div>}
-        <div style={{ fontSize: "11px", color: T.textFaint, marginTop: "8px" }}>{fechado ? ctx.cp.ordemPendenteAvisoCompra(ctx.mercado.abertura) : "O preço final é o da cotação no momento da confirmação (servidor)."}</div>
+        <div style={{ fontSize: "11px", color: T.textFaint, marginTop: "8px" }}>{(fechado ? ctx.cp.ordemPendenteAvisoCompra(ctx.mercado.abertura) : "O preço final é o da cotação no momento da confirmação (servidor).") + " Esta simulação executa por completo ou não executa — não há preenchimento parcial de ordem."}</div>
         {statusIndisponivel && (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", marginTop: "10px", padding: "9px 11px", borderRadius: "9px", background: "color-mix(in srgb, " + T.warn + " 12%, transparent)", border: `1px solid ${T.warn}` }}>
             <span style={{ fontSize: "11.5px", color: T.warn, lineHeight: 1.4 }}>{ctx.cp.mercadoStatusFalhouNaOrdem}</span>
             <button type="button" onClick={ctx.recarregarMercado} style={{ flex: "none", padding: "6px 10px", borderRadius: "7px", border: `1px solid ${T.warn}`, background: "transparent", color: T.warn, fontWeight: 700, fontSize: "12px" }}>↻ Tentar de novo</button>
           </div>
         )}
+        <div style={{ fontSize: "10.5px", color: T.textFaint, lineHeight: 1.4, marginTop: "10px" }}>{DISCLAIMERS.trade}</div>
         <div style={{ display: "flex", gap: "8px", marginTop: "16px" }}>
           <button onClick={A.closeBuy} style={{ flex: 1, padding: "11px", borderRadius: "9px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 600, fontSize: "14px" }}>Cancelar</button>
           <button onClick={A.confirmBuy} disabled={!ok} style={{ flex: 1.4, padding: "11px", borderRadius: "9px", border: `1px solid ${ok ? T.positive : T.borderSubtle}`, background: ok ? T.positive : T.knob, color: ok ? T.confirmOkText : T.textFaint, fontWeight: 800, fontSize: "14px" }}>{ctx.cp.confirmarCompra}</button>
@@ -6579,13 +6616,14 @@ function SellModal({ ctx }) {
           <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: T.textMuted, fontSize: "13px" }}>Resultado estimado</span><span style={{ fontWeight: 700, fontSize: "15px", color: pnlColor }}>{moneySigned(pnl)}</span></div>
         </div>
         {!total && <div style={{ fontSize: "11px", color: T.textMuted, marginTop: "8px", lineHeight: 1.5 }}>Venda parcial: ficam {pos.qty - qty} cotas com o mesmo preço médio.</div>}
-        <div style={{ fontSize: "11px", color: T.textFaint, marginTop: "6px" }}>{fechado ? ctx.cp.ordemPendenteAvisoVenda(ctx.mercado.abertura) : "O preço final é o da cotação no momento da confirmação (servidor). Registro vai para o histórico do ativo."}</div>
+        <div style={{ fontSize: "11px", color: T.textFaint, marginTop: "6px" }}>{(fechado ? ctx.cp.ordemPendenteAvisoVenda(ctx.mercado.abertura) : "O preço final é o da cotação no momento da confirmação (servidor). Registro vai para o histórico do ativo.") + " Esta simulação executa por completo ou não executa — não há preenchimento parcial de ordem."}</div>
         {statusIndisponivel && (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", marginTop: "10px", padding: "9px 11px", borderRadius: "9px", background: "color-mix(in srgb, " + T.warn + " 12%, transparent)", border: `1px solid ${T.warn}` }}>
             <span style={{ fontSize: "11.5px", color: T.warn, lineHeight: 1.4 }}>{ctx.cp.mercadoStatusFalhouNaOrdem}</span>
             <button type="button" onClick={ctx.recarregarMercado} style={{ flex: "none", padding: "6px 10px", borderRadius: "7px", border: `1px solid ${T.warn}`, background: "transparent", color: T.warn, fontWeight: 700, fontSize: "12px" }}>↻ Tentar de novo</button>
           </div>
         )}
+        <div style={{ fontSize: "10.5px", color: T.textFaint, lineHeight: 1.4, marginTop: "10px" }}>{DISCLAIMERS.trade}</div>
         <div style={{ display: "flex", gap: "8px", marginTop: "16px" }}>
           <button onClick={A.closeSell} style={{ flex: 1, padding: "11px", borderRadius: "9px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 600, fontSize: "14px" }}>Cancelar</button>
           <button onClick={A.confirmSell} style={{ flex: 1.4, padding: "11px", borderRadius: "9px", border: `1px solid ${T.negative}`, background: T.negativeTint10, color: T.negative, fontWeight: 800, fontSize: "14px" }}>{ctx.cp.confirmarVenda}{total ? " total" : " de " + qty}</button>
@@ -7103,7 +7141,14 @@ export default function App() {
         // PENDENTE (mercado fechado, nada executou) com venda concluída.
         track("trade_simulated", { side: "sell", ticker: sm.t, instrument: "equity", pendente: !!st.pendente }); // qa/47 (Fase 2)
         flash(st.pendente ? cp.toastOrdemPendente(sm.qty, sm.t) : cp.toastVenda(total ? "total" : sm.qty + " cotas", sm.t)); // FASE 8B (B1)
-      } catch (e) { flash("Venda: " + (e.message || e)); }
+      } catch (e) {
+        // FIX-C02 (Plano 04-05): o servidor já gravou a rejeição no histórico
+        // (status: "rejeitada") — sem este refresh, a tela só mostraria a
+        // entrada no próximo boot. Refresh best-effort: o toast do erro abaixo
+        // já informou o usuário, então uma falha aqui não pode quebrar o fluxo.
+        try { setData(await store.getState()); } catch { /* refresh best-effort */ }
+        flash("Venda: " + (e.message || e));
+      }
     },
     // FASE 2 (2.3): scan do STU restrito aos ativos da watchlist — ordena os
     // cards por oportunidade e alimenta os alertas do Acompanhar. Silencioso:
@@ -7164,7 +7209,12 @@ export default function App() {
           A.runStopAlvoFor(bm.t);
         }
       }
-      catch (e) { flash("Compra: " + (e.message || e)); }
+      catch (e) {
+        // FIX-C02 (Plano 04-05): mesmo refresh best-effort do confirmSell —
+        // o servidor já gravou a rejeição, a tela precisa mostrá-la agora.
+        try { setData(await store.getState()); } catch { /* refresh best-effort */ }
+        flash("Compra: " + (e.message || e));
+      }
     },
     sell: async (t) => {
       try {
