@@ -24,6 +24,11 @@ SECTIONS = ["config", "skill", "skillOperador", "llmPrompts", "watchlist", "cash
 # do backend — esta é a ÚNICA.
 ORDER_LOCK = threading.RLock()
 
+# Plano 04-02 (FIX-C02): teto de entradas `status == "rejeitada"` mantidas em
+# `history` — a poda em `registrar_rejeicao` descarta só as rejeições MAIS
+# ANTIGAS acima deste teto; execuções nunca são descartadas por ele (T-04-02).
+CAP_REJEICOES = 100
+
 
 def _eh_default_antigo(conn, chave: str, texto: str) -> bool:
     """O texto salvo é um default de GERAÇÃO ANTERIOR (nunca editado)? Duas
@@ -607,7 +612,7 @@ def buy(conn, t: str, qty: int, price: float, user_id=None, meta=None, origem: s
     # gravado (nunca condicional como setup/snapshotId) — histórico ANTERIOR
     # a esta mudança fica sem a chave (None no .get), não é reescrito.
     entry = {"date": now_str(), "type": "COMPRA", "t": t, "qty": qty, "price": round(price, 2), "pnl": None,
-             "origem": origem}
+             "status": "executada", "origem": origem}
     if m.get("setup"):
         entry["setup"] = m["setup"]
     if m.get("snapshotId"):
@@ -649,11 +654,46 @@ def sell(conn, t: str, price: float, user_id=None, qty=None, motivo: str = "manu
         pos["qty"] = pos["qty"] - sold  # parcial: avg preservado
     cash = round(cash + sold * price, 2)
     history.insert(0, {"date": now_str(), "type": "VENDA", "t": t, "qty": sold, "price": round(price, 2), "pnl": pnl,
-                        "motivo": motivo, "origem": origem})
+                        "status": "executada", "motivo": motivo, "origem": origem})
     db.kv_set(conn, "positions", positions, user_id=user_id)
     db.kv_set(conn, "cash", cash, user_id=user_id)
     db.kv_set(conn, "history", history, user_id=user_id)
     return pnl
+
+
+def registrar_rejeicao(conn, tipo: str, t: str, qty, price, motivo: str, user_id=None, origem: str = "manual") -> dict:
+    """FIX-C02 (Plano 04-02): grava o rastro de uma tentativa de ordem que NÃO
+    executou (caixa insuficiente, dado indisponível, etc.) — precedente exato
+    é `ultimoErro`/`ultimaTentativaEm` de `pending_orders.py` (Fase 2): uma
+    tentativa que falhou não pode sumir em silêncio, o caso mais educativo
+    (estourou risco) precisa ficar revisável no histórico (CLAUDE.md, "Modelo
+    de simulação").
+
+    NÃO toca `cash`/`positions`/`pendingOrders`/`caixaReservado` — rejeição
+    não move dinheiro nenhum. `price=None` é aceito e preservado como `None`
+    (nunca 0.0 — convenção da casa, mesma razão de
+    `test_m3_format_pede_null_nunca_zero`, aqui por CLAUDE.md item 4)."""
+    if tipo not in ("COMPRA", "VENDA"):
+        raise ValueError(f"tipo de ordem invalido: {tipo!r}")
+    motivo_norm = str(motivo).strip()[:200]
+    entry = {
+        "date": now_str(), "type": tipo, "t": t, "qty": qty,
+        "price": (round(price, 2) if isinstance(price, (int, float)) else None),
+        "pnl": None, "status": "rejeitada", "motivo": motivo_norm, "origem": origem,
+    }
+    history = get(conn, "history", user_id=user_id)
+    history.insert(0, entry)
+    # Poda: mantém no máximo CAP_REJEICOES entradas rejeitadas, descartando as
+    # mais antigas primeiro. Entradas executadas (ou legadas sem `status`)
+    # nunca são tocadas por esta varredura (T-04-02).
+    rejeitadas_idx = [i for i, h in enumerate(history) if isinstance(h, dict) and h.get("status") == "rejeitada"]
+    if len(rejeitadas_idx) > CAP_REJEICOES:
+        # rejeitadas_idx está em ordem de mais recente (índice menor) para
+        # mais antiga (índice maior), pois `history` é populado com insert(0).
+        descartar = set(rejeitadas_idx[CAP_REJEICOES:])
+        history = [h for i, h in enumerate(history) if i not in descartar]
+    db.kv_set(conn, "history", history, user_id=user_id)
+    return entry
 
 
 # ---------- optionPositions (ADR-003: coleção própria, nunca mistura com `positions`) ----------
