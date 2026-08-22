@@ -354,10 +354,17 @@ const InfoDot = ({ onClick }) => (
 );
 
 // Marcador MÍNIMO junto ao conteúdo de IA (o texto completo vive em "Sobre").
-const AiNote = ({ at }) => (
+// FIX-C01 (Plano 04-05): `source` rotula a origem real do texto — "ia"
+// (default, comportamento inalterado) ou "deterministico" (fallback do
+// backend quando a IA está indisponível, sem chamada de LLM nenhuma). Nunca
+// afirmar "conteúdo de IA" sobre texto que não passou por LLM (princípio 7
+// do CLAUDE.md) — o rótulo é status do app, por isso NÃO bifurca por modo.
+const AiNote = ({ at, source = "ia" }) => (
   <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "10px", color: T.textFaint, marginTop: "10px" }}>
     <span aria-hidden style={{ fontWeight: 700 }}>ⓘ</span>
-    <span>Conteúdo educacional de IA · não é recomendação{at ? " · " + at : ""}</span>
+    <span>{source === "deterministico"
+      ? "Explicação automática do app (sem IA) · baseada no setup/indicador detectado" + (at ? " · " + at : "")
+      : "Conteúdo educacional de IA · não é recomendação" + (at ? " · " + at : "")}</span>
   </div>
 );
 
@@ -1201,15 +1208,25 @@ function LabeledList({ title, items, icon, color }) {
 // Análise formatada da IA, renderizada NO card (progressive disclosure).
 function AnalysisView({ an }) {
   if (!an) return null;
+  // Erro real de rede/cliente ainda precisa aparecer — mas deixou de ser o
+  // caminho normal do usuário sem chave BYOK/cota: esse agora chega como 200
+  // com an.fonte === "deterministico" (FIX-C01, Plano 04-05).
   if (an.error) return <div style={{ color: T.negative, fontSize: "12.5px", lineHeight: 1.5 }}>{an.error}</div>;
   const d = an.detail || {};
   const body = an.markdown || d.resumo || an.text || an.analysis || "";
+  const source = an.fonte === "deterministico" ? "deterministico" : "ia";
+  // an.semDados (contrato do backend) ou corpo vazio no caminho determinístico
+  // (nem setup foi detectado) — frase MANDATÓRIA do CLAUDE.md, verbatim.
+  const semDados = an.semDados === true || (source === "deterministico" && !body);
   // FASE 1: a análise do ativo individual exibe SÓ texto. O stop/alvo
   // (an.proposal) foi desacoplado deste fluxo — a lógica permanece em
   // localProposal() e no estado an.proposal, e migra para a Carteira na Fase 3.
   return (
     <div style={{ display: "grid", gap: "2px" }}>
-      {body ? <Markdown text={body} /> : <div style={{ color: T.textMuted, fontSize: "13px" }}>A análise foi gerada, mas não veio texto legível. Tente reanalisar.</div>}
+      {an.iaIndisponivel && <div style={{ fontSize: "11px", color: T.textFaint, lineHeight: 1.4, marginBottom: "6px" }}>IA indisponível agora — mostrando a explicação automática do app, sem IA.</div>}
+      {semDados
+        ? <div style={{ color: T.textMuted, fontSize: "13px" }}>Não há dados suficientes para uma explicação agora.</div>
+        : (body ? <Markdown text={body} /> : <div style={{ color: T.textMuted, fontSize: "13px" }}>A análise foi gerada, mas não veio texto legível. Tente reanalisar.</div>)}
       {Array.isArray(d.fatos) && d.fatos.length > 0 && (
         <div style={{ marginTop: "14px", padding: "13px 14px", borderRadius: "11px", background: T.bgBase, border: `1px solid ${T.borderSubtle}` }}>
           <div style={{ display: "flex", alignItems: "center", gap: "7px", marginBottom: "8px" }}>
@@ -1229,7 +1246,7 @@ function AnalysisView({ an }) {
           Confiança rebaixada para <b>{an.confiancaFinal}</b>: a decisão técnica é operável, mas o fundamento é fraco (score C). O plano técnico não muda — só a confiança desce um degrau.
         </div>
       )}
-      <AiNote at={an.at} />
+      <AiNote at={an.at} source={source} />
     </div>
   );
 }

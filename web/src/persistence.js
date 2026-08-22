@@ -718,7 +718,12 @@ function deviceStore() {
       // `snapshotId`/`snapshotAt`/`promptFp` eram DESCARTADOS aqui — o aparelho
       // guardava a análise sem nenhuma marca da idade dela, então no iOS não
       // havia como saber que a leitura era de outro pregão nem reaproveitá-la.
-      doc.analyses[t] = { kpis: r.kpis || null, detail: r.detail || null, proposal: r.proposal || null, markdown: body, text: r.text || r.analysis || "", model: r.model, modelLabel: r.modelLabel, technicalContext: r.technicalContext || null, candlesSentToLLM: r.candlesSentToLLM, snapshotId: r.snapshotId || null, snapshotAt: r.snapshotAt || null, promptFp: r.promptFp || null, at: r.at };
+      // FIX-C01 (Plano 04-05): `fonte`/`iaIndisponivel`/`verbetes`/`semDados`
+      // também precisam sobreviver ao reload — sem isso o AiNote reabre
+      // rotulado "de IA" sobre texto determinístico persistido. O ramo
+      // `reaproveitada` acima preserva estes campos automaticamente via
+      // `...guardada` (spread), sem precisar de mudança lá.
+      doc.analyses[t] = { kpis: r.kpis || null, detail: r.detail || null, proposal: r.proposal || null, markdown: body, text: r.text || r.analysis || "", model: r.model, modelLabel: r.modelLabel, technicalContext: r.technicalContext || null, candlesSentToLLM: r.candlesSentToLLM, snapshotId: r.snapshotId || null, snapshotAt: r.snapshotAt || null, promptFp: r.promptFp || null, at: r.at, fonte: r.fonte || "ia", iaIndisponivel: r.iaIndisponivel || null, verbetes: r.verbetes || [], semDados: !!r.semDados };
       write();
       return r;
     },
