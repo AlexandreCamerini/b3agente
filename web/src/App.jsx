@@ -6509,13 +6509,14 @@ function BuyModal({ ctx }) {
           <span style={{ fontWeight: 700, fontSize: "15px" }}>{money(cost)}</span>
         </div>
         {!ok && q.price != null && <div style={{ fontSize: "12px", color: T.negative, marginTop: "8px" }}>Caixa insuficiente. Disponível: {money(data.cash)}</div>}
-        <div style={{ fontSize: "11px", color: T.textFaint, marginTop: "8px" }}>{fechado ? ctx.cp.ordemPendenteAvisoCompra(ctx.mercado.abertura) : "O preço final é o da cotação no momento da confirmação (servidor)."}</div>
+        <div style={{ fontSize: "11px", color: T.textFaint, marginTop: "8px" }}>{(fechado ? ctx.cp.ordemPendenteAvisoCompra(ctx.mercado.abertura) : "O preço final é o da cotação no momento da confirmação (servidor).") + " Esta simulação executa por completo ou não executa — não há preenchimento parcial de ordem."}</div>
         {statusIndisponivel && (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", marginTop: "10px", padding: "9px 11px", borderRadius: "9px", background: "color-mix(in srgb, " + T.warn + " 12%, transparent)", border: `1px solid ${T.warn}` }}>
             <span style={{ fontSize: "11.5px", color: T.warn, lineHeight: 1.4 }}>{ctx.cp.mercadoStatusFalhouNaOrdem}</span>
             <button type="button" onClick={ctx.recarregarMercado} style={{ flex: "none", padding: "6px 10px", borderRadius: "7px", border: `1px solid ${T.warn}`, background: "transparent", color: T.warn, fontWeight: 700, fontSize: "12px" }}>↻ Tentar de novo</button>
           </div>
         )}
+        <div style={{ fontSize: "10.5px", color: T.textFaint, lineHeight: 1.4, marginTop: "10px" }}>{DISCLAIMERS.trade}</div>
         <div style={{ display: "flex", gap: "8px", marginTop: "16px" }}>
           <button onClick={A.closeBuy} style={{ flex: 1, padding: "11px", borderRadius: "9px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 600, fontSize: "14px" }}>Cancelar</button>
           <button onClick={A.confirmBuy} disabled={!ok} style={{ flex: 1.4, padding: "11px", borderRadius: "9px", border: `1px solid ${ok ? T.positive : T.borderSubtle}`, background: ok ? T.positive : T.knob, color: ok ? T.confirmOkText : T.textFaint, fontWeight: 800, fontSize: "14px" }}>{ctx.cp.confirmarCompra}</button>
@@ -6579,13 +6580,14 @@ function SellModal({ ctx }) {
           <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: T.textMuted, fontSize: "13px" }}>Resultado estimado</span><span style={{ fontWeight: 700, fontSize: "15px", color: pnlColor }}>{moneySigned(pnl)}</span></div>
         </div>
         {!total && <div style={{ fontSize: "11px", color: T.textMuted, marginTop: "8px", lineHeight: 1.5 }}>Venda parcial: ficam {pos.qty - qty} cotas com o mesmo preço médio.</div>}
-        <div style={{ fontSize: "11px", color: T.textFaint, marginTop: "6px" }}>{fechado ? ctx.cp.ordemPendenteAvisoVenda(ctx.mercado.abertura) : "O preço final é o da cotação no momento da confirmação (servidor). Registro vai para o histórico do ativo."}</div>
+        <div style={{ fontSize: "11px", color: T.textFaint, marginTop: "6px" }}>{(fechado ? ctx.cp.ordemPendenteAvisoVenda(ctx.mercado.abertura) : "O preço final é o da cotação no momento da confirmação (servidor). Registro vai para o histórico do ativo.") + " Esta simulação executa por completo ou não executa — não há preenchimento parcial de ordem."}</div>
         {statusIndisponivel && (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", marginTop: "10px", padding: "9px 11px", borderRadius: "9px", background: "color-mix(in srgb, " + T.warn + " 12%, transparent)", border: `1px solid ${T.warn}` }}>
             <span style={{ fontSize: "11.5px", color: T.warn, lineHeight: 1.4 }}>{ctx.cp.mercadoStatusFalhouNaOrdem}</span>
             <button type="button" onClick={ctx.recarregarMercado} style={{ flex: "none", padding: "6px 10px", borderRadius: "7px", border: `1px solid ${T.warn}`, background: "transparent", color: T.warn, fontWeight: 700, fontSize: "12px" }}>↻ Tentar de novo</button>
           </div>
         )}
+        <div style={{ fontSize: "10.5px", color: T.textFaint, lineHeight: 1.4, marginTop: "10px" }}>{DISCLAIMERS.trade}</div>
         <div style={{ display: "flex", gap: "8px", marginTop: "16px" }}>
           <button onClick={A.closeSell} style={{ flex: 1, padding: "11px", borderRadius: "9px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 600, fontSize: "14px" }}>Cancelar</button>
           <button onClick={A.confirmSell} style={{ flex: 1.4, padding: "11px", borderRadius: "9px", border: `1px solid ${T.negative}`, background: T.negativeTint10, color: T.negative, fontWeight: 800, fontSize: "14px" }}>{ctx.cp.confirmarVenda}{total ? " total" : " de " + qty}</button>

@@ -56,7 +56,13 @@ O sistema mantém (e toda mudança preserva):
   lucro/prejuízo e drawdown;
 - histórico de todas as decisões e operações;
 - comparação de desempenho com um benchmark;
-- resultados positivos e negativos apresentados sem manipulação visual.
+- resultados positivos e negativos apresentados sem manipulação visual;
+- execução tudo-ou-nada por desenho: `store.buy`/`store.sell` executam 100%
+  da ordem ou rejeitam inteira — "ordem parcialmente executada" não existe
+  no modelo de dados, porque o motor não produz esse estado (princípio 5,
+  cálculo determinístico, sem estado que o motor nunca gera). Achado C-14 do
+  REPORT-01 (v1.0); decisão de produto fechada no ROADMAP v1.1 — não
+  implementar fill parcial.
 
 ## Camada educacional
 
