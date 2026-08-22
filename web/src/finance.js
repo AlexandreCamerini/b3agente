@@ -58,6 +58,31 @@ export function portfolioMetrics(positions, quotes, cash, reservado) {
   return { posVal, cost, openPnL, openPct, dayVal, patr, cash: c, reservado: r };
 }
 
+// Maior posição da carteira em % do patrimônio (Plano 04-07, FIX-C05) — mesma
+// família de cálculo de portfolioMetrics, usando o MESMO markPrice para que o
+// `pct` bata com o patrimônio exibido na tela. Função PURA: não toca em cash,
+// reservado nem optionPositions (posição de opção é coleção própria,
+// ADR-003; o aviso de concentração fala de ativo). NÃO aplica o limiar de
+// 50% aqui — quem decide o corte é a UI (finance.js só devolve o número).
+export function concentracaoMaxima(positions, quotes, patr) {
+  const p = Number(patr);
+  if (!(p > 0)) return null;
+  if (!Array.isArray(positions) || positions.length === 0) return null;
+  const q = quotes || {};
+  let melhor = null;
+  for (const pos of positions) {
+    const qty = Number(pos && pos.qty) || 0;
+    const quote = q[pos && pos.t] || {};
+    const price = markPrice(quote, pos);
+    const valor = qty * price;
+    if (!melhor || valor > melhor.valor) {
+      melhor = { t: pos && pos.t, valor };
+    }
+  }
+  if (!melhor) return null;
+  return { t: melhor.t, valor: melhor.valor, pct: (melhor.valor / p) * 100 };
+}
+
 // Retorno do dia em %: variação do patrimônio no dia sobre a base de ontem
 // (patr − ganho_do_dia). Seguro contra base <= 0.
 export function dayReturnPct(patr, dayVal) {
