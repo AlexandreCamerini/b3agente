@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Realismo de Mercado + Correções
-status: executing
-stopped_at: Phase 08 completa — checkpoint 08-05 aprovado, Bloco 3/4 do ADR-017 em produção
-last_updated: "2026-08-21T21:00:00.000Z"
-last_activity: 2026-08-21 -- Phase 8 concluída (checkpoint aprovado, deploy confirmado)
+status: Fase 08 concluída — checkpoint 08-05 aprovado, Bloco 3/4 do ADR-017 em produção (item 8 do checkpoint — entrada automática por um pregão inteiro — deferido como acompanhamento)
+stopped_at: Phase 04 UI-SPEC approved
+last_updated: "2026-08-22T00:38:32.921Z"
+last_activity: 2026-08-21 -- Phase 8 concluída
 progress:
   total_phases: 7
   completed_phases: 5
@@ -21,16 +21,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-18)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Phase 4/5 — Correção Médio (REPORT-01), ainda não iniciadas
+**Current focus:** Phase 04 — Correção Médio, Storyline & UX (REPORT-01), planejamento em andamento
 
 ## Current Position
 
-Phase: 08 (interface-e-ia-da-sele-o-din-mica-vocabul-rio-novo-skill-ref) — COMPLETE
-Plan: 5 of 5
-Status: Fase 08 concluída — checkpoint 08-05 aprovado, Bloco 3/4 do ADR-017 em produção (item 8 do checkpoint — entrada automática por um pregão inteiro — deferido como acompanhamento)
-Last activity: 2026-08-21 -- Phase 8 concluída
+Phase: 04 (corre-o-m-dio-storyline-ux) — PLANNING
+Status: CONTEXT.md + UI-SPEC.md prontos e aprovados (6/6 dimensões, 3 iterações); próximo passo é spawnar o `gsd-planner`
+Last activity: 2026-08-21 -- Phase 4 UI-SPEC aprovado
 
-Progress: [███████░░] 71% (v1.1, 5/7 fases: 2,3,6,7,8 completas; 4,5 não iniciadas)
+Progress: [███████░░] 71% (v1.1, 5/7 fases: 2,3,6,7,8 completas; 4 em planejamento; 5 não iniciada)
 
 ## Performance Metrics
 
@@ -166,13 +165,17 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-21T21:00:00.000Z
-Stopped at: Phase 08 concluída — checkpoint 08-05 aprovado
-Resume file: .planning/phases/08-interface-e-ia-da-sele-o-din-mica-vocabul-rio-novo-skill-ref/08-05-SUMMARY.md
+Last session: 2026-08-22T00:38:32.897Z
+Stopped at: Phase 04 UI-SPEC approved
+Resume file: .planning/phases/04-corre-o-m-dio-storyline-ux/04-UI-SPEC.md
 
 ## Operator Next Steps
 
 - Item 8 do checkpoint 08-05 (verificação ao vivo da entrada automática
   gated por um pregão inteiro) segue aberto — ver "Pending Todos".
-- Fases 4 e 5 (Correção Médio — REPORT-01) seguem não iniciadas, sem plano ainda: `/gsd:plan-phase 4` quando o Alex priorizar.
+
+- Fase 04 planejada até o UI-SPEC (aprovado 6/6, 3 iterações — 2 blocks
+  mecânicos de sign-off, ambos reuso real verificado). Falta spawnar o
+  `gsd-planner` pra gerar os PLAN.md das tasks.
+- Fase 5 (Correção Médio — Código/Gate/Admin, REPORT-01) segue não iniciada, sem plano ainda: `/gsd:plan-phase 5` quando o Alex priorizar.
 - 9 tickers com 404 no bootstrap do ledger (ELET3, BRFS3, ELET6, JBSS3, CRFB3, NTCO3, CPLE6, MRFG3, EMBR3) — prováveis renomeações/deslistagens; não investigado, não bloqueia a fase.
