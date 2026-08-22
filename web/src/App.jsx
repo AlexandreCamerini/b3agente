@@ -12,7 +12,7 @@ import { BUILD_ID } from "./version.js";
 // carimbo no console: prova de qual build está rodando (device/web)
 try { console.log("[b3] build", BUILD_ID); } catch { /* noop */ }
 import { canAddTicker, canAnalyze } from "./plan.js";
-import { portfolioMetrics, dayReturnPct, equityCurve, markPrice, sizingPlano, RR_MIN_TXT, historicoEstado, historicoDesatualizado } from "./finance.js";
+import { portfolioMetrics, dayReturnPct, equityCurve, markPrice, sizingPlano, RR_MIN_TXT, historicoEstado, historicoDesatualizado, benchmarkSerie } from "./finance.js";
 import * as notify from "./notify.js";
 import { track, setAnalyticsUser, flush as flushAnalytics } from "./analytics.js"; // qa/47 (Fase 2)
 import Boris from "./pet/Boris.jsx";
@@ -1616,16 +1616,56 @@ function CapitalCurve({ ctx }) {
   const dd = ec.drawdown;                   // drawdown sobre a MESMA curva exibida
   const series = ec.curve;                  // curva exibida (orçamento → ... → ao vivo)
   const up = retAcum >= 0;
+
+  // Plano 04-06 (FIX-C03): comparação com o Ibovespa. Busca 1x por montagem
+  // (o servidor já cacheia 15min — server/app/benchmark.py); a falha NUNCA
+  // contamina a leitura da carteira (T-04-19/T-04-20) — só omite a 2ª série.
+  // Sem série ainda (!hasSeries): nem dispara a busca (o placeholder do
+  // estado vazio não muda).
+  const period = (data.config || {}).candlePeriod;
+  const [ibov, setIbov] = useState(null);
+  const [ibovErro, setIbovErro] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    setIbov(null); setIbovErro(false);
+    if (!hasSeries) return () => { alive = false; };
+    store.benchmarkIbov(period)
+      .then((r) => { if (alive) setIbov(r); })
+      .catch(() => { if (alive) setIbovErro(true); });
+    return () => { alive = false; };
+  }, [period, hasSeries]);
+
+  const bm = hasSeries && ibov ? benchmarkSerie(ibov.candles, ec.datas) : null;
+  // Escala compartilhada: a carteira também vira % desde ec.base — só assim
+  // as duas séries são comparáveis no mesmo viewBox. Transformação afim e
+  // monotônica: sem benchmark, a curva desenhada fica IDÊNTICA à de hoje
+  // (nenhuma regressão visual no caminho sem 2ª série).
+  const pctCarteira = series.map((v) => (ec.base > 0 ? ((v - ec.base) / ec.base) * 100 : 0));
+
   // polyline normalizada ao viewBox 300x92
-  let path = "";
+  let path = "", ibovPath = "";
   if (hasSeries) {
-    const min = Math.min(...series), max = Math.max(...series), span = max - min || 1;
-    path = series.map((v, i) => {
-      const x = series.length === 1 ? 0 : (i / (series.length - 1)) * 300;
-      const y = 84 - ((v - min) / span) * 72;
-      return (i === 0 ? "M" : "L") + x.toFixed(1) + "," + y.toFixed(1);
-    }).join(" ");
+    const valores = bm ? pctCarteira.concat(bm.pct.filter((v) => v != null)) : pctCarteira;
+    const min = Math.min(...valores), max = Math.max(...valores), span = max - min || 1;
+    const xAt = (i) => (pctCarteira.length === 1 ? 0 : (i / (pctCarteira.length - 1)) * 300);
+    const yAt = (v) => 84 - ((v - min) / span) * 72;
+    path = pctCarteira.map((v, i) => (i === 0 ? "M" : "L") + xAt(i).toFixed(1) + "," + yAt(v).toFixed(1)).join(" ");
+    if (bm) {
+      // ponto null INTERROMPE o path (reinicia com M no próximo ponto
+      // válido) — nunca liga por cima de um buraco de cobertura.
+      let aberto = false;
+      const segs = [];
+      bm.pct.forEach((v, i) => {
+        if (v == null) { aberto = false; return; }
+        segs.push((aberto ? "L" : "M") + xAt(i).toFixed(1) + "," + yAt(v).toFixed(1));
+        aberto = true;
+      });
+      ibovPath = segs.join(" ");
+    }
   }
+  const temIbov = !!(bm && ibovPath); // série do índice de fato desenhável
+  const diffIbov = temIbov && bm.retAcum != null ? retAcum - bm.retAcum : null;
+
   const stat = (label, value, color) => (
     <div style={{ flex: 1 }}>
       <div style={{ fontSize: "9.5px", color: T.textFaint, letterSpacing: "0.04em" }}>{label}</div>
@@ -1635,6 +1675,18 @@ function CapitalCurve({ ctx }) {
   return (
     <div style={{ ...card, padding: "18px 18px 14px" }}>
       <div style={{ fontSize: "12px", color: T.textMuted, letterSpacing: "0.04em" }}>PATRIMÔNIO SIMULADO</div>
+      {temIbov && (
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "5px", fontSize: "10px", color: T.textMuted, letterSpacing: "0.04em" }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
+            <span aria-hidden style={{ display: "inline-block", width: "14px", height: "2px", background: up ? T.positive : T.negative }} />
+            sua carteira
+          </span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
+            <span aria-hidden style={{ display: "inline-block", width: "14px", borderTop: `1.5px dashed ${T.textDim}` }} />
+            Ibovespa
+          </span>
+        </div>
+      )}
       <div style={{ display: "flex", alignItems: "baseline", gap: "12px", marginTop: "4px", flexWrap: "wrap" }}>
         <div style={{ fontFamily: MONO, fontSize: "27px", fontWeight: 700 }}>{money(patr)}</div>
         <div style={{ fontFamily: MONO, fontSize: "14px", fontWeight: 700, color: retVsInicio >= 0 ? T.positive : T.negative }}>{pct(retVsInicio)} vs. início</div>
@@ -1650,6 +1702,8 @@ function CapitalCurve({ ctx }) {
           <line x1="0" y1="84" x2="300" y2="84" stroke={P.chartGrid} strokeWidth="1" />
           {hasSeries
             ? (<>
+                {/* z-order: Ibovespa por baixo, carteira sempre por cima em qualquer cruzamento */}
+                {temIbov && <path d={ibovPath} fill="none" stroke={P.textDim} strokeWidth="1.5" strokeDasharray="3 3" />}
                 {/* qa/mock v2: ÁREA preenchida (gradiente na cor do modo) sob a linha */}
                 <path d={`${path} L300,92 L0,92 Z`} fill={`url(#${gid})`} stroke="none" />
                 <path d={path} fill="none" stroke={up ? P.positive : P.negative} strokeWidth="2" />
@@ -1658,11 +1712,19 @@ function CapitalCurve({ ctx }) {
         </svg>
       </div>
       {hasSeries ? (
-        <div style={{ display: "flex", gap: "10px", marginTop: "12px" }}>
-          {stat("RETORNO ACUMULADO", pct(retAcum), retAcum >= 0 ? T.positive : T.negative)}
-          {stat("DRAWDOWN (DESDE O PICO)", "-" + dd.toFixed(1) + "%", T.negative)}
-          {stat("DIAS REGISTRADOS", String(ec.days))}
-        </div>
+        <>
+          <div style={{ display: "flex", gap: "10px", marginTop: "12px" }}>
+            {stat("RETORNO ACUMULADO", pct(retAcum), retAcum >= 0 ? T.positive : T.negative)}
+            {stat("DRAWDOWN (DESDE O PICO)", "-" + dd.toFixed(1) + "%", T.negative)}
+            {stat("DIAS REGISTRADOS", String(ec.days))}
+            {diffIbov != null && stat("VS. IBOVESPA", pct(diffIbov), diffIbov >= 0 ? T.positive : T.negative)}
+          </div>
+          {(ibovErro || (ibov && !temIbov)) && (
+            <div style={{ fontSize: "11px", color: T.textFaint, marginTop: "8px", lineHeight: 1.4 }}>
+              Comparação com o Ibovespa indisponível agora.
+            </div>
+          )}
+        </>
       ) : (
         <div style={{ fontSize: "11.5px", color: T.textFaint, marginTop: "10px", lineHeight: 1.5 }}>
           Sua curva começa amanhã. Volte para vê-la crescer — cada dia que você abrir o app vira um ponto aqui.
