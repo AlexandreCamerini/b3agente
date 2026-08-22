@@ -174,21 +174,21 @@ puro consumo do que o Bloco 1 já calcula — nenhuma mudança em
 `regime.ranquear`, `detect_setups`, `signal_ledger.py` ou nos pesos
 `W_HISTORICO_*`.
 
-- [ ] **ADR17-B34-01**: Vocabulário novo (setup aposentado, elegibilidade
+- [x] **ADR17-B34-01**: Vocabulário novo (setup aposentado, elegibilidade
       True/False/None, amostra insuficiente, dado desatualizado) em
       `server/app/skill_ref.py` (padrão `vocab`/`TIMING`) com espelho em
       `web/src/copy.js` (`COPY`), guardião de paridade de chaves
       (`web/tests/test_vocabulario_espelho.mjs`) estendido para cobrir as
       chaves novas
-- [ ] **ADR17-B34-02**: Radar/Watchlist exibem `setupElegivel`/
+- [x] **ADR17-B34-02**: Radar/Watchlist exibem `setupElegivel`/
       `setupHistorico` por ticker — dado já presente em cada resultado de
       `/api/scan` (`regime.ranquear`, `scanner.py:320`), sem mudança de
       backend
-- [ ] **ADR17-B34-03**: Card de setup individual exibe `historico` por
+- [x] **ADR17-B34-03**: Card de setup individual exibe `historico` por
       setup (`detect_setups`), cobrindo os 4 estados completos (nunca
       medido, amostra insuficiente, dado desatualizado, aposentado) — nenhum
       opcional, resultado negativo com o mesmo destaque visual que positivo
-- [ ] **ADR17-B34-04**: `_avaliar_entradas` (`agent.py`) troca a suspensão
+- [x] **ADR17-B34-04**: `_avaliar_entradas` (`agent.py`) troca a suspensão
       cega (`ENTRADA_AUTO_SUSPENSA_ADR017`) por gate de elegibilidade do
       setup específico do gatilho (`signal_ledger.historico_snapshot`,
       import local sem ciclo) — só executa com `elegivel is True`; checkpoint
@@ -273,10 +273,10 @@ puro consumo do que o Bloco 1 já calcula — nenhuma mudança em
 | ADR17-B1-05 | Phase 7 | Complete |
 | ADR17-B1-06 | Phase 7 | Complete |
 | ADR17-B1-07 | Phase 7 | Complete |
-| ADR17-B34-01 | Phase 8 | Pending |
-| ADR17-B34-02 | Phase 8 | Pending |
-| ADR17-B34-03 | Phase 8 | Pending |
-| ADR17-B34-04 | Phase 8 | Pending |
+| ADR17-B34-01 | Phase 8 | Complete |
+| ADR17-B34-02 | Phase 8 | Complete |
+| ADR17-B34-03 | Phase 8 | Complete |
+| ADR17-B34-04 | Phase 8 | Complete |
 
 **Coverage:**
 - v1.1 requirements: 50 total (4 MERC + 30 FIX + 5 ADR15 + 7 ADR17-B1 + 4 ADR17-B34)

@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Realismo de Mercado + Correções
 status: executing
-stopped_at: Phase 08 UI-SPEC approved
-last_updated: "2026-08-21T20:28:28.599Z"
-last_activity: 2026-08-21 -- Phase 8 planning complete
+stopped_at: Phase 08 completa — checkpoint 08-05 aprovado, Bloco 3/4 do ADR-017 em produção
+last_updated: "2026-08-21T21:00:00.000Z"
+last_activity: 2026-08-21 -- Phase 8 concluída (checkpoint aprovado, deploy confirmado)
 progress:
   total_phases: 7
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 29
-  completed_plans: 24
-  percent: 57
+  completed_plans: 29
+  percent: 71
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-18)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Phase 08 — Interface e IA da Seleção Dinâmica (ADR-017 Bloco 3/4), planejamento em andamento
+**Current focus:** Phase 4/5 — Correção Médio (REPORT-01), ainda não iniciadas
 
 ## Current Position
 
-Phase: 08 (interface-e-ia-da-sele-o-din-mica-vocabul-rio-novo-skill-ref) — PLANNING
-Plan: UI-SPEC aprovado (6/6 dimensões); tasks ainda não geradas
-Status: Ready to execute
-Last activity: 2026-08-21 -- Phase 8 planning complete
+Phase: 08 (interface-e-ia-da-sele-o-din-mica-vocabul-rio-novo-skill-ref) — COMPLETE
+Plan: 5 of 5
+Status: Fase 08 concluída — checkpoint 08-05 aprovado, Bloco 3/4 do ADR-017 em produção (item 8 do checkpoint — entrada automática por um pregão inteiro — deferido como acompanhamento)
+Last activity: 2026-08-21 -- Phase 8 concluída
 
-Progress: [██████░░░] 57% (v1.1, 4/7 fases: 2,3,6,7 completas; 4,5 não iniciadas; 8 em planejamento)
+Progress: [███████░░] 71% (v1.1, 5/7 fases: 2,3,6,7,8 completas; 4,5 não iniciadas)
 
 ## Performance Metrics
 
@@ -123,9 +123,27 @@ Recent decisions affecting current work:
   REPORT-01, ainda sem plano) por ser extensão direta do que acabou de
   ir ao ar.
 
+- Phase 8 fechada (2026-08-21) com um incidente de processo, não de
+  código: o orquestrador deu `git push` depois de cada wave (hábito das
+  Fases 6/7), mas o Plano 08-05 represava o push da FASE INTEIRA até o
+  checkpoint humano — o commit da Wave 1 (Plano 08-02, gate de
+  `entradaAuto`) foi ao ar sem aprovação. Exposição real avaliada como
+  zero: `entradaAuto` estava desligado em todas as contas durante toda
+  a janela. Alex aprovou o checkpoint com o item 8 (entrada automática
+  disparando por um pregão inteiro) deferido como acompanhamento — ver
+  08-05-SUMMARY.md, seção "Task 2: resolução". **Regra daqui pra
+  frente**: fase com checkpoint humano bloqueante não leva push de
+  nenhuma wave até a aprovação, mesmo que o commit da wave pareça
+  inócuo isolado.
+
 ### Pending Todos
 
-None yet.
+- Verificação ao vivo do item 8 do checkpoint 08-05: acompanhar um
+  pregão inteiro com `entradaAuto` ligado e confirmar que só dispara
+  nos 5 pares elegíveis (123 de fundo alta, IFR2 alta, PFR alta, Setup
+  9.1 alta, Setup 9.3 alta), sem evento de aviso em setup inelegível,
+  sem salto no consumo de brapi. Confirmar antes que o Alex sabe
+  acionar o kill-switch/desligar `entradaAuto` (passo 9 do checkpoint).
 
 ### Blockers/Concerns
 
@@ -148,15 +166,13 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-21T17:41:22.283Z
-Stopped at: Phase 08 UI-SPEC approved
-Resume file: .planning/phases/08-interface-e-ia-da-sele-o-din-mica-vocabul-rio-novo-skill-ref/08-UI-SPEC.md
+Last session: 2026-08-21T21:00:00.000Z
+Stopped at: Phase 08 concluída — checkpoint 08-05 aprovado
+Resume file: .planning/phases/08-interface-e-ia-da-sele-o-din-mica-vocabul-rio-novo-skill-ref/08-05-SUMMARY.md
 
 ## Operator Next Steps
 
-- Fase 08 planejada: 5 planos/4 waves, checker aprovado (iteração 2). Wave 4
-  (08-05) termina num checkpoint humano BLOQUEANTE antes de religar
-  `entradaAuto` em produção — não segue sem aprovação do Alex.
-  `/gsd:execute-phase 8`.
+- Item 8 do checkpoint 08-05 (verificação ao vivo da entrada automática
+  gated por um pregão inteiro) segue aberto — ver "Pending Todos".
 - Fases 4 e 5 (Correção Médio — REPORT-01) seguem não iniciadas, sem plano ainda: `/gsd:plan-phase 4` quando o Alex priorizar.
 - 9 tickers com 404 no bootstrap do ledger (ELET3, BRFS3, ELET6, JBSS3, CRFB3, NTCO3, CPLE6, MRFG3, EMBR3) — prováveis renomeações/deslistagens; não investigado, não bloqueia a fase.

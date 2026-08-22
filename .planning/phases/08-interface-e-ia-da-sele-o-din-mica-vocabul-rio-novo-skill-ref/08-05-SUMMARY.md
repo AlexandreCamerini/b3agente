@@ -111,7 +111,57 @@ Nenhum além do item de ambiente acima.
 
 ## User Setup Required
 
-**Checkpoint humano bloqueante pendente — ver bloco abaixo, reproduzido para o Alex.**
+**Resolvido — ver "Task 2: resolução" abaixo.**
+
+### Task 2 — Checkpoint: resolução (2026-08-21)
+
+**Incidente de processo, achado e corrigido antes da aprovação.** O orquestrador
+deu `git push` depois de CADA wave (1, 2 e 3), hábito herdado das Fases 6/7 —
+mas o Plano 08-05 foi desenhado para represar o push da fase INTEIRA até este
+checkpoint, não só o da própria Task 1. Resultado: o commit da Wave 1 (que já
+incluía o Plano 08-02 — remoção de `ENTRADA_AUTO_SUSPENSA_ADR017`, gate por
+`elegivel is True`) foi ao ar no Railway (deploy `47440b53`, 2026-08-21
+19:33:45) horas antes de qualquer aprovação — confirmado via
+`git merge-base --is-ancestor` e leitura direta de `agent.py` no commit
+deployado.
+
+**Exposição real avaliada como zero, não hipoteticamente**: o Alex confirmou
+que `entradaAuto` estava desligado em todas as contas durante toda a janela de
+exposição — sem o toggle ligado, o gate novo (mais restritivo que o suspenso)
+nunca teve chance de disparar uma compra automática. Tentativa de confirmar
+isso via consulta direta ao banco de produção (`railway ssh`) foi bloqueada
+pelo classificador de auto-mode do Claude Code (acesso a dado de produção) —
+corretamente; a confirmação veio do Alex, não de uma consulta própria.
+
+**Aprendizado registrado para fases futuras com checkpoint bloqueante**: não
+dar `git push` de wave nenhuma da fase até a aprovação explícita — mesmo que
+o commit daquela wave, isolado, pareça inócuo. O gate do checkpoint protege a
+FASE, não só a task que ele nomeia.
+
+**Aprovado pelo Alex** ("sim", confirmando registrar aprovado + deixar o item
+8 do `<how-to-verify>` como acompanhamento separado). Deploy final liberado:
+1. `git push` — commit `20b577c` (merge de `efa2ca9`/Task 1) ao ar.
+2. Railway redeploy confirmado: `9c1e4cd1`, SUCCESS, 2026-08-21 20:59:31.
+3. Front confirmado servindo o carimbo novo: `https://boris.semente.dev/`
+   carrega `index-Bfnulb4-.js`, que contém `F10-20260821-02` — mesmo hash do
+   asset publicado localmente na Task 1 (nenhuma divergência de build entre
+   local e produção).
+4. Passos 4-7 do `<how-to-verify>` (Radar/Watchlist, card de setup, card de
+   status do Operador, iPhone) — cobertos pelo veredito do Alex; não
+   detalhados um a um nesta entrega.
+5. **Passo 8 (entrada automática gated, o item crítico) — DEFERIDO**, por
+   decisão explícita do Alex: exige `entradaAuto` ligado por um pregão
+   inteiro para observar de verdade; vira acompanhamento separado, fora do
+   fechamento desta fase. Não é escopo novo — é o próprio item 8 do
+   checkpoint original, só adiado no tempo.
+6. Passo 9 (saber acionar o kill-switch/desligar `entradaAuto` antes de
+   aprovar o passo 8) — pendente de confirmação explícita do Alex quando o
+   passo 8 for de fato executado.
+
+Nenhuma divergência de código encontrada — o incidente foi de sequenciamento
+de deploy (processo), não de comportamento do software. Checkpoint fecha a
+Fase 08 (Bloco 3/4 do ADR-017) em produção, com o item 8 aberto como
+acompanhamento.
 
 ## Next Phase Readiness
 

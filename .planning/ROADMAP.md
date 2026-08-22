@@ -30,6 +30,7 @@ seriam inserções urgentes, se necessário.
 - [ ] **Phase 5: Correção Médio — Código, Gate & Admin** - Fecha a dívida técnica, a ativação incompleta de gating e a observabilidade admin (CODE + GATE + ADMIN) do REPORT-01
 - [x] **Phase 6: Instrumentação de Assertividade (ADR-015)** - Conserta a medição de eficiência da IA (âncora errada, `n` inflado por duplicação, motivo de venda não persistido) antes de qualquer decisão de produto sobre o motor de recomendação (completed 2026-08-21)
 - [x] **Phase 7: Seleção Dinâmica por Desempenho Histórico (ADR-017 Bloco 1)** - Ledger de sinais resolvidos, bootstrap, hook diário e `regime.ranquear()` passam a pesar cada setup pelo desempenho medido na janela anterior (completed 2026-08-21)
+- [x] **Phase 8: Interface e IA da Seleção Dinâmica (ADR-017 Bloco 3/4)** - Vocabulário canônico do histórico medido, Radar/Watchlist/card de setup mostrando elegibilidade, religa `entradaAuto` gated (completed 2026-08-21; verificação ao vivo do item 8 — entrada automática disparando por um pregão inteiro — deferida como acompanhamento)
 
 ## Phase Details
 
@@ -251,6 +252,7 @@ gate.
 | 5. Correção Médio — Código, Gate & Admin | v1.1 | 0/TBD | Not started | - |
 | 6. Instrumentação de Assertividade (ADR-015) | v1.1 | 5/5 | Complete | 2026-08-21 |
 | 7. Seleção Dinâmica por Desempenho Histórico (ADR-017 Bloco 1) | v1.1 | 6/6 | Complete | 2026-08-21 |
+| 8. Interface e IA da Seleção Dinâmica (ADR-017 Bloco 3/4) | v1.1 | 5/5 | Complete | 2026-08-21 |
 
 ### Phase 6: Instrumentação de Assertividade (ADR-015)
 
@@ -347,7 +349,7 @@ automática do Modo Operador volta a existir, mas só para o setup específico
 que a seleção dinâmica mediu como positivo, nunca mais uma suspensão cega.
 **Requirements**: ADR17-B34-01, ADR17-B34-02, ADR17-B34-03, ADR17-B34-04
 **Depends on:** Phase 7
-**Plans:** 4/5 plans executed
+**Plans:** 5/5 plans complete
 
 Plans:
 **Wave 1**
@@ -365,4 +367,4 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 08-05-PLAN.md — build/carimbo/publicação e checkpoint humano bloqueante antes do deploy do religamento gated
+- [x] 08-05-PLAN.md — build/carimbo/publicação e checkpoint humano bloqueante antes do deploy do religamento gated
