@@ -82,7 +82,7 @@ established roles** for every new element (no new size/weight introduced):
 | Emphasis/CTA button | 13–14px | 700–800 | 1.0 | `BuyModal`/`SellModal` confirm buttons (lines 6478, 6548) |
 | Screen heading (h1) | 22px | 700 | 1.0 | `CarteiraScreen`/`HistoricoScreen` `<h1>` |
 
-Weight citations verified against the current file: `kicker` at `App.jsx:259` (`fontSize: "10px"`, `T.textFaint`), `AiNote` at `App.jsx:344-346` (`fontSize: "10px"`, `fontWeight: 700` on the icon), `BuyModal` confirm/cancel buttons at `App.jsx:6478` (`fontWeight: 600`/`800`, `fontSize: "14px"`). All 4 weights (400/600/700/800) are pre-existing, already-shipped roles this phase reuses verbatim — none is a new tier introduced here. developer-approved — matches existing pattern — 2026-08-21
+Weight citations verified against the current file: `kicker` at `App.jsx:260` (`fontSize: "10px"`, `T.textFaint`), `AiNote` at `App.jsx:344-346` (`fontSize: "10px"`, `fontWeight: 700` on the icon), `BuyModal` confirm/cancel buttons at `App.jsx:6477-6478` (`fontWeight: 600`/`800`, `fontSize: "14px"`), weight 400 at `App.jsx:3875` (`fontSize: "11px", fontWeight: 400, color: T.textSecondary`, same "Body/disclaimer" role — same pattern repeats at `:3878`, `:3881`, `:5647`). All 4 weights (400/600/700/800) are pre-existing, already-shipped roles this phase reuses verbatim — none is a new tier introduced here. developer-approved — matches existing pattern — 2026-08-21
 
 ---
 
