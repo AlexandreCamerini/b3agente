@@ -272,10 +272,15 @@ ok("tudo nulo → null", benchmarkSerie(null, null) === null);
   })());
 }
 
-// finance.js segue puro: sem fetch/Date.now/localStorage
+// finance.js segue puro: benchmarkSerie não faz I/O nem lê hora do sistema.
+// Varre só CÓDIGO (linhas sem `//`) — comentários pré-existentes de outras
+// funções deste arquivo já citam "Date.now()" em prosa explicando por que
+// NÃO usam (ex.: historicoEstado/historicoDesatualizado, linha ~206), o que
+// tornaria um grep cru sobre o arquivo inteiro um falso-positivo.
 {
   const src = readFileSync(new URL("../src/finance.js", import.meta.url), "utf8");
-  ok("finance.js segue puro (sem fetch/Date.now/localStorage)", !/fetch\(|Date\.now\(|localStorage/.test(src));
+  const codigo = src.split("\n").filter((l) => !l.trim().startsWith("//")).join("\n");
+  ok("finance.js segue puro (sem chamada real a fetch/Date.now/localStorage)", !/\bfetch\(|\bDate\.now\(|\blocalStorage\b/.test(codigo));
 }
 
 console.log("\n" + (fails === 0 ? "TODOS OS TESTES DE FINANCE PASSARAM" : fails + " TESTE(S) FALHARAM"));

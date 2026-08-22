@@ -86,16 +86,25 @@ export function equityCurve(snapshots, budget, livePatr, todayYmd) {
 
   // série de exibição: baseline (orçamento) → snapshots, com o ÚLTIMO ponto
   // refletindo o patrimônio AO VIVO (substitui o snapshot de hoje; senão anexa).
+  // `datas` é construída em PARALELO a `plot`, mesma decisão de
+  // substituir/anexar — Plano 04-06 (FIX-C03): é o que permite ao
+  // `benchmarkSerie` alinhar o Ibovespa por data real em vez de por índice.
   let plot = series.slice();
+  let datasPlot = snaps.map((s) => s.data);
   if (livePatr != null && isFinite(livePatr)) {
     const last = snaps[snaps.length - 1];
     if (last && todayYmd && last.data === todayYmd && plot.length) {
       plot[plot.length - 1] = livePatr;
+      // datasPlot: a data do último ponto não muda (já é a de hoje).
     } else {
       plot.push(livePatr);
+      datasPlot.push(todayYmd != null ? todayYmd : null);
     }
   }
   const curve = b > 0 ? [base, ...plot] : plot;
+  // ponto-base não carrega data própria (o baseline do orçamento não é um
+  // pregão) — `null` na posição, tratado por `benchmarkSerie` como "sem data".
+  const datas = b > 0 ? [null, ...datasPlot] : datasPlot;
   const end = curve.length ? curve[curve.length - 1] : base;
   const retAcum = base > 0 ? ((end - base) / base) * 100 : 0;
 
@@ -104,7 +113,66 @@ export function equityCurve(snapshots, budget, livePatr, todayYmd) {
     if (v > peak) peak = v;
     if (peak > 0) { const d = ((peak - v) / peak) * 100; if (d > dd) dd = d; }
   }
-  return { curve, series, days: series.length, retAcum, drawdown: dd, base, end };
+  return { curve, series, days: series.length, retAcum, drawdown: dd, base, end, datas };
+}
+
+// Alinha a série do Ibovespa (candles do provedor) às DATAS REAIS da curva da
+// carteira (`equityCurve(...).datas`) — Plano 04-06 (FIX-C03). Pura: sem
+// rede, sem leitura de relógio do sistema, sem estado de módulo (I/O fica no
+// chamador, mesma disciplina de portfolioMetrics/sizingPlano). Nunca
+// extrapola: uma data anterior a QUALQUER vela vira `null` (não 0, não
+// inventado); uma data sem pregão usa o último fechamento REAL anterior (não
+// é valor inventado — é onde o índice de fato estava).
+export function benchmarkSerie(candles, datas) {
+  if (!Array.isArray(candles) || !Array.isArray(datas)) return null;
+
+  const validos = [];
+  for (const c of candles) {
+    if (!c || typeof c.date !== "string" || !c.date) continue;
+    const close = c.close;
+    if (typeof close !== "number" || !isFinite(close) || close <= 0) continue;
+    validos.push({ date: c.date, close });
+  }
+  if (validos.length < 2) return null;
+  validos.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+
+  // último fechamento REAL em ou antes de `date` — nunca um valor futuro.
+  function closeAtOrBefore(date) {
+    let found = null;
+    for (const c of validos) {
+      if (c.date <= date) found = c.close;
+      else break;
+    }
+    return found;
+  }
+
+  const raw = datas.map((d) => (typeof d === "string" && d ? closeAtOrBefore(d) : null));
+
+  let coberturaReal = 0, firstIdx = -1;
+  for (let i = 0; i < raw.length; i++) {
+    if (raw[i] != null) {
+      coberturaReal++;
+      if (firstIdx === -1) firstIdx = i;
+    }
+  }
+  if (coberturaReal < 2) return null;
+
+  const firstClose = raw[firstIdx];
+  // pct[i] = variação % desde o primeiro ponto COBERTO (não desde a 1ª vela
+  // recebida). O ponto-base (datas[i] === null) recebe 0 quando existe
+  // cobertura adiante — garantido aqui por coberturaReal >= 2.
+  const pct = datas.map((d, i) => {
+    if (d == null) return 0;
+    if (raw[i] == null) return null;
+    return ((raw[i] - firstClose) / firstClose) * 100;
+  });
+
+  let retAcum = null;
+  for (let i = pct.length - 1; i >= 0; i--) {
+    if (pct[i] != null) { retAcum = pct[i]; break; }
+  }
+  const cobertura = pct.filter((v) => v != null).length;
+  return { pct, retAcum, cobertura };
 }
 
 // FASE 7 (F7.1) — Modo Operador: position sizing por % de risco do capital.
