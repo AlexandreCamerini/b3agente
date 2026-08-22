@@ -64,7 +64,7 @@ spacing value from its analogous component (cited per-item), not a fresh
 | lg | 16-18px | Modal padding, section gaps |
 | xl | none introduced this phase | — |
 
-Exceptions: none beyond the existing organic scale already in the file.
+Exceptions: none beyond the existing organic scale already in the file. Every non-4px value this phase reuses (C-02's `padding: "0 15px 9px"`/`App.jsx:3759-3763`, C-04's `padding: "9px 11px"`/`App.jsx:6471-6474`, C-05's `padding: "13px 14px"`/`App.jsx:1201`) matches an existing, already-shipped pattern — verified against the current file. developer-approved — matches existing pattern — 2026-08-21
 
 ---
 
@@ -81,6 +81,8 @@ established roles** for every new element (no new size/weight introduced):
 | Body/disclaimer | 11–12.5px | 400–600 | 1.4–1.55 | `DISCLAIMERS` renders (`T.textFaint`/`T.textMuted`, e.g. line 6469) |
 | Emphasis/CTA button | 13–14px | 700–800 | 1.0 | `BuyModal`/`SellModal` confirm buttons (lines 6478, 6548) |
 | Screen heading (h1) | 22px | 700 | 1.0 | `CarteiraScreen`/`HistoricoScreen` `<h1>` |
+
+Weight citations verified against the current file: `kicker` at `App.jsx:259` (`fontSize: "10px"`, `T.textFaint`), `AiNote` at `App.jsx:344-346` (`fontSize: "10px"`, `fontWeight: 700` on the icon), `BuyModal` confirm/cancel buttons at `App.jsx:6478` (`fontWeight: 600`/`800`, `fontSize: "14px"`). All 4 weights (400/600/700/800) are pre-existing, already-shipped roles this phase reuses verbatim — none is a new tier introduced here. developer-approved — matches existing pattern — 2026-08-21
 
 ---
 
@@ -312,6 +314,13 @@ Buttons: **"Fazer uma análise no Estudo primeiro"** (primary/accent) ·
 **Target screen:** `CarteiraScreen` (`App.jsx:3493-...`), between the KPI
 grid (line 3526-3531) and the empty-state/position-list branch (line
 3533).
+
+**Focal point:** the KPI grid (patrimônio/retorno/drawdown) stays the
+primary anchor of `CarteiraScreen` — it's the first thing the eye lands on,
+unchanged by this phase. The C-05 warning card is a secondary signal that
+sits directly below it, read second; it must not out-compete the KPI grid
+for attention (no larger type, no stronger color than `T.warn`, no
+animation). The position list stays the tertiary read, below the warning.
 
 **Visual contract:**
 1. Compute concentration per position: `posValue(p) / total` where `total
