@@ -19,8 +19,6 @@ Por que estes guardiões existem:
     `GET /api/benchmark/ibov` expõe a série via `benchmark.serie_ibov`, sem
     aceitar símbolo do cliente (T-04-04) e degradando com uma frase única.
 """
-import pathlib
-
 import pytest
 from fastapi.testclient import TestClient
 
@@ -225,3 +223,151 @@ def test_ia_ok_marca_fonte_ia_legado(cli, monkeypatch):
     body = cli.post(f"/api/analyze/{T}", json={}).json()
     assert body["fonte"] == "ia"
     assert body["iaIndisponivel"] is None
+
+
+# ===========================================================================
+# FIX-C02 — /api/buy e /api/sell deixam rastro de rejeição
+#
+# Isolamento por banco temporário + reimport de `app.main` (mesmo padrão de
+# `test_ordens_pendentes_rotas.py`): precisamos de uma conta LOGADA (o balde
+# anônimo é compartilhado e nunca registra, T-04-12) com cash/history real,
+# sem herdar estado de outros arquivos da suíte.
+# ===========================================================================
+import importlib
+import os
+import sys
+import tempfile
+
+from app import pregao as pregao_mod
+
+
+def _client_isolado(monkeypatch):
+    d = tempfile.mkdtemp(prefix="b3_rotas_fase4_")
+    monkeypatch.setenv("B3_DB_PATH", os.path.join(d, "b3.db"))
+    monkeypatch.delenv("B3_AGENT_KILL", raising=False)
+    sys.modules.pop("app.main", None)
+    m = importlib.import_module("app.main")
+    return TestClient(m.app), m
+
+
+def _registrar(client, email="c02@boris.dev"):
+    r = client.post("/api/auth/register", json={"email": email, "password": "senhaboa123"})
+    assert r.status_code == 200, r.text
+    return r.json()["token"], r.json()["user"]["id"]
+
+
+def _quote_fake(price):
+    async def _q(_t):
+        return {"price": price, "change": 0, "source": "fake"}
+    return _q
+
+
+@pytest.fixture(autouse=True)
+def _isola_app_main():
+    original = sys.modules.get("app.main")
+    yield
+    if original is not None:
+        sys.modules["app.main"] = original
+    else:
+        sys.modules.pop("app.main", None)
+
+
+def test_buy_caixa_insuficiente_grava_rejeicao_sem_mudar_o_erro(monkeypatch):
+    client, m = _client_isolado(monkeypatch)
+    token, _uid = _registrar(client, "caixa-buy@boris.dev")
+    headers = {"authorization": f"Bearer {token}"}
+    monkeypatch.setattr(pregao_mod, "in_market_hours", lambda now=None: True)
+    monkeypatch.setattr(m.candle_provider, "get_quote", _quote_fake(200000.0))
+
+    r = client.post("/api/buy", json={"t": "PETR4", "qty": 100}, headers=headers)
+    assert r.status_code == 400
+    assert r.json()["detail"] == "Caixa insuficiente."
+
+    estado = client.get("/api/state", headers=headers).json()
+    assert estado["history"][0]["status"] == "rejeitada"
+    assert "Caixa insuficiente" in estado["history"][0]["motivo"]
+    assert estado["cash"] == 10000.0, "rejeição não pode mover dinheiro"
+
+
+def test_sell_sem_posicao_grava_rejeicao_com_pnl_nulo(monkeypatch):
+    client, m = _client_isolado(monkeypatch)
+    token, _uid = _registrar(client, "sempos-sell@boris.dev")
+    headers = {"authorization": f"Bearer {token}"}
+    monkeypatch.setattr(pregao_mod, "in_market_hours", lambda now=None: True)
+
+    r = client.post("/api/sell", json={"t": "PETR4"}, headers=headers)
+    assert r.status_code == 400
+    assert r.json()["detail"] == "Sem posicao em PETR4"
+
+    estado = client.get("/api/state", headers=headers).json()
+    entry = estado["history"][0]
+    assert entry["status"] == "rejeitada"
+    assert entry["type"] == "VENDA"
+    assert entry["pnl"] is None
+
+
+def test_rejeicao_por_falta_de_cotacao_grava_price_none(monkeypatch):
+    client, m = _client_isolado(monkeypatch)
+    token, _uid = _registrar(client, "semcotacao-buy@boris.dev")
+    headers = {"authorization": f"Bearer {token}"}
+    monkeypatch.setattr(pregao_mod, "in_market_hours", lambda now=None: True)
+
+    async def _sem_preco(_t):
+        return {"price": None}
+    monkeypatch.setattr(m.candle_provider, "get_quote", _sem_preco)
+
+    r = client.post("/api/buy", json={"t": "PETR4", "qty": 100}, headers=headers)
+    assert r.status_code == 502
+
+    estado = client.get("/api/state", headers=headers).json()
+    entry = estado["history"][0]
+    assert entry["status"] == "rejeitada"
+    assert entry["price"] is None, "nunca 0 nem 0.0 — CLAUDE.md item 4"
+
+
+def test_rejeicao_anonima_nao_grava_no_balde_compartilhado(monkeypatch):
+    client, m = _client_isolado(monkeypatch)
+    monkeypatch.setattr(pregao_mod, "in_market_hours", lambda now=None: True)
+    monkeypatch.setattr(m.candle_provider, "get_quote", _quote_fake(200000.0))
+
+    r = client.post("/api/buy", json={"t": "PETR4", "qty": 100})
+    assert r.status_code == 400
+
+    estado_anonimo = client.get("/api/state").json()
+    assert estado_anonimo["history"] == [], "balde anônimo compartilhado — nunca registra rejeição"
+
+
+def test_compra_bem_sucedida_grava_status_executada_sem_regressao(monkeypatch):
+    client, m = _client_isolado(monkeypatch)
+    token, _uid = _registrar(client, "ok-buy@boris.dev")
+    headers = {"authorization": f"Bearer {token}"}
+    monkeypatch.setattr(pregao_mod, "in_market_hours", lambda now=None: True)
+    monkeypatch.setattr(m.candle_provider, "get_quote", _quote_fake(10.0))
+
+    r = client.post("/api/buy", json={"t": "PETR4", "qty": 100}, headers=headers)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["history"][0]["status"] == "executada"
+    assert body["cash"] == 10000.0 - 1000.0
+    assert body["positions"][0]["t"] == "PETR4" and body["positions"][0]["qty"] == 100
+
+
+def test_ticker_normalizado_no_registro_de_rejeicao(monkeypatch):
+    """petr4 minúsculo é um ticker VÁLIDO (>=4 chars após normalizar) — a
+    rejeição real aqui é falta de cotação; o que este teste trava é que o
+    `t` gravado é sempre o normalizado, nunca a string crua do corpo."""
+    client, m = _client_isolado(monkeypatch)
+    token, _uid = _registrar(client, "normaliza-buy@boris.dev")
+    headers = {"authorization": f"Bearer {token}"}
+    monkeypatch.setattr(pregao_mod, "in_market_hours", lambda now=None: True)
+
+    async def _sem_preco(_t):
+        return {"price": None}
+    monkeypatch.setattr(m.candle_provider, "get_quote", _sem_preco)
+
+    r = client.post("/api/buy", json={"t": "petr4", "qty": 100}, headers=headers)
+    assert r.status_code == 502
+
+    estado = client.get("/api/state", headers=headers).json()
+    assert estado["history"][0]["t"] == "PETR4"
+    assert "petr4" not in str(estado["history"][0]["t"])

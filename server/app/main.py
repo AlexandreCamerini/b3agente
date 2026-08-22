@@ -1790,11 +1790,21 @@ async def buy(body: dict = Body(default={}), scope: Optional[str] = Depends(curr
     qty = int(body.get("qty") or 0)
     t = _normalize_ticker(t)
     if len(t) < 4:
+        # FIX-C02: toda tentativa REJEITADA de conta logada fica no histórico
+        # — o balde anônimo é compartilhado (T-04-12/T-02-07), então não registra.
+        if scope is not None:
+            store.registrar_rejeicao(_conn, "COMPRA", t, qty, None,
+                                      f"{t} não é um ativo reconhecido pelo simulador.",
+                                      user_id=scope, origem="manual")
         raise HTTPException(400, "Ticker invalido.")
     # cotação continua sendo buscada mesmo com o mercado fechado: é ela que dá
     # o precoReferencia da reserva (D-02) — sem preço não dá para reservar.
     quote = await candle_provider.get_quote(t)
     if not quote or quote.get("price") is None:
+        if scope is not None:
+            store.registrar_rejeicao(_conn, "COMPRA", t, qty, None,
+                                      f"Sem cotação disponível para {t} no momento do pedido.",
+                                      user_id=scope, origem="manual")
         raise HTTPException(502, "Sem cotacao para " + t)
     price = quote["price"]
 
@@ -1812,7 +1822,13 @@ async def buy(body: dict = Body(default={}), scope: Optional[str] = Depends(curr
             # bruta mas store.buy debita 200). Normaliza AQUI, na mesma forma,
             # antes de comparar — espelha pending_orders.criar_compra.
             qty = max(100, round(qty / 100) * 100)
-            if qty * price > store.get(_conn, "cash", user_id=scope):
+            cash_disp = store.get(_conn, "cash", user_id=scope)
+            if qty * price > cash_disp:
+                if scope is not None:
+                    store.registrar_rejeicao(
+                        _conn, "COMPRA", t, qty, price,
+                        f"Caixa insuficiente para {qty} {t} a R$ {price} — disponível: R$ {cash_disp}.",
+                        user_id=scope, origem="manual")
                 raise HTTPException(400, "Caixa insuficiente.")
             store.buy(_conn, t, qty, price, user_id=scope, meta=body.get("meta"))  # FASE 2 (2.4)
         _disparar_ciclo_imediato(scope)  # 2026-08-07: reavalia na hora, não espera o próximo tick
@@ -1824,12 +1840,20 @@ async def buy(body: dict = Body(default={}), scope: Optional[str] = Depends(curr
     if scope is None:
         # T-02-07: o escopo anônimo é um balde kv COMPARTILHADO entre todos os
         # anônimos (App.jsx:669-674) — reservar caixa lá seria dinheiro de um
-        # aparecendo para outro.
+        # aparecendo para outro. Mesma razão o histórico de rejeição não grava.
         raise HTTPException(401, "Ordens fora do horário de pregão exigem conta conectada — "
                                   "entre para que a ordem fique guardada na sua carteira.")
     try:
         order = pending_orders.criar_compra(_conn, scope, t, qty, price, meta=body.get("meta"))
     except pending_orders.CaixaInsuficiente as e:
+        # mesma normalização de lote que `criar_compra` já aplicou internamente
+        # antes de recusar — o motivo grava a quantidade que de fato foi avaliada.
+        qty_norm = max(100, round(qty / 100) * 100)
+        cash_disp = store.get(_conn, "cash", user_id=scope)
+        store.registrar_rejeicao(
+            _conn, "COMPRA", t, qty_norm, price,
+            f"Caixa insuficiente para {qty_norm} {t} a R$ {price} — disponível: R$ {cash_disp}.",
+            user_id=scope, origem="manual")
         raise HTTPException(400, str(e))
     # sem _disparar_ciclo_imediato: não há posição nova para o agente avaliar ainda.
     out = store.public_state(_conn, user_id=scope)
@@ -1843,12 +1867,23 @@ async def buy(body: dict = Body(default={}), scope: Optional[str] = Depends(curr
 @app.post("/api/sell")
 async def sell(body: dict = Body(default={}), scope: Optional[str] = Depends(current_scope)):
     from . import pregao  # import local: sem ciclo (mesmo padrão de agent.py:216)
-    t = str(body.get("t", "")).upper()
+    # T-04-03: `t` gravado no histórico é sempre o normalizado — nunca a
+    # string crua do corpo (o antigo `.upper()` isolado deixava passar
+    # espaço/sufixo .SA/caractere fora de A-Z0-9 sem normalizar).
+    t = _normalize_ticker(str(body.get("t", "")))
     pos = next((p for p in store.get(_conn, "positions", user_id=scope) if p["t"] == t), None)
     if not pos:
+        if scope is not None:
+            store.registrar_rejeicao(_conn, "VENDA", t, body.get("qty"), None,
+                                      f"Você não tem posição em {t} para vender.",
+                                      user_id=scope, origem="manual")
         raise HTTPException(400, "Sem posicao em " + t)
     quote = await candle_provider.get_quote(t)
     if not quote or quote.get("price") is None:
+        if scope is not None:
+            store.registrar_rejeicao(_conn, "VENDA", t, body.get("qty"), None,
+                                      f"Sem cotação disponível para {t} no momento do pedido.",
+                                      user_id=scope, origem="manual")
         raise HTTPException(502, "Sem cotacao para " + t)
     price = quote["price"]
     _qty = body.get("qty")  # FASE 2 (2.4): venda parcial opcional (lotes de 100)
@@ -1861,8 +1896,16 @@ async def sell(body: dict = Body(default={}), scope: Optional[str] = Depends(cur
         try:
             _qty_val = int(_qty)
         except (TypeError, ValueError):
+            if scope is not None:
+                store.registrar_rejeicao(_conn, "VENDA", t, _qty, price,
+                                          f"Quantidade inválida: {_qty}. A venda usa lotes de 100.",
+                                          user_id=scope, origem="manual")
             raise HTTPException(400, "Quantidade inválida.")
         if _qty_val <= 0:
+            if scope is not None:
+                store.registrar_rejeicao(_conn, "VENDA", t, _qty_val, price,
+                                          f"Quantidade inválida: {_qty_val}. A venda usa lotes de 100.",
+                                          user_id=scope, origem="manual")
             raise HTTPException(400, "Quantidade inválida.")
 
     if pregao.in_market_hours():
@@ -1874,6 +1917,10 @@ async def sell(body: dict = Body(default={}), scope: Optional[str] = Depends(cur
             positions_atual = store.get(_conn, "positions", user_id=scope)
             pos_atual = next((p for p in positions_atual if p["t"] == t), None)
             if not pos_atual:
+                if scope is not None:
+                    store.registrar_rejeicao(_conn, "VENDA", t, _qty_val, price,
+                                              f"Você não tem posição em {t} para vender.",
+                                              user_id=scope, origem="manual")
                 raise HTTPException(400, "Sem posicao em " + t)
             store.sell(_conn, t, price, user_id=scope, qty=_qty_val)
         _disparar_ciclo_imediato(scope)  # 2026-08-07: reavalia na hora, não espera o próximo tick
@@ -1884,11 +1931,15 @@ async def sell(body: dict = Body(default={}), scope: Optional[str] = Depends(cur
     # Mercado fechado: vira ordem pendente (D-01), reservando a quantidade
     # (D-06 — impede vender a mesma ação duas vezes em duas pendentes).
     if scope is None:
+        # T-02-07/T-04-12: balde anônimo compartilhado — não registra rejeição.
         raise HTTPException(401, "Ordens fora do horário de pregão exigem conta conectada — "
                                   "entre para que a ordem fique guardada na sua carteira.")
     try:
         order = pending_orders.criar_venda(_conn, scope, t, _qty_val if _qty_val is not None else pos["qty"])
     except pending_orders.PosicaoInsuficiente as e:
+        # texto da própria exceção — já é específico (disponível × pedido).
+        store.registrar_rejeicao(_conn, "VENDA", t, _qty_val if _qty_val is not None else pos["qty"],
+                                  price, str(e), user_id=scope, origem="manual")
         raise HTTPException(400, str(e))
     out = store.public_state(_conn, user_id=scope)
     out["pendente"] = True
