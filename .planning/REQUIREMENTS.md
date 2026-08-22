@@ -62,22 +62,22 @@
 
 ### Correção — Médio (REPORT-01)
 
-- [ ] **FIX-C01**: Passo 7 (explicação educacional) ganha fallback
+- [x] **FIX-C01**: Passo 7 (explicação educacional) ganha fallback
       determinístico quando a IA não está disponível (STORY)
-- [ ] **FIX-C02**: Ordem rejeitada passa a registrar `status` e `motivo de
+- [x] **FIX-C02**: Ordem rejeitada passa a registrar `status` e `motivo de
       rejeição` (STORY)
-- [ ] **FIX-C03**: Passo 8 ("comparar com o benchmark") ganha comparação real
+- [x] **FIX-C03**: Passo 8 ("comparar com o benchmark") ganha comparação real
       com um índice (STORY)
-- [ ] **FIX-C04**: Transição Estudo→Operador ganha critério pedagógico de
+- [x] **FIX-C04**: Transição Estudo→Operador ganha critério pedagógico de
       prontidão, além do critério legal (aceite de termo) (STORY)
-- [ ] **FIX-C05**: Conceito "Diversificação" passa a ser ensinado no produto
+- [x] **FIX-C05**: Conceito "Diversificação" passa a ser ensinado no produto
       (STORY)
-- [ ] **FIX-C13**: Disclaimer de operação simulada passa a renderizar no
+- [x] **FIX-C13**: Disclaimer de operação simulada passa a renderizar no
       momento da decisão, não só existir definido (UX)
-- [ ] **FIX-C14**: "Ordem parcialmente executada" passa a existir no modelo
+- [x] **FIX-C14**: "Ordem parcialmente executada" passa a existir no modelo
       de dados (UX)
-- [ ] **FIX-C15**: Toggle "acordeão" responde a teclado (UX, acessibilidade)
-- [ ] **FIX-C16**: `textFaint` ajustado para contraste mínimo WCAG AA em texto
+- [x] **FIX-C15**: Toggle "acordeão" responde a teclado (UX, acessibilidade)
+- [x] **FIX-C16**: `textFaint` ajustado para contraste mínimo WCAG AA em texto
       pequeno, nos dois temas (UX, acessibilidade)
 - [ ] **FIX-C21**: Migrar os pontos de recomputação redundante de `appMode`
       em `App.jsx` para ler `ctx.operador` (CODE)
@@ -241,15 +241,15 @@ puro consumo do que o Bloco 1 já calcula — nenhuma mudança em
 | FIX-C35 | Phase 3 | Complete (fallback de permissão: garantia de código aceita, não testável ao vivo — ver 03-HUMAN-UAT.md) |
 | FIX-C36 | Phase 3 | Complete |
 | FIX-C37 | Phase 3 | Complete |
-| FIX-C01 | Phase 4 | Pending |
-| FIX-C02 | Phase 4 | Pending |
-| FIX-C03 | Phase 4 | Pending |
-| FIX-C04 | Phase 4 | Pending |
-| FIX-C05 | Phase 4 | Pending |
-| FIX-C13 | Phase 4 | Pending |
-| FIX-C14 | Phase 4 | Pending |
-| FIX-C15 | Phase 4 | Pending |
-| FIX-C16 | Phase 4 | Pending |
+| FIX-C01 | Phase 4 | Complete |
+| FIX-C02 | Phase 4 | Complete |
+| FIX-C03 | Phase 4 | Complete |
+| FIX-C04 | Phase 4 | Complete |
+| FIX-C05 | Phase 4 | Complete |
+| FIX-C13 | Phase 4 | Complete |
+| FIX-C14 | Phase 4 | Complete |
+| FIX-C15 | Phase 4 | Complete |
+| FIX-C16 | Phase 4 | Complete |
 | FIX-C21 | Phase 5 | Pending |
 | FIX-C22 | Phase 5 | Pending |
 | FIX-C23 | Phase 5 | Pending |
