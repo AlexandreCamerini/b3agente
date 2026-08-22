@@ -16,6 +16,14 @@ comercial. `PLAN_FREE`/`PLAN_PRO` continuam com todos os limites `None`
     chamada, com `metering.check` como dois mecanismos independentes de
     contagem. O CONTADOR único de uso de IA é sempre o de `metering`.
 
+ATUALIZADO (Plano 04-04, FIX-C01): os dois testes de precedência PLANO ×
+METERING ((j)/(k) abaixo) foram atualizados — o gate 402 continua sendo
+decidido pela MESMA precedência, mas deixou de estourar até o cliente como
+HTTP 402. Agora vira uma explicação determinística (200), e o motivo da
+negação viaja em `iaIndisponivel.mensagem`. Reversão deliberada de contrato
+documentada aqui por guardrail do CLAUDE.md ("guardiões de teste não se
+apagam — reversão deliberada atualiza o guardião com nota").
+
 Isolamento igual a test_adr013_rbac.py (B3_DB_PATH temporário, reimport de
 app.main por teste) — necessário porque `_conn`/caches em memória (managed,
 kill-switch, orçamento brapi) são globais de módulo.
@@ -70,6 +78,18 @@ def _auth(token):
 
 async def _quote_fake(_t):
     return {"t": "PETR4", "name": "Petrobras PN", "price": 35.5, "change": 0.5}
+
+
+# FIX-C01 (Plano 04-04): quando o gate nega, a rota SEGUE até buscar o
+# snapshot pra montar o fallback determinístico — sem stub aqui os testes
+# de gate abaixo bateriam rede de verdade. Snapshot mínimo, sem setup nem
+# indicador (o conteúdo do fallback não é o que estes testes verificam).
+async def _fake_snap(*_a, **_k):
+    return {
+        "context": {"setupsRadar": {}, "trend": {}, "volatility": {}, "levels": {}},
+        "asOf": "2026-08-21", "barraEmFormacao": None, "candles": [],
+        "currency": "BRL", "period": "1y", "snapshotId": "fake0001", "periodBars": [],
+    }
 
 
 def _espiao_plan(registro):
@@ -200,22 +220,34 @@ def _prepara_gate_de_analise(monkeypatch, main):
     monkeypatch.setattr(main.managed, "managed_config", lambda: {"provider": "openai", "model": "gpt-4o-mini"})
 
 
-def test_rota_analyze_nega_por_cota_da_metering_e_devolve_402_com_o_motivo(monkeypatch):
+def test_rota_analyze_nega_por_cota_da_metering_e_cai_no_fallback_deterministico(monkeypatch):
+    """ATUALIZADO (Plano 04-04, FIX-C01) — ver nota no topo do arquivo: o gate
+    negando por cota da metering não estoura mais 402 até o cliente; vira
+    explicação determinística (200) com o motivo em `iaIndisponivel.mensagem`.
+    A PRECEDÊNCIA que este arquivo trava (plano decide primeiro) é a mesma."""
     c, main = _client(monkeypatch)
     _prepara_gate_de_analise(monkeypatch, main)
+    monkeypatch.setattr(main.candle_provider, "get_quote", _quote_fake)
+    monkeypatch.setattr(main.technical_snapshot, "get", _fake_snap)
     monkeypatch.setattr(main.metering, "check", lambda *_a, **_k: (False, "cota estourada"))
     payload = _registra(c, "cota@teste.com")
 
     r = c.post("/api/analyze/PETR4", json={}, headers=_auth(payload["token"]))
-    assert r.status_code == 402
-    assert r.json()["detail"] == "cota estourada"
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["fonte"] == "deterministico"
+    assert body["iaIndisponivel"]["mensagem"] == "cota estourada"
 
 
 def test_rota_analyze_nega_por_limite_de_plano_sem_chamar_metering(monkeypatch):
     """Prova de PRECEDÊNCIA determinística (não de dois gates correndo em
-    paralelo): quando o gate de plano nega, `metering.check` nunca roda."""
+    paralelo): quando o gate de plano nega, `metering.check` nunca roda.
+    ATUALIZADO (Plano 04-04, FIX-C01) — ver nota no topo do arquivo: a
+    negação agora vira fallback determinístico (200), não mais 402."""
     c, main = _client(monkeypatch)
     _prepara_gate_de_analise(monkeypatch, main)
+    monkeypatch.setattr(main.candle_provider, "get_quote", _quote_fake)
+    monkeypatch.setattr(main.technical_snapshot, "get", _fake_snap)
     contador = {"n": 0}
 
     def _conta_e_permite(*_a, **_k):
@@ -226,8 +258,10 @@ def test_rota_analyze_nega_por_limite_de_plano_sem_chamar_metering(monkeypatch):
     payload = _registra(c, "limite@teste.com")
 
     r = c.post("/api/analyze/PETR4", json={}, headers=_auth(payload["token"]))
-    assert r.status_code == 402
-    assert r.json()["detail"] == "limite do plano free"
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["fonte"] == "deterministico"
+    assert body["iaIndisponivel"]["mensagem"] == "limite do plano free"
     assert contador["n"] == 0, "metering.check foi chamado mesmo com o gate de plano já tendo negado"
 
 

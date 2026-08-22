@@ -36,6 +36,8 @@ from . import siwa  # FASE 4 (Bloco 2): Sign in with Apple — exchange + revoke
 from . import push  # FASE 3.3b: APNs (no-op sem configuração)
 from . import obslog  # FASE 5: observabilidade (log estruturado + ring buffer)
 from . import conceitos  # camada de entendimento: catálogo determinístico (custo zero)
+from . import explicacao_det  # FIX-C01: fallback determinístico do Passo 7 sem IA
+from . import benchmark  # FIX-C03: série diária do Ibovespa (comparação no Passo 8)
 from . import analytics  # qa/47: eventos de comportamento (ingest + rollup + purga)
 from . import signal_ledger  # ADR-017 (Bloco 1): histórico medido por setup (ledger de sinais)
 from .catalog import is_catalog_ticker
@@ -1074,6 +1076,19 @@ async def history(ticker: str, period: Optional[str] = None, scope: Optional[str
     return h
 
 
+# FIX-C03: série diária do Ibovespa para o Passo 8 comparar com a carteira
+# simulada. Sem parâmetro de símbolo — `benchmark.SIMBOLO` é constante,
+# nunca vem do cliente (T-04-04: senão a rota vira proxy aberto pro Yahoo).
+# `scope` fica só por consistência com as demais rotas de dado de mercado;
+# a curva é pública, não decide nada por conta.
+@app.get("/api/benchmark/ibov")
+async def benchmark_ibov(period: Optional[str] = None, scope: Optional[str] = Depends(current_scope)):
+    try:
+        return await benchmark.serie_ibov(period)
+    except benchmark.BenchmarkIndisponivel:
+        raise HTTPException(502, "Comparação com o Ibovespa indisponível agora.")
+
+
 # ---- Analise tecnica: candles + indicadores (serie continua ~1 ano) ----
 _TECH_KEEP = 252         # ~1 ano util exibido (calculo usa warmup maior)
 import re as _re
@@ -1407,7 +1422,18 @@ async def analyze_technical_model(ticker: str, body: dict = Body(default={}), sc
     config = body.get("config") or store.get(_conn, "config", user_id=scope)
     # FASE 8B (B3): captura o modo ANTES do managed (que pode recriar a config)
     modo = (config or {}).get("appMode")
-    config, _consume_ai = _gate_analise(scope, config)
+    # FIX-C01: o gate de plano/cota pode negar (402, ex.: cota gerenciada
+    # esgotada) — em vez de estourar pro cliente, marca a IA como indisponível
+    # e segue com o fallback determinístico (nunca 502 por falta de crédito).
+    ia_indisponivel = None
+    _consume_ai = lambda: None
+    try:
+        config, _consume_ai = _gate_analise(scope, config)
+    except HTTPException as e:
+        if e.status_code == 402:
+            ia_indisponivel = {"code": "quota", "mensagem": str(e.detail)}
+        else:
+            raise
     # FASE 8B (R2): a instrução do agente é POR MODO — a mesa usa a skill do
     # operador (iOS manda a certa no corpo; web escolhe pela config do escopo).
     skill = body.get("skill") or store.get(_conn, "skillOperador" if modo == "operador" else "skill", user_id=scope)
@@ -1459,11 +1485,50 @@ async def analyze_technical_model(ticker: str, body: dict = Body(default={}), sc
             return {"t": t, "quote": quote, "reaproveitada": True, **guardada}
         return {"t": t, "quote": quote, "reaproveitada": True, "promptFp": prompt_fp,
                 "snapshotId": snap["snapshotId"], "snapshotAt": snap["asOf"], "at": now_str()}
-    try:
-        with llm.collect_usage() as _uso:  # qa/45: captura tokens desta chamada
-            result = await llm.analyze_structured(config, skill, profile, account, t, context, modo=modo)
-    except Exception as e:  # noqa: BLE001
-        raise HTTPException(502, llm.public_error(e))
+    if ia_indisponivel is None:
+        try:
+            with llm.collect_usage() as _uso:  # qa/45: captura tokens desta chamada
+                result = await llm.analyze_structured(config, skill, profile, account, t, context, modo=modo)
+        except Exception as e:  # noqa: BLE001
+            pub = llm.public_error(e)
+            # T-04-01: SÓ o payload público sanitizado vira `mensagem` — nunca
+            # str(e)/repr(e)/traceback (poderiam carregar chave/URL/host do provedor).
+            ia_indisponivel = {"code": pub.get("code"), "mensagem": pub.get("message") or pub.get("detail")}
+
+    if ia_indisponivel is not None:
+        # FIX-C01: sem IA disponível (gate ou chamada) — explicação mínima
+        # determinística a partir do que o motor já calculou, no lugar de um
+        # card vazio ou 502. Efêmera por desenho: NÃO consome cota, NÃO
+        # persiste (o reuso por promptFp serviria o fallback pra sempre depois
+        # que a chave voltasse) e NÃO alimenta ai_activity/analysis_outcomes.
+        det = explicacao_det.montar(
+            t, snap, modo=("operador" if modo == "operador" else "educacional"), quote=quote)
+        payload = {
+            "kpis": None,
+            "detail": None,
+            "proposal": None,
+            "markdown": det["markdown"],
+            "text": None,
+            "model": model,
+            "modelLabel": context.get("modelLabel"),
+            "technicalContext": technical_models.compact_for_response(context),
+            "candles": snap["periodBars"],
+            "candlesSentToLLM": (context.get("historyStats") or {}).get("candlesSentToLLM"),
+            "snapshotId": snap["snapshotId"],
+            "snapshotAt": snap["asOf"],
+            "promptFp": prompt_fp,
+            "setupsRadar": context.get("setupsRadar"),
+            "fundamento": None,
+            "confiancaFinal": None,
+            "rebaixadoPorFundamento": None,
+            "at": now_str(),
+            "fonte": "deterministico",
+            "iaIndisponivel": ia_indisponivel,
+            "verbetes": det["verbetes"],
+            "semDados": det["semDados"],
+        }
+        return {"t": t, "quote": quote, **payload}
+
     try:
         ai_activity.registrar_uso(_conn, scope=scope, ticker=t, tipo="Análise", usos=_uso)
     except Exception as e:  # noqa: BLE001 — atividade é overlay, nunca quebra a análise
@@ -1538,6 +1603,8 @@ async def analyze_technical_model(ticker: str, body: dict = Body(default={}), sc
         "confiancaFinal": conf_final,
         "rebaixadoPorFundamento": rebaixado,
         "at": now_str(),
+        "fonte": "ia",
+        "iaIndisponivel": None,
     }
     if not body.get("config"):
         store.set_analysis(_conn, t, payload, user_id=scope)
@@ -1559,8 +1626,19 @@ async def analyze(ticker: str, body: dict = Body(default={}), scope: Optional[st
     if len(t) < 4:
         raise HTTPException(400, "Ticker invalido.")
     config = (body or {}).get("config") or store.get(_conn, "config", user_id=scope)
-    # GANCHO FREEMIUM (hoje sempre permite) + C-33 (fase 5): contagem real do mes do usuario
-    config, _consume_ai = _gate_analise(scope, config)
+    # FASE 8B (B3)/FIX-C01: modo capturado ANTES do gate (que pode recriar a config).
+    modo = (config or {}).get("appMode")
+    # FIX-C01: mesmo padrão da rota nova — 402 vira fallback determinístico, nunca 502.
+    ia_indisponivel = None
+    _consume_ai = lambda: None
+    try:
+        # GANCHO FREEMIUM (hoje sempre permite) + C-33 (fase 5): contagem real do mes do usuario
+        config, _consume_ai = _gate_analise(scope, config)
+    except HTTPException as e:
+        if e.status_code == 402:
+            ia_indisponivel = {"code": "quota", "mensagem": str(e.detail)}
+        else:
+            raise
     skill = (body or {}).get("skill") or store.get(_conn, "skill", user_id=scope)
     profile = (body or {}).get("profile") or store.get(_conn, "profile", user_id=scope)
     # capital simulado disponivel: handset envia no corpo; web usa o estado
@@ -1587,11 +1665,35 @@ async def analyze(ticker: str, body: dict = Body(default={}), scope: Optional[st
         "snapshotId": snap["snapshotId"],
         "snapshotAt": snap["asOf"],
     }
-    try:
-        with llm.collect_usage() as _uso:  # qa/45
-            result = await llm.analyze(config, skill, profile, account, t, quote, history_data)
-    except Exception as e:  # noqa: BLE001
-        raise HTTPException(502, llm.public_error(e))
+    if ia_indisponivel is None:
+        try:
+            with llm.collect_usage() as _uso:  # qa/45
+                result = await llm.analyze(config, skill, profile, account, t, quote, history_data)
+        except Exception as e:  # noqa: BLE001
+            pub = llm.public_error(e)
+            ia_indisponivel = {"code": pub.get("code"), "mensagem": pub.get("message") or pub.get("detail")}
+
+    if ia_indisponivel is not None:
+        # FIX-C01: mesmo fallback da rota nova (ver comentário lá) — efêmero,
+        # sem custo, sem persistência.
+        det = explicacao_det.montar(
+            t, snap, modo=("operador" if modo == "operador" else "educacional"), quote=quote)
+        payload = {
+            "kpis": None,
+            "detail": None,
+            "proposal": None,
+            "markdown": det["markdown"],
+            "text": None,
+            "snapshotId": snap["snapshotId"],
+            "snapshotAt": snap["asOf"],
+            "at": now_str(),
+            "fonte": "deterministico",
+            "iaIndisponivel": ia_indisponivel,
+            "verbetes": det["verbetes"],
+            "semDados": det["semDados"],
+        }
+        return {"t": t, "quote": quote, "candles": len(history_data["candles"]), **payload}
+
     try:
         ai_activity.registrar_uso(_conn, scope=scope, ticker=t, tipo="Análise", usos=_uso)
     except Exception as e:  # noqa: BLE001
@@ -1607,6 +1709,8 @@ async def analyze(ticker: str, body: dict = Body(default={}), scope: Optional[st
         "snapshotId": snap["snapshotId"],
         "snapshotAt": snap["asOf"],
         "at": at,
+        "fonte": "ia",
+        "iaIndisponivel": None,
     }
     # persiste a ultima analise do ativo (versao web); o handset persiste no aparelho
     if not (body or {}).get("config"):
@@ -1700,11 +1804,21 @@ async def buy(body: dict = Body(default={}), scope: Optional[str] = Depends(curr
     qty = int(body.get("qty") or 0)
     t = _normalize_ticker(t)
     if len(t) < 4:
+        # FIX-C02: toda tentativa REJEITADA de conta logada fica no histórico
+        # — o balde anônimo é compartilhado (T-04-12/T-02-07), então não registra.
+        if scope is not None:
+            store.registrar_rejeicao(_conn, "COMPRA", t, qty, None,
+                                      f"{t} não é um ativo reconhecido pelo simulador.",
+                                      user_id=scope, origem="manual")
         raise HTTPException(400, "Ticker invalido.")
     # cotação continua sendo buscada mesmo com o mercado fechado: é ela que dá
     # o precoReferencia da reserva (D-02) — sem preço não dá para reservar.
     quote = await candle_provider.get_quote(t)
     if not quote or quote.get("price") is None:
+        if scope is not None:
+            store.registrar_rejeicao(_conn, "COMPRA", t, qty, None,
+                                      f"Sem cotação disponível para {t} no momento do pedido.",
+                                      user_id=scope, origem="manual")
         raise HTTPException(502, "Sem cotacao para " + t)
     price = quote["price"]
 
@@ -1722,7 +1836,13 @@ async def buy(body: dict = Body(default={}), scope: Optional[str] = Depends(curr
             # bruta mas store.buy debita 200). Normaliza AQUI, na mesma forma,
             # antes de comparar — espelha pending_orders.criar_compra.
             qty = max(100, round(qty / 100) * 100)
-            if qty * price > store.get(_conn, "cash", user_id=scope):
+            cash_disp = store.get(_conn, "cash", user_id=scope)
+            if qty * price > cash_disp:
+                if scope is not None:
+                    store.registrar_rejeicao(
+                        _conn, "COMPRA", t, qty, price,
+                        f"Caixa insuficiente para {qty} {t} a R$ {price} — disponível: R$ {cash_disp}.",
+                        user_id=scope, origem="manual")
                 raise HTTPException(400, "Caixa insuficiente.")
             store.buy(_conn, t, qty, price, user_id=scope, meta=body.get("meta"))  # FASE 2 (2.4)
         _disparar_ciclo_imediato(scope)  # 2026-08-07: reavalia na hora, não espera o próximo tick
@@ -1734,12 +1854,20 @@ async def buy(body: dict = Body(default={}), scope: Optional[str] = Depends(curr
     if scope is None:
         # T-02-07: o escopo anônimo é um balde kv COMPARTILHADO entre todos os
         # anônimos (App.jsx:669-674) — reservar caixa lá seria dinheiro de um
-        # aparecendo para outro.
+        # aparecendo para outro. Mesma razão o histórico de rejeição não grava.
         raise HTTPException(401, "Ordens fora do horário de pregão exigem conta conectada — "
                                   "entre para que a ordem fique guardada na sua carteira.")
     try:
         order = pending_orders.criar_compra(_conn, scope, t, qty, price, meta=body.get("meta"))
     except pending_orders.CaixaInsuficiente as e:
+        # mesma normalização de lote que `criar_compra` já aplicou internamente
+        # antes de recusar — o motivo grava a quantidade que de fato foi avaliada.
+        qty_norm = max(100, round(qty / 100) * 100)
+        cash_disp = store.get(_conn, "cash", user_id=scope)
+        store.registrar_rejeicao(
+            _conn, "COMPRA", t, qty_norm, price,
+            f"Caixa insuficiente para {qty_norm} {t} a R$ {price} — disponível: R$ {cash_disp}.",
+            user_id=scope, origem="manual")
         raise HTTPException(400, str(e))
     # sem _disparar_ciclo_imediato: não há posição nova para o agente avaliar ainda.
     out = store.public_state(_conn, user_id=scope)
@@ -1753,12 +1881,23 @@ async def buy(body: dict = Body(default={}), scope: Optional[str] = Depends(curr
 @app.post("/api/sell")
 async def sell(body: dict = Body(default={}), scope: Optional[str] = Depends(current_scope)):
     from . import pregao  # import local: sem ciclo (mesmo padrão de agent.py:216)
-    t = str(body.get("t", "")).upper()
+    # T-04-03: `t` gravado no histórico é sempre o normalizado — nunca a
+    # string crua do corpo (o antigo `.upper()` isolado deixava passar
+    # espaço/sufixo .SA/caractere fora de A-Z0-9 sem normalizar).
+    t = _normalize_ticker(str(body.get("t", "")))
     pos = next((p for p in store.get(_conn, "positions", user_id=scope) if p["t"] == t), None)
     if not pos:
+        if scope is not None:
+            store.registrar_rejeicao(_conn, "VENDA", t, body.get("qty"), None,
+                                      f"Você não tem posição em {t} para vender.",
+                                      user_id=scope, origem="manual")
         raise HTTPException(400, "Sem posicao em " + t)
     quote = await candle_provider.get_quote(t)
     if not quote or quote.get("price") is None:
+        if scope is not None:
+            store.registrar_rejeicao(_conn, "VENDA", t, body.get("qty"), None,
+                                      f"Sem cotação disponível para {t} no momento do pedido.",
+                                      user_id=scope, origem="manual")
         raise HTTPException(502, "Sem cotacao para " + t)
     price = quote["price"]
     _qty = body.get("qty")  # FASE 2 (2.4): venda parcial opcional (lotes de 100)
@@ -1771,8 +1910,16 @@ async def sell(body: dict = Body(default={}), scope: Optional[str] = Depends(cur
         try:
             _qty_val = int(_qty)
         except (TypeError, ValueError):
+            if scope is not None:
+                store.registrar_rejeicao(_conn, "VENDA", t, _qty, price,
+                                          f"Quantidade inválida: {_qty}. A venda usa lotes de 100.",
+                                          user_id=scope, origem="manual")
             raise HTTPException(400, "Quantidade inválida.")
         if _qty_val <= 0:
+            if scope is not None:
+                store.registrar_rejeicao(_conn, "VENDA", t, _qty_val, price,
+                                          f"Quantidade inválida: {_qty_val}. A venda usa lotes de 100.",
+                                          user_id=scope, origem="manual")
             raise HTTPException(400, "Quantidade inválida.")
 
     if pregao.in_market_hours():
@@ -1784,6 +1931,10 @@ async def sell(body: dict = Body(default={}), scope: Optional[str] = Depends(cur
             positions_atual = store.get(_conn, "positions", user_id=scope)
             pos_atual = next((p for p in positions_atual if p["t"] == t), None)
             if not pos_atual:
+                if scope is not None:
+                    store.registrar_rejeicao(_conn, "VENDA", t, _qty_val, price,
+                                              f"Você não tem posição em {t} para vender.",
+                                              user_id=scope, origem="manual")
                 raise HTTPException(400, "Sem posicao em " + t)
             store.sell(_conn, t, price, user_id=scope, qty=_qty_val)
         _disparar_ciclo_imediato(scope)  # 2026-08-07: reavalia na hora, não espera o próximo tick
@@ -1794,11 +1945,15 @@ async def sell(body: dict = Body(default={}), scope: Optional[str] = Depends(cur
     # Mercado fechado: vira ordem pendente (D-01), reservando a quantidade
     # (D-06 — impede vender a mesma ação duas vezes em duas pendentes).
     if scope is None:
+        # T-02-07/T-04-12: balde anônimo compartilhado — não registra rejeição.
         raise HTTPException(401, "Ordens fora do horário de pregão exigem conta conectada — "
                                   "entre para que a ordem fique guardada na sua carteira.")
     try:
         order = pending_orders.criar_venda(_conn, scope, t, _qty_val if _qty_val is not None else pos["qty"])
     except pending_orders.PosicaoInsuficiente as e:
+        # texto da própria exceção — já é específico (disponível × pedido).
+        store.registrar_rejeicao(_conn, "VENDA", t, _qty_val if _qty_val is not None else pos["qty"],
+                                  price, str(e), user_id=scope, origem="manual")
         raise HTTPException(400, str(e))
     out = store.public_state(_conn, user_id=scope)
     out["pendente"] = True
