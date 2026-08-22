@@ -204,7 +204,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 04-06-PLAN.md — Front: comparação com o Ibovespa na curva de capital (série, legenda, VS. IBOVESPA)
+- [x] 04-06-PLAN.md — Front: comparação com o Ibovespa na curva de capital (série, legenda, VS. IBOVESPA)
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
@@ -267,7 +267,7 @@ gate.
 | 1. Auditoria Diagnóstica Consolidada | v1.0 | 6/6 | Complete | 2026-08-18 |
 | 2. Realismo de Mercado | v1.1 | 7/7 | Complete   | 2026-08-19 |
 | 3. Correção Crítico + Alto | v1.1 | 6/6 | Complete   | 2026-08-19 |
-| 4. Correção Médio — Storyline & UX | v1.1 | 5/7 | In Progress|  |
+| 4. Correção Médio — Storyline & UX | v1.1 | 6/7 | In Progress|  |
 | 5. Correção Médio — Código, Gate & Admin | v1.1 | 0/TBD | Not started | - |
 | 6. Instrumentação de Assertividade (ADR-015) | v1.1 | 5/5 | Complete | 2026-08-21 |
 | 7. Seleção Dinâmica por Desempenho Histórico (ADR-017 Bloco 1) | v1.1 | 6/6 | Complete | 2026-08-21 |
