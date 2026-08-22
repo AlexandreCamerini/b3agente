@@ -26,7 +26,7 @@ seriam inserções urgentes, se necessário.
 
 - [x] **Phase 2: Realismo de Mercado** - Status real de pregão na tela de entrada e fila de execução para ordens fora de horário (completed 2026-08-19)
 - [x] **Phase 3: Correção Crítico + Alto** - Fecha as 2 violações de princípio (transparência de dado) e os 8 achados que já causaram incidente real ou bloqueiam decisão de negócio (completed 2026-08-19)
-- [ ] **Phase 4: Correção Médio — Storyline & UX** - Fecha as lacunas pedagógicas e de experiência (STORY + UX) do REPORT-01
+- [x] **Phase 4: Correção Médio — Storyline & UX** - Fecha as lacunas pedagógicas e de experiência (STORY + UX) do REPORT-01 (completed 2026-08-22)
 - [ ] **Phase 5: Correção Médio — Código, Gate & Admin** - Fecha a dívida técnica, a ativação incompleta de gating e a observabilidade admin (CODE + GATE + ADMIN) do REPORT-01
 - [x] **Phase 6: Instrumentação de Assertividade (ADR-015)** - Conserta a medição de eficiência da IA (âncora errada, `n` inflado por duplicação, motivo de venda não persistido) antes de qualquer decisão de produto sobre o motor de recomendação (completed 2026-08-21)
 - [x] **Phase 7: Seleção Dinâmica por Desempenho Histórico (ADR-017 Bloco 1)** - Ledger de sinais resolvidos, bootstrap, hook diário e `regime.ranquear()` passam a pesar cada setup pelo desempenho medido na janela anterior (completed 2026-08-21)
@@ -208,7 +208,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 04-07-PLAN.md — Front: aviso de concentração >50% na Carteira com link para o verbete de diversificação
+- [x] 04-07-PLAN.md — Front: aviso de concentração >50% na Carteira com link para o verbete de diversificação
 **UI hint**: yes
 
 ### Phase 5: Correção Médio — Código, Gate & Admin
@@ -267,7 +267,7 @@ gate.
 | 1. Auditoria Diagnóstica Consolidada | v1.0 | 6/6 | Complete | 2026-08-18 |
 | 2. Realismo de Mercado | v1.1 | 7/7 | Complete   | 2026-08-19 |
 | 3. Correção Crítico + Alto | v1.1 | 6/6 | Complete   | 2026-08-19 |
-| 4. Correção Médio — Storyline & UX | v1.1 | 6/7 | In Progress|  |
+| 4. Correção Médio — Storyline & UX | v1.1 | 7/7 | Complete   | 2026-08-22 |
 | 5. Correção Médio — Código, Gate & Admin | v1.1 | 0/TBD | Not started | - |
 | 6. Instrumentação de Assertividade (ADR-015) | v1.1 | 5/5 | Complete | 2026-08-21 |
 | 7. Seleção Dinâmica por Desempenho Histórico (ADR-017 Bloco 1) | v1.1 | 6/6 | Complete | 2026-08-21 |
