@@ -212,6 +212,10 @@ export const api = {
   technicalModels: () => req("GET", "/api/technical/models"),
   analyzeTechnical: (t, body) => req("POST", "/api/technical/analyze/" + encodeURIComponent(t), body, TIMEOUT_LLM),
   technicals: (t, period) => req("GET", "/api/technicals/" + t + (period ? ("?period=" + encodeURIComponent(period)) : ""), undefined, 30000),
+  // Plano 04-06 (FIX-C03): série do Ibovespa para o Passo 8 comparar com a
+  // carteira. Dado público de mercado (sem símbolo do cliente, contrato
+  // fixado pelo Plano 04-04) — TIMEOUT_MS normal, não é chamada de IA.
+  benchmarkIbov: (period) => req("GET", "/api/benchmark/ibov" + (period ? "?period=" + encodeURIComponent(period) : ""), undefined, TIMEOUT_MS),
   // BLOCO 3: radar de mercado. Timeout longo — a PRIMEIRA varredura aquece o
   // cache de candles do universo inteiro; as seguintes voltam em segundos.
   scan: (period, tickers, force) => {

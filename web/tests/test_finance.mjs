@@ -1,5 +1,6 @@
 // Objetivo 3 — trava as fórmulas financeiras sobre entradas conhecidas.
-import { portfolioMetrics, dayReturnPct, equityCurve, markPrice, historicoEstado, historicoDesatualizado } from "../src/finance.js";
+import { readFileSync } from "fs";
+import { portfolioMetrics, dayReturnPct, equityCurve, markPrice, historicoEstado, historicoDesatualizado, benchmarkSerie } from "../src/finance.js";
 
 let fails = 0;
 const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if (!cond) fails++; };
@@ -177,6 +178,110 @@ ok("medidoAte além do limite de 2 dias úteis: degrada",
   historicoDesatualizado({ medidoAte: "2026-08-12" }, "2026-08-17") === true);
 ok("data malformada (número no lugar de string): não degrada, sem exceção",
   historicoDesatualizado({ medidoAte: 20260812 }, "2026-08-17") === false);
+
+// ---- equityCurve: datas (Plano 04-06, Task 1, FIX-C03) ----
+// `datas` tem que sair no MESMO comprimento de `curve`, em paralelo à
+// construção de `plot` (base → snapshots → ponto ao vivo substituído/anexado).
+{
+  // combinação 1: COM base, ponto ao vivo SUBSTITUI o snapshot de hoje
+  const snaps = [
+    { data: "d1", patrimonio: 10000 },
+    { data: "d2", patrimonio: 10500 },
+    { data: "d3", patrimonio: 10300 },
+  ];
+  const ec = equityCurve(snaps, 10000, 10600, "d3");
+  ok("datas.length === curve.length (com base, live substitui)", ec.datas.length === ec.curve.length);
+  ok("datas: base null seguido das 3 datas reais", JSON.stringify(ec.datas) === JSON.stringify([null, "d1", "d2", "d3"]));
+}
+{
+  // combinação 2: SEM base (budget 0), ponto ao vivo ANEXADO (data diferente)
+  const ec = equityCurve([{ data: "d1", patrimonio: 5000 }], 0, 5500, "d2");
+  ok("datas.length === curve.length (sem base, live anexado)", ec.datas.length === ec.curve.length);
+  ok("datas: sem base, snapshot + data anexada", JSON.stringify(ec.datas) === JSON.stringify(["d1", "d2"]));
+}
+{
+  // combinação 3: COM base, ponto ao vivo ANEXADO (data diferente da última)
+  const snaps = [{ data: "d1", patrimonio: 10000 }, { data: "d2", patrimonio: 10500 }];
+  const ec = equityCurve(snaps, 10000, 10700, "d3");
+  ok("datas.length === curve.length (com base, live anexado)", ec.datas.length === ec.curve.length);
+  ok("datas: base null + 2 snapshots + data anexada", JSON.stringify(ec.datas) === JSON.stringify([null, "d1", "d2", "d3"]));
+}
+{
+  // vazio/nulo: datas continua paralelo, sem quebrar
+  const ec = equityCurve([], 10000, 10000, "d");
+  ok("vazio+orçamento: datas = [null, 'd']", JSON.stringify(ec.datas) === JSON.stringify([null, "d"]));
+  const ec2 = equityCurve(null, 0, null, null);
+  ok("tudo nulo: datas array vazio, sem quebrar", Array.isArray(ec2.datas) && ec2.datas.length === ec2.curve.length);
+}
+
+// ---- benchmarkSerie (Plano 04-06, Task 1, FIX-C03) ----
+ok("candles vazio → null", benchmarkSerie([], ["2026-08-20"]) === null);
+ok("tudo nulo → null", benchmarkSerie(null, null) === null);
+{
+  // menos de 2 velas utilizáveis (só 1 sobra depois do filtro de close<=0)
+  const candles = [{ date: "2026-08-18", close: 0 }, { date: "2026-08-19", close: 100 }];
+  ok("menos de 2 velas utilizáveis → null", benchmarkSerie(candles, ["2026-08-19", "2026-08-20"]) === null);
+}
+{
+  // menos de 2 datas cobertas (candles ok, mas só 1 data real tem cobertura)
+  const candles = [{ date: "2026-08-19", close: 100 }, { date: "2026-08-20", close: 101 }];
+  ok("menos de 2 datas cobertas → null", benchmarkSerie(candles, ["2026-08-19"]) === null);
+}
+{
+  // data sem pregão no índice → usa o fechamento REAL anterior (19 cobre o 20)
+  const candles = [{ date: "2026-08-18", close: 100 }, { date: "2026-08-19", close: 102 }];
+  const datas = [null, "2026-08-18", "2026-08-20"]; // base + 1ª data real + data sem vela própria
+  const bm = benchmarkSerie(candles, datas);
+  ok("sem pregão: bm não é null", bm !== null);
+  ok("ponto-base recebe 0 (cobertura adiante)", bm.pct[0] === 0);
+  ok("primeiro ponto coberto é exatamente 0", bm.pct[1] === 0);
+  ok("data sem vela usa o fechamento REAL anterior (19: 102 → +2%)", near(bm.pct[2], 2));
+  ok("retAcum = último pct não-nulo", near(bm.retAcum, 2));
+  ok("cobertura conta os 3 pontos com valor", bm.cobertura === 3);
+}
+{
+  // data anterior a qualquer vela → aquele ponto é null (não 0, não extrapolado)
+  const candles = [{ date: "2026-08-19", close: 102 }, { date: "2026-08-20", close: 103 }];
+  const datas = ["2026-08-18", "2026-08-19", "2026-08-20"];
+  const bm = benchmarkSerie(candles, datas);
+  ok("data anterior a qualquer vela → null (sem extrapolar)", bm.pct[0] === null);
+  ok("primeiro ponto coberto (19) é 0", bm.pct[1] === 0);
+  ok("retAcum bate com (últimoClose - primeiroCloseCoberto)/primeiroCloseCoberto*100", near(bm.retAcum, ((103 - 102) / 102) * 100, 1e-9));
+  ok("cobertura conta só os 2 pontos com valor (não o null)", bm.cobertura === 2);
+}
+{
+  // vela com close 0/negativo é descartada; sem NaN/Infinity/-0 em nenhum pct
+  const candles = [
+    { date: "2026-08-18", close: 0 },
+    { date: "2026-08-19", close: -5 },
+    { date: "2026-08-20", close: 100 },
+    { date: "2026-08-21", close: 105 },
+  ];
+  const datas = ["2026-08-20", "2026-08-21"];
+  const bm = benchmarkSerie(candles, datas);
+  ok("vela close<=0 descartada: bm ainda válido (2 velas úteis restantes)", bm !== null);
+  ok("pct[0] finito e igual a 0", bm.pct[0] === 0);
+  ok("pct[1] finito, sem NaN/Infinity", isFinite(bm.pct[1]) && near(bm.pct[1], 5));
+  ok("nenhum -0 na saída", !bm.pct.some((v) => Object.is(v, -0)));
+}
+{
+  // guard clause de entrada malformada nunca lança
+  ok("candles com objetos malformados não lança", (() => {
+    try { benchmarkSerie([{}, { date: "x" }, null, { date: "2026-08-20", close: "abc" }], ["2026-08-20"]); return true; }
+    catch { return false; }
+  })());
+}
+
+// finance.js segue puro: benchmarkSerie não faz I/O nem lê hora do sistema.
+// Varre só CÓDIGO (linhas sem `//`) — comentários pré-existentes de outras
+// funções deste arquivo já citam "Date.now()" em prosa explicando por que
+// NÃO usam (ex.: historicoEstado/historicoDesatualizado, linha ~206), o que
+// tornaria um grep cru sobre o arquivo inteiro um falso-positivo.
+{
+  const src = readFileSync(new URL("../src/finance.js", import.meta.url), "utf8");
+  const codigo = src.split("\n").filter((l) => !l.trim().startsWith("//")).join("\n");
+  ok("finance.js segue puro (sem chamada real a fetch/Date.now/localStorage)", !/\bfetch\(|\bDate\.now\(|\blocalStorage\b/.test(codigo));
+}
 
 console.log("\n" + (fails === 0 ? "TODOS OS TESTES DE FINANCE PASSARAM" : fails + " TESTE(S) FALHARAM"));
 process.exit(fails === 0 ? 0 : 1);

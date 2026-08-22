@@ -136,6 +136,10 @@ function serverStore() {
     analyze: (t, opts) => api.analyzeTechnical(t, { model: (opts && opts.model) || "completo", position: (opts && opts.position) || undefined, promptFp: (opts && opts.promptFp) || undefined }),
     analyzeStopAlvo: (t, opts) => api.carteiraStopAlvo(t, (opts && opts.prompt) ? { prompt: opts.prompt } : {}),
     technicals: (t, period) => api.technicals(t, period),
+    // Plano 04-06 (FIX-C03): dado público de mercado, sem estado local —
+    // pass-through puro, igual technicals acima (guardrail de paridade
+    // CLAUDE.md: precisa existir nos DOIS stores mesmo sendo idêntico).
+    benchmarkIbov: (period) => api.benchmarkIbov(period),
     scan: (period, tickers, force) => api.scan(period, tickers, force), // BLOCO 3 + FASE 2 + FASE 4 (1.3: force)
     scanDeep: (body) => api.scanDeep(body),                       // FASE 2 (2.1): N1 deep
     scanDeepEstimate: (p, n, t) => api.scanDeepEstimate(p, n, t), // FASE 2 (2.1): custo antes
@@ -791,6 +795,11 @@ function deviceStore() {
       cacheTech(t, r, period); // guarda os dados do ativo no aparelho (por período)
       return r;
     },
+    // Plano 04-06 (FIX-C03): dado público de mercado, sem estado local —
+    // pass-through puro, mesmo contrato do serverStore (guardrail de
+    // paridade CLAUDE.md: precisa existir nos DOIS, senão o app nativo
+    // quebra ao abrir o Passo 8).
+    benchmarkIbov: (period) => api.benchmarkIbov(period),
     // BLOCO 3: radar. A varredura roda SEMPRE no servidor (universo + cache de
     // candles vivem lá); o aparelho só consome o resultado — mesma interface.
     async scan(period, tickers, force) {
