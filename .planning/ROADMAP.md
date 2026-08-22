@@ -189,7 +189,26 @@ Core Value.
   5. O toggle "acordeão" responde a teclado (Enter/Espaço ativa); a cor
      `textFaint` atinge contraste mínimo WCAG AA (4.5:1) para texto pequeno,
      nos dois temas. [FIX-C15, FIX-C16]
-**Plans**: TBD
+**Plans**: 7 plans
+Plans:
+**Wave 1**
+
+- [ ] 04-01-PLAN.md — Fontes determinísticas: verbete "diversificacao" + compositor da explicação sem IA
+- [ ] 04-02-PLAN.md — Motor: rastro da ordem rejeitada no histórico + série diária do Ibovespa
+- [ ] 04-03-PLAN.md — Front sem dependência: contraste AA de textFaint, acordeão por teclado, aviso de prontidão Estudo→Operador
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 04-04-PLAN.md — Rotas: fallback determinístico nas análises, registro de rejeição em buy/sell, GET /api/benchmark/ibov
+- [ ] 04-05-PLAN.md — Front: DISCLAIMERS.trade nos modais + tudo-ou-nada declarado, rótulo de fonte da explicação, histórico com ordem rejeitada
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 04-06-PLAN.md — Front: comparação com o Ibovespa na curva de capital (série, legenda, VS. IBOVESPA)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 04-07-PLAN.md — Front: aviso de concentração >50% na Carteira com link para o verbete de diversificação
 **UI hint**: yes
 
 ### Phase 5: Correção Médio — Código, Gate & Admin
