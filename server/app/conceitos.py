@@ -205,6 +205,38 @@ CONCEITOS = {
         ],
         "veja": ["stop", "alvo", "gatilho"],
     },
+    "diversificacao": {
+        "titulo": {"educacional": "Diversificação", "operador": "Diversificação"},
+        "campos": ("ticker", "pct"),
+        "naoAcontece": [
+            "O app não compra nem vende nada por conta própria para diversificar "
+            "sua carteira — ela é simulada, e cada troca de posição continua "
+            "sendo decisão sua.",
+            "Diversificar também não é garantia de lucro nem proteção certa "
+            "contra perda: reduz o efeito de UM evento ruim isolado, mas não "
+            "elimina o risco de mercado como um todo.",
+        ],
+        "oQueE": [
+            "Diversificação é espalhar o dinheiro simulado entre ativos "
+            "diferentes, para que o resultado de um único papel não decida "
+            "sozinho o resultado da carteira inteira.",
+            "Aqui, {ticker} concentra {pct} do seu patrimônio simulado.",
+            "Quanto maior essa fatia, mais o resultado da carteira inteira "
+            "depende do que acontece só com esse papel — bom ou ruim.",
+        ],
+        "oQueAcontece": [
+            "Quando um único ativo passa de 50% do patrimônio simulado, o app "
+            "mostra um aviso na tela de Carteira. É só isso: um aviso.",
+            "O app não bloqueia a compra, não redistribui nada sozinho e não "
+            "recomenda outro ativo para substituir esse — a decisão de reduzir "
+            "ou manter a posição continua sendo sua.",
+            "A régua conceitual: com a carteira concentrada, um evento negativo "
+            "único (uma notícia ruim, um resultado fraco) pode derrubar o "
+            "patrimônio inteiro de uma vez — é o mesmo risco que aumenta o "
+            "drawdown máximo da carteira.",
+        ],
+        "veja": ["r", "stop"],
+    },
 
     # ---------------------------------------------------------------- leitura
     "confluencia": {
@@ -345,7 +377,7 @@ def _rr(v) -> Optional[str]:
 _FORMATADORES = {"entrada": _num, "stop": _num, "distancia": _num, "alvo": _num,
                  "precoAtual": _num, "riscoPorAcao": _num_positivo,
                  "distanciaEmR": _emr, "excedenteEmR": _emr,
-                 "confluencia": _pct, "rr": _rr}
+                 "confluencia": _pct, "rr": _rr, "pct": _pct}
 
 
 def _constantes() -> dict:

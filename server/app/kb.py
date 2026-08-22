@@ -79,6 +79,7 @@ _FAMILIA_DO_CONCEITO = {
     "stop": "plano_risco",
     "alvo": "plano_risco",
     "r": "plano_risco",
+    "diversificacao": "plano_risco",
     "confluencia": "setups",
     "fundamento": "fundamentos",
     "barra15m": "estados_app",
