@@ -174,6 +174,31 @@ def test_ia_ok_marca_fonte_ia_technical(cli, monkeypatch):
         assert campo in body
 
 
+def test_gate_402_com_analise_cacheada_reaproveita_em_vez_de_cair_no_fallback(cli, monkeypatch):
+    """Decisão de design (não descrita literalmente no PLAN.md): o reuso por
+    `promptFp` roda ANTES da checagem de `ia_indisponivel` — servir de graça
+    uma leitura de IA que JÁ foi paga não custa nada, então uma negação de
+    cota não deveria esconder uma resposta boa que já existe no cache. Este
+    guardião trava essa decisão explicitamente (ver SUMMARY, Deviations)."""
+    async def _ok(*_a, **_k):
+        return {"kpis": {}, "detail": {}, "proposal": {}, "markdown": "leitura cacheada", "text": "leitura cacheada"}
+    monkeypatch.setattr(main.llm, "analyze_structured", _ok)
+    r1 = cli.post(f"/api/technical/analyze/{T}", json={"model": "completo"})
+    assert r1.json()["fonte"] == "ia"
+
+    async def _explode(*_a, **_k):
+        raise AssertionError("não deveria ser chamado — o reuso já resolveu, sem gastar IA")
+    monkeypatch.setattr(main.llm, "analyze_structured", _explode)
+    monkeypatch.setattr(main, "_gate_analise",
+                         lambda scope, config, custo=1: (_ for _ in ()).throw(
+                             main.HTTPException(402, "Cota diária esgotada.")))
+
+    r2 = cli.post(f"/api/technical/analyze/{T}", json={"model": "completo"})
+    assert r2.status_code == 200
+    assert r2.json().get("reaproveitada") is True
+    assert r2.json()["markdown"] == "leitura cacheada"
+
+
 # ===========================================================================
 # FIX-C01 — /api/analyze/{ticker} (rota legada)
 # ===========================================================================
