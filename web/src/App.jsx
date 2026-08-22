@@ -67,7 +67,11 @@ const PALETTE = {
     bgBase: "#10121a", bgPanel: "#161927", bgCard: "#1b1f2e", bgToast: "#1b1f2e",
     borderSubtle: "#2c3245", borderFaint: "#20242f", borderDashed: "#3a4258", borderToast: "#3a4258",
     textPrimary: "#eef1f8", textSecondary: "#c9d1e6", textMuted: "#9aa3bd", textDim: "#8890a8",
-    textFaint: "#6f7797", textBright: "#f6f8fc",
+    // FIX-C16 (REPORT-01): o hex antigo media 4,24:1 contra bgBase — pior
+    // contra bgCard (3,71:1), abaixo do mínimo AA 4.5:1. Este é o mesmo tom
+    // com luminosidade ajustada (mesma metodologia do acento, ver comentário
+    // acima em BRAND/PALETTE): 5,19:1/4,85:1/4,55:1 (pior caso bgCard).
+    textFaint: "#7f86a2", textBright: "#f6f8fc",
     accent: "#2fa8a0", accentSoft: "#5cc4bd", positive: BRAND.green, negative: BRAND.red,
     knob: "#20242f", navDotIdle: "#2c3245", confirmOkText: "#04251a",
     accentTint: "rgba(47,168,160,0.14)", accentTintHi: "rgba(47,168,160,0.26)", accentTint10: "rgba(47,168,160,0.10)",
@@ -84,7 +88,10 @@ const PALETTE = {
     bgBase: "#f7f8fc", bgPanel: "#eef0f7", bgCard: "#ffffff", bgToast: "#222936",
     borderSubtle: "#e2e5f0", borderFaint: "#edeff5", borderDashed: "#d3d8e6", borderToast: "#39414f",
     textPrimary: "#10121a", textSecondary: "#2d3444", textMuted: "#5b6178", textDim: "#6b7288",
-    textFaint: "#7a8099", textBright: "#080a12",
+    // FIX-C16 (REPORT-01): o hex antigo media 3,68:1 contra bgBase — pior
+    // contra bgPanel (3,43:1), abaixo do mínimo AA 4.5:1. Este é o mesmo tom
+    // com luminosidade ajustada: 4,89:1/4,56:1 (pior caso bgPanel)/5,19:1.
+    textFaint: "#666c85", textBright: "#080a12",
     // Acento do Estudo no claro: #2f6fe0 é o hex literal de v2 (AA 4,70 sobre
     // #ffffff). positive/negative NÃO são o verde/rosa crus da marca aqui: em
     // fundo claro eles medem 1,92:1 e 2,92:1, e neste app essas duas cores são
@@ -123,7 +130,10 @@ const MODE_OPERADOR = {
   dark: {
     bgBase: "#0a0c12", bgPanel: "#10131c", bgCard: "#141926", bgToast: "#141926",
     borderSubtle: "#242c40", borderFaint: "#1a2030", borderDashed: "#323c54", borderToast: "#323c54",
-    textMuted: "#93a3c0", textDim: "#8492ac", textFaint: "#5b6890",
+    // FIX-C16 (REPORT-01): mesma chave/mesmo call site do Estudo, override
+    // do Modo Operador — o hex antigo media 3,20-3,56:1 (pior que o par do
+    // Estudo), abaixo de AA. Este passa: 4,564:1 pior caso (bgCard).
+    textMuted: "#93a3c0", textDim: "#8492ac", textFaint: "#7581a8",
     accent: "#d4af37", accentSoft: "#e6c766",
     positive: BRAND.green, negative: BRAND.red,
     accentTint: "rgba(212,175,55,0.14)", accentTintHi: "rgba(212,175,55,0.26)", accentTint10: "rgba(212,175,55,0.10)",
@@ -140,7 +150,10 @@ const MODE_OPERADOR = {
     // degrau mais frio/grafite que o Estudo), agora derivada dos neutros de v2.
     bgBase: "#f2f6f4", bgPanel: "#e9efec", bgCard: "#ffffff", bgToast: "#16211c",
     borderSubtle: "#dce5e1", borderFaint: "#e8efec", borderDashed: "#c8d6d0", borderToast: "#24483a",
-    textMuted: "#4f5f5a", textDim: "#5c6d67", textFaint: "#7a8a85",
+    // FIX-C16 (REPORT-01): mesma chave/mesmo call site do Estudo, override
+    // do Modo Operador — o hex antigo media 3,11-3,62:1, abaixo de AA. Este
+    // passa: 4,566:1 pior caso (bgPanel).
+    textMuted: "#4f5f5a", textDim: "#5c6d67", textFaint: "#616e6a",
     // O Alex passou #9c7a1f para o dourado no claro; ele mede 4,03:1 sobre
     // #ffffff — reprova AA (4,5) tanto como texto quanto como fundo de CTA com
     // rótulo branco, e o rótulo do botão primário tem 15px em negrito, longe do
@@ -1877,12 +1890,32 @@ function DrillRow({ icon, title, sub, onClick }) {
 // ativação abre o termo com rolagem obrigatória + checkbox. Voltar ao Estudo
 // é livre. Mock aprovado: qa/mocks/modo-operador.html (tela 1).
 function ModoTrabalhoCard({ ctx }) {
-  const { data, A } = ctx;
+  const { data, A, goMercado } = ctx;
   const c = data.config || {};
   const mode = c.appMode === "operador" ? "operador" : "estudo";
   const [termoOpen, setTermoOpen] = useState(false);
+  // FIX-C04 (REPORT-01): critério pedagógico SOFT de prontidão, em cima do
+  // gate legal (operadorTermo) — nunca no lugar dele. Fail-open explícito
+  // (CLAUDE.md princípio 4): só um zero MEDIDO em `analyses` dispara o
+  // aviso; `analyses` ausente/indefinido (sinal desconhecido) nunca conta
+  // como zero.
+  const analises = data && data.analyses;
+  const prontidaoConhecida = analises && typeof analises === "object";
+  const nuncaAnalisou = prontidaoConhecida && Object.keys(analises).length === 0;
+  const [nudgeOperador, setNudgeOperador] = useState(false);
+  // `nudgeDispensadoRef` (não useState): "Ativar mesmo assim" precisa
+  // chamar escolher("operador") de novo NA MESMA função do handler de
+  // clique, no mesmo tick — um useState aqui leria o valor ANTIGO (closure
+  // do render corrente), porque a atualização de estado só vale a partir do
+  // próximo render. Um ref é lido/escrito de forma síncrona, então o
+  // segundo escolher() já enxerga a dispensa. Efeito prático idêntico ao
+  // que o UI-SPEC pede (nudge visto uma vez por sessão, nunca persistido em
+  // config) — só a mecânica interna muda para não quebrar a passagem direta
+  // pro gate legal.
+  const nudgeDispensadoRef = useRef(false);
   const escolher = async (m) => {
     if (m === mode) return;
+    if (m === "operador" && nuncaAnalisou && !nudgeDispensadoRef.current) { setNudgeOperador(true); return; }
     if (m === "operador" && !c.operadorTermo) { setTermoOpen(true); return; }
     try {
       await A.saveConfig({ appMode: m });
@@ -1911,6 +1944,16 @@ function ModoTrabalhoCard({ ctx }) {
         <button onClick={() => escolher("estudo")} style={segBtn(mode === "estudo")}>🎓 Estudo</button>
         <button onClick={() => escolher("operador")} style={segBtn(mode === "operador")}>📈 Operador</button>
       </div>
+      {nudgeOperador && (
+        <div style={{ marginTop: "10px", padding: "9px 11px", borderRadius: "9px", background: "color-mix(in srgb, " + T.warn + " 12%, transparent)", border: `1px solid ${T.warn}` }}>
+          <div style={{ fontSize: "11.5px", fontWeight: 700, color: T.warn }}>Você ainda não abriu nenhuma análise no Estudo.</div>
+          <div style={{ fontSize: "11.5px", color: T.textSecondary, lineHeight: 1.4, marginTop: "4px" }}>O Modo Operador libera decisões diretas — mas ele parte do que você já entende. Vale a pena estudar pelo menos um ativo antes de ativar.</div>
+          <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
+            <button type="button" onClick={() => { setNudgeOperador(false); goMercado(); }} style={{ flex: 1, minHeight: "40px", borderRadius: "9px", border: `1px solid ${T.accent}`, background: T.accentTint, color: T.accent, fontWeight: 700, fontSize: "12px" }}>Fazer uma análise no Estudo primeiro</button>
+            <button type="button" onClick={() => { nudgeDispensadoRef.current = true; setNudgeOperador(false); escolher("operador"); }} style={{ flex: "none", minHeight: "40px", padding: "0 10px", background: "transparent", border: "none", color: T.textMuted, fontWeight: 700, fontSize: "12px" }}>Ativar mesmo assim</button>
+          </div>
+        </div>
+      )}
       <div style={{ fontSize: "11.5px", color: T.textMuted, marginTop: "9px", lineHeight: 1.5 }}>
         {mode === "operador"
           ? <>Decisões diretas (comprar/vender/aguardar/não operar) com plano de entrada, stop, alvo e risco. Termo aceito em {(c.operadorTermo || {}).aceitoEm ? String(c.operadorTermo.aceitoEm).slice(0, 10) : "—"} (v{(c.operadorTermo || {}).versao || "?"}).</>
@@ -2757,7 +2800,7 @@ function OpcaoContrato({ c, cur, chain, isOpen, onToggle, sustains, pos, onBuy, 
   const bloqueado = !chain || chain.providerStatus !== "ok"; // ADR-004
   return (
     <div style={{ borderTop: `1px solid ${T.borderFaint}` }}>
-      <div onClick={onToggle} role="button" tabIndex={0} style={{ padding: "9px 0", display: "flex", justifyContent: "space-between", alignItems: "baseline", cursor: "pointer" }}>
+      <div onClick={onToggle} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggle(); } }} role="button" tabIndex={0} aria-expanded={isOpen} style={{ padding: "9px 0", display: "flex", justifyContent: "space-between", alignItems: "baseline", cursor: "pointer" }}>
         <span style={{ fontFamily: MONO, fontWeight: 800, fontSize: "12.5px" }}>
           <span style={{ color: c.optionType === "call" ? T.positive : T.negative }}>{c.optionType === "call" ? "CALL" : "PUT"}</span> {c.contractSymbol} · strike {price(c.strike)}
         </span>
@@ -2824,7 +2867,7 @@ function OpcoesCamada({ t, cur, open, onToggle, chain, chainLoading, opContract,
   const posFor = (id) => myPositions.find((p) => p.id === id);
   return (
     <div>
-      <div onClick={onToggle} role="button" tabIndex={0} style={{ marginTop: "11px", paddingTop: "10px", borderTop: `1px solid ${T.borderFaint}`, display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}>
+      <div onClick={onToggle} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggle(); } }} role="button" tabIndex={0} aria-expanded={open} style={{ marginTop: "11px", paddingTop: "10px", borderTop: `1px solid ${T.borderFaint}`, display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}>
         <span style={{ fontSize: "12px", color: T.textSecondary, display: "flex", alignItems: "center", gap: "7px" }}>
           <span style={{ color: T.accent }}>⚡</span> {open ? "opções de " + t : "opções líquidas disponíveis"}
         </span>

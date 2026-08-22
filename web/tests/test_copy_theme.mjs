@@ -164,7 +164,10 @@ ok("R2: defaults da skill de mesa nos dois lados",
 // comentário de MODE_OPERADOR em App.jsx.
 // (v2: o vermelho/rosa da marca também virou constante — BRAND.red.)
 ok("R3: card do Operador (#141926) e negativo (vermelho da marca)", app.includes('bgCard: "#141926"') && /negative: (BRAND\.red|"#f26d6d")/.test(app));
-ok("R3: textos frios do Operador (muted/faint)", app.includes('textMuted: "#93a3c0"') && app.includes('textFaint: "#5b6890"'));
+// FIX-C16 (REPORT-01, Fase 4): textFaint do Operador escuro subiu de
+// luminosidade — o hex antigo reprovava AA (3,20-3,56:1); ver
+// test_brand_book_v2_tokens.mjs seção 5 para a auditoria completa.
+ok("R3: textos frios do Operador (muted/faint)", app.includes('textMuted: "#93a3c0"') && app.includes('textFaint: "#7581a8"'));
 // qa/mock v2 (racionalização): o badge deixou de ser pill (sólido→contornado)
 // e virou uma LINHA de modo sob o wordmark — ponto (halo accentTint) + rótulo
 // (color T.accent). Simétrico nos dois modos. Guardião completo do novo padrão
