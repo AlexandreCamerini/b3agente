@@ -123,10 +123,10 @@
       barreira tripla e usa `entrada` (não `close`) como `preco0` — registros
       anteriores à mudança ficam marcados como não-comparáveis (campo de
       versão de metodologia), nunca reconvertidos por inferência
-- [ ] **ADR15-03**: `compute_stats_all_users` deduplica por `snapshotId` antes
+- [x] **ADR15-03**: `compute_stats_all_users` deduplica por `snapshotId` antes
       de agregar — hoje um mesmo plano determinístico pode ser contado
       dezenas de vezes, inflando `n` além do `MIN_N=10`
-- [ ] **ADR15-04**: `store.sell()` ganha parâmetro `motivo` com paridade a
+- [x] **ADR15-04**: `store.sell()` ganha parâmetro `motivo` com paridade a
       `sell_option()` — hoje a taxa stop×alvo de carteira (ação) não é
       computável a partir do histórico
 - [x] **ADR15-05**: `RR_MIN`/`RR_MINIMO` consolidado numa única constante-fonte
@@ -148,7 +148,7 @@ o Bloco 1. Blocos 3 (interface) e 4 (IA) ficam para fases futuras.
 - [x] **ADR17-B1-02**: Bootstrap único e manual (15 anos × 74 tickers), fora do
       `scheduler_loop`, reexecutável, executável DENTRO do container do Railway
       (`rootDirectory=/server` — `scripts/` não existe lá)
-- [ ] **ADR17-B1-03**: Manutenção diária incremental no padrão de
+- [x] **ADR17-B1-03**: Manutenção diária incremental no padrão de
       `radar_daily.should_run()`/`maybe_run()`, pendurada no `scheduler_loop`,
       lendo do `candle_cache` sem consumir orçamento de brapi (ADR-008), com
       fechamento de janela ANUAL alinhado a `pregao.is_trading_day()`
@@ -268,12 +268,12 @@ puro consumo do que o Bloco 1 já calcula — nenhuma mudança em
 | FIX-C39 | Phase 5 | Complete |
 | ADR15-01 | Phase 6 | Done (06-01) |
 | ADR15-02 | Phase 6 | Done (06-02) |
-| ADR15-03 | Phase 6 | Pending |
-| ADR15-04 | Phase 6 | Pending |
+| ADR15-03 | Phase 6 | Complete |
+| ADR15-04 | Phase 6 | Complete |
 | ADR15-05 | Phase 6 | Complete |
 | ADR17-B1-01 | Phase 7 | Complete |
 | ADR17-B1-02 | Phase 7 | Complete |
-| ADR17-B1-03 | Phase 7 | Pending |
+| ADR17-B1-03 | Phase 7 | Complete |
 | ADR17-B1-04 | Phase 7 | Complete |
 | ADR17-B1-05 | Phase 7 | Complete |
 | ADR17-B1-06 | Phase 7 | Complete |
