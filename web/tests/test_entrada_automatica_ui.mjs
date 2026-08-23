@@ -64,5 +64,44 @@ ok("o texto antigo e impreciso do slider (\"Percentual de referência do patrim�
 ok("existe texto sobre a entrada automática só valer para plano de COMPRA (D5 do plano)",
    /entra sozinha em plano de COMPRA/.test(screen));
 
+// ---------------------------------------------------- FIX-C23 (2026-08-23) ----
+// O toggle mestre "Entrada automática" era o único dos 3 controles gateados
+// desta tela (Executar, allocPct, toggle) sem atributo HTML `disabled` real —
+// teclado e leitor de tela anunciavam um controle operável que não fazia
+// nada. Esta seção trava: (a) o componente Toggle aceita e aplica `disabled`
+// de verdade no <button>; (b) o call site de "Entrar automaticamente" passa
+// `disabled={!operador}`; (c) o guard `operador &&` do onClick continua
+// existindo (defesa em profundidade, o UI-SPEC pede que não seja removido);
+// (d) o esmaecimento usa os MESMOS valores numéricos dos irmãos já corretos
+// (opacity 0.6 / cursor not-allowed), nunca mudança de cor.
+const idxToggleFn = app.indexOf("function Toggle(");
+ok("componente Toggle existe em App.jsx", idxToggleFn >= 0);
+const fimToggleAprox = app.indexOf("\nfunction ", idxToggleFn + 10);
+const toggleFn = app.slice(idxToggleFn, fimToggleAprox > idxToggleFn ? fimToggleAprox : undefined);
+
+ok("a assinatura de Toggle inclui `disabled`",
+   /function Toggle\(\{ on, onClick, label, disabled \}\)/.test(toggleFn));
+ok("o <button> do Toggle carrega `disabled={disabled}` (atributo HTML real)",
+   /<button[^>]*\bdisabled=\{disabled\}/.test(toggleFn));
+ok("o Toggle aplica `opacity: disabled ? 0.6 : 1`",
+   /opacity:\s*disabled\s*\?\s*0\.6\s*:\s*1/.test(toggleFn));
+ok("o Toggle aplica `cursor: disabled ? \"not-allowed\" : \"pointer\"`",
+   /cursor:\s*disabled\s*\?\s*"not-allowed"\s*:\s*"pointer"/.test(toggleFn));
+// A linha `const s = {...}` é a ÚNICA fonte de bg/border/knob/color — precisa
+// seguir 100% baseada em `on`, sem `disabled` aparecer nela (zero regressão
+// de cor: o item 6 do contrato do UI-SPEC exige que o visual "off" de hoje
+// não mude, só fique esmaecido por opacidade).
+const linhaS = (toggleFn.match(/const s = \{[^}]*\};/) || [""])[0];
+ok("a linha `const s = {...}` (bg/border/knob/color) existe e é só baseada em `on`", linhaS.length > 0);
+ok("o Toggle NÃO referencia `disabled` na linha de cor (esmaecimento é só por opacidade, nunca por cor)",
+   linhaS.length > 0 && !/disabled/.test(linhaS));
+
+ok("o call site de \"Entrar automaticamente\" carrega `disabled={!operador}`",
+   /<Toggle on=\{!!ag\.entradaAuto && operador\} disabled=\{!operador\}/.test(screen));
+ok("o call site mantém o guard `operador &&` no onClick mesmo com `disabled` presente",
+   /disabled=\{!operador\} onClick=\{\(\) => operador && putAg\(\{ entradaAuto: !ag\.entradaAuto \}\)\}/.test(screen));
+ok("o parágrafo explicativo existente segue no fonte (nenhuma cópia nova trocou o texto)",
+   /Disponível no Modo Operador — em Modo Estudo a entrada continua só por aviso/.test(screen));
+
 if (fails) { console.error(`\n${fails} falha(s)`); process.exit(1); }
 console.log("\ntodos os testes passaram");

@@ -54,7 +54,10 @@ ok("aceite grava termo + modo no MESMO patch", app.includes("operadorTermo: { ac
 ok("versão do termo é fonte única (disclaimers.js)", disc.includes('TERMO_OPERADOR_VERSAO = "1.0"'));
 
 // ---- 4) Radar: plano gated pelo modo; Estudo intocado -----------------------
-ok("plano só no modo operador", app.includes('const operador = (data.config && data.config.appMode) === "operador";') && app.includes("const plano = operador ? r.plano : null;"));
+// FIX-C21 (2026-08-23): o Radar deixou de recomputar de data.config.appMode
+// e passou a ler `ctx.operador` (fonte única) — assert atualizado, a
+// garantia (plano só existe no modo operador) é a mesma.
+ok("plano só no modo operador", app.includes("const operador = ctx.operador;") && app.includes("const plano = operador ? r.plano : null;"));
 ok("decisões coloridas (COMPRAR/VENDER/AGUARDAR)", app.includes('"COMPRAR": [T.positive') && app.includes('"VENDER": [T.negative') && app.includes('"AGUARDAR CONFIRMAÇÃO": [T.accent'));
 // qa/49 (v11): o Radar passou a usar o card único; a decisão vai por
 // decisaoDoModo(r, operador) → `decMr` → manchete do AtivoCard (no ESTUDO o
@@ -64,7 +67,8 @@ ok("veredito educacional segue no ramo estudo (via decisaoDoModo)",
   && /\(operador && item && item\.plano && item\.plano\.decisao\) \? item\.plano\.decisao : \(item \|\| \{\}\)\.veredito/.test(app));
 ok("stop rotulado como invalidação do setup", app.includes("Stop (invalidação do setup)"));
 ok("sizing usa capital real OU simulado com aviso", app.includes("capital simulado — defina o real na Config"));
-ok("disclaimer da persona no modo operador", app.includes('=== "operador" ? DISCLAIMERS.operador : DISCLAIMERS.radar'));
+// FIX-C21 (2026-08-23): mesma migração — ctx.operador em vez de recomputar.
+ok("disclaimer da persona no modo operador", app.includes("ctx.operador ? DISCLAIMERS.operador : DISCLAIMERS.radar"));
 ok("aviso do modo operador cita que o app não envia ordens", disc.includes("não envia ordens a corretoras"));
 
 console.log(fails ? `\n${fails} falha(s)` : "\ntodos os testes passaram");
