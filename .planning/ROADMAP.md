@@ -275,8 +275,8 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 05-06-PLAN.md — Alerta de gasto na aba Custos + regra de acesso explícita na aba Auditoria (FIX-C38 front, FIX-C39)
-- [ ] 05-07-PLAN.md — Gate mensal no front nos dois stores + confirmação de FIX-C34 (FIX-C33 front, FIX-C34)
+- [x] 05-06-PLAN.md — Alerta de gasto na aba Custos + regra de acesso explícita na aba Auditoria (FIX-C38 front, FIX-C39)
+- [x] 05-07-PLAN.md — Gate mensal no front nos dois stores + confirmação de FIX-C34 (FIX-C33 front, FIX-C34)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -298,7 +298,7 @@ gate.
 | 2. Realismo de Mercado | v1.1 | 7/7 | Complete   | 2026-08-19 |
 | 3. Correção Crítico + Alto | v1.1 | 6/6 | Complete   | 2026-08-19 |
 | 4. Correção Médio — Storyline & UX | v1.1 | 7/7 | Complete   | 2026-08-22 |
-| 5. Correção Médio — Código, Gate & Admin | v1.1 | 5/8 | In Progress|  |
+| 5. Correção Médio — Código, Gate & Admin | v1.1 | 7/8 | In Progress|  |
 | 6. Instrumentação de Assertividade (ADR-015) | v1.1 | 5/5 | Complete | 2026-08-21 |
 | 7. Seleção Dinâmica por Desempenho Histórico (ADR-017 Bloco 1) | v1.1 | 6/6 | Complete | 2026-08-21 |
 | 8. Interface e IA da Seleção Dinâmica (ADR-017 Bloco 3/4) | v1.1 | 5/5 | Complete | 2026-08-21 |
