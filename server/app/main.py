@@ -530,9 +530,27 @@ async def obs_logs(n: int = 200, level: Optional[str] = None, cat: Optional[str]
 # usuário). Restrito ao admin: é dado do servidor, não do usuário.
 def _usage_snapshot() -> dict:
     cap = managed.global_daily_cap()
+    analises_hoje = metering.global_snapshot(_conn, cap)  # persistido, todos os usuários
+    # FIX-C38 (fase 5): alerta PREVENTIVO — mesma grandeza que o hard stop
+    # acima já limita (análises gerenciadas do dia), não tokens. A leitura da
+    # série (banco de analytics SEPARADO, ver `_analytics_conn`) é degradada
+    # honestamente: o painel de observabilidade nunca pode cair inteiro
+    # porque esse banco está indisponível (mesmo princípio do try/except do
+    # rollup em `analytics.maybe_run`).
+    limiar = db.admin_config_get(_conn, "llmAlertaGastoPct")
+    janela = db.admin_config_get(_conn, "llmAlertaJanelaDias") or metering.ALERTA_JANELA_PADRAO
+    try:
+        serie = analytics.serie_metrica(_analytics_conn, "ia_analises_gerenciadas_dia", dias=janela + 3)
+        alerta_gasto_ia = metering.alerta_gasto(analises_hoje["used"], serie, limiar, janela)
+    except Exception:  # noqa: BLE001 — série indisponível não pode derrubar /api/obs/usage
+        alerta_gasto_ia = {
+            "configurado": bool(limiar), "avaliavel": False, "motivo": "série indisponível",
+            "hoje": analises_hoje["used"], "media": None, "desvioPct": None,
+            "limiarPct": limiar, "janelaDias": janela, "acima": False,
+        }
     return {
         "tokens": llm.usage_snapshot(),              # por modelo, do dia (memória: zera no deploy)
-        "analisesGerenciadas": metering.global_snapshot(_conn, cap),  # persistido, todos os usuários
+        "analisesGerenciadas": analises_hoje,
         "iaGerenciadaAtiva": bool(managed.managed_config()),
         "tetoGlobalDia": cap,                        # None = ilimitado (B3_MANAGED_GLOBAL_DAILY_CAP)
         "cotaPorUsuarioDia": managed.daily_quota(),
@@ -546,6 +564,7 @@ def _usage_snapshot() -> dict:
         # qa/46 (Fase 2): candle_cache.stats() já existia, sem endpoint — só
         # liga o fio (L2/SQLite: nº de candles + idade por symbol@interval).
         "cacheCandles": candle_cache.stats(),
+        "alertaGastoIA": alerta_gasto_ia,
     }
 
 
@@ -700,8 +719,16 @@ async def admin_summary(user: dict = Depends(require_permission("observabilidade
 # enquanto" (restrição do ADR). `apiKey`/`baseUrl` da IA gerenciada NUNCA
 # entram aqui — seguem só em env (segredo).
 # ===========================================================================
-_CONFIG_IA_CAMPOS = ("llmProvider", "llmModel", "llmDailyQuota", "llmRatePerMin", "llmGlobalDailyCap")
+_CONFIG_IA_CAMPOS = ("llmProvider", "llmModel", "llmDailyQuota", "llmRatePerMin", "llmGlobalDailyCap",
+                     "llmAlertaGastoPct", "llmAlertaJanelaDias")  # FIX-C38 (fase 5): alerta preventivo
 _LLM_PROVIDERS_VALIDOS = ("openai", "anthropic", "google", "local")
+# FIX-C38 (fase 5): os 2 campos novos do alerta preventivo de gasto exigem
+# número > 0 quando presentes (vazio continua limpando o override, igual aos
+# demais campos) — rótulo por campo pra mensagem 400 nomear o que falhou.
+_CONFIG_IA_CAMPOS_NUMERICOS_POSITIVOS = {
+    "llmAlertaGastoPct": "Limiar de alerta de gasto",
+    "llmAlertaJanelaDias": "Janela do alerta de gasto",
+}
 
 
 @app.get("/api/admin/config/ia")
@@ -722,12 +749,31 @@ async def admin_config_ia_put(body: dict = Body(default={}), user: dict = Depend
     provider = body.get("llmProvider")
     if provider not in (None, "") and provider not in _LLM_PROVIDERS_VALIDOS:
         raise HTTPException(400, "Provider inválido — use um de: " + ", ".join(_LLM_PROVIDERS_VALIDOS) + " (ou vazio para limpar o override).")
+    # FIX-C38 (fase 5): valida ANTES de gravar — vazio segue limpando o
+    # override (mesma semântica dos demais campos); valor presente tem de
+    # converter para número > 0, senão o alerta fica configurado com um
+    # limiar/janela inválido e nunca dispara em silêncio.
+    for campo, rotulo in _CONFIG_IA_CAMPOS_NUMERICOS_POSITIVOS.items():
+        bruto = body.get(campo)
+        if campo not in body or bruto in (None, ""):
+            continue
+        try:
+            numero = float(bruto)
+        except (TypeError, ValueError):
+            numero = None
+        if numero is None or numero <= 0:
+            raise HTTPException(400, f"{rotulo}: use um número maior que zero (ou vazio para desligar o alerta).")
     alterado = {}
     for campo in _CONFIG_IA_CAMPOS:
         if campo not in body:
             continue
         anterior = db.admin_config_get(_conn, campo)
         bruto = body[campo]
+        if campo in _CONFIG_IA_CAMPOS_NUMERICOS_POSITIVOS and bruto not in (None, ""):
+            numero = float(bruto)
+            # janela em dias fica inteira no payload (7, não 7.0); o limiar
+            # de gasto (%) preserva casas decimais quando o admin digitar
+            bruto = int(numero) if campo == "llmAlertaJanelaDias" else numero
         novo = None if bruto in (None, "") else bruto
         if anterior == novo:
             continue
