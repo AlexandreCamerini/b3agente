@@ -1213,6 +1213,10 @@ function Cabecalho({ visiveis, viewAtual, setView, email, onSair }) {
 // permissão, mas toda rota que a tela chama valida de novo no backend
 // (require_permission). Telas sem `perm` (as 5 originais) continuam abertas
 // a qualquer papel administrativo, como sempre foram.
+// FIX-C39 (fase 5): sentinela — nenhuma permissão específica exigida, qualquer
+// permissão administrativa basta (mesma regra de hoje, agora declarada como
+// as outras 9 entradas em vez de ficar implícita no `!v.perm` do filtro).
+const PERM_ANY = "*";
 const VIEWS = [
   { id: "visaoGeral", label: "Visão Geral", C: VisaoGeral, perm: "observabilidade.ver" },
   { id: "custos", label: "Custos", C: Custos, perm: "observabilidade.ver" },
@@ -1223,7 +1227,7 @@ const VIEWS = [
   { id: "fontesDados", label: "Fontes de dados", C: FontesDeDados, perm: "fontes_dados.configurar" },
   { id: "prompts", label: "Prompts", C: Prompts, perm: "prompts.editar" },
   { id: "usuarios", label: "Usuários e papéis", C: Usuarios, perm: "usuarios.gerenciar" },
-  { id: "auditoria", label: "Auditoria", C: Auditoria },
+  { id: "auditoria", label: "Auditoria", C: Auditoria, perm: PERM_ANY },
 ];
 
 export default function App() {
@@ -1289,7 +1293,7 @@ export default function App() {
   // ADR-013: filtro cosmético por permissão — toda rota que a tela chama
   // valida de novo no backend, isto só evita mostrar uma aba que vai dar 403.
   const perms = user?.permissions || [];
-  const visiveis = VIEWS.filter((v) => !v.perm || perms.includes(v.perm));
+  const visiveis = VIEWS.filter((v) => !v.perm || v.perm === PERM_ANY || perms.includes(v.perm));
   const viewAtual = visiveis.find((v) => v.id === view) ? view : visiveis[0]?.id;
   const ViewC = visiveis.find((v) => v.id === viewAtual)?.C || VisaoGeral;
   return (
