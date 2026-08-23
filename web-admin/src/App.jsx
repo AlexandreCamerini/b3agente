@@ -21,7 +21,7 @@ const SANS = "'Nunito', -apple-system, system-ui, 'Segoe UI', Helvetica, Arial, 
 const DISPLAY = "'Fredoka', " + SANS;
 
 function Kv({ label, value, tone }) {
-  const col = tone === "positive" ? T.positive : tone === "negative" ? T.negative : tone === "warn" ? T.warn : T.text;
+  const col = tone === "positive" ? T.positive : tone === "negative" ? T.negative : tone === "warn" ? T.warn : tone === "faint" ? T.faint : T.text;
   return (
     <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", padding: "7px 0", borderBottom: `1px solid ${T.border}`, fontSize: "13px" }}>
       <span style={{ color: T.muted }}>{label}</span>
@@ -140,6 +140,21 @@ function Custos() {
   const { loading, error, data, reload } = useFetch(() => api.obsUsage(), []);
   const { data: tend } = useFetch(() => api.tendencias(30), []);
   const tokensDia = Object.values(data?.tokens?.porModelo || {}).reduce((s, v) => s + (v.inputTokens || 0) + (v.outputTokens || 0), 0);
+  // FIX-C38 (fase 5): alerta PREVENTIVO de gasto de IA — complementar ao hard
+  // stop de metering.check()/cap_global, que já bloqueia. Este indicador
+  // avisa ANTES, sem cortar nada. Tom "negative" fica reservado ao hard stop
+  // (sinal separado, já existente); alerta preventivo e hard stop nunca se
+  // fundem numa severidade só (CLAUDE.md item 4 — nunca inferir "normal" da
+  // ausência de dado: "não configurado"/"sem base de comparação" NÃO caem no
+  // verde de "positive").
+  const a = data?.alertaGastoIA;
+  const alertaGasto = !a || !a.configurado
+    ? { value: "não configurado", tone: "faint" }
+    : !a.avaliavel
+      ? { value: "sem base de comparação" + (a.motivo ? " (" + a.motivo + ")" : ""), tone: "faint" }
+      : a.acima
+        ? { value: "⚠ gasto de hoje " + a.desvioPct + "% acima da média dos últimos " + a.janelaDias + " dias", tone: "warn" }
+        : { value: "dentro do normal", tone: "positive" };
   return (
     <>
       {data && (
@@ -159,6 +174,7 @@ function Custos() {
               <Kv label="Teto global/dia" value={data.tetoGlobalDia ?? "ilimitado"} />
               <EventoComSerie label="Análises gerenciadas — usado hoje" value={(data.analisesGerenciadas?.used ?? "—") + " · restante " + (data.analisesGerenciadas?.remaining ?? "—")} serie={paraSparkline(tend?.ia_analises_gerenciadas_dia)} />
               <EventoComSerie label="Tokens/dia (todos os modelos)" value={tokensDia + " tokens"} serie={paraSparkline(tend?.custo_ia_tokens_dia)} />
+              <Kv label="Alerta de gasto (IA gerenciada)" value={alertaGasto.value} tone={alertaGasto.tone} />
               {Object.entries(data.tokens?.porModelo || {}).map(([modelo, v]) => (
                 <Kv key={modelo} label={"Tokens hoje — " + modelo} value={(v.total ?? v.tokens ?? JSON.stringify(v))} />
               ))}
@@ -657,7 +673,7 @@ function MudancaDeLLM({ user }) {
       // como "reverte pro env" (db.admin_config_delete).
       const payload = {};
       for (const k of ["llmProvider", "llmModel"]) payload[k] = form[k] || null;
-      for (const k of ["llmDailyQuota", "llmRatePerMin", "llmGlobalDailyCap"]) {
+      for (const k of ["llmDailyQuota", "llmRatePerMin", "llmGlobalDailyCap", "llmAlertaGastoPct", "llmAlertaJanelaDias"]) {
         if (form[k] === "" || form[k] == null) { payload[k] = null; continue; }
         const n = Number(form[k]);
         if (!Number.isNaN(n)) payload[k] = n;
@@ -688,6 +704,8 @@ function MudancaDeLLM({ user }) {
             {campo("llmDailyQuota", "Cota diária por usuário", "vazio = usa B3_MANAGED_DAILY_QUOTA", true)}
             {campo("llmRatePerMin", "Rate por minuto", "vazio = usa B3_MANAGED_RATE_PER_MIN", true)}
             {campo("llmGlobalDailyCap", "Teto global/dia", "vazio = usa B3_MANAGED_GLOBAL_DAILY_CAP", true)}
+            {campo("llmAlertaGastoPct", "Limiar de alerta de gasto (%)", "vazio = sem alerta preventivo", true)}
+            {campo("llmAlertaJanelaDias", "Janela de comparação (dias)", "vazio = usa Ndias padrão", true)}
             {podeEditar && (
               <button onClick={salvar} disabled={busy}
                       style={{ marginTop: "6px", padding: "8px 14px", borderRadius: "8px", border: "none", background: T.accent, color: T.onAccent, fontWeight: 700, fontSize: "12.5px", cursor: "pointer", opacity: busy ? 0.6 : 1 }}>
