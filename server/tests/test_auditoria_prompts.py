@@ -268,6 +268,41 @@ def test_a8ii_paridade_defaults_carteira_com_catalog_js():
         assert m.group(1) == prompts[chave], f"{chave} divergiu do servidor"
 
 
+def test_a8ii_paridade_defaults_skill_com_catalog_js():
+    """FIX-C22 (2026-08-23): o par default_skill_text()/defaultSkillText()
+    (e a versão Operador) não tinha guardião de paridade byte-exata, ao
+    contrário do par carteiraStopAlvo* acima — a verificação de 2026-08-23
+    achou os dois textos JÁ divergentes por completo (catalog.js carregava
+    uma geração anterior, sem acentos, sem os 11 princípios e sem o Contrato
+    de saída). O aparelho manda `doc.skill`/`doc.skillOperador` no CORPO da
+    requisição de análise (deviceStore, ver persistence.js) — divergir aqui
+    significa persona DIFERENTE no iPhone. Byte a byte: divergiu, acusa.
+
+    O texto contém um backtick literal (`corpo`, no Contrato de saída),
+    escapado como \\` no template literal de catalog.js — o regex abaixo
+    trata `\\`` como par escapado (não fecha o literal) e o unescape desfaz
+    isso antes de comparar com a string Python (que já traz o backtick cru).
+    """
+    import os
+    import re
+    caminho = os.path.join(os.path.dirname(__file__), "..", "..",
+                           "web", "src", "catalog.js")
+    with open(caminho, encoding="utf-8") as f:
+        src = f.read()
+    pares = {
+        "SKILL_TEXT_ESTUDO": defaults.default_skill_text(),
+        "SKILL_TEXT_OPERADOR": defaults.default_skill_text_operador(),
+    }
+    for nome, canonico in pares.items():
+        m = re.search(nome + r"\s*=\s*`((?:\\.|[^`\\])*)`", src)
+        assert m, f"literal de {nome} não encontrado no catalog.js"
+        extraido = m.group(1).replace("\\`", "`").replace("\\\\", "\\")
+        assert extraido == canonico, (
+            f"{nome} (catalog.js) divergiu de defaults.py — "
+            f"fonte de verdade é o servidor: mudou lá, muda no catalog.js"
+        )
+
+
 # ===== M3 — regra explícita de null para stop/alvo sem referência ===========
 
 def test_m3_format_pede_null_nunca_zero():
