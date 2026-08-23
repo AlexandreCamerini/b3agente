@@ -246,11 +246,41 @@ preferência, não bloqueio)
      deixando claro que é consumo do app inteiro, não cota pessoal.
      [FIX-C33, FIX-C34]
 
+     > **Nota de planejamento (2026-08-23)** — a segunda metade deste
+     > critério (medidor visível ao usuário final) foi SUPERADA e não será
+     > entregue. Ela foi escrita em 2026-08-18, antes da entrega de FIX-C30
+     > (Fase 3). O texto ORIGINAL do achado C-34 diz que "não é necessário
+     > expor orçamento bruto ao usuário final... mesma mudança de C-30
+     > resolve as duas questões", e o Copywriting Contract da Fase 3 decidiu
+     > deliberadamente que o aviso de dado degradado não menciona
+     > orçamento/cota/mês/limite — só o efeito, nunca a causa. Construir o
+     > medidor agora contradiria decisão de produto já shippada. FIX-C34
+     > fecha por CONFIRMAÇÃO (guardião em `web/tests/test_fase5_c34_orcamento_nao_vaza.mjs`,
+     > Plano 05-07). Ver 05-CONTEXT.md, "Tensão resolvida por verificação
+     > direta". Reabrir é decisão explícita do Alex, não inferência daqui.
+
   5. Um alerta preventivo dispara antes do teto global de gasto de IA (não
      só o hard stop já existente); a aba "Auditoria" do portal admin ganha
      campo `perm`, alinhando com o padrão visual das outras 9 abas.
      [FIX-C38, FIX-C39]
-**Plans**: TBD
+**Plans**: 8 plans
+Plans:
+**Wave 1**
+
+- [ ] 05-01-PLAN.md — Testes de rota de rejeição de ordem + reponderação na recompra (FIX-C25, FIX-C26)
+- [ ] 05-02-PLAN.md — Ledger mensal em metering + gate com contagem real + alerta preventivo de gasto (FIX-C33 backend, FIX-C38 backend)
+- [ ] 05-03-PLAN.md — Paridade byte-exata do par de skills + migração do texto legado no aparelho (FIX-C22)
+- [ ] 05-04-PLAN.md — Suíte canônica autossuficiente em checkout novo + ADR-018 de avaliação de E2E (FIX-C24, FIX-C27)
+- [ ] 05-05-PLAN.md — Fonte única de appMode em App.jsx + Toggle com disabled real (FIX-C21, FIX-C23)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 05-06-PLAN.md — Alerta de gasto na aba Custos + regra de acesso explícita na aba Auditoria (FIX-C38 front, FIX-C39)
+- [ ] 05-07-PLAN.md — Gate mensal no front nos dois stores + confirmação de FIX-C34 (FIX-C33 front, FIX-C34)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 05-08-PLAN.md — Bump, publicação de web_dist/admin_dist e verificação humana ao vivo
 **UI hint**: yes
 
 ## Progress
@@ -268,7 +298,7 @@ gate.
 | 2. Realismo de Mercado | v1.1 | 7/7 | Complete   | 2026-08-19 |
 | 3. Correção Crítico + Alto | v1.1 | 6/6 | Complete   | 2026-08-19 |
 | 4. Correção Médio — Storyline & UX | v1.1 | 7/7 | Complete   | 2026-08-22 |
-| 5. Correção Médio — Código, Gate & Admin | v1.1 | 0/TBD | Not started | - |
+| 5. Correção Médio — Código, Gate & Admin | v1.1 | 0/8 | Planned | - |
 | 6. Instrumentação de Assertividade (ADR-015) | v1.1 | 5/5 | Complete | 2026-08-21 |
 | 7. Seleção Dinâmica por Desempenho Histórico (ADR-017 Bloco 1) | v1.1 | 6/6 | Complete | 2026-08-21 |
 | 8. Interface e IA da Seleção Dinâmica (ADR-017 Bloco 3/4) | v1.1 | 5/5 | Complete | 2026-08-21 |
