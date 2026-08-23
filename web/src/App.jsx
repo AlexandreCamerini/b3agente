@@ -325,11 +325,11 @@ function GlobalStyle() {
   );
 }
 
-function Toggle({ on, onClick, label }) {
+function Toggle({ on, onClick, label, disabled }) {
   const s = { bg: on ? T.accentTintHi : T.knob, border: on ? T.accent : T.borderSubtle, knob: on ? "24px" : "2px", color: on ? T.accent : T.textFaint };
   return (
-    <button onClick={onClick} role="switch" aria-checked={on} aria-label={label}
-      style={{ position: "relative", width: "50px", height: "28px", borderRadius: "16px", border: `1px solid ${s.border}`, background: s.bg, flex: "none" }}>
+    <button onClick={onClick} disabled={disabled} role="switch" aria-checked={on} aria-label={label}
+      style={{ position: "relative", width: "50px", height: "28px", borderRadius: "16px", border: `1px solid ${s.border}`, background: s.bg, flex: "none", opacity: disabled ? 0.6 : 1, cursor: disabled ? "not-allowed" : "pointer" }}>
       <span style={{ position: "absolute", top: "2px", left: s.knob, width: "22px", height: "22px", borderRadius: "50%", background: s.color, transition: "left .15s" }} />
     </button>
   );
@@ -4237,7 +4237,7 @@ function AgenteScreen({ ctx }) {
               Quando o gatilho de entrada dispara para um plano de COMPRA da watchlist, decide se a mesa compra sozinha (lote redondo, dentro do teto abaixo) ou só avisa, como hoje.
             </p>
           </div>
-          <Toggle on={!!ag.entradaAuto && operador} onClick={() => operador && putAg({ entradaAuto: !ag.entradaAuto })} label="Entrar automaticamente" />
+          <Toggle on={!!ag.entradaAuto && operador} disabled={!operador} onClick={() => operador && putAg({ entradaAuto: !ag.entradaAuto })} label="Entrar automaticamente" />
         </div>
         <div style={{ marginTop: "16px", paddingTop: "15px", borderTop: `1px solid ${T.borderFaint}`, opacity: operador ? 1 : 0.6 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
