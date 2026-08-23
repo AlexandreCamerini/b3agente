@@ -173,9 +173,20 @@ Items acknowledged and carried forward from previous milestone close (v1.0):
 ## Session Continuity
 
 Last session: 2026-08-23T21:04:28.675Z
-Stopped at: Phase 05 concluída — checkpoint 05-08 aprovado, deploy confirmado
-Resume file: .planning/phases/05-corre-o-m-dio-c-digo-gate-admin/05-08-SUMMARY.md
+Stopped at: Milestone v1.1 fechado e arquivado (tag v1.1)
+Resume file: .planning/milestones/v1.1-phases/05-corre-o-m-dio-c-digo-gate-admin/05-08-SUMMARY.md
 
 ## Operator Next Steps
 
-- Start the next milestone with /gsd-new-milestone
+**Nenhum milestone novo aberto (decisão do Alex, 2026-08-23) — backlog documentado abaixo, sem processo formal até ele pedir.**
+
+Backlog, em ordem de prioridade sugerida:
+
+1. **Item 8 do checkpoint 08-05** — verificação ao vivo da entrada automática gated por um pregão inteiro com `entradaAuto` ligado; confirmar que só dispara nos setups elegíveis do momento e que o kill-switch está à mão antes de ligar. Único item que envolve execução automática real (dinheiro simulado).
+2. **2 human-check da Fase 3** nunca confirmados ao vivo — ver `.planning/milestones/v1.1-phases/03-corre-o-cr-tico-alto/03-VERIFICATION.md` (card de status 3 badges reativo; mensagem de "sem permissão" no kill-switch do timing_watch).
+3. **9 achados Baixo do REPORT-01** (C-06..C-10, C-17, C-18, C-28, C-29) — não mapeados a fase, ver `.planning/milestones/v1.0-phases/01-auditoria-diagn-stica-consolidada/REPORT-01.md`.
+4. **`textDim` do tema claro falha WCAG AA** (4.20:1, achado colateral da Fase 4, fora do escopo do C-16 original).
+5. **9 tickers com 404** no bootstrap do ledger de sinais (ELET3, BRFS3, ELET6, JBSS3, CRFB3, NTCO3, CPLE6, MRFG3, EMBR3) — prováveis renomeações/deslistagens, não investigado.
+6. **ADR-010** (números comerciais do plano gratuito/pago) — decisão de negócio do Alex, não técnica; arquitetura já confirmada pronta (FIX-C33 fechou o último gap estrutural).
+
+Quando o Alex quiser abrir milestone novo: `/gsd:new-milestone`.
