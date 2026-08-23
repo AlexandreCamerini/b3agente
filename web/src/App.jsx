@@ -7158,7 +7158,19 @@ export default function App() {
     },
     analyze: async (t) => {
       // GANCHO FREEMIUM (hoje sempre permite): limite de análises/mês do gratuito.
-      const gate = canAnalyze(0); // FUTURO: passar contagem do mês
+      // FIX-C33 (Fase 5): contagem real do mês, lida do ledger do servidor
+      // (store.analisesNoMes(), mesmo contrato nos dois stores). Falha-aberta
+      // (0) em erro/null é aceitável aqui e NÃO é o hardcode que C-33
+      // corrigiu: este é só o pré-check de UX; o gate AUTORITATIVO roda no
+      // servidor (_gate_analise, Plano 05-02) na mesma requisição de análise
+      // — bloquear a análise por causa de uma leitura de cota que não
+      // respondeu seria pior do que deixar o servidor decidir.
+      let usedThisMonth = 0;
+      try {
+        const n = await store.analisesNoMes();
+        if (typeof n === "number") usedThisMonth = n;
+      } catch { /* falha-aberta: gate do servidor continua ativo */ }
+      const gate = canAnalyze(usedThisMonth);
       if (!gate.ok) { flash(gate.reason); setAnalysis((a) => ({ ...a, [t]: { loading: false, error: gate.reason } })); setExpanded((x) => ({ ...x, [t]: true })); return; }
       setExpanded((x) => ({ ...x, [t]: true }));
       setAnalysis((a) => ({ ...a, [t]: { ...(a[t] || {}), loading: true, error: null } }));
