@@ -252,7 +252,7 @@ No coverage tool or numeric threshold is configured or enforced. Coverage is ach
 
 **Contract/parity tests:** static-source comparison tests (see Guardian Tests above) — a category specific to this codebase's dual-client architecture (Python server + JS web + JS-in-native).
 
-**E2E tests:** not present. There is no browser automation (Playwright/Cypress) or device-level test harness in the repo; iOS-specific behavior is verified manually via TestFlight (see `TESTFLIGHT.md`) and the memory note that some UI bugs "só a verificação ao vivo pegou" (only live verification catches them) — do not assume a passing unit/integration test proves the mobile UI behaves correctly.
+**E2E tests:** not present. There is no browser automation (Playwright/Cypress) or device-level test harness in the repo; iOS-specific behavior is verified manually via TestFlight (see `TESTFLIGHT.md`) and the memory note that some UI bugs "só a verificação ao vivo pegou" (only live verification catches them) — do not assume a passing unit/integration test proves the mobile UI behaves correctly. See `docs/adr/018-cobertura-e2e.md` (2026-08-23, FIX-C27) for the dated decision on why E2E is not being adopted now, with objective re-evaluation triggers.
 
 **Manual/adjacent tooling:** `scripts/masstest-agentes.py` (deterministic, free) and `scripts/masstest-agentes-llm.py` (LLM-backed, BYOK) run larger simulated-agent scenarios outside the pytest/node suites — not part of the canonical gate, used for broader behavioral spot-checks.
 
