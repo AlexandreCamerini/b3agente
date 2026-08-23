@@ -16,6 +16,8 @@ This runs, in order:
 
 `scripts/test.sh` alone is **only the backend half** — running it in isolation and declaring the work validated is explicitly called out as insufficient in the project's own `CLAUDE.md`. Always use `bash scripts/executar.sh --testes` (or `bash executar.sh --testes` from repo root) for real validation.
 
+**Checkout/worktree novo (FIX-C24, 2026-08-23):** `bash scripts/executar.sh --testes` agora resolve o pré-requisito de `web/node_modules` sozinho — se ausente, roda `npm ci` (ou `npm install` se não houver lockfile ou o `npm ci` falhar) em `web/` antes do laço de testes, e aborta com mensagem acionável se a instalação falhar. Não é mais necessário rodar `npm install` manualmente antes da suíte canônica num checkout/worktree novo. Além disso, uma falha num `.mjs` da suíte web agora imprime as últimas ~20 linhas da saída do teste (antes era um `[X]` mudo, com a causa engolida por `>/dev/null 2>&1`). Ver `docs/adr/018-cobertura-e2e.md` para a avaliação companheira de cobertura E2E (FIX-C27).
+
 **Front-end edits require an additional build check** the test suites do not catch (JS syntax errors are not caught by grep/static read):
 
 ```bash
@@ -250,7 +252,7 @@ No coverage tool or numeric threshold is configured or enforced. Coverage is ach
 
 **Contract/parity tests:** static-source comparison tests (see Guardian Tests above) — a category specific to this codebase's dual-client architecture (Python server + JS web + JS-in-native).
 
-**E2E tests:** not present. There is no browser automation (Playwright/Cypress) or device-level test harness in the repo; iOS-specific behavior is verified manually via TestFlight (see `TESTFLIGHT.md`) and the memory note that some UI bugs "só a verificação ao vivo pegou" (only live verification catches them) — do not assume a passing unit/integration test proves the mobile UI behaves correctly.
+**E2E tests:** not present. There is no browser automation (Playwright/Cypress) or device-level test harness in the repo; iOS-specific behavior is verified manually via TestFlight (see `TESTFLIGHT.md`) and the memory note that some UI bugs "só a verificação ao vivo pegou" (only live verification catches them) — do not assume a passing unit/integration test proves the mobile UI behaves correctly. See `docs/adr/018-cobertura-e2e.md` (2026-08-23, FIX-C27) for the dated decision on why E2E is not being adopted now, with objective re-evaluation triggers.
 
 **Manual/adjacent tooling:** `scripts/masstest-agentes.py` (deterministic, free) and `scripts/masstest-agentes-llm.py` (LLM-backed, BYOK) run larger simulated-agent scenarios outside the pytest/node suites — not part of the canonical gate, used for broader behavioral spot-checks.
 

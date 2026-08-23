@@ -20,11 +20,28 @@ if [ "${1:-}" = "--testes" ]; then
   say "Suítes do backend"
   bash scripts/test.sh || die "backend com falhas"
   say "Suítes web"
+  if [ ! -d web/node_modules ]; then
+    echo "  web/node_modules ausente — instalando (pré-requisito da suíte web)"
+    if [ -f web/package-lock.json ]; then
+      (cd web && npm ci) || (cd web && npm install) || die "npm install falhou em web/ — rode 'cd web && npm install' manualmente"
+    else
+      (cd web && npm install) || die "npm install falhou em web/ — rode 'cd web && npm install' manualmente"
+    fi
+  fi
   RC=0
+  TMPDIR_TESTES="$(mktemp -d)"
   for t in web/tests/*.mjs; do
     [ -e "$t" ] || continue
-    if (cd web && node "${t#web/}" >/dev/null 2>&1); then printf "  \033[32m[OK]\033[0m %s\n" "$t"; else printf "  \033[31m[X]\033[0m %s\n" "$t"; RC=1; fi
+    OUT="$TMPDIR_TESTES/$(basename "$t").log"
+    if (cd web && node "${t#web/}" >"$OUT" 2>&1); then
+      printf "  \033[32m[OK]\033[0m %s\n" "$t"
+    else
+      printf "  \033[31m[X]\033[0m %s\n" "$t"
+      tail -20 "$OUT" | sed 's/^/      /'
+      RC=1
+    fi
   done
+  rm -rf "$TMPDIR_TESTES"
   exit "$RC"
 fi
 
