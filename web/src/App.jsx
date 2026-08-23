@@ -1764,7 +1764,7 @@ function EvolucaoScreen({ ctx }) {
   // STU + finance.js), operações de hoje, alertas de setups na watchlist e o
   // destaque de oportunidade (1 leitura N1/dia autorizada, cache por snapshot).
   const { data, quotes, A, wlScan, destaque, cp, mercado } = ctx;   // FASE 8B (B1)
-  const operador = (data.config && data.config.appMode) === "operador"; // qa/40: pill de decisão por modo
+  const operador = ctx.operador; // qa/40: pill de decisão por modo — FIX-C21: lê a fonte única
   const name = ((data.config && data.config.userName) || "").trim().split(/\s+/)[0] || "";
   const streak = (data.config && data.config.streak && data.config.streak.days) || 0;
   const [deepOpen, setDeepOpen] = useState(false);
@@ -1976,7 +1976,7 @@ function DrillRow({ icon, title, sub, onClick }) {
 function ModoTrabalhoCard({ ctx }) {
   const { data, A, goMercado } = ctx;
   const c = data.config || {};
-  const mode = c.appMode === "operador" ? "operador" : "estudo";
+  const mode = ctx.operador ? "operador" : "estudo"; // FIX-C21: lê a fonte única
   const [termoOpen, setTermoOpen] = useState(false);
   // FIX-C04 (REPORT-01): critério pedagógico SOFT de prontidão, em cima do
   // gate legal (operadorTermo) — nunca no lugar dele. Fail-open explícito
@@ -2196,7 +2196,7 @@ function AjudaTexto({ children }) {
 // qa/38 (Help): TELA DE AJUDA — accordion "Como funciona", uma seção por área.
 function AjudaScreen({ ctx }) {
   const cp = ctx.cp;
-  const operador = (ctx.data.config && ctx.data.config.appMode) === "operador";
+  const operador = ctx.operador; // FIX-C21: lê a fonte única
   const secoes = ajudaSecoes(cp, operador);
   const [aberta, setAberta] = useState(0);
   return (
@@ -3373,7 +3373,7 @@ function MercadoScreen({ ctx }) {
   // direção; histórico de operações por ativo (formatos a+b no card, c no
   // detalhe expandido). A análise N2 segue abrindo como detalhe do card.
   const { data, quotes, analysis, expanded, analysisModel, setAnalysisModel, A, quotesAt, quotesLoading, wlScan, wlScanLoading, cp } = ctx;
-  const operador = (data.config && data.config.appMode) === "operador"; // qa/40: pill de decisão por modo
+  const operador = ctx.operador; // qa/40: pill de decisão por modo — FIX-C21: lê a fonte única
   const [dirFilter, setDirFilter] = useState("todos");   // todos | alta | baixa | neutro
   const [opsOpen, setOpsOpen] = useState({});            // ticker -> histórico aberto
   const [sparks, setSparks] = useState({});              // ticker -> candles (lazy)
@@ -4537,7 +4537,7 @@ const PROMPT_META = {
 // escolhe pelo nome qual editar (abre na do modo em uso).
 function SkillSection({ ctx, sectionTitle }) {
   const { data, A } = ctx;
-  const modoAtivo = (data.config && data.config.appMode) === "operador" ? "operador" : "estudo";
+  const modoAtivo = ctx.operador ? "operador" : "estudo"; // FIX-C21: lê a fonte única
   const [alvo, setAlvo] = useState(modoAtivo);   // estudo | operador
   const sk = alvo === "operador" ? (data.skillOperador || { name: "Mesa B3 - Operador v1", text: "" }) : (data.skill || { name: "", text: "" });
   const emUso = alvo === modoAtivo;
@@ -5993,7 +5993,7 @@ function RadarScreen({ ctx }) {
           // FASE 7 (F7.1) — Modo Operador: decisão direta + plano do servidor.
           // O plano vem SEMPRE no payload (determinístico, do setups.py); a UI
           // só o exibe neste modo — o Estudo permanece intocado.
-          const operador = (data.config && data.config.appMode) === "operador";
+          const operador = ctx.operador; // FIX-C21: lê a fonte única
           const plano = operador ? r.plano : null;
           const opStyle = plano ? ({
             "COMPRAR": [T.positive, "rgba(52,211,153,.15)", "▲ "],
@@ -6193,7 +6193,7 @@ function RadarScreen({ ctx }) {
 
       <div style={{ ...card, padding: "13px 16px", marginTop: "16px", background: T.bgPanel }}>
         {/* FASE 7 (F7.1): no Modo Operador vale o aviso da persona (risco real) */}
-        <div style={{ fontSize: "11.5px", color: T.accent, lineHeight: 1.55 }}>{(data.config && data.config.appMode) === "operador" ? DISCLAIMERS.operador : DISCLAIMERS.radar}</div>
+        <div style={{ fontSize: "11.5px", color: T.accent, lineHeight: 1.55 }}>{ctx.operador ? DISCLAIMERS.operador : DISCLAIMERS.radar}</div>
       </div>
       {deepFor && <DeepModal t={deepFor} d={deep[deepFor] || {}} cp={cp} onClose={() => setDeepFor(null)} onAvaliar={() => { const t = deepFor; setDeepFor(null); ctx.openAvaliar(t); }} />}
     </div>
@@ -7015,7 +7015,7 @@ export default function App() {
   // Camada de entendimento: catálogo buscado UMA vez por modo. Custo zero (é
   // texto determinístico do backend, sem LLM). Falha aqui é silêncio proposital
   // — sem catálogo o app segue inteiro, apenas sem as afordâncias de explicação.
-  const modoApp = (data && data.config && data.config.appMode) || "estudo";
+  const modoApp = appMode; // FIX-C21: lê a fonte única (variável local desta função)
   useEffect(() => {
     let alive = true;
     store.conceitos(modoApp)
@@ -7427,7 +7427,7 @@ export default function App() {
       // FASE 8B (N4): o prompt do stop/alvo tem versão por MODO — a mesa usa
       // carteiraStopAlvoOperador; o professor, carteiraStopAlvo (fallback).
       const lp = (data && data.llmPrompts) || {};
-      const prompt = (((data.config || {}).appMode === "operador") ? (lp.carteiraStopAlvoOperador || lp.carteiraStopAlvo) : lp.carteiraStopAlvo) || "";
+      const prompt = ((appMode === "operador") ? (lp.carteiraStopAlvoOperador || lp.carteiraStopAlvo) : lp.carteiraStopAlvo) || ""; // FIX-C21: lê a fonte única
       setStopAlvo((s) => ({ ...s, [t]: { ...(s[t] || {}), loading: true, error: null } }));
       try {
         const r = await store.analyzeStopAlvo(t, { prompt });
@@ -7787,11 +7787,16 @@ export default function App() {
 
   const ctx = {
     // qa/audit-2026-08-07 (item 5): fonte ÚNICA de "estamos em Modo Operador?"
-    // — antes recalculado de forma independente em 10+ lugares do arquivo.
-    // Novo código deve ler `ctx.operador`, não redevirar de data.config.appMode.
-    // `data` pode ser null no boot (antes do 1º getState resolver) — o `ctx`
-    // é montado incondicionalmente a cada render, então o guard vem primeiro.
-    operador: !!(data && data.config && data.config.appMode === "operador"),
+    // Novo código lê `ctx.operador`, nunca redevira de data.config.appMode.
+    // FIX-C21 (2026-08-23) fechou a migração: as 10 leituras independentes
+    // que existiam foram todas trocadas por `ctx.operador` (fora de App()) ou
+    // pela variável local `appMode` (dentro de App()) — a própria montagem
+    // abaixo agora deriva de `appMode` em vez de recomputar. O guardião
+    // `web/tests/test_fase5_appmode_fonte_unica.mjs` trava a CLASSE do erro
+    // (uma leitura independente nova volta a quebrar o teste).
+    // `data` pode ser null no boot (antes do 1º getState resolver) — `appMode`
+    // (linha acima) já cobre esse guard, então a derivação abaixo é segura.
+    operador: appMode === "operador",
     // Fase 2 (MERC-01, D-08): mesmo canal de sempre — WelcomeAuthScreen e o
     // resto da árvore leem `ctx.mercado`, nunca recalculam o status em outro
     // lugar. Ver o useEffect de boot do estado `mercado`, acima.
@@ -7990,7 +7995,7 @@ export default function App() {
         const cfg = data.config || {};
         const prof = data.profile || {};
         return {
-          modo: cfg.appMode || "estudo",
+          modo: appMode, // FIX-C21: lê a fonte única
           orcamentoInicial: cfg.initialBudget,
           risco: prof.risco,
           horizonte: prof.horizonte,
