@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Realismo de Mercado + Correções
-status: Fase 04 concluída — 7/7 planos, suíte canônica verde
-stopped_at: Phase 04 concluída — todas as 7 tasks executadas, suíte canônica verde
-last_updated: "2026-08-22T02:39:55.896Z"
+status: verifying
+stopped_at: Phase 05 UI-SPEC approved
+last_updated: "2026-08-23T16:59:11.864Z"
 last_activity: 2026-08-22 -- Phase 4 concluída
 progress:
   total_phases: 7
@@ -21,16 +21,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-18)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Phase 5 — Correção Médio, Código/Gate/Admin (REPORT-01), ainda não iniciada
+**Current focus:** Phase 05 — Correção Médio, Código/Gate/Admin (REPORT-01), planejamento em andamento
 
 ## Current Position
 
-Phase: 04 (corre-o-m-dio-storyline-ux) — COMPLETE
-Plan: 7 of 7
-Status: Fase 04 concluída — 9 requisitos (FIX-C01..C05, C13..C16) fechados, suíte canônica verde (1325 pytest + 95 web/tests), verificação visual (login-gated) pendente de confirmação do Alex
-Last activity: 2026-08-22 -- Phase 4 concluída
+Phase: 05 (corre-o-m-dio-c-digo-gate-admin) — PLANNING
+Status: CONTEXT.md + UI-SPEC.md prontos e aprovados (6/6 dimensões, 2 iterações); próximo passo é spawnar o `gsd-planner`
+Last activity: 2026-08-22 -- Phase 5 UI-SPEC aprovado
 
-Progress: [████████░] 86% (v1.1, 6/7 fases: 2,3,4,6,7,8 completas; 5 não iniciada)
+Progress: [████████░] 86% (v1.1, 6/7 fases: 2,3,4,6,7,8 completas; 5 em planejamento)
 
 ## Performance Metrics
 
@@ -166,9 +165,9 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-22T02:39:55.888Z
-Stopped at: Phase 04 concluída — todas as 7 tasks executadas, suíte canônica verde
-Resume file: .planning/phases/04-corre-o-m-dio-storyline-ux/04-07-SUMMARY.md
+Last session: 2026-08-23T16:59:11.855Z
+Stopped at: Phase 05 UI-SPEC approved
+Resume file: .planning/phases/05-corre-o-m-dio-c-digo-gate-admin/05-UI-SPEC.md
 
 ## Operator Next Steps
 
@@ -181,5 +180,10 @@ Resume file: .planning/phases/04-corre-o-m-dio-storyline-ux/04-07-SUMMARY.md
   Estudo→Operador, curva com Ibovespa) ainda não foi feita ao vivo — o
   agente não loga sozinho na conta. Pedir ao Alex um print/smoke test
   quando puder.
-- Fase 5 (Correção Médio — Código/Gate/Admin, REPORT-01) segue não iniciada, sem plano ainda: `/gsd:plan-phase 5` quando o Alex priorizar.
+
+- Fase 05 planejada até o UI-SPEC (aprovado 6/6, 2 iterações — 1 block
+  mecânico de citação de spacing errada, corrigida e verificada). C-34
+  resolvido por verificação direta contra 03-01-SUMMARY.md: já coberto
+  pelo fix do C-30 (Fase 3), não precisa de UI nova. Falta spawnar o
+  `gsd-planner`.
 - 9 tickers com 404 no bootstrap do ledger (ELET3, BRFS3, ELET6, JBSS3, CRFB3, NTCO3, CPLE6, MRFG3, EMBR3) — prováveis renomeações/deslistagens; não investigado, não bloqueia a fase.
