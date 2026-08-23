@@ -57,11 +57,15 @@ adjacent to each edit.
 | Token | Value | Usage (as seen adjacent to this phase's 2 edits) |
 |-------|-------|-------|
 | xs | 4px | `Toggle` knob offset (`web/src/App.jsx:329`), gap between inline label/value |
-| sm | 8px | Row gaps in `Kv`/`Card` (`web-admin/src/App.jsx:26`, `:39`) |
-| md | 14–16px | Card internal padding (`web/src/App.jsx` `card` object, `web-admin/src/App.jsx:39`) |
-| lg | 16–18px | Card-to-card margin (`marginTop: "16px"` throughout both) |
+| sm | 7px | `Kv` row vertical padding, `padding: "7px 0"` (`web-admin/src/App.jsx:26`) — the new FIX-C38 alert row is added as another `Kv` inside the existing Custos card, so it inherits this value verbatim, no new container |
+| md | 12px | `Kv` row internal gap, `gap: "12px"` (`web-admin/src/App.jsx:26`) |
+| lg | 16px | `Card` internal padding + margin, `padding: "16px", marginBottom: "16px"` (`web-admin/src/App.jsx:39`) — on the standard 4px-multiple grid, no exception needed for this one |
 
-Exceptions: none introduced by this phase.
+Exceptions: `sm` (7px) and `md` (12px) above are off the strict 4px-multiple
+grid, but both are pre-existing values in `web-admin/src/App.jsx:26` that
+this phase's FIX-C38 row reuses exactly (same `Kv` component, same card, no
+new spacing introduced) — not a new deviation. developer-approved — matches
+existing pattern — 2026-08-22
 
 ---
 
@@ -184,10 +188,13 @@ readable, consistent with "não manipular/diminuir estados negativos."
 (`cap_global`, checked in `check()`, line 102) is a threshold comparison
 with **no configurable warning band** — it either allows or rejects, no
 intermediate state exists today. The existing "alert-with-threshold" visual
-precedent in this codebase (`data.candles.alerta`/`limiarAlerta`,
-`candle_provider.py:140-141`, rendered `web-admin/src/App.jsx:189-191`) uses
-a **hardcoded module constant** (`_LIMIAR_ERRO`), not an admin-editable
-value — that precedent is the right one for the *display* half of C-38 but
+precedent this section relies on is `data.candles.vazios`
+(`candle_provider.py:140-141`, rendered `web-admin/src/App.jsx:189`,
+`tone="warn"`) — a **hardcoded module constant** (`_LIMIAR_ERRO`), not an
+admin-editable value. (The adjacent `Kv` at line 191, `alerta`, is a
+different field with `tone={alerta ? "negative" : "positive"}` — not part of
+this precedent, cited here only to avoid confusing the two.) That precedent
+is the right one for the *display* half of C-38 but
 the WRONG one for "configurável." The correct precedent for the
 *configuration* half is `_CONFIG_IA_CAMPOS` / `admin_config_ia_get`/`put`
 (`server/app/main.py:693-729`) + the `MudancaDeLLM` component's `campo()`
