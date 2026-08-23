@@ -27,10 +27,13 @@ ok("home (hero + lista) usa decisaoDoModo", (app.match(/decisaoDoModo\((r|it), o
 ok("watchlist usa decisaoDoModo", /rotuloDec = decisaoDoModo\(sc, operador\)/.test(app));
 
 // as duas telas têm a flag operador em escopo (senão: ReferenceError em runtime)
+// FIX-C21 (2026-08-23): as duas telas pararam de recomputar de
+// data.config.appMode e passaram a ler `ctx.operador` (fonte única) — assert
+// atualizado pra expressão nova, a garantia (flag em escopo) é a mesma.
 const evo = app.slice(app.indexOf("function EvolucaoScreen("), app.indexOf("function ModoTrabalhoCard("));
 const mer = app.slice(app.lastIndexOf("function MercadoScreen("), app.indexOf("function StopAlvoModal("));
-ok("EvolucaoScreen define operador", /const operador = \(data\.config && data\.config\.appMode\) === "operador"/.test(evo));
-ok("MercadoScreen define operador", /const operador = \(data\.config && data\.config\.appMode\) === "operador"/.test(mer));
+ok("EvolucaoScreen define operador", /const operador = ctx\.operador;/.test(evo));
+ok("MercadoScreen define operador", /const operador = ctx\.operador;/.test(mer));
 
 // qa/40: o KpiBlock (análise expandida no Monitoramento) troca o rótulo
 // "PLANO EDUCACIONAL" por "DECISÃO DA MESA" no operador — e recebe a flag.

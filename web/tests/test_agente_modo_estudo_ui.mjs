@@ -28,8 +28,13 @@ const screen = app.slice(inicio, fimAprox > inicio ? fimAprox : undefined);
 // vez (junto do resto de `ctx`), não mais redevirado dentro de cada tela.
 ok("AgenteScreen lê `operador` de ctx (fonte única, não redevira de data.config)",
    /const \{ operador \} = ctx;/.test(screen));
-ok("ctx expõe `operador` computado de data.config.appMode, com guard pra data=null no boot",
-   /operador: !!\(data && data\.config && data\.config\.appMode === "operador"\),/.test(app));
+// FIX-C21 (2026-08-23): a própria montagem de `ctx` deixou de recomputar de
+// data.config.appMode — agora deriva da variável local `appMode` (que já
+// tem o guard pra data=null no boot, linha 6836 do App.jsx). Assert
+// atualizado para a expressão nova; a garantia (ctx expõe `operador`
+// corretamente, mesmo no boot) continua a mesma.
+ok("ctx expõe `operador` derivado de `appMode` (fonte única, guard pra data=null herdado da derivação local)",
+   /operador: appMode === "operador",/.test(app));
 
 // --------------------------------------------------- botão "Executar" preso
 ok("o botão \"Executar\" tem uma condição de disabled ligada a appMode !== operador",
