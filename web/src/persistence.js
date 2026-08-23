@@ -16,7 +16,7 @@
 // App.jsx fala apenas com `store`; a diferenca de plataforma fica escondida aqui.
 import { Capacitor } from "@capacitor/core";
 import { api, setApiBase, setNativeMode } from "./api.js";
-import { CATALOG, CATALOG_TICKERS, defaultState, defaultSkillText, defaultSkillTextOperador, defaultLlmPrompts } from "./catalog.js";
+import { CATALOG, CATALOG_TICKERS, defaultState, defaultSkillText, defaultSkillTextOperador, defaultLlmPrompts, LEGACY_SKILL_TEXTS } from "./catalog.js";
 import { backfillStructural, limparCarteiraDemo } from "./migrate.js";
 // FASE 2: camada de sync (token + cache otimista + fila offline). serverStore
 // fala com o servidor ATRAVÉS dela; deviceStore segue local-first, EXCETO a
@@ -312,6 +312,19 @@ function deviceStore() {
       // FASE 8B (R2): skill da mesa — backfill em docs antigos
       if (!doc.skillOperador || typeof doc.skillOperador !== "object" || typeof doc.skillOperador.text !== "string") {
         doc.skillOperador = { name: "Mesa B3 - Operador v1", text: defaultSkillTextOperador() };
+      }
+      // FIX-C22 (2026-08-23): upgrade de default LEGADO no aparelho — mesmo
+      // contrato de `_eh_default_antigo` em server/app/store.py (default
+      // antigo SOBE, edição do usuário é INTOCÁVEL). Só troca quando o texto
+      // salvo bate byte a byte com uma entrada de `LEGACY_SKILL_TEXTS`; texto
+      // que não casa é edição do usuário e fica como está. Fica aqui (mesmo
+      // backfill de `skillOperador` acima) porque é o único ponto que roda em
+      // TODO doc carregado, antes de qualquer leitura de skill/skillOperador.
+      if (doc.skill && typeof doc.skill.text === "string" && LEGACY_SKILL_TEXTS.includes(doc.skill.text)) {
+        doc.skill.text = defaultSkillText();
+      }
+      if (doc.skillOperador && typeof doc.skillOperador.text === "string" && LEGACY_SKILL_TEXTS.includes(doc.skillOperador.text)) {
+        doc.skillOperador.text = defaultSkillTextOperador();
       }
       // FASE 7 (F7.1) — Modo Operador: backfill de docs antigos
       if (doc.config.appMode !== "estudo" && doc.config.appMode !== "operador") doc.config.appMode = "estudo";
