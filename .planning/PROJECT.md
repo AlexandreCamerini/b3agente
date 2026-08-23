@@ -6,10 +6,12 @@ Simulador educacional de ações da B3 com dados reais de mercado e dinheiro
 exclusivamente virtual. Ensina a mecânica da bolsa brasileira — setups,
 indicadores, gestão de risco — através de um Modo Estudo (a IA orienta, nunca
 executa) que evolui para um Modo Operador (ferramentas automáticas e análises
-mais profundas, com execução simulada). Web/PWA + app iOS nativo (mesmo
-bundle via Capacitor), backend Python/FastAPI, portal de administração
-separado. Vai ser comercializado: funções básicas grátis com cota pequena de
-análises de IA, escalando para planos pagos.
+mais profundas, com execução simulada, agora **gated pela seleção dinâmica**:
+entrada automática só dispara em setup com vantagem estatística medida na
+janela anterior fechada, não mais em qualquer padrão detectado). Web/PWA +
+app iOS nativo (mesmo bundle via Capacitor), backend Python/FastAPI, portal
+de administração separado. Vai ser comercializado: funções básicas grátis com
+cota pequena de análises de IA, escalando para planos pagos.
 
 ## Core Value
 
@@ -18,19 +20,12 @@ funciona — não decorou uma resposta, aprendeu o raciocínio — e só então 
 acesso a automações do Modo Operador. Se o storyline pedagógico não convencer,
 nada mais no produto importa.
 
-## Current Milestone: v1.1 Realismo de Mercado + Correções
+## Current Milestone: nenhum aberto — v1.1 shipped 2026-08-23
 
-**Goal:** Fechar o gap entre o produto e um pregão real (status de mercado visível,
-ordens fora de horário represadas) e corrigir os 30 achados Crítico/Alto/Médio
-do `REPORT-01.md` (v1.0).
-
-**Target features:**
-- Status real de mercado (aberto/fechado, via `pregao.py`) visível na tela de
-  entrada/home — hoje só existe pós-login, na aba Operador
-- Ordem fora do horário de pregão vira pendente: executa no preço de abertura
-  do pregão seguinte, caixa reservado no pedido, cancelável enquanto pendente
-- Correção dos 2 Crítico + 8 Alto + 20 Médio do REPORT-01 (os 9 Baixo ficam
-  no backlog)
+Ver `.planning/milestones/v1.1-ROADMAP.md` (a criar) e
+`.planning/MILESTONES.md` para o histórico completo. Próximo milestone ainda
+não iniciado — decisão do Alex entre: (a) novo milestone de funcionalidade,
+ou (b) fechar o backlog abaixo primeiro (ver "Active").
 
 ## Requirements
 
@@ -42,7 +37,8 @@ do `REPORT-01.md` (v1.0).
 - ✓ Camada de dados de mercado com fonte declarada e fallback (brapi master,
   Yahoo backup/intraday, ADR-001/ADR-008) — existing
 - ✓ Separação Modo Estudo/Modo Operador via flag `appMode`, com vocabulário
-  próprio por modo (`skill_ref.py` ↔ `copy.js`) — existing
+  próprio por modo (`skill_ref.py` ↔ `copy.js`) — existing, fonte única
+  reforçada em v1.1 (`ctx.operador`, FIX-C21)
 - ✓ IA multi-provider (Anthropic/OpenAI/Google, BYOK + gerenciada com cota),
   camada didática que explica indicador→correlação→decisão — existing
 - ✓ Autenticação multi-método unificada numa única conta (Sign in with Apple,
@@ -50,89 +46,123 @@ do `REPORT-01.md` (v1.0).
 - ✓ RBAC/entitlements (ADR-013) e portal de administração/observabilidade
   separado (`web-admin/`, ADR-014, handoff mobile) — existing
 - ✓ Estrutura técnica de planos (`plan.py`, `metering.py`) pronta para ligar
-  cap comercial, hoje inerte (ADR-010) — existing
-- ✓ REVIEW-01: Storyline pedagógico auditado ao vivo (8 passos × 2 modos) —
-  jornada confirmada íntegra, CVM conforme, 10 achados (5 Médio, 5 Baixo,
-  nenhum Crítico/Alto) — v1.0
-- ✓ REVIEW-02: UX/UI auditada ao vivo contra os 10 princípios do CLAUDE.md —
-  9 achados, incluindo 1 Crítico (rótulo de fonte de dado hardcoded e
-  factualmente errado) — v1.0
-- ✓ REVIEW-03: Código/dívida técnica auditada — 10 achados, narrativa de
-  causa-raiz dos 3 bugs históricos de `appMode` corrigida com evidência
-  linha a linha (nenhum foi causado pela divergência que se supunha) — v1.0
-- ✓ REVIEW-04: Arquitetura de gating auditada — hooks de `plan.py` existem
-  mas nunca resolvem plano por usuário; achado Crítico (cota brapi
-  degradada invisível) — v1.0
-- ✓ REVIEW-05: Portal admin/observabilidade auditado — 4 achados (3 Alto, 1
-  Médio), incluindo segundo kill-switch invisível e painel cego pro modo de
-  falha do provedor de dados — v1.0
-- ✓ REVIEW-06: `REPORT-01.md` consolidado — 39 achados (2 Crítico, 8 Alto, 20
-  Médio, 9 Baixo), deduplicação evidence-based, validado por checkpoint
-  humano com o Alex — v1.0
+  cap comercial — v1.1 fechou o último buraco estrutural (FIX-C33, contagem
+  real do mês); só falta a decisão de negócio (ADR-010) pra ativar de vez
+- ✓ REVIEW-01..06 / `REPORT-01.md` (39 achados, 2 Crítico + 8 Alto + 20 Médio
+  + 9 Baixo) — v1.0
+- ✓ MERC-01..04: status real de mercado na tela de entrada + fila de
+  execução de ordens fora do horário de pregão — v1.1 Fase 2
+- ✓ FIX-C11, FIX-C30 (2 Crítico) + FIX-C12, C19, C20, C31, C32, C35, C36, C37
+  (8 Alto) — v1.1 Fase 3
+- ✓ FIX-C01..C05, C13..C16 (9 Médio — STORY/UX: fallback determinístico do
+  Passo 7, rastro de rejeição, benchmark Ibovespa, prontidão pedagógica,
+  diversificação, disclaimer no modal, tudo-ou-nada declarado, acordeão por
+  teclado, contraste WCAG AA) — v1.1 Fase 4
+- ✓ FIX-C21..C27, C33, C34, C38, C39 (11 Médio — CODE/GATE/ADMIN: fonte
+  única de `appMode`, paridade byte-exata de skill text — achou e corrigiu
+  divergência REAL de persona entre iPhone e web —, Toggle disabled real,
+  suíte autossuficiente, testes de rejeição/reponderação, avaliação de E2E
+  via ADR-018, contagem mensal real do gate, alerta preventivo de gasto de
+  IA, regra de acesso explícita da aba Auditoria) — v1.1 Fase 5
+- ✓ ADR-015 (instrumentação de assertividade): âncora no gatilho real (não
+  mais no close), dedup por `snapshotId`, `motivo` em `store.sell()`, R:R
+  mínimo consolidado numa fonte única — v1.1 Fase 6 (nasceu de pesquisa
+  ad-hoc, não do REPORT-01)
+- ✓ ADR-016 (diagnóstico, sem código): motor de setups tinha expectância
+  negativa (−0,105R/operação, 15 anos, 125.938 sinais) — achado que motivou
+  as Fases 6-8
+- ✓ ADR-017 Bloco 0+1 (seleção dinâmica): 6 setups catastróficos aposentados
+  (estático, piso de segurança), ledger de sinais resolvidos + bootstrap +
+  hook diário + `regime.ranquear()` pesando por elegibilidade medida na
+  janela anterior — v1.1 Fase 7
+- ✓ ADR-017 Bloco 3+4 (interface): vocabulário canônico do histórico medido,
+  Radar/Watchlist/card de setup mostrando elegibilidade, `entradaAuto`
+  religado mas GATED pela elegibilidade (nunca mais suspensão cega nem
+  "qualquer padrão detectado") — v1.1 Fase 8
 
 ### Active
 
-- [ ] MERC-01..04: Status real de mercado na tela de entrada + fila de
-      execução de ordens fora do horário de pregão (preço na abertura
-      seguinte, caixa reservado no pedido, cancelável enquanto pendente) —
-      ver `.planning/REQUIREMENTS.md` v1.1 para o detalhamento
-- [ ] FIX-C11..C39 (30 achados): Correção dos 2 Crítico + 8 Alto + 20 Médio
-      do REPORT-01 — ver `.planning/REQUIREMENTS.md` v1.1
+- [ ] Item 8 do checkpoint 08-05: verificação ao vivo da entrada automática
+  gated por um pregão inteiro (`entradaAuto` ligado, confirmar que só
+  dispara nos setups elegíveis do momento) — depende do Alex ligar a
+  feature numa conta de teste
+- [ ] 2 human-check da Fase 3 nunca confirmados ao vivo (card de status 3
+  badges reativo; mensagem de "sem permissão" no kill-switch pra conta sem
+  `execucao_automatica.controlar`) — ver `03-VERIFICATION.md`
 - [ ] Backlog (não mapeado a fase ainda): os 9 achados Baixo do REPORT-01
+  (C-06..C-10, C-17, C-18, C-28, C-29)
 - [ ] Decisão comercial pendente (Alex): números do plano gratuito/pago
-      (ADR-010) — arquitetura já avaliada como pronta (REVIEW-04); falta só
-      a decisão de negócio
+  (ADR-010) — arquitetura confirmada pronta (FIX-C33 fechou o último gap
+  estrutural); falta só a decisão de negócio
+- [ ] `textDim` do tema claro também reprova contraste WCAG AA (4.20:1) —
+  achado colateral da Fase 4 (fora do escopo do C-16 original), candidato a
+  backlog
+- [ ] 9 tickers com 404 no bootstrap do ledger de sinais (ELET3, BRFS3,
+  ELET6, JBSS3, CRFB3, NTCO3, CPLE6, MRFG3, EMBR3) — prováveis
+  renomeações/deslistagens, não investigado
 
 ### Out of Scope
 
 - Decisão dos números comerciais do plano gratuito/pago (quantos ativos,
   quantas análises/mês, preço, loja) — depende do Alex, ADR-010; a revisão
   avaliou só se a arquitetura aguenta quando a decisão vier (confirmado:
-  aguenta, com ressalvas em C-31/C-32)
+  aguenta, ver FIX-C31/C32/C33)
 - Modo Operador de trades reais — fora do produto por princípio (só carteira
   simulada)
 - Posição vendida/short — não existe no modelo de dados, fora de escopo de
   produto
+- Fill parcial de ordem — reafirmado em v1.1 (FIX-C14): simulação é
+  tudo-ou-nada por desenho, defensável pelo princípio 5 (determinismo);
+  declarado explicitamente em copy/doc, não é lacuna
 - Fonte dupla por finalidade (brapi só carteira/watchlist, Yahoo só Radar) —
-  discutida no checkpoint da fase 1 e descartada: o Radar intraday (15m) já
-  usa Yahoo automaticamente hoje (`brapi.py:28`, plano gratuito não aceita
-  15m), o ganho real seria só ~74 req/dia da fatia "delta" — modesto
+  descartada no checkpoint da fase 1: o Radar intraday (15m) já usa Yahoo
+  automaticamente, ganho real seria modesto
 - Escolha de fonte de dado (brapi/Yahoo) e frequência de atualização na UI
-  do usuário — já proposta e rejeitada explicitamente no
-  `docs/adr/008-fonte-de-cotacoes-selecionavel.md` ("usuário sem base para
-  escolher; consumo dobrado; L2 duplicado e failover frio"); frequência
-  configurável por usuário também esbarra no orçamento ser por-app, não
-  por-usuário (ADR-010)
+  do usuário — rejeitada explicitamente no `docs/adr/008-...md`
+- Suíte E2E/Playwright completa — avaliada em v1.1 (FIX-C27/ADR-018) e
+  decidido NÃO adotar agora: os 3 defeitos históricos mais caros do produto
+  ocorreram no lado nativo/Capacitor, superfície que Playwright-em-PWA não
+  alcançaria; 4 gatilhos objetivos de reavaliação documentados no ADR-018
+- Medidor de orçamento brapi visível ao usuário final — avaliado em v1.1
+  (FIX-C34) e decidido que NÃO é necessário: o fix de FIX-C30 (Fase 3) já
+  cobre o efeito prático (aviso de dado degradado, sem vazar número);
+  construir um medidor nesse ponto contradiria essa decisão de produto já
+  shippada
 
 ## Context
 
-- Produto já maduro (múltiplos milestones entregues: identidades unificadas,
-  Boris UX, rebranding, RBAC/entitlements, camada de entendimento) —
-  `.planning/codebase/` (commit `94aa35d`) tem o mapa completo (STACK,
-  ARCHITECTURE, STRUCTURE, CONVENTIONS, TESTING, INTEGRATIONS, CONCERNS).
+- Produto maduro, agora com o motor de recomendação revisado com evidência
+  medida (não mais intuição): 15 anos de replay determinístico (ADR-016)
+  mostraram que o motor de setups tinha expectância negativa; a seleção
+  dinâmica por desempenho histórico (ADR-017) é o mecanismo corretivo, em
+  produção desde 2026-08-21/22.
 - CLAUDE.md da raiz do repo é a fonte normativa de produto: 10 princípios
   obrigatórios (saldo fictício, sem ordem real, transparência de dado, sem
   invenção de valor, cálculo determinístico, sem promessa de lucro,
   disclosure de dado histórico/atrasado, sem enriquecimento rápido, estados
   completos, acessibilidade).
 - ADRs relevantes: 001/008 (fonte de dados), 006/007 (camada de entendimento
-  e assistente), 010 (planos e cap gratuito — pendente comercial), 013 (RBAC),
-  014 (admin mobile).
-- **v1.0 entregou a auditoria geral** (`.planning/milestones/v1.0-phases/
-  01-auditoria-diagn-stica-consolidada/REPORT-01.md`, 880 linhas, validado
-  pelo Alex em checkpoint humano) — nenhuma correção de código foi
-  implementada nesta milestone, por decisão explícita (fase diagnóstica).
-  Achados brutos por dimensão continuam nos 5 `FINDINGS-*.md` no mesmo
-  diretório, como anexo/auditoria do julgamento.
-- Nenhum bug financeiro (ordem/posição/saldo) aberto foi encontrado na
-  auditoria — o núcleo determinístico está bem guardado. Os 2 achados
-  Crítico são ambos de transparência de dado (princípio 3), não de cálculo.
+  e assistente), 010 (planos e cap gratuito — pendente comercial), 013
+  (RBAC), 014 (admin mobile), 015 (assertividade da instrumentação), 016
+  (diagnóstico do motor de setups), 017 (seleção dinâmica), 018 (avaliação
+  de cobertura E2E — decisão de não adotar agora).
+- **v1.1 entregou**: Fases 2-5 (REPORT-01: realismo de mercado + os 30
+  achados Crítico/Alto/Médio) + Fases 6-8 (nascidas de pesquisa ad-hoc sobre
+  o motor de recomendação: instrumentação de assertividade, seleção
+  dinâmica por desempenho histórico, interface do histórico medido).
+  7 fases, 44 planos, 343 commits, ~5 dias (2026-08-18 a 2026-08-23).
 - Suíte canônica de teste: `bash scripts/executar.sh --testes` (pytest +
-  web/tests/*.mjs); `scripts/test.sh` sozinho é meia baseline. Achado da
-  auditoria: rodar num worktree/checkout novo sem `web/node_modules`
-  instalado faz 7 testes web falharem por ambiente, não por regressão —
-  inclui os 2 guardiões mais relevantes desta auditoria (paridade de stores,
-  sync de `appMode`). Rodar `npm install` em `web/` antes da suíte.
+  web/tests/*.mjs); `scripts/test.sh` sozinho é meia baseline. Desde a Fase
+  5 (FIX-C24), o próprio `executar.sh` resolve `web/node_modules` ausente
+  sozinho (antes precisava de `npm install` manual em checkout/worktree
+  novo) e mostra a causa real de falha web em vez de engolir o erro.
+- `web-admin/` (portal admin) não tem framework de teste — verificação é
+  `npx vite build` + guardiões estáticos em `web/tests/*.mjs` que leem o
+  código-fonte do portal (precedente confirmado, `test_fase3_custos_falha_
+  brapi.mjs` e outros).
+- Deploy: Railway serve só `server/web_dist` (app consumidor) e
+  `server/admin_dist` (portal) — publicação é sempre passo manual
+  (`scripts/publicar-web.sh`/`publicar-admin.sh`), nunca automático no CI.
 
 ## Constraints
 
@@ -148,17 +178,22 @@ do `REPORT-01.md` (v1.0).
   (guardrail CVM); IA explica, nunca substitui
 - **Deploy**: Railway com `rootDirectory=/server`; só `server/` é publicado,
   por isso `web_dist`/`admin_dist`/`ios_dist` ficam versionados no git
+- **Seleção de setups**: toda elegibilidade/ranking é regra determinística
+  sobre o ledger medido (ADR-017) — se algum dia a proposta for deixar a IA
+  escolher setup, ordenar o Radar ou decidir entrada, isso é mudança de
+  natureza e exige aprovação separada (guardrail explícito do ADR-017)
 
 ## Key Decisions
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Bootstrap do GSD via `/gsd:new-project` num produto brownfield maduro | Usuário pediu revisão geral estruturada; GSD dá rastreabilidade de achado→fase de correção | ✓ Good — 19/19 requisitos rastreados até o `REPORT-01`, verificação goal-backward passou 6/6 |
-| Fase 1 é só diagnóstico, sem correção inline | Usuário escolheu explicitamente — quer priorizar antes de mexer em código | ✓ Good — checkpoint humano confirmou que a régua de severidade bate com a memória do dono do produto antes de qualquer código mudar |
-| Gating avaliado só na arquitetura, não nos números comerciais | Números dependem de decisão de negócio do Alex (ADR-010), fora do alcance desta revisão técnica | ✓ Good — achado real (hooks nunca resolvem plano por usuário) veio à tona sem precisar da decisão comercial |
-| As 5 dimensões (storyline, UX, código, gating, admin) pesam igual na fase 1 | Usuário confirmou que nenhuma é mais crítica agora | ✓ Good — os 2 Crítico saíram de dimensões diferentes (UX e GATE), confirmando que nenhuma podia ter sido pulada |
-| 5 plans paralelos (wave 1) + 1 de consolidação (wave 2) | Mesmo padrão do map-codebase — reduz wall-clock | ⚠️ Revisit — 2 dos 5 plans paralelos falharam na 1ª tentativa por worktree isolado nascendo de base desatualizada (sem `.planning/`); contornado lendo cross-worktree, mas vale investigar a causa antes do próximo milestone usar o mesmo padrão |
+| Bootstrap do GSD via `/gsd:new-project` num produto brownfield maduro | Usuário pediu revisão geral estruturada; GSD dá rastreabilidade de achado→fase de correção | ✓ Good — todos os 50 requirements de v1.1 rastreados até o REPORT-01/ADR-015/016/017, 44/44 planos com SUMMARY |
+| Fase 1 é só diagnóstico, sem correção inline | Usuário escolheu explicitamente — quer priorizar antes de mexer em código | ✓ Good — checkpoint humano confirmou a régua de severidade antes de qualquer código mudar |
+| 5 plans paralelos (wave 1) + 1 de consolidação (wave 2) | Mesmo padrão do map-codebase — reduz wall-clock | ✓ Good, causa raiz resolvida — o worktree isolado clona de `origin/main`, não do HEAD local; a partir da Fase 6, `git push` sempre roda antes de spawnar a wave seguinte (nunca mais o problema reapareceu) |
 | Fonte dupla por finalidade e listbox de escolha de fonte (propostas do Alex no checkpoint) | Ganho de orçamento pareceu grande à primeira vista | ⚠️ Revisit se re-proposto — ambas descartadas com evidência: Radar intraday já usa Yahoo de graça; listbox já rejeitada no ADR-008 duas vezes |
+| Critério de aposentadoria de setup: magnitude econômica em faixas, não \|t\| | Alex rejeitou a proposta original (\|t\| conflacia efeito com tamanho de amostra — provado com Setup 9.1 baixa vs alta, dano quase idêntico, veredito oposto só por 426 observações a mais) | ✓ Good — critério revisado incorporado no ADR-017 Decisão 1 antes de qualquer código, evitou aposentar setup errado por artefato estatístico |
+| Checkpoint humano bloqueante represa o push da FASE INTEIRA, não só da task do checkpoint | Fase 8: push de wave 1 (hábito herdado das Fases 6/7) colocou o gate de `entradaAuto` em produção horas antes da aprovação do Alex — exposição real avaliada como zero (feature desligada em todas as contas), mas foi sorte, não desenho | ✓ Good — regra aplicada corretamente na Fase 5 (checkpoint do 05-08), nenhuma wave deu push antes da aprovação |
+| Plano que toca `web/src/` precisa de task explícita de bump+publicar-web.sh | Fase 4: os 7 planos fecharam os 9 achados com suíte verde, mas nenhum publicou o front — ficou testado, mergeado e invisível em produção até eu notar manualmente | ✓ Good — corrigido antes de fechar a Fase 4 (commit `f2ef08e`); Fase 5 já nasceu com plano de publicação (05-08) desde o planejamento |
 
 ## Evolution
 
@@ -178,4 +213,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-08-18 after starting v1.1 milestone*
+*Last updated: 2026-08-23 after v1.1 milestone*

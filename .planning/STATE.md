@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Realismo de Mercado + Correções
-status: v1.1 concluído — 7/7 fases completas (2,3,4,5,6,7,8)
+status: Awaiting next milestone
 stopped_at: Phase 05 concluída — checkpoint 05-08 aprovado, deploy confirmado
-last_updated: "2026-08-23T21:04:28.686Z"
-last_activity: 2026-08-23 -- Phase 5 concluída, milestone v1.1 fechado
+last_updated: "2026-08-23T22:29:01.638Z"
+last_activity: 2026-08-23 — Milestone v1.1 completed and archived
 progress:
   total_phases: 7
   completed_phases: 7
@@ -25,12 +25,10 @@ See: .planning/PROJECT.md (updated 2026-08-18)
 
 ## Current Position
 
-Phase: 05 (corre-o-m-dio-c-digo-gate-admin) — COMPLETE
-Plan: 8 of 8
-Status: Fase 05 concluída — 11 requisitos (FIX-C21..C27, C33, C34, C38, C39) fechados, checkpoint aprovado, deploy confirmado (F10-20260823-01). **v1.1 (Realismo de Mercado + Correções) está 100% completo: 7/7 fases (2, 3, 4, 5, 6, 7, 8).**
-Last activity: 2026-08-23 -- Phase 5 concluída, milestone v1.1 fechado
-
-Progress: [██████████] 100% (v1.1, 7/7 fases completas)
+Phase: Milestone v1.1 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-08-23 — Milestone v1.1 completed and archived
 
 ## Performance Metrics
 
@@ -157,7 +155,15 @@ None yet.
 
 ## Deferred Items
 
-Items acknowledged and carried forward from previous milestone close:
+Items acknowledged and deferred at milestone close on 2026-08-23:
+
+| Category | Item | Status |
+|----------|------|--------|
+| verification_gap | Phase 03 (03-VERIFICATION.md): 2 human-check items nunca confirmados ao vivo — card de status 3 badges reativo (troca de Modo do app / toggle Operador no servidor movendo os badges juntos) e mensagem de "sem permissão" no kill-switch do timing_watch pra conta sem `execucao_automatica.controlar`. Passou por checkpoint diferente (03-06 Task 3), que cobriu 7 outros itens mas não estes 2. | human_needed |
+| quick_task | 260820-0hl-pesquisa-e-design-assertividade-do-motor | complete de fato (SUMMARY.md `status: complete`, gerou o ADR-015 que virou a Fase 6) — o auditor de milestone reporta "missing" por não casar um padrão esperado; falso positivo, não pendência real |
+| quick_task | 260820-cap-pesquisa-qualidade-do-sinal-do-motor-de- | diretório vazio (sem PLAN/SUMMARY) — artefato abandonado do mesmo dia do 0hl, nunca teve conteúdo; seguro remover numa limpeza futura |
+
+Items acknowledged and carried forward from previous milestone close (v1.0):
 
 | Category | Item | Status | Deferred At |
 |----------|------|--------|-------------|
@@ -172,27 +178,4 @@ Resume file: .planning/phases/05-corre-o-m-dio-c-digo-gate-admin/05-08-SUMMARY.m
 
 ## Operator Next Steps
 
-- Item 8 do checkpoint 08-05 (verificação ao vivo da entrada automática
-  gated por um pregão inteiro) segue aberto — ver "Pending Todos".
-
-- Fase 04 concluída (2026-08-22): 7 planos, 4 waves, 9 requisitos fechados.
-  Verificação visual das telas que exigem login (BuyModal/SellModal com
-  disclaimer, Carteira com aviso de concentração, nudge de prontidão
-  Estudo→Operador, curva com Ibovespa) ainda não foi feita ao vivo — o
-  agente não loga sozinho na conta. Pedir ao Alex um print/smoke test
-  quando puder.
-
-- Fase 05 concluída (2026-08-23): 8 planos, 3 waves, 11 requisitos fechados,
-  checkpoint aprovado, deploy confirmado. Achados de execução relevantes:
-  FIX-C22 achou divergência REAL de persona entre iPhone e web (corrigida);
-  FIX-C21 recontou 12 pontos de leitura de `appMode` (não 10, App.jsx
-  cresceu pra 8181 linhas); FIX-C34 fechado por confirmação, sem UI nova
-  (nota de supersessão registrada no ROADMAP.md e REQUIREMENTS.md).
-
-- **Milestone v1.1 (Realismo de Mercado + Correções) está 100% completo** —
-  7/7 fases (2, 3, 4, 5, 6, 7, 8). Próximo passo é decidir com o Alex o que
-  vem depois: novo milestone, ou trabalhar o backlog restante (9 achados
-  Baixo do REPORT-01, decisão comercial do ADR-010, item 8 do checkpoint
-  08-05 ainda aberto).
-
-- 9 tickers com 404 no bootstrap do ledger (ELET3, BRFS3, ELET6, JBSS3, CRFB3, NTCO3, CPLE6, MRFG3, EMBR3) — prováveis renomeações/deslistagens; não investigado, não bloqueia a fase.
+- Start the next milestone with /gsd-new-milestone
