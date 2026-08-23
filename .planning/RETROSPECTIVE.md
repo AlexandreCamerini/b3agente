@@ -40,6 +40,133 @@
 
 ---
 
+## Milestone: v1.1 — Realismo de Mercado + Correções
+
+**Shipped:** 2026-08-23
+**Phases:** 7 (2-8) | **Plans:** 44 | **Sessions:** 2+ (contínuas, com handoff de contexto no meio)
+
+### What Was Built
+- Fases 2-5 (REPORT-01): status real de pregão + ordens fora de horário
+  (Fase 2); os 2 Crítico + 8 Alto (Fase 3); os 20 Médio, split por coesão —
+  STORY/UX (Fase 4) e CODE/GATE/ADMIN (Fase 5)
+- Fases 6-8, nascidas de pesquisa ad-hoc sobre o motor de recomendação
+  (não do REPORT-01): instrumentação de assertividade que revelou o motor de
+  setups com expectância negativa (ADR-015/016), seleção dinâmica por
+  desempenho histórico — ledger, bootstrap, hook diário (ADR-017 Bloco 1,
+  Fase 7) — e a interface + religamento gated do Modo Operador (ADR-017
+  Bloco 3/4, Fase 8)
+- 3 achados reais descobertos só na EXECUÇÃO, não no planejamento: iPhone
+  rodando persona de IA divergente da web (FIX-C22), gate comercial sem
+  contador mensal real (FIX-C33), Yahoo silenciosamente devolvendo velas
+  mensais em vez de diárias/semanais (achado que motivou o guard universal
+  de granularidade da Fase 7)
+
+### What Worked
+- **plan-checker com "extra scrutiny" explícito no prompt** — pedir
+  verificação pontual de alegações específicas do planner (não só o
+  checklist padrão) pegou discrepâncias reais repetidas vezes: aritmética
+  errada num teste (FIX-C26, ×1 vs ×10 por causa da normalização de lote),
+  citação de linha errada num UI-SPEC (off-by-one), e confirmou 7 achados
+  de descoberta da Fase 5 contra o código ao vivo, não só a palavra do
+  planner.
+- **UI-SPEC com sign-off explícito pra exceção de padrão** — quando um
+  checker bloqueia por "valor fora do grid declarado" mas o valor É um
+  reuso legítimo de padrão já existente, a exigência de citar `file:line`
+  + a frase literal `developer-approved — matches existing pattern —
+  {data}` (só depois de EU mesmo verificar a citação contra o código real)
+  aconteceu 3 vezes (Fases 4, 5, 8) e nunca deixou passar uma citação
+  inventada — pegou até uma citação genuinamente errada (Fase 5, "8px"
+  quando o valor real era 7px).
+- **CONTEXT.md manual via ADR-ingest quando o parser automático falha** —
+  `adr-parser.cjs` não reconhece o formato "Decisão N" usado nos ADRs deste
+  projeto (retorna 0 decisions); escrever o CONTEXT.md à mão, citando
+  evidência original linha a linha, funcionou bem nas Fases 7, 4 e 5 sem
+  precisar de `discuss-phase` interativo.
+- **Correção de critério ANTES de codar** — o Alex rejeitou o critério
+  original de aposentadoria de setup (|t|, ADR-017 Bloco 0) com uma crítica
+  estatística rigorosa em Plan Mode; a correção pro critério certo
+  (magnitude econômica em faixas) aconteceu inteiramente em planejamento,
+  sem nenhuma linha de código pra desfazer depois.
+
+### What Was Inefficient
+- **Push prematuro em fase com checkpoint bloqueante (Fase 8)** — hábito
+  herdado de fases sem checkpoint (6, 7) de dar `git push` depois de cada
+  wave colocou o gate de `entradaAuto` em produção horas antes da aprovação
+  do Alex. Exposição real avaliada como zero (feature desligada em todas as
+  contas), mas foi sorte de contexto, não desenho — o checkpoint existia
+  exatamente pra prevenir isso. Corrigido a partir da Fase 5 (regra
+  registrada em memória, aplicada corretamente no fechamento do 05-08).
+- **Fase sem task de publicação do front (Fase 4)** — os 7 planos fecharam
+  os 9 achados com suíte 100% verde, mas nenhum publicava
+  `server/web_dist`. Ficou testado, mergeado e commitado, mas INVISÍVEL em
+  produção até eu notar manualmente (`git log -- server/web_dist` mostrando
+  o último commit de uma fase anterior). Corrigido antes de fechar a fase
+  (commit `f2ef08e`); a Fase 5 já nasceu com plano de publicação desde o
+  planejamento (05-08).
+- **3 checkboxes de requirement nunca atualizados** (ADR15-03, ADR15-04,
+  ADR17-B1-03) — código e teste já existiam, só o `[ ]`→`[x]` do
+  REQUIREMENTS.md não foi feito quando as respectivas fases fecharam. Só
+  achado ao investigar diretamente uma pergunta do Alex ("tem algo
+  crítico?") — sem essa pergunta, teria ficado invisível até o fechamento
+  do milestone (que também os pegou, no `audit-open`).
+- **Falso alarme de bug crítico por metodologia própria (Fase 7)** — um
+  teste de verificação via `railway ssh python3 -c "..."` esqueceu
+  `from app import main` (o import que dispara a fiação real no boot);
+  pareceu que o campo `historico` não estava chegando em produção. Corrigido
+  ao perceber que cada `railway ssh` é um processo Python novo, não o
+  servidor real rodando — mas custou uma investigação completa antes de
+  perceber que o "bug" era do meu próprio script de teste, não do produto.
+
+### Patterns Established
+- **Checkpoint humano bloqueante represa o push da FASE INTEIRA**, não só
+  da task do checkpoint — nenhuma wave anterior pode ter ido ao ar antes da
+  aprovação, mesmo que o commit isolado pareça inócuo.
+- **Fase que toca `web/src/` precisa de task explícita de
+  bump+publicar-web.sh** — verificar isso no planejamento, não confiar que
+  "suíte verde" implica "em produção".
+- **Verificação de campo/valor "ao vivo" via processo novo (`railway ssh`)
+  não é o mesmo que o servidor real** — se o teste depende de estado de
+  boot (providers injetados, conexões configuradas), replicar a MESMA
+  sequência de import do processo real (`from app import main` primeiro),
+  não só importar o módulo isolado que se quer testar.
+- **Achado de execução vira requirement rastreável antes de escrever
+  código**, não só uma nota de rodapé no SUMMARY — os 3 achados reais desta
+  milestone (C-22, C-33, guard do Yahoo) todos ganharam requirement/task
+  formal antes de codar, não foram só "corrigidos de passagem".
+
+### Key Lessons
+1. Regra de push em fase com checkpoint bloqueante: represar a fase
+   INTEIRA, verificar isso explicitamente antes de dar push em QUALQUER
+   wave, não só a última.
+2. Plano que toca frontend sempre precisa de um item explícito de
+   build+publish no checklist de planejamento — "suíte verde" não implica
+   "publicado".
+3. Ao pedir a um subagente pra verificar uma alegação de outro subagente,
+   pedir verificação PONTUAL de itens específicos (não só "confira o
+   plano") — as descobertas mais valiosas desta milestone vieram de
+   perguntas de escrutínio extra formuladas pelo orquestrador, não do
+   checklist padrão do checker.
+4. Perguntar "tem algo crítico?" de vez em quando, mesmo sem sinal de
+   problema, vale a pena — foi assim que os 3 checkboxes desatualizados
+   apareceram, antes do fechamento formal do milestone os pegar de
+   qualquer jeito.
+
+### Cost Observations
+- Model mix: Opus para planners (nós de estrutura/decisão), Sonnet para
+  pesquisadores de UI, executores, checkers e verificadores — perfil
+  "balanced", consistente com v1.0.
+- Sessões: pelo menos 2, com handoff de contexto no meio (a sessão
+  continuou depois de compactação de contexto, sem perder rastreabilidade
+  — STATE.md/ROADMAP.md como fonte de verdade permitiu retomar sem
+  releitura manual do histórico).
+- Notável: fases com 3-5 planos paralelos por wave (Fases 5 e 8, 5 planos
+  na wave 1) tiveram wall-clock próximo do plano mais lento da wave, não da
+  soma — o padrão de paralelismo continua valendo a pena, e o problema de
+  base desatualizada do worktree (achado na v1.0) NÃO reapareceu nesta
+  milestone — a mitigação (push antes de spawnar a wave seguinte) segurou.
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -47,13 +174,17 @@
 | Milestone | Sessions | Phases | Key Change |
 |-----------|----------|--------|------------|
 | v1.0 | 1 | 1 | Primeira entrada do projeto no GSD (brownfield); descoberto o problema de base de worktree isolado e o bloqueio de nome "FINDINGS" — ambos documentados aqui para não redescobrir |
+| v1.1 | 2+ | 7 (2-8) | Primeira milestone com checkpoints humanos bloqueantes em produção (Fases 7, 8, 5) e com fases nascidas de descoberta em execução, não só do planejamento original (Fases 6-8, a partir de pesquisa ad-hoc sobre o motor de recomendação) — mitigação do worktree da v1.0 (push antes de spawnar wave seguinte) confirmada eficaz, zero recorrência |
 
 ### Cumulative Quality
 
 | Milestone | Tests | Coverage | Zero-Dep Additions |
 |-----------|-------|----------|-------------------|
 | v1.0 | 970 backend (pytest) + 74 web (.mjs) — suíte pré-existente, não alterada nesta milestone | não medido numericamente (sem pytest-cov) | 0 (fase read-only, nenhum código de produto tocado) |
+| v1.1 | 1365 backend (pytest) + suíte web completa (.mjs), ambas verdes no fechamento — crescimento de ~395 testes backend na milestone | não medido numericamente (sem pytest-cov) | 0 (nenhuma dependência nova — confirmado por `git diff` de todo `package.json`/`package-lock.json` em cada plano que tocou frontend) |
 
 ### Top Lessons (Verified Across Milestones)
 
-1. `isolation="worktree"` em plans paralelos precisa de validação de base antes de disparar em lote — ainda não verificado em milestone futura, watch closely na próxima vez que este padrão for usado.
+1. `isolation="worktree"` em plans paralelos precisa de validação de base antes de disparar em lote — **confirmado como mitigação eficaz na v1.1**: dar `git push` antes de spawnar cada wave seguinte eliminou completamente a recorrência do problema descoberto na v1.0.
+2. Checkpoint humano bloqueante represa o push da FASE INTEIRA, não só da task do checkpoint — descoberto por incidente real na v1.1 (Fase 8), aplicado corretamente daí em diante (Fase 5).
+3. Fase que toca frontend precisa de task explícita de build+publish no planejamento — "suíte verde" não implica "publicado em produção" (achado na v1.1, Fase 4).
