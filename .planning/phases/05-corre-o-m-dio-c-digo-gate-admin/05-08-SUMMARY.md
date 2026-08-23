@@ -107,3 +107,11 @@ Nenhuma configuração de serviço externo. Ação pendente do ORQUESTRADOR (nã
 ---
 *Phase: 05-corre-o-m-dio-c-digo-gate-admin*
 *Completed: 2026-08-23*
+
+## Self-Check: PASSED
+
+- FOUND: .planning/phases/05-corre-o-m-dio-c-digo-gate-admin/05-08-SUMMARY.md
+- FOUND commit: caf714b (Task 1)
+- FOUND commit: 72cdc7e (SUMMARY)
+- CONFIRMED: BUILD_ID F10-20260823-01 in web/src/version.js
+- CONFIRMED: BUILD_ID F10-20260823-01 present in server/web_dist/assets bundle
