@@ -109,3 +109,11 @@ None - no external service configuration required. O admin configura o novo aler
 ---
 *Phase: 05-corre-o-m-dio-c-digo-gate-admin*
 *Completed: 2026-08-23*
+
+## Self-Check: PASSED
+
+All created/modified files verified present (`server/app/metering.py`,
+`server/app/main.py`, `server/tests/test_fase5_gate_mensal.py`,
+`server/tests/test_fase5_alerta_gasto_ia.py`, this SUMMARY). All 4 task/docs
+commits (`c46f533`, `e86d22b`, `e7393e5`, `3b91db9`) verified present in
+`git log`.
