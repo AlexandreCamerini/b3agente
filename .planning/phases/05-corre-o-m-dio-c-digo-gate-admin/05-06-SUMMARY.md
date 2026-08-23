@@ -121,3 +121,11 @@ None — nenhuma configuração de serviço externo. O admin usa o formulário j
 ---
 *Phase: 05-corre-o-m-dio-c-digo-gate-admin*
 *Completed: 2026-08-23*
+
+## Self-Check: PASSED
+
+All created/modified files verified present (`web-admin/src/App.jsx`,
+`web/tests/test_fase5_alerta_gasto_admin.mjs`,
+`web/tests/test_fase5_auditoria_perm.mjs`, this SUMMARY). All 5 commits
+(`ebf9b24`, `a93fef5`, `8e1fbc8`, `f62e086`, `3df220a`) verified present in
+`git log`.
