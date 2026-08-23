@@ -145,8 +145,8 @@ function Custos() {
   // avisa ANTES, sem cortar nada. Tom "negative" fica reservado ao hard stop
   // (sinal separado, já existente); alerta preventivo e hard stop nunca se
   // fundem numa severidade só (CLAUDE.md item 4 — nunca inferir "normal" da
-  // ausência de dado: "não configurado"/"sem base de comparação" NÃO caem no
-  // verde de "positive").
+  // ausência de dado: os dois estados sem base suficiente para avaliar (sem
+  // limiar admin, ou histórico insuficiente) nunca caem no verde de positive).
   const a = data?.alertaGastoIA;
   const alertaGasto = !a || !a.configurado
     ? { value: "não configurado", tone: "faint" }
