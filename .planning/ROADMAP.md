@@ -267,11 +267,11 @@ preferência, não bloqueio)
 Plans:
 **Wave 1**
 
-- [ ] 05-01-PLAN.md — Testes de rota de rejeição de ordem + reponderação na recompra (FIX-C25, FIX-C26)
-- [ ] 05-02-PLAN.md — Ledger mensal em metering + gate com contagem real + alerta preventivo de gasto (FIX-C33 backend, FIX-C38 backend)
-- [ ] 05-03-PLAN.md — Paridade byte-exata do par de skills + migração do texto legado no aparelho (FIX-C22)
-- [ ] 05-04-PLAN.md — Suíte canônica autossuficiente em checkout novo + ADR-018 de avaliação de E2E (FIX-C24, FIX-C27)
-- [ ] 05-05-PLAN.md — Fonte única de appMode em App.jsx + Toggle com disabled real (FIX-C21, FIX-C23)
+- [x] 05-01-PLAN.md — Testes de rota de rejeição de ordem + reponderação na recompra (FIX-C25, FIX-C26)
+- [x] 05-02-PLAN.md — Ledger mensal em metering + gate com contagem real + alerta preventivo de gasto (FIX-C33 backend, FIX-C38 backend)
+- [x] 05-03-PLAN.md — Paridade byte-exata do par de skills + migração do texto legado no aparelho (FIX-C22)
+- [x] 05-04-PLAN.md — Suíte canônica autossuficiente em checkout novo + ADR-018 de avaliação de E2E (FIX-C24, FIX-C27)
+- [x] 05-05-PLAN.md — Fonte única de appMode em App.jsx + Toggle com disabled real (FIX-C21, FIX-C23)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -298,7 +298,7 @@ gate.
 | 2. Realismo de Mercado | v1.1 | 7/7 | Complete   | 2026-08-19 |
 | 3. Correção Crítico + Alto | v1.1 | 6/6 | Complete   | 2026-08-19 |
 | 4. Correção Médio — Storyline & UX | v1.1 | 7/7 | Complete   | 2026-08-22 |
-| 5. Correção Médio — Código, Gate & Admin | v1.1 | 0/8 | Planned | - |
+| 5. Correção Médio — Código, Gate & Admin | v1.1 | 5/8 | In Progress|  |
 | 6. Instrumentação de Assertividade (ADR-015) | v1.1 | 5/5 | Complete | 2026-08-21 |
 | 7. Seleção Dinâmica por Desempenho Histórico (ADR-017 Bloco 1) | v1.1 | 6/6 | Complete | 2026-08-21 |
 | 8. Interface e IA da Seleção Dinâmica (ADR-017 Bloco 3/4) | v1.1 | 5/5 | Complete | 2026-08-21 |
