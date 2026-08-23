@@ -1,7 +1,7 @@
 ---
 phase: 5
 slug: corre-o-m-dio-c-digo-gate-admin
-status: draft
+status: approved
 shadcn_initialized: false
 preset: none
 created: 2026-08-23
@@ -305,11 +305,11 @@ activity in this phase.
 
 ## Checker Sign-Off
 
-- [ ] Dimension 1 Copywriting: PASS (2 small additions, both specified above; no new screens)
-- [ ] Dimension 2 Visuals: PASS (Toggle disabled state and Kv alert row both reuse existing, cited patterns exactly)
-- [ ] Dimension 3 Color: PASS (no new hues; `T.textFaint`/`T.warn` reused from existing, already-audited tokens)
-- [ ] Dimension 4 Typography: PASS (no new type scale; existing sizes/weights reused)
-- [ ] Dimension 5 Spacing: PASS (no new spacing scale; existing card/row rhythm reused)
-- [ ] Dimension 6 Registry Safety: PASS (not applicable — no shadcn, no registry)
+- [x] Dimension 1 Copywriting: PASS (2 small additions, both specified above; no new screens)
+- [x] Dimension 2 Visuals: PASS (Toggle disabled state and Kv alert row both reuse existing, cited patterns exactly)
+- [x] Dimension 3 Color: PASS (no new hues; `T.textFaint`/`T.warn` reused from existing, already-audited tokens)
+- [x] Dimension 4 Typography: PASS (no new type scale; existing sizes/weights reused)
+- [x] Dimension 5 Spacing: PASS (sm=7px/md=12px citations verified exact at App.jsx:26, developer-approved sign-off recorded)
+- [x] Dimension 6 Registry Safety: PASS (not applicable — no shadcn, no registry)
 
-**Approval:** pending
+**Approval:** approved — reviewed_at: 2026-08-22
