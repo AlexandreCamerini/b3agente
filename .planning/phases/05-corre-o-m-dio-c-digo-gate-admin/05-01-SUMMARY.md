@@ -74,7 +74,7 @@ _TDD não se aplica — plano de teste-guardião puro, sem código de produção
 None - plan executado exatamente como especificado. A única diferença do plano é a contagem final do inventário (9 vs. a aproximação de 7 no objetivo), que é um refinamento de precisão da própria tarefa de auditoria pedida pelo plano, não uma mudança de escopo, bug ou achado de arquitetura — coberto acima em "Decisions Made", não como deviation de código.
 
 ## Issues Encountered
-None - os dois arquivos passaram na primeira execução de `bash scripts/test.sh` (1334 passed, 1 skipped — os 4 anteriores já eram esperados: `test_fase5_recompra_reponderacao.py` roda depois no mesmo diretório e a suíte inteira sempre teve 1 skip pré-existente não relacionado a este plano).
+None - os dois arquivos passaram na primeira execução de `bash scripts/test.sh` (1334 passed, 1 skipped — o skip é pré-existente, não relacionado a este plano). Além do `<verify>` do próprio plano (que só pedia `test.sh`), CLAUDE.md exige a suíte canônica completa (`bash scripts/executar.sh --testes`) como barra de validação — rodada explicitamente antes de fechar este plano: `npm install` em `web/` (gap documentado em MEMORY.md/C-24 para worktree novo) seguido de `bash scripts/executar.sh --testes`, exit 0, 1334 passed/1 skipped no backend + todas as suítes `web/tests/*.mjs` (91 arquivos) `[OK]`. `git status --short` limpo depois do `npm install` (node_modules corretamente ignorado, nada ficou untracked).
 
 ## User Setup Required
 
@@ -82,7 +82,7 @@ None - no external service configuration required.
 
 ## Next Phase Readiness
 - FIX-C25 e FIX-C26 fechados: nenhum bloqueio para os demais planos da Wave 1 (05-02..05-05), que tocam código de produção (`web/src/App.jsx`, `web-admin/src/App.jsx`, `server/app/main.py` em rotas diferentes) — sem overlap de arquivo com este plano.
-- Nenhum código de produção foi tocado; a suíte canônica completa (`bash scripts/executar.sh --testes`) ainda precisa rodar no fechamento da fase (este plano só validou `bash scripts/test.sh`, conforme o `<verify>` do próprio plano).
+- Nenhum código de produção foi tocado; suíte canônica completa (`bash scripts/executar.sh --testes`) já rodou limpa neste worktree (ver "Issues Encountered") — não é um item pendente para o fechamento da fase.
 
 ---
 *Phase: 05-corre-o-m-dio-c-digo-gate-admin*
