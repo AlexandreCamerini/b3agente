@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Realismo de Mercado + Correções
-status: verifying
-stopped_at: Phase 05 UI-SPEC approved
-last_updated: "2026-08-23T16:59:11.864Z"
-last_activity: 2026-08-22 -- Phase 4 concluída
+status: v1.1 concluído — 7/7 fases completas (2,3,4,5,6,7,8)
+stopped_at: Phase 05 concluída — checkpoint 05-08 aprovado, deploy confirmado
+last_updated: "2026-08-23T21:04:28.686Z"
+last_activity: 2026-08-23 -- Phase 5 concluída, milestone v1.1 fechado
 progress:
   total_phases: 7
-  completed_phases: 6
-  total_plans: 36
-  completed_plans: 36
-  percent: 86
+  completed_phases: 7
+  total_plans: 44
+  completed_plans: 44
+  percent: 100
 ---
 
 # Project State
@@ -21,15 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-18)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Phase 05 — Correção Médio, Código/Gate/Admin (REPORT-01), planejamento em andamento
+**Current focus:** Milestone v1.1 concluído — decidir próximo milestone/foco com o Alex
 
 ## Current Position
 
-Phase: 05 (corre-o-m-dio-c-digo-gate-admin) — PLANNING
-Status: CONTEXT.md + UI-SPEC.md prontos e aprovados (6/6 dimensões, 2 iterações); próximo passo é spawnar o `gsd-planner`
-Last activity: 2026-08-22 -- Phase 5 UI-SPEC aprovado
+Phase: 05 (corre-o-m-dio-c-digo-gate-admin) — COMPLETE
+Plan: 8 of 8
+Status: Fase 05 concluída — 11 requisitos (FIX-C21..C27, C33, C34, C38, C39) fechados, checkpoint aprovado, deploy confirmado (F10-20260823-01). **v1.1 (Realismo de Mercado + Correções) está 100% completo: 7/7 fases (2, 3, 4, 5, 6, 7, 8).**
+Last activity: 2026-08-23 -- Phase 5 concluída, milestone v1.1 fechado
 
-Progress: [████████░] 86% (v1.1, 6/7 fases: 2,3,4,6,7,8 completas; 5 em planejamento)
+Progress: [██████████] 100% (v1.1, 7/7 fases completas)
 
 ## Performance Metrics
 
@@ -165,9 +166,9 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-23T16:59:11.855Z
-Stopped at: Phase 05 UI-SPEC approved
-Resume file: .planning/phases/05-corre-o-m-dio-c-digo-gate-admin/05-UI-SPEC.md
+Last session: 2026-08-23T21:04:28.675Z
+Stopped at: Phase 05 concluída — checkpoint 05-08 aprovado, deploy confirmado
+Resume file: .planning/phases/05-corre-o-m-dio-c-digo-gate-admin/05-08-SUMMARY.md
 
 ## Operator Next Steps
 
@@ -181,9 +182,17 @@ Resume file: .planning/phases/05-corre-o-m-dio-c-digo-gate-admin/05-UI-SPEC.md
   agente não loga sozinho na conta. Pedir ao Alex um print/smoke test
   quando puder.
 
-- Fase 05 planejada até o UI-SPEC (aprovado 6/6, 2 iterações — 1 block
-  mecânico de citação de spacing errada, corrigida e verificada). C-34
-  resolvido por verificação direta contra 03-01-SUMMARY.md: já coberto
-  pelo fix do C-30 (Fase 3), não precisa de UI nova. Falta spawnar o
-  `gsd-planner`.
+- Fase 05 concluída (2026-08-23): 8 planos, 3 waves, 11 requisitos fechados,
+  checkpoint aprovado, deploy confirmado. Achados de execução relevantes:
+  FIX-C22 achou divergência REAL de persona entre iPhone e web (corrigida);
+  FIX-C21 recontou 12 pontos de leitura de `appMode` (não 10, App.jsx
+  cresceu pra 8181 linhas); FIX-C34 fechado por confirmação, sem UI nova
+  (nota de supersessão registrada no ROADMAP.md e REQUIREMENTS.md).
+
+- **Milestone v1.1 (Realismo de Mercado + Correções) está 100% completo** —
+  7/7 fases (2, 3, 4, 5, 6, 7, 8). Próximo passo é decidir com o Alex o que
+  vem depois: novo milestone, ou trabalhar o backlog restante (9 achados
+  Baixo do REPORT-01, decisão comercial do ADR-010, item 8 do checkpoint
+  08-05 ainda aberto).
+
 - 9 tickers com 404 no bootstrap do ledger (ELET3, BRFS3, ELET6, JBSS3, CRFB3, NTCO3, CPLE6, MRFG3, EMBR3) — prováveis renomeações/deslistagens; não investigado, não bloqueia a fase.

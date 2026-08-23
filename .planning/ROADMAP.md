@@ -3,7 +3,7 @@
 ## Milestones
 
 - ✅ **v1.0 Revisão Geral** — Phase 1 (shipped 2026-08-18) — [detalhes](milestones/v1.0-ROADMAP.md)
-- 🚧 **v1.1 Realismo de Mercado + Correções** — Phases 2-7 (in progress)
+- ✅ **v1.1 Realismo de Mercado + Correções** — Phases 2-8 (shipped 2026-08-23)
 
 ## Phases
 
@@ -14,7 +14,7 @@
 
 </details>
 
-### 🚧 v1.1 Realismo de Mercado + Correções (In Progress)
+### ✅ v1.1 Realismo de Mercado + Correções (SHIPPED 2026-08-23)
 
 **Milestone Goal:** Fechar o gap entre o produto e um pregão real (status de
 mercado visível, ordens fora de horário represadas) e corrigir os 2
@@ -27,7 +27,7 @@ seriam inserções urgentes, se necessário.
 - [x] **Phase 2: Realismo de Mercado** - Status real de pregão na tela de entrada e fila de execução para ordens fora de horário (completed 2026-08-19)
 - [x] **Phase 3: Correção Crítico + Alto** - Fecha as 2 violações de princípio (transparência de dado) e os 8 achados que já causaram incidente real ou bloqueiam decisão de negócio (completed 2026-08-19)
 - [x] **Phase 4: Correção Médio — Storyline & UX** - Fecha as lacunas pedagógicas e de experiência (STORY + UX) do REPORT-01 (completed 2026-08-22)
-- [ ] **Phase 5: Correção Médio — Código, Gate & Admin** - Fecha a dívida técnica, a ativação incompleta de gating e a observabilidade admin (CODE + GATE + ADMIN) do REPORT-01
+- [x] **Phase 5: Correção Médio — Código, Gate & Admin** - Fecha a dívida técnica, a ativação incompleta de gating e a observabilidade admin (CODE + GATE + ADMIN) do REPORT-01 (completed 2026-08-23)
 - [x] **Phase 6: Instrumentação de Assertividade (ADR-015)** - Conserta a medição de eficiência da IA (âncora errada, `n` inflado por duplicação, motivo de venda não persistido) antes de qualquer decisão de produto sobre o motor de recomendação (completed 2026-08-21)
 - [x] **Phase 7: Seleção Dinâmica por Desempenho Histórico (ADR-017 Bloco 1)** - Ledger de sinais resolvidos, bootstrap, hook diário e `regime.ranquear()` passam a pesar cada setup pelo desempenho medido na janela anterior (completed 2026-08-21)
 - [x] **Phase 8: Interface e IA da Seleção Dinâmica (ADR-017 Bloco 3/4)** - Vocabulário canônico do histórico medido, Radar/Watchlist/card de setup mostrando elegibilidade, religa `entradaAuto` gated (completed 2026-08-21; verificação ao vivo do item 8 — entrada automática disparando por um pregão inteiro — deferida como acompanhamento)
@@ -280,7 +280,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 05-08-PLAN.md — Bump, publicação de web_dist/admin_dist e verificação humana ao vivo
+- [x] 05-08-PLAN.md — Bump, publicação de web_dist/admin_dist e verificação humana ao vivo
 **UI hint**: yes
 
 ## Progress
@@ -298,7 +298,7 @@ gate.
 | 2. Realismo de Mercado | v1.1 | 7/7 | Complete   | 2026-08-19 |
 | 3. Correção Crítico + Alto | v1.1 | 6/6 | Complete   | 2026-08-19 |
 | 4. Correção Médio — Storyline & UX | v1.1 | 7/7 | Complete   | 2026-08-22 |
-| 5. Correção Médio — Código, Gate & Admin | v1.1 | 7/8 | In Progress|  |
+| 5. Correção Médio — Código, Gate & Admin | v1.1 | 8/8 | Complete   | 2026-08-23 |
 | 6. Instrumentação de Assertividade (ADR-015) | v1.1 | 5/5 | Complete | 2026-08-21 |
 | 7. Seleção Dinâmica por Desempenho Histórico (ADR-017 Bloco 1) | v1.1 | 6/6 | Complete | 2026-08-21 |
 | 8. Interface e IA da Seleção Dinâmica (ADR-017 Bloco 3/4) | v1.1 | 5/5 | Complete | 2026-08-21 |

@@ -96,7 +96,25 @@ Nenhum problema técnico. `web/node_modules`/`web-admin/node_modules` ausentes n
 
 ## User Setup Required
 
-Nenhuma configuração de serviço externo. Ação pendente do ORQUESTRADOR (não do Alex): mesclar `worktree-agent-abda4153555dc814c` (commit `caf714b`) na `main` local e executar `git push` para que o Railway redeploye — só então o checkpoint da Task 2 pode ser verificado ao vivo contra produção.
+Resolvido — ver "Task 2: resolução" abaixo.
+
+### Task 2 — Checkpoint: resolução (2026-08-23)
+
+Orquestrador mesclou `worktree-agent-abda4153555dc814c` (`caf714b`) na `main`
+local (`merge: executor worktree (05-08, task 1 — build/carimbo/publicação
+web+web-admin)`) e deu `git push` (`a788571..1fe3e46`). Deploy confirmado:
+`curl https://boris.semente.dev/api/health` devolveu `SERVER_BUILD_ID =
+"F10-20260823-01"` na 3ª tentativa de polling.
+
+**Alex aprovou** ("aprovdo", confirmando o roteiro de 7 passos sem
+divergência reportada item a item). Checkpoint fecha a Fase 05 em produção:
+- FIX-C23 (toggle desabilitado real fora do Operador) e FIX-C38 (alerta de
+  gasto de IA no portal admin) — únicos 2 achados com pixel — confirmados.
+- Demais 9 achados (C21, C22, C24, C25, C26, C27, C33, C34, C39) — teste,
+  guardião, migração e documentação, sem superfície visual própria a
+  verificar além do que já roda na suíte canônica.
+
+Nenhuma divergência registrada. Fase 05 concluída.
 
 ## Next Phase Readiness
 

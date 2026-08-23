@@ -79,29 +79,34 @@
 - [x] **FIX-C15**: Toggle "acordeão" responde a teclado (UX, acessibilidade)
 - [x] **FIX-C16**: `textFaint` ajustado para contraste mínimo WCAG AA em texto
       pequeno, nos dois temas (UX, acessibilidade)
-- [ ] **FIX-C21**: Migrar os pontos de recomputação redundante de `appMode`
+- [x] **FIX-C21**: Migrar os pontos de recomputação redundante de `appMode`
       em `App.jsx` para ler `ctx.operador` (CODE)
-- [ ] **FIX-C22**: `default_skill_text()`/`defaultSkillText()` ganha guardião
+- [x] **FIX-C22**: `default_skill_text()`/`defaultSkillText()` ganha guardião
       de paridade, no padrão do par `carteiraStopAlvo*` (CODE)
-- [ ] **FIX-C23**: Toggle mestre de "Entrada automática" ganha atributo HTML
+- [x] **FIX-C23**: Toggle mestre de "Entrada automática" ganha atributo HTML
       `disabled` e feedback próprio (CODE)
-- [ ] **FIX-C24**: Suíte web roda de forma confiável em checkout/worktree novo
+- [x] **FIX-C24**: Suíte web roda de forma confiável em checkout/worktree novo
       (documentar/automatizar `npm install` antes da suíte canônica) (CODE)
-- [ ] **FIX-C25**: Rejeição de ordem em `/api/buy`/`/api/sell` (caixa
+- [x] **FIX-C25**: Rejeição de ordem em `/api/buy`/`/api/sell` (caixa
       insuficiente, sem cotação, ticker inválido) ganha teste de rota HTTP
       (CODE)
-- [ ] **FIX-C26**: Recompra após venda parcial (preço médio reponderado)
+- [x] **FIX-C26**: Recompra após venda parcial (preço médio reponderado)
       ganha teste (CODE)
-- [ ] **FIX-C27**: Avaliar cobertura E2E/browser automation mínima para os
+- [x] **FIX-C27**: Avaliar cobertura E2E/browser automation mínima para os
       fluxos financeiros críticos (CODE)
-- [ ] **FIX-C33**: `can_add_ticker`/`can_analyze` passam a ser chamados com o
+- [x] **FIX-C33**: `can_add_ticker`/`can_analyze` passam a ser chamados com o
       estado real do usuário, não dado hardcoded (GATE)
-- [ ] **FIX-C34**: Medidor de orçamento brapi (consumo × limite) ganha
+- [x] **FIX-C34**: Medidor de orçamento brapi (consumo × limite) ganha
       visibilidade para o usuário final, deixando claro que é consumo do app
-      inteiro, não cota pessoal (GATE)
-- [ ] **FIX-C38**: Alerta preventivo antes do teto global de gasto de IA, não
+      inteiro, não cota pessoal (GATE). **Superado (nota de planejamento
+      2026-08-23, ver ROADMAP.md Phase 5)**: a recomendação original do
+      achado (REPORT-01) já dizia que expor orçamento bruto não é
+      necessário — o fix de FIX-C30 (Fase 3) já cobre o efeito prático
+      (aviso de dado degradado, sem vazar número). Fechado por
+      confirmação/teste (05-07), não por medidor novo.
+- [x] **FIX-C38**: Alerta preventivo antes do teto global de gasto de IA, não
       só hard stop (ADMIN)
-- [ ] **FIX-C39**: Aba "Auditoria" do portal admin ganha campo `perm`,
+- [x] **FIX-C39**: Aba "Auditoria" do portal admin ganha campo `perm`,
       alinhando com o padrão visual das outras 9 abas (ADMIN)
 
 ### Assertividade da instrumentação (ADR-015)
@@ -250,17 +255,17 @@ puro consumo do que o Bloco 1 já calcula — nenhuma mudança em
 | FIX-C14 | Phase 4 | Complete |
 | FIX-C15 | Phase 4 | Complete |
 | FIX-C16 | Phase 4 | Complete |
-| FIX-C21 | Phase 5 | Pending |
-| FIX-C22 | Phase 5 | Pending |
-| FIX-C23 | Phase 5 | Pending |
-| FIX-C24 | Phase 5 | Pending |
-| FIX-C25 | Phase 5 | Pending |
-| FIX-C26 | Phase 5 | Pending |
-| FIX-C27 | Phase 5 | Pending |
-| FIX-C33 | Phase 5 | Pending |
-| FIX-C34 | Phase 5 | Pending |
-| FIX-C38 | Phase 5 | Pending |
-| FIX-C39 | Phase 5 | Pending |
+| FIX-C21 | Phase 5 | Complete |
+| FIX-C22 | Phase 5 | Complete |
+| FIX-C23 | Phase 5 | Complete |
+| FIX-C24 | Phase 5 | Complete |
+| FIX-C25 | Phase 5 | Complete |
+| FIX-C26 | Phase 5 | Complete |
+| FIX-C27 | Phase 5 | Complete |
+| FIX-C33 | Phase 5 | Complete |
+| FIX-C34 | Phase 5 | Complete |
+| FIX-C38 | Phase 5 | Complete |
+| FIX-C39 | Phase 5 | Complete |
 | ADR15-01 | Phase 6 | Done (06-01) |
 | ADR15-02 | Phase 6 | Done (06-02) |
 | ADR15-03 | Phase 6 | Pending |
