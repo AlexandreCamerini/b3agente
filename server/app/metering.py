@@ -18,10 +18,22 @@ from . import db
 
 SECTION = "aiUsage"
 GLOBAL_SECTION = "aiUsageGlobal"   # qa/42: contador GLOBAL (kv sem escopo de usuário)
+# C-33 (fase 5): acumulado MENSAL, registro PRÓPRIO — escopado por user_id
+# como SECTION, mas NUNCA misturado ao dict diário. `_load` devolve um dict
+# novo (zerado) toda vez que o dia vira; se o mês vivesse dentro desse mesmo
+# dict, a virada de DIA apagaria o acumulado do MÊS junto (é a classe exata
+# de bug que `test_fase5_gate_mensal.py` trava no teste de rollover).
+MONTH_SECTION = "aiUsageMonth"
 
 
 def _today() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+
+def _month() -> str:
+    # Mesma âncora de fuso/relógio que `_today()` (datetime.now(timezone.utc))
+    # — nunca duas noções de tempo diferentes para dia e mês.
+    return datetime.now(timezone.utc).strftime("%Y-%m")
 
 
 def _load_global(conn, section: str = GLOBAL_SECTION) -> dict:
@@ -56,6 +68,26 @@ def _load(conn, user_id, section: str = SECTION) -> dict:
 
 def _save(conn, user_id, u, section: str = SECTION) -> None:
     db.kv_set(conn, section, u, user_id=user_id)
+
+
+def _load_month(conn, user_id, section: str = MONTH_SECTION) -> dict:
+    """Mesmo padrão defensivo de `_load_global`: registro de outro mês (ou
+    corrompido/tipo errado) devolve um dict zerado do mês corrente — nunca
+    lança, nunca herda contagem de um mês que já virou."""
+    m = db.kv_get(conn, section, None, user_id=user_id)
+    if not isinstance(m, dict) or m.get("month") != _month():
+        return {"month": _month(), "count": 0}
+    if not isinstance(m.get("count"), int):
+        m["count"] = 0
+    return m
+
+
+def month_used(conn, user_id, section: str = MONTH_SECTION) -> int:
+    """C-33 (fase 5): contagem REAL de análises do mês corrente da conta —
+    fonte única para `plan.can_analyze(used_this_month=...)`. Nunca um
+    segundo contador paralelo: o acumulado só é incrementado por `consume()`
+    logo abaixo."""
+    return int(_load_month(conn, user_id, section=section).get("count", 0))
 
 
 # qa/47: `section`/`global_section` permitem reusar este módulo para OUTRO
@@ -111,12 +143,15 @@ def check(conn, user_id, *, quota, rate_per_min, custo=1, cap_global=None, _now=
     return (True, None)
 
 
-def consume(conn, user_id, *, custo: int = 1, section: str = SECTION, global_section: str = GLOBAL_SECTION) -> int:
+def consume(conn, user_id, *, custo: int = 1, section: str = SECTION, global_section: str = GLOBAL_SECTION,
+            month_section: str = MONTH_SECTION) -> int:
     """Conta análise(s) gerenciada(s) (chamar após o LLM responder com sucesso,
     ou — qa/47 — após um lote de eventos de analytics ser aceito).
     qa/42: conta no contador do usuário E no global (teto de gasto do servidor).
     qa/47: `custo` permite contar um LOTE inteiro numa chamada (em vez de
-    laçar `consume()` N vezes) — default 1 preserva o comportamento anterior."""
+    laçar `consume()` N vezes) — default 1 preserva o comportamento anterior.
+    C-33 (fase 5): também incrementa o acumulado MENSAL (registro próprio,
+    ver `MONTH_SECTION`) — é o único ponto de escrita do ledger mensal."""
     custo = max(1, int(custo or 1))
     u = _load(conn, user_id, section=section)
     u["count"] = int(u.get("count", 0)) + custo
@@ -124,6 +159,9 @@ def consume(conn, user_id, *, custo: int = 1, section: str = SECTION, global_sec
     g = _load_global(conn, section=global_section)
     g["count"] = int(g.get("count", 0)) + custo
     db.kv_set(conn, global_section, g, user_id=None)
+    m = _load_month(conn, user_id, section=month_section)
+    m["count"] = int(m.get("count", 0)) + custo
+    db.kv_set(conn, month_section, m, user_id=user_id)
     return u["count"]
 
 
@@ -131,4 +169,6 @@ def snapshot(conn, user_id, quota, section: str = SECTION) -> dict:
     u = _load(conn, user_id, section=section)
     used = int(u.get("count", 0))
     remaining = None if quota is None else max(0, quota - used)
-    return {"day": u["day"], "used": used, "quota": quota, "remaining": remaining}
+    m = _load_month(conn, user_id)
+    return {"day": u["day"], "used": used, "quota": quota, "remaining": remaining,
+            "month": m["month"], "monthUsed": int(m.get("count", 0))}

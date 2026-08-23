@@ -446,8 +446,11 @@ def _gate_analise(scope, config, custo: int = 1):
     contrato em plan.py). Retorna (config_efetiva, consume), igual
     `_ai_apply_managed`."""
     plano = _plano_do_escopo(scope)
-    # C-33 (fase 5): contagem real do mês; o ledger é o de metering, nunca um segundo contador
-    allowed, reason = plan.can_analyze(0, plan=plano)
+    # C-33 (fase 5): a contagem passada ao gate de plano é a REAL do mês
+    # corrente, lida do ledger único de `metering` (contrato escrito em
+    # plan.py) — nunca um segundo contador paralelo. Escopo anônimo (None)
+    # também resolve: `metering.month_used` devolve 0 para o balde sem user_id.
+    allowed, reason = plan.can_analyze(metering.month_used(_conn, scope), plan=plano)
     if not allowed:
         raise HTTPException(402, reason)
     config, consume = _ai_apply_managed(scope, config, custo=custo)
@@ -457,14 +460,21 @@ def _gate_analise(scope, config, custo: int = 1):
 @app.get("/api/ai/quota")
 async def ai_quota(scope: Optional[str] = Depends(current_scope)):
     """Estado da IA do app para a UI: se a gerenciada existe, se o usuário tem
-    BYOK e quanta cota resta hoje."""
+    BYOK e quanta cota resta hoje.
+    C-33 (fase 5): `monthUsed`/`monthLimit` em nível RAIZ (não dentro de
+    `quota`, que só existe com IA gerenciada sem BYOK) — o front consome
+    esse contrato no Plano 05-07. `monthUsed` vem do ledger de `metering`,
+    `monthLimit` do plano real da conta (hoje sempre None, ADR-010 pendente)."""
     avail = managed.is_available()
     if not scope:
-        return {"managed": avail, "loggedIn": False, "byok": False, "quota": None}
+        return {"managed": avail, "loggedIn": False, "byok": False, "quota": None,
+                "monthUsed": None, "monthLimit": None}
     cfg = store.get(_conn, "config", user_id=scope)
     byok = bool(llm.resolve_key(cfg))
     snap = metering.snapshot(_conn, scope, managed.daily_quota()) if (avail and not byok) else None
-    return {"managed": avail, "loggedIn": True, "byok": byok, "quota": snap}
+    return {"managed": avail, "loggedIn": True, "byok": byok, "quota": snap,
+            "monthUsed": metering.month_used(_conn, scope),
+            "monthLimit": _plano_do_escopo(scope).get("max_analyses_per_month")}
 
 
 @app.get("/api/ai/models")
