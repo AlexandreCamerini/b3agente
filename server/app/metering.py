@@ -172,3 +172,77 @@ def snapshot(conn, user_id, quota, section: str = SECTION) -> dict:
     m = _load_month(conn, user_id)
     return {"day": u["day"], "used": used, "quota": quota, "remaining": remaining,
             "month": m["month"], "monthUsed": int(m.get("count", 0))}
+
+
+# ---------------------------------------------------------------------------
+# FIX-C38 (fase 5) — alerta PREVENTIVO de gasto de IA, complementar ao hard
+# stop de `check()`/`cap_global` acima (esse já bloqueia; isto avisa ANTES).
+# ---------------------------------------------------------------------------
+ALERTA_JANELA_PADRAO = 7  # dias — usada quando o admin não configurou janela própria
+
+
+def alerta_gasto(usado_hoje, serie, limiar_pct, janela_dias, hoje=None) -> dict:
+    """Função PURA (sem I/O, sem `conn`) — testável offline, como o
+    docstring do módulo promete. Compara o gasto de HOJE contra a média dos
+    dias PASSADOS da janela e devolve o desvio percentual.
+
+    Escolha de grandeza: compara a MESMA que o hard stop limita — análises
+    gerenciadas do dia (`ia_analises_gerenciadas_dia`, gravada 1x/dia a
+    partir de `global_snapshot()["used"]`), não tokens. Tokens/dia seguem
+    como sparkline separado na aba Custos do portal admin.
+
+    Regra de produto inegociável (CLAUDE.md item 4 — nunca inventar/estimar
+    na ausência de dado): `configurado` distingue "sem limiar admin" de
+    "avaliável"; `avaliavel` distingue "consegui calcular" de "não consegui
+    (histórico insuficiente ou média zero)". `acima` só tem significado
+    quando `avaliavel is True` — quem renderiza NUNCA pode ler `acima is
+    False` como "dentro do normal" sem checar `avaliavel` primeiro, porque
+    aqui `acima` pode ser `False` só porque não há base pra avaliar, não
+    porque o gasto está de fato normal.
+    """
+    hoje = hoje or _today()
+    base = {
+        "configurado": False, "avaliavel": False, "motivo": None,
+        "hoje": usado_hoje, "media": None, "desvioPct": None,
+        "limiarPct": None, "janelaDias": None, "acima": False,
+    }
+    try:
+        limiar = float(limiar_pct) if limiar_pct not in (None, "") else None
+    except (TypeError, ValueError):
+        limiar = None
+    if limiar is None or limiar <= 0:
+        return base  # sem limiar configurado (ou inválido) => nada a avaliar
+
+    try:
+        janela = int(janela_dias) if janela_dias else ALERTA_JANELA_PADRAO
+    except (TypeError, ValueError):
+        janela = ALERTA_JANELA_PADRAO
+    if janela <= 0:
+        janela = ALERTA_JANELA_PADRAO
+
+    base["configurado"] = True
+    base["limiarPct"] = limiar
+    base["janelaDias"] = janela
+
+    # o dia de HOJE, se estiver na série, é EXCLUÍDO — senão o gasto de hoje
+    # se compararia consigo mesmo (média enviesada pro próprio valor testado)
+    passados = sorted(
+        (p for p in (serie or []) if p.get("day") != hoje),
+        key=lambda p: p["day"],
+    )[-janela:]
+    if len(passados) < 3:
+        base["motivo"] = "Histórico insuficiente (menos de 3 dias anteriores) para calcular a média."
+        return base
+
+    media_bruta = sum(float(p.get("value") or 0) for p in passados) / len(passados)
+    if media_bruta == 0:
+        base["motivo"] = "Média dos dias anteriores é zero — não dá para calcular desvio percentual."
+        return base
+
+    media = round(media_bruta, 2)
+    desvio = round((usado_hoje / media - 1) * 100, 1)
+    base["avaliavel"] = True
+    base["media"] = media
+    base["desvioPct"] = desvio
+    base["acima"] = desvio >= limiar
+    return base
