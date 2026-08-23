@@ -218,6 +218,17 @@ function serverStore() {
       : sync.mutate("putAgent", [b], (cur) => ({ ...cur, agent: { ...(cur.agent || {}), ...b } })),
     cycle: () => api.cycle(),
     aiQuota: () => api.aiQuota(), // FASE 3: cota da IA gerenciada
+    // FIX-C33 (Fase 5): contagem real de análises do mês corrente, para o
+    // pré-check de UX do gate (`canAnalyze` em plan.js). NÃO existe um
+    // contador próprio aqui — `plan.py` é explícito que a contagem tem de vir
+    // do ledger de `metering`, "nunca de um segundo contador paralelo", então
+    // este método só lê o mesmo `monthUsed` que `aiQuota()` já expõe. `null`
+    // cobre escopo anônimo, campo ausente ou resposta inesperada — nunca um
+    // palpite numérico (CLAUDE.md item 4).
+    analisesNoMes: async () => {
+      const q = await api.aiQuota();
+      return (q && typeof q.monthUsed === "number") ? q.monthUsed : null;
+    },
     _setDeviceScope: () => {},    // FASE 3: no-op no web (escopo é server-side por token)
     // FASE 2: web não envia semente — o servidor adota o escopo anônimo/global
     // (que contém a chave BYOK, nunca trafegada ao cliente).
@@ -1010,6 +1021,15 @@ function deviceStore() {
     async aiQuota() {
       ensure();
       return api.aiQuota();
+    },
+    // FIX-C33 (Fase 5): mesmo contrato de serverStore.analisesNoMes acima —
+    // o aparelho NÃO mantém contador próprio de análises; lê o MESMO
+    // `monthUsed` do ledger do servidor via aiQuota(). É por isso que o
+    // local-first do iPhone abre exceção aqui, igual já abre para aiQuota.
+    async analisesNoMes() {
+      ensure();
+      const q = await api.aiQuota();
+      return (q && typeof q.monthUsed === "number") ? q.monthUsed : null;
     },
     // FASE 3 (item 1): troca o escopo local do aparelho (login/logout). Reseta o
     // doc em cache para recarregar do namespace certo no próximo ensure().
