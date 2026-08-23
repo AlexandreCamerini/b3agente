@@ -128,22 +128,25 @@ que `max_analyses_per_month` continue `None` por enquanto (ADR-010 não
 mudou). Não é gate de negócio ativo, é fechar a lacuna estrutural que faria
 o número comercial (quando vier) funcionar certo desde o primeiro dia.
 
-**C-34 — Painel de orçamento brapi é 100% admin-only.** ⚠️ **Tensão real
-entre a evidência do REPORT-01 e o Success Criteria do ROADMAP — resolver
-no planejamento, não decidido aqui.** A recomendação ORIGINAL do achado diz
-explicitamente: *"não é necessário expor orçamento bruto ao usuário final...
-mesma mudança de C-30 resolve as duas questões"* (C-30 já foi corrigido na
-Fase 3 — `FIX-C30`, completo). O Success Criteria do ROADMAP, por outro
-lado, pede um "medidor de orçamento brapi (consumo × limite) visível ao
-usuário final". **Antes de construir UI nova**: verificar se o fix de C-30
-(Fase 3) já cobre o efeito prático que C-34 realmente cobra (timestamp
-refletindo dado degradado, visível ao usuário) — se sim, o trabalho aqui
-pode ser só CONFIRMAR isso (talvez com um teste) em vez de construir um
-medidor novo. **Se** um medidor for mesmo construído (por decisão do
-planejamento ou por instrução direta do Alex), o texto tem que deixar claro
-que é consumo do APP INTEIRO (orçamento compartilhado, ADR-008/010), nunca
-uma cota pessoal — não confundir com a cota de IA por conta que o usuário já
-vê em `/api/ai/quota`.
+**C-34 — Painel de orçamento brapi é 100% admin-only.** **Tensão resolvida
+por verificação direta — já coberto, não construir UI nova.** A recomendação
+ORIGINAL do achado diz: *"não é necessário expor orçamento bruto ao usuário
+final... mesma mudança de C-30 resolve as duas questões."* Conferido contra
+`03-01-SUMMARY.md` (Fase 3, `FIX-C30`, completo): `/api/technicals/{ticker}`
+já devolve `degradado` (bool), `TechnicalModal` já mostra "aviso em âmbar na
+mesma linha da fonte, **sem exposição de detalhes de orçamento/cota/limite**
+(contrato do UI-SPEC)" — decisão deliberada, registrada explicitamente no
+Copywriting Contract da Fase 3: "qualificador de degradado deliberadamente
+não menciona orçamento/cota/mês/limite ao usuário final — só o efeito (dado
+mais velho), nunca a causa." Construir um "medidor de consumo × limite"
+agora contradiria essa decisão de produto já tomada e shippada.
+**Decidido**: C-34 fica satisfeito pelo fix já entregue de C-30 — não
+construir UI nova de medidor de orçamento. Escopo real desta fase pra C-34:
+um teste/verificação que confirma que o comportamento de C-30 segue valendo
+(o aviso de degradado aparece, sem vazar número de orçamento/cota/limite) —
+fechamento por confirmação, não por feature nova. Se o Alex quiser reabrir
+essa decisão de produto (expor medidor de verdade), é decisão dele a tomar
+explicitamente, não algo pra inferir do Success Criteria do ROADMAP.
 
 ### ADMIN — portal (`web-admin/`)
 
@@ -210,9 +213,14 @@ só o rótulo/consistência visual.
 - C-34 precisa de decisão explícita ANTES de codar (ver tensão marcada
   acima) — o planejamento deve resolver isso lendo `FIX-C30`'s SUMMARY
   (Fase 3) pra confirmar o que já está coberto.
-- C-38/C-39 tocam `web-admin/`, projeto separado — confirmar se ele tem
-  suíte de teste própria e comando de build/verificação antes de escrever
-  acceptance criteria que assumem o mesmo padrão do `web/`.
+- **Confirmado**: `web-admin/` NÃO tem suíte de teste (`package.json` só tem
+  `dev`/`build`/`preview`, nenhum framework de teste instalado, nenhum
+  arquivo `*test*` no projeto). Acceptance criteria de C-38/C-39 não podem
+  assumir `npm test`/`.mjs` guardian — só `npx vite build` (syntax check) +
+  verificação visual/manual. Se o planejamento decidir introduzir o
+  PRIMEIRO teste automatizado pro portal admin aqui, é uma decisão de
+  escopo maior que precisa ficar explícita (não implícita num acceptance
+  criteria que assume infra que não existe).
 
 </specifics>
 
