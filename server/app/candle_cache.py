@@ -232,10 +232,18 @@ async def load(
                 "cacheStatus": "fresh", "source": ent.get("src")}
 
     # cache hit: busca só a janela recente, funde e revalida o último candle.
-    # BLOCO A1: falha do delta NÃO derruba — serve o cache existente (stale).
+    # BLOCO A1: falha do delta NÃO derruba — serve o cache existente (stale),
+    # A NÃO SER que o cache já esteja velho demais (_MAX_STALE_AGE): aí é
+    # ticker morto (deslistado/renomeado/fusão) que nunca mais vai revalidar
+    # — melhor cair no mesmo erro limpo do cold-start do que virar lixo
+    # permanente e cada vez mais velho no Radar.
     try:
         recent = await fetch(recent_range)
     except Exception:  # noqa: BLE001
+        if (t - ent.get("at", 0)) >= _MAX_STALE_AGE:
+            raise ValueError(
+                f"Sem histórico disponível para {symbol} no provedor de dados — tente novamente mais tarde ou avalie outro ativo."
+            )
         return {"t": symbol, "currency": ent.get("currency", "BRL"), "candles": ent["candles"],
                 "cacheStatus": "stale", "source": ent.get("src")}
     # ADR-008 (Fase 4, errata da decisão 3): no DIÁRIO o merge entre fontes é
