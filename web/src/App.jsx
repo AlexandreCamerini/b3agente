@@ -755,9 +755,9 @@ function MarketStatusBadge({ mercado, cp }) {
   const cor = erro ? T.warn : mercado.aberto ? T.positive : T.negative;
   const label = erro ? cp.mercadoIndisponivel : mercado.aberto ? cp.mercadoAberto : cp.mercadoFechado(mercado.abertura);
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+    <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", minWidth: 0 }}>
       <span aria-hidden style={{ width: "7px", height: "7px", borderRadius: "50%", background: cor, flex: "none", boxShadow: `0 0 0 3px color-mix(in srgb, ${cor} 14%, transparent)` }} />
-      <span style={{ fontSize: "10.5px", fontWeight: 800, letterSpacing: "0.06em", color: cor, whiteSpace: "nowrap" }}>{label}</span>
+      <span style={{ fontSize: "10.5px", fontWeight: 800, letterSpacing: "0.06em", color: cor, whiteSpace: "nowrap", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{label}</span>
     </span>
   );
 }
