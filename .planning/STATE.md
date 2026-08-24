@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-08-18)
 Phase: Milestone v1.1 complete
 Plan: —
 Status: Awaiting next milestone
-Last activity: 2026-08-24 - Completed quick task 260824-i45: notificações push (destino, marco, P&L, rastro em agent.events, guarda de pregão, prévia do Radar)
+Last activity: 2026-08-24 - Completed quick task 260824-kc2: preferência de push por classe de evento + paridade dos dois stores + controles em Perfil → Notificações
 
 ## Performance Metrics
 
@@ -155,6 +155,7 @@ None yet.
 | 260823-vu4 | Ajuste de UI no cabeçalho: badge mercado fechado vaza no Topbar + espaço desperdiçado até a Dynamic Island | 2026-08-24 | 8603858 | [260823-vu4-ajuste-de-ui-no-cabecalho-badge-mercado-](./quick/260823-vu4-ajuste-de-ui-no-cabecalho-badge-mercado-/) |
 | 260823-x55 | Radar: ticker morto expira em vez de virar lixo permanente (candle_cache) + busca textual por ticker | 2026-08-24 | f731d7a | [260823-x55-dois-ajustes-na-tela-radar-1-bug-tickers](./quick/260823-x55-dois-ajustes-na-tela-radar-1-bug-tickers/) |
 | 260824-i45 | Notificações push: destino no toque, título com o marco, P&L, rastro em `agent.events`, guarda de pregão, prévia do Radar | 2026-08-24 | b0c29de | [260824-i45-notificacoes-push-deep-link-titulo-com-m](./quick/260824-i45-notificacoes-push-deep-link-titulo-com-m/) |
+| 260824-kc2 | Preferência de push por classe (radar/execução/proteção/gatilho) + paridade dos dois stores + controles em Perfil → Notificações | 2026-08-24 | 94ff07c | [260824-kc2-preferencias-de-push-por-classe-de-event](./quick/260824-kc2-preferencias-de-push-por-classe-de-event/) |
 
 ## Deferred Items
 
