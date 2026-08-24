@@ -29,6 +29,7 @@ FULL_RANGE = "2y"      # warmup p/ médias longas na 1ª carga (cache miss)
 RECENT_RANGE = "1mo"   # janela buscada nas próximas vezes (delta + revalidação)
 _MAX = 600             # ~2,4 anos de pregões; teto de tamanho
 _MIN_DELTA_INTERVAL = 45.0  # não rebusca o delta se atualizou há < 45s
+_MAX_STALE_AGE = 10 * 86400  # 10 dias em segundos — folga generosa sobre qualquer feriado prolongado da B3 (nunca fecha mais que ~5-6 dias seguidos)
 
 # ADR-001 — janelas POR INTERVALO. Pedir `2y` com `5m` devolve HTTP 422, e
 # `max` com intervalo intraday devolve velas MENSAIS com status 200 (medido em

@@ -142,6 +142,33 @@ def test_delta_com_falha_serve_cache_stale():
     assert r["cacheStatus"] == "stale" and r["candles"]
 
 
+def test_delta_com_falha_e_cache_velho_expira_ticker_morto():
+    # Ticker deslistado/renomeado/fusão: delta falha persistentemente e o
+    # cache já passou de _MAX_STALE_AGE — não pode ficar stale pra sempre
+    # (senão vira lixo permanente no Radar). Mesma mensagem amigável do
+    # caminho cold-start (test_falha_total_vira_erro_amigavel).
+    import asyncio
+    from app import candle_cache
+    from app.candle_cache import _MAX_STALE_AGE
+    candle_cache._CACHE.clear()
+    ok = {"candles": [{"date": "2026-01-02", "open": 1, "high": 1, "low": 1, "close": 1, "volume": 1}], "currency": "BRL"}
+    state = {"fail": False}
+
+    async def fetch(rng):
+        if state["fail"]:
+            raise RuntimeError("404 Not Found crumb")
+        return ok
+    asyncio.run(candle_cache.load("ZZZZ3", fetch, now=1000.0))
+    state["fail"] = True
+    try:
+        asyncio.run(candle_cache.load("ZZZZ3", fetch, now=1000.0 + _MAX_STALE_AGE + 1))
+        assert False, "deveria expirar o ticker morto"
+    except ValueError as e:
+        msg = str(e)
+        assert "Sem histórico disponível para ZZZZ3" in msg
+        assert "404" not in msg and "crumb" not in msg      # nada técnico vaza
+
+
 # ===== FASE 5 — L2 persistente (SQLite) =====
 def _fresh_l2():
     import os
