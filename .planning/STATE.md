@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-08-18)
 Phase: Milestone v1.1 complete
 Plan: —
 Status: Awaiting next milestone
-Last activity: 2026-08-24 - Completed quick task 260823-x55: Radar - ticker morto expira em vez de virar lixo permanente (candle_cache) + busca textual por ticker
+Last activity: 2026-08-24 - Completed quick task 260824-i45: notificações push (destino, marco, P&L, rastro em agent.events, guarda de pregão, prévia do Radar)
 
 ## Performance Metrics
 
@@ -154,6 +154,7 @@ None yet.
 | 260820-0hl | Pesquisa + design: assertividade do motor de recomendação (ADR-015) | 2026-08-20 | 4f06edb | [260820-0hl-pesquisa-e-design-assertividade-do-motor](./quick/260820-0hl-pesquisa-e-design-assertividade-do-motor/) |
 | 260823-vu4 | Ajuste de UI no cabeçalho: badge mercado fechado vaza no Topbar + espaço desperdiçado até a Dynamic Island | 2026-08-24 | 8603858 | [260823-vu4-ajuste-de-ui-no-cabecalho-badge-mercado-](./quick/260823-vu4-ajuste-de-ui-no-cabecalho-badge-mercado-/) |
 | 260823-x55 | Radar: ticker morto expira em vez de virar lixo permanente (candle_cache) + busca textual por ticker | 2026-08-24 | f731d7a | [260823-x55-dois-ajustes-na-tela-radar-1-bug-tickers](./quick/260823-x55-dois-ajustes-na-tela-radar-1-bug-tickers/) |
+| 260824-i45 | Notificações push: destino no toque, título com o marco, P&L, rastro em `agent.events`, guarda de pregão, prévia do Radar | 2026-08-24 | b0c29de | [260824-i45-notificacoes-push-deep-link-titulo-com-m](./quick/260824-i45-notificacoes-push-deep-link-titulo-com-m/) |
 
 ## Deferred Items
 
