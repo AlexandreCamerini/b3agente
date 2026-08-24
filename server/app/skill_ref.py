@@ -328,6 +328,30 @@ def push_titulo(modo: str, tag: str = "", ticker: str = "") -> str:
     return frase.replace("{t}", ticker)
 
 
+# --- Vocabulário do PUSH do Radar diário (260824-i45, item 6) ---------------
+# Decisão D1: o job das 08:45 FICA. `B3_RADAR_DAILY_HHMM`, a audiência e o gate
+# por `is_trading_day` (em vez de `in_market_hours`) são escolha deliberada e
+# estão documentados em `agent.py:1104-1107` — a vela DIÁRIA da véspera já está
+# consolidada e a leitura serve de preparação para o pregão. O DEFEITO era
+# outro: o texto não dizia que era prévia, e por isso lia como alerta fora de
+# hora. A correção é só de vocabulário.
+#
+# Ao contrário de `PUSH_TITULOS`, este dict NÃO é por modo — e é deliberado: a
+# audiência do Radar é `radar_daily._push_audience` ("todo mundo com token"),
+# não um escopo com `appMode` já resolvido, e a prévia é leitura de mercado sem
+# verbo de carteira. Resolver a voz por usuário custaria uma leitura de config
+# por usuário por dia sem mudar o conteúdo.
+#
+# Os corpos ENVELOPAM o texto de qa/43 (top-N nomeado + veredito junto do
+# percentual + contagem de ativos) — não o substituem. Os guardiões de
+# `test_radar_daily.py` continuam valendo palavra por palavra.
+PUSH_RADAR = {
+    "titulo": "Prévia do Radar · pré-abertura 📡",
+    "corpo_destaques": "Prévia pré-abertura: maior confluência em {itens}. O pregão ainda não abriu — a abertura pode mudar estes preços. Abra para ver o plano e o risco ({n} ativos analisados).",
+    "corpo_vazio": "Prévia pré-abertura: varredura concluída, {n} ativo(s) analisados, nenhum setup em destaque hoje. O pregão ainda não abriu. Abra o Radar para estudar.",
+}
+
+
 # --- Vocabulário do histórico medido por setup (ADR-017, Bloco 3) -----------
 # O Bloco 1 (Fase 7, `signal_ledger.py`) MEDE elegibilidade por setup/janela —
 # até aqui sem vitrine: o JSON já entrega `historico` (expR, n, elegivel,

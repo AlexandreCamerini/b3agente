@@ -6,8 +6,14 @@ Comportamento aprovado:
   • O resultado fica armazenado GLOBALMENTE (kv sem user_id — o universo é o
     mesmo para todos); abrir a aba Radar passa a servir o armazenado na hora.
   • Varredura manual (?force=1) recomputa e SUBSTITUI o resultado do dia.
-  • Push opcional "Radar do dia pronto" para quem tem token registrado
+  • Push opcional de PRÉVIA PRÉ-ABERTURA para quem tem token registrado
     (mesma permissão do push do Operador IA — best-effort, nunca derruba).
+    Título e corpo saem de `skill_ref.PUSH_RADAR`: às 08:45 o pregão ainda não
+    abriu, e o texto tem que dizer isso (260824-i45, item 6) sob pena de ler
+    como alerta fora de hora.
+  • O mesmo corpo vira EVENTO em `agent.events` para a mesma audiência — o
+    rastro durável da tela "EVENTOS E AVISOS RECENTES", independente de a
+    entrega do push dar certo.
 
 Reusa a infraestrutura existente: roda DENTRO do scheduler_loop do agent.py
 (sem segundo scheduler) e todo o custo de rede passa pelo candle_cache do
@@ -20,7 +26,7 @@ import time
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from . import db, scanner
+from . import db, scanner, skill_ref, store
 from . import candles as candles_mod
 
 BRT = timezone(timedelta(hours=-3))
@@ -211,16 +217,23 @@ def push_body(payload: dict, top: int = PUSH_TOP_N) -> str:
     faria o usuário ler como alta e comprar na queda. Vocabulário do produto
     ("confluência" = aderência ao padrão de estudo, como o DISCLAIMER define),
     sem verbo de ordem de operação — o guardrail regulatório vale aqui também.
+
+    260824-i45 (item 6): o texto passa a declarar que é PRÉVIA PRÉ-ABERTURA.
+    Este job roda às 08:45 por desenho (decisão D1) e o corpo não dizia isso,
+    o que fazia o push ler como alerta fora de hora — e pior, sugeria preços
+    que a abertura ainda pode mudar. O vocabulário vive em
+    `skill_ref.PUSH_RADAR`; o texto novo ENVELOPA o de qa/43 (top-N, veredito,
+    contagem), não o substitui.
     """
     results = payload.get("results") or []
     n = len(results)
     destaques = [r for r in results[:top]
                  if (r.get("confluencia") or 0) > 0 and r.get("ticker") and r.get("veredito")]
     if not destaques:
-        return f"Varredura concluída: {n} ativo(s) analisados, nenhum setup em destaque hoje. Abra o Radar para estudar."
+        return skill_ref.PUSH_RADAR["corpo_vazio"].replace("{n}", str(n))
     itens = " · ".join(f"{r['ticker']} {int(r['confluencia'])}% {str(r['veredito']).lower()}"
                        for r in destaques)
-    return f"Maior confluência: {itens}. Abra para ver o plano e o risco ({n} ativos analisados)."
+    return skill_ref.PUSH_RADAR["corpo_destaques"].replace("{itens}", itens).replace("{n}", str(n))
 
 
 async def run_daily(conn, fetch, notify_push=None, origem: str = "automática") -> dict:
@@ -237,9 +250,30 @@ async def run_daily(conn, fetch, notify_push=None, origem: str = "automática") 
     )
     if notify_push and origem == "automática":
         corpo = push_body(payload)   # qa/43: nomeia o top-N em vez de só contar
+        # SEM `extra` aqui, e é deliberado (260824-i45): a prévia nomeia N
+        # tickers e não tem destino único — eleger `destaques[0]` cometeria o
+        # erro de ticker trocado que `agent.py:1008-1015` existe para evitar. E
+        # `extra` só com `kind`, sem `t`, seria peso morto: `notify.js:382`
+        # filtra por `^[A-Z]{4}\d{1,2}$` ANTES de chamar o handler, então um
+        # payload sem `t` válido nunca chega a lugar nenhum. Rotear o toque por
+        # `kind` exigiria mudar o contrato de navegação do cliente — fora de
+        # escopo.
+        #
+        # Limite deliberado: o evento entra só para `_push_audience` (quem tem
+        # token), a MESMA audiência do push — escrever para toda a base seria um
+        # `kv_set` por usuário por dia sem push correspondente.
         for uid in _push_audience(conn):
+            # `try` PRÓPRIO: o registro do evento é o rastro DURÁVEL (a tela
+            # "EVENTOS E AVISOS RECENTES", App.jsx:4301); a entrega do push é
+            # efêmera. Um `except` só, como antes, fazia a falha de um matar o
+            # outro — e o Radar era o único call site sem rastro nenhum.
             try:
-                await notify_push(uid, "Radar do dia 📡", corpo)
+                store.push_events(conn, [{"time": store.now_str(), "kind": "info",
+                                          "tag": "radar-diario", "text": corpo}], user_id=uid)
+            except Exception:  # noqa: BLE001 — registro é best-effort
+                pass
+            try:
+                await notify_push(uid, skill_ref.PUSH_RADAR["titulo"], corpo)
             except Exception:  # noqa: BLE001 — push é best-effort
                 pass
     return annotated

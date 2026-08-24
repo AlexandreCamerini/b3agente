@@ -1037,6 +1037,22 @@ async def _avisar_gatilhos(conn) -> int:
             extra = {"kind": "timing"}
             if len(tickers) == 1:
                 extra["t"] = tickers[0]
+            # 260824-i45 (item 4): registra o EVENTO DE MERCADO em
+            # `agent.events` — a tela "EVENTOS E AVISOS RECENTES"
+            # (App.jsx:4301). Até aqui o único rastro do gatilho era a linha de
+            # ENTREGA logo abaixo ("Aviso de condição atingida enviado a
+            # N/M aparelho(s)"), que vai para o `agentLog` (tela técnica) e
+            # registra o ENVIO, não o evento — ela continua existindo, sem
+            # alteração. Vem ANTES do `try` do envio de propósito: o evento de
+            # mercado aconteceu independentemente de a entrega dar certo.
+            # `t` só no caso de UM ativo, pela mesma razão do comentário acima.
+            try:
+                store.push_events(conn, [{"time": _now_str(), "kind": "info",
+                                          "tag": "timing-gatilho",
+                                          "t": tickers[0] if len(tickers) == 1 else None,
+                                          "text": corpo}], user_id=uid)
+            except Exception as e:  # noqa: BLE001 — registro nunca derruba o aviso
+                print(f"[timing_watch] registro do evento para {uid[:8]}… falhou: {e}")
             try:
                 # `send_to_user` NÃO levanta nos casos que importam: devolve
                 # sent=0 para APNs não configurado, aparelho sem token, HTTP
