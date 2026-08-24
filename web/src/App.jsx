@@ -650,7 +650,7 @@ function WelcomeAuthScreen({ ctx, onAuthed }) {
   // FASE 8B (P1): e-mail de relay da Apple não é rótulo de gente — usa o nome
   const userLabel = user ? ((user.name || "").trim() || (/@privaterelay\.appleid\.com$/i.test(user.email || "") ? "Sua conta Apple" : user.email) || "sua conta") : "";
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 85, background: T.bgBase, display: "flex", alignItems: "center", justifyContent: "center", padding: "18px", overflowY: "auto" }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: 85, background: T.bgBase, display: "flex", alignItems: "center", justifyContent: "center", paddingTop: "calc(18px + env(safe-area-inset-top))", paddingRight: "18px", paddingBottom: "18px", paddingLeft: "18px", overflowY: "auto" }}>
       <div style={{ width: "100%", maxWidth: "420px", ...card, padding: "26px 24px" }}>
         {/* Decisão do Alex (2026-08-08): esta é a primeira tela que alguém vê,
             então a marca ocupa o espaço que merece. O empilhamento antigo
