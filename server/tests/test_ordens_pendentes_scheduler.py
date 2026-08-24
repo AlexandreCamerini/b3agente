@@ -144,14 +144,30 @@ def test_push_execucao_e_cancelamento_ignora_warn_preexistente(monkeypatch):
     getter = _fake_quotes({"EEEE3": 10.5, "FFFF3": 500.0})
     pushes = []
 
-    async def fake_notify(uid, title, body):
-        pushes.append((uid, title, body))
+    # Quick task 260824-i45: o espião ganhou o 4º argumento (`extra`) junto com
+    # a correção do deep link. Ele SÓ COLETA — `agent.py` aguarda `notify_push`
+    # dentro de um `except Exception`, e `AssertionError` é subclasse de
+    # `Exception`: um assert aqui dentro seria engolido e o guardião viraria
+    # vácuo. As asserções ficam depois do `asyncio.run`.
+    async def fake_notify(uid, title, body, extra=None):
+        pushes.append((uid, title, body, extra))
 
     asyncio.run(agent.scheduler_loop(c, getter, notify_push=fake_notify, once=True))
 
     assert len(pushes) == 2  # 1 execução (u1) + 1 cancelamento (u2), nada do warn pré-existente
+    # NOTA (260824-i45, item 2): este assert travava
+    # `titulos == {"Agente Boris+ (simulado)"}` — ou seja, travava o PRÓPRIO
+    # defeito. O título genérico era o sintoma relatado ("o push não diz o que
+    # aconteceu"); o guardião mudou de lado de propósito e agora exige o marco
+    # real no título, com a declaração de simulação preservada (princípio 1 do
+    # CLAUDE.md — o corpo da ordem pendente não diz "simulado").
     titulos = {p[1] for p in pushes}
-    assert titulos == {"Agente Boris+ (simulado)"}
+    assert titulos == {"Pendente executada (simulada) · EEEE3",
+                       "Pendente cancelada (simulada) · FFFF3"}
+    # item 1: o toque precisa ter destino — `t` no formato que
+    # `web/src/notify.js:382` valida, senão o cliente descarta em silêncio.
+    destinos = {p[0]: (p[3] or {}).get("t") for p in pushes}
+    assert destinos == {"u1": "EEEE3", "u2": "FFFF3"}
     textos = [p[2] for p in pushes]
     assert any("executada" in t for t in textos)
     cancelado = [t for t in textos if "cancelada" in t]
@@ -177,8 +193,10 @@ def test_venda_pendente_tambem_executa_pelo_hook_do_scheduler(monkeypatch):
     getter = _fake_quotes({"EEEE3": 9.0})
     pushes = []
 
-    async def fake_notify(uid, title, body):
-        pushes.append((uid, title, body))
+    # 260824-i45: 4º argumento (`extra`) e espião que SÓ COLETA — ver a nota no
+    # teste acima.
+    async def fake_notify(uid, title, body, extra=None):
+        pushes.append((uid, title, body, extra))
 
     asyncio.run(agent.scheduler_loop(c, getter, notify_push=fake_notify, once=True))
 
@@ -188,6 +206,8 @@ def test_venda_pendente_tambem_executa_pelo_hook_do_scheduler(monkeypatch):
     historico = store.get(c, "history", user_id="u1")
     assert historico and historico[0]["type"] == "VENDA" and historico[0]["origem"] == "pendente"
     assert len(pushes) == 1 and "venda" in pushes[0][2].lower() and "executada" in pushes[0][2]
+    assert pushes[0][1] == "Pendente executada (simulada) · EEEE3"
+    assert (pushes[0][3] or {}).get("t") == "EEEE3"  # item 1: o toque tem destino
     assert agent.LAST_PENDING["executadas"] == 1
 
 
