@@ -142,8 +142,27 @@ ok("grep '3px 9px': pill novo usa o padding padrão da app (App.jsx:935 no UI-SP
 // ---------------------------------------- Task 2: toast de auto-cancelamento
 ok("efeito de resumo (agentSummaryDone) filtra por tag === 'pendente-cancelada', não por kind 'warn' solto",
   /const canceladas = news\.filter\(\(e\) => e\.tag === "pendente-cancelada"\);/.test(app));
+// NOTA (quick task 260824-i45, item 5, 2026-08-24) — REVERSÃO DELIBERADA.
+// A regex exigia `flash(e.text);` SEGUIDO de `notify.send("Boris+", e.text);`.
+// O `notify.send` foi removido de propósito: este bloco roda no BOOT, com o app
+// em primeiro plano e a QUALQUER HORA, sobre eventos que já aconteceram horas
+// antes — era a segunda fonte de "notificação fora do pregão" relatada. A
+// informação NÃO se perde: o `flash` continua mostrando in-app e, no nativo, o
+// próprio `notify.send` já caía no mesmo `_emitForeground` → handler in-app;
+// sumiu só o banner de sistema redundante.
+// O que este guardião realmente protege continua travado, e continua capaz de
+// falhar: o texto vem do MOTOR (`e.text`), o front nunca recompõe a frase do
+// motivo (CLAUDE.md princípio 5). A ausência do banner virou asserção própria,
+// para a reversão não poder voltar em silêncio.
 ok("toast de auto-cancelamento usa e.text (texto do motor) — sem string literal de motivo no front",
-  /for \(const e of canceladas\) \{\s*flash\(e\.text\);\s*notify\.send\("Boris\+", e\.text\);/.test(app));
+  /for \(const e of canceladas\) \{\s*flash\(e\.text\);/.test(app));
+ok("o laço de canceladas NÃO reintroduz banner de sistema (260824-i45, item 5)",
+  (() => {
+    const i = app.indexOf("for (const e of canceladas) {");
+    if (i < 0) return false;
+    const j = app.indexOf("}", app.indexOf("flash(e.text);", i));
+    return j > i && !app.slice(i, j).includes("notify.send");
+  })());
 ok("'pendente-cancelada' aparece 1x no arquivo, dentro do recorte que contém agentSummaryDone",
   (() => {
     const count = (app.match(/pendente-cancelada/g) || []).length;

@@ -2785,8 +2785,11 @@ async def _start_agent_scheduler():
         obslog.log("env", "variáveis com espaço no NOME (nunca são lidas): "
                    + ", ".join(repr(k) for k in suspeitas), level="error")
 
-    async def _notify(uid, title, body):
-        await push.send_to_user(_conn, uid, title, body)
+    async def _notify(uid, title, body, extra=None):
+        # `extra` (260824-i45, item 1): sem isto o payload chega sem `data.t`,
+        # `web/src/notify.js:382` descarta em silêncio e o toque no push abre o
+        # app sem destino. `send_to_user` já sabia tratar `extra`/`None`.
+        await push.send_to_user(_conn, uid, title, body, extra=extra)
     asyncio.get_event_loop().create_task(
         agent_mod.scheduler_loop(_conn, candle_provider.get_quotes_exclusive, notify_push=_notify,
                                  radar_fetch=candle_provider.get_history,  # FASE 4 (1.3)

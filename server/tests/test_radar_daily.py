@@ -4,7 +4,7 @@ import asyncio
 import sqlite3
 from datetime import datetime
 
-from app import db, radar_daily
+from app import db, radar_daily, skill_ref
 from app.radar_daily import BRT
 
 
@@ -113,11 +113,28 @@ def test_push_best_effort_para_quem_tem_token():
         db.kv_set(c, "pushTokens", ["tok"], user_id="u1")  # só u1 ativou push
         enviados = []
 
+        # NOTA (quick task 260824-i45, 2026-08-24) — a asserção do título MUDOU
+        # DE LUGAR, e a mudança é de correção, não de estilo.
+        #
+        # Até aqui era `assert "Radar do dia" in title` DENTRO de `fake_push`.
+        # Esse assert nunca podia bater: `run_daily` aguarda o `notify_push`
+        # dentro de `except Exception: pass` (radar_daily.py) e `AssertionError`
+        # é subclasse de `Exception` — era engolido. Pior: `enviados.append(uid)`
+        # rodava ANTES dele, então `assert enviados == ["u1"]` ficava verde de
+        # qualquer jeito e o guardião era VÁCUO. Defeito latente PREEXISTENTE,
+        # não introduzido por aquele quick task.
+        #
+        # Correção: o fake SÓ COLETA; o teste assere depois do `_run`. O título
+        # em si mudou por decisão D1 — o horário das 08:45 fica (é pré-abertura
+        # deliberada, candle da véspera fechado), o que faltava era o texto
+        # dizer isso em vez de ler como alerta fora de hora.
         async def fake_push(uid, title, body):
-            enviados.append(uid)
-            assert "Radar do dia" in title
+            enviados.append((uid, title))     # SÓ COLETA: assert aqui é engolido
         _run(radar_daily.run_daily(c, _fake_fetch, notify_push=fake_push))
-        assert enviados == ["u1"]
+        assert [u for u, _t in enviados] == ["u1"]
+        titulos = [t for _u, t in enviados]
+        assert titulos == [skill_ref.PUSH_RADAR["titulo"]]
+        assert "pré-abertura" in titulos[0].lower()
     finally:
         os.environ.pop("B3_SCAN_UNIVERSE", None)
 

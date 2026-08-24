@@ -267,7 +267,10 @@ async def executar_pendentes(conn, user_id, price_getter, agora=None) -> list:
                         atual = [o for o in atual if o.get("id") != order_id]
                         _gravar(conn, user_id, atual)
                         eventos.append({
-                            "time": store.now_str(), "kind": "warn", "tag": "pendente-cancelada",
+                            # `t` (260824-i45, item 1): o ticker existia só
+                            # dentro do texto, e o funil de push não tem como
+                            # extraí-lo de lá para virar destino do toque.
+                            "time": store.now_str(), "kind": "warn", "tag": "pendente-cancelada", "t": t,
                             "text": (f"Ordem pendente de compra ({alvo['qty']} {t}) cancelada na abertura: "
                                      f"o preço subiu de R$ {alvo['precoReferencia']:.2f} para "
                                      f"R$ {preco:.2f} e o caixa reservado não cobriu o custo. O caixa "
@@ -285,7 +288,7 @@ async def executar_pendentes(conn, user_id, price_getter, agora=None) -> list:
                         store.buy(conn, t, alvo["qty"], preco, user_id=user_id, meta=alvo.get("meta"),
                                   origem="pendente")
                         eventos.append({
-                            "time": store.now_str(), "kind": "buy", "tag": "pendente-executada",
+                            "time": store.now_str(), "kind": "buy", "tag": "pendente-executada", "t": t,
                             "text": (f"Ordem pendente de compra executada: {alvo['qty']} {t} a "
                                      f"R$ {preco:.2f} (fonte: {fonte or '?'})."),
                         })
@@ -295,7 +298,7 @@ async def executar_pendentes(conn, user_id, price_getter, agora=None) -> list:
                     _restaurar_posicao(conn, user_id, t, alvo["qty"], alvo["avgReservado"])
                     store.sell(conn, t, preco, user_id=user_id, qty=alvo["qty"], origem="pendente")
                     eventos.append({
-                        "time": store.now_str(), "kind": "buy", "tag": "pendente-executada",
+                        "time": store.now_str(), "kind": "buy", "tag": "pendente-executada", "t": t,
                         "text": (f"Ordem pendente de venda executada: {alvo['qty']} {t} a "
                                  f"R$ {preco:.2f} (fonte: {fonte or '?'})."),
                     })

@@ -23,6 +23,7 @@ imperativos; kill-switch global (env B3_AGENT_KILL=1) e por usuário
 """
 import asyncio
 import os
+import re
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -31,6 +32,12 @@ from . import db, skill_ref, store
 
 INTERVAL_S_DEFAULT = 300
 BRT = timezone(timedelta(hours=-3))
+
+# ESPELHO DELIBERADO de `web/src/notify.js:382`: o app valida o ticker do
+# payload contra este MESMO formato e DESCARTA EM SILÊNCIO o que não casar.
+# Mandar `t` fora do formato (contrato de opção, por ex.) é peso morto no
+# payload e ruído no diagnóstico — filtramos na origem.
+_TICKER_PUSH_RE = re.compile(r"^[A-Z]{4}\d{1,2}$")
 
 # BLOCO D3 — visibilidade: o scheduler grava aqui o resultado da última
 # passada; GET /api/agent/status expõe (fim do "não sei por que não roda").
@@ -693,7 +700,9 @@ async def _avaliar_entradas(conn, scope, ag, par, app_mode, positions, executed:
         store.buy(conn, ticker, qty, price, user_id=scope, meta={"setup": r.get("setup")}, origem="automatico")  # ADR-012 (Fase 3)
         executed += 1
         _bump_ops(conn, scope, store.get(conn, "agent", user_id=scope) or ag)
-        events.append({"time": _now_str(), "kind": "buy",
+        # `t`/`tag` (260824-i45, itens 1 e 2): destino do toque e marco do
+        # título. O `text` fica byte a byte como estava.
+        events.append({"time": _now_str(), "kind": "buy", "t": ticker, "tag": "entrada-auto",
                        "text": f"Entrada automática: {ticker} comprado ({qty} ações, "
                                f"{par['allocPct']:.0f}% do caixa) a R$ {price:.2f} — gatilho de entrada "
                                f"atingido."})
@@ -876,12 +885,24 @@ async def _run_cycle_inner(conn, scope, quotes_getter, origem: str, t0: float, s
             events.append({"time": _now_str(), "kind": "warn",
                            "text": f"Teto por operação (R$ {par['maxValorOp']:.2f}) excedido em {pos['t']} (R$ {valor_op:.2f}). Registrado, sem execução."})
             continue
-        store.sell(conn, pos["t"], price, user_id=scope, motivo="stop" if breach_stop else "alvo",
-                   origem="automatico")  # ADR-012 (Fase 3) / ADR15-04
+        # 260824-i45 (item 3): o `pnl` vem do RETORNO de `store.sell`
+        # (`store.py:650`), o motor determinístico — recompor
+        # `(price - avg) * qty` aqui violaria o princípio 5 do CLAUDE.md
+        # (número de carteira só sai do motor). Este call site vende sempre
+        # TOTAL (sem `qty=`), então o valor é realizado, em R$ e com o sinal
+        # certo. `pnl is None` (posição sumiu entre a leitura e a venda)
+        # mantém o texto de antes — sem inventar resultado.
+        pnl = store.sell(conn, pos["t"], price, user_id=scope, motivo="stop" if breach_stop else "alvo",
+                         origem="automatico")  # ADR-012 (Fase 3) / ADR15-04
         executed += 1
         _bump_ops(conn, scope, store.get(conn, "agent", user_id=scope) or ag)
-        events.append({"time": _now_str(), "kind": "buy",
-                       "text": f"Proteção simulada: {pos['t']} vendido ({motivo}) a R$ {price:.2f}."})
+        _txt = f"Proteção simulada: {pos['t']} vendido ({motivo}) a R$ {price:.2f}."
+        if pnl is not None:
+            _txt += f" Resultado realizado: R$ {pnl:+.2f}."
+        # `t`/`tag` (item 2): o marco já existia como `breach_stop`/`motivo` e
+        # morria aqui — só `text` viajava até o push, que caía no genérico.
+        events.append({"time": _now_str(), "kind": "buy", "t": pos["t"],
+                       "tag": "stop" if breach_stop else "alvo", "pnl": pnl, "text": _txt})
     executed = await _avaliar_opcoes(conn, scope, ag, par, option_quotes_getter, executed, events)
     # Fase B: entrada automática — DEPOIS da saída (stop/alvo) e das opções,
     # de propósito (não faz sentido abrir posição nova no mesmo ciclo em que
@@ -901,7 +922,10 @@ async def _run_cycle_inner(conn, scope, quotes_getter, origem: str, t0: float, s
     store.push_events(conn, events, user_id=scope)
     if scope:  # log persistente do agente (3.3a) só faz sentido por usuário
         store.push_agent_log(conn, events, user_id=scope)
-    return {"events": events, "executed": executed}
+    # `appMode` (260824-i45, item 2): o modo já foi lido acima para o
+    # `agent_params`; devolvê-lo poupa o funil D3 de uma leitura de kv por
+    # usuário por tick só para escolher o vocabulário do título.
+    return {"events": events, "executed": executed, "appMode": app_mode}
 
 
 def _agent_rows(conn) -> list:
@@ -1013,6 +1037,22 @@ async def _avisar_gatilhos(conn) -> int:
             extra = {"kind": "timing"}
             if len(tickers) == 1:
                 extra["t"] = tickers[0]
+            # 260824-i45 (item 4): registra o EVENTO DE MERCADO em
+            # `agent.events` — a tela "EVENTOS E AVISOS RECENTES"
+            # (App.jsx:4301). Até aqui o único rastro do gatilho era a linha de
+            # ENTREGA logo abaixo ("Aviso de condição atingida enviado a
+            # N/M aparelho(s)"), que vai para o `agentLog` (tela técnica) e
+            # registra o ENVIO, não o evento — ela continua existindo, sem
+            # alteração. Vem ANTES do `try` do envio de propósito: o evento de
+            # mercado aconteceu independentemente de a entrega dar certo.
+            # `t` só no caso de UM ativo, pela mesma razão do comentário acima.
+            try:
+                store.push_events(conn, [{"time": _now_str(), "kind": "info",
+                                          "tag": "timing-gatilho",
+                                          "t": tickers[0] if len(tickers) == 1 else None,
+                                          "text": corpo}], user_id=uid)
+            except Exception as e:  # noqa: BLE001 — registro nunca derruba o aviso
+                print(f"[timing_watch] registro do evento para {uid[:8]}… falhou: {e}")
             try:
                 # `send_to_user` NÃO levanta nos casos que importam: devolve
                 # sent=0 para APNs não configurado, aparelho sem token, HTTP
@@ -1200,6 +1240,17 @@ async def scheduler_loop(conn, quotes_getter, notify_push=None, interval_s: int 
                             except Exception as e:  # noqa: BLE001 — 1 escopo não derruba os outros
                                 print(f"[pending-orders] escopo {str(uid)[:8]}…: {e}")
                                 continue
+                            # 260824-i45 (item 2): leitura do modo CONDICIONAL
+                            # — `executar_pendentes` devolve lista vazia na
+                            # esmagadora maioria dos ticks, e uma leitura de
+                            # `config` por uid por tick sem nenhum push a
+                            # emitir seria trabalho jogado fora. Mapeamento de
+                            # nomes: `config.appMode` é "operador"|"estudo";
+                            # as chaves de `skill_ref` são "operador"|
+                            # "educacional".
+                            _modo = "educacional"
+                            if eventos:
+                                _modo = "operador" if (store.get(conn, "config", user_id=uid) or {}).get("appMode") == "operador" else "educacional"
                             for ev in eventos:
                                 _executou = ev.get("kind") == "buy"
                                 _cancelou = ev.get("tag") == "pendente-cancelada"
@@ -1220,8 +1271,16 @@ async def scheduler_loop(conn, quotes_getter, notify_push=None, interval_s: int 
                                 # plano 02-06) o usuário veria a ordem
                                 # evaporar sem motivo (T-02-36).
                                 if notify_push is not None and (_executou or _cancelou):
+                                    # Título derivado do `tag` que o evento já
+                                    # carregava, e `t` no payload para o toque
+                                    # ter destino (260824-i45, itens 1 e 2).
+                                    _tk = str(ev.get("t") or "")
+                                    _extra = {"kind": "ordem"}
+                                    if _TICKER_PUSH_RE.match(_tk):
+                                        _extra["t"] = _tk
                                     try:
-                                        await notify_push(uid, "Agente Boris+ (simulado)", ev["text"])
+                                        await notify_push(uid, skill_ref.push_titulo(_modo, ev.get("tag"), _tk),
+                                                          ev["text"], extra=_extra)
                                     except Exception:  # noqa: BLE001 — push é best-effort
                                         _registrar_push_falho()
                         LAST_PENDING.update(at=datetime.now(BRT).strftime("%d/%m %H:%M"),
@@ -1255,10 +1314,21 @@ async def scheduler_loop(conn, quotes_getter, notify_push=None, interval_s: int 
                                                 option_quotes_getter=option_quotes_getter)
                         LAST_RUN["executadas"] += r["executed"]
                         if notify_push and r["executed"]:
-                            acts = [e["text"] for e in r["events"] if e.get("kind") == "buy"]
-                            for txt in acts:
+                            # 260824-i45 (itens 1 e 2): itera sobre os EVENTOS
+                            # (não sobre uma lista de textos), preservando o
+                            # filtro `kind == "buy"`. O modo vem do próprio
+                            # retorno do ciclo — sem leitura de kv extra.
+                            _modo = "operador" if r.get("appMode") == "operador" else "educacional"
+                            for e in r["events"]:
+                                if e.get("kind") != "buy":
+                                    continue
+                                _tk = str(e.get("t") or "")
+                                _extra = {"kind": "operador"}
+                                if _TICKER_PUSH_RE.match(_tk):
+                                    _extra["t"] = _tk
                                 try:
-                                    await notify_push(uid, "Agente Boris+ (simulado)", txt)
+                                    await notify_push(uid, skill_ref.push_titulo(_modo, e.get("tag"), _tk),
+                                                      e["text"], extra=_extra)
                                 except Exception:  # noqa: BLE001 — push é best-effort
                                     _registrar_push_falho()
                     except Exception as e:  # noqa: BLE001 — 1 usuário não derruba o laço

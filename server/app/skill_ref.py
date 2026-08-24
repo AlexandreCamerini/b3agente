@@ -272,6 +272,86 @@ def timing_txt(modo: str, estado: str, hora: str = "") -> str:
     return frase.replace("{hora}", hora or "?")
 
 
+# --- Vocabulário do PUSH do Operador (quick task 260824-i45, item 2) --------
+# Texto de saída SÓ do backend: o front nunca renderiza estas frases (elas
+# nascem no APNs e morrem na tela de bloqueio), então NÃO há espelho em
+# `web/src/copy.js`. A disciplina de espelho existe contra DIVERGÊNCIA entre os
+# dois lados; criar chave morta do outro lado não é espelho, é lixo — o
+# precedente inverso já vale em `copy.js:74-82`, onde o texto da notificação
+# LOCAL vive só no front.
+#
+# O sufixo "(simulado)"/"(simulada)" é OBRIGATÓRIO em todos os valores
+# (CLAUDE.md princípio 1): os corpos de entrada automática (`agent.py:697-699`)
+# e de ordem pendente (`pending_orders.py:289-290`) não dizem "simulado", então
+# o título é o único lugar da tela de bloqueio que sustenta a declaração.
+#
+# ATENÇÃO — não confundir com `copy.js notifStopTitulo` ("Stop acionado · X"):
+# aquele é o alerta LOCAL de o preço TER TOCADO o nível (nada foi feito). Estes
+# aqui são de operação JÁ EXECUTADA pelo Operador. Eventos diferentes, textos
+# separados de propósito.
+#
+# Guardrail regulatório: nenhum título carrega verbo imperativo de operação —
+# descrevem o que o SIMULADOR fez, nunca o que a pessoa deve fazer (mesma regra
+# do `radar_daily.push_body`).
+PUSH_TITULOS = {
+    "operador": {
+        "stop": "STOP executado (simulado) · {t}",
+        "alvo": "ALVO atingido (simulado) · {t}",
+        "entrada-auto": "ENTRADA automática (simulada) · {t}",
+        "pendente-executada": "Pendente executada (simulada) · {t}",
+        "pendente-cancelada": "Pendente cancelada (simulada) · {t}",
+        "generico": "Operador Boris+ (simulado)",
+    },
+    "educacional": {
+        "stop": "Stop acionado (simulado) · {t}",
+        "alvo": "Alvo atingido (simulado) · {t}",
+        "entrada-auto": "Entrada simulada · {t}",
+        "pendente-executada": "Pendente executada (simulada) · {t}",
+        "pendente-cancelada": "Pendente cancelada (simulada) · {t}",
+        "generico": "Agente Boris+ (simulado)",
+    },
+}
+
+
+def push_titulo(modo: str, tag: str = "", ticker: str = "") -> str:
+    """Título do push no vocabulário do modo, derivado da `tag` do evento.
+
+    Degradação DEFINIDA, no mesmo idioma de `timing_txt`: modo desconhecido cai
+    em "educacional"; tag ausente/desconhecida cai no genérico do modo; e
+    evento SEM ticker (contrato de opção, agregado) também cai no genérico —
+    nunca `"Stop acionado (simulado) · "` com o sufixo pendurado, nunca `{t}`
+    cru vazando para a tela de bloqueio."""
+    d = PUSH_TITULOS.get(modo if modo in PUSH_TITULOS else "educacional", PUSH_TITULOS["educacional"])
+    frase = d.get(tag or "")
+    if not frase or ("{t}" in frase and not ticker):
+        return d["generico"]      # tag desconhecida ou sem ticker: título inteiro
+    return frase.replace("{t}", ticker)
+
+
+# --- Vocabulário do PUSH do Radar diário (260824-i45, item 6) ---------------
+# Decisão D1: o job das 08:45 FICA. `B3_RADAR_DAILY_HHMM`, a audiência e o gate
+# por `is_trading_day` (em vez de `in_market_hours`) são escolha deliberada e
+# estão documentados em `agent.py:1104-1107` — a vela DIÁRIA da véspera já está
+# consolidada e a leitura serve de preparação para o pregão. O DEFEITO era
+# outro: o texto não dizia que era prévia, e por isso lia como alerta fora de
+# hora. A correção é só de vocabulário.
+#
+# Ao contrário de `PUSH_TITULOS`, este dict NÃO é por modo — e é deliberado: a
+# audiência do Radar é `radar_daily._push_audience` ("todo mundo com token"),
+# não um escopo com `appMode` já resolvido, e a prévia é leitura de mercado sem
+# verbo de carteira. Resolver a voz por usuário custaria uma leitura de config
+# por usuário por dia sem mudar o conteúdo.
+#
+# Os corpos ENVELOPAM o texto de qa/43 (top-N nomeado + veredito junto do
+# percentual + contagem de ativos) — não o substituem. Os guardiões de
+# `test_radar_daily.py` continuam valendo palavra por palavra.
+PUSH_RADAR = {
+    "titulo": "Prévia do Radar · pré-abertura 📡",
+    "corpo_destaques": "Prévia pré-abertura: maior confluência em {itens}. O pregão ainda não abriu — a abertura pode mudar estes preços. Abra para ver o plano e o risco ({n} ativos analisados).",
+    "corpo_vazio": "Prévia pré-abertura: varredura concluída, {n} ativo(s) analisados, nenhum setup em destaque hoje. O pregão ainda não abriu. Abra o Radar para estudar.",
+}
+
+
 # --- Vocabulário do histórico medido por setup (ADR-017, Bloco 3) -----------
 # O Bloco 1 (Fase 7, `signal_ledger.py`) MEDE elegibilidade por setup/janela —
 # até aqui sem vitrine: o JSON já entrega `historico` (expR, n, elegivel,
