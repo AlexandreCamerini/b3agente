@@ -8,7 +8,7 @@ const config: CapacitorConfig = {
   webDir: "dist",
   backgroundColor: "#0b0e14",
   ios: {
-    contentInset: "always",
+    contentInset: "never",
   },
   plugins: {
     // FASE 8 (A1 — CAUSA-RAIZ das notificações locais "mudas" em foreground):
