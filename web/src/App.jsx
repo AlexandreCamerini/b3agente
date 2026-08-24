@@ -7080,10 +7080,20 @@ export default function App() {
       const seen = (data.agent || {}).lastSeenAt || "";
       const news = seen ? log.filter((e) => (e.at || e.time || "") > seen) : log;
       const acts = news.filter((e) => e.kind === "buy");
+      // 260824-i45 (item 5): SEM banner de sistema aqui. Este bloco roda no
+      // BOOT, com o app em primeiro plano e a qualquer hora — era a segunda
+      // fonte de "notificação fora do pregão", e para eventos que já
+      // aconteceram horas antes. O recap NÃO se perde: `flash` continua
+      // mostrando in-app, e no nativo `notify.send` já caía no mesmo
+      // `_emitForeground` → handler registrado neste mesmo componente. Some o
+      // banner redundante, fica a informação.
+      // A guarda de pregão NÃO se aplica a este bloco de propósito: ele é um
+      // RESUMO do que já passou, disparado pela própria pessoa ao abrir o app
+      // — gatear por horário faria quem abre às 19h nunca saber que o agente
+      // operou.
       if (acts.length > 0) {
         const msg = "O agente fez " + acts.length + " ação(ões) simulada(s) desde sua última visita — veja em Automatizar.";
         flash(msg);
-        notify.send("Agente Boris+", msg);
       }
       // Fase 2 (MERC-02..04, T-02-36): ordem pendente auto-cancelada na
       // abertura (preço subiu e o caixa reservado não cobriu mais o custo,
@@ -7099,8 +7109,7 @@ export default function App() {
       // exige ação do usuário — revisar se quer recolocar a ordem.
       const canceladas = news.filter((e) => e.tag === "pendente-cancelada");
       for (const e of canceladas) {
-        flash(e.text);
-        notify.send("Boris+", e.text);
+        flash(e.text);   // 260824-i45 (item 5): sem banner de sistema — ver acima
       }
       if (log.length) store.putAgent({ lastSeenAt: new Date().toISOString() }).catch(() => {});
     } catch { /* resumo é best-effort */ }
@@ -7722,6 +7731,21 @@ export default function App() {
   useEffect(() => {
     const n = data && data.config && data.config.notif;
     if (!n || !n.enabled) return;
+    // Guarda de pregão (quick task 260824-i45, item 5). `mercado` vem de
+    // /api/market/status → pregao.in_market_hours(): a fonte CANÔNICA, com
+    // feriado fixo e móvel. O front NÃO reimplementa esse calendário — grep
+    // confirmou que não existe equivalente em web/src/ e não é para passar a
+    // existir. Sem esta guarda, o laço dispara a cada mudança de `quotes`,
+    // inclusive com cotação stale de madrugada.
+    // `null` (1ª consulta em voo) e `{ erro: true }` (rede falhou) são estado
+    // INDETERMINADO: não afirmamos que está aberto (princípio 4) e também não
+    // perdemos o evento — o `return` acontece ANTES de tocar
+    // `notifRef.current[p.t]`, então o `armado` fica intacto e o aviso sai na
+    // primeira avaliação com o pregão confirmado aberto (princípio 9). Um
+    // `continue` DENTRO do laço não serviria: a entrada de `notifRef` já
+    // teria sido criada.
+    const pregaoAberto = !!(mercado && !mercado.erro && mercado.aberto);
+    if (!pregaoAberto) return;
     for (const p of (data.positions || [])) {
       const q = quotes[p.t];
       if (!q || q.price == null) continue;
@@ -7740,8 +7764,11 @@ export default function App() {
         if (st.varKey !== key) { notify.notifyIfEnabled(n, "variacao", cp.notifVarTitulo(p.t), cp.notifVarCorpo(p.t, pct(q.change), price(q.price))); st.varKey = key; }
       }
     }
+    // `mercado` na dep array (260824-i45): é o que faz o efeito rodar de novo
+    // quando o estado do pregão RESOLVE, entregando o aviso represado em vez
+    // de engoli-lo.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [quotes, data]);
+  }, [quotes, data, mercado]);
 
   // Tela de abertura: na 1a vez (flag do STORE) mostra login/criar conta; o
   // onboarding anônimo (orçamento/risco) só aparece se escolher "usar sem conta".
