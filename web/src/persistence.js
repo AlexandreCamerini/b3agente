@@ -112,10 +112,42 @@ function serverStore() {
     if (patch.clearKey === true) c.keyStored = false;
     return { ...cur, config: c };
   };
-  return {
+  // O STORE dispara o sync sozinho; a UI não sabe que isto existe. Mesmo
+  // argumento que criou o `_agendarSyncPrefs` do deviceStore: deixar a UI
+  // lembrar de sincronizar é garantir que um dia ela esqueça — e esquecer
+  // significa interruptor que o usuário mexeu e que não vale.
+  //
+  // Nome DIFERENTE do agendador do deviceStore de propósito: o guardião de
+  // paridade CONTA os disparos do agendador de lá, e essa contagem não pode
+  // ser inflada por código do outro store (nem por este comentário — por isso
+  // o nome dele não aparece aqui na forma de chamada).
+  //
+  // Gatilho ÚNICO (`notif`), e é delimitação, não esquecimento: o web não
+  // manda `modo` nem `universo` (autoridade do aparelho), então não há o que
+  // sincronizar em troca de appMode, watchlist, compra ou venda — e cada
+  // disparo a mais é uma chance a mais de escrever sem autoridade.
+  let _prefsTimerWeb = null;
+  const _agendarSyncPrefsWeb = () => {
+    if (_prefsTimerWeb) clearTimeout(_prefsTimerWeb);
+    _prefsTimerWeb = setTimeout(() => {
+      _prefsTimerWeb = null;
+      _store.syncPushPrefs().catch(() => { /* best-effort, silencioso */ });
+    }, 1500);
+  };
+  const _store = {
     isNative: false,
     getState: () => sync.readState(),
-    putConfig: (patch) => sync.mutate("putConfig", [patch], optConfig(patch)),
+    putConfig: (patch) => {
+      const p = sync.mutate("putConfig", [patch], optConfig(patch));
+      if (patch && patch.notif && typeof patch.notif === "object") {
+        // DEPOIS de a mutação resolver: o `readState()` de dentro do
+        // `syncPushPrefs` precisa já enxergar o valor novo, senão o web
+        // reenviaria o estado anterior por cima do que acabou de mudar.
+        Promise.resolve(p).then(() => { _agendarSyncPrefsWeb(); })
+          .catch(() => { /* falha de escrita já sobe pelo `p` devolvido */ });
+      }
+      return p;
+    },
     testConfig: () => api.testConfig(), // exige servidor (testa a chave ao vivo)
     // FASE 8B (R2): a skill é POR MODO — b.modo escolhe a seção no servidor
     putSkill: (b) => sync.mutate("putSkill", [b], (cur) => (b && b.modo === "operador"
@@ -144,20 +176,52 @@ function serverStore() {
     scanDeep: (body) => api.scanDeep(body),                       // FASE 2 (2.1): N1 deep
     scanDeepEstimate: (p, n, t) => api.scanDeepEstimate(p, n, t), // FASE 2 (2.1): custo antes
     pushAnalysisLog: (t, entry) => api.pushAnalysisLog(t, entry), // FASE 2 (2.5): telemetria didática
+    // `extra` chega `undefined` a partir de `App.jsx` (`registerPushToken(tk)`)
+    // e isso está certo: `notify.registerPush` devolve `{ok:false}` fora do
+    // nativo ANTES de qualquer chamada, então este caminho nunca roda no web.
+    // A paridade que faltava era a do ENVIO da preferência — é o
+    // `syncPushPrefs` abaixo, disparado pelo próprio store, que a fecha.
     registerPushToken: (token, extra) => api.pushRegisterToken(token, extra),   // FASE 3.3b: APNs (exige conta)
     // Paridade com o deviceStore: MESMA assinatura (sem argumento) e mesmo
     // contrato — o store monta o corpo, quem chama não precisa saber a forma.
     // Assinaturas diferentes aqui já seriam um bug silencioso: `App.jsx` chama
     // um nome só, e um `{}` faz o servidor não gravar nada devolvendo ok.
     // O push lê uma fonte só (`pushPrefs`), então o web também a alimenta.
+    //
+    // QUADRO DE AUTORIDADE (260824-kc2) — o web escreve SÓ o que lhe cabe:
+    //
+    //   `radar`/`execucao`/`protecao` → os DOIS clientes. É controle da CONTA,
+    //                                   e o web mostra os mesmos interruptores.
+    //   `gatilho`                     → SÓ o aparelho. Só ele registra token
+    //                                   APNs (`notify.js`: no web,
+    //                                   `registerPush` devolve `{ok:false}`
+    //                                   antes de chamar qualquer coisa), então
+    //                                   `gatilho` sempre foi, de fato,
+    //                                   preferência do aparelho.
+    //   `modo`/`universo`             → SÓ o aparelho. Derivam de estado
+    //                                   local-first (appMode, watchlist do
+    //                                   aparelho, que pode não ser a do
+    //                                   servidor).
+    //
+    // NÃO "complete" este corpo. Se `gatilho` voltar aqui, ele seria derivado
+    // do `config.notif` DO SERVIDOR — e para um usuário device-first esse
+    // config é o default, que não é ausência de chave: `defaults.py` grava
+    // `enabled: False` e `gatilho: False` EXPLÍCITOS. Como `set_prefs` grava
+    // por chave, o `gatilho` LIGADO que o iPhone tinha viraria desligado na
+    // primeira vez que a pessoa abrisse o app no navegador. Em silêncio, sem
+    // nada na tela acusando. Mesma coisa, com sintoma mais discreto, para
+    // `modo` e `universo`.
     syncPushPrefs: async () => {
       const s = await sync.readState();
       const c = (s && s.config) || {};
       const n = (c.notif && typeof c.notif === "object") ? c.notif : {};
-      const uni = [];
-      for (const t of (s.watchlist || [])) if (t && !uni.includes(t)) uni.push(t);
-      for (const p of (s.positions || [])) if (p && p.t && !uni.includes(p.t)) uni.push(p.t);
-      return api.pushRegisterToken("", { prefs: { gatilho: !!(n.enabled && n.gatilho) }, modo: c.appMode || "estudo", universo: uni });
+      return api.pushRegisterToken("", {
+        prefs: {
+          radar: n.radar !== false,
+          execucao: n.execucao !== false,
+          protecao: n.protecao !== false,
+        },
+      });
     },
     // Camada de entendimento: no web o modo vem da config do escopo no servidor.
     conceitos: (modo, resumido) => api.conceitos(modo, resumido),
@@ -234,6 +298,7 @@ function serverStore() {
     // (que contém a chave BYOK, nunca trafegada ao cliente).
     _localSeed: () => null,
   };
+  return _store;
 }
 
 /* --------------------------- iPHONE (no aparelho) -------------------------- */
@@ -467,16 +532,49 @@ function deviceStore() {
     return e ? e.data : null;
   }
 
-  // Push do gatilho: o que o SERVIDOR precisa saber e não tem como descobrir.
-  // Consentimento é conjunção — o mestre `enabled` e a classe `gatilho`; uma
-  // classe nova não pode ligar sozinha por cima do interruptor geral.
+  // Push do servidor: o que ele precisa saber e não tem como descobrir.
+  //
+  // DOIS MESTRES, não um (260824-kc2). Conflacioná-los é a regressão exata que
+  // este comentário existe para impedir:
+  //
+  //   `config.notif.enabled`  → mestre das notificações LOCAIS do front
+  //                             (stop, alvo, agente, variação), disparadas
+  //                             pelo próprio app.
+  //   token registrado        → mestre do push do SERVIDOR. Registrar o token
+  //   (`pushTokens`)            é um ato explícito e SEPARADO (`onAtivarPush`
+  //                             em App.jsx), e é ele o consentimento.
+  //
+  // `radar`, `execucao` e `protecao` REFINAM o segundo mestre, por isso são
+  // opt-out puro (`!== false`) e NUNCA conjunção com `n.enabled`. Se alguém
+  // "uniformizar" a regra escrevendo `!!(n.enabled && n.execucao)`, todo
+  // usuário que registrou push e nunca ligou o interruptor LOCAL para de
+  // receber execução e proteção — coisas que ele recebe hoje, porque até
+  // 2026-08-24 esses call sites do servidor não consultavam preferência
+  // nenhuma. É tirar notificação de quem já tem.
+  //
+  // `gatilho` é a exceção HISTÓRICA e fica como está: conjunção E opt-in. É a
+  // única classe disparada por evento de MERCADO sobre ativo que a pessoa só
+  // acompanha (sem posição), então mora debaixo do interruptor geral.
+  //
+  // `gatilho`, `modo` e `universo` são autoridade do APARELHO — só ele
+  // registra token APNs. O web não escreve nenhum dos três; o quadro completo
+  // de autoridade está acima de `serverStore.syncPushPrefs`.
   function _pushPrefsLocais() {
     const c = (doc && doc.config) || {};
     const n = (c.notif && typeof c.notif === "object") ? c.notif : {};
     const uni = [];
     for (const t of (doc.watchlist || [])) if (t && !uni.includes(t)) uni.push(t);
     for (const p of (doc.positions || [])) if (p && p.t && !uni.includes(p.t)) uni.push(p.t);
-    return { prefs: { gatilho: !!(n.enabled && n.gatilho) }, modo: c.appMode || "estudo", universo: uni };
+    return {
+      prefs: {
+        gatilho: !!(n.enabled && n.gatilho),
+        radar: n.radar !== false,
+        execucao: n.execucao !== false,
+        protecao: n.protecao !== false,
+      },
+      modo: c.appMode || "estudo",
+      universo: uni,
+    };
   }
 
   // O universo muda em watchlist, compra, venda e no interruptor — quatro ou
@@ -554,8 +652,8 @@ function deviceStore() {
       if (typeof patch.candlePeriod === "string" && ["1mo", "3mo", "6mo", "1y", "2y"].includes(patch.candlePeriod)) c.candlePeriod = patch.candlePeriod;
       if (patch.streak && typeof patch.streak === "object") c.streak = { days: parseInt(patch.streak.days, 10) || 0, last: String(patch.streak.last || "") };
       if (patch.notif && typeof patch.notif === "object") {
-        const base = (c.notif && typeof c.notif === "object") ? c.notif : { enabled: false, stop: true, alvo: true, agente: true, variacao: true, gatilho: false };
-        for (const k of ["enabled", "stop", "alvo", "agente", "variacao", "gatilho"]) if (k in patch.notif) base[k] = !!patch.notif[k];
+        const base = (c.notif && typeof c.notif === "object") ? c.notif : { enabled: false, stop: true, alvo: true, agente: true, variacao: true, gatilho: false, radar: true, execucao: true, protecao: true };
+        for (const k of ["enabled", "stop", "alvo", "agente", "variacao", "gatilho", "radar", "execucao", "protecao"]) if (k in patch.notif) base[k] = !!patch.notif[k];
         c.notif = base;
         _agendarSyncPrefs();   // o interruptor do push mora no servidor, não aqui
       }
@@ -640,6 +738,27 @@ function deviceStore() {
         if (patch.appMode === "estudo" || patch.appMode === "operador") enviar.appMode = c.appMode;
         if ("operadorTermo" in patch) enviar.operadorTermo = c.operadorTermo;
         if (typeof patch.initialBudget === "number") enviar.initialBudget = c.initialBudget;
+        // 260824-kc2: `notif` passa a subir. Sem isto, o `config.notif` do
+        // servidor ficaria eternamente no default e o web reenviaria as três
+        // classes LIGADAS por cima do que o aparelho desligou. Com isto, o
+        // servidor aprende a mudança no MESMO `putConfig` que a fez — não
+        // existe janela.
+        //
+        // CHAVE A CHAVE, nunca o objeto `c.notif` inteiro (o guardião assere a
+        // AUSÊNCIA dessa forma, por isso ela não aparece nem aqui em comentário):
+        // `c.notif` é o merge do APARELHO, e o deviceStore nunca lê `config` do
+        // servidor.
+        // Mandar o objeto inteiro faria desligar `radar` no web e, depois,
+        // tocar em QUALQUER controle no iPhone reverter a escolha do web — em
+        // silêncio, e valendo também para os cinco controles locais. É a mesma
+        // disciplina "sem carona" do resto deste bloco, aplicada DENTRO do
+        // campo. O backend já faz merge por chave (store.set_config); o
+        // problema é o que o cliente manda.
+        if (patch.notif && typeof patch.notif === "object") {
+          const nEnviar = {};
+          for (const k of Object.keys(patch.notif)) if (k in c.notif) nEnviar[k] = c.notif[k];
+          if (Object.keys(nEnviar).length) enviar.notif = nEnviar;
+        }
         // Ligar "operador" exige o termo no MESMO patch quando o servidor
         // ainda não o tem (store.set_config) — some junto, nunca sozinho.
         if (enviar.appMode === "operador" && !enviar.operadorTermo && c.operadorTermo) {

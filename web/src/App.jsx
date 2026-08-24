@@ -4441,6 +4441,40 @@ function NotifSection({ ctx }) {
       <Toggle on={nf.enabled && nf[key] === true} onClick={() => nf.enabled && A.setNotif({ [key]: !(nf[key] === true) })} label={label} />
     </div>
   );
+  // 260824-kc2 — TRÊS helpers, três mestres diferentes. O quarto que alguém
+  // escrever vai copiar um destes, então a distinção mora aqui:
+  //   `row`           = classe LOCAL (stop/alvo/agente/variação), opt-out, sob
+  //                     o mestre local `nf.enabled`.
+  //   a variante OPT-IN logo acima (a do gatilho) = classe de MERCADO, opt-in,
+  //                     também sob o mestre local. O nome dela não aparece
+  //                     escrito aqui de propósito: o critério de aceite conta
+  //                     as ocorrências para provar que a classe antiga não
+  //                     regrediu, e um comentário não pode inflar essa conta.
+  //   `rowPushClasse` = classe do push do SERVIDOR, cujo mestre é o TOKEN
+  //                     registrado (`onAtivarPush`) — outro mestre, outra
+  //                     linha.
+  //
+  // A única razão de este helper existir é NÃO ser gated pelo mestre local:
+  // nem na opacidade, nem no onClick, nem no estado do Toggle. Gatear aqui
+  // conflacionaria os dois mestres e faria quem registrou push, mas nunca
+  // ligou o interruptor local, parar de receber execução e proteção — avisos
+  // que essa pessoa recebe hoje. Ausente = LIGADO (`!== false`), casando com o
+  // default do servidor (`push.PREFS_PADRAO`).
+  //
+  // O rótulo vai para o `Toggle`, que já emite role="switch", aria-checked e
+  // aria-label — princípio 10 sem markup novo. O texto fica hardcoded aqui,
+  // como as cinco linhas locais acima: `skill_ref`↔`copy.js` é o vocabulário
+  // DO PRODUTO por modo (veredito, timing, decisão), e rótulo de interruptor
+  // não afirma nada sobre o mercado nem muda entre Estudo e Operador.
+  const rowPushClasse = (key, label, desc) => (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", padding: "10px 0" }}>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: "13px", fontWeight: 600 }}>{label}</div>
+        <div style={{ fontSize: "11.5px", color: T.textFaint, lineHeight: 1.4 }}>{desc}</div>
+      </div>
+      <Toggle on={nf[key] !== false} onClick={() => A.setNotif({ [key]: !(nf[key] !== false) })} label={label} />
+    </div>
+  );
   return (
     <div style={{ ...card, padding: "17px 18px", marginBottom: "16px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
@@ -4497,6 +4531,36 @@ function NotifSection({ ctx }) {
               {pushMsg && <span style={{ fontSize: "11.5px", color: T.textMuted, flex: 1, minWidth: "180px", lineHeight: 1.4 }}>{pushMsg}</span>}
             </div>
           )}
+        </div>
+      )}
+
+      {/* 260824-kc2: O QUE o push do servidor pode avisar. Bloco PRÓPRIO,
+          separado do de classes locais lá em cima, porque o mestre é outro
+          (token registrado, não `nf.enabled`).
+
+          Renderiza sob `logged`, não sob `isNative`: a preferência é da CONTA
+          e pode ser entregue no iPhone da MESMA conta, então o web logado
+          precisa dos mesmos interruptores. Os botões "Ativar push neste
+          aparelho"/"Testar push" continuam sob `isNative` acima — aqueles sim
+          são do aparelho. Não logado, a linha que já existe naquele bloco
+          cobre o estado; duplicá-la aqui seria ruído. */}
+      {logged && (
+        <div style={{ marginTop: "14px", paddingTop: "12px", borderTop: `1px solid ${T.borderFaint}` }}>
+          <div style={{ fontSize: "11px", fontWeight: 800, letterSpacing: "0.05em", color: T.textSecondary }}>O QUE O SERVIDOR AVISA</div>
+          {/* Estado explicado sem chamada de rede nova (princípio 4: não
+              afirmar o que não se sabe). Os controles seguem operáveis —
+              configurar antes de ativar o push é legítimo. */}
+          <div style={{ fontSize: "11.5px", color: T.textMuted, marginTop: "5px", lineHeight: 1.5, maxWidth: "480px" }}>
+            A escolha vale para a sua conta, em qualquer aparelho. Enquanto nenhum aparelho tiver o push ativo, nada é enviado — dá para escolher agora e ativar depois.
+          </div>
+          <div style={{ marginTop: "4px" }}>
+            {rowPushClasse("radar", "Radar",
+              "A prévia do dia, antes da abertura: os ativos de maior confluência na varredura. Leitura de estudo, não ordem.")}
+            {rowPushClasse("execucao", "Execução",
+              "Ordem executada ou cancelada pelo Operador no servidor — sempre simulada.")}
+            {rowPushClasse("protecao", "Proteção",
+              "Stop ou alvo acionado numa posição sua, inclusive de opção — sempre simulada.")}
+          </div>
         </div>
       )}
 

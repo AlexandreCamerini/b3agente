@@ -58,8 +58,30 @@ ok("serverStore monta o corpo sozinho (não confia em quem chama)",
 // ------------------------------------------------- consentimento do push
 ok("deviceStore anexa prefs/modo/universo ao registrar o token",
    /async registerPushToken\(token, extra\) \{[\s\S]*?api\.pushRegisterToken\(token, \{ \.\.\._pushPrefsLocais\(\), \.\.\.\(extra \|\| \{\}\) \}\)/.test(persistence));
-ok("consentimento é CONJUNÇÃO: mestre `enabled` E a classe `gatilho`",
-   /gatilho: !!\(n\.enabled && n\.gatilho\)/.test(persistence));
+// NOTA (quick task 260824-kc2, 2026-08-24) — a linha abaixo continua valendo,
+// mas SÓ para o `gatilho` e SÓ no deviceStore. Ela NÃO é regra geral, e ler
+// assim reintroduz o defeito. São DOIS MESTRES:
+//   `config.notif.enabled` → notificações LOCAIS do front (stop/alvo/agente/
+//                            variação), disparadas pelo próprio app.
+//   token registrado       → push do SERVIDOR; registrar o token é o ato
+//                            explícito e separado de consentimento.
+// `radar`/`execucao`/`protecao` refinam o SEGUNDO mestre, por isso são opt-out
+// puro. Aplicar a conjunção a elas desligaria execução e proteção para todo
+// usuário com token e `enabled` desligado — gente que recebe esses avisos
+// hoje. `gatilho` é a exceção histórica (conjunção E opt-in) e fica.
+ok("consentimento do GATILHO é CONJUNÇÃO: mestre `enabled` E a classe (só no deviceStore)",
+   (persistence.match(/gatilho: !!\(n\.enabled && n\.gatilho\)/g) || []).length === 1);
+ok("as classes do push do SERVIDOR NÃO são conjunção com o mestre local",
+   !/(radar|execucao|protecao): !!\(n\.enabled/.test(persistence));
+// Quadro de autoridade: o web escreve só as três classes da CONTA. Escrever
+// `gatilho` dali derivaria do `config.notif` DO SERVIDOR, que para um usuário
+// device-first é o default (`defaults.py` grava `gatilho: False` EXPLÍCITO) —
+// e `set_prefs` grava por chave. Resultado: abrir o app no navegador uma vez
+// desligaria, em silêncio, o gatilho que o iPhone tinha ligado.
+const corpoSyncWeb = (persistence.match(/syncPushPrefs: async \(\) => \{[\s\S]*?\n {4}\},/) || [""])[0];
+ok("o corpo do syncPushPrefs do web foi localizado (âncora do teste abaixo)", corpoSyncWeb.length > 0);
+ok("o serverStore NÃO escreve `gatilho`/`modo`/`universo` (fecha a janela de clobber)",
+   !/gatilho/.test(corpoSyncWeb) && !/modo:/.test(corpoSyncWeb) && !/universo/.test(corpoSyncWeb));
 ok("universo = watchlist + tickers com posição aberta",
    /for \(const t of \(doc\.watchlist \|\| \[\]\)\)/.test(persistence)
    && /for \(const p of \(doc\.positions \|\| \[\]\)\)/.test(persistence));
@@ -76,8 +98,14 @@ ok("o sync automático tem debounce (rajada de compras vira uma chamada só)",
 // --------------------------------------- allowlist: chave nova nos DOIS lados
 // Chave ausente da allowlist é descartada em SILÊNCIO no putConfig — o mesmo
 // modo de falha que já queimou o `agent.*`.
-ok("notif.gatilho está na allowlist do deviceStore",
-   /for \(const k of \["enabled", "stop", "alvo", "agente", "variacao", "gatilho"\]\)/.test(persistence));
+// NOTA (260824-kc2): a lista CRESCEU — `radar`, `execucao` e `protecao` são as
+// classes do push do SERVIDOR e entram na MESMA allowlist, ao final e nessa
+// ordem, espelhando `store.set_config` (server/app/store.py). A forma continua
+// LITERAL de propósito: relaxar para `.*` ou para um `includes` frouxo faria o
+// guardião parar de pegar exatamente o defeito que ele existe para pegar
+// (chave fora da allowlist é descartada em SILÊNCIO no putConfig).
+ok("notif.gatilho + as 3 classes de push estão na allowlist do deviceStore",
+   /for \(const k of \["enabled", "stop", "alvo", "agente", "variacao", "gatilho", "radar", "execucao", "protecao"\]\)/.test(persistence));
 ok("notif.gatilho nasce DESLIGADA (classe nova de alerta é opt-in)",
    /doc\.config\.notif\.gatilho = false/.test(persistence)
    && !/gatilho: true/.test(persistence));

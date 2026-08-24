@@ -268,6 +268,13 @@ async def _alertar_kill_switch(conn, client=None) -> int:
     aviso de mercado opt-in do usuário final, é aviso operacional para quem
     tem papel administrativo — se o admin não tiver aparelho registrado,
     `send_to_user` devolve `sent=0` sem levantar.
+
+    260824-kc2: a exceção vale TAMBÉM para as três classes novas
+    (`radar`/`execucao`/`protecao`). A audiência aqui é por RBAC
+    (`db.user_ids_with_roles`), não a conta de mercado do usuário final —
+    preferência de aviso de carteira não pode silenciar aviso operacional de
+    admin. Foi o kill-switch ligado sem querer que parou a execução de toda a
+    base por 2,5 dias; o alerta que denuncia isso não tem interruptor.
     """
     from . import push, rbac  # imports locais: sem ciclo de import
 
@@ -587,7 +594,15 @@ async def _avaliar_opcoes(conn, scope, ag, par, option_quotes_getter, executed: 
         store.sell_option(conn, pos["id"], price, user_id=scope, motivo=motivo, origem="automatico")  # ADR-012 (Fase 3)
         executed += 1
         _bump_ops(conn, scope, store.get(conn, "agent", user_id=scope) or ag)
-        events.append({"time": _now_str(), "kind": "buy",
+        # `tag` de CONSENTIMENTO (260824-kc2): este evento vira push pelo funil
+        # D3 (filtro `kind == "buy"`) e saía SEM tag nenhuma — com o fail-open
+        # de `push.classe_do_evento`, ele escaparia do controle e o usuário
+        # desligaria "Proteção" continuando a receber proteção de OPÇÃO. O
+        # TÍTULO não muda: `skill_ref.push_titulo` devolve o genérico do modo
+        # para tag sem frase (skill_ref.py:325-327), que é exatamente o título
+        # que este push já tem hoje — não completar `PUSH_TITULOS` por causa
+        # desta tag.
+        events.append({"time": _now_str(), "kind": "buy", "tag": "protecao-opcao",
                        "text": f"Proteção simulada: opção {pos['id']} ({pos.get('underlying')}) vendida "
                                f"({motivo} atingido) a R$ {price:.2f}."})
     return executed
@@ -1098,6 +1113,11 @@ async def scheduler_loop(conn, quotes_getter, notify_push=None, interval_s: int 
     resolvidos — hook próprio, gate próprio (`B3_LEDGER_DAILY_HHMM`, default
     09:15), lendo do `candle_cache` sem custo de rede."""
     interval = interval_s or int(os.environ.get("B3_AGENT_INTERVAL_S") or INTERVAL_S_DEFAULT)
+    # 260824-kc2: preferência por classe de push. Import local (padrão do
+    # arquivo, ex.: `_alertar_kill_switch` e os hooks abaixo) e FORA do
+    # `while`: a tabela tag→classe e o `prefs_for` são consultados a cada
+    # passada dos dois funis de push deste laço.
+    from . import push  # import local: sem ciclo de import
     while True:
         # P2 (liveness): heartbeat PERSISTIDO a CADA tick, FORA do gate de pregão.
         # O corpo do ciclo (e o registro de passada) só roda dentro do pregão, então
@@ -1248,9 +1268,15 @@ async def scheduler_loop(conn, quotes_getter, notify_push=None, interval_s: int 
                             # nomes: `config.appMode` é "operador"|"estudo";
                             # as chaves de `skill_ref` são "operador"|
                             # "educacional".
+                            # 260824-kc2: as PREFS entram na MESMA condicional,
+                            # pela mesma razão — uma leitura de kv por uid por
+                            # tick sem push a emitir é trabalho jogado fora.
+                            # Uma leitura só por uid serve todos os eventos.
                             _modo = "educacional"
+                            _prefs = None
                             if eventos:
                                 _modo = "operador" if (store.get(conn, "config", user_id=uid) or {}).get("appMode") == "operador" else "educacional"
+                                _prefs = push.prefs_for(conn, uid)
                             for ev in eventos:
                                 _executou = ev.get("kind") == "buy"
                                 _cancelou = ev.get("tag") == "pendente-cancelada"
@@ -1271,6 +1297,18 @@ async def scheduler_loop(conn, quotes_getter, notify_push=None, interval_s: int 
                                 # plano 02-06) o usuário veria a ordem
                                 # evaporar sem motivo (T-02-36).
                                 if notify_push is not None and (_executou or _cancelou):
+                                    # 260824-kc2: gate por CLASSE, depois da
+                                    # contabilização acima (preferência de
+                                    # aviso não mexe em métrica de execução) e
+                                    # antes do envio. O evento já foi
+                                    # persistido por `executar_pendentes`:
+                                    # desligar a classe silencia a
+                                    # INTERRUPÇÃO, nunca o rastro.
+                                    # Fail-open: tag sem classe conhecida
+                                    # (`classe_do_evento` devolve None) envia.
+                                    _classe = push.classe_do_evento(ev.get("tag"))
+                                    if _classe and not (_prefs or {}).get(_classe, True):
+                                        continue
                                     # Título derivado do `tag` que o evento já
                                     # carregava, e `t` no payload para o toque
                                     # ter destino (260824-i45, itens 1 e 2).
@@ -1319,8 +1357,20 @@ async def scheduler_loop(conn, quotes_getter, notify_push=None, interval_s: int 
                             # filtro `kind == "buy"`. O modo vem do próprio
                             # retorno do ciclo — sem leitura de kv extra.
                             _modo = "operador" if r.get("appMode") == "operador" else "educacional"
+                            # 260824-kc2: uma leitura de prefs por uid, aqui
+                            # dentro (só quando o ciclo executou algo), serve
+                            # todos os eventos desta passada.
+                            _prefs = push.prefs_for(conn, uid)
                             for e in r["events"]:
                                 if e.get("kind") != "buy":
+                                    continue
+                                # Gate por CLASSE, antes do envio e sem tocar
+                                # em `LAST_RUN["executadas"]` (já contabilizado
+                                # acima). Os eventos seguem persistidos por
+                                # `run_cycle_for`: o rastro em `agent.events`
+                                # não depende da preferência de push.
+                                _classe = push.classe_do_evento(e.get("tag"))
+                                if _classe and not (_prefs or {}).get(_classe, True):
                                     continue
                                 _tk = str(e.get("t") or "")
                                 _extra = {"kind": "operador"}

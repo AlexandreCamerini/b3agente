@@ -245,6 +245,11 @@ def default_state() -> dict:
                 # Nasce DESLIGADA de propósito — é a única que interrompe fora
                 # do app por evento de mercado, e alerta de mercado é opt-in.
                 "gatilho": False,
+                # 260824-kc2 — classes do push do SERVIDOR. Nascem LIGADAS por
+                # decisão de produto (contraste deliberado com o `gatilho` logo
+                # acima): não são alertas novos, já chegavam a todo mundo com
+                # token; o que nasce aqui é o CONTROLE.
+                "radar": True, "execucao": True, "protecao": True,
             },
             # Camada de entendimento: ids de conceito que o usuário já viu
             # (a explicação aparece sozinha UMA vez; depois fica a um toque).

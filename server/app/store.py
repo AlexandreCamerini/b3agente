@@ -224,7 +224,13 @@ def set_config(conn, patch: dict, user_id=None) -> dict:
         cfg["streak"] = {"days": int(days) if isinstance(days, (int, float)) else 0, "last": str(last or "")}
     if isinstance(patch.get("notif"), dict):
         base = cfg.get("notif") if isinstance(cfg.get("notif"), dict) else {}
-        for k in ("enabled", "stop", "alvo", "agente", "variacao", "gatilho"):
+        # 260824-kc2: as três classes de push do SERVIDOR entram na mesma
+        # allowlist — chave ausente daqui é descartada em SILÊNCIO pelo
+        # PUT /api/config (o modo de falha que já queimou o `agent.*`). A
+        # paridade é com `deviceStore.putConfig` (persistence.js), na MESMA
+        # ordem: as duas listas são uma coisa só.
+        for k in ("enabled", "stop", "alvo", "agente", "variacao", "gatilho",
+                  "radar", "execucao", "protecao"):
             if k in patch["notif"]:
                 base[k] = bool(patch["notif"][k])
         cfg["notif"] = base

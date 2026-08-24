@@ -83,7 +83,27 @@ def tokens_for(conn, user_id: str) -> list:
 # (`registerPushToken`, nos dois stores). Então é por ele que a preferência, o
 # modo e o universo viajam. Opt-in por decisão de produto: classe nova de
 # alerta nasce DESLIGADA — o padrão `False` aqui é deliberado.
-PREFS_PADRAO = {"gatilho": False, "modo": "estudo", "universo": [], "at": None}
+#
+# NOTA (quick task 260824-kc2, 2026-08-24) — por que `radar`, `execucao` e
+# `protecao` nascem LIGADAS sem violar a regra do opt-in logo acima. Elas não
+# são alertas NOVOS: já existiam e já chegavam a todo mundo com token
+# registrado, porque os três call sites (Radar diário, ordem pendente e ciclo
+# do Operador) não consultavam preferência nenhuma. O que nasce agora é o
+# CONTROLE, não o alerta — fazê-las nascer `False` TIRARIA notificação de quem
+# a recebe hoje, que é o oposto exato da decisão do Alex. A regra do opt-in
+# continua valendo para uma classe de alerta genuinamente nova no futuro, e
+# `gatilho` continua sendo o exemplo vivo dela (nasce `False`).
+#
+# A migração de quem já existe sai DE GRAÇA: `prefs_for` faz
+# `{**PREFS_PADRAO, **p}`, então preferência gravada antes desta mudança herda
+# as três chaves novas com o default certo. Nenhuma migração de dado escrita —
+# o default É a migração.
+PREFS_PADRAO = {"gatilho": False, "radar": True, "execucao": True,
+                "protecao": True, "modo": "estudo", "universo": [], "at": None}
+# Chaves booleanas da preferência (allowlist do `set_prefs`), na ordem em que
+# nasceram. `gatilho` primeiro por ser a original; as três classes de conta
+# depois.
+PREFS_BOOLS = ("gatilho", "radar", "execucao", "protecao")
 UNIVERSO_MAX = 60
 VALIDADE_DIAS = 7   # universo mais velho que isto não vale (aparelho sumiu)
 
@@ -97,11 +117,22 @@ def prefs_for(conn, user_id: str) -> dict:
 
 def set_prefs(conn, user_id: str, patch: dict) -> dict:
     """Aplica um patch de preferências do push. Allowlist explícita: chave
-    desconhecida é descartada (mesma disciplina do store.set_config)."""
+    desconhecida é descartada (mesma disciplina do store.set_config).
+
+    O patch é PARCIAL por CONTRATO, não por acidente (260824-kc2): chave
+    ausente fica exatamente como estava. É esse contrato que permite ao web
+    escrever só as três classes de conta (`radar`/`execucao`/`protecao`) sem
+    encostar em `gatilho`, `modo` e `universo` — que continuam sendo autoridade
+    do APARELHO, porque só ele registra token APNs (`web/src/notify.js`
+    devolve `{ok:false}` fora do nativo antes de qualquer chamada). Sem a
+    parcialidade, o primeiro acesso pelo navegador apagaria em silêncio o
+    gatilho que o iPhone tinha ligado.
+    """
     p = prefs_for(conn, user_id)
     patch = patch if isinstance(patch, dict) else {}
-    if "gatilho" in patch:
-        p["gatilho"] = bool(patch["gatilho"])
+    for k in PREFS_BOOLS:
+        if k in patch:
+            p[k] = bool(patch[k])
     if patch.get("modo") in ("estudo", "operador"):
         p["modo"] = patch["modo"]
     if isinstance(patch.get("universo"), list):
@@ -115,6 +146,41 @@ def set_prefs(conn, user_id: str, patch: dict) -> dict:
     p["at"] = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime())
     db.kv_set(conn, "pushPrefs", p, user_id=user_id)
     return p
+
+
+# -------------------- tag do evento → classe de consentimento ----------------
+# Tabela ÚNICA (260824-kc2), e mora aqui — não em `agent.py` — por duas razões:
+# consentimento é assunto DESTE módulo, e os dois funis de push do scheduler
+# (ordem pendente e ciclo do Operador) precisam da MESMA tabela; duas cópias
+# divergiriam no primeiro evento novo.
+CLASSE_POR_TAG = {
+    "stop": "protecao",
+    "alvo": "protecao",
+    "protecao-opcao": "protecao",
+    "entrada-auto": "execucao",
+    "pendente-executada": "execucao",
+    "pendente-cancelada": "execucao",
+}
+
+
+def classe_do_evento(tag) -> Optional[str]:
+    """Classe de consentimento de um evento, derivada da `tag` que ele carrega.
+
+    Degradação DEFINIDA, no mesmo idioma de `skill_ref.push_titulo`: tag
+    ausente ou desconhecida devolve `None` — e `None` significa **FAIL-OPEN**,
+    ou seja, o push SAI. Uma tag que ninguém mapeou não é uma classe que o
+    usuário desligou; silenciar por omissão de tabela seria tirar aviso SEM
+    consentimento, que é o mais caro dos dois erros possíveis aqui.
+
+    O PREÇO desse desenho, escrito para o próximo leitor: **todo evento que
+    vira push precisa de `tag`**, senão escapa do controle. Foi exatamente o
+    caso do evento de venda de opção (`agent.py`, `_avaliar_opcoes`), que saía
+    sem `tag` e por isso ignorava o interruptor "Proteção" do usuário —
+    corrigido com `tag: protecao-opcao` no mesmo quick task que criou esta
+    tabela. A classe do Radar (`radar`) não entra aqui: o push da prévia não
+    passa por funil de evento, é gate direto em `radar_daily.run_daily`.
+    """
+    return CLASSE_POR_TAG.get(str(tag or "").strip())
 
 
 def universo_valido(prefs: dict, agora: Optional[float] = None) -> list:

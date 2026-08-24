@@ -262,6 +262,7 @@ async def run_daily(conn, fetch, notify_push=None, origem: str = "automática") 
         # Limite deliberado: o evento entra só para `_push_audience` (quem tem
         # token), a MESMA audiência do push — escrever para toda a base seria um
         # `kv_set` por usuário por dia sem push correspondente.
+        from . import push  # import local (só `db`): sem ciclo de import
         for uid in _push_audience(conn):
             # `try` PRÓPRIO: o registro do evento é o rastro DURÁVEL (a tela
             # "EVENTOS E AVISOS RECENTES", App.jsx:4301); a entrega do push é
@@ -272,6 +273,25 @@ async def run_daily(conn, fetch, notify_push=None, origem: str = "automática") 
                                           "tag": "radar-diario", "text": corpo}], user_id=uid)
             except Exception:  # noqa: BLE001 — registro é best-effort
                 pass
+            # 260824-kc2: a preferência silencia a INTERRUPÇÃO, não o RASTRO.
+            # Por isso o gate fica SÓ sobre o `notify_push`, e nunca sobre o
+            # `store.push_events` acima nem sobre `_push_audience` — quem
+            # desligou o banner da prévia continua encontrando a leitura do dia
+            # em "EVENTOS E AVISOS RECENTES" (o rastro que o 260824-i45 criou).
+            # Filtrar a audiência apagaria o registro junto.
+            #
+            # `try` PRÓPRIO degradando para ENVIAR (fail-open, coerente com o
+            # resto do desenho): as duas operações deste laço são guardadas
+            # individualmente de propósito, e um `prefs_for` que levantasse
+            # escaparia do laço, subiria até `maybe_run` e mataria a varredura
+            # do dia para TODOS os usuários restantes. Custo: uma leitura de kv
+            # por usuário com token, uma vez por dia.
+            try:
+                _quer_radar = push.prefs_for(conn, uid).get("radar", True)
+            except Exception:  # noqa: BLE001 — na dúvida, avisa
+                _quer_radar = True
+            if not _quer_radar:
+                continue
             try:
                 await notify_push(uid, skill_ref.PUSH_RADAR["titulo"], corpo)
             except Exception:  # noqa: BLE001 — push é best-effort

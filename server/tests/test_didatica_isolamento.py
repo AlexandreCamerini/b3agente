@@ -110,8 +110,23 @@ def test_notif_gatilho_nasce_desligada_e_e_aceita_pelo_set_config(conn):
 
 # ------------------------------------ Fase 0a: preferências do push no SERVIDOR
 def test_push_prefs_nascem_opt_in_desligado(conn):
+    """NOTA (quick task 260824-kc2, 2026-08-24) — o guardião MUDOU DE LADO em
+    parte, e a distinção é a decisão de produto, não um detalhe:
+
+      - classe de alerta genuinamente NOVA nasce DESLIGADA (opt-in). `gatilho`
+        é o exemplo vivo e continua `False` — nada aqui regride.
+      - CONTROLE de alerta que já EXISTIA e já chegava a todo mundo com token
+        nasce LIGADO. `radar`/`execucao`/`protecao` são esse caso: até
+        2026-08-24 os três call sites não consultavam preferência nenhuma, e
+        nascer `False` TIRARIA notificação de quem a recebe hoje (decisão do
+        Alex, travada).
+
+    Por isso o nome do teste continua verdadeiro para o opt-in e as três
+    classes ganharam asserção própria aqui em vez de arquivo separado — a
+    tensão entre as duas regras tem que ficar visível no MESMO lugar."""
     p = push.prefs_for(conn, "u1")
     assert p["gatilho"] is False and p["universo"] == [] and p["modo"] == "estudo"
+    assert p["radar"] is True and p["execucao"] is True and p["protecao"] is True
 
 
 def test_push_prefs_gravam_consentimento_modo_e_universo(conn):
