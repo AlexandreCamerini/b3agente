@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-08-18)
 Phase: Milestone v1.1 complete
 Plan: —
 Status: Awaiting next milestone
-Last activity: 2026-08-23 — Milestone v1.1 completed and archived
+Last activity: 2026-08-24 - Completed quick task 260823-vu4: Ajuste de UI no cabeçalho: badge mercado fechado vaza no Topbar + espaço desperdiçado até a Dynamic Island
 
 ## Performance Metrics
 
@@ -152,6 +152,7 @@ None yet.
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260820-0hl | Pesquisa + design: assertividade do motor de recomendação (ADR-015) | 2026-08-20 | 4f06edb | [260820-0hl-pesquisa-e-design-assertividade-do-motor](./quick/260820-0hl-pesquisa-e-design-assertividade-do-motor/) |
+| 260823-vu4 | Ajuste de UI no cabeçalho: badge mercado fechado vaza no Topbar + espaço desperdiçado até a Dynamic Island | 2026-08-24 | 8603858 | [260823-vu4-ajuste-de-ui-no-cabecalho-badge-mercado-](./quick/260823-vu4-ajuste-de-ui-no-cabecalho-badge-mercado-/) |
 
 ## Deferred Items
 
