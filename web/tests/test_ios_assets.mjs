@@ -66,9 +66,15 @@ for (const [f, s] of [["apple-touch-icon.png", 180], ["icon-192.png", 192], ["ic
   ok(`web/public/${f} é ${s}×${s}`, i.w === s && i.h === s);
 }
 
-// splash: 2732×2732 e sem alpha
-const sp = pngInfo(p("ios", "App", "App", "Assets.xcassets", "Splash.imageset", "splash-2732x2732.png"));
-ok("Splash é 2732×2732 sem alpha", sp.w === 2732 && sp.h === 2732 && (sp.colorType === 2 || sp.colorType === 0));
+// splash: 2732×2732 e sem alpha, nos 6 arquivos do catálogo universal
+// (light/dark × 1x/2x/3x). Nome mudou de um único "splash-2732x2732.png"
+// para "Default@Nx~universal~anyany(-dark).png" — drift de versão do
+// `@capacitor/assets` (não pinada em package.json), não regressão de arte;
+// confirmado batendo contra Splash.imageset/Contents.json real.
+for (const variant of ["Default@1x~universal~anyany.png", "Default@2x~universal~anyany.png", "Default@3x~universal~anyany.png", "Default@1x~universal~anyany-dark.png", "Default@2x~universal~anyany-dark.png", "Default@3x~universal~anyany-dark.png"]) {
+  const sp = pngInfo(p("ios", "App", "App", "Assets.xcassets", "Splash.imageset", variant));
+  ok(`Splash ${variant} é 2732×2732 sem alpha`, sp.w === 2732 && sp.h === 2732 && (sp.colorType === 2 || sp.colorType === 0));
+}
 
 // arte do ícone consistente entre web e iOS (mesma origem): compara a
 // assinatura do 512 web (LANCZOS da mesma fonte) apenas quanto a EXISTIR e
