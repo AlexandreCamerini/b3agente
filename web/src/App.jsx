@@ -5821,6 +5821,7 @@ function RadarScreen({ ctx }) {
   const { data, cp } = ctx;   // FASE 8B (B1): fraseologia por modo
   const period = (data.config && data.config.candlePeriod) || "1y";
   const [st, setSt] = useState({ busy: false, res: null, error: "" });
+  const [busca, setBusca] = useState("");
   const [showModel, setShowModel] = useState(false);
   const [openTicker, setOpenTicker] = useState(null);
   // FASE 2 (2.1): aprofundamento IA (N1) — leituras por ativo + lote top-N
@@ -5893,6 +5894,11 @@ function RadarScreen({ ctx }) {
   }, [period, run]);
   const res = st.res;
   const results = (res && res.results) || [];
+  // BLOCO x55 (feature): busca textual client-side por ticker — só por
+  // r.ticker, o payload de scanner.py não expõe nome/setor (CLAUDE.md
+  // princípio 4, não inventar campo). Sem chamada de rede nova.
+  const buscaNorm = busca.trim().toUpperCase();
+  const resultsFiltrados = buscaNorm ? results.filter((r) => r.ticker.toUpperCase().includes(buscaNorm)) : results;
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", marginBottom: "6px" }}>
@@ -5914,6 +5920,13 @@ function RadarScreen({ ctx }) {
       )}
       {batch.error && <div style={{ margin: "0 0 10px", fontSize: "11.5px", color: T.negative }}>{batch.error}</div>}
       <p style={{ margin: "0 0 12px", color: T.textMuted, fontSize: "13px", maxWidth: "560px", lineHeight: 1.55 }}>{cp.subtituloRadar}</p>
+      <input
+        value={busca}
+        onChange={(e) => setBusca(e.target.value)}
+        placeholder="Buscar ticker..."
+        aria-label="Buscar ticker no Radar"
+        style={{ ...field, maxWidth: "260px", marginBottom: "10px" }}
+      />
       <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", marginBottom: "14px" }}>
         <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "6px 10px", borderRadius: "999px", background: T.accentTint, border: `1px solid ${T.accent}`, color: T.accent, fontSize: "11px", fontWeight: 800, letterSpacing: "0.05em" }}>
           PERÍODO EM USO: {RADAR_PERIOD_LABEL[period] || period}{res ? " · " + res.periodBars + " pregões" : ""}
@@ -5971,8 +5984,13 @@ function RadarScreen({ ctx }) {
         </div>
       )}
 
+      {buscaNorm && resultsFiltrados.length === 0 ? (
+        <div style={{ ...card, padding: "16px 18px", color: T.textMuted, fontSize: "13px" }}>
+          {"Nenhum ativo encontrado para \"" + busca + "\"."}
+        </div>
+      ) : (
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))", gap: "14px" }}>
-        {results.map((r) => {
+        {resultsFiltrados.map((r) => {
           // UM ATIVO, UMA LEITURA: o preço/variação sai da MESMA fonte que a
           // Watchlist usa (/api/quotes). Antes o Radar injetava `r.close` e
           // `r.variacaoPeriodoPct` — a variação do PERÍODO INTEIRO (1 ano) — no
@@ -6193,6 +6211,7 @@ function RadarScreen({ ctx }) {
           );
         })}
       </div>
+      )}
 
       <div style={{ ...card, padding: "13px 16px", marginTop: "16px", background: T.bgPanel }}>
         {/* FASE 7 (F7.1): no Modo Operador vale o aviso da persona (risco real) */}
