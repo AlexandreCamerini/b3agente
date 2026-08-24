@@ -38,6 +38,29 @@ ok("monta o payload só com o que veio no patch",
    && /if \("operadorTermo" in patch\) enviar\.operadorTermo = c\.operadorTermo;/.test(persistence)
    && /if \(typeof patch\.initialBudget === "number"\) enviar\.initialBudget = c\.initialBudget;/.test(persistence));
 
+// NOTA (quick task 260824-kc2, 2026-08-24) — `notif` ENTROU no payload, e a
+// regra do "sem carona" não foi relaxada: foi ESTENDIDA para dentro do campo.
+//
+// Por que entrou: as três classes do push do servidor (radar/execucao/protecao)
+// passaram a ser controle da CONTA, e o web monta o corpo do `syncPushPrefs` a
+// partir do `config.notif` DO SERVIDOR. Sem o `notif` subindo, esse config
+// ficaria eternamente no default e o web reenviaria as três LIGADAS por cima do
+// que o aparelho desligou.
+//
+// Por que CHAVE A CHAVE: `c.notif` é o objeto MERGED do aparelho, e o
+// deviceStore nunca lê `config` do servidor. Mandar o objeto inteiro faria
+// desligar `radar` no web e, depois, tocar em QUALQUER controle no iPhone
+// reverter a escolha do web — em silêncio, e valendo também para os cinco
+// controles locais. É exatamente o defeito do `appMode` de carona, uma camada
+// abaixo.
+ok("`notif` sobe condicionado ao patch, CHAVE A CHAVE",
+   /if \(patch\.notif && typeof patch\.notif === "object"\) \{/.test(persistence)
+   && /const nEnviar = \{\};/.test(persistence)
+   && /for \(const k of Object\.keys\(patch\.notif\)\) if \(k in c\.notif\) nEnviar\[k\] = c\.notif\[k\];/.test(persistence)
+   && /if \(Object\.keys\(nEnviar\)\.length\) enviar\.notif = nEnviar;/.test(persistence));
+ok("NÃO manda o objeto `notif` inteiro de carona",
+   !/enviar\.notif = c\.notif/.test(persistence));
+
 // O defeito exato: enviar appMode junto de tudo, incondicionalmente.
 ok("NÃO manda o trio fixo {appMode, operadorTermo, initialBudget}",
    !/putConfig\(\{\s*appMode: c\.appMode,\s*operadorTermo: c\.operadorTermo,/.test(persistence));
