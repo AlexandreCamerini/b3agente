@@ -794,11 +794,14 @@ function Topbar({ patr, dia, caixa, name, onProfile, modeChip, mercado, cp }) {
               {modeChip && <span style={{ color: T.textFaint, fontSize: "11px", flex: "none" }}>·</span>}
               <span style={{ fontSize: "11px", color: T.textMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</span>
             </>) : null}
-            {/* Fase 2 (MERC-01, D-08): mesmo badge da tela de login, reusando
-                o divisor "·" já usado nesta linha — não inventa separador
-                novo. Renderiza independentemente de modeChip/name (MERC-01
-                continua visível mesmo sem os dois). */}
-            {mercado && (modeChip || name) && <span style={{ color: T.textFaint, fontSize: "11px", flex: "none" }}>·</span>}
+          </div>
+          {/* qa/mock v2 (ajuste 260823-vu4): o badge de mercado SAIU da linha
+              de modo/nome — dividindo espaço com "MODO ESTUDO/OPERADOR" ele
+              truncava a poucos caracteres ("Merca…"), ilegível. Linha própria
+              dá a ele a largura inteira do bloco esquerdo (~176px vs ~15px),
+              suficiente pra mostrar a frase longa do Modo Estudo quase
+              inteira antes de truncar. */}
+          <div style={{ marginTop: "4px", minWidth: 0 }}>
             <MarketStatusBadge mercado={mercado} cp={cp} />
           </div>
         </div>
