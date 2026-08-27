@@ -1,0 +1,28 @@
+{
+  "source_path": "/Users/acamerini/dev/bolsia/b3-agente/docs/adr/001-fonte-de-dados-intraday.md",
+  "type": "ADR",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "ADR-001: Fonte de dados intraday e onde esse dado vive",
+  "summary": "Decide Yahoo Finance como fonte intraday primária de B3 atrás de uma interface, com granularidade 15m sobre velas fechadas, cobertura global e cache só em memória.",
+  "scope": [
+    "dados intraday B3",
+    "Yahoo Finance",
+    "CandleProvider",
+    "brapi Pro",
+    "candle_cache",
+    "merge_candles",
+    "snapshotId",
+    "scheduler_loop",
+    "granularidade 15m",
+    "cobertura de 65 ativos",
+    "instrumentação de fetch"
+  ],
+  "cross_refs": [
+    "../MEDICAO-Yahoo-Intraday-2026-07-30.md",
+    "docs/MEDICAO-Yahoo-Intraday-2026-07-30.md"
+  ],
+  "locked": true,
+  "precedence": null,
+  "notes": ""
+}

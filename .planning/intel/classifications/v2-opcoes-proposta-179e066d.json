@@ -1,0 +1,33 @@
+{
+  "source_path": "/Users/acamerini/dev/bolsia/b3-agente/docs/v2-opcoes-proposta.md",
+  "type": "SPEC",
+  "confidence": "medium",
+  "manifest_override": false,
+  "title": "v2 — Opções como classe de primeira ordem",
+  "summary": "Proposal synthesizing a 4-specialist panel review for adding options as a first-class layer on the asset card, covering UX, data model, and agent-loop contracts.",
+  "scope": [
+    "opções (options)",
+    "AtivoCard",
+    "optionPositions",
+    "server/app/agent.py",
+    "options_provider_yahoo.py",
+    "persistence.js (iOS deviceStore)",
+    "analysis_outcomes.py",
+    "ADR-003 identidade da posição de opção",
+    "ADR-004 fonte de opções",
+    "ADR-005 fechamento por expiração",
+    "MercadoScreen/RadarScreen/CarteiraScreen"
+  ],
+  "cross_refs": [
+    "CHECKOUT-V2-Opcoes-otimizado.md",
+    "docs/adr/001-fonte-de-dados-intraday.md",
+    "docs/adr/ (ADR-003, ADR-004, ADR-005)",
+    "../qa/mocks/opcoes-camada-v1.html",
+    "../qa/mocks/opcoes-camada-v2.html",
+    "qa/35",
+    "memória opcoes-b3-fonte-de-dados (2026-08-04)"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": "Ambiguous between SPEC and PRD: doc mixes product-scope decisions (goals/non-goals in secs 1,2,6, UX rationale, out-of-scope list) with strong technical implementation contracts (data model shape in sec 3, endpoint list and agent-loop behavior in sec 9, cost table in sec 5). Classified SPEC per precedence rule (SPEC > PRD) due to the data model schema, endpoint contracts, and agent.py cycle changes being load-bearing implementation detail rather than pure user-facing requirements. Not classified as ADR despite naming three forthcoming ADRs (003/004/005) — this document itself lacks the single-decision Status/Context/Decision/Consequences structure and is not a numbered ADR file; those decisions are recorded separately under docs/adr/. Also note sec 9 states the described work is already implemented/verified locally though not yet deployed, despite the doc framing itself as a pre-implementation proposal — a status/timeline inconsistency worth flagging to the synthesizer."
+}

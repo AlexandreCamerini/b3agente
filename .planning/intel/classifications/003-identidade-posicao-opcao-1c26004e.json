@@ -1,0 +1,25 @@
+{
+  "source_path": "/Users/acamerini/dev/bolsia/b3-agente/docs/adr/003-identidade-posicao-opcao.md",
+  "type": "ADR",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "ADR-003: Identidade da posição de opção",
+  "summary": "Decide que optionPositions é uma coleção separada com identidade própria (id = contractSymbol), em vez de campos opcionais em positions.",
+  "scope": [
+    "optionPositions",
+    "positions",
+    "store.py",
+    "persistence.js/deviceStore",
+    "P&L de opções",
+    "identidade de posição",
+    "KPI de patrimônio"
+  ],
+  "cross_refs": [
+    "docs/v2-opcoes-proposta.md",
+    "../v2-opcoes-proposta.md",
+    "CHECKOUT-V2-Opcoes-otimizado.md"
+  ],
+  "locked": true,
+  "precedence": null,
+  "notes": ""
+}

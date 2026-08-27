@@ -1,0 +1,13 @@
+{
+  "source_path": "/Users/acamerini/dev/bolsia/b3-agente/docs/adr/005-fechamento-por-expiracao.md",
+  "type": "ADR",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "ADR-005: Fechamento por expiração — o terceiro motivo de saída",
+  "summary": "Decide como liquidar posições de opção no vencimento, com motivo de fechamento estruturado replicado em server e iOS.",
+  "scope": ["optionPositions", "history.motivo", "agent.py", "persistence.js", "liquidação por vencimento", "aviso D-3", "push_events"],
+  "cross_refs": ["../v2-opcoes-proposta.md", "docs/v2-opcoes-proposta.md"],
+  "locked": true,
+  "precedence": null,
+  "notes": ""
+}

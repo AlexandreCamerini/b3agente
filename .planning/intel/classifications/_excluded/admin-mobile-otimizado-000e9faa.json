@@ -1,0 +1,37 @@
+{
+  "source_path": "/Users/acamerini/dev/bolsia/b3-agente/docs/prompts/admin-mobile-otimizado.md",
+  "type": "UNKNOWN",
+  "confidence": "low",
+  "manifest_override": false,
+  "title": "Observabilidade e administração no app mobile — spec de execução",
+  "summary": "Execution prompt directing a two-phase effort (ADR-014 then implementation) to expose the full admin/observability surface on the mobile app.",
+  "scope": [
+    "web-admin portal (10 abas)",
+    "app mobile iOS/Capacitor",
+    "app consumidor (telas em Perfil)",
+    "ADR-011",
+    "ADR-012",
+    "ADR-013",
+    "ADR-014",
+    "permissions e gating por papel",
+    "observabilidade e administração"
+  ],
+  "cross_refs": [
+    "ADR-011",
+    "ADR-012",
+    "ADR-013",
+    "ADR-014",
+    "web/src/App.jsx",
+    "web/capacitor.config.ts",
+    "web/vite.config.js",
+    "web/package.json",
+    "web/src/persistence.js",
+    "scripts/executar.sh",
+    "publicar-web.sh",
+    "publicar-admin.sh",
+    "CLAUDE.md"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": "Does not cleanly match the ADR/PRD/SPEC content-signal checklist: the architectural decision is explicitly not yet made (Fase 1 produces ADR-014 and stops for approval, so no Decision/Consequences/Accepted status exists yet); no user-story language for PRD; no endpoint/schema tables for SPEC. It does carry PRD-like elements (Objetivo, Critério de aceite) and SPEC-like elements (guardrails, phased implementation contract), but functions as an execution prompt/work-order for an agent rather than a decision record, product requirements doc, or technical spec. Classified UNKNOWN per the strict checklist; synthesizer should still weigh its 'Critério de aceite' and 'Guardrails' sections as real constraints, and treat the forthcoming ADR-014 (once written) as the actual locked-decision source for this initiative."
+}

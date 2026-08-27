@@ -1,0 +1,26 @@
+{
+  "source_path": "/Users/acamerini/dev/bolsia/b3-agente/docs/adr/007-assistente-e-push-do-gatilho.md",
+  "type": "ADR",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "ADR-007: O assistente recebe snapshot, e o push do gatilho é opt-in server-side",
+  "summary": "Decide que o assistente LLM recebe snapshot estruturado (não a tela) e que o push do gatilho de plano é opt-in, com fonte de verdade server-side.",
+  "scope": [
+    "assistente de IA",
+    "snapshot estruturado",
+    "prompt cache-aware",
+    "teto de gasto por escopo/dia",
+    "push notification do gatilho",
+    "kv:pushPrefs",
+    "opt-in de alerta de mercado",
+    "kill-switch de push"
+  ],
+  "cross_refs": [
+    "ADR-006",
+    "ADR-001",
+    "CHECKOUT-Didatica-Estudo-otimizado.md"
+  ],
+  "locked": true,
+  "precedence": null,
+  "notes": "source_hash não pôde ser calculado (SHA-256) porque este agente não tem ferramenta de execução/hash disponível nesta run; arquivo nomeado apenas com o slug. Risco de colisão é baixo dado o slug já numerado e específico."
+}

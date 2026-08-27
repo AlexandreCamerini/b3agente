@@ -1,0 +1,33 @@
+{
+  "source_path": "/Users/acamerini/dev/bolsia/b3-agente/docs/adr/011-modulo-observabilidade-governanca.md",
+  "type": "ADR",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "ADR-011: Módulo de Observabilidade e Governança de Dados",
+  "summary": "Decide a arquitetura de leitura de um novo módulo admin de observabilidade/governança que reusa o backend existente do Boris+.",
+  "scope": [
+    "módulo de observabilidade",
+    "governança de dados",
+    "Boris+",
+    "SQLite (kv, sessions, users, history)",
+    "_is_obs_admin",
+    "navegador de tabelas com masking",
+    "trilha de eficiência de ações automáticas",
+    "candle_provider",
+    "metering",
+    "brapi_budget",
+    "analysis_outcomes"
+  ],
+  "cross_refs": [
+    "qa/46-auditoria-observabilidade-governanca.md",
+    "../../qa/46-auditoria-observabilidade-governanca.md",
+    "docs/adr/008-fonte-de-cotacoes-selecionavel.md",
+    "docs/adr/010-planos-e-cap-gratuito.md",
+    "qa/42-finops.md",
+    "docs/adr/012-observabilidade-v2-tendencia-eficiencia.md",
+    "server/app/analysis_outcomes.py"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": "Status geral do ADR é 'Proposto', não 'Accepted' — logo locked=false mesmo o próprio texto afirmando que a parte de arquitetura de leitura está 'pronta para implementação'. Hospedagem, autenticação da app nova e qualquer escrita ficam explicitamente marcadas como pendentes de decisão do Alex. O documento também registra que a Decisão 6 (paleta própria) foi posteriormente superada pelo ADR-012."
+}

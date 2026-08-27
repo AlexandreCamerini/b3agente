@@ -1,0 +1,34 @@
+{
+  "source_path": "/Users/acamerini/dev/bolsia/b3-agente/docs/refactor/ESPEC-A-eixo-selecao.md",
+  "type": "SPEC",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "ESPEC-A — Inversão do eixo de seleção do Radar (regime + momentum relativo)",
+  "summary": "Specifies replacing confluência-based Radar ranking with a regime plus cross-sectional relative momentum axis via a new regime.py module.",
+  "scope": [
+    "Radar",
+    "/api/scan",
+    "scanner.run_scan",
+    "regime.py",
+    "confluencia",
+    "score_tecnico",
+    "momentum relativo cross-sectional",
+    "ranking/ordenação",
+    "Snapshot Técnico Único",
+    "prompt N2 (defaults.py)",
+    "web/src/catalog.js"
+  ],
+  "cross_refs": [
+    "docs/adr/009-eixo-de-selecao.md",
+    "server/app/regime.py",
+    "server/app/scanner.py",
+    "server/tests/test_regime.py",
+    "server/app/defaults.py",
+    "web/src/catalog.js",
+    "scanner.run_scan.patch",
+    "CLAUDE.md"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

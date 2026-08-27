@@ -1,0 +1,21 @@
+{
+  "source_path": "/Users/acamerini/dev/bolsia/b3-agente/docs/auditoria-controle-ordens-parametros.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "Auditoria — módulos de controle de ordens e parâmetros",
+  "summary": "Post-mortem audit tracing a reported 'Executar' bug to a hidden appMode toggle, cataloguing UX/state-fragmentation findings and their fix status.",
+  "scope": [
+    "appMode toggle (Estudo x Operador)",
+    "Operador IA panel",
+    "Modo de trabalho (Perfil)",
+    "order editing (stop/alvo)",
+    "device-server sync (deviceStore)",
+    "agent cycle interval trigger",
+    "App.jsx UI controls"
+  ],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

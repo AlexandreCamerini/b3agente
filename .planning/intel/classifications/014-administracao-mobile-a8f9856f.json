@@ -1,0 +1,26 @@
+{
+  "source_path": "/Users/acamerini/dev/bolsia/b3-agente/docs/adr/014-administracao-mobile.md",
+  "type": "ADR",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "ADR-014: Administração e observabilidade no app mobile",
+  "summary": "Decide expor a superfície admin/observabilidade do web-admin no app mobile via browser in-app com handoff de sessão, reaproveitando permissões do ADR-013.",
+  "scope": [
+    "web-admin",
+    "web (app mobile/Capacitor)",
+    "RBAC/permissões (ADR-013)",
+    "handoff de sessão (POST /api/admin/mobile-handoff)",
+    "telas legadas de observabilidade em Perfil",
+    "@capacitor/browser / @capacitor/app-launcher",
+    "risco de review da App Store"
+  ],
+  "cross_refs": [
+    "docs/adr/013-rbac-papeis-e-entitlements.md",
+    "docs/adr/011-modulo-observabilidade-governanca.md",
+    "docs/prompts/admin-mobile-otimizado.md",
+    "ADR-012"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

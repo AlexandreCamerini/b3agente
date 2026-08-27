@@ -1,0 +1,25 @@
+{
+  "source_path": "/Users/acamerini/dev/bolsia/b3-agente/docs/adr/012-observabilidade-v2-tendencia-eficiencia.md",
+  "type": "ADR",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "ADR-012: Portal de Observabilidade v2 — tendência no tempo, eficiência da IA e da automação",
+  "summary": "Evolui o portal de observabilidade (ADR-011) com séries temporais, eficiência agregada da IA e eficiência/correlação da automação, em 5 fases já implementadas.",
+  "scope": [
+    "portal de observabilidade",
+    "eficiência da IA (analysis_outcomes)",
+    "eficiência e correlação da automação",
+    "tendência/série temporal (analytics_daily, obs_daily_metrics)",
+    "campo origem em ordens (manual/automatico/sistema)",
+    "redesenho visual com Brand Book v2"
+  ],
+  "cross_refs": [
+    "docs/adr/011-modulo-observabilidade-governanca.md",
+    "server/app/analysis_outcomes.py",
+    "server/app/analytics.py",
+    "web/src/App.jsx"
+  ],
+  "locked": true,
+  "precedence": null,
+  "notes": ""
+}

@@ -1,0 +1,29 @@
+{
+  "source_path": "/Users/acamerini/dev/bolsia/b3-agente/docs/refactor/HANDOFF-claude-code.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "Handoff para o Claude Code — aplicar Refactor A (eixo de seleção do Radar)",
+  "summary": "Runbook handing off Refactor A to Claude Code: integrate the regime module into scanner.py for the Radar's selection axis.",
+  "scope": [
+    "Radar",
+    "scanner.py",
+    "regime module",
+    "eixo de seleção",
+    "ADR-009",
+    "ESPEC-A",
+    "ESPEC-B",
+    "refactor"
+  ],
+  "cross_refs": [
+    "docs/refactor/ESPEC-A-eixo-selecao.md",
+    "docs/refactor/ESPEC-B-validacao-regime.md",
+    "docs/refactor/scanner.run_scan.patch",
+    "docs/adr/009-eixo-de-selecao.md",
+    "server/app/regime.py",
+    "server/tests/test_regime.py"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

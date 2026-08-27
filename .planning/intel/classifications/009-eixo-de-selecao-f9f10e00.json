@@ -1,0 +1,27 @@
+{
+  "source_path": "/Users/acamerini/dev/bolsia/b3-agente/docs/adr/009-eixo-de-selecao.md",
+  "type": "ADR",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "ADR-009: Eixo de seleção do Radar — regime + momentum relativo",
+  "summary": "Substitui confluência pelo par regime + momentum relativo cross-sectional como eixo primário de ranking do Radar; price action vira gatilho de timing.",
+  "scope": [
+    "Radar",
+    "/api/scan",
+    "server/app/regime.py",
+    "momentum relativo cross-sectional",
+    "confluencia",
+    "setups.py",
+    "Snapshot Técnico Único",
+    "radarScore",
+    "N1"
+  ],
+  "cross_refs": [
+    "../refactor/HANDOFF-claude-code.md",
+    "docs/refactor/ESPEC-A-eixo-selecao.md",
+    "ESPEC-B-validacao-regime.md"
+  ],
+  "locked": true,
+  "precedence": null,
+  "notes": ""
+}

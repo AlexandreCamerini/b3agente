@@ -1,0 +1,31 @@
+{
+  "source_path": "/Users/acamerini/dev/bolsia/b3-agente/docs/MEDICAO-Yahoo-Intraday-2026-07-30.md",
+  "type": "DOC",
+  "confidence": "medium",
+  "manifest_override": false,
+  "title": "Medição — Yahoo intraday para `.SA` (Fase 1 do CHECKOUT Intraday/Trailing/Web)",
+  "summary": "Empirical measurement of Yahoo Finance intraday API limits, latency, and B3 coverage to inform an upcoming ADR on the Radar's intraday data source.",
+  "scope": [
+    "Yahoo Finance /v8/chart API",
+    "intraday candles for .SA tickers",
+    "candle_cache",
+    "Radar scanner",
+    "Railway infrastructure and outbound IP",
+    "brapi/EODHD/Alpha Vantage/B3 UP2DATA alternatives",
+    "pending ADR on intraday data source"
+  ],
+  "cross_refs": [
+    "scripts/medir-yahoo-intraday.py",
+    "server/app/yahoo.py",
+    "scripts/medir-yahoo-na-railway.sh",
+    "scripts/medicao_railway_payload.py",
+    "docs/evidencia-railway-bloqueio-20260730.txt",
+    "README_FIX_YAHOO_401.md",
+    "options_provider_yahoo.py",
+    "scanner.py",
+    "agent.py"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": "No Status/Decision/Consequences sections, no user stories, no system-owned API contract — this is an empirical benchmark/research doc about a third-party API (Yahoo), explicitly framed as input to a not-yet-written ADR (section 9: 'O que ainda falta antes do ADR'). Classified DOC over SPEC because it documents observed behavior of an external service rather than defining a contract this system must implement; flagging medium confidence since its data-heavy, decision-adjacent content borders SPEC/pre-ADR territory and the synthesizer may want to treat it as context feeding a future ADR rather than a locked decision or requirement."
+}

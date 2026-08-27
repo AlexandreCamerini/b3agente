@@ -1,0 +1,28 @@
+{
+  "source_path": "/Users/acamerini/dev/bolsia/b3-agente/docs/adr/004-fonte-de-opcoes-na-v2.md",
+  "type": "ADR",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "ADR-004: Fonte de opções na v2 — o que o app pode simular com dado degradado",
+  "summary": "Decides that reading a degraded options chain is allowed, but simulating an option buy execution is blocked when providerStatus is not ok.",
+  "scope": [
+    "options_provider_yahoo",
+    "providerStatus",
+    "buy_option",
+    "optionPositions",
+    "MyData/brapi",
+    "opções card v2",
+    "OPTIONS-GUARDRAILS",
+    "/api/obs/usage"
+  ],
+  "cross_refs": [
+    "../v2-opcoes-proposta.md",
+    "docs/v2-opcoes-proposta.md",
+    "../../OPTIONS-GUARDRAILS.md",
+    "OPTIONS-GUARDRAILS.md",
+    "ADR-001"
+  ],
+  "locked": true,
+  "precedence": null,
+  "notes": ""
+}

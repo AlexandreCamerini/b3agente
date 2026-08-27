@@ -1,0 +1,41 @@
+{
+  "source_path": "/Users/acamerini/dev/bolsia/b3-agente/docs/adr/016-qualidade-do-sinal-do-motor-de-setups.md",
+  "type": "ADR",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "ADR-016: Qualidade do sinal do motor de setups — diagnóstico e caminho",
+  "summary": "Backtest de 15 anos mostra que o motor de setups tem expectância negativa e perde para entrada aleatória, propondo caminho de correção.",
+  "scope": [
+    "motor de setups",
+    "confluência",
+    "backtest harness",
+    "Radar",
+    "Modo Operador",
+    "Modo Estudo",
+    "regime.ranquear",
+    "IFR2",
+    "walk-forward",
+    "momentum relativo",
+    "trailing stop",
+    "gate de regime e volatilidade"
+  ],
+  "cross_refs": [
+    "docs/adr/015-assertividade-do-motor-de-recomendacao.md",
+    "docs/adr/009-eixo-de-selecao.md",
+    ".planning/phases/06-instrumentacao-assertividade-adr015/",
+    ".planning/prompts/pesquisa-externa-qualidade-do-sinal.md",
+    "scripts/backtest_sinal.py",
+    "scripts/backtest_analise.py",
+    "scripts/backtest_placebo.py",
+    "scripts/backtest_horizonte.py",
+    "scripts/backtest_comprado.py",
+    "scripts/backtest_periodo.py",
+    "scripts/backtest_momentum.py",
+    "scripts/backtest_operador.py",
+    "scripts/backtest_gate.py",
+    "scripts/backtest_pesos.py"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": "Status é 'Proposto — aguardando decisão', não Accepted; portanto locked=false apesar de ser um ADR robusto e numerado com trade-off analysis completo (seções Alternativas/Recomendação equivalentes a Decision/Consequences)."
+}

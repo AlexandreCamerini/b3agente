@@ -1,0 +1,27 @@
+{
+  "source_path": "/Users/acamerini/dev/bolsia/b3-agente/docs/refactor/ESPEC-B-validacao-regime.md",
+  "type": "SPEC",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "ESPEC-B — Fechar o loop de validação por regime",
+  "summary": "Especificação técnica para segmentar outcomes de análise por regime de mercado e realimentar a expectância medida na confiança e no ranking.",
+  "scope": [
+    "server/app/analysis_outcomes.py",
+    "server/app/main.py",
+    "server/app/scanner.py",
+    "server/app/regime.py",
+    "compute_stats",
+    "historico_do_par",
+    "regime de mercado (tendência x lateral)",
+    "ranking/confiança (radarScore)",
+    "calibração de expectância (rMedio)",
+    "guardrail CVM"
+  ],
+  "cross_refs": [
+    "ESPEC-Analises-Tecnicas §6",
+    "ESPEC-A (regime.classificar, dependência declarada como 'A')"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

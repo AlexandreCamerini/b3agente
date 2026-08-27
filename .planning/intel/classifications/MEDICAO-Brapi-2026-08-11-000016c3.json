@@ -1,0 +1,23 @@
+{
+  "source_path": "/Users/acamerini/dev/bolsia/b3-agente/docs/MEDICAO-Brapi-2026-08-11.md",
+  "type": "SPEC",
+  "confidence": "medium",
+  "manifest_override": false,
+  "title": "MEDIÇÃO — brapi plano gratuito com token real (Fase 0 do qa/43)",
+  "summary": "Empirical measurement of brapi free-tier API limits (quota, interval, range, per-request tickers) and the resulting binding constraints for qa/43.",
+  "scope": [
+    "brapi API",
+    "rate limit / quota consumption",
+    "quote request intervals",
+    "date range limits",
+    "adjustedClose vs close divergence",
+    "spot price delay",
+    "error envelope formats",
+    "ADR-008",
+    "qa/43"
+  ],
+  "cross_refs": ["ADR-008", "qa/43"],
+  "locked": false,
+  "precedence": null,
+  "notes": "Reads as an investigation/measurement report (no formal endpoint tables or schema section, no Status/Decision/Consequences ADR structure), but its content establishes binding technical constraints the system must honor: quota is consumed even on rejected (400) requests, only interval=1d and range in {1d,5d,1mo,3mo} are permitted on the free plan, only 1 ticker per request, client-side validation must precede any brapi call, and cross-source merging of close/adjustedClose is prohibited. These are implementation contracts, not background prose, so classified SPEC over DOC per the ADR>SPEC>PRD>DOC precedence rule for competing signals; confidence kept medium because the document's shape (dated measurement log with a pass/fail gate) is atypical for a SPEC. It explicitly frames itself as deltas over ADR-008 and the qa/43 investigation, so treat ADR-008 as the higher-precedence source of record if the two conflict. Naming caveat: no Bash/code-execution tool was available in this classifier run to compute a true SHA-256 of the source path; the source_hash suffix in this filename (000016c3) is a deterministic ASCII-codepoint-sum fallback, not a cryptographic hash — regenerate with real SHA-256 if strict collision-safety is required downstream."
+}

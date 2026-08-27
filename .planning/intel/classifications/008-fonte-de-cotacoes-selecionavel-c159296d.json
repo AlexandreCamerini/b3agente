@@ -1,0 +1,29 @@
+{
+  "source_path": "/Users/acamerini/dev/bolsia/b3-agente/docs/adr/008-fonte-de-cotacoes-selecionavel.md",
+  "type": "ADR",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "ADR-008: brapi (plano gratuito) como fonte master; Yahoo como backup",
+  "summary": "Decides brapi free plan as master source for daily candles and spot quotes under a request budget, with Yahoo as backup and sole intraday source.",
+  "scope": [
+    "candle_provider.py",
+    "brapi API",
+    "Yahoo Finance API",
+    "quote/candle failover",
+    "request budget (orcamento de requisicoes)",
+    "spot quotes",
+    "daily candles",
+    "intraday candles",
+    "agent execution cycle (agent_mod.run_cycle_for)",
+    "cache layer (L2)",
+    "fundamentals.py"
+  ],
+  "cross_refs": [
+    "../MEDICAO-Brapi-2026-08-11.md",
+    "ADR-001",
+    "ADR-004"
+  ],
+  "locked": true,
+  "precedence": null,
+  "notes": "Status field reads 'Aceito em direção' (non-standard phrasing for Accepted) with one explicit pending item (spot delay measurement during live trading hours); treated as Accepted/locked since the decision itself is finalized and only a downstream measurement remains open. Document also contains a later dated addendum (11/08/2026, noite) amending scope for the agent execution cycle — still part of the same locked ADR."
+}

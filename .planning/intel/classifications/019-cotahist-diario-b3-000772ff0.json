@@ -1,0 +1,13 @@
+{
+  "source_path": "/Users/acamerini/dev/bolsia/b3-agente/docs/adr/019-cotahist-diario-b3.md",
+  "type": "ADR",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "ADR-019: Acervo diário oficial COTAHIST da B3",
+  "summary": "Decisão de implementar ingestão diária do arquivo oficial COTAHIST da B3 como fonte histórica rastreável, separada dos provedores de cotação existentes.",
+  "scope": ["COTAHIST", "b3_historical.py", "b3_daily_imports", "b3_daily_quotes", "scheduler", "CLI admin", "fontes_dados.configurar", "candle_cache"],
+  "cross_refs": [],
+  "locked": true,
+  "precedence": null,
+  "notes": ""
+}

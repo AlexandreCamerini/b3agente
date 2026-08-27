@@ -1,0 +1,27 @@
+{
+  "source_path": "/Users/acamerini/dev/bolsia/b3-agente/docs/adr/006-camada-de-entendimento.md",
+  "type": "ADR",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "ADR-006: A camada de entendimento é backend-first e determinística",
+  "summary": "Define que a explicação didática do app é determinística, vive no backend e é gratuita no caminho padrão, sem LLM.",
+  "scope": [
+    "camada de entendimento",
+    "conceitos.py",
+    "/api/timing",
+    "skill_ref.TIMING",
+    "didática do produto",
+    "guardrail de verbo de ordem",
+    "B3_DIDATICA_OFF",
+    "assistente por LLM (ADR-007)"
+  ],
+  "cross_refs": [
+    "CHECKOUT-Didatica-Estudo-otimizado.md",
+    "docs/didatica-inventario.md",
+    "ADR-007",
+    "web/tests/test_vocabulario_espelho.mjs"
+  ],
+  "locked": true,
+  "precedence": null,
+  "notes": ""
+}

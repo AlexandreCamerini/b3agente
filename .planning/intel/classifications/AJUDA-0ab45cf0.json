@@ -1,0 +1,13 @@
+{
+  "source_path": "/Users/acamerini/dev/bolsia/b3-agente/docs/AJUDA.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "Boris+ — Como funciona",
+  "summary": "Support/onboarding reference explaining Boris+ app modes, screens, fundament score, and AI performance tracking; no decisions or requirements.",
+  "scope": ["Modo Estudo", "Modo Operador", "Radar", "Mesa de oportunidades", "Watchlist", "Monitoramento", "Portfólio", "Posições", "Operador IA", "Fundamento (A/B/C)", "Eficiência da IA"],
+  "cross_refs": ["web/src/App.jsx"],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

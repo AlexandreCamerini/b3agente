@@ -1,0 +1,29 @@
+{
+  "source_path": "/Users/acamerini/dev/bolsia/b3-agente/docs/adr/015-assertividade-do-motor-de-recomendacao.md",
+  "type": "ADR",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "ADR-015: Assertividade do motor de recomendação — diagnóstico e caminho de melhoria",
+  "summary": "Diagnóstico de dois bugs de instrumentação que inflam a métrica de eficiência do motor de recomendação e propõe correção mais backtest com walk-forward.",
+  "scope": [
+    "motor de recomendação",
+    "analysis_outcomes",
+    "instrumentação de métricas",
+    "painel Eficiência da IA",
+    "backtest determinístico walk-forward",
+    "classificação de regime (ADR-009)",
+    "TradingView (fonte de dados avaliada e rejeitada)",
+    "constantes de R:R mínimo"
+  ],
+  "cross_refs": [
+    ".planning/quick/260820-0hl-pesquisa-e-design-assertividade-do-motor/260820-0hl-RESEARCH.md",
+    "docs/adr/001-fonte-de-dados-intraday.md",
+    "docs/adr/008-fonte-de-cotacoes-selecionavel.md",
+    "docs/adr/009-eixo-de-selecao.md",
+    "docs/adr/012-observabilidade-v2-tendencia-eficiencia.md",
+    "CLAUDE.md"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

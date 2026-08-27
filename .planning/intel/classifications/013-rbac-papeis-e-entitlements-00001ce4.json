@@ -1,0 +1,31 @@
+{
+  "source_path": "/Users/acamerini/dev/bolsia/b3-agente/docs/adr/013-rbac-papeis-e-entitlements.md",
+  "type": "ADR",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "ADR-013: RBAC, papéis e entitlements — central de administração de verdade",
+  "summary": "Define modelo RBAC com papéis de governança (7 grupos de permissão) e plano comercial ortogonal, mais audit log para escrita admin no Boris+.",
+  "scope": [
+    "RBAC",
+    "papéis e permissões",
+    "entitlements/plano comercial",
+    "web-admin",
+    "plan.py",
+    "auth.py",
+    "admin_audit_log",
+    "prompts (llmPrompts/skill)",
+    "kill-switch de execução automática",
+    "fontes de dados (brapi)",
+    "rotas de main.py e options_api.py"
+  ],
+  "cross_refs": [
+    "docs/adr/010-planos-e-cap-gratuito.md",
+    "docs/adr/011-modulo-observabilidade-governanca.md",
+    "docs/adr/012-observabilidade-v2-tendencia-eficiencia.md",
+    "server/app/main.py",
+    "server/app/plan.py"
+  ],
+  "locked": true,
+  "precedence": null,
+  "notes": ""
+}

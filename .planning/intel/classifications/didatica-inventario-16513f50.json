@@ -1,0 +1,13 @@
+{
+  "source_path": "/Users/acamerini/dev/bolsia/b3-agente/docs/didatica-inventario.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "Inventário — o que o app AFIRMA sem explicar",
+  "summary": "Inventário das 18 afirmações do card de ativo e outras telas do app que carecem de explicação didática, priorizadas por impacto na ação do usuário.",
+  "scope": ["AtivoCard", "TimingBadge", "PlanRuler", "RadarScreen", "Portfólio", "AgenteScreen (Operador IA)", "Eficiência da IA", "Perfil", "gatilho", "veredito", "confluencia", "fundamento", "conviccao", "stop", "alvo", "r", "rr", "sizing", "barra15m", "precoMedio", "didática de skill_ref.DIDATICA"],
+  "cross_refs": ["web/src/App.jsx"],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

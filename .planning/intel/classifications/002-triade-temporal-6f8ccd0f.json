@@ -1,0 +1,27 @@
+{
+  "source_path": "/Users/acamerini/dev/bolsia/b3-agente/docs/adr/002-triade-temporal.md",
+  "type": "ADR",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "ADR-002: Tríade temporal — horizonte × intervalo × período",
+  "summary": "Define horizonte, intervalo e período como uma tríade validada em conjunto para evitar degradação silenciosa na análise técnica.",
+  "scope": [
+    "horizonte",
+    "intervalo",
+    "período",
+    "tríade temporal",
+    "resolve_keep",
+    "SMA200",
+    "Radar",
+    "candle_cache",
+    "calibragem por intervalo",
+    "masstest-agentes.py"
+  ],
+  "cross_refs": [
+    "001-fonte-de-dados-intraday.md",
+    "ADR-001"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

@@ -1,0 +1,31 @@
+{
+  "source_path": "/Users/acamerini/dev/bolsia/b3-agente/docs/adr/010-planos-e-cap-gratuito.md",
+  "type": "ADR",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "ADR-010: Modelo de planos — cap gratuito e features pagas",
+  "summary": "Define a unidade e a separação técnica do cap comercial de uso gratuito vs. a cota física da brapi, deixando preço e escopo de plano pago pendentes.",
+  "scope": [
+    "modelo de planos",
+    "cap gratuito",
+    "plan.py",
+    "metering.py",
+    "brapi_budget.py",
+    "freemium/BYOK",
+    "monetização",
+    "recibo de assinatura (IAP)"
+  ],
+  "cross_refs": [
+    "server/app/plan.py",
+    "server/app/metering.py",
+    "server/app/brapi_budget.py",
+    "qa/42-finops.md",
+    "qa/45-auditoria-configuracao.md",
+    "qa/46-auditoria-observabilidade-governanca.md",
+    "qa/44",
+    "docs/adr/ (ADR F3 - alvo dinâmico)"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": "Status é 'Proposto' — a parte técnica está decidida (tratada como decisão do ADR), mas a parte comercial (preço, loja, limites numéricos) é explicitamente marcada como pendente de decisão do Alex; portanto não está Accepted e não é locked."
+}

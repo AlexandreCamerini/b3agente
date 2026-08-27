@@ -1,0 +1,35 @@
+{
+  "source_path": "/Users/acamerini/dev/bolsia/b3-agente/docs/OPERACAO-ledger-de-sinais.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "OPERAÇÃO — Ledger de Sinais Resolvidos (ADR-017, Bloco 1)",
+  "summary": "Runbook explaining when, how, and why to run the signal_ledger_bootstrap command that backtests setup outcomes to populate the signal ledger.",
+  "scope": [
+    "signal ledger",
+    "signal_ledger_bootstrap",
+    "backtest de sinais",
+    "radarScore",
+    "regime.ranquear",
+    "scheduler_loop",
+    "signal_ledger_job",
+    "Railway deployment",
+    "brapi",
+    "Yahoo Finance",
+    "ADR-017"
+  ],
+  "cross_refs": [
+    "docs/adr/016-qualidade-do-sinal-do-motor-de-setups.md",
+    "docs/adr/015-assertividade-do-motor-de-recomendacao.md",
+    "ADR-017",
+    "ADR-008",
+    "scripts/backtest_sinal.py",
+    "scripts/backtest_pesos.py",
+    "server/app/signal_ledger_bootstrap.py",
+    "server/railway.json",
+    "server/app/agent.py"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": "TOOLING LIMITATION (not a classification ambiguity): this classifier instance had no code-execution tool (Bash/Python) available, only Read/Write/Grep/Glob, so a true SHA-256 of the source path could not be computed. source_hash '0000193f' is a fallback (zero-padded hex of the sum of ASCII codes of the full POSIX path '/Users/acamerini/dev/bolsia/b3-agente/docs/OPERACAO-ledger-de-sinais.md' = 6447 decimal), deterministic but NOT SHA-256 and with much weaker collision resistance. The synthesizer or orchestrator should recompute the real SHA-256-based filename if exact hash matching against a manifest is required. Type classification itself (DOC) is high-confidence and unaffected: explicit self-declared 'Runbook do comando manual' on line 3, an operational 'O que NAO fazer' section, step-by-step commands for local/production execution, and verification instructions — no Decision/Consequences structure, no user stories/acceptance criteria, no endpoint/schema tables. The doc references ADR-017/015/016/008 for rationale but is not itself an ADR."
+}

@@ -1,0 +1,29 @@
+{
+  "source_path": "/Users/acamerini/dev/bolsia/b3-agente/docs/plano-voz-nativa-ios.md",
+  "type": "DOC",
+  "confidence": "medium",
+  "manifest_override": false,
+  "title": "Plano — voz do Boris no app nativo iOS",
+  "summary": "Plano para corrigir a voz do Boris não tocar no app nativo iOS, roteando TTS nativo em vez de window.speechSynthesis.",
+  "scope": [
+    "voz/TTS do Boris",
+    "app nativo iOS (Capacitor)",
+    "web/src/pet/Boris.jsx",
+    "plugin @capacitor-community/text-to-speech",
+    "PetSheet",
+    "BorisChat",
+    "STT (useSTT)"
+  ],
+  "cross_refs": [
+    "web/src/pet/Boris.jsx",
+    "web/package.json",
+    "web/src/pet/vozBoris.js",
+    "App.jsx",
+    "web/tests/test_boris_voz_nativa.mjs",
+    "node_modules/@capacitor-community/text-to-speech",
+    "entregar.sh"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": "Documento é um plano de correção de bug com status 'aguardando aprovação' (não é ADR formal: sem Status Accepted/Consequences). Contém detalhes de implementação (assinatura de helper, call sites, arquivo de teste) que se aproximam de SPEC, mas sem contrato de API/schema durável; predomina caráter de plano/runbook interno, por isso classificado como DOC com confiança média."
+}

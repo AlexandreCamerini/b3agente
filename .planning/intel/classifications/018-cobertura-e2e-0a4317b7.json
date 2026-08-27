@@ -1,0 +1,34 @@
+{
+  "source_path": "/Users/acamerini/dev/bolsia/b3-agente/docs/adr/018-cobertura-e2e.md",
+  "type": "ADR",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "ADR-018: Cobertura E2E/browser automation — avaliação (FIX-C27)",
+  "summary": "Avalia adotar E2E/browser automation (Playwright ou device harness) e decide não adotar agora, mantendo guardiões estáticos e checklist manual.",
+  "scope": [
+    "cobertura E2E",
+    "Playwright",
+    "device harness (XCUITest/Maestro)",
+    "Capacitor/WKWebView",
+    "suíte de testes (server/tests, web/tests)",
+    "TESTFLIGHT.md checklist manual",
+    "checkpoint humano bloqueante em deploys"
+  ],
+  "cross_refs": [
+    "REPORT-01",
+    "ROADMAP v1.1",
+    "05-CONTEXT.md",
+    "TESTING.md",
+    "08-05-PLAN.md",
+    "07-06-PLAN.md",
+    "CLAUDE.md",
+    "ADR-010",
+    "TESTFLIGHT.md",
+    "web/capacitor.config.ts",
+    "package.json",
+    "package-lock.json"
+  ],
+  "locked": true,
+  "precedence": null,
+  "notes": ""
+}

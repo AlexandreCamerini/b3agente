@@ -1,0 +1,35 @@
+{
+  "source_path": "/Users/acamerini/dev/bolsia/b3-agente/docs/ARQUITETURA.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "Arquitetura técnica do Boris+",
+  "summary": "Visão geral da arquitetura do Boris+: monólito FastAPI no Railway, front React/Capacitor, motor determinístico e camada LLM opt-in.",
+  "scope": [
+    "FastAPI backend",
+    "React frontend (web/)",
+    "shell Capacitor iOS",
+    "SQLite key-value store",
+    "motor determinístico (scanner, timing, setups, indicators, kpi)",
+    "camada LLM (assistente, analysis N2, scan_deep)",
+    "push notifications (APNs)",
+    "autenticação (Apple/Google/e-mail)",
+    "provedor de candles (Yahoo/brapi)",
+    "deploy Railway e pipeline de entrega",
+    "camada de entendimento didática (conceitos, pet, assistente)"
+  ],
+  "cross_refs": [
+    "docs/adr/",
+    "ADR-001",
+    "ADR-002",
+    "ADR-003",
+    "ADR-004",
+    "ADR-005",
+    "ADR-006",
+    "ADR-007",
+    "~/dev/cvm-financas/docs/fundacao-de-dados.md"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

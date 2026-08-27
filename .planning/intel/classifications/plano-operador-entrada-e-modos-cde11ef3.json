@@ -1,0 +1,34 @@
+{
+  "source_path": "/Users/acamerini/dev/bolsia/b3-agente/docs/plano-operador-entrada-e-modos.md",
+  "type": "SPEC",
+  "confidence": "medium",
+  "manifest_override": false,
+  "title": "Plano — Operador IA: separação Estudo/Operador e entrada automática",
+  "summary": "Plano técnico faseado para travar execução no Modo Estudo e implementar entrada automática de compra limitada a % do caixa.",
+  "scope": [
+    "Modo Estudo",
+    "Modo Operador",
+    "entrada automática",
+    "agent_params",
+    "set_agent",
+    "serverEnabled",
+    "allocPct",
+    "maxOpsDia",
+    "timing_watch",
+    "AgenteScreen",
+    "carteira simulada"
+  ],
+  "cross_refs": [
+    "../server/app/agent.py:486",
+    "server/app/agent.py",
+    "server/app/store.py",
+    "web/src/App.jsx",
+    "server/app/timing_watch.py",
+    "server/app/timing.py",
+    "web/src/persistence.js",
+    "PROPOSTA-MODO-OPERADOR.md"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": "Documento é primariamente um plano de implementação técnica (fases, arquivos, funções, testes) — sinais fortes de SPEC. Contém, porém, a seção 2 'Decisões fechadas (aprovadas pelo Alex em 2026-08-07)' com 6 decisões (D1-D6) que têm caráter de decisão travada, sinal de ADR, mas sem o formato canônico de ADR (sem Status/Accepted, sem Context/Decision/Consequences, sem arquivo numerado). Ambiguidade resolvida a favor de SPEC pela predominância de conteúdo de implementação; recomenda-se ao sintetizador tratar as decisões D1-D6 da seção 2 como quase-locked ao extrair restrições."
+}

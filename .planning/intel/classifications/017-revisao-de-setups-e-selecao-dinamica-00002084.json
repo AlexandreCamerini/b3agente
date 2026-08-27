@@ -1,0 +1,37 @@
+{
+  "source_path": "/Users/acamerini/dev/bolsia/b3-agente/docs/adr/017-revisao-de-setups-e-selecao-dinamica.md",
+  "type": "ADR",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "ADR-017: Revisão de setups e seleção dinâmica por desempenho histórico",
+  "summary": "Decide o critério de aposentadoria de setups malsucedidos, a arquitetura de seleção dinâmica por desempenho histórico e o destino do Modo Operador.",
+  "scope": [
+    "setups de trading",
+    "seleção dinâmica de setups",
+    "Modo Operador",
+    "entradaAuto",
+    "signal_ledger",
+    "regime.ranquear",
+    "radarScore",
+    "signal_replay",
+    "scheduler_loop",
+    "backtest_sinal.py",
+    "backtest_pesos.py"
+  ],
+  "cross_refs": [
+    "ADR-015",
+    "ADR-016",
+    "docs/OPERACAO-ledger-de-sinais.md",
+    "scripts/backtest_sinal.py",
+    "scripts/backtest_pesos.py",
+    "server/app/setups.py",
+    "server/app/yahoo.py",
+    "server/app/signal_ledger.py",
+    "server/app/regime.py",
+    "server/app/agent.py",
+    "server/app/main.py"
+  ],
+  "locked": true,
+  "precedence": null,
+  "notes": ""
+}
