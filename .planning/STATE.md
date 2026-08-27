@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Realismo de Mercado + Correções
 status: Awaiting next milestone
-stopped_at: Phase 05 concluída — checkpoint 05-08 aprovado, deploy confirmado
-last_updated: "2026-08-23T22:29:01.638Z"
-last_activity: 2026-08-23 — Milestone v1.1 completed and archived
+stopped_at: Milestone v1.1 fechado e arquivado (tag v1.1)
+last_updated: "2026-08-27T20:26:50.274Z"
+last_activity: "2026-08-24 - Completed quick task 260824-kc2: preferência de push por classe de evento + paridade dos dois stores + controles em Perfil → Notificações"
 progress:
   total_phases: 7
   completed_phases: 7
@@ -133,6 +133,8 @@ Recent decisions affecting current work:
   frente**: fase com checkpoint humano bloqueante não leva push de
   nenhuma wave até a aprovação, mesmo que o commit da wave pareça
   inócuo isolado.
+
+- Phase 9 added: Fase 9 adicionada via /gsd-explore: Centralização de dados de mercado (mydata_client.py) — dedup Boris×cvm-financas (mydata real, distinto do MCP), migra COTAHIST+Opções, redefine escopo de brapi/Yahoo. Ver .planning/notes/boris-pp-centralizacao-dados-mydata.md.
 
 ### Pending Todos
 
