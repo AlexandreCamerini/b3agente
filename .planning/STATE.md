@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Realismo de Mercado + Correções
 status: Awaiting next milestone
-stopped_at: Milestone v1.1 fechado e arquivado (tag v1.1)
-last_updated: "2026-08-27T20:26:50.274Z"
+stopped_at: Phase 9 context gathered
+last_updated: "2026-08-27T20:48:33.412Z"
 last_activity: "2026-08-24 - Completed quick task 260824-kc2: preferência de push por classe de evento + paridade dos dois stores + controles em Perfil → Notificações"
 progress:
   total_phases: 7
@@ -178,9 +178,9 @@ Items acknowledged and carried forward from previous milestone close (v1.0):
 
 ## Session Continuity
 
-Last session: 2026-08-23T21:04:28.675Z
-Stopped at: Milestone v1.1 fechado e arquivado (tag v1.1)
-Resume file: .planning/milestones/v1.1-phases/05-corre-o-m-dio-c-digo-gate-admin/05-08-SUMMARY.md
+Last session: 2026-08-27T20:48:33.404Z
+Stopped at: Phase 9 context gathered
+Resume file: .planning/phases/09-centraliza-o-de-dados-de-mercado-mydata-client-py-implementa/09-CONTEXT.md
 
 ## Operator Next Steps
 
