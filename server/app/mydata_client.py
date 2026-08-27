@@ -11,14 +11,26 @@ guardiões offline.
 """
 import asyncio
 import os
+from datetime import date, timedelta
 from urllib.parse import urlsplit
 
 import httpx
+
+from .tickers import normalize_ticker
 
 BASE_DEFAULT = "https://mydata.acamerini.app"
 TIMEOUT_S = 20
 PAGINAS_MAX = 8
 LIMITE_MAX = 2000
+
+INTERVALO_UNICO = "1d"
+# Dias CORRIDOS por range — folgados de propósito: o pregão só tem ~21 dias
+# úteis/mês; apertar cortaria candles no início da série. "1d": 5 cobre
+# feriado prolongado.
+RANGE_DIAS = {
+    "1d": 5, "5d": 12, "1mo": 45, "3mo": 110, "6mo": 200,
+    "1y": 400, "2y": 790, "5y": 1900, "max": 3700,
+}
 
 # Última leitura de X-Quota-Limite/X-Quota-Restante — verdade > previsão do
 # orçamento local (mydata_budget.snapshot() expõe ao lado do contador local).
@@ -142,3 +154,64 @@ async def _paginar(path: str, params: dict, *, fetch_json=None) -> list:
             print(f"[mydata] paginação parou no teto de {PAGINAS_MAX} páginas em {path}")
             break
     return dados
+
+
+def _round(x):
+    return round(x, 2) if isinstance(x, (int, float)) else None
+
+
+def valida_fatia(rng: str, interval: str) -> None:
+    """Guarda client-side, espelho de `brapi.valida_plano`. Nunca toca a
+    rede: é o que mantém o Yahoo dono do intraday sem gastar cota para
+    descobrir (ADR-001 intocada)."""
+    if interval != INTERVALO_UNICO:
+        raise MydataForaDaFatia(
+            f"Intervalo '{interval}' fora da fatia do mydata — o COTAHIST só "
+            "publica candle diário, após o fechamento do pregão. Intraday "
+            "continua sendo do Yahoo por decisão do ADR-001."
+        )
+    if rng not in RANGE_DIAS:
+        raise MydataForaDaFatia(
+            f"Range '{rng}' desconhecido para o mydata (permitidos: "
+            f"{', '.join(sorted(RANGE_DIAS))})."
+        )
+
+
+async def get_history(ticker: str, rng: str = "1mo", interval: str = "1d",
+                       *, fetch_json=None) -> dict:
+    """Contrato de `CandleProvider.history()`:
+    {"t", "currency", "candles": [{date, open, high, low, close, volume}]}.
+
+    `volume` vem de `quantidade_negociada` (papéis), NUNCA do notional em R$
+    (outro campo da linha). `hv21`/`hv63`/`preco_medio`/`proveniencia`
+    existem na linha e são deliberadamente ignorados — o contrato
+    `CandleProvider` é fechado. `fetch_json` é injetável para teste offline.
+    """
+    valida_fatia(rng, interval)
+    if not _token():
+        raise RuntimeError(
+            "MYDATA_TOKEN ausente no ambiente. Sem ela o provedor mydata não "
+            "opera — defina a variável no Railway/local ou aponte "
+            "B3_CANDLE_PROVIDER de volta para 'brapi'."
+        )
+
+    symbol = normalize_ticker(ticker)
+    de = (date.today() - timedelta(days=RANGE_DIAS[rng])).isoformat()
+    linhas = await _paginar(
+        f"/v1/cotacoes/{symbol}", {"de": de, "limite": LIMITE_MAX},
+        fetch_json=fetch_json)
+
+    candles = []
+    for row in linhas:
+        close = row.get("preco_fechamento")
+        if close is None:
+            continue
+        candles.append({
+            "date": row.get("dt_pregao"),
+            "open": _round(row.get("preco_abertura")),
+            "high": _round(row.get("preco_maximo")),
+            "low": _round(row.get("preco_minimo")),
+            "close": _round(close),
+            "volume": row.get("quantidade_negociada"),
+        })
+    return {"t": symbol, "currency": "BRL", "candles": candles}
