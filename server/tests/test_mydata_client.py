@@ -330,3 +330,124 @@ def test_get_history_resposta_vazia_devolve_candles_vazio(monkeypatch):
 
 def test_range_dias_cobre_os_ranges_do_candle_cache():
     assert {"1mo", "1y", "2y"} <= set(m.RANGE_DIAS)
+
+
+# ---------------------------------------------------------------------------
+# get_vencimentos() — endpoint dedicado, sem paginação
+# ---------------------------------------------------------------------------
+def _fake_fetch_json(payload):
+    async def fetch_json(path, params):
+        fetch_json.chamadas.append((path, dict(params)))
+        return payload
+    fetch_json.chamadas = []
+    return fetch_json
+
+
+def test_get_vencimentos_chama_path_correto_e_normaliza_ticker(monkeypatch):
+    monkeypatch.setenv("MYDATA_TOKEN", "tok-teste")
+    fake = _fake_fetch_json({"dados": []})
+    asyncio.run(m.get_vencimentos("petr4.sa", fetch_json=fake))
+    assert fake.chamadas[0][0] == "/v1/opcoes/PETR4/vencimentos"
+
+
+def test_get_vencimentos_com_pregao_inclui_param(monkeypatch):
+    monkeypatch.setenv("MYDATA_TOKEN", "tok-teste")
+    fake = _fake_fetch_json({"dados": []})
+    asyncio.run(m.get_vencimentos("PETR4", pregao="2026-08-25", fetch_json=fake))
+    assert fake.chamadas[0][1]["pregao"] == "2026-08-25"
+
+
+def test_get_vencimentos_sem_pregao_nao_inclui_a_chave(monkeypatch):
+    monkeypatch.setenv("MYDATA_TOKEN", "tok-teste")
+    fake = _fake_fetch_json({"dados": []})
+    asyncio.run(m.get_vencimentos("PETR4", fetch_json=fake))
+    assert "pregao" not in fake.chamadas[0][1]
+
+
+def test_get_vencimentos_resposta_vazia_devolve_lista_vazia_sem_levantar(monkeypatch):
+    monkeypatch.setenv("MYDATA_TOKEN", "tok-teste")
+    fake = _fake_fetch_json({"dados": []})
+    out = asyncio.run(m.get_vencimentos("PETR4", fetch_json=fake))
+    assert out == []
+
+
+def test_get_vencimentos_devolve_dados_crus_sem_remapear(monkeypatch):
+    monkeypatch.setenv("MYDATA_TOKEN", "tok-teste")
+    linha = {"dt_vencimento": "2026-09-19", "contratos": 40, "com_sigma": 35,
+              "vence_no_pregao": 0, "menor_strike": 30.0, "maior_strike": 45.0}
+    fake = _fake_fetch_json({"dados": [linha]})
+    out = asyncio.run(m.get_vencimentos("PETR4", fetch_json=fake))
+    assert out == [linha]
+
+
+def test_get_vencimentos_nao_usa_paginar(monkeypatch):
+    """O endpoint de vencimentos não devolve proximo_cursor — usar _paginar
+    aqui quebraria silenciosamente ou faria 1 chamada supérflua a mais."""
+    monkeypatch.setenv("MYDATA_TOKEN", "tok-teste")
+    fake = _fake_fetch_json({"dados": [{"dt_vencimento": "2026-09-19"}]})
+    asyncio.run(m.get_vencimentos("PETR4", fetch_json=fake))
+    assert len(fake.chamadas) == 1
+
+
+def test_get_vencimentos_resposta_nao_dict_levanta_mydata_indisponivel(monkeypatch):
+    monkeypatch.setenv("MYDATA_TOKEN", "tok-teste")
+
+    async def fetch_json(path, params):
+        return None
+    with pytest.raises(m.MydataIndisponivel):
+        asyncio.run(m.get_vencimentos("PETR4", fetch_json=fetch_json))
+
+
+# ---------------------------------------------------------------------------
+# get_options_chain() — cadeia paginada
+# ---------------------------------------------------------------------------
+def test_get_options_chain_chama_path_e_params_corretos(monkeypatch):
+    monkeypatch.setenv("MYDATA_TOKEN", "tok-teste")
+    fake = _fake_fetch_json({"dados": [], "proximo_cursor": None})
+    asyncio.run(m.get_options_chain("PETR4", vencimento="2026-09-19", fetch_json=fake))
+    assert fake.chamadas[0][0] == "/v1/opcoes/PETR4"
+    assert fake.chamadas[0][1]["vencimento"] == "2026-09-19"
+    assert fake.chamadas[0][1]["limite"] == m.LIMITE_MAX
+
+
+def test_get_options_chain_percorre_proximo_cursor(monkeypatch):
+    monkeypatch.setenv("MYDATA_TOKEN", "tok-teste")
+    paginas = [
+        {"dados": [{"contrato": "PETRA100"}], "proximo_cursor": "cur-2"},
+        {"dados": [{"contrato": "PETRA200"}], "proximo_cursor": None},
+    ]
+
+    async def fetch_json(path, params):
+        fetch_json.chamadas.append((path, dict(params)))
+        return paginas[len(fetch_json.chamadas) - 1]
+    fetch_json.chamadas = []
+    out = asyncio.run(m.get_options_chain("PETR4", fetch_json=fetch_json))
+    assert out == [{"contrato": "PETRA100"}, {"contrato": "PETRA200"}]
+    assert len(fetch_json.chamadas) == 2
+
+
+def test_get_options_chain_sem_token_levanta_runtime_error(monkeypatch):
+    monkeypatch.delenv("MYDATA_TOKEN", raising=False)
+    fake = _fake_fetch_json({"dados": [], "proximo_cursor": None})
+    with pytest.raises(RuntimeError) as e:
+        asyncio.run(m.get_options_chain("PETR4", fetch_json=fake))
+    assert "MYDATA_TOKEN" in str(e.value)
+
+
+def test_get_options_chain_propaga_mydata_indisponivel(monkeypatch):
+    monkeypatch.setenv("MYDATA_TOKEN", "tok-teste")
+
+    async def fetch_json(path, params):
+        raise m.MydataIndisponivel("mydata inacessível")
+    with pytest.raises(m.MydataIndisponivel):
+        asyncio.run(m.get_options_chain("PETR4", fetch_json=fetch_json))
+
+
+def test_get_options_chain_params_omitem_campos_falsy(monkeypatch):
+    monkeypatch.setenv("MYDATA_TOKEN", "tok-teste")
+    fake = _fake_fetch_json({"dados": [], "proximo_cursor": None})
+    asyncio.run(m.get_options_chain("PETR4", fetch_json=fake))
+    params = fake.chamadas[0][1]
+    assert "vencimento" not in params
+    assert "pregao" not in params
+    assert "tipo" not in params
