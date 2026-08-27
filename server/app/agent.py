@@ -498,9 +498,9 @@ def avaliar_alvo_dinamico(price: float, pos: dict, ctx: dict = None):
 # degradado) e ADR-005 (fechamento por vencimento, motivo estruturado).
 #
 # `option_quotes_getter(underlying, expiration) -> payload` é injetado (fake
-# nos testes; `options_provider_yahoo.get_options` em produção). 1 fetch por
-# VENCIMENTO aberto, não por contrato — várias posições no mesmo
-# ativo/vencimento dividem a mesma chamada.
+# nos testes; `options_provider.get_options` em produção — seletor por env,
+# Fase 9). 1 fetch por VENCIMENTO aberto, não por contrato — várias posições
+# no mesmo ativo/vencimento dividem a mesma chamada.
 # ---------------------------------------------------------------------------
 def intrinseco_opcao(pos: dict, spot: float) -> float:
     """Valor intrínseco na liquidação por vencimento — pode ser ZERO (perda

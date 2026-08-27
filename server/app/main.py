@@ -27,7 +27,7 @@ from . import ai_activity  # qa/45: custo (R$) + histórico de comportamento da 
 from . import fundamentals  # qa/36 (F10.2): fundamento × técnica (score, cache, rebaixamento)
 from . import scan_deep  # FASE 1 (N1): aprofundamento IA do top-N do Radar
 from . import candle_provider  # ADR-001: ponto único de entrada de candles
-from . import options_provider_yahoo  # v2: cotação de contratos (ADR-003/004/005)
+from . import options_provider  # v2: cotação de contratos (ADR-003/004/005), provedor selecionável
 from . import technical_snapshot  # FASE 1 (STU): fonte única de N1/N2/N3
 from . import model_catalog  # qa/49: catálogo de modelos por provedor + parâmetros aceitos
 from . import agent as agent_mod  # FASE 3: agente autônomo server-side
@@ -43,7 +43,7 @@ from . import signal_ledger  # ADR-017 (Bloco 1): histórico medido por setup (l
 from . import b3_historical  # COTAHIST diário oficial da B3
 from .catalog import is_catalog_ticker
 from .options_api import router as options_router
-from .options_provider_yahoo import get_options as _get_options_for_status
+from .options_provider import get_options as _get_options_for_status
 
 app = FastAPI(title="Boris+ API")
 app.add_middleware(
@@ -1213,7 +1213,7 @@ async def _options_status_for_llm(t: str) -> dict:
         puts = chain.get("puts") or []
         return {
             "available": bool((chain.get("expirations") or []) or calls or puts),
-            "source": chain.get("source") or "yfinance",
+            "source": chain.get("source") or options_provider.provider_name(),
             "expiration": chain.get("expiration"),
             "expirationsCount": len(chain.get("expirations") or []),
             "callsCount": len(calls),
@@ -1223,8 +1223,8 @@ async def _options_status_for_llm(t: str) -> dict:
     except Exception as e:  # noqa: BLE001
         return {
             "available": False,
-            "source": "yfinance",
-            "reason": str(e) or "O yfinance não retornou cadeia de opções para este ativo.",
+            "source": options_provider.provider_name(),
+            "reason": str(e) or "O provedor de opções não retornou cadeia para este ativo.",
         }
 
 def _degradado_spot() -> bool:
@@ -2100,7 +2100,7 @@ async def buy_option(body: dict = Body(default={}), scope: Optional[str] = Depen
     qty = int(body.get("qty") or 0)
     if len(underlying) < 4 or not contract_symbol or qty <= 0:
         raise HTTPException(400, "Contrato de opção inválido.")
-    chain = await options_provider_yahoo.get_options(underlying, body.get("expiration"))
+    chain = await options_provider.get_options(underlying, body.get("expiration"))
     if chain.get("providerStatus") != "ok":
         raise HTTPException(502, "Cotação de opções indisponível no momento — tente novamente.")
     contrato = next((c for c in [*chain.get("calls", []), *chain.get("puts", [])]
@@ -2135,7 +2135,7 @@ async def sell_option(body: dict = Body(default={}), scope: Optional[str] = Depe
     pos = next((p for p in store.get(_conn, "optionPositions", user_id=scope) if p["id"] == contract_symbol), None)
     if not pos:
         raise HTTPException(400, "Sem posição em " + contract_symbol)
-    chain = await options_provider_yahoo.get_options(pos["underlying"], pos.get("expiration"))
+    chain = await options_provider.get_options(pos["underlying"], pos.get("expiration"))
     if chain.get("providerStatus") != "ok":
         raise HTTPException(502, "Cotação de opções indisponível no momento — tente novamente.")
     contrato = next((c for c in [*chain.get("calls", []), *chain.get("puts", [])]
@@ -2623,7 +2623,7 @@ def _disparar_ciclo_imediato(scope: Optional[str]) -> None:
         try:
             await agent_mod.run_cycle_for(_conn, scope, candle_provider.get_quotes_exclusive, origem="imediato",
                                           snapshot_getter=_snapshot_para_trailing,
-                                          option_quotes_getter=options_provider_yahoo.get_options)
+                                          option_quotes_getter=options_provider.get_options)
         except Exception as e:  # noqa: BLE001 — o erro já foi para o agentLog
             print(f"[agent] ciclo imediato de {scope} falhou: {e}")
 
@@ -2653,7 +2653,7 @@ async def cycle(scope: Optional[str] = Depends(current_scope)):
     positions = store.get(_conn, "positions", user_id=scope)
     await agent_mod.run_cycle_for(_conn, scope, candle_provider.get_quotes_exclusive,
                                   snapshot_getter=_snapshot_para_trailing,  # F2
-                                  option_quotes_getter=options_provider_yahoo.get_options)  # v2
+                                  option_quotes_getter=options_provider.get_options)  # v2
     out = store.public_state(_conn, user_id=scope)
     out["quotes"] = await candle_provider.get_quotes_exclusive([p["t"] for p in positions]) if positions else {}
     return out
@@ -2773,7 +2773,7 @@ async def agent_run_now(user: dict = Depends(require_user)):
         try:
             await agent_mod.run_cycle_for(_conn, uid, candle_provider.get_quotes_exclusive, origem="manual",
                                           snapshot_getter=_snapshot_para_trailing,  # F2
-                                          option_quotes_getter=options_provider_yahoo.get_options)  # v2
+                                          option_quotes_getter=options_provider.get_options)  # v2
         except Exception as e:  # noqa: BLE001 — o erro já foi para o agentLog
             print(f"[agent] run-now de {uid} falhou: {e}")
 
@@ -2841,7 +2841,7 @@ async def _start_agent_scheduler():
                                  radar_fetch=candle_provider.get_history,  # FASE 4 (1.3)
                                  snapshot_getter=_snapshot_para_trailing,  # F2
                                  intraday_fetch=_intraday_fetch,  # ADR-001 item 7
-                                 option_quotes_getter=options_provider_yahoo.get_options,  # v2
+                                 option_quotes_getter=options_provider.get_options,  # v2
                                  analytics_conn=_analytics_conn)  # qa/47
     )
     # FASE 5 (lançamento): higiene de sessões — purga as expiradas no boot e a
