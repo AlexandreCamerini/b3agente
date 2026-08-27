@@ -332,58 +332,119 @@ async def _chama(p: CandleProvider, ticker: str, rng: str, interval: str) -> dic
     return out
 
 
+# -- gate de fatia/plano/cota, por elo (ADR-008, generalizado na Fase 9) ----
+# Dois tipos de recusa, com efeito DIFERENTE quando o elo é o ÚLTIMO da
+# cadeia (sem próximo pra tentar):
+#   • PLANO/FATIA (pedido que o provedor não cobre, ex.: intraday na brapi ou
+#     no mydata): recusa DURA — levanta a exceção original. Não existe modo
+#     degradado de "servir mesmo assim" quando o provedor não sabe responder
+#     aquele pedido.
+#   • ORÇAMENTO/COTA (sem saldo agora): recusa MOLE — no último elo, a
+#     proteção de cota não pode virar "sem dado" quando não há alternativa;
+#     a chamada segue SEM debitar (mesma regra que `get_history` já aplicava
+#     para o caso de um salto só, generalizada aqui para N elos).
+_MOTIVOS_ORCAMENTO = {"sem orçamento", "sem cota"}
+
+
+def _gate(p: CandleProvider, rng: str, interval: str):
+    """Decide, SEM tocar a rede e SEM debitar, se `p` pode ser chamado agora.
+
+    Devolve `(None, None)` quando pode. Quando não pode, devolve
+    `(motivo: str, erro: Optional[Exception])` — `erro` só vem preenchido
+    para recusa de PLANO/FATIA (a exceção original, para o chamador relançar
+    se este for o último elo); recusa de ORÇAMENTO/COTA vem com `erro=None`.
+    """
+    if p.nome == "brapi":
+        try:
+            brapi.valida_plano(rng, interval)
+        except brapi.ForaDoPlano as e:
+            return "fora do plano", e
+        if not brapi_budget.pode_gastar("delta"):
+            return "sem orçamento", None
+        return None, None
+    if p.nome == "mydata":
+        try:
+            mydata_client.valida_fatia(rng, interval)
+        except mydata_client.MydataForaDaFatia as e:
+            return "fora da fatia", e
+        if not mydata_budget.pode_gastar():
+            return "sem cota", None
+        return None, None
+    return None, None
+
+
+def _debita(p: CandleProvider) -> None:
+    """Debita o orçamento do provedor imediatamente antes da chamada de
+    rede. `yahoo` (e qualquer provedor sem orçamento próprio) não faz nada."""
+    if p.nome == "brapi":
+        brapi_budget.debita("delta")
+    elif p.nome == "mydata":
+        mydata_budget.debita()
+
+
 async def get_history(ticker: str, rng: str = "1mo", interval: str = "1d") -> dict:
     """Ponto ÚNICO de entrada de candles do app. Mesma assinatura de
     `yahoo.get_history`; o payload ganha `source` = provedor que serviu.
 
-    Roteamento (ADR-008, nesta ordem):
-      1. PLANO — pedido que o plano gratuito da brapi não cobre (intraday,
-         range longo) vai DIRETO ao backup: sem rede, sem cota, sem falsa
-         falha no gatilho.
-      2. ORÇAMENTO — sem saldo na fatia/fora da janela de pregão, o backup
-         assume; sem backup configurado, a chamada segue (proteção de cota
-         não pode virar "sem dado" quando não há alternativa).
-      3. FALHA — exceção OU série vazia (o modo de 31/07) → backup na mesma
-         requisição.
+    Roteamento (ADR-008 + Fase 9/Plano 02 — cadeia de N elos, nesta ordem
+    para CADA elo `[get_provider(), *get_fallbacks()]`):
+      1. PLANO/FATIA — pedido que o elo não cobre (intraday na brapi/mydata,
+         range fora do plano gratuito da brapi) PULA o elo sem tocar a rede
+         nem a cota; se for o ÚLTIMO elo, relança a exceção original (não há
+         modo degradado de "servir mesmo assim" sem saber responder).
+      2. ORÇAMENTO/COTA — sem saldo agora PULA o elo; se for o ÚLTIMO,
+         a chamada segue SEM debitar (proteção de cota não pode virar
+         "sem dado" quando não há alternativa).
+      3. FALHA — exceção OU série vazia (o modo de 31/07) avança para o
+         PRÓXIMO elo, na MESMA requisição.
+    Esgotada a cadeia: uma série vazia de algum elo vale mais que erro (é o
+    comportamento de hoje, generalizado); sem isso, relança o último erro de
+    REDE; sem erro nem vazio (cadeia inteira recusada pelo gate), levanta
+    `RuntimeError` citando os motivos — é configuração errada, e falhar alto
+    explicando o que falta é a postura já declarada em `BrapiProvider`.
     """
-    prim = get_provider()
-    fb = get_fallback()
+    cadeia = [get_provider(), *get_fallbacks()]
 
-    if prim.nome == "brapi":
+    melhor_vazio = None    # (nome, out) do primeiro vazio encontrado na cadeia
+    ultimo_erro = None     # última exceção de REDE (não de gate)
+    motivos: list = []     # diagnóstico de todo pulo por gate
+
+    for idx, p in enumerate(cadeia):
+        eh_ultimo = idx == len(cadeia) - 1
+        motivo, erro_gate = _gate(p, rng, interval)
+        if motivo is not None:
+            if eh_ultimo and erro_gate is not None:
+                raise erro_gate
+            if eh_ultimo and motivo in _MOTIVOS_ORCAMENTO:
+                pass   # último elo, só falta cota: serve mesmo assim, sem debitar
+            else:
+                motivos.append(f"{p.nome}: {motivo}")
+                continue
+        else:
+            _debita(p)
         try:
-            brapi.valida_plano(rng, interval)
-        except brapi.ForaDoPlano:
-            if fb is None:
-                raise
-            out = await _chama(fb, ticker, rng, interval)
-            out["source"] = fb.nome
-            return out
-        if brapi_budget.pode_gastar("delta"):
-            brapi_budget.debita("delta")
-        elif fb is not None:
-            out = await _chama(fb, ticker, rng, interval)
-            out["source"] = fb.nome
-            return out
-
-    try:
-        out = await _chama(prim, ticker, rng, interval)
-    except Exception:
-        if fb is None:
-            raise
-        out = await _chama(fb, ticker, rng, interval)
-        out["source"] = fb.nome
+            out = await _chama(p, ticker, rng, interval)
+        except Exception as e:
+            ultimo_erro = e
+            continue
+        if not (out.get("candles") or []):
+            if melhor_vazio is None:
+                melhor_vazio = (p.nome, out)
+            continue
+        out["source"] = p.nome
         return out
 
-    if not (out.get("candles") or []) and fb is not None:
-        try:
-            alt = await _chama(fb, ticker, rng, interval)
-        except Exception:
-            alt = None
-        if alt and (alt.get("candles") or []):
-            alt["source"] = fb.nome
-            return alt
-    out["source"] = prim.nome
-    return out
+    if melhor_vazio is not None:
+        nome, out = melhor_vazio
+        out["source"] = nome
+        return out
+    if ultimo_erro is not None:
+        raise ultimo_erro
+    raise RuntimeError(
+        "candle_provider: cadeia inteira recusada pelo gate, sem erro nem "
+        "série vazia — motivos: "
+        f"{'; '.join(motivos) if motivos else 'nenhum provedor configurado'}."
+    )
 
 
 # ---------------------------------------------------------------------------
