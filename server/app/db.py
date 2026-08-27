@@ -145,6 +145,42 @@ def init_db(conn: sqlite3.Connection) -> None:
         ")"
     )
     conn.execute("CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id)")
+    # Acervo da série diária oficial da B3 (COTAHIST). O importador mantém
+    # metadados separados das linhas: uma falha de rede nunca apaga o último
+    # arquivo importado, e o SHA-256 torna reexecuções idempotentes.
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS b3_daily_imports ("
+        " trade_date TEXT PRIMARY KEY,"
+        " source_url TEXT NOT NULL,"
+        " status TEXT NOT NULL,"
+        " checked_at TEXT NOT NULL,"
+        " imported_at TEXT,"
+        " source_sha256 TEXT,"
+        " file_name TEXT NOT NULL,"
+        " row_count INTEGER NOT NULL DEFAULT 0,"
+        " error TEXT"
+        ")"
+    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_b3_daily_imports_status ON b3_daily_imports(status, trade_date)")
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS b3_daily_quotes ("
+        " trade_date TEXT NOT NULL,"
+        " source_row INTEGER NOT NULL,"
+        " bdi_code TEXT NOT NULL,"
+        " ticker TEXT NOT NULL,"
+        " market_type TEXT NOT NULL,"
+        " name TEXT NOT NULL,"
+        " specification TEXT NOT NULL,"
+        " reference_term TEXT NOT NULL,"
+        " reference_currency TEXT NOT NULL,"
+        " open REAL, high REAL, low REAL, average REAL, close REAL,"
+        " bid REAL, ask REAL,"
+        " total_trades INTEGER, total_quantity INTEGER, total_volume REAL,"
+        " exercise_price REAL, isin TEXT NOT NULL,"
+        " PRIMARY KEY(trade_date, source_row)"
+        ")"
+    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_b3_daily_quotes_ticker ON b3_daily_quotes(ticker, trade_date)")
     # FASE 5 (performance): cache PERSISTENTE de candles. Antes o cache vivia só
     # em memória — cada redeploy do Railway recomeçava do zero e a 1ª varredura
     # rebaixava 2 anos de candles do universo inteiro (a "demora para atualizar").

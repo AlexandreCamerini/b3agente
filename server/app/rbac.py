@@ -88,7 +88,7 @@ ENTIDADES_POR_PERMISSAO = {
     "usuarios.gerenciar": {"user_role"},
     "prompts.editar": {"prompt_default"},
     "llm.configurar": {"config_ia"},
-    "fontes_dados.configurar": {"brapi_spot_intervalo"},
+    "fontes_dados.configurar": {"brapi_spot_intervalo", "b3_daily_import"},
     "execucao_automatica.ver": {"agent_kill_switch", "timing_watch_kill_switch"},
     "execucao_automatica.controlar": {"agent_kill_switch", "timing_watch_kill_switch"},
 }

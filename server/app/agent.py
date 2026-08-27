@@ -1161,6 +1161,14 @@ async def scheduler_loop(conn, quotes_getter, notify_push=None, interval_s: int 
             except Exception as e:  # noqa: BLE001 — métricas nunca derrubam o laço
                 print(f"[obs-metricas] hook do scheduler falhou: {e}")
         try:
+            # Acervo histórico oficial: independente do kill-switch de ordens
+            # e do Radar. O job tem gate próprio e retry espaçado, portanto um
+            # 404 da B3 em feriado/atraso não vira loop agressivo.
+            from . import b3_historical  # import local: sem ciclo
+            await b3_historical.maybe_run(conn)
+        except Exception as e:  # noqa: BLE001 — dado histórico não derruba ordens
+            print(f"[b3-cotahist] hook do scheduler falhou: {e}")
+        try:
             # `is_trading_day` (e não `in_market_hours`): estes jobs rodam FORA
             # da janela de horário de propósito — o radar diário é 8h45, na
             # pré-abertura. Mas em sábado, domingo e feriado da B3 não há dado
