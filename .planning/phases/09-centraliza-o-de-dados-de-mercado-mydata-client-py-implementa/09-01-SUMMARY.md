@@ -144,6 +144,15 @@ None neste plano — `MYDATA_TOKEN`/`MYDATA_URL` são consumidos apenas em runti
 - `mydata_budget.pode_gastar()`/`debita()`/`aguarda_vaga()` estão prontos para o pacer do consumidor em lote do Plano 09-02.
 - Nenhum bloqueio conhecido. O único ponto a revisitar no Plano 09-05: a premissa de "diffs não commitados de b3_historical" mudou para "código commitado" (ver seção acima) — ajustar o texto do checkpoint quando esse plano for escrito/executado.
 
+## Self-Check: PASSED
+
+- FOUND: server/app/mydata_client.py
+- FOUND: server/app/mydata_budget.py
+- FOUND: server/tests/test_mydata_client.py
+- FOUND: server/tests/test_mydata_budget.py
+- FOUND: .planning/phases/09-centraliza-o-de-dados-de-mercado-mydata-client-py-implementa/09-01-SUMMARY.md
+- FOUND commits: 8228210, 3ebfbac, 253f42d, e8a7fc9, 3f8164b, 566eeed (verified via `git log --oneline -8`)
+
 ---
 *Phase: 09-centraliza-o-de-dados-de-mercado-mydata-client-py-implementa*
 *Completed: 2026-08-27*
