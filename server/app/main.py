@@ -40,7 +40,6 @@ from . import explicacao_det  # FIX-C01: fallback determinístico do Passo 7 sem
 from . import benchmark  # FIX-C03: série diária do Ibovespa (comparação no Passo 8)
 from . import analytics  # qa/47: eventos de comportamento (ingest + rollup + purga)
 from . import signal_ledger  # ADR-017 (Bloco 1): histórico medido por setup (ledger de sinais)
-from . import b3_historical  # COTAHIST diário oficial da B3
 from .catalog import is_catalog_ticker
 from .options_api import router as options_router
 from .options_provider import get_options as _get_options_for_status
@@ -712,51 +711,6 @@ async def admin_summary(user: dict = Depends(require_permission("observabilidade
             "ativo": bool(_GATED_HOSTS),
         },
     }
-
-
-@app.get("/api/admin/b3/cotahist")
-async def admin_b3_cotahist_get(
-    trade_date: Optional[str] = None,
-    ticker: Optional[str] = None,
-    limit: int = 100,
-    user: dict = Depends(require_permission("fontes_dados.configurar")),
-):
-    """Status do acervo e amostra de linhas para operação interna/admin."""
-    try:
-        day = b3_historical.normalize_trade_date(trade_date) if trade_date else None
-    except ValueError as exc:
-        raise HTTPException(400, str(exc)) from exc
-    status = await asyncio.to_thread(b3_historical.get_status, _conn, day)
-    quotes = await asyncio.to_thread(
-        b3_historical.list_quotes, _conn, day, ticker, limit
-    )
-    return {
-        "sourcePage": b3_historical.SOURCE_PAGE_URL,
-        "status": status,
-        "quotes": quotes,
-        "lastRun": dict(b3_historical.LAST_DAILY),
-    }
-
-
-@app.post("/api/admin/b3/cotahist/import")
-async def admin_b3_cotahist_import(
-    trade_date: Optional[str] = None,
-    force: bool = False,
-    user: dict = Depends(require_permission("fontes_dados.configurar")),
-):
-    """Força a leitura de uma data; o job automático continua sendo o caminho normal."""
-    try:
-        day = b3_historical.normalize_trade_date(trade_date)
-    except ValueError as exc:
-        raise HTTPException(400, str(exc)) from exc
-    try:
-        result = await asyncio.to_thread(b3_historical.import_daily, _conn, day, force=force)
-    except b3_historical.B3DailyError as exc:
-        raise HTTPException(502, str(exc)) from exc
-    audit.record(
-        _conn, user["id"], "b3_daily_import", day, "status", None, result.get("status")
-    )
-    return result
 
 
 # ===========================================================================
