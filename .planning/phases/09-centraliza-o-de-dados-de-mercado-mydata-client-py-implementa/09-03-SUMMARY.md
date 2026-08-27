@@ -145,4 +145,12 @@ None neste plano — `MYDATA_TOKEN`/`MYDATA_URL` continuam consumidos apenas em 
 - O Plano 09-06 (checkpoint humano de virada de provedor) tem o achado de `openInterest`/`liquidity_score` para incluir na decisão.
 - Nenhum bloqueio conhecido.
 
-## Self-Check: PENDING
+## Self-Check: PASSED
+
+- FOUND: server/app/mydata_client.py
+- FOUND: server/app/options_provider_mydata.py
+- FOUND: server/app/options_provider.py
+- FOUND: server/tests/test_options_provider_mydata.py
+- FOUND: server/tests/test_options_provider.py
+- FOUND: .planning/phases/09-centraliza-o-de-dados-de-mercado-mydata-client-py-implementa/09-03-SUMMARY.md
+- FOUND commits: ae5bf77, 4ef5610, 2afe20d, 1654619, d517755, 29a2497, a123fa7 (verified via `git log --oneline --all`)
