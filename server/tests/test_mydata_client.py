@@ -239,3 +239,94 @@ def test_paginar_teto_de_paginas_nao_trava():
                                   fetch_json=fetch_json))
     assert len(fetch_json.chamadas) == m.PAGINAS_MAX
     assert len(out) == m.PAGINAS_MAX
+
+
+# ---------------------------------------------------------------------------
+# valida_fatia() — recusa de intraday ANTES de tocar a rede
+# ---------------------------------------------------------------------------
+def test_valida_fatia_recusa_intraday_citando_adr001_e_yahoo():
+    with pytest.raises(m.MydataForaDaFatia, match="ADR-001"):
+        m.valida_fatia("1mo", "15m")
+    with pytest.raises(m.MydataForaDaFatia, match="Yahoo"):
+        m.valida_fatia("1mo", "15m")
+
+
+def test_valida_fatia_aceita_diario():
+    m.valida_fatia("1mo", "1d")   # não levanta
+
+
+def test_valida_fatia_recusa_range_desconhecido():
+    with pytest.raises(m.MydataForaDaFatia):
+        m.valida_fatia("banana", "1d")
+
+
+# ---------------------------------------------------------------------------
+# get_history() — contrato CandleProvider, mapeamento gold_cotacoes→candle
+# ---------------------------------------------------------------------------
+def test_get_history_recusa_intraday_sem_tocar_a_rede(monkeypatch):
+    monkeypatch.setenv("MYDATA_TOKEN", "tok-teste")
+    fake = _fake_get_history({"dados": [], "proximo_cursor": None})
+    with pytest.raises(m.MydataForaDaFatia):
+        asyncio.run(m.get_history("PETR4", rng="1mo", interval="15m",
+                                   fetch_json=fake))
+    assert fake.chamadas == []
+
+
+def test_get_history_sem_token_levanta_runtime_error(monkeypatch):
+    monkeypatch.delenv("MYDATA_TOKEN", raising=False)
+    fake = _fake_get_history({"dados": [], "proximo_cursor": None})
+    with pytest.raises(RuntimeError) as e:
+        asyncio.run(m.get_history("PETR4", rng="1mo", interval="1d",
+                                   fetch_json=fake))
+    assert "MYDATA_TOKEN" in str(e.value)
+
+
+def test_get_history_normaliza_ticker_e_chama_path_correto(monkeypatch):
+    monkeypatch.setenv("MYDATA_TOKEN", "tok-teste")
+    fake = _fake_get_history({"dados": [], "proximo_cursor": None})
+    asyncio.run(m.get_history("petr4.sa", rng="1mo", fetch_json=fake))
+    assert fake.chamadas[0][0] == "/v1/cotacoes/PETR4"
+
+
+def test_get_history_params_tem_de_e_limite_sem_ate(monkeypatch):
+    monkeypatch.setenv("MYDATA_TOKEN", "tok-teste")
+    fake = _fake_get_history({"dados": [], "proximo_cursor": None})
+    asyncio.run(m.get_history("PETR4", rng="1mo", fetch_json=fake))
+    params = fake.chamadas[0][1]
+    assert "de" in params and "ate" not in params
+    assert params["limite"] == m.LIMITE_MAX
+
+
+def test_get_history_mapeia_gold_cotacoes_para_candle(monkeypatch):
+    monkeypatch.setenv("MYDATA_TOKEN", "tok-teste")
+    linha = {"dt_pregao": "2026-08-25", "preco_abertura": 37.1,
+             "preco_maximo": 37.5, "preco_minimo": 36.9,
+             "preco_fechamento": 37.26, "quantidade_negociada": 1234500,
+             "volume_financeiro": 999999999, "hv21": 0.31, "hv63": 0.29}
+    fake = _fake_get_history({"dados": [linha], "proximo_cursor": None})
+    out = asyncio.run(m.get_history("PETR4", rng="1mo", fetch_json=fake))
+    assert out == {"t": "PETR4", "currency": "BRL", "candles": [{
+        "date": "2026-08-25", "open": 37.1, "high": 37.5, "low": 36.9,
+        "close": 37.26, "volume": 1234500,
+    }]}
+
+
+def test_get_history_descarta_linha_sem_fechamento(monkeypatch):
+    monkeypatch.setenv("MYDATA_TOKEN", "tok-teste")
+    linha = {"dt_pregao": "2026-08-25", "preco_abertura": 37.1,
+             "preco_maximo": 37.5, "preco_minimo": 36.9,
+             "preco_fechamento": None, "quantidade_negociada": 1234500}
+    fake = _fake_get_history({"dados": [linha], "proximo_cursor": None})
+    out = asyncio.run(m.get_history("PETR4", rng="1mo", fetch_json=fake))
+    assert out["candles"] == []
+
+
+def test_get_history_resposta_vazia_devolve_candles_vazio(monkeypatch):
+    monkeypatch.setenv("MYDATA_TOKEN", "tok-teste")
+    fake = _fake_get_history({"dados": [], "proximo_cursor": None})
+    out = asyncio.run(m.get_history("PETR4", rng="1mo", fetch_json=fake))
+    assert out["candles"] == []
+
+
+def test_range_dias_cobre_os_ranges_do_candle_cache():
+    assert {"1mo", "1y", "2y"} <= set(m.RANGE_DIAS)
