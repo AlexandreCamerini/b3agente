@@ -215,3 +215,51 @@ async def get_history(ticker: str, rng: str = "1mo", interval: str = "1d",
             "volume": row.get("quantidade_negociada"),
         })
     return {"t": symbol, "currency": "BRL", "candles": candles}
+
+
+# Sem `pregao`, o hub responde o ÚLTIMO pregão publicado DAQUELE papel (não o
+# último pregão da base) — é o que impede um papel que parou de negociar de
+# parecer "sem dado" quando na verdade só está atrasado em relação ao resto
+# do universo. `get_vencimentos`/`get_options_chain` NÃO remapeiam campos: o
+# vocabulário de `gold_opcoes` é falado cru até o adaptador (Plano 09-03,
+# Task 2) — o cliente só sabe buscar, não interpretar.
+async def get_vencimentos(ticker: str, pregao: str = None, *, fetch_json=None) -> list:
+    """`GET /v1/opcoes/{ticker}/vencimentos`. NÃO usa `_paginar`: este
+    endpoint não devolve `proximo_cursor`. Papel sem nenhum pregão publicado
+    devolve `{"dados": []}` — ausência de negócio, não erro."""
+    if not _token():
+        raise RuntimeError(
+            "MYDATA_TOKEN ausente no ambiente. Sem ela o provedor mydata não "
+            "opera — defina a variável no Railway/local."
+        )
+    symbol = normalize_ticker(ticker)
+    fetch = fetch_json or _fetch_json
+    params = {"pregao": pregao} if pregao else {}
+    resp = await fetch(f"/v1/opcoes/{symbol}/vencimentos", params)
+    if not isinstance(resp, dict):
+        raise MydataIndisponivel(
+            f"mydata: resposta inesperada em /v1/opcoes/{symbol}/vencimentos")
+    return resp.get("dados") or []
+
+
+async def get_options_chain(ticker: str, vencimento: str = None, pregao: str = None,
+                             tipo: str = None, *, fetch_json=None) -> list:
+    """`GET /v1/opcoes/{ticker}`, paginado por `proximo_cursor`. Devolve as
+    linhas cruas de `gold_opcoes` — o mapeamento para o contrato do ADR-004 é
+    responsabilidade do adaptador (`options_provider_mydata.py`), não deste
+    cliente. Propaga `MydataIndisponivel` sem engolir: quem decide degradar é
+    o adaptador (D-04), não o cliente."""
+    if not _token():
+        raise RuntimeError(
+            "MYDATA_TOKEN ausente no ambiente. Sem ela o provedor mydata não "
+            "opera — defina a variável no Railway/local."
+        )
+    symbol = normalize_ticker(ticker)
+    params = {"limite": LIMITE_MAX}
+    if vencimento:
+        params["vencimento"] = vencimento
+    if pregao:
+        params["pregao"] = pregao
+    if tipo:
+        params["tipo"] = tipo
+    return await _paginar(f"/v1/opcoes/{symbol}", params, fetch_json=fetch_json)
