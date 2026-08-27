@@ -1,5 +1,7 @@
 # ADR-019: Acervo diário oficial COTAHIST da B3
 
+**Status:** Superada parcialmente pela ADR-020 (2026-08-27) — a fatia diária passa a vir do mydata.
+
 **Status:** Accepted  
 **Date:** 2026-08-25  
 **Deciders:** Produto/engenharia Boris+
