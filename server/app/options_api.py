@@ -7,7 +7,7 @@ from typing import Optional
 from fastapi import APIRouter, Body, HTTPException
 
 from . import candle_provider, indicators, tickers, yahoo
-from .options_provider_yahoo import get_options
+from .options_provider import get_options
 from .options_quant import black_scholes, breakeven, educational_score, historical_volatility, intrinsic_value, liquidity_score, years_to_expiration
 
 router = APIRouter(prefix="/api/options", tags=["options"])
