@@ -174,10 +174,10 @@ def test_401_nao_faz_retry_e_cita_chave_invalida(monkeypatch):
     monkeypatch.setattr(httpx, "AsyncClient", _FakeAsyncClient)
     _FakeAsyncClient._FILA = [_FakeResponse(401, json_body={
         "erro": {"codigo": "chave_invalida", "mensagem": "Chave inválida."}})]
-    with pytest.raises(m.MydataIndisponivel, match="chave_invalida"):
+    with pytest.raises(m.MydataIndisponivel, match="chave_invalida") as exc:
         asyncio.run(m._fetch_json("/v1/cotacoes/PETR4", {}))
     assert len(_FakeAsyncClient._CHAMADAS) == 1
-    assert "tok-errado" not in str(_FakeAsyncClient._CHAMADAS)  # nunca no log/erro
+    assert "tok-errado" not in str(exc.value)  # nunca no log/erro
 
 
 def test_5xx_tenta_duas_vezes_e_depois_levanta(monkeypatch):
