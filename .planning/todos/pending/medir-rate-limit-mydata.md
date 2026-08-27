@@ -30,3 +30,22 @@ cache local, mesmo padrão que ADR-019 já usava).
 
 Vira critério de aceite da fase "Centralização de dados de mercado
 (`mydata_client.py`)" no ROADMAP, não decisão bloqueada agora.
+
+## Resultado (2026-08-27) — PARCIAL, ainda PENDING
+
+Medido offline (Plano 09-04, `scripts/medir-mydata.py --fases projecao`):
+volume diário CABE (548 de 2.000/dia projetado, 72,6% de folga), **pico por
+minuto NÃO CABE** (148 de 60/min projetado — `scanner.MIN_FETCH_GAP_S`
+atual não é apertado o suficiente para o teto do mydata). Item 2
+(`provento_b3`) confirmado: rota construída, falta só a primeira carga de
+produção do lado do cvm-financas. Perna ao vivo (autenticação real da chave
+`f00b4554`, escopo `fonte:b3`) **BLOQUEADA** — `MYDATA_TOKEN` ausente no
+ambiente de execução deste plano. Números completos e plano de ação em
+[docs/MEDICAO-Mydata-2026-08-27.md](../../../docs/MEDICAO-Mydata-2026-08-27.md).
+
+Este TODO continua em `pending/` (não vai para `done/`): o item 1 (mapear
+volume real) está resolvido pela projeção, mas o item 3 (confirmar a chave
+autenticando de fato, decidir se cabe/precisa mitigação) só fecha depois da
+perna ao vivo rodar com `MYDATA_TOKEN` real e, se o pico por minuto continuar
+NÃO CABENDO, da mitigação do gate de espaçamento (item 1 do "Plano de ação"
+do documento) ser aplicada ou decidida.
