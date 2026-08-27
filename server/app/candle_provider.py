@@ -29,7 +29,7 @@ import os
 import time
 from typing import Optional
 
-from . import brapi, brapi_budget, yahoo
+from . import brapi, brapi_budget, mydata_budget, mydata_client, yahoo
 
 # ---------------------------------------------------------------------------
 # Instrumentação (ADR-001, Decisão 5)
@@ -124,13 +124,16 @@ def snapshot() -> dict:
         acc["taxaFalha"] = round(f / acc["req"], 4) if acc["req"] else 0.0
     prim = por_prov.get(provider_name(), {"req": req, "falhas": falhas,
                                           "taxaFalha": round(taxa, 4)})
+    nomes_ativos = (provider_name(), *fallback_names())
     return {
         "provedor": provider_name(),
         "fallback": fallback_name() or None,
+        "fallbacks": fallback_names(),
         "porDia": {d: {iv: {**r, "msMedio": round(r["ms"] / r["req"]) if r["req"] else 0}
                        for iv, r in _uso[d].items()} for d in dias},
         "porProvedor": por_prov,
         "orcamentoBrapi": brapi_budget.snapshot() if provider_name() == "brapi" else None,
+        "orcamentoMydata": mydata_budget.snapshot() if "mydata" in nomes_ativos else None,
         "janelaDias": _JANELA_DIAS,
         "requisicoes": req,
         "erros": erros,          # não-200
@@ -186,7 +189,23 @@ class BrapiProvider(CandleProvider):
         return await brapi.get_history(ticker, rng=rng, interval=interval)
 
 
-_PROVEDORES = {"yahoo": YahooProvider, "brapi": BrapiProvider}
+class MydataProvider(CandleProvider):
+    """Hub `mydata.acamerini.app` (`~/dev/cvm-financas`), fonte do acervo
+    diário oficial COTAHIST da B3 (ADR-019/09-CONTEXT.md). Cobre SÓ a fatia
+    DIÁRIA: o COTAHIST só publica após o fechamento do pregão — o intraday
+    continua sendo do Yahoo por decisão do ADR-001, que esta fase não reabre.
+
+    `valida_fatia`/`get_history` (mydata_client.py) recusam intraday ANTES de
+    tocar a rede; o gate do roteador (`_gate`, abaixo) já garante isso, mas a
+    guarda vive nos dois lugares por defesa em profundidade."""
+
+    nome = "mydata"
+
+    async def history(self, ticker: str, rng: str, interval: str = "1d") -> dict:
+        return await mydata_client.get_history(ticker, rng=rng, interval=interval)
+
+
+_PROVEDORES = {"yahoo": YahooProvider, "brapi": BrapiProvider, "mydata": MydataProvider}
 _ativo: Optional[CandleProvider] = None
 
 
@@ -213,41 +232,86 @@ def set_provider(p: Optional[CandleProvider]) -> None:
     _ativo = p
 
 
-# -- backup (ADR-008) -------------------------------------------------------
-_fallback: Optional[CandleProvider] = None
+# -- backup (ADR-008, cadeia de N saltos desde a Fase 9/Plano 02) -----------
+_fallbacks: list = []
 _fb_injetado = False
+
+# Default por primário quando `B3_CANDLE_FALLBACK` está ausente. mydata é o
+# elo mais "caro" de configurar errado (cota pequena) — por isso cai em DOIS
+# saltos (brapi, depois yahoo); brapi preserva o salto único de hoje; yahoo
+# preserva o comportamento pré-ADR-008 (sem backup).
+_FALLBACK_DEFAULT = {"mydata": ["brapi", "yahoo"], "brapi": ["yahoo"], "yahoo": []}
+
+
+def fallback_names() -> list:
+    """Cadeia de nomes de backup, na ordem de tentativa. Env
+    `B3_CANDLE_FALLBACK` (lista separada por vírgula); ausente usa o default
+    por primário (`_FALLBACK_DEFAULT`). Filtra fora o próprio primário e
+    nomes desconhecidos (backup mal configurado não derruba o app), e
+    deduplica preservando ordem. `B3_CANDLE_FALLBACK=""` desliga — vazio
+    continua sendo o contrato de "sem backup"."""
+    fb = os.environ.get("B3_CANDLE_FALLBACK")
+    if fb is None:
+        brutos = _FALLBACK_DEFAULT.get(provider_name(), [])
+    else:
+        brutos = [n.strip().lower() for n in fb.split(",") if n.strip()]
+    prim = provider_name()
+    out: list = []
+    for n in brutos:
+        if n == prim or n not in _PROVEDORES or n in out:
+            continue
+        out.append(n)
+    return out
 
 
 def fallback_name() -> str:
-    """Env `B3_CANDLE_FALLBACK`; vazio desliga. Default: `yahoo` quando o
-    primário NÃO é o Yahoo (a inversão do ADR-008 nasce com backup), nada
-    quando o primário é o Yahoo (comportamento pré-ADR-008 preservado)."""
-    fb = os.environ.get("B3_CANDLE_FALLBACK")
-    if fb is None:
-        return "yahoo" if provider_name() != "yahoo" else ""
-    return fb.strip().lower()
+    """Compat: primeiro nome da cadeia, ou `""`. `snapshot()` e os guardiões
+    existentes dependem desta assinatura de string única — não remover."""
+    nomes = fallback_names()
+    return nomes[0] if nomes else ""
+
+
+def get_fallbacks() -> list:
+    """Cadeia de provedores de backup instanciados, na ordem de
+    `fallback_names()`. Memoiza comparando os nomes já instanciados com a
+    cadeia atual — reconstrói só quando a env muda entre chamadas."""
+    global _fallbacks
+    if _fb_injetado:
+        return _fallbacks
+    nomes = fallback_names()
+    atuais = [p.nome for p in _fallbacks]
+    if atuais != nomes:
+        novos = []
+        for n in nomes:
+            cls = _PROVEDORES.get(n)
+            if cls is None:      # backup mal configurado não pode derrubar o app
+                continue
+            novos.append(cls())
+        _fallbacks = novos
+    return _fallbacks
 
 
 def get_fallback() -> Optional[CandleProvider]:
-    global _fallback
-    if _fb_injetado:
-        return _fallback
-    nome = fallback_name()
-    if not nome or nome == provider_name():
-        return None
-    if _fallback is None or _fallback.nome != nome:
-        cls = _PROVEDORES.get(nome)
-        if cls is None:      # backup mal configurado não pode derrubar o app
-            return None
-        _fallback = cls()
-    return _fallback
+    """Compat: primeiro elo da cadeia, ou `None`. Preserva o contrato atual
+    para quem ainda chama a versão singular."""
+    fbs = get_fallbacks()
+    return fbs[0] if fbs else None
 
 
 def set_fallback(p: Optional[CandleProvider]) -> None:
-    """Injeção para testes. `None` volta ao resolvido por env."""
-    global _fallback, _fb_injetado
-    _fallback = p
+    """Injeção para testes com UM provedor. `None` volta ao resolvido por
+    env (cadeia inteira recalculada por `fallback_names()`)."""
+    global _fallbacks, _fb_injetado
+    _fallbacks = [p] if p is not None else []
     _fb_injetado = p is not None
+
+
+def set_fallbacks(ps: list) -> None:
+    """Injeção para testes com a CADEIA inteira. `[]`/`None` volta ao
+    resolvido por env."""
+    global _fallbacks, _fb_injetado
+    _fallbacks = list(ps or [])
+    _fb_injetado = bool(ps)
 
 
 async def _chama(p: CandleProvider, ticker: str, rng: str, interval: str) -> dict:
@@ -268,58 +332,119 @@ async def _chama(p: CandleProvider, ticker: str, rng: str, interval: str) -> dic
     return out
 
 
+# -- gate de fatia/plano/cota, por elo (ADR-008, generalizado na Fase 9) ----
+# Dois tipos de recusa, com efeito DIFERENTE quando o elo é o ÚLTIMO da
+# cadeia (sem próximo pra tentar):
+#   • PLANO/FATIA (pedido que o provedor não cobre, ex.: intraday na brapi ou
+#     no mydata): recusa DURA — levanta a exceção original. Não existe modo
+#     degradado de "servir mesmo assim" quando o provedor não sabe responder
+#     aquele pedido.
+#   • ORÇAMENTO/COTA (sem saldo agora): recusa MOLE — no último elo, a
+#     proteção de cota não pode virar "sem dado" quando não há alternativa;
+#     a chamada segue SEM debitar (mesma regra que `get_history` já aplicava
+#     para o caso de um salto só, generalizada aqui para N elos).
+_MOTIVOS_ORCAMENTO = {"sem orçamento", "sem cota"}
+
+
+def _gate(p: CandleProvider, rng: str, interval: str):
+    """Decide, SEM tocar a rede e SEM debitar, se `p` pode ser chamado agora.
+
+    Devolve `(None, None)` quando pode. Quando não pode, devolve
+    `(motivo: str, erro: Optional[Exception])` — `erro` só vem preenchido
+    para recusa de PLANO/FATIA (a exceção original, para o chamador relançar
+    se este for o último elo); recusa de ORÇAMENTO/COTA vem com `erro=None`.
+    """
+    if p.nome == "brapi":
+        try:
+            brapi.valida_plano(rng, interval)
+        except brapi.ForaDoPlano as e:
+            return "fora do plano", e
+        if not brapi_budget.pode_gastar("delta"):
+            return "sem orçamento", None
+        return None, None
+    if p.nome == "mydata":
+        try:
+            mydata_client.valida_fatia(rng, interval)
+        except mydata_client.MydataForaDaFatia as e:
+            return "fora da fatia", e
+        if not mydata_budget.pode_gastar():
+            return "sem cota", None
+        return None, None
+    return None, None
+
+
+def _debita(p: CandleProvider) -> None:
+    """Debita o orçamento do provedor imediatamente antes da chamada de
+    rede. `yahoo` (e qualquer provedor sem orçamento próprio) não faz nada."""
+    if p.nome == "brapi":
+        brapi_budget.debita("delta")
+    elif p.nome == "mydata":
+        mydata_budget.debita()
+
+
 async def get_history(ticker: str, rng: str = "1mo", interval: str = "1d") -> dict:
     """Ponto ÚNICO de entrada de candles do app. Mesma assinatura de
     `yahoo.get_history`; o payload ganha `source` = provedor que serviu.
 
-    Roteamento (ADR-008, nesta ordem):
-      1. PLANO — pedido que o plano gratuito da brapi não cobre (intraday,
-         range longo) vai DIRETO ao backup: sem rede, sem cota, sem falsa
-         falha no gatilho.
-      2. ORÇAMENTO — sem saldo na fatia/fora da janela de pregão, o backup
-         assume; sem backup configurado, a chamada segue (proteção de cota
-         não pode virar "sem dado" quando não há alternativa).
-      3. FALHA — exceção OU série vazia (o modo de 31/07) → backup na mesma
-         requisição.
+    Roteamento (ADR-008 + Fase 9/Plano 02 — cadeia de N elos, nesta ordem
+    para CADA elo `[get_provider(), *get_fallbacks()]`):
+      1. PLANO/FATIA — pedido que o elo não cobre (intraday na brapi/mydata,
+         range fora do plano gratuito da brapi) PULA o elo sem tocar a rede
+         nem a cota; se for o ÚLTIMO elo, relança a exceção original (não há
+         modo degradado de "servir mesmo assim" sem saber responder).
+      2. ORÇAMENTO/COTA — sem saldo agora PULA o elo; se for o ÚLTIMO,
+         a chamada segue SEM debitar (proteção de cota não pode virar
+         "sem dado" quando não há alternativa).
+      3. FALHA — exceção OU série vazia (o modo de 31/07) avança para o
+         PRÓXIMO elo, na MESMA requisição.
+    Esgotada a cadeia: uma série vazia de algum elo vale mais que erro (é o
+    comportamento de hoje, generalizado); sem isso, relança o último erro de
+    REDE; sem erro nem vazio (cadeia inteira recusada pelo gate), levanta
+    `RuntimeError` citando os motivos — é configuração errada, e falhar alto
+    explicando o que falta é a postura já declarada em `BrapiProvider`.
     """
-    prim = get_provider()
-    fb = get_fallback()
+    cadeia = [get_provider(), *get_fallbacks()]
 
-    if prim.nome == "brapi":
+    melhor_vazio = None    # (nome, out) do primeiro vazio encontrado na cadeia
+    ultimo_erro = None     # última exceção de REDE (não de gate)
+    motivos: list = []     # diagnóstico de todo pulo por gate
+
+    for idx, p in enumerate(cadeia):
+        eh_ultimo = idx == len(cadeia) - 1
+        motivo, erro_gate = _gate(p, rng, interval)
+        if motivo is not None:
+            if eh_ultimo and erro_gate is not None:
+                raise erro_gate
+            if eh_ultimo and motivo in _MOTIVOS_ORCAMENTO:
+                pass   # último elo, só falta cota: serve mesmo assim, sem debitar
+            else:
+                motivos.append(f"{p.nome}: {motivo}")
+                continue
+        else:
+            _debita(p)
         try:
-            brapi.valida_plano(rng, interval)
-        except brapi.ForaDoPlano:
-            if fb is None:
-                raise
-            out = await _chama(fb, ticker, rng, interval)
-            out["source"] = fb.nome
-            return out
-        if brapi_budget.pode_gastar("delta"):
-            brapi_budget.debita("delta")
-        elif fb is not None:
-            out = await _chama(fb, ticker, rng, interval)
-            out["source"] = fb.nome
-            return out
-
-    try:
-        out = await _chama(prim, ticker, rng, interval)
-    except Exception:
-        if fb is None:
-            raise
-        out = await _chama(fb, ticker, rng, interval)
-        out["source"] = fb.nome
+            out = await _chama(p, ticker, rng, interval)
+        except Exception as e:
+            ultimo_erro = e
+            continue
+        if not (out.get("candles") or []):
+            if melhor_vazio is None:
+                melhor_vazio = (p.nome, out)
+            continue
+        out["source"] = p.nome
         return out
 
-    if not (out.get("candles") or []) and fb is not None:
-        try:
-            alt = await _chama(fb, ticker, rng, interval)
-        except Exception:
-            alt = None
-        if alt and (alt.get("candles") or []):
-            alt["source"] = fb.nome
-            return alt
-    out["source"] = prim.nome
-    return out
+    if melhor_vazio is not None:
+        nome, out = melhor_vazio
+        out["source"] = nome
+        return out
+    if ultimo_erro is not None:
+        raise ultimo_erro
+    raise RuntimeError(
+        "candle_provider: cadeia inteira recusada pelo gate, sem erro nem "
+        "série vazia — motivos: "
+        f"{'; '.join(motivos) if motivos else 'nenhum provedor configurado'}."
+    )
 
 
 # ---------------------------------------------------------------------------

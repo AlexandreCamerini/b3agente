@@ -39,6 +39,7 @@ class _Fake(cp.CandleProvider):
 def _limpa():
     cp.set_provider(None)
     cp.set_fallback(None)
+    cp.set_fallbacks([])
     cp.reset()
 
 
