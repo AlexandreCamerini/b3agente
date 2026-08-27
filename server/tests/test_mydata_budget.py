@@ -134,7 +134,8 @@ def test_snapshot_traz_todos_os_campos_esperados():
 
 def test_degradado_passa_de_80_por_cento_do_teto_util(monkeypatch):
     monkeypatch.setenv("MYDATA_QUOTA_DIA", "100")   # teto util = 90
-    quase = int(90 * 0.8)   # 72, ainda abaixo do limiar
+    limiar = 90 * 0.8   # 72.0
+    quase = int(limiar) - 1   # 71, estritamente abaixo do limiar
     b.debita(n=quase, now=MIN_10H00)
     assert b.degradado(now=MIN_10H00) is False
     b.debita(n=1, now=MIN_10H00)   # cruza os 80%
