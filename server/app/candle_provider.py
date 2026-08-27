@@ -29,7 +29,7 @@ import os
 import time
 from typing import Optional
 
-from . import brapi, brapi_budget, yahoo
+from . import brapi, brapi_budget, mydata_budget, mydata_client, yahoo
 
 # ---------------------------------------------------------------------------
 # Instrumentação (ADR-001, Decisão 5)
@@ -124,13 +124,16 @@ def snapshot() -> dict:
         acc["taxaFalha"] = round(f / acc["req"], 4) if acc["req"] else 0.0
     prim = por_prov.get(provider_name(), {"req": req, "falhas": falhas,
                                           "taxaFalha": round(taxa, 4)})
+    nomes_ativos = (provider_name(), *fallback_names())
     return {
         "provedor": provider_name(),
         "fallback": fallback_name() or None,
+        "fallbacks": fallback_names(),
         "porDia": {d: {iv: {**r, "msMedio": round(r["ms"] / r["req"]) if r["req"] else 0}
                        for iv, r in _uso[d].items()} for d in dias},
         "porProvedor": por_prov,
         "orcamentoBrapi": brapi_budget.snapshot() if provider_name() == "brapi" else None,
+        "orcamentoMydata": mydata_budget.snapshot() if "mydata" in nomes_ativos else None,
         "janelaDias": _JANELA_DIAS,
         "requisicoes": req,
         "erros": erros,          # não-200
@@ -186,7 +189,23 @@ class BrapiProvider(CandleProvider):
         return await brapi.get_history(ticker, rng=rng, interval=interval)
 
 
-_PROVEDORES = {"yahoo": YahooProvider, "brapi": BrapiProvider}
+class MydataProvider(CandleProvider):
+    """Hub `mydata.acamerini.app` (`~/dev/cvm-financas`), fonte do acervo
+    diário oficial COTAHIST da B3 (ADR-019/09-CONTEXT.md). Cobre SÓ a fatia
+    DIÁRIA: o COTAHIST só publica após o fechamento do pregão — o intraday
+    continua sendo do Yahoo por decisão do ADR-001, que esta fase não reabre.
+
+    `valida_fatia`/`get_history` (mydata_client.py) recusam intraday ANTES de
+    tocar a rede; o gate do roteador (`_gate`, abaixo) já garante isso, mas a
+    guarda vive nos dois lugares por defesa em profundidade."""
+
+    nome = "mydata"
+
+    async def history(self, ticker: str, rng: str, interval: str = "1d") -> dict:
+        return await mydata_client.get_history(ticker, rng=rng, interval=interval)
+
+
+_PROVEDORES = {"yahoo": YahooProvider, "brapi": BrapiProvider, "mydata": MydataProvider}
 _ativo: Optional[CandleProvider] = None
 
 
@@ -213,41 +232,86 @@ def set_provider(p: Optional[CandleProvider]) -> None:
     _ativo = p
 
 
-# -- backup (ADR-008) -------------------------------------------------------
-_fallback: Optional[CandleProvider] = None
+# -- backup (ADR-008, cadeia de N saltos desde a Fase 9/Plano 02) -----------
+_fallbacks: list = []
 _fb_injetado = False
+
+# Default por primário quando `B3_CANDLE_FALLBACK` está ausente. mydata é o
+# elo mais "caro" de configurar errado (cota pequena) — por isso cai em DOIS
+# saltos (brapi, depois yahoo); brapi preserva o salto único de hoje; yahoo
+# preserva o comportamento pré-ADR-008 (sem backup).
+_FALLBACK_DEFAULT = {"mydata": ["brapi", "yahoo"], "brapi": ["yahoo"], "yahoo": []}
+
+
+def fallback_names() -> list:
+    """Cadeia de nomes de backup, na ordem de tentativa. Env
+    `B3_CANDLE_FALLBACK` (lista separada por vírgula); ausente usa o default
+    por primário (`_FALLBACK_DEFAULT`). Filtra fora o próprio primário e
+    nomes desconhecidos (backup mal configurado não derruba o app), e
+    deduplica preservando ordem. `B3_CANDLE_FALLBACK=""` desliga — vazio
+    continua sendo o contrato de "sem backup"."""
+    fb = os.environ.get("B3_CANDLE_FALLBACK")
+    if fb is None:
+        brutos = _FALLBACK_DEFAULT.get(provider_name(), [])
+    else:
+        brutos = [n.strip().lower() for n in fb.split(",") if n.strip()]
+    prim = provider_name()
+    out: list = []
+    for n in brutos:
+        if n == prim or n not in _PROVEDORES or n in out:
+            continue
+        out.append(n)
+    return out
 
 
 def fallback_name() -> str:
-    """Env `B3_CANDLE_FALLBACK`; vazio desliga. Default: `yahoo` quando o
-    primário NÃO é o Yahoo (a inversão do ADR-008 nasce com backup), nada
-    quando o primário é o Yahoo (comportamento pré-ADR-008 preservado)."""
-    fb = os.environ.get("B3_CANDLE_FALLBACK")
-    if fb is None:
-        return "yahoo" if provider_name() != "yahoo" else ""
-    return fb.strip().lower()
+    """Compat: primeiro nome da cadeia, ou `""`. `snapshot()` e os guardiões
+    existentes dependem desta assinatura de string única — não remover."""
+    nomes = fallback_names()
+    return nomes[0] if nomes else ""
+
+
+def get_fallbacks() -> list:
+    """Cadeia de provedores de backup instanciados, na ordem de
+    `fallback_names()`. Memoiza comparando os nomes já instanciados com a
+    cadeia atual — reconstrói só quando a env muda entre chamadas."""
+    global _fallbacks
+    if _fb_injetado:
+        return _fallbacks
+    nomes = fallback_names()
+    atuais = [p.nome for p in _fallbacks]
+    if atuais != nomes:
+        novos = []
+        for n in nomes:
+            cls = _PROVEDORES.get(n)
+            if cls is None:      # backup mal configurado não pode derrubar o app
+                continue
+            novos.append(cls())
+        _fallbacks = novos
+    return _fallbacks
 
 
 def get_fallback() -> Optional[CandleProvider]:
-    global _fallback
-    if _fb_injetado:
-        return _fallback
-    nome = fallback_name()
-    if not nome or nome == provider_name():
-        return None
-    if _fallback is None or _fallback.nome != nome:
-        cls = _PROVEDORES.get(nome)
-        if cls is None:      # backup mal configurado não pode derrubar o app
-            return None
-        _fallback = cls()
-    return _fallback
+    """Compat: primeiro elo da cadeia, ou `None`. Preserva o contrato atual
+    para quem ainda chama a versão singular."""
+    fbs = get_fallbacks()
+    return fbs[0] if fbs else None
 
 
 def set_fallback(p: Optional[CandleProvider]) -> None:
-    """Injeção para testes. `None` volta ao resolvido por env."""
-    global _fallback, _fb_injetado
-    _fallback = p
+    """Injeção para testes com UM provedor. `None` volta ao resolvido por
+    env (cadeia inteira recalculada por `fallback_names()`)."""
+    global _fallbacks, _fb_injetado
+    _fallbacks = [p] if p is not None else []
     _fb_injetado = p is not None
+
+
+def set_fallbacks(ps: list) -> None:
+    """Injeção para testes com a CADEIA inteira. `[]`/`None` volta ao
+    resolvido por env."""
+    global _fallbacks, _fb_injetado
+    _fallbacks = list(ps or [])
+    _fb_injetado = bool(ps)
 
 
 async def _chama(p: CandleProvider, ticker: str, rng: str, interval: str) -> dict:
