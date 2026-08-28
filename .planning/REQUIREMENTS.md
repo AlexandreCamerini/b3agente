@@ -38,15 +38,15 @@ usuário — o critério de aceite é medição interna, não UI.
 
 ### Ciclo de vida e monitoramento (Fase 11)
 
-- [ ] **PUTLIFE-01**: Toda sugestão de put armada tem um estado rastreável
+- [x] **PUTLIFE-01**: Toda sugestão de put armada tem um estado rastreável
   ao longo do tempo: `armada` → `expirada sem uso` | `executada
   (simulada)` → `monitorada` → `fechada`
-- [ ] **PUTLIFE-02**: A execução simulada de uma put reusa `optionPositions`
+- [x] **PUTLIFE-02**: A execução simulada de uma put reusa `optionPositions`
   e os contratos inteiros de ADR-003/004/005 — sem reimplementar preço
   médio, PnL ou proveniência de posição de opção
-- [ ] **PUTLIFE-03**: O fechamento por expiração reusa o mecanismo já
+- [x] **PUTLIFE-03**: O fechamento por expiração reusa o mecanismo já
   resolvido pelo ADR-005 — sem lógica de expiração paralela
-- [ ] **PUTLIFE-04**: O ciclo de monitoramento diário de puts de proteção
+- [x] **PUTLIFE-04**: O ciclo de monitoramento diário de puts de proteção
   roda dentro da segunda passada já existente do `agent.py` para
   `optionPositions` — nenhum scheduler novo
 
@@ -85,7 +85,7 @@ Preenchido pelo roadmapper na criação do roadmap.
 | PUT-01 | Phase 10 | Complete |
 | PUT-02 | Phase 10 | Complete |
 | PUT-03 | Phase 10 | Complete |
-| PUTLIFE-01 | Phase 11 | Pending |
-| PUTLIFE-02 | Phase 11 | Pending |
-| PUTLIFE-03 | Phase 11 | Pending |
-| PUTLIFE-04 | Phase 11 | Pending |
+| PUTLIFE-01 | Phase 11 | Complete |
+| PUTLIFE-02 | Phase 11 | Complete |
+| PUTLIFE-03 | Phase 11 | Complete |
+| PUTLIFE-04 | Phase 11 | Complete |
