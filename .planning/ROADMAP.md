@@ -181,7 +181,29 @@ dentro do `scheduler_loop`)
   - Nenhuma superfície visível ao usuário introduzida
   - Nenhum suporte a opção vendida/short introduzido em qualquer forma —
     só put comprada, uma perna, sem margem, sem atribuição
-**Plans**: TBD
+**Plans**: 3 plans (3 waves — cada plano depende do anterior; sem paralelismo,
+o Plano 02 consome os módulos do 01 e o 03 prova a ausência de superfície do
+conjunto)
+
+Plans:
+**Wave 1**
+
+- [ ] 10-01-PLAN.md — tabela `put_suggestions` (long-only por CHECK, estilo de
+  exercício e IV NOT NULL) + `put_suggestions.py` + triagem determinística
+  `put_bridge.triar_put` (função pura, offline)
+
+**Wave 2** *(blocked on Wave 1)*
+
+- [ ] 10-02-PLAN.md — `put_bridge.run_diario`/`maybe_run`: cruzamento
+  gatilho EOD × carteira, consulta sequencial à cadeia (teto de 10 tickers/dia),
+  gravação com proveniência, e o hook no `scheduler_loop` após
+  `signal_ledger_job`
+
+**Wave 3** *(blocked on Wave 2)*
+
+- [ ] 10-03-PLAN.md — guardião automatizado de PUT-03 (fonte + comportamento +
+  agregações do ADR-017) + ADR-021 (onde a sugestão mora, long-only estrutural,
+  disposição de WR-01) + doc de operação + fechamento da suíte canônica
 
 ### Phase 11: Ciclo de vida e monitoramento
 
