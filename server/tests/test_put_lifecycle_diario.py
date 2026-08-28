@@ -100,7 +100,10 @@ def test_linha_terminal_nunca_e_lida(tmp_path):
 
 def test_custo_zero_de_rede_por_asserção_negativa(tmp_path, monkeypatch):
     conn = _conn(tmp_path)
-    _registrar(conn, ticker="PETR4", contrato="PETRR100")
+    linha_id = _registrar(conn, ticker="PETR4", contrato="PETRR100", premio=1.15, vencimento="2026-09-19")
+    put_suggestions.transicionar(conn, linha_id, "executada_simulada", {
+        "executada_em": "2026-08-28", "preco_entrada": 1.15,
+    })
 
     import app.options_provider as options_provider
     import app.candle_provider as candle_provider
@@ -335,9 +338,9 @@ def test_maybe_run_nao_roda_com_env_off(tmp_path, monkeypatch):
 
 def test_maybe_run_nao_roda_duas_vezes_no_mesmo_dia(tmp_path):
     conn = _conn(tmp_path)
-    db.kv_set(conn, put_lifecycle.K_LAST_RUN, "2026-08-29", user_id=None)
+    hoje = put_lifecycle.datetime.now(put_lifecycle.BRT).date().isoformat()
+    db.kv_set(conn, put_lifecycle.K_LAST_RUN, hoje, user_id=None)
     chamado = []
-    import types
     original = put_lifecycle.run_diario
     put_lifecycle.run_diario = lambda c, now=None: (chamado.append(1) or {"linhas": 0, "avancos": 0, "pendentes": 0, "porEstado": {}, "erros": []})
     try:

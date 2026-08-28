@@ -27,6 +27,11 @@ recalculado: uma sugestão é uma entrada única, nunca somada a outra.
 """
 from __future__ import annotations
 
+import os
+import time
+from datetime import datetime, timedelta, timezone
+from typing import Optional
+
 from . import put_suggestions
 
 MOTIVO_VENCIMENTO = "vencimento"  # vocabulário do ADR-005, reusado verbatim
@@ -192,3 +197,134 @@ def decidir(linha: dict, hoje: str, spots: dict) -> tuple[str | None, dict, str]
     }
     # ROADMAP: executada (simulada)/monitorada → monitorada (remarcação diária)
     return "monitorada", campos, ""
+
+
+# --------------------------------------------------------------------------- #
+# Fase 11, Plano 02 — varredura diária. Molde estrutural: `put_bridge.py`
+# linhas 147-366 (mesmo formato de gate/telemetria/`maybe_run` que nunca
+# propaga), com chaves de env/kv PRÓPRIAS — os dois gates são independentes
+# de propósito, desligar um não pode desligar o outro.
+# --------------------------------------------------------------------------- #
+
+HHMM_DEFAULT = "09:45"                     # depois da ponte (09:30, A-11-08)
+K_LAST_RUN = "putLifecycleLastRun"         # chave kv global (user_id=None)
+BRT = timezone(timedelta(hours=-3))
+
+# Telemetria em memória (A-11-09): NUNCA entra em `agent.status_snapshot` —
+# o portal admin é superfície proibida (PUT-03, D-10-L).
+LAST_RUN = {"date": None, "atLabel": None, "duracaoS": None, "erro": None,
+            "linhas": None, "avancos": None, "pendentes": None, "porEstado": None}
+
+
+def _hhmm() -> str:
+    raw = (os.environ.get("B3_PUT_LIFECYCLE_HHMM") or HHMM_DEFAULT).strip()
+    try:
+        h, m = raw.split(":")
+        assert 0 <= int(h) <= 23 and 0 <= int(m) <= 59
+        return f"{int(h):02d}:{int(m):02d}"
+    except Exception:  # noqa: BLE001 — valor inválido cai no default
+        return HHMM_DEFAULT
+
+
+def enabled() -> bool:
+    return not os.environ.get("B3_PUT_LIFECYCLE_OFF")
+
+
+def should_run(now: Optional[datetime] = None, last_date: Optional[str] = None) -> bool:
+    """Gating PURO (testável): dia útil, horário atingido, ainda não rodou hoje.
+
+    Cópia estrutural de `put_bridge.should_run` — chave de env e telemetria
+    próprias; NÃO importa `put_bridge` (gates independentes de propósito)."""
+    now = now or datetime.now(BRT)
+    if now.weekday() >= 5:
+        return False
+    hh, mm = _hhmm().split(":")
+    alvo = now.replace(hour=int(hh), minute=int(mm), second=0, microsecond=0)
+    if now < alvo:
+        return False
+    return last_date != now.date().isoformat()
+
+
+def last_run_date(conn) -> Optional[str]:
+    from . import db  # import local: sem ciclo de import
+    return db.kv_get(conn, K_LAST_RUN, user_id=None)
+
+
+def run_diario(conn, now: Optional[datetime] = None) -> dict:
+    """Varre `put_suggestions.listar_abertas` e aplica `decidir()`/
+    `transicionar()` por linha. SÍNCRONA de propósito: ao contrário de
+    `put_bridge.run_diario` (I/O de rede), esta rodada só lê o cache em
+    memória/SQLite sobre dezenas de linhas — não vale o custo de uma thread
+    (`asyncio.to_thread`) para um trabalho tão barato, e não há nenhum
+    `await` real no corpo.
+
+    Devolve {"linhas": int, "avancos": int, "pendentes": int,
+    "porEstado": {estado: n}, "erros": list}."""
+    from . import candle_cache  # import local: sem ciclo de import
+
+    hoje = (now or datetime.now(BRT)).date().isoformat()
+    linhas = put_suggestions.listar_abertas(conn)
+
+    avancos = 0
+    pendentes = 0
+    por_estado: dict[str, int] = {}
+    erros: list[str] = []
+
+    for linha in linhas:
+        try:
+            candles = candle_cache.peek(linha.get("ticker"), "1d")
+            spots = resolver_spots(candles, linha.get("vencimento"), hoje)
+            estado_novo, campos, motivo = decidir(linha, hoje, spots)
+
+            if estado_novo:
+                if put_suggestions.transicionar(conn, linha["id"], estado_novo, campos):
+                    avancos += 1
+                    por_estado[estado_novo] = por_estado.get(estado_novo, 0) + 1
+            elif motivo in ("sem preço de liquidação", "sem preço do ativo-objeto"):
+                put_suggestions.registrar_pendencia(conn, linha["id"], hoje)
+                pendentes += 1
+        except Exception as e:  # noqa: BLE001 — isola erro por linha, nunca aborta as demais
+            erros.append(f"{linha.get('id')}: {str(e)[:120]}")
+            continue
+
+    resumo = {"linhas": len(linhas), "avancos": avancos, "pendentes": pendentes,
+              "porEstado": por_estado, "erros": erros}
+    print(f"[put-lifecycle] {resumo}")
+    return resumo
+
+
+async def maybe_run(conn) -> Optional[dict]:
+    """Hook do scheduler: roda no máximo 1x/dia útil no horário configurado.
+
+    `async` por convenção (o hook do laço chama todos os `maybe_run` da
+    mesma forma), mesmo sem nenhum `await` interno — `run_diario` é
+    SÍNCRONA. Cópia estrutural de `put_bridge.maybe_run`: `putLifecycleLastRun`
+    só é gravado no caminho de SUCESSO; NUNCA propaga exceção — este hook não
+    pode derrubar o heartbeat, o kill-switch nem o ciclo de stop/alvo de
+    nenhum usuário."""
+    from . import db  # import local: sem ciclo de import
+
+    if not enabled():
+        return None
+    if not should_run(last_date=last_run_date(conn)):
+        return None
+    try:
+        t0 = time.monotonic()
+        resumo = run_diario(conn)
+        now = datetime.now(BRT)
+        LAST_RUN.update(
+            date=now.date().isoformat(),
+            atLabel=now.strftime("%d/%m %H:%M"),
+            duracaoS=round(time.monotonic() - t0, 1),
+            linhas=resumo.get("linhas"),
+            avancos=resumo.get("avancos"),
+            pendentes=resumo.get("pendentes"),
+            porEstado=resumo.get("porEstado"),
+            erro=None,
+        )
+        db.kv_set(conn, K_LAST_RUN, now.date().isoformat(), user_id=None)
+        return resumo
+    except Exception as e:  # noqa: BLE001 — nunca derruba o laço do agente
+        LAST_RUN["erro"] = str(e)[:200]
+        print(f"[put-lifecycle] rodada diária falhou: {e}")
+        return None
