@@ -20,7 +20,14 @@ funciona — não decorou uma resposta, aprendeu o raciocínio — e só então 
 acesso a automações do Modo Operador. Se o storyline pedagógico não convencer,
 nada mais no produto importa.
 
-## Current Milestone: v1.2 Camada de opções ancorada na carteira
+## Current Milestone: v1.2 Camada de opções ancorada na carteira — 3/3 fases código-completas, aguardando seu UAT
+
+**Status (2026-08-28, execução autônoma noturna):** as 3 fases rodaram, cada
+uma com code review + verificação de objetivo independente. Nenhum blocker.
+**Não marcado como Shipped em MILESTONES.md nem arquivado** — falta seu
+sign-off em 2 itens (`11-HUMAN-UAT.md`, `pending`) e a decisão de rodar
+`/gsd:complete-milestone` quando você validar. Ver
+`.planning/notes/RELATORIO-NOTURNO-v1.2.md` para o resumo completo.
 
 **Goal:** quando um gatilho de setup dispara sobre um ticker que o usuário já
 tem em carteira, o app arma uma sugestão de put de proteção sobre essa
@@ -133,9 +140,27 @@ contrato registrado ali).
   superfície visível (guardião dedicado). 2 Warnings achados e corrigidos
   em code review (WR-01 ticker malformado abortava o dia inteiro; WR-02
   strike não-positivo) — Fase 10 do v1.2, execução autônoma noturna
+- ✓ PUTLIFE-01/02/03/04 (ciclo de vida, v1.2): máquina de 5 estados
+  (`armada`/`expirada_sem_uso`/`executada_simulada`/`monitorada`/`fechada`)
+  vivendo inteiramente em colunas novas de `put_suggestions` — nunca toca
+  `optionPositions`/`cash`/`history` reais (provado por teste comportamental
+  que monta carteira real e compara JSON byte a byte antes/depois de um
+  ciclo completo). `intrinseco()` delega pra `agent.intrinseco_opcao`
+  (ADR-005 real, sem fórmula paralela). Hook diário roda mesmo com
+  kill-switch ligado — é medição, nunca execução de ordem (decisão do
+  executor, override do desenho literal do ROADMAP, ver ADR-022). 0
+  Crítico, 2 Warnings de baixo impacto deixados para sua decisão (ver UAT
+  abaixo) — Fase 11 do v1.2, execução autônoma noturna, ÚLTIMA fase do
+  milestone
 
 ### Active
 
+- [ ] UAT pendente do milestone v1.2 (`11-HUMAN-UAT.md`): (1) aceitar/rejeitar
+  a leitura por CONTRATOS do ADR-022 em vez do texto literal do ROADMAP
+  Fase 11 SC#2/#4; (2) decidir WR-01 (observabilidade de sugestão sem
+  prêmio); (3) decidir WR-02 (fallback morto em `put_lifecycle.decidir()`).
+  Rodar `/gsd:complete-milestone` depois de resolver, para arquivar as
+  fases 0/10/11 e marcar v1.2 como Shipped em `MILESTONES.md`
 - [ ] Item 8 do checkpoint 08-05: verificação ao vivo da entrada automática
   gated por um pregão inteiro (`entradaAuto` ligado, confirmar que só
   dispara nos setups elegíveis do momento) — depende do Alex ligar a
@@ -274,4 +299,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-08-28 — milestone v1.2, Phase 10 complete*
+*Last updated: 2026-08-28 — milestone v1.2, todas as 3 fases código-completas (aguardando UAT)*
