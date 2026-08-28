@@ -167,6 +167,112 @@
 
 ---
 
+## Milestone: v1.2 — Camada de opções ancorada na carteira
+
+**Shipped:** 2026-08-28
+**Phases:** 3 (0, 10, 11 — numeração não-sequencial deliberada) | **Plans:** 8 | **Sessions:** 1 (execução autônoma noturna contínua)
+
+### What Was Built
+- Fase 0 (precondição): 9 tickers 404 do bootstrap do ledger resolvidos com
+  evidência real (2 renomeações confirmadas por série de preço, 5 exclusões
+  documentadas, 2 deixadas honestamente `INDETERMINADO`); gate de orçamento
+  no caminho de opções do mydata, fechando um achado da Fase 9.
+- Fase 10: ponte gatilho→put — hook diário seleciona put de proteção com
+  dados reais do hub (nunca assumidos), grava numa tabela nova isolada
+  (`put_suggestions`), invisível ao usuário e dormente em produção até a
+  virada da Fase 9 acontecer.
+- Fase 11 (última): máquina de 5 estados para o ciclo de vida da sugestão,
+  com a decisão de arquitetura mais substantiva da milestone — a leitura
+  literal do ROADMAP ("reusa optionPositions") foi corretamente rejeitada
+  com evidência de código (escreveria na carteira REAL, visível), em favor
+  de reusar só os CONTRATOS/fórmulas em colunas isoladas.
+
+### What Worked
+- **Contrato de autonomia explícito, com hard-stops e viés de desempate
+  nomeados antes de começar** — "menor, reversível, mantém invisível"
+  funcionou como critério de decisão real em pelo menos 2 momentos que
+  teriam virado pergunta ao Alex em execução normal (onde a tabela nova
+  deveria morar; se o hook do ciclo de vida deveria respeitar o
+  kill-switch). Ambos decididos com evidência de código citada, não
+  suposição, e ambos sobreviveram à verificação independente.
+- **Cada fase fechou com code review + verificação de objetivo
+  independentes, mesmo sem humano no loop** — 3 achados reais (1 Crítico,
+  4 Warnings) só apareceram nessa dupla checagem, não no planejamento nem
+  na execução original. O padrão "planner→checker→executor→reviewer→
+  verifier", cada papel numa chamada de agente separada, pegou bugs de
+  correção real (chave de ledger não-normalizada, ticker malformado
+  abortando o dia inteiro) que um único agente fazendo tudo teria a maior
+  chance de deixar passar.
+- **UAT persistido como arquivo, não como pergunta perdida** — quando a
+  verificação da última fase voltou `human_needed` (2 divergências do texto
+  literal do ROADMAP + 2 achados de baixo impacto), gravar os itens em
+  `11-HUMAN-UAT.md` com `status: pending` e fechar a fase mecanicamente
+  mesmo assim (sem fingir aprovação) preservou a pergunta real para quando
+  o Alex voltasse, sem travar a noite inteira nem mascarar a divergência.
+
+### What Was Inefficient
+- **Divergência de indentação não pega por nenhum dos dois checkers** — o
+  plan-checker da Fase 11 verificou a inserção do hook contra o `agent.py`
+  MERGADO da Fase 10, mas o plano em si (escrito antes do merge) copiou o
+  texto literal de um trecho que, depois do merge real, ficava DENTRO do
+  gate de kill-switch — só o executor, rodando contra o código real no
+  momento da execução, percebeu a contradição com os próprios requisitos do
+  plano. Nenhum processo quebrou (o executor corrigiu e documentou como
+  D-EXEC-11-02-01), mas é um lembrete de que verificação contra o código
+  real precisa acontecer o mais tarde possível na cadeia, não só na
+  criação do plano.
+- **Aritmética de critério de aceite quebrada 1x** (Fase 10, `grep -c '^+'`
+  contando a linha de cabeçalho `+++` do diff) — pego pelo plan-checker
+  antes da execução, mas é o tipo de erro mecânico que um teste do próprio
+  critério (rodar o grep contra um diff sintético antes de publicar o
+  plano) teria pego mais barato ainda.
+
+### Patterns Established
+- **Contrato de autonomia por escrito, com PROIBIDO/PARADA DURA/viés de
+  desempate nomeados**, não implícito — quando a execução precisa rodar sem
+  humano por horas, a especificidade das restrições (não "seja cuidadoso",
+  mas "nunca chame `store.buy_option`") é o que faz a decisão autônoma ser
+  verificável depois, não só bem-intencionada.
+- **UAT como arquivo com `status: pending`, nunca como aprovação
+  fabricada** — fechar a fase mecanicamente (sem bloquear a noite) enquanto
+  o arquivo de UAT continua genuinamente pendente é diferente de "aprovar
+  por mim mesmo" — a distinção importa para auditoria depois.
+- **Achado de review corrigido no mesmo commit da fase, com guardião
+  novo e nota "Fixed post-review" no REVIEW.md** — mantém o REVIEW.md como
+  registro histórico do que foi encontrado (não reescreve o achado) e ainda
+  assim deixa óbvio que foi resolvido, sem precisar caçar o commit de
+  correção em outro lugar.
+
+### Key Lessons
+1. Contrato de autonomia funciona melhor com hard-stops NOMEADOS
+   (condições específicas, não "pare se algo parecer errado") e viés de
+   desempate explícito — ambos usados de verdade nesta milestone, não só
+   documentados.
+2. Verificação contra o código MERGADO (não contra o plano nem contra um
+   snapshot anterior) é o que pega divergência de indentação/estrutura —
+   nem plan-checker nem planner viram isso a tempo; só o executor, rodando
+   por último, contra o real.
+3. UAT `pending` genuíno (não aprovação fabricada) é o mecanismo certo
+   para fechar trabalho mecanicamente sem mascarar uma decisão que só o
+   humano pode tomar — a fase fechou, o milestone não foi marcado Shipped,
+   e a pergunta sobreviveu exatamente como feita até o Alex responder.
+
+### Cost Observations
+- Model mix: Opus para os 3 planners (nós de estrutura/decisão mais
+  substantivos da milestone), Sonnet para researchers/executores/checkers/
+  reviewers/verifiers — mesmo perfil "balanced" de v1.0/v1.1.
+- Sessões: 1 sessão contínua, execução autônoma noturna (~8h de wall-clock
+  entre início do roadmap e fechamento da Fase 11), sem handoff de
+  contexto — o padrão de ScheduleWakeup + task-notification sustentou o
+  ciclo planner→checker→executor→reviewer→verifier por 3 fases sem
+  intervenção humana.
+- Notável: nenhum push em nenhum momento da execução autônoma (81 commits
+  locais acumulados) — o guardrail "sem push" do contrato de autonomia
+  segurou por toda a noite; o push/fechamento de milestone só aconteceu
+  depois do Alex validar o UAT pela manhã.
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -175,6 +281,7 @@
 |-----------|----------|--------|------------|
 | v1.0 | 1 | 1 | Primeira entrada do projeto no GSD (brownfield); descoberto o problema de base de worktree isolado e o bloqueio de nome "FINDINGS" — ambos documentados aqui para não redescobrir |
 | v1.1 | 2+ | 7 (2-8) | Primeira milestone com checkpoints humanos bloqueantes em produção (Fases 7, 8, 5) e com fases nascidas de descoberta em execução, não só do planejamento original (Fases 6-8, a partir de pesquisa ad-hoc sobre o motor de recomendação) — mitigação do worktree da v1.0 (push antes de spawnar wave seguinte) confirmada eficaz, zero recorrência |
+| v1.2 | 1 (autônoma) | 3 (0, 10, 11) | Primeira milestone executada de ponta a ponta sem humano no loop (contrato de autonomia explícito, hard-stops nomeados) — nenhum push durante toda a execução (diferente de v1.1, onde push por wave era o padrão); UAT `human_needed` fechado como arquivo `pending` genuíno em vez de aprovação fabricada, resolvido pelo Alex numa sessão separada antes do fechamento formal do milestone |
 
 ### Cumulative Quality
 
@@ -182,9 +289,12 @@
 |-----------|-------|----------|-------------------|
 | v1.0 | 970 backend (pytest) + 74 web (.mjs) — suíte pré-existente, não alterada nesta milestone | não medido numericamente (sem pytest-cov) | 0 (fase read-only, nenhum código de produto tocado) |
 | v1.1 | 1365 backend (pytest) + suíte web completa (.mjs), ambas verdes no fechamento — crescimento de ~395 testes backend na milestone | não medido numericamente (sem pytest-cov) | 0 (nenhuma dependência nova — confirmado por `git diff` de todo `package.json`/`package-lock.json` em cada plano que tocou frontend) |
+| v1.2 | 1674 backend (pytest) + suíte web completa (.mjs), ambas verdes em toda validação de wave — crescimento de ~135 testes backend (candle/opções/ledger/put_bridge/put_lifecycle) | não medido numericamente (sem pytest-cov) | 0 (nenhuma dependência nova — backend-only, nenhum `package.json` tocado) |
 
 ### Top Lessons (Verified Across Milestones)
 
 1. `isolation="worktree"` em plans paralelos precisa de validação de base antes de disparar em lote — **confirmado como mitigação eficaz na v1.1**: dar `git push` antes de spawnar cada wave seguinte eliminou completamente a recorrência do problema descoberto na v1.0.
 2. Checkpoint humano bloqueante represa o push da FASE INTEIRA, não só da task do checkpoint — descoberto por incidente real na v1.1 (Fase 8), aplicado corretamente daí em diante (Fase 5).
 3. Fase que toca frontend precisa de task explícita de build+publish no planejamento — "suíte verde" não implica "publicado em produção" (achado na v1.1, Fase 4).
+4. Execução autônoma sem push (v1.2) é uma variante mais segura do que push-por-wave (v1.1) quando não há humano pra aprovar em tempo real — o contrato de autonomia explícito (hard-stops nomeados, viés de desempate declarado) é o que torna a ausência de checkpoint humano segura, não a ausência de checkpoint em si.
+5. UAT `human_needed`/`pending` genuíno, persistido em arquivo e fechado mecanicamente sem aprovação fabricada, é o padrão certo para separar "trabalho mecânico concluído" de "decisão que só o humano pode tomar" (v1.2, Fase 11) — generaliza o padrão de UAT já usado desde v1.1 (Fases 3, 08-05) para o caso específico de execução autônoma.
