@@ -143,6 +143,12 @@ Durante a execução, o progresso (`{feitos}/{total} tickers · {n} sinais`) sai
 em stderr — ticker com fetch quebrado (sem histórico, granularidade
 degradada) aparece na lista de erros ao final, sem derrubar os demais.
 
+**Aditivo (LEDGER-01, Fase 0 v1.2):** depois da lista de erros, o comando
+também imprime um bloco `tickers excluídos da carga: N` seguido de uma
+linha `- {ticker}: {razão}` por ticker resolvido como excluído pelo mapa
+`server/app/ledger_tickers.py` — ver seção 8 para o que isso significa.
+Exclusão nunca é silenciosa: aparece sempre, mesmo quando `N` é zero.
+
 ## 7. O que NÃO fazer
 
 - **Não pendurar em cron.** O bootstrap é manual, disparado quando um dos
@@ -163,3 +169,57 @@ degradada) aparece na lista de erros ao final, sem derrubar os demais.
 - **Não esperar que o número melhore.** Este comando mede o que o motor fez
   no passado; ele não promete e não garante que o setup vai repetir o
   desempenho medido.
+
+## 8. Resolução de tickers do bootstrap (LEDGER-01, Fase 0 v1.2)
+
+**Aditivo** — esta seção é nova (2026-08-28), o texto acima permanece
+inalterado.
+
+9 dos 74 tickers de `scanner.DEFAULT_UNIVERSE` falhavam com HTTP 404
+estável no bootstrap (ELET3, BRFS3, ELET6, JBSS3, CRFB3, NTCO3, CPLE6,
+MRFG3, EMBR3). O diagnóstico datado
+(`docs/DIAGNOSTICO-tickers-ledger-2026-08-28.md`) investigou cada um e
+concluiu: 2 eram renomeação (mesma empresa, código novo), 5 eram
+reorganização societária/deslistagem/classe extinta, e 2 seguem sem
+evidência suficiente hoje (`INDETERMINADO`).
+
+**`server/app/ledger_tickers.py`** é o mapa que fecha esse achado, exportando:
+
+- `ALIASES: dict[str, str]` — ticker do universo → símbolo a buscar no
+  Yahoo, para os casos de renomeação confirmada (hoje: `MRFG3→MBRF3`,
+  `EMBR3→EMBJ3`).
+- `EXCLUIDOS: dict[str, str]` — ticker do universo → razão da exclusão
+  (fusão, deslistagem, classe extinta, ou `INDETERMINADO` com o prefixo
+  `não resolvido em <data>:`).
+- `resolver(ticker) -> (simbolo_ou_None, razao_ou_None)` — chamado por
+  `signal_ledger_bootstrap.executar()` antes de agendar o fetch de cada
+  ticker.
+
+**Quando editar este mapa:** só depois de um novo diagnóstico datado
+(mesmo formato de `docs/DIAGNOSTICO-tickers-ledger-2026-08-28.md`) com
+evidência bruta anexada — nunca adicione uma entrada "de cabeça". A regra
+que decide alias vs. exclusão (decisão A-02 do `00-01-PLAN.md`): se o
+ticker foi RENOMEADO (mesma empresa, MESMO PAPEL/classe, código novo), vira
+`ALIASES` — a série do Yahoo sob o código novo é a continuação da mesma
+série. Se houve INCORPORAÇÃO/FUSÃO (empresa diferente, relação de troca de
+ações), DESLISTAGEM, ou o candidato encontrado é de classe diferente (ON
+vs. PN, DR vs. ação comum), vira `EXCLUIDOS` com razão — emendar duas
+séries de preço distintas corromperia a medição de expectância por setup
+que o ledger existe para sustentar.
+
+**A nova chave `excluidos` do resumo:** `executar()` devolve
+`resumo["excluidos"]` — sempre presente, lista de
+`{"ticker": ..., "razao": ...}`, vazia quando não há exclusão. Ticker
+excluído NUNCA toca a rede (não conta para `erros`, não gasta requisição).
+Ticker com alias toca a rede pelo SÍMBOLO resolvido, mas grava no ledger
+sob o TICKER DO UNIVERSO — a chave do ledger (`UNIQUE(ticker, setup, lado,
+data_sinal)`) nunca muda.
+
+**Retry de 404 em `carregar_candles`:** decisão A-03 do plano — até 2
+tentativas, repetindo SÓ quando a falha é HTTP 404 (ou
+`"Yahoo: sem historico para..."`), com 2s de espera e sessão nova forçada
+entre tentativas. Qualquer outra exceção sobe na primeira ocorrência. Este
+retry vive SÓ aqui, dentro do bootstrap — `yahoo._yfetch` (a escada de
+retry global usada por todo o resto do app, inclusive a validação de
+ticker do catálogo) não foi tocado. Misturar os dois faria a validação de
+"esse papel não existe" do usuário esperar 2s extra por engano.

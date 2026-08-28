@@ -344,6 +344,45 @@ não encontrar nada, buscar também pelo NOME da empresa antes de concluir
 
 ## 6. Verificação de fechamento
 
-Ver seção adicionada pela Task 3 deste plano, ao final deste documento.
+**Quando:** 2026-08-28T09:15:26Z. **Comando exato** (a partir de `server/`,
+`--dry-run` garante zero escrita; `--db` aponta para um arquivo temporário
+fora de `server/data/`; `--concorrencia 2` evita reintroduzir concorrência
+alta, uma das hipóteses descartadas do 404 original):
 
-<!-- Task 3 anexa a seção "Verificação de fechamento" abaixo, de forma aditiva -->
+```bash
+cd server
+.venv/bin/python -m app.signal_ledger_bootstrap \
+  --dry-run --anos 1 --rng 2y --concorrencia 2 \
+  --db /caminho/temporario/fora-de-server-data/ledger-verificacao.db
+```
+
+Linha de resumo final, copiada verbatim da saída real:
+
+```
+universo: 74 tickers · anos: 1.0 · rng: 2y · concorrência: 2 · DRY-RUN (nada será gravado)
+
+tickers processados: 74 · sinais avaliados: 10929 · novas linhas gravadas: 0 · erros: 0
+```
+
+**`erros: 0`** — os 65 tickers que já funcionavam continuam funcionando, e
+os 2 tickers resolvidos por alias (MRFG3→MBRF3, EMBR3→EMBJ3) buscaram com
+sucesso pelo símbolo novo, SEM erro. 74 tickers do universo = 67
+processados com sucesso + 7 excluídos (nunca tocaram a rede) — nenhum
+ticker sumiu em silêncio.
+
+Lista de exclusões impressa pela CLI, copiada verbatim:
+
+```
+tickers excluídos da carga: 7
+  - ELET3: não resolvido em 2026-08-28: 404 em 3/3 tentativas, quote Yahoo vazio (sem stub), busca por raiz "ELET" e por nome "Eletrobras" sem candidato plausível na B3. Ver docs/DIAGNOSTICO-tickers-ledger-2026-08-28.md, veredito ELET3.
+  - ELET6: não resolvido em 2026-08-28: mesma ausência total de ELET3 — 404 em 3/3 tentativas, quote Yahoo vazio, sem candidato de sucessora de classe 6/PNB encontrado. Ver docs/DIAGNOSTICO-tickers-ledger-2026-08-28.md, veredito ELET6.
+  - JBSS3: EXCLUIR: JBS S.A. reorganizada em JBS N.V.; a única sucessora encontrada na B3 (JBSS32.SA) é um instrumento DR2 (recibo de depósito), classe diferente da ação ordinária original — falha o teste de "mesmo papel" de A-02. Ver docs/DIAGNOSTICO-tickers-ledger-2026-08-28.md, veredito JBSS3.
+  - CPLE6: EXCLUIR: classe PNB extinta — os únicos candidatos encontrados (CPLE3 e variantes) são todos classe ON, papel diferente do original por A-02; sem candidato de classe 6/PNB. Ver docs/DIAGNOSTICO-tickers-ledger-2026-08-28.md, veredito CPLE6.
+  - CRFB3: EXCLUIR: registro Yahoo confirma quoteType=NONE/tradeable=false (instrumento inativo, não ausência total) e nenhuma sucessora foi encontrada em nenhuma busca (raiz do ticker, nome "Atacadão"/"Carrefour Brasil"). Ver docs/DIAGNOSTICO-tickers-ledger-2026-08-28.md, veredito CRFB3.
+  - NTCO3: EXCLUIR: registro Yahoo confirma quoteType=NONE/tradeable=false (mesmo padrão de CRFB3/JBSS3); nenhuma sucessora encontrada em nenhuma busca (raiz do ticker, nome "Natura"). Ver docs/DIAGNOSTICO-tickers-ledger-2026-08-28.md, veredito NTCO3.
+  - BRFS3: EXCLUIR: BRF S.A. sem série própria remanescente sob nenhum código Yahoo (quote vazio); evidência aponta fusão com Marfrig no combinado "MBRF Global Foods Company S.A." (MBRF3.SA), mas a série de MBRF3 tem patamar de preço compatível com o histórico do Marfrig antigo, não com BRF — emendar corromperia a medição (A-02, incorporação/fusão com relação de troca de ações). Ver docs/DIAGNOSTICO-tickers-ledger-2026-08-28.md, veredito BRFS3.
+```
+
+Critério de fechamento da Task 3 (`erros: 0`, exclusões não contam como
+erro) atingido na primeira varredura — não foi necessária uma segunda
+rodada de confirmação nem novas entradas em `EXCLUIDOS`.
