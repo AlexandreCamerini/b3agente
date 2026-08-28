@@ -79,6 +79,16 @@ ou (b) fechar o backlog abaixo primeiro (ver "Active").
   Radar/Watchlist/card de setup mostrando elegibilidade, `entradaAuto`
   religado mas GATED pela elegibilidade (nunca mais suspensão cega nem
   "qualquer padrão detectado") — v1.1 Fase 8
+- ✓ ADR-020 (centralização de dados no mydata): `mydata_client.py` +
+  `mydata_budget.py` (cota 60/min·2.000/dia), fatia diária de candle
+  atrás de cadeia mydata→brapi→Yahoo, opções/IV atrás de
+  `options_provider_mydata.py` (D-04, sem fallback pro Yahoo), ingestão
+  paralela de COTAHIST (`b3_historical.py`) aposentada (commit `b3fdf02`
+  recuperável). Rate-limit MEDIDO (não estimado): pico projetado NÃO CABE
+  (148/60 por minuto), volume diário CABE com folga — virada de
+  `B3_CANDLE_PROVIDER`/`B3_OPTIONS_PROVIDER` para mydata em produção
+  **adiada** por decisão do Alex no checkpoint da fase, código pronto
+  atrás das env vars — Fase 9 (standalone, fora de v1.0/v1.1)
 
 ### Active
 
@@ -100,6 +110,15 @@ ou (b) fechar o backlog abaixo primeiro (ver "Active").
 - [ ] 9 tickers com 404 no bootstrap do ledger de sinais (ELET3, BRFS3,
   ELET6, JBSS3, CRFB3, NTCO3, CPLE6, MRFG3, EMBR3) — prováveis
   renomeações/deslistagens, não investigado
+- [ ] Retomar a virada de produção do mydata (Fase 9, checkpoint `adiar`):
+  rodar a perna ao vivo da medição (`MYDATA_TOKEN` real +
+  `scripts/medir-mydata.py --fases vivo --vivo`) e resolver o pico/min
+  (148 projetado vs. 60/min da chave) antes de religar
+  `B3_CANDLE_PROVIDER`/`B3_OPTIONS_PROVIDER=mydata` — ver
+  `docs/MEDICAO-Mydata-2026-08-27.md` e `09-06-SUMMARY.md`
+- [ ] Opções via mydata sem gate de orçamento (`options_provider_mydata.py`)
+  — achado do 09-REVIEW.md (WR-01), dormente enquanto `B3_OPTIONS_PROVIDER`
+  ficar em `yahoo`; precisa de gate antes de virar
 
 ### Out of Scope
 
@@ -213,4 +232,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-08-23 after v1.1 milestone*
+*Last updated: 2026-08-27 after Phase 9 (standalone)*
