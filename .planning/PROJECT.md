@@ -114,6 +114,13 @@ contrato registrado ali).
   `B3_CANDLE_PROVIDER`/`B3_OPTIONS_PROVIDER` para mydata em produção
   **adiada** por decisão do Alex no checkpoint da fase, código pronto
   atrás das env vars — Fase 9 (standalone, fora de v1.0/v1.1)
+- ✓ LEDGER-01/OPTGATE-01 (precondições do v1.2): 9 tickers 404 do bootstrap
+  do ledger resolvidos com evidência (2 `ALIASES` por renomeação real, 5
+  `EXCLUIR` por fusão/deslistagem, 2 `INDETERMINADO` documentados sem
+  esconder); gate de orçamento (`_gate`/`_debita`) adicionado ao caminho de
+  opções do mydata, refusal hard (nunca soft-pass, decisão A-05) — Fase 0
+  do v1.2, execução autônoma noturna, 1 Crítico achado e corrigido em
+  code review (CR-01, chave do ledger não-normalizada)
 
 ### Active
 
@@ -132,18 +139,16 @@ contrato registrado ali).
 - [ ] `textDim` do tema claro também reprova contraste WCAG AA (4.20:1) —
   achado colateral da Fase 4 (fora do escopo do C-16 original), candidato a
   backlog
-- [ ] 9 tickers com 404 no bootstrap do ledger de sinais (ELET3, BRFS3,
-  ELET6, JBSS3, CRFB3, NTCO3, CPLE6, MRFG3, EMBR3) — prováveis
-  renomeações/deslistagens — **assumido pela Fase 0 do milestone v1.2**
 - [ ] Retomar a virada de produção do mydata (Fase 9, checkpoint `adiar`):
   rodar a perna ao vivo da medição (`MYDATA_TOKEN` real +
   `scripts/medir-mydata.py --fases vivo --vivo`) e resolver o pico/min
   (148 projetado vs. 60/min da chave) antes de religar
   `B3_CANDLE_PROVIDER`/`B3_OPTIONS_PROVIDER=mydata` — ver
   `docs/MEDICAO-Mydata-2026-08-27.md` e `09-06-SUMMARY.md`
-- [ ] Opções via mydata sem gate de orçamento (`options_provider_mydata.py`)
-  — achado do 09-REVIEW.md (WR-01), dormente enquanto `B3_OPTIONS_PROVIDER`
-  ficar em `yahoo`; precisa de gate antes de virar
+- [ ] Gate de orçamento das opções tem race condition check-then-debit
+  (WR-01, agora em dois consumidores após a Fase 0 do v1.2) — decisão de
+  arquitetura (lock/fila/aceitar risco) pendente sua validação, ver
+  `.planning/notes/decisoes-autonomas-v1.2.md`
 
 ### Out of Scope
 
@@ -257,4 +262,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-08-28 — milestone v1.2 started*
+*Last updated: 2026-08-28 — milestone v1.2, Phase 0 complete*
