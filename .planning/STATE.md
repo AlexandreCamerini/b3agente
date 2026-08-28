@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Camada de opções ancorada na carteira
-status: milestone_complete
-stopped_at: Milestone complete (Phase 11 was final phase)
-last_updated: 2026-08-28T15:20:17.197Z
-last_activity: 2026-08-28 -- Phase 11 execution started
+status: Awaiting next milestone
+stopped_at: ROADMAP.md e REQUIREMENTS.md (traceability) finalizados para v1.2 — Phase 0/10/11 com success criteria, requirement mapping e guardrails por fase
+last_updated: "2026-08-28T16:03:17.906Z"
+last_activity: 2026-08-28 — Milestone v1.2 completed and archived
 progress:
   total_phases: 3
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 8
-  completed_plans: 14
-  percent: 67
+  completed_plans: 8
+  percent: 100
 ---
 
 # Project State
@@ -25,12 +25,10 @@ See: .planning/PROJECT.md (updated 2026-08-28)
 
 ## Current Position
 
-Phase: 11
-Plan: Not started
-Status: Milestone complete
-Last activity: 2026-08-28
-
-Progress: [░░░░░░░░░░] 0%
+Phase: Milestone v1.2 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-08-28 — Milestone v1.2 completed and archived
 
 ## Performance Metrics
 
@@ -127,6 +125,11 @@ Items acknowledged and carried forward from previous milestone close (v1.1 → v
 | verification_gap | Item 8 do checkpoint 08-05 — verificação ao vivo de `entradaAuto` por um pregão inteiro | human_needed | v1.1 close |
 | verification_gap | 2 human-checks da Fase 3 (card de status 3 badges reativo; mensagem de "sem permissão" do kill-switch) | human_needed | v1.1 close |
 | Production cutover | Virada de `B3_CANDLE_PROVIDER`/`B3_OPTIONS_PROVIDER=mydata` (Fase 9, checkpoint `adiar`) — pico/min não resolvido | blocked_on_architecture_decision, explicitly out of scope for v1.2 | Fase 9 close (2026-08-27) |
+| Todo pendente | `medir-rate-limit-mydata.md` — perna ao vivo da medição de rate-limit (item 3 do TODO) | high priority, pending Alex running the live leg locally with `MYDATA_TOKEN` | Fase 9 close (2026-08-27), unrelated to v1.2 |
+| Quick task | 6 quick tasks pré-v1.2 sem arquivo local (`260820-0hl`, `260820-cap`, `260823-vu4`, `260823-x55`, `260824-i45`, `260824-kc2`) | missing — provavelmente já resolvidos/limpos manualmente antes desta sessão, sem rastro local pra confirmar | v1.2 close (2026-08-28), acknowledged, unrelated to v1.2 scope |
+| verification_gap | Fase 11 (v1.2): 2 overrides do texto literal do ROADMAP (SC#2/#4, ADR-022) | Aceito por Alex, ver `11-VERIFICATION.md` `suggested_overrides` | v1.2 close (2026-08-28) — resolved, not open |
+| WR-01 (arquitetura) | Race condition check-then-debit em `mydata_budget` — agora com até 3 consumidores concorrentes potenciais (candle, opções manuais, ponte gatilho→put) | Decisão de arquitetura pendente (lock? fila? aceitar risco?) | v1.2 close (2026-08-28) |
+| WR-01/WR-02 (Fase 11) | Observabilidade de sugestão sem prêmio; fallback morto em `decidir()` | Aceito o estado atual por Alex, sem correção de código | v1.2 close (2026-08-28) — resolved, not open |
 
 ## Session Continuity
 
@@ -136,19 +139,4 @@ Resume file: None — próximo passo é `/gsd:plan-phase 0`
 
 ## Operator Next Steps
 
-**Milestone v1.2 aberto e roteirizado (2026-08-28) — próximo passo é planejar a Fase 0.**
-
-1. `/gsd:plan-phase 0` — Precondições (LEDGER-01, OPTGATE-01).
-2. Depois de Fase 0 completa: `/gsd:plan-phase 10` — Ponte gatilho→put.
-3. Depois de Fase 10 completa: `/gsd:plan-phase 11` — Ciclo de vida e monitoramento.
-
-Backlog não coberto por v1.2 (segue de v1.0/v1.1), em ordem de prioridade sugerida:
-
-1. **Item 8 do checkpoint 08-05** — verificação ao vivo da entrada automática gated por um pregão inteiro com `entradaAuto` ligado; confirmar que só dispara nos setups elegíveis do momento e que o kill-switch está à mão antes de ligar. Único item que envolve execução automática real (dinheiro simulado).
-2. **2 human-check da Fase 3** nunca confirmados ao vivo — ver `.planning/milestones/v1.1-phases/03-corre-o-cr-tico-alto/03-VERIFICATION.md` (card de status 3 badges reativo; mensagem de "sem permissão" no kill-switch do timing_watch).
-3. **9 achados Baixo do REPORT-01** (C-06..C-10, C-17, C-18, C-28, C-29) — não mapeados a fase, ver `.planning/milestones/v1.0-phases/01-auditoria-diagn-stica-consolidada/REPORT-01.md`.
-4. **`textDim` do tema claro falha WCAG AA** (4.20:1, achado colateral da Fase 4, fora do escopo do C-16 original).
-5. **ADR-010** (números comerciais do plano gratuito/pago) — decisão de negócio do Alex, não técnica; arquitetura já confirmada pronta (FIX-C33 fechou o último gap estrutural).
-6. **Retomar virada de produção do mydata** (Fase 9, checkpoint `adiar`) — resolver o pico/min (148 vs. 60/min) antes de religar `B3_CANDLE_PROVIDER`/`B3_OPTIONS_PROVIDER=mydata`; explicitamente fora de escopo de v1.2.
-
-Quando v1.2 fechar: `/gsd:complete-milestone`.
+- Start the next milestone with /gsd-new-milestone

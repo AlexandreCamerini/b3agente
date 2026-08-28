@@ -1,5 +1,22 @@
 # Milestones
 
+## v1.2 Camada de opções ancorada na carteira (Shipped: 2026-08-28)
+
+**Phases completed:** 3 phases, 8 plans, 17 tasks
+
+**Key accomplishments:**
+
+- Fecha LEDGER-01: mapa de resolução (`ledger_tickers.py`) + retry de 404 escopado no bootstrap fazem os 74 tickers de `scanner.DEFAULT_UNIVERSE` atravessarem `signal_ledger_bootstrap` sem 404 residual — 2 renomeações confirmadas por série de preço contínua (MRFG3→MBRF3, EMBR3→EMBJ3), 5 exclusões documentadas (fusão/deslistagem/classe extinta) e 2 lacunas abertas e explícitas (ELET3/ELET6).
+- Gate `_gate()`/`_debita()` em `options_provider_mydata.get_options` consultando/debitando `mydata_budget` antes de qualquer chamada de rede, com recusa DURA (degrada, não serve mole) — fecha OPTGATE-01/WR-01 com 10 testes novos de comportamento e nota aditiva no ADR-020.
+- `put_suggestions` (tabela + módulo) grava sugestão de put comprada só quando estilo de exercício e IV vêm reais da fonte, e `put_bridge.triar_put` escolhe UM contrato determinístico de uma cadeia real ou devolve `None` com motivo exato — nenhuma chamada de rede, nenhum hook, nenhuma superfície visível.
+- `put_bridge.run_diario` cruza o Radar diário já armazenado com as carteiras de todos os usuários, consulta a cadeia de opções sequencialmente (1x por ticker, teto de 10/dia) e grava uma sugestão de put por usuário com proveniência real — pendurado no `scheduler_loop` existente via hook próprio, sem scheduler novo, sem nada visível ao usuário.
+- Um teste que lê o fonte (não um diff) prova, de forma permanente, que a ponte gatilho→put não alcança nenhuma rota HTTP, vocabulário, front, portal admin, telemetria do agente nem as agregações do Radar que o ADR-017 usa para ranquear setups — e o ADR-021 registra formalmente onde a sugestão mora, por que é long-only por construção, e a decisão pendente sobre WR-01 (race condition do gate de orçamento) que o Alex ainda precisa validar.
+- `put_suggestions` ganha 11 colunas de ciclo de vida e `transicionar()` como única porta de escrita de estado (proveniência da Fase 10 comprovadamente imutável por essa porta), e `put_lifecycle.py` nasce como máquina de decisão pura que cobre as 5 transições do ROADMAP reusando literalmente `agent.intrinseco_opcao` — nenhuma chamada de rede, nenhum hook, nenhuma escrita na carteira real.
+- `put_lifecycle.run_diario` varre diariamente toda sugestão de put não-terminal, resolve preço via `candle_cache.peek` (custo zero de rede) e aplica a máquina de decisão pura do Plano 01 através da única porta de escrita (`transicionar`) — pendurado no `scheduler_loop` já existente, FORA de qualquer gate de pregão/kill-switch/radar_fetch porque é medição interna, nunca execução de ordem.
+- `test_put_lifecycle_sem_carteira.py` prova por COMPORTAMENTO — carteira montada via `db.kv_set` direto, nunca `store.buy_option`/`sell_option` — que um ciclo de vida completo (armada→executada_simulada→monitorada→fechada) deixa `optionPositions`/`cash`/`history` byte-idênticos, que nenhuma transição de estado fora do produto cartesiano declarado é gravável, e que nenhuma linha fica em limbo silencioso; ADR-022 e o runbook fecham os 4 requisitos da Fase 11 com evidência que sobrevive ao `.planning/`.
+
+---
+
 ## v1.1 Realismo de Mercado + Correções (Shipped: 2026-08-23)
 
 **Phases completed:** 7 phases, 44 plans, 105 tasks
