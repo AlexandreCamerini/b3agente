@@ -55,7 +55,9 @@ completed: 2026-08-27
 1. **VEREDITO (só da projeção offline):** NÃO CABE, por causa do pico por minuto — não do volume diário.
 2. **Pico chamadas/min projetado:** 148 (74 do cenário frio + 74 do cenário morno REAL), contra 60/min da chave. Volume chamadas/dia projetado: 548 (74 frio + 74 morno REAL + 400 opções), contra 2.000/dia.
 3. **`intervaloMinimoSeguro`:** 1,0s de espaçamento mínimo entre chamadas reais ao mydata (hoje `scanner.MIN_FETCH_GAP_S`=0,15s, dimensionado para Yahoo/brapi — 6,7× mais folgado do que o teto do mydata permite).
-4. **Perna ao vivo:** NÃO RODOU. `MYDATA_TOKEN` ausente neste ambiente — confirmado por `env | grep -i MYDATA` antes de começar. `scripts/medir-mydata.py --fases vivo --vivo` saiu com código 2, exatamente como o critério de aceite do Plano 09-04 exige (recusa explícita, nenhuma simulação, nenhuma chamada de rede feita). A chave de produção (`f00b4554`) **ainda não foi confirmada autenticando de fato** contra `mydata.acamerini.app`.
+4. **Perna ao vivo:** NÃO RODOU nesta execução do plano (`MYDATA_TOKEN` ausente neste ambiente — confirmado por `env | grep -i MYDATA` antes de começar; `scripts/medir-mydata.py --fases vivo --vivo` saiu com código 2, exatamente como o critério de aceite do Plano 09-04 exige — recusa explícita, nenhuma simulação, nenhuma chamada de rede feita).
+
+   **Atualização (2026-08-28T01:57:52Z, fora do ciclo GSD desta execução):** o Alex rodou a perna ao vivo localmente com `MYDATA_TOKEN` real exportado. Resultado: chave `f00b4554` **confirmada autenticando de fato**, escopo `fonte:b3` ativo (`precosPresentes=true` nas 5 amostras de `cotacoes`), 10/10 chamadas sem erro, reconciliação de cota batendo (10 chamadas, `X-Quota-Restante` final=58). O veredito de PICO por minuto (item 2 acima) não muda — a amostra ao vivo usou 10 chamadas em ~7,5s, não é teste de rajada. Números completos anexados em `docs/MEDICAO-Mydata-2026-08-27.md` §4/§5/§6 e em `.planning/todos/pending/medir-rate-limit-mydata.md`.
 
 ## Accomplishments
 

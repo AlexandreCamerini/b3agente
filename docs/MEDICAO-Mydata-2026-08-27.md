@@ -1,12 +1,11 @@
 # MEDIÇÃO — rate-limit do mydata (cvm-financas) contra 60/min · 2.000/dia
 
-**Data:** 2026-08-27 · **Status: PARCIAL — perna ao vivo BLOQUEADA por
-`MYDATA_TOKEN` ausente no ambiente de execução.** Este documento registra a
-medição de **projeção offline** (100% completa, ZERO rede) e deixa a
-**amostra ao vivo** explicitamente pendente. Princípio 4 do `CLAUDE.md` do
-repo se aplica à própria medição: nenhum número da perna ao vivo abaixo é
-inventado — as seções correspondentes dizem "BLOQUEADO", não um valor
-chutado.
+**Data:** 2026-08-27 (projeção) · **2026-08-28T01:57:52Z** (amostra ao vivo,
+anexada por fora do ciclo GSD da fase 9 — ver §4/§5) · **Status: COMPLETO** —
+projeção offline e amostra ao vivo, as duas fechadas. Princípio 4 do
+`CLAUDE.md` do repo se aplica à própria medição: nenhum número deste
+documento é inventado — os da amostra ao vivo vieram de 10 chamadas reais
+contra `mydata.acamerini.app` com a chave de produção `f00b4554`.
 
 ## 1. O que foi medido e como
 
@@ -115,59 +114,95 @@ apertado do mydata (60/min é 6,7× mais restritivo que a folga que
 
 ## 4. Amostra ao vivo
 
-**BLOQUEADO.** `MYDATA_TOKEN` ausente no ambiente de execução deste plano.
-Comando tentado:
-
-```
-python3 scripts/medir-mydata.py --fases projecao,vivo --vivo --amostra 5 --saida /tmp/medicao-mydata.json
-```
-
-Saída da fase `vivo`:
-
-```
-ERRO: MYDATA_TOKEN ausente no ambiente. A perna ao vivo não roda sem a chave
-de produção (prefixo público f00b4554; exporte a chave completa só no shell
-local — nunca commitar).
-```
-
-Código de saída: **2** (comportamento correto e verificado — a fase `vivo`
-recusa terminantemente em vez de simular ou estimar; ver critério de
-aceite do Plano 09-04, Task 1). Nenhuma chamada de rede foi feita, nenhuma
-cota foi gasta.
-
-**Para completar esta seção:** rodar localmente, com `MYDATA_TOKEN`
-exportado no shell (nunca commitado):
+**Rodada em 2026-08-28T01:57:52Z**, pelo Alex, no shell local, com
+`MYDATA_TOKEN` exportado (chave de produção, prefixo `f00b4554`; valor
+completo nunca aparece neste documento nem em nenhum arquivo do repo).
+Comando:
 
 ```
 server/.venv/bin/python scripts/medir-mydata.py --fases vivo --vivo --amostra 5 --saida /tmp/medicao-mydata-vivo.json
 ```
 
-e anexar aqui a tabela por ticker (status, latência, `X-Quota-Limite`,
-`X-Quota-Restante`, linhas devolvidas, campos de preço presentes) que o
-script já imprime automaticamente.
+5 tickers × 2 rotas = 10 chamadas reais contra `mydata.acamerini.app`. Todas
+com `erro: null` (nenhuma falha, nenhum retry):
+
+| Ticker | Rota | Latência | Linhas | Preço presente | Quota restante |
+|---|---|---|---|---|---|
+| PETR4 | cotacoes | 565ms | 5 | sim | 59 |
+| PETR4 | opcoes/vencimentos | 1490ms | 27 | n/a | 58 |
+| PETR3 | cotacoes | 451ms | 5 | sim | 57 |
+| PETR3 | opcoes/vencimentos | 700ms | 4 | n/a | 56 |
+| VALE3 | cotacoes | 459ms | 5 | sim | 55 |
+| VALE3 | opcoes/vencimentos | 782ms | 24 | n/a | 54 |
+| ITUB4 | cotacoes | 514ms | 5 | sim | 53 |
+| ITUB4 | opcoes/vencimentos | 1180ms | 26 | n/a | 52 |
+| BBDC4 | cotacoes | 395ms | 5 | sim | 59 |
+| BBDC4 | opcoes/vencimentos | 968ms | 24 | n/a | 58 |
+
+`quotaLimite` = 60 em toda chamada, confere com o contrato. `precosPresentes`
+é `n/a` (não `null`-erro) nas rotas de `vencimentos`: esse endpoint não
+devolve preço, é o formato esperado do payload, não o sintoma de chave sem
+escopo.
+
+**Achado — chave escopada corretamente.** `precosPresentes=true` nas 5
+chamadas de `cotacoes` — confirma que a chave `f00b4554` carrega `fonte:b3`
+de fato (o script tem uma guarda dedicada para o sintoma inverso, "200 com
+`dados` mas sem `preco_fechamento`" — descrito no `contrato-consumidor.md`
+do cvm-financas como o defeito da chave anterior `dadbd4b0` — e ela NÃO
+disparou: `achadoEscopoChave: null` no JSON bruto). Item 3 do TODO fecha
+aqui: **a chave de produção autentica de fato e devolve dado real das duas
+rotas.**
+
+**Achado colateral — a janela de cota é por minuto-relógio, não rolante a
+partir da primeira chamada.** `X-Quota-Restante` caiu de forma monotônica
+59→58→57→56→55→54→53→52 nas primeiras 8 chamadas (~6,5s), e então **subiu**
+para 59 na 9ª (BBDC4/cotacoes) — só possível se a janela de contagem tiver
+resetado no meio da amostra. As 10 chamadas levaram ~7,5s no total, bem
+abaixo de 60s; o reset só se explica por uma janela alinhada ao minuto-
+relógio (ex.: `HH:MM:00`), não por uma janela rolante de 60s contada a
+partir da primeira chamada do cliente. Isso é uma vantagem, não um risco
+adicional: janela fixa por minuto-relógio significa que uma rajada correndo
+perto do fim de um minuto ganha "cota nova" mais cedo do que uma janela
+rolante daria — não muda o veredito do §6 (o teto continua 60/min), mas é
+relevante para quem for desenhar o `intervaloMinimoSeguro` com precisão de
+borda de janela.
 
 ## 5. Reconciliação previsão × verdade
 
-**BLOQUEADO** — depende da amostra ao vivo (§4). O script já implementa a
-reconciliação (`X-Quota-Restante` antes/depois da amostra vs. número de
-chamadas feitas, impresso ao final da fase `vivo`); só falta rodá-la com a
-chave real.
+**Fechada.** `X-Quota-Restante` antes da amostra: não capturado (primeira
+chamada do processo, sem estado prévio local) → depois: **58**.
+`chamadasFeitas` (contador local do script): **10**. O JSON bruto
+(`reconciliacao.quotaDepois`) confere exatamente com a última linha da
+tabela do §4 (BBDC4/opcoes/vencimentos, restante=58) — a previsão local do
+`mydata_budget.py` bateria com a verdade do hub SE tivesse rodado nesta
+mesma janela (o teste não instrumentou `mydata_budget` em paralelo; ver
+"Plano de ação" no §8 para o gap de instrumentação ao vivo, se algum dia for
+necessário).
 
 ## 6. Veredito
 
-**VEREDITO DA PROJEÇÃO (offline): NÃO CABE**, por causa do PICO por minuto
-(148 de 60/min projetado nos cenários frio+morno) — não por causa do volume
-diário (548 de 2.000/dia, folga confortável de 72,6%). A chave suporta o
-VOLUME; não suporta a mesma VELOCIDADE de rajada que o `scanner.py` usa
-hoje para Yahoo/brapi (`MIN_FETCH_GAP_S`=0,15s permite até ~400
-chamadas/min, 6,7× acima do teto do mydata).
+**VEREDITO FINAL (projeção + amostra ao vivo, as duas fechadas): NÃO CABE
+no pico por minuto.** A projeção offline mede 148 de 60/min projetado nos
+cenários frio+morno — não por causa do volume diário (548 de 2.000/dia,
+folga confortável de 72,6%). A chave suporta o VOLUME; não suporta a mesma
+VELOCIDADE de rajada que o `scanner.py` usa hoje para Yahoo/brapi
+(`MIN_FETCH_GAP_S`=0,15s permite até ~400 chamadas/min, 6,7× acima do teto
+do mydata).
 
-Este veredito é só da perna de PROJEÇÃO. A chave de produção (`f00b4554`)
-**ainda não foi confirmada autenticando de fato** contra
-`mydata.acamerini.app` nem devolvendo dado real das duas rotas — isso exige
-a amostra ao vivo (§4), bloqueada nesta execução. O veredito final e
-completo do critério de aceite da fase só fecha depois da perna ao vivo
-rodar.
+**O que a amostra ao vivo (§4) resolveu:** a chave de produção `f00b4554`
+**está confirmada autenticando de fato** contra `mydata.acamerini.app`,
+devolvendo dado real e corretamente escopado (`fonte:b3` ativo,
+`precosPresentes=true`) das duas rotas medidas (`cotacoes` e
+`opcoes/vencimentos`). Essa era a segunda das duas razões que motivaram o
+`adiar` do checkpoint do Plano 09-06 — está fechada.
+
+**O que NÃO mudou:** o pico por minuto continua acima do teto. A amostra ao
+vivo usou 10 chamadas em ~7,5s (bem abaixo de 60/min) — não é um teste de
+rajada equivalente ao padrão real do scanner, então não contradiz nem
+confirma o número 148 projetado; só confirma que a chave funciona. O
+veredito de capacidade (§6, primeiro parágrafo) permanece **NÃO CABE** até
+uma das duas saídas do §8 (negociar cota maior, ou reduzir a cadência para
+o `intervaloMinimoSeguro`=1,0s) ser aplicada.
 
 ## 7. Item 2 do TODO — status de `provento_b3`
 
@@ -210,11 +245,9 @@ negociar aumento de cota:
    09-02) — hoje não existe NENHUM limite de taxa no caminho de opções, e
    o TTL de 300s só reduz repetição do MESMO ticker, não protege contra
    muitos tickers distintos abertos ao mesmo tempo.
-4. **Perna ao vivo (bloqueio desta execução):** rodar
-   `scripts/medir-mydata.py --fases vivo --vivo` localmente com
-   `MYDATA_TOKEN` exportado, confirmar autenticação real e escopo
-   `fonte:b3` (campos de preço presentes), e atualizar as §4/§5/§6 deste
-   documento com os números reais antes do checkpoint do Plano 09-06.
+4. ~~**Perna ao vivo**~~ — **CONCLUÍDA em 2026-08-28T01:57:52Z.** Chave
+   `f00b4554` confirmada autenticando de fato, escopo `fonte:b3` ativo
+   (campos de preço presentes nas 5 amostras de `cotacoes`). Ver §4/§5/§6.
 
 ## 9. Pré-condição da virada
 
@@ -222,7 +255,13 @@ Este documento é o **pré-requisito declarado** do checkpoint do Plano
 09-06. Sem `CABE` nas DUAS dimensões (volume diário E pico por minuto) —
 ou sem a mitigação do item 1 do Plano de ação aplicada — **a virada de
 `B3_CANDLE_PROVIDER`/`B3_OPTIONS_PROVIDER` para `mydata` NÃO acontece**.
-Hoje: volume diário CABE; pico por minuto NÃO CABE sem a mitigação do item
-1; a perna ao vivo (autenticação real, escopo `fonte:b3`) está BLOQUEADA
-pendente de `MYDATA_TOKEN` neste ambiente. Os três precisam fechar antes do
-Plano 09-06 aprovar a virada.
+
+**Status atual (pós amostra ao vivo de 2026-08-28):** volume diário CABE;
+chave confirmada autenticando de fato (item 4 do Plano de ação fechado);
+**pico por minuto continua NÃO CABE** sem a mitigação do item 1 aplicada
+(gate de espaçamento sensível ao provedor, ou elevar o espaçamento global).
+Dos três itens que precisavam fechar antes da virada, dois fecharam — falta
+só o pico por minuto. O checkpoint do Plano 09-06 foi resolvido como
+`adiar` em 2026-08-27 (antes desta amostra ao vivo existir); com a chave
+agora confirmada, o único bloqueio restante para reabrir esse checkpoint é
+a mitigação do pico/min.

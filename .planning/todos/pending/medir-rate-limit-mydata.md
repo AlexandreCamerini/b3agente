@@ -49,3 +49,24 @@ autenticando de fato, decidir se cabe/precisa mitigação) só fecha depois da
 perna ao vivo rodar com `MYDATA_TOKEN` real e, se o pico por minuto continuar
 NÃO CABENDO, da mitigação do gate de espaçamento (item 1 do "Plano de ação"
 do documento) ser aplicada ou decidida.
+
+## Resultado (2026-08-28) — autenticação confirmada, mitigação do pico ainda pendente
+
+Perna ao vivo rodada pelo Alex em 2026-08-28T01:57:52Z, fora do ciclo GSD da
+fase 9 (`MYDATA_TOKEN` real exportado localmente, nunca commitado): 5
+tickers × 2 rotas = 10 chamadas reais contra `mydata.acamerini.app`, `erro:
+null` em todas, `precosPresentes=true` nas 5 de `cotacoes` (escopo
+`fonte:b3` confirmado ativo na chave `f00b4554`). Reconciliação de cota
+bateu com o contador local (10 chamadas, `X-Quota-Restante` final=58 de
+60). Números completos em
+[docs/MEDICAO-Mydata-2026-08-27.md §4/§5](../../../docs/MEDICAO-Mydata-2026-08-27.md#4-amostra-ao-vivo).
+
+**Item 3 agora tem metade fechada:** a sub-pergunta "a chave autentica de
+fato?" — **sim, confirmado**. A sub-pergunta "precisa mitigação?" —
+**sim, continua precisando**: a amostra ao vivo usou só 10 chamadas em
+~7,5s, não testa rajada equivalente ao padrão real do scanner, então não
+muda o veredito de pico/min (148 vs 60/min) da projeção. Este TODO segue em
+`pending/` até a mitigação (gate de espaçamento sensível ao provedor, ou
+elevar `MIN_FETCH_GAP_S` global) ser aplicada ou decidida — é o que falta
+para reabrir o checkpoint `adiar` do Plano 09-06 com veredito `CABE` na
+mesa.
