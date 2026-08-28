@@ -176,12 +176,14 @@ contrato registrado ali).
 - [ ] `textDim` do tema claro também reprova contraste WCAG AA (4.20:1) —
   achado colateral da Fase 4 (fora do escopo do C-16 original), candidato a
   backlog
-- [ ] Retomar a virada de produção do mydata (Fase 9, checkpoint `adiar`):
-  rodar a perna ao vivo da medição (`MYDATA_TOKEN` real +
-  `scripts/medir-mydata.py --fases vivo --vivo`) e resolver o pico/min
-  (148 projetado vs. 60/min da chave) antes de religar
-  `B3_CANDLE_PROVIDER`/`B3_OPTIONS_PROVIDER=mydata` — ver
-  `docs/MEDICAO-Mydata-2026-08-27.md` e `09-06-SUMMARY.md`
+- [ ] Retomar a virada de produção do mydata (Fase 9, checkpoint `adiar`) —
+  **os dois bloqueios originais estão resolvidos**: perna ao vivo confirmou
+  a chave autenticando (2026-08-28), e o pico/min ganhou mitigação em
+  código (`scanner.MIN_FETCH_GAP_S_MYDATA`=1,0s quando o provedor é
+  mydata, commit `9b30419`). Falta só decidir religar
+  `B3_CANDLE_PROVIDER`/`B3_OPTIONS_PROVIDER=mydata` em produção (ação sua,
+  env var do Railway) e rodar o checklist do Plano 09-06 Task 3
+  (`<how-to-verify>`) — ver `docs/MEDICAO-Mydata-2026-08-27.md` §6/§8
 - [ ] Gate de orçamento das opções tem race condition check-then-debit
   (WR-01, agora em dois consumidores após a Fase 0 do v1.2) — decisão de
   arquitetura (lock/fila/aceitar risco) pendente sua validação, ver
