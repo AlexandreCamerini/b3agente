@@ -1112,7 +1112,8 @@ async def scheduler_loop(conn, quotes_getter, notify_push=None, interval_s: int 
     ADR-017 (Bloco 1): o mesmo laço também avança o ledger de sinais
     resolvidos — hook próprio, gate próprio (`B3_LEDGER_DAILY_HHMM`, default
     09:15), lendo do `candle_cache` sem custo de rede.
-    Fase 10: o mesmo laço arma a ponte gatilho→put — hook próprio, gate próprio (`B3_PUT_BRIDGE_HHMM`, default 09:30), lendo o Radar já armazenado, sem custo de rede extra e sem scheduler novo."""
+    Fase 10: o mesmo laço arma a ponte gatilho→put — hook próprio, gate próprio (`B3_PUT_BRIDGE_HHMM`, default 09:30), lendo o Radar já armazenado, sem custo de rede extra e sem scheduler novo.
+    Fase 11: o mesmo laço avança o ciclo de vida das sugestões de put — hook próprio, gate próprio (`B3_PUT_LIFECYCLE_HHMM`, default 09:45), lendo o cache de candles, sem custo de rede e sem scheduler novo."""
     interval = interval_s or int(os.environ.get("B3_AGENT_INTERVAL_S") or INTERVAL_S_DEFAULT)
     # 260824-kc2: preferência por classe de push. Import local (padrão do
     # arquivo, ex.: `_alertar_kill_switch` e os hooks abaixo) e FORA do
@@ -1204,6 +1205,13 @@ async def scheduler_loop(conn, quotes_getter, notify_push=None, interval_s: int 
                     await put_bridge.maybe_run(conn)
                 except Exception as e:  # noqa: BLE001 — a ponte nunca derruba o laço
                     print(f"[put-bridge] hook do scheduler falhou: {e}")
+            # Fase 11 (PUTLIFE-04): ciclo de vida das sugestões de put — DEPOIS da ponte de propósito (o cache do Radar já está quente) e FORA do gate de pregão/kill-switch, porque é medição interna, nunca execução de ordem.
+            # `try/except` PRÓPRIO, segundo cinto além do try/except interno da varredura diária do ciclo de vida (que já nunca propaga) — nenhuma falha daqui chega ao heartbeat, ao kill-switch ou ao ciclo de stop/alvo.
+            try:
+                from . import put_lifecycle  # import local: sem ciclo de import
+                await put_lifecycle.maybe_run(conn)
+            except Exception as e:  # noqa: BLE001 — o ciclo de vida nunca derruba o laço
+                print(f"[put-lifecycle] hook do scheduler falhou: {e}")
             if not kill_switch_on() and in_market_hours():
                 # ADR-001 (item 7): passada INTRADAY, GLOBAL, uma por acordar do
                 # laço. Roda ANTES do ciclo por usuário de propósito — assim o
