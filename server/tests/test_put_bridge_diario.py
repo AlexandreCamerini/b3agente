@@ -128,6 +128,30 @@ def test_ticker_no_radar_e_na_carteira_gera_sugestao(tmp_path, monkeypatch):
     assert linha["iv"] == 0.3
 
 
+def test_posicao_com_ticker_malformado_nao_aborta_carteiras_por_ticker(tmp_path):
+    """Guardião do achado WR-01 do 10-REVIEW.md: `carteiras_por_ticker`
+    afirma no docstring que uma linha ruim é pulada sem abortar o cruzamento
+    do dia inteiro, mas `normalize_ticker(t)` era chamado sem checar o tipo
+    de `t` — um valor não-string (ex.: número, vindo de dado corrompido em
+    `positions`) derrubava `.upper()` com AttributeError, abortando
+    `run_diario` para TODOS os usuários daquele dia, não só a linha ruim."""
+    conn = _conn(tmp_path)
+    # posição malformada (t numérico) misturada com uma válida, no MESMO usuário
+    db.kv_set(conn, "positions", [
+        {"t": 12345, "qty": 100, "avg": 30.0},
+        _posicao("PETR4"),
+    ], user_id="u1")
+    # segundo usuário, só com a posição válida
+    _carteira(conn, "u2", ["VALE3"])
+
+    mapa = put_bridge.carteiras_por_ticker(conn)
+
+    assert mapa.get("PETR4") == ["u1"]
+    assert mapa.get("VALE3") == ["u2"]
+    assert 12345 not in mapa
+    assert "12345" not in mapa
+
+
 def test_ticker_so_no_radar_nao_gera(tmp_path, monkeypatch):
     conn = _conn(tmp_path)
     _mock_radar(monkeypatch, _radar([_resultado("VALE3", [_setup()])]))

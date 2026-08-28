@@ -141,6 +141,19 @@ def test_strike_acima_do_spot_e_pulado():
     assert candidato["contrato"] == "BELOW"
 
 
+def test_strike_zero_ou_negativo_e_pulado():
+    """Guardião do achado WR-02 do 10-REVIEW.md: a checagem original só
+    rejeitava strike não-numérico ou acima do spot — um strike malformado
+    <= 0 vindo da fonte passava direto e virava candidato."""
+    payload = _payload(
+        puts=[_put(0, symbol="ZERO"), _put(-5, symbol="NEGATIVO"), _put(90, symbol="VALIDO")],
+        spot=100.0,
+    )
+    candidato, motivo = put_bridge.triar_put(payload)
+    assert motivo == ""
+    assert candidato["contrato"] == "VALIDO"
+
+
 def test_call_nunca_e_candidata():
     payload = _payload(
         puts=[_put(90, symbol="ONLYPUT")],

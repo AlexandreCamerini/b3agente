@@ -79,7 +79,7 @@ def triar_put(payload: dict) -> tuple[Optional[dict], str]:
             continue  # defesa em profundidade: nunca deveria vir aqui vindo de "puts"
 
         strike = contrato.get("strike")
-        if not isinstance(strike, (int, float)) or isinstance(strike, bool) or strike > spot:
+        if not _numero_positivo(strike) or strike > spot:
             continue  # proteção é abaixo do preço atual — sem contador dedicado
 
         iv = contrato.get("impliedVolatility")
@@ -245,7 +245,7 @@ def carteiras_por_ticker(conn) -> dict[str, list[str]]:
             if not isinstance(p, dict):
                 continue
             t = p.get("t")
-            if not t:
+            if not isinstance(t, str) or not t:
                 continue
             out.setdefault(normalize_ticker(t), set()).add(uid)
     return {t: sorted(uids) for t, uids in out.items()}
