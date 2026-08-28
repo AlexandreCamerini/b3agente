@@ -100,7 +100,7 @@ Fases 1-8 pertencem a v1.0/v1.1 e a própria Fase 9 já está documentada acima.
 
 - [x] **Phase 0: Precondições** - Fecha os 9 tickers 404 do bootstrap do ledger (ADR-017) e o gate de orçamento do provedor de opções mydata (achado WR-01 da Fase 9) (completed 2026-08-28)
 - [x] **Phase 10: Ponte gatilho→put** - Hook no `scheduler_loop` seleciona série de put candidata via hub mydata e grava a sugestão no ledger com proveniência — nada visível (completed 2026-08-28)
-- [ ] **Phase 11: Ciclo de vida e monitoramento** - Estados armada→expirada/executada→monitorada→fechada, reusando `optionPositions` e ADR-003/004/005 inteiros
+- [ ] **Phase 11: Ciclo de vida e monitoramento** (3 plans) - Estados armada→expirada/executada→monitorada→fechada, reusando os CONTRATOS de ADR-003/004/005 sem tocar a carteira do usuário
 
 ### Phase 0: Precondições
 
@@ -239,4 +239,39 @@ o que monitorar)
   - `B3_OPTIONS_PROVIDER` nunca é alterado
   - Nenhuma superfície visível ao usuário introduzida
   - Nenhum suporte a opção vendida/short introduzido em qualquer forma
-**Plans**: TBD
+**Plans**: 3 plans (3 waves — cada plano depende do anterior; o Plano 02
+consome as funções puras do 01 e o 03 prova, por comportamento, que o ciclo
+inteiro não toca a carteira do usuário)
+
+Plans:
+**Wave 1**
+
+- [ ] 11-01-PLAN.md — 11 colunas de ciclo de vida em `put_suggestions`
+  (migração idempotente) + `transicionar()` como única porta de escrita de
+  estado + `put_lifecycle.py` puro (`forma_adr003`/`resolver_spots`/
+  `decidir`, intrínseco reusado de `agent.intrinseco_opcao`)
+
+**Wave 2** *(blocked on Wave 1)*
+
+- [ ] 11-02-PLAN.md — `put_lifecycle.run_diario`/`maybe_run`: varredura
+  diária das sugestões não-terminais lendo `candle_cache.peek` (custo de rede
+  zero), pendência datada quando falta preço, e o hook no `scheduler_loop`
+  logo após o da ponte
+
+**Wave 3** *(blocked on Wave 2)*
+
+- [ ] 11-03-PLAN.md — guardião permanente (carteira `optionPositions`/`cash`/
+  `history` byte-idêntica ao longo de um ciclo completo; nenhum estado
+  inválido; nenhuma linha em limbo; nenhuma superfície) + ADR-022 + runbook
+  de operação + fechamento da suíte canônica
+
+**Nota de desenho (resolvida no planejamento, registrada em ADR-022)**: a
+leitura literal de "reusa `optionPositions`" — chamar as funções de
+compra/venda de opção do motor — foi DESCARTADA com duas evidências: (1)
+`optionPositions`/`cash`/`history` estão em `store.SECTIONS` e portanto são
+superfície visível ao usuário, o que contradiz o objetivo de topo do
+milestone; (2) `agent._avaliar_opcoes` retorna cedo sem posição de opção
+real, tornando a leitura literal tecnicamente inerte. O reuso é dos
+CONTRATOS de ADR-003/004/005 (forma da posição sem quantidade, não marcar
+sobre dado degradado, intrínseco e vocabulário de motivo vindos do próprio
+motor); a simulação inteira vive nas colunas de `put_suggestions`.
