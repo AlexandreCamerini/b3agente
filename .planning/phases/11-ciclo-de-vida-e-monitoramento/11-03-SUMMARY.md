@@ -81,7 +81,7 @@ completed: 2026-08-28
 | Critério | Resultado |
 |---|---|
 | `pytest tests/test_put_lifecycle_sem_carteira.py -q` → exit 0, ≥12 testes, nenhum skip | PASSOU (15 passed) |
-| `pytest tests/test_put_bridge_sem_superficie.py -q` → exit 0, 8 passed (guardião Fase 10 sem regressão) | PASSOU (23 passed no total combinado: 15+8) |
+| `pytest tests/test_put_bridge_sem_superficie.py -q` → exit 0, 8 passed (guardião Fase 10 sem regressão) | PASSOU (verificado isoladamente: `8 passed, 2 warnings in 0.30s`; também combinado com o novo arquivo: 23 passed = 15+8) |
 | Prova de RED: sentinela → ≥1 teste FALHA; `git checkout --` → diff vazio, suíte volta a exit 0 | PASSOU (1 failed com sentinela; diff vazio após reverter; 15 passed de volta) |
 | `git diff --stat "$FASE10" -- server/app/store.py` → vazio | PASSOU |
 | `git diff --stat "$FASE10" -- web/ web-admin/ server/app/skill_ref.py server/app/main.py server/app/defaults.py` → vazio | PASSOU |
