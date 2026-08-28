@@ -14,6 +14,8 @@ O que estes testes protegem:
     sobre `liquidity_score`, não presumido;
   • cache de módulo (300s sucesso / 60s erro) poupa cota — duas chamadas
     seguidas ao mesmo (ticker, expiration) fazem UMA ida ao cliente.
+  • estouro de orçamento degrada sem tocar a rede e sem cachear a recusa
+    (OPTGATE-01 / WR-01 do `09-REVIEW.md`, Fase 0/Plano 02).
 Offline: `monkeypatch.setattr(provider.mydata_client, "get_vencimentos"/
 "get_options_chain", fake)` — nenhum teste toca rede.
 """
@@ -21,15 +23,22 @@ import asyncio
 
 import pytest
 
-from app import options_provider_mydata as provider
+from app import mydata_budget, options_provider_mydata as provider
 from app.options_quant import liquidity_score
 
 
 @pytest.fixture(autouse=True)
 def _cache_limpo():
     provider._cache.clear()
+    # Reset do orçamento em TODO teste deste arquivo, não só nos que testam
+    # o gate — a partir desta entrega `get_options` sempre consulta a cota
+    # real por baixo (a menos que o teste monkeypatche `pode_gastar`), e os
+    # testes de contrato/cache pré-existentes não devem ficar reféns de
+    # ordem de execução nem de estado deixado por outro arquivo de teste.
+    mydata_budget.reset()
     yield
     provider._cache.clear()
+    mydata_budget.reset()
 
 
 def _linha_petr4(**over):
@@ -292,6 +301,110 @@ def test_duas_chamadas_seguidas_mesmo_ticker_fazem_uma_ida_ao_cliente(monkeypatc
     asyncio.run(provider.get_options("PETR4"))
     asyncio.run(provider.get_options("PETR4"))
     assert chamadas["n"] == 1
+
+
+# ---------------------------------------------------------------------------
+# Gate de orçamento (OPTGATE-01 / WR-01) — prova de comportamento, não de
+# existência: cada teste tem asserção sobre o que NÃO aconteceu (rede não
+# tocada, débito não feito) ou sobre o estado observável do payload.
+# ---------------------------------------------------------------------------
+def test_sem_cota_devolve_degradado_sem_tocar_o_cliente(monkeypatch):
+    chamadas_venc = []
+    chamadas_chain = []
+
+    async def fake_vencimentos(ticker, pregao=None, *, fetch_json=None):
+        chamadas_venc.append(ticker)
+        return _vencimentos_ok()
+
+    async def fake_chain(ticker, vencimento=None, pregao=None, tipo=None, *, fetch_json=None):
+        chamadas_chain.append(ticker)
+        return [_linha_petr4()]
+
+    monkeypatch.setattr(provider.mydata_client, "get_vencimentos", fake_vencimentos)
+    monkeypatch.setattr(provider.mydata_client, "get_options_chain", fake_chain)
+    monkeypatch.setattr(mydata_budget, "pode_gastar", lambda n=1, now=None: False)
+
+    data = asyncio.run(provider.get_options("PETR4"))
+
+    assert data["providerStatus"] == "degraded"
+    assert data["calls"] == []
+    assert data["puts"] == []
+    assert data["expirations"] == []
+    assert data["source"] == "mydata"
+    assert "cota" in data["providerError"]
+    assert chamadas_venc == []
+    assert chamadas_chain == []
+
+
+def test_sem_cota_nao_debita(monkeypatch):
+    debitos = []
+    monkeypatch.setattr(mydata_budget, "pode_gastar", lambda n=1, now=None: False)
+    monkeypatch.setattr(mydata_budget, "debita", lambda n=1, now=None: debitos.append(n))
+
+    asyncio.run(provider.get_options("PETR4"))
+
+    assert debitos == []
+
+
+def test_recusa_por_cota_nao_e_cacheada(monkeypatch):
+    """Decisão A-07: a recusa por cota não pode envelhecer no cache — assim
+    que a cota libera, a MESMA chave (ticker, expiration) serve dado real."""
+    _patch(monkeypatch)
+    liberado = {"pode": False}
+    monkeypatch.setattr(mydata_budget, "pode_gastar", lambda n=1, now=None: liberado["pode"])
+
+    primeira = asyncio.run(provider.get_options("PETR4"))
+    assert primeira["providerStatus"] == "degraded"
+
+    liberado["pode"] = True
+    segunda = asyncio.run(provider.get_options("PETR4"))
+    assert segunda["providerStatus"] == "ok"
+    assert segunda["calls"]
+
+
+def test_caminho_feliz_debita_duas_vezes(monkeypatch):
+    _patch(monkeypatch)
+    debitos = []
+    consultas_n = []
+
+    def fake_pode_gastar(n=1, now=None):
+        consultas_n.append(n)
+        return True
+
+    monkeypatch.setattr(mydata_budget, "pode_gastar", fake_pode_gastar)
+    monkeypatch.setattr(mydata_budget, "debita", lambda n=1, now=None: debitos.append(n))
+
+    data = asyncio.run(provider.get_options("PETR4"))
+
+    assert data["providerStatus"] == "ok"
+    assert debitos == [1, 1]
+    assert consultas_n == [2]
+
+
+def test_vencimento_inexistente_debita_uma_vez(monkeypatch):
+    _patch(monkeypatch)
+    debitos = []
+    monkeypatch.setattr(mydata_budget, "pode_gastar", lambda n=1, now=None: True)
+    monkeypatch.setattr(mydata_budget, "debita", lambda n=1, now=None: debitos.append(n))
+
+    data = asyncio.run(provider.get_options("PETR4", expiration="2099-01-01"))
+
+    assert data["providerStatus"] == "degraded"
+    assert debitos == [1]
+
+
+def test_cache_quente_nao_consulta_orcamento(monkeypatch):
+    _patch(monkeypatch)
+    consultas = []
+    debitos = []
+    monkeypatch.setattr(mydata_budget, "pode_gastar", lambda n=1, now=None: consultas.append(n) or True)
+    monkeypatch.setattr(mydata_budget, "debita", lambda n=1, now=None: debitos.append(n))
+
+    asyncio.run(provider.get_options("PETR4"))
+    asyncio.run(provider.get_options("PETR4"))
+
+    assert consultas == [2]
+    assert debitos == [1, 1]
 
 
 # ---------------------------------------------------------------------------
