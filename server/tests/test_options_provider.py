@@ -7,19 +7,25 @@ O que estes testes protegem:
   • com `B3_OPTIONS_PROVIDER=mydata`, `get_options()` despacha para o
     adaptador do mydata, e o provedor Yahoo NÃO é chamado;
   • nome desconhecido levanta `ValueError` citando as opções válidas.
+  • Fase 0/Plano 02 (OPTGATE-01): o gate de orçamento do mydata sobrevive à
+    troca de seletor — com `B3_OPTIONS_PROVIDER=mydata` e cota estourada,
+    `get_options()` degrada sem tocar o cliente; com `yahoo` (default), o
+    orçamento do mydata nunca é sequer consultado.
 """
 import asyncio
 
 import pytest
 
-from app import options_provider as p
+from app import mydata_budget, options_provider as p
 
 
 @pytest.fixture(autouse=True)
 def _sem_env(monkeypatch):
     monkeypatch.delenv("B3_OPTIONS_PROVIDER", raising=False)
+    mydata_budget.reset()
     yield
     monkeypatch.delenv("B3_OPTIONS_PROVIDER", raising=False)
+    mydata_budget.reset()
 
 
 def test_provider_name_sem_env_devolve_yahoo():
@@ -121,3 +127,50 @@ def test_payload_ok_mydata_contem_todas_as_chaves_de_topo_do_payload_ok_yahoo(mo
     assert set(payload_mydata) >= payload_yahoo_ok_keys
     aditivos = set(payload_mydata) - payload_yahoo_ok_keys
     assert aditivos <= {"pregao", "provenance"}
+
+
+# ---------------------------------------------------------------------------
+# Gate de orçamento sobrevive à troca de seletor (OPTGATE-01 / WR-01,
+# Fase 0/Plano 02) — prova de que o requisito vale para os DOIS arquivos
+# citados no achado, não só para o adaptador isolado.
+# ---------------------------------------------------------------------------
+def test_selector_mydata_sem_cota_degrada(monkeypatch):
+    monkeypatch.setenv("B3_OPTIONS_PROVIDER", "mydata")
+    monkeypatch.setattr(mydata_budget, "pode_gastar", lambda n=1, now=None: False)
+    chamadas = []
+
+    async def fake_vencimentos(ticker, pregao=None, *, fetch_json=None):
+        chamadas.append(ticker)
+        return []
+
+    async def fake_chain(ticker, vencimento=None, pregao=None, tipo=None, *, fetch_json=None):
+        chamadas.append(ticker)
+        return []
+
+    from app import options_provider_mydata
+    monkeypatch.setattr(options_provider_mydata.mydata_client, "get_vencimentos", fake_vencimentos)
+    monkeypatch.setattr(options_provider_mydata.mydata_client, "get_options_chain", fake_chain)
+    options_provider_mydata._cache.clear()
+
+    out = asyncio.run(p.get_options("PETR4"))
+
+    assert out["providerStatus"] == "degraded"
+    assert chamadas == []
+
+
+def test_selector_yahoo_nao_toca_orcamento_do_mydata(monkeypatch):
+    consultas = []
+    debitos = []
+    monkeypatch.setattr(mydata_budget, "pode_gastar", lambda n=1, now=None: consultas.append(n) or True)
+    monkeypatch.setattr(mydata_budget, "debita", lambda n=1, now=None: debitos.append(n))
+
+    async def fake_yahoo_get_options(ticker, expiration=None):
+        return {"providerStatus": "ok", "source": "yahoo"}
+
+    monkeypatch.setitem(p._PROVEDORES, "yahoo", fake_yahoo_get_options)
+
+    out = asyncio.run(p.get_options("PETR4"))
+
+    assert out["source"] == "yahoo"
+    assert consultas == []
+    assert debitos == []

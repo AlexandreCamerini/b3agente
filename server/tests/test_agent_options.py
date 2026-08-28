@@ -4,7 +4,7 @@ import os
 import re
 import tempfile
 
-from app import agent, db, store
+from app import agent, db, mydata_budget, options_provider_mydata, store
 
 
 def _conn():
@@ -240,3 +240,36 @@ def test_textos_de_opcao_sem_verbo_de_ordem():
     todos = " ".join(e["text"].lower() for e in r["events"])
     for pat in (r"\bcompre\b", r"\bvenda\s+agora\b", r"\bentre\s+agora\b", r"\bdeve\s+comprar\b"):
         assert not re.search(pat, todos), pat
+
+
+# ---------------------------------------------------------------------------
+# OPTGATE-01 / WR-01 (Fase 0/Plano 02) — o ciclo do agente sobrevive ao
+# estouro de orçamento do mydata: degrada em vez de bloquear o ciclo.
+# ---------------------------------------------------------------------------
+def test_ciclo_com_orcamento_estourado_nao_trava_nem_executa(monkeypatch):
+    c = _conn()
+    _seed_opts(c, [{"id": "PETRH340", "underlying": "PETR4", "optionType": "call", "strike": 34.0,
+                     "expiration": "2020-01-01", "qty": 100, "avg": 1.0, "stop": 0.1, "alvo": None}])
+    chamadas = []
+
+    async def fake_vencimentos(ticker, pregao=None, *, fetch_json=None):
+        chamadas.append(("vencimentos", ticker))
+        return []
+
+    async def fake_chain(ticker, vencimento=None, pregao=None, tipo=None, *, fetch_json=None):
+        chamadas.append(("chain", ticker))
+        return []
+
+    mydata_budget.reset()
+    monkeypatch.setattr(options_provider_mydata.mydata_client, "get_vencimentos", fake_vencimentos)
+    monkeypatch.setattr(options_provider_mydata.mydata_client, "get_options_chain", fake_chain)
+    monkeypatch.setattr(mydata_budget, "pode_gastar", lambda n=1, now=None: False)
+    options_provider_mydata._cache.clear()
+
+    r = _run(c, options_provider_mydata.get_options)  # não levanta
+
+    assert r["executed"] == 0
+    assert len(store.get(c, "optionPositions", user_id="u1")) == 1
+    assert chamadas == []
+
+    mydata_budget.reset()

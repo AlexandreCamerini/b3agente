@@ -142,6 +142,26 @@ caminho ativo por padrão.
   tem esse gate, Plano 09-02). Achado de arquitetura registrado na medição,
   não corrigido nesta ADR — ver §Medição, item do plano de ação.
 
+**Nota aditiva (2026-08-28 — milestone v1.2, Fase 0/Plano 02, OPTGATE-01):**
+o gap acima está FECHADO. `options_provider_mydata._gate`/`_debita` agora
+consultam/debitam a mesma cota compartilhada (60/min · 2.000/dia) antes de
+qualquer chamada ao `mydata_client`, no mesmo ponto de inserção que
+`candle_provider._gate`/`_debita` já ocupava para candles. Três decisões
+divergem deliberadamente do padrão que `candle_provider` aplica ao seu
+último elo (`00-02-PLAN.md`, `.planning/notes/decisoes-autonomas-v1.2.md`):
+recusa DURA em vez de mole (A-05 — o caminho de opções tem UM elo só, então
+"último elo" é sempre verdadeiro, e a recusa mole do padrão de candle
+anularia o gate inteiro); nenhum uso do pacer que dorme esperando a janela
+do minuto liberar (A-06 — este caminho roda dentro do `scheduler_loop`
+assíncrono único do agente e de requisição HTTP do usuário, o mesmo risco
+concreto do incidente do kill-switch); e a recusa por cota nunca é escrita
+no cache de 300s/60s (A-07 — cachear estenderia um estouro de 1s para até
+60s de degradação sem motivo). Isto **NÃO libera a virada** de
+`B3_OPTIONS_PROVIDER` para produção — o pico/min medido em §Medição (148
+projetado vs. 60/min da chave) continua sem resolução e segue fora de
+escopo deste plano; o gate fechado aqui é pré-condição de segurança para
+quando essa decisão for retomada, não a decisão em si.
+
 ## Medição
 
 Números de [`docs/MEDICAO-Mydata-2026-08-27.md`](../MEDICAO-Mydata-2026-08-27.md)

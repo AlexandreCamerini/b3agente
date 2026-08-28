@@ -2,13 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Camada de opções ancorada na carteira
-status: planning
-last_updated: "2026-08-28T02:18:00.725Z"
-last_activity: 2026-08-28
+status: executing
+stopped_at: ROADMAP.md e REQUIREMENTS.md (traceability) finalizados para v1.2 — Phase 0/10/11 com success criteria, requirement mapping e guardrails por fase
+last_updated: "2026-08-28T02:42:35.871Z"
+last_activity: 2026-08-28 -- Phase 00 execution started
 progress:
   total_phases: 3
   completed_phases: 0
-  total_plans: 0
+  total_plans: 2
   completed_plans: 0
   percent: 0
 ---
@@ -20,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-28)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** v1.2 Camada de opções ancorada na carteira — Phase 0 (Precondições), ready to plan
+**Current focus:** Phase 00 — precondi-es
 
 ## Current Position
 
-Phase: 0 of 3 (Precondições) — numeração deliberadamente não-sequencial: 0, 10, 11 (ver ROADMAP.md, seção v1.2, "Numeração de fase não-sequencial")
-Plan: — (roadmap only, not yet planned)
-Status: Roadmap created, ready to plan Phase 0
-Last activity: 2026-08-28 — ROADMAP.md/REQUIREMENTS.md finalized for v1.2 (9/9 requirements mapped: LEDGER-01/OPTGATE-01 → Phase 0, PUT-01/02/03 → Phase 10, PUTLIFE-01..04 → Phase 11)
+Phase: 00 (precondi-es) — EXECUTING
+Plan: 1 of 2
+Status: Executing Phase 00
+Last activity: 2026-08-28 -- Phase 00 execution started
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -69,11 +70,13 @@ Recent decisions affecting current work:
   cronológico; Fase 10 = continuação lógica direta da já-shippada Fase 9;
   não renumerado para sequência contígua 12/13/14) — ver
   `.planning/notes/decisoes-autonomas-v1.2.md` D-AUTO-03.
+
 - v1.2 roadmap: WR-01 (achado do 09-REVIEW.md — `options_provider_mydata.py`
   sem gate de orçamento) absorvido como requirement OPTGATE-01 dentro da
   Fase 0, em vez de virar fase própria — é precondição de segurança
   (mesmo padrão `_gate`/`_debita` de `candle_provider.py`), não trabalho de
   ponte gatilho→put.
+
 - v1.2 roadmap: duas decisões de arquitetura travadas citadas em cada fase
   de detalhe do ROADMAP.md (não só no PROJECT.md) — EOD ponta a ponta (sem
   preço de opção ao vivo) e só put comprada long-only (sem short/margem/
@@ -93,6 +96,7 @@ Recent decisions affecting current work:
 - OPTGATE-01 (Fase 0) fecha o achado WR-01 do `09-REVIEW.md` — gate de
   orçamento em `options_provider_mydata.py`/`options_provider.py`, dormente
   enquanto `B3_OPTIONS_PROVIDER` ficar em `yahoo` (não muda neste milestone).
+
 - LEDGER-01 (Fase 0) absorve o item de backlog "9 tickers com 404 no
   bootstrap do ledger" (já listado em PROJECT.md Active).
 
@@ -103,6 +107,7 @@ Recent decisions affecting current work:
   (2026-08-28), mas o pico/min (148 projetado vs. 60/min da chave) segue
   sem resolução; **fora de escopo de v1.2** (guardrail explícito: nunca
   flip `B3_OPTIONS_PROVIDER`/`B3_CANDLE_PROVIDER` neste milestone).
+
 - 3 itens de backlog pré-existentes bloqueados por dependência humana
   (verificação ao vivo de `entradaAuto` do checkpoint 08-05; 2 human-checks
   da Fase 3) — não resolvidos por v1.2, registrados como não-bloqueantes na
