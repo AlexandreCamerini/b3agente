@@ -41,14 +41,14 @@ duration: ~25min
 completed: 2026-08-27
 ---
 
-# Phase 9 Plan 06 (Tasks 1-2): Rótulos de fonte + publicação do front Summary
+# Phase 9 Plan 06: Rótulos de fonte + publicação do front + checkpoint de virada Summary
 
-**FONTE_LABEL e o banner do app deixam de mentir sobre a origem dos dados de mercado (Yahoo Finance fixo, desatualizado desde o ADR-008) e passam a reconhecer o mydata; front buildado e publicado em server/web_dist com carimbo F10-20260827-01. Task 3 (virada de produção) NÃO executada — pendente para o orquestrador.**
+**FONTE_LABEL e o banner do app deixam de mentir sobre a origem dos dados de mercado (Yahoo Finance fixo, desatualizado desde o ADR-008) e passam a reconhecer o mydata; front buildado e publicado em server/web_dist com carimbo F10-20260827-01. Task 3 (virada de produção) conduzida pelo orquestrador: Alex respondeu `adiar` — veredito NÃO CABE no pico/min e chave nunca confirmada ao vivo. B3_CANDLE_PROVIDER/B3_OPTIONS_PROVIDER permanecem inalterados em produção.**
 
 ## Performance
 
-- **Duration:** ~25 min (Tasks 1-2; Task 3 fora de escopo deste agente)
-- **Tasks:** 2/2 completos (Task 3 é checkpoint humano bloqueante, deliberadamente não executado)
+- **Duration:** ~25 min (Tasks 1-2, agente de worktree) + checkpoint conduzido pelo orquestrador (Task 3)
+- **Tasks:** 3/3 completos (Task 3 é checkpoint humano bloqueante; resolvida com `adiar`)
 - **Files modified:** 5 (App.jsx, disclaimers.js, version.js, main.py, server/web_dist — árvore gerada)
 
 ## Accomplishments
@@ -100,26 +100,38 @@ Ver `key-decisions` no frontmatter. Resumo: Task 3 deliberadamente fora do escop
 
 None além da deviation documentada acima. Suíte canônica verde nas duas rodadas (antes e depois da publicação): backend pytest completo + todas as `web/tests/*.mjs`, exit code 0 em ambas.
 
-## Task 3 — pendente (checkpoint humano bloqueante)
+## Task 3 — executada pelo orquestrador (checkpoint humano bloqueante)
 
-Task 3 do plano ("Virada de produção para o mydata — aprovação e verificação ao vivo") **não foi executada por este agente**, por desenho:
+Task 3 do plano ("Virada de produção para o mydata — aprovação e verificação ao vivo") foi conduzida diretamente pelo orquestrador após o merge desta wave (não pelo agente de worktree, que não tem `AskUserQuestion` nem acesso a Railway).
 
-- É `type="checkpoint:human-verify" gate="blocking"` — exige apresentar o veredito de `docs/MEDICAO-Mydata-*.md` ao Alex e aguardar resposta interativa (`aprovado` | `adiar` | falha com número do passo), o que não é executável por um agente de worktree paralelo sem `AskUserQuestion`.
-- Envolve mudar `B3_CANDLE_PROVIDER`/`B3_OPTIONS_PROVIDER`/`MYDATA_TOKEN` no painel do Railway — ação explicitamente vedada a este agente pelo escopo da tarefa (nenhum acesso a Railway/produção).
-- A regra de processo desta fase (lição da Fase 8, registrada em `STATE.md`) proíbe `git push` de qualquer wave antes da aprovação da Task 3 — este agente não deu `git push` em nenhum momento; os commits `c90b102` e `a17c251` são locais, no branch `worktree-agent-ae2c32b1c6f75204a`.
-- **B3_CANDLE_PROVIDER e B3_OPTIONS_PROVIDER em produção permanecem nos valores anteriores** (não foram tocados) — a migração inteira (Plans 09-01..09-05 + este 09-06 Tasks 1-2) está pronta e testada, mas ainda atrás das env vars antigas.
-- O orquestrador conduz a Task 3 diretamente após o merge desta wave, seguindo o roteiro completo já presente em `09-06-PLAN.md` (`<what-built>`/`<how-to-verify>`/`<acceptance_criteria>`).
+**(a) Carimbo publicado:** `F10-20260827-01` (ver Tasks 1-2 acima).
+
+**(b) Resposta do Alex: `adiar`.**
+
+Números apresentados ao Alex, extraídos literalmente dos artefatos (nenhum valor estimado nesta apresentação):
+- **Veredito da projeção (`docs/MEDICAO-Mydata-2026-08-27.md`): NÃO CABE** — pico de 148 chamadas/min projetado (frio+morno) contra o teto de 60/min da chave; volume diário CABE com folga (548 de 2.000/dia, 72,6%). `intervaloMinimoSeguro` = 1,0s, contra o `scanner.MIN_FETCH_GAP_S`=0,15s atual (dimensionado para Yahoo/brapi).
+- **Perna ao vivo (09-04-SUMMARY.md): NÃO RODOU.** `MYDATA_TOKEN` ausente no ambiente de execução — a chave de produção `f00b4554` ainda não foi confirmada autenticando de fato contra `mydata.acamerini.app`.
+- **Achado de arquitetura (09-04-SUMMARY.md):** `options_provider_mydata.py`/`options_provider.py` nunca chamam `mydata_budget.pode_gastar/debita` — só candles têm gate de orçamento (09-02); o pico/min de opções não tem teto nenhum no código atual.
+- **`liquidity_score` sem `openInterest` (09-03-SUMMARY.md):** 52.0 medido num contrato PETR4 realista, contra o corte de 40 usado por `options_api.liquidity_gate` — passa neste caso, mas contratos de volume menor que hoje dependiam de open interest real podem cair abaixo do corte se as opções forem viradas.
+
+Motivo do `adiar` (conforme a recomendação que o próprio plano exige apresentar primeiro quando o veredito é NÃO CABE): o pico por minuto projetado é 2,5× o teto da chave, e a chave de produção nunca foi confirmada autenticando de fato — virar agora significaria trocar a fonte de dados de mercado em produção sem nenhuma confirmação de que a chave funciona nem margem sobre o rate limit.
+
+**Condição de retomada:** rodar a perna ao vivo (`MYDATA_TOKEN` exportado localmente + `scripts/medir-mydata.py --fases vivo --vivo --amostra 5`) para confirmar a chave, e resolver o pico por minuto por uma das duas vias registradas em `docs/MEDICAO-Mydata-2026-08-27.md` (negociar aumento de cota com o lado cvm-financas, ou reduzir a cadência do scanner para o `intervaloMinimoSeguro`=1,0s). Só depois disso o checkpoint da Task 3 pode ser reaberto com um veredito CABE na mesa.
+
+**(c) Valores finais em produção:** `B3_CANDLE_PROVIDER` e `B3_OPTIONS_PROVIDER` **permanecem nos valores anteriores** (brapi/yahoo) — nenhuma variável foi alterada no Railway, nenhum deploy foi feito, nenhum `git push` saiu de nenhuma wave desta fase.
+
+**(d) Pendência do bundle iOS:** o rótulo "MyData" em `FONTE_LABEL` só chega ao app nativo na próxima entrega TestFlight (o app iOS carrega bundle local, sem `server.url`) — já registrada como fora de escopo desta fase no `<assumptions>` do plano.
 
 ## User Setup Required
 
-None neste escopo (Tasks 1-2). A Task 3 pendente exige que o Alex decida a virada de env vars no Railway quando o orquestrador apresentar o checkpoint — ver seção acima.
+Para retomar a virada: exportar `MYDATA_TOKEN` localmente (prefixo `f00b4554`) e rodar a perna ao vivo da medição antes de reabrir o checkpoint da Task 3.
 
 ## Next Phase Readiness
 
 - Front corrigido, buildado e publicado com o rótulo "MyData" pronto para quando `B3_CANDLE_PROVIDER=mydata` for ligado.
-- Nenhuma mudança de comportamento em produção ainda — os textos novos só afetam a leitura de `source` quando o payload realmente disser `"mydata"`, o que só acontece depois da Task 3.
-- Pendência já conhecida e fora de escopo desta fase (registrada no `<assumptions>` do plano): o bundle iOS (`ios_dist`) não recebe esta mudança de rótulo agora — só na próxima entrega TestFlight, que carrega bundle local sem `server.url`.
-- Bloqueio conhecido para fechar a fase: Task 3 precisa da aprovação/decisão do Alex antes de qualquer `git push`.
+- Nenhuma mudança de comportamento em produção — os textos novos só afetam a leitura de `source` quando o payload realmente disser `"mydata"`, o que só acontece após uma futura aprovação da Task 3.
+- Pendência já conhecida e fora de escopo desta fase (registrada no `<assumptions>` do plano): o bundle iOS (`ios_dist`) não recebe esta mudança de rótulo agora — só na próxima entrega TestFlight.
+- Fase 9 fecha com a virada de produção `adiada`, não cancelada: código pronto atrás das env vars, condição de retomada registrada acima.
 
 ## Self-Check: PASSED
 
