@@ -160,6 +160,14 @@ Add a regression test exercising a dirty `--tickers`-style input (e.g.
 `"petr4.sa"` or `"MRFG3.SA"`) through `executar()` and asserting the row
 lands under the normalized key (`"PETR4"` / `"MRFG3"`), not the raw one.
 
+**Fixed post-review (commit `6e640dc`):** applied exactly the suggested fix —
+`executar()` now normalizes `tk_bruto → tk` via `normalize_ticker()` before
+calling `ledger_tickers.resolver()`, so the normalized value flows through
+`tickers_ativos`, the ledger write key, and `resumo["erros"]`. Guardian test
+added: `test_executar_ticker_bruto_nao_normalizado_grava_sob_chave_normalizada`
+(input `"petr4.sa"` → asserts fetch and write both use `"PETR4"`). Canonical
+suite green twice post-fix (1540 passed/1 skipped both runs).
+
 ## Warnings
 
 ### WR-01: Budget gate check-then-debit is not atomic under concurrency (duplicated pattern, no lock)
