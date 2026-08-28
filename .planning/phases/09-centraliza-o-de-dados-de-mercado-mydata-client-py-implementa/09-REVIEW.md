@@ -74,6 +74,10 @@ principle 4 (never invent/mask a failed data fetch as a legitimate empty
 state). One user-facing/comment provenance inaccuracy was also found in the
 front-end text added this phase.
 
+**Post-review:** CR-01 was fixed in commit `fd408b3` (see the finding below
+for what changed). Findings counts in the frontmatter reflect the state at
+review time, not after the fix.
+
 ## Critical Issues
 
 ### CR-01: `mydata_client.get_vencimentos()` silently converts real API errors into "no options published"
@@ -150,6 +154,16 @@ if not (200 <= r.status_code < 300):
 placed once, centrally, before the current `try: return r.json()` — this
 closes the gap for every current and future call site, not just
 `get_vencimentos()`.
+
+**Fixed post-review (commit `fd408b3`):** applied the narrower of the two
+options — `get_vencimentos()` now requires `isinstance(resp.get("dados"), list)`,
+the same structural guard `_paginar()` already had, raising `MydataIndisponivel`
+for any envelope without a valid `dados` list instead of defaulting to `[]`.
+Two guardian tests added (`test_get_vencimentos_dict_sem_chave_dados_levanta_em_vez_de_mascarar`,
+`test_get_vencimentos_dados_nao_lista_levanta_em_vez_de_mascarar`). The
+central `_fetch_json` status-range validation (the "better" option above) was
+NOT applied — it's a larger change touching every call site and is left as a
+follow-up if a similar gap is found elsewhere.
 
 ## Warnings
 
