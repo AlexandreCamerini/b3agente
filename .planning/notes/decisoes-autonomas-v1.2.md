@@ -258,3 +258,44 @@ docstring já resolvia a conta sozinha.
 quebra visual). Nenhuma mudança de comportamento. Ver
 `.planning/phases/10-ponte-gatilho-put/10-02-SUMMARY.md`.
 
+## Execução da Fase 10, Plano 03 (guardião de PUT-03, ADR-021, doc de
+operação — último plano da Fase 10)
+
+### D-EXEC-10-03-01: o diff literal `origin/main..HEAD` sobre os arquivos
+de gate de orçamento não é vazio — por motivo alheio à Fase 10
+
+**Contexto:** o critério de aceite da Task 2 pede
+`git diff --stat origin/main..HEAD -- web/ web-admin/ server/app/skill_ref.py
+server/app/main.py server/app/defaults.py server/app/mydata_budget.py
+server/app/options_provider.py server/app/options_provider_mydata.py` vazio.
+Rodando literalmente: `options_provider.py` (+7) e `options_provider_mydata.py`
+(+69/-1) aparecem no diff.
+
+**Investigação:** `git log --oneline origin/main..HEAD -- ...` aponta para
+UM commit: `72ce2dc feat(00-02): gate e débito de orçamento no adaptador de
+opções do mydata` — a implementação de OPTGATE-01, da **Fase 0**, já
+revisada e resumida em `00-02-SUMMARY.md`, sem relação com PUT-03 ou com
+qualquer plano da Fase 10. Causa raiz: nenhuma fase deste milestone foi
+pushada (`git ls-remote --heads origin` confirma ausência de qualquer
+branch `worktree-agent-*` remota) — `origin/main` continua no tip de antes
+da Fase 0 começar, então o diff contra ele necessariamente inclui a Fase 0
+inteira, não só a Fase 10.
+
+**Verificação adicional:** `git diff --stat 9a9d470..HEAD -- <mesmos 8
+caminhos>` (`9a9d470` = commit de fechamento da Fase 0) é **vazio** —
+confirma que nenhum plano da Fase 10 (01/02/03) tocou qualquer um desses
+arquivos, inclusive os 3 de gate de orçamento que a Fase 0 legitimamente
+mudou antes da Fase 10 começar.
+
+**Decisão:** documentar os dois diffs lado a lado na SUMMARY (o literal
+pedido pelo plano + o escopado à Fase 10 que prova ausência de vazamento
+desta fase), sem relaxar o critério de aceite nem esconder a divergência.
+
+**Alternativa descartada:** reescrever o critério de aceite do plano para
+excluir os 3 arquivos de gate de orçamento da lista — rejeitada porque o
+plano foi assinado com essa lista; ajustar o texto de um plano já em
+execução é decisão do Alex, não do executor.
+
+**Efeito:** nenhuma mudança de código. Só evidência adicional na SUMMARY.
+Ver `.planning/phases/10-ponte-gatilho-put/10-03-SUMMARY.md`.
+
