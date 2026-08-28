@@ -92,6 +92,9 @@ under direct testing (`test_option_type_call_e_rejeitado_pelo_check`,
 `test_agregacoes_do_adr017_nao_enxergam_sugestao_de_put`,
 `test_nao_toca_signal_ledger`).
 
+**Post-review:** both WR-01 and WR-02 were fixed in commit `465f13d` (see
+findings below for what changed).
+
 ## Warnings
 
 ### WR-01: `carteiras_por_ticker` can abort the entire daily run for every user, contradicting its own documented per-line isolation
@@ -187,6 +190,16 @@ strike = contrato.get("strike")
 if not _numero_positivo(strike) or strike > spot:
     continue  # proteção é abaixo do preço atual — sem contador dedicado
 ```
+
+**Fixed post-review (commit `465f13d`):** both WR-01 and WR-02 applied exactly
+as suggested. WR-01: `carteiras_por_ticker` now checks `isinstance(t, str)`
+before calling `normalize_ticker(t)`, so a malformed position entry is
+skipped per-line instead of raising and aborting `run_diario` for every
+user. WR-02: `triar_put`'s strike check now reuses `_numero_positivo()`.
+Guardian tests added: `test_posicao_com_ticker_malformado_nao_aborta_carteiras_por_ticker`
+(mixed malformed/valid positions across two users, confirms isolation) and
+`test_strike_zero_ou_negativo_e_pulado`. Canonical suite green twice post-fix
+(1597 passed/1 skipped both runs).
 
 ## Info
 
