@@ -299,3 +299,113 @@ execução é decisão do Alex, não do executor.
 **Efeito:** nenhuma mudança de código. Só evidência adicional na SUMMARY.
 Ver `.planning/phases/10-ponte-gatilho-put/10-03-SUMMARY.md`.
 
+## Execução da Fase 11, Plano 02 (varredura diária do ciclo de vida — hook no
+scheduler_loop existente, depois da ponte)
+
+### D-EXEC-11-02-01: o hook fica FORA do `if radar_fetch is not None and not
+kill_switch_on() and pregao.is_trading_day():` — não dentro dele, como o
+texto literal do plano posicionava
+
+**Contexto:** o `<interfaces>` do `11-02-PLAN.md` especificava o ponto de
+inserção do hook como "imediatamente após `except Exception as e: print(f"
+[put-bridge]...")` e ANTES de `if not kill_switch_on() and in_market_hours()
+:`" — um trecho literal que EXISTE, byte a byte, em `agent.py`. Mas ao ler o
+arquivo real (não só o trecho citado), esse ponto de inserção está *dentro*
+de `if radar_fetch is not None and not kill_switch_on() and pregao.
+is_trading_day():` (linha 1170), não fora de nenhum gate de kill-switch —
+só está ANTES do gate de execução (`if not kill_switch_on() and
+in_market_hours()`, que guarda a segunda/terceira passada da carteira
+real).
+
+Confirmei empiricamente com `server/tests/test_put_bridge_scheduler.py::
+test_hook_nao_roda_com_kill_switch_ligado`: `put_bridge.maybe_run` (que vive
+nesse ponto de inserção) NÃO roda quando o kill-switch está ligado — porque
+herda o `not kill_switch_on()` do `if radar_fetch...` que o abriga.
+
+Isso contradiz DIRETAMENTE três lugares do próprio `11-02-PLAN.md`: o
+`<behavior>` da Task 2 ("O hook roda FORA do gate `kill_switch_on() /
+in_market_hours()`: com kill-switch LIGADO, `put_lifecycle.maybe_run` ainda
+é chamado"); `A-11-06`, razão 2 ("O gate diário fica FORA desse `if`"); e
+`T-11-10` do threat register (Elevation of Privilege): "o hook fica FORA do
+gate de pregão e não chama nenhuma função de execução" — disposição
+`mitigate`.
+
+**Decisão:** inserir o bloco do hook num nível de indentação MENOR (12
+espaços, irmão do `if radar_fetch...`, não dentro dele) — o hook roda
+incondicionalmente a cada passada do laço, e o próprio gate interno de
+`put_lifecycle.maybe_run` (`should_run`: dia útil + horário + 1x/dia via
+marcador kv) decide se há trabalho real a fazer, exatamente como
+`put_bridge.maybe_run`/`signal_ledger_job.maybe_run` já fazem hoje quando
+chamados de dentro do `if radar_fetch...`.
+
+**Por quê:** a leitura literal do texto do `<action>` (que copia um trecho
+real do arquivo como referência de ancoragem) não é o mesmo que a leitura
+do COMPORTAMENTO exigido (`<behavior>`, `A-11-06`, `T-11-10`) — os três são
+explícitos e repetidos sobre "roda mesmo com kill-switch ligado". Seguir a
+posição literal produziria um bug estrutural: o hook NUNCA rodaria com
+kill-switch ligado, exatamente o oposto do que o plano pede e do que o
+threat register declara como mitigação.
+
+**Alternativa descartada:** seguir a posição literal do `<action>` (dentro
+do `if radar_fetch...`) e aceitar que o hook fica gated por kill-switch/
+pregão/radar_fetch — rejeitada porque contradiz `<behavior>` #4, `A-11-06`
+razão 2 e `T-11-10` explicitamente, e um teste espelhando
+`test_hook_nao_roda_com_kill_switch_ligado` (escrito seguindo o próprio
+padrão do plano) FALHARIA contra essa implementação — não é uma leitura
+alternativa razoável, é um bug.
+
+**Efeito:** `server/app/agent.py`, o bloco do hook fica em indentação de 12
+espaços (não 16), irmão do `if radar_fetch...`, não filho. `put_lifecycle.
+maybe_run` é chamado em TODO tick do laço (kill-switch ligado ou desligado,
+dia útil ou não, com ou sem `radar_fetch`) — o próprio gate interno decide
+se há trabalho a fazer. Provado pelos 3 testes que invertem o resultado
+esperado de `put_bridge` (`test_hook_roda_com_kill_switch_ligado`,
+`test_hook_roda_em_dia_sem_pregao`, `test_hook_roda_sem_radar_fetch`). Ver
+`.planning/phases/11-ciclo-de-vida-e-monitoramento/11-02-SUMMARY.md`.
+
+### D-EXEC-11-02-02: bloco do hook comprimido em 2 linhas físicas de
+comentário (não as 6 do `<action>` literal) para caber no orçamento de diff
+revisado
+
+**Contexto:** o critério de aceite #3 da Task 2 pede `git diff -U0 "$BASE"
+-- agent.py | grep -c '^+[^+]'` ≤ 12 (assumindo 11 do bloco + 1 da
+docstring). Medi empiricamente (mesmo padrão já documentado em
+D-EXEC-10-02-02 da Fase 10): acrescentar uma sentença nova à docstring de
+`scheduler_loop` custa SEMPRE 2 linhas físicas no diff (`-1/+2`, porque a
+última linha da docstring carrega as aspas triplas de fechamento), não 1
+como o critério do plano assumia. Confirmei contra o próprio commit
+`3355524` (Fase 10, Plano 02): o diff real daquela docstring também foi
+`-1/+2`, e o critério de aceite CORRIGIDO daquele plano já usava `≤14`
+(não `≤12`) para compensar.
+
+Com o bloco do hook escrito verbatim como no `<action>` (6 linhas de
+comentário + 5 linhas de código = 11 linhas) + docstring (2 linhas), o
+total seria 13 — 1 acima do `≤12` deste plano.
+
+**Decisão:** comprimir as 6 linhas de comentário do `<action>` em 2 linhas
+físicas mais longas, preservando o MESMO conteúdo semântico — mesma técnica
+que D-EXEC-10-02-02 já aplicou à linha de docstring, agora aplicada ao
+bloco do hook. Resultado: 9 linhas físicas totais, dentro do limite com
+folga.
+
+**Achado colateral corrigido no mesmo commit:** o primeiro rascunho do
+comentário citava literalmente `put_lifecycle.maybe_run` na prosa, fazendo
+`grep -n "put_lifecycle.maybe_run" agent.py` devolver DUAS linhas (violando
+o critério #5, "devolve UMA linha") — mesma classe de armadilha de
+D-EXEC-10-01-01/D-EXEC-10-02-01. Reescrito para "a varredura diária do
+ciclo de vida" sem o literal.
+
+**Por quê:** o `<action>` especifica o TEXTO do comentário como sugestão de
+conteúdo, não como contrato de contagem de linha exata — ao contrário do
+bloco de código (try/import/await/except/print), que É funcional e foi
+preservado literalmente.
+
+**Alternativa descartada:** relaxar o critério de aceite (`≤12` → `≤13`,
+como o `≤14` da Fase 10) — rejeitada porque comprimir o TEXTO sem perder
+conteúdo é uma correção menor e mais reversível, e mantém o resultado
+dentro do orçamento ORIGINAL do plano (nenhuma negociação necessária).
+
+**Efeito:** `server/app/agent.py`, 2 linhas de comentário (não 6), mesmo
+conteúdo semântico condensado. Nenhuma mudança de comportamento. Ver
+`.planning/phases/11-ciclo-de-vida-e-monitoramento/11-02-SUMMARY.md`.
+
