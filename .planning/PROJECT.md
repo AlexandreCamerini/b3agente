@@ -121,6 +121,18 @@ contrato registrado ali).
   opções do mydata, refusal hard (nunca soft-pass, decisão A-05) — Fase 0
   do v1.2, execução autônoma noturna, 1 Crítico achado e corrigido em
   code review (CR-01, chave do ledger não-normalizada)
+- ✓ PUT-01/02/03 (ponte gatilho→put, v1.2): hook diário no `scheduler_loop`
+  (mesmo padrão de `signal_ledger_job`) cruza gatilho de setup × `positions`
+  do usuário, triagem determinística da put de proteção com dados reais do
+  hub (`estilo_exercicio`/strike/IV nunca assumidos), grava em tabela nova
+  `put_suggestions` (long-only por CHECK constraint, isolada de
+  `signal_ledger`/ADR-017 por desenho) com proveniência. **Dormente em
+  produção por desenho**: `B3_OPTIONS_PROVIDER=yahoo` (default, intocado)
+  não expõe `estilo_exercicio`, então a triagem sempre zera até a virada da
+  Fase 9 acontecer — ver `docs/adr/021-ponte-gatilho-put.md`. Zero
+  superfície visível (guardião dedicado). 2 Warnings achados e corrigidos
+  em code review (WR-01 ticker malformado abortava o dia inteiro; WR-02
+  strike não-positivo) — Fase 10 do v1.2, execução autônoma noturna
 
 ### Active
 
@@ -262,4 +274,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-08-28 — milestone v1.2, Phase 0 complete*
+*Last updated: 2026-08-28 — milestone v1.2, Phase 10 complete*
