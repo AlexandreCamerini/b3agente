@@ -329,6 +329,17 @@ def init_db(conn: sqlite3.Connection) -> None:
         " volume INTEGER,"                    # quantidade_negociada (D-10-E)
         " spot REAL,"                         # underlyingPrice do payload
         " estado TEXT NOT NULL DEFAULT 'armada',"
+        " estado_em TEXT,"            # ISO do último avanço de estado
+        " executada_em TEXT,"         # AAAA-MM-DD da execução simulada
+        " preco_entrada REAL,"        # prêmio por ação (cópia de `premio` no ato)
+        " spot_marcacao REAL,"        # último fechamento do ativo-objeto usado
+        " intrinseco_marcacao REAL,"  # max(0, strike - spot) na marcação
+        " marcada_em TEXT,"           # AAAA-MM-DD do candle da marcação
+        " fechada_em TEXT,"           # AAAA-MM-DD do fechamento simulado
+        " preco_fechamento REAL,"     # valor de liquidação (intrínseco)
+        " motivo_fechamento TEXT,"    # vocabulário ADR-005
+        " pnl_por_acao REAL,"         # preco_fechamento - preco_entrada
+        " pendente_desde TEXT,"       # data desde quando falta preço p/ fechar
         " fonte TEXT NOT NULL,"               # payload["source"], ex. "mydata"
         " as_of TEXT,"                        # payload["pregao"] (dt_pregao do hub)
         " prov_sha256 TEXT,"
@@ -346,6 +357,31 @@ def init_db(conn: sqlite3.Connection) -> None:
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_put_suggestions_ticker "
         "ON put_suggestions(ticker, data_pregao)"
+    )
+
+    # Fase 11 (PUTLIFE-01): ciclo de vida; migração aditiva — banco existente
+    # ganha as colunas, NULL = linha pré-ciclo-de-vida.
+    for _coluna, _tipo in (
+        ("estado_em", "TEXT"),
+        ("executada_em", "TEXT"),
+        ("preco_entrada", "REAL"),
+        ("spot_marcacao", "REAL"),
+        ("intrinseco_marcacao", "REAL"),
+        ("marcada_em", "TEXT"),
+        ("fechada_em", "TEXT"),
+        ("preco_fechamento", "REAL"),
+        ("motivo_fechamento", "TEXT"),
+        ("pnl_por_acao", "REAL"),
+        ("pendente_desde", "TEXT"),
+    ):
+        try:
+            conn.execute(f"ALTER TABLE put_suggestions ADD COLUMN {_coluna} {_tipo}")
+        except sqlite3.OperationalError:
+            pass   # coluna já existe
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_put_suggestions_estado "
+        "ON put_suggestions(estado)"
     )
 
     _migrate_identities_from_users(conn)
