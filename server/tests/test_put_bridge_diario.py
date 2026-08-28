@@ -322,7 +322,8 @@ def test_proveniencia_gravada_quando_a_fonte_publica(tmp_path, monkeypatch):
     conn = _conn(tmp_path)
     _mock_radar(monkeypatch, _radar([_resultado("PETR4", [_setup()])]))
     _carteira(conn, "u1", ["PETR4"])
-    provenance = {"sha256": "abc", "dt_captura": "2026-08-27T21:00:00", "captura": 7}
+    provenance = {"sha256": "abc", "dt_captura": "2026-08-27T21:00:00",
+                  "captura": "COTAHIST_D27082026.TXT"}
     payload = _payload("PETR4", puts=[_put(90)], spot=100.0, source="mydata",
                         pregao="2026-08-28", provenance=provenance)
     chamadas = []
@@ -333,7 +334,7 @@ def test_proveniencia_gravada_quando_a_fonte_publica(tmp_path, monkeypatch):
     linha = put_suggestions.listar(conn)[0]
     assert linha["provSha256"] == "abc"
     assert linha["provDtCaptura"] == "2026-08-27T21:00:00"
-    assert linha["provCaptura"] == 7
+    assert linha["provCaptura"] == "COTAHIST_D27082026.TXT"
     assert linha["fonte"] == "mydata"
     assert linha["asOf"] == "2026-08-28"
 
