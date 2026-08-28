@@ -11,12 +11,12 @@ usuário — o critério de aceite é medição interna, não UI.
 
 ### Precondições (Fase 0)
 
-- [ ] **LEDGER-01**: Os 9 tickers com 404 no bootstrap do ledger de sinais
+- [x] **LEDGER-01**: Os 9 tickers com 404 no bootstrap do ledger de sinais
   (ELET3, BRFS3, ELET6, JBSS3, CRFB3, NTCO3, CPLE6, MRFG3, EMBR3) são
   investigados (renomeação/deslistagem) e o ledger fecha sem erro 404
   residual — necessário porque a ponderação do ADR-017 é calculada sobre
   o ledger completo
-- [ ] **OPTGATE-01**: `options_provider_mydata.py`/`options_provider.py`
+- [x] **OPTGATE-01**: `options_provider_mydata.py`/`options_provider.py`
   respeitam um teto de taxa de requisições ao mydata, espelhando o padrão
   `_gate`/`_debita` que `candle_provider.py` já tem (fecha o achado WR-01
   do 09-REVIEW.md antes de qualquer estrutura de opções nova consumir a
@@ -80,8 +80,8 @@ Preenchido pelo roadmapper na criação do roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| LEDGER-01 | Phase 0 | Pending |
-| OPTGATE-01 | Phase 0 | Pending |
+| LEDGER-01 | Phase 0 | Complete |
+| OPTGATE-01 | Phase 0 | Complete |
 | PUT-01 | Phase 10 | Pending |
 | PUT-02 | Phase 10 | Pending |
 | PUT-03 | Phase 10 | Pending |

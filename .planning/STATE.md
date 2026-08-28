@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Camada de opções ancorada na carteira
-status: executing
-stopped_at: ROADMAP.md e REQUIREMENTS.md (traceability) finalizados para v1.2 — Phase 0/10/11 com success criteria, requirement mapping e guardrails por fase
-last_updated: "2026-08-28T02:42:35.871Z"
+status: ready_to_plan
+stopped_at: Phase 00 complete (2/2) — ready to discuss Phase 10
+last_updated: 2026-08-28T09:38:36.399Z
 last_activity: 2026-08-28 -- Phase 00 execution started
 progress:
   total_phases: 3
   completed_phases: 0
   total_plans: 2
-  completed_plans: 0
+  completed_plans: 8
   percent: 0
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-28)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Phase 00 — precondi-es
+**Current focus:** Phase 10 — ponte gatilho→put
 
 ## Current Position
 
-Phase: 00 (precondi-es) — EXECUTING
-Plan: 1 of 2
-Status: Executing Phase 00
-Last activity: 2026-08-28 -- Phase 00 execution started
+Phase: 10
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-08-28
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -36,7 +36,7 @@ Progress: [░░░░░░░░░░] 0%
 
 **Velocity:**
 
-- Total plans completed: 12 (v1.0) + 44 (v1.1) + 6 (Phase 9, standalone)
+- Total plans completed: 14 (v1.0) + 44 (v1.1) + 6 (Phase 9, standalone)
 - Average duration: -
 - Total execution time: 0h (v1.2)
 
@@ -50,6 +50,7 @@ Progress: [░░░░░░░░░░] 0%
 | 0 (v1.2) | TBD | - | - |
 | 10 (v1.2) | TBD | - | - |
 | 11 (v1.2) | TBD | - | - |
+| 00 | 2 | - | - |
 
 **Recent Trend:**
 
