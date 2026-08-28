@@ -171,3 +171,30 @@ teste, dentro dos arquivos que o próprio `00-02-PLAN.md` já lista como
 `files_modified` da Task 2. Detalhe completo em
 `.planning/phases/00-precondi-es/00-02-SUMMARY.md`.
 
+## Execução da Fase 10, Plano 01 (persistência e triagem da put de proteção)
+
+### D-EXEC-10-01-01: docstring de `put_bridge.py` reescrita para não conter o literal `"calls"`
+
+**Decisão:** troquei, na docstring de módulo de `server/app/put_bridge.py`, a
+frase que citava literalmente `payload["calls"]` por "a perna de opção de
+compra do payload" — mesmo conteúdo semântico, sem o literal.
+
+**Por quê:** o critério de aceite da Task 2 do `10-01-PLAN.md` exige `grep -v
+'^#' server/app/put_bridge.py | grep -c "calls"` == 0, como prova estrutural
+de que a triagem nunca lê a perna de call (mais rígida que "a função não
+lê o campo" — sobrevive a uma futura edição que reintroduza leitura de
+`calls` sem aparecer no diff da lógica). `grep -v '^#'` só filtra linhas que
+COMEÇAM com `#`; não filtra texto dentro de uma docstring de módulo (string,
+não comentário `#`). O primeiro rascunho da docstring citava
+`payload["calls"]` para explicar o escopo e o guardião falhava mesmo com a
+implementação correta.
+
+**Alternativa descartada:** relaxar o critério de aceite (remover o
+`grep -c calls` da verificação) — rejeitada porque o critério vem do plano
+assinado; afrouxar uma prova estrutural para acomodar um texto explicativo é
+o tipo de atalho que o contrato de autonomia proíbe.
+
+**Efeito:** um parágrafo da docstring de `server/app/put_bridge.py`. Nenhuma
+mudança de comportamento — `triar_put` já nunca lia `payload.get("calls")`
+antes do ajuste. Ver `.planning/phases/10-ponte-gatilho-put/10-01-SUMMARY.md`.
+
