@@ -136,7 +136,9 @@ que está completo e mergeado)
     checkpoint `adiar` da Fase 9 continua fora de escopo)
   - Nenhuma superfície visível ao usuário introduzida em nenhuma fase
   - Nenhum suporte a opção vendida/short introduzido em qualquer forma
-**Plans**: TBD
+**Plans**: 2 plans (1 wave — os dois rodam em paralelo, zero sobreposição de arquivo)
+- [ ] 00-01-PLAN.md — LEDGER-01: diagnóstico dos 9 tickers 404, mapa de resolução (`server/app/ledger_tickers.py`) consumido pelo bootstrap, varredura dos 74 tickers sem 404 residual
+- [ ] 00-02-PLAN.md — OPTGATE-01: gate `_gate`/`_debita` de `mydata_budget` em `options_provider_mydata.py`, com prova de bloqueio/degradação e de que o ciclo do agente não trava (fecha WR-01)
 **Nota (não-bloqueante, não trava o milestone)**: os itens de backlog
 pré-existentes que dependem do Alex ligar uma feature ao vivo num pregão
 real (verificação do `entradaAuto` do checkpoint 08-05; os 2 human-checks da
