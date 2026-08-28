@@ -3112,10 +3112,12 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
                             no período · fechamento{q.source ? " · " + FONTE_LABEL(q.source) : ""}
                           </div>
                         )}
-                        {/* ADR-008/ADR-020: princípio #3 do CLAUDE.md — dado de
-                            mercado exibe a FONTE. `source` vem em todo payload
-                            de candle_provider (mydata→brapi→Yahoo em cadeia);
-                            sem isso a tela nunca dizia de onde o preço veio. */}
+                        {/* ADR-008: princípio #3 do CLAUDE.md — dado de mercado
+                            exibe a FONTE. Cotação ao vivo (`q.change`) vem de
+                            candle_provider.get_quote(), que segue brapi→Yahoo
+                            (o mydata só cobre o histórico diário, `get_history`,
+                            ADR-020); sem isso a tela nunca dizia de onde o
+                            preço veio. */}
                         {!q.error && q.change != null && q.source && (
                           <div style={{ fontSize: "9.5px", fontWeight: 700, color: T.textFaint, letterSpacing: "0.03em" }}>
                             {FONTE_LABEL(q.source)}
@@ -6618,9 +6620,9 @@ function CatalogModal({ ctx }) {
 
         <div style={{ padding: "12px 18px", borderBottom: `1px solid ${T.borderSubtle}` }}>
           {/* C-11 (REPORT-01): mesma correção de proveniência — validate_outcome
-              consulta candle_provider.get_quote, hoje mydata→brapi→Yahoo em
-              cadeia (ADR-008/ADR-020), não mais só Yahoo. */}
-          <div style={{ fontSize: "11.5px", color: T.textMuted, marginBottom: "7px" }}>Adicionar outro ativo da B3 — digite o código; a existência é confirmada no provedor de cotações (mydata/brapi/Yahoo).</div>
+              consulta candle_provider.get_quote, que segue brapi→Yahoo (o
+              mydata cobre só o histórico diário, get_history, ADR-020). */}
+          <div style={{ fontSize: "11.5px", color: T.textMuted, marginBottom: "7px" }}>Adicionar outro ativo da B3 — digite o código; a existência é confirmada no provedor de cotações (brapi/Yahoo).</div>
           <div style={{ display: "flex", gap: "8px" }}>
             <input
               value={tk}
