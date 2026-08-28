@@ -12,6 +12,25 @@ context: Execução desassistida noturna sob CONTRATO DE AUTONOMIA do Alex.
 Lista consolidada. Cada fase também registra suas decisões no próprio
 DISCUSSION-LOG; esta lista é o resumo para leitura rápida de manhã.
 
+## ⚠ Item para decisão sua de manhã (não é hard-stop, mas pede seu julgamento)
+
+**WR-01 — gate de orçamento com race condition check-then-debit, agora em
+DOIS consumidores.** `mydata_budget.pode_gastar()`/`.debita()` não são
+atômicos: duas chamadas concorrentes podem ambas passar `pode_gastar()`
+antes de qualquer uma debitar, estourando a cota. Padrão pré-existente
+(compartilhado com `candle_provider`/`brapi_budget`, achado já conhecido da
+Fase 9), e o Plano 00-02 o duplicou para `options_provider_mydata.py` sem
+resolver — decisão correta do executor (não era escopo do achado original,
+corrigir seria scope creep numa noite autônoma). A Fase 10 (ponte
+gatilho→put) vai chamar esse mesmo gate a partir de um hook novo no
+scheduler — um TERCEIRO consumidor concorrente em potencial. Não bloqueei a
+execução da Fase 10 por isso (não está na lista de PARADA DURA do contrato,
+e o gate segue funcionalmente correto para chamada isolada), mas é o tipo
+de decisão de arquitetura (lock? fila? aceitar o risco de estouro
+ocasional?) que prefiro que você valide antes de eu considerar resolvido.
+
+## Log cronológico
+
 ## Setup do milestone (/gsd-new-milestone)
 
 ### D-AUTO-01: Pular `phases.clear --confirm` na inicialização do milestone
