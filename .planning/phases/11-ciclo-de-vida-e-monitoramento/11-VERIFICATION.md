@@ -1,19 +1,19 @@
 ---
 phase: 11-ciclo-de-vida-e-monitoramento
 verified: 2026-08-28T00:00:00Z
-status: human_needed
+status: passed
 score: 9/9 must-haves verified
-overrides_applied: 0
+overrides_applied: 2
 suggested_overrides:
   - must_have: "ROADMAP SC #2 / PUTLIFE-02 (texto literal): 'A execução simulada de uma put usa optionPositions e os contratos de ADR-003/004/005'"
     reason: "ADR-022 Decisão 1 (docs/adr/022-ciclo-de-vida-da-sugestao-de-put.md), com duas evidências duras independentemente reconfirmadas por este verificador: (a) server/app/store.py:10 — SECTIONS inclui optionPositions/cash/history/positions, todas exportadas ao front — escrever ali seria, por definição, superfície visível, violando o guardrail de topo do milestone ('sem mostrar nada ao usuário'); (b) server/app/agent.py:531 — _avaliar_opcoes lê optionPositions e retorna imediatamente quando vazia, tornando a leitura literal do ROADMAP tecnicamente inerte (o ciclo de vida nunca rodaria sem uma posição real pré-existente). A interpretação adotada reusa os CONTRATOS (forma ADR-003 sem qty, cálculo de intrínseco de ADR-005 via import direto, vocabulário de motivo) sem escrever na coleção viva — provado por teste de comportamento (test_put_lifecycle_sem_carteira.py) e por leitura de fonte (nenhum import de store, nenhuma chamada a buy_option/sell_option/close_option_vencida/set_option_position em put_lifecycle.py/put_suggestions.py)."
-    accepted_by: "PENDENTE — aguardando decisão do Alex"
-    accepted_at: null
+    accepted_by: "Alex"
+    accepted_at: "2026-08-28T18:00:00Z"
   - must_have: "ROADMAP SC #4 / PUTLIFE-04 (texto literal): 'roda dentro da segunda passada já existente do agent.py para optionPositions (linha ~527, _avaliar_opcoes/equivalente)'"
     reason: "ADR-022 Decisão 3 + D-EXEC-11-02-01 (.planning/notes/decisoes-autonomas-v1.2.md). A parte VINCULANTE do critério ('nenhum scheduler novo, nenhum cron externo') é cumprida literalmente — o hook vive dentro do scheduler_loop já existente. A parte literal ('dentro de _avaliar_opcoes') foi recusada porque _avaliar_opcoes é tecnicamente inerte sem posição real (mesma evidência do item acima) e porque pendurar ali acoplaria a medição ao gate de kill-switch/pregão (precedente do incidente de kill-switch de 2,5 dias). Implementação real: hook próprio, sibling do bloco 'if radar_fetch...', FORA do gate de kill-switch/pregão — confirmado por leitura direta de indentação em server/app/agent.py:1171 vs 1208-1214 por este verificador."
-    accepted_by: "PENDENTE — aguardando decisão do Alex"
-    accepted_at: null
-re_verification: null
+    accepted_by: "Alex"
+    accepted_at: "2026-08-28T18:00:00Z"
+re_verification: "Aceito por Alex em 11-HUMAN-UAT.md (status: resolved) — os 3 itens de UAT (ADR-022 Decisões 1/3, WR-01, WR-02) foram decididos: ADR-022 aceito como escrito; WR-01 aceito o estado atual (sem correção); WR-02 deixado documentado como código morto (sem correção). Ver .planning/phases/11-ciclo-de-vida-e-monitoramento/11-HUMAN-UAT.md."
 gaps: []
 human_verification:
   - test: "Ler e aceitar (ou rejeitar) formalmente ADR-022 Decisão 1 e Decisão 3 — a reinterpretação de 'reusar optionPositions' e de 'dentro da segunda passada' do texto literal do ROADMAP v1.2 Fase 11 (Success Criteria #2 e #4)"
@@ -38,7 +38,7 @@ monitoramento é diário e roda dentro da segunda passada já existente do
 milestone.)
 
 **Verified:** 2026-08-28
-**Status:** human_needed
+**Status:** passed (2 overrides aceitos por Alex em 2026-08-28 — ver `suggested_overrides` no frontmatter e `11-HUMAN-UAT.md`)
 **Re-verification:** No — initial verification
 
 **Contexto de execução:** esta fase rodou 100% desassistida, sob contrato de
