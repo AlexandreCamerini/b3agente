@@ -45,6 +45,17 @@ decidido.
 rejeitada, gastaria tempo/tokens de uma noite finita sem mudar nenhuma
 decisão já travada pelo Alex.
 
+### D-AUTO-04: Roadmap aprovado sem apresentar para confirmação
+**Decisão:** aprovar o roadmap gerado pelo `gsd-roadmapper` (3 fases, 9/9
+requirements cobertos) sem parar em `AskUserQuestion`.
+**Por quê:** o contrato de autonomia proíbe perguntas; o roadmapper formalizou
+exatamente o escopo que o Alex já ditou linha a linha (fases, requirements,
+guardrails, decisões travadas) — não há decisão de produto nova para
+confirmar, só verificação de fidelidade ao pedido, que foi feita por leitura
+do arquivo antes de commitar.
+**Efeito:** `.planning/ROADMAP.md`/`STATE.md`/`config.json` commitados em
+`3020441`.
+
 ### D-AUTO-03: Numeração de fase não-sequencial (0, 10, 11) honrada literalmente
 **Decisão:** instruir o roadmapper a criar as fases com os números exatos
 que o Alex especificou (Fase 0, Fase 10, Fase 11), não a numeração
