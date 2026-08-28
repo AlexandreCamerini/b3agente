@@ -324,6 +324,41 @@ def test_executar_ticker_com_alias_busca_pelo_alias_mas_grava_sob_ticker_do_univ
         del ledger_tickers.ALIASES["TESTOR3"]
 
 
+def test_executar_ticker_bruto_nao_normalizado_grava_sob_chave_normalizada(
+    tmp_path, monkeypatch,
+):
+    """Guardião do achado CR-01 do 00-REVIEW.md: `executar()` recebia `tk` cru
+    do chamador (ex.: `--tickers` com '.SA'/minúsculo) e usava esse valor como
+    chave de gravação no ledger, em vez do ticker normalizado que
+    `ledger_tickers.resolver()` já calcula internamente — quebrava a
+    idempotência de `UNIQUE(ticker, setup, lado, data_sinal)` numa rerun
+    limpa, inflando o `n` agregado do setup com sinais não-independentes."""
+    conn = _conn(tmp_path)
+    chamado_com = []
+    gravado_sob = []
+
+    async def carregar_fake(ticker, rng):
+        chamado_com.append(ticker)
+        return [{"date": "2025-01-01"}]
+
+    def bootstrap_ticker_fake(conn_, ticker, candles, dias):
+        gravado_sob.append(ticker)
+        linhas = [_linha(ticker, "2025-01-10")]
+        novas = signal_ledger.registrar_linhas(conn_, linhas)
+        return len(linhas), novas
+
+    monkeypatch.setattr(bootstrap, "carregar_candles", carregar_fake)
+    monkeypatch.setattr(bootstrap, "bootstrap_ticker", bootstrap_ticker_fake)
+
+    resumo = asyncio.run(bootstrap.executar(
+        conn, ["petr4.sa"], anos=1.0, rng="15y", concorrencia=2,
+    ))
+    assert chamado_com == ["PETR4"]
+    assert gravado_sob == ["PETR4"]  # nunca "petr4.sa" cru
+    assert resumo["erros"] == []
+    assert resumo["excluidos"] == []
+
+
 def test_executar_sempre_tem_chave_excluidos_mesmo_sem_exclusao(tmp_path, monkeypatch):
     conn = _conn(tmp_path)
 

@@ -47,6 +47,7 @@ from datetime import datetime
 import httpx
 
 from . import db, ledger_tickers, scanner, signal_ledger, signal_replay, yahoo
+from .tickers import normalize_ticker
 
 # --------------------------------------------------------------------------- #
 # 1) Dados — sem cache em disco (container efêmero do Railway)
@@ -150,7 +151,8 @@ async def executar(conn, tickers: list, anos: float, rng: str,
     resumo = {"tickers": total, "linhas": 0, "novas": 0, "erros": [], "excluidos": []}
 
     tickers_ativos = []
-    for tk in tickers:
+    for tk_bruto in tickers:
+        tk = normalize_ticker(tk_bruto)
         simbolo, razao = ledger_tickers.resolver(tk)
         if razao is not None:
             resumo["excluidos"].append({"ticker": tk, "razao": razao})
