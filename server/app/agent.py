@@ -1111,7 +1111,8 @@ async def scheduler_loop(conn, quotes_getter, notify_push=None, interval_s: int 
     gate de pregão (não depende de cotação).
     ADR-017 (Bloco 1): o mesmo laço também avança o ledger de sinais
     resolvidos — hook próprio, gate próprio (`B3_LEDGER_DAILY_HHMM`, default
-    09:15), lendo do `candle_cache` sem custo de rede."""
+    09:15), lendo do `candle_cache` sem custo de rede.
+    Fase 10: o mesmo laço arma a ponte gatilho→put — hook próprio, gate próprio (`B3_PUT_BRIDGE_HHMM`, default 09:30), lendo o Radar já armazenado, sem custo de rede extra e sem scheduler novo."""
     interval = interval_s or int(os.environ.get("B3_AGENT_INTERVAL_S") or INTERVAL_S_DEFAULT)
     # 260824-kc2: preferência por classe de push. Import local (padrão do
     # arquivo, ex.: `_alertar_kill_switch` e os hooks abaixo) e FORA do
@@ -1191,6 +1192,18 @@ async def scheduler_loop(conn, quotes_getter, notify_push=None, interval_s: int 
                     await signal_ledger_job.maybe_run(conn)
                 except Exception as e:  # noqa: BLE001 — ledger nunca derruba o laço
                     print(f"[ledger-diario] hook do scheduler falhou: {e}")
+                # Fase 10 (PUT-01/PUT-02): ponte gatilho→put. DEPOIS do ledger de
+                # propósito — o Radar diário já armazenou o resultado EOD que este
+                # hook lê (`radar_daily.get_stored`), sem gastar requisição nova.
+                # `try/except` PRÓPRIO, segundo cinto além do try/except interno de
+                # `put_bridge.maybe_run` (que já nunca propaga): nenhuma falha da
+                # ponte pode chegar ao heartbeat, ao kill-switch ou ao ciclo de
+                # stop/alvo dos usuários — mesma regra de `signal_ledger_job` acima.
+                try:
+                    from . import put_bridge  # import local: sem ciclo de import
+                    await put_bridge.maybe_run(conn)
+                except Exception as e:  # noqa: BLE001 — a ponte nunca derruba o laço
+                    print(f"[put-bridge] hook do scheduler falhou: {e}")
             if not kill_switch_on() and in_market_hours():
                 # ADR-001 (item 7): passada INTRADAY, GLOBAL, uma por acordar do
                 # laço. Roda ANTES do ciclo por usuário de propósito — assim o
