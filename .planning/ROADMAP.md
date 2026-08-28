@@ -44,7 +44,7 @@ Full phase details: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
 | 8. Interface e IA da Seleção Dinâmica (ADR-017 Bloco 3/4) | v1.1 | Complete | 2026-08-21 |
 | 0. Precondições | 2/2 | Complete   | 2026-08-28 |
 | 10. Ponte gatilho→put | 3/3 | Complete    | 2026-08-28 |
-| 11. Ciclo de vida e monitoramento | v1.2 | Not started | - |
+| 11. Ciclo de vida e monitoramento | 1/3 | In Progress|  |
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py)
 
@@ -246,7 +246,7 @@ inteiro não toca a carteira do usuário)
 Plans:
 **Wave 1**
 
-- [ ] 11-01-PLAN.md — 11 colunas de ciclo de vida em `put_suggestions`
+- [x] 11-01-PLAN.md — 11 colunas de ciclo de vida em `put_suggestions`
   (migração idempotente) + `transicionar()` como única porta de escrita de
   estado + `put_lifecycle.py` puro (`forma_adr003`/`resolver_spots`/
   `decidir`, intrínseco reusado de `agent.intrinseco_opcao`)
