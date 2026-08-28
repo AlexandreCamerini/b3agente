@@ -44,7 +44,7 @@ Full phase details: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
 | 8. Interface e IA da Seleção Dinâmica (ADR-017 Bloco 3/4) | v1.1 | Complete | 2026-08-21 |
 | 0. Precondições | 2/2 | Complete   | 2026-08-28 |
 | 10. Ponte gatilho→put | 3/3 | Complete    | 2026-08-28 |
-| 11. Ciclo de vida e monitoramento | 1/3 | In Progress|  |
+| 11. Ciclo de vida e monitoramento | 2/3 | In Progress|  |
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py)
 
@@ -253,7 +253,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1)*
 
-- [ ] 11-02-PLAN.md — `put_lifecycle.run_diario`/`maybe_run`: varredura
+- [x] 11-02-PLAN.md — `put_lifecycle.run_diario`/`maybe_run`: varredura
   diária das sugestões não-terminais lendo `candle_cache.peek` (custo de rede
   zero), pendência datada quando falta preço, e o hook no `scheduler_loop`
   logo após o da ponte
