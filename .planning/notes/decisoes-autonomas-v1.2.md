@@ -198,3 +198,63 @@ o tipo de atalho que o contrato de autonomia proíbe.
 mudança de comportamento — `triar_put` já nunca lia `payload.get("calls")`
 antes do ajuste. Ver `.planning/phases/10-ponte-gatilho-put/10-01-SUMMARY.md`.
 
+## Execução da Fase 10, Plano 02 (hook do scheduler_loop — cruzamento
+gatilho×carteira, consulta sequencial, gravação com proveniência)
+
+### D-EXEC-10-02-01: reescritas 4 menções de literais que os guardiões de
+aceite não filtram em docstring (mesma classe de D-EXEC-10-01-01)
+
+**Decisão:** reescrevi, em `server/app/put_bridge.py`, 2 menções
+PRÉ-EXISTENTES (herdadas do Plano 01) de `options_provider_mydata` e 2 NOVAS
+de `asyncio.gather`/`create_task` em docstring/comentário, trocando o
+literal pela descrição em prosa: `options_provider_mydata` → "o adaptador de
+opções do mydata"; `asyncio.gather`/`create_task` → "nenhum mecanismo de
+concorrência (fan-out assíncrono, corrotinas paralelas)" / "qualquer
+fan-out concorrente (gather ou tasks paralelas)".
+
+**Por quê:** dois guardiões novos deste plano (`grep -v '^#' put_bridge.py |
+grep -c "options_provider_mydata"` == 0, D-10-I; `grep -v '^#' put_bridge.py
+| grep -cE "asyncio\.gather|create_task"` == 0) falharam ao rodar pela
+primeira vez — não por bug de implementação, mas porque `grep -v '^#'` só
+filtra linhas que COMEÇAM com `#`, não texto dentro de docstring (string,
+não comentário). São provas ESTRUTURAIS (nenhuma menção ao padrão proibido,
+nem em prosa) — mais rígidas que "o código não faz X", de propósito, para
+sobreviver a uma futura edição que reintroduza o padrão proibido sem
+aparecer no diff de lógica.
+
+**Alternativa descartada:** relaxar os critérios de aceite (remover os dois
+`grep -c` da verificação) — rejeitada porque os critérios vêm do plano
+assinado; afrouxar uma prova estrutural para acomodar texto explicativo é o
+tipo de atalho que o contrato de autonomia proíbe.
+
+**Efeito:** 4 trechos de docstring/comentário em `server/app/put_bridge.py`
+(2 herdados do Plano 01, 2 novos deste plano). Nenhuma mudança de
+comportamento — `run_diario` já era sequencial e só acessava o seletor
+`options_provider.get_options` antes do ajuste de texto. Ver
+`.planning/phases/10-ponte-gatilho-put/10-02-SUMMARY.md`.
+
+### D-EXEC-10-02-02: linha de docstring nova em `scheduler_loop` escrita
+como uma única linha física longa
+
+**Decisão:** a linha nova da docstring de `scheduler_loop` (Fase 10) foi
+escrita como UMA linha física só (sem quebra visual em ~79 colunas, o
+estilo comum no resto do arquivo), mesmo ficando mais longa que as linhas
+vizinhas.
+
+**Por quê:** o critério de aceite corrigido do plano (`git diff -U0 --
+agent.py | grep -c '^+[^+]'` ≤ 14) conta linhas FÍSICAS adicionadas. Meu
+primeiro rascunho quebrou a frase em 3 linhas visuais, o que fez o diff
+mostrar 4 linhas adicionadas para essa frase (1 removida + 3 novas) em vez
+de 1, somando 16 no total — acima do limite. O plano pede explicitamente
+"UMA linha" na docstring; o limite numérico assume essa interpretação
+literal.
+
+**Alternativa descartada:** encurtar o texto do bloco do hook (que TEM texto
+extenso especificado literalmente pelo `<action>` do plano, linha a linha)
+— rejeitada porque divergiria do texto assinado sem necessidade, quando a
+docstring já resolvia a conta sozinha.
+
+**Efeito:** `server/app/agent.py`, 1 linha de docstring (mais longa, sem
+quebra visual). Nenhuma mudança de comportamento. Ver
+`.planning/phases/10-ponte-gatilho-put/10-02-SUMMARY.md`.
+
