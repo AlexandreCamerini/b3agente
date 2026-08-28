@@ -386,13 +386,13 @@ function AboutModal({ onClose }) {
         <p style={{ color: T.textMuted, fontSize: "13px", lineHeight: 1.6, margin: "0 0 12px" }}>{DISCLAIMERS.aiContent}</p>
         <p style={{ color: T.textMuted, fontSize: "13px", lineHeight: 1.6, margin: "0 0 18px" }}>
           {/* C-11 (REPORT-01): mesma classe de violação do princípio 3 do CLAUDE.md
-              (proveniência), corrigida por completude — brapi é a fonte MASTER
-              (ADR-008), Yahoo é backup/intraday; a string fixa antiga citava só o
-              backup como se fosse a única fonte. */}
-          As cotações vêm da brapi (fonte principal) e do Yahoo (backup) e podem atrasar
-          ou conter imprecisões. Stop, alvo e recomendações são exercícios didáticos
-          calculados a partir do seu perfil e de dados passados — desempenho passado não
-          garante resultado futuro.
+              (proveniência) — ADR-008/ADR-020: o diário vem do MyData, com brapi e
+              Yahoo como reserva nessa ordem; o spot ao vivo é da brapi; a string
+              fixa antiga citava só uma fonte como se fosse a única. */}
+          As cotações vêm do MyData (diário, com brapi e Yahoo como reserva) e da
+          brapi (spot ao vivo) e podem atrasar ou conter imprecisões. Stop, alvo e
+          recomendações são exercícios didáticos calculados a partir do seu perfil
+          e de dados passados — desempenho passado não garante resultado futuro.
         </p>
         <button onClick={onClose} style={{ width: "100%", padding: "12px", borderRadius: "10px", border: `1px solid ${T.accent}`, background: T.accentTint, color: T.accent, fontWeight: 800, fontSize: "14px" }}>Entendi</button>
       </div>
@@ -1118,10 +1118,11 @@ function KpiBlock({ kpis, operador }) {
 // qa/36 (F10.2): FUNDAMENTO — chip de score A/B/C (filtro de qualidade, nunca
 // gatilho) e tabela de métricas. Cor por score; "sem dado" explícito, nunca
 // inferência. score ausente → nada renderiza (ticker sem cobertura).
-// ADR-008: rótulo de exibição da fonte do dado (CLAUDE.md #3 — todo dado de
-// mercado declara a fonte). `source` no payload é sempre "brapi" | "yahoo";
-// qualquer outro valor (fonte nova, futuro) aparece como veio, sem mascarar.
-const FONTE_LABEL = (source) => (source === "brapi" ? "brapi" : source === "yahoo" ? "Yahoo" : source);
+// ADR-008/ADR-020: rótulo de exibição da fonte do dado (CLAUDE.md #3 — todo
+// dado de mercado declara a fonte). `source` no payload pode valer
+// "mydata" | "brapi" | "yahoo"; qualquer outro valor (fonte nova, futuro)
+// aparece como veio, sem mascarar.
+const FONTE_LABEL = (source) => (source === "mydata" ? "MyData" : source === "brapi" ? "brapi" : source === "yahoo" ? "Yahoo" : source);
 
 const SCORE_COLOR = { A: "positive", B: "accent", C: "negative" };
 function FundamentoChip({ f }) {
@@ -3111,10 +3112,10 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
                             no período · fechamento{q.source ? " · " + FONTE_LABEL(q.source) : ""}
                           </div>
                         )}
-                        {/* ADR-008: princípio #3 do CLAUDE.md — dado de mercado
-                            exibe a FONTE. `source` vem em todo payload de
-                            candle_provider (brapi com Yahoo de reserva); sem
-                            isso a tela nunca dizia de onde o preço veio. */}
+                        {/* ADR-008/ADR-020: princípio #3 do CLAUDE.md — dado de
+                            mercado exibe a FONTE. `source` vem em todo payload
+                            de candle_provider (mydata→brapi→Yahoo em cadeia);
+                            sem isso a tela nunca dizia de onde o preço veio. */}
                         {!q.error && q.change != null && q.source && (
                           <div style={{ fontSize: "9.5px", fontWeight: 700, color: T.textFaint, letterSpacing: "0.03em" }}>
                             {FONTE_LABEL(q.source)}
@@ -5765,7 +5766,7 @@ function FonteDadosScreen({ ctx }) {
       {!isNative && !candles && (
         <div style={{ ...card, padding: "14px 16px" }}>
           <p style={{ margin: 0, color: T.textMuted, fontSize: "13px", lineHeight: 1.5 }}>
-            O provedor de cotações (brapi, com Yahoo de backup) e o orçamento de requisições são visíveis aqui para contas de administração; o override de servidor só existe no app iOS.
+            O provedor de cotações (mydata no diário, com brapi e Yahoo de reserva) e o orçamento de requisições são visíveis aqui para contas de administração; o override de servidor só existe no app iOS.
           </p>
         </div>
       )}
@@ -6617,9 +6618,9 @@ function CatalogModal({ ctx }) {
 
         <div style={{ padding: "12px 18px", borderBottom: `1px solid ${T.borderSubtle}` }}>
           {/* C-11 (REPORT-01): mesma correção de proveniência — validate_outcome
-              consulta candle_provider.get_quote, que hoje é brapi primeiro, Yahoo
-              como backup (ADR-008), não mais só Yahoo. */}
-          <div style={{ fontSize: "11.5px", color: T.textMuted, marginBottom: "7px" }}>Adicionar outro ativo da B3 — digite o código; a existência é confirmada no provedor de cotações (brapi/Yahoo).</div>
+              consulta candle_provider.get_quote, hoje mydata→brapi→Yahoo em
+              cadeia (ADR-008/ADR-020), não mais só Yahoo. */}
+          <div style={{ fontSize: "11.5px", color: T.textMuted, marginBottom: "7px" }}>Adicionar outro ativo da B3 — digite o código; a existência é confirmada no provedor de cotações (mydata/brapi/Yahoo).</div>
           <div style={{ display: "flex", gap: "8px" }}>
             <input
               value={tk}
