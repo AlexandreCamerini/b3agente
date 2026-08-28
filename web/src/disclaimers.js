@@ -7,7 +7,7 @@ export const DISCLAIMERS = {
 
   // Banner principal (cabeçalho do app)
   appBanner:
-    "Boris+ é um simulador EDUCACIONAL: usa cotações reais do mercado (Yahoo Finance) e dinheiro SIMULADO. Nada aqui sugere operar com dinheiro real nem constitui recomendação de investimento.",
+    "Boris+ é um simulador EDUCACIONAL: usa cotações reais do mercado e dinheiro SIMULADO. Nada aqui sugere operar com dinheiro real nem constitui recomendação de investimento.",
 
   // Aviso obrigatório em TODO conteúdo gerado por IA (análise, KPIs, stop, alvo)
   aiContent:
