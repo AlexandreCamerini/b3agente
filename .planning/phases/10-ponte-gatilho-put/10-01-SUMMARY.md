@@ -124,6 +124,34 @@ Nenhum desvio de Regra 1/2/3/4 além da decisão de texto acima (D-EXEC-10-01-01
 **Total deviations:** 0 bugs/gaps auto-corrigidos; 1 decisão autônoma de texto (D-EXEC-10-01-01).
 **Impact on plan:** Nenhum. Escopo, schema, comportamento de `registrar`/`listar`/`contar`/`triar_put` exatamente como especificado.
 
+## Verificações adicionais pós-implementação
+
+- **`docs/adr/003-identidade-posicao-opcao.md`** (contexto do plano, não lido
+  antes da implementação): trata de `optionPositions`, uma coleção FUTURA e
+  DIFERENTE (posições de opção abertas — `id`=contractSymbol como chave
+  primária). Não colide com `put_suggestions`: `contrato` aqui é o mesmo
+  conceito de `id` na ADR (contractSymbol do provedor), mas a chave de
+  linha desta tabela é deliberadamente `UNIQUE(user_id, ticker,
+  data_pregao)` — uma SUGESTÃO é por (usuário, ativo, pregão), não por
+  contrato, e isso é o desenho do próprio `10-01-PLAN.md`, não um desvio da
+  ADR-003. Nenhum conflito.
+- **Nomes de chave de proveniência (`sha256`/`dt_captura`/`captura`)**: o
+  plano cita `cvm-financas/app/api/proveniencia.py:30-44` (repo externo,
+  fora deste sandbox) como fonte da verdade. Dois fixtures de teste
+  PRÉ-EXISTENTES e não relacionados a este plano
+  (`test_options_provider_mydata.py:63`, `test_options_provider.py:111`)
+  usam chaves diferentes (`sha256`+`arquivo`, só `sha256`) — mas nenhum dos
+  dois testes AFIRMA essas chaves contra o formato real do hub; são dados
+  de exemplo informais de tarefas anteriores não relacionadas a
+  proveniência. `mydata_client.get_options_chain` faz passthrough cru da
+  linha do hub sem normalizar `proveniencia` localmente — não há fonte de
+  verdade dentro deste repo. Mantive a leitura literal do plano
+  (`sha256`/`dt_captura`/`captura`) por ser a instrução mais específica e
+  citada por linha; o comportamento é seguro em qualquer cenário — chave
+  ausente ou com nome diferente do real produz `None` explícito (nunca
+  placeholder), preservando a mitigação T-10-04 mesmo se o nome exato
+  precisar de correção quando o Plano 02 integrar com o hub de verdade.
+
 ## Issues Encountered
 
 - Worktree HEAD estava em `475e0ab` (não continha os planos da Fase 10) — corrigido pelo próprio `<worktree_branch_check>` do harness (`git reset --hard e0ecb51d...`) antes de qualquer edição, mesmo padrão do achado registrado no SUMMARY do 00-02.
