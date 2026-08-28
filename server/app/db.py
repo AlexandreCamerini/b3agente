@@ -287,6 +287,67 @@ def init_db(conn: sqlite3.Connection) -> None:
         "ON signal_ledger(ticker, data_sinal)"
     )
 
+    # FASE 10 (ponte gatilho→put, Plano 01, D-10-A) — sugestão de put de
+    # proteção. TABELA SEPARADA do `signal_ledger` de propósito: a agregação
+    # do ADR-017 (`signal_ledger.agregar_cumulativo`) é `GROUP BY setup` sobre
+    # a tabela INTEIRA, sem coluna discriminadora de tipo de linha — uma
+    # sugestão de put ali dentro poluiria `expR`, o número que
+    # `regime.ranquear()` usa para pesar setups no Radar. A chave também não
+    # cabe (`UNIQUE(ticker, setup, lado, data_sinal)` identifica um sinal de
+    # AÇÃO, não uma put de CONTA com contrato/strike/vencimento/estilo). E o
+    # escopo diverge: `signal_ledger` é estatística global de mercado
+    # (`user_id=None`), enquanto uma sugestão de put aponta para a posição de
+    # UM usuário — misturar os dois é o erro que `db._scoped` existe para
+    # evitar.
+    #
+    # `option_type` fixado por CHECK é a garantia ESTRUTURAL de long-only:
+    # não existe forma desta tabela representar uma call, uma venda a
+    # descoberto ou uma perna vendida — não há coluna de quantidade, margem,
+    # garantia ou lado. `estilo_exercicio`/`iv` são NOT NULL porque isso é o
+    # schema traduzindo "nunca assumido localmente" (PUT-01): se a fonte não
+    # disser, a linha não nasce, sem default e sem fallback.
+    #
+    # `estado` nasce 'armada' mas este plano NÃO define transições — a
+    # máquina de 5 estados é requisito da Fase 11 (PUTLIFE-01); a coluna já
+    # existe agora só para a Fase 11 não precisar de migração de schema.
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS put_suggestions ("
+        " id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        " user_id TEXT NOT NULL,"
+        " ticker TEXT NOT NULL,"              # ativo-objeto NORMALIZADO (CR-01)
+        " data_pregao TEXT NOT NULL,"         # "AAAA-MM-DD", data BRT da rodada
+        " setup TEXT NOT NULL,"               # nome do detector que disparou
+        " lado TEXT,"                         # "baixa" | NULL
+        " contrato TEXT NOT NULL,"            # contractSymbol da fonte
+        " option_type TEXT NOT NULL,"         # sempre "put"
+        " strike REAL NOT NULL,"
+        " vencimento TEXT NOT NULL,"
+        " estilo_exercicio TEXT NOT NULL,"    # SEM default: se a fonte não diz, não grava
+        " iv REAL NOT NULL,"                  # volatilidade implícita real da fonte
+        " delta REAL,"                        # pode ser NULL (a fonte nem sempre publica)
+        " premio REAL,"                       # lastPrice do contrato
+        " volume INTEGER,"                    # quantidade_negociada (D-10-E)
+        " spot REAL,"                         # underlyingPrice do payload
+        " estado TEXT NOT NULL DEFAULT 'armada',"
+        " fonte TEXT NOT NULL,"               # payload["source"], ex. "mydata"
+        " as_of TEXT,"                        # payload["pregao"] (dt_pregao do hub)
+        " prov_sha256 TEXT,"
+        " prov_dt_captura TEXT,"
+        " prov_captura TEXT,"
+        " criado_em TEXT NOT NULL,"
+        " CHECK (option_type = 'put'),"
+        " UNIQUE(user_id, ticker, data_pregao)"
+        ")"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_put_suggestions_user "
+        "ON put_suggestions(user_id, data_pregao)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_put_suggestions_ticker "
+        "ON put_suggestions(ticker, data_pregao)"
+    )
+
     _migrate_identities_from_users(conn)
     conn.commit()
 
