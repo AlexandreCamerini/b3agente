@@ -43,7 +43,7 @@ Full phase details: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
 | 7. Seleção Dinâmica por Desempenho Histórico (ADR-017 Bloco 1) | v1.1 | Complete | 2026-08-21 |
 | 8. Interface e IA da Seleção Dinâmica (ADR-017 Bloco 3/4) | v1.1 | Complete | 2026-08-21 |
 | 0. Precondições | 2/2 | Complete   | 2026-08-28 |
-| 10. Ponte gatilho→put | 2/3 | In Progress|  |
+| 10. Ponte gatilho→put | 3/3 | Complete   | 2026-08-28 |
 | 11. Ciclo de vida e monitoramento | v1.2 | Not started | - |
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py)
@@ -99,7 +99,7 @@ Fases 1-8 pertencem a v1.0/v1.1 e a própria Fase 9 já está documentada acima.
    (exercício entrega uma ação que o usuário já possui).
 
 - [x] **Phase 0: Precondições** - Fecha os 9 tickers 404 do bootstrap do ledger (ADR-017) e o gate de orçamento do provedor de opções mydata (achado WR-01 da Fase 9) (completed 2026-08-28)
-- [ ] **Phase 10: Ponte gatilho→put** - Hook no `scheduler_loop` seleciona série de put candidata via hub mydata e grava a sugestão no ledger com proveniência — nada visível
+- [x] **Phase 10: Ponte gatilho→put** - Hook no `scheduler_loop` seleciona série de put candidata via hub mydata e grava a sugestão no ledger com proveniência — nada visível (completed 2026-08-28)
 - [ ] **Phase 11: Ciclo de vida e monitoramento** - Estados armada→expirada/executada→monitorada→fechada, reusando `optionPositions` e ADR-003/004/005 inteiros
 
 ### Phase 0: Precondições
@@ -201,7 +201,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2)*
 
-- [ ] 10-03-PLAN.md — guardião automatizado de PUT-03 (fonte + comportamento +
+- [x] 10-03-PLAN.md — guardião automatizado de PUT-03 (fonte + comportamento +
   agregações do ADR-017) + ADR-021 (onde a sugestão mora, long-only estrutural,
   disposição de WR-01) + doc de operação + fechamento da suíte canônica
 
