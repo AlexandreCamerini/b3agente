@@ -196,13 +196,29 @@ devolvendo dado real e corretamente escopado (`fonte:b3` ativo,
 `opcoes/vencimentos`). Essa era a segunda das duas razões que motivaram o
 `adiar` do checkpoint do Plano 09-06 — está fechada.
 
-**O que NÃO mudou:** o pico por minuto continua acima do teto. A amostra ao
-vivo usou 10 chamadas em ~7,5s (bem abaixo de 60/min) — não é um teste de
-rajada equivalente ao padrão real do scanner, então não contradiz nem
-confirma o número 148 projetado; só confirma que a chave funciona. O
-veredito de capacidade (§6, primeiro parágrafo) permanece **NÃO CABE** até
-uma das duas saídas do §8 (negociar cota maior, ou reduzir a cadência para
-o `intervaloMinimoSeguro`=1,0s) ser aplicada.
+**O que NÃO mudou (na época em que este parágrafo foi escrito):** o pico por
+minuto continuava acima do teto. A amostra ao vivo usou 10 chamadas em
+~7,5s (bem abaixo de 60/min) — não é um teste de rajada equivalente ao
+padrão real do scanner, então não contradiz nem confirma o número 148
+projetado; só confirma que a chave funciona.
+
+**Atualização (2026-08-28T17h): mitigação (b) do item 1 do §8 aplicada em
+código.** `scanner.run_scan` agora usa `MIN_FETCH_GAP_S_MYDATA`=1,0s (o
+`intervaloMinimoSeguro` calculado abaixo) quando `candle_provider.
+provider_name() == "mydata"`, preservando `MIN_FETCH_GAP_S`=0,15s para
+brapi/Yahoo (commit — ver `server/app/scanner.py`, testado por
+`test_gap_sobe_para_mydata_quando_provider_e_mydata` e 2 guardiões
+irmãos em `server/tests/test_scanner.py`). Isso torna **estruturalmente
+impossível** o código enviar mais de 60 chamadas de candle/min quando
+mydata está ativo — o espaçamento é aplicado ANTES de cada chamada real,
+não depois; uma rajada de N chamadas agora leva `(N-1)×1,0s` para
+completar em vez de estourar o teto. **Efeito no veredito:** a dimensão
+"pico por minuto" do §6 passa a **CABE por desenho** para o caminho de
+CANDLE (o gate cobre exatamente esse caminho); o veredito histórico acima
+(NÃO CABE) permanece registrado como o estado medido ANTES desta mitigação
+— não reescrito, carimbado. Item 3 do plano de ação (gate de orçamento nas
+opções) também fechou nesse meio tempo (Fase 0 do milestone v1.2,
+`OPTGATE-01`) — ver §8 atualizado.
 
 ## 7. Item 2 do TODO — status de `provento_b3`
 
@@ -223,28 +239,22 @@ O veredito é misto — CABE no volume diário, NÃO CABE no pico por minuto —
 então a ação recomendada também é mista, e nenhuma das duas depende de
 negociar aumento de cota:
 
-1. **Pico por minuto (achado principal, bloqueante para a virada):** antes
-   de virar `B3_CANDLE_PROVIDER=mydata` em produção, o gate de espaçamento
-   entre chamadas reais precisa respeitar o teto do mydata
-   especificamente — hoje `scanner.MIN_FETCH_GAP_S`=0,15s é compartilhado
-   por todos os provedores e foi dimensionado para Yahoo/brapi. Duas saídas
-   possíveis (decisão do Plano 09-06, não deste plano): (a) elevar o
-   espaçamento GLOBAL para o `intervaloMinimoSeguro` calculado (1,0s) — mas
-   isso deixaria Yahoo/brapi mais lentos também, sem necessidade; ou (b)
-   tornar o gate de espaçamento SENSÍVEL ao provedor ativo (só aplicar
-   1,0s quando o provedor da chamada for `mydata`), preservando 0,15s para
-   Yahoo/brapi. A opção (b) é a que preserva o ganho de performance das
-   outras fontes.
+1. ~~**Pico por minuto (achado principal, bloqueante para a virada)**~~ —
+   **RESOLVIDO em código, 2026-08-28.** Opção (b) implementada:
+   `scanner.run_scan` aplica `MIN_FETCH_GAP_S_MYDATA`=1,0s só quando
+   `candle_provider.provider_name() == "mydata"`, preservando 0,15s para
+   Yahoo/brapi (sem perda de performance nas outras fontes). Estruturalmente
+   impossível estourar 60/min de candle enquanto essa checagem estiver no
+   caminho. Ver atualização no §6.
 2. **Volume diário:** CABE com folga confortável (72,6%) nos números REAIS
    medidos — nenhuma ação necessária aqui. Negociar aumento de cota com o
    lado cvm-financas não é preciso para o volume.
-3. **Opções sem teto de taxa (Achado 2, §3):** antes de virar
-   `B3_OPTIONS_PROVIDER=mydata` em produção, considerar adicionar um gate de
-   orçamento em `options_provider_mydata.py`/`options_provider.py`,
-   espelhando o `_gate`/`_debita` que `candle_provider.py` já tem (Plano
-   09-02) — hoje não existe NENHUM limite de taxa no caminho de opções, e
-   o TTL de 300s só reduz repetição do MESMO ticker, não protege contra
-   muitos tickers distintos abertos ao mesmo tempo.
+3. ~~**Opções sem teto de taxa (Achado 2, §3)**~~ — **RESOLVIDO em
+   2026-08-28** (Fase 0 do milestone v1.2, `OPTGATE-01`):
+   `options_provider_mydata.py` ganhou gate `_gate`/`_debita` espelhando
+   `candle_provider.py`, com refusal HARD (nunca soft-pass). Ver
+   `docs/adr/020-centralizacao-de-dados-no-mydata.md` e
+   `.planning/milestones/v1.2-phases/00-precondi-es/00-02-SUMMARY.md`.
 4. ~~**Perna ao vivo**~~ — **CONCLUÍDA em 2026-08-28T01:57:52Z.** Chave
    `f00b4554` confirmada autenticando de fato, escopo `fonte:b3` ativo
    (campos de preço presentes nas 5 amostras de `cotacoes`). Ver §4/§5/§6.

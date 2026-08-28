@@ -138,6 +138,14 @@ def _fake_fetch(symbol, rng):
     return go()
 
 
+def _fake_fetch_ok(symbol, rng):
+    """Como `_fake_fetch`, mas nunca falha — para testes de espaçamento/gate
+    onde o ticker não precisa existir em `SERIES` (só medir tempo decorrido)."""
+    async def go():
+        return {"candles": _mk_candles(_uptrend()), "currency": "BRL"}
+    return go()
+
+
 def _run(coro):
     return asyncio.get_event_loop_policy().new_event_loop().run_until_complete(coro)
 
@@ -213,6 +221,70 @@ def test_scan_cache_ttl_evita_refazer():
     p1 = _run(scanner.run_scan(period="1y", universe="AAAA3,BBBB3", fetch=_fake_fetch))
     p2 = _run(scanner.run_scan(period="1y", universe="AAAA3,BBBB3", fetch=_fake_fetch))
     assert p2 is p1                                        # mesmo objeto: veio do cache
+
+
+def test_gap_padrao_quando_provider_nao_e_mydata():
+    """Sem B3_CANDLE_PROVIDER=mydata, o espaçamento entre chamadas REAIS
+    continua MIN_FETCH_GAP_S (0,15s) — comportamento inalterado para
+    brapi/Yahoo."""
+    import os
+    import time
+    prev = os.environ.get("B3_CANDLE_PROVIDER")
+    try:
+        os.environ.pop("B3_CANDLE_PROVIDER", None)  # default (não-mydata)
+        t0 = time.monotonic()
+        _run(scanner.run_scan(period="1y", universe="GAPX1,GAPX2,GAPX3", fetch=_fake_fetch_ok))
+        elapsed = time.monotonic() - t0
+        # 3 tickers -> 2 intervalos de MIN_FETCH_GAP_S (0,15s) = 0,30s de piso;
+        # se o gate de mydata (1,0s) fosse aplicado por engano, passaria de 2s.
+        assert elapsed < 1.0
+    finally:
+        if prev is None:
+            os.environ.pop("B3_CANDLE_PROVIDER", None)
+        else:
+            os.environ["B3_CANDLE_PROVIDER"] = prev
+
+
+def test_gap_sobe_para_mydata_quando_provider_e_mydata():
+    """Achado WR-01 do 09-REVIEW.md / decisão do Alex (2026-08-28): quando
+    B3_CANDLE_PROVIDER=mydata, o espaçamento sobe para
+    MIN_FETCH_GAP_S_MYDATA (1,0s, intervaloMinimoSeguro medido em
+    docs/MEDICAO-Mydata-2026-08-27.md) — sem isso, o pico de 148/min
+    projetado estoura o teto de 60/min da chave em produção."""
+    import os
+    import time
+    prev = os.environ.get("B3_CANDLE_PROVIDER")
+    try:
+        os.environ["B3_CANDLE_PROVIDER"] = "mydata"
+        t0 = time.monotonic()
+        _run(scanner.run_scan(period="1y", universe="GAPY1,GAPY2,GAPY3", fetch=_fake_fetch_ok))
+        elapsed = time.monotonic() - t0
+        # 3 tickers -> 2 intervalos de MIN_FETCH_GAP_S_MYDATA (1,0s) = 2,0s de piso.
+        assert elapsed >= 1.9
+    finally:
+        if prev is None:
+            os.environ.pop("B3_CANDLE_PROVIDER", None)
+        else:
+            os.environ["B3_CANDLE_PROVIDER"] = prev
+
+
+def test_gap_nao_derruba_varredura_se_candle_provider_indisponivel(monkeypatch=None):
+    """Se checar o provedor ativo falhar por qualquer motivo, a varredura
+    segue com o espaçamento padrão (MIN_FETCH_GAP_S) em vez de propagar."""
+    import sys
+    import types
+    from app import candle_provider as candle_provider_mod
+    original = candle_provider_mod.provider_name
+
+    def _quebra():
+        raise RuntimeError("simulated failure reading provider")
+
+    candle_provider_mod.provider_name = _quebra
+    try:
+        payload = _run(scanner.run_scan(period="1y", universe="GAPZ1,GAPZ2", fetch=_fake_fetch_ok))
+        assert payload["scanned"] == 2  # varredura completa, nenhuma exceção subiu
+    finally:
+        candle_provider_mod.provider_name = original
 
 
 def test_periodo_invalido_normaliza_para_default():

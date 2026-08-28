@@ -53,6 +53,12 @@ DEFAULT_UNIVERSE = [
 MAX_UNIVERSE = 120          # teto de símbolos por varredura (env/override)
 CONCURRENCY = 4             # chamadas simultâneas ao pipeline por ativo
 MIN_FETCH_GAP_S = 0.15      # espaçamento mínimo entre chamadas REAIS ao provedor
+# mydata tem teto de 60/min — bem mais apertado que os ~400/min que brapi/Yahoo
+# toleram sob MIN_FETCH_GAP_S=0,15s. Valor medido (`intervaloMinimoSeguro`) em
+# docs/MEDICAO-Mydata-2026-08-27.md §6 (pico projetado 148/min contra 60/min).
+# Só entra quando candle_provider.provider_name() == "mydata"; brapi/Yahoo
+# continuam em MIN_FETCH_GAP_S — ver `run_scan`.
+MIN_FETCH_GAP_S_MYDATA = 1.0
 SCAN_TTL_S = 60.0           # resultado da varredura vale por 60s (por período+universo)
 
 DISCLAIMER = (
@@ -258,12 +264,25 @@ async def run_scan(period: Optional[str] = None, universe: Optional[str] = None,
     gate = {"next": 0.0}
     gate_lock = asyncio.Lock()
 
+    # Espaçamento sensível ao provedor CONFIGURADO (B3_CANDLE_PROVIDER), não
+    # ao que cada chamada individual acabou usando após fallback — mydata é o
+    # elo apertado (60/min) quando é o primário; brapi/Yahoo mantêm o
+    # espaçamento de sempre. Import local: sem ciclo de import (mesmo padrão
+    # de agent.py); nunca derruba a varredura se a checagem falhar.
+    min_gap_s = MIN_FETCH_GAP_S
+    try:
+        from . import candle_provider
+        if candle_provider.provider_name() == "mydata":
+            min_gap_s = MIN_FETCH_GAP_S_MYDATA
+    except Exception:
+        pass
+
     async def throttled(symbol, rng):
         # Espaçamento mínimo entre chamadas REAIS ao provedor (anti-429).
         async with gate_lock:
             now = time.monotonic()
             wait = max(0.0, gate["next"] - now)
-            gate["next"] = max(gate["next"], now) + MIN_FETCH_GAP_S
+            gate["next"] = max(gate["next"], now) + min_gap_s
         if wait:
             await asyncio.sleep(wait)
         return await fetch(symbol, rng)
