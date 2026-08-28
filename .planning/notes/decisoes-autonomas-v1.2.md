@@ -12,7 +12,19 @@ context: Execução desassistida noturna sob CONTRATO DE AUTONOMIA do Alex.
 Lista consolidada. Cada fase também registra suas decisões no próprio
 DISCUSSION-LOG; esta lista é o resumo para leitura rápida de manhã.
 
-## ⚠ Item para decisão sua de manhã (não é hard-stop, mas pede seu julgamento)
+## ⚠ Itens para decisão sua de manhã (não são hard-stop, pedem seu julgamento)
+
+**WR-01/WR-02 do 11-REVIEW.md — deixados sem correção, por escolha.**
+WR-01: uma sugestão `armada` sem `premio` (contrato ilíquido) fica sem
+carimbo de observabilidade (`estado_em`/`pendente_desde` nulos) enquanto
+espera o vencimento — se autorresolve corretamente na expiração, não é bug
+de correção, só um buraco no rastro de auditoria que o próprio guardião da
+fase não exercita. WR-02: fallback defensivo morto (`preco_entrada` viraria
+`0.0` em vez de propagar "desconhecido") — inalcançável hoje, só vira risco
+se um segundo caminho de entrada em `executada_simulada` for criado no
+futuro. Decisão: não mexer na máquina de estados no fim de uma madrugada
+inteira de execução por um ganho marginal — ambos ficam documentados no
+REVIEW para quando (se) você quiser fechá-los.
 
 **WR-01 — gate de orçamento com race condition check-then-debit, agora em
 DOIS consumidores.** `mydata_budget.pode_gastar()`/`.debita()` não são
