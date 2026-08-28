@@ -69,3 +69,36 @@ do workflow renomearia a intenção do Alex sem necessidade.
 **Efeito:** diretórios `00-precondicoes-...`, `10-ponte-gatilho-put-...`,
 `11-ciclo-de-vida-e-monitoramento-...`.
 
+## Execução da Fase 0, Plano 02 (`/gsd:execute-phase`)
+
+### D-EXEC-00-02-01: Fixtures autouse de `test_options_provider_mydata.py` e
+`test_options_provider.py` resetam `mydata_budget` em TODO teste do
+arquivo, não só nos novos
+
+**Decisão:** estender a fixture `autouse=True` já existente em cada arquivo
+(`_cache_limpo`/`_sem_env`) para também chamar `mydata_budget.reset()` antes
+e depois de CADA teste do arquivo — não só nos 8 testes novos que exercitam
+o gate de orçamento diretamente.
+
+**Por quê:** a partir desta entrega (OPTGATE-01), `options_provider_mydata.
+get_options` sempre consulta `mydata_budget.pode_gastar()` de verdade
+quando não mockada. Os ~25 testes pré-existentes desses dois arquivos
+chamam `get_options`/`p.get_options` sem mockar o orçamento; sem reset,
+ficariam reféns de estado global acumulado entre arquivos/ordem de
+execução do pytest (mesmo processo, módulo `mydata_budget` com estado em
+memória). A suíte completa passou mesmo sem essa mudança (testado), mas
+depender de "a cota dar por acaso" é frágil e contraria o padrão que
+`test_mydata_budget.py`/`test_mydata_provider.py` já estabelecem (ambos já
+resetam o orçamento em fixture autouse).
+
+**Alternativas descartadas:** resetar `mydata_budget` só nos 8 testes novos
+do gate, deixando os pré-existentes expostos à cota real — rejeitada
+porque tornaria "a suíte canônica fica verde" não-determinístico: passa
+hoje, pode falhar amanhã se outro arquivo de teste crescer o número de
+débitos antes deste no processo do pytest.
+
+**Efeito:** nenhuma mudança de comportamento de produção; só isolamento de
+teste, dentro dos arquivos que o próprio `00-02-PLAN.md` já lista como
+`files_modified` da Task 2. Detalhe completo em
+`.planning/phases/00-precondi-es/00-02-SUMMARY.md`.
+
