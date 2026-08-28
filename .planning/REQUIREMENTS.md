@@ -24,15 +24,15 @@ usuário — o critério de aceite é medição interna, não UI.
 
 ### Ponte gatilho→put (Fase 10)
 
-- [ ] **PUT-01**: Quando um detector de setup dispara sobre um ticker
+- [x] **PUT-01**: Quando um detector de setup dispara sobre um ticker
   presente em `positions` do usuário, o sistema seleciona automaticamente
   uma série de put candidata para proteção, usando `estilo_exercicio`,
   strike e IV reais devolvidos pelo hub mydata — nunca assumidos
   localmente
-- [ ] **PUT-02**: A sugestão de put selecionada é gravada no ledger de
+- [x] **PUT-02**: A sugestão de put selecionada é gravada no ledger de
   sinais com proveniência (fonte, `as_of`, e `sha256`/`dt_captura` quando
   disponíveis na resposta do hub)
-- [ ] **PUT-03**: Nenhuma superfície da sugestão de put fica visível ao
+- [x] **PUT-03**: Nenhuma superfície da sugestão de put fica visível ao
   usuário nesta fase — puramente backend/ledger, sem UI, sem push, sem
   card novo
 
@@ -82,9 +82,9 @@ Preenchido pelo roadmapper na criação do roadmap.
 |-------------|-------|--------|
 | LEDGER-01 | Phase 0 | Complete |
 | OPTGATE-01 | Phase 0 | Complete |
-| PUT-01 | Phase 10 | Pending |
-| PUT-02 | Phase 10 | Pending |
-| PUT-03 | Phase 10 | Pending |
+| PUT-01 | Phase 10 | Complete |
+| PUT-02 | Phase 10 | Complete |
+| PUT-03 | Phase 10 | Complete |
 | PUTLIFE-01 | Phase 11 | Pending |
 | PUTLIFE-02 | Phase 11 | Pending |
 | PUTLIFE-03 | Phase 11 | Pending |
