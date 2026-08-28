@@ -42,7 +42,7 @@ Full phase details: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
 | 6. Instrumentação de Assertividade (ADR-015) | v1.1 | Complete | 2026-08-21 |
 | 7. Seleção Dinâmica por Desempenho Histórico (ADR-017 Bloco 1) | v1.1 | Complete | 2026-08-21 |
 | 8. Interface e IA da Seleção Dinâmica (ADR-017 Bloco 3/4) | v1.1 | Complete | 2026-08-21 |
-| 0. Precondições | v1.2 | Not started | - |
+| 0. Precondições | 2/2 | Complete   | 2026-08-28 |
 | 10. Ponte gatilho→put | v1.2 | Not started | - |
 | 11. Ciclo de vida e monitoramento | v1.2 | Not started | - |
 
@@ -98,7 +98,7 @@ Fases 1-8 pertencem a v1.0/v1.1 e a própria Fase 9 já está documentada acima.
    em qualquer fase — uma perna, comprada, sem margem, sem atribuição
    (exercício entrega uma ação que o usuário já possui).
 
-- [ ] **Phase 0: Precondições** - Fecha os 9 tickers 404 do bootstrap do ledger (ADR-017) e o gate de orçamento do provedor de opções mydata (achado WR-01 da Fase 9)
+- [x] **Phase 0: Precondições** - Fecha os 9 tickers 404 do bootstrap do ledger (ADR-017) e o gate de orçamento do provedor de opções mydata (achado WR-01 da Fase 9) (completed 2026-08-28)
 - [ ] **Phase 10: Ponte gatilho→put** - Hook no `scheduler_loop` seleciona série de put candidata via hub mydata e grava a sugestão no ledger com proveniência — nada visível
 - [ ] **Phase 11: Ciclo de vida e monitoramento** - Estados armada→expirada/executada→monitorada→fechada, reusando `optionPositions` e ADR-003/004/005 inteiros
 
@@ -137,8 +137,8 @@ que está completo e mergeado)
   - Nenhuma superfície visível ao usuário introduzida em nenhuma fase
   - Nenhum suporte a opção vendida/short introduzido em qualquer forma
 **Plans**: 2 plans (1 wave — os dois rodam em paralelo, zero sobreposição de arquivo)
-- [ ] 00-01-PLAN.md — LEDGER-01: diagnóstico dos 9 tickers 404, mapa de resolução (`server/app/ledger_tickers.py`) consumido pelo bootstrap, varredura dos 74 tickers sem 404 residual
-- [ ] 00-02-PLAN.md — OPTGATE-01: gate `_gate`/`_debita` de `mydata_budget` em `options_provider_mydata.py`, com prova de bloqueio/degradação e de que o ciclo do agente não trava (fecha WR-01)
+- [x] 00-01-PLAN.md — LEDGER-01: diagnóstico dos 9 tickers 404, mapa de resolução (`server/app/ledger_tickers.py`) consumido pelo bootstrap, varredura dos 74 tickers sem 404 residual
+- [x] 00-02-PLAN.md — OPTGATE-01: gate `_gate`/`_debita` de `mydata_budget` em `options_provider_mydata.py`, com prova de bloqueio/degradação e de que o ciclo do agente não trava (fecha WR-01)
 **Nota (não-bloqueante, não trava o milestone)**: os itens de backlog
 pré-existentes que dependem do Alex ligar uma feature ao vivo num pregão
 real (verificação do `entradaAuto` do checkpoint 08-05; os 2 human-checks da
