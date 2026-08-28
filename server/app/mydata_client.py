@@ -236,10 +236,10 @@ async def get_vencimentos(ticker: str, pregao: str = None, *, fetch_json=None) -
     fetch = fetch_json or _fetch_json
     params = {"pregao": pregao} if pregao else {}
     resp = await fetch(f"/v1/opcoes/{symbol}/vencimentos", params)
-    if not isinstance(resp, dict):
+    if not isinstance(resp, dict) or not isinstance(resp.get("dados"), list):
         raise MydataIndisponivel(
             f"mydata: resposta inesperada em /v1/opcoes/{symbol}/vencimentos")
-    return resp.get("dados") or []
+    return resp["dados"]
 
 
 async def get_options_chain(ticker: str, vencimento: str = None, pregao: str = None,

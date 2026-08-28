@@ -398,6 +398,24 @@ def test_get_vencimentos_resposta_nao_dict_levanta_mydata_indisponivel(monkeypat
         asyncio.run(m.get_vencimentos("PETR4", fetch_json=fetch_json))
 
 
+def test_get_vencimentos_dict_sem_chave_dados_levanta_em_vez_de_mascarar(monkeypatch):
+    """Guardião do achado CR-01 do 09-REVIEW.md: um corpo de erro que `_fetch_json`
+    devolveu como dict sem status explicitamente tratado (ex.: 400/404/422 com JSON
+    de erro, sem passar pelos ramos 429/401/403/5xx) não pode virar `[]` silencioso
+    — precisa levantar MydataIndisponivel, como `_paginar` já faz."""
+    monkeypatch.setenv("MYDATA_TOKEN", "tok-teste")
+    fake = _fake_fetch_json({"erro": {"codigo": "ticker_invalido", "mensagem": "..."}})
+    with pytest.raises(m.MydataIndisponivel):
+        asyncio.run(m.get_vencimentos("PETR4", fetch_json=fake))
+
+
+def test_get_vencimentos_dados_nao_lista_levanta_em_vez_de_mascarar(monkeypatch):
+    monkeypatch.setenv("MYDATA_TOKEN", "tok-teste")
+    fake = _fake_fetch_json({"dados": "nao-e-uma-lista"})
+    with pytest.raises(m.MydataIndisponivel):
+        asyncio.run(m.get_vencimentos("PETR4", fetch_json=fake))
+
+
 # ---------------------------------------------------------------------------
 # get_options_chain() — cadeia paginada
 # ---------------------------------------------------------------------------
