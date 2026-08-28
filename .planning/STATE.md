@@ -1,16 +1,15 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.1
-milestone_name: Realismo de Mercado + Correções
-status: milestone_complete
-stopped_at: Milestone complete (Phase 09 was final phase)
-last_updated: 2026-08-28T00:41:42.245Z
-last_activity: 2026-08-27 -- Phase 09 execution started
+milestone: v1.2
+milestone_name: Camada de opções ancorada na carteira
+status: planning
+last_updated: "2026-08-28T02:18:00.725Z"
+last_activity: 2026-08-28
 progress:
-  total_phases: 1
+  total_phases: 0
   completed_phases: 0
-  total_plans: 6
-  completed_plans: 6
+  total_plans: 0
+  completed_plans: 0
   percent: 0
 ---
 
@@ -25,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-08-18)
 
 ## Current Position
 
-Phase: 09
-Plan: Not started
-Status: Milestone complete
-Last activity: 2026-08-28
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-08-28 — Milestone v1.2 started
 
 ## Performance Metrics
 

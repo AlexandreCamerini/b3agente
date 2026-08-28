@@ -20,12 +20,37 @@ funciona — não decorou uma resposta, aprendeu o raciocínio — e só então 
 acesso a automações do Modo Operador. Se o storyline pedagógico não convencer,
 nada mais no produto importa.
 
-## Current Milestone: nenhum aberto — v1.1 shipped 2026-08-23
+## Current Milestone: v1.2 Camada de opções ancorada na carteira
 
-Ver `.planning/milestones/v1.1-ROADMAP.md` (a criar) e
-`.planning/MILESTONES.md` para o histórico completo. Próximo milestone ainda
-não iniciado — decisão do Alex entre: (a) novo milestone de funcionalidade,
-ou (b) fechar o backlog abaixo primeiro (ver "Active").
+**Goal:** quando um gatilho de setup dispara sobre um ticker que o usuário já
+tem em carteira, o app arma uma sugestão de put de proteção sobre essa
+posição, registra, monitora e mede — sem mostrar nada ao usuário neste
+milestone (medição interna antes de expor qualquer superfície).
+
+**Target features:**
+- Fase 0 — Precondições: fechar os 9 tickers com 404 no bootstrap do ledger
+  (bloqueiam a ponderação do ADR-017); gate de orçamento em
+  `options_provider_mydata.py` (achado WR-01 da Fase 9)
+- Fase 10 — Ponte gatilho→put: hook no `scheduler_loop`, seleção de série via
+  `estilo_exercicio`/strike/IV do hub, sugestão gravada no ledger com
+  proveniência — nada visível
+- Fase 11 — Ciclo de vida: estados armada/expirada/executada/monitorada/
+  fechada, reusando `optionPositions` e ADR-003/004/005 inteiros
+
+**Decisões de arquitetura travadas (não reabrir):**
+1. EOD de ponta a ponta — gatilho, estrutura e monitoramento fecham sobre o
+   pregão, nunca preço vivo de opção
+2. Só put de proteção COMPRADA sobre posição existente — long-only, sem
+   margem, sem atribuição, sem short em qualquer forma
+
+**Fora de escopo (com razão):** DSL de setup por linguagem natural (setup
+novo não tem histórico para o ADR-017 ponderar); estruturas que lançam opção
+(exigem modelo de short/margem/atribuição e agente judge com veto, ainda não
+construído); monitoramento intradiário de opção (consequência da decisão 1).
+
+Ver `.planning/ROADMAP.md`, `.planning/REQUIREMENTS.md` e
+`.planning/notes/decisoes-autonomas-v1.2.md` (execução autônoma noturna,
+contrato registrado ali).
 
 ## Requirements
 
@@ -109,7 +134,7 @@ ou (b) fechar o backlog abaixo primeiro (ver "Active").
   backlog
 - [ ] 9 tickers com 404 no bootstrap do ledger de sinais (ELET3, BRFS3,
   ELET6, JBSS3, CRFB3, NTCO3, CPLE6, MRFG3, EMBR3) — prováveis
-  renomeações/deslistagens, não investigado
+  renomeações/deslistagens — **assumido pela Fase 0 do milestone v1.2**
 - [ ] Retomar a virada de produção do mydata (Fase 9, checkpoint `adiar`):
   rodar a perna ao vivo da medição (`MYDATA_TOKEN` real +
   `scripts/medir-mydata.py --fases vivo --vivo`) e resolver o pico/min
@@ -232,4 +257,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-08-27 after Phase 9 (standalone)*
+*Last updated: 2026-08-28 — milestone v1.2 started*
