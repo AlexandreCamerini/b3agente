@@ -14,6 +14,18 @@ DISCUSSION-LOG; esta lista é o resumo para leitura rápida de manhã.
 
 ## ⚠ Itens para decisão sua de manhã (não são hard-stop, pedem seu julgamento)
 
+**Fase 11 fechou como `human_needed` (9/9 verdades verificadas, 0 blocker).**
+`11-VERIFICATION.md` pediu confirmação humana para 3 itens (ver
+`11-HUMAN-UAT.md`, status `pending`): aceitar a leitura por CONTRATOS do
+ADR-022 em vez da leitura literal do ROADMAP (Decisões 1 e 3), e as
+disposições de WR-01/WR-02 acima. Decisão: seguir fechando a fase e o
+milestone mecanicamente esta noite (toda a evidência técnica dos dois
+verificadores independentes aponta na mesma direção, nenhum blocker), SEM
+marcar o UAT como aprovado — ele fica genuinamente `pending` para você
+revisar de manhã, exatamente como o `human_needed` pede. Não é a mesma
+coisa que "aprovado por mim": é "fechado operacionalmente, com a pergunta
+de sign-off ainda aberta e registrada".
+
 **WR-01/WR-02 do 11-REVIEW.md — deixados sem correção, por escolha.**
 WR-01: uma sugestão `armada` sem `premio` (contrato ilíquido) fica sem
 carimbo de observabilidade (`estado_em`/`pendente_desde` nulos) enquanto
