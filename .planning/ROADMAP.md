@@ -175,6 +175,8 @@ Plans:
 
 **Lacunas conhecidas, fora do escopo desta fase** (precisam de decisão do Alex antes da Fase 13): o `deviceStore` do iOS grava a watchlist só no aparelho e não passa por gate nenhum, e `web/src/plan.js` ainda carrega a copy com CTA (hoje inalcançável). Detalhe e opções em [.planning/todos/pending/cap-gratuito-lacunas-de-cobertura.md](todos/pending/cap-gratuito-lacunas-de-cobertura.md).
 
+**Revisão pós-fase**: code review encontrou 1 Critical + 3 Warning + 1 Info (ver [12-REVIEW.md](phases/12-limites-do-plano-gratuito-ativos/12-REVIEW.md)). Os 3 Warning foram corrigidos e estão **em revisão** no [PR #26](https://github.com/AlexandreCamerini/b3agente/pull/26); o Critical (CR-01, bypass do cap no iOS) é o mesmo item 1 da lacuna acima, ainda sem decisão do Alex.
+
 ### Phase 13: Uso real visível na interface
 
 **Goal**: Usuário no plano gratuito vê o número real de uso/limite —
