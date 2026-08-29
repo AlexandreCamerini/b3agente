@@ -270,6 +270,29 @@ def test_k_lista_com_desconhecidos_e_repetidos_nao_gera_recusa_falsa(monkeypatch
 
 
 # ---------------------------------------------------------------------------
+# (l) WR-03 (12-REVIEW.md): `tickers` truthy não-lista é 400, não 500/zera-silêncio
+# ---------------------------------------------------------------------------
+
+def test_l_tickers_string_devolve_400_em_vez_de_zerar_watchlist_em_silencio(monkeypatch):
+    c, main = _client(monkeypatch)
+    payload = _registra(c, "tickersstring@teste.com")
+    scope = payload["user"]["id"]
+    _semeia(main, scope, 3)
+
+    r = c.put("/api/watchlist", json={"tickers": "PETR4"}, headers=_auth(payload["token"]))
+    assert r.status_code == 400, r.text
+    assert len(main.store.get(main._conn, "watchlist", user_id=scope)) == 3
+
+
+def test_l_tickers_bool_devolve_400_em_vez_de_500_opaco(monkeypatch):
+    c, main = _client(monkeypatch)
+    payload = _registra(c, "tickersbool@teste.com")
+
+    r = c.put("/api/watchlist", json={"tickers": True}, headers=_auth(payload["token"]))
+    assert r.status_code == 400, r.text
+
+
+# ---------------------------------------------------------------------------
 # Guardião ESTÁTICO — fecha a CLASSE do bypass, não só a instância
 # ---------------------------------------------------------------------------
 

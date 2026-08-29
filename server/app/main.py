@@ -1047,7 +1047,14 @@ async def put_watchlist(body: dict = Body(default={}), scope: Optional[str] = De
     # tamanho NORMALIZADO (nao o cru do body, senao ticker desconhecido/
     # repetido gera recusa falsa — CAP-05). So barra CRESCIMENTO (D-03);
     # quem ja tinha mais de 10 nao perde nada (D-04, grandfather clause).
-    novos = body.get("tickers") or []
+    novos = body.get("tickers")
+    if novos is not None and not isinstance(novos, list):
+        # WR-03 (12-REVIEW.md): sem isto, um `tickers` truthy nao-lista (string,
+        # bool, dict) cai direto em normalize_watchlist — uma string itera por
+        # CARACTERE (zera a watchlist em silencio, 200) e um bool nao-iteravel
+        # estoura TypeError sem tratamento (vira 500 opaco pro cliente).
+        raise HTTPException(400, "tickers deve ser uma lista de codigos.")
+    novos = novos or []
     final = store.normalize_watchlist(_conn, novos, user_id=scope)
     atual = store.get(_conn, "watchlist", user_id=scope)
     if len(final) > len(atual):
