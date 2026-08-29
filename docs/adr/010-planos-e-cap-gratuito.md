@@ -1,9 +1,9 @@
 # ADR-010: Modelo de planos — cap gratuito e features pagas
 
-**Status:** Proposto — a parte técnica (o que já existe, o que falta nascer)
-está pronta para implementação; a parte comercial (preço, loja, o que
-exatamente entra em cada tier) **depende de decisão do Alex** e fica marcada
-como pendente, não decidida aqui.
+**Status:** Parcialmente aceito — a parte TÉCNICA foi ativada na v1.3 (Fase
+12, 2026-08-29): ver a atualização registrada ao final deste documento. A
+parte COMERCIAL (preço, loja/IAP, validação de recibo) continua **pendente
+de decisão do Alex**, como descrito abaixo.
 **Data:** 2026-08-11 · **Origem:** as decisões 6-8 de `qa/45-auditoria-
 configuracao.md` (auditoria de configuração do PR #13) formalizam este ADR.
 Esse PR foi fechado sem merge em 2026-08-12 — a auditoria de UI que o
@@ -103,3 +103,51 @@ mensurável hoje no código e o que é decisão de precificação.
 - `qa/46-auditoria-observabilidade-governanca.md` — auditoria de
   configuração vigente (a `qa/45` original foi fechada sem merge em
   2026-08-12; o inventário de configuração atual vive lá).
+
+## Atualização — ativação técnica (v1.3, Fase 12, 2026-08-29)
+
+Os dois números do gratuito foram decididos e ligados: `PLAN_FREE.max_watchlist
+= 10`, `PLAN_FREE.max_analyses_per_month = 30`. `PLAN_PRO` segue com os dois
+campos `None` (ilimitado) — **por decisão** de escopo do milestone (sem
+loja/IAP na v1.3), não por lacuna técnica.
+
+Do item 5 ("o que falta nascer, tecnicamente") desta decisão:
+
+- (a) resolução do plano por conta — já tinha sido fechada no ADR-013
+  (`current_plan`/`_plano_do_escopo`), não era pendência desta fase;
+- (b) `can_analyze` alimentado pelo ledger real de `metering.month_used` —
+  já tinha sido fechado na Fase 5 (C-33); a Fase 12 foi a primeira vez que
+  esse caminho foi exercitado com um limite real (antes comparava sempre
+  contra `None`);
+- (c) `requires_subscription` continua sempre `False` — segue pendente,
+  agora rastreado como CAP-08/CAP-09 (v2, ver REQUIREMENTS.md).
+
+**Bypass fechado nesta fase:** `PUT /api/watchlist` gravava a lista final
+inteira sem passar por nenhum gate — e era exatamente o caminho que o front
+usa para adicionar em massa pelo catálogo. Passou a checar o limite, com a
+semântica "só bloqueia crescimento" (D-03 do `12-CONTEXT.md`): remoção e
+reordenação nunca são recusadas.
+
+**Grandfather clause (D-04):** contas que já tinham mais de 10 ativos antes
+da ativação não perdem nada — o gate só impede crescer além do que já
+tinham. Coerente com a consequência já registrada acima de que a ativação é
+"reversível e gradual".
+
+**Copy:** a frase de recusa de `can_add_ticker` perdeu o "Faça upgrade para
+adicionar mais.", alinhada ao princípio 8 do CLAUDE.md e à decisão 4 deste
+ADR (CAP-07).
+
+**Consequência aceita do BYOK (não é bug):** o acumulado mensal de análises
+só é incrementado por `metering.consume`, que roda no caminho da IA
+GERENCIADA. Uma conta free usando BYOK (chave própria) não incrementa esse
+acumulado e, portanto, nunca esbarra nas 30 análises/mês. Isso é consistente
+com o pilar de custo já declarado neste ADR (BYOK viabiliza um tier gratuito
+generoso porque o app não paga a inferência de quem usa a própria chave) —
+mas significa que o cap de análises protege o CUSTO DO APP, não o volume
+absoluto de uso da conta. Registrado aqui como consequência explícita do
+desenho, para não virar surpresa depois.
+
+**O que ainda falta na interface:** os dois números reais (uso/limite de
+watchlist e de análises) ainda não aparecem na tela — CAP-06, atribuído à
+Fase 13, junto com o endpoint novo que expõe `max_watchlist`/contagem atual
+da watchlist (hoje só `/api/ai/quota` expõe o par de análises).
