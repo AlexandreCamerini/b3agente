@@ -65,7 +65,7 @@ Full phase details: [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
 | 10. Ponte gatilho→put | v1.2 | Complete | 2026-08-28 |
 | 11. Ciclo de vida e monitoramento | v1.2 | Complete | 2026-08-28 |
 | 12. Limites do plano gratuito ativos | 3/3 | Complete   | 2026-08-29 |
-| 13. Uso real visível na interface | v1.3 | Not started | - |
+| 13. Uso real visível na interface + enforcement no iOS | v1.3 | Not started | - |
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2
 
@@ -129,7 +129,7 @@ essa exposição nova é escopo exclusivo da Fase 13, não da Fase 12.
    `PLAN_PRO` segue ilimitado por decisão, não por lacuna técnica
 
 - [x] **Phase 12: Limites do plano gratuito ativos** - `PLAN_FREE` ganha números reais e os gates passam a recusar de verdade, com o resto do app intacto e a mensagem de recusa sem tom de upgrade urgente (completed 2026-08-29)
-- [ ] **Phase 13: Uso real visível na interface** - Usuário vê "ativos: X/10" e "análises deste mês: X/30" reais, nos dois stores (web e iOS), nunca estimado ou escondido
+- [ ] **Phase 13: Uso real visível na interface + enforcement no iOS** - Usuário vê "ativos: X/10" e "análises deste mês: X/30" reais, nos dois stores (web e iOS), nunca estimado ou escondido; e o cap de 10 ativos passa a valer de verdade no app iOS nativo (CAP-12)
 
 ### Phase 12: Limites do plano gratuito ativos
 
@@ -173,19 +173,27 @@ Plans:
 - [x] 12-02-PLAN.md — fecha o bypass do `PUT /api/watchlist` (gate que só bloqueia crescimento, D-03/D-04) + `store.normalize_watchlist` como fonte única do tamanho final + suíte de comportamento do cap de ativos
 - [x] 12-03-PLAN.md — suíte de comportamento do cap mensal de análises (prova que o ledger de `metering` é quem decide) + registro da ativação no ADR-010
 
-**Lacunas conhecidas, fora do escopo desta fase** (precisam de decisão do Alex antes da Fase 13): o `deviceStore` do iOS grava a watchlist só no aparelho e não passa por gate nenhum, e `web/src/plan.js` ainda carrega a copy com CTA (hoje inalcançável). Detalhe e opções em [.planning/todos/pending/cap-gratuito-lacunas-de-cobertura.md](todos/pending/cap-gratuito-lacunas-de-cobertura.md).
+**Decisão do Alex (2026-08-29):** as lacunas abaixo foram dobradas no escopo
+da Fase 13 (opção (a) de [.planning/todos/pending/cap-gratuito-lacunas-de-cobertura.md](todos/pending/cap-gratuito-lacunas-de-cobertura.md))
+— o `deviceStore` do iOS grava a watchlist só no aparelho e não passa por
+gate nenhum (CAP-01 não valia no app nativo), e `web/src/plan.js` ainda
+carrega a copy com CTA (hoje inalcançável). Ver Fase 13 abaixo, que ganhou
+CAP-12 e enforcement no cliente nativo além da visibilidade original.
 
-### Phase 13: Uso real visível na interface
+### Phase 13: Uso real visível na interface + enforcement no iOS
 
 **Goal**: Usuário no plano gratuito vê o número real de uso/limite —
 ativos na watchlist e análises de IA no mês — antes de esbarrar no limite,
-tanto no web quanto no app iOS nativo, nunca estimado ou escondido.
+tanto no web quanto no app iOS nativo, nunca estimado ou escondido; e no
+app iOS nativo, o mesmo limite de 10 ativos que já vale no web/PWA desde a
+Fase 12 passa a valer de verdade (CAP-12) — hoje o `deviceStore` grava
+direto no aparelho sem checar nada.
 **Depends on**: Phase 12 (os limites precisam estar realmente ativos e
 contando certo antes de expor o número na tela; esta fase também precisa de
 um endpoint novo expondo `max_watchlist`/contagem atual da watchlist, que
 nenhum requirement da Fase 12 exige — só existe hoje para análises via
 `/api/ai-quota`)
-**Requirements**: CAP-06
+**Requirements**: CAP-06, CAP-12
 **Success Criteria** (what must be TRUE):
   1. Usuário no plano free vê "ativos: X/10" com X = contagem real da
      watchlist, em algum ponto visível da UI (Watchlist ou Carteira)
@@ -201,5 +209,13 @@ nenhum requirement da Fase 12 exige — só existe hoje para análises via
   5. Usuário no plano pro não vê um limite artificial fixo (nem "X/10", nem
      contagem que sugira teto) — exibição condicional ao plano, sem número
      fabricado
+  6. Usuário free no app iOS que já tem 10 ativos na watchlist não consegue
+     adicionar o 11º — `deviceStore.putWatchlist`/`addWatchlistTicker`
+     passam a checar o limite ANTES de gravar no `localStorage`, usando o
+     `max_watchlist` real vindo do endpoint novo (item 3), nunca um `10`
+     hardcoded no front (contrariaria o contrato C-32/C-33 de fonte única)
+  7. `web/src/plan.js` perde a frase com CTA ("Faça upgrade para adicionar
+     mais.") — mesma correção do CAP-07 do backend, agora no espelho do
+     front
 **Plans**: TBD
 **UI hint**: yes
