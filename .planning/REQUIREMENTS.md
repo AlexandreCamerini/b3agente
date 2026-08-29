@@ -51,10 +51,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CAP-01 | TBD | Pending |
-| CAP-02 | TBD | Pending |
-| CAP-03 | TBD | Pending |
-| CAP-04 | TBD | Pending |
-| CAP-05 | TBD | Pending |
-| CAP-06 | TBD | Pending |
-| CAP-07 | TBD | Pending |
+| CAP-01 | Phase 12 | Pending |
+| CAP-02 | Phase 12 | Pending |
+| CAP-03 | Phase 12 | Pending |
+| CAP-04 | Phase 12 | Pending |
+| CAP-05 | Phase 12 | Pending |
+| CAP-06 | Phase 13 | Pending |
+| CAP-07 | Phase 12 | Pending |
