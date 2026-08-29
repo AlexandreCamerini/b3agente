@@ -24,6 +24,16 @@ negação viaja em `iaIndisponivel.mensagem`. Reversão deliberada de contrato
 documentada aqui por guardrail do CLAUDE.md ("guardiões de teste não se
 apagam — reversão deliberada atualiza o guardião com nota").
 
+ATUALIZADO (Fase 12, v1.3): o guardião (g) abaixo — antes
+`test_d03_nenhum_limite_comercial_ativado`, hoje
+`test_d01_limites_do_plano_free_ativos` — foi invertido. A Fase 12
+(12-CONTEXT.md D-01, ADR-010) ativou os dois limites do `PLAN_FREE`
+(`max_watchlist=10`, `max_analyses_per_month=30`); o guardião agora trava que
+esses dois números estão ATIVOS, não mais `None`. `PLAN_PRO` continua
+`None`/`None` (ilimitado) — decisão comercial (sem loja/IAP no v1.3), não
+lacuna técnica. Reversão deliberada de contrato documentada aqui pelo mesmo
+guardrail do CLAUDE.md citado acima.
+
 Isolamento igual a test_adr013_rbac.py (B3_DB_PATH temporário, reimport de
 app.main por teste) — necessário porque `_conn`/caches em memória (managed,
 kill-switch, orçamento brapi) são globais de módulo.
@@ -176,12 +186,19 @@ def test_rota_watchlist_add_falha_ao_ler_usuario_degrada_para_active_plan(monkey
 
 
 # ---------------------------------------------------------------------------
-# (g) guardião de fronteira D-03: nenhum limite comercial ativado
+# (g) guardião de fronteira D-01: limites do PLAN_FREE ativos
+# ATUALIZADO (Fase 12, v1.3) — antes: "D-03: nenhum limite comercial ativado"
 # ---------------------------------------------------------------------------
 
-def test_d03_nenhum_limite_comercial_ativado():
-    assert plan.PLAN_FREE["max_watchlist"] is None
-    assert plan.PLAN_FREE["max_analyses_per_month"] is None
+def test_d01_limites_do_plano_free_ativos():
+    """Reversão deliberada de `test_d03_nenhum_limite_comercial_ativado`
+    (decidida na Fase 12, 12-CONTEXT.md D-01, ADR-010): antes este guardião
+    travava que PLAN_FREE/PLAN_PRO ficavam com todos os limites `None`; a
+    partir da v1.3 o PLAN_FREE tem os dois limites ATIVOS. PLAN_PRO seguir
+    ilimitado é decisão comercial (sem loja/IAP neste milestone), não lacuna
+    técnica — por isso as asserções do PRO permanecem `is None`."""
+    assert plan.PLAN_FREE["max_watchlist"] == 10
+    assert plan.PLAN_FREE["max_analyses_per_month"] == 30
     assert plan.PLAN_PRO["max_watchlist"] is None
     assert plan.PLAN_PRO["max_analyses_per_month"] is None
 
