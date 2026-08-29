@@ -82,6 +82,24 @@ def can_add_ticker(current_count: int, plan: Optional[dict] = None) -> tuple:
     return (True, None)
 
 
+def can_grow_watchlist_to(final_size: int, plan: Optional[dict] = None) -> tuple:
+    """HOOK: variante EM MASSA de can_add_ticker, para PUT /api/watchlist
+    (WR-02, 12-REVIEW.md). `can_add_ticker(current_count, ...)` documenta
+    `current_count` como "quantos itens existem ANTES desta adição" — semantica
+    de item-a-item que nao existe numa troca em massa (o PUT substitui a lista
+    inteira de uma vez). O call site antigo reusava esse hook passando
+    `len(final) - 1` só para fazer a comparacao `>=` coincidir com "bloqueia
+    sse o tamanho FINAL ultrapassa o limite"; estava aritmeticamente certo,
+    mas por coincidencia com o operador atual, nao pelo contrato da funcao.
+    Aqui a checagem é honesta: recebe o tamanho FINAL e compara direto.
+    Retorna (permitido: bool, motivo: str|None)."""
+    plan = plan or ACTIVE_PLAN
+    limit = plan.get("max_watchlist")
+    if limit is not None and final_size > limit:
+        return (False, f"Voce atingiu o limite de {limit} ativos do plano {plan['id']}.")
+    return (True, None)
+
+
 def can_analyze(used_this_month: int, plan: Optional[dict] = None) -> tuple:
     """HOOK: limite de analises/mes no tier gratuito.
     Retorna (permitido: bool, motivo: str|None).

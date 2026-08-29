@@ -1058,7 +1058,10 @@ async def put_watchlist(body: dict = Body(default={}), scope: Optional[str] = De
     final = store.normalize_watchlist(_conn, novos, user_id=scope)
     atual = store.get(_conn, "watchlist", user_id=scope)
     if len(final) > len(atual):
-        allowed, reason = plan.can_add_ticker(len(final) - 1, plan=_plano_do_escopo(scope))
+        # WR-02 (12-REVIEW.md): hook honesto pro caso BULK — can_add_ticker
+        # espera "tamanho ANTES de uma adição"; aqui é uma troca da lista
+        # inteira, então comparamos o tamanho FINAL direto, sem valor sintético.
+        allowed, reason = plan.can_grow_watchlist_to(len(final), plan=_plano_do_escopo(scope))
         if not allowed:
             raise HTTPException(402, reason)
     store.set_watchlist(_conn, novos, user_id=scope)

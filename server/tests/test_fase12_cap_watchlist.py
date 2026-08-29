@@ -301,19 +301,35 @@ def _main_source_sem_comentarios() -> str:
     return "\n".join(line for line in src.splitlines() if not line.strip().startswith("#"))
 
 
-def test_put_watchlist_referencia_can_add_ticker_nao_e_mais_set_watchlist_puro():
+def test_put_watchlist_referencia_can_grow_watchlist_to_nao_e_mais_set_watchlist_puro():
+    """Reversão deliberada de
+    `test_put_watchlist_referencia_can_add_ticker_nao_e_mais_set_watchlist_puro`
+    (WR-02, 12-REVIEW.md): o PUT passou a chamar `plan.can_grow_watchlist_to`
+    (hook honesto de tamanho FINAL) em vez de reusar `plan.can_add_ticker` com
+    o valor sintético `len(final) - 1`. O guardião original travava só a
+    CLASSE do bypass ("ainda passa por algum gate, não é set_watchlist
+    puro"); esta versão trava o nome certo do gate atual."""
     src = _main_source_sem_comentarios()
     inicio = src.index("def put_watchlist")
     fim = src.index("def ", inicio + 1)
     corpo = src[inicio:fim]
-    assert "can_add_ticker" in corpo
+    assert "can_grow_watchlist_to" in corpo
 
 
-def test_plan_can_add_ticker_aparece_exatamente_duas_vezes_no_main():
-    """Se um terceiro caminho de escrita de watchlist nascer sem gate, ou se
-    alguém duplicar o gate, este guardião grita — mesma classe de bypass que
-    o T-12-05/T-12-06 do threat model do Plano 12-02 cobre."""
-    assert _main_source_sem_comentarios().count("plan.can_add_ticker(") == 2
+def test_plan_gates_de_watchlist_aparecem_exatamente_uma_vez_cada_no_main():
+    """Reversão deliberada de
+    `test_plan_can_add_ticker_aparece_exatamente_duas_vezes_no_main` (WR-02,
+    12-REVIEW.md): antes os dois call sites (PUT e POST /add) chamavam o
+    MESMO hook `plan.can_add_ticker`, então "aparece 2x" bastava como
+    guardião único. Agora cada rota tem seu hook honesto
+    (`can_grow_watchlist_to` no PUT bulk, `can_add_ticker` no POST
+    item-a-item) — o guardião correto é checar CADA um isoladamente. Se um
+    terceiro caminho de escrita de watchlist nascer sem gate, ou se alguém
+    duplicar um dos dois, esta versão ainda grita — mesma classe de bypass
+    que o T-12-05/T-12-06 do threat model do Plano 12-02 cobre."""
+    src = _main_source_sem_comentarios()
+    assert src.count("plan.can_add_ticker(") == 1
+    assert src.count("plan.can_grow_watchlist_to(") == 1
 
 
 def test_frase_de_recusa_nao_duplicada_no_main():
