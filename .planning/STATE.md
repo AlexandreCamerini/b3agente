@@ -1,17 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.2
-milestone_name: Camada de opções ancorada na carteira
-status: Awaiting next milestone
-stopped_at: ROADMAP.md e REQUIREMENTS.md (traceability) finalizados para v1.2 — Phase 0/10/11 com success criteria, requirement mapping e guardrails por fase
-last_updated: "2026-08-28T16:03:17.906Z"
-last_activity: 2026-08-28 — Milestone v1.2 completed and archived
+milestone: v1.3
+milestone_name: Cap comercial (plano gratuito)
+status: planning
+last_updated: "2026-08-29T03:41:10.989Z"
+last_activity: 2026-08-29
 progress:
-  total_phases: 3
-  completed_phases: 3
-  total_plans: 8
-  completed_plans: 8
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -25,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-08-28)
 
 ## Current Position
 
-Phase: Milestone v1.2 complete
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-08-28 — Milestone v1.2 completed and archived
+Status: Defining requirements
+Last activity: 2026-08-29 — Milestone v1.3 started
 
 ## Performance Metrics
 

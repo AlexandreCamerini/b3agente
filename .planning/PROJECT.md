@@ -20,44 +20,38 @@ funciona — não decorou uma resposta, aprendeu o raciocínio — e só então 
 acesso a automações do Modo Operador. Se o storyline pedagógico não convencer,
 nada mais no produto importa.
 
-## Current Milestone: v1.2 Camada de opções ancorada na carteira — 3/3 fases código-completas, aguardando seu UAT
+## Current Milestone: v1.3 Cap comercial (plano gratuito)
 
-**Status (2026-08-28, execução autônoma noturna):** as 3 fases rodaram, cada
-uma com code review + verificação de objetivo independente. Nenhum blocker.
-**Não marcado como Shipped em MILESTONES.md nem arquivado** — falta seu
-sign-off em 2 itens (`11-HUMAN-UAT.md`, `pending`) e a decisão de rodar
-`/gsd:complete-milestone` quando você validar. Ver
-`.planning/notes/RELATORIO-NOTURNO-v1.2.md` para o resumo completo.
-
-**Goal:** quando um gatilho de setup dispara sobre um ticker que o usuário já
-tem em carteira, o app arma uma sugestão de put de proteção sobre essa
-posição, registra, monitora e mede — sem mostrar nada ao usuário neste
-milestone (medição interna antes de expor qualquer superfície).
+**Goal:** ativar de verdade os limites do plano gratuito que o ADR-010 já
+desenhou tecnicamente (watchlist e análises/mês) — sem loja/IAP neste
+milestone. `PLAN_PRO` continua ilimitado por enquanto; isso é preparação
+pro upgrade pago, não a venda em si.
 
 **Target features:**
-- Fase 0 — Precondições: fechar os 9 tickers com 404 no bootstrap do ledger
-  (bloqueiam a ponderação do ADR-017); gate de orçamento em
-  `options_provider_mydata.py` (achado WR-01 da Fase 9)
-- Fase 10 — Ponte gatilho→put: hook no `scheduler_loop`, seleção de série via
-  `estilo_exercicio`/strike/IV do hub, sugestão gravada no ledger com
-  proveniência — nada visível
-- Fase 11 — Ciclo de vida: estados armada/expirada/executada/monitorada/
-  fechada, reusando `optionPositions` e ADR-003/004/005 inteiros
+- `PLAN_FREE.max_watchlist = 10` (hoje `None` = ilimitado)
+- `PLAN_FREE.max_analyses_per_month = 30` (hoje `None` = ilimitado)
+- `can_add_ticker`/`can_analyze` (`server/app/plan.py`) passam a bloquear de
+  verdade quando o limite bate, com o motivo exato já pronto nos hooks
+- `used_this_month` do gate mensal vem do ledger real de `metering.py`
+  (contrato C-33 já exige isso — nunca um contador paralelo)
+- UI mostra o número real de uso/limite (ex.: "análises deste mês: 30/30"),
+  nunca estimado nem escondido (princípio 3/8 do CLAUDE.md)
 
 **Decisões de arquitetura travadas (não reabrir):**
-1. EOD de ponta a ponta — gatilho, estrutura e monitoramento fecham sobre o
-   pregão, nunca preço vivo de opção
-2. Só put de proteção COMPRADA sobre posição existente — long-only, sem
-   margem, sem atribuição, sem short em qualquer forma
+1. Cap comercial (por conta) e cota física da brapi (por app inteiro) são
+   camadas independentes — um usuário pago consome da mesma cota física,
+   só sem limite comercial próprio (ADR-010, decisão 2)
+2. Fonte de cotação (brapi/Yahoo) não é diferencial de plano — infra igual
+   pra todo mundo (ADR-010, decisão 3)
 
-**Fora de escopo (com razão):** DSL de setup por linguagem natural (setup
-novo não tem histórico para o ADR-017 ponderar); estruturas que lançam opção
-(exigem modelo de short/margem/atribuição e agente judge com veto, ainda não
-construído); monitoramento intradiário de opção (consequência da decisão 1).
+**Fora de escopo (decidido no kickoff):** loja/IAP e validação de recibo
+server-side; IA gerenciada sem BYOK como feature paga; alvo dinâmico (F3)
+virar exclusivo do pago; preço/moeda. Tudo isso fica pra um milestone
+futuro, quando a decisão de venda em si vier.
 
 Ver `.planning/ROADMAP.md`, `.planning/REQUIREMENTS.md` e
-`.planning/notes/decisoes-autonomas-v1.2.md` (execução autônoma noturna,
-contrato registrado ali).
+`docs/adr/010-planos-e-cap-gratuito.md` (decisão técnica já fechada, só
+faltavam os números).
 
 ## Requirements
 
@@ -155,12 +149,6 @@ contrato registrado ali).
 
 ### Active
 
-- [ ] UAT pendente do milestone v1.2 (`11-HUMAN-UAT.md`): (1) aceitar/rejeitar
-  a leitura por CONTRATOS do ADR-022 em vez do texto literal do ROADMAP
-  Fase 11 SC#2/#4; (2) decidir WR-01 (observabilidade de sugestão sem
-  prêmio); (3) decidir WR-02 (fallback morto em `put_lifecycle.decidir()`).
-  Rodar `/gsd:complete-milestone` depois de resolver, para arquivar as
-  fases 0/10/11 e marcar v1.2 como Shipped em `MILESTONES.md`
 - [ ] Item 8 do checkpoint 08-05: verificação ao vivo da entrada automática
   gated por um pregão inteiro (`entradaAuto` ligado, confirmar que só
   dispara nos setups elegíveis do momento) — depende do Alex ligar a
@@ -170,9 +158,6 @@ contrato registrado ali).
   `execucao_automatica.controlar`) — ver `03-VERIFICATION.md`
 - [ ] Backlog (não mapeado a fase ainda): os 9 achados Baixo do REPORT-01
   (C-06..C-10, C-17, C-18, C-28, C-29)
-- [ ] Decisão comercial pendente (Alex): números do plano gratuito/pago
-  (ADR-010) — arquitetura confirmada pronta (FIX-C33 fechou o último gap
-  estrutural); falta só a decisão de negócio
 - [ ] `textDim` do tema claro também reprova contraste WCAG AA (4.20:1) —
   achado colateral da Fase 4 (fora do escopo do C-16 original), candidato a
   backlog
@@ -301,4 +286,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-08-28 — milestone v1.2, todas as 3 fases código-completas (aguardando UAT)*
+*Last updated: 2026-08-29 — milestone v1.3 (cap comercial) iniciado*
