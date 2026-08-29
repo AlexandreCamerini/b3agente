@@ -64,7 +64,7 @@ Tratamento travado pelo `typography-specialist` (ver `13-CONTEXT.md` e bloco
 | Body (prosa ao redor) | herda do elemento pai (13px subtítulo watchlist, 12.5px CatalogModal, 13px Atividade da IA) | herda (400/normal) | herda (1.5–1.55) | texto da frase inteira — NÃO recebe `MONO`, fica em `SANS`/herdado |
 | Fragmento numérico "X/Y" (estado normal) | herda o tamanho do texto ao redor (não aumenta) | **700** | herda | `<span>` único ao redor só dos dígitos, `fontFamily: MONO`, `color` = mesma cor do texto ao redor (`T.textMuted`/`T.textFaint`) |
 | Fragmento numérico "X/Y" (quase no limite, `usado/limite >= 0.9`) | idem | **700** | herda | mesmo `<span>`, troca só `color` para `T.warn` |
-| Fragmento numérico "X/Y" (no limite, `usado === limite`) | idem | **800** (opcional, para reforço) | herda | mesmo `<span>`, `color: T.warn` — **nunca** `T.negative`/`T.positive` |
+| Fragmento numérico "X/Y" (no limite, `usado === limite`) | idem | **700** | herda | mesmo `<span>`, `color: T.warn` — **nunca** `T.negative`/`T.positive` |
 
 Regras obrigatórias:
 - `fontFamily: MONO` aplica-se **só** ao fragmento numérico (`<span>`
@@ -124,7 +124,7 @@ estado, comum aos 3.
 |--------|----------|---------------------|
 | Normal | `count`/`used` < 90% do limite, plano tem limite (`limit != null`) | fragmento "X/Y" em `MONO` 700, cor herdada (`T.textMuted`/`T.textFaint`) |
 | Quase no limite | `count`/`used` ≥ 90% do limite | fragmento "X/Y" em `MONO` 700, `color: T.warn` |
-| No limite | `count === limit` / `used === limit` | fragmento "X/Y" em `MONO` 800, `color: T.warn` |
+| No limite | `count === limit` / `used === limit` | fragmento "X/Y" em `MONO` 700, `color: T.warn` |
 | Plano sem limite (Pro) | `limit == null` | **fragmento inteiro omitido** — nem "X/∞", nem "ilimitado" (D-03, critério de sucesso 5: "sem número fabricado"). A frase ao redor permanece, só sem o segmento "· ativos: X/Y" / "· X/Y do plano free" / "análises deste mês: X/Y" |
 | Indisponível/erro | backend não confirma o número real (endpoint falha, timeout, resposta inválida) | fragmento numérico substituído por **"—"** (travessão), nunca um número estimado ou o último valor em cache silenciosamente reexibido como se fosse atual. Ver padrão existente `admin.usoIA.cotaPorUsuarioDia ?? "—"` (`App.jsx:5566`) — mesmo idioma, reaproveitado, não inventado |
 
