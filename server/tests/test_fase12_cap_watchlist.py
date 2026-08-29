@@ -18,11 +18,13 @@ Isolamento igual a test_fase3_gate_plano.py/test_fase5_gate_mensal.py (B3_DB_PAT
 temporário, reimport de app.main por teste) — necessário porque `_conn`/caches
 em memória (managed, kill-switch, orçamento brapi) são globais de módulo.
 """
+import concurrent.futures
 import importlib
 import os
 import pathlib
 import sys
 import tempfile
+import threading
 
 import pytest
 from fastapi.testclient import TestClient
@@ -290,6 +292,52 @@ def test_l_tickers_bool_devolve_400_em_vez_de_500_opaco(monkeypatch):
 
     r = c.put("/api/watchlist", json={"tickers": True}, headers=_auth(payload["token"]))
     assert r.status_code == 400, r.text
+
+
+# ---------------------------------------------------------------------------
+# (m) WR-01 (12-REVIEW.md): read-modify-write sob trava — sem lost update
+# ---------------------------------------------------------------------------
+
+def test_m_adds_concorrentes_de_tickers_diferentes_nao_perdem_update(monkeypatch):
+    """Antes da trava (WR-01), dois POST /api/watchlist/add concorrentes de
+    tickers DIFERENTES liam o mesmo `wl` e o último a escrever `wl + [t]`
+    sobrescrevia a adição do outro (lost update) — a mesma classe de bug que
+    `store.ORDER_LOCK` existe pra fechar em cash/positions. Usa um Barrier
+    pra forçar as duas threads a chegarem no read-check-write o mais perto
+    possível uma da outra, maximizando a chance de pegar a janela da corrida."""
+    async def _quote_qualquer(t):
+        return {"t": t, "name": t, "price": 10.0, "change": 0.0}
+
+    c, main = _client(monkeypatch)
+    monkeypatch.setattr(main.candle_provider, "get_quote", _quote_qualquer)
+    payload = _registra(c, "raceadd@teste.com")
+    scope = payload["user"]["id"]
+    headers = _auth(payload["token"])
+    barreira = threading.Barrier(2)
+
+    def _add(ticker):
+        barreira.wait(timeout=5)
+        return c.post("/api/watchlist/add", json={"ticker": ticker}, headers=headers)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as ex:
+        f1 = ex.submit(_add, "ZZZZ1")
+        f2 = ex.submit(_add, "ZZZZ2")
+        r1, r2 = f1.result(), f2.result()
+
+    assert r1.status_code == 200, r1.text
+    assert r2.status_code == 200, r2.text
+    persistida = main.store.get(main._conn, "watchlist", user_id=scope)
+    assert "ZZZZ1" in persistida
+    assert "ZZZZ2" in persistida
+
+
+def test_m_watchlist_lock_protege_put_e_post_add():
+    src = _main_source_sem_comentarios()
+    for nome_rota in ("def put_watchlist", "def watchlist_add"):
+        inicio = src.index(nome_rota)
+        fim = src.index("def ", inicio + 1)
+        corpo = src[inicio:fim]
+        assert "store.WATCHLIST_LOCK" in corpo, nome_rota
 
 
 # ---------------------------------------------------------------------------

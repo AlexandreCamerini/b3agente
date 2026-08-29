@@ -24,6 +24,16 @@ SECTIONS = ["config", "skill", "skillOperador", "llmPrompts", "watchlist", "cash
 # do backend — esta é a ÚNICA.
 ORDER_LOCK = threading.RLock()
 
+# WR-01 (12-REVIEW.md): trava dedicada para o read-modify-write de
+# `watchlist` (PUT /api/watchlist, POST /api/watchlist/add em main.py).
+# Mesma classe de bug que ORDER_LOCK resolve para cash/positions — sem
+# trava, dois PUT/ADD concorrentes leem o mesmo `atual`, e o último a
+# escrever vence, perdendo a adição do outro. Deliberadamente NÃO é
+# ORDER_LOCK: watchlist não é domínio de ordem de compra/venda, e o
+# comentário acima proíbe uma segunda trava para ESSE domínio — não
+# proíbe travas dedicadas para domínios diferentes.
+WATCHLIST_LOCK = threading.RLock()
+
 # Plano 04-02 (FIX-C02): teto de entradas `status == "rejeitada"` mantidas em
 # `history` — a poda em `registrar_rejeicao` descarta só as rejeições MAIS
 # ANTIGAS acima deste teto; execuções nunca são descartadas por ele (T-04-02).

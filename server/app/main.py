@@ -1055,16 +1055,20 @@ async def put_watchlist(body: dict = Body(default={}), scope: Optional[str] = De
         # estoura TypeError sem tratamento (vira 500 opaco pro cliente).
         raise HTTPException(400, "tickers deve ser uma lista de codigos.")
     novos = novos or []
-    final = store.normalize_watchlist(_conn, novos, user_id=scope)
-    atual = store.get(_conn, "watchlist", user_id=scope)
-    if len(final) > len(atual):
-        # WR-02 (12-REVIEW.md): hook honesto pro caso BULK — can_add_ticker
-        # espera "tamanho ANTES de uma adição"; aqui é uma troca da lista
-        # inteira, então comparamos o tamanho FINAL direto, sem valor sintético.
-        allowed, reason = plan.can_grow_watchlist_to(len(final), plan=_plano_do_escopo(scope))
-        if not allowed:
-            raise HTTPException(402, reason)
-    store.set_watchlist(_conn, novos, user_id=scope)
+    # WR-01 (12-REVIEW.md): leitura+checagem+escrita precisam da MESMA trava —
+    # sem ela, dois PUT concorrentes leem o mesmo `atual` e o gate compara
+    # contra um estado que já ficou stale quando a escrita acontece.
+    with store.WATCHLIST_LOCK:
+        final = store.normalize_watchlist(_conn, novos, user_id=scope)
+        atual = store.get(_conn, "watchlist", user_id=scope)
+        if len(final) > len(atual):
+            # WR-02 (12-REVIEW.md): hook honesto pro caso BULK — can_add_ticker
+            # espera "tamanho ANTES de uma adição"; aqui é uma troca da lista
+            # inteira, então comparamos o tamanho FINAL direto, sem valor sintético.
+            allowed, reason = plan.can_grow_watchlist_to(len(final), plan=_plano_do_escopo(scope))
+            if not allowed:
+                raise HTTPException(402, reason)
+        store.set_watchlist(_conn, novos, user_id=scope)
     return store.public_state(_conn, user_id=scope)
 
 
@@ -1089,16 +1093,20 @@ async def watchlist_add(body: dict = Body(default={}), scope: Optional[str] = De
         raise HTTPException(503, "Cotacoes indisponiveis no momento (Yahoo). Tente novamente em instantes.")
     if res["status"] != "ok":
         raise HTTPException(404, f"Ticker {t} nao encontrado na B3 (Yahoo Finance). Verifique o codigo.")
-    # GANCHO FREEMIUM (hoje sempre permite): limite de ativos do tier gratuito.
-    allowed, reason = plan.can_add_ticker(len(store.get(_conn, "watchlist", user_id=scope)),
-                                          plan=_plano_do_escopo(scope))
-    if not allowed:
-        raise HTTPException(402, reason)  # 402 Payment Required (fase futura)
     name = res["n"]
-    store.add_custom(_conn, t, name, user_id=scope)
-    wl = store.get(_conn, "watchlist", user_id=scope)
-    if t not in wl:
-        store.set_watchlist(_conn, wl + [t], user_id=scope)
+    # WR-01 (12-REVIEW.md): leitura+checagem+escrita precisam da MESMA trava —
+    # sem ela, dois ADD concorrentes de tickers DIFERENTES leem o mesmo `wl`
+    # e o último a escrever `wl + [t]` sobrescreve a adição do outro.
+    with store.WATCHLIST_LOCK:
+        # GANCHO FREEMIUM (hoje sempre permite): limite de ativos do tier gratuito.
+        allowed, reason = plan.can_add_ticker(len(store.get(_conn, "watchlist", user_id=scope)),
+                                              plan=_plano_do_escopo(scope))
+        if not allowed:
+            raise HTTPException(402, reason)  # 402 Payment Required (fase futura)
+        store.add_custom(_conn, t, name, user_id=scope)
+        wl = store.get(_conn, "watchlist", user_id=scope)
+        if t not in wl:
+            store.set_watchlist(_conn, wl + [t], user_id=scope)
     out = store.public_state(_conn, user_id=scope)
     out["added"] = {"t": t, "n": name, "price": res["price"], "change": res["change"]}
     return out
