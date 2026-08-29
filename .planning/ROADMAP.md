@@ -219,5 +219,19 @@ nenhum requirement da Fase 12 exige — só existe hoje para análises via
   7. `web/src/plan.js` perde a frase com CTA ("Faça upgrade para adicionar
      mais.") — mesma correção do CAP-07 do backend, agora no espelho do
      front
-**Plans**: TBD
+  8. Os resíduos triviais do rename BolsIA→Boris+ que sobraram no código/
+     docs internos são limpos (comentário em `server/app/mydata_budget.py`,
+     doc `docs/MEDICAO-Mydata-2026-08-27.md`) — sem tocar arquivos
+     históricos protegidos pelo guardrail do repo (`RELEASES.md`, `qa/`,
+     `ESTADO-*`, `CHECKOUT-*`)
+  9. Checkpoint humano: Alex confirma (e corrige, se preciso) o nome do
+     app exibido no App Store Connect/TestFlight — fora do alcance do
+     agente, é configuração no portal da Apple, não no repositório
+**Plans**: 5 plans
+Plans:
+- [ ] 13-01-PLAN.md — endpoint GET /api/watchlist/quota (fonte única de count/limit) + teste de contrato + limpeza dos resíduos BolsIA
+- [ ] 13-02-PLAN.md — watchlistQuota() nos dois stores, gate fail-closed do deviceStore (CAP-12/CR-01) e plan.js sem CTA (CAP-07 do front)
+- [ ] 13-03-PLAN.md — 3 contadores na UI (Watchlist, CatalogModal, Atividade da IA) com os 5 estados do 13-UI-SPEC
+- [ ] 13-04-PLAN.md — checkpoints humanos: contraste do T.warn no tema claro + nome do app no App Store Connect
+- [ ] 13-05-PLAN.md — bump + publicação do front e sincronização do bundle iOS
 **UI hint**: yes
