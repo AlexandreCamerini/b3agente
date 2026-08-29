@@ -64,7 +64,7 @@ Full phase details: [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
 | 0. Precondições | v1.2 | Complete | 2026-08-28 |
 | 10. Ponte gatilho→put | v1.2 | Complete | 2026-08-28 |
 | 11. Ciclo de vida e monitoramento | v1.2 | Complete | 2026-08-28 |
-| 12. Limites do plano gratuito ativos | 1/3 | In Progress|  |
+| 12. Limites do plano gratuito ativos | 3/3 | Complete   | 2026-08-29 |
 | 13. Uso real visível na interface | v1.3 | Not started | - |
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2
@@ -128,7 +128,7 @@ essa exposição nova é escopo exclusivo da Fase 13, não da Fase 12.
 3. Sem loja/IAP, sem validação de recibo, sem preço/moeda neste milestone —
    `PLAN_PRO` segue ilimitado por decisão, não por lacuna técnica
 
-- [ ] **Phase 12: Limites do plano gratuito ativos** - `PLAN_FREE` ganha números reais e os gates passam a recusar de verdade, com o resto do app intacto e a mensagem de recusa sem tom de upgrade urgente
+- [x] **Phase 12: Limites do plano gratuito ativos** - `PLAN_FREE` ganha números reais e os gates passam a recusar de verdade, com o resto do app intacto e a mensagem de recusa sem tom de upgrade urgente (completed 2026-08-29)
 - [ ] **Phase 13: Uso real visível na interface** - Usuário vê "ativos: X/10" e "análises deste mês: X/30" reais, nos dois stores (web e iOS), nunca estimado ou escondido
 
 ### Phase 12: Limites do plano gratuito ativos
@@ -170,8 +170,8 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 12-02-PLAN.md — fecha o bypass do `PUT /api/watchlist` (gate que só bloqueia crescimento, D-03/D-04) + `store.normalize_watchlist` como fonte única do tamanho final + suíte de comportamento do cap de ativos
-- [ ] 12-03-PLAN.md — suíte de comportamento do cap mensal de análises (prova que o ledger de `metering` é quem decide) + registro da ativação no ADR-010
+- [x] 12-02-PLAN.md — fecha o bypass do `PUT /api/watchlist` (gate que só bloqueia crescimento, D-03/D-04) + `store.normalize_watchlist` como fonte única do tamanho final + suíte de comportamento do cap de ativos
+- [x] 12-03-PLAN.md — suíte de comportamento do cap mensal de análises (prova que o ledger de `metering` é quem decide) + registro da ativação no ADR-010
 
 **Lacunas conhecidas, fora do escopo desta fase** (precisam de decisão do Alex antes da Fase 13): o `deviceStore` do iOS grava a watchlist só no aparelho e não passa por gate nenhum, e `web/src/plan.js` ainda carrega a copy com CTA (hoje inalcançável). Detalhe e opções em [.planning/todos/pending/cap-gratuito-lacunas-de-cobertura.md](todos/pending/cap-gratuito-lacunas-de-cobertura.md).
 

@@ -9,16 +9,16 @@ Ativar de verdade os limites do plano gratuito que o ADR-010 já desenhou tecnic
 
 ### Limites do gratuito
 
-- [ ] **CAP-01**: Usuário no plano gratuito não consegue ter mais de 10 ativos na watchlist — ação de adicionar é recusada com o motivo exato
-- [ ] **CAP-02**: Usuário no plano gratuito não consegue pedir mais de 30 análises de IA no mês corrente — ação é recusada com o motivo exato
-- [ ] **CAP-03**: A contagem mensal de análises usada pelo gate de plano vem do ledger real de `metering.py` — nunca de um contador paralelo (contrato C-33)
-- [ ] **CAP-04**: Usuário no plano pago (pro) não sofre nenhum desses dois limites
-- [ ] **CAP-05**: Ao atingir qualquer limite, o resto do app continua funcionando normalmente — só a ação específica é recusada
+- [x] **CAP-01**: Usuário no plano gratuito não consegue ter mais de 10 ativos na watchlist — ação de adicionar é recusada com o motivo exato
+- [x] **CAP-02**: Usuário no plano gratuito não consegue pedir mais de 30 análises de IA no mês corrente — ação é recusada com o motivo exato
+- [x] **CAP-03**: A contagem mensal de análises usada pelo gate de plano vem do ledger real de `metering.py` — nunca de um contador paralelo (contrato C-33)
+- [x] **CAP-04**: Usuário no plano pago (pro) não sofre nenhum desses dois limites
+- [x] **CAP-05**: Ao atingir qualquer limite, o resto do app continua funcionando normalmente — só a ação específica é recusada
 
 ### Interface
 
 - [ ] **CAP-06**: Usuário vê o número real de uso/limite na tela (ex.: "análises deste mês: 12/30", "ativos: 7/10") — nunca estimado ou escondido
-- [ ] **CAP-07**: Mensagem de limite atingido nunca usa linguagem de upgrade urgente/enriquecimento rápido (princípio 8 do CLAUDE.md) — só o fato e o motivo
+- [x] **CAP-07**: Mensagem de limite atingido nunca usa linguagem de upgrade urgente/enriquecimento rápido (princípio 8 do CLAUDE.md) — só o fato e o motivo
 
 ## v2 Requirements
 
@@ -51,10 +51,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CAP-01 | Phase 12 | Pending |
-| CAP-02 | Phase 12 | Pending |
-| CAP-03 | Phase 12 | Pending |
-| CAP-04 | Phase 12 | Pending |
-| CAP-05 | Phase 12 | Pending |
+| CAP-01 | Phase 12 | Complete |
+| CAP-02 | Phase 12 | Complete |
+| CAP-03 | Phase 12 | Complete |
+| CAP-04 | Phase 12 | Complete |
+| CAP-05 | Phase 12 | Complete |
 | CAP-06 | Phase 13 | Pending |
-| CAP-07 | Phase 12 | Pending |
+| CAP-07 | Phase 12 | Complete |
