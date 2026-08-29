@@ -64,7 +64,7 @@ Full phase details: [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
 | 0. Precondições | v1.2 | Complete | 2026-08-28 |
 | 10. Ponte gatilho→put | v1.2 | Complete | 2026-08-28 |
 | 11. Ciclo de vida e monitoramento | v1.2 | Complete | 2026-08-28 |
-| 12. Limites do plano gratuito ativos | v1.3 | Not started | - |
+| 12. Limites do plano gratuito ativos | 1/3 | In Progress|  |
 | 13. Uso real visível na interface | v1.3 | Not started | - |
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2
@@ -166,7 +166,7 @@ fecha a lacuna de copy, sem infraestrutura nova)
 Plans:
 **Wave 1**
 
-- [ ] 12-01-PLAN.md — ativa `PLAN_FREE` (10 ativos / 30 análises-mês), tira o CTA da recusa de `can_add_ticker` e ATUALIZA (não apaga) os dois guardiões que travavam "nenhum limite comercial ativado"
+- [x] 12-01-PLAN.md — ativa `PLAN_FREE` (10 ativos / 30 análises-mês), tira o CTA da recusa de `can_add_ticker` e ATUALIZA (não apaga) os dois guardiões que travavam "nenhum limite comercial ativado"
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
