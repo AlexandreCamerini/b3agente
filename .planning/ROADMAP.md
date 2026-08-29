@@ -161,7 +161,19 @@ fecha a lacuna de copy, sem infraestrutura nova)
      motivo — o texto atual de `can_add_ticker`
      ("Faça upgrade para adicionar mais.") é revisado para tirar o tom de
      CTA/upgrade urgente, ficando conforme o princípio 8 do CLAUDE.md
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 12-01-PLAN.md — ativa `PLAN_FREE` (10 ativos / 30 análises-mês), tira o CTA da recusa de `can_add_ticker` e ATUALIZA (não apaga) os dois guardiões que travavam "nenhum limite comercial ativado"
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 12-02-PLAN.md — fecha o bypass do `PUT /api/watchlist` (gate que só bloqueia crescimento, D-03/D-04) + `store.normalize_watchlist` como fonte única do tamanho final + suíte de comportamento do cap de ativos
+- [ ] 12-03-PLAN.md — suíte de comportamento do cap mensal de análises (prova que o ledger de `metering` é quem decide) + registro da ativação no ADR-010
+
+**Lacunas conhecidas, fora do escopo desta fase** (precisam de decisão do Alex antes da Fase 13): o `deviceStore` do iOS grava a watchlist só no aparelho e não passa por gate nenhum, e `web/src/plan.js` ainda carrega a copy com CTA (hoje inalcançável). Detalhe e opções em [.planning/todos/pending/cap-gratuito-lacunas-de-cobertura.md](todos/pending/cap-gratuito-lacunas-de-cobertura.md).
 
 ### Phase 13: Uso real visível na interface
 
