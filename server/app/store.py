@@ -414,7 +414,16 @@ def set_profile(conn, patch: dict, user_id=None) -> dict:
     return pf
 
 
-def set_watchlist(conn, tickers: list, user_id=None) -> list:
+def normalize_watchlist(conn, tickers: list, user_id=None) -> list:
+    """Fonte unica do tamanho FINAL efetivo da watchlist (Fase 12, CAP-01).
+
+    Extraida de set_watchlist: filtra a lista crua contra known_tickers,
+    deduplica e reordena (catalogo+custom primeiro, escolhidos fora da
+    ordenacao depois) SEM gravar nada. O gate de plano do PUT /api/watchlist
+    precisa saber esse tamanho ANTES de escrever — duplicar esta regra no
+    main.py criaria uma segunda fonte de verdade (o mesmo tipo de contador
+    paralelo que o contrato C-32/C-33 proibe).
+    """
     allowed = set(known_tickers(conn, user_id=user_id))
     ordered = known_tickers(conn, user_id=user_id)
     chosen = [t for t in tickers if (t or "").upper() in allowed]
@@ -431,6 +440,11 @@ def set_watchlist(conn, tickers: list, user_id=None) -> list:
         if tu not in seen:
             valid.append(tu)
             seen.add(tu)
+    return valid
+
+
+def set_watchlist(conn, tickers: list, user_id=None) -> list:
+    valid = normalize_watchlist(conn, tickers, user_id=user_id)
     db.kv_set(conn, "watchlist", valid, user_id=user_id)
     return valid
 

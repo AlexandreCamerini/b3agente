@@ -464,7 +464,9 @@ async def ai_quota(scope: Optional[str] = Depends(current_scope)):
     C-33 (fase 5): `monthUsed`/`monthLimit` em nível RAIZ (não dentro de
     `quota`, que só existe com IA gerenciada sem BYOK) — o front consome
     esse contrato no Plano 05-07. `monthUsed` vem do ledger de `metering`,
-    `monthLimit` do plano real da conta (hoje sempre None, ADR-010 pendente)."""
+    `monthLimit` do plano real da conta — limite mensal do FREE ativo (30)
+    desde a v1.3/Fase 12 (ADR-010); `None` agora só acontece para conta pro
+    (ilimitada) e para o escopo anônimo (early return acima)."""
     avail = managed.is_available()
     if not scope:
         return {"managed": avail, "loggedIn": False, "byok": False, "quota": None,
@@ -1040,7 +1042,19 @@ async def post_snapshot(body: dict = Body(default={}), scope: Optional[str] = De
 
 @app.put("/api/watchlist")
 async def put_watchlist(body: dict = Body(default={}), scope: Optional[str] = Depends(current_scope)):
-    store.set_watchlist(_conn, body.get("tickers") or [], user_id=scope)
+    # Fase 12 (CAP-01/D-02): este endpoint era o bypass do cap (front usa
+    # ele no quick-add do push e na selecao em massa do catalogo). Compara o
+    # tamanho NORMALIZADO (nao o cru do body, senao ticker desconhecido/
+    # repetido gera recusa falsa — CAP-05). So barra CRESCIMENTO (D-03);
+    # quem ja tinha mais de 10 nao perde nada (D-04, grandfather clause).
+    novos = body.get("tickers") or []
+    final = store.normalize_watchlist(_conn, novos, user_id=scope)
+    atual = store.get(_conn, "watchlist", user_id=scope)
+    if len(final) > len(atual):
+        allowed, reason = plan.can_add_ticker(len(final) - 1, plan=_plano_do_escopo(scope))
+        if not allowed:
+            raise HTTPException(402, reason)
+    store.set_watchlist(_conn, novos, user_id=scope)
     return store.public_state(_conn, user_id=scope)
 
 
