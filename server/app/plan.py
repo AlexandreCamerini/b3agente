@@ -1,36 +1,38 @@
-"""Ganchos para um futuro modelo FREEMIUM — ESTRUTURA, sem cobranca.
+"""Ganchos do modelo FREEMIUM do Boris+ — plano comercial (ADR-010).
 
-NADA aqui cobra ou bloqueia hoje: todas as funcoes liberam tudo. O objetivo e
-deixar os PONTOS DE EXTENSAO explicitos e centralizados para quando a fase de
-monetizacao chegar (assinatura via IAP na App Store / Google Play).
+A partir da v1.3 (Fase 12), os dois limites do PLAN_FREE estao ATIVOS: 10
+ativos na watchlist e 30 analises/mes. PLAN_PRO continua com ambos os
+limites `None` (ilimitado) POR DECISAO comercial — nao existe loja/IAP neste
+milestone, entao "pro" e um estado alcancavel so por atribuicao manual
+(`users.plan`), nao por compra.
 
 Estrategia de custo (pilar): BYOK — o usuario pluga a PROPRIA chave de LLM
 (Config -> Modelo de IA). Assim o custo de inferencia nao recai sobre o app, o
 que viabiliza um tier gratuito generoso.
 
-Quando a monetizacao entrar, os limites abaixo passam a valer para o tier
-gratuito (PLAN_FREE) e o tier pago (PLAN_PRO) os afrouxa. O gate de assinatura
-(`requires_subscription`) deve consultar o recibo validado da loja (server-side
-receipt validation) — NUNCA confiar so no cliente.
+O gate de assinatura (`requires_subscription`) deve consultar o recibo
+validado da loja (server-side receipt validation) quando a loja/IAP existir —
+NUNCA confiar so no cliente. Continua HOOK (sempre False) nesta fase.
 
 Contrato de contagem (C-32, fixado na fase 3 — server/app/main.py::_gate_analise):
 `server/app/metering.py` e o CONTADOR UNICO de uso de IA do app (cota DIARIA
 por usuario + teto global, persistidos no kv). `can_analyze` aqui embaixo e o
 gate de TIER comercial (MENSAL) e NUNCA mantem contagem propria — ele so LE o
-limite do plano e decide permitido/negado. Quando o ADR-010 ligar
-`max_analyses_per_month`, o valor de `used_this_month` passado a `can_analyze`
-TEM de derivar do ledger de `metering` (C-33, fase 5) — nunca de um segundo
-contador paralelo. Os dois gates (plano e metering) sao aplicados num UNICO
-ponto de decisao por requisicao (`_gate_analise`), nunca em paralelo.
+limite do plano e decide permitido/negado. Com o ADR-010 tendo ligado
+`max_analyses_per_month` (Fase 12), o valor de `used_this_month` passado a
+`can_analyze` TEM de derivar do ledger de `metering` (C-33, fase 5) — nunca de
+um segundo contador paralelo. Os dois gates (plano e metering) sao aplicados
+num UNICO ponto de decisao por requisicao (`_gate_analise`), nunca em
+paralelo.
 """
 from typing import Optional
 
-# Limites por plano. None = ilimitado. Hoje TODOS ilimitados (sem cobranca).
+# Limites por plano. None = ilimitado.
 PLAN_FREE = {
     "id": "free",
-    "max_watchlist": None,        # futuro: ex. 10 ativos no gratuito
-    "max_analyses_per_month": None,  # futuro: ex. 30 analises/mes no gratuito
-    "byok_required": False,       # futuro: gratuito pode exigir BYOK
+    "max_watchlist": 10,             # ATIVO desde a v1.3 (Fase 12, ADR-010)
+    "max_analyses_per_month": 30,    # ATIVO desde a v1.3 (Fase 12, ADR-010)
+    "byok_required": False,          # futuro: gratuito pode exigir BYOK
 }
 PLAN_PRO = {
     "id": "pro",
@@ -39,9 +41,9 @@ PLAN_PRO = {
     "byok_required": False,
 }
 
-# Plano vigente do app HOJE: tudo liberado (os limites de PLAN_FREE/PLAN_PRO
-# continuam None — ativa-los e decisao comercial pendente do ADR-010, nao
-# deste modulo). ACTIVE_PLAN fica so como fallback de quem nao tem `user`.
+# ACTIVE_PLAN e o fallback de quem nao tem `user` (escopo anonimo, D-06) —
+# aponta para PLAN_FREE, entao anonimo passa a valer os mesmos dois limites
+# ativados acima (comportamento intencional, Fase 12).
 ACTIVE_PLAN = PLAN_FREE
 
 PLANOS_POR_ID = {"free": PLAN_FREE, "pro": PLAN_PRO}
@@ -69,14 +71,14 @@ def plan_at_least(plan_atual: dict, min_plan_id: str) -> bool:
         return False
 
 
-# ---- GANCHOS (hoje retornam sempre permitido) ----
+# ---- GATES DE PLANO (ATIVOS desde a v1.3 para o PLAN_FREE) ----
 def can_add_ticker(current_count: int, plan: Optional[dict] = None) -> tuple:
     """HOOK: limite de tamanho da watchlist no tier gratuito.
     Retorna (permitido: bool, motivo: str|None)."""
     plan = plan or ACTIVE_PLAN
     limit = plan.get("max_watchlist")
     if limit is not None and current_count >= limit:
-        return (False, f"O plano {plan['id']} permite ate {limit} ativos. Faca upgrade para adicionar mais.")
+        return (False, f"Voce atingiu o limite de {limit} ativos do plano {plan['id']}.")
     return (True, None)
 
 
