@@ -135,6 +135,27 @@ novos = novos or []
 
 ---
 
+## Status de correção (2026-08-29)
+
+Os 3 achados **Warning** (WR-01, WR-02, WR-03) foram corrigidos em 3 commits
+atômicos e estão **em revisão** no [PR #26](https://github.com/AlexandreCamerini/b3agente/pull/26)
+(branch `claude/confident-germain-89cb99`):
+
+- **WR-01** — `store.WATCHLIST_LOCK` (dedicada, distinta de `ORDER_LOCK`)
+  envolve o read-check-write de `PUT /api/watchlist`/`POST /api/watchlist/add`.
+- **WR-02** — `plan.can_grow_watchlist_to(final_size, plan)` substitui o
+  reuso de `can_add_ticker(len(final) - 1, ...)`.
+- **WR-03** — `tickers` não-lista devolve 400 antes de chegar em
+  `normalize_watchlist`.
+
+O achado **Critical** (CR-01, bypass do cap no iOS via `deviceStore`) e o
+**Info** (IN-01, ordenação com case misto em `normalize_watchlist`)
+permanecem em aberto — fora do escopo deste PR. CR-01 já está registrado em
+[cap-gratuito-lacunas-de-cobertura.md](../../todos/pending/cap-gratuito-lacunas-de-cobertura.md)
+(item 1), aguardando decisão do Alex.
+
+---
+
 _Reviewed: 2026-08-29_
 _Reviewer: Claude (gsd-code-reviewer)_
 _Depth: standard_

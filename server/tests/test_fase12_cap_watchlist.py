@@ -18,11 +18,13 @@ Isolamento igual a test_fase3_gate_plano.py/test_fase5_gate_mensal.py (B3_DB_PAT
 temporário, reimport de app.main por teste) — necessário porque `_conn`/caches
 em memória (managed, kill-switch, orçamento brapi) são globais de módulo.
 """
+import concurrent.futures
 import importlib
 import os
 import pathlib
 import sys
 import tempfile
+import threading
 
 import pytest
 from fastapi.testclient import TestClient
@@ -270,6 +272,75 @@ def test_k_lista_com_desconhecidos_e_repetidos_nao_gera_recusa_falsa(monkeypatch
 
 
 # ---------------------------------------------------------------------------
+# (l) WR-03 (12-REVIEW.md): `tickers` truthy não-lista é 400, não 500/zera-silêncio
+# ---------------------------------------------------------------------------
+
+def test_l_tickers_string_devolve_400_em_vez_de_zerar_watchlist_em_silencio(monkeypatch):
+    c, main = _client(monkeypatch)
+    payload = _registra(c, "tickersstring@teste.com")
+    scope = payload["user"]["id"]
+    _semeia(main, scope, 3)
+
+    r = c.put("/api/watchlist", json={"tickers": "PETR4"}, headers=_auth(payload["token"]))
+    assert r.status_code == 400, r.text
+    assert len(main.store.get(main._conn, "watchlist", user_id=scope)) == 3
+
+
+def test_l_tickers_bool_devolve_400_em_vez_de_500_opaco(monkeypatch):
+    c, main = _client(monkeypatch)
+    payload = _registra(c, "tickersbool@teste.com")
+
+    r = c.put("/api/watchlist", json={"tickers": True}, headers=_auth(payload["token"]))
+    assert r.status_code == 400, r.text
+
+
+# ---------------------------------------------------------------------------
+# (m) WR-01 (12-REVIEW.md): read-modify-write sob trava — sem lost update
+# ---------------------------------------------------------------------------
+
+def test_m_adds_concorrentes_de_tickers_diferentes_nao_perdem_update(monkeypatch):
+    """Antes da trava (WR-01), dois POST /api/watchlist/add concorrentes de
+    tickers DIFERENTES liam o mesmo `wl` e o último a escrever `wl + [t]`
+    sobrescrevia a adição do outro (lost update) — a mesma classe de bug que
+    `store.ORDER_LOCK` existe pra fechar em cash/positions. Usa um Barrier
+    pra forçar as duas threads a chegarem no read-check-write o mais perto
+    possível uma da outra, maximizando a chance de pegar a janela da corrida."""
+    async def _quote_qualquer(t):
+        return {"t": t, "name": t, "price": 10.0, "change": 0.0}
+
+    c, main = _client(monkeypatch)
+    monkeypatch.setattr(main.candle_provider, "get_quote", _quote_qualquer)
+    payload = _registra(c, "raceadd@teste.com")
+    scope = payload["user"]["id"]
+    headers = _auth(payload["token"])
+    barreira = threading.Barrier(2)
+
+    def _add(ticker):
+        barreira.wait(timeout=5)
+        return c.post("/api/watchlist/add", json={"ticker": ticker}, headers=headers)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as ex:
+        f1 = ex.submit(_add, "ZZZZ1")
+        f2 = ex.submit(_add, "ZZZZ2")
+        r1, r2 = f1.result(), f2.result()
+
+    assert r1.status_code == 200, r1.text
+    assert r2.status_code == 200, r2.text
+    persistida = main.store.get(main._conn, "watchlist", user_id=scope)
+    assert "ZZZZ1" in persistida
+    assert "ZZZZ2" in persistida
+
+
+def test_m_watchlist_lock_protege_put_e_post_add():
+    src = _main_source_sem_comentarios()
+    for nome_rota in ("def put_watchlist", "def watchlist_add"):
+        inicio = src.index(nome_rota)
+        fim = src.index("def ", inicio + 1)
+        corpo = src[inicio:fim]
+        assert "store.WATCHLIST_LOCK" in corpo, nome_rota
+
+
+# ---------------------------------------------------------------------------
 # Guardião ESTÁTICO — fecha a CLASSE do bypass, não só a instância
 # ---------------------------------------------------------------------------
 
@@ -278,19 +349,35 @@ def _main_source_sem_comentarios() -> str:
     return "\n".join(line for line in src.splitlines() if not line.strip().startswith("#"))
 
 
-def test_put_watchlist_referencia_can_add_ticker_nao_e_mais_set_watchlist_puro():
+def test_put_watchlist_referencia_can_grow_watchlist_to_nao_e_mais_set_watchlist_puro():
+    """Reversão deliberada de
+    `test_put_watchlist_referencia_can_add_ticker_nao_e_mais_set_watchlist_puro`
+    (WR-02, 12-REVIEW.md): o PUT passou a chamar `plan.can_grow_watchlist_to`
+    (hook honesto de tamanho FINAL) em vez de reusar `plan.can_add_ticker` com
+    o valor sintético `len(final) - 1`. O guardião original travava só a
+    CLASSE do bypass ("ainda passa por algum gate, não é set_watchlist
+    puro"); esta versão trava o nome certo do gate atual."""
     src = _main_source_sem_comentarios()
     inicio = src.index("def put_watchlist")
     fim = src.index("def ", inicio + 1)
     corpo = src[inicio:fim]
-    assert "can_add_ticker" in corpo
+    assert "can_grow_watchlist_to" in corpo
 
 
-def test_plan_can_add_ticker_aparece_exatamente_duas_vezes_no_main():
-    """Se um terceiro caminho de escrita de watchlist nascer sem gate, ou se
-    alguém duplicar o gate, este guardião grita — mesma classe de bypass que
-    o T-12-05/T-12-06 do threat model do Plano 12-02 cobre."""
-    assert _main_source_sem_comentarios().count("plan.can_add_ticker(") == 2
+def test_plan_gates_de_watchlist_aparecem_exatamente_uma_vez_cada_no_main():
+    """Reversão deliberada de
+    `test_plan_can_add_ticker_aparece_exatamente_duas_vezes_no_main` (WR-02,
+    12-REVIEW.md): antes os dois call sites (PUT e POST /add) chamavam o
+    MESMO hook `plan.can_add_ticker`, então "aparece 2x" bastava como
+    guardião único. Agora cada rota tem seu hook honesto
+    (`can_grow_watchlist_to` no PUT bulk, `can_add_ticker` no POST
+    item-a-item) — o guardião correto é checar CADA um isoladamente. Se um
+    terceiro caminho de escrita de watchlist nascer sem gate, ou se alguém
+    duplicar um dos dois, esta versão ainda grita — mesma classe de bypass
+    que o T-12-05/T-12-06 do threat model do Plano 12-02 cobre."""
+    src = _main_source_sem_comentarios()
+    assert src.count("plan.can_add_ticker(") == 1
+    assert src.count("plan.can_grow_watchlist_to(") == 1
 
 
 def test_frase_de_recusa_nao_duplicada_no_main():

@@ -180,6 +180,8 @@ gate nenhum (CAP-01 não valia no app nativo), e `web/src/plan.js` ainda
 carrega a copy com CTA (hoje inalcançável). Ver Fase 13 abaixo, que ganhou
 CAP-12 e enforcement no cliente nativo além da visibilidade original.
 
+**Revisão pós-fase**: code review encontrou 1 Critical + 3 Warning + 1 Info (ver [12-REVIEW.md](phases/12-limites-do-plano-gratuito-ativos/12-REVIEW.md)). Os 3 Warning foram corrigidos e **mergeados no main** via [PR #26](https://github.com/AlexandreCamerini/b3agente/pull/26); o Critical (CR-01, bypass do cap no iOS) é o mesmo item 1 da lacuna acima, endereçado como CAP-12 na Fase 13.
+
 ### Phase 13: Uso real visível na interface + enforcement no iOS
 
 **Goal**: Usuário no plano gratuito vê o número real de uso/limite —
