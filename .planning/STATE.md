@@ -3,8 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Cap comercial (plano gratuito)
 status: planning
-last_updated: "2026-08-29T00:00:00.000Z"
-last_activity: 2026-08-29
+stopped_at: Phase 12 context gathered
+last_updated: "2026-08-29T03:59:08.808Z"
+last_activity: 2026-08-29 — ROADMAP.md criado (Phases 12-13), REQUIREMENTS.md traceability preenchida (CAP-01..07)
 progress:
   total_phases: 2
   completed_phases: 0
@@ -73,6 +74,7 @@ Recent decisions affecting current work:
   existe (`_gate_analise` em `main.py` já usa `metering.month_used` real;
   `/api/ai-quota` já devolve `monthLimit` do plano) — Phase 12 é troca de
   números (`PLAN_FREE.max_watchlist`/`max_analyses_per_month`, hoje `None`)
+
   + revisão de copy de recusa (CAP-07), não infraestrutura nova.
 
 - v1.3 roadmap: Phase 13 (visibilidade na UI) depende de Phase 12 por uma
@@ -124,9 +126,9 @@ Items acknowledged and carried forward from previous milestone close (v1.2 → v
 
 ## Session Continuity
 
-Last session: 2026-08-29T00:00:00.000Z
-Stopped at: ROADMAP.md e REQUIREMENTS.md (traceability) finalizados para v1.3 — Phase 12/13 com success criteria, requirement mapping (CAP-01..07, 100% coberto)
-Resume file: None — próximo passo é `/gsd:plan-phase 12`
+Last session: 2026-08-29T03:59:08.797Z
+Stopped at: Phase 12 context gathered
+Resume file: .planning/phases/12-limites-do-plano-gratuito-ativos/12-CONTEXT.md
 
 ## Operator Next Steps
 
