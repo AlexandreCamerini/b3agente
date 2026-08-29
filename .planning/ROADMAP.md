@@ -5,6 +5,7 @@
 - ✅ **v1.0 Revisão Geral** — Phase 1 (shipped 2026-08-18) — [detalhes](milestones/v1.0-ROADMAP.md)
 - ✅ **v1.1 Realismo de Mercado + Correções** — Phases 2-8 (shipped 2026-08-23) — [detalhes](milestones/v1.1-ROADMAP.md)
 - ✅ **v1.2 Camada de opções ancorada na carteira** — Phases 0, 10, 11 (shipped 2026-08-28) — [detalhes](milestones/v1.2-ROADMAP.md)
+- 🚧 **v1.3 Cap comercial (plano gratuito)** — Phases 12-13 (in progress)
 
 ## Phases
 
@@ -63,6 +64,8 @@ Full phase details: [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
 | 0. Precondições | v1.2 | Complete | 2026-08-28 |
 | 10. Ponte gatilho→put | v1.2 | Complete | 2026-08-28 |
 | 11. Ciclo de vida e monitoramento | v1.2 | Complete | 2026-08-28 |
+| 12. Limites do plano gratuito ativos | 3/3 | Complete   | 2026-08-29 |
+| 13. Uso real visível na interface | v1.3 | Not started | - |
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2
 
@@ -94,3 +97,111 @@ Plans:
 - [x] 09-06-PLAN.md — rótulos de fonte no front + bump/publicar-web + checkpoint da virada de produção
 
 **Status pós-checkpoint:** virada de produção `adiada` — `B3_CANDLE_PROVIDER`/`B3_OPTIONS_PROVIDER` seguem em `brapi`/`yahoo`. Perna ao vivo da medição rodou em 2026-08-28 (chave confirmada autenticando), mas o pico/min (148 projetado vs. 60/min) segue sem mitigação. Ver `docs/MEDICAO-Mydata-2026-08-27.md` e `.planning/todos/pending/medir-rate-limit-mydata.md`.
+
+---
+
+### 🚧 v1.3 Cap comercial (plano gratuito) (In Progress)
+
+**Milestone Goal:** ativar de verdade os limites do plano gratuito que o
+ADR-010 já desenhou tecnicamente — `PLAN_FREE.max_watchlist=10` e
+`PLAN_FREE.max_analyses_per_month=30` passam de `None` (ilimitado) para
+números reais, os hooks `can_add_ticker`/`can_analyze` (`server/app/plan.py`)
+passam a bloquear de verdade, e a UI mostra o número real de uso/limite.
+Sem loja/IAP neste milestone; `PLAN_PRO` continua ilimitado.
+
+**Achado de investigação (orienta as duas fases):** a fiação já existe.
+`_gate_analise` (linha 453 de `server/app/main.py`) já chama
+`plan.can_analyze(metering.month_used(_conn, scope), plan=plano)` e o
+endpoint `/api/ai-quota` já devolve `monthUsed`/`monthLimit` reais
+(`_plano_do_escopo(scope).get("max_analyses_per_month")`); o hook de
+adicionar ticker (linha 1069) já chama
+`plan.can_add_ticker(len(watchlist), plan=...)`. Não existe hoje nenhum
+endpoint que exponha `max_watchlist`/contagem atual da watchlist para a UI —
+essa exposição nova é escopo exclusivo da Fase 13, não da Fase 12.
+
+**Decisões de arquitetura travadas neste milestone (não reabrir):**
+1. Cap comercial (por conta) e cota física da brapi (por app inteiro) são
+   camadas independentes — um usuário pago consome da mesma cota física, só
+   sem limite comercial próprio (ADR-010, decisão 2)
+2. Fonte de cotação (brapi/Yahoo) não é diferencial de plano — infraestrutura
+   igual pra todo mundo (ADR-010, decisão 3)
+3. Sem loja/IAP, sem validação de recibo, sem preço/moeda neste milestone —
+   `PLAN_PRO` segue ilimitado por decisão, não por lacuna técnica
+
+- [x] **Phase 12: Limites do plano gratuito ativos** - `PLAN_FREE` ganha números reais e os gates passam a recusar de verdade, com o resto do app intacto e a mensagem de recusa sem tom de upgrade urgente (completed 2026-08-29)
+- [ ] **Phase 13: Uso real visível na interface** - Usuário vê "ativos: X/10" e "análises deste mês: X/30" reais, nos dois stores (web e iOS), nunca estimado ou escondido
+
+### Phase 12: Limites do plano gratuito ativos
+
+**Goal**: Usuário no plano gratuito é bloqueado de verdade ao tentar
+ultrapassar 10 ativos na watchlist ou 30 análises de IA no mês corrente,
+usando a contagem real de `metering.py`; usuário no plano pago não sofre
+nenhum dos dois limites; e nenhuma outra funcionalidade do app degrada
+quando um limite é atingido.
+**Depends on**: Nothing (primeira fase do milestone — a estrutura de gate já
+existe em `plan.py`/`metering.py`/`main.py`, esta fase liga os números e
+fecha a lacuna de copy, sem infraestrutura nova)
+**Requirements**: CAP-01, CAP-02, CAP-03, CAP-04, CAP-05, CAP-07
+**Success Criteria** (what must be TRUE):
+  1. Usuário no plano free que já tem 10 ativos na watchlist não consegue
+     adicionar um 11º — a ação é recusada (`POST` de adicionar ticker) com
+     o motivo exato, não um erro genérico
+  2. Usuário no plano free que já pediu 30 análises de IA no mês corrente
+     não consegue pedir a 31ª — a ação é recusada com o motivo exato, e a
+     contagem usada pelo gate é `metering.month_used` (ledger real, já
+     wired em `_gate_analise`), nunca um contador paralelo — confirmado por
+     teste que prova que zerar/ignorar o ledger muda o resultado do gate
+  3. Usuário no plano pro consegue ultrapassar as duas marcas (11º ativo,
+     31ª análise) no mesmo mês sem nenhuma recusa
+  4. Depois de uma recusa por limite, o resto do app continua funcionando
+     normalmente: comprar/vender ação, ver cotações, remover um ativo já
+     existente da watchlist, pedir análise dentro da cota restante — nenhuma
+     outra funcionalidade degrada
+  5. A mensagem de recusa (watchlist e análise) declara só o fato e o
+     motivo — o texto atual de `can_add_ticker`
+     ("Faça upgrade para adicionar mais.") é revisado para tirar o tom de
+     CTA/upgrade urgente, ficando conforme o princípio 8 do CLAUDE.md
+**Plans**: 3 plans
+
+Plans:
+**Wave 1**
+
+- [x] 12-01-PLAN.md — ativa `PLAN_FREE` (10 ativos / 30 análises-mês), tira o CTA da recusa de `can_add_ticker` e ATUALIZA (não apaga) os dois guardiões que travavam "nenhum limite comercial ativado"
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 12-02-PLAN.md — fecha o bypass do `PUT /api/watchlist` (gate que só bloqueia crescimento, D-03/D-04) + `store.normalize_watchlist` como fonte única do tamanho final + suíte de comportamento do cap de ativos
+- [x] 12-03-PLAN.md — suíte de comportamento do cap mensal de análises (prova que o ledger de `metering` é quem decide) + registro da ativação no ADR-010
+
+**Lacunas conhecidas, fora do escopo desta fase** (precisam de decisão do Alex antes da Fase 13): o `deviceStore` do iOS grava a watchlist só no aparelho e não passa por gate nenhum, e `web/src/plan.js` ainda carrega a copy com CTA (hoje inalcançável). Detalhe e opções em [.planning/todos/pending/cap-gratuito-lacunas-de-cobertura.md](todos/pending/cap-gratuito-lacunas-de-cobertura.md).
+
+**Revisão pós-fase**: code review encontrou 1 Critical + 3 Warning + 1 Info (ver [12-REVIEW.md](phases/12-limites-do-plano-gratuito-ativos/12-REVIEW.md)). Os 3 Warning foram corrigidos e estão **em revisão** no [PR #26](https://github.com/AlexandreCamerini/b3agente/pull/26); o Critical (CR-01, bypass do cap no iOS) é o mesmo item 1 da lacuna acima, ainda sem decisão do Alex.
+
+### Phase 13: Uso real visível na interface
+
+**Goal**: Usuário no plano gratuito vê o número real de uso/limite —
+ativos na watchlist e análises de IA no mês — antes de esbarrar no limite,
+tanto no web quanto no app iOS nativo, nunca estimado ou escondido.
+**Depends on**: Phase 12 (os limites precisam estar realmente ativos e
+contando certo antes de expor o número na tela; esta fase também precisa de
+um endpoint novo expondo `max_watchlist`/contagem atual da watchlist, que
+nenhum requirement da Fase 12 exige — só existe hoje para análises via
+`/api/ai-quota`)
+**Requirements**: CAP-06
+**Success Criteria** (what must be TRUE):
+  1. Usuário no plano free vê "ativos: X/10" com X = contagem real da
+     watchlist, em algum ponto visível da UI (Watchlist ou Carteira)
+  2. Usuário no plano free vê "análises deste mês: X/30" com X = `monthUsed`
+     real de `/api/ai-quota`, em algum ponto visível da UI
+  3. Se o backend não conseguir responder o número real, a tela mostra
+     estado de erro/indisponível — nunca um número inventado ou estimado
+     (princípio 4 do CLAUDE.md)
+  4. `deviceStore` (iOS) e `serverStore` (web) expõem o mesmo par de
+     números (watchlist count/limit, análises count/limit) através de
+     métodos espelhados — paridade confirmada pelo guardião existente de
+     paridade de stores
+  5. Usuário no plano pro não vê um limite artificial fixo (nem "X/10", nem
+     contagem que sugira teto) — exibição condicional ao plano, sem número
+     fabricado
+**Plans**: TBD
+**UI hint**: yes

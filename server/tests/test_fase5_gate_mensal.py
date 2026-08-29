@@ -22,6 +22,17 @@ O que este arquivo trava:
   - `/api/ai/quota` expõe `monthUsed` (inteiro p/ conta logada, `None` p/
     escopo anônimo).
 
+ATUALIZADO (Fase 12, v1.3): o cenário hipotético do parágrafo acima
+("quebraria silenciosamente no dia em que o ADR-010 populasse o número")
+deixou de ser hipotético — a Fase 12 (12-CONTEXT.md D-01, ADR-010) populou
+`PLAN_FREE.max_analyses_per_month = 30`. O guardião
+`test_ai_quota_conta_logada_devolve_month_used_inteiro` foi atualizado para
+travar `monthLimit == 30` (era `is None`); o ledger real de `metering` segue
+sendo quem decide o gate, exatamente como este arquivo sempre garantiu.
+Reversão deliberada de contrato documentada aqui por guardrail do CLAUDE.md
+("guardiões de teste não se apagam — reversão deliberada atualiza o guardião
+com nota").
+
 Isolamento igual a `test_fase3_gate_plano.py` (B3_DB_PATH temporário,
 reimport de `app.main` por teste, reset dos caches em memória entre casos).
 """
@@ -184,7 +195,7 @@ def test_ai_quota_conta_logada_devolve_month_used_inteiro(monkeypatch):
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["monthUsed"] == 3
-    assert body["monthLimit"] is None  # ADR-010 pendente, nenhum limite comercial ativo
+    assert body["monthLimit"] == 30  # ATUALIZADO (Fase 12, v1.3): ADR-010 ativou o limite mensal do FREE
 
 
 def test_ai_quota_escopo_anonimo_devolve_month_used_none(monkeypatch):

@@ -464,7 +464,9 @@ async def ai_quota(scope: Optional[str] = Depends(current_scope)):
     C-33 (fase 5): `monthUsed`/`monthLimit` em nível RAIZ (não dentro de
     `quota`, que só existe com IA gerenciada sem BYOK) — o front consome
     esse contrato no Plano 05-07. `monthUsed` vem do ledger de `metering`,
-    `monthLimit` do plano real da conta (hoje sempre None, ADR-010 pendente)."""
+    `monthLimit` do plano real da conta — limite mensal do FREE ativo (30)
+    desde a v1.3/Fase 12 (ADR-010); `None` agora só acontece para conta pro
+    (ilimitada) e para o escopo anônimo (early return acima)."""
     avail = managed.is_available()
     if not scope:
         return {"managed": avail, "loggedIn": False, "byok": False, "quota": None,
@@ -1040,7 +1042,33 @@ async def post_snapshot(body: dict = Body(default={}), scope: Optional[str] = De
 
 @app.put("/api/watchlist")
 async def put_watchlist(body: dict = Body(default={}), scope: Optional[str] = Depends(current_scope)):
-    store.set_watchlist(_conn, body.get("tickers") or [], user_id=scope)
+    # Fase 12 (CAP-01/D-02): este endpoint era o bypass do cap (front usa
+    # ele no quick-add do push e na selecao em massa do catalogo). Compara o
+    # tamanho NORMALIZADO (nao o cru do body, senao ticker desconhecido/
+    # repetido gera recusa falsa — CAP-05). So barra CRESCIMENTO (D-03);
+    # quem ja tinha mais de 10 nao perde nada (D-04, grandfather clause).
+    novos = body.get("tickers")
+    if novos is not None and not isinstance(novos, list):
+        # WR-03 (12-REVIEW.md): sem isto, um `tickers` truthy nao-lista (string,
+        # bool, dict) cai direto em normalize_watchlist — uma string itera por
+        # CARACTERE (zera a watchlist em silencio, 200) e um bool nao-iteravel
+        # estoura TypeError sem tratamento (vira 500 opaco pro cliente).
+        raise HTTPException(400, "tickers deve ser uma lista de codigos.")
+    novos = novos or []
+    # WR-01 (12-REVIEW.md): leitura+checagem+escrita precisam da MESMA trava —
+    # sem ela, dois PUT concorrentes leem o mesmo `atual` e o gate compara
+    # contra um estado que já ficou stale quando a escrita acontece.
+    with store.WATCHLIST_LOCK:
+        final = store.normalize_watchlist(_conn, novos, user_id=scope)
+        atual = store.get(_conn, "watchlist", user_id=scope)
+        if len(final) > len(atual):
+            # WR-02 (12-REVIEW.md): hook honesto pro caso BULK — can_add_ticker
+            # espera "tamanho ANTES de uma adição"; aqui é uma troca da lista
+            # inteira, então comparamos o tamanho FINAL direto, sem valor sintético.
+            allowed, reason = plan.can_grow_watchlist_to(len(final), plan=_plano_do_escopo(scope))
+            if not allowed:
+                raise HTTPException(402, reason)
+        store.set_watchlist(_conn, novos, user_id=scope)
     return store.public_state(_conn, user_id=scope)
 
 
@@ -1065,16 +1093,20 @@ async def watchlist_add(body: dict = Body(default={}), scope: Optional[str] = De
         raise HTTPException(503, "Cotacoes indisponiveis no momento (Yahoo). Tente novamente em instantes.")
     if res["status"] != "ok":
         raise HTTPException(404, f"Ticker {t} nao encontrado na B3 (Yahoo Finance). Verifique o codigo.")
-    # GANCHO FREEMIUM (hoje sempre permite): limite de ativos do tier gratuito.
-    allowed, reason = plan.can_add_ticker(len(store.get(_conn, "watchlist", user_id=scope)),
-                                          plan=_plano_do_escopo(scope))
-    if not allowed:
-        raise HTTPException(402, reason)  # 402 Payment Required (fase futura)
     name = res["n"]
-    store.add_custom(_conn, t, name, user_id=scope)
-    wl = store.get(_conn, "watchlist", user_id=scope)
-    if t not in wl:
-        store.set_watchlist(_conn, wl + [t], user_id=scope)
+    # WR-01 (12-REVIEW.md): leitura+checagem+escrita precisam da MESMA trava —
+    # sem ela, dois ADD concorrentes de tickers DIFERENTES leem o mesmo `wl`
+    # e o último a escrever `wl + [t]` sobrescreve a adição do outro.
+    with store.WATCHLIST_LOCK:
+        # GANCHO FREEMIUM (hoje sempre permite): limite de ativos do tier gratuito.
+        allowed, reason = plan.can_add_ticker(len(store.get(_conn, "watchlist", user_id=scope)),
+                                              plan=_plano_do_escopo(scope))
+        if not allowed:
+            raise HTTPException(402, reason)  # 402 Payment Required (fase futura)
+        store.add_custom(_conn, t, name, user_id=scope)
+        wl = store.get(_conn, "watchlist", user_id=scope)
+        if t not in wl:
+            store.set_watchlist(_conn, wl + [t], user_id=scope)
     out = store.public_state(_conn, user_id=scope)
     out["added"] = {"t": t, "n": name, "price": res["price"], "change": res["change"]}
     return out

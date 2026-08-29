@@ -24,6 +24,16 @@ SECTIONS = ["config", "skill", "skillOperador", "llmPrompts", "watchlist", "cash
 # do backend — esta é a ÚNICA.
 ORDER_LOCK = threading.RLock()
 
+# WR-01 (12-REVIEW.md): trava dedicada para o read-modify-write de
+# `watchlist` (PUT /api/watchlist, POST /api/watchlist/add em main.py).
+# Mesma classe de bug que ORDER_LOCK resolve para cash/positions — sem
+# trava, dois PUT/ADD concorrentes leem o mesmo `atual`, e o último a
+# escrever vence, perdendo a adição do outro. Deliberadamente NÃO é
+# ORDER_LOCK: watchlist não é domínio de ordem de compra/venda, e o
+# comentário acima proíbe uma segunda trava para ESSE domínio — não
+# proíbe travas dedicadas para domínios diferentes.
+WATCHLIST_LOCK = threading.RLock()
+
 # Plano 04-02 (FIX-C02): teto de entradas `status == "rejeitada"` mantidas em
 # `history` — a poda em `registrar_rejeicao` descarta só as rejeições MAIS
 # ANTIGAS acima deste teto; execuções nunca são descartadas por ele (T-04-02).
@@ -414,7 +424,16 @@ def set_profile(conn, patch: dict, user_id=None) -> dict:
     return pf
 
 
-def set_watchlist(conn, tickers: list, user_id=None) -> list:
+def normalize_watchlist(conn, tickers: list, user_id=None) -> list:
+    """Fonte unica do tamanho FINAL efetivo da watchlist (Fase 12, CAP-01).
+
+    Extraida de set_watchlist: filtra a lista crua contra known_tickers,
+    deduplica e reordena (catalogo+custom primeiro, escolhidos fora da
+    ordenacao depois) SEM gravar nada. O gate de plano do PUT /api/watchlist
+    precisa saber esse tamanho ANTES de escrever — duplicar esta regra no
+    main.py criaria uma segunda fonte de verdade (o mesmo tipo de contador
+    paralelo que o contrato C-32/C-33 proibe).
+    """
     allowed = set(known_tickers(conn, user_id=user_id))
     ordered = known_tickers(conn, user_id=user_id)
     chosen = [t for t in tickers if (t or "").upper() in allowed]
@@ -431,6 +450,11 @@ def set_watchlist(conn, tickers: list, user_id=None) -> list:
         if tu not in seen:
             valid.append(tu)
             seen.add(tu)
+    return valid
+
+
+def set_watchlist(conn, tickers: list, user_id=None) -> list:
+    valid = normalize_watchlist(conn, tickers, user_id=user_id)
     db.kv_set(conn, "watchlist", valid, user_id=user_id)
     return valid
 
