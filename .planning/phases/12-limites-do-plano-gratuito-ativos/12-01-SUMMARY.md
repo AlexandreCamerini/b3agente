@@ -88,6 +88,16 @@ None - no external service configuration required.
 - Task 1/2 desta fase deixam `plan.py` com os limites reais ligados e os guardiões de fronteira coerentes com o novo estado — pronto para 12-02 (fechar o bypass de `PUT /api/watchlist`, D-02/D-03/D-04) e 12-03.
 - Nenhum bloqueio conhecido para os planos seguintes da Fase 12.
 
+## Self-Check: PASSED
+
+- FOUND: server/app/plan.py
+- FOUND: server/tests/test_fase3_gate_plano.py
+- FOUND: server/tests/test_fase5_gate_mensal.py
+- FOUND: .planning/phases/12-limites-do-plano-gratuito-ativos/12-01-SUMMARY.md
+- FOUND commit: 71a0bd3 (Task 1)
+- FOUND commit: fb36ca0 (Task 2)
+- FOUND commit: 0b38c51 (SUMMARY, pre-append)
+
 ---
 *Phase: 12-limites-do-plano-gratuito-ativos*
 *Completed: 2026-08-29*
