@@ -88,6 +88,18 @@ None - no external service configuration required.
 - Task 1/2 desta fase deixam `plan.py` com os limites reais ligados e os guardiões de fronteira coerentes com o novo estado — pronto para 12-02 (fechar o bypass de `PUT /api/watchlist`, D-02/D-03/D-04) e 12-03.
 - Nenhum bloqueio conhecido para os planos seguintes da Fase 12.
 
+## Requirements Status (nota para o orquestrador)
+Este plano NÃO chamou `requirements mark-complete`. `CAP-01`, `CAP-02` e `CAP-04`
+aparecem no frontmatter de MÚLTIPLOS planos desta fase (12-01 + 12-02 para
+CAP-01/CAP-04; 12-01 + 12-03 para CAP-02/CAP-04) — marcar qualquer um deles
+"Pending → Done" só a partir do 12-01 seria um falso positivo: CAP-01
+("não consegue ter mais de 10 ativos... ação de adicionar é recusada") ainda
+tem o bypass do `PUT /api/watchlist` aberto (D-02, fechado só no 12-02).
+`CAP-07` é o único dos quatro genuinamente satisfeito só pelo 12-01, mas foi
+deixado de fora também para não fragmentar a marcação. Marcar os quatro IDs
+em `.planning/REQUIREMENTS.md` fica para o orquestrador, depois que 12-02 e
+12-03 (mesma wave) também completarem.
+
 ## Self-Check: PASSED
 
 - FOUND: server/app/plan.py
