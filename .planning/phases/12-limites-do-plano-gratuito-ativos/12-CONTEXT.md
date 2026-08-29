@@ -29,7 +29,7 @@ nova (isso é Fase 13).
 - **D-05:** Só `can_add_ticker` precisa de ajuste de copy — o texto atual é `"O plano {id} permite ate {limit} ativos. Faca upgrade para adicionar mais."` (tom de CTA). Novo texto, sem CTA: `"Voce atingiu o limite de {limit} ativos do plano {id}."` — mesmo padrão de `can_analyze`, que já está conforme (`"Voce atingiu o limite de {limit} analises/mes do plano {id}."`, sem CTA, já correto hoje).
 
 ### Conta anônima
-- **D-06:** Conta anônima (sem login, `scope=None`) cai no fallback `ACTIVE_PLAN` (= `PLAN_FREE`) — já é o comportamento atual de `current_plan(None)`, sem mudança necessária. Os dois limites passam a valer igual pra ela.
+- **D-06 [informational]:** Conta anônima (sem login, `scope=None`) cai no fallback `ACTIVE_PLAN` (= `PLAN_FREE`) — já é o comportamento atual de `current_plan(None)`, sem mudança necessária. Os dois limites passam a valer igual pra ela. Confirmação de comportamento existente, não uma tarefa — não precisa de plano/task dedicado.
 
 ### Claude's Discretion
 - Exato texto de log/teste para provar D-02/D-03 (redação dos testes de comportamento) fica a critério do planner/executor, desde que cubra: (a) `PUT` bloqueia crescimento além do limite, (b) `PUT` nunca bloqueia redução/reordenação, (c) usuário já acima do limite não perde ativos existentes.
