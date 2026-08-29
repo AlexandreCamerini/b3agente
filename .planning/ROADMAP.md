@@ -120,11 +120,14 @@ endpoint que exponha `max_watchlist`/contagem atual da watchlist para a UI —
 essa exposição nova é escopo exclusivo da Fase 13, não da Fase 12.
 
 **Decisões de arquitetura travadas neste milestone (não reabrir):**
+
 1. Cap comercial (por conta) e cota física da brapi (por app inteiro) são
    camadas independentes — um usuário pago consome da mesma cota física, só
    sem limite comercial próprio (ADR-010, decisão 2)
+
 2. Fonte de cotação (brapi/Yahoo) não é diferencial de plano — infraestrutura
    igual pra todo mundo (ADR-010, decisão 3)
+
 3. Sem loja/IAP, sem validação de recibo, sem preço/moeda neste milestone —
    `PLAN_PRO` segue ilimitado por decisão, não por lacuna técnica
 
@@ -143,20 +146,25 @@ existe em `plan.py`/`metering.py`/`main.py`, esta fase liga os números e
 fecha a lacuna de copy, sem infraestrutura nova)
 **Requirements**: CAP-01, CAP-02, CAP-03, CAP-04, CAP-05, CAP-07
 **Success Criteria** (what must be TRUE):
+
   1. Usuário no plano free que já tem 10 ativos na watchlist não consegue
      adicionar um 11º — a ação é recusada (`POST` de adicionar ticker) com
      o motivo exato, não um erro genérico
+
   2. Usuário no plano free que já pediu 30 análises de IA no mês corrente
      não consegue pedir a 31ª — a ação é recusada com o motivo exato, e a
      contagem usada pelo gate é `metering.month_used` (ledger real, já
      wired em `_gate_analise`), nunca um contador paralelo — confirmado por
      teste que prova que zerar/ignorar o ledger muda o resultado do gate
+
   3. Usuário no plano pro consegue ultrapassar as duas marcas (11º ativo,
      31ª análise) no mesmo mês sem nenhuma recusa
+
   4. Depois de uma recusa por limite, o resto do app continua funcionando
      normalmente: comprar/vender ação, ver cotações, remover um ativo já
      existente da watchlist, pedir análise dentro da cota restante — nenhuma
      outra funcionalidade degrada
+
   5. A mensagem de recusa (watchlist e análise) declara só o fato e o
      motivo — o texto atual de `can_add_ticker`
      ("Faça upgrade para adicionar mais.") é revisado para tirar o tom de
@@ -197,41 +205,65 @@ nenhum requirement da Fase 12 exige — só existe hoje para análises via
 `/api/ai-quota`)
 **Requirements**: CAP-06, CAP-12
 **Success Criteria** (what must be TRUE):
+
   1. Usuário no plano free vê "ativos: X/10" com X = contagem real da
      watchlist, em algum ponto visível da UI (Watchlist ou Carteira)
+
   2. Usuário no plano free vê "análises deste mês: X/30" com X = `monthUsed`
      real de `/api/ai-quota`, em algum ponto visível da UI
+
   3. Se o backend não conseguir responder o número real, a tela mostra
      estado de erro/indisponível — nunca um número inventado ou estimado
      (princípio 4 do CLAUDE.md)
+
   4. `deviceStore` (iOS) e `serverStore` (web) expõem o mesmo par de
      números (watchlist count/limit, análises count/limit) através de
      métodos espelhados — paridade confirmada pelo guardião existente de
      paridade de stores
+
   5. Usuário no plano pro não vê um limite artificial fixo (nem "X/10", nem
      contagem que sugira teto) — exibição condicional ao plano, sem número
      fabricado
+
   6. Usuário free no app iOS que já tem 10 ativos na watchlist não consegue
      adicionar o 11º — `deviceStore.putWatchlist`/`addWatchlistTicker`
      passam a checar o limite ANTES de gravar no `localStorage`, usando o
      `max_watchlist` real vindo do endpoint novo (item 3), nunca um `10`
      hardcoded no front (contrariaria o contrato C-32/C-33 de fonte única)
+
   7. `web/src/plan.js` perde a frase com CTA ("Faça upgrade para adicionar
      mais.") — mesma correção do CAP-07 do backend, agora no espelho do
      front
+
   8. Os resíduos triviais do rename BolsIA→Boris+ que sobraram no código/
      docs internos são limpos (comentário em `server/app/mydata_budget.py`,
      doc `docs/MEDICAO-Mydata-2026-08-27.md`) — sem tocar arquivos
      históricos protegidos pelo guardrail do repo (`RELEASES.md`, `qa/`,
      `ESTADO-*`, `CHECKOUT-*`)
+
   9. Checkpoint humano: Alex confirma (e corrige, se preciso) o nome do
      app exibido no App Store Connect/TestFlight — fora do alcance do
      agente, é configuração no portal da Apple, não no repositório
 **Plans**: 5 plans
 Plans:
+**Wave 1**
+
 - [ ] 13-01-PLAN.md — endpoint GET /api/watchlist/quota (fonte única de count/limit) + teste de contrato + limpeza dos resíduos BolsIA
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 13-02-PLAN.md — watchlistQuota() nos dois stores, gate fail-closed do deviceStore (CAP-12/CR-01) e plan.js sem CTA (CAP-07 do front)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 13-03-PLAN.md — 3 contadores na UI (Watchlist, CatalogModal, Atividade da IA) com os 5 estados do 13-UI-SPEC
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 13-04-PLAN.md — checkpoints humanos: contraste do T.warn no tema claro + nome do app no App Store Connect
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
 - [ ] 13-05-PLAN.md — bump + publicação do front e sincronização do bundle iOS
+
 **UI hint**: yes
