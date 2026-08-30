@@ -55,6 +55,16 @@ if (addBody) {
   ok("addWatchlistTicker: watchlistQuota() vem ANTES de doc.watchlist = [...doc.watchlist", iQuota >= 0 && iWatchlistPush >= 0 && iQuota < iWatchlistPush);
 }
 
+// --- 1b) addWatchlistTicker: canAddTicker recebe o count LOCAL, não o do servidor
+// Achado do code review da Fase 13 (CR-01): `quota.count` vem do servidor e o
+// iOS nunca sincroniza a watchlist pra lá (local-first) — passar quota.count
+// pro gate deixava o cap sempre desconectado do tamanho real do doc, reabrindo
+// o CR-01 em silêncio mesmo com o teste de ORDEM (item 1 acima) passando.
+ok(
+  "addWatchlistTicker: canAddTicker(doc.watchlist.length, ...) — nunca canAddTicker(quota.count, ...)",
+  !!addBody && /canAddTicker\(doc\.watchlist\.length,/.test(addBody) && !/canAddTicker\(quota\.count,/.test(addBody)
+);
+
 // --- 2) putWatchlist: rede ANTES da escrita ---------------------------------
 if (putBody) {
   const iQuota = putBody.indexOf("watchlistQuota");

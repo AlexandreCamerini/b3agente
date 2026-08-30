@@ -882,7 +882,15 @@ function deviceStore() {
           // nunca fail-open (CLAUDE.md princípio 4).
           throw new Error("Não foi possível confirmar o limite do plano agora. Tente de novo.");
         }
-        const r = canAddTicker(quota.count, { id: quota.planId || "free", maxWatchlist: quota.limit });
+        // CR-review Fase 13: `quota.count` é a contagem do SERVIDOR — no iOS
+        // (local-first) o aparelho nunca envia sua watchlist pro servidor,
+        // então `quota.count` está estruturalmente desconectado do tamanho
+        // real do doc local (ficaria sempre defasado/zerado, reabrindo o
+        // CR-01 em silêncio). O gate precisa comparar o `count` LOCAL —
+        // mesmo raciocínio que já vale pra `canGrowWatchlistTo(final.length,
+        // ...)` em putWatchlist logo acima; só `limit`/`planId` vêm do
+        // servidor (a fonte real do LIMITE, nunca da contagem local).
+        const r = canAddTicker(doc.watchlist.length, { id: quota.planId || "free", maxWatchlist: quota.limit });
         if (!r.ok) throw new Error(r.reason);
       }
       if (!CATALOG_TICKERS.includes(info.t) && !(doc.custom || []).some((c) => c.t === info.t)) {
