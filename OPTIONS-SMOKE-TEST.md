@@ -1,4 +1,4 @@
-# Smoke Test — B3 Agente Opções
+# Smoke Test — Boris+ Opções
 
 1. Abrir o app web.
 2. Acessar a aba `Opções`.

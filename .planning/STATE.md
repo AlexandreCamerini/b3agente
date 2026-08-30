@@ -113,6 +113,12 @@ None yet.
   (verificação ao vivo de `entradaAuto`; 2 human-checks da Fase 3) — não
   relacionados a v1.3, seguem em PROJECT.md Active.
 
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Status | Directory |
+|---|-------------|------|--------|--------|-----------|
+| 260830-eqm | Fase 4 do ADR-23 — Boris+ relying party do semente.id, GET /observabilidade, cauda do rename | 2026-08-30 | f534fda | Verified — PR #27 merged, deploy em produção confirmado (build F10-20260830-01), checkpoint aprovado pelo Alex ao vivo | [260830-eqm-fase-4-adr-23-boris-relying-party-do-sem](./quick/260830-eqm-fase-4-adr-23-boris-relying-party-do-sem/) |
+
 ## Deferred Items
 
 Items acknowledged and carried forward from previous milestone close (v1.2 → v1.3):

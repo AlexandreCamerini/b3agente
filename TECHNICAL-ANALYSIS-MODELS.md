@@ -1,4 +1,4 @@
-# B3 Agente — Modelos de análise técnica para LLM
+# Boris+ — Modelos de análise técnica para LLM
 
 A aplicação agora separa cálculo de interpretação:
 

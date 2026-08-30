@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# B3 Agente — backup do banco SQLite (FASE 2, decisão E).
+# Boris+ — backup do banco SQLite (FASE 2, decisão E).
 #
 # Faz um backup CONSISTENTE mesmo com o servidor rodando (usa a API de backup
 # online do SQLite via Python — checkpoint do WAL incluído). Respeita B3_DB_PATH;
