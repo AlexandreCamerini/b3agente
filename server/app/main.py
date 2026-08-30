@@ -4,6 +4,7 @@ O cliente iOS persiste no proprio aparelho e envia config/skill no corpo do
 /api/analyze; o cliente web usa a config persistida aqui.
 """
 import asyncio
+import hmac
 import os
 from typing import Optional
 from datetime import datetime
@@ -1015,6 +1016,112 @@ SERVER_BUILD_ID = "F10-20260827-02"  # ADR-017 Bloco 1: ledger de sinais + sele�
 @app.get("/api/health")
 async def health(scope: Optional[str] = Depends(current_scope)):
     return {"ok": True, "build": SERVER_BUILD_ID}
+
+
+# ADR-23 (Fase 4) — contrato mínimo de observabilidade publicado para o
+# console admin.semente.dev agregar. Na RAIZ (não sob /api/): o contrato é
+# literalmente "GET <sistema>/observabilidade" — precisa vir ANTES do mount
+# catch-all da raiz no fim do arquivo, senão ele engole o caminho (mesma
+# classe de defeito que /admin já tinha que evitar; ver
+# test_observabilidade_registrada_antes_do_mount_raiz).
+#
+# Autenticação — dois caminhos, NUNCA público (T-eqm-06): chave de máquina
+# (X-Observabilidade-Chave, comparação constant-time) OU sessão com
+# observabilidade.ver. B3_OBSERVABILIDADE_CHAVE ausente/vazia desliga o
+# caminho de máquina (fail-closed) — não vira "qualquer um passa". Não usa
+# Depends(require_permission(...)) porque aquele exige sessão e não conhece
+# a chave de máquina; os dois caminhos são resolvidos aqui no corpo.
+@app.get("/observabilidade")
+async def observabilidade_raiz(request: Request):
+    chave_recebida = request.headers.get("x-observabilidade-chave") or ""
+    chave_esperada = os.environ.get("B3_OBSERVABILIDADE_CHAVE") or ""
+    via_chave_maquina = bool(chave_esperada) and hmac.compare_digest(chave_recebida, chave_esperada)
+    if not via_chave_maquina:
+        cabecalho_auth = request.headers.get("authorization") or ""
+        partes = cabecalho_auth.split(None, 1)
+        user = None
+        if len(partes) == 2 and partes[0].lower() == "bearer":
+            user = auth.resolve_session(_conn, partes[1].strip())
+        if not user:
+            raise HTTPException(401, "Autenticação necessária: chave de máquina (X-Observabilidade-Chave) ou sessão administrativa.")
+        rbac.ensure_bootstrap_role(_conn, user)
+        if "observabilidade.ver" not in rbac.permissions_for_user(_conn, user["id"]):
+            raise HTTPException(403, "Requer a permissão 'observabilidade.ver'.")
+
+    # Nenhuma coleta nova, nenhuma chamada a fonte externa aqui dentro — é
+    # uma rota de STATUS e não pode gastar orçamento da brapi nem cota de
+    # LLM. Tudo abaixo já existe (agent.status_snapshot, brapi_budget,
+    # obslog, timing_watch) — só rearranjado no formato do contrato.
+    snap = agent_mod.status_snapshot(_conn)
+    orcamento = brapi_budget.snapshot()
+    logs = obslog.stats()
+
+    alertas = []
+    if snap["killSwitch"]:
+        alertas.append({
+            "severidade": "critico", "titulo": "Execução automática desligada (kill-switch)",
+            "detalhe": "O Operador não executa ordens automáticas enquanto o kill-switch estiver ligado.",
+            "acao": "Desligar em Execução automática",
+        })
+    if not snap["heartbeat"]["lacoVivo"]:
+        alertas.append({
+            "severidade": "critico", "titulo": "Laço do agente sem heartbeat recente",
+            "detalhe": "O ciclo do Operador não bateu dentro da janela esperada.",
+            "acao": "Ver Perfil → Observabilidade",
+        })
+    if snap["killSwitch"] and snap["ordensPendentes"]["total"] > 0:
+        # C-35/incidente v1.0: kill-switch ligado + ordem pendente presa é
+        # exatamente o mascaramento que já derrubou a base por 2,5 dias.
+        alertas.append({
+            "severidade": "critico", "titulo": "Ordens pendentes com kill-switch ligado",
+            "detalhe": f"{snap['ordensPendentes']['total']} ordem(ns) pendente(s) presa(s) enquanto o Operador está desligado.",
+            "acao": "Revisar ordens pendentes",
+        })
+    if timing_watch.kill_switch_on():
+        alertas.append({
+            "severidade": "atencao", "titulo": "Push do gatilho desligado (2º kill-switch)",
+            "detalhe": "Avisos automáticos de gatilho de timing não estão sendo enviados.",
+            "acao": "Ver Perfil → Observabilidade",
+        })
+    for fatia, info in (orcamento.get("fatias") or {}).items():
+        if info.get("degradado"):
+            alertas.append({
+                "severidade": "atencao", "titulo": f"Orçamento da brapi degradado (fatia '{fatia}')",
+                "detalhe": "A fatia passou de 80% do limite diário de requisições.",
+                "acao": "Ver Perfil → Observabilidade",
+            })
+    erros_desde_boot = sum((v or {}).get("error", 0) for v in (logs.get("porCategoria") or {}).values())
+    if erros_desde_boot > 0:
+        alertas.append({
+            "severidade": "atencao", "titulo": f"{erros_desde_boot} erro(s) registrado(s) desde o boot",
+            "detalhe": "Erros no log estruturado desde a última subida do processo.",
+            "acao": "Perfil → Observabilidade",
+        })
+
+    # Semáforo derivado da PRÓPRIA lista — nunca uma segunda regra paralela
+    # que possa discordar dela (o defeito clássico deste tipo de endpoint).
+    situacao = "critico" if any(a["severidade"] == "critico" for a in alertas) else ("atencao" if alertas else "ok")
+
+    proximas = []
+    if snap.get("proximaPassadaEmS") is not None:
+        proximas.append({"tipo": "passada_agente", "emS": snap["proximaPassadaEmS"]})
+    radar = snap.get("radarDiario") or {}
+    if radar.get("date"):
+        proximas.append({"tipo": "radar_diario", "data": radar.get("date"), "atLabel": radar.get("atLabel")})
+
+    return {
+        "situacao": situacao,
+        "alertas": alertas,
+        # já vem da mais recente para a mais antiga (agent.RUN_HISTORY).
+        # Contagens, nunca identidade — mesma regra de ordensPendentes/
+        # protecaoSemOperador em status_snapshot.
+        "ultimas_execucoes": [
+            {"quando": p.get("at"), "duracaoS": p.get("duracaoS"), "usuarios": p.get("usuarios"),
+             "executadas": p.get("executadas"), "erros": p.get("erros") or []}
+            for p in (snap.get("passadas") or [])[:10]
+        ],
+        "proximas": proximas,
+    }
 
 
 # Fase 2 (MERC-01/D-08): status real do pregão, consumido pela tela de LOGIN
