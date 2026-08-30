@@ -225,7 +225,7 @@ opções) também fechou nesse meio tempo (Fase 0 do milestone v1.2,
 Fora das duas fatias migradas nesta fase (só COTAHIST diário e opções) —
 entra como linha de status, não bloqueio. Conferido em
 `~/dev/cvm-financas/docs/contrato-consumidor.md` (linha 151, tabela "O que
-o BolsIA usa hoje"): a classe `provento_b3` está **"construída em
+o Boris+ usa hoje"): a classe `provento_b3` está **"construída em
 26/08/2026 — rota de consumo via gold_proventos; falta só a primeira carga
 de produção"**. Ou seja: o endpoint e o escopo da chave já existem
 (`f00b4554` inclui `provento_b3` desde 26/08/2026, linha 63 do mesmo

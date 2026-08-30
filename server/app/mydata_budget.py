@@ -1,6 +1,6 @@
 """Orçamento de requisições do mydata (Fase 9, Plano 01).
 
-A chave de produção do BolsIA tem cota combinada por DUAS janelas — 60/min e
+A chave de produção do Boris+ tem cota combinada por DUAS janelas — 60/min e
 2.000/dia (`~/dev/cvm-financas/docs/contrato-consumidor.md`). Este módulo
 copia a estrutura de `server/app/brapi_budget.py` (memória→DB→env, contador
 do dia persistido no `kv`) com três diferenças deliberadas:
