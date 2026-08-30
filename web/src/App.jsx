@@ -358,6 +358,29 @@ const InfoDot = ({ onClick }) => (
     style={{ background: "transparent", border: "none", color: T.textFaint, fontSize: "15px", lineHeight: 1, padding: "4px 5px", flex: "none" }}>ⓘ</button>
 );
 
+// FASE 13 (13-03, CAP-06): único renderizador do par uso/limite "X/Y" nos 3
+// pontos de exibição (subtítulo Watchlist, CatalogModal, Atividade da IA).
+// `MONO` fica SÓ nos dígitos (dígitos tabulares evitam reflow quando 7/10
+// vira 8/10; a frase inteira em MONO importaria o registro visual do painel
+// de admin para uma tela de leigo). `T.warn` (não `T.negative`/`T.positive`)
+// porque verde/vermelho são reservados a P&L neste app — usá-los aqui faria
+// uma contagem de uso parecer resultado financeiro (13-UI-SPEC.md).
+//
+// `quota` tem 3 valores semânticos: `undefined` (ainda carregando — omite,
+// sem flash de "—"), `null` (falha ao confirmar — "—", nunca número
+// estimado) ou objeto `{ limit }` (`limit == null` = plano sem teto/Pro,
+// omite o segmento inteiro; D-03 — nunca escreve a palavra que significa
+// "sem teto", nem "X/∞").
+function QuotaSeg({ quota, count, prefix, suffix }) {
+  if (quota === undefined) return null;
+  if (quota && quota.limit == null) return null;
+  if (quota === null || count == null) {
+    return <>{prefix}—{suffix}</>;
+  }
+  const cor = count / quota.limit >= 0.9 ? T.warn : "inherit";
+  return <>{prefix}<span style={{ fontFamily: MONO, fontWeight: 700, color: cor }}>{count}/{quota.limit}</span>{suffix}</>;
+}
+
 // Marcador MÍNIMO junto ao conteúdo de IA (o texto completo vive em "Sobre").
 // FIX-C01 (Plano 04-05): `source` rotula a origem real do texto — "ia"
 // (default, comportamento inalterado) ou "deterministico" (fallback do
@@ -6840,6 +6863,11 @@ export default function App() {
   const [test, setTest] = useState({ status: null, msg: "" });
   const [cycleBusy, setCycleBusy] = useState(false);
   const [addState, setAddState] = useState({ busy: false, msg: "" });
+  // FASE 13 (13-03, CAP-06): par uso/limite da watchlist (QuotaSeg acima).
+  // `undefined` = ainda não carregou (boot), `null` = falha ao confirmar
+  // (nunca reexibe valor antigo), objeto `{ count, limit, planId }` = dado
+  // real, lido ao vivo pelo store (sem cache local, D-05).
+  const [wlQuota, setWlQuota] = useState(undefined);
   // Tema: preferência (dark|light|system) vinda da config; resolvido p/ dark|light.
   const sysDark = () => (typeof window !== "undefined" && window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)").matches : true);
   const [sysIsDark, setSysIsDark] = useState(sysDark);
@@ -7018,6 +7046,13 @@ export default function App() {
       setQuotesLoading(false);
     }
   }, [flash]);
+
+  // FASE 13 (13-03, CAP-06): mesma cadência de refreshQuotes (chamada de rede
+  // a cada disparo, sem cache) — falha explícita vira `null` (estado
+  // indisponível), nunca mantém o valor anterior nem chuta um número.
+  const refreshWlQuota = useCallback(async () => {
+    try { setWlQuota(await store.watchlistQuota()); } catch { setWlQuota(null); }
+  }, []);
 
   useEffect(() => {
     track("session_start", { trigger: "boot" }); // qa/47 (Fase 2)
@@ -7217,7 +7252,7 @@ export default function App() {
     return () => { alive = false; };
   }, []);
   useEffect(() => {
-    if (data) refreshQuotes();
+    if (data) { refreshQuotes(); refreshWlQuota(); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data && Array.isArray(data.watchlist) ? data.watchlist.join(",") : ""]);
 
@@ -7245,6 +7280,7 @@ export default function App() {
   const A = useMemo(() => ({
     flash,  // FASE 3: telas dão feedback padronizado (Operador IA usa)
     refreshQuotes,
+    refreshWlQuota, // FASE 13 (13-03): retry manual do par uso/limite quando wlQuota === null
     go: (t) => { setCarteiraView("main"); setPerfilView("hub"); setTab(t); },
     // FASE 6 (fix 4): atalho direto para a CENTRAL de notificações (Config)
     openNotifCentral: () => { setCarteiraView("main"); setPerfilView("notificacoes"); setTab("perfil"); },
@@ -7747,7 +7783,7 @@ export default function App() {
   // FASE 4 (1.1): TODO estado LIDO no corpo do A precisa estar nas deps —
   // sellModal ausente deixava confirmSell com closure de null (venda muda,
   // botão silenciosamente inerte). Guardado por web/tests/test_wiring_deps.mjs.
-  }), [data, catalogSel, buyModal, sellModal, keyDraft, refreshQuotes, flash, analysisModel, wlScanLoading, destaque, quotes, flushCfg]);
+  }), [data, catalogSel, buyModal, sellModal, keyDraft, refreshQuotes, refreshWlQuota, flash, analysisModel, wlScanLoading, destaque, quotes, flushCfg]);
 
   // Mantém a referência do ciclo sempre atual (sem reiniciar o timer a cada render)
   cycleRef.current = A.cycle;
@@ -7933,7 +7969,7 @@ export default function App() {
     // quando `ctx.mercado.erro` — chama a MESMA função do efeito de boot via
     // ref, nunca uma segunda consulta.
     recarregarMercado: () => { const fn = consultarMercadoRef.current; if (fn) fn(); },
-    data, quotes, analysis, expanded, analysisModel, setAnalysisModel, A, quotesAt, quotesLoading, test, keyDraft, setKeyDraft, cp,
+    data, quotes, analysis, expanded, analysisModel, setAnalysisModel, A, quotesAt, quotesLoading, test, keyDraft, setKeyDraft, cp, wlQuota,
     catalogSel, setCatalogSel, buyModal, setBuyModal, cycleBusy, addState, setAddState,
     sellModal, setSellModal, wlScan, wlScanLoading, destaque,
     themePref, themeKey, aboutOpen,
