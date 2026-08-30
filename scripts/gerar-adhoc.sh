@@ -24,13 +24,25 @@ die(){ printf "  \033[31m[X]\033[0m %s\n" "$*" >&2; exit 1; }
 BASE="${1:-https://boris.semente.dev}"
 PROJ="web/ios/App/App.xcodeproj"
 PBXPROJ="$PROJ/project.pbxproj"
-SCHEME="BolsIA"
 BUILD_DIR="build/adhoc"
 ARCHIVE="$BUILD_DIR/App.xcarchive"
 EXPORT_DIR="$BUILD_DIR/export"
 EXPORT_PLIST="$BUILD_DIR/ExportOptions.plist"
 
 [ -f "$PBXPROJ" ] || die "$PBXPROJ não encontrado — rode 'npx cap sync ios' primeiro"
+
+# Cauda do rename (2026-08-30, quick task 260830-eqm): o nome do scheme do
+# Xcode é IDENTIFICADOR, não texto — mesma classe do bundle id. Trocar o
+# literal antigo por "Boris+" no escuro quebraria a build ad-hoc se o scheme
+# real ainda se chamar outra coisa; `web/ios/` nem existe fora de um
+# checkout que já rodou `cap sync ios`. Nenhum nome fica chutado: env var
+# explícita > detecção do primeiro scheme compartilhado > falha acionável.
+SCHEME="${IOS_SCHEME:-}"
+if [ -z "$SCHEME" ]; then
+  SCHEME_FILE="$(find "$PROJ/xcshareddata/xcschemes" -maxdepth 1 -name '*.xcscheme' 2>/dev/null | head -1)"
+  [ -n "$SCHEME_FILE" ] && SCHEME="$(basename "$SCHEME_FILE" .xcscheme)"
+fi
+[ -n "$SCHEME" ] || die "Nenhum scheme encontrado em $PROJ/xcshareddata/xcschemes — rode 'npx cap sync ios' primeiro, ou passe IOS_SCHEME=<nome>."
 
 say "0/4 · Pré-checagem: certificado de distribuição no keychain"
 security find-identity -v -p codesigning | grep -q "Apple Distribution" \

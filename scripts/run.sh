@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# B3 Agente - lancador com auto-instalacao.
+# Boris+ - lancador com auto-instalacao.
 #   bash scripts/run.sh           # DEV:  cria o ambiente se faltar, sobe backend (8787) + Vite (5174)
 #   bash scripts/run.sh --prod    # PROD: build web + 1 servidor (8787)
 #   bash scripts/run.sh --stop    # encerra e libera as portas

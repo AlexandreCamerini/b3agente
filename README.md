@@ -1,4 +1,4 @@
-# B3 Agente — mesa de operações educacional (paper trading)
+# Boris+ — mesa de operações educacional (paper trading)
 
 Simulador **educacional** de operações na B3. Dinheiro é **simulado**; apenas as
 **cotações são reais** (Yahoo Finance). A leitura técnica de cada ativo é feita

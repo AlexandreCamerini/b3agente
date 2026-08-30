@@ -26,17 +26,25 @@ from fastapi.testclient import TestClient
 
 @pytest.fixture(autouse=True)
 def _isolado():
-    from app import agent, brapi_budget, managed, timing_watch
+    from app import agent, brapi_budget, managed, obslog, timing_watch
     original = sys.modules.get("app.main")
     brapi_budget.reset()
     agent.reset_kill_switch_cache()
     timing_watch.reset_kill_switch_cache()
     managed.reset_cache()
+    # obslog.stats() acumula desde o BOOT do processo (contador global,
+    # `_counters`/`_buffer` em memória) — sem reset aqui, o teste "zero
+    # alertas" fica dependente da ordem de execução: qualquer teste de
+    # OUTRO módulo que rode antes e gere um "err"/"warn" no mesmo processo
+    # pytest infla `erros_desde_boot` e quebra este cenário (achado real ao
+    # rodar a suíte inteira via scripts/executar.sh --testes).
+    obslog.reset()
     yield
     brapi_budget.reset()
     agent.reset_kill_switch_cache()
     timing_watch.reset_kill_switch_cache()
     managed.reset_cache()
+    obslog.reset()
     if original is not None:
         sys.modules["app.main"] = original
     else:
