@@ -65,7 +65,7 @@ Full phase details: [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
 | 10. Ponte gatilho→put | v1.2 | Complete | 2026-08-28 |
 | 11. Ciclo de vida e monitoramento | v1.2 | Complete | 2026-08-28 |
 | 12. Limites do plano gratuito ativos | 3/3 | Complete   | 2026-08-29 |
-| 13. Uso real visível na interface + enforcement no iOS | 1/5 | In Progress|  |
+| 13. Uso real visível na interface + enforcement no iOS | 2/5 | In Progress|  |
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2
 
@@ -252,7 +252,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 13-02-PLAN.md — watchlistQuota() nos dois stores, gate fail-closed do deviceStore (CAP-12/CR-01) e plan.js sem CTA (CAP-07 do front)
+- [x] 13-02-PLAN.md — watchlistQuota() nos dois stores, gate fail-closed do deviceStore (CAP-12/CR-01) e plan.js sem CTA (CAP-07 do front)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
