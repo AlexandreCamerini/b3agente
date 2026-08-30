@@ -282,6 +282,9 @@ function serverStore() {
       : sync.mutate("putAgent", [b], (cur) => ({ ...cur, agent: { ...(cur.agent || {}), ...b } })),
     cycle: () => api.cycle(),
     aiQuota: () => api.aiQuota(), // FASE 3: cota da IA gerenciada
+    // FASE 13 (13-01): {count, limit, planId} — leitura ao vivo, sem cache
+    // local (D-05), mesmo padrão de delegação direta de aiQuota acima.
+    watchlistQuota: () => api.watchlistQuota(),
     // FIX-C33 (Fase 5): contagem real de análises do mês corrente, para o
     // pré-check de UX do gate (`canAnalyze` em plan.js). NÃO existe um
     // contador próprio aqui — `plan.py` é explícito que a contagem tem de vir
@@ -1140,6 +1143,14 @@ function deviceStore() {
     async aiQuota() {
       ensure();
       return api.aiQuota();
+    },
+    // FASE 13 (13-01/CR-01): igual a aiQuota acima — `max_watchlist` é dado
+    // server-authoritative (D-05), e o aparelho NÃO mantém contador nem
+    // cópia do limite: nenhum `10` existe no front, o gate fail-closed de
+    // putWatchlist/addWatchlistTicker (abaixo) depende desta leitura ao vivo.
+    async watchlistQuota() {
+      ensure();
+      return api.watchlistQuota();
     },
     // FIX-C33 (Fase 5): mesmo contrato de serverStore.analisesNoMes acima —
     // o aparelho NÃO mantém contador próprio de análises; lê o MESMO
