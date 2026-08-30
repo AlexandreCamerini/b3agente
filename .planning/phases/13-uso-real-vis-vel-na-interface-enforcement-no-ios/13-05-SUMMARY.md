@@ -132,3 +132,9 @@ Nenhum passo de Archive/upload, mudança de bundle id ou flip de `--apns-prod` f
 ---
 *Phase: 13-uso-real-vis-vel-na-interface-enforcement-no-ios*
 *Completed: 2026-08-30*
+
+## Self-Check: PASSED
+
+- FOUND: .planning/phases/13-uso-real-vis-vel-na-interface-enforcement-no-ios/13-05-SUMMARY.md
+- FOUND: commit a681d21 (Task 1 — bump + publicação)
+- FOUND: commit c741a37 (SUMMARY.md deste plano)
