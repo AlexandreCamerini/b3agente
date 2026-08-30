@@ -18,6 +18,12 @@ import { Capacitor } from "@capacitor/core";
 import { api, setApiBase, setNativeMode } from "./api.js";
 import { CATALOG, CATALOG_TICKERS, defaultState, defaultSkillText, defaultSkillTextOperador, defaultLlmPrompts, LEGACY_SKILL_TEXTS } from "./catalog.js";
 import { backfillStructural, limparCarteiraDemo } from "./migrate.js";
+// FASE 13 (13-02, CR-01): gate fail-closed de watchlist no deviceStore —
+// mesmos hooks puros que o web/PWA já usa via App.jsx, importados aqui
+// direto no store porque no iOS não existe gate autoritativo no servidor
+// para watchlist (device é a fonte da verdade); esta checagem local é a
+// ÚNICA linha de defesa (ver comentários em putWatchlist/addWatchlistTicker).
+import { canAddTicker, canGrowWatchlistTo } from "./plan.js";
 // FASE 2: camada de sync (token + cache otimista + fila offline). serverStore
 // fala com o servidor ATRAVÉS dela; deviceStore segue local-first, EXCETO a
 // carteira quando logado (ver cabeçalho do arquivo).
@@ -282,6 +288,9 @@ function serverStore() {
       : sync.mutate("putAgent", [b], (cur) => ({ ...cur, agent: { ...(cur.agent || {}), ...b } })),
     cycle: () => api.cycle(),
     aiQuota: () => api.aiQuota(), // FASE 3: cota da IA gerenciada
+    // FASE 13 (13-01): {count, limit, planId} — leitura ao vivo, sem cache
+    // local (D-05), mesmo padrão de delegação direta de aiQuota acima.
+    watchlistQuota: () => api.watchlistQuota(),
     // FIX-C33 (Fase 5): contagem real de análises do mês corrente, para o
     // pré-check de UX do gate (`canAnalyze` em plan.js). NÃO existe um
     // contador próprio aqui — `plan.py` é explícito que a contagem tem de vir
@@ -791,7 +800,34 @@ function deviceStore() {
     async putWatchlist(tickers) {
       ensure();
       const set = new Set(tickers);
-      doc.watchlist = knownTickers().filter((t) => set.has(t));
+      const final = knownTickers().filter((t) => set.has(t));
+      // FASE 13 (13-02, CR-01/T-13-05): espelho EM MASSA do gate de
+      // addWatchlistTicker abaixo — canGrowWatchlistTo (plan.js) espelha
+      // can_grow_watchlist_to (plan.py). Só CRESCIMENTO é barrado: remoção e
+      // reordenação nunca tocam a rede e nunca falham offline (T-13-07,
+      // grandfather clause D-04 da Fase 12 preservada — conta acima do
+      // limite não perde ativos).
+      if (final.length > (doc.watchlist || []).length) {
+        let quota;
+        try {
+          quota = await api.watchlistQuota();
+        } catch {
+          // fail-closed (D-04): falha de rede NUNCA segue para a escrita —
+          // aqui o cliente é a ÚNICA defesa (diferente de analisesNoMes, que
+          // é fail-open porque o servidor barra de qualquer jeito em
+          // _gate_analise).
+          throw new Error("Não foi possível confirmar o limite do plano agora. Tente de novo.");
+        }
+        if (!quota || typeof quota.count !== "number") {
+          // resposta inválida/não-numérica recebe o MESMO bloqueio da falha
+          // de rede — dado inválido bloqueia, nunca fail-open (CLAUDE.md
+          // princípio 4).
+          throw new Error("Não foi possível confirmar o limite do plano agora. Tente de novo.");
+        }
+        const r = canGrowWatchlistTo(final.length, { id: quota.planId || "free", maxWatchlist: quota.limit });
+        if (!r.ok) throw new Error(r.reason);
+      }
+      doc.watchlist = final;
       write();
       _agendarSyncPrefs();   // o universo do push é watchlist ∪ posições
       return pub();
@@ -826,6 +862,29 @@ function deviceStore() {
         }
       }
       dlog("e-validacao", "ok " + info.t);
+      // FASE 13 (13-02, CR-01/T-13-05): gate fail-closed ANTES de qualquer
+      // mutação de doc — no iOS não existe gate autoritativo no servidor
+      // para watchlist (o aparelho é a fonte da verdade, local-first); esta
+      // checagem local é a ÚNICA linha de defesa. Diferente de A.analyze
+      // (App.jsx) e analisesNoMes, que são fail-open porque o servidor barra
+      // de qualquer jeito (_gate_analise) — aqui falhar-aberto reabriria o
+      // bypass do CR-01. Ticker já presente não é crescimento: pular o gate
+      // (reenviar o mesmo ativo não pode virar erro de limite).
+      if (!doc.watchlist.includes(info.t)) {
+        let quota;
+        try {
+          quota = await api.watchlistQuota();
+        } catch {
+          throw new Error("Não foi possível confirmar o limite do plano agora. Tente de novo.");
+        }
+        if (!quota || typeof quota.count !== "number") {
+          // resposta inválida/não-numérica bloqueia igual à falha de rede —
+          // nunca fail-open (CLAUDE.md princípio 4).
+          throw new Error("Não foi possível confirmar o limite do plano agora. Tente de novo.");
+        }
+        const r = canAddTicker(quota.count, { id: quota.planId || "free", maxWatchlist: quota.limit });
+        if (!r.ok) throw new Error(r.reason);
+      }
       if (!CATALOG_TICKERS.includes(info.t) && !(doc.custom || []).some((c) => c.t === info.t)) {
         doc.custom = [...(doc.custom || []), { t: info.t, n: info.n || info.t }];
       }
@@ -1140,6 +1199,14 @@ function deviceStore() {
     async aiQuota() {
       ensure();
       return api.aiQuota();
+    },
+    // FASE 13 (13-01/CR-01): igual a aiQuota acima — `max_watchlist` é dado
+    // server-authoritative (D-05), e o aparelho NÃO mantém contador nem
+    // cópia do limite: nenhum `10` existe no front, o gate fail-closed de
+    // putWatchlist/addWatchlistTicker (abaixo) depende desta leitura ao vivo.
+    async watchlistQuota() {
+      ensure();
+      return api.watchlistQuota();
     },
     // FIX-C33 (Fase 5): mesmo contrato de serverStore.analisesNoMes acima —
     // o aparelho NÃO mantém contador próprio de análises; lê o MESMO

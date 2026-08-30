@@ -301,6 +301,7 @@ export const api = {
   authLogout: () => req("POST", "/api/auth/logout"),
   deleteAccount: () => req("DELETE", "/api/account"),
   aiQuota: () => req("GET", "/api/ai/quota"), // FASE 3: estado da IA gerenciada (cota/BYOK)
+  watchlistQuota: () => req("GET", "/api/watchlist/quota"), // FASE 13 (13-01): {count, limit, planId} — única fonte de max_watchlist para o cliente
   aiModels: () => req("GET", "/api/ai/models"), // qa/49: catálogo de modelos por provedor + parâmetros
   // FASE 5: observabilidade — logs detalhados do servidor (restrito ao admin).
   obsLogs: (n, level, cat) => {
