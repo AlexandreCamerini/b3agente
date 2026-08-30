@@ -65,7 +65,7 @@ Full phase details: [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
 | 10. Ponte gatilho→put | v1.2 | Complete | 2026-08-28 |
 | 11. Ciclo de vida e monitoramento | v1.2 | Complete | 2026-08-28 |
 | 12. Limites do plano gratuito ativos | 3/3 | Complete   | 2026-08-29 |
-| 13. Uso real visível na interface + enforcement no iOS | 4/5 | In Progress|  |
+| 13. Uso real visível na interface + enforcement no iOS | 5/5 | Complete   | 2026-08-30 |
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2
 
@@ -132,7 +132,7 @@ essa exposição nova é escopo exclusivo da Fase 13, não da Fase 12.
    `PLAN_PRO` segue ilimitado por decisão, não por lacuna técnica
 
 - [x] **Phase 12: Limites do plano gratuito ativos** - `PLAN_FREE` ganha números reais e os gates passam a recusar de verdade, com o resto do app intacto e a mensagem de recusa sem tom de upgrade urgente (completed 2026-08-29)
-- [ ] **Phase 13: Uso real visível na interface + enforcement no iOS** - Usuário vê "ativos: X/10" e "análises deste mês: X/30" reais, nos dois stores (web e iOS), nunca estimado ou escondido; e o cap de 10 ativos passa a valer de verdade no app iOS nativo (CAP-12)
+- [x] **Phase 13: Uso real visível na interface + enforcement no iOS** - Usuário vê "ativos: X/10" e "análises deste mês: X/30" reais, nos dois stores (web e iOS), nunca estimado ou escondido; e o cap de 10 ativos passa a valer de verdade no app iOS nativo (CAP-12) (completed 2026-08-30)
 
 ### Phase 12: Limites do plano gratuito ativos
 
@@ -264,6 +264,6 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
-- [ ] 13-05-PLAN.md — bump + publicação do front e sincronização do bundle iOS
+- [x] 13-05-PLAN.md — bump + publicação do front e sincronização do bundle iOS
 
 **UI hint**: yes
