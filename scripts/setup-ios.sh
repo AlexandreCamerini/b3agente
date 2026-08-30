@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# B3 Agente - bootstrap do app iOS (Capacitor + Xcode), ciente do monorepo.
+# Boris+ - bootstrap do app iOS (Capacitor + Xcode), ciente do monorepo.
 # ASCII puro e expansoes defensivas (${VAR:-}) para funcionar tambem no bash 3.2
 # do macOS. Opera na pasta web/.
 #

@@ -1,4 +1,4 @@
-# B3 Agente Opções — Modelos do MVP
+# Boris+ Opções — Modelos do MVP
 
 ## Escopo implementado
 

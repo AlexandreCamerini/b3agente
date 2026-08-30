@@ -1004,6 +1004,18 @@ function Login({ onLogin, avisoInicial }) {
         <button type="submit" disabled={busy} style={{ marginTop: "16px", width: "100%", padding: "10px", borderRadius: "8px", border: "none", background: T.accent, color: T.onAccent, fontWeight: 700, fontSize: "13px", cursor: "pointer", opacity: busy ? 0.6 : 1 }}>
           {busy ? "Entrando…" : "Entrar"}
         </button>
+        {/* ADR-23 (Fase 4): segundo caminho de entrada, SOMANDO ao login
+            e-mail+senha acima — nunca no lugar dele. Navegação de página
+            INTEIRA (não fetch): é um redirect OIDC de verdade, o backend
+            decide 302 pro portal ou 503 se não configurado. O retorno
+            desemboca no useEffect de #handoff= que já existe (ADR-014). */}
+        <button
+          type="button"
+          onClick={() => { window.location.href = "/api/auth/semente-id/inicio"; }}
+          style={{ marginTop: "10px", width: "100%", padding: "9px", borderRadius: "8px", border: `1px solid ${T.border}`, background: "transparent", color: T.muted, fontWeight: 600, fontSize: "12px", cursor: "pointer" }}
+        >
+          Entrar com semente.dev
+        </button>
       </form>
     </div>
   );

@@ -384,6 +384,22 @@ def init_db(conn: sqlite3.Connection) -> None:
         "ON put_suggestions(estado)"
     )
 
+    # Fase 4 (ADR-23) — fluxo OIDC (Authorization Code + PKCE) contra o
+    # portal semente.id. TABELA PRÓPRIA, nunca `kv`: `kv` é território de
+    # estado de USUÁRIO (é o que `store` exporta/semeia em conta nova) — uma
+    # linha de fluxo de login vazando para um export de conta seria um
+    # defeito real. Vida curta (purgada em `iniciar_login` após 10min); só
+    # precisa sobreviver ao ida-e-volta do redirect OIDC.
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS semente_id_flow ("
+        " state TEXT PRIMARY KEY,"
+        " code_verifier TEXT NOT NULL,"
+        " nonce TEXT NOT NULL,"
+        " destino TEXT,"
+        " criado_em TEXT NOT NULL"
+        ")"
+    )
+
     _migrate_identities_from_users(conn)
     conn.commit()
 
@@ -607,6 +623,39 @@ def get_session(conn: sqlite3.Connection, token: str):
 def delete_session(conn: sqlite3.Connection, token: str) -> None:
     conn.execute("DELETE FROM sessions WHERE token = ?", (token,))
     conn.commit()
+
+
+# Fase 4 (ADR-23) — fluxo do relying party semente.id (ver init_db acima).
+def semente_id_flow_insert(conn: sqlite3.Connection, state: str, code_verifier: str, nonce: str, destino: str, criado_em: str) -> None:
+    conn.execute(
+        "INSERT INTO semente_id_flow(state, code_verifier, nonce, destino, criado_em) VALUES(?,?,?,?,?)",
+        (state, code_verifier, nonce, destino, criado_em),
+    )
+    conn.commit()
+
+
+def semente_id_flow_get(conn: sqlite3.Connection, state: str):
+    row = conn.execute(
+        "SELECT state, code_verifier, nonce, destino, criado_em FROM semente_id_flow WHERE state = ?",
+        (state,),
+    ).fetchone()
+    if row is None:
+        return None
+    return {"state": row[0], "code_verifier": row[1], "nonce": row[2], "destino": row[3], "criado_em": row[4]}
+
+
+def semente_id_flow_delete(conn: sqlite3.Connection, state: str) -> None:
+    conn.execute("DELETE FROM semente_id_flow WHERE state = ?", (state,))
+    conn.commit()
+
+
+def semente_id_flow_purge(conn: sqlite3.Connection, older_than_iso: str) -> int:
+    """Remove fluxos com mais de 10min (chamado em `iniciar_login`, mesmo
+    padrão do MyData — evita a tabela crescer com fluxos abandonados no meio
+    do redirect)."""
+    cur = conn.execute("DELETE FROM semente_id_flow WHERE criado_em < ?", (older_than_iso,))
+    conn.commit()
+    return cur.rowcount
 
 
 def list_users(conn: sqlite3.Connection, limit: int = 500) -> list:

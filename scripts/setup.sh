@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# B3 Agente - instalacao (robusto a cwd/layout; nao ativa o venv).
+# Boris+ - instalacao (robusto a cwd/layout; nao ativa o venv).
 set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
