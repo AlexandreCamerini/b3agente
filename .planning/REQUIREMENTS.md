@@ -17,12 +17,12 @@ Ativar de verdade os limites do plano gratuito que o ADR-010 já desenhou tecnic
 
 ### Interface
 
-- [ ] **CAP-06**: Usuário vê o número real de uso/limite na tela (ex.: "análises deste mês: 12/30", "ativos: 7/10") — nunca estimado ou escondido
+- [x] **CAP-06**: Usuário vê o número real de uso/limite na tela (ex.: "análises deste mês: 12/30", "ativos: 7/10") — nunca estimado ou escondido
 - [x] **CAP-07**: Mensagem de limite atingido nunca usa linguagem de upgrade urgente/enriquecimento rápido (princípio 8 do CLAUDE.md) — só o fato e o motivo
 
 ### iOS nativo (dobrado na Fase 13 — decisão do Alex, 2026-08-29)
 
-- [ ] **CAP-12**: Usuário no plano gratuito no app iOS nativo não consegue ter mais de 10 ativos na watchlist — `deviceStore` passa a checar o limite real antes de gravar no aparelho (hoje CAP-01 só vale no web/PWA; achado do code review da Fase 12, `12-REVIEW.md` CR-01)
+- [x] **CAP-12**: Usuário no plano gratuito no app iOS nativo não consegue ter mais de 10 ativos na watchlist — `deviceStore` passa a checar o limite real antes de gravar no aparelho (hoje CAP-01 só vale no web/PWA; achado do code review da Fase 12, `12-REVIEW.md` CR-01)
 
 ## v2 Requirements
 
@@ -60,6 +60,6 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CAP-03 | Phase 12 | Complete |
 | CAP-04 | Phase 12 | Complete |
 | CAP-05 | Phase 12 | Complete |
-| CAP-06 | Phase 13 | Pending |
+| CAP-06 | Phase 13 | Complete |
 | CAP-07 | Phase 12 | Complete |
-| CAP-12 | Phase 13 | Pending |
+| CAP-12 | Phase 13 | Complete |

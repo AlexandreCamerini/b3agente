@@ -1112,6 +1112,27 @@ async def watchlist_add(body: dict = Body(default={}), scope: Optional[str] = De
     return out
 
 
+@app.get("/api/watchlist/quota")
+async def watchlist_quota(scope: Optional[str] = Depends(current_scope)):
+    """Fase 13 (CAP-06/CAP-12): fonte unica de `count`/`limit`/`planId` da
+    watchlist para o cliente — o `deviceStore` do iOS grava direto no
+    localStorage e NAO pode hardcodar `10`; este endpoint e a UNICA fonte
+    de `max_watchlist` fora de `plan.py`. Contrato travado (consumido pelos
+    planos 02/03): {"count": int, "limit": int|null, "planId": "free"|"pro"}.
+    `limit` null == plano sem teto (pro) — o front OMITE o contador (D-03).
+    Read-only: nao muta estado, so le.
+
+    DIFERENCA deliberada em relacao a `/api/ai/quota`: NAO ha early-return
+    especial para escopo anonimo. `_plano_do_escopo(None)` ja degrada para
+    `plan.ACTIVE_PLAN` (= PLAN_FREE, fail-closed), e a watchlist anonima
+    existe de verdade no balde `user_id=None` — anonimo recebe `limit: 10`
+    real, coerente com o gate que `POST /api/watchlist/add` ja aplica ao
+    mesmo escopo desde a Fase 12."""
+    plano = _plano_do_escopo(scope)
+    count = len(store.get(_conn, "watchlist", user_id=scope) or [])
+    return {"count": count, "limit": plano.get("max_watchlist"), "planId": plano.get("id")}
+
+
 @app.put("/api/profile")
 async def put_profile(body: dict = Body(default={}), scope: Optional[str] = Depends(current_scope)):
     store.set_profile(_conn, body or {}, user_id=scope)
