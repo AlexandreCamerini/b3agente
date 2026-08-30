@@ -358,6 +358,29 @@ const InfoDot = ({ onClick }) => (
     style={{ background: "transparent", border: "none", color: T.textFaint, fontSize: "15px", lineHeight: 1, padding: "4px 5px", flex: "none" }}>ⓘ</button>
 );
 
+// FASE 13 (13-03, CAP-06): único renderizador do par uso/limite "X/Y" nos 3
+// pontos de exibição (subtítulo Watchlist, CatalogModal, Atividade da IA).
+// `MONO` fica SÓ nos dígitos (dígitos tabulares evitam reflow quando 7/10
+// vira 8/10; a frase inteira em MONO importaria o registro visual do painel
+// de admin para uma tela de leigo). `T.warn` (não `T.negative`/`T.positive`)
+// porque verde/vermelho são reservados a P&L neste app — usá-los aqui faria
+// uma contagem de uso parecer resultado financeiro (13-UI-SPEC.md).
+//
+// `quota` tem 3 valores semânticos: `undefined` (ainda carregando — omite,
+// sem flash de "—"), `null` (falha ao confirmar — "—", nunca número
+// estimado) ou objeto `{ limit }` (`limit == null` = plano sem teto/Pro,
+// omite o segmento inteiro; D-03 — nunca escreve a palavra que significa
+// "sem teto", nem "X/∞").
+function QuotaSeg({ quota, count, prefix, suffix }) {
+  if (quota === undefined) return null;
+  if (quota && quota.limit == null) return null;
+  if (quota === null || count == null) {
+    return <>{prefix}—{suffix}</>;
+  }
+  const cor = count / quota.limit >= 0.9 ? T.warn : "inherit";
+  return <>{prefix}<span style={{ fontFamily: MONO, fontWeight: 700, color: cor }}>{count}/{quota.limit}</span>{suffix}</>;
+}
+
 // Marcador MÍNIMO junto ao conteúdo de IA (o texto completo vive em "Sobre").
 // FIX-C01 (Plano 04-05): `source` rotula a origem real do texto — "ia"
 // (default, comportamento inalterado) ou "deterministico" (fallback do
@@ -3378,7 +3401,7 @@ function MercadoScreen({ ctx }) {
   // oportunidade (confluência do STU, melhor → pior); filtro secundário por
   // direção; histórico de operações por ativo (formatos a+b no card, c no
   // detalhe expandido). A análise N2 segue abrindo como detalhe do card.
-  const { data, quotes, analysis, expanded, analysisModel, setAnalysisModel, A, quotesAt, quotesLoading, wlScan, wlScanLoading, cp } = ctx;
+  const { data, quotes, analysis, expanded, analysisModel, setAnalysisModel, A, quotesAt, quotesLoading, wlScan, wlScanLoading, cp, wlQuota } = ctx;
   const operador = ctx.operador; // qa/40: pill de decisão por modo — FIX-C21: lê a fonte única
   const [dirFilter, setDirFilter] = useState("todos");   // todos | alta | baixa | neutro
   const [opsOpen, setOpsOpen] = useState({});            // ticker -> histórico aberto
@@ -3426,6 +3449,7 @@ function MercadoScreen({ ctx }) {
       {/* qa/34: subtítulo na voz do modo ("em estudo" × "monitorados"). */}
       <p style={{ margin: "0 0 12px", color: T.textMuted, fontSize: "13px", maxWidth: "560px", lineHeight: 1.55 }}>
         {cp.subtituloWatchlist}{quotesAt ? "  ·  cotações " + quotesAt : ""}
+        <QuotaSeg quota={wlQuota} count={(data.watchlist || []).length} prefix="  ·  ativos: " />
       </p>
       {/* FASE 2 (2.3): filtro secundário por direção — a ordenação por
           oportunidade é permanente e não compete com ordenação manual. */}
@@ -4949,11 +4973,27 @@ function AtividadeIAScreen({ ctx }) {
   const logged = !!ctx.authUser;
   const [ati, setAti] = useState(null);
   const [err, setErr] = useState("");
+  // FASE 13 (13-03, CAP-06): "análises deste mês" — mesma semântica de 3
+  // valores de wlQuota em App(). Catch SEPARADO do de aiActivity: a falha de
+  // um não pode apagar o outro (o contador de análises tem que aparecer
+  // mesmo se o custo estimado falhar, e vice-versa).
+  const [aiq, setAiq] = useState(undefined);
   const carregar = useCallback(async () => {
     try { setAti(await store.aiActivity()); setErr(""); }
     catch (e) { setErr((e && e.message) || String(e)); }
+    try { setAiq(await store.aiQuota()); }
+    catch { setAiq(null); }
   }, []);
   useEffect(() => { carregar(); }, [carregar]);
+  // `limit: aiq.monthLimit` adapta o formato {monthUsed,monthLimit} de
+  // aiQuota() para o contrato {count,limit} que QuotaSeg espera (mesmo campo
+  // usado por wlQuota). `showAiQuota` some a linha INTEIRA (não só o
+  // fragmento) quando o segmento seria omitido — undefined (ainda
+  // carregando) ou limit==null (Pro/anônimo) — evitando um rótulo
+  // "análises deste mês:" órfão sem número.
+  const aiQuotaObj = aiq === undefined ? undefined : (aiq === null ? null : { limit: aiq.monthLimit });
+  const aiCount = (aiq && typeof aiq.monthUsed === "number") ? aiq.monthUsed : null;
+  const showAiQuota = aiQuotaObj !== undefined && !(aiQuotaObj && aiQuotaObj.limit == null);
   const brl = (v) => "R$ " + (Number(v || 0)).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const kfmt = (n) => (n >= 1000 ? (n / 1000).toFixed(1).replace(".", ",") + "k" : String(n || 0));
   const t = (ati && ati.total) || {};
@@ -4991,6 +5031,9 @@ function AtividadeIAScreen({ ctx }) {
               Estimativa por preço de tabela dos modelos × câmbio (US$ 1 ≈ R$ {(ati.usdBrl || 5.4).toFixed(2).replace(".", ",")}). BYOK ou gerenciado. Não é fatura — é referência.
             </div>
           </>
+        )}
+        {showAiQuota && (
+          <div style={{ fontSize: "13px", color: T.textFaint, marginTop: "9px" }}>análises deste mês: <QuotaSeg quota={aiQuotaObj} count={aiCount} /></div>
         )}
       </div>
 
@@ -6601,7 +6644,7 @@ function ConfigScreen({ ctx }) {
 }
 
 function CatalogModal({ ctx }) {
-  const { data, catalogSel, setCatalogSel, addState, setAddState, A } = ctx;
+  const { data, catalogSel, setCatalogSel, addState, setAddState, A, wlQuota } = ctx;
   const [tk, setTk] = useState("");
   const toggle = (t) => setCatalogSel((sel) => (sel.includes(t) ? sel.filter((x) => x !== t) : [...sel, t]));
   const submit = async () => {
@@ -6615,7 +6658,10 @@ function CatalogModal({ ctx }) {
       <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: "520px", maxHeight: "82vh", display: "flex", flexDirection: "column", ...card, borderRadius: "14px" }}>
         <div style={{ padding: "16px 18px", borderBottom: `1px solid ${T.borderSubtle}` }}>
           <div style={{ fontSize: "16px", fontWeight: 700 }}>Editar watchlist</div>
-          <div style={{ fontSize: "12.5px", color: T.textMuted, marginTop: "3px" }}>{catalogSel.length} de {data.catalog.length} selecionados</div>
+          <div style={{ fontSize: "12.5px", color: T.textMuted, marginTop: "3px" }}>
+            {catalogSel.length} de {data.catalog.length} selecionados
+            <QuotaSeg quota={wlQuota} count={catalogSel.length} prefix=" · " suffix={" do plano " + ((wlQuota && wlQuota.planId) || "free")} />
+          </div>
         </div>
 
         <div style={{ padding: "12px 18px", borderBottom: `1px solid ${T.borderSubtle}` }}>
@@ -6840,6 +6886,11 @@ export default function App() {
   const [test, setTest] = useState({ status: null, msg: "" });
   const [cycleBusy, setCycleBusy] = useState(false);
   const [addState, setAddState] = useState({ busy: false, msg: "" });
+  // FASE 13 (13-03, CAP-06): par uso/limite da watchlist (QuotaSeg acima).
+  // `undefined` = ainda não carregou (boot), `null` = falha ao confirmar
+  // (nunca reexibe valor antigo), objeto `{ count, limit, planId }` = dado
+  // real, lido ao vivo pelo store (sem cache local, D-05).
+  const [wlQuota, setWlQuota] = useState(undefined);
   // Tema: preferência (dark|light|system) vinda da config; resolvido p/ dark|light.
   const sysDark = () => (typeof window !== "undefined" && window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)").matches : true);
   const [sysIsDark, setSysIsDark] = useState(sysDark);
@@ -7018,6 +7069,13 @@ export default function App() {
       setQuotesLoading(false);
     }
   }, [flash]);
+
+  // FASE 13 (13-03, CAP-06): mesma cadência de refreshQuotes (chamada de rede
+  // a cada disparo, sem cache) — falha explícita vira `null` (estado
+  // indisponível), nunca mantém o valor anterior nem chuta um número.
+  const refreshWlQuota = useCallback(async () => {
+    try { setWlQuota(await store.watchlistQuota()); } catch { setWlQuota(null); }
+  }, []);
 
   useEffect(() => {
     track("session_start", { trigger: "boot" }); // qa/47 (Fase 2)
@@ -7217,7 +7275,7 @@ export default function App() {
     return () => { alive = false; };
   }, []);
   useEffect(() => {
-    if (data) refreshQuotes();
+    if (data) { refreshQuotes(); refreshWlQuota(); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data && Array.isArray(data.watchlist) ? data.watchlist.join(",") : ""]);
 
@@ -7245,6 +7303,7 @@ export default function App() {
   const A = useMemo(() => ({
     flash,  // FASE 3: telas dão feedback padronizado (Operador IA usa)
     refreshQuotes,
+    refreshWlQuota, // FASE 13 (13-03): retry manual do par uso/limite quando wlQuota === null
     go: (t) => { setCarteiraView("main"); setPerfilView("hub"); setTab(t); },
     // FASE 6 (fix 4): atalho direto para a CENTRAL de notificações (Config)
     openNotifCentral: () => { setCarteiraView("main"); setPerfilView("notificacoes"); setTab("perfil"); },
@@ -7747,7 +7806,7 @@ export default function App() {
   // FASE 4 (1.1): TODO estado LIDO no corpo do A precisa estar nas deps —
   // sellModal ausente deixava confirmSell com closure de null (venda muda,
   // botão silenciosamente inerte). Guardado por web/tests/test_wiring_deps.mjs.
-  }), [data, catalogSel, buyModal, sellModal, keyDraft, refreshQuotes, flash, analysisModel, wlScanLoading, destaque, quotes, flushCfg]);
+  }), [data, catalogSel, buyModal, sellModal, keyDraft, refreshQuotes, flash, analysisModel, wlScanLoading, destaque, quotes, refreshWlQuota, flushCfg]);
 
   // Mantém a referência do ciclo sempre atual (sem reiniciar o timer a cada render)
   cycleRef.current = A.cycle;
@@ -7933,7 +7992,7 @@ export default function App() {
     // quando `ctx.mercado.erro` — chama a MESMA função do efeito de boot via
     // ref, nunca uma segunda consulta.
     recarregarMercado: () => { const fn = consultarMercadoRef.current; if (fn) fn(); },
-    data, quotes, analysis, expanded, analysisModel, setAnalysisModel, A, quotesAt, quotesLoading, test, keyDraft, setKeyDraft, cp,
+    data, quotes, analysis, expanded, analysisModel, setAnalysisModel, A, quotesAt, quotesLoading, test, keyDraft, setKeyDraft, cp, wlQuota,
     catalogSel, setCatalogSel, buyModal, setBuyModal, cycleBusy, addState, setAddState,
     sellModal, setSellModal, wlScan, wlScanLoading, destaque,
     themePref, themeKey, aboutOpen,
