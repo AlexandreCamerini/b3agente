@@ -11,7 +11,7 @@ from pathlib import Path
 
 from fastapi import Body, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import db, defaults, indicators, llm, pending_orders, plan, setups, store, technical_models, tickers, yahoo
@@ -103,6 +103,7 @@ from fastapi import Depends, Header  # noqa: E402
 from . import auth  # noqa: E402
 from . import managed, metering  # noqa: E402 — FASE 3: IA gerenciada (cota/rate)
 from . import rbac, audit  # noqa: E402 — ADR-013: RBAC por macro função + auditoria de escrita admin
+from . import semente_id  # noqa: E402 — Fase 4 (ADR-23): relying party do portal semente.id
 
 managed.configure_db(_conn)  # ADR-013: override de provider/model/cota via admin, antes do env
 
@@ -328,6 +329,60 @@ async def auth_logout(authorization: Optional[str] = Header(default=None)):
         if len(parts) == 2 and parts[0].lower() == "bearer":
             auth.revoke_session(_conn, parts[1].strip())
     return {"ok": True}
+
+
+# ADR-23 (Fase 4) — Boris+ como relying party do portal semente.id. Segundo
+# caminho de entrada do painel admin, ao lado do login por e-mail+senha
+# (que continua idêntico). Prefixo /api/auth/ já está em
+# _GATE_ALLOWLIST_PREFIXES (abaixo) — funciona antes de haver sessão, que é
+# o ponto. Deságua no MESMO handoff do ADR-014 (POST /api/admin/mobile-
+# handoff/exchange) que o app nativo já usa — nenhum caminho de troca novo
+# no front.
+@app.get("/api/auth/semente-id/inicio")
+async def auth_semente_id_inicio():
+    if not semente_id.configurado():
+        raise HTTPException(
+            503,
+            "Login pelo portal semente.id não configurado no servidor "
+            "(defina SEMENTE_ID_CLIENT_ID e SEMENTE_ID_CLIENT_SECRET no Railway).",
+        )
+    url = semente_id.iniciar_login(_conn, "/admin/")
+    return RedirectResponse(url, status_code=302)
+
+
+@app.get("/api/auth/semente-id/callback")
+async def auth_semente_id_callback(request: Request, code: Optional[str] = None, state: Optional[str] = None, error: Optional[str] = None):
+    # Mesmo freio das demais rotas de auth — martelar o callback não pode
+    # virar força bruta de state/code.
+    rl_key = auth.throttle_key(_client_ip(request), "semente-id")
+    try:
+        auth.throttle_check(rl_key)
+        sub, email, destino = await semente_id.concluir_login(_conn, state, code, error)
+        # Unificação por e-mail VERIFICADO pelo portal — mesmo caminho que
+        # Apple/Google já usam (auth.upsert_oauth_user); anexa a identidade
+        # nova à conta que o Alex já tem, preservando o role_admin dela.
+        user = auth.upsert_oauth_user(_conn, "semente-id", sub, email, email_verified=True)
+    except (auth.AuthError, semente_id.ErroSementeId) as e:
+        auth.throttle_fail(rl_key)
+        # Falha do portal vira redirect — NUNCA stack trace na cara do
+        # navegador, e o log nunca inclui token/code/segredo (a própria
+        # ErroSementeId já garante isso na mensagem).
+        obslog.log("auth", "semente-id: callback falhou — " + str(e), level="warn")
+        return RedirectResponse("/admin/", status_code=302)
+    # PRIMEIRA trava: RBAC do ADR-013. Conta do portal sem NENHUM papel
+    # administrativo não recebe handoff — redireciona sem sessão plena.
+    rbac.ensure_bootstrap_role(_conn, user)
+    if not rbac.permissions_for_user(_conn, user["id"]):
+        auth.throttle_fail(rl_key)
+        obslog.log("auth", "semente-id: login ok, sem papel administrativo", level="warn")
+        return RedirectResponse(destino or "/admin/", status_code=302)
+    auth.throttle_clear(rl_key)
+    # Mesmo mint do ADR-014 (main.py, admin_mobile_handoff): código de ~90s,
+    # uso único, trocado por sessão plena em /api/admin/mobile-handoff/exchange.
+    # Fragmento (#), não query — não vai a log de servidor nem a Referer.
+    codigo = auth.create_session(_conn, user["id"], ttl_days=90 / 86400)
+    obslog.log("auth", "semente-id: login concluído", level="info")
+    return RedirectResponse(f"{destino or '/admin/'}#handoff={codigo}", status_code=302)
 
 
 # ===========================================================================
