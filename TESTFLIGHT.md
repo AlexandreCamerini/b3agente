@@ -65,10 +65,39 @@ Bundle id: `com.alexandrecamerini.bolsia` · Team: `LC65399YC9` · Nome: **Boris
     de export compliance.
 15. **[portal]** Adicione o build ao grupo de testers (interno primeiro) e convide.
 
-## 6. Verificação pós-install (no iPhone via TestFlight)
+## 6. Liberar para testers externos (amigos, fora da equipe Apple Developer)
 
-16. Abra o app, faça login, confirme o rodapé do Perfil com o BUILD_ID web atual.
-17. Toque em **"Ativar push das ações"** e rode o smoke test de push
+Interno (item 15) só alcança quem é membro da sua equipe no Apple Developer
+(Admin/App Manager/Developer). Pra amigos de fora, é obrigatório um grupo
+**externo** — passa por uma revisão leve da Apple (Beta App Review), separada
+e mais rápida que a revisão de publicação na App Store.
+
+16. **[portal]** App Store Connect → TestFlight → aba **Test Information**:
+    preencha antes de liberar externo (obrigatório na 1ª vez) — "What to Test"
+    (o que testar nesta build), e-mail de contato/feedback, e **Privacy Policy
+    URL** (obrigatória para grupo externo; Marketing URL é opcional).
+17. **[portal]** TestFlight → **External Testing** → **+** → crie um grupo
+    (ex.: "Beta Amigos").
+18. **[portal]** Adicione o build já processado (item 14) a esse grupo.
+19. **[portal]** Adicione testers de duas formas — use a que fizer sentido:
+    - **Convite individual**: e-mail de cada amigo (Apple ID precisa aceitar).
+    - **Public Link**: gera um link único do grupo — manda direto, sem
+      convite nominal; qualquer um com o link entra (respeita o limite do
+      grupo).
+20. **[portal]** No grupo externo, envie a build pra **Beta App Review** (botão
+    dedicado, não é a revisão de publicação). Só a 1ª build de um grupo passa
+    por isso — normalmente ~24-48h. Builds seguintes no MESMO grupo costumam
+    liberar sem nova revisão, salvo mudança que a Apple considere
+    significativa.
+21. Depois de aprovado, os testers recebem e-mail (convite individual) ou usam
+    o Public Link direto — instalam pelo app **TestFlight** (App Store), não
+    pela App Store normal. Isso **não** é publicação pública: o app continua
+    invisível pra quem não está no grupo.
+
+## 7. Verificação pós-install (no iPhone via TestFlight)
+
+22. Abra o app, faça login, confirme o rodapé do Perfil com o BUILD_ID web atual.
+23. Toque em **"Ativar push das ações"** e rode o smoke test de push
     (`POST /api/push/test` ou o botão no app). Deve chegar a notificação — se der
     "token de outro ambiente", os itens 9–10 (APNs prod) não estão alinhados.
 
