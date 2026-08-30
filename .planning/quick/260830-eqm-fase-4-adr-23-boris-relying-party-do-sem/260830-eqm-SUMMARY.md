@@ -53,6 +53,7 @@ requirements-completed: [ADR23-F4-IDENT, ADR23-F4-OBS, ADR23-F4-RENAME]
 
 duration: ~70min (sessão completa, incluindo leitura da implementação de referência em ~/dev/cvm-financas)
 completed: 2026-08-30
+status: complete
 ---
 
 # Quick Task 260830-eqm: Fase 4 do ADR-23 — Boris+ relying party do semente.id, Summary
@@ -160,9 +161,13 @@ Ver `key-decisions` no frontmatter — as 4 decisões relevantes (contrato de re
 
 Nenhum problema não coberto pelas seções acima. A suíte canônica completa (`bash scripts/executar.sh --testes`) passa integralmente: 1737 passed, 1 skipped (backend) + todos os `web/tests/*.mjs` (frontend), exit 0.
 
-## Pendência para o Alex (Task 4 — checkpoint bloqueante, não executado)
+## Task 4 — checkpoint RESOLVIDO (2026-08-30)
 
-A Task 4 do PLAN é uma pausa bloqueante por desenho — nenhuma edição de código, porque o próximo passo roda contra produção de OUTRO repositório (portal `semente-id`) e o `client_secret` devolvido aparece uma única vez. Reproduzido aqui verbatim do PLAN.md para você decidir:
+Alex rodou o registro do client no portal `semente-id`, definiu `SEMENTE_ID_CLIENT_ID`/`SEMENTE_ID_CLIENT_SECRET`/`SEMENTE_ID_EMAIL_DONO` no Railway, aprovou o merge (PR #27, `f534fda`, merged 2026-08-30T21:50:35Z) e confirmou "tudo funcionando" após a verificação ao vivo. Deploy em produção verificado (`build: F10-20260830-01`); `/api/auth/semente-id/inicio` → 302 para o portal com PKCE correto; `/observabilidade` → 401 sem header (fail-closed); `/admin/` → 200. Único item novo levantado pós-deploy: `B3_OBSERVABILIDADE_CHAVE` não estava nas 3 variáveis originais do checkpoint — instruções de como definir foram passadas ao Alex separadamente (coordenação cross-repo com o console `admin.semente.dev`, fora do escopo deste quick task).
+
+Registro original do checkpoint (histórico, mantido abaixo):
+
+A Task 4 do PLAN foi uma pausa bloqueante por desenho — nenhuma edição de código, porque o próximo passo rodava contra produção de OUTRO repositório (portal `semente-id`) e o `client_secret` devolvido aparece uma única vez. Reproduzido aqui verbatim do PLAN.md:
 
 > **O que foi construído:** Boris+ como relying party do semente.id (rotas `/api/auth/semente-id/*`, botão no painel admin reusando o handoff do ADR-014), `GET /observabilidade` no contrato do ADR-23, e a cauda do rename fechada pelo verificador de identidade.
 >
