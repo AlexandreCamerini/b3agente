@@ -28,6 +28,12 @@ _PUBLICAS_CONHECIDAS = {
     # calendário (aberto/fechado, horários) — nenhum user_id, nenhuma
     # carteira. Consumida pela tela de LOGIN, antes de autenticar (D-08).
     ("GET", "/api/market/status"),
+    # ADR-23 (Fase 4): relying party do portal semente.id — mesma classe dos
+    # /api/auth/* acima (pré-sessão, por natureza). /inicio é um redirect
+    # público (503 sem config); /callback recebe code/state/error direto do
+    # portal, também antes de haver sessão — a segurança está no state PKCE
+    # de uso único + validação do id_token, não numa dependency de rota.
+    ("GET", "/api/auth/semente-id/inicio"), ("GET", "/api/auth/semente-id/callback"),
 }
 
 
@@ -77,4 +83,6 @@ def test_allowlist_publica_nao_cresce_sem_atualizar_este_teste():
     cobre o caminho raro de uma rota nova nascer SEM dependency E já
     entrar direto na allowlist por engano: o tamanho serve de sinal humano
     de "isso cresceu, foi você que decidiu?" — não é uma trava rígida."""
-    assert len(_PUBLICAS_CONHECIDAS) == 17
+    # 17 + 2 (ADR-23, Fase 4: GET /api/auth/semente-id/inicio e /callback,
+    # 2026-08-30) — crescimento deliberado, revisado nesta mesma quick task.
+    assert len(_PUBLICAS_CONHECIDAS) == 19

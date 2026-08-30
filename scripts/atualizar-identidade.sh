@@ -17,16 +17,23 @@
 #   web/vite.config.js             manifest name/short_name (PWA)
 #   web/src/disclaimers.js         banner "B3 Agente é..." → "BolsIA é..."
 #   scripts/configurar-apns.sh     TOPIC (default do APNS_TOPIC)
-#   scripts/setup-ios.sh           exemplo do aviso de appId
+#   scripts/setup-ios.sh           exemplo do aviso de appId + título do cabeçalho
 #   scripts/ios-allow-http.sh      descrição ATS exibida no Info.plist
 #   server/app/main.py             docstring + title do FastAPI (/docs)
 #   server/tests/test_fase3_operador.py  APNS_TOPIC do ambiente de teste
+#   server/app/mydata_budget.py    comentário "chave de produção do BolsIA"
+#   README.md, OPTIONS-MODELS.md, OPTIONS-SMOKE-TEST.md,
+#   TECHNICAL-ANALYSIS-MODELS.md, scripts/setup.sh, scripts/run.sh,
+#   scripts/backup-db.sh           título/cabeçalho "B3 Agente" (nome ANTERIOR
+#                                   ao BolsIA) → Boris+, cauda medida 2026-08-30
 #
 # O que NÃO muda (codinome interno permanece — decisão do projeto):
 #   pastas b3-agente/, package.json "b3-agente-web", env vars B3_*, chaves de
 #   armazenamento b3-* (dado de usuário!), o bundle id acima, e registros
-#   históricos (qa/, ESTADO-*, CHECKOUT-*, RELEASES.md, PROPOSTA-*) — reescrever
-#   o nome da época falsificaria o que foi decidido nela.
+#   históricos (qa/, ESTADO-*, CHECKOUT-*, RELEASES.md, PROPOSTA-*, .planning/,
+#   docs/MEDICAO-*) — reescrever o nome da época falsificaria o que foi
+#   decidido nela. scripts/gerar-adhoc.sh SCHEME é identificador de scheme do
+#   Xcode, não texto — nunca trocado no escuro (ver detecção no próprio script).
 #
 # Depois de rodar, os passos MANUAIS (uma vez) estão no
 # ATUALIZAR-Git-Railway-iOS.md, seção "Migração de identidade":
@@ -78,6 +85,31 @@ aplicar(){
 
   perl -0777 -pi -e "s{\Q$OLD_ID\E}{$APP_ID}g" server/tests/test_fase3_operador.py
   ok "test_fase3_operador.py (APNS_TOPIC de teste)"
+
+  perl -0777 -pi -e "s{chave de produção do BolsIA}{chave de produção do $APP_NAME}" server/app/mydata_budget.py
+  ok "mydata_budget.py (comentário: código vivo, não histórico)"
+
+  # Cauda medida em 2026-08-30 (quick task 260830-eqm): nome ANTERIOR ao
+  # BolsIA ("B3 Agente") ainda em título/cabeçalho de documentação
+  # operacional viva. Cada linha aqui é o título exato medido — sem `g`,
+  # de propósito: um match por arquivo, sem risco de pegar outra ocorrência
+  # legítima mais abaixo no mesmo arquivo.
+  perl -0777 -pi -e "s{^# B3 Agente — mesa de operações educacional}{# $APP_NAME — mesa de operações educacional}m" README.md
+  ok "README.md (título)"
+  perl -0777 -pi -e "s{^# B3 Agente Opções}{# $APP_NAME Opções}m" OPTIONS-MODELS.md
+  ok "OPTIONS-MODELS.md (título)"
+  perl -0777 -pi -e "s{^# Smoke Test — B3 Agente Opções}{# Smoke Test — $APP_NAME Opções}m" OPTIONS-SMOKE-TEST.md
+  ok "OPTIONS-SMOKE-TEST.md (título)"
+  perl -0777 -pi -e "s{^# B3 Agente — Modelos de análise técnica}{# $APP_NAME — Modelos de análise técnica}m" TECHNICAL-ANALYSIS-MODELS.md
+  ok "TECHNICAL-ANALYSIS-MODELS.md (título)"
+  perl -0777 -pi -e "s{^# B3 Agente - instalacao}{# $APP_NAME - instalacao}m" scripts/setup.sh
+  ok "setup.sh (cabeçalho)"
+  perl -0777 -pi -e "s{^# B3 Agente - bootstrap do app iOS}{# $APP_NAME - bootstrap do app iOS}m" scripts/setup-ios.sh
+  ok "setup-ios.sh (cabeçalho)"
+  perl -0777 -pi -e "s{^# B3 Agente - lancador}{# $APP_NAME - lancador}m" scripts/run.sh
+  ok "run.sh (cabeçalho)"
+  perl -0777 -pi -e "s{^# B3 Agente — backup do banco SQLite}{# $APP_NAME — backup do banco SQLite}m" scripts/backup-db.sh
+  ok "backup-db.sh (cabeçalho)"
 }
 
 # --- verificação -------------------------------------------------------------
@@ -120,18 +152,44 @@ verificar(){
 
   # Marca aposentada: "BolsIA" (case-sensitive — o bundle id é minúsculo e
   # escapa por natureza) não pode sobrar em arquivo VIVO. Histórico fica.
+  #   ':!.planning' e ':!docs/MEDICAO-*' (medido 2026-08-30, quick task
+  #     260830-eqm): registro histórico de decisão/medição de uma data
+  #     específica — mesma classe que qa/ e ESTADO-*. Também cobre
+  #     este PLAN/SPEC da própria quick task, que citam "BolsIA" verbatim
+  #     ao transcrever o contexto da época.
+  #   ':!*POLITICA-PRIVACIDADE.md' — SEM magic, pathspec relativo à raiz não
+  #     casava "server/POLITICA-PRIVACIDADE.md" (defeito do verificador, não
+  #     sobra de rename: o "(anteriormente BolsIA)" ali é mantido de
+  #     propósito, o texto do arquivo não muda).
   say "Grep final — marca aposentada (BolsIA) fora do histórico"
   local MARCA
   MARCA="$(git grep -l "BolsIA" -- \
       ':!qa' ':!ESTADO-*' ':!CHECKOUT-*' ':!RELEASES.md' ':!PROPOSTA-*' \
       ':!AUDITORIA-PROMPTS-LLM.md' ':!09-*' ':!10-*' ':!11-*' \
       ':!RENOMEAR-*' ':!server/ios_dist' ':!scripts/atualizar-identidade.sh' \
-      ':!POLITICA-PRIVACIDADE.md' 2>/dev/null || true)"
+      ':!*POLITICA-PRIVACIDADE.md' ':!.planning' ':!docs/MEDICAO-*' 2>/dev/null || true)"
   if [[ -n "$MARCA" ]]; then
     warn "BolsIA ainda vivo em:"; echo "$MARCA" | sed 's/^/      /'
     FALHAS=1
   else
     ok "zero BolsIA fora do histórico (POLITICA mantém o '(anteriormente BolsIA)' de propósito)"
+  fi
+
+  # Marca ANTERIOR ao BolsIA: "B3 Agente" (mesmo raciocínio acima, mesmas
+  # exceções de histórico + o placeholder OLD_ID que citaria "b3agente" em
+  # minúsculo mas não "B3 Agente" — sem colisão). Cauda medida 2026-08-30.
+  say "Grep final — marca anterior (B3 Agente) fora do histórico"
+  local MARCA_ANTIGA
+  MARCA_ANTIGA="$(git grep -l "B3 Agente" -- \
+      ':!qa' ':!ESTADO-*' ':!CHECKOUT-*' ':!RELEASES.md' ':!PROPOSTA-*' \
+      ':!AUDITORIA-PROMPTS-LLM.md' ':!09-*' ':!10-*' ':!11-*' \
+      ':!RENOMEAR-*' ':!server/ios_dist' ':!scripts/atualizar-identidade.sh' \
+      ':!*POLITICA-PRIVACIDADE.md' ':!.planning' ':!docs/MEDICAO-*' 2>/dev/null || true)"
+  if [[ -n "$MARCA_ANTIGA" ]]; then
+    warn "B3 Agente ainda vivo em:"; echo "$MARCA_ANTIGA" | sed 's/^/      /'
+    FALHAS=1
+  else
+    ok "zero B3 Agente fora do histórico"
   fi
 
   [[ "$FALHAS" -eq 0 ]] && say "IDENTIDADE OK ✅" || die "identidade INCOMPLETA — veja avisos acima"
