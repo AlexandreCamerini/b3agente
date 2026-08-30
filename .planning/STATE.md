@@ -111,6 +111,12 @@ None yet.
   (verificação ao vivo de `entradaAuto`; 2 human-checks da Fase 3) — não
   relacionados a v1.3, seguem em PROJECT.md Active.
 
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Status | Directory |
+|---|-------------|------|--------|--------|-----------|
+| 260830-eqm | Fase 4 do ADR-23 — Boris+ relying party do semente.id, GET /observabilidade, cauda do rename | 2026-08-30 | d0b9a6c | Needs Review — checkpoint bloqueante pendente (registro do client OIDC em produção do repo semente-id, feito só pelo Alex) | [260830-eqm-fase-4-adr-23-boris-relying-party-do-sem](./quick/260830-eqm-fase-4-adr-23-boris-relying-party-do-sem/) |
+
 ## Deferred Items
 
 Items acknowledged and carried forward from previous milestone close (v1.2 → v1.3):
