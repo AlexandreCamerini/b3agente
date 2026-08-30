@@ -65,7 +65,7 @@ Full phase details: [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
 | 10. Ponte gatilho→put | v1.2 | Complete | 2026-08-28 |
 | 11. Ciclo de vida e monitoramento | v1.2 | Complete | 2026-08-28 |
 | 12. Limites do plano gratuito ativos | 3/3 | Complete   | 2026-08-29 |
-| 13. Uso real visível na interface + enforcement no iOS | v1.3 | Not started | - |
+| 13. Uso real visível na interface + enforcement no iOS | 1/5 | In Progress|  |
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2
 
@@ -248,7 +248,7 @@ nenhum requirement da Fase 12 exige — só existe hoje para análises via
 Plans:
 **Wave 1**
 
-- [ ] 13-01-PLAN.md — endpoint GET /api/watchlist/quota (fonte única de count/limit) + teste de contrato + limpeza dos resíduos BolsIA
+- [x] 13-01-PLAN.md — endpoint GET /api/watchlist/quota (fonte única de count/limit) + teste de contrato + limpeza dos resíduos BolsIA
 
 **Wave 2** *(blocked on Wave 1 completion)*
 

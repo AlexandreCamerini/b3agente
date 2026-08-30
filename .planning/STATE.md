@@ -4,8 +4,8 @@ milestone: v1.3
 milestone_name: Cap comercial (plano gratuito)
 status: executing
 stopped_at: Phase 13 UI-SPEC approved
-last_updated: "2026-08-29T23:27:36.682Z"
-last_activity: 2026-08-29 -- Phase 13 planning complete
+last_updated: "2026-08-30T00:05:42.348Z"
+last_activity: 2026-08-30 -- Phase 13 execution started
 progress:
   total_phases: 2
   completed_phases: 1
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-29)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Phase 12 — Limites do plano gratuito ativos
+**Current focus:** Phase 13 — Uso real visível na interface + enforcement no iOS
 
 ## Current Position
 
-Phase: 12 (Limites do plano gratuito ativos) — EXECUTING
-Plan: 1 of 3
-Status: Ready to execute
-Last activity: 2026-08-29 -- Phase 13 planning complete
+Phase: 13 (Uso real visível na interface + enforcement no iOS) — EXECUTING
+Plan: 1 of 5
+Status: Executing Phase 13
+Last activity: 2026-08-30 -- Phase 13 execution started
 
 Progress: [░░░░░░░░░░] 0%
 
