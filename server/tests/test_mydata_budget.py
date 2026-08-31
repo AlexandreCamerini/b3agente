@@ -14,7 +14,9 @@ O que estes testes protegem:
 Offline: relógio injetado (`now`); SQLite em memória para o contador do dia.
 """
 import asyncio
+import concurrent.futures
 import sqlite3
+import threading
 from datetime import datetime
 
 import pytest
@@ -140,3 +142,54 @@ def test_degradado_passa_de_80_por_cento_do_teto_util(monkeypatch):
     assert b.degradado(now=MIN_10H00) is False
     b.debita(n=1, now=MIN_10H00)   # cruza os 80%
     assert b.degradado(now=MIN_10H00) is True
+
+
+# ---------------------------------------------------------------------------
+# WR-01 (09-REVIEW.md): trava contra corrida em pode_gastar()/debita()
+# ---------------------------------------------------------------------------
+def test_debitos_concorrentes_nao_perdem_incremento(monkeypatch):
+    """Antes da trava, duas threads chamando `debita()` quase simultaneamente
+    podiam intercalar o read-modify-write de `_estado["gasto"] += n` e perder
+    um incremento (mesma classe de bug que `store.ORDER_LOCK` fecha para
+    cash/positions). Usa Barrier para maximizar a chance de pegar a janela
+    da corrida, mesma técnica de `test_fase12_cap_watchlist.py`."""
+    monkeypatch.setenv("MYDATA_QUOTA_DIA", "10000")
+    monkeypatch.setenv("MYDATA_QUOTA_MIN", "10000")
+    barreira = threading.Barrier(8)
+
+    def _debita_um():
+        barreira.wait(timeout=5)
+        b.debita(n=1, now=MIN_10H00)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as ex:
+        list(ex.map(lambda _: _debita_um(), range(8)))
+
+    assert b.snapshot(now=MIN_10H00)["gastoDia"] == 8
+    assert b.snapshot(now=MIN_10H00)["gastoMinuto"] == 8
+
+
+def test_reservar_sob_corrida_nunca_ultrapassa_a_cota_e_nunca_debita_em_false():
+    """WR-01: com vaga pra exatamente 1, duas chamadas concorrentes a
+    `reservar(1)` devem devolver UMA True e UMA False — nunca as duas True
+    (estouraria a cota) nem as duas False (perderia vaga real). `debita()`
+    nunca roda quando `reservar()` devolve False (checado via `gastoDia`)."""
+    import os
+    os.environ["MYDATA_QUOTA_MIN"] = "2"   # teto útil = int(2*0.9) = 1
+    os.environ["MYDATA_QUOTA_DIA"] = "2"   # teto útil = int(2*0.9) = 1
+    try:
+        barreira = threading.Barrier(2)
+
+        def _reservar():
+            barreira.wait(timeout=5)
+            return b.reservar(1, now=MIN_10H00)
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as ex:
+            f1 = ex.submit(_reservar)
+            f2 = ex.submit(_reservar)
+            r1, r2 = f1.result(), f2.result()
+
+        assert sorted([r1, r2]) == [False, True]
+        assert b.snapshot(now=MIN_10H00)["gastoDia"] == 1
+    finally:
+        os.environ.pop("MYDATA_QUOTA_MIN", None)
+        os.environ.pop("MYDATA_QUOTA_DIA", None)
