@@ -1,6 +1,6 @@
 // Objetivo 3 — trava as fórmulas financeiras sobre entradas conhecidas.
 import { readFileSync } from "fs";
-import { portfolioMetrics, dayReturnPct, equityCurve, markPrice, historicoEstado, historicoDesatualizado, benchmarkSerie, concentracaoMaxima } from "../src/finance.js";
+import { portfolioMetrics, dayReturnPct, equityCurve, markPrice, historicoEstado, historicoDesatualizado, benchmarkSerie, concentracaoMaxima, qtyLivre } from "../src/finance.js";
 
 let fails = 0;
 const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if (!cond) fails++; };
@@ -99,6 +99,73 @@ ok("markPrice 0 sem avg", markPrice({}, {}) === 0);
   ok("openPnL inalterado por reservado", near(comReservado.openPnL, semReservado.openPnL));
   ok("openPct inalterado por reservado", near(comReservado.openPct, semReservado.openPct));
   ok("dayVal inalterado por reservado", near(comReservado.dayVal, semReservado.dayVal));
+}
+
+// ---- portfolioMetrics: pernas lastreadas (Fase 14, Plano 05, D-6) ----
+{
+  // retrocompatibilidade: chamada com 4 argumentos (todos os call sites
+  // atuais de App.jsx) devolve EXATAMENTE o mesmo resultado de antes.
+  const positions = [{ t: "PETR4", qty: 100, avg: 30 }];
+  const quotes = { PETR4: { price: 33, change: 2 } };
+  const m4 = portfolioMetrics(positions, quotes, 1000, 200);
+  ok("4 argumentos: retrocompatibilidade (patr sem pernas de opção)", near(m4.patr, 1000 + 200 + 3300));
+  ok("4 argumentos: opcoesVal = 0", m4.opcoesVal === 0);
+  ok("4 argumentos: opcoesPnL = 0", m4.opcoesPnL === 0);
+}
+{
+  // put de proteção (side="comprada") com prêmio ao vivo MAIOR que o avg:
+  // aumenta patr e openPnL da perna.
+  const optionPositions = [{ id: "PETR4X100", side: "comprada", qty: 100, avg: 2.0, lastro: { t: "PETR4", qty: 100 } }];
+  const optionQuotes = { PETR4X100: 3.0 };
+  const m = portfolioMetrics([], {}, 1000, 0, optionPositions, optionQuotes);
+  ok("put lastreada: opcoesVal = qty*preço ao vivo", near(m.opcoesVal, 300));
+  ok("put lastreada: opcoesPnL = (preço-avg)*qty > 0", near(m.opcoesPnL, 100));
+  ok("put lastreada: patr inclui a perna", near(m.patr, 1000 + 300));
+}
+{
+  // call coberta (side="vendida") com prêmio ao vivo MENOR que o avg: a call
+  // barateou (lucro do vendedor) — aumenta openPnL e REDUZ posVal/patr
+  // (passivo de recompra menor).
+  const optionPositions = [{ id: "PETR4C100", side: "vendida", qty: 100, avg: 2.0, lastro: { t: "PETR4", qty: 100 } }];
+  const optionQuotes = { PETR4C100: 1.0 };
+  const m = portfolioMetrics([], {}, 1000, 0, optionPositions, optionQuotes);
+  ok("call coberta: opcoesVal = -qty*preço (passivo de recompra)", near(m.opcoesVal, -100));
+  ok("call coberta: opcoesPnL = (avg-preço)*qty > 0 (call barateou = lucro do vendedor)", near(m.opcoesPnL, 100));
+  ok("call coberta: patr REDUZIDO pelo passivo", near(m.patr, 1000 - 100));
+}
+{
+  // posição de opção SEM `lastro` (modelo antigo) não altera nenhum número —
+  // D-6 não é retroativo.
+  const optionPositions = [{ id: "LEGADO1", side: "comprada", qty: 100, avg: 2.0 }]; // sem `lastro`
+  const m = portfolioMetrics([], {}, 1000, 0, optionPositions, {});
+  ok("opção sem lastro: opcoesVal = 0 (fora do agregado)", m.opcoesVal === 0);
+  ok("opção sem lastro: opcoesPnL = 0", m.opcoesPnL === 0);
+  ok("opção sem lastro: patr não muda", near(m.patr, 1000));
+}
+{
+  // sem optionQuotes: a perna é marcada pelo avg (piso estável) — openPnL
+  // da perna é 0, mesma decisão de markPrice.
+  const optionPositions = [{ id: "PETR4X100", side: "comprada", qty: 100, avg: 2.5, lastro: { t: "PETR4", qty: 100 } }];
+  const m = portfolioMetrics([], {}, 1000, 0, optionPositions); // optionQuotes ausente
+  ok("sem optionQuotes: marca pelo avg", near(m.opcoesVal, 250));
+  ok("sem optionQuotes: openPnL da perna é 0", m.opcoesPnL === 0);
+}
+{
+  // posVal de AÇÃO continua contando a posição INTEIRA, travada ou não — a
+  // trava restringe a venda (qtyLivre), não o que é marcado a mercado.
+  const positions = [{ t: "PETR4", qty: 300, avg: 30, qtyTravada: 200 }];
+  const quotes = { PETR4: { price: 33, change: 2 } };
+  const m = portfolioMetrics(positions, quotes, 1000);
+  ok("posVal conta a posição INTEIRA mesmo com qtyTravada > 0", near(m.posVal, 300 * 33));
+}
+
+// ---- qtyLivre (Fase 14, Plano 05) — espelho de test_lastro_trava.py ----
+{
+  ok("qtyLivre: sem a chave devolve qty", qtyLivre({ qty: 300 }) === 300);
+  ok("qtyLivre: qty=300/qtyTravada=200 devolve 100", qtyLivre({ qty: 300, qtyTravada: 200 }) === 100);
+  ok("qtyLivre: travada maior que a total devolve 0, nunca negativo", qtyLivre({ qty: 100, qtyTravada: 300 }) === 0);
+  ok("qtyLivre: pos nulo devolve 0", qtyLivre(null) === 0);
+  ok("qtyLivre: pos undefined devolve 0", qtyLivre(undefined) === 0);
 }
 
 // ---- dayReturnPct ----
