@@ -2963,11 +2963,75 @@ function OpcaoContrato({ c, cur, chain, isOpen, onToggle, sustains, pos, onBuy, 
   );
 }
 
+// Fase 14 (Plano 06, 14-UI-SPEC.md) — o CARD DE PROPOSTA: venda coberta ou
+// put de proteção prontas, no mesmo formato visual da manchete única do hero
+// (App.jsx:3172-3174 — Display 17/800, eyebrow 10/800). A MANCHETE e a frase
+// didática são SEMPRE `proposta.manchete`/`proposta.didatica` — o motor
+// determinístico decide o texto (guardrail CVM, T-14-22); este componente só
+// arruma layout e decide CTA × explicação pelo modo (T-14-23, defesa em UI —
+// o servidor recusa com 403 mesmo que este código tivesse um bug).
+function PropostaLastreada({ r, operador, cp, busy, onAbrir, onFechar, posAberta }) {
+  if (!r) return null; // ainda carregando — silêncio, a proposta é secundária ao card (sem esqueleto)
+  if (!r.proposta) {
+    return (
+      <div style={{ marginTop: "11px", padding: "16px", borderRadius: "11px", background: T.bgCard, border: `1px solid ${T.borderFaint}` }}>
+        <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em", color: T.textFaint }}>{cp.propostaVaziaTitulo}</div>
+        <div style={{ fontSize: "12px", color: T.textMuted, lineHeight: 1.5, marginTop: "4px" }}>
+          {r.motivo === "degradado" ? cp.propostaIndisponivelDegradada : r.motivoTexto}
+        </div>
+      </div>
+    );
+  }
+  const p = r.proposta;
+  const isCall = p.optionType === "call";
+  const cor = isCall ? T.positive : T.negative; // NUNCA T.accent — mesma regra da manchete do ativo (App.jsx:768-773)
+  const eyebrow = isCall ? cp.eyebrowPropostaCall : cp.eyebrowPropostaPut;
+  const degradado = r.providerStatus !== "ok";
+  return (
+    <div style={{ marginTop: "11px", padding: "16px", borderRadius: "11px", background: T.bgCard, border: `1px solid ${T.borderFaint}` }}>
+      <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em", color: T.accent }}>{eyebrow}</div>
+      <div style={{ fontSize: "17px", fontWeight: 800, color: cor, marginTop: "2px" }}>{p.manchete}</div>
+      <div style={{ fontFamily: MONO, fontWeight: 800, fontSize: "13px", color: T.textSecondary, marginTop: "6px" }}>
+        {p.contratos}× {isCall ? "CALL" : "PUT"} {r.ticker} · strike {price(p.strike)}
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "10px" }}>
+        {(p.chips || []).map((c) => (
+          <span key={c.k} style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "999px", background: T.bgBase, color: T.textSecondary, fontWeight: 700 }}>
+            {c.k} <b style={{ fontWeight: 800, color: T.textPrimary }}>{c.v}</b>
+          </span>
+        ))}
+      </div>
+      {/* Modo Estudo (vocab["educacional"]): a MESMA proposta, condicional —
+          nunca um botão de executar (T-14-23). */}
+      {!operador && (
+        <div style={{ fontSize: "12px", color: T.textMuted, lineHeight: 1.5, marginTop: "10px" }}>{p.didatica}</div>
+      )}
+      {/* Modo Operador: CTA imperativo. Com posAberta (a proposta atual casa
+          com uma posição já lastreada neste contrato), o botão vira fechar. */}
+      {operador && (
+        <button
+          onClick={posAberta ? onFechar : onAbrir}
+          disabled={busy || degradado}
+          style={{ marginTop: "12px", width: "100%", minHeight: "40px", borderRadius: "9px", border: `1px solid ${T.accent}`, background: T.accentTint, color: T.accent, fontWeight: 800, fontSize: "12.5px" }}
+        >
+          {degradado
+            ? cp.propostaIndisponivelDegradada
+            : posAberta
+            ? cp.ctaFecharLastreada(price(p.premioTotal))
+            : isCall
+            ? cp.ctaVendaCoberta(p.contratos, r.ticker, price(p.strike), price(p.premioTotal))
+            : cp.ctaPutProtecao(p.contratos, r.ticker, price(p.strike), price(p.premioTotal))}
+        </button>
+      )}
+    </div>
+  );
+}
+
 // v2 (ADR-003/004/005) — linha colapsada + painel expandido ("A acoplado").
 // Gate de descobribilidade: só existe se `/api/options/gate` confirmar
 // liquidez (chamado 1x por card em AtivoCard, best-effort). A cadeia completa
 // só é buscada quando o usuário abre — zero fetch novo por padrão (proposta §5).
-function OpcoesCamada({ t, cur, open, onToggle, chain, chainLoading, opContract, setOpContract, opShowAll, setOpShowAll, myPositions, decColor, onBuy, onSell, busy }) {
+function OpcoesCamada({ t, cur, open, onToggle, chain, chainLoading, opContract, setOpContract, opShowAll, setOpShowAll, myPositions, decColor, onBuy, onSell, busy, rotuloFechado }) {
   const contratos = chain && chain.providerStatus === "ok"
     ? [...(chain.calls || []), ...(chain.puts || [])].sort((a, b) => Math.abs((a.strike || 0) - (cur || 0)) - Math.abs((b.strike || 0) - (cur || 0)))
     : [];
@@ -2980,7 +3044,7 @@ function OpcoesCamada({ t, cur, open, onToggle, chain, chainLoading, opContract,
     <div>
       <div onClick={onToggle} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggle(); } }} role="button" tabIndex={0} aria-expanded={open} style={{ marginTop: "11px", paddingTop: "10px", borderTop: `1px solid ${T.borderFaint}`, display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}>
         <span style={{ fontSize: "12px", color: T.textSecondary, display: "flex", alignItems: "center", gap: "7px" }}>
-          <span style={{ color: T.accent }}>⚡</span> {open ? "opções de " + t : "opções líquidas disponíveis"}
+          <span style={{ color: T.accent }}>⚡</span> {open ? "opções de " + t : (rotuloFechado || "opções líquidas disponíveis")}
         </span>
         <span aria-hidden style={{ color: T.textFaint, fontSize: "11px", display: "inline-block", transform: open ? "rotate(180deg)" : "none" }}>▾</span>
       </div>
@@ -3035,6 +3099,9 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
   const [opContract, setOpContract] = useState(null);
   const [opShowAll, setOpShowAll] = useState(false);
   const [opBusy, setOpBusy] = useState(null);
+  // Fase 14 (Plano 06) — proposta pronta de venda coberta/put de proteção.
+  const [opProposta, setOpProposta] = useState(null);
+  const [opPropostaBusy, setOpPropostaBusy] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -3042,6 +3109,19 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
     store.optionsGate(t).then((r) => { if (alive) setOpGate(r); }).catch(() => { /* gate é best-effort: sem ele, a linha só não aparece */ });
     return () => { alive = false; };
   }, [t]);
+
+  // Fase 14 (Plano 06, D-8): a fase inteira fica dormente sem gate de
+  // liquidez — nenhuma requisição extra de proposta é feita além do que o
+  // gate já dispara. `opGate && opGate.liquida` é primitivo (boolean) na
+  // dependência: não recria o efeito a cada re-render do objeto do gate.
+  useEffect(() => {
+    let alive = true;
+    setOpProposta(null);
+    if (opGate && opGate.liquida) {
+      store.optionsProposta(t).then((r) => { if (alive) setOpProposta(r); }).catch(() => { /* best-effort, igual optionsGate */ });
+    }
+    return () => { alive = false; };
+  }, [t, opGate && opGate.liquida]);
 
   const toggleOp = () => {
     const next = !opOpen;
@@ -3074,6 +3154,15 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
     ...(dadosTiming || {}),   // entrada/stop/estado do plano prevalecem
   };
   const myOptionPositions = ((data && data.optionPositions) || []).filter((p) => p.underlying === t);
+  // Fase 14 (Plano 06, Rule 2 — correção de escopo): OpcaoContrato nunca foi
+  // adaptado para `side`/`lastro` (D-1: reusado sem retrofit, per UI-SPEC) —
+  // seu botão único "Vender posição" chama `A.sellOption` → `store.sell_option`,
+  // que credita caixa e NUNCA destrava `qtyTravada`. Para uma posição
+  // `side==="vendida"` (CALL coberta) isso é semântica errada (deveria
+  // DEBITAR ao recomprar) e estrangularia o lastro para sempre. A cadeia
+  // legada só pode gerenciar posições SEM `lastro`; toda posição lastreada
+  // se gerencia exclusivamente pelo card da proposta (onFechar → fecharLastreada).
+  const myOptionPositionsLegado = myOptionPositions.filter((p) => !p.lastro);
   const doBuyOption = async (contrato) => {
     setOpBusy(contrato.contractSymbol);
     try { await A.buyOption(t, contrato, opChain.expiration, buyMeta); }
@@ -3083,6 +3172,30 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
     setOpBusy(contractId);
     try { await A.sellOption(contractId); }
     finally { setOpBusy(null); }
+  };
+
+  // Fase 14 (Plano 06): a posição já aberta que casa com a proposta ATUAL
+  // (mesmo contractSymbol) — quando existe, o CTA da proposta vira "fechar".
+  const posAberta = (opProposta && opProposta.proposta)
+    ? myOptionPositions.find((p) => p.id === opProposta.proposta.contractSymbol) || null
+    : null;
+  const onAbrirLastreada = async () => {
+    if (!opProposta || !opProposta.proposta) return;
+    const p = opProposta.proposta;
+    // A confirmação existe pela TRAVA do lastro, não pelo gasto — só a CALL
+    // coberta trava ações; a PUT de proteção não trava nada (T-14-24).
+    if (p.optionType === "call" && !window.confirm(cp.confirmAbrirCoberta(p.contratos, t, p.qtyAcoes))) return;
+    setOpPropostaBusy(true);
+    try { await A.abrirLastreada({ underlying: t, contractSymbol: p.contractSymbol, expiration: p.expiration, contratos: p.contratos }); }
+    finally { setOpPropostaBusy(false); }
+  };
+  const onFecharLastreada = async () => {
+    if (!opProposta || !opProposta.proposta) return;
+    const p = opProposta.proposta;
+    if (!window.confirm(cp.confirmFecharCoberta(price(p.premioTotal), p.qtyAcoes, t))) return;
+    setOpPropostaBusy(true);
+    try { await A.fecharLastreada({ contractSymbol: p.contractSymbol, contratos: p.contratos }); }
+    finally { setOpPropostaBusy(false); }
   };
 
   return (
@@ -3244,14 +3357,25 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
                   e virou seis avisos idênticos por tela, pior que o silêncio. O
                   porquê da ausência mora no ADR-004, não no card. */}
               {opGate && opGate.liquida && (
-                <OpcoesCamada
-                  t={t} cur={q.price} open={opOpen} onToggle={toggleOp}
-                  chain={opChain} chainLoading={opChainLoading}
-                  opContract={opContract} setOpContract={setOpContract}
-                  opShowAll={opShowAll} setOpShowAll={setOpShowAll}
-                  myPositions={myOptionPositions} decColor={decColor}
-                  onBuy={doBuyOption} onSell={doSellOption} busy={opBusy}
-                />
+                <>
+                  <PropostaLastreada
+                    r={opProposta} operador={operador} cp={cp} busy={opPropostaBusy}
+                    onAbrir={onAbrirLastreada} onFechar={onFecharLastreada} posAberta={posAberta}
+                  />
+                  {/* 14-UI-SPEC.md "Spacing Scale" lg=24px: separação entre o
+                      card da proposta e a cadeia expansível abaixo (D-4). */}
+                  <div style={{ marginTop: "24px" }}>
+                    <OpcoesCamada
+                      t={t} cur={q.price} open={opOpen} onToggle={toggleOp}
+                      chain={opChain} chainLoading={opChainLoading}
+                      opContract={opContract} setOpContract={setOpContract}
+                      opShowAll={opShowAll} setOpShowAll={setOpShowAll}
+                      myPositions={myOptionPositionsLegado} decColor={decColor}
+                      onBuy={doBuyOption} onSell={doSellOption} busy={opBusy}
+                      rotuloFechado={opProposta && opProposta.proposta ? cp.verCadeiaCompleta : null}
+                    />
+                  </div>
+                </>
               )}
 
               {/* qa/49 (v11): CAUDA por contexto — sem children, a cauda da watchlist
@@ -7509,8 +7633,26 @@ export default function App() {
         flash("Opção " + contractId + " vendida.");
       } catch (e) { flash("Venda de opção: " + (e.message || e)); }
     },
-    setOptionStop: async (contractId, v) => { try { const s = await store.putOptionPosition(contractId, { stop: v }); setData(s); } catch (e) { flash("Erro: " + (e.message || e)); } },
-    setOptionAlvo: async (contractId, v) => { try { const s = await store.putOptionPosition(contractId, { alvo: v }); setData(s); } catch (e) { flash("Erro: " + (e.message || e)); } },
+    // Fase 14 (Plano 06): abertura/fechamento de operação lastreada (venda
+    // coberta / put de proteção). O 403 de Modo Estudo e o 502 de cadeia
+    // degradada já chegam prontos do servidor — o flash só repassa `e.message`,
+    // nunca reescreve o motivo.
+    abrirLastreada: async (body) => {
+      try {
+        const s = await store.optionsAbrirLastreada(body);
+        setData(s);
+        track("trade_simulated", { side: "abrir", ticker: body.underlying, instrument: "opcao_lastreada" });
+        flash("Operação lastreada aberta — prêmio a R$ " + price(s.priceUsed) + ".");
+      } catch (e) { flash("Abrir operação lastreada: " + (e.message || e)); }
+    },
+    fecharLastreada: async (body) => {
+      try {
+        const s = await store.optionsFecharLastreada(body);
+        setData(s);
+        track("trade_simulated", { side: "fechar", contract: body.contractSymbol, instrument: "opcao_lastreada" });
+        flash("Operação lastreada encerrada — R$ " + price(s.priceUsed) + ".");
+      } catch (e) { flash("Fechar operação lastreada: " + (e.message || e)); }
+    },
     applyProposal: async (t, stop, alvo) => {
       try {
         const s = await store.putPosition(t, { stop, alvo });
