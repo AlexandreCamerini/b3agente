@@ -82,6 +82,7 @@ Full phase details: [milestones/v1.3-ROADMAP.md](milestones/v1.3-ROADMAP.md)
 | 11. Ciclo de vida e monitoramento | v1.2 | Complete | 2026-08-28 |
 | 12. Limites do plano gratuito ativos | v1.3 | Complete | 2026-08-29 |
 | 13. Uso real visível na interface + enforcement no iOS | v1.3 | Complete | 2026-08-31 |
+| 14. Opções lastreadas — venda coberta e put de proteção | standalone | Complete (dormente) | 2026-08-31 |
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2/v1.3
 

@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Cap comercial (plano gratuito)
-status: executing
-stopped_at: Phase 13 UI-SPEC approved
+status: Awaiting next milestone
+stopped_at: Phase 14 checkpoint approved
 last_updated: "2026-08-31T17:51:53.171Z"
-last_activity: 2026-08-31 -- Phase 14 execution started
+last_activity: 2026-08-31 -- Phase 14 (standalone) complete, checkpoint humano aprovado
 progress:
   total_phases: 2
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 8
-  completed_plans: 10
-  percent: 50
+  completed_plans: 8
+  percent: 100
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-29)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Phase 14 — op-es-lastreadas-venda-coberta-e-put-de-prote-o-sobre-posi-e
+**Current focus:** Milestone complete; Phase 14 (standalone) também completa
 
 ## Current Position
 
-Phase: 14 (op-es-lastreadas-venda-coberta-e-put-de-prote-o-sobre-posi-e) — EXECUTING
-Plan: 1 of 8
-Status: Executing Phase 14
-Last activity: 2026-08-31 -- Phase 14 execution started
+Phase: 14 (op-es-lastreadas-venda-coberta-e-put-de-prote-o-sobre-posi-e) — COMPLETE (standalone, sem milestone ativo)
+Plan: 8 of 8 (+ 2 bugfixes de checkpoint)
+Status: Checkpoint humano aprovado — fase dormente em produção até B3_OPTIONS_PROVIDER=mydata
+Last activity: 2026-08-31 -- Phase 14 completa, checkpoint humano aprovado ao vivo (2 bugs achados e corrigidos)
 
 ## Performance Metrics
 
