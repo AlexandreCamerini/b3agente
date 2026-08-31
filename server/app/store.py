@@ -598,6 +598,26 @@ def caixa_reservado(conn, user_id=None) -> float:
     return round(total, 2)
 
 
+def qty_livre(pos: dict) -> int:
+    """Fase 14 (Plano 01, D-3 do 14-CONTEXT.md): quantidade de ações da
+    posição que pode ser vendida — total menos o que está travado como
+    lastro de uma CALL coberta aberta (`qtyTravada`).
+
+    ÚNICA fonte da aritmética de quantidade vendável no BACKEND — proibido
+    recalcular a subtração `qty - qtyTravada` em outro módulo (mesma
+    disciplina de `caixa_reservado`, mesmo padrão de amarração entre camadas
+    de `RR_MIN`/`RR_MIN_TXT` em `skill_ref.py` ↔ `finance.js`, ADR-015). O
+    gêmeo desta função no FRONT é `qtyLivre(pos)` em `web/src/finance.js`
+    (plano 14-05) — mesmo nome, mesma semântica; `persistence.js`/`App.jsx`
+    importam de lá, nenhum dos dois reimplementa a subtração.
+
+    `qtyTravada` ausente (posição do modelo antigo, sem CALL coberta) lê `0`
+    via `.get` — sem migração, sem backfill (decisão em aberto no
+    14-CONTEXT.md sobre retroatividade; a trava vale só para o modelo
+    lastreado novo)."""
+    return max(0, int(pos.get("qty") or 0) - int(pos.get("qtyTravada") or 0))
+
+
 def _sanitize_trade_meta(meta) -> dict:
     """FASE 2 (2.4): contexto de ENTRADA registrado na compra — setup que a
     originou (do STU da F1), gatilho/invalidação e snapshotId. Só campos
@@ -667,16 +687,32 @@ def sell(conn, t: str, price: float, user_id=None, qty=None, motivo: str = "manu
 
     Histórico gravado ANTES desta mudança não tem a chave `motivo` — fica
     `None` via `.get`, não é reescrito (mesmo padrão adotado quando `origem`
-    entrou, ADR-012)."""
+    entrou, ADR-012).
+
+    Fase 14 (Plano 01, D-3): a parte da posição travada como lastro de uma
+    CALL coberta (`qtyTravada`) NUNCA é vendida por este caminho — a venda
+    fica limitada a `qty_livre(pos)`, e livre==0 vira rejeição registrada
+    (T-14-01 do threat_model), sem tocar `cash`/`positions`/`history`
+    executada. Com trava ativa a posição nunca some por venda total: a
+    remoção só acontece quando `sold >= pos["qty"]` (qty TOTAL, não livre) —
+    ou seja, nunca enquanto houver `qtyTravada` > 0 remanescente."""
     positions = get(conn, "positions", user_id=user_id)
     pos = next((p for p in positions if p["t"] == t), None)
     if not pos:
         return None
+    livre = qty_livre(pos)
+    if livre <= 0:
+        registrar_rejeicao(
+            conn, "VENDA", t, qty, price,
+            f"{pos.get('qtyTravada')} ação(ões) de {t} estão travadas como lastro de "
+            "uma CALL coberta aberta — recompre a call para liberar.",
+            user_id=user_id, origem=origem)
+        return None
     cash = get(conn, "cash", user_id=user_id)
     history = get(conn, "history", user_id=user_id)
-    sold = pos["qty"]
+    sold = livre
     if isinstance(qty, (int, float)) and qty > 0:
-        sold = min(pos["qty"], max(100, round(qty / 100) * 100))
+        sold = min(livre, max(100, round(qty / 100) * 100))
     pnl = round((price - pos["avg"]) * sold, 2)
     if sold >= pos["qty"]:
         positions = [p for p in positions if p["t"] != t]

@@ -134,15 +134,25 @@ def criar_venda(conn, user_id, t: str, qty: int) -> dict:
     `positions` (a mesma semântica de venda parcial de `store.sell` — `avg`
     preservado), sem gravar em history. A posição já fica líquida da reserva,
     então uma segunda `criar_venda` no mesmo ticker enxerga só o que sobrou —
-    é isto que impede vender a mesma ação duas vezes em duas pendentes."""
+    é isto que impede vender a mesma ação duas vezes em duas pendentes.
+
+    Fase 14 (Plano 01, D-3/T-14-02): `disponivel` vem de `store.qty_livre`,
+    NUNCA de `pos["qty"]` cru — fecha o desvio "reservo pendente o que não
+    posso vender agora" (ação travada como lastro de CALL coberta). A
+    reserva em si continua subtraindo de `pos["qty"]`; `qtyTravada` não é
+    tocado, então o travado nunca é reservado por uma pendente."""
     with ORDER_LOCK:
         positions = store.get(conn, "positions", user_id=user_id)
         pos = next((p for p in positions if p["t"] == t), None)
         if not pos:
             raise PosicaoInsuficiente("Sem posicao em " + t)
         qty = max(100, round(qty / 100) * 100)  # mesma normalização de store.sell
-        disponivel = pos["qty"]
+        disponivel = store.qty_livre(pos)
         if qty > disponivel:
+            if disponivel <= 0 and int(pos.get("qtyTravada") or 0) > 0:
+                raise PosicaoInsuficiente(
+                    f"{pos.get('qtyTravada')} ação(ões) de {t} estão travadas como lastro de "
+                    "uma CALL coberta aberta — recompre a call para liberar.")
             raise PosicaoInsuficiente(
                 f"Posição insuficiente em {t}: disponível {disponivel}, pedido {qty}.")
         avg = pos["avg"]
