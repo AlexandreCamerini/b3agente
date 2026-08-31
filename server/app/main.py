@@ -2362,35 +2362,50 @@ async def options_proposta(ticker: str, scope: Optional[str] = Depends(current_s
     positions = store.get(_conn, "positions", user_id=scope)
     posicao = next((p for p in positions if p["t"] == t), None)
     cash = store.get(_conn, "cash", user_id=scope)
+    # Fetch adiantado (era feito só depois do bloco try/except abaixo):
+    # necessário AQUI porque a proposta de FECHAMENTO de uma posição já
+    # aberta é decidida antes de qualquer chamada a `propor()` — ver bloco
+    # `pos_op_aberta` logo abaixo (bugfix checkpoint humano, Plano 08).
+    option_positions = store.get(_conn, "optionPositions", user_id=scope)
+    pos_op_aberta = next(
+        (p for p in option_positions if p.get("underlying") == t and p.get("lastro")), None)
     try:
-        chain = await options_provider.get_options(t)
-        provider_status = chain.get("providerStatus")
-        # Mesmas duas primeiras portas de `opcoes_lastreadas.propor` checadas
-        # AQUI antes do fetch técnico — sem isto, um usuário sem posição (ou
-        # cadeia degradada) ainda pagaria o custo de candles+indicators+setups
-        # para receber a MESMA ausência que já dava para saber sem tocar rede
-        # de novo (T-14-13: nenhuma chamada nova por card além da que o gate
-        # já faz).
-        if provider_status != "ok":
-            resultado = {"proposta": None, "motivo": "degradado"}
-        elif not isinstance(posicao, dict) or store.qty_livre(posicao) < 100:
-            resultado = {"proposta": None, "motivo": "sem_lastro"}
+        if pos_op_aberta:
+            # Posição lastreada JÁ ABERTA neste `underlying`: a proposta é de
+            # FECHAMENTO do MESMO contrato, nunca uma nova escolha de
+            # `propor()` — cadeia técnica nem é buscada aqui (otimização real,
+            # não só atalho: nenhum uso é feito do plano técnico neste ramo).
+            chain_pos = await options_provider.get_options(t, pos_op_aberta.get("expiration"))
+            provider_status = chain_pos.get("providerStatus")
+            resultado = opcoes_lastreadas.proposta_fechar(pos_op_aberta, chain_pos, modo, dt.date.today())
         else:
-            try:
-                quote = await candle_provider.get_quote(t)
-            except Exception:
-                quote = None
-            spot = _spot_from_chain_or_quote(chain, quote)
-            p = candles_mod.normalize_period(None)   # período CANÔNICO, mesmo da análise técnica
-            snap = await technical_snapshot.get(t, p, lambda rng: candle_provider.get_history(t, rng=rng))
-            plano = setups.plano_do_resultado(snap["setups"], close=snap.get("close"))
-            resultado = opcoes_lastreadas.propor(t, chain, spot, plano, posicao, cash, modo, dt.date.today())
+            chain = await options_provider.get_options(t)
+            provider_status = chain.get("providerStatus")
+            # Mesmas duas primeiras portas de `opcoes_lastreadas.propor`
+            # checadas AQUI antes do fetch técnico — sem isto, um usuário sem
+            # posição (ou cadeia degradada) ainda pagaria o custo de
+            # candles+indicators+setups para receber a MESMA ausência que já
+            # dava para saber sem tocar rede de novo (T-14-13: nenhuma
+            # chamada nova por card além da que o gate já faz).
+            if provider_status != "ok":
+                resultado = {"proposta": None, "motivo": "degradado"}
+            elif not isinstance(posicao, dict) or store.qty_livre(posicao) < 100:
+                resultado = {"proposta": None, "motivo": "sem_lastro"}
+            else:
+                try:
+                    quote = await candle_provider.get_quote(t)
+                except Exception:
+                    quote = None
+                spot = _spot_from_chain_or_quote(chain, quote)
+                p = candles_mod.normalize_period(None)   # período CANÔNICO, mesmo da análise técnica
+                snap = await technical_snapshot.get(t, p, lambda rng: candle_provider.get_history(t, rng=rng))
+                plano = setups.plano_do_resultado(snap["setups"], close=snap.get("close"))
+                resultado = opcoes_lastreadas.propor(t, chain, spot, plano, posicao, cash, modo, dt.date.today())
     except Exception:
         resultado = {"proposta": None, "motivo": "degradado"}
         provider_status = "degraded"
     motivo = resultado["motivo"]
     motivo_texto = skill_ref.opcoes_lastreadas_txt(modo, motivo, ticker=t)
-    option_positions = store.get(_conn, "optionPositions", user_id=scope)
     put_sem_lastro_ids = opcoes_lastreadas.put_sem_lastro(option_positions, positions)
     return {
         "ticker": t, "providerStatus": provider_status, "modo": modo,

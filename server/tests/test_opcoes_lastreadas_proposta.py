@@ -168,6 +168,81 @@ def test_propor_manchete_muda_com_o_modo_mesma_proposta():
     assert r_educacional["proposta"]["manchete"].startswith("Se você tivesse")
 
 
+# ------------------------- Parte 3: proposta_fechar -------------------------
+# Bugfix do checkpoint humano do Plano 08: `propor()` é stateless e podia
+# devolver um contrato DIFERENTE do já aberto a cada chamada; `proposta_fechar`
+# lê o MESMO contrato (por `id`) direto da posição já aberta, sem re-escolher.
+
+def _pos_opcao(id="PETR4F32", underlying="PETR4", optionType="call", strike=32.0,
+               expiration=None, qty=100, side="vendida", lastro_qty=None):
+    exp = expiration or (_HOJE + dt.timedelta(days=30)).isoformat()
+    return {
+        "id": id, "underlying": underlying, "optionType": optionType, "strike": strike,
+        "expiration": exp, "qty": qty, "avg": 1.0, "side": side,
+        "lastro": {"t": underlying, "qty": lastro_qty if lastro_qty is not None else qty},
+    }
+
+
+def test_proposta_fechar_cadeia_degradada_devolve_motivo_degradado():
+    r = opcoes_lastreadas.proposta_fechar(_pos_opcao(), {"providerStatus": "degraded"}, "operador", _HOJE)
+    assert r == {"proposta": None, "motivo": "degradado"}
+
+
+def test_proposta_fechar_contrato_sumiu_da_cadeia_devolve_motivo_degradado():
+    """Contrato aberto (PETR4F32) não está mais na cadeia atual (só PETR4F99
+    sobrou) — nunca inventa prêmio a partir de outro contrato."""
+    outra_cadeia = _cadeia(calls=[_contrato(99.0, "PETR4F99", "call")])
+    r = opcoes_lastreadas.proposta_fechar(_pos_opcao(id="PETR4F32"), outra_cadeia, "operador", _HOJE)
+    assert r == {"proposta": None, "motivo": "degradado"}
+
+
+def test_proposta_fechar_sem_last_price_valido_devolve_motivo_degradado():
+    cadeia = _cadeia(calls=[{**_contrato(32.0, "PETR4F32", "call"), "lastPrice": None}])
+    r = opcoes_lastreadas.proposta_fechar(_pos_opcao(id="PETR4F32"), cadeia, "operador", _HOJE)
+    assert r == {"proposta": None, "motivo": "degradado"}
+
+
+def test_proposta_fechar_call_coberta_devolve_mesmo_contrato_com_premio_atual():
+    cadeia = _cadeia(calls=[_contrato(32.0, "PETR4F32", "call", price=1.75)])
+    pos = _pos_opcao(id="PETR4F32", side="vendida", qty=100)
+    r = opcoes_lastreadas.proposta_fechar(pos, cadeia, "operador", _HOJE)
+    assert r["motivo"] == "call_coberta"
+    p = r["proposta"]
+    assert p["contractSymbol"] == "PETR4F32"
+    assert p["tipo"] == "call_coberta"
+    assert p["contratos"] == 1
+    assert p["premioUnitario"] == 1.75
+    assert p["premioTotal"] == round(1.75 * 100, 2)
+    assert p["manchete"].startswith("Vender")
+
+
+def test_proposta_fechar_put_protecao_devolve_mesmo_contrato_com_premio_atual():
+    cadeia = _cadeia(puts=[_contrato(28.0, "PETR4F28", "put", price=0.9)])
+    pos = _pos_opcao(id="PETR4F28", optionType="put", strike=28.0, side="comprada", qty=200)
+    r = opcoes_lastreadas.proposta_fechar(pos, cadeia, "operador", _HOJE)
+    assert r["motivo"] == "put_protecao"
+    p = r["proposta"]
+    assert p["contractSymbol"] == "PETR4F28"
+    assert p["tipo"] == "put_protecao"
+    assert p["contratos"] == 2
+    assert p["premioTotal"] == round(0.9 * 200, 2)
+    assert p["manchete"].startswith("Comprar")
+
+
+def test_proposta_fechar_estavel_mesmo_quando_propor_divergiria():
+    """A mesma leitura que faria `propor()` escolher um contrato NOVO (spot
+    mudou / plano técnico mudou pra sem_setup) não afeta `proposta_fechar` —
+    ela nunca chama `_escolher_contrato`, só localiza o `id` já aberto."""
+    cadeia_calls_novas = _cadeia(calls=[
+        _contrato(32.0, "PETR4F32", "call", price=2.10),   # contrato já aberto
+        _contrato(34.0, "PETR4F34", "call", price=1.20),   # `propor()` picaria outro se spot mudasse
+    ])
+    pos = _pos_opcao(id="PETR4F32", side="vendida", qty=100)
+    r = opcoes_lastreadas.proposta_fechar(pos, cadeia_calls_novas, "operador", _HOJE)
+    assert r["proposta"]["contractSymbol"] == "PETR4F32"
+    assert r["proposta"]["premioUnitario"] == 2.10
+
+
 def test_put_sem_lastro_detecta_posicao_vendida_e_ignora_a_com_lastro_integro():
     option_positions = [
         {"id": "PETR4F28-vendida-lastro", "side": "comprada", "lastro": {"t": "PETR4", "qty": 300}},
