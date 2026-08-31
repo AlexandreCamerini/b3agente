@@ -22,6 +22,10 @@ nada mais no produto importa.
 
 ## Current Milestone: v1.3 Cap comercial (plano gratuito)
 
+**Status:** Fases 12 e 13 completas (2026-08-29/31) — todos os phases do
+milestone entregues, `is_last_phase: true` na Fase 13. Candidato a
+`/gsd-complete-milestone` quando o Alex quiser fechar formalmente.
+
 **Goal:** ativar de verdade os limites do plano gratuito que o ADR-010 já
 desenhou tecnicamente (watchlist e análises/mês) — sem loja/IAP neste
 milestone. `PLAN_PRO` continua ilimitado por enquanto; isso é preparação
@@ -74,6 +78,17 @@ faltavam os números).
 - ✓ Estrutura técnica de planos (`plan.py`, `metering.py`) pronta para ligar
   cap comercial — v1.1 fechou o último buraco estrutural (FIX-C33, contagem
   real do mês); só falta a decisão de negócio (ADR-010) pra ativar de vez
+- ✓ Cap comercial ativado de ponta a ponta (v1.3, Fases 12-13): `PLAN_FREE`
+  com `max_watchlist=10`/`max_analyses_per_month=30` reais (eram `None`),
+  gates `can_add_ticker`/`can_analyze` bloqueando de verdade com motivo
+  exato (CAP-01..05, CAP-07), uso/limite real visível na UI nos dois stores
+  — web e iOS (CAP-06), e o bypass do cap no app iOS nativo fechado
+  (CAP-12/CR-01) — achado próprio: o code review pós-fase pegou o gate
+  fail-closed comparando a contagem do SERVIDOR em vez da do APARELHO
+  (iOS é local-first, nunca sincroniza watchlist pro servidor), corrigido e
+  mutation-tested (`101335e`). CAP-12 já vale para builds NOVOS; instalações
+  existentes via TestFlight só recebem o fix num build novo distribuído
+  pelo Alex (pendência nomeada, não escondida, `13-05-SUMMARY.md`)
 - ✓ REVIEW-01..06 / `REPORT-01.md` (39 achados, 2 Crítico + 8 Alto + 20 Médio
   + 9 Baixo) — v1.0
 - ✓ MERC-01..04: status real de mercado na tela de entrada + fila de
@@ -267,6 +282,8 @@ faltavam os números).
 | Critério de aposentadoria de setup: magnitude econômica em faixas, não \|t\| | Alex rejeitou a proposta original (\|t\| conflacia efeito com tamanho de amostra — provado com Setup 9.1 baixa vs alta, dano quase idêntico, veredito oposto só por 426 observações a mais) | ✓ Good — critério revisado incorporado no ADR-017 Decisão 1 antes de qualquer código, evitou aposentar setup errado por artefato estatístico |
 | Checkpoint humano bloqueante represa o push da FASE INTEIRA, não só da task do checkpoint | Fase 8: push de wave 1 (hábito herdado das Fases 6/7) colocou o gate de `entradaAuto` em produção horas antes da aprovação do Alex — exposição real avaliada como zero (feature desligada em todas as contas), mas foi sorte, não desenho | ✓ Good — regra aplicada corretamente na Fase 5 (checkpoint do 05-08), nenhuma wave deu push antes da aprovação |
 | Plano que toca `web/src/` precisa de task explícita de bump+publicar-web.sh | Fase 4: os 7 planos fecharam os 9 achados com suíte verde, mas nenhum publicou o front — ficou testado, mergeado e invisível em produção até eu notar manualmente | ✓ Good — corrigido antes de fechar a Fase 4 (commit `f2ef08e`); Fase 5 já nasceu com plano de publicação (05-08) desde o planejamento |
+| Consultar design specialists dedicados (navigation/typography) antes do UI-SPEC, quando a fase tem decisão de UI real em aberto | Fase 13 tinha 2 perguntas de design não travadas no CONTEXT.md (validar o placement dual, decidir o tratamento tipográfico do "X/Y") — consulta directa aos specialists deu input mais concreto (achou a distinção `data.watchlist.length`×`catalogSel.length` que evita os 2 contadores divergirem) do que deixar o gsd-ui-researcher inferir sozinho | ✓ Good — UI-SPEC nasceu quase pronto, só 1 bloqueio de checker (3º peso de fonte), resolvido em 1 iteração |
+| Code review obrigatório pós-fase (`code_review_gate`) não é cerimônia — achou um Critical real na Fase 13 | Gate fail-closed do CAP-12/CR-01 no iOS comparava a contagem do servidor (sempre desconectada, iOS é local-first) em vez da do aparelho; guardião existente só checava ORDEM das chamadas, não qual valor alimentava a decisão — o próprio objetivo da fase (fechar CR-01) não estava de fato fechado até esse achado | ✓ Good — corrigido, guardião reforçado (mutation-tested), e o mesmo padrão replicado preventivamente no caminho irmão (`putWatchlist`) antes mesmo de virar bug lá |
 
 ## Evolution
 
@@ -286,4 +303,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-08-29 — milestone v1.3 (cap comercial) iniciado*
+*Last updated: 2026-08-31 — Fase 13 completa, milestone v1.3 (cap comercial) com todas as fases entregues*
