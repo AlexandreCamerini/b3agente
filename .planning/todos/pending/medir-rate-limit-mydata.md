@@ -1,7 +1,7 @@
 ---
 title: Medir rate-limit real do mydata antes de trocar fontes em produção
 date: 2026-08-27
-priority: high
+priority: medium
 ---
 
 # Medir rate-limit real do mydata (cvm-financas) antes de migrar
@@ -70,3 +70,22 @@ muda o veredito de pico/min (148 vs 60/min) da projeção. Este TODO segue em
 elevar `MIN_FETCH_GAP_S` global) ser aplicada ou decidida — é o que falta
 para reabrir o checkpoint `adiar` do Plano 09-06 com veredito `CABE` na
 mesa.
+
+## Resultado (2026-08-31) — escopo reduzido: só opções foram pro mydata
+
+`B3_OPTIONS_PROVIDER=mydata` virou produção (Fase 14, ADR-023). O Alex
+manteve deliberadamente `B3_CANDLE_PROVIDER=brapi` — o cenário de risco
+medido acima (varredura em lote de ~65-74 tickers contra o mydata, gerando
+o pico de 148/min) não se aplica mais, porque candle NÃO migrou. O tráfego
+real contra o mydata agora é só de opções: por ticker, sob demanda (usuário
+abrindo o card, ou o motor de proposta da Fase 14 avaliando posições
+lastreadas reais), um padrão de volume/rajada bem mais leve que o cenário
+medido em 2026-08-27/28. A mitigação de espaçamento sensível ao provedor
+(`scanner.MIN_FETCH_GAP_S_MYDATA=1.0s`) já existe em código desde
+2026-08-28, mas nunca foi testada sob rajada real de opções.
+
+**Ainda em aberto:** confirmar que o volume real de tráfego de opções não
+esbarra no teto de 60/min·2.000/dia à medida que o uso crescer — não há
+ainda instrumentação/alarme pra isso. Prioridade rebaixada de `high` pra
+`medium`: o risco original (que motivou `high`) era o cenário de candle em
+lote, que não existe mais no caminho ativo.
