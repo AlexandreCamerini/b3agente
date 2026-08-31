@@ -238,3 +238,15 @@ None — nenhuma configuração de serviço externo necessária. A verificação
 ---
 *Phase: 14-opcoes-lastreadas*
 *Completed (Task 1 only): 2026-08-31*
+
+## Self-Check: PASSED
+
+- FOUND: docs/adr/023-opcoes-lastreadas.md
+- FOUND: .planning/phases/14-op-es-lastreadas-venda-coberta-e-put-de-prote-o-sobre-posi-e/14-08-SUMMARY.md
+- FOUND: web/src/version.js com BUILD_ID F10-20260831-01
+- FOUND: server/web_dist (rebuild publicado)
+- FOUND commit 17a542f (ADR-023)
+- FOUND commit ea1713b (fix Rule 1 — /api/sell 400 na trava)
+- FOUND commit 4cec1b3 (registro do achado motivoTexto)
+- FOUND commit 03d8b8d (publicação do front)
+- FOUND commit 172bdec (este SUMMARY)
