@@ -236,8 +236,72 @@ None — nenhuma configuração de serviço externo necessária. A verificação
 - Não commitar/marcar STATE.md, ROADMAP.md ou a fase como concluída até a Task 2 ser aprovada — por instrução explícita do orquestrador.
 
 ---
+
+## Task 2 — Checkpoint humano (executado pelo orquestrador, não por um subagente)
+
+**Resultado: aprovado pelo desenvolvedor (Alex), em 2026-08-31, após duas rodadas de correção ao vivo.**
+
+O roteiro de `how-to-verify` (8 passos) foi apresentado diretamente ao Alex pela sessão
+orquestradora, que rodou o app local (`B3_OPTIONS_PROVIDER=mock bash scripts/executar.sh`)
+e verificou passo a passo. Duas divergências reais foram encontradas e corrigidas antes da
+aprovação final — nenhuma delas estava coberta pelos testes automatizados da Task 1 porque
+ambas dependiam de estado entre requisições (drift de proposta) ou de uma segunda tela
+(Radar) que os testes desta fase não exercitavam.
+
+### Divergência 1 — CTA "Recomprar" some após a primeira operação
+
+- **Sintoma relatado:** "o recomprar só aparece uma vez assim que você faz a primeira operação."
+- **Causa raiz:** `opcoes_lastreadas.propor()` é stateless — recalcula a proposta do zero a
+  cada chamada (contrato "mais próximo do spot" na cadeia atual, `tipo` derivado da leitura
+  técnica atual), sem checar se já existe uma posição lastreada aberta no ativo. Qualquer
+  drift (cotação move o strike mais próximo, veredito técnico muda) troca o
+  `contractSymbol` devolvido, e o front (`posAberta`, casado por `contractSymbol`) para de
+  reconhecer a posição já aberta — sem esse match, o único caminho de fechamento manual
+  (o legado foi deliberadamente bloqueado no plano 14-06) desaparece.
+- **Fix:** nova função pura `opcoes_lastreadas.proposta_fechar()`, sibling de `propor()`
+  (que ficou intocada). A rota `/api/options/proposta/{ticker}` agora checa primeiro se já
+  existe posição lastreada aberta no ativo e, se sim, busca o contrato EXATO dela na cadeia
+  (mesmo padrão que a rota de fechar já usava corretamente) em vez de recalcular do zero.
+  Achado (não corrigido, registrado em `deferred-items.md`): a manchete reaproveitada
+  ("Vender N call(s)...") mantém fraseologia de abertura mesmo no estado "já aberto,
+  feche" — nuance de copy fora do escopo deste bugfix.
+- **Commits:** `869fe07`, `38ffe91`, `2ddd471` (worktree separado, mesclado em `d47a7c9`).
+- **Testes novos:** 8 (6 unitários de `proposta_fechar` + 2 HTTP de estabilidade sob drift).
+
+### Divergência 2 — Radar ("a mesa") quebra com `cp2.propostaVaziaTitulo`/`cp2.badgeTravada`
+
+- **Sintoma relatado:** "a mesa continua sem funcionar" + erro de renderização.
+- **Causa raiz:** `AtivoCard` é compartilhado entre Watchlist e Radar por design (comentário
+  explícito no código: "o mesmo card serve Watchlist e Radar"). O plano 14-06 adicionou
+  `PropostaLastreada` (que precisa de `cp`) ao `AtivoCard`, e atualizou o `vm` da Watchlist
+  (`MercadoScreen`) para incluir `cp` — mas nunca atualizou o `radarVm` do Radar
+  (`RadarScreen`), que ficou sem esse campo. Todo card do Radar quebrava ao tentar ler
+  `cp.propostaVaziaTitulo`/`cp.badgeTravada` de um `cp` undefined.
+- **Fix:** `radarVm` ganhou `cp: ctx.cp` (já disponível em escopo). Nenhuma outra alteração.
+- **Teste-guardião novo:** parser estrutural que garante que os dois pontos de construção de
+  `vm` (Watchlist e Radar) continuam supridos com todo campo que o bloco de opções do
+  `AtivoCard` de fato lê — não uma lista fixa de nomes, para pegar a PRÓXIMA vez que esse
+  padrão de bug se repetir (campo novo esquecido num dos dois `vm`).
+- **Commits:** `ac9e1c6`, `828eb67` (worktree separado, mesclado em `35fa207`).
+- **Republicação necessária** (front foi tocado): `BUILD_ID F10-20260831-01 → F10-20260831-02`,
+  commit `3c1fe4b`.
+
+### Passo 8 (dormência, provedor default) — confirmado explicitamente
+
+Com o backend reiniciado SEM `B3_OPTIONS_PROVIDER` (default `yahoo`), o Alex confirmou que
+nenhuma linha de opções e nenhuma proposta aparecem em nenhum card ("não aparece"). Esse é
+o critério de aceite que impede a fase de aparecer em produção antes da virada do mydata.
+
+### Estado final
+
+Suíte canônica verde no HEAD final (`3c1fe4b`): 1814 passed / 1 skipped (backend) + 110/110
+`web/tests/*.mjs`. `npx vite build` verde. Nada foi enviado a `origin` — todo o trabalho da
+fase (planos 14-01 a 14-08 + os dois bugfixes do checkpoint) segue na branch
+`worktree-cryptic-squishing-frog`, aguardando decisão do Alex sobre merge/push.
+
+---
 *Phase: 14-opcoes-lastreadas*
-*Completed (Task 1 only): 2026-08-31*
+*Completed (Task 1 + Task 2/checkpoint aprovado): 2026-08-31*
 
 ## Self-Check: PASSED
 
