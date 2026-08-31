@@ -148,6 +148,103 @@ def propor(underlying, chain, spot, plano, posicao, cash, modo, hoje):
     return {"proposta": proposta, "motivo": tipo}
 
 
+def proposta_fechar(pos_opcao, chain, modo, hoje):
+    """Proposta de FECHAMENTO de uma posição lastreada JÁ ABERTA — irmã de
+    `propor()` para quando a carteira já tem uma call vendida/put comprada
+    neste `underlying` (bug do checkpoint humano do Plano 08: `propor()` é
+    stateless e pode escolher um contrato DIFERENTE do já aberto a cada
+    chamada — spot mudou, a leitura técnica mudou — e o front casa a
+    proposta com a posição só por `contractSymbol` idêntico
+    (`web/src/App.jsx:3216-3217`), então o CTA "Recomprar/fechar" some
+    depois da primeira operação). Esta função NUNCA re-escolhe contrato: lê
+    o MESMO contrato já aberto (por `id`==`contractSymbol`) na cadeia
+    atual, só para atualizar o prêmio de recompra/venda — `propor()`
+    continua intocado e puro.
+
+    `pos_opcao`: item de `optionPositions` (schema de
+    `store.abrir_call_coberta`/`comprar_put_protecao`) — usa `id`,
+    `underlying`, `strike`, `expiration`, `qty`, `side`, `lastro`.
+    `chain`: já buscada pelo CHAMADOR, keyed ao MESMO `underlying`+
+    `expiration` da posição (mesmo padrão de `options_lastreada_fechar` em
+    `main.py`).
+
+    Devolve `{"proposta": <dict|None>, "motivo": <str>}` no MESMO shape de
+    `propor()` — sucesso tem `motivo` == `tipo`; qualquer ausência
+    (cadeia degradada, contrato sumiu da cadeia, sem prêmio válido) sempre
+    `"degradado"` (CLAUDE.md princípio 4: nunca inventar prêmio, mesmo já
+    sabendo qual é o contrato)."""
+    if not isinstance(chain, dict) or chain.get("providerStatus") != "ok":
+        return {"proposta": None, "motivo": "degradado"}
+    if not isinstance(pos_opcao, dict):
+        return {"proposta": None, "motivo": "degradado"}
+
+    contract_symbol = pos_opcao.get("id")
+    contrato = next(
+        (c for c in [*(chain.get("calls") or []), *(chain.get("puts") or [])]
+         if c.get("contractSymbol") == contract_symbol),
+        None,
+    )
+    if not contrato:
+        return {"proposta": None, "motivo": "degradado"}
+
+    premio = contrato.get("lastPrice")
+    if not isinstance(premio, (int, float)) or premio <= 0:
+        return {"proposta": None, "motivo": "degradado"}
+
+    qty_total = int(pos_opcao.get("qty") or 0)
+    contratos = qty_total // 100
+    if contratos < 1:
+        return {"proposta": None, "motivo": "degradado"}
+
+    # `side` só é gravado como "vendida" (abrir_call_coberta) ou "comprada"
+    # (comprar_put_protecao) — binário seguro por construção do schema
+    # (server/app/store.py), nunca um terceiro valor.
+    underlying = pos_opcao.get("underlying")
+    tipo = "call_coberta" if pos_opcao.get("side") == "vendida" else "put_protecao"
+
+    expiration = pos_opcao.get("expiration") or chain.get("expiration")
+    dias = _dias_ate(expiration, hoje)
+
+    qty_acoes = contratos * 100
+    premio_total = round(premio * qty_acoes, 2)
+    strike = pos_opcao.get("strike")
+    liq = liquidity_score(contrato.get("volume"), contrato.get("openInterest"), contrato.get("bid"), contrato.get("ask"))
+
+    dados = {
+        "n": str(contratos), "ticker": underlying, "strike": skill_ref.num_br(strike),
+        "premioTotal": skill_ref.num_br(premio_total), "qtyAcoes": str(qty_acoes),
+    }
+    manchete = skill_ref.opcoes_lastreadas_txt(modo, tipo, **dados)
+    didatica = skill_ref.opcoes_lastreadas_txt("educacional", tipo, **dados)
+
+    lastro = pos_opcao.get("lastro") or {}
+    qty_livre_val = lastro.get("qty", qty_acoes)
+
+    proposta = {
+        "tipo": tipo,
+        "contractSymbol": contract_symbol,
+        "optionType": contrato.get("optionType"),
+        "strike": strike,
+        "expiration": expiration,
+        "diasParaVencimento": dias,
+        "contratos": contratos,
+        "qtyAcoes": qty_acoes,
+        "premioUnitario": round(premio, 2),
+        "premioTotal": premio_total,
+        "lastro": {"t": underlying, "qtyLivre": qty_livre_val},
+        "liquidez": {"score": liq["score"], "label": _label_liquidez(liq["score"])},
+        "manchete": manchete,
+        "didatica": didatica,
+        "chips": [
+            {"k": "prazo", "v": f"{dias} dias" if dias is not None else "—"},
+            {"k": "strike", "v": f"R$ {skill_ref.num_br(strike)}"},
+            {"k": "prêmio", "v": f"R$ {skill_ref.num_br(premio)}"},
+            {"k": "liquidez", "v": _label_liquidez(liq["score"])},
+        ],
+    }
+    return {"proposta": proposta, "motivo": tipo}
+
+
 def put_sem_lastro(option_positions, positions):
     """IDs das posições de PUT de proteção cujo lastro (ações que protegiam,
     registradas na abertura) excede a posição ATUAL de ações do mesmo ticker

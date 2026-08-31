@@ -187,6 +187,73 @@ def test_abrir_mais_contratos_do_que_o_lastro_permite_devolve_400(cli):
 
 # --------------------------- POST .../lastreada/fechar ------------------------
 
+# ------- GET proposta APÓS abertura: bugfix do checkpoint humano (Plano 08) --
+# `propor()` é stateless e re-escolhia o contrato a cada chamada — spot ou
+# leitura técnica mudando fazia a proposta divergir do contrato JÁ ABERTO, e o
+# front (`posAberta = myOptionPositions.find(p => p.id === proposta.contractSymbol)`,
+# App.jsx:3216-3217) parava de casar a posição, sumindo com o CTA "Recomprar/
+# fechar". Este teste abre uma call coberta e faz a MESMA rota de proposta
+# divergir tecnicamente (snapshot com um setup de alta, que faria `propor()`
+# devolver `sem_setup` do zero) — a rota precisa continuar devolvendo o
+# MESMO `contractSymbol` já aberto, não a leitura fresca.
+
+@pytest.fixture
+def _snapshot_tendencia_alta(monkeypatch):
+    """Plano técnico de ALTA/COMPRAR — se a rota ainda chamasse `propor()`
+    depois de uma posição já aberta, isto faria a proposta divergir para
+    `sem_setup` (decisao COMPRAR não propõe nada, ver `opcoes_lastreadas.
+    propor`). Usado só para PROVAR que a rota não passa mais por `propor()`
+    quando já existe posição lastreada aberta."""
+    async def _fake_get(ticker, period, loader, interval="1d"):
+        return {"setups": {"setups": [{"nome": "rompimento_alta", "ativo": True}]}, "close": 40.0}
+
+    monkeypatch.setattr(technical_snapshot, "get", _fake_get)
+
+
+def test_proposta_apos_abrir_continua_casando_o_mesmo_contrato(cli, _expiracao_fixa, _snapshot_sem_setup):
+    """Reprodução literal do achado do developer: abrir, então pedir a
+    proposta de novo — o `contractSymbol` tem que ser o MESMO da posição
+    aberta, não um novo pick de `propor()`."""
+    uid, headers = _novo_escopo(cli, "10")
+    _seed_posicao(uid, qty=300)
+    _liga_operador(uid)
+    contrato = _contract_symbol(cli, "call")
+    r_abrir = cli.post("/api/options/lastreada/abrir", headers=headers, json={
+        "underlying": "PETR4", "contractSymbol": contrato["contractSymbol"], "contratos": 1,
+    })
+    assert r_abrir.status_code == 200, r_abrir.text
+
+    r_proposta = cli.get("/api/options/proposta/PETR4", headers=headers)
+    assert r_proposta.status_code == 200
+    body = r_proposta.json()
+    assert body["proposta"] is not None, body
+    assert body["proposta"]["contractSymbol"] == contrato["contractSymbol"]
+    assert body["motivo"] == "call_coberta"
+
+
+def test_proposta_apos_abrir_estavel_mesmo_quando_plano_tecnico_divergiria(
+        cli, _expiracao_fixa, _snapshot_tendencia_alta):
+    """Mesmo cenário, mas com o plano técnico mockado para o que faria
+    `propor()` divergir (decisão COMPRAR → `sem_setup`, contrato nenhum) — a
+    proposta de fechamento não deve ser afetada, porque a rota nem chama
+    `propor()`/o pipeline técnico quando já existe posição aberta."""
+    uid, headers = _novo_escopo(cli, "11")
+    _seed_posicao(uid, qty=300)
+    _liga_operador(uid)
+    contrato = _contract_symbol(cli, "call")
+    r_abrir = cli.post("/api/options/lastreada/abrir", headers=headers, json={
+        "underlying": "PETR4", "contractSymbol": contrato["contractSymbol"], "contratos": 1,
+    })
+    assert r_abrir.status_code == 200, r_abrir.text
+
+    r_proposta = cli.get("/api/options/proposta/PETR4", headers=headers)
+    assert r_proposta.status_code == 200
+    body = r_proposta.json()
+    assert body["proposta"] is not None, body
+    assert body["proposta"]["contractSymbol"] == contrato["contractSymbol"]
+    assert body["motivo"] == "call_coberta"  # NÃO "sem_setup" — propor() nem é chamado
+
+
 # --------------------------- POST /api/sell + trava --------------------------
 
 def test_vender_posicao_100_por_cento_travada_via_sell_devolve_400(cli, monkeypatch):
