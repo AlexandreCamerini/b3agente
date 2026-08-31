@@ -258,6 +258,13 @@ function serverStore() {
     optionsBuy: (body) => api.optionsBuy(body),                    // v2 (ADR-003/004)
     optionsSell: (body) => api.optionsSell(body),                  // v2 (ADR-005)
     putOptionPosition: (contractId, b) => api.putOptionPosition(contractId, b),
+    // Fase 14 (opções lastreadas): proposta é dado de mercado, delega direto.
+    // Abrir/fechar mexem em caixa real — chamada DIRETA, nunca sync.mutate/
+    // outbox (mesma decisão de buy/sell/cancelPendingOrder: reaplicar de fila
+    // offline devolveria caixa duas vezes).
+    optionsProposta: (t) => api.optionsProposta(t),
+    optionsAbrirLastreada: (body) => api.optionsAbrirLastreada(body),
+    optionsFecharLastreada: (body) => api.optionsFecharLastreada(body),
     cachedTechnicals: (_t, _period) => null,
     buy: (t, qty, meta) => api.buy(t, qty, meta),  // FASE 2 (2.4): mesma interface do deviceStore
     sell: (t, qty) => api.sell(t, qty),
