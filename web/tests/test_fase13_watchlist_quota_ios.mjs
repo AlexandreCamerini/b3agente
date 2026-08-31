@@ -114,6 +114,16 @@ ok(
   !!putBody && /final\.length\s*>\s*\(doc\.watchlist \|\| \[\]\)\.length/.test(putBody)
 );
 
+// --- 4b) putWatchlist: canGrowWatchlistTo recebe final.length (LOCAL), não quota.count
+// Espelho da asserção 1b — mesma classe de bug (CR-01) é possível aqui: nada
+// impede alguém de trocar `final.length` por `quota.count` neste call site
+// irmão sem que nenhum teste existente perceba (achado do 13-VERIFICATION.md,
+// não-bloqueante mas mesma causa raiz do CR-01 original).
+ok(
+  "putWatchlist: canGrowWatchlistTo(final.length, ...) — nunca canGrowWatchlistTo(quota.count, ...)",
+  !!putBody && /canGrowWatchlistTo\(final\.length,/.test(putBody) && !/canGrowWatchlistTo\(quota\.count,/.test(putBody)
+);
+
 // --- 5) mensagem de indisponibilidade é exata e única -----------------------
 const msgIndisponivel = "Não foi possível confirmar o limite do plano agora. Tente de novo.";
 const ocorrenciasMsg = srcPersistence.split(msgIndisponivel).length - 1;
