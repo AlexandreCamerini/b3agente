@@ -1,10 +1,11 @@
 ---
 phase: 14
 slug: opcoes-lastreadas-venda-coberta-e-put-de-protecao-sobre-posicoes
-status: draft
+status: approved
 shadcn_initialized: false
 preset: none
 created: 2026-08-30
+reviewed_at: 2026-08-30
 ---
 
 # Phase 14 — UI Design Contract
@@ -216,11 +217,11 @@ mapping explicit.
 
 ## Checker Sign-Off
 
-- [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS
-- [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
-- [ ] Dimension 6 Registry Safety: PASS
+- [x] Dimension 1 Copywriting: PASS
+- [x] Dimension 2 Visuals: PASS
+- [x] Dimension 3 Color: PASS
+- [x] Dimension 4 Typography: PASS
+- [x] Dimension 5 Spacing: PASS
+- [x] Dimension 6 Registry Safety: PASS
 
-**Approval:** pending
+**Approval:** approved 2026-08-30 by gsd-ui-checker — see checker return for per-dimension notes (CONTEXT.md cross-check: no contradictions found; non-blocking recommendation on formal exception-sign-off phrasing for legacy typography/spacing values, not required).
