@@ -178,6 +178,16 @@ export const COPY = {
     // (guardião test_copy_theme.mjs testa substring, não palavra inteira).
     badgeTravada: (qty) => `${qty} travada(s) · lastro da call coberta`,
     avisoTravaNaVenda: (qty) => `${qty} ação(ões) está(ão) travada(s) como lastro de uma call coberta — volta(m) a ficar disponível(is) quando a call for recomprada ou vencer.`,
+
+    // Fase 14 (Plano 07, T-14-27/T-14-28): liquidação forçada por vencimento
+    // (estado do sistema, texto verbatim do UI-SPEC) e ressalva de marcação
+    // do patrimônio com pernas lastreadas — mesmo texto nos dois modos
+    // (system notice, não voz de professor/mesa; mesmo padrão de
+    // verCadeiaCompleta/propostaIndisponivelDegradada acima).
+    avisoLiquidacaoForcada: (ticker, valor) => valor === 0
+      ? `Esta call de ${ticker} venceu fora do dinheiro — expirou sem valor, o prêmio integral ficou com quem estava do outro lado da operação, e o lastro foi liberado.`
+      : `Esta call de ${ticker} venceu dentro do dinheiro e não foi fechada a tempo — liquidada em dinheiro pelo valor intrínseco (R$ ${valor}). Sua posição em ações não foi alterada.`,
+    linhaPatrimonioOpcoes: "opções lastreadas (marcadas pelo prêmio de abertura — sem cotação ao vivo)",
   },
 
   operador: {
@@ -319,6 +329,13 @@ export const COPY = {
     // Registro de mesa — vocabulário de ordem liberado aqui.
     badgeTravada: (qty) => `${qty} travada(s) · lastro de CALL`,
     avisoTravaNaVenda: (qty) => `${qty} ação(ões) travada(s) como lastro da call coberta — liberam quando você recomprar a call ou ela vencer.`,
+
+    // Fase 14 (Plano 07): mesma chave do ramo estudo (ver comentário acima) —
+    // texto idêntico, system notice sem voz de modo.
+    avisoLiquidacaoForcada: (ticker, valor) => valor === 0
+      ? `Esta call de ${ticker} venceu fora do dinheiro — expirou sem valor, o prêmio integral ficou com quem estava do outro lado da operação, e o lastro foi liberado.`
+      : `Esta call de ${ticker} venceu dentro do dinheiro e não foi fechada a tempo — liquidada em dinheiro pelo valor intrínseco (R$ ${valor}). Sua posição em ações não foi alterada.`,
+    linhaPatrimonioOpcoes: "perna de opções (prêmio de abertura — sem cotação ao vivo)",
   },
 };
 

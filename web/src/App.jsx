@@ -1033,6 +1033,31 @@ function TravaPill({ qty, cp }) {
   return <span style={{ padding: "3px 9px", borderRadius: "999px", background: T.negativeTint10, color: T.negative, fontSize: "10.5px", fontWeight: 800, whiteSpace: "nowrap" }}>{cp.badgeTravada(qty)}</span>;
 }
 
+// Fase 14 (Plano 07, T-14-27): liquidação forçada por vencimento — estado do
+// SISTEMA, não ação do usuário (motivo="vencimento", origem="sistema",
+// gravado em server/app/store.py:fechar_call_coberta_vencida). Busca só nas
+// ÚLTIMAS entradas do histórico (não o array inteiro) — evento antigo não
+// deve virar um aviso permanente na tela.
+function eventoLiquidacaoRecente(history, ticker) {
+  const recentes = (history || []).slice(0, 30);
+  return recentes.find((h) => h && h.kind === "opcao" && h.motivo === "vencimento" && h.origem === "sistema" && h.acao === "fechar" && h.underlying === ticker) || null;
+}
+
+// Estado, não ação: sem botão, sem link (UI-SPEC). Cor T.negative só no
+// ícone/borda — o texto fica em T.textSecondary (CLAUDE.md: resultado sem
+// manipulação visual, nunca dramatizado com vermelho no texto inteiro).
+function AvisoLiquidacao({ evento, cp }) {
+  if (!evento) return null;
+  const valor = evento.price === 0 ? 0 : price(evento.price);
+  const texto = cp.avisoLiquidacaoForcada(evento.underlying, valor);
+  return (
+    <div style={{ marginTop: "10px", padding: "10px 11px", borderRadius: "9px", background: T.bgBase, border: `1px solid ${T.negative}`, display: "flex", gap: "7px", alignItems: "flex-start" }}>
+      <span aria-hidden style={{ color: T.negative, fontSize: "13px", lineHeight: 1 }}>⚠</span>
+      <span style={{ fontSize: "11.5px", color: T.textSecondary, lineHeight: 1.5 }}>{texto}</span>
+    </div>
+  );
+}
+
 // FASE 3 (Portfólio): compras que formaram a POSIÇÃO ATUAL — reinicia a lista
 // quando a quantidade zera (posição encerrada) e ignora vendas parciais.
 function comprasDaPosicao(history, t) {
@@ -1645,7 +1670,7 @@ function CapitalCurve({ ctx }) {
   const P = usePalette();
   const gid = useMemo(() => "capArea" + Math.random().toString(36).slice(2, 8), []);
   const { data, quotes } = ctx;
-  const m = portfolioMetrics(data.positions, quotes, data.cash, data.caixaReservado || 0);
+  const m = portfolioMetrics(data.positions, quotes, data.cash, data.caixaReservado || 0, data.optionPositions);
   const patr = m.patr;
   const budget = (data.config && data.config.initialBudget) || 0;
   const todayYmd = new Date().toISOString().slice(0, 10);
@@ -1807,7 +1832,7 @@ function EvolucaoScreen({ ctx }) {
     A.refreshWlScan();
     if (destaque.stage === "idle") A.loadDestaque(); // 1× por sessão — evita re-varrer o universo a cada visita
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  const m = portfolioMetrics(data.positions, quotes, data.cash, data.caixaReservado || 0);
+  const m = portfolioMetrics(data.positions, quotes, data.cash, data.caixaReservado || 0, data.optionPositions);
   const diaPct = dayReturnPct(m.patr, m.dayVal);
   const ec = equityCurve(data.equitySnapshots, (data.config || {}).initialBudget, m.patr, new Date().toISOString().slice(0, 10));
   const hoje = (() => { const d = new Date(); const p2 = (n) => String(n).padStart(2, "0"); return `${p2(d.getDate())}/${p2(d.getMonth() + 1)}/${d.getFullYear()}`; })();
@@ -3789,7 +3814,7 @@ function CarteiraScreen({ ctx }) {
   const { data, quotes, analysis, A, goMercado, cp } = ctx;   // FASE 8B (B1)
   useEffect(() => { track("portfolio_view"); }, []);   // qa/47 (Fase 2)
   const byQ = (t) => quotes[t] || {};
-  const m = portfolioMetrics(data.positions, quotes, data.cash, data.caixaReservado || 0);
+  const m = portfolioMetrics(data.positions, quotes, data.cash, data.caixaReservado || 0, data.optionPositions);
   const positionsValue = m.posVal;
   const total = m.patr;
   const cost = m.cost;
@@ -3819,6 +3844,17 @@ function CarteiraScreen({ ctx }) {
         {kpi("CAIXA DISPONÍVEL", money(data.cash), T.textMuted)}
         {kpi("EM POSIÇÕES", money(positionsValue), T.textMuted)}
       </div>
+
+      {/* Fase 14 (Plano 07, T-14-28): perna lastreada dentro do patrimônio —
+          marcação pelo prêmio de abertura é DITA, nunca apresentada como se
+          fosse cotação ao vivo (CLAUDE.md princípio 3). Só aparece quando
+          existe ao menos uma posição de opção lastreada. */}
+      {(data.optionPositions || []).some((p) => p && p.lastro) && (
+        <div style={{ margin: "-6px 0 18px", fontSize: "11px", color: T.textMuted, display: "flex", alignItems: "center", gap: "6px" }}>
+          <span>{cp.linhaPatrimonioOpcoes}</span>
+          <b style={{ fontFamily: MONO, color: T.textSecondary }}>{moneySigned(m.opcoesVal)}</b>
+        </div>
+      )}
 
       {(() => {
         const conc = concentracaoMaxima(data.positions, quotes, total);
@@ -3870,6 +3906,7 @@ function CarteiraScreen({ ctx }) {
                   <div style={{ fontSize: "12px", color }}>{pct(pnlPct)}</div>
                 </div>
               </div>
+              <AvisoLiquidacao evento={eventoLiquidacaoRecente(data.history, p.t)} cp={cp} />
               {/* FASE 3 (mock v2): a régua POSIÇÃO NO RISCO substitui as 4 células —
                   onde o preço está entre stop e alvo, à primeira vista. */}
               <PlanRuler
@@ -8096,7 +8133,7 @@ export default function App() {
     if (positions.length > 0 && !temCotacoes) return; // espera as cotações
     snapRanRef.current = true;
     const ymd = new Date().toISOString().slice(0, 10);
-    const m = portfolioMetrics(positions, quotes, data.cash, data.caixaReservado || 0);
+    const m = portfolioMetrics(positions, quotes, data.cash, data.caixaReservado || 0, data.optionPositions);
     store.putSnapshot({ data: ymd, patrimonio: m.patr, caixa: m.cash, posicoesValor: m.posVal })
       .then((s) => s && setData(s))
       .catch(() => { /* offline-first: silencioso */ });
@@ -8269,7 +8306,7 @@ export default function App() {
   // chips do topo
   const { patr, dia } = useMemo(() => {
     if (!data) return { patr: null, dia: 0 };
-    const m = portfolioMetrics(data.positions, quotes, data.cash, data.caixaReservado || 0);
+    const m = portfolioMetrics(data.positions, quotes, data.cash, data.caixaReservado || 0, data.optionPositions);
     return { patr: m.patr, dia: m.dayVal };
   }, [data, quotes]);
 
@@ -8292,7 +8329,7 @@ export default function App() {
     if (!data) return {};
     switch (petTela) {
       case "carteira": {
-        const m = portfolioMetrics(data.positions, quotes, data.cash, data.caixaReservado || 0);
+        const m = portfolioMetrics(data.positions, quotes, data.cash, data.caixaReservado || 0, data.optionPositions);
         return {
           posicoes: (data.positions || []).map((p) => ({ ticker: p.t, qty: p.qty, precoMedio: p.avg, stop: p.stop, alvo: p.alvo })),
           caixa: data.cash,
@@ -8302,7 +8339,7 @@ export default function App() {
         };
       }
       case "evolucao": {
-        const m = portfolioMetrics(data.positions, quotes, data.cash, data.caixaReservado || 0);
+        const m = portfolioMetrics(data.positions, quotes, data.cash, data.caixaReservado || 0, data.optionPositions);
         const diaPct = dayReturnPct(m.patr, m.dayVal);
         const hoje = new Date().toISOString().slice(0, 10);
         const ec = equityCurve(data.equitySnapshots, (data.config || {}).initialBudget, m.patr, hoje);
