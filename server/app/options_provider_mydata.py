@@ -144,12 +144,20 @@ def _gate(n: int = 2) -> Optional[str]:
     return None
 
 
-def _debita(n: int = 1) -> None:
+def _debita(n: int = 1) -> bool:
     """Debita `n` imediatamente antes de CADA requisição de rede — mesma
     posição que `candle_provider._debita` ocupa (nunca depois da chamada).
     Existe com este nome/forma só para dar um ponto único de monkeypatch em
-    teste, espelhando `candle_provider`."""
-    mydata_budget.debita(n)
+    teste, espelhando `candle_provider`.
+
+    WR-01 (09-REVIEW.md, fechado nesta correção): usa `mydata_budget.
+    reservar()` — check+debit ATÔMICO — em vez de `debita()` sozinho. `_gate`
+    acima é só um pré-filtro otimista (sem lock, pode ficar desatualizado
+    entre threads concorrentes); este é o ponto de COMMIT de verdade, e
+    devolve `False` sem debitar quando outra thread já gastou a cota entre
+    o pré-filtro e agora — o chamador trata como `sem cota`, nunca prossegue
+    pra rede quando `False`."""
+    return mydata_budget.reservar(n)
 
 
 async def get_options(ticker: str, expiration: Optional[str] = None) -> dict:
@@ -171,7 +179,13 @@ async def get_options(ticker: str, expiration: Optional[str] = None) -> dict:
             error="sem cota mydata (60/min · 2.000/dia)")
 
     try:
-        _debita()
+        if not _debita():
+            # WR-01: pré-filtro _gate(2) passou, mas outra thread esgotou a
+            # cota entre o pré-filtro e este commit — degrada aqui, nunca
+            # toca a rede sem cota reservada de verdade.
+            return _empty_payload(
+                ticker, expiration, MYDATA_ORCAMENTO_WARNING,
+                error="sem cota mydata (60/min · 2.000/dia)")
         venc = await mydata_client.get_vencimentos(t)
         if not venc:
             payload = _empty_payload(
@@ -199,7 +213,13 @@ async def get_options(ticker: str, expiration: Optional[str] = None) -> dict:
             nao_vence_hoje = [v for v in venc if not v.get("vence_no_pregao")]
             escolhido = (nao_vence_hoje[0] if nao_vence_hoje else venc[0]).get("dt_vencimento")
 
-        _debita()
+        if not _debita():
+            # WR-01: mesma degradação do primeiro ponto de commit — a
+            # requisição de vencimentos já saiu, mas a segunda perna não tem
+            # cota reservada de verdade.
+            return _empty_payload(
+                ticker, expiration, MYDATA_ORCAMENTO_WARNING,
+                error="sem cota mydata (60/min · 2.000/dia)")
         linhas = await mydata_client.get_options_chain(t, vencimento=escolhido)
 
         spot = None

@@ -2,6 +2,8 @@
 title: Decidir WR-01 — race condition em mydata_budget
 priority: high
 date: 2026-08-30
+resolved: 2026-08-31
+resolution: "Alex escolheu 'Lock'. Implementado: MYDATA_BUDGET_LOCK (threading.RLock) protege pode_gastar()/debita() em server/app/mydata_budget.py, mesmo padrão de store.ORDER_LOCK/WATCHLIST_LOCK. Nova função reservar(n) faz check+debit atômico; options_provider_mydata._debita() foi migrada pra usar reservar() nos dois pontos de commit real (fecha o TOCTOU, não só a corrupção do contador). candle_provider.py manteve pode_gastar()/debita() como estavam (agora internamente protegidos pelo lock) sem reestruturar a cadeia de fallback multi-provedor — risco/benefício não justificou mexer numa lógica mais arriscada e mais testada pra uma corrida que hoje não tem tráfego real (mydata não está em produção). Testes novos: test_debitos_concorrentes_nao_perdem_incremento e test_reservar_sob_corrida_nunca_ultrapassa_a_cota_e_nunca_debita_em_false (test_mydata_budget.py), 3 asserções de test_options_provider_mydata.py atualizadas pro novo padrão de reavaliação atômica. Suíte canônica verde (1816 passed/1 skipped + todos os web/tests)."
 ---
 
 # Decidir WR-01 — race condition em mydata_budget

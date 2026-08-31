@@ -363,6 +363,11 @@ def test_recusa_por_cota_nao_e_cacheada(monkeypatch):
 
 
 def test_caminho_feliz_debita_duas_vezes(monkeypatch):
+    """WR-01 (09-REVIEW.md, fechado): `_debita()` agora chama `mydata_budget.
+    reservar()`, que REAVALIA `pode_gastar()` sob a mesma trava antes de cada
+    debit real — check+debit atômico, não só o pré-filtro de `_gate(2)`.
+    `pode_gastar` é chamado 3x (pré-filtro com n=2, depois n=1 duas vezes nos
+    dois pontos de commit), não mais 1x."""
     _patch(monkeypatch)
     debitos = []
     consultas_n = []
@@ -378,7 +383,7 @@ def test_caminho_feliz_debita_duas_vezes(monkeypatch):
 
     assert data["providerStatus"] == "ok"
     assert debitos == [1, 1]
-    assert consultas_n == [2]
+    assert consultas_n == [2, 1, 1]
 
 
 def test_vencimento_inexistente_debita_uma_vez(monkeypatch):
@@ -394,6 +399,11 @@ def test_vencimento_inexistente_debita_uma_vez(monkeypatch):
 
 
 def test_cache_quente_nao_consulta_orcamento(monkeypatch):
+    """WR-01 (09-REVIEW.md, fechado): a PRIMEIRA chamada (cache frio) agora
+    consulta `pode_gastar` 3x — pré-filtro `_gate(2)` mais a reavaliação
+    atômica de `reservar()` em cada um dos dois pontos de commit — não mais
+    1x. A SEGUNDA chamada (cache quente) continua sem consultar nada, que é
+    o que este teste protege."""
     _patch(monkeypatch)
     consultas = []
     debitos = []
@@ -403,7 +413,7 @@ def test_cache_quente_nao_consulta_orcamento(monkeypatch):
     asyncio.run(provider.get_options("PETR4"))
     asyncio.run(provider.get_options("PETR4"))
 
-    assert consultas == [2]
+    assert consultas == [2, 1, 1]
     assert debitos == [1, 1]
 
 

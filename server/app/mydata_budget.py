@@ -23,8 +23,19 @@ do dia persistido no `kv`) com três diferenças deliberadas:
 import asyncio
 import json
 import os
+import threading
 from datetime import datetime, timedelta, timezone
 from typing import Optional
+
+# WR-01 (09-REVIEW.md): trava dedicada para o read-modify-write de `_estado`/
+# `_minuto` — sem ela, `pode_gastar()` e `debita()` chamados por threads
+# concorrentes (candle_provider, options_provider_mydata, scheduler do
+# agente) podem intercalar leitura/escrita e corromper o contador (mesma
+# classe de bug que `store.ORDER_LOCK`/`WATCHLIST_LOCK` fecham para
+# cash/positions/watchlist). `reservar()` (abaixo) usa a MESMA trava para
+# tornar check+debit atômico onde o chamador consegue — RLock porque
+# `reservar()` chama `pode_gastar()`/`debita()` por dentro da própria trava.
+MYDATA_BUDGET_LOCK = threading.RLock()
 
 BRT = timezone(timedelta(hours=-3))
 QUOTA_MIN_DEFAULT = 60
@@ -122,19 +133,37 @@ def _carrega_minuto(chave: str) -> None:
 # -- API ----------------------------------------------------------------------
 def pode_gastar(n: int = 1, now: Optional[datetime] = None) -> bool:
     """True se há vaga nas duas janelas (dia e minuto) para gastar `n` agora."""
-    _carrega(_hoje(now))
-    if _estado["gasto"] + n > _teto_util_dia():
-        return False
-    _carrega_minuto(_chave_minuto(now))
-    return _minuto["gasto"] + n <= _teto_util_min()
+    with MYDATA_BUDGET_LOCK:
+        _carrega(_hoje(now))
+        if _estado["gasto"] + n > _teto_util_dia():
+            return False
+        _carrega_minuto(_chave_minuto(now))
+        return _minuto["gasto"] + n <= _teto_util_min()
 
 
 def debita(n: int = 1, now: Optional[datetime] = None) -> None:
-    _carrega(_hoje(now))
-    _estado["gasto"] += n
-    _persiste()
-    _carrega_minuto(_chave_minuto(now))
-    _minuto["gasto"] += n
+    with MYDATA_BUDGET_LOCK:
+        _carrega(_hoje(now))
+        _estado["gasto"] += n
+        _persiste()
+        _carrega_minuto(_chave_minuto(now))
+        _minuto["gasto"] += n
+
+
+def reservar(n: int = 1, now: Optional[datetime] = None) -> bool:
+    """WR-01: check+debit ATÔMICO — fecha a corrida que `pode_gastar()` +
+    `debita()` chamados separadamente deixava aberta (duas threads podem ver
+    `pode_gastar()` = True antes de qualquer uma debitar). Sob a MESMA
+    trava (RLock, reentrante), reavalia `pode_gastar(n)` e só debita se
+    ainda houver vaga — nunca debita quando devolve False. Chamador deve
+    tratar `False` exatamente como já trata `pode_gastar()` = False (mesma
+    mensagem/estado degradado), pois o resultado pode divergir do check
+    otimista feito antes (ex.: `_gate()` de pré-filtro que não debita)."""
+    with MYDATA_BUDGET_LOCK:
+        if not pode_gastar(n, now=now):
+            return False
+        debita(n, now=now)
+        return True
 
 
 def degradado(now: Optional[datetime] = None) -> bool:

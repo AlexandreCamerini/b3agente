@@ -2,6 +2,8 @@
 title: 3 achados de robustez do code review da Fase 12 (gate de watchlist)
 date: 2026-08-29
 priority: medium
+resolved: 2026-08-31
+resolution: "Os 3 achados (WR-01 lock, WR-02 hook explícito can_grow_watchlist_to, WR-03 validação de tipo) já estão corrigidos em server/app/main.py — confirmado lendo o código atual (store.WATCHLIST_LOCK nos dois endpoints, HTTPException(400) pra tickers não-lista, can_grow_watchlist_to substituindo o valor sintético). O arquivo do todo ficou desatualizado porque a correção aconteceu em commits atômicos antes do fechamento do v1.3, sem mover este registro."
 ---
 
 # Cap de watchlist: 3 achados WR do code review (12-REVIEW.md, commit 265f98b)
