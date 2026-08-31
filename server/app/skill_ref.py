@@ -478,3 +478,79 @@ DIDATICA = "\n".join([
     "de qualidade do negócio: explique o que o score diz e por que não muda o timing.",
     "Termo técnico vem depois da ideia em linguagem simples, uma vez cada.",
 ])
+
+
+def num_br(valor) -> str:
+    """Formata número no padrão pt-BR (vírgula decimal, ponto de milhar) SEM
+    depender de `locale` do sistema — o container do Railway não tem pt_BR
+    instalado, e `locale.setlocale` não é portável entre ambientes de deploy.
+    Todo número interpolado nas frases de `OPCOES_LASTREADAS` passa por aqui —
+    fonte única de formatação monetária desta fase, mesmo padrão de "backend
+    calcula, front recebe pronto" já vigente no resto do módulo."""
+    try:
+        v = float(valor)
+    except (TypeError, ValueError):
+        return "0,00"
+    neg = v < 0
+    v = abs(v)
+    inteiro, frac = f"{v:,.2f}".split(".")
+    inteiro = inteiro.replace(",", ".")
+    out = f"{inteiro},{frac}"
+    return ("-" + out) if neg else out
+
+
+# --- Vocabulário das operações lastreadas por modo (Fase 14, Plano 03) ------
+# ÚNICO lugar onde a frase da proposta de venda coberta/put de proteção nasce
+# — o front nunca compõe manchete de proposta (mesma regra já vigente para
+# TIMING/HISTORICO acima; guardrail CVM: a IA explica, nunca substitui a
+# manchete do motor determinístico).
+#
+# Registro por modo: `operador` fala como mesa (verbo de ordem, primeira
+# pessoa da mesa); `educacional` descreve CONDIÇÃO no condicional ("se você
+# tivesse..."), nunca ordem — mesma distinção de `vocab`/`TIMING` acima.
+# `sem_lastro`/`sem_setup`/`degradado`/`caixa_insuficiente`/`liquidacao_
+# forcada` são texto FACTUAL, idêntico nos dois modos (mesmo padrão de
+# `HISTORICO["insuficiente"]`/`ENTRADA_AUTO["contraste"]`: fato não muda de
+# registro, só decisão/oferta muda).
+OPCOES_LASTREADAS = {
+    "operador": {
+        "call_coberta": "Vender {n} call(s) de {ticker} strike {strike} por R$ {premioTotal}.",
+        "put_protecao": "Comprar {n} put(s) de {ticker} strike {strike} por R$ {premioTotal}.",
+        "sem_lastro": "Sem posição em {ticker} na carteira — venda coberta e put de proteção exigem uma posição real do ativo-lastro.",
+        "sem_setup": "A leitura técnica de {ticker} não indica venda coberta nem put de proteção agora. A cadeia completa continua disponível abaixo.",
+        "degradado": "Proposta indisponível — cotação de opções degradada.",
+        "caixa_insuficiente": "Caixa insuficiente para o prêmio desta put de proteção.",
+        "liquidacao_forcada": "Esta call de {ticker} venceu dentro do dinheiro e não foi fechada a tempo — liquidada em dinheiro pelo valor intrínseco (R$ {valor}). Sua posição em ações não foi alterada.",
+    },
+    "educacional": {
+        "call_coberta": "Se você tivesse vendido esta call coberta agora, receberia um prêmio de R$ {premioTotal} e travaria {qtyAcoes} ação(ões) até a recompra ou o vencimento.",
+        "put_protecao": "Se você tivesse comprado esta put de proteção agora, pagaria R$ {premioTotal} para proteger {qtyAcoes} ação(ões) contra queda abaixo de R$ {strike}.",
+        "sem_lastro": "Sem posição em {ticker} na carteira — venda coberta e put de proteção exigem uma posição real do ativo-lastro.",
+        "sem_setup": "A leitura técnica de {ticker} não indica venda coberta nem put de proteção agora. A cadeia completa continua disponível abaixo.",
+        "degradado": "Proposta indisponível — cotação de opções degradada.",
+        "caixa_insuficiente": "Caixa insuficiente para o prêmio desta put de proteção.",
+        "liquidacao_forcada": "Esta call de {ticker} venceu dentro do dinheiro e não foi fechada a tempo — liquidada em dinheiro pelo valor intrínseco (R$ {valor}). Sua posição em ações não foi alterada.",
+    },
+}
+
+# `opcoes_lastreadas.propor` (Task 2) tem 3 motivos de ausência distintos que
+# compartilham a MESMA leitura factual ("a leitura técnica não pede a
+# operação agora") — `tendencia_de_alta` é sinônimo aceito mas não emitido
+# hoje pelo motor (mantido pela paridade nomeada no 14-UI-SPEC.md). Alias
+# aqui, não 3 entradas idênticas no dict acima — uma fonte de texto, várias
+# chaves de motivo apontando pra ela.
+_OPCOES_LASTREADAS_ALIASES_SEM_SETUP = ("tendencia_de_alta", "sem_contrato_liquido", "sem_vencimento_elegivel")
+
+
+def opcoes_lastreadas_txt(modo: str, chave: str, **dados) -> str:
+    """Frase canônica de uma operação lastreada (ou do motivo de ausência),
+    no vocabulário do modo. Modo desconhecido cai em `educacional` (mesma
+    degradação definida de `timing_txt`/`historico_txt`). Interpolação por
+    `str.replace` de marcadores `{...}` — todo valor numérico chega já
+    formatado por `num_br()` (chamador, não aqui)."""
+    d = OPCOES_LASTREADAS.get(modo if modo in OPCOES_LASTREADAS else "educacional", OPCOES_LASTREADAS["educacional"])
+    chave_canonica = "sem_setup" if chave in _OPCOES_LASTREADAS_ALIASES_SEM_SETUP else chave
+    frase = d.get(chave_canonica) or d["sem_setup"]
+    for k, v in dados.items():
+        frase = frase.replace("{" + str(k) + "}", str(v))
+    return frase
