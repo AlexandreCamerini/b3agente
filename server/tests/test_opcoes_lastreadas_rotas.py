@@ -18,7 +18,7 @@ import uuid
 import pytest
 from fastapi.testclient import TestClient
 
-from app import options_provider_mock, store, technical_snapshot
+from app import options_provider_mock, pregao, store, technical_snapshot
 from app.main import app, _conn
 
 
@@ -186,6 +186,36 @@ def test_abrir_mais_contratos_do_que_o_lastro_permite_devolve_400(cli):
 
 
 # --------------------------- POST .../lastreada/fechar ------------------------
+
+# --------------------------- POST /api/sell + trava --------------------------
+
+def test_vender_posicao_100_por_cento_travada_via_sell_devolve_400(cli, monkeypatch):
+    """Achado da verificação ponta a ponta do 14-08 (Rule 1): `store.sell`
+    já recusava e gravava a rejeição no histórico quando `qty_livre(pos) <= 0`
+    (test_lastro_trava.py cobre a camada de motor), mas a ROTA `/api/sell` não
+    checava o retorno `None` e devolvia 200 silencioso — sem o 400 explícito
+    que toda outra rejeição desta mesma rota (sem posição, quantidade
+    inválida) já usa. Este teste trava o contrato HTTP que faltava."""
+    monkeypatch.setattr(pregao, "in_market_hours", lambda now=None: True)
+    uid, headers = _novo_escopo(cli, "09")
+    _seed_posicao(uid, qty=100)  # exatamente 1 contrato de lastro, sem sobra
+    _liga_operador(uid)
+    contrato = _contract_symbol(cli, "call")
+    r_abrir = cli.post("/api/options/lastreada/abrir", headers=headers, json={
+        "underlying": "PETR4", "contractSymbol": contrato["contractSymbol"], "contratos": 1,
+    })
+    assert r_abrir.status_code == 200, r_abrir.text
+    assert r_abrir.json()["positions"][0]["qtyTravada"] == 100  # 100% travado
+
+    caixa_antes = store.get(_conn, "cash", user_id=uid)
+    r_vender = cli.post("/api/sell", headers=headers, json={"t": "PETR4"})
+    assert r_vender.status_code == 400
+    assert "travadas" in r_vender.json()["detail"]
+    # posição intocada pela tentativa recusada — nem caixa nem qtyTravada mudam
+    assert store.get(_conn, "cash", user_id=uid) == caixa_antes
+    pos_petr4 = next(p for p in store.get(_conn, "positions", user_id=uid) if p["t"] == "PETR4")
+    assert pos_petr4["qtyTravada"] == 100
+
 
 def test_fechar_devolve_caixa_e_destrava(cli):
     uid, headers = _novo_escopo(cli, "08")
