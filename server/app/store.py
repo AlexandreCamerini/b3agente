@@ -1106,6 +1106,90 @@ def comprar_put_protecao(conn, contract: dict, contratos: int, price: float, use
         db.kv_set(conn, "history", history, user_id=user_id)
 
 
+def liquidar_lastreada_vencida(conn, contract_id: str, spot: float, user_id=None):
+    """Vencimento de uma posição LASTREADA (Fase 14, Plano 04) — a regra
+    ÚNICA para o que acontece quando a CALL coberta chega ao vencimento sem
+    ter sido fechada à mão (D-2 de `.planning/notes/opcoes-mecanica-
+    lastreada-decisoes.md`: o produto assume que ela é sempre recomprada
+    antes; isto é o que cobre a exceção). NENHUM caminho do sistema simula
+    exercício/atribuição — a posição de AÇÕES nunca é tocada aqui, só o
+    caixa e a trava de `qtyTravada`.
+
+    Despacho por `pos["side"]`:
+      - "vendida" (CALL coberta vendida por `abrir_call_coberta`): RECOMPRA
+        sintética ao valor intrínseco. `intrinseco = max(0.0, spot - strike)`
+        — a MESMA aritmética de `agent.intrinseco_opcao` para call.
+        `store.py` não pode importar `agent.py` (a dependência já corre no
+        sentido inverso — `agent` importa `store` — importar de volta criaria
+        ciclo), então a fórmula é copiada aqui verbatim em vez de referenciada;
+        qualquer mudança em uma exige a mesma mudança na outra, e os testes
+        dos dois lados (`test_agent_options.py` + `test_opcoes_lastreadas_
+        vencimento.py`) travam se divergirem. Debita `qty*intrinseco` do
+        caixa, realiza `pnl=round((avg-intrinseco)*qty, 2)` — MESMO caminho
+        de código nos dois desfechos, sem ramo especial: fora do dinheiro
+        `intrinseco` é `0.0`, débito zero, `pnl == avg*qty` (prêmio integral
+        fica com quem vendeu). Destrava `qtyTravada` da posição de ações do
+        lastro (piso 0) e remove a posição de opção; a posição de AÇÕES em
+        si nunca é escrita — nenhuma venda pelo strike, nenhuma entrega.
+      - "comprada" (PUT de proteção vencida, aberta por
+        `comprar_put_protecao`): despacha para `close_option_vencida` já
+        existente — credita o intrínseco (`max(0.0, strike-spot)`, MESMA
+        aritmética de `agent.intrinseco_opcao` para put), que pode ser zero
+        (perda total do prêmio — o resultado comum, não uma exceção). Nada a
+        destravar: a put nunca travou lastro nenhum (D-3 só se aplica à
+        call).
+
+    Posição SEM `lastro` (modelo antigo, `buy_option`/`sell_option`) não é
+    aceita aqui — levanta `ValueError`; o caminho legado continua sendo
+    `close_option_vencida` chamado diretamente pelo agente para essas
+    posições (`_avaliar_opcoes`, ramo sem `lastro`).
+
+    Histórico grava `motivo="vencimento"` e `origem="sistema"` no ramo
+    "vendida" — MESMA regra que já vale para `close_option_vencida` acima
+    (ADR-012, Fase 3): expiração é liquidação mecânica obrigatória, roda
+    IGUAL com o Operador ligado ou desligado, não é uma decisão do agente.
+
+    Leitura+validação+escrita dentro de UMA aquisição de `ORDER_LOCK`, mesmo
+    padrão de `abrir_call_coberta`/`fechar_call_coberta` (T-14-06); `RLock`
+    é reentrante, então o despacho para `close_option_vencida` (que chama
+    `sell_option`, sem trava própria) não deadlockeia."""
+    with ORDER_LOCK:
+        opts = get(conn, "optionPositions", user_id=user_id)
+        pos = next((p for p in opts if p["id"] == contract_id), None)
+        if not pos or not isinstance(pos.get("lastro"), dict):
+            raise ValueError(f"Posição {contract_id} não é uma operação lastreada (sem `lastro`).")
+
+        strike = pos.get("strike") or 0.0
+        if pos.get("side") == "comprada":
+            # PUT de proteção: aritmética idêntica ao caminho legado — nada a
+            # destravar, a put nunca prendeu ações.
+            intrinseco = max(0.0, float(strike) - float(spot))
+            return close_option_vencida(conn, contract_id, intrinseco, user_id=user_id)
+
+        # side == "vendida": CALL coberta.
+        intrinseco = max(0.0, float(spot) - float(strike))
+        qty = pos["qty"]
+        pnl = round((pos["avg"] - intrinseco) * qty, 2)
+        cash = get(conn, "cash", user_id=user_id)
+        cash = round(cash - qty * intrinseco, 2)
+        history = get(conn, "history", user_id=user_id)
+        lastro_t = (pos.get("lastro") or {}).get("t")
+        positions = get(conn, "positions", user_id=user_id)
+        pos_acao = next((p for p in positions if p["t"] == lastro_t), None)
+        if pos_acao:
+            pos_acao["qtyTravada"] = max(0, int(pos_acao.get("qtyTravada") or 0) - qty)
+        opts = [p for p in opts if p["id"] != contract_id]
+        history.insert(0, {"date": now_str(), "type": "COMPRA", "kind": "opcao", "acao": "fechar",
+                            "t": contract_id, "underlying": pos.get("underlying"), "qty": qty,
+                            "price": round(intrinseco, 2), "pnl": pnl, "motivo": "vencimento",
+                            "origem": "sistema"})
+        db.kv_set(conn, "optionPositions", opts, user_id=user_id)
+        db.kv_set(conn, "positions", positions, user_id=user_id)
+        db.kv_set(conn, "cash", cash, user_id=user_id)
+        db.kv_set(conn, "history", history, user_id=user_id)
+        return pnl
+
+
 def push_events(conn, events: list, cap: int = 50, user_id=None) -> dict:
     ag = get(conn, "agent", user_id=user_id)
     ag["events"] = (events + ag.get("events", []))[:cap]
