@@ -279,6 +279,12 @@ export const api = {
   optionsBuy: (body) => req("POST", "/api/options/buy", body),
   optionsSell: (body) => req("POST", "/api/options/sell", body),
   putOptionPosition: (contractId, b) => req("PUT", "/api/options/position/" + encodeURIComponent(contractId), b),
+  // Fase 14 (opções lastreadas — venda coberta/put de proteção): proposta lê
+  // cadeia + análise técnica (mesmo timeout de 30s de optionsChain/optionsGate,
+  // mesma razão); abrir/fechar mexem em caixa real, timeout padrão (POST).
+  optionsProposta: (t) => req("GET", "/api/options/proposta/" + encodeURIComponent(t), undefined, 30000),
+  optionsAbrirLastreada: (body) => req("POST", "/api/options/lastreada/abrir", body),
+  optionsFecharLastreada: (body) => req("POST", "/api/options/lastreada/fechar", body),
   buy: (t, qty, meta) => req("POST", "/api/buy", meta ? { t, qty, meta } : { t, qty }),   // FASE 2 (2.4): setup de entrada
   sell: (t, qty) => req("POST", "/api/sell", qty ? { t, qty } : { t }),                    // FASE 2 (2.4): venda parcial
   putPosition: (t, b) => req("PUT", "/api/position/" + t, b),

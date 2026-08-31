@@ -19,6 +19,13 @@
 //    no orçamento e termina no patrimônio AO VIVO — assim o número exibido e a
 //    curva são o MESMO valor. (Se não houver orçamento, cai para o 1º snapshot.)
 //  • Drawdown = maior queda percentual desde o pico, sobre a MESMA curva exibida.
+//  • Quantidade livre (Fase 14, opções lastreadas) = quantidade total de uma
+//    posição menos a travada como lastro de uma CALL coberta aberta
+//    (`qtyTravada`). Gêmeo exato de `store.qty_livre` (`server/app/store.py`,
+//    Plano 14-01) — MESMO nome, MESMA semântica; nenhum outro módulo do
+//    front recalcula a subtração — `persistence.js`/`App.jsx` importam
+//    `qtyLivre` daqui. Mesmo padrão de fonte única do front já usado por
+//    RR_MIN/RR_MIN_TXT abaixo (amarrado ao backend por teste dedicado).
 
 // Relação risco-retorno mínima (piso 1,5:1) — espelho de
 // server/app/skill_ref.py (RR_MIN/RR_MIN_TXT). ADR-015 (06-05): fonte única
@@ -28,6 +35,19 @@
 export const RR_MIN = 1.5;
 export const RR_MIN_TXT = "1,5"; // formato pt-BR para interpolação em texto
 
+// Fase 14 (Plano 05, D-3 do 14-CONTEXT.md): quantidade de uma posição que
+// pode ser vendida — total menos o que está travado como lastro de uma CALL
+// coberta aberta (`qtyTravada`). ÚNICA fonte da aritmética de quantidade
+// vendável no FRONT — proibido recalcular a subtração `qty - qtyTravada` em
+// outro módulo (mesma disciplina do gêmeo backend, `store.qty_livre`,
+// `server/app/store.py`, Plano 14-01 — MESMO nome, MESMA semântica).
+// `persistence.js`/`App.jsx` IMPORTAM esta função, nenhum dos dois reimplementa
+// a subtração. Defensiva a `pos` nulo, mesmo estilo de `markPrice` acima.
+// `qtyTravada` ausente (posição do modelo antigo, sem CALL coberta) lê 0.
+export function qtyLivre(pos) {
+  return Math.max(0, (Number(pos && pos.qty) || 0) - (Number(pos && pos.qtyTravada) || 0));
+}
+
 export function markPrice(quote, position) {
   const px = quote && typeof quote.price === "number" && quote.price > 0 ? quote.price : null;
   if (px != null) return px;
@@ -35,7 +55,42 @@ export function markPrice(quote, position) {
   return avg;
 }
 
-export function portfolioMetrics(positions, quotes, cash, reservado) {
+// Fase 14 (Plano 05, D-6 do 14-CONTEXT.md): patrimônio total passa a somar
+// as pernas de opção LASTREADAS (call coberta vendida / put de proteção
+// comprada, `abrir_call_coberta`/`comprar_put_protecao`, Plano 14-02). 5º e
+// 6º argumentos são ADITIVOS e OPCIONAIS — chamada antiga com 4 argumentos
+// produz EXATAMENTE o resultado de hoje, nenhum call site quebra (os 7 sites
+// em App.jsx continuam passando só 4).
+//
+// Regras:
+//  • Só entram posições de opção com `lastro` presente — posição do modelo
+//    antigo (long-only, `buy_option`/`sell_option`, sem `lastro`) continua
+//    FORA do agregado; nenhuma migração/retroatividade foi decidida
+//    (14-CONTEXT.md, Claude's Discretion), então o filtro por `lastro` é o
+//    que mantém essa fase não-retroativa também no front.
+//  • Marcação: prêmio ao vivo de `optionQuotes[contractSymbol]` quando for
+//    número > 0; senão `avg` — MESMO piso estável de `markPrice` (nunca 0,
+//    CLAUDE.md item 4).
+//  • `side === "comprada"` (put de proteção): `+qty*preço` em `posVal`,
+//    `+qty*avg` em `cost`, `+(preço-avg)*qty` em `openPnL` — é um ativo, o
+//    prêmio foi desembolsado.
+//  • `side === "vendida"` (call coberta): `-qty*preço` em `posVal` (passivo
+//    de recompra — o prêmio recebido já está dentro de `cash`) e
+//    `+(avg-preço)*qty` em `openPnL`. NÃO soma nada em `cost` — não houve
+//    desembolso.
+//  • `posVal` de AÇÃO continua contando a posição INTEIRA (`pos.qty`),
+//    travada ou não: a trava restringe a VENDA, não retira o ativo do
+//    patrimônio — não confundir `qtyLivre` (o que pode ser vendido) com o
+//    que é marcado a mercado.
+//  • `dayVal` não muda: continua contando só a variação diária de AÇÃO (sem
+//    `change` diário confiável de contrato de opção nesta fase).
+//  • Marcação ao vivo de contrato NÃO é buscada nesta fase pela tela de
+//    Carteira (`optionQuotes` chega vazio por padrão, perna marcada pelo
+//    prêmio de abertura) — cada cadeia é uma requisição contra o orçamento
+//    medido do mydata (ADR-020), que é justamente o que está travando a
+//    virada de produção; gastar requisição por posição na Carteira compraria
+//    um número mais fresco ao preço de agravar esse bloqueio.
+export function portfolioMetrics(positions, quotes, cash, reservado, optionPositions, optionQuotes) {
   const ps = Array.isArray(positions) ? positions : [];
   const q = quotes || {};
   let posVal = 0, cost = 0, openPnL = 0, dayVal = 0;
@@ -53,9 +108,26 @@ export function portfolioMetrics(positions, quotes, cash, reservado) {
   }
   const c = Number(cash) || 0;
   const r = Number(reservado) || 0; // 4º parâmetro opcional (D-05); mesma defensiva do cash acima
-  const patr = c + r + posVal;
+  const ops = Array.isArray(optionPositions) ? optionPositions : [];
+  const oq = optionQuotes || {};
+  let opcoesVal = 0, opcoesPnL = 0;
+  for (const op of ops) {
+    if (!op || typeof op.lastro !== "object" || op.lastro === null) continue; // modelo antigo: fora do agregado (D-6)
+    const qty = Number(op.qty) || 0;
+    const avg = Number(op.avg) || 0;
+    const vivo = oq[op.id];
+    const preco = (typeof vivo === "number" && vivo > 0) ? vivo : avg; // mesmo piso estável de markPrice
+    if (op.side === "comprada") {
+      opcoesVal += qty * preco;
+      opcoesPnL += (preco - avg) * qty;
+    } else if (op.side === "vendida") {
+      opcoesVal += -(qty * preco); // passivo de recompra — prêmio recebido já está em `cash`
+      opcoesPnL += (avg - preco) * qty;
+    }
+  }
+  const patr = c + r + posVal + opcoesVal;
   const openPct = cost > 0 ? (openPnL / cost) * 100 : 0;
-  return { posVal, cost, openPnL, openPct, dayVal, patr, cash: c, reservado: r };
+  return { posVal, cost, openPnL, openPct, dayVal, patr, cash: c, reservado: r, opcoesVal, opcoesPnL };
 }
 
 // Maior posição da carteira em % do patrimônio (Plano 04-07, FIX-C05) — mesma
