@@ -869,6 +869,243 @@ def close_option_vencida(conn, contract_id: str, valor_intrinseco: float, user_i
                        motivo="vencimento", origem="sistema")
 
 
+# ---------- opções lastreadas (Fase 14, Plano 02) ----------
+# Formato aditivo ao shape ADR-003 de `optionPositions`: nenhuma chave antiga
+# muda de significado.
+#   side: "vendida" (CALL coberta) | "comprada" (PUT de proteção). Chave
+#     AUSENTE identifica posição do modelo antigo (long-only, não lastreada,
+#     `buy_option`/`sell_option`) — discriminador que mantém esta fase
+#     não-retroativa (14-CONTEXT.md, Claude's Discretion: retroatividade
+#     deixada em aberto na exploração, decidida aqui como "não" pela ausência
+#     da chave).
+#   lastro: {"t": <ticker do ativo-objeto>, "qty": <ações travadas/protegidas>}.
+#     Presença de `lastro` é o que define "posição desta fase".
+#   stop/alvo: sempre None nas lastreadas — ciclo de vida é abrir/fechar/
+#     vencer, não stop/alvo (D-1: substitui `setOptionStop`/`setOptionAlvo`,
+#     não os conserta).
+def abrir_call_coberta(conn, contract: dict, contratos: int, price: float, user_id=None, meta=None,
+                        origem: str = "manual") -> None:
+    """Venda de CALL coberta — "vender para abrir" (greenfield: `sell_option`
+    só sabe "vender para fechar" uma posição comprada; nada no motor antes
+    desta função credita prêmio na abertura nem reserva lastro).
+
+    `contract` traz id (contractSymbol, ADR-003)/underlying/optionType/
+    strike/expiration/ivEntrada — mesmo shape que `buy_option` recebe do
+    provider. `contratos` é o NÚMERO DE CONTRATOS (cada um = 100 ações
+    lastro); `price` é o PRÊMIO por ação. Sucesso CREDITA o caixa em
+    `qty * price` — inverso de `buy_option`, que debita, porque quem vende a
+    call recebe o prêmio na abertura.
+
+    `meta` existe só por paridade de assinatura com `buy_option`/
+    `comprar_put_protecao` — o plano 14-02 não lista `setupEntrada` entre os
+    campos gravados nesta posição, então o parâmetro não é fiado a
+    `_sanitize_trade_meta` aqui (evita funcionalidade fora do escopo pedido).
+
+    Leitura (posição do lastro, `qty_livre`) + validação + escrita inteiras
+    dentro de UMA aquisição de `ORDER_LOCK` (T-14-06): checar fora e escrever
+    dentro reabriria o lost-update que a trava existe para fechar — duas
+    requisições concorrentes não podem ler o mesmo `qty_livre` antes de
+    qualquer uma travar. Nenhuma trava nova: reusa `store.ORDER_LOCK`
+    existente (mesmo padrão de `pending_orders.py`, não o de `buy`/`sell`
+    onde a trava vive na rota — aqui não há rota ainda, plano 14-04)."""
+    if contratos < 1:
+        raise ValueError("Número de contratos precisa ser pelo menos 1.")
+    qty = int(contratos) * 100
+    cid = contract.get("id")
+    underlying = contract.get("underlying")
+    with ORDER_LOCK:
+        if contract.get("optionType") != "call":
+            registrar_rejeicao(conn, "VENDA", cid, qty, price,
+                                "Venda coberta exige um contrato de CALL.",
+                                user_id=user_id, origem=origem)
+            raise ValueError("Venda coberta exige um contrato de CALL.")
+        positions = get(conn, "positions", user_id=user_id)
+        pos_acao = next((p for p in positions if p["t"] == underlying), None)
+        if not pos_acao:
+            registrar_rejeicao(conn, "VENDA", cid, qty, price,
+                                f"Sem posição em {underlying} para lastrear a CALL coberta.",
+                                user_id=user_id, origem=origem)
+            raise ValueError(f"Sem posição em {underlying} para lastrear a CALL coberta.")
+        if qty_livre(pos_acao) < qty:
+            registrar_rejeicao(
+                conn, "VENDA", cid, qty, price,
+                f"Lastro insuficiente: {qty_livre(pos_acao)} ação(ões) livres de {underlying}, "
+                f"{qty} necessárias para {contratos} contrato(s).",
+                user_id=user_id, origem=origem)
+            raise ValueError(f"Lastro insuficiente em {underlying} para {contratos} contrato(s).")
+
+        opts = get(conn, "optionPositions", user_id=user_id)
+        cash = get(conn, "cash", user_id=user_id)
+        history = get(conn, "history", user_id=user_id)
+        existing = next((p for p in opts if p["id"] == cid and p.get("side") == "vendida"), None)
+        if existing:
+            total = existing["qty"] + qty
+            existing["avg"] = round((existing["avg"] * existing["qty"] + price * qty) / total, 2)
+            existing["qty"] = total
+            existing["lastro"]["qty"] = existing["lastro"].get("qty", 0) + qty
+        else:
+            opts.append({
+                "id": cid, "underlying": underlying, "optionType": "call",
+                "strike": contract.get("strike"), "expiration": contract.get("expiration"),
+                "qty": qty, "avg": round(price, 2), "stop": None, "alvo": None,
+                "abertaEm": now_str(), "side": "vendida",
+                "lastro": {"t": underlying, "qty": qty},
+                "ivEntrada": contract.get("ivEntrada"), "deltaEntrada": contract.get("deltaEntrada"),
+                "hv21Entrada": contract.get("hv21Entrada"),
+            })
+        cash = round(cash + qty * price, 2)
+        pos_acao["qtyTravada"] = int(pos_acao.get("qtyTravada") or 0) + qty
+        history.insert(0, {"date": now_str(), "type": "VENDA", "kind": "opcao", "acao": "abrir",
+                            "t": cid, "underlying": underlying, "qty": qty, "price": round(price, 2),
+                            "pnl": None, "origem": origem})
+        db.kv_set(conn, "optionPositions", opts, user_id=user_id)
+        db.kv_set(conn, "positions", positions, user_id=user_id)
+        db.kv_set(conn, "cash", cash, user_id=user_id)
+        db.kv_set(conn, "history", history, user_id=user_id)
+
+
+def fechar_call_coberta(conn, contract_id: str, price: float, user_id=None, contratos=None,
+                          motivo: str = "manual", origem: str = "manual"):
+    """Recompra ("comprar para fechar") de uma CALL coberta aberta por
+    `abrir_call_coberta` — inverso da abertura: DEBITA o caixa em
+    `qty * price`. `pnl = (avg - price) * qty` — prêmio recebido menos custo
+    de recompra, positivo quando a call perdeu valor; este é o número da
+    carteira, nenhum outro módulo recompõe essa conta (CLAUDE.md princípio 5).
+
+    Localiza a posição por `id` com `side == "vendida"`; sem ela (ou é uma
+    posição comprada/long-only), devolve `None` — mesma convenção de
+    `sell_option` (fechar algo que não existe é no-op do chamador, a rota
+    valida antes, não uma tentativa recusada registrável).
+
+    `qty` fechada = `contratos * 100` quando informado, limitada à quantidade
+    aberta; sem `contratos`, fecha tudo. Destrava: decrementa `qtyTravada` da
+    posição de ação de `pos["lastro"]["t"]` em `qty`, com piso em 0.
+    Fechamento total remove a posição de opção; parcial mantém `avg` e reduz
+    `qty` e `lastro["qty"]` na mesma medida (D-3: trava nunca fica negativa
+    nem sobrevive ao fechamento total, T-14-08).
+
+    Leitura+validação+escrita dentro de UMA aquisição de `ORDER_LOCK`, mesma
+    razão de `abrir_call_coberta` (T-14-06)."""
+    with ORDER_LOCK:
+        opts = get(conn, "optionPositions", user_id=user_id)
+        pos = next((p for p in opts if p["id"] == contract_id and p.get("side") == "vendida"), None)
+        if not pos:
+            return None
+        qty = pos["qty"]
+        if isinstance(contratos, (int, float)) and contratos > 0:
+            qty = min(pos["qty"], int(contratos) * 100)
+        cash = get(conn, "cash", user_id=user_id)
+        history = get(conn, "history", user_id=user_id)
+        pnl = round((pos["avg"] - price) * qty, 2)
+        cash = round(cash - qty * price, 2)
+        lastro_t = (pos.get("lastro") or {}).get("t")
+        positions = get(conn, "positions", user_id=user_id)
+        pos_acao = next((p for p in positions if p["t"] == lastro_t), None)
+        if pos_acao:
+            pos_acao["qtyTravada"] = max(0, int(pos_acao.get("qtyTravada") or 0) - qty)
+        if qty >= pos["qty"]:
+            opts = [p for p in opts if p["id"] != contract_id]
+        else:
+            pos["qty"] = pos["qty"] - qty  # parcial: avg preservado
+            pos["lastro"]["qty"] = pos["lastro"].get("qty", 0) - qty
+        history.insert(0, {"date": now_str(), "type": "COMPRA", "kind": "opcao", "acao": "fechar",
+                            "t": contract_id, "underlying": pos.get("underlying"), "qty": qty,
+                            "price": round(price, 2), "pnl": pnl, "motivo": motivo, "origem": origem})
+        db.kv_set(conn, "optionPositions", opts, user_id=user_id)
+        db.kv_set(conn, "positions", positions, user_id=user_id)
+        db.kv_set(conn, "cash", cash, user_id=user_id)
+        db.kv_set(conn, "history", history, user_id=user_id)
+        return pnl
+
+
+def comprar_put_protecao(conn, contract: dict, contratos: int, price: float, user_id=None, meta=None,
+                           origem: str = "manual") -> None:
+    """Compra de PUT de proteção vinculada a uma posição real do ativo-lastro
+    (D-3 do 14-CONTEXT.md fala só da CALL coberta — a put protege o
+    downside, NÃO compromete o lote para venda; ao contrário de
+    `abrir_call_coberta`, esta função nunca escreve `qtyTravada`).
+
+    Se o usuário vender as ações depois de comprar a put, a put fica "sem
+    lastro" — esse estado é DERIVADO na leitura (nunca um campo persistido
+    paralelo a `qty_livre`), tratado no plano 14-03, não aqui.
+
+    Fechar uma PUT de proteção antes do vencimento REUSA `sell_option` já
+    existente (é uma posição comprada, aritmética idêntica) — nenhuma
+    função nova de fechamento é criada para isso.
+
+    Recusa (ValueError + `registrar_rejeicao` tipo "COMPRA", sem tocar
+    caixa/posições) quando: `optionType != "put"`; `contratos < 1`; sem
+    posição no `underlying`; `qty_livre(pos) < contratos * 100`; ou
+    `qty * price > cash` (caixa insuficiente). Sucesso DEBITA `qty * price` e
+    grava a posição com `side="comprada"` e `lastro={"t","qty"}`.
+
+    `meta`: mesma decisão de `abrir_call_coberta` — parâmetro existe por
+    paridade de assinatura com `buy_option`, não fiado a `setupEntrada`
+    (fora do escopo de campos que o plano 14-02 lista para esta posição).
+
+    Leitura+validação+escrita dentro de UMA aquisição de `ORDER_LOCK`, mesma
+    razão de `abrir_call_coberta` (T-14-06)."""
+    if contratos < 1:
+        raise ValueError("Número de contratos precisa ser pelo menos 1.")
+    qty = int(contratos) * 100
+    cid = contract.get("id")
+    underlying = contract.get("underlying")
+    with ORDER_LOCK:
+        if contract.get("optionType") != "put":
+            registrar_rejeicao(conn, "COMPRA", cid, qty, price,
+                                "Put de proteção exige um contrato de PUT.",
+                                user_id=user_id, origem=origem)
+            raise ValueError("Put de proteção exige um contrato de PUT.")
+        positions = get(conn, "positions", user_id=user_id)
+        pos_acao = next((p for p in positions if p["t"] == underlying), None)
+        if not pos_acao:
+            registrar_rejeicao(conn, "COMPRA", cid, qty, price,
+                                f"Sem posição em {underlying} para proteger com a PUT.",
+                                user_id=user_id, origem=origem)
+            raise ValueError(f"Sem posição em {underlying} para proteger com a PUT.")
+        if qty_livre(pos_acao) < qty:
+            registrar_rejeicao(
+                conn, "COMPRA", cid, qty, price,
+                f"Lastro insuficiente: {qty_livre(pos_acao)} ação(ões) livres de {underlying}, "
+                f"{qty} necessárias para proteger {contratos} contrato(s).",
+                user_id=user_id, origem=origem)
+            raise ValueError(f"Lastro insuficiente em {underlying} para proteger {contratos} contrato(s).")
+        cash = get(conn, "cash", user_id=user_id)
+        if qty * price > cash:
+            registrar_rejeicao(
+                conn, "COMPRA", cid, qty, price,
+                f"Caixa insuficiente para {contratos} contrato(s) de {cid} a R$ {price} — "
+                f"disponível: R$ {cash}.",
+                user_id=user_id, origem=origem)
+            raise ValueError("Caixa insuficiente para a PUT de proteção.")
+
+        opts = get(conn, "optionPositions", user_id=user_id)
+        history = get(conn, "history", user_id=user_id)
+        existing = next((p for p in opts if p["id"] == cid and p.get("side") == "comprada"), None)
+        if existing:
+            total = existing["qty"] + qty
+            existing["avg"] = round((existing["avg"] * existing["qty"] + price * qty) / total, 2)
+            existing["qty"] = total
+            existing["lastro"]["qty"] = existing["lastro"].get("qty", 0) + qty
+        else:
+            opts.append({
+                "id": cid, "underlying": underlying, "optionType": "put",
+                "strike": contract.get("strike"), "expiration": contract.get("expiration"),
+                "qty": qty, "avg": round(price, 2), "stop": None, "alvo": None,
+                "abertaEm": now_str(), "side": "comprada",
+                "lastro": {"t": underlying, "qty": qty},
+                "ivEntrada": contract.get("ivEntrada"), "deltaEntrada": contract.get("deltaEntrada"),
+                "hv21Entrada": contract.get("hv21Entrada"),
+            })
+        cash = round(cash - qty * price, 2)
+        history.insert(0, {"date": now_str(), "type": "COMPRA", "kind": "opcao", "acao": "abrir",
+                            "t": cid, "underlying": underlying, "qty": qty, "price": round(price, 2),
+                            "pnl": None, "origem": origem})
+        db.kv_set(conn, "optionPositions", opts, user_id=user_id)
+        db.kv_set(conn, "cash", cash, user_id=user_id)
+        db.kv_set(conn, "history", history, user_id=user_id)
+
+
 def push_events(conn, events: list, cap: int = 50, user_id=None) -> dict:
     ag = get(conn, "agent", user_id=user_id)
     ag["events"] = (events + ag.get("events", []))[:cap]
