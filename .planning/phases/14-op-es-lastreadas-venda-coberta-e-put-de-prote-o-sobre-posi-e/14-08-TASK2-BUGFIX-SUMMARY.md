@@ -78,7 +78,7 @@ completed: 2026-08-31
 ## Task Commits
 
 1. **Fix: proposta_fechar() + rota + testes** - `869fe07` (fix)
-2. **Registro do achado de copy (manchete de fechamento) + este SUMMARY** - (commit seguinte, ver abaixo)
+2. **Registro do achado de copy (manchete de fechamento) + este SUMMARY** - `38ffe91` (docs)
 
 ## Files Created/Modified
 
@@ -100,7 +100,7 @@ Este NÃO é um plano formal (é um bugfix de checkpoint), então "Deviations fr
 - **Found during:** implementação de `proposta_fechar()` — o texto de `OPCOES_LASTREADAS["operador"]["call_coberta"]` diz "Vender N call(s)...", verbo de ABERTURA, mesmo quando a proposta é de FECHAMENTO de uma posição já aberta.
 - **Decisão:** a especificação da task pediu explicitamente reusar as MESMAS chaves de vocabulário que `propor()` já usa para o `tipo` (não inventar copy nova) — decisão de produto já fechada no Plano 06/aprovada pelo Alex. Seguido à risca; a estranheza da frase no estado já-aberto foi FLAGRADA, não corrigida (registrado em `deferred-items.md`, Plano 08/Task 2, com fix sugerido para quem pegar).
 - **Files modified:** nenhum além do já commitado (é uma decisão de não-mudança).
-- **Committed in:** `869fe07` (a decisão de reuso é parte do fix; o registro do flag está no commit seguinte).
+- **Committed in:** `869fe07` (a decisão de reuso é parte do fix); registro do flag em `38ffe91`.
 
 **Total deviations:** 0 auto-fixes de Rule 1-3 (nenhum bug novo encontrado fora do escopo do próprio fix); 1 observação de copy flagrada e deliberadamente não corrigida (fora do escopo literal deste bugfix, decisão de produto já fechada).
 **Impact on plan:** Nenhum — a correção resolve exatamente o bug relatado (CTA de fechar sumindo) sem tocar em texto/copy que já foi aprovado.
@@ -125,3 +125,12 @@ None — nenhuma configuração de serviço externo necessária. Fix é purament
 ---
 *Phase: 14-opcoes-lastreadas*
 *Bugfix completed: 2026-08-31*
+
+## Self-Check: PASSED
+
+- FOUND: server/app/opcoes_lastreadas.py (proposta_fechar() presente)
+- FOUND: server/app/main.py (pos_op_aberta presente na rota options_proposta)
+- FOUND: .planning/phases/14-op-es-lastreadas-venda-coberta-e-put-de-prote-o-sobre-posi-e/14-08-TASK2-BUGFIX-SUMMARY.md
+- FOUND commit 869fe07 (fix: proposta_fechar + rota + testes)
+- FOUND commit 38ffe91 (docs: SUMMARY + deferred-items)
+- bash scripts/executar.sh --testes: 1814 passed, 1 skipped (backend) + 108/108 .mjs (web) — verde
