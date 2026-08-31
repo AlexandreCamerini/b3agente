@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Cap comercial (plano gratuito)
 status: Awaiting next milestone
-stopped_at: Phase 14 checkpoint approved
-last_updated: "2026-08-31T17:51:53.171Z"
-last_activity: 2026-08-31 -- Phase 14 (standalone) complete, checkpoint humano aprovado
+stopped_at: Phase 14 verificada em produção, WR-01 resolvido (PR #28)
+last_updated: "2026-08-31T22:15:00.000Z"
+last_activity: 2026-08-31 -- Phase 14 (standalone) encerrada: WR-01 resolvido, B3_OPTIONS_PROVIDER=mydata em produção verificado ao vivo
 progress:
   total_phases: 2
   completed_phases: 2
@@ -107,6 +107,16 @@ Recent decisions affecting current work:
   mydata` virar produção. Decisões completas em
   `.planning/notes/opcoes-mecanica-lastreada-decisoes.md`.
 
+- Phase 14 encerrada (2026-08-31): WR-01 resolvido (PR #28, lock em
+  `mydata_budget.py`) e `B3_OPTIONS_PROVIDER=mydata` virou produção,
+  verificado ao vivo (`GET /api/options/chain/PETR4` → `providerStatus:
+  "ok"`, cadeia real com Greeks). `B3_CANDLE_PROVIDER` continua `brapi`
+  por decisão explícita do Alex — ADR-008 intacto, cenário de pico/min de
+  candle em lote não se aplica mais. Dois incidentes de configuração no
+  Railway (variáveis coladas juntas; token inválido) achados e corrigidos
+  durante a verificação, sem relação com o código da fase. Fechamento
+  completo em `docs/adr/023-opcoes-lastreadas.md` (Nota aditiva).
+
 ### Pending Todos
 
 - `decidir-wr01-mydata-budget.md` (priority high) — race condition
@@ -137,13 +147,13 @@ Items acknowledged and carried forward from previous milestone close (v1.2 → v
 | Backlog | 9 achados Baixo do REPORT-01 (C-06..C-10, C-17, C-18, C-28, C-29) | Not mapped to any phase — explicit backlog | v1.0 close |
 | verification_gap | Item 8 do checkpoint 08-05 — verificação ao vivo de `entradaAuto` por um pregão inteiro | human_needed | v1.1 close |
 | verification_gap | 2 human-checks da Fase 3 (card de status 3 badges reativo; mensagem de "sem permissão" do kill-switch) | human_needed | v1.1 close |
-| Production cutover | Virada de `B3_CANDLE_PROVIDER`/`B3_OPTIONS_PROVIDER=mydata` (Fase 9, checkpoint `adiar`) — pico/min mitigado em código (2026-08-28), falta só religar em produção | blocked_on_operator_action | Fase 9 close (2026-08-27) |
-| WR-01 (arquitetura, resolvido) | Race condition check-then-debit em `mydata_budget` — até 3 consumidores concorrentes potenciais | Resolvido 2026-08-31: Alex escolheu "Lock" — `MYDATA_BUDGET_LOCK` + `reservar()` atômico, migrado em `options_provider_mydata.py`. Ver `.planning/todos/resolved/decidir-wr01-mydata-budget.md`. Ainda falta o outro bloqueio da virada de produção (pico/min, linha "Production cutover" abaixo). | v1.2 close (2026-08-28), resolvido 2026-08-31 |
+| Production cutover (parcial, resolvido) | Virada de `B3_CANDLE_PROVIDER`/`B3_OPTIONS_PROVIDER=mydata` (Fase 9, checkpoint `adiar`) | Resolvido 2026-08-31, com escopo reduzido por decisão do Alex: só `B3_OPTIONS_PROVIDER=mydata` virou produção (verificado ao vivo, `providerStatus: "ok"`). `B3_CANDLE_PROVIDER` continua `brapi` — o cenário de pico/min de 148/min (candle em lote) não se aplica mais, já que candle não migrou. Ver ADR-023 Nota aditiva. | Fase 9 close (2026-08-27), resolvido 2026-08-31 |
+| WR-01 (arquitetura, resolvido) | Race condition check-then-debit em `mydata_budget` — até 3 consumidores concorrentes potenciais | Resolvido 2026-08-31: Alex escolheu "Lock" — `MYDATA_BUDGET_LOCK` + `reservar()` atômico, migrado em `options_provider_mydata.py`, PR #28. Ver `.planning/todos/resolved/decidir-wr01-mydata-budget.md`. | v1.2 close (2026-08-28), resolvido 2026-08-31 |
 | v2 requirements | CAP-08..11 (loja/IAP, preço/moeda, IA gerenciada sem BYOK como paga, alvo dinâmico exclusivo do pago) | Deferred to future release — depende da decisão comercial de venda em si | v1.3 roadmap (2026-08-29) |
 | uat_gap (stale) | Fase 12 `12-HUMAN-UAT.md` | Já `resolved`, 0 cenários pendentes — auditoria só sinaliza a existência do arquivo, não um gap real | v1.3 close (2026-08-31) |
 | verification_gap (stale) | Fase 12 `12-VERIFICATION.md` (`human_needed`) | O gap real (bypass do cap no iOS) foi dobrado no escopo da Fase 13 (CAP-12) e fechado lá — o arquivo da Fase 12 não foi reaberto/reexecutado, só o achado foi resolvido a jusante | v1.3 close (2026-08-31) |
-| Pending todo (resolvido) | `cap-watchlist-robustez-code-review.md` (WR-01/02/03 do 12-REVIEW.md) | Já corrigido em 3 commits atômicos, mergeado via PR #26 antes do fechamento — o arquivo do todo ficou desatualizado (escrito antes das correções); candidato a mover pra `todos/resolved/` numa limpeza futura | v1.3 close (2026-08-31) |
-| Pending todo (real, já rastreado) | `medir-rate-limit-mydata.md` (priority high) | Mesmo item já registrado na linha "Production cutover" acima (Fase 9) — não é novidade do v1.3, segue aberto até o Alex religar `B3_CANDLE_PROVIDER=mydata` em produção | Fase 9 close (2026-08-27), reconfirmado v1.3 close (2026-08-31) |
+| Pending todo (resolvido, movido) | `cap-watchlist-robustez-code-review.md` (WR-01/02/03 do 12-REVIEW.md) | Já corrigido em 3 commits atômicos, mergeado via PR #26 antes do fechamento — confirmado no código e movido pra `todos/resolved/` em 2026-08-31 | v1.3 close (2026-08-31), movido 2026-08-31 |
+| Pending todo (aberto, prioridade rebaixada) | `medir-rate-limit-mydata.md` (priority medium, era high) | Escopo reduzido em 2026-08-31: só options foi pro mydata, candle ficou em `brapi` — o cenário de pico/min de lote não se aplica mais. Ainda aberto pra acompanhar volume real de tráfego de opções se crescer. | Fase 9 close (2026-08-27), rebaixado 2026-08-31 |
 | Quick tasks (auditoria desatualizada) | 7 quick-tasks com status `missing` (2026-08-20 a 2026-08-30, inclui `260830-eqm-fase-4-adr-23-boris-relying-party-do-sem` de outra sessão concorrente já mergeada, PR #27) | Sem relação com o escopo do v1.3 (cap comercial) — a ferramenta de auditoria não localiza um artefato de status esperado pra esses slugs antigos; nenhum representa trabalho pendente conhecido | v1.3 close (2026-08-31) |
 
 ## Session Continuity

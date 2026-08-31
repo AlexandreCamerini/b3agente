@@ -205,9 +205,50 @@ exatamente como documentado nos ADRs originais:
   qualidade das propostas até a virada do mydata acontecer.
 
 **A revisitar:**
-- Quando `B3_OPTIONS_PROVIDER=mydata` virar produção, confirmar que o gate
-  de liquidez (`options_api.liquidity_gate`) e a proposta se comportam da
-  mesma forma testada aqui contra o payload determinístico do `mock`.
 - Decisão de retroatividade (Decisão 5) pode ser revisitada se o produto
   quiser estender trava/Patrimônio a posições de opção antigas — hoje é uma
   decisão explícita de não fazer, não um esquecimento.
+
+## Nota aditiva (2026-08-31) — virada de produção confirmada, fase encerrada
+
+**WR-01 fechado.** O Alex escolheu "lock" entre as três opções apresentadas
+(lock/fila/aceitar risco). `MYDATA_BUDGET_LOCK` (`threading.RLock`) protege
+`pode_gastar()`/`debita()` em `mydata_budget.py`, mesmo padrão de
+`store.ORDER_LOCK`/`WATCHLIST_LOCK`; nova `reservar(n)` faz check+debit
+atômico, migrada em `options_provider_mydata._debita()` nos dois pontos
+reais de commit. PR #28, commit `c014c88`. Testado com concorrência real
+(`threading.Barrier`), suíte canônica verde.
+
+**Virada `B3_OPTIONS_PROVIDER=mydata` executada e verificada ao vivo.** Com
+o WR-01 fechado, o Alex atualizou as variáveis em produção (Railway). A
+verificação encontrou e corrigiu DOIS problemas de configuração — nenhum
+relacionado ao código desta fase:
+
+1. `B3_OPTIONS_PROVIDER` recebeu o valor colado
+   `"mydata/B3_CANDLE_PROVIDER=mydata"` (as duas variáveis concatenadas em
+   uma só) — corrigido para `mydata` isolado. `B3_CANDLE_PROVIDER` também
+   estava setado como `mydata` por engano; o Alex confirmou explicitamente
+   que a intenção é manter `brapi` como master de diário/spot (ADR-008
+   intacto, não reaberto por esta fase) — corrigido para `brapi`.
+2. `MYDATA_TOKEN` ausente, depois com valor inválido (chave recusada pelo
+   hub) — corrigido com a chave de produção correta.
+
+Depois das duas correções, `GET /api/options/chain/PETR4` respondeu
+`providerStatus: "ok"`, `source: "mydata"`, cadeia real com 27 vencimentos,
+Greeks e preço teórico do Black-Scholes do hub — exatamente o comportamento
+que este ADR previa em "A revisitar", confirmado ao vivo, não só contra o
+`mock`. `GET /api/quotes` seguiu respondendo `source: "yahoo"`/brapi sem
+nenhuma mudança — a virada ficou isolada à camada de opções, como desenhado.
+
+**Fase 14 encerrada.** WR-01 (o bloqueio que era escopo desta fase) está
+resolvido. O outro bloqueio citado em ADR-020 §Medição — pico de
+requisições/minuto — fica PARCIALMENTE mitigado: como o Alex manteve
+`B3_CANDLE_PROVIDER=brapi` (não migrou candle pra mydata), o cenário de
+risco original (varredura de ~65-74 tickers em lote contra o mydata) não se
+aplica mais — só tráfego de opções (por ticker, sob demanda) passa pelo
+mydata agora, um padrão bem mais leve que o medido em ADR-020. Ainda assim,
+esse tráfego de opções nunca foi testado sob rajada real — `.planning/
+todos/pending/medir-rate-limit-mydata.md` permanece aberto, com nota
+atualizada, para acompanhar isso caso o volume de uso cresça. `.planning/
+todos/pending/decidir-wr01-mydata-budget.md` foi resolvido e movido para
+`resolved/`.
