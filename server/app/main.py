@@ -1010,7 +1010,7 @@ async def admin_mobile_handoff_exchange(body: dict = Body(default={})):
 
 # FASE 8B (diagnóstico): carimbo de build do BACKEND — confirma qual código o
 # Railway está rodando (o front tem o dele em web/src/version.js).
-SERVER_BUILD_ID = "F10-20260830-02"  # Fase 13 Plano 05: publica os 3 contadores + gate iOS (front republicado).
+SERVER_BUILD_ID = "F10-20260831-01"  # Fase 13 Plano 05: publica os 3 contadores + gate iOS (front republicado).
 # Normalmente sincronizado pelo entregar.sh a partir de web/src/version.js; num deploy
 # SÓ de backend (sem rebuild do front) bumpamos aqui para /api/health rastrear o servidor.
 
@@ -2209,7 +2209,21 @@ async def sell(body: dict = Body(default={}), scope: Optional[str] = Depends(cur
                                               f"Você não tem posição em {t} para vender.",
                                               user_id=scope, origem="manual")
                 raise HTTPException(400, "Sem posicao em " + t)
-            store.sell(_conn, t, price, user_id=scope, qty=_qty_val)
+            resultado_venda = store.sell(_conn, t, price, user_id=scope, qty=_qty_val)
+            if resultado_venda is None:
+                # Fase 14 (D-3): `store.sell` devolve `None` e já grava a
+                # rejeição no histórico (`registrar_rejeicao`, dentro dela
+                # mesma) quando a posição existe mas está 100% travada como
+                # lastro de uma CALL coberta aberta (`qty_livre(pos) <= 0`).
+                # Sem este check a rota devolvia 200 silencioso — a venda não
+                # executava, mas o cliente não tinha como saber sem reler o
+                # histórico. `/api/buy`/`/api/sell` levantam 400 explícito
+                # para toda outra rejeição (caixa insuficiente, sem posição,
+                # quantidade inválida); esta era a única exceção silenciosa.
+                raise HTTPException(
+                    400,
+                    f"{pos_atual.get('qtyTravada') or 0} ação(ões) de {t} estão travadas "
+                    "como lastro de uma CALL coberta aberta — recompre a call para liberar.")
         _disparar_ciclo_imediato(scope)  # 2026-08-07: reavalia na hora, não espera o próximo tick
         out = store.public_state(_conn, user_id=scope)
         out["priceUsed"] = round(price, 2)
