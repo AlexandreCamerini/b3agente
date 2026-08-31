@@ -171,6 +171,13 @@ export const COPY = {
     verCadeiaCompleta: "ver cadeia completa",
     propostaIndisponivelDegradada: "Proposta indisponível — cotação de opções degradada.",
     propostaVaziaTitulo: "Sem proposta agora",
+
+    // Fase 14 (Plano 07): trava de lastro visível na Carteira. Ramo Estudo
+    // evita "vender"/"comprar" — "recomprada" (adjetivo) não contém o
+    // infinitivo "comprar" como substring, por isso é a forma usada aqui
+    // (guardião test_copy_theme.mjs testa substring, não palavra inteira).
+    badgeTravada: (qty) => `${qty} travada(s) · lastro da call coberta`,
+    avisoTravaNaVenda: (qty) => `${qty} ação(ões) está(ão) travada(s) como lastro de uma call coberta — volta(m) a ficar disponível(is) quando a call for recomprada ou vencer.`,
   },
 
   operador: {
@@ -307,6 +314,11 @@ export const COPY = {
     verCadeiaCompleta: "ver cadeia completa",
     propostaIndisponivelDegradada: "Proposta indisponível — cotação de opções degradada.",
     propostaVaziaTitulo: "Sem proposta agora",
+
+    // Fase 14 (Plano 07): mesma chave do ramo estudo (ver comentário acima).
+    // Registro de mesa — vocabulário de ordem liberado aqui.
+    badgeTravada: (qty) => `${qty} travada(s) · lastro de CALL`,
+    avisoTravaNaVenda: (qty) => `${qty} ação(ões) travada(s) como lastro da call coberta — liberam quando você recomprar a call ou ela vencer.`,
   },
 };
 

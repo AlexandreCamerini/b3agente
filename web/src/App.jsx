@@ -12,7 +12,7 @@ import { BUILD_ID } from "./version.js";
 // carimbo no console: prova de qual build está rodando (device/web)
 try { console.log("[b3] build", BUILD_ID); } catch { /* noop */ }
 import { canAddTicker, canAnalyze } from "./plan.js";
-import { portfolioMetrics, dayReturnPct, equityCurve, markPrice, sizingPlano, RR_MIN_TXT, historicoEstado, historicoDesatualizado, benchmarkSerie, concentracaoMaxima } from "./finance.js";
+import { portfolioMetrics, dayReturnPct, equityCurve, markPrice, sizingPlano, RR_MIN_TXT, historicoEstado, historicoDesatualizado, benchmarkSerie, concentracaoMaxima, qtyLivre } from "./finance.js";
 import * as notify from "./notify.js";
 import { track, setAnalyticsUser, flush as flushAnalytics } from "./analytics.js"; // qa/47 (Fase 2)
 import Boris from "./pet/Boris.jsx";
@@ -1023,6 +1023,14 @@ function PlanRuler({ caption, marks, cur, curLabel, legend, captionExtra }) {
 function PosPill({ qty }) {
   if (!qty) return null;
   return <span style={{ padding: "3px 9px", borderRadius: "999px", background: T.accentTint10, color: T.accent, fontSize: "10.5px", fontWeight: 800, whiteSpace: "nowrap" }}>no portfólio · {qty}</span>;
+}
+
+// Fase 14 (Plano 07): trava de lastro visível — mesma forma de PosPill acima,
+// cor T.negative (comunica restrição, não posição neutra). Texto vem de
+// cp.badgeTravada(qty) — nunca hardcodado (guardião didatica-boris/copy.js).
+function TravaPill({ qty, cp }) {
+  if (!qty) return null;
+  return <span style={{ padding: "3px 9px", borderRadius: "999px", background: T.negativeTint10, color: T.negative, fontSize: "10.5px", fontWeight: 800, whiteSpace: "nowrap" }}>{cp.badgeTravada(qty)}</span>;
 }
 
 // FASE 3 (Portfólio): compras que formaram a POSIÇÃO ATUAL — reinicia a lista
@@ -3221,6 +3229,7 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
                   <div style={{ display: "flex", alignItems: "center", gap: "7px", flexWrap: "wrap" }}>
                     <span style={{ fontFamily: MONO, fontWeight: 800, fontSize: "16px", letterSpacing: "0.02em" }}>{t}</span>
                     {pos ? <PosPill qty={pos.qty} /> : null}
+                    {pos && pos.qtyTravada > 0 ? <TravaPill qty={pos.qtyTravada} cp={cp} /> : null}
                   </div>
                   <div style={{ color: T.textMuted, fontSize: "12px", marginTop: "3px" }}>{name}</div>
                 </div>
@@ -3853,6 +3862,7 @@ function CarteiraScreen({ ctx }) {
                   <div style={{ display: "flex", alignItems: "baseline", gap: "8px", flexWrap: "wrap" }}>
                     <span style={{ fontFamily: MONO, fontWeight: 700, fontSize: "16px" }}>{p.t}</span>
                     <span style={{ color: T.textFaint, fontFamily: MONO, fontSize: "12px" }}>{p.qty} cotas · PM R$ {price(p.avg)}</span>
+                    {p.qtyTravada > 0 ? <TravaPill qty={p.qtyTravada} cp={cp} /> : null}
                   </div>
                 </div>
                 <div style={{ textAlign: "right", fontFamily: MONO }}>
@@ -6915,12 +6925,18 @@ function SellModal({ ctx }) {
   if (!pos) return null;
   const q = quotes[t] || {};
   const cur = markPrice(q, pos);
-  const qty = Math.min(pos.qty, Math.max(100, sellModal.qty));
-  const total = qty >= pos.qty;
+  // Fase 14 (Plano 07, T-14-26): teto de venda é a quantidade LIVRE, nunca
+  // `pos.qty` — a parte travada como lastro de uma CALL coberta não pode ser
+  // vendida por aqui. `qtyLivre` é a FONTE ÚNICA (finance.js, gêmea de
+  // `store.qty_livre`) — nenhuma subtração local. A guarda do servidor
+  // (store.py:sell) continua existindo como segunda camada.
+  const livre = qtyLivre(pos);
+  const qty = livre > 0 ? Math.min(livre, Math.max(100, sellModal.qty)) : 0;
+  const total = livre > 0 && qty >= livre; // "venda total" = vender tudo o que está LIVRE
   const valor = qty * cur;
   const pnl = (cur - pos.avg) * qty;
   const pnlColor = pnl >= 0 ? T.positive : T.negative;
-  const step = (dir) => setSellModal((m) => ({ ...m, qty: Math.min(pos.qty, Math.max(100, (m.qty || pos.qty) + dir * 100)) }));
+  const step = (dir) => setSellModal((m) => ({ ...m, qty: Math.min(livre, Math.max(100, (m.qty || livre) + dir * 100)) }));
   // Fase 2 (MERC-02/03, D-01/T-02-30): mesmo par derivado do BuyModal, mesma
   // fonte única (ctx.mercado).
   const fechado = ctx.mercado && ctx.mercado.aberto === false;
@@ -6951,9 +6967,15 @@ function SellModal({ ctx }) {
             <div style={{ flex: 1, textAlign: "center", fontFamily: MONO, fontSize: "22px", fontWeight: 600 }}>{qty}</div>
             <button onClick={() => step(1)} aria-label="Aumentar" style={{ width: "42px", height: "42px", borderRadius: "9px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textPrimary, fontSize: "20px", fontWeight: 600 }}>+</button>
           </div>
-          <button onClick={() => setSellModal((m) => ({ ...m, qty: pos.qty }))} style={{ marginTop: "8px", width: "100%", minHeight: "34px", padding: "7px", borderRadius: "9px", border: `1px dashed ${total ? T.accent : T.borderSubtle}`, background: total ? T.accentTint10 : "transparent", color: total ? T.accent : T.textMuted, fontWeight: 700, fontSize: "12px" }}>
-            {total ? "Venda TOTAL (encerra a posição)" : "Vender tudo (" + pos.qty + ")"}
+          <button onClick={() => setSellModal((m) => ({ ...m, qty: livre }))} disabled={livre <= 0} style={{ marginTop: "8px", width: "100%", minHeight: "34px", padding: "7px", borderRadius: "9px", border: `1px dashed ${total ? T.accent : T.borderSubtle}`, background: total ? T.accentTint10 : "transparent", color: total ? T.accent : T.textMuted, fontWeight: 700, fontSize: "12px" }}>
+            {total ? "Venda TOTAL (encerra a posição)" : "Vender tudo (" + livre + ")"}
           </button>
+          {/* Guardrail do repositório: stop/alvo NUNCA são vetados pela trava
+              — só a VENDA é limitada aqui. Este aviso não desabilita nada
+              fora deste modal. */}
+          {pos.qtyTravada > 0 && (
+            <div style={{ marginTop: "8px", fontSize: "11px", color: T.textMuted, lineHeight: 1.5 }}>{ctx.cp.avisoTravaNaVenda(pos.qtyTravada)}</div>
+          )}
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginTop: "16px", padding: "12px 13px", background: T.bgBase, border: `1px solid ${T.borderSubtle}`, borderRadius: "9px", fontFamily: MONO }}>
           <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: T.textMuted, fontSize: "13px" }}>Valor estimado</span><span style={{ fontWeight: 700, fontSize: "15px" }}>{money(valor)}</span></div>
@@ -6970,7 +6992,7 @@ function SellModal({ ctx }) {
         <div style={{ fontSize: "10.5px", color: T.textFaint, lineHeight: 1.4, marginTop: "10px" }}>{DISCLAIMERS.trade}</div>
         <div style={{ display: "flex", gap: "8px", marginTop: "16px" }}>
           <button onClick={A.closeSell} style={{ flex: 1, padding: "11px", borderRadius: "9px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 600, fontSize: "14px" }}>Cancelar</button>
-          <button onClick={A.confirmSell} style={{ flex: 1.4, padding: "11px", borderRadius: "9px", border: `1px solid ${T.negative}`, background: T.negativeTint10, color: T.negative, fontWeight: 800, fontSize: "14px" }}>{ctx.cp.confirmarVenda}{total ? " total" : " de " + qty}</button>
+          <button onClick={A.confirmSell} disabled={livre <= 0} style={{ flex: 1.4, padding: "11px", borderRadius: "9px", border: `1px solid ${livre > 0 ? T.negative : T.borderSubtle}`, background: livre > 0 ? T.negativeTint10 : T.bgPanel, color: livre > 0 ? T.negative : T.textFaint, fontWeight: 800, fontSize: "14px" }}>{ctx.cp.confirmarVenda}{total ? " total" : " de " + qty}</button>
         </div>
       </div>
     </div>
@@ -7505,7 +7527,9 @@ export default function App() {
     },
     openSell: (t) => {
       const pos = (data.positions || []).find((p) => p.t === t);
-      if (pos) setSellModal({ t, qty: pos.qty });
+      // Fase 14 (Plano 07): abre já limitado ao que está LIVRE — mesma fonte
+      // única do SellModal (qtyLivre), nunca pos.qty.
+      if (pos) setSellModal({ t, qty: qtyLivre(pos) });
     },
     closeSell: () => setSellModal(null),
     confirmSell: async () => {
