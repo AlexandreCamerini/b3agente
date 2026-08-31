@@ -99,9 +99,19 @@ Recent decisions affecting current work:
 
 - Phase 13 edited: edited fields: success_criteria (adiciona itens 8-9: limpeza de resíduos BolsIA + checkpoint humano App Store Connect/TestFlight)
 
+- Phase 14 added (2026-08-30, standalone, sem milestone ativo): Opções
+  lastreadas — venda coberta e put de proteção sobre posições da carteira.
+  Origem: `/gsd-explore` sobre funcionalidades de opções. Redesenho do zero
+  (não reaproveita put_bridge/put_lifecycle nem setOptionStop/setOptionAlvo
+  existentes). Construída dormente — ativa quando `B3_OPTIONS_PROVIDER=
+  mydata` virar produção. Decisões completas em
+  `.planning/notes/opcoes-mecanica-lastreada-decisoes.md`.
+
 ### Pending Todos
 
-None yet.
+- `decidir-wr01-mydata-budget.md` (priority high) — race condition
+  check-then-debit em `mydata_budget`, um dos dois bloqueios da virada de
+  produção do mydata que a Fase 14 depende para deixar de ser dormente.
 
 ### Blockers/Concerns
 
