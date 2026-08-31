@@ -4,8 +4,8 @@ milestone: v1.3
 milestone_name: Cap comercial (plano gratuito)
 status: executing
 stopped_at: Phase 13 UI-SPEC approved
-last_updated: "2026-08-31T02:45:14.744Z"
-last_activity: 2026-08-31 -- Phase 14 planning complete
+last_updated: "2026-08-31T02:54:24.307Z"
+last_activity: 2026-08-31 -- Phase 14 execution started
 progress:
   total_phases: 2
   completed_phases: 0
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-29)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Milestone complete
+**Current focus:** Phase 14 — op-es-lastreadas-venda-coberta-e-put-de-prote-o-sobre-posi-e
 
 ## Current Position
 
-Phase: Milestone v1.3 complete
-Plan: —
-Status: Ready to execute
-Last activity: 2026-08-31 -- Phase 14 planning complete
+Phase: 14 (op-es-lastreadas-venda-coberta-e-put-de-prote-o-sobre-posi-e) — EXECUTING
+Plan: 1 of 8
+Status: Executing Phase 14
+Last activity: 2026-08-31 -- Phase 14 execution started
 
 ## Performance Metrics
 

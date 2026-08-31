@@ -119,12 +119,12 @@ Plans:
 **Goal:** Redesenhar a mecânica de opções do zero para só permitir operações lastreadas por posição real da carteira: venda de CALL coberta (com lote-lastro travado enquanto a call estiver aberta, nunca simula atribuição/exercício — call sempre fecha antes do vencimento) e compra de PUT de proteção, ambas guiadas pela análise técnica do próprio ativo-lastro. UI vira proposta pronta (estilo card de decisão) + cadeia expansível. Estudo explica sem executar, Operador executa. Entra no Patrimônio Total/P&L da Carteira. Não reaproveita put_bridge/put_lifecycle (ADR-021, decisão de sombra) nem setOptionStop/setOptionAlvo (código morto hoje). Construída estruturalmente pronta e dormente — execução real só libera quando `B3_OPTIONS_PROVIDER=mydata` virar produção (ver `.planning/todos/pending/decidir-wr01-mydata-budget.md`). Decisões completas: [.planning/notes/opcoes-mecanica-lastreada-decisoes.md](notes/opcoes-mecanica-lastreada-decisoes.md).
 **Requirements**: TBD
 **Depends on:** Phase 13
-**Plans:** 8 plans (7 ondas)
+**Plans:** 1/8 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 14-01-PLAN.md — Provedor de opções mock + trava de lastro no motor (`qtyTravada`, `qty_livre`, guardas de venda)
+- [x] 14-01-PLAN.md — Provedor de opções mock + trava de lastro no motor (`qtyTravada`, `qty_livre`, guardas de venda)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
