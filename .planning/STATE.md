@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Cap comercial (plano gratuito)
 status: Awaiting next milestone
-stopped_at: Phase 13 UI-SPEC approved
-last_updated: "2026-08-31T00:22:36.581Z"
-last_activity: 2026-08-31 — Milestone v1.3 completed and archived
+stopped_at: Phase 14 checkpoint approved
+last_updated: "2026-08-31T17:51:53.171Z"
+last_activity: 2026-08-31 -- Phase 14 (standalone) complete, checkpoint humano aprovado
 progress:
   total_phases: 2
   completed_phases: 2
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-29)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Milestone complete
+**Current focus:** Milestone complete; Phase 14 (standalone) também completa
 
 ## Current Position
 
-Phase: Milestone v1.3 complete
-Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-08-31 — Milestone v1.3 completed and archived
+Phase: 14 (op-es-lastreadas-venda-coberta-e-put-de-prote-o-sobre-posi-e) — COMPLETE (standalone, sem milestone ativo)
+Plan: 8 of 8 (+ 2 bugfixes de checkpoint)
+Status: Checkpoint humano aprovado — fase dormente em produção até B3_OPTIONS_PROVIDER=mydata
+Last activity: 2026-08-31 -- Phase 14 completa, checkpoint humano aprovado ao vivo (2 bugs achados e corrigidos)
 
 ## Performance Metrics
 
@@ -99,9 +99,19 @@ Recent decisions affecting current work:
 
 - Phase 13 edited: edited fields: success_criteria (adiciona itens 8-9: limpeza de resíduos BolsIA + checkpoint humano App Store Connect/TestFlight)
 
+- Phase 14 added (2026-08-30, standalone, sem milestone ativo): Opções
+  lastreadas — venda coberta e put de proteção sobre posições da carteira.
+  Origem: `/gsd-explore` sobre funcionalidades de opções. Redesenho do zero
+  (não reaproveita put_bridge/put_lifecycle nem setOptionStop/setOptionAlvo
+  existentes). Construída dormente — ativa quando `B3_OPTIONS_PROVIDER=
+  mydata` virar produção. Decisões completas em
+  `.planning/notes/opcoes-mecanica-lastreada-decisoes.md`.
+
 ### Pending Todos
 
-None yet.
+- `decidir-wr01-mydata-budget.md` (priority high) — race condition
+  check-then-debit em `mydata_budget`, um dos dois bloqueios da virada de
+  produção do mydata que a Fase 14 depende para deixar de ser dormente.
 
 ### Blockers/Concerns
 

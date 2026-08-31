@@ -18,6 +18,12 @@ O default de produção continua `"yahoo"` nesta fase: o Folded Todo do
 desligar Yahoo/brapi nas fatias migradas — a virada para `mydata` é o
 checkpoint humano do Plano 09-06.
 
+Fase 14 (Plano 01) acrescenta `"mock"`: existe SÓ para desenvolvimento e
+teste da mecânica lastreada (venda coberta / put de proteção) enquanto a
+virada de produção do mydata não acontece — nunca é default, e só entra por
+variável de ambiente do servidor (`B3_OPTIONS_PROVIDER=mock`), nunca por
+escolha do cliente.
+
 Fase 0/Plano 02 (OPTGATE-01, achado WR-01 do `09-REVIEW.md`): o gate de
 orçamento do mydata vive NO ADAPTADOR (`options_provider_mydata._gate`),
 não neste seletor — este arquivo continua sendo despacho puro por env, sem
@@ -30,12 +36,14 @@ from __future__ import annotations
 import os
 from typing import Optional
 
+from . import options_provider_mock
 from . import options_provider_mydata
 from . import options_provider_yahoo
 
 _PROVEDORES = {
     "yahoo": options_provider_yahoo.get_options,
     "mydata": options_provider_mydata.get_options,
+    "mock": options_provider_mock.get_options,
 }
 
 

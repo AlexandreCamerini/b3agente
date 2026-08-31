@@ -153,6 +153,41 @@ export const COPY = {
     concentracaoCorpo: (ticker, pct) =>
       `${ticker} sozinho responde por ${pct}% do seu patrimônio simulado. Diversificação reduz o quanto um único evento negativo pode derrubar a carteira inteira — vale estudar o conceito antes de aumentar ainda mais essa posição.`,
     concentracaoLink: "saiba mais",
+
+    // Fase 14 (Plano 06, 14-UI-SPEC.md "Copywriting Contract"): rótulos de
+    // controle e confirmação das operações lastreadas (venda coberta / put de
+    // proteção). A MANCHETE e a frase didática nunca vêm daqui — vêm prontas
+    // de proposta.manchete/proposta.didatica (motor determinístico, guardrail
+    // CVM); este dicionário só cobre eyebrow, CTA e confirmação. Ramo Estudo
+    // nunca renderiza CTA (a UI condiciona por `operador`), mas a chave
+    // existe pela paridade — vocabulário de ordem proibido aqui mesmo assim.
+    eyebrowPropostaCall: "ESTUDO · VENDA COBERTA",
+    eyebrowPropostaPut: "ESTUDO · PUT DE PROTEÇÃO",
+    ctaVendaCoberta: () => "Ver como esta operação funcionaria",
+    ctaPutProtecao: () => "Ver como esta operação funcionaria",
+    ctaFecharLastreada: () => "Como esta posição se encerra",
+    confirmAbrirCoberta: () => "", // ramo estudo nunca chama window.confirm — chave existe só pela paridade
+    confirmFecharCoberta: () => "",
+    verCadeiaCompleta: "ver cadeia completa",
+    propostaIndisponivelDegradada: "Proposta indisponível — cotação de opções degradada.",
+    propostaVaziaTitulo: "Sem proposta agora",
+
+    // Fase 14 (Plano 07): trava de lastro visível na Carteira. Ramo Estudo
+    // evita "vender"/"comprar" — "recomprada" (adjetivo) não contém o
+    // infinitivo "comprar" como substring, por isso é a forma usada aqui
+    // (guardião test_copy_theme.mjs testa substring, não palavra inteira).
+    badgeTravada: (qty) => `${qty} travada(s) · lastro da call coberta`,
+    avisoTravaNaVenda: (qty) => `${qty} ação(ões) está(ão) travada(s) como lastro de uma call coberta — volta(m) a ficar disponível(is) quando a call for recomprada ou vencer.`,
+
+    // Fase 14 (Plano 07, T-14-27/T-14-28): liquidação forçada por vencimento
+    // (estado do sistema, texto verbatim do UI-SPEC) e ressalva de marcação
+    // do patrimônio com pernas lastreadas — mesmo texto nos dois modos
+    // (system notice, não voz de professor/mesa; mesmo padrão de
+    // verCadeiaCompleta/propostaIndisponivelDegradada acima).
+    avisoLiquidacaoForcada: (ticker, valor) => valor === 0
+      ? `Esta call de ${ticker} venceu fora do dinheiro — expirou sem valor, o prêmio integral ficou com quem estava do outro lado da operação, e o lastro foi liberado.`
+      : `Esta call de ${ticker} venceu dentro do dinheiro e não foi fechada a tempo — liquidada em dinheiro pelo valor intrínseco (R$ ${valor}). Sua posição em ações não foi alterada.`,
+    linhaPatrimonioOpcoes: "opções lastreadas (marcadas pelo prêmio de abertura — sem cotação ao vivo)",
   },
 
   operador: {
@@ -276,6 +311,31 @@ export const COPY = {
     concentracaoCorpo: (ticker, pct) =>
       `${ticker} concentra ${pct}% da carteira. Acima disso, um único stop ruim carrega peso desproporcional no resultado — considere o tamanho antes do próximo aporte no papel.`,
     concentracaoLink: "saiba mais",
+
+    // Fase 14 (Plano 06): mesma chave do ramo estudo (ver comentário acima).
+    // Registro de mesa (imperativo) — texto VERBATIM do UI-SPEC.
+    eyebrowPropostaCall: "PROPOSTA · VENDA COBERTA",
+    eyebrowPropostaPut: "PROPOSTA · PUT DE PROTEÇÃO",
+    ctaVendaCoberta: (n, ticker, strike, premio) => `Vender ${n}× CALL ${ticker} · strike ${strike} — recebe R$ ${premio}`,
+    ctaPutProtecao: (n, ticker, strike, premio) => `Comprar ${n}× PUT ${ticker} · strike ${strike} — custa R$ ${premio}`,
+    ctaFecharLastreada: (custo) => `Recomprar a call — R$ ${custo}`,
+    confirmAbrirCoberta: (n, ticker, qty) => `Vender ${n} call(s) de ${ticker} trava ${qty} ação(ões) do seu lote-lastro até você recomprar a call ou ela vencer. Continuar?`,
+    confirmFecharCoberta: (custo, qty, ticker) => `Recomprar esta call por R$ ${custo} destrava ${qty} ação(ões) de ${ticker} imediatamente. Continuar?`,
+    verCadeiaCompleta: "ver cadeia completa",
+    propostaIndisponivelDegradada: "Proposta indisponível — cotação de opções degradada.",
+    propostaVaziaTitulo: "Sem proposta agora",
+
+    // Fase 14 (Plano 07): mesma chave do ramo estudo (ver comentário acima).
+    // Registro de mesa — vocabulário de ordem liberado aqui.
+    badgeTravada: (qty) => `${qty} travada(s) · lastro de CALL`,
+    avisoTravaNaVenda: (qty) => `${qty} ação(ões) travada(s) como lastro da call coberta — liberam quando você recomprar a call ou ela vencer.`,
+
+    // Fase 14 (Plano 07): mesma chave do ramo estudo (ver comentário acima) —
+    // texto idêntico, system notice sem voz de modo.
+    avisoLiquidacaoForcada: (ticker, valor) => valor === 0
+      ? `Esta call de ${ticker} venceu fora do dinheiro — expirou sem valor, o prêmio integral ficou com quem estava do outro lado da operação, e o lastro foi liberado.`
+      : `Esta call de ${ticker} venceu dentro do dinheiro e não foi fechada a tempo — liquidada em dinheiro pelo valor intrínseco (R$ ${valor}). Sua posição em ações não foi alterada.`,
+    linhaPatrimonioOpcoes: "perna de opções (prêmio de abertura — sem cotação ao vivo)",
   },
 };
 

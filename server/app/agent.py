@@ -523,10 +523,19 @@ async def _option_quotes(option_quotes_getter, opts: list) -> dict:
     return out
 
 
-async def _avaliar_opcoes(conn, scope, ag, par, option_quotes_getter, executed: int, events: list) -> int:
+async def _avaliar_opcoes(conn, scope, ag, par, option_quotes_getter, executed: int, events: list,
+                           app_mode=None) -> int:
     """Segunda passada do ciclo: `optionPositions`, separada da de `positions`
     porque a unidade (prêmio, não preço do ativo) e o terceiro motivo de saída
-    (vencimento) não têm equivalente em ação. Retorna o `executed` atualizado."""
+    (vencimento) não têm equivalente em ação. Retorna o `executed` atualizado.
+
+    Fase 14 (Plano 04): posição com `lastro` (CALL coberta vendida ou PUT de
+    proteção, `abrir_call_coberta`/`comprar_put_protecao`) tem um ramo PRÓPRIO,
+    checado ANTES do caminho legado — o ciclo de vida dela é só
+    abrir/fechar/vencer (D-1 de `.planning/notes/opcoes-mecanica-lastreada-
+    decisoes.md`), nunca as regras de saída técnica (stop/alvo/trailing) do
+    modelo antigo. `app_mode` decide o vocabulário do texto do vencimento
+    forçado (Estudo explica, Operador registra — mesmo padrão de `skill_ref`)."""
     opts = store.get(conn, "optionPositions", user_id=scope) or []
     if not opts or option_quotes_getter is None:
         return executed
@@ -540,6 +549,40 @@ async def _avaliar_opcoes(conn, scope, ag, par, option_quotes_getter, executed: 
         if not payload or payload.get("providerStatus") != "ok":
             continue
         spot = payload.get("underlyingPrice")
+
+        lastro = pos.get("lastro")
+        if isinstance(lastro, dict):
+            if not (pos.get("expiration") and str(pos["expiration"]) <= hoje):
+                continue  # posição com lastro, vencimento no futuro — sem stop/alvo/trailing (D-1)
+            if not isinstance(spot, (int, float)):
+                continue  # sem cotação confiável — tenta de novo no próximo ciclo (ADR-004)
+            pnl = store.liquidar_lastreada_vencida(conn, pos["id"], float(spot), user_id=scope)
+            executed += 1
+            _bump_ops(conn, scope, store.get(conn, "agent", user_id=scope) or ag)
+            _modo = "operador" if app_mode == "operador" else "educacional"
+            underlying = lastro.get("t") or pos.get("underlying")
+            if pos.get("side") == "comprada":
+                # PUT de proteção vencida — crédito do intrínseco, pode ser
+                # zero (perda total do prêmio: o resultado comum, Plano 04).
+                texto = (f"Vencimento: put de proteção {pos['id']} ({underlying}) liquidada "
+                         f"pelo intrínseco. Resultado realizado: R$ {pnl:+.2f}.")
+            else:
+                intrinseco = intrinseco_opcao(pos, float(spot))
+                if intrinseco > 0:
+                    texto = skill_ref.opcoes_lastreadas_txt(
+                        _modo, "liquidacao_forcada", ticker=underlying, valor=skill_ref.num_br(intrinseco))
+                else:
+                    texto = (f"A call coberta {pos['id']} ({underlying}) venceu fora do dinheiro — "
+                             f"o prêmio integral ficou com quem vendeu e as ações foram destravadas.")
+            # `tag="protecao-opcao"` (não o literal "protecao"): é a mesma tag
+            # já usada linhas abaixo para stop/alvo de opção — CLASSE_POR_TAG
+            # (push.py) só conhece essa chave; uma tag nova sem entrada na
+            # tabela cairia no fail-open de `classe_do_evento` (T-14-16 exige
+            # o contrário: nenhum evento de proteção escapa do consentimento).
+            events.append({"time": _now_str(), "kind": "warn", "t": underlying,
+                           "tag": "protecao-opcao", "pnl": pnl, "text": texto})
+            continue
+
         contrato = next((c for c in (payload.get("calls") or []) + (payload.get("puts") or [])
                           if c.get("contractSymbol") == pos.get("id")), None)
         price = contrato.get("lastPrice") if contrato else None
@@ -918,7 +961,8 @@ async def _run_cycle_inner(conn, scope, quotes_getter, origem: str, t0: float, s
         # morria aqui — só `text` viajava até o push, que caía no genérico.
         events.append({"time": _now_str(), "kind": "buy", "t": pos["t"],
                        "tag": "stop" if breach_stop else "alvo", "pnl": pnl, "text": _txt})
-    executed = await _avaliar_opcoes(conn, scope, ag, par, option_quotes_getter, executed, events)
+    executed = await _avaliar_opcoes(conn, scope, ag, par, option_quotes_getter, executed, events,
+                                      app_mode=app_mode)
     # Fase B: entrada automática — DEPOIS da saída (stop/alvo) e das opções,
     # de propósito (não faz sentido abrir posição nova no mesmo ciclo em que
     # talvez feche outra do mesmo ticker). Early return interno cobre

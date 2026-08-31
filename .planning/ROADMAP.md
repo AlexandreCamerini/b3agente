@@ -82,6 +82,7 @@ Full phase details: [milestones/v1.3-ROADMAP.md](milestones/v1.3-ROADMAP.md)
 | 11. Ciclo de vida e monitoramento | v1.2 | Complete | 2026-08-28 |
 | 12. Limites do plano gratuito ativos | v1.3 | Complete | 2026-08-29 |
 | 13. Uso real visível na interface + enforcement no iOS | v1.3 | Complete | 2026-08-31 |
+| 14. Opções lastreadas — venda coberta e put de proteção | standalone | Complete (dormente) | 2026-08-31 |
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2/v1.3
 
@@ -113,6 +114,43 @@ Plans:
 - [x] 09-06-PLAN.md — rótulos de fonte no front + bump/publicar-web + checkpoint da virada de produção
 
 **Status pós-checkpoint:** virada de produção `adiada` — `B3_CANDLE_PROVIDER`/`B3_OPTIONS_PROVIDER` seguem em `brapi`/`yahoo`. Perna ao vivo da medição rodou em 2026-08-28 (chave confirmada autenticando), mas o pico/min (148 projetado vs. 60/min) segue sem mitigação. Ver `docs/MEDICAO-Mydata-2026-08-27.md` e `.planning/todos/pending/medir-rate-limit-mydata.md`.
+
+### Phase 14: Opções lastreadas — venda coberta e put de proteção sobre posições da carteira — standalone, sem milestone ativo
+
+**Goal:** Redesenhar a mecânica de opções do zero para só permitir operações lastreadas por posição real da carteira: venda de CALL coberta (com lote-lastro travado enquanto a call estiver aberta, nunca simula atribuição/exercício — call sempre fecha antes do vencimento) e compra de PUT de proteção, ambas guiadas pela análise técnica do próprio ativo-lastro. UI vira proposta pronta (estilo card de decisão) + cadeia expansível. Estudo explica sem executar, Operador executa. Entra no Patrimônio Total/P&L da Carteira. Não reaproveita put_bridge/put_lifecycle (ADR-021, decisão de sombra) nem setOptionStop/setOptionAlvo (código morto hoje). Construída estruturalmente pronta e dormente — execução real só libera quando `B3_OPTIONS_PROVIDER=mydata` virar produção (ver `.planning/todos/pending/decidir-wr01-mydata-budget.md`). Decisões completas: [.planning/notes/opcoes-mecanica-lastreada-decisoes.md](notes/opcoes-mecanica-lastreada-decisoes.md).
+**Requirements**: TBD
+**Depends on:** Phase 13
+**Plans:** 10/8 plans complete
+
+Plans:
+**Wave 1**
+
+- [x] 14-01-PLAN.md — Provedor de opções mock + trava de lastro no motor (`qtyTravada`, `qty_livre`, guardas de venda)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 14-02-PLAN.md — Operações lastreadas no motor: abrir/fechar CALL coberta e comprar PUT de proteção
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [x] 14-03-PLAN.md — Motor de proposta determinística, vocabulário por modo e as três rotas HTTP
+- [x] 14-04-PLAN.md — Liquidação forçada no vencimento (sem atribuição) e ramo lastreado no ciclo do agente
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [x] 14-05-PLAN.md — Paridade dos dois stores do front + Patrimônio Total com as pernas lastreadas
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [x] 14-06-PLAN.md — Card de proposta no AtivoCard, cadeia expansível e split Estudo × Operador
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [x] 14-07-PLAN.md — Carteira: badge de trava, venda limitada ao livre, aviso de liquidação, patrimônio
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
+- [x] 14-08-PLAN.md — ADR-023, verificação ponta a ponta com o mock, publicação e checkpoint humano
 
 ---
 

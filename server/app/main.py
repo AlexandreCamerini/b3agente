@@ -42,8 +42,10 @@ from . import benchmark  # FIX-C03: série diária do Ibovespa (comparação no 
 from . import analytics  # qa/47: eventos de comportamento (ingest + rollup + purga)
 from . import signal_ledger  # ADR-017 (Bloco 1): histórico medido por setup (ledger de sinais)
 from .catalog import is_catalog_ticker
-from .options_api import router as options_router
+from .options_api import router as options_router, _spot_from_chain_or_quote
 from .options_provider import get_options as _get_options_for_status
+from . import opcoes_lastreadas  # Fase 14 (Plano 03): motor de proposta lastreada (venda coberta/put)
+from . import skill_ref  # Fase 14 (Plano 03): frase canônica da proposta lastreada por modo
 
 app = FastAPI(title="Boris+ API")
 app.add_middleware(
@@ -1008,7 +1010,7 @@ async def admin_mobile_handoff_exchange(body: dict = Body(default={})):
 
 # FASE 8B (diagnóstico): carimbo de build do BACKEND — confirma qual código o
 # Railway está rodando (o front tem o dele em web/src/version.js).
-SERVER_BUILD_ID = "F10-20260830-02"  # Fase 13 Plano 05: publica os 3 contadores + gate iOS (front republicado).
+SERVER_BUILD_ID = "F10-20260831-02"  # Fase 13 Plano 05: publica os 3 contadores + gate iOS (front republicado).
 # Normalmente sincronizado pelo entregar.sh a partir de web/src/version.js; num deploy
 # SÓ de backend (sem rebuild do front) bumpamos aqui para /api/health rastrear o servidor.
 
@@ -2207,7 +2209,21 @@ async def sell(body: dict = Body(default={}), scope: Optional[str] = Depends(cur
                                               f"Você não tem posição em {t} para vender.",
                                               user_id=scope, origem="manual")
                 raise HTTPException(400, "Sem posicao em " + t)
-            store.sell(_conn, t, price, user_id=scope, qty=_qty_val)
+            resultado_venda = store.sell(_conn, t, price, user_id=scope, qty=_qty_val)
+            if resultado_venda is None:
+                # Fase 14 (D-3): `store.sell` devolve `None` e já grava a
+                # rejeição no histórico (`registrar_rejeicao`, dentro dela
+                # mesma) quando a posição existe mas está 100% travada como
+                # lastro de uma CALL coberta aberta (`qty_livre(pos) <= 0`).
+                # Sem este check a rota devolvia 200 silencioso — a venda não
+                # executava, mas o cliente não tinha como saber sem reler o
+                # histórico. `/api/buy`/`/api/sell` levantam 400 explícito
+                # para toda outra rejeição (caixa insuficiente, sem posição,
+                # quantidade inválida); esta era a única exceção silenciosa.
+                raise HTTPException(
+                    400,
+                    f"{pos_atual.get('qtyTravada') or 0} ação(ões) de {t} estão travadas "
+                    "como lastro de uma CALL coberta aberta — recompre a call para liberar.")
         _disparar_ciclo_imediato(scope)  # 2026-08-07: reavalia na hora, não espera o próximo tick
         out = store.public_state(_conn, user_id=scope)
         out["priceUsed"] = round(price, 2)
@@ -2324,6 +2340,158 @@ async def option_position(contract_id: str, body: dict = Body(default={}), scope
     store.set_option_position(_conn, contract_id, stop=body.get("stop"), alvo=body.get("alvo"),
                                has_stop=("stop" in body), has_alvo=("alvo" in body), user_id=scope)
     return store.public_state(_conn, user_id=scope)
+
+
+# ---- Carteira: opções lastreadas (Fase 14, Plano 03 — D-1 redesenho, rotas
+# próprias; NÃO tocam /api/options/buy|sell, que continuam servindo o modelo
+# antigo long-only) ----
+@app.get("/api/options/proposta/{ticker}")
+async def options_proposta(ticker: str, scope: Optional[str] = Depends(current_scope)):
+    """Proposta determinística de venda coberta ou put de proteção sobre a
+    posição real do escopo em `ticker`. ADR-004 (postura best-effort): toda
+    exceção do provedor de cadeia ou do pipeline técnico vira
+    `providerStatus: "degraded"` + `motivo: "degradado"` — a rota NUNCA cai
+    em 500 por indisponibilidade de dado de mercado (T-14-13: reusa o cache
+    de 300s do provider e o mesmo pipeline técnico já existente)."""
+    import datetime as dt
+    t = _normalize_ticker(ticker)
+    if len(t) < 4:
+        raise HTTPException(400, "Ticker inválido.")
+    cfg = store.get(_conn, "config", user_id=scope) or {}
+    modo = cfg.get("appMode") or "estudo"
+    positions = store.get(_conn, "positions", user_id=scope)
+    posicao = next((p for p in positions if p["t"] == t), None)
+    cash = store.get(_conn, "cash", user_id=scope)
+    # Fetch adiantado (era feito só depois do bloco try/except abaixo):
+    # necessário AQUI porque a proposta de FECHAMENTO de uma posição já
+    # aberta é decidida antes de qualquer chamada a `propor()` — ver bloco
+    # `pos_op_aberta` logo abaixo (bugfix checkpoint humano, Plano 08).
+    option_positions = store.get(_conn, "optionPositions", user_id=scope)
+    pos_op_aberta = next(
+        (p for p in option_positions if p.get("underlying") == t and p.get("lastro")), None)
+    try:
+        if pos_op_aberta:
+            # Posição lastreada JÁ ABERTA neste `underlying`: a proposta é de
+            # FECHAMENTO do MESMO contrato, nunca uma nova escolha de
+            # `propor()` — cadeia técnica nem é buscada aqui (otimização real,
+            # não só atalho: nenhum uso é feito do plano técnico neste ramo).
+            chain_pos = await options_provider.get_options(t, pos_op_aberta.get("expiration"))
+            provider_status = chain_pos.get("providerStatus")
+            resultado = opcoes_lastreadas.proposta_fechar(pos_op_aberta, chain_pos, modo, dt.date.today())
+        else:
+            chain = await options_provider.get_options(t)
+            provider_status = chain.get("providerStatus")
+            # Mesmas duas primeiras portas de `opcoes_lastreadas.propor`
+            # checadas AQUI antes do fetch técnico — sem isto, um usuário sem
+            # posição (ou cadeia degradada) ainda pagaria o custo de
+            # candles+indicators+setups para receber a MESMA ausência que já
+            # dava para saber sem tocar rede de novo (T-14-13: nenhuma
+            # chamada nova por card além da que o gate já faz).
+            if provider_status != "ok":
+                resultado = {"proposta": None, "motivo": "degradado"}
+            elif not isinstance(posicao, dict) or store.qty_livre(posicao) < 100:
+                resultado = {"proposta": None, "motivo": "sem_lastro"}
+            else:
+                try:
+                    quote = await candle_provider.get_quote(t)
+                except Exception:
+                    quote = None
+                spot = _spot_from_chain_or_quote(chain, quote)
+                p = candles_mod.normalize_period(None)   # período CANÔNICO, mesmo da análise técnica
+                snap = await technical_snapshot.get(t, p, lambda rng: candle_provider.get_history(t, rng=rng))
+                plano = setups.plano_do_resultado(snap["setups"], close=snap.get("close"))
+                resultado = opcoes_lastreadas.propor(t, chain, spot, plano, posicao, cash, modo, dt.date.today())
+    except Exception:
+        resultado = {"proposta": None, "motivo": "degradado"}
+        provider_status = "degraded"
+    motivo = resultado["motivo"]
+    motivo_texto = skill_ref.opcoes_lastreadas_txt(modo, motivo, ticker=t)
+    put_sem_lastro_ids = opcoes_lastreadas.put_sem_lastro(option_positions, positions)
+    return {
+        "ticker": t, "providerStatus": provider_status, "modo": modo,
+        "proposta": resultado["proposta"], "motivo": motivo, "motivoTexto": motivo_texto,
+        "putSemLastro": put_sem_lastro_ids,
+    }
+
+
+@app.post("/api/options/lastreada/abrir")
+async def options_lastreada_abrir(body: dict = Body(default={}), scope: Optional[str] = Depends(current_scope)):
+    """Abre a operação lastreada (venda coberta OU put de proteção) a partir
+    da proposta que o motor já ofereceu. Trava de ESCRITA (D-5, T-14-09):
+    Modo Estudo nunca executa — a mesma trava do `set_agent`, agravada aqui
+    porque é a única deste par que faltava um 403 explícito de servidor."""
+    cfg = store.get(_conn, "config", user_id=scope) or {}
+    if cfg.get("appMode") != "operador":
+        raise HTTPException(403, "Modo Estudo não executa ordens — troque para o Modo Operador para operar.")
+    underlying = _normalize_ticker(str(body.get("underlying") or ""))
+    contract_symbol = str(body.get("contractSymbol") or "")
+    contratos = body.get("contratos")
+    if len(underlying) < 4 or not contract_symbol or not isinstance(contratos, (int, float)) or contratos < 1:
+        raise HTTPException(400, "Operação lastreada inválida.")
+    chain = await options_provider.get_options(underlying, body.get("expiration"))
+    if chain.get("providerStatus") != "ok":
+        raise HTTPException(502, "Cotação de opções indisponível no momento — tente novamente.")
+    contrato = next((c for c in [*chain.get("calls", []), *chain.get("puts", [])]
+                      if c.get("contractSymbol") == contract_symbol), None)
+    if not contrato:
+        raise HTTPException(404, "Contrato não encontrado na cadeia atual.")
+    price = contrato.get("lastPrice")
+    if not isinstance(price, (int, float)) or price <= 0:
+        raise HTTPException(502, "Sem prêmio disponível para este contrato.")
+    contract = {
+        "id": contract_symbol, "underlying": underlying,
+        "optionType": contrato.get("optionType"), "strike": contrato.get("strike"),
+        "expiration": chain.get("expiration"),
+        "ivEntrada": contrato.get("impliedVolatility"),
+    }
+    try:
+        if contrato.get("optionType") == "call":
+            store.abrir_call_coberta(_conn, contract, int(contratos), price, user_id=scope)
+        elif contrato.get("optionType") == "put":
+            store.comprar_put_protecao(_conn, contract, int(contratos), price, user_id=scope)
+        else:
+            raise HTTPException(400, "Tipo de contrato inválido para operação lastreada.")
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    _disparar_ciclo_imediato(scope)
+    out = store.public_state(_conn, user_id=scope)
+    out["priceUsed"] = round(price, 2)
+    return out
+
+
+@app.post("/api/options/lastreada/fechar")
+async def options_lastreada_fechar(body: dict = Body(default={}), scope: Optional[str] = Depends(current_scope)):
+    """Fecha a operação lastreada aberta pela rota irmã de abertura acima.
+    Mesma trava de Modo Operador (D-5) e mesmo bloqueio por `providerStatus`
+    da abertura — fechar também é execução, não só abrir."""
+    cfg = store.get(_conn, "config", user_id=scope) or {}
+    if cfg.get("appMode") != "operador":
+        raise HTTPException(403, "Modo Estudo não executa ordens — troque para o Modo Operador para operar.")
+    contract_symbol = str(body.get("contractSymbol") or "")
+    pos = next((p for p in store.get(_conn, "optionPositions", user_id=scope) if p["id"] == contract_symbol), None)
+    if not pos:
+        raise HTTPException(400, "Sem posição em " + contract_symbol)
+    chain = await options_provider.get_options(pos["underlying"], pos.get("expiration"))
+    if chain.get("providerStatus") != "ok":
+        raise HTTPException(502, "Cotação de opções indisponível no momento — tente novamente.")
+    contrato = next((c for c in [*chain.get("calls", []), *chain.get("puts", [])]
+                      if c.get("contractSymbol") == contract_symbol), None)
+    price = contrato.get("lastPrice") if contrato else None
+    if not isinstance(price, (int, float)):
+        raise HTTPException(502, "Sem prêmio disponível para este contrato.")
+    contratos_body = body.get("contratos")
+    contratos_n = int(contratos_body) if isinstance(contratos_body, (int, float)) and contratos_body > 0 else None
+    if pos.get("side") == "vendida":
+        store.fechar_call_coberta(_conn, contract_symbol, price, user_id=scope, contratos=contratos_n)
+    elif pos.get("side") == "comprada":
+        qty = contratos_n * 100 if contratos_n else None
+        store.sell_option(_conn, contract_symbol, price, user_id=scope, qty=qty, motivo="manual")
+    else:
+        raise HTTPException(400, "Sem posição em " + contract_symbol)
+    _disparar_ciclo_imediato(scope)
+    out = store.public_state(_conn, user_id=scope)
+    out["priceUsed"] = round(price, 2)
+    return out
 
 
 @app.put("/api/agent")
