@@ -65,7 +65,7 @@ Full phase details: [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
 | 10. Ponte gatilho→put | v1.2 | Complete | 2026-08-28 |
 | 11. Ciclo de vida e monitoramento | v1.2 | Complete | 2026-08-28 |
 | 12. Limites do plano gratuito ativos | 3/3 | Complete   | 2026-08-29 |
-| 13. Uso real visível na interface + enforcement no iOS | 5/5 | Complete   | 2026-08-30 |
+| 13. Uso real visível na interface + enforcement no iOS | 5/5 | Complete    | 2026-08-31 |
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2
 

@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Cap comercial (plano gratuito)
-status: executing
-stopped_at: Phase 13 UI-SPEC approved
-last_updated: "2026-08-30T00:05:42.348Z"
+status: milestone_complete
+stopped_at: Milestone complete (Phase 13 was final phase)
+last_updated: 2026-08-31T00:05:37.205Z
 last_activity: 2026-08-30 -- Phase 13 execution started
 progress:
   total_phases: 2
   completed_phases: 1
   total_plans: 8
-  completed_plans: 3
-  percent: 38
+  completed_plans: 8
+  percent: 50
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-29)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Phase 13 — Uso real visível na interface + enforcement no iOS
+**Current focus:** Milestone complete
 
 ## Current Position
 
-Phase: 13 (Uso real visível na interface + enforcement no iOS) — EXECUTING
-Plan: 1 of 5
-Status: Executing Phase 13
-Last activity: 2026-08-30 -- Phase 13 execution started
+Phase: 13
+Plan: Not started
+Status: Milestone complete
+Last activity: 2026-08-31
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -36,7 +36,7 @@ Progress: [░░░░░░░░░░] 0%
 
 **Velocity:**
 
-- Total plans completed: 20 (v1.0) + 44 (v1.1) + 6 (Phase 9, standalone) + 8 (v1.2)
+- Total plans completed: 25 (v1.0) + 44 (v1.1) + 6 (Phase 9, standalone) + 8 (v1.2)
 - Average duration: -
 - Total execution time: 0h (v1.3)
 
@@ -52,6 +52,7 @@ Progress: [░░░░░░░░░░] 0%
 | 11 (v1.2) | 3 | - | - |
 | 12 (v1.3) | TBD | - | - |
 | 13 (v1.3) | TBD | - | - |
+| 13 | 5 | - | - |
 
 **Recent Trend:**
 
