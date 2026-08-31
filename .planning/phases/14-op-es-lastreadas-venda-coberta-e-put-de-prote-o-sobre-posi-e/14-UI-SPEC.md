@@ -104,10 +104,18 @@ rows, breakeven grid — keep their current sizes unchanged, see Exceptions):
   the stock decision, not a separate genre of card.
 
 Weights: exactly 2 declared for new elements — **400** (regular, Body only)
-and **800** (bold, Label/Heading/Display). Exception: the reused
-`OpcaoContrato` rows keep their existing **700** weight for chip/number text
-— pre-existing, not retrofitted, and never adjacent to a 400/800 phase-14
-element in the same visual row so there is no clash.
+and **800** (bold, Label/Heading/Display). The reused `OpcaoContrato` rows
+and the reused `AtivoCard` chip row keep their existing **700** weight —
+pre-existing, not retrofitted. These will render in the same card as the new
+400/800 elements (the proposal card sits above the unmodified chain
+accordion, and above/below the unmodified chip row), so 700 and 800 will
+appear as visual neighbors in the assembled card. This is an accepted
+exception, not a contradiction to resolve: 700 (chips/chain, pre-existing)
+and 800 (proposal card, new) read as two intentionally different surfaces —
+chips are compact inline tags, the proposal card is the primary decision
+surface — the weight difference reinforces that hierarchy rather than
+clashing. The executor should not change 700 to match on the pre-existing
+elements.
 
 ---
 
@@ -155,15 +163,15 @@ this reuses the existing polarity already established in `OpcaoContrato`
 
 | Element | Copy |
 |---------|------|
-| Primary CTA (Operador, CALL) | `"Vender CALL coberta"` — button label follows the existing pattern (`"Comprar — R$ X (100 cotas)"`), so the live label is `"Vender N× CALL {TICKER} · strike {K} — recebe R$ {prêmio}"` |
-| Primary CTA (Operador, PUT) | `"Comprar PUT de proteção"` — live label `"Comprar N× PUT {TICKER} · strike {K} — custa R$ {prêmio}"` |
+| Primary CTA (Operador, CALL) | Imperative register per `vocab["operador"]` (mesa, ordem de ação): static label `"Vender CALL coberta"`; live label follows the existing dynamic-price pattern (`"Comprar — R$ X (100 cotas)"` at `App.jsx:2957`) → `"Vender N× CALL {TICKER} · strike {K} — recebe R$ {prêmio}"` |
+| Primary CTA (Operador, PUT) | Imperative register: static label `"Comprar PUT de proteção"`; live label `"Comprar N× PUT {TICKER} · strike {K} — custa R$ {prêmio}"` |
 | Empty state heading | `"Sem proposta agora"` |
 | Empty state body | No lastro: `"Sem posição em {TICKER} na carteira — venda coberta e put de proteção exigem uma posição real do ativo-lastro."` No setup técnico elegível: `"A leitura técnica de {TICKER} não indica venda coberta nem put de proteção agora. A cadeia completa continua disponível abaixo."` |
 | Error state | Reuses the existing ADR-004 degraded-provider phrasing verbatim: `"Cotação de opções indisponível no momento. Tente novamente em alguns minutos."` For the proposal CTA specifically (blocked, not just chain): `"Proposta indisponível — cotação de opções degradada."` (mirrors `OpcaoContrato`'s existing `"Indisponível — cotação de opções degradada"` button-disabled label at `App.jsx:2957`) |
 | Destructive confirmation — abrir CALL coberta | `window.confirm` (same mechanism as `resetPortfolio`, `App.jsx:6568`): `"Vender {N} call(s) de {TICKER} trava {qty} ação(ões) do seu lote-lastro até você recomprar a call ou ela vencer. Continuar?"` |
 | Destructive confirmation — fechar CALL coberta antes do vencimento | `"Recomprar esta call por R$ {custo} destrava {qty} ação(ões) de {TICKER} imediatamente. Continuar?"` |
-| System notice — liquidação forçada (não é ação do usuário, é estado) | `"Esta call de {TICKER} venceu dentro do dinheiro e não foi fechada a tempo — liquidada em dinheiro pelo valor intrínseco (R$ {valor}). Sua posição em ações não foi alterada."` — informativo, sem CTA, cor `T.negative` no ícone/borda, texto em `T.textSecondary` (nunca dramatizado com vermelho no texto inteiro — mantém o padrão de "resultado sem manipulação visual" do CLAUDE.md) |
-| Estudo — mesma proposta, sem CTA | Voz didática, condicional, nunca imperativa (vocabulário `vocab["educacional"]`, nunca `vocab["operador"]`): `"Se você tivesse vendido esta call coberta agora, receberia um prêmio de R$ {prêmio} e travaria {qty} ação(ões) até a recompra ou o vencimento."` / `"Se você tivesse comprado esta put de proteção agora, pagaria R$ {prêmio} para proteger {qty} ação(ões) contra queda abaixo de R$ {strike}."` |
+| System notice — liquidação forçada (não é ação do usuário, é estado) | `"Esta call de {TICKER} venceu dentro do dinheiro e não foi fechada a tempo — liquidada em dinheiro pelo valor intrínseco (R$ {valor}). Sua posição em ações não foi alterada."` — informativo, sem CTA, cor `T.negative` no ícone/borda, texto em `T.textSecondary` (nunca dramatizado com vermelho no texto inteiro — mantém o padrão de "resultado sem manipulação visual" do CLAUDE.md). A fórmula exata de `{valor}` (valor intrínseco) é Claude's Discretion do planejamento — este contrato define só a copy, não o cálculo. |
+| Estudo — mesma proposta, sem CTA | Conditional/descriptive register per `vocab["educacional"]` (nunca ordem): `"Se você tivesse vendido esta call coberta agora, receberia um prêmio de R$ {prêmio} e travaria {qty} ação(ões) até a recompra ou o vencimento."` / `"Se você tivesse comprado esta put de proteção agora, pagaria R$ {prêmio} para proteger {qty} ação(ões) contra queda abaixo de R$ {strike}."` |
 | Trava de lastro — badge na Carteira | `"{qty} travada(s) · lastro de CALL"` (reaproveita o estilo de `PosPill`, `App.jsx:1023-1026`, cor `T.negative` em vez de `T.accent` porque comunica restrição, não posição neutra) |
 
 Naming note (Claude's Discretion per CONTEXT.md): the operation is labeled
@@ -171,9 +179,11 @@ Naming note (Claude's Discretion per CONTEXT.md): the operation is labeled
 phase name and with existing PT-BR product vocabulary (`vocab["educacional"]`/
 `vocab["operador"]` pattern in `skill_ref.py`) — not "covered call"/"protective
 put" (no untranslated finance jargon elsewhere in the product). This naming
-should be confirmed with `skill_ref.py`'s canonical vocabulary structures at
-planning time (per the didatica-boris skill: "texto novo entra nessas
-estruturas, não solto no front").
+should be confirmed against `skill_ref.py`'s canonical vocabulary structures
+at planning time (per the didatica-boris skill: "texto novo entra nessas
+estruturas, não solto no front"); the Operador/Estudo register split above
+(imperative vs. conditional) already follows the non-negotiable rule in that
+skill file and is not itself a discretion item.
 
 ---
 
