@@ -1,5 +1,22 @@
 # Milestones
 
+## v1.3 Cap comercial (plano gratuito) (Shipped: 2026-08-31)
+
+**Phases completed:** 2 phases, 8 plans, 21 tasks
+
+**Key accomplishments:**
+
+- PLAN_FREE ganhou limites reais (10 ativos / 30 análises-mês) em `server/app/plan.py`, a recusa de watchlist perdeu o tom de CTA, e os dois guardiões pré-existentes que travavam "nenhum limite ativo" foram invertidos com nota de reversão rastreável.
+- `PUT /api/watchlist` ganhou gate de plano que compara o tamanho FINAL normalizado (não o cru do body) e só bloqueia crescimento — fechando o bypass que permitia contas free ultrapassarem 10 ativos pelo catálogo, sem nunca recusar remoção, reordenação ou truncar contas grandfathered.
+- Suíte de comportamento (10 testes) provando que o cap mensal de 30 análises nega de verdade nas duas rotas via o ledger real, mais registro da ativação técnica v1.3 no ADR-010
+- GET /api/watchlist/quota expõe {count, limit, planId} lendo max_watchlist direto de plan.py, travado por 4 testes de contrato (free/anônimo/pro), mais limpeza de 2 resíduos textuais BolsIA→Boris+.
+- watchlistQuota() nos dois stores lendo o endpoint real (sem hardcode de 10/30), gate fail-closed em deviceStore.addWatchlistTicker/putWatchlist fechando o bypass do CR-01 no app iOS nativo, e plan.js sem CTA de upgrade com o novo canGrowWatchlistTo espelhando can_grow_watchlist_to do backend.
+- Helper `QuotaSeg` único (módulo React) renderizando o par uso/limite com 5 estados travados em 3 pontos da UI — subtítulo da Watchlist, CatalogModal e Atividade da IA — lendo `store.watchlistQuota()`/`store.aiQuota()` sem nenhum limite hardcoded, com guardião estático de 18 asserções incluindo uma mutação manual (T.warn→T.negative) que comprova o teste falha quando a decisão de cor é violada.
+- Os dois itens que nenhum agente pode verificar sozinho fecharam com veredito explícito do Alex: o fragmento âmbar (`T.warn`) é legível no tema claro nos 3 pontos de exibição e nos 5 estados testados ao vivo (9/10, 10/10, indisponível, plano sem teto), e o nome exibido do app no App Store Connect — que estava "B3 Ai Agent", não "BolsIA" como o achado original supunha — foi corrigido para "Boris+".
+- `server/web_dist` republicado a partir de um build real do front (BUILD_ID `F10-20260830-02`), com colisão de carimbo com um deploy só-backend do mesmo dia detectada e corrigida antes do commit; sincronização do bundle iOS não foi possível neste ambiente (`web/ios/` nunca gerado) e fica registrada nominalmente como pendência de TestFlight do Alex.
+
+---
+
 ## v1.2 Camada de opções ancorada na carteira (Shipped: 2026-08-28)
 
 **Phases completed:** 3 phases, 8 plans, 17 tasks

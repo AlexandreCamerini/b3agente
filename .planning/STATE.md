@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Cap comercial (plano gratuito)
-status: milestone_complete
-stopped_at: Milestone complete (Phase 13 was final phase)
-last_updated: 2026-08-31T00:05:37.205Z
-last_activity: 2026-08-30 -- Phase 13 execution started
+status: Awaiting next milestone
+stopped_at: Phase 13 UI-SPEC approved
+last_updated: "2026-08-31T00:22:36.581Z"
+last_activity: 2026-08-31 — Milestone v1.3 completed and archived
 progress:
   total_phases: 2
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 8
   completed_plans: 8
-  percent: 50
+  percent: 100
 ---
 
 # Project State
@@ -25,12 +25,10 @@ See: .planning/PROJECT.md (updated 2026-08-29)
 
 ## Current Position
 
-Phase: 13
-Plan: Not started
-Status: Milestone complete
-Last activity: 2026-08-31
-
-Progress: [░░░░░░░░░░] 0%
+Phase: Milestone v1.3 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-08-31 — Milestone v1.3 completed and archived
 
 ## Performance Metrics
 
@@ -132,6 +130,11 @@ Items acknowledged and carried forward from previous milestone close (v1.2 → v
 | Production cutover | Virada de `B3_CANDLE_PROVIDER`/`B3_OPTIONS_PROVIDER=mydata` (Fase 9, checkpoint `adiar`) — pico/min mitigado em código (2026-08-28), falta só religar em produção | blocked_on_operator_action | Fase 9 close (2026-08-27) |
 | WR-01 (arquitetura) | Race condition check-then-debit em `mydata_budget` — até 3 consumidores concorrentes potenciais | Decisão de arquitetura pendente | v1.2 close (2026-08-28) |
 | v2 requirements | CAP-08..11 (loja/IAP, preço/moeda, IA gerenciada sem BYOK como paga, alvo dinâmico exclusivo do pago) | Deferred to future release — depende da decisão comercial de venda em si | v1.3 roadmap (2026-08-29) |
+| uat_gap (stale) | Fase 12 `12-HUMAN-UAT.md` | Já `resolved`, 0 cenários pendentes — auditoria só sinaliza a existência do arquivo, não um gap real | v1.3 close (2026-08-31) |
+| verification_gap (stale) | Fase 12 `12-VERIFICATION.md` (`human_needed`) | O gap real (bypass do cap no iOS) foi dobrado no escopo da Fase 13 (CAP-12) e fechado lá — o arquivo da Fase 12 não foi reaberto/reexecutado, só o achado foi resolvido a jusante | v1.3 close (2026-08-31) |
+| Pending todo (resolvido) | `cap-watchlist-robustez-code-review.md` (WR-01/02/03 do 12-REVIEW.md) | Já corrigido em 3 commits atômicos, mergeado via PR #26 antes do fechamento — o arquivo do todo ficou desatualizado (escrito antes das correções); candidato a mover pra `todos/resolved/` numa limpeza futura | v1.3 close (2026-08-31) |
+| Pending todo (real, já rastreado) | `medir-rate-limit-mydata.md` (priority high) | Mesmo item já registrado na linha "Production cutover" acima (Fase 9) — não é novidade do v1.3, segue aberto até o Alex religar `B3_CANDLE_PROVIDER=mydata` em produção | Fase 9 close (2026-08-27), reconfirmado v1.3 close (2026-08-31) |
+| Quick tasks (auditoria desatualizada) | 7 quick-tasks com status `missing` (2026-08-20 a 2026-08-30, inclui `260830-eqm-fase-4-adr-23-boris-relying-party-do-sem` de outra sessão concorrente já mergeada, PR #27) | Sem relação com o escopo do v1.3 (cap comercial) — a ferramenta de auditoria não localiza um artefato de status esperado pra esses slugs antigos; nenhum representa trabalho pendente conhecido | v1.3 close (2026-08-31) |
 
 ## Session Continuity
 
@@ -141,4 +144,4 @@ Resume file: .planning/phases/13-uso-real-vis-vel-na-interface-enforcement-no-io
 
 ## Operator Next Steps
 
-- Run `/gsd:plan-phase 12` to break Phase 12 into executable plans.
+- Start the next milestone with /gsd-new-milestone

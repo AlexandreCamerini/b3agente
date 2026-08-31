@@ -10,8 +10,10 @@ mais profundas, com execução simulada, agora **gated pela seleção dinâmica*
 entrada automática só dispara em setup com vantagem estatística medida na
 janela anterior fechada, não mais em qualquer padrão detectado). Web/PWA +
 app iOS nativo (mesmo bundle via Capacitor), backend Python/FastAPI, portal
-de administração separado. Vai ser comercializado: funções básicas grátis com
-cota pequena de análises de IA, escalando para planos pagos.
+de administração separado. **Comercializado desde v1.3**: plano gratuito com
+teto real (10 ativos na watchlist, 30 análises de IA/mês, motivo exato na
+recusa), plano pago (`PLAN_PRO`) ilimitado — ainda sem loja/IAP nem preço
+definido, essa ativação foi só a preparação técnica pro upgrade pago.
 
 ## Core Value
 
@@ -20,11 +22,13 @@ funciona — não decorou uma resposta, aprendeu o raciocínio — e só então 
 acesso a automações do Modo Operador. Se o storyline pedagógico não convencer,
 nada mais no produto importa.
 
-## Current Milestone: v1.3 Cap comercial (plano gratuito)
+## Current Milestone
 
-**Status:** Fases 12 e 13 completas (2026-08-29/31) — todos os phases do
-milestone entregues, `is_last_phase: true` na Fase 13. Candidato a
-`/gsd-complete-milestone` quando o Alex quiser fechar formalmente.
+Nenhum milestone ativo — v1.3 fechado em 2026-08-31 (`/gsd-complete-milestone`).
+Detalhes completos arquivados em `.planning/milestones/v1.3-ROADMAP.md`.
+Próximo passo: `/gsd:new-milestone` quando o Alex quiser abrir o próximo ciclo.
+
+## Milestone v1.3 Cap comercial (plano gratuito) — SHIPPED 2026-08-31
 
 **Goal:** ativar de verdade os limites do plano gratuito que o ADR-010 já
 desenhou tecnicamente (watchlist e análises/mês) — sem loja/IAP neste
@@ -188,6 +192,14 @@ faltavam os números).
   (WR-01, agora em dois consumidores após a Fase 0 do v1.2) — decisão de
   arquitetura (lock/fila/aceitar risco) pendente sua validação, ver
   `.planning/notes/decisoes-autonomas-v1.2.md`
+- [ ] CAP-12 (bypass do cap de watchlist no iOS) está fechado em código e
+  testado desde a Fase 13, mas só passa a valer nos aparelhos que já têm o
+  app instalado depois de um build novo distribuído via TestFlight — ação
+  sua (`scripts/ios-bump-build.sh` → `scripts/ios-testflight.sh` →
+  archive/upload no Xcode, ver `TESTFLIGHT.md`). Você também sinalizou
+  interesse em liberar pra testers externos (amigos) antes de qualquer
+  submissão à App Store pública — passos documentados em `TESTFLIGHT.md`
+  §6 (grupo externo, Beta App Review, Public Link)
 
 ### Out of Scope
 
@@ -239,6 +251,11 @@ faltavam os números).
   o motor de recomendação: instrumentação de assertividade, seleção
   dinâmica por desempenho histórico, interface do histórico medido).
   7 fases, 44 planos, 343 commits, ~5 dias (2026-08-18 a 2026-08-23).
+- **v1.3 entregou**: Fases 12-13 (cap comercial ponta a ponta — limites reais
+  do plano gratuito, gates bloqueando de verdade, UI de uso/limite nos dois
+  stores, bypass do iOS fechado). 2 fases, 8 planos, ~82 commits no range
+  (inclui 1 merge de trabalho concorrente não relacionado, PR #27/ADR-23),
+  ~2 dias (2026-08-29 a 2026-08-31, incluindo checkpoints humanos ao vivo).
 - Suíte canônica de teste: `bash scripts/executar.sh --testes` (pytest +
   web/tests/*.mjs); `scripts/test.sh` sozinho é meia baseline. Desde a Fase
   5 (FIX-C24), o próprio `executar.sh` resolve `web/node_modules` ausente
@@ -303,4 +320,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-08-31 — Fase 13 completa, milestone v1.3 (cap comercial) com todas as fases entregues*
+*Last updated: 2026-08-31 — milestone v1.3 (cap comercial) fechado*
