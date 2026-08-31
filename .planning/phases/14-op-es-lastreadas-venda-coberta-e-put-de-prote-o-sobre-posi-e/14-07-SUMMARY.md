@@ -27,7 +27,7 @@ tech-stack:
   patterns:
     - "TravaPill reusa a forma de PosPill (pílula 999px, 10.5px/800) com T.negative em vez de T.accent — mesmo padrão de badge, cor invertida por comunicar restrição"
     - "AvisoLiquidacao segue o padrão de banner informativo já usado por 'análise de outro momento' (borda tracejada/estado), adaptado com borda T.negative + texto T.textSecondary (nunca o texto inteiro em vermelho — CLAUDE.md, resultado sem manipulação visual)"
-    - "eventoLiquidacaoRecente busca só nas ÚLTIMAS 30 entradas do histórico (não o array inteiro) — evita que um evento de liquidação antigo vire um aviso permanente na tela; Claude's Discretion per UI-SPEC (o contrato não define a janela de busca)"
+    - "eventoLiquidacaoRecente usa uma janela por DATA (7 dias, via `daysSince` — o mesmo parser de `history[].date` já usado por `openedAt`/`daysSince` no fluxo de 'dias em operação'), não por posição no array — evita tanto o aviso permanente (evento antigo) quanto o aviso sumindo cedo demais (30+ operações em outros ativos entre a liquidação e o próximo login, plausível num fim de semana de vencimento). Claude's Discretion per UI-SPEC (o contrato não define a janela de busca); corrigido de um recorte por índice para um recorte por data após revisão adicional."
 
 key-files:
   created:
@@ -43,6 +43,7 @@ key-decisions:
   - "AvisoLiquidacao e a 2ª TravaPill (a de 'card de posição da Carteira') foram colocados no card da CarteiraScreen (não no AtivoCard) — é literalmente a tela 'posição de ação' que o Task 2 descreve, e onde o Patrimônio Total já é discriminado; a 1ª TravaPill vai no AtivoCard (hero, ao lado do PosPill), como o plano pede explicitamente."
   - "linhaPatrimonioOpcoes só foi renderizada na CarteiraScreen, não na Evolução — a acceptance_criteria só exige 'opcoesVal aparece 1x ou mais' em App.jsx; a Carteira é onde a composição do patrimônio já é discriminada em KPIs (PATRIMÔNIO TOTAL / EM POSIÇÕES), a superfície mais direta para a ressalva de marcação."
   - "A.confirmSell (toast de venda) NÃO foi alterado — seu `total` interno continua comparando contra pos.qty (não livre): com trava ativa, vender o máximo livre nunca fecha a posição por completo (sobra a parte travada), então dizer 'venda total' seria uma imprecisão visual que o CLAUDE.md proíbe (resultado sem manipulação visual). O servidor (store.py:sell) já vende exatamente `qty_livre(pos)` quando chamado sem qty explícita — comportamento correto preservado, só o rótulo do toast fica mais conservador."
+  - "`fechaAPosicao` (SellModal) — introduzido após um trace concreto (pos.qty=200, qtyTravada=100 → livre=100) mostrar que `total` (usado para o botão 'Vender tudo'/rótulo de confirmar) virava true mesmo com 100 ações travadas remanescentes, fazendo o modal dizer 'Venda TOTAL (encerra a posição)' e 'Confirmar venda total' quando a posição NÃO se encerra. `fechaAPosicao = total && !(pos.qtyTravada > 0)` restringe esses dois rótulos ao caso em que realmente não sobra nada; `total` continua servindo para capar a quantidade/habilitar o botão (papel inalterado). `restam = pos.qty - qty` substitui `!total` como condição da linha 'ficam N cotas', que antes sumia bem quando mais precisava aparecer."
 
 requirements-completed: []
 
@@ -66,7 +67,7 @@ completed: 2026-08-31
 
 - `TravaPill` (novo componente, espelha `PosPill`): renderizado no card de posição da `CarteiraScreen` (junto do resumo cotas/PM) e no `AtivoCard` (hero, ao lado do `PosPill`), sempre que `qtyTravada > 0`. Texto vem de `cp.badgeTravada(qty)`.
 - `SellModal`: `qtyLivre(pos)` importada de `finance.js` (fonte única, gêmea de `store.qty_livre`) vira o teto em TODOS os pontos que antes usavam `pos.qty` — cálculo de `qty`, `step`, botão "Vender tudo (N)", e a definição de "venda total" (agora = vender tudo o que está livre). `livre === 0` desabilita o botão de confirmar; linha explicativa (`cp.avisoTravaNaVenda`) aparece quando há trava. `A.openSell` monta `{t, qty: qtyLivre(pos)}`. Stop/alvo intocados — guardrail "proteção nunca é vetada" preservado e travado por teste.
-- `AvisoLiquidacao` + `eventoLiquidacaoRecente`: banner de estado (sem botão) no card da posição de ação, derivado das últimas 30 entradas de `data.history` com `kind==="opcao"`, `motivo==="vencimento"`, `origem==="sistema"`, `acao==="fechar"`. Texto ITM/OTM verbatim do UI-SPEC, `T.negative` só no ícone/borda, texto em `T.textSecondary`.
+- `AvisoLiquidacao` + `eventoLiquidacaoRecente`: banner de estado (sem botão) no card da posição de ação, derivado de `data.history` com `kind==="opcao"`, `motivo==="vencimento"`, `origem==="sistema"`, `acao==="fechar"`, dentro de uma janela de 7 dias (`daysSince(h.date)`). Texto ITM/OTM verbatim do UI-SPEC, `T.negative` só no ícone/borda, texto em `T.textSecondary`.
 - Patrimônio: as **7** chamadas de `portfolioMetrics` em `App.jsx` (não 6 — ver `key-decisions`) passam `data.optionPositions`; `optionQuotes` (6º arg) fica `undefined` por decisão do plano 14-05 (orçamento do mydata). Carteira ganha uma linha discriminando `m.opcoesVal` com a ressalva de marcação pelo prêmio de abertura (`cp.linhaPatrimonioOpcoes`).
 - `copy.js`: `badgeTravada`/`avisoTravaNaVenda`/`avisoLiquidacaoForcada`/`linhaPatrimonioOpcoes` nos dois modos — Estudo evita "vender"/"comprar" (usa "recomprada", que não contém o infinitivo "comprar" como substring); `avisoLiquidacaoForcada`/`linhaPatrimonioOpcoes` são idênticos nos dois modos (system notice, não voz de professor/mesa).
 - `web/tests/test_carteira_lastro_ui.mjs` (novo, 28 asserções): TravaPill em duas superfícies; fonte única de `qtyLivre` (import + duas asserções negativas contra subtração escrita à mão, inclusive `const livre = <subtração>`); `SellModal` sem `Math.min(pos.qty`; `A.openSell` via `qtyLivre(pos)`; stop/alvo nunca desabilitados por `qtyTravada`; as 7 chamadas de `portfolioMetrics` com `optionPositions`; `AvisoLiquidacao` sem `<button`; chaves de copy espelhadas e sem vocabulário de ordem no Estudo.
@@ -79,8 +80,9 @@ Each task was committed atomically:
 1. **Task 1: Trava visível — badge na Carteira e venda limitada à quantidade livre** - `d4ad0a2` (feat)
 2. **Task 2: Aviso de liquidação forçada e Patrimônio com as pernas lastreadas** - `1207cb6` (feat)
 3. **Task 3: Guardião da Carteira lastreada** - `182a2fd` (test)
+4. **Fix pós-verificação: rótulo "venda total" enganoso + janela de liquidação por data** - `9a01887` (fix)
 
-_Note: nenhuma task era TDD — plano `autonomous: true`, sem checkpoints._
+_Note: nenhuma task era TDD — plano `autonomous: true`, sem checkpoints. O commit 4 não é uma task do plano — é um Rule 1 (bug), achado numa verificação adicional feita antes de declarar o plano pronto (ver Deviations)._
 
 ## Files Created/Modified
 - `web/src/App.jsx` - `TravaPill`, `AvisoLiquidacao`, `eventoLiquidacaoRecente`, `SellModal`/`A.openSell` via `qtyLivre`, 7 call sites de `portfolioMetrics`, linha de patrimônio de opções na `CarteiraScreen`
@@ -105,8 +107,19 @@ Ver `key-decisions` no frontmatter — decisão central desta entrega é a corre
 
 ---
 
-**Total deviations:** 1 auto-fixed (1 Rule 1 — contagem desatualizada no plano, não um bug de código)
-**Impact on plan:** Nenhum impacto arquitetural. O objetivo do plano ("Patrimônio Total exibido inclui as pernas lastreadas") é mais completo COM a correção — sem ela, o resumo do Boris (pet) na aba Carteira/Evolução mostraria um patrimônio sem as pernas de opção, inconsistente com a Carteira e a Evolução.
+**2. [Rule 1 - Bug] "Venda TOTAL (encerra a posição)" enganoso com trava ativa + janela de liquidação por índice**
+- **Found during:** verificação adicional feita ANTES de declarar o plano pronto (revisão por trace concreto, não coberta pelos `acceptance_criteria` literais das tasks).
+- **Issue (1):** `SellModal` tinha `total = livre > 0 && qty >= livre` usado tanto para capar a quantidade quanto para os rótulos "Venda TOTAL (encerra a posição)"/"Confirmar venda total". Com `pos.qty=200, qtyTravada=100` (`livre=100`), selecionar "vender tudo o disponível" fazia `qty=livre=100` → `total=true` → os DOIS rótulos diziam que a posição se encerraria, mas 100 ações continuam na posição (travadas) — resultado apresentado de forma que não corresponde à realidade (CLAUDE.md: "resultados positivos e negativos apresentados sem manipulação visual"). A linha "Venda parcial: ficam N cotas" (condicionada a `!total`) também sumia exatamente nesse caso, quando mais precisava aparecer.
+- **Issue (2):** `eventoLiquidacaoRecente` (Task 2) recortava por ÍNDICE (`history.slice(0, 30)`), não por data — um evento de liquidação real ficaria invisível cedo demais se o usuário fizesse 30+ operações em OUTROS ativos antes do próximo login (plausível num fim de semana de vencimento de opções).
+- **Fix:** `fechaAPosicao = total && !(pos.qtyTravada > 0)` — só os dois rótulos de "total" passaram a usar essa variável (mais restrita); `total` continua controlando o cap de quantidade (papel inalterado). `restam = pos.qty - qty` substitui `!total` na condição da linha "ficam N cotas". `eventoLiquidacaoRecente` passou a filtrar por `daysSince(h.date) <= 7` (reusa o parser já existente de `history[].date`, o mesmo usado por `openedAt`), em vez de recorte por posição no array.
+- **Files modified:** `web/src/App.jsx` (`SellModal`: `fechaAPosicao`/`restam` + 3 pontos de uso; `eventoLiquidacaoRecente`)
+- **Verification:** `cd web && npx vite build` verde; `node tests/test_carteira_lastro_ui.mjs` (28/28) e `node tests/test_fase2_portfolio.mjs` verdes; `bash scripts/executar.sh --testes` verde (1805 passed, 0 failed nesta execução).
+- **Committed in:** `9a01887` (commit dedicado, após os 3 commits de task — ver Task Commits)
+
+---
+
+**Total deviations:** 2 auto-fixed (1 Rule 1 — contagem desatualizada no plano; 1 Rule 1 — bug de rótulo enganoso + janela de busca por índice, achado em verificação pós-implementação)
+**Impact on plan:** Nenhum impacto arquitetural nos dois casos. O objetivo do plano ("Patrimônio Total exibido inclui as pernas lastreadas") é mais completo com a 1ª correção — sem ela, o resumo do Boris (pet) mostraria um patrimônio sem as pernas de opção. A 2ª correção fecha um furo real no próprio objetivo de transparência do plano ("resultados... sem manipulação visual") que as tasks originais não cobriam explicitamente nos `acceptance_criteria`.
 
 ## Issues Encountered
 
@@ -136,3 +149,4 @@ None - nenhuma configuração de serviço externo necessária. A UI depende só 
 - FOUND commit d4ad0a2 (Task 1)
 - FOUND commit 1207cb6 (Task 2)
 - FOUND commit 182a2fd (Task 3)
+- FOUND commit 9a01887 (fix pós-verificação)
