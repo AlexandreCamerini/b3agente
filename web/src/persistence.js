@@ -18,6 +18,10 @@ import { Capacitor } from "@capacitor/core";
 import { api, setApiBase, setNativeMode } from "./api.js";
 import { CATALOG, CATALOG_TICKERS, defaultState, defaultSkillText, defaultSkillTextOperador, defaultLlmPrompts, LEGACY_SKILL_TEXTS } from "./catalog.js";
 import { backfillStructural, limparCarteiraDemo } from "./migrate.js";
+// Fase 14 (opções lastreadas, Plano 05): fonte ÚNICA da quantidade vendável
+// do front (gêmeo de store.qty_livre, server/app/store.py) — importada, nunca
+// reimplementada aqui (guardrail de fonte única, mesmo padrão de RR_MIN).
+import { qtyLivre } from "./finance.js";
 // FASE 13 (13-02, CR-01): gate fail-closed de watchlist no deviceStore —
 // mesmos hooks puros que o web/PWA já usa via App.jsx, importados aqui
 // direto no store porque no iOS não existe gate autoritativo no servidor
@@ -1208,6 +1212,154 @@ function deviceStore() {
       write();
       return pub();
     },
+    // Fase 14 (opções lastreadas, Plano 05): proposta é dado de mercado
+    // (cadeia + análise técnica) — nunca se duplica no aparelho, mesma regra
+    // já aplicada a optionsGate/optionsChain.
+    async optionsProposta(t) {
+      ensure();
+      return api.optionsProposta(t);
+    },
+    // Fase 14 (Plano 05): logado, delega e adota o estado confirmado pelo
+    // servidor (mesmo padrão de optionsBuy). Sem sessão, ramo local é
+    // espelho de store.py.abrir_call_coberta/comprar_put_protecao — mesma
+    // ordem de validação (cadeia → contrato → prêmio → lastro → caixa) sob
+    // as mesmas regras, sem trava concorrente (ORDER_LOCK é só do servidor;
+    // o aparelho não tem escrita concorrente no mesmo doc local).
+    async optionsAbrirLastreada(body) {
+      ensure();
+      if (sync.hasSession()) {
+        const r = await api.optionsAbrirLastreada(body);
+        _adotarCarteiraDoServidor(r);
+        write();
+        const out = pub();
+        out.priceUsed = r && r.priceUsed;
+        return out;
+      }
+      const chain = await api.optionsChain(body.underlying, body.expiration);
+      if (chain.providerStatus !== "ok") throw new Error("Cotação de opções indisponível no momento — tente novamente.");
+      const contrato = [...(chain.calls || []), ...(chain.puts || [])].find((c) => c.contractSymbol === body.contractSymbol);
+      if (!contrato) throw new Error("Contrato não encontrado na cadeia atual.");
+      const price = contrato.lastPrice;
+      if (typeof price !== "number" || price <= 0) throw new Error("Sem prêmio disponível para este contrato.");
+      const isPut = contrato.optionType === "put";
+      const cid = body.contractSymbol;
+      const underlying = body.underlying;
+      const contratos = Math.max(1, Math.round(Number(body.contratos) || 0));
+      const qty = contratos * 100;
+      const posAcao = doc.positions.find((p) => p.t === underlying);
+      const tipoRejeicao = isPut ? "COMPRA" : "VENDA";
+      if (!posAcao) {
+        const motivo = `Sem posição em ${underlying} para lastrear a operação.`;
+        _registrarRejeicaoLocal(tipoRejeicao, cid, qty, price, motivo);
+        write();
+        throw new Error(motivo);
+      }
+      // espelho de store.py.qty_livre — fonte única (finance.js), nunca uma
+      // subtração escrita à mão aqui.
+      const livre = qtyLivre(posAcao);
+      if (livre < qty) {
+        const motivo = `Lastro insuficiente: ${livre} ação(ões) livres de ${underlying}, ${qty} necessárias para ${contratos} contrato(s).`;
+        _registrarRejeicaoLocal(tipoRejeicao, cid, qty, price, motivo);
+        write();
+        throw new Error(motivo);
+      }
+      if (isPut && qty * price > doc.cash) {
+        const motivo = "Caixa insuficiente para a PUT de proteção.";
+        _registrarRejeicaoLocal(tipoRejeicao, cid, qty, price, motivo);
+        write();
+        throw new Error(motivo);
+      }
+      const side = isPut ? "comprada" : "vendida";
+      const ex = (doc.optionPositions || []).find((p) => p.id === cid && p.side === side);
+      if (ex) {
+        const tot = ex.qty + qty;
+        ex.avg = +(((ex.avg * ex.qty) + price * qty) / tot).toFixed(2);
+        ex.qty = tot;
+        ex.lastro.qty = (ex.lastro.qty || 0) + qty;
+      } else {
+        doc.optionPositions = [...(doc.optionPositions || []), {
+          id: cid, underlying, optionType: contrato.optionType, strike: contrato.strike,
+          expiration: chain.expiration || body.expiration, qty, avg: +price.toFixed(2), stop: null, alvo: null,
+          abertaEm: now(), side, lastro: { t: underlying, qty },
+          ivEntrada: contrato.impliedVolatility ?? null, deltaEntrada: null, hv21Entrada: null,
+        }];
+      }
+      if (isPut) {
+        doc.cash = +(doc.cash - qty * price).toFixed(2);
+      } else {
+        // CALL coberta: CREDITA o prêmio e trava o lastro (qtyTravada é a
+        // TRAVA em si, incremento — não uma leitura de "quanto está livre",
+        // por isso não passa por qtyLivre).
+        doc.cash = +(doc.cash + qty * price).toFixed(2);
+        posAcao.qtyTravada = (Number(posAcao.qtyTravada) || 0) + qty;
+      }
+      doc.history.unshift({
+        date: now(), type: isPut ? "COMPRA" : "VENDA", kind: "opcao", acao: "abrir",
+        t: cid, underlying, qty, price: +price.toFixed(2), pnl: null,
+      });
+      write();
+      const out = pub();
+      out.priceUsed = +price.toFixed(2);
+      return out;
+    },
+    // Fase 14 (Plano 05): logado, delega e adota (mesmo padrão de
+    // optionsSell). Sem sessão, ramo local é espelho de
+    // store.py.fechar_call_coberta (side vendida) ou reusa _sellOptionLocal
+    // (side comprada — mesma aritmética de fechar uma posição comprada,
+    // nenhuma função nova para isso, igual ao backend reusando sell_option).
+    async optionsFecharLastreada(body) {
+      ensure();
+      if (sync.hasSession()) {
+        const r = await api.optionsFecharLastreada(body);
+        _adotarCarteiraDoServidor(r);
+        write();
+        const out = pub();
+        out.priceUsed = r && r.priceUsed;
+        return out;
+      }
+      const pos = (doc.optionPositions || []).find((p) => p.id === body.contractSymbol);
+      if (!pos) throw new Error("Sem posição em " + body.contractSymbol);
+      const chain = await api.optionsChain(pos.underlying, pos.expiration);
+      if (chain.providerStatus !== "ok") throw new Error("Cotação de opções indisponível no momento — tente novamente.");
+      const contrato = [...(chain.calls || []), ...(chain.puts || [])].find((c) => c.contractSymbol === body.contractSymbol);
+      const price = contrato && contrato.lastPrice;
+      if (typeof price !== "number") throw new Error("Sem prêmio disponível para este contrato.");
+      const contratosBody = body.contratos;
+      const qtyFechar = (typeof contratosBody === "number" && contratosBody > 0) ? Math.round(contratosBody) * 100 : null;
+      if (pos.side === "vendida") {
+        let qty = pos.qty;
+        if (qtyFechar != null) qty = Math.min(pos.qty, qtyFechar);
+        const pnl = +((pos.avg - price) * qty).toFixed(2);
+        doc.cash = +(doc.cash - qty * price).toFixed(2);
+        const lastroT = pos.lastro && pos.lastro.t;
+        const posAcao = doc.positions.find((p) => p.t === lastroT);
+        // destrava o lastro (piso 0) — decremento da trava em si, não leitura
+        // de "quanto está livre", por isso não passa por qtyLivre.
+        if (posAcao) posAcao.qtyTravada = Math.max(0, (Number(posAcao.qtyTravada) || 0) - qty);
+        if (qty >= pos.qty) {
+          doc.optionPositions = (doc.optionPositions || []).filter((p) => p.id !== pos.id);
+        } else {
+          pos.qty = pos.qty - qty;
+          pos.lastro.qty = (pos.lastro.qty || 0) - qty;
+        }
+        doc.history.unshift({
+          date: now(), type: "COMPRA", kind: "opcao", acao: "fechar",
+          t: pos.id, underlying: pos.underlying, qty, price: +price.toFixed(2), pnl, motivo: "manual",
+        });
+        write();
+        const out = pub();
+        out.priceUsed = +price.toFixed(2);
+        return out;
+      }
+      if (pos.side === "comprada") {
+        _sellOptionLocal(pos, price, qtyFechar, "manual");
+        write();
+        const out = pub();
+        out.priceUsed = +price.toFixed(2);
+        return out;
+      }
+      throw new Error("Sem posição em " + body.contractSymbol);
+    },
     cachedTechnicals(t, period) {
       return getCachedTech(t, period);
     },
@@ -1349,12 +1501,27 @@ function deviceStore() {
         write();
         throw new Error(motivo);
       }
+      // Fase 14 (Plano 05, D-3): espelho de store.py.sell — a parte travada
+      // como lastro de uma CALL coberta aberta NUNCA é vendida por este
+      // caminho local; a leitura da quantidade vendável passa só por
+      // qtyLivre (fonte única, finance.js), nunca por uma subtração escrita
+      // à mão aqui. livre==0 vira rejeição registrada, sem tocar cash.
+      const livre = qtyLivre(pos);
+      if (livre <= 0) {
+        const motivo = `${pos.qtyTravada} ação(ões) de ${t} estão travadas como lastro de uma CALL coberta aberta — recompre a call para liberar.`;
+        _registrarRejeicaoLocal("VENDA", t, (typeof qty === "number" && qty > 0) ? qty : null, null, motivo);
+        write();
+        throw new Error(motivo);
+      }
       const price = await priceOf(t);
       // FASE 2 (2.4): venda TOTAL (qty ausente, comportamento original) ou
       // PARCIAL em lotes de 100, com avg preservado — espelho do store.py.
-      let sold = pos.qty;
+      // Teto agora é `livre`, não `pos.qty` (D-3): com trava ativa a posição
+      // nunca some por venda total, porque `sold` nunca alcança `pos.qty`
+      // enquanto houver `qtyTravada` remanescente.
+      let sold = livre;
       if (typeof qty === "number" && qty > 0) {
-        sold = Math.min(pos.qty, Math.max(100, Math.round(qty / 100) * 100));
+        sold = Math.min(livre, Math.max(100, Math.round(qty / 100) * 100));
       }
       const pnl = +((price - pos.avg) * sold).toFixed(2);
       if (sold >= pos.qty) {
@@ -1477,6 +1644,57 @@ function deviceStore() {
           const chain = chains[pos.underlying + "|" + pos.expiration];
           if (!chain || chain.providerStatus !== "ok") continue;  // ADR-004: sem cotação confiável, tenta no próximo ciclo
           const spot = chain.underlyingPrice;
+
+          // Fase 14 (Plano 05): espelho de agent._avaliar_opcoes (Plano 04) —
+          // posição com `lastro` (CALL coberta vendida ou PUT de proteção
+          // comprada) tem ramo PRÓPRIO, checado ANTES do bloco legado de
+          // stop/alvo abaixo: o ciclo de vida dela é só abrir/fechar/vencer
+          // (D-1), nunca as regras de saída técnica do modelo antigo.
+          // Vencimento é liquidação MECÂNICA obrigatória — ao contrário do
+          // ramo legado logo abaixo, não passa pelo `if (doc.agent.autonomous)`
+          // (mesmo motivo do backend: "roda igual com o Operador ligado ou
+          // desligado").
+          if (pos.lastro && typeof pos.lastro === "object") {
+            if (!(pos.expiration && pos.expiration <= hoje)) continue; // vencimento no futuro — sem stop/alvo/trailing (D-1)
+            if (typeof spot !== "number") continue; // sem cotação confiável — tenta no próximo ciclo (ADR-004)
+            const intrinseco = _intrinsecoOpcao(pos, spot);
+            if (pos.side === "vendida") {
+              // CALL coberta vencida: recompra sintética ao intrínseco,
+              // MESMO caminho de código nos dois desfechos — espelho de
+              // store.py.liquidar_lastreada_vencida.
+              const qty = pos.qty;
+              const pnl = +((pos.avg - intrinseco) * qty).toFixed(2);
+              doc.cash = +(doc.cash - qty * intrinseco).toFixed(2);
+              const lastroT = pos.lastro.t;
+              const posAcao = doc.positions.find((p) => p.t === lastroT);
+              // destrava o lastro (piso 0) — decremento da trava em si, não
+              // leitura de "quanto está livre".
+              if (posAcao) posAcao.qtyTravada = Math.max(0, (Number(posAcao.qtyTravada) || 0) - qty);
+              doc.optionPositions = (doc.optionPositions || []).filter((p) => p.id !== pos.id);
+              doc.history.unshift({
+                date: now(), type: "COMPRA", kind: "opcao", acao: "fechar",
+                t: pos.id, underlying: pos.underlying, qty, price: +intrinseco.toFixed(2), pnl, motivo: "vencimento",
+              });
+              events.push({
+                time: "Agora", kind: "warn",
+                text: intrinseco > 0
+                  ? `Vencimento: a CALL coberta ${pos.id} (${pos.underlying}) foi recomprada pelo intrínseco (R$ ${intrinseco.toFixed(2)}/ação).`
+                  : `A call coberta ${pos.id} (${pos.underlying}) venceu fora do dinheiro — o prêmio integral ficou com quem vendeu e as ações foram destravadas.`,
+              });
+            } else {
+              // PUT de proteção vencida — nada a destravar (a put nunca
+              // travou lastro); reusa _sellOptionLocal, mesma decisão de
+              // store.py.liquidar_lastreada_vencida (despacha para
+              // close_option_vencida).
+              _sellOptionLocal(pos, intrinseco, null, "vencimento");
+              events.push({
+                time: "Agora", kind: "warn",
+                text: `Vencimento: a put de proteção ${pos.id} (${pos.underlying}) foi liquidada pelo intrínseco (R$ ${intrinseco.toFixed(2)}/ação).`,
+              });
+            }
+            continue;
+          }
+
           const contrato = [...(chain.calls || []), ...(chain.puts || [])].find((c) => c.contractSymbol === pos.id);
           const price = contrato && contrato.lastPrice;
           if (pos.expiration && pos.expiration <= hoje) {

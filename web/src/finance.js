@@ -19,6 +19,13 @@
 //    no orçamento e termina no patrimônio AO VIVO — assim o número exibido e a
 //    curva são o MESMO valor. (Se não houver orçamento, cai para o 1º snapshot.)
 //  • Drawdown = maior queda percentual desde o pico, sobre a MESMA curva exibida.
+//  • Quantidade livre (Fase 14, opções lastreadas) = quantidade total de uma
+//    posição menos a travada como lastro de uma CALL coberta aberta
+//    (`qtyTravada`). Gêmeo exato de `store.qty_livre` (`server/app/store.py`,
+//    Plano 14-01) — MESMO nome, MESMA semântica; nenhum outro módulo do
+//    front recalcula a subtração — `persistence.js`/`App.jsx` importam
+//    `qtyLivre` daqui. Mesmo padrão de fonte única do front já usado por
+//    RR_MIN/RR_MIN_TXT abaixo (amarrado ao backend por teste dedicado).
 
 // Relação risco-retorno mínima (piso 1,5:1) — espelho de
 // server/app/skill_ref.py (RR_MIN/RR_MIN_TXT). ADR-015 (06-05): fonte única
@@ -27,6 +34,19 @@
 // módulo de números determinísticos do front — é onde a constante pertence.
 export const RR_MIN = 1.5;
 export const RR_MIN_TXT = "1,5"; // formato pt-BR para interpolação em texto
+
+// Fase 14 (Plano 05, D-3 do 14-CONTEXT.md): quantidade de uma posição que
+// pode ser vendida — total menos o que está travado como lastro de uma CALL
+// coberta aberta (`qtyTravada`). ÚNICA fonte da aritmética de quantidade
+// vendável no FRONT — proibido recalcular a subtração `qty - qtyTravada` em
+// outro módulo (mesma disciplina do gêmeo backend, `store.qty_livre`,
+// `server/app/store.py`, Plano 14-01 — MESMO nome, MESMA semântica).
+// `persistence.js`/`App.jsx` IMPORTAM esta função, nenhum dos dois reimplementa
+// a subtração. Defensiva a `pos` nulo, mesmo estilo de `markPrice` acima.
+// `qtyTravada` ausente (posição do modelo antigo, sem CALL coberta) lê 0.
+export function qtyLivre(pos) {
+  return Math.max(0, (Number(pos && pos.qty) || 0) - (Number(pos && pos.qtyTravada) || 0));
+}
 
 export function markPrice(quote, position) {
   const px = quote && typeof quote.price === "number" && quote.price > 0 ? quote.price : null;
