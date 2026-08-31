@@ -1035,12 +1035,16 @@ function TravaPill({ qty, cp }) {
 
 // Fase 14 (Plano 07, T-14-27): liquidação forçada por vencimento — estado do
 // SISTEMA, não ação do usuário (motivo="vencimento", origem="sistema",
-// gravado em server/app/store.py:fechar_call_coberta_vencida). Busca só nas
-// ÚLTIMAS entradas do histórico (não o array inteiro) — evento antigo não
-// deve virar um aviso permanente na tela.
+// gravado em server/app/store.py:fechar_call_coberta_vencida). Janela por
+// DATA (7 dias, via `daysSince` — mesmo parser já usado por `openedAt`/
+// `daysSince` para o campo `history[].date`, formato "dd/mm/aaaa hh:mm"),
+// não por posição no array: um recorte por índice (ex.: "últimas 30
+// entradas") esconderia o aviso cedo demais se o usuário operar bastante
+// entre a liquidação e o próximo login (30+ operações em outros ativos é
+// plausível num fim de semana de vencimento) — achado durante verificação,
+// corrigido antes de declarar a task pronta.
 function eventoLiquidacaoRecente(history, ticker) {
-  const recentes = (history || []).slice(0, 30);
-  return recentes.find((h) => h && h.kind === "opcao" && h.motivo === "vencimento" && h.origem === "sistema" && h.acao === "fechar" && h.underlying === ticker) || null;
+  return (history || []).find((h) => h && h.kind === "opcao" && h.motivo === "vencimento" && h.origem === "sistema" && h.acao === "fechar" && h.underlying === ticker && daysSince(h.date) != null && daysSince(h.date) <= 7) || null;
 }
 
 // Estado, não ação: sem botão, sem link (UI-SPEC). Cor T.negative só no
@@ -6970,6 +6974,14 @@ function SellModal({ ctx }) {
   const livre = qtyLivre(pos);
   const qty = livre > 0 ? Math.min(livre, Math.max(100, sellModal.qty)) : 0;
   const total = livre > 0 && qty >= livre; // "venda total" = vender tudo o que está LIVRE
+  // Com trava ativa (qtyTravada > 0), vender tudo o que é LIVRE nunca fecha a
+  // posição — sobra a parte travada em `positions`. `fechaAPosicao` só é true
+  // quando não há nada travado (comportamento idêntico ao de antes do plano
+  // 14-07 no caso comum). Rastreado por trace concreto (pos.qty=200,
+  // qtyTravada=100 → livre=100 → total=true, mas a posição continua com 100
+  // ações) — achado durante verificação, não estava no plano original.
+  const fechaAPosicao = total && !(pos.qtyTravada > 0);
+  const restam = pos.qty - qty;
   const valor = qty * cur;
   const pnl = (cur - pos.avg) * qty;
   const pnlColor = pnl >= 0 ? T.positive : T.negative;
@@ -7005,7 +7017,11 @@ function SellModal({ ctx }) {
             <button onClick={() => step(1)} aria-label="Aumentar" style={{ width: "42px", height: "42px", borderRadius: "9px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textPrimary, fontSize: "20px", fontWeight: 600 }}>+</button>
           </div>
           <button onClick={() => setSellModal((m) => ({ ...m, qty: livre }))} disabled={livre <= 0} style={{ marginTop: "8px", width: "100%", minHeight: "34px", padding: "7px", borderRadius: "9px", border: `1px dashed ${total ? T.accent : T.borderSubtle}`, background: total ? T.accentTint10 : "transparent", color: total ? T.accent : T.textMuted, fontWeight: 700, fontSize: "12px" }}>
-            {total ? "Venda TOTAL (encerra a posição)" : "Vender tudo (" + livre + ")"}
+            {/* Com trava ativa, vender tudo o que está LIVRE nunca encerra a
+                posição (sobra a parte travada) — dizer "TOTAL (encerra a
+                posição)" nesse caso seria resultado apresentado de forma
+                manipulada (CLAUDE.md). */}
+            {fechaAPosicao ? "Venda TOTAL (encerra a posição)" : total ? "Vender tudo o disponível (" + livre + ")" : "Vender tudo (" + livre + ")"}
           </button>
           {/* Guardrail do repositório: stop/alvo NUNCA são vetados pela trava
               — só a VENDA é limitada aqui. Este aviso não desabilita nada
@@ -7018,7 +7034,7 @@ function SellModal({ ctx }) {
           <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: T.textMuted, fontSize: "13px" }}>Valor estimado</span><span style={{ fontWeight: 700, fontSize: "15px" }}>{money(valor)}</span></div>
           <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: T.textMuted, fontSize: "13px" }}>Resultado estimado</span><span style={{ fontWeight: 700, fontSize: "15px", color: pnlColor }}>{moneySigned(pnl)}</span></div>
         </div>
-        {!total && <div style={{ fontSize: "11px", color: T.textMuted, marginTop: "8px", lineHeight: 1.5 }}>Venda parcial: ficam {pos.qty - qty} cotas com o mesmo preço médio.</div>}
+        {restam > 0 && <div style={{ fontSize: "11px", color: T.textMuted, marginTop: "8px", lineHeight: 1.5 }}>Venda parcial: ficam {restam} cotas com o mesmo preço médio.</div>}
         <div style={{ fontSize: "11px", color: T.textFaint, marginTop: "6px" }}>{(fechado ? ctx.cp.ordemPendenteAvisoVenda(ctx.mercado.abertura) : "O preço final é o da cotação no momento da confirmação (servidor). Registro vai para o histórico do ativo.") + " Esta simulação executa por completo ou não executa — não há preenchimento parcial de ordem."}</div>
         {statusIndisponivel && (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", marginTop: "10px", padding: "9px 11px", borderRadius: "9px", background: "color-mix(in srgb, " + T.warn + " 12%, transparent)", border: `1px solid ${T.warn}` }}>
@@ -7029,7 +7045,7 @@ function SellModal({ ctx }) {
         <div style={{ fontSize: "10.5px", color: T.textFaint, lineHeight: 1.4, marginTop: "10px" }}>{DISCLAIMERS.trade}</div>
         <div style={{ display: "flex", gap: "8px", marginTop: "16px" }}>
           <button onClick={A.closeSell} style={{ flex: 1, padding: "11px", borderRadius: "9px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 600, fontSize: "14px" }}>Cancelar</button>
-          <button onClick={A.confirmSell} disabled={livre <= 0} style={{ flex: 1.4, padding: "11px", borderRadius: "9px", border: `1px solid ${livre > 0 ? T.negative : T.borderSubtle}`, background: livre > 0 ? T.negativeTint10 : T.bgPanel, color: livre > 0 ? T.negative : T.textFaint, fontWeight: 800, fontSize: "14px" }}>{ctx.cp.confirmarVenda}{total ? " total" : " de " + qty}</button>
+          <button onClick={A.confirmSell} disabled={livre <= 0} style={{ flex: 1.4, padding: "11px", borderRadius: "9px", border: `1px solid ${livre > 0 ? T.negative : T.borderSubtle}`, background: livre > 0 ? T.negativeTint10 : T.bgPanel, color: livre > 0 ? T.negative : T.textFaint, fontWeight: 800, fontSize: "14px" }}>{ctx.cp.confirmarVenda}{fechaAPosicao ? " total" : " de " + qty}</button>
         </div>
       </div>
     </div>
