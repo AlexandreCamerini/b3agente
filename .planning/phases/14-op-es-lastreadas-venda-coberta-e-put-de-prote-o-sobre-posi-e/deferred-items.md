@@ -5,6 +5,31 @@ only auto-fix issues directly caused by the current task's changes).
 
 ## Plano 08
 
+### Task 2 (bugfix do checkpoint humano — proposta de fechamento estável)
+
+- **Manchete de `proposta_fechar()` (`server/app/opcoes_lastreadas.py`) reusa
+  o texto de `propor()` para `call_coberta`/`put_protecao`, que fala em
+  "Vender N call(s)..."/"Comprar N put(s)..." — verbo de ABERTURA, mesmo
+  quando a posição JÁ ESTÁ aberta e a proposta é de FECHAMENTO.** O botão da
+  UI (`web/src/App.jsx`, `PropostaLastreada`, `cp.ctaFecharLastreada`) já diz
+  "Recomprar"/"fechar" corretamente — só a MANCHETE acima do botão (e a
+  `didatica` do modo Estudo) ficam com a frase de abertura. Intencionalmente
+  NÃO corrigido nesta task: o objetivo do bugfix é o `contractSymbol`
+  estável (motor determinístico continua batendo com a posição real); o
+  texto exibido é decisão de copy, fora do escopo desta correção pontual
+  (`skill_ref.OPCOES_LASTREADAS` precisaria de 2 chaves novas —
+  `call_coberta_fechar`/`put_protecao_fechar` — uma mudança de vocabulário,
+  não de motor). Sem impacto de correção financeira: os números (contratos,
+  strike, prêmio) continuam certos, só a frase de abertura soa estranha no
+  estado já-aberto. Fix sugerido para quem pegar: adicionar as 2 chaves de
+  fechamento em `OPCOES_LASTREADAS` (`operador`/`educacional`) e passar um
+  `tipo` distinto (ex. `"call_coberta_fechar"`/`"put_protecao_fechar"`) para
+  `skill_ref.opcoes_lastreadas_txt` dentro de `proposta_fechar()`, mantendo
+  o `motivo`/`tipo` de retorno como `"call_coberta"`/`"put_protecao"` (o
+  front não precisa mudar).
+
+### Task 1 (verificação ponta a ponta original)
+
 - **`GET /api/options/proposta/{ticker}` — `motivoTexto` fica com placeholders
   não substituídos (`{n}`, `{strike}`, `{premioTotal}`) quando `motivo` é um
   motivo de SUCESSO (`call_coberta`/`put_protecao`).** Achado durante a
