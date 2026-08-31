@@ -273,6 +273,100 @@
 
 ---
 
+## Milestone: v1.3 — Cap comercial (plano gratuito)
+
+**Shipped:** 2026-08-31
+**Phases:** 2 (12, 13) | **Plans:** 8 | **Sessions:** 2 (Fase 12 numa sessão anterior; retomada + Fase 13 completa nesta sessão, com handoff no meio)
+
+### What Was Built
+- Fase 12: `PLAN_FREE` ganhou limites reais (10 ativos / 30 análises-mês,
+  eram `None`), gates `can_add_ticker`/`can_analyze` bloqueando de verdade
+  com motivo exato, bypass do `PUT /api/watchlist` fechado (comparava o
+  tamanho FINAL normalizado, não o cru do body), cap mensal provado por
+  ledger real via suíte de comportamento.
+- Fase 13: `GET /api/watchlist/quota` novo (fonte única de count/limit),
+  uso/limite real visível em 3 pontos da UI (`QuotaSeg`, 5 estados, sem
+  hardcode), gate fail-closed no `deviceStore` fechando o bypass do cap no
+  iOS nativo (CAP-12/CR-01), 2 checkpoints humanos ao vivo (contraste no
+  tema claro, nome do app no App Store Connect — "B3 Ai Agent" → "Boris+").
+
+### What Worked
+- **Consultar design specialists dedicados (navigation/typography) antes do
+  UI-SPEC**, quando a fase tinha decisão de UI real em aberto (não travada
+  no CONTEXT.md) — a consulta direta achou a distinção
+  `data.watchlist.length`×`catalogSel.length` que evita os 2 contadores
+  divergirem, algo que deixar o `gsd-ui-researcher` inferir sozinho
+  provavelmente não pegaria. UI-SPEC nasceu quase pronto, só 1 bloqueio de
+  checker (3º peso de fonte), resolvido em 1 iteração.
+- **Code review obrigatório pós-fase não é cerimônia** — achou 1 Critical
+  real: o gate fail-closed do CAP-12 no iOS comparava a contagem do
+  SERVIDOR (sempre desconectada, iOS é local-first) em vez da do
+  APARELHO. O guardião existente só checava ORDEM das chamadas, não qual
+  valor alimentava a decisão — o próprio objetivo da fase (fechar CR-01)
+  não estava de fato fechado até esse achado. Corrigido, mutation-tested,
+  e o mesmo padrão replicado preventivamente no caminho irmão
+  (`putWatchlist`) antes mesmo de virar bug lá.
+- **Checkpoint humano ao vivo, no mesmo chat** — em vez de spawnar um
+  executor isolado em worktree para a Task de checkpoint (que não
+  consegue sustentar uma troca de mensagens real com o usuário), o
+  orquestrador rodou a preparação de ambiente diretamente e conduziu o
+  checkpoint inline. Revelou um achado que nenhuma leitura de código
+  pegaria: o nome do app no App Store Connect não era "BolsIA" (a
+  hipótese registrada), era um nome ainda mais antigo, "B3 Ai Agent".
+
+### What Was Inefficient
+- **Watchlist local sobrescrita sem backup antes do checkpoint** — pra
+  forçar o estado 9/10 no ambiente de dev, o orquestrador deu `PUT
+  /api/watchlist` direto no balde anônimo local sem capturar o valor
+  anterior primeiro. Sem impacto conhecido (só a lista de tickers
+  monitorados mudou, caixa/posições/histórico intactos), mas é o tipo de
+  ação que deveria ter sido precedida por um `GET` de segurança.
+- **Divergência de `main` local vs `origin/main` descoberta por acidente**
+  — enquanto a Fase 13 executava, outra sessão concorrente (Fase 4 ADR-23,
+  PR #27) mergeou 9 commits no `origin/main` sem que esta sessão soubesse.
+  Só apareceu porque o usuário pediu pra investigar worktrees órfãos no
+  disco. O merge acabou sendo limpo (0 conflitos, `git merge-tree`
+  confirmou antes de aplicar), mas o ideal seria um `git fetch` periódico
+  ou no início de cada wave, não descoberta reativa.
+
+### Patterns Established
+- **Gate fail-closed em app local-first precisa comparar contagem LOCAL,
+  nunca a do servidor** — o servidor não é autoritativo pra dado que o
+  cliente nunca sincroniza; um teste de ORDEM de chamadas não substitui um
+  teste de QUAL VALOR alimenta a decisão.
+- **Design specialists de nicho (navigation/typography) como consulta
+  pontual, não como pipeline fixo** — vale quando a fase tem 1-2 perguntas
+  de design específicas e não travadas, não como etapa obrigatória de toda
+  fase com UI.
+
+### Key Lessons
+1. Um guardião que prova ORDEM de chamadas não prova QUAL DADO entra na
+   decisão — a Fase 13 replicou esse padrão de teste (checar o argumento
+   exato, não só a sequência) nos dois call sites depois do achado.
+2. Checkpoint humano bloqueante que precisa de ambiente ao vivo (dev
+   server, estado semeado) funciona melhor conduzido pelo orquestrador
+   diretamente no chat do que delegado a um subagente que não pode manter
+   a conversa em tempo real.
+3. Merge de trabalho concorrente em `main` compartilhado pode passar
+   despercebido numa sessão longa — vale checar `git fetch`/divergência
+   antes de operações que assumem posse exclusiva do branch (like um push
+   final de milestone).
+
+### Cost Observations
+- Model mix: Sonnet para praticamente tudo (planner incluído, diferente de
+  v1.0-v1.2 que usavam Opus pros planners) — fases pequenas e bem
+  escopadas (3-5 planos cada) não pareceram exigir o tier mais caro.
+- Sessões: 2, com um `/handoff` no meio (Fase 12 fechada numa sessão
+  anterior, PR #26 de correções revisado e mergeado nesta sessão antes de
+  retomar o planejamento da Fase 13).
+- Notável: primeira milestone com consulta direta a design specialists
+  (`design-with-claude:navigation-specialist`/`typography-specialist`)
+  fora do pipeline GSD nativo, a pedido explícito do usuário — tratado
+  como input pré-resolvido pro `gsd-ui-researcher`, não como substituto
+  dele.
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -282,6 +376,7 @@
 | v1.0 | 1 | 1 | Primeira entrada do projeto no GSD (brownfield); descoberto o problema de base de worktree isolado e o bloqueio de nome "FINDINGS" — ambos documentados aqui para não redescobrir |
 | v1.1 | 2+ | 7 (2-8) | Primeira milestone com checkpoints humanos bloqueantes em produção (Fases 7, 8, 5) e com fases nascidas de descoberta em execução, não só do planejamento original (Fases 6-8, a partir de pesquisa ad-hoc sobre o motor de recomendação) — mitigação do worktree da v1.0 (push antes de spawnar wave seguinte) confirmada eficaz, zero recorrência |
 | v1.2 | 1 (autônoma) | 3 (0, 10, 11) | Primeira milestone executada de ponta a ponta sem humano no loop (contrato de autonomia explícito, hard-stops nomeados) — nenhum push durante toda a execução (diferente de v1.1, onde push por wave era o padrão); UAT `human_needed` fechado como arquivo `pending` genuíno em vez de aprovação fabricada, resolvido pelo Alex numa sessão separada antes do fechamento formal do milestone |
+| v1.3 | 2 (com `/handoff`) | 2 (12, 13) | Primeira milestone com consulta direta a design specialists de nicho (navigation/typography) fora do pipeline GSD nativo; code review pós-fase pegou 1 Critical real que nenhum teste de ordem de chamada capturava (contagem servidor×dispositivo num gate fail-closed local-first); checkpoint humano ao vivo conduzido pelo orquestrador no chat, não delegado a subagente; divergência de `main` local vs remoto (trabalho concorrente de outra sessão) descoberta e reconciliada sem conflito antes do fechamento |
 
 ### Cumulative Quality
 
@@ -290,6 +385,7 @@
 | v1.0 | 970 backend (pytest) + 74 web (.mjs) — suíte pré-existente, não alterada nesta milestone | não medido numericamente (sem pytest-cov) | 0 (fase read-only, nenhum código de produto tocado) |
 | v1.1 | 1365 backend (pytest) + suíte web completa (.mjs), ambas verdes no fechamento — crescimento de ~395 testes backend na milestone | não medido numericamente (sem pytest-cov) | 0 (nenhuma dependência nova — confirmado por `git diff` de todo `package.json`/`package-lock.json` em cada plano que tocou frontend) |
 | v1.2 | 1674 backend (pytest) + suíte web completa (.mjs), ambas verdes em toda validação de wave — crescimento de ~135 testes backend (candle/opções/ledger/put_bridge/put_lifecycle) | não medido numericamente (sem pytest-cov) | 0 (nenhuma dependência nova — backend-only, nenhum `package.json` tocado) |
+| v1.3 | 1742 backend (pytest) + suíte web completa (.mjs), ambas verdes no fechamento — crescimento de ~68 testes backend | não medido numericamente (sem pytest-cov) | 0 (nenhuma dependência nova) |
 
 ### Top Lessons (Verified Across Milestones)
 
@@ -298,3 +394,4 @@
 3. Fase que toca frontend precisa de task explícita de build+publish no planejamento — "suíte verde" não implica "publicado em produção" (achado na v1.1, Fase 4).
 4. Execução autônoma sem push (v1.2) é uma variante mais segura do que push-por-wave (v1.1) quando não há humano pra aprovar em tempo real — o contrato de autonomia explícito (hard-stops nomeados, viés de desempate declarado) é o que torna a ausência de checkpoint humano segura, não a ausência de checkpoint em si.
 5. UAT `human_needed`/`pending` genuíno, persistido em arquivo e fechado mecanicamente sem aprovação fabricada, é o padrão certo para separar "trabalho mecânico concluído" de "decisão que só o humano pode tomar" (v1.2, Fase 11) — generaliza o padrão de UAT já usado desde v1.1 (Fases 3, 08-05) para o caso específico de execução autônoma.
+6. Um teste que prova ORDEM de chamadas de rede não prova QUAL VALOR alimenta a decisão de negócio — um gate fail-closed pode estar "chamando a API certa, na hora certa" e ainda assim usar o número errado (v1.3, CR-01: contagem do servidor num app local-first). O guardião precisa pinar o argumento exato, não só a sequência.
