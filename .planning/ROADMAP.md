@@ -122,13 +122,33 @@ Plans:
 **Plans:** 8 plans (7 ondas)
 
 Plans:
+**Wave 1**
+
 - [ ] 14-01-PLAN.md — Provedor de opções mock + trava de lastro no motor (`qtyTravada`, `qty_livre`, guardas de venda)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 14-02-PLAN.md — Operações lastreadas no motor: abrir/fechar CALL coberta e comprar PUT de proteção
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 14-03-PLAN.md — Motor de proposta determinística, vocabulário por modo e as três rotas HTTP
 - [ ] 14-04-PLAN.md — Liquidação forçada no vencimento (sem atribuição) e ramo lastreado no ciclo do agente
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 14-05-PLAN.md — Paridade dos dois stores do front + Patrimônio Total com as pernas lastreadas
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
 - [ ] 14-06-PLAN.md — Card de proposta no AtivoCard, cadeia expansível e split Estudo × Operador
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
 - [ ] 14-07-PLAN.md — Carteira: badge de trava, venda limitada ao livre, aviso de liquidação, patrimônio
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
 - [ ] 14-08-PLAN.md — ADR-023, verificação ponta a ponta com o mock, publicação e checkpoint humano
 
 ---
