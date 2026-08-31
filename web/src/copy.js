@@ -153,6 +153,24 @@ export const COPY = {
     concentracaoCorpo: (ticker, pct) =>
       `${ticker} sozinho responde por ${pct}% do seu patrimônio simulado. Diversificação reduz o quanto um único evento negativo pode derrubar a carteira inteira — vale estudar o conceito antes de aumentar ainda mais essa posição.`,
     concentracaoLink: "saiba mais",
+
+    // Fase 14 (Plano 06, 14-UI-SPEC.md "Copywriting Contract"): rótulos de
+    // controle e confirmação das operações lastreadas (venda coberta / put de
+    // proteção). A MANCHETE e a frase didática nunca vêm daqui — vêm prontas
+    // de proposta.manchete/proposta.didatica (motor determinístico, guardrail
+    // CVM); este dicionário só cobre eyebrow, CTA e confirmação. Ramo Estudo
+    // nunca renderiza CTA (a UI condiciona por `operador`), mas a chave
+    // existe pela paridade — vocabulário de ordem proibido aqui mesmo assim.
+    eyebrowPropostaCall: "ESTUDO · VENDA COBERTA",
+    eyebrowPropostaPut: "ESTUDO · PUT DE PROTEÇÃO",
+    ctaVendaCoberta: () => "Ver como esta operação funcionaria",
+    ctaPutProtecao: () => "Ver como esta operação funcionaria",
+    ctaFecharLastreada: () => "Como esta posição se encerra",
+    confirmAbrirCoberta: () => "", // ramo estudo nunca chama window.confirm — chave existe só pela paridade
+    confirmFecharCoberta: () => "",
+    verCadeiaCompleta: "ver cadeia completa",
+    propostaIndisponivelDegradada: "Proposta indisponível — cotação de opções degradada.",
+    propostaVaziaTitulo: "Sem proposta agora",
   },
 
   operador: {
@@ -276,6 +294,19 @@ export const COPY = {
     concentracaoCorpo: (ticker, pct) =>
       `${ticker} concentra ${pct}% da carteira. Acima disso, um único stop ruim carrega peso desproporcional no resultado — considere o tamanho antes do próximo aporte no papel.`,
     concentracaoLink: "saiba mais",
+
+    // Fase 14 (Plano 06): mesma chave do ramo estudo (ver comentário acima).
+    // Registro de mesa (imperativo) — texto VERBATIM do UI-SPEC.
+    eyebrowPropostaCall: "PROPOSTA · VENDA COBERTA",
+    eyebrowPropostaPut: "PROPOSTA · PUT DE PROTEÇÃO",
+    ctaVendaCoberta: (n, ticker, strike, premio) => `Vender ${n}× CALL ${ticker} · strike ${strike} — recebe R$ ${premio}`,
+    ctaPutProtecao: (n, ticker, strike, premio) => `Comprar ${n}× PUT ${ticker} · strike ${strike} — custa R$ ${premio}`,
+    ctaFecharLastreada: (custo) => `Recomprar a call — R$ ${custo}`,
+    confirmAbrirCoberta: (n, ticker, qty) => `Vender ${n} call(s) de ${ticker} trava ${qty} ação(ões) do seu lote-lastro até você recomprar a call ou ela vencer. Continuar?`,
+    confirmFecharCoberta: (custo, qty, ticker) => `Recomprar esta call por R$ ${custo} destrava ${qty} ação(ões) de ${ticker} imediatamente. Continuar?`,
+    verCadeiaCompleta: "ver cadeia completa",
+    propostaIndisponivelDegradada: "Proposta indisponível — cotação de opções degradada.",
+    propostaVaziaTitulo: "Sem proposta agora",
   },
 };
 
