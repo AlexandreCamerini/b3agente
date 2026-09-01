@@ -180,18 +180,6 @@ faltavam os números).
 - [ ] `textDim` do tema claro também reprova contraste WCAG AA (4.20:1) —
   achado colateral da Fase 4 (fora do escopo do C-16 original), candidato a
   backlog
-- [ ] Retomar a virada de produção do mydata (Fase 9, checkpoint `adiar`) —
-  **os dois bloqueios originais estão resolvidos**: perna ao vivo confirmou
-  a chave autenticando (2026-08-28), e o pico/min ganhou mitigação em
-  código (`scanner.MIN_FETCH_GAP_S_MYDATA`=1,0s quando o provedor é
-  mydata, commit `9b30419`). Falta só decidir religar
-  `B3_CANDLE_PROVIDER`/`B3_OPTIONS_PROVIDER=mydata` em produção (ação sua,
-  env var do Railway) e rodar o checklist do Plano 09-06 Task 3
-  (`<how-to-verify>`) — ver `docs/MEDICAO-Mydata-2026-08-27.md` §6/§8
-- [ ] Gate de orçamento das opções tem race condition check-then-debit
-  (WR-01, agora em dois consumidores após a Fase 0 do v1.2) — decisão de
-  arquitetura (lock/fila/aceitar risco) pendente sua validação, ver
-  `.planning/notes/decisoes-autonomas-v1.2.md`
 - [ ] CAP-12 (bypass do cap de watchlist no iOS) está fechado em código e
   testado desde a Fase 13, mas só passa a valer nos aparelhos que já têm o
   app instalado depois de um build novo distribuído via TestFlight — ação
