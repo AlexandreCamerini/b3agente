@@ -26,13 +26,18 @@ Contexto completo, achados de arquitetura e decisões já tomadas:
 Bloqueios que precisam resolver antes de planejar:
 `.planning/todos/pending/opcoes-v2-confirmar-hub-mydata-e-acesso-b-mcp.md`.
 
+Decisões de produto fechadas:
+- Colocação na navegação — **Candidato A: aba própria "Opções"** na barra de
+  navegação inferior, decidido por Alex em 2026-09-01. Barra resultante:
+  Mesa/Radar, Monitoramento/Watchlist, Posições, Opções (nova), Perfil. Supera
+  o Candidato B (contextual dentro de Posições), que era o palpite inicial
+  desta sessão de exploração. Mockup comparando os 3 candidatos levantados
+  (referência do comparativo, decisão já fechada):
+  https://claude.ai/code/artifact/f9a3690f-94f9-46ed-9209-ef934ccaae21. Racional
+  completo, trade-offs conscientemente aceitos e o contexto histórico de por
+  que o outro candidato havia sido cogitado primeiro:
+  `.planning/notes/opcoes-v2-b-mcp-exploracao.md` (seção "Navegação").
+
 Pendências de produto (não técnicas, aguardando o Alex):
 - Escopo do v1 da biblioteca além de venda coberta/put de proteção.
-- Colocação na navegação — 3 candidatos levantados (aba própria fora do
-  Operador / contextual em Posições / fundida com Mesa). Mockup comparando
-  os 3 lado a lado (dados mockados, tokens reais do Brand Book v2):
-  https://claude.ai/code/artifact/f9a3690f-94f9-46ed-9209-ef934ccaae21 —
-  recomendação provisória por "dentro de Posições", mas pede validação do
-  Alex (e opcionalmente um pass de `design-with-claude:navigation-specialist`)
-  antes de comprometer.
 - Plano comercial (gratuito vs. pago), relação com o cap da v1.3.
