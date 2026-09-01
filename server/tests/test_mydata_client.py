@@ -1,4 +1,4 @@
-"""Fase 9, Plano 01 — cliente HTTP do mydata (`mydata.acamerini.app`).
+"""Fase 9, Plano 01 — cliente HTTP do mydata (`mydata.semente.dev`).
 
 O que estes testes protegem:
   • autenticação é SEMPRE por header `X-API-Key` — o hub NÃO usa Bearer
@@ -96,7 +96,9 @@ def _fake_get_history(payload):
 # base_url()
 # ---------------------------------------------------------------------------
 def test_base_url_sem_env_usa_default():
-    assert m.base_url() == "https://mydata.acamerini.app"
+    # Valor trocado deliberadamente em 2026-09-01 (domínio canônico
+    # confirmado pelo Alex) — não é drift, ver mydata_client.py BASE_DEFAULT.
+    assert m.base_url() == "https://mydata.semente.dev"
 
 
 def test_base_url_http_fora_de_localhost_levanta(monkeypatch):
