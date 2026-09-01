@@ -129,22 +129,51 @@ não automação).
 fora do que um agente pode assumir sozinho por princípio (ver CLAUDE.md global:
 não decidir número comercial sem o Alex). Registrado como pergunta em aberto.
 
-## Navegação — recomendação, não decisão fechada
+## Navegação — DECIDIDO: Candidato A (aba própria "Opções")
 
-Três candidatos levantados pelo usuário: (a) aba própria fora do Operador, (b)
-contextual dentro de "Posições", (c) fundir/otimizar com a aba "Mesa"
-existente. Esta sessão NÃO tem acesso a como o app realmente se parece hoje
-nem a critério de gosto de produto — não é uma decisão de arquitetura que dá
-pra fechar por leitura de código. Recomendação, com reserva:
+**Decisão (Alex, 2026-09-01):** Candidato A — aba própria "Opções" na barra de
+navegação inferior. Barra resultante, de 5 itens: Mesa/Radar,
+Monitoramento/Watchlist, Posições, Opções (nova), Perfil.
 
-Como a feature é estritamente "opções sobre posição que já existe" (nunca
-opção nua), o candidato (b) — contextual dentro de Posições — tem a vantagem
-de nunca aparecer vazio (só existe quando há cobertura real) e evita adicionar
-mais uma aba a um app que já tem Operador + Mesa + Posições. Mas isso é
-palpite fundamentado, não veredito. Fica como pendência explícita para rodar
-`design-with-claude:navigation-specialist` com o Alex acordado, comparando as
-3 opções com trade-off de verdade (densidade, descoberta, coerência com Mesa/
-Posições) antes de comprometer.
+Esta decisão supera a recomendação provisória por (b) — contextual dentro de
+"Posições" — que esta mesma sessão havia registrado abaixo. Aquela
+recomendação nasceu explicitamente marcada como palpite fundamentado, não
+veredito, pendente de validação do Alex (e de um eventual pass de
+`design-with-claude:navigation-specialist`). Ela foi validada e o veredito
+divergiu: o Alex escolheu (a), não (b). A menção a rodar
+`design-with-claude:navigation-specialist` não é mais uma ação pendente — a
+decisão humana veio antes e supera a necessidade do pass.
+
+### Riscos conscientemente aceitos (Candidato A)
+
+Os dois "contra" do Candidato A já documentados no mockup, registrados aqui
+como riscos aceitos com conhecimento de causa — não como pendências em aberto
+nem como achados novos:
+
+1. **A barra de navegação vai de 4 para 5 itens** — aperta no mobile.
+2. **A aba pode abrir vazia** quando não houver cobertura de opção na
+   carteira (a feature é estritamente "opções sobre posição que já existe").
+
+Mitigar os dois (estado vazio com propósito pedagógico; densidade da barra em
+telas pequenas) é trabalho de implementação da aba em si, fora de escopo
+desta nota.
+
+### Contexto histórico — por que (b) tinha sido recomendado
+
+Registro preservado da sessão original (histórico não se reescreve — o
+racional abaixo explica por que a recomendação inicial divergiu da escolha
+final do Alex, não é descartado):
+
+Três candidatos haviam sido levantados pelo usuário: (a) aba própria fora do
+Operador, (b) contextual dentro de "Posições", (c) fundir/otimizar com a aba
+"Mesa" existente. A sessão não tinha acesso a como o app realmente se parece
+hoje nem a critério de gosto de produto — não era uma decisão de arquitetura
+que dava para fechar por leitura de código. Como a feature é estritamente
+"opções sobre posição que já existe" (nunca opção nua), o candidato (b) tinha
+a vantagem de nunca aparecer vazio (só existe quando há cobertura real) e
+evitava adicionar mais uma aba a um app que já tem Operador + Mesa +
+Posições — por isso foi a recomendação provisória da sessão. Mas era palpite
+fundamentado, não veredito.
 
 ## Bloqueios — precisam do Alex, não adivinhados
 
