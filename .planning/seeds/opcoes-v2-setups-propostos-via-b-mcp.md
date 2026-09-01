@@ -29,7 +29,10 @@ Bloqueios que precisam resolver antes de planejar:
 Pendências de produto (não técnicas, aguardando o Alex):
 - Escopo do v1 da biblioteca além de venda coberta/put de proteção.
 - Colocação na navegação — 3 candidatos levantados (aba própria fora do
-  Operador / contextual em Posições / fundida com Mesa), recomendação
-  provisória por Posições registrada na nota, mas pede um pass de
-  `design-with-claude:navigation-specialist` antes de comprometer.
+  Operador / contextual em Posições / fundida com Mesa). Mockup comparando
+  os 3 lado a lado (dados mockados, tokens reais do Brand Book v2):
+  https://claude.ai/code/artifact/f9a3690f-94f9-46ed-9209-ef934ccaae21 —
+  recomendação provisória por "dentro de Posições", mas pede validação do
+  Alex (e opcionalmente um pass de `design-with-claude:navigation-specialist`)
+  antes de comprometer.
 - Plano comercial (gratuito vs. pago), relação com o cap da v1.3.
