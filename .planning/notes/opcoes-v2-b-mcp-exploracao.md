@@ -148,17 +148,18 @@ Posições) antes de comprometer.
 
 ## Bloqueios — precisam do Alex, não adivinhados
 
-1. **`mydata.semente.dev` (default do `fonte.py` do MCP local) e
-   `mydata.acamerini.app` (default do `mydata_client.py` do Boris) são o
-   MESMO hub, ou dois serviços diferentes?** Achei evidência de um rename em
-   andamento (o portal do MCP virou `b-mcp.semente.dev`, auth virou
-   `id.semente.dev`, admin virou `admin.semente.dev`, e o próprio Boris tem
-   `boris.semente.dev` referenciado em `operar.sh`) — mas não tenho acesso pra
-   confirmar se `mydata.semente.dev` é o mesmo Postgres/dado de
-   `mydata.acamerini.app` sob domínio novo, ou uma coisa genuinamente
-   diferente. Não adivinhei — isso decide se o Boris já está de fato
-   conversando com o "b-mcp" certo hoje (opções lastreadas, Fase 14) ou se há
-   dois hubs mydata coexistindo.
+1. ~~`mydata.semente.dev` × `mydata.acamerini.app` — mesmo hub?~~
+   **RESOLVIDO 2026-09-01, pelo Alex: `mydata.semente.dev` é o canônico.**
+   Confirmação técnica direta: os dois domínios respondem no mesmo Railway
+   edge (`jfk1`) com `x-hikari-trace: jfk1.57w5` e `content-length`
+   idênticos — é o mesmo serviço sob dois nomes DNS (rename em andamento,
+   não dois hubs). `acamerini.app` segue funcional hoje (sem incidente em
+   produção), mas `server/app/mydata_client.py:21`
+   (`BASE_DEFAULT = "https://mydata.acamerini.app"`) está desatualizado
+   frente ao nome canônico — Railway não tem `MYDATA_URL` setada, então
+   produção depende inteiramente desse default. Ação de baixo risco
+   registrada em `.planning/todos/pending/opcoes-v2-confirmar-hub-mydata-e-acesso-b-mcp.md`,
+   aguardando confirmação do Alex antes de trocar.
 2. **O portal `b-mcp.semente.dev` é protegido por senha para uso humano
    (`PORTAL_SENHA`) — as tools de `setups`/`evaluate_option_structure`
    expostas por ele têm uma via de acesso server-to-server (sem senha
