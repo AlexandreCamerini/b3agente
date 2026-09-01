@@ -37,14 +37,14 @@ verificar se existe rota de service-to-service no
 `~/dev/MCP/servers/mydata/server.py` ou `portal/app.py` além do bearer
 `id.semente.dev`.
 
-## Ação decorrente do item 1 (resolvido) — pendente de confirmação
+## Ação decorrente do item 1 (resolvido) — CONCLUÍDA 2026-09-01
 
-`server/app/mydata_client.py:21` tem `BASE_DEFAULT =
-"https://mydata.acamerini.app"` — funciona hoje (mesmo serviço, alias),
-mas está desatualizado frente ao domínio canônico confirmado. Railway
-production não tem `MYDATA_URL` setada (só `MYDATA_TOKEN` e
-`B3_OPTIONS_PROVIDER=mydata`), então o processo em produção depende
-inteiramente desse default. Trocar o default do código pra
-`https://mydata.semente.dev` é mudança de baixo risco (mesmo serviço,
-confirmado por headers idênticos) mas é config de produção — perguntei ao
-Alex antes de aplicar em vez de trocar sozinho.
+O Alex confirmou o domínio canônico. O `BASE_DEFAULT` de
+`server/app/mydata_client.py` foi trocado de `https://mydata.acamerini.app`
+para `https://mydata.semente.dev`; a docstring do módulo e o guardião
+`test_base_url_sem_env_usa_default` foram atualizados junto (ver commit
+desta quick task, `.planning/quick/260901-2da-*`). Risco nulo porque os
+dois nomes DNS respondem no mesmo serviço Railway (mesmo edge `jfk1`,
+`x-hikari-trace` `jfk1.57w5` idêntico). Nenhuma variável de ambiente do
+Railway foi alterada — produção não seta `MYDATA_URL` e continua não
+setando; o default do código é a fonte.

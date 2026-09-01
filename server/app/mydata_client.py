@@ -1,4 +1,4 @@
-"""Cliente HTTP do hub `mydata.acamerini.app` (~/dev/cvm-financas), Fase 9
+"""Cliente HTTP do hub `mydata.semente.dev` (~/dev/cvm-financas), Fase 9
 (qa/09) — fronteira única de acervo diário oficial COTAHIST. Espelha a forma
 de `server/app/brapi.py` (async httpx, retry curto, kwarg `fetch_json`
 injetável) com uma diferença deliberada: o hub autentica por header
@@ -18,7 +18,10 @@ import httpx
 
 from .tickers import normalize_ticker
 
-BASE_DEFAULT = "https://mydata.acamerini.app"
+# Domínio canônico confirmado pelo Alex em 2026-09-01; o nome antigo era
+# alias do MESMO serviço Railway (mesmo edge/trace), segue vivo mas não é
+# o nome a usar. Produção não seta MYDATA_URL, logo depende deste default.
+BASE_DEFAULT = "https://mydata.semente.dev"
 TIMEOUT_S = 20
 PAGINAS_MAX = 8
 LIMITE_MAX = 2000
