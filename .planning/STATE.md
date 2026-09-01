@@ -5,7 +5,7 @@ milestone_name: Cap comercial (plano gratuito)
 status: Awaiting next milestone
 stopped_at: Phase 14 verificada em produção, WR-01 resolvido (PR #28)
 last_updated: "2026-08-31T22:15:00.000Z"
-last_activity: 2026-08-31 -- Phase 14 (standalone) encerrada: WR-01 resolvido, B3_OPTIONS_PROVIDER=mydata em produção verificado ao vivo
+last_activity: 2026-09-01 -- Quick task 260901-1ak: PROJECT.md Active sincronizado com STATE.md, 2 itens stale já resolvidos removidos
 progress:
   total_phases: 2
   completed_phases: 2
@@ -137,6 +137,7 @@ Recent decisions affecting current work:
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
 | 260830-eqm | Fase 4 do ADR-23 — Boris+ relying party do semente.id, GET /observabilidade, cauda do rename | 2026-08-30 | f534fda | Verified — PR #27 merged, deploy em produção confirmado (build F10-20260830-01), checkpoint aprovado pelo Alex ao vivo | [260830-eqm-fase-4-adr-23-boris-relying-party-do-sem](./quick/260830-eqm-fase-4-adr-23-boris-relying-party-do-sem/) |
+| 260901-1ak | Sincronizar PROJECT.md Active: remover 2 itens stale já resolvidos (mydata cutover, WR-01) | 2026-09-01 | 8509f5e | Verify gate passou (contagem 7→5, diff só-remoção em PROJECT.md, data de referência sincronizada em STATE.md) | [260901-1ak-sincronizar-project-md-active-remover-2-](./quick/260901-1ak-sincronizar-project-md-active-remover-2-/) |
 
 ## Deferred Items
 
