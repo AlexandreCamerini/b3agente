@@ -22,11 +22,37 @@ funciona — não decorou uma resposta, aprendeu o raciocínio — e só então 
 acesso a automações do Modo Operador. Se o storyline pedagógico não convencer,
 nada mais no produto importa.
 
-## Current Milestone
+## Current Milestone: v1.4 Opções v2
 
-Nenhum milestone ativo — v1.3 fechado em 2026-08-31 (`/gsd-complete-milestone`).
-Detalhes completos arquivados em `.planning/milestones/v1.3-ROADMAP.md`.
-Próximo passo: `/gsd:new-milestone` quando o Alex quiser abrir o próximo ciclo.
+**Goal:** nova experiência de Opções no Boris+ que propõe setups (venda
+coberta, put de proteção, collar) a partir da análise técnica sobre posições
+reais da carteira, com aceite manual do usuário — independente do MCP
+externo (b-mcp, projeto paralelo) até ele ficar pronto.
+
+**Target features:**
+- Aba própria "Opções" na barra de navegação inferior (Candidato A)
+- Biblioteca v1: venda coberta + put de proteção + collar, só sobre posições
+  com cobertura real (sem opção nua)
+- Motor de proposta com critério de seleção `liquidity_score ≥ 40` + strike
+  extremo (mantém a régua já em produção da Fase 14, não adota o critério
+  por delta do b-mcp)
+- Matemática de payoff (custo líquido, ganho/perda máximos, breakeven, delta
+  somado) portada por cópia de `calculos.py` do b-mcp
+- Limite/interface interno `rastrear()`/`avaliar()`, no vocabulário do
+  contrato ADR-004/`mydata_client.py` — pronto pra trocar por chamadas MCP
+  reais quando `plano-mcp-servico.md` for aprovado, sem redesenho
+- Fluxo de aceite reusa o motor de ordens de opções lastreadas da Fase 14 —
+  nenhuma automação nova
+
+**Fora de escopo (decidido no kickoff):** plano comercial (gratuito vs.
+pago) desta feature — mesmo padrão do v1.3, que ativou infraestrutura sem
+loja/IAP ainda; DSL de setups técnicos (`setups.py` do b-mcp) — risco de
+sinal já corrigido uma vez (ADR-016/017), gatilho já vem do Radar do Boris;
+integração MCP de verdade (Estratégia C) — fica pro próximo milestone que
+tratar disso, condicionado à aprovação do `plano-mcp-servico.md`.
+
+Base completa da decisão: `.planning/seeds/opcoes-v2-setups-propostos-via-b-mcp.md`
+e `.planning/notes/opcoes-v2-b-mcp-exploracao.md`.
 
 ## Milestone v1.3 Cap comercial (plano gratuito) — SHIPPED 2026-08-31
 

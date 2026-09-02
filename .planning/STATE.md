@@ -1,17 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.3
-milestone_name: Cap comercial (plano gratuito)
-status: Awaiting next milestone
-stopped_at: Phase 14 verificada em produção, WR-01 resolvido (PR #28)
-last_updated: "2026-08-31T22:15:00.000Z"
-last_activity: 2026-09-02 -- Quick task 260902-km8: estratégia de arquitetura fechada — Boris independe do b-mcp em runtime no v1 (liquidity_score mantido, calculos.py reaproveitado, setups.py fora de escopo)
+milestone: v1.4
+milestone_name: Opções v2
+status: planning
+last_updated: "2026-09-02T19:41:59.193Z"
+last_activity: 2026-09-02
 progress:
-  total_phases: 2
-  completed_phases: 2
-  total_plans: 8
-  completed_plans: 8
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -25,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-09-01)
 
 ## Current Position
 
-Phase: 14 (op-es-lastreadas-venda-coberta-e-put-de-prote-o-sobre-posi-e) — COMPLETE (standalone, sem milestone ativo)
-Plan: 8 of 8 (+ 2 bugfixes de checkpoint)
-Status: Checkpoint humano aprovado — fase dormente em produção até B3_OPTIONS_PROVIDER=mydata
-Last activity: 2026-08-31 -- Phase 14 completa, checkpoint humano aprovado ao vivo (2 bugs achados e corrigidos)
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-09-02 — Milestone v1.4 started
 
 ## Performance Metrics
 
