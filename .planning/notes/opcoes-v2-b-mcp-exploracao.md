@@ -111,11 +111,39 @@ por request. Isso é compatível com a ideia original do usuário (biblioteca
 fixa em v1) e não precisa de decisão nova.
 
 **5. Escopo do v1 da biblioteca além de venda coberta / put de proteção.**
-NÃO DECIDIDO — deixado em aberto de propósito. Escolher a próxima estratégia
-(collar? straddle coberto?) é decisão de produto/pedagógica que depende de
-critério que só o Alex tem contexto pra fechar (liquidez real de opções B3 por
-ticker, o que faz sentido pedagogicamente no Modo Estudo). Registrado como
-pergunta em aberto, não como bloqueio técnico.
+DECIDIDO (Alex, 2026-09-01): venda coberta + put de proteção + **collar
+(trava protetora)**. O collar entra porque é a combinação das duas mesmas
+pernas já calculadas (venda coberta e put de proteção) — extensão natural,
+zero peça nova no motor.
+
+Racional de exclusão, com os dois motivos mantidos distintos:
+- **straddle/strangle coberto** sai por **liquidez**: opções B3 fora dos
+  blue-chips já são curtas pra 1 perna, pior pra 2 pernas simultâneas de
+  lados opostos — o `find_tradable_options` do b-mcp tem `min_trades`
+  justamente por isso.
+- **`cash-secured` put** sai por **definição, não liquidez**: inicia posição
+  (comprar a ação mais barato) em vez de proteger uma que já existe —
+  contradiz a régua "só sobre cobertura real", que é o próprio enunciado da
+  feature.
+
+**Ressalva arquitetural do Alex, parte da mesma decisão:** o v1 tem que ser
+implementável com código determinístico do Boris — o b-mcp não pode ser
+pré-requisito de existência (o acesso server-to-server ao b-mcp segue
+bloqueado, ver bloqueio 2 desta mesma nota) —, mas com a lógica de screening
+de cadeia e cálculo de estrutura atrás de um limite/interface interno que não
+amarre no formato de dado específico do código-hoje-do-Boris, para que a
+troca por `find_tradable_options` / `evaluate_option_structure` seja
+**extensão limpa, não reescrita**, quando o bloqueio cair. Isso é diretriz de
+design para quem planejar/implementar a fase depois, não decisão de código a
+fechar agora.
+
+Contexto histórico (preservado — histórico não se reescreve): na sessão
+original, o item era deixado em aberto de propósito, porque escolher a
+próxima estratégia (collar? straddle coberto?) era decisão de produto/
+pedagógica que dependia de critério que só o Alex tinha contexto pra fechar
+(liquidez real de opções B3 por ticker, o que faz sentido pedagogicamente no
+Modo Estudo). Estava registrado como pergunta em aberto, não como bloqueio
+técnico — e foi respondido exatamente pelo critério que ele mesmo pedia.
 
 **6. Fluxo de aceite (motor de ordens existente vs. automação nova).**
 DECISÃO: reusar o motor de opções lastreadas que a Fase 14 já entrega
