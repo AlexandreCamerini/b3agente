@@ -256,3 +256,69 @@ def test_guardiao_e_debita_do_provider_usa_reservar_nao_debita_direto():
         "_debita() chama mydata_budget.debita() DIRETO — é exatamente a "
         "condição de corrida do WR-01 que o PR #28 fechou (check-then-act "
         "sem lock). O commit tem que passar por reservar().")
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# GUARDIÃO ENG-04 — a trocabilidade de rastrear()/avaliar() tem de ser
+# ESTRUTURAL, não só documentada em comentário. Três frentes: assinatura
+# congelada, allowlist de imports, e ausência de relógio.
+# ─────────────────────────────────────────────────────────────────────────
+def test_eng04_assinatura_de_rastrear_esta_congelada():
+    parametros = list(inspect.signature(opcoes_motor.rastrear).parameters)
+    assert parametros == ["cadeia", "filtros"], (
+        f"opcoes_motor.rastrear mudou de assinatura para {parametros} — "
+        f"ENG-04 exige (cadeia, filtros) exatamente nessa ordem. Renomear "
+        f"ou acrescentar parâmetro posicional quebra todo chamador na hora "
+        f"da troca pelo b-mcp (find_tradable_options); é por isso que a "
+        f"assinatura está congelada.")
+
+
+def test_eng04_assinatura_de_avaliar_esta_congelada():
+    parametros = list(inspect.signature(opcoes_motor.avaliar).parameters)
+    assert parametros == ["pernas"], (
+        f"opcoes_motor.avaliar mudou de assinatura para {parametros} — "
+        f"ENG-04 exige (pernas) exatamente. Renomear ou acrescentar "
+        f"parâmetro posicional quebra todo chamador na hora da troca pelo "
+        f"b-mcp (evaluate_option_structure); é por isso que a assinatura "
+        f"está congelada.")
+
+
+def test_eng04_limite_trocavel_opcoes_motor_imports_na_allowlist():
+    # Um import fora dela significa que o motor passou a depender de
+    # estado do Boris (carteira, sessão, texto, relógio) e a troca do
+    # CORPO por uma chamada de rede (ADR-024, quando plano-mcp-servico.md
+    # for aprovado) deixou de ser possível sem redesenho.
+    allowlist = {"options_quant", "opcoes_payoff", "typing", "__future__"}
+    caminho = _APP_DIR / "opcoes_motor.py"
+    mods = _imports(caminho)
+    ofensores = mods - allowlist
+    assert not ofensores, (
+        f"opcoes_motor.py importa {sorted(ofensores)}, fora da allowlist "
+        f"{sorted(allowlist)} — ENG-04 exige que o limite trocável não "
+        f"conheça carteira/sessão/db/auth/texto de UI, senão a troca do "
+        f"corpo por chamada remota deixa de ser drop-in.")
+
+
+def test_eng04_limite_trocavel_opcoes_motor_sem_relogio():
+    # Relógio dentro do limite tornaria rastrear()/avaliar() não-
+    # determinísticas e não-reproduzíveis pelo lado remoto (b-mcp não teria
+    # como replicar "agora" do processo do Boris).
+    nomes_proibidos = {"datetime", "date", "time", "now", "today"}
+    caminho = _APP_DIR / "opcoes_motor.py"
+    arvore = _arvore(caminho)
+    nomes_usados = {
+        n.id for n in ast.walk(arvore) if isinstance(n, ast.Name)
+    } | {
+        n.attr for n in ast.walk(arvore) if isinstance(n, ast.Attribute)
+    } | {
+        alias.asname or alias.name.split(".")[0]
+        for n in ast.walk(arvore)
+        if isinstance(n, (ast.Import, ast.ImportFrom))
+        for alias in n.names
+    }
+    ofensores = nomes_usados & nomes_proibidos
+    assert not ofensores, (
+        f"opcoes_motor.py referencia {sorted(ofensores)} — relógio dentro "
+        f"do limite ENG-04 tornaria rastrear()/avaliar() não-"
+        f"reproduzíveis; o dado de tempo (se algum dia precisar) tem que "
+        f"vir de fora, como argumento explícito do chamador.")
