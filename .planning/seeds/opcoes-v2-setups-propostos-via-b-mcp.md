@@ -37,7 +37,27 @@ Decisões de produto fechadas:
   completo, trade-offs conscientemente aceitos e o contexto histórico de por
   que o outro candidato havia sido cogitado primeiro:
   `.planning/notes/opcoes-v2-b-mcp-exploracao.md` (seção "Navegação").
+- Escopo do v1 da biblioteca — decidido por Alex em 2026-09-01: **venda
+  coberta + put de proteção + collar (trava protetora)**. O collar entra por
+  ser a combinação das duas mesmas pernas já calculadas (venda coberta e put
+  de proteção já existem, Fase 14) — extensão natural, zero peça nova no
+  motor. Excluídos, com motivos DISTINTOS: **straddle/strangle coberto** sai
+  por liquidez (opções B3 fora dos blue-chips já são curtas pra 1 perna,
+  pior pra 2 pernas simultâneas de lados opostos — o `find_tradable_options`
+  do b-mcp tem `min_trades` justamente por isso); **cash-secured put** sai
+  por definição, não por liquidez (inicia posição em vez de proteger uma que
+  já existe, contradiz a régua "só sobre cobertura real" que é o enunciado da
+  feature). **Ressalva arquitetural (Alex), parte da mesma decisão:** o v1
+  tem que ser implementável com código determinístico do próprio Boris, sem
+  depender do b-mcp para existir (o acesso server-to-server segue bloqueado —
+  ver `.planning/todos/pending/opcoes-v2-confirmar-hub-mydata-e-acesso-b-mcp.md`,
+  item 2), MAS desenhado com a lógica de screening de cadeia e cálculo de
+  estrutura atrás de um limite/interface interno, de modo que trocar/estender
+  por `find_tradable_options` / `evaluate_option_structure` do b-mcp, quando o
+  bloqueio cair, seja extensão limpa e não reescrita. Isso é diretriz de
+  design para a fase de implementação, não decisão de código a fechar agora.
+  Racional completo: `.planning/notes/opcoes-v2-b-mcp-exploracao.md`, item 5
+  da seção "Decisões tomadas nesta sessão".
 
 Pendências de produto (não técnicas, aguardando o Alex):
-- Escopo do v1 da biblioteca além de venda coberta/put de proteção.
 - Plano comercial (gratuito vs. pago), relação com o cap da v1.3.
