@@ -85,15 +85,27 @@ carteira do usuário (o mydata é deliberadamente stateless de carteira — ver
 ADR de fusão, Decisão 2, ainda válida: "carteira fica no aparelho/servidor do
 Boris; mydata recebe no máximo `{ticker,qty,avg}` por chamada, sem persistir").
 
-**2. Transporte em produção.** PARCIALMENTE RESOLVIDO, com um ponto BLOQUEADO
-(ver seção Bloqueios). O Boris já tem `server/app/mydata_client.py` (existe de
-verdade, não é hipótese — Fase 9, HTTP client puro, sem protocolo MCP,
-`MYDATA_URL` default `https://mydata.acamerini.app`) e `options_provider_mydata.py`
-consumindo dado de opções por REST, em produção desde 31/08 (Fase 14). Esse é
-o padrão certo a estender — REST determinístico, nunca subir um client MCP
-stdio dentro do processo único do Railway. O que falta decidir é qual
-domínio/serviço tem as tools de `setups`/`evaluate_option_structure` em modo
-produção — ver bloqueio.
+**2. Transporte em produção.** DECIDIDO (2026-09-02): o v1 não chama o
+processo nem o serviço b-mcp em runtime; o transporte de dado de opções
+continua sendo o REST de `server/app/mydata_client.py` que já está em
+produção (Fase 9/14, `mydata.semente.dev`), e a lógica de screening/cálculo
+fica em código determinístico do próprio Boris, atrás do limite interno
+descrito na seção "Arquitetura decidida (2026-09-02) — independência do
+b-mcp no v1" logo abaixo. A dependência de runtime do b-mcp foi trocada por
+adoção pontual de código puro (`calculos.py`), decidida uma vez — não
+integração viva. A migração para chamadas MCP de verdade só volta à mesa
+se/quando `~/dev/MCP/docs/plano-mcp-servico.md` for aprovado pelo Alex.
+
+Contexto histórico (preservado — histórico não se reescreve): o veredito
+acima substitui a leitura anterior desta sessão, que classificava o item
+como PARCIALMENTE RESOLVIDO, com um ponto BLOQUEADO (ver seção Bloqueios). O
+diagnóstico de então segue correto quanto aos fatos de produção: o Boris já
+tem `server/app/mydata_client.py` (existe de verdade, não é hipótese — Fase
+9, HTTP client puro, sem protocolo MCP) e `options_provider_mydata.py`
+consumindo dado de opções por REST, em produção desde 31/08 (Fase 14). O
+racional de nunca subir um client MCP stdio dentro do processo único do
+Railway continua VÁLIDO — não é só histórico, é a razão técnica por trás da
+decisão acima.
 
 **3. Interação com o lock do WR-01 (`mydata_budget.py`).** DECISÃO: qualquer
 chamada nova ao hub mydata (screening de opções, avaliação de estrutura) DEVE
@@ -203,6 +215,85 @@ evitava adicionar mais uma aba a um app que já tem Operador + Mesa +
 Posições — por isso foi a recomendação provisória da sessão. Mas era palpite
 fundamentado, não veredito.
 
+## Arquitetura decidida (2026-09-02) — independência do b-mcp no v1
+
+### Achados novos que mudaram o quadro
+
+- `~/dev/MCP/servers/mydata/estruturas.py` (arquivo NOVO, 525 linhas + 450 de
+  teste) traz um comentário explícito do autor: "Este é o arquivo que o
+  Boris porta por cópia". Catálogo de 13 estruturas de opções (inclui
+  covered_call e collar), montagem de pernas por **delta** (0,25 asa / 0,5
+  ATM), **sem filtro de liquidez**.
+- `~/dev/MCP/docs/plano-mcp-servico.md` (datado 2026-09-02) desenha um
+  serviço MCP novo em `mcp.semente.dev`, com autenticação por bearer de
+  máquina (não a senha do portal humano), teto por cliente e chave própria
+  no hub; a Fase 5 desse plano é "contrato para o Boris". Estado:
+  **aguardando aprovação antes de qualquer implementação** — o Alex conhece
+  o plano, mas ele está em avaliação, não aprovado.
+- O portal público `b-mcp.semente.dev` serve dado **sintético/fixture** em
+  produção (`MYDATA_MODO` vira "meta" na nuvem). Chamá-lo direto violaria o
+  princípio 4 do CLAUDE.md (nunca inventar valor) — desqualifica o portal
+  como fonte, independentemente de acesso/senha.
+
+### As 5 estratégias avaliadas
+
+- **Estratégia A** — portar `estruturas.py` por cópia (o próprio autor
+  sinaliza isso no arquivo). Descartada: traz junto o critério de seleção
+  por delta (ver achado operacional abaixo), incompatível com a régua de
+  produção.
+- **Estratégia B** — estender o motor próprio do Boris, usando o b-mcp só
+  como especificação de referência. **ESCOLHIDA**, com o refinamento de
+  reaproveitar `calculos.py` (a parte de A que é matemática pura, sem o
+  critério de seleção por delta que vem junto).
+- **Estratégia C** — aprovar `plano-mcp-servico.md` e integrar via MCP
+  autenticado (`mcp.semente.dev`, bearer de máquina). Descartada por ora:
+  depende de um plano em avaliação, não aprovado.
+- **Estratégia D** — empurrar a conta para o hub REST (`mydata.semente.dev`),
+  estendendo os endpoints existentes. Descartada: empurra para o hub uma
+  conta que é pura e não precisa de rede.
+- **Estratégia E** — núcleo compartilhado versionado entre os dois repos
+  (lib comum). Descartada: cria acoplamento de versionamento entre dois
+  repos com ciclos de release independentes.
+
+### Achado operacional crítico — duas réguas de seleção incompatíveis
+
+`server/app/opcoes_lastreadas.py` (Fase 14, produção) escolhe contrato por
+**strike extremo + `liquidity_score` >= 40**; `estruturas.py` escolhe por
+**delta** (0,25 asa / 0,5 ATM) e **não filtra liquidez**. As duas réguas são
+incompatíveis. Decisão: **mantém `liquidity_score`** — a régua de produção.
+Se as duas convivessem sem reconciliar, o app proporia venda coberta por
+critérios diferentes dependendo da tela.
+
+### O que se reaproveita e o que não
+
+**REAPROVEITA:** `calculos.py` (custo líquido, ganho/perda máximos,
+breakevens, delta somado para N pernas) — matemática de identidade pura, sem
+I/O, zero dependência de runtime do MCP; portar é decisão de código feita
+uma vez, como adotar uma lib.
+
+**NÃO REAPROVEITA:** a DSL de setups técnicos (`setups.py`) — **fora de escopo**
+do v1, por dois motivos: (i) desnecessária, o gatilho técnico já
+vem do Radar do Boris; (ii) risco de sinal — o Boris já mediu (`ADR-016`)
+que sinal ingênuo de confluência PERDE DINHEIRO e reconstruiu a seleção por
+peso histórico (`ADR-017`); portar a DSL sem passar pelo
+`scripts/backtest_sinal.py` reintroduziria um defeito já corrigido.
+
+### Limite/interface interno
+
+Duas funções, no vocabulário do contrato **ADR-004** / `mydata_client.py`
+(prêmio/strike/delta/tipo), NÃO um vocabulário novo:
+
+- `rastrear(cadeia, filtros) -> [contratos]` (equivalente a
+  `find_tradable_options`)
+- `avaliar(pernas) -> {custo, ganho_max, perda_max, breakevens, delta}`
+  (equivalente a `evaluate_option_structure`)
+
+É isso que faz a troca futura pela chamada MCP (quando
+`plano-mcp-servico.md` for aprovado) ser troca de **corpo de função**, não
+redesenho. A fonte de dado continua `mydata_client.py`, que já respeita o
+lock do WR-01 (`mydata_budget.py`) — zero canal de rede novo (item 3 desta
+mesma nota, continua valendo).
+
 ## Bloqueios — precisam do Alex, não adivinhados
 
 1. ~~`mydata.semente.dev` × `mydata.acamerini.app` — mesmo hub?~~
@@ -217,15 +308,29 @@ fundamentado, não veredito.
    produção depende inteiramente desse default. Ação de baixo risco
    registrada em `.planning/todos/pending/opcoes-v2-confirmar-hub-mydata-e-acesso-b-mcp.md`,
    aguardando confirmação do Alex antes de trocar.
-2. **O portal `b-mcp.semente.dev` é protegido por senha para uso humano
-   (`PORTAL_SENHA`) — as tools de `setups`/`evaluate_option_structure`
-   expostas por ele têm uma via de acesso server-to-server (sem senha
-   interativa) que o backend do Boris possa chamar?** Os docs do MCP tratam
-   esse server como "pessoal, local, stdio, servindo só você" — não achei
-   nenhuma confirmação de que ele foi desenhado para ser cliente de outro
-   backend em produção (multi-tenant), diferente do hub `mydata.*` que já é.
-   Sem essa confirmação, presumir que o Boris pode chamar as tools de setups
-   do b-mcp direto em produção seria arquitetura inventada.
+2. **DESBLOQUEADO PARA O V1 (2026-09-02)**: não é mais bloqueio ativo, porque
+   a estratégia escolhida (Estratégia B, ver seção "Arquitetura decidida
+   (2026-09-02)") contorna a necessidade — o Boris não chama o b-mcp em
+   runtime. O plano de resolução existe e tem nome: `plano-mcp-servico.md`
+   (`~/dev/MCP/docs/`, datado 2026-09-02), autenticação por bearer de
+   máquina em `mcp.semente.dev`, Fase 5 = "contrato para o Boris" — **em
+   avaliação pelo Alex, não aprovado**. Quando aprovado, habilita uma
+   migração futura (Estratégia C) que é troca de corpo de função no limite
+   interno, não redesenho. Achado que reforça a decisão: o portal
+   `b-mcp.semente.dev` serve dado sintético em produção, então nem "pedir a
+   senha" seria caminho viável.
+
+   Contexto histórico (preservado — histórico não se reescreve), pergunta
+   original desta sessão: **o portal `b-mcp.semente.dev` é protegido por
+   senha para uso humano (`PORTAL_SENHA`) — as tools de
+   `setups`/`evaluate_option_structure` expostas por ele têm uma via de
+   acesso server-to-server (sem senha interativa) que o backend do Boris
+   possa chamar?** Os docs do MCP tratam esse server como "pessoal, local,
+   stdio, servindo só você" — não achei nenhuma confirmação de que ele foi
+   desenhado para ser cliente de outro backend em produção (multi-tenant),
+   diferente do hub `mydata.*` que já é. Sem essa confirmação, presumir que
+   o Boris pode chamar as tools de setups do b-mcp direto em produção seria
+   arquitetura inventada.
 3. **Rate-limit real do hub mydata segue não medido** (já era ressalva aberta
    em `.planning/notes/boris-pp-centralizacao-dados-mydata.md` de 27/08, e no
    todo pendente `medir-rate-limit-mydata.md`, prioridade média). Um fluxo de
@@ -248,6 +353,8 @@ fundamentado, não veredito.
   corrigida/vigente da comparação Boris×mydata, dentro deste repo)
 - `server/app/mydata_client.py`, `options_provider_mydata.py`,
   `mydata_budget.py` (estado real do Boris hoje)
+- Fontes novas desta rodada (2026-09-02): `~/dev/MCP/servers/mydata/estruturas.py`,
+  `~/dev/MCP/docs/plano-mcp-servico.md`, `server/app/opcoes_lastreadas.py`
 
 **Aviso de cadeia de correção:** os 4 docs do MCP citados acima têm cabeçalhos
 de invalidação cruzada (`adr-fusao` e `cowork-project-context` marcam-se como
@@ -261,6 +368,14 @@ MCP, releia — não confie em memória desta síntese para nuance.
 
 ## Próximo passo formal
 
-Não virou fase nem requirement — os 3 bloqueios acima (domínio do hub, acesso
-server-to-server ao b-mcp, rate-limit) são o que trava `/gsd-plan-phase`. Ver
-todo criado nesta sessão.
+Não virou fase nem requirement, mas a base para desenhar já existe. Dos 3
+bloqueios que a sessão original apontava, o 1 (domínio do hub) está
+RESOLVIDO, e o 2 (acesso server-to-server ao b-mcp) está DESBLOQUEADO PARA O
+V1 pela estratégia decidida em "Arquitetura decidida (2026-09-02)" — o v1
+não depende dele. O que resta é o rate-limit (item 3, todo
+`medir-rate-limit-mydata.md`, acompanhamento, não trava) mais a pendência de
+produto do plano comercial (item 7 das decisões acima). Isso implica que
+`/gsd-plan-phase` de Opções v2 já tem base suficiente para ser desenhado. Ver
+todo criado nesta sessão
+(`.planning/todos/pending/opcoes-v2-confirmar-hub-mydata-e-acesso-b-mcp.md`),
+agora item de acompanhamento, não bloqueio.
