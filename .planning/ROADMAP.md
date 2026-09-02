@@ -103,7 +103,11 @@ b-mcp.
   5. O gatilho que aciona `avaliar()` é o motor de setups já em produção do
      Boris (Radar/`setups.py`/`indicators.py`, server-side) — nenhuma DSL
      de setups técnicos do b-mcp é portada ou depende dele.
-**Plans**: TBD
+**Plans**: 4 plans (3 waves)
+- [ ] 15-01-PLAN.md — aritmética pura de payoff de N pernas portada de `calculos.py` (ENG-02)
+- [ ] 15-02-PLAN.md — gatilho técnico reusando o plano do Radar + proibição da DSL do b-mcp (ENG-06)
+- [ ] 15-03-PLAN.md — limite interno `rastrear()`/`avaliar()` + adaptadores ADR-004 → perna (ENG-01, ENG-04)
+- [ ] 15-04-PLAN.md — guardiões de fronteira (sem rede ao b-mcp, canal único com orçamento) + ADR-024 (ENG-03, ENG-04, ENG-05)
 
 #### Phase 16: Biblioteca de estruturas
 **Goal**: Venda coberta e put de proteção deixam de nascer de motores
