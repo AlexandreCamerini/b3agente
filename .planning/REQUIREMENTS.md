@@ -27,26 +27,26 @@ e `.planning/notes/opcoes-v2-b-mcp-exploracao.md`.
 
 ### Motor / arquitetura (ENG)
 
-- [ ] **ENG-01**: O motor de proposta seleciona o contrato pelo critério já
+- [x] **ENG-01**: O motor de proposta seleciona o contrato pelo critério já
   em produção — `liquidity_score ≥ 40` + strike extremo, mesma régua de
   `server/app/opcoes_lastreadas.py` — nunca pelo critério por delta do
   `estruturas.py` do b-mcp.
-- [ ] **ENG-02**: O cálculo de payoff de N pernas (custo líquido, ganho/perda
+- [x] **ENG-02**: O cálculo de payoff de N pernas (custo líquido, ganho/perda
   máximos, breakevens, delta somado) usa aritmética portada de `calculos.py`
   do b-mcp, adaptada e testada dentro do repo do Boris.
-- [ ] **ENG-03**: O motor não faz nenhuma chamada de rede ao processo/serviço
+- [x] **ENG-03**: O motor não faz nenhuma chamada de rede ao processo/serviço
   b-mcp em runtime — toda fonte de dado passa por `mydata_client.py`
   existente.
-- [ ] **ENG-04**: A lógica de screening de cadeia e avaliação de estrutura
+- [x] **ENG-04**: A lógica de screening de cadeia e avaliação de estrutura
   fica atrás de duas funções de limite interno — `rastrear()` e `avaliar()`
   — desenhadas no vocabulário do contrato ADR-004/`mydata_client.py`
   (prêmio/strike/delta/tipo), permitindo trocar a implementação local pelas
   chamadas ao b-mcp (`find_tradable_options`/`evaluate_option_structure`) no
   futuro sem redesenho — troca de corpo de função.
-- [ ] **ENG-05**: Qualquer chamada nova ao hub mydata feita pelo motor de
+- [x] **ENG-05**: Qualquer chamada nova ao hub mydata feita pelo motor de
   opções (screening, avaliação) passa pelo lock existente
   (`mydata_budget.reservar()`) — nunca um canal paralelo.
-- [ ] **ENG-06**: O gatilho técnico que dispara a avaliação de proposta
+- [x] **ENG-06**: O gatilho técnico que dispara a avaliação de proposta
   reusa o motor de setups já existente do Boris (Radar/`setups.py`
   server-side, `indicators.py`) — não porta nem depende da DSL de setups
   técnicos do b-mcp.
@@ -100,12 +100,12 @@ e `.planning/notes/opcoes-v2-b-mcp-exploracao.md`.
 | LIB-01 | Phase 16 | Pending |
 | LIB-02 | Phase 16 | Pending |
 | LIB-03 | Phase 16 | Pending |
-| ENG-01 | Phase 15 | Pending |
-| ENG-02 | Phase 15 | Pending |
-| ENG-03 | Phase 15 | Pending |
-| ENG-04 | Phase 15 | Pending |
-| ENG-05 | Phase 15 | Pending |
-| ENG-06 | Phase 15 | Pending |
+| ENG-01 | Phase 15 | Complete |
+| ENG-02 | Phase 15 | Complete |
+| ENG-03 | Phase 15 | Complete |
+| ENG-04 | Phase 15 | Complete |
+| ENG-05 | Phase 15 | Complete |
+| ENG-06 | Phase 15 | Complete |
 | FLOW-01 | Phase 17 | Pending |
 | FLOW-02 | Phase 17 | Pending |
 | FLOW-03 | Phase 17 | Pending |
