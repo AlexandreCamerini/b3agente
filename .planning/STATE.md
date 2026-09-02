@@ -5,7 +5,7 @@ milestone_name: Cap comercial (plano gratuito)
 status: Awaiting next milestone
 stopped_at: Phase 14 verificada em produção, WR-01 resolvido (PR #28)
 last_updated: "2026-08-31T22:15:00.000Z"
-last_activity: 2026-09-02 -- Quick task 260901-u2c: escopo v1 da biblioteca de setups de opções fechado (venda coberta+put+collar), ressalva de espaço pra MCP futuro registrada
+last_activity: 2026-09-02 -- Quick task 260902-km8: estratégia de arquitetura fechada — Boris independe do b-mcp em runtime no v1 (liquidity_score mantido, calculos.py reaproveitado, setups.py fora de escopo)
 progress:
   total_phases: 2
   completed_phases: 2
@@ -141,6 +141,7 @@ Recent decisions affecting current work:
 | 260901-2da | Atualizar mydata_client.py: BASE_DEFAULT para o domínio canônico mydata.semente.dev | 2026-09-01 | c2f30bf | Verify gate passou (zero refs ao domínio antigo, py_compile limpo, pytest test_mydata_client.py 40 passed, diff exatamente 3 arquivos) | [260901-2da-atualizar-mydata-client-py-base-default-](./quick/260901-2da-atualizar-mydata-client-py-base-default-/) |
 | 260901-r5t | Registrar decisão: Alex escolheu Candidato A (aba própria Opções) na navegação de Opções v2 | 2026-09-01 | da9a118 | Verify gate passou (17 checks, diff restrito a .planning/, zero código tocado) | [260901-r5t-registrar-decis-o-alex-escolheu-candidat](./quick/260901-r5t-registrar-decis-o-alex-escolheu-candidat/) |
 | 260901-u2c | Registrar decisão: escopo v1 biblioteca de setups (venda coberta+put+collar), espaço pra MCP futuro | 2026-09-02 | f29490b | Verify gate passou (22 checks, diff restrito a .planning/) — executor sofreu falha de API pós-commit, orquestrador escreveu o SUMMARY.md e completou o merge | [260901-u2c-registrar-decis-o-escopo-v1-biblioteca-d](./quick/260901-u2c-registrar-decis-o-escopo-v1-biblioteca-d/) |
+| 260902-km8 | Registrar estratégia de arquitetura: Boris independe do b-mcp até o serviço MCP autenticado ficar pronto | 2026-09-02 | 36cc1d1 | Verify gate passou (81 checks, diff restrito a .planning/) | [260902-km8-registrar-estrat-gia-de-arquitetura-bori](./quick/260902-km8-registrar-estrat-gia-de-arquitetura-bori/) |
 
 ## Deferred Items
 
