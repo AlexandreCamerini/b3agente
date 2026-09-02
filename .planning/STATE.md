@@ -2,13 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Opções v2
-status: planning
-last_updated: "2026-09-02T21:00:00.000Z"
-last_activity: 2026-09-02
+status: executing
+stopped_at: ROADMAP.md v1.4 criado (Phases 15-18), REQUIREMENTS.md traceability preenchida, STATE.md atualizado — aguardando aprovação do roadmap
+last_updated: "2026-09-02T21:34:51.614Z"
+last_activity: 2026-09-02 -- Phase 15 execution started
 progress:
-  total_phases: 4
+  total_phases: 6
   completed_phases: 0
-  total_plans: 0
+  total_plans: 4
   completed_plans: 0
   percent: 0
 ---
@@ -20,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-01)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Milestone v1.4 Opções v2 — Phase 15 (Motor de proposta), ready to plan
+**Current focus:** Phase 15 — motor-de-proposta-arquitetura-interna
 
 ## Current Position
 
-Phase: 15 of 18 (Motor de proposta — arquitetura interna)
-Plan: — (not yet planned)
-Status: Roadmap approved, ready to plan Phase 15
-Last activity: 2026-09-02 — ROADMAP.md v1.4 criado (Phases 15-18), REQUIREMENTS.md traceability preenchida (16/16 mapeados)
+Phase: 15 (motor-de-proposta-arquitetura-interna) — EXECUTING
+Plan: 1 of 4
+Status: Executing Phase 15
+Last activity: 2026-09-02 -- Phase 15 execution started
 
 Progress: [░░░░░░░░░░] 0%
 
