@@ -20,6 +20,7 @@ from __future__ import annotations
 from typing import Any
 
 from .options_quant import liquidity_score
+from .opcoes_payoff import perfil_da_estrutura
 
 # Corte de liquidez em produção desde a Fase 14 (`opcoes_lastreadas.py`).
 # Fonte ÚNICA no repo: `opcoes_lastreadas` importa esta constante em vez de
@@ -106,3 +107,90 @@ def rastrear(cadeia: Any, filtros: dict[str, Any] | None) -> list[dict[str, Any]
     n = filtros.get("n") or 1
     selecionados = ordenados[:n] if criterio == "min" else list(reversed(ordenados))[:n]
     return selecionados
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# adaptadores: contrato ADR-004 / ação -> perna de payoff (ENG-04)
+# ─────────────────────────────────────────────────────────────────────────
+
+_OPTION_TYPE_PARA_TIPO = {"call": "CALL", "put": "PUT"}
+
+
+def perna_de_contrato(contrato: dict[str, Any], lado: str, quantidade: float = 1) -> dict[str, Any]:
+    """Adapta um contrato da cadeia ADR-004 para o vocabulário de perna de
+    `opcoes_payoff` (`contrato`, `tipo`, `lado`, `strike`, `premio`,
+    `quantidade`, `delta`) — sem que o chamador precise conhecer o
+    vocabulário interno do payoff.
+
+    Falha alto, no adaptador, e não fundo na aritmética de `opcoes_payoff` —
+    é o que mantém a mensagem de erro legível e nomeando o `contractSymbol`.
+    Um contrato sem prêmio publicado (`lastPrice` None/0/negativo) é
+    recusado aqui: NUNCA vira perna de prêmio 0 (CLAUDE.md princípio 4,
+    regra "null nunca 0.0").
+    """
+    symbol = contrato.get("contractSymbol")
+    tipo = _OPTION_TYPE_PARA_TIPO.get(str(contrato.get("optionType") or "").lower())
+    if tipo is None:
+        raise ValueError(
+            f"contrato {symbol!r}: optionType precisa ser 'call' ou 'put', "
+            f"veio {contrato.get('optionType')!r}")
+
+    premio = contrato.get("lastPrice")
+    if not isinstance(premio, (int, float)) or isinstance(premio, bool) or premio <= 0:
+        raise ValueError(
+            f"contrato {symbol!r}: sem prêmio publicado (lastPrice="
+            f"{contrato.get('lastPrice')!r}) — não pode virar perna")
+
+    if not isinstance(quantidade, (int, float)) or isinstance(quantidade, bool) or quantidade <= 0:
+        raise ValueError(f"contrato {symbol!r}: quantidade precisa ser positiva, veio {quantidade!r}")
+
+    delta = (contrato.get("greeks") or {}).get("delta")
+
+    return {
+        "contrato": symbol,
+        "tipo": tipo,
+        "lado": lado,
+        "strike": contrato.get("strike"),
+        "premio": float(premio),
+        "quantidade": quantidade,
+        "delta": delta,
+    }
+
+
+def perna_de_acao(ticker: str, preco: float, quantidade: float) -> dict[str, Any]:
+    """Perna de lastro (a própria ação) — sem ela, venda coberta e collar não
+    existem. `strike` 0.0 é a constante que faz o payoff linear cair no
+    lugar certo (ver `opcoes_payoff._validar_perna`), não um valor faltando.
+    `delta` 1.0 é identidade matemática da ação, não estimativa."""
+    if not isinstance(preco, (int, float)) or isinstance(preco, bool) or preco <= 0:
+        raise ValueError(f"ação {ticker!r}: preço precisa ser positivo, veio {preco!r}")
+    if not isinstance(quantidade, (int, float)) or isinstance(quantidade, bool) or quantidade <= 0:
+        raise ValueError(f"ação {ticker!r}: quantidade precisa ser positiva, veio {quantidade!r}")
+
+    return {
+        "contrato": ticker,
+        "tipo": "ACAO",
+        "lado": "compra",
+        "strike": 0.0,
+        "premio": float(preco),
+        "quantidade": quantidade,
+        "delta": 1.0,
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# avaliar() — avaliação de estrutura (ENG-04, equivalente a evaluate_option_structure)
+# ─────────────────────────────────────────────────────────────────────────
+
+def avaliar(pernas: list[dict[str, Any]]) -> dict[str, Any]:
+    """Custo líquido, ganho/perda máximos, breakevens e delta somado de uma
+    estrutura de N pernas.
+
+    O corpo é uma delegação DIRETA a `opcoes_payoff.perfil_da_estrutura`, sem
+    renomear nenhuma chave do dicionário devolvido — a Fase 16 e a Fase 17
+    consomem esse dicionário direto. A magreza é o desenho, não descuido: é
+    exatamente por `avaliar` não acrescentar semântica própria que trocar seu
+    corpo por uma chamada a `evaluate_option_structure` do b-mcp não muda
+    nenhum chamador. Não "simplifique" removendo esta indireção.
+    """
+    return perfil_da_estrutura(pernas)
