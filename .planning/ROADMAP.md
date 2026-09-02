@@ -107,7 +107,7 @@ b-mcp.
 - [x] 15-01-PLAN.md — aritmética pura de payoff de N pernas portada de `calculos.py` (ENG-02)
 - [x] 15-02-PLAN.md — gatilho técnico reusando o plano do Radar + proibição da DSL do b-mcp (ENG-06)
 - [x] 15-03-PLAN.md — limite interno `rastrear()`/`avaliar()` + adaptadores ADR-004 → perna (ENG-01, ENG-04)
-- [ ] 15-04-PLAN.md — guardiões de fronteira (sem rede ao b-mcp, canal único com orçamento) + ADR-024 (ENG-03, ENG-04, ENG-05)
+- [x] 15-04-PLAN.md — guardiões de fronteira (sem rede ao b-mcp, canal único com orçamento) + ADR-024 (ENG-03, ENG-04, ENG-05)
 
 #### Phase 16: Biblioteca de estruturas
 **Goal**: Venda coberta e put de proteção deixam de nascer de motores
@@ -190,7 +190,7 @@ C) — ver `.planning/REQUIREMENTS.md` Out of Scope / Future Requirements.
 | 12. Limites do plano gratuito ativos | v1.3 | Complete | 2026-08-29 |
 | 13. Uso real visível na interface + enforcement no iOS | v1.3 | Complete | 2026-08-31 |
 | 14. Opções lastreadas — venda coberta e put de proteção | standalone | Complete (em produção) | 2026-08-31 |
-| 15. Motor de proposta (arquitetura interna) | 3/4 | In Progress|  |
+| 15. Motor de proposta (arquitetura interna) | 4/4 | Complete   | 2026-09-02 |
 | 16. Biblioteca de estruturas | v1.4 | Not started | - |
 | 17. Fluxo de aceite | v1.4 | Not started | - |
 | 18. Aba Opções | v1.4 | Not started | - |
