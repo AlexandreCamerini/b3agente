@@ -75,7 +75,7 @@ completed: 2026-09-02
 1. **Task 1: Guardião de fronteira — sem rede ao b-mcp, canal único, orçamento respeitado** - `a6c6020` (test)
 2. **Task 2: Guardião de trocabilidade do limite interno + ADR-024** - `37a3da8` (feat)
 
-**Plan metadata:** (pendente — commit final feito pelo orquestrador fora deste worktree)
+**Plan metadata:** `3ad123c` (docs: complete plan)
 
 ## Files Created/Modified
 
