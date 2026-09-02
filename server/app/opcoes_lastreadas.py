@@ -10,14 +10,17 @@ manchete do motor determinístico).
 """
 import datetime as dt
 
-from . import skill_ref, store
+from . import opcoes_motor, skill_ref, store
 from .options_quant import liquidity_score
 
 # Prazo elegível: cadeia carregada traz um vencimento só — escolher outro é
 # papel da cadeia expansível, não da proposta.
 _PRAZO_MIN_DIAS = 15
 _PRAZO_MAX_DIAS = 60
-_LIQUIDEZ_MINIMA = 40
+# Fonte única do corte de liquidez é `opcoes_motor.LIQUIDEZ_MINIMA` (Fase 15,
+# Plano 03, ENG-01) — rebind em vez de literal duplicado, para o corte em
+# produção desde a Fase 14 nunca divergir do usado pelo motor genérico.
+_LIQUIDEZ_MINIMA = opcoes_motor.LIQUIDEZ_MINIMA
 
 
 def _dias_ate(expiration, hoje):
