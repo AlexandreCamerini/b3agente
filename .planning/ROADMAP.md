@@ -6,6 +6,7 @@
 - ✅ **v1.1 Realismo de Mercado + Correções** — Phases 2-8 (shipped 2026-08-23) — [detalhes](milestones/v1.1-ROADMAP.md)
 - ✅ **v1.2 Camada de opções ancorada na carteira** — Phases 0, 10, 11 (shipped 2026-08-28) — [detalhes](milestones/v1.2-ROADMAP.md)
 - ✅ **v1.3 Cap comercial (plano gratuito)** — Phases 12-13 (shipped 2026-08-31) — [detalhes](milestones/v1.3-ROADMAP.md)
+- 🚧 **v1.4 Opções v2** — Phases 15-18 (in progress)
 
 ## Phases
 
@@ -64,6 +65,108 @@ Full phase details: [milestones/v1.3-ROADMAP.md](milestones/v1.3-ROADMAP.md)
 
 </details>
 
+### 🚧 v1.4 Opções v2 (In Progress)
+
+**Milestone Goal:** nova experiência de Opções no Boris+ que propõe setups
+(venda coberta, put de proteção, collar) a partir da análise técnica sobre
+posições reais da carteira, com aceite manual do usuário — independente do
+MCP externo (b-mcp) até ele ficar pronto.
+
+Numeração de fase continua a partir da última fase standalone (14, Opções
+lastreadas). Fases desta milestone: 15-18.
+
+#### Phase 15: Motor de proposta (arquitetura interna)
+**Goal**: O motor determinístico de proposta de estruturas de opções existe
+internamente — seleção de contrato, cálculo de payoff N-pernas, limite
+interno `rastrear()`/`avaliar()` e gatilho técnico — pronto para as
+estruturas da Fase 16 se apoiarem nele. Sem UI, sem chamada de rede ao
+b-mcp.
+**Depends on**: Phase 14 (opções lastreadas, motor single-leg em produção)
+**Requirements**: ENG-01, ENG-02, ENG-03, ENG-04, ENG-05, ENG-06
+**Success Criteria** (what must be TRUE):
+  1. `rastrear()` (screening de cadeia) e `avaliar()` (avaliação de
+     estrutura) existem como funções de limite interno no vocabulário do
+     contrato ADR-004/`mydata_client.py` (prêmio/strike/delta/tipo) —
+     trocáveis por chamadas reais ao b-mcp no futuro por troca de corpo de
+     função, sem redesenho.
+  2. A seleção de contrato usada por `avaliar()` aplica
+     `liquidity_score >= 40` + strike extremo — a mesma régua já em
+     produção em `server/app/opcoes_lastreadas.py` — nunca o critério por
+     delta do `estruturas.py` do b-mcp.
+  3. O payoff calculado por `avaliar()` (custo líquido, ganho/perda
+     máximos, breakevens, delta somado) usa aritmética portada e testada de
+     `calculos.py` do b-mcp, adaptada dentro do repo do Boris.
+  4. Nenhuma chamada de rede sai do motor para o processo/serviço b-mcp —
+     toda leitura de dado passa por `mydata_client.py` existente, e
+     qualquer chamada nova ao hub mydata feita pelo motor passa pelo lock
+     já existente (`mydata_budget.reservar()`), nunca um canal paralelo.
+  5. O gatilho que aciona `avaliar()` é o motor de setups já em produção do
+     Boris (Radar/`setups.py`/`indicators.py`, server-side) — nenhuma DSL
+     de setups técnicos do b-mcp é portada ou depende dele.
+**Plans**: TBD
+
+#### Phase 16: Biblioteca de estruturas
+**Goal**: Venda coberta e put de proteção deixam de nascer de motores
+single-leg isolados (Fase 14) e passam a ser geradas pelo motor comum de N
+pernas da Fase 15; collar existe como nova composição das mesmas duas
+pernas — prova de que o motor compõe N pernas de verdade, não só 1.
+**Depends on**: Phase 15
+**Requirements**: LIB-01, LIB-02, LIB-03
+**Success Criteria** (what must be TRUE):
+  1. Usuário com posição comprada real recebe proposta de venda coberta
+     (LIB-01) gerada pelo motor de N pernas da Fase 15 — não mais pelo
+     motor single-leg isolado de `opcoes_lastreadas.py`.
+  2. Usuário com posição comprada real recebe proposta de put de proteção
+     (LIB-02) gerada pelo mesmo motor de N pernas — mesma fonte de seleção
+     e payoff que a venda coberta, não uma implementação paralela.
+  3. Usuário com posição comprada real recebe proposta de collar (LIB-03)
+     combinando as duas pernas (call vendida + put comprada) num único
+     payoff consolidado (custo líquido, ganho/perda máximos, breakevens,
+     delta somado).
+**Plans**: TBD
+
+#### Phase 17: Fluxo de aceite
+**Goal**: Usuário vê os dados completos de uma proposta — via o mecanismo
+de card de proposta já em produção desde a Fase 14 (AtivoCard), antes de
+existir a aba dedicada — e decide aceitar ou recusar explicitamente; ao
+aceitar, a execução usa o mesmo motor de ordens de opções lastreadas da
+Fase 14 (`store.py`), sem nenhuma automação nova; toda proposta declara
+fonte e horário do dado usado.
+**Depends on**: Phase 16
+**Requirements**: FLOW-01, FLOW-02, FLOW-03, FLOW-04
+**Success Criteria** (what must be TRUE):
+  1. Usuário visualiza estrutura, pernas, prêmio, breakeven e ganho/perda
+     máximos da proposta antes de decidir.
+  2. Usuário aceita ou recusa a proposta com uma ação explícita — nenhuma
+     execução dispara sozinha.
+  3. Ao aceitar, a ordem é executada pelo mesmo motor de opções lastreadas
+     da Fase 14 (`store.py`) — nenhum caminho de execução novo.
+  4. Toda proposta exibida mostra a fonte e o horário do dado usado
+     (frescor) — nunca dado silenciosamente desatualizado.
+**Plans**: TBD
+**UI hint**: yes
+
+#### Phase 18: Aba Opções
+**Goal**: Usuário acessa uma aba própria "Opções" na barra de navegação
+inferior (Candidato A) que mostra só propostas com cobertura real e
+comunica estado vazio claramente — a casa definitiva para o fluxo que já
+funciona desde a Fase 17.
+**Depends on**: Phase 17
+**Requirements**: NAV-01, NAV-02, NAV-03
+**Success Criteria** (what must be TRUE):
+  1. Usuário encontra e abre a aba "Opções" na barra de navegação inferior.
+  2. A aba mostra somente propostas sobre tickers com posição real na
+     carteira do usuário — nunca uma estrutura sobre ticker sem cobertura.
+  3. Quando não há proposta disponível (sem cobertura elegível, ou
+     cobertura elegível mas sem setup técnico ativo hoje), a aba comunica
+     esse estado vazio claramente, com o motivo.
+**Plans**: TBD
+**UI hint**: yes
+
+Fora de escopo desta milestone (decidido no kickoff): plano comercial da
+feature, DSL de setups técnicos do b-mcp, integração MCP real (Estratégia
+C) — ver `.planning/REQUIREMENTS.md` Out of Scope / Future Requirements.
+
 ## Progress
 
 | Phase | Milestone | Status | Completed |
@@ -83,6 +186,10 @@ Full phase details: [milestones/v1.3-ROADMAP.md](milestones/v1.3-ROADMAP.md)
 | 12. Limites do plano gratuito ativos | v1.3 | Complete | 2026-08-29 |
 | 13. Uso real visível na interface + enforcement no iOS | v1.3 | Complete | 2026-08-31 |
 | 14. Opções lastreadas — venda coberta e put de proteção | standalone | Complete (em produção) | 2026-08-31 |
+| 15. Motor de proposta (arquitetura interna) | v1.4 | Not started | - |
+| 16. Biblioteca de estruturas | v1.4 | Not started | - |
+| 17. Fluxo de aceite | v1.4 | Not started | - |
+| 18. Aba Opções | v1.4 | Not started | - |
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2/v1.3
 
@@ -154,4 +261,5 @@ Plans:
 
 ---
 
-Nenhum milestone em andamento. Próximo passo: `/gsd:new-milestone`.
+Milestone em andamento: v1.4 Opções v2 (Phases 15-18). Próximo passo:
+`/gsd:plan-phase 15`.

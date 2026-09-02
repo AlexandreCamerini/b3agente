@@ -92,4 +92,23 @@ e `.planning/notes/opcoes-v2-b-mcp-exploracao.md`.
 
 ## Traceability
 
-Preenchido pelo roadmapper ao mapear requirements → fases.
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| NAV-01 | Phase 18 | Pending |
+| NAV-02 | Phase 18 | Pending |
+| NAV-03 | Phase 18 | Pending |
+| LIB-01 | Phase 16 | Pending |
+| LIB-02 | Phase 16 | Pending |
+| LIB-03 | Phase 16 | Pending |
+| ENG-01 | Phase 15 | Pending |
+| ENG-02 | Phase 15 | Pending |
+| ENG-03 | Phase 15 | Pending |
+| ENG-04 | Phase 15 | Pending |
+| ENG-05 | Phase 15 | Pending |
+| ENG-06 | Phase 15 | Pending |
+| FLOW-01 | Phase 17 | Pending |
+| FLOW-02 | Phase 17 | Pending |
+| FLOW-03 | Phase 17 | Pending |
+| FLOW-04 | Phase 17 | Pending |
+
+Coverage: 16/16 v1.4 requirements mapped. No orphans.
