@@ -5,7 +5,7 @@ milestone_name: Cap comercial (plano gratuito)
 status: Awaiting next milestone
 stopped_at: Phase 14 verificada em produção, WR-01 resolvido (PR #28)
 last_updated: "2026-08-31T22:15:00.000Z"
-last_activity: 2026-09-01 -- Quick task 260901-r5t: navegação de Opções v2 fechada — Candidato A (aba própria "Opções"), decidido por Alex
+last_activity: 2026-09-02 -- Quick task 260901-u2c: escopo v1 da biblioteca de setups de opções fechado (venda coberta+put+collar), ressalva de espaço pra MCP futuro registrada
 progress:
   total_phases: 2
   completed_phases: 2
@@ -140,6 +140,7 @@ Recent decisions affecting current work:
 | 260901-1ak | Sincronizar PROJECT.md Active: remover 2 itens stale já resolvidos (mydata cutover, WR-01) | 2026-09-01 | 8509f5e | Verify gate passou (contagem 7→5, diff só-remoção em PROJECT.md, data de referência sincronizada em STATE.md) | [260901-1ak-sincronizar-project-md-active-remover-2-](./quick/260901-1ak-sincronizar-project-md-active-remover-2-/) |
 | 260901-2da | Atualizar mydata_client.py: BASE_DEFAULT para o domínio canônico mydata.semente.dev | 2026-09-01 | c2f30bf | Verify gate passou (zero refs ao domínio antigo, py_compile limpo, pytest test_mydata_client.py 40 passed, diff exatamente 3 arquivos) | [260901-2da-atualizar-mydata-client-py-base-default-](./quick/260901-2da-atualizar-mydata-client-py-base-default-/) |
 | 260901-r5t | Registrar decisão: Alex escolheu Candidato A (aba própria Opções) na navegação de Opções v2 | 2026-09-01 | da9a118 | Verify gate passou (17 checks, diff restrito a .planning/, zero código tocado) | [260901-r5t-registrar-decis-o-alex-escolheu-candidat](./quick/260901-r5t-registrar-decis-o-alex-escolheu-candidat/) |
+| 260901-u2c | Registrar decisão: escopo v1 biblioteca de setups (venda coberta+put+collar), espaço pra MCP futuro | 2026-09-02 | f29490b | Verify gate passou (22 checks, diff restrito a .planning/) — executor sofreu falha de API pós-commit, orquestrador escreveu o SUMMARY.md e completou o merge | [260901-u2c-registrar-decis-o-escopo-v1-biblioteca-d](./quick/260901-u2c-registrar-decis-o-escopo-v1-biblioteca-d/) |
 
 ## Deferred Items
 
