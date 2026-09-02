@@ -166,3 +166,155 @@ def test_corte_de_liquidez_tem_fonte_unica():
     from app import opcoes_lastreadas
     assert opcoes_lastreadas._LIQUIDEZ_MINIMA == 40
     assert opcoes_lastreadas._LIQUIDEZ_MINIMA is opcoes_motor.LIQUIDEZ_MINIMA
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Parte 2: perna_de_contrato / perna_de_acao / avaliar() — testes
+# ─────────────────────────────────────────────────────────────────────────
+
+def test_perna_de_contrato_call_mapeia_campo_a_campo():
+    c = {"contractSymbol": "PETRA30", "optionType": "call", "strike": 30,
+         "lastPrice": 1.5, "greeks": {"delta": 0.42}}
+    p = opcoes_motor.perna_de_contrato(c, "venda")
+    assert p == {"contrato": "PETRA30", "tipo": "CALL", "lado": "venda",
+                 "strike": 30, "premio": 1.5, "quantidade": 1, "delta": 0.42}
+
+
+def test_perna_de_contrato_put_vira_tipo_put():
+    c = {"contractSymbol": "PETRP28", "optionType": "put", "strike": 28,
+         "lastPrice": 0.8, "greeks": {"delta": -0.3}}
+    p = opcoes_motor.perna_de_contrato(c, "compra")
+    assert p["tipo"] == "PUT"
+
+
+def test_perna_de_contrato_option_type_desconhecido_levanta_com_symbol():
+    c = {"contractSymbol": "PETRX30", "optionType": "warrant", "strike": 30, "lastPrice": 1.5}
+    try:
+        opcoes_motor.perna_de_contrato(c, "venda")
+        assert False, "deveria ter levantado ValueError"
+    except ValueError as e:
+        assert "PETRX30" in str(e)
+
+
+def test_perna_de_contrato_sem_premio_levanta_nunca_vira_zero():
+    for preco_ruim in (None, 0, -1.5):
+        c = {"contractSymbol": "PETRA30", "optionType": "call", "strike": 30, "lastPrice": preco_ruim}
+        try:
+            opcoes_motor.perna_de_contrato(c, "venda")
+            assert False, f"deveria ter levantado ValueError para lastPrice={preco_ruim!r}"
+        except ValueError as e:
+            assert "PETRA30" in str(e)
+
+
+def test_perna_de_contrato_sem_greeks_produz_delta_none_sem_levantar():
+    c = {"contractSymbol": "PETRA30", "optionType": "call", "strike": 30, "lastPrice": 1.5}
+    p = opcoes_motor.perna_de_contrato(c, "venda")
+    assert p["delta"] is None
+
+    c2 = {"contractSymbol": "PETRA31", "optionType": "call", "strike": 31,
+          "lastPrice": 1.5, "greeks": {"delta": None}}
+    p2 = opcoes_motor.perna_de_contrato(c2, "venda")
+    assert p2["delta"] is None
+
+
+def test_perna_de_contrato_quantidade_default_1_e_respeita_argumento():
+    c = {"contractSymbol": "PETRA30", "optionType": "call", "strike": 30, "lastPrice": 1.5}
+    assert opcoes_motor.perna_de_contrato(c, "venda")["quantidade"] == 1
+    assert opcoes_motor.perna_de_contrato(c, "venda", quantidade=3)["quantidade"] == 3
+
+
+def test_perna_de_contrato_quantidade_nao_positiva_levanta():
+    c = {"contractSymbol": "PETRA30", "optionType": "call", "strike": 30, "lastPrice": 1.5}
+    try:
+        opcoes_motor.perna_de_contrato(c, "venda", quantidade=0)
+        assert False, "deveria ter levantado ValueError"
+    except ValueError:
+        pass
+
+
+def test_perna_de_acao_monta_perna_de_lastro():
+    p = opcoes_motor.perna_de_acao("PETR4", 30.0, 100)
+    assert p == {"contrato": "PETR4", "tipo": "ACAO", "lado": "compra",
+                 "strike": 0.0, "premio": 30.0, "quantidade": 100, "delta": 1.0}
+
+
+def test_perna_de_acao_preco_invalido_levanta():
+    for preco_ruim in (None, 0, -1.0):
+        try:
+            opcoes_motor.perna_de_acao("PETR4", preco_ruim, 100)
+            assert False, f"deveria ter levantado ValueError para preco={preco_ruim!r}"
+        except ValueError:
+            pass
+
+
+def test_avaliar_venda_coberta_duas_pernas():
+    pernas = [
+        opcoes_motor.perna_de_acao("PETR4", 30.0, 1),
+        opcoes_motor.perna_de_contrato(
+            {"contractSymbol": "C32", "optionType": "call", "strike": 32, "lastPrice": 1.5}, "venda"),
+    ]
+    r = opcoes_motor.avaliar(pernas)
+    assert r["custo_liquido"] == 28.5
+    assert r["ganho_maximo"] == 3.5
+    assert r["ganho_ilimitado"] is False
+    assert r["breakevens"] == [28.5]
+
+
+def test_avaliar_collar_tres_pernas_trava_os_dois_lados():
+    pernas = [
+        opcoes_motor.perna_de_acao("PETR4", 30.0, 1),
+        opcoes_motor.perna_de_contrato(
+            {"contractSymbol": "C33", "optionType": "call", "strike": 33, "lastPrice": 1.0}, "venda"),
+        opcoes_motor.perna_de_contrato(
+            {"contractSymbol": "P28", "optionType": "put", "strike": 28, "lastPrice": 0.8}, "compra"),
+    ]
+    r = opcoes_motor.avaliar(pernas)
+    assert r["ganho_ilimitado"] is False
+    assert r["perda_ilimitada"] is False
+
+
+def test_avaliar_sem_pernas_levanta_citando_sem_pernas():
+    try:
+        opcoes_motor.avaliar([])
+        assert False, "deveria ter levantado ValueError"
+    except ValueError as e:
+        assert "sem pernas" in str(e)
+
+
+def test_avaliar_saida_contem_chaves_minimas():
+    r = opcoes_motor.avaliar([opcoes_motor.perna_de_acao("PETR4", 30.0, 1)])
+    esperadas = {"custo_liquido", "fluxo", "ganho_maximo", "perda_maxima", "ganho_ilimitado",
+                 "perda_ilimitada", "breakevens", "delta_total", "curva", "pernas", "unidade"}
+    assert esperadas <= set(r.keys())
+
+
+def test_avaliar_perna_sem_delta_declara_soma_parcial():
+    pernas = [
+        opcoes_motor.perna_de_acao("PETR4", 30.0, 1),
+        opcoes_motor.perna_de_contrato(
+            {"contractSymbol": "C32", "optionType": "call", "strike": 32, "lastPrice": 1.5}, "venda"),
+    ]
+    r = opcoes_motor.avaliar(pernas)
+    assert r["delta_total"]["pernas_sem_delta"] >= 1
+    assert r["delta_total"]["motivo"] is not None
+
+
+def test_opcoes_motor_nao_importa_camadas_proibidas():
+    """Restrição estrutural (Task 2d): só `options_quant`/`opcoes_payoff` e
+    stdlib de tipos — sem carteira, banco, sessão, texto de UI ou rede."""
+    import ast
+    import pathlib
+
+    caminho = pathlib.Path(__file__).parent.parent / "app" / "opcoes_motor.py"
+    arvore = ast.parse(caminho.read_text())
+    proibidos = {"store", "db", "auth", "skill_ref", "main", "candle_provider",
+                 "mydata_client", "httpx", "datetime"}
+    encontrados = set()
+    for node in ast.walk(arvore):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                encontrados.add(alias.name.split(".")[0])
+        elif isinstance(node, ast.ImportFrom):
+            modulo = (node.module or "").split(".")[0]
+            encontrados.add(modulo)
+    assert not (encontrados & proibidos), f"imports proibidos: {encontrados & proibidos}"
