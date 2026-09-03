@@ -18,11 +18,11 @@ e `.planning/notes/opcoes-v2-b-mcp-exploracao.md`.
 
 ### Biblioteca de estruturas (LIB)
 
-- [ ] **LIB-01**: Usuário pode receber proposta de venda coberta (covered
+- [x] **LIB-01**: Usuário pode receber proposta de venda coberta (covered
   call) sobre uma posição comprada existente.
-- [ ] **LIB-02**: Usuário pode receber proposta de put de proteção
+- [x] **LIB-02**: Usuário pode receber proposta de put de proteção
   (protective put) sobre uma posição comprada existente.
-- [ ] **LIB-03**: Usuário pode receber proposta de collar (trava protetora)
+- [x] **LIB-03**: Usuário pode receber proposta de collar (trava protetora)
   combinando as duas pernas acima sobre uma posição comprada existente.
 
 ### Motor / arquitetura (ENG)
@@ -97,9 +97,9 @@ e `.planning/notes/opcoes-v2-b-mcp-exploracao.md`.
 | NAV-01 | Phase 18 | Pending |
 | NAV-02 | Phase 18 | Pending |
 | NAV-03 | Phase 18 | Pending |
-| LIB-01 | Phase 16 | Pending |
-| LIB-02 | Phase 16 | Pending |
-| LIB-03 | Phase 16 | Pending |
+| LIB-01 | Phase 16 | Complete |
+| LIB-02 | Phase 16 | Complete |
+| LIB-03 | Phase 16 | Complete |
 | ENG-01 | Phase 15 | Complete |
 | ENG-02 | Phase 15 | Complete |
 | ENG-03 | Phase 15 | Complete |
