@@ -3902,6 +3902,84 @@ function StopAlvoModal({ ctx }) {
   );
 }
 
+// Fase 18 (Plano 03, NAV-01/NAV-03): tira agregada "Oportunidades de opções"
+// no topo de Posições — a única superfície que reúne, numa olhada, todas as
+// posições com estrutura possível hoje. Diferente do card individual
+// (App.jsx:3484-3489, ADR-004: silêncio deliberado pra não virar "seis
+// avisos idênticos por tela"), aqui o silêncio é o ERRO: a tira só aparece
+// uma vez por tela, então sumir sem dizer o motivo faria o usuário concluir
+// que o produto quebrou (NAV-03). Por isso o cabeçalho `cp.tiraOpcoesTitulo`
+// é fixo nos três estados (itens / carregando / vazio com motivo) — a seção
+// nunca desaparece silenciosamente quando há posições.
+// Recebe `propostas`/`carregando` PRONTOS por prop (do hook `useOpcoesPropostas`,
+// Plano 18-01) — nenhum fetch daqui, dobraria o tráfego que o hook existe pra
+// evitar. A manchete de cada item é `pr.manchete` renderizada VERBATIM
+// (guardrail CVM, CLAUDE.md): proibido compor frase nova a partir de
+// strike/contratos/optionType/premioTotal neste componente.
+function OportunidadesOpcoes({ propostas, carregando, positions, cp, onAbrir }) {
+  // item só existe quando o gate aprovou liquidez E veio proposta CONCRETA —
+  // o ramo "sem proposta" de PropostaLastreada (r.proposta null) não vira
+  // item de tira.
+  const itens = (positions || []).filter((p) => {
+    const e = propostas[p.t];
+    return !!(e && e.gate && e.gate.liquida && e.proposta && e.proposta.proposta);
+  });
+  // decide QUAL dos dois motivos de NAV-03 exibir quando não há item: gate
+  // líquido em pelo menos uma posição (falta setup técnico) × nenhuma
+  // cobertura líquida (falta contrato líquido pra sequer estudar estrutura).
+  const algumLiquido = (positions || []).some((p) => {
+    const e = propostas[p.t];
+    return !!(e && e.gate && e.gate.liquida);
+  });
+  return (
+    <div style={{ marginBottom: "14px" }}>
+      <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em", color: T.textFaint, marginBottom: "8px" }}>{cp.tiraOpcoesTitulo}</div>
+      {itens.length > 0 && (
+        <div style={{ display: "flex", gap: "10px", overflowX: "auto", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", paddingBottom: "2px" }}>
+          {itens.map((p) => {
+            const pr = propostas[p.t].proposta.proposta;
+            const isCollar = pr.tipo === "collar";
+            const isCall = pr.optionType === "call";
+            const eyebrow = isCollar ? cp.eyebrowPropostaCollar : isCall ? cp.eyebrowPropostaCall : cp.eyebrowPropostaPut;
+            // mesma regra de polaridade da manchete do card (App.jsx:3038):
+            // nunca T.accent na linha da manchete.
+            const cor = isCall ? T.positive : T.negative;
+            return (
+              <button
+                key={p.t}
+                type="button"
+                aria-label={p.t + " — " + cp.tiraOpcoesVerDetalhe}
+                onClick={() => onAbrir(p.t)}
+                style={{ flex: "0 0 auto", minWidth: "210px", minHeight: "44px", textAlign: "left", padding: "11px 12px", borderRadius: "11px", background: T.bgCard, border: `1px solid ${T.borderFaint}`, cursor: "pointer" }}
+              >
+                <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em", color: T.accent }}>{eyebrow}</div>
+                <div style={{ fontFamily: MONO, fontWeight: 800, fontSize: "13px", color: T.textPrimary, marginTop: "3px" }}>{p.t}</div>
+                {/* manchete do motor, verbatim — guardrail CVM (CLAUDE.md);
+                    nunca truncada com reticências: cortar reescreveria a
+                    afirmação do motor. */}
+                <div style={{ fontSize: "12.5px", fontWeight: 700, color: cor, marginTop: "4px", whiteSpace: "normal" }}>{pr.manchete}</div>
+                <div style={{ fontSize: "10.5px", color: T.textFaint, marginTop: "6px" }}>{cp.tiraOpcoesVerDetalhe}</div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+      {/* carregando vem ANTES dos vazios: sem esse ramo a tira pisca "não há
+          oportunidade" durante a busca e mente sobre o estado real. */}
+      {itens.length === 0 && carregando && (
+        <div style={{ fontSize: "12px", color: T.textFaint, lineHeight: 1.5 }}>{cp.tiraOpcoesCarregando}</div>
+      )}
+      {/* estado vazio EXPLÍCITO (NAV-03) — é ESTADO, não ação: sem botão e
+          sem CTA, mesmo precedente de AvisoLiquidacao (App.jsx:1053-1063). */}
+      {itens.length === 0 && !carregando && (
+        <div style={{ padding: "10px 11px", borderRadius: "9px", background: T.bgCard, border: `1px solid ${T.borderFaint}`, fontSize: "12px", color: T.textSecondary, lineHeight: 1.5 }}>
+          {algumLiquido ? cp.tiraOpcoesSemSetup : cp.tiraOpcoesSemCobertura}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Fase 18 (Plano 02, NAV-02): SEGUNDO ponto de renderização de
 // PropostaLastreada — o primeiro, em AtivoCard (linha ~3492), continua
 // intocado, é a superfície de descoberta de Watchlist/Radar. Este componente
@@ -4057,6 +4135,20 @@ function CarteiraScreen({ ctx }) {
   // o Plano 18-03 os consome por nome, sem mexer nesta chamada.
   // `opcoesCarregando` fica sem uso NESTE plano — existe pra tira do 18-03.
   const { propostas: opcoesPorTicker, carregando: opcoesCarregando } = useOpcoesPropostas(data.positions.map((p) => p.t));
+  // Fase 18 (Plano 03, NAV-01/NAV-03): abre o detalhe da posição a partir da
+  // tira agregada e rola o card correspondente pra vista. O `setTimeout`
+  // existe porque o `scrollIntoView` precisa acontecer DEPOIS do re-render
+  // que expande o detalhe — rolar antes leva o card pra posição errada, já
+  // que a altura muda ao abrir. Mesmo mecanismo do deep link de push
+  // (App.jsx:7682-7689), com a guarda `if (!el) return;` preservada.
+  const abrirOpcoesDe = (t) => {
+    setOpcoesFor(t);
+    setTimeout(() => {
+      const el = document.getElementById("posicao-" + t);
+      if (!el) return;
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 60);
+  };
   const byQ = (t) => quotes[t] || {};
   const m = portfolioMetrics(data.positions, quotes, data.cash, data.caixaReservado || 0, data.optionPositions);
   const positionsValue = m.posVal;
@@ -4117,6 +4209,14 @@ function CarteiraScreen({ ctx }) {
           </div>
         );
       })()}
+
+      {/* Fase 18 (Plano 03, NAV-01/NAV-03): tira agregada de oportunidades de
+          opções — só com carteira não-vazia; o estado vazio de portfólio logo
+          abaixo já explica o que fazer quando não há nenhuma posição, duas
+          mensagens pra mesma ausência seria ruído. */}
+      {data.positions.length > 0 && (
+        <OportunidadesOpcoes propostas={opcoesPorTicker} carregando={opcoesCarregando} positions={data.positions} cp={cp} onAbrir={abrirOpcoesDe} />
+      )}
 
       {data.positions.length === 0 && (
         <div style={{ background: T.bgCard, border: `1px dashed ${T.borderDashed}`, borderRadius: "12px", padding: "34px 20px", textAlign: "center" }}>
