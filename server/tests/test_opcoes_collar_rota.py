@@ -130,9 +130,11 @@ def _outro_call(cli, ticker, excluir_symbol):
 
 
 def _seed_cenario_collar(cli, uid):
-    """Cenário completo que dispara `motivo == "collar"`: VENDER + posição
-    lastreável + caixa que cabe só o débito líquido do collar, não a put
-    isolada — mesma fórmula de `test_opcoes_lastreadas_rotas.py`."""
+    """Cenário completo que dispara `motivo == "collar"`: Modo Operador +
+    VENDER + posição lastreável + caixa que cabe só o débito líquido do
+    collar, não a put isolada — mesma fórmula de
+    `test_opcoes_lastreadas_rotas.py`."""
+    _liga_operador(uid)
     _seed_posicao(uid, qty=300)
     spot, premio_call, premio_put = _pernas_collar_da_cadeia(cli)
     cash = max(0.0, 100 * (premio_put - premio_call)) + 0.5
@@ -182,7 +184,7 @@ def test_collar_recusa_corpo_sem_exatamente_duas_pernas(cli, pernas):
         "underlying": "PETR4", "contratos": 1, "pernasContratos": pernas,
     })
     assert r.status_code == 400
-    assert "Trava protetora exige exatamente duas pernas." in r.json()["detail"]
+    assert "Collar exige exatamente duas pernas." in r.json()["detail"]
     assert store.get(_conn, "cash", user_id=uid) == caixa_antes
     assert store.get(_conn, "optionPositions", user_id=uid) == opts_antes
 
@@ -216,6 +218,7 @@ def test_collar_indisponivel_agora_devolve_409_sem_efeito_colateral(cli, _expira
     folgado o bastante pra put isolada caber sozinha) — 409, estado
     inalterado."""
     uid, headers = _novo_escopo(cli, "04")
+    _liga_operador(uid)
     _seed_posicao(uid, qty=300)
     spot, premio_call, premio_put = _pernas_collar_da_cadeia(cli)
     store.put(_conn, "cash", 100 * premio_put + 1000.0, user_id=uid)  # caixa de sobra
@@ -412,5 +415,5 @@ def test_meia_estrutura_e_impossivel_pela_rota_nova(cli, _expiracao_fixa, _snaps
         "pernasContratos": [{"contractSymbol": p["pernasContratos"][0]["contractSymbol"], "lado": "venda"}],
     })
     assert r.status_code == 400
-    assert "Trava protetora exige exatamente duas pernas." in r.json()["detail"]
+    assert "Collar exige exatamente duas pernas." in r.json()["detail"]
     assert store.get(_conn, "optionPositions", user_id=uid) == []
