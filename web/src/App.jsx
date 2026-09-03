@@ -3902,6 +3902,85 @@ function StopAlvoModal({ ctx }) {
   );
 }
 
+// Fase 18 (Plano 02, NAV-02): SEGUNDO ponto de renderização de
+// PropostaLastreada — o primeiro, em AtivoCard (linha ~3492), continua
+// intocado, é a superfície de descoberta de Watchlist/Radar. Este componente
+// é o detalhe dentro do card de UMA posição em CarteiraScreen: recebe `r`
+// PRONTO por prop (vindo de useOpcoesPropostas, o hook do Plano 18-01) —
+// nunca chama store.optionsGate/optionsProposta aqui, isso reintroduziria a
+// busca dupla que o hook existe pra evitar. A garantia "nunca uma estrutura
+// aparece sobre ticker sem posição real" é ESTRUTURAL neste ponto: quem
+// chama este componente (CarteiraScreen) só itera data.positions.
+function PropostaDaPosicao({ t, r, cp, operador, A, data, aberto, onToggle }) {
+  // Estado local ANTES de qualquer return condicional (regra dos hooks) —
+  // cada posição tem o próprio "em voo", senão aceitar numa posição travaria
+  // o botão de outra.
+  const [busy, setBusy] = useState(false);
+
+  // Guarda de silêncio: diferente da tira (Plano 18-03, estado vazio
+  // agregado uma vez só), o card de POSIÇÃO não mostra caixa vazia — o
+  // mesmo raciocínio já registrado em App.jsx:3484-3489 (ADR-004): um aviso
+  // por card, repetido posição a posição, vira "seis avisos idênticos por
+  // tela", pior que o silêncio.
+  if (!r || !r.proposta) return null;
+
+  // Réplica de App.jsx:3266/3289-3291, escopada a `t` (o ticker desta
+  // posição) em vez do closure de AtivoCard.
+  const myOptionPositions = ((data && data.optionPositions) || []).filter((p) => p.underlying === t);
+  const posAberta = (r && r.proposta)
+    ? myOptionPositions.find((p) => p.id === r.proposta.contractSymbol) || null
+    : null;
+
+  // Réplica de App.jsx:3292-3321 — mesmo corpo, `t` no lugar do closure de
+  // AtivoCard. Corpo enviado ao collar carrega SÓ contractSymbol + lado por
+  // perna — prêmio e strike o servidor re-deriva (T-17-24).
+  const onAbrirLastreada = async () => {
+    if (!r || !r.proposta) return;
+    const p = r.proposta;
+    if (p.tipo === "collar") {
+      if (!window.confirm(cp.confirmAbrirCollar(p.contratos, t, p.qtyAcoes))) return;
+      setBusy(true);
+      try {
+        await A.abrirCollar({
+          underlying: t,
+          pernasContratos: (p.pernasContratos || []).map((perna) => ({ contractSymbol: perna.contractSymbol, lado: perna.lado })),
+          contratos: p.contratos,
+          expiration: p.expiration,
+        });
+      } finally { setBusy(false); }
+      return;
+    }
+    // A confirmação existe pela TRAVA do lastro, não pelo gasto — só a CALL
+    // coberta trava ações; a PUT de proteção não trava nada (T-14-24).
+    if (p.optionType === "call" && !window.confirm(cp.confirmAbrirCoberta(p.contratos, t, p.qtyAcoes))) return;
+    setBusy(true);
+    try { await A.abrirLastreada({ underlying: t, contractSymbol: p.contractSymbol, expiration: p.expiration, contratos: p.contratos }); }
+    finally { setBusy(false); }
+  };
+
+  // Réplica de App.jsx:3322-3329.
+  const onFecharLastreada = async () => {
+    if (!r || !r.proposta) return;
+    const p = r.proposta;
+    if (!window.confirm(cp.confirmFecharCoberta(price(p.premioTotal), p.qtyAcoes, t))) return;
+    setBusy(true);
+    try { await A.fecharLastreada({ contractSymbol: p.contractSymbol, contratos: p.contratos }); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <div style={{ marginTop: "10px", paddingTop: "9px", borderTop: `1px solid ${T.borderFaint}` }}>
+      <button type="button" onClick={onToggle} aria-expanded={aberto} style={{ display: "flex", width: "100%", alignItems: "center", justifyContent: "space-between", padding: "5px 0", background: "transparent", border: "none", color: T.textMuted, fontSize: "11.5px", fontWeight: 700, cursor: "pointer" }}>
+        <span style={{ display: "flex", alignItems: "center", gap: "7px" }}><span style={{ color: T.accent }}>⚡</span> {cp.linhaPropostaNaPosicao}</span>
+        <span style={{ color: T.textFaint }}>{aberto ? "▴" : "▾"}</span>
+      </button>
+      {aberto && (
+        <PropostaLastreada r={r} operador={operador} cp={cp} busy={busy} onAbrir={onAbrirLastreada} onFechar={onFecharLastreada} posAberta={posAberta} />
+      )}
+    </div>
+  );
+}
+
 // Fase 18 (Plano 01, NAV-01/NAV-02): uma busca de gate+proposta por ticker
 // serve as DUAS superfícies desta fase — a tira agregada ("Oportunidades de
 // opções", NAV-01) e o detalhe dentro do card de posição em CarteiraScreen
@@ -3966,8 +4045,18 @@ function CarteiraScreen({ ctx }) {
   // FASE 3 (mock v2): edição de stop/alvo sob demanda + compras da posição
   const [editFor, setEditFor] = useState(null);
   const [comprasOpen, setComprasOpen] = useState({});
-  const { data, quotes, analysis, A, goMercado, cp } = ctx;   // FASE 8B (B1)
+  // Fase 18 (Plano 02, NAV-02): qual posição está com o detalhe de opções
+  // aberto — mesma forma de histFor/editFor (uma por vez; abrir a de outra
+  // posição fecha a anterior). O Plano 18-03 escreve neste MESMO estado a
+  // partir da tira agregada — não renomear.
+  const [opcoesFor, setOpcoesFor] = useState(null);
+  const { data, quotes, analysis, A, goMercado, cp, operador } = ctx;   // FASE 8B (B1)
   useEffect(() => { track("portfolio_view"); }, []);   // qa/47 (Fase 2)
+  // Fase 18 (Plano 01/02): fan-out gate→proposta por ticker, uma vez por
+  // posição real — nomes exatos `opcoesPorTicker`/`opcoesCarregando` porque
+  // o Plano 18-03 os consome por nome, sem mexer nesta chamada.
+  // `opcoesCarregando` fica sem uso NESTE plano — existe pra tira do 18-03.
+  const { propostas: opcoesPorTicker, carregando: opcoesCarregando } = useOpcoesPropostas(data.positions.map((p) => p.t));
   const byQ = (t) => quotes[t] || {};
   const m = portfolioMetrics(data.positions, quotes, data.cash, data.caixaReservado || 0, data.optionPositions);
   const positionsValue = m.posVal;
@@ -4047,7 +4136,10 @@ function CarteiraScreen({ ctx }) {
           const color = pnl >= 0 ? T.positive : T.negative;
           const cell = (label, value, c) => (<div><div style={kicker}>{label}</div><div style={{ fontFamily: MONO, fontSize: "13px", color: c }}>{value}</div></div>);
           return (
-            <div key={p.t} style={{ ...card, padding: "14px 15px" }}>
+            // id: âncora de scroll — mesmo mecanismo já em produção pro deep
+            // link do push (App.jsx:7446-7449, "ativo-"+t); o Plano 18-03 usa
+            // "posicao-"+p.t pra rolar até aqui a partir da tira agregada.
+            <div key={p.t} id={"posicao-" + p.t} style={{ ...card, padding: "14px 15px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "10px", flexWrap: "wrap" }}>
                 <div>
                   <div style={{ display: "flex", alignItems: "baseline", gap: "8px", flexWrap: "wrap" }}>
@@ -4154,6 +4246,16 @@ function CarteiraScreen({ ctx }) {
                   Histórico de análises ({((data.analysisLog || {})[p.t] || []).length})
                 </button>
               </div>
+              {/* Fase 18 (Plano 02, NAV-02): opções são uma CAMADA sobre a
+                  posição, não o primeiro assunto do card — por isso entra
+                  depois da régua de risco/plano/CTAs, na mesma região das
+                  outras afordâncias secundárias (histórico, edição).
+                  PropostaDaPosicao já devolve null sem proposta ativa —
+                  posição sem estrutura não ganha nada visualmente. */}
+              <PropostaDaPosicao
+                t={p.t} r={(opcoesPorTicker[p.t] || {}).proposta} cp={cp} operador={operador} A={A} data={data}
+                aberto={opcoesFor === p.t} onToggle={() => setOpcoesFor(opcoesFor === p.t ? null : p.t)}
+              />
               {histFor === p.t && (
                 <div style={{ marginTop: "9px", padding: "10px 11px", borderRadius: "10px", background: T.bgBase, border: `1px solid ${T.borderFaint}` }}>
                   {(((data.analysisLog || {})[p.t]) || []).length === 0 && (

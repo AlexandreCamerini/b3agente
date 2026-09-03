@@ -74,26 +74,41 @@ ok("api.js monta ?multiperna=1 quando o parâmetro é passado",
 
 // ---------------------------------------------------------------------------
 // 3) confirmação antes de travar lastro (T-17-26)
-//    window.confirm(cp.confirmAbrirCollar( aparece exatamente 1x e ANTES da
-//    chamada a A.abrirCollar( no mesmo handler.
+//    window.confirm(cp.confirmAbrirCollar( aparece exatamente 1x DENTRO DE
+//    CADA handler onAbrirLastreada, ANTES da chamada a A.abrirCollar( no
+//    mesmo handler. Atualizado na Fase 18 (Plano 02, T-18-06): o caminho de
+//    aceite do collar passou a ter DOIS pontos de renderização legítimos —
+//    AtivoCard (Watchlist/Radar, original) e PropostaDaPosicao (detalhe
+//    dentro do card de Posições) — cada um com sua própria réplica fiel do
+//    handler (mesmo corpo, `t` escopado à posição). A asserção de contagem
+//    global "exatamente 1x" foi generalizada para "exatamente 1x por
+//    handler encontrado", preservando a garantia original (nunca falta
+//    confirmação antes da trava) em AMBOS os pontos de entrada.
 // ---------------------------------------------------------------------------
 (() => {
-  const ocorrenciasConfirm = (app.match(/window\.confirm\(cp\.confirmAbrirCollar\(/g) || []).length;
-  ok("window.confirm(cp.confirmAbrirCollar( aparece exatamente 1 vez", ocorrenciasConfirm === 1, String(ocorrenciasConfirm));
+  const idxs = [];
+  const re = /const onAbrirLastreada = async \(\) => \{/g;
+  let m;
+  while ((m = re.exec(app))) idxs.push(m.index);
+  ok("pelo menos um handler onAbrirLastreada localizado", idxs.length > 0, String(idxs.length));
+  ok("existem exatamente 2 handlers onAbrirLastreada (AtivoCard + PropostaDaPosicao, Fase 18 Plano 02)", idxs.length === 2, String(idxs.length));
 
-  const iOnAbrir = app.indexOf("const onAbrirLastreada = async () => {");
-  ok("handler onAbrirLastreada localizado", iOnAbrir > -1);
-  // Delimita o handler pelo próximo `const onFecharLastreada` (vizinho
-  // imediato, mesmo padrão usado nos outros guardiões deste arquivo).
-  const iOnFechar = app.indexOf("const onFecharLastreada", iOnAbrir);
-  const handler = iOnAbrir > -1 && iOnFechar > iOnAbrir ? app.slice(iOnAbrir, iOnFechar) : "";
-  ok("handler onAbrirLastreada tem conteúdo (parse mudo)", handler.length > 100, String(handler.length));
+  idxs.forEach((iOnAbrir, n) => {
+    // Delimita o handler pelo próximo `const onFecharLastreada` (vizinho
+    // imediato, mesmo padrão usado nos outros guardiões deste arquivo).
+    const iOnFechar = app.indexOf("const onFecharLastreada", iOnAbrir);
+    const handler = iOnFechar > iOnAbrir ? app.slice(iOnAbrir, iOnFechar) : "";
+    ok(`handler onAbrirLastreada #${n + 1} tem conteúdo (parse mudo)`, handler.length > 100, String(handler.length));
 
-  const iConfirm = handler.indexOf("window.confirm(cp.confirmAbrirCollar(");
-  const iExec = handler.indexOf("A.abrirCollar(");
-  ok("confirmação do collar existe dentro do handler onAbrirLastreada", iConfirm > -1);
-  ok("A.abrirCollar( existe dentro do handler onAbrirLastreada", iExec > -1);
-  ok("confirmação vem ANTES da execução no mesmo handler", iConfirm > -1 && iExec > -1 && iConfirm < iExec);
+    const ocorrenciasConfirm = (handler.match(/window\.confirm\(cp\.confirmAbrirCollar\(/g) || []).length;
+    ok(`handler onAbrirLastreada #${n + 1}: window.confirm(cp.confirmAbrirCollar( aparece exatamente 1 vez`, ocorrenciasConfirm === 1, String(ocorrenciasConfirm));
+
+    const iConfirm = handler.indexOf("window.confirm(cp.confirmAbrirCollar(");
+    const iExec = handler.indexOf("A.abrirCollar(");
+    ok(`handler onAbrirLastreada #${n + 1}: confirmação do collar existe dentro do handler`, iConfirm > -1);
+    ok(`handler onAbrirLastreada #${n + 1}: A.abrirCollar( existe dentro do handler`, iExec > -1);
+    ok(`handler onAbrirLastreada #${n + 1}: confirmação vem ANTES da execução no mesmo handler`, iConfirm > -1 && iExec > -1 && iConfirm < iExec);
+  });
 })();
 
 // ---------------------------------------------------------------------------
