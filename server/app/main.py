@@ -2381,6 +2381,13 @@ async def options_proposta(ticker: str, multiperna: bool = False, scope: Optiona
     option_positions = store.get(_conn, "optionPositions", user_id=scope)
     pos_op_aberta = next(
         (p for p in option_positions if p.get("underlying") == t and p.get("lastro")), None)
+    # FLOW-04 (Plano 17-02, princípio 3 do CLAUDE.md): a resposta declara de
+    # onde veio o dado que sustentou a proposta. Mesma convenção de
+    # `/api/quotes` (`at`, main.py:1339) e dos technicals (`source`,
+    # main.py:1443) — `source` vem da cadeia REALMENTE usada (nunca um
+    # literal na rota) e nunca é resetado na exceção: se a cadeia já foi
+    # lida, a fonte é conhecida e apagá-la seria menos honesto que declará-la.
+    source = None
     try:
         if pos_op_aberta:
             # Posição lastreada JÁ ABERTA neste `underlying`: a proposta é de
@@ -2389,10 +2396,12 @@ async def options_proposta(ticker: str, multiperna: bool = False, scope: Optiona
             # não só atalho: nenhum uso é feito do plano técnico neste ramo).
             chain_pos = await options_provider.get_options(t, pos_op_aberta.get("expiration"))
             provider_status = chain_pos.get("providerStatus")
+            source = chain_pos.get("source")
             resultado = opcoes_lastreadas.proposta_fechar(pos_op_aberta, chain_pos, modo, dt.date.today())
         else:
             chain = await options_provider.get_options(t)
             provider_status = chain.get("providerStatus")
+            source = chain.get("source")
             # Mesmas duas primeiras portas de `opcoes_lastreadas.propor`
             # checadas AQUI antes do fetch técnico — sem isto, um usuário sem
             # posição (ou cadeia degradada) ainda pagaria o custo de
@@ -2424,6 +2433,10 @@ async def options_proposta(ticker: str, multiperna: bool = False, scope: Optiona
         "ticker": t, "providerStatus": provider_status, "modo": modo,
         "proposta": resultado["proposta"], "motivo": motivo, "motivoTexto": motivo_texto,
         "putSemLastro": put_sem_lastro_ids,
+        # FLOW-04: `at` é o instante em que ESTA RESPOSTA foi montada — mesma
+        # semântica de `/api/quotes`/technicals, que também servem dado de um
+        # cache de provider (300s); não é o horário do pregão do dado.
+        "source": source, "at": now_str(),
     }
 
 
