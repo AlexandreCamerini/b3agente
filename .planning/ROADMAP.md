@@ -183,7 +183,13 @@ histórico completo (preservado, não reescrito).
      correspondente — nunca uma estrutura sobre ticker sem cobertura real.
   3. Quando não há nenhuma proposta ativa, o resumo comunica esse estado
      vazio claramente, com o motivo — nunca desaparece silenciosamente.
-**Plans**: TBD
+**Plans**: 5 plans
+Plans:
+- [ ] 18-01-PLAN.md — vocabulário da tira em copy.js + hook `useOpcoesPropostas` (uma busca gate→proposta por ticker)
+- [ ] 18-02-PLAN.md — NAV-02: `PropostaDaPosicao` e detalhe completo dentro do card de posição, com aceite/encerramento
+- [ ] 18-03-PLAN.md — NAV-01/NAV-03: tira `OportunidadesOpcoes` no topo de Posições, com estados vazios explícitos
+- [ ] 18-04-PLAN.md — guardião estático da fase + suíte canônica completa verde
+- [ ] 18-05-PLAN.md — bump + publicação do front e checkpoint humano ao vivo
 **UI hint**: yes
 
 #### Phase 19: Motor multi-candidato
