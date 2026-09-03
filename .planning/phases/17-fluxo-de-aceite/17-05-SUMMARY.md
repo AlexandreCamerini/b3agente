@@ -131,6 +131,20 @@ Ver `key-decisions` no frontmatter. Resumo: parâmetro `multiperna` opcional (by
 
 None - nenhuma configuração de serviço externo.
 
+## Verificação adicional (revisão pré-fechamento)
+
+`price(Math.abs((p.caixa && p.caixa.custoLiquidoTotal) || 0))` no CTA do
+collar usa `|| 0` — à primeira vista parece a mesma classe de defeito que o
+`porLote` do Plano 17-04 foi construído para evitar (`null` virando "R$
+0,00" disfarçado, regra "null nunca 0.0"). Verificado no backend
+(`server/app/opcoes_payoff.py:161-220`, `server/app/opcoes_lastreadas.py:41-153`):
+`custoLiquidoTotal` é sempre `round(custo_liquido(...) * qty_acoes, 2)` — um
+float real, nunca `None` — e `caixa` é construído incondicionalmente sempre
+que `tipo === "collar"`. Não há caso legítimo de null aqui (diferente de
+`ganho_maximo`/`perda_maxima`, que têm um booleano irmão `_ilimitado` para o
+caso sem número). O `|| 0`/`p.caixa &&` são código defensivo morto,
+inofensivo — não é uma violação da regra, mantido como está.
+
 ## Next Phase Readiness
 
 **Para o Plano 17-06:** o front está PRONTO e TESTADO (build limpo, suíte canônica completa verde) mas AINDA NÃO publicado — nenhum `scripts/bump.sh`/`publicar-web.sh` rodado, `server/web_dist` intocado (`git status --porcelain server/` confirmado vazio durante toda a execução). O Plano 17-06 (ou equivalente) precisa incluir o passo de bump+publicação para que esta UI chegue ao usuário real — sem isso, o merge fica testado mas nunca vai ao ar (achado documentado em `.planning/quick/fase-sem-plano-de-publicacao-front.md` do histórico deste repositório).
