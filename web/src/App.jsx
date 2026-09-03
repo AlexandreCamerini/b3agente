@@ -4045,8 +4045,18 @@ function CarteiraScreen({ ctx }) {
   // FASE 3 (mock v2): edição de stop/alvo sob demanda + compras da posição
   const [editFor, setEditFor] = useState(null);
   const [comprasOpen, setComprasOpen] = useState({});
-  const { data, quotes, analysis, A, goMercado, cp } = ctx;   // FASE 8B (B1)
+  // Fase 18 (Plano 02, NAV-02): qual posição está com o detalhe de opções
+  // aberto — mesma forma de histFor/editFor (uma por vez; abrir a de outra
+  // posição fecha a anterior). O Plano 18-03 escreve neste MESMO estado a
+  // partir da tira agregada — não renomear.
+  const [opcoesFor, setOpcoesFor] = useState(null);
+  const { data, quotes, analysis, A, goMercado, cp, operador } = ctx;   // FASE 8B (B1)
   useEffect(() => { track("portfolio_view"); }, []);   // qa/47 (Fase 2)
+  // Fase 18 (Plano 01/02): fan-out gate→proposta por ticker, uma vez por
+  // posição real — nomes exatos `opcoesPorTicker`/`opcoesCarregando` porque
+  // o Plano 18-03 os consome por nome, sem mexer nesta chamada.
+  // `opcoesCarregando` fica sem uso NESTE plano — existe pra tira do 18-03.
+  const { propostas: opcoesPorTicker, carregando: opcoesCarregando } = useOpcoesPropostas(data.positions.map((p) => p.t));
   const byQ = (t) => quotes[t] || {};
   const m = portfolioMetrics(data.positions, quotes, data.cash, data.caixaReservado || 0, data.optionPositions);
   const positionsValue = m.posVal;
@@ -4126,7 +4136,10 @@ function CarteiraScreen({ ctx }) {
           const color = pnl >= 0 ? T.positive : T.negative;
           const cell = (label, value, c) => (<div><div style={kicker}>{label}</div><div style={{ fontFamily: MONO, fontSize: "13px", color: c }}>{value}</div></div>);
           return (
-            <div key={p.t} style={{ ...card, padding: "14px 15px" }}>
+            // id: âncora de scroll — mesmo mecanismo já em produção pro deep
+            // link do push (App.jsx:7446-7449, "ativo-"+t); o Plano 18-03 usa
+            // "posicao-"+p.t pra rolar até aqui a partir da tira agregada.
+            <div key={p.t} id={"posicao-" + p.t} style={{ ...card, padding: "14px 15px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "10px", flexWrap: "wrap" }}>
                 <div>
                   <div style={{ display: "flex", alignItems: "baseline", gap: "8px", flexWrap: "wrap" }}>
@@ -4233,6 +4246,16 @@ function CarteiraScreen({ ctx }) {
                   Histórico de análises ({((data.analysisLog || {})[p.t] || []).length})
                 </button>
               </div>
+              {/* Fase 18 (Plano 02, NAV-02): opções são uma CAMADA sobre a
+                  posição, não o primeiro assunto do card — por isso entra
+                  depois da régua de risco/plano/CTAs, na mesma região das
+                  outras afordâncias secundárias (histórico, edição).
+                  PropostaDaPosicao já devolve null sem proposta ativa —
+                  posição sem estrutura não ganha nada visualmente. */}
+              <PropostaDaPosicao
+                t={p.t} r={(opcoesPorTicker[p.t] || {}).proposta} cp={cp} operador={operador} A={A} data={data}
+                aberto={opcoesFor === p.t} onToggle={() => setOpcoesFor(opcoesFor === p.t ? null : p.t)}
+              />
               {histFor === p.t && (
                 <div style={{ marginTop: "9px", padding: "10px 11px", borderRadius: "10px", background: T.bgBase, border: `1px solid ${T.borderFaint}` }}>
                   {(((data.analysisLog || {})[p.t]) || []).length === 0 && (
