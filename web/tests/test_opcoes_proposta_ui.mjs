@@ -20,6 +20,10 @@ const CHAVES_LASTREADAS = [
   "eyebrowPropostaCall", "eyebrowPropostaPut", "ctaVendaCoberta", "ctaPutProtecao",
   "ctaFecharLastreada", "confirmAbrirCoberta", "confirmFecharCoberta",
   "verCadeiaCompleta", "propostaIndisponivelDegradada", "propostaVaziaTitulo",
+  // Fase 17 (Plano 04, FLOW-01/FLOW-04): payoff + frescor do dado.
+  "payoffTitulo", "payoffGanhoMaximo", "payoffPerdaMaxima", "payoffBreakeven",
+  "payoffIlimitado", "payoffSemDado", "payoffCaixaCredito", "payoffCaixaDebito",
+  "payoffCaixaNeutro", "payoffNota", "fontePropostaLinha", "fontePropostaSemDado",
 ];
 ok("chaves das operações lastreadas existem nos dois ramos",
   CHAVES_LASTREADAS.every((k) => k in COPY.estudo) && CHAVES_LASTREADAS.every((k) => k in COPY.operador));
