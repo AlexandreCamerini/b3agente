@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Opções v2
 status: executing
-stopped_at: Fase 15 verificada (9/9 must-haves) e mergeada; Fase 16 planejada e verificada, aguardando execução
-last_updated: "2026-09-02T22:10:00.000Z"
-last_activity: 2026-09-02 -- Phase 16 planning verified, starting execution
+stopped_at: Fases 15 e 16 verificadas (9/9 + 9/9 must-haves) e mergeadas; Fase 17 iniciando
+last_updated: "2026-09-02T23:05:00.000Z"
+last_activity: 2026-09-02 -- Phase 16 complete, verified, merged — starting Phase 17
 progress:
   total_phases: 6
-  completed_phases: 1
-  total_plans: 8
-  completed_plans: 4
-  percent: 17
+  completed_phases: 2
+  total_plans: 12
+  completed_plans: 8
+  percent: 33
 ---
 
 # Project State
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-01)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Phase 16 — biblioteca-de-estruturas
+**Current focus:** Phase 17 — fluxo-de-aceite
 
 ## Current Position
 
-Phase: 16 (biblioteca-de-estruturas) — EXECUTING
-Plan: 1 of 4
-Status: Executing Phase 16
+Phase: 17 (fluxo-de-aceite) — EXECUTING
+Plan: 1 of ?
+Status: Executing Phase 17
 Last activity: 2026-09-02 -- Phase 16 execution started (Phase 15 complete, verified, merged)
 
 Progress: [██░░░░░░░░] 17%
