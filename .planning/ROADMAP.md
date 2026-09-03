@@ -153,7 +153,15 @@ fonte e horário do dado usado.
      da Fase 14 (`store.py`) — nenhum caminho de execução novo.
   4. Toda proposta exibida mostra a fonte e o horário do dado usado
      (frescor) — nunca dado silenciosamente desatualizado.
-**Plans**: TBD
+**Plans**: 6 plans (4 waves)
+
+Plans:
+- [ ] 17-01-PLAN.md — `store.abrir_collar`: execução de 2 pernas tudo-ou-nada numa única aquisição de ORDER_LOCK (FLOW-03)
+- [ ] 17-02-PLAN.md — rota de proposta declara fonte e horário do dado (FLOW-04)
+- [ ] 17-03-PLAN.md — `POST /api/options/lastreada/abrir-collar` com re-derivação server-side da proposta + ADR-026 (FLOW-02, FLOW-03)
+- [ ] 17-04-PLAN.md — payoff completo e frescor no card de proposta (FLOW-01, FLOW-04)
+- [ ] 17-05-PLAN.md — cliente declara multiperna, renderiza as 2 pernas e aceita explicitamente (FLOW-02, FLOW-03)
+- [ ] 17-06-PLAN.md — publicação do front (bump + publicar-web) e verificação humana do fluxo
 **UI hint**: yes
 
 #### Phase 18: Aba Opções
