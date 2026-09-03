@@ -37,11 +37,22 @@ plan: 17-06
 
 ## Task 2 — checkpoint humano bloqueante
 
-**Ainda não iniciado.** Requer o Alex rodando o app localmente e seguindo o
-roteiro de 10 passos do `17-06-PLAN.md` (Modo Estudo, Modo Operador, aceite
-do collar, cancelamento, Radar vs. Watchlist, e iPhone se disponível).
-`status: incomplete` neste frontmatter reflete isso — não commitar/push da
-fase até a resposta chegar, por instrução explícita do plano.
+**ADIADO, não aprovado — decisão explícita do Alex.** O app local foi subido
+(`api`/`web` via `.claude/launch.json`, sem erro nos dois), mas o mercado
+estava fechado no momento da tentativa — cadeia de opções ao vivo
+indisponível pra exercitar o roteiro de verificação (payoff real, collar
+ofertado por caixa insuficiente, aceite/cancelamento, Radar vs. Watchlist,
+iPhone). Alex instruiu explicitamente: "não consigo testar isso pq o
+mercado está fechado. siga para a próxima fase".
+
+**Isso NÃO é aprovação — é adiamento com risco aceito conscientemente.**
+Registrado como `verification_gap: human_needed`, mesmo padrão já usado no
+histórico do projeto (ex.: item 8 do checkpoint 08-05 sobre `entradaAuto`,
+2 human-checks da Fase 3) — ver `.planning/STATE.md` seção "Blockers/Concerns"
+e `PROJECT.md` Active. `status: incomplete` neste frontmatter permanece —
+não deve virar `complete`/`passed` sem a verificação ao vivo de fato
+acontecer, mesmo que o trabalho de código siga para a Fase 18. Push da Fase
+17 pra origin segue não feito nesta sessão (só commits locais).
 
 ## Nota operacional
 

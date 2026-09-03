@@ -112,6 +112,16 @@ Recent decisions affecting current work:
   (verificação ao vivo de `entradaAuto`; 2 human-checks da Fase 3) — não
   relacionados a v1.4, seguem em PROJECT.md Active.
 
+- **Fase 17, checkpoint humano (Task 2, `17-06-PLAN.md`) — ADIADO, não
+  aprovado.** App local subiu sem erro (bump `F10-20260903-01`, suíte
+  canônica 2010+web verde), mas o mercado estava fechado no momento da
+  tentativa — cadeia de opções ao vivo indisponível pra exercitar o roteiro
+  de 10 passos (payoff real, collar por caixa insuficiente, aceite/
+  cancelamento, Radar vs. Watchlist, iPhone). Alex instruiu seguir pra Fase
+  18 mesmo assim, risco aceito conscientemente — não é aprovação. Retomar
+  o roteiro com o mercado aberto antes de considerar a Fase 17 fechada de
+  verdade; push da Fase 17 pra origin segue não feito.
+
 ### Quick Tasks Completed
 
 | # | Description | Date | Commit | Status | Directory |
