@@ -30,7 +30,10 @@ reais da carteira, com aceite manual do usuário — independente do MCP
 externo (b-mcp, projeto paralelo) até ele ficar pronto.
 
 **Target features:**
-- Aba própria "Opções" na barra de navegação inferior (Candidato A)
+- Tira "Oportunidades de opções" no topo de Posições/Portfólio + detalhe
+  completo dentro de cada posição — sem aba nova na navegação inferior
+  (Candidato A revertido em 03/09: a barra real tem 5 abas, não 4; ver
+  `.planning/ROADMAP.md` Phase 18 e `.planning/notes/opcoes-v2-b-mcp-exploracao.md`)
 - Biblioteca v1: venda coberta + put de proteção + collar, só sobre posições
   com cobertura real (sem opção nua)
 - Motor de proposta com critério de seleção `liquidity_score ≥ 40` + strike
