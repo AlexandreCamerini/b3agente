@@ -135,6 +135,33 @@ def propor(underlying, chain, spot, plano, posicao, cash, modo, hoje):
     # secundária) — nunca recomputada por outro caminho.
     didatica = skill_ref.opcoes_lastreadas_txt("educacional", tipo, **dados)
 
+    # Perna de opção, por unidade do objeto (a mesma convenção "quantidade=1"
+    # de `opcoes_payoff` — o lote de `qty_acoes` multiplica só na hora de
+    # apresentar o caixa, nunca dentro da perna).
+    pernas_opcao = [opcoes_motor.perna_de_contrato(
+        contrato, "venda" if tipo == "call_coberta" else "compra", quantidade=1)]
+
+    # A perna ACAO entra SEMPRE no cálculo de risco: sem ela,
+    # `perfil_da_estrutura` vê só a call vendida (inclinação -1) e classifica
+    # uma venda COBERTA como perda ilimitada (opcoes_payoff.py:198-204) —
+    # apresentar isso ao usuário de um produto educacional seria descrever
+    # risco errado. `quantidade=1` nas duas pernas mantém a convenção "por
+    # unidade do objeto" que `opcoes_payoff` declara em `unidade`.
+    pernas = [opcoes_motor.perna_de_acao(underlying, spot, quantidade=1), *pernas_opcao]
+    # Nenhum try/except aqui: `rastrear()` só devolve contrato com `lastPrice`
+    # numérico > 0 (opcoes_motor.py:38-43) e a guarda de spot acima já
+    # garante o argumento de `perna_de_acao` — um `ValueError` nesta linha
+    # seria defeito de programação, não estado de mercado; engolir viraria
+    # proposta silenciosamente incompleta.
+    estrutura = opcoes_motor.avaliar(pernas)
+
+    # Movimento de CAIXA de hoje é outra pergunta: `estrutura["custo_liquido"]`
+    # inclui o preço da ação (numa venda coberta, spot - prêmio ≈ 28,5) — mas
+    # a ação JÁ é do usuário, comprada em outra operação. Exibir isso como
+    # custo da proposta seria número certo respondendo a pergunta errada.
+    # `caixa` avalia só as pernas de opção, isoladas.
+    caixa_pernas = opcoes_motor.avaliar(pernas_opcao)
+
     proposta = {
         "tipo": tipo,
         "contractSymbol": contrato.get("contractSymbol"),
@@ -156,6 +183,13 @@ def propor(underlying, chain, spot, plano, posicao, cash, modo, hoje):
             {"k": "prêmio", "v": f"R$ {skill_ref.num_br(premio)}"},
             {"k": "liquidez", "v": _label_liquidez(liq["score"])},
         ],
+        "estrutura": estrutura,
+        "caixa": {
+            "custoLiquidoUnitario": caixa_pernas["custo_liquido"],
+            "custoLiquidoTotal": round(caixa_pernas["custo_liquido"] * qty_acoes, 2),
+            "fluxo": caixa_pernas["fluxo"],
+        },
+        "precoObjeto": round(float(spot), 2),
     }
     return {"proposta": proposta, "motivo": tipo}
 
