@@ -143,17 +143,27 @@ Recent decisions affecting current work:
   o roteiro com o mercado aberto antes de considerar a Fase 17 fechada de
   verdade; push da Fase 17 pra origin segue não feito.
 
-- **Fase 18, checkpoint humano (Task 2, `18-05-PLAN.md`) — PENDENTE.** App
-  local publicado com sucesso (bump `F10-20260903-02`, suíte canônica
-  2010+web verde depois da publicação). Task 1 completa. Task 2 exige o
-  Alex, ao vivo, com o mercado ABERTO, exercitando o roteiro de 10 passos
-  (tira com conteúdo, manchete idêntica à Watchlist, toque abre no card
-  certo, aceite em Modo Operador, Modo Estudo sem CTA, estado vazio com
-  motivo, carteira vazia, iPhone, Watchlist/Radar intocados) — e decidindo
-  explicitamente entre (a) aprovar Fase 17+18 juntas e liberar o push,
-  (b) aprovar a Fase 18 mas segurar o push até rodar o roteiro da Fase 17,
-  ou (c) reprovar. Nenhum push pra `origin` foi feito. A fase não está
-  fechada até essa resposta.
+- **Fase 18, checkpoint humano (Task 2, `18-05-PLAN.md`) — PENDENTE, parcialmente
+  exercitado ao vivo no iPhone (2026-09-03).** App local publicado com sucesso
+  (bump `F10-20260903-02`, suíte canônica 2010+web verde depois da
+  publicação). Build instalado no iPhone via `scripts/instalar-iphone.sh`
+  (dev local, não TestFlight — localhost não tem dado de mercado real pra
+  checar, motivo dado pelo Alex). Confirmado ao vivo, conta real com
+  posições: a tira "Oportunidades de opções" aparece em Posições, mostra o
+  estado vazio explícito correto (NAV-03) — texto de "cobertura líquida
+  existe, mas nenhum setup técnico ativo hoje" (não o de falta de
+  cobertura) — nenhuma caixa em branco/silêncio. Isso verifica o fan-out
+  gate→proposta (hook `useOpcoesPropostas`, Plano 18-01) e a lógica de
+  estado vazio (Plano 18-03) funcionando de ponta a ponta com dado real.
+  **Ainda NÃO verificado** (nenhuma das posições reais do Alex tem proposta
+  ativa hoje, então esses passos do roteiro de 10 seguem pendentes): tira
+  COM item real, manchete idêntica à Watchlist, toque abre no card certo
+  (NAV-02), aceite em Modo Operador, Modo Estudo sem CTA, collar por caixa
+  insuficiente, Watchlist/Radar intocados. Decisão a/b/c sobre o risco
+  herdado da Fase 17 também segue em aberto. Nenhum push pra `origin` foi
+  feito. A fase não está fechada até o roteiro completo (o que exige um dia
+  em que o Radar dispare um setup ativo sobre alguma posição real do Alex,
+  ou teste num ativo/conta com proposta ativa).
 
 ### Quick Tasks Completed
 
