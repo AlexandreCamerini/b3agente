@@ -189,6 +189,19 @@ export const COPY = {
     fontePropostaLinha: (fonte, quando) => `Fonte: ${fonte} · ${quando}`,
     fontePropostaSemDado: "Fonte do dado não declarada.",
 
+    // Fase 17 (Plano 05, FLOW-02/FLOW-03): collar (trava protetora, 2
+    // pernas). `collarPernasLinha` é descrição de dado (contrato/strike), não
+    // voz de professor/mesa — IDÊNTICA nos dois modos, mesmo precedente de
+    // payoffTitulo/fontePropostaLinha acima. Ramo Estudo nunca chama
+    // window.confirm (confirmAbrirCollar retorna "" aqui, mesma convenção de
+    // confirmAbrirCoberta) e o CTA nunca usa "comprar"/"vender" — "Montar"/
+    // "trava protetora" descrevem a estrutura sem infinitivo de ordem.
+    eyebrowPropostaCollar: "ESTUDO · TRAVA PROTETORA",
+    collarPernasLinha: (n, ticker, strikeCall, strikePut) => `${n}× TRAVA ${ticker} · call ${strikeCall} / put ${strikePut}`,
+    ctaCollarDebito: () => "Ver como esta trava protetora funcionaria",
+    ctaCollarCredito: () => "Ver como esta trava protetora funcionaria",
+    confirmAbrirCollar: () => "", // ramo estudo nunca chama window.confirm — chave existe só pela paridade
+
     // Fase 14 (Plano 07): trava de lastro visível na Carteira. Ramo Estudo
     // evita "vender"/"comprar" — "recomprada" (adjetivo) não contém o
     // infinitivo "comprar" como substring, por isso é a forma usada aqui
@@ -357,6 +370,19 @@ export const COPY = {
     payoffNota: (precoObjeto) => `Inclui sua posição em ações marcada a R$ ${precoObjeto} (preço de hoje). Resultado no vencimento, antes de custos.`,
     fontePropostaLinha: (fonte, quando) => `Fonte: ${fonte} · ${quando}`,
     fontePropostaSemDado: "Fonte do dado não declarada.",
+
+    // Fase 17 (Plano 05, FLOW-02/FLOW-03): mesma chave do ramo estudo (ver
+    // comentário acima) — `collarPernasLinha` IDÊNTICA nos dois modos
+    // (descrição de dado). CTA em duas chaves (débito/crédito) em vez de uma
+    // com o texto montado no componente: o front escolhe chave, não compõe
+    // frase. `confirmAbrirCollar` declara a trava, a quantidade e o "as duas
+    // pernas juntas ou nenhuma" — mesma razão que já obriga confirmação na
+    // venda coberta (T-14-24), aplicada à estrutura de 2 pernas.
+    eyebrowPropostaCollar: "PROPOSTA · TRAVA PROTETORA",
+    collarPernasLinha: (n, ticker, strikeCall, strikePut) => `${n}× TRAVA ${ticker} · call ${strikeCall} / put ${strikePut}`,
+    ctaCollarDebito: (n, ticker, sc, sp, valor) => `Montar ${n}× trava ${ticker} · call ${sc} / put ${sp} — custa R$ ${valor}`,
+    ctaCollarCredito: (n, ticker, sc, sp, valor) => `Montar ${n}× trava ${ticker} · call ${sc} / put ${sp} — recebe R$ ${valor}`,
+    confirmAbrirCollar: (n, ticker, qty) => `Montar ${n} trava(s) protetora(s) de ${ticker} trava ${qty} ação(ões) do seu lote-lastro (perna da call) até você encerrar a estrutura ou ela vencer. As duas pernas são abertas juntas — ou nenhuma. Continuar?`,
 
     // Fase 14 (Plano 07): mesma chave do ramo estudo (ver comentário acima).
     // Registro de mesa — vocabulário de ordem liberado aqui.

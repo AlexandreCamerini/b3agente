@@ -266,8 +266,12 @@ function serverStore() {
     // Abrir/fechar mexem em caixa real — chamada DIRETA, nunca sync.mutate/
     // outbox (mesma decisão de buy/sell/cancelPendingOrder: reaplicar de fila
     // offline devolveria caixa duas vezes).
-    optionsProposta: (t) => api.optionsProposta(t),
+    optionsProposta: (t, multiperna) => api.optionsProposta(t, multiperna),
     optionsAbrirLastreada: (body) => api.optionsAbrirLastreada(body),
+    // Fase 17 (Plano 05): mesma razão do comentário acima (buy/sell/
+    // cancelPendingOrder) — reaplicar de fila offline devolveria caixa duas
+    // vezes; abrir-collar fica FORA de sync.mutate/outbox, delegação pura.
+    optionsAbrirCollar: (body) => api.optionsAbrirCollar(body),
     optionsFecharLastreada: (body) => api.optionsFecharLastreada(body),
     cachedTechnicals: (_t, _period) => null,
     buy: (t, qty, meta) => api.buy(t, qty, meta),  // FASE 2 (2.4): mesma interface do deviceStore
@@ -1215,9 +1219,9 @@ function deviceStore() {
     // Fase 14 (opções lastreadas, Plano 05): proposta é dado de mercado
     // (cadeia + análise técnica) — nunca se duplica no aparelho, mesma regra
     // já aplicada a optionsGate/optionsChain.
-    async optionsProposta(t) {
+    async optionsProposta(t, multiperna) {
       ensure();
-      return api.optionsProposta(t);
+      return api.optionsProposta(t, multiperna);
     },
     // Fase 14 (Plano 05): logado, delega e adota o estado confirmado pelo
     // servidor (mesmo padrão de optionsBuy). Sem sessão, ramo local é
@@ -1359,6 +1363,31 @@ function deviceStore() {
         return out;
       }
       throw new Error("Sem posição em " + body.contractSymbol);
+    },
+    // Fase 17 (Plano 05, FLOW-02/FLOW-03): COM sessão, espelho exato do
+    // padrão de optionsAbrirLastreada acima (delega, adota o estado
+    // confirmado pelo servidor, publica), trocando `priceUsed` (1 perna) por
+    // `premiosUsados` (2 pernas, 2 prêmios — a proposta de collar não tem um
+    // único prêmio). SEM sessão, o ramo local NÃO reimplementa a estrutura:
+    // diferente das operações de UMA perna acima, as duas garantias que
+    // tornam o collar seguro (re-derivação server-side da proposta e
+    // atomicidade das duas pernas sob ORDER_LOCK, Plano 17-01/17-03) não
+    // existem no aparelho — reimplementá-las aqui criaria um segundo motor
+    // de execução divergente do servidor (T-17-25). Login já é obrigatório
+    // no produto (guardrail do CLAUDE.md), então este ramo é caminho legado
+    // — um erro nomeado é estado correto aqui, não valor inventado
+    // (princípio 4: nunca inventar/estimar na falta de dado/capacidade).
+    async optionsAbrirCollar(body) {
+      ensure();
+      if (sync.hasSession()) {
+        const r = await api.optionsAbrirCollar(body);
+        _adotarCarteiraDoServidor(r);
+        write();
+        const out = pub();
+        out.premiosUsados = r && r.premiosUsados;
+        return out;
+      }
+      throw new Error("Montar uma trava protetora exige estar conectado à sua conta — as duas pernas são validadas juntas no servidor.");
     },
     cachedTechnicals(t, period) {
       return getCachedTech(t, period);

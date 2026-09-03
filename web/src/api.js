@@ -282,8 +282,16 @@ export const api = {
   // Fase 14 (opções lastreadas — venda coberta/put de proteção): proposta lê
   // cadeia + análise técnica (mesmo timeout de 30s de optionsChain/optionsGate,
   // mesma razão); abrir/fechar mexem em caixa real, timeout padrão (POST).
-  optionsProposta: (t) => req("GET", "/api/options/proposta/" + encodeURIComponent(t), undefined, 30000),
+  // Fase 17 (Plano 05, FLOW-02/FLOW-03): `multiperna` é parâmetro OPCIONAL —
+  // sem ele, a URL é byte a byte a de hoje (o backend trata ausência e
+  // `multiperna=0` como o mesmo caminho single-leg).
+  optionsProposta: (t, multiperna) => req("GET", "/api/options/proposta/" + encodeURIComponent(t) + (multiperna ? "?multiperna=1" : ""), undefined, 30000),
   optionsAbrirLastreada: (body) => req("POST", "/api/options/lastreada/abrir", body),
+  // Rota SEPARADA de propósito (Plano 17-03/ADR-026): `/abrir` continua com a
+  // trava de servidor do Plano 16-04 (recusa qualquer corpo multiperna) e
+  // executa uma perna por chamada; esta rota nova é o único caminho que
+  // executa as 2 pernas do collar, com re-derivação server-side da proposta.
+  optionsAbrirCollar: (body) => req("POST", "/api/options/lastreada/abrir-collar", body),
   optionsFecharLastreada: (body) => req("POST", "/api/options/lastreada/fechar", body),
   buy: (t, qty, meta) => req("POST", "/api/buy", meta ? { t, qty, meta } : { t, qty }),   // FASE 2 (2.4): setup de entrada
   sell: (t, qty) => req("POST", "/api/sell", qty ? { t, qty } : { t }),                    // FASE 2 (2.4): venda parcial
