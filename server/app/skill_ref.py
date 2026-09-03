@@ -516,6 +516,19 @@ OPCOES_LASTREADAS = {
     "operador": {
         "call_coberta": "Vender {n} call(s) de {ticker} strike {strike} por R$ {premioTotal}.",
         "put_protecao": "Comprar {n} put(s) de {ticker} strike {strike} por R$ {premioTotal}.",
+        # Fase 16, Plano 02 (LIB-03): collar não carrega valor em reais na
+        # frase — diferente de call_coberta/put_protecao, o resultado
+        # líquido do collar tem SINAL (débito quando a put custa mais que a
+        # call, crédito no caso contrário) e `opcoes_lastreadas_txt` interpola
+        # por `str.replace` sem condicional; uma frase única com valor
+        # sinalizado imprimiria "por R$ -12,00" em metade dos casos. Custo
+        # líquido/breakeven/ganho-perda máximos viajam em
+        # caixa/estrutura/chips (Plano 16-03 preenche, Fase 17 exibe).
+        # "Abate o custo" é verdade nos dois sentidos (abatimento total ou
+        # parcial); "financiada pelo prêmio da call" seria falsa quando o
+        # abatimento é parcial — afirmar financiamento completo é a promessa
+        # que o CLAUDE.md proíbe.
+        "collar": "Vender {n} call(s) de {ticker} strike {strikeCall} e comprar {n} put(s) strike {strikePut} sobre {qtyAcoes} ação(ões) — trava protetora: o prêmio da call abate o custo da put.",
         "sem_lastro": "Sem posição em {ticker} na carteira — venda coberta e put de proteção exigem uma posição real do ativo-lastro.",
         "sem_setup": "A leitura técnica de {ticker} não indica venda coberta nem put de proteção agora. A cadeia completa continua disponível abaixo.",
         "degradado": "Proposta indisponível — cotação de opções degradada.",
@@ -525,6 +538,10 @@ OPCOES_LASTREADAS = {
     "educacional": {
         "call_coberta": "Se você tivesse vendido esta call coberta agora, receberia um prêmio de R$ {premioTotal} e travaria {qtyAcoes} ação(ões) até a recompra ou o vencimento.",
         "put_protecao": "Se você tivesse comprado esta put de proteção agora, pagaria R$ {premioTotal} para proteger {qtyAcoes} ação(ões) contra queda abaixo de R$ {strike}.",
+        # Fase 16, Plano 02 (LIB-03): mesma decisão de não sinalizar valor em
+        # reais do registro operador acima (ver comentário lá) — condição
+        # descrita, nunca ordem, e sem promessa de financiamento completo.
+        "collar": "Se você tivesse montado esta trava protetora agora, {qtyAcoes} ação(ões) ficariam protegidas contra queda abaixo de R$ {strikePut} e o ganho ficaria limitado a partir de R$ {strikeCall} — o prêmio da call vendida abate o custo da put comprada.",
         "sem_lastro": "Sem posição em {ticker} na carteira — venda coberta e put de proteção exigem uma posição real do ativo-lastro.",
         "sem_setup": "A leitura técnica de {ticker} não indica venda coberta nem put de proteção agora. A cadeia completa continua disponível abaixo.",
         "degradado": "Proposta indisponível — cotação de opções degradada.",
