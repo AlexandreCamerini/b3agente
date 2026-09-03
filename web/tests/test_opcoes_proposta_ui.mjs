@@ -73,8 +73,12 @@ ok("CTA (<button) condicionado a `operador`", /\{operador && \([\s\S]{0,60}<butt
 // Gate de dormência: a chamada de store.optionsProposta está dentro de
 // condição que depende de opGate (D-8 — sem gate de liquidez, nenhuma
 // requisição extra).
+// ATUALIZADO 2026-09-03 (Fase 17, Plano 05, FLOW-02/FLOW-03): a chamada
+// passou a declarar a capacidade multiperna (`store.optionsProposta(t, true)`)
+// — mudança deliberada, não regressão. A asserção de que a chamada continua
+// sob `if (opGate && opGate.liquida)` permanece intacta (guardião não apagado).
 (() => {
-  const i = app.indexOf("store.optionsProposta(t)");
+  const i = app.indexOf("store.optionsProposta(t, true)");
   const antes = app.slice(Math.max(0, i - 200), i);
   ok("store.optionsProposta só dispara sob condição de opGate", i > -1 && /if \(opGate && opGate\.liquida\)/.test(antes));
 })();
