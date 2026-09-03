@@ -1136,12 +1136,22 @@ def abrir_collar(conn, contract_call: dict, contract_put: dict, contratos: int, 
     `price` nas funções single-leg). O MESMO lote-lastro
     (`qty_livre(pos) >= contratos*100`) serve as DUAS pernas — a call trava
     `qtyTravada`, a put registra o mesmo lote como lastro sem travar de novo
-    (mesma aritmética de `comprar_put_protecao`)."""
+    (mesma aritmética de `comprar_put_protecao`).
+
+    Mensagens de `ValueError`/`registrar_rejeicao` abaixo usam o termo
+    técnico "collar" (não "trava protetora") de propósito: o guardrail CVM
+    de `test_opcoes_collar_vocab.py` proíbe QUALQUER string literal de
+    CÓDIGO fora de `skill_ref.py` que contenha a frase-âncora da manchete
+    ("trava protetora"/"abate o custo") — a manchete do collar vem SÓ do
+    motor determinístico via `skill_ref.opcoes_lastreadas_txt`. Estas são
+    mensagens de VALIDAÇÃO técnica (erro 400/rejeição), não a manchete
+    exibida ao usuário na proposta; "collar" é o mesmo termo já usado como
+    `tipo` interno (`opcoes_lastreadas._propor_collar`, ADR-025)."""
     if contratos < 1:
         raise ValueError("Número de contratos precisa ser pelo menos 1.")
     for premio in (premio_call, premio_put):
         if isinstance(premio, bool) or not isinstance(premio, (int, float)) or premio <= 0:
-            raise ValueError("Prêmio inválido para a trava protetora.")
+            raise ValueError("Prêmio inválido para o collar.")
     qty = int(contratos) * 100
     cid_call = contract_call.get("id")
     cid_put = contract_put.get("id")
@@ -1151,45 +1161,45 @@ def abrir_collar(conn, contract_call: dict, contract_put: dict, contratos: int, 
     with ORDER_LOCK:
         if contract_call.get("optionType") != "call":
             registrar_rejeicao(conn, "VENDA", cid_call, qty, premio_call,
-                                "Trava protetora exige um contrato de CALL na perna vendida.",
+                                "O collar exige um contrato de CALL na perna vendida.",
                                 user_id=user_id, origem=origem)
-            raise ValueError("Trava protetora exige um contrato de CALL na perna vendida.")
+            raise ValueError("O collar exige um contrato de CALL na perna vendida.")
         if contract_put.get("optionType") != "put":
             registrar_rejeicao(conn, "COMPRA", cid_put, qty, premio_put,
-                                "Trava protetora exige um contrato de PUT na perna comprada.",
+                                "O collar exige um contrato de PUT na perna comprada.",
                                 user_id=user_id, origem=origem)
-            raise ValueError("Trava protetora exige um contrato de PUT na perna comprada.")
+            raise ValueError("O collar exige um contrato de PUT na perna comprada.")
         if underlying_call != underlying_put:
-            raise ValueError("As duas pernas da trava protetora precisam ser do mesmo ativo-objeto.")
+            raise ValueError("As duas pernas do collar precisam ser do mesmo ativo-objeto.")
         if cid_call == cid_put:
-            raise ValueError("As duas pernas da trava protetora precisam ser contratos diferentes.")
+            raise ValueError("As duas pernas do collar precisam ser contratos diferentes.")
 
         underlying = underlying_call
         positions = get(conn, "positions", user_id=user_id)
         pos_acao = next((p for p in positions if p["t"] == underlying), None)
         if not pos_acao:
             registrar_rejeicao(conn, "COMPRA", cid_put, qty, premio_put,
-                                f"Sem posição em {underlying} para lastrear a trava protetora.",
+                                f"Sem posição em {underlying} para lastrear o collar.",
                                 user_id=user_id, origem=origem)
-            raise ValueError(f"Sem posição em {underlying} para lastrear a trava protetora.")
+            raise ValueError(f"Sem posição em {underlying} para lastrear o collar.")
         livre = qty_livre(pos_acao)
         if livre < qty:
             registrar_rejeicao(
                 conn, "COMPRA", cid_put, qty, premio_put,
                 f"Lastro insuficiente: {livre} ação(ões) livres de {underlying}, "
-                f"{qty} necessárias para {contratos} contrato(s) de trava protetora.",
+                f"{qty} necessárias para {contratos} contrato(s) do collar.",
                 user_id=user_id, origem=origem)
-            raise ValueError(f"Lastro insuficiente em {underlying} para {contratos} contrato(s) de trava protetora.")
+            raise ValueError(f"Lastro insuficiente em {underlying} para {contratos} contrato(s) do collar.")
 
         cash = get(conn, "cash", user_id=user_id)
         custo_liquido_total = round(qty * (premio_put - premio_call), 2)
         if custo_liquido_total > cash:
             registrar_rejeicao(
                 conn, "COMPRA", cid_put, qty, premio_put,
-                f"Caixa insuficiente para a trava protetora: custo líquido R$ {custo_liquido_total} — "
+                f"Caixa insuficiente para o collar: custo líquido R$ {custo_liquido_total} — "
                 f"disponível: R$ {cash}.",
                 user_id=user_id, origem=origem)
-            raise ValueError("Caixa insuficiente para a trava protetora.")
+            raise ValueError("Caixa insuficiente para o collar.")
 
         opts = get(conn, "optionPositions", user_id=user_id)
         history = get(conn, "history", user_id=user_id)
