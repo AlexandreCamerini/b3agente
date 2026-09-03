@@ -372,10 +372,32 @@ def test_rota_de_collar_nao_le_multiperna_do_corpo():
     assert "body.get('multiperna'" not in fonte
 
 
-def test_rota_de_collar_nao_usa_premio_do_corpo():
+def test_rota_de_collar_nao_usa_premio_do_corpo(cli, _expiracao_fixa, _snapshot_sem_setup, _plano_vender):
+    """Inspeção de fonte (a rota não lê prêmio do corpo) + comportamento (um
+    corpo com `premioUnitario` absurdo executa com os prêmios do provider
+    mock, não com o valor declarado) — as duas metades da mesma garantia."""
     from app import main
     fonte = inspect.getsource(main.options_lastreada_abrir_collar)
     assert 'body.get("premio' not in fonte
+
+    uid, headers = _novo_escopo(cli, "13")
+    _seed_cenario_collar(cli, uid)
+    caixa_antes = store.get(_conn, "cash", user_id=uid)
+    p = cli.get("/api/options/proposta/PETR4?multiperna=1", headers=headers).json()["proposta"]
+    premio_call_real = p["pernasContratos"][0]["premioUnitario"]
+    premio_put_real = p["pernasContratos"][1]["premioUnitario"]
+    custo_liquido_real = round(p["contratos"] * 100 * (premio_put_real - premio_call_real), 2)
+
+    r = cli.post("/api/options/lastreada/abrir-collar", headers=headers, json={
+        "underlying": "PETR4", "contratos": p["contratos"],
+        "pernasContratos": [
+            {"contractSymbol": p["pernasContratos"][0]["contractSymbol"], "lado": "venda", "premioUnitario": 999.0},
+            {"contractSymbol": p["pernasContratos"][1]["contractSymbol"], "lado": "compra", "premioUnitario": 0.01},
+        ],
+    })
+    assert r.status_code == 200, r.text
+    cash_depois = store.get(_conn, "cash", user_id=uid)
+    assert round(caixa_antes - cash_depois, 2) == custo_liquido_real
 
 
 def test_rota_antiga_continua_recusando_collar_apos_a_fase_17(cli):
