@@ -221,6 +221,21 @@ export const COPY = {
       ? `Esta call de ${ticker} venceu fora do dinheiro — expirou sem valor, o prêmio integral ficou com quem estava do outro lado da operação, e o lastro foi liberado.`
       : `Esta call de ${ticker} venceu dentro do dinheiro e não foi fechada a tempo — liquidada em dinheiro pelo valor intrínseco (R$ ${valor}). Sua posição em ações não foi alterada.`,
     linhaPatrimonioOpcoes: "opções lastreadas (marcadas pelo prêmio de abertura — sem cotação ao vivo)",
+
+    // Fase 18 (Plano 01, NAV-01/NAV-03): tira "Oportunidades de opções" em
+    // Posições (agregado, todas as posições) e afordância de detalhe dentro
+    // do card de uma posição específica. Rótulo de seção e micro-rótulo de
+    // ação são IDÊNTICOS nos dois modos (mesmo precedente de payoffTitulo/
+    // verCadeiaCompleta acima); os estados de carregamento/vazio e a
+    // afordância da posição têm voz de modo. Nenhuma destas seis chaves
+    // pode conter a manchete do motor nem frase que a substitua — a
+    // manchete continua vindo só de proposta.manchete (guardrail CVM).
+    tiraOpcoesTitulo: "OPORTUNIDADES DE OPÇÕES",
+    tiraOpcoesVerDetalhe: "ver detalhe",
+    tiraOpcoesCarregando: "Procurando estruturas possíveis nas suas posições…",
+    tiraOpcoesSemCobertura: "Nenhuma das suas posições tem opção com liquidez suficiente hoje — sem contrato líquido, não dá para estudar uma estrutura sobre ela.",
+    tiraOpcoesSemSetup: "Suas posições têm opção líquida, mas a leitura técnica não indica nenhuma estrutura agora. A cadeia completa continua disponível em cada ativo.",
+    linhaPropostaNaPosicao: "Estrutura de opções possível nesta posição",
   },
 
   operador: {
@@ -398,6 +413,17 @@ export const COPY = {
       ? `Esta call de ${ticker} venceu fora do dinheiro — expirou sem valor, o prêmio integral ficou com quem estava do outro lado da operação, e o lastro foi liberado.`
       : `Esta call de ${ticker} venceu dentro do dinheiro e não foi fechada a tempo — liquidada em dinheiro pelo valor intrínseco (R$ ${valor}). Sua posição em ações não foi alterada.`,
     linhaPatrimonioOpcoes: "perna de opções (prêmio de abertura — sem cotação ao vivo)",
+
+    // Fase 18 (Plano 01, NAV-01/NAV-03): mesma chave do ramo estudo (ver
+    // comentário acima). Registro de mesa nos estados de carregamento/vazio
+    // e na afordância da posição; rótulo de seção e micro-rótulo de ação
+    // permanecem idênticos ao ramo estudo.
+    tiraOpcoesTitulo: "OPORTUNIDADES DE OPÇÕES",
+    tiraOpcoesVerDetalhe: "ver detalhe",
+    tiraOpcoesCarregando: "Varrendo suas posições…",
+    tiraOpcoesSemCobertura: "Nenhuma posição com opção líquida hoje — sem contrato líquido, não há estrutura para montar.",
+    tiraOpcoesSemSetup: "Cobertura líquida existe, mas a leitura técnica não indica venda coberta, put de proteção nem collar agora. A cadeia completa continua disponível em cada ativo.",
+    linhaPropostaNaPosicao: "Estrutura de opções disponível nesta posição",
   },
 };
 
