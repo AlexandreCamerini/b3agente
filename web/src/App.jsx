@@ -4135,6 +4135,20 @@ function CarteiraScreen({ ctx }) {
   // o Plano 18-03 os consome por nome, sem mexer nesta chamada.
   // `opcoesCarregando` fica sem uso NESTE plano — existe pra tira do 18-03.
   const { propostas: opcoesPorTicker, carregando: opcoesCarregando } = useOpcoesPropostas(data.positions.map((p) => p.t));
+  // Fase 18 (Plano 03, NAV-01/NAV-03): abre o detalhe da posição a partir da
+  // tira agregada e rola o card correspondente pra vista. O `setTimeout`
+  // existe porque o `scrollIntoView` precisa acontecer DEPOIS do re-render
+  // que expande o detalhe — rolar antes leva o card pra posição errada, já
+  // que a altura muda ao abrir. Mesmo mecanismo do deep link de push
+  // (App.jsx:7682-7689), com a guarda `if (!el) return;` preservada.
+  const abrirOpcoesDe = (t) => {
+    setOpcoesFor(t);
+    setTimeout(() => {
+      const el = document.getElementById("posicao-" + t);
+      if (!el) return;
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 60);
+  };
   const byQ = (t) => quotes[t] || {};
   const m = portfolioMetrics(data.positions, quotes, data.cash, data.caixaReservado || 0, data.optionPositions);
   const positionsValue = m.posVal;
@@ -4195,6 +4209,14 @@ function CarteiraScreen({ ctx }) {
           </div>
         );
       })()}
+
+      {/* Fase 18 (Plano 03, NAV-01/NAV-03): tira agregada de oportunidades de
+          opções — só com carteira não-vazia; o estado vazio de portfólio logo
+          abaixo já explica o que fazer quando não há nenhuma posição, duas
+          mensagens pra mesma ausência seria ruído. */}
+      {data.positions.length > 0 && (
+        <OportunidadesOpcoes propostas={opcoesPorTicker} carregando={opcoesCarregando} positions={data.positions} cp={cp} onAbrir={abrirOpcoesDe} />
+      )}
 
       {data.positions.length === 0 && (
         <div style={{ background: T.bgCard, border: `1px dashed ${T.borderDashed}`, borderRadius: "12px", padding: "34px 20px", textAlign: "center" }}>
