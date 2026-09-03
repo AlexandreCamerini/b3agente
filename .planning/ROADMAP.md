@@ -158,8 +158,8 @@ fonte e horário do dado usado.
 Plans:
 - [x] 17-01-PLAN.md — `store.abrir_collar`: execução de 2 pernas tudo-ou-nada numa única aquisição de ORDER_LOCK (FLOW-03)
 - [x] 17-02-PLAN.md — rota de proposta declara fonte e horário do dado (FLOW-04)
-- [ ] 17-03-PLAN.md — `POST /api/options/lastreada/abrir-collar` com re-derivação server-side da proposta + ADR-026 (FLOW-02, FLOW-03)
-- [ ] 17-04-PLAN.md — payoff completo e frescor no card de proposta (FLOW-01, FLOW-04)
+- [x] 17-03-PLAN.md — `POST /api/options/lastreada/abrir-collar` com re-derivação server-side da proposta + ADR-026 (FLOW-02, FLOW-03)
+- [x] 17-04-PLAN.md — payoff completo e frescor no card de proposta (FLOW-01, FLOW-04)
 - [ ] 17-05-PLAN.md — cliente declara multiperna, renderiza as 2 pernas e aceita explicitamente (FLOW-02, FLOW-03)
 - [ ] 17-06-PLAN.md — publicação do front (bump + publicar-web) e verificação humana do fluxo
 **UI hint**: yes
@@ -206,7 +206,7 @@ C) — ver `.planning/REQUIREMENTS.md` Out of Scope / Future Requirements.
 | 14. Opções lastreadas — venda coberta e put de proteção | standalone | Complete (em produção) | 2026-08-31 |
 | 15. Motor de proposta (arquitetura interna) | 4/4 | Complete   | 2026-09-02 |
 | 16. Biblioteca de estruturas | 4/4 | Complete   | 2026-09-03 |
-| 17. Fluxo de aceite | 2/6 | In Progress|  |
+| 17. Fluxo de aceite | 4/6 | In Progress|  |
 | 18. Aba Opções | v1.4 | Not started | - |
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2/v1.3
