@@ -303,6 +303,66 @@ def test_abrir_mais_contratos_do_que_o_lastro_permite_devolve_400(cli):
     assert r.status_code == 400
 
 
+# --- Plano 16-04 — trava de servidor contra execução de meia estrutura -------
+# `store.abrir_call_coberta`/`store.comprar_put_protecao` executam UMA perna
+# por chamada; sem esta trava, um corpo de collar postado nesta rota abriria
+# só a perna que coubesse no `contractSymbol` único — o usuário ficaria com
+# METADE da trava protetora, exposto a um risco diferente do apresentado na
+# tela. A trava é do SERVIDOR (mesma disciplina do 403 de Modo Estudo,
+# T-14-23): a UI pode ter bug, o servidor recusa igual.
+
+def test_abrir_recusa_estrutura_collar_por_tipo_400_sem_efeito_colateral(cli):
+    uid, headers = _novo_escopo(cli, "17")
+    _seed_posicao(uid, qty=300)
+    _liga_operador(uid)
+    caixa_antes = store.get(_conn, "cash", user_id=uid)
+    option_positions_antes = store.get(_conn, "optionPositions", user_id=uid)
+    contrato_call = _contract_symbol(cli, "call")
+    contrato_put = _contract_symbol(cli, "put")
+    r = cli.post("/api/options/lastreada/abrir", headers=headers, json={
+        "underlying": "PETR4", "tipo": "collar", "contratos": 3,
+        "pernasContratos": [contrato_call["contractSymbol"], contrato_put["contractSymbol"]],
+    })
+    assert r.status_code == 400
+    assert "mais de uma perna" in r.json()["detail"]
+    assert store.get(_conn, "cash", user_id=uid) == caixa_antes
+    assert store.get(_conn, "optionPositions", user_id=uid) == option_positions_antes
+
+
+def test_abrir_recusa_pernasContratos_de_duas_entradas_mesmo_sem_declarar_tipo(cli):
+    """A trava não depende do cliente ser honesto sobre o rótulo `tipo` — a
+    presença de DUAS pernas já basta, mesmo que o corpo omita `tipo`."""
+    uid, headers = _novo_escopo(cli, "18")
+    _seed_posicao(uid, qty=300)
+    _liga_operador(uid)
+    caixa_antes = store.get(_conn, "cash", user_id=uid)
+    option_positions_antes = store.get(_conn, "optionPositions", user_id=uid)
+    contrato_call = _contract_symbol(cli, "call")
+    contrato_put = _contract_symbol(cli, "put")
+    r = cli.post("/api/options/lastreada/abrir", headers=headers, json={
+        "underlying": "PETR4", "contratos": 3,
+        "pernasContratos": [contrato_call["contractSymbol"], contrato_put["contractSymbol"]],
+    })
+    assert r.status_code == 400
+    assert "mais de uma perna" in r.json()["detail"]
+    assert store.get(_conn, "cash", user_id=uid) == caixa_antes
+    assert store.get(_conn, "optionPositions", user_id=uid) == option_positions_antes
+
+
+def test_abrir_com_pernasContratos_de_uma_entrada_continua_abrindo_normalmente(cli):
+    """A trava NÃO pega a estrutura legítima de uma perna — nenhuma
+    regressão nas duas operações já em produção (venda coberta/put)."""
+    uid, headers = _novo_escopo(cli, "19")
+    _seed_posicao(uid, qty=300)
+    _liga_operador(uid)
+    contrato = _contract_symbol(cli, "call")
+    r = cli.post("/api/options/lastreada/abrir", headers=headers, json={
+        "underlying": "PETR4", "contractSymbol": contrato["contractSymbol"], "contratos": 1,
+        "pernasContratos": [contrato["contractSymbol"]],
+    })
+    assert r.status_code == 200, r.text
+
+
 # --------------------------- POST .../lastreada/fechar ------------------------
 
 # ------- GET proposta APÓS abertura: bugfix do checkpoint humano (Plano 08) --
