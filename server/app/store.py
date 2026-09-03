@@ -1106,6 +1106,143 @@ def comprar_put_protecao(conn, contract: dict, contratos: int, price: float, use
         db.kv_set(conn, "history", history, user_id=user_id)
 
 
+def abrir_collar(conn, contract_call: dict, contract_put: dict, contratos: int, premio_call: float,
+                  premio_put: float, user_id=None, origem: str = "manual") -> None:
+    """Execução da trava protetora (collar, Fase 17/Plano 01, FLOW-03) — as
+    DUAS pernas (CALL vendida + PUT comprada) abrem juntas ou nenhuma abre. A
+    Fase 16 deixou a proposta pronta (`opcoes_lastreadas._propor_collar`) mas
+    bloqueou de propósito o caminho de execução (`main.py`, comentário "O
+    collar continua sem caminho de EXECUÇÃO até a Fase 17") — esta função
+    fecha essa lacuna.
+
+    PROIBIDO compor `abrir_call_coberta`/`comprar_put_protecao` aqui: as duas
+    fazem leitura+validação+escrita dentro da PRÓPRIA aquisição de
+    `ORDER_LOCK` — como a trava é `RLock`, encadeá-las em sequência não
+    deadlockaria, mas a PRIMEIRA já teria persistido caixa/posição/
+    qtyTravada antes de a validação da SEGUNDA perna rodar. Se a segunda
+    perna for então recusada (lastro que a primeira perna acabou de
+    consumir, caixa que a primeira perna acabou de debitar), o usuário fica
+    com METADE da trava protetora — exposto a um risco DIFERENTE do
+    apresentado na tela. O invariante "tudo-ou-nada" do CLAUDE.md (`store.buy`/
+    `store.sell` executam 100% da ordem ou rejeitam inteira — não implementar
+    fill parcial) vale aqui a nível de ESTRUTURA (2 pernas), não só de ordem
+    única — por isso esta função reimplementa a validação e a escrita das
+    duas pernas dentro de UMA única aquisição de `ORDER_LOCK`.
+
+    `contract_call`/`contract_put`: mesmo shape de `contract` em
+    `abrir_call_coberta`/`comprar_put_protecao` (id/underlying/optionType/
+    strike/expiration/ivEntrada/deltaEntrada/hv21Entrada). `premio_call`/
+    `premio_put` são os PRÊMIOS por ação de cada perna (mesma unidade de
+    `price` nas funções single-leg). O MESMO lote-lastro
+    (`qty_livre(pos) >= contratos*100`) serve as DUAS pernas — a call trava
+    `qtyTravada`, a put registra o mesmo lote como lastro sem travar de novo
+    (mesma aritmética de `comprar_put_protecao`)."""
+    if contratos < 1:
+        raise ValueError("Número de contratos precisa ser pelo menos 1.")
+    for premio in (premio_call, premio_put):
+        if isinstance(premio, bool) or not isinstance(premio, (int, float)) or premio <= 0:
+            raise ValueError("Prêmio inválido para a trava protetora.")
+    qty = int(contratos) * 100
+    cid_call = contract_call.get("id")
+    cid_put = contract_put.get("id")
+    underlying_call = contract_call.get("underlying")
+    underlying_put = contract_put.get("underlying")
+
+    with ORDER_LOCK:
+        if contract_call.get("optionType") != "call":
+            registrar_rejeicao(conn, "VENDA", cid_call, qty, premio_call,
+                                "Trava protetora exige um contrato de CALL na perna vendida.",
+                                user_id=user_id, origem=origem)
+            raise ValueError("Trava protetora exige um contrato de CALL na perna vendida.")
+        if contract_put.get("optionType") != "put":
+            registrar_rejeicao(conn, "COMPRA", cid_put, qty, premio_put,
+                                "Trava protetora exige um contrato de PUT na perna comprada.",
+                                user_id=user_id, origem=origem)
+            raise ValueError("Trava protetora exige um contrato de PUT na perna comprada.")
+        if underlying_call != underlying_put:
+            raise ValueError("As duas pernas da trava protetora precisam ser do mesmo ativo-objeto.")
+        if cid_call == cid_put:
+            raise ValueError("As duas pernas da trava protetora precisam ser contratos diferentes.")
+
+        underlying = underlying_call
+        positions = get(conn, "positions", user_id=user_id)
+        pos_acao = next((p for p in positions if p["t"] == underlying), None)
+        if not pos_acao:
+            registrar_rejeicao(conn, "COMPRA", cid_put, qty, premio_put,
+                                f"Sem posição em {underlying} para lastrear a trava protetora.",
+                                user_id=user_id, origem=origem)
+            raise ValueError(f"Sem posição em {underlying} para lastrear a trava protetora.")
+        livre = qty_livre(pos_acao)
+        if livre < qty:
+            registrar_rejeicao(
+                conn, "COMPRA", cid_put, qty, premio_put,
+                f"Lastro insuficiente: {livre} ação(ões) livres de {underlying}, "
+                f"{qty} necessárias para {contratos} contrato(s) de trava protetora.",
+                user_id=user_id, origem=origem)
+            raise ValueError(f"Lastro insuficiente em {underlying} para {contratos} contrato(s) de trava protetora.")
+
+        cash = get(conn, "cash", user_id=user_id)
+        custo_liquido_total = round(qty * (premio_put - premio_call), 2)
+        if custo_liquido_total > cash:
+            registrar_rejeicao(
+                conn, "COMPRA", cid_put, qty, premio_put,
+                f"Caixa insuficiente para a trava protetora: custo líquido R$ {custo_liquido_total} — "
+                f"disponível: R$ {cash}.",
+                user_id=user_id, origem=origem)
+            raise ValueError("Caixa insuficiente para a trava protetora.")
+
+        opts = get(conn, "optionPositions", user_id=user_id)
+        history = get(conn, "history", user_id=user_id)
+
+        existing_call = next((p for p in opts if p["id"] == cid_call and p.get("side") == "vendida"), None)
+        if existing_call:
+            total = existing_call["qty"] + qty
+            existing_call["avg"] = round((existing_call["avg"] * existing_call["qty"] + premio_call * qty) / total, 2)
+            existing_call["qty"] = total
+            existing_call["lastro"]["qty"] = existing_call["lastro"].get("qty", 0) + qty
+        else:
+            opts.append({
+                "id": cid_call, "underlying": underlying, "optionType": "call",
+                "strike": contract_call.get("strike"), "expiration": contract_call.get("expiration"),
+                "qty": qty, "avg": round(premio_call, 2), "stop": None, "alvo": None,
+                "abertaEm": now_str(), "side": "vendida",
+                "lastro": {"t": underlying, "qty": qty},
+                "ivEntrada": contract_call.get("ivEntrada"), "deltaEntrada": contract_call.get("deltaEntrada"),
+                "hv21Entrada": contract_call.get("hv21Entrada"),
+            })
+
+        existing_put = next((p for p in opts if p["id"] == cid_put and p.get("side") == "comprada"), None)
+        if existing_put:
+            total = existing_put["qty"] + qty
+            existing_put["avg"] = round((existing_put["avg"] * existing_put["qty"] + premio_put * qty) / total, 2)
+            existing_put["qty"] = total
+            existing_put["lastro"]["qty"] = existing_put["lastro"].get("qty", 0) + qty
+        else:
+            opts.append({
+                "id": cid_put, "underlying": underlying, "optionType": "put",
+                "strike": contract_put.get("strike"), "expiration": contract_put.get("expiration"),
+                "qty": qty, "avg": round(premio_put, 2), "stop": None, "alvo": None,
+                "abertaEm": now_str(), "side": "comprada",
+                "lastro": {"t": underlying, "qty": qty},
+                "ivEntrada": contract_put.get("ivEntrada"), "deltaEntrada": contract_put.get("deltaEntrada"),
+                "hv21Entrada": contract_put.get("hv21Entrada"),
+            })
+
+        cash = round(cash + qty * premio_call - qty * premio_put, 2)
+        pos_acao["qtyTravada"] = int(pos_acao.get("qtyTravada") or 0) + qty
+        history.insert(0, {"date": now_str(), "type": "VENDA", "kind": "opcao", "acao": "abrir",
+                            "t": cid_call, "underlying": underlying, "qty": qty, "price": round(premio_call, 2),
+                            "pnl": None, "origem": origem})
+        history.insert(0, {"date": now_str(), "type": "COMPRA", "kind": "opcao", "acao": "abrir",
+                            "t": cid_put, "underlying": underlying, "qty": qty, "price": round(premio_put, 2),
+                            "pnl": None, "origem": origem})
+
+        db.kv_set(conn, "optionPositions", opts, user_id=user_id)
+        db.kv_set(conn, "positions", positions, user_id=user_id)
+        db.kv_set(conn, "cash", cash, user_id=user_id)
+        db.kv_set(conn, "history", history, user_id=user_id)
+
+
 def liquidar_lastreada_vencida(conn, contract_id: str, spot: float, user_id=None):
     """Vencimento de uma posição LASTREADA (Fase 14, Plano 04) — a regra
     ÚNICA para o que acontece quando a CALL coberta chega ao vencimento sem

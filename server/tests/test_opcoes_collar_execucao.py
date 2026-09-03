@@ -191,7 +191,7 @@ def test_abrir_collar_premio_invalido_levanta_value_error(premio_call, premio_pu
 
 def test_abrir_collar_reabertura_faz_merge_de_avg_ponderado_e_soma_qty():
     conn, _ = _fresh_db()
-    store.buy(conn, "PETR4", 400, 38.0)
+    store.buy(conn, "PETR4", 400, 10.0)  # custo baixo — sobra caixa para os créditos líquidos
     store.abrir_collar(conn, _contract_call(), _contract_put(), 2, 1.50, 1.00)
     store.abrir_collar(conn, _contract_call(), _contract_put(), 2, 2.50, 2.00)
 
