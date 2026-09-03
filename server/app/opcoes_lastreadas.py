@@ -17,10 +17,6 @@ from .options_quant import liquidity_score
 # papel da cadeia expansível, não da proposta.
 _PRAZO_MIN_DIAS = 15
 _PRAZO_MAX_DIAS = 60
-# Fonte única do corte de liquidez é `opcoes_motor.LIQUIDEZ_MINIMA` (Fase 15,
-# Plano 03, ENG-01) — rebind em vez de literal duplicado, para o corte em
-# produção desde a Fase 14 nunca divergir do usado pelo motor genérico.
-_LIQUIDEZ_MINIMA = opcoes_motor.LIQUIDEZ_MINIMA
 
 
 def _dias_ate(expiration, hoje):
@@ -42,23 +38,6 @@ def _label_liquidez(score):
     return "SEM MERCADO"
 
 
-def _candidato_valido(c):
-    preco = c.get("lastPrice")
-    if not isinstance(preco, (int, float)) or preco <= 0:
-        return False
-    liq = liquidity_score(c.get("volume"), c.get("openInterest"), c.get("bid"), c.get("ask"))
-    return liq["score"] >= _LIQUIDEZ_MINIMA
-
-
-def _escolher_contrato(candidatos, melhor):
-    """`melhor` é `min` (menor strike — call OTM mais próxima) ou `max`
-    (maior strike — put mais próxima do spot, proteção mais próxima)."""
-    validos = [c for c in candidatos if _candidato_valido(c)]
-    if not validos:
-        return None
-    return melhor(validos, key=lambda c: c.get("strike") or 0)
-
-
 def propor(underlying, chain, spot, plano, posicao, cash, modo, hoje):
     """Proposta de UM contrato (venda coberta ou put de proteção) a partir da
     leitura técnica do ativo-lastro e do lastro livre — ou a ausência
@@ -73,6 +52,20 @@ def propor(underlying, chain, spot, plano, posicao, cash, modo, hoje):
         return {"proposta": None, "motivo": "degradado"}
     if not isinstance(posicao, dict) or store.qty_livre(posicao) < 100:
         return {"proposta": None, "motivo": "sem_lastro"}
+
+    # Guarda de preço do objeto: `_spot_from_chain_or_quote`
+    # (server/app/options_api.py:30-36) devolve `Optional[float]` — hoje um
+    # `spot=None` estoura `TypeError` na comparação
+    # `(c.get("strike") or 0) > spot` e o `except Exception` da rota
+    # (server/app/main.py:2404) converte em `degradado`. Depois da migração
+    # para `opcoes_motor.rastrear()`, `referencia` não-numérica é IGNORADA
+    # (opcoes_motor.py:95-98) — o motor devolveria o contrato de menor
+    # strike da cadeia inteira em silêncio, e trocar uma exceção por uma
+    # seleção errada viola o princípio 4 do CLAUDE.md (nunca inventar valor
+    # quando o dado falhou). Guarda explícita aqui preserva o mesmo motivo
+    # de saída de hoje (`degradado`) sem depender do acidente do TypeError.
+    if not isinstance(spot, (int, float)) or isinstance(spot, bool) or spot <= 0:
+        return {"proposta": None, "motivo": "degradado"}
 
     plano = plano or {}
     decisao = plano.get("decisao")
@@ -95,11 +88,27 @@ def propor(underlying, chain, spot, plano, posicao, cash, modo, hoje):
         return {"proposta": None, "motivo": "sem_vencimento_elegivel"}
 
     if tipo == "call_coberta":
-        candidatos = [c for c in (chain.get("calls") or []) if (c.get("strike") or 0) > spot]
-        contrato = _escolher_contrato(candidatos, min)
+        selecionados = opcoes_motor.rastrear(chain, {
+            "tipo": "call", "referencia": spot, "relacao": "acima",
+            "criterio": "min", "n": 1,
+        })
     else:
-        candidatos = [c for c in (chain.get("puts") or []) if (c.get("strike") or 0) <= spot]
-        contrato = _escolher_contrato(candidatos, max)
+        # Desempate de strike mudou com a migração: `max(validos,
+        # key=strike)` (implementação anterior) devolvia o PRIMEIRO strike
+        # máximo na ordem da cadeia; `rastrear(criterio="max")` ordena
+        # ascendente e devolve `list(reversed(...))[:n]`
+        # (opcoes_motor.py:105-108) — o ÚLTIMO empatado. Cadeia real da B3
+        # não repete strike no mesmo tipo e vencimento; a régua única (fonte
+        # compartilhada com venda coberta e o futuro collar) vale mais que
+        # preservar o desempate arbitrário anterior.
+        selecionados = opcoes_motor.rastrear(chain, {
+            "tipo": "put", "referencia": spot, "relacao": "abaixo_ou_igual",
+            "criterio": "max", "n": 1,
+        })
+    # NÃO passar `liquidez_minima`: o default de `rastrear()` já é
+    # `opcoes_motor.LIQUIDEZ_MINIMA` — repassar aqui recriaria o
+    # acoplamento local que esta migração remove.
+    contrato = selecionados[0] if selecionados else None
     if not contrato:
         return {"proposta": None, "motivo": "sem_contrato_liquido"}
 
