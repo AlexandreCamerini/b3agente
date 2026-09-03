@@ -7,14 +7,21 @@ e `.planning/notes/opcoes-v2-b-mcp-exploracao.md`.
 
 ### Navegação (NAV)
 
-- [ ] **NAV-01**: Usuário acessa uma aba "Opções" própria na barra de
-  navegação inferior (Candidato A do mockup de exploração).
-- [ ] **NAV-02**: A aba "Opções" mostra apenas propostas sobre tickers com
-  posição real na carteira do usuário — nunca uma estrutura sobre ticker sem
-  cobertura.
-- [ ] **NAV-03**: A aba "Opções" comunica estado vazio claro quando não há
-  proposta disponível (sem cobertura elegível, ou cobertura elegível mas sem
-  setup técnico ativo hoje).
+Revisado em 2026-09-03 após mockup + `navigation-specialist`: a barra
+inferior real tem 5 abas (não 4, como presumido em 01/09); Candidato A
+("aba própria") descartado. Ver `.planning/notes/opcoes-v2-b-mcp-exploracao.md`
+seção "Navegação" pro histórico da decisão original, preservado.
+
+- [ ] **NAV-01**: Usuário vê, no topo de Posições/Portfólio, uma tira
+  horizontal "Oportunidades de opções" agregando todas as propostas ativas
+  no momento — sem aba nova na navegação inferior.
+- [ ] **NAV-02**: Cada item da tira abre o detalhe completo dentro da
+  posição correspondente em Posições — nunca uma estrutura sobre ticker sem
+  posição real na carteira do usuário.
+- [ ] **NAV-03**: Quando não há nenhuma proposta ativa (sem cobertura
+  elegível, ou cobertura elegível mas sem setup técnico ativo hoje), a tira
+  comunica esse estado vazio claramente, com o motivo — nunca desaparece
+  silenciosamente.
 
 ### Biblioteca de estruturas (LIB)
 
@@ -64,6 +71,25 @@ e `.planning/notes/opcoes-v2-b-mcp-exploracao.md`.
   (frescor) — princípio 3 do CLAUDE.md, nunca dado silenciosamente
   desatualizado.
 
+### Motor multi-candidato (MULTI)
+
+Registrado em 2026-09-03 como Fase 19 (nova fase, decisão explícita do
+Alex — "no detalhamento da proposta deveriamos poder mostrar uma série de
+setups de opções para a análise do ativo"). Estende ENG-01..06 (Fase 15,
+já verificado, não reaberto) — motor hoje devolve UMA estrutura por
+posição via regra fixa de `plano.decisao`; estes requirements pedem N.
+Success criteria detalhados ficam para `/gsd-plan-phase 19`.
+
+- [ ] **MULTI-01**: O motor de proposta (`opcoes_lastreadas.propor()` e a
+  camada `opcoes_motor.rastrear()`/`avaliar()`) pode devolver mais de um
+  candidato de estrutura (venda coberta, put de proteção, collar) para a
+  mesma posição, quando mais de um fizer sentido pela análise técnica
+  atual — não mais uma escolha única e fixa.
+- [ ] **MULTI-02**: O detalhe da posição em Posições mostra os N candidatos
+  lado a lado (mesmo padrão visual da tira "Oportunidades" da Fase 18);
+  usuário aceita exatamente um por avaliação — nunca mais de um executado
+  simultaneamente para a mesma posição.
+
 ## Future Requirements (deferred)
 
 - Setup customizado pelo usuário (fora do v1 — biblioteca fixa por
@@ -110,5 +136,7 @@ e `.planning/notes/opcoes-v2-b-mcp-exploracao.md`.
 | FLOW-02 | Phase 17 | Pending |
 | FLOW-03 | Phase 17 | Pending |
 | FLOW-04 | Phase 17 | Pending |
+| MULTI-01 | Phase 19 | Pending |
+| MULTI-02 | Phase 19 | Pending |
 
-Coverage: 16/16 v1.4 requirements mapped. No orphans.
+Coverage: 18/18 v1.4 requirements mapped. No orphans.

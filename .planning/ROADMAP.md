@@ -164,20 +164,46 @@ Plans:
 - [ ] 17-06-PLAN.md — publicação do front (bump + publicar-web) e verificação humana do fluxo
 **UI hint**: yes
 
-#### Phase 18: Aba Opções
-**Goal**: Usuário acessa uma aba própria "Opções" na barra de navegação
-inferior (Candidato A) que mostra só propostas com cobertura real e
-comunica estado vazio claramente — a casa definitiva para o fluxo que já
-funciona desde a Fase 17.
+#### Phase 18: Seção de Opções em Posições
+**Goal**: Usuário descobre propostas de opções sem aba nova — uma tira
+"Oportunidades de opções" agregando todas as propostas ativas no topo de
+Posições/Portfólio, mais o detalhe completo dentro de cada posição
+específica. Decisão revista em 03/09 (mockup + navigation-specialist):
+a barra inferior real já tem 5 abas (não 4, como presumido em 01/09), e
+Opções só existe sobre posição real — nunca destino primário sem carteira
+construída. Candidato A (aba própria) descartado; ver
+`.planning/notes/opcoes-v2-b-mcp-exploracao.md` seção "Navegação" pro
+histórico completo (preservado, não reescrito).
 **Depends on**: Phase 17
 **Requirements**: NAV-01, NAV-02, NAV-03
 **Success Criteria** (what must be TRUE):
-  1. Usuário encontra e abre a aba "Opções" na barra de navegação inferior.
-  2. A aba mostra somente propostas sobre tickers com posição real na
-     carteira do usuário — nunca uma estrutura sobre ticker sem cobertura.
-  3. Quando não há proposta disponível (sem cobertura elegível, ou
-     cobertura elegível mas sem setup técnico ativo hoje), a aba comunica
-     esse estado vazio claramente, com o motivo.
+  1. Usuário vê, no topo de Posições, um resumo horizontal de todas as
+     propostas de opções ativas no momento (múltiplos tickers de uma vez).
+  2. Cada item do resumo abre o detalhe completo dentro da posição
+     correspondente — nunca uma estrutura sobre ticker sem cobertura real.
+  3. Quando não há nenhuma proposta ativa, o resumo comunica esse estado
+     vazio claramente, com o motivo — nunca desaparece silenciosamente.
+**Plans**: TBD
+**UI hint**: yes
+
+#### Phase 19: Motor multi-candidato
+**Goal**: O motor de proposta deixa de escolher UMA estrutura por posição
+(regra fixa de `plano.decisao` em `opcoes_lastreadas.propor()`, fechada na
+Fase 15/ENG-01) e passa a avaliar e devolver uma LISTA de candidatos
+(venda coberta, put de proteção, collar) sempre que mais de um fizer
+sentido pra mesma posição — usuário escolhe qual aceitar, em vez do motor
+decidir sozinho. Não reabre nem reescreve ENG-01..06 (Fase 15 permanece
+verificada como estava) — é extensão aditiva sobre o mesmo motor
+`opcoes_motor.rastrear()`/`avaliar()`.
+**Depends on**: Phase 18
+**Requirements**: TBD (a definir — provável nova categoria `MULTI-*` em
+`.planning/REQUIREMENTS.md`, cobrindo: motor retorna N candidatos por
+posição; UI do detalhe de Posições mostra os N lado a lado, mesmo padrão
+visual da tira de Oportunidades da Fase 18; usuário aceita exatamente um
+candidato, sem execução de mais de um pra mesma posição na mesma
+avaliação)
+**Success Criteria**: TBD — planejar com `/gsd-plan-phase 19` quando a
+Fase 18 estiver fechada.
 **Plans**: TBD
 **UI hint**: yes
 

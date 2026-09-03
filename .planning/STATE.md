@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Opções v2
 status: executing
-stopped_at: ROADMAP.md v1.4 criado (Phases 15-18), REQUIREMENTS.md traceability preenchida, STATE.md atualizado — aguardando aprovação do roadmap
-last_updated: "2026-09-03T01:58:42.938Z"
+stopped_at: Fase 18 reescopada (nav "seção em Posições", Candidato A descartado) e Fase 19 registrada (motor multi-candidato) em ROADMAP.md/REQUIREMENTS.md — Fase 17 aguarda checkpoint humano com mercado aberto; Fase 18/19 aguardam /gsd-plan-phase
+last_updated: "2026-09-03T12:00:00.000Z"
 last_activity: 2026-09-03 -- Phase 17 execution started
 progress:
-  total_phases: 6
+  total_phases: 7
   completed_phases: 2
   total_plans: 14
   completed_plans: 8
-  percent: 33
+  percent: 29
 ---
 
 # Project State
@@ -50,7 +50,7 @@ Progress: [██░░░░░░░░] 17%
 | 0, 10, 11 (v1.2) | 8 | - | - |
 | 12-13 (v1.3) | 8 | - | - |
 | 14 (standalone) | 8 | - | - |
-| 15-18 (v1.4) | TBD | - | - |
+| 15-19 (v1.4) | TBD | - | - |
 
 **Recent Trend:**
 
@@ -94,6 +94,27 @@ Recent decisions affecting current work:
   externo (b-mcp) até ele ficar pronto. 4 fases: 15 (motor de proposta,
   sem UI), 16 (biblioteca de 3 estruturas), 17 (fluxo de aceite via card
   existente), 18 (aba própria "Opções" na navegação).
+
+- Roadmap revisado em 2026-09-03, depois de verificar a Fase 15/16/17 e
+  produzir mockup + revisão com `navigation-specialist` pra Fase 18: a
+  barra inferior real tem 5 abas (não 4, presumido em 01/09) — Candidato A
+  ("aba própria Opções") descartado. Fase 18 passa a ser "seção dentro de
+  Posições" (tira "Oportunidades de opções" + detalhe por posição),
+  validado em 2 iterações de mockup com o Alex (artifact
+  `https://claude.ai/code/artifact/16ae7543-c58e-4b7f-b164-f8923efa431b`).
+  NAV-01..03 reescritos em REQUIREMENTS.md pra essa forma.
+
+- Fase 19 registrada em 2026-09-03 (decisão explícita do Alex: "Registrar
+  como nova fase", em resposta a "no detalhamento da proposta deveríamos
+  poder mostrar uma série de setups de opções para a análise do ativo") —
+  o motor hoje devolve UMA estrutura por posição (regra fixa de
+  `plano.decisao`, ENG-01, Fase 15 verificada, não reaberta); Fase 19
+  generaliza pra N candidatos, aditivo sobre `opcoes_motor.rastrear()`/
+  `avaliar()`. Novos requirements MULTI-01/02 em REQUIREMENTS.md, success
+  criteria detalhados ficam pra `/gsd-plan-phase 19`. Ordem confirmada:
+  Fase 18 (navegação, formato hoje single-candidato) primeiro, Fase 19
+  (multi-candidato) depois — leitura literal da instrução do Alex, sem
+  reordenar sem pedido explícito.
 
 - v1.3 e Phase 14 (standalone) arquivadas em
   `.planning/milestones/v1.3-phases/` e
@@ -146,10 +167,15 @@ Items acknowledged and carried forward from previous milestone close (v1.3 → v
 
 ## Session Continuity
 
-Last session: 2026-09-02
-Stopped at: ROADMAP.md v1.4 criado (Phases 15-18), REQUIREMENTS.md traceability preenchida, STATE.md atualizado — aguardando aprovação do roadmap
+Last session: 2026-09-03
+Stopped at: Fase 18 reescopada (nav "seção em Posições") e Fase 19 registrada (motor multi-candidato) em ROADMAP.md/REQUIREMENTS.md
 Resume file: None
 
 ## Operator Next Steps
 
-- Revisar e aprovar o roadmap; em seguida `/gsd:plan-phase 15`.
+- Retomar o checkpoint humano da Fase 17 (`17-06-PLAN.md` Task 2) com o
+  mercado aberto — payoff real, collar por caixa insuficiente, aceite/
+  cancelamento, Radar vs. Watchlist, iPhone. Só depois considerar a Fase 17
+  de fato fechada (e dar push pra origin).
+- `/gsd-plan-phase 18` — seção "Oportunidades de opções" em Posições.
+- `/gsd-plan-phase 19` — motor multi-candidato, depois da Fase 18 fechada.
