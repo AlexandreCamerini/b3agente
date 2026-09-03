@@ -168,6 +168,161 @@ def test_propor_manchete_muda_com_o_modo_mesma_proposta():
     assert r_educacional["proposta"]["manchete"].startswith("Se você tivesse")
 
 
+# ------------------- Parte 2b: motor comum (Fase 16, Plano 01) --------------
+# `propor()` migrou a seleção de contrato para `opcoes_motor.rastrear()`.
+# `spot` inutilizável (None/0/negativo/bool/string) precisa degradar
+# explicitamente ANTES de chegar em `rastrear()`, porque `rastrear()` IGNORA
+# silenciosamente uma `referencia` não-numérica (opcoes_motor.py:95-98) — sem
+# a guarda, a proposta escolheria o contrato de menor strike da cadeia
+# inteira em vez de degradar (CLAUDE.md princípio 4).
+
+def test_propor_spot_none_devolve_degradado():
+    r = opcoes_lastreadas.propor("PETR4", _cadeia(calls=_CALLS_PADRAO), None, _PLANO_NAO_OPERAR,
+                                  _posicao(), 100000, "operador", _HOJE)
+    assert r == {"proposta": None, "motivo": "degradado"}
+
+
+def test_propor_spot_zero_devolve_degradado():
+    r = opcoes_lastreadas.propor("PETR4", _cadeia(calls=_CALLS_PADRAO), 0, _PLANO_NAO_OPERAR,
+                                  _posicao(), 100000, "operador", _HOJE)
+    assert r == {"proposta": None, "motivo": "degradado"}
+
+
+def test_propor_spot_negativo_devolve_degradado():
+    r = opcoes_lastreadas.propor("PETR4", _cadeia(calls=_CALLS_PADRAO), -1, _PLANO_NAO_OPERAR,
+                                  _posicao(), 100000, "operador", _HOJE)
+    assert r == {"proposta": None, "motivo": "degradado"}
+
+
+def test_propor_spot_bool_devolve_degradado():
+    """`True` é subclasse de `int` em Python — vazaria como spot=1 se não
+    fosse recusado explicitamente."""
+    r = opcoes_lastreadas.propor("PETR4", _cadeia(calls=_CALLS_PADRAO), True, _PLANO_NAO_OPERAR,
+                                  _posicao(), 100000, "operador", _HOJE)
+    assert r == {"proposta": None, "motivo": "degradado"}
+
+
+def test_propor_spot_string_devolve_degradado():
+    r = opcoes_lastreadas.propor("PETR4", _cadeia(calls=_CALLS_PADRAO), "30", _PLANO_NAO_OPERAR,
+                                  _posicao(), 100000, "operador", _HOJE)
+    assert r == {"proposta": None, "motivo": "degradado"}
+
+
+def test_propor_put_empate_de_strike_devolve_ultimo_da_ordem():
+    """`rastrear(criterio="max")` ordena ascendente e inverte — o ÚLTIMO
+    strike empatado vence, diferente do `max()` local anterior (que devolvia
+    o PRIMEIRO). Divergência deliberada (Fase 16, Plano 01): cadeia real da
+    B3 não repete strike no mesmo tipo e vencimento, e a régua única
+    (compartilhada com o motor comum) vale mais que preservar o desempate
+    arbitrário de antes."""
+    puts_empatados = [
+        _contrato(28.0, "PUT_A", "put"),
+        _contrato(28.0, "PUT_B", "put"),
+    ]
+    r = opcoes_lastreadas.propor("PETR4", _cadeia(puts=puts_empatados), _SPOT, _PLANO_VENDER,
+                                  _posicao(), 100000, "operador", _HOJE)
+    assert r["proposta"]["contractSymbol"] == "PUT_B"
+
+
+# --------------- Parte 2c: payoff da estrutura + caixa (Task 2) -------------
+# `propor()` passa a montar `estrutura` (perfil de RISCO da posição completa
+# ação+opção, via `opcoes_motor.avaliar`) e `caixa` (movimento de caixa de
+# HOJE, só das pernas de opção) como campos aditivos — nenhum campo
+# pré-existente muda.
+
+def test_propor_venda_coberta_estrutura_tem_ganho_limitado_e_breakeven():
+    r = opcoes_lastreadas.propor("PETR4", _cadeia(calls=_CALLS_PADRAO), _SPOT, _PLANO_NAO_OPERAR,
+                                  _posicao(qty=300), 100000, "operador", _HOJE)
+    estrutura = r["proposta"]["estrutura"]
+    assert estrutura["ganho_ilimitado"] is False
+    assert estrutura["perda_ilimitada"] is False
+    assert estrutura["ganho_maximo"] == 3.0  # 32 - 30 + 1 (strike - spot + prêmio)
+    assert estrutura["perda_maxima"] == 29.0  # 30 - 1 (spot - prêmio)
+    assert estrutura["breakevens"] == [29.0]
+
+
+def test_propor_venda_coberta_caixa_nao_inclui_a_acao_ja_detida():
+    r = opcoes_lastreadas.propor("PETR4", _cadeia(calls=_CALLS_PADRAO), _SPOT, _PLANO_NAO_OPERAR,
+                                  _posicao(qty=300), 100000, "operador", _HOJE)
+    assert r["proposta"]["contratos"] == 3
+    assert r["proposta"]["caixa"] == {
+        "custoLiquidoUnitario": -1.0, "custoLiquidoTotal": -300.0, "fluxo": "credito",
+    }
+
+
+def test_propor_venda_coberta_preco_objeto_eh_o_spot():
+    r = opcoes_lastreadas.propor("PETR4", _cadeia(calls=_CALLS_PADRAO), _SPOT, _PLANO_NAO_OPERAR,
+                                  _posicao(qty=300), 100000, "operador", _HOJE)
+    assert r["proposta"]["precoObjeto"] == 30.0
+
+
+def test_propor_venda_coberta_pernas_da_estrutura_acao_primeiro():
+    r = opcoes_lastreadas.propor("PETR4", _cadeia(calls=_CALLS_PADRAO), _SPOT, _PLANO_NAO_OPERAR,
+                                  _posicao(qty=300), 100000, "operador", _HOJE)
+    pernas = r["proposta"]["estrutura"]["pernas"]
+    assert len(pernas) == 2
+    assert pernas[0]["tipo"] == "ACAO"
+    assert pernas[0]["premio"] == _SPOT
+    assert pernas[1]["tipo"] == "CALL"
+    assert pernas[1]["lado"] == "venda"
+
+
+def _put_09():
+    """Put de proteção com prêmio 0.9, mesmo padrão de strike/liquidez de
+    `_PUTS_PADRAO`, exigido pelos números exatos do bloco `<behavior>` da
+    Task 2 (perda_maxima == 2.9 = 30 - 28 + 0.9)."""
+    return [_contrato(28.0, "PETR4F28", "put", price=0.9)]
+
+
+def test_propor_put_protecao_estrutura_tem_ganho_ilimitado_e_perda_limitada():
+    r = opcoes_lastreadas.propor("PETR4", _cadeia(puts=_put_09()), _SPOT, _PLANO_VENDER,
+                                  _posicao(qty=100), 1_000_000, "operador", _HOJE)
+    estrutura = r["proposta"]["estrutura"]
+    assert estrutura["ganho_ilimitado"] is True
+    assert estrutura["ganho_maximo"] is None
+    assert estrutura["perda_ilimitada"] is False
+    assert estrutura["perda_maxima"] == 2.9  # 30 - 28 + 0.9
+
+
+def test_propor_put_protecao_caixa_eh_debito_do_premio():
+    r = opcoes_lastreadas.propor("PETR4", _cadeia(puts=_put_09()), _SPOT, _PLANO_VENDER,
+                                  _posicao(qty=100), 1_000_000, "operador", _HOJE)
+    assert r["proposta"]["caixa"]["fluxo"] == "debito"
+    assert r["proposta"]["caixa"]["custoLiquidoUnitario"] == 0.9
+
+
+def test_propor_campos_preexistentes_intactos_apos_campos_de_payoff():
+    r = opcoes_lastreadas.propor("PETR4", _cadeia(calls=_CALLS_PADRAO), _SPOT, _PLANO_NAO_OPERAR,
+                                  _posicao(qty=300), 100000, "operador", _HOJE)
+    p = r["proposta"]
+    assert p["tipo"] == "call_coberta"
+    assert p["contractSymbol"] == "PETR4F32"
+    assert p["optionType"] == "call"
+    assert p["strike"] == 32.0
+    assert p["expiration"] == _cadeia().get("expiration")
+    assert p["diasParaVencimento"] == 30
+    assert p["contratos"] == 3
+    assert p["qtyAcoes"] == 300
+    assert p["premioUnitario"] == 1.0
+    assert p["premioTotal"] == 300.0
+    assert p["lastro"] == {"t": "PETR4", "qtyLivre": 300}
+    assert set(p["liquidez"].keys()) == {"score", "label"}
+    assert p["manchete"].startswith("Vender")
+    assert p["didatica"].startswith("Se você tivesse")
+    assert [c["k"] for c in p["chips"]] == ["prazo", "strike", "prêmio", "liquidez"]
+
+
+def test_proposta_fechar_nao_ganha_campos_de_payoff():
+    cadeia = _cadeia(calls=[_contrato(32.0, "PETR4F32", "call", price=1.75)])
+    pos = {"id": "PETR4F32", "underlying": "PETR4", "optionType": "call", "strike": 32.0,
+           "expiration": cadeia["expiration"], "qty": 100, "avg": 1.0, "side": "vendida",
+           "lastro": {"t": "PETR4", "qty": 100}}
+    r = opcoes_lastreadas.proposta_fechar(pos, cadeia, "operador", _HOJE)
+    assert "estrutura" not in r["proposta"]
+    assert "caixa" not in r["proposta"]
+    assert "precoObjeto" not in r["proposta"]
+
+
 # ------------------------- Parte 3: proposta_fechar -------------------------
 # Bugfix do checkpoint humano do Plano 08: `propor()` é stateless e podia
 # devolver um contrato DIFERENTE do já aberto a cada chamada; `proposta_fechar`
@@ -232,7 +387,8 @@ def test_proposta_fechar_put_protecao_devolve_mesmo_contrato_com_premio_atual():
 def test_proposta_fechar_estavel_mesmo_quando_propor_divergiria():
     """A mesma leitura que faria `propor()` escolher um contrato NOVO (spot
     mudou / plano técnico mudou pra sem_setup) não afeta `proposta_fechar` —
-    ela nunca chama `_escolher_contrato`, só localiza o `id` já aberto."""
+    ela nunca re-escolhe contrato pelo motor comum, só localiza o `id` já
+    aberto."""
     cadeia_calls_novas = _cadeia(calls=[
         _contrato(32.0, "PETR4F32", "call", price=2.10),   # contrato já aberto
         _contrato(34.0, "PETR4F34", "call", price=1.20),   # `propor()` picaria outro se spot mudasse
