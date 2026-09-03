@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Opções v2
 status: executing
-stopped_at: Fases 15 e 16 verificadas (9/9 + 9/9 must-haves) e mergeadas; Fase 17 iniciando
-last_updated: "2026-09-02T23:05:00.000Z"
-last_activity: 2026-09-02 -- Phase 16 complete, verified, merged — starting Phase 17
+stopped_at: ROADMAP.md v1.4 criado (Phases 15-18), REQUIREMENTS.md traceability preenchida, STATE.md atualizado — aguardando aprovação do roadmap
+last_updated: "2026-09-03T01:58:42.938Z"
+last_activity: 2026-09-03 -- Phase 17 execution started
 progress:
   total_phases: 6
   completed_phases: 2
-  total_plans: 12
+  total_plans: 14
   completed_plans: 8
   percent: 33
 ---
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-09-01)
 ## Current Position
 
 Phase: 17 (fluxo-de-aceite) — EXECUTING
-Plan: 1 of ?
+Plan: 1 of 6
 Status: Executing Phase 17
-Last activity: 2026-09-02 -- Phase 16 execution started (Phase 15 complete, verified, merged)
+Last activity: 2026-09-03 -- Phase 17 execution started
 
 Progress: [██░░░░░░░░] 17%
 
