@@ -326,6 +326,49 @@ def test_proposta_com_excecao_no_pipeline_mantem_source_ja_capturado(
     assert _AT_RE.match(body["at"])
 
 
+# --- Guardiões FLOW-04 (Plano 17-02) — "guardiões de teste não se apagam";
+# reversão deliberada atualiza este guardião com nota, nunca apaga sem mais.
+
+def test_fonte_da_proposta_vem_da_cadeia_e_nunca_de_literal_na_rota(cli):
+    """Se a rota chumbar a fonte, o card do usuário passa a mentir de onde
+    veio o dado no dia em que o provider mudar — o repositório já teve
+    exatamente esse defeito (C-11/C-30 do REPORT-01, comentado em
+    `web/src/App.jsx:1649`). `source` PRECISA vir de `chain.get("source")`,
+    nunca de um literal escrito no corpo da rota."""
+    uid, headers = _novo_escopo(cli, "24")
+    r = cli.get("/api/options/proposta/PETR4", headers=headers)
+    assert r.status_code == 200
+    assert r.json()["source"] == "mock"
+
+    from app import main as main_mod
+    src = inspect.getsource(main_mod.options_proposta)
+    for literal in ('"yahoo"', '"brapi"', '"mydata"'):
+        assert literal not in src, f"fonte de provedor chumbada na rota: {literal}"
+
+
+@pytest.mark.parametrize("cenario", ["sem_lastro", "completa", "degradado"])
+def test_toda_resposta_de_proposta_carrega_at_bem_formado(
+        cli, monkeypatch, _expiracao_fixa, _snapshot_sem_setup, cenario):
+    """Parametrizado sobre os 3 caminhos de resposta já cobertos (ausência,
+    proposta completa, degradado): em TODOS, `at` está presente e bem
+    formado, e `source` está sempre presente como chave (valor podendo ser
+    `None`) — a suíte reprova se qualquer caminho perder o carimbo de
+    horário."""
+    uid, headers = _novo_escopo(cli, f"25-{cenario}")
+    if cenario == "completa":
+        _seed_posicao(uid, qty=300)
+    elif cenario == "degradado":
+        monkeypatch.setenv("B3_OPTIONS_MOCK_STATUS", "degraded")
+    # cenario == "sem_lastro": nenhuma posição, nenhum monkeypatch extra.
+
+    r = cli.get("/api/options/proposta/PETR4", headers=headers)
+    assert r.status_code == 200
+    body = r.json()
+    assert "at" in body
+    assert _AT_RE.match(body["at"])
+    assert "source" in body
+
+
 # --------------------------- POST .../lastreada/abrir ------------------------
 
 def _contract_symbol(cli, tipo="call"):
