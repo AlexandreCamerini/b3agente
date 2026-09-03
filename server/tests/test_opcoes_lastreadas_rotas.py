@@ -13,6 +13,8 @@ mais próxima fica <15 dias de distância por ~2 semanas a cada ciclo mensal).
 `_snapshot_sem_setup` substitui `technical_snapshot.get` por um snapshot
 sintético determinístico (sem candle real, sem rede) — mesma razão."""
 import datetime as dt
+import inspect
+import re
 import uuid
 
 import pytest
@@ -233,6 +235,95 @@ def test_proposta_multiperna_com_caixa_folgado_continua_put_protecao(
     body = r.json()
     assert body["motivo"] == "put_protecao"
     assert body["proposta"]["contratos"] >= 1
+
+
+# --- Plano 17-02 — FLOW-04: `source` e `at` na resposta de proposta ---------
+# Princípio 3 do CLAUDE.md ("dados de mercado exibem fonte, horário da última
+# atualização..."). Mesma convenção já usada por `/api/quotes` (`at`,
+# main.py:1339) e pelos technicals (`source`, main.py:1443) — aqui estendida
+# à rota de proposta, nos QUATRO caminhos de resposta (proposta completa,
+# fechamento, ausência sem_lastro, degradado).
+
+_AT_RE = re.compile(r"^\d{2}/\d{2}/\d{4} \d{2}:\d{2}$")
+
+
+def test_proposta_bem_sucedida_declara_source_e_at(cli, _expiracao_fixa, _snapshot_sem_setup):
+    uid, headers = _novo_escopo(cli, "18")
+    _seed_posicao(uid, qty=300)
+    r = cli.get("/api/options/proposta/PETR4", headers=headers)
+    assert r.status_code == 200
+    body = r.json()
+    assert body["motivo"] == "call_coberta"
+    assert body["source"] == "mock"
+    assert _AT_RE.match(body["at"])
+
+
+def test_proposta_de_fechamento_declara_source_e_at(cli):
+    """Ramo `pos_op_aberta` (`proposta_fechar`) — mesmo carimbo, caminho
+    distinto do ramo de proposta nova."""
+    uid, headers = _novo_escopo(cli, "19")
+    _seed_posicao(uid, qty=300)
+    _liga_operador(uid)
+    contrato = _contract_symbol(cli, "call")
+    r_abrir = cli.post("/api/options/lastreada/abrir", headers=headers, json={
+        "underlying": "PETR4", "contractSymbol": contrato["contractSymbol"], "contratos": 1,
+    })
+    assert r_abrir.status_code == 200, r_abrir.text
+
+    r = cli.get("/api/options/proposta/PETR4", headers=headers)
+    assert r.status_code == 200
+    body = r.json()
+    assert body["source"] == "mock"
+    assert _AT_RE.match(body["at"])
+
+
+def test_proposta_sem_lastro_declara_source_e_at(cli):
+    """Ausência explicada (`sem_lastro`) também é uma afirmação sobre dado de
+    mercado — não some sem carimbo."""
+    uid, headers = _novo_escopo(cli, "20")
+    r = cli.get("/api/options/proposta/PETR4", headers=headers)
+    assert r.status_code == 200
+    body = r.json()
+    assert body["motivo"] == "sem_lastro"
+    assert body["source"] == "mock"
+    assert _AT_RE.match(body["at"])
+
+
+def test_proposta_degradada_declara_source_e_at(cli, monkeypatch):
+    """Caminho degradado: `providerStatus == "degraded"`, mas a fonte que
+    falhou continua declarada — degradação não é desculpa pra sumir com a
+    proveniência."""
+    uid, headers = _novo_escopo(cli, "21")
+    monkeypatch.setenv("B3_OPTIONS_MOCK_STATUS", "degraded")
+    r = cli.get("/api/options/proposta/PETR4", headers=headers)
+    assert r.status_code == 200
+    body = r.json()
+    assert body["providerStatus"] == "degraded"
+    assert body["source"] == "mock"
+    assert _AT_RE.match(body["at"])
+
+
+def test_proposta_com_excecao_no_pipeline_mantem_source_ja_capturado(
+        cli, monkeypatch, _expiracao_fixa):
+    """Exceção depois que a cadeia já foi lida (aqui: `technical_snapshot.get`
+    levantando) — `source` continua o valor real já capturado, nunca
+    `KeyError`, nunca 500. A fonte é conhecida; apagá-la seria menos honesto
+    que declará-la mesmo com o pipeline quebrado no meio."""
+    uid, headers = _novo_escopo(cli, "22")
+    _seed_posicao(uid, qty=300)
+
+    async def _explode(ticker, period, loader, interval="1d"):
+        raise RuntimeError("pipeline técnico quebrado de propósito")
+
+    from app import technical_snapshot
+    monkeypatch.setattr(technical_snapshot, "get", _explode)
+
+    r = cli.get("/api/options/proposta/PETR4", headers=headers)
+    assert r.status_code == 200
+    body = r.json()
+    assert body["motivo"] == "degradado"
+    assert body["source"] == "mock"
+    assert _AT_RE.match(body["at"])
 
 
 # --------------------------- POST .../lastreada/abrir ------------------------
