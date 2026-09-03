@@ -2436,6 +2436,24 @@ async def options_lastreada_abrir(body: dict = Body(default={}), scope: Optional
     cfg = store.get(_conn, "config", user_id=scope) or {}
     if cfg.get("appMode") != "operador":
         raise HTTPException(403, "Modo Estudo não executa ordens — troque para o Modo Operador para operar.")
+    # Trava de servidor contra execução de meia estrutura (Fase 16, Plano 04,
+    # T-16-13): `store.abrir_call_coberta`/`store.comprar_put_protecao`
+    # executam UMA perna por chamada. Sem esta trava, um cliente que recebesse
+    # um collar (Plano 16-03) e postasse o corpo como se fosse proposta de
+    # uma perna abriria só a perna que coubesse no `contractSymbol` — o
+    # usuário ficaria com METADE da trava protetora, exposto a um risco
+    # DIFERENTE do apresentado na tela. A defesa é do SERVIDOR e não da UI,
+    # mesma disciplina do 403 de Modo Estudo acima (T-14-23): a UI pode ter
+    # bug, o servidor recusa igual. Checa tanto o rótulo `tipo` quanto a
+    # presença de mais de uma perna em `pernasContratos`/`pernas` — a trava
+    # não depende do cliente ser honesto sobre o rótulo.
+    #
+    # O collar continua sem caminho de EXECUÇÃO até a Fase 17 (FLOW-03)
+    # desenhar a abertura de estrutura de N pernas sobre `store.py`; esta
+    # trava é o que impede o vácuo de virar execução parcial silenciosa.
+    pernas_declaradas = body.get("pernasContratos") or body.get("pernas")
+    if body.get("tipo") == "collar" or (isinstance(pernas_declaradas, list) and len(pernas_declaradas) > 1):
+        raise HTTPException(400, "Estrutura de mais de uma perna não é executada por esta rota.")
     underlying = _normalize_ticker(str(body.get("underlying") or ""))
     contract_symbol = str(body.get("contractSymbol") or "")
     contratos = body.get("contratos")
