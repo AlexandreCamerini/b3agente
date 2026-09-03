@@ -115,10 +115,12 @@ def test_propor_collar_credito_liquido_contratos_pelo_lastro_nao_pelo_caixa():
 
 
 def test_propor_collar_debito_liquido_teto_do_caixa_contratos_2():
-    """put 1,50 / call 0,50 -> +1,00 por ação (débito): cash=250 trava em 2
-    contratos, não nos 3 que o lastro permitiria."""
-    calls = [_contrato(32.0, "PETR4F32", "call", price=0.5)]
-    puts = [_contrato(28.0, "PETR4F28", "put", price=1.5)]
+    """put 3,00 / call 2,00 -> +1,00 por ação (débito): a put isolada já
+    falha com cash=250 (250 < 100*3,00), e o collar trava em 2 contratos, não
+    nos 3 que o lastro permitiria (teto real do caixa, não só o caminho
+    feliz do crédito)."""
+    calls = [_contrato(32.0, "PETR4F32", "call", price=2.0)]
+    puts = [_contrato(28.0, "PETR4F28", "put", price=3.0)]
     r = opcoes_lastreadas.propor("PETR4", _cadeia(calls=calls, puts=puts), _SPOT, _PLANO_VENDER,
                                   _posicao(qty=300), 250, "operador", _HOJE, multiperna=True)
     assert r["motivo"] == "collar"
@@ -265,8 +267,8 @@ def test_propor_collar_canonico_chips_tem_4_entradas_credito():
 
 
 def test_propor_collar_debito_usa_chip_de_custo_liquido():
-    calls = [_contrato(32.0, "PETR4F32", "call", price=0.5)]
-    puts = [_contrato(28.0, "PETR4F28", "put", price=1.5)]
+    calls = [_contrato(32.0, "PETR4F32", "call", price=2.0)]
+    puts = [_contrato(28.0, "PETR4F28", "put", price=3.0)]
     r = opcoes_lastreadas.propor("PETR4", _cadeia(calls=calls, puts=puts), _SPOT, _PLANO_VENDER,
                                   _posicao(qty=300), 250, "operador", _HOJE, multiperna=True)
     chaves = [c["k"] for c in r["proposta"]["chips"]]
