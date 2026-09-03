@@ -229,5 +229,57 @@ ok("putOptionPosition permanece em persistence.js", /putOptionPosition/.test(per
     faltaNoRadar.length === 0, "faltando: " + faltaNoRadar.join(", "));
 })();
 
+// ---------------------------------------------------------------------------
+// Fase 17, Plano 04 — FLOW-01/FLOW-04: payoff completo (ganho máximo, perda
+// máxima, breakeven(s), caixa) e frescor do dado declarados no card de
+// proposta. Apagar qualquer guardião abaixo exige nota explícita (regra do
+// repositório) — eles travam a regra "null nunca 0.0" aplicada à UI e a
+// declaração de fonte/horário nos dois ramos do card.
+// ---------------------------------------------------------------------------
+
+const iFonte = app.indexOf("function FonteDoDadoProposta");
+ok("FonteDoDadoProposta localizado, definido ANTES de PropostaLastreada",
+  iFonte > -1 && iFonte < iPL);
+const fonteFnBody = iFonte > -1 ? app.slice(iFonte, iPL) : "";
+
+// 1) payoff nunca multiplica campo anulável direto — em JS `null * 100 === 0`;
+// multiplicar antes de checar transforma "não aplicável" em "R$ 0,00", a
+// regra "null nunca 0.0" do repositório (precedente
+// test_m3_format_pede_null_nunca_zero) aplicada à UI.
+ok("payoff NÃO multiplica est.ganho_maximo/perda_maxima direto",
+  !/est\.(ganho_maximo|perda_maxima)\s*\*/.test(propostaFn));
+ok("payoff passa por um helper que checa typeof antes de multiplicar",
+  /typeof v === "number"/.test(propostaFn));
+
+// 2) lado ilimitado vira palavra, não número
+ok("payoff trata ganho_ilimitado e perda_ilimitada",
+  /ganho_ilimitado/.test(propostaFn) && /perda_ilimitada/.test(propostaFn));
+ok("cp.payoffIlimitado referenciado pelo menos 2x (ganho e perda)",
+  (propostaFn.match(/cp\.payoffIlimitado/g) || []).length >= 2);
+
+// 3) breakeven é PREÇO DO ATIVO, não valor do lote — nunca multiplicado por qtyAcoes
+const linhaBreakeven = (propostaFn.match(/^.*breakevens.*$/m) || [""])[0];
+ok("linha que renderiza breakevens localizada", linhaBreakeven.length > 0);
+ok("linha de breakevens não contém qtyAcoes", !linhaBreakeven.includes("qtyAcoes"));
+
+// 4) frescor declarado nos DOIS ramos do card (vazio e com proposta) — "não
+// há proposta" também é uma afirmação sobre dado de mercado (CLAUDE.md #3).
+ok("<FonteDoDadoProposta aparece pelo menos 2x em propostaFn (os dois ramos)",
+  (propostaFn.match(/<FonteDoDadoProposta/g) || []).length >= 2);
+ok("FonteDoDadoProposta usa FONTE_LABEL (reuso, não rótulo próprio)",
+  /FONTE_LABEL\(/.test(fonteFnBody));
+ok("FonteDoDadoProposta usa cp.fontePropostaLinha",
+  /cp\.fontePropostaLinha/.test(fonteFnBody));
+
+// 5) o front não recompõe rótulo de fonte — nenhum literal de provedor
+// hardcoded no componente, tudo vem de FONTE_LABEL.
+ok("FonteDoDadoProposta não tem rótulo de fonte hardcoded (Yahoo/brapi/MyData)",
+  !/"Yahoo"|"brapi"|"MyData"/.test(fonteFnBody));
+
+// 6) bloco de payoff não aparece na proposta de FECHAMENTO (proposta_fechar
+// não devolve estrutura/caixa/precoObjeto)
+ok("bloco de payoff guardado por `{est && (`",
+  /\{est && \(/.test(propostaFn));
+
 if (fails) { console.error(`\n${fails} falha(s)`); process.exit(1); }
 console.log("\ntodos os testes passaram");
