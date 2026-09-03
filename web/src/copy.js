@@ -172,6 +172,23 @@ export const COPY = {
     propostaIndisponivelDegradada: "Proposta indisponível — cotação de opções degradada.",
     propostaVaziaTitulo: "Sem proposta agora",
 
+    // Fase 17 (Plano 04, FLOW-01/FLOW-04): payoff e frescor do dado — texto
+    // IDÊNTICO nos dois modos (rótulo de dado/aviso de sistema, não voz de
+    // professor/mesa; mesmo precedente de propostaIndisponivelDegradada/
+    // verCadeiaCompleta/avisoLiquidacaoForcada acima).
+    payoffTitulo: "No vencimento, se levar até o fim",
+    payoffGanhoMaximo: "ganho máximo",
+    payoffPerdaMaxima: "perda máxima",
+    payoffBreakeven: "empata em",
+    payoffIlimitado: "ilimitado",
+    payoffSemDado: "—",
+    payoffCaixaCredito: "recebe hoje",
+    payoffCaixaDebito: "custa hoje",
+    payoffCaixaNeutro: "sem movimento de caixa hoje",
+    payoffNota: (precoObjeto) => `Inclui sua posição em ações marcada a R$ ${precoObjeto} (preço de hoje). Resultado no vencimento, antes de custos.`,
+    fontePropostaLinha: (fonte, quando) => `Fonte: ${fonte} · ${quando}`,
+    fontePropostaSemDado: "Fonte do dado não declarada.",
+
     // Fase 14 (Plano 07): trava de lastro visível na Carteira. Ramo Estudo
     // evita "vender"/"comprar" — "recomprada" (adjetivo) não contém o
     // infinitivo "comprar" como substring, por isso é a forma usada aqui
@@ -324,6 +341,22 @@ export const COPY = {
     verCadeiaCompleta: "ver cadeia completa",
     propostaIndisponivelDegradada: "Proposta indisponível — cotação de opções degradada.",
     propostaVaziaTitulo: "Sem proposta agora",
+
+    // Fase 17 (Plano 04, FLOW-01/FLOW-04): mesma chave do ramo estudo (ver
+    // comentário acima) — rótulo de dado/aviso de sistema, texto IDÊNTICO
+    // nos dois modos, mesmo precedente de propostaIndisponivelDegradada.
+    payoffTitulo: "No vencimento, se levar até o fim",
+    payoffGanhoMaximo: "ganho máximo",
+    payoffPerdaMaxima: "perda máxima",
+    payoffBreakeven: "empata em",
+    payoffIlimitado: "ilimitado",
+    payoffSemDado: "—",
+    payoffCaixaCredito: "recebe hoje",
+    payoffCaixaDebito: "custa hoje",
+    payoffCaixaNeutro: "sem movimento de caixa hoje",
+    payoffNota: (precoObjeto) => `Inclui sua posição em ações marcada a R$ ${precoObjeto} (preço de hoje). Resultado no vencimento, antes de custos.`,
+    fontePropostaLinha: (fonte, quando) => `Fonte: ${fonte} · ${quando}`,
+    fontePropostaSemDado: "Fonte do dado não declarada.",
 
     // Fase 14 (Plano 07): mesma chave do ramo estudo (ver comentário acima).
     // Registro de mesa — vocabulário de ordem liberado aqui.

@@ -3000,6 +3000,19 @@ function OpcaoContrato({ c, cur, chain, isOpen, onToggle, sustains, pos, onBuy, 
   );
 }
 
+// Fase 17 (Plano 04, FLOW-04): declara fonte e horário do dado da proposta
+// (CLAUDE.md princípio 3) — reusa FONTE_LABEL (App.jsx:1185), mesmo padrão
+// já em produção em App.jsx:1655. "Não há proposta" também é uma afirmação
+// sobre dado de mercado — renderizado nos DOIS ramos de PropostaLastreada,
+// inclusive o vazio (T-17-19).
+function FonteDoDadoProposta({ r, cp }) {
+  return (
+    <div style={{ fontSize: "10px", color: T.textFaint, marginTop: "10px" }}>
+      {r.source ? cp.fontePropostaLinha(FONTE_LABEL(r.source), r.at || "—") : cp.fontePropostaSemDado}
+    </div>
+  );
+}
+
 // Fase 14 (Plano 06, 14-UI-SPEC.md) — o CARD DE PROPOSTA: venda coberta ou
 // put de proteção prontas, no mesmo formato visual da manchete única do hero
 // (App.jsx:3172-3174 — Display 17/800, eyebrow 10/800). A MANCHETE e a frase
@@ -3016,6 +3029,7 @@ function PropostaLastreada({ r, operador, cp, busy, onAbrir, onFechar, posAberta
         <div style={{ fontSize: "12px", color: T.textMuted, lineHeight: 1.5, marginTop: "4px" }}>
           {r.motivo === "degradado" ? cp.propostaIndisponivelDegradada : r.motivoTexto}
         </div>
+        <FonteDoDadoProposta r={r} cp={cp} />
       </div>
     );
   }
@@ -3024,6 +3038,16 @@ function PropostaLastreada({ r, operador, cp, busy, onAbrir, onFechar, posAberta
   const cor = isCall ? T.positive : T.negative; // NUNCA T.accent — mesma regra da manchete do ativo (App.jsx:768-773)
   const eyebrow = isCall ? cp.eyebrowPropostaCall : cp.eyebrowPropostaPut;
   const degradado = r.providerStatus !== "ok";
+  // Fase 17 (Plano 04, FLOW-01): payoff completo que a Fase 16 já calcula
+  // (proposta.estrutura/proposta.caixa) — ausente em proposta de FECHAMENTO
+  // (proposta_fechar não devolve estrutura/caixa/precoObjeto), por isso o
+  // bloco inteiro é guardado por `est &&` mais abaixo (T-17-21).
+  const est = p.estrutura || null;
+  // ATENÇÃO: `null * 100 === 0` em JS — só multiplica NÚMERO; null/undefined
+  // continuam null e caem em price(null) → "—" (regra "null nunca 0.0"
+  // aplicada à UI, T-17-17). Nunca multiplicar campo anulável da estrutura
+  // direto por qtyAcoes — sempre passar pelo helper abaixo.
+  const porLote = (v) => (typeof v === "number" ? v * (p.qtyAcoes || 0) : null);
   return (
     <div style={{ marginTop: "11px", padding: "16px", borderRadius: "11px", background: T.bgCard, border: `1px solid ${T.borderFaint}` }}>
       <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em", color: T.accent }}>{eyebrow}</div>
@@ -3038,6 +3062,40 @@ function PropostaLastreada({ r, operador, cp, busy, onAbrir, onFechar, posAberta
           </span>
         ))}
       </div>
+      {est && (
+        <div style={{ marginTop: "10px", padding: "10px", borderRadius: "9px", background: T.bgBase }}>
+          <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em", color: T.textFaint }}>{cp.payoffTitulo}</div>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", marginTop: "6px" }}>
+            <span style={{ color: T.textSecondary }}>{cp.payoffGanhoMaximo}</span>
+            <b style={{ fontFamily: MONO, fontWeight: 800, color: T.textPrimary }}>
+              {est.ganho_ilimitado ? cp.payoffIlimitado : "R$ " + price(porLote(est.ganho_maximo))}
+            </b>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", marginTop: "4px" }}>
+            <span style={{ color: T.textSecondary }}>{cp.payoffPerdaMaxima}</span>
+            <b style={{ fontFamily: MONO, fontWeight: 800, color: T.textPrimary }}>
+              {est.perda_ilimitada ? cp.payoffIlimitado : "R$ " + price(porLote(est.perda_maxima))}
+            </b>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", marginTop: "4px" }}>
+            <span style={{ color: T.textSecondary }}>{cp.payoffBreakeven}</span>
+            <b style={{ fontFamily: MONO, fontWeight: 800, color: T.textPrimary }}>
+              {Array.isArray(est.breakevens) && est.breakevens.length ? est.breakevens.map((b) => price(b)).join(" / ") : cp.payoffSemDado}
+            </b>
+          </div>
+          {p.caixa && (
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", marginTop: "4px" }}>
+              <span style={{ color: T.textSecondary }}>
+                {p.caixa.fluxo === "credito" ? cp.payoffCaixaCredito : p.caixa.fluxo === "debito" ? cp.payoffCaixaDebito : cp.payoffCaixaNeutro}
+              </span>
+              {p.caixa.fluxo !== "neutro" && (
+                <b style={{ fontFamily: MONO, fontWeight: 800, color: T.textPrimary }}>R$ {price(Math.abs(p.caixa.custoLiquidoTotal))}</b>
+              )}
+            </div>
+          )}
+          <div style={{ fontSize: "10px", color: T.textFaint, marginTop: "8px" }}>{cp.payoffNota(price(p.precoObjeto))}</div>
+        </div>
+      )}
       {/* Modo Estudo (vocab["educacional"]): a MESMA proposta, condicional —
           nunca um botão de executar (T-14-23). */}
       {!operador && (
@@ -3060,6 +3118,7 @@ function PropostaLastreada({ r, operador, cp, busy, onAbrir, onFechar, posAberta
             : cp.ctaPutProtecao(p.contratos, r.ticker, price(p.strike), price(p.premioTotal))}
         </button>
       )}
+      <FonteDoDadoProposta r={r} cp={cp} />
     </div>
   );
 }
