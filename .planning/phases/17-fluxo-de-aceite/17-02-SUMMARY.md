@@ -116,3 +116,13 @@ Nenhum bloqueio para 17-03/17-04/17-05/17-06.
 ---
 *Phase: 17-fluxo-de-aceite*
 *Completed: 2026-09-02*
+
+## Self-Check: PASSED
+
+- FOUND: `.planning/phases/17-fluxo-de-aceite/17-02-SUMMARY.md`
+- FOUND: `.planning/phases/17-fluxo-de-aceite/deferred-items.md`
+- OK: `server/.venv` (worktree test symlink) removed before finishing
+- FOUND commit `53eca92` (test: RED)
+- FOUND commit `3f47379` (feat: GREEN)
+- FOUND commit `8195edc` (test: guardiões)
+- FOUND commit `21a5eb9` (docs: SUMMARY)
