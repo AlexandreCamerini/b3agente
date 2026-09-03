@@ -12,6 +12,8 @@ de liquidez com fonte única (`opcoes_motor.LIQUIDEZ_MINIMA`).
 Parte 2 (Task 2): `avaliar()` e os adaptadores `perna_de_contrato`/
 `perna_de_acao` — o segundo lado do limite interno.
 """
+import datetime as dt
+
 from app import opcoes_motor
 
 
@@ -162,10 +164,42 @@ def test_rastrear_preserva_chaves_originais_do_contrato_adr004():
                                  "bid", "ask", "volume", "openInterest", "greeks", "expiration"}
 
 
-def test_corte_de_liquidez_tem_fonte_unica():
+def test_corte_de_liquidez_tem_fonte_unica(monkeypatch):
+    """Guardião ATUALIZADO na Fase 16, Plano 01 (LIB-01/LIB-02): a asserção
+    original (`opcoes_lastreadas._LIQUIDEZ_MINIMA is opcoes_motor.LIQUIDEZ_MINIMA`)
+    comparava dois rebinds do mesmo literal — não provava que só existia UMA
+    régua de corte, só que os dois nomes apontavam pro mesmo inteiro. Esta
+    fase apaga o rebind local (`_LIQUIDEZ_MINIMA`) e a implementação
+    duplicada (`_candidato_valido`/`_escolher_contrato`) inteiras; o guardião
+    passa a provar isso de duas formas mais fortes: (1) nenhum dos dois nomes
+    sobrevive no módulo; (2) `propor()` delega a seleção a
+    `opcoes_motor.rastrear()` e nunca repassa `liquidez_minima` nos filtros —
+    o corte só pode vir do default do motor comum."""
     from app import opcoes_lastreadas
-    assert opcoes_lastreadas._LIQUIDEZ_MINIMA == 40
-    assert opcoes_lastreadas._LIQUIDEZ_MINIMA is opcoes_motor.LIQUIDEZ_MINIMA
+
+    assert not hasattr(opcoes_lastreadas, "_LIQUIDEZ_MINIMA")
+    assert not hasattr(opcoes_lastreadas, "_candidato_valido")
+
+    chamadas = []
+    original = opcoes_motor.rastrear
+
+    def _espiao(cadeia, filtros):
+        chamadas.append(filtros)
+        return original(cadeia, filtros)
+
+    monkeypatch.setattr(opcoes_lastreadas.opcoes_motor, "rastrear", _espiao)
+
+    cadeia = {"providerStatus": "ok", "expiration": "2026-09-30",
+              "expirations": ["2026-09-30"], "calls": [],
+              "puts": [_contrato("PETRP28", "put", 28.0)]}
+    plano = {"decisao": "VENDER", "lado": "baixa"}
+    posicao = {"t": "PETR4", "qty": 300, "qtyTravada": 0}
+    hoje = dt.date(2026, 8, 31)
+
+    opcoes_lastreadas.propor("PETR4", cadeia, 29.0, plano, posicao, 100000, "operador", hoje)
+
+    assert len(chamadas) >= 1
+    assert all("liquidez_minima" not in f for f in chamadas)
 
 
 # ─────────────────────────────────────────────────────────────────────────

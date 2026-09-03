@@ -168,6 +168,62 @@ def test_propor_manchete_muda_com_o_modo_mesma_proposta():
     assert r_educacional["proposta"]["manchete"].startswith("Se você tivesse")
 
 
+# ------------------- Parte 2b: motor comum (Fase 16, Plano 01) --------------
+# `propor()` migrou a seleção de contrato para `opcoes_motor.rastrear()`.
+# `spot` inutilizável (None/0/negativo/bool/string) precisa degradar
+# explicitamente ANTES de chegar em `rastrear()`, porque `rastrear()` IGNORA
+# silenciosamente uma `referencia` não-numérica (opcoes_motor.py:95-98) — sem
+# a guarda, a proposta escolheria o contrato de menor strike da cadeia
+# inteira em vez de degradar (CLAUDE.md princípio 4).
+
+def test_propor_spot_none_devolve_degradado():
+    r = opcoes_lastreadas.propor("PETR4", _cadeia(calls=_CALLS_PADRAO), None, _PLANO_NAO_OPERAR,
+                                  _posicao(), 100000, "operador", _HOJE)
+    assert r == {"proposta": None, "motivo": "degradado"}
+
+
+def test_propor_spot_zero_devolve_degradado():
+    r = opcoes_lastreadas.propor("PETR4", _cadeia(calls=_CALLS_PADRAO), 0, _PLANO_NAO_OPERAR,
+                                  _posicao(), 100000, "operador", _HOJE)
+    assert r == {"proposta": None, "motivo": "degradado"}
+
+
+def test_propor_spot_negativo_devolve_degradado():
+    r = opcoes_lastreadas.propor("PETR4", _cadeia(calls=_CALLS_PADRAO), -1, _PLANO_NAO_OPERAR,
+                                  _posicao(), 100000, "operador", _HOJE)
+    assert r == {"proposta": None, "motivo": "degradado"}
+
+
+def test_propor_spot_bool_devolve_degradado():
+    """`True` é subclasse de `int` em Python — vazaria como spot=1 se não
+    fosse recusado explicitamente."""
+    r = opcoes_lastreadas.propor("PETR4", _cadeia(calls=_CALLS_PADRAO), True, _PLANO_NAO_OPERAR,
+                                  _posicao(), 100000, "operador", _HOJE)
+    assert r == {"proposta": None, "motivo": "degradado"}
+
+
+def test_propor_spot_string_devolve_degradado():
+    r = opcoes_lastreadas.propor("PETR4", _cadeia(calls=_CALLS_PADRAO), "30", _PLANO_NAO_OPERAR,
+                                  _posicao(), 100000, "operador", _HOJE)
+    assert r == {"proposta": None, "motivo": "degradado"}
+
+
+def test_propor_put_empate_de_strike_devolve_ultimo_da_ordem():
+    """`rastrear(criterio="max")` ordena ascendente e inverte — o ÚLTIMO
+    strike empatado vence, diferente do `max()` local anterior (que devolvia
+    o PRIMEIRO). Divergência deliberada (Fase 16, Plano 01): cadeia real da
+    B3 não repete strike no mesmo tipo e vencimento, e a régua única
+    (compartilhada com o motor comum) vale mais que preservar o desempate
+    arbitrário de antes."""
+    puts_empatados = [
+        _contrato(28.0, "PUT_A", "put"),
+        _contrato(28.0, "PUT_B", "put"),
+    ]
+    r = opcoes_lastreadas.propor("PETR4", _cadeia(puts=puts_empatados), _SPOT, _PLANO_VENDER,
+                                  _posicao(), 100000, "operador", _HOJE)
+    assert r["proposta"]["contractSymbol"] == "PUT_B"
+
+
 # ------------------------- Parte 3: proposta_fechar -------------------------
 # Bugfix do checkpoint humano do Plano 08: `propor()` é stateless e podia
 # devolver um contrato DIFERENTE do já aberto a cada chamada; `proposta_fechar`
@@ -232,7 +288,8 @@ def test_proposta_fechar_put_protecao_devolve_mesmo_contrato_com_premio_atual():
 def test_proposta_fechar_estavel_mesmo_quando_propor_divergiria():
     """A mesma leitura que faria `propor()` escolher um contrato NOVO (spot
     mudou / plano técnico mudou pra sem_setup) não afeta `proposta_fechar` —
-    ela nunca chama `_escolher_contrato`, só localiza o `id` já aberto."""
+    ela nunca re-escolhe contrato pelo motor comum, só localiza o `id` já
+    aberto."""
     cadeia_calls_novas = _cadeia(calls=[
         _contrato(32.0, "PETR4F32", "call", price=2.10),   # contrato já aberto
         _contrato(34.0, "PETR4F34", "call", price=1.20),   # `propor()` picaria outro se spot mudasse
