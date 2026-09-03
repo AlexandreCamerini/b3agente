@@ -1387,7 +1387,7 @@ function deviceStore() {
         out.premiosUsados = r && r.premiosUsados;
         return out;
       }
-      throw new Error("Montar uma trava protetora exige estar conectado à sua conta — as duas pernas são validadas juntas no servidor.");
+      throw new Error("Montar um collar exige estar conectado à sua conta — as duas pernas são validadas juntas no servidor.");
     },
     cachedTechnicals(t, period) {
       return getCachedTech(t, period);

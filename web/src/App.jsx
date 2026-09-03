@@ -3036,8 +3036,8 @@ function PropostaLastreada({ r, operador, cp, busy, onAbrir, onFechar, posAberta
   const p = r.proposta;
   const isCall = p.optionType === "call";
   const cor = isCall ? T.positive : T.negative; // NUNCA T.accent — mesma regra da manchete do ativo (App.jsx:768-773)
-  // Fase 17 (Plano 05, FLOW-02/FLOW-03): collar (trava protetora, 2 pernas)
-  // — `optionType`/`strike` vêm `null` na proposta de collar (isCall fica
+  // Fase 17 (Plano 05, FLOW-02/FLOW-03): collar (2 pernas, call + put) —
+  // `optionType`/`strike` vêm `null` na proposta de collar (isCall fica
   // false, cor sai T.negative: coerente, é operação defensiva), por isso
   // eyebrow/identificação de contrato/CTA ganham um ramo próprio abaixo.
   const isCollar = p.tipo === "collar";
@@ -7824,8 +7824,8 @@ export default function App() {
         const s = await store.optionsAbrirCollar(body);
         setData(s);
         track("trade_simulated", { side: "abrir", ticker: body.underlying, instrument: "opcao_collar" });
-        flash("Trava protetora aberta — " + body.underlying + ".");
-      } catch (e) { flash("Montar trava protetora: " + (e.message || e)); }
+        flash("Collar aberto — " + body.underlying + ".");
+      } catch (e) { flash("Montar collar: " + (e.message || e)); }
     },
     fecharLastreada: async (body) => {
       try {

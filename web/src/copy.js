@@ -189,17 +189,20 @@ export const COPY = {
     fontePropostaLinha: (fonte, quando) => `Fonte: ${fonte} · ${quando}`,
     fontePropostaSemDado: "Fonte do dado não declarada.",
 
-    // Fase 17 (Plano 05, FLOW-02/FLOW-03): collar (trava protetora, 2
-    // pernas). `collarPernasLinha` é descrição de dado (contrato/strike), não
-    // voz de professor/mesa — IDÊNTICA nos dois modos, mesmo precedente de
+    // Fase 17 (Plano 05, FLOW-02/FLOW-03): collar (2 pernas, call + put).
+    // `collarPernasLinha` é descrição de dado (contrato/strike), não voz de
+    // professor/mesa — IDÊNTICA nos dois modos, mesmo precedente de
     // payoffTitulo/fontePropostaLinha acima. Ramo Estudo nunca chama
     // window.confirm (confirmAbrirCollar retorna "" aqui, mesma convenção de
-    // confirmAbrirCoberta) e o CTA nunca usa "comprar"/"vender" — "Montar"/
-    // "trava protetora" descrevem a estrutura sem infinitivo de ordem.
+    // confirmAbrirCoberta) e o CTA nunca usa "comprar"/"vender" — "Montar"
+    // descreve a estrutura sem infinitivo de ordem. Texto usa "collar" em
+    // vez da frase-âncora da manchete do motor (guardrail CVM,
+    // test_opcoes_collar_vocab.py::test_nenhum_arquivo_front_compoe_manchete_do_collar
+    // — mesma colisão já documentada pelos Planos 17-01/17-03).
     eyebrowPropostaCollar: "ESTUDO · TRAVA PROTETORA",
     collarPernasLinha: (n, ticker, strikeCall, strikePut) => `${n}× TRAVA ${ticker} · call ${strikeCall} / put ${strikePut}`,
-    ctaCollarDebito: () => "Ver como esta trava protetora funcionaria",
-    ctaCollarCredito: () => "Ver como esta trava protetora funcionaria",
+    ctaCollarDebito: () => "Ver como este collar funcionaria",
+    ctaCollarCredito: () => "Ver como este collar funcionaria",
     confirmAbrirCollar: () => "", // ramo estudo nunca chama window.confirm — chave existe só pela paridade
 
     // Fase 14 (Plano 07): trava de lastro visível na Carteira. Ramo Estudo
