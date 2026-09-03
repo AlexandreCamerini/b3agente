@@ -130,8 +130,8 @@ pernas — prova de que o motor compõe N pernas de verdade, não só 1.
 **Plans**: 4 plans
 
 Plans:
-- [ ] 16-01-PLAN.md — venda coberta e put de proteção pelo motor comum: seleção por `rastrear()` + payoff/caixa aditivos (LIB-01, LIB-02)
-- [ ] 16-02-PLAN.md — vocabulário canônico do collar nos dois modos + guardião CVM (LIB-03)
+- [x] 16-01-PLAN.md — venda coberta e put de proteção pelo motor comum: seleção por `rastrear()` + payoff/caixa aditivos (LIB-01, LIB-02)
+- [x] 16-02-PLAN.md — vocabulário canônico do collar nos dois modos + guardião CVM (LIB-03)
 - [ ] 16-03-PLAN.md — composição do collar: 3 pernas numa avaliação, gatilho de oferta e guardiões (LIB-03)
 - [ ] 16-04-PLAN.md — collar na rota por negociação de capacidade, trava de execução de meia estrutura e ADR-025 (LIB-01, LIB-02, LIB-03)
 
@@ -197,7 +197,7 @@ C) — ver `.planning/REQUIREMENTS.md` Out of Scope / Future Requirements.
 | 13. Uso real visível na interface + enforcement no iOS | v1.3 | Complete | 2026-08-31 |
 | 14. Opções lastreadas — venda coberta e put de proteção | standalone | Complete (em produção) | 2026-08-31 |
 | 15. Motor de proposta (arquitetura interna) | 4/4 | Complete   | 2026-09-02 |
-| 16. Biblioteca de estruturas | v1.4 | Not started | - |
+| 16. Biblioteca de estruturas | 2/4 | In Progress|  |
 | 17. Fluxo de aceite | v1.4 | Not started | - |
 | 18. Aba Opções | v1.4 | Not started | - |
 
