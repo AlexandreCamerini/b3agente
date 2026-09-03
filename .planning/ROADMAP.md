@@ -185,10 +185,10 @@ histórico completo (preservado, não reescrito).
      vazio claramente, com o motivo — nunca desaparece silenciosamente.
 **Plans**: 5 plans
 Plans:
-- [ ] 18-01-PLAN.md — vocabulário da tira em copy.js + hook `useOpcoesPropostas` (uma busca gate→proposta por ticker)
-- [ ] 18-02-PLAN.md — NAV-02: `PropostaDaPosicao` e detalhe completo dentro do card de posição, com aceite/encerramento
-- [ ] 18-03-PLAN.md — NAV-01/NAV-03: tira `OportunidadesOpcoes` no topo de Posições, com estados vazios explícitos
-- [ ] 18-04-PLAN.md — guardião estático da fase + suíte canônica completa verde
+- [x] 18-01-PLAN.md — vocabulário da tira em copy.js + hook `useOpcoesPropostas` (uma busca gate→proposta por ticker)
+- [x] 18-02-PLAN.md — NAV-02: `PropostaDaPosicao` e detalhe completo dentro do card de posição, com aceite/encerramento
+- [x] 18-03-PLAN.md — NAV-01/NAV-03: tira `OportunidadesOpcoes` no topo de Posições, com estados vazios explícitos
+- [x] 18-04-PLAN.md — guardião estático da fase + suíte canônica completa verde
 - [ ] 18-05-PLAN.md — bump + publicação do front e checkpoint humano ao vivo
 **UI hint**: yes
 
@@ -239,7 +239,7 @@ C) — ver `.planning/REQUIREMENTS.md` Out of Scope / Future Requirements.
 | 15. Motor de proposta (arquitetura interna) | 4/4 | Complete   | 2026-09-02 |
 | 16. Biblioteca de estruturas | 4/4 | Complete   | 2026-09-03 |
 | 17. Fluxo de aceite | 5/6 | In Progress|  |
-| 18. Aba Opções | v1.4 | Not started | - |
+| 18. Aba Opções | 4/5 | In Progress|  |
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2/v1.3
 

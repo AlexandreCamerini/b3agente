@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Opções v2
 status: executing
-stopped_at: Fase 18 reescopada (nav "seção em Posições", Candidato A descartado) e Fase 19 registrada (motor multi-candidato) em ROADMAP.md/REQUIREMENTS.md — Fase 17 aguarda checkpoint humano com mercado aberto; Fase 18/19 aguardam /gsd-plan-phase
-last_updated: "2026-09-03T12:00:00.000Z"
-last_activity: 2026-09-03 -- Phase 17 execution started
+stopped_at: Fase 18 reescopada (nav "seção em Posições") e Fase 19 registrada (motor multi-candidato) em ROADMAP.md/REQUIREMENTS.md
+last_updated: "2026-09-03T11:11:00.450Z"
+last_activity: 2026-09-03 -- Phase 18 execution started
 progress:
   total_phases: 7
-  completed_phases: 2
-  total_plans: 14
-  completed_plans: 8
-  percent: 29
+  completed_phases: 3
+  total_plans: 19
+  completed_plans: 14
+  percent: 43
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-01)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Phase 17 — fluxo-de-aceite
+**Current focus:** Phase 18 — aba-opcoes
 
 ## Current Position
 
-Phase: 17 (fluxo-de-aceite) — EXECUTING
-Plan: 1 of 6
-Status: Executing Phase 17
-Last activity: 2026-09-03 -- Phase 17 execution started
+Phase: 18 (aba-opcoes) — EXECUTING
+Plan: 1 of 5
+Status: Executing Phase 18
+Last activity: 2026-09-03 -- Phase 18 execution started
 
 Progress: [██░░░░░░░░] 17%
 
@@ -177,5 +177,6 @@ Resume file: None
   mercado aberto — payoff real, collar por caixa insuficiente, aceite/
   cancelamento, Radar vs. Watchlist, iPhone. Só depois considerar a Fase 17
   de fato fechada (e dar push pra origin).
+
 - `/gsd-plan-phase 18` — seção "Oportunidades de opções" em Posições.
 - `/gsd-plan-phase 19` — motor multi-candidato, depois da Fase 18 fechada.
