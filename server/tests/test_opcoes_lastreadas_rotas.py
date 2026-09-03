@@ -18,7 +18,7 @@ import uuid
 import pytest
 from fastapi.testclient import TestClient
 
-from app import options_provider_mock, pregao, store, technical_snapshot
+from app import options_provider_mock, pregao, setups, store, technical_snapshot
 from app.main import app, _conn
 
 
@@ -84,6 +84,31 @@ def _seed_posicao(user_id, qty=300, price=30.0):
     store.buy(_conn, "PETR4", qty, price, user_id=user_id)
 
 
+@pytest.fixture
+def _plano_vender(monkeypatch):
+    """Leitura técnica de VENDER (risco de queda sobre a posição) — o motor
+    propõe `put_protecao` (ou, com `multiperna=1` e caixa insuficiente pra
+    put isolada, `collar`)."""
+    monkeypatch.setattr(setups, "plano_do_resultado", lambda *a, **k: {"decisao": "VENDER", "lado": "baixa"})
+
+
+def _pernas_collar_da_cadeia(cli, ticker="PETR4"):
+    """Lê a cadeia REAL do provider mock e devolve `(spot, premio_call,
+    premio_put)` da MESMA régua de seleção do motor: call de menor strike
+    ACIMA do spot (venda), put de maior strike ATÉ o spot (compra) — não
+    chutado, para o caixa calculado no teste refletir o que `propor()`
+    realmente vai escolher."""
+    r = cli.get(f"/api/options/chain/{ticker}")
+    assert r.status_code == 200, r.text
+    data = r.json()
+    spot = data["underlyingPrice"]
+    calls_acima = [c for c in data["calls"] if c["strike"] > spot]
+    puts_ate = [p for p in data["puts"] if p["strike"] <= spot]
+    call = min(calls_acima, key=lambda c: c["strike"])
+    put = max(puts_ate, key=lambda p: p["strike"])
+    return spot, float(call["lastPrice"]), float(put["lastPrice"])
+
+
 # --------------------------- GET /api/options/proposta ----------------------
 
 def test_proposta_sem_posicao_devolve_sem_lastro_com_motivo_texto(cli):
@@ -115,6 +140,99 @@ def test_proposta_nunca_cai_em_500_mesmo_sem_posicao_e_sem_cadeia(cli):
     uid, headers = _novo_escopo(cli, "03")
     r = cli.get("/api/options/proposta/PETR4", headers=headers)
     assert r.status_code == 200
+
+
+# --- Plano 16-04 — negociação de capacidade `multiperna` na rota de proposta
+
+def test_proposta_sem_multiperna_traz_campos_aditivos_da_fase_16(cli, _expiracao_fixa, _snapshot_sem_setup):
+    """`GET .../proposta/PETR4` sem o parâmetro novo: comportamento IDÊNTICO
+    ao de antes desta fase (`motivo`/`contratos`), agora com os campos
+    aditivos `estrutura`/`caixa`/`precoObjeto` do Plano 16-01 atravessando a
+    serialização JSON da rota."""
+    uid, headers = _novo_escopo(cli, "12")
+    _seed_posicao(uid, qty=300)
+    r = cli.get("/api/options/proposta/PETR4", headers=headers)
+    assert r.status_code == 200
+    body = r.json()
+    assert body["motivo"] == "call_coberta"
+    assert body["proposta"]["contratos"] >= 1
+    assert isinstance(body["proposta"]["estrutura"], dict)
+    assert isinstance(body["proposta"]["caixa"], dict)
+    assert isinstance(body["proposta"]["precoObjeto"], (int, float))
+
+
+def test_proposta_vender_caixa_insuficiente_multiperna_liga_collar_sem_quebrar_cliente_publicado(
+        cli, _expiracao_fixa, _snapshot_sem_setup, _plano_vender):
+    """MESMO cenário (VENDER + caixa insuficiente pra put isolada): sem o
+    parâmetro, o cliente publicado hoje continua vendo `caixa_insuficiente`
+    — nenhuma regressão. Com `?multiperna=1`, o cliente que pediu a
+    capacidade recebe o collar inteiro (payoff, duas pernas, caixa)."""
+    uid, headers = _novo_escopo(cli, "13")
+    _seed_posicao(uid, qty=300)
+    spot, premio_call, premio_put = _pernas_collar_da_cadeia(cli)
+    cash = max(0.0, 100 * (premio_put - premio_call)) + 0.5
+    # As duas desigualdades que a fórmula do plano garante — afirmadas aqui
+    # para que, se o mock mudar e a premissa quebrar, o teste falhe dizendo
+    # por quê, em vez de passar por acidente.
+    assert cash < 100 * premio_put, "put isolada não pode caber no caixa"
+    assert cash >= 100 * (premio_put - premio_call), "o débito líquido do collar tem que caber"
+    store.put(_conn, "cash", cash, user_id=uid)
+
+    r_sem = cli.get("/api/options/proposta/PETR4", headers=headers)
+    assert r_sem.status_code == 200
+    body_sem = r_sem.json()
+    assert body_sem["motivo"] == "caixa_insuficiente"
+    assert body_sem["proposta"] is None
+
+    r_com = cli.get("/api/options/proposta/PETR4?multiperna=1", headers=headers)
+    assert r_com.status_code == 200
+    body_com = r_com.json()
+    assert body_com["motivo"] == "collar"
+    p = body_com["proposta"]
+    assert p["tipo"] == "collar"
+    assert p["contractSymbol"] is None
+    assert len(p["pernasContratos"]) == 2
+    assert p["estrutura"]["ganho_ilimitado"] is False
+    assert p["estrutura"]["perda_ilimitada"] is False
+
+
+def test_proposta_multiperna_falso_explicito_comporta_como_ausencia(
+        cli, _expiracao_fixa, _snapshot_sem_setup, _plano_vender):
+    """`?multiperna=0` e `?multiperna=false` são o MESMO caminho que a
+    ausência do parâmetro — nenhum dos dois libera o collar."""
+    uid, headers = _novo_escopo(cli, "14")
+    _seed_posicao(uid, qty=300)
+    spot, premio_call, premio_put = _pernas_collar_da_cadeia(cli)
+    cash = max(0.0, 100 * (premio_put - premio_call)) + 0.5
+    store.put(_conn, "cash", cash, user_id=uid)
+
+    for valor in ("0", "false"):
+        r = cli.get(f"/api/options/proposta/PETR4?multiperna={valor}", headers=headers)
+        assert r.status_code == 200, r.text
+        assert r.json()["motivo"] == "caixa_insuficiente", valor
+
+
+def test_proposta_multiperna_valor_invalido_devolve_422_nunca_500_nunca_collar(
+        cli, _expiracao_fixa, _snapshot_sem_setup, _plano_vender):
+    uid, headers = _novo_escopo(cli, "15")
+    _seed_posicao(uid, qty=300)
+    r = cli.get("/api/options/proposta/PETR4?multiperna=banana", headers=headers)
+    assert r.status_code == 422
+
+
+def test_proposta_multiperna_com_caixa_folgado_continua_put_protecao(
+        cli, _expiracao_fixa, _snapshot_sem_setup, _plano_vender):
+    """Caixa folgado + `?multiperna=1`: a put isolada CABE, então o motor
+    nunca entra no ramo do collar — `multiperna=1` não muda nada quando a
+    porta que ele abriria já estava aberta."""
+    uid, headers = _novo_escopo(cli, "16")
+    _seed_posicao(uid, qty=300)
+    store.put(_conn, "cash", 10_000.0, user_id=uid)
+    r = cli.get("/api/options/proposta/PETR4?multiperna=1", headers=headers)
+    assert r.status_code == 200
+    body = r.json()
+    assert body["motivo"] == "put_protecao"
+    assert body["proposta"]["contratos"] >= 1
 
 
 # --------------------------- POST .../lastreada/abrir ------------------------
@@ -183,6 +301,66 @@ def test_abrir_mais_contratos_do_que_o_lastro_permite_devolve_400(cli):
         "underlying": "PETR4", "contractSymbol": contrato["contractSymbol"], "contratos": 5,
     })
     assert r.status_code == 400
+
+
+# --- Plano 16-04 — trava de servidor contra execução de meia estrutura -------
+# `store.abrir_call_coberta`/`store.comprar_put_protecao` executam UMA perna
+# por chamada; sem esta trava, um corpo de collar postado nesta rota abriria
+# só a perna que coubesse no `contractSymbol` único — o usuário ficaria com
+# METADE da trava protetora, exposto a um risco diferente do apresentado na
+# tela. A trava é do SERVIDOR (mesma disciplina do 403 de Modo Estudo,
+# T-14-23): a UI pode ter bug, o servidor recusa igual.
+
+def test_abrir_recusa_estrutura_collar_por_tipo_400_sem_efeito_colateral(cli):
+    uid, headers = _novo_escopo(cli, "17")
+    _seed_posicao(uid, qty=300)
+    _liga_operador(uid)
+    caixa_antes = store.get(_conn, "cash", user_id=uid)
+    option_positions_antes = store.get(_conn, "optionPositions", user_id=uid)
+    contrato_call = _contract_symbol(cli, "call")
+    contrato_put = _contract_symbol(cli, "put")
+    r = cli.post("/api/options/lastreada/abrir", headers=headers, json={
+        "underlying": "PETR4", "tipo": "collar", "contratos": 3,
+        "pernasContratos": [contrato_call["contractSymbol"], contrato_put["contractSymbol"]],
+    })
+    assert r.status_code == 400
+    assert "mais de uma perna" in r.json()["detail"]
+    assert store.get(_conn, "cash", user_id=uid) == caixa_antes
+    assert store.get(_conn, "optionPositions", user_id=uid) == option_positions_antes
+
+
+def test_abrir_recusa_pernasContratos_de_duas_entradas_mesmo_sem_declarar_tipo(cli):
+    """A trava não depende do cliente ser honesto sobre o rótulo `tipo` — a
+    presença de DUAS pernas já basta, mesmo que o corpo omita `tipo`."""
+    uid, headers = _novo_escopo(cli, "18")
+    _seed_posicao(uid, qty=300)
+    _liga_operador(uid)
+    caixa_antes = store.get(_conn, "cash", user_id=uid)
+    option_positions_antes = store.get(_conn, "optionPositions", user_id=uid)
+    contrato_call = _contract_symbol(cli, "call")
+    contrato_put = _contract_symbol(cli, "put")
+    r = cli.post("/api/options/lastreada/abrir", headers=headers, json={
+        "underlying": "PETR4", "contratos": 3,
+        "pernasContratos": [contrato_call["contractSymbol"], contrato_put["contractSymbol"]],
+    })
+    assert r.status_code == 400
+    assert "mais de uma perna" in r.json()["detail"]
+    assert store.get(_conn, "cash", user_id=uid) == caixa_antes
+    assert store.get(_conn, "optionPositions", user_id=uid) == option_positions_antes
+
+
+def test_abrir_com_pernasContratos_de_uma_entrada_continua_abrindo_normalmente(cli):
+    """A trava NÃO pega a estrutura legítima de uma perna — nenhuma
+    regressão nas duas operações já em produção (venda coberta/put)."""
+    uid, headers = _novo_escopo(cli, "19")
+    _seed_posicao(uid, qty=300)
+    _liga_operador(uid)
+    contrato = _contract_symbol(cli, "call")
+    r = cli.post("/api/options/lastreada/abrir", headers=headers, json={
+        "underlying": "PETR4", "contractSymbol": contrato["contractSymbol"], "contratos": 1,
+        "pernasContratos": [contrato["contractSymbol"]],
+    })
+    assert r.status_code == 200, r.text
 
 
 # --------------------------- POST .../lastreada/fechar ------------------------

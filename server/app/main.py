@@ -2346,13 +2346,25 @@ async def option_position(contract_id: str, body: dict = Body(default={}), scope
 # próprias; NÃO tocam /api/options/buy|sell, que continuam servindo o modelo
 # antigo long-only) ----
 @app.get("/api/options/proposta/{ticker}")
-async def options_proposta(ticker: str, scope: Optional[str] = Depends(current_scope)):
-    """Proposta determinística de venda coberta ou put de proteção sobre a
-    posição real do escopo em `ticker`. ADR-004 (postura best-effort): toda
-    exceção do provedor de cadeia ou do pipeline técnico vira
-    `providerStatus: "degraded"` + `motivo: "degradado"` — a rota NUNCA cai
-    em 500 por indisponibilidade de dado de mercado (T-14-13: reusa o cache
-    de 300s do provider e o mesmo pipeline técnico já existente)."""
+async def options_proposta(ticker: str, multiperna: bool = False, scope: Optional[str] = Depends(current_scope)):
+    """Proposta determinística de venda coberta, put de proteção ou collar
+    sobre a posição real do escopo em `ticker`. ADR-004 (postura
+    best-effort): toda exceção do provedor de cadeia ou do pipeline técnico
+    vira `providerStatus: "degraded"` + `motivo: "degradado"` — a rota NUNCA
+    cai em 500 por indisponibilidade de dado de mercado (T-14-13: reusa o
+    cache de 300s do provider e o mesmo pipeline técnico já existente).
+
+    `multiperna` (Fase 16, Plano 04, LIB-03) é negociação de capacidade do
+    CLIENTE, tipada nativamente pelo FastAPI — um valor não-booleano (ex.
+    `?multiperna=banana`) vira 422 antes de tocar o motor, nenhum parse
+    manual. Default `False` preserva byte a byte a resposta de hoje: o
+    cliente publicado (`PropostaLastreada`, web/src/App.jsx:3012-3068) casa
+    proposta com posição por `contractSymbol` ÚNICO e executa por chamada
+    UMA perna — devolver-lhe um collar (duas pernas, `contractSymbol=None`)
+    produziria um CTA capaz de abrir METADE da trava protetora: meia
+    estrutura é um risco DIFERENTE do apresentado na tela, não uma versão
+    reduzida dele. Quem declara `multiperna=True` recebe o collar inteiro
+    (ADR-025, Decisão 5); a Fase 17 é quem passa a declará-lo no cliente."""
     import datetime as dt
     t = _normalize_ticker(ticker)
     if len(t) < 4:
@@ -2400,7 +2412,8 @@ async def options_proposta(ticker: str, scope: Optional[str] = Depends(current_s
                 p = candles_mod.normalize_period(None)   # período CANÔNICO, mesmo da análise técnica
                 snap = await technical_snapshot.get(t, p, lambda rng: candle_provider.get_history(t, rng=rng))
                 plano = setups.plano_do_resultado(snap["setups"], close=snap.get("close"))
-                resultado = opcoes_lastreadas.propor(t, chain, spot, plano, posicao, cash, modo, dt.date.today())
+                resultado = opcoes_lastreadas.propor(
+                    t, chain, spot, plano, posicao, cash, modo, dt.date.today(), multiperna=multiperna)
     except Exception:
         resultado = {"proposta": None, "motivo": "degradado"}
         provider_status = "degraded"
@@ -2423,6 +2436,24 @@ async def options_lastreada_abrir(body: dict = Body(default={}), scope: Optional
     cfg = store.get(_conn, "config", user_id=scope) or {}
     if cfg.get("appMode") != "operador":
         raise HTTPException(403, "Modo Estudo não executa ordens — troque para o Modo Operador para operar.")
+    # Trava de servidor contra execução de meia estrutura (Fase 16, Plano 04,
+    # T-16-13): `store.abrir_call_coberta`/`store.comprar_put_protecao`
+    # executam UMA perna por chamada. Sem esta trava, um cliente que recebesse
+    # um collar (Plano 16-03) e postasse o corpo como se fosse proposta de
+    # uma perna abriria só a perna que coubesse no `contractSymbol` — o
+    # usuário ficaria com METADE da trava protetora, exposto a um risco
+    # DIFERENTE do apresentado na tela. A defesa é do SERVIDOR e não da UI,
+    # mesma disciplina do 403 de Modo Estudo acima (T-14-23): a UI pode ter
+    # bug, o servidor recusa igual. Checa tanto o rótulo `tipo` quanto a
+    # presença de mais de uma perna em `pernasContratos`/`pernas` — a trava
+    # não depende do cliente ser honesto sobre o rótulo.
+    #
+    # O collar continua sem caminho de EXECUÇÃO até a Fase 17 (FLOW-03)
+    # desenhar a abertura de estrutura de N pernas sobre `store.py`; esta
+    # trava é o que impede o vácuo de virar execução parcial silenciosa.
+    pernas_declaradas = body.get("pernasContratos") or body.get("pernas")
+    if body.get("tipo") == "collar" or (isinstance(pernas_declaradas, list) and len(pernas_declaradas) > 1):
+        raise HTTPException(400, "Estrutura de mais de uma perna não é executada por esta rota.")
     underlying = _normalize_ticker(str(body.get("underlying") or ""))
     contract_symbol = str(body.get("contractSymbol") or "")
     contratos = body.get("contratos")
