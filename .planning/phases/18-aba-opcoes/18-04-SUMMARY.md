@@ -120,3 +120,10 @@ None - no external service configuration required.
 ---
 *Phase: 18-aba-opcoes*
 *Completed: 2026-09-03*
+
+## Self-Check: PASSED
+
+- FOUND: web/tests/test_carteira_opcoes_tira.mjs
+- FOUND: .planning/phases/18-aba-opcoes/18-04-SUMMARY.md
+- FOUND commit: d115cff
+- FOUND commit: 1fc0994
