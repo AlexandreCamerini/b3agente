@@ -142,17 +142,40 @@ _COMBOS_DECISAO_LADO = [
     {"decisao": "COMPRAR", "lado": "alta"},
 ]
 
-_VIES_POR_MOTIVO_DO_PROPOR = {"put_protecao": VIES_PROTECAO, "call_coberta": VIES_PREMIO}
+_VIES_POR_MOTIVO_DO_PROPOR = {
+    "put_protecao": VIES_PROTECAO, "call_coberta": VIES_PREMIO, "collar": VIES_PROTECAO,
+}
 
 
 def test_paridade_gatilho_com_motor_em_producao():
     """Para cada combinação decisao×lado do bloco de comportamento, o motivo
     que `opcoes_lastreadas.propor()` já devolve em produção tem de
     corresponder ao viés que `do_plano()` devolve. Falha se um dos dois
-    lados mudar isoladamente — a unificação real só acontece na Fase 16."""
+    lados mudar isoladamente — a Fase 16 fez o collar entrar no viés de
+    PROTEÇÃO (mesma leitura técnica de queda de `put_protecao`, só financiada
+    de outra forma pelo prêmio da call) e manteve o mapeamento ESPELHADO, não
+    unificado: `propor()` precisa distinguir put isolada de collar (decisão
+    de QUANDO oferecer qual estrutura concreta), distinção que `do_plano()`
+    deliberadamente não faz — ele só devolve o viés abstrato."""
     for plano in _COMBOS_DECISAO_LADO:
         r_propor = opcoes_lastreadas.propor(
             "PETR4", _cadeia(), _SPOT, plano, _posicao(), 100000, "operador", _HOJE)
+        r_gatilho = do_plano(plano)
+        motivo_propor = r_propor["motivo"]
+        if motivo_propor in _VIES_POR_MOTIVO_DO_PROPOR:
+            assert r_gatilho["avaliar"] is True, plano
+            assert r_gatilho["vies"] == _VIES_POR_MOTIVO_DO_PROPOR[motivo_propor], plano
+        else:
+            assert r_gatilho["avaliar"] is False, plano
+            assert r_gatilho["motivo"] == motivo_propor, plano
+
+    # Segundo laço: multiperna=True com caixa curta o bastante para o collar
+    # entrar no lugar da put isolada (cash=50, cadeia com call E put
+    # líquidas) — a mesma paridade tem de continuar valendo mesmo quando o
+    # motivo devolvido passa a ser "collar" em vez de "put_protecao".
+    for plano in _COMBOS_DECISAO_LADO:
+        r_propor = opcoes_lastreadas.propor(
+            "PETR4", _cadeia(), _SPOT, plano, _posicao(), 50, "operador", _HOJE, multiperna=True)
         r_gatilho = do_plano(plano)
         motivo_propor = r_propor["motivo"]
         if motivo_propor in _VIES_POR_MOTIVO_DO_PROPOR:

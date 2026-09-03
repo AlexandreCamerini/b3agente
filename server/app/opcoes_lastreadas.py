@@ -38,16 +38,144 @@ def _label_liquidez(score):
     return "SEM MERCADO"
 
 
-def propor(underlying, chain, spot, plano, posicao, cash, modo, hoje):
+def _propor_collar(underlying, chain, spot, contrato_put, posicao, cash, modo, hoje, dias, qty_livre_val):
+    """Trava protetora (collar): vende 1 call OTM (mesma régua do ramo
+    `call_coberta` — `opcoes_motor.rastrear`, liquidez >= 40, strike acima do
+    spot) + a put de proteção que `propor()` já escolheu (recebida por
+    parâmetro, NUNCA re-selecionada aqui — reselecionar duplicaria a régua e
+    poderia devolver uma put diferente da que gerou o gatilho).
+
+    Devolve `None` em qualquer porta fechada (sem call líquida, custo líquido
+    não cabe no caixa disponível) — `propor()` cai no `caixa_insuficiente` de
+    sempre quando isto acontece; nunca uma exceção, nunca uma proposta
+    incompleta."""
+    selecionados = opcoes_motor.rastrear(chain, {
+        "tipo": "call", "referencia": spot, "relacao": "acima",
+        "criterio": "min", "n": 1,
+    })
+    contrato_call = selecionados[0] if selecionados else None
+    if not contrato_call:
+        return None
+
+    # Pernas de opção, por unidade do objeto (mesma convenção "quantidade=1"
+    # do resto do módulo).
+    pernas_opcao = [
+        opcoes_motor.perna_de_contrato(contrato_call, "venda", quantidade=1),
+        opcoes_motor.perna_de_contrato(contrato_put, "compra", quantidade=1),
+    ]
+    # Teto de contratos sai do custo líquido calculado por `avaliar()`, nunca
+    # de `premio_put - premio_call` escrito à mão: uma segunda aritmética do
+    # mesmo número é exatamente a duplicação que esta fase existe para
+    # eliminar. `custo_unit <= 0` (crédito ou neutro) financia o próprio
+    # collar — o teto vem só do lastro; `custo_unit > 0` (débito) soma o
+    # teto do caixa disponível.
+    caixa_pernas = opcoes_motor.avaliar(pernas_opcao)
+    custo_unit = caixa_pernas["custo_liquido"]
+    if custo_unit <= 0:
+        contratos = qty_livre_val // 100
+    else:
+        contratos = min(qty_livre_val // 100, int(cash // (100 * custo_unit)))
+    if contratos < 1:
+        return None
+
+    qty_acoes = contratos * 100
+    # UMA avaliação para as 3 pernas — é esta chamada que prova LIB-03: o
+    # mesmo `perfil_da_estrutura` que serve 2 pernas (venda coberta, put
+    # isolada) serve 3 sem uma linha de aritmética nova.
+    pernas = [opcoes_motor.perna_de_acao(underlying, spot, quantidade=1), *pernas_opcao]
+    estrutura = opcoes_motor.avaliar(pernas)
+
+    strike_call = contrato_call.get("strike")
+    strike_put = contrato_put.get("strike")
+
+    # A estrutura só é tão negociável quanto a sua perna PIOR — exibir a
+    # melhor seria otimismo embutido no dado.
+    liq_call = liquidity_score(contrato_call.get("volume"), contrato_call.get("openInterest"),
+                                contrato_call.get("bid"), contrato_call.get("ask"))
+    liq_put = liquidity_score(contrato_put.get("volume"), contrato_put.get("openInterest"),
+                               contrato_put.get("bid"), contrato_put.get("ask"))
+    pior = liq_call if liq_call["score"] <= liq_put["score"] else liq_put
+
+    dados = {
+        "n": str(contratos), "ticker": underlying,
+        "strikeCall": skill_ref.num_br(strike_call), "strikePut": skill_ref.num_br(strike_put),
+        "qtyAcoes": str(qty_acoes),
+    }
+    manchete = skill_ref.opcoes_lastreadas_txt(modo, "collar", **dados)
+    # `didatica` = a mesma frase no modo educacional, SEMPRE presente — nunca
+    # recomputada por outro caminho (mesmo padrão do resto do módulo).
+    didatica = skill_ref.opcoes_lastreadas_txt("educacional", "collar", **dados)
+
+    caixa = {
+        "custoLiquidoUnitario": custo_unit,
+        "custoLiquidoTotal": round(custo_unit * qty_acoes, 2),
+        "fluxo": caixa_pernas["fluxo"],
+    }
+    chip_caixa_chave = "crédito líquido" if caixa["fluxo"] == "credito" else "custo líquido"
+
+    return {
+        "tipo": "collar",
+        # O collar não tem CONTRATO único nem PRÊMIO único — preencher
+        # qualquer um destes com o valor de UMA das pernas faria uma
+        # estrutura de duas pernas se passar por operação de uma perna só
+        # para qualquer consumidor que case por `contractSymbol` (é assim
+        # que o front casa proposta com posição, web/src/App.jsx:3216-3217).
+        # `None` com o valor real em `pernasContratos`/`caixa` é a aplicação
+        # direta da regra "null nunca 0.0" do repositório.
+        "contractSymbol": None,
+        "optionType": None,
+        "strike": None,
+        "premioUnitario": None,
+        "premioTotal": None,
+        "strikeCall": strike_call,
+        "strikePut": strike_put,
+        "pernasContratos": [
+            {"contractSymbol": contrato_call.get("contractSymbol"), "optionType": contrato_call.get("optionType"),
+             "lado": "venda", "strike": strike_call, "premioUnitario": round(float(contrato_call.get("lastPrice") or 0), 2)},
+            {"contractSymbol": contrato_put.get("contractSymbol"), "optionType": contrato_put.get("optionType"),
+             "lado": "compra", "strike": strike_put, "premioUnitario": round(float(contrato_put.get("lastPrice") or 0), 2)},
+        ],
+        "expiration": chain.get("expiration"),
+        "diasParaVencimento": dias,
+        "contratos": contratos,
+        "qtyAcoes": qty_acoes,
+        "lastro": {"t": underlying, "qtyLivre": qty_livre_val},
+        "liquidez": {"score": pior["score"], "label": _label_liquidez(pior["score"])},
+        "manchete": manchete,
+        "didatica": didatica,
+        "chips": [
+            {"k": "prazo", "v": f"{dias} dias"},
+            {"k": "strikes", "v": f"call R$ {skill_ref.num_br(strike_call)} / put R$ {skill_ref.num_br(strike_put)}"},
+            {"k": chip_caixa_chave, "v": f"R$ {skill_ref.num_br(abs(caixa['custoLiquidoTotal']))}"},
+            {"k": "liquidez", "v": _label_liquidez(pior["score"])},
+        ],
+        "estrutura": estrutura,
+        "caixa": caixa,
+        "precoObjeto": round(float(spot), 2),
+    }
+
+
+def propor(underlying, chain, spot, plano, posicao, cash, modo, hoje, *, multiperna=False):
     """Proposta de UM contrato (venda coberta ou put de proteção) a partir da
     leitura técnica do ativo-lastro e do lastro livre — ou a ausência
     explicada por um motivo nomeado (CLAUDE.md princípio 4: nunca inventar
     proposta; toda porta fechada devolve `proposta=None` com `motivo`).
 
+    `multiperna` (Fase 16, Plano 03, LIB-03) é negociação de capacidade do
+    CLIENTE, não uma meia-entrega: default `False` preserva byte a byte o
+    comportamento de antes desta fase. O cliente que sabe exibir e aceitar
+    uma estrutura de MAIS de uma perna pede `multiperna=True` e pode receber
+    um collar (call vendida + put comprada) no lugar de `caixa_insuficiente`.
+    Sem o pedido explícito, receber um collar produziria um CTA que abriria
+    METADE da estrutura — o front publicado hoje (`PropostaLastreada` em
+    web/src/App.jsx:3012-3068) casa proposta com posição por `contractSymbol`
+    e executa por uma perna só. O Plano 16-04 liga este parâmetro na rota; a
+    Fase 17/18 ligam no cliente.
+
     Devolve sempre `{"proposta": <dict|None>, "motivo": <str>}`; em sucesso,
-    `motivo` é o próprio `tipo` (`call_coberta`|`put_protecao`) — também uma
-    chave de vocabulário válida, então o chamador nunca precisa checar
-    `proposta is not None` para saber que motivo interpretar."""
+    `motivo` é o próprio `tipo` (`call_coberta`|`put_protecao`|`collar`) —
+    também uma chave de vocabulário válida, então o chamador nunca precisa
+    checar `proposta is not None` para saber que motivo interpretar."""
     if not isinstance(chain, dict) or chain.get("providerStatus") != "ok":
         return {"proposta": None, "motivo": "degradado"}
     if not isinstance(posicao, dict) or store.qty_livre(posicao) < 100:
@@ -118,6 +246,20 @@ def propor(underlying, chain, spot, plano, posicao, cash, modo, hoje):
     if tipo == "put_protecao":
         contratos = min(contratos, int(cash // (100 * premio)) if premio > 0 else 0)
         if contratos < 1:
+            # Julgamento de produto reversível (16-CONTEXT.md, decisão tomada
+            # com autonomia concedida): o collar financia a proteção com o
+            # prêmio da call vendida, então faz sentido oferecê-lo EXATAMENTE
+            # onde a put pura já não cabe no caixa disponível — em vez de só
+            # devolver "caixa insuficiente" sem alternativa. Reverter esta
+            # regra no futuro é mexer só aqui (a condição `if multiperna`),
+            # nunca no motor comum. `_propor_collar` devolvendo `None` (sem
+            # call líquida acima do spot, ou débito que também não cabe no
+            # caixa) cai no `caixa_insuficiente` de sempre, logo abaixo.
+            if multiperna:
+                colar = _propor_collar(
+                    underlying, chain, spot, contrato, posicao, cash, modo, hoje, dias, qty_livre_val)
+                if colar is not None:
+                    return {"proposta": colar, "motivo": "collar"}
             return {"proposta": None, "motivo": "caixa_insuficiente"}
 
     qty_acoes = contratos * 100
