@@ -213,6 +213,12 @@ proposta original ou validando o conjunto de `contractSymbol`s contra uma
 estrutura conhecida) em vez de confiar apenas no que o cliente afirma sobre
 sua própria requisição.
 
+> **Nota (2026-09-03, Plano 17-03):** esta limitação foi fechada pelo
+> ADR-026 — `POST /api/options/lastreada/abrir-collar` re-deriva a proposta
+> no servidor (`opcoes_lastreadas.propor(..., multiperna=True)`) a cada
+> aceite e cruza os `contractSymbol`/`lado` submetidos contra essa proposta
+> fresca, em vez de confiar no que o corpo declara.
+
 ## Consequências
 
 **Fica mais fácil:**

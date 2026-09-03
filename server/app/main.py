@@ -2503,6 +2503,142 @@ async def options_lastreada_abrir(body: dict = Body(default={}), scope: Optional
     return out
 
 
+@app.post("/api/options/lastreada/abrir-collar")
+async def options_lastreada_abrir_collar(body: dict = Body(default={}), scope: Optional[str] = Depends(current_scope)):
+    """Abre a trava protetora (collar, 2 pernas) — o caminho de ACEITE que a
+    Fase 17 (FLOW-03) constrói para fechar a lacuna que a Fase 16 deixou
+    explicitamente pendente (`options_lastreada_abrir` acima, comentário "O
+    collar continua sem caminho de EXECUÇÃO até a Fase 17").
+
+    (a) Rota NOVA, não uma flag na `/abrir`: a trava de 400 do Plano 16-04
+    continua sendo a defesa daquela rota contra execução de meia estrutura;
+    um parâmetro tipo `permitirMultiperna` no corpo transformaria essa
+    defesa de servidor num opt-out do próprio cliente — exatamente o que ela
+    existe para impedir (ADR-026, Decisão 1).
+    (b) Re-deriva a proposta no servidor a cada chamada
+    (`opcoes_lastreadas.propor(..., multiperna=True)`) porque o ADR-025
+    documentou como limitação conhecida que a trava de 16-04 confiava no
+    `tipo`/`pernasContratos` que o PRÓPRIO CLIENTE declarava, sem
+    re-derivação — aceitável enquanto nenhum cliente montava corpo
+    multiperna. Esta rota é exatamente esse cliente, então ela NUNCA confia
+    no corpo: contratos, quantidade e prêmios executados vêm sempre da
+    proposta fresca (ADR-026, Decisão 2).
+    (c) 409 (não 400) quando a proposta re-derivada não bate: o corpo pode
+    estar perfeitamente bem formado — o que mudou foi o ESTADO do
+    mercado/carteira entre a proposta exibida e o aceite, informação que a
+    UI precisa para decidir entre corrigir o corpo e recarregar a proposta
+    (ADR-026, Decisão 4)."""
+    import datetime as dt
+    cfg = store.get(_conn, "config", user_id=scope) or {}
+    if cfg.get("appMode") != "operador":
+        raise HTTPException(403, "Modo Estudo não executa ordens — troque para o Modo Operador para operar.")
+
+    underlying = _normalize_ticker(str(body.get("underlying") or ""))
+    if len(underlying) < 4:
+        raise HTTPException(400, "Operação lastreada inválida.")
+    pernas = body.get("pernasContratos")
+    pernas_validas = (
+        isinstance(pernas, list) and len(pernas) == 2
+        and all(isinstance(perna, dict) and isinstance(perna.get("contractSymbol"), str)
+                and perna.get("contractSymbol") and perna.get("lado") in ("venda", "compra")
+                for perna in pernas)
+    )
+    if not pernas_validas:
+        raise HTTPException(400, "Collar exige exatamente duas pernas.")
+    contratos_body = body.get("contratos")
+    if not isinstance(contratos_body, (int, float)) or contratos_body < 1:
+        raise HTTPException(400, "Operação lastreada inválida.")
+
+    # RE-DERIVAÇÃO server-side (ADR-026, Decisão 2) — repete o pipeline do
+    # ramo B de `options_proposta` verbatim, com `multiperna=True` FIXO
+    # (nunca lido do corpo — ver guardião `test_rota_de_collar_nao_le_
+    # multiperna_do_corpo`). Diferente de `options_proposta`, esta rota NÃO
+    # engole exceção do pipeline em `degradado`: numa rota de LEITURA,
+    # degradar é a resposta certa; numa rota de ESCRITA, degradar seria
+    # executar sem a re-derivação que é a própria defesa — por isso qualquer
+    # falha inesperada aqui vira 502 explícito, não um estado silencioso.
+    try:
+        chain = await options_provider.get_options(underlying)
+        if chain.get("providerStatus") != "ok":
+            raise HTTPException(502, "Cotação de opções indisponível no momento — tente novamente.")
+        positions = store.get(_conn, "positions", user_id=scope)
+        posicao = next((pp for pp in positions if pp["t"] == underlying), None)
+        cash = store.get(_conn, "cash", user_id=scope)
+        modo = cfg.get("appMode") or "estudo"
+        try:
+            quote = await candle_provider.get_quote(underlying)
+        except Exception:
+            quote = None
+        spot = _spot_from_chain_or_quote(chain, quote)
+        periodo = candles_mod.normalize_period(None)   # período CANÔNICO, mesmo da análise técnica
+        snap = await technical_snapshot.get(underlying, periodo, lambda rng: candle_provider.get_history(underlying, rng=rng))
+        plano = setups.plano_do_resultado(snap["setups"], close=snap.get("close"))
+        resultado = opcoes_lastreadas.propor(
+            underlying, chain, spot, plano, posicao, cash, modo, dt.date.today(), multiperna=True)
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(502, "Não foi possível recalcular a proposta — tente novamente.")
+
+    if resultado.get("motivo") != "collar" or not resultado.get("proposta"):
+        raise HTTPException(409, "O collar não está mais disponível — o servidor recalculou a "
+                                  "proposta e o resultado mudou.")
+    p = resultado["proposta"]
+
+    # CROSS-CHECK contra a proposta fresca — cobre de uma vez contrato
+    # trocado, contrato faltando, contrato duplicado e lado invertido.
+    if int(contratos_body) != p["contratos"]:
+        raise HTTPException(409, "Os contratos enviados não conferem com a proposta recalculada pelo servidor.")
+    esperado = {perna["contractSymbol"]: perna["lado"] for perna in p["pernasContratos"]}
+    enviado = {perna["contractSymbol"]: perna["lado"] for perna in pernas}
+    if enviado != esperado:
+        raise HTTPException(409, "Os contratos enviados não conferem com a proposta recalculada pelo servidor.")
+
+    # EXECUÇÃO com os dados do SERVIDOR, nunca do corpo. O motor sempre põe a
+    # call em pernasContratos[0] e a put em [1] (`_propor_collar`) — localizar
+    # por `optionType`, não por índice, é a versão defensiva dessa garantia.
+    perna_call = next((perna for perna in p["pernasContratos"] if perna.get("optionType") == "call"), None)
+    perna_put = next((perna for perna in p["pernasContratos"] if perna.get("optionType") == "put"), None)
+    if not perna_call or not perna_put:
+        raise HTTPException(409, "Os contratos enviados não conferem com a proposta recalculada pelo servidor.")
+
+    todos_contratos = [*chain.get("calls", []), *chain.get("puts", [])]
+    contrato_call = next((c for c in todos_contratos if c.get("contractSymbol") == perna_call["contractSymbol"]), None)
+    contrato_put = next((c for c in todos_contratos if c.get("contractSymbol") == perna_put["contractSymbol"]), None)
+    if not contrato_call or not contrato_put:
+        raise HTTPException(404, "Contrato não encontrado na cadeia atual.")
+
+    contract_call = {
+        "id": contrato_call.get("contractSymbol"), "underlying": underlying,
+        "optionType": contrato_call.get("optionType"), "strike": contrato_call.get("strike"),
+        "expiration": chain.get("expiration"), "ivEntrada": contrato_call.get("impliedVolatility"),
+    }
+    contract_put = {
+        "id": contrato_put.get("contractSymbol"), "underlying": underlying,
+        "optionType": contrato_put.get("optionType"), "strike": contrato_put.get("strike"),
+        "expiration": chain.get("expiration"), "ivEntrada": contrato_put.get("impliedVolatility"),
+    }
+    # Prêmios da proposta RE-DERIVADA — nunca de `body` (ver guardião
+    # `test_rota_de_collar_nao_usa_premio_do_corpo`).
+    premio_call = float(perna_call["premioUnitario"])
+    premio_put = float(perna_put["premioUnitario"])
+
+    try:
+        store.abrir_collar(_conn, contract_call, contract_put, int(p["contratos"]),
+                            premio_call, premio_put, user_id=scope)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    _disparar_ciclo_imediato(scope)
+    out = store.public_state(_conn, user_id=scope)
+    # Espelho de `pernasContratos`: `priceUsed` (singular, da rota irmã) não
+    # descreve duas pernas.
+    out["premiosUsados"] = [
+        {"contractSymbol": perna_call["contractSymbol"], "lado": "venda", "premioUnitario": round(premio_call, 2)},
+        {"contractSymbol": perna_put["contractSymbol"], "lado": "compra", "premioUnitario": round(premio_put, 2)},
+    ]
+    return out
+
+
 @app.post("/api/options/lastreada/fechar")
 async def options_lastreada_fechar(body: dict = Body(default={}), scope: Optional[str] = Depends(current_scope)):
     """Fecha a operação lastreada aberta pela rota irmã de abertura acima.
