@@ -127,7 +127,13 @@ pernas — prova de que o motor compõe N pernas de verdade, não só 1.
      combinando as duas pernas (call vendida + put comprada) num único
      payoff consolidado (custo líquido, ganho/perda máximos, breakevens,
      delta somado).
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+- [ ] 16-01-PLAN.md — venda coberta e put de proteção pelo motor comum: seleção por `rastrear()` + payoff/caixa aditivos (LIB-01, LIB-02)
+- [ ] 16-02-PLAN.md — vocabulário canônico do collar nos dois modos + guardião CVM (LIB-03)
+- [ ] 16-03-PLAN.md — composição do collar: 3 pernas numa avaliação, gatilho de oferta e guardiões (LIB-03)
+- [ ] 16-04-PLAN.md — collar na rota por negociação de capacidade, trava de execução de meia estrutura e ADR-025 (LIB-01, LIB-02, LIB-03)
 
 #### Phase 17: Fluxo de aceite
 **Goal**: Usuário vê os dados completos de uma proposta — via o mecanismo
