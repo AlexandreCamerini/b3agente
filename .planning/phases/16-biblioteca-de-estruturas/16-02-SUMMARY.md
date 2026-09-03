@@ -110,6 +110,13 @@ None - no external service configuration required.
 - Guardião CVM cobre a manchete do collar da mesma forma que já cobre call_coberta/put_protecao — qualquer novo arquivo que tentar compor a frase "trava protetora"/"abate o custo" fora de `skill_ref.py` quebra o teste imediatamente.
 - Sem bloqueios.
 
+## Self-Check: PASSED
+
+- FOUND: server/app/skill_ref.py
+- FOUND: server/tests/test_opcoes_collar_vocab.py
+- FOUND: .planning/phases/16-biblioteca-de-estruturas/16-02-SUMMARY.md
+- FOUND commits: 4150f48 (test/RED), f2695ab (feat/GREEN), 6af55bb (docs/SUMMARY) — verified via `git log --oneline -5` on branch `worktree-agent-a168e94ab307208d5`
+
 ---
 *Phase: 16-biblioteca-de-estruturas*
 *Completed: 2026-09-02*
