@@ -3036,7 +3036,12 @@ function PropostaLastreada({ r, operador, cp, busy, onAbrir, onFechar, posAberta
   const p = r.proposta;
   const isCall = p.optionType === "call";
   const cor = isCall ? T.positive : T.negative; // NUNCA T.accent — mesma regra da manchete do ativo (App.jsx:768-773)
-  const eyebrow = isCall ? cp.eyebrowPropostaCall : cp.eyebrowPropostaPut;
+  // Fase 17 (Plano 05, FLOW-02/FLOW-03): collar (trava protetora, 2 pernas)
+  // — `optionType`/`strike` vêm `null` na proposta de collar (isCall fica
+  // false, cor sai T.negative: coerente, é operação defensiva), por isso
+  // eyebrow/identificação de contrato/CTA ganham um ramo próprio abaixo.
+  const isCollar = p.tipo === "collar";
+  const eyebrow = isCollar ? cp.eyebrowPropostaCollar : isCall ? cp.eyebrowPropostaCall : cp.eyebrowPropostaPut;
   const degradado = r.providerStatus !== "ok";
   // Fase 17 (Plano 04, FLOW-01): payoff completo que a Fase 16 já calcula
   // (proposta.estrutura/proposta.caixa) — ausente em proposta de FECHAMENTO
@@ -3053,7 +3058,9 @@ function PropostaLastreada({ r, operador, cp, busy, onAbrir, onFechar, posAberta
       <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em", color: T.accent }}>{eyebrow}</div>
       <div style={{ fontSize: "17px", fontWeight: 800, color: cor, marginTop: "2px" }}>{p.manchete}</div>
       <div style={{ fontFamily: MONO, fontWeight: 800, fontSize: "13px", color: T.textSecondary, marginTop: "6px" }}>
-        {p.contratos}× {isCall ? "CALL" : "PUT"} {r.ticker} · strike {price(p.strike)}
+        {isCollar
+          ? cp.collarPernasLinha(p.contratos, r.ticker, price(p.strikeCall), price(p.strikePut))
+          : `${p.contratos}× ${isCall ? "CALL" : "PUT"} ${r.ticker} · strike ${price(p.strike)}`}
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "10px" }}>
         {(p.chips || []).map((c) => (
@@ -3113,6 +3120,10 @@ function PropostaLastreada({ r, operador, cp, busy, onAbrir, onFechar, posAberta
             ? cp.propostaIndisponivelDegradada
             : posAberta
             ? cp.ctaFecharLastreada(price(p.premioTotal))
+            : isCollar
+            ? (p.caixa && p.caixa.fluxo === "credito"
+                ? cp.ctaCollarCredito(p.contratos, r.ticker, price(p.strikeCall), price(p.strikePut), price(Math.abs((p.caixa && p.caixa.custoLiquidoTotal) || 0)))
+                : cp.ctaCollarDebito(p.contratos, r.ticker, price(p.strikeCall), price(p.strikePut), price(Math.abs((p.caixa && p.caixa.custoLiquidoTotal) || 0))))
             : isCall
             ? cp.ctaVendaCoberta(p.contratos, r.ticker, price(p.strike), price(p.premioTotal))
             : cp.ctaPutProtecao(p.contratos, r.ticker, price(p.strike), price(p.premioTotal))}
@@ -3213,8 +3224,11 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
   useEffect(() => {
     let alive = true;
     setOpProposta(null);
+    // Fase 17 (Plano 05, FLOW-02/FLOW-03): o cliente agora sabe renderizar e
+    // aceitar estrutura de mais de uma perna (ADR-025 Decisão 5; ADR-026),
+    // então declara a capacidade multiperna ao pedir a proposta.
     if (opGate && opGate.liquida) {
-      store.optionsProposta(t).then((r) => { if (alive) setOpProposta(r); }).catch(() => { /* best-effort, igual optionsGate */ });
+      store.optionsProposta(t, true).then((r) => { if (alive) setOpProposta(r); }).catch(() => { /* best-effort, igual optionsGate */ });
     }
     return () => { alive = false; };
   }, [t, opGate && opGate.liquida]);
@@ -3278,6 +3292,26 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
   const onAbrirLastreada = async () => {
     if (!opProposta || !opProposta.proposta) return;
     const p = opProposta.proposta;
+    // Fase 17 (Plano 05, FLOW-02/FLOW-03): collar tem caminho de aceite
+    // PRÓPRIO — a trava TRAVA lastro pela perna da call, mesma razão que já
+    // obriga confirmação na venda coberta abaixo (T-14-24), aplicada à
+    // estrutura de 2 pernas (T-17-26). Corpo enviado carrega SÓ
+    // contractSymbol + lado por perna — prêmio e strike vêm da proposta que
+    // o servidor RE-DERIVA (Plano 17-03); reenviá-los daria a impressão de
+    // que o cliente os negocia (T-17-24).
+    if (p.tipo === "collar") {
+      if (!window.confirm(cp.confirmAbrirCollar(p.contratos, t, p.qtyAcoes))) return;
+      setOpPropostaBusy(true);
+      try {
+        await A.abrirCollar({
+          underlying: t,
+          pernasContratos: (p.pernasContratos || []).map((perna) => ({ contractSymbol: perna.contractSymbol, lado: perna.lado })),
+          contratos: p.contratos,
+          expiration: p.expiration,
+        });
+      } finally { setOpPropostaBusy(false); }
+      return;
+    }
     // A confirmação existe pela TRAVA do lastro, não pelo gasto — só a CALL
     // coberta trava ações; a PUT de proteção não trava nada (T-14-24).
     if (p.optionType === "call" && !window.confirm(cp.confirmAbrirCoberta(p.contratos, t, p.qtyAcoes))) return;
@@ -7780,6 +7814,18 @@ export default function App() {
         track("trade_simulated", { side: "abrir", ticker: body.underlying, instrument: "opcao_lastreada" });
         flash("Operação lastreada aberta — prêmio a R$ " + price(s.priceUsed) + ".");
       } catch (e) { flash("Abrir operação lastreada: " + (e.message || e)); }
+    },
+    // Fase 17 (Plano 05, FLOW-02/FLOW-03): abertura do collar (2 pernas) via
+    // rota nova do Plano 17-03, mesmo formato do vizinho `abrirLastreada`
+    // acima (403 de Modo Estudo e 409 de proposta divergente já chegam
+    // prontos do servidor — o flash só repassa `e.message`).
+    abrirCollar: async (body) => {
+      try {
+        const s = await store.optionsAbrirCollar(body);
+        setData(s);
+        track("trade_simulated", { side: "abrir", ticker: body.underlying, instrument: "opcao_collar" });
+        flash("Trava protetora aberta — " + body.underlying + ".");
+      } catch (e) { flash("Montar trava protetora: " + (e.message || e)); }
     },
     fecharLastreada: async (body) => {
       try {
