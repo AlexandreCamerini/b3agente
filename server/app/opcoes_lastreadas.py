@@ -156,26 +156,40 @@ def _propor_collar(underlying, chain, spot, contrato_put, posicao, cash, modo, h
 
 
 def propor(underlying, chain, spot, plano, posicao, cash, modo, hoje, *, multiperna=False):
-    """Proposta de UM contrato (venda coberta ou put de proteção) a partir da
-    leitura técnica do ativo-lastro e do lastro livre — ou a ausência
-    explicada por um motivo nomeado (CLAUDE.md princípio 4: nunca inventar
-    proposta; toda porta fechada devolve `proposta=None` com `motivo`).
+    """Proposta de estrutura(s) (venda coberta, put de proteção e/ou collar) a
+    partir da leitura técnica do ativo-lastro e do lastro livre — ou a
+    ausência explicada por um motivo nomeado (CLAUDE.md princípio 4: nunca
+    inventar proposta; toda porta fechada devolve `proposta=None` com
+    `motivo`, SEM a chave `candidatos`).
 
     `multiperna` (Fase 16, Plano 03, LIB-03) é negociação de capacidade do
     CLIENTE, não uma meia-entrega: default `False` preserva byte a byte o
     comportamento de antes desta fase. O cliente que sabe exibir e aceitar
     uma estrutura de MAIS de uma perna pede `multiperna=True` e pode receber
-    um collar (call vendida + put comprada) no lugar de `caixa_insuficiente`.
-    Sem o pedido explícito, receber um collar produziria um CTA que abriria
-    METADE da estrutura — o front publicado hoje (`PropostaLastreada` em
-    web/src/App.jsx:3012-3068) casa proposta com posição por `contractSymbol`
-    e executa por uma perna só. O Plano 16-04 liga este parâmetro na rota; a
-    Fase 17/18 ligam no cliente.
+    um collar (call vendida + put comprada) no lugar de `caixa_insuficiente`,
+    ou COEXISTINDO com a put isolada (Fase 19, MULTI-01, ver `candidatos`
+    abaixo). Sem o pedido explícito, receber um collar produziria um CTA que
+    abriria METADE da estrutura — o front publicado hoje (`PropostaLastreada`
+    em web/src/App.jsx:3012-3068) casa proposta com posição por
+    `contractSymbol` e executa por uma perna só. O Plano 16-04 liga este
+    parâmetro na rota; a Fase 17/18 ligam no cliente.
 
-    Devolve sempre `{"proposta": <dict|None>, "motivo": <str>}`; em sucesso,
-    `motivo` é o próprio `tipo` (`call_coberta`|`put_protecao`|`collar`) —
-    também uma chave de vocabulário válida, então o chamador nunca precisa
-    checar `proposta is not None` para saber que motivo interpretar."""
+    RETORNO POSITIVO (Fase 19, MULTI-01):
+    `{"proposta": <dict>, "motivo": <str>, "candidatos": [<dict>, ...]}` — a
+    lista `candidatos` tem 1 ou 2 entradas na MESMA forma de `proposta` de
+    sempre; quando há duas, a ordem é SEMPRE `["put_protecao", "collar"]`.
+    `proposta` é SEMPRE `candidatos[0]` (nunca recalculado à parte) e
+    `motivo` é SEMPRE `candidatos[0]["tipo"]` — a regra que faz "o card
+    exibido é o que o usuário aceita" verificável, não só uma convenção
+    verbal.
+
+    RETORNO NEGATIVO (toda porta fechada — degradado/sem_lastro/sem_setup/
+    sem_contrato_liquido/sem_vencimento_elegivel/caixa_insuficiente):
+    `{"proposta": None, "motivo": <str>}`, SEM a chave `candidatos`. Isto não
+    é esquecimento: ~15 guardiões em `server/tests/test_opcoes_*.py` fazem
+    igualdade EXATA de dict nesses retornos — acrescentar `"candidatos": []`
+    quebraria todos por nada. Consumidor lê sempre com
+    `resultado.get("candidatos", [])`, nunca `resultado["candidatos"]`."""
     if not isinstance(chain, dict) or chain.get("providerStatus") != "ok":
         return {"proposta": None, "motivo": "degradado"}
     if not isinstance(posicao, dict) or store.qty_livre(posicao) < 100:
@@ -195,6 +209,11 @@ def propor(underlying, chain, spot, plano, posicao, cash, modo, hoje, *, multipe
     if not isinstance(spot, (int, float)) or isinstance(spot, bool) or spot <= 0:
         return {"proposta": None, "motivo": "degradado"}
 
+    # Fase 19, MULTI-01: `colar` precisa existir nos DOIS branches positivos
+    # (put_protecao e call_coberta) — só o primeiro pode preenchê-lo, mas a
+    # montagem final de `candidatos` (no fim da função) lê a variável sem
+    # saber qual branch foi tomado.
+    colar = None
     plano = plano or {}
     decisao = plano.get("decisao")
     lado = plano.get("lado")
@@ -245,21 +264,31 @@ def propor(underlying, chain, spot, plano, posicao, cash, modo, hoje, *, multipe
     premio = float(contrato.get("lastPrice") or 0)
     if tipo == "put_protecao":
         contratos = min(contratos, int(cash // (100 * premio)) if premio > 0 else 0)
+        # Fase 19, MULTI-01: a regra mudou de "collar só como FALLBACK do
+        # caixa insuficiente" para "collar tentado sempre que a leitura é de
+        # proteção, incondicional ao caixa da put isolada" — só assim os dois
+        # candidatos podem coexistir quando os dois cabem (put E collar), em
+        # vez do motor escolher um e esconder o outro do usuário. A chamada
+        # fica FORA do `if contratos < 1` de propósito: quando a put cabe
+        # (`contratos >= 1`), o fluxo segue para montar `proposta` normal e
+        # `colar` (se não `None`) entra como segundo candidato lá embaixo.
+        # `_propor_collar` continua pura: recebe a put JÁ selecionada por
+        # parâmetro, nunca reseleciona.
+        if multiperna:
+            colar = _propor_collar(
+                underlying, chain, spot, contrato, posicao, cash, modo, hoje, dias, qty_livre_val)
         if contratos < 1:
-            # Julgamento de produto reversível (16-CONTEXT.md, decisão tomada
-            # com autonomia concedida): o collar financia a proteção com o
-            # prêmio da call vendida, então faz sentido oferecê-lo EXATAMENTE
-            # onde a put pura já não cabe no caixa disponível — em vez de só
-            # devolver "caixa insuficiente" sem alternativa. Reverter esta
-            # regra no futuro é mexer só aqui (a condição `if multiperna`),
-            # nunca no motor comum. `_propor_collar` devolvendo `None` (sem
-            # call líquida acima do spot, ou débito que também não cabe no
-            # caixa) cai no `caixa_insuficiente` de sempre, logo abaixo.
-            if multiperna:
-                colar = _propor_collar(
-                    underlying, chain, spot, contrato, posicao, cash, modo, hoje, dias, qty_livre_val)
-                if colar is not None:
-                    return {"proposta": colar, "motivo": "collar"}
+            # Julgamento de produto herdado da Fase 16 (16-CONTEXT.md,
+            # decisão tomada com autonomia concedida): sem caixa para a put
+            # isolada, o collar (que se autofinancia com o prêmio da call
+            # vendida) é a única saída além de "caixa insuficiente" — em vez
+            # de só devolver isso sem alternativa. `colar` já foi tentado
+            # acima (incondicional); aqui só decide o que RETORNAR quando a
+            # put não coube. `_propor_collar` devolvendo `None` (sem call
+            # líquida acima do spot, ou débito que também não cabe no caixa)
+            # cai no `caixa_insuficiente` de sempre, logo abaixo.
+            if colar is not None:
+                return {"proposta": colar, "motivo": "collar", "candidatos": [colar]}
             return {"proposta": None, "motivo": "caixa_insuficiente"}
 
     qty_acoes = contratos * 100
@@ -333,7 +362,16 @@ def propor(underlying, chain, spot, plano, posicao, cash, modo, hoje, *, multipe
         },
         "precoObjeto": round(float(spot), 2),
     }
-    return {"proposta": proposta, "motivo": tipo}
+    # Fase 19, MULTI-01: `candidatos` começa pelo candidato PRIMÁRIO
+    # (`proposta`, put_protecao ou call_coberta) e acrescenta `colar` quando
+    # ele não é `None` — ordem sempre put_protecao/call_coberta primeiro,
+    # collar depois. `proposta`/`motivo` são derivados do candidato primário
+    # (`candidatos[0]`), NUNCA recalculados à parte — recalcular à parte
+    # poderia divergir do candidato que a UI de fato exibe em destaque.
+    candidatos = [proposta]
+    if colar is not None:
+        candidatos.append(colar)
+    return {"proposta": candidatos[0], "motivo": candidatos[0]["tipo"], "candidatos": candidatos}
 
 
 def proposta_fechar(pos_opcao, chain, modo, hoje):

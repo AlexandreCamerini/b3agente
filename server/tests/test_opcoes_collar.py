@@ -76,7 +76,13 @@ def test_propor_multiperna_true_oferece_collar_quando_put_nao_cabe():
 
 
 def test_propor_multiperna_true_com_caixa_folgado_mantem_put_protecao():
-    """O collar não rouba o caso em que a put isolada cabe no caixa."""
+    """O collar não rouba o caso em que a put isolada cabe no caixa.
+
+    Re-verificado sob MULTI-01 (Fase 19): esta cadeia não tem `calls`
+    (`_cadeia(puts=puts)`), então `_propor_collar()` continua devolvendo
+    `None` (nenhuma call líquida acima do spot) mesmo com a chamada agora
+    incondicional a `contratos < 1` — não existe segundo candidato aqui, e
+    o guardião segue válido sem alteração na asserção."""
     puts = [_contrato(28.0, "PETR4F28", "put", price=0.9)]
     r = opcoes_lastreadas.propor("PETR4", _cadeia(puts=puts), _SPOT, _PLANO_VENDER,
                                   _posicao(), 100000, "operador", _HOJE, multiperna=True)
@@ -154,6 +160,121 @@ def test_propor_collar_expiration_da_proposta_e_da_cadeia():
     r = opcoes_lastreadas.propor("PETR4", cadeia, _SPOT, _PLANO_VENDER,
                                   _posicao(qty=300), 50, "operador", _HOJE, multiperna=True)
     assert r["proposta"]["expiration"] == cadeia["expiration"]
+
+
+# ------------------- Fase 19, MULTI-01: coexistência e não-regressão --------
+# `propor()` deixou de escolher UMA estrutura por posição: quando put E
+# collar cabem, os DOIS aparecem em `candidatos`. Esta seção prova
+# coexistência, ordem travada, candidato único quando só uma estrutura cabe,
+# ausência da chave `candidatos` nos negativos (compat. com os ~15 guardiões
+# de igualdade exata de dict) e manchete própria por candidato (guardrail
+# CVM — nenhuma composição no motor).
+
+def test_propor_multiperna_true_com_caixa_e_call_liquida_ambos_coexistem():
+    """MULTI-01: quando put E collar cabem, os DOIS aparecem em candidatos,
+    put_protecao primeiro (índice 0, compat. com consumidor antigo de
+    `.proposta`)."""
+    calls = [_contrato(32.0, "PETR4F32", "call", price=1.0)]
+    puts = [_contrato(28.0, "PETR4F28", "put", price=0.9)]
+    r = opcoes_lastreadas.propor("PETR4", _cadeia(calls=calls, puts=puts), _SPOT, _PLANO_VENDER,
+                                  _posicao(), 100000, "operador", _HOJE, multiperna=True)
+    assert [c["tipo"] for c in r["candidatos"]] == ["put_protecao", "collar"]
+    assert r["proposta"] is r["candidatos"][0]  # mesmo objeto, nunca recalculado à parte
+    assert r["proposta"]["tipo"] == "put_protecao"
+    assert r["motivo"] == "put_protecao"
+
+
+def test_propor_multiperna_false_nunca_traz_collar_mesmo_com_os_dois_cabendo():
+    """A mesma cadeia/caixa do teste de coexistência acima, mas sem
+    `multiperna`: a negociação de capacidade da Fase 16 continua valendo —
+    `multiperna=False` nunca vê o collar, mesmo quando ele caberia."""
+    calls = [_contrato(32.0, "PETR4F32", "call", price=1.0)]
+    puts = [_contrato(28.0, "PETR4F28", "put", price=0.9)]
+    r = opcoes_lastreadas.propor("PETR4", _cadeia(calls=calls, puts=puts), _SPOT, _PLANO_VENDER,
+                                  _posicao(), 100000, "operador", _HOJE)
+    assert [c["tipo"] for c in r["candidatos"]] == ["put_protecao"]
+    assert r["motivo"] == "put_protecao"
+
+
+def test_propor_call_coberta_tem_candidato_unico():
+    """O viés de prêmio (venda coberta) segue candidato único — o collar só
+    é tentado no ramo `put_protecao`, nunca no de `call_coberta`."""
+    calls = [_contrato(32.0, "PETR4F32", "call", price=1.0)]
+    r = opcoes_lastreadas.propor("PETR4", _cadeia(calls=calls), _SPOT, _PLANO_NAO_OPERAR,
+                                  _posicao(), 100000, "operador", _HOJE, multiperna=True)
+    assert [c["tipo"] for c in r["candidatos"]] == ["call_coberta"]
+    assert r["motivo"] == "call_coberta"
+
+
+def test_propor_collar_sozinho_quando_a_put_nao_cabe_no_caixa():
+    """Comportamento da Fase 16 preservado, agora expresso como lista de
+    um: quando a put não cabe mas o collar cabe, `candidatos` tem só o
+    collar."""
+    calls = [_contrato(32.0, "PETR4F32", "call", price=1.0)]
+    puts = [_contrato(28.0, "PETR4F28", "put", price=0.9)]
+    r = opcoes_lastreadas.propor("PETR4", _cadeia(calls=calls, puts=puts), _SPOT, _PLANO_VENDER,
+                                  _posicao(), 50, "operador", _HOJE, multiperna=True)
+    assert [c["tipo"] for c in r["candidatos"]] == ["collar"]
+    assert r["proposta"]["tipo"] == "collar"
+    assert r["motivo"] == "collar"
+
+
+def test_propor_negativos_nao_ganham_chave_candidatos():
+    """Toda porta fechada continua dict de DOIS campos — a ausência de
+    `candidatos` é DELIBERADA (compatibilidade com os ~15 guardiões de
+    igualdade exata de dict em `server/tests/test_opcoes_*.py`; acrescentar
+    `"candidatos": []` neles quebraria todos por nada)."""
+    casos = [
+        # sem_setup: leitura de alta não gera proposta de proteção nem prêmio.
+        ("PETR4", _cadeia(calls=[_contrato(32.0, "PETR4F32", "call")],
+                           puts=[_contrato(28.0, "PETR4F28", "put")]),
+         _SPOT, _PLANO_COMPRAR, _posicao(), 100000, "sem_setup"),
+        # caixa_insuficiente: put não cabe e a cadeia não tem call líquida
+        # para financiar um collar (`_propor_collar` devolve None).
+        ("PETR4", _cadeia(puts=[_contrato(28.0, "PETR4F28", "put", price=0.9)]),
+         _SPOT, _PLANO_VENDER, _posicao(), 10, "caixa_insuficiente"),
+        # sem_contrato_liquido: nenhuma put líquida na cadeia — cai antes de
+        # `colar` ser sequer tentado.
+        ("PETR4", _cadeia(puts=[_contrato(28.0, "PETR4F28", "put", volume=0, oi=0, bid=0, ask=0)]),
+         _SPOT, _PLANO_VENDER, _posicao(), 100000, "sem_contrato_liquido"),
+    ]
+    for underlying, chain, spot, plano, posicao, cash, motivo_esperado in casos:
+        r = opcoes_lastreadas.propor(underlying, chain, spot, plano, posicao, cash,
+                                      "operador", _HOJE, multiperna=True)
+        assert r["motivo"] == motivo_esperado, (motivo_esperado, r)
+        assert r["proposta"] is None
+        assert "candidatos" not in r
+
+
+def test_cada_candidato_tem_manchete_propria_do_skill_ref():
+    """Guardrail CVM: cada candidato carrega a manchete do motor verbatim —
+    nenhuma composição, nenhuma manchete reaproveitada entre candidatos."""
+    calls = [_contrato(32.0, "PETR4F32", "call", price=1.0)]
+    puts = [_contrato(28.0, "PETR4F28", "put", price=0.9)]
+    r = opcoes_lastreadas.propor("PETR4", _cadeia(calls=calls, puts=puts), _SPOT, _PLANO_VENDER,
+                                  _posicao(), 100000, "operador", _HOJE, multiperna=True)
+    assert [c["tipo"] for c in r["candidatos"]] == ["put_protecao", "collar"]
+    put_c, collar_c = r["candidatos"]
+
+    dados_put = {
+        "n": str(put_c["contratos"]), "ticker": "PETR4",
+        "strike": skill_ref.num_br(put_c["strike"]),
+        "premioTotal": skill_ref.num_br(put_c["premioTotal"]),
+        "qtyAcoes": str(put_c["qtyAcoes"]),
+    }
+    dados_collar = {
+        "n": str(collar_c["contratos"]), "ticker": "PETR4",
+        "strikeCall": skill_ref.num_br(collar_c["strikeCall"]),
+        "strikePut": skill_ref.num_br(collar_c["strikePut"]),
+        "qtyAcoes": str(collar_c["qtyAcoes"]),
+    }
+    esperado_put = skill_ref.opcoes_lastreadas_txt("operador", "put_protecao", **dados_put)
+    esperado_collar = skill_ref.opcoes_lastreadas_txt("operador", "collar", **dados_collar)
+
+    assert put_c["manchete"] == esperado_put
+    assert collar_c["manchete"] == esperado_collar
+    assert put_c["manchete"] and collar_c["manchete"]
+    assert put_c["manchete"] != collar_c["manchete"]
 
 
 # ------------------- Parte 2: forma completa da proposta ---------------------

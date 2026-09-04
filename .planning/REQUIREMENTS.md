@@ -80,7 +80,7 @@ já verificado, não reaberto) — motor hoje devolve UMA estrutura por
 posição via regra fixa de `plano.decisao`; estes requirements pedem N.
 Success criteria detalhados ficam para `/gsd-plan-phase 19`.
 
-- [ ] **MULTI-01**: O motor de proposta (`opcoes_lastreadas.propor()` e a
+- [x] **MULTI-01**: O motor de proposta (`opcoes_lastreadas.propor()` e a
   camada `opcoes_motor.rastrear()`/`avaliar()`) pode devolver mais de um
   candidato de estrutura (venda coberta, put de proteção, collar) para a
   mesma posição, quando mais de um fizer sentido pela análise técnica
@@ -136,7 +136,7 @@ Success criteria detalhados ficam para `/gsd-plan-phase 19`.
 | FLOW-02 | Phase 17 | Pending |
 | FLOW-03 | Phase 17 | Pending |
 | FLOW-04 | Phase 17 | Pending |
-| MULTI-01 | Phase 19 | Pending |
+| MULTI-01 | Phase 19 | Complete |
 | MULTI-02 | Phase 19 | Pending |
 
 Coverage: 18/18 v1.4 requirements mapped. No orphans.
