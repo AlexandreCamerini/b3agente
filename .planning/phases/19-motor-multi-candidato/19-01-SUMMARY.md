@@ -45,6 +45,15 @@ completed: 2026-09-04
 
 **`opcoes_lastreadas.propor()` devolve `candidatos` (put_protecao + collar coexistindo, ordem travada) nos retornos positivos, aditivo e byte-compatível com o consumidor de hoje.**
 
+> **Critério de sucesso NÃO atingido:** dos 4 itens em `<success_criteria>` do
+> plano, "Suíte canônica verde" **não** foi satisfeito literalmente —
+> `bash scripts/executar.sh --testes` saiu com código 1 (27 failed) em vez de
+> 0. As 27 falhas são pré-existentes e ambientais (sandbox sem egress de rede
+> pra Yahoo/Anthropic/OpenAI), não causadas por este plano — evidência
+> completa em "Verification Evidence"/"Issues Encountered" abaixo. Não
+> reescrevo o critério como satisfeito: fica registrado como não atingido,
+> com a justificativa anexa, para o orquestrador/reviewer decidir.
+
 ## Performance
 
 - **Duration:** ~45 min (inclui uma correção de base de worktree, ver Issues Encountered)
@@ -136,7 +145,7 @@ tests/test_yahoo_intraday.py::test_60m_e_1h_sao_o_mesmo_intervalo
 ## Next Phase Readiness
 
 - Contrato de retorno de `propor()` estabelecido e testado: `19-02-PLAN.md` (rota `POST /api/options/lastreada/abrir-collar` + `GET /api/options/proposta/{ticker}`) pode consumir `candidatos` diretamente, conforme mapeado em `19-PATTERNS.md`.
-- Nenhum bloqueio conhecido. A pendência de reexecutar a suíte canônica completa num ambiente com rede (para confirmar as 27 falhas ambientais realmente desaparecem fora do sandbox) já é uma limitação pré-existente do ambiente de worktree, não nova deste plano.
+- **Pendência explícita:** critério de sucesso "suíte canônica verde" não atingido literalmente nesta execução — reexecutar `bash scripts/executar.sh --testes` num ambiente com egress de rede liberado antes de considerar a Fase 19 fechada de verdade (mesma classe de limitação já registrada para a Fase 17, não nova deste plano).
 
 ---
 *Phase: 19-motor-multi-candidato*
