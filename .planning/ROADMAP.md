@@ -235,7 +235,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1)*
 
-- [ ] 19-02-PLAN.md — `candidatos` na rota de proposta; `abrir-collar` busca o candidato por tipo com cross-check integral; exclusão mútua entre candidatos irmãos provada nas duas ordens
+- [x] 19-02-PLAN.md — `candidatos` na rota de proposta; `abrir-collar` busca o candidato por tipo com cross-check integral; exclusão mútua entre candidatos irmãos provada nas duas ordens
 
 **Wave 3** *(blocked on Wave 2)*
 
