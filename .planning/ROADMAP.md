@@ -201,15 +201,31 @@ sentido pra mesma posição — usuário escolhe qual aceitar, em vez do motor
 decidir sozinho. Não reabre nem reescreve ENG-01..06 (Fase 15 permanece
 verificada como estava) — é extensão aditiva sobre o mesmo motor
 `opcoes_motor.rastrear()`/`avaliar()`.
-**Depends on**: Phase 18
-**Requirements**: TBD (a definir — provável nova categoria `MULTI-*` em
-`.planning/REQUIREMENTS.md`, cobrindo: motor retorna N candidatos por
-posição; UI do detalhe de Posições mostra os N lado a lado, mesmo padrão
-visual da tira de Oportunidades da Fase 18; usuário aceita exatamente um
-candidato, sem execução de mais de um pra mesma posição na mesma
-avaliação)
-**Success Criteria**: TBD — planejar com `/gsd-plan-phase 19` quando a
-Fase 18 estiver fechada.
+**Depends on**: Phase 18 (checkpoint humano de Task 2 do 18-05 segue
+ABERTO em 2026-09-03 — verificado ao vivo no iPhone só parcialmente,
+faltando o Radar disparar um setup ativo sobre alguma posição real; ver
+`.planning/STATE.md` Blockers/Concerns. Planejar esta fase agora é seguro
+— não executa nem publica nada — mas executá-la herdaria o mesmo risco já
+nomeado pra Fase 17→18: publicar 19 empurraria pro ar, no mesmo bundle,
+fluxo ainda não confirmado ao vivo. Decisão explícita do Alex: planejar
+mesmo assim.)
+**Requirements**: MULTI-01, MULTI-02
+**Success Criteria** (what must be TRUE):
+  1. Para uma posição comprada real onde mais de uma estrutura (venda
+     coberta, put de proteção, collar) faz sentido pela análise técnica
+     atual, o motor (`opcoes_lastreadas.propor()`/`opcoes_motor.avaliar()`)
+     devolve TODOS os candidatos elegíveis, não mais um único escolhido por
+     `plano.decisao` (MULTI-01).
+  2. O detalhe da posição em Posições mostra os N candidatos lado a lado,
+     no mesmo padrão visual da tira "Oportunidades" da Fase 18 — cada um
+     com sua própria manchete verbatim do motor, payoff e CTA de aceite
+     (MULTI-02).
+  3. Usuário aceita exatamente um candidato por avaliação — aceitar um não
+     deixa disponível a execução de outro candidato concorrente sobre a
+     MESMA posição na mesma rodada (MULTI-02).
+  4. Quando só uma estrutura é elegível (caso de hoje), o comportamento
+     observável não muda — nenhuma regressão visual/funcional pra
+     posições com um candidato só.
 **Plans**: TBD
 **UI hint**: yes
 
