@@ -231,7 +231,7 @@ mesmo assim.)
 Plans:
 **Wave 1**
 
-- [ ] 19-01-PLAN.md — `propor()` devolve lista de candidatos (aditivo; put_protecao antes de collar; negativos inalterados)
+- [x] 19-01-PLAN.md — `propor()` devolve lista de candidatos (aditivo; put_protecao antes de collar; negativos inalterados)
 
 **Wave 2** *(blocked on Wave 1)*
 
