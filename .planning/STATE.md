@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Opções v2
 status: executing
-stopped_at: Fase 18 — Plano 18-05 Task 1 publicado (carimbo F10-20260903-02); Task 2 (checkpoint humano ao vivo, mercado aberto) aguardando o Alex
-last_updated: "2026-09-03T12:00:00.000Z"
-last_activity: 2026-09-03 -- Phase 18 plans 18-01..18-04 completos, 18-05 Task 1 publicado, Task 2 aguardando verificação humana
+stopped_at: Fase 18 reescopada (nav "seção em Posições") e Fase 19 registrada (motor multi-candidato) em ROADMAP.md/REQUIREMENTS.md
+last_updated: "2026-09-04T22:54:04.001Z"
+last_activity: 2026-09-04 -- Phase 19 execution started
 progress:
   total_phases: 7
-  completed_phases: 3
-  total_plans: 19
-  completed_plans: 18
-  percent: 90
+  completed_phases: 4
+  total_plans: 23
+  completed_plans: 19
+  percent: 57
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-01)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Phase 18 — aba-opcoes (aguardando checkpoint humano do Plano 18-05)
+**Current focus:** Phase 19 — motor-multi-candidato
 
 ## Current Position
 
-Phase: 18 (aba-opcoes) — AWAITING HUMAN CHECKPOINT
-Plan: 5 of 5 (18-05 Task 1 completo, Task 2 bloqueante pendente)
-Status: Publicado localmente (carimbo F10-20260903-02); aguardando roteiro de 10 passos com mercado aberto + decisão a/b/c sobre o risco herdado da Fase 17
-Last activity: 2026-09-03 -- Phase 18 plans 18-01..18-04 completos, 18-05 Task 1 publicado
+Phase: 19 (motor-multi-candidato) — EXECUTING
+Plan: 1 of 4
+Status: Executing Phase 19
+Last activity: 2026-09-04 -- Phase 19 execution started
 
 Progress: [█████████░] 90%
 
