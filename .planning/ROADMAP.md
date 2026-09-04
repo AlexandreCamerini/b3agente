@@ -226,7 +226,25 @@ mesmo assim.)
   4. Quando só uma estrutura é elegível (caso de hoje), o comportamento
      observável não muda — nenhuma regressão visual/funcional pra
      posições com um candidato só.
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 19-01-PLAN.md — `propor()` devolve lista de candidatos (aditivo; put_protecao antes de collar; negativos inalterados)
+
+**Wave 2** *(blocked on Wave 1)*
+
+- [ ] 19-02-PLAN.md — `candidatos` na rota de proposta; `abrir-collar` busca o candidato por tipo com cross-check integral; exclusão mútua entre candidatos irmãos provada nas duas ordens
+
+**Wave 3** *(blocked on Wave 2)*
+
+- [ ] 19-03-PLAN.md — `CandidatoOpcao` + ramo de N candidatos em `PropostaDaPosicao`; guardiões estáticos novos e guardião de collar atualizado com nota
+
+**Wave 4** *(blocked on Wave 3)*
+
+- [ ] 19-04-PLAN.md — bump + publicação (front e `SERVER_BUILD_ID`) e checkpoint humano bloqueante com o roteiro de 10 passos
+
 **UI hint**: yes
 
 Fora de escopo desta milestone (decidido no kickoff): plano comercial da
