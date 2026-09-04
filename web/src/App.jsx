@@ -4002,6 +4002,13 @@ function PropostaDaPosicao({ t, r, cp, operador, A, data, aberto, onToggle }) {
   // tela", pior que o silêncio.
   if (!r || !r.proposta) return null;
 
+  // Fase 19 (Plano 03, MULTI-02): candidatos é SEMPRE array (default [] no
+  // servidor); quando há mais de um, o ramo abaixo mostra os N lado a lado —
+  // um candidato só continua caindo no card de hoje (nenhuma regressão
+  // visual/funcional para posições com um candidato só).
+  const candidatos = Array.isArray(r.candidatos) ? r.candidatos : [];
+  const multi = candidatos.length > 1;
+
   // Réplica de App.jsx:3266/3289-3291, escopada a `t` (o ticker desta
   // posição) em vez do closure de AtivoCard.
   const myOptionPositions = ((data && data.optionPositions) || []).filter((p) => p.underlying === t);
@@ -4009,12 +4016,14 @@ function PropostaDaPosicao({ t, r, cp, operador, A, data, aberto, onToggle }) {
     ? myOptionPositions.find((p) => p.id === r.proposta.contractSymbol) || null
     : null;
 
-  // Réplica de App.jsx:3292-3321 — mesmo corpo, `t` no lugar do closure de
-  // AtivoCard. Corpo enviado ao collar carrega SÓ contractSymbol + lado por
-  // perna — prêmio e strike o servidor re-deriva (T-17-24).
-  const onAbrirLastreada = async () => {
-    if (!r || !r.proposta) return;
-    const p = r.proposta;
+  // Réplica de App.jsx:3292-3321 — mesmo corpo, agora parametrizado pelo
+  // candidato clicado (Fase 19, MULTI-02: uma posição pode ter N candidatos,
+  // cada um com seu próprio CTA; `busy` continua único por posição, lido por
+  // TODOS os candidatos — 19-UI-SPEC.md, Decisão de Interação 1). Corpo
+  // enviado ao collar carrega SÓ contractSymbol + lado por perna — prêmio e
+  // strike o servidor re-deriva (T-17-24).
+  const aceitarCandidato = async (p) => {
+    if (!p) return;
     if (p.tipo === "collar") {
       if (!window.confirm(cp.confirmAbrirCollar(p.contratos, t, p.qtyAcoes))) return;
       setBusy(true);
@@ -4053,7 +4062,126 @@ function PropostaDaPosicao({ t, r, cp, operador, A, data, aberto, onToggle }) {
         <span style={{ color: T.textFaint }}>{aberto ? "▴" : "▾"}</span>
       </button>
       {aberto && (
-        <PropostaLastreada r={r} operador={operador} cp={cp} busy={busy} onAbrir={onAbrirLastreada} onFechar={onFecharLastreada} posAberta={posAberta} />
+        multi ? (
+          <>
+            {/* Fase 19 (Plano 03, MULTI-02): N candidatos lado a lado — mesmo
+                padrão de linha horizontal de OportunidadesOpcoes (Fase 18,
+                App.jsx:3938-3964); nunca um terceiro padrão visual novo. */}
+            <div style={{ marginTop: "11px", display: "flex", gap: "10px", overflowX: "auto", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", paddingBottom: "2px" }}>
+              {candidatos.map((c) => (
+                <CandidatoOpcao key={c.tipo + "-" + (c.contractSymbol || "collar")} p={c} r={r} cp={cp} operador={operador} busy={busy} onAceitar={aceitarCandidato} />
+              ))}
+            </div>
+            <FonteDoDadoProposta r={r} cp={cp} />
+          </>
+        ) : (
+          <PropostaLastreada r={r} operador={operador} cp={cp} busy={busy} onAbrir={() => aceitarCandidato(r.proposta)} onFechar={onFecharLastreada} posAberta={posAberta} />
+        )
+      )}
+    </div>
+  );
+}
+
+// Fase 19 (Plano 03, MULTI-02): item de UM candidato dentro da linha de N
+// candidatos do detalhe de posição — reusa verbatim o padrão visual do item
+// de OportunidadesOpcoes (Fase 18, App.jsx:3938-3964) e os internos de
+// PropostaLastreada (Fase 14/17, App.jsx:3056-3134). NÃO renderiza o
+// componente PropostaLastreada de propósito: o guardião de contagem 2x da
+// Fase 18 (test_carteira_opcoes_tira.mjs) trava esse componente aos dois
+// pontos de uso já existentes (AtivoCard + PropostaDaPosicao de candidato
+// único).
+function CandidatoOpcao({ p, r, cp, operador, busy, onAceitar }) {
+  const isCollar = p.tipo === "collar";
+  const isCall = p.optionType === "call";
+  // mesma regra de polaridade da manchete do card (App.jsx:3038): nunca
+  // T.accent na linha da manchete.
+  const cor = isCall ? T.positive : T.negative;
+  const eyebrow = isCollar ? cp.eyebrowPropostaCollar : isCall ? cp.eyebrowPropostaCall : cp.eyebrowPropostaPut;
+  const degradado = r.providerStatus !== "ok";
+  const est = p.estrutura || null;
+  // ATENÇÃO: `null * 100 === 0` em JS — só multiplica NÚMERO; null/undefined
+  // continuam null e caem em price(null) → "—" (regra "null nunca 0.0"
+  // aplicada à UI, mesmo helper de App.jsx:3051-3055).
+  const porLote = (v) => (typeof v === "number" ? v * (p.qtyAcoes || 0) : null);
+  return (
+    <div style={{ flex: "0 0 auto", minWidth: "210px", minHeight: "44px", padding: "11px 12px", borderRadius: "11px", background: T.bgCard, border: `1px solid ${T.borderFaint}` }}>
+      <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em", color: T.accent }}>{eyebrow}</div>
+      <div style={{ fontFamily: MONO, fontWeight: 800, fontSize: "13px", color: T.textSecondary, marginTop: "3px" }}>
+        {isCollar
+          ? cp.collarPernasLinha(p.contratos, r.ticker, price(p.strikeCall), price(p.strikePut))
+          : `${p.contratos}× ${isCall ? "CALL" : "PUT"} ${r.ticker} · strike ${price(p.strike)}`}
+      </div>
+      {/* manchete do motor, verbatim — guardrail CVM (CLAUDE.md); nunca
+          truncada com reticências: cortar reescreveria a afirmação do
+          motor. */}
+      <div style={{ fontSize: "12.5px", fontWeight: 700, color: cor, marginTop: "4px", whiteSpace: "normal" }}>{p.manchete}</div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "10px" }}>
+        {(p.chips || []).map((c) => (
+          <span key={c.k} style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "999px", background: T.bgBase, color: T.textSecondary, fontWeight: 700 }}>
+            {c.k} <b style={{ fontWeight: 800, color: T.textPrimary }}>{c.v}</b>
+          </span>
+        ))}
+      </div>
+      {est && (
+        <div style={{ marginTop: "10px", padding: "10px", borderRadius: "9px", background: T.bgBase }}>
+          <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em", color: T.textFaint }}>{cp.payoffTitulo}</div>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", marginTop: "6px" }}>
+            <span style={{ color: T.textSecondary }}>{cp.payoffGanhoMaximo}</span>
+            <b style={{ fontFamily: MONO, fontWeight: 800, color: T.textPrimary }}>
+              {est.ganho_ilimitado ? cp.payoffIlimitado : "R$ " + price(porLote(est.ganho_maximo))}
+            </b>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", marginTop: "4px" }}>
+            <span style={{ color: T.textSecondary }}>{cp.payoffPerdaMaxima}</span>
+            <b style={{ fontFamily: MONO, fontWeight: 800, color: T.textPrimary }}>
+              {est.perda_ilimitada ? cp.payoffIlimitado : "R$ " + price(porLote(est.perda_maxima))}
+            </b>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", marginTop: "4px" }}>
+            <span style={{ color: T.textSecondary }}>{cp.payoffBreakeven}</span>
+            <b style={{ fontFamily: MONO, fontWeight: 800, color: T.textPrimary }}>
+              {Array.isArray(est.breakevens) && est.breakevens.length ? est.breakevens.map((b) => price(b)).join(" / ") : cp.payoffSemDado}
+            </b>
+          </div>
+          {p.caixa && (
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", marginTop: "4px" }}>
+              <span style={{ color: T.textSecondary }}>
+                {p.caixa.fluxo === "credito" ? cp.payoffCaixaCredito : p.caixa.fluxo === "debito" ? cp.payoffCaixaDebito : cp.payoffCaixaNeutro}
+              </span>
+              {p.caixa.fluxo !== "neutro" && (
+                <b style={{ fontFamily: MONO, fontWeight: 800, color: T.textPrimary }}>R$ {price(Math.abs(p.caixa.custoLiquidoTotal))}</b>
+              )}
+            </div>
+          )}
+          <div style={{ fontSize: "10px", color: T.textFaint, marginTop: "8px" }}>{cp.payoffNota(price(p.precoObjeto))}</div>
+        </div>
+      )}
+      {/* Modo Estudo (vocab["educacional"]): a MESMA proposta, condicional —
+          nunca um botão de executar (T-14-23). */}
+      {!operador && (
+        <div style={{ fontSize: "12px", color: T.textMuted, lineHeight: 1.5, marginTop: "10px" }}>{p.didatica}</div>
+      )}
+      {/* Modo Operador: CTA imperativo próprio deste candidato. O ramo multi
+          só existe quando não há posição lastreada aberta (a rota devolve
+          candidatos: [] nesse caso) — sem ramo posAberta/ctaFecharLastreada
+          aqui, ao contrário de PropostaLastreada. */}
+      {operador && (
+        <button
+          type="button"
+          onClick={() => onAceitar(p)}
+          disabled={busy || degradado}
+          style={{ marginTop: "12px", width: "100%", minHeight: "40px", borderRadius: "9px", border: `1px solid ${T.accent}`, background: T.accentTint, color: T.accent, fontWeight: 800, fontSize: "12.5px" }}
+        >
+          {degradado
+            ? cp.propostaIndisponivelDegradada
+            : isCollar
+            ? (p.caixa && p.caixa.fluxo === "credito"
+                ? cp.ctaCollarCredito(p.contratos, r.ticker, price(p.strikeCall), price(p.strikePut), price(Math.abs((p.caixa && p.caixa.custoLiquidoTotal) || 0)))
+                : cp.ctaCollarDebito(p.contratos, r.ticker, price(p.strikeCall), price(p.strikePut), price(Math.abs((p.caixa && p.caixa.custoLiquidoTotal) || 0))))
+            : isCall
+            ? cp.ctaVendaCoberta(p.contratos, r.ticker, price(p.strike), price(p.premioTotal))
+            : cp.ctaPutProtecao(p.contratos, r.ticker, price(p.strike), price(p.premioTotal))}
+        </button>
       )}
     </div>
   );
