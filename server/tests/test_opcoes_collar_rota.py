@@ -214,9 +214,22 @@ def test_collar_aceito_com_proposta_fresca_executa_as_duas_pernas(cli, _expiraca
 
 
 def test_collar_indisponivel_agora_devolve_409_sem_efeito_colateral(cli, _expiracao_fixa, _snapshot_sem_setup, _plano_vender):
-    """Cenário em que a leitura FRESCA do motor não propõe collar (caixa
-    folgado o bastante pra put isolada caber sozinha) — 409, estado
-    inalterado."""
+    """Cenário em que a leitura FRESCA do motor tem put_protecao como
+    candidato PRIMÁRIO (caixa folgado o bastante pra put isolada caber
+    sozinha) — 409, estado inalterado.
+
+    Nota Fase 19, MULTI-01: o cenário original deste teste ("collar deixou
+    de existir por caixa folgado") não é mais alcançável — com put_protecao e
+    collar coexistindo (MULTI-01), caixa folgado ainda deixa o collar como
+    candidatos[1] na cadeia mock (ela tem call líquida acima do spot). O
+    guardião foi REAPONTADO para o cross-check: o corpo declara `contratos: 1`
+    enquanto o candidato collar re-derivado tem o número de contratos que o
+    lastro/caixa sustentam (3, para `qty=300`), então a rejeição passa a vir
+    do cross-check de contratos, não mais de "candidato não encontrado". A
+    asserção de `motivo == "put_protecao"` continua verdadeira e agora prova
+    algo mais forte: o primário é a put mesmo com o collar disponível. A
+    não-execução (a garantia real deste guardião) continua exatamente a
+    mesma — só mudou O PORQUÊ da rejeição."""
     uid, headers = _novo_escopo(cli, "04")
     _liga_operador(uid)
     _seed_posicao(uid, qty=300)
@@ -235,7 +248,69 @@ def test_collar_indisponivel_agora_devolve_409_sem_efeito_colateral(cli, _expira
                              {"contractSymbol": put["contractSymbol"], "lado": "compra"}],
     })
     assert r.status_code == 409
-    assert "não está mais disponível" in r.json()["detail"]
+    assert "não conferem com a proposta recalculada pelo servidor" in r.json()["detail"]
+    assert store.get(_conn, "cash", user_id=uid) == caixa_antes
+    assert store.get(_conn, "optionPositions", user_id=uid) == opts_antes
+
+
+def test_collar_aceito_mesmo_nao_sendo_o_candidato_primario(cli, _expiracao_fixa, _snapshot_sem_setup, _plano_vender):
+    """Fase 19, MULTI-01/MULTI-02: `abrir-collar` aceita o collar mesmo
+    quando ele é `candidatos[1]` (put_protecao é o primário) — a busca por
+    `tipo == "collar"` dentro da lista, não mais a suposição de que o collar
+    é sempre o resultado único/primário."""
+    uid, headers = _novo_escopo(cli, "14")
+    _liga_operador(uid)
+    _seed_posicao(uid, qty=300)
+    spot, premio_call, premio_put = _pernas_collar_da_cadeia(cli)
+    store.put(_conn, "cash", 100 * premio_put + 10_000.0, user_id=uid)  # os DOIS cabem
+
+    body = cli.get("/api/options/proposta/PETR4?multiperna=1", headers=headers).json()
+    assert [c["tipo"] for c in body["candidatos"]] == ["put_protecao", "collar"]
+    assert body["motivo"] == "put_protecao"
+
+    p = body["candidatos"][1]
+    r = cli.post("/api/options/lastreada/abrir-collar", headers=headers, json={
+        "underlying": "PETR4", "contratos": p["contratos"],
+        "pernasContratos": [{"contractSymbol": perna["contractSymbol"], "lado": perna["lado"]}
+                             for perna in p["pernasContratos"]],
+    })
+    assert r.status_code == 200, r.text
+    resp = r.json()
+    opts = resp["optionPositions"]
+    assert len(opts) == 2
+    lados = {o["id"]: o["side"] for o in opts}
+    assert lados[p["pernasContratos"][0]["contractSymbol"]] == "vendida"
+    assert lados[p["pernasContratos"][1]["contractSymbol"]] == "comprada"
+    pos_petr4 = next(pp for pp in resp["positions"] if pp["t"] == "PETR4")
+    assert pos_petr4["qtyTravada"] == p["contratos"] * 100  # travado UMA vez
+
+
+def test_collar_com_pernas_de_outro_candidato_nao_passa_so_por_existir_collar(cli, _expiracao_fixa, _snapshot_sem_setup, _plano_vender):
+    """Guardião anti-regressão: achar o candidato `tipo == "collar"` na lista
+    é condição NECESSÁRIA, nunca suficiente — o cross-check contrato a
+    contrato continua rodando contra o candidato encontrado. Troca a perna de
+    call por outro contrato real da cadeia (não a que o motor escolheria)."""
+    uid, headers = _novo_escopo(cli, "15")
+    _liga_operador(uid)
+    _seed_posicao(uid, qty=300)
+    spot, premio_call, premio_put = _pernas_collar_da_cadeia(cli)
+    store.put(_conn, "cash", 100 * premio_put + 10_000.0, user_id=uid)  # os DOIS cabem
+    caixa_antes = store.get(_conn, "cash", user_id=uid)
+    opts_antes = store.get(_conn, "optionPositions", user_id=uid)
+
+    body = cli.get("/api/options/proposta/PETR4?multiperna=1", headers=headers).json()
+    p = body["candidatos"][1]
+    assert p["tipo"] == "collar"
+    call_esperada = p["pernasContratos"][0]["contractSymbol"]
+    call_trocada = _outro_call(cli, "PETR4", call_esperada)
+
+    r = cli.post("/api/options/lastreada/abrir-collar", headers=headers, json={
+        "underlying": "PETR4", "contratos": p["contratos"],
+        "pernasContratos": [{"contractSymbol": call_trocada["contractSymbol"], "lado": "venda"},
+                             {"contractSymbol": p["pernasContratos"][1]["contractSymbol"], "lado": "compra"}],
+    })
+    assert r.status_code == 409
+    assert "não conferem com a proposta recalculada pelo servidor" in r.json()["detail"]
     assert store.get(_conn, "cash", user_id=uid) == caixa_antes
     assert store.get(_conn, "optionPositions", user_id=uid) == opts_antes
 
@@ -439,3 +514,83 @@ def test_meia_estrutura_e_impossivel_pela_rota_nova(cli, _expiracao_fixa, _snaps
     assert r.status_code == 400
     assert "Collar exige exatamente duas pernas." in r.json()["detail"]
     assert store.get(_conn, "optionPositions", user_id=uid) == []
+
+
+# ------- Task 3: exclusão mútua entre candidatos irmãos (Fase 19, MULTI-02, --
+# critério 3) — a call vendida do collar TRAVA `qtyTravada`
+# (store.abrir_collar), a put comprada NÃO (store.comprar_put_protecao,
+# decisão de produto documentada em store.py:1023-1026: a put protege o
+# downside e não compromete o lote). Por isso as duas ordens de aceite
+# precisam de guardião PRÓPRIO — são mecanismos DIFERENTES que as bloqueiam:
+# collar->put é bloqueado pela guarda de lastro de sempre (ORDER_LOCK); put->
+# collar é bloqueado pela precondição de posição lastreada aberta que a
+# Task 1 acrescentou à rota (honrando o que a rota de leitura já fazia desde
+# a Fase 14). Nenhuma trava nova entra no motor de carteira nesta fase.
+
+def test_aceitar_collar_impede_aceitar_a_put_irma_por_lastro(cli, _expiracao_fixa, _snapshot_sem_setup, _plano_vender):
+    uid, headers = _novo_escopo(cli, "16")
+    _liga_operador(uid)
+    _seed_posicao(uid, qty=300)
+    spot, premio_call, premio_put = _pernas_collar_da_cadeia(cli)
+    store.put(_conn, "cash", 100 * premio_put + 10_000.0, user_id=uid)  # os DOIS cabem
+
+    body = cli.get("/api/options/proposta/PETR4?multiperna=1", headers=headers).json()
+    assert [c["tipo"] for c in body["candidatos"]] == ["put_protecao", "collar"]
+    put_candidato, collar_candidato = body["candidatos"][0], body["candidatos"][1]
+
+    r_collar = cli.post("/api/options/lastreada/abrir-collar", headers=headers, json={
+        "underlying": "PETR4", "contratos": collar_candidato["contratos"],
+        "pernasContratos": [{"contractSymbol": perna["contractSymbol"], "lado": perna["lado"]}
+                             for perna in collar_candidato["pernasContratos"]],
+    })
+    assert r_collar.status_code == 200, r_collar.text
+
+    r_put = cli.post("/api/options/lastreada/abrir", headers=headers, json={
+        "underlying": "PETR4", "contractSymbol": put_candidato["contractSymbol"],
+        "expiration": put_candidato["expiration"], "contratos": put_candidato["contratos"],
+    })
+    assert r_put.status_code == 400
+    assert "Lastro insuficiente" in r_put.json()["detail"]
+    assert len(store.get(_conn, "optionPositions", user_id=uid)) == 2  # nenhuma terceira posição
+
+
+def test_aceitar_a_put_impede_aceitar_o_collar_irmao_por_precondicao(cli, _expiracao_fixa, _snapshot_sem_setup, _plano_vender):
+    uid, headers = _novo_escopo(cli, "17")
+    _liga_operador(uid)
+    _seed_posicao(uid, qty=300)
+    spot, premio_call, premio_put = _pernas_collar_da_cadeia(cli)
+    store.put(_conn, "cash", 100 * premio_put + 10_000.0, user_id=uid)  # os DOIS cabem
+
+    body = cli.get("/api/options/proposta/PETR4?multiperna=1", headers=headers).json()
+    put_candidato, collar_candidato = body["candidatos"][0], body["candidatos"][1]
+
+    r_put = cli.post("/api/options/lastreada/abrir", headers=headers, json={
+        "underlying": "PETR4", "contractSymbol": put_candidato["contractSymbol"],
+        "expiration": put_candidato["expiration"], "contratos": put_candidato["contratos"],
+    })
+    assert r_put.status_code == 200, r_put.text
+
+    r_collar = cli.post("/api/options/lastreada/abrir-collar", headers=headers, json={
+        "underlying": "PETR4", "contratos": collar_candidato["contratos"],
+        "pernasContratos": [{"contractSymbol": perna["contractSymbol"], "lado": perna["lado"]}
+                             for perna in collar_candidato["pernasContratos"]],
+    })
+    assert r_collar.status_code == 409
+    assert "Já existe uma operação lastreada aberta" in r_collar.json()["detail"]
+    opts = store.get(_conn, "optionPositions", user_id=uid)
+    assert len(opts) == 1  # só a put, nenhuma perna do collar entrou
+    pos_petr4 = next(pp for pp in store.get(_conn, "positions", user_id=uid) if pp["t"] == "PETR4")
+    assert pos_petr4.get("qtyTravada", 0) == 0
+
+
+def test_guarda_do_irmao_nao_e_trava_nova_no_store():
+    """Guardião estático de disciplina (mesmo estilo de
+    `test_rota_de_collar_nao_le_multiperna_do_corpo`): a exclusão mútua NÃO
+    ganhou lock ou flag novos nesta fase — vem da validação de lastro de
+    sempre (uma ordem) e da precondição de rota (a outra)."""
+    fonte_collar = inspect.getsource(store.abrir_collar)
+    fonte_put = inspect.getsource(store.comprar_put_protecao)
+    for fonte in (fonte_collar, fonte_put):
+        assert "threading.Lock(" not in fonte
+        assert "threading.RLock(" not in fonte
+        assert "candidato" not in fonte

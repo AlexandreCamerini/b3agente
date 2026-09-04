@@ -2437,6 +2437,14 @@ async def options_proposta(ticker: str, multiperna: bool = False, scope: Optiona
         # semântica de `/api/quotes`/technicals, que também servem dado de um
         # cache de provider (300s); não é o horário do pregão do dado.
         "source": source, "at": now_str(),
+        # Fase 19, MULTI-01: chave ADITIVA. `.get()` com default `[]` é
+        # OBRIGATÓRIO — o ramo `pos_op_aberta` chama `proposta_fechar()`, que
+        # nunca devolve `candidatos`, e o `except Exception` acima monta um
+        # `resultado` de só dois campos; indexação direta estouraria
+        # `KeyError` e transformaria uma leitura degradada em 500. O default
+        # cobre os ramos de fechamento e de degradação — não mascara falha de
+        # dado de mercado (essa já vira `motivo="degradado"` antes daqui).
+        "candidatos": resultado.get("candidatos", []),
     }
 
 
@@ -2549,6 +2557,27 @@ async def options_lastreada_abrir_collar(body: dict = Body(default={}), scope: O
     if not isinstance(contratos_body, (int, float)) or contratos_body < 1:
         raise HTTPException(400, "Operação lastreada inválida.")
 
+    # Fase 19, MULTI-02, critério 3: precondição de ESTADO, não desconfiança
+    # do corpo — por isso vem ANTES da re-derivação (evita um fetch de cadeia
+    # inútil). A rota de LEITURA (`options_proposta`, `pos_op_aberta` acima)
+    # já decide que uma posição com lastreada aberta no `underlying` recebe
+    # só proposta de FECHAMENTO, nunca uma nova escolha de `propor()`. Esta
+    # rota de ESCRITA replicava só o "ramo B" desse pipeline; sem esta
+    # checagem, a ordem put_protecao→collar executaria as DUAS estruturas
+    # concorrentes sobre a mesma posição: `comprar_put_protecao`
+    # (store.py:1023-1026) NUNCA escreve `qtyTravada`, então o lastro
+    # continua livre e `abrir_collar` não encontraria trava nenhuma pela
+    # frente. Não é uma trava nova no motor de carteira — é a rota de escrita
+    # parando de contradizer a regra que a rota de leitura já aplica desde a
+    # Fase 14.
+    option_positions = store.get(_conn, "optionPositions", user_id=scope)
+    pos_op_aberta = next(
+        (pp for pp in option_positions if pp.get("underlying") == underlying and pp.get("lastro")), None)
+    if pos_op_aberta:
+        raise HTTPException(
+            409, f"Já existe uma operação lastreada aberta em {underlying} — "
+                 "feche-a antes de montar outra estrutura.")
+
     # RE-DERIVAÇÃO server-side (ADR-026, Decisão 2) — repete o pipeline do
     # ramo B de `options_proposta` verbatim, com `multiperna=True` FIXO
     # (nunca lido do corpo — ver guardião `test_rota_de_collar_nao_le_
@@ -2580,10 +2609,17 @@ async def options_lastreada_abrir_collar(body: dict = Body(default={}), scope: O
     except Exception:
         raise HTTPException(502, "Não foi possível recalcular a proposta — tente novamente.")
 
-    if resultado.get("motivo") != "collar" or not resultado.get("proposta"):
+    # Fase 19, MULTI-01/MULTI-02: busca por TIPO dentro da lista de
+    # candidatos, não mais a suposição de que o collar é sempre o resultado
+    # PRIMÁRIO — com put_protecao e collar coexistindo, `motivo` passa a ser
+    # `"put_protecao"` mesmo quando o collar está disponível como segundo
+    # candidato. Achar o candidato aqui é condição NECESSÁRIA, nunca
+    # suficiente: todo o cross-check abaixo continua rodando contra o `p`
+    # ENCONTRADO — nenhum corpo passa só por declarar tipo collar.
+    p = next((c for c in (resultado.get("candidatos") or []) if c.get("tipo") == "collar"), None)
+    if not p:
         raise HTTPException(409, "O collar não está mais disponível — o servidor recalculou a "
                                   "proposta e o resultado mudou.")
-    p = resultado["proposta"]
 
     # CROSS-CHECK contra a proposta fresca — cobre de uma vez contrato
     # trocado, contrato faltando, contrato duplicado e lado invertido.
