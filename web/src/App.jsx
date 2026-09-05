@@ -4614,7 +4614,7 @@ function HistoricoScreen({ ctx }) {
       {data.history.length === 0 ? (
         <div style={{ background: T.bgCard, border: `1px dashed ${T.borderDashed}`, borderRadius: "12px", padding: "34px 20px", textAlign: "center" }}>
           <div style={{ fontSize: "16px", fontWeight: 700 }}>Nenhuma operação ainda</div>
-          <p style={{ margin: "8px auto 0", color: T.textMuted, fontSize: "13px", maxWidth: "380px", lineHeight: 1.5 }}>{cp.vazioHistorico}</p>
+          <p style={{ margin: "8px auto 0", color: T.textMuted, fontSize: "13px", maxWidth: "380px", lineHeight: 1.5 }}>{ctx.cp.vazioHistorico}</p>
         </div>
       ) : (
         <div style={{ ...card, overflow: "hidden" }}>
