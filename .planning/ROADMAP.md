@@ -319,7 +319,7 @@ que as três fases seguintes consomem.
 **Plans**: 4 plans
 Plans:
 - [x] 20-01-PLAN.md — Contenção horizontal medida ao vivo, truncamento do badge e teto único de 720px (FIX-01, FIX-02, SYS-04)
-- [ ] 20-02-PLAN.md — Dígitos de largura fixa em todo valor com MONO + escala numérica nomeada (TYPO-01, TYPO-02)
+- [x] 20-02-PLAN.md — Dígitos de largura fixa em todo valor com MONO + escala numérica nomeada (TYPO-01, TYPO-02)
 - [ ] 20-03-PLAN.md — Fredoka nos 15 H1 de tela + gate de prefers-reduced-motion (TYPO-03, MOTION-03)
 - [ ] 20-04-PLAN.md — Bump, publicação e remedição dos 5 critérios contra o bundle de produção
 **Nota de publicação**: toca `web/src/` — a fase precisa de plano final de
@@ -442,7 +442,7 @@ Out of Scope / Future Requirements.
 | 17. Fluxo de aceite | 5/6 | In Progress|  |
 | 18. Aba Opções | 4/5 | In Progress|  |
 | 19. Motor multi-candidato | 3/4 | In Progress|  |
-| 20. Fundação estrutural e tipográfica | 1/4 | In Progress|  |
+| 20. Fundação estrutural e tipográfica | 2/4 | In Progress|  |
 | 21. Duplicação removida e Portfólio consolidado | v1.5 | Not started |  |
 | 22. Componentes compartilhados (trilho, ícones, mascote) | v1.5 | Not started |  |
 | 23. Motion com propósito e ilustração unificada | v1.5 | Not started |  |
