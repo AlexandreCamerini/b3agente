@@ -5,7 +5,7 @@ milestone_name: Opções v2
 status: executing
 stopped_at: Fase 18 reescopada (nav "seção em Posições") e Fase 19 registrada (motor multi-candidato) em ROADMAP.md/REQUIREMENTS.md
 last_updated: "2026-09-04T22:54:04.001Z"
-last_activity: 2026-09-04 -- Phase 19 execution started
+last_activity: 2026-09-05 -- Completed quick task 260905-1gb: Corrigir crash cp is not defined em HistoricoScreen
 progress:
   total_phases: 7
   completed_phases: 4
@@ -191,6 +191,7 @@ Recent decisions affecting current work:
 | 260901-r5t | Registrar decisão: Alex escolheu Candidato A (aba própria Opções) na navegação de Opções v2 | 2026-09-01 | da9a118 | Verified | [260901-r5t](./quick/260901-r5t-registrar-decis-o-alex-escolheu-candidat/) |
 | 260901-u2c | Registrar decisão: escopo v1 biblioteca de setups (venda coberta+put+collar), espaço pra MCP futuro | 2026-09-02 | f29490b | Verified | [260901-u2c](./quick/260901-u2c-registrar-decis-o-escopo-v1-biblioteca-d/) |
 | 260902-km8 | Registrar estratégia de arquitetura: Boris independe do b-mcp até o serviço MCP autenticado ficar pronto | 2026-09-02 | 36cc1d1 | Verified | [260902-km8](./quick/260902-km8-registrar-estrat-gia-de-arquitetura-bori/) |
+| 260905-1gb | Corrigir crash `cp is not defined` em HistoricoScreen (achado em auditoria de design ao vivo) | 2026-09-05 | 2715f9a | Verified | [260905-1gb](./quick/260905-1gb-corrigir-crash-cp-is-not-defined-em-hist/) |
 
 ## Deferred Items
 
