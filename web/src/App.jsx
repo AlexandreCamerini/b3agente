@@ -246,6 +246,16 @@ const DISPLAY = "'Fredoka', " + SANS;
 // número sem relação com o primeiro. Uma constante única evita a deriva entre
 // os dois — mudar o teto passa a ser uma edição, não uma caça a literais.
 const CONTENT_MAX_WIDTH = "720px";
+// Fase 20 (TYPO-02): escala numérica nomeada, aprovada na sessão de design
+// desta fase (20-CONTEXT.md). Só tamanho e peso — sem lineHeight, color ou
+// fontFamily — para poder ser combinada por spread com o que cada call site
+// já declara. numBody já tem consumidor real (patrimônio do Topbar);
+// numHero/numMicro ficam declarados aqui para as Fases 21/22 consumirem
+// quando migrarem Histórico, Watchlist e Portfólio tela a tela — deferimento
+// explícito registrado em 20-CONTEXT.md, não esquecimento.
+const numHero = { fontSize: "34px", fontWeight: 700 };
+const numBody = { fontSize: "18px", fontWeight: 700 };
+const numMicro = { fontSize: "13px", fontWeight: 600 };
 // Boris+: o "+" do wordmark é o acento fixo da marca — âmbar chapado
 // (--brand-amber), NUNCA gradiente e NUNCA a cor do modo. Antes (marca
 // "Boris+") o "IA" seguia o acento do modo (`IA_GRAD`, azul→ciano/degradê); o "+" é
@@ -300,6 +310,16 @@ function GlobalStyle() {
       /* FASE 8B (UX): sem o flash cinza de toque do iOS; inputs com 16px para
          o Safari NÃO dar zoom automático ao focar (pulo de tela clássico). */
       .b3, .b3 *{ -webkit-tap-highlight-color: transparent; }
+      /* Fase 20 (TYPO-01): dígitos de largura fixa em todo valor financeiro
+         que já usa o stack MONO. font-variant-numeric não é um valor de
+         font-family, então não cabe dentro da constante MONO — precisa de
+         regra própria. O seletor de atributo casa com a substring literal
+         "ui-monospace" que o React serializa no style inline sempre que um
+         call site declara MONO como fontFamily — cobre os 151 pontos do
+         arquivo sem editar nenhum deles. A propriedade é herdada, o que cobre
+         o caso em que MONO está no container da linha e os dígitos estão em
+         filhos (Histórico). */
+      .b3 [style*="ui-monospace"]{ font-variant-numeric: tabular-nums; }
       .b3 input,.b3 textarea,.b3 select{ font:inherit; font-size:16px; }
       /* …mas a regra acima vinha sendo DERROTADA: um fontSize inline no style
          do elemento tem precedência sobre a folha de estilo, e quase todo campo
@@ -843,7 +863,7 @@ function Topbar({ patr, dia, caixa, name, onProfile, modeChip, mercado, cp }) {
         </div>
       </div>
       <div style={{ textAlign: "right", flex: "none", fontFamily: MONO }}>
-        <div style={{ fontWeight: 700, fontSize: "18px", lineHeight: 1.05, color: T.textPrimary }}>{money(patr)}</div>
+        <div style={{ ...numBody, lineHeight: 1.05, color: T.textPrimary }}>{money(patr)}</div>
         <div style={{ fontSize: "11px", marginTop: "3px", fontWeight: 700, color: up ? T.positive : T.negative, whiteSpace: "nowrap" }}>{arrow} {moneySigned(dia)} ({pctStr})</div>
         <div style={{ fontSize: "10.5px", marginTop: "2px", color: T.textFaint, whiteSpace: "nowrap" }}>caixa {money(caixa)}</div>
       </div>
