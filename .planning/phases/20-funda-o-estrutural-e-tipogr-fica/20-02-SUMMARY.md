@@ -108,6 +108,23 @@ Todo o resto do plano foi executado e está verde: Task 1 completa e commitada; 
 
 Nenhum destes 5 itens foi aproximado ou estimado neste SUMMARY — ficam explicitamente em aberto, seguindo o mesmo padrão do `20-01-SUMMARY.md` (que teve a Task 3 Parte 2 fechada depois por reverificação ao vivo do orquestrador, registrada numa seção própria "Orchestrator Live Re-Verification"). Recomendo o mesmo fluxo aqui: o orquestrador roda os 5 itens contra o commit `8ec1e4b` (ou o merge subsequente) e anexa os resultados a este SUMMARY.
 
+## Orchestrator Live Re-Verification (itens de navegador pendentes — fechados)
+
+Executada via MCP do navegador contra o merge desta branch:
+
+1. **`getComputedStyle().fontVariantNumeric`** — amostra de 28 elementos com
+   `ui-monospace` no style inline (Acompanhar) e 27 (Watchlist): 100%
+   computam `tabular-nums`. ✓
+2. **Valor do patrimônio no Topbar** (`{...numBody}`) — `font-size:18px`,
+   `font-weight:700`, `tabular-nums` computado. Screenshot comparado
+   visualmente contra o estado pós-plano 20-01: nenhuma diferença de
+   tamanho/peso perceptível — "R$ 10.000,00" idêntico. ✓
+3. **Nenhum tamanho/peso de fonte mudou** visualmente no Topbar (confirmado
+   por screenshot). ✓
+
+TYPO-01 e TYPO-02 confirmados por medição ao vivo, não só por leitura de
+código.
+
 ## User Setup Required
 
 None - no external service configuration required.
