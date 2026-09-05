@@ -123,5 +123,58 @@ ok(
 // constantes nasceriam como código morto, contra o must_have do plano 20-02.
 ok("TYPO-02: numBody tem pelo menos um consumidor real via spread (...numBody)", count(/\.\.\.numBody/g) >= 1);
 
-console.log(fails === 0 ? "\nOK — todas as asserções da Fase 20 (planos 20-01/20-02) passaram" : `\n${fails} asserção(ões) falharam`);
+// --- TYPO-03 (plano 20-03): Fredoka em todo H1 de tela --------------------
+// Trava por IGUALDADE de contagem (não por número fixo), justamente para
+// pegar um H1 NOVO introduzido por uma fase futura sem a fonte da marca
+// (T-20-09 do threat model do plano 20-03) — se alguém adicionar uma tela
+// nova sem fontFamily: DISPLAY no H1, a igualdade quebra e o teste falha.
+const h1Count = count(/<h1[^>]*>/g);
+const h1WithDisplay = count(/<h1[^>]*fontFamily: DISPLAY[^>]*>/g);
+ok(
+  `TYPO-03: todo <h1> do arquivo tem fontFamily: DISPLAY (${h1WithDisplay}/${h1Count} encontrados, esperado ≥15 e iguais)`,
+  h1Count === h1WithDisplay && h1Count >= 15
+);
+
+// --- MOTION-03 (plano 20-03): gate abrangente de movimento reduzido ------
+// Dois blocos @media (prefers-reduced-motion: reduce) precisam existir: o
+// amplo (raiz + descendentes + troca de modo) e o estreito (as duas
+// animações infinitas zeradas para "none", não para "0.01ms" — que
+// produziria strobe, o oposto do que a preferência existe para evitar).
+const reducedMotionCssBlocks = count(/@media \(prefers-reduced-motion: reduce\)\{/g);
+ok(
+  "MOTION-03: existem dois blocos @media (prefers-reduced-motion: reduce) em GlobalStyle()",
+  reducedMotionCssBlocks === 2
+);
+
+ok(
+  "MOTION-03: o bloco amplo lista .b3 (elemento raiz), não só .b3 *",
+  /@media \(prefers-reduced-motion: reduce\)\{ \.b3, \.b3 \*/.test(code)
+);
+ok(
+  "MOTION-03: o bloco amplo lista .b3-mode-switch e .b3-mode-switch \\*",
+  /@media \(prefers-reduced-motion: reduce\)\{[^}]*\.b3-mode-switch, \.b3-mode-switch \*\{/.test(code)
+);
+ok(
+  "MOTION-03: o bloco estreito com animation:none (ticker + spinner) continua existindo, não foi substituído por 0.01ms",
+  /@media \(prefers-reduced-motion: reduce\)\{ \.b3 \.tt-track,\.b3 \.spin\{ animation:none !important; \} \}/.test(code)
+);
+
+// Ordem de fonte prescrita pelo plano 20-03: a regra .b3-mode-switch{transition:...}
+// (empate de especificidade com o gate amplo) vem ANTES do bloco amplo, que por
+// sua vez vem ANTES do bloco estreito — comparação por indexOf no texto já sem
+// comentários de linha (o comentário de bloco explicativo foi escrito para NÃO
+// repetir os literais buscados aqui, ver commit de correção desta mesma task).
+const idxModeSwitchTransition = code.indexOf(".b3-mode-switch, .b3-mode-switch *{ transition:");
+const idxWideBlock = code.indexOf("transition-duration: 0.01ms");
+const idxNarrowBlock = code.indexOf(".b3 .tt-track,.b3 .spin{ animation:none");
+ok(
+  "MOTION-03: ordem de fonte correta (.b3-mode-switch transition < bloco amplo < bloco estreito)",
+  idxModeSwitchTransition >= 0 &&
+  idxWideBlock >= 0 &&
+  idxNarrowBlock >= 0 &&
+  idxModeSwitchTransition < idxWideBlock &&
+  idxWideBlock < idxNarrowBlock
+);
+
+console.log(fails === 0 ? "\nOK — todas as asserções da Fase 20 (planos 20-01/20-02/20-03) passaram" : `\n${fails} asserção(ões) falharam`);
 process.exit(fails);

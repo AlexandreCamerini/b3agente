@@ -345,6 +345,26 @@ function GlobalStyle() {
       .b3 .sk{ border-radius:6px; background:linear-gradient(90deg, ${T.bgPanel} 25%, ${T.borderSubtle} 37%, ${T.bgPanel} 63%); background-size:400px 100%; animation:b3shimmer 1.2s linear infinite; }
       @keyframes b3tt{ from{ transform:translateX(0); } to{ transform:translateX(-50%); } }
       .b3 .tt-track{ animation:b3tt 52s linear infinite; }
+      /* Fase 20 (MOTION-03): gate abrangente de movimento reduzido do
+         sistema — cobre a transição de tema/modo já existente e qualquer
+         transição/animação que as Fases 22/23 adicionarem depois.
+         1) ".b3" entra na lista além de ".b3 *": a transição de tema mora
+            no PRÓPRIO elemento raiz (".b3{transition:...}", acima), e
+            ".b3 *" só casa com DESCENDENTES — sem ".b3" aqui, o requisito
+            falharia justamente no caso que ele nomeia.
+         2) ".b3-mode-switch"/".b3-mode-switch *" entram porque essa classe
+            vive no <html> por ~450ms durante a troca de modo e a regra
+            dela (acima) carrega "!important" — só empate de especificidade
+            resolvido por ORDEM DE FONTE (este bloco vem depois) a vence.
+         3) O bloco seguinte, que zera para "none" as duas animações
+            infinitas (marquee do ticker e spinner), NÃO foi mesclado nem
+            substituído por este: animation-duration de 0.01ms NÃO para
+            uma animação "infinite" — faz um ciclo completo a cada
+            0,01ms para sempre, ou seja, strobe, o oposto do que a
+            preferência existe para evitar. A regra estreita tem
+            especificidade maior e vence por si só; a explicação fica
+            aqui para ninguém "limpar a duplicata" depois. */
+      @media (prefers-reduced-motion: reduce){ .b3, .b3 *, .b3 *::before, .b3 *::after, .b3-mode-switch, .b3-mode-switch *{ transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; } }
       @media (prefers-reduced-motion: reduce){ .b3 .tt-track,.b3 .spin{ animation:none !important; } }
     `}</style>
   );
@@ -1895,7 +1915,7 @@ function EvolucaoScreen({ ctx }) {
     <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
       <div>
         {/* FASE 8B (B1/B4): saudação e resumo do dia na VOZ do modo (professor × mesa) */}
-        <h1 style={{ margin: 0, fontSize: "23px", fontWeight: 700, letterSpacing: "-0.01em" }}>{cp.saudacao(name || null)}</h1>
+        <h1 style={{ margin: 0, fontSize: "23px", fontWeight: 700, letterSpacing: "-0.01em", fontFamily: DISPLAY }}>{cp.saudacao(name || null)}</h1>
         {/* qa (prompt-master #1): a saudação era só estilo, sem relação com o
             pregão real — mesma fonte única de sempre (ctx.mercado /
             MarketStatusBadge, Fase 2 MERC-01/D-08), nunca uma segunda
@@ -2298,7 +2318,7 @@ function AjudaScreen({ ctx }) {
   const [aberta, setAberta] = useState(0);
   return (
     <div>
-      <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 700 }}>Como funciona</h1>
+      <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 700, fontFamily: DISPLAY }}>Como funciona</h1>
       <p style={{ margin: "6px 0 0", color: T.textMuted, fontSize: "13px", lineHeight: 1.5, maxWidth: "600px" }}>
         Um guia rápido de cada parte do app. Toque numa seção para abrir.
       </p>
@@ -3723,7 +3743,7 @@ function MercadoScreen({ ctx }) {
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", marginBottom: "6px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "2px", minWidth: 0 }}>
-          <h1 style={{ margin: 0, fontSize: "24px", fontWeight: 700, letterSpacing: "-0.01em" }}>{cp.tituloWatchlist}</h1>
+          <h1 style={{ margin: 0, fontSize: "24px", fontWeight: 700, letterSpacing: "-0.01em", fontFamily: DISPLAY }}>{cp.tituloWatchlist}</h1>
           <InfoDot onClick={A.openAbout} />
         </div>
         <div style={{ display: "flex", gap: "8px" }}>
@@ -4328,7 +4348,7 @@ function CarteiraScreen({ ctx }) {
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "2px", minWidth: 0 }}>
-          <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 700 }}>{cp.tituloPortfolio}</h1>
+          <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 700, fontFamily: DISPLAY }}>{cp.tituloPortfolio}</h1>
           <InfoDot onClick={ctx.A.openAbout} />
         </div>
       </div>
@@ -4583,7 +4603,7 @@ function HistoricoScreen({ ctx }) {
   const pendentes = data.pendingOrders || [];
   return (
     <div>
-      <h1 style={{ margin: "0 0 16px", fontSize: "22px", fontWeight: 700 }}>Histórico de operações</h1>
+      <h1 style={{ margin: "0 0 16px", fontSize: "22px", fontWeight: 700, fontFamily: DISPLAY }}>Histórico de operações</h1>
       {/* Fase 2 (MERC-02/03, D-09): SEM estado vazio próprio — a seção só
           existe quando há pelo menos 1 ordem pendente (UI-SPEC). O caixa
           reservado some da tela junto com a última pendente cancelada/
@@ -4782,7 +4802,7 @@ function AgenteScreen({ ctx }) {
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: "2px", marginTop: "14px" }}>
-        <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 700 }}>Operador IA</h1>
+        <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 700, fontFamily: DISPLAY }}>Operador IA</h1>
         <InfoDot onClick={A.openAbout} />
       </div>
       <p style={{ margin: "6px 0 0", color: T.textMuted, fontSize: "13px", maxWidth: "600px", lineHeight: 1.5 }}>
@@ -5504,7 +5524,7 @@ function AiConfigScreen({ ctx }) {
   const suggest = { anthropic: "Recomendado: claude-haiku-4-5 (rápido/barato) · claude-sonnet-5 (raciocina, +caro)", openai: "Recomendado: gpt-4o-mini (barato) · gpt-4o", google: "Recomendado: gemini-2.5-flash (barato) · gemini-2.5-pro", local: "Ex.: llama-3.1-70b · qwen2.5-72b" }[c.provider];
   return (
     <div>
-      <h1 style={{ margin: "0 0 6px", fontSize: "22px", fontWeight: 700 }}>IA & Boris</h1>
+      <h1 style={{ margin: "0 0 6px", fontSize: "22px", fontWeight: 700, fontFamily: DISPLAY }}>IA & Boris</h1>
       <p style={{ margin: "0 0 18px", color: T.textMuted, fontSize: "12.5px", lineHeight: 1.5, maxWidth: "560px" }}>
         Modelo/provedor do agente, instruções (skills) por modo, prompts, e o Boris — voz, presença na tela e avisos.
       </p>
@@ -5649,7 +5669,7 @@ function AiConfigScreen({ ctx }) {
 function NotificacoesScreen({ ctx }) {
   return (
     <div>
-      <h1 style={{ margin: "0 0 18px", fontSize: "22px", fontWeight: 700 }}>Notificações</h1>
+      <h1 style={{ margin: "0 0 18px", fontSize: "22px", fontWeight: 700, fontFamily: DISPLAY }}>Notificações</h1>
       <NotifSection ctx={ctx} />
     </div>
   );
@@ -5697,7 +5717,7 @@ function AtividadeIAScreen({ ctx }) {
   );
   return (
     <div>
-      <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 700 }}>Atividade da IA</h1>
+      <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 700, fontFamily: DISPLAY }}>Atividade da IA</h1>
       <p style={{ margin: "6px 0 0", color: T.textMuted, fontSize: "13px", maxWidth: "600px", lineHeight: 1.5 }}>
         Quanto a IA gastou (estimativa em R$) e o histórico de cada leitura — Radar, Análise e Carteira. O custo real depende do provedor/modelo; aqui é uma estimativa por tokens.
       </p>
@@ -5794,7 +5814,7 @@ function EficienciaIAScreen({ ctx }) {
   if (!logged) {
     return (
       <div>
-        <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 700 }}>Eficiência da IA</h1>
+        <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 700, fontFamily: DISPLAY }}>Eficiência da IA</h1>
         <p style={{ margin: "10px 0 0", color: T.textMuted, fontSize: "13px", lineHeight: 1.5, maxWidth: "480px" }}>
           Entre na conta para ver a autoavaliação da IA — quanto das análises com stop/alvo definidos bateram o alvo, o stop, ou expiraram, calculado no servidor.
         </p>
@@ -5803,7 +5823,7 @@ function EficienciaIAScreen({ ctx }) {
   }
   return (
     <div>
-      <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 700 }}>Eficiência da IA</h1>
+      <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 700, fontFamily: DISPLAY }}>Eficiência da IA</h1>
       <p style={{ margin: "6px 0 0", color: T.textMuted, fontSize: "13px", maxWidth: "600px", lineHeight: 1.5 }}>
         Autoavaliação da IA contra o que o ativo realmente fez depois — nada aqui é garantia de resultado futuro.
       </p>
@@ -6098,7 +6118,7 @@ function LogsDebugScreen({ ctx }) {
 
   return (
     <div>
-      <h1 style={{ margin: "0 0 6px", fontSize: "22px", fontWeight: 700 }}>Diagnóstico</h1>
+      <h1 style={{ margin: "0 0 6px", fontSize: "22px", fontWeight: 700, fontFamily: DISPLAY }}>Diagnóstico</h1>
       <p style={{ margin: "0 0 18px", color: T.textMuted, fontSize: "12.5px", lineHeight: 1.5, maxWidth: "580px" }}>
         Diagnóstico técnico e — para quem tem conta — status do Operador no servidor, Diário e logs detalhados.
       </p>
@@ -6408,7 +6428,7 @@ function FonteDadosScreen({ ctx }) {
 
   return (
     <div>
-      <h1 style={{ margin: "0 0 6px", fontSize: "22px", fontWeight: 700 }}>Fonte de dados</h1>
+      <h1 style={{ margin: "0 0 6px", fontSize: "22px", fontWeight: 700, fontFamily: DISPLAY }}>Fonte de dados</h1>
       <p style={{ margin: "0 0 18px", color: T.textMuted, fontSize: "12.5px", lineHeight: 1.5, maxWidth: "580px" }}>
         Servidor do app e a fonte das cotações usadas no simulador — provedor ativo, backup e orçamento de requisições.
       </p>
@@ -6702,7 +6722,7 @@ function RadarScreen({ ctx }) {
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", marginBottom: "6px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "2px", minWidth: 0 }}>
-          <h1 style={{ margin: 0, fontSize: "24px", fontWeight: 700, letterSpacing: "-0.01em" }}>{cp.tituloRadar}</h1>
+          <h1 style={{ margin: 0, fontSize: "24px", fontWeight: 700, letterSpacing: "-0.01em", fontFamily: DISPLAY }}>{cp.tituloRadar}</h1>
           <InfoDot onClick={ctx.A.openAbout} />
         </div>
         <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
@@ -7191,7 +7211,7 @@ function ConfigScreen({ ctx }) {
   const seg = (on) => ({ flex: 1, padding: "10px", borderRadius: "8px", fontWeight: 600, fontSize: "13px", border: `1px solid ${on ? T.accent : T.borderSubtle}`, background: on ? T.accentTint : T.bgPanel, color: on ? T.accent : T.textMuted });
   return (
     <div>
-      <h1 style={{ margin: "0 0 18px", fontSize: "22px", fontWeight: 700 }}>Preferências</h1>
+      <h1 style={{ margin: "0 0 18px", fontSize: "22px", fontWeight: 700, fontFamily: DISPLAY }}>Preferências</h1>
 
       {/* Personalização — nome e aparência (tema) */}
       <div style={{ ...card, padding: "17px 18px", marginBottom: "16px" }}>
