@@ -345,6 +345,25 @@ function GlobalStyle() {
       .b3 .sk{ border-radius:6px; background:linear-gradient(90deg, ${T.bgPanel} 25%, ${T.borderSubtle} 37%, ${T.bgPanel} 63%); background-size:400px 100%; animation:b3shimmer 1.2s linear infinite; }
       @keyframes b3tt{ from{ transform:translateX(0); } to{ transform:translateX(-50%); } }
       .b3 .tt-track{ animation:b3tt 52s linear infinite; }
+      /* Fase 20 (MOTION-03): gate abrangente de movimento reduzido do
+         sistema — cobre a transição de tema/modo já existente e qualquer
+         transição/animação que as Fases 22/23 adicionarem depois.
+         1) ".b3" entra na lista além de ".b3 *": a transição de tema mora
+            no PRÓPRIO elemento raiz (".b3{transition:...}", acima), e
+            ".b3 *" só casa com DESCENDENTES — sem ".b3" aqui, o requisito
+            falharia justamente no caso que ele nomeia.
+         2) ".b3-mode-switch"/".b3-mode-switch *" entram porque essa classe
+            vive no <html> por ~450ms durante a troca de modo e a regra
+            dela (acima) carrega "!important" — só empate de especificidade
+            resolvido por ORDEM DE FONTE (este bloco vem depois) a vence.
+         3) O bloco seguinte (".b3 .tt-track,.b3 .spin{ animation:none }")
+            NÃO foi mesclado nem substituído por este: animation-duration
+            de 0.01ms NÃO para uma animação "infinite" — faz um ciclo
+            completo a cada 0,01ms para sempre, ou seja, strobe, o oposto
+            do que a preferência existe para evitar. A regra estreita tem
+            especificidade maior e vence por si só; a explicação fica aqui
+            para ninguém "limpar a duplicata" depois. */
+      @media (prefers-reduced-motion: reduce){ .b3, .b3 *, .b3 *::before, .b3 *::after, .b3-mode-switch, .b3-mode-switch *{ transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; } }
       @media (prefers-reduced-motion: reduce){ .b3 .tt-track,.b3 .spin{ animation:none !important; } }
     `}</style>
   );
