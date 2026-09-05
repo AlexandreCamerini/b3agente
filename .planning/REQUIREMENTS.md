@@ -117,7 +117,29 @@ Bug crítico encontrado durante a auditoria (`cp is not defined` em
 
 ## Traceability
 
-Preenchida pelo roadmap (`.planning/ROADMAP.md`) na criação das fases.
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| FIX-01 | Phase 20 | Pending |
+| FIX-02 | Phase 20 | Pending |
+| SYS-04 | Phase 20 | Pending |
+| TYPO-01 | Phase 20 | Pending |
+| TYPO-02 | Phase 20 | Pending |
+| TYPO-03 | Phase 20 | Pending |
+| MOTION-03 | Phase 20 | Pending |
+| DEDUP-01 | Phase 21 | Pending |
+| DEDUP-02 | Phase 21 | Pending |
+| DEDUP-03 | Phase 21 | Pending |
+| FIX-03 | Phase 21 | Pending |
+| SYS-01 | Phase 22 | Pending |
+| SYS-02 | Phase 22 | Pending |
+| SYS-03 | Phase 22 | Pending |
+| MOTION-01 | Phase 23 | Pending |
+| MOTION-02 | Phase 23 | Pending |
+| ILUS-01 | Phase 23 | Pending |
+
+Cobertura: 17/17 requirements do v1.5 mapeados, cada um a exatamente uma
+fase — nenhum órfão, nenhuma duplicata. Os requirements do v1.4
+(NAV/LIB/ENG/FLOW/MULTI) têm tabela própria mais abaixo e não foram tocados.
 
 ---
 

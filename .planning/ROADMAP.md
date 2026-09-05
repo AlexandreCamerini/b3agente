@@ -6,7 +6,8 @@
 - ✅ **v1.1 Realismo de Mercado + Correções** — Phases 2-8 (shipped 2026-08-23) — [detalhes](milestones/v1.1-ROADMAP.md)
 - ✅ **v1.2 Camada de opções ancorada na carteira** — Phases 0, 10, 11 (shipped 2026-08-28) — [detalhes](milestones/v1.2-ROADMAP.md)
 - ✅ **v1.3 Cap comercial (plano gratuito)** — Phases 12-13 (shipped 2026-08-31) — [detalhes](milestones/v1.3-ROADMAP.md)
-- 🚧 **v1.4 Opções v2** — Phases 15-18 (in progress)
+- 🚧 **v1.4 Opções v2** — Phases 15-19 (in progress)
+- 🎨 **v1.5 Redesenho de UI — simplificação e acessibilidade** — Phases 20-23 (planned)
 
 ## Phases
 
@@ -251,6 +252,162 @@ Fora de escopo desta milestone (decidido no kickoff): plano comercial da
 feature, DSL de setups técnicos do b-mcp, integração MCP real (Estratégia
 C) — ver `.planning/REQUIREMENTS.md` Out of Scope / Future Requirements.
 
+### 🎨 v1.5 Redesenho de UI — simplificação e acessibilidade (Planned)
+
+**Milestone Goal:** eliminar a duplicação e as inconsistências visuais achadas
+na auditoria de design ao vivo (mobile 375px, dark/light, Estudo/Operador,
+conta nova + conta com ordem pendente) e aplicar uma direção visual mais
+coerente — sem tocar no motor determinístico, sem reabrir a navegação de 5
+abas, sem sair do Brand Book v2.
+
+Numeração continua a partir da última fase do v1.4 (19, motor
+multi-candidato) — Fases 20-23, sem `--reset-phase-numbers`. Os diretórios
+de fase 15-19 permanecem intocados.
+
+**Escopo técnico invariante das 4 fases:** nenhuma toca `server/app/*.py`,
+nenhuma altera contrato de API, nenhuma muda cálculo de carteira/preço/
+ordem/timing. Todo o trabalho vive em `web/src/` (estilo inline + tokens
+`var(--x)`, sem Tailwind/shadcn — decisão travada no kickoff).
+
+**Fatoração (por que estas 4 fases, nesta ordem):** a Fase 20 junta tudo que
+é global e estrutural (contenção de overflow, teto de largura, escala
+numérica, `tabular-nums`, `prefers-reduced-motion`, H1 em Fredoka) porque
+essas mudanças mexem no shell/`GlobalStyle` e nos tokens que as três fases
+seguintes consomem — fazê-las depois obrigaria a revisitar cada tela duas
+vezes. As Fases 21 e 22 são independentes entre si e ambas só dependem da
+20: a 21 é "remover/consolidar o que está duplicado" (mudança pontual,
+verificável abrindo uma tela), a 22 é "unificar o que está divergente"
+(componentes compartilhados por várias telas). A Fase 23 fica por último
+porque MOTION-01/02 só fazem sentido depois do gate de `prefers-reduced-
+motion` existir (Fase 20) e sobre os componentes já unificados (Fase 22), e
+porque ILUS-01 depende de um asset novo (arte do Boris) que não bloqueia
+nada mais do milestone.
+
+**Risco de convivência com o v1.4:** as Fases 17/18/19 têm checkpoint humano
+bloqueante pendente e nada foi enviado a `origin`; elas também editam
+`web/src/App.jsx`. Cada fase do v1.5 deve rebasear/mergear sobre o estado
+corrente do branch antes de publicar, e a publicação do front
+(`scripts/bump.sh` → `scripts/publicar-web.sh`) empurra junto o trabalho
+não-verificado do v1.4 no mesmo bundle — a decisão a/b/c registrada em
+`STATE.md` Blockers vale também aqui.
+
+#### Phase 20: Fundação estrutural e tipográfica
+**Goal**: O esqueleto do app para de vazar horizontalmente, respeita um teto
+de largura em tela grande, exibe número financeiro numa escala consistente e
+alinhada, e obedece à preferência de movimento reduzido do sistema — a base
+que as três fases seguintes consomem.
+**Depends on**: Nothing (primeira fase do milestone)
+**Requirements**: FIX-01, FIX-02, SYS-04, TYPO-01, TYPO-02, TYPO-03, MOTION-03
+**Success Criteria** (what must be TRUE):
+  1. Num aparelho de 375px, nenhuma tela do app rola para o lado: focar um
+     campo ou tocar um item de um trilho horizontal nunca desloca header,
+     conteúdo e barra inferior juntos (FIX-01 — hoje `scrollWidth` 504px vs.
+     `clientWidth` 375px).
+  2. A mensagem de status de mercado no topo trunca com reticência visível
+     quando o texto não cabe, em vez de empurrar conteúdo para fora do
+     viewport (FIX-02).
+  3. Em janela ≥768px o conteúdo principal fica contido em 720px, alinhado
+     com a barra inferior que já respeita esse teto — nada de texto
+     edge-to-edge no desktop (SYS-04).
+  4. Em qualquer lista de valores (Histórico, cards de Watchlist, Portfólio)
+     os dígitos ficam alinhados em coluna, e todo valor financeiro na tela
+     usa um dos três tamanhos nomeados (`numHero`/`numBody`/`numMicro`) —
+     nunca um tamanho solto (TYPO-01, TYPO-02).
+  5. Com "reduzir movimento" ligado no sistema operacional, nenhuma
+     transição ou animação do app roda; e o H1 de cada tela aparece na fonte
+     da marca (Fredoka), como o wordmark já faz (MOTION-03, TYPO-03).
+**Plans**: TBD
+**Nota de publicação**: toca `web/src/` — a fase precisa de plano final de
+`scripts/bump.sh` + `scripts/publicar-web.sh`, senão fica testada e
+invisível em produção.
+**UI hint**: yes
+
+#### Phase 21: Duplicação removida e Portfólio consolidado
+**Goal**: O usuário para de ver a mesma informação duas vezes: a curva de
+patrimônio existe em uma única tela, o status do Operador aparece uma vez
+só, e os números do Portfólio viram um card denso — e o gráfico deixa de
+mostrar caixa vazia quando ainda há pouco dado.
+**Depends on**: Phase 20 (o card consolidado usa a escala numérica e o teto
+de largura definidos lá)
+**Requirements**: DEDUP-01, DEDUP-03, DEDUP-02, FIX-03
+**Success Criteria** (what must be TRUE):
+  1. O card "Patrimônio simulado" (curva de capital) aparece em exatamente
+     uma tela do app — percorrer Acompanhar e Portfólio na mesma sessão não
+     mostra duas cópias idênticas (DEDUP-01).
+  2. Abrir Portfólio mostra um único card com patrimônio total, resultado
+     aberto, caixa disponível e em posições em colunas, na mesma densidade
+     do "Resumo do dia" de Acompanhar — não quatro cards empilhados
+     (DEDUP-03).
+  3. Na tela Operador IA, modo do app / operador no servidor /
+     executar-sinalizar aparecem uma única vez, sem um card de texto
+     repetindo o que o controle logo abaixo já mostra (DEDUP-02).
+  4. Numa conta nova, logo depois da primeira operação (1-2 pontos de
+     patrimônio registrados), a área do gráfico mostra um placeholder que
+     diz que ainda faltam dados — nunca uma caixa vazia com escala
+     degenerada (FIX-03).
+**Plans**: TBD
+**Nota de publicação**: toca `web/src/` — precisa de plano final de bump +
+`publicar-web.sh`.
+**UI hint**: yes
+
+#### Phase 22: Componentes compartilhados (trilho, ícones, mascote)
+**Goal**: Os padrões que hoje divergem de tela para tela passam a ser um só:
+um único comportamento de rolagem horizontal, ícones no traço do app no
+lugar de emoji do sistema, e o mascote flutuante legível sobre qualquer
+fundo.
+**Depends on**: Phase 20 (o trilho unificado depende da contenção horizontal
+do shell; independente da Phase 21)
+**Requirements**: SYS-01, SYS-02, SYS-03
+**Success Criteria** (what must be TRUE):
+  1. Todo trilho horizontal do app (carrossel de setups da home, filtro
+     "Modelo de análise" da Watchlist e qualquer outro) rola com snap e
+     deixa o próximo item espiando — o usuário sempre percebe que existe
+     mais conteúdo ao lado (SYS-01).
+  2. Nenhum emoji do sistema operacional aparece na interface: os cinco usos
+     de hoje (seletor de Modo no Perfil, card do Operador IA, chips de ação
+     da Watchlist) mostram ícone SVG no mesmo traço da barra de navegação, e
+     continuam legíveis nos dois temas (SYS-02).
+  3. O mascote flutuante fica visualmente separado do conteúdo atrás dele em
+     qualquer tela e nos dois temas — nunca parece cortado pela borda de um
+     card (SYS-03).
+**Plans**: TBD
+**Nota de publicação**: toca `web/src/` — precisa de plano final de bump +
+`publicar-web.sh`.
+**UI hint**: yes
+
+#### Phase 23: Motion com propósito e ilustração unificada
+**Goal**: O movimento passa a comunicar mudança de estado (card novo,
+confirmação de ordem) em vez de existir por decoração, e o Boris tem um
+único rosto em todo o produto.
+**Depends on**: Phase 22 (e, por transitividade, Phase 20 — MOTION-01/02 só
+podem entrar depois do gate de `prefers-reduced-motion` existir)
+**Requirements**: MOTION-01, MOTION-02, ILUS-01
+**Success Criteria** (what must be TRUE):
+  1. Quando um setup inédito entra na Watchlist/Radar, o card aparece com
+     uma transição curta (fade + subida, ~200ms) em vez de surgir sem aviso
+     visual (MOTION-01).
+  2. Ao confirmar uma compra ou venda, o valor dá um pulso curto (~120ms)
+     antes de virar estado de sucesso (MOTION-02).
+  3. Com "reduzir movimento" ligado, nem a entrada de card nem o pulso de
+     confirmação animam — o estado final aparece direto, sem perda de
+     informação (MOTION-01, MOTION-02 sob o gate da Phase 20).
+  4. A arte do modal "Este é o Boris" está no mesmo estilo flat/cartoon do
+     `LogoMark`/`PetFab`; lado a lado com o ícone do app, é reconhecível
+     como o mesmo personagem (ILUS-01).
+  5. O ícone do app já publicado (TestFlight/App Store) permanece
+     inalterado — a troca de arte se limita ao modal de introdução
+     (ILUS-01, guardrail do kickoff).
+**Plans**: TBD
+**Nota de publicação**: toca `web/src/` e adiciona asset — precisa de plano
+final de bump + `publicar-web.sh`.
+**UI hint**: yes
+
+Fora de escopo deste milestone (decidido no kickoff): mudança de arquitetura
+de informação (fusão/reordenação de abas), migração de biblioteca de UI,
+mudança de paleta/tokens do Brand Book v2, qualquer alteração no motor
+determinístico ou em rotas de backend — ver `.planning/REQUIREMENTS.md`
+Out of Scope / Future Requirements.
+
 ## Progress
 
 | Phase | Milestone | Status | Completed |
@@ -274,6 +431,11 @@ C) — ver `.planning/REQUIREMENTS.md` Out of Scope / Future Requirements.
 | 16. Biblioteca de estruturas | 4/4 | Complete   | 2026-09-03 |
 | 17. Fluxo de aceite | 5/6 | In Progress|  |
 | 18. Aba Opções | 4/5 | In Progress|  |
+| 19. Motor multi-candidato | 3/4 | In Progress|  |
+| 20. Fundação estrutural e tipográfica | v1.5 | Not started |  |
+| 21. Duplicação removida e Portfólio consolidado | v1.5 | Not started |  |
+| 22. Componentes compartilhados (trilho, ícones, mascote) | v1.5 | Not started |  |
+| 23. Motion com propósito e ilustração unificada | v1.5 | Not started |  |
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2/v1.3
 
@@ -345,5 +507,6 @@ Plans:
 
 ---
 
-Milestone em andamento: v1.4 Opções v2 (Phases 15-18). Próximo passo:
-`/gsd:plan-phase 15`.
+Milestones em andamento: v1.4 Opções v2 (Phases 15-19, execução
+represada por checkpoints humanos) e v1.5 Redesenho de UI (Phases 20-23,
+recém-roteirizado). Próximo passo do v1.5: `/gsd-plan-phase 20`.

@@ -3,10 +3,10 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Redesenho de UI
 status: planning
-last_updated: "2026-09-05T04:45:51.329Z"
+last_updated: "2026-09-05T05:20:00.000Z"
 last_activity: 2026-09-05
 progress:
-  total_phases: 0
+  total_phases: 4
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -20,14 +20,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-05)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** v1.5 Redesenho de UI — requisitos e roadmap (v1.4/Fase 19 segue em execução em paralelo, checkpoints humanos pendentes)
+**Current focus:** v1.5 Redesenho de UI — roadmap criado (Fases 20-23); v1.4/Fases 17-19 seguem em execução em paralelo, com checkpoints humanos pendentes
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 20 — Fundação estrutural e tipográfica (not started)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-09-05 — Milestone v1.5 started
+Status: Roadmap criado, aguardando `/gsd-plan-phase 20`
+Progress: [░░░░░░░░░░░░░░░░░░░░] 0% (0/4 fases do v1.5)
+Last activity: 2026-09-05 — ROADMAP do v1.5 escrito (4 fases, 17/17 requirements mapeados)
 
 ## Performance Metrics
 
@@ -48,7 +49,7 @@ Last activity: 2026-09-05 — Milestone v1.5 started
 | 12-13 (v1.3) | 8 | - | - |
 | 14 (standalone) | 8 | - | - |
 | 15-19 (v1.4) | TBD | - | - |
-| 20+ (v1.5) | TBD | - | - |
+| 20-23 (v1.5) | TBD | - | - |
 
 **Recent Trend:**
 
@@ -85,6 +86,24 @@ Recent decisions affecting current work:
   antes de escrever os arquivos.
 
 ### Roadmap Evolution
+
+- Milestone v1.5 roteirizado (2026-09-05): Redesenho de UI em 4 fases
+  (20-23), numeração continuando a partir da Fase 19 do v1.4 (sem
+  `--reset-phase-numbers`, diretórios 15-19 intocados). Fatoração: 20 =
+  camada global/estrutural (FIX-01/02, SYS-04, TYPO-01/02/03, MOTION-03),
+  porque mexe no shell/`GlobalStyle`/tokens que as outras três consomem;
+  21 = duplicação removida e Portfólio consolidado (DEDUP-01/02/03,
+  FIX-03 — mesmo componente `CapitalCurve` do DEDUP-01); 22 = componentes
+  compartilhados (SYS-01/02/03), independente da 21; 23 = motion com
+  propósito + ilustração (MOTION-01/02, ILUS-01), por último porque depende
+  do gate de `prefers-reduced-motion` da 20 e dos componentes unificados da
+  22. Nenhuma fase toca `server/app/*.py` nem contrato de API.
+
+- Risco nomeado no roadmap do v1.5: as Fases 17/18/19 do v1.4 editam o mesmo
+  `web/src/App.jsx` e não foram enviadas a `origin` nem verificadas ao vivo;
+  publicar o front de qualquer fase do v1.5 empurra esse trabalho junto no
+  mesmo bundle. A decisão a/b/c registrada em Blockers vale para o v1.5
+  também.
 
 - Milestone v1.4 aberto (2026-09-02): Opções v2 — nova experiência que
   propõe setups (venda coberta, put de proteção, collar) a partir da
@@ -207,11 +226,15 @@ Items acknowledged and carried forward from previous milestone close (v1.3 → v
 
 ## Session Continuity
 
-Last session: 2026-09-03
-Stopped at: Fase 18 reescopada (nav "seção em Posições") e Fase 19 registrada (motor multi-candidato) em ROADMAP.md/REQUIREMENTS.md
+Last session: 2026-09-05
+Stopped at: ROADMAP do milestone v1.5 criado (Fases 20-23) com traceability de 17/17 requirements em REQUIREMENTS.md
 Resume file: None
 
 ## Operator Next Steps
+
+- `/gsd-plan-phase 20` — Fundação estrutural e tipográfica (primeira fase do
+  v1.5; a mais baixa de risco e base das outras três).
+
 
 - Retomar o checkpoint humano da Fase 17 (`17-06-PLAN.md` Task 2) com o
   mercado aberto — payoff real, collar por caixa insuficiente, aceite/
