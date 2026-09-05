@@ -1,36 +1,33 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.4
-milestone_name: Opções v2
-status: executing
-stopped_at: Fase 18 reescopada (nav "seção em Posições") e Fase 19 registrada (motor multi-candidato) em ROADMAP.md/REQUIREMENTS.md
-last_updated: "2026-09-04T22:54:04.001Z"
-last_activity: 2026-09-05 -- Completed quick task 260905-1gb: Corrigir crash cp is not defined em HistoricoScreen
+milestone: v1.5
+milestone_name: Redesenho de UI
+status: planning
+last_updated: "2026-09-05T04:45:51.329Z"
+last_activity: 2026-09-05
 progress:
-  total_phases: 7
-  completed_phases: 4
-  total_plans: 23
-  completed_plans: 19
-  percent: 57
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-09-01)
+See: .planning/PROJECT.md (updated 2026-09-05)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Phase 19 — motor-multi-candidato
+**Current focus:** v1.5 Redesenho de UI — requisitos e roadmap (v1.4/Fase 19 segue em execução em paralelo, checkpoints humanos pendentes)
 
 ## Current Position
 
-Phase: 19 (motor-multi-candidato) — EXECUTING
-Plan: 1 of 4
-Status: Executing Phase 19
-Last activity: 2026-09-04 -- Phase 19 execution started
-
-Progress: [█████████░] 90%
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-09-05 — Milestone v1.5 started
 
 ## Performance Metrics
 
@@ -51,6 +48,7 @@ Progress: [█████████░] 90%
 | 12-13 (v1.3) | 8 | - | - |
 | 14 (standalone) | 8 | - | - |
 | 15-19 (v1.4) | TBD | - | - |
+| 20+ (v1.5) | TBD | - | - |
 
 **Recent Trend:**
 

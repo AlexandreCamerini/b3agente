@@ -22,7 +22,73 @@ funciona — não decorou uma resposta, aprendeu o raciocínio — e só então 
 acesso a automações do Modo Operador. Se o storyline pedagógico não convencer,
 nada mais no produto importa.
 
-## Current Milestone: v1.4 Opções v2
+## Current Milestone: v1.5 Redesenho de UI — simplificação e acessibilidade
+
+**Goal:** eliminar a duplicação e as inconsistências visuais achadas numa
+auditoria de design ao vivo (mobile 375px, dark/light, Estudo/Operador,
+conta nova + conta com ordem pendente) e aplicar uma direção visual mais
+coerente — sem tocar no motor determinístico, sem reabrir a navegação de 5
+abas, sem sair do Brand Book v2 já aprovado.
+
+**Contexto de abertura:** este milestone abre com o v1.4 (Opções v2) ainda
+EM EXECUÇÃO — Fases 17/18/19 têm checkpoint humano bloqueante pendente
+(depende de mercado aberto + posição real elegível, ver
+`.planning/notes/checkpoints-pendentes-fase-17-18-19.md`). Decisão explícita
+do Alex (04-05/09/2026): não esperar esse checkpoint fechar para começar a
+planejar o v1.5 — os diretórios de fase 15-19 permanecem intocados
+(`phases.clear` não foi executado), e nenhum push para `origin` foi feito em
+nenhum dos dois fluxos. Um bug crítico achado durante a auditoria (`cp is
+not defined` em `HistoricoScreen`) já foi corrigido e verificado ao vivo à
+parte, via quick task `260905-1gb` (fora do escopo deste milestone).
+
+**Target features (derivadas da auditoria + das decisões de design já
+aprovadas nesta sessão):**
+- Remover duplicação literal: `CapitalCurve` (card "Patrimônio simulado")
+  aparece hoje em Acompanhar E Portfólio; card de status do Operador IA
+  duplica o que o toggle abaixo já mostra
+- Consolidar os 3 cards soltos do Portfólio (Patrimônio total/Resultado
+  aberto/Caixa disponível) num único card com colunas, no padrão que
+  "Resumo do dia" já usa em Acompanhar
+- Unificar os dois padrões de carrossel horizontal (scroll-snap+peek vs.
+  overflow simples sem affordance) num componente só
+- Substituir os 5 ícones de emoji (🎓/📈/🚀/✨/📈) por SVG no traço do
+  `NavIcon` existente
+- Corrigir a contenção horizontal do `.b3-shell` (raiz do app rola pro lado
+  além do viewport — achado crítico de responsividade) e aplicar
+  `maxWidth:720px` ao conteúdo em telas largas (o `BottomNav` já faz isso)
+- Tratar o estado "1-2 pontos de patrimônio registrados" no gráfico
+  (`CapitalCurve`), que hoje renderiza uma caixa vazia em vez de um
+  placeholder dedicado
+- Tipografia: `tabular-nums` no stack MONO, escala numérica nomeada
+  (`numHero`/`numBody`/`numMicro`), fonte Fredoka estendida para o H1 de
+  cada tela (hoje só no wordmark)
+- Motion com propósito: entrada de card novo (setup inédito), pulso de
+  confirmação de ordem, `prefers-reduced-motion` (hoje ausente)
+- Unificar a ilustração do Boris num único estilo (flat/cartoon, o do
+  `LogoMark`/`PetFab`/ícone do app já publicado) — refazer só a arte do
+  modal de introdução, que hoje é quase-fotorrealista
+- `PetFab` (mascote flutuante) ganha sombra/halo para não parecer cortado
+  contra a borda dos cards atrás dele
+
+**Decisões de arquitetura travadas (não reabrir):**
+1. Navegação de 5 abas (Acompanhar/Radar/Watchlist/Portfólio/Operador IA)
+   permanece — Nível 1 "toque leve" escolhido explicitamente sobre as
+   alternativas de consolidar/fundir abas (reabriria o funil canônico da
+   FASE 2, validado com mockup e `navigation-specialist`)
+2. Sem migração de stack: o app continua em React com estilo inline +
+   tokens `var(--x)` (`PALETTE`/`MODE_OPERADOR`, `App.jsx:61-172`) — nada de
+   Tailwind/shadcn, que exigiria reescrever ~9k linhas sem ganho declarado
+3. Estilo de ilustração do Boris = flat/cartoon (não o quase-fotorrealista do
+   modal de intro) — menor risco, não mexe no ícone do app já publicado no
+   TestFlight/App Store
+
+**Fora de escopo (decidido no kickoff):** qualquer mudança de arquitetura de
+informação (fusão/reordenação de abas); migração de biblioteca de UI;
+mudança de paleta/tokens do Brand Book v2; qualquer alteração no motor
+determinístico ou nas rotas de backend — este milestone é puramente de
+front-end visual/interação.
+
+## Milestone v1.4 Opções v2 (EM EXECUÇÃO — não shipped)
 
 **Goal:** nova experiência de Opções no Boris+ que propõe setups (venda
 coberta, put de proteção, collar) a partir da análise técnica sobre posições
@@ -337,4 +403,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-08-31 — milestone v1.3 (cap comercial) fechado*
+*Last updated: 2026-09-05 — milestone v1.5 (redesenho de UI) iniciado com v1.4 ainda em execução*
