@@ -39,19 +39,19 @@ Bug crítico encontrado durante a auditoria (`cp is not defined` em
 - [ ] **SYS-03**: O mascote flutuante (`PetFab`) tem separação visual
   (sombra/halo) suficiente para nunca parecer cortado pela borda de um card
   atrás dele — reproduzido em pelo menos 5 telas na auditoria.
-- [ ] **SYS-04**: Em telas ≥768px de largura, o conteúdo principal respeita
+- [x] **SYS-04**: Em telas ≥768px de largura, o conteúdo principal respeita
   o mesmo teto de largura (720px) que o `BottomNav` já usa
   (`web/src/App.jsx:875`) — hoje só a barra de navegação tem esse limite;
   o resto do app estica edge-to-edge.
 
 ### Responsividade e estados (FIX)
 
-- [ ] **FIX-01**: A raiz do app (`.b3-shell`, `web/src/App.jsx:290`) nunca
+- [x] **FIX-01**: A raiz do app (`.b3-shell`, `web/src/App.jsx:290`) nunca
   permite rolagem horizontal além do viewport — confirmado por medição DOM
   (`scrollWidth` 504px vs. `clientWidth` 375px) que um clique comum
   (foco/scrollIntoView) desloca a tela inteira (header, conteúdo e nav
   inferior) para o lado.
-- [ ] **FIX-02**: A mensagem de status de mercado (`MarketStatusBadge`,
+- [x] **FIX-02**: A mensagem de status de mercado (`MarketStatusBadge`,
   `web/src/App.jsx:774`) trunca com reticência visível quando não cabe, em
   vez de vazar texto para fora do viewport — o componente já declara
   `textOverflow:ellipsis`, mas um container pai sem `min-width:0` impede o
@@ -63,15 +63,15 @@ Bug crítico encontrado durante a auditoria (`cp is not defined` em
 
 ### Tipografia (TYPO)
 
-- [ ] **TYPO-01**: Todo número financeiro (preço, R$, quantidade) usa
+- [x] **TYPO-01**: Todo número financeiro (preço, R$, quantidade) usa
   `font-variant-numeric: tabular-nums` no stack `MONO` existente
   (`web/src/App.jsx:236`) — hoje ausente, causa desalinhamento de dígitos em
   listas (Histórico, cards de Watchlist).
-- [ ] **TYPO-02**: Existe uma escala numérica nomeada de 3 níveis
+- [x] **TYPO-02**: Existe uma escala numérica nomeada de 3 níveis
   (`numHero` 34px/700, `numBody` 18px/700, `numMicro` 13px/600) aplicada
   consistentemente onde hoje há tamanhos de fonte soltos para valor
   financeiro.
-- [ ] **TYPO-03**: O título H1 de cada tela usa a fonte `DISPLAY` (Fredoka) —
+- [x] **TYPO-03**: O título H1 de cada tela usa a fonte `DISPLAY` (Fredoka) —
   hoje restrita ao wordmark "Boris+" (`web/src/App.jsx:243`).
 
 ### Motion com propósito (MOTION)
@@ -81,7 +81,7 @@ Bug crítico encontrado durante a auditoria (`cp is not defined` em
   sem nenhum aviso visual.
 - [ ] **MOTION-02**: A confirmação de uma ordem (compra/venda) dá um
   feedback visual de pulso curto (~120ms) no valor antes de virar sucesso.
-- [ ] **MOTION-03**: O app respeita `prefers-reduced-motion` — hoje ausente
+- [x] **MOTION-03**: O app respeita `prefers-reduced-motion` — hoje ausente
   em `GlobalStyle()` (`web/src/App.jsx`); todas as transições/animações se
   reduzem ou desligam quando o usuário pede no sistema operacional.
 
@@ -119,13 +119,13 @@ Bug crítico encontrado durante a auditoria (`cp is not defined` em
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FIX-01 | Phase 20 | Pending |
-| FIX-02 | Phase 20 | Pending |
-| SYS-04 | Phase 20 | Pending |
-| TYPO-01 | Phase 20 | Pending |
-| TYPO-02 | Phase 20 | Pending |
-| TYPO-03 | Phase 20 | Pending |
-| MOTION-03 | Phase 20 | Pending |
+| FIX-01 | Phase 20 | Complete |
+| FIX-02 | Phase 20 | Complete |
+| SYS-04 | Phase 20 | Complete |
+| TYPO-01 | Phase 20 | Complete |
+| TYPO-02 | Phase 20 | Complete |
+| TYPO-03 | Phase 20 | Complete |
+| MOTION-03 | Phase 20 | Complete |
 | DEDUP-01 | Phase 21 | Pending |
 | DEDUP-02 | Phase 21 | Pending |
 | DEDUP-03 | Phase 21 | Pending |

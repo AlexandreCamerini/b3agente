@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Redesenho de UI
-status: executing
-stopped_at: Phase 20 UI-SPEC approved
-last_updated: "2026-09-05T05:37:02.574Z"
+status: ready_to_plan
+stopped_at: Phase 20 complete (4/4) — ready to discuss Phase 21
+last_updated: 2026-09-05T14:16:19.347Z
 last_activity: 2026-09-05 -- Phase 20 execution started
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 4
-  completed_plans: 0
+  completed_plans: 27
   percent: 0
 ---
 
@@ -21,21 +21,21 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-05)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Phase 20 — Fundação estrutural e tipográfica
+**Current focus:** Phase 21 — duplicação removida e portfólio consolidado
 
 ## Current Position
 
-Phase: 20 (Fundação estrutural e tipográfica) — EXECUTING
-Plan: 1 of 4
-Status: Executing Phase 20
+Phase: 21
+Plan: Not started
+Status: Ready to plan
 Progress: [░░░░░░░░░░░░░░░░░░░░] 0% (0/4 fases do v1.5)
-Last activity: 2026-09-05 -- Phase 20 execution started
+Last activity: 2026-09-05
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 6 (v1.0) + 44 (v1.1) + 6 (Phase 9, standalone) + 8 (v1.2) + 8 (v1.3) + 8 (Phase 14, standalone)
+- Total plans completed: 10 (v1.0) + 44 (v1.1) + 6 (Phase 9, standalone) + 8 (v1.2) + 8 (v1.3) + 8 (Phase 14, standalone)
 - Average duration: -
 - Total execution time: -
 
@@ -51,6 +51,7 @@ Last activity: 2026-09-05 -- Phase 20 execution started
 | 14 (standalone) | 8 | - | - |
 | 15-19 (v1.4) | TBD | - | - |
 | 20-23 (v1.5) | TBD | - | - |
+| 20 | 4 | - | - |
 
 **Recent Trend:**
 
