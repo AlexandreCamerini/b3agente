@@ -316,10 +316,20 @@ que as três fases seguintes consomem.
   5. Com "reduzir movimento" ligado no sistema operacional, nenhuma
      transição ou animação do app roda; e o H1 de cada tela aparece na fonte
      da marca (Fredoka), como o wordmark já faz (MOTION-03, TYPO-03).
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+- [ ] 20-01-PLAN.md — Contenção horizontal medida ao vivo, truncamento do badge e teto único de 720px (FIX-01, FIX-02, SYS-04)
+- [ ] 20-02-PLAN.md — Dígitos de largura fixa em todo valor com MONO + escala numérica nomeada (TYPO-01, TYPO-02)
+- [ ] 20-03-PLAN.md — Fredoka nos 15 H1 de tela + gate de prefers-reduced-motion (TYPO-03, MOTION-03)
+- [ ] 20-04-PLAN.md — Bump, publicação e remedição dos 5 critérios contra o bundle de produção
 **Nota de publicação**: toca `web/src/` — a fase precisa de plano final de
 `scripts/bump.sh` + `scripts/publicar-web.sh`, senão fica testada e
-invisível em produção.
+invisível em produção. Coberto pelo plano 20-04.
+**Ressalva de escopo (critério 4)**: a metade "dígitos alinhados em coluna"
+(TYPO-01) fecha nesta fase; a metade "todo valor financeiro usa um dos três
+tamanhos nomeados" (TYPO-02) é deferimento explícito do `20-CONTEXT.md` para
+as Fases 21/22, que migram tela a tela. A Fase 20 entrega as três constantes
+com um consumidor real, não a migração do app inteiro.
 **UI hint**: yes
 
 #### Phase 21: Duplicação removida e Portfólio consolidado
