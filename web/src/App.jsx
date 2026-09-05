@@ -356,13 +356,14 @@ function GlobalStyle() {
             vive no <html> por ~450ms durante a troca de modo e a regra
             dela (acima) carrega "!important" — só empate de especificidade
             resolvido por ORDEM DE FONTE (este bloco vem depois) a vence.
-         3) O bloco seguinte (".b3 .tt-track,.b3 .spin{ animation:none }")
-            NÃO foi mesclado nem substituído por este: animation-duration
-            de 0.01ms NÃO para uma animação "infinite" — faz um ciclo
-            completo a cada 0,01ms para sempre, ou seja, strobe, o oposto
-            do que a preferência existe para evitar. A regra estreita tem
-            especificidade maior e vence por si só; a explicação fica aqui
-            para ninguém "limpar a duplicata" depois. */
+         3) O bloco seguinte, que zera para "none" as duas animações
+            infinitas (marquee do ticker e spinner), NÃO foi mesclado nem
+            substituído por este: animation-duration de 0.01ms NÃO para
+            uma animação "infinite" — faz um ciclo completo a cada
+            0,01ms para sempre, ou seja, strobe, o oposto do que a
+            preferência existe para evitar. A regra estreita tem
+            especificidade maior e vence por si só; a explicação fica
+            aqui para ninguém "limpar a duplicata" depois. */
       @media (prefers-reduced-motion: reduce){ .b3, .b3 *, .b3 *::before, .b3 *::after, .b3-mode-switch, .b3-mode-switch *{ transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; } }
       @media (prefers-reduced-motion: reduce){ .b3 .tt-track,.b3 .spin{ animation:none !important; } }
     `}</style>
