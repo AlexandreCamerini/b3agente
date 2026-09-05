@@ -129,6 +129,33 @@ Diferente da Task 1, a Task 3 Parte 2 NÃO foi pré-executada pelo orquestrador 
 
 Nenhum destes itens foi aproximado ou estimado neste SUMMARY — ficam explicitamente em aberto, conforme o próprio `<decisao_do_planner>` do plano veta ("escrever a partir do palpite é o anti-padrão que este projeto já pagou caro").
 
+## Orchestrator Live Re-Verification (Task 3, Parte 2 — fechada)
+
+Executada pelo orquestrador via MCP do navegador (mesmo método da Task 1), dev
+server subido no commit de merge (base `3473c91` + merge), conta local
+existente, sem dados fabricados:
+
+1. **375×812** — `.b3-shell`: scrollWidth=375=clientWidth. `<main>`:
+   scrollWidth=365=clientWidth. Nenhum vazamento horizontal. ✓
+2. **Truncamento do badge (Topbar, frase real "Mercado fechado — abre 10:00
+   ...")** — span de texto: `scrollWidth=475` vs `clientWidth=136`,
+   `computedTextOverflow: "ellipsis"`, `computedOverflow: "hidden"`.
+   Confirmado visualmente: "Mercado fechado — ab…" com reticência visível,
+   bloco de patrimônio intacto ao lado. ✓
+3. **1280×900** — wrapper de conteúdo: 720px de largura, `left≈275`;
+   `BottomNav`: 720px, `left≈280` (diferença de 5px é padding interno do nav,
+   não desalinhamento). ✓
+4. **820×1000, varredura de regressão** — Acompanhar, Watchlist/Monitoramento
+   e Portfólio/Posições: `.b3-shell`/`<main>` sem vazamento nas três; únicos
+   elementos com `scrollWidth>clientWidth` são o marquee do ticker
+   (intencional), o carrossel "Modelo de análise" (padrão pré-existente, fora
+   do escopo desta fase) e o mascote animado (`transform:scale`, decorativo,
+   pré-existente). Nenhuma quebra visível introduzida pela redução de
+   1060px→720px. ✓
+
+**Os 4 itens do critério de aceite estão fechados por medição ao vivo, não
+por leitura de código.** FIX-01, FIX-02 e SYS-04 confirmados.
+
 ## User Setup Required
 
 None - no external service configuration required.
