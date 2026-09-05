@@ -88,5 +88,40 @@ ok("SYS-04: não sobrou nenhum literal maxWidth: \"720px\" solto (tudo passou pe
 // puro em GlobalStyle(). Se alguém importar um desses, é fora de escopo.
 ok("anti-regressão: nenhum import de Tailwind/shadcn/styled-components", !/from ["']tailwind|from ["']shadcn|from ["']styled-components/.test(code));
 
-console.log(fails === 0 ? "\nOK — todas as asserções da Fase 20 (plano 20-01) passaram" : `\n${fails} asserção(ões) falharam`);
+// --- TYPO-01 (plano 20-02): dígitos de largura fixa em todo valor MONO ----
+// A regra depende da string literal "ui-monospace" aparecer no atributo style
+// que o React serializa — se alguém trocar o stack MONO por outro sem essa
+// substring, o seletor de atributo deixa de casar em silêncio. O guardião
+// trava as DUAS pontas do acoplamento: a regra CSS E a string da constante.
+ok(
+  "TYPO-01: GlobalStyle() tem a regra .b3 [style*=\"ui-monospace\"]{ font-variant-numeric: tabular-nums; }",
+  /\.b3\s*\[style\*="ui-monospace"\]\s*\{\s*font-variant-numeric:\s*tabular-nums;\s*\}/.test(code)
+);
+ok(
+  "TYPO-01: a constante MONO continua declarando o stack ui-monospace (acoplamento com o seletor de atributo acima)",
+  /const MONO\s*=\s*"ui-monospace/.test(code)
+);
+
+// --- TYPO-02 (plano 20-02): escala numérica nomeada -----------------------
+// Valores exatos aprovados na sessão de design da Fase 20 (20-CONTEXT.md):
+// numHero 34/700, numBody 18/700, numMicro 13/600. As três nascem como
+// objetos JS de só tamanho/peso (sem lineHeight/color/fontFamily), para
+// spread livre em qualquer call site.
+ok(
+  "TYPO-02: numHero declarado com fontSize 34px e fontWeight 700",
+  /const numHero\s*=\s*\{\s*fontSize:\s*"34px",\s*fontWeight:\s*700\s*\}/.test(code)
+);
+ok(
+  "TYPO-02: numBody declarado com fontSize 18px e fontWeight 700",
+  /const numBody\s*=\s*\{\s*fontSize:\s*"18px",\s*fontWeight:\s*700\s*\}/.test(code)
+);
+ok(
+  "TYPO-02: numMicro declarado com fontSize 13px e fontWeight 600",
+  /const numMicro\s*=\s*\{\s*fontSize:\s*"13px",\s*fontWeight:\s*600\s*\}/.test(code)
+);
+// numBody precisa de um consumidor real (patrimônio do Topbar) — sem isso as
+// constantes nasceriam como código morto, contra o must_have do plano 20-02.
+ok("TYPO-02: numBody tem pelo menos um consumidor real via spread (...numBody)", count(/\.\.\.numBody/g) >= 1);
+
+console.log(fails === 0 ? "\nOK — todas as asserções da Fase 20 (planos 20-01/20-02) passaram" : `\n${fails} asserção(ões) falharam`);
 process.exit(fails);
