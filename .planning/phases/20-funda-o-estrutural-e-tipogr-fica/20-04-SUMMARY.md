@@ -140,6 +140,43 @@ Nenhum destes 6 itens foi aproximado ou estimado neste SUMMARY — ficam explici
 
 **Reafirmado: nenhum `git push` foi feito nesta sessão. A decisão a/b/c sobre enviar a `origin` as Fases 17/18/19 (checkpoints humanos pendentes, ver `.planning/STATE.md`) segue em aberto e não foi tomada por este agente.**
 
+## Orchestrator Live Re-Verification (Task 2 — fechada, contra o bundle de produção real)
+
+Executada via MCP do navegador contra `http://localhost:8787` (servidor único
+`--prod`, build `F10-20260905-02`), conta local existente.
+
+**Achado relevante durante a verificação, registrado sem esconder:** a
+primeira passada mostrou o span do `MarketStatusBadge` SEM `max-width: 100%`
+no style renderizado — aparentando que o fix do FIX-02 não tinha chegado ao
+bundle. Investigação: `grep` direto no arquivo em disco
+(`server/web_dist/assets/index-qgYCE9kb.js`) confirmou que o bundle PUBLICADO
+contém `maxWidth:"100%"` corretamente. A causa era um **service worker +
+cache PWA obsoletos**, registrados por uma visita anterior (não desta sessão)
+a `http://localhost:8787` neste mesmo navegador persistente — o SW antigo
+servia um `index.html` referenciando um asset com hash antigo, já deletado do
+disco pela repúblicação (`server/web_dist/assets/index-DqOpQLU-.js`), o que
+inclusive derrubou a tela com o estado de erro correto do próprio app ("O app
+não conseguiu abrir — Um arquivo do app não carregou", com o nome do arquivo
+faltante). Resolvido com `navigator.serviceWorker.getRegistrations()` →
+`unregister()` + `caches.keys()` → `caches.delete()` + reload. Depois disso,
+os 5 critérios abaixo mediram corretamente contra o bundle real. **Isto é uma
+lição de processo de verificação (cache de PWA em ambiente de teste
+persistente), não um defeito do código publicado.**
+
+| # | Critério (ROADMAP) | Medido em produção |
+|---|---|---|
+| 1 | Sem rolagem horizontal em 375px | `.b3-shell` e `main`: `scrollWidth===clientWidth`. ✓ |
+| 2 | Badge trunca com reticência | `max-width:100%` presente nos 2 spans do badge (149px e 185px de largura, contidos); truncamento visível no screenshot ("Mercado fechado — ab..."). ✓ |
+| 3 | Conteúdo contido em 720px (1280px) | Wrapper de conteúdo = 720px; `BottomNav` = 720px. ✓ |
+| 4 | `tabular-nums` em valor financeiro real | 28 elementos com stack `MONO` na tela Acompanhar, 100% com `fontVariantNumeric:"tabular-nums"` computado. **Ressalva registrada**: isto fecha TYPO-01 (dígitos alinhados); TYPO-02 (todo valor financeiro migrado para `numHero`/`numBody`/`numMicro`) segue deferido para as Fases 21/22 por decisão explícita do `20-CONTEXT.md` — não é lacuna desta fase. ✓ |
+| 5 | Movimento reduzido | Regra CSS ampla `.b3, .b3 *, .b3 *::before, .b3 *::after, .b3-mode-switch, .b3-mode-switch *{transition-duration:0.01ms!important;animation-duration:0.01ms!important;animation-iteration-count:1!important;}` confirmada presente no `<style>` servido pelo bundle de produção, antes da regra estreita pré-existente na ordem de fonte. **Limitação de ferramenta, não de código**: nenhuma ferramenta disponível nesta sessão expõe emulação de `prefers-reduced-motion` via CDP para alternar o media feature e observar o efeito comportamental ao vivo (mesma limitação já registrada no 20-03-SUMMARY.md) — a evidência disponível é a regra CSS byte-idêntica servida em produção, não uma medição comportamental sob o media feature ativo. |
+| 6 | Fredoka nos H1 | `document.fonts.check("600 22px Fredoka")` → `true`; H1 da tela Acompanhar com `fontFamily` iniciando por `Fredoka`. ✓ |
+
+**Nenhum `git push` foi executado.** Confirmado por `git status -sb` mostrando
+commits à frente de `origin/v2/interacao-estrutural` sem nenhum envio. A
+decisão a/b/c sobre publicar junto as Fases 17/18/19 (checkpoints humanos
+pendentes) segue em aberto com o Alex — este plano não a tomou.
+
 ## User Setup Required
 
 - `/Users/acamerini/dev/borisv2/web` precisa de `npm install` (ou `npm ci`) antes do próximo uso — `node_modules` daquele checkout ficou vazio como efeito colateral desta sessão (ver "Deviations from Plan"). Não afeta nenhum arquivo rastreado pelo git.
