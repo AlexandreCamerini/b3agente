@@ -239,7 +239,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2)*
 
-- [ ] 19-03-PLAN.md — `CandidatoOpcao` + ramo de N candidatos em `PropostaDaPosicao`; guardiões estáticos novos e guardião de collar atualizado com nota
+- [x] 19-03-PLAN.md — `CandidatoOpcao` + ramo de N candidatos em `PropostaDaPosicao`; guardiões estáticos novos e guardião de collar atualizado com nota
 
 **Wave 4** *(blocked on Wave 3)*
 
