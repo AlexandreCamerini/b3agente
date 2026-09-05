@@ -355,9 +355,25 @@ de largura definidos lá)
      patrimônio registrados), a área do gráfico mostra um placeholder que
      diz que ainda faltam dados — nunca uma caixa vazia com escala
      degenerada (FIX-03).
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+- [ ] 21-01-PLAN.md — Curva de patrimônio única em Acompanhar + 4 cards do Portfólio consolidados em 1 grid 2×2 (DEDUP-01, DEDUP-03)
+- [ ] 21-02-PLAN.md — Card de status redundante removido do Operador IA, com link e transparência do ADR-017 realocados e 3 guardiões reescritos (DEDUP-02)
+- [ ] 21-03-PLAN.md — Limiar de 3 dias no CapitalCurve + placeholder de pouco dado nos dois modos (FIX-03)
+- [ ] 21-04-PLAN.md — Bump, publicação e remedição dos 4 critérios contra o bundle de produção
 **Nota de publicação**: toca `web/src/` — precisa de plano final de bump +
-`publicar-web.sh`.
+`publicar-web.sh`. Coberto pelo plano 21-04.
+**Nota de sequenciamento**: os 4 planos editam o MESMO `web/src/App.jsx`
+(monolito de arquivo único) — ondas estritamente sequenciais, sem
+paralelismo dentro da fase, mesmo padrão da Fase 20.
+**Achado de planejamento (DEDUP-02)**: três guardiões existentes travam o
+card que sai — `test_fase3_c19_card_status.mjs`,
+`test_auditoria_status_strip.mjs` e o "Recorte 2" de
+`test_historico_setup_card_ui.mjs`, dois deles com `process.exit(1)` em
+marcador ausente. Pela regra do CLAUDE.md ("guardiões de teste não se
+apagam"), o plano 21-02 os REESCREVE com nota datada de reversão em vez de
+apagá-los. Nenhum artefato de fase (`21-UI-SPEC.md`/`21-PATTERNS.md`) tinha
+visto isso.
 **UI hint**: yes
 
 #### Phase 22: Componentes compartilhados (trilho, ícones, mascote)
