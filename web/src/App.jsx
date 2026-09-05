@@ -241,6 +241,11 @@ const MONO = "ui-monospace,'SF Mono',Menlo,Consolas,monospace";
 const SANS = "'Nunito', -apple-system, system-ui, 'Segoe UI', Helvetica, Arial, sans-serif";
 // Display: Fredoka 600 — títulos, wordmark, números de destaque (Brand Book).
 const DISPLAY = "'Fredoka', " + SANS;
+// Fase 20 (SYS-04): teto de largura do conteúdo em telas grandes. O BottomNav
+// já praticava 720px; a área de conteúdo pós-login usava 1060px, um segundo
+// número sem relação com o primeiro. Uma constante única evita a deriva entre
+// os dois — mudar o teto passa a ser uma edição, não uma caça a literais.
+const CONTENT_MAX_WIDTH = "720px";
 // Boris+: o "+" do wordmark é o acento fixo da marca — âmbar chapado
 // (--brand-amber), NUNCA gradiente e NUNCA a cor do modo. Antes (marca
 // "Boris+") o "IA" seguia o acento do modo (`IA_GRAD`, azul→ciano/degradê); o "+" é
@@ -287,7 +292,7 @@ function GlobalStyle() {
       html,body,#root{ height:100%; }
       body{ margin:0; background:${T.bgBase}; color:${T.textPrimary}; }
       .b3 *{ box-sizing:border-box; }
-      .b3-shell{ height:100vh; height:100dvh; }
+      .b3-shell{ height:100vh; height:100dvh; overflow-x:hidden; }
       .b3{ transition:background .25s ease, color .25s ease; }
       .b3 button{ font:inherit; color:inherit; cursor:pointer; transition:filter .12s ease, transform .05s ease; user-select:none; -webkit-user-select:none; }
       .b3 button:active:not(:disabled){ transform:translateY(1px); filter:brightness(1.12); }
@@ -778,7 +783,15 @@ function MarketStatusBadge({ mercado, cp }) {
   const cor = erro ? T.warn : mercado.aberto ? T.positive : T.negative;
   const label = erro ? cp.mercadoIndisponivel : mercado.aberto ? cp.mercadoAberto : cp.mercadoFechado(mercado.abertura);
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", minWidth: 0 }}>
+    // Fase 20 (FIX-02, medição ao vivo 2026-09-05): os ancestrais já tinham
+    // minWidth:0, mas este span raiz é inline-flex — box inline-level, que
+    // encolhe SÓ quando um pai flex/grid impõe um flex-basis. Aqui o pai é um
+    // <div> de bloco comum, então o badge sempre renderizava na largura
+    // intrínseca do conteúdo (medido: 488px), ignorando os 149px/329px
+    // disponíveis, e o overflow:hidden/textOverflow:ellipsis do span de texto
+    // nunca disparava (só ativa quando a própria caixa tem largura restrita).
+    // maxWidth:"100%" tranca o badge ao espaço do pai e libera a truncagem.
+    <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", minWidth: 0, maxWidth: "100%" }}>
       <span aria-hidden style={{ width: "7px", height: "7px", borderRadius: "50%", background: cor, flex: "none", boxShadow: `0 0 0 3px color-mix(in srgb, ${cor} 14%, transparent)` }} />
       <span style={{ fontSize: "10.5px", fontWeight: 800, letterSpacing: "0.06em", color: cor, whiteSpace: "nowrap", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{label}</span>
     </span>
@@ -872,7 +885,7 @@ function BottomNav({ tab, setTab, cp }) {
     ["agente", "Operador IA"]];
   return (
     <nav style={{ flex: "none", background: T.bgPanel, borderTop: `1px solid ${T.borderSubtle}`, paddingBottom: "env(safe-area-inset-bottom)" }}>
-      <div style={{ display: "flex", maxWidth: "720px", margin: "0 auto", padding: "5px 6px" }}>
+      <div style={{ display: "flex", maxWidth: CONTENT_MAX_WIDTH, margin: "0 auto", padding: "5px 6px" }}>
         {defs.map(([id, label]) => {
           const active = tab === id;
           return (
@@ -1868,7 +1881,7 @@ function EvolucaoScreen({ ctx }) {
             MarketStatusBadge, Fase 2 MERC-01/D-08), nunca uma segunda
             consulta. Home é o primeiro lugar que o usuário vê ao abrir o
             app; o status do mercado precisa estar ali, não só no Topbar. */}
-        <div style={{ marginTop: "4px" }}>
+        <div style={{ marginTop: "4px", minWidth: 0 }}>
           <MarketStatusBadge mercado={mercado} cp={cp} />
         </div>
         <p style={{ margin: "5px 0 0", color: T.textMuted, fontSize: "13px", lineHeight: 1.5 }}>
@@ -8957,14 +8970,14 @@ export default function App() {
       <Ticker items={tickerItems} live={Object.keys(quotes).length > 0} />
       <Topbar patr={patr} dia={dia} caixa={data.cash} name={firstName} modeChip={cp.chipModo} mercado={mercado} cp={cp} onProfile={() => { setPerfilView("hub"); setTab("perfil"); }} />
 
-      <main ref={mainRef} style={{ position: "relative", flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
+      <main ref={mainRef} style={{ position: "relative", flex: 1, minHeight: 0, overflowY: "auto", overflowX: "hidden", WebkitOverflowScrolling: "touch" }}>
         {pullY > 0 && (
           <div style={{ position: "absolute", top: "8px", left: "50%", transform: "translateX(-50%)", zIndex: 5, opacity: Math.min(1, pullY / 70), color: T.accent, fontSize: "12px", fontWeight: 700, display: "flex", alignItems: "center", gap: "7px", pointerEvents: "none" }}>
             <span className={pullY >= 70 ? "spin" : undefined} style={{ display: "inline-block" }}>↻</span>
             {pullY >= 70 ? "Solte para atualizar" : "Puxe para atualizar"}
           </div>
         )}
-        <div style={{ maxWidth: "1060px", margin: "0 auto", padding: "24px 18px 34px", transform: pullY ? `translateY(${pullY}px)` : undefined, transition: pullY ? "none" : "transform .2s ease" }}>
+        <div style={{ maxWidth: CONTENT_MAX_WIDTH, margin: "0 auto", padding: "24px 18px 34px", transform: pullY ? `translateY(${pullY}px)` : undefined, transition: pullY ? "none" : "transform .2s ease" }}>
           {tab === "evolucao" && <EvolucaoScreen ctx={ctx} />}
           {tab === "mercado" && <MercadoScreen ctx={ctx} />}
           {tab === "radar" && <RadarScreen ctx={ctx} />}
