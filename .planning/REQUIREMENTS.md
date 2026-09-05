@@ -1,9 +1,130 @@
-# Requirements — Milestone v1.4 Opções v2
+# Requirements
+
+## v1.5 Redesenho de UI — simplificação e acessibilidade
+
+Escopo derivado de uma auditoria de design ao vivo (mobile 375px, dark/light,
+Modo Estudo/Operador, conta nova + conta com ordem pendente) e das decisões
+de direção visual aprovadas na mesma sessão (skill `bencium-controlled-ux-designer`).
+Ver o resumo completo da auditoria e das decisões em `.planning/PROJECT.md`
+seção "Current Milestone: v1.5" (Key Decisions travadas, Fora de escopo).
+
+Bug crítico encontrado durante a auditoria (`cp is not defined` em
+`HistoricoScreen`) já foi corrigido fora deste milestone, via quick task
+`260905-1gb` — não entra em nenhum requirement abaixo.
+
+### Remoção de duplicação (DEDUP)
+
+- [ ] **DEDUP-01**: O card "Patrimônio simulado" (`CapitalCurve`) aparece em
+  exatamente UMA tela — hoje está duplicado, idêntico, em Acompanhar E
+  Portfólio (`web/src/App.jsx:1976` e `:8974`).
+- [ ] **DEDUP-02**: Na tela Operador IA, o status do modo/operador/execução
+  aparece uma única vez — hoje um card de texto ("Modo do app: Estudo /
+  Operador no servidor: Desligado / Executar/sinalizar: Apenas sinalizar")
+  repete o que o card funcional de toggle logo abaixo já mostra.
+- [ ] **DEDUP-03**: Os cards "Patrimônio total", "Resultado aberto", "Caixa
+  disponível" e "Em posições" do Portfólio viram um único card com colunas
+  — mesmo padrão de densidade que "Resumo do dia" já usa em Acompanhar.
+
+### Sistema de componente (SYS)
+
+- [ ] **SYS-01**: Existe um único padrão de carrossel horizontal
+  (scroll-snap + espiada do próximo item) usado em todo lugar da interface
+  que hoje rola horizontalmente — hoje há dois padrões divergentes (o
+  carrossel de setups da home, com peek; o filtro "Modelo de análise" da
+  Watchlist, sem peek e sem indicação de conteúdo cortado).
+- [ ] **SYS-02**: Nenhum emoji nativo do sistema operacional aparece na
+  interface do app — os 5 usos hoje (🎓/📈/🚀/✨/📈, no seletor de Modo do
+  Perfil, no card do Operador IA e nos chips de ação da Watchlist) viram
+  ícones SVG no traço do `NavIcon` existente.
+- [ ] **SYS-03**: O mascote flutuante (`PetFab`) tem separação visual
+  (sombra/halo) suficiente para nunca parecer cortado pela borda de um card
+  atrás dele — reproduzido em pelo menos 5 telas na auditoria.
+- [ ] **SYS-04**: Em telas ≥768px de largura, o conteúdo principal respeita
+  o mesmo teto de largura (720px) que o `BottomNav` já usa
+  (`web/src/App.jsx:875`) — hoje só a barra de navegação tem esse limite;
+  o resto do app estica edge-to-edge.
+
+### Responsividade e estados (FIX)
+
+- [ ] **FIX-01**: A raiz do app (`.b3-shell`, `web/src/App.jsx:290`) nunca
+  permite rolagem horizontal além do viewport — confirmado por medição DOM
+  (`scrollWidth` 504px vs. `clientWidth` 375px) que um clique comum
+  (foco/scrollIntoView) desloca a tela inteira (header, conteúdo e nav
+  inferior) para o lado.
+- [ ] **FIX-02**: A mensagem de status de mercado (`MarketStatusBadge`,
+  `web/src/App.jsx:774`) trunca com reticência visível quando não cabe, em
+  vez de vazar texto para fora do viewport — o componente já declara
+  `textOverflow:ellipsis`, mas um container pai sem `min-width:0` impede o
+  efeito.
+- [ ] **FIX-03**: O gráfico de patrimônio (`CapitalCurve`) tem um
+  placeholder dedicado para o caso de 1-2 pontos de dado registrados, em vez
+  de renderizar uma caixa vazia com escala degenerada (achado ao vivo logo
+  após a primeira operação de uma conta nova).
+
+### Tipografia (TYPO)
+
+- [ ] **TYPO-01**: Todo número financeiro (preço, R$, quantidade) usa
+  `font-variant-numeric: tabular-nums` no stack `MONO` existente
+  (`web/src/App.jsx:236`) — hoje ausente, causa desalinhamento de dígitos em
+  listas (Histórico, cards de Watchlist).
+- [ ] **TYPO-02**: Existe uma escala numérica nomeada de 3 níveis
+  (`numHero` 34px/700, `numBody` 18px/700, `numMicro` 13px/600) aplicada
+  consistentemente onde hoje há tamanhos de fonte soltos para valor
+  financeiro.
+- [ ] **TYPO-03**: O título H1 de cada tela usa a fonte `DISPLAY` (Fredoka) —
+  hoje restrita ao wordmark "Boris+" (`web/src/App.jsx:243`).
+
+### Motion com propósito (MOTION)
+
+- [ ] **MOTION-01**: Um card novo (setup inédito na Watchlist/Radar) entra
+  com uma transição sutil (fade + translateY, ~200ms) em vez de aparecer
+  sem nenhum aviso visual.
+- [ ] **MOTION-02**: A confirmação de uma ordem (compra/venda) dá um
+  feedback visual de pulso curto (~120ms) no valor antes de virar sucesso.
+- [ ] **MOTION-03**: O app respeita `prefers-reduced-motion` — hoje ausente
+  em `GlobalStyle()` (`web/src/App.jsx`); todas as transições/animações se
+  reduzem ou desligam quando o usuário pede no sistema operacional.
+
+### Ilustração unificada (ILUS)
+
+- [ ] **ILUS-01**: Existe um único estilo de ilustração do Boris
+  (flat/cartoon, o do `LogoMark`/`PetFab`/ícone do app já publicado) em
+  todos os pontos onde o mascote aparece — a arte do modal "Este é o Boris"
+  (introdução), hoje quase-fotorrealista, é refeita nesse estilo. Não mexe
+  no ícone do app já publicado no TestFlight/App Store.
+
+## Future Requirements (deferred)
+
+- Consolidação de arquitetura de informação (fusão de abas Acompanhar↔Portfólio)
+  — Nível 1 "toque leve" escolhido para este milestone; a alternativa mais
+  radical (4 abas em vez de 5) fica registrada para reavaliação futura, caso
+  a duplicação resolvida aqui não seja suficiente.
+- Migração de estilo (Tailwind/shadcn) — fora de cogitação enquanto não
+  houver ganho concreto declarado que justifique reescrever ~9k linhas.
+
+## Out of Scope
+
+- **Qualquer mudança na navegação de 5 abas** — decisão travada no kickoff
+  (Nível 1 = "toque leve"); reabrir isso é um milestone à parte.
+- **Qualquer alteração no motor determinístico ou em rotas de backend** —
+  este milestone é inteiramente front-end visual/interação; nenhum cálculo
+  de carteira, preço, ordem ou timing muda.
+- **Mudança de paleta ou tokens do Brand Book v2** — cores/tema/modo já
+  aprovados (v2, 2026-08-08); este milestone consome os tokens existentes,
+  não os redesenha.
+- **Fluxo de aceite de opções (Fases 17/18/19 do v1.4)** — esses checkpoints
+  humanos seguem pendentes e são tratados dentro do próprio v1.4, não aqui.
+
+## Traceability
+
+Preenchida pelo roadmap (`.planning/ROADMAP.md`) na criação das fases.
+
+---
+
+## v1.4 Opções v2 (em execução — não shipped, requirements preservados abaixo)
 
 Base completa da decisão: `.planning/seeds/opcoes-v2-setups-propostos-via-b-mcp.md`
 e `.planning/notes/opcoes-v2-b-mcp-exploracao.md`.
-
-## v1.4 Requirements
 
 ### Navegação (NAV)
 
@@ -90,7 +211,7 @@ Success criteria detalhados ficam para `/gsd-plan-phase 19`.
   usuário aceita exatamente um por avaliação — nunca mais de um executado
   simultaneamente para a mesma posição.
 
-## Future Requirements (deferred)
+### v1.4 Future Requirements (deferred)
 
 - Setup customizado pelo usuário (fora do v1 — biblioteca fixa por
   enquanto).
@@ -100,7 +221,7 @@ Success criteria detalhados ficam para `/gsd-plan-phase 19`.
 - Estruturas adicionais além das 3 do v1 (ex.: mais combinações de pernas),
   se a demanda de produto justificar.
 
-## Out of Scope
+### v1.4 Out of Scope
 
 - **Straddle/strangle coberto** — liquidez de opções B3 fora dos blue-chips
   já é curta pra 1 perna, pior pra 2 pernas simultâneas de lados opostos.
@@ -116,7 +237,7 @@ Success criteria detalhados ficam para `/gsd-plan-phase 19`.
   v1.3, que ativou infraestrutura sem loja/IAP ainda; decisão comercial
   separada, fora deste milestone.
 
-## Traceability
+### v1.4 Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
@@ -139,4 +260,6 @@ Success criteria detalhados ficam para `/gsd-plan-phase 19`.
 | MULTI-01 | Phase 19 | Complete |
 | MULTI-02 | Phase 19 | Pending |
 
-Coverage: 18/18 v1.4 requirements mapped. No orphans.
+Coverage: 18/18 v1.4 requirements mapped. No orphans. Pendências de
+verificação ao vivo (não de mapeamento) documentadas em
+`.planning/notes/checkpoints-pendentes-fase-17-18-19.md`.
