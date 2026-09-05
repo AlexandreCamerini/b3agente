@@ -123,6 +123,44 @@ Todo o resto do plano foi executado e está verde: Task 1 completa e commitada; 
 
 Nenhum destes 8 itens foi aproximado ou estimado neste SUMMARY — ficam explicitamente em aberto, seguindo o mesmo padrão de `20-01-SUMMARY.md`/`20-02-SUMMARY.md` (que tiveram itens de browser fechados depois por reverificação ao vivo do orquestrador, registrada em seção própria "Orchestrator Live Re-Verification"). Recomendo o mesmo fluxo aqui: o orquestrador roda os 8 itens contra o commit `0d817d1` (ou o merge subsequente) e anexa os resultados a este SUMMARY.
 
+## Orchestrator Live Re-Verification
+
+Executada via MCP do navegador contra o merge desta branch:
+
+1. **`document.fonts.check("600 22px Fredoka")` → `true`** — fonte carregada. ✓
+2. **`getComputedStyle(h1).fontFamily` em 5 telas** (Acompanhar, Radar,
+   Watchlist, Portfólio, Operador IA) — todas retornam `Fredoka` como
+   primeira família. ✓ (inventário completo de 15 confere com a suíte
+   estática do guardião, que cobre as 10 restantes por leitura de fonte.)
+3. **Regra CSS servida de fato** (lida do `<style>` renderizado no DOM, não
+   do código-fonte) — a regra ampla nova aparece byte a byte:
+   `.b3, .b3 *, .b3 *::before, .b3 *::after, .b3-mode-switch, .b3-mode-switch *{ transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }`
+   — cobre o elemento raiz `.b3` (não só descendentes), inclui
+   `animation-iteration-count:1` (mitigação do risco de estroboscópio) e
+   aparece ANTES da regra estreita pré-existente
+   `.b3 .tt-track,.b3 .spin{animation:none!important}` na ordem de fonte —
+   consistente com a análise de especificidade do plano. ✓
+4. **Estado normal (sem `prefers-reduced-motion`)** — ticker anima
+   normalmente (`animationName:"b3tt"`, `animationDuration:"52s"`), shell
+   com `transitionProperty:"background, color"` ativo: nada quebrou no
+   caminho comum. ✓
+
+**Limitação de ambiente, registrada sem contornar:** nenhuma ferramenta
+disponível nesta sessão expõe emulação de `prefers-reduced-motion` via CDP
+(`Emulation.setEmulatedMedia`) — `resize_window` só emula viewport/color-scheme,
+e o plugin `chrome-devtools` disponível também não expõe esse parâmetro.
+Não é possível, portanto, alternar o media feature e observar o efeito
+comportamental ao vivo (`animationName==="none"` sob redução, comparação de
+dois screenshots do ticker parado) sem mudar a configuração de acessibilidade
+real do sistema operacional do host — o que não é apropriado fazer só para
+este teste. A verificação acima (regra CSS servida, byte-idêntica ao
+planejado, com escopo e mitigação de estroboscópio corretos) é a evidência
+disponível nas ferramentas deste ambiente; o comportamento sob o media
+feature ativo fica coberto pelo guardião estático (que trava a string da
+regra) e pela leitura de código já feita nos Planos 20-03, não por medição
+comportamental ao vivo. Registrado como lacuna de ferramenta, não como "não
+verificado por descuido".
+
 ## User Setup Required
 
 None - no external service configuration required.
