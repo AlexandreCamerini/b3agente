@@ -165,6 +165,25 @@ Recent decisions affecting current work:
   em que o Radar dispare um setup ativo sobre alguma posição real do Alex,
   ou teste num ativo/conta com proposta ativa).
 
+- **Fase 19, checkpoint humano (Task 2, `19-04-PLAN.md`) — PENDENTE, não
+  exercitado (2026-09-04).** Motor multi-candidato executado e publicado:
+  `propor()` devolve `candidatos` (put_protecao + collar em paralelo quando
+  ambos cabem, MULTI-01), rotas de leitura/escrita falam a língua de N
+  candidatos e fecham o gap put→collar (MULTI-02), front renderiza os N
+  lado a lado em `PropostaDaPosicao`/`CandidatoOpcao` reusando o padrão
+  visual da Fase 18. Suíte canônica verde (2021 passed, 1 skipped + web
+  ok), build `F10-20260904-01` publicado (`server/web_dist`, três elos de
+  carimbo coerentes). **Roteiro de 10 passos do Plano 19-04 ainda não
+  rodado** — exige mercado aberto E uma posição real com leitura
+  VENDER/baixa cujo caixa comporte tanto a put isolada quanto a trava
+  protetora (só assim os dois candidatos aparecem juntos); sem isso os
+  passos 1-7 não são exercitáveis. Decisão a/b/c do passo 10 (publicar
+  Fases 17+18+19 juntas / segurar até 17+18 fecharem / reprovar) segue em
+  aberto — **esta fase amplia exatamente o mesmo fluxo de aceite que as
+  Fases 17/18 ainda não confirmaram ao vivo**, então a decisão pendente
+  cobre agora as três fases empilhadas, não só 19. Nenhum push pra
+  `origin` foi feito.
+
 ### Quick Tasks Completed
 
 | # | Description | Date | Commit | Status | Directory |
