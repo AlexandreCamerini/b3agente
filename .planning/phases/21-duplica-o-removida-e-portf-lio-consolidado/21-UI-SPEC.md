@@ -52,11 +52,11 @@ dependency.
 No new spacing scale. This phase reuses two already-established spacing
 patterns byte-for-byte:
 
-| Token | Value | Usage in this phase |
-|-------|-------|-------|
-| Card padding | `"16px 18px"` | Consolidated Portfólio card (DEDUP-03) — exact match of `EvolucaoScreen`'s "RESUMO DO DIA" card padding (`App.jsx:1974`), per `21-CONTEXT.md`'s "usar o card de Resumo do Dia como referência byte a byte de espaçamento." |
-| Grid gap | `"16px 18px"` (row-gap 16px, column-gap 18px) | Consolidated Portfólio card's internal 2×2 grid — 16px is the 8-point-scale value; 18px matches the horizontal gap already used between "RESUMO DO DIA"'s three stat blocks (`App.jsx:1976`, `gap:"18px"`). Using a shorthand `gap:"16px 18px"` keeps the vertical rhythm on-scale while the horizontal gap stays visually consistent with its direct sibling screen. |
-| Outer vertical margin | `"16px 0 18px"` | Preserve the exact margin the 4-card grid currently uses (`App.jsx:4358`) around the new single consolidated card — no change to the screen's vertical rhythm above/below this element. |
+| Token | Value | Usage in this phase | Sign-Off |
+|-------|-------|-------|----------|
+| Card padding | `"16px 18px"` | Consolidated Portfólio card (DEDUP-03) — exact match of `EvolucaoScreen`'s "RESUMO DO DIA" card padding (`App.jsx:1974`), per `21-CONTEXT.md`'s "usar o card de Resumo do Dia como referência byte a byte de espaçamento." | developer-approved — matches existing pattern — 2026-09-05 (`App.jsx:1974`) |
+| Grid gap | `"16px 18px"` (row-gap 16px, column-gap 18px) | Consolidated Portfólio card's internal 2×2 grid — 16px is the 8-point-scale value; 18px matches the horizontal gap already used between "RESUMO DO DIA"'s three stat blocks (`App.jsx:1976`, `gap:"18px"`). Using a shorthand `gap:"16px 18px"` keeps the vertical rhythm on-scale while the horizontal gap stays visually consistent with its direct sibling screen. | developer-approved — matches existing pattern — 2026-09-05 (`App.jsx:1976`) |
+| Outer vertical margin | `"16px 0 18px"` | Preserve the exact margin the 4-card grid currently uses (`App.jsx:4358`) around the new single consolidated card — no change to the screen's vertical rhythm above/below this element. | developer-approved — matches existing pattern — 2026-09-05 (`App.jsx:4358`) |
 
 Exceptions: none beyond the above (both are direct reuses of existing
 values, not new scale entries).
@@ -65,11 +65,11 @@ values, not new scale entries).
 
 ## Typography
 
-| Role | Size | Weight | Line Height | Usage |
-|------|------|--------|-------------|-------|
-| Card label (kicker) | 10px | 400 (inherits `kicker` — no explicit weight set, renders regular) | default | Consolidated Portfólio card's 4 cell labels — reuse the shared `kicker` constant (`App.jsx:293`) verbatim, exactly as "RESUMO DO DIA" already does at its own cell labels (`App.jsx:1977-1979`, `<div style={kicker}>...`). Do NOT invent a new label style. |
-| Card value (primary) | 18px (`numBody`) | 700 (`numBody`) | not specified by `numBody` — inherit default | Consolidated Portfólio card's 4 primary values — first real production consumer of `numBody` besides `Topbar` (Fase 20 deferred this exact migration to Fase 21/22). Combine by spread: `{...numBody, fontFamily: MONO, color}`. |
-| Card value (secondary) | 13px (`numMicro`) | 600 (`numMicro`) | not specified — inherit default | "Resultado aberto" cell's existing `pct(openPct)` sub-line — first production consumer of `numMicro`. Combine: `{...numMicro, fontFamily: MONO, color: subColor}`. |
+| Role | Size | Weight | Line Height | Usage | Sign-Off |
+|------|------|--------|-------------|-------|----------|
+| Card label (kicker) | 10px | 400 (inherits `kicker` — no explicit weight set, renders regular) | default | Consolidated Portfólio card's 4 cell labels — reuse the shared `kicker` constant (`App.jsx:293`) verbatim, exactly as "RESUMO DO DIA" already does at its own cell labels (`App.jsx:1977-1979`, `<div style={kicker}>...`). Do NOT invent a new label style. | developer-approved — matches existing pattern — 2026-09-05 (`kicker` constant, `App.jsx:293`) |
+| Card value (primary) | 18px (`numBody`) | 700 (`numBody`) | not specified by `numBody` — inherit default | Consolidated Portfólio card's 4 primary values — first real production consumer of `numBody` besides `Topbar` (Fase 20 deferred this exact migration to Fase 21/22). Combine by spread: `{...numBody, fontFamily: MONO, color}`. | developer-approved — matches existing pattern — 2026-09-05 (`numBody` defined `20-UI-SPEC.md:106`, `App.jsx:257`) |
+| Card value (secondary) | 13px (`numMicro`) | 600 (`numMicro`) | not specified — inherit default | "Resultado aberto" cell's existing `pct(openPct)` sub-line — first production consumer of `numMicro`. Combine: `{...numMicro, fontFamily: MONO, color: subColor}`. | developer-approved — matches existing pattern — 2026-09-05 (`numMicro` defined `20-UI-SPEC.md:107`, `App.jsx:258`) |
 
 **Why `numBody` here, not `numHero`:** the current 4 separate KPI cards
 already render their primary value at `fontSize:"19px", fontWeight:600`
