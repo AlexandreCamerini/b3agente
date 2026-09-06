@@ -88,7 +88,15 @@ const PALETTE = {
     // ter um degrau de profundidade sobre o card, como no dark.
     bgBase: "#f7f8fc", bgPanel: "#eef0f7", bgCard: "#ffffff", bgToast: "#222936",
     borderSubtle: "#e2e5f0", borderFaint: "#edeff5", borderDashed: "#d3d8e6", borderToast: "#39414f",
-    textPrimary: "#10121a", textSecondary: "#2d3444", textMuted: "#5b6178", textDim: "#6b7288",
+    // 2026-09-06: achado COLATERAL da Fase 4 (FIX-C16), fora do escopo do
+    // C-16 original — aquele fix corrigiu textFaint nesta mesma paleta mas
+    // não tocou textDim, que seguiu reprovando AA por todo o v1.1 e o v1.5.
+    // O hex antigo media 4,51:1/4,20:1 (reprova, pior caso bgPanel)/4,79:1.
+    // Este é o mesmo tom com luminosidade ajustada: 5,01:1/4,67:1/5,32:1
+    // (pior caso bgPanel). Com textFaint já em 4,56:1, o textDim a 4,20:1
+    // invertia a hierarquia visual pretendida no tema claro — o token que
+    // deveria ler mais apagado contrastava mais que o outro.
+    textPrimary: "#10121a", textSecondary: "#2d3444", textMuted: "#5b6178", textDim: "#646b7f",
     // FIX-C16 (REPORT-01): o hex antigo media 3,68:1 contra bgBase — pior
     // contra bgPanel (3,43:1), abaixo do mínimo AA 4.5:1. Este é o mesmo tom
     // com luminosidade ajustada: 4,89:1/4,56:1 (pior caso bgPanel)/5,19:1.
