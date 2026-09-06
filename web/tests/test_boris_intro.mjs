@@ -27,6 +27,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const app = readFileSync(join(here, "..", "src", "App.jsx"), "utf8");
 const persistence = readFileSync(join(here, "..", "src", "persistence.js"), "utf8");
 const introSrc = readFileSync(join(here, "..", "src", "pet", "BorisIntro.jsx"), "utf8");
+const borisFlatSrc = readFileSync(join(here, "..", "src", "pet", "BorisFlat.jsx"), "utf8");
 const defaultsPy = readFileSync(join(here, "..", "..", "server", "app", "defaults.py"), "utf8");
 const storePy = readFileSync(join(here, "..", "..", "server", "app", "store.py"), "utf8");
 
@@ -36,8 +37,19 @@ const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if 
 // ------------------------------------------------------------- a montagem
 ok("App.jsx importa BorisIntro de ./pet/BorisIntro.jsx",
    /import BorisIntro from ["']\.\/pet\/BorisIntro\.jsx["'];/.test(app));
-ok("BorisIntro.jsx importa Boris (mesmo componente animado da F1)",
-   /import Boris from ["']\.\/Boris\.jsx["'];/.test(introSrc));
+// REVERSÃO DELIBERADA (Fase 23, ILUS-01, 2026-09-06): a arte da intro deixou
+// de ser o `<Boris size={110}/>` (PNG semi-realista, mesmo componente animado
+// da F1) e virou `<BorisFlat size={110}/>` (SVG flat, mesmo vocabulário do
+// LogoMark). A asserção antiga que travava `import Boris from "./Boris.jsx"`
+// em BorisIntro.jsx foi substituída pelo par abaixo — presença do import novo
+// E ausência do antigo, para que uma troca PARCIAL (import novo adicionado
+// sem remover o velho) também reprove. `Boris.jsx` continua vivo: App.jsx
+// segue importando-o para o PetFab (asserção de fronteira de escopo mais
+// abaixo).
+ok("BorisIntro.jsx importa BorisFlat (ilustração flat, ILUS-01/Fase 23)",
+   /import BorisFlat from ["']\.\/BorisFlat\.jsx["'];/.test(introSrc));
+ok("BorisIntro.jsx NÃO importa mais Boris (troca completa, não parcial)",
+   !/import Boris from ["']\.\/Boris\.jsx["']/.test(introSrc));
 ok("BorisIntro é renderizado sob `borisIntroOpen`",
    /\{borisIntroOpen && \(\s*\n\s*<BorisIntro/.test(app));
 
@@ -54,6 +66,21 @@ const introBody = introSrc.slice(introSrc.indexOf("export default function"));
   ok("ORDEM: 'o que não faz' vem ANTES de 'o que ele sabe'", naoFaz < oQueSabe);
   ok("ORDEM: 'o que ele sabe' vem ANTES de 'como chamá-lo'", oQueSabe < comoChamar);
 }
+ok("o call site é <BorisFlat size={110} /> (o docstring pode citar Boris em prosa, o corpo não)",
+   /<BorisFlat size=\{110\} \/>/.test(introBody) && !/<Boris /.test(introBody));
+
+// ---------------------------------------- ILUS-01 (Fase 23) — BorisFlat.jsx
+ok("BorisFlat.jsx existe e exporta BorisFlat por default",
+   /export default function BorisFlat/.test(borisFlatSrc));
+ok("BorisFlat.jsx é flat: cores de marca presentes, zero gradiente/filtro/PNG",
+   /#2a3a6b/.test(borisFlatSrc) && /#f2a93b/.test(borisFlatSrc) && /#eef1f8/.test(borisFlatSrc)
+   && !/linearGradient|radialGradient|filter=|feGaussian|<image|boris\.png/.test(borisFlatSrc));
+ok("TRAVA DE MARCA: BorisFlat.jsx não tem token de tema (óculos/corpo não seguem o acento do modo)",
+   !/var\(--/.test(borisFlatSrc));
+ok("TRAVA DE FRONTEIRA DE ESCOPO: App.jsx continua importando Boris de ./pet/Boris.jsx (a troca de arte se limita ao modal de introdução; kickoff do milestone v1.5)",
+   /import Boris from ["']\.\/pet\/Boris\.jsx["'];/.test(app));
+ok("BorisFlat.jsx é decorativo: aria-hidden presente, sem aria-label (título do modal já identifica o personagem)",
+   /aria-hidden/.test(borisFlatSrc) && !/aria-label/.test(borisFlatSrc));
 ok("'o que não faz' cita carteira simulada e nenhuma ordem à corretora",
    /não envia ordem<\/b> para\s*\n\s*corretora nenhuma/.test(introSrc)
    && /a carteira é <b>simulada<\/b>/.test(introSrc));
