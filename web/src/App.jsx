@@ -364,6 +364,8 @@ function GlobalStyle() {
       .b3 .tt-track{ animation:b3tt 52s linear infinite; }
       @keyframes b3cardEnter{ from{ opacity:0; transform:translateY(8px); } to{ opacity:1; transform:translateY(0); } }
       .b3 .card-enter{ animation:b3cardEnter 200ms ease-out; }
+      @keyframes b3valuePulse{ 0%{ transform:scale(1); } 50%{ transform:scale(1.08); } 100%{ transform:scale(1); } }
+      .b3 .value-pulse{ display:inline-block; animation:b3valuePulse 120ms ease-out; }
       /* Fase 20 (MOTION-03): gate abrangente de movimento reduzido do
          sistema — cobre a transição de tema/modo já existente e qualquer
          transição/animação que as Fases 22/23 adicionarem depois.
@@ -8191,16 +8193,30 @@ export default function App() {
     },
     closeSell: () => setSellModal(null),
     confirmSell: async () => {
-      const sm = sellModal; if (!sm) return;
+      // Fase 23 (MOTION-02): o modal fica montado por mais ~120ms para o
+      // valor pulsar; sem esta guarda, dois toques na janela virariam DUAS
+      // ordens — antes o desmonte imediato impedia isso por acidente.
+      const sm = sellModal; if (!sm || sm.confirmado) return;
       const pos = (data.positions || []).find((p) => p.t === sm.t);
       try {
         const total = !pos || sm.qty >= pos.qty;
         const st = await store.sell(sm.t, total ? undefined : sm.qty);
-        setData(st); setSellModal(null);
-        // Fase 2 (MERC-02/03, D-01): analítica não pode confundir ordem
-        // PENDENTE (mercado fechado, nada executou) com venda concluída.
-        track("trade_simulated", { side: "sell", ticker: sm.t, instrument: "equity", pendente: !!st.pendente }); // qa/47 (Fase 2)
-        flash(st.pendente ? cp.toastOrdemPendente(sm.qty, sm.t) : cp.toastVenda(total ? "total" : sm.qty + " cotas", sm.t)); // FASE 8B (B1)
+        // `setData` entra AQUI, não antes: com o estado já comitado, o
+        // SellModal chega a desmontar (`if (!pos) return null`) numa venda
+        // TOTAL — o pulso nunca pintaria.
+        const finalizar = () => {
+          setData(st); setSellModal(null);
+          // Fase 2 (MERC-02/03, D-01): analítica não pode confundir ordem
+          // PENDENTE (mercado fechado, nada executou) com venda concluída.
+          track("trade_simulated", { side: "sell", ticker: sm.t, instrument: "equity", pendente: !!st.pendente }); // qa/47 (Fase 2)
+          flash(st.pendente ? cp.toastOrdemPendente(sm.qty, sm.t) : cp.toastVenda(total ? "total" : sm.qty + " cotas", sm.t)); // FASE 8B (B1)
+        };
+        // Portões, nesta ordem: PENDENTE primeiro (ordem aceita e NÃO
+        // executada nunca ganha sinal de sucesso, princípio 9 do CLAUDE.md),
+        // REDUCE_MOTION depois (senão o CSS zera a animação e o setTimeout
+        // ainda segura o modal 120ms com nada acontecendo).
+        if (st.pendente || REDUCE_MOTION) { finalizar(); }
+        else { setSellModal((s2) => (s2 ? { ...s2, confirmado: true } : s2)); setTimeout(finalizar, 120); }
       } catch (e) {
         // FIX-C02 (Plano 04-05): o servidor já gravou a rejeição no histórico
         // (status: "rejeitada") — sem este refresh, a tela só mostraria a
@@ -8248,26 +8264,42 @@ export default function App() {
     openTech: (t) => setTechFor(t),
     closeTech: () => setTechFor(null),
     confirmBuy: async () => {
-      const bm = buyModal; if (!bm) return;
+      // Fase 23 (MOTION-02): o modal fica montado por mais ~120ms para o
+      // valor pulsar; sem esta guarda, dois toques na janela virariam DUAS
+      // ordens — antes o desmonte imediato impedia isso por acidente.
+      const bm = buyModal; if (!bm || bm.confirmado) return;
       try {
         const s = await store.buy(bm.t, bm.qty, bm.meta || undefined); // FASE 2 (2.4): setup de entrada
-        setData(s); setBuyModal(null);
-        // Fase 2 (MERC-02/03, D-01): analítica não pode confundir ordem
-        // PENDENTE (mercado fechado, nada executou) com compra concluída.
-        track("trade_simulated", { side: "buy", ticker: bm.t, instrument: "equity", pendente: !!s.pendente }); // qa/47 (Fase 2)
-        if (s.pendente) {
-          // Mercado fechado: a ordem fica pendente, SEM posição nova ainda —
-          // stop/alvo protegem uma posição que só nasce quando a pendente
-          // executar de verdade (scheduler, plano 02-03). Ofertar o N3 agora
-          // seria propor proteção para algo que não existe.
-          flash(cp.toastOrdemPendente(bm.qty, bm.t));
-        } else {
-          flash(cp.toastCompra(bm.qty, bm.t)); // FASE 8B (B1): voz do modo
-          // FASE 2 (2.3): oferta IMEDIATA do N3 — modal com cenários; nada é
-          // aplicado sem o toque do usuário (Fechar cancela sem efeito).
-          setStopAlvoFor(bm.t);
-          A.runStopAlvoFor(bm.t);
-        }
+        // `setData` entra AQUI, não antes: com o estado já comitado, o
+        // BuyModal recalcula `ok` com o caixa debitado e o SellModal (gêmeo)
+        // chega a desmontar (`if (!pos) return null`) — o pulso nunca
+        // pintaria.
+        const finalizar = () => {
+          setData(s); setBuyModal(null);
+          // Fase 2 (MERC-02/03, D-01): analítica não pode confundir ordem
+          // PENDENTE (mercado fechado, nada executou) com compra concluída.
+          track("trade_simulated", { side: "buy", ticker: bm.t, instrument: "equity", pendente: !!s.pendente }); // qa/47 (Fase 2)
+          if (s.pendente) {
+            // Mercado fechado: a ordem fica pendente, SEM posição nova ainda —
+            // stop/alvo protegem uma posição que só nasce quando a pendente
+            // executar de verdade (scheduler, plano 02-03). Ofertar o N3 agora
+            // seria propor proteção para algo que não existe.
+            flash(cp.toastOrdemPendente(bm.qty, bm.t));
+          } else {
+            flash(cp.toastCompra(bm.qty, bm.t)); // FASE 8B (B1): voz do modo
+            // FASE 2 (2.3): oferta IMEDIATA do N3 — modal com cenários; nada é
+            // aplicado sem o toque do usuário (Fechar cancela sem efeito).
+            setStopAlvoFor(bm.t);
+            A.runStopAlvoFor(bm.t);
+          }
+        };
+        // Portões, nesta ordem: PENDENTE primeiro (ordem aceita e NÃO
+        // executada nunca ganha sinal de sucesso, princípio 9 do CLAUDE.md),
+        // REDUCE_MOTION depois (senão o CSS zera a animação e o setTimeout
+        // ainda segura o modal 120ms com nada acontecendo — "direto" quer
+        // dizer sem espera também).
+        if (s.pendente || REDUCE_MOTION) { finalizar(); }
+        else { setBuyModal((b) => (b ? { ...b, confirmado: true } : b)); setTimeout(finalizar, 120); }
       }
       catch (e) {
         // FIX-C02 (Plano 04-05): mesmo refresh best-effort do confirmSell —
