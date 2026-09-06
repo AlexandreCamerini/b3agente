@@ -157,6 +157,16 @@ None - no external service configuration required.
   para quando a Fase 22 inteira fechar, seguindo a regra já registrada em
   PROJECT.md ("Fase sem plano de publicação front").
 
+## Orchestrator Live Re-Verification
+
+Executada via MCP do navegador contra o dev server (merge desta branch):
+
+1. **Watchlist ("Modelo de análise")** — trilho com `scroll-snap-type: x`
+   (proximity implícito por spec quando a força não é declarada) e
+   `overflow-x:auto`. ✓
+2. **Acompanhar (HERO-CARROSSEL)** — mantém `scroll-snap-type: x mandatory`
+   intacto, sem regressão do peek de 84%. ✓
+
 ---
 *Phase: 22-componentes-compartilhados-trilho-cones-mascote*
 *Completed: 2026-09-06*
