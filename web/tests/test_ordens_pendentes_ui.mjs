@@ -89,8 +89,15 @@ ok("BuyModal: status indisponível mostra mercadoStatusFalhouNaOrdem com botão 
   buyModal.includes("statusIndisponivel") && buyModal.includes("mercadoStatusFalhouNaOrdem") && buyModal.includes("ctx.recarregarMercado"));
 ok("SellModal: status indisponível mostra mercadoStatusFalhouNaOrdem com botão de retry via ctx.recarregarMercado",
   sellModal.includes("statusIndisponivel") && sellModal.includes("mercadoStatusFalhouNaOrdem") && sellModal.includes("ctx.recarregarMercado"));
-ok("BuyModal: o botão Confirmar continua controlado só por `ok` (custo/caixa) — status indisponível não desabilita",
-  /disabled=\{!ok\}/.test(buyModal));
+// 2026-09-06 (Fase 23, plano 23-03, MOTION-02): o botão ganhou uma SEGUNDA
+// condição de disabled (`!!buyModal.confirmado`, guarda de duplo envio
+// enquanto o valor pulsa por 120ms) — a asserção original travava a forma
+// exata `disabled={!ok}`, que deixou de existir. O que ela protegia
+// (status indisponível NÃO desabilita o Confirmar) continua valendo:
+// `statusIndisponivel` não entra na expressão do `disabled` em nenhum dos
+// dois termos.
+ok("BuyModal: o botão Confirmar continua controlado por `ok`/`confirmado` (custo/caixa + duplo envio) — status indisponível não desabilita",
+  /disabled=\{!ok \|\| !!buyModal\.confirmado\}/.test(buyModal) && !/disabled=\{[^}]*statusIndisponivel/.test(buyModal));
 // rótulo do botão de confirmar não muda em nenhum caso (mesma chave de sempre)
 ok("BuyModal/SellModal: rótulo do CTA continua vindo de confirmarCompra/confirmarVenda, sem ramificação",
   buyModal.includes("{ctx.cp.confirmarCompra}") && sellModal.includes("{ctx.cp.confirmarVenda}"));
