@@ -40,7 +40,7 @@ patterns-established:
 requirements-completed: [SYS-01]
 
 # Metrics
-duration: 8min
+duration: 8min (commit-to-commit; total session time longer — inclui carregamento de contexto/leitura de 7 arquivos de planejamento antes da Task 1)
 completed: 2026-09-06
 ---
 
@@ -50,7 +50,7 @@ completed: 2026-09-06
 
 ## Performance
 
-- **Duration:** ~8 min (commits 23:37:50 → 23:45:28, base commit → último commit de task)
+- **Duration:** ~8 min commit-a-commit (23:37:50 → 23:45:28, base commit → último commit de task); tempo total de sessão é maior — inclui carregamento de contexto e leitura dos 7 arquivos de planejamento antes de escrever a Task 1, não capturado pelo intervalo entre commits
 - **Started:** 2026-09-05T23:37:50-03:00
 - **Completed:** 2026-09-05T23:45:28-03:00
 - **Tasks:** 2 completed
@@ -114,6 +114,19 @@ Executado como plano `tdd="true"` em nível de plano (Task 1 = RED, Task 2 = GRE
 
 **Total deviations:** 1 auto-fixed (1 bug, Rule 1)
 **Impact on plan:** Nenhum — erro introduzido e corrigido dentro da própria Task 2, antes do commit. Sem impacto no escopo ou no comportamento entregue.
+
+## Verification Notes (post-hoc, added after advisor review)
+
+- **Dentes do guardião confirmados por teste adversarial:** depois de editar
+  o comentário do helper (ver Deviations), injetou-se temporariamente um
+  segundo `overflowX: "auto"` real (fora de comentário) em `App.jsx` e
+  confirmou-se que o guardião falha exatamente na asserção central ("aparece
+  exatamente 1×"). O arquivo foi restaurado ao estado do commit `fdc8a9b`
+  logo em seguida (`git status --short` voltou vazio, guardião voltou a sair
+  com código 0) — nenhuma mudança residual desse teste ficou no código.
+- **`git push`:** nenhum `git push` foi executado nesta sessão (critério de
+  aceite explícito da Task 2) — confirmado por revisão do histórico de
+  comandos, não apenas por ausência de menção.
 
 ## Issues Encountered
 
