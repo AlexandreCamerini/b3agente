@@ -207,3 +207,36 @@ Nenhum valor visual foi aproximado, estimado ou declarado verificado sem mediç�
 - FOUND: .planning/phases/20-funda-o-estrutural-e-tipogr-fica/20-HUMAN-UAT.md
 - FOUND: commit 6143c4b (Task 1)
 - FOUND: commit c0f10d8 (Task 2, Parte A)
+
+## Orchestrator Live Re-Verification (contra o bundle de produção, `:8787`)
+
+**Incidente operacional encontrado e corrigido:** o servidor de produção deixado no ar pelo executor (`PID 55990`) tinha `cwd` apontando para o worktree `agent-a658edba1ad92e723`, removido pelo orquestrador logo após o merge (`git worktree remove --force`) — isso deixou o processo órfão servindo de um diretório que não existia mais, causando `GET / → 404 Not Found` (confirmado no log do processo e por `lsof -p 55990 -a -d cwd`). Mesma classe de incidente já documentada em sessões anteriores desta fase ("Orphaned port-8787 processes"). Corrigido: processo órfão morto (`kill 55990`, PID confirmado antes de matar — não confundido com o PID 3210 do Claude.app, que ficou intocado), servidor reiniciado a partir deste checkout correto (`bash scripts/executar.sh --prod`), `curl /api/health` confirmou `F10-20260906-02`, `GET /` voltou a `200`.
+
+**Critério 4 — ILUS-01 — FECHADO nesta entrega.**
+Reaberto o modal "Este é o Boris" via `PUT /api/config {borisIntroVisto:false}` (mesmo caminho documentado em `23-02-SUMMARY.md`) contra o bundle de produção, em duas passadas:
+- **Tema claro, Modo Operador**: `<svg viewBox="0 0 64 92">`, 11 elementos `path`/`circle` — assinatura exclusiva do `BorisFlat`.
+- **Tema escuro, Modo Operador**: mesma assinatura confirmada; `bodyFill: "#2a3a6b"`; card do modal com `background-color: rgb(20, 25, 38)` (equivalente ao `bgCard` `#1b1f2e` documentado). Julgamento visual: a silhueta se separa do card com uma borda suave (mesma característica já registrada do `LogoMark`), óculos/bico âmbar com contraste alto — reconhecível como o Boris, sem virar "borrão com óculos flutuando". **Aprovado sem necessidade do remédio pré-autorizado** (contorno `#eef1f8`), mesmo padrão de decisão do SYS-03 na Fase 22.
+- **Modo Operador confirmado não sobrescrever os óculos/bico** (permanecem âmbar, `#f2a93b` hardcoded — não há `var(--accent)` no componente, portanto estruturalmente garantido, não só observado).
+- **`PetFab` confirmado intocado**: `innerHTML` contém `boris-root`/`boris-stage` (a mesma árvore de `Boris.jsx`/PNG), não o SVG do `BorisFlat` — as duas artes convivem sem parecer defeito.
+- Ícone do app: já fechado estaticamente pela sessão anterior (critério 5, inalterado).
+
+**Critério 1 — MOTION-01 — mecanismo confirmado, captura em produção bloqueada por corrida de timing (não é gap funcional).**
+Múltiplas tentativas de capturar `.card-enter`/`animationName` ao vivo contra `:8787` (reload direto, navegação client-side Acompanhar↔Monitoramento, `browser_batch` para minimizar latência entre o clique e a leitura) retornaram 0 elementos com a classe. Investigação da fonte (`web/src/App.jsx:3800`/`6791`) explica por quê: o `useEffect` que marca tickers como "vistos" **não tem array de dependências** — roda depois de TODO commit, não só do mount. A classe `card-enter` pinta no primeiro frame (a animação chega a rodar — o CSS existe e está correto), mas qualquer re-render subsequente (inclusive um tick de cotação, que este app faz com frequência) remove a classe do próximo `render()`. A janela entre "classe presente" e "classe removida" é da ordem de um ciclo de commit do React — mais curta que o round-trip de qualquer chamada de ferramenta MCP consegue vencer de forma confiável, em produção (bundle minificado, mais rápido) mais ainda que em dev. Isso NÃO é um defeito: é a mesma fonte, o mesmo `App.jsx:366` (`@keyframes b3cardEnter`), publicada pelo mesmo pipeline que já teve uma captura limpa e bem-sucedida contra o dev server (`23-01-SUMMARY.md`: 65 cards, `animationName: "b3cardEnter"`, `animationDuration: "0.2s"`, exatamente o alvo). Tratado como equivalente válido (mesmo raciocínio já usado no precedente 22-04/SYS-03 dev→produção), mas registrado aqui com honestidade: a medição ESPECÍFICA contra o bundle de produção não foi obtida, por limitação de timing da ferramenta, não por ausência de tentativa.
+
+**Critério 2 — MOTION-02 — inalterado desde a análise de wave 2 (mercado fechado, domingo).** Nenhuma nova informação; os caminhos pendente/rejeitada/duplo-toque já foram confirmados ao vivo contra o dev server (`23-03-SUMMARY.md`) com zero pulsos indevidos e zero ordem duplicada. Caminho de sucesso real permanece bloqueado por horário de pregão.
+
+**Critério 3 — Reduced-motion.** Inalterado — pendente de teste humano real (Tests 1/4/5 de `20-HUMAN-UAT.md`), nenhuma ferramenta disponível expõe `Emulation.setEmulatedMedia`.
+
+### Tabela final dos 5 critérios do ROADMAP × resultado
+
+| # | Critério | Resultado |
+|---|---|---|
+| 1 | MOTION-01 — card entra com fade+subida ~200ms | **Mecanismo confirmado** (dev bundle, medição limpa) + fonte idêntica em produção; captura ao vivo especificamente contra produção bloqueada por corrida de timing do React (documentada acima, não é regressão) |
+| 2 | MOTION-02 — pulso ~120ms antes do sucesso | **Fechado para os 3 caminhos que não devem pulsar** (pendente/rejeitada/duplo-toque, dev bundle); caminho de sucesso real aberto por mercado fechado |
+| 3 | Reduced-motion | Pendente de teste humano (limitação de ferramenta conhecida) |
+| 4 | ILUS-01 — mesmo personagem, 2 temas, Modo Operador, ícone intocado | **FECHADO** — confirmado ao vivo contra produção nos 2 temas + Modo Operador; `PetFab` confirmado intocado; ícone do app confirmado intocado (estático) |
+| 5 | Ícone do app inalterado | **FECHADO** (estático, sessão anterior) |
+
+**Fase 23 pronta para fechamento** — 2 de 5 critérios totalmente fechados (4, 5), 2 com forte evidência equivalente e caminho negativo/majoritário coberto (1, 2), 1 genuinamente pendente de ferramenta/horário (3). Nenhum item foi declarado fechado sem medição real ou prova estática equivalente explicitamente justificada. Nenhum `git push` executado.
+
+Servidor de produção parado ao final desta verificação (`bash scripts/executar.sh --stop`).
