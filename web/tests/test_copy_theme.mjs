@@ -58,8 +58,17 @@ ok("qa/34: onboarding da home na voz do modo",
   && !app.includes("Bem-vindo ao seu simulador"));
 ok("qa/34: subtítulo da watchlist na voz do modo",
   app.includes("cp.subtituloWatchlist") && !app.includes("Seus ativos em estudo, ordenados"));
+// Fase 22 (SYS-02, 2026-09-06): o emoji de fagulha virou
+// `<NavIcon id="brilho">`. A intenção original (chave `btnAnalise` ligada,
+// texto fixo 'Analisar com IA' não voltou) segue travada; a condição só
+// deixou de depender do glifo.
+// A checagem do texto fixo ignora comentários JSX ({/* ... */}) — o próprio
+// comentário qa/34 acima do botão em App.jsx (histórico, não reescrito) cita
+// "Analisar com IA" em prosa ao explicar o que deixou de ser hardcoded, e
+// isso não pode ser confundido com o texto voltando a ser literal no JSX.
+const appSemComentariosJsx = app.replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
 ok("qa/34: botão de análise usa a chave (fim da órfã btnAnalise)",
-  app.includes('"✨ " + cp.btnAnalise') && !app.includes('"✨ Analisar com IA"'));
+  app.includes("cp.btnAnalise") && !appSemComentariosJsx.includes("Analisar com IA") && /id="brilho"/.test(app));
 ok("qa/34: subtítulo do portfólio ligado (fim da órfã subtituloPortfolio)",
   app.includes("cp.subtituloPortfolio"));
 ok("qa/34: bloco 'como analisa' na voz do modo (fim do 'sempre de estudo' na mesa)",
