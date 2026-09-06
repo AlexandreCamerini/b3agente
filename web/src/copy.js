@@ -29,6 +29,14 @@ export const COPY = {
         ? `Há ${nSetups} setup(s) para estudar na sua watchlist — bora entender o porquê de cada um?`
         : "Mercado sem setups claros na sua watchlist — bom dia para revisar os conceitos.",
 
+    // Fase 21 (FIX-03): placeholder de CapitalCurve com 1-2 dias de patrimônio
+    // registrados — mesmo texto nos dois modos (afirmação factual sobre
+    // disponibilidade de dado, não enquadramento de decisão).
+    curvaPoucosDias: (dias) =>
+      dias === 1
+        ? "Só 1 dia registrado ainda — a curva aparece a partir do 3º dia."
+        : "Só 2 dias registrados ainda — a curva aparece a partir do 3º dia.",
+
     // abas
     tabRadar: "Radar", // qa/34: rótulo CURTO da aba inferior (a tela usa tituloRadar)
     tituloRadar: "Radar de mercado",
@@ -248,6 +256,14 @@ export const COPY = {
       nSetups > 0
         ? `${nSetups} plano(s) válido(s) hoje · ${nGatilhos} gatilho(s) próximos do preço. Disciplina: só entra quem confirmar.`
         : "Nenhum plano com vantagem estatística hoje. Não operar também é posição.",
+
+    // Fase 21 (FIX-03): placeholder de CapitalCurve com 1-2 dias de patrimônio
+    // registrados — texto idêntico ao modo Estudo (afirmação factual sobre
+    // disponibilidade de dado, não enquadramento de decisão).
+    curvaPoucosDias: (dias) =>
+      dias === 1
+        ? "Só 1 dia registrado ainda — a curva aparece a partir do 3º dia."
+        : "Só 2 dias registrados ainda — a curva aparece a partir do 3º dia.",
 
     // abas
     tabRadar: "Mesa", // qa/34: a aba dizia "Radar" enquanto a tela é "Mesa de oportunidades"
