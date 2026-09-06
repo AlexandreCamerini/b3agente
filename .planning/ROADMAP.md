@@ -360,7 +360,7 @@ Plans:
 - [x] 21-01-PLAN.md — Curva de patrimônio única em Acompanhar + 4 cards do Portfólio consolidados em 1 grid 2×2 (DEDUP-01, DEDUP-03)
 - [x] 21-02-PLAN.md — Card de status redundante removido do Operador IA, com link e transparência do ADR-017 realocados e 3 guardiões reescritos (DEDUP-02)
 - [x] 21-03-PLAN.md — Limiar de 3 dias no CapitalCurve + placeholder de pouco dado nos dois modos (FIX-03)
-- [ ] 21-04-PLAN.md — Bump, publicação e remedição dos 4 critérios contra o bundle de produção
+- [x] 21-04-PLAN.md — Bump, publicação e remedição dos 4 critérios contra o bundle de produção
 **Nota de publicação**: toca `web/src/` — precisa de plano final de bump +
 `publicar-web.sh`. Coberto pelo plano 21-04.
 **Nota de sequenciamento**: os 4 planos editam o MESMO `web/src/App.jsx`
@@ -459,7 +459,7 @@ Out of Scope / Future Requirements.
 | 18. Aba Opções | 4/5 | In Progress|  |
 | 19. Motor multi-candidato | 3/4 | In Progress|  |
 | 20. Fundação estrutural e tipográfica | 4/4 | Complete    | 2026-09-05 |
-| 21. Duplicação removida e Portfólio consolidado | 3/4 | In Progress|  |
+| 21. Duplicação removida e Portfólio consolidado | 4/4 | Complete   | 2026-09-06 |
 | 22. Componentes compartilhados (trilho, ícones, mascote) | v1.5 | Not started |  |
 | 23. Motion com propósito e ilustração unificada | v1.5 | Not started |  |
 
