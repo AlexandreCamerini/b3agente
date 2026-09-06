@@ -291,6 +291,21 @@ function localProposal(price, profile) {
 
 const card = { background: T.bgCard, border: `1px solid ${T.borderSubtle}`, borderRadius: "12px" };
 const kicker = { fontSize: "10px", color: T.textFaint, letterSpacing: "0.06em" };
+// Fase 22 (SYS-01): padrão ÚNICO de rolagem horizontal do app. Todo trilho
+// passa por aqui — overflowX solto (fora deste helper) não deve existir em
+// nenhum outro lugar de App.jsx (o guardião da Fase 22 trava isso).
+// `extra` é mesclado por último: gap/margin/padding/scrollbarWidth e, no
+// caso do HERO-CARROSSEL, o override de scrollSnapType.
+const carouselTrackStyle = (extra) => ({
+  display: "flex",
+  overflowX: "auto",
+  scrollSnapType: "x proximity",
+  WebkitOverflowScrolling: "touch",
+  ...extra,
+});
+// `align`: "start" para trilhos de navegar/comparar (o padrão); "center"
+// só para o HERO-CARROSSEL, único trilho de foco em um card dominante.
+const carouselItemStyle = (align = "start") => ({ scrollSnapAlign: align });
 const field = { width: "100%", padding: "10px 11px", background: T.bgBase, border: `1px solid ${T.borderSubtle}`, borderRadius: "8px", color: T.textPrimary };
 
 function GlobalStyle() {
@@ -1946,9 +1961,9 @@ function EvolucaoScreen({ ctx }) {
       {!novato && alertas.length > 0 && (
         <div>
           <div style={{ fontSize: "10.5px", fontWeight: 700, color: T.textFaint, letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: "9px" }}>{cp.kickerSetups}</div>
-          <div style={{ display: "flex", gap: "12px", overflowX: "auto", scrollSnapType: "x mandatory", margin: "0 -18px", padding: "2px 18px 6px", WebkitOverflowScrolling: "touch" }}>
+          <div style={carouselTrackStyle({ gap: "12px", scrollSnapType: "x mandatory", margin: "0 -18px", padding: "2px 18px 6px" })}>
             {alertas.slice(0, 8).map((r) => (
-              <button key={r.ticker} onClick={() => A.go("mercado")} style={{ ...card, scrollSnapAlign: "center", flex: "0 0 84%", maxWidth: "330px", borderLeft: `3px solid ${T.accent}`, padding: "15px 16px", textAlign: "left", cursor: "pointer" }}>
+              <button key={r.ticker} onClick={() => A.go("mercado")} style={{ ...card, ...carouselItemStyle("center"), flex: "0 0 84%", maxWidth: "330px", borderLeft: `3px solid ${T.accent}`, padding: "15px 16px", textAlign: "left", cursor: "pointer" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
@@ -3789,9 +3804,9 @@ function MercadoScreen({ ctx }) {
             <div style={{ fontSize: "12px", color: T.textMuted, marginTop: "2px" }}>O backend calcula; a LLM interpreta os dados históricos.</div>
           </div>
         </div>
-        <div style={{ display: "flex", gap: "8px", overflowX: "auto", WebkitOverflowScrolling: "touch", paddingBottom: "2px" }}>
+        <div style={carouselTrackStyle({ gap: "8px", paddingBottom: "2px" })}>
           {TECH_MODELS.map(([id, label, sub]) => (
-            <button key={id} onClick={() => setAnalysisModel(id)} style={{ minWidth: "118px", minHeight: "48px", padding: "8px 10px", borderRadius: "12px", border: `1px solid ${analysisModel === id ? T.accent : T.borderSubtle}`, background: analysisModel === id ? T.accentTint : T.bgBase, color: analysisModel === id ? T.accent : T.textSecondary, textAlign: "left", fontWeight: 800 }}>
+            <button key={id} onClick={() => setAnalysisModel(id)} style={{ ...carouselItemStyle("start"), minWidth: "118px", minHeight: "48px", padding: "8px 10px", borderRadius: "12px", border: `1px solid ${analysisModel === id ? T.accent : T.borderSubtle}`, background: analysisModel === id ? T.accentTint : T.bgBase, color: analysisModel === id ? T.accent : T.textSecondary, textAlign: "left", fontWeight: 800 }}>
               <span style={{ display: "block", fontSize: "12px" }}>{label}</span>
               <span style={{ display: "block", fontSize: "10px", color: T.textFaint, fontWeight: 600, marginTop: "2px" }}>{sub}</span>
             </button>
@@ -3998,7 +4013,7 @@ function OportunidadesOpcoes({ propostas, carregando, positions, cp, onAbrir }) 
     <div style={{ marginBottom: "14px" }}>
       <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em", color: T.textFaint, marginBottom: "8px" }}>{cp.tiraOpcoesTitulo}</div>
       {itens.length > 0 && (
-        <div style={{ display: "flex", gap: "10px", overflowX: "auto", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", paddingBottom: "2px" }}>
+        <div style={carouselTrackStyle({ gap: "10px", scrollbarWidth: "none", paddingBottom: "2px" })}>
           {itens.map((p) => {
             const pr = propostas[p.t].proposta.proposta;
             const isCollar = pr.tipo === "collar";
@@ -4013,7 +4028,7 @@ function OportunidadesOpcoes({ propostas, carregando, positions, cp, onAbrir }) 
                 type="button"
                 aria-label={p.t + " — " + cp.tiraOpcoesVerDetalhe}
                 onClick={() => onAbrir(p.t)}
-                style={{ flex: "0 0 auto", minWidth: "210px", minHeight: "44px", textAlign: "left", padding: "11px 12px", borderRadius: "11px", background: T.bgCard, border: `1px solid ${T.borderFaint}`, cursor: "pointer" }}
+                style={{ ...carouselItemStyle("start"), flex: "0 0 auto", minWidth: "210px", minHeight: "44px", textAlign: "left", padding: "11px 12px", borderRadius: "11px", background: T.bgCard, border: `1px solid ${T.borderFaint}`, cursor: "pointer" }}
               >
                 <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em", color: T.accent }}>{eyebrow}</div>
                 <div style={{ fontFamily: MONO, fontWeight: 800, fontSize: "13px", color: T.textPrimary, marginTop: "3px" }}>{p.t}</div>
@@ -4130,7 +4145,7 @@ function PropostaDaPosicao({ t, r, cp, operador, A, data, aberto, onToggle }) {
             {/* Fase 19 (Plano 03, MULTI-02): N candidatos lado a lado — mesmo
                 padrão de linha horizontal de OportunidadesOpcoes (Fase 18,
                 App.jsx:3938-3964); nunca um terceiro padrão visual novo. */}
-            <div style={{ marginTop: "11px", display: "flex", gap: "10px", overflowX: "auto", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", paddingBottom: "2px" }}>
+            <div style={carouselTrackStyle({ marginTop: "11px", gap: "10px", scrollbarWidth: "none", paddingBottom: "2px" })}>
               {candidatos.map((c) => (
                 <CandidatoOpcao key={c.tipo + "-" + (c.contractSymbol || "collar")} p={c} r={r} cp={cp} operador={operador} busy={busy} onAceitar={aceitarCandidato} />
               ))}
@@ -4167,7 +4182,7 @@ function CandidatoOpcao({ p, r, cp, operador, busy, onAceitar }) {
   // aplicada à UI, mesmo helper de App.jsx:3051-3055).
   const porLote = (v) => (typeof v === "number" ? v * (p.qtyAcoes || 0) : null);
   return (
-    <div style={{ flex: "0 0 auto", minWidth: "210px", minHeight: "44px", padding: "11px 12px", borderRadius: "11px", background: T.bgCard, border: `1px solid ${T.borderFaint}` }}>
+    <div style={{ ...carouselItemStyle("start"), flex: "0 0 auto", minWidth: "210px", minHeight: "44px", padding: "11px 12px", borderRadius: "11px", background: T.bgCard, border: `1px solid ${T.borderFaint}` }}>
       <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em", color: T.accent }}>{eyebrow}</div>
       <div style={{ fontFamily: MONO, fontWeight: 800, fontSize: "13px", color: T.textSecondary, marginTop: "3px" }}>
         {isCollar
