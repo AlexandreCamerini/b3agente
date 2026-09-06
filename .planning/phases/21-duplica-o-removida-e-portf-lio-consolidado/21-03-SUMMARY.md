@@ -107,6 +107,31 @@ None - plan executado exatamente como escrito. A varredura de planejamento sobre
 **Não realizada neste subagente** — ambiente sem ferramentas de browser/computer-use vinculadas (limitação conhecida, confirmada em todos os planos anteriores desta fase e sessão). Pelo enquadramento do próprio plano, o núcleo de FIX-03 (limiar `ec.days`, escala degenerada) é provado por teste unitário real da função pura `equityCurve` — não depende de verificação visual ao vivo para estar correto. Um único ponto cosmético fica pendente de confirmação visual pelo orquestrador/Alex:
 1. Abrir uma conta com 1 ou 2 dias de patrimônio registrados (ou simular via `equitySnapshots` curto) e confirmar visualmente que a área do gráfico mostra o texto novo ("Só 1/2 dia(s) registrado(s) ainda — a curva aparece a partir do 3º dia") em vez de uma linha reta, com a mesma família visual/tipográfica do placeholder de zero dias — sem quebra de layout em viewport estreito (375px).
 
+## Orchestrator Live Re-Verification
+
+Tentativa feita via MCP do navegador, com uma conta LOCAL nova (0 dias de
+histórico) — confirmou o estado vazio pré-existente (dashed line, "Sua curva
+começa amanhã"), correto e intocado por esta fase.
+
+**Não foi possível forçar visualmente o estado de 1-2 dias**: `ec.days` vem
+de `series.length` (`finance.js:213`), que reflete snapshots diários
+persistidos no servidor — não há como pular pra "1 ou 2 dias registrados"
+sem esperar dias reais passarem ou semear dado diretamente no banco, e o
+esforço de reverse-engenheirar/semear isso é desproporcional para um item
+que o próprio plano classificou como "cosmético" (a prova real do defeito —
+escala degenerada com 1-2 pontos — já está provada por teste unitário
+direto, não por leitura de tela).
+
+**Prova aceita como suficiente**: o guardião
+(`test_fase21_dedup_consolidacao.mjs`, seção A) chama `equityCurve()`
+diretamente com 1 e 2 snapshots reais (não mockados) e confirma o valor de
+`days` retornado, mais `COPY.estudo/operador.curvaPoucosDias(1)` e `(2)`
+produzindo texto correto (singular "1 dia" vs. plural "2 dias", strings
+diferentes). Isso é prova comportamental direta da lógica, não inferência de
+código estático — considero FIX-03 fechado por essa via; a confirmação
+visual em tela com uma conta de 1-2 dias reais fica como nice-to-have, não
+como bloqueio.
+
 ## User Setup Required
 
 None - no external service configuration required.
