@@ -1,9 +1,9 @@
 ---
 status: partial
 phase: 20-funda-o-estrutural-e-tipogr-fica
-source: [20-VERIFICATION.md, 23-02-SUMMARY.md]
+source: [20-VERIFICATION.md, 23-02-SUMMARY.md, 23-04-PLAN.md]
 started: 2026-09-05T00:00:00Z
-updated: 2026-09-06T00:00:00Z
+updated: 2026-09-06T13:00:00Z
 ---
 
 ## Current Test
@@ -50,12 +50,36 @@ sessão; testado e confirmado com sucesso apenas os caminhos que NÃO devem
 pulsar (pendente e rejeitada, ver Gaps) — o caminho de sucesso real
 permanece por reproduzir]
 
+### 4. MOTION-01 sob reduced-motion (Fase 23)
+expected: Com "Reduzir Movimento" ligado no sistema (macOS: Ajustes do
+Sistema → Acessibilidade → Movimento → Reduzir Movimento), abrir a
+Watchlist e o Radar no build `F10-20260906-02` e confirmar que os cards de
+setup inédito aparecem no estado final DIRETO — sem fade, sem subida de
+8px, sem perda de informação. Desligar a preferência e confirmar que a
+transição de fade+subida (~200ms, `b3cardEnter`) volta a acontecer. Mesma
+limitação de ferramenta do Test 1: nenhuma ferramenta disponível neste
+ambiente expõe `Emulation.setEmulatedMedia` via CDP para alternar o media
+feature programaticamente — este item é para o Alex rodar no SO real, não
+para um agente emular.
+result: [pending]
+
+### 5. MOTION-02 sob reduced-motion (Fase 23)
+expected: Com "Reduzir Movimento" ligado, confirmar uma ordem (compra ou
+venda) no build `F10-20260906-02` e verificar que o modal fecha NA HORA,
+sem pulso no valor e **sem os ~120ms de espera** — o portão `REDUCE_MOTION`
+existe em JS (não só no CSS) exatamente para isto; uma implementação que só
+zerasse a animação via CSS ainda esperaria os 120ms do `setTimeout` antes
+de fechar, o que este item existe para pegar. Mesma limitação de
+ferramenta do Test 1: nenhuma ferramenta disponível neste ambiente expõe
+`Emulation.setEmulatedMedia` via CDP — item para o Alex rodar no SO real.
+result: [pending]
+
 ## Summary
 
-total: 3
+total: 5
 passed: 1
 issues: 0
-pending: 2
+pending: 4
 skipped: 0
 blocked: 0
 
