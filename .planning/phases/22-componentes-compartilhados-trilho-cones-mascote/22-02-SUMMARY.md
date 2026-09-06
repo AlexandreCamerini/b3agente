@@ -193,3 +193,15 @@ None - no external service configuration required.
 ---
 *Phase: 22-componentes-compartilhados-trilho-cones-mascote*
 *Completed: 2026-09-06*
+
+## Self-Check: PASSED
+
+- FOUND: web/src/App.jsx
+- FOUND: web/tests/test_fase22_componentes_compartilhados.mjs
+- FOUND: web/tests/test_copy_theme.mjs
+- FOUND: web/tests/test_carteira_lastro_ui.mjs
+- FOUND: .planning/phases/22-componentes-compartilhados-trilho-cones-mascote/22-02-SUMMARY.md
+- FOUND: commit 6507089 (Task 1)
+- FOUND: commit 82d49d0 (Task 2)
+- FOUND: commit 4a4cd85 (Task 3)
+- FOUND: commit 1890c15 (SUMMARY.md)
