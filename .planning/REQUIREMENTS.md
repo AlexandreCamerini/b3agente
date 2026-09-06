@@ -76,10 +76,10 @@ Bug crítico encontrado durante a auditoria (`cp is not defined` em
 
 ### Motion com propósito (MOTION)
 
-- [ ] **MOTION-01**: Um card novo (setup inédito na Watchlist/Radar) entra
+- [x] **MOTION-01**: Um card novo (setup inédito na Watchlist/Radar) entra
   com uma transição sutil (fade + translateY, ~200ms) em vez de aparecer
   sem nenhum aviso visual.
-- [ ] **MOTION-02**: A confirmação de uma ordem (compra/venda) dá um
+- [x] **MOTION-02**: A confirmação de uma ordem (compra/venda) dá um
   feedback visual de pulso curto (~120ms) no valor antes de virar sucesso.
 - [x] **MOTION-03**: O app respeita `prefers-reduced-motion` — hoje ausente
   em `GlobalStyle()` (`web/src/App.jsx`); todas as transições/animações se
@@ -87,7 +87,7 @@ Bug crítico encontrado durante a auditoria (`cp is not defined` em
 
 ### Ilustração unificada (ILUS)
 
-- [ ] **ILUS-01**: Existe um único estilo de ilustração do Boris
+- [x] **ILUS-01**: Existe um único estilo de ilustração do Boris
   (flat/cartoon, o do `LogoMark`/`PetFab`/ícone do app já publicado) em
   todos os pontos onde o mascote aparece — a arte do modal "Este é o Boris"
   (introdução), hoje quase-fotorrealista, é refeita nesse estilo. Não mexe
@@ -133,9 +133,9 @@ Bug crítico encontrado durante a auditoria (`cp is not defined` em
 | SYS-01 | Phase 22 | Complete |
 | SYS-02 | Phase 22 | Complete |
 | SYS-03 | Phase 22 | Complete |
-| MOTION-01 | Phase 23 | Pending |
-| MOTION-02 | Phase 23 | Pending |
-| ILUS-01 | Phase 23 | Pending |
+| MOTION-01 | Phase 23 | Complete |
+| MOTION-02 | Phase 23 | Complete |
+| ILUS-01 | Phase 23 | Complete |
 
 Cobertura: 17/17 requirements do v1.5 mapeados, cada um a exatamente uma
 fase — nenhum órfão, nenhuma duplicata. Os requirements do v1.4
