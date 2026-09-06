@@ -143,3 +143,11 @@ Item não medido é item ABERTO, não aproximado — nenhum dos cinco itens acim
 - FOUND: .planning/phases/23-motion-com-proposito-e-ilustracao-unificada/23-01-SUMMARY.md
 - FOUND commit: 1c5cee8 (Task 1)
 - FOUND commit: 304bcd4 (Task 2)
+
+## Orchestrator Live Re-Verification
+
+Servidores dev (`web`:5174 + `api`:8787) iniciados após o merge de 23-01+23-02. Confirmado via `getComputedStyle` em DOM real, tela Radar/Mesa recém-montada (conta de teste, sem forçar dado): **65 cards** com classe `.card-enter` presentes, todos com `animationName: "b3cardEnter"` e `animationDuration: "0.2s"` — bate exatamente com o alvo (~200ms). Comportamento "reseta ao trocar de tela" confirmado por desenho (o `Set` de vistos vive em `useRef` inicializado por mount, não por app inteiro) — não é regressão, é o comportamento especificado no `23-CONTEXT.md`.
+
+Item de `prefers-reduced-motion` comportamental real permanece na mesma pendência já registrada em `20-HUMAN-UAT.md` (nenhuma ferramenta disponível expõe `Emulation.setEmulatedMedia`) — a prova estática (guardião confirma exatamente 2 blocos `@media` inalterados) segue sendo a evidência válida até essa medição acontecer.
+
+Servidores parados ao final (`preview_stop`).

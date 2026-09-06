@@ -131,3 +131,16 @@ A ilustração é `aria-hidden` (decorativa) — não há requisito WCAG de cont
 - FOUND: web/tests/test_boris_intro.mjs
 - FOUND: commit dfa3595 (Task 1)
 - FOUND: commit 1551c61 (Task 2)
+
+## Orchestrator Live Re-Verification
+
+Não foi possível reabrir o modal "Este é o Boris" na conta de teste dentro da janela desta sessão — o gate (`borisIntroShownRef`/`data.config.borisIntroVisto`) não reabriu apesar de `borisIntroVisto: false` e `didatica.ligada: true` confirmados via API; investigação de causa não concluída (não é um bloqueio de código óbvio — pode ser timing de efeito ou uma condição de guarda não capturada na leitura rápida do orquestrador). Não forjar o estado: registrado como pendente de reprodução, não como falha.
+
+Em vez de depender do modal, renderizado o SVG exato de `BorisFlat.jsx` (markup e hex idênticos, copiados do arquivo) numa página estática servida pelo próprio dev server (`web/public/`, removida após o teste — zero rastro no bundle), lado a lado com o `LogoMark` real e contra os dois `bgCard` reais (`#1b1f2e` escuro / `#ffffff` claro):
+
+- **Reconhecível como o mesmo personagem**: confirmado visualmente — óculos redondos âmbar, bico âmbar, corpo/rosto azul-marinho, geometria idêntica ao `LogoMark`.
+- **Contraste no tema claro**: excelente, silhueta nítida.
+- **Contraste no tema escuro**: corpo (`#2a3a6b` sobre `#1b1f2e`) fica com contorno suave — mesma característica que o próprio `LogoMark` já tem (contraste baixo do corpo, documentado no comentário do próprio componente) — óculos/bico (âmbar) e olhos (branco) carregam a identificação com contraste alto, tornando o personagem plenamente reconhecível mesmo com o corpo suave. **Decisão: sem necessidade de ajuste** — mesmo padrão de "aprovado sem calibração" já usado para SYS-03 na Fase 22. O remédio pré-autorizado (contorno `#eef1f8` de 1px) fica documentado como caminho disponível, não aplicado.
+- Confirmado por leitura de fonte que `PetFab`/`Boris.jsx`/`boris.png` permanecem intocados (ainda o PNG semi-realista, fora de escopo).
+
+Item de reprodução do modal em conta real permanece **pendente** para o Alex confirmar visualmente em contexto de app real (não é um item de MOTION-03/`prefers-reduced-motion`, é uma pendência nova e específica desta verificação) — adicionado como novo item de UAT no `20-HUMAN-UAT.md` (documento já existente, nenhum documento novo criado) pelo próprio orquestrador nesta sessão, já que é um achado deste momento de verificação e não estava antecipado no plano `23-04`.
