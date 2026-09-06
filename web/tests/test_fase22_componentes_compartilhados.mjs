@@ -360,11 +360,15 @@ ok("`tierOf` mantém o limiar `> 0`", tierOfBloco.includes("> 0"));
 ok("`tierOf` mantém o `return` final", /return \[/.test(tierOfBloco));
 
 // C12. <TierDot tier= aparece na renderização do Radar; índice [0] não é mais
-// renderizado como texto cru em lugar nenhum.
+// renderizado como texto cru (filho direto de JSX, precedido por `>`) em
+// lugar nenhum. NOTA: o regex isola o caso "texto cru" por estar precedido de
+// `>` — sem essa âncora, o padrão bateria também em `tier={tierOf(...)[0]}`,
+// que é exatamente o uso correto que este plano introduz (bug encontrado e
+// corrigido nesta mesma task, antes de qualquer commit incorreto).
 ok("`<TierDot tier=` aparece na renderização do Radar", app.includes("<TierDot tier="));
 ok(
   "o índice [0] de `tierOf` não é mais renderizado como texto cru",
-  !/\{tierOf\([^)]*\)\[0\]\}/.test(app)
+  !/>\{tierOf\([^)]*\)\[0\]\}/.test(app)
 );
 
 // C13. Código morto removido: o destructure `[tierDot, tierLabel]` da

@@ -984,14 +984,28 @@ const SCALE_STYLE = {
 // FASE 2 — helpers do funil (puros; fonte: history dos stores + scan do STU)
 // ============================================================================
 
-// 2.3: tier de oportunidade pela confluência do STU (tokens próprios — verde/
-// vermelho seguem reservados a sinal de mercado; aqui o tier é o emoji).
+// 2.3: tier de oportunidade pela confluência do STU. Verde/vermelho seguem
+// reservados a sinal de mercado (T.positive/T.negative = compra/venda e
+// P&L) — o tier é OUTRO eixo semântico e por isso tem paleta própria.
+// Fase 22 (SYS-02, 2026-09-06): o índice [0] deixou de ser emoji e passou a
+// ser o id do tier, consumido por <TierDot>. O índice [1] (rótulo) NÃO
+// mudou — test_radar_leitura_rapida.mjs assenta nele.
 function tierOf(conf) {
   const c = Number(conf) || 0;
-  if (c >= 75) return ["🟢", "Forte"];
-  if (c >= 50) return ["🟡", "Moderada"];
-  if (c > 0) return ["⚪", "Neutra"];
-  return ["🔴", "Fraca"];
+  if (c >= 75) return ["forte", "Forte"];
+  if (c >= 50) return ["moderada", "Moderada"];
+  if (c > 0) return ["neutra", "Neutra"];
+  return ["fraca", "Fraca"];
+}
+
+// Fase 22 (SYS-02): o tier virou SVG. Cores literais DE PROPÓSITO — reusar
+// T.positive/T.negative/T.warn aqui recolocaria o tier em cima do
+// vocabulário de sinal de mercado, que é exatamente o que o comentário de
+// tierOf evita desde a 2.3. Decoração pura: o rótulo textual ("Forte"...)
+// renderiza sempre ao lado, por isso aria-hidden.
+const TIER_FILL = { forte: "#22c55e", moderada: "#f59e0b", neutra: "#9ca3af", fraca: "#ef4444" };
+function TierDot({ tier }) {
+  return <svg width="9" height="9" viewBox="0 0 10 10" aria-hidden style={{ verticalAlign: "-0.02em", flexShrink: 0 }}><circle cx="5" cy="5" r="4.5" fill={TIER_FILL[tier] || TIER_FILL.neutra} /></svg>;
 }
 
 // 2.3 (a): resumo das operações simuladas de UM ativo — "N ops · ±X% acum."
@@ -3841,7 +3855,6 @@ function MercadoScreen({ ctx }) {
           const chColor = (q.change || 0) >= 0 ? T.positive : T.negative;
           // FASE 2 (2.3): dados de oportunidade do STU + histórico do ativo
           const sc = scanBy[t];
-          const [tierDot, tierLabel] = tierOf(sc && sc.confluencia);
           const rotuloDec = decisaoDoModo(sc, operador); // qa/40: mesa mostra a decisão do plano
           const [vColor, vBg] = REC_STYLE[rotuloDec] || [T.textMuted, T.bgBase];
           const melhorSet = sc && (sc.setups || [])[0];
@@ -6780,7 +6793,9 @@ function RadarScreen({ ctx }) {
           <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "6px 10px", borderRadius: "999px", background: T.bgBase, border: `1px solid ${T.borderSubtle}`, color: T.textMuted, fontSize: "11px", fontWeight: 700 }}>
             {res.scanOrigem === "revalidação"
               ? "↻ Releitura após o fechamento"
-              : res.scanAuto ? "📡 Varredura automática de hoje" : "↻ Última varredura (manual)"} · {res.scanAtLabel}
+              : res.scanAuto
+                ? <><NavIcon id="radar" size={13} color="currentColor" />Varredura automática de hoje</>
+                : "↻ Última varredura (manual)"} · {res.scanAtLabel}
           </span>
         )}
         {res && (
@@ -6949,7 +6964,7 @@ function RadarScreen({ ctx }) {
                 <ConfluenceRing conf={r.confluencia} size={54} />
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: "10.5px", color: T.textFaint, letterSpacing: "0.05em", fontWeight: 700 }}>CONFLUÊNCIA DO SETUP</div>
-                  <div style={{ fontSize: "12px", color: T.textMuted, marginTop: "3px", lineHeight: 1.4 }}>{tierOf(r.confluencia)[0]} {tierOf(r.confluencia)[1]} · aderência ao padrão de estudo</div>
+                  <div style={{ fontSize: "12px", color: T.textMuted, marginTop: "3px", lineHeight: 1.4 }}><TierDot tier={tierOf(r.confluencia)[0]} /> {tierOf(r.confluencia)[1]} · aderência ao padrão de estudo</div>
                 </div>
               </div>
               {/* FASE 3 (mock v2): régua do PLANO — invalidação → gatilho → alvo, com o preço "agora" */}
