@@ -429,7 +429,11 @@ podem entrar depois do gate de `prefers-reduced-motion` existir)
   5. O ícone do app já publicado (TestFlight/App Store) permanece
      inalterado — a troca de arte se limita ao modal de introdução
      (ILUS-01, guardrail do kickoff).
-**Plans**: TBD
+**Plans**: 4 plans (3 waves)
+- [ ] 23-01-PLAN.md — MOTION-01: entrada de card (fade + translateY 200ms) na Watchlist e no Radar, sob o gate de reduced-motion da Fase 20 [wave 1]
+- [ ] 23-02-PLAN.md — ILUS-01: ilustração flat nova (`web/src/pet/BorisFlat.jsx`) no modal "Este é o Boris", com guardião `test_boris_intro.mjs` atualizado [wave 1]
+- [ ] 23-03-PLAN.md — MOTION-02: pulso de 120ms no valor da ordem EXECUTADA (pendente e rejeitada não pulsam), com portão `REDUCE_MOTION` em JS [wave 2]
+- [ ] 23-04-PLAN.md — bump + `publicar-web.sh`, prova de bundle novo e remedição dos 5 critérios contra produção [wave 3]
 **Nota de publicação**: toca `web/src/` e adiciona asset — precisa de plano
 final de bump + `publicar-web.sh`.
 **UI hint**: yes
