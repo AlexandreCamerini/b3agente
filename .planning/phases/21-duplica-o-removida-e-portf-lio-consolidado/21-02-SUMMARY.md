@@ -101,6 +101,20 @@ None - plan executado exatamente como escrito, incluindo o achado de planejament
 2. Confirmar visualmente que as duas linhas de transparência (regra do gate + contraste do backtest) aparecem dentro do card "ENTRADA AUTOMÁTICA", entre a descrição e o toggle "Entrar automaticamente" — sem quebra de layout em viewport estreito (375px).
 3. Confirmar que o modo do app (Estudo/Operador) continua visível no chip do Topbar em toda tela, mesmo sem o card de status.
 
+## Orchestrator Live Re-Verification
+
+Executada via MCP do navegador contra o dev server (merge desta branch):
+
+1. **Card de status redundante ausente** — `document.body.innerText` não
+   contém mais "Modo do app:" na tela Operador IA. ✓
+2. **"Trocar modo →" relocado e funcional** — aparece logo abaixo do
+   parágrafo de introdução (sublinhado, link real), fora do card antigo. ✓
+3. **Transparência ADR-017 preservada** — `cp.entradaAuto.regra`/`.contraste`
+   ("Sem filtro: −0,099R por sinal... Com filtro... +0,005R") aparece
+   intacta dentro do card "ENTRADA AUTOMÁTICA". ✓
+4. **Modo continua visível no app** — "MODO ESTUDO" segue no Topbar; nada
+   de informação de modo desapareceu, só o card de texto duplicado. ✓
+
 ## User Setup Required
 
 None - no external service configuration required.
