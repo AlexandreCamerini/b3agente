@@ -400,7 +400,7 @@ do shell; independente da Phase 21)
 
 Plans:
 - [x] 22-01-PLAN.md — trilho horizontal único: helper `carouselTrackStyle`/`carouselItemStyle` e os 4 trilhos roteados por ele (SYS-01)
-- [ ] 22-02-PLAN.md — `NavIcon` generalizado + 8 emojis do Perfil/Watchlist/Posições/config viram SVG; 2 guardiões atualizados com nota (SYS-02)
+- [x] 22-02-PLAN.md — `NavIcon` generalizado + 8 emojis do Perfil/Watchlist/Posições/config viram SVG; 2 guardiões atualizados com nota (SYS-02)
 - [ ] 22-03-PLAN.md — Radar (ícone de varredura, ponto de tier, código morto) fecha a varredura de emoji em zero; sombra do PetFab vira token por tema (SYS-02, SYS-03)
 - [ ] 22-04-PLAN.md — bump + `publicar-web.sh` + suíte, e remedição dos 3 critérios no bundle de produção, incluindo a conferência visual da sombra nos dois temas (SYS-01/02/03)
 **Nota de publicação**: toca `web/src/` — precisa de plano final de bump +
@@ -466,7 +466,7 @@ Out of Scope / Future Requirements.
 | 19. Motor multi-candidato | 3/4 | In Progress|  |
 | 20. Fundação estrutural e tipográfica | 4/4 | Complete    | 2026-09-05 |
 | 21. Duplicação removida e Portfólio consolidado | 4/4 | Complete    | 2026-09-06 |
-| 22. Componentes compartilhados (trilho, ícones, mascote) | 1/4 | In Progress|  |
+| 22. Componentes compartilhados (trilho, ícones, mascote) | 2/4 | In Progress|  |
 | 23. Motion com propósito e ilustração unificada | v1.5 | Not started |  |
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2/v1.3
