@@ -7544,7 +7544,12 @@ function BuyModal({ ctx }) {
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", marginTop: "16px", padding: "12px 13px", background: T.bgBase, border: `1px solid ${T.borderSubtle}`, borderRadius: "9px", fontFamily: MONO }}>
           <span style={{ color: T.textMuted, fontSize: "13px" }}>Custo estimado</span>
-          <span style={{ fontWeight: 700, fontSize: "15px" }}>{money(cost)}</span>
+          {/* Fase 23 (MOTION-02): o pulso é do VALOR da ordem que EXECUTOU.
+              Pendente e rejeitada não passam por aqui (o portão está em
+              confirmBuy/confirmSell), e o "Resultado estimado" (SellModal)
+              nunca pulsa — sinal de sucesso sobre P&L negativo seria
+              manipulação visual. */}
+          <span className={buyModal.confirmado ? "value-pulse" : undefined} style={{ fontWeight: 700, fontSize: "15px" }}>{money(cost)}</span>
         </div>
         {!ok && q.price != null && <div style={{ fontSize: "12px", color: T.negative, marginTop: "8px" }}>Caixa insuficiente. Disponível: {money(data.cash)}</div>}
         <div style={{ fontSize: "11px", color: T.textFaint, marginTop: "8px" }}>{(fechado ? ctx.cp.ordemPendenteAvisoCompra(ctx.mercado.abertura) : "O preço final é o da cotação no momento da confirmação (servidor).") + " Esta simulação executa por completo ou não executa — não há preenchimento parcial de ordem."}</div>
@@ -7557,7 +7562,7 @@ function BuyModal({ ctx }) {
         <div style={{ fontSize: "10.5px", color: T.textFaint, lineHeight: 1.4, marginTop: "10px" }}>{DISCLAIMERS.trade}</div>
         <div style={{ display: "flex", gap: "8px", marginTop: "16px" }}>
           <button onClick={A.closeBuy} style={{ flex: 1, padding: "11px", borderRadius: "9px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 600, fontSize: "14px" }}>Cancelar</button>
-          <button onClick={A.confirmBuy} disabled={!ok} style={{ flex: 1.4, padding: "11px", borderRadius: "9px", border: `1px solid ${ok ? T.positive : T.borderSubtle}`, background: ok ? T.positive : T.knob, color: ok ? T.confirmOkText : T.textFaint, fontWeight: 800, fontSize: "14px" }}>{ctx.cp.confirmarCompra}</button>
+          <button onClick={A.confirmBuy} disabled={!ok || !!buyModal.confirmado} style={{ flex: 1.4, padding: "11px", borderRadius: "9px", border: `1px solid ${ok ? T.positive : T.borderSubtle}`, background: ok ? T.positive : T.knob, color: ok ? T.confirmOkText : T.textFaint, fontWeight: 800, fontSize: "14px" }}>{ctx.cp.confirmarCompra}</button>
         </div>
       </div>
     </div>
@@ -7638,7 +7643,12 @@ function SellModal({ ctx }) {
           )}
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginTop: "16px", padding: "12px 13px", background: T.bgBase, border: `1px solid ${T.borderSubtle}`, borderRadius: "9px", fontFamily: MONO }}>
-          <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: T.textMuted, fontSize: "13px" }}>Valor estimado</span><span style={{ fontWeight: 700, fontSize: "15px" }}>{money(valor)}</span></div>
+          {/* Fase 23 (MOTION-02): o pulso é do VALOR da ordem que EXECUTOU.
+              Pendente e rejeitada não passam por aqui (o portão está em
+              confirmBuy/confirmSell) — ver comentário gêmeo no BuyModal. */}
+          <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: T.textMuted, fontSize: "13px" }}>Valor estimado</span><span className={sellModal.confirmado ? "value-pulse" : undefined} style={{ fontWeight: 700, fontSize: "15px" }}>{money(valor)}</span></div>
+          {/* "Resultado estimado" (P&L) nunca pulsa — sinal de sucesso sobre
+              um prejuízo seria manipulação visual (CLAUDE.md). */}
           <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: T.textMuted, fontSize: "13px" }}>Resultado estimado</span><span style={{ fontWeight: 700, fontSize: "15px", color: pnlColor }}>{moneySigned(pnl)}</span></div>
         </div>
         {restam > 0 && <div style={{ fontSize: "11px", color: T.textMuted, marginTop: "8px", lineHeight: 1.5 }}>Venda parcial: ficam {restam} cotas com o mesmo preço médio.</div>}
@@ -7652,7 +7662,7 @@ function SellModal({ ctx }) {
         <div style={{ fontSize: "10.5px", color: T.textFaint, lineHeight: 1.4, marginTop: "10px" }}>{DISCLAIMERS.trade}</div>
         <div style={{ display: "flex", gap: "8px", marginTop: "16px" }}>
           <button onClick={A.closeSell} style={{ flex: 1, padding: "11px", borderRadius: "9px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 600, fontSize: "14px" }}>Cancelar</button>
-          <button onClick={A.confirmSell} disabled={livre <= 0} style={{ flex: 1.4, padding: "11px", borderRadius: "9px", border: `1px solid ${livre > 0 ? T.negative : T.borderSubtle}`, background: livre > 0 ? T.negativeTint10 : T.bgPanel, color: livre > 0 ? T.negative : T.textFaint, fontWeight: 800, fontSize: "14px" }}>{ctx.cp.confirmarVenda}{fechaAPosicao ? " total" : " de " + qty}</button>
+          <button onClick={A.confirmSell} disabled={livre <= 0 || !!sellModal.confirmado} style={{ flex: 1.4, padding: "11px", borderRadius: "9px", border: `1px solid ${livre > 0 ? T.negative : T.borderSubtle}`, background: livre > 0 ? T.negativeTint10 : T.bgPanel, color: livre > 0 ? T.negative : T.textFaint, fontWeight: 800, fontSize: "14px" }}>{ctx.cp.confirmarVenda}{fechaAPosicao ? " total" : " de " + qty}</button>
         </div>
       </div>
     </div>
