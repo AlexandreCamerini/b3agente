@@ -173,3 +173,23 @@ Item não medido é item registrado como ABERTO — nenhum dos seis itens acima 
 - FOUND commit: b9bf303 (Task 1)
 - FOUND commit: 78329a4 (Task 2)
 - FOUND commit: f47014a (Task 3)
+
+## Orchestrator Live Re-Verification
+
+Servidores dev (`web`:5174 + `api`:8787) iniciados após o merge de 23-03 sobre o estado já mergeado de 23-01+23-02. Mercado estava FECHADO durante toda a sessão de verificação (real, madrugada de 2026-09-06) — os caminhos de sucesso imediato e o caso `SellModal` em venda total não puderam ser exercitados; ver item novo em `20-HUMAN-UAT.md`.
+
+**Confirmado ao vivo (armadilha do double-submit, item mais crítico apontado pelo executor):**
+- `MutationObserver` armado no `document.body` para capturar qualquer classe contendo `pulse`.
+- Compra de VALE3 (mercado fechado → caminho PENDENTE): confirmada via `Confirmar compra`. `window.__pulseLog` = `[]` — **zero pulsos no caminho pendente**, exatamente o esperado.
+- Teste adversarial: 3 chamadas `.click()` síncronas no mesmo botão (mais agressivo que qualquer duplo-toque humano real, que tem um tick de re-render do React entre eventos). As 3 chegaram à rede (`POST /api/buy`: 1× 200 OK, 2× 400 "Caixa insuficiente"). **Achado honesto**: o guard client-side (`bm.confirmado`) não impediu as 3 chamadas de disparar o fetch dentro do mesmo lote síncrono — quem efetivamente barrou a duplicação foi a checagem de caixa já pré-existente no backend (`store.buy`), não o guard novo desta fase. **O resultado financeiro está correto e verificado via `/api/state`**: exatamente 1 `pendingOrder` real (`caixaReservado: 7862`, batendo com 1× VALE3), e as 2 tentativas extras aparecem em `history` como `status: "rejeitada"` (comportamento pré-existente do app, não uma regressão desta fase) — nenhuma ordem duplicada, nenhuma reserva de caixa dobrada. `window.__pulseLog` continuou vazio após as 2 rejeições — **zero pulsos no caminho rejeitado também**, confirmado.
+- Um clique real de usuário (não sintético/síncrono) teria, na prática, uma folga de dezenas de ms entre toques — tempo suficiente para o React re-renderizar com `disabled=true` antes do segundo toque físico. O teste aqui foi deliberadamente mais agressivo que o cenário real para estressar o pior caso; mesmo assim o invariante financeiro (nunca ordem duplicada) se manteve, por dupla camada (guard do cliente + checagem pré-existente do servidor).
+
+**Confirmado ao vivo (ILUS-01, item que ficou pendente no handoff do 23-02):**
+- O modal "Este é o Boris" abriu nesta sessão (ao navegar a partir da Watchlist) e mostrou `<svg viewBox="0 0 64 92">` com 11 elementos `path`/`circle` — assinatura exclusiva do `BorisFlat` (o PNG antigo não usa esse viewBox). **ILUS-01 confirmado ao vivo, no app real, não apenas em isolamento.** Detalhe registrado em `20-HUMAN-UAT.md` Test 2 (PASS).
+
+**Pendente (mercado fechado, não é gap de código):**
+- Pulso de SUCESSO (execução imediata) — precisa de pregão aberto.
+- Caso `SellModal` em venda total (`finalizar()` antes de `setData`) — precisa de uma posição aberta para vender, que por sua vez precisa de execução imediata (pregão aberto).
+- Ambos registrados como Test 3 pendente em `20-HUMAN-UAT.md`, não um documento novo.
+
+Servidores parados ao final (`preview_stop`).
