@@ -78,6 +78,7 @@ const PALETTE = {
     positiveTint: "rgba(52,211,153,0.12)", positiveTint10: "rgba(52,211,153,0.10)",
     negativeTint: "rgba(242,109,109,0.12)", negativeTint10: "rgba(242,109,109,0.10)",
     scrim: "rgba(5,6,10,0.68)",
+    shadowFab: "rgba(0,0,0,0.45)", // Fase 22 (SYS-03): o valor que estava hardcoded no PetFab desde 2026-08-08 — o tema escuro não muda de aparência, só de origem.
     chartGrid: "rgba(255,255,255,0.04)", chartBorder: "rgba(255,255,255,0.08)", chartAxis: "#6f7797", lineSubtle: "rgba(255,255,255,0.18)", onAccent: "#04231f",
     warn: "#fbbf24", // qa/34: âmbar de aviso (diário/logs) — antes hex solto fora do token system
   },
@@ -104,6 +105,7 @@ const PALETTE = {
     positiveTint: "rgba(28,130,93,0.12)", positiveTint10: "rgba(28,130,93,0.10)",
     negativeTint: "rgba(198,70,76,0.12)", negativeTint10: "rgba(198,70,76,0.10)",
     scrim: "rgba(15,20,28,0.45)",
+    shadowFab: "rgba(15,20,28,0.22)", // Fase 22 (SYS-03): mais leve que o scrim claro (0.45). Um halo preto forte sobre o bgBase quase branco lê como borrão, não como separação; o scrim é calibrado para overlay de tela cheia, não para drop-shadow de 54px. Valor de PARTIDA — a calibragem final é a checagem visual do plano 22-04.
     chartGrid: "rgba(0,0,0,0.05)", chartBorder: "rgba(0,0,0,0.10)", chartAxis: "#8a90a0", lineSubtle: "rgba(0,0,0,0.16)", onAccent: "#ffffff",
     warn: "#a16207", // qa/34: âmbar de aviso legível sobre fundo claro
   },
@@ -2791,7 +2793,7 @@ function PetFab({ onOpen }) {
           que está vivo e à mão. O do título continua `reduced`: lá a coruja é
           marca, e movimento permanente no cabeçalho competiria com o conteúdo.
           Um laço de animação, não dois. */}
-      <div aria-hidden style={{ lineHeight: 0, filter: "drop-shadow(0 3px 6px rgba(0,0,0,0.45))" }}>
+      <div aria-hidden style={{ lineHeight: 0, filter: `drop-shadow(0 3px 6px ${T.shadowFab})` }}>
         <Boris size={40} />
       </div>
     </button>
