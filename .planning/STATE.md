@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Redesenho de UI
-status: planning
-stopped_at: Phase 22 UI-SPEC approved
-last_updated: "2026-09-06T02:01:55.917Z"
+status: ready_to_plan
+stopped_at: Phase 22 complete (4/4) — ready to discuss Phase 23
+last_updated: 2026-09-06T09:36:52.901Z
 last_activity: 2026-09-06
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 8
-  completed_plans: 8
+  completed_plans: 35
   percent: 33
 ---
 
@@ -21,11 +21,11 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-05)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Phase 22 — componentes compartilhados (trilho, ícones, mascote)
+**Current focus:** Phase 23 — motion com propósito e ilustração unificada
 
 ## Current Position
 
-Phase: 22
+Phase: 23
 Plan: Not started
 Status: Ready to plan
 Progress: [░░░░░░░░░░░░░░░░░░░░] 0% (0/4 fases do v1.5)
@@ -35,7 +35,7 @@ Last activity: 2026-09-06
 
 **Velocity:**
 
-- Total plans completed: 14 (v1.0) + 44 (v1.1) + 6 (Phase 9, standalone) + 8 (v1.2) + 8 (v1.3) + 8 (Phase 14, standalone)
+- Total plans completed: 18 (v1.0) + 44 (v1.1) + 6 (Phase 9, standalone) + 8 (v1.2) + 8 (v1.3) + 8 (Phase 14, standalone)
 - Average duration: -
 - Total execution time: -
 
@@ -53,6 +53,7 @@ Last activity: 2026-09-06
 | 20-23 (v1.5) | TBD | - | - |
 | 20 | 4 | - | - |
 | 21 | 4 | - | - |
+| 22 | 4 | - | - |
 
 **Recent Trend:**
 

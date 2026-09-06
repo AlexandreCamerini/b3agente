@@ -466,7 +466,7 @@ Out of Scope / Future Requirements.
 | 19. Motor multi-candidato | 3/4 | In Progress|  |
 | 20. Fundação estrutural e tipográfica | 4/4 | Complete    | 2026-09-05 |
 | 21. Duplicação removida e Portfólio consolidado | 4/4 | Complete    | 2026-09-06 |
-| 22. Componentes compartilhados (trilho, ícones, mascote) | 4/4 | Complete   | 2026-09-06 |
+| 22. Componentes compartilhados (trilho, ícones, mascote) | 4/4 | Complete    | 2026-09-06 |
 | 23. Motion com propósito e ilustração unificada | v1.5 | Not started |  |
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2/v1.3

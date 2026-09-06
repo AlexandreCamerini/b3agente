@@ -27,16 +27,16 @@ Bug crítico encontrado durante a auditoria (`cp is not defined` em
 
 ### Sistema de componente (SYS)
 
-- [ ] **SYS-01**: Existe um único padrão de carrossel horizontal
+- [x] **SYS-01**: Existe um único padrão de carrossel horizontal
   (scroll-snap + espiada do próximo item) usado em todo lugar da interface
   que hoje rola horizontalmente — hoje há dois padrões divergentes (o
   carrossel de setups da home, com peek; o filtro "Modelo de análise" da
   Watchlist, sem peek e sem indicação de conteúdo cortado).
-- [ ] **SYS-02**: Nenhum emoji nativo do sistema operacional aparece na
+- [x] **SYS-02**: Nenhum emoji nativo do sistema operacional aparece na
   interface do app — os 5 usos hoje (🎓/📈/🚀/✨/📈, no seletor de Modo do
   Perfil, no card do Operador IA e nos chips de ação da Watchlist) viram
   ícones SVG no traço do `NavIcon` existente.
-- [ ] **SYS-03**: O mascote flutuante (`PetFab`) tem separação visual
+- [x] **SYS-03**: O mascote flutuante (`PetFab`) tem separação visual
   (sombra/halo) suficiente para nunca parecer cortado pela borda de um card
   atrás dele — reproduzido em pelo menos 5 telas na auditoria.
 - [x] **SYS-04**: Em telas ≥768px de largura, o conteúdo principal respeita
@@ -130,9 +130,9 @@ Bug crítico encontrado durante a auditoria (`cp is not defined` em
 | DEDUP-02 | Phase 21 | Complete |
 | DEDUP-03 | Phase 21 | Complete |
 | FIX-03 | Phase 21 | Complete |
-| SYS-01 | Phase 22 | Pending |
-| SYS-02 | Phase 22 | Pending |
-| SYS-03 | Phase 22 | Pending |
+| SYS-01 | Phase 22 | Complete |
+| SYS-02 | Phase 22 | Complete |
+| SYS-03 | Phase 22 | Complete |
 | MOTION-01 | Phase 23 | Pending |
 | MOTION-02 | Phase 23 | Pending |
 | ILUS-01 | Phase 23 | Pending |
