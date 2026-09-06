@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Opções v2
-status: milestone_in_progress (v1.5 archived 2026-09-06; v1.4 pre-existing, unblocked by v1.5)
-stopped_at: v1.5 milestone archived — v1.4 checkpoints humanos (Fases 17/18/19) seguem pendentes do Alex
+status: executing
+stopped_at: Fase 17 — checkpoint humano bloqueante (Task 2 de 17-06-PLAN.md), aguardando o Alex
 last_updated: 2026-09-06T18:00:00.000Z
 last_activity: 2026-09-06
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 16
-  completed_plans: 16
-  percent: 100
+  total_phases: 5
+  completed_phases: 2
+  total_plans: 23
+  completed_plans: 20
+  percent: 40
 ---
 
 # Project State
@@ -21,22 +21,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-06)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** v1.5 (Redesenho de UI) shipped e arquivado; v1.4 (Opções v2) é o único milestone aberto — aguardando checkpoints humanos das Fases 17/18/19
+**Current focus:** v1.5 (Redesenho de UI) shipped e arquivado em 2026-09-06 (ver `.planning/milestones/v1.5-*`); v1.4 (Opções v2) é o único milestone aberto — aguardando checkpoints humanos das Fases 17/18/19
 
-## Current Position — v1.5 (arquivado)
-
-Phase: 23 (última do v1.5)
-Plan: 23-04 (última)
-Status: Milestone v1.5 complete — 4/4 fases, 16/16 planos
-Progress: [████████████████████] 100% (4/4 fases do v1.5)
-Last activity: 2026-09-06
-
-## Current Position — v1.4 (aberto, não afetado pelo v1.5)
+## Current Position
 
 Phase: 17 (checkpoint humano bloqueante, Task 2 de `17-06-PLAN.md`)
 Plan: aguardando o Alex (mercado aberto + posição real elegível)
 Status: In Progress — travado em checkpoint humano, não em execução
-Last activity: 2026-09-03 (última atividade real do v1.4; v1.5 não o tocou)
+Progress: [████████░░░░░░░░░░░░] 40% (2/5 fases completas do v1.4; Fases 17/18/19 parciais)
+Last activity: 2026-09-03 (última atividade real do v1.4 — o v1.5, shipped em 2026-09-06, não o tocou)
 
 ## Performance Metrics
 
