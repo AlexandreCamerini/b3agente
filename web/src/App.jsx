@@ -4770,45 +4770,6 @@ function AgenteScreen({ ctx }) {
   };
   return (
     <div>
-      {/* C-19 (REPORT-01) · D-02 revisado (03-CONTEXT.md): card de status
-          único, PRIMEIRO elemento da tela, ANTES de qualquer controle — os
-          3 interruptores que decidem se uma ordem dispara: Modo do app,
-          Operador no servidor, Executar/sinalizar. Absorve a tira parcial
-          que vivia aqui e mostrava só 1 dos 3 (qa/audit-2026-08-07 itens
-          3+4, causa raiz registrada de "não me deixa selecionar Executar")
-          — card ÚNICO, não duas tiras. Read-only: nenhum badge altera
-          estado; a troca acontece só pelo link "Trocar modo →" (Perfil).
-          Cada badge lê a MESMA fonte canônica que o card-herói logo abaixo
-          usa — nunca contradiz o herói. */}
-      <div style={{ display: "flex", flexDirection: "column", gap: "8px", padding: "10px 14px", borderRadius: "10px", background: T.bgBase, border: `1px solid ${T.borderFaint}` }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "14px", flexWrap: "wrap" }}>
-            <span style={{ fontSize: "11px", fontWeight: 400, color: T.textSecondary }}>
-              Modo do app: <b style={{ color: operador ? T.positive : T.textFaint }}>{operador ? "📈 Operador" : "🎓 Estudo"}</b>
-            </span>
-            <span style={{ fontSize: "11px", fontWeight: 400, color: T.textSecondary }}>
-              Operador no servidor: <b style={{ color: (ag.serverEnabled && logged) ? T.positive : T.textFaint }}>{(ag.serverEnabled && logged) ? "Ligado" : "Desligado"}</b>
-            </span>
-            <span style={{ fontSize: "11px", fontWeight: 400, color: T.textSecondary }}>
-              Executar/sinalizar: <b style={{ color: modoEfetivo === "executar" ? T.positive : T.textFaint }}>{modoEfetivo === "executar" ? "Executar" : "Apenas sinalizar"}</b>
-            </span>
-          </div>
-          <button onClick={() => A.go("perfil")} style={{ background: "transparent", border: "none", padding: 0, color: T.accent, fontWeight: 800, fontSize: "11.5px", textDecoration: "underline", flex: "none" }}>
-            Trocar modo →
-          </button>
-        </div>
-        {/* ADR-017 Bloco 4 (Plano 08-02): a entrada automática deixou de ser
-            suspensão cega e virou gate por elegibilidade medida — esta linha
-            é a transparência exigida pelo 08-UI-SPEC (aditiva, read-only,
-            nenhum toggle novo). O número do contraste é referência FIXA de
-            backtest (ADR-016/017), nunca cálculo vivo — os dois números
-            moram na MESMA string de copy.js, nunca separados. */}
-        <div>
-          <div style={{ fontSize: "11px", color: T.textMuted, lineHeight: 1.45 }}>{ctx.cp.entradaAuto.regra}</div>
-          <div style={{ fontSize: "11px", color: T.textFaint, lineHeight: 1.45, marginTop: "2px" }}>{ctx.cp.entradaAuto.contraste}</div>
-        </div>
-      </div>
-
       <div style={{ display: "flex", alignItems: "center", gap: "2px", marginTop: "14px" }}>
         <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 700, fontFamily: DISPLAY }}>Operador IA</h1>
         <InfoDot onClick={A.openAbout} />
@@ -4816,6 +4777,14 @@ function AgenteScreen({ ctx }) {
       <p style={{ margin: "6px 0 0", color: T.textMuted, fontSize: "13px", maxWidth: "600px", lineHeight: 1.5 }}>
         Seu operador autônomo da carteira SIMULADA: monitora as posições, protege stop/alvo pelas regras que você define e registra cada decisão — no servidor, mesmo com o app fechado. Status detalhado, Diário e testes ficam em <b>Perfil → Logs & debug</b>.
       </p>
+      {/* DEDUP-02 (Fase 21, 2026-09-05): link de troca de modo relocado do
+          card de status C-19 removido (ver
+          web/tests/test_fase3_c19_card_status.mjs para a nota completa da
+          reversão) — mesmo texto, mesmo handler, mesma cor; só o container
+          mudou. */}
+      <button onClick={() => A.go("perfil")} style={{ background: "transparent", border: "none", padding: "8px 0 0", color: T.accent, fontWeight: 800, fontSize: "11.5px", textDecoration: "underline" }}>
+        Trocar modo →
+      </button>
 
       {/* qa/34 (§7 da auditoria, aprovado): CARD-HERÓI — um ESTADO dominante no
           topo (ATIVO/INATIVO · modo), o toggle como único CTA de peso. As regras
@@ -4983,6 +4952,19 @@ function AgenteScreen({ ctx }) {
             <p style={{ margin: "4px 0 0", color: T.textMuted, fontSize: "12.5px", lineHeight: 1.5, maxWidth: "440px" }}>
               Quando o gatilho de entrada dispara para um plano de COMPRA da watchlist, decide se a mesa compra sozinha (lote redondo, dentro do teto abaixo) ou só avisa, como hoje.
             </p>
+            {/* ADR-017 Bloco 4 (Plano 08-02) · realocado DEDUP-02 (Fase 21,
+                2026-09-05): a entrada automática deixou de ser suspensão
+                cega e virou gate por elegibilidade medida — esta linha é a
+                transparência exigida pelo 08-UI-SPEC (aditiva, read-only,
+                nenhum toggle novo). O número do contraste é referência FIXA
+                de backtest (ADR-016/017), nunca cálculo vivo — os dois
+                números moram na MESMA string de copy.js, nunca separados.
+                Este é o único card da tela sobre entrada automática — lar
+                tematicamente correto após a saída do card de status C-19. */}
+            <div>
+              <div style={{ fontSize: "11px", color: T.textMuted, lineHeight: 1.45 }}>{ctx.cp.entradaAuto.regra}</div>
+              <div style={{ fontSize: "11px", color: T.textFaint, lineHeight: 1.45, marginTop: "2px" }}>{ctx.cp.entradaAuto.contraste}</div>
+            </div>
           </div>
           <Toggle on={!!ag.entradaAuto && operador} disabled={!operador} onClick={() => operador && putAg({ entradaAuto: !ag.entradaAuto })} label="Entrar automaticamente" />
         </div>
