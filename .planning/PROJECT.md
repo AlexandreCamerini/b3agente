@@ -267,6 +267,15 @@ faltavam os números).
   único, zero emoji nativo, motion com propósito (entrada de card + pulso
   de confirmação) e ilustração flat unificada do Boris no modal de
   introdução — 17/17 requirements, ver `.planning/milestones/v1.5-MILESTONE-AUDIT.md`
+- ✓ `PALETTE.light.textDim` (Modo Estudo, tema claro) corrigido de `#6b7288`
+  para `#646b7f` — contraste contra `bgPanel` (pior superfície) subiu de
+  4,20:1 (reprovava AA) para 4,67:1, com `bgBase` 4,51→5,01 e `bgCard`
+  4,79→5,32 subindo junto. Achado COLATERAL da Fase 4, fora do escopo do
+  C-16 original (que corrigiu `textFaint` nesta mesma paleta mas não
+  `textDim`). O guardião `test_brand_book_v2_tokens.mjs` seção 5 foi
+  estendido de `textFaint` para `textFaint`+`textDim` nas 3 superfícies,
+  fechando a lacuna que deixou o bug sobreviver à Fase 4 e ao v1.5 —
+  corrigido em 2026-09-06
 
 ### Active
 
@@ -289,9 +298,6 @@ faltavam os números).
   comportamento real de `prefers-reduced-motion` (2 casos), pulso de
   sucesso de ordem com mercado aberto, 2 dos 4 trilhos SYS-01 sem proposta
   de opção ativa durante a verificação
-- [ ] `textDim` do tema claro também reprova contraste WCAG AA (4.20:1) —
-  achado colateral da Fase 4 (fora do escopo do C-16 original), candidato a
-  backlog
 - [ ] CAP-12 (bypass do cap de watchlist no iOS) está fechado em código e
   testado desde a Fase 13, mas só passa a valer nos aparelhos que já têm o
   app instalado depois de um build novo distribuído via TestFlight — ação
