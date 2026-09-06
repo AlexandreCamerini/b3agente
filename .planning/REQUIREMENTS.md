@@ -14,14 +14,14 @@ Bug crítico encontrado durante a auditoria (`cp is not defined` em
 
 ### Remoção de duplicação (DEDUP)
 
-- [ ] **DEDUP-01**: O card "Patrimônio simulado" (`CapitalCurve`) aparece em
+- [x] **DEDUP-01**: O card "Patrimônio simulado" (`CapitalCurve`) aparece em
   exatamente UMA tela — hoje está duplicado, idêntico, em Acompanhar E
   Portfólio (`web/src/App.jsx:1976` e `:8974`).
-- [ ] **DEDUP-02**: Na tela Operador IA, o status do modo/operador/execução
+- [x] **DEDUP-02**: Na tela Operador IA, o status do modo/operador/execução
   aparece uma única vez — hoje um card de texto ("Modo do app: Estudo /
   Operador no servidor: Desligado / Executar/sinalizar: Apenas sinalizar")
   repete o que o card funcional de toggle logo abaixo já mostra.
-- [ ] **DEDUP-03**: Os cards "Patrimônio total", "Resultado aberto", "Caixa
+- [x] **DEDUP-03**: Os cards "Patrimônio total", "Resultado aberto", "Caixa
   disponível" e "Em posições" do Portfólio viram um único card com colunas
   — mesmo padrão de densidade que "Resumo do dia" já usa em Acompanhar.
 
@@ -56,7 +56,7 @@ Bug crítico encontrado durante a auditoria (`cp is not defined` em
   vez de vazar texto para fora do viewport — o componente já declara
   `textOverflow:ellipsis`, mas um container pai sem `min-width:0` impede o
   efeito.
-- [ ] **FIX-03**: O gráfico de patrimônio (`CapitalCurve`) tem um
+- [x] **FIX-03**: O gráfico de patrimônio (`CapitalCurve`) tem um
   placeholder dedicado para o caso de 1-2 pontos de dado registrados, em vez
   de renderizar uma caixa vazia com escala degenerada (achado ao vivo logo
   após a primeira operação de uma conta nova).
@@ -126,10 +126,10 @@ Bug crítico encontrado durante a auditoria (`cp is not defined` em
 | TYPO-02 | Phase 20 | Complete |
 | TYPO-03 | Phase 20 | Complete |
 | MOTION-03 | Phase 20 | Complete |
-| DEDUP-01 | Phase 21 | Pending |
-| DEDUP-02 | Phase 21 | Pending |
-| DEDUP-03 | Phase 21 | Pending |
-| FIX-03 | Phase 21 | Pending |
+| DEDUP-01 | Phase 21 | Complete |
+| DEDUP-02 | Phase 21 | Complete |
+| DEDUP-03 | Phase 21 | Complete |
+| FIX-03 | Phase 21 | Complete |
 | SYS-01 | Phase 22 | Pending |
 | SYS-02 | Phase 22 | Pending |
 | SYS-03 | Phase 22 | Pending |
