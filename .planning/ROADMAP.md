@@ -396,9 +396,15 @@ do shell; independente da Phase 21)
   3. O mascote flutuante fica visualmente separado do conteúdo atrás dele em
      qualquer tela e nos dois temas — nunca parece cortado pela borda de um
      card (SYS-03).
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+- [ ] 22-01-PLAN.md — trilho horizontal único: helper `carouselTrackStyle`/`carouselItemStyle` e os 4 trilhos roteados por ele (SYS-01)
+- [ ] 22-02-PLAN.md — `NavIcon` generalizado + 8 emojis do Perfil/Watchlist/Posições/config viram SVG; 2 guardiões atualizados com nota (SYS-02)
+- [ ] 22-03-PLAN.md — Radar (ícone de varredura, ponto de tier, código morto) fecha a varredura de emoji em zero; sombra do PetFab vira token por tema (SYS-02, SYS-03)
+- [ ] 22-04-PLAN.md — bump + `publicar-web.sh` + suíte, e remedição dos 3 critérios no bundle de produção, incluindo a conferência visual da sombra nos dois temas (SYS-01/02/03)
 **Nota de publicação**: toca `web/src/` — precisa de plano final de bump +
-`publicar-web.sh`.
+`publicar-web.sh` (plano 22-04).
 **UI hint**: yes
 
 #### Phase 23: Motion com propósito e ilustração unificada
