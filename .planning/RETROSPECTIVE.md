@@ -367,6 +367,123 @@
 
 ---
 
+## Milestone: v1.5 — Redesenho de UI (simplificação e acessibilidade)
+
+**Shipped:** 2026-09-06
+**Phases:** 4 (20-23) | **Plans:** 16 | **Sessions:** 1 (contínua, execução autônoma de ponta a ponta)
+
+### What Was Built
+- Fase 20 (fundação estrutural e tipográfica): fim do vazamento horizontal
+  do `.b3-shell`, teto de 720px em telas ≥768px, escala numérica nomeada
+  (`numHero`/`numBody`/`numMicro`) com `tabular-nums`, H1 em Fredoka nas 15
+  telas, gate único de `prefers-reduced-motion` em `GlobalStyle()`.
+- Fase 21 (deduplicação): `CapitalCurve` (patrimônio simulado) unificado em
+  uma única tela, card 2×2 do Portfólio no lugar de 4 cards soltos, status
+  do Operador IA sem repetição de texto, placeholder dedicado para "1-2
+  pontos de dado" no lugar de caixa vazia com escala degenerada.
+- Fase 22 (componentes compartilhados): um único padrão de trilho
+  horizontal (`carouselTrackStyle`/`carouselItemStyle`, scroll-snap+peek)
+  nos 4 usos que hoje rolam na tela, zero emoji nativo do SO (8 sites
+  viraram SVG no traço do `NavIcon`), sombra/halo do `PetFab` por tema.
+- Fase 23 (motion com propósito + ilustração unificada): entrada de card
+  novo com fade+translateY (~200ms), pulso de confirmação de ordem
+  (~120ms) com portão `REDUCE_MOTION` em JS (não só CSS), nova ilustração
+  flat do Boris (`BorisFlat.jsx`) substituindo o PNG semi-realista do modal
+  "Este é o Boris" — ícone do app já publicado permanece intocado.
+
+### What Worked
+- **Reusar vocabulário visual já aprovado em vez de desenhar do zero** —
+  `BorisFlat.jsx` (ILUS-01) copiou cores/geometria exatas do `LogoMark` já
+  publicado, em vez de propor uma arte nova. Zero risco de "personagem
+  irreconhecível" porque a fonte de verdade já existia e já tinha sido
+  validada antes.
+- **Handoff "executor documenta, orquestrador verifica ao vivo"** —
+  subagentes disparados via Task não herdam as ferramentas de browser
+  (`mcp__Claude_Browser__*`, limitação conhecida da plataforma). Em vez de
+  bloquear nisso, cada plano de publicação (20-04/21-04/22-04/23-04)
+  documentou exatamente o que checar, e o orquestrador fez a verificação
+  visual real depois do merge — usado consistentemente nas 4 fases sem
+  reinventar o padrão a cada vez.
+- **Consolidar pendência humana num único arquivo do milestone
+  (`20-HUMAN-UAT.md`)**, mesmo quando o item nasceu em fases diferentes
+  (Fase 20 abriu o arquivo, Fase 22 e 23 anexaram itens próprios) — o Alex
+  recebe uma lista só no fim, não 4 arquivos fragmentados.
+- **Prova de invariante financeiro sob teste adversarial** — o teste de
+  duplo-toque na Fase 23 (3 cliques quase-simultâneos no botão de
+  confirmar) achou que o guard de JS não bloqueia no mesmo tick síncrono,
+  mas o cash-check do backend rejeitou as 2 tentativas extras corretamente
+  — reportado com honestidade como "o resultado é seguro, mas o mecanismo
+  que salvou não foi o guard novo especificamente", em vez de esconder a
+  nuance ou inflar como bug.
+
+### What Was Inefficient
+- **Double-backgrounding**: rodar `... & echo started $!` com
+  `run_in_background: true` ao mesmo tempo faz o wrapper reportar sucesso
+  imediato enquanto o processo real fica órfão e trunca no meio — a suíte
+  canônica precisou rodar de novo, só com `run_in_background: true` sem
+  `&` manual.
+- **Worktree removido com servidor de handoff ainda vivo** — depois de
+  mergear o plano 23-04 e rodar `git worktree remove --force`, o servidor
+  de produção que o executor deixou rodando por instrução de handoff virou
+  órfão com `cwd` apontando pro diretório já apagado — `GET /` passou a
+  devolver 404 (rotas `/api/*` continuaram OK, mascarando o problema por
+  um tempo). Diagnosticado por `lsof -p <pid> -a -d cwd`, corrigido
+  reiniciando do checkout certo.
+- **Modal "Este é o Boris" não reabriu na primeira tentativa de
+  verificação ao vivo** (Fase 23) apesar de `borisIntroVisto:false` e
+  `didatica.ligada:true` confirmados via API — a causa exata (navegação a
+  partir da Watchlist vs. reload direto da aba Acompanhar) nunca foi
+  isolada, só documentada com transparência depois que a reprodução
+  aconteceu numa passada seguinte.
+
+### Patterns Established
+- **Débito técnico decidido 3 vezes não é um silêncio, é escopo nunca
+  reaberto** — `numHero` foi declarado na Fase 20 "para 21/22 consumirem",
+  a Fase 21 (`21-UI-SPEC.md`) decidiu explicitamente não tocar o
+  `CapitalCurve`, e a Fase 22 nunca mencionou o token. A auditoria de
+  milestone tratou isso como tech debt documentado, não como gap.
+- **Limitação de ferramenta ≠ omissão de verificação** — quando nenhuma
+  ferramenta do ambiente expõe `Emulation.setEmulatedMedia` via CDP pra
+  testar `prefers-reduced-motion` de verdade, a resposta certa é nomear a
+  limitação, reconfirmar a prova de código/CSS múltiplas vezes, e deixar o
+  item como `pending` explícito — nunca fabricar uma confirmação.
+- **Milestone inteiro em modo autônomo convivendo com outro em execução no
+  mesmo repo** — v1.5 (4 fases) rodou de ponta a ponta enquanto v1.4 (3
+  fases pendentes, checkpoints humanos bloqueados) ficou intocado no mesmo
+  branch, mesmo `App.jsx`. O invariante técnico declarado no kickoff (só
+  `web/src/`, zero mudança em `server/app/*.py`/contrato de API) foi o que
+  tornou essa convivência segura sem precisar de branch separado.
+
+### Key Lessons
+1. Quando o arquivo de requirements do repo contém MAIS de um milestone ao
+   mesmo tempo (v1.5 fechando, v1.4 ainda aberto), o fechamento de
+   milestone não pode assumir "um arquivo = um milestone" do workflow
+   padrão — arquivar só a seção do milestone que fechou e preservar o
+   resto intocado, nunca `git rm` o arquivo inteiro.
+2. `ScheduleWakeup` é pra pacing de `/loop`, não pra esperar um agente em
+   background — task-notification já cobre isso automaticamente; usar o
+   primeiro pra isso é desperdício e foi corrigido no mesmo turno em que
+   aconteceu.
+3. Teste adversarial (múltiplos cliques síncronos) revela a diferença
+   entre "o resultado final está correto" e "o mecanismo que eu escrevi é
+   o que garante isso" — vale reportar as duas coisas separadamente em vez
+   de só a conclusão feliz.
+
+### Cost Observations
+- Model mix: Sonnet para toda a cadeia de subagentes (pattern-mapper,
+  ui-researcher, ui-checker, planner, plan-checker, executor, verifier,
+  integration-checker) — nenhum nó usou Opus/Fable nesta milestone, fases
+  pequenas e bem escopadas (4 planos cada).
+- Sessões: 1, contínua, sem `/handoff` — do início do planejamento da Fase
+  20 até o fechamento do milestone.
+- Notável: primeira milestone autorizada a evoluir "até o final sem
+  necessidade de autorização" (v1.2 tinha contrato de autonomia com
+  hard-stops nomeados; v1.5 foi autorização mais ampla, sem lista de
+  hard-stops previamente negociada) — nenhum push a `origin` durante toda
+  a execução, mesma disciplina do v1.2/v1.4.
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -377,6 +494,7 @@
 | v1.1 | 2+ | 7 (2-8) | Primeira milestone com checkpoints humanos bloqueantes em produção (Fases 7, 8, 5) e com fases nascidas de descoberta em execução, não só do planejamento original (Fases 6-8, a partir de pesquisa ad-hoc sobre o motor de recomendação) — mitigação do worktree da v1.0 (push antes de spawnar wave seguinte) confirmada eficaz, zero recorrência |
 | v1.2 | 1 (autônoma) | 3 (0, 10, 11) | Primeira milestone executada de ponta a ponta sem humano no loop (contrato de autonomia explícito, hard-stops nomeados) — nenhum push durante toda a execução (diferente de v1.1, onde push por wave era o padrão); UAT `human_needed` fechado como arquivo `pending` genuíno em vez de aprovação fabricada, resolvido pelo Alex numa sessão separada antes do fechamento formal do milestone |
 | v1.3 | 2 (com `/handoff`) | 2 (12, 13) | Primeira milestone com consulta direta a design specialists de nicho (navigation/typography) fora do pipeline GSD nativo; code review pós-fase pegou 1 Critical real que nenhum teste de ordem de chamada capturava (contagem servidor×dispositivo num gate fail-closed local-first); checkpoint humano ao vivo conduzido pelo orquestrador no chat, não delegado a subagente; divergência de `main` local vs remoto (trabalho concorrente de outra sessão) descoberta e reconciliada sem conflito antes do fechamento |
+| v1.5 | 1 (autônoma, sem handoff) | 4 (20-23) | Primeira milestone autorizada a evoluir "até o final sem necessidade de autorização" (autonomia mais ampla que o contrato com hard-stops nomeados da v1.2); conviveu no mesmo branch/`App.jsx` com o v1.4 ainda bloqueado em checkpoint humano, sem tocá-lo (invariante técnico: só `web/src/`); pendência humana de 3 fases diferentes consolidada num único `20-HUMAN-UAT.md`; fechamento de milestone precisou de desvio do workflow padrão porque `REQUIREMENTS.md` continha dois milestones ao mesmo tempo (v1.5 fechando, v1.4 aberto) — arquivado só o trecho do v1.5, nunca `git rm` no arquivo inteiro |
 
 ### Cumulative Quality
 
@@ -386,6 +504,7 @@
 | v1.1 | 1365 backend (pytest) + suíte web completa (.mjs), ambas verdes no fechamento — crescimento de ~395 testes backend na milestone | não medido numericamente (sem pytest-cov) | 0 (nenhuma dependência nova — confirmado por `git diff` de todo `package.json`/`package-lock.json` em cada plano que tocou frontend) |
 | v1.2 | 1674 backend (pytest) + suíte web completa (.mjs), ambas verdes em toda validação de wave — crescimento de ~135 testes backend (candle/opções/ledger/put_bridge/put_lifecycle) | não medido numericamente (sem pytest-cov) | 0 (nenhuma dependência nova — backend-only, nenhum `package.json` tocado) |
 | v1.3 | 1742 backend (pytest) + suíte web completa (.mjs), ambas verdes no fechamento — crescimento de ~68 testes backend | não medido numericamente (sem pytest-cov) | 0 (nenhuma dependência nova) |
+| v1.5 | 2022 backend (pytest, 2021 passed/1 skipped) + 118 web (.mjs), ambas verdes no fechamento — milestone front-end-only, crescimento de teste concentrado em `web/tests/*.mjs` (novos guardiões `test_fase20_fundacao_visual.mjs`, `test_fase22_*`, `test_fase23_motion.mjs`) | não medido numericamente (sem pytest-cov) | 0 (nenhuma dependência nova — `BorisFlat.jsx` é SVG inline, zero lib de ilustração) |
 
 ### Top Lessons (Verified Across Milestones)
 
@@ -395,3 +514,5 @@
 4. Execução autônoma sem push (v1.2) é uma variante mais segura do que push-por-wave (v1.1) quando não há humano pra aprovar em tempo real — o contrato de autonomia explícito (hard-stops nomeados, viés de desempate declarado) é o que torna a ausência de checkpoint humano segura, não a ausência de checkpoint em si.
 5. UAT `human_needed`/`pending` genuíno, persistido em arquivo e fechado mecanicamente sem aprovação fabricada, é o padrão certo para separar "trabalho mecânico concluído" de "decisão que só o humano pode tomar" (v1.2, Fase 11) — generaliza o padrão de UAT já usado desde v1.1 (Fases 3, 08-05) para o caso específico de execução autônoma.
 6. Um teste que prova ORDEM de chamadas de rede não prova QUAL VALOR alimenta a decisão de negócio — um gate fail-closed pode estar "chamando a API certa, na hora certa" e ainda assim usar o número errado (v1.3, CR-01: contagem do servidor num app local-first). O guardião precisa pinar o argumento exato, não só a sequência.
+7. Débito técnico decidido explicitamente em múltiplas fases sucessivas (documentado, não escondido) não é gap de auditoria — é escopo deliberadamente nunca reaberto (v1.5, `numHero` sem consumidor real, decidido em 3 fases seguidas).
+8. Quando o `REQUIREMENTS.md` do repo contém mais de um milestone simultaneamente (um fechando, outro ainda em execução), o fechamento de milestone precisa arquivar só a seção do milestone que fechou — nunca assumir "um arquivo = um milestone" do workflow padrão e apagar o arquivo inteiro (v1.5, convivendo com v1.4 ainda aberto).

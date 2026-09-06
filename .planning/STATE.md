@@ -1,35 +1,42 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.5
-milestone_name: Redesenho de UI
-status: milestone_complete
-stopped_at: Milestone complete (Phase 23 was final phase)
-last_updated: 2026-09-06T17:13:34.667Z
+milestone: v1.4
+milestone_name: Opções v2
+status: milestone_in_progress (v1.5 archived 2026-09-06; v1.4 pre-existing, unblocked by v1.5)
+stopped_at: v1.5 milestone archived — v1.4 checkpoints humanos (Fases 17/18/19) seguem pendentes do Alex
+last_updated: 2026-09-06T18:00:00.000Z
 last_activity: 2026-09-06
 progress:
-  total_phases: 6
-  completed_phases: 2
-  total_plans: 8
-  completed_plans: 39
-  percent: 33
+  total_phases: 4
+  completed_phases: 4
+  total_plans: 16
+  completed_plans: 16
+  percent: 100
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-09-05)
+See: .planning/PROJECT.md (updated 2026-09-06)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Milestone complete
+**Current focus:** v1.5 (Redesenho de UI) shipped e arquivado; v1.4 (Opções v2) é o único milestone aberto — aguardando checkpoints humanos das Fases 17/18/19
 
-## Current Position
+## Current Position — v1.5 (arquivado)
 
-Phase: 23
-Plan: Not started
-Status: Milestone complete
-Progress: [░░░░░░░░░░░░░░░░░░░░] 0% (0/4 fases do v1.5)
+Phase: 23 (última do v1.5)
+Plan: 23-04 (última)
+Status: Milestone v1.5 complete — 4/4 fases, 16/16 planos
+Progress: [████████████████████] 100% (4/4 fases do v1.5)
 Last activity: 2026-09-06
+
+## Current Position — v1.4 (aberto, não afetado pelo v1.5)
+
+Phase: 17 (checkpoint humano bloqueante, Task 2 de `17-06-PLAN.md`)
+Plan: aguardando o Alex (mercado aberto + posição real elegível)
+Status: In Progress — travado em checkpoint humano, não em execução
+Last activity: 2026-09-03 (última atividade real do v1.4; v1.5 não o tocou)
 
 ## Performance Metrics
 
@@ -229,22 +236,33 @@ Items acknowledged and carried forward from previous milestone close (v1.3 → v
 | Pending todo | `medir-rate-limit-mydata.md` (priority medium) | Ainda aberto pra acompanhar volume real de tráfego de opções se crescer | Fase 9 close (2026-08-27), rebaixado 2026-08-31 |
 | v2 requirements (nomeado no kickoff) | Integração MCP real (Estratégia C, `plano-mcp-servico.md`) — troca o corpo de `rastrear()`/`avaliar()` (ENG-04 da Phase 15) sem reabrir requirements quando aprovado | Deferred — condicionado à aprovação do Alex | v1.4 roadmap (2026-09-02) |
 | v2 requirements (nomeado no kickoff) | Setup customizado pelo usuário; estruturas adicionais além das 3 do v1 | Deferred — biblioteca fixa por enquanto | v1.4 roadmap (2026-09-02) |
+| uat_gap | 20-HUMAN-UAT.md — 3 cenários pendentes (reduced-motion real MOTION-01/02/03; pulso de sucesso real de MOTION-02 em venda total) | partial — limitação de ferramenta (sem CDP Emulation.setEmulatedMedia) + mercado fechado durante toda a janela de execução | v1.5 close (2026-09-06) |
+| uat_gap | 22-HUMAN-UAT.md — 1 cenário pendente (snap em DOM real dos 2 trilhos de opções sem dado de mercado ativo) | partial — prova estática completa via guardião, sem dado real disponível | v1.5 close (2026-09-06) |
+| verification_gap | 20-VERIFICATION.md, 22-VERIFICATION.md, 23-VERIFICATION.md — status human_needed | Todos com evidência completa em código/bundle; pendência é só de confirmação humana ao vivo, ver .planning/milestones/v1.5-MILESTONE-AUDIT.md | v1.5 close (2026-09-06) |
+| Tech debt (achado na auditoria de integração) | `numHero` (token de 34px da escala TYPO-02) sem consumidor real — `CapitalCurve` segue com fontSize hardcoded 27px | Decisão deliberada, documentada em 3 fases sucessivas (20/21/22) — não bloqueia, item de backlog para fase futura de polish | v1.5 close (2026-09-06) |
+| Quick tasks pré-existentes (12, não relacionados ao v1.5) | 260820-0hl, 260823-vu4, 260823-x55, 260824-i45, 260824-kc2, 260830-eqm, 260901-1ak, 260901-2da, 260901-r5t, 260901-u2c, 260902-km8, 260905-1gb — todos status "missing" (sem SUMMARY.md) | Pré-datam o milestone v1.5; não fazem parte do seu escopo — não resolvidos nem descartados, seguem no backlog geral | v1.5 close (2026-09-06) |
+| Pending todo | `opcoes-v2-confirmar-hub-mydata-e-acesso-b-mcp.md` (priority medium) | Acompanhar aprovação do serviço MCP autenticado — não relacionado ao v1.5 | v1.5 close (2026-09-06) |
 
 ## Session Continuity
 
-Last session: 2026-09-06T02:01:55.907Z
-Stopped at: Phase 22 UI-SPEC approved
-Resume file: .planning/phases/22-componentes-compartilhados-trilho-cones-mascote/22-UI-SPEC.md
+Last session: 2026-09-06T18:00:00.000Z
+Stopped at: Milestone v1.5 fechado e arquivado (`.planning/milestones/v1.5-*`); nenhum push a `origin`
+Resume file: .planning/v1.5-MILESTONE-AUDIT.md (agora em .planning/milestones/v1.5-MILESTONE-AUDIT.md) — para o v1.4, ver `.planning/notes/checkpoints-pendentes-fase-17-18-19.md`
 
 ## Operator Next Steps
 
-- `/gsd-plan-phase 20` — Fundação estrutural e tipográfica (primeira fase do
-  v1.5; a mais baixa de risco e base das outras três).
+**v1.5 (Redesenho de UI) — SHIPPED, sem próximo passo mecânico.** 4 itens de
+verificação humana pendentes, consolidados em
+`.planning/phases/20-funda-o-estrutural-e-tipogr-fica/20-HUMAN-UAT.md` — sem
+urgência (nenhum bloqueia produto, ver `.planning/milestones/v1.5-MILESTONE-AUDIT.md`).
 
+**v1.4 (Opções v2) — único milestone aberto, retomar quando o Alex puder:**
 - Retomar o checkpoint humano da Fase 17 (`17-06-PLAN.md` Task 2) com o
   mercado aberto — payoff real, collar por caixa insuficiente, aceite/
   cancelamento, Radar vs. Watchlist, iPhone. Só depois considerar a Fase 17
   de fato fechada (e dar push pra origin).
-
 - `/gsd-plan-phase 18` — seção "Oportunidades de opções" em Posições.
 - `/gsd-plan-phase 19` — motor multi-candidato, depois da Fase 18 fechada.
+
+**Depois do v1.4 fechar:** `/gsd-new-milestone` para decidir o próximo
+milestone (nenhum roteirizado ainda além do v1.4).

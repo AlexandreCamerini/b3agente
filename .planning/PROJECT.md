@@ -22,73 +22,7 @@ funciona — não decorou uma resposta, aprendeu o raciocínio — e só então 
 acesso a automações do Modo Operador. Se o storyline pedagógico não convencer,
 nada mais no produto importa.
 
-## Current Milestone: v1.5 Redesenho de UI — simplificação e acessibilidade
-
-**Goal:** eliminar a duplicação e as inconsistências visuais achadas numa
-auditoria de design ao vivo (mobile 375px, dark/light, Estudo/Operador,
-conta nova + conta com ordem pendente) e aplicar uma direção visual mais
-coerente — sem tocar no motor determinístico, sem reabrir a navegação de 5
-abas, sem sair do Brand Book v2 já aprovado.
-
-**Contexto de abertura:** este milestone abre com o v1.4 (Opções v2) ainda
-EM EXECUÇÃO — Fases 17/18/19 têm checkpoint humano bloqueante pendente
-(depende de mercado aberto + posição real elegível, ver
-`.planning/notes/checkpoints-pendentes-fase-17-18-19.md`). Decisão explícita
-do Alex (04-05/09/2026): não esperar esse checkpoint fechar para começar a
-planejar o v1.5 — os diretórios de fase 15-19 permanecem intocados
-(`phases.clear` não foi executado), e nenhum push para `origin` foi feito em
-nenhum dos dois fluxos. Um bug crítico achado durante a auditoria (`cp is
-not defined` em `HistoricoScreen`) já foi corrigido e verificado ao vivo à
-parte, via quick task `260905-1gb` (fora do escopo deste milestone).
-
-**Target features (derivadas da auditoria + das decisões de design já
-aprovadas nesta sessão):**
-- Remover duplicação literal: `CapitalCurve` (card "Patrimônio simulado")
-  aparece hoje em Acompanhar E Portfólio; card de status do Operador IA
-  duplica o que o toggle abaixo já mostra
-- Consolidar os 3 cards soltos do Portfólio (Patrimônio total/Resultado
-  aberto/Caixa disponível) num único card com colunas, no padrão que
-  "Resumo do dia" já usa em Acompanhar
-- Unificar os dois padrões de carrossel horizontal (scroll-snap+peek vs.
-  overflow simples sem affordance) num componente só
-- Substituir os 5 ícones de emoji (🎓/📈/🚀/✨/📈) por SVG no traço do
-  `NavIcon` existente
-- Corrigir a contenção horizontal do `.b3-shell` (raiz do app rola pro lado
-  além do viewport — achado crítico de responsividade) e aplicar
-  `maxWidth:720px` ao conteúdo em telas largas (o `BottomNav` já faz isso)
-- Tratar o estado "1-2 pontos de patrimônio registrados" no gráfico
-  (`CapitalCurve`), que hoje renderiza uma caixa vazia em vez de um
-  placeholder dedicado
-- Tipografia: `tabular-nums` no stack MONO, escala numérica nomeada
-  (`numHero`/`numBody`/`numMicro`), fonte Fredoka estendida para o H1 de
-  cada tela (hoje só no wordmark)
-- Motion com propósito: entrada de card novo (setup inédito), pulso de
-  confirmação de ordem, `prefers-reduced-motion` (hoje ausente)
-- Unificar a ilustração do Boris num único estilo (flat/cartoon, o do
-  `LogoMark`/`PetFab`/ícone do app já publicado) — refazer só a arte do
-  modal de introdução, que hoje é quase-fotorrealista
-- `PetFab` (mascote flutuante) ganha sombra/halo para não parecer cortado
-  contra a borda dos cards atrás dele
-
-**Decisões de arquitetura travadas (não reabrir):**
-1. Navegação de 5 abas (Acompanhar/Radar/Watchlist/Portfólio/Operador IA)
-   permanece — Nível 1 "toque leve" escolhido explicitamente sobre as
-   alternativas de consolidar/fundir abas (reabriria o funil canônico da
-   FASE 2, validado com mockup e `navigation-specialist`)
-2. Sem migração de stack: o app continua em React com estilo inline +
-   tokens `var(--x)` (`PALETTE`/`MODE_OPERADOR`, `App.jsx:61-172`) — nada de
-   Tailwind/shadcn, que exigiria reescrever ~9k linhas sem ganho declarado
-3. Estilo de ilustração do Boris = flat/cartoon (não o quase-fotorrealista do
-   modal de intro) — menor risco, não mexe no ícone do app já publicado no
-   TestFlight/App Store
-
-**Fora de escopo (decidido no kickoff):** qualquer mudança de arquitetura de
-informação (fusão/reordenação de abas); migração de biblioteca de UI;
-mudança de paleta/tokens do Brand Book v2; qualquer alteração no motor
-determinístico ou nas rotas de backend — este milestone é puramente de
-front-end visual/interação.
-
-## Milestone v1.4 Opções v2 (EM EXECUÇÃO — não shipped)
+## Current Milestone: v1.4 Opções v2 (EM EXECUÇÃO — não shipped)
 
 **Goal:** nova experiência de Opções no Boris+ que propõe setups (venda
 coberta, put de proteção, collar) a partir da análise técnica sobre posições
@@ -122,6 +56,71 @@ tratar disso, condicionado à aprovação do `plano-mcp-servico.md`.
 
 Base completa da decisão: `.planning/seeds/opcoes-v2-setups-propostos-via-b-mcp.md`
 e `.planning/notes/opcoes-v2-b-mcp-exploracao.md`.
+
+## Milestone v1.5 Redesenho de UI — simplificação e acessibilidade — SHIPPED 2026-09-06
+
+**Goal:** eliminar a duplicação e as inconsistências visuais achadas numa
+auditoria de design ao vivo (mobile 375px, dark/light, Estudo/Operador,
+conta nova + conta com ordem pendente) e aplicar uma direção visual mais
+coerente — sem tocar no motor determinístico, sem reabrir a navegação de 5
+abas, sem sair do Brand Book v2 já aprovado.
+
+**Contexto de abertura:** este milestone abriu com o v1.4 (Opções v2) ainda
+EM EXECUÇÃO — Fases 17/18/19 com checkpoint humano bloqueante pendente. Por
+decisão explícita do Alex, o v1.5 foi planejado e executado sem esperar
+esse checkpoint fechar (diretórios de fase 15-19 intocados, nenhum push a
+`origin` em nenhum dos dois fluxos) e evoluiu de ponta a ponta sem pausa
+para aprovação humana intermediária — segunda vez que esse modo de operação
+é usado no projeto (a primeira foi o v1.2, execução autônoma noturna).
+
+**Entregue (4 fases, 16 planos, 123 commits, 2 dias — 2026-09-05 a
+2026-09-06):**
+- Fase 20 — fundação: fim do vazamento horizontal do shell, teto de 720px
+  em desktop, escala tipográfica numérica nomeada (`numHero`/`numBody`/
+  `numMicro`) com `tabular-nums`, H1 em Fredoka, gate de
+  `prefers-reduced-motion` em `GlobalStyle()`
+- Fase 21 — deduplicação: `CapitalCurve` (patrimônio simulado) unificado em
+  uma única tela, card 2×2 do Portfólio consolidado, status do Operador IA
+  sem repetição, placeholder dedicado para "1-2 pontos de dado"
+- Fase 22 — componentes compartilhados: um único padrão de trilho
+  horizontal (scroll-snap+peek) nos 4 usos do app, zero emoji nativo
+  (`NavIcon` SVG), sombra/halo do `PetFab` por tema
+- Fase 23 — motion com propósito: entrada de card novo (fade+translateY
+  ~200ms) e pulso de confirmação de ordem (~120ms), ambos sob o gate de
+  reduced-motion; nova ilustração flat unificada do Boris (`BorisFlat.jsx`)
+  substituindo o PNG semi-realista do modal de introdução — ícone do app já
+  publicado permanece intocado
+
+**Resultado da auditoria (`.planning/milestones/v1.5-MILESTONE-AUDIT.md`):** 17/17
+requirements satisfeitos, 16/17 pontos de integração cruzada `WIRED`
+(2 fluxos E2E traçados ponta a ponta), status `tech_debt` (não bloqueante).
+Débito técnico: `numHero` (34px) declarado mas sem consumidor real —
+decisão deliberada documentada em 3 fases sucessivas, não um silêncio
+acidental; candidato a backlog de polish visual futuro. 4 itens de
+verificação humana consolidados num único documento
+(`.planning/phases/20-funda-o-estrutural-e-tipogr-fica/20-HUMAN-UAT.md`,
+nunca fragmentados por fase): comportamento real de `prefers-reduced-motion`
+(limitação de ferramenta — sem CDP `Emulation.setEmulatedMedia` neste
+ambiente), pulso de sucesso com mercado aberto, 2 dos 4 trilhos SYS-01 sem
+proposta de opção ativa durante a verificação.
+
+**Decisões de arquitetura travadas (mantidas, não reabertas):**
+1. Navegação de 5 abas permanece — Nível 1 "toque leve" escolhido sobre
+   fusão/reordenação de abas
+2. Sem migração de stack: estilo inline + tokens `var(--x)`, nada de
+   Tailwind/shadcn
+3. Ilustração do Boris = flat/cartoon (não o quase-fotorrealista do modal
+   de intro antigo) — ícone do app publicado no TestFlight/App Store
+   permanece intocado
+
+**Fora de escopo (confirmado no fechamento):** fusão/reordenação de abas,
+migração de biblioteca de UI, mudança de paleta/tokens do Brand Book v2,
+qualquer alteração no motor determinístico ou nas rotas de backend — nada
+disso foi tocado, confirmado pela auditoria.
+
+Ver `.planning/milestones/v1.5-ROADMAP.md`,
+`.planning/milestones/v1.5-REQUIREMENTS.md` e
+`.planning/milestones/v1.5-MILESTONE-AUDIT.md`.
 
 ## Milestone v1.3 Cap comercial (plano gratuito) — SHIPPED 2026-08-31
 
@@ -261,6 +260,14 @@ faltavam os números).
   abaixo) — Fase 11 do v1.2, execução autônoma noturna, ÚLTIMA fase do
   milestone
 
+- ✓ Redesenho de UI v1.5 (Fases 20-23): shell sem vazamento horizontal,
+  teto de 720px em desktop, escala tipográfica numérica nomeada com
+  `tabular-nums`, gate de `prefers-reduced-motion`, deduplicação de
+  `CapitalCurve`/status do Operador/cards do Portfólio, trilho horizontal
+  único, zero emoji nativo, motion com propósito (entrada de card + pulso
+  de confirmação) e ilustração flat unificada do Boris no modal de
+  introdução — 17/17 requirements, ver `.planning/milestones/v1.5-MILESTONE-AUDIT.md`
+
 ### Active
 
 - [ ] Item 8 do checkpoint 08-05: verificação ao vivo da entrada automática
@@ -272,6 +279,16 @@ faltavam os números).
   `execucao_automatica.controlar`) — ver `03-VERIFICATION.md`
 - [ ] Backlog (não mapeado a fase ainda): os 9 achados Baixo do REPORT-01
   (C-06..C-10, C-17, C-18, C-28, C-29)
+- [ ] `numHero` (34px, token da escala tipográfica do v1.5/TYPO-02) sem
+  nenhum consumidor real — o número mais "hero" do app (patrimônio simulado
+  em `CapitalCurve`, `App.jsx:1865`) segue hardcoded em 27px. Decisão
+  deliberada documentada em 3 fases sucessivas (20/21/22), não bloqueia
+  nada; candidato a uma fase futura de polish visual
+- [ ] 4 itens de verificação humana do v1.5 pendentes do Alex, consolidados
+  em `.planning/phases/20-funda-o-estrutural-e-tipogr-fica/20-HUMAN-UAT.md`:
+  comportamento real de `prefers-reduced-motion` (2 casos), pulso de
+  sucesso de ordem com mercado aberto, 2 dos 4 trilhos SYS-01 sem proposta
+  de opção ativa durante a verificação
 - [ ] `textDim` do tema claro também reprova contraste WCAG AA (4.20:1) —
   achado colateral da Fase 4 (fora do escopo do C-16 original), candidato a
   backlog
@@ -339,6 +356,14 @@ faltavam os números).
   stores, bypass do iOS fechado). 2 fases, 8 planos, ~82 commits no range
   (inclui 1 merge de trabalho concorrente não relacionado, PR #27/ADR-23),
   ~2 dias (2026-08-29 a 2026-08-31, incluindo checkpoints humanos ao vivo).
+- **v1.5 entregou**: Fases 20-23 (redesenho de UI — fundação estrutural,
+  deduplicação, componentes compartilhados, motion+ilustração). 4 fases, 16
+  planos, 123 commits, 2 dias (2026-09-05 a 2026-09-06), executado de ponta
+  a ponta em modo autônomo (sem pausa para aprovação humana intermediária)
+  por decisão explícita do Alex, convivendo com o v1.4 ainda em execução
+  sem tocá-lo (invariante técnico: só `web/src/`, zero mudança em
+  `server/app/*.py` ou contrato de API). 17/17 requirements, ver
+  `.planning/milestones/v1.5-MILESTONE-AUDIT.md`.
 - Suíte canônica de teste: `bash scripts/executar.sh --testes` (pytest +
   web/tests/*.mjs); `scripts/test.sh` sozinho é meia baseline. Desde a Fase
   5 (FIX-C24), o próprio `executar.sh` resolve `web/node_modules` ausente
@@ -384,6 +409,8 @@ faltavam os números).
 | Plano que toca `web/src/` precisa de task explícita de bump+publicar-web.sh | Fase 4: os 7 planos fecharam os 9 achados com suíte verde, mas nenhum publicou o front — ficou testado, mergeado e invisível em produção até eu notar manualmente | ✓ Good — corrigido antes de fechar a Fase 4 (commit `f2ef08e`); Fase 5 já nasceu com plano de publicação (05-08) desde o planejamento |
 | Consultar design specialists dedicados (navigation/typography) antes do UI-SPEC, quando a fase tem decisão de UI real em aberto | Fase 13 tinha 2 perguntas de design não travadas no CONTEXT.md (validar o placement dual, decidir o tratamento tipográfico do "X/Y") — consulta directa aos specialists deu input mais concreto (achou a distinção `data.watchlist.length`×`catalogSel.length` que evita os 2 contadores divergirem) do que deixar o gsd-ui-researcher inferir sozinho | ✓ Good — UI-SPEC nasceu quase pronto, só 1 bloqueio de checker (3º peso de fonte), resolvido em 1 iteração |
 | Code review obrigatório pós-fase (`code_review_gate`) não é cerimônia — achou um Critical real na Fase 13 | Gate fail-closed do CAP-12/CR-01 no iOS comparava a contagem do servidor (sempre desconectada, iOS é local-first) em vez da do aparelho; guardião existente só checava ORDEM das chamadas, não qual valor alimentava a decisão — o próprio objetivo da fase (fechar CR-01) não estava de fato fechado até esse achado | ✓ Good — corrigido, guardião reforçado (mutation-tested), e o mesmo padrão replicado preventivamente no caminho irmão (`putWatchlist`) antes mesmo de virar bug lá |
+| Consolidar toda pendência de verificação humana de um milestone num ÚNICO documento (`20-HUMAN-UAT.md`), nunca fragmentar por fase | v1.5 gerou 4 itens humanos em 3 fases diferentes (limitação de ferramenta de emulação de `prefers-reduced-motion`, dependência de horário de pregão); decisão explícita do orquestrador de não criar `21-HUMAN-UAT.md`/`22-HUMAN-UAT.md`/`23-HUMAN-UAT.md` separados | ✓ Good — Alex recebe uma lista só pra revisar no fim, em vez de garimpar N arquivos de fase |
+| Executar um milestone inteiro (4 fases) de ponta a ponta sem pausa para aprovação humana intermediária, sob autorização explícita | Alex pediu evolução autônoma completa do v1.5 e configurou o ambiente pra não exigir permissão de tool; v1.4 seguia em paralelo com checkpoints bloqueados, sem interferência entre os dois fluxos | ✓ Good — 4 fases, 16 planos, 123 commits, 17/17 requirements, zero push a `origin` (mesma disciplina do v1.4 pendente), único gap real foi tooling (sem CDP `Emulation.setEmulatedMedia` neste ambiente para testar `prefers-reduced-motion` de verdade) |
 
 ## Evolution
 
@@ -403,4 +430,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-09-05 — milestone v1.5 (redesenho de UI) iniciado com v1.4 ainda em execução*
+*Last updated: 2026-09-06 — milestone v1.5 (redesenho de UI) shipped; v1.4 (Opções v2) segue em execução, checkpoints humanos das Fases 17/18/19 pendentes do Alex*
