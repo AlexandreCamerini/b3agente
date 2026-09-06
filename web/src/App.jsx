@@ -910,8 +910,13 @@ function Topbar({ patr, dia, caixa, name, onProfile, modeChip, mercado, cp }) {
   );
 }
 
-function NavIcon({ id, active }) {
-  const c = active ? T.accent : T.textMuted;
+// Fase 22 (SYS-01/02, 2026-09-06): desde esta fase, o NavIcon serve TAMBÉM os
+// ícones inline fora da barra de navegação (Perfil, Watchlist, Posições,
+// config) — quem chama de fora passa `size` e `color="currentColor"` para
+// herdar a cor do texto ao lado; o BottomNav continua chamando sem esses
+// dois props (23px, cor pelo branch `active`).
+function NavIcon({ id, active, size = 23, color }) {
+  const c = color || (active ? T.accent : T.textMuted);
   const p = { fill: "none", stroke: c, strokeWidth: 1.9, strokeLinecap: "round", strokeLinejoin: "round" };
   const paths = {
     evolucao: <><polyline points="3 17 9 11 13 15 21 7" {...p} /><polyline points="16 7 21 7 21 12" {...p} /></>,
@@ -922,8 +927,14 @@ function NavIcon({ id, active }) {
     perfil: <><circle cx="12" cy="8.5" r="3.4" {...p} /><path d="M5.5 19a6.5 6.5 0 0 1 13 0" {...p} /></>,
     // M1 (UX aprovada): Automatizar — chip/robô do agente autônomo
     agente: <><rect x="5" y="7" width="14" height="11" rx="2.5" {...p} /><line x1="12" y1="4" x2="12" y2="7" {...p} /><circle cx="12" cy="3.4" r="1" fill={c} stroke="none" /><circle cx="9.2" cy="11.5" r="1.1" fill={c} stroke="none" /><circle cx="14.8" cy="11.5" r="1.1" fill={c} stroke="none" /><path d="M9.5 15h5" {...p} /></>,
+    // Fase 22 (SYS-02, 2026-09-06): três geometrias novas para os emojis
+    // formalizados nesta onda — graduacao (Estudo), brilho (Analisar/
+    // Reanalisar), checado (chave configurada).
+    graduacao: <><path d="M12 5 2 9.5l10 4.5 10-4.5L12 5Z" {...p} /><path d="M6 11.5v4.2c0 1.6 2.7 2.8 6 2.8s6-1.2 6-2.8v-4.2" {...p} /></>,
+    brilho: <><path d="M12 4.5 13.6 9.4 18.5 11 13.6 12.6 12 17.5 10.4 12.6 5.5 11 10.4 9.4Z" {...p} /><circle cx="18.6" cy="5.4" r="1.1" fill={c} stroke="none" /><circle cx="6" cy="18" r="1" fill={c} stroke="none" /></>,
+    checado: <><circle cx="12" cy="12" r="8.5" {...p} /><path d="M8.2 12.3 11 15l5-5.6" {...p} /></>,
   };
-  return <svg width="23" height="23" viewBox="0 0 24 24" aria-hidden>{paths[id]}</svg>;
+  return <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden style={{ verticalAlign: "-0.15em", flexShrink: 0 }}>{paths[id]}</svg>;
 }
 
 function BottomNav({ tab, setTab, cp }) {
@@ -2162,13 +2173,13 @@ function ModoTrabalhoCard({ ctx }) {
     A.flash(m === "operador" ? "Modo Operador ativado — reiniciando…" : "Modo Estudo ativado — reiniciando…");
     setTimeout(() => window.location.reload(), 700);
   };
-  const segBtn = (on) => ({ flex: 1, border: "none", borderRadius: "9px", padding: "10px", fontWeight: 800, fontSize: "13px", background: on ? T.accent : "transparent", color: on ? T.onAccent : T.textMuted });
+  const segBtn = (on) => ({ flex: 1, border: "none", borderRadius: "9px", padding: "10px", fontWeight: 800, fontSize: "13px", background: on ? T.accent : "transparent", color: on ? T.onAccent : T.textMuted, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "6px" });
   return (
     <div style={{ ...card, padding: "15px 16px" }}>
       <div style={{ fontSize: "11px", fontWeight: 800, letterSpacing: "0.05em", color: T.textSecondary }}>MODO DE TRABALHO</div>
       <div style={{ display: "flex", background: T.bgBase, border: `1px solid ${T.borderSubtle}`, borderRadius: "11px", padding: "4px", gap: "4px", marginTop: "10px" }}>
-        <button onClick={() => escolher("estudo")} style={segBtn(mode === "estudo")}>🎓 Estudo</button>
-        <button onClick={() => escolher("operador")} style={segBtn(mode === "operador")}>📈 Operador</button>
+        <button onClick={() => escolher("estudo")} style={segBtn(mode === "estudo")}><NavIcon id="graduacao" size={15} color="currentColor" /> Estudo</button>
+        <button onClick={() => escolher("operador")} style={segBtn(mode === "operador")}><NavIcon id="evolucao" size={15} color="currentColor" /> Operador</button>
       </div>
       {nudgeOperador && (
         <div style={{ marginTop: "10px", padding: "9px 11px", borderRadius: "9px", background: "color-mix(in srgb, " + T.warn + " 12%, transparent)", border: `1px solid ${T.warn}` }}>
@@ -3473,7 +3484,7 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
                   </div>
                   {/* qa/49 (v11): o mini-gráfico vira o ACESSO ao candlestick, à direita do preço */}
                   <button onClick={() => A.openTech && A.openTech(t)} disabled={q.error} aria-label="Abrir gráfico de velas" style={{ background: T.bgBase, border: `1px solid ${T.borderSubtle}`, borderRadius: "9px", padding: "6px 7px 4px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}>
-                    {sc && Array.isArray(sc.spark) && sc.spark.length > 1 ? <Sparkline data={sc.spark} width={44} height={18} /> : <span aria-hidden style={{ fontSize: "14px" }}>📈</span>}
+                    {sc && Array.isArray(sc.spark) && sc.spark.length > 1 ? <Sparkline data={sc.spark} width={44} height={18} /> : <NavIcon id="evolucao" size={18} color={T.textMuted} />}
                     <span style={{ fontSize: "9px", color: T.accent, fontWeight: 800 }}>velas ⤢</span>
                   </button>
                 </div>
@@ -3715,9 +3726,9 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
                 <button onClick={() => A.analyze(t)} disabled={an.loading} style={{ background: "transparent", border: "none", padding: "6px 0", color: T.accent, fontSize: "11.5px", fontWeight: 800, display: "flex", alignItems: "center", gap: "5px" }}>
                   {/* qa/34: chave órfã btnAnalise finalmente ligada — "Estudar este
                       ativo" × "Plano completo" (antes: "Analisar com IA" fixo). */}
-                  {an.loading ? <><Spinner size={11} color={T.accent} /> analisando…</> : (hasAnalysis(an) ? "✨ Reanalisar" : "✨ " + cp.btnAnalise)}
+                  {an.loading ? <><Spinner size={11} color={T.accent} /> analisando…</> : <><NavIcon id="brilho" size={13} color="currentColor" />{hasAnalysis(an) ? "Reanalisar" : cp.btnAnalise}</>}
                 </button>
-                <button onClick={() => A.openTech(t)} disabled={q.error} style={{ background: "transparent", border: "none", padding: "6px 0", color: T.textMuted, fontSize: "11.5px", fontWeight: 700 }}>📈 Indicadores</button>
+                <button onClick={() => A.openTech(t)} disabled={q.error} style={{ background: "transparent", border: "none", padding: "6px 0", color: T.textMuted, fontSize: "11.5px", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: "5px" }}><NavIcon id="evolucao" size={13} color="currentColor" /> Indicadores</button>
                 {hasAnalysis(an) && (
                   <button onClick={() => A.toggleExpand(t)} aria-expanded={!!expanded} style={{ background: "transparent", border: "none", padding: "6px 0", color: T.textMuted, fontSize: "11.5px", fontWeight: 700, marginLeft: "auto" }}>
                     {expanded ? "Ocultar análise ▴" : "Ver análise ▾"}
@@ -4546,8 +4557,8 @@ function CarteiraScreen({ ctx }) {
               })()}
               {/* FASE 3 (mock v2): duas ações-bloco — o resto vira linha de links */}
               <div style={{ display: "flex", gap: "8px", marginTop: "12px" }}>
-                <button onClick={() => ctx.openStopAlvo(p.t)} aria-label={"Sugerir stop e alvo de " + p.t + " com IA"} style={{ flex: 1, minHeight: "42px", padding: "9px", borderRadius: "10px", border: `1px solid ${T.accent}`, background: T.accentTint10, color: T.accent, fontWeight: 800, fontSize: "12.5px" }}>
-                  📈 Stop/alvo (IA)
+                <button onClick={() => ctx.openStopAlvo(p.t)} aria-label={"Sugerir stop e alvo de " + p.t + " com IA"} style={{ flex: 1, minHeight: "42px", padding: "9px", borderRadius: "10px", border: `1px solid ${T.accent}`, background: T.accentTint10, color: T.accent, fontWeight: 800, fontSize: "12.5px", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
+                  <NavIcon id="evolucao" size={14} color="currentColor" /> Stop/alvo (IA)
                 </button>
                 <button onClick={() => ctx.A.openSell(p.t)} style={{ flex: 1, minHeight: "42px", padding: "9px", borderRadius: "10px", border: `1px solid ${T.negative}`, background: T.negativeTint10, color: T.negative, fontWeight: 800, fontSize: "12.5px" }}>
                   {cp.btnVender}…
@@ -5368,8 +5379,8 @@ function SkillSection({ ctx, sectionTitle }) {
       <label style={{ display: "block", marginBottom: "12px" }}>
         <span style={{ display: "block", fontSize: "12px", color: T.textMuted, marginBottom: "6px" }}>Skill (pelo nome)</span>
         <select value={alvo} onChange={(e) => setAlvo(e.target.value)} style={{ ...field, fontFamily: MONO }}>
-          <option value="estudo">{(data.skill && data.skill.name) || "Mesa B3 - Educacional v1"} · 🎓 Estudo</option>
-          <option value="operador">{(data.skillOperador && data.skillOperador.name) || "Mesa B3 - Operador v1"} · 📈 Operador</option>
+          <option value="estudo">{(data.skill && data.skill.name) || "Mesa B3 - Educacional v1"} · Estudo</option>
+          <option value="operador">{(data.skillOperador && data.skillOperador.name) || "Mesa B3 - Operador v1"} · Operador</option>
         </select>
       </label>
       <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "4px 10px", borderRadius: "999px", background: emUso ? T.accentTint : T.bgBase, border: `1px solid ${emUso ? T.accent : T.borderSubtle}`, color: emUso ? T.accent : T.textFaint, fontSize: "10.5px", fontWeight: 800, marginBottom: "12px" }}>
@@ -5632,7 +5643,7 @@ function AiConfigScreen({ ctx }) {
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", background: T.bgBase, border: `1px solid ${T.borderSubtle}`, borderRadius: "8px", padding: "11px 13px", marginBottom: "14px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "9px" }}>
               <span style={{ fontFamily: MONO, letterSpacing: "2px", color: T.textMuted }}>••••••••••••</span>
-              <span style={{ fontSize: "11px", color: T.positive, fontWeight: 700 }}>chave configurada ✅ <span style={{ color: T.textFaint, fontWeight: 500 }}>{isNative ? "(neste aparelho)" : "(no servidor)"}</span></span>
+              <span style={{ fontSize: "11px", color: T.positive, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: "5px" }}><NavIcon id="checado" size={13} color="currentColor" />chave configurada <span style={{ color: T.textFaint, fontWeight: 500 }}>{isNative ? "(neste aparelho)" : "(no servidor)"}</span></span>
             </div>
             <button onClick={A.clearKey} style={{ padding: "7px 12px", borderRadius: "7px", border: `1px solid ${T.borderSubtle}`, background: "transparent", color: T.textSecondary, fontSize: "12px", fontWeight: 600 }}>Substituir</button>
           </div>
