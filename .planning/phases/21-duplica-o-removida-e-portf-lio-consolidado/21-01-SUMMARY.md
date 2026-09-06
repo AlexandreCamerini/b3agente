@@ -90,6 +90,18 @@ None - plan executado exatamente como escrito. As duas edições em `App.jsx` se
 - **Setup do ambiente (não é deviation de código):** o worktree não tinha `web/node_modules` instalado (`npx vite build` falhava com `ERR_MODULE_NOT_FOUND` para `vite`/`@vitejs/plugin-react`/`vite-plugin-pwa`). Rodei `npm install` dentro de `web/` para restaurar as dependências já declaradas em `package.json`/`package-lock.json` — isto NÃO adicionou nem alterou nenhuma dependência (`git diff --stat web/package.json web/package-lock.json` vazio antes e depois), apenas materializou `node_modules` a partir do lockfile existente. Não se enquadra na exclusão de Rule 3 (instalar pacote referenciado no plano) porque nenhum pacote novo foi introduzido.
 - Comandos que escrevem fora do worktree (npm cache, `git status --porcelain` redirecionado por `scripts/executar.sh` para `/*.log` na raiz do filesystem) dispararam `EPERM`/"Operation not permitted" do sandbox padrão da ferramenta Bash; refeitos com `dangerouslyDisableSandbox: true` conforme a política do ambiente (evidência clara de restrição de sandbox, não bug de código).
 
+## Orchestrator Live Re-Verification
+
+Executada via MCP do navegador contra o dev server (merge desta branch),
+conta local existente:
+
+1. **Portfólio** — card único 2×2 (Patrimônio total/Resultado
+   aberto/Caixa disponível/Em posições), sem nenhuma curva de patrimônio
+   acima. ✓ (DEDUP-01 metade Portfólio + DEDUP-03)
+2. **Acompanhar** — "PATRIMÔNIO SIMULADO" (curva) continua presente. ✓
+   (DEDUP-01 metade Acompanhar — a curva não desapareceu do app, só da
+   tela duplicada)
+
 ## User Setup Required
 
 None - no external service configuration required.
