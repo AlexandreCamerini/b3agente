@@ -23,8 +23,15 @@
  * Mesmos tokens de tema (`var(--x)`) que `BorisChat.jsx` já usa, pelo mesmo
  * motivo: importar `T`/`card` de `App.jsx` criaria import circular (App.jsx
  * importa este arquivo).
+ *
+ * Arte da intro (Fase 23, ILUS-01): a ilustração acima do título é a arte
+ * flat de `BorisFlat.jsx` desde 2026-09 — o PNG semi-realista de `Boris.jsx`
+ * saiu SÓ deste slot. O `PetFab` (a coruja flutuante, F4/F5) segue com o PNG
+ * de propósito — decisão de escopo do kickoff do milestone v1.5, registrada
+ * no ROADMAP ("a troca de arte se limita ao modal de introdução") — então
+ * ver as duas artes convivendo no mesmo app não é defeito.
  */
-import Boris from "./Boris.jsx";
+import BorisFlat from "./BorisFlat.jsx";
 
 const VARKEY = (k) => "--" + k.replace(/[A-Z]/g, (c) => "-" + c.toLowerCase());
 const TOKENS = ["bgPanel", "bgCard", "borderSubtle", "textPrimary", "textSecondary",
@@ -39,7 +46,7 @@ export default function BorisIntro({ onConversar, onDepois }) {
       style={{ position: "fixed", inset: 0, zIndex: 87, background: T.scrim, display: "flex", alignItems: "center", justifyContent: "center", padding: "18px", overflowY: "auto" }}>
       <div style={{ width: "100%", maxWidth: "420px", background: T.bgCard, border: `1px solid ${T.borderSubtle}`, borderRadius: "18px", padding: "24px 22px", boxSizing: "border-box" }}>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", marginBottom: "16px" }}>
-          <Boris size={110} />
+          <BorisFlat size={110} />
           <div style={{ fontSize: "18px", fontWeight: 800, marginTop: "6px", letterSpacing: "-0.01em" }}>
             Este é o <span style={IA_GRAD}>Boris</span>
           </div>
