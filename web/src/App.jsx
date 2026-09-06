@@ -4337,13 +4337,6 @@ function CarteiraScreen({ ctx }) {
   const cost = m.cost;
   const openPnL = m.openPnL;
   const openPct = m.openPct;
-  const kpi = (label, value, color, sub, subColor) => (
-    <div style={{ ...card, padding: "14px 15px" }}>
-      <div style={kicker}>{label}</div>
-      <div style={{ fontFamily: MONO, fontSize: "19px", fontWeight: 600, marginTop: "3px", color }}>{value}</div>
-      {sub != null && <div style={{ fontFamily: MONO, fontSize: "12px", color: subColor }}>{sub}</div>}
-    </div>
-  );
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
@@ -4355,11 +4348,26 @@ function CarteiraScreen({ ctx }) {
       {/* qa/34: chave órfã subtituloPortfolio finalmente ligada — "carteira
           SIMULADA" × "posições com plano e risco em R". */}
       <p style={{ margin: "6px 0 0", color: T.textMuted, fontSize: "12.5px", lineHeight: 1.5, maxWidth: "560px" }}>{cp.subtituloPortfolio}</p>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: "12px", margin: "16px 0 18px" }}>
-        {kpi("PATRIMÔNIO TOTAL", money(total), T.textPrimary)}
-        {kpi("RESULTADO ABERTO", moneySigned(openPnL), openPnL >= 0 ? T.positive : T.negative, pct(openPct), openPnL >= 0 ? T.positive : T.negative)}
-        {kpi("CAIXA DISPONÍVEL", money(data.cash), T.textMuted)}
-        {kpi("EM POSIÇÕES", money(positionsValue), T.textMuted)}
+      <div style={{ ...card, padding: "16px 18px", margin: "16px 0 18px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px 18px" }}>
+          <div>
+            <div style={kicker}>PATRIMÔNIO TOTAL</div>
+            <div style={{ ...numBody, fontFamily: MONO, color: T.textPrimary }}>{money(total)}</div>
+          </div>
+          <div>
+            <div style={kicker}>RESULTADO ABERTO</div>
+            <div style={{ ...numBody, fontFamily: MONO, color: openPnL >= 0 ? T.positive : T.negative }}>{moneySigned(openPnL)}</div>
+            <div style={{ ...numMicro, fontFamily: MONO, color: openPnL >= 0 ? T.positive : T.negative }}>{pct(openPct)}</div>
+          </div>
+          <div>
+            <div style={kicker}>CAIXA DISPONÍVEL</div>
+            <div style={{ ...numBody, fontFamily: MONO, color: T.textMuted }}>{money(data.cash)}</div>
+          </div>
+          <div>
+            <div style={kicker}>EM POSIÇÕES</div>
+            <div style={{ ...numBody, fontFamily: MONO, color: T.textMuted }}>{money(positionsValue)}</div>
+          </div>
+        </div>
       </div>
 
       {/* Fase 14 (Plano 07, T-14-28): perna lastreada dentro do patrimônio —
@@ -9024,7 +9032,7 @@ export default function App() {
           {tab === "agente" && <AgenteScreen ctx={ctx} />}
           {tab === "carteira" && (carteiraView === "historico"
             ? (<><BackHeader title="Histórico de operações" onBack={() => setCarteiraView("main")} /><HistoricoScreen ctx={ctx} /></>)
-            : (<><CapitalCurve ctx={ctx} /><CarteiraScreen ctx={ctx} /><div style={{ marginTop: "14px" }}><button onClick={() => setCarteiraView("historico")} style={{ width: "100%", minHeight: "48px", padding: "13px", borderRadius: "13px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 700, fontSize: "13.5px", display: "flex", alignItems: "center", justifyContent: "space-between" }}><span>Ver histórico de operações</span><span aria-hidden style={{ color: T.textFaint }}>›</span></button></div></>))}
+            : (<><CarteiraScreen ctx={ctx} /><div style={{ marginTop: "14px" }}><button onClick={() => setCarteiraView("historico")} style={{ width: "100%", minHeight: "48px", padding: "13px", borderRadius: "13px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 700, fontSize: "13.5px", display: "flex", alignItems: "center", justifyContent: "space-between" }}><span>Ver histórico de operações</span><span aria-hidden style={{ color: T.textFaint }}>›</span></button></div></>))}
           {tab === "perfil" && (perfilView === "config"
             ? (<><BackHeader title="Preferências" onBack={() => setPerfilView("hub")} /><ConfigScreen ctx={ctx} /></>)
             : perfilView === "ia"
