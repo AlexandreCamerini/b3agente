@@ -145,6 +145,104 @@ ok('`scrollSnapAlign: "center"` (ou `carouselItemStyle("center")`) aparece exata
 
 ok('`<main>` mantém `overflowX: "hidden"` (FIX-01, Fase 20, fora do escopo do helper)', /<main[^>]*overflowX: "hidden"/.test(app));
 
+// --- Seção B — SYS-02 (plano 22-02): NavIcon generalizado (size/color) e os --
+// --- 8 sites de emoji do Perfil/Watchlist/Posições/config trocados por SVG --
+
+const navIconBloco = isolarFuncao("NavIcon");
+const modoTrabalhoCard = isolarFuncao("ModoTrabalhoCard");
+const ativoCard = isolarFuncao("AtivoCard");
+const carteiraScreen = isolarFuncao("CarteiraScreen");
+const skillSection = isolarFuncao("SkillSection");
+
+// --- B1. Assinatura do NavIcon aceita `size` e `color` -----------------------
+
+ok('NavIcon aceita `size` na assinatura', /function NavIcon\(\{[^}]*\bsize\b[^}]*\}\)/.test(navIconBloco));
+ok('NavIcon aceita `color` na assinatura', /function NavIcon\(\{[^}]*\bcolor\b[^}]*\}\)/.test(navIconBloco));
+
+// --- B2. Cor resolvida com fallback (novo caminho + caminho antigo do BottomNav) --
+
+ok('NavIcon resolve a cor com fallback (`color ||`, o novo caminho)', navIconBloco.includes("color ||"));
+ok('NavIcon preserva `active ? T.accent : T.textMuted` (caminho antigo, consumido pelo BottomNav)', navIconBloco.includes("active ? T.accent : T.textMuted"));
+
+// --- B3. <svg> usa width={size}/height={size}, mantém viewBox e aria-hidden --
+
+ok('<svg> do NavIcon usa `width={size}`', navIconBloco.includes("width={size}"));
+ok('<svg> do NavIcon usa `height={size}`', navIconBloco.includes("height={size}"));
+ok('<svg> do NavIcon mantém `viewBox="0 0 24 24"`', navIconBloco.includes('viewBox="0 0 24 24"'));
+ok('<svg> do NavIcon mantém `aria-hidden`', navIconBloco.includes("aria-hidden"));
+
+// --- B4. Mapa `paths` tem os 3 ids novos e continua com os 7 antigos --------
+
+for (const id of ["graduacao", "brilho", "checado"]) {
+  ok(`mapa \`paths\` do NavIcon contém o id novo \`${id}:\``, navIconBloco.includes(`${id}:`));
+}
+for (const id of ["evolucao", "mercado", "radar", "carteira", "opcoes", "perfil", "agente"]) {
+  ok(`mapa \`paths\` do NavIcon continua com o id antigo \`${id}:\``, navIconBloco.includes(`${id}:`));
+}
+
+// --- B5. `radar: <>` continua verdadeiro (compatibilidade com test_radar.mjs:45) --
+
+ok('`radar: <>` continua verdadeiro (exigência de test_radar.mjs:45)', /radar:\s*<>/.test(navIconBloco));
+
+// --- B6. Emoji zero para os glifos desta onda, sobre App.jsx inteiro --------
+
+ok("zero ocorrência de 🎓 em App.jsx", !app.includes("🎓"));
+ok("zero ocorrência de 📈 em App.jsx", !app.includes("📈"));
+ok("zero ocorrência de ✨ em App.jsx", !app.includes("✨"));
+ok("zero ocorrência de ✅ em App.jsx", !app.includes("✅"));
+
+// --- B7. Fora de escopo preservado: vocabulário tipográfico da casa, não é --
+// --- emoji do sistema (22-UI-SPEC.md, Out-of-scope symbols) -----------------
+
+ok("glifo fora de escopo `⚡` continua presente (vocabulário da casa)", app.includes("⚡"));
+ok("glifo fora de escopo `✎` continua presente (vocabulário da casa)", app.includes("✎"));
+ok("glifo fora de escopo `↻` continua presente (vocabulário da casa)", app.includes("↻"));
+ok("glifo fora de escopo `✕` continua presente (vocabulário da casa)", app.includes("✕"));
+ok("glifo fora de escopo `✓` continua presente (vocabulário da casa)", app.includes("✓"));
+ok("glifo fora de escopo `⚠` continua presente (vocabulário da casa)", app.includes("⚠"));
+
+// --- B8. Pelo menos 8 chamadas <NavIcon id= (BottomNav + 7 sites desta onda) --
+
+ok("há pelo menos 8 chamadas `<NavIcon id=` (BottomNav + sites desta onda)", (app.match(/<NavIcon id=/g) || []).length >= 8);
+
+// --- B9. Cada site nomeado, por assinatura textual estável (nunca por linha) --
+
+ok('recorte de ModoTrabalhoCard contém `id="graduacao"`', modoTrabalhoCard.includes('id="graduacao"'));
+ok('recorte de ModoTrabalhoCard mantém o rótulo "Estudo" visível', modoTrabalhoCard.includes("Estudo"));
+ok('rótulo "Indicadores" sobreviveu à troca do emoji', app.includes("Indicadores"));
+ok('rótulo "Stop/alvo (IA)" sobreviveu à troca do emoji', app.includes("Stop/alvo (IA)"));
+ok('rótulo "chave configurada" sobreviveu à troca do emoji', app.includes("chave configurada"));
+ok('rótulo "Reanalisar" sobreviveu à troca do emoji', app.includes("Reanalisar"));
+ok('a chave de copy `cp.btnAnalise` segue consumida', app.includes("cp.btnAnalise"));
+ok('recorte de AtivoCard contém o fallback de sparkline com `id="evolucao"`', ativoCard.includes('id="evolucao"'));
+ok('recorte de CarteiraScreen contém o botão de Stop/alvo com `id="evolucao"`', carteiraScreen.includes('id="evolucao"'));
+
+// --- B10. <option> limpo: texto puro, sem emoji (nomeado à parte de B6, para --
+// --- a mensagem de falha apontar o site certo) ------------------------------
+
+const idxOptEstudo = app.indexOf('<option value="estudo">');
+const idxOptOperador = app.indexOf('<option value="operador">');
+if (idxOptEstudo < 0 || idxOptOperador < 0) {
+  console.error('FALHOU: <option value="estudo"|"operador"> não encontrado em App.jsx — guardião não pode isolar o select de skill');
+  process.exit(1);
+}
+const optEstudoLine = app.slice(idxOptEstudo, app.indexOf("</option>", idxOptEstudo) + "</option>".length);
+const optOperadorLine = app.slice(idxOptOperador, app.indexOf("</option>", idxOptOperador) + "</option>".length);
+ok('`<option value="estudo">` contém " · Estudo</option>" e não contém 🎓', optEstudoLine.includes(" · Estudo</option>") && !optEstudoLine.includes("🎓"));
+ok('`<option value="operador">` contém " · Operador</option>" e não contém 📈', optOperadorLine.includes(" · Operador</option>") && !optOperadorLine.includes("📈"));
+// skillSection isolado acima só para eventual depuração futura — as duas
+// linhas de <option> já são suficientes para a asserção, sem depender de
+// isolamento de função (o marcador de linha é mais estável para este site).
+ok('recorte de SkillSection contém os dois `<option>` do select de skill', skillSection.includes('<option value="estudo">') && skillSection.includes('<option value="operador">'));
+
+// --- B11. Zero dependência de ícone em web/package.json ---------------------
+
+const pkgJson = JSON.parse(readFileSync(join(here, "..", "package.json"), "utf8"));
+const allDeps = { ...(pkgJson.dependencies || {}), ...(pkgJson.devDependencies || {}) };
+for (const lib of ["lucide-react", "react-icons", "@heroicons/react", "phosphor-react"]) {
+  ok(`\`${lib}\` não é dependência de web/package.json`, !(lib in allDeps));
+}
+
 if (fails > 0) {
   console.error(`\n${fails} asserção(ões) falharam.`);
 }

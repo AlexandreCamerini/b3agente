@@ -56,8 +56,14 @@ ok("A.openSell usa qtyLivre(pos)",
 // ---- (5) guardrail: stop/alvo NUNCA são vetados pela trava -----------------
 ok("nenhum botão de stop/alvo é desabilitado por qtyTravada (asserção negativa)",
   !/disabled=\{[^}]*qtyTravada[^}]*\}/.test(app));
+// Fase 22 (SYS-02, 2026-09-06): o emoji de gráfico do botão de Stop/alvo
+// virou `<NavIcon id="evolucao">`; o rótulo textual não mudou. O glifo
+// tipográfico do botão irmão (editar/lápis) segue como está — fora do
+// escopo de SYS-02, ver 22-UI-SPEC.md Out-of-scope symbols. O que este
+// guardião protege continua sendo o guardrail de produto: stop/alvo NUNCA é
+// vetado, então os dois botões existem e não têm `disabled`.
 ok("os botões de Stop/alvo (IA) e Editar stop/alvo continuam sem `disabled`",
-  app.includes("📈 Stop/alvo (IA)") && app.includes("✎ Editar stop/alvo"));
+  app.includes("Stop/alvo (IA)") && app.includes("✎ Editar stop/alvo"));
 
 // ---- (6) Patrimônio: TODAS as chamadas de portfolioMetrics passam optionPositions
 const chamadas = (app.match(/portfolioMetrics\([^)]*\)/g) || []);
