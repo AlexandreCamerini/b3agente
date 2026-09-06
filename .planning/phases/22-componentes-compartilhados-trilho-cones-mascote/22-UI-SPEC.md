@@ -17,6 +17,7 @@ unificação, não de criação de novo padrão visual"). Two exceptions to that
 framing are named explicitly below (carousel taxonomy split, tier-dot color)
 — both are judgment calls this research surfaced that `22-CONTEXT.md` could
 not have anticipated because its own audit undercounted the affected sites.
+Both are resolved and approved — see **Decisions** below.
 
 **All line numbers verified by direct grep/read on 2026-09-05** against the
 current `web/src/App.jsx` (post Phase 20/21). Re-verify immediately before
@@ -115,9 +116,19 @@ Discretion in `22-CONTEXT.md`), plus copy trims. No new npm dependency.
 
 ## Spacing Scale
 
-No new spacing scale. Reuse exact existing values already present at each
-call site (gap `8px`/`10px`/`12px`, `paddingBottom:"2px"`) — do not
-renumber any of them as part of this phase. The only spacing-relevant
+No new spacing scale — this phase reuses exact existing values already
+present at each call site. These are retained (not renumbered) values from
+already-shipped code, the same class of reuse call the orchestrator made for
+Phase 21's UI-SPEC — signed off explicitly below with file:line citations:
+
+| Value | Call site(s) | Sign-off |
+|-------|--------------|----------|
+| `gap: "12px"` | `App.jsx:1949` | developer-approved — matches existing pattern — 2026-09-06 |
+| `gap: "8px"` | `App.jsx:3792` | developer-approved — matches existing pattern — 2026-09-06 |
+| `gap: "10px"` | `App.jsx:4001`, `App.jsx:4133` | developer-approved — matches existing pattern — 2026-09-06 |
+| `paddingBottom: "2px"` | `App.jsx:3792`, `App.jsx:4001`, `App.jsx:4133` | developer-approved — matches existing pattern — 2026-09-06 |
+
+Do not renumber any of these as part of this phase. The only spacing-relevant
 addition is `scrollSnapAlign`/`scrollSnapType`, which are scroll-behavior
 properties, not spacing values.
 
@@ -148,7 +159,7 @@ decorative exception below (tier-dot fill).
 Accent reserved for: unchanged from current production usage — same list as
 `21-UI-SPEC.md`. This phase introduces zero new accent-colored elements.
 
-### Flagged exception — tier-dot fill (SYS-02, line 6926)
+### Flagged exception — tier-dot fill (SYS-02, line 6926) — approved, see Decisions
 
 `tierOf()` (`App.jsx:963-969`) was written with the explicit design
 rationale, in its own comment, that green/red are "reservados a sinal de
@@ -176,20 +187,17 @@ shadow):
 This is a genuine new-color introduction, flagged because it is the one
 place this phase departs from "reuse `T.*`, introduce nothing new." Scope
 is exactly 4 literal hex values, used in exactly one call site (`6926`),
-never as text color, never reused elsewhere. If the checker's Color
-dimension treats any non-`T.*` hex as a hard fail regardless of context,
-escalate to the human before merging — do not silently substitute
-`T.positive`/`T.negative` to pass a lint, since that reintroduces the
-collision this section documents.
+never as text color, never reused elsewhere. This has been reviewed and
+approved (see Decisions below). If the checker's Color dimension treats any
+non-`T.*` hex as a hard fail regardless of context, escalate to the human
+before merging — do not silently substitute `T.positive`/`T.negative` to
+pass a lint, since that reintroduces the collision this section documents.
 
 ---
 
 ## Structural Contract
 
-### SYS-01 — carousel taxonomy: snap is universal, peek-width is NOT
-
-**This is the one place this research overrides a literal reading of
-`22-CONTEXT.md`, and it needs explicit sign-off, not silent adoption.**
+### SYS-01 — carousel taxonomy: snap is universal, peek-width is NOT — approved, see Decisions
 
 `22-CONTEXT.md` says "aplicar o MESMO padrão" to every non-compliant
 trilho, and `REQUIREMENTS.md`'s success criterion #1 says every trilho
@@ -329,7 +337,7 @@ return zero matches from the 6-glyph set above. It will still legitimately
 match the out-of-scope symbols (`→ ✓ ✗ ✕ ↻ ✎ ⚠ ⚡ ↔ ↺ ↓`) — do not chase
 those to zero; that is not this phase's scope (see Out-of-Scope Symbols).
 
-### SYS-03 — PetFab shadow becomes theme-aware
+### SYS-03 — PetFab shadow becomes theme-aware — approved as starting value, see Decisions
 
 **Current code, verified (`App.jsx:2748-2755`):**
 ```jsx
@@ -358,9 +366,9 @@ shadowFab: "rgba(15,20,28,0.22)", // lighter/less opaque — a 0.45-opacity blac
                                    // heavy dark smudge, not a subtle separation halo; the
                                    // existing light-theme `scrim` (rgba(15,20,28,0.45)) is
                                    // calibrated for a full-screen overlay, too strong for a
-                                   // small drop-shadow — 0.22 is a starting point for the
-                                   // planner to calibrate visually per 22-CONTEXT.md's
-                                   // "valor exato fica com o planner calibrar visualmente"
+                                   // small drop-shadow — 0.22 is the approved starting point;
+                                   // see Decisions below for the required live visual check
+                                   // before considering SYS-03 done.
 ```
 
 Call site becomes:
@@ -408,7 +416,7 @@ emoji glyph is replaced by an `aria-hidden` SVG). No `copy.js` key changes.
 ## Registry Safety
 
 | Registry | Blocks Used | Safety Gate |
-|----------|-------------|-------------|
+|----------|-------------|--------------|
 | shadcn official | none — no shadcn in this project | not applicable |
 | third-party | none | not applicable |
 
@@ -418,24 +426,53 @@ package dependencies. All new icons are hand-written inline SVG following
 
 ---
 
-## Open Decisions Requiring Sign-Off Before Planning Locks
+## Decisions
 
-1. **Carousel taxonomy split (SYS-01)** — this spec recommends universal
-   `scrollSnapType:"x proximity"` + no peek-width change for the 3
-   non-compliant trilhos, deliberately departing from a literal "copy
-   HERO-CARROSSEL exactly" reading of `22-CONTEXT.md`. Rationale is above
-   in full. If the human disagrees and wants literal `84%`-width peek on
-   all trilhos regardless of the comparison/browse-density regression this
-   causes, say so before `/gsd-plan-phase 22` locks the plan.
-2. **Tier-dot fill colors (SYS-02, line 6926)** — 4 new literal hex values,
-   flagged as a deliberate exception to "no new color," to preserve the
-   existing "tier ≠ market signal" separation already coded into
-   `tierOf()`'s comment. If the checker's Color dimension hard-fails any
-   non-`T.*` hex regardless of the documented rationale, this needs a
-   human call, not a silent substitution to `T.positive`/`T.negative`.
-3. **`shadowFab` light-theme opacity (`0.22`)** — a starting value, not a
-   measured one; `22-CONTEXT.md` explicitly defers the exact number to
-   visual calibration during planning/execution.
+The following three judgment calls were surfaced by this research (none
+were pre-answered by `22-CONTEXT.md`/`REQUIREMENTS.md`, because both
+documents' own audits undercounted the affected sites). All three have been
+reviewed and are approved as final — no further sign-off gate before
+`/gsd-plan-phase 22` locks the plan.
+
+### 1. SYS-01 carousel taxonomy split — approved
+
+Apply `scrollSnapType:"x proximity"` (+ `scrollSnapAlign:"start"`)
+universally to all 4 trilhos (`App.jsx:1949/3792/4001/4133`). Do **not**
+apply HERO-CARROSSEL's `flex:"0 0 84%"` peek-width to the filter-chip rail
+(`App.jsx:3792`) or the N-candidate comparison cards (`App.jsx:4133`).
+
+Rationale: the researcher correctly identified that literal peek-width
+reuse would regress usability on both sites — hiding most of the
+`TECH_MODELS` filter-chip rail behind a one-at-a-time swipe when it is
+meant to be scanned across ~8 chips (**chip-rail visibility**), and hiding
+the second option candidate in `OportunidadesOpcoes`/`PropostaDaPosicao`
+off-screen by default, undermining the side-by-side comparison Fase 19
+built specifically to show two candidates at once (**Phase 19 N-candidate
+display**, MULTI-01/02). Full mechanism, shared helper, and verification
+grep are documented in the Structural Contract → SYS-01 section above;
+this entry is the sign-off record.
+
+### 2. Tier-dot literal hex values (SYS-02, `App.jsx:6926`) — approved
+
+Approved as documented in the Color section above: 4 literal hex values
+(`#22c55e` Forte, `#f59e0b` Moderada, `#9ca3af` Neutra, `#ef4444` Fraca),
+semantically distinct from `T.positive`/`T.negative`/`T.warn` per
+`tierOf()`'s own existing code comment establishing tier quality as a
+different axis from market-signal color. This is the one intentional
+new-color introduction in this phase; scope is fixed at exactly 4 values,
+used at exactly one call site (`6926`), never as text color, never reused
+elsewhere.
+
+### 3. `shadowFab` light-theme opacity (SYS-03) — approved as starting calibration value
+
+Approved: `rgba(15,20,28,0.22)` for `PALETTE.light.shadowFab`, as the
+starting calibration value. Per `22-CONTEXT.md`'s own instruction ("valor
+exato fica com o planner calibrar visualmente"), the planner/executor must
+still perform one live visual check in both dark and light theme (see the
+Verification note in the SYS-03 section above) before considering SYS-03
+done — the exact number may be nudged during that check, but this is
+calibration of an approved starting value, not an open design decision
+requiring another round of sign-off.
 
 ---
 
