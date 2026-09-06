@@ -243,6 +243,197 @@ for (const lib of ["lucide-react", "react-icons", "@heroicons/react", "phosphor-
   ok(`\`${lib}\` não é dependência de web/package.json`, !(lib in allDeps));
 }
 
+// --- Seção C — SYS-02, Radar + varredura final (plano 22-03) ----------------
+
+// C1. A trava definitiva de SYS-02: nenhum pictográfico do bloco de emoji
+// resta em App.jsx. Mensagem de falha IMPRIME os glifos encontrados, para o
+// próximo agente saber quais sobraram sem ter que caçar.
+{
+  const pictograficos = app.match(/[\u{1F300}-\u{1FAFF}]/gu);
+  ok(
+    `varredura Unicode pictográfica em App.jsx dá zero${pictograficos ? " (encontrados: " + JSON.stringify(pictograficos) + ")" : ""}`,
+    !pictograficos
+  );
+}
+
+// C2. `⚪` vive em U+26AA, dentro do bloco 2600-27BF onde a microcópia
+// legítima também mora — asserção própria, não varredura de faixa.
+ok("`⚪` não aparece mais em App.jsx", !app.includes("⚪"));
+
+// C3. Fora de escopo preservado (asserções POSITIVAS, repetidas aqui de
+// propósito porque a Seção C é onde uma varredura de faixa poderia ter
+// varrido demais).
+ok("glifo fora de escopo `⚡` continua presente (Seção C)", app.includes("⚡"));
+ok("glifo fora de escopo `✎` continua presente (Seção C)", app.includes("✎"));
+ok("glifo fora de escopo `↻` continua presente (Seção C)", app.includes("↻"));
+ok("glifo fora de escopo `✕` continua presente (Seção C)", app.includes("✕"));
+ok("glifo fora de escopo `✓` continua presente (Seção C)", app.includes("✓"));
+ok("glifo fora de escopo `⚠` continua presente (Seção C)", app.includes("⚠"));
+ok("`↻ Releitura após o fechamento` sobrevive (braço irmão do ternário do 📡)", app.includes("↻ Releitura após o fechamento"));
+ok("`↻ Última varredura (manual)` sobrevive (braço irmão do ternário do 📡)", app.includes("↻ Última varredura (manual)"));
+
+// C4. O rótulo textual sobreviveu (test_fase4_radar_deepmodal.mjs:25 também exige).
+ok("`Varredura automática de hoje` sobrevive", app.includes("Varredura automática de hoje"));
+
+// C5. O 📡 virou reuso, não geometria nova.
+const radarScreenBloco = isolarFuncao("RadarScreen");
+ok('recorte de RadarScreen contém `<NavIcon id="radar"`', radarScreenBloco.includes('<NavIcon id="radar"'));
+ok(
+  "mapa `paths` continua com exatamente uma entrada `radar:`",
+  (app.match(/^\s*radar:/gm) || []).length === 1
+);
+
+// C6. `function TierDot` existe e seu corpo contém <circle>, fill e aria-hidden.
+const idxTierDot = app.indexOf("function TierDot");
+ok("existe `function TierDot`", idxTierDot >= 0);
+let tierDotBloco = "";
+if (idxTierDot >= 0) {
+  const fimTierDot = app.indexOf("\n}", idxTierDot);
+  tierDotBloco = app.slice(idxTierDot, fimTierDot > idxTierDot ? fimTierDot + 2 : idxTierDot + 400);
+  ok("`TierDot` contém `<circle`", tierDotBloco.includes("<circle"));
+  ok("`TierDot` contém `fill`", tierDotBloco.includes("fill"));
+  ok("`TierDot` contém `aria-hidden`", tierDotBloco.includes("aria-hidden"));
+} else {
+  ok("`TierDot` contém `<circle`", false);
+  ok("`TierDot` contém `fill`", false);
+  ok("`TierDot` contém `aria-hidden`", false);
+}
+
+// C7. Mapa de cor de tier com os quatro literais aprovados, isolado pelo
+// recorte de `const TIER_FILL` (da declaração até o `};`). Atenção: #22c55e e
+// #ef4444 JÁ existem uma vez cada em MODE_OPERADOR (comentário de prosa,
+// verificado por grep em 2026-09-05) — por isso a asserção é sobre o RECORTE
+// isolado de TIER_FILL, não sobre o arquivo inteiro.
+const idxTierFill = app.indexOf("const TIER_FILL");
+ok("existe `const TIER_FILL`", idxTierFill >= 0);
+let tierFillBloco = "";
+if (idxTierFill >= 0) {
+  const fimTierFill = app.indexOf("};", idxTierFill);
+  tierFillBloco = app.slice(idxTierFill, fimTierFill > idxTierFill ? fimTierFill + 2 : idxTierFill + 300);
+  for (const hex of ["#22c55e", "#f59e0b", "#9ca3af", "#ef4444"]) {
+    ok(`recorte de TIER_FILL contém ${hex}`, tierFillBloco.includes(hex));
+  }
+} else {
+  for (const hex of ["#22c55e", "#f59e0b", "#9ca3af", "#ef4444"]) {
+    ok(`recorte de TIER_FILL contém ${hex}`, false);
+  }
+}
+
+// C8. Separação semântica preservada: nem TierDot nem TIER_FILL citam
+// T.positive/T.negative/T.warn — verde/vermelho seguem reservados a sinal de
+// mercado (ver o comentário de tierOf); o tier é outro eixo.
+const recorteTierCombinado = tierFillBloco + tierDotBloco;
+ok(
+  "verde/vermelho seguem reservados a sinal de mercado — ver o comentário de tierOf; o tier é outro eixo",
+  !recorteTierCombinado.includes("T.positive") && !recorteTierCombinado.includes("T.negative") && !recorteTierCombinado.includes("T.warn")
+);
+
+// C9. tierOf devolve ids de tier (minúsculas) e continua com os rótulos
+// (índice [1] intocável).
+const idxTierOf = app.indexOf("function tierOf");
+const tierOfBloco = idxTierOf >= 0 ? app.slice(idxTierOf, app.indexOf("\n}", idxTierOf) + 2) : "";
+ok('`tierOf` devolve o id `"forte"`', tierOfBloco.includes('"forte"'));
+ok('`tierOf` devolve o id `"moderada"`', tierOfBloco.includes('"moderada"'));
+ok('`tierOf` devolve o id `"neutra"`', tierOfBloco.includes('"neutra"'));
+ok('`tierOf` devolve o id `"fraca"`', tierOfBloco.includes('"fraca"'));
+ok('`tierOf` continua com o rótulo `"Forte"`', tierOfBloco.includes('"Forte"'));
+ok('`tierOf` continua com o rótulo `"Moderada"`', tierOfBloco.includes('"Moderada"'));
+ok('`tierOf` continua com o rótulo `"Neutra"`', tierOfBloco.includes('"Neutra"'));
+ok('`tierOf` continua com o rótulo `"Fraca"`', tierOfBloco.includes('"Fraca"'));
+
+// C10. Compatibilidade com test_radar_leitura_rapida.mjs — comentado aqui de
+// propósito, para o próximo agente perceber a dependência ANTES de mexer no
+// formato da tupla.
+ok(
+  "compatibilidade com test_radar_leitura_rapida.mjs: `tierLabel = tierOf(r.confluencia)` casa",
+  /tierLabel\s*=\s*tierOf\(r\.confluencia\)/.test(app)
+);
+ok(
+  "compatibilidade com test_radar_leitura_rapida.mjs: `confiança {tierLabel` casa",
+  /confiança \{tierLabel/.test(app)
+);
+
+// C11. tierOf mantém os quatro limiares literais.
+ok("`tierOf` mantém o limiar `>= 75`", tierOfBloco.includes(">= 75"));
+ok("`tierOf` mantém o limiar `>= 50`", tierOfBloco.includes(">= 50"));
+ok("`tierOf` mantém o limiar `> 0`", tierOfBloco.includes("> 0"));
+ok("`tierOf` mantém o `return` final", /return \[/.test(tierOfBloco));
+
+// C12. <TierDot tier= aparece na renderização do Radar; índice [0] não é mais
+// renderizado como texto cru (filho direto de JSX, precedido por `>`) em
+// lugar nenhum. NOTA: o regex isola o caso "texto cru" por estar precedido de
+// `>` — sem essa âncora, o padrão bateria também em `tier={tierOf(...)[0]}`,
+// que é exatamente o uso correto que este plano introduz (bug encontrado e
+// corrigido nesta mesma task, antes de qualquer commit incorreto).
+ok("`<TierDot tier=` aparece na renderização do Radar", app.includes("<TierDot tier="));
+ok(
+  "o índice [0] de `tierOf` não é mais renderizado como texto cru",
+  !/>\{tierOf\([^)]*\)\[0\]\}/.test(app)
+);
+
+// C13. Código morto removido: o destructure `[tierDot, tierLabel]` da
+// Watchlist saiu. Ambos os nomes daquela linha eram mortos (verificado por
+// grep em 2026-09-05) — `tierLabel` de RadarScreen (outro escopo) é uma
+// declaração DIFERENTE (`const tierLabel = tierOf(r.confluencia)[1];`), que
+// sobrevive à Seção C10 acima.
+ok("`tierDot` (destructure morto da Watchlist) saiu de App.jsx", !app.includes("tierDot"));
+
+// --- Seção D — SYS-03, sombra do PetFab por tema (plano 22-03) --------------
+
+const petFabBloco = isolarFuncao("PetFab");
+
+// Isolar as duas metades de PALETTE (dark/light) — do "dark: {" (ou "light: {")
+// até o fechamento correspondente da chave de primeiro nível dentro de PALETTE.
+const idxPaletteDark = app.indexOf("dark: {", app.indexOf("const PALETTE"));
+const idxPaletteLight = app.indexOf("light: {", app.indexOf("const PALETTE"));
+const paletteDarkBloco = app.slice(idxPaletteDark, app.indexOf("\n  light: {", idxPaletteDark));
+const paletteLightBloco = app.slice(idxPaletteLight, app.indexOf("\n};", idxPaletteLight));
+
+// D14. PALETTE.dark e PALETTE.light têm a chave shadowFab.
+ok("`PALETTE.dark` contém `shadowFab:`", paletteDarkBloco.includes("shadowFab:"));
+ok("`PALETTE.light` contém `shadowFab:`", paletteLightBloco.includes("shadowFab:"));
+
+// D15. O valor em dark é exatamente "rgba(0,0,0,0.45)" — o tema escuro
+// preserva a aparência de hoje.
+const mDark = paletteDarkBloco.match(/shadowFab:\s*"([^"]*)"/);
+const mLight = paletteLightBloco.match(/shadowFab:\s*"([^"]*)"/);
+ok(
+  '`shadowFab` do tema escuro é exatamente "rgba(0,0,0,0.45)" (o tema escuro não muda de aparência)',
+  !!mDark && mDark[1] === "rgba(0,0,0,0.45)"
+);
+
+// D16. O valor em light é DIFERENTE do valor em dark — requisito inteiro de
+// SYS-03 (nunca um hex fixo que só funciona num tema).
+ok(
+  "`shadowFab` do tema claro é DIFERENTE do valor do tema escuro",
+  !!mLight && !!mDark && mLight[1] !== mDark[1]
+);
+
+// D17. O corpo do PetFab contém T.shadowFab dentro de um drop-shadow(.
+ok(
+  "`PetFab` usa `T.shadowFab` dentro de um `drop-shadow(`",
+  /drop-shadow\([^)]*T\.shadowFab/.test(petFabBloco)
+);
+
+// D18. O corpo do PetFab não contém mais rgba(0,0,0,0.45) literal.
+ok(
+  "`PetFab` não contém mais `rgba(0,0,0,0.45)` inline",
+  !petFabBloco.includes("rgba(0,0,0,0.45)")
+);
+
+// D19. Não colidir com test_pet_ui.mjs (guardião de outra fase, repetido aqui
+// com comentário citando test_pet_ui.mjs:99-114).
+ok("`PetFab` mantém `<Boris size={40} />` (test_pet_ui.mjs:99-114)", petFabBloco.includes("<Boris size={40} />"));
+ok('`PetFab` mantém `width: "54px", height: "54px"` (test_pet_ui.mjs:99-114)', petFabBloco.includes('width: "54px", height: "54px"'));
+ok('`PetFab` mantém `background: "transparent"` (test_pet_ui.mjs:99-114)', petFabBloco.includes('background: "transparent"'));
+ok('`PetFab` mantém `border: "none"` (test_pet_ui.mjs:99-114)', petFabBloco.includes('border: "none"'));
+ok('`PetFab` NÃO contém `borderRadius: "50%"` (test_pet_ui.mjs:99-114)', !petFabBloco.includes('borderRadius: "50%"'));
+
+// D20. PetFab continua na posição fixa de hoje — SYS-03 é só sombra.
+ok('`PetFab` mantém `position: "fixed"`', petFabBloco.includes('position: "fixed"'));
+ok('`PetFab` mantém `right: "14px"`', petFabBloco.includes('right: "14px"'));
+ok('`PetFab` mantém `bottom: "92px"`', petFabBloco.includes('bottom: "92px"'));
+
 if (fails > 0) {
   console.error(`\n${fails} asserção(ões) falharam.`);
 }
