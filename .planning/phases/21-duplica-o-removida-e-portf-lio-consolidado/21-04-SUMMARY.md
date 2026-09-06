@@ -138,6 +138,25 @@ Login numa conta local (web em `:8787`) e percorrer os 4 critérios do ROADMAP n
 
 Nenhum valor visual foi aproximado, estimado ou declarado verificado sem medição — os quatro itens acima estão marcados "aberto" com roteiro explícito, não com adjetivo.
 
+### Fechamento do roteiro pelo orquestrador (2026-09-05)
+
+Executado via MCP do navegador contra `:8787` (build `F10-20260905-03`),
+conta local existente. Gotcha de service worker/cache PWA reincidiu
+(mesmo precedente da Fase 20) — resolvido com
+`navigator.serviceWorker.getRegistrations()`→`unregister()` +
+`caches.keys()`→`caches.delete()` antes de medir.
+
+| # | Item do roteiro | Resultado |
+|---|---|---|
+| 1 | Curva única — Acompanhar tem, Portfólio não | ✓ Confirmado (`PATRIMÔNIO SIMULADO`: presente em Acompanhar, ausente em Portfólio) |
+| 2 | Card consolidado — 1 card, grid 2 colunas, sem overflow | ✓ Confirmado (`gridTemplateColumns: "141.5px 141.5px"`, `scrollWidth===clientWidth` em 375px) |
+| 3 | Status único — sem "Modo do app:", "Trocar modo →" presente, chip do Topbar visível | ✓ Confirmado (os 3 checáveis via `innerText`/DOM) |
+| 4 | Placeholder de pouco dado — estado 0 dias | ✓ Confirmado (verificação da 21-03, "Sua curva começa amanhã" intacto). Estado de 1-2 dias: mantido como "aberto" — prova unitária real já aceita como suficiente (ver 21-03-SUMMARY.md), forjar conta nesse estado exato é desproporcional. |
+
+Os 4 critérios do ROADMAP da Fase 21 estão fechados (3 por medição visual
+direta, 1 por prova comportamental unitária + confirmação do estado
+adjacente). Nenhum `git push` foi feito em nenhum momento desta fase.
+
 ## User Setup Required
 
 None - no external service configuration required.
