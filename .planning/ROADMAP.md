@@ -433,7 +433,7 @@ podem entrar depois do gate de `prefers-reduced-motion` existir)
 - [x] 23-01-PLAN.md — MOTION-01: entrada de card (fade + translateY 200ms) na Watchlist e no Radar, sob o gate de reduced-motion da Fase 20 [wave 1]
 - [x] 23-02-PLAN.md — ILUS-01: ilustração flat nova (`web/src/pet/BorisFlat.jsx`) no modal "Este é o Boris", com guardião `test_boris_intro.mjs` atualizado [wave 1]
 - [x] 23-03-PLAN.md — MOTION-02: pulso de 120ms no valor da ordem EXECUTADA (pendente e rejeitada não pulsam), com portão `REDUCE_MOTION` em JS [wave 2]
-- [ ] 23-04-PLAN.md — bump + `publicar-web.sh`, prova de bundle novo e remedição dos 5 critérios contra produção [wave 3]
+- [x] 23-04-PLAN.md — bump + `publicar-web.sh`, prova de bundle novo e remedição dos 5 critérios contra produção [wave 3]
 **Nota de publicação**: toca `web/src/` e adiciona asset — precisa de plano
 final de bump + `publicar-web.sh`.
 **UI hint**: yes
@@ -471,7 +471,7 @@ Out of Scope / Future Requirements.
 | 20. Fundação estrutural e tipográfica | 4/4 | Complete    | 2026-09-05 |
 | 21. Duplicação removida e Portfólio consolidado | 4/4 | Complete    | 2026-09-06 |
 | 22. Componentes compartilhados (trilho, ícones, mascote) | 4/4 | Complete    | 2026-09-06 |
-| 23. Motion com propósito e ilustração unificada | 3/4 | In Progress|  |
+| 23. Motion com propósito e ilustração unificada | 4/4 | Complete   | 2026-09-06 |
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2/v1.3
 
