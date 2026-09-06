@@ -190,6 +190,16 @@ None - no external service configuration required.
   fechar, seguindo a regra já registrada em `PROJECT.md`
   ("Fase sem plano de publicação front").
 
+## Orchestrator Live Re-Verification
+
+Executada via MCP do navegador contra o dev server (merge desta branch):
+
+1. **Perfil → Modo de trabalho** — "🎓 Estudo"/"📈 Operador" agora mostram
+   SVG (chapéu de formatura, seta ascendente) no traço do `NavIcon`, zero
+   emoji no `innerText`. ✓
+2. **Watchlist (chips de ação do card)** — zero ocorrência de "✨"/"📈" no
+   `innerText`. ✓
+
 ---
 *Phase: 22-componentes-compartilhados-trilho-cones-mascote*
 *Completed: 2026-09-06*
