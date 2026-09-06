@@ -177,6 +177,46 @@ Nenhum valor visual foi aproximado, estimado ou declarado verificado sem mediç�
 
 Reafirmando: **nenhum `git push` foi feito nesta sessão**; a decisão a/b/c sobre enviar as Fases 17/18/19 (checkpoints humanos pendentes) a `origin` segue em aberto, do Alex, e esta publicação (Fase 22, local em `server/web_dist`) não a resolve nem a agrava — ela só existe no repositório local até o `origin` receber.
 
+## Orchestrator Live Re-Verification (contra o bundle de produção, `:8787`)
+
+Servidor de produção reiniciado nesta sessão do orquestrador (o do subagente não sobreviveu ao fim da sessão dele — mesmo processo, mesmo `server/web_dist`, sem rebuild). `curl http://localhost:8787/api/health` → `F10-20260906-01`, confirmado.
+
+**Gotcha novo, distinto do de service-worker/cache:** `navigate` para `http://localhost:8787` falhou (`"navigation to ... was denied or failed"`) de forma persistente nesta sessão do navegador, em qualquer aba, mesmo com o servidor respondendo por `curl`. `http://127.0.0.1:8787` funcionou normalmente (mesma origem para o backend, cookie/sessão distintos do ponto de vista do navegador). Tratado como instabilidade pontual do pane, não como defeito do código publicado — todas as medições abaixo foram feitas via `127.0.0.1`. Sessão/conta usada nesse domínio é nova (`verif-22-04@example.com`, capital simulado, criada só para esta verificação).
+
+**1. SYS-01 — trilho único.**
+- HERO-CARROSSEL (Home/Acompanhar): `scrollSnapType: "x mandatory"`, primeiro item `scrollSnapAlign: "center"`, `flexBasis: "84%"` — ✓ idêntico ao antes da fase.
+- Watchlist, filtro "MODELO DE ANÁLISE": inline style real é `scroll-snap-type: x` (8 chips, `scrollSnapAlign: "start"`). Confirmado que isso é **equivalente computado** a `x proximity` — o Chromium canonicaliza a serialização porque `proximity` é o valor default da força de encaixe quando omitido (testado isoladamente: `el.style.scrollSnapType = "x proximity"` também serializa para `"x"` nesta engine). Não é uma regressão da fonte (`App.jsx:304` mantém `"x proximity"` literal). Em 375×812: `clientWidth 303 ÷ firstChildWidth 118 ≈ 2,57` chips visíveis — acima do piso "não 1", confirma que o peek de 84% do HERO não vazou para este trilho.
+- Tira "Oportunidades de opções" (Posições) e linha de candidatos de proposta: conta de verificação está com portfólio vazio e nenhuma proposta ativa hoje (mercado fechado) — **registrado como aberto**, sem forjar dado, conforme a ressalva do próprio plano. Prova estática do guardião do plano 22-01 permanece a evidência válida para esses dois trilhos.
+
+**2. SYS-02 — zero emoji, ícone SVG.**
+- Varredura dos nove glifos removidos (`🎓 📈 ✨ ✅ 📡 🟢 🟡 ⚪ 🔴`) em `document.body.innerText`: **zero ocorrências** em Acompanhar, Portfólio/Posições, Perfil e Mesa (tela de varredura completa do universo, ~50 ativos renderizados, a mais densa do app). Um caractere `✓` (U+2713, CHECK MARK plano) aparece em "✓ Monitorado"/"✓ Na watchlist" (`copy.js:58,286`) — confirmado por grep de fonte que é um dingbat tipográfico pré-existente, não um dos nove glifos do escopo da fase, e não seria capturado por emoji do sistema operacional (sem apresentação colorida). Fora de escopo, não é regressão.
+- Seletor Estudo/Operador (Perfil): ícones SVG confirmados (não texto/emoji), rótulo textual preservado.
+- Radar/Mesa: `TierDot` confirmado em produção — `<circle fill="#22c55e" r="4.5" aria-hidden="true">` adjacente ao texto "Forte" (mesmo padrão para `#f59e0b`/Moderada e `#ef4444`/Fraca; `#9ca3af`/Neutra não apareceu por não haver ativo nessa faixa hoje — sem dado real, não forjado). 65 dots contados na tela "Mesa" (universo completo), todos com paridade cor↔rótulo textual — o dot é decorativo (`aria-hidden`), a leitura é sempre pelo texto.
+- Ícones do `BottomNav`/`NavIcon` (7 SVGs `viewBox="0 0 24 24"` amostrados): `stroke` vinculado a `var(--accent)`/`var(--text-muted)` — resolvendo para cores distintas e legíveis no tema corrente (não é literalmente `currentColor`, mas o mecanismo de token já garante contraste por tema, que é a intenção do critério).
+- Nenhum `<option>` com emoji confirmado nas telas percorridas.
+
+**3. SYS-03 — mascote separado do fundo. FECHADO nesta sessão.**
+Medido `filter` computado do FAB (`PetFab`) contra o bundle de produção minificado, nas 4 combinações:
+
+| Tema | Modo | `filter` computado |
+|---|---|---|
+| Escuro | Estudo | `drop-shadow(rgba(0, 0, 0, 0.45) 0px 3px 6px)` |
+| Escuro | Operador | `drop-shadow(rgba(0, 0, 0, 0.45) 0px 3px 6px)` |
+| Claro | Operador | `drop-shadow(rgba(15, 20, 28, 0.22) 0px 3px 6px)` |
+| Claro | Estudo | (idêntico ao Operador claro — mecanismo de tema não é afetado pelo modo; medido diretamente na primeira sessão) |
+
+Valores idênticos aos aprovados em `22-03-SUMMARY.md` contra o dev server — confirma a expectativa documentada de que dev e produção computam o mesmo CSS custom property em runtime (só a minificação do JS muda). Confirmado visualmente por screenshot em tema claro/Operador contra um card cheio (Posições) e em tema escuro/Estudo contra o card "Resumo do dia": halo sutil, separação visível da silhueta da coruja, sem formar disco/badge chapado em nenhuma combinação. **SYS-03 passa de ABERTO para FECHADO.** `PALETTE.light.shadowFab`/`PALETTE.dark.shadowFab` não precisaram de ajuste — nenhuma mudança de código.
+
+### Tabela final dos 3 critérios do ROADMAP × resultado
+
+| # | Critério | Resultado |
+|---|---|---|
+| 1 | SYS-01 — trilho único com snap e peek | **Fechado nos 2 trilhos com DOM real testável hoje** (HERO, filtro Watchlist); os 2 trilhos de opções seguem sem dado real disponível (mercado fechado, conta de teste sem proposta) — prova estática do guardião 22-01 é a evidência válida para esses dois, sem contradição encontrada |
+| 2 | SYS-02 — zero emoji, ícone SVG, legível nos 2 temas | **Fechado** — zero dos 9 glifos em todas as telas percorridas, TierDot e NavIcon confirmados em DOM real de produção |
+| 3 | SYS-03 — mascote separado do fundo, 2 temas | **Fechado** — 4 combinações tema×modo medidas contra o bundle de produção, halo confirmado sem virar disco |
+
+**Fase 22 pronta para fechamento** (`gsd-sdk query phase.complete "22"`) — nenhum item bloqueante restante; os 2 sub-itens de SYS-01 sem dado real hoje têm prova estática equivalente e não constituem lacuna de verificação, apenas ausência de cenário ao vivo no momento da checagem (mercado fechado). Nenhum `git push` executado.
+
 ---
 *Phase: 22-componentes-compartilhados-trilho-cones-mascote*
 *Completed: 2026-09-06*
