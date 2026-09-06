@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Redesenho de UI
-status: ready_to_plan
-stopped_at: Phase 21 complete (4/4) — ready to discuss Phase 22
-last_updated: 2026-09-06T01:40:45.842Z
-last_activity: 2026-09-05
+status: planning
+stopped_at: Phase 22 UI-SPEC approved
+last_updated: "2026-09-06T02:01:55.917Z"
+last_activity: 2026-09-06
 progress:
   total_phases: 6
-  completed_phases: 1
-  total_plans: 4
-  completed_plans: 31
-  percent: 17
+  completed_phases: 2
+  total_plans: 8
+  completed_plans: 8
+  percent: 33
 ---
 
 # Project State
@@ -230,9 +230,9 @@ Items acknowledged and carried forward from previous milestone close (v1.3 → v
 
 ## Session Continuity
 
-Last session: 2026-09-05T14:33:18.763Z
-Stopped at: Phase 21 UI-SPEC approved
-Resume file: .planning/phases/21-duplica-o-removida-e-portf-lio-consolidado/21-UI-SPEC.md
+Last session: 2026-09-06T02:01:55.907Z
+Stopped at: Phase 22 UI-SPEC approved
+Resume file: .planning/phases/22-componentes-compartilhados-trilho-cones-mascote/22-UI-SPEC.md
 
 ## Operator Next Steps
 
