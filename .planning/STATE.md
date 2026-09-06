@@ -253,7 +253,7 @@ Resume file: .planning/v1.5-MILESTONE-AUDIT.md (agora em .planning/milestones/v1
 
 **v1.5 (Redesenho de UI) — SHIPPED, sem próximo passo mecânico.** 4 itens de
 verificação humana pendentes, consolidados em
-`.planning/phases/20-funda-o-estrutural-e-tipogr-fica/20-HUMAN-UAT.md` — sem
+`.planning/milestones/v1.5-phases/20-funda-o-estrutural-e-tipogr-fica/20-HUMAN-UAT.md` — sem
 urgência (nenhum bloqueia produto, ver `.planning/milestones/v1.5-MILESTONE-AUDIT.md`).
 
 **v1.4 (Opções v2) — único milestone aberto, retomar quando o Alex puder:**

@@ -98,7 +98,7 @@ Débito técnico: `numHero` (34px) declarado mas sem consumidor real —
 decisão deliberada documentada em 3 fases sucessivas, não um silêncio
 acidental; candidato a backlog de polish visual futuro. 4 itens de
 verificação humana consolidados num único documento
-(`.planning/phases/20-funda-o-estrutural-e-tipogr-fica/20-HUMAN-UAT.md`,
+(`.planning/milestones/v1.5-phases/20-funda-o-estrutural-e-tipogr-fica/20-HUMAN-UAT.md`,
 nunca fragmentados por fase): comportamento real de `prefers-reduced-motion`
 (limitação de ferramenta — sem CDP `Emulation.setEmulatedMedia` neste
 ambiente), pulso de sucesso com mercado aberto, 2 dos 4 trilhos SYS-01 sem
@@ -285,7 +285,7 @@ faltavam os números).
   deliberada documentada em 3 fases sucessivas (20/21/22), não bloqueia
   nada; candidato a uma fase futura de polish visual
 - [ ] 4 itens de verificação humana do v1.5 pendentes do Alex, consolidados
-  em `.planning/phases/20-funda-o-estrutural-e-tipogr-fica/20-HUMAN-UAT.md`:
+  em `.planning/milestones/v1.5-phases/20-funda-o-estrutural-e-tipogr-fica/20-HUMAN-UAT.md`:
   comportamento real de `prefers-reduced-motion` (2 casos), pulso de
   sucesso de ordem com mercado aberto, 2 dos 4 trilhos SYS-01 sem proposta
   de opção ativa durante a verificação
