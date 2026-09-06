@@ -1010,7 +1010,7 @@ async def admin_mobile_handoff_exchange(body: dict = Body(default={})):
 
 # FASE 8B (diagnóstico): carimbo de build do BACKEND — confirma qual código o
 # Railway está rodando (o front tem o dele em web/src/version.js).
-SERVER_BUILD_ID = "F10-20260906-01"  # Fase 13 Plano 05: publica os 3 contadores + gate iOS (front republicado).
+SERVER_BUILD_ID = "F10-20260906-02"  # Fase 13 Plano 05: publica os 3 contadores + gate iOS (front republicado).
 # Normalmente sincronizado pelo entregar.sh a partir de web/src/version.js; num deploy
 # SÓ de backend (sem rebuild do front) bumpamos aqui para /api/health rastrear o servidor.
 
