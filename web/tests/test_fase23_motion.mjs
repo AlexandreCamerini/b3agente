@@ -131,7 +131,12 @@ ok(
 //    nunca apareceria.
 function verificaCommitEmEfeito(nomeTela, corpo) {
   const idxAdd = corpo.indexOf(".add(");
-  const idxReturn = corpo.indexOf("return (");
+  // "return (" seguido de quebra de linha é o retorno de JSX da tela — NÃO
+  // usar `indexOf("return (")` cru: casa também com "return () => {...}"
+  // (retorno de função de limpeza de um useEffect qualquer), que aparece
+  // MUITO antes do return de JSX de verdade e produz falso negativo.
+  const returnMatch = /return \(\s*\n/.exec(corpo);
+  const idxReturn = returnMatch ? returnMatch.index : -1;
   if (idxAdd < 0 || idxReturn < 0) return false;
   const useEffectAntes = corpo.lastIndexOf("useEffect(() => {", idxAdd);
   if (useEffectAntes < 0) return false;

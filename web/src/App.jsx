@@ -362,6 +362,8 @@ function GlobalStyle() {
       .b3 .sk{ border-radius:6px; background:linear-gradient(90deg, ${T.bgPanel} 25%, ${T.borderSubtle} 37%, ${T.bgPanel} 63%); background-size:400px 100%; animation:b3shimmer 1.2s linear infinite; }
       @keyframes b3tt{ from{ transform:translateX(0); } to{ transform:translateX(-50%); } }
       .b3 .tt-track{ animation:b3tt 52s linear infinite; }
+      @keyframes b3cardEnter{ from{ opacity:0; transform:translateY(8px); } to{ opacity:1; transform:translateY(0); } }
+      .b3 .card-enter{ animation:b3cardEnter 200ms ease-out; }
       /* Fase 20 (MOTION-03): gate abrangente de movimento reduzido do
          sistema — cobre a transição de tema/modo já existente e qualquer
          transição/animação que as Fases 22/23 adicionarem depois.
@@ -3292,7 +3294,7 @@ function OpcoesCamada({ t, cur, open, onToggle, chain, chainLoading, opContract,
 // (vm) + contexto; o núcleo (identidade, manchete única, chips de análise) é
 // idêntico em todo o sistema. Extraído do card da watchlist.
 function AtivoCard({ vm, contexto = "watchlist", children }) {
-  const { t, q, an, name, chColor, sc, pos, cur, pnl, pnlPct, rrPos, diasPos, pctCapPos, kp, fscore, decM, decColor, decBg, anVencida, os, buyMeta, operador, quotesLoading, expanded, opsOpen, opsSpark, onToggleOps, A, cp, data, didatica, overlayLivre } = vm;
+  const { t, q, an, name, chColor, sc, pos, cur, pnl, pnlPct, rrPos, diasPos, pctCapPos, kp, fscore, decM, decColor, decBg, anVencida, os, buyMeta, operador, quotesLoading, expanded, opsOpen, opsSpark, onToggleOps, A, cp, data, didatica, overlayLivre, isNovo } = vm;
   const chip = (label, value, col, explicavel) => (
     // `explicavel` põe o pontilhado no RÓTULO do chip — a indicação da camada
     // de entendimento (toque abre o conceito; o setor envolve o chip).
@@ -3435,7 +3437,10 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
 
   return (
             // id: alvo do scroll quando o usuário chega por um toque no push.
-            <div key={t} id={"ativo-" + t} style={{ ...card, padding: "14px 15px" }}>
+            // Fase 23 (MOTION-01): entrada só para ticker inédito NESTA montagem da
+            // lista — a classe some no render seguinte, e o estado final do keyframe é
+            // igual ao estilo natural, então truncar no meio nunca deixa card quebrado.
+            <div key={t} id={"ativo-" + t} className={isNovo ? "card-enter" : undefined} style={{ ...card, padding: "14px 15px" }}>
               {opOpen ? (
                 // ESPINHA: o que sustenta a checagem "opção respeita a leitura do
                 // ativo" (Princípio 5/9) continua CONFERÍVEL — números, não um selo.
@@ -3766,6 +3771,13 @@ function MercadoScreen({ ctx }) {
   const [dirFilter, setDirFilter] = useState("todos");   // todos | alta | baixa | neutro
   const [opsOpen, setOpsOpen] = useState({});            // ticker -> histórico aberto
   const [sparks, setSparks] = useState({});              // ticker -> candles (lazy)
+  // Fase 23 (MOTION-01): tickers já renderizados NESTA montagem da lista.
+  // `useRef`, não `useState`: marcar "visto" não pode disparar re-render.
+  // Não é persistido — "inédito" é relativo à sessão de visualização, e
+  // trocar de aba DESMONTA a tela ({tab === "..." && <...>}), zerando o
+  // conjunto de propósito.
+  const vistosRef = useRef(new Set());
+  const isNovo = (t) => !vistosRef.current.has(t);
   useEffect(() => { A.refreshWlScan(); }, []);           // eslint-disable-line react-hooks/exhaustive-deps
   const scanBy = {};
   ((wlScan && wlScan.results) || []).forEach((r) => { scanBy[r.ticker] = r; });
@@ -3780,6 +3792,10 @@ function MercadoScreen({ ctx }) {
       || ((scanBy[b] || {}).score_tecnico || 0) - ((scanBy[a] || {}).score_tecnico || 0)
       || a.localeCompare(b))
     .filter((t) => dirFilter === "todos" || dirOf(t) === dirFilter);
+  // O commit é EFEITO, nunca render: com React.StrictMode (main.jsx) o corpo
+  // do componente roda 2x por render em dev; mutar o Set durante o render
+  // faria a 2ª passada ler "já visto" e a animação nunca apareceria.
+  useEffect(() => { wl.forEach((t) => vistosRef.current.add(t)); });
   const emCarteira = new Set((data.positions || []).map((p) => p.t));
   const toggleOps = async (t) => {
     const next = !opsOpen[t];
@@ -3893,7 +3909,7 @@ function MercadoScreen({ ctx }) {
           const chip = (label, value, col) => (
             <span style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "999px", background: T.bgBase, color: T.textSecondary, fontWeight: 700 }}>{label} <b style={{ fontWeight: 800, color: col || T.textPrimary }}>{value}</b></span>
           );
-          return <AtivoCard key={t} vm={{ t, q, an, name, chColor, sc, pos, cur, pnl, pnlPct, rrPos, diasPos, pctCapPos, kp, fscore, decM, decColor, decBg, anVencida, os, buyMeta, operador, quotesLoading, expanded: !!expanded[t], opsOpen: !!opsOpen[t], opsSpark: sparks[t], onToggleOps: () => toggleOps(t), A, cp, data, didatica: ctx.didatica, overlayLivre: ctx.overlayLivre }} contexto="watchlist" />;
+          return <AtivoCard key={t} vm={{ t, q, an, name, chColor, sc, pos, cur, pnl, pnlPct, rrPos, diasPos, pctCapPos, kp, fscore, decM, decColor, decBg, anVencida, os, buyMeta, operador, quotesLoading, expanded: !!expanded[t], opsOpen: !!opsOpen[t], opsSpark: sparks[t], onToggleOps: () => toggleOps(t), A, cp, data, didatica: ctx.didatica, overlayLivre: ctx.overlayLivre, isNovo: isNovo(t) }} contexto="watchlist" />;
         })}
       </div>
     </div>
@@ -6684,6 +6700,14 @@ function RadarScreen({ ctx }) {
   const [busca, setBusca] = useState("");
   const [showModel, setShowModel] = useState(false);
   const [openTicker, setOpenTicker] = useState(null);
+  // Fase 23 (MOTION-01): tickers já renderizados NESTA montagem da lista.
+  // `useRef`, não `useState`: marcar "visto" não pode disparar re-render.
+  // Não é persistido — "inédito" é relativo à sessão de visualização, e
+  // trocar de aba DESMONTA a tela ({tab === "..." && <...>}), zerando o
+  // conjunto de propósito. Instância própria (não compartilhada com
+  // MercadoScreen): são listas diferentes.
+  const vistosRef = useRef(new Set());
+  const isNovo = (t) => !vistosRef.current.has(t);
   // FASE 2 (2.1): aprofundamento IA (N1) — leituras por ativo + lote top-N
   const [deep, setDeep] = useState({});         // ticker -> {loading,res,error,cache,disclaimer}
   const [deepFor, setDeepFor] = useState(null); // ticker do modal aberto
@@ -6759,6 +6783,10 @@ function RadarScreen({ ctx }) {
   // princípio 4, não inventar campo). Sem chamada de rede nova.
   const buscaNorm = busca.trim().toUpperCase();
   const resultsFiltrados = buscaNorm ? results.filter((r) => r.ticker.toUpperCase().includes(buscaNorm)) : results;
+  // O commit é EFEITO, nunca render: com React.StrictMode (main.jsx) o corpo
+  // do componente roda 2x por render em dev; mutar o Set durante o render
+  // faria a 2ª passada ler "já visto" e a animação nunca apareceria.
+  useEffect(() => { resultsFiltrados.forEach((r) => vistosRef.current.add(r.ticker)); });
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", marginBottom: "6px" }}>
@@ -6908,7 +6936,7 @@ function RadarScreen({ ctx }) {
           // card campos que o Radar decidiu não mostrar. setupHistorico/
           // setupElegivel entram porque o HistoricoPill (chip abaixo) precisa
           // deles no mesmo formato que a Watchlist já consome via `sc`.
-          const radarVm = { t: r.ticker, name: nameR, q: qR, chColor, sc: { spark: r.spark, confluencia: r.confluencia, melhorSetup: r.melhorSetup, setupHistorico: r.setupHistorico, setupElegivel: r.setupElegivel }, pos: posR, cur: precoR, pnl: pnlR, pnlPct: pnlPctR, kp: {}, fscore: r.fundamento && r.fundamento.score, decM: decMr, decColor: decColorR, decBg: decBgR, quotesLoading: false, operador, A: ctx.A, cp, data: ctx.data, didatica: ctx.didatica, overlayLivre: ctx.overlayLivre };
+          const radarVm = { t: r.ticker, name: nameR, q: qR, chColor, sc: { spark: r.spark, confluencia: r.confluencia, melhorSetup: r.melhorSetup, setupHistorico: r.setupHistorico, setupElegivel: r.setupElegivel }, pos: posR, cur: precoR, pnl: pnlR, pnlPct: pnlPctR, kp: {}, fscore: r.fundamento && r.fundamento.score, decM: decMr, decColor: decColorR, decBg: decBgR, quotesLoading: false, operador, A: ctx.A, cp, data: ctx.data, didatica: ctx.didatica, overlayLivre: ctx.overlayLivre, isNovo: isNovo(r.ticker) };
           return (
             <AtivoCard key={r.ticker} vm={radarVm} contexto="radar">
               <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", marginTop: "11px" }}>
