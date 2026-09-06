@@ -1726,14 +1726,20 @@ function CapitalCurve({ ctx }) {
   // já mesclado com o override do Modo Operador.
   const P = usePalette();
   const gid = useMemo(() => "capArea" + Math.random().toString(36).slice(2, 8), []);
-  const { data, quotes } = ctx;
+  const { data, quotes, cp } = ctx;
   const m = portfolioMetrics(data.positions, quotes, data.cash, data.caixaReservado || 0, data.optionPositions);
   const patr = m.patr;
   const budget = (data.config && data.config.initialBudget) || 0;
   const todayYmd = new Date().toISOString().slice(0, 10);
   const ec = equityCurve(data.equitySnapshots, budget, patr, todayYmd);
   const retVsInicio = budget > 0 ? ((patr - budget) / budget) * 100 : ec.retAcum;
-  const hasSeries = ec.days >= 1;          // mostra a curva a partir do 1º dia (baseline = orçamento)
+  // Fase 21 (FIX-03): com menos de 3 snapshots a escala do eixo Y é
+  // degenerada (min/max saem de 1-2 valores) e o desenho vira um segmento
+  // reto, não uma curva — subir o limiar de 1 para 3 evita apresentar essa
+  // reta como leitura de desempenho. `poucosDias` cobre o intermediário
+  // (1-2 dias): já há dado, mas ainda não forma de verdade pra plotar.
+  const hasSeries = ec.days >= 3;           // mostra a curva a partir do 3º dia
+  const poucosDias = ec.days >= 1 && ec.days < 3;
   const retAcum = ec.retAcum;               // base = orçamento inicial → bate com "vs início"
   const dd = ec.drawdown;                   // drawdown sobre a MESMA curva exibida
   const series = ec.curve;                  // curva exibida (orçamento → ... → ao vivo)
@@ -1847,6 +1853,10 @@ function CapitalCurve({ ctx }) {
             </div>
           )}
         </>
+      ) : poucosDias ? (
+        <div style={{ fontSize: "11.5px", color: T.textFaint, marginTop: "10px", lineHeight: 1.5 }}>
+          {cp.curvaPoucosDias(ec.days)}
+        </div>
       ) : (
         <div style={{ fontSize: "11.5px", color: T.textFaint, marginTop: "10px", lineHeight: 1.5 }}>
           Sua curva começa amanhã. Volte para vê-la crescer — cada dia que você abrir o app vira um ponto aqui.
