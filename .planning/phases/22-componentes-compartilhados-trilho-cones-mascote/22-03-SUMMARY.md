@@ -166,6 +166,21 @@ None - no external service configuration required.
 - Nenhum `git push` para `origin` foi executado nesta sessão (execução em worktree isolado); publicação do front fica para quando a Fase 22 inteira fechar, seguindo a regra já registrada em `PROJECT.md` ("Fase sem plano de publicação front").
 - Suíte canônica (`bash scripts/executar.sh --testes`) verde nas duas suítes ao final da Task 3: pytest `2021 passed, 1 skipped`; todos os `web/tests/*.mjs` OK.
 
+## Orchestrator Live Re-Verification
+
+Executada via MCP do navegador contra o dev server (merge desta branch),
+nos dois temas:
+
+1. **PetFab, tema escuro** — `filter` computado:
+   `drop-shadow(rgba(0,0,0,0.45) 0px 3px 6px)`. Visualmente, halo sutil
+   separando a coruja do card atrás, sem virar "disco". ✓
+2. **PetFab, tema claro** — `filter` computado:
+   `drop-shadow(rgba(15,20,28,0.22) 0px 3px 6px)` — valor DIFERENTE do
+   escuro, confirmando que varia por tema via `var(--shadow-fab)`.
+   Visualmente, sombra leve e legível contra o fundo claro. ✓ **SYS-03
+   fechado** (valor de partida aprovado sem necessidade de ajuste).
+3. **Radar** — zero ocorrência de "📡" no `innerText`. ✓
+
 ---
 *Phase: 22-componentes-compartilhados-trilho-cones-mascote*
 *Completed: 2026-09-06*
