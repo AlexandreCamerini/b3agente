@@ -801,13 +801,16 @@ _SETUPS = [
     },
     {
         "id": "setup-ifr2",
-        "termos": ("IFR2", "ifr2", "rsi2", "rsi(2)", "larry connors"),
+        "termos": ("IFR2", "ifr2", "rsi2", "rsi(2)", "larry connors", "reversão à média"),
         "texto": {
             "educacional": (
-                "IFR2 (Larry Connors) estuda um repique de sobrevenda de curtíssimo "
-                "prazo: RSI de 2 períodos em 25 ou menos (extremo em 10 ou menos reforça), "
-                "com o preço acima da SMA200 como filtro — só estuda a favor da tendência "
-                "de longo prazo, nunca contra ela. É um setup de FECHAMENTO, não de "
+                "O princípio geral por trás deste setup é a reversão à média: depois de "
+                "um movimento extremo de curtíssimo prazo, o preço tende a voltar em "
+                "direção à sua média — é tendência estatística, nunca certeza. "
+                "IFR2 (Larry Connors) mede esse exagero pelo RSI de 2 períodos em 25 ou "
+                "menos (extremo em 10 ou menos reforça), "
+                "com o preço acima da SMA200 como filtro — a média de longo prazo mantém "
+                "a leitura a favor da tendência, nunca contra ela. É um setup de FECHAMENTO, não de "
                 "rompimento: a condição já vale no próprio fechamento, sem esperar romper "
                 "nível nenhum. A saída didática é a máxima dos dois candles anteriores; "
                 "como o método original não usa stop, a invalidação aqui é uma referência "
