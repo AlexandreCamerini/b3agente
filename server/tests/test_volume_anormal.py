@@ -177,6 +177,29 @@ def test_sanitize_nao_inventa_volume():
     assert ind.compute(cs)["summary"]["volRatio20"] is None
 
 
+def test_verbete_kb_volume_anormal_responde_baleia_sem_llm():
+    """A pergunta que originou o indicador cai na KB (0 custo, sem LLM) e
+    recebe a LIMITAÇÃO do dado, não uma narrativa de causa."""
+    from app import kb
+    v = kb.verbete("ind-volume-anormal")
+    assert v is not None and v["familia"] == "indicadores"
+    for pergunta in ("o que é volume anormal?", "o que são carteiras baleias?",
+                     "como o app detecta baleia no papel"):
+        r = kb.resolver(pergunta)
+        assert r is not None and r["id"] == "ind-volume-anormal", pergunta
+        assert r["fonte"] == "kb"
+    for modo in ("educacional", "operador"):
+        txt = v["texto"][modo]
+        assert "não" in txt.lower() or "nunca" in txt.lower()
+        assert "quem" in txt.lower(), "tem que dizer que o dado não identifica QUEM"
+        # cortes interpolados das constantes, não hardcoded
+        assert "2×" in txt and "1,5×" in txt and "0,5×" in txt
+        assert str(ind.VOL_MIN_CANDLES) in txt
+    assert set(v["veja"]) <= {x["id"] for x in kb.catalogo()}
+    assert "ind-volume-anormal" in kb.verbete("ind-volume-relativo")["veja"]
+    assert "ind-volume-anormal" in kb.verbete("familia-volume")["veja"]
+
+
 if __name__ == "__main__":
     import sys
     fails = 0
