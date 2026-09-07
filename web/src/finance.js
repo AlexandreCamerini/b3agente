@@ -155,6 +155,53 @@ export function concentracaoMaxima(positions, quotes, patr) {
   return { t: melhor.t, valor: melhor.valor, pct: (melhor.valor / p) * 100 };
 }
 
+// Quick 260906-vf9 (C-06, REPORT-01), escopo REDUZIDO: uma frase em
+// português simples por operação EXECUTADA já existente no Histórico — não
+// cria tela/aba/endpoint novo. Função PURA: não inventa dado que não esteja
+// em `h` (CLAUDE.md princípios 4/5) — campo essencial ausente/inválido
+// devolve `null`, nunca fabrica um "—" dentro de uma frase em prosa.
+//
+// `finance.js` não tem formatador de moeda (nf2/price em App.jsx são
+// módulo-locais, não exportados de propósito — importar de App.jsx criaria
+// ciclo de import). Duplicação deliberada: função pura não pode depender da
+// camada de UI.
+const nf2 = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+export function resumoOperacao(h) {
+  if (!h || typeof h !== "object") return null;
+  // Entrada REJEITADA já tem sua própria linha ("Rejeitada: ...") no
+  // Histórico — nunca duplicar. Condição SEMPRE === "rejeitada" (nunca
+  // !== "executada"), mesma regra de App.jsx (FIX-C02): entrada LEGADA sem
+  // `status` conta como executada, histórico não se reescreve.
+  if (h.status === "rejeitada") return null;
+  if (h.type !== "COMPRA" && h.type !== "VENDA") return null;
+  if (h.qty == null) return null;
+  const precoNum = Number(h.price);
+  if (h.price == null || !isFinite(precoNum)) return null;
+  const precoTxt = nf2.format(precoNum);
+
+  if (h.type === "COMPRA") {
+    return `Comprou ${h.qty} ${h.t} a R$ ${precoTxt}.`;
+  }
+
+  // VENDA — sufixo de motivo (nada para "manual"/undefined/valor desconhecido).
+  let sufixoMotivo = "";
+  if (h.motivo === "stop") sufixoMotivo = " no stop";
+  else if (h.motivo === "alvo") sufixoMotivo = " no alvo";
+  else if (h.motivo === "vencimento") sufixoMotivo = " no vencimento";
+  const base = `Vendeu ${h.qty} ${h.t} a R$ ${precoTxt}${sufixoMotivo}`;
+
+  const pnlNum = Number(h.pnl);
+  // pnl nulo/inválido é defensivo (o motor não deveria produzir) — sem
+  // resultado, sem inventar sinal de lucro/prejuízo.
+  if (h.pnl == null || !isFinite(pnlNum)) return `${base}.`;
+
+  const pnlTxt = nf2.format(Math.abs(pnlNum));
+  return pnlNum >= 0
+    ? `${base}, com lucro de R$ ${pnlTxt}.`
+    : `${base}, com prejuízo de R$ ${pnlTxt}.`;
+}
+
 // Retorno do dia em %: variação do patrimônio no dia sobre a base de ontem
 // (patr − ganho_do_dia). Seguro contra base <= 0.
 export function dayReturnPct(patr, dayVal) {

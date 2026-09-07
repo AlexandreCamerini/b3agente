@@ -12,7 +12,7 @@ import { BUILD_ID } from "./version.js";
 // carimbo no console: prova de qual build está rodando (device/web)
 try { console.log("[b3] build", BUILD_ID); } catch { /* noop */ }
 import { canAddTicker, canAnalyze } from "./plan.js";
-import { portfolioMetrics, dayReturnPct, equityCurve, markPrice, sizingPlano, RR_MIN_TXT, historicoEstado, historicoDesatualizado, benchmarkSerie, concentracaoMaxima, qtyLivre } from "./finance.js";
+import { portfolioMetrics, dayReturnPct, equityCurve, markPrice, sizingPlano, RR_MIN_TXT, historicoEstado, historicoDesatualizado, benchmarkSerie, concentracaoMaxima, qtyLivre, resumoOperacao } from "./finance.js";
 import * as notify from "./notify.js";
 import { track, setAnalyticsUser, flush as flushAnalytics } from "./analytics.js"; // qa/47 (Fase 2)
 import Boris from "./pet/Boris.jsx";
@@ -4787,6 +4787,10 @@ function HistoricoScreen({ ctx }) {
             // como executada — histórico não se reescreve. A condição é
             // SEMPRE === "rejeitada", nunca !== "executada" (T-04-02/paridade).
             const rejeitada = h.status === "rejeitada";
+            // Quick 260906-vf9 (C-06, REPORT-01), escopo reduzido: uma frase
+            // determinística em português simples por operação EXECUTADA —
+            // calculada uma vez por linha, não duas.
+            const resumo = !rejeitada ? resumoOperacao(h) : null;
             return (
               <div key={i}>
                 <div style={{ display: "flex", gap: "10px", alignItems: "center", padding: "12px 15px", borderBottom: `1px solid ${T.borderFaint}`, fontFamily: MONO, fontSize: "13px" }}>
@@ -4806,6 +4810,17 @@ function HistoricoScreen({ ctx }) {
                 {rejeitada && h.motivo && (
                   <div style={{ padding: "0 15px 9px", fontSize: "11px", color: T.warn, lineHeight: 1.4 }}>
                     Rejeitada: {h.motivo}
+                  </div>
+                )}
+                {/* Quick 260906-vf9 (C-06, REPORT-01), escopo reduzido: uma
+                    frase determinística em português simples por operação
+                    EXECUTADA — traduz o log técnico de colunas (qty/price/
+                    pnl) já mostradas acima. T.textMuted (frase pedagógica),
+                    NÃO T.warn (isto não é aviso). Mutuamente exclusivo com o
+                    bloco de rejeitada acima. */}
+                {!rejeitada && resumo && (
+                  <div style={{ padding: "0 15px 9px", fontSize: "11px", color: T.textMuted, lineHeight: 1.4 }}>
+                    {resumo}
                   </div>
                 )}
               </div>
