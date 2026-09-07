@@ -1,11 +1,35 @@
 {
   "version": 1,
   "skills": {
+    "bencium-innovative-ux-designer": {
+      "source": "bencium/bencium-marketplace",
+      "sourceType": "github",
+      "skillPath": "bencium-innovative-ux-designer/skills/bencium-innovative-ux-designer/SKILL.md",
+      "computedHash": "e39e56d3960a6caefb28d66e47ad9eb83bd5927ba6e97423a4af150e0f0b82c2"
+    },
+    "design-audit": {
+      "source": "bencium/bencium-marketplace",
+      "sourceType": "github",
+      "skillPath": "design-audit/skills/design-audit/SKILL.md",
+      "computedHash": "18044a5dfff442f951c5fcead39da4ebd84096cca39e3cb848e677d84938faef"
+    },
+    "eu-ai-act-reviewer": {
+      "source": "bencium/bencium-marketplace",
+      "sourceType": "github",
+      "skillPath": "eu-ai-act-reviewer/skills/eu-ai-act-reviewer/SKILL.md",
+      "computedHash": "03bd305d3e8b70525de1734f819f8af7c0b305c210f2ff8bdf5bfd2ba8bee815"
+    },
     "swiftui-pro": {
       "source": "twostraws/swiftui-agent-skill",
       "sourceType": "github",
       "skillPath": "swiftui-pro/SKILL.md",
       "computedHash": "07033426e384295a4b49cf0b2ffdefd4098cae4af53fef16bc1f2d9281118c41"
+    },
+    "ui-typography": {
+      "source": "bencium/bencium-marketplace",
+      "sourceType": "github",
+      "skillPath": "typography/skills/typography/SKILL.md",
+      "computedHash": "1e2ca6a20a9180dedd9ae9039e743bf2609fb4ad0608ee5cafe739fcef04e7ec"
     }
   }
 }
