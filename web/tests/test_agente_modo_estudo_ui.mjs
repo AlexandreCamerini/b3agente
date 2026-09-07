@@ -48,6 +48,14 @@ ok("existe texto explicando por que \"Executar\" está indisponível fora do Ope
    /Disponível no Modo Operador — em Modo Estudo o agente só orienta/.test(screen));
 ok("o texto explicativo só aparece condicionalmente (!operador), não sempre",
    /\{!operador && \(/.test(screen));
+// FIX-C18 (2026-09-06): leitor de tela que navega por botões pulava direto
+// pro <button disabled>, sem ouvir o parágrafo de explicação logo abaixo —
+// faltava o vínculo semântico aria-describedby -> id. Estas duas asserções
+// travam o vínculo nos dois lados (o id no <p>, o ternário no <button>).
+ok("o parágrafo de explicação carrega id=\"executar-gate-hint\" (alvo do aria-describedby)",
+   /id="executar-gate-hint"/.test(screen));
+ok("o botão \"Executar\" aponta aria-describedby para o hint só quando desabilitado (ternário, não atributo solto)",
+   /aria-describedby=\{desabilitado \? "executar-gate-hint" : undefined\}/.test(screen));
 
 // --------------------------------------------------- estado defensivo (UI)
 ok("o modo exibido (header · badge) cai para \"sinalizar\" fora do Operador, mesmo com mode=\"executar\" salvo",
