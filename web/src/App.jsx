@@ -12,7 +12,7 @@ import { BUILD_ID } from "./version.js";
 // carimbo no console: prova de qual build está rodando (device/web)
 try { console.log("[b3] build", BUILD_ID); } catch { /* noop */ }
 import { canAddTicker, canAnalyze } from "./plan.js";
-import { portfolioMetrics, dayReturnPct, equityCurve, markPrice, sizingPlano, RR_MIN_TXT, historicoEstado, historicoDesatualizado, benchmarkSerie, concentracaoMaxima, qtyLivre } from "./finance.js";
+import { portfolioMetrics, dayReturnPct, equityCurve, markPrice, sizingPlano, RR_MIN_TXT, historicoEstado, historicoDesatualizado, benchmarkSerie, concentracaoMaxima, qtyLivre, resumoOperacao } from "./finance.js";
 import * as notify from "./notify.js";
 import { track, setAnalyticsUser, flush as flushAnalytics } from "./analytics.js"; // qa/47 (Fase 2)
 import Boris from "./pet/Boris.jsx";
@@ -282,6 +282,12 @@ const pct = (n) => (n == null || isNaN(n) ? "—" : (n >= 0 ? "+" : "−") + Mat
 // ativo, a Carteira avisa (aviso educacional, não bloqueio — CONTEXT.md).
 // Constante nomeada e única, não número mágico inline.
 const LIMIAR_CONCENTRACAO = 50;
+
+// Quick 260906-vf9 (C-09, REPORT-01): acima deste percentual de drawdown
+// (desde o pico), o card de Patrimônio Simulado avisa — aviso educacional,
+// não bloqueio, mesma disciplina de LIMIAR_CONCENTRACAO acima. Limiar
+// decidido pelo orquestrador (15%), não reaberto aqui.
+const LIMIAR_DRAWDOWN_ALERTA = 15;
 
 // Estimativa educacional de stop/alvo a partir do PERFIL + preço atual.
 // Usada como fallback quando a IA (servidor) não devolve `proposal` — assim a
@@ -1906,6 +1912,23 @@ function CapitalCurve({ ctx }) {
               Comparação com o Ibovespa indisponível agora.
             </div>
           )}
+          {/* Quick 260906-vf9 (C-09, REPORT-01): drawdown acima do limiar
+              avisa no próprio card de patrimônio, com sugestão de ação —
+              aviso educacional, não bloqueio. Mesma gramática visual do card
+              de concentração alta (CarteiraScreen), com kicker DRAWDOWN ALTO
+              (rótulo próprio, distinto do de concentração — não pode repetir
+              a mesma string, guardião conta 1 ocorrência cada). Ícone em
+              P.warn (usePalette, hex resolvido) por causa de
+              test_chart_colors_theme_aware.mjs; estilos CSS em T.warn. */}
+          {dd > LIMIAR_DRAWDOWN_ALERTA && (
+            <div style={{ padding: "13px 14px", borderRadius: "11px", background: "color-mix(in srgb, " + T.warn + " 12%, transparent)", border: `1px solid ${T.warn}`, marginTop: "12px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "7px", marginBottom: "8px" }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden><circle cx="12" cy="12" r="9.5" fill="none" stroke={P.warn} strokeWidth="1.8" /><path d="M12 11v5M12 7.5h.01" stroke={P.warn} strokeWidth="2" strokeLinecap="round" /></svg>
+                <span style={{ fontSize: "11px", fontWeight: 800, color: T.warn, letterSpacing: "0.05em" }}>DRAWDOWN ALTO</span>
+              </div>
+              <div style={{ fontSize: "12.5px", color: T.textPrimary, lineHeight: 1.5 }}>{cp.drawdownAlertaCorpo(Math.round(dd))}</div>
+            </div>
+          )}
         </>
       ) : poucosDias ? (
         <div style={{ fontSize: "11.5px", color: T.textFaint, marginTop: "10px", lineHeight: 1.5 }}>
@@ -2221,8 +2244,8 @@ function ModoTrabalhoCard({ ctx }) {
       )}
       <div style={{ fontSize: "11.5px", color: T.textMuted, marginTop: "9px", lineHeight: 1.5 }}>
         {mode === "operador"
-          ? <>Decisões diretas (comprar/vender/aguardar/não operar) com plano de entrada, stop, alvo e risco. Termo aceito em {(c.operadorTermo || {}).aceitoEm ? String(c.operadorTermo.aceitoEm).slice(0, 10) : "—"} (v{(c.operadorTermo || {}).versao || "?"}).</>
-          : <>Carteira simulada e leitura didática — o padrão para aprender. O Modo Operador libera decisões diretas com plano e gestão de risco.</>}
+          ? <>Decisões diretas (comprar/vender/aguardar/não operar) com plano de entrada, stop, alvo e risco. Termo aceito em {(c.operadorTermo || {}).aceitoEm ? String(c.operadorTermo.aceitoEm).slice(0, 10) : "—"} (v{(c.operadorTermo || {}).versao || "?"}). Inclui a aba Operador IA — o agente que pode vender sozinho conforme as regras que você configurar.</>
+          : <>Carteira simulada e leitura didática — o padrão para aprender. O Modo Operador libera decisões diretas com plano e gestão de risco. Inclui a aba Operador IA — o agente que pode vender sozinho conforme as regras que você configurar.</>}
       </div>
       {termoOpen && <TermoOperadorModal ctx={ctx} onClose={() => setTermoOpen(false)} />}
     </div>
@@ -4764,6 +4787,10 @@ function HistoricoScreen({ ctx }) {
             // como executada — histórico não se reescreve. A condição é
             // SEMPRE === "rejeitada", nunca !== "executada" (T-04-02/paridade).
             const rejeitada = h.status === "rejeitada";
+            // Quick 260906-vf9 (C-06, REPORT-01), escopo reduzido: uma frase
+            // determinística em português simples por operação EXECUTADA —
+            // calculada uma vez por linha, não duas.
+            const resumo = !rejeitada ? resumoOperacao(h) : null;
             return (
               <div key={i}>
                 <div style={{ display: "flex", gap: "10px", alignItems: "center", padding: "12px 15px", borderBottom: `1px solid ${T.borderFaint}`, fontFamily: MONO, fontSize: "13px" }}>
@@ -4783,6 +4810,17 @@ function HistoricoScreen({ ctx }) {
                 {rejeitada && h.motivo && (
                   <div style={{ padding: "0 15px 9px", fontSize: "11px", color: T.warn, lineHeight: 1.4 }}>
                     Rejeitada: {h.motivo}
+                  </div>
+                )}
+                {/* Quick 260906-vf9 (C-06, REPORT-01), escopo reduzido: uma
+                    frase determinística em português simples por operação
+                    EXECUTADA — traduz o log técnico de colunas (qty/price/
+                    pnl) já mostradas acima. T.textMuted (frase pedagógica),
+                    NÃO T.warn (isto não é aviso). Mutuamente exclusivo com o
+                    bloco de rejeitada acima. */}
+                {!rejeitada && resumo && (
+                  <div style={{ padding: "0 15px 9px", fontSize: "11px", color: T.textMuted, lineHeight: 1.4 }}>
+                    {resumo}
                   </div>
                 )}
               </div>

@@ -162,6 +162,15 @@ export const COPY = {
       `${ticker} sozinho responde por ${pct}% do seu patrimônio simulado. Diversificação reduz o quanto um único evento negativo pode derrubar a carteira inteira — vale estudar o conceito antes de aumentar ainda mais essa posição.`,
     concentracaoLink: "saiba mais",
 
+    // Quick 260906-vf9 (C-09, REPORT-01): aviso de drawdown alto no card de
+    // patrimônio (CapitalCurve), acima de LIMIAR_DRAWDOWN_ALERTA=15% em
+    // App.jsx. Aviso educacional, não bloqueio — mesma disciplina do trio
+    // concentracao* acima. Rótulo idêntico nos dois modos; só o corpo forka.
+    // Corpo do modo Estudo sem vocabulário de ordem (test_copy_theme.mjs).
+    drawdownAlertaTitulo: "Drawdown alto",
+    drawdownAlertaCorpo: (pct) =>
+      `Sua carteira já caiu ${pct}% desde o pico. Quedas grandes pedem mais cautela: considere reduzir o tamanho das próximas posições até recuperar confiança no plano.`,
+
     // Fase 14 (Plano 06, 14-UI-SPEC.md "Copywriting Contract"): rótulos de
     // controle e confirmação das operações lastreadas (venda coberta / put de
     // proteção). A MANCHETE e a frase didática nunca vêm daqui — vêm prontas
@@ -375,6 +384,13 @@ export const COPY = {
     concentracaoCorpo: (ticker, pct) =>
       `${ticker} concentra ${pct}% da carteira. Acima disso, um único stop ruim carrega peso desproporcional no resultado — considere o tamanho antes do próximo aporte no papel.`,
     concentracaoLink: "saiba mais",
+
+    // Quick 260906-vf9 (C-09, REPORT-01): mesmo aviso do ramo estudo, tom de
+    // mesa — limiar LIMIAR_DRAWDOWN_ALERTA=15% em App.jsx. Chave espelhada
+    // (rótulo idêntico, ver ramo estudo).
+    drawdownAlertaTitulo: "Drawdown alto",
+    drawdownAlertaCorpo: (pct) =>
+      `Drawdown de ${pct}% desde o pico. Perda dessa magnitude pede revisão de tamanho antes da próxima entrada — não force recuperação com posição maior.`,
 
     // Fase 14 (Plano 06): mesma chave do ramo estudo (ver comentário acima).
     // Registro de mesa (imperativo) — texto VERBATIM do UI-SPEC.

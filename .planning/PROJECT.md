@@ -288,6 +288,21 @@ faltavam os números).
   2 pontos de `appMode || "estudo"` cru citados no achado original sumiram
   no refactor FIX-C21, antes desta sessão — nenhuma mudança de código foi
   necessária
+- ✓ 3 achados de PRODUTO do REPORT-01 fechados (quick task 260906-vf9,
+  2026-09-06): C-07 — `ModoTrabalhoCard` nomeia explicitamente a aba
+  "Operador IA" nos dois ramos do ternário (Estudo/Operador), dizendo que o
+  agente pode vender sozinho conforme as regras configuradas — antes o link
+  causal entre ligar o Modo Operador e habilitar essa automação não existia
+  na tela; C-09 — card de aviso não-bloqueante em `CapitalCurve` quando
+  `drawdown > LIMIAR_DRAWDOWN_ALERTA` (limiar de **15%** decidido pelo
+  orquestrador), texto vindo de `cp.drawdownAlertaTitulo`/
+  `drawdownAlertaCorpo` nos dois modos, mesma gramática visual do card de
+  concentração (T.warn nos estilos CSS, P.warn no ícone SVG); C-06 — escopo
+  **reduzido** por decisão do orquestrador: `resumoOperacao(h)` (função pura
+  nova em `web/src/finance.js`) gera uma frase em português simples por
+  operação EXECUTADA já dentro do `HistoricoScreen` existente (não criou
+  tela/aba/endpoint novo) — rejeitadas continuam só com "Rejeitada: ...".
+  3 guardiões novos, nenhum guardião pré-existente quebrado
 
 ### Active
 
@@ -298,9 +313,17 @@ faltavam os números).
 - [ ] 2 human-check da Fase 3 nunca confirmados ao vivo (card de status 3
   badges reativo; mensagem de "sem permissão" no kill-switch pra conta sem
   `execucao_automatica.controlar`) — ver `03-VERIFICATION.md`
-- [ ] Backlog (não mapeado a fase ainda): os 6 achados Baixo restantes do
-  REPORT-01 (C-06, C-07, C-09, C-10, C-17, C-29) — C-08 e C-18 corrigidos e
-  C-28 reverificado na quick task 260906-ugb (2026-09-06)
+- [ ] Backlog (não mapeado a fase ainda): 3 achados Baixo do REPORT-01 sem
+  correção (C-10, C-17, C-29) — C-08/C-18 corrigidos e C-28 reverificado na
+  quick task 260906-ugb (2026-09-06); C-06/C-07/C-09 (achados de produto,
+  não Baixo) corrigidos na quick task 260906-vf9 (2026-09-06)
+- [ ] CLAUDE.md exige "drawdown" como conceito didático obrigatório (lista
+  de conceitos da camada educacional), mas não existe nenhum verbete para
+  ele em `conceitos.py`/`kb.py` — só "diversificação" tem link "saiba mais"
+  funcional hoje (achado colateral da quick task 260906-vf9, ao implementar
+  o card de aviso de C-09 sem link de verbete por decisão de escopo). Não
+  corrigido nesta task — o mecanismo de `conceitos.py` é maior que o de
+  `kb.py`/`_SETUPS`, fora de escopo
 - [ ] `numHero` (34px, token da escala tipográfica do v1.5/TYPO-02) sem
   nenhum consumidor real — o número mais "hero" do app (patrimônio simulado
   em `CapitalCurve`, `App.jsx:1865`) segue hardcoded em 27px. Decisão
