@@ -63,6 +63,33 @@
         "R=\"$(dirname \"$(git rev-parse --git-common-dir)\")\"; B3_DIDATICA_OFF=1 exec \"$R/server/.venv/bin/python\" -m uvicorn app.main:app --host 0.0.0.0 --port 8787 --app-dir \"$R/server\""
       ],
       "port": 8787
+    },
+    {
+      "name": "api-mercado-aberto",
+      "runtimeExecutable": "/bin/sh",
+      "runtimeArgs": [
+        "-c",
+        "PY=server/.venv/bin/python; [ -x \"$PY\" ] || PY=\"$(dirname \"$(git rev-parse --git-common-dir)\")/server/.venv/bin/python\"; B3_DEV_MERCADO_ABERTO=1 exec \"$PY\" -m uvicorn app.main:app --host 0.0.0.0 --port 8787 --app-dir server"
+      ],
+      "port": 8787
+    },
+    {
+      "name": "api-qa-opcoes",
+      "runtimeExecutable": "/bin/sh",
+      "runtimeArgs": [
+        "-c",
+        "PY=server/.venv/bin/python; [ -x \"$PY\" ] || PY=\"$(dirname \"$(git rev-parse --git-common-dir)\")/server/.venv/bin/python\"; B3_DEV_MERCADO_ABERTO=1 B3_OPTIONS_PROVIDER=mock exec \"$PY\" -m uvicorn app.main:app --host 0.0.0.0 --port 8787 --app-dir server"
+      ],
+      "port": 8787
+    },
+    {
+      "name": "api-admin-bootstrap",
+      "runtimeExecutable": "/bin/sh",
+      "runtimeArgs": [
+        "-c",
+        "PY=server/.venv/bin/python; [ -x \"$PY\" ] || PY=\"$(dirname \"$(git rev-parse --git-common-dir)\")/server/.venv/bin/python\"; B3_ADMIN_EMAILS=dev-admin@local.test exec \"$PY\" -m uvicorn app.main:app --host 0.0.0.0 --port 8787 --app-dir server"
+      ],
+      "port": 8787
     }
   ]
 }

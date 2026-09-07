@@ -121,6 +121,16 @@ def after_market_ligado() -> bool:
     return (os.environ.get("B3_AFTER_MARKET") or "").strip() in ("1", "true", "TRUE", "yes")
 
 
+def dev_mercado_aberto_forcado() -> bool:
+    """`B3_DEV_MERCADO_ABERTO=1` — só para dev local (nunca setado no Railway/
+    produção): força `in_market_hours()` a `True` pra exercitar em horário
+    qualquer os fluxos que só rodam com o pregão aberto (checkpoints
+    humanos, QA visual). Não toca cotação/candle/opções — essas continuam
+    vindo da fonte real (brapi/Yahoo/mydata) e podem estar atrasadas ou
+    indisponíveis de verdade fora do horário real, mesmo com isto ligado."""
+    return (os.environ.get("B3_DEV_MERCADO_ABERTO") or "").strip() in ("1", "true", "TRUE", "yes")
+
+
 def in_market_hours(now: datetime = None) -> bool:
     """A bolsa está negociando AGORA? Fonte única — `agent.in_market_hours`
     delega para cá, e com ele intraday/timing/timing_watch inteiros.
@@ -128,6 +138,8 @@ def in_market_hours(now: datetime = None) -> bool:
     Fora: pré-abertura (09:45–10:00), call de fechamento (16:55–17:00), a zona
     morta até 17:30 e o after-market (salvo `B3_AFTER_MARKET=1`).
     """
+    if dev_mercado_aberto_forcado():
+        return True
     agora = now or datetime.now(BRT)
     if not is_trading_day(agora.date()):
         return False

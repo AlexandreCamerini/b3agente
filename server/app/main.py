@@ -1145,6 +1145,7 @@ async def market_status():
         "fechamento": "%02d:%02d" % pregao.FECHAMENTO,
         "agoraBRT": agora.strftime("%d/%m %H:%M"),
         "afterMarket": pregao.after_market_ligado(),
+        "devForcado": pregao.dev_mercado_aberto_forcado(),
     }
 
 
