@@ -276,6 +276,18 @@ faltavam os números).
   estendido de `textFaint` para `textFaint`+`textDim` nas 3 superfícies,
   fechando a lacuna que deixou o bug sobreviver à Fase 4 e ao v1.5 —
   corrigido em 2026-09-06
+- ✓ 3 achados Baixo do REPORT-01 reverificados e fechados (quick task
+  260906-ugb, 2026-09-06): C-18 — `aria-describedby` condicional liga o
+  botão "Executar (vende no stop/alvo)" desabilitado ao parágrafo
+  `id="executar-gate-hint"` que explica o gate, em `web/src/App.jsx`
+  (`AgenteScreen`), com guardião novo em
+  `web/tests/test_agente_modo_estudo_ui.mjs`; C-08 — verbete `setup-ifr2`
+  de `server/app/kb.py` passa a nomear o princípio de reversão à média no
+  texto educacional e a ser buscável pelo termo, com o texto `"operador"`
+  intocado de propósito; C-28 — encontrado JÁ RESOLVIDO na reverificação: os
+  2 pontos de `appMode || "estudo"` cru citados no achado original sumiram
+  no refactor FIX-C21, antes desta sessão — nenhuma mudança de código foi
+  necessária
 
 ### Active
 
@@ -286,8 +298,9 @@ faltavam os números).
 - [ ] 2 human-check da Fase 3 nunca confirmados ao vivo (card de status 3
   badges reativo; mensagem de "sem permissão" no kill-switch pra conta sem
   `execucao_automatica.controlar`) — ver `03-VERIFICATION.md`
-- [ ] Backlog (não mapeado a fase ainda): os 9 achados Baixo do REPORT-01
-  (C-06..C-10, C-17, C-18, C-28, C-29)
+- [ ] Backlog (não mapeado a fase ainda): os 6 achados Baixo restantes do
+  REPORT-01 (C-06, C-07, C-09, C-10, C-17, C-29) — C-08 e C-18 corrigidos e
+  C-28 reverificado na quick task 260906-ugb (2026-09-06)
 - [ ] `numHero` (34px, token da escala tipográfica do v1.5/TYPO-02) sem
   nenhum consumidor real — o número mais "hero" do app (patrimônio simulado
   em `CapitalCurve`, `App.jsx:1865`) segue hardcoded em 27px. Decisão
