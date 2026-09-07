@@ -20,7 +20,7 @@ import uuid
 import pytest
 from fastapi.testclient import TestClient
 
-from app import options_provider_mock, pregao, setups, store, technical_snapshot
+from app import candle_provider, options_provider_mock, pregao, setups, store, technical_snapshot
 from app.main import app, _conn
 
 
@@ -574,8 +574,19 @@ def test_vender_posicao_100_por_cento_travada_via_sell_devolve_400(cli, monkeypa
     (test_lastro_trava.py cobre a camada de motor), mas a ROTA `/api/sell` não
     checava o retorno `None` e devolvia 200 silencioso — sem o 400 explícito
     que toda outra rejeição desta mesma rota (sem posição, quantidade
-    inválida) já usa. Este teste trava o contrato HTTP que faltava."""
+    inválida) já usa. Este teste trava o contrato HTTP que faltava.
+
+    2026-09-07: a rota busca `candle_provider.get_quote` ao vivo ANTES da
+    checagem de lastro travado — sem rede para o Yahoo o teste via 502 em
+    vez do 400 (falhava idêntico em main num sandbox sem saída). A cotação
+    entra mockada (mesmo padrão de test_fase12_cap_*): o que este guardião
+    prova — 400 + "travadas", caixa e qtyTravada intocados — não depende do
+    preço, então o mock não enfraquece a asserção."""
     monkeypatch.setattr(pregao, "in_market_hours", lambda now=None: True)
+
+    async def _quote_fake(t, *a, **k):
+        return {"t": t, "price": 30.0, "source": "teste"}
+    monkeypatch.setattr(candle_provider, "get_quote", _quote_fake)
     uid, headers = _novo_escopo(cli, "09")
     _seed_posicao(uid, qty=100)  # exatamente 1 contrato de lastro, sem sobra
     _liga_operador(uid)

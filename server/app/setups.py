@@ -24,7 +24,7 @@ Setups cobertos (melhores práticas didáticas):
 """
 from typing import Optional
 
-from . import skill_ref
+from . import indicators, skill_ref
 
 # Janela de "recente" para eventos (cruzamentos etc.), em candles.
 RECENT = 3
@@ -90,8 +90,11 @@ def _ctx(candles: list, ind: dict):
     close = last.get("close")
     rng = (last.get("high") or 0) - (last.get("low") or 0)
     pos_in_candle = ((close - last.get("low")) / rng) if (rng and close is not None and last.get("low") is not None) else None
-    vol_med20 = _mean([v for v in vols[-21:-1] if v]) if len(vols) > 1 else None
-    vol_ratio = (vols[-1] / vol_med20) if (vols and vols[-1] and vol_med20) else None
+    # Fonte única (2026-09-07): indicators.volume_relativo — mesma aritmética
+    # que já era desta função (20 anteriores, zeros fora), agora compartilhada
+    # com o summary e com o contexto da IA. minimo=1 preserva o comportamento
+    # histórico dos setups em série curta.
+    vol_ratio = indicators.volume_relativo(vols, minimo=1)["ratio"]
     return {
         "closes": closes, "highs": highs, "lows": lows, "last": last,
         "close": close, "sma20": sma20, "sma50": sma50, "rsi": rsi,
