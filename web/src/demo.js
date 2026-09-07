@@ -24,6 +24,19 @@ function obv(c, v) { const n = c.length, o = Array(n).fill(null); if (!n) return
 const r2 = (a, n = 2) => a.map((x) => (x == null ? null : +x.toFixed(n)));
 const last = (a) => { for (let i = a.length - 1; i >= 0; i--) if (a[i] != null) return a[i]; return null; };
 
+function volumeResumo(vols, closes) {
+  const n = vols.length;
+  const cur = n ? vols[n - 1] : null;
+  const dir = n >= 2 && closes ? (closes[n - 1] > closes[n - 2] ? "alta" : closes[n - 1] < closes[n - 2] ? "baixa" : "neutro") : null;
+  const win = vols.slice(Math.max(0, n - 21), Math.max(0, n - 1)).filter((x) => typeof x === "number" && x > 0);
+  const janela = win.length;
+  if (!cur || cur <= 0 || janela < 10) return { volRatio20: null, volState: null, volDirecao: null, volJanela: janela };
+  const media = win.reduce((a, b) => a + b, 0) / janela;
+  const ratio = +(cur / media).toFixed(2);
+  const state = ratio >= 2 ? "anormal" : ratio >= 1.5 ? "acima" : ratio <= 0.5 ? "abaixo" : "normal";
+  return { volRatio20: ratio, volState: state, volDirecao: dir, volJanela: janela };
+}
+
 export function sampleTechnicals(ticker, days = 252) {
   const rnd = mulberry32(seedFrom(ticker || "DEMO"));
   const base = 20 + rnd() * 60;
@@ -72,6 +85,9 @@ export function sampleTechnicals(ticker, days = 252) {
     trend: s20 > s50 ? "alta" : s20 < s50 ? "baixa" : "lateral",
     priceVsSma20: lc > s20 ? "acima" : "abaixo",
     bbUpper: r2([last(bbU)])[0], bbLower: r2([last(bbL)])[0], atr14: r2([last(atr14)])[0],
+    // espelho de indicators.volume_relativo (20 anteriores com negócio, atual
+    // fora; estado só com >= 10 de referência) — mesmos cortes do backend
+    ...volumeResumo(v, c),
   };
   const changePct = +(((c[c.length - 1] - c[0]) / c[0]) * 100).toFixed(2);
   return { t: ticker, currency: "BRL", candles, indicators, summary, periodChangePct: changePct, at: "exemplo", sample: true };
