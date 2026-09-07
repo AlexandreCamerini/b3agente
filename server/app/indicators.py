@@ -238,6 +238,70 @@ def obv(closes, volumes) -> List[Optional[float]]:
     return out
 
 
+# --------------------------- volume anormal ---------------------------------
+# Origem: pergunta "dá para mapear carteiras baleias com o mydata?" (2026-09-07).
+# Resposta: não — o COTAHIST é agregado por papel/pregão, sem participante.
+# O que o dado permite é detectar que HOUVE dinheiro grande no papel, nunca
+# QUEM. Por isso o nome é "volume anormal", deliberadamente não "baleia":
+# rebalanceamento de índice, vencimento de opções e ETF produzem o mesmo
+# sinal. Rótulo de causa é narrativa, não cálculo (princípio 4/7 do CLAUDE.md).
+#
+# Convenção da janela: média/desvio dos `p` candles ANTERIORES, excluindo o
+# atual — mesma regra de `setups._ctx` (vol_med20). `technical_models.
+# build_context` calcula `relativeVolume` incluindo o candle atual na média
+# (21 candles com ele dentro); os dois divergem por desenho antigo, não foram
+# unificados aqui — esta função é a candidata a fonte única quando isso
+# acontecer.
+VOL_ANORMAL_RATIO = 2.0   # ≥ 2× a média: anormal
+VOL_ACIMA_RATIO = 1.5     # ≥ 1,5×: acima (mesmo corte do "Rompimento com volume")
+VOL_ABAIXO_RATIO = 0.5    # ≤ 0,5×: seco
+
+
+def volume_anormal(volumes, p: int = 20):
+    """Devolve (ratio, z) alinhados aos candles.
+
+    ratio[i] = volume[i] / média(volume[i-p:i]); z[i] = (volume[i] - média) /
+    desvio populacional da mesma janela. None quando: não há `p` candles
+    anteriores; a média da janela é 0 (papel sem negócio — sanitize_candles
+    converte volume ausente em 0, então 0 e "sem dado" são indistinguíveis
+    aqui e ambos contam como ausente); ou o volume atual é 0/None (mesma
+    convenção de `_pos`). z é None também quando o desvio é 0 (janela
+    constante — ratio continua válido).
+    """
+    n = len(volumes)
+    ratio = [None] * n
+    z = [None] * n
+    if n <= p or p <= 0:
+        return ratio, z
+    for i in range(p, n):
+        cur = _pos(volumes[i])
+        if cur is None:
+            continue
+        win = [v if isinstance(v, (int, float)) and v == v and v > 0 else 0.0 for v in volumes[i - p:i]]
+        mean = sum(win) / p
+        if mean <= 0:
+            continue
+        ratio[i] = cur / mean
+        var = sum((v - mean) ** 2 for v in win) / p
+        if var > 0:
+            z[i] = (cur - mean) / (var ** 0.5)
+    return ratio, z
+
+
+def volume_state(ratio) -> Optional[str]:
+    """Estado categórico a partir da razão — só a razão decide (o z é
+    informativo, para a IA explicar a magnitude, nunca critério)."""
+    if ratio is None:
+        return None
+    if ratio >= VOL_ANORMAL_RATIO:
+        return "anormal"
+    if ratio >= VOL_ACIMA_RATIO:
+        return "acima"
+    if ratio <= VOL_ABAIXO_RATIO:
+        return "abaixo"
+    return "normal"
+
+
 def _last(arr):
     for x in reversed(arr):
         if x is not None:
@@ -266,6 +330,7 @@ def compute(candles: List[dict]) -> dict:
     atr14 = atr(h, l, c, 14)
     adx14, diP, diN = adx(h, l, c, 14)   # FASE 1: força da tendência
     obvv = obv(c, v)
+    volR, volZ = volume_anormal(v, 20)   # volume anormal (2026-09-07): inferência sobre dado agregado
 
     def rr(arr, n=2):
         return [_r(x, n) for x in arr]
@@ -280,6 +345,7 @@ def compute(candles: List[dict]) -> dict:
         "stochK": rr(stochK, 1), "stochD": rr(stochD, 1),
         "atr14": rr(atr14), "obv": [int(x) if x is not None else None for x in obvv],
         "adx14": rr(adx14, 1), "diPlus": rr(diP, 1), "diMinus": rr(diN, 1),
+        "volRatio20": rr(volR), "volZ20": rr(volZ),
     }
 
     last_close = _last(c)
@@ -304,6 +370,22 @@ def compute(candles: List[dict]) -> dict:
         "adx14": _r(_last(adx14), 1),
         "adxState": (lambda a: "tendência forte" if a is not None and a >= 25 else "tendência fraca/lateral" if a is not None and a < 20 else ("transição" if a is not None else None))(_last(adx14)),
     }
+    # Volume anormal — lê o ÚLTIMO candle (não o último não-None): um candle
+    # atual sem razão calculável é "sem dado", e herdar o de ontem mentiria.
+    vr = volR[-1] if volR else None
+    vz = volZ[-1] if volZ else None
+    prev_close = c[-2] if len(c) >= 2 else None
+    summary.update({
+        "volRatio20": _r(vr),
+        "volZ20": _r(vz),
+        "volState": volume_state(vr),
+        "volAnormal": (vr is not None and vr >= VOL_ANORMAL_RATIO),
+        # direção do candle em que o volume entrou — "alta"/"baixa" é o que o
+        # preço fez, não quem comprou ou vendeu.
+        "volDirecao": (None if vr is None or prev_close is None or last_close is None
+                       else "alta" if last_close > prev_close
+                       else "baixa" if last_close < prev_close else "neutro"),
+    })
     return {"indicators": indicators, "summary": summary}
 
 
