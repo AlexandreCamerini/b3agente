@@ -283,6 +283,12 @@ const pct = (n) => (n == null || isNaN(n) ? "—" : (n >= 0 ? "+" : "−") + Mat
 // Constante nomeada e única, não número mágico inline.
 const LIMIAR_CONCENTRACAO = 50;
 
+// Quick 260906-vf9 (C-09, REPORT-01): acima deste percentual de drawdown
+// (desde o pico), o card de Patrimônio Simulado avisa — aviso educacional,
+// não bloqueio, mesma disciplina de LIMIAR_CONCENTRACAO acima. Limiar
+// decidido pelo orquestrador (15%), não reaberto aqui.
+const LIMIAR_DRAWDOWN_ALERTA = 15;
+
 // Estimativa educacional de stop/alvo a partir do PERFIL + preço atual.
 // Usada como fallback quando a IA (servidor) não devolve `proposal` — assim a
 // função é útil mesmo offline. É deterministica e claramente rotulada (não-IA).
@@ -1904,6 +1910,23 @@ function CapitalCurve({ ctx }) {
           {(ibovErro || (ibov && !temIbov)) && (
             <div style={{ fontSize: "11px", color: T.textFaint, marginTop: "8px", lineHeight: 1.4 }}>
               Comparação com o Ibovespa indisponível agora.
+            </div>
+          )}
+          {/* Quick 260906-vf9 (C-09, REPORT-01): drawdown acima do limiar
+              avisa no próprio card de patrimônio, com sugestão de ação —
+              aviso educacional, não bloqueio. Mesma gramática visual do card
+              de concentração alta (CarteiraScreen), com kicker DRAWDOWN ALTO
+              (rótulo próprio, distinto do de concentração — não pode repetir
+              a mesma string, guardião conta 1 ocorrência cada). Ícone em
+              P.warn (usePalette, hex resolvido) por causa de
+              test_chart_colors_theme_aware.mjs; estilos CSS em T.warn. */}
+          {dd > LIMIAR_DRAWDOWN_ALERTA && (
+            <div style={{ padding: "13px 14px", borderRadius: "11px", background: "color-mix(in srgb, " + T.warn + " 12%, transparent)", border: `1px solid ${T.warn}`, marginTop: "12px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "7px", marginBottom: "8px" }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden><circle cx="12" cy="12" r="9.5" fill="none" stroke={P.warn} strokeWidth="1.8" /><path d="M12 11v5M12 7.5h.01" stroke={P.warn} strokeWidth="2" strokeLinecap="round" /></svg>
+                <span style={{ fontSize: "11px", fontWeight: 800, color: T.warn, letterSpacing: "0.05em" }}>DRAWDOWN ALTO</span>
+              </div>
+              <div style={{ fontSize: "12.5px", color: T.textPrimary, lineHeight: 1.5 }}>{cp.drawdownAlertaCorpo(Math.round(dd))}</div>
             </div>
           )}
         </>
