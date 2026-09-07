@@ -246,46 +246,77 @@ def obv(closes, volumes) -> List[Optional[float]]:
 # rebalanceamento de índice, vencimento de opções e ETF produzem o mesmo
 # sinal. Rótulo de causa é narrativa, não cálculo (princípio 4/7 do CLAUDE.md).
 #
-# Convenção da janela: média/desvio dos `p` candles ANTERIORES, excluindo o
-# atual — mesma regra de `setups._ctx` (vol_med20). `technical_models.
-# build_context` calcula `relativeVolume` incluindo o candle atual na média
-# (21 candles com ele dentro); os dois divergem por desenho antigo, não foram
-# unificados aqui — esta função é a candidata a fonte única quando isso
-# acontecer.
+# FONTE ÚNICA de volume relativo (unificação de 2026-09-07). Antes havia três
+# aritméticas divergentes: `setups._ctx` (média dos 20 anteriores, ignorando
+# zeros), `technical_models.build_context` (média de 21 COM o candle atual
+# dentro, zeros contando) e a primeira versão deste módulo (20 anteriores,
+# zeros contando). Convenção que ficou — a de `setups`, que já era a do
+# "Rompimento com volume" em produção:
+#   • janela = os até `p` candles ANTERIORES (o atual nunca entra na própria
+#     média — senão um pico se dilui a si mesmo);
+#   • volume 0/None não entra na média (sanitize_candles converte ausente em
+#     0, então 0 e "sem dado" são indistinguíveis aqui — ambos ficam de fora);
+#   • `minimo` = quantos candles com negócio a janela precisa ter para a razão
+#     existir. setups/technical_models usam 1 (comportamento histórico: série
+#     curta ainda produz razão); o ESTADO categórico do summary exige
+#     VOL_MIN_CANDLES, porque "anormal" contra 2 candles de referência é ruído.
+#   • z-score só com janela CHEIA (n == p) e desvio > 0 — informativo, para a
+#     IA dimensionar; nunca critério de estado.
+VOL_JANELA = 20
+VOL_MIN_CANDLES = 10      # metade da janela com negócio para o estado do summary
 VOL_ANORMAL_RATIO = 2.0   # ≥ 2× a média: anormal
 VOL_ACIMA_RATIO = 1.5     # ≥ 1,5×: acima (mesmo corte do "Rompimento com volume")
 VOL_ABAIXO_RATIO = 0.5    # ≤ 0,5×: seco
 
 
-def volume_anormal(volumes, p: int = 20):
-    """Devolve (ratio, z) alinhados aos candles.
+def _janela_volume(volumes, i: int, p: int):
+    """(média, variância populacional, n) dos volumes POSITIVOS em
+    volumes[i-p:i]. n == 0 → (None, None, 0)."""
+    win = [float(v) for v in volumes[max(0, i - p):i] if _pos(v) is not None]
+    n = len(win)
+    if n == 0:
+        return None, None, 0
+    mean = sum(win) / n
+    var = sum((v - mean) ** 2 for v in win) / n
+    return mean, var, n
 
-    ratio[i] = volume[i] / média(volume[i-p:i]); z[i] = (volume[i] - média) /
-    desvio populacional da mesma janela. None quando: não há `p` candles
-    anteriores; a média da janela é 0 (papel sem negócio — sanitize_candles
-    converte volume ausente em 0, então 0 e "sem dado" são indistinguíveis
-    aqui e ambos contam como ausente); ou o volume atual é 0/None (mesma
-    convenção de `_pos`). z é None também quando o desvio é 0 (janela
-    constante — ratio continua válido).
-    """
-    n = len(volumes)
-    ratio = [None] * n
-    z = [None] * n
-    if n <= p or p <= 0:
-        return ratio, z
-    for i in range(p, n):
-        cur = _pos(volumes[i])
-        if cur is None:
-            continue
-        win = [v if isinstance(v, (int, float)) and v == v and v > 0 else 0.0 for v in volumes[i - p:i]]
-        mean = sum(win) / p
-        if mean <= 0:
-            continue
-        ratio[i] = cur / mean
-        var = sum((v - mean) ** 2 for v in win) / p
-        if var > 0:
-            z[i] = (cur - mean) / (var ** 0.5)
-    return ratio, z
+
+def _razao_volume(volumes, i: int, p: int, minimo: int):
+    """(ratio, z, media, n) do candle i. ratio None se volume atual ausente
+    ou n < minimo; z None fora de janela cheia/desvio 0."""
+    mean, var, n = _janela_volume(volumes, i, p)
+    cur = _pos(volumes[i]) if i < len(volumes) else None
+    if cur is None or mean is None or n < max(1, minimo):
+        return None, None, mean, n
+    ratio = cur / mean
+    z = (cur - mean) / (var ** 0.5) if (n == p and var and var > 0) else None
+    return ratio, z, mean, n
+
+
+def volume_relativo(volumes, p: int = VOL_JANELA, minimo: int = 1) -> dict:
+    """Razão do ÚLTIMO candle — o que setups (critério "Volume ≥ 1,5× a média")
+    e technical_models (`relativeVolume` do contexto da IA) consomem.
+    {"ratio", "z", "media", "n"}; tudo None/0 quando não há como calcular."""
+    n_total = len(volumes or [])
+    if n_total == 0:
+        return {"ratio": None, "z": None, "media": None, "n": 0}
+    ratio, z, mean, n = _razao_volume(volumes, n_total - 1, p, minimo)
+    return {"ratio": ratio, "z": z, "media": mean, "n": n}
+
+
+def volume_anormal(volumes, p: int = VOL_JANELA, minimo: int = VOL_MIN_CANDLES):
+    """Séries alinhadas aos candles: (ratio, z, n). Mesma aritmética de
+    `volume_relativo`, candle a candle, com o `minimo` do indicador."""
+    n_total = len(volumes)
+    ratio = [None] * n_total
+    z = [None] * n_total
+    janela = [0] * n_total
+    if p <= 0:
+        return ratio, z, janela
+    for i in range(n_total):
+        r, zi, _, n = _razao_volume(volumes, i, p, minimo)
+        ratio[i], z[i], janela[i] = r, zi, n
+    return ratio, z, janela
 
 
 def volume_state(ratio) -> Optional[str]:
@@ -300,7 +331,6 @@ def volume_state(ratio) -> Optional[str]:
     if ratio <= VOL_ABAIXO_RATIO:
         return "abaixo"
     return "normal"
-
 
 def _last(arr):
     for x in reversed(arr):
@@ -330,7 +360,7 @@ def compute(candles: List[dict]) -> dict:
     atr14 = atr(h, l, c, 14)
     adx14, diP, diN = adx(h, l, c, 14)   # FASE 1: força da tendência
     obvv = obv(c, v)
-    volR, volZ = volume_anormal(v, 20)   # volume anormal (2026-09-07): inferência sobre dado agregado
+    volR, volZ, volN = volume_anormal(v)   # volume anormal (2026-09-07): inferência sobre dado agregado
 
     def rr(arr, n=2):
         return [_r(x, n) for x in arr]
@@ -374,10 +404,12 @@ def compute(candles: List[dict]) -> dict:
     # atual sem razão calculável é "sem dado", e herdar o de ontem mentiria.
     vr = volR[-1] if volR else None
     vz = volZ[-1] if volZ else None
+    vn = volN[-1] if volN else 0
     prev_close = c[-2] if len(c) >= 2 else None
     summary.update({
         "volRatio20": _r(vr),
         "volZ20": _r(vz),
+        "volJanela": vn,   # candles com negócio na referência (≤ VOL_JANELA)
         "volState": volume_state(vr),
         "volAnormal": (vr is not None and vr >= VOL_ANORMAL_RATIO),
         # direção do candle em que o volume entrou — "alta"/"baixa" é o que o
