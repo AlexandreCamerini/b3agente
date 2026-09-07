@@ -10,14 +10,20 @@
 # lugar onde a promoção acontece, de propósito — histórico de decisão fica
 # num commit só, fácil de apontar depois.
 #
+# 2026-09-07: passou a promover a BRANCH LOCAL de trabalho, não `origin/staging`.
+# O staging deixou de ser publicado por push de branch (ver o cabeçalho de
+# publicar-staging.sh — a branch é compartilhada entre environments no Railway
+# e mudá-la vazava para produção); agora sobe por `railway up`. Então o que se
+# promove é o commit que você testou em staging, que é o HEAD da sua branch.
+#
 # Uso:
-#   bash scripts/promover-staging-para-producao.sh
-#   STAGING_BRANCH=outro-nome bash scripts/promover-staging-para-producao.sh
+#   bash scripts/promover-staging-para-producao.sh            # branch atual
+#   PROMOVER_BRANCH=v2/interacao-estrutural bash scripts/promover-staging-para-producao.sh
 #
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]:-$0}")/.."
 
-STAGING_BRANCH="${STAGING_BRANCH:-staging}"
+PROMOVER_BRANCH="${PROMOVER_BRANCH:-$(git rev-parse --abbrev-ref HEAD)}"
 RAILWAY_URL="https://boris.semente.dev"
 
 say(){ printf "\n\033[1m== %s ==\033[0m\n" "$*"; }
@@ -29,10 +35,11 @@ git diff --quiet && git diff --cached --quiet \
 
 say "0/6 · Buscando estado atual de origin"
 git fetch origin
-git rev-parse --verify -q "origin/$STAGING_BRANCH" >/dev/null \
-  || die "origin/$STAGING_BRANCH não existe — publique em staging primeiro (scripts/publicar-staging.sh)"
+[ "$PROMOVER_BRANCH" != "main" ] || die "PROMOVER_BRANCH não pode ser 'main' — não há o que promover"
+git rev-parse --verify -q "$PROMOVER_BRANCH" >/dev/null \
+  || die "branch '$PROMOVER_BRANCH' não existe localmente"
 echo "  origin/main:            $(git rev-parse origin/main)"
-echo "  origin/$STAGING_BRANCH: $(git rev-parse "origin/$STAGING_BRANCH")"
+echo "  $PROMOVER_BRANCH: $(git rev-parse "$PROMOVER_BRANCH")"
 
 say "1/6 · Checkout de main, alinhado com origin/main"
 git checkout main
@@ -40,8 +47,8 @@ git merge --ff-only origin/main \
   || die "main local diverge de origin/main — resolva manualmente (git status) antes de continuar"
 ok "main local == origin/main"
 
-say "2/6 · Merge de origin/$STAGING_BRANCH em main (local, SEM push ainda)"
-if git merge --no-ff "origin/$STAGING_BRANCH" -m "chore: promove $STAGING_BRANCH para produção"; then
+say "2/6 · Merge de $PROMOVER_BRANCH em main (local, SEM push ainda)"
+if git merge --no-ff "$PROMOVER_BRANCH" -m "chore: promove $PROMOVER_BRANCH para produção"; then
   ok "merge sem conflito"
 else
   die "merge deu conflito — resolva manualmente e rode de novo, ou 'git merge --abort' pra cancelar. NÃO force nada."
@@ -59,7 +66,7 @@ ok "suíte verde em main pós-merge"
 say "4/6 · Build final + publicação do front, já em main"
 bash scripts/publicar-web.sh || die "publicar-web.sh falhou em main"
 git add server/web_dist server/app/main.py web/src/version.js
-git diff --cached --quiet || git commit -m "chore: publica front da promoção de $STAGING_BRANCH"
+git diff --cached --quiet || git commit -m "chore: publica front da promoção de $PROMOVER_BRANCH"
 
 say "5/6 · Revisão final antes do push"
 echo "  Commits que vão para produção (origin/main..HEAD):"
@@ -85,4 +92,4 @@ for i in $(seq 1 20); do
   sleep 15
 done
 echo
-echo "  Promoção concluída: $STAGING_BRANCH -> main -> produção ($RAILWAY_URL)."
+echo "  Promoção concluída: $PROMOVER_BRANCH -> main -> produção ($RAILWAY_URL)."
