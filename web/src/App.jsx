@@ -4894,7 +4894,11 @@ function AgenteScreen({ ctx }) {
               // não tem hover) — o botão desabilitado não podia depender só dele.
               // O aviso visível abaixo agora tem um link direto pra onde a troca de
               // verdade acontece; antes explicava o motivo mas não dizia onde ir.
-              <button key={m} onClick={() => !desabilitado && putAg({ mode: m })} disabled={desabilitado}
+              // FIX-C18 (2026-09-06): o `title` invisível em toque já tinha sido
+              // resolvido acima; faltava o vínculo semântico com o parágrafo de
+              // explicação para quem navega por leitor de tela — aria-describedby
+              // fecha esse lado.
+              <button key={m} onClick={() => !desabilitado && putAg({ mode: m })} disabled={desabilitado} aria-describedby={desabilitado ? "executar-gate-hint" : undefined}
                 style={{ flex: 1, minWidth: "140px", padding: "10px", borderRadius: "10px", border: `1px solid ${on ? T.accent : T.borderSubtle}`, background: on ? T.accentTint : T.bgBase, color: desabilitado ? T.textFaint : (on ? T.accent : T.textSecondary), fontWeight: 800, fontSize: "12px", opacity: desabilitado ? 0.6 : 1, cursor: desabilitado ? "not-allowed" : "pointer" }}>
                 {m === "executar" ? "Executar (vende no stop/alvo)" : "Apenas sinalizar"}
               </button>
@@ -4902,7 +4906,7 @@ function AgenteScreen({ ctx }) {
           })}
         </div>
         {!operador && (
-          <p style={{ margin: "9px 0 0", fontSize: "11.5px", lineHeight: 1.5, color: T.textFaint }}>
+          <p id="executar-gate-hint" style={{ margin: "9px 0 0", fontSize: "11.5px", lineHeight: 1.5, color: T.textFaint }}>
             Disponível no Modo Operador — em Modo Estudo o agente só orienta, nunca vende sozinho.{" "}
             <button onClick={() => A.go("perfil")} style={{ background: "transparent", border: "none", padding: 0, color: T.accent, fontWeight: 800, fontSize: "11.5px", textDecoration: "underline" }}>
               Trocar para Modo Operador →
