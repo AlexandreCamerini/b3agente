@@ -176,12 +176,12 @@ nada mais no produto importa.
 ## Technology Stack
 
 ## Languages
-- Python 3.14 — backend (`server/app/*.py`), FastAPI app, stdlib-first (SQLite via `sqlite3`, PBKDF2 via `hashlib`)
+- Python — backend (`server/app/*.py`), FastAPI app, stdlib-first (SQLite via `sqlite3`, PBKDF2 via `hashlib`). **Produção roda 3.12** (medido em 2026-09-07, `railway ssh`: 3.12.7); a venv local costuma ser mais nova (3.14.6). Ver "Runtime" abaixo — a divergência é real e a suíte local roda numa minor diferente da de produção.
 - JavaScript (ES modules, JSX) — web/PWA/iOS client (`web/src/*.js`, `web/src/*.jsx`) and admin portal (`web-admin/src/`)
 - TypeScript — only `web/capacitor.config.ts` (Capacitor native shell config); root `package.json` pulls in `typescript@^6.0.3` as a devDependency but there is no `tsconfig.json` / typed app code
 - Shell (bash) — all operational tooling: `scripts/*.sh`, root-level `*.sh` (deploy, test, audit, release orchestration)
 ## Runtime
-- Python 3.14 (local `.venv` observed at `server/.venv`); no `runtime.txt`/`.python-version` pin found — Railway (Nixpacks) picks its own default unless overridden
+- Python: **produção 3.12.7** (Nixpacks), venv local 3.14.6 (`server/.venv`), staging 3.13.15 (Railpack, ver `STAGING.md`). Até 2026-09-07 não havia pin nenhum e cada ambiente pegava o default do seu builder — a doc anterior afirmava "3.14" descrevendo só a venv local, nunca produção. `server/.python-version` agora fixa `3.12` (minor, não patch: patch exato pode não existir no nixpkgs e quebrar o build). Isso NÃO mudou a versão de produção — só tornou explícito o que já rodava.
 - ASGI server: `uvicorn[standard]>=0.29` (`server/requirements.txt`), started as `uvicorn app.main:app --host 0.0.0.0 --port $PORT` (`server/Procfile`, `server/railway.json`)
 - Node.js (version not pinned via `.nvmrc`/`engines`) — Vite 6 build for both `web/` (consumer PWA + Capacitor iOS shell) and `web-admin/` (observability/admin portal)
 - Native shell: Capacitor 8 wraps `web/dist` for iOS (`web/capacitor.config.ts`, `appId: com.alexandrecamerini.bolsia`)
