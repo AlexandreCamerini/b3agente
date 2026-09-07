@@ -2221,8 +2221,8 @@ function ModoTrabalhoCard({ ctx }) {
       )}
       <div style={{ fontSize: "11.5px", color: T.textMuted, marginTop: "9px", lineHeight: 1.5 }}>
         {mode === "operador"
-          ? <>Decisões diretas (comprar/vender/aguardar/não operar) com plano de entrada, stop, alvo e risco. Termo aceito em {(c.operadorTermo || {}).aceitoEm ? String(c.operadorTermo.aceitoEm).slice(0, 10) : "—"} (v{(c.operadorTermo || {}).versao || "?"}).</>
-          : <>Carteira simulada e leitura didática — o padrão para aprender. O Modo Operador libera decisões diretas com plano e gestão de risco.</>}
+          ? <>Decisões diretas (comprar/vender/aguardar/não operar) com plano de entrada, stop, alvo e risco. Termo aceito em {(c.operadorTermo || {}).aceitoEm ? String(c.operadorTermo.aceitoEm).slice(0, 10) : "—"} (v{(c.operadorTermo || {}).versao || "?"}). Inclui a aba Operador IA — o agente que pode vender sozinho conforme as regras que você configurar.</>
+          : <>Carteira simulada e leitura didática — o padrão para aprender. O Modo Operador libera decisões diretas com plano e gestão de risco. Inclui a aba Operador IA — o agente que pode vender sozinho conforme as regras que você configurar.</>}
       </div>
       {termoOpen && <TermoOperadorModal ctx={ctx} onClose={() => setTermoOpen(false)} />}
     </div>
