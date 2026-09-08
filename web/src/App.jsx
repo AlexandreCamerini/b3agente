@@ -12,7 +12,7 @@ import { BUILD_ID } from "./version.js";
 // carimbo no console: prova de qual build está rodando (device/web)
 try { console.log("[b3] build", BUILD_ID); } catch { /* noop */ }
 import { canAddTicker, canAnalyze } from "./plan.js";
-import { portfolioMetrics, dayReturnPct, equityCurve, markPrice, sizingPlano, RR_MIN_TXT, historicoEstado, historicoDesatualizado, benchmarkSerie, concentracaoMaxima, qtyLivre, resumoOperacao } from "./finance.js";
+import { portfolioMetrics, dayReturnPct, equityCurve, markPrice, sizingPlano, RR_MIN_TXT, historicoEstado, historicoDesatualizado, benchmarkSerie, concentracaoMaxima, qtyLivre, resumoOperacao, setupOperavel, metaDeEntrada } from "./finance.js";
 import * as notify from "./notify.js";
 import { track, setAnalyticsUser, flush as flushAnalytics } from "./analytics.js"; // qa/47 (Fase 2)
 import Boris from "./pet/Boris.jsx";
@@ -3908,13 +3908,11 @@ function MercadoScreen({ ctx }) {
           const sc = scanBy[t];
           const rotuloDec = decisaoDoModo(sc, operador); // qa/40: mesa mostra a decisão do plano
           const [vColor, vBg] = REC_STYLE[rotuloDec] || [T.textMuted, T.bgBase];
-          const melhorSet = sc && (sc.setups || [])[0];
-          const buyMeta = sc ? {
-            setup: sc.melhorSetup || undefined, veredito: sc.veredito, confluencia: sc.confluencia,
-            snapshotId: sc.snapshotId,
-            lado: melhorSet && melhorSet.lado, gatilho: melhorSet && melhorSet.gatilho,
-            invalidacao: melhorSet && melhorSet.invalidacao,
-          } : undefined;
+          // ADR-017 Decisão 1 (achado ABEV3, 2026-09-07): `setup`/`lado`/
+          // `gatilho`/`invalidacao` do meta de entrada vêm do MESMO setup
+          // operável — `metaDeEntrada` casa por nome contra `melhorSetup`
+          // (fonte já filtrada pelo backend), nunca de `setups[0]` cru.
+          const buyMeta = sc ? metaDeEntrada(sc) : undefined;
           const os = opsSummary(data.history, t);
           // qa/49 (v11): dados da posição p/ o hero (régua reusada do card de posições)
           const pos = (data.positions || []).find((p) => p.t === t);
@@ -6952,7 +6950,12 @@ function RadarScreen({ ctx }) {
           // FASE 3 (mock v2): posição no portfólio + presença na watchlist + plano do setup
           const posR = (data.positions || []).find((p) => p.t === r.ticker);
           const naWl = (data.watchlist || []).includes(r.ticker);
-          const s0 = (r.setups || [])[0];
+          // ADR-017 Decisão 1: `s0` é o setup OPERÁVEL (nunca aposentado) —
+          // `setupOperavel` casa por nome contra `r.melhorSetup`, mesma regra
+          // do backend (setups.py:725). Sem operável, `s0` é `null` e a régua
+          // (guardada por `s0 && s0.gatilho != null && ...` abaixo) simplesmente
+          // não renderiza — estado vazio já coerente.
+          const s0 = setupOperavel(r.setups, r.melhorSetup);
           // FASE 7 (F7.1) — Modo Operador: decisão direta + plano do servidor.
           // O plano vem SEMPRE no payload (determinístico, do setups.py); a UI
           // só o exibe neste modo — o Estudo permanece intocado.
