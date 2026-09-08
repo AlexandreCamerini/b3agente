@@ -88,8 +88,8 @@ logs de build:
 | | `railway.json` declara | staging na prática |
 |---|---|---|
 | Builder | `NIXPACKS` | **Railpack 0.39.0** |
-| Python | 3.14 (repo) | **3.13.15** (default do Railpack) |
 | `preDeployCommand` | backup do banco | **não roda** |
+| Python | — | ~~3.13.15~~ → **3.12.x** (resolvido, ver abaixo) |
 
 Provável causa: `railway up` procura o arquivo de config na raiz do upload, e
 o nosso está em `server/`. O `rootDirectory=/server` é aplicado ao build (ele
@@ -98,19 +98,52 @@ acha o `requirements.txt` certo), mas não à descoberta da config.
 **Então staging serve para:** validar UI, fluxo, texto, regressão funcional,
 comportamento de API.
 
-**Staging NÃO serve para:** validar nada que dependa da versão do Python, do
-builder, ou do processo de deploy em si. Se o bug só aparece em produção,
-essa diferença é a primeira suspeita.
+**Staging NÃO serve para:** validar nada que dependa do builder ou do
+processo de deploy em si (incluindo o `preDeployCommand`). Se o bug só
+aparece em produção, essa diferença é a primeira suspeita.
 
 Prova de que o backup não roda: o volume de staging tem `b3.db` mas **não tem
 `/data/backups/`**. Verifique com
 `railway volume files --volume b3agente-volume list /`.
 
-Pendências registradas, não resolvidas:
-- mover `railway.json` para a raiz do repo (resolveria os dois casos, mas
-  mexe na config que produção usa — exige janela dedicada);
-- fixar a versão do Python com `.python-version`/`runtime.txt` em `server/`
-  (ataca a divergência mais perigosa sem tocar config compartilhada).
+Pendência registrada, não resolvida: mover `railway.json` para a raiz do repo
+(resolveria builder e backup de uma vez, mas mexe na config que produção usa
+— exige janela dedicada e produção sob observação).
+
+### Python: divergência resolvida em 2026-09-07
+
+Antes não havia pin nenhum e cada ambiente pegava o default do seu builder:
+
+```
+produção  3.12.7   (Nixpacks)      ← a real, medida por railway ssh
+staging   3.13.15  (Railpack)      ← uma minor À FRENTE de produção
+local     3.14.6   (server/.venv)  ← e a suíte rodava aqui
+```
+
+O `CLAUDE.md` afirmava "Python 3.14" — descrevia a venv local, nunca
+produção. Corrigido no mesmo commit.
+
+`server/.python-version` agora fixa **`3.12`**. Minor, não patch: patch exato
+pode não existir no nixpkgs e quebrar o build de produção. Isso **não mudou a
+versão de produção** — tornou explícito o que já rodava, e trouxe staging
+para a mesma minor (hoje 3.12.13 lá, 3.12.7 em produção; a diferença de patch
+é ruído, o risco era a 3.13).
+
+Confirme que o pin está valendo pelo log de build — a linha precisa dizer
+`idiomatic-version-file`, não `railpack default`:
+
+```bash
+railway logs -b --environment staging --service b3agente --lines 300 | grep -i "python.*3\.1"
+```
+
+**Armadilha:** `RAILPACK_PYTHON_VERSION` está na documentação do Railpack
+como variável de configuração, mas **não funciona como entrada** — o próprio
+Railpack a sobrescreve com o valor que resolveu (setamos `3.12.7`, virou
+`3.13`). Parece config, é output. Use o arquivo `.python-version`.
+
+Segundo motivo pelo qual ela não funcionaria: `railway up` aparentemente não
+passa variáveis do serviço para o ambiente de *build* — só para o runtime.
+Mesma família do `railway.json` ignorado.
 
 ---
 
