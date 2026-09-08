@@ -157,3 +157,83 @@ que aconteceu nesta investigação antes da medição.
 
 Fonte de verdade sobre o que cada environment roda: a tabela de configuração
 em `STAGING.md`.
+
+---
+
+## Recalibração aplicada — 2026-09-08, mesmo dia (quick 260908-dnl)
+
+A decisão "só documentar" durou o tempo de o Alex ler as opções e escolher a
+**opção 1 — recalibrar o score**. Registro do que foi feito e do que os dados
+mandaram.
+
+### O que as 20 cadeias do catálogo ensinaram (produção, 2026-09-08)
+
+- Volume é quase o único sinal: livro com dois lados existe em ~15% dos
+  contratos (0/28 no BPAC11, 1/69 no PRIO3). Só PETR4 (28/60) e VALE3 (31/67)
+  têm cobertura decente.
+- Volume vem em lotes: **592/592** valores são múltiplos de 100, mínimo 100.
+  `volume=100` significa "negociou uma vez".
+- Escala real: mediana de 400 (RADL3) a 28.800 (VALE3); máximos até 1,8 mi.
+
+### A primeira candidata foi descartada — e é por isso que este registro existe
+
+Curva de volume até 75 + penalidade de livro desconhecido reduzida de 25 para
+10. Passava nos critérios olhando PETR4 e VALE3. Nas 20 cadeias: pass-through
+— 15/15, 66/66, 69/69. `ABEVU147W2` com volume 100 e livro vazio passava a
+51,1; `PETRI556` com spread **medido** de 147% reprovava a 39,6. Ter dado
+piorava a nota. Falhou o critério fixado antes de olhar os dados ("volume 500
+com um lado zerado reprova").
+
+### A fórmula que ficou
+
+```
+atividade = max(curva(volume), curva(open_interest))
+curva(x)  = clamp((log10(x + 1) − 1) × 20, 0, 75)
+score     = clamp(atividade + 25 − spread_penalty, 0, 100)
+```
+
+`spread_penalty` **byte-idêntica** à anterior (0/8/18/30 medido; 25
+desconhecido). Única mudança conceitual: a atividade pode ser carregada por
+volume sozinho, e o open interest — quando a fonte o publica — **substitui**
+o volume em vez de somar (mantém o caminho Yahoo de rollback sem inflar nada
+no mydata).
+
+Piso sem livro: **1.000 unidades (10 lotes)** — onde a curva de volume
+original saturava. Derivado, não tunado.
+
+### Resultado contra as mesmas 20 cadeias, com o código real
+
+| | antes | depois |
+|---|---|---|
+| cadeias com gate aprovado | 2/18 (VALE3, WEGE3) | **18/18** |
+| contratos aprovados | 3/592 | **461/592 (78%)** |
+| contratos reprovados | 589 | 131 — continua sendo gate |
+| PETR4 | 0/60 | 50/60, mín. volume 1.000 |
+| RADL3 (o mais fino) | 0/10 | 3/10, mín. volume 1.500 |
+
+### O que mudou fora da fórmula
+
+- Dois guardiões travavam o valor antigo e foram **atualizados com nota
+  datada**, não apagados: `test_options_provider_mydata.py` (literal 52,0 →
+  71,0; a docstring antiga documentava o teto de 60 e deixava o resto "para o
+  checkpoint de virada") e a fixture do collar em `test_opcoes_collar.py` (put
+  com volume 100 reprova agora e o motor nem a seleciona).
+- Guardião novo `server/tests/test_liquidity_score_mydata.py`: os critérios
+  sintéticos fixados antes de olhar os dados, linhas reais congeladas de
+  produção, a fronteira explícita (1.000 passa, 900 reprova), OI substitui
+  volume, monotonicidade.
+- **Mock fiel ao mydata** (commit separado): `MOCK_OPEN_INTEREST = None`,
+  `MOCK_VOLUME = 5000`. O mock tinha OI 2000, que salvava o volume 500 — a
+  mesma cegueira do ADR-020. Staging aprovava por um campo que produção nunca
+  tem.
+
+### O que continua pendente
+
+- **Deploy.** Está na branch `v2/interacao-estrutural`; só vale em produção
+  depois de promovido.
+- **Open interest de verdade** (opção 3): a B3 publica em arquivo separado do
+  COTAHIST; ingestão pertence ao MyData. Quando existir, a fórmula já o
+  consome — `curva(open_interest)` substitui o volume automaticamente.
+- A mensagem "nenhuma posição com opção líquida hoje" continua atribuindo ao
+  mercado o que é da medição, nos casos residuais em que o gate reprova.
+  Menor agora, mas não zero.

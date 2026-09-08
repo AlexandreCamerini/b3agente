@@ -158,18 +158,19 @@ Recent decisions affecting current work:
 
 ### Blockers/Concerns
 
-- **Opções apagadas em produção pelo gate de liquidez (medido 2026-09-08).**
-  Com `B3_OPTIONS_PROVIDER=mydata` (o que produção roda, ver `STAGING.md`), o
-  `liquidity_score` perde o `oi_score` inteiro — o COTAHIST não publica open
-  interest — e ainda leva a penalidade de 25 por "spread desconhecido" quando o
-  livro chega com um lado zerado. Teto 35 contra corte 40: **impossível em
-  qualquer volume**. Medido ao vivo: os 60 contratos de PETR4 empatam em 35,0;
-  ABEV3/PETR4/ITUB4 reprovam, só VALE3 passa (42,0, raspando). Efeito: as Fases
-  14/16/17/18/19 estão dark para quase todo o catálogo, e a mensagem exibida
-  ("nenhuma posição com opção líquida hoje") atribui ao mercado o que é da
-  medição. Previsto pelo ADR-020 e deixado em aberto; adendo datado fecha o
-  follow-up. Recalibrar é decisão de produto — adiada pelo Alex em 2026-09-08.
-  Números e opções: `docs/MEDICAO-gate-liquidez-mydata-2026-09-08.md`.
+- **Opções apagadas em produção pelo gate de liquidez — RECALIBRADO na
+  branch, aguarda deploy (2026-09-08).** Com `B3_OPTIONS_PROVIDER=mydata` o
+  `liquidity_score` perdia o `oi_score` inteiro (COTAHIST não publica open
+  interest) e levava a penalidade de 25 por "spread desconhecido"; teto 35
+  contra corte 40, impossível em qualquer volume — os 60 contratos de PETR4
+  empatavam em 35,0. Quick `260908-bzf` mediu e documentou; o Alex escolheu a
+  opção 1 e a quick `260908-dnl` recalibrou no mesmo dia: volume carrega o
+  score sozinho, OI substitui volume quando existe, livro byte-idêntico, corte
+  inalterado. Contra as 20 cadeias reais: gate 18/18 (antes 2/18), 461/592
+  contratos (antes 3/592), 131 ainda reprovam. **Só vale em produção depois
+  de promovido** — até lá as Fases 14/16/17/18/19 seguem dark lá. Pendência
+  de raiz (open interest de verdade) é ingestão do MyData, opção 3. Números e
+  a candidata descartada: `docs/MEDICAO-gate-liquidez-mydata-2026-09-08.md`.
 
 - 3 itens de backlog pré-existentes bloqueados por dependência humana
   (verificação ao vivo de `entradaAuto`; 2 human-checks da Fase 3) — não
@@ -240,6 +241,7 @@ Recent decisions affecting current work:
 | 260907-w33 | Corrigir estouro de largura do card de candidato de opção (achado ao vivo em staging/iPhone com put_protecao + collar): `flex: "0 0 210px"` nos dois trilhos de opções, CUMPRINDO a Decisão 1 do 22-UI-SPEC em vez de revertê-la — `minWidth` sempre foi piso, nunca teto. Guardião da asserção 7 intocado. Publicado em F10-20260908-01 | 2026-09-07 | (merge) | Published | [260907-w33](./quick/260907-w33-corrigir-estouro-de-largura-do-card-de-c/) |
 | 260907-x69 | Corrigir os textos do card de FECHAMENTO de operação lastreada (achado ao vivo em staging/iPhone): a manchete de fechar uma put dizia "Comprar 1 put(s)…" acima de um botão que VENDE, e o CTA/confirmação falavam em "recomprar a call" e "destrava ações" para uma put que nunca travou ação. Frases `fechar_call_coberta`/`fechar_put_protecao` nos DOIS modos de `skill_ref`; `tipo`/`motivo` intocados (contrato de ~9 guardiões de igualdade exata). O dinheiro já estava certo (`side=="comprada"` → `store.sell_option`, credita) — defeito só de texto. **Dois guardiões afirmavam o texto errado** e foram atualizados com nota datada, não apagados. Publicado em F10-20260908-01 | 2026-09-07 | a90e0bf | Published | [260907-x69](./quick/260907-x69-corrigir-textos-do-card-de-fechamento-de/) |
 | 260908-bzf | Documentar que o gate de liquidez de opções ficou IMPOSSÍVEL de cruzar com `B3_OPTIONS_PROVIDER=mydata` (medido em produção ao vivo): os 60 contratos de PETR4 empatam em `liquidity_score=35,0` contra corte 40 — `oi_score` some (COTAHIST não publica open interest) e a penalidade de spread cai no padrão 25 porque o livro vem com um lado zerado. Teto 35 < corte 40, nenhum volume cruza. Fecha o follow-up aberto do ADR-020. **Documentação apenas** — recalibrar o gate é decisão de produto, adiada pelo Alex | 2026-09-08 | — | Documented | [260908-bzf](./quick/260908-bzf-documentar-gate-de-liquidez-impossivel-c/) |
+| 260908-dnl | Recalibrar `liquidity_score` para fonte sem open interest (opção 1, escolhida pelo Alex logo após a bzf): atividade = `max(curva(volume), curva(OI))` numa curva única até 75, livro byte-idêntico, corte 40 inalterado; piso sem livro = 1.000 unidades (onde a curva original saturava). Primeira candidata (penalidade de desconhecido 10) descartada por virar pass-through nas 20 cadeias reais. Contra produção: gate 18/18 (antes 2/18), 461/592 contratos (antes 3/592). Dois guardiões atualizados com nota datada, guardião novo com critérios fixados antes dos dados; mock fiel ao mydata (OI None, volume 5000) em commit separado. Suíte 2064 passed. **Aguarda deploy** | 2026-09-08 | (2 commits) | Tested | [260908-dnl](./quick/260908-dnl-recalibrar-liquidity-score-para-mydata-s/) |
 | 260907-vwl | Reforçar aviso visual de ordem pendente (achado ao vivo em staging/iPhone 2026-09-07 — compra de ABEV3 com mercado fechado, aviso "discreto" passou batido): bloco `color-mix(T.warn 14%)` reusando o pill PENDENTE, des-concatenado da frase de execução tudo-ou-nada, simétrico em BuyModal/SellModal; guardião estendido | 2026-09-07 | d78a0a5 | Tested (suíte canônica verde, sem --validate) | [260907-vwl](./quick/260907-vwl-reforcar-aviso-visual-de-ordem-pendente-/) |
 | 260907-vzp | Corrigir `setups[0]` cru sem filtrar aposentado em `App.jsx` (ADR-017 Decisão 1) — achado ao vivo em staging (compra ABEV3 gravou `setupEntrada` contraditório, invertendo a leitura de invalidação); `setupOperavel()`/`metaDeEntrada()` em `finance.js`, espelho de `setups.py:725` | 2026-09-07 | ebd23b2, e8dd43e | Verified | [260907-vzp](./quick/260907-vzp-corrigir-setups-0-cru-sem-filtrar-aposen/) |
 

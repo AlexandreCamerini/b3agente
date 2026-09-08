@@ -241,3 +241,13 @@ Duas correções ao que a §Decisão concluiu:
 Decisão do Alex nesta data: **documentar, não recalibrar ainda** — mexer no
 gate muda o que o app afirma sobre liquidez, e é decisão de produto. O texto
 original desta ADR fica intocado; este adendo apenas fecha o follow-up.
+
+**Atualização, mesmo dia (2026-09-08):** o Alex escolheu recalibrar
+(quick `260908-dnl`). `liquidity_score` passou a deixar o volume carregar o
+score sozinho, com open interest substituindo o volume quando a fonte o
+publica — livro byte-idêntico, corte inalterado. Contra as mesmas 20 cadeias
+de produção: gate aprovado em 18/18 (antes 2/18), 461/592 contratos (antes
+3/592). Detalhes e a candidata descartada em
+`docs/MEDICAO-gate-liquidez-mydata-2026-09-08.md`, seção "Recalibração
+aplicada". O follow-up desta ADR está, agora sim, fechado por correção e não
+só por registro.
