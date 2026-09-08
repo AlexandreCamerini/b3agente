@@ -213,3 +213,31 @@ antes desta ADR ser escrita, precisamente para preservar esse caminho de
 volta. Isso é o que torna esta migração barata de desfazer: nenhum
 trade-off entre "limpar o código" e "perder o trabalho" — as duas coisas
 convivem, uma no caminho ativo (removida), outra no `git log` (recuperável).
+
+---
+
+## Adendo 2026-09-08 — o follow-up do `openInterest` se materializou
+
+O item de acompanhamento registrado acima ("`openInterest` ausente nas opções
+— efeito medido em §Decisão, acompanhar no checkpoint de virada") foi medido
+contra produção em 2026-09-08, depois que a tira "Oportunidades de opções"
+apareceu vazia no Portfólio. Resultado: **o corte de liquidez ficou impossível
+de cruzar para a maior parte da cadeia**, não apenas mais difícil.
+
+Números completos em `docs/MEDICAO-gate-liquidez-mydata-2026-09-08.md`. Em
+resumo: os 60 contratos de PETR4 em produção empatam em `liquidity_score=35,0`
+contra um corte de 40 — teto imposto pela soma de duas perdas (o `oi_score`
+inteiro, até 40 pontos, mais a penalidade de 25 por spread desconhecido quando
+o livro chega com um lado zerado). Nenhum volume cruza o corte nessa condição;
+um contrato com 88.100 unidades negociadas é classificado como ilíquido.
+
+Duas correções ao que a §Decisão concluiu:
+
+- O caso que sustentou "passa" era hipotético favorável (volume 5.000, spread
+  5,41%, os dois lados do livro). O PETR4 **real** não tem os dois lados em
+  contrato nenhum.
+- O risco foi descrito como gradual; a medição mostra que é categórico.
+
+Decisão do Alex nesta data: **documentar, não recalibrar ainda** — mexer no
+gate muda o que o app afirma sobre liquidez, e é decisão de produto. O texto
+original desta ADR fica intocado; este adendo apenas fecha o follow-up.
