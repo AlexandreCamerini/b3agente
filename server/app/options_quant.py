@@ -101,6 +101,32 @@ def intrinsic_value(option_type: str, spot: float, strike: float) -> float:
 
 
 def liquidity_score(volume: Optional[float], open_interest: Optional[float], bid: Optional[float], ask: Optional[float]) -> dict:
+    """Score 0-100 de liquidez de um contrato; o corte de aprovação é 40
+    (`options_api.liquidity_gate`, `opcoes_motor.LIQUIDEZ_MINIMA`).
+
+    RECALIBRADO 2026-09-08 (quick 260908-dnl) para fonte SEM open interest.
+    A fórmula anterior somava vol_score (≤35) + oi_score (≤40) + 25 −
+    spread_penalty. Com `B3_OPTIONS_PROVIDER=mydata` o COTAHIST não publica
+    open interest — `oi_score` era sempre 0 — e o livro chega em geral com
+    um lado zerado (penalidade 25, "desconhecido"); sobrava um teto de 35
+    contra corte de 40: IMPOSSÍVEL em qualquer volume. Medido em produção: os
+    60 contratos de PETR4 empatavam em 35,0, o melhor com 88.100 unidades
+    negociadas (`docs/MEDICAO-gate-liquidez-mydata-2026-09-08.md`).
+
+    Agora a ATIVIDADE é `max(curva(volume), curva(open_interest))` numa curva
+    única que satura em ~56.000 (75 pontos): volume sozinho carrega o score
+    quando a fonte não tem OI, e OI SUBSTITUI o volume (não soma) quando a
+    fonte o publica — o caminho Yahoo de rollback segue sensato sem inflar
+    nada no mydata. O livro (25 − spread_penalty) é BYTE-IDÊNTICO ao anterior:
+    a penalidade de "desconhecido" (25) foi mantida de propósito, contra uma
+    candidata que a reduzia e virou pass-through nas 20 cadeias reais do
+    catálogo (volume 100 sem livro passava a 51,1).
+
+    Piso sem livro: 1.000 unidades — 10 lotes (592/592 volumes reais são
+    múltiplos de 100) — exatamente onde a curva de volume ORIGINAL saturava.
+    Número derivado, não tunado. Guardião com os critérios fixados ANTES de
+    olhar os dados: `server/tests/test_liquidity_score_mydata.py`.
+    """
     v = max(0.0, float(volume or 0))
     oi = max(0.0, float(open_interest or 0))
     b = float(bid or 0)
@@ -112,9 +138,13 @@ def liquidity_score(volume: Optional[float], open_interest: Optional[float], bid
         spread_pct = (a - b) / mid if mid > 0 else None
         if spread_pct is not None:
             spread_penalty = 0 if spread_pct <= 0.03 else 8 if spread_pct <= 0.08 else 18 if spread_pct <= 0.18 else 30
-    vol_score = min(35, math.log10(v + 1) * 12)
-    oi_score = min(40, math.log10(oi + 1) * 12)
-    score = max(0, min(100, vol_score + oi_score + 25 - spread_penalty))
+
+    def _curva(x: float) -> float:
+        # (log10(x+1) − 1) × 20 em [0, 75]: 100 → 20 · 1.000 → 40 · 10.000 → 60 · ≥~56.000 → 75
+        return max(0.0, min(75.0, (math.log10(x + 1) - 1) * 20))
+
+    atividade = max(_curva(v), _curva(oi))
+    score = max(0, min(100, atividade + 25 - spread_penalty))
     return {"score": round(score, 1), "spreadPct": round(spread_pct * 100, 2) if spread_pct is not None else None}
 
 
