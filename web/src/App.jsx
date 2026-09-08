@@ -7632,7 +7632,14 @@ function BuyModal({ ctx }) {
           <span className={buyModal.confirmado ? "value-pulse" : undefined} style={{ fontWeight: 700, fontSize: "15px" }}>{money(cost)}</span>
         </div>
         {!ok && q.price != null && <div style={{ fontSize: "12px", color: T.negative, marginTop: "8px" }}>Caixa insuficiente. Disponível: {money(data.cash)}</div>}
-        <div style={{ fontSize: "11px", color: T.textFaint, marginTop: "8px" }}>{(fechado ? ctx.cp.ordemPendenteAvisoCompra(ctx.mercado.abertura) : "O preço final é o da cotação no momento da confirmação (servidor).") + " Esta simulação executa por completo ou não executa — não há preenchimento parcial de ordem."}</div>
+        {/* Achado ao vivo 2026-09-07 (staging, iPhone): o aviso de pendente
+            vinha diluído no mesmo slot T.textFaint 11px da frase de execução
+            tudo-ou-nada e o usuário passou batido — achou que a compra de
+            100 ABEV3 tinha executado com o mercado fechado. Bloco próprio
+            reusa a linguagem visual do pill PENDENTE (T.warn a 14%) pra dar
+            peso de mudança de estado real (caixa já reservado agora). */}
+        {fechado && <div style={{ marginTop: "8px", padding: "10px 12px", borderRadius: "9px", background: "color-mix(in srgb, " + T.warn + " 14%, transparent)", color: T.warn, fontSize: "12.5px", fontWeight: 700, lineHeight: 1.45 }}>{ctx.cp.ordemPendenteAvisoCompra(ctx.mercado.abertura)}</div>}
+        <div style={{ fontSize: "11px", color: T.textFaint, marginTop: "8px" }}>{fechado ? "Esta simulação executa por completo ou não executa — não há preenchimento parcial de ordem." : "O preço final é o da cotação no momento da confirmação (servidor). Esta simulação executa por completo ou não executa — não há preenchimento parcial de ordem."}</div>
         {statusIndisponivel && (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", marginTop: "10px", padding: "9px 11px", borderRadius: "9px", background: "color-mix(in srgb, " + T.warn + " 12%, transparent)", border: `1px solid ${T.warn}` }}>
             <span style={{ fontSize: "11.5px", color: T.warn, lineHeight: 1.4 }}>{ctx.cp.mercadoStatusFalhouNaOrdem}</span>
@@ -7732,7 +7739,12 @@ function SellModal({ ctx }) {
           <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: T.textMuted, fontSize: "13px" }}>Resultado estimado</span><span style={{ fontWeight: 700, fontSize: "15px", color: pnlColor }}>{moneySigned(pnl)}</span></div>
         </div>
         {restam > 0 && <div style={{ fontSize: "11px", color: T.textMuted, marginTop: "8px", lineHeight: 1.5 }}>Venda parcial: ficam {restam} cotas com o mesmo preço médio.</div>}
-        <div style={{ fontSize: "11px", color: T.textFaint, marginTop: "6px" }}>{(fechado ? ctx.cp.ordemPendenteAvisoVenda(ctx.mercado.abertura) : "O preço final é o da cotação no momento da confirmação (servidor). Registro vai para o histórico do ativo.") + " Esta simulação executa por completo ou não executa — não há preenchimento parcial de ordem."}</div>
+        {/* Achado ao vivo 2026-09-07 (staging, iPhone): mesmo defeito do
+            BuyModal — aviso de pendente diluído no slot T.textFaint 11px
+            passava batido. Bloco próprio gêmeo, reusando a linguagem visual
+            do pill PENDENTE (T.warn a 14%). */}
+        {fechado && <div style={{ marginTop: "8px", padding: "10px 12px", borderRadius: "9px", background: "color-mix(in srgb, " + T.warn + " 14%, transparent)", color: T.warn, fontSize: "12.5px", fontWeight: 700, lineHeight: 1.45 }}>{ctx.cp.ordemPendenteAvisoVenda(ctx.mercado.abertura)}</div>}
+        <div style={{ fontSize: "11px", color: T.textFaint, marginTop: "6px" }}>{fechado ? "Esta simulação executa por completo ou não executa — não há preenchimento parcial de ordem." : "O preço final é o da cotação no momento da confirmação (servidor). Registro vai para o histórico do ativo. Esta simulação executa por completo ou não executa — não há preenchimento parcial de ordem."}</div>
         {statusIndisponivel && (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", marginTop: "10px", padding: "9px 11px", borderRadius: "9px", background: "color-mix(in srgb, " + T.warn + " 12%, transparent)", border: `1px solid ${T.warn}` }}>
             <span style={{ fontSize: "11.5px", color: T.warn, lineHeight: 1.4 }}>{ctx.cp.mercadoStatusFalhouNaOrdem}</span>
