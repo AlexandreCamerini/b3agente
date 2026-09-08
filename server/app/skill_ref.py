@@ -516,6 +516,17 @@ OPCOES_LASTREADAS = {
     "operador": {
         "call_coberta": "Vender {n} call(s) de {ticker} strike {strike} por R$ {premioTotal}.",
         "put_protecao": "Comprar {n} put(s) de {ticker} strike {strike} por R$ {premioTotal}.",
+        # ATUALIZADO 2026-09-07 (quick 260907-x69): fechar_call_coberta e
+        # fechar_put_protecao são frases DISTINTAS da abertura acima, porque a
+        # MESMA posição descreve ações OPOSTAS nos dois momentos — abrir uma
+        # call coberta VENDE a call; fechá-la RECOMPRA. Abrir uma put de
+        # proteção COMPRA a put; fechá-la VENDE (e credita). Antes desta
+        # correção, `proposta_fechar` reusava a frase de abertura e o card de
+        # fechamento de uma put dizia "Comprar 1 put(s)…" acima de um botão
+        # que na verdade VENDE — achado ao vivo em staging (iPhone, Modo
+        # Operador, put ABEV3 strike 30,00).
+        "fechar_call_coberta": "Recomprar {n} call(s) de {ticker} strike {strike} por R$ {premioTotal} — destrava {qtyAcoes} ação(ões).",
+        "fechar_put_protecao": "Vender {n} put(s) de {ticker} strike {strike} por R$ {premioTotal} — encerra a proteção de {qtyAcoes} ação(ões).",
         # Fase 16, Plano 02 (LIB-03): collar não carrega valor em reais na
         # frase — diferente de call_coberta/put_protecao, o resultado
         # líquido do collar tem SINAL (débito quando a put custa mais que a
@@ -538,6 +549,11 @@ OPCOES_LASTREADAS = {
     "educacional": {
         "call_coberta": "Se você tivesse vendido esta call coberta agora, receberia um prêmio de R$ {premioTotal} e travaria {qtyAcoes} ação(ões) até a recompra ou o vencimento.",
         "put_protecao": "Se você tivesse comprado esta put de proteção agora, pagaria R$ {premioTotal} para proteger {qtyAcoes} ação(ões) contra queda abaixo de R$ {strike}.",
+        # ATUALIZADO 2026-09-07 (quick 260907-x69): registro condicional do
+        # FECHAMENTO — mesma correção do registro operador acima, sem verbo
+        # de ordem.
+        "fechar_call_coberta": "Se você encerrasse esta call coberta agora, pagaria R$ {premioTotal} para recomprá-la e {qtyAcoes} ação(ões) voltariam a ficar livres.",
+        "fechar_put_protecao": "Se você encerrasse esta put de proteção agora, receberia R$ {premioTotal} pela venda e {qtyAcoes} ação(ões) deixariam de estar protegidas contra queda abaixo de R$ {strike}.",
         # Fase 16, Plano 02 (LIB-03): mesma decisão de não sinalizar valor em
         # reais do registro operador acima (ver comentário lá) — condição
         # descrita, nunca ordem, e sem promessa de financiamento completo.

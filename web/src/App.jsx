@@ -3259,7 +3259,7 @@ function PropostaLastreada({ r, operador, cp, busy, onAbrir, onFechar, posAberta
           {degradado
             ? cp.propostaIndisponivelDegradada
             : posAberta
-            ? cp.ctaFecharLastreada(price(p.premioTotal))
+            ? cp.ctaFecharLastreada(price(p.premioTotal), isCall)
             : isCollar
             ? (p.caixa && p.caixa.fluxo === "credito"
                 ? cp.ctaCollarCredito(p.contratos, r.ticker, price(p.strikeCall), price(p.strikePut), price(Math.abs((p.caixa && p.caixa.custoLiquidoTotal) || 0)))
@@ -3462,7 +3462,7 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
   const onFecharLastreada = async () => {
     if (!opProposta || !opProposta.proposta) return;
     const p = opProposta.proposta;
-    if (!window.confirm(cp.confirmFecharCoberta(price(p.premioTotal), p.qtyAcoes, t))) return;
+    if (!window.confirm(cp.confirmFecharCoberta(price(p.premioTotal), p.qtyAcoes, t, p.optionType === "call"))) return;
     setOpPropostaBusy(true);
     try { await A.fecharLastreada({ contractSymbol: p.contractSymbol, contratos: p.contratos }); }
     finally { setOpPropostaBusy(false); }
@@ -4204,7 +4204,7 @@ function PropostaDaPosicao({ t, r, cp, operador, A, data, aberto, onToggle }) {
   const onFecharLastreada = async () => {
     if (!r || !r.proposta) return;
     const p = r.proposta;
-    if (!window.confirm(cp.confirmFecharCoberta(price(p.premioTotal), p.qtyAcoes, t))) return;
+    if (!window.confirm(cp.confirmFecharCoberta(price(p.premioTotal), p.qtyAcoes, t, p.optionType === "call"))) return;
     setBusy(true);
     try { await A.fecharLastreada({ contractSymbol: p.contractSymbol, contratos: p.contratos }); }
     finally { setBusy(false); }
