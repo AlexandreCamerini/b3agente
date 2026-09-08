@@ -4103,7 +4103,9 @@ function OportunidadesOpcoes({ propostas, carregando, positions, cp, onAbrir }) 
                 type="button"
                 aria-label={p.t + " — " + cp.tiraOpcoesVerDetalhe}
                 onClick={() => onAbrir(p.t)}
-                style={{ ...carouselItemStyle("start"), flex: "0 0 auto", minWidth: "210px", minHeight: "44px", textAlign: "left", padding: "11px 12px", borderRadius: "11px", background: T.bgCard, border: `1px solid ${T.borderFaint}`, cursor: "pointer" }}
+                // teto de largura: mesma decisão do item de CandidatoOpcao (App.jsx,
+                // achado ao vivo 2026-09-07) — ver comentário completo lá.
+                style={{ ...carouselItemStyle("start"), flex: "0 0 210px", minWidth: "210px", minHeight: "44px", textAlign: "left", padding: "11px 12px", borderRadius: "11px", background: T.bgCard, border: `1px solid ${T.borderFaint}`, cursor: "pointer" }}
               >
                 <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em", color: T.accent }}>{eyebrow}</div>
                 <div style={{ fontFamily: MONO, fontWeight: 800, fontSize: "13px", color: T.textPrimary, marginTop: "3px" }}>{p.t}</div>
@@ -4257,7 +4259,21 @@ function CandidatoOpcao({ p, r, cp, operador, busy, onAceitar }) {
   // aplicada à UI, mesmo helper de App.jsx:3051-3055).
   const porLote = (v) => (typeof v === "number" ? v * (p.qtyAcoes || 0) : null);
   return (
-    <div style={{ ...carouselItemStyle("start"), flex: "0 0 auto", minWidth: "210px", minHeight: "44px", padding: "11px 12px", borderRadius: "11px", background: T.bgCard, border: `1px solid ${T.borderFaint}` }}>
+    // teto de largura (achado ao vivo 2026-09-07, staging/iPhone, dois
+    // candidatos put_protecao + collar): sem `flex-basis` fixo o item
+    // dimensiona por `max-content` — a manchete do collar, que é longa por
+    // desenho, então esticava o card até virar linha única e empurrar os
+    // valores do payoff pra fora da leitura confortável. A manchete NUNCA é
+    // truncada (guardrail CVM — cortar reescreveria a afirmação do motor),
+    // por isso a correção é de LARGURA, nunca de texto. `flex: "0 0 210px"`
+    // CUMPRE a Decisão 1 do 22-UI-SPEC pela primeira vez (o `minWidth:"210px"`
+    // documentado sempre foi piso, nunca teto — decisão do Alex, 2026-09-07,
+    // ver 260907-w33-PLAN.md Task 1) em vez de revertê-la: os dois candidatos
+    // seguem comparáveis lado a lado, sem a T-22-02 (esconder o 2º candidato).
+    // Os dois cards têm a MESMA largura de propósito — duas propostas
+    // disputam a MESMA decisão; largura diferente daria peso visual diferente
+    // (CLAUDE.md princípio 9). Espelhado no item de OportunidadesOpcoes acima.
+    <div style={{ ...carouselItemStyle("start"), flex: "0 0 210px", minWidth: "210px", minHeight: "44px", padding: "11px 12px", borderRadius: "11px", background: T.bgCard, border: `1px solid ${T.borderFaint}` }}>
       <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em", color: T.accent }}>{eyebrow}</div>
       <div style={{ fontFamily: MONO, fontWeight: 800, fontSize: "13px", color: T.textSecondary, marginTop: "3px" }}>
         {isCollar
