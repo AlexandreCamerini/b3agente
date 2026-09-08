@@ -4,13 +4,38 @@
 # É este script que garante que o plugin de notificações entra no binário —
 # a causa do app nem aparecer em Ajustes -> Notificacoes era build sem sync.
 #
-# Uso (na raiz do repo):  bash scripts/instalar-iphone.sh [--recriar-ios]
+# Uso (na raiz do repo):
+#   bash scripts/instalar-iphone.sh                  # aponta para PRODUÇÃO (default)
+#   bash scripts/instalar-iphone.sh --staging        # aponta para o backend de STAGING
+#   bash scripts/instalar-iphone.sh --api-base URL   # aponta para uma URL qualquer
+#   (--recriar-ios continua valendo, combinável com os acima)
+#
+# POR QUE O ALVO DA API IMPORTA AQUI (2026-09-07): o bundle web fica EMBUTIDO
+# no binário, e `web/src/api.js` resolve o endereço na ordem
+# `override manual > VITE_API_BASE do build > PROD_BASE`. Buildar sem
+# VITE_API_BASE produz um app que fala com PRODUÇÃO — instalar uma UI de
+# staging assim escreveria no banco real. O alvo agora é impresso antes e
+# CONFERIDO no dist depois do build, não é só um comentário.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 ROOT="$(pwd)"
 
+STAGING_API="https://b3agente-staging.up.railway.app"
+PROD_API="https://boris.semente.dev"
+
 RECRIAR=0
-[ "${1:-}" = "--recriar-ios" ] && RECRIAR=1
+API_BASE=""          # vazio = default do app (PROD_BASE, ver api.js)
+ALVO_ROTULO="PRODUÇÃO (default do app)"
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --recriar-ios) RECRIAR=1; shift;;
+    --staging)     API_BASE="$STAGING_API"; ALVO_ROTULO="STAGING"; shift;;
+    --api-base)    [ -n "${2:-}" ] || { echo "--api-base exige uma URL" >&2; exit 1; }
+                   API_BASE="$2"; ALVO_ROTULO="CUSTOM"; shift 2;;
+    *) echo "opção desconhecida: $1" >&2; exit 1;;
+  esac
+done
+API_EFETIVA="${API_BASE:-$PROD_API}"
 
 say(){ printf "\n\033[1m== %s ==\033[0m\n" "$*"; }
 ok(){ printf "  \033[32m[OK]\033[0m %s\n" "$*"; }
@@ -37,8 +62,27 @@ else
 fi
 
 say "4) Build web"
-npm run build
+printf "\n  \033[1m>>> BACKEND ALVO: %s\033[0m\n" "$ALVO_ROTULO"
+printf "      %s\n\n" "$API_EFETIVA"
+if [ -n "$API_BASE" ]; then
+  VITE_API_BASE="$API_BASE" npm run build
+else
+  npm run build
+fi
 ok "dist/ gerado"
+
+# Conferência real, não confiança: o endereço tem que estar DENTRO do bundle.
+# Pega o erro clássico de esquecer a flag e instalar UI nova contra o banco
+# de produção.
+if [ -n "$API_BASE" ]; then
+  grep -rqF "$API_BASE" dist/assets/*.js \
+    || die "o dist NÃO contém $API_BASE — o build ignorou VITE_API_BASE; NÃO instale, o app falaria com produção"
+  ok "confirmado no bundle: $API_BASE"
+else
+  grep -rqF "$STAGING_API" dist/assets/*.js \
+    && die "o dist contém a URL de STAGING sem a flag --staging — build sujo, rode 'rm -rf web/dist' e repita" \
+    || ok "build sem VITE_API_BASE (o app usará $PROD_API)"
+fi
 
 if [ "$RECRIAR" = "1" ] && [ -d ios ]; then
   say "4b) --recriar-ios: removendo a pasta ios/ (plano C do erro de SPM)"
