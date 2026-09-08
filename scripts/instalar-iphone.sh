@@ -93,8 +93,22 @@ say "5) Projeto iOS"
 if [ ! -d ios ]; then
   npx cap add ios
   ok "ios/ criado"
-  # Reaplicar ajustes nativos que a recriação apaga:
+  # Reaplicar ajustes nativos que a recriação apaga. `web/ios/` está no
+  # .gitignore, então TODO clone/worktree novo passa por aqui.
   [ -f "$ROOT/scripts/ios-adopt-uiscene.sh" ] && bash "$ROOT/scripts/ios-adopt-uiscene.sh" || true
+  # 2026-09-07: sem isto o Sign in with Apple falha no aparelho com
+  # "Login não pode ser completado", e o push morre calado — `cap add ios`
+  # referencia App.entitlements no pbxproj mas não cria o arquivo.
+  bash "$ROOT/scripts/ios-restaurar-entitlements.sh" \
+    || die "não consegui restaurar os entitlements — sem eles o login Apple e o push falham no aparelho"
+fi
+
+# Rede de segurança: vale também para um web/ios/ que já existia mas nasceu
+# sem entitlements (exatamente o caso que originou este guard).
+# Caminho ABSOLUTO de propósito: neste ponto o cwd é $ROOT/web, não $ROOT.
+if [ ! -f "$ROOT/web/ios/App/App/App.entitlements" ]; then
+  bash "$ROOT/scripts/ios-restaurar-entitlements.sh" \
+    || die "entitlements ausentes e não foi possível criá-los"
 fi
 
 say "6) cap sync ios (é AQUI que o plugin entra no binário)"
