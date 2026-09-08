@@ -28,7 +28,13 @@ Projeto: `bolsIA` · serviço: `b3agente` · `rootDirectory=/server` nos dois.
 
 **Nenhum comando de CLI que mexe em branch é seguro.** O campo de branch é
 COMPARTILHADO entre os environments no modelo de dados do Railway. Mudar a
-branch de staging muda a de produção junto — e produção tem auto-deploy.
+branch de staging muda a de produção junto.
+
+Em 2026-09-07 isso ainda encontrava produção com auto-deploy LIGADO, então a
+mudança de config virava deploy na hora. O auto-deploy foi desligado
+justamente por causa disso (ver "Deploy de produção é manual" abaixo) — mas
+não trate isso como imunidade: a config continua vazando, só não sobe
+sozinha.
 
 Em 2026-09-07 isso aconteceu duas vezes:
 
@@ -66,15 +72,36 @@ Ele recusa rodar a partir de `main` e recusa `STAGING_ENV=production`.
 `railway up` envia o diretório local direto para um serviço+environment
 nomeados: não lê branch, não escreve configuração, **não alcança produção**.
 
-Para promover depois de validar:
+## Deploy de produção é manual
+
+**O auto-deploy de produção está DESLIGADO** (2026-09-07, painel: environment
+`production` → serviço `b3agente` → Settings → Source → "Auto deploys when
+pushed to GitHub" → Disable).
+
+Motivo: os dois incidentes do dia não vieram de push de código — vieram de
+mudança de **configuração** no Railway, que disparava deploy imediato. O gate
+que existia estava só dentro do script de promoção, e config não passa por
+script nenhum. Com o auto-deploy desligado, nada sobe em produção sem um
+clique consciente.
+
+Não há como desligar isso por CLI: não está no config do serviço nem no
+schema do `railway.json`. É um "deployment trigger", só pelo painel.
+
+Para promover depois de validar em staging:
 
 ```bash
 bash scripts/promover-staging-para-producao.sh
 ```
 
 Faz merge da branch local em `main`, roda a suíte **de novo já com o merge**,
-e só empurra depois que você digitar `PRODUCAO`. É o único caminho que toca
-produção.
+publica o front, e só empurra depois que você digitar `PRODUCAO`. **O push
+não deploya** — ao final o script imprime o passo manual: painel → environment
+`production` → serviço `b3agente` → **Deploy**.
+
+Consequência de escolha, registrada: manter o deploy por git (e não por
+`railway up`) preserva o **Nixpacks** em produção. Promover com `railway up`
+seria automatizável, mas trocaria o builder para Railpack — a mesma
+divergência que staging tem. Não vale o preço em produção.
 
 ---
 

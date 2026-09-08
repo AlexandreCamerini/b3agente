@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
 # promover-staging-para-producao.sh — quando a versão em staging já foi
-# validada e está pronta pra virar produção de verdade: mescla a branch de
-# staging em `main`, roda a suíte de novo JÁ com o merge, e (só com
-# confirmação explícita, digitada) empurra `main` pra origin — o único
-# comando deste par de scripts que efetivamente dispara o deploy de
-# PRODUÇÃO no Railway.
+# validada e está pronta pra virar produção: mescla a branch de trabalho em
+# `main`, roda a suíte de novo JÁ com o merge, e (só com confirmação
+# explícita, digitada) empurra `main` pra origin.
+#
+# O PUSH NÃO DEPLOYA. O auto-deploy de produção foi desligado de propósito
+# em 2026-09-07 (ver STAGING.md): depois de dois deploys indevidos causados
+# por mudança de CONFIGURAÇÃO no Railway — não por este script — produção
+# passou a exigir um clique manual no painel. Este script prepara e publica
+# o código; quem sobe é você, vendo o que está subindo.
 #
 # `publicar-staging.sh` nunca chega perto de `main`; este script é o único
 # lugar onde a promoção acontece, de propósito — histórico de decisão fica
@@ -72,24 +76,46 @@ say "5/6 · Revisão final antes do push"
 echo "  Commits que vão para produção (origin/main..HEAD):"
 git log --oneline origin/main..HEAD
 echo
+BUILD_PROMO="$(sed -n 's/.*BUILD_ID = "\([^"]*\)".*/\1/p' web/src/version.js)"
+echo "  Carimbo que vai ao ar: $BUILD_PROMO"
+echo
 echo "  Isto vai rodar:  git push origin main"
-echo "  Este comando DISPARA O DEPLOY DE PRODUÇÃO no Railway."
-printf "  Digite exatamente PRODUCAO para confirmar (qualquer outra coisa cancela): "
+echo
+echo "  ATENÇÃO: o auto-deploy de produção está DESLIGADO de propósito"
+echo "  (decisão de 2026-09-07 — ver STAGING.md). O push NÃO sobe nada"
+echo "  sozinho: ele só publica o código. O deploy é um clique seu, no"
+echo "  painel, depois. Isso é a rede de segurança, não um defeito."
+printf "  Digite exatamente PRODUCAO para confirmar o push (qualquer outra coisa cancela): "
 read -r CONFIRM
 [ "$CONFIRM" = "PRODUCAO" ] || die "cancelado — nada foi enviado a origin/main. O merge continua só local (git reset --hard origin/main pra desfazer)."
 
 say "6/6 · Push para origin/main"
 git push origin main
-ok "produção atualizada"
+ok "código publicado em origin/main (produção ainda NÃO mudou)"
 
-echo
-echo "  Aguardando o Railway subir produção…"
-for i in $(seq 1 20); do
-  code=$(curl -s -o /dev/null -w "%{http_code}" "$RAILWAY_URL/api/health" || echo 000)
-  [ "$code" = "200" ] && { ok "/api/health de produção respondeu 200 (tentativa $i)"; break; }
-  echo "  tentativa $i/20 -> HTTP $code"
-  [ "$i" = "20" ] && { echo "  ✗ sem 200 após ~5 min — veja Deployments no painel do Railway (produção)"; exit 1; }
-  sleep 15
-done
-echo
-echo "  Promoção concluída: $PROMOVER_BRANCH -> main -> produção ($RAILWAY_URL)."
+SHA_PROMO="$(git rev-parse --short HEAD)"
+cat <<FIM
+
+  ─────────────────────────────────────────────────────────────
+   FALTA UM PASSO — o deploy de produção é MANUAL
+  ─────────────────────────────────────────────────────────────
+
+   1. Abra o Railway → projeto bolsIA
+   2. Troque o environment para  production
+   3. Serviço  b3agente  → botão  Deploy
+      (ele sobe o commit mais recente de main: $SHA_PROMO)
+   4. Acompanhe em Deployments; o build usa NIXPACKS
+      e deve mostrar a linha do backup:  [backup] ok -> /data/backups/...
+
+   Produção AGORA:   $(curl -s --max-time 10 "$RAILWAY_URL/api/health" 2>/dev/null || echo "sem resposta")
+   Esperado depois:  build "$BUILD_PROMO"
+
+   Para conferir quando terminar:
+     curl -s $RAILWAY_URL/api/health
+
+   Se precisar voltar atrás: no painel, Deployments → o deploy
+   anterior → Redeploy. O banco não volta junto (ver STAGING.md,
+   seção Rollback) — por isso o backup roda antes de cada deploy.
+
+  ─────────────────────────────────────────────────────────────
+FIM
