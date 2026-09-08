@@ -29,7 +29,9 @@ Phase: 17 (checkpoint humano bloqueante, Task 2 de `17-06-PLAN.md`)
 Plan: aguardando o Alex (mercado aberto + posição real elegível)
 Status: In Progress — travado em checkpoint humano, não em execução
 Progress: [████████░░░░░░░░░░░░] 40% (2/5 fases completas do v1.4; Fases 17/18/19 parciais)
-Last activity: 2026-09-07 — quick task 260907-w33 (teto de largura do card de candidato de opção). ATENÇÃO ao publicar: a branch `v2/interacao-estrutural` está 7 commits ATRÁS de `origin/main` (trabalho "volume anormal" + o publish de F10-20260907-01, que produção serve agora) e 173 à frente. `scripts/bump.sh` calcula o próximo carimbo do valor LOCAL (`F10-20260906-02`), então rodá-lo aqui geraria `F10-20260907-01` — colidindo com o carimbo de produção para código diferente. Mesclar `origin/main` ANTES de qualquer bump/publicação.
+Last activity: 2026-09-07 — quick task 260907-x69 (textos do card de FECHAMENTO de opção lastreada), depois da 260907-w33 (teto de largura do card de candidato). Duas correções da mesma sessão de teste ao vivo em staging/iPhone, as DUAS ainda não publicadas.
+
+ATENÇÃO ao publicar: a branch `v2/interacao-estrutural` estava 7 commits ATRÁS de `origin/main` (trabalho "volume anormal" + o publish de F10-20260907-01, que produção serve agora) e 173 à frente. `scripts/bump.sh` calcula o próximo carimbo do valor LOCAL, então rodá-lo antes da mesclagem geraria `F10-20260907-01` — colidindo com o carimbo de produção para código diferente. Mesclar `origin/main` ANTES de qualquer bump/publicação.
 
 ## Performance Metrics
 
@@ -219,6 +221,7 @@ Recent decisions affecting current work:
 | 260906-ugb | Corrigir 3 achados Baixo do REPORT-01: C-18 (`aria-describedby` no gate "Executar"), C-08 (reversão à média nomeada no verbete `setup-ifr2`); C-28 reverificado e encontrado já resolvido (nenhum código mudou) | 2026-09-06 | 9a874c5 | Verified | [260906-ugb](./quick/260906-ugb-corrigir-3-achados-baixo-do-report-01-c-/) |
 | 260906-vf9 | Corrigir 3 achados de PRODUTO do REPORT-01 (C-07: "Operador IA" nomeado em `ModoTrabalhoCard`; C-09: aviso de drawdown >15% em `CapitalCurve`, limiar decidido pelo orquestrador; C-06: `resumoOperacao(h)` — escopo reduzido a uma frase no Histórico existente) | 2026-09-06 | 72187df | Verified | [260906-vf9](./quick/260906-vf9-corrigir-3-achados-de-produto-do-report-/) |
 | 260907-w33 | Corrigir estouro de largura do card de candidato de opção (achado ao vivo em staging/iPhone com put_protecao + collar): `flex: "0 0 210px"` nos dois trilhos de opções, CUMPRINDO a Decisão 1 do 22-UI-SPEC em vez de revertê-la — `minWidth` sempre foi piso, nunca teto. Guardião da asserção 7 intocado. **Publicação PENDENTE** | 2026-09-07 | (merge) | Não publicado | [260907-w33](./quick/260907-w33-corrigir-estouro-de-largura-do-card-de-c/) |
+| 260907-x69 | Corrigir os textos do card de FECHAMENTO de operação lastreada (achado ao vivo em staging/iPhone): a manchete de fechar uma put dizia "Comprar 1 put(s)…" acima de um botão que VENDE, e o CTA/confirmação falavam em "recomprar a call" e "destrava ações" para uma put que nunca travou ação. Frases `fechar_call_coberta`/`fechar_put_protecao` nos DOIS modos de `skill_ref`; `tipo`/`motivo` intocados (contrato de ~9 guardiões de igualdade exata). O dinheiro já estava certo (`side=="comprada"` → `store.sell_option`, credita) — defeito só de texto. **Dois guardiões afirmavam o texto errado** e foram atualizados com nota datada, não apagados. **Publicação PENDENTE** | 2026-09-07 | a90e0bf | Não publicado | [260907-x69](./quick/260907-x69-corrigir-textos-do-card-de-fechamento-de/) |
 
 ## Deferred Items
 
