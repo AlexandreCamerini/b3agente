@@ -48,6 +48,26 @@ export function qtyLivre(pos) {
   return Math.max(0, (Number(pos && pos.qty) || 0) - (Number(pos && pos.qtyTravada) || 0));
 }
 
+// Quick 260908-ldg (2026-09-08): régua de três faixas de liquidez de opção —
+// espelho DECLARADO de `server/app/options_quant.faixa_de_liquidez`
+// (LIQUIDEZ_NEGOCIAVEL=55, LIQUIDEZ_DIFICIL=30). O front precisa da escala
+// porque `/api/options/chain` entrega `liquidity.score` cru (sem rótulo) e o
+// ramo OFFLINE do `deviceStore` (persistence.js) decide sem servidor — não é
+// uma segunda régua, é a MESMA régua replicada e testada, mesma disciplina de
+// `deviceStore` × `store.py` já vigente no resto do arquivo. Guardião de
+// paridade byte-a-byte em `web/tests/test_faixa_liquidez_ui.mjs` (lê os dois
+// arquivos-fonte). Score não-numérico/negativo cai em "SEM MERCADO" — nunca
+// lança exceção (mesmo padrão do lado Python).
+export const FAIXA_NEGOCIAVEL_MIN = 55;
+export const FAIXA_DIFICIL_MIN = 30;
+
+export function faixaDeLiquidez(score) {
+  if (typeof score !== "number" || Number.isNaN(score) || score < 0) return "SEM MERCADO";
+  if (score >= FAIXA_NEGOCIAVEL_MIN) return "NEGOCIÁVEL";
+  if (score >= FAIXA_DIFICIL_MIN) return "DIFÍCIL";
+  return "SEM MERCADO";
+}
+
 export function markPrice(quote, position) {
   const px = quote && typeof quote.price === "number" && quote.price > 0 ? quote.price : null;
   if (px != null) return px;

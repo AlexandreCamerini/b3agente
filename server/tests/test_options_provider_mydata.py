@@ -418,18 +418,22 @@ def test_cache_quente_nao_consulta_orcamento(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# Efeito de openInterest ausente sobre o gate de liquidez (medição, não fix)
+# Efeito de openInterest ausente sobre o gate de liquidez
 # ---------------------------------------------------------------------------
-def test_liquidity_score_sem_open_interest_de_contrato_liquido_petr4_registra_52_0_passa_do_corte_40(monkeypatch):
+def test_liquidity_score_sem_open_interest_de_contrato_liquido_petr4_registra_71_0_passa_do_corte_40(monkeypatch):
     """PETR4, volume alto (5000) e spread apertado (1.80/1.90 ~5.41%),
-    openInterest=None (sem fonte no COTAHIST). Score medido: 52.0 — passa do
-    corte de 40 usado por `options_api.liquidity_gate`. Sem open interest o
-    teto do score cai de 100 para 60 (vol_score até 35 + base 25 -
-    spread_penalty mínimo 0), então este caso específico passa, mas
-    contratos com volume menor que hoje dependiam de open interest real para
-    cruzar o corte podem não passar mais — achado de produto para o
-    checkpoint do Plano 09-06, NÃO corrigido aqui (options_quant.py não é
-    alterado por este plano)."""
+    openInterest=None (sem fonte no COTAHIST).
+
+    ATUALIZADO 2026-09-08 (quick 260908-dnl): era `== 52.0`, com a docstring
+    afirmando que "este caso específico passa" e deixando o resto para o
+    checkpoint de virada. A virada aconteceu; o checkpoint, não. Medido em
+    produção: o caso favorável deste teste era hipotético — o PETR4 REAL não
+    tem os dois lados do livro em contrato nenhum, e os 60 contratos empatavam
+    em 35,0 contra corte 40. `liquidity_score` foi recalibrado para volume
+    carregar o score sozinho (curva até 75, OI substitui em vez de somar;
+    livro byte-idêntico). Este mesmo caso mede 71.0 agora. A medição está em
+    `docs/MEDICAO-gate-liquidez-mydata-2026-09-08.md`; os critérios de gate
+    em `test_liquidity_score_mydata.py`."""
     resultado = liquidity_score(volume=5000, open_interest=None, bid=1.80, ask=1.90)
-    assert resultado["score"] == 52.0
+    assert resultado["score"] == 71.0
     assert resultado["score"] >= 40

@@ -83,6 +83,11 @@ _FAMILIA_DO_CONCEITO = {
     "confluencia": "setups",
     "fundamento": "fundamentos",
     "barra15m": "estados_app",
+    # Quick 260908-ldg (2026-09-08): a régua de três faixas de liquidez de
+    # CONTRATO de opção — distinta de `mkt-liquidez` (liquidez do ATIVO-OBJETO,
+    # verbete de prosa própria, sem fonte determinística de card). Vive em
+    # "mercado_b3" pelo mesmo motivo de `mkt-opcao`.
+    "liquidez-opcao": "mercado_b3",
 }
 
 

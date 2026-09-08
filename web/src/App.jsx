@@ -12,7 +12,7 @@ import { BUILD_ID } from "./version.js";
 // carimbo no console: prova de qual build está rodando (device/web)
 try { console.log("[b3] build", BUILD_ID); } catch { /* noop */ }
 import { canAddTicker, canAnalyze } from "./plan.js";
-import { portfolioMetrics, dayReturnPct, equityCurve, markPrice, sizingPlano, RR_MIN_TXT, historicoEstado, historicoDesatualizado, benchmarkSerie, concentracaoMaxima, qtyLivre, resumoOperacao, setupOperavel, metaDeEntrada } from "./finance.js";
+import { portfolioMetrics, dayReturnPct, equityCurve, markPrice, sizingPlano, RR_MIN_TXT, historicoEstado, historicoDesatualizado, benchmarkSerie, concentracaoMaxima, qtyLivre, resumoOperacao, setupOperavel, metaDeEntrada, faixaDeLiquidez } from "./finance.js";
 import * as notify from "./notify.js";
 import { track, setAnalyticsUser, flush as flushAnalytics } from "./analytics.js"; // qa/47 (Fase 2)
 import Boris from "./pet/Boris.jsx";
@@ -3095,8 +3095,12 @@ function OpcaoContrato({ c, cur, chain, isOpen, onToggle, sustains, pos, onBuy, 
   const breakeven = c.breakeven;
   const distPct = typeof breakeven === "number" && cur ? ((breakeven - cur) / cur) * 100 : null;
   const liq = c.liquidity || {};
-  const liqLabel = (liq.score || 0) >= 55 ? ["NEGOCIÁVEL", T.positive, T.positiveTint10]
-    : (liq.score || 0) >= 30 ? ["DIFÍCIL", T.accent, T.accentTint10] : ["SEM MERCADO", T.negative, T.negativeTint10];
+  // Quick 260908-ldg: escala em `faixaDeLiquidez` (finance.js, espelho de
+  // `options_quant.faixa_de_liquidez`) — nenhum literal 55/30 inline aqui;
+  // a cor continua sendo decisão de TEMA deste componente, não da escala.
+  const _faixaContrato = faixaDeLiquidez(typeof liq.score === "number" ? liq.score : null);
+  const liqLabel = _faixaContrato === "NEGOCIÁVEL" ? ["NEGOCIÁVEL", T.positive, T.positiveTint10]
+    : _faixaContrato === "DIFÍCIL" ? ["DIFÍCIL", T.accent, T.accentTint10] : ["SEM MERCADO", T.negative, T.negativeTint10];
   const thetaSemanaPct = c.blackScholes && typeof c.blackScholes.theta === "number" && custoTotal
     ? Math.abs((c.blackScholes.theta * 7 * 100 / custoTotal) * 100) : null;
   const bloqueado = !chain || chain.providerStatus !== "ok"; // ADR-004
@@ -3167,6 +3171,33 @@ function FonteDoDadoProposta({ r, cp }) {
   );
 }
 
+// Quick 260908-ldg (D-09): chip de liquidez → verbete determinístico. Único
+// chip com afordância de toque entre os de `p.chips` — os outros seguem
+// `<span>` (a afordância nova é só do chip que tem verbete, App.jsx:3220-3223
+// da versão anterior). `minHeight: 44px` = alvo tátil mínimo, mesmo padrão do
+// resto do app (ex.: botões de CTA); os outros chips continuam pill de 20px
+// porque não são interativos.
+function ChipDaProposta({ c, p, ticker, onVerbeteLiquidez }) {
+  if (c.k === "liquidez" && onVerbeteLiquidez) {
+    const liq = p.liquidez || {};
+    return (
+      <button
+        type="button"
+        onClick={() => onVerbeteLiquidez({ ticker, faixa: liq.faixa, score: liq.score, volume: liq.volume, spreadPct: liq.spreadPct })}
+        aria-label="O que é liquidez de opção?"
+        style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "999px", background: T.bgBase, color: T.textSecondary, fontWeight: 700, border: "none", cursor: "pointer", minHeight: "44px", display: "inline-flex", alignItems: "center" }}
+      >
+        {c.k} <b style={{ fontWeight: 800, color: T.textPrimary, marginLeft: "4px" }}>{c.v}</b>
+      </button>
+    );
+  }
+  return (
+    <span style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "999px", background: T.bgBase, color: T.textSecondary, fontWeight: 700 }}>
+      {c.k} <b style={{ fontWeight: 800, color: T.textPrimary }}>{c.v}</b>
+    </span>
+  );
+}
+
 // Fase 14 (Plano 06, 14-UI-SPEC.md) — o CARD DE PROPOSTA: venda coberta ou
 // put de proteção prontas, no mesmo formato visual da manchete única do hero
 // (App.jsx:3172-3174 — Display 17/800, eyebrow 10/800). A MANCHETE e a frase
@@ -3174,7 +3205,7 @@ function FonteDoDadoProposta({ r, cp }) {
 // determinístico decide o texto (guardrail CVM, T-14-22); este componente só
 // arruma layout e decide CTA × explicação pelo modo (T-14-23, defesa em UI —
 // o servidor recusa com 403 mesmo que este código tivesse um bug).
-function PropostaLastreada({ r, operador, cp, busy, onAbrir, onFechar, posAberta }) {
+function PropostaLastreada({ r, operador, cp, busy, onAbrir, onFechar, posAberta, onVerbeteLiquidez }) {
   if (!r) return null; // ainda carregando — silêncio, a proposta é secundária ao card (sem esqueleto)
   if (!r.proposta) {
     return (
@@ -3218,9 +3249,7 @@ function PropostaLastreada({ r, operador, cp, busy, onAbrir, onFechar, posAberta
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "10px" }}>
         {(p.chips || []).map((c) => (
-          <span key={c.k} style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "999px", background: T.bgBase, color: T.textSecondary, fontWeight: 700 }}>
-            {c.k} <b style={{ fontWeight: 800, color: T.textPrimary }}>{c.v}</b>
-          </span>
+          <ChipDaProposta key={c.k} c={c} p={p} ticker={r.ticker} onVerbeteLiquidez={onVerbeteLiquidez} />
         ))}
       </div>
       {est && (
@@ -3446,6 +3475,20 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
   const onAbrirLastreada = async () => {
     if (!opProposta || !opProposta.proposta) return;
     const p = opProposta.proposta;
+    // Quick 260908-ldg (D-03): consentimento de liquidez é um confirm
+    // PRÓPRIO, disparado ANTES de qualquer confirm de estrutura — decide se
+    // a operação faz sentido; o da estrutura decide o que ela trava. O texto
+    // é `liq.aviso` VERBATIM (nunca composto aqui — "o front nunca compõe
+    // vocabulário", mesma regra da manchete). Motor mudo (`faixa === "DIFÍCIL"`
+    // sem `aviso`, backend antigo/degradado): aborta com erro nomeado, nunca
+    // inventa o texto.
+    const liq = p.liquidez || {};
+    let aceitaLiquidezDificil = false;
+    if (liq.faixa === "DIFÍCIL") {
+      if (!liq.aviso) { A.flash("Não foi possível confirmar a liquidez desta operação — tente novamente."); return; }
+      if (!window.confirm(liq.aviso)) return;
+      aceitaLiquidezDificil = true;
+    }
     // Fase 17 (Plano 05, FLOW-02/FLOW-03): collar tem caminho de aceite
     // PRÓPRIO — a trava TRAVA lastro pela perna da call, mesma razão que já
     // obriga confirmação na venda coberta abaixo (T-14-24), aplicada à
@@ -3462,6 +3505,7 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
           pernasContratos: (p.pernasContratos || []).map((perna) => ({ contractSymbol: perna.contractSymbol, lado: perna.lado })),
           contratos: p.contratos,
           expiration: p.expiration,
+          aceitaLiquidezDificil,
         });
       } finally { setOpPropostaBusy(false); }
       return;
@@ -3470,7 +3514,7 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
     // coberta trava ações; a PUT de proteção não trava nada (T-14-24).
     if (p.optionType === "call" && !window.confirm(cp.confirmAbrirCoberta(p.contratos, t, p.qtyAcoes))) return;
     setOpPropostaBusy(true);
-    try { await A.abrirLastreada({ underlying: t, contractSymbol: p.contractSymbol, expiration: p.expiration, contratos: p.contratos }); }
+    try { await A.abrirLastreada({ underlying: t, contractSymbol: p.contractSymbol, expiration: p.expiration, contratos: p.contratos, aceitaLiquidezDificil }); }
     finally { setOpPropostaBusy(false); }
   };
   const onFecharLastreada = async () => {
@@ -3649,6 +3693,7 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
                   <PropostaLastreada
                     r={opProposta} operador={operador} cp={cp} busy={opPropostaBusy}
                     onAbrir={onAbrirLastreada} onFechar={onFecharLastreada} posAberta={posAberta}
+                    onVerbeteLiquidez={(dados) => A.abrirVerbete("liquidez-opcao", dados)}
                   />
                   {/* 14-UI-SPEC.md "Spacing Scale" lg=24px: separação entre o
                       card da proposta e a cadeia expansível abaixo (D-4). */}
@@ -4096,6 +4141,15 @@ function OportunidadesOpcoes({ propostas, carregando, positions, cp, onAbrir }) 
     const e = propostas[p.t];
     return !!(e && e.gate && e.gate.liquida);
   });
+  // Quick 260908-ldg (D-07): terceiro caso do estado vazio — nenhuma posição
+  // com gate líquido E ao menos uma com faixa nomeada SEM MERCADO. NOMEIA a
+  // faixa em vez de dizer genericamente "sem liquidez suficiente"
+  // (`tiraOpcoesSemCobertura`, que segue valendo quando o gate simplesmente
+  // não devolveu faixa — backend antigo/degradado).
+  const algumSemMercado = !algumLiquido && (positions || []).some((p) => {
+    const e = propostas[p.t];
+    return !!(e && e.gate && e.gate.faixa === "SEM MERCADO");
+  });
   return (
     <div style={{ marginBottom: "14px" }}>
       <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em", color: T.textFaint, marginBottom: "8px" }}>{cp.tiraOpcoesTitulo}</div>
@@ -4140,7 +4194,7 @@ function OportunidadesOpcoes({ propostas, carregando, positions, cp, onAbrir }) 
           sem CTA, mesmo precedente de AvisoLiquidacao (App.jsx:1053-1063). */}
       {itens.length === 0 && !carregando && (
         <div style={{ padding: "10px 11px", borderRadius: "9px", background: T.bgCard, border: `1px solid ${T.borderFaint}`, fontSize: "12px", color: T.textSecondary, lineHeight: 1.5 }}>
-          {algumLiquido ? cp.tiraOpcoesSemSetup : cp.tiraOpcoesSemCobertura}
+          {algumLiquido ? cp.tiraOpcoesSemSetup : algumSemMercado ? cp.tiraOpcoesSemMercado : cp.tiraOpcoesSemCobertura}
         </div>
       )}
     </div>
@@ -4191,6 +4245,16 @@ function PropostaDaPosicao({ t, r, cp, operador, A, data, aberto, onToggle }) {
   // strike o servidor re-deriva (T-17-24).
   const aceitarCandidato = async (p) => {
     if (!p) return;
+    // Quick 260908-ldg (D-03): mesmo confirm de liquidez de App.jsx:3446
+    // (onAbrirLastreada) — a put, que hoje não tinha confirm nenhum, passa a
+    // ter este quando é DIFÍCIL. Vem ANTES de qualquer confirm de estrutura.
+    const liq = p.liquidez || {};
+    let aceitaLiquidezDificil = false;
+    if (liq.faixa === "DIFÍCIL") {
+      if (!liq.aviso) { A.flash("Não foi possível confirmar a liquidez desta operação — tente novamente."); return; }
+      if (!window.confirm(liq.aviso)) return;
+      aceitaLiquidezDificil = true;
+    }
     if (p.tipo === "collar") {
       if (!window.confirm(cp.confirmAbrirCollar(p.contratos, t, p.qtyAcoes))) return;
       setBusy(true);
@@ -4200,6 +4264,7 @@ function PropostaDaPosicao({ t, r, cp, operador, A, data, aberto, onToggle }) {
           pernasContratos: (p.pernasContratos || []).map((perna) => ({ contractSymbol: perna.contractSymbol, lado: perna.lado })),
           contratos: p.contratos,
           expiration: p.expiration,
+          aceitaLiquidezDificil,
         });
       } finally { setBusy(false); }
       return;
@@ -4208,7 +4273,7 @@ function PropostaDaPosicao({ t, r, cp, operador, A, data, aberto, onToggle }) {
     // coberta trava ações; a PUT de proteção não trava nada (T-14-24).
     if (p.optionType === "call" && !window.confirm(cp.confirmAbrirCoberta(p.contratos, t, p.qtyAcoes))) return;
     setBusy(true);
-    try { await A.abrirLastreada({ underlying: t, contractSymbol: p.contractSymbol, expiration: p.expiration, contratos: p.contratos }); }
+    try { await A.abrirLastreada({ underlying: t, contractSymbol: p.contractSymbol, expiration: p.expiration, contratos: p.contratos, aceitaLiquidezDificil }); }
     finally { setBusy(false); }
   };
 
@@ -4236,13 +4301,13 @@ function PropostaDaPosicao({ t, r, cp, operador, A, data, aberto, onToggle }) {
                 App.jsx:3938-3964); nunca um terceiro padrão visual novo. */}
             <div style={carouselTrackStyle({ marginTop: "11px", gap: "10px", scrollbarWidth: "none", paddingBottom: "2px" })}>
               {candidatos.map((c) => (
-                <CandidatoOpcao key={c.tipo + "-" + (c.contractSymbol || "collar")} p={c} r={r} cp={cp} operador={operador} busy={busy} onAceitar={aceitarCandidato} />
+                <CandidatoOpcao key={c.tipo + "-" + (c.contractSymbol || "collar")} p={c} r={r} cp={cp} operador={operador} busy={busy} onAceitar={aceitarCandidato} onVerbeteLiquidez={(dados) => A.abrirVerbete("liquidez-opcao", dados)} />
               ))}
             </div>
             <FonteDoDadoProposta r={r} cp={cp} />
           </>
         ) : (
-          <PropostaLastreada r={r} operador={operador} cp={cp} busy={busy} onAbrir={() => aceitarCandidato(r.proposta)} onFechar={onFecharLastreada} posAberta={posAberta} />
+          <PropostaLastreada r={r} operador={operador} cp={cp} busy={busy} onAbrir={() => aceitarCandidato(r.proposta)} onFechar={onFecharLastreada} posAberta={posAberta} onVerbeteLiquidez={(dados) => A.abrirVerbete("liquidez-opcao", dados)} />
         )
       )}
     </div>
@@ -4257,7 +4322,7 @@ function PropostaDaPosicao({ t, r, cp, operador, A, data, aberto, onToggle }) {
 // Fase 18 (test_carteira_opcoes_tira.mjs) trava esse componente aos dois
 // pontos de uso já existentes (AtivoCard + PropostaDaPosicao de candidato
 // único).
-function CandidatoOpcao({ p, r, cp, operador, busy, onAceitar }) {
+function CandidatoOpcao({ p, r, cp, operador, busy, onAceitar, onVerbeteLiquidez }) {
   const isCollar = p.tipo === "collar";
   const isCall = p.optionType === "call";
   // mesma regra de polaridade da manchete do card (App.jsx:3038): nunca
@@ -4298,9 +4363,7 @@ function CandidatoOpcao({ p, r, cp, operador, busy, onAceitar }) {
       <div style={{ fontSize: "12.5px", fontWeight: 700, color: cor, marginTop: "4px", whiteSpace: "normal" }}>{p.manchete}</div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "10px" }}>
         {(p.chips || []).map((c) => (
-          <span key={c.k} style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "999px", background: T.bgBase, color: T.textSecondary, fontWeight: 700 }}>
-            {c.k} <b style={{ fontWeight: 800, color: T.textPrimary }}>{c.v}</b>
-          </span>
+          <ChipDaProposta key={c.k} c={c} p={p} ticker={r.ticker} onVerbeteLiquidez={onVerbeteLiquidez} />
         ))}
       </div>
       {est && (

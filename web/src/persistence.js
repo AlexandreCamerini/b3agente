@@ -21,7 +21,7 @@ import { backfillStructural, limparCarteiraDemo } from "./migrate.js";
 // Fase 14 (opções lastreadas, Plano 05): fonte ÚNICA da quantidade vendável
 // do front (gêmeo de store.qty_livre, server/app/store.py) — importada, nunca
 // reimplementada aqui (guardrail de fonte única, mesmo padrão de RR_MIN).
-import { qtyLivre } from "./finance.js";
+import { qtyLivre, faixaDeLiquidez } from "./finance.js";
 // FASE 13 (13-02, CR-01): gate fail-closed de watchlist no deviceStore —
 // mesmos hooks puros que o web/PWA já usa via App.jsx, importados aqui
 // direto no store porque no iOS não existe gate autoritativo no servidor
@@ -1252,6 +1252,39 @@ function deviceStore() {
       const qty = contratos * 100;
       const posAcao = doc.positions.find((p) => p.t === underlying);
       const tipoRejeicao = isPut ? "COMPRA" : "VENDA";
+      // Quick 260908-ldg (D-06, obrigatório — Resolução #2 do orquestrador):
+      // o ramo OFFLINE reimplementa a validação inteira em JS e SEM esta
+      // régua era o buraco por onde a recusa do servidor era contornada.
+      // `contrato.liquidity` já vem enriquecido por `/api/options/chain`
+      // (`options_api._enrich_contract`) — usa o score dali, NUNCA reimplementa
+      // `liquidity_score` em JS. Mesmas mensagens do servidor (Task 2c de
+      // 260908-ldg, `main.py:options_lastreada_abrir`), copiadas literalmente.
+      const liqInfo = contrato.liquidity;
+      if (!liqInfo || typeof liqInfo.score !== "number") {
+        // Princípio 4 (CLAUDE.md): campo ausente NUNCA vira "assume
+        // NEGOCIÁVEL" — é a ausência de mercado que precisa ser nomeada.
+        const motivo = "Não foi possível medir a liquidez deste contrato.";
+        _registrarRejeicaoLocal(tipoRejeicao, cid, qty, price, motivo);
+        write();
+        throw new Error(motivo);
+      }
+      const liqFaixa = faixaDeLiquidez(liqInfo.score);
+      if (liqFaixa === "SEM MERCADO") {
+        const motivo = `Liquidez SEM MERCADO (score ${Math.round(liqInfo.score)}/100) — sem negócio `
+          + "registrado hoje não dá um prêmio real para simular. Esta operação não pode "
+          + "ser aberta neste contrato.";
+        _registrarRejeicaoLocal(tipoRejeicao, cid, qty, price, motivo);
+        write();
+        throw new Error(motivo);
+      }
+      if (liqFaixa === "DIFÍCIL" && body.aceitaLiquidezDificil !== true) {
+        const motivo = `Liquidez DIFÍCIL (score ${Math.round(liqInfo.score)}/100) — esta operação exige `
+          + "confirmação explícita de liquidez. Reenvie com aceitaLiquidezDificil: true "
+          + "depois de o usuário confirmar o aviso.";
+        _registrarRejeicaoLocal(tipoRejeicao, cid, qty, price, motivo);
+        write();
+        throw new Error(motivo);
+      }
       if (!posAcao) {
         const motivo = `Sem posição em ${underlying} para lastrear a operação.`;
         _registrarRejeicaoLocal(tipoRejeicao, cid, qty, price, motivo);
