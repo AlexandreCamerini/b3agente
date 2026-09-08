@@ -45,6 +45,7 @@ from .catalog import is_catalog_ticker
 from .options_api import router as options_router, _spot_from_chain_or_quote
 from .options_provider import get_options as _get_options_for_status
 from . import opcoes_lastreadas  # Fase 14 (Plano 03): motor de proposta lastreada (venda coberta/put)
+from .options_quant import FAIXA_DIFICIL, FAIXA_SEM_MERCADO, faixa_de_liquidez, liquidity_score  # quick 260908-ldg: gate de liquidez em três faixas
 from . import skill_ref  # Fase 14 (Plano 03): frase canônica da proposta lastreada por modo
 
 app = FastAPI(title="Boris+ API")
@@ -2491,6 +2492,26 @@ async def options_lastreada_abrir(body: dict = Body(default={}), scope: Optional
     price = contrato.get("lastPrice")
     if not isinstance(price, (int, float)) or price <= 0:
         raise HTTPException(502, "Sem prêmio disponível para este contrato.")
+    # Gate de liquidez em três faixas (quick 260908-ldg): a mesma disciplina
+    # do 403 de Modo Estudo e da trava de multiperna acima — a UI pode ter
+    # bug (ou nem exibir o confirm de liquidez), o SERVIDOR recusa igual.
+    # Ordem: SEM MERCADO primeiro (é a incondicional — nenhuma flag destrava,
+    # sem negócio no dia não há prêmio real para simular, CLAUDE.md princípio
+    # 4); DIFÍCIL depois, com override explícito por identidade (`is not
+    # True`, não truthiness — `"false"`/`1`/`"sim"` não destravam).
+    liq_score = liquidity_score(contrato.get("volume"), contrato.get("openInterest"),
+                                 contrato.get("bid"), contrato.get("ask"))["score"]
+    liq_faixa = faixa_de_liquidez(liq_score)
+    if liq_faixa == FAIXA_SEM_MERCADO:
+        raise HTTPException(
+            400, f"Liquidez SEM MERCADO (score {int(round(liq_score))}/100) — sem negócio "
+                 "registrado hoje não dá um prêmio real para simular. Esta operação não pode "
+                 "ser aberta neste contrato.")
+    if liq_faixa == FAIXA_DIFICIL and body.get("aceitaLiquidezDificil") is not True:
+        raise HTTPException(
+            400, f"Liquidez DIFÍCIL (score {int(round(liq_score))}/100) — esta operação exige "
+                 "confirmação explícita de liquidez. Reenvie com aceitaLiquidezDificil: true "
+                 "depois de o usuário confirmar o aviso.")
     contract = {
         "id": contract_symbol, "underlying": underlying,
         "optionType": contrato.get("optionType"), "strike": contrato.get("strike"),
@@ -2630,6 +2651,26 @@ async def options_lastreada_abrir_collar(body: dict = Body(default={}), scope: O
     enviado = {perna["contractSymbol"]: perna["lado"] for perna in pernas}
     if enviado != esperado:
         raise HTTPException(409, "Os contratos enviados não conferem com a proposta recalculada pelo servidor.")
+
+    # Gate de liquidez em três faixas (quick 260908-ldg) — as MESMAS três
+    # regras da rota irmã (`options_lastreada_abrir`), lendo a faixa da
+    # PROPOSTA RE-DERIVADA (`p["liquidez"]["faixa"]`), nunca recalculando um
+    # score próprio nem lendo faixa do corpo (T-LDG-02: mesma defesa do
+    # ADR-026 Decisão 2 contra spoofing). Posicionada DEPOIS do cross-check
+    # de contratos (409) e ANTES da execução: um corpo que não confere com a
+    # proposta é um erro mais básico e continua respondendo 409.
+    liq_faixa_collar = p["liquidez"]["faixa"]
+    liq_score_collar = p["liquidez"]["score"]
+    if liq_faixa_collar == FAIXA_SEM_MERCADO:
+        raise HTTPException(
+            400, f"Liquidez SEM MERCADO (score {int(round(liq_score_collar))}/100) — sem "
+                 "negócio registrado hoje não dá um prêmio real para simular. Este collar não "
+                 "pode ser aberto.")
+    if liq_faixa_collar == FAIXA_DIFICIL and body.get("aceitaLiquidezDificil") is not True:
+        raise HTTPException(
+            400, f"Liquidez DIFÍCIL (score {int(round(liq_score_collar))}/100) — esta operação "
+                 "exige confirmação explícita de liquidez. Reenvie com aceitaLiquidezDificil: "
+                 "true depois de o usuário confirmar o aviso.")
 
     # EXECUÇÃO com os dados do SERVIDOR, nunca do corpo. O motor sempre põe a
     # call em pernasContratos[0] e a put em [1] (`_propor_collar`) — localizar
