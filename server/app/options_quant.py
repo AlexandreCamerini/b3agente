@@ -101,8 +101,15 @@ def intrinsic_value(option_type: str, spot: float, strike: float) -> float:
 
 
 def liquidity_score(volume: Optional[float], open_interest: Optional[float], bid: Optional[float], ask: Optional[float]) -> dict:
-    """Score 0-100 de liquidez de um contrato; o corte de aprovação é 40
-    (`options_api.liquidity_gate`, `opcoes_motor.LIQUIDEZ_MINIMA`).
+    """Score 0-100 de liquidez de um contrato.
+
+    ATUALIZADO 2026-09-08 (quick 260908-ldg): o corte único de aprovação (40)
+    morreu. A escala em três faixas — `LIQUIDEZ_NEGOCIAVEL` (55) e
+    `LIQUIDEZ_DIFICIL` (30), via `faixa_de_liquidez()` logo abaixo — é agora a
+    fonte ÚNICA consumida por `opcoes_motor.rastrear` (duas passadas),
+    `options_api.liquidity_gate`/`analyze_options` e `opcoes_lastreadas`
+    (bloco `liquidez` da proposta). A fórmula do score em si NÃO mudou nesta
+    quick — só o que se faz com o número.
 
     RECALIBRADO 2026-09-08 (quick 260908-dnl) para fonte SEM open interest.
     A fórmula anterior somava vol_score (≤35) + oi_score (≤40) + 25 −
@@ -146,6 +153,35 @@ def liquidity_score(volume: Optional[float], open_interest: Optional[float], bid
     atividade = max(_curva(v), _curva(oi))
     score = max(0, min(100, atividade + 25 - spread_penalty))
     return {"score": round(score, 1), "spreadPct": round(spread_pct * 100, 2) if spread_pct is not None else None}
+
+
+# Escala de três faixas (quick 260908-ldg, 2026-09-08) — fonte ÚNICA dos dois
+# limiares no repo inteiro. `opcoes_motor.rastrear` (duas passadas),
+# `options_api.liquidity_gate`/`analyze_options` e `opcoes_lastreadas`
+# (`_bloco_liquidez`) importam DESTE módulo — nenhum dos três declara um
+# literal 55/30/40 próprio. Reusa os cortes que já existiam no rótulo interno
+# de liquidez que a UI usava antes desta quick (a UI já nomeava as três
+# faixas; só o CORTE de seleção do motor — 40 — ficava fora desta escala).
+LIQUIDEZ_NEGOCIAVEL = 55
+LIQUIDEZ_DIFICIL = 30
+FAIXA_NEGOCIAVEL = "NEGOCIÁVEL"
+FAIXA_DIFICIL = "DIFÍCIL"
+FAIXA_SEM_MERCADO = "SEM MERCADO"
+
+
+def faixa_de_liquidez(score) -> str:
+    """Rótulo da faixa de liquidez a partir do score 0-100 de
+    `liquidity_score`. Degradação definida (mesmo padrão de `_num` em
+    `conceitos.py`): score não-numérico, `None` ou negativo cai em
+    `FAIXA_SEM_MERCADO` — NUNCA levanta exceção. Um score inválido não é
+    "melhor que nada": é a ausência de mercado que o produto precisa nomear."""
+    if not isinstance(score, (int, float)) or isinstance(score, bool) or score < 0:
+        return FAIXA_SEM_MERCADO
+    if score >= LIQUIDEZ_NEGOCIAVEL:
+        return FAIXA_NEGOCIAVEL
+    if score >= LIQUIDEZ_DIFICIL:
+        return FAIXA_DIFICIL
+    return FAIXA_SEM_MERCADO
 
 
 def educational_score(technical: Optional[dict], liquidity: dict, iv: Optional[float], hv21: Optional[float], days: int, prob_itm: Optional[float]) -> dict:

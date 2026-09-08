@@ -8,7 +8,18 @@ from fastapi import APIRouter, Body, HTTPException
 
 from . import candle_provider, indicators, tickers, yahoo
 from .options_provider import get_options
-from .options_quant import black_scholes, breakeven, educational_score, historical_volatility, intrinsic_value, liquidity_score, years_to_expiration
+from .options_quant import (
+    FAIXA_NEGOCIAVEL,
+    FAIXA_SEM_MERCADO,
+    black_scholes,
+    breakeven,
+    educational_score,
+    faixa_de_liquidez,
+    historical_volatility,
+    intrinsic_value,
+    liquidity_score,
+    years_to_expiration,
+)
 
 router = APIRouter(prefix="/api/options", tags=["options"])
 
@@ -138,22 +149,36 @@ async def liquidity_gate(ticker: str):
     aparece se o ativo tem ao menos 1 contrato líquido no vencimento mais
     próximo. Best-effort e barato — reusa o cache de 300s do provider (mesma
     chamada de `chain`/`expirations`), sem enriquecer com BSM/técnico (isso só
-    roda quando o usuário abre a cadeia completa)."""
+    roda quando o usuário abre a cadeia completa).
+
+    ATUALIZADO 2026-09-08 (quick 260908-ldg): `liquida` passa a significar
+    "melhor contrato é DIFÍCIL ou melhor" (>=30, compat com todo consumidor
+    de `opGate.liquida` que hoje só lê esse booleano) — SEM MERCADO (<30) é
+    o único caso que continua `liquida: false`. A resposta ganha `faixa` e
+    `melhorScore` em TODOS os ramos, inclusive os dois de degradação abaixo:
+    ali `faixa` é sempre `FAIXA_SEM_MERCADO` e `melhorScore` é sempre `None`
+    — NUNCA `0.0` disfarçando "não sei" de "não tem" (CLAUDE.md princípio 4)."""
     t = _normalize_ticker(ticker)
     if len(t) < 4:
         raise HTTPException(400, "Ticker inválido.")
     try:
         data = await get_options(t)
     except yahoo.QuoteUnavailable:
-        return {"ticker": t, "liquida": False, "providerStatus": "degraded"}
+        return {"ticker": t, "liquida": False, "providerStatus": "degraded",
+                "faixa": FAIXA_SEM_MERCADO, "melhorScore": None}
     if data.get("providerStatus") != "ok":
-        return {"ticker": t, "liquida": False, "providerStatus": data.get("providerStatus")}
+        return {"ticker": t, "liquida": False, "providerStatus": data.get("providerStatus"),
+                "faixa": FAIXA_SEM_MERCADO, "melhorScore": None}
     contratos = [*data.get("calls", []), *data.get("puts", [])]
-    liquida = any(
-        liquidity_score(c.get("volume"), c.get("openInterest"), c.get("bid"), c.get("ask"))["score"] >= 40
+    scores = [
+        liquidity_score(c.get("volume"), c.get("openInterest"), c.get("bid"), c.get("ask"))["score"]
         for c in contratos
-    )
-    return {"ticker": t, "liquida": liquida, "providerStatus": "ok"}
+    ]
+    melhor_score = max(scores) if scores else None
+    faixa = faixa_de_liquidez(melhor_score)
+    liquida = faixa != FAIXA_SEM_MERCADO
+    return {"ticker": t, "liquida": liquida, "providerStatus": "ok",
+            "faixa": faixa, "melhorScore": melhor_score}
 
 
 @router.post("/analyze")
@@ -175,8 +200,17 @@ async def analyze_options(body: dict = Body(default={})):
     if selected is None:
         raise HTTPException(404, "Contrato de opção não encontrado na cadeia retornada pelo provedor.")
     risk_flags = []
-    if (selected.get("liquidity") or {}).get("score", 0) < 40:
-        risk_flags.append("Liquidez fraca ou spread aberto: risco de entrada/saída ruim.")
+    # ATUALIZADO 2026-09-08 (quick 260908-ldg): o literal `< 40` era um
+    # SEGUNDO corte solto, fora do escopo da migração de `LIQUIDEZ_MINIMA` —
+    # sobrevivia porque `analyze_options` nunca importava `opcoes_motor`.
+    # Passa a usar a mesma escala de três faixas: a bandeira dispara sempre
+    # que a faixa NÃO é NEGOCIÁVEL, nomeando qual é (antes, 40-54 não avisava
+    # nada — mudança deliberada na direção da transparência, resolução do
+    # orquestrador #1 do quick 260908-ldg; reverter é trocar a comparação
+    # de volta por um literal, uma linha).
+    faixa_risco = faixa_de_liquidez((selected.get("liquidity") or {}).get("score"))
+    if faixa_risco != FAIXA_NEGOCIAVEL:
+        risk_flags.append(f"Liquidez {faixa_risco}: risco de entrada/saída ruim.")
     if (selected.get("daysToExpiration") or 0) <= 21:
         risk_flags.append("Vencimento curto: theta pode corroer o prêmio rapidamente.")
     if not selected.get("blackScholes"):

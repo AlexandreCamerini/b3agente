@@ -17,7 +17,20 @@ As linhas "reais" são contratos congelados da cadeia de produção de
 """
 from app.options_quant import liquidity_score
 
-CORTE = 40  # `options_api.liquidity_gate` e `opcoes_motor.LIQUIDEZ_MINIMA`
+# ATUALIZADO 2026-09-08 (quick 260908-ldg): o corte único de 40 morreu — os
+# dois consumidores citados aqui (`options_api.liquidity_gate` e
+# `opcoes_motor.LIQUIDEZ_MINIMA`) DEIXARAM DE EXISTIR. `CORTE` vira referência
+# às DUAS faixas centralizadas em `options_quant` (`LIQUIDEZ_NEGOCIAVEL=55`,
+# `LIQUIDEZ_DIFICIL=30`): as asserções abaixo continuam numericamente
+# verdadeiras (nenhuma mudou de valor), mas o que "reprova" hoje é só
+# `< PISO_DIFICIL` (SEM MERCADO, sem proposta/bloqueado); o intervalo
+# `[PISO_DIFICIL, PISO_NEGOCIAVEL)` passou a ser DIFÍCIL — aparece com
+# consentimento, não some mais. Ver `test_faixas_liquidez.py` para o
+# comportamento de duas faixas; este arquivo continua sendo o guardião da
+# FÓRMULA (`liquidity_score`), não da seleção.
+CORTE = 40  # mantido por compatibilidade de leitura das asserções antigas
+PISO_DIFICIL = 30  # `options_quant.LIQUIDEZ_DIFICIL`
+PISO_NEGOCIAVEL = 55  # `options_quant.LIQUIDEZ_NEGOCIAVEL`
 
 
 def _s(volume, oi=None, bid=None, ask=None):
@@ -53,10 +66,16 @@ def test_contrato_real_abev3_100_livro_vazio_reprova():
     assert _s(100, None, 0.0, 0.04) < CORTE
 
 
-def test_volume_500_com_um_lado_zerado_reprova():
-    # O critério nomeado antes de olhar os dados.
-    assert _s(500, None, 0.0, 0.30) < CORTE
-    assert _s(500) < CORTE
+def test_volume_500_com_um_lado_zerado_cai_em_dificil_nao_em_negociavel():
+    """RENOMEADO 2026-09-08 (quick 260908-ldg), nota datada: o nome antigo
+    ("reprova") dizia que a operação SOME — falso sob as três faixas. `_s(500)`
+    e `_s(500, None, 0.0, 0.30)` valem 34,0: DIFÍCIL (>= PISO_DIFICIL), não
+    SEM MERCADO. A partir desta quick, isso significa "aparece com
+    consentimento", não "reprovado". O que continua sendo GATE de verdade é
+    `< PISO_DIFICIL` — ver `test_sem_mercado_nenhum_reprova` abaixo."""
+    assert PISO_DIFICIL <= _s(500, None, 0.0, 0.30) < PISO_NEGOCIAVEL
+    assert PISO_DIFICIL <= _s(500) < PISO_NEGOCIAVEL
+    assert _s(500) < CORTE  # segue verdadeiro numericamente; não é mais o critério de gate
 
 
 def test_spread_medido_ruim_reprova_mesmo_com_volume():
@@ -72,13 +91,22 @@ def test_sem_mercado_nenhum_reprova():
 
 # ── a fronteira é DELIBERADA, não acidente de arredondamento ───────────────
 
-def test_piso_sem_livro_e_mil_unidades():
-    """1.000 = onde a curva de volume ORIGINAL saturava — o autor original
-    considerava esse volume "cheio". Número derivado, não tunado. O fixture
-    padrão dos testes de opções (`volume=1000, oi=1000`, sem livro) cai
-    exatamente aqui; este teste torna isso intencional."""
-    assert _s(1000) >= CORTE
-    assert _s(900) < CORTE
+def test_mil_unidades_sem_livro_e_piso_de_dificil_nao_de_negociavel():
+    """RENOMEADO 2026-09-08 (quick 260908-ldg), nota datada — correção
+    pós plan-checker (C2): a docstring original afirmava que 1.000 unidades
+    era volume "cheio" — FALSO sob as três faixas. `_s(1000) == 40,0` e
+    `_s(900) == 39,1`: os dois caem em DIFÍCIL (>= PISO_DIFICIL, < PISO_
+    NEGOCIAVEL), exigem consentimento explícito, e NÃO viram proposta
+    silenciosa. 1.000 continua sendo o ponto onde a curva de volume ORIGINAL
+    saturava (número derivado, não tunado) — só o que esse patamar SIGNIFICA
+    para o produto mudou: antes "aprovado sem aviso", agora "DIFÍCIL, com
+    aviso". O fixture padrão dos testes de opções (`volume=1000, oi=1000`,
+    sem livro) cai exatamente aqui. O critério de GATE que segue valendo é
+    `< PISO_DIFICIL` = SEM MERCADO."""
+    assert PISO_DIFICIL <= _s(1000) < PISO_NEGOCIAVEL
+    assert PISO_DIFICIL <= _s(900) < PISO_NEGOCIAVEL
+    assert _s(1000) >= CORTE  # segue verdadeiro numericamente (40,0 >= 40)
+    assert _s(900) < CORTE    # segue verdadeiro numericamente; não é mais o critério de gate
 
 
 # ── open interest, quando a fonte publica, SUBSTITUI o volume ───────────────

@@ -334,6 +334,42 @@ CONCEITOS = {
         ],
         "veja": ["gatilho"],
     },
+
+    # ------------------------------------------------------ opções (v2, quick 260908-ldg)
+    "liquidez-opcao": {
+        "titulo": {"educacional": "Liquidez de uma opção", "operador": "Liquidez do contrato"},
+        "campos": ("ticker", "faixa", "score", "volume", "spreadPct"),
+        "naoAcontece": [
+            "O app não compra nem vende opção nenhuma por conta própria — a proposta é sempre "
+            "algo que uma pessoa aceita ou recusa. A faixa de liquidez também não é previsão de "
+            "preço: ela só descreve quão fácil foi negociar este contrato HOJE.",
+            "Confirmar uma operação de liquidez DIFÍCIL não torna a ordem mais provável de ser "
+            "atendida no preço simulado — é o oposto: quanto pior a faixa, maior a chance de o "
+            "mercado real cobrar um preço diferente do que a tela mostra.",
+        ],
+        "oQueE": [
+            "Liquidez de opção é o quanto o contrato foi de fato negociado e quão apertado está "
+            "o livro de ofertas — não uma nota de qualidade da estrutura em si.",
+            "O app usa três faixas: NEGOCIÁVEL (score 55 ou mais), DIFÍCIL (entre 30 e 54) e SEM "
+            "MERCADO (abaixo de 30).",
+            "Este contrato de {ticker} está em {faixa}, com score {score}/100.",
+            "{volume} unidades negociadas hoje.",
+            "Spread do livro: {spreadPct}.",
+        ],
+        "oQueAcontece": [
+            "NEGOCIÁVEL: o app propõe esse contrato primeiro — é o que a régua de seleção "
+            "prefere sempre que existe.",
+            "DIFÍCIL: o contrato só entra na proposta quando não há nenhum NEGOCIÁVEL na cadeia, "
+            "e o Modo Operador pede uma confirmação explícita antes de abrir a operação.",
+            "SEM MERCADO: o contrato nunca vira proposta — sem negócio registrado, não há prêmio "
+            "real para simular.",
+            "Em qualquer faixa, o preço simulado é sempre o do último negócio registrado — nunca "
+            "uma estimativa do app.",
+        ],
+        # Nenhum conceito existente é irmão direto deste — link fantasma é 404
+        # na cara do usuário (regra do módulo).
+        "veja": [],
+    },
 }
 
 
@@ -374,10 +410,30 @@ def _rr(v) -> Optional[str]:
     return ("%.1f:1" % float(v)).replace(".", ",")
 
 
+def _score_inteiro(v) -> Optional[str]:
+    """Score de liquidez como inteiro arredondado, sem casa decimal — a
+    frase de referência do CONTEXT diz "38/100", não "38,60/100" (quick
+    260908-ldg, mesma convenção de `skill_ref.opcoes_lastreadas_txt`)."""
+    if not isinstance(v, (int, float)) or isinstance(v, bool):
+        return None
+    return str(int(round(float(v))))
+
+
+def _volume_milhar(v) -> Optional[str]:
+    """Volume de contrato em pt-BR sem decimais (quick 260908-ldg) — reusa
+    `skill_ref.num_br_inteiro` em vez de duplicar a lógica de agrupamento de
+    milhar; import local pelo mesmo motivo de `_constantes()` abaixo."""
+    if not isinstance(v, (int, float)) or isinstance(v, bool):
+        return None
+    from . import skill_ref
+    return skill_ref.num_br_inteiro(v)
+
+
 _FORMATADORES = {"entrada": _num, "stop": _num, "distancia": _num, "alvo": _num,
                  "precoAtual": _num, "riscoPorAcao": _num_positivo,
                  "distanciaEmR": _emr, "excedenteEmR": _emr,
-                 "confluencia": _pct, "rr": _rr, "pct": _pct}
+                 "confluencia": _pct, "rr": _rr, "pct": _pct,
+                 "spreadPct": _pct, "score": _score_inteiro, "volume": _volume_milhar}
 
 
 def _constantes() -> dict:

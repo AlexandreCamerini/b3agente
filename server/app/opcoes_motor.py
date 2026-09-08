@@ -19,13 +19,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from .options_quant import liquidity_score
+from .options_quant import LIQUIDEZ_DIFICIL, LIQUIDEZ_NEGOCIAVEL, liquidity_score
 from .opcoes_payoff import perfil_da_estrutura
-
-# Corte de liquidez em produção desde a Fase 14 (`opcoes_lastreadas.py`).
-# Fonte ÚNICA no repo: `opcoes_lastreadas` importa esta constante em vez de
-# declarar o próprio literal 40.
-LIQUIDEZ_MINIMA = 40
 
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -33,8 +28,9 @@ LIQUIDEZ_MINIMA = 40
 # ─────────────────────────────────────────────────────────────────────────
 
 def _candidato_valido(contrato: dict[str, Any], liquidez_minima: float) -> bool:
-    """Replica `opcoes_lastreadas._candidato_valido`: `lastPrice` numérico
-    e > 0, e `liquidity_score(...)["score"] >= liquidez_minima`."""
+    """`lastPrice` numérico e > 0, e `liquidity_score(...)["score"] >=
+    liquidez_minima` — o piso numérico é decidido por quem chama (as duas
+    passadas de `rastrear` ou um override explícito de `filtros`)."""
     preco = contrato.get("lastPrice")
     if not isinstance(preco, (int, float)) or isinstance(preco, bool) or preco <= 0:
         return False
@@ -50,8 +46,8 @@ def rastrear(cadeia: Any, filtros: dict[str, Any] | None) -> list[dict[str, Any]
     `filtros` aceita: `tipo` ("call"|"put"), `referencia` (spot, float|None),
     `relacao` ("acima" -> strike > referencia; "abaixo_ou_igual" -> strike <=
     referencia; ausente -> não filtra por spot), `criterio` ("min"|"max",
-    default "min"), `liquidez_minima` (default `LIQUIDEZ_MINIMA`), `n`
-    (default 1).
+    default "min"), `liquidez_minima` (override explícito, opcional — quando
+    ausente, seleciona em DUAS PASSADAS: ver abaixo), `n` (default 1).
 
     Devolve sempre uma lista — `[]` em toda porta fechada (cadeia inválida,
     degradada, tipo desconhecido, nenhum candidato líquido), nunca `None` e
@@ -97,8 +93,20 @@ def rastrear(cadeia: Any, filtros: dict[str, Any] | None) -> list[dict[str, Any]
     elif relacao == "abaixo_ou_igual" and isinstance(referencia, (int, float)):
         candidatos = [c for c in candidatos if (c.get("strike") or 0) <= referencia]
 
-    liquidez_minima = filtros.get("liquidez_minima", LIQUIDEZ_MINIMA)
-    validos = [c for c in candidatos if _candidato_valido(c, liquidez_minima)]
+    # Quick 260908-ldg: sem override explícito, a seleção é em DUAS PASSADAS
+    # pela escala centralizada de `options_quant` — primeiro NEGOCIÁVEL
+    # (>=55); só se essa lista sair vazia, DIFÍCIL (>=30). Nunca mistura: se a
+    # primeira passada encontrar QUALQUER contrato NEGOCIÁVEL, a segunda
+    # passada nem roda, e um DIFÍCIL de strike "melhor" nunca substitui um
+    # NEGOCIAVEL elegível. `liquidez_minima` explícito continua UMA passada
+    # naquele piso — semântica de override, preservada byte a byte
+    # (`test_rastrear_liquidez_minima_explicita_sobrescreve_default`).
+    if "liquidez_minima" in filtros:
+        validos = [c for c in candidatos if _candidato_valido(c, filtros["liquidez_minima"])]
+    else:
+        validos = [c for c in candidatos if _candidato_valido(c, LIQUIDEZ_NEGOCIAVEL)]
+        if not validos:
+            validos = [c for c in candidatos if _candidato_valido(c, LIQUIDEZ_DIFICIL)]
     if not validos:
         return []
 

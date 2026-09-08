@@ -252,6 +252,10 @@ export const COPY = {
     tiraOpcoesCarregando: "Procurando estruturas possíveis nas suas posições…",
     tiraOpcoesSemCobertura: "Nenhuma das suas posições tem opção com liquidez suficiente hoje — sem contrato líquido, não dá para estudar uma estrutura sobre ela.",
     tiraOpcoesSemSetup: "Suas posições têm opção líquida, mas a leitura técnica não indica nenhuma estrutura agora. A cadeia completa continua disponível em cada ativo.",
+    // Quick 260908-ldg (D-07): terceiro caso do estado vazio — a diferença
+    // para `tiraOpcoesSemCobertura` é NOMEAR a faixa, em vez de "sem
+    // liquidez suficiente" genérico. Voz de professor: descreve a condição.
+    tiraOpcoesSemMercado: "As opções das suas posições estão hoje na faixa SEM MERCADO — negociaram tão pouco que o preço da tela não seria o preço real de uma ordem. Por isso nenhuma estrutura é estudada sobre elas agora.",
     linhaPropostaNaPosicao: "Estrutura de opções possível nesta posição",
   },
 
@@ -469,6 +473,9 @@ export const COPY = {
     tiraOpcoesCarregando: "Varrendo suas posições…",
     tiraOpcoesSemCobertura: "Nenhuma posição com opção líquida hoje — sem contrato líquido, não há estrutura para montar.",
     tiraOpcoesSemSetup: "Cobertura líquida existe, mas a leitura técnica não indica venda coberta, put de proteção nem collar agora. A cadeia completa continua disponível em cada ativo.",
+    // Quick 260908-ldg (D-07): mesma distinção do ramo estudo (ver
+    // comentário acima). Voz de mesa, sem verbo de ordem.
+    tiraOpcoesSemMercado: "As opções das suas posições estão hoje na faixa SEM MERCADO — negociaram tão pouco que o preço da tela não é um preço real de execução. Nenhuma estrutura é montada sobre elas agora.",
     linhaPropostaNaPosicao: "Estrutura de opções disponível nesta posição",
   },
 };

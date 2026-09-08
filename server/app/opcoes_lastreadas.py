@@ -11,7 +11,7 @@ manchete do motor determinístico).
 import datetime as dt
 
 from . import opcoes_motor, skill_ref, store
-from .options_quant import liquidity_score
+from .options_quant import faixa_de_liquidez, liquidity_score, FAIXA_DIFICIL
 
 # Prazo elegível: cadeia carregada traz um vencimento só — escolher outro é
 # papel da cadeia expansível, não da proposta.
@@ -29,19 +29,41 @@ def _dias_ate(expiration, hoje):
     return (d - hoje).days
 
 
-def _label_liquidez(score):
-    """Reusa os cortes já usados na UI — não inventar uma segunda escala."""
-    if score >= 55:
-        return "NEGOCIÁVEL"
-    if score >= 30:
-        return "DIFÍCIL"
-    return "SEM MERCADO"
+def _bloco_liquidez(contrato, liq, modo):
+    """Bloco `liquidez` completo da proposta (quick 260908-ldg): a escala
+    veio para `options_quant.faixa_de_liquidez` — este módulo NÃO declara um
+    segundo corte, só monta o dict que os TRÊS pontos de proposta
+    (`_propor_collar`, `propor`, `proposta_fechar`) devolvem.
+
+    `spreadPct` pode ser `None` (regra do repositório: nunca 0.0 disfarçando
+    "sem livro"). `aviso` só existe quando a faixa é DIFÍCIL — é o texto de
+    CONSENTIMENTO que o servidor vai exigir na abertura (Task 2); nas outras
+    duas faixas (NEGOCIÁVEL não precisa, SEM MERCADO nunca chega a virar
+    proposta) o campo é `None`, nunca string vazia."""
+    score = liq["score"]
+    faixa = faixa_de_liquidez(score)
+    aviso = None
+    if faixa == FAIXA_DIFICIL:
+        volume = contrato.get("volume")
+        if isinstance(volume, (int, float)) and volume > 0:
+            atividade = skill_ref.LIQUIDEZ_FRAGMENTOS["atividade"].format(volume=skill_ref.num_br_inteiro(volume))
+        else:
+            atividade = skill_ref.LIQUIDEZ_FRAGMENTOS["atividade_sem_negocio"]
+        spread_pct = liq["spreadPct"]
+        if spread_pct is None:
+            livro = skill_ref.LIQUIDEZ_FRAGMENTOS["livro_ausente"]
+        else:
+            livro = skill_ref.LIQUIDEZ_FRAGMENTOS["livro"].format(spread=skill_ref.num_br_percentual(spread_pct))
+        aviso = skill_ref.opcoes_lastreadas_txt(
+            modo, "liquidez_dificil", score=str(int(round(score))), atividade=atividade, livro=livro)
+    return {"score": score, "faixa": faixa, "volume": contrato.get("volume"), "spreadPct": liq["spreadPct"], "aviso": aviso}
 
 
 def _propor_collar(underlying, chain, spot, contrato_put, posicao, cash, modo, hoje, dias, qty_livre_val):
     """Trava protetora (collar): vende 1 call OTM (mesma régua do ramo
-    `call_coberta` — `opcoes_motor.rastrear`, liquidez >= 40, strike acima do
-    spot) + a put de proteção que `propor()` já escolheu (recebida por
+    `call_coberta` — `opcoes_motor.rastrear`, duas passadas NEGOCIÁVEL/DIFÍCIL
+    via `options_quant.faixa_de_liquidez`, strike acima do spot) + a put de
+    proteção que `propor()` já escolheu (recebida por
     parâmetro, NUNCA re-selecionada aqui — reselecionar duplicaria a régua e
     poderia devolver uma put diferente da que gerou o gatilho).
 
@@ -89,12 +111,17 @@ def _propor_collar(underlying, chain, spot, contrato_put, posicao, cash, modo, h
     strike_put = contrato_put.get("strike")
 
     # A estrutura só é tão negociável quanto a sua perna PIOR — exibir a
-    # melhor seria otimismo embutido no dado.
+    # melhor seria otimismo embutido no dado. Guarda o CONTRATO da perna pior
+    # junto do score (não só o `liq`): `_bloco_liquidez` precisa do `volume`
+    # cru daquela perna especificamente, não de uma média das duas.
     liq_call = liquidity_score(contrato_call.get("volume"), contrato_call.get("openInterest"),
                                 contrato_call.get("bid"), contrato_call.get("ask"))
     liq_put = liquidity_score(contrato_put.get("volume"), contrato_put.get("openInterest"),
                                contrato_put.get("bid"), contrato_put.get("ask"))
-    pior = liq_call if liq_call["score"] <= liq_put["score"] else liq_put
+    if liq_call["score"] <= liq_put["score"]:
+        contrato_pior, pior = contrato_call, liq_call
+    else:
+        contrato_pior, pior = contrato_put, liq_put
 
     dados = {
         "n": str(contratos), "ticker": underlying,
@@ -140,14 +167,14 @@ def _propor_collar(underlying, chain, spot, contrato_put, posicao, cash, modo, h
         "contratos": contratos,
         "qtyAcoes": qty_acoes,
         "lastro": {"t": underlying, "qtyLivre": qty_livre_val},
-        "liquidez": {"score": pior["score"], "label": _label_liquidez(pior["score"])},
+        "liquidez": _bloco_liquidez(contrato_pior, pior, modo),
         "manchete": manchete,
         "didatica": didatica,
         "chips": [
             {"k": "prazo", "v": f"{dias} dias"},
             {"k": "strikes", "v": f"call R$ {skill_ref.num_br(strike_call)} / put R$ {skill_ref.num_br(strike_put)}"},
             {"k": chip_caixa_chave, "v": f"R$ {skill_ref.num_br(abs(caixa['custoLiquidoTotal']))}"},
-            {"k": "liquidez", "v": _label_liquidez(pior["score"])},
+            {"k": "liquidez", "v": faixa_de_liquidez(pior["score"])},
         ],
         "estrutura": estrutura,
         "caixa": caixa,
@@ -252,9 +279,10 @@ def propor(underlying, chain, spot, plano, posicao, cash, modo, hoje, *, multipe
             "tipo": "put", "referencia": spot, "relacao": "abaixo_ou_igual",
             "criterio": "max", "n": 1,
         })
-    # NÃO passar `liquidez_minima`: o default de `rastrear()` já é
-    # `opcoes_motor.LIQUIDEZ_MINIMA` — repassar aqui recriaria o
-    # acoplamento local que esta migração remove.
+    # NÃO passar `liquidez_minima`: sem override, `rastrear()` já faz as duas
+    # passadas NEGOCIÁVEL/DIFÍCIL sozinho (quick 260908-ldg) — repassar um
+    # piso aqui recriaria o acoplamento local que a migração da Fase 16
+    # removeu.
     contrato = selecionados[0] if selecionados else None
     if not contrato:
         return {"proposta": None, "motivo": "sem_contrato_liquido"}
@@ -345,14 +373,14 @@ def propor(underlying, chain, spot, plano, posicao, cash, modo, hoje, *, multipe
         "premioUnitario": round(premio, 2),
         "premioTotal": premio_total,
         "lastro": {"t": underlying, "qtyLivre": qty_livre_val},
-        "liquidez": {"score": liq["score"], "label": _label_liquidez(liq["score"])},
+        "liquidez": _bloco_liquidez(contrato, liq, modo),
         "manchete": manchete,
         "didatica": didatica,
         "chips": [
             {"k": "prazo", "v": f"{dias} dias"},
             {"k": "strike", "v": f"R$ {skill_ref.num_br(strike)}"},
             {"k": "prêmio", "v": f"R$ {skill_ref.num_br(premio)}"},
-            {"k": "liquidez", "v": _label_liquidez(liq["score"])},
+            {"k": "liquidez", "v": faixa_de_liquidez(liq["score"])},
         ],
         "estrutura": estrutura,
         "caixa": {
@@ -467,14 +495,20 @@ def proposta_fechar(pos_opcao, chain, modo, hoje):
         "premioUnitario": round(premio, 2),
         "premioTotal": premio_total,
         "lastro": {"t": underlying, "qtyLivre": qty_livre_val},
-        "liquidez": {"score": liq["score"], "label": _label_liquidez(liq["score"])},
+        # `_bloco_liquidez` (com `aviso`, quando DIFÍCIL) preenche o mesmo
+        # formato de `propor()` — mas NENHUMA rota de fechamento bloqueia por
+        # faixa (comentário completo em `options_lastreada_fechar`, main.py):
+        # travar a saída de uma posição em contrato ruim prenderia o usuário
+        # exatamente onde ele mais precisa sair. A assimetria abrir×fechar é
+        # deliberada, não esquecimento (quick 260908-ldg).
+        "liquidez": _bloco_liquidez(contrato, liq, modo),
         "manchete": manchete,
         "didatica": didatica,
         "chips": [
             {"k": "prazo", "v": f"{dias} dias" if dias is not None else "—"},
             {"k": "strike", "v": f"R$ {skill_ref.num_br(strike)}"},
             {"k": "prêmio", "v": f"R$ {skill_ref.num_br(premio)}"},
-            {"k": "liquidez", "v": _label_liquidez(liq["score"])},
+            {"k": "liquidez", "v": faixa_de_liquidez(liq["score"])},
         ],
     }
     return {"proposta": proposta, "motivo": tipo}

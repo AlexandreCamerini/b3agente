@@ -5,9 +5,13 @@ Módulo PURO sob teste (`server/app/opcoes_motor.py`): sem rede, sem banco, sem
 LLM. Cadeia sintética montada no próprio teste, mesmo padrão de
 `test_opcoes_lastreadas_proposta.py`.
 
-Parte 1 (Task 1): `rastrear()` — a régua de seleção já em produção
-(liquidez >= 40 + strike extremo), generalizada para N resultados, e o corte
-de liquidez com fonte única (`opcoes_motor.LIQUIDEZ_MINIMA`).
+Parte 1 (Task 1): `rastrear()` — a régua de seleção já em produção (liquidez +
+strike extremo), generalizada para N resultados. ATUALIZADO 2026-09-08 (quick
+260908-ldg): o corte único (`opcoes_motor.LIQUIDEZ_MINIMA`, 40) morreu — sem
+override explícito, `rastrear` seleciona em DUAS PASSADAS pela escala
+centralizada em `options_quant` (NEGOCIÁVEL >=55 primeiro; só se vazio,
+DIFÍCIL >=30). Um `liquidez_minima` explícito em `filtros` continua fazendo
+UMA passada naquele piso — semântica de override preservada.
 
 Parte 2 (Task 2): `avaliar()` e os adaptadores `perna_de_contrato`/
 `perna_de_acao` — o segundo lado do limite interno.
@@ -110,9 +114,18 @@ def test_rastrear_exclui_contrato_com_liquidez_abaixo_do_corte():
 
 
 def test_rastrear_inclui_caso_real_mydata_sem_open_interest():
+    """ATUALIZADO 2026-09-08 (quick 260908-ldg): score real 45,1 = DIFÍCIL
+    (`options_quant.faixa_de_liquidez`). Continua passando — mas só pela
+    SEGUNDA passada (a cadeia tem um contrato só, então a primeira passada
+    NEGOCIÁVEL sai vazia). Asserção explícita da faixa, senão o teste vira
+    falso-verde sobre QUAL passada selecionou o contrato."""
+    from app.options_quant import faixa_de_liquidez, liquidity_score
+
     cadeia = {"providerStatus": "ok", "calls": [
         _contrato("Z60", "call", 60, price=1.5, volume=100, oi=None, bid=1.48, ask=1.52),
     ], "puts": []}
+    liq = liquidity_score(100, None, 1.48, 1.52)
+    assert faixa_de_liquidez(liq["score"]) == "DIFÍCIL"
     r = opcoes_motor.rastrear(cadeia, {"tipo": "call", "criterio": "min"})
     assert [c["strike"] for c in r] == [60]
 
@@ -174,11 +187,19 @@ def test_corte_de_liquidez_tem_fonte_unica(monkeypatch):
     passa a provar isso de duas formas mais fortes: (1) nenhum dos dois nomes
     sobrevive no módulo; (2) `propor()` delega a seleção a
     `opcoes_motor.rastrear()` e nunca repassa `liquidez_minima` nos filtros —
-    o corte só pode vir do default do motor comum."""
+    o corte só pode vir do default do motor comum.
+
+    REFORÇADO 2026-09-08 (quick 260908-ldg): o corte único morreu de vez —
+    `opcoes_lastreadas._label_liquidez` (a segunda escala que a própria
+    docstring da função proibia manter) e `opcoes_motor.LIQUIDEZ_MINIMA`
+    também não sobrevivem. A fonte única agora é
+    `options_quant.LIQUIDEZ_NEGOCIAVEL`/`LIQUIDEZ_DIFICIL`."""
     from app import opcoes_lastreadas
 
     assert not hasattr(opcoes_lastreadas, "_LIQUIDEZ_MINIMA")
     assert not hasattr(opcoes_lastreadas, "_candidato_valido")
+    assert not hasattr(opcoes_lastreadas, "_label_liquidez")
+    assert not hasattr(opcoes_motor, "LIQUIDEZ_MINIMA")
 
     chamadas = []
     original = opcoes_motor.rastrear
