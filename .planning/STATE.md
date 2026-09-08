@@ -218,6 +218,7 @@ Recent decisions affecting current work:
 | 260906-rla | Corrigir contraste WCAG AA de `textDim` no tema claro (Modo Estudo) — achado colateral da Fase 4/FIX-C16, 4,20:1→4,67:1; guardião de contraste estendido de `textFaint` para `textFaint`+`textDim` | 2026-09-06 | 503363f | Verified | [260906-rla](./quick/260906-rla-corrigir-contraste-wcag-aa-de-textdim-no/) |
 | 260906-ugb | Corrigir 3 achados Baixo do REPORT-01: C-18 (`aria-describedby` no gate "Executar"), C-08 (reversão à média nomeada no verbete `setup-ifr2`); C-28 reverificado e encontrado já resolvido (nenhum código mudou) | 2026-09-06 | 9a874c5 | Verified | [260906-ugb](./quick/260906-ugb-corrigir-3-achados-baixo-do-report-01-c-/) |
 | 260906-vf9 | Corrigir 3 achados de PRODUTO do REPORT-01 (C-07: "Operador IA" nomeado em `ModoTrabalhoCard`; C-09: aviso de drawdown >15% em `CapitalCurve`, limiar decidido pelo orquestrador; C-06: `resumoOperacao(h)` — escopo reduzido a uma frase no Histórico existente) | 2026-09-06 | 72187df | Verified | [260906-vf9](./quick/260906-vf9-corrigir-3-achados-de-produto-do-report-/) |
+| 260907-vzp | Corrigir `setups[0]` cru sem filtrar aposentado em `App.jsx` (ADR-017 Decisão 1) — achado ao vivo em staging (compra ABEV3 gravou `setupEntrada` contraditório, invertendo a leitura de invalidação); `setupOperavel()`/`metaDeEntrada()` em `finance.js`, espelho de `setups.py:725` | 2026-09-07 | ebd23b2, e8dd43e | Verified | [260907-vzp](./quick/260907-vzp-corrigir-setups-0-cru-sem-filtrar-aposen/) |
 
 ## Deferred Items
 
