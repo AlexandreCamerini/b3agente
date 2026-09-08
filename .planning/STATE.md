@@ -29,13 +29,13 @@ Phase: 17 (checkpoint humano bloqueante, Task 2 de `17-06-PLAN.md`)
 Plan: aguardando o Alex (mercado aberto + posição real elegível)
 Status: In Progress — travado em checkpoint humano, não em execução
 Progress: [████████░░░░░░░░░░░░] 40% (2/5 fases completas do v1.4; Fases 17/18/19 parciais)
-Last activity: 2026-09-08 (tarde) — quick 260908-ldg, gate de liquidez em três faixas com consentimento, mesclada e testada (2110 passed). Junto com 260908-dnl (recalibração do score) fecha o achado do dia: opções estavam apagadas em produção por um gate impossível de cruzar com mydata. Front mudou e NÃO foi republicado — `F10-20260908-01` (já em `web_dist`) NÃO contém ldg/dnl; antes de promover, rodar bump + publicar-web de novo ou promover ciente de que o gate novo só entra no bundle seguinte.
+Last activity: 2026-09-08 (tarde) — quick 260908-ldg, gate de liquidez em três faixas com consentimento, mesclada e testada (2110 passed). Junto com 260908-dnl (recalibração do score) fecha o achado do dia: opções estavam apagadas em produção por um gate impossível de cruzar com mydata. Front republicado junto no `F10-20260908-02` (o servidor passou a exigir `aceitaLiquidezDificil`; front velho quebraria). PR #32 mesclado e PROMOVIDO em 2026-09-08 — `/api/health` = `F10-20260908-02`, gate ao vivo confirmado (PETR4/ABEV3/VALE3/ITUB4 NEGOCIÁVEL, RADL3 DIFÍCIL 50,9). Produção tinha ficado em `F10-20260907-01` até então: o #31 foi mesclado mas nunca deployado, e o -02 o contém.
 
 Anterior no mesmo dia — as QUATRO quick tasks de 07/09 consolidadas numa publicação só (`F10-20260908-01`, commit 7be6b55, branch empurrada). Todas nasceram da mesma sessão de teste ao vivo em staging/iPhone: 260907-w33 (largura do card de candidato), 260907-x69 (textos do card de fechamento), 260907-vwl (aviso de ordem pendente) e 260907-vzp (setup aposentado, ADR-017). Suíte canônica verde nas duas suites: 2049 passed, 1 skipped.
 
 `origin/main` foi mesclado ANTES do bump — era o que travava a publicação. Ao mesclar, a branch `claude/gallant-volhard-b8dcdb` trouxe um bump para `F10-20260907-01`, o MESMO carimbo que produção já servia, para código diferente: a colisão prevista, resolvida para `F10-20260908-01` (que nunca foi ao ar). Lição operacional: sessão paralela que roda `bump.sh` sem estar em dia com `origin/main` sempre reemite o carimbo de produção — o script deriva do valor LOCAL.
 
-PRÓXIMO PASSO (promoção para produção): abrir/mesclar o PR de `v2/interacao-estrutural` para `main` e então disparar o deploy MANUALMENTE no painel do Railway — o auto-deploy de produção está DESLIGADO desde 07/09 (ver STAGING.md). Nenhum comando desta sessão tocou o Railway.
+PROMOÇÃO FEITA em 2026-09-08 (PR #32 → main → Deploy manual pelo Alex). O único comando contra o GitHub foi `gh pr merge 32`, autorizado explicitamente; nenhum comando tocou o Railway. Próxima verificação humana: o confirm de consentimento de liquidez no aparelho, e os checkpoints das Fases 17/18/19 que seguem abertos.
 
 RESSALVA HONESTA: a verificação foi estática (suíte + build). As quatro correções nasceram de achados ao vivo, mas nenhuma foi reconfirmada no aparelho depois do fix — o cenário depende de mercado aberto e posição elegível, a mesma dependência que trava os checkpoints das Fases 17/18/19.
 
@@ -170,9 +170,9 @@ Recent decisions affecting current work:
   `260908-ldg` trocou o corte binário por TRÊS FAIXAS com consentimento
   explícito em DIFÍCIL e bloqueio servidor-side em SEM MERCADO — o usuário
   vê o grau e decide, o simulador nunca inventa um fill. Contra as 20 cadeias
-  reais: 282 NEGOCIÁVEL / 227 DIFÍCIL / 83 SEM MERCADO. **Só vale em produção
-  depois de promovido (PR #31)** — até lá as Fases 14/16/17/18/19 seguem dark
-  lá. Pendência de raiz (open interest de verdade) é ingestão do MyData.
+  reais: 282 NEGOCIÁVEL / 227 DIFÍCIL / 83 SEM MERCADO. PR #32 mesclado e promovido em 2026-09-08; `/api/options/gate/PETR4` devolve
+  `liquida: true, faixa: NEGOCIÁVEL, melhorScore: 75`. Pendência humana:
+  exercitar o confirm de consentimento no aparelho (nunca tocado ao vivo). Pendência de raiz (open interest de verdade) é ingestão do MyData.
   Números: `docs/MEDICAO-gate-liquidez-mydata-2026-09-08.md`.
 
 - 3 itens de backlog pré-existentes bloqueados por dependência humana
