@@ -74,7 +74,15 @@ def _quote_fake_factory(price=10.0, source="fake"):
 # Task 1 — GET /api/market/status (MERC-01)
 # =============================================================================
 
-_CHAVES_STATUS = {"aberto", "diaDePregao", "abertura", "fechamento", "agoraBRT", "afterMarket"}
+# 2026-09-06: 6 -> 7 chaves. `devForcado` (pregao.dev_mercado_aberto_forcado())
+# somado à resposta para declarar, com transparência (princípio 3/9 do
+# CLAUDE.md), quando `B3_DEV_MERCADO_ABERTO=1` está ligado — env var só de
+# dev local (nunca setada em produção) que força `in_market_hours()`=True
+# pra exercitar em qualquer horário fluxos que só rodam com o pregão aberto
+# (achado ao vivo: o checkpoint humano bloqueante da Fase 17/17-06-PLAN.md
+# dependia de horário de pregão real pra ser verificado). Guardião mantido,
+# não apagado — só o número de chaves mudou.
+_CHAVES_STATUS = {"aberto", "diaDePregao", "abertura", "fechamento", "agoraBRT", "afterMarket", "devForcado"}
 
 
 def test_market_status_sem_authorization_responde_200(monkeypatch):
@@ -83,7 +91,7 @@ def test_market_status_sem_authorization_responde_200(monkeypatch):
     assert r.status_code == 200, r.text
 
 
-def test_market_status_payload_tem_exatamente_as_seis_chaves(monkeypatch):
+def test_market_status_payload_tem_exatamente_as_sete_chaves(monkeypatch):
     client, _ = _client(monkeypatch)
     r = client.get("/api/market/status")
     assert set(r.json().keys()) == _CHAVES_STATUS

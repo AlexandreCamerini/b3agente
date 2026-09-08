@@ -1,5 +1,26 @@
 # Milestones
 
+## v1.5 Redesenho de UI — simplificação e acessibilidade (Shipped: 2026-09-06)
+
+**Phases completed:** 4 phases, 16 plans, 38 tasks
+
+**Key accomplishments:**
+
+- `.b3-shell`/`<main>` ganham `overflow-x:hidden` na regra de classe (não só no style inline), `MarketStatusBadge` trunca com reticência em vez de vazar layout, e `CONTENT_MAX_WIDTH` (720px) vira a única constante de teto de largura desktop, reusada pelo `BottomNav` que já a tinha (FIX-01, FIX-02, SYS-04).
+- Escala numérica nomeada (`numHero`/`numBody`/`numMicro`) com `tabular-nums` no stack `MONO` chega a 151 sites de valor financeiro, e os 15 H1 de tela passam a usar `DISPLAY` (Fredoka), antes restrito ao wordmark (TYPO-01, TYPO-03).
+- Um único `matchMedia` (`REDUCE_MOTION`) e exatamente 2 blocos `@media (prefers-reduced-motion)` em todo `GlobalStyle()` — travado por guardião de contagem exata, consumido depois pelas Fases 22/23 sem crescer (MOTION-03).
+- `CapitalCurve` (card "Patrimônio simulado") passa a existir numa única tela em vez de duplicado em Acompanhar e Portfólio; os 4 cards soltos do Portfólio viram um grid 2×2 consolidado; o status do Operador IA para de repetir o que o toggle funcional já mostra — 3 guardiões pré-existentes que travavam o card duplicado reescritos com nota de reversão, nunca apagados (DEDUP-01, DEDUP-02, DEDUP-03).
+- `CapitalCurve` ganha um placeholder dedicado para o limiar de 1-2 dias de patrimônio registrado, em vez de renderizar uma caixa vazia com escala degenerada (FIX-03).
+- Helper único `carouselTrackStyle`/`carouselItemStyle` (scroll-snap + peek do próximo item) unifica os 4 trilhos horizontais do app que hoje divergiam entre si (SYS-01).
+- `NavIcon` generalizado (size/color) substitui os 8 sites de emoji nativo do sistema operacional por SVG no mesmo traço da navegação — zero emoji na interface, confirmado por varredura Unicode (SYS-02).
+- Sombra/halo do `PetFab` (mascote flutuante) vira token por tema (`PALETTE.{dark,light}.shadowFab`), confirmado nos 2 temas × 2 modos contra o bundle de produção — nunca mais parece cortado pela borda de um card atrás dele (SYS-03).
+- Card novo (setup inédito na Watchlist/Radar) entra com fade+translateY (~200ms, `b3cardEnter`), sob o mesmo gate de `prefers-reduced-motion` da Fase 20 (MOTION-01).
+- Confirmação de ordem (compra/venda EXECUTADA) dá um pulso de ~120ms (`b3valuePulse`) no valor antes de virar sucesso — pendente e rejeitada nunca pulsam — com portão `REDUCE_MOTION` em JS (não só CSS), provado sob teste adversarial de triplo-clique sem duplicar ordem nem caixa (MOTION-02).
+- `BorisFlat.jsx` (nova ilustração flat/cartoon, cores e geometria copiadas do `LogoMark` já publicado) substitui o PNG semi-realista do modal "Este é o Boris" — ícone do app já publicado no TestFlight/App Store permanece intocado, confirmado ao vivo nos 2 temas e no Modo Operador (ILUS-01).
+- Auditoria de milestone: 17/17 requirements satisfeitos, 16/17 pontos de integração cruzada `WIRED` com 2 fluxos E2E traçados ponta a ponta, status `tech_debt` não-bloqueante — débito técnico (`numHero` sem consumidor real) e 4 itens de verificação humana consolidados num único documento, nunca fragmentados por fase.
+
+---
+
 ## v1.3 Cap comercial (plano gratuito) (Shipped: 2026-08-31)
 
 **Phases completed:** 2 phases, 8 plans, 21 tasks

@@ -64,10 +64,35 @@ ok("entrada sem status (legada) resulta em rejeitada=false (=== \"rejeitada\", n
    linhaHistorico.includes('const rejeitada = h.status === "rejeitada";'));
 
 // -------------------------------------------------- (d) refresh no catch --
+// 2026-09-06 (Fase 23, plano 23-03, MOTION-02): janela fixa de caracteres
+// trocada por delimitação por marcador. Medido em 2026-09-06 sobre o App.jsx
+// anterior ao refactor do MOTION-02: o `catch` do confirmBuy estava a 1210
+// caracteres do início do bloco (handler com 1525 caracteres no total),
+// dentro de uma janela de 1700 — folga de ~175 caracteres; a janela de 1200
+// do confirmSell já CORTAVA o fim do próprio catch (handler com 1450
+// caracteres no total). O refactor de MOTION-02 acrescenta ~200 caracteres
+// ANTES do catch nos dois handlers (wrapper `finalizar`, portões
+// pendente/REDUCE_MOTION, guarda de duplo envio) — uma janela fixa
+// autoinvalida-se quando o handler cresce, e o guardião falharia por medir
+// a janela errada, não por o comportamento ter regredido. Trocado pelo
+// mesmo padrão de recorte por marcador que test_ordens_pendentes_ui.mjs já
+// usa (linhas ~101-102): fatiar até o próximo handler vizinho conhecido, com
+// abort explícito se qualquer marcador sumir. As asserções abaixo NÃO
+// mudam — só a ferramenta de recorte.
 const iConfirmSell = app.indexOf("confirmSell: async () => {");
 const iConfirmBuy = app.indexOf("confirmBuy: async () => {");
-const confirmSellBlock = app.slice(iConfirmSell, iConfirmSell + 1200);
-const confirmBuyBlock = app.slice(iConfirmBuy, iConfirmBuy + 1700);
+if (iConfirmSell < 0 || iConfirmBuy < 0) {
+  console.error("FALHOU: confirmSell/confirmBuy não encontrados em App.jsx — guardião não pode isolar os handlers");
+  process.exit(1);
+}
+const iFimConfirmBuy = app.indexOf("sell: async (t) => {", iConfirmBuy);
+const iFimConfirmSell = app.indexOf("refreshWlScan: async () => {", iConfirmSell);
+if (iFimConfirmBuy < 0 || iFimConfirmSell < 0) {
+  console.error('FALHOU: marcador de fim de confirmBuy ("sell: async (t) => {") ou de confirmSell ("refreshWlScan: async () => {") não encontrado em App.jsx');
+  process.exit(1);
+}
+const confirmSellBlock = app.slice(iConfirmSell, iFimConfirmSell);
+const confirmBuyBlock = app.slice(iConfirmBuy, iFimConfirmBuy);
 
 ok("confirmSell: catch chama store.getState() ANTES do flash",
    (() => {

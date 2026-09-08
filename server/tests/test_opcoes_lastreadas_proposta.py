@@ -368,7 +368,10 @@ def test_proposta_fechar_call_coberta_devolve_mesmo_contrato_com_premio_atual():
     assert p["contratos"] == 1
     assert p["premioUnitario"] == 1.75
     assert p["premioTotal"] == round(1.75 * 100, 2)
-    assert p["manchete"].startswith("Vender")
+    # ATUALIZADO 2026-09-07 (quick 260907-x69): a manchete de fechamento
+    # deixou de reusar a frase de ABERTURA — o card dizia 'Comprar 1 put(s)'
+    # logo acima de um botão que VENDE. Mudança deliberada, não regressão.
+    assert p["manchete"].startswith("Recomprar")
 
 
 def test_proposta_fechar_put_protecao_devolve_mesmo_contrato_com_premio_atual():
@@ -381,7 +384,61 @@ def test_proposta_fechar_put_protecao_devolve_mesmo_contrato_com_premio_atual():
     assert p["tipo"] == "put_protecao"
     assert p["contratos"] == 2
     assert p["premioTotal"] == round(0.9 * 200, 2)
-    assert p["manchete"].startswith("Comprar")
+    # ATUALIZADO 2026-09-07 (quick 260907-x69): a manchete de fechamento
+    # deixou de reusar a frase de ABERTURA — o card dizia 'Comprar 1 put(s)'
+    # logo acima de um botão que VENDE. Mudança deliberada, não regressão.
+    assert p["manchete"].startswith("Vender")
+
+
+# Guardiões novos (2026-09-07, quick 260907-x69): achado ao vivo em staging
+# (iPhone, Modo Operador, put ABEV3 strike 30,00) — o card de fechamento
+# reusava a frase de ABERTURA e um CTA com "call" literal, então fechar uma
+# PUT de proteção dizia "Comprar 1 put(s)…" acima de um botão que VENDE, e a
+# confirmação falava em destravar ações que a put nunca travou.
+
+def test_fechar_put_protecao_manchete_difere_da_abertura():
+    cadeia = _cadeia(puts=[_contrato(28.0, "PETR4F28", "put", price=0.9)])
+    pos = _pos_opcao(id="PETR4F28", optionType="put", strike=28.0, side="comprada", qty=200)
+    r = opcoes_lastreadas.proposta_fechar(pos, cadeia, "operador", _HOJE)
+    p = r["proposta"]
+    dados = {
+        "n": "2", "ticker": "PETR4", "strike": skill_ref.num_br(28.0),
+        "premioTotal": skill_ref.num_br(round(0.9 * 200, 2)), "qtyAcoes": "200",
+    }
+    assert p["manchete"] != skill_ref.opcoes_lastreadas_txt("operador", "put_protecao", **dados)
+    assert p["didatica"] != skill_ref.opcoes_lastreadas_txt("educacional", "put_protecao", **dados)
+
+
+def test_fechar_call_coberta_manchete_difere_da_abertura():
+    cadeia = _cadeia(calls=[_contrato(32.0, "PETR4F32", "call", price=1.75)])
+    pos = _pos_opcao(id="PETR4F32", side="vendida", qty=100)
+    r = opcoes_lastreadas.proposta_fechar(pos, cadeia, "operador", _HOJE)
+    p = r["proposta"]
+    dados = {
+        "n": "1", "ticker": "PETR4", "strike": skill_ref.num_br(32.0),
+        "premioTotal": skill_ref.num_br(round(1.75 * 100, 2)), "qtyAcoes": "100",
+    }
+    assert p["manchete"] != skill_ref.opcoes_lastreadas_txt("operador", "call_coberta", **dados)
+    assert p["didatica"] != skill_ref.opcoes_lastreadas_txt("educacional", "call_coberta", **dados)
+
+
+def test_fechar_put_protecao_nao_menciona_call():
+    cadeia = _cadeia(puts=[_contrato(28.0, "PETR4F28", "put", price=0.9)])
+    pos = _pos_opcao(id="PETR4F28", optionType="put", strike=28.0, side="comprada", qty=200)
+    r = opcoes_lastreadas.proposta_fechar(pos, cadeia, "operador", _HOJE)
+    p = r["proposta"]
+    assert "call" not in p["manchete"].lower()
+    assert "call" not in p["didatica"].lower()
+
+
+def test_vocab_fechamento_existe_nos_dois_modos():
+    for modo in ("operador", "educacional"):
+        assert "fechar_call_coberta" in skill_ref.OPCOES_LASTREADAS[modo]
+        assert "fechar_put_protecao" in skill_ref.OPCOES_LASTREADAS[modo]
+    frase_edu_call = skill_ref.OPCOES_LASTREADAS["educacional"]["fechar_call_coberta"]
+    frase_edu_put = skill_ref.OPCOES_LASTREADAS["educacional"]["fechar_put_protecao"]
+    assert frase_edu_call.startswith("Se você encerrasse")
+    assert frase_edu_put.startswith("Se você encerrasse")
 
 
 def test_proposta_fechar_estavel_mesmo_quando_propor_divergiria():

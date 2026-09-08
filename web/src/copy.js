@@ -29,6 +29,14 @@ export const COPY = {
         ? `Há ${nSetups} setup(s) para estudar na sua watchlist — bora entender o porquê de cada um?`
         : "Mercado sem setups claros na sua watchlist — bom dia para revisar os conceitos.",
 
+    // Fase 21 (FIX-03): placeholder de CapitalCurve com 1-2 dias de patrimônio
+    // registrados — mesmo texto nos dois modos (afirmação factual sobre
+    // disponibilidade de dado, não enquadramento de decisão).
+    curvaPoucosDias: (dias) =>
+      dias === 1
+        ? "Só 1 dia registrado ainda — a curva aparece a partir do 3º dia."
+        : "Só 2 dias registrados ainda — a curva aparece a partir do 3º dia.",
+
     // abas
     tabRadar: "Radar", // qa/34: rótulo CURTO da aba inferior (a tela usa tituloRadar)
     tituloRadar: "Radar de mercado",
@@ -154,6 +162,15 @@ export const COPY = {
       `${ticker} sozinho responde por ${pct}% do seu patrimônio simulado. Diversificação reduz o quanto um único evento negativo pode derrubar a carteira inteira — vale estudar o conceito antes de aumentar ainda mais essa posição.`,
     concentracaoLink: "saiba mais",
 
+    // Quick 260906-vf9 (C-09, REPORT-01): aviso de drawdown alto no card de
+    // patrimônio (CapitalCurve), acima de LIMIAR_DRAWDOWN_ALERTA=15% em
+    // App.jsx. Aviso educacional, não bloqueio — mesma disciplina do trio
+    // concentracao* acima. Rótulo idêntico nos dois modos; só o corpo forka.
+    // Corpo do modo Estudo sem vocabulário de ordem (test_copy_theme.mjs).
+    drawdownAlertaTitulo: "Drawdown alto",
+    drawdownAlertaCorpo: (pct) =>
+      `Sua carteira já caiu ${pct}% desde o pico. Quedas grandes pedem mais cautela: considere reduzir o tamanho das próximas posições até recuperar confiança no plano.`,
+
     // Fase 14 (Plano 06, 14-UI-SPEC.md "Copywriting Contract"): rótulos de
     // controle e confirmação das operações lastreadas (venda coberta / put de
     // proteção). A MANCHETE e a frase didática nunca vêm daqui — vêm prontas
@@ -248,6 +265,14 @@ export const COPY = {
       nSetups > 0
         ? `${nSetups} plano(s) válido(s) hoje · ${nGatilhos} gatilho(s) próximos do preço. Disciplina: só entra quem confirmar.`
         : "Nenhum plano com vantagem estatística hoje. Não operar também é posição.",
+
+    // Fase 21 (FIX-03): placeholder de CapitalCurve com 1-2 dias de patrimônio
+    // registrados — texto idêntico ao modo Estudo (afirmação factual sobre
+    // disponibilidade de dado, não enquadramento de decisão).
+    curvaPoucosDias: (dias) =>
+      dias === 1
+        ? "Só 1 dia registrado ainda — a curva aparece a partir do 3º dia."
+        : "Só 2 dias registrados ainda — a curva aparece a partir do 3º dia.",
 
     // abas
     tabRadar: "Mesa", // qa/34: a aba dizia "Radar" enquanto a tela é "Mesa de oportunidades"
@@ -360,15 +385,36 @@ export const COPY = {
       `${ticker} concentra ${pct}% da carteira. Acima disso, um único stop ruim carrega peso desproporcional no resultado — considere o tamanho antes do próximo aporte no papel.`,
     concentracaoLink: "saiba mais",
 
+    // Quick 260906-vf9 (C-09, REPORT-01): mesmo aviso do ramo estudo, tom de
+    // mesa — limiar LIMIAR_DRAWDOWN_ALERTA=15% em App.jsx. Chave espelhada
+    // (rótulo idêntico, ver ramo estudo).
+    drawdownAlertaTitulo: "Drawdown alto",
+    drawdownAlertaCorpo: (pct) =>
+      `Drawdown de ${pct}% desde o pico. Perda dessa magnitude pede revisão de tamanho antes da próxima entrada — não force recuperação com posição maior.`,
+
     // Fase 14 (Plano 06): mesma chave do ramo estudo (ver comentário acima).
     // Registro de mesa (imperativo) — texto VERBATIM do UI-SPEC.
     eyebrowPropostaCall: "PROPOSTA · VENDA COBERTA",
     eyebrowPropostaPut: "PROPOSTA · PUT DE PROTEÇÃO",
     ctaVendaCoberta: (n, ticker, strike, premio) => `Vender ${n}× CALL ${ticker} · strike ${strike} — recebe R$ ${premio}`,
     ctaPutProtecao: (n, ticker, strike, premio) => `Comprar ${n}× PUT ${ticker} · strike ${strike} — custa R$ ${premio}`,
-    ctaFecharLastreada: (custo) => `Recomprar a call — R$ ${custo}`,
+    // ATUALIZADO 2026-09-07 (quick 260907-x69): as duas funções abaixo foram
+    // escritas na Fase 14 só para a call coberta e nunca generalizadas quando
+    // o fechamento da put entrou — fechar uma put de proteção mostrava
+    // "Recomprar a call — R$ X" e uma confirmação que fala em "destrava
+    // ações", que a put nunca travou (achado ao vivo em staging, iPhone,
+    // Modo Operador, put ABEV3 strike 30,00). O parâmetro de lado (`isCall`)
+    // entra POR ÚLTIMO de propósito: chamada antiga (3 args) degrada pro
+    // ramo da put em vez de quebrar. `confirmFecharCoberta` mantém o nome
+    // herdado — renomear mexeria em CHAVES_LASTREADAS (guardião web) sem
+    // ganho — apesar de cobrir os dois lados agora.
+    ctaFecharLastreada: (custo, isCall) => isCall
+      ? `Recomprar a call — R$ ${custo}`
+      : `Vender a put — recebe R$ ${custo}`,
     confirmAbrirCoberta: (n, ticker, qty) => `Vender ${n} call(s) de ${ticker} trava ${qty} ação(ões) do seu lote-lastro até você recomprar a call ou ela vencer. Continuar?`,
-    confirmFecharCoberta: (custo, qty, ticker) => `Recomprar esta call por R$ ${custo} destrava ${qty} ação(ões) de ${ticker} imediatamente. Continuar?`,
+    confirmFecharCoberta: (custo, qty, ticker, isCall) => isCall
+      ? `Recomprar esta call por R$ ${custo} destrava ${qty} ação(ões) de ${ticker} imediatamente. Continuar?`
+      : `Vender esta put por R$ ${custo} encerra a proteção de ${qty} ação(ões) de ${ticker} imediatamente. Continuar?`,
     verCadeiaCompleta: "ver cadeia completa",
     propostaIndisponivelDegradada: "Proposta indisponível — cotação de opções degradada.",
     propostaVaziaTitulo: "Sem proposta agora",

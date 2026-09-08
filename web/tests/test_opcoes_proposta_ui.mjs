@@ -88,6 +88,33 @@ ok("CTA (<button) condicionado a `operador`", /\{operador && \([\s\S]{0,60}<butt
 ok("window.confirm com cp.confirmAbrirCoberta existe", /window\.confirm\(cp\.confirmAbrirCoberta\(/.test(app));
 ok("window.confirm com cp.confirmFecharCoberta existe", /window\.confirm\(cp\.confirmFecharCoberta\(/.test(app));
 
+// ---------------------------------------------------------------------------
+// Guardiões novos (2026-09-07, quick 260907-x69): achado ao vivo em staging
+// (iPhone, Modo Operador, put ABEV3 strike 30,00) — fechar uma PUT de
+// proteção mostrava CTA "Recomprar a call — R$ X" e uma confirmação que fala
+// em "destrava ações", que a put nunca travou. CTA e confirmação de
+// fechamento passam a ser parametrizados por lado (`isCall`).
+const ctaFecharPut = COPY.operador.ctaFecharLastreada("65,00", false);
+ok("CTA de fechamento de PUT não menciona call e contém 'put'", !/call/i.test(ctaFecharPut) && /put/i.test(ctaFecharPut));
+
+const ctaFecharCall = COPY.operador.ctaFecharLastreada("65,00", true);
+ok("CTA de fechamento de CALL não regrediu (Recomprar/call)", /Recomprar/.test(ctaFecharCall) && /call/i.test(ctaFecharCall));
+
+const confirmFecharPut = COPY.operador.confirmFecharCoberta("65,00", 100, "ABEV3", false);
+ok("confirmação de fechamento de PUT não menciona call nem 'destrava'",
+  !/call/i.test(confirmFecharPut) && !confirmFecharPut.includes("destrava"));
+ok("confirmação de fechamento de PUT contém ticker e quantidade",
+  confirmFecharPut.includes("ABEV3") && confirmFecharPut.includes("100"));
+
+const confirmFecharCall = COPY.operador.confirmFecharCoberta("65,00", 100, "ABEV3", true);
+ok("confirmação de fechamento de CALL não regrediu (Recomprar/destrava)",
+  /Recomprar/.test(confirmFecharCall) && confirmFecharCall.includes("destrava"));
+
+ok("PropostaLastreada chama ctaFecharLastreada(price(p.premioTotal), isCall)",
+  /ctaFecharLastreada\(price\(p\.premioTotal\), isCall\)/.test(app));
+ok("os DOIS call sites de confirmFecharCoberta estão em paridade (AtivoCard + PropostaDaPosicao)",
+  (app.match(/confirmFecharCoberta\(price\(p\.premioTotal\), p\.qtyAcoes, t, p\.optionType === "call"\)/g) || []).length === 2);
+
 // Cor da manchete por polaridade: T.positive/T.negative decidido por
 // optionType (via isCall), e a MANCHETE nunca usa T.accent (regra do
 // UI-SPEC/hero — App.jsx:768-773).

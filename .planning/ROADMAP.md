@@ -6,7 +6,8 @@
 - ✅ **v1.1 Realismo de Mercado + Correções** — Phases 2-8 (shipped 2026-08-23) — [detalhes](milestones/v1.1-ROADMAP.md)
 - ✅ **v1.2 Camada de opções ancorada na carteira** — Phases 0, 10, 11 (shipped 2026-08-28) — [detalhes](milestones/v1.2-ROADMAP.md)
 - ✅ **v1.3 Cap comercial (plano gratuito)** — Phases 12-13 (shipped 2026-08-31) — [detalhes](milestones/v1.3-ROADMAP.md)
-- 🚧 **v1.4 Opções v2** — Phases 15-18 (in progress)
+- 🚧 **v1.4 Opções v2** — Phases 15-19 (in progress)
+- ✅ **v1.5 Redesenho de UI — simplificação e acessibilidade** — Phases 20-23 (shipped 2026-09-06) — [detalhes](milestones/v1.5-ROADMAP.md)
 
 ## Phases
 
@@ -251,6 +252,23 @@ Fora de escopo desta milestone (decidido no kickoff): plano comercial da
 feature, DSL de setups técnicos do b-mcp, integração MCP real (Estratégia
 C) — ver `.planning/REQUIREMENTS.md` Out of Scope / Future Requirements.
 
+<details>
+<summary>✅ v1.5 Redesenho de UI — simplificação e acessibilidade (Phases 20-23) — SHIPPED 2026-09-06</summary>
+
+- [x] Phase 20: Fundação estrutural e tipográfica (4/4 plans) — completed 2026-09-05
+- [x] Phase 21: Duplicação removida e Portfólio consolidado (4/4 plans) — completed 2026-09-06
+- [x] Phase 22: Componentes compartilhados (trilho, ícones, mascote) (4/4 plans) — completed 2026-09-06
+- [x] Phase 23: Motion com propósito e ilustração unificada (4/4 plans) — completed 2026-09-06
+
+Nenhum requirement do v1.4 foi tocado por este milestone (invariante técnico
+declarado no kickoff: só `web/src/`, sem alteração de motor/API/backend).
+Débito técnico não-bloqueante e itens de verificação humana pendentes:
+ver `.planning/milestones/v1.5-MILESTONE-AUDIT.md` e `20-HUMAN-UAT.md`.
+
+Full phase details: [milestones/v1.5-ROADMAP.md](milestones/v1.5-ROADMAP.md)
+
+</details>
+
 ## Progress
 
 | Phase | Milestone | Status | Completed |
@@ -274,6 +292,11 @@ C) — ver `.planning/REQUIREMENTS.md` Out of Scope / Future Requirements.
 | 16. Biblioteca de estruturas | 4/4 | Complete   | 2026-09-03 |
 | 17. Fluxo de aceite | 5/6 | In Progress|  |
 | 18. Aba Opções | 4/5 | In Progress|  |
+| 19. Motor multi-candidato | 3/4 | In Progress|  |
+| 20. Fundação estrutural e tipográfica | 4/4 | Complete    | 2026-09-05 |
+| 21. Duplicação removida e Portfólio consolidado | 4/4 | Complete    | 2026-09-06 |
+| 22. Componentes compartilhados (trilho, ícones, mascote) | 4/4 | Complete    | 2026-09-06 |
+| 23. Motion com propósito e ilustração unificada | 4/4 | Complete    | 2026-09-06 |
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2/v1.3
 
@@ -345,5 +368,7 @@ Plans:
 
 ---
 
-Milestone em andamento: v1.4 Opções v2 (Phases 15-18). Próximo passo:
-`/gsd:plan-phase 15`.
+Milestone em andamento: v1.4 Opções v2 (Phases 15-19, execução
+represada por checkpoints humanos pendentes do Alex — Fases 17/18/19).
+v1.5 Redesenho de UI (Phases 20-23) shipped em 2026-09-06 — ver
+[milestones/v1.5-ROADMAP.md](milestones/v1.5-ROADMAP.md).

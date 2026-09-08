@@ -121,6 +121,26 @@ def after_market_ligado() -> bool:
     return (os.environ.get("B3_AFTER_MARKET") or "").strip() in ("1", "true", "TRUE", "yes")
 
 
+def dev_mercado_aberto_forcado() -> bool:
+    """`B3_DEV_MERCADO_ABERTO=1` — força `in_market_hours()` a `True` pra
+    exercitar em horário qualquer os fluxos que só rodam com o pregão aberto
+    (checkpoints humanos, QA visual). Não toca cotação/candle/opções — essas
+    continuam vindo da fonte real (brapi/Yahoo/mydata) e podem estar
+    atrasadas ou indisponíveis de verdade fora do horário real, mesmo com
+    isto ligado.
+
+    ONDE PODE SER LIGADO: dev local e o environment `staging` do Railway.
+    NUNCA em produção — lá o horário real é o que protege o usuário de operar
+    contra dado parado. Até 2026-09-07 este docstring dizia "nunca setado no
+    Railway", o que excluía staging por engano: staging existe exatamente
+    para exercitar fluxo que produção não pode exercitar. Ligado em staging
+    naquela data para destravar a execução de ordem pendente num feriado
+    (7/9) — junto com `B3_AGENT_KILL=0`, porque o scheduler exige os DOIS
+    portões (`agent.py`, `if not kill_switch_on() and in_market_hours()`);
+    só este aqui não destrava nada."""
+    return (os.environ.get("B3_DEV_MERCADO_ABERTO") or "").strip() in ("1", "true", "TRUE", "yes")
+
+
 def in_market_hours(now: datetime = None) -> bool:
     """A bolsa está negociando AGORA? Fonte única — `agent.in_market_hours`
     delega para cá, e com ele intraday/timing/timing_watch inteiros.
@@ -128,6 +148,8 @@ def in_market_hours(now: datetime = None) -> bool:
     Fora: pré-abertura (09:45–10:00), call de fechamento (16:55–17:00), a zona
     morta até 17:30 e o after-market (salvo `B3_AFTER_MARKET=1`).
     """
+    if dev_mercado_aberto_forcado():
+        return True
     agora = now or datetime.now(BRT)
     if not is_trading_day(agora.date()):
         return False

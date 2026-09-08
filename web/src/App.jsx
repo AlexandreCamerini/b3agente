@@ -12,7 +12,7 @@ import { BUILD_ID } from "./version.js";
 // carimbo no console: prova de qual build está rodando (device/web)
 try { console.log("[b3] build", BUILD_ID); } catch { /* noop */ }
 import { canAddTicker, canAnalyze } from "./plan.js";
-import { portfolioMetrics, dayReturnPct, equityCurve, markPrice, sizingPlano, RR_MIN_TXT, historicoEstado, historicoDesatualizado, benchmarkSerie, concentracaoMaxima, qtyLivre } from "./finance.js";
+import { portfolioMetrics, dayReturnPct, equityCurve, markPrice, sizingPlano, RR_MIN_TXT, historicoEstado, historicoDesatualizado, benchmarkSerie, concentracaoMaxima, qtyLivre, resumoOperacao, setupOperavel, metaDeEntrada } from "./finance.js";
 import * as notify from "./notify.js";
 import { track, setAnalyticsUser, flush as flushAnalytics } from "./analytics.js"; // qa/47 (Fase 2)
 import Boris from "./pet/Boris.jsx";
@@ -78,6 +78,7 @@ const PALETTE = {
     positiveTint: "rgba(52,211,153,0.12)", positiveTint10: "rgba(52,211,153,0.10)",
     negativeTint: "rgba(242,109,109,0.12)", negativeTint10: "rgba(242,109,109,0.10)",
     scrim: "rgba(5,6,10,0.68)",
+    shadowFab: "rgba(0,0,0,0.45)", // Fase 22 (SYS-03): o valor que estava hardcoded no PetFab desde 2026-08-08 — o tema escuro não muda de aparência, só de origem.
     chartGrid: "rgba(255,255,255,0.04)", chartBorder: "rgba(255,255,255,0.08)", chartAxis: "#6f7797", lineSubtle: "rgba(255,255,255,0.18)", onAccent: "#04231f",
     warn: "#fbbf24", // qa/34: âmbar de aviso (diário/logs) — antes hex solto fora do token system
   },
@@ -87,7 +88,15 @@ const PALETTE = {
     // ter um degrau de profundidade sobre o card, como no dark.
     bgBase: "#f7f8fc", bgPanel: "#eef0f7", bgCard: "#ffffff", bgToast: "#222936",
     borderSubtle: "#e2e5f0", borderFaint: "#edeff5", borderDashed: "#d3d8e6", borderToast: "#39414f",
-    textPrimary: "#10121a", textSecondary: "#2d3444", textMuted: "#5b6178", textDim: "#6b7288",
+    // 2026-09-06: achado COLATERAL da Fase 4 (FIX-C16), fora do escopo do
+    // C-16 original — aquele fix corrigiu textFaint nesta mesma paleta mas
+    // não tocou textDim, que seguiu reprovando AA por todo o v1.1 e o v1.5.
+    // O hex antigo media 4,51:1/4,20:1 (reprova, pior caso bgPanel)/4,79:1.
+    // Este é o mesmo tom com luminosidade ajustada: 5,01:1/4,67:1/5,32:1
+    // (pior caso bgPanel). Com textFaint já em 4,56:1, o textDim a 4,20:1
+    // invertia a hierarquia visual pretendida no tema claro — o token que
+    // deveria ler mais apagado contrastava mais que o outro.
+    textPrimary: "#10121a", textSecondary: "#2d3444", textMuted: "#5b6178", textDim: "#646b7f",
     // FIX-C16 (REPORT-01): o hex antigo media 3,68:1 contra bgBase — pior
     // contra bgPanel (3,43:1), abaixo do mínimo AA 4.5:1. Este é o mesmo tom
     // com luminosidade ajustada: 4,89:1/4,56:1 (pior caso bgPanel)/5,19:1.
@@ -104,6 +113,7 @@ const PALETTE = {
     positiveTint: "rgba(28,130,93,0.12)", positiveTint10: "rgba(28,130,93,0.10)",
     negativeTint: "rgba(198,70,76,0.12)", negativeTint10: "rgba(198,70,76,0.10)",
     scrim: "rgba(15,20,28,0.45)",
+    shadowFab: "rgba(15,20,28,0.22)", // Fase 22 (SYS-03): mais leve que o scrim claro (0.45). Um halo preto forte sobre o bgBase quase branco lê como borrão, não como separação; o scrim é calibrado para overlay de tela cheia, não para drop-shadow de 54px. Valor de PARTIDA — a calibragem final é a checagem visual do plano 22-04.
     chartGrid: "rgba(0,0,0,0.05)", chartBorder: "rgba(0,0,0,0.10)", chartAxis: "#8a90a0", lineSubtle: "rgba(0,0,0,0.16)", onAccent: "#ffffff",
     warn: "#a16207", // qa/34: âmbar de aviso legível sobre fundo claro
   },
@@ -241,6 +251,21 @@ const MONO = "ui-monospace,'SF Mono',Menlo,Consolas,monospace";
 const SANS = "'Nunito', -apple-system, system-ui, 'Segoe UI', Helvetica, Arial, sans-serif";
 // Display: Fredoka 600 — títulos, wordmark, números de destaque (Brand Book).
 const DISPLAY = "'Fredoka', " + SANS;
+// Fase 20 (SYS-04): teto de largura do conteúdo em telas grandes. O BottomNav
+// já praticava 720px; a área de conteúdo pós-login usava 1060px, um segundo
+// número sem relação com o primeiro. Uma constante única evita a deriva entre
+// os dois — mudar o teto passa a ser uma edição, não uma caça a literais.
+const CONTENT_MAX_WIDTH = "720px";
+// Fase 20 (TYPO-02): escala numérica nomeada, aprovada na sessão de design
+// desta fase (20-CONTEXT.md). Só tamanho e peso — sem lineHeight, color ou
+// fontFamily — para poder ser combinada por spread com o que cada call site
+// já declara. numBody já tem consumidor real (patrimônio do Topbar);
+// numHero/numMicro ficam declarados aqui para as Fases 21/22 consumirem
+// quando migrarem Histórico, Watchlist e Portfólio tela a tela — deferimento
+// explícito registrado em 20-CONTEXT.md, não esquecimento.
+const numHero = { fontSize: "34px", fontWeight: 700 };
+const numBody = { fontSize: "18px", fontWeight: 700 };
+const numMicro = { fontSize: "13px", fontWeight: 600 };
 // Boris+: o "+" do wordmark é o acento fixo da marca — âmbar chapado
 // (--brand-amber), NUNCA gradiente e NUNCA a cor do modo. Antes (marca
 // "Boris+") o "IA" seguia o acento do modo (`IA_GRAD`, azul→ciano/degradê); o "+" é
@@ -257,6 +282,12 @@ const pct = (n) => (n == null || isNaN(n) ? "—" : (n >= 0 ? "+" : "−") + Mat
 // ativo, a Carteira avisa (aviso educacional, não bloqueio — CONTEXT.md).
 // Constante nomeada e única, não número mágico inline.
 const LIMIAR_CONCENTRACAO = 50;
+
+// Quick 260906-vf9 (C-09, REPORT-01): acima deste percentual de drawdown
+// (desde o pico), o card de Patrimônio Simulado avisa — aviso educacional,
+// não bloqueio, mesma disciplina de LIMIAR_CONCENTRACAO acima. Limiar
+// decidido pelo orquestrador (15%), não reaberto aqui.
+const LIMIAR_DRAWDOWN_ALERTA = 15;
 
 // Estimativa educacional de stop/alvo a partir do PERFIL + preço atual.
 // Usada como fallback quando a IA (servidor) não devolve `proposal` — assim a
@@ -276,6 +307,21 @@ function localProposal(price, profile) {
 
 const card = { background: T.bgCard, border: `1px solid ${T.borderSubtle}`, borderRadius: "12px" };
 const kicker = { fontSize: "10px", color: T.textFaint, letterSpacing: "0.06em" };
+// Fase 22 (SYS-01): padrão ÚNICO de rolagem horizontal do app. Todo trilho
+// passa por aqui — overflowX solto (fora deste helper) não deve existir em
+// nenhum outro lugar de App.jsx (o guardião da Fase 22 trava isso).
+// `extra` é mesclado por último: gap/margin/padding/scrollbarWidth e, no
+// caso do HERO-CARROSSEL, o override de scrollSnapType.
+const carouselTrackStyle = (extra) => ({
+  display: "flex",
+  overflowX: "auto",
+  scrollSnapType: "x proximity",
+  WebkitOverflowScrolling: "touch",
+  ...extra,
+});
+// `align`: "start" para trilhos de navegar/comparar (o padrão); "center"
+// só para o HERO-CARROSSEL, único trilho de foco em um card dominante.
+const carouselItemStyle = (align = "start") => ({ scrollSnapAlign: align });
 const field = { width: "100%", padding: "10px 11px", background: T.bgBase, border: `1px solid ${T.borderSubtle}`, borderRadius: "8px", color: T.textPrimary };
 
 function GlobalStyle() {
@@ -287,7 +333,7 @@ function GlobalStyle() {
       html,body,#root{ height:100%; }
       body{ margin:0; background:${T.bgBase}; color:${T.textPrimary}; }
       .b3 *{ box-sizing:border-box; }
-      .b3-shell{ height:100vh; height:100dvh; }
+      .b3-shell{ height:100vh; height:100dvh; overflow-x:hidden; }
       .b3{ transition:background .25s ease, color .25s ease; }
       .b3 button{ font:inherit; color:inherit; cursor:pointer; transition:filter .12s ease, transform .05s ease; user-select:none; -webkit-user-select:none; }
       .b3 button:active:not(:disabled){ transform:translateY(1px); filter:brightness(1.12); }
@@ -295,6 +341,16 @@ function GlobalStyle() {
       /* FASE 8B (UX): sem o flash cinza de toque do iOS; inputs com 16px para
          o Safari NÃO dar zoom automático ao focar (pulo de tela clássico). */
       .b3, .b3 *{ -webkit-tap-highlight-color: transparent; }
+      /* Fase 20 (TYPO-01): dígitos de largura fixa em todo valor financeiro
+         que já usa o stack MONO. font-variant-numeric não é um valor de
+         font-family, então não cabe dentro da constante MONO — precisa de
+         regra própria. O seletor de atributo casa com a substring literal
+         "ui-monospace" que o React serializa no style inline sempre que um
+         call site declara MONO como fontFamily — cobre os 151 pontos do
+         arquivo sem editar nenhum deles. A propriedade é herdada, o que cobre
+         o caso em que MONO está no container da linha e os dígitos estão em
+         filhos (Histórico). */
+      .b3 [style*="ui-monospace"]{ font-variant-numeric: tabular-nums; }
       .b3 input,.b3 textarea,.b3 select{ font:inherit; font-size:16px; }
       /* …mas a regra acima vinha sendo DERROTADA: um fontSize inline no style
          do elemento tem precedência sobre a folha de estilo, e quase todo campo
@@ -320,6 +376,30 @@ function GlobalStyle() {
       .b3 .sk{ border-radius:6px; background:linear-gradient(90deg, ${T.bgPanel} 25%, ${T.borderSubtle} 37%, ${T.bgPanel} 63%); background-size:400px 100%; animation:b3shimmer 1.2s linear infinite; }
       @keyframes b3tt{ from{ transform:translateX(0); } to{ transform:translateX(-50%); } }
       .b3 .tt-track{ animation:b3tt 52s linear infinite; }
+      @keyframes b3cardEnter{ from{ opacity:0; transform:translateY(8px); } to{ opacity:1; transform:translateY(0); } }
+      .b3 .card-enter{ animation:b3cardEnter 200ms ease-out; }
+      @keyframes b3valuePulse{ 0%{ transform:scale(1); } 50%{ transform:scale(1.08); } 100%{ transform:scale(1); } }
+      .b3 .value-pulse{ display:inline-block; animation:b3valuePulse 120ms ease-out; }
+      /* Fase 20 (MOTION-03): gate abrangente de movimento reduzido do
+         sistema — cobre a transição de tema/modo já existente e qualquer
+         transição/animação que as Fases 22/23 adicionarem depois.
+         1) ".b3" entra na lista além de ".b3 *": a transição de tema mora
+            no PRÓPRIO elemento raiz (".b3{transition:...}", acima), e
+            ".b3 *" só casa com DESCENDENTES — sem ".b3" aqui, o requisito
+            falharia justamente no caso que ele nomeia.
+         2) ".b3-mode-switch"/".b3-mode-switch *" entram porque essa classe
+            vive no <html> por ~450ms durante a troca de modo e a regra
+            dela (acima) carrega "!important" — só empate de especificidade
+            resolvido por ORDEM DE FONTE (este bloco vem depois) a vence.
+         3) O bloco seguinte, que zera para "none" as duas animações
+            infinitas (marquee do ticker e spinner), NÃO foi mesclado nem
+            substituído por este: animation-duration de 0.01ms NÃO para
+            uma animação "infinite" — faz um ciclo completo a cada
+            0,01ms para sempre, ou seja, strobe, o oposto do que a
+            preferência existe para evitar. A regra estreita tem
+            especificidade maior e vence por si só; a explicação fica
+            aqui para ninguém "limpar a duplicata" depois. */
+      @media (prefers-reduced-motion: reduce){ .b3, .b3 *, .b3 *::before, .b3 *::after, .b3-mode-switch, .b3-mode-switch *{ transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; } }
       @media (prefers-reduced-motion: reduce){ .b3 .tt-track,.b3 .spin{ animation:none !important; } }
     `}</style>
   );
@@ -778,7 +858,15 @@ function MarketStatusBadge({ mercado, cp }) {
   const cor = erro ? T.warn : mercado.aberto ? T.positive : T.negative;
   const label = erro ? cp.mercadoIndisponivel : mercado.aberto ? cp.mercadoAberto : cp.mercadoFechado(mercado.abertura);
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", minWidth: 0 }}>
+    // Fase 20 (FIX-02, medição ao vivo 2026-09-05): os ancestrais já tinham
+    // minWidth:0, mas este span raiz é inline-flex — box inline-level, que
+    // encolhe SÓ quando um pai flex/grid impõe um flex-basis. Aqui o pai é um
+    // <div> de bloco comum, então o badge sempre renderizava na largura
+    // intrínseca do conteúdo (medido: 488px), ignorando os 149px/329px
+    // disponíveis, e o overflow:hidden/textOverflow:ellipsis do span de texto
+    // nunca disparava (só ativa quando a própria caixa tem largura restrita).
+    // maxWidth:"100%" tranca o badge ao espaço do pai e libera a truncagem.
+    <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", minWidth: 0, maxWidth: "100%" }}>
       <span aria-hidden style={{ width: "7px", height: "7px", borderRadius: "50%", background: cor, flex: "none", boxShadow: `0 0 0 3px color-mix(in srgb, ${cor} 14%, transparent)` }} />
       <span style={{ fontSize: "10.5px", fontWeight: 800, letterSpacing: "0.06em", color: cor, whiteSpace: "nowrap", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{label}</span>
     </span>
@@ -830,7 +918,7 @@ function Topbar({ patr, dia, caixa, name, onProfile, modeChip, mercado, cp }) {
         </div>
       </div>
       <div style={{ textAlign: "right", flex: "none", fontFamily: MONO }}>
-        <div style={{ fontWeight: 700, fontSize: "18px", lineHeight: 1.05, color: T.textPrimary }}>{money(patr)}</div>
+        <div style={{ ...numBody, lineHeight: 1.05, color: T.textPrimary }}>{money(patr)}</div>
         <div style={{ fontSize: "11px", marginTop: "3px", fontWeight: 700, color: up ? T.positive : T.negative, whiteSpace: "nowrap" }}>{arrow} {moneySigned(dia)} ({pctStr})</div>
         <div style={{ fontSize: "10.5px", marginTop: "2px", color: T.textFaint, whiteSpace: "nowrap" }}>caixa {money(caixa)}</div>
       </div>
@@ -842,8 +930,13 @@ function Topbar({ patr, dia, caixa, name, onProfile, modeChip, mercado, cp }) {
   );
 }
 
-function NavIcon({ id, active }) {
-  const c = active ? T.accent : T.textMuted;
+// Fase 22 (SYS-01/02, 2026-09-06): desde esta fase, o NavIcon serve TAMBÉM os
+// ícones inline fora da barra de navegação (Perfil, Watchlist, Posições,
+// config) — quem chama de fora passa `size` e `color="currentColor"` para
+// herdar a cor do texto ao lado; o BottomNav continua chamando sem esses
+// dois props (23px, cor pelo branch `active`).
+function NavIcon({ id, active, size = 23, color }) {
+  const c = color || (active ? T.accent : T.textMuted);
   const p = { fill: "none", stroke: c, strokeWidth: 1.9, strokeLinecap: "round", strokeLinejoin: "round" };
   const paths = {
     evolucao: <><polyline points="3 17 9 11 13 15 21 7" {...p} /><polyline points="16 7 21 7 21 12" {...p} /></>,
@@ -854,8 +947,14 @@ function NavIcon({ id, active }) {
     perfil: <><circle cx="12" cy="8.5" r="3.4" {...p} /><path d="M5.5 19a6.5 6.5 0 0 1 13 0" {...p} /></>,
     // M1 (UX aprovada): Automatizar — chip/robô do agente autônomo
     agente: <><rect x="5" y="7" width="14" height="11" rx="2.5" {...p} /><line x1="12" y1="4" x2="12" y2="7" {...p} /><circle cx="12" cy="3.4" r="1" fill={c} stroke="none" /><circle cx="9.2" cy="11.5" r="1.1" fill={c} stroke="none" /><circle cx="14.8" cy="11.5" r="1.1" fill={c} stroke="none" /><path d="M9.5 15h5" {...p} /></>,
+    // Fase 22 (SYS-02, 2026-09-06): três geometrias novas para os emojis
+    // formalizados nesta onda — graduacao (Estudo), brilho (Analisar/
+    // Reanalisar), checado (chave configurada).
+    graduacao: <><path d="M12 5 2 9.5l10 4.5 10-4.5L12 5Z" {...p} /><path d="M6 11.5v4.2c0 1.6 2.7 2.8 6 2.8s6-1.2 6-2.8v-4.2" {...p} /></>,
+    brilho: <><path d="M12 4.5 13.6 9.4 18.5 11 13.6 12.6 12 17.5 10.4 12.6 5.5 11 10.4 9.4Z" {...p} /><circle cx="18.6" cy="5.4" r="1.1" fill={c} stroke="none" /><circle cx="6" cy="18" r="1" fill={c} stroke="none" /></>,
+    checado: <><circle cx="12" cy="12" r="8.5" {...p} /><path d="M8.2 12.3 11 15l5-5.6" {...p} /></>,
   };
-  return <svg width="23" height="23" viewBox="0 0 24 24" aria-hidden>{paths[id]}</svg>;
+  return <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden style={{ verticalAlign: "-0.15em", flexShrink: 0 }}>{paths[id]}</svg>;
 }
 
 function BottomNav({ tab, setTab, cp }) {
@@ -872,7 +971,7 @@ function BottomNav({ tab, setTab, cp }) {
     ["agente", "Operador IA"]];
   return (
     <nav style={{ flex: "none", background: T.bgPanel, borderTop: `1px solid ${T.borderSubtle}`, paddingBottom: "env(safe-area-inset-bottom)" }}>
-      <div style={{ display: "flex", maxWidth: "720px", margin: "0 auto", padding: "5px 6px" }}>
+      <div style={{ display: "flex", maxWidth: CONTENT_MAX_WIDTH, margin: "0 auto", padding: "5px 6px" }}>
         {defs.map(([id, label]) => {
           const active = tab === id;
           return (
@@ -905,14 +1004,28 @@ const SCALE_STYLE = {
 // FASE 2 — helpers do funil (puros; fonte: history dos stores + scan do STU)
 // ============================================================================
 
-// 2.3: tier de oportunidade pela confluência do STU (tokens próprios — verde/
-// vermelho seguem reservados a sinal de mercado; aqui o tier é o emoji).
+// 2.3: tier de oportunidade pela confluência do STU. Verde/vermelho seguem
+// reservados a sinal de mercado (T.positive/T.negative = compra/venda e
+// P&L) — o tier é OUTRO eixo semântico e por isso tem paleta própria.
+// Fase 22 (SYS-02, 2026-09-06): o índice [0] deixou de ser emoji e passou a
+// ser o id do tier, consumido por <TierDot>. O índice [1] (rótulo) NÃO
+// mudou — test_radar_leitura_rapida.mjs assenta nele.
 function tierOf(conf) {
   const c = Number(conf) || 0;
-  if (c >= 75) return ["🟢", "Forte"];
-  if (c >= 50) return ["🟡", "Moderada"];
-  if (c > 0) return ["⚪", "Neutra"];
-  return ["🔴", "Fraca"];
+  if (c >= 75) return ["forte", "Forte"];
+  if (c >= 50) return ["moderada", "Moderada"];
+  if (c > 0) return ["neutra", "Neutra"];
+  return ["fraca", "Fraca"];
+}
+
+// Fase 22 (SYS-02): o tier virou SVG. Cores literais DE PROPÓSITO — reusar
+// T.positive/T.negative/T.warn aqui recolocaria o tier em cima do
+// vocabulário de sinal de mercado, que é exatamente o que o comentário de
+// tierOf evita desde a 2.3. Decoração pura: o rótulo textual ("Forte"...)
+// renderiza sempre ao lado, por isso aria-hidden.
+const TIER_FILL = { forte: "#22c55e", moderada: "#f59e0b", neutra: "#9ca3af", fraca: "#ef4444" };
+function TierDot({ tier }) {
+  return <svg width="9" height="9" viewBox="0 0 10 10" aria-hidden style={{ verticalAlign: "-0.02em", flexShrink: 0 }}><circle cx="5" cy="5" r="4.5" fill={TIER_FILL[tier] || TIER_FILL.neutra} /></svg>;
 }
 
 // 2.3 (a): resumo das operações simuladas de UM ativo — "N ops · ±X% acum."
@@ -1687,14 +1800,20 @@ function CapitalCurve({ ctx }) {
   // já mesclado com o override do Modo Operador.
   const P = usePalette();
   const gid = useMemo(() => "capArea" + Math.random().toString(36).slice(2, 8), []);
-  const { data, quotes } = ctx;
+  const { data, quotes, cp } = ctx;
   const m = portfolioMetrics(data.positions, quotes, data.cash, data.caixaReservado || 0, data.optionPositions);
   const patr = m.patr;
   const budget = (data.config && data.config.initialBudget) || 0;
   const todayYmd = new Date().toISOString().slice(0, 10);
   const ec = equityCurve(data.equitySnapshots, budget, patr, todayYmd);
   const retVsInicio = budget > 0 ? ((patr - budget) / budget) * 100 : ec.retAcum;
-  const hasSeries = ec.days >= 1;          // mostra a curva a partir do 1º dia (baseline = orçamento)
+  // Fase 21 (FIX-03): com menos de 3 snapshots a escala do eixo Y é
+  // degenerada (min/max saem de 1-2 valores) e o desenho vira um segmento
+  // reto, não uma curva — subir o limiar de 1 para 3 evita apresentar essa
+  // reta como leitura de desempenho. `poucosDias` cobre o intermediário
+  // (1-2 dias): já há dado, mas ainda não forma de verdade pra plotar.
+  const hasSeries = ec.days >= 3;           // mostra a curva a partir do 3º dia
+  const poucosDias = ec.days >= 1 && ec.days < 3;
   const retAcum = ec.retAcum;               // base = orçamento inicial → bate com "vs início"
   const dd = ec.drawdown;                   // drawdown sobre a MESMA curva exibida
   const series = ec.curve;                  // curva exibida (orçamento → ... → ao vivo)
@@ -1807,7 +1926,28 @@ function CapitalCurve({ ctx }) {
               Comparação com o Ibovespa indisponível agora.
             </div>
           )}
+          {/* Quick 260906-vf9 (C-09, REPORT-01): drawdown acima do limiar
+              avisa no próprio card de patrimônio, com sugestão de ação —
+              aviso educacional, não bloqueio. Mesma gramática visual do card
+              de concentração alta (CarteiraScreen), com kicker DRAWDOWN ALTO
+              (rótulo próprio, distinto do de concentração — não pode repetir
+              a mesma string, guardião conta 1 ocorrência cada). Ícone em
+              P.warn (usePalette, hex resolvido) por causa de
+              test_chart_colors_theme_aware.mjs; estilos CSS em T.warn. */}
+          {dd > LIMIAR_DRAWDOWN_ALERTA && (
+            <div style={{ padding: "13px 14px", borderRadius: "11px", background: "color-mix(in srgb, " + T.warn + " 12%, transparent)", border: `1px solid ${T.warn}`, marginTop: "12px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "7px", marginBottom: "8px" }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden><circle cx="12" cy="12" r="9.5" fill="none" stroke={P.warn} strokeWidth="1.8" /><path d="M12 11v5M12 7.5h.01" stroke={P.warn} strokeWidth="2" strokeLinecap="round" /></svg>
+                <span style={{ fontSize: "11px", fontWeight: 800, color: T.warn, letterSpacing: "0.05em" }}>DRAWDOWN ALTO</span>
+              </div>
+              <div style={{ fontSize: "12.5px", color: T.textPrimary, lineHeight: 1.5 }}>{cp.drawdownAlertaCorpo(Math.round(dd))}</div>
+            </div>
+          )}
         </>
+      ) : poucosDias ? (
+        <div style={{ fontSize: "11.5px", color: T.textFaint, marginTop: "10px", lineHeight: 1.5 }}>
+          {cp.curvaPoucosDias(ec.days)}
+        </div>
       ) : (
         <div style={{ fontSize: "11.5px", color: T.textFaint, marginTop: "10px", lineHeight: 1.5 }}>
           Sua curva começa amanhã. Volte para vê-la crescer — cada dia que você abrir o app vira um ponto aqui.
@@ -1876,13 +2016,13 @@ function EvolucaoScreen({ ctx }) {
     <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
       <div>
         {/* FASE 8B (B1/B4): saudação e resumo do dia na VOZ do modo (professor × mesa) */}
-        <h1 style={{ margin: 0, fontSize: "23px", fontWeight: 700, letterSpacing: "-0.01em" }}>{cp.saudacao(name || null)}</h1>
+        <h1 style={{ margin: 0, fontSize: "23px", fontWeight: 700, letterSpacing: "-0.01em", fontFamily: DISPLAY }}>{cp.saudacao(name || null)}</h1>
         {/* qa (prompt-master #1): a saudação era só estilo, sem relação com o
             pregão real — mesma fonte única de sempre (ctx.mercado /
             MarketStatusBadge, Fase 2 MERC-01/D-08), nunca uma segunda
             consulta. Home é o primeiro lugar que o usuário vê ao abrir o
             app; o status do mercado precisa estar ali, não só no Topbar. */}
-        <div style={{ marginTop: "4px" }}>
+        <div style={{ marginTop: "4px", minWidth: 0 }}>
           <MarketStatusBadge mercado={mercado} cp={cp} />
         </div>
         <p style={{ margin: "5px 0 0", color: T.textMuted, fontSize: "13px", lineHeight: 1.5 }}>
@@ -1897,9 +2037,9 @@ function EvolucaoScreen({ ctx }) {
       {!novato && alertas.length > 0 && (
         <div>
           <div style={{ fontSize: "10.5px", fontWeight: 700, color: T.textFaint, letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: "9px" }}>{cp.kickerSetups}</div>
-          <div style={{ display: "flex", gap: "12px", overflowX: "auto", scrollSnapType: "x mandatory", margin: "0 -18px", padding: "2px 18px 6px", WebkitOverflowScrolling: "touch" }}>
+          <div style={carouselTrackStyle({ gap: "12px", scrollSnapType: "x mandatory", margin: "0 -18px", padding: "2px 18px 6px" })}>
             {alertas.slice(0, 8).map((r) => (
-              <button key={r.ticker} onClick={() => A.go("mercado")} style={{ ...card, scrollSnapAlign: "center", flex: "0 0 84%", maxWidth: "330px", borderLeft: `3px solid ${T.accent}`, padding: "15px 16px", textAlign: "left", cursor: "pointer" }}>
+              <button key={r.ticker} onClick={() => A.go("mercado")} style={{ ...card, ...carouselItemStyle("center"), flex: "0 0 84%", maxWidth: "330px", borderLeft: `3px solid ${T.accent}`, padding: "15px 16px", textAlign: "left", cursor: "pointer" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
@@ -2098,13 +2238,13 @@ function ModoTrabalhoCard({ ctx }) {
     A.flash(m === "operador" ? "Modo Operador ativado — reiniciando…" : "Modo Estudo ativado — reiniciando…");
     setTimeout(() => window.location.reload(), 700);
   };
-  const segBtn = (on) => ({ flex: 1, border: "none", borderRadius: "9px", padding: "10px", fontWeight: 800, fontSize: "13px", background: on ? T.accent : "transparent", color: on ? T.onAccent : T.textMuted });
+  const segBtn = (on) => ({ flex: 1, border: "none", borderRadius: "9px", padding: "10px", fontWeight: 800, fontSize: "13px", background: on ? T.accent : "transparent", color: on ? T.onAccent : T.textMuted, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "6px" });
   return (
     <div style={{ ...card, padding: "15px 16px" }}>
       <div style={{ fontSize: "11px", fontWeight: 800, letterSpacing: "0.05em", color: T.textSecondary }}>MODO DE TRABALHO</div>
       <div style={{ display: "flex", background: T.bgBase, border: `1px solid ${T.borderSubtle}`, borderRadius: "11px", padding: "4px", gap: "4px", marginTop: "10px" }}>
-        <button onClick={() => escolher("estudo")} style={segBtn(mode === "estudo")}>🎓 Estudo</button>
-        <button onClick={() => escolher("operador")} style={segBtn(mode === "operador")}>📈 Operador</button>
+        <button onClick={() => escolher("estudo")} style={segBtn(mode === "estudo")}><NavIcon id="graduacao" size={15} color="currentColor" /> Estudo</button>
+        <button onClick={() => escolher("operador")} style={segBtn(mode === "operador")}><NavIcon id="evolucao" size={15} color="currentColor" /> Operador</button>
       </div>
       {nudgeOperador && (
         <div style={{ marginTop: "10px", padding: "9px 11px", borderRadius: "9px", background: "color-mix(in srgb, " + T.warn + " 12%, transparent)", border: `1px solid ${T.warn}` }}>
@@ -2118,8 +2258,8 @@ function ModoTrabalhoCard({ ctx }) {
       )}
       <div style={{ fontSize: "11.5px", color: T.textMuted, marginTop: "9px", lineHeight: 1.5 }}>
         {mode === "operador"
-          ? <>Decisões diretas (comprar/vender/aguardar/não operar) com plano de entrada, stop, alvo e risco. Termo aceito em {(c.operadorTermo || {}).aceitoEm ? String(c.operadorTermo.aceitoEm).slice(0, 10) : "—"} (v{(c.operadorTermo || {}).versao || "?"}).</>
-          : <>Carteira simulada e leitura didática — o padrão para aprender. O Modo Operador libera decisões diretas com plano e gestão de risco.</>}
+          ? <>Decisões diretas (comprar/vender/aguardar/não operar) com plano de entrada, stop, alvo e risco. Termo aceito em {(c.operadorTermo || {}).aceitoEm ? String(c.operadorTermo.aceitoEm).slice(0, 10) : "—"} (v{(c.operadorTermo || {}).versao || "?"}). Inclui a aba Operador IA — o agente que pode vender sozinho conforme as regras que você configurar.</>
+          : <>Carteira simulada e leitura didática — o padrão para aprender. O Modo Operador libera decisões diretas com plano e gestão de risco. Inclui a aba Operador IA — o agente que pode vender sozinho conforme as regras que você configurar.</>}
       </div>
       {termoOpen && <TermoOperadorModal ctx={ctx} onClose={() => setTermoOpen(false)} />}
     </div>
@@ -2279,7 +2419,7 @@ function AjudaScreen({ ctx }) {
   const [aberta, setAberta] = useState(0);
   return (
     <div>
-      <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 700 }}>Como funciona</h1>
+      <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 700, fontFamily: DISPLAY }}>Como funciona</h1>
       <p style={{ margin: "6px 0 0", color: T.textMuted, fontSize: "13px", lineHeight: 1.5, maxWidth: "600px" }}>
         Um guia rápido de cada parte do app. Toque numa seção para abrir.
       </p>
@@ -2702,7 +2842,7 @@ function PetFab({ onOpen }) {
           que está vivo e à mão. O do título continua `reduced`: lá a coruja é
           marca, e movimento permanente no cabeçalho competiria com o conteúdo.
           Um laço de animação, não dois. */}
-      <div aria-hidden style={{ lineHeight: 0, filter: "drop-shadow(0 3px 6px rgba(0,0,0,0.45))" }}>
+      <div aria-hidden style={{ lineHeight: 0, filter: `drop-shadow(0 3px 6px ${T.shadowFab})` }}>
         <Boris size={40} />
       </div>
     </button>
@@ -3133,7 +3273,7 @@ function PropostaLastreada({ r, operador, cp, busy, onAbrir, onFechar, posAberta
           {degradado
             ? cp.propostaIndisponivelDegradada
             : posAberta
-            ? cp.ctaFecharLastreada(price(p.premioTotal))
+            ? cp.ctaFecharLastreada(price(p.premioTotal), isCall)
             : isCollar
             ? (p.caixa && p.caixa.fluxo === "credito"
                 ? cp.ctaCollarCredito(p.contratos, r.ticker, price(p.strikeCall), price(p.strikePut), price(Math.abs((p.caixa && p.caixa.custoLiquidoTotal) || 0)))
@@ -3201,7 +3341,7 @@ function OpcoesCamada({ t, cur, open, onToggle, chain, chainLoading, opContract,
 // (vm) + contexto; o núcleo (identidade, manchete única, chips de análise) é
 // idêntico em todo o sistema. Extraído do card da watchlist.
 function AtivoCard({ vm, contexto = "watchlist", children }) {
-  const { t, q, an, name, chColor, sc, pos, cur, pnl, pnlPct, rrPos, diasPos, pctCapPos, kp, fscore, decM, decColor, decBg, anVencida, os, buyMeta, operador, quotesLoading, expanded, opsOpen, opsSpark, onToggleOps, A, cp, data, didatica, overlayLivre } = vm;
+  const { t, q, an, name, chColor, sc, pos, cur, pnl, pnlPct, rrPos, diasPos, pctCapPos, kp, fscore, decM, decColor, decBg, anVencida, os, buyMeta, operador, quotesLoading, expanded, opsOpen, opsSpark, onToggleOps, A, cp, data, didatica, overlayLivre, isNovo } = vm;
   const chip = (label, value, col, explicavel) => (
     // `explicavel` põe o pontilhado no RÓTULO do chip — a indicação da camada
     // de entendimento (toque abre o conceito; o setor envolve o chip).
@@ -3336,7 +3476,7 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
   const onFecharLastreada = async () => {
     if (!opProposta || !opProposta.proposta) return;
     const p = opProposta.proposta;
-    if (!window.confirm(cp.confirmFecharCoberta(price(p.premioTotal), p.qtyAcoes, t))) return;
+    if (!window.confirm(cp.confirmFecharCoberta(price(p.premioTotal), p.qtyAcoes, t, p.optionType === "call"))) return;
     setOpPropostaBusy(true);
     try { await A.fecharLastreada({ contractSymbol: p.contractSymbol, contratos: p.contratos }); }
     finally { setOpPropostaBusy(false); }
@@ -3344,7 +3484,10 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
 
   return (
             // id: alvo do scroll quando o usuário chega por um toque no push.
-            <div key={t} id={"ativo-" + t} style={{ ...card, padding: "14px 15px" }}>
+            // Fase 23 (MOTION-01): entrada só para ticker inédito NESTA montagem da
+            // lista — a classe some no render seguinte, e o estado final do keyframe é
+            // igual ao estilo natural, então truncar no meio nunca deixa card quebrado.
+            <div key={t} id={"ativo-" + t} className={isNovo ? "card-enter" : undefined} style={{ ...card, padding: "14px 15px" }}>
               {opOpen ? (
                 // ESPINHA: o que sustenta a checagem "opção respeita a leitura do
                 // ativo" (Princípio 5/9) continua CONFERÍVEL — números, não um selo.
@@ -3409,7 +3552,7 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
                   </div>
                   {/* qa/49 (v11): o mini-gráfico vira o ACESSO ao candlestick, à direita do preço */}
                   <button onClick={() => A.openTech && A.openTech(t)} disabled={q.error} aria-label="Abrir gráfico de velas" style={{ background: T.bgBase, border: `1px solid ${T.borderSubtle}`, borderRadius: "9px", padding: "6px 7px 4px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}>
-                    {sc && Array.isArray(sc.spark) && sc.spark.length > 1 ? <Sparkline data={sc.spark} width={44} height={18} /> : <span aria-hidden style={{ fontSize: "14px" }}>📈</span>}
+                    {sc && Array.isArray(sc.spark) && sc.spark.length > 1 ? <Sparkline data={sc.spark} width={44} height={18} /> : <NavIcon id="evolucao" size={18} color={T.textMuted} />}
                     <span style={{ fontSize: "9px", color: T.accent, fontWeight: 800 }}>velas ⤢</span>
                   </button>
                 </div>
@@ -3651,9 +3794,9 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
                 <button onClick={() => A.analyze(t)} disabled={an.loading} style={{ background: "transparent", border: "none", padding: "6px 0", color: T.accent, fontSize: "11.5px", fontWeight: 800, display: "flex", alignItems: "center", gap: "5px" }}>
                   {/* qa/34: chave órfã btnAnalise finalmente ligada — "Estudar este
                       ativo" × "Plano completo" (antes: "Analisar com IA" fixo). */}
-                  {an.loading ? <><Spinner size={11} color={T.accent} /> analisando…</> : (hasAnalysis(an) ? "✨ Reanalisar" : "✨ " + cp.btnAnalise)}
+                  {an.loading ? <><Spinner size={11} color={T.accent} /> analisando…</> : <><NavIcon id="brilho" size={13} color="currentColor" />{hasAnalysis(an) ? "Reanalisar" : cp.btnAnalise}</>}
                 </button>
-                <button onClick={() => A.openTech(t)} disabled={q.error} style={{ background: "transparent", border: "none", padding: "6px 0", color: T.textMuted, fontSize: "11.5px", fontWeight: 700 }}>📈 Indicadores</button>
+                <button onClick={() => A.openTech(t)} disabled={q.error} style={{ background: "transparent", border: "none", padding: "6px 0", color: T.textMuted, fontSize: "11.5px", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: "5px" }}><NavIcon id="evolucao" size={13} color="currentColor" /> Indicadores</button>
                 {hasAnalysis(an) && (
                   <button onClick={() => A.toggleExpand(t)} aria-expanded={!!expanded} style={{ background: "transparent", border: "none", padding: "6px 0", color: T.textMuted, fontSize: "11.5px", fontWeight: 700, marginLeft: "auto" }}>
                     {expanded ? "Ocultar análise ▴" : "Ver análise ▾"}
@@ -3675,6 +3818,13 @@ function MercadoScreen({ ctx }) {
   const [dirFilter, setDirFilter] = useState("todos");   // todos | alta | baixa | neutro
   const [opsOpen, setOpsOpen] = useState({});            // ticker -> histórico aberto
   const [sparks, setSparks] = useState({});              // ticker -> candles (lazy)
+  // Fase 23 (MOTION-01): tickers já renderizados NESTA montagem da lista.
+  // `useRef`, não `useState`: marcar "visto" não pode disparar re-render.
+  // Não é persistido — "inédito" é relativo à sessão de visualização, e
+  // trocar de aba DESMONTA a tela ({tab === "..." && <...>}), zerando o
+  // conjunto de propósito.
+  const vistosRef = useRef(new Set());
+  const isNovo = (t) => !vistosRef.current.has(t);
   useEffect(() => { A.refreshWlScan(); }, []);           // eslint-disable-line react-hooks/exhaustive-deps
   const scanBy = {};
   ((wlScan && wlScan.results) || []).forEach((r) => { scanBy[r.ticker] = r; });
@@ -3689,6 +3839,10 @@ function MercadoScreen({ ctx }) {
       || ((scanBy[b] || {}).score_tecnico || 0) - ((scanBy[a] || {}).score_tecnico || 0)
       || a.localeCompare(b))
     .filter((t) => dirFilter === "todos" || dirOf(t) === dirFilter);
+  // O commit é EFEITO, nunca render: com React.StrictMode (main.jsx) o corpo
+  // do componente roda 2x por render em dev; mutar o Set durante o render
+  // faria a 2ª passada ler "já visto" e a animação nunca apareceria.
+  useEffect(() => { wl.forEach((t) => vistosRef.current.add(t)); });
   const emCarteira = new Set((data.positions || []).map((p) => p.t));
   const toggleOps = async (t) => {
     const next = !opsOpen[t];
@@ -3704,7 +3858,7 @@ function MercadoScreen({ ctx }) {
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", marginBottom: "6px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "2px", minWidth: 0 }}>
-          <h1 style={{ margin: 0, fontSize: "24px", fontWeight: 700, letterSpacing: "-0.01em" }}>{cp.tituloWatchlist}</h1>
+          <h1 style={{ margin: 0, fontSize: "24px", fontWeight: 700, letterSpacing: "-0.01em", fontFamily: DISPLAY }}>{cp.tituloWatchlist}</h1>
           <InfoDot onClick={A.openAbout} />
         </div>
         <div style={{ display: "flex", gap: "8px" }}>
@@ -3740,9 +3894,9 @@ function MercadoScreen({ ctx }) {
             <div style={{ fontSize: "12px", color: T.textMuted, marginTop: "2px" }}>O backend calcula; a LLM interpreta os dados históricos.</div>
           </div>
         </div>
-        <div style={{ display: "flex", gap: "8px", overflowX: "auto", WebkitOverflowScrolling: "touch", paddingBottom: "2px" }}>
+        <div style={carouselTrackStyle({ gap: "8px", paddingBottom: "2px" })}>
           {TECH_MODELS.map(([id, label, sub]) => (
-            <button key={id} onClick={() => setAnalysisModel(id)} style={{ minWidth: "118px", minHeight: "48px", padding: "8px 10px", borderRadius: "12px", border: `1px solid ${analysisModel === id ? T.accent : T.borderSubtle}`, background: analysisModel === id ? T.accentTint : T.bgBase, color: analysisModel === id ? T.accent : T.textSecondary, textAlign: "left", fontWeight: 800 }}>
+            <button key={id} onClick={() => setAnalysisModel(id)} style={{ ...carouselItemStyle("start"), minWidth: "118px", minHeight: "48px", padding: "8px 10px", borderRadius: "12px", border: `1px solid ${analysisModel === id ? T.accent : T.borderSubtle}`, background: analysisModel === id ? T.accentTint : T.bgBase, color: analysisModel === id ? T.accent : T.textSecondary, textAlign: "left", fontWeight: 800 }}>
               <span style={{ display: "block", fontSize: "12px" }}>{label}</span>
               <span style={{ display: "block", fontSize: "10px", color: T.textFaint, fontWeight: 600, marginTop: "2px" }}>{sub}</span>
             </button>
@@ -3766,16 +3920,13 @@ function MercadoScreen({ ctx }) {
           const chColor = (q.change || 0) >= 0 ? T.positive : T.negative;
           // FASE 2 (2.3): dados de oportunidade do STU + histórico do ativo
           const sc = scanBy[t];
-          const [tierDot, tierLabel] = tierOf(sc && sc.confluencia);
           const rotuloDec = decisaoDoModo(sc, operador); // qa/40: mesa mostra a decisão do plano
           const [vColor, vBg] = REC_STYLE[rotuloDec] || [T.textMuted, T.bgBase];
-          const melhorSet = sc && (sc.setups || [])[0];
-          const buyMeta = sc ? {
-            setup: sc.melhorSetup || undefined, veredito: sc.veredito, confluencia: sc.confluencia,
-            snapshotId: sc.snapshotId,
-            lado: melhorSet && melhorSet.lado, gatilho: melhorSet && melhorSet.gatilho,
-            invalidacao: melhorSet && melhorSet.invalidacao,
-          } : undefined;
+          // ADR-017 Decisão 1 (achado ABEV3, 2026-09-07): `setup`/`lado`/
+          // `gatilho`/`invalidacao` do meta de entrada vêm do MESMO setup
+          // operável — `metaDeEntrada` casa por nome contra `melhorSetup`
+          // (fonte já filtrada pelo backend), nunca de `setups[0]` cru.
+          const buyMeta = sc ? metaDeEntrada(sc) : undefined;
           const os = opsSummary(data.history, t);
           // qa/49 (v11): dados da posição p/ o hero (régua reusada do card de posições)
           const pos = (data.positions || []).find((p) => p.t === t);
@@ -3803,7 +3954,7 @@ function MercadoScreen({ ctx }) {
           const chip = (label, value, col) => (
             <span style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "999px", background: T.bgBase, color: T.textSecondary, fontWeight: 700 }}>{label} <b style={{ fontWeight: 800, color: col || T.textPrimary }}>{value}</b></span>
           );
-          return <AtivoCard key={t} vm={{ t, q, an, name, chColor, sc, pos, cur, pnl, pnlPct, rrPos, diasPos, pctCapPos, kp, fscore, decM, decColor, decBg, anVencida, os, buyMeta, operador, quotesLoading, expanded: !!expanded[t], opsOpen: !!opsOpen[t], opsSpark: sparks[t], onToggleOps: () => toggleOps(t), A, cp, data, didatica: ctx.didatica, overlayLivre: ctx.overlayLivre }} contexto="watchlist" />;
+          return <AtivoCard key={t} vm={{ t, q, an, name, chColor, sc, pos, cur, pnl, pnlPct, rrPos, diasPos, pctCapPos, kp, fscore, decM, decColor, decBg, anVencida, os, buyMeta, operador, quotesLoading, expanded: !!expanded[t], opsOpen: !!opsOpen[t], opsSpark: sparks[t], onToggleOps: () => toggleOps(t), A, cp, data, didatica: ctx.didatica, overlayLivre: ctx.overlayLivre, isNovo: isNovo(t) }} contexto="watchlist" />;
         })}
       </div>
     </div>
@@ -3949,7 +4100,7 @@ function OportunidadesOpcoes({ propostas, carregando, positions, cp, onAbrir }) 
     <div style={{ marginBottom: "14px" }}>
       <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em", color: T.textFaint, marginBottom: "8px" }}>{cp.tiraOpcoesTitulo}</div>
       {itens.length > 0 && (
-        <div style={{ display: "flex", gap: "10px", overflowX: "auto", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", paddingBottom: "2px" }}>
+        <div style={carouselTrackStyle({ gap: "10px", scrollbarWidth: "none", paddingBottom: "2px" })}>
           {itens.map((p) => {
             const pr = propostas[p.t].proposta.proposta;
             const isCollar = pr.tipo === "collar";
@@ -3964,7 +4115,9 @@ function OportunidadesOpcoes({ propostas, carregando, positions, cp, onAbrir }) 
                 type="button"
                 aria-label={p.t + " — " + cp.tiraOpcoesVerDetalhe}
                 onClick={() => onAbrir(p.t)}
-                style={{ flex: "0 0 auto", minWidth: "210px", minHeight: "44px", textAlign: "left", padding: "11px 12px", borderRadius: "11px", background: T.bgCard, border: `1px solid ${T.borderFaint}`, cursor: "pointer" }}
+                // teto de largura: mesma decisão do item de CandidatoOpcao (App.jsx,
+                // achado ao vivo 2026-09-07) — ver comentário completo lá.
+                style={{ ...carouselItemStyle("start"), flex: "0 0 210px", minWidth: "210px", minHeight: "44px", textAlign: "left", padding: "11px 12px", borderRadius: "11px", background: T.bgCard, border: `1px solid ${T.borderFaint}`, cursor: "pointer" }}
               >
                 <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em", color: T.accent }}>{eyebrow}</div>
                 <div style={{ fontFamily: MONO, fontWeight: 800, fontSize: "13px", color: T.textPrimary, marginTop: "3px" }}>{p.t}</div>
@@ -4063,7 +4216,7 @@ function PropostaDaPosicao({ t, r, cp, operador, A, data, aberto, onToggle }) {
   const onFecharLastreada = async () => {
     if (!r || !r.proposta) return;
     const p = r.proposta;
-    if (!window.confirm(cp.confirmFecharCoberta(price(p.premioTotal), p.qtyAcoes, t))) return;
+    if (!window.confirm(cp.confirmFecharCoberta(price(p.premioTotal), p.qtyAcoes, t, p.optionType === "call"))) return;
     setBusy(true);
     try { await A.fecharLastreada({ contractSymbol: p.contractSymbol, contratos: p.contratos }); }
     finally { setBusy(false); }
@@ -4081,7 +4234,7 @@ function PropostaDaPosicao({ t, r, cp, operador, A, data, aberto, onToggle }) {
             {/* Fase 19 (Plano 03, MULTI-02): N candidatos lado a lado — mesmo
                 padrão de linha horizontal de OportunidadesOpcoes (Fase 18,
                 App.jsx:3938-3964); nunca um terceiro padrão visual novo. */}
-            <div style={{ marginTop: "11px", display: "flex", gap: "10px", overflowX: "auto", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", paddingBottom: "2px" }}>
+            <div style={carouselTrackStyle({ marginTop: "11px", gap: "10px", scrollbarWidth: "none", paddingBottom: "2px" })}>
               {candidatos.map((c) => (
                 <CandidatoOpcao key={c.tipo + "-" + (c.contractSymbol || "collar")} p={c} r={r} cp={cp} operador={operador} busy={busy} onAceitar={aceitarCandidato} />
               ))}
@@ -4118,7 +4271,21 @@ function CandidatoOpcao({ p, r, cp, operador, busy, onAceitar }) {
   // aplicada à UI, mesmo helper de App.jsx:3051-3055).
   const porLote = (v) => (typeof v === "number" ? v * (p.qtyAcoes || 0) : null);
   return (
-    <div style={{ flex: "0 0 auto", minWidth: "210px", minHeight: "44px", padding: "11px 12px", borderRadius: "11px", background: T.bgCard, border: `1px solid ${T.borderFaint}` }}>
+    // teto de largura (achado ao vivo 2026-09-07, staging/iPhone, dois
+    // candidatos put_protecao + collar): sem `flex-basis` fixo o item
+    // dimensiona por `max-content` — a manchete do collar, que é longa por
+    // desenho, então esticava o card até virar linha única e empurrar os
+    // valores do payoff pra fora da leitura confortável. A manchete NUNCA é
+    // truncada (guardrail CVM — cortar reescreveria a afirmação do motor),
+    // por isso a correção é de LARGURA, nunca de texto. `flex: "0 0 210px"`
+    // CUMPRE a Decisão 1 do 22-UI-SPEC pela primeira vez (o `minWidth:"210px"`
+    // documentado sempre foi piso, nunca teto — decisão do Alex, 2026-09-07,
+    // ver 260907-w33-PLAN.md Task 1) em vez de revertê-la: os dois candidatos
+    // seguem comparáveis lado a lado, sem a T-22-02 (esconder o 2º candidato).
+    // Os dois cards têm a MESMA largura de propósito — duas propostas
+    // disputam a MESMA decisão; largura diferente daria peso visual diferente
+    // (CLAUDE.md princípio 9). Espelhado no item de OportunidadesOpcoes acima.
+    <div style={{ ...carouselItemStyle("start"), flex: "0 0 210px", minWidth: "210px", minHeight: "44px", padding: "11px 12px", borderRadius: "11px", background: T.bgCard, border: `1px solid ${T.borderFaint}` }}>
       <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em", color: T.accent }}>{eyebrow}</div>
       <div style={{ fontFamily: MONO, fontWeight: 800, fontSize: "13px", color: T.textSecondary, marginTop: "3px" }}>
         {isCollar
@@ -4298,29 +4465,37 @@ function CarteiraScreen({ ctx }) {
   const cost = m.cost;
   const openPnL = m.openPnL;
   const openPct = m.openPct;
-  const kpi = (label, value, color, sub, subColor) => (
-    <div style={{ ...card, padding: "14px 15px" }}>
-      <div style={kicker}>{label}</div>
-      <div style={{ fontFamily: MONO, fontSize: "19px", fontWeight: 600, marginTop: "3px", color }}>{value}</div>
-      {sub != null && <div style={{ fontFamily: MONO, fontSize: "12px", color: subColor }}>{sub}</div>}
-    </div>
-  );
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "2px", minWidth: 0 }}>
-          <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 700 }}>{cp.tituloPortfolio}</h1>
+          <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 700, fontFamily: DISPLAY }}>{cp.tituloPortfolio}</h1>
           <InfoDot onClick={ctx.A.openAbout} />
         </div>
       </div>
       {/* qa/34: chave órfã subtituloPortfolio finalmente ligada — "carteira
           SIMULADA" × "posições com plano e risco em R". */}
       <p style={{ margin: "6px 0 0", color: T.textMuted, fontSize: "12.5px", lineHeight: 1.5, maxWidth: "560px" }}>{cp.subtituloPortfolio}</p>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: "12px", margin: "16px 0 18px" }}>
-        {kpi("PATRIMÔNIO TOTAL", money(total), T.textPrimary)}
-        {kpi("RESULTADO ABERTO", moneySigned(openPnL), openPnL >= 0 ? T.positive : T.negative, pct(openPct), openPnL >= 0 ? T.positive : T.negative)}
-        {kpi("CAIXA DISPONÍVEL", money(data.cash), T.textMuted)}
-        {kpi("EM POSIÇÕES", money(positionsValue), T.textMuted)}
+      <div style={{ ...card, padding: "16px 18px", margin: "16px 0 18px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px 18px" }}>
+          <div>
+            <div style={kicker}>PATRIMÔNIO TOTAL</div>
+            <div style={{ ...numBody, fontFamily: MONO, color: T.textPrimary }}>{money(total)}</div>
+          </div>
+          <div>
+            <div style={kicker}>RESULTADO ABERTO</div>
+            <div style={{ ...numBody, fontFamily: MONO, color: openPnL >= 0 ? T.positive : T.negative }}>{moneySigned(openPnL)}</div>
+            <div style={{ ...numMicro, fontFamily: MONO, color: openPnL >= 0 ? T.positive : T.negative }}>{pct(openPct)}</div>
+          </div>
+          <div>
+            <div style={kicker}>CAIXA DISPONÍVEL</div>
+            <div style={{ ...numBody, fontFamily: MONO, color: T.textMuted }}>{money(data.cash)}</div>
+          </div>
+          <div>
+            <div style={kicker}>EM POSIÇÕES</div>
+            <div style={{ ...numBody, fontFamily: MONO, color: T.textMuted }}>{money(positionsValue)}</div>
+          </div>
+        </div>
       </div>
 
       {/* Fase 14 (Plano 07, T-14-28): perna lastreada dentro do patrimônio —
@@ -4474,8 +4649,8 @@ function CarteiraScreen({ ctx }) {
               })()}
               {/* FASE 3 (mock v2): duas ações-bloco — o resto vira linha de links */}
               <div style={{ display: "flex", gap: "8px", marginTop: "12px" }}>
-                <button onClick={() => ctx.openStopAlvo(p.t)} aria-label={"Sugerir stop e alvo de " + p.t + " com IA"} style={{ flex: 1, minHeight: "42px", padding: "9px", borderRadius: "10px", border: `1px solid ${T.accent}`, background: T.accentTint10, color: T.accent, fontWeight: 800, fontSize: "12.5px" }}>
-                  📈 Stop/alvo (IA)
+                <button onClick={() => ctx.openStopAlvo(p.t)} aria-label={"Sugerir stop e alvo de " + p.t + " com IA"} style={{ flex: 1, minHeight: "42px", padding: "9px", borderRadius: "10px", border: `1px solid ${T.accent}`, background: T.accentTint10, color: T.accent, fontWeight: 800, fontSize: "12.5px", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
+                  <NavIcon id="evolucao" size={14} color="currentColor" /> Stop/alvo (IA)
                 </button>
                 <button onClick={() => ctx.A.openSell(p.t)} style={{ flex: 1, minHeight: "42px", padding: "9px", borderRadius: "10px", border: `1px solid ${T.negative}`, background: T.negativeTint10, color: T.negative, fontWeight: 800, fontSize: "12.5px" }}>
                   {cp.btnVender}…
@@ -4564,7 +4739,7 @@ function HistoricoScreen({ ctx }) {
   const pendentes = data.pendingOrders || [];
   return (
     <div>
-      <h1 style={{ margin: "0 0 16px", fontSize: "22px", fontWeight: 700 }}>Histórico de operações</h1>
+      <h1 style={{ margin: "0 0 16px", fontSize: "22px", fontWeight: 700, fontFamily: DISPLAY }}>Histórico de operações</h1>
       {/* Fase 2 (MERC-02/03, D-09): SEM estado vazio próprio — a seção só
           existe quando há pelo menos 1 ordem pendente (UI-SPEC). O caixa
           reservado some da tela junto com a última pendente cancelada/
@@ -4628,7 +4803,7 @@ function HistoricoScreen({ ctx }) {
       {data.history.length === 0 ? (
         <div style={{ background: T.bgCard, border: `1px dashed ${T.borderDashed}`, borderRadius: "12px", padding: "34px 20px", textAlign: "center" }}>
           <div style={{ fontSize: "16px", fontWeight: 700 }}>Nenhuma operação ainda</div>
-          <p style={{ margin: "8px auto 0", color: T.textMuted, fontSize: "13px", maxWidth: "380px", lineHeight: 1.5 }}>{cp.vazioHistorico}</p>
+          <p style={{ margin: "8px auto 0", color: T.textMuted, fontSize: "13px", maxWidth: "380px", lineHeight: 1.5 }}>{ctx.cp.vazioHistorico}</p>
         </div>
       ) : (
         <div style={{ ...card, overflow: "hidden" }}>
@@ -4640,6 +4815,10 @@ function HistoricoScreen({ ctx }) {
             // como executada — histórico não se reescreve. A condição é
             // SEMPRE === "rejeitada", nunca !== "executada" (T-04-02/paridade).
             const rejeitada = h.status === "rejeitada";
+            // Quick 260906-vf9 (C-06, REPORT-01), escopo reduzido: uma frase
+            // determinística em português simples por operação EXECUTADA —
+            // calculada uma vez por linha, não duas.
+            const resumo = !rejeitada ? resumoOperacao(h) : null;
             return (
               <div key={i}>
                 <div style={{ display: "flex", gap: "10px", alignItems: "center", padding: "12px 15px", borderBottom: `1px solid ${T.borderFaint}`, fontFamily: MONO, fontSize: "13px" }}>
@@ -4659,6 +4838,17 @@ function HistoricoScreen({ ctx }) {
                 {rejeitada && h.motivo && (
                   <div style={{ padding: "0 15px 9px", fontSize: "11px", color: T.warn, lineHeight: 1.4 }}>
                     Rejeitada: {h.motivo}
+                  </div>
+                )}
+                {/* Quick 260906-vf9 (C-06, REPORT-01), escopo reduzido: uma
+                    frase determinística em português simples por operação
+                    EXECUTADA — traduz o log técnico de colunas (qty/price/
+                    pnl) já mostradas acima. T.textMuted (frase pedagógica),
+                    NÃO T.warn (isto não é aviso). Mutuamente exclusivo com o
+                    bloco de rejeitada acima. */}
+                {!rejeitada && resumo && (
+                  <div style={{ padding: "0 15px 9px", fontSize: "11px", color: T.textMuted, lineHeight: 1.4 }}>
+                    {resumo}
                   </div>
                 )}
               </div>
@@ -4723,52 +4913,21 @@ function AgenteScreen({ ctx }) {
   };
   return (
     <div>
-      {/* C-19 (REPORT-01) · D-02 revisado (03-CONTEXT.md): card de status
-          único, PRIMEIRO elemento da tela, ANTES de qualquer controle — os
-          3 interruptores que decidem se uma ordem dispara: Modo do app,
-          Operador no servidor, Executar/sinalizar. Absorve a tira parcial
-          que vivia aqui e mostrava só 1 dos 3 (qa/audit-2026-08-07 itens
-          3+4, causa raiz registrada de "não me deixa selecionar Executar")
-          — card ÚNICO, não duas tiras. Read-only: nenhum badge altera
-          estado; a troca acontece só pelo link "Trocar modo →" (Perfil).
-          Cada badge lê a MESMA fonte canônica que o card-herói logo abaixo
-          usa — nunca contradiz o herói. */}
-      <div style={{ display: "flex", flexDirection: "column", gap: "8px", padding: "10px 14px", borderRadius: "10px", background: T.bgBase, border: `1px solid ${T.borderFaint}` }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "14px", flexWrap: "wrap" }}>
-            <span style={{ fontSize: "11px", fontWeight: 400, color: T.textSecondary }}>
-              Modo do app: <b style={{ color: operador ? T.positive : T.textFaint }}>{operador ? "📈 Operador" : "🎓 Estudo"}</b>
-            </span>
-            <span style={{ fontSize: "11px", fontWeight: 400, color: T.textSecondary }}>
-              Operador no servidor: <b style={{ color: (ag.serverEnabled && logged) ? T.positive : T.textFaint }}>{(ag.serverEnabled && logged) ? "Ligado" : "Desligado"}</b>
-            </span>
-            <span style={{ fontSize: "11px", fontWeight: 400, color: T.textSecondary }}>
-              Executar/sinalizar: <b style={{ color: modoEfetivo === "executar" ? T.positive : T.textFaint }}>{modoEfetivo === "executar" ? "Executar" : "Apenas sinalizar"}</b>
-            </span>
-          </div>
-          <button onClick={() => A.go("perfil")} style={{ background: "transparent", border: "none", padding: 0, color: T.accent, fontWeight: 800, fontSize: "11.5px", textDecoration: "underline", flex: "none" }}>
-            Trocar modo →
-          </button>
-        </div>
-        {/* ADR-017 Bloco 4 (Plano 08-02): a entrada automática deixou de ser
-            suspensão cega e virou gate por elegibilidade medida — esta linha
-            é a transparência exigida pelo 08-UI-SPEC (aditiva, read-only,
-            nenhum toggle novo). O número do contraste é referência FIXA de
-            backtest (ADR-016/017), nunca cálculo vivo — os dois números
-            moram na MESMA string de copy.js, nunca separados. */}
-        <div>
-          <div style={{ fontSize: "11px", color: T.textMuted, lineHeight: 1.45 }}>{ctx.cp.entradaAuto.regra}</div>
-          <div style={{ fontSize: "11px", color: T.textFaint, lineHeight: 1.45, marginTop: "2px" }}>{ctx.cp.entradaAuto.contraste}</div>
-        </div>
-      </div>
-
       <div style={{ display: "flex", alignItems: "center", gap: "2px", marginTop: "14px" }}>
-        <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 700 }}>Operador IA</h1>
+        <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 700, fontFamily: DISPLAY }}>Operador IA</h1>
         <InfoDot onClick={A.openAbout} />
       </div>
       <p style={{ margin: "6px 0 0", color: T.textMuted, fontSize: "13px", maxWidth: "600px", lineHeight: 1.5 }}>
         Seu operador autônomo da carteira SIMULADA: monitora as posições, protege stop/alvo pelas regras que você define e registra cada decisão — no servidor, mesmo com o app fechado. Status detalhado, Diário e testes ficam em <b>Perfil → Logs & debug</b>.
       </p>
+      {/* DEDUP-02 (Fase 21, 2026-09-05): link de troca de modo relocado do
+          card de status C-19 removido (ver
+          web/tests/test_fase3_c19_card_status.mjs para a nota completa da
+          reversão) — mesmo texto, mesmo handler, mesma cor; só o container
+          mudou. */}
+      <button onClick={() => A.go("perfil")} style={{ background: "transparent", border: "none", padding: "8px 0 0", color: T.accent, fontWeight: 800, fontSize: "11.5px", textDecoration: "underline" }}>
+        Trocar modo →
+      </button>
 
       {/* qa/34 (§7 da auditoria, aprovado): CARD-HERÓI — um ESTADO dominante no
           topo (ATIVO/INATIVO · modo), o toggle como único CTA de peso. As regras
@@ -4801,7 +4960,11 @@ function AgenteScreen({ ctx }) {
               // não tem hover) — o botão desabilitado não podia depender só dele.
               // O aviso visível abaixo agora tem um link direto pra onde a troca de
               // verdade acontece; antes explicava o motivo mas não dizia onde ir.
-              <button key={m} onClick={() => !desabilitado && putAg({ mode: m })} disabled={desabilitado}
+              // FIX-C18 (2026-09-06): o `title` invisível em toque já tinha sido
+              // resolvido acima; faltava o vínculo semântico com o parágrafo de
+              // explicação para quem navega por leitor de tela — aria-describedby
+              // fecha esse lado.
+              <button key={m} onClick={() => !desabilitado && putAg({ mode: m })} disabled={desabilitado} aria-describedby={desabilitado ? "executar-gate-hint" : undefined}
                 style={{ flex: 1, minWidth: "140px", padding: "10px", borderRadius: "10px", border: `1px solid ${on ? T.accent : T.borderSubtle}`, background: on ? T.accentTint : T.bgBase, color: desabilitado ? T.textFaint : (on ? T.accent : T.textSecondary), fontWeight: 800, fontSize: "12px", opacity: desabilitado ? 0.6 : 1, cursor: desabilitado ? "not-allowed" : "pointer" }}>
                 {m === "executar" ? "Executar (vende no stop/alvo)" : "Apenas sinalizar"}
               </button>
@@ -4809,7 +4972,7 @@ function AgenteScreen({ ctx }) {
           })}
         </div>
         {!operador && (
-          <p style={{ margin: "9px 0 0", fontSize: "11.5px", lineHeight: 1.5, color: T.textFaint }}>
+          <p id="executar-gate-hint" style={{ margin: "9px 0 0", fontSize: "11.5px", lineHeight: 1.5, color: T.textFaint }}>
             Disponível no Modo Operador — em Modo Estudo o agente só orienta, nunca vende sozinho.{" "}
             <button onClick={() => A.go("perfil")} style={{ background: "transparent", border: "none", padding: 0, color: T.accent, fontWeight: 800, fontSize: "11.5px", textDecoration: "underline" }}>
               Trocar para Modo Operador →
@@ -4936,6 +5099,19 @@ function AgenteScreen({ ctx }) {
             <p style={{ margin: "4px 0 0", color: T.textMuted, fontSize: "12.5px", lineHeight: 1.5, maxWidth: "440px" }}>
               Quando o gatilho de entrada dispara para um plano de COMPRA da watchlist, decide se a mesa compra sozinha (lote redondo, dentro do teto abaixo) ou só avisa, como hoje.
             </p>
+            {/* ADR-017 Bloco 4 (Plano 08-02) · realocado DEDUP-02 (Fase 21,
+                2026-09-05): a entrada automática deixou de ser suspensão
+                cega e virou gate por elegibilidade medida — esta linha é a
+                transparência exigida pelo 08-UI-SPEC (aditiva, read-only,
+                nenhum toggle novo). O número do contraste é referência FIXA
+                de backtest (ADR-016/017), nunca cálculo vivo — os dois
+                números moram na MESMA string de copy.js, nunca separados.
+                Este é o único card da tela sobre entrada automática — lar
+                tematicamente correto após a saída do card de status C-19. */}
+            <div>
+              <div style={{ fontSize: "11px", color: T.textMuted, lineHeight: 1.45 }}>{ctx.cp.entradaAuto.regra}</div>
+              <div style={{ fontSize: "11px", color: T.textFaint, lineHeight: 1.45, marginTop: "2px" }}>{ctx.cp.entradaAuto.contraste}</div>
+            </div>
           </div>
           <Toggle on={!!ag.entradaAuto && operador} disabled={!operador} onClick={() => operador && putAg({ entradaAuto: !ag.entradaAuto })} label="Entrar automaticamente" />
         </div>
@@ -5314,8 +5490,8 @@ function SkillSection({ ctx, sectionTitle }) {
       <label style={{ display: "block", marginBottom: "12px" }}>
         <span style={{ display: "block", fontSize: "12px", color: T.textMuted, marginBottom: "6px" }}>Skill (pelo nome)</span>
         <select value={alvo} onChange={(e) => setAlvo(e.target.value)} style={{ ...field, fontFamily: MONO }}>
-          <option value="estudo">{(data.skill && data.skill.name) || "Mesa B3 - Educacional v1"} · 🎓 Estudo</option>
-          <option value="operador">{(data.skillOperador && data.skillOperador.name) || "Mesa B3 - Operador v1"} · 📈 Operador</option>
+          <option value="estudo">{(data.skill && data.skill.name) || "Mesa B3 - Educacional v1"} · Estudo</option>
+          <option value="operador">{(data.skillOperador && data.skillOperador.name) || "Mesa B3 - Operador v1"} · Operador</option>
         </select>
       </label>
       <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "4px 10px", borderRadius: "999px", background: emUso ? T.accentTint : T.bgBase, border: `1px solid ${emUso ? T.accent : T.borderSubtle}`, color: emUso ? T.accent : T.textFaint, fontSize: "10.5px", fontWeight: 800, marginBottom: "12px" }}>
@@ -5485,7 +5661,7 @@ function AiConfigScreen({ ctx }) {
   const suggest = { anthropic: "Recomendado: claude-haiku-4-5 (rápido/barato) · claude-sonnet-5 (raciocina, +caro)", openai: "Recomendado: gpt-4o-mini (barato) · gpt-4o", google: "Recomendado: gemini-2.5-flash (barato) · gemini-2.5-pro", local: "Ex.: llama-3.1-70b · qwen2.5-72b" }[c.provider];
   return (
     <div>
-      <h1 style={{ margin: "0 0 6px", fontSize: "22px", fontWeight: 700 }}>IA & Boris</h1>
+      <h1 style={{ margin: "0 0 6px", fontSize: "22px", fontWeight: 700, fontFamily: DISPLAY }}>IA & Boris</h1>
       <p style={{ margin: "0 0 18px", color: T.textMuted, fontSize: "12.5px", lineHeight: 1.5, maxWidth: "560px" }}>
         Modelo/provedor do agente, instruções (skills) por modo, prompts, e o Boris — voz, presença na tela e avisos.
       </p>
@@ -5578,7 +5754,7 @@ function AiConfigScreen({ ctx }) {
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", background: T.bgBase, border: `1px solid ${T.borderSubtle}`, borderRadius: "8px", padding: "11px 13px", marginBottom: "14px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "9px" }}>
               <span style={{ fontFamily: MONO, letterSpacing: "2px", color: T.textMuted }}>••••••••••••</span>
-              <span style={{ fontSize: "11px", color: T.positive, fontWeight: 700 }}>chave configurada ✅ <span style={{ color: T.textFaint, fontWeight: 500 }}>{isNative ? "(neste aparelho)" : "(no servidor)"}</span></span>
+              <span style={{ fontSize: "11px", color: T.positive, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: "5px" }}><NavIcon id="checado" size={13} color="currentColor" />chave configurada <span style={{ color: T.textFaint, fontWeight: 500 }}>{isNative ? "(neste aparelho)" : "(no servidor)"}</span></span>
             </div>
             <button onClick={A.clearKey} style={{ padding: "7px 12px", borderRadius: "7px", border: `1px solid ${T.borderSubtle}`, background: "transparent", color: T.textSecondary, fontSize: "12px", fontWeight: 600 }}>Substituir</button>
           </div>
@@ -5630,7 +5806,7 @@ function AiConfigScreen({ ctx }) {
 function NotificacoesScreen({ ctx }) {
   return (
     <div>
-      <h1 style={{ margin: "0 0 18px", fontSize: "22px", fontWeight: 700 }}>Notificações</h1>
+      <h1 style={{ margin: "0 0 18px", fontSize: "22px", fontWeight: 700, fontFamily: DISPLAY }}>Notificações</h1>
       <NotifSection ctx={ctx} />
     </div>
   );
@@ -5678,7 +5854,7 @@ function AtividadeIAScreen({ ctx }) {
   );
   return (
     <div>
-      <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 700 }}>Atividade da IA</h1>
+      <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 700, fontFamily: DISPLAY }}>Atividade da IA</h1>
       <p style={{ margin: "6px 0 0", color: T.textMuted, fontSize: "13px", maxWidth: "600px", lineHeight: 1.5 }}>
         Quanto a IA gastou (estimativa em R$) e o histórico de cada leitura — Radar, Análise e Carteira. O custo real depende do provedor/modelo; aqui é uma estimativa por tokens.
       </p>
@@ -5775,7 +5951,7 @@ function EficienciaIAScreen({ ctx }) {
   if (!logged) {
     return (
       <div>
-        <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 700 }}>Eficiência da IA</h1>
+        <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 700, fontFamily: DISPLAY }}>Eficiência da IA</h1>
         <p style={{ margin: "10px 0 0", color: T.textMuted, fontSize: "13px", lineHeight: 1.5, maxWidth: "480px" }}>
           Entre na conta para ver a autoavaliação da IA — quanto das análises com stop/alvo definidos bateram o alvo, o stop, ou expiraram, calculado no servidor.
         </p>
@@ -5784,7 +5960,7 @@ function EficienciaIAScreen({ ctx }) {
   }
   return (
     <div>
-      <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 700 }}>Eficiência da IA</h1>
+      <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 700, fontFamily: DISPLAY }}>Eficiência da IA</h1>
       <p style={{ margin: "6px 0 0", color: T.textMuted, fontSize: "13px", maxWidth: "600px", lineHeight: 1.5 }}>
         Autoavaliação da IA contra o que o ativo realmente fez depois — nada aqui é garantia de resultado futuro.
       </p>
@@ -6079,7 +6255,7 @@ function LogsDebugScreen({ ctx }) {
 
   return (
     <div>
-      <h1 style={{ margin: "0 0 6px", fontSize: "22px", fontWeight: 700 }}>Diagnóstico</h1>
+      <h1 style={{ margin: "0 0 6px", fontSize: "22px", fontWeight: 700, fontFamily: DISPLAY }}>Diagnóstico</h1>
       <p style={{ margin: "0 0 18px", color: T.textMuted, fontSize: "12.5px", lineHeight: 1.5, maxWidth: "580px" }}>
         Diagnóstico técnico e — para quem tem conta — status do Operador no servidor, Diário e logs detalhados.
       </p>
@@ -6389,7 +6565,7 @@ function FonteDadosScreen({ ctx }) {
 
   return (
     <div>
-      <h1 style={{ margin: "0 0 6px", fontSize: "22px", fontWeight: 700 }}>Fonte de dados</h1>
+      <h1 style={{ margin: "0 0 6px", fontSize: "22px", fontWeight: 700, fontFamily: DISPLAY }}>Fonte de dados</h1>
       <p style={{ margin: "0 0 18px", color: T.textMuted, fontSize: "12.5px", lineHeight: 1.5, maxWidth: "580px" }}>
         Servidor do app e a fonte das cotações usadas no simulador — provedor ativo, backup e orçamento de requisições.
       </p>
@@ -6604,6 +6780,14 @@ function RadarScreen({ ctx }) {
   const [busca, setBusca] = useState("");
   const [showModel, setShowModel] = useState(false);
   const [openTicker, setOpenTicker] = useState(null);
+  // Fase 23 (MOTION-01): tickers já renderizados NESTA montagem da lista.
+  // `useRef`, não `useState`: marcar "visto" não pode disparar re-render.
+  // Não é persistido — "inédito" é relativo à sessão de visualização, e
+  // trocar de aba DESMONTA a tela ({tab === "..." && <...>}), zerando o
+  // conjunto de propósito. Instância própria (não compartilhada com
+  // MercadoScreen): são listas diferentes.
+  const vistosRef = useRef(new Set());
+  const isNovo = (t) => !vistosRef.current.has(t);
   // FASE 2 (2.1): aprofundamento IA (N1) — leituras por ativo + lote top-N
   const [deep, setDeep] = useState({});         // ticker -> {loading,res,error,cache,disclaimer}
   const [deepFor, setDeepFor] = useState(null); // ticker do modal aberto
@@ -6679,11 +6863,15 @@ function RadarScreen({ ctx }) {
   // princípio 4, não inventar campo). Sem chamada de rede nova.
   const buscaNorm = busca.trim().toUpperCase();
   const resultsFiltrados = buscaNorm ? results.filter((r) => r.ticker.toUpperCase().includes(buscaNorm)) : results;
+  // O commit é EFEITO, nunca render: com React.StrictMode (main.jsx) o corpo
+  // do componente roda 2x por render em dev; mutar o Set durante o render
+  // faria a 2ª passada ler "já visto" e a animação nunca apareceria.
+  useEffect(() => { resultsFiltrados.forEach((r) => vistosRef.current.add(r.ticker)); });
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", marginBottom: "6px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "2px", minWidth: 0 }}>
-          <h1 style={{ margin: 0, fontSize: "24px", fontWeight: 700, letterSpacing: "-0.01em" }}>{cp.tituloRadar}</h1>
+          <h1 style={{ margin: 0, fontSize: "24px", fontWeight: 700, letterSpacing: "-0.01em", fontFamily: DISPLAY }}>{cp.tituloRadar}</h1>
           <InfoDot onClick={ctx.A.openAbout} />
         </div>
         <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
@@ -6715,7 +6903,9 @@ function RadarScreen({ ctx }) {
           <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "6px 10px", borderRadius: "999px", background: T.bgBase, border: `1px solid ${T.borderSubtle}`, color: T.textMuted, fontSize: "11px", fontWeight: 700 }}>
             {res.scanOrigem === "revalidação"
               ? "↻ Releitura após o fechamento"
-              : res.scanAuto ? "📡 Varredura automática de hoje" : "↻ Última varredura (manual)"} · {res.scanAtLabel}
+              : res.scanAuto
+                ? <><NavIcon id="radar" size={13} color="currentColor" />Varredura automática de hoje</>
+                : "↻ Última varredura (manual)"} · {res.scanAtLabel}
           </span>
         )}
         {res && (
@@ -6790,7 +6980,12 @@ function RadarScreen({ ctx }) {
           // FASE 3 (mock v2): posição no portfólio + presença na watchlist + plano do setup
           const posR = (data.positions || []).find((p) => p.t === r.ticker);
           const naWl = (data.watchlist || []).includes(r.ticker);
-          const s0 = (r.setups || [])[0];
+          // ADR-017 Decisão 1: `s0` é o setup OPERÁVEL (nunca aposentado) —
+          // `setupOperavel` casa por nome contra `r.melhorSetup`, mesma regra
+          // do backend (setups.py:725). Sem operável, `s0` é `null` e a régua
+          // (guardada por `s0 && s0.gatilho != null && ...` abaixo) simplesmente
+          // não renderiza — estado vazio já coerente.
+          const s0 = setupOperavel(r.setups, r.melhorSetup);
           // FASE 7 (F7.1) — Modo Operador: decisão direta + plano do servidor.
           // O plano vem SEMPRE no payload (determinístico, do setups.py); a UI
           // só o exibe neste modo — o Estudo permanece intocado.
@@ -6826,7 +7021,7 @@ function RadarScreen({ ctx }) {
           // card campos que o Radar decidiu não mostrar. setupHistorico/
           // setupElegivel entram porque o HistoricoPill (chip abaixo) precisa
           // deles no mesmo formato que a Watchlist já consome via `sc`.
-          const radarVm = { t: r.ticker, name: nameR, q: qR, chColor, sc: { spark: r.spark, confluencia: r.confluencia, melhorSetup: r.melhorSetup, setupHistorico: r.setupHistorico, setupElegivel: r.setupElegivel }, pos: posR, cur: precoR, pnl: pnlR, pnlPct: pnlPctR, kp: {}, fscore: r.fundamento && r.fundamento.score, decM: decMr, decColor: decColorR, decBg: decBgR, quotesLoading: false, operador, A: ctx.A, cp, data: ctx.data, didatica: ctx.didatica, overlayLivre: ctx.overlayLivre };
+          const radarVm = { t: r.ticker, name: nameR, q: qR, chColor, sc: { spark: r.spark, confluencia: r.confluencia, melhorSetup: r.melhorSetup, setupHistorico: r.setupHistorico, setupElegivel: r.setupElegivel }, pos: posR, cur: precoR, pnl: pnlR, pnlPct: pnlPctR, kp: {}, fscore: r.fundamento && r.fundamento.score, decM: decMr, decColor: decColorR, decBg: decBgR, quotesLoading: false, operador, A: ctx.A, cp, data: ctx.data, didatica: ctx.didatica, overlayLivre: ctx.overlayLivre, isNovo: isNovo(r.ticker) };
           return (
             <AtivoCard key={r.ticker} vm={radarVm} contexto="radar">
               <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", marginTop: "11px" }}>
@@ -6884,7 +7079,7 @@ function RadarScreen({ ctx }) {
                 <ConfluenceRing conf={r.confluencia} size={54} />
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: "10.5px", color: T.textFaint, letterSpacing: "0.05em", fontWeight: 700 }}>CONFLUÊNCIA DO SETUP</div>
-                  <div style={{ fontSize: "12px", color: T.textMuted, marginTop: "3px", lineHeight: 1.4 }}>{tierOf(r.confluencia)[0]} {tierOf(r.confluencia)[1]} · aderência ao padrão de estudo</div>
+                  <div style={{ fontSize: "12px", color: T.textMuted, marginTop: "3px", lineHeight: 1.4 }}><TierDot tier={tierOf(r.confluencia)[0]} /> {tierOf(r.confluencia)[1]} · aderência ao padrão de estudo</div>
                 </div>
               </div>
               {/* FASE 3 (mock v2): régua do PLANO — invalidação → gatilho → alvo, com o preço "agora" */}
@@ -7172,7 +7367,7 @@ function ConfigScreen({ ctx }) {
   const seg = (on) => ({ flex: 1, padding: "10px", borderRadius: "8px", fontWeight: 600, fontSize: "13px", border: `1px solid ${on ? T.accent : T.borderSubtle}`, background: on ? T.accentTint : T.bgPanel, color: on ? T.accent : T.textMuted });
   return (
     <div>
-      <h1 style={{ margin: "0 0 18px", fontSize: "22px", fontWeight: 700 }}>Preferências</h1>
+      <h1 style={{ margin: "0 0 18px", fontSize: "22px", fontWeight: 700, fontFamily: DISPLAY }}>Preferências</h1>
 
       {/* Personalização — nome e aparência (tema) */}
       <div style={{ ...card, padding: "17px 18px", marginBottom: "16px" }}>
@@ -7432,10 +7627,22 @@ function BuyModal({ ctx }) {
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", marginTop: "16px", padding: "12px 13px", background: T.bgBase, border: `1px solid ${T.borderSubtle}`, borderRadius: "9px", fontFamily: MONO }}>
           <span style={{ color: T.textMuted, fontSize: "13px" }}>Custo estimado</span>
-          <span style={{ fontWeight: 700, fontSize: "15px" }}>{money(cost)}</span>
+          {/* Fase 23 (MOTION-02): o pulso é do VALOR da ordem que EXECUTOU.
+              Pendente e rejeitada não passam por aqui (o portão está em
+              confirmBuy/confirmSell), e o "Resultado estimado" (SellModal)
+              nunca pulsa — sinal de sucesso sobre P&L negativo seria
+              manipulação visual. */}
+          <span className={buyModal.confirmado ? "value-pulse" : undefined} style={{ fontWeight: 700, fontSize: "15px" }}>{money(cost)}</span>
         </div>
         {!ok && q.price != null && <div style={{ fontSize: "12px", color: T.negative, marginTop: "8px" }}>Caixa insuficiente. Disponível: {money(data.cash)}</div>}
-        <div style={{ fontSize: "11px", color: T.textFaint, marginTop: "8px" }}>{(fechado ? ctx.cp.ordemPendenteAvisoCompra(ctx.mercado.abertura) : "O preço final é o da cotação no momento da confirmação (servidor).") + " Esta simulação executa por completo ou não executa — não há preenchimento parcial de ordem."}</div>
+        {/* Achado ao vivo 2026-09-07 (staging, iPhone): o aviso de pendente
+            vinha diluído no mesmo slot T.textFaint 11px da frase de execução
+            tudo-ou-nada e o usuário passou batido — achou que a compra de
+            100 ABEV3 tinha executado com o mercado fechado. Bloco próprio
+            reusa a linguagem visual do pill PENDENTE (T.warn a 14%) pra dar
+            peso de mudança de estado real (caixa já reservado agora). */}
+        {fechado && <div style={{ marginTop: "8px", padding: "10px 12px", borderRadius: "9px", background: "color-mix(in srgb, " + T.warn + " 14%, transparent)", color: T.warn, fontSize: "12.5px", fontWeight: 700, lineHeight: 1.45 }}>{ctx.cp.ordemPendenteAvisoCompra(ctx.mercado.abertura)}</div>}
+        <div style={{ fontSize: "11px", color: T.textFaint, marginTop: "8px" }}>{fechado ? "Esta simulação executa por completo ou não executa — não há preenchimento parcial de ordem." : "O preço final é o da cotação no momento da confirmação (servidor). Esta simulação executa por completo ou não executa — não há preenchimento parcial de ordem."}</div>
         {statusIndisponivel && (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", marginTop: "10px", padding: "9px 11px", borderRadius: "9px", background: "color-mix(in srgb, " + T.warn + " 12%, transparent)", border: `1px solid ${T.warn}` }}>
             <span style={{ fontSize: "11.5px", color: T.warn, lineHeight: 1.4 }}>{ctx.cp.mercadoStatusFalhouNaOrdem}</span>
@@ -7445,7 +7652,7 @@ function BuyModal({ ctx }) {
         <div style={{ fontSize: "10.5px", color: T.textFaint, lineHeight: 1.4, marginTop: "10px" }}>{DISCLAIMERS.trade}</div>
         <div style={{ display: "flex", gap: "8px", marginTop: "16px" }}>
           <button onClick={A.closeBuy} style={{ flex: 1, padding: "11px", borderRadius: "9px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 600, fontSize: "14px" }}>Cancelar</button>
-          <button onClick={A.confirmBuy} disabled={!ok} style={{ flex: 1.4, padding: "11px", borderRadius: "9px", border: `1px solid ${ok ? T.positive : T.borderSubtle}`, background: ok ? T.positive : T.knob, color: ok ? T.confirmOkText : T.textFaint, fontWeight: 800, fontSize: "14px" }}>{ctx.cp.confirmarCompra}</button>
+          <button onClick={A.confirmBuy} disabled={!ok || !!buyModal.confirmado} style={{ flex: 1.4, padding: "11px", borderRadius: "9px", border: `1px solid ${ok ? T.positive : T.borderSubtle}`, background: ok ? T.positive : T.knob, color: ok ? T.confirmOkText : T.textFaint, fontWeight: 800, fontSize: "14px" }}>{ctx.cp.confirmarCompra}</button>
         </div>
       </div>
     </div>
@@ -7526,11 +7733,21 @@ function SellModal({ ctx }) {
           )}
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginTop: "16px", padding: "12px 13px", background: T.bgBase, border: `1px solid ${T.borderSubtle}`, borderRadius: "9px", fontFamily: MONO }}>
-          <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: T.textMuted, fontSize: "13px" }}>Valor estimado</span><span style={{ fontWeight: 700, fontSize: "15px" }}>{money(valor)}</span></div>
+          {/* Fase 23 (MOTION-02): o pulso é do VALOR da ordem que EXECUTOU.
+              Pendente e rejeitada não passam por aqui (o portão está em
+              confirmBuy/confirmSell) — ver comentário gêmeo no BuyModal. */}
+          <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: T.textMuted, fontSize: "13px" }}>Valor estimado</span><span className={sellModal.confirmado ? "value-pulse" : undefined} style={{ fontWeight: 700, fontSize: "15px" }}>{money(valor)}</span></div>
+          {/* "Resultado estimado" (P&L) nunca pulsa — sinal de sucesso sobre
+              um prejuízo seria manipulação visual (CLAUDE.md). */}
           <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: T.textMuted, fontSize: "13px" }}>Resultado estimado</span><span style={{ fontWeight: 700, fontSize: "15px", color: pnlColor }}>{moneySigned(pnl)}</span></div>
         </div>
         {restam > 0 && <div style={{ fontSize: "11px", color: T.textMuted, marginTop: "8px", lineHeight: 1.5 }}>Venda parcial: ficam {restam} cotas com o mesmo preço médio.</div>}
-        <div style={{ fontSize: "11px", color: T.textFaint, marginTop: "6px" }}>{(fechado ? ctx.cp.ordemPendenteAvisoVenda(ctx.mercado.abertura) : "O preço final é o da cotação no momento da confirmação (servidor). Registro vai para o histórico do ativo.") + " Esta simulação executa por completo ou não executa — não há preenchimento parcial de ordem."}</div>
+        {/* Achado ao vivo 2026-09-07 (staging, iPhone): mesmo defeito do
+            BuyModal — aviso de pendente diluído no slot T.textFaint 11px
+            passava batido. Bloco próprio gêmeo, reusando a linguagem visual
+            do pill PENDENTE (T.warn a 14%). */}
+        {fechado && <div style={{ marginTop: "8px", padding: "10px 12px", borderRadius: "9px", background: "color-mix(in srgb, " + T.warn + " 14%, transparent)", color: T.warn, fontSize: "12.5px", fontWeight: 700, lineHeight: 1.45 }}>{ctx.cp.ordemPendenteAvisoVenda(ctx.mercado.abertura)}</div>}
+        <div style={{ fontSize: "11px", color: T.textFaint, marginTop: "6px" }}>{fechado ? "Esta simulação executa por completo ou não executa — não há preenchimento parcial de ordem." : "O preço final é o da cotação no momento da confirmação (servidor). Registro vai para o histórico do ativo. Esta simulação executa por completo ou não executa — não há preenchimento parcial de ordem."}</div>
         {statusIndisponivel && (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", marginTop: "10px", padding: "9px 11px", borderRadius: "9px", background: "color-mix(in srgb, " + T.warn + " 12%, transparent)", border: `1px solid ${T.warn}` }}>
             <span style={{ fontSize: "11.5px", color: T.warn, lineHeight: 1.4 }}>{ctx.cp.mercadoStatusFalhouNaOrdem}</span>
@@ -7540,7 +7757,7 @@ function SellModal({ ctx }) {
         <div style={{ fontSize: "10.5px", color: T.textFaint, lineHeight: 1.4, marginTop: "10px" }}>{DISCLAIMERS.trade}</div>
         <div style={{ display: "flex", gap: "8px", marginTop: "16px" }}>
           <button onClick={A.closeSell} style={{ flex: 1, padding: "11px", borderRadius: "9px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 600, fontSize: "14px" }}>Cancelar</button>
-          <button onClick={A.confirmSell} disabled={livre <= 0} style={{ flex: 1.4, padding: "11px", borderRadius: "9px", border: `1px solid ${livre > 0 ? T.negative : T.borderSubtle}`, background: livre > 0 ? T.negativeTint10 : T.bgPanel, color: livre > 0 ? T.negative : T.textFaint, fontWeight: 800, fontSize: "14px" }}>{ctx.cp.confirmarVenda}{fechaAPosicao ? " total" : " de " + qty}</button>
+          <button onClick={A.confirmSell} disabled={livre <= 0 || !!sellModal.confirmado} style={{ flex: 1.4, padding: "11px", borderRadius: "9px", border: `1px solid ${livre > 0 ? T.negative : T.borderSubtle}`, background: livre > 0 ? T.negativeTint10 : T.bgPanel, color: livre > 0 ? T.negative : T.textFaint, fontWeight: 800, fontSize: "14px" }}>{ctx.cp.confirmarVenda}{fechaAPosicao ? " total" : " de " + qty}</button>
         </div>
       </div>
     </div>
@@ -8081,16 +8298,30 @@ export default function App() {
     },
     closeSell: () => setSellModal(null),
     confirmSell: async () => {
-      const sm = sellModal; if (!sm) return;
+      // Fase 23 (MOTION-02): o modal fica montado por mais ~120ms para o
+      // valor pulsar; sem esta guarda, dois toques na janela virariam DUAS
+      // ordens — antes o desmonte imediato impedia isso por acidente.
+      const sm = sellModal; if (!sm || sm.confirmado) return;
       const pos = (data.positions || []).find((p) => p.t === sm.t);
       try {
         const total = !pos || sm.qty >= pos.qty;
         const st = await store.sell(sm.t, total ? undefined : sm.qty);
-        setData(st); setSellModal(null);
-        // Fase 2 (MERC-02/03, D-01): analítica não pode confundir ordem
-        // PENDENTE (mercado fechado, nada executou) com venda concluída.
-        track("trade_simulated", { side: "sell", ticker: sm.t, instrument: "equity", pendente: !!st.pendente }); // qa/47 (Fase 2)
-        flash(st.pendente ? cp.toastOrdemPendente(sm.qty, sm.t) : cp.toastVenda(total ? "total" : sm.qty + " cotas", sm.t)); // FASE 8B (B1)
+        // `setData` entra AQUI, não antes: com o estado já comitado, o
+        // SellModal chega a desmontar (`if (!pos) return null`) numa venda
+        // TOTAL — o pulso nunca pintaria.
+        const finalizar = () => {
+          setData(st); setSellModal(null);
+          // Fase 2 (MERC-02/03, D-01): analítica não pode confundir ordem
+          // PENDENTE (mercado fechado, nada executou) com venda concluída.
+          track("trade_simulated", { side: "sell", ticker: sm.t, instrument: "equity", pendente: !!st.pendente }); // qa/47 (Fase 2)
+          flash(st.pendente ? cp.toastOrdemPendente(sm.qty, sm.t) : cp.toastVenda(total ? "total" : sm.qty + " cotas", sm.t)); // FASE 8B (B1)
+        };
+        // Portões, nesta ordem: PENDENTE primeiro (ordem aceita e NÃO
+        // executada nunca ganha sinal de sucesso, princípio 9 do CLAUDE.md),
+        // REDUCE_MOTION depois (senão o CSS zera a animação e o setTimeout
+        // ainda segura o modal 120ms com nada acontecendo).
+        if (st.pendente || REDUCE_MOTION) { finalizar(); }
+        else { setSellModal((s2) => (s2 ? { ...s2, confirmado: true } : s2)); setTimeout(finalizar, 120); }
       } catch (e) {
         // FIX-C02 (Plano 04-05): o servidor já gravou a rejeição no histórico
         // (status: "rejeitada") — sem este refresh, a tela só mostraria a
@@ -8138,26 +8369,42 @@ export default function App() {
     openTech: (t) => setTechFor(t),
     closeTech: () => setTechFor(null),
     confirmBuy: async () => {
-      const bm = buyModal; if (!bm) return;
+      // Fase 23 (MOTION-02): o modal fica montado por mais ~120ms para o
+      // valor pulsar; sem esta guarda, dois toques na janela virariam DUAS
+      // ordens — antes o desmonte imediato impedia isso por acidente.
+      const bm = buyModal; if (!bm || bm.confirmado) return;
       try {
         const s = await store.buy(bm.t, bm.qty, bm.meta || undefined); // FASE 2 (2.4): setup de entrada
-        setData(s); setBuyModal(null);
-        // Fase 2 (MERC-02/03, D-01): analítica não pode confundir ordem
-        // PENDENTE (mercado fechado, nada executou) com compra concluída.
-        track("trade_simulated", { side: "buy", ticker: bm.t, instrument: "equity", pendente: !!s.pendente }); // qa/47 (Fase 2)
-        if (s.pendente) {
-          // Mercado fechado: a ordem fica pendente, SEM posição nova ainda —
-          // stop/alvo protegem uma posição que só nasce quando a pendente
-          // executar de verdade (scheduler, plano 02-03). Ofertar o N3 agora
-          // seria propor proteção para algo que não existe.
-          flash(cp.toastOrdemPendente(bm.qty, bm.t));
-        } else {
-          flash(cp.toastCompra(bm.qty, bm.t)); // FASE 8B (B1): voz do modo
-          // FASE 2 (2.3): oferta IMEDIATA do N3 — modal com cenários; nada é
-          // aplicado sem o toque do usuário (Fechar cancela sem efeito).
-          setStopAlvoFor(bm.t);
-          A.runStopAlvoFor(bm.t);
-        }
+        // `setData` entra AQUI, não antes: com o estado já comitado, o
+        // BuyModal recalcula `ok` com o caixa debitado e o SellModal (gêmeo)
+        // chega a desmontar (`if (!pos) return null`) — o pulso nunca
+        // pintaria.
+        const finalizar = () => {
+          setData(s); setBuyModal(null);
+          // Fase 2 (MERC-02/03, D-01): analítica não pode confundir ordem
+          // PENDENTE (mercado fechado, nada executou) com compra concluída.
+          track("trade_simulated", { side: "buy", ticker: bm.t, instrument: "equity", pendente: !!s.pendente }); // qa/47 (Fase 2)
+          if (s.pendente) {
+            // Mercado fechado: a ordem fica pendente, SEM posição nova ainda —
+            // stop/alvo protegem uma posição que só nasce quando a pendente
+            // executar de verdade (scheduler, plano 02-03). Ofertar o N3 agora
+            // seria propor proteção para algo que não existe.
+            flash(cp.toastOrdemPendente(bm.qty, bm.t));
+          } else {
+            flash(cp.toastCompra(bm.qty, bm.t)); // FASE 8B (B1): voz do modo
+            // FASE 2 (2.3): oferta IMEDIATA do N3 — modal com cenários; nada é
+            // aplicado sem o toque do usuário (Fechar cancela sem efeito).
+            setStopAlvoFor(bm.t);
+            A.runStopAlvoFor(bm.t);
+          }
+        };
+        // Portões, nesta ordem: PENDENTE primeiro (ordem aceita e NÃO
+        // executada nunca ganha sinal de sucesso, princípio 9 do CLAUDE.md),
+        // REDUCE_MOTION depois (senão o CSS zera a animação e o setTimeout
+        // ainda segura o modal 120ms com nada acontecendo — "direto" quer
+        // dizer sem espera também).
+        if (s.pendente || REDUCE_MOTION) { finalizar(); }
+        else { setBuyModal((b) => (b ? { ...b, confirmado: true } : b)); setTimeout(finalizar, 120); }
       }
       catch (e) {
         // FIX-C02 (Plano 04-05): mesmo refresh best-effort do confirmSell —
@@ -8971,21 +9218,21 @@ export default function App() {
       <Ticker items={tickerItems} live={Object.keys(quotes).length > 0} />
       <Topbar patr={patr} dia={dia} caixa={data.cash} name={firstName} modeChip={cp.chipModo} mercado={mercado} cp={cp} onProfile={() => { setPerfilView("hub"); setTab("perfil"); }} />
 
-      <main ref={mainRef} style={{ position: "relative", flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
+      <main ref={mainRef} style={{ position: "relative", flex: 1, minHeight: 0, overflowY: "auto", overflowX: "hidden", WebkitOverflowScrolling: "touch" }}>
         {pullY > 0 && (
           <div style={{ position: "absolute", top: "8px", left: "50%", transform: "translateX(-50%)", zIndex: 5, opacity: Math.min(1, pullY / 70), color: T.accent, fontSize: "12px", fontWeight: 700, display: "flex", alignItems: "center", gap: "7px", pointerEvents: "none" }}>
             <span className={pullY >= 70 ? "spin" : undefined} style={{ display: "inline-block" }}>↻</span>
             {pullY >= 70 ? "Solte para atualizar" : "Puxe para atualizar"}
           </div>
         )}
-        <div style={{ maxWidth: "1060px", margin: "0 auto", padding: "24px 18px 34px", transform: pullY ? `translateY(${pullY}px)` : undefined, transition: pullY ? "none" : "transform .2s ease" }}>
+        <div style={{ maxWidth: CONTENT_MAX_WIDTH, margin: "0 auto", padding: "24px 18px 34px", transform: pullY ? `translateY(${pullY}px)` : undefined, transition: pullY ? "none" : "transform .2s ease" }}>
           {tab === "evolucao" && <EvolucaoScreen ctx={ctx} />}
           {tab === "mercado" && <MercadoScreen ctx={ctx} />}
           {tab === "radar" && <RadarScreen ctx={ctx} />}
           {tab === "agente" && <AgenteScreen ctx={ctx} />}
           {tab === "carteira" && (carteiraView === "historico"
             ? (<><BackHeader title="Histórico de operações" onBack={() => setCarteiraView("main")} /><HistoricoScreen ctx={ctx} /></>)
-            : (<><CapitalCurve ctx={ctx} /><CarteiraScreen ctx={ctx} /><div style={{ marginTop: "14px" }}><button onClick={() => setCarteiraView("historico")} style={{ width: "100%", minHeight: "48px", padding: "13px", borderRadius: "13px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 700, fontSize: "13.5px", display: "flex", alignItems: "center", justifyContent: "space-between" }}><span>Ver histórico de operações</span><span aria-hidden style={{ color: T.textFaint }}>›</span></button></div></>))}
+            : (<><CarteiraScreen ctx={ctx} /><div style={{ marginTop: "14px" }}><button onClick={() => setCarteiraView("historico")} style={{ width: "100%", minHeight: "48px", padding: "13px", borderRadius: "13px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 700, fontSize: "13.5px", display: "flex", alignItems: "center", justifyContent: "space-between" }}><span>Ver histórico de operações</span><span aria-hidden style={{ color: T.textFaint }}>›</span></button></div></>))}
           {tab === "perfil" && (perfilView === "config"
             ? (<><BackHeader title="Preferências" onBack={() => setPerfilView("hub")} /><ConfigScreen ctx={ctx} /></>)
             : perfilView === "ia"

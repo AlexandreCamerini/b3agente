@@ -3,40 +3,45 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Opções v2
 status: executing
-stopped_at: Fase 18 reescopada (nav "seção em Posições") e Fase 19 registrada (motor multi-candidato) em ROADMAP.md/REQUIREMENTS.md
-last_updated: "2026-09-04T22:54:04.001Z"
-last_activity: 2026-09-04 -- Phase 19 execution started
+stopped_at: Fase 17 — checkpoint humano bloqueante (Task 2 de 17-06-PLAN.md), aguardando o Alex
+last_updated: 2026-09-06T18:00:00.000Z
+last_activity: 2026-09-06
 progress:
-  total_phases: 7
-  completed_phases: 4
+  total_phases: 5
+  completed_phases: 2
   total_plans: 23
-  completed_plans: 19
-  percent: 57
+  completed_plans: 20
+  percent: 40
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-09-01)
+See: .planning/PROJECT.md (updated 2026-09-06)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Phase 19 — motor-multi-candidato
+**Current focus:** v1.5 (Redesenho de UI) shipped e arquivado em 2026-09-06 (ver `.planning/milestones/v1.5-*`); v1.4 (Opções v2) é o único milestone aberto — aguardando checkpoints humanos das Fases 17/18/19
 
 ## Current Position
 
-Phase: 19 (motor-multi-candidato) — EXECUTING
-Plan: 1 of 4
-Status: Executing Phase 19
-Last activity: 2026-09-04 -- Phase 19 execution started
+Phase: 17 (checkpoint humano bloqueante, Task 2 de `17-06-PLAN.md`)
+Plan: aguardando o Alex (mercado aberto + posição real elegível)
+Status: In Progress — travado em checkpoint humano, não em execução
+Progress: [████████░░░░░░░░░░░░] 40% (2/5 fases completas do v1.4; Fases 17/18/19 parciais)
+Last activity: 2026-09-08 — as QUATRO quick tasks de 07/09 consolidadas numa publicação só (`F10-20260908-01`, commit 7be6b55, branch empurrada). Todas nasceram da mesma sessão de teste ao vivo em staging/iPhone: 260907-w33 (largura do card de candidato), 260907-x69 (textos do card de fechamento), 260907-vwl (aviso de ordem pendente) e 260907-vzp (setup aposentado, ADR-017). Suíte canônica verde nas duas suites: 2049 passed, 1 skipped.
 
-Progress: [█████████░] 90%
+`origin/main` foi mesclado ANTES do bump — era o que travava a publicação. Ao mesclar, a branch `claude/gallant-volhard-b8dcdb` trouxe um bump para `F10-20260907-01`, o MESMO carimbo que produção já servia, para código diferente: a colisão prevista, resolvida para `F10-20260908-01` (que nunca foi ao ar). Lição operacional: sessão paralela que roda `bump.sh` sem estar em dia com `origin/main` sempre reemite o carimbo de produção — o script deriva do valor LOCAL.
+
+PRÓXIMO PASSO (promoção para produção): abrir/mesclar o PR de `v2/interacao-estrutural` para `main` e então disparar o deploy MANUALMENTE no painel do Railway — o auto-deploy de produção está DESLIGADO desde 07/09 (ver STAGING.md). Nenhum comando desta sessão tocou o Railway.
+
+RESSALVA HONESTA: a verificação foi estática (suíte + build). As quatro correções nasceram de achados ao vivo, mas nenhuma foi reconfirmada no aparelho depois do fix — o cenário depende de mercado aberto e posição elegível, a mesma dependência que trava os checkpoints das Fases 17/18/19.
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 6 (v1.0) + 44 (v1.1) + 6 (Phase 9, standalone) + 8 (v1.2) + 8 (v1.3) + 8 (Phase 14, standalone)
+- Total plans completed: 22 (v1.0) + 44 (v1.1) + 6 (Phase 9, standalone) + 8 (v1.2) + 8 (v1.3) + 8 (Phase 14, standalone)
 - Average duration: -
 - Total execution time: -
 
@@ -51,6 +56,11 @@ Progress: [█████████░] 90%
 | 12-13 (v1.3) | 8 | - | - |
 | 14 (standalone) | 8 | - | - |
 | 15-19 (v1.4) | TBD | - | - |
+| 20-23 (v1.5) | TBD | - | - |
+| 20 | 4 | - | - |
+| 21 | 4 | - | - |
+| 22 | 4 | - | - |
+| 23 | 4 | - | - |
 
 **Recent Trend:**
 
@@ -87,6 +97,25 @@ Recent decisions affecting current work:
   antes de escrever os arquivos.
 
 ### Roadmap Evolution
+
+- Milestone v1.5 roteirizado (2026-09-05): Redesenho de UI em 4 fases
+  (20-23), numeração continuando a partir da Fase 19 do v1.4 (sem
+  `--reset-phase-numbers`, diretórios 15-19 intocados). Fatoração: 20 =
+  camada global/estrutural (FIX-01/02, SYS-04, TYPO-01/02/03, MOTION-03),
+  porque mexe no shell/`GlobalStyle`/tokens que as outras três consomem;
+  21 = duplicação removida e Portfólio consolidado (DEDUP-01/02/03,
+  FIX-03 — mesmo componente `CapitalCurve` do DEDUP-01); 22 = componentes
+  compartilhados (SYS-01/02/03), independente da 21; 23 = motion com
+  propósito + ilustração (MOTION-01/02, ILUS-01), por último porque depende
+  do gate de `prefers-reduced-motion` da 20 e dos componentes unificados da
+
+  22. Nenhuma fase toca `server/app/*.py` nem contrato de API.
+
+- Risco nomeado no roadmap do v1.5: as Fases 17/18/19 do v1.4 editam o mesmo
+  `web/src/App.jsx` e não foram enviadas a `origin` nem verificadas ao vivo;
+  publicar o front de qualquer fase do v1.5 empurra esse trabalho junto no
+  mesmo bundle. A decisão a/b/c registrada em Blockers vale para o v1.5
+  também.
 
 - Milestone v1.4 aberto (2026-09-02): Opções v2 — nova experiência que
   propõe setups (venda coberta, put de proteção, collar) a partir da
@@ -191,6 +220,14 @@ Recent decisions affecting current work:
 | 260901-r5t | Registrar decisão: Alex escolheu Candidato A (aba própria Opções) na navegação de Opções v2 | 2026-09-01 | da9a118 | Verified | [260901-r5t](./quick/260901-r5t-registrar-decis-o-alex-escolheu-candidat/) |
 | 260901-u2c | Registrar decisão: escopo v1 biblioteca de setups (venda coberta+put+collar), espaço pra MCP futuro | 2026-09-02 | f29490b | Verified | [260901-u2c](./quick/260901-u2c-registrar-decis-o-escopo-v1-biblioteca-d/) |
 | 260902-km8 | Registrar estratégia de arquitetura: Boris independe do b-mcp até o serviço MCP autenticado ficar pronto | 2026-09-02 | 36cc1d1 | Verified | [260902-km8](./quick/260902-km8-registrar-estrat-gia-de-arquitetura-bori/) |
+| 260905-1gb | Corrigir crash `cp is not defined` em HistoricoScreen (achado em auditoria de design ao vivo) | 2026-09-05 | 2715f9a | Verified | [260905-1gb](./quick/260905-1gb-corrigir-crash-cp-is-not-defined-em-hist/) |
+| 260906-rla | Corrigir contraste WCAG AA de `textDim` no tema claro (Modo Estudo) — achado colateral da Fase 4/FIX-C16, 4,20:1→4,67:1; guardião de contraste estendido de `textFaint` para `textFaint`+`textDim` | 2026-09-06 | 503363f | Verified | [260906-rla](./quick/260906-rla-corrigir-contraste-wcag-aa-de-textdim-no/) |
+| 260906-ugb | Corrigir 3 achados Baixo do REPORT-01: C-18 (`aria-describedby` no gate "Executar"), C-08 (reversão à média nomeada no verbete `setup-ifr2`); C-28 reverificado e encontrado já resolvido (nenhum código mudou) | 2026-09-06 | 9a874c5 | Verified | [260906-ugb](./quick/260906-ugb-corrigir-3-achados-baixo-do-report-01-c-/) |
+| 260906-vf9 | Corrigir 3 achados de PRODUTO do REPORT-01 (C-07: "Operador IA" nomeado em `ModoTrabalhoCard`; C-09: aviso de drawdown >15% em `CapitalCurve`, limiar decidido pelo orquestrador; C-06: `resumoOperacao(h)` — escopo reduzido a uma frase no Histórico existente) | 2026-09-06 | 72187df | Verified | [260906-vf9](./quick/260906-vf9-corrigir-3-achados-de-produto-do-report-/) |
+| 260907-w33 | Corrigir estouro de largura do card de candidato de opção (achado ao vivo em staging/iPhone com put_protecao + collar): `flex: "0 0 210px"` nos dois trilhos de opções, CUMPRINDO a Decisão 1 do 22-UI-SPEC em vez de revertê-la — `minWidth` sempre foi piso, nunca teto. Guardião da asserção 7 intocado. Publicado em F10-20260908-01 | 2026-09-07 | (merge) | Published | [260907-w33](./quick/260907-w33-corrigir-estouro-de-largura-do-card-de-c/) |
+| 260907-x69 | Corrigir os textos do card de FECHAMENTO de operação lastreada (achado ao vivo em staging/iPhone): a manchete de fechar uma put dizia "Comprar 1 put(s)…" acima de um botão que VENDE, e o CTA/confirmação falavam em "recomprar a call" e "destrava ações" para uma put que nunca travou ação. Frases `fechar_call_coberta`/`fechar_put_protecao` nos DOIS modos de `skill_ref`; `tipo`/`motivo` intocados (contrato de ~9 guardiões de igualdade exata). O dinheiro já estava certo (`side=="comprada"` → `store.sell_option`, credita) — defeito só de texto. **Dois guardiões afirmavam o texto errado** e foram atualizados com nota datada, não apagados. Publicado em F10-20260908-01 | 2026-09-07 | a90e0bf | Published | [260907-x69](./quick/260907-x69-corrigir-textos-do-card-de-fechamento-de/) |
+| 260907-vwl | Reforçar aviso visual de ordem pendente (achado ao vivo em staging/iPhone 2026-09-07 — compra de ABEV3 com mercado fechado, aviso "discreto" passou batido): bloco `color-mix(T.warn 14%)` reusando o pill PENDENTE, des-concatenado da frase de execução tudo-ou-nada, simétrico em BuyModal/SellModal; guardião estendido | 2026-09-07 | d78a0a5 | Tested (suíte canônica verde, sem --validate) | [260907-vwl](./quick/260907-vwl-reforcar-aviso-visual-de-ordem-pendente-/) |
+| 260907-vzp | Corrigir `setups[0]` cru sem filtrar aposentado em `App.jsx` (ADR-017 Decisão 1) — achado ao vivo em staging (compra ABEV3 gravou `setupEntrada` contraditório, invertendo a leitura de invalidação); `setupOperavel()`/`metaDeEntrada()` em `finance.js`, espelho de `setups.py:725` | 2026-09-07 | ebd23b2, e8dd43e | Verified | [260907-vzp](./quick/260907-vzp-corrigir-setups-0-cru-sem-filtrar-aposen/) |
 
 ## Deferred Items
 
@@ -198,26 +235,40 @@ Items acknowledged and carried forward from previous milestone close (v1.3 → v
 
 | Category | Item | Status | Deferred At |
 |----------|------|--------|-------------|
-| Backlog | 9 achados Baixo do REPORT-01 (C-06..C-10, C-17, C-18, C-28, C-29) | Not mapped to any phase — explicit backlog | v1.0 close |
+| Backlog | 3 achados Baixo do REPORT-01 sem correção (C-10, C-17, C-29) — C-08 e C-18 corrigidos na quick task 260906-ugb (2026-09-06); C-28 reverificado e encontrado já resolvido (efeito colateral do refactor FIX-C21, sem mudança de código); C-06/C-07/C-09 (achados de PRODUTO, não Baixo) corrigidos na quick task 260906-vf9 (2026-09-06) — C-06 com escopo reduzido (frase no Histórico existente, não tela nova) e C-09 com limiar de drawdown de 15% | Not mapped to any phase — explicit backlog | v1.0 close |
 | verification_gap | Item 8 do checkpoint 08-05 — verificação ao vivo de `entradaAuto` por um pregão inteiro | human_needed | v1.1 close |
 | verification_gap | 2 human-checks da Fase 3 (card de status 3 badges reativo; mensagem de "sem permissão" do kill-switch) | human_needed | v1.1 close |
 | v2 requirements | CAP-08..11 (loja/IAP, preço/moeda, IA gerenciada sem BYOK como paga, alvo dinâmico exclusivo do pago) | Deferred to future release — depende da decisão comercial de venda em si | v1.3 roadmap (2026-08-29) |
 | Pending todo | `medir-rate-limit-mydata.md` (priority medium) | Ainda aberto pra acompanhar volume real de tráfego de opções se crescer | Fase 9 close (2026-08-27), rebaixado 2026-08-31 |
 | v2 requirements (nomeado no kickoff) | Integração MCP real (Estratégia C, `plano-mcp-servico.md`) — troca o corpo de `rastrear()`/`avaliar()` (ENG-04 da Phase 15) sem reabrir requirements quando aprovado | Deferred — condicionado à aprovação do Alex | v1.4 roadmap (2026-09-02) |
 | v2 requirements (nomeado no kickoff) | Setup customizado pelo usuário; estruturas adicionais além das 3 do v1 | Deferred — biblioteca fixa por enquanto | v1.4 roadmap (2026-09-02) |
+| uat_gap | 20-HUMAN-UAT.md — 3 cenários pendentes (reduced-motion real MOTION-01/02/03; pulso de sucesso real de MOTION-02 em venda total) | partial — limitação de ferramenta (sem CDP Emulation.setEmulatedMedia) + mercado fechado durante toda a janela de execução | v1.5 close (2026-09-06) |
+| uat_gap | 22-HUMAN-UAT.md — 1 cenário pendente (snap em DOM real dos 2 trilhos de opções sem dado de mercado ativo) | partial — prova estática completa via guardião, sem dado real disponível | v1.5 close (2026-09-06) |
+| verification_gap | 20-VERIFICATION.md, 22-VERIFICATION.md, 23-VERIFICATION.md — status human_needed | Todos com evidência completa em código/bundle; pendência é só de confirmação humana ao vivo, ver .planning/milestones/v1.5-MILESTONE-AUDIT.md | v1.5 close (2026-09-06) |
+| Tech debt (achado na auditoria de integração) | `numHero` (token de 34px da escala TYPO-02) sem consumidor real — `CapitalCurve` segue com fontSize hardcoded 27px | Decisão deliberada, documentada em 3 fases sucessivas (20/21/22) — não bloqueia, item de backlog para fase futura de polish | v1.5 close (2026-09-06) |
+| Quick tasks pré-existentes (12, não relacionados ao v1.5) | 260820-0hl, 260823-vu4, 260823-x55, 260824-i45, 260824-kc2, 260830-eqm, 260901-1ak, 260901-2da, 260901-r5t, 260901-u2c, 260902-km8, 260905-1gb — todos status "missing" (sem SUMMARY.md) | Pré-datam o milestone v1.5; não fazem parte do seu escopo — não resolvidos nem descartados, seguem no backlog geral | v1.5 close (2026-09-06) |
+| Pending todo | `opcoes-v2-confirmar-hub-mydata-e-acesso-b-mcp.md` (priority medium) | Acompanhar aprovação do serviço MCP autenticado — não relacionado ao v1.5 | v1.5 close (2026-09-06) |
 
 ## Session Continuity
 
-Last session: 2026-09-03
-Stopped at: Fase 18 reescopada (nav "seção em Posições") e Fase 19 registrada (motor multi-candidato) em ROADMAP.md/REQUIREMENTS.md
-Resume file: None
+Last session: 2026-09-06T22:55:00.000Z
+Stopped at: Quick tasks 260906-rla (`textDim`), 260906-ugb (C-18/C-08/C-28) e 260906-vf9 (C-06/C-07/C-09, achados de produto) concluídos — todos os 9 achados Baixo/produto do REPORT-01 fechados ou reverificados; milestone v1.5 fechado e arquivado (`.planning/milestones/v1.5-*`); nenhum push a `origin`
+Resume file: .planning/v1.5-MILESTONE-AUDIT.md (agora em .planning/milestones/v1.5-MILESTONE-AUDIT.md) — para o v1.4, ver `.planning/notes/checkpoints-pendentes-fase-17-18-19.md`
 
 ## Operator Next Steps
 
+**v1.5 (Redesenho de UI) — SHIPPED, sem próximo passo mecânico.** 4 itens de
+verificação humana pendentes, consolidados em
+`.planning/milestones/v1.5-phases/20-funda-o-estrutural-e-tipogr-fica/20-HUMAN-UAT.md` — sem
+urgência (nenhum bloqueia produto, ver `.planning/milestones/v1.5-MILESTONE-AUDIT.md`).
+
+**v1.4 (Opções v2) — único milestone aberto, retomar quando o Alex puder:**
 - Retomar o checkpoint humano da Fase 17 (`17-06-PLAN.md` Task 2) com o
   mercado aberto — payoff real, collar por caixa insuficiente, aceite/
   cancelamento, Radar vs. Watchlist, iPhone. Só depois considerar a Fase 17
   de fato fechada (e dar push pra origin).
-
 - `/gsd-plan-phase 18` — seção "Oportunidades de opções" em Posições.
 - `/gsd-plan-phase 19` — motor multi-candidato, depois da Fase 18 fechada.
+
+**Depois do v1.4 fechar:** `/gsd-new-milestone` para decidir o próximo
+milestone (nenhum roteirizado ainda além do v1.4).

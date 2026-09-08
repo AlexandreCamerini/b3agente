@@ -155,6 +155,53 @@ export function concentracaoMaxima(positions, quotes, patr) {
   return { t: melhor.t, valor: melhor.valor, pct: (melhor.valor / p) * 100 };
 }
 
+// Quick 260906-vf9 (C-06, REPORT-01), escopo REDUZIDO: uma frase em
+// português simples por operação EXECUTADA já existente no Histórico — não
+// cria tela/aba/endpoint novo. Função PURA: não inventa dado que não esteja
+// em `h` (CLAUDE.md princípios 4/5) — campo essencial ausente/inválido
+// devolve `null`, nunca fabrica um "—" dentro de uma frase em prosa.
+//
+// `finance.js` não tem formatador de moeda (nf2/price em App.jsx são
+// módulo-locais, não exportados de propósito — importar de App.jsx criaria
+// ciclo de import). Duplicação deliberada: função pura não pode depender da
+// camada de UI.
+const nf2 = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+export function resumoOperacao(h) {
+  if (!h || typeof h !== "object") return null;
+  // Entrada REJEITADA já tem sua própria linha ("Rejeitada: ...") no
+  // Histórico — nunca duplicar. Condição SEMPRE === "rejeitada" (nunca
+  // !== "executada"), mesma regra de App.jsx (FIX-C02): entrada LEGADA sem
+  // `status` conta como executada, histórico não se reescreve.
+  if (h.status === "rejeitada") return null;
+  if (h.type !== "COMPRA" && h.type !== "VENDA") return null;
+  if (h.qty == null) return null;
+  const precoNum = Number(h.price);
+  if (h.price == null || !isFinite(precoNum)) return null;
+  const precoTxt = nf2.format(precoNum);
+
+  if (h.type === "COMPRA") {
+    return `Comprou ${h.qty} ${h.t} a R$ ${precoTxt}.`;
+  }
+
+  // VENDA — sufixo de motivo (nada para "manual"/undefined/valor desconhecido).
+  let sufixoMotivo = "";
+  if (h.motivo === "stop") sufixoMotivo = " no stop";
+  else if (h.motivo === "alvo") sufixoMotivo = " no alvo";
+  else if (h.motivo === "vencimento") sufixoMotivo = " no vencimento";
+  const base = `Vendeu ${h.qty} ${h.t} a R$ ${precoTxt}${sufixoMotivo}`;
+
+  const pnlNum = Number(h.pnl);
+  // pnl nulo/inválido é defensivo (o motor não deveria produzir) — sem
+  // resultado, sem inventar sinal de lucro/prejuízo.
+  if (h.pnl == null || !isFinite(pnlNum)) return `${base}.`;
+
+  const pnlTxt = nf2.format(Math.abs(pnlNum));
+  return pnlNum >= 0
+    ? `${base}, com lucro de R$ ${pnlTxt}.`
+    : `${base}, com prejuízo de R$ ${pnlTxt}.`;
+}
+
 // Retorno do dia em %: variação do patrimônio no dia sobre a base de ontem
 // (patr − ganho_do_dia). Seguro contra base <= 0.
 export function dayReturnPct(patr, dayVal) {
@@ -353,4 +400,60 @@ export function historicoDesatualizado(historico, hojeYmd) {
     if (!_ehFimDeSemana(limiteMs)) uteis++;
   }
   return refMs < limiteMs; // estritamente anterior ao limite
+}
+
+// ---------------------------------------------------------------------------
+// Achado ao vivo (ABEV3, 2026-09-07): App.jsx consumia `setups[0]` cru em
+// dois pontos, sem filtrar setup aposentado — enquanto o backend já filtra
+// (`server/app/setups.py:725`, `plano_do_resultado`: `operaveis = [s for s in
+// setups_list if not s.get("aposentado")]`). Resultado: `setupEntrada`
+// gravado com `setup`/`veredito` de UM setup (via `sc.melhorSetup`, fonte já
+// filtrada pelo backend) e `lado`/`gatilho`/`invalidacao` de OUTRO
+// (`setups[0]` cru, podendo ser aposentado) — meta internamente contraditório
+// que inverte a leitura de invalidação em App.jsx (`se.lado === "baixa" ? cur
+// > se.invalidacao : cur < se.invalidacao`). As duas funções abaixo são o
+// espelho no front da regra do backend, casa única de consumo dos dois
+// pontos afetados (grade da watchlist e card do Radar).
+// ---------------------------------------------------------------------------
+
+// setupOperavel(setups, melhorSetupNome): devolve o elemento de `setups` que
+// é a base do plano operacional — NUNCA um `aposentado: true`. Casamento por
+// NOME vem primeiro (não por índice) porque `melhorSetupNome` já é a fonte
+// filtrada pelo backend (`melhorSetup` no payload do scan); casar por nome
+// garante POR CONSTRUÇÃO que `setup`/`veredito` (de `melhorSetupNome`) e
+// `lado`/`gatilho`/`invalidacao` (do elemento devolvido aqui) descrevem o
+// MESMO setup — não uma coincidência de índice como era `setups[0]`. Sem
+// nome (ausente/não encontrado), cai no fallback por ordem, mesma regra de
+// `setups.py:725` (`operaveis[0]`). Defensiva a lista ausente/não-array e a
+// elemento nulo dentro da lista.
+export function setupOperavel(setups, melhorSetupNome) {
+  const lista = Array.isArray(setups) ? setups : [];
+  const operaveis = lista.filter((s) => s && !s.aposentado);
+  if (!operaveis.length) return null;
+  if (typeof melhorSetupNome === "string" && melhorSetupNome) {
+    const porNome = operaveis.find((s) => s.nome === melhorSetupNome);
+    if (porNome) return porNome;
+  }
+  return operaveis[0];
+}
+
+// metaDeEntrada(sc): monta o meta de compra a partir do scan (`sc`), para
+// gravação em `setupEntrada` (`store.buy(meta)`). `setup`/`veredito`/
+// `confluencia`/`snapshotId` continuam vindo direto de `sc` (fonte já
+// filtrada pelo backend); `lado`/`gatilho`/`invalidacao` entram por SPREAD
+// CONDICIONAL a partir do MESMO elemento operável — ficam literalmente
+// AUSENTES do objeto quando não há setup operável (princípio 4 do CLAUDE.md:
+// nunca inventar dado). `_sanitize_trade_meta` (server/app/store.py:621-637)
+// já omite chave ausente sem quebrar o payload salvo — nada de `0` nem o
+// aposentado como stand-in.
+export function metaDeEntrada(sc) {
+  const s = sc || {};
+  const op = setupOperavel(s.setups, s.melhorSetup);
+  return {
+    setup: (op && op.nome) || s.melhorSetup || undefined,
+    veredito: s.veredito,
+    confluencia: s.confluencia,
+    snapshotId: s.snapshotId,
+    ...(op ? { lado: op.lado, gatilho: op.gatilho, invalidacao: op.invalidacao } : {}),
+  };
 }

@@ -1,9 +1,14 @@
-# Requirements — Milestone v1.4 Opções v2
+# Requirements
+
+Nota: o milestone v1.5 (Redesenho de UI, Phases 20-23) foi concluído e
+arquivado em `.planning/milestones/v1.5-REQUIREMENTS.md` em 2026-09-06.
+Este arquivo retém apenas o v1.4 (Opções v2), ainda em execução — os
+checkpoints humanos das Fases 17/18/19 seguem pendentes do Alex.
+
+## v1.4 Opções v2 (em execução — não shipped, requirements preservados abaixo)
 
 Base completa da decisão: `.planning/seeds/opcoes-v2-setups-propostos-via-b-mcp.md`
 e `.planning/notes/opcoes-v2-b-mcp-exploracao.md`.
-
-## v1.4 Requirements
 
 ### Navegação (NAV)
 
@@ -90,7 +95,7 @@ Success criteria detalhados ficam para `/gsd-plan-phase 19`.
   usuário aceita exatamente um por avaliação — nunca mais de um executado
   simultaneamente para a mesma posição.
 
-## Future Requirements (deferred)
+### v1.4 Future Requirements (deferred)
 
 - Setup customizado pelo usuário (fora do v1 — biblioteca fixa por
   enquanto).
@@ -100,7 +105,7 @@ Success criteria detalhados ficam para `/gsd-plan-phase 19`.
 - Estruturas adicionais além das 3 do v1 (ex.: mais combinações de pernas),
   se a demanda de produto justificar.
 
-## Out of Scope
+### v1.4 Out of Scope
 
 - **Straddle/strangle coberto** — liquidez de opções B3 fora dos blue-chips
   já é curta pra 1 perna, pior pra 2 pernas simultâneas de lados opostos.
@@ -116,7 +121,7 @@ Success criteria detalhados ficam para `/gsd-plan-phase 19`.
   v1.3, que ativou infraestrutura sem loja/IAP ainda; decisão comercial
   separada, fora deste milestone.
 
-## Traceability
+### v1.4 Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
@@ -139,4 +144,6 @@ Success criteria detalhados ficam para `/gsd-plan-phase 19`.
 | MULTI-01 | Phase 19 | Complete |
 | MULTI-02 | Phase 19 | Pending |
 
-Coverage: 18/18 v1.4 requirements mapped. No orphans.
+Coverage: 18/18 v1.4 requirements mapped. No orphans. Pendências de
+verificação ao vivo (não de mapeamento) documentadas em
+`.planning/notes/checkpoints-pendentes-fase-17-18-19.md`.

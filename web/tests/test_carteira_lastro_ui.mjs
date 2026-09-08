@@ -42,8 +42,14 @@ ok("SellModal usa `livre` no cálculo de qty/step/botão (Math.min(livre)",
   (app.match(/Math\.min\(livre,/g) || []).length >= 2);
 ok("botão 'Vender tudo' usa livre, não pos.qty (\"Vender tudo (\" + livre)",
   app.includes('"Vender tudo (" + livre + ")"'));
-ok("botão de confirmar venda desabilita quando livre <= 0",
-  /A\.confirmSell\}\s*disabled=\{livre\s*<=\s*0\}/.test(app));
+// 2026-09-06 (Fase 23, plano 23-03, MOTION-02): o botão ganhou uma SEGUNDA
+// condição de disabled (`!!sellModal.confirmado`, guarda de duplo envio
+// enquanto o valor pulsa por 120ms) — a asserção original travava a forma
+// exata `disabled={livre <= 0}`, que deixou de existir. O que ela protegia
+// (livre <= 0 desabilita) continua valendo, agora como um dos dois termos
+// do `||`.
+ok("botão de confirmar venda desabilita quando livre <= 0 (agora também sob duplo envio, sellModal.confirmado)",
+  /A\.confirmSell\}\s*disabled=\{livre\s*<=\s*0\s*\|\|\s*!!sellModal\.confirmado\}/.test(app));
 ok("aviso de trava na venda vem de cp.avisoTravaNaVenda (não hardcodado)",
   app.includes("ctx.cp.avisoTravaNaVenda(pos.qtyTravada)"));
 
@@ -56,8 +62,14 @@ ok("A.openSell usa qtyLivre(pos)",
 // ---- (5) guardrail: stop/alvo NUNCA são vetados pela trava -----------------
 ok("nenhum botão de stop/alvo é desabilitado por qtyTravada (asserção negativa)",
   !/disabled=\{[^}]*qtyTravada[^}]*\}/.test(app));
+// Fase 22 (SYS-02, 2026-09-06): o emoji de gráfico do botão de Stop/alvo
+// virou `<NavIcon id="evolucao">`; o rótulo textual não mudou. O glifo
+// tipográfico do botão irmão (editar/lápis) segue como está — fora do
+// escopo de SYS-02, ver 22-UI-SPEC.md Out-of-scope symbols. O que este
+// guardião protege continua sendo o guardrail de produto: stop/alvo NUNCA é
+// vetado, então os dois botões existem e não têm `disabled`.
 ok("os botões de Stop/alvo (IA) e Editar stop/alvo continuam sem `disabled`",
-  app.includes("📈 Stop/alvo (IA)") && app.includes("✎ Editar stop/alvo"));
+  app.includes("Stop/alvo (IA)") && app.includes("✎ Editar stop/alvo"));
 
 // ---- (6) Patrimônio: TODAS as chamadas de portfolioMetrics passam optionPositions
 const chamadas = (app.match(/portfolioMetrics\([^)]*\)/g) || []);

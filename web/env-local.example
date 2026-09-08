@@ -1,0 +1,44 @@
+# web/env-local.example — modelo. Copie para `web/.env.local` e preencha.
+#
+# (O nome não começa com ponto de propósito: o ambiente de desenvolvimento
+# deste projeto bloqueia leitura/escrita de qualquer `.env*`, então um
+# `.env.local.example` seria invisível para as ferramentas. O arquivo REAL
+# que o Vite lê continua sendo `web/.env.local`.)
+#
+# `web/.env.local` é gitignored, então um clone/worktree NOVO nasce sem ele.
+# Sem esse arquivo o app builda normalmente e instala normalmente — e o botão
+# "Entrar com Google" falha só quando você toca nele, no aparelho, com
+# "Login Google não configurado neste build" (web/src/social.js:60). Foi
+# exatamente o que aconteceu em 2026-09-07; daí este modelo existir.
+#
+# NÃO são segredos: OAuth client_id é público por desenho (o próprio
+# comentário de social.js diz isso). O que é segredo fica no ambiente do
+# servidor (Railway), nunca aqui.
+#
+# Apple/SIWA NÃO precisa de nada aqui: em iOS nativo o `aud` do idToken é o
+# próprio bundle id, e o servidor valida contra APPLE_CLIENT_ID. O que o
+# Apple precisa é do entitlement no projeto iOS — isso o
+# `scripts/ios-restaurar-entitlements.sh` resolve sozinho.
+
+# OAuth client do tipo "iOS" no Google Cloud Console
+#   Console -> APIs e Servicos -> Credenciais -> ID do cliente OAuth -> iOS
+#   O bundle id cadastrado precisa ser com.alexandrecamerini.bolsia
+VITE_GOOGLE_IOS_CLIENT_ID=000000000000-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com
+
+# OAuth client do tipo "Web" no MESMO projeto do Console
+#   Vira o `aud` do idToken; o servidor valida contra a env GOOGLE_CLIENT_ID
+#   (Railway). Se os dois nao baterem, o login falha no servidor com 401.
+VITE_GOOGLE_WEB_CLIENT_ID=000000000000-yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy.apps.googleusercontent.com
+
+# ---------------------------------------------------------------------------
+# Depois de preencher, ao buildar o app iOS:
+#
+#   set -a && source web/.env.local && set +a
+#   bash scripts/instalar-iphone.sh            # ou --staging
+#
+# O `set -a` importa porque sao DUAS fontes distintas: o Vite embute o client
+# id no JS lendo o .env.local sozinho, mas o `setup-ios.sh` injeta o URL
+# scheme invertido no Info.plist lendo a variavel do SHELL. Sem o export, o
+# botao fica habilitado e a autenticacao falha na volta do Google — o proprio
+# setup-ios.sh:136 avisa sobre isso.
+# ---------------------------------------------------------------------------

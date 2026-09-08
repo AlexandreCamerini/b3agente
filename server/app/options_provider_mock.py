@@ -58,11 +58,22 @@ def _terceira_sexta(ano: int, mes: int) -> dt.date:
 
 
 def _proximas_terceiras_sextas(hoje: dt.date, n: int = 3) -> list[dt.date]:
+    """As próximas `n` terceiras-sextas a partir de `hoje`, pulando qualquer
+    uma a menos de 20 dias (achado ao vivo, 2026-09-06): `opcoes_lastreadas.
+    propor()` só aceita vencimento com `_PRAZO_MIN_DIAS=15 <= dias <= 60`
+    (opcoes_lastreadas.py:18-19,234), mas a rota sempre pede `expirations[0]`
+    sem alternativa (main.py:2397, `get_options(t)` sem `expiration=`) — nos
+    primeiros ~12 dias de cada mês a terceira-sexta do PRÓPRIO mês corrente
+    cai abaixo do piso de 15 dias, e a cadeia mock (sem isso) travaria toda
+    proposta em `sem_vencimento_elegivel` o mês inteiro, mascarando qualquer
+    outro teste. A margem de 20 (não 15) é de propósito: sobra pra decisões
+    de calendário não empurrarem a data pra cima do teto por acidente. Só
+    afeta `B3_OPTIONS_PROVIDER=mock` — nunca a cadeia real."""
     out: list[dt.date] = []
     ano, mes = hoje.year, hoje.month
     while len(out) < n:
         tf = _terceira_sexta(ano, mes)
-        if tf >= hoje:
+        if tf >= hoje + dt.timedelta(days=20):
             out.append(tf)
         mes += 1
         if mes > 12:

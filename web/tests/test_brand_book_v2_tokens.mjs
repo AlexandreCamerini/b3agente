@@ -178,13 +178,22 @@ for (const [nome, esquema] of [["Estudo", estudo], ["Operador", operador]]) {
 // omissão que originou o bug: o pior caso é bgCard no escuro e bgPanel no
 // claro, e um checador que olhasse só pra um dos dois deixaria o outro
 // passar por engano.
+//
+// 2026-09-06: textDim entrou nesta mesma checagem pela mesma razão, só que na
+// dimensão do TOKEN em vez da dimensão da SUPERFÍCIE — o FIX-C16 original
+// corrigiu textFaint e este guardião só cobria textFaint, então
+// PALETTE.light.textDim seguiu em 4,20:1 contra bgPanel (reprova AA) por todo
+// o v1.1 e o v1.5 sem nenhum teste reclamando. Achado colateral da Fase 4,
+// corrigido agora junto com a extensão deste guardião.
 for (const [nome, esquema] of [["Estudo", estudo], ["Operador", operador]]) {
   for (const tema of ["dark", "light"]) {
     const p = esquema[tema];
-    for (const superficie of ["bgBase", "bgPanel", "bgCard"]) {
-      const razao = contrast(p.textFaint, p[superficie]);
-      ok(`${nome}/${tema}: textFaint ${p.textFaint} sobre ${superficie} ${p[superficie]} = ${razao.toFixed(2)}:1 (AA 4.5, C-16)`,
-         razao >= 4.5);
+    for (const token of ["textFaint", "textDim"]) {
+      for (const superficie of ["bgBase", "bgPanel", "bgCard"]) {
+        const razao = contrast(p[token], p[superficie]);
+        ok(`${nome}/${tema}: ${token} ${p[token]} sobre ${superficie} ${p[superficie]} = ${razao.toFixed(2)}:1 (AA 4.5, C-16)`,
+           razao >= 4.5);
+      }
     }
   }
 }
