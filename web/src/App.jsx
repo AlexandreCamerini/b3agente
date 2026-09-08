@@ -1345,6 +1345,19 @@ function linePath(arr, mn, mx, W, H, pad = 3) {
 }
 function lastVal(arr) { if (!arr) return null; for (let i = arr.length - 1; i >= 0; i--) if (arr[i] != null) return arr[i]; return null; }
 const stateColor = (s) => (s === "alta" || s === "sobrevendido" || s === "acima" ? T.positive : s === "baixa" || s === "sobrecomprado" || s === "abaixo" ? T.negative : T.textSecondary);
+// 2026-09-07 — volume anormal. O estado vem SÓ do motor (summary.volState,
+// indicators.volume_state no backend); a UI não recalcula nem reclassifica.
+// A COR segue o que o PREÇO fez no candle (volDirecao), nunca o tamanho do
+// volume: volume alto não é alta nem baixa por si — é "houve dinheiro grande",
+// não "quem" nem "para onde". Sem estado (referência curta / sem negócio) a
+// célula mostra "—" e diz "sem dado", em vez de herdar o de ontem.
+const VOL_STATE_LABEL = { anormal: "anormal", acima: "acima da média", normal: "na média", abaixo: "abaixo da média" };
+const volSub = (sm) => {
+  if (sm.volState == null) return sm.volJanela != null ? "sem dado (referência curta)" : null;
+  const dir = sm.volDirecao && sm.volDirecao !== "neutro" ? " · candle de " + sm.volDirecao : "";
+  return (VOL_STATE_LABEL[sm.volState] || sm.volState) + dir;
+};
+const volColor = (sm) => (sm.volState === "anormal" || sm.volState === "acima" ? stateColor(sm.volDirecao) : T.textSecondary);
 const REDUCE_MOTION = typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 function RSIChart({ rsi }) {
@@ -1638,6 +1651,7 @@ function TechnicalModal({ ticker, name, quote, position, onClose, period }) {
               <IndCell label="ESTOCÁSTICO %K / %D" value={sm.stochK == null ? null : `${sm.stochK} / ${sm.stochD}`} sub={sm.stochState} color={stateColor(sm.stochState)} />
               <IndCell label="MACD (histograma)" value={sm.macdHist} sub={sm.macdState} color={stateColor(sm.macdState)} />
               <IndCell label="ATR (14) — volatilidade" value={sm.atr14} />
+              <IndCell label="VOLUME x MÉDIA (20)" value={sm.volRatio20 == null ? null : `${sm.volRatio20}×`} sub={volSub(sm)} color={volColor(sm)} />
               <IndCell label="SMA 20" value={sm.sma20} />
               <IndCell label="SMA 50" value={sm.sma50} />
               <IndCell label="EMA 9" value={lastVal(ind.ema9)} />
