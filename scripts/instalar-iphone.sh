@@ -64,6 +64,26 @@ fi
 say "4) Build web"
 printf "\n  \033[1m>>> BACKEND ALVO: %s\033[0m\n" "$ALVO_ROTULO"
 printf "      %s\n\n" "$API_EFETIVA"
+
+# Login Google: client id é embutido no JS em tempo de build, vindo de
+# web/.env.local (gitignored — clone novo nasce sem). Sem ele o app builda e
+# instala normalmente, e o botão só falha quando o usuário toca nele, no
+# aparelho. Achado ao vivo em 2026-09-07; avisar aqui troca 20 minutos de
+# investigação por uma linha lida na hora. Apple/SIWA não depende disto.
+ENVLOCAL="$ROOT/web/.env.local"
+if [ -f "$ENVLOCAL" ]; then
+  if [ -z "${VITE_GOOGLE_IOS_CLIENT_ID:-}" ]; then
+    printf "  \033[33m[!]\033[0m web/.env.local existe, mas VITE_GOOGLE_IOS_CLIENT_ID não está no SHELL.\n"
+    printf "      O Vite embute o client id no JS, mas o setup-ios.sh injeta o URL scheme\n"
+    printf "      no Info.plist lendo o SHELL — sem export, o Google falha na volta do login.\n"
+    printf "      Rode antes:  set -a && source web/.env.local && set +a\n\n"
+  fi
+else
+  printf "  \033[33m[!]\033[0m web/.env.local AUSENTE — o login \033[1mGoogle não vai funcionar\033[0m neste build.\n"
+  printf "      (o app instala e roda; só o botão Google falha, no aparelho)\n"
+  printf "      Para corrigir: copie web/env-local.example para web/.env.local e preencha.\n"
+  printf "      Apple/SIWA e login por e-mail/senha não dependem disto.\n\n"
+fi
 if [ -n "$API_BASE" ]; then
   VITE_API_BASE="$API_BASE" npm run build
 else
@@ -116,6 +136,15 @@ npx cap sync ios | tee /tmp/capsync.log
 grep -q "local-notifications" /tmp/capsync.log \
   && ok "plugin de notificações SINCRONIZADO no projeto nativo" \
   || die "cap sync não listou o local-notifications — o problema das notificações continuaria. Confira o package.json e rode de novo."
+
+# 2026-09-07: mesma família do entitlements. `web/ios/` é gitignored e o
+# AppDelegate volta ao template do Capacitor num projeto novo — perdendo os
+# callbacks do APNs, o que faz o register() do push dar timeout (já aconteceu
+# em produção, ver o cabeçalho do script). O `entregar.sh` já rodava isto após
+# o sync; o instalar-iphone.sh não, e o guardião test_push_wiring.mjs acusou.
+# É idempotente: rodar 2x não duplica.
+bash "$ROOT/scripts/ios-patch-appdelegate.sh" \
+  || die "falha ao reaplicar os callbacks do APNs no AppDelegate — o push daria timeout no aparelho"
 
 say "7) Identidade: nome sob o ícone = Boris+"
 PLIST="ios/App/App/Info.plist"

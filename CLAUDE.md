@@ -218,9 +218,10 @@ nada mais no produto importa.
 - `web/vite.config.js` — dev proxy `/api` → `localhost:8787`; PWA manifest with `navigateFallbackDenylist: [/^\/admin/]` so the service worker doesn't hijack the admin portal route
 - `web/capacitor.config.ts` — native iOS build config, `CapacitorHttp: { enabled: true }` to bypass CORS for direct brapi calls from the device
 ## Platform Requirements
-- Python 3.14 venv under `server/.venv`
+- Python: venv local em `server/.venv` (hoje 3.14.6). **Produção roda 3.12** — `server/.python-version` fixa `3.12`; ver "Runtime" acima.
 - Node.js + npm for `web/` and `web-admin/` (separate installs, no workspace root)
 - Xcode (for `cap open ios` / TestFlight builds) — see `TESTFLIGHT.md`, `resources/ios/`
+- **Clone/worktree novo e build iOS** (achado 2026-09-07): `web/ios/` e `web/.env.local` são gitignored, então nascem ausentes. O entitlements se resolve sozinho (`scripts/ios-restaurar-entitlements.sh`, chamado pelo `instalar-iphone.sh` — sem ele o Sign in with Apple falha no aparelho e o push morre calado). O `.env.local` NÃO: copie de `web/env-local.example` e preencha, senão o login Google falha só ao ser tocado, no aparelho. Ambiente paralelo de teste: `STAGING.md`.
 - Single Railway service running the FastAPI app (`server/`), which also serves the compiled web app (`server/web_dist`), the admin portal (`server/admin_dist`), and the iOS ancillary files (`server/ios_dist`, e.g. `apple-app-site-association`) as static mounts from the same origin
 - SQLite database file on Railway's ephemeral disk (`B3_DB_PATH`, default `server/data/b3_agente.db`) — app is documented as "stateless for the phone" (device is source of truth for most user state; server DB backs multi-user accounts, sessions, admin config, budgets)
 - No containerfile/Dockerfile found — deploy relies on Railway's Nixpacks auto-detection of `server/requirements.txt`
