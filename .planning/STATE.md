@@ -29,7 +29,9 @@ Phase: 17 (checkpoint humano bloqueante, Task 2 de `17-06-PLAN.md`)
 Plan: aguardando o Alex (mercado aberto + posição real elegível)
 Status: In Progress — travado em checkpoint humano, não em execução
 Progress: [████████░░░░░░░░░░░░] 40% (2/5 fases completas do v1.4; Fases 17/18/19 parciais)
-Last activity: 2026-09-08 — as QUATRO quick tasks de 07/09 consolidadas numa publicação só (`F10-20260908-01`, commit 7be6b55, branch empurrada). Todas nasceram da mesma sessão de teste ao vivo em staging/iPhone: 260907-w33 (largura do card de candidato), 260907-x69 (textos do card de fechamento), 260907-vwl (aviso de ordem pendente) e 260907-vzp (setup aposentado, ADR-017). Suíte canônica verde nas duas suites: 2049 passed, 1 skipped.
+Last activity: 2026-09-08 (tarde) — quick 260908-ldg, gate de liquidez em três faixas com consentimento, mesclada e testada (2110 passed). Junto com 260908-dnl (recalibração do score) fecha o achado do dia: opções estavam apagadas em produção por um gate impossível de cruzar com mydata. Front mudou e NÃO foi republicado — `F10-20260908-01` (já em `web_dist`) NÃO contém ldg/dnl; antes de promover, rodar bump + publicar-web de novo ou promover ciente de que o gate novo só entra no bundle seguinte.
+
+Anterior no mesmo dia — as QUATRO quick tasks de 07/09 consolidadas numa publicação só (`F10-20260908-01`, commit 7be6b55, branch empurrada). Todas nasceram da mesma sessão de teste ao vivo em staging/iPhone: 260907-w33 (largura do card de candidato), 260907-x69 (textos do card de fechamento), 260907-vwl (aviso de ordem pendente) e 260907-vzp (setup aposentado, ADR-017). Suíte canônica verde nas duas suites: 2049 passed, 1 skipped.
 
 `origin/main` foi mesclado ANTES do bump — era o que travava a publicação. Ao mesclar, a branch `claude/gallant-volhard-b8dcdb` trouxe um bump para `F10-20260907-01`, o MESMO carimbo que produção já servia, para código diferente: a colisão prevista, resolvida para `F10-20260908-01` (que nunca foi ao ar). Lição operacional: sessão paralela que roda `bump.sh` sem estar em dia com `origin/main` sempre reemite o carimbo de produção — o script deriva do valor LOCAL.
 
@@ -158,19 +160,20 @@ Recent decisions affecting current work:
 
 ### Blockers/Concerns
 
-- **Opções apagadas em produção pelo gate de liquidez — RECALIBRADO na
-  branch, aguarda deploy (2026-09-08).** Com `B3_OPTIONS_PROVIDER=mydata` o
-  `liquidity_score` perdia o `oi_score` inteiro (COTAHIST não publica open
+- **Opções apagadas em produção pelo gate de liquidez — RESOLVIDO na branch
+  em dois passos, aguarda deploy (2026-09-08).** Com `B3_OPTIONS_PROVIDER=mydata`
+  o `liquidity_score` perdia o `oi_score` inteiro (COTAHIST não publica open
   interest) e levava a penalidade de 25 por "spread desconhecido"; teto 35
   contra corte 40, impossível em qualquer volume — os 60 contratos de PETR4
-  empatavam em 35,0. Quick `260908-bzf` mediu e documentou; o Alex escolheu a
-  opção 1 e a quick `260908-dnl` recalibrou no mesmo dia: volume carrega o
-  score sozinho, OI substitui volume quando existe, livro byte-idêntico, corte
-  inalterado. Contra as 20 cadeias reais: gate 18/18 (antes 2/18), 461/592
-  contratos (antes 3/592), 131 ainda reprovam. **Só vale em produção depois
-  de promovido** — até lá as Fases 14/16/17/18/19 seguem dark lá. Pendência
-  de raiz (open interest de verdade) é ingestão do MyData, opção 3. Números e
-  a candidata descartada: `docs/MEDICAO-gate-liquidez-mydata-2026-09-08.md`.
+  empatavam em 35,0. Quick `260908-bzf` mediu; `260908-dnl` recalibrou o score
+  (volume carrega sozinho, OI substitui quando existe, livro byte-idêntico);
+  `260908-ldg` trocou o corte binário por TRÊS FAIXAS com consentimento
+  explícito em DIFÍCIL e bloqueio servidor-side em SEM MERCADO — o usuário
+  vê o grau e decide, o simulador nunca inventa um fill. Contra as 20 cadeias
+  reais: 282 NEGOCIÁVEL / 227 DIFÍCIL / 83 SEM MERCADO. **Só vale em produção
+  depois de promovido (PR #31)** — até lá as Fases 14/16/17/18/19 seguem dark
+  lá. Pendência de raiz (open interest de verdade) é ingestão do MyData.
+  Números: `docs/MEDICAO-gate-liquidez-mydata-2026-09-08.md`.
 
 - 3 itens de backlog pré-existentes bloqueados por dependência humana
   (verificação ao vivo de `entradaAuto`; 2 human-checks da Fase 3) — não
@@ -242,6 +245,7 @@ Recent decisions affecting current work:
 | 260907-x69 | Corrigir os textos do card de FECHAMENTO de operação lastreada (achado ao vivo em staging/iPhone): a manchete de fechar uma put dizia "Comprar 1 put(s)…" acima de um botão que VENDE, e o CTA/confirmação falavam em "recomprar a call" e "destrava ações" para uma put que nunca travou ação. Frases `fechar_call_coberta`/`fechar_put_protecao` nos DOIS modos de `skill_ref`; `tipo`/`motivo` intocados (contrato de ~9 guardiões de igualdade exata). O dinheiro já estava certo (`side=="comprada"` → `store.sell_option`, credita) — defeito só de texto. **Dois guardiões afirmavam o texto errado** e foram atualizados com nota datada, não apagados. Publicado em F10-20260908-01 | 2026-09-07 | a90e0bf | Published | [260907-x69](./quick/260907-x69-corrigir-textos-do-card-de-fechamento-de/) |
 | 260908-bzf | Documentar que o gate de liquidez de opções ficou IMPOSSÍVEL de cruzar com `B3_OPTIONS_PROVIDER=mydata` (medido em produção ao vivo): os 60 contratos de PETR4 empatam em `liquidity_score=35,0` contra corte 40 — `oi_score` some (COTAHIST não publica open interest) e a penalidade de spread cai no padrão 25 porque o livro vem com um lado zerado. Teto 35 < corte 40, nenhum volume cruza. Fecha o follow-up aberto do ADR-020. **Documentação apenas** — recalibrar o gate é decisão de produto, adiada pelo Alex | 2026-09-08 | — | Documented | [260908-bzf](./quick/260908-bzf-documentar-gate-de-liquidez-impossivel-c/) |
 | 260908-dnl | Recalibrar `liquidity_score` para fonte sem open interest (opção 1, escolhida pelo Alex logo após a bzf): atividade = `max(curva(volume), curva(OI))` numa curva única até 75, livro byte-idêntico, corte 40 inalterado; piso sem livro = 1.000 unidades (onde a curva original saturava). Primeira candidata (penalidade de desconhecido 10) descartada por virar pass-through nas 20 cadeias reais. Contra produção: gate 18/18 (antes 2/18), 461/592 contratos (antes 3/592). Dois guardiões atualizados com nota datada, guardião novo com critérios fixados antes dos dados; mock fiel ao mydata (OI None, volume 5000) em commit separado. Suíte 2064 passed. **Aguarda deploy** | 2026-09-08 | (2 commits) | Tested | [260908-dnl](./quick/260908-dnl-recalibrar-liquidity-score-para-mydata-s/) |
+| 260908-ldg | Gate de liquidez em TRÊS FAIXAS com consentimento (quadro confirmado pelo Alex): NEGOCIÁVEL ≥55 normal · DIFÍCIL 30–54 aparece com a nota, só é selecionado se não houver negociável, e exige `window.confirm` próprio + `aceitaLiquidezDificil: true` no corpo (servidor recusa 400 sem o flag) · SEM MERCADO <30 bloqueado sem override (princípio 4). Limiares centralizados em `options_quant` (55/30, `faixa_de_liquidez`); `rastrear` em duas passadas; `proposta.liquidez` ganha faixa/volume/spreadPct/aviso com frase de `skill_ref` nos dois modos; ramo OFFLINE do `deviceStore` aplica a mesma régua (era o buraco real de paridade); verbete determinístico `liquidez-opcao`; guardião AST prova que o agente não abre estrutura. Fechamento NÃO bloqueia por faixa (deliberado). 12 guardiões atualizados com nota, 46 novos; plan-checker pegou 2 fatos errados do planner (fixture do collar é mista 67/53; 1.000 un. sem livro é DIFÍCIL). Contra as 20 cadeias reais: 282/227/83; RADL3 cai na 2ª passada. Suíte 2110 passed. **Aguarda deploy** | 2026-09-08 | (3 commits + merge) | Tested | [260908-ldg](./quick/260908-ldg-gate-de-liquidez-em-tres-faixas-com-cons/) |
 | 260907-vwl | Reforçar aviso visual de ordem pendente (achado ao vivo em staging/iPhone 2026-09-07 — compra de ABEV3 com mercado fechado, aviso "discreto" passou batido): bloco `color-mix(T.warn 14%)` reusando o pill PENDENTE, des-concatenado da frase de execução tudo-ou-nada, simétrico em BuyModal/SellModal; guardião estendido | 2026-09-07 | d78a0a5 | Tested (suíte canônica verde, sem --validate) | [260907-vwl](./quick/260907-vwl-reforcar-aviso-visual-de-ordem-pendente-/) |
 | 260907-vzp | Corrigir `setups[0]` cru sem filtrar aposentado em `App.jsx` (ADR-017 Decisão 1) — achado ao vivo em staging (compra ABEV3 gravou `setupEntrada` contraditório, invertendo a leitura de invalidação); `setupOperavel()`/`metaDeEntrada()` em `finance.js`, espelho de `setups.py:725` | 2026-09-07 | ebd23b2, e8dd43e | Verified | [260907-vzp](./quick/260907-vzp-corrigir-setups-0-cru-sem-filtrar-aposen/) |
 
