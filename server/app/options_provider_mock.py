@@ -34,11 +34,19 @@ MOCK_SPOT = {
 }
 MOCK_SPOT_DEFAULT = 30.00
 
-# Volume/OI fixos e generosos o bastante para o gate de liquidez
+# Volume fixo e generoso o bastante para o gate de liquidez
 # (`options_quant.liquidity_score`) aceitar todo contrato sintético — ver
 # acceptance_criteria do 14-01-PLAN.md ("score >= 40").
-MOCK_VOLUME = 500
-MOCK_OPEN_INTEREST = 2000
+#
+# ATUALIZADO 2026-09-08 (quick 260908-dnl): era volume 500 + OI 2000. O OI é
+# o que fazia o 500 passar — e o mydata, que este mock representa em staging,
+# NUNCA publica open interest (COTAHIST). Staging aprovava por um campo que
+# produção não tem: a mesma cegueira que o ADR-020 registrou e que só apareceu
+# ao medir a cadeia real. `None` espelha a fonte; 5.000 (50 lotes) dá ao pior
+# contrato sintético (OTM, spread ~15%) score 61 — margem, não fio de navalha
+# (com 500 seria 41 contra corte 40).
+MOCK_VOLUME = 5000
+MOCK_OPEN_INTEREST = None  # COTAHIST não publica — igual a options_provider_mydata.py
 MOCK_IV = 0.35
 MOCK_CURRENCY = "BRL"
 
