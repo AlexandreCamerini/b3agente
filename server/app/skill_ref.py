@@ -499,6 +499,27 @@ def num_br(valor) -> str:
     return ("-" + out) if neg else out
 
 
+def num_br_inteiro(valor) -> str:
+    """`num_br` sem a parte decimal — volume de contrato é sempre um inteiro
+    (unidades negociadas), e "300,00 unidades" seria falso precisão nenhuma
+    justifica. Reusa `num_br` para o ponto de milhar em vez de duplicar a
+    lógica de agrupamento (quick 260908-ldg, frase de consentimento de
+    liquidez)."""
+    return num_br(valor).split(",")[0]
+
+
+def num_br_percentual(valor) -> str:
+    """Percentual pt-BR sem decimais para o spread do livro de opções
+    (`{spread}` de `LIQUIDEZ_FRAGMENTOS["livro"]`) — "66%", nunca "66,47%":
+    a frase de consentimento cita a ordem de grandeza, não a casa decimal
+    (quick 260908-ldg)."""
+    try:
+        v = float(valor)
+    except (TypeError, ValueError):
+        return "0%"
+    return f"{round(v):d}%"
+
+
 # --- Vocabulário das operações lastreadas por modo (Fase 14, Plano 03) ------
 # ÚNICO lugar onde a frase da proposta de venda coberta/put de proteção nasce
 # — o front nunca compõe manchete de proposta (mesma regra já vigente para
@@ -545,6 +566,14 @@ OPCOES_LASTREADAS = {
         "degradado": "Proposta indisponível — cotação de opções degradada.",
         "caixa_insuficiente": "Caixa insuficiente para o prêmio desta put de proteção.",
         "liquidacao_forcada": "Esta call de {ticker} venceu dentro do dinheiro e não foi fechada a tempo — liquidada em dinheiro pelo valor intrínseco (R$ {valor}). Sua posição em ações não foi alterada.",
+        # Quick 260908-ldg (2026-09-08): consentimento de liquidez DIFÍCIL
+        # (30-54). O SERVIDOR exige `aceitaLiquidezDificil: true` no corpo
+        # quando a pior perna cai aqui (main.py, Task 2) — a UI exibe este
+        # texto VERBATIM num `window.confirm` (App.jsx, Task 3), nunca
+        # compõe a frase. "Continuar?" é o único ponto do módulo com
+        # pergunta de confirmação — o registro operador fala como mesa e
+        # pede a decisão explícita.
+        "liquidez_dificil": "Liquidez DIFÍCIL ({score}/100): {atividade}, {livro}. O preço simulado é o do último negócio; no mercado real sua ordem poderia não ser atendida a esse preço. Continuar?",
     },
     "educacional": {
         "call_coberta": "Se você tivesse vendido esta call coberta agora, receberia um prêmio de R$ {premioTotal} e travaria {qtyAcoes} ação(ões) até a recompra ou o vencimento.",
@@ -563,7 +592,24 @@ OPCOES_LASTREADAS = {
         "degradado": "Proposta indisponível — cotação de opções degradada.",
         "caixa_insuficiente": "Caixa insuficiente para o prêmio desta put de proteção.",
         "liquidacao_forcada": "Esta call de {ticker} venceu dentro do dinheiro e não foi fechada a tempo — liquidada em dinheiro pelo valor intrínseco (R$ {valor}). Sua posição em ações não foi alterada.",
+        # Quick 260908-ldg (2026-09-08): mesma condição do registro operador,
+        # sem verbo de ordem nem "Continuar?" — descreve a condição, como o
+        # resto do vocabulário educacional deste dict.
+        "liquidez_dificil": "Esta opção tem liquidez DIFÍCIL ({score}/100): {atividade}, {livro}. O preço simulado é o do último negócio — no mercado real, uma ordem a esse preço poderia não ser atendida.",
     },
+}
+
+# Fragmentos factuais do consentimento de liquidez (quick 260908-ldg) — iguais
+# nos dois modos, mesmo precedente de `HISTORICO["insuficiente"]`:
+# atividade/livro do dia são FATO de mercado, não decisão/oferta que muda de
+# registro por modo. `_bloco_liquidez` (opcoes_lastreadas.py) escolhe o
+# fragmento certo e interpola em `liquidez_dificil` acima; o texto visível
+# nasce inteiro aqui.
+LIQUIDEZ_FRAGMENTOS = {
+    "atividade": "{volume} unidades negociadas hoje",
+    "atividade_sem_negocio": "sem negócio registrado hoje",
+    "livro": "spread {spread}",
+    "livro_ausente": "sem livro publicado",
 }
 
 # `opcoes_lastreadas.propor` (Task 2) tem 3 motivos de ausência distintos que

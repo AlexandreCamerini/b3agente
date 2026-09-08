@@ -376,9 +376,17 @@ def test_propor_collar_canonico_liquidez_eh_a_menor_das_duas_pernas():
     # vez de somar; um lote = 100 reprova), a put de 100 cai a 20,1 e
     # `rastrear` nem a seleciona — `propor` devolveria `sem_contrato_liquido`
     # e o teste morreria no `r["proposta"]["liquidez"]`, sem testar o que se
-    # propõe a testar. Call 10.000 (60,0) / put 2.000 (46,0) preserva o
-    # propósito: as duas pernas líquidas E a put visivelmente menos, para a
-    # asserção "menor das duas" continuar diferenciando algo.
+    # propõe a testar. Call 10.000 / put 2.000 preserva o propósito: as duas
+    # pernas líquidas E a put visivelmente menos, para a asserção "menor das
+    # duas" continuar diferenciando algo.
+    #
+    # CORREÇÃO pós plan-checker (C1, quick 260908-ldg, 2026-09-08): valor real
+    # medido por execução direta é call 67,0 (NEGOCIÁVEL) / put 53,0
+    # (DIFÍCIL) — não "85,0/71,0, ambas NEGOCIÁVEL" como uma versão anterior
+    # do plano afirmava. A pior perna (put) já sai DIFÍCIL HOJE: este é o
+    # guardião natural de "collar leva a faixa da PIOR perna" — o caso MISTO
+    # que exercita o caminho de consentimento diretamente, sem fixture
+    # sintética adicional.
     calls = [_contrato(32.0, "PETR4F32", "call", price=1.0, volume=10000, oi=10000)]
     puts = [_contrato(28.0, "PETR4F28", "put", price=0.9, volume=2000, oi=2000)]
     r = opcoes_lastreadas.propor("PETR4", _cadeia(calls=calls, puts=puts), _SPOT, _PLANO_VENDER,
@@ -388,6 +396,7 @@ def test_propor_collar_canonico_liquidez_eh_a_menor_das_duas_pernas():
     menor = min(liq_call["score"], liq_put["score"])
     assert liq_put["score"] < liq_call["score"]  # a fixture escolhida realmente diferencia
     assert r["proposta"]["liquidez"]["score"] == menor
+    assert r["proposta"]["liquidez"]["faixa"] == "DIFÍCIL"
 
 
 def test_propor_collar_canonico_chips_tem_4_entradas_credito():

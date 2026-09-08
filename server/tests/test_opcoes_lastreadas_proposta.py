@@ -306,7 +306,14 @@ def test_propor_campos_preexistentes_intactos_apos_campos_de_payoff():
     assert p["premioUnitario"] == 1.0
     assert p["premioTotal"] == 300.0
     assert p["lastro"] == {"t": "PETR4", "qtyLivre": 300}
-    assert set(p["liquidez"].keys()) == {"score", "label"}
+    # ATUALIZADO 2026-09-08 (quick 260908-ldg): o dict ganhou `faixa`/`volume`/
+    # `spreadPct`/`aviso` e `label` foi renomeado para `faixa` — continua
+    # IGUALDADE EXATA (não virou `>=`), senão deixaria de ser guardião. A
+    # fixture (`_CALLS_PADRAO`, volume=1000/oi=1000, price=1.0) tem score
+    # 47,0 = DIFÍCIL, então este mesmo teste exercita o `aviso` não-vazio.
+    assert set(p["liquidez"].keys()) == {"score", "faixa", "volume", "spreadPct", "aviso"}
+    assert p["liquidez"]["faixa"] == "DIFÍCIL"
+    assert p["liquidez"]["aviso"]
     assert p["manchete"].startswith("Vender")
     assert p["didatica"].startswith("Se você tivesse")
     assert [c["k"] for c in p["chips"]] == ["prazo", "strike", "prêmio", "liquidez"]
