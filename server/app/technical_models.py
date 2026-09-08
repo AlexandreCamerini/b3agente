@@ -230,8 +230,12 @@ def build_context(ticker: str, quote: dict | None, candles: list[dict], model: s
     first_63 = candles[-64] if len(candles) >= 64 else candles[0]
     first_252 = candles[-253] if len(candles) >= 253 else candles[0]
     piv = _pivots(candles)
-    avg_vol_21 = sum(volumes[-21:]) / min(21, len(volumes)) if volumes else None
-    rel_vol = (volumes[-1] / avg_vol_21) if avg_vol_21 else None
+    # Fonte única (2026-09-07): antes a média aqui incluía o candle atual
+    # (21 com ele dentro), diluindo o próprio pico que `relativeVolume`
+    # deveria medir — divergia do critério dos setups. Agora é a mesma
+    # aritmética de setups/summary (indicators.volume_relativo).
+    volu_rel = indicators.volume_relativo(volumes, minimo=1)
+    rel_vol = volu_rel["ratio"]
     atr14 = summary.get("atr14")
     atr_pct = _r((atr14 / last["close"] * 100), 2) if atr14 and last.get("close") else None
     ema9 = _last_valid(ind.get("ema9"))
@@ -301,8 +305,12 @@ def build_context(ticker: str, quote: dict | None, candles: list[dict], model: s
         },
         "volume": {
             "lastVolume": int(volumes[-1] or 0),
-            "avgVolume21": int(avg_vol_21 or 0),
+            # avgVolume21 → avgVolume20: a chave antiga nomeava uma média que
+            # incluía o candle atual; null (nunca 0) quando não há referência.
+            "avgVolume20": int(volu_rel["media"]) if volu_rel["media"] is not None else None,
+            "volumeJanela": volu_rel["n"],
             "relativeVolume": _r(rel_vol, 2),
+            "volumeState": summary.get("volState"),
             "obvLast": _last_valid(ind.get("obv")),
             "obvSlope21Pct": _slope(ind.get("obv") or [], 21),
         },

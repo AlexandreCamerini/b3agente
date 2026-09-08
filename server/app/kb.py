@@ -53,7 +53,7 @@ import re
 import unicodedata
 from typing import Optional
 
-from . import conceitos, mercado_ref, skill_ref
+from . import conceitos, indicators, mercado_ref, skill_ref
 from .technical_models import MODELS
 
 
@@ -152,6 +152,13 @@ def _timing_verbetes() -> list:
 #    que referenciar de lá — só `indicators.py`/`technical_models.py` para os
 #    NÚMEROS que o pacote técnico já produz, citados aqui em prosa).
 # =============================================================================
+def _x(v) -> str:
+    """Corte de volume em PT-BR: 2.0 → '2×', 1.5 → '1,5×'. Interpolado de
+    `indicators.VOL_*` para o verbete não envelhecer quando o corte mudar."""
+    txt = ("%g" % v).replace(".", ",")
+    return txt + "×"
+
+
 _INDICADORES = [
     {
         "id": "ind-rsi",
@@ -353,7 +360,46 @@ _INDICADORES = [
                 "disso, o app não conta o rompimento como confirmado por volume."
             ),
         },
-        "veja": ["familia-volume", "estr-rompimento"],
+        "veja": ["familia-volume", "estr-rompimento", "ind-volume-anormal"],
+    },
+    {
+        # 2026-09-07 — nasceu da pergunta "dá para mapear carteiras baleias?".
+        # O verbete existe para responder ISSO de graça e sem LLM: o dado que
+        # o app recebe (COTAHIST/Yahoo) é agregado por pregão, sem
+        # participante — o indicador mede que houve dinheiro grande, não quem.
+        # "baleia" está nos termos de propósito: a pergunta cai aqui e recebe
+        # a limitação do dado, em vez de a IA inventar uma narrativa de causa.
+        "id": "ind-volume-anormal",
+        "termos": ("volume anormal", "volume fora do normal", "pico de volume",
+                   "volume institucional", "baleia", "baleias", "carteira baleia",
+                   "carteiras baleias", "whale", "volanormal", "volstate", "volratio20"),
+        "texto": {
+            "educacional": (
+                "Volume anormal é quando o volume do candle mais recente fica em pelo "
+                f"menos {_x(indicators.VOL_ANORMAL_RATIO)} a média dos {indicators.VOL_JANELA} "
+                f"candles anteriores com negócio (entre {_x(indicators.VOL_ACIMA_RATIO)} e "
+                f"{_x(indicators.VOL_ANORMAL_RATIO)} o app diz 'acima'; até "
+                f"{_x(indicators.VOL_ABAIXO_RATIO)}, 'abaixo'). É a leitura de que HOUVE "
+                "dinheiro grande no papel naquele candle — não de QUEM operou: o dado que "
+                "o app recebe é o total negociado por pregão, sem identificar investidor, "
+                "corretora ou 'baleia'. Rebalanceamento de índice, vencimento de opções e "
+                "fluxo de ETF produzem o mesmo pico, por isso o app não rotula a causa. O "
+                f"estado só é calculado com pelo menos {indicators.VOL_MIN_CANDLES} candles "
+                "de referência; com menos, o app mostra 'sem dado' em vez de estimar. A "
+                "direção ('alta' ou 'baixa') diz o que o PREÇO fez naquele candle, não "
+                "quem comprou ou vendeu."
+            ),
+            "operador": (
+                f"Volume anormal: ≥ {_x(indicators.VOL_ANORMAL_RATIO)} a média dos "
+                f"{indicators.VOL_JANELA} candles anteriores (acima ≥ "
+                f"{_x(indicators.VOL_ACIMA_RATIO)}, abaixo ≤ {_x(indicators.VOL_ABAIXO_RATIO)}). "
+                "Mede que houve dinheiro grande no candle, não quem — dado agregado por "
+                "pregão, sem participante; índice, vencimento e ETF geram o mesmo pico. "
+                f"Estado só com ≥ {indicators.VOL_MIN_CANDLES} candles de referência; "
+                "z-score é magnitude para leitura, nunca critério."
+            ),
+        },
+        "veja": ["familia-volume", "ind-volume-relativo", "ind-obv", "mkt-liquidez"],
     },
     {
         "id": "ind-volatilidade-historica",
@@ -622,7 +668,7 @@ _FAMILIAS = [
                 "famílias direcionais."
             ),
         },
-        "veja": ["ind-obv", "ind-volume-relativo"],
+        "veja": ["ind-obv", "ind-volume-relativo", "ind-volume-anormal"],
     },
     {
         "id": "familia-volatilidade",
