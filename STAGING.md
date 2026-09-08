@@ -137,6 +137,52 @@ Pendência registrada, não resolvida: mover `railway.json` para a raiz do repo
 (resolveria builder e backup de uma vez, mas mexe na config que produção usa
 — exige janela dedicada e produção sob observação).
 
+### Ordem pendente NUNCA executa em staging (achado de 2026-09-07)
+
+O scheduler executa a fila de ordens pendentes com
+`candle_provider.get_quotes_exclusive` — brapi **exclusiva, sem fallback para
+o Yahoo** de propósito: preço de execução não pode vir de fonte secundária em
+silêncio. Staging não tem `BRAPI_TOKEN` (degradação deliberada, ver a seção
+"Por que as credenciais de staging são propositalmente ruins"), então toda
+ordem pendente fica parada com este erro gravado nela:
+
+```
+fonte exclusiva (brapi) sem cotação: brapi sem BRAPI_TOKEN
+    — fonte exclusiva do agente para ABEV3
+```
+
+Isso **não é defeito** — é o princípio 4 do CLAUDE.md operando: sem preço
+utilizável a ordem permanece pendente e o motivo é registrado, em vez de o
+motor inventar um preço. O comportamento foi observado ao vivo e está correto.
+
+Dar um `BRAPI_TOKEN` a staging **não** é a saída: a cota de 15k requisições/mês
+é por TOKEN, não por ambiente — staging passaria a comer o orçamento de
+produção.
+
+**Como testar fluxo que precisa de posição executada, então:** compre com o
+mercado ABERTO. O caminho direto de compra (`main.py`, `if
+pregao.in_market_hours():`) usa `candle_provider.get_quote` — o provider
+normal, que em staging é o Yahoo — e executa na hora, sem tocar na fila nem
+na brapi. Fora do horário real, force com `B3_DEV_MERCADO_ABERTO=1`.
+
+Atenção: forçar o pregão sozinho não basta. O bloco do scheduler exige os DOIS
+portões (`agent.py`: `if not kill_switch_on() and in_market_hours():`), e
+staging nasceu com `B3_AGENT_KILL=1`. Em 2026-09-07 os dois foram ligados
+juntos:
+
+```bash
+railway variables --environment staging --service b3agente \
+  --set "B3_DEV_MERCADO_ABERTO=1" --set "B3_AGENT_KILL=0"
+```
+
+Verificado no mesmo minuto: produção ficou intacta (mesmo build, mesmas
+variáveis). Diferente de `service source connect`, o `railway variables` é
+mesmo escopado por environment.
+
+Lembre que o kill-switch segue memória → **DB** → env: se alguém já gravou o
+override pelo portal admin, mudar a env não tem efeito nenhum. Confira com
+`SELECT * FROM admin_config WHERE key='agentKillSwitch'` antes de culpar a env.
+
 ### Python: divergência resolvida em 2026-09-07
 
 Antes não havia pin nenhum e cada ambiente pegava o default do seu builder:
