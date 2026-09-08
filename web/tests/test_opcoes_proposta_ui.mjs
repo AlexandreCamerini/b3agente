@@ -47,7 +47,10 @@ ok("nenhuma chave de copy.js carrega a manchete do motor (\"Se você tivesse\")"
 // ---- Task 3: leitura estática de App.jsx --------------------------------
 // A manchete da proposta vem do backend: `p.manchete` é renderizado direto;
 // o front nunca compõe a frase (guardrail CVM, T-14-22).
-ok("componente PropostaLastreada existe", /function PropostaLastreada\(\{ r, operador, cp, busy, onAbrir, onFechar, posAberta \}\)/.test(app));
+// ATUALIZADO 2026-09-08 (quick 260908-ldg): assinatura ganhou `onVerbeteLiquidez`
+// (D-09, chip de liquidez → verbete) — guardião de igualdade exata continua
+// exigindo a assinatura INTEIRA, agora com o parâmetro novo.
+ok("componente PropostaLastreada existe", /function PropostaLastreada\(\{ r, operador, cp, busy, onAbrir, onFechar, posAberta, onVerbeteLiquidez \}\)/.test(app));
 ok("PropostaLastreada vem ANTES de OpcoesCamada no arquivo (definição)",
   app.indexOf("function PropostaLastreada") < app.indexOf("function OpcoesCamada"));
 
@@ -87,6 +90,44 @@ ok("CTA (<button) condicionado a `operador`", /\{operador && \([\s\S]{0,60}<butt
 // caminho da CALL coberta (T-14-24).
 ok("window.confirm com cp.confirmAbrirCoberta existe", /window\.confirm\(cp\.confirmAbrirCoberta\(/.test(app));
 ok("window.confirm com cp.confirmFecharCoberta existe", /window\.confirm\(cp\.confirmFecharCoberta\(/.test(app));
+
+// ---------------------------------------------------------------------------
+// Quick 260908-ldg (D-03, G11): consentimento de liquidez é um confirm
+// PRÓPRIO, disparado ANTES do confirm de estrutura (cp.confirmAbrirCoberta),
+// nos DOIS handlers de aceite. A PUT, que nunca teve confirm nenhum, passa a
+// ter este quando a faixa é DIFÍCIL — mesmo padrão de extração por handler
+// já usado em test_opcoes_collar_ui.mjs (arquivo autocontido, sem import
+// cruzado de teste).
+// ---------------------------------------------------------------------------
+(() => {
+  const idxs = [];
+  const reOnAbrir = /const onAbrirLastreada = async \(\) => \{/g;
+  const reAceitar = /const aceitarCandidato = async \(p\) => \{/g;
+  let m;
+  while ((m = reOnAbrir.exec(app))) idxs.push(m.index);
+  while ((m = reAceitar.exec(app))) idxs.push(m.index);
+  idxs.sort((a, b) => a - b);
+  ok("existem exatamente 2 handlers de aceite (onAbrirLastreada + aceitarCandidato)", idxs.length === 2, String(idxs.length));
+
+  idxs.forEach((iOnAbrir, n) => {
+    const iOnFechar = app.indexOf("const onFecharLastreada", iOnAbrir);
+    const handler = iOnFechar > iOnAbrir ? app.slice(iOnAbrir, iOnFechar) : "";
+    ok(`handler de aceite #${n + 1}: window.confirm(liq.aviso) aparece exatamente 1 vez`,
+      (handler.match(/window\.confirm\(liq\.aviso\)/g) || []).length === 1);
+    const iLiq = handler.indexOf("window.confirm(liq.aviso)");
+    const iCoberta = handler.indexOf("window.confirm(cp.confirmAbrirCoberta(");
+    ok(`handler de aceite #${n + 1}: confirmação de liquidez existe`, iLiq > -1);
+    // iCoberta pode ser -1 no handler que só tem o ramo da PUT sem CALL
+    // coberta neste ponto específico do código-fonte — a asserção de ordem
+    // só se aplica quando os dois confirms existem no MESMO handler.
+    if (iCoberta > -1) {
+      ok(`handler de aceite #${n + 1}: confirmação de liquidez vem ANTES da confirmação de estrutura (venda coberta)`,
+        iLiq > -1 && iLiq < iCoberta);
+    }
+    ok(`handler de aceite #${n + 1}: aceitaLiquidezDificil é declarado no handler`,
+      handler.includes("aceitaLiquidezDificil"));
+  });
+})();
 
 // ---------------------------------------------------------------------------
 // Guardiões novos (2026-09-07, quick 260907-x69): achado ao vivo em staging

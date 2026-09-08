@@ -45,22 +45,33 @@ const linhasSemComentario = app.split("\n").filter((l) => !/^\s*\/\//.test(l));
 const fonteSemComentario = linhasSemComentario.join("\n");
 
 // ---- (1) Copy nos dois ramos ---------------------------------------------
+// ATUALIZADO 2026-09-08 (quick 260908-ldg, G10): `tiraOpcoesSemMercado`
+// entra na lista — terceiro caso do estado vazio (D-07), com as MESMAS
+// asserções de distinção dos dois anteriores.
 const CHAVES = [
   "tiraOpcoesTitulo", "tiraOpcoesVerDetalhe", "tiraOpcoesCarregando",
-  "tiraOpcoesSemCobertura", "tiraOpcoesSemSetup", "linhaPropostaNaPosicao",
+  "tiraOpcoesSemCobertura", "tiraOpcoesSemSetup", "tiraOpcoesSemMercado", "linhaPropostaNaPosicao",
 ];
-ok("6 chaves da tira existem em COPY.estudo e COPY.operador",
+ok("7 chaves da tira existem em COPY.estudo e COPY.operador",
   CHAVES.every((k) => k in COPY.estudo) && CHAVES.every((k) => k in COPY.operador));
-ok("todas as 6 chaves são string literal (não função)",
+ok("todas as 7 chaves são string literal (não função)",
   CHAVES.every((k) => typeof COPY.estudo[k] === "string") && CHAVES.every((k) => typeof COPY.operador[k] === "string"));
 ok("tiraOpcoesSemCobertura difere entre Estudo e Operador (voz de professor x voz de mesa)",
   COPY.estudo.tiraOpcoesSemCobertura !== COPY.operador.tiraOpcoesSemCobertura);
 ok("tiraOpcoesSemSetup difere entre Estudo e Operador",
   COPY.estudo.tiraOpcoesSemSetup !== COPY.operador.tiraOpcoesSemSetup);
+ok("tiraOpcoesSemMercado difere entre Estudo e Operador",
+  COPY.estudo.tiraOpcoesSemMercado !== COPY.operador.tiraOpcoesSemMercado);
 ok("dentro de Estudo, SemCobertura e SemSetup são frases distintas (dois motivos de NAV-03, não duplicados)",
   COPY.estudo.tiraOpcoesSemCobertura !== COPY.estudo.tiraOpcoesSemSetup);
 ok("dentro de Operador, SemCobertura e SemSetup são frases distintas",
   COPY.operador.tiraOpcoesSemCobertura !== COPY.operador.tiraOpcoesSemSetup);
+ok("dentro de Estudo, SemMercado ≠ SemCobertura e SemMercado ≠ SemSetup",
+  COPY.estudo.tiraOpcoesSemMercado !== COPY.estudo.tiraOpcoesSemCobertura &&
+  COPY.estudo.tiraOpcoesSemMercado !== COPY.estudo.tiraOpcoesSemSetup);
+ok("dentro de Operador, SemMercado ≠ SemCobertura e SemMercado ≠ SemSetup",
+  COPY.operador.tiraOpcoesSemMercado !== COPY.operador.tiraOpcoesSemCobertura &&
+  COPY.operador.tiraOpcoesSemMercado !== COPY.operador.tiraOpcoesSemSetup);
 
 // ---- Âncoras de função usadas pelas fatias abaixo ------------------------
 const iOO = app.indexOf("function OportunidadesOpcoes");
@@ -93,6 +104,8 @@ ok("OportunidadesOpcoes referencia cp.tiraOpcoesSemCobertura",
   fatiaOO.includes("cp.tiraOpcoesSemCobertura"));
 ok("OportunidadesOpcoes referencia cp.tiraOpcoesSemSetup",
   fatiaOO.includes("cp.tiraOpcoesSemSetup"));
+ok("OportunidadesOpcoes referencia cp.tiraOpcoesSemMercado (quick 260908-ldg, D-07)",
+  fatiaOO.includes("cp.tiraOpcoesSemMercado"));
 ok("OportunidadesOpcoes referencia cp.tiraOpcoesCarregando",
   fatiaOO.includes("cp.tiraOpcoesCarregando"));
 ok("o ramo de carregando é avaliado ANTES do ramo vazio (a tira não mente durante a busca)",
@@ -192,9 +205,11 @@ ok('getElementById("posicao-" + t) seguido de scrollIntoView( presente',
 ok("abrirOpcoesDe chama setOpcoesFor(",
   /const abrirOpcoesDe = \(t\) => \{\s*setOpcoesFor\(/.test(fatiaCarteira));
 
-// ---- (11) Assinatura de PropostaLastreada intocada ---------------------------
-ok("assinatura de PropostaLastreada permanece { r, operador, cp, busy, onAbrir, onFechar, posAberta }",
-  /function PropostaLastreada\(\{ r, operador, cp, busy, onAbrir, onFechar, posAberta \}\)/.test(app));
+// ---- (11) Assinatura de PropostaLastreada ---------------------------
+// ATUALIZADO 2026-09-08 (quick 260908-ldg): ganhou `onVerbeteLiquidez`
+// (D-09) — guardião de igualdade exata continua, agora com o campo novo.
+ok("assinatura de PropostaLastreada é { r, operador, cp, busy, onAbrir, onFechar, posAberta, onVerbeteLiquidez }",
+  /function PropostaLastreada\(\{ r, operador, cp, busy, onAbrir, onFechar, posAberta, onVerbeteLiquidez \}\)/.test(app));
 ok("<PropostaLastreada aparece 2x no fonte (AtivoCard + PropostaDaPosicao — a Fase 18 ADICIONOU um ponto, não moveu o existente)",
   (fonteSemComentario.match(/<PropostaLastreada/g) || []).length === 2);
 

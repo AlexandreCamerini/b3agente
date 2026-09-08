@@ -94,6 +94,15 @@ ok("api.js monta ?multiperna=1 quando o parâmetro é passado",
 //    coleta as DUAS formas de handler (a antiga em AtivoCard, que continua
 //    `onAbrirLastreada`, e a nova em PropostaDaPosicao) e continua exigindo
 //    TOTAL de 2 handlers.
+//
+//    ATUALIZADO 2026-09-08 (quick 260908-ldg): cada handler ganhou um SEGUNDO
+//    `window.confirm` — o de CONSENTIMENTO DE LIQUIDEZ (`window.confirm(liq.aviso)`),
+//    que dispara ANTES do de estrutura quando a pior perna é DIFÍCIL. Este
+//    guardião era FRÁGIL POR CONSTRUÇÃO por contar só `confirmAbrirCollar(` —
+//    o plano exige confirmar explicitamente que a contagem de
+//    `confirmAbrirCollar` continua 1 (o novo confirm usa `liq.aviso`, não
+//    `cp.`) E acrescentar a asserção POSITIVA do segundo confirm, em vez de
+//    deixá-la implícita/confiar que "não quebrou por acidente".
 // ---------------------------------------------------------------------------
 (() => {
   const idxs = [];
@@ -115,13 +124,23 @@ ok("api.js monta ?multiperna=1 quando o parâmetro é passado",
     ok(`handler de aceite #${n + 1} tem conteúdo (parse mudo)`, handler.length > 100, String(handler.length));
 
     const ocorrenciasConfirm = (handler.match(/window\.confirm\(cp\.confirmAbrirCollar\(/g) || []).length;
-    ok(`handler de aceite #${n + 1}: window.confirm(cp.confirmAbrirCollar( aparece exatamente 1 vez`, ocorrenciasConfirm === 1, String(ocorrenciasConfirm));
+    ok(`handler de aceite #${n + 1}: window.confirm(cp.confirmAbrirCollar( aparece exatamente 1 vez (o novo confirm de liquidez usa liq.aviso, não cp.)`, ocorrenciasConfirm === 1, String(ocorrenciasConfirm));
 
     const iConfirm = handler.indexOf("window.confirm(cp.confirmAbrirCollar(");
     const iExec = handler.indexOf("A.abrirCollar(");
     ok(`handler de aceite #${n + 1}: confirmação do collar existe dentro do handler`, iConfirm > -1);
     ok(`handler de aceite #${n + 1}: A.abrirCollar( existe dentro do handler`, iExec > -1);
     ok(`handler de aceite #${n + 1}: confirmação vem ANTES da execução no mesmo handler`, iConfirm > -1 && iExec > -1 && iConfirm < iExec);
+
+    // Quick 260908-ldg: SEGUNDO confirm (liquidez), positivamente exercitado
+    // — presente 1x, e ANTES do confirm de estrutura (liquidez decide se a
+    // operação faz sentido; o de estrutura decide o que ela trava).
+    const ocorrenciasLiq = (handler.match(/window\.confirm\(liq\.aviso\)/g) || []).length;
+    ok(`handler de aceite #${n + 1}: window.confirm(liq.aviso) (consentimento de liquidez) aparece exatamente 1 vez`, ocorrenciasLiq === 1, String(ocorrenciasLiq));
+    const iConfirmLiq = handler.indexOf("window.confirm(liq.aviso)");
+    ok(`handler de aceite #${n + 1}: confirmação de liquidez existe dentro do handler`, iConfirmLiq > -1);
+    ok(`handler de aceite #${n + 1}: confirmação de liquidez vem ANTES da confirmação de estrutura (collar)`,
+      iConfirmLiq > -1 && iConfirm > -1 && iConfirmLiq < iConfirm);
   });
 })();
 
