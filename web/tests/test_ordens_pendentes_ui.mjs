@@ -117,8 +117,17 @@ for (const [nome, corpo, fn] of [["BuyModal", buyModal, "ordemPendenteAvisoCompr
   const janela = corpo.slice(Math.max(0, i - 250), i + 60);
   ok(nome + ": " + fn + " está dentro de um elemento com color-mix(...T.warn...) — bloco destacado, não boilerplate solto",
     i >= 0 && /color-mix\(in srgb, " \+ T\.warn/.test(janela));
-  ok(nome + ": " + fn + " NÃO aparece mais na mesma expressão que 'preenchimento parcial de ordem' (des-concatenação travada)",
-    i >= 0 && !corpo.slice(i, i + 220).includes("preenchimento parcial de ordem"));
+  // Checagem estrutural, não por distância de caracteres: um `</div>` precisa
+  // fechar o bloco do aviso ANTES da frase de tudo-ou-nada aparecer — prova
+  // que são dois elementos irmãos, não a mesma expressão concatenada. Uma
+  // janela de N caracteres foi tentada primeiro e se mostrou frágil (a versão
+  // NOVA do BuyModal fica a 207 caracteres da frase e a versão ANTIGA do
+  // SellModal fica a 222 — janelas fixas ora deixavam passar a regressão ora
+  // acusavam falso positivo no código correto).
+  const j = corpo.indexOf("preenchimento parcial de ordem", i);
+  const entreOsDois = i >= 0 && j > i ? corpo.slice(i, j) : "";
+  ok(nome + ": " + fn + " NÃO aparece mais na mesma expressão que 'preenchimento parcial de ordem' (des-concatenação travada — um </div> fecha o bloco do aviso antes da frase de tudo-ou-nada)",
+    i >= 0 && j > i && entreOsDois.includes("</div>"));
 }
 ok("BuyModal: frase de execução tudo-ou-nada continua presente (não foi perdida na edição)",
   buyModal.includes("Esta simulação executa por completo ou não executa"));
