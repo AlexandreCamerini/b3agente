@@ -55,6 +55,12 @@ ESPEC-Modo-Estudo-Ensino-otimizado.md
 # um caminho absoluto aqui dentro quebra o repositório para todo mundo.
 !.claude/launch.json
 
+# EXCEÇÃO: skills de projeto (didatica-boris etc.) são ferramenta de time,
+# documentadas no CLAUDE.md como Project Skills — precisam existir em
+# worktrees isolados (que só materializam arquivos rastreados pelo git),
+# senão o executor de uma fase falha silenciosamente ao não achá-las.
+!.claude/skills/
+
 # saídas das medições pontuais do Yahoo (scripts/medir-yahoo-*) — evidência
 # fica em docs/ quando vale guardar; o resto é rascunho de execução.
 medicao-railway-*.txt
