@@ -398,9 +398,23 @@ export const COPY = {
     eyebrowPropostaPut: "PROPOSTA · PUT DE PROTEÇÃO",
     ctaVendaCoberta: (n, ticker, strike, premio) => `Vender ${n}× CALL ${ticker} · strike ${strike} — recebe R$ ${premio}`,
     ctaPutProtecao: (n, ticker, strike, premio) => `Comprar ${n}× PUT ${ticker} · strike ${strike} — custa R$ ${premio}`,
-    ctaFecharLastreada: (custo) => `Recomprar a call — R$ ${custo}`,
+    // ATUALIZADO 2026-09-07 (quick 260907-x69): as duas funções abaixo foram
+    // escritas na Fase 14 só para a call coberta e nunca generalizadas quando
+    // o fechamento da put entrou — fechar uma put de proteção mostrava
+    // "Recomprar a call — R$ X" e uma confirmação que fala em "destrava
+    // ações", que a put nunca travou (achado ao vivo em staging, iPhone,
+    // Modo Operador, put ABEV3 strike 30,00). O parâmetro de lado (`isCall`)
+    // entra POR ÚLTIMO de propósito: chamada antiga (3 args) degrada pro
+    // ramo da put em vez de quebrar. `confirmFecharCoberta` mantém o nome
+    // herdado — renomear mexeria em CHAVES_LASTREADAS (guardião web) sem
+    // ganho — apesar de cobrir os dois lados agora.
+    ctaFecharLastreada: (custo, isCall) => isCall
+      ? `Recomprar a call — R$ ${custo}`
+      : `Vender a put — recebe R$ ${custo}`,
     confirmAbrirCoberta: (n, ticker, qty) => `Vender ${n} call(s) de ${ticker} trava ${qty} ação(ões) do seu lote-lastro até você recomprar a call ou ela vencer. Continuar?`,
-    confirmFecharCoberta: (custo, qty, ticker) => `Recomprar esta call por R$ ${custo} destrava ${qty} ação(ões) de ${ticker} imediatamente. Continuar?`,
+    confirmFecharCoberta: (custo, qty, ticker, isCall) => isCall
+      ? `Recomprar esta call por R$ ${custo} destrava ${qty} ação(ões) de ${ticker} imediatamente. Continuar?`
+      : `Vender esta put por R$ ${custo} encerra a proteção de ${qty} ação(ões) de ${ticker} imediatamente. Continuar?`,
     verCadeiaCompleta: "ver cadeia completa",
     propostaIndisponivelDegradada: "Proposta indisponível — cotação de opções degradada.",
     propostaVaziaTitulo: "Sem proposta agora",
