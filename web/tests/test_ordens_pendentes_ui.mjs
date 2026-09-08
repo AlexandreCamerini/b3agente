@@ -104,6 +104,27 @@ ok("BuyModal/SellModal: rótulo do CTA continua vindo de confirmarCompra/confirm
 ok("validação de caixa insuficiente inalterada (cost <= data.cash && q.price != null)",
   /const ok = cost <= data\.cash && q\.price != null;/.test(buyModal));
 
+// ------------------------------------ Quick task 260907-vwl (2026-09-07):
+// achado ao vivo em staging/iPhone — usuário comprou 100 ABEV3 com o mercado
+// fechado, a ordem virou pendente (R$ 1.574 de caixa reservado), ele VIU o
+// aviso mas passou batido porque vinha diluído no slot T.textFaint 11px,
+// concatenado com a frase de execução tudo-ou-nada. Estes asserts travam o
+// bloco destacado (T.warn 14%) e a des-concatenação, nos dois ramos.
+ok("SellModal também usa T.warn (paridade com BuyModal, já exigido acima)",
+  sellModal.includes("T.warn"));
+for (const [nome, corpo, fn] of [["BuyModal", buyModal, "ordemPendenteAvisoCompra"], ["SellModal", sellModal, "ordemPendenteAvisoVenda"]]) {
+  const i = corpo.indexOf(fn + "(");
+  const janela = corpo.slice(Math.max(0, i - 250), i + 60);
+  ok(nome + ": " + fn + " está dentro de um elemento com color-mix(...T.warn...) — bloco destacado, não boilerplate solto",
+    i >= 0 && /color-mix\(in srgb, " \+ T\.warn/.test(janela));
+  ok(nome + ": " + fn + " NÃO aparece mais na mesma expressão que 'preenchimento parcial de ordem' (des-concatenação travada)",
+    i >= 0 && !corpo.slice(i, i + 220).includes("preenchimento parcial de ordem"));
+}
+ok("BuyModal: frase de execução tudo-ou-nada continua presente (não foi perdida na edição)",
+  buyModal.includes("Esta simulação executa por completo ou não executa"));
+ok("SellModal: frase de execução tudo-ou-nada continua presente (não foi perdida na edição)",
+  sellModal.includes("Esta simulação executa por completo ou não executa"));
+
 // --------------------------------------------- Task 1: confirmBuy/confirmSell
 const confirmBuy = app.slice(app.indexOf("confirmBuy: async () => {"), app.indexOf("sell: async (t) => {"));
 const confirmSell = app.slice(app.indexOf("confirmSell: async () => {"), app.indexOf("refreshWlScan: async () => {"));
