@@ -398,7 +398,11 @@ def proposta_fechar(pos_opcao, chain, modo, hoje):
     `propor()` — sucesso tem `motivo` == `tipo`; qualquer ausência
     (cadeia degradada, contrato sumiu da cadeia, sem prêmio válido) sempre
     `"degradado"` (CLAUDE.md princípio 4: nunca inventar prêmio, mesmo já
-    sabendo qual é o contrato)."""
+    sabendo qual é o contrato). Isso segue verdade após 2026-09-07 (quick
+    260907-x69): `manchete`/`didatica` agora nascem de `fechar_<tipo>` em
+    `skill_ref.OPCOES_LASTREADAS` — frase de FECHAMENTO, distinta da frase de
+    abertura que `propor()` usa — enquanto `tipo`/`motivo` continuam
+    idênticos ao valor anterior."""
     if not isinstance(chain, dict) or chain.get("providerStatus") != "ok":
         return {"proposta": None, "motivo": "degradado"}
     if not isinstance(pos_opcao, dict):
@@ -440,8 +444,13 @@ def proposta_fechar(pos_opcao, chain, modo, hoje):
         "n": str(contratos), "ticker": underlying, "strike": skill_ref.num_br(strike),
         "premioTotal": skill_ref.num_br(premio_total), "qtyAcoes": str(qty_acoes),
     }
-    manchete = skill_ref.opcoes_lastreadas_txt(modo, tipo, **dados)
-    didatica = skill_ref.opcoes_lastreadas_txt("educacional", tipo, **dados)
+    # A chave de TEXTO diverge de `tipo` de propósito (2026-09-07, quick
+    # 260907-x69): `tipo`/`motivo` são contrato do front + ~9 guardiões de
+    # igualdade exata e não podem mudar; a FRASE de fechamento é distinta da
+    # de abertura (mesma posição, ação oposta) e vive em `fechar_<tipo>`.
+    chave_texto = "fechar_" + tipo
+    manchete = skill_ref.opcoes_lastreadas_txt(modo, chave_texto, **dados)
+    didatica = skill_ref.opcoes_lastreadas_txt("educacional", chave_texto, **dados)
 
     lastro = pos_opcao.get("lastro") or {}
     qty_livre_val = lastro.get("qty", qty_acoes)
