@@ -24,11 +24,17 @@ STAGING_API="https://b3agente-staging.up.railway.app"
 PROD_API="https://boris.semente.dev"
 
 RECRIAR=0
+NO_OPEN=0             # --no-open: builda/sincroniza mas NÃO abre o Xcode nem
+                      # imprime as instruções de Run — usado por scripts/
+                      # distribuir-iphone.sh, que decide DEPOIS do build qual
+                      # Xcode abrir (Run direto × Archive/TestFlight) e evita
+                      # abrir o projeto duas vezes com instrução trocada.
 API_BASE=""          # vazio = default do app (PROD_BASE, ver api.js)
 ALVO_ROTULO="PRODUÇÃO (default do app)"
 while [ $# -gt 0 ]; do
   case "$1" in
     --recriar-ios) RECRIAR=1; shift;;
+    --no-open)     NO_OPEN=1; shift;;
     --staging)     API_BASE="$STAGING_API"; ALVO_ROTULO="STAGING"; shift;;
     --api-base)    [ -n "${2:-}" ] || { echo "--api-base exige uma URL" >&2; exit 1; }
                    API_BASE="$2"; ALVO_ROTULO="CUSTOM"; shift 2;;
@@ -154,6 +160,9 @@ if [ -f "$PLIST" ]; then
   ok "CFBundleDisplayName = Boris+"
 fi
 
+if [ "$NO_OPEN" = "1" ]; then
+  say "8) Xcode NÃO aberto (--no-open — quem chamou decide o próximo passo)"
+else
 say "8) Abrindo o Xcode"
 # Projeto é 100% SPM (sem CocoaPods) — o arquivo certo é o .xcodeproj.
 if ! npx cap open ios; then
@@ -177,3 +186,4 @@ cat << 'FIM'
    c) Xcode -> Settings -> Accounts: remova a conta GitHub com erro
    d) Último recurso: bash scripts/instalar-iphone.sh --recriar-ios
 FIM
+fi
