@@ -130,7 +130,7 @@ fi
 
 cd "$ROOT/web"
 PB="/usr/libexec/PlistBuddy"
-ENT="ios/App/App.entitlements"
+ENT="ios/App/App/App.entitlements"
 
 if [ "$CANAL" = "testflight" ]; then
   say "6/6 · Preparando para TestFlight"
