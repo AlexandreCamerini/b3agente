@@ -12,7 +12,7 @@ Stdlib-only, thread-safe, nunca levanta: log é observabilidade, não pode
 derrubar o fluxo que está observando. Testável offline (mini-runner no fim).
 """
 from collections import Counter, deque
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import logging
 import threading
 import time
@@ -22,6 +22,12 @@ _buffer: deque = deque(maxlen=_MAX)
 _lock = threading.Lock()
 _counters: Counter = Counter()          # "cat:level" -> quantos (desde o boot)
 _boot_at = time.time()
+
+# DECISÃO (260909-oyu): mesmo defeito de store.py — container Railway em UTC
+# fazia o `ts` sair 3h à frente. BRT local ao módulo (não importa `store`:
+# store importa `db`, e o log é a camada mais baixa, nunca deve poder
+# derrubar quem observa).
+BRT = timezone(timedelta(hours=-3))
 
 _logger = logging.getLogger("b3")
 if not _logger.handlers:
@@ -40,7 +46,7 @@ def log(cat: str, msg: str, level: str = "info", **extra) -> None:
     try:
         lv = level if level in _LEVELS else "info"
         entry = {
-            "ts": datetime.now().strftime("%d/%m %H:%M:%S"),
+            "ts": datetime.now(BRT).strftime("%d/%m %H:%M:%S"),
             "at": time.time(),
             "level": lv,
             "cat": str(cat or "app")[:16],

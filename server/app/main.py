@@ -547,7 +547,8 @@ async def ai_models():
 
 
 def now_str() -> str:
-    return datetime.now().strftime("%d/%m/%Y %H:%M")
+    # Fonte única do fuso (BRT): a regra mora em store.now_str(), não aqui.
+    return store.now_str()
 
 
 @app.middleware("http")

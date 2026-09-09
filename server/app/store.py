@@ -2,12 +2,20 @@
 ficarem testaveis (o pytest cria a sua propria conexao em arquivo temporario).
 """
 import threading
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from . import db, defaults
 from .catalog import CATALOG, CATALOG_TICKERS, is_catalog_ticker
 
 SECTIONS = ["config", "skill", "skillOperador", "llmPrompts", "watchlist", "cash", "positions", "history", "agent", "analyses", "profile", "custom", "optionPositions", "pendingOrders"]
+
+# DECISÃO (260909-oyu): produção roda no Railway com o container em UTC;
+# `datetime.now()` naive carimbava o histórico 3h à frente e, das 21:00 às
+# 23:59 BRT, no dia seguinte. Offset fixo -3h porque o Brasil não tem horário
+# de verão desde 2019 (mesma justificativa de `brapi.py:31-33`). BRT local ao
+# módulo é o padrão do repo (`agent.py`, `ai_activity`, `brapi_budget`,
+# `pregao`) — não há módulo compartilhado de fuso.
+BRT = timezone(timedelta(hours=-3))
 
 # Fase 2 (MERC-02..04): trava ÚNICA de PROCESSO sobre o read-modify-write de
 # `cash`/`positions`. Nasce aqui (não em pending_orders.py) porque o dono
@@ -177,7 +185,7 @@ def put(conn, key, value, user_id=None) -> None:
 
 
 def now_str() -> str:
-    return datetime.now().strftime("%d/%m/%Y %H:%M")
+    return datetime.now(BRT).strftime("%d/%m/%Y %H:%M")
 
 
 # ---------- mutadores ----------
