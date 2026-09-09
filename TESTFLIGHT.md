@@ -36,7 +36,16 @@ Bundle id: `com.alexandrecamerini.bolsia` · Team: `LC65399YC9` · Nome: **Boris
 ## 3. App Store Connect (uma vez)
 
 7. **[portal]** Crie o app: My Apps → **+** → novo app, bundle id
-   `com.alexandrecamerini.bolsia`, nome **Boris+**, idioma pt-BR.
+   `com.alexandrecamerini.bolsia`, nome **Boris+ Simulador B3**, idioma pt-BR.
+
+   O **App Name** aqui é ÚNICO NA APP STORE INTEIRA, não só na sua conta —
+   diferente do `CFBundleDisplayName` (o nome sob o ícone no aparelho, que
+   `instalar-iphone.sh` já seta como "Boris+" e continua assim). Achado ao
+   vivo em 2026-09-09: "**Boris+**" sozinho colidiu ("App Record Creation
+   failed... The App Name you entered is already being used") — já existem
+   vários apps "Boris" publicados (ex. um app de dividir conta chamado
+   simplesmente "Boris"). "Boris+ Simulador B3" foi a escolha do Alex entre
+   variantes apresentadas; troque aqui se precisar tentar outra.
 8. **[portal]** Preencha **App Privacy** (dados coletados). O app tem contas/login
    → declare pelo menos **e-mail** (vinculado à identidade, uso: funcionalidade do
    app; sem tracking). Isso deve BATER com o `PrivacyInfo.xcprivacy`.
