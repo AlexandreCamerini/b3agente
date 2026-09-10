@@ -10,7 +10,10 @@
  * · nenhum número é recalculado aqui — tudo vem do serviço, e campo ausente
  *   vira travessão, nunca 0 (princípio 4/5 do CLAUDE.md);
  * · "em dia" só aparece com frescor MEDIDO — "não medido" que vira silêncio
- *   é lido como "em dia" (ADR-027, Decisão 8);
+ *   é lido como "em dia" (ADR-027, Decisão 8); e "nada foi consultado" não
+ *   vira "não medido" — achado ao vivo 2026-09-10 (quick 260910-d57);
+ * · erro escolhido por `code` conhecido (ADR-027), nunca pela chamada que
+ *   respondeu primeiro — mesmo achado ao vivo;
  * · o motivo de uma recusa do serviço vai VERBATIM, sem reescrita;
  * · vazio nunca é silêncio: todo estado vazio diz o porquê.
  */
@@ -80,11 +83,23 @@ export default function OpcoesScreen({ ctx }) {
   const pregao = (l && l.pregao) || (status.dados && status.dados.pregao) || null;
   const fonte = (l && l.fonte) || (status.dados && status.dados.fonte) || null;
 
-  // Chip de frescor em TRÊS variantes. A variante "em dia" exige
-  // `frescor.medido` verdadeiro E `frescor.bloqueia` falso — nunca é o
-  // default, nunca é o que sobra quando não se sabe.
-  let chip = cp.opcoesFrescorNaoMedido || "frescor não medido";
-  if (frescor && frescor.medido) {
+  // Chip de frescor em TRÊS variantes, pela ORIGEM da informação — nunca um
+  // default genérico que sobra quando ninguém respondeu:
+  //   (a) `!frescor` — nada foi consultado ainda (achado ao vivo, produção
+  //       sem a Fase 2: `/leitura` 404 e `frescor` fica nulo). O chip não
+  //       afirma nada: fica de fora. Mesma simetria que este arquivo já
+  //       aplica aos setups ("sem avaliação NÃO vira não armado: ausência de
+  //       leitura não é leitura negativa") — aqui, ausência de resposta não
+  //       vira "não medido". Omitir em vez de travessão porque o cabeçalho
+  //       já tem `Pregão: —`; um segundo traço solto ao lado seria ruído sem
+  //       ganho de informação.
+  //   (b) `frescor.medido === false` — o serviço respondeu e não mediu:
+  //       "não medido" continua, e agora é verdade (houve resposta).
+  //   (c) `frescor.medido === true` — em dia / atrasado com idade.
+  let chip = null;
+  if (frescor && frescor.medido === false) {
+    chip = cp.opcoesFrescorNaoMedido || "frescor não medido";
+  } else if (frescor && frescor.medido) {
     const critica = (frescor.classes || [])[0];
     const idade = critica && ehNum(critica.idadeHoras) ? " (" + fmt(critica.idadeHoras, 0) + " h)" : "";
     chip = frescor.bloqueia
@@ -92,7 +107,7 @@ export default function OpcoesScreen({ ctx }) {
       : (cp.opcoesFrescorEmDia || "dado em dia");
   }
 
-  const erro = leitura.erro || status.erro;
+  const erro = escolherErroOpcoes(leitura.erro, status.erro);
   const carregando = status.carregando || leitura.carregando;
   const semTicker = !ticker;
   const semCandles = !!(behavior && behavior.status === "sem_candles");
@@ -107,11 +122,18 @@ export default function OpcoesScreen({ ctx }) {
           <strong style={{ color: T.textPrimary, fontVariantNumeric: "tabular-nums" }}>{pregao || "—"}</strong>
         </div>
         <div style={{ fontSize: "12px", color: T.textMuted }}>
-          {(cp.opcoesFonteRotulo || "Fonte") + ": " + (fonte || "mcp.semente.dev")}
+          {/* Mesma regra do chip: sem resposta do serviço, não se afirma
+              origem — o default literal "mcp.semente.dev" mentia a fonte
+              mesmo com `/status`/`/leitura` fora do ar. Travessão aqui (não
+              omissão) porque este rótulo já convive ao lado do "Pregão: —"
+              no mesmo padrão visual. */}
+          {(cp.opcoesFonteRotulo || "Fonte") + ": " + (fonte || "—")}
         </div>
-        <span style={{ fontSize: "11.5px", fontWeight: 700, color: T.textSecondary, border: `1px solid ${T.borderSubtle}`, borderRadius: "999px", padding: "3px 9px" }}>
-          {chip}
-        </span>
+        {chip ? (
+          <span style={{ fontSize: "11.5px", fontWeight: 700, color: T.textSecondary, border: `1px solid ${T.borderSubtle}`, borderRadius: "999px", padding: "3px 9px" }}>
+            {chip}
+          </span>
+        ) : null}
       </div>
       {frescor && frescor.bloqueia && frescor.warning ? (
         <div style={{ marginTop: "8px", fontSize: "12px", color: T.textSecondary, whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
@@ -329,4 +351,28 @@ export default function OpcoesScreen({ ctx }) {
       </p>
     </section>
   );
+}
+
+// Códigos de degradação do ADR-027 que dizem à pessoa O QUE FAZER ("não
+// configurado", "sem cota", "fora do ar"). Um erro SEM código conhecido (ex.:
+// 404 genérico de rota) não carrega essa informação. Declarado no fim do
+// arquivo (não antes do componente) para não empurrar a string literal
+// "mcp_nao_configurado" para antes do primeiro uso real dela na cadeia de
+// estados (carregando → erro → vazio → dados) — `function`/`const` de módulo
+// já estão avaliados quando o componente roda, independente da ordem física.
+const CODIGOS_ACIONAVEIS = ["mcp_nao_configurado", "mcp_cota", "mcp_teto_servico", "mcp_indisponivel"];
+
+// Achado ao vivo (2026-09-10): `leitura.erro || status.erro` deixava o 404 da
+// leitura (dispara sempre que a pessoa escolhe um ticker, mesmo com o
+// serviço fora do ar) mascarar o `mcp_nao_configurado` do `/status` — que é
+// o único dos dois que diz o que fazer. Escolha por ACIONABILIDADE: erro COM
+// `code` conhecido vence erro SEM código, venha de onde vier; com os dois
+// codificados (ou os dois sem código), a leitura vence — é a chamada que a
+// pessoa disparou ao escolher o ticker.
+function escolherErroOpcoes(erroLeitura, erroStatus) {
+  const acionavel = (e) => !!(e && CODIGOS_ACIONAVEIS.includes(e.code));
+  if (!erroLeitura) return erroStatus;
+  if (!erroStatus) return erroLeitura;
+  if (acionavel(erroStatus) && !acionavel(erroLeitura)) return erroStatus;
+  return erroLeitura;
 }
