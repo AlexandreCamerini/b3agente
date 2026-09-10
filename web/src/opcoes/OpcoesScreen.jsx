@@ -77,9 +77,12 @@ export default function OpcoesScreen({ ctx }) {
   const setups = (l && Array.isArray(l.setups) && l.setups) || [];
   const naoAvaliado = l && l.setupsNaoAvaliados;
 
-  // O frescor da leitura manda; sem leitura, o do `/status` (que é o
-  // medido de verdade, com cache de 600 s no cliente MCP).
-  const frescor = (l && l.frescor) || (status.dados && status.dados.frescor) || null;
+  // Frescor escolhido por QUALIDADE da medição, não por quem respondeu
+  // primeiro — mesma classe do defeito 2 (escolherErroOpcoes), corrigido
+  // hoje. `pregao`/`fonte` continuam pela leitura: são carimbo do dado
+  // exibido, não medição de qualidade — o pregão da leitura é o correto
+  // para o que está na tela.
+  const frescor = escolherFrescor(l && l.frescor, status.dados && status.dados.frescor);
   const pregao = (l && l.pregao) || (status.dados && status.dados.pregao) || null;
   const fonte = (l && l.fonte) || (status.dados && status.dados.fonte) || null;
 
@@ -375,4 +378,26 @@ function escolherErroOpcoes(erroLeitura, erroStatus) {
   if (!erroStatus) return erroLeitura;
   if (acionavel(erroStatus) && !acionavel(erroLeitura)) return erroStatus;
   return erroLeitura;
+}
+
+// Achado ao vivo (2026-09-10, primeira leitura real de PETR4/VALE3 em
+// produção): `(l && l.frescor) || (status.dados && status.dados.frescor)`
+// deixava o frescor da LEITURA vencer sempre — mas sem setups gravados
+// (`evaluate_setups` nem é chamada) `_frescor_da_avaliacao` corretamente
+// devolve `{ medido: false, bloqueia: true }` (ela não tem de onde medir; e
+// "não medido" nunca pode passar por "em dia", ADR-027 Decisão 8). Esse
+// objeto NÃO É falsy — o `||` nunca cai para o `/status`, que MEDIU de
+// verdade via `check_data_freshness`. A informação que não sabe mascarava a
+// que sabe. Mesma classe do defeito 2 corrigido hoje em 260910-d57
+// (`escolherErroOpcoes`): escolha por QUALIDADE da informação, não por
+// ORIGEM/ordem de chamada. `medido === true` vence `medido !== true`, venha
+// de onde vier; empate (os dois medidos, ou nenhum medido) mantém a
+// leitura — é a chamada que a pessoa disparou ao escolher o ticker; `null`
+// de um lado nunca vence objeto do outro.
+function escolherFrescor(frescorLeitura, frescorStatus) {
+  const medido = (f) => !!(f && f.medido === true);
+  if (!frescorLeitura) return frescorStatus || null;
+  if (!frescorStatus) return frescorLeitura;
+  if (medido(frescorStatus) && !medido(frescorLeitura)) return frescorStatus;
+  return frescorLeitura;
 }
