@@ -75,8 +75,8 @@ await (async () => {
   setNativeMode(false);
   setApiBase("192.168.0.12:8787/api/");
   assert.strictEqual(getApiBase(), "http://192.168.0.12:8787");
-  setApiBase("b3-production-8fc0.up.railway.app/api/");
-  assert.strictEqual(getApiBase(), "https://b3-production-8fc0.up.railway.app");
+  setApiBase("boris.semente.dev/api/");
+  assert.strictEqual(getApiBase(), "https://boris.semente.dev");
   ok("normaliza base (IP local em http; dominio publico em https; sem /api e barra final)");
 })();
 
@@ -102,7 +102,7 @@ await (async () => {
 // 6) Erro HTTP estruturado da IA => mensagem útil com ação, provedor/modelo e servidor.
 await (async () => {
   setNativeMode(false);
-  setApiBase("https://b3-production-8fc0.up.railway.app");
+  setApiBase("https://boris.semente.dev");
   const realFetch = globalThis.fetch;
   globalThis.fetch = async () => ({
     ok: false,

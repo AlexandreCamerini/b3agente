@@ -94,7 +94,7 @@ Em **Settings → Variables** do serviço:
   - O intervalo (15m) é CANÔNICO (ADR-002 Decisão 5) e não tem variável.
 - **`B3_GATED_HOSTS`** (F4 completo, 2026-08-02) — domínios (separados por
   vírgula) onde o cadastro é OBRIGATÓRIO (sem modo convidado). Vazio por
-  default: ninguém é afetado. Ex.: `B3_GATED_HOSTS=acamerini.app`. A URL do
+  default: ninguém é afetado. Ex.: `B3_GATED_HOSTS=boris.semente.dev`. A URL do
   Railway e o app iOS NUNCA entram nessa lista — continuam com o modo
   convidado, é por isso que a variável precisa ser explícita e não um
   comportamento automático do domínio custom.

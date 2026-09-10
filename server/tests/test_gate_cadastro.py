@@ -62,29 +62,29 @@ def _client_sem_gate(monkeypatch):
 
 def test_gate_desligado_por_default_nao_afeta_ninguem(monkeypatch):
     c, _ = _client_sem_gate(monkeypatch)
-    r = c.get("/api/state", headers={"host": "acamerini.app"})
-    assert r.status_code == 200, "sem B3_GATED_HOSTS, até o próprio acamerini.app passa"
+    r = c.get("/api/state", headers={"host": "boris.semente.dev"})
+    assert r.status_code == 200, "sem B3_GATED_HOSTS, até o próprio boris.semente.dev passa"
 
 
 def test_host_listado_sem_sessao_e_401(monkeypatch):
-    c, _ = _client_com_gate(monkeypatch, "acamerini.app")
-    r = c.get("/api/state", headers={"host": "acamerini.app"})
+    c, _ = _client_com_gate(monkeypatch, "boris.semente.dev")
+    r = c.get("/api/state", headers={"host": "boris.semente.dev"})
     assert r.status_code == 401
     assert r.json()["code"] == "cadastro_obrigatorio"
 
 
 def test_host_nao_listado_passa_mesmo_com_gate_ativo(monkeypatch):
     """A URL do Railway e o app iOS não usam esse Host — continuam livres."""
-    c, _ = _client_com_gate(monkeypatch, "acamerini.app")
-    r = c.get("/api/state", headers={"host": "boris.semente.dev"})
+    c, _ = _client_com_gate(monkeypatch, "boris.semente.dev")
+    r = c.get("/api/state", headers={"host": "b3agente.up.railway.app"})
     assert r.status_code == 200
 
 
 def test_rotas_de_auth_e_health_ficam_fora_do_portao(monkeypatch):
     """Senão ninguém consegue logar no domínio fechado, e o monitoramento
     (Railway healthcheck) não pode exigir sessão de usuário."""
-    c, _ = _client_com_gate(monkeypatch, "acamerini.app")
-    headers = {"host": "acamerini.app"}
+    c, _ = _client_com_gate(monkeypatch, "boris.semente.dev")
+    headers = {"host": "boris.semente.dev"}
     assert c.get("/api/health", headers=headers).status_code == 200
     r = c.post("/api/auth/login", json={"email": "x@x.com", "password": "errada123"}, headers=headers)
     assert r.status_code in (400, 401)  # rejeita credencial, mas NÃO por cadastro_obrigatorio
@@ -92,8 +92,8 @@ def test_rotas_de_auth_e_health_ficam_fora_do_portao(monkeypatch):
 
 
 def test_sessao_valida_passa_no_host_fechado(monkeypatch):
-    c, main = _client_com_gate(monkeypatch, "acamerini.app")
-    headers = {"host": "acamerini.app"}
+    c, main = _client_com_gate(monkeypatch, "boris.semente.dev")
+    headers = {"host": "boris.semente.dev"}
     reg = c.post("/api/auth/register", json={"email": "f4@teste.com", "password": "senhaboa123"}, headers=headers)
     assert reg.status_code == 200, reg.text
     token = reg.json()["token"]
@@ -102,8 +102,8 @@ def test_sessao_valida_passa_no_host_fechado(monkeypatch):
 
 
 def test_lista_aceita_multiplos_hosts_e_ignora_espacos(monkeypatch):
-    c, _ = _client_com_gate(monkeypatch, " acamerini.app , www.acamerini.app ")
-    for h in ("acamerini.app", "www.acamerini.app"):
+    c, _ = _client_com_gate(monkeypatch, " boris.semente.dev , www.boris.semente.dev ")
+    for h in ("boris.semente.dev", "www.boris.semente.dev"):
         assert c.get("/api/state", headers={"host": h}).status_code == 401, h
 
 

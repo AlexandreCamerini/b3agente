@@ -392,10 +392,10 @@ async def auth_semente_id_callback(request: Request, code: Optional[str] = None,
 # ===========================================================================
 # F4 completo (2026-08-02) — cadastro obrigatório, SÓ nos domínios listados.
 #
-# Decisão do Alex: acamerini.app fecha (sem modo convidado); a URL do Railway
+# Decisão do Alex: boris.semente.dev fecha (sem modo convidado); a URL do Railway
 # e o app iOS continuam exatamente como estão (Decisão A permanece intacta
 # para eles). B3_GATED_HOSTS vazio = ninguém é afetado — dormente até o
-# Railway apontar de verdade para acamerini.app (mesmo padrão do
+# Railway apontar de verdade para boris.semente.dev (mesmo padrão do
 # web_dist/ios_dist: existe no código, só liga quando configurado).
 #
 # Allowlist por PREFIXO (não por rota individual, então uma rota de auth nova
@@ -1012,7 +1012,7 @@ async def admin_mobile_handoff_exchange(body: dict = Body(default={})):
 
 # FASE 8B (diagnóstico): carimbo de build do BACKEND — confirma qual código o
 # Railway está rodando (o front tem o dele em web/src/version.js).
-SERVER_BUILD_ID = "F10-20260908-02"  # 2026-09-08: gate de liquidez de opções em três faixas com consentimento (260908-ldg) + score recalibrado para mydata sem open interest (260908-dnl); contém o -01 (4 correções de 07/09), que nunca foi promovido — front republicado.
+SERVER_BUILD_ID = "F10-20260909-01"  # 2026-09-09: carimbo de horário das ordens em BRT (260909-oyu) — deploy só-backend; contém o -02 de 08/09 (gate de liquidez em três faixas + score recalibrado).
 # Normalmente sincronizado pelo entregar.sh a partir de web/src/version.js; num deploy
 # SÓ de backend (sem rebuild do front) bumpamos aqui para /api/health rastrear o servidor.
 

@@ -88,8 +88,8 @@ def test_b3_admin_emails_tem_prioridade_sobre_o_primeiro_usuario(monkeypatch):
 
 
 def test_resumo_reflete_o_gate_de_cadastro(monkeypatch):
-    monkeypatch.setenv("B3_GATED_HOSTS", "acamerini.app")
+    monkeypatch.setenv("B3_GATED_HOSTS", "boris.semente.dev")
     c, _ = _client(monkeypatch)
     token = _registra(c, "dono@teste.com")
     r = c.get("/api/admin/summary", headers={"authorization": f"Bearer {token}"})
-    assert r.json()["gate"] == {"hostsFechados": ["acamerini.app"], "ativo": True}
+    assert r.json()["gate"] == {"hostsFechados": ["boris.semente.dev"], "ativo": True}

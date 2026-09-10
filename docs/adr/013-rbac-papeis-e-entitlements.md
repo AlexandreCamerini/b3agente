@@ -130,7 +130,7 @@ decidido.
 
 | Middleware | O que faz | Quem afeta |
 |---|---|---|
-| `gate_cadastro_obrigatorio` | Se `B3_GATED_HOSTS` tem o host da request E o path é `/api/*` fora de `/api/auth/*`/`/api/health`, exige sessão válida (401). Hoje **dormente** (`B3_GATED_HOSTS` vazio) — só afeta `acamerini.app` quando configurado. | Todas as rotas `/api/*`, condicionalmente por host |
+| `gate_cadastro_obrigatorio` | Se `B3_GATED_HOSTS` tem o host da request E o path é `/api/*` fora de `/api/auth/*`/`/api/health`, exige sessão válida (401). Hoje **dormente** (`B3_GATED_HOSTS` vazio) — só afeta `boris.semente.dev` quando configurado. | Todas as rotas `/api/*`, condicionalmente por host |
 | `security_headers` | Só cabeçalhos de resposta (X-Frame-Options etc.) — sem controle de acesso. | Todas |
 | `log_requests` | Só observabilidade — sem controle de acesso. | Todas |
 
