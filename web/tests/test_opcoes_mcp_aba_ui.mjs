@@ -13,6 +13,13 @@
 //  · o `PriceChart` recebe os QUATRO campos de `ind` (chave ausente estoura
 //    em `arr[i]`) e as cores das linhas vêm da paleta em HEX, não de `var()`.
 //
+// Quick 260910-d57 (2026-09-10) — dois defeitos achados ao vivo (produção só
+// tinha a Fase 1, `/leitura` 404):
+//  · o chip de frescor nascia afirmando "não medido" por DEFAULT, mesmo
+//    quando nada tinha sido consultado — agora só existe sob resposta real;
+//  · `leitura.erro || status.erro` deixava o 404 mascarar o
+//    `mcp_nao_configurado` do `/status`, que é o que diz o que fazer.
+//
 // Roda sem build: `node web/tests/test_opcoes_mcp_aba_ui.mjs`.
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
@@ -83,15 +90,47 @@ ok("o estado escolhe pelo `erro.code`, não raspando a mensagem",
 ok("o ramo genérico de erro mostra erro.message com pre-wrap",
    /erro\.message/.test(tela) && /whiteSpace: "pre-wrap"/.test(tela));
 
-// ---- 4) frescor: "em dia" nunca é default -----------------------------------
+// ---- 3b) defeito 2 (260910-d57): erro por ACIONABILIDADE, não por quem
+// respondeu primeiro — o 404 da leitura não pode mascarar o
+// `mcp_nao_configurado` do `/status`. ----------------------------------------
+ok("defeito 2 não voltou: `erro` não é mais `leitura.erro || status.erro` puro",
+   !/const erro = leitura\.erro \|\| status\.erro;/.test(tela));
+ok("existe helper puro que decide o erro pelo `code` conhecido",
+   /function escolherErroOpcoes\(erroLeitura, erroStatus\)/.test(tela)
+   && /CODIGOS_ACIONAVEIS/.test(tela));
+ok("a lista de códigos acionáveis cobre os quatro estados do ADR-027",
+   /CODIGOS_ACIONAVEIS = \[[\s\S]{0,120}mcp_nao_configurado[\s\S]{0,120}mcp_cota[\s\S]{0,120}mcp_teto_servico[\s\S]{0,120}mcp_indisponivel/.test(tela));
+ok("o `erro` do cabeçalho vem do helper, não de precedência de chamada",
+   /const erro = escolherErroOpcoes\(leitura\.erro, status\.erro\);/.test(tela));
+
+// ---- 4) frescor: "em dia"/"não medido" nunca são default --------------------
 const blocoChip = tela.match(/let chip[\s\S]{0,700}/);
 ok("bloco do chip de frescor encontrado", !!blocoChip);
 ok('"em dia" está condicionado a frescor.medido',
    !!blocoChip && /frescor\.medido/.test(blocoChip[0])
    && /cp\.opcoesFrescorEmDia/.test(blocoChip[0])
    && /cp\.opcoesFrescorAtrasado/.test(blocoChip[0]));
-ok('o default do chip é "não medido"',
-   !!blocoChip && /let chip = cp\.opcoesFrescorNaoMedido/.test(blocoChip[0]));
+ok("chip nasce nulo — nada é afirmado sobre frescor sem resposta do serviço",
+   !!blocoChip && /let chip = null;/.test(blocoChip[0]));
+ok('"não medido" só aparece quando frescor.medido === false (deixou de ser o default)',
+   !!blocoChip && /frescor\.medido === false/.test(blocoChip[0])
+   && /cp\.opcoesFrescorNaoMedido/.test(blocoChip[0]));
+ok("defeito 1 não voltou: chip não é mais inicializado incondicionalmente com \"não medido\"",
+   !/let chip = cp\.opcoesFrescorNaoMedido \|\| ["']frescor não medido["'];/.test(tela));
+ok("o chip só é renderizado no cabeçalho quando existe (nada afirmado sem resposta)",
+   /\{chip \? /.test(tela));
+ok('a fonte não afirma "mcp.semente.dev" como default sem resposta',
+   !/fonte \|\| ["']mcp\.semente\.dev["']/.test(tela));
+
+// ---- sanidade: as regex acima pegam o bug antigo, não viram no-op ----------
+// Sem isto, um typo na regex (ou um Unicode diferente) faria os asserts
+// "defeito N não voltou" passarem SEMPRE, mesmo com o bug de volta.
+const BUG_CHIP = 'let chip = cp.opcoesFrescorNaoMedido || "frescor não medido";';
+ok("sanidade: a regex do defeito 1 pega o padrão antigo quando ele existe",
+   /let chip = cp\.opcoesFrescorNaoMedido \|\| ["']frescor não medido["'];/.test(BUG_CHIP));
+const BUG_ERRO = "const erro = leitura.erro || status.erro;";
+ok("sanidade: a regex do defeito 2 pega o padrão antigo quando ele existe",
+   /const erro = leitura\.erro \|\| status\.erro;/.test(BUG_ERRO));
 
 // ---- 5) o pregão vive no cabeçalho, fora de qualquer ramo de erro ------------
 const cabecalho = tela.match(/const cabecalho = \([\s\S]*?\n  \);/);
