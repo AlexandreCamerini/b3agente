@@ -11,19 +11,46 @@ dúvida. Nenhuma correção foi aplicada.
 
 ## 1. Sumário executivo
 
-A base está saudável: suíte inteira verde (2239 pytest, 126 web, `vite build`
-ok), segurança sem achado crítico, nenhum segredo versionado em todo o
-histórico. Os três achados "críticos" de concorrência na carteira foram
-**refutados** pela verificação: o modelo de um processo com um event loop e
-seções críticas sem ponto de espera já serializa tudo. O que sobrou de mais
-grave são **dois defeitos no código MCP que eu mesmo escrevi na Fase 1**, um
-deles reproduzido, que fazem o app afirmar coisas que não mediu — exatamente o
-que o princípio 4 do CLAUDE.md proíbe. A falha da aba em produção continua sem
-causa provada, e o teste decisivo é uma linha de log que já existe.
+A suíte roda verde (2239 pytest, 126 web, `vite build` ok), a segurança não tem
+achado crítico e não há segredo versionado em todo o histórico. Ainda assim, o
+achado mais grave é anterior a tudo que esta sessão construiu: **a rota
+principal de compra aceita quantidade negativa e executa a ordem**, provado
+chamando o endpoint real. A validação existe na venda e na compra de opção; só
+a compra de ação ficou de fora, e nenhum teste cobria o caso.
+
+Os três achados "críticos" de concorrência na carteira foram **refutados** por
+reprodução: um processo, um event loop e seções críticas sem ponto de espera já
+serializam tudo. Sobram dois defeitos no código MCP escrito nesta sessão, ambos
+reproduzidos, que fazem o app afirmar o que não mediu — o que o princípio 4
+proíbe. A falha da aba em produção continua sem causa provada; o teste decisivo
+é uma linha de log que já existe e ninguém leu.
 
 ---
 
 ## 2. Achados confirmados
+
+### A-00 · CRÍTICO · `server/app/main.py:2091` — compra aceita quantidade negativa
+A rota principal de compra não rejeita `qty` negativo ou zero: o valor é
+coagido silenciosamente e a ordem **executa**.
+**Reproduzido com o endpoint real:**
+```
+POST /api/buy {"t":"PETR4","qty":-500}
+→ 200 OK, positions:[{"t":"PETR4","qty":100,"avg":30.0}], caixa −R$ 3.000
+```
+A mesma validação **existe** em `/api/sell` (regressão F10-20260819, com
+teste) e em `/api/options/buy:2298`. Só a compra de ação ficou de fora, e
+nenhum teste da suíte envia quantidade negativa para ela.
+**Impacto:** entrada inválida vira operação real na carteira, sem rejeição
+registrada. Contraria o modelo de ordem do CLAUDE.md, onde uma ordem ou
+executa inteira ou é rejeitada com motivo.
+**Correção:** guarda `qty <= 0` antes de normalizar, espelhando
+`/api/options/buy`, mais o teste equivalente ao que já existe para a venda.
+
+### A-00b · ALTO · `server/app/main.py:2091` — quantidade não numérica vaza exceção
+`POST /api/buy {"qty":"abc"}` devolve **500** com o texto cru da exceção
+Python no corpo, em vez do 400 "Quantidade inválida." que a venda já garante
+para a mesma entrada. **Reproduzido.**
+**Correção:** capturar `TypeError`/`ValueError` no parse e levantar 400.
 
 ### A-01 · ALTO · `server/app/mcp_client.py:64` — código de teto colide com o do SDK
 `CODIGO_TETO = -32000` é o mesmo valor de `CONNECTION_CLOSED` do SDK
@@ -155,6 +182,40 @@ o corpo — prática normal de ADR, não colide com o guardrail de histórico.
 tripla desde o ADR-001. `docs/adr/001` mantém marcado como pendente um item
 que já está implementado no carimbo de barra da interface.
 
+### A-17 · ALTA · `server/tests/test_adr013_cobertura_rotas.py:59` — provado cego por reintrodução
+Confirmação forte do A-13. O auditor **removeu o `require_user` da rota de
+status do MCP** e rodou o guardião: ele **passou**, sem detectar. O guardião
+irmão da Fase 1 falhou corretamente no mesmo cenário, nomeando a rota. Ou
+seja: hoje é possível publicar uma rota de opções sem exigir sessão e nenhum
+teste do ADR-013 reclama.
+**Correção:** trocar a varredura de `app.routes` pela versão recursiva que já
+existe em `test_mcp_guardioes.py` e resolve o router aninhado.
+
+### A-18 · MÉDIA · `server/tests/test_fase3_gate_plano.py:210` — filtro de comentário incompleto
+O helper que "remove comentários" antes de contar ocorrências só descarta a
+linha que **começa** com `#`. Comentário no fim da linha sobrevive.
+**Provado:** o auditor removeu a única chamada real ao gate comercial de
+análises e deixou no lugar uma linha de código com o nome da função num
+comentário de cauda. A asserção de contagem continuou passando — um bypass do
+gate que o próprio modelo de ameaças existe para impedir.
+Mitigado hoje pelos testes de comportamento no mesmo arquivo, e o helper está
+duplicado em três arquivos que podem divergir.
+**Correção:** cortar a linha no primeiro `#` antes de contar, e extrair o
+helper para um módulo único.
+
+### A-19 · BAIXA · três guardiões de front contam sobre o fonte bruto
+`test_status_mercado_ui.mjs:44`, `test_disclaimer_trade_modal.mjs:35` e
+`test_fase21_dedup_consolidacao.mjs:56` contam ocorrências sem remover
+comentários, então um comentário citando o mesmo texto infla a contagem. Todos
+têm asserção companheira que pega a regressão real, e pelo menos oito outros
+arquivos do repositório já implementam a remoção corretamente.
+
+**Sem achado, verificado e não apenas não procurado:** nenhuma asserção
+trivial (`assert True`, comparação de algo consigo mesmo) nas 286 suítes;
+nenhum teste sem asserção depois de inspeção manual dos candidatos; nenhum
+guardião cuja âncora tenha parado de casar hoje — os três acima são risco sob
+regressão futura, não vacuidade atual.
+
 **Sem achado:** zero `TODO`/`FIXME` reais no código; zero dependência
 declarada e não usada nos dois lados; paridade de prompts entre servidor e
 front confere byte a byte e cobre tudo que existe hoje; dois ganchos sem
@@ -199,8 +260,11 @@ quatro rotas de ordem**, não só as de opções. Conferir no painel.
 
 ---
 
-## 5. Próximos passos (3, priorizados)
+## 5. Próximos passos (priorizados)
 
+0. **Corrigir A-00 primeiro** — a compra aceitar quantidade negativa é o único
+   achado que move dinheiro na carteira sem passar por rejeição, e a correção
+   é uma guarda de duas linhas mais o teste que já existe na venda.
 1. **Descobrir a causa da falha da aba** com o log que já existe:
    `railway logs | grep -F "[b3][mcp]"`. O campo `erro=` separa credencial
    recusada de indisponibilidade. Sem isso, qualquer correção é chute.
