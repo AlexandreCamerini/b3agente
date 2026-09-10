@@ -1,5 +1,16 @@
-fastapi>=0.110
-uvicorn[standard]>=0.29
+# ADR-027 (aba-opcoes F1, 2026-09-09): os pins exatos abaixo são as versões
+# MEDIDAS na venv local, que roda Python 3.14. PRODUÇÃO RODA 3.12
+# (`server/.python-version`). Se a resolução falhar em 3.12, NÃO relaxe o pin
+# por conta própria — pare e leve ao Alex (PLANO §3.7): o pin existe porque o
+# SDK do MCP arrasta fastapi/starlette/pydantic/uvicorn junto, e deixar essas
+# quatro flutuando é como o build de produção diverge do que a suíte testou.
+fastapi==0.141.1
+starlette==1.6.0
+pydantic==2.13.5
+uvicorn[standard]==0.52.4
 httpx>=0.27
+# ADR-027 (aba-opcoes F1): SDK do serviço MCP autenticado. Traz httpx2,
+# mcp_types e python-multipart como transitivos — sem linha própria.
+mcp>=2.1,<3
 PyJWT[crypto]>=2.8
 h2>=4.1

@@ -1,6 +1,11 @@
-fastapi>=0.110
-uvicorn[standard]>=0.29
+fastapi==0.141.1
+starlette==1.6.0
+pydantic==2.13.5
+uvicorn[standard]==0.52.4
 httpx>=0.27
+# ADR-027 (aba-opcoes F1): SDK do serviço MCP autenticado. Traz httpx2,
+# mcp_types e python-multipart como transitivos — sem linha própria.
+mcp>=2.1,<3
 # dev/test
 pytest>=8.0
 # FASE 2: validação de ID token Apple/Google (login social). Opcional —

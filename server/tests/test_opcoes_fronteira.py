@@ -13,6 +13,33 @@ de uma vez o orçamento de requisições do mydata (60/min · 2.000/dia) e o
 princípio 4 do CLAUDE.md (o b-mcp serve dado sintético/fixture em produção;
 consumi-lo produziria número financeiro inventado).
 
+2026-09-09 (aba-opcoes F1, ADR-027) — REVERSÃO DELIBERADA DO GUARDIÃO B,
+registrada aqui em vez de apagada (guardrail do CLAUDE.md: guardião de teste
+não se apaga; reversão deliberada atualiza o guardião com nota).
+
+Os DOIS motivos que o ADR-024 deu para proibir `mcp` caíram:
+  (a) "o b-mcp serve fixture em produção" — verdade sobre o PORTAL público
+      `b-mcp.semente.dev`, e ele continua fixture. `mcp.semente.dev` é OUTRO
+      processo, outro domínio, com dado real do MyData (`fonte: "http"`) e
+      porteiro na porta (`client_credentials` no `id.semente.dev`);
+  (b) "subir um client MCP stdio dentro do uvicorn" — o transporte do
+      serviço é **streamable-http** (um POST, uma resposta, `stateless_http`).
+      Não há processo filho, não há stdio, não há sessão para gerir.
+
+O que MUDOU nesta data:
+  - Guardião A ganhou `httpx2` na lista de imports proibidos: o SDK novo
+    trouxe um segundo stack HTTP e o filtro antigo, por igualdade de nome,
+    não o via (`"httpx2" != "httpx"`).
+  - Guardião B deixou de ser "NENHUM módulo importa `mcp`" e passou a ser
+    "EXATAMENTE UM módulo importa `mcp`/`httpx2`: `mcp_client`" (igualdade
+    de conjunto, mesmo desenho do Guardião C).
+  - Guardião B-requirements INVERTEU: antes proibia a dependência (T-15-SC do
+    15-04-PLAN.md), agora EXIGE `mcp>=2.1,<3` e exige que a linha seja
+    idêntica nos dois requirements.
+  - Guardiões C, D, E e ENG-04 seguem intocados. O Guardião C (canal único do
+    hub mydata) se ESTENDE ao canal MCP: `mcp_client` não importa
+    `mydata_client`, e a igualdade de conjunto dele já garante isso.
+
 Todos os guardiões ESTRUTURAIS (A, B, C, ENG-04) usam `ast.parse` sobre o
 fonte lido com `pathlib.Path` — nunca busca textual. Um comentário citando
 "b-mcp", "semente.dev" ou "httpx" para EXPLICAR a proibição (como os módulos
@@ -40,9 +67,13 @@ _MODULOS_NOVOS_FASE_15 = ("opcoes_payoff", "opcoes_gatilho", "opcoes_motor")
 # porque o único uso legítimo de I/O assíncrono nestes módulos seria para
 # tocar rede — os três são PUROS por desenho (ver docstrings de topo de cada
 # um), então nem `asyncio` deveria aparecer.
+# 2026-09-09 (ADR-027): "httpx2" acrescentado — o SDK do serviço MCP traz um
+# SEGUNDO stack HTTP, e este filtro compara nome de módulo raiz por igualdade,
+# então `"httpx2" != "httpx"` passava batido. Os três módulos puros continuam
+# proibidos de tocar rede por QUALQUER stack.
 _IMPORTS_PROIBIDOS_REDE = {
-    "httpx", "requests", "urllib", "urllib3", "socket", "http", "aiohttp",
-    "asyncio", "subprocess", "mcp",
+    "httpx", "httpx2", "requests", "urllib", "urllib3", "socket", "http",
+    "aiohttp", "asyncio", "subprocess", "mcp",
 }
 
 # Substrings de string literal que indicam referência ao b-mcp (Guardião A).
@@ -141,32 +172,73 @@ def test_guardiao_a_modulo_novo_nao_referencia_bmcp_por_string(nome_modulo):
 
 
 # ─────────────────────────────────────────────────────────────────────────
-# GUARDIÃO B (ENG-03) — nenhum cliente MCP em server/app/, nenhuma
-# dependência `mcp` declarada.
+# GUARDIÃO B (ENG-03 → ADR-027) — EXATAMENTE UM módulo de server/app/ fala
+# com o serviço MCP, e a dependência é declarada nos DOIS requirements.
+#
+# Versão anterior (ADR-024, até 2026-09-08): "NENHUM módulo importa `mcp`" e
+# "`mcp` NÃO está nos requirements". Os dois caíram com o ADR-027 — o motivo
+# está na docstring de topo deste arquivo. A FORMA do guardião mudou junto:
+# de denylist (fácil de furar acrescentando módulo) para IGUALDADE DE
+# CONJUNTO (mesmo desenho do Guardião C), que reprova tanto o módulo novo que
+# importa o SDK quanto o desaparecimento silencioso do `mcp_client`.
 # ─────────────────────────────────────────────────────────────────────────
-def test_guardiao_b_nenhum_modulo_do_app_importa_cliente_mcp():
-    ofensores = []
-    for caminho in _modulos_app():
-        if "mcp" in _imports(caminho):
-            ofensores.append(caminho.name)
-    assert not ofensores, (
-        f"módulo(s) {ofensores} importam `mcp` — subir um client MCP stdio "
-        f"dentro do processo único do Railway é a violação que o CONTEXT da "
-        f"Fase 15 nomeia explicitamente (ver 15-CONTEXT.md ENG-03).")
+_RAIZES_MCP = {"mcp", "httpx2"}
+_IMPORTADORES_PERMITIDOS = {"mcp_client"}
 
 
-def test_guardiao_b_mcp_nao_esta_nos_requirements():
+def test_guardiao_b_um_unico_modulo_importa_mcp_e_httpx2():
+    importadores = {
+        caminho.stem for caminho in _modulos_app()
+        if _imports(caminho) & _RAIZES_MCP
+    }
+    assert importadores == _IMPORTADORES_PERMITIDOS, (
+        f"conjunto de módulos que importam {sorted(_RAIZES_MCP)} mudou: "
+        f"{sorted(importadores)} != {sorted(_IMPORTADORES_PERMITIDOS)} — "
+        f"canal paralelo ao serviço MCP detectado (ADR-027, Decisão 1). O "
+        f"cap por usuário, o cache L1, o semáforo de concorrência e a "
+        f"tradução de erro moram TODOS em `mcp_client.py`; um segundo "
+        f"importador fura os quatro de uma vez e queima o teto de 2.000 "
+        f"chamadas/dia, que é COMPARTILHADO por toda a base do Boris. Se "
+        f"você precisa genuinamente de um módulo novo aqui, a resposta NÃO é "
+        f"editar `_IMPORTADORES_PERMITIDOS` — é levar a decisão ao Alex "
+        f"(mudança arquitetural).")
+
+
+def test_guardiao_b_mcp_esta_nos_requirements_e_igual_nos_dois():
+    """INVERTIDO em 2026-09-09 (aba-opcoes F1, ADR-027). O teste anterior
+    (`test_guardiao_b_mcp_nao_esta_nos_requirements`) PROIBIA a dependência,
+    pelo threat T-15-SC do 15-04-PLAN.md; o ADR-027 inverteu a decisão e o SDK
+    passou a ser dependência nominal do contrato do serviço. O que este
+    guardião protege AGORA é a divergência entre os dois arquivos: produção
+    resolvendo uma faixa diferente da que a suíte exercitou é o modo
+    silencioso de o build publicado não ser o que foi verificado."""
     server_dir = _APP_DIR.parent
+    encontradas = {}
     for nome_arquivo in ("requirements.txt", "requirements-prod.txt"):
         conteudo = (server_dir / nome_arquivo).read_text(encoding="utf-8")
         linhas_mcp = [
-            linha for linha in conteudo.splitlines()
-            if linha.strip().lower().startswith("mcp")
+            linha.strip() for linha in conteudo.splitlines()
+            if linha.strip() and not linha.strip().startswith("#")
+            and linha.strip().lower().startswith("mcp")
         ]
-        assert not linhas_mcp, (
-            f"{nome_arquivo} declara dependência 'mcp': {linhas_mcp} — "
-            f"nenhum pacote novo é necessário para o motor de opções desta "
-            f"fase (ver threat T-15-SC do 15-04-PLAN.md).")
+        assert len(linhas_mcp) == 1, (
+            f"{nome_arquivo} deveria declarar EXATAMENTE uma linha de `mcp`, "
+            f"tem {len(linhas_mcp)}: {linhas_mcp} — o ADR-027 exige a "
+            f"dependência declarada uma vez só, sem linha duplicada com "
+            f"faixa diferente.")
+        encontradas[nome_arquivo] = linhas_mcp[0]
+
+    dev = encontradas["requirements.txt"]
+    prod = encontradas["requirements-prod.txt"]
+    assert dev == prod, (
+        f"a linha do `mcp` diverge entre os requirements: {dev!r} (dev/test) "
+        f"× {prod!r} (prod) — produção resolveria uma versão do SDK que a "
+        f"suíte nunca exercitou.")
+    assert ">=2.1" in dev and "<3" in dev, (
+        f"a faixa do `mcp` deixou de ser `>=2.1,<3` ({dev!r}) — `>=2.1` é o "
+        f"piso que o contrato do serviço nomeia (streamable-http com tupla de "
+        f"DOIS fluxos e resposta em snake_case); `<3` trava a próxima major, "
+        f"que pode mudar a forma da resposta sem aviso.")
 
 
 # ─────────────────────────────────────────────────────────────────────────

@@ -44,6 +44,8 @@ from . import signal_ledger  # ADR-017 (Bloco 1): histórico medido por setup (l
 from .catalog import is_catalog_ticker
 from .options_api import router as options_router, _spot_from_chain_or_quote
 from .options_provider import get_options as _get_options_for_status
+from . import options_mcp_api  # aba-opcoes F1 (ADR-027): router do serviço MCP autenticado
+from .options_mcp_api import router as options_mcp_router
 from . import opcoes_lastreadas  # Fase 14 (Plano 03): motor de proposta lastreada (venda coberta/put)
 from .options_quant import FAIXA_DIFICIL, FAIXA_SEM_MERCADO, faixa_de_liquidez, liquidity_score  # quick 260908-ldg: gate de liquidez em três faixas
 from . import skill_ref  # Fase 14 (Plano 03): frase canônica da proposta lastreada por modo
@@ -169,6 +171,15 @@ def require_permission(perm: str):
             raise HTTPException(403, f"Requer a permissão '{perm}'.")
         return user
     return _dep
+
+
+# aba-opcoes F1 (ADR-027): o router precisa da conexão e do `require_user`
+# que nascem AQUI — por isso a fiação vem depois da definição deles, e não
+# junto do `include_router(options_router)` lá em cima. Injeção pelo mesmo
+# padrão de `configure_db`/`set_historico_provider`: main importa o módulo,
+# nunca o contrário (evita import circular).
+options_mcp_api.configure(_conn, require_user)
+app.include_router(options_mcp_router)
 
 
 def require_any_admin_permission():
@@ -3422,7 +3433,7 @@ async def _start_agent_scheduler():
     # nunca a lê e a feature fica DESLIGADA em silêncio. Um aviso no boot
     # transforma esse silêncio em diagnóstico de 1 linha.
     suspeitas = [k for k in os.environ
-                 if k != k.strip() and k.strip().startswith(("B3_", "APNS_", "APPLE_", "BOLSAI"))]
+                 if k != k.strip() and k.strip().startswith(("B3_", "APNS_", "APPLE_", "BOLSAI", "MCP_"))]
     if suspeitas:
         obslog.log("env", "variáveis com espaço no NOME (nunca são lidas): "
                    + ", ".join(repr(k) for k in suspeitas), level="error")

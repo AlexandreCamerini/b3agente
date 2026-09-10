@@ -83,7 +83,11 @@ ROTAS_ADMIN = [
 
 
 # --------------------------- bootstrap aditivo -------------------------------
-def test_primeiro_usuario_bootstrap_recebe_todas_as_7_permissoes(monkeypatch):
+def test_primeiro_usuario_bootstrap_recebe_todas_as_9_permissoes(monkeypatch):
+    # 2026-09-09 (aba-opcoes F1, ADR-027 §2.7): entrou `opcoes.criar_setup`
+    # (grupo `opcoes`). O nome do teste já estava defasado antes disso — o
+    # `set` tinha 8 itens desde que `execucao_automatica` ganhou a 2ª
+    # permissão —, então o número no nome foi corrigido junto.
     c, _ = _client(monkeypatch)
     payload = _registra(c, "dono@teste.com")
     perms = set(payload["user"]["permissions"])
@@ -91,6 +95,7 @@ def test_primeiro_usuario_bootstrap_recebe_todas_as_7_permissoes(monkeypatch):
         "observabilidade.ver", "operador_ia.ver", "execucao_automatica.ver",
         "execucao_automatica.controlar", "llm.configurar",
         "fontes_dados.configurar", "prompts.editar", "usuarios.gerenciar",
+        "opcoes.criar_setup",
     }
 
 
@@ -110,7 +115,8 @@ def test_b3_admin_emails_tem_prioridade_sobre_1o_usuario(monkeypatch):
     p1 = _registra(c, "primeiro@teste.com")
     p2 = _registra(c, "admin@teste.com")
     assert p1["user"]["permissions"] == []
-    assert len(p2["user"]["permissions"]) == 8  # 7 grupos + controlar (execucao_automatica tem 2)
+    # 2026-09-09 (ADR-027 §2.7): 8 → 9 com o grupo `opcoes`.
+    assert len(p2["user"]["permissions"]) == 9  # 8 grupos + controlar (execucao_automatica tem 2)
 
 
 def test_me_tambem_dispara_o_bootstrap_para_sessao_ja_existente(monkeypatch):
