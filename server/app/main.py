@@ -1023,7 +1023,7 @@ async def admin_mobile_handoff_exchange(body: dict = Body(default={})):
 
 # FASE 8B (diagnóstico): carimbo de build do BACKEND — confirma qual código o
 # Railway está rodando (o front tem o dele em web/src/version.js).
-SERVER_BUILD_ID = "F10-20260909-01"  # 2026-09-09: carimbo de horário das ordens em BRT (260909-oyu) — deploy só-backend; contém o -02 de 08/09 (gate de liquidez em três faixas + score recalibrado).
+SERVER_BUILD_ID = "F10-20260910-01"  # 2026-09-10: aba Opções sobre o serviço MCP (Fases 1 e 2, ADR-027) + conserto do cabeçalho da aba + guarda de qty inválido em /api/buy (auditoria A-00). Sincronizado do version.js pelo publicar-web.sh; contém o -20260909-01 (carimbo de horário das ordens em BRT).
 # Normalmente sincronizado pelo entregar.sh a partir de web/src/version.js; num deploy
 # SÓ de backend (sem rebuild do front) bumpamos aqui para /api/health rastrear o servidor.
 
