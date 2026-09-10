@@ -267,6 +267,13 @@ function serverStore() {
     // outbox (mesma decisão de buy/sell/cancelPendingOrder: reaplicar de fila
     // offline devolveria caixa duas vezes).
     optionsProposta: (t, multiperna) => api.optionsProposta(t, multiperna),
+    // aba-opcoes F2 (ADR-027): leitura do serviço MCP é dado de mercado —
+    // delegação PURA, nada persistido. Cachear no aparelho carimbaria pregão
+    // velho como se fosse do dia, e o frescor é justamente o que a tela
+    // precisa dizer com verdade (Decisão 8).
+    mcpStatus: () => api.mcpStatus(),
+    mcpLeitura: (t) => api.mcpLeitura(t),
+    mcpSetupGrafico: (name) => api.mcpSetupGrafico(name),
     optionsAbrirLastreada: (body) => api.optionsAbrirLastreada(body),
     // Fase 17 (Plano 05): mesma razão do comentário acima (buy/sell/
     // cancelPendingOrder) — reaplicar de fila offline devolveria caixa duas
@@ -1222,6 +1229,21 @@ function deviceStore() {
     async optionsProposta(t, multiperna) {
       ensure();
       return api.optionsProposta(t, multiperna);
+    },
+    // aba-opcoes F2 (ADR-027): espelho dos três métodos do serverStore.
+    // Mesma razão do optionsProposta acima — dado de mercado não se duplica
+    // no aparelho. `ensure()` antes da delegação, como o resto do deviceStore.
+    async mcpStatus() {
+      ensure();
+      return api.mcpStatus();
+    },
+    async mcpLeitura(t) {
+      ensure();
+      return api.mcpLeitura(t);
+    },
+    async mcpSetupGrafico(name) {
+      ensure();
+      return api.mcpSetupGrafico(name);
     },
     // Fase 14 (Plano 05): logado, delega e adota o estado confirmado pelo
     // servidor (mesmo padrão de optionsBuy). Sem sessão, ramo local é

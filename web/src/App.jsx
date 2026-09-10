@@ -8,6 +8,8 @@ import { sampleTechnicals } from "./demo.js";
 import { DISCLAIMERS, TERMO_OPERADOR_VERSAO } from "./disclaimers.js";
 import { copyFor, historicoTxt, entradaAutoTxt } from "./copy.js";
 import { Markdown, MdInline } from "./markdown.jsx";
+import { extentOf, linePath, lastVal } from "./chartutil.js";
+import OpcoesScreen from "./opcoes/OpcoesScreen.jsx";
 import { BUILD_ID } from "./version.js";
 // carimbo no console: prova de qual build está rodando (device/web)
 try { console.log("[b3] build", BUILD_ID); } catch { /* noop */ }
@@ -192,12 +194,20 @@ const useThemeKey = () => {
   const v = useContext(ThemeCtx);
   return typeof v === "string" ? v : (v && v.key) || "dark";
 };
+// Mescla PURA de tema + modo. Extraída do hook na aba-opcoes F2 (2026-09-10)
+// porque `App()` precisa da MESMA paleta para colocar em `ctx.palette` — e
+// App() não pode chamar `usePalette()`: o `ThemeCtx.Provider` é montado
+// DENTRO do return dele, então o hook leria o contexto default (dark/estudo)
+// e a aba Opções desenharia com a paleta errada em tema claro ou Operador.
+const paletteFor = (key, mode) => {
+  const base = PALETTE[key] || PALETTE.dark;
+  return mode === "operador" ? { ...base, ...(MODE_OPERADOR[key] || {}) } : base;
+};
 const usePalette = () => {
   const v = useContext(ThemeCtx);
   const key = typeof v === "string" ? v : (v && v.key) || "dark";
   const mode = typeof v === "string" ? "estudo" : (v && v.mode) || "estudo";
-  const base = PALETTE[key] || PALETTE.dark;
-  return mode === "operador" ? { ...base, ...(MODE_OPERADOR[key] || {}) } : base;
+  return paletteFor(key, mode);
 };
 
 // Logo do app: símbolo estático do Brand Book (Fase 3, 2026-08-08) — o rosto
@@ -965,10 +975,14 @@ function BottomNav({ tab, setTab, cp }) {
   // fala a língua do modo.
   // qa/34: a aba do Radar também fala a língua do modo ("Radar" × "Mesa") —
   // antes ficava fixa em "Radar" enquanto a tela se chamava "Mesa de oportunidades".
+  // aba-opcoes F2 (D-0.1, 2026-09-10): o 5º item passou a ser "Opções". O
+  // Operador IA não sumiu — virou sub-tela do Portfólio (mesmo mecanismo que
+  // "Histórico" já usava), acessível pela linha no topo dele e por
+  // `goAgente()`. O ícone `agente` continua em `NavIcon.paths`.
   const defs = [["evolucao", "Acompanhar"], ["radar", (cp && cp.tabRadar) || "Radar"],
     ["mercado", (cp && cp.tituloWatchlist) || "Watchlist"],
     ["carteira", (cp && cp.tituloPortfolio) || "Portfólio"],
-    ["agente", "Operador IA"]];
+    ["opcoes", (cp && cp.tabOpcoes) || "Opções"]];
   return (
     <nav style={{ flex: "none", background: T.bgPanel, borderTop: `1px solid ${T.borderSubtle}`, paddingBottom: "env(safe-area-inset-bottom)" }}>
       <div style={{ display: "flex", maxWidth: CONTENT_MAX_WIDTH, margin: "0 auto", padding: "5px 6px" }}>
@@ -1439,24 +1453,11 @@ function hasAnalysis(an) {
   return !!(an.kpis || an.markdown || an.text || an.error || d.resumo || (d.confirmacoes && d.confirmacoes.length) || (d.invalidacoes && d.invalidacoes.length) || (d.cuidados && d.cuidados.length) || (d.fatos && d.fatos.length));
 }
 
-/* ---------- Análise técnica: gráfico interativo + indicadores ---------- */
-function extentOf(arrays) {
-  let mn = Infinity, mx = -Infinity;
-  for (const a of arrays) { if (!a) continue; for (const v of a) { if (v == null) continue; if (v < mn) mn = v; if (v > mx) mx = v; } }
-  if (mn === Infinity) return [0, 1];
-  if (mn === mx) return [mn - 1, mx + 1];
-  const pad = (mx - mn) * 0.05; return [mn - pad, mx + pad];
-}
-function linePath(arr, mn, mx, W, H, pad = 3) {
-  if (!arr || !arr.length) return "";
-  const n = arr.length;
-  const xs = (i) => pad + (n > 1 ? i / (n - 1) : 0) * (W - 2 * pad);
-  const ys = (v) => (mx === mn ? H / 2 : H - pad - ((v - mn) / (mx - mn)) * (H - 2 * pad));
-  let d = "", started = false;
-  for (let i = 0; i < n; i++) { const v = arr[i]; if (v == null) { started = false; continue; } const x = xs(i), y = ys(v); d += started ? ` L${x.toFixed(1)} ${y.toFixed(1)}` : ` M${x.toFixed(1)} ${y.toFixed(1)}`; started = true; }
-  return d;
-}
-function lastVal(arr) { if (!arr) return null; for (let i = arr.length - 1; i >= 0; i--) if (arr[i] != null) return arr[i]; return null; }
+/* ---------- Análise técnica: gráfico interativo + indicadores ----------
+   `extentOf`/`linePath`/`lastVal` moraram aqui até a aba-opcoes F2
+   (2026-09-10): saíram para `./chartutil.js` porque `opcoes/SetupChart.jsx`
+   precisa dos mesmos helpers e importar App.jsx de lá seria ciclo. Os usos
+   abaixo continuam idênticos. */
 const stateColor = (s) => (s === "alta" || s === "sobrevendido" || s === "acima" ? T.positive : s === "baixa" || s === "sobrecomprado" || s === "abaixo" ? T.negative : T.textSecondary);
 // 2026-09-07 — volume anormal. O estado vem SÓ do motor (summary.volState,
 // indicators.volume_state no backend); a UI não recalcula nem reclassifica.
@@ -2258,8 +2259,8 @@ function ModoTrabalhoCard({ ctx }) {
       )}
       <div style={{ fontSize: "11.5px", color: T.textMuted, marginTop: "9px", lineHeight: 1.5 }}>
         {mode === "operador"
-          ? <>Decisões diretas (comprar/vender/aguardar/não operar) com plano de entrada, stop, alvo e risco. Termo aceito em {(c.operadorTermo || {}).aceitoEm ? String(c.operadorTermo.aceitoEm).slice(0, 10) : "—"} (v{(c.operadorTermo || {}).versao || "?"}). Inclui a aba Operador IA — o agente que pode vender sozinho conforme as regras que você configurar.</>
-          : <>Carteira simulada e leitura didática — o padrão para aprender. O Modo Operador libera decisões diretas com plano e gestão de risco. Inclui a aba Operador IA — o agente que pode vender sozinho conforme as regras que você configurar.</>}
+          ? <>Decisões diretas (comprar/vender/aguardar/não operar) com plano de entrada, stop, alvo e risco. Termo aceito em {(c.operadorTermo || {}).aceitoEm ? String(c.operadorTermo.aceitoEm).slice(0, 10) : "—"} (v{(c.operadorTermo || {}).versao || "?"}). Inclui o Operador IA (dentro do Portfólio) — o agente que pode vender sozinho conforme as regras que você configurar.</>
+          : <>Carteira simulada e leitura didática — o padrão para aprender. O Modo Operador libera decisões diretas com plano e gestão de risco. Inclui o Operador IA (dentro do Portfólio) — o agente que pode vender sozinho conforme as regras que você configurar.</>}
       </div>
       {termoOpen && <TermoOperadorModal ctx={ctx} onClose={() => setTermoOpen(false)} />}
     </div>
@@ -2379,6 +2380,9 @@ function ajudaSecoes(cp, operador) {
     ["Operador IA", [
       "Um agente que acompanha as posições da carteira simulada e age pelas regras que você define (proteger stop, realizar no alvo). Com conta, roda no servidor 24×5, mesmo com o app fechado.",
       "Você escolhe **Executar** (ele simula a saída no stop/alvo) ou **Apenas sinalizar** (só avisa), define regras e tetos, e o intervalo de reavaliação. Sempre sobre a carteira simulada.",
+      // 2026-09-10 (aba-opcoes F2): ele saiu da barra inferior; sem esta
+      // linha o tour descreveria uma tela que o usuário não acha mais.
+      "Onde fica: abra o **Portfólio** e toque em **Abrir o Operador IA** no topo da tela.",
     ]],
     ["Fundamento (A/B/C)", [
       "Ao lado do sinal técnico, alguns ativos mostram um selo de **fundamento**: A (sólido), B (regular) ou C (fraco), por valuation, rentabilidade e solidez.",
@@ -6420,7 +6424,7 @@ function LogsDebugScreen({ ctx }) {
             </div>
             {!diario && <div style={{ fontSize: "11.5px", color: T.textFaint }}>carregando o diário…</div>}
             {diario && (!diario.log || diario.log.length === 0) && (
-              <div style={{ fontSize: "11.5px", color: T.textFaint, lineHeight: 1.5 }}>Nenhum registro ainda — ligue o operador no servidor (aba Operador IA), toque em "Rodar ciclo agora" ou "Testar push agora"; cada tentativa entra aqui com o resultado exato.</div>
+              <div style={{ fontSize: "11.5px", color: T.textFaint, lineHeight: 1.5 }}>Nenhum registro ainda — ligue o operador no servidor (Operador IA, dentro do Portfólio), toque em "Rodar ciclo agora" ou "Testar push agora"; cada tentativa entra aqui com o resultado exato.</div>
             )}
             {diario && (diario.log || []).slice(0, 30).map((e, i) => {
               const kc = e.kind === "buy" ? T.positive : e.kind === "warn" ? T.warn : e.kind === "error" ? T.negative : T.textFaint;
@@ -7841,7 +7845,7 @@ export default function App() {
   const [quotesAt, setQuotesAt] = useState(null);
   const [quotesLoading, setQuotesLoading] = useState(false);
   const [tab, setTab] = useState("evolucao");
-  const [carteiraView, setCarteiraView] = useState("main"); // main | historico
+  const [carteiraView, setCarteiraView] = useState("main"); // main | historico | agente
   const [perfilView, setPerfilView] = useState("hub");       // hub | config | ia | notificacoes | eficiencia | logs
   const navigate = (t) => { setCarteiraView("main"); setPerfilView("hub"); setTab(t); };
   const [analysis, setAnalysis] = useState({});
@@ -9039,6 +9043,20 @@ export default function App() {
     // sob o tour queimaria a estreia sem ninguém ler.
     overlayLivre: !tourOpen && !aboutOpen && !welcomeOpen && !welcomeAuthOpen && !conceitoAberto && !petOpen && !borisIntroOpen,
     goMercado: () => setTab("mercado"),
+    // aba-opcoes F2 (D-0.1, 2026-09-10): PONTO ÚNICO de entrada do Operador
+    // IA, agora que ele saiu da barra inferior e virou sub-tela do Portfólio.
+    // Hoje o único chamador é a linha no topo do Portfólio (a auditoria da
+    // fase confirmou zero `go("agente")`/`setTab("agente")` no repo); ele
+    // nasce como ponto único para um deep link ou push futuro ter um lugar
+    // só para apontar, em vez de replicar os três setters.
+    goAgente: () => { setPerfilView("hub"); setTab("carteira"); setCarteiraView("agente"); },
+    // aba-opcoes F2: telas fora de App.jsx (web/src/opcoes/) não podem
+    // importar daqui — seria ciclo. `PriceChart` e a paleta em HEX (var()
+    // não resolve em canvas) chegam pelo ctx, e o `store` também: ele é
+    // escolhido em runtime entre deviceStore e serverStore.
+    PriceChart,
+    palette: paletteFor(themeKey, appMode),
+    store,
     // FASE 2 (2.1): ponte Descobrir → Avaliar. Garante o ativo na watchlist,
     // navega para Avaliar e dispara a análise N2 daquele ativo.
     // FASE 5 (fix): mesma correção do addToWatchlist — addWatchlistTicker aceita
@@ -9152,7 +9170,10 @@ export default function App() {
   // Histórico é sub-tela de Carteira (carteiraView), as demais mapeiam 1:1
   // com `tab`. As sub-telas do Perfil (config/ia/notificações/…) todas caem
   // em "perfil" — a tabela do plano não pede granularidade ali.
-  const petTela = tab === "carteira" ? (carteiraView === "historico" ? "historico" : "carteira") : tab;
+  // 2026-09-10 (aba-opcoes F2): "agente" entrou como TERCEIRA sub-tela da
+  // Carteira, porque o Operador IA saiu da barra inferior. O pet continua
+  // explicando a tela "agente" com o mesmo snapshot de antes.
+  const petTela = tab === "carteira" ? (carteiraView === "historico" ? "historico" : carteiraView === "agente" ? "agente" : "carteira") : tab;
 
   // O snapshot por tela é o MESMO view-model que a tela já usa para renderizar
   // (D6 do plano): nada de raspar tela, nada de conta nova. "mercado" segue
@@ -9292,10 +9313,12 @@ export default function App() {
           {tab === "evolucao" && <EvolucaoScreen ctx={ctx} />}
           {tab === "mercado" && <MercadoScreen ctx={ctx} />}
           {tab === "radar" && <RadarScreen ctx={ctx} />}
-          {tab === "agente" && <AgenteScreen ctx={ctx} />}
+          {tab === "opcoes" && <OpcoesScreen ctx={ctx} />}
           {tab === "carteira" && (carteiraView === "historico"
             ? (<><BackHeader title="Histórico de operações" onBack={() => setCarteiraView("main")} /><HistoricoScreen ctx={ctx} /></>)
-            : (<><CarteiraScreen ctx={ctx} /><div style={{ marginTop: "14px" }}><button onClick={() => setCarteiraView("historico")} style={{ width: "100%", minHeight: "48px", padding: "13px", borderRadius: "13px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 700, fontSize: "13.5px", display: "flex", alignItems: "center", justifyContent: "space-between" }}><span>Ver histórico de operações</span><span aria-hidden style={{ color: T.textFaint }}>›</span></button></div></>))}
+            : carteiraView === "agente"
+              ? (<><BackHeader title={cp.tituloOperadorIA || "Operador IA"} onBack={() => setCarteiraView("main")} /><AgenteScreen ctx={ctx} /></>)
+            : (<><div style={{ marginBottom: "14px" }}><button onClick={() => ctx.goAgente()} style={{ width: "100%", minHeight: "48px", padding: "13px", borderRadius: "13px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 700, fontSize: "13.5px", display: "flex", alignItems: "center", justifyContent: "space-between" }}><span>{cp.linkOperadorIA || "Abrir o Operador IA →"}</span><span aria-hidden style={{ color: T.textFaint }}>›</span></button></div><CarteiraScreen ctx={ctx} /><div style={{ marginTop: "14px" }}><button onClick={() => setCarteiraView("historico")} style={{ width: "100%", minHeight: "48px", padding: "13px", borderRadius: "13px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 700, fontSize: "13.5px", display: "flex", alignItems: "center", justifyContent: "space-between" }}><span>Ver histórico de operações</span><span aria-hidden style={{ color: T.textFaint }}>›</span></button></div></>))}
           {tab === "perfil" && (perfilView === "config"
             ? (<><BackHeader title="Preferências" onBack={() => setPerfilView("hub")} /><ConfigScreen ctx={ctx} /></>)
             : perfilView === "ia"

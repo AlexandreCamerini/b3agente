@@ -66,8 +66,16 @@ function asText(v) {
   try { return JSON.stringify(v); } catch { return String(v); }
 }
 
+// Regra ÚNICA de extração do `detail` do corpo de erro. Fatorada na
+// aba-opcoes F2 (2026-09-10) porque `req` passou a precisar do MESMO detail
+// para anexar `code`/`status`/`detail` ao Error — duas cópias da regra
+// divergiriam no primeiro formato de erro novo do backend.
+function detalheDoErro(data) {
+  return data && typeof data === "object" ? (data.detail || data.error || data.message || data._raw) : data;
+}
+
 function enrichErrorMessage(status, data, path) {
-  const detail = data && typeof data === "object" ? (data.detail || data.error || data.message || data._raw) : data;
+  const detail = detalheDoErro(data);
   const d = detail && typeof detail === "object" ? detail : {};
   const base = d.message || asText(detail) || ("HTTP " + status);
   const where = runtimeBase || "mesma origem";
@@ -160,7 +168,18 @@ async function req(method, path, body, timeoutMs) {
   }
   const data = await readBody(res);
   if (!res.ok) {
-    throw new Error(enrichErrorMessage(res.status, data, path));
+    // A MENSAGEM não muda (segue byte a byte a de `enrichErrorMessage`) — o
+    // que muda é que o `code` do backend deixa de ser descartado. A aba
+    // Opções precisa distinguir `mcp_nao_configurado` de `mcp_cota` de
+    // `mcp_erro_de_tool` para escolher o estado da tela, e raspar a string
+    // da mensagem é o jeito que quebra na primeira mudança de copy.
+    // Aditivo: nenhum consumidor existente lê `.code`/`.status`/`.detail`.
+    const detail = detalheDoErro(data);
+    const err = new Error(enrichErrorMessage(res.status, data, path));
+    err.status = res.status;
+    err.detail = detail;
+    err.code = detail && typeof detail === "object" ? (detail.code || null) : null;
+    throw err;
   }
   if (res.status === 204) return null;
   if (data && data._raw !== undefined && Object.keys(data).length === 1) {
@@ -293,6 +312,14 @@ export const api = {
   // executa as 2 pernas do collar, com re-derivação server-side da proposta.
   optionsAbrirCollar: (body) => req("POST", "/api/options/lastreada/abrir-collar", body),
   optionsFecharLastreada: (body) => req("POST", "/api/options/lastreada/fechar", body),
+  // aba-opcoes F1/F2 (ADR-027) — serviço MCP autenticado (`mcp.semente.dev`).
+  // Timeout de 30 s, a mesma classe de `optionsChain`/`optionsGate`: é dado de
+  // mercado, nenhuma delas chama LLM (por isso NÃO usam `TIMEOUT_LLM`).
+  // `encodeURIComponent` em todo segmento vindo do usuário — ticker e nome de
+  // setup são entrada, não constante do app.
+  mcpStatus: () => req("GET", "/api/options/mcp/status", undefined, 30000),
+  mcpLeitura: (t) => req("GET", "/api/options/mcp/leitura/" + encodeURIComponent(t), undefined, 30000),
+  mcpSetupGrafico: (name) => req("GET", "/api/options/mcp/setups/" + encodeURIComponent(name) + "/grafico", undefined, 30000),
   buy: (t, qty, meta) => req("POST", "/api/buy", meta ? { t, qty, meta } : { t, qty }),   // FASE 2 (2.4): setup de entrada
   sell: (t, qty) => req("POST", "/api/sell", qty ? { t, qty } : { t }),                    // FASE 2 (2.4): venda parcial
   putPosition: (t, b) => req("PUT", "/api/position/" + t, b),

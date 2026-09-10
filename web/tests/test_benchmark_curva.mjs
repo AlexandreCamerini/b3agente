@@ -70,10 +70,19 @@ if (cc) {
   const violacao = linhasBenchmark.find((l) => /\|\|\s*0\b|\?\?\s*0\b/.test(l));
   ok("(e) nenhum '|| 0' / '?? 0' nas linhas que produzem bm.pct/ibovPath", !violacao);
 
-  // ---- import de benchmarkSerie na mesma linha de equityCurve (linha 15) ----
-  const linha15 = src.split("\n")[14] || "";
+  // ---- import de benchmarkSerie na mesma linha de equityCurve ----
+  // 2026-09-10 (aba-opcoes F2, quick 260910-biz): a asserção lia o índice
+  // FIXO de linha (`split("\n")[14]`) e quebrou quando dois imports novos
+  // entraram acima (`chartutil.js` e `opcoes/OpcoesScreen.jsx`) — o número
+  // da linha nunca foi o contrato, e prender-se a ele reprovava qualquer
+  // import novo no topo do arquivo. A asserção continua a MESMA (três
+  // condições, na mesma linha física); só a forma de ACHAR a linha mudou,
+  // de posição para conteúdo. Nada foi relaxado: se `benchmarkSerie` sair
+  // do import de `finance.js`, ou for para outra linha que não a de
+  // `equityCurve`, isto reprova exatamente como antes.
+  const linhaFinance = src.split("\n").find((l) => /from "\.\/finance\.js"/.test(l)) || "";
   ok("benchmarkSerie importado de ./finance.js na mesma linha de equityCurve",
-    /\bbenchmarkSerie\b/.test(linha15) && /\bequityCurve\b/.test(linha15) && /from "\.\/finance\.js"/.test(linha15));
+    /\bbenchmarkSerie\b/.test(linhaFinance) && /\bequityCurve\b/.test(linhaFinance) && /from "\.\/finance\.js"/.test(linhaFinance));
 
   // ---- placeholder de estado vazio (!hasSeries) permanece intocado ----
   ok("estado vazio (!hasSeries) segue com o mesmo placeholder tracejado",
