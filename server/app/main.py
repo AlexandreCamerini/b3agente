@@ -2088,7 +2088,32 @@ async def carteira_stopalvo(ticker: str, body: dict = Body(default={}), scope: O
 async def buy(body: dict = Body(default={}), scope: Optional[str] = Depends(current_scope)):
     from . import pregao  # import local: sem ciclo (mesmo padrão de agent.py:216)
     t = str(body.get("t", "")).upper()
-    qty = int(body.get("qty") or 0)
+    # A-00/A-00b (auditoria de 2026-09-10): o antigo `int(body.get("qty") or 0)`
+    # não filtrava NADA. `qty=-500` passava direto e `max(100, round(qty/100)*100)`,
+    # adiante, coagia o negativo para o lote mínimo — a rota devolvia 200 e
+    # EXECUTAVA a ordem (100 ações, caixa debitado); `qty=0` é falsy e escapava
+    # pelo `or 0` no mesmo caminho; `qty="abc"` levantava `ValueError` sem
+    # tratamento e virava 500 com o texto cru da exceção no corpo. A guarda já
+    # existia nos dois irmãos (`/api/sell`, regressão F10-20260819, e
+    # `/api/options/buy`) — a compra de ação ficou de fora porque aquela
+    # regressão era específica de venda total silenciosa.
+    # Distingue AUSENTE (None) de ZERO/NEGATIVO explícito, exatamente como a
+    # venda: `qty` ausente continua caindo no lote mínimo de 100 (contrato da
+    # rota, preservado); só valor explícito inválido é rejeitado.
+    qty_cru = body.get("qty")
+    qty = 0
+    motivo_qty = None
+    if qty_cru is not None:
+        try:
+            qty = int(qty_cru)
+        except (TypeError, ValueError):
+            # histórico grava o valor CRU quando não converte — mesmo que a
+            # venda faz (`registrar_rejeicao(..., _qty, ...)`).
+            qty = qty_cru
+            motivo_qty = f"Quantidade inválida: {qty_cru}. A compra usa lotes de 100."
+        else:
+            if qty <= 0:
+                motivo_qty = f"Quantidade inválida: {qty}. A compra usa lotes de 100."
     t = _normalize_ticker(t)
     if len(t) < 4:
         # FIX-C02: toda tentativa REJEITADA de conta logada fica no histórico
@@ -2098,6 +2123,20 @@ async def buy(body: dict = Body(default={}), scope: Optional[str] = Depends(curr
                                       f"{t} não é um ativo reconhecido pelo simulador.",
                                       user_id=scope, origem="manual")
         raise HTTPException(400, "Ticker invalido.")
+    if motivo_qty is not None:
+        # Posição da guarda: DEPOIS do ticker (o histórico grava o ticker já
+        # normalizado, T-04-03) e ANTES de `get_quote` — pedido inválido não
+        # pode queimar requisição do orçamento da brapi (ADR-008, 15k/mês para
+        # o app inteiro). Por isso `price=None`, como na rejeição de ticker
+        # acima e nunca 0.0 (CLAUDE.md item 4); a venda grava `price` só porque
+        # lá a cotação já tinha sido buscada por outro motivo. Fica antes da
+        # bifurcação de pregão de propósito: o caminho de ordem PENDENTE tem a
+        # mesma normalização de lote (`pending_orders.criar_compra`) e engolia
+        # o negativo do mesmo jeito.
+        if scope is not None:
+            store.registrar_rejeicao(_conn, "COMPRA", t, qty, None, motivo_qty,
+                                      user_id=scope, origem="manual")
+        raise HTTPException(400, "Quantidade inválida.")
     # cotação continua sendo buscada mesmo com o mercado fechado: é ela que dá
     # o precoReferencia da reserva (D-02) — sem preço não dá para reservar.
     quote = await candle_provider.get_quote(t)
