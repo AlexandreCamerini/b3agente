@@ -4,7 +4,8 @@ de IA. Cuidado com falsos positivos: 'sobrevenda'/'sobrevendido' são estados
 técnicos válidos — os padrões usam fronteira de palavra."""
 import re
 
-from app import assistente, conceitos, llm, scan_deep, scanner, setups, skill_ref
+from app import (assistente, conceitos, llm, options_mcp_api, scan_deep,
+                 scanner, setups, skill_ref)
 
 PROIBIDOS = [
     r"\bcompre\b", r"\bcomprem\b", r"\bvenda\s+(agora|j[áa]|imediata)",
@@ -43,6 +44,17 @@ FONTES = {
         for c in conceitos.CONCEITOS.values()
         for p in (list(c["naoAcontece"]) + list(c["oQueE"]) + list(c["oQueAcontece"])
                   + list(c["titulo"].values()))),
+    # 2026-09-10 (aba-opcoes F2, quick 260910-biz): os avisos de frescor da
+    # aba Opções também chegam ao usuário SEM passar por LLM nenhuma. A F1
+    # criou o literal inline dentro de `_frescor` e ele ficou sem cobertura;
+    # a F2 extraiu para constante e o traz para cá.
+    #
+    # `web/src/copy.js` NÃO entra em FONTES e não é esquecimento: este
+    # guardião é Python-only (importa módulos e lê atributos de texto), e
+    # `copy.js` é JavaScript. Quem tranca o ramo estudo de `copy.js` contra
+    # vocabulário de ordem é `web/tests/test_copy_theme.mjs` ("ramo ESTUDO
+    # sem vocabulário de ordem"). É assim que o [R-12] do PLANO se cumpre.
+    "options_mcp_api.AVISOS": options_mcp_api.AVISOS,
 }
 
 

@@ -8,6 +8,7 @@ import { sampleTechnicals } from "./demo.js";
 import { DISCLAIMERS, TERMO_OPERADOR_VERSAO } from "./disclaimers.js";
 import { copyFor, historicoTxt, entradaAutoTxt } from "./copy.js";
 import { Markdown, MdInline } from "./markdown.jsx";
+import { extentOf, linePath, lastVal } from "./chartutil.js";
 import { BUILD_ID } from "./version.js";
 // carimbo no console: prova de qual build está rodando (device/web)
 try { console.log("[b3] build", BUILD_ID); } catch { /* noop */ }
@@ -1439,24 +1440,11 @@ function hasAnalysis(an) {
   return !!(an.kpis || an.markdown || an.text || an.error || d.resumo || (d.confirmacoes && d.confirmacoes.length) || (d.invalidacoes && d.invalidacoes.length) || (d.cuidados && d.cuidados.length) || (d.fatos && d.fatos.length));
 }
 
-/* ---------- Análise técnica: gráfico interativo + indicadores ---------- */
-function extentOf(arrays) {
-  let mn = Infinity, mx = -Infinity;
-  for (const a of arrays) { if (!a) continue; for (const v of a) { if (v == null) continue; if (v < mn) mn = v; if (v > mx) mx = v; } }
-  if (mn === Infinity) return [0, 1];
-  if (mn === mx) return [mn - 1, mx + 1];
-  const pad = (mx - mn) * 0.05; return [mn - pad, mx + pad];
-}
-function linePath(arr, mn, mx, W, H, pad = 3) {
-  if (!arr || !arr.length) return "";
-  const n = arr.length;
-  const xs = (i) => pad + (n > 1 ? i / (n - 1) : 0) * (W - 2 * pad);
-  const ys = (v) => (mx === mn ? H / 2 : H - pad - ((v - mn) / (mx - mn)) * (H - 2 * pad));
-  let d = "", started = false;
-  for (let i = 0; i < n; i++) { const v = arr[i]; if (v == null) { started = false; continue; } const x = xs(i), y = ys(v); d += started ? ` L${x.toFixed(1)} ${y.toFixed(1)}` : ` M${x.toFixed(1)} ${y.toFixed(1)}`; started = true; }
-  return d;
-}
-function lastVal(arr) { if (!arr) return null; for (let i = arr.length - 1; i >= 0; i--) if (arr[i] != null) return arr[i]; return null; }
+/* ---------- Análise técnica: gráfico interativo + indicadores ----------
+   `extentOf`/`linePath`/`lastVal` moraram aqui até a aba-opcoes F2
+   (2026-09-10): saíram para `./chartutil.js` porque `opcoes/SetupChart.jsx`
+   precisa dos mesmos helpers e importar App.jsx de lá seria ciclo. Os usos
+   abaixo continuam idênticos. */
 const stateColor = (s) => (s === "alta" || s === "sobrevendido" || s === "acima" ? T.positive : s === "baixa" || s === "sobrecomprado" || s === "abaixo" ? T.negative : T.textSecondary);
 // 2026-09-07 — volume anormal. O estado vem SÓ do motor (summary.volState,
 // indicators.volume_state no backend); a UI não recalcula nem reclassifica.
