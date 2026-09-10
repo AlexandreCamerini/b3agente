@@ -14,7 +14,7 @@ antes de mexer em qualquer configuração do Railway.
 | | produção | staging |
 |---|---|---|
 | Environment (Railway) | `production` | `staging` |
-| URL | `bolsia.semente.dev` · `boris.semente.dev` | `b3agente-staging.up.railway.app` |
+| URL | `boris.semente.dev` | `b3agente-staging.up.railway.app` |
 | Branch rastreada | `main` | — (não rastreia; ver abaixo) |
 | Como publicar | `scripts/promover-staging-para-producao.sh` | `scripts/publicar-staging.sh` |
 | Banco | volume próprio, `b3.db` ~1,1 GB | volume próprio, `b3.db` ~192 KB |

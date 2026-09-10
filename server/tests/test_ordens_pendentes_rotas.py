@@ -116,8 +116,8 @@ def test_market_status_reflete_pregao_in_market_hours_e_is_trading_day(monkeypat
 
 
 def test_market_status_host_gated_sem_sessao_passa_state_401(monkeypatch):
-    client, _ = _client(monkeypatch, hosts="acamerini.app")
-    headers = {"host": "acamerini.app"}
+    client, _ = _client(monkeypatch, hosts="boris.semente.dev")
+    headers = {"host": "boris.semente.dev"}
     assert client.get("/api/market/status", headers=headers).status_code == 200
     assert client.get("/api/state", headers=headers).status_code == 401
 

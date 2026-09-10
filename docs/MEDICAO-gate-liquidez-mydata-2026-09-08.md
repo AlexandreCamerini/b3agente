@@ -1,7 +1,7 @@
 # Medição — o gate de liquidez de opções é impossível de cruzar com mydata
 
 **Data:** 2026-09-08
-**Fonte da medição:** produção ao vivo (`https://bolsia.semente.dev`), rotas
+**Fonte da medição:** produção ao vivo (`https://boris.semente.dev`), rotas
 públicas `GET /api/options/gate/{ticker}` e `GET /api/options/chain/{ticker}`.
 Nenhuma credencial envolvida — as duas rotas são sem autenticação.
 **Origem:** o Alex reportou que a tira "Oportunidades de opções" não aparece
@@ -137,7 +137,7 @@ Quando for recalibrar, as opções levantadas e seus custos:
 
 ```bash
 for t in ABEV3 PETR4 VALE3 ITUB4; do
-  curl -s "https://bolsia.semente.dev/api/options/gate/$t"; echo
+  curl -s "https://boris.semente.dev/api/options/gate/$t"; echo
 done
 ```
 

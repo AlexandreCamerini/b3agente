@@ -38,7 +38,7 @@ decide** (Princípio 1, `server/app/skill_ref.py`).
   Yahoo/brapi (candles+cotações, ~15 min de atraso) · B3 arquivos (opções, v2)
 ```
 
-Domínio: `acamerini.app` (custom domain do Railway; cadastro obrigatório só
+Domínio: `boris.semente.dev` (custom domain do Railway; cadastro obrigatório só
 nesse domínio). O serviço Railway enxerga **apenas** `server/` — por isso o
 front de produção mora versionado em `server/web_dist`, publicado por
 `scripts/publicar-web.sh` (nunca por CI automático; decisão deliberada).

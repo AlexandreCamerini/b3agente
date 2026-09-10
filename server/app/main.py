@@ -392,10 +392,10 @@ async def auth_semente_id_callback(request: Request, code: Optional[str] = None,
 # ===========================================================================
 # F4 completo (2026-08-02) — cadastro obrigatório, SÓ nos domínios listados.
 #
-# Decisão do Alex: acamerini.app fecha (sem modo convidado); a URL do Railway
+# Decisão do Alex: boris.semente.dev fecha (sem modo convidado); a URL do Railway
 # e o app iOS continuam exatamente como estão (Decisão A permanece intacta
 # para eles). B3_GATED_HOSTS vazio = ninguém é afetado — dormente até o
-# Railway apontar de verdade para acamerini.app (mesmo padrão do
+# Railway apontar de verdade para boris.semente.dev (mesmo padrão do
 # web_dist/ios_dist: existe no código, só liga quando configurado).
 #
 # Allowlist por PREFIXO (não por rota individual, então uma rota de auth nova

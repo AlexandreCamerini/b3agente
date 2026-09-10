@@ -190,7 +190,7 @@ class BrapiProvider(CandleProvider):
 
 
 class MydataProvider(CandleProvider):
-    """Hub `mydata.acamerini.app` (`~/dev/cvm-financas`), fonte do acervo
+    """Hub `mydata.semente.dev` (`~/dev/cvm-financas`), fonte do acervo
     diário oficial COTAHIST da B3 (ADR-019/09-CONTEXT.md). Cobre SÓ a fatia
     DIÁRIA: o COTAHIST só publica após o fechamento do pregão — o intraday
     continua sendo do Yahoo por decisão do ADR-001, que esta fase não reabre.
