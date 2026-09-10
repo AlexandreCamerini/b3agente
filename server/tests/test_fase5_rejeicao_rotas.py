@@ -21,11 +21,27 @@ aproximação do achado.
 | 7 | POST /api/sell | cotação ausente/`price is None` | 502 "Sem cotacao para X" | **este arquivo** (novo — nenhum arquivo cobria o 502 de `/api/sell`, só o de `/api/buy`) |
 | 8 | POST /api/sell | `qty` não convertível para `int` | 400 "Quantidade inválida." | **este arquivo** (novo) |
 | 9 | POST /api/sell | `qty` inteiro <= 0 | 400 "Quantidade inválida." | **este arquivo** (novo — regressão conhecida F10-20260819: `0` era falsy e virava venda TOTAL silenciosa antes da correção `is not None`) |
+| 10 | POST /api/buy | `qty` inteiro <= 0 | 400 "Quantidade inválida." | **este arquivo** (novo — achado A-00, auditoria de 2026-09-10) |
+| 11 | POST /api/buy | `qty` não convertível para `int` | 400 "Quantidade inválida." | **este arquivo** (novo — achado A-00b, auditoria de 2026-09-10) |
 
 Os 4 caminhos marcados "este arquivo" são os que o inventário confirmou
 descobertos — os outros 5 já tinham asserção HTTP em arquivos existentes
 (a maior parte fechada pela Fase 4, FIX-C02, que é POSTERIOR à auditoria
 original de C-25).
+
+ADENDO 2026-09-10 (auditoria A-00/A-00b) — os caminhos 10 e 11 NÃO existiam
+quando este inventário foi escrito: eles são a correção do achado, não uma
+lacuna de cobertura. A auditoria de 2026-09-10 reproduziu contra o endpoint
+real que `POST /api/buy {"t":"PETR4","qty":-500}` devolvia **200 OK** e
+executava a ordem (posição de 100 ações, caixa −R$ 3.000), porque
+`int(body.get("qty") or 0)` não filtrava nada e `max(100, round(qty/100)*100)`
+coagia o negativo para o lote mínimo; e que `qty:"abc"` vazava **500** com o
+texto cru do `ValueError`. A mesma guarda já existia em `/api/sell` (caminhos
+8 e 9, regressão F10-20260819) e em `/api/options/buy` — só a compra de ação
+tinha ficado de fora. O caminho 12 abaixo é o guardião do contrato que a
+correção teve de PRESERVAR.
+
+| 12 | POST /api/buy | `qty` AUSENTE do corpo | 200 — compra o lote mínimo de 100 | **este arquivo** (guardião de contrato: `qty` ausente NÃO é `qty` inválido; a correção de A-00 rejeita só o valor explícito <= 0 ou não numérico) |
 
 Isolamento: mesmo padrão de `test_rotas_fase4.py` (seção FIX-C02) —
 `B3_DB_PATH` num diretório temporário + reimport de `app.main`, para não
@@ -191,3 +207,112 @@ def test_sell_qty_zero_400_regressao_f10_20260819(monkeypatch):
     assert estado["positions"][0]["qty"] == 200, "qty=0 não pode virar venda total silenciosa"
     entry = estado["history"][0]
     assert entry["status"] == "rejeitada" and entry["type"] == "VENDA"
+
+
+# ===========================================================================
+# Caminhos 10, 11 e 12 — /api/buy com `qty` inválida (auditoria A-00/A-00b,
+# 2026-09-10). Espelham os caminhos 8 e 9 da venda: a compra é a rota que
+# tinha ficado sem a guarda.
+# ===========================================================================
+
+def test_buy_qty_negativo_400_auditoria_a00(monkeypatch):
+    """A-00 (CRÍTICO): `POST /api/buy {"qty":-500}` devolvia 200 e EXECUTAVA a
+    ordem — `max(100, round(-500/100)*100)` coagia o negativo para o lote
+    mínimo, gravando 100 ações e debitando R$ 3.000 de um pedido que a rota
+    nunca deveria ter aceitado. Trava o 400 + carteira intacta + rejeição no
+    histórico."""
+    client, m = _client_isolado(monkeypatch)
+    token, _uid = _registrar(client, "buy-qtyneg@boris.dev")
+    headers = {"authorization": f"Bearer {token}"}
+    monkeypatch.setattr(pregao_mod, "in_market_hours", lambda now=None: True)
+    monkeypatch.setattr(m.candle_provider, "get_quote", _quote_fake(30.0))
+
+    r = client.post("/api/buy", json={"t": "PETR4", "qty": -500}, headers=headers)
+    assert r.status_code == 400, r.text
+    assert r.json()["detail"] == "Quantidade inválida."
+
+    estado = client.get("/api/state", headers=headers).json()
+    assert estado["positions"] == [], "qty negativo não pode virar posição"
+    assert estado["cash"] == 10000.0, "rejeição não pode mover dinheiro"
+    entry = estado["history"][0]
+    assert entry["status"] == "rejeitada"
+    assert entry["type"] == "COMPRA"
+    assert entry["price"] is None, "nunca 0 nem 0.0 — CLAUDE.md item 4"
+
+
+def test_buy_qty_zero_400_auditoria_a00(monkeypatch):
+    """A-00, mesmo caminho com `qty=0`: zero é falsy em Python, então
+    `int(body.get("qty") or 0)` o tratava como campo ausente e a compra saía
+    com o lote mínimo. Zero EXPLÍCITO é rejeição, não default."""
+    client, m = _client_isolado(monkeypatch)
+    token, _uid = _registrar(client, "buy-qtyzero@boris.dev")
+    headers = {"authorization": f"Bearer {token}"}
+    monkeypatch.setattr(pregao_mod, "in_market_hours", lambda now=None: True)
+    monkeypatch.setattr(m.candle_provider, "get_quote", _quote_fake(30.0))
+
+    r = client.post("/api/buy", json={"t": "PETR4", "qty": 0}, headers=headers)
+    assert r.status_code == 400, r.text
+    assert r.json()["detail"] == "Quantidade inválida."
+
+    estado = client.get("/api/state", headers=headers).json()
+    assert estado["positions"] == [], "qty=0 não pode virar compra de lote mínimo"
+    assert estado["cash"] == 10000.0, "rejeição não pode mover dinheiro"
+    entry = estado["history"][0]
+    assert entry["status"] == "rejeitada" and entry["type"] == "COMPRA"
+
+
+def test_buy_qty_nao_inteiro_400_auditoria_a00b(monkeypatch):
+    """A-00b (ALTO): `qty:"abc"` vazava `ValueError` e virava 500 com o texto
+    cru da exceção Python no corpo. A venda já devolvia 400 "Quantidade
+    inválida." para a MESMA entrada — a compra agora também. Nunca 500."""
+    client, m = _client_isolado(monkeypatch)
+    token, _uid = _registrar(client, "buy-qtynaoint@boris.dev")
+    headers = {"authorization": f"Bearer {token}"}
+    monkeypatch.setattr(pregao_mod, "in_market_hours", lambda now=None: True)
+    monkeypatch.setattr(m.candle_provider, "get_quote", _quote_fake(30.0))
+
+    r = client.post("/api/buy", json={"t": "PETR4", "qty": "abc"}, headers=headers)
+    assert r.status_code == 400, r.text
+    assert r.status_code != 500, "exceção crua nunca chega ao cliente"
+    assert r.json()["detail"] == "Quantidade inválida."
+
+    estado = client.get("/api/state", headers=headers).json()
+    assert estado["positions"] == []
+    assert estado["cash"] == 10000.0, "rejeição não pode mover dinheiro"
+    entry = estado["history"][0]
+    assert entry["status"] == "rejeitada" and entry["type"] == "COMPRA"
+
+
+def test_buy_qty_invalida_anonimo_nao_grava_no_balde_compartilhado(monkeypatch):
+    """T-05-03/T-04-12: o balde anônimo é compartilhado — a rejeição de A-00
+    segue a mesma regra das outras rejeições da rota e não grava nele."""
+    client, m = _client_isolado(monkeypatch)
+    monkeypatch.setattr(pregao_mod, "in_market_hours", lambda now=None: True)
+    monkeypatch.setattr(m.candle_provider, "get_quote", _quote_fake(30.0))
+
+    r = client.post("/api/buy", json={"t": "PETR4", "qty": -500})
+    assert r.status_code == 400
+
+    estado_anonimo = client.get("/api/state").json()
+    assert estado_anonimo["history"] == [], "balde anônimo compartilhado — nunca registra rejeição"
+    assert estado_anonimo["positions"] == []
+
+
+def test_buy_qty_ausente_continua_comprando_lote_minimo_contrato_preservado(monkeypatch):
+    """Guardião de CONTRATO (caminho 12), não regressão de A-00: `qty` ausente
+    do corpo sempre significou "lote mínimo de 100" nesta rota, e a correção
+    de A-00 preserva isso — ela rejeita valor explícito inválido, não muda o
+    contrato. Se algum dia o default cair, que caia por decisão explícita."""
+    client, m = _client_isolado(monkeypatch)
+    token, _uid = _registrar(client, "buy-qtyausente@boris.dev")
+    headers = {"authorization": f"Bearer {token}"}
+    monkeypatch.setattr(pregao_mod, "in_market_hours", lambda now=None: True)
+    monkeypatch.setattr(m.candle_provider, "get_quote", _quote_fake(30.0))
+
+    r = client.post("/api/buy", json={"t": "PETR4"}, headers=headers)
+    assert r.status_code == 200, r.text
+
+    estado = client.get("/api/state", headers=headers).json()
+    assert estado["positions"][0]["qty"] == 100, "qty ausente = lote mínimo, comportamento de sempre"
+    assert estado["cash"] == 7000.0
+    assert estado["history"][0]["status"] == "executada"
