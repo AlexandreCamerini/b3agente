@@ -1012,7 +1012,7 @@ async def admin_mobile_handoff_exchange(body: dict = Body(default={})):
 
 # FASE 8B (diagnóstico): carimbo de build do BACKEND — confirma qual código o
 # Railway está rodando (o front tem o dele em web/src/version.js).
-SERVER_BUILD_ID = "F10-20260908-02"  # 2026-09-08: gate de liquidez de opções em três faixas com consentimento (260908-ldg) + score recalibrado para mydata sem open interest (260908-dnl); contém o -01 (4 correções de 07/09), que nunca foi promovido — front republicado.
+SERVER_BUILD_ID = "F10-20260909-01"  # 2026-09-09: carimbo de horário das ordens em BRT (260909-oyu) — deploy só-backend; contém o -02 de 08/09 (gate de liquidez em três faixas + score recalibrado).
 # Normalmente sincronizado pelo entregar.sh a partir de web/src/version.js; num deploy
 # SÓ de backend (sem rebuild do front) bumpamos aqui para /api/health rastrear o servidor.
 
