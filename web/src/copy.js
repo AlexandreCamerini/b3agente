@@ -46,6 +46,37 @@ export const COPY = {
     tituloPortfolio: "Portfólio",
     subtituloPortfolio: "Sua carteira SIMULADA — dinheiro de estudo, decisões de verdade.",
 
+    // aba Opções (aba-opcoes F2, 2026-09-10) — voz de professor: explica o
+    // que o número é antes de dizer o que ele mostra. O Operador IA saiu da
+    // barra e virou sub-tela do Portfólio (D-0.1 do PLANO-aba-opcoes).
+    tabOpcoes: "Opções",
+    tituloOpcoes: "Opções",
+    subtituloOpcoes: "Como o ativo vem se comportando e quais estruturas de opções fazem sentido estudar — leitura de fim de pregão, sem ordem nenhuma.",
+    tituloOperadorIA: "Operador IA",
+    linkOperadorIA: "Abrir o Operador IA →",
+    opcoesLeituraTitulo: "LEITURA DO ATIVO",
+    opcoesSetupsTitulo: "SETUPS GRAVADOS",
+    opcoesPregaoRotulo: "Pregão",
+    opcoesFonteRotulo: "Fonte",
+    opcoesFrescorEmDia: "dado em dia",
+    opcoesFrescorAtrasado: "dado atrasado",
+    opcoesFrescorNaoMedido: "frescor não medido",
+    opcoesSemSetups: "Nenhum setup gravado para este ativo ainda. Setup é uma condição objetiva escrita antes do pregão — enquanto não houver uma, não há o que avaliar.",
+    opcoesNaoAvaliado: (motivo) =>
+      motivo
+        ? "O serviço não avaliou os setups hoje. Motivo, na palavra dele: " + motivo
+        : "O serviço não avaliou os setups hoje e não informou o motivo. Sem avaliação, nenhum setup pode ser dado como armado — ausência de leitura não é leitura negativa.",
+    opcoesNaoConfigurado: "O serviço de opções não está configurado neste servidor. Nada foi consultado — a tela não inventa leitura quando a fonte não responde.",
+    opcoesCota: (reinicia) =>
+      "Sua cota de consultas da aba Opções acabou por hoje." +
+      (reinicia ? " Ela reinicia às " + reinicia + "." : " Ela reinicia na virada do dia."),
+    opcoesIndisponivel: "O serviço de opções não respondeu agora. Tente de novo em alguns minutos — nenhum número foi estimado no lugar.",
+    opcoesCarregando: "Consultando o serviço de opções…",
+    opcoesEscolherAtivo: "Escolha um ativo da sua watchlist para ver a leitura dele.",
+    opcoesDisclaimer: "Conteúdo educacional. Os dados são de fim de pregão e podem estar atrasados; nada aqui é ordem, recomendação ou promessa de resultado.",
+    opcoesGraficoTitulo: "Disparos do setup",
+    opcoesDisparosRotulo: "Disparos",
+
     // onboarding (home vazia) — qa/34: antes hardcodado na voz de Estudo
     welcomeTitulo: "Bem-vindo ao seu simulador",
     welcomeCorpo: "A jornada tem 3 passos: descubra oportunidades no Radar, acompanhe os melhores na Watchlist e simule operações no Portfólio — tudo com dinheiro simulado e leitura educacional.",
@@ -286,6 +317,37 @@ export const COPY = {
     subtituloWatchlist: "Seus ativos monitorados, ordenados por oportunidade (confluência do snapshot). O plano de cada um abre no card.",
     tituloPortfolio: "Posições",
     subtituloPortfolio: "Suas posições e o plano de cada uma — risco controlado em R, parciais no alvo 1.",
+
+    // aba Opções (aba-opcoes F2, 2026-09-10) — voz de mesa: direto ao estado
+    // do dado e ao que está armado. Mesmas chaves do ramo estudo (o guardião
+    // test_copy_theme.mjs compara os conjuntos ordenados).
+    tabOpcoes: "Opções",
+    tituloOpcoes: "Opções",
+    subtituloOpcoes: "Comportamento do ativo, estruturas do catálogo e os setups armados — leitura de fim de pregão. Nenhuma ordem sai daqui.",
+    tituloOperadorIA: "Operador IA",
+    linkOperadorIA: "Abrir o Operador IA →",
+    opcoesLeituraTitulo: "LEITURA DO ATIVO",
+    opcoesSetupsTitulo: "SETUPS GRAVADOS",
+    opcoesPregaoRotulo: "Pregão",
+    opcoesFonteRotulo: "Fonte",
+    opcoesFrescorEmDia: "dado em dia",
+    opcoesFrescorAtrasado: "dado atrasado",
+    opcoesFrescorNaoMedido: "frescor não medido",
+    opcoesSemSetups: "Nenhum setup gravado para este ativo. Sem condição escrita antes do pregão, não há o que a mesa avalie.",
+    opcoesNaoAvaliado: (motivo) =>
+      motivo
+        ? "Setups não avaliados hoje. Motivo do serviço: " + motivo
+        : "Setups não avaliados hoje, sem motivo informado. Sem avaliação, nenhum setup entra como armado.",
+    opcoesNaoConfigurado: "Serviço de opções não configurado neste servidor. Nada foi consultado.",
+    opcoesCota: (reinicia) =>
+      "Cota de consultas da aba Opções esgotada no dia." +
+      (reinicia ? " Reinicia às " + reinicia + "." : " Reinicia na virada do dia."),
+    opcoesIndisponivel: "Serviço de opções sem resposta agora. Tente em alguns minutos — nenhum número foi estimado no lugar.",
+    opcoesCarregando: "Consultando o serviço de opções…",
+    opcoesEscolherAtivo: "Escolha um ativo do seu monitoramento para ver a leitura.",
+    opcoesDisclaimer: "Conteúdo educacional. Dados de fim de pregão, possivelmente atrasados; nada aqui é ordem, recomendação ou promessa de resultado.",
+    opcoesGraficoTitulo: "Disparos do setup",
+    opcoesDisparosRotulo: "Disparos",
 
     // onboarding (home vazia) — qa/34: voz de mesa
     welcomeTitulo: "Bem-vindo à sua mesa de operações",

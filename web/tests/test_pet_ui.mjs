@@ -158,8 +158,17 @@ ok("a LLM continua opt-in atrás da didática grátis (BorisChat, não chamada d
 // cobre as 7, e (b) cada uma tem um ramo de snapshot ou é a rota já coberta
 // (mercado, tratada dentro do PetSheet a partir do resumo).
 const ABAS_PET = ["mercado", "carteira", "evolucao", "radar", "agente", "historico", "perfil"];
+// 2026-09-10 (aba-opcoes F2, quick 260910-biz) — asserção ATUALIZADA, não
+// relaxada. O que mudou: o "Operador IA" saiu da barra inferior (que passou a
+// ter "Opções" no 5º lugar) e virou SUB-TELA do Portfólio, pelo mesmo
+// mecanismo que "Histórico" já usava (D-0.1 do `docs/PLANO-aba-opcoes.md`).
+// Com isso `carteiraView` deixou de ter dois valores e passou a ter três
+// (`main | historico | agente`), e o cálculo do `petTela` acompanhou. A
+// regex nova é tão exata quanto a antiga — continua travando a expressão
+// inteira, agora com os três casos. `ABAS_PET` (abaixo) fica intacta: a aba
+// "agente" continua existindo para o pet, só que via `carteiraView`.
 ok("PetFab/PetSheet recebem a aba ativa calculada de tab+carteiraView (petTela)",
-   /const petTela = tab === "carteira" \? \(carteiraView === "historico" \? "historico" : "carteira"\) : tab;/.test(app));
+   /const petTela = tab === "carteira" \? \(carteiraView === "historico" \? "historico" : carteiraView === "agente" \? "agente" : "carteira"\) : tab;/.test(app));
 ok("PetSheet é chamado com a tela ativa e o snapshot por tela",
    /<PetSheet didatica=\{didatica\} tela=\{petTela\} snapshot=\{petSnapshot\}/.test(app));
 for (const aba of ABAS_PET) {

@@ -14,7 +14,17 @@ const app = readFileSync(join(here, "..", "src", "App.jsx"), "utf8");
 let fails = 0;
 const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if (!cond) fails++; };
 
-const FRASE_NOVA = "Inclui a aba Operador IA — o agente que pode vender sozinho conforme as regras que você configurar.";
+// 2026-09-10 (aba-opcoes F2, quick 260910-biz) — frase ATUALIZADA, não
+// removida. O contrato do C-07 é intacto: a tela de Modo de Trabalho tem de
+// NOMEAR o Operador IA e dizer que ele pode vender sozinho conforme as
+// regras configuradas. O que mudou foi só o substantivo: o Operador IA
+// deixou de ser uma ABA da barra inferior (que passou a ter "Opções" no 5º
+// lugar) e virou sub-tela do Portfólio (D-0.1 do `docs/PLANO-aba-opcoes.md`).
+// Manter "aba" aqui obrigaria a tela a mentir sobre onde a coisa fica.
+// Texto anterior, para o histórico:
+//   "Inclui a aba Operador IA — o agente que pode vender sozinho conforme as
+//    regras que você configurar."
+const FRASE_NOVA = "Inclui o Operador IA (dentro do Portfólio) — o agente que pode vender sozinho conforme as regras que você configurar.";
 
 // ---- isola o corpo de ModoTrabalhoCard -------------------------------------
 const iniModo = app.indexOf("function ModoTrabalhoCard(");
