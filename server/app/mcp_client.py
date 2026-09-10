@@ -224,6 +224,12 @@ async def _access_token() -> str:
 
         http = _cliente_http()
         basico = base64.b64encode(f"{cid}:{seg}".encode()).decode()
+        # FORA do try, de propósito: `url()` levanta ValueError quando
+        # `MCP_URL` tem esquema inválido, e isso é ERRO DE CONFIGURAÇÃO, não
+        # indisponibilidade. Avaliado como argumento dentro do try, ele seria
+        # capturado pelo `except Exception` abaixo e a rota diria "o serviço
+        # não respondeu" para um problema que nenhum retry resolve.
+        recurso = url()
         try:
             r = await http.post(
                 URL_TOKEN,
@@ -234,7 +240,7 @@ async def _access_token() -> str:
                 # `resource` (RFC 8707) é OBRIGATÓRIO e vira o `aud` do token
                 # — é ele que impede um token emitido para outro serviço do
                 # portfólio de abrir este (mitigação de T-waw-06).
-                data={"grant_type": "client_credentials", "resource": url()},
+                data={"grant_type": "client_credentials", "resource": recurso},
             )
         except McpErro:
             raise

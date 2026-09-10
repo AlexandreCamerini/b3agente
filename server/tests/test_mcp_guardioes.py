@@ -167,5 +167,174 @@ def test_guardiao_iii_nenhum_literal_com_formato_de_segredo(caminho):
         f"no histórico, e a resposta é rotacionar, não apagar o commit.")
 
 
-# (iv) e (v) entram na Task 3, com o router `options_mcp_api.py` — sem rota
-# no repo eles passariam por vacuidade, que é o oposto de guardar.
+# ─────────────────────────────────────────────────────────────────────────
+# (iv) — toda rota do serviço MCP passa por `require_user` E pelo cap.
+# ─────────────────────────────────────────────────────────────────────────
+def _nomes_dependencias(dependant, vistos=None) -> set:
+    """Cópia do helper de `test_adr013_cobertura_rotas` (guardião não importa
+    guardião). Recursivo porque `Depends()` aninha: `require_permission()`
+    devolve um `_dep` que por sua vez depende de `require_user`."""
+    vistos = vistos if vistos is not None else set()
+    out: set = set()
+    if dependant is None or id(dependant) in vistos:
+        return out
+    vistos.add(id(dependant))
+    for d in getattr(dependant, "dependencies", None) or []:
+        call = getattr(d, "call", None)
+        if call is not None:
+            out.add(getattr(call, "__name__", str(call)))
+        out |= _nomes_dependencias(d, vistos)
+    return out
+
+
+def _todas_as_rotas(rotas, vistos=None) -> list:
+    """Achata `app.routes` RECURSIVAMENTE.
+
+    ACHADO 2026-09-09 (aba-opcoes F1): com fastapi 0.141.1 / starlette 1.6.0,
+    `include_router()` NÃO copia as rotas para `app.routes` — ele insere um
+    objeto `_IncludedRouter`, com o `APIRouter` original pendurado em
+    `.original_router`. Um guardião que varre só `app.routes` procurando
+    `.path` fica CEGO para toda rota registrada por router (e passa por
+    vacuidade, que é o modo mais silencioso de um guardião falhar).
+    `test_adr013_cobertura_rotas.py` tem exatamente esse formato — está
+    registrado no SUMMARY desta quick como achado a decidir com o Alex, fora
+    do escopo desta fase para não mudar a semântica de um guardião de
+    segurança de raspão."""
+    vistos = vistos if vistos is not None else set()
+    fora = []
+    for r in rotas or []:
+        if id(r) in vistos:
+            continue
+        vistos.add(id(r))
+        if getattr(r, "path", None) is not None:
+            fora.append(r)
+        interno = getattr(r, "original_router", None)
+        if interno is not None:
+            fora.extend(_todas_as_rotas(getattr(interno, "routes", None), vistos))
+        elif getattr(r, "routes", None):
+            fora.extend(_todas_as_rotas(r.routes, vistos))
+    return fora
+
+
+def _rotas_do_servico_mcp():
+    from app.main import app
+
+    return [r for r in _todas_as_rotas(app.routes)
+            if str(getattr(r, "path", "") or "").startswith("/api/options/mcp")]
+
+
+def _funcoes_de_rota_do_modulo() -> dict:
+    """Nome → nó AST das funções decoradas com `@router.<metodo>` em
+    `options_mcp_api.py`."""
+    fora = {}
+    for node in ast.walk(_arvore(_APP_DIR / "options_mcp_api.py")):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        for dec in node.decorator_list:
+            alvo = dec.func if isinstance(dec, ast.Call) else dec
+            if isinstance(alvo, ast.Attribute) and isinstance(alvo.value, ast.Name) \
+                    and alvo.value.id == "router":
+                fora[node.name] = node
+    return fora
+
+
+def test_guardiao_iv_toda_rota_mcp_exige_sessao_e_passa_pelo_cap():
+    rotas = _rotas_do_servico_mcp()
+    assert rotas, (
+        "nenhuma rota `/api/options/mcp` registrada no app — este guardião "
+        "estaria passando por VACUIDADE, que é o oposto de guardar.")
+
+    funcoes = _funcoes_de_rota_do_modulo()
+    assert funcoes, "nenhuma função decorada com @router encontrada em options_mcp_api.py"
+
+    sem_sessao, sem_cap = [], []
+    for rota in rotas:
+        nomes = _nomes_dependencias(getattr(rota, "dependant", None))
+        if "require_user" not in nomes:
+            sem_sessao.append((rota.path, sorted(nomes)))
+
+    for nome, no in funcoes.items():
+        chamados = {n.id for n in ast.walk(no) if isinstance(n, ast.Name)}
+        if "_cap_check" not in chamados:
+            sem_cap.append(nome)
+
+    assert not sem_sessao, (
+        f"rota(s) do serviço MCP sem `require_user`: {sem_sessao!r} — o "
+        f"teto de 2.000 chamadas/dia é do SERVIDOR, não do usuário: rota "
+        f"anônima aqui deixa qualquer um queimar a cota de toda a base.")
+    assert not sem_cap, (
+        f"função(ões) de rota sem `_cap_check`: {sem_cap!r} — sessão sozinha "
+        f"não é freio; sem o cap, um laço no cliente de UM usuário logado "
+        f"esgota o teto compartilhado (T-waw-03).")
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# (v) — o `consume` do cap NUNCA queima o balde mensal do plano comercial.
+# ─────────────────────────────────────────────────────────────────────────
+def _constantes_str_do_modulo(arvore) -> dict:
+    """Assignments de nível de módulo com valor string literal — permite
+    aceitar `month_section=MONTH_SECTION` e ainda assim exigir que o valor
+    RESOLVA para `"mcpUsageMonth"`. Aceitar o Name sem resolver deixaria
+    `month_section=OUTRA_COISA` passar; exigir o literal na chamada
+    duplicaria a constante. Resolver é o único caminho que guarda de fato."""
+    fora = {}
+    for node in getattr(arvore, "body", []):
+        if isinstance(node, ast.Assign) and isinstance(node.value, ast.Constant) \
+                and isinstance(node.value.value, str):
+            for alvo in node.targets:
+                if isinstance(alvo, ast.Name):
+                    fora[alvo.id] = node.value.value
+    return fora
+
+
+def test_guardiao_v_consume_do_cap_sempre_leva_month_section_propria():
+    caminho = _APP_DIR / "options_mcp_api.py"
+    arvore = _arvore(caminho)
+    constantes = _constantes_str_do_modulo(arvore)
+
+    chamadas = [
+        n for n in ast.walk(arvore)
+        if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
+        and n.func.attr == "consume"
+        and isinstance(n.func.value, ast.Name) and n.func.value.id == "metering"
+    ]
+    assert chamadas, (
+        "nenhuma chamada a `metering.consume` em options_mcp_api.py — este "
+        "guardião estaria passando por vacuidade.")
+
+    ofensores = []
+    for chamada in chamadas:
+        kw = {k.arg: k.value for k in chamada.keywords if k.arg}
+        valor = kw.get("month_section")
+        if isinstance(valor, ast.Constant):
+            resolvido = valor.value
+        elif isinstance(valor, ast.Name):
+            resolvido = constantes.get(valor.id)
+        else:
+            resolvido = None
+        if resolvido != "mcpUsageMonth":
+            ofensores.append((chamada.lineno, resolvido))
+
+    assert not ofensores, (
+        f"`metering.consume` sem `month_section` própria: {ofensores!r} — o "
+        f"default do metering é `aiUsageMonth`, o balde MENSAL de análises "
+        f"do plano comercial (ADR-010). Sem a seção própria, cada chamada de "
+        f"tool da aba Opções tiraria uma análise de IA do usuário ([R-1] do "
+        f"PLANO).")
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Guardião de COMPORTAMENTO — a delegação de `require_user` é real, não só
+# um nome que agrada o guardião de cobertura de rotas.
+# ─────────────────────────────────────────────────────────────────────────
+def test_status_sem_authorization_responde_401():
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    with TestClient(app) as c:
+        r = c.get("/api/options/mcp/status")
+    assert r.status_code == 401, (
+        f"`GET /api/options/mcp/status` sem header respondeu {r.status_code} "
+        f"— o `require_user` local de options_mcp_api tem o nome certo mas "
+        f"não está delegando de verdade.")
