@@ -10,6 +10,21 @@ Fluxo nas rotas:
 
 `check` registra o timestamp para o rate limit (impede martelar), mas NÃO conta
 a cota diária — quem conta é `consume`, após a resposta vir.
+
+2026-09-09 (aba-opcoes F1, ADR-027) — overrides `_dia`/`_mes`. Achado do
+inventário: `_now` NÃO decide o dia. `check(..., _now=...)` só alimenta o
+rate limit (`now - t < 60.0`, epoch float); o dia sempre saiu de `_today()`,
+que lê `datetime.now(timezone.utc)` e não tinha ponto de injeção. A aba
+Opções precisa do MESMO reset que o serviço MCP usa (00:00
+America/Sao_Paulo), senão o cap do usuário viraria três horas antes do teto
+do serviço e o app recusaria chamada que o serviço ainda aceitaria (e
+vice-versa, pior: liberaria depois que o serviço já recusou).
+
+Solução: quem chama passa o dia/mês PRONTOS. `_dia=None`/`_mes=None`
+(default) preservam o comportamento anterior byte a byte — nenhum call site
+de IA gerenciada muda. `_dia` e `_mes` sempre viajam JUNTOS, pela mesma
+regra que `_month` já documentava: nunca duas noções de tempo diferentes
+para dia e mês no mesmo registro.
 """
 from datetime import datetime, timezone
 import time
@@ -26,39 +41,63 @@ GLOBAL_SECTION = "aiUsageGlobal"   # qa/42: contador GLOBAL (kv sem escopo de us
 MONTH_SECTION = "aiUsageMonth"
 
 
-def _today() -> str:
+def _today(_dia=None) -> str:
+    """`_dia` (ADR-027): dia PRONTO, no formato `%Y-%m-%d`, calculado pelo
+    chamador no fuso dele. `None` = comportamento histórico (UTC)."""
+    if _dia:
+        return str(_dia)
     return datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
 
-def _month() -> str:
+def _month(_mes=None) -> str:
     # Mesma âncora de fuso/relógio que `_today()` (datetime.now(timezone.utc))
-    # — nunca duas noções de tempo diferentes para dia e mês.
+    # — nunca duas noções de tempo diferentes para dia e mês. Com override, a
+    # regra continua: quem passa `_mes` tem de passar `_dia` do mesmo fuso.
+    if _mes:
+        return str(_mes)
     return datetime.now(timezone.utc).strftime("%Y-%m")
 
 
-def _load_global(conn, section: str = GLOBAL_SECTION) -> dict:
+# Os dois helpers abaixo existem por causa de um contrato de TESTE que não
+# pode quebrar: `test_fase5_gate_mensal` monkeypatcha `_today`/`_month` por
+# lambdas de ZERO argumentos (`lambda: "2099-01"`). Chamar `_today(_dia)`
+# direto no corpo do módulo faria esse guardião estourar `TypeError` em vez
+# de guardar a virada de mês. Então o corpo resolve o override ANTES e só
+# chama a função sem argumento quando não há override — o parâmetro segue
+# na assinatura para quem quiser usar `_today("2026-09-09")` diretamente.
+def _resolve_dia(_dia=None) -> str:
+    return str(_dia) if _dia else _today()
+
+
+def _resolve_mes(_mes=None) -> str:
+    return str(_mes) if _mes else _month()
+
+
+def _load_global(conn, section: str = GLOBAL_SECTION, _dia=None) -> dict:
+    hoje = _resolve_dia(_dia)
     g = db.kv_get(conn, section, None, user_id=None)
-    if not isinstance(g, dict) or g.get("day") != _today():
-        return {"day": _today(), "count": 0}
+    if not isinstance(g, dict) or g.get("day") != hoje:
+        return {"day": hoje, "count": 0}
     if not isinstance(g.get("count"), int):
         g["count"] = 0
     return g
 
 
-def global_snapshot(conn, cap=None, section: str = GLOBAL_SECTION) -> dict:
+def global_snapshot(conn, cap=None, section: str = GLOBAL_SECTION, _dia=None) -> dict:
     """qa/42 (FinOps): quanto a IA gerenciada gastou HOJE somando todos os
     usuários. Antes não existia contador agregado — a cota era só por usuário,
     então o gasto do servidor era (nº de usuários) × cota, SEM teto superior."""
-    g = _load_global(conn, section=section)
+    g = _load_global(conn, section=section, _dia=_dia)
     used = int(g.get("count", 0))
     return {"day": g["day"], "used": used, "cap": cap,
             "remaining": None if cap is None else max(0, cap - used)}
 
 
-def _load(conn, user_id, section: str = SECTION) -> dict:
+def _load(conn, user_id, section: str = SECTION, _dia=None) -> dict:
+    hoje = _resolve_dia(_dia)
     u = db.kv_get(conn, section, None, user_id=user_id)
-    if not isinstance(u, dict) or u.get("day") != _today():
-        return {"day": _today(), "count": 0, "rl": []}
+    if not isinstance(u, dict) or u.get("day") != hoje:
+        return {"day": hoje, "count": 0, "rl": []}
     if not isinstance(u.get("rl"), list):
         u["rl"] = []
     if not isinstance(u.get("count"), int):
@@ -70,24 +109,33 @@ def _save(conn, user_id, u, section: str = SECTION) -> None:
     db.kv_set(conn, section, u, user_id=user_id)
 
 
-def _load_month(conn, user_id, section: str = MONTH_SECTION) -> dict:
+def _load_month(conn, user_id, section: str = MONTH_SECTION, _mes=None) -> dict:
     """Mesmo padrão defensivo de `_load_global`: registro de outro mês (ou
     corrompido/tipo errado) devolve um dict zerado do mês corrente — nunca
     lança, nunca herda contagem de um mês que já virou."""
+    mes = _resolve_mes(_mes)
     m = db.kv_get(conn, section, None, user_id=user_id)
-    if not isinstance(m, dict) or m.get("month") != _month():
-        return {"month": _month(), "count": 0}
+    if not isinstance(m, dict) or m.get("month") != mes:
+        return {"month": mes, "count": 0}
     if not isinstance(m.get("count"), int):
         m["count"] = 0
     return m
 
 
-def month_used(conn, user_id, section: str = MONTH_SECTION) -> int:
+def month_used(conn, user_id, section: str = MONTH_SECTION, _mes=None) -> int:
     """C-33 (fase 5): contagem REAL de análises do mês corrente da conta —
     fonte única para `plan.can_analyze(used_this_month=...)`. Nunca um
     segundo contador paralelo: o acumulado só é incrementado por `consume()`
     logo abaixo."""
-    return int(_load_month(conn, user_id, section=section).get("count", 0))
+    return int(_load_month(conn, user_id, section=section, _mes=_mes).get("count", 0))
+
+
+def used(conn, user_id, *, section: str = SECTION, _dia=None) -> int:
+    """ADR-027: espelho DIÁRIO de `month_used` — quantas chamadas a conta já
+    gastou HOJE na seção pedida. Existe para a rota mostrar `usado`/`limite`
+    ao usuário sem reimplementar a lógica de virada de dia (que é justamente
+    onde o `_dia` de São Paulo entra)."""
+    return int(_load(conn, user_id, section=section, _dia=_dia).get("count", 0))
 
 
 # qa/47: `section`/`global_section` permitem reusar este módulo para OUTRO
@@ -96,7 +144,7 @@ def month_used(conn, user_id, section: str = MONTH_SECTION) -> int:
 # preserva o comportamento anterior (todos os call sites de IA continuam
 # implícitos em SECTION/GLOBAL_SECTION).
 def check(conn, user_id, *, quota, rate_per_min, custo=1, cap_global=None, _now=None,
-          section: str = SECTION, global_section: str = GLOBAL_SECTION):
+          section: str = SECTION, global_section: str = GLOBAL_SECTION, _dia=None):
     """(permitido, motivo). Registra o uso para o rate limit; NÃO consome a cota
     diária (isso é no consume, após sucesso).
 
@@ -106,7 +154,7 @@ def check(conn, user_id, *, quota, rate_per_min, custo=1, cap_global=None, _now=
     custo na COTA fecha o furo. O rate limit segue contando 1 por REQUEST
     (ele existe para impedir martelar): reservar 10 slots num teto de 6/min
     bloquearia todo deep."""
-    u = _load(conn, user_id, section=section)
+    u = _load(conn, user_id, section=section, _dia=_dia)
     now = time.time() if _now is None else _now
     custo = max(1, int(custo or 1))
     u["rl"] = [t for t in u["rl"] if (now - t) < 60.0]
@@ -131,7 +179,7 @@ def check(conn, user_id, *, quota, rate_per_min, custo=1, cap_global=None, _now=
     # qa/42 (FinOps): teto GLOBAL — a última linha de defesa do bolso. Sem ele,
     # o gasto do servidor era (nº de usuários) × cota/dia, ilimitado por cima.
     # cap_global=None (default) => ilimitado => comportamento anterior intacto.
-    if cap_global is not None and _load_global(conn, section=global_section)["count"] + custo > cap_global:
+    if cap_global is not None and _load_global(conn, section=global_section, _dia=_dia)["count"] + custo > cap_global:
         _save(conn, user_id, u, section=section)
         return (False, (
             "A IA do app atingiu o limite de uso de hoje (teto global do servidor). "
@@ -144,7 +192,7 @@ def check(conn, user_id, *, quota, rate_per_min, custo=1, cap_global=None, _now=
 
 
 def consume(conn, user_id, *, custo: int = 1, section: str = SECTION, global_section: str = GLOBAL_SECTION,
-            month_section: str = MONTH_SECTION) -> int:
+            month_section: str = MONTH_SECTION, _dia=None, _mes=None) -> int:
     """Conta análise(s) gerenciada(s) (chamar após o LLM responder com sucesso,
     ou — qa/47 — após um lote de eventos de analytics ser aceito).
     qa/42: conta no contador do usuário E no global (teto de gasto do servidor).
@@ -153,13 +201,13 @@ def consume(conn, user_id, *, custo: int = 1, section: str = SECTION, global_sec
     C-33 (fase 5): também incrementa o acumulado MENSAL (registro próprio,
     ver `MONTH_SECTION`) — é o único ponto de escrita do ledger mensal."""
     custo = max(1, int(custo or 1))
-    u = _load(conn, user_id, section=section)
+    u = _load(conn, user_id, section=section, _dia=_dia)
     u["count"] = int(u.get("count", 0)) + custo
     _save(conn, user_id, u, section=section)
-    g = _load_global(conn, section=global_section)
+    g = _load_global(conn, section=global_section, _dia=_dia)
     g["count"] = int(g.get("count", 0)) + custo
     db.kv_set(conn, global_section, g, user_id=None)
-    m = _load_month(conn, user_id, section=month_section)
+    m = _load_month(conn, user_id, section=month_section, _mes=_mes)
     m["count"] = int(m.get("count", 0)) + custo
     db.kv_set(conn, month_section, m, user_id=user_id)
     return u["count"]

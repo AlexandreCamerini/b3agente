@@ -26,6 +26,13 @@ GRUPOS = {
     "fontes_dados": {"fontes_dados.configurar"},
     "prompts": {"prompts.editar"},
     "usuarios": {"usuarios.gerenciar"},
+    # ADR-027 §2.7 (aba-opcoes F1, 2026-09-09): o armazém de setups do serviço
+    # MCP é ÚNICO e não tem campo `owner` — um setup criado por qualquer conta
+    # é visto por todos os clientes do serviço. Enquanto essa lacuna existir,
+    # criar/confirmar/desativar setup é permissão nomeada (só `role_admin` a
+    # recebe no bootstrap); ler, avaliar e ver gráfico valem para todo usuário
+    # logado, sem permissão.
+    "opcoes": {"opcoes.criar_setup"},
 }
 
 # Bootstrap: quem tinha o gate binário de hoje recebe TODAS as permissões de
@@ -91,6 +98,10 @@ ENTIDADES_POR_PERMISSAO = {
     "fontes_dados.configurar": {"brapi_spot_intervalo"},
     "execucao_automatica.ver": {"agent_kill_switch", "timing_watch_kill_switch"},
     "execucao_automatica.controlar": {"agent_kill_switch", "timing_watch_kill_switch"},
+    # ADR-027 §2.7: `opcoes.criar_setup` NÃO entra aqui na Fase 1 de propósito
+    # — nenhum `audit.record` grava entidade de setup ainda, e o contrato
+    # documentado deste mapa é "cobre toda `entity` HOJE gravada". A entrada
+    # entra na Fase 5, junto com a rota de escrita que a gravará.
 }
 
 
