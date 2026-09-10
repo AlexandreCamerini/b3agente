@@ -20,6 +20,14 @@
 //  · `leitura.erro || status.erro` deixava o 404 mascarar o
 //    `mcp_nao_configurado` do `/status`, que é o que diz o que fazer.
 //
+// Quick 260910-red (2026-09-10) — terceiro defeito, achado ao vivo na
+// primeira leitura real de PETR4/VALE3 em produção: `(l && l.frescor) ||
+// (status.dados && status.dados.frescor)` deixava o frescor da LEITURA
+// vencer sempre, mas sem setups gravados `_frescor_da_avaliacao` devolve
+// `{ medido: false, bloqueia: true }` — um objeto verdadeiro que nunca cai
+// para o `/status`, que MEDIU de verdade. Mesma classe do defeito 2
+// (`escolherErroOpcoes`): escolha por QUALIDADE (`medido`), não por origem.
+//
 // Roda sem build: `node web/tests/test_opcoes_mcp_aba_ui.mjs`.
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
@@ -122,6 +130,17 @@ ok("o chip só é renderizado no cabeçalho quando existe (nada afirmado sem res
 ok('a fonte não afirma "mcp.semente.dev" como default sem resposta',
    !/fonte \|\| ["']mcp\.semente\.dev["']/.test(tela));
 
+// ---- 4b) defeito 3 (260910-red): frescor por QUALIDADE (`medido`), não por
+// quem respondeu primeiro — o `medido: false` da leitura (sem setups
+// gravados) não pode mascarar o `medido: true` do `/status`. -----------------
+ok("defeito 3 não voltou: `frescor` não é mais um `||` simples entre leitura e status",
+   !/const frescor = \(l && l\.frescor\) \|\| \(status\.dados && status\.dados\.frescor\) \|\| null;/.test(tela));
+ok("existe helper puro que decide o frescor por `medido`",
+   /function escolherFrescor\(frescorLeitura, frescorStatus\)/.test(tela)
+   && /\.medido === true/.test(tela));
+ok("o `frescor` do cabeçalho vem do helper, não de precedência de chamada",
+   /const frescor = escolherFrescor\(l && l\.frescor, status\.dados && status\.dados\.frescor\);/.test(tela));
+
 // ---- sanidade: as regex acima pegam o bug antigo, não viram no-op ----------
 // Sem isto, um typo na regex (ou um Unicode diferente) faria os asserts
 // "defeito N não voltou" passarem SEMPRE, mesmo com o bug de volta.
@@ -131,6 +150,9 @@ ok("sanidade: a regex do defeito 1 pega o padrão antigo quando ele existe",
 const BUG_ERRO = "const erro = leitura.erro || status.erro;";
 ok("sanidade: a regex do defeito 2 pega o padrão antigo quando ele existe",
    /const erro = leitura\.erro \|\| status\.erro;/.test(BUG_ERRO));
+const BUG_FRESCOR = "const frescor = (l && l.frescor) || (status.dados && status.dados.frescor) || null;";
+ok("sanidade: a regex do defeito 3 pega o padrão antigo quando ele existe",
+   /const frescor = \(l && l\.frescor\) \|\| \(status\.dados && status\.dados\.frescor\) \|\| null;/.test(BUG_FRESCOR));
 
 // ---- 5) o pregão vive no cabeçalho, fora de qualquer ramo de erro ------------
 const cabecalho = tela.match(/const cabecalho = \([\s\S]*?\n  \);/);
