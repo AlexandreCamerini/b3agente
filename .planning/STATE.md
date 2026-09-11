@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Opções v2
 status: executing
-stopped_at: "Fase 24, plano 07 concluído — o ÚLTIMO achado aberto da verificação independente (F-04) está fechado com a decisão do Alex de 2026-09-11: COBRAR A VIAGEM que a tool recusou. `_chamada_com_cap` debita 1 no `except McpErroDeTool` (ponto único; `/status` herda a mesma regra porque chama `call_tool` direto); as quatro falhas sem viagem provada seguem sem debitar, com os quatro motivos escritos no código; o 422 e a tela dizem que a tentativa consumiu cota. Cache negativo NÃO implementado (era a alternativa): 0 linhas em `mcp_client.py`. Suíte canônica verde: 2433 passed, 5 skipped + 129 arquivos .mjs, exit 0 (baseline era 2424/5 — +9, exatamente os testes novos). `npx vite build` verde. Nada empurrado a origin, nenhum PR. A FASE 24 ESTÁ PRONTA PARA REVISÃO DO ALEX. Único pendente: 24-05 (publicação), que por desenho só roda com OK explícito dele (bump + publicar-web.sh + checkpoint no iPhone), e antes disso a verificação recomenda rodar `test_opcoes_paridade_mcp.py::test_paridade_viva` com `MCP_CLIENT_SECRET` no ambiente."
-last_updated: "2026-09-11T19:10:00.000Z"
+stopped_at: "Fase 24 com a VERIFICAÇÃO AO VIVO verde (2026-09-11, tarde): o Alex rodou `scripts/fechar-fase-24.sh` e `test_mcp_vivo.py` + `test_opcoes_paridade_mcp.py::test_paridade_viva` passaram — primeira vez que `opcoes_payoff.perfil_da_estrutura` e `evaluate_option_structure` são confrontados sobre DADO REAL (antes só contra fixture derivada do próprio opcoes_payoff). NÃO conta como 1 dos 10 pregões do gatilho do ADR-027 Decisão 3, que pede paridade viva EM STAGING. A primeira tentativa falhou e NÃO era do serviço: era o cliente MCP atravessando event loops (corrigido no 24-09 — `_do_loop_corrente`). Também fechados fora de plano: 24-08 (linha de recusa cobrada na seção Criar setup) e `scripts/fechar-fase-24.sh` (wizard de 7 etapas, nenhum segredo em disco). Suíte: 2436 passed, 5 skipped + 129 .mjs, exit 0. Nada empurrado a origin, nenhum PR. PENDENTES, todos do Alex: etapas 4 (latência do /possibilidades com N=6 abaixo de 20s) e 5 (compilador NL→DSL com LLM real) do wizard, e o plano 24-05 (bump + publicar-web.sh + checkpoint no iPhone), que por desenho só roda com OK explícito dele."
+last_updated: "2026-09-11T23:30:00.000Z"
 last_activity: "2026-09-11 — 24-07 executado na árvore principal (sem worktree): fechamento do achado F-04, com a decisão do Alex já tomada (cobrar a viagem). O serviço MCP conta TODA `tools/call` no porteiro, antes de executar a tool; o Boris debitava só no sucesso, então a recusa custava o teto compartilhado de 2.000/dia e não custava nada ao cap de 60/dia de quem a provocava — com o fan-out de até 6 vencimentos do `/possibilidades`, ~330 toques esgotavam a cota de toda a base sem mover o contador de ninguém. Agora `_chamada_com_cap` consome 1 no `except McpErroDeTool` e re-levanta (ponto ÚNICO da regra; o `/status` repete só porque chama `call_tool` direto, e segue respondendo 200 porque a finalidade dele é reportar estado do dado). As QUATRO outras falhas continuam sem debitar, cada uma com o motivo escrito no código: sem credencial (não viajou), porteiro (recusa antes do contador de tools), teto do serviço (o contrato declara não cobrada) e indisponibilidade (sem prova de que o serviço contou) — cobrar o que não se sabe se foi cobrado é o mesmo erro, invertido. Transparência: `AVISO_RECUSA_COBRADA` em `AVISOS` ([R-12]), `cobrado`/`nota` nos três 422 de erro de tool e a linha discreta na tela (`opcoesRecusaCobrada` nos dois modos, `RecusaCobrada` nos dois ramos de erro). DESVIO que vale registrar: `cobrado: True` NÃO é literal fixo — `_material_do_compilador` fabrica um `McpErroDeTool` sem nenhuma `tools/call`, e o literal afirmaria um débito inexistente; o campo vem de uma marca posta no ponto do débito, com guardião próprio. Regra de ouro cumprida: os 9 testes novos de backend foram vistos VERMELHOS antes (o do cenário medido falhava com `assert 0 == 6`, o número exato do achado), e os quatro de \"não debita\" — que não podem ficar vermelhos — foram provados por injeção do defeito oposto. Suíte canônica: 2433 passed, 5 skipped + 129 .mjs, exit 0 (baseline 2424/5 — +9). `npx vite build` verde. Cache negativo NÃO implementado: 0 linhas em `mcp_client.py`; `with _cap_check(` segue em 12 linhas, nenhum custo declarado de rota mudou. Nada empurrado a origin, nenhum PR.
 
 Anterior (2026-09-11) — 24-06 executado na árvore principal (sem worktree): plano de CORREÇÃO dos três achados de escopo do `24-VERIFICATION.md`. (F-01) `_razao_ganho_perda(dados)` puro ao lado de `_em_reais` — adimensional, SEM `lote` na assinatura (o parâmetro que não muda o resultado é o convite a multiplicá-lo por engano); razão que não existe é `None` COM motivo nos quatro casos (ganho sem teto, perda sem piso, dado ausente, perda zero), nunca 0 nem ∞; campo `razaoGanhoPerda` FORA do bloco `emReais` em `/proposta` e por item de `/possibilidades`; `RazaoGanhoPerda` nas duas seções da tela, com o motivo em linha inteira quando não há número; os quatro motivos entram em `AVISOS` ([R-12]). (F-02) `/setups/compilar` capturava só `llm.LLMUserError` e deixava `httpx.ReadTimeout` subir ao handler global — agora 503 `ia_indisponivel` com 'nada foi gravado' e `action`, mais `except Exception` justificado por escrito (o provedor é código de terceiro; o critério 7 do ROADMAP é literal). (F-03) `audit.record` fatorado em `_audita()` com try/except + obslog `warn`: contabilidade não derruba rota cuja escrita externa JÁ aconteceu, porque o armazém é sem dono e a retentativa duplica setup para toda a base. Regra de ouro cumprida: os 17 testes novos foram escritos ANTES e vistos VERMELHOS contra o código antigo (14+13 asserções de F-01, 2 de F-02, 1 de F-03). Suíte canônica: 2424 passed, 5 skipped + 129 .mjs, exit 0. F-04 INTOCADO e provado por diff (0 linhas em `mcp_client.py`, nenhuma mudança em `cap.consome` nem em custo declarado de rota); existe um `24-07-PLAN.md` em disco (NÃO rastreado, NÃO executado) que já pressupõe uma das três saídas — a escolha é do Alex."
@@ -28,10 +28,58 @@ See: .planning/PROJECT.md (updated 2026-09-06)
 ## Current Position
 
 Phase: 24 (Aba Opções sobre MCP — análise e criação de setups) — EXECUTING
-Plan: 24-07 concluído (6 de 7 planos concluídos: 24-01 a 24-04, 24-06 e 24-07)
-Status: os QUATRO achados do `24-VERIFICATION.md` estão fechados (F-01/F-02/F-03 no 24-06; F-04 no 24-07) — a fase está PRONTA PARA REVISÃO DO ALEX. Único plano aberto: 24-05 (publicação), PENDENTE DE OK HUMANO por desenho (`autonomous: false`)
+Plan: 24-07 concluído (6 de 7 planos concluídos: 24-01 a 24-04, 24-06 e 24-07), mais 24-08 e 24-09 fora de plano (ver abaixo)
+Status: os QUATRO achados do `24-VERIFICATION.md` estão fechados (F-01/F-02/F-03 no 24-06; F-04 no 24-07) e a VERIFICAÇÃO AO VIVO passou (2026-09-11, tarde). Único plano aberto: 24-05 (publicação), PENDENTE DE OK HUMANO por desenho (`autonomous: false`)
+
+**PARIDADE VIVA VERDE (2026-09-11)** — o Alex rodou `scripts/fechar-fase-24.sh`
+com as credenciais lidas do Railway em memória, e `test_mcp_vivo.py` +
+`test_opcoes_paridade_mcp.py::test_paridade_viva` passaram. É a PRIMEIRA vez
+que `opcoes_payoff.perfil_da_estrutura` e `evaluate_option_structure` são
+confrontados sobre DADO REAL — até então a paridade só existia contra fixture
+derivada do próprio `opcoes_payoff`, ou seja, consistência consigo mesmo.
+
+Duas ressalvas sobre o que isso significa, para ninguém ler a mais:
+- o gatilho de consolidação do **ADR-027, Decisão 3** pede "10 pregões seguidos
+  de paridade viva verde **em staging**". Esta execução foi local, contra
+  produção, num pregão. **Não conta como 1 de 10** — a contagem começa quando
+  o smoke de staging (`publicar-staging.sh`) passar a rodar a paridade viva;
+- a primeira tentativa FALHOU e não era do serviço: era o defeito de ciclo de
+  vida de event loop corrigido no 24-09 (abaixo).
 Progress: [█████████░] 97%
-Last activity: 2026-09-11 — 24-07 executado na árvore principal (sem worktree): fechamento do achado F-04 com a decisão do Alex (cobrar a viagem que a tool recusou). `_chamada_com_cap` debita 1 no `except McpErroDeTool` e re-levanta — ponto ÚNICO da regra; o `/status` repete só porque chama `call_tool` direto, e segue respondendo 200. As quatro falhas sem viagem provada continuam sem debitar, com os quatro motivos escritos no código. Transparência: `AVISO_RECUSA_COBRADA` em `AVISOS`, `cobrado`/`nota` nos 422 de erro de tool (condicional, vindo de uma marca posta no ponto do débito — literal fixo mentiria no 422 fabricado por `_material_do_compilador`) e a linha discreta na tela, nos dois modos. 9 testes novos de backend vistos VERMELHOS antes (o do cenário medido falhava com `assert 0 == 6`), os quatro de "não debita" provados por injeção do defeito oposto, e 10 asserções novas no guardião de front. Suíte canônica: 2433 passed, 5 skipped + 129 .mjs, exit 0 (baseline 2424/5 — +9). `npx vite build` verde. Cache negativo NÃO implementado: 0 linhas em `mcp_client.py`. Nada empurrado a origin, nenhum PR.
+
+Last activity: 2026-09-11 (tarde) — três coisas fora de plano, todas commitadas:
+**(24-08)** a seção `Criar setup` passou a renderizar a linha de recusa cobrada
+— o "Deferred" que o 24-07 registrou por ter aquela tela fora dos
+`files_modified` dele. A condição ali é SÓ `detail.cobrado === true`, sem o
+filtro por `code === "mcp_erro_de_tool"` que o `RecusaCobrada` de
+`OpcoesScreen.jsx` usa: nesta seção o débito chega por `setup_invalido` e
+`setup_desconhecido`, e filtrar por código deixaria de fora o caso comum. É
+seguro porque a marca vem do PONTO DO DÉBITO, nunca de dedução. Guardião com 6
+asserções, provado RED.
+**(script)** `scripts/fechar-fase-24.sh` — wizard de 7 etapas para o que só o
+Alex pode fechar. Nenhum segredo toca o disco (`ENV_FILE=/dev/null`, zero
+`write_env`): as credenciais vêm do Railway para variáveis do processo e saem
+da memória quando ele fecha — por isso o wizard NÃO é retomável, e isso é
+aceito.
+**(24-09, achado ao vivo)** o cliente MCP atravessava event loops. `_HTTP` é um
+`AsyncClient` do httpx2 e guarda o pool; uma conexão keep-alive aberta dentro
+de um loop não sobrevive à morte dele, e cada `asyncio.run` fecha o seu. O
+sintoma foi o pior possível: a PRIMEIRA chamada de rede do processo passava, a
+segunda levantava `RuntimeError`, e o `except` traduzia isso para
+`McpIndisponivel: emissor de credencial inacessível` — o cliente acusando o
+SERVIÇO por um defeito daqui. `reset_cache()` limpava cache e token e nunca o
+cliente, que é justamente o objeto com estado de loop. Correção:
+`_do_loop_corrente()` descarta cliente e primitivas quando o loop muda, chamado
+no início do caminho de rede. **Produção nunca viu e não veria**: uvicorn tem um
+loop de vida longa e a função é no-op a partir da segunda chamada. Medido antes
+de afirmar: `asyncio.Lock` sem contenção NÃO quebra ao trocar de loop neste
+Python — a recriação do lock ficou como defesa do caso com contenção, e o teste
+diz isso em vez de fingir que reproduziu um crash. Junto, o achado A-03 no
+`except` do emissor: `type(e).__name__` sozinho não separava "loop trocou" de
+"socket morreu" de "DNS não resolveu", e foi o que custou a reprodução inteira.
+Suíte: 2436 passed, 5 skipped + 129 .mjs, exit 0.
+
+Anterior (2026-09-11) — 24-07 executado na árvore principal (sem worktree): fechamento do achado F-04 com a decisão do Alex (cobrar a viagem que a tool recusou). `_chamada_com_cap` debita 1 no `except McpErroDeTool` e re-levanta — ponto ÚNICO da regra; o `/status` repete só porque chama `call_tool` direto, e segue respondendo 200. As quatro falhas sem viagem provada continuam sem debitar, com os quatro motivos escritos no código. Transparência: `AVISO_RECUSA_COBRADA` em `AVISOS`, `cobrado`/`nota` nos 422 de erro de tool (condicional, vindo de uma marca posta no ponto do débito — literal fixo mentiria no 422 fabricado por `_material_do_compilador`) e a linha discreta na tela, nos dois modos. 9 testes novos de backend vistos VERMELHOS antes (o do cenário medido falhava com `assert 0 == 6`), os quatro de "não debita" provados por injeção do defeito oposto, e 10 asserções novas no guardião de front. Suíte canônica: 2433 passed, 5 skipped + 129 .mjs, exit 0 (baseline 2424/5 — +9). `npx vite build` verde. Cache negativo NÃO implementado: 0 linhas em `mcp_client.py`. Nada empurrado a origin, nenhum PR.
 
 Anterior (2026-09-11) — 24-06 executado na árvore principal (sem worktree): plano de CORREÇÃO dos três achados de escopo do `24-VERIFICATION.md`. (F-01) `_razao_ganho_perda(dados)` puro ao lado de `_em_reais` — adimensional, SEM `lote` na assinatura; razão que não existe é `None` COM motivo nos quatro casos (ganho sem teto, perda sem piso, dado ausente, perda zero), nunca 0 nem ∞; `razaoGanhoPerda` FORA do bloco `emReais` em `/proposta` e por item de `/possibilidades`; `RazaoGanhoPerda` nas duas seções da tela; os quatro motivos em `AVISOS` ([R-12]). (F-02) `/setups/compilar` deixava `httpx.ReadTimeout` subir ao handler global — agora 503 `ia_indisponivel` com "nada foi gravado" e `action`, mais `except Exception` justificado por escrito. (F-03) `audit.record` fatorado em `_audita()` com try/except + obslog `warn`: contabilidade não derruba rota cuja escrita externa JÁ aconteceu (armazém sem dono; retentativa duplica setup para toda a base). Regra de ouro cumprida: os 17 testes novos foram escritos ANTES e vistos VERMELHOS contra o código antigo. Suíte canônica: 2424 passed, 5 skipped + 129 .mjs, exit 0 (baseline 2407/5 — +17, exatamente os novos). `npx vite build` verde. Nada empurrado a origin, nenhum PR. F-04 INTOCADO e provado por diff: 0 linhas em `mcp_client.py`, nenhuma mudança em `cap.consome` nem em custo declarado de rota.
 
