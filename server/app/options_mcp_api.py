@@ -425,8 +425,14 @@ async def status(user: dict = Depends(require_user)) -> dict:
     except mcp_client.McpErroDeTool as e:
         erro_tool = str(e)
     except (mcp_client.McpErro, ValueError) as e:
+        # `detalhe=str(e)` (achado A-03): o nome da classe sozinho não separa
+        # "emissor recusou" de "conexão fechada" de "erro de protocolo", e o
+        # diagnóstico ficava dedutivo. É seguro logar: as mensagens do
+        # `mcp_client` são livres de segredo por construção (docstring de topo
+        # do módulo, e o guardião T-waw-01 em `test_mcp_client.py` prova).
         obslog.log("mcp", "status falhou", level="warn",
-                   rota="/api/options/mcp/status", uid=uid, erro=type(e).__name__)
+                   rota="/api/options/mcp/status", uid=uid,
+                   erro=type(e).__name__, detalhe=str(e))
         raise _erro_http(e)
 
     sc = r.dados if (r is not None and isinstance(r.dados, dict)) else None
@@ -494,7 +500,8 @@ async def leitura(ticker: str, user: dict = Depends(require_user)) -> dict:
         # 422 por `_erro_http`. O 200-com-`bloqueia` é exclusividade do
         # `/status`, cuja finalidade é justamente reportar estado do dado.
         obslog.log("mcp", "leitura falhou", level="warn", rota=rota, uid=uid,
-                   ticker=alvo, passo=passo, erro=type(e).__name__)
+                   ticker=alvo, passo=passo, erro=type(e).__name__,
+                   detalhe=str(e))  # A-03 — ver nota em `/status`
         raise _erro_http(e)
 
     avaliacoes = {}
@@ -584,7 +591,8 @@ async def setup_grafico(name: str, user: dict = Depends(require_user)) -> dict:
         dados, cache = await _chamada_com_cap(uid, "get_setup_chart", {"name": name})
     except (mcp_client.McpErro, ValueError) as e:
         obslog.log("mcp", "grafico de setup falhou", level="warn", rota=rota,
-                   uid=uid, setup=name, erro=type(e).__name__)
+                   uid=uid, setup=name, erro=type(e).__name__,
+                   detalhe=str(e))  # A-03 — ver nota em `/status`
         raise _erro_http(e)
 
     obslog.log("mcp", "grafico de setup", rota=rota, uid=uid, setup=name, cache=cache)
