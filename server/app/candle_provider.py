@@ -373,6 +373,12 @@ def _gate(p: CandleProvider, rng: str, interval: str):
             brapi.valida_plano(rng, interval)
         except brapi.ForaDoPlano as e:
             return "fora do plano", e
+        # A-11: este par NÃO virou `reservar()`, de propósito. `_gate` é
+        # pré-filtro de ROTEAMENTO: quando o elo recusado por orçamento é o
+        # ÚLTIMO da cadeia, `get_history` serve a requisição mesmo assim SEM
+        # debitar (ver `_MOTIVOS_ORCAMENTO` no laço) — checar sem consumir é o
+        # contrato daqui, e `reservar()` não o expressa. Mesma razão pela qual
+        # o WR-01 deixou este ponto fora de `mydata_budget.reservar()`.
         if not brapi_budget.pode_gastar("delta"):
             return "sem orçamento", None
         return None, None
@@ -486,9 +492,12 @@ async def _quote_brapi(ticker: str):
     q = brapi.quote_cached(ticker, _spot_ttl())
     if q is not None:
         return {**q, "source": "brapi"}
-    if not brapi_budget.pode_gastar("spot"):
+    # A-11: `pode_gastar` + `debita` adjacentes viraram `reservar` (check+debit
+    # sob a mesma trava). Comportamento idêntico — recusa não debita, permissão
+    # debita uma vez — e aqui o débito é CERTO se passar, ao contrário de
+    # `_gate()`, que precisa checar sem consumir (ver `brapi_budget.reservar`).
+    if not brapi_budget.reservar("spot"):
         return None
-    brapi_budget.debita("spot")
     try:
         q = await brapi.fetch_quote(ticker)
     except Exception:  # noqa: BLE001 — falha do spot brapi degrada p/ backup
@@ -610,9 +619,8 @@ async def _quote_brapi_or_raise(ticker: str) -> dict:
     q = brapi.quote_cached(ticker, _spot_ttl())
     if q is not None:
         return {**q, "source": "brapi"}
-    if not brapi_budget.pode_gastar("spot"):
+    if not brapi_budget.reservar("spot"):   # A-11: check+debit atômico
         raise QuoteUnavailable(f"orçamento da brapi esgotado — sem cota p/ {ticker} agora.")
-    brapi_budget.debita("spot")
     q = await brapi.fetch_quote(ticker)   # propaga BrapiIndisponivel se falhar
     from . import candle_cache
     candle_cache.atualiza_vela_do_dia(ticker, q.get("price"), src="brapi",
