@@ -269,6 +269,66 @@ Full phase details: [milestones/v1.5-ROADMAP.md](milestones/v1.5-ROADMAP.md)
 
 </details>
 
+#### Phase 24: Aba Opções sobre MCP — análise e criação de setups — standalone
+**Goal**: As Fases 3 e 5 do `docs/PLANO-aba-opcoes.md`. A aba Opções deixa de
+só LER o serviço `mcp.semente.dev` (Fases 1 e 2, entregues como quick tasks em
+2026-09-09/10 e já em produção) e passa a (a) mostrar cadeia, catálogo,
+proposta montada e possibilidades por vencimento, com custo/ganho/perda em
+reais para o lote em ações, e (b) criar setups técnicos a partir de uma
+descrição em português, com ensaio antes de gravar e permissão de verdade.
+**Depends on**: Fases 1 e 2 do PLANO (em produção). A **Fase 4 do PLANO
+(veredito por prompt) fica FORA desta fase** — decisão do Alex em 2026-09-11
+("faz a 3 primeiro e a 5 em seguida"): montar setup sem ver cadeia e
+vencimentos na tela é montar no escuro. A fiação de LLM que a Fase 4 usaria
+nasce no plano 24-03, pronta para reuso.
+**Requirements**: PLANO Fases 3 e 5 (aceite literal em `docs/PLANO-aba-opcoes.md` §4)
+**Success Criteria** (what must be TRUE):
+  1. Para um ticker com cadeia aberta, a aba mostra por vencimento a
+     estrutura montada com custo, ganho e perda em REAIS para o lote em
+     ações, ±1σ, alvo/stop quando informados, breakevens e razão ganho/perda.
+  2. Breakeven nunca é multiplicado pelo lote, e campo ausente do serviço
+     nunca vira 0 — nem no backend, nem na tela.
+  3. A UI mostra "2×N+1 chamadas" ANTES de disparar `/possibilidades`, com
+     N ≤ 6.
+  4. A matemática de payoff do Boris (`opcoes_payoff.perfil_da_estrutura`) e a
+     do serviço (`evaluate_option_structure`) batem campo a campo sobre
+     fixture gravada, com a variante viva pronta para o smoke de staging.
+  5. Uma descrição em português vira setup declarativo validado pelo próprio
+     serviço, com dry-run (`disparos`, `disparos_por_100`, `retorno_apos_disparo`
+     d+5/d+10) visto antes de gravar, e `problems` voltando item a item.
+  6. Sem `opcoes.criar_setup` a seção não existe **e** a rota responde 403;
+     o guardião ENG-06 continua verde (nenhuma DSL copiada para dentro do app).
+  7. Nenhuma rota nova escapa de `require_user` + `_cap_check`, e nada cai no
+     handler 500.
+**Plans**: 5 plans
+
+Plans:
+
+**Wave 1**
+
+- [ ] 24-01-PLAN.md — backend da Fase 3: `/cadeia`, `/operaveis`, `/proposta`, `/possibilidades`, helper de lote e paridade `opcoes_payoff` × MCP
+
+**Wave 2** *(blocked on Wave 1; os dois planos tocam árvores disjuntas e rodam em paralelo)*
+
+- [ ] 24-02-PLAN.md — front da Fase 3: `PayoffChart.jsx`, seções "Analisar" e "Possibilidades", dois stores, dois modos de copy
+- [ ] 24-03-PLAN.md — backend da Fase 5: `list_tools`, compilador NL→DSL montado em runtime, `/setups/compilar|confirmar|desativar`, RBAC e auditoria
+
+**Wave 3** *(blocked on Wave 2)*
+
+- [ ] 24-04-PLAN.md — front da Fase 5: seção "Criar setup" gateada por permissão, backtest ressalvado, guardião
+
+**Wave 4** *(blocked on Wave 3 — NÃO autônomo)*
+
+- [ ] 24-05-PLAN.md — bump + publicação do front e checkpoint humano no iPhone; só roda com OK explícito do Alex
+
+**UI hint**: yes
+
+Fora de escopo declarado: Fase 4 do PLANO (veredito), Fase 6 (fluxo do
+iniciante, glossário, cobertura mobile) e a consolidação dos módulos puros
+(ADR-027 Decisão 3 fixa o gatilho; esta fase entrega só o teste de paridade
+que o dispara). Detalhes em
+`.planning/phases/24-opcoes-mcp-analise-e-setups/24-CONTEXT.md`.
+
 ## Progress
 
 | Phase | Milestone | Status | Completed |
@@ -297,6 +357,7 @@ Full phase details: [milestones/v1.5-ROADMAP.md](milestones/v1.5-ROADMAP.md)
 | 21. Duplicação removida e Portfólio consolidado | 4/4 | Complete    | 2026-09-06 |
 | 22. Componentes compartilhados (trilho, ícones, mascote) | 4/4 | Complete    | 2026-09-06 |
 | 23. Motion com propósito e ilustração unificada | 4/4 | Complete    | 2026-09-06 |
+| 24. Aba Opções sobre MCP — análise e criação de setups | standalone | In Progress|  |
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2/v1.3
 
