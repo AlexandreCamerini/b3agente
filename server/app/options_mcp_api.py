@@ -26,7 +26,7 @@ from datetime import datetime, timedelta, timezone
 import os
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Body, Depends, Header, HTTPException
 
 from . import mcp_client, metering, obslog
 
@@ -74,9 +74,22 @@ AVISO_FRESCOR_SEM_ANEXO = (
     "frescor não medido nesta consulta: esta chamada não traz o carimbo de "
     "idade do dado; o estado medido está no cabeçalho da aba"
 )
+# Único motivo que esta camada escreve por conta própria, e só porque não há
+# resposta do serviço para citar: quando nenhum vencimento foi escolhido, não
+# houve segunda chamada e portanto não existe `reason` verbatim. Todo o resto
+# do "por que não montou" vem do serviço ([R-15]).
+MOTIVO_SEM_VENCIMENTO = (
+    "nenhum vencimento para montar: a cadeia deste ativo não trouxe vencimento "
+    "que atenda ao pedido"
+)
+
+# `AVISOS` é a superfície de varredura do módulo no `test_guardrail_imperativo`
+# (FONTES) — não só os avisos de frescor. Texto fixo novo que chega ao usuário
+# entra aqui na fase que o cria.
 AVISOS = "\n".join((AVISO_FRESCOR_NAO_MEDIDO,
                     AVISO_FRESCOR_NAO_MEDIDO_NA_LEITURA,
-                    AVISO_FRESCOR_SEM_ANEXO))
+                    AVISO_FRESCOR_SEM_ANEXO,
+                    MOTIVO_SEM_VENCIMENTO))
 
 # Critério de "operável" do BORIS, não do serviço (D-24.4). O serviço aceita
 # qualquer peneira; estes três números são escolha nossa, e por isso viajam na
@@ -97,6 +110,21 @@ DIRECOES = ("bullish", "bearish", "neutral")
 # passa disso, e o `truncated` do serviço diz como pedir o resto.
 LIMITE_MIN = 1
 LIMITE_MAX = 200
+
+# [R-13]: o custo de `/possibilidades` é 2×N+1 e cresce linear com o número de
+# vencimentos. 6 é o teto que cabe no cap de 60/dia sem que UMA consulta
+# consuma a sessão inteira da pessoa.
+N_MAX_VENCIMENTOS = 6
+
+# Campos da estrutura que viajam VERBATIM do serviço para a tela. Lista
+# explícita, e não `**avaliacao`, porque o envelope da rota (`pregao`,
+# `fonte`, `at`, `cap`) não pode ser sobrescrito por um campo homônimo que o
+# serviço venha a acrescentar.
+CHAVES_DA_ESTRUTURA = (
+    "kind", "name", "legs", "net_cost", "flow", "max_gain", "max_loss",
+    "unlimited_gain", "unlimited_loss", "breakevens", "net_delta",
+    "payoff", "scenarios", "sessions_to_nearest_expiry", "note",
+)
 
 _conn = None
 _require_user = None
@@ -570,6 +598,40 @@ def _tipo_de_opcao(valor) -> Optional[str]:
     return tipo
 
 
+def _direcao(valor) -> Optional[str]:
+    """Tese direcional, ou `None` quando o pedido não a informa.
+
+    O serviço NÃO escolhe direção, e esta camada também não: alta, baixa ou
+    neutra é juízo de quem opera. O que se faz aqui é recusar o que não é
+    tese antes de gastar uma chamada.
+    """
+    if valor is None or valor == "":
+        return None
+    direcao = str(valor).strip().lower()
+    if direcao not in DIRECOES:
+        raise HTTPException(422, {
+            "code": "direction_invalida",
+            "message": "A tese é de alta (bullish), baixa (bearish) ou neutra (neutral).",
+            "recebido": repr(valor),
+        })
+    return direcao
+
+
+def _preco_de_cenario(valor, campo: str) -> Optional[float]:
+    """Preço do objeto num cenário nomeado (alvo/stop), ou `None` quando não
+    veio. Zero e negativo são recusados: não existe preço de ação assim, e
+    aceitá-los produziria uma linha de payoff sobre um preço impossível."""
+    if valor is None:
+        return None
+    if isinstance(valor, bool) or not isinstance(valor, (int, float)) or valor <= 0:
+        raise HTTPException(422, {
+            "code": "cenario_invalido",
+            "message": f"O preço de '{campo}' precisa ser um número maior que zero.",
+            "recebido": repr(valor),
+        })
+    return float(valor)
+
+
 def _limite(valor) -> int:
     if isinstance(valor, bool) or not isinstance(valor, int) \
             or not (LIMITE_MIN <= valor <= LIMITE_MAX):
@@ -654,6 +716,30 @@ def _em_reais(dados: dict, lote: int) -> dict:
         "cenarios": cenarios,
         "unidade": "reais para o lote informado (lote = número de ações)",
     }
+
+
+def _pernas_para_avaliar(setup: Optional[dict]) -> list:
+    """Pernas do setup no formato que `evaluate_option_structure` aceita.
+
+    Perna sem `contract` é descartada: o serviço identifica o contrato pelo
+    código, e avaliar uma estrutura com perna anônima devolveria número sobre
+    outra coisa. Lista vazia é o sinal de "não dá para avaliar" — e a rota a
+    usa para PULAR a segunda chamada daquele vencimento.
+    """
+    pernas = []
+    for perna in (setup or {}).get("legs") or []:
+        if not isinstance(perna, dict):
+            continue
+        contrato = perna.get("contract")
+        if not contrato:
+            continue
+        item = {"contract": contrato, "side": perna.get("side")}
+        # `quantity` omitida é 1 no serviço; mandar `None` seria dizer
+        # "quantidade nenhuma", que é outra coisa.
+        if perna.get("quantity") is not None:
+            item["quantity"] = perna.get("quantity")
+        pernas.append(item)
+    return pernas
 
 
 def _registros_do_ticker(lista: Optional[dict], alvo: str) -> list:
@@ -1004,3 +1090,265 @@ async def operaveis(ticker: str, expiration: Optional[str] = None,
             "frescor": _frescor_nao_medido(AVISO_FRESCOR_SEM_ANEXO),
             "cap": _cap_bloco(uid),
         }
+
+
+def _ticker_do_corpo(corpo: dict) -> str:
+    alvo = str((corpo or {}).get("ticker") or "").strip().upper()
+    if not alvo:
+        raise HTTPException(422, {
+            "code": "ticker_ausente",
+            "message": "Informe o ativo (por exemplo, PETR4).",
+        })
+    return alvo
+
+
+def _tese(corpo: dict) -> tuple:
+    """`(direction, kind)` validados, exigindo ao menos um dos dois.
+
+    O serviço não escolhe direção — e esta camada, menos ainda. Sem tese não
+    existe "a" estrutura a montar, e devolver uma qualquer seria o app
+    decidindo por quem opera.
+    """
+    direcao = _direcao((corpo or {}).get("direction"))
+    tipo = _tipo_de_opcao((corpo or {}).get("kind"))
+    if not direcao and not tipo:
+        raise HTTPException(422, {
+            "code": "tese_ausente",
+            "message": ("Escolha uma tese (alta, baixa ou neutra) ou nomeie a "
+                        "estrutura. O serviço não escolhe direção — isso é "
+                        "juízo de quem opera."),
+        })
+    return direcao, tipo
+
+
+@router.post("/proposta")
+async def proposta(body: dict = Body(default={}),
+                   user: dict = Depends(require_user)) -> dict:
+    """Estruturas que a cadeia permite montar para uma tese — custo 1.
+
+    `estruturas: []` com `motivo` preenchido é resposta **200** legítima: o
+    serviço diz em PT-BR por que a cadeia não preencheu a perna (strike sem
+    negócio, vencimento sem prêmio), e isso é estado a exibir, não erro.
+
+    `emReais` só existe quando o corpo trouxe `lote` E o serviço devolveu
+    UMA estrutura. Sem lote, a tela mostra por ação — que é a unidade em que
+    o serviço fala.
+    """
+    uid = user["id"]
+    corpo = body if isinstance(body, dict) else {}
+    alvo = _ticker_do_corpo(corpo)
+    direcao, tipo = _tese(corpo)
+    lote = _lote(corpo.get("lote")) if corpo.get("lote") is not None else None
+    vencimento = corpo.get("expiration")
+
+    args = {"ticker": alvo}
+    if direcao:
+        args["direction"] = direcao
+    if tipo:
+        args["kind"] = tipo
+    if vencimento:
+        args["expiration"] = vencimento
+
+    with _cap_check(uid, 1) as cap:
+        rota = "/api/options/mcp/proposta"
+        try:
+            dados, cache = await _chamada_com_cap(cap, "propose_option_setups", args)
+        except (mcp_client.McpErro, ValueError) as e:
+            obslog.log("mcp", "proposta falhou", level="warn", rota=rota, uid=uid,
+                       ticker=alvo, erro=type(e).__name__,
+                       detalhe=str(e))  # A-03 — ver nota em `/status`
+            raise _erro_http(e)
+
+        estruturas = [s for s in (dados.get("setups") or []) if isinstance(s, dict)]
+        # Uma estrutura só: com duas na tela, um `emReais` no envelope não
+        # diria de qual delas é o dinheiro.
+        em_reais = _em_reais(estruturas[0], lote) if (lote and len(estruturas) == 1) else None
+
+        obslog.log("mcp", "proposta", rota=rota, uid=uid, ticker=alvo,
+                   direcao=direcao, tipo=tipo, estruturas=len(estruturas),
+                   cache=cache)
+
+        return {
+            "ticker": alvo,
+            "pregao": dados.get("trading_date") or None,
+            "precoObjeto": dados.get("underlying_price"),
+            "fonte": FONTE,
+            "at": _agora_brt(),
+            # O que o serviço CONFIRMA ter usado; na falta do eco, o que foi
+            # pedido — nunca um valor que ninguém escolheu.
+            "direction": dados.get("direction") or direcao,
+            "kind": dados.get("kind") or tipo,
+            "behavior": dados.get("behavior"),
+            "estruturas": estruturas,
+            "motivo": dados.get("reason"),
+            "nota": dados.get("note"),
+            "emReais": em_reais,
+            "frescor": _frescor_nao_medido(AVISO_FRESCOR_SEM_ANEXO),
+            "cap": _cap_bloco(uid),
+        }
+
+
+@router.post("/possibilidades")
+async def possibilidades(body: dict = Body(default={}),
+                         user: dict = Depends(require_user)) -> dict:
+    """O que dá para montar em CADA vencimento aberto, com payoff e reais.
+
+    Custo 2×N+1, reservado em DUAS etapas (D-24.1): N só se conhece depois da
+    primeira chamada, que é quem traz `expirations`. Reservar o teto (13)
+    recusaria quem tem cota de sobra; reservar 1 e gastar 13 faria o cap
+    mentir. Então reserva 1, descobre N, e aninha um `with` de 2×N — as duas
+    devolvem o que não foi consumido na saída.
+
+    Vencimento cuja estrutura não montou NÃO gasta a segunda chamada, e falha
+    de tool em UM vencimento não apaga os outros: erro de tool é sobre aquele
+    pedido, enquanto serviço fora do ar é condição de todos e encerra a rota
+    (insistir nos cinco restantes contra um serviço mudo só queima a viagem).
+    """
+    uid = user["id"]
+    corpo = body if isinstance(body, dict) else {}
+    alvo = _ticker_do_corpo(corpo)
+    direcao, tipo = _tese(corpo)
+    lote = _lote(corpo.get("lote"))
+    rota = "/api/options/mcp/possibilidades"
+
+    # Cenários NOMEADOS do usuário. A banda de ±1σ o serviço devolve sozinho —
+    # duplicá-la aqui seria inventar a volatilidade em vez de lê-la.
+    cenarios = []
+    preco_alvo = _preco_de_cenario(corpo.get("alvo"), "alvo")
+    preco_stop = _preco_de_cenario(corpo.get("stop"), "stop")
+    if preco_alvo is not None:
+        cenarios.append({"name": "alvo", "underlying": preco_alvo})
+    if preco_stop is not None:
+        cenarios.append({"name": "stop", "underlying": preco_stop})
+
+    pedidos = corpo.get("expirations")
+    pedidos = ([v for v in pedidos if isinstance(v, str)]
+               if isinstance(pedidos, list) else None)
+
+    with _cap_check(uid, 1) as cap1:
+        try:
+            base, _cache = await _chamada_com_cap(cap1, "propose_option_setups",
+                                                  {"ticker": alvo})
+        except (mcp_client.McpErro, ValueError) as e:
+            obslog.log("mcp", "possibilidades falhou", level="warn", rota=rota,
+                       uid=uid, ticker=alvo, passo="propose_option_setups",
+                       erro=type(e).__name__,
+                       detalhe=str(e))  # A-03 — ver nota em `/status`
+            raise _erro_http(e)
+
+        disponiveis = [v for v in (base.get("expirations") or []) if isinstance(v, str)]
+        # Vencimento pedido que a cadeia não tem não vira chamada: gastaria
+        # cap para o serviço responder que não existe.
+        escolhidos = ([v for v in pedidos if v in disponiveis] if pedidos
+                      else list(disponiveis))[:N_MAX_VENCIMENTOS]
+
+        envelope = {
+            "ticker": alvo,
+            "pregao": base.get("trading_date") or None,
+            "precoObjeto": base.get("underlying_price"),
+            "fonte": FONTE,
+            "at": _agora_brt(),
+            "lote": lote,
+            "direction": direcao,
+            "kind": tipo,
+            "vencimentosConsiderados": escolhidos,
+            "vencimentosDisponiveis": disponiveis,
+            # O MESMO número que a UI mostra antes de disparar — sai na
+            # resposta para que os dois lados não possam divergir.
+            "chamadasPrevistas": 2 * len(escolhidos) + 1,
+            "behavior": base.get("behavior"),
+            "frescor": _frescor_nao_medido(AVISO_FRESCOR_SEM_ANEXO),
+        }
+
+        if not escolhidos:
+            obslog.log("mcp", "possibilidades", rota=rota, uid=uid, ticker=alvo,
+                       vencimentos=0, montadas=0)
+            return {**envelope, "possibilidades": [], "motivo": MOTIVO_SEM_VENCIMENTO,
+                    "cap": _cap_bloco(uid)}
+
+        # N real, agora conhecido. `_cap_check` recusa aqui ANTES da rede — e
+        # o que este `with` reservar e não gastar volta na saída.
+        with _cap_check(uid, 2 * len(escolhidos)) as cap2:
+            lista = []
+            passo = "propose_option_setups"
+            try:
+                for vencimento in escolhidos:
+                    try:
+                        passo = "propose_option_setups"
+                        args = {"ticker": alvo, "expiration": vencimento}
+                        if direcao:
+                            args["direction"] = direcao
+                        if tipo:
+                            args["kind"] = tipo
+                        proposta_do_venc, _c = await _chamada_com_cap(
+                            cap2, "propose_option_setups", args)
+
+                        montados = [s for s in (proposta_do_venc.get("setups") or [])
+                                    if isinstance(s, dict)]
+                        setup = montados[0] if montados else None
+                        pernas = _pernas_para_avaliar(setup)
+                        if not pernas:
+                            # Avaliar o que não existe gastaria cap por nada.
+                            # O motivo é do serviço, verbatim ([R-15]).
+                            lista.append({
+                                "vencimento": vencimento, "estrutura": None,
+                                "emReais": None, "erro": None,
+                                "motivo": (proposta_do_venc.get("reason")
+                                           or proposta_do_venc.get("note")),
+                            })
+                            continue
+
+                        passo = "evaluate_option_structure"
+                        args_avaliacao = {"ticker": alvo, "legs": pernas}
+                        if cenarios:
+                            args_avaliacao["scenarios"] = cenarios
+                        avaliacao, _c = await _chamada_com_cap(
+                            cap2, "evaluate_option_structure", args_avaliacao)
+                    except mcp_client.McpErroDeTool as e:
+                        # Erro de tool é sobre ESTE vencimento. Os outros
+                        # seguem — e a mensagem do serviço vai inteira, porque
+                        # ela é quem explica (livre de segredo por construção
+                        # do `mcp_client`).
+                        obslog.log("mcp", "possibilidades: vencimento recusado",
+                                   level="warn", rota=rota, uid=uid, ticker=alvo,
+                                   vencimento=vencimento, passo=passo,
+                                   detalhe=str(e))
+                        lista.append({"vencimento": vencimento, "estrutura": None,
+                                      "emReais": None, "motivo": None, "erro": str(e)})
+                        continue
+
+                    estrutura = {c: avaliacao.get(c) for c in CHAVES_DA_ESTRUTURA}
+                    # `kind`/`name` NOMEIAM a estrutura e vêm de quem a montou
+                    # (`propose`), não de quem a avaliou.
+                    for chave in ("kind", "name"):
+                        if estrutura.get(chave) is None:
+                            estrutura[chave] = (setup or {}).get(chave)
+
+                    lista.append({
+                        "vencimento": vencimento,
+                        "estrutura": estrutura,
+                        # Reais calculados UMA vez, aqui. `breakevens` fica na
+                        # estrutura, em preço do objeto — ver `_em_reais`.
+                        "emReais": _em_reais(avaliacao, lote),
+                        "motivo": None,
+                        "erro": None,
+                    })
+            except (mcp_client.McpErro, ValueError) as e:
+                # Condição do SERVIÇO (sem credencial, fora do ar, teto
+                # atingido): não é sobre um vencimento, é sobre todos. A
+                # captura fica FORA do `for` de propósito — o `continue` do
+                # erro de tool não se aplica aqui, e uma resposta 200 parcial
+                # esconderia que o serviço parou no meio.
+                obslog.log("mcp", "possibilidades falhou", level="warn",
+                           rota=rota, uid=uid, ticker=alvo,
+                           vencimento=vencimento, passo=passo,
+                           erro=type(e).__name__,
+                           detalhe=str(e))  # A-03 — ver nota em `/status`
+                raise _erro_http(e)
+
+            obslog.log("mcp", "possibilidades", rota=rota, uid=uid, ticker=alvo,
+                       vencimentos=len(escolhidos),
+                       montadas=len([i for i in lista if i.get("estrutura")]))
+
+            return {**envelope, "possibilidades": lista, "motivo": None,
+                    "cap": _cap_bloco(uid)}
