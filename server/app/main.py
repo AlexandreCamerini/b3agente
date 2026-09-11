@@ -1023,7 +1023,7 @@ async def admin_mobile_handoff_exchange(body: dict = Body(default={})):
 
 # FASE 8B (diagnóstico): carimbo de build do BACKEND — confirma qual código o
 # Railway está rodando (o front tem o dele em web/src/version.js).
-SERVER_BUILD_ID = "F10-20260910-03"  # 2026-09-10: lote MCP da auditoria (A-01 a A-05) — teto só com prova numérica, log com o motivo real, pins exatos do SDK, token recusado invalidado. DEPLOY SÓ-BACKEND: bumpado À MÃO, o front segue em F10-20260910-02 (version.js). ATENÇÃO ao publicar front hoje: `bump.sh` sem argumento geraria -03 e COLIDIRIA — passe `bump.sh F10-20260910-04` explicitamente (memória deploy-backend-carimbo).
+SERVER_BUILD_ID = "F10-20260910-04"  # 2026-09-11: achados de peso da auditoria (A-07 cota com reserva atômica + devolução do saldo; A-08 o ciclo não anuncia venda que não houve; A-17/A-18 guardiões que passavam cegos). DEPLOY SÓ-BACKEND: bumpado À MÃO, o front segue em F10-20260910-02 (version.js). Ao publicar front, passe o carimbo explícito a `bump.sh` — sem argumento ele colide (memória deploy-backend-carimbo).
 # Normalmente sincronizado pelo entregar.sh a partir de web/src/version.js; num deploy
 # SÓ de backend (sem rebuild do front) bumpamos aqui para /api/health rastrear o servidor.
 
