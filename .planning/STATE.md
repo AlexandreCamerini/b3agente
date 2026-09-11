@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Opções v2
 status: executing
-stopped_at: Fase 24, plano 04 concluído (front da Fase 5 — seção Criar setup: descrição em português → ensaio no histórico → gravar, gateada por `opcoes.criar_setup` com o gate provado por RENDER; guardião novo com 97 asserções e 5 defeitos injetados); suíte canônica verde (2407 passed, 5 skipped; 129 arquivos .mjs, exit 0); nada empurrado a origin, nenhum PR. Resta só o 24-05 (bump + publicar-web.sh + deploy do backend), que NÃO roda sem o OK explícito do Alex.
-last_updated: "2026-09-11T21:15:14.887Z"
-last_activity: "2026-09-11 — 24-04 executado na árvore principal (sem worktree): o FRONT da Fase 5. Seção `Criar setup` (`web/src/opcoes/CriarSetup.jsx`) — descrição em português → interpretação do serviço + ensaio no histórico → gravar —, montada só sob `opcoes.criar_setup` (gate provado por RENDER com 5 formas de `authUser`, não por grep; o backend recusa de qualquer forma, ADR-013). `problems` item a item e verbatim; `cru` da LLM em nó de texto com pre-wrap (um `<script>` renderizado sai escapado — T-24-17 verificado); backtest com a ressalva FIXA junto dos números, sem verde/vermelho, e as frases de expectativa banidas da pasta; `null` sempre travessão. Três rotas de escrita nos DOIS stores (compilar no TIMEOUT_LLM), `recarregarLeitura()` com contador próprio depois de gravar/desativar, 18 chaves de copy nas duas vozes. Guardião novo com 97 asserções, provado contra 5 defeitos injetados. Suíte canônica verde: 2407 passed, 5 skipped + 129 arquivos .mjs, exit 0. Nada empurrado a origin, nenhum PR. Pendente de verificação: nada exercitado AO VIVO (`MCP_CLIENT_SECRET` fora do ambiente, nenhuma chamada de LLM real) e nada testado no aparelho."
+stopped_at: "Fase 24, plano 06 concluído (correção dos achados F-01, F-02 e F-03 da verificação independente: razão ganho/perda no backend e na tela, falha de rede da LLM vira 503 `ia_indisponivel` em vez de 500, auditoria não derruba escrita externa já efetivada). Cada correção com teste provado RED antes dela. Suíte canônica verde: 2424 passed, 5 skipped + 129 arquivos .mjs, exit 0 (baseline era 2407/5 — +17, exatamente os testes novos). `npx vite build` verde. Nada empurrado a origin, nenhum PR. PENDENTES: 24-05 (publicação) só com OK explícito do Alex, e F-04 (cap não debita viagem que a tool recusou) é DECISÃO de produto do Alex, não defeito de código — intocado aqui."
+last_updated: "2026-09-11T21:47:38.578Z"
+last_activity: "2026-09-11 — 24-06 executado na árvore principal (sem worktree): plano de CORREÇÃO dos três achados de escopo do `24-VERIFICATION.md`. (F-01) `_razao_ganho_perda(dados)` puro ao lado de `_em_reais` — adimensional, SEM `lote` na assinatura (o parâmetro que não muda o resultado é o convite a multiplicá-lo por engano); razão que não existe é `None` COM motivo nos quatro casos (ganho sem teto, perda sem piso, dado ausente, perda zero), nunca 0 nem ∞; campo `razaoGanhoPerda` FORA do bloco `emReais` em `/proposta` e por item de `/possibilidades`; `RazaoGanhoPerda` nas duas seções da tela, com o motivo em linha inteira quando não há número; os quatro motivos entram em `AVISOS` ([R-12]). (F-02) `/setups/compilar` capturava só `llm.LLMUserError` e deixava `httpx.ReadTimeout` subir ao handler global — agora 503 `ia_indisponivel` com 'nada foi gravado' e `action`, mais `except Exception` justificado por escrito (o provedor é código de terceiro; o critério 7 do ROADMAP é literal). (F-03) `audit.record` fatorado em `_audita()` com try/except + obslog `warn`: contabilidade não derruba rota cuja escrita externa JÁ aconteceu, porque o armazém é sem dono e a retentativa duplica setup para toda a base. Regra de ouro cumprida: os 17 testes novos foram escritos ANTES e vistos VERMELHOS contra o código antigo (14+13 asserções de F-01, 2 de F-02, 1 de F-03). Suíte canônica: 2424 passed, 5 skipped + 129 .mjs, exit 0. F-04 INTOCADO e provado por diff (0 linhas em `mcp_client.py`, nenhuma mudança em `cap.consome` nem em custo declarado de rota); existe um `24-07-PLAN.md` em disco (NÃO rastreado, NÃO executado) que já pressupõe uma das três saídas — a escolha é do Alex."
 progress:
   total_phases: 8
   completed_phases: 5
-  total_plans: 28
-  completed_plans: 27
-  percent: 96
+  total_plans: 30
+  completed_plans: 28
+  percent: 93
 ---
 
 # Project State
@@ -26,10 +26,12 @@ See: .planning/PROJECT.md (updated 2026-09-06)
 ## Current Position
 
 Phase: 24 (Aba Opções sobre MCP — análise e criação de setups) — EXECUTING
-Plan: 5 of 5
-Status: 24-04 concluído — 24-05 (publicação) PENDENTE DE OK HUMANO, não roda sozinho
-Progress: [██████████] 96%
-Last activity: 2026-09-11 — 24-04 executado na árvore principal (sem worktree): o FRONT da Fase 5. Seção `Criar setup` (`web/src/opcoes/CriarSetup.jsx`) — descrição em português → interpretação do serviço + ensaio no histórico → gravar —, montada só sob `opcoes.criar_setup` (gate provado por RENDER com 5 formas de `authUser`, não por grep; o backend recusa de qualquer forma, ADR-013). `problems` item a item e verbatim; `cru` da LLM em nó de texto com pre-wrap (um `<script>` renderizado sai escapado — T-24-17 verificado); backtest com a ressalva FIXA junto dos números, sem verde/vermelho, e as frases de expectativa banidas da pasta; `null` sempre travessão. Três rotas de escrita nos DOIS stores (compilar no TIMEOUT_LLM), `recarregarLeitura()` com contador próprio depois de gravar/desativar, 18 chaves de copy nas duas vozes. Guardião novo com 97 asserções, provado contra 5 defeitos injetados. Suíte canônica verde: 2407 passed, 5 skipped + 129 arquivos .mjs, exit 0. Nada empurrado a origin, nenhum PR. Pendente de verificação: nada exercitado AO VIVO (`MCP_CLIENT_SECRET` fora do ambiente, nenhuma chamada de LLM real) e nada testado no aparelho.
+Plan: 24-06 concluído (6 de 7 planos em disco)
+Status: 24-06 (correção de F-01/F-02/F-03) concluído — 24-05 (publicação) PENDENTE DE OK HUMANO; 24-07 (F-04) PENDENTE DE DECISÃO DO ALEX, não é defeito de código
+Progress: [█████████░] 93%
+Last activity: 2026-09-11 — 24-06 executado na árvore principal (sem worktree): plano de CORREÇÃO dos três achados de escopo do `24-VERIFICATION.md`. (F-01) `_razao_ganho_perda(dados)` puro ao lado de `_em_reais` — adimensional, SEM `lote` na assinatura; razão que não existe é `None` COM motivo nos quatro casos (ganho sem teto, perda sem piso, dado ausente, perda zero), nunca 0 nem ∞; `razaoGanhoPerda` FORA do bloco `emReais` em `/proposta` e por item de `/possibilidades`; `RazaoGanhoPerda` nas duas seções da tela; os quatro motivos em `AVISOS` ([R-12]). (F-02) `/setups/compilar` deixava `httpx.ReadTimeout` subir ao handler global — agora 503 `ia_indisponivel` com "nada foi gravado" e `action`, mais `except Exception` justificado por escrito. (F-03) `audit.record` fatorado em `_audita()` com try/except + obslog `warn`: contabilidade não derruba rota cuja escrita externa JÁ aconteceu (armazém sem dono; retentativa duplica setup para toda a base). Regra de ouro cumprida: os 17 testes novos foram escritos ANTES e vistos VERMELHOS contra o código antigo. Suíte canônica: 2424 passed, 5 skipped + 129 .mjs, exit 0 (baseline 2407/5 — +17, exatamente os novos). `npx vite build` verde. Nada empurrado a origin, nenhum PR. F-04 INTOCADO e provado por diff: 0 linhas em `mcp_client.py`, nenhuma mudança em `cap.consome` nem em custo declarado de rota.
+
+Anterior (2026-09-11) — 24-04 executado na árvore principal (sem worktree): o FRONT da Fase 5. Seção `Criar setup` (`web/src/opcoes/CriarSetup.jsx`) — descrição em português → interpretação do serviço + ensaio no histórico → gravar —, montada só sob `opcoes.criar_setup` (gate provado por RENDER com 5 formas de `authUser`, não por grep; o backend recusa de qualquer forma, ADR-013). `problems` item a item e verbatim; `cru` da LLM em nó de texto com pre-wrap (um `<script>` renderizado sai escapado — T-24-17 verificado); backtest com a ressalva FIXA junto dos números, sem verde/vermelho, e as frases de expectativa banidas da pasta; `null` sempre travessão. Três rotas de escrita nos DOIS stores (compilar no TIMEOUT_LLM), `recarregarLeitura()` com contador próprio depois de gravar/desativar, 18 chaves de copy nas duas vozes. Guardião novo com 97 asserções, provado contra 5 defeitos injetados. Suíte canônica verde: 2407 passed, 5 skipped + 129 arquivos .mjs, exit 0. Nada empurrado a origin, nenhum PR. Pendente de verificação: nada exercitado AO VIVO (`MCP_CLIENT_SECRET` fora do ambiente, nenhuma chamada de LLM real) e nada testado no aparelho.
 
 Anterior (2026-09-11) — 24-03: três rotas de ESCRITA de setup (`/setups/compilar`, `/setups/confirmar`, `/setups/{name}/desativar`) atrás de `opcoes.criar_setup`, com o `system` do compilador montado em RUNTIME do `inputSchema` de `create_setup` + o resource `mydata://tools/create_setup` (zero vocabulário de DSL dentro do Boris, ENG-06), `description` restaurada com as palavras da pessoa, frescor que bloqueia criar e não bloqueia desativar, os dois 402 do gate de análise com texto próprio da aba e auditoria `opcoes_setup`. 27 testes novos em `test_opcoes_dsl.py`, com duas provas de não-vacuidade (403 e cap) feitas e revertidas. Pendente de verificação: nada foi exercitado AO VIVO (`MCP_CLIENT_SECRET` fora do ambiente) e NENHUMA chamada de LLM real foi feita — que um modelo devolva JSON compilável a partir do `system` montado é a primeira coisa a exercitar quando houver credencial.
 
@@ -75,6 +77,7 @@ RESSALVA HONESTA: a verificação foi estática (suíte + build). As quatro corr
 | 24 P02 | 28min | 4 tasks | 7 files |
 | 24 P03 | 25min | 3 tasks | 7 files |
 | 24 P04 | 47min | 3 tasks | 7 files |
+| 24 P06 | 41min | 3 tasks | 6 files |
 
 **Recent Trend:**
 
@@ -89,6 +92,30 @@ RESSALVA HONESTA: a verificação foi estática (suíte + build). As quatro corr
 
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
+
+- 24-06 (2026-09-11): a razão ganho/perda é ADIMENSIONAL e o helper não
+  recebe `lote` — a assinatura é a trava, não um teste. Razão que não existe
+  é `None` COM motivo (ganho sem teto, perda sem piso, dado ausente, perda
+  zero); número inventado ali seria o defeito que o critério 2 do ROADMAP
+  proíbe. Em `/proposta` ela segue a régua de ambiguidade do `emReais` (uma
+  estrutura só), não a de lote.
+
+- 24-06 (2026-09-11): `except Exception` em torno de `llm._call_llm` é
+  deliberado e justificado NO CÓDIGO — o provedor é código de terceiro cuja
+  taxonomia de exceção não é do Boris, e o critério 7 do ROADMAP é literal
+  ("nada cai no handler 500"). As classes de transporte conhecidas
+  (`httpx.TimeoutException`/`HTTPError`) ficam NOMEADAS acima do genérico.
+
+- 24-06 (2026-09-11): contabilidade nunca derruba rota cuja escrita externa
+  JÁ foi efetivada. `audit.record` virou `_audita()` com try/except + obslog
+  `warn`: o armazém de setups é sem dono (ADR-027, Decisão 7), então o 500
+  convidava à retentativa e a retentativa duplicava o setup para toda a base.
+
+- 24-06 (2026-09-11): F-04 NÃO foi tocado. Cobrar (ou não) do cap a viagem
+  que a tool recusou é escolha de produto do Alex, com três saídas possíveis
+  (cobrar a viagem recusada; cachear a recusa com TTL curto; teto de falhas
+  por requisição em `/possibilidades`). Existe um `24-07-PLAN.md` em disco,
+  NÃO rastreado e NÃO executado, que já pressupõe a primeira.
 
 - v1.4 roadmap (2026-09-02): numeração de fase continua a partir da última
   fase standalone (14, Opções lastreadas) — Phases 15-18, sem
@@ -317,8 +344,8 @@ Items acknowledged and carried forward from previous milestone close (v1.3 → v
 
 ## Session Continuity
 
-Last session: 2026-09-11T21:15:14.887Z
-Stopped at: Fase 24, plano 04 concluído (front da Fase 5 — seção Criar setup: descrição em português → ensaio no histórico → gravar, gateada por `opcoes.criar_setup` com o gate provado por RENDER; guardião novo com 97 asserções e 5 defeitos injetados); suíte canônica verde (2407 passed, 5 skipped; 129 arquivos .mjs, exit 0); nada empurrado a origin, nenhum PR. Resta só o 24-05 (bump + publicar-web.sh + deploy do backend), que NÃO roda sem o OK explícito do Alex.
+Last session: 2026-09-11T21:47:38Z
+Stopped at: Fase 24, plano 06 concluído — correção dos achados F-01 (razão ganho/perda inexistente), F-02 (`/setups/compilar` caindo no handler 500 em falha de rede da LLM) e F-03 (`audit.record` derrubando escrita já efetivada) da verificação independente. Cada um com teste provado VERMELHO antes da correção. Suíte canônica verde (2424 passed, 5 skipped; 129 arquivos .mjs, exit 0 — baseline era 2407/5), `npx vite build` verde. Nada empurrado a origin, nenhum PR. Ficam abertos, os dois por decisão humana: 24-05 (bump + publicar-web.sh + deploy do backend), que NÃO roda sem o OK explícito do Alex, e F-04 (o cap não debita a viagem que a tool recusou, e o serviço cobra), que é escolha de produto e não defeito de código.
 Resume file: None
 
 ## Operator Next Steps
