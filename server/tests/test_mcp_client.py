@@ -601,3 +601,80 @@ def test_reset_cache_limpa_tambem_o_token(monkeypatch):
     mcp_client._CACHE[("t", "{}")] = (0.0, {"a": 1})
     mcp_client.reset_cache()
     assert mcp_client._TOKEN == {} and mcp_client._CACHE == {}
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# Ciclo de vida do cliente HTTP entre event loops (achado ao vivo, 2026-09-11)
+#
+# O sintoma foi o pior tipo: a PRIMEIRA chamada de rede do processo passava e
+# a segunda falhava como `McpIndisponivel` — ou seja, o cliente acusava o
+# SERVIÇO por um defeito nosso. A causa é que o `AsyncClient` guarda o pool de
+# conexões, e uma conexão keep-alive estabelecida dentro de um loop não
+# sobrevive à morte dele; `asyncio.Lock`/`Semaphore` se amarram ao loop no
+# primeiro `await` pelo mesmo motivo.
+#
+# Produção não vê isso (uvicorn = um loop de vida longa). Quem vê é quem chama
+# `asyncio.run()` mais de uma vez no mesmo processo: os testes ao vivo, um
+# script de diagnóstico, um `railway ssh`. Estes testes NÃO tocam a rede — a
+# afirmação é sobre a identidade dos objetos por loop, que é a causa.
+# ──────────────────────────────────────────────────────────────────────────
+def test_cliente_http_nao_atravessa_event_loops(monkeypatch):
+    """Dois `asyncio.run` consecutivos não podem compartilhar o mesmo cliente:
+    o do primeiro carrega um pool ligado a um loop que já morreu."""
+    monkeypatch.setattr(mcp_client, "_HTTP", None)
+    monkeypatch.setattr(mcp_client, "_LOOP", None)
+
+    async def pegar():
+        return id(mcp_client._cliente_http())
+
+    primeiro = asyncio.run(pegar())
+    segundo = asyncio.run(pegar())
+    assert primeiro != segundo, (
+        "o cliente HTTP sobreviveu à troca de event loop — a segunda chamada "
+        "de rede do processo vai levantar RuntimeError e o módulo vai "
+        "reportá-la como McpIndisponivel, culpando o serviço por um defeito "
+        "daqui (achado ao vivo de 2026-09-11)")
+
+
+def test_cliente_http_e_reusado_dentro_do_mesmo_loop(monkeypatch):
+    """O outro lado da mesma regra: DENTRO de um loop, o cliente é um só.
+    Sem esta asserção, `_do_loop_corrente` poderia recriar o cliente a cada
+    chamada e o teste acima continuaria verde — trocando um defeito por
+    outro, pior: um pool novo por requisição em produção."""
+    monkeypatch.setattr(mcp_client, "_HTTP", None)
+    monkeypatch.setattr(mcp_client, "_LOOP", None)
+
+    async def pegar_duas_vezes():
+        return id(mcp_client._cliente_http()), id(mcp_client._cliente_http())
+
+    a, b = asyncio.run(pegar_duas_vezes())
+    assert a == b, "o cliente foi recriado dentro do MESMO loop"
+
+
+def test_lock_e_semaforo_acompanham_o_loop(monkeypatch):
+    """`_LOCK` e `_SEM` são recriados junto com o cliente quando o loop muda.
+
+    **Medido antes de afirmar:** `asyncio.Lock` sem contenção NÃO levanta ao
+    atravessar loops neste Python — ele só guarda o loop quando alguém de fato
+    espera. Então isto não é a correção de um defeito observado; é defesa
+    barata contra o caso com contenção, onde a falha cairia no `async with
+    _LOCK` de `_access_token`, ANTES de qualquer `try`, sem tradução de erro.
+    A asserção é sobre o contrato de `_do_loop_corrente` — que recria TUDO que
+    pertence ao loop, não só o cliente — e não sobre um crash reproduzido."""
+    monkeypatch.setattr(mcp_client, "_HTTP", None)
+    monkeypatch.setattr(mcp_client, "_LOOP", None)
+
+    async def entrar_no_caminho_de_rede():
+        # `_do_loop_corrente` é o gatilho real: quem chama são `_access_token`
+        # e `_cliente_http`, no início do caminho de rede.
+        mcp_client._do_loop_corrente()
+        async with mcp_client._LOCK:
+            pass
+        async with mcp_client._SEM:
+            pass
+        return id(mcp_client._LOCK), id(mcp_client._SEM)
+
+    l1, s1 = asyncio.run(entrar_no_caminho_de_rede())
+    l2, s2 = asyncio.run(entrar_no_caminho_de_rede())
+    assert l1 != l2 and s1 != s2, (
+        "as primitivas de sincronização sobreviveram à troca de loop")
