@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Opções v2
 status: executing
-stopped_at: Fase 24, plano 03 concluído (backend da Fase 5 — criar setup por descrição em português: compilar/confirmar/desativar, com permissão real, `system` montado em runtime do contrato vivo e auditoria); suíte canônica verde (2407 passed, 5 skipped; 128 arquivos .mjs, exit 0); nada empurrado a origin; 24-04 (front da Fase 5) é o próximo
-last_updated: "2026-09-11T20:51:05.936Z"
-last_activity: "2026-09-11 — 24-03 executado na árvore principal (sem worktree): três rotas de ESCRITA de setup (`/setups/compilar`, `/setups/confirmar`, `/setups/{name}/desativar`) atrás de `opcoes.criar_setup`, com o `system` do compilador montado em RUNTIME do `inputSchema` de `create_setup` + o resource `mydata://tools/create_setup` (zero vocabulário de DSL dentro do Boris, ENG-06), `description` restaurada com as palavras da pessoa, frescor que bloqueia criar e não bloqueia desativar, os dois 402 do gate de análise com texto próprio da aba e auditoria `opcoes_setup`. 27 testes novos em `test_opcoes_dsl.py`, com duas provas de não-vacuidade (403 e cap) feitas e revertidas. Pendente de verificação: nada foi exercitado AO VIVO (`MCP_CLIENT_SECRET` fora do ambiente) e NENHUMA chamada de LLM real foi feita — que um modelo devolva JSON compilável a partir do `system` montado é a primeira coisa a exercitar quando houver credencial."
+stopped_at: Fase 24, plano 04 concluído (front da Fase 5 — seção Criar setup: descrição em português → ensaio no histórico → gravar, gateada por `opcoes.criar_setup` com o gate provado por RENDER; guardião novo com 97 asserções e 5 defeitos injetados); suíte canônica verde (2407 passed, 5 skipped; 129 arquivos .mjs, exit 0); nada empurrado a origin, nenhum PR. Resta só o 24-05 (bump + publicar-web.sh + deploy do backend), que NÃO roda sem o OK explícito do Alex.
+last_updated: "2026-09-11T21:15:14.887Z"
+last_activity: "2026-09-11 — 24-04 executado na árvore principal (sem worktree): o FRONT da Fase 5. Seção `Criar setup` (`web/src/opcoes/CriarSetup.jsx`) — descrição em português → interpretação do serviço + ensaio no histórico → gravar —, montada só sob `opcoes.criar_setup` (gate provado por RENDER com 5 formas de `authUser`, não por grep; o backend recusa de qualquer forma, ADR-013). `problems` item a item e verbatim; `cru` da LLM em nó de texto com pre-wrap (um `<script>` renderizado sai escapado — T-24-17 verificado); backtest com a ressalva FIXA junto dos números, sem verde/vermelho, e as frases de expectativa banidas da pasta; `null` sempre travessão. Três rotas de escrita nos DOIS stores (compilar no TIMEOUT_LLM), `recarregarLeitura()` com contador próprio depois de gravar/desativar, 18 chaves de copy nas duas vozes. Guardião novo com 97 asserções, provado contra 5 defeitos injetados. Suíte canônica verde: 2407 passed, 5 skipped + 129 arquivos .mjs, exit 0. Nada empurrado a origin, nenhum PR. Pendente de verificação: nada exercitado AO VIVO (`MCP_CLIENT_SECRET` fora do ambiente, nenhuma chamada de LLM real) e nada testado no aparelho."
 progress:
   total_phases: 8
   completed_phases: 5
   total_plans: 28
-  completed_plans: 26
-  percent: 63
+  completed_plans: 27
+  percent: 96
 ---
 
 # Project State
@@ -26,10 +26,12 @@ See: .planning/PROJECT.md (updated 2026-09-06)
 ## Current Position
 
 Phase: 24 (Aba Opções sobre MCP — análise e criação de setups) — EXECUTING
-Plan: 4 of 5
-Status: Ready to execute
-Progress: [█████████░] 93%
-Last activity: 2026-09-11 — 24-03 executado na árvore principal (sem worktree): três rotas de ESCRITA de setup (`/setups/compilar`, `/setups/confirmar`, `/setups/{name}/desativar`) atrás de `opcoes.criar_setup`, com o `system` do compilador montado em RUNTIME do `inputSchema` de `create_setup` + o resource `mydata://tools/create_setup` (zero vocabulário de DSL dentro do Boris, ENG-06), `description` restaurada com as palavras da pessoa, frescor que bloqueia criar e não bloqueia desativar, os dois 402 do gate de análise com texto próprio da aba e auditoria `opcoes_setup`. 27 testes novos em `test_opcoes_dsl.py`, com duas provas de não-vacuidade (403 e cap) feitas e revertidas. Pendente de verificação: nada foi exercitado AO VIVO (`MCP_CLIENT_SECRET` fora do ambiente) e NENHUMA chamada de LLM real foi feita — que um modelo devolva JSON compilável a partir do `system` montado é a primeira coisa a exercitar quando houver credencial.
+Plan: 5 of 5
+Status: 24-04 concluído — 24-05 (publicação) PENDENTE DE OK HUMANO, não roda sozinho
+Progress: [██████████] 96%
+Last activity: 2026-09-11 — 24-04 executado na árvore principal (sem worktree): o FRONT da Fase 5. Seção `Criar setup` (`web/src/opcoes/CriarSetup.jsx`) — descrição em português → interpretação do serviço + ensaio no histórico → gravar —, montada só sob `opcoes.criar_setup` (gate provado por RENDER com 5 formas de `authUser`, não por grep; o backend recusa de qualquer forma, ADR-013). `problems` item a item e verbatim; `cru` da LLM em nó de texto com pre-wrap (um `<script>` renderizado sai escapado — T-24-17 verificado); backtest com a ressalva FIXA junto dos números, sem verde/vermelho, e as frases de expectativa banidas da pasta; `null` sempre travessão. Três rotas de escrita nos DOIS stores (compilar no TIMEOUT_LLM), `recarregarLeitura()` com contador próprio depois de gravar/desativar, 18 chaves de copy nas duas vozes. Guardião novo com 97 asserções, provado contra 5 defeitos injetados. Suíte canônica verde: 2407 passed, 5 skipped + 129 arquivos .mjs, exit 0. Nada empurrado a origin, nenhum PR. Pendente de verificação: nada exercitado AO VIVO (`MCP_CLIENT_SECRET` fora do ambiente, nenhuma chamada de LLM real) e nada testado no aparelho.
+
+Anterior (2026-09-11) — 24-03: três rotas de ESCRITA de setup (`/setups/compilar`, `/setups/confirmar`, `/setups/{name}/desativar`) atrás de `opcoes.criar_setup`, com o `system` do compilador montado em RUNTIME do `inputSchema` de `create_setup` + o resource `mydata://tools/create_setup` (zero vocabulário de DSL dentro do Boris, ENG-06), `description` restaurada com as palavras da pessoa, frescor que bloqueia criar e não bloqueia desativar, os dois 402 do gate de análise com texto próprio da aba e auditoria `opcoes_setup`. 27 testes novos em `test_opcoes_dsl.py`, com duas provas de não-vacuidade (403 e cap) feitas e revertidas. Pendente de verificação: nada foi exercitado AO VIVO (`MCP_CLIENT_SECRET` fora do ambiente) e NENHUMA chamada de LLM real foi feita — que um modelo devolva JSON compilável a partir do `system` montado é a primeira coisa a exercitar quando houver credencial.
 
 Anterior (2026-09-11) — 24-02: front da Fase 3 (`PayoffChart`, seções Analisar e Possibilidades sob demanda com o custo em chamadas ANTES do clique, quatro rotas nos DOIS stores, 28 chaves de copy nas duas vozes). Nada exercitado ao vivo nem no aparelho.
 
@@ -72,6 +74,7 @@ RESSALVA HONESTA: a verificação foi estática (suíte + build). As quatro corr
 | 24 P01 | 32min | 3 tasks | 4 files |
 | 24 P02 | 28min | 4 tasks | 7 files |
 | 24 P03 | 25min | 3 tasks | 7 files |
+| 24 P04 | 47min | 3 tasks | 7 files |
 
 **Recent Trend:**
 
@@ -115,6 +118,10 @@ Recent decisions affecting current work:
 - [Phase 24]: 24-03: description do setup e sempre a palavra da pessoa; a parafrase da IA e descartada antes de gravar
 - [Phase 24]: 24-03: frescor bloqueia CRIAR setup e nao bloqueia DESATIVAR — assimetria deliberada, travada por teste
 - [Phase 24]: 24-03: rota de escrita sem a fiacao de permissao responde 503, nunca 200 permissivo
+- [Phase 24]: 24-04: a permissao ESCONDE a secao de criar setup; quem RECUSA e o backend — gate provado por RENDER, nao por grep
+- [Phase 24]: 24-04: recarregar a leitura depois de gravar usa contador PROPRIO (leituraRef) — bumpar tickerRef invalidaria a propria chamada que pediu a recarga
+- [Phase 24]: 24-04: as condicoes do setup sao renderizadas varrendo as chaves que CHEGARAM; traduzir indicator/operator criaria a segunda copia do contrato (ENG-06 no front)
+- [Phase 24]: 24-04: backtest e contagem passada — ressalva FIXA no mesmo bloco dos numeros, sem verde/vermelho, e as tres frases de expectativa banidas da pasta
 
 ### Roadmap Evolution
 
@@ -310,8 +317,8 @@ Items acknowledged and carried forward from previous milestone close (v1.3 → v
 
 ## Session Continuity
 
-Last session: 2026-09-11T20:22:18.831Z
-Stopped at: Quick tasks 260906-rla (`textDim`), 260906-ugb (C-18/C-08/C-28) e 260906-vf9 (C-06/C-07/C-09, achados de produto) concluídos — todos os 9 achados Baixo/produto do REPORT-01 fechados ou reverificados; milestone v1.5 fechado e arquivado (`.planning/milestones/v1.5-*`); nenhum push a `origin`
+Last session: 2026-09-11T21:15:14.887Z
+Stopped at: Fase 24, plano 04 concluído (front da Fase 5 — seção Criar setup: descrição em português → ensaio no histórico → gravar, gateada por `opcoes.criar_setup` com o gate provado por RENDER; guardião novo com 97 asserções e 5 defeitos injetados); suíte canônica verde (2407 passed, 5 skipped; 129 arquivos .mjs, exit 0); nada empurrado a origin, nenhum PR. Resta só o 24-05 (bump + publicar-web.sh + deploy do backend), que NÃO roda sem o OK explícito do Alex.
 Resume file: None
 
 ## Operator Next Steps

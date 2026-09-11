@@ -315,7 +315,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2)*
 
-- [ ] 24-04-PLAN.md — front da Fase 5: seção "Criar setup" gateada por permissão, backtest ressalvado, guardião
+- [x] 24-04-PLAN.md — front da Fase 5: seção "Criar setup" gateada por permissão, backtest ressalvado, guardião
 
 **Wave 4** *(blocked on Wave 3 — NÃO autônomo)*
 
@@ -357,7 +357,7 @@ que o dispara). Detalhes em
 | 21. Duplicação removida e Portfólio consolidado | 4/4 | Complete    | 2026-09-06 |
 | 22. Componentes compartilhados (trilho, ícones, mascote) | 4/4 | Complete    | 2026-09-06 |
 | 23. Motion com propósito e ilustração unificada | 4/4 | Complete    | 2026-09-06 |
-| 24. Aba Opções sobre MCP — análise e criação de setups | 3/5 | In Progress|  |
+| 24. Aba Opções sobre MCP — análise e criação de setups | 4/5 | In Progress|  |
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2/v1.3
 
