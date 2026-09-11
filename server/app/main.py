@@ -1057,7 +1057,7 @@ async def admin_mobile_handoff_exchange(body: dict = Body(default={})):
 
 # FASE 8B (diagnóstico): carimbo de build do BACKEND — confirma qual código o
 # Railway está rodando (o front tem o dele em web/src/version.js).
-SERVER_BUILD_ID = "F10-20260911-03"  # 2026-09-11: publicação de FRONT (quick 260911-pub) — sincronizado pelo publicar-web.sh, front e servidor voltam a andar juntos depois de dois dias de deploy só-backend. Entrega o rodapé do Perfil com os DOIS carimbos (quick 260911-k9g). Pulamos o -01 e o -02 de propósito: o -02 já estava no ar pelo deploy só-backend anterior (família do `qty` falsy nas 5 rotas + fuso no prazo até o vencimento), e `bump.sh` sem argumento teria gerado -01, ABAIXO do que já rodava.
+SERVER_BUILD_ID = "F10-20260911-04"  # 2026-09-11: publicação de FRONT (quick 260911-pub) — sincronizado pelo publicar-web.sh, front e servidor voltam a andar juntos depois de dois dias de deploy só-backend. Entrega o rodapé do Perfil com os DOIS carimbos (quick 260911-k9g). Pulamos o -01 e o -02 de propósito: o -02 já estava no ar pelo deploy só-backend anterior (família do `qty` falsy nas 5 rotas + fuso no prazo até o vencimento), e `bump.sh` sem argumento teria gerado -01, ABAIXO do que já rodava.
 # Normalmente sincronizado pelo entregar.sh a partir de web/src/version.js; num deploy
 # SÓ de backend (sem rebuild do front) bumpamos aqui para /api/health rastrear o servidor.
 
@@ -3782,5 +3782,38 @@ if _ADMIN_DIST.exists():
 # Same-origin: web/src/api.js já resolve caminho relativo fora do modo nativo,
 # então nenhuma mudança de CORS foi necessária.
 _DIST = Path(__file__).resolve().parent.parent / "web_dist"
+
+
+# ANTES do mount catch-all, e é a ordem inteira do ponto: uma vez montado o
+# `/`, todo path não reconhecido cai no StaticFiles — que aceita só GET/HEAD e
+# responde **405 Method Not Allowed** a qualquer POST. O sintoma que isso
+# produz é o pior possível para diagnóstico: front à frente do backend (o
+# estado NORMAL entre um merge e a publicação) faz a tela dizer "method not
+# allowed", que manda quem investiga procurar verbo HTTP errado no cliente em
+# vez da rota que o servidor ainda não tem.
+#
+# Medido em produção em 2026-09-11: `POST /api/rota/que/nao/existe` → 405. Foi
+# exatamente o que escondeu, por uma sessão inteira, que a aba Opções estava
+# chamando rotas da Fase 24 contra um servidor no carimbo anterior a ela.
+#
+# Só `/api/*`: o resto do catch-all continua servindo o front (o SPA depende
+# do `html=True` para as rotas de navegação). E `SERVER_BUILD_ID` vai no
+# corpo porque a pergunta seguinte é sempre "qual build está no ar?".
+@app.api_route("/api/{resto:path}",
+               methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+               include_in_schema=False)
+async def _api_inexistente(resto: str, request: Request):
+    obslog.log("err", f"rota de API inexistente: {request.method} /api/{resto}",
+               level="warn")
+    return JSONResponse(status_code=404, content={"detail": {
+        "code": "rota_inexistente",
+        "message": f"Este servidor não tem a rota /api/{resto}.",
+        "action": ("Confira se o app e o servidor estão no mesmo build. "
+                   "Se o app for mais novo, a rota ainda não foi publicada."),
+        "metodo": request.method,
+        "build": SERVER_BUILD_ID,
+    }})
+
+
 if _DIST.exists():
     app.mount("/", StaticFiles(directory=str(_DIST), html=True), name="web")
