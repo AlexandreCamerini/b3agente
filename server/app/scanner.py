@@ -27,12 +27,24 @@ Símbolos inexistentes/deslistados não derrubam a varredura: caem em `errors`.
 import asyncio
 import os
 import time
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from . import candle_cache, indicators, setups, technical_snapshot
 from . import candles as candles_mod
 from . import regime
 from .tickers import normalize_ticker
+
+# DECISÃO (260911-dcq, achado D-2 parte 1): `timestamp` usava `time.strftime`
+# sem fuso — em produção (Railway, container em UTC) o carimbo saía 3h à
+# frente do horário real de Brasília. É o mais visível dos três: a tela
+# exibe esta string crua ao lado de "N/M ativos varridos" (`App.jsx:6980`).
+# Offset fixo -3h porque o Brasil não tem horário de verão desde 2019 (mesma
+# justificativa de `brapi.py:31-33`, `store.py`, `scan_deep.py`). Formato
+# mantido (`%Y-%m-%dT%H:%M:%S`, sem sufixo de fuso): mudar o formato mudaria
+# o que a tela imprime, e isso exigiria tocar o front — só a FONTE do
+# relógio muda aqui, não a string.
+BRT = timezone(timedelta(hours=-3))
 
 # Aproximação da composição do IBOV (ativos líquidos da B3). Atualizável a cada
 # rebalanceamento quadrimestral; a fonte da verdade operacional pode ser a env
@@ -99,6 +111,13 @@ def _cache_put(ck: str, now_m: float, payload: dict) -> None:
 def reset():
     """Para testes."""
     _SCAN_CACHE.clear()
+
+
+def _now_iso() -> str:
+    """Carimbo de apuração em BRT (D-2 parte 1). Era `time.strftime` sem
+    fuso — extraído para função própria, testável isoladamente sem rodar a
+    varredura inteira (mesmo padrão de `scan_deep._day()`)."""
+    return datetime.now(BRT).strftime("%Y-%m-%dT%H:%M:%S")
 
 
 def get_universe(override: Optional[str] = None) -> list:
@@ -347,7 +366,7 @@ async def run_scan(period: Optional[str] = None, universe: Optional[str] = None,
         "errors": errors,
         "modelo": [{"nome": n, "descricao": d} for n, d in setups.MODEL_EXPLANATION],
         "disclaimer": DISCLAIMER,
-        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        "timestamp": _now_iso(),
     }
     _cache_put(ck, now_m, payload)
     return payload

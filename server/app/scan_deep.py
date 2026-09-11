@@ -11,7 +11,6 @@ nenhum verbo de ordem. Puro/testável: a chamada de IA entra por injeção.
 import asyncio
 import hashlib
 import json
-import time
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -39,6 +38,16 @@ def reset():
 def _day() -> str:
     # A-10: era `time.strftime("%Y-%m-%d")` (local = UTC em produção).
     return datetime.now(BRT).strftime("%Y-%m-%d")
+
+
+def _now_iso() -> str:
+    """Carimbo de apuração em BRT (260911-dcq, achado D-2 parte 1): o
+    `timestamp` do payload usava `time.strftime` sem fuso — mesmo defeito de
+    classe do A-10 acima, só que na chave errada (o dado, não o cache). Este
+    MESMO arquivo já tinha ganhado BRT para `_day()`; a correção anterior foi
+    por sintoma, não por classe. Formato mantido, só a fonte do relógio
+    muda."""
+    return datetime.now(BRT).strftime("%Y-%m-%dT%H:%M:%S")
 
 
 def leitor_fp(profile: dict = None, config: dict = None) -> str:
@@ -152,5 +161,5 @@ async def run_deep(scan_payload: dict, top_n: int, period: str, deep_call, concu
             "calculados de dados passados, sem garantia de resultado e sem "
             "qualquer recomendação de investimento. Use para estudar a leitura."
         ),
-        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        "timestamp": _now_iso(),
     }
