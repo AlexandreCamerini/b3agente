@@ -416,3 +416,107 @@ def test_heartbeat_persistido_prova_laco_vivo_fora_do_pregao():
     assert st1["heartbeat"]["lacoVivo"] is True
     assert st1["heartbeat"]["haS"] is not None and st1["heartbeat"]["haS"] < 60
     assert st1["heartbeat"]["atBRT"]  # rótulo do último tick presente
+
+
+# ---------------------------------------------------------------------------
+# A-08 (auditoria 2026-09-10) — o ciclo não anuncia venda que não houve.
+# ---------------------------------------------------------------------------
+def _quotes_vendendo_no_meio(c, prices, ticker):
+    """Reprodução REAL da corrida, sem stub do motor: `_run_cycle_inner` lê
+    `positions` ANTES de `await quotes_getter(...)`. Vender dentro do getter
+    coloca a venda concorrente exatamente no ponto de espera onde ela acontece
+    em produção — a lista que o laço percorre fica velha e `store.sell`
+    devolve None porque a posição já não está lá."""
+    async def getter(tickers):
+        store.sell(c, ticker, 39.0, user_id="u1", motivo="manual", origem="manual")
+        return {t: {"price": prices.get(t)} for t in tickers}
+    return getter
+
+
+def test_a08_posicao_vendida_por_outro_caminho_nao_vira_venda_do_agente():
+    """Antes: `executed += 1`, `_bump_ops` e evento `kind:"buy"` com "Proteção
+    simulada: PETR4 vendido" rodavam mesmo com `pnl is None`. O Diário
+    registrava venda inexistente e o funil de push (filtro `kind == "buy"`)
+    avisava o usuário de uma operação que o motor nunca fez."""
+    c = _conn()
+    _seed(c, [{"t": "PETR4", "qty": 100, "avg": 40.0, "stop": 38.0, "alvo": 45.0}],
+          {"serverEnabled": True, "mode": "executar", "maxOpsDia": 3})
+    r = asyncio.run(agent.run_cycle_for(
+        c, "u1", _quotes_vendendo_no_meio(c, {"PETR4": 37.5}, "PETR4")))
+
+    assert r["executed"] == 0, "o ciclo contou execução que não houve"
+    assert [e for e in r["events"] if e.get("kind") == "buy"] == [], \
+        "evento kind:'buy' emitido sem venda — é ele que o push usa como filtro"
+    assert not any("vendido" in (e.get("text") or "") for e in r["events"]), \
+        "o Diário afirmou ao usuário que o ativo foi vendido"
+    # e o motor não foi tocado duas vezes: só a venda MANUAL está no histórico
+    h = db.kv_get(c, "history", user_id="u1")
+    vendas = [x for x in h if x.get("type") == "VENDA"]
+    assert len(vendas) == 1 and vendas[0]["origem"] == "manual"
+
+
+def test_a08_venda_fantasma_nao_consome_o_teto_diario_de_operacoes():
+    """`_bump_ops` gravava `opsToday` por uma operação inexistente — o usuário
+    perdia vaga do teto do dia sem nada ter sido executado."""
+    c = _conn()
+    _seed(c, [{"t": "PETR4", "qty": 100, "avg": 40.0, "stop": 38.0, "alvo": 45.0}],
+          {"serverEnabled": True, "mode": "executar", "maxOpsDia": 3})
+    asyncio.run(agent.run_cycle_for(
+        c, "u1", _quotes_vendendo_no_meio(c, {"PETR4": 37.5}, "PETR4")))
+    ag = db.kv_get(c, "agent", {}, user_id="u1")
+    assert int(ag.get("opsToday") or 0) == 0, "teto diário consumido por operação inexistente"
+
+
+def test_a08_estado_correto_em_vez_de_silencio():
+    """Princípio 9: o ciclo não pode mentir, e também não pode calar. O evento
+    informativo diz o que REALMENTE aconteceu, com o motivo lido do motor
+    (posição ausente), e avisa que o teto não foi debitado."""
+    c = _conn()
+    _seed(c, [{"t": "PETR4", "qty": 100, "avg": 40.0, "stop": 38.0, "alvo": 45.0}],
+          {"serverEnabled": True, "mode": "executar", "maxOpsDia": 3})
+    r = asyncio.run(agent.run_cycle_for(
+        c, "u1", _quotes_vendendo_no_meio(c, {"PETR4": 37.5}, "PETR4")))
+    avisos = [e for e in r["events"] if e.get("kind") == "warn" and e.get("t") == "PETR4"]
+    assert len(avisos) == 1, "nenhum registro do que aconteceu — silêncio também é estado errado"
+    txt = avisos[0]["text"]
+    assert "nenhuma venda" in txt and "já não estava na carteira" in txt
+    assert "teto diário" in txt
+    assert "tag" not in avisos[0], "aviso sem operação não pode carregar tag de execução"
+    # o log persistente guarda o mesmo rastro
+    log = db.kv_get(c, "agentLog", [], user_id="u1")
+    assert any("nenhuma venda" in e["text"] for e in log)
+
+
+def test_a08_recusa_por_lastro_de_call_coberta_tambem_nao_vira_venda():
+    """O outro caminho em que `store.sell` devolve None (store.py:712): ações
+    travadas como lastro de CALL coberta. O motor já registra a rejeição; o
+    ciclo tem de reportar ESSE motivo, não inventar uma venda nem culpar uma
+    posição ausente que está lá."""
+    c = _conn()
+    _seed(c, [{"t": "PETR4", "qty": 100, "qtyTravada": 100, "avg": 40.0,
+               "stop": 38.0, "alvo": 45.0}],
+          {"serverEnabled": True, "mode": "executar", "maxOpsDia": 3})
+    r = _run(c, {"PETR4": 37.5})
+    assert r["executed"] == 0
+    assert [e for e in r["events"] if e.get("kind") == "buy"] == []
+    avisos = [e for e in r["events"] if e.get("kind") == "warn" and e.get("t") == "PETR4"]
+    assert len(avisos) == 1 and "lastro de uma CALL coberta" in avisos[0]["text"]
+    # a posição continua inteira — o motor não mexeu em nada
+    assert db.kv_get(c, "positions", user_id="u1")[0]["qty"] == 100
+    assert int(db.kv_get(c, "agent", {}, user_id="u1").get("opsToday") or 0) == 0
+
+
+def test_a08_venda_real_continua_anunciada_com_resultado():
+    """Contraprova: o caminho feliz não foi estreitado junto. Venda que o motor
+    fez segue com `executed`, `_bump_ops`, evento `kind:"buy"`, `tag` e o
+    resultado realizado no texto."""
+    c = _conn()
+    _seed(c, [{"t": "PETR4", "qty": 100, "avg": 40.0, "stop": 38.0, "alvo": 45.0}],
+          {"serverEnabled": True, "mode": "executar", "maxOpsDia": 3})
+    r = _run(c, {"PETR4": 37.5})
+    assert r["executed"] == 1
+    compras = [e for e in r["events"] if e.get("kind") == "buy"]
+    assert len(compras) == 1 and compras[0]["tag"] == "stop"
+    assert "vendido" in compras[0]["text"] and "Resultado realizado" in compras[0]["text"]
+    assert compras[0]["pnl"] is not None
+    assert int(db.kv_get(c, "agent", {}, user_id="u1").get("opsToday") or 0) == 1

@@ -952,11 +952,44 @@ async def _run_cycle_inner(conn, scope, quotes_getter, origem: str, t0: float, s
         # mantém o texto de antes — sem inventar resultado.
         pnl = store.sell(conn, pos["t"], price, user_id=scope, motivo="stop" if breach_stop else "alvo",
                          origem="automatico")  # ADR-012 (Fase 3) / ADR15-04
+        # A-08 (auditoria 2026-09-10): `pnl is None` significa que o motor NÃO
+        # vendeu nada (`store.py:709` posição já sumiu — outro caminho vendeu
+        # entre a leitura e esta chamada; ou `:712` lastro travado de CALL
+        # coberta, que já registra rejeição). Antes, só o TEXTO do resultado
+        # era condicional: `executed`, `_bump_ops` e o evento `kind:"buy"`
+        # rodavam do mesmo jeito. Consequência medida: o Diário registrava uma
+        # venda que não houve, o funil de push disparava "Proteção simulada: X
+        # vendido" (o filtro do push é exatamente `kind == "buy"`), e o teto
+        # diário de operações era consumido por operação inexistente. Nenhum
+        # número de carteira era afetado — o motor é a fonte única e ele não
+        # mexeu em nada; o defeito é afirmar ao usuário algo falso
+        # (princípio 9: estado correto, nunca inventado).
+        #
+        # ORDER_LOCK não é a correção: o ciclo teria de segurar a trava
+        # atravessando espera de rede (o `await` das cotações), o que o
+        # repositório proíbe. A venda perdida é legítima — quem vendeu primeiro
+        # vendeu; o que o ciclo tem de fazer é não mentir sobre isso.
+        if pnl is None:
+            # Evento, não silêncio (princípio 9) — mas `kind:"warn"`, que o
+            # funil de push ignora, e SEM `tag` de execução: não houve
+            # operação, então não existe classe de push a notificar. O estado
+            # real é distinguido relendo a posição pelo motor, nunca inferido.
+            _ainda = next((p for p in (store.get(conn, "positions", user_id=scope) or [])
+                           if p.get("t") == pos["t"]), None)
+            if _ainda is None:
+                _motivo_nao = "a posição já não estava na carteira (fechada por outro caminho)"
+            else:
+                _motivo_nao = ("o motor recusou a venda — as ações estão travadas como "
+                               "lastro de uma CALL coberta aberta")
+            events.append({"time": _now_str(), "kind": "warn", "t": pos["t"],
+                           "text": (f"{pos['t']} com {motivo} (R$ {price:.2f}): nenhuma venda "
+                                    f"foi feita porque {_motivo_nao}. Nada foi debitado do "
+                                    f"teto diário de operações.")})
+            continue
         executed += 1
         _bump_ops(conn, scope, store.get(conn, "agent", user_id=scope) or ag)
-        _txt = f"Proteção simulada: {pos['t']} vendido ({motivo}) a R$ {price:.2f}."
-        if pnl is not None:
-            _txt += f" Resultado realizado: R$ {pnl:+.2f}."
+        _txt = (f"Proteção simulada: {pos['t']} vendido ({motivo}) a R$ {price:.2f}."
+                f" Resultado realizado: R$ {pnl:+.2f}.")
         # `t`/`tag` (item 2): o marco já existia como `breach_stop`/`motivo` e
         # morria aqui — só `text` viajava até o push, que caía no genérico.
         events.append({"time": _now_str(), "kind": "buy", "t": pos["t"],
