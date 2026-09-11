@@ -274,6 +274,10 @@ function serverStore() {
     mcpStatus: () => api.mcpStatus(),
     mcpLeitura: (t) => api.mcpLeitura(t),
     mcpSetupGrafico: (name) => api.mcpSetupGrafico(name),
+    // 260911-k9g: carimbo do SERVIDOR ATUAL para o rodapé do Perfil —
+    // diagnóstico, nunca persistido, mesma classe de delegação pura do
+    // mcpStatus/optionsProposta acima.
+    serverBuild: () => api.serverBuild(),
     optionsAbrirLastreada: (body) => api.optionsAbrirLastreada(body),
     // Fase 17 (Plano 05): mesma razão do comentário acima (buy/sell/
     // cancelPendingOrder) — reaplicar de fila offline devolveria caixa duas
@@ -1236,6 +1240,13 @@ function deviceStore() {
     async mcpStatus() {
       ensure();
       return api.mcpStatus();
+    },
+    // 260911-k9g: mesma razão do mcpStatus acima — `ensure()` aplica o
+    // serverUrl configurado no APARELHO (setApiBase) antes da delegação;
+    // sem isto o carimbo buscaria o endereço errado no modo nativo.
+    async serverBuild() {
+      ensure();
+      return api.serverBuild();
     },
     async mcpLeitura(t) {
       ensure();

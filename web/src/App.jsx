@@ -2512,6 +2512,17 @@ function PerfilHub({ ctx, onOpen }) {
   const prof = data.profile || {};
   const notifOn = data.config && data.config.notif && data.config.notif.enabled;
   const ag = data.agent || {};
+  // 260911-k9g: carimbo do SERVIDOR — buscado ao MONTAR esta tela (diagnóstico,
+  // não caminho crítico do boot). Mesma semântica de 3 estados do `QuotaSeg`
+  // (linha ~449): `undefined` = ainda carregando (rodapé omite o segmento,
+  // sem piscar travessão); `null` = a busca falhou (rodapé mostra travessão,
+  // NUNCA repete o build do front); string = build real do servidor.
+  const [serverBuildId, setServerBuildId] = useState(undefined);
+  useEffect(() => {
+    let ativo = true;
+    store.serverBuild().then((b) => { if (ativo) setServerBuildId(b); });
+    return () => { ativo = false; };
+  }, []);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: "13px", marginBottom: "2px" }}>
@@ -2584,9 +2595,18 @@ function PerfilHub({ ctx, onOpen }) {
       <div style={{ fontSize: "11.5px", color: T.textFaint, marginTop: "8px", lineHeight: 1.5 }}>
         Notificações {notifOn ? "ativas" : "desativadas"} · {ctx.cp.rodape}
       </div>
-      {/* FASE 8B: carimbo do build instalado — se não bater com a entrega,
-          o aparelho está rodando código antigo (rode npm run ios + reinstale). */}
-      <div style={{ fontSize: "10px", color: T.textFaint, fontFamily: MONO }}>build {BUILD_ID}</div>
+      {/* FASE 8B (260911-k9g): DOIS carimbos, sempre — o do APP instalado e o
+          do SERVIDOR que respondeu agora (`/api/health`, buscado ao abrir
+          esta tela). Divergem POR DESENHO num deploy só-backend (aconteceu
+          5x em 10-11/09/26): backend novo, front intocado — isso NÃO
+          significa aparelho desatualizado. Só o carimbo do APP desatualizado
+          (comparado com a entrega) indica isso; o comentário anterior
+          confundia os dois e enganou o Alex três vezes nesta sessão. Falha
+          na busca do servidor mostra travessão — NUNCA o build do front,
+          que afirmaria uma versão de servidor que ninguém mediu. */}
+      <div style={{ fontSize: "10px", color: T.textFaint, fontFamily: MONO }}>
+        app {BUILD_ID}{serverBuildId !== undefined && <> · servidor {serverBuildId || "—"}</>}
+      </div>
     </div>
   );
 }
