@@ -2394,7 +2394,45 @@ async def sell_option(body: dict = Body(default={}), scope: Optional[str] = Depe
     if not isinstance(price, (int, float)):
         raise HTTPException(502, "Sem prêmio disponível para este contrato.")
     _qty = body.get("qty")
-    pnl = store.sell_option(_conn, contract_symbol, price, user_id=scope, qty=int(_qty) if _qty else None, motivo="manual")
+    # D-1 (auditoria de 2026-09-11, achado do executor da quick 260911-15a ao
+    # corrigir o A-09 na linha de baixo): `int(_qty) if _qty else None` é a
+    # MESMA armadilha do falsy que F10-20260819 fechou em `/api/sell`. `qty=0`
+    # é falsy em Python e virava `None`; `store.sell_option` (store.py, o
+    # `isinstance(qty, (int, float)) and qty > 0`) lê `None` como "campo
+    # ausente" e vende a posição INTEIRA — pedir zero de propósito liquidava
+    # tudo em silêncio. E `qty="abc"` levantava `ValueError` sem tratamento,
+    # virando 500 com o texto cru da exceção no corpo.
+    #
+    # Esta é a QUARTA e última rota da família a ganhar a guarda: `/api/sell`
+    # (F10-20260819), `/api/buy` (quick 260910-mqs, A-00/A-00b) e
+    # `/api/options/buy` (quick 260911-15a) já estavam fechadas.
+    #
+    # Contrato PRESERVADO: `qty` AUSENTE continua significando venda TOTAL —
+    # é o que a tela usa hoje (`optionsSell` não manda `qty`). A guarda rejeita
+    # só o valor EXPLÍCITO zero/negativo/não numérico (`is not None`), com a
+    # mesma string "Quantidade inválida." das outras três rotas, para a UI não
+    # ganhar variante nova. A rejeição de conta logada grava no histórico com
+    # `store.registrar_rejeicao` usando o contractSymbol como `t` e tipo
+    # "VENDA" — mesmo formato que `abrir_call_coberta`/`fechar_call_coberta`
+    # já usam para rejeição de contrato de opção. Escopo anônimo NÃO grava
+    # (T-02-07: balde kv compartilhado entre todos os anônimos).
+    _qty_val = None
+    if _qty is not None:
+        try:
+            _qty_val = int(_qty)
+        except (TypeError, ValueError):
+            if scope is not None:
+                store.registrar_rejeicao(_conn, "VENDA", contract_symbol, _qty, price,
+                                          f"Quantidade inválida: {_qty}. A venda usa lotes de 100.",
+                                          user_id=scope, origem="manual")
+            raise HTTPException(400, "Quantidade inválida.")
+        if _qty_val <= 0:
+            if scope is not None:
+                store.registrar_rejeicao(_conn, "VENDA", contract_symbol, _qty_val, price,
+                                          f"Quantidade inválida: {_qty_val}. A venda usa lotes de 100.",
+                                          user_id=scope, origem="manual")
+            raise HTTPException(400, "Quantidade inválida.")
+    pnl = store.sell_option(_conn, contract_symbol, price, user_id=scope, qty=_qty_val, motivo="manual")
     if pnl is None:
         # A-09 (auditoria de 2026-09-10): `store.sell_option` devolve `None`
         # quando não acha a posição, e a leitura de `pos` lá em cima acontece
