@@ -1566,6 +1566,21 @@ def _numero_de(info, chaves) -> Optional[float]:
     return None
 
 
+def _pregao_medido(frescor: dict, dados: Optional[dict] = None):
+    """O pregão de quem MEDIU o dado (`check_data_freshness`, cujo bruto viaja
+    dentro do frescor), com o da resposta da tool como segunda porta.
+
+    `create_setup` não devolve `trading_date` no contrato — sem esta leitura,
+    o `pregao` da rota sairia `None` mesmo tendo a medição na mão, e a tela
+    mostraria "pregão desconhecido" ao lado de um frescor "em dia". `None`
+    continua sendo a resposta quando nenhum dos dois traz data: data
+    fabricada, nunca (princípio 4 do CLAUDE.md).
+    """
+    bruto = (frescor or {}).get("bruto")
+    bruto = bruto if isinstance(bruto, dict) else {}
+    return bruto.get("trading_date") or (dados or {}).get("trading_date") or None
+
+
 def _erro_de_frescor(frescor: dict) -> HTTPException:
     """409 `dado_atrasado`. Forma UNIFORME (as quatro chaves sempre presentes,
     `None` onde não se aplica): chave que aparece e some obriga a tela a
@@ -1912,7 +1927,7 @@ async def setup_compilar(body: dict = Body(default={}),
             "setup": dados.get("setup_as_interpreted") or setup,
             "backtest": dados.get("backtest"),
             "proximoPasso": dados.get("next_step"),
-            "pregao": dados.get("trading_date") or None,
+            "pregao": _pregao_medido(frescor, dados),
             "fonte": FONTE,
             "at": _agora_brt(),
             "frescor": frescor,
@@ -1978,7 +1993,7 @@ async def setup_confirmar(body: dict = Body(default={}),
             "setup": dados.get("setup_as_interpreted") or setup,
             "backtest": dados.get("backtest"),
             "nota": dados.get("note"),
-            "pregao": dados.get("trading_date") or None,
+            "pregao": _pregao_medido(frescor, dados),
             "fonte": FONTE,
             "at": _agora_brt(),
             "frescor": frescor,
