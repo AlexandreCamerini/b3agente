@@ -43,6 +43,18 @@ correção teve de PRESERVAR.
 
 | 12 | POST /api/buy | `qty` AUSENTE do corpo | 200 — compra o lote mínimo de 100 | **este arquivo** (guardião de contrato: `qty` ausente NÃO é `qty` inválido; a correção de A-00 rejeita só o valor explícito <= 0 ou não numérico) |
 
+ADENDO 2026-09-11 (auditoria A-09 + resto do A-00b) — as DUAS rotas de opção
+ficaram fora do inventário original porque ele cobria só ação. Os caminhos 13
+e 14 fecham isso: `/api/options/sell` devolvia **200 com `priceUsed`** quando
+`store.sell_option` retornava `None` (posição lida ANTES do `await` da cadeia
+e sumida no intervalo — vencimento liquidado pelo scheduler, venda por outro
+caminho), registrando no cliente uma venda que não aconteceu; e
+`/api/options/buy` vazava `ValueError` como **500** para `qty` não numérico, o
+mesmo vazamento que a quick 260910-mqs fechou em `/api/buy`.
+
+| 13 | POST /api/options/sell | `store.sell_option` devolve `None` (posição sumiu entre a leitura e a venda) | 400 "Sem posição em X" | **este arquivo** (novo — achado A-09; espelha o 400 de `/api/sell` quando `store.sell` devolve `None`) |
+| 14 | POST /api/options/buy | `qty` não convertível para `int` | 400 "Contrato de opção inválido." | **este arquivo** (novo — resto do achado A-00b; `qty` ausente/zero/negativo JÁ caía neste mesmo 400, só o não numérico escapava) |
+
 Isolamento: mesmo padrão de `test_rotas_fase4.py` (seção FIX-C02) —
 `B3_DB_PATH` num diretório temporário + reimport de `app.main`, para não
 herdar estado de outros arquivos da suíte nem escrever no banco real.
@@ -316,3 +328,123 @@ def test_buy_qty_ausente_continua_comprando_lote_minimo_contrato_preservado(monk
     assert estado["positions"][0]["qty"] == 100, "qty ausente = lote mínimo, comportamento de sempre"
     assert estado["cash"] == 7000.0
     assert estado["history"][0]["status"] == "executada"
+
+
+# ===========================================================================
+# Caminhos 13 e 14 — rotas de OPÇÃO (auditoria A-09 e resto do A-00b,
+# 2026-09-11). Espelham os caminhos de ação: o 13 é o mesmo 400 de posição
+# inexistente que `/api/sell` já levantava, o 14 é a mesma guarda de `qty` não
+# numérico que a quick 260910-mqs pôs em `/api/buy`.
+# ===========================================================================
+
+_EXP_OPCAO = "2026-10-30"
+
+
+def _chain_opcao(symbol="PETRK30", price=1.5):
+    """Cadeia sintética no formato ADR-004 (mesmo shape de
+    `test_gate_liquidez_rotas.py::_chain`), com UM contrato negociável."""
+    return {"providerStatus": "ok", "underlyingPrice": 30.0, "expiration": _EXP_OPCAO,
+            "expirations": [_EXP_OPCAO], "puts": [],
+            "calls": [{"contractSymbol": symbol, "optionType": "call", "strike": 30.0,
+                        "lastPrice": price, "bid": price, "ask": price, "volume": 5000,
+                        "openInterest": 3000, "impliedVolatility": 0.3,
+                        "expiration": _EXP_OPCAO}]}
+
+
+def test_options_sell_posicao_sumida_400_auditoria_a09(monkeypatch):
+    """A-09: a rota lê `pos` ANTES do `await` da cadeia de opções. Se a posição
+    desaparecer no intervalo (vencimento liquidado pelo scheduler, venda por
+    outro caminho), `store.sell_option` devolve `None` e a rota devolvia
+    **200 com `priceUsed`** — o cliente registrava uma venda que não
+    aconteceu (princípio 9).
+
+    A corrida é reproduzida de verdade, sem mockar `store`: o fake de
+    `get_options` liquida a posição por fora DENTRO do `await`, que é
+    exatamente a janela do achado."""
+    client, m = _client_isolado(monkeypatch)
+    token, uid = _registrar(client, "optsell-sumida@boris.dev")
+    headers = {"authorization": f"Bearer {token}"}
+    chain = _chain_opcao()
+
+    async def _chain_ok(*a, **k):
+        return chain
+    monkeypatch.setattr(m.options_provider, "get_options", _chain_ok)
+
+    r = client.post("/api/options/buy",
+                    json={"underlying": "PETR4", "contractSymbol": "PETRK30", "qty": 100},
+                    headers=headers)
+    assert r.status_code == 200, r.text
+    assert client.get("/api/state", headers=headers).json()["cash"] == 9850.0
+
+    async def _chain_e_liquida_por_fora(*a, **k):
+        # o scheduler fecha o contrato enquanto a rota espera a cotação
+        m.store.sell_option(m._conn, "PETRK30", 1.5, user_id=uid,
+                            motivo="vencimento", origem="sistema")
+        return chain
+    monkeypatch.setattr(m.options_provider, "get_options", _chain_e_liquida_por_fora)
+
+    r = client.post("/api/options/sell", json={"contractSymbol": "PETRK30"}, headers=headers)
+    assert r.status_code == 400, r.text
+    assert r.json()["detail"] == "Sem posição em PETRK30"
+    assert "priceUsed" not in r.json(), "nunca devolver preço de execução de venda que não ocorreu"
+
+    estado = client.get("/api/state", headers=headers).json()
+    vendas = [h for h in estado["history"] if h["type"] == "VENDA"]
+    assert len(vendas) == 1, "só a liquidação por fora existe — a rota não pode registrar a 2ª venda"
+    assert vendas[0]["motivo"] == "vencimento"
+    assert estado["optionPositions"] == []
+    assert estado["cash"] == 10000.0, "o prêmio só pode ser creditado UMA vez"
+
+
+def test_options_buy_qty_nao_inteiro_400_resto_do_a00b(monkeypatch):
+    """Resto do A-00b: `qty:"abc"` em `/api/options/buy` levantava `ValueError`
+    sem tratamento e virava 500 com o texto cru da exceção. Cai na MESMA
+    mensagem de 400 que `qty` ausente/zero/negativo já recebia — e ANTES de
+    buscar a cadeia, para um pedido inválido não queimar requisição do
+    provedor de opções."""
+    client, m = _client_isolado(monkeypatch)
+    token, _uid = _registrar(client, "optbuy-qtynaoint@boris.dev")
+    headers = {"authorization": f"Bearer {token}"}
+
+    chamadas = []
+
+    async def _nunca(*a, **k):
+        chamadas.append(a)
+        return _chain_opcao()
+    monkeypatch.setattr(m.options_provider, "get_options", _nunca)
+
+    r = client.post("/api/options/buy",
+                    json={"underlying": "PETR4", "contractSymbol": "PETRK30", "qty": "abc"},
+                    headers=headers)
+    assert r.status_code == 400, r.text
+    assert r.status_code != 500, "exceção crua nunca chega ao cliente"
+    assert r.json()["detail"] == "Contrato de opção inválido."
+    assert chamadas == [], "pedido inválido não busca cadeia de opções"
+
+    estado = client.get("/api/state", headers=headers).json()
+    assert estado["optionPositions"] == []
+    assert estado["cash"] == 10000.0, "rejeição não pode mover dinheiro"
+
+
+def test_options_buy_qty_ausente_e_zero_continuam_400_contrato_preservado(monkeypatch):
+    """Guardião de CONTRATO: ao contrário de `/api/buy`, nesta rota `qty`
+    ausente NUNCA significou "lote mínimo" — sempre foi rejeição (`or 0` +
+    `qty <= 0`). A correção do A-00b não pode ter criado um default novo."""
+    client, m = _client_isolado(monkeypatch)
+    token, _uid = _registrar(client, "optbuy-qtyausente@boris.dev")
+    headers = {"authorization": f"Bearer {token}"}
+
+    async def _chain_ok(*a, **k):
+        return _chain_opcao()
+    monkeypatch.setattr(m.options_provider, "get_options", _chain_ok)
+
+    for corpo in ({"underlying": "PETR4", "contractSymbol": "PETRK30"},
+                  {"underlying": "PETR4", "contractSymbol": "PETRK30", "qty": 0},
+                  {"underlying": "PETR4", "contractSymbol": "PETRK30", "qty": -500}):
+        r = client.post("/api/options/buy", json=corpo, headers=headers)
+        assert r.status_code == 400, (corpo, r.text)
+        assert r.json()["detail"] == "Contrato de opção inválido."
+
+    estado = client.get("/api/state", headers=headers).json()
+    assert estado["optionPositions"] == []
+    assert estado["cash"] == 10000.0
