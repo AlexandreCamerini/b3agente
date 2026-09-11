@@ -71,6 +71,12 @@ export const COPY = {
       "Sua cota de consultas da aba Opções acabou por hoje." +
       (reinicia ? " Ela reinicia às " + reinicia + "." : " Ela reinicia na virada do dia."),
     opcoesIndisponivel: "O serviço de opções não respondeu agora. Tente de novo em alguns minutos — nenhum número foi estimado no lugar.",
+    // 24-07 (achado F-04). A recusa da tool passou a debitar uma chamada da
+    // cota do dia, porque a viagem até o serviço aconteceu. A frase é do
+    // front, e não do backend, porque o que ela conta é sobre a COTA DA
+    // PESSOA — o que aconteceu com o pedido dela já vem na mensagem do
+    // serviço, logo acima.
+    opcoesRecusaCobrada: "O serviço recusou esta consulta e ainda assim ela consumiu uma chamada da sua cota do dia: ele conta a chamada quando a recebe, antes de decidir se consegue respondê-la.",
     opcoesCarregando: "Consultando o serviço de opções…",
     opcoesEscolherAtivo: "Escolha um ativo da sua watchlist para ver a leitura dele.",
     opcoesDisclaimer: "Conteúdo educacional. Os dados são de fim de pregão e podem estar atrasados; nada aqui é ordem, recomendação ou promessa de resultado.",
@@ -434,6 +440,9 @@ export const COPY = {
       "Cota de consultas da aba Opções esgotada no dia." +
       (reinicia ? " Reinicia às " + reinicia + "." : " Reinicia na virada do dia."),
     opcoesIndisponivel: "Serviço de opções sem resposta agora. Tente em alguns minutos — nenhum número foi estimado no lugar.",
+    // 24-07 (achado F-04). MESMA substância do outro ramo, em voz de mesa: o
+    // que a pessoa precisa é fechar a conta da própria cota.
+    opcoesRecusaCobrada: "Consulta recusada pelo serviço e cobrada assim mesmo: consumiu uma chamada da sua cota do dia. O serviço conta a chamada na entrada, não na resposta.",
     opcoesCarregando: "Consultando o serviço de opções…",
     opcoesEscolherAtivo: "Escolha um ativo do seu monitoramento para ver a leitura.",
     opcoesDisclaimer: "Conteúdo educacional. Dados de fim de pregão, possivelmente atrasados; nada aqui é ordem, recomendação ou promessa de resultado.",

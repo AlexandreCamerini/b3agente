@@ -335,8 +335,12 @@ export default function OpcoesScreen({ ctx }) {
           ) : (
             /* Inclui `mcp_erro_de_tool`: a mensagem já vem multi-linha com
                "Como corrigir:" / "Dica:" do enrichErrorMessage — vai CRUA,
-               em nó de texto (React escapa), com pre-wrap. */
-            <Aviso tom="forte">{erro.message}</Aviso>
+               em nó de texto (React escapa), com pre-wrap. A linha da cota
+               vem DEPOIS dela e só quando o backend disse que cobrou. */
+            <>
+              <Aviso tom="forte">{erro.message}</Aviso>
+              <RecusaCobrada erro={erro} cp={cp} />
+            </>
           )}
         </div>
       ) : nadaParaMostrar ? (
@@ -811,7 +815,35 @@ function ErroDoMcp({ erro, cp }) {
   }
   // Inclui `mcp_erro_de_tool` e os 422 de pedido torto: a mensagem já vem
   // pronta e multi-linha do `enrichErrorMessage`, e vai crua (React escapa).
-  return <Aviso tom="forte">{erro.message}</Aviso>;
+  return (
+    <>
+      <Aviso tom="forte">{erro.message}</Aviso>
+      <RecusaCobrada erro={erro} cp={cp} />
+    </>
+  );
+}
+
+// 24-07 (achado F-04). A recusa da tool passou a DEBITAR uma chamada do cap:
+// a viagem aconteceu e o serviço já a cobrou do teto compartilhado. Cobrar
+// sem dizer que cobrou é a metade do defeito que a pessoa enxerga — a cota
+// dela cai e a tela mostra só "o serviço recusou".
+//
+// As DUAS condições são necessárias, e nenhuma delas é zelo: os 422 de pedido
+// torto (`kind_invalido`, `lote_invalido`, `ticker_ausente`) são recusa ANTES
+// da rede e não custam chamada nenhuma. Afirmar cobrança neles seria inventar
+// um débito — o mesmo erro do F-04, invertido e agora na tela.
+function RecusaCobrada({ erro, cp }) {
+  if (!erro || erro.code !== "mcp_erro_de_tool") return null;
+  const d = (erro.detail && typeof erro.detail === "object") ? erro.detail : {};
+  if (d.cobrado !== true) return null;
+  // Discreta de propósito: é informação de contabilidade, não alarme. Quem
+  // precisa agir sobre a recusa lê a mensagem do serviço, acima.
+  return (
+    <div style={{ marginTop: "6px", fontSize: "11.5px", color: T.textMuted, lineHeight: 1.5 }}>
+      {(cp || {}).opcoesRecusaCobrada
+        || "Esta tentativa consumiu uma chamada da sua cota do dia."}
+    </div>
+  );
 }
 
 // Pernas da estrutura. `side` e os números vêm do serviço; nada é recalculado

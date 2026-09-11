@@ -311,5 +311,45 @@ for (const modo of ["estudo", "operador"]) {
      && /não é probabilidade/.test(COPY[modo].opcoesRazaoAjuda));
 }
 
+// ---- 14) a recusa cobrada (F-04 do 24-VERIFICATION, plano 24-07) -----------
+// A partir de 2026-09-11 a recusa da tool DEBITA uma chamada do cap do
+// usuário — a viagem aconteceu e o serviço já a cobrou do teto compartilhado.
+// Cobrar sem dizer que cobrou é a metade do defeito que a pessoa enxerga: a
+// cota dela cai e a tela mostra só "o serviço recusou". A frase é do FRONT
+// porque é sobre a cota DELA, não sobre o pedido — e por isso tem voz por
+// modo, como todo o resto do `copy.js`.
+ok("existe componente próprio para a linha da recusa cobrada",
+   /function RecusaCobrada/.test(tela));
+// A linha só pode aparecer com o campo do backend. Sem ele, a tela não
+// afirma nada sobre cota: uma linha incondicional mentiria em todo 422 de
+// pedido torto (`kind_invalido`, `lote_invalido`), que é recusa ANTES da rede
+// e não custa chamada nenhuma.
+ok("a linha é condicionada ao `cobrado` do detail E ao código do erro",
+   /erro\.code !== "mcp_erro_de_tool"/.test(tela)
+   && /cobrado !== true/.test(tela));
+const iRecusa1 = tela.indexOf("<RecusaCobrada");
+const iRecusa2 = tela.indexOf("<RecusaCobrada", iRecusa1 + 1);
+ok("a linha aparece nos DOIS ramos de erro (cascata principal e ErroDoMcp)",
+   iRecusa1 >= 0 && iRecusa2 > iRecusa1);
+ok("a linha é discreta (textMuted), não alarme",
+   /function RecusaCobrada[\s\S]{0,400}T\.textMuted/.test(tela));
+for (const modo of ["estudo", "operador"]) {
+  const t = COPY[modo].opcoesRecusaCobrada;
+  ok(`${modo}: `+"`opcoesRecusaCobrada` existe e é texto",
+     typeof t === "string" && t.length > 20);
+  ok(`${modo}: a frase diz que a tentativa consumiu da COTA do dia`,
+     /cota/i.test(t || ""));
+  ok(`${modo}: a frase diz que o serviço cobra mesmo recusando`,
+     /recus/i.test(t || ""));
+  ok(`${modo}: a frase não promete devolução nem culpa o usuário`,
+     !/estorn|devolv|culpa|erro seu/i.test(t || ""));
+}
+// Paridade do conjunto `opcoes*` entre os dois modos — chave nova em um só
+// ramo deixaria metade da base sem a informação.
+const chaves = (m) => Object.keys(COPY[m]).filter((k) => k.startsWith("opcoes")).sort();
+ok("o conjunto de chaves `opcoes*` continua idêntico nos dois modos",
+   JSON.stringify(chaves("estudo")) === JSON.stringify(chaves("operador")));
+
+
 console.log(fails === 0 ? "\ntodos os testes passaram" : `\n${fails} FALHA(S)`);
 process.exit(fails === 0 ? 0 : 1);
