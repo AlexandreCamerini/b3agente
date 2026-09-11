@@ -2851,11 +2851,66 @@ async def options_lastreada_fechar(body: dict = Body(default={}), scope: Optiona
     if not isinstance(price, (int, float)):
         raise HTTPException(502, "Sem prêmio disponível para este contrato.")
     contratos_body = body.get("contratos")
-    contratos_n = int(contratos_body) if isinstance(contratos_body, (int, float)) and contratos_body > 0 else None
+    # QUINTA e ÚLTIMA ocorrência da família do falsy aberta por F10-20260819 em
+    # `/api/sell` (as outras: `/api/buy` e `/api/options/buy` na quick
+    # 260910-mqs/260911-15a, `/api/options/sell` na quick 260911-cf1, que é a
+    # irmã mais próxima em forma). O antigo
+    #   `int(c) if isinstance(c, (int, float)) and c > 0 else None`
+    # mandava `0`, `-3` E `"abc"` todos para `None` — e `None` AQUI significa
+    # FECHAR A OPERAÇÃO INTEIRA. Reproduzido contra o endpoint real: os seis
+    # casos (3 valores × 2 ramos) devolviam 200 e zeravam a posição de 300.
+    #
+    # Agravante que faz esta ser a pior das cinco: o `isinstance` engolia o não
+    # numérico EM SILÊNCIO (nas outras rotas `"abc"` ao menos explodia num 500
+    # visível), e a TELA manda este campo — `App.jsx:3529`,
+    # `A.fecharLastreada({ contractSymbol, contratos: p.contratos })`. As
+    # quatro anteriores só eram alcançáveis por chamada direta à API; esta é
+    # alcançável por um `p.contratos` indefinido na proposta.
+    #
+    # Contrato PRESERVADO: `contratos` AUSENTE continua significando fechar
+    # TUDO, nos DOIS ramos — é o que a tela depende (guardião de contrato
+    # próprio em test_fase5_rejeicao_rotas.py, caminho 21). A guarda rejeita só
+    # o valor EXPLÍCITO inválido (`is not None`), com a mesma string
+    # "Quantidade inválida." das outras quatro rotas, para a UI não ganhar
+    # variante nova.
+    #
+    # `tipo` da rejeição segue o que o FECHAMENTO gravaria no sucesso, por
+    # ramo: `vendida` é RECOMPRA da call coberta (`fechar_call_coberta` grava
+    # "COMPRA"), `comprada` é venda da put (`sell_option` grava "VENDA") — a
+    # rota não registrava rejeição nenhuma antes desta correção, então o
+    # formato vem do motor, não é invenção nova. Escopo anônimo NÃO grava
+    # (T-02-07: balde kv compartilhado entre todos os anônimos). A guarda fica
+    # DEPOIS da cadeia, e não antes, pela mesma razão de `/api/sell` e
+    # `/api/options/sell`: o histórico da rejeição grava o `price` real do
+    # contrato, e ele só existe depois da cotação.
+    tipo_rejeicao = "COMPRA" if pos.get("side") == "vendida" else "VENDA"
+    contratos_n = None
+    if contratos_body is not None:
+        try:
+            contratos_n = int(contratos_body)
+        except (TypeError, ValueError):
+            # histórico grava o valor CRU quando não converte — mesmo que
+            # `/api/sell` e `/api/options/sell` fazem.
+            if scope is not None:
+                store.registrar_rejeicao(_conn, tipo_rejeicao, contract_symbol, contratos_body, price,
+                                          f"Quantidade inválida: {contratos_body}. O fechamento usa contratos inteiros.",
+                                          user_id=scope, origem="manual")
+            raise HTTPException(400, "Quantidade inválida.")
+        if contratos_n <= 0:
+            if scope is not None:
+                store.registrar_rejeicao(_conn, tipo_rejeicao, contract_symbol, contratos_n, price,
+                                          f"Quantidade inválida: {contratos_n}. O fechamento usa contratos inteiros.",
+                                          user_id=scope, origem="manual")
+            raise HTTPException(400, "Quantidade inválida.")
     if pos.get("side") == "vendida":
         store.fechar_call_coberta(_conn, contract_symbol, price, user_id=scope, contratos=contratos_n)
     elif pos.get("side") == "comprada":
-        qty = contratos_n * 100 if contratos_n else None
+        # `is not None`, não truthiness: depois da guarda acima `contratos_n` só
+        # pode ser `None` (ausente = fechar tudo) ou inteiro positivo, mas o
+        # `if contratos_n` original era o MESMO padrão falsy de novo, um andar
+        # abaixo — deixá-lo aqui manteria a guarda pela metade no dia em que
+        # alguém afrouxasse a de cima.
+        qty = contratos_n * 100 if contratos_n is not None else None
         store.sell_option(_conn, contract_symbol, price, user_id=scope, qty=qty, motivo="manual")
     else:
         raise HTTPException(400, "Sem posição em " + contract_symbol)
