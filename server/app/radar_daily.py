@@ -38,6 +38,10 @@ FECHAMENTO_H = 18
 
 # Telemetria em memória (aparece no status_snapshot da Observabilidade)
 LAST_DAILY = {"date": None, "atLabel": None, "duracaoS": None, "erro": None}
+# 260911-axj: nome do marcador PERSISTIDO deste job (chave `jobMarcador:<nome>`
+# no kv global, via `db.marcar_job`). É o MESMO nome da chave que o painel lê no
+# `status_snapshot` — um job, um nome, um lugar.
+JOB_NOME = "radarDiario"
 
 
 def _hhmm() -> str:
@@ -48,6 +52,13 @@ def _hhmm() -> str:
         return f"{int(h):02d}:{int(m):02d}"
     except Exception:  # noqa: BLE001 — valor inválido cai no default
         return HHMM_DEFAULT
+
+
+def janela_hhmm() -> str:
+    """O horário-alvo configurado deste job. 260911-axj: exposto no
+    `status_snapshot` para que a tela possa distinguir "ainda não chegou a
+    janela de hoje" de "nunca rodou" — sem reimplementar a validação do env."""
+    return _hhmm()
 
 
 def enabled() -> bool:
@@ -248,6 +259,12 @@ async def run_daily(conn, fetch, notify_push=None, origem: str = "automática") 
         duracaoS=round(time.monotonic() - t0, 1),
         erro=None,
     )
+    # 260911-axj: o registro também vai pro kv — o dict acima zera a cada
+    # reinício do processo e o painel passava a dizer "nunca rodou" sobre um job
+    # que tinha rodado. `radarDailyLastRun` (store_result) guarda só a DATA e só
+    # na varredura automática; aqui vai o registro COMPLETO, nos dois modos.
+    # Best-effort por desenho: `marcar_job` nunca levanta.
+    db.marcar_job(conn, JOB_NOME, LAST_DAILY)
     if notify_push and origem == "automática":
         corpo = push_body(payload)   # qa/43: nomeia o top-N em vez de só contar
         # SEM `extra` aqui, e é deliberado (260824-i45): a prévia nomeia N

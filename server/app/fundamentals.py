@@ -402,6 +402,9 @@ def get_cached(conn, ticker: str) -> Optional[dict]:
 
 # --- job semanal de aquecimento do cache (padrão radar_daily.maybe_run) ------
 LAST_WARM = {"date": None, "aquecidos": 0, "erro": None}
+# 260911-axj: nome do marcador PERSISTIDO deste job (ver `db.marcar_job`) —
+# igual à chave que o painel lê no `status_snapshot`.
+JOB_NOME = "aquecimentoFundamentos"
 
 
 def _hoje_iso() -> str:
@@ -473,6 +476,10 @@ async def maybe_warm(conn, tickers) -> Optional[int]:
             throttle_s=WARM_THROTTLE_S, limit=WARM_MAX_POR_RUN)
         LAST_WARM.update(date=_hoje_iso(), aquecidos=n, erro=None)
         db.kv_set(conn, "fundamentalsLastWarm", _hoje_iso(), user_id=None)
+        # 260911-axj: `fundamentalsLastWarm` é o GATE de FinOps (só a data, lida
+        # por este job); o marcador abaixo é o que a OBSERVABILIDADE lê, com o
+        # registro completo (inclui `aquecidos`). Best-effort: nunca levanta.
+        db.marcar_job(conn, JOB_NOME, LAST_WARM)
         return n
     except Exception as e:  # noqa: BLE001 — nunca derruba o laço do scheduler
         LAST_WARM["erro"] = str(e)[:200]

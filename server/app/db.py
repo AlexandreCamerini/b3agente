@@ -459,6 +459,59 @@ def kv_set(conn: sqlite3.Connection, key: str, value, user_id: Optional[str] = N
     conn.commit()
 
 
+# --------------------- marcadores de execução de job ------------------------
+# 260911-axj (achado ao vivo no painel de administração, 2026-09-11): quatro
+# jobs apareciam como "nunca rodou" porque o marcador de cada um era um dict de
+# MÓDULO, em memória do processo, e nada era lido do banco. Com quatro deploys
+# no mesmo dia, o painel apagava o registro de jobs que de fato RODARAM.
+# "Nunca rodou" é afirmação sobre toda a história do sistema; o que o painel
+# sabia era "sem registro NESTE processo" — a mesma classe de defeito de
+# afirmar mais do que se mediu, agora na observabilidade.
+#
+# Um helper ÚNICO (e não quatro pares de kv_set/kv_get espalhados, que
+# divergiriam no quinto job), no mesmo escopo global do `agentHeartbeat`
+# (user_id=None — job é do processo, não do usuário).
+JOB_MARCADOR_PREFIX = "jobMarcador:"
+
+
+def job_marcador_key(nome: str) -> str:
+    return JOB_MARCADOR_PREFIX + nome
+
+
+def marcar_job(conn: sqlite3.Connection, nome: str, registro: dict) -> bool:
+    """Anota no kv que o job rodou. Devolve se conseguiu gravar.
+
+    NUNCA levanta — mesmo padrão de `brapi_budget._persiste` ("contador é
+    proteção, nunca derruba") e do heartbeat em `agent.scheduler_loop`: um job
+    que falha por não conseguir anotar que rodou é PIOR que o defeito que isto
+    corrige. A persistência é ADITIVA; o dict em memória continua sendo a
+    atualização principal e o caminho rápido.
+    """
+    try:
+        kv_set(conn, job_marcador_key(nome),
+               {"emISO": _now_iso(), "registro": dict(registro or {})}, user_id=None)
+        return True
+    except Exception as e:  # noqa: BLE001 — marcador nunca derruba o job
+        print(f"[db] marcador do job {nome!r} não gravou: {e}")
+        return False
+
+
+def ler_job(conn: sqlite3.Connection, nome: str) -> Optional[dict]:
+    """O último registro persistido do job, ou None quando não existe registro
+    nenhum — e SÓ nesse caso "nunca rodou" é verdade.
+
+    Também nunca levanta: leitura de observabilidade não derruba quem consulta
+    (o snapshot é justamente a tela a que alguém recorre para diagnosticar).
+    """
+    try:
+        hit = kv_get(conn, job_marcador_key(nome), None, user_id=None)
+    except Exception as e:  # noqa: BLE001 — snapshot não cai por falha de leitura
+        print(f"[db] marcador do job {nome!r} não leu: {e}")
+        return None
+    registro = hit.get("registro") if isinstance(hit, dict) else None
+    return dict(registro) if isinstance(registro, dict) else None
+
+
 def kv_delete_user(conn: sqlite3.Connection, user_id: str) -> int:
     """Apaga TODAS as seções do kv pertencentes a um usuário (exclusão de conta).
     Não toca no escopo global/legado."""
