@@ -74,6 +74,34 @@ ausente É venda total, e é assim que a tela vende (`optionsSell` não manda
 | 16 | POST /api/options/sell | `qty` não convertível para `int` | 400 "Quantidade inválida." | **este arquivo** (novo — D-1; antes 500 com o texto cru do `ValueError`) |
 | 17 | POST /api/options/sell | `qty` AUSENTE do corpo | 200 — vende a posição INTEIRA | **este arquivo** (guardião de contrato: é o caminho que a tela usa; a correção de D-1 rejeita só o valor explícito) |
 
+ADENDO 2026-09-11 (quick 260911-ctd) — a QUINTA e última ocorrência da
+família, achada pelo executor da quick 260911-cf1 enquanto fechava a quarta.
+Em `/api/options/lastreada/fechar`, `int(c) if isinstance(c, (int, float)) and
+c > 0 else None` mandava `0`, `-3` E `"abc"` todos para `None` — e `None`
+nesta rota significa FECHAR A OPERAÇÃO INTEIRA. Pior que as quatro
+anteriores em dois aspectos: o `isinstance` engolia o não numérico em
+silêncio (nas outras `"abc"` ao menos explodia num 500 visível), e **a tela
+MANDA esse campo** (`App.jsx:3529`, `A.fecharLastreada({..., contratos:
+p.contratos })`) — as quatro anteriores só eram alcançáveis por chamada
+direta à API. Reproduzido contra o endpoint real antes da correção: os SEIS
+casos (3 valores × 2 ramos) devolviam **200** e zeravam a posição de 300 para
+0. Os DOIS ramos precisam da guarda: `side == "vendida"` →
+`store.fechar_call_coberta(contratos=...)`; `side == "comprada"` →
+`qty = contratos_n * 100 if contratos_n else None` (o MESMO falsy de novo) →
+`store.sell_option(qty=...)`.
+
+| # | Rota | Caminho de rejeição | HTTP | Coberto em |
+|---|------|----------------------|------|------------|
+| 18 | POST /api/options/lastreada/fechar | `contratos` inteiro <= 0, ramo `vendida` | 400 "Quantidade inválida." | **este arquivo** |
+| 19 | POST /api/options/lastreada/fechar | `contratos` não convertível para `int`, ramo `vendida` | 400 "Quantidade inválida." | **este arquivo** (antes: 200 + fechamento total, sem nem o 500 para denunciar) |
+| 20 | POST /api/options/lastreada/fechar | `contratos` inválido, ramo `comprada` | 400 "Quantidade inválida." | **este arquivo** (ramo separado: passa por `sell_option`, não por `fechar_call_coberta`) |
+| 21 | POST /api/options/lastreada/fechar | `contratos` AUSENTE do corpo | 200 — fecha a operação INTEIRA | **este arquivo** (guardião de contrato, nos DOIS ramos: a tela depende disso) |
+| 22 | POST /api/options/lastreada/fechar | `contratos` válido menor que a posição | 200 — fechamento PARCIAL | **este arquivo** (contraprova: a guarda barra só o inválido) |
+
+Com o caminho 18 a família INTEIRA de cinco rotas (`/api/buy`, `/api/sell`,
+`/api/options/buy`, `/api/options/sell`, `/api/options/lastreada/fechar`) tem
+a mesma guarda e a mesma mensagem.
+
 Isolamento: mesmo padrão de `test_rotas_fase4.py` (seção FIX-C02) —
 `B3_DB_PATH` num diretório temporário + reimport de `app.main`, para não
 herdar estado de outros arquivos da suíte nem escrever no banco real.
@@ -627,4 +655,202 @@ def test_options_sell_qty_parcial_valida_continua_funcionando(monkeypatch):
     estado = client.get("/api/state", headers=headers).json()
     assert estado["optionPositions"][0]["qty"] == 100, "metade vendida, metade preservada"
     assert estado["cash"] == 9850.0
+    assert estado["history"][0]["qty"] == 100
+
+
+# ===========================================================================
+# Caminhos 18..22 — /api/options/lastreada/fechar com `contratos` inválido
+# (quick 260911-ctd, 2026-09-11). QUINTA e ÚLTIMA ocorrência da família do
+# falsy aberta por F10-20260819 — e a única alcançável pela TELA, que manda
+# `contratos` no corpo (`App.jsx:3529`). Os DOIS ramos da rota são exercitados
+# separadamente porque consomem `contratos_n` por caminhos diferentes do
+# motor: `vendida` → `store.fechar_call_coberta`, `comprada` →
+# `store.sell_option`.
+# ===========================================================================
+
+def _chain_lastreada(symbol, tipo, price=1.5):
+    """Cadeia sintética com UM contrato do tipo pedido. `_chain_opcao` acima
+    só monta CALL; o ramo `comprada` desta rota precisa de uma PUT."""
+    c = {"contractSymbol": symbol, "optionType": tipo, "strike": 30.0,
+         "lastPrice": price, "bid": price, "ask": price, "volume": 5000,
+         "openInterest": 3000, "impliedVolatility": 0.3, "expiration": _EXP_OPCAO}
+    return {"providerStatus": "ok", "underlyingPrice": 30.0, "expiration": _EXP_OPCAO,
+            "expirations": [_EXP_OPCAO],
+            "calls": [c] if tipo == "call" else [],
+            "puts": [c] if tipo == "put" else []}
+
+
+def _monta_lastreada(m, monkeypatch, uid, tipo, symbol, contratos=3):
+    """Monta a operação lastreada direto no MOTOR (`store`), não pela rota de
+    abertura: o alvo aqui é o FECHAMENTO, e passar pela abertura arrastaria o
+    gate de liquidez e a trava de multiperna, que já têm guardião próprio
+    (`test_gate_liquidez_rotas.py`, `test_opcoes_lastreadas_rotas.py`).
+
+    `tipo="call"` → `side="vendida"` (CALL coberta, trava o lastro);
+    `tipo="put"` → `side="comprada"` (PUT de proteção, não trava nada).
+    Caixa: 10.000 − 9.000 (300 PETR4 a 30) = 1.000, ± 450 do prêmio dos 3
+    contratos a 1,50 → 1.450 na vendida, 550 na comprada."""
+    m.store.set_config(m._conn, {"operadorTermo": {"aceitoEm": "2026-01-01", "versao": "1"},
+                                  "appMode": "operador"}, user_id=uid)
+    m.store.buy(m._conn, "PETR4", contratos * 100, 30.0, user_id=uid)
+    contract = {"id": symbol, "underlying": "PETR4", "optionType": tipo,
+                "strike": 30.0, "expiration": _EXP_OPCAO, "ivEntrada": 0.3}
+    if tipo == "call":
+        m.store.abrir_call_coberta(m._conn, contract, contratos, 1.5, user_id=uid)
+    else:
+        m.store.comprar_put_protecao(m._conn, contract, contratos, 1.5, user_id=uid)
+
+    async def _chain(*a, **k):
+        return _chain_lastreada(symbol, tipo)
+    monkeypatch.setattr(m.options_provider, "get_options", _chain)
+
+
+@pytest.mark.parametrize("valor", ["abc", 0, -3])
+def test_lastreada_fechar_contratos_invalido_400_ramo_vendida(monkeypatch, valor):
+    """Caminhos 18 e 19, ramo `vendida`. Reprodução literal do achado: antes
+    da guarda os TRÊS valores devolviam **200** e fechavam a CALL coberta
+    INTEIRA (300 → 0), devolvendo o lastro e debitando a recompra toda.
+
+    A asserção que decide não é o 400 — é a posição INTACTA (`qty == 300`) e o
+    lastro ainda travado (`qtyTravada == 300`). O 400 sozinho não prova que o
+    fechamento total não aconteceu."""
+    client, m = _client_isolado(monkeypatch)
+    token, uid = _registrar(client, f"lastr-vend-{str(valor).strip('-')}@boris.dev")
+    headers = {"authorization": f"Bearer {token}"}
+    _monta_lastreada(m, monkeypatch, uid, "call", "PETRK30")
+
+    antes = client.get("/api/state", headers=headers).json()
+    assert antes["optionPositions"][0]["qty"] == 300
+    assert antes["positions"][0]["qtyTravada"] == 300
+    assert antes["cash"] == 1450.0
+
+    r = client.post("/api/options/lastreada/fechar",
+                    json={"contractSymbol": "PETRK30", "contratos": valor}, headers=headers)
+    assert r.status_code == 400, r.text
+    assert r.status_code != 500, "exceção crua nunca chega ao cliente"
+    assert r.json()["detail"] == "Quantidade inválida."
+    assert "priceUsed" not in r.json(), "nunca devolver preço de execução de um fechamento que não ocorreu"
+
+    estado = client.get("/api/state", headers=headers).json()
+    assert estado["optionPositions"][0]["qty"] == 300, \
+        f"contratos={valor!r} não pode virar fechamento total silencioso (260911-ctd / F10-20260819)"
+    assert estado["positions"][0]["qtyTravada"] == 300, "lastro continua travado numa rejeição"
+    assert estado["cash"] == 1450.0, "rejeição não pode debitar recompra nenhuma"
+    entry = estado["history"][0]
+    assert entry["status"] == "rejeitada"
+    assert entry["type"] == "COMPRA", \
+        "fechar CALL coberta é RECOMPRA — mesmo tipo que `fechar_call_coberta` grava no sucesso"
+    assert entry["t"] == "PETRK30", "rejeição de opção grava o contractSymbol como `t`"
+    assert entry["pnl"] is None
+
+
+@pytest.mark.parametrize("valor", ["abc", 0, -3])
+def test_lastreada_fechar_contratos_invalido_400_ramo_comprada(monkeypatch, valor):
+    """Caminho 20 — o MESMO defeito pelo outro ramo. Aqui `contratos_n` passa
+    por `qty = contratos_n * 100 if contratos_n else None`, um segundo falsy
+    em cima do primeiro: sem tratar os dois, a guarda ficaria pela metade.
+    `store.sell_option` lê `qty=None` como venda TOTAL, então o estrago é
+    idêntico ao do ramo `vendida` — a PUT de proteção some inteira e o
+    usuário fica descoberto achando que fechou uma parte."""
+    client, m = _client_isolado(monkeypatch)
+    token, uid = _registrar(client, f"lastr-comp-{str(valor).strip('-')}@boris.dev")
+    headers = {"authorization": f"Bearer {token}"}
+    _monta_lastreada(m, monkeypatch, uid, "put", "PETRW30")
+
+    antes = client.get("/api/state", headers=headers).json()
+    assert antes["optionPositions"][0]["qty"] == 300
+    assert antes["optionPositions"][0]["side"] == "comprada"
+    assert antes["cash"] == 550.0
+
+    r = client.post("/api/options/lastreada/fechar",
+                    json={"contractSymbol": "PETRW30", "contratos": valor}, headers=headers)
+    assert r.status_code == 400, r.text
+    assert r.status_code != 500, "exceção crua nunca chega ao cliente"
+    assert r.json()["detail"] == "Quantidade inválida."
+    assert "priceUsed" not in r.json()
+
+    estado = client.get("/api/state", headers=headers).json()
+    assert estado["optionPositions"][0]["qty"] == 300, \
+        f"contratos={valor!r} não pode liquidar a PUT de proteção inteira (260911-ctd)"
+    assert estado["cash"] == 550.0, "rejeição não pode creditar prêmio nenhum"
+    entry = estado["history"][0]
+    assert entry["status"] == "rejeitada"
+    assert entry["type"] == "VENDA", \
+        "fechar PUT comprada é VENDA — mesmo tipo que `sell_option` grava no sucesso"
+    assert entry["t"] == "PETRW30"
+    assert entry["pnl"] is None
+
+
+def test_lastreada_fechar_contratos_invalido_anonimo_nao_grava_no_balde_compartilhado(monkeypatch):
+    """T-02-07/T-05-03: esta rota não registrava rejeição nenhuma antes de
+    260911-ctd — a correção introduz a PRIMEIRA chamada de
+    `registrar_rejeicao` aqui, então precisa nascer com a mesma regra das
+    outras quatro: o balde anônimo é compartilhado entre todos os usuários sem
+    login e nunca recebe rejeição."""
+    client, m = _client_isolado(monkeypatch)
+    _monta_lastreada(m, monkeypatch, None, "call", "PETRK30")
+
+    r = client.post("/api/options/lastreada/fechar",
+                    json={"contractSymbol": "PETRK30", "contratos": 0})
+    assert r.status_code == 400, r.text
+    assert r.json()["detail"] == "Quantidade inválida."
+
+    estado_anonimo = client.get("/api/state").json()
+    assert [h for h in estado_anonimo["history"] if h.get("status") == "rejeitada"] == [], \
+        "balde anônimo compartilhado — nunca registra rejeição"
+    assert estado_anonimo["optionPositions"][0]["qty"] == 300, "posição do anônimo também fica intacta"
+
+
+@pytest.mark.parametrize("tipo,symbol", [("call", "PETRK30"), ("put", "PETRW30")])
+def test_lastreada_fechar_contratos_ausente_continua_fechando_tudo_contrato_preservado(
+        monkeypatch, tipo, symbol):
+    """Guardião de CONTRATO (caminho 21), não regressão: `contratos` AUSENTE
+    do corpo sempre significou fechar a operação INTEIRA, nos DOIS ramos, e a
+    TELA depende disso (`fecharLastreada` manda `p.contratos`, que pode vir
+    indefinido quando a proposta não traz o campo). A guarda de 260911-ctd
+    rejeita valor EXPLÍCITO inválido — ela não pode ter transformado ausente
+    em rejeição nem em fechamento parcial. Este teste passa nos DOIS lados da
+    prova (antes e depois da correção), de propósito: é o contrato, não o
+    defeito. Se um dia mudar, que mude por decisão explícita, com este teste
+    atualizado junto."""
+    client, m = _client_isolado(monkeypatch)
+    token, uid = _registrar(client, f"lastr-aus-{tipo}@boris.dev")
+    headers = {"authorization": f"Bearer {token}"}
+    _monta_lastreada(m, monkeypatch, uid, tipo, symbol)
+
+    r = client.post("/api/options/lastreada/fechar",
+                    json={"contractSymbol": symbol}, headers=headers)
+    assert r.status_code == 200, r.text
+    assert r.json()["priceUsed"] == 1.5
+
+    estado = client.get("/api/state", headers=headers).json()
+    assert estado["optionPositions"] == [], \
+        "contratos ausente = fechar TUDO, comportamento de sempre"
+    # `.get` porque a PUT de proteção NUNCA escreve `qtyTravada` (T-14-24: ela
+    # protege o downside, não compromete o lote) — a chave só existe no lastro
+    # da CALL coberta. Nos dois casos o lastro precisa terminar destravado.
+    assert (estado["positions"][0].get("qtyTravada") or 0) == 0, "fechamento total destrava o lastro"
+    assert estado["cash"] == 1000.0, "os 300 liquidados a 1,50 devolvem o caixa pré-abertura"
+    entry = estado["history"][0]
+    assert entry.get("status") != "rejeitada" and entry["qty"] == 300
+
+
+@pytest.mark.parametrize("tipo,symbol,caixa", [("call", "PETRK30", 1300.0), ("put", "PETRW30", 700.0)])
+def test_lastreada_fechar_contratos_parcial_valido_continua_funcionando(
+        monkeypatch, tipo, symbol, caixa):
+    """Contraprova da guarda (caminho 22): ela barra só o inválido. `contratos
+    = 1` sobre uma posição de 3 continua sendo fechamento PARCIAL nos dois
+    ramos — o caminho legítimo não pode ter sido fechado junto."""
+    client, m = _client_isolado(monkeypatch)
+    token, uid = _registrar(client, f"lastr-parc-{tipo}@boris.dev")
+    headers = {"authorization": f"Bearer {token}"}
+    _monta_lastreada(m, monkeypatch, uid, tipo, symbol)
+
+    r = client.post("/api/options/lastreada/fechar",
+                    json={"contractSymbol": symbol, "contratos": 1}, headers=headers)
+    assert r.status_code == 200, r.text
+
+    estado = client.get("/api/state", headers=headers).json()
+    assert estado["optionPositions"][0]["qty"] == 200, "1 contrato fechado, 2 preservados"
+    assert estado["cash"] == caixa
     assert estado["history"][0]["qty"] == 100
