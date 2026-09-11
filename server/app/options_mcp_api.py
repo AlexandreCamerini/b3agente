@@ -27,6 +27,7 @@ import json
 import os
 from typing import Optional
 
+import httpx
 from fastapi import APIRouter, Body, Depends, Header, HTTPException
 
 from . import ai_activity, audit, llm, mcp_client, metering, obslog
@@ -124,6 +125,15 @@ AVISO_IA_GERENCIADA = (
     "a IA do app atingiu o limite de análises de hoje; o contador zera na "
     "virada do dia"
 )
+# 24-06 (F-02) — falha de TRANSPORTE do provedor de LLM. "nada foi gravado" é
+# a informação que o 500 de hoje não dava e a única que a pessoa precisa: a
+# compilação é dry-run (`confirm=false`), então a falha é inócua. Sem essa
+# frase ela fica sem saber se um setup foi parar no armazém compartilhado e
+# tenta de novo por medo.
+AVISO_IA_INDISPONIVEL = (
+    "O modelo de IA não respondeu agora. Tente de novo em alguns minutos — "
+    "nada foi gravado."
+)
 
 # 24-06 (F-01) — os quatro motivos de a razão ganho/perda NÃO existir. Cada um
 # diz QUAL caso é, porque os quatro são diferentes para quem decide: "sem
@@ -159,6 +169,7 @@ AVISOS = "\n".join((AVISO_FRESCOR_NAO_MEDIDO,
                     AVISO_DADO_NAO_MEDIDO,
                     AVISO_PLANO_ANALISES,
                     AVISO_IA_GERENCIADA,
+                    AVISO_IA_INDISPONIVEL,
                     RAZAO_GANHO_ILIMITADO,
                     RAZAO_PERDA_ILIMITADA,
                     RAZAO_SEM_DADO,
@@ -1889,6 +1900,29 @@ def _erro_de_setup_desconhecido(e: mcp_client.McpErroDeTool) -> HTTPException:
     })
 
 
+def _erro_de_ia(e: Exception, *, rota: str, uid: str, ticker: str) -> HTTPException:
+    """Falha de TRANSPORTE da LLM → 503 acionável (F-02 do 24-VERIFICATION).
+
+    Mesma divisão de `_erro_http`: o detalhe que separa "o modelo demorou" de
+    "o SDK mudou de forma" vai para o obslog, onde o Alex enxerga; para quem
+    está na tela os dois são "não deu agora, e nada foi gravado".
+
+    O texto NÃO nomeia provedor nem modelo de propósito: a chave pode ser a do
+    servidor (caminho gerenciado), e nesse caso o nome do provedor não é
+    informação do usuário — é detalhe de infraestrutura numa mensagem que ele
+    não pode acionar.
+    """
+    obslog.log("mcp", "compilar falhou", level="warn", rota=rota, uid=uid,
+               ticker=ticker, passo="llm", erro=type(e).__name__, detalhe=str(e))
+    return HTTPException(503, {
+        "code": "ia_indisponivel",
+        "message": AVISO_IA_INDISPONIVEL,
+        "action": ("Espere alguns minutos e peça de novo. Se insistir, a "
+                   "cadeia, as operáveis e os setups já gravados continuam "
+                   "funcionando — eles não dependem de IA."),
+    })
+
+
 @router.post("/setups/compilar")
 async def setup_compilar(body: dict = Body(default={}),
                          user: dict = Depends(require_criar_setup)) -> dict:
@@ -1943,6 +1977,26 @@ async def setup_compilar(body: dict = Body(default={}),
             # `public_error` já sanitiza (nenhuma chave em mensagem) e preserva
             # `code`/`action` — o front sabe renderizar "Como corrigir:".
             raise HTTPException(400, llm.public_error(e)) from None
+        except (httpx.TimeoutException, httpx.HTTPError) as e:
+            # F-02: o caso que DE FATO acontece. `llm._call_anthropic` usa
+            # `httpx.AsyncClient(timeout=60)` sem capturar nada, e um modelo
+            # que demore mais que isso para compilar (plausível com o
+            # `inputSchema` inteiro no system) mandava `httpx.ReadTimeout`
+            # para o handler global — 500 com `{"detail": "ReadTimeout: "}`.
+            raise _erro_de_ia(e, rota=rota, uid=uid, ticker=alvo) from None
+        except Exception as e:  # noqa: BLE001 — ver justificativa abaixo
+            # **Por que um `except Exception` aqui não é preguiça:** o critério
+            # 7 do ROADMAP desta fase é literal ("nada cai no handler 500"), e
+            # o provedor de LLM é código de TERCEIRO cuja taxonomia de exceção
+            # não é do Boris — ela muda de versão para versão sem aviso. As
+            # duas classes de transporte ficam NOMEADAS acima para documentar
+            # o caso conhecido; este é a rede de segurança do critério, e o
+            # tipo real vai inteiro para o obslog.
+            #
+            # `HTTPException` levantada dentro dos `except` irmãos NÃO cai
+            # aqui (exceção levantada em bloco `except` não é capturada por
+            # cláusula irmã do mesmo `try`).
+            raise _erro_de_ia(e, rota=rota, uid=uid, ticker=alvo) from None
 
         setup = llm._parse_json_loose(cru)
         if not isinstance(setup, dict):

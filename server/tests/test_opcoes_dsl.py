@@ -34,11 +34,12 @@ import os
 import sys
 import tempfile
 
+import httpx
 import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
-from app import llm, mcp_client, metering, options_mcp_api, rbac
+from app import llm, mcp_client, metering, obslog, options_mcp_api, rbac
 
 
 @pytest.fixture(autouse=True)
@@ -508,6 +509,61 @@ def test_erro_de_chave_ou_modelo_vira_400_preservando_code_e_action(monkeypatch)
     assert detalhe["code"] == "missing_model"
     assert detalhe["action"].startswith("Informe um modelo")
     assert options_mcp_api.TOOL_CREATE_SETUP not in _nomes(chamadas)
+
+
+def test_timeout_do_modelo_vira_503_acionavel_e_nao_grava_nada(monkeypatch):
+    """F-02 do `24-VERIFICATION.md`. O `try` em volta de `llm._call_llm` só
+    capturava `llm.LLMUserError`; `httpx.ReadTimeout`/`ConnectError` do
+    provedor subiam intactas para o `@app.exception_handler(Exception)` e
+    viravam **500** com `{"detail": "ReadTimeout: "}` — corpo sem `code`, que
+    o `ErroDoMcp` da tela não sabe renderizar e que não diz à pessoa a única
+    coisa que importa: a compilação é dry-run, então nada foi gravado.
+
+    O critério 7 do ROADMAP desta fase é literal: nada cai no handler 500.
+    """
+    c, main = _client(monkeypatch)
+    p = _registra(c)
+    uid = p["user"]["id"]
+    chamadas = _espiao(monkeypatch)
+    _material(monkeypatch)
+    _ia(monkeypatch, erro=httpx.ReadTimeout("timeout"))
+
+    r = _compila(c, p["token"])
+    assert r.status_code == 503, r.text
+    detalhe = r.json()["detail"]
+    assert detalhe["code"] == "ia_indisponivel"
+    assert "nada foi gravado" in detalhe["message"], (
+        "a frase que falta no 500 de hoje — sem ela a pessoa não sabe se o "
+        "setup foi parar no armazém compartilhado")
+    assert detalhe.get("action"), "503 sem 'como corrigir' é 500 com outro número"
+    assert options_mcp_api.TOOL_CREATE_SETUP not in _nomes(chamadas), \
+        "o modelo emudeceu e a rota gravou assim mesmo"
+    # A reserva não consumida VOLTA (classe do achado A-07): só o frescor
+    # chegou a tocar a rede.
+    assert _usado(main, uid) == 1
+
+
+def test_falha_generica_do_provedor_tambem_vira_503_com_o_tipo_no_obslog(monkeypatch):
+    """A rede de segurança do critério 7: o provedor de LLM é código de
+    TERCEIRO, e a taxonomia de exceção dele não é do Boris — ela muda de
+    versão para versão sem avisar. O tipo vai para o obslog, onde o Alex
+    enxerga; para o usuário os dois casos são "não deu agora"."""
+    c, _ = _client(monkeypatch)
+    p = _registra(c)
+    chamadas = _espiao(monkeypatch)
+    _material(monkeypatch)
+    _ia(monkeypatch, erro=RuntimeError("o SDK do provedor mudou de forma"))
+
+    eventos = []
+    monkeypatch.setattr(obslog, "log",
+                        lambda *a, **k: eventos.append((a, k)))
+
+    r = _compila(c, p["token"])
+    assert r.status_code == 503, r.text
+    assert r.json()["detail"]["code"] == "ia_indisponivel"
+    assert options_mcp_api.TOOL_CREATE_SETUP not in _nomes(chamadas)
+    assert "RuntimeError" in [k.get("erro") for _a, k in eventos], (
+        f"o tipo da exceção do terceiro não chegou ao obslog: {eventos}")
 
 
 def test_material_ausente_vira_422_em_vez_de_compilar_de_memoria(monkeypatch):
