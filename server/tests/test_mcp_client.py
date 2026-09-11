@@ -188,6 +188,153 @@ def test_mcperror_de_outro_codigo_vira_indisponivel(monkeypatch):
         asyncio.run(mcp_client.call_tool("tool_que_nao_existe"))
 
 
+# ------------------------------------- 2b. -32000 sem prova (achado A-01) ---
+def test_conexao_fechada_nao_vira_teto_mesmo_tendo_o_mesmo_32000(monkeypatch):
+    """O CASO QUE MENTIA. `CONNECTION_CLOSED` do SDK é o MESMO -32000 que o
+    contrato usa para teto diário, e até 2026-09-10 uma conexão caída saía da
+    rota como HTTP 402 "o serviço atingiu o teto de chamadas do dia": um
+    número de consumo que ninguém mediu (princípio 4 do CLAUDE.md) e um
+    convite a esperar até a meia-noite sem motivo.
+
+    A régua é a PROVA, não o código: teto de verdade vem com
+    `chamadas_hoje`/`teto` em `data` (contrato, seção "Erro JSON-RPC -32000").
+    """
+    from mcp.shared.exceptions import MCPError
+    from mcp.types import CONNECTION_CLOSED
+
+    # o valor do SDK e o do contrato são o mesmo número — é daqui que nasce o
+    # defeito, e o teste fixa isso para que a colisão não volte a passar batida
+    assert CONNECTION_CLOSED == mcp_client.CODIGO_TETO
+
+    _liga_sessao(monkeypatch, _SessaoFalsa(
+        erro=MCPError(code=CONNECTION_CLOSED, message="Connection closed")))
+
+    with pytest.raises(mcp_client.McpIndisponivel) as exc:
+        asyncio.run(mcp_client.call_tool("get_option_chain", {"ticker": "PETR4"}))
+    # e a mensagem do serviço chega a quem depura (achado A-02): antes só o
+    # `code=` sobrevivia à tradução
+    assert "Connection closed" in str(exc.value)
+
+
+@pytest.mark.parametrize("dados", [
+    None,
+    {},
+    {"escopo": "cliente", "reinicia": "00:00 America/Sao_Paulo"},   # sem números
+    {"chamadas_hoje": 2000},                                        # só metade
+    {"teto": 2000},                                                 # só a outra
+    {"chamadas_hoje": "muitas", "teto": "2000"},                    # texto, não medição
+    {"chamadas_hoje": True, "teto": True},                          # bool não é número
+])
+def test_32000_sem_os_dois_numeros_nunca_vira_teto(monkeypatch, dados):
+    """Falso-negativo é o lado seguro: teto real sem os números vira 503
+    ("tente em alguns minutos") em vez de 402 com contagem inventada."""
+    from mcp.shared.exceptions import MCPError
+
+    _liga_sessao(monkeypatch, _SessaoFalsa(
+        erro=MCPError(code=-32000, message="algo aconteceu", data=dados)))
+
+    with pytest.raises(mcp_client.McpIndisponivel):
+        asyncio.run(mcp_client.call_tool("get_option_chain", {"ticker": "PETR4"}))
+
+
+# --------------------- 2c. recusa PELO SERVIÇO (achados A-02 e A-05) ---
+class _SessaoQueRecusa(_SessaoFalsa):
+    """Imita o que o transporte FAZ diante de um 401 do serviço: o hook de
+    status enxerga o 401 (o cliente HTTP é NOSSO, e o hook roda com os headers
+    em mãos), e o SDK entrega `INTERNAL_ERROR` com uma mensagem CONSTANTE — o
+    status não sobrevive à tradução (mcp 2.2.0,
+    `mcp/client/streamable_http.py:383-411`). O duble chama o hook de verdade,
+    e não uma imitação dele, porque hook + ContextVar é exatamente o mecanismo
+    que a correção do A-02 introduziu: dublá-lo testaria o duble."""
+
+    def __init__(self, recusas: int, resultado=None):
+        super().__init__(resultado=resultado)
+        self.recusas = recusas
+
+    async def call_tool(self, nome, arguments=None, read_timeout_seconds=None):
+        from mcp.shared.exceptions import MCPError
+        from mcp.types import INTERNAL_ERROR
+
+        self.chamadas.append(("tools/call", nome, arguments, read_timeout_seconds))
+        if len(self.chamadas) <= self.recusas:
+            await mcp_client._anotar_status_http(_RespHttp(401))
+            raise MCPError(code=INTERNAL_ERROR,
+                           message="Server returned an error response")
+        return self.resultado
+
+
+def _liga_sessao_com_token_real(monkeypatch, sessao):
+    """Como `_liga_sessao`, mas SEM dispensar o token: o emissor é um duble
+    que devolve token a cada POST, e o teste conta os POSTs para saber quantas
+    renovações houve."""
+    import mcp
+    import mcp.client.streamable_http as transporte
+
+    monkeypatch.setattr(transporte, "streamable_http_client",
+                        lambda u, **kw: _CtxFalso(("leitura", "escrita")))
+    monkeypatch.setattr(mcp, "ClientSession", lambda leitura, escrita: sessao)
+    monkeypatch.setenv("MCP_CLIENT_ID", "boris")
+    monkeypatch.setenv("MCP_CLIENT_SECRET", SEGREDO_DE_TESTE)
+    monkeypatch.setattr(mcp_client, "_relogio", lambda: 1_000_000.0)
+    http = _HttpFalso(_RespHttp(200, {"access_token": TOKEN_DE_TESTE,
+                                      "expires_in": 3600}))
+    monkeypatch.setattr(mcp_client, "_cliente_http", lambda: http)
+    mcp_client._TOKEN.clear()
+    return http
+
+
+def test_401_do_servico_e_classificado_como_recusa_e_nao_como_fora_do_ar(monkeypatch):
+    """A-02. O status 401 não chega na exceção do SDK — só o hook o mede. Sem
+    essa medição, credencial recusada PELO SERVIÇO era registrada como
+    "serviço fora do ar", e foi isso que travou o diagnóstico da falha de
+    produção."""
+    sessao = _SessaoQueRecusa(recusas=99)
+    _liga_sessao_com_token_real(monkeypatch, sessao)
+
+    with pytest.raises(mcp_client.McpNaoAutorizado) as exc:
+        asyncio.run(mcp_client.call_tool("get_option_chain", {"ticker": "PETR4"}))
+    assert "401" in str(exc.value)
+
+
+def test_internal_error_sem_status_medido_nao_afirma_recusa_de_credencial(monkeypatch):
+    """Contra-guardião do A-02: `INTERNAL_ERROR` é no que o transporte
+    colapsa 401, 403, 500 E 502. Classificar todos como "credencial recusada"
+    pelo texto da mensagem (que é constante) repetiria o erro do A-01 em outro
+    lugar. Sem status medido, é indisponibilidade — e o texto do serviço vai
+    junto para quem depura."""
+    from mcp.shared.exceptions import MCPError
+    from mcp.types import INTERNAL_ERROR
+
+    _liga_sessao(monkeypatch, _SessaoFalsa(
+        erro=MCPError(code=INTERNAL_ERROR,
+                      message="Server returned an error response")))
+
+    with pytest.raises(mcp_client.McpIndisponivel) as exc:
+        asyncio.run(mcp_client.call_tool("get_option_chain", {"ticker": "PETR4"}))
+    assert "Server returned an error response" in str(exc.value)
+    assert "status=None" in str(exc.value), (
+        "status não medido tem de aparecer como None — status chutado é o "
+        "defeito que o A-01 e o A-02 têm em comum")
+
+
+def test_hook_de_status_ignora_2xx_e_nao_escreve_fora_da_chamada():
+    """O hook só anota não-2xx, e nunca escreve quando não há chamada em
+    curso (`ContextVar` sem valor) — um hook que estoura derrubaria a
+    requisição que ele só deveria observar."""
+    asyncio.run(mcp_client._anotar_status_http(_RespHttp(200)))  # sem contexto
+    balde: list = []
+    marca = mcp_client._STATUS_HTTP.set(balde)
+    try:
+        asyncio.run(mcp_client._anotar_status_http(_RespHttp(200)))
+        asyncio.run(mcp_client._anotar_status_http(_RespHttp(204)))
+        assert balde == []
+        asyncio.run(mcp_client._anotar_status_http(_RespHttp(503)))
+        asyncio.run(mcp_client._anotar_status_http(object()))  # sem status_code
+        assert balde == [503]
+    finally:
+        mcp_client._STATUS_HTTP.reset(marca)
+
+
 # ------------------------------------------------- 3. sem credencial ------
 def test_sem_credencial_e_nao_configurado_e_nao_toca_a_rede(monkeypatch):
     monkeypatch.delenv("MCP_CLIENT_ID", raising=False)
@@ -339,7 +486,26 @@ def test_nenhuma_mensagem_de_erro_ecoa_o_segredo_nem_o_token(monkeypatch):
     with pytest.raises(mcp_client.McpNaoAutorizado) as exc_c:
         asyncio.run(mcp_client.call_tool("get_option_chain", {"ticker": "PETR4"}))
 
-    for rotulo, exc in (("emissor 401", exc_a), ("transporte", exc_b), ("serviço 401", exc_c)):
+    # (d) o SERVIÇO devolve um erro de protocolo cuja MENSAGEM ecoa o header
+    # `Authorization` e o segredo. Caso novo de 2026-09-10: desde o A-02 a
+    # mensagem do serviço viaja para a exceção e para o log, e ela é entrada
+    # externa — quem escolhe o texto é o outro lado. `_trecho()` redige.
+    from mcp.shared.exceptions import MCPError
+
+    mcp_client._TOKEN.update({"access_token": TOKEN_DE_TESTE,
+                              "exp": 1_000_000.0 + 3600})
+    _liga_sessao(monkeypatch, _SessaoFalsa(erro=MCPError(
+        code=-32603,
+        message=(f"upstream rejected Authorization: Bearer {TOKEN_DE_TESTE} "
+                 f"(client_secret={SEGREDO_DE_TESTE})"))))
+    with pytest.raises(mcp_client.McpIndisponivel) as exc_d:
+        asyncio.run(mcp_client.call_tool("get_option_chain", {"ticker": "PETR4"}))
+    assert "[redigido]" in str(exc_d.value), (
+        "a mensagem do serviço entrou crua — um serviço mal-comportado "
+        "escreveria o nosso access token no nosso log")
+
+    for rotulo, exc in (("emissor 401", exc_a), ("transporte", exc_b),
+                        ("serviço 401", exc_c), ("mensagem do serviço", exc_d)):
         texto = str(exc.value)
         assert SEGREDO_DE_TESTE not in texto, f"{rotulo}: mensagem ecoa MCP_CLIENT_SECRET"
         assert TOKEN_DE_TESTE not in texto, f"{rotulo}: mensagem ecoa o access token"
