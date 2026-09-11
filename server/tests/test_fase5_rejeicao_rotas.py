@@ -55,6 +55,25 @@ mesmo vazamento que a quick 260910-mqs fechou em `/api/buy`.
 | 13 | POST /api/options/sell | `store.sell_option` devolve `None` (posição sumiu entre a leitura e a venda) | 400 "Sem posição em X" | **este arquivo** (novo — achado A-09; espelha o 400 de `/api/sell` quando `store.sell` devolve `None`) |
 | 14 | POST /api/options/buy | `qty` não convertível para `int` | 400 "Contrato de opção inválido." | **este arquivo** (novo — resto do achado A-00b; `qty` ausente/zero/negativo JÁ caía neste mesmo 400, só o não numérico escapava) |
 
+ADENDO 2026-09-11 (auditoria D-1) — o caminho de `qty` de `/api/options/sell`
+era a ÚLTIMA ocorrência aberta da armadilha do falsy que F10-20260819 fechou
+em `/api/sell`: `int(_qty) if _qty else None` tratava `qty=0` como campo
+ausente e `store.sell_option` entende ausente como venda TOTAL — zero pedido
+de propósito liquidava o contrato inteiro em silêncio, e `qty` não numérico
+vazava `ValueError` como 500. Com os caminhos 15 e 16 as QUATRO rotas da
+família (`/api/buy`, `/api/sell`, `/api/options/buy`, `/api/options/sell`)
+passam a ter a mesma guarda e a mesma mensagem. O caminho 17 é o guardião do
+contrato que a correção teve de PRESERVAR — e que, ao contrário de
+`/api/options/buy` (caminho 14), aqui existe de verdade: nesta rota `qty`
+ausente É venda total, e é assim que a tela vende (`optionsSell` não manda
+`qty` no corpo).
+
+| # | Rota | Caminho de rejeição | HTTP | Coberto em |
+|---|------|----------------------|------|------------|
+| 15 | POST /api/options/sell | `qty` inteiro <= 0 | 400 "Quantidade inválida." | **este arquivo** (novo — achado D-1; antes `0` virava venda TOTAL e `-500` também, porque `store.sell_option` só honra `qty > 0`) |
+| 16 | POST /api/options/sell | `qty` não convertível para `int` | 400 "Quantidade inválida." | **este arquivo** (novo — D-1; antes 500 com o texto cru do `ValueError`) |
+| 17 | POST /api/options/sell | `qty` AUSENTE do corpo | 200 — vende a posição INTEIRA | **este arquivo** (guardião de contrato: é o caminho que a tela usa; a correção de D-1 rejeita só o valor explícito) |
+
 Isolamento: mesmo padrão de `test_rotas_fase4.py` (seção FIX-C02) —
 `B3_DB_PATH` num diretório temporário + reimport de `app.main`, para não
 herdar estado de outros arquivos da suíte nem escrever no banco real.
@@ -448,3 +467,164 @@ def test_options_buy_qty_ausente_e_zero_continuam_400_contrato_preservado(monkey
     estado = client.get("/api/state", headers=headers).json()
     assert estado["optionPositions"] == []
     assert estado["cash"] == 10000.0
+
+
+# ===========================================================================
+# Caminhos 15, 16 e 17 — /api/options/sell com `qty` inválida (auditoria D-1,
+# 2026-09-11). Espelham os caminhos 8 e 9 da venda de AÇÃO: a venda de opção
+# era a QUARTA e última rota da família ainda com a armadilha do falsy de
+# F10-20260819. O caminho 17 trava o contrato que a correção preservou.
+# ===========================================================================
+
+def _monta_posicao_opcao(client, m, monkeypatch, headers, qty=200, price=1.5):
+    """Compra `qty` na opção sintética e devolve o estado pós-compra."""
+    async def _chain_ok(*a, **k):
+        return _chain_opcao(price=price)
+    monkeypatch.setattr(m.options_provider, "get_options", _chain_ok)
+    r = client.post("/api/options/buy",
+                    json={"underlying": "PETR4", "contractSymbol": "PETRK30", "qty": qty},
+                    headers=headers)
+    assert r.status_code == 200, r.text
+    return client.get("/api/state", headers=headers).json()
+
+
+def test_options_sell_qty_zero_400_d1_mesma_armadilha_f10_20260819(monkeypatch):
+    """D-1: `int(_qty) if _qty else None` tratava `qty=0` (falsy em Python)
+    como "campo ausente", e campo ausente nesta rota significa venda TOTAL —
+    pedir zero liquidava o contrato INTEIRO em silêncio, creditando o prêmio
+    de toda a posição. Mesma regressão que F10-20260819 fechou em `/api/sell`.
+
+    A asserção que decide: a posição fica INTACTA. Só o 400 não bastaria —
+    é a venda total que precisa provar que não aconteceu."""
+    client, m = _client_isolado(monkeypatch)
+    token, _uid = _registrar(client, "optsell-qtyzero@boris.dev")
+    headers = {"authorization": f"Bearer {token}"}
+    estado_compra = _monta_posicao_opcao(client, m, monkeypatch, headers)
+    assert estado_compra["optionPositions"][0]["qty"] == 200
+    assert estado_compra["cash"] == 9700.0
+
+    r = client.post("/api/options/sell", json={"contractSymbol": "PETRK30", "qty": 0},
+                    headers=headers)
+    assert r.status_code == 400, r.text
+    assert r.json()["detail"] == "Quantidade inválida."
+    assert "priceUsed" not in r.json(), "nunca devolver preço de execução de venda que não ocorreu"
+
+    estado = client.get("/api/state", headers=headers).json()
+    assert estado["optionPositions"][0]["qty"] == 200, \
+        "qty=0 não pode virar venda total silenciosa (D-1 / F10-20260819)"
+    assert estado["cash"] == 9700.0, "rejeição não pode creditar prêmio nenhum"
+    assert [h for h in estado["history"] if h["type"] == "VENDA" and h.get("status") != "rejeitada"] == [], \
+        "nenhuma venda executada pode existir no histórico"
+    entry = estado["history"][0]
+    assert entry["status"] == "rejeitada" and entry["type"] == "VENDA"
+    assert entry["t"] == "PETRK30", "rejeição de opção grava o contractSymbol como `t`"
+    assert entry["pnl"] is None
+
+
+def test_options_sell_qty_negativo_400_d1(monkeypatch):
+    """D-1, o caso mais traiçoeiro: `-500` é TRUTHY, então passava pelo `if
+    _qty` e chegava em `store.sell_option` como `qty=-500` — que só honra
+    `qty > 0` e, para qualquer outro valor, vende a posição INTEIRA. O
+    negativo dava exatamente o mesmo estrago do zero, por um caminho
+    diferente."""
+    client, m = _client_isolado(monkeypatch)
+    token, _uid = _registrar(client, "optsell-qtyneg@boris.dev")
+    headers = {"authorization": f"Bearer {token}"}
+    _monta_posicao_opcao(client, m, monkeypatch, headers)
+
+    r = client.post("/api/options/sell", json={"contractSymbol": "PETRK30", "qty": -500},
+                    headers=headers)
+    assert r.status_code == 400, r.text
+    assert r.json()["detail"] == "Quantidade inválida."
+
+    estado = client.get("/api/state", headers=headers).json()
+    assert estado["optionPositions"][0]["qty"] == 200, "qty negativo não pode virar venda total"
+    assert estado["cash"] == 9700.0, "rejeição não pode creditar prêmio nenhum"
+    entry = estado["history"][0]
+    assert entry["status"] == "rejeitada" and entry["type"] == "VENDA"
+
+
+def test_options_sell_qty_nao_inteiro_400_d1(monkeypatch):
+    """D-1: `int("abc")` levantava `ValueError` sem tratamento e virava 500
+    com o texto cru da exceção no corpo — mesmo vazamento que a quick
+    260910-mqs fechou em `/api/buy` e a 260911-15a em `/api/options/buy`.
+    Cai na MESMA mensagem de 400 das outras três rotas. Nunca 500."""
+    client, m = _client_isolado(monkeypatch)
+    token, _uid = _registrar(client, "optsell-qtynaoint@boris.dev")
+    headers = {"authorization": f"Bearer {token}"}
+    _monta_posicao_opcao(client, m, monkeypatch, headers)
+
+    r = client.post("/api/options/sell", json={"contractSymbol": "PETRK30", "qty": "abc"},
+                    headers=headers)
+    assert r.status_code == 400, r.text
+    assert r.status_code != 500, "exceção crua nunca chega ao cliente"
+    assert r.json()["detail"] == "Quantidade inválida."
+
+    estado = client.get("/api/state", headers=headers).json()
+    assert estado["optionPositions"][0]["qty"] == 200, "posição não pode mudar numa rejeição"
+    assert estado["cash"] == 9700.0
+    entry = estado["history"][0]
+    assert entry["status"] == "rejeitada" and entry["type"] == "VENDA"
+
+
+def test_options_sell_qty_invalida_anonimo_nao_grava_no_balde_compartilhado(monkeypatch):
+    """T-02-07/T-05-03: esta rota não registrava rejeição nenhuma antes de
+    D-1 — a correção introduz a PRIMEIRA chamada de `registrar_rejeicao`
+    aqui, então precisa nascer com a mesma regra das outras: o balde anônimo é
+    compartilhado entre todos os usuários sem login e nunca recebe rejeição."""
+    client, m = _client_isolado(monkeypatch)
+    _monta_posicao_opcao(client, m, monkeypatch, headers={})
+
+    r = client.post("/api/options/sell", json={"contractSymbol": "PETRK30", "qty": 0})
+    assert r.status_code == 400, r.text
+    assert r.json()["detail"] == "Quantidade inválida."
+
+    estado_anonimo = client.get("/api/state").json()
+    # o histórico do balde anônimo NÃO está vazio (a compra de montagem está
+    # lá, executada) — o que não pode aparecer é a REJEIÇÃO.
+    assert [h for h in estado_anonimo["history"] if h.get("status") == "rejeitada"] == [], \
+        "balde anônimo compartilhado — nunca registra rejeição"
+    assert estado_anonimo["optionPositions"][0]["qty"] == 200, "posição do anônimo também fica intacta"
+
+
+def test_options_sell_qty_ausente_continua_vendendo_tudo_contrato_preservado(monkeypatch):
+    """Guardião de CONTRATO (caminho 17), não regressão de D-1: `qty` AUSENTE
+    do corpo sempre significou venda TOTAL nesta rota, e é o único caminho que
+    a tela usa hoje (`optionsSell` não monta `qty`). A correção de D-1 rejeita
+    valor explícito inválido — ela NÃO pode ter transformado ausente em
+    rejeição nem em venda parcial. Se um dia esse contrato mudar, que mude por
+    decisão explícita, com este teste atualizado junto."""
+    client, m = _client_isolado(monkeypatch)
+    token, _uid = _registrar(client, "optsell-qtyausente@boris.dev")
+    headers = {"authorization": f"Bearer {token}"}
+    _monta_posicao_opcao(client, m, monkeypatch, headers)
+
+    r = client.post("/api/options/sell", json={"contractSymbol": "PETRK30"}, headers=headers)
+    assert r.status_code == 200, r.text
+    assert r.json()["priceUsed"] == 1.5
+
+    estado = client.get("/api/state", headers=headers).json()
+    assert estado["optionPositions"] == [], "qty ausente = venda TOTAL, comportamento de sempre"
+    assert estado["cash"] == 10000.0, "prêmio dos 200 creditado de volta"
+    entry = estado["history"][0]
+    assert entry["type"] == "VENDA" and entry["qty"] == 200
+    assert entry["motivo"] == "manual" and entry["kind"] == "opcao"
+
+
+def test_options_sell_qty_parcial_valida_continua_funcionando(monkeypatch):
+    """Contraprova da guarda: ela barra só o inválido. `qty=100` sobre uma
+    posição de 200 continua sendo venda PARCIAL — o caminho legítimo não pode
+    ter sido fechado junto."""
+    client, m = _client_isolado(monkeypatch)
+    token, _uid = _registrar(client, "optsell-qtyparcial@boris.dev")
+    headers = {"authorization": f"Bearer {token}"}
+    _monta_posicao_opcao(client, m, monkeypatch, headers)
+
+    r = client.post("/api/options/sell", json={"contractSymbol": "PETRK30", "qty": 100},
+                    headers=headers)
+    assert r.status_code == 200, r.text
+
+    estado = client.get("/api/state", headers=headers).json()
+    assert estado["optionPositions"][0]["qty"] == 100, "metade vendida, metade preservada"
+    assert estado["cash"] == 9850.0
+    assert estado["history"][0]["qty"] == 100
