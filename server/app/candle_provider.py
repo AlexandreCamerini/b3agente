@@ -27,9 +27,22 @@ são injetáveis).
 """
 import os
 import time
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from . import brapi, brapi_budget, mydata_budget, mydata_client, yahoo
+
+# DECISÃO (260909-oyu, aplicada aqui em 260911-15a pelo achado A-10): produção
+# roda no Railway com o container em UTC, então `time.localtime()` era UTC e o
+# dia virava às 21:00 BRT — adiantando em até 3h a troca de balde do anel de
+# observabilidade, que é justamente o GATILHO DECLARADO de troca de fonte
+# (taxa de falha numa janela de 3 pregões, ver cabeçalho). Requisição das
+# 21:30 de segunda entrava no balde de terça e a janela media pregões que não
+# eram os pregões. Offset fixo -3h porque o Brasil não tem horário de verão
+# desde 2019 (mesma justificativa de `brapi.py:31-33`). BRT local ao módulo é
+# o padrão do repo (`store`, `agent`, `brapi_budget`, `pregao`) — não há
+# módulo compartilhado de fuso.
+BRT = timezone(timedelta(hours=-3))
 
 # ---------------------------------------------------------------------------
 # Instrumentação (ADR-001, Decisão 5)
@@ -58,7 +71,8 @@ _uso_prov: dict = {}   # "AAAA-MM-DD" -> {provedor: {req, erros, vazios}}
 
 
 def _hoje() -> str:
-    return time.strftime("%Y-%m-%d", time.localtime())
+    # A-10: era `time.strftime("%Y-%m-%d", time.localtime())` — ver BRT acima.
+    return datetime.now(BRT).strftime("%Y-%m-%d")
 
 
 def _registra(interval: str, ms: float, velas: int, erro: bool, ultima=None,
