@@ -11,7 +11,10 @@ O que estes testes protegem:
   • o teto acompanha B3_BRAPI_COTA_MES sem deploy.
 Offline: relógio injetado; SQLite em memória.
 """
+import concurrent.futures
 import sqlite3
+import threading
+import time
 from datetime import datetime
 
 import pytest
@@ -193,3 +196,142 @@ def test_intervalo_configuravel_persiste_e_alimenta_snapshot():
 
 def test_intervalo_minimo_de_30s():
     assert bb.set_spot_intervalo(5) == 30
+
+
+# ---------------------------------------------------------------------------
+# A-11 (auditoria de 2026-09-10): trava + `reservar()` portados do irmão
+# `mydata_budget.py`, que fechou esta classe no WR-01.
+#
+# Estes guardiões são de DEFESA EM PROFUNDIDADE, não de defeito ativo: a
+# verificação adversarial da auditoria rodou 50 chamadas concorrentes contra o
+# contador SEM trava e não corrompeu nada, porque nenhum call site real tem
+# ponto de espera entre a checagem e o débito. O que eles travam é a simetria
+# entre os dois módulos de orçamento — com um irmão travado e o outro não, o
+# próximo refactor que meta um await no meio reintroduz o problema calado.
+# Mesma técnica e mesmas asserções de `test_mydata_budget.py`.
+# ---------------------------------------------------------------------------
+def test_debitos_concorrentes_nao_perdem_incremento(monkeypatch):
+    """`_estado["total"] += n` e o dict de fatias são read-modify-write. Este
+    teste é o ESPELHO do guardião do irmão (`test_mydata_budget.py`) e passa
+    com e sem a trava — medido: 200 rodadas da corrida sem trava, zero
+    incremento perdido, porque `debita()` não tem ponto de espera por dentro.
+    Fica como guardião de SIMETRIA (os dois módulos travam o mesmo estado); a
+    prova da atomicidade está no teste seguinte, que injeta a pausa."""
+    monkeypatch.setenv("B3_BRAPI_COTA_MES", "210000")   # teto do dia = 10.000
+    barreira = threading.Barrier(8)
+
+    def _debita_um():
+        barreira.wait(timeout=5)
+        bb.debita("spot", n=1, now=TER_11H)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as ex:
+        list(ex.map(lambda _: _debita_um(), range(8)))
+
+    s = bb.snapshot(now=TER_11H)
+    assert s["total"] == 8
+    assert s["fatias"]["spot"]["gasto"] == 8
+
+
+def test_reservar_e_atomico_onde_o_par_separado_estoura_a_cota(monkeypatch):
+    """O guardião que de fato PROVA a trava.
+
+    A auditoria derrubou a consequência do A-11: sem ponto de espera entre a
+    checagem e o débito, a corrida é INERTE (50 chamadas concorrentes, zero
+    corrupção — reproduzido aqui em 200 rodadas). Então um teste que só dispare
+    duas threads passa com e sem trava e não prova nada.
+
+    Este injeta exatamente a pausa que o código hoje NÃO tem e que o próximo
+    refactor introduz (um await/IO entre checar e debitar) e compara os dois
+    caminhos sob a MESMA pausa:
+      • par separado `pode_gastar()` + `debita()` → as duas threads veem vaga e
+        as duas debitam: 2 requisições com teto de 1 (medido: 20/20 rodadas);
+      • `reservar()` → UMA True, UMA False, total 1 (medido: 0/20 estouros).
+    Com a cota real (15.000/mês) isso é cota queimada além do teto do dia, que
+    é justamente o que o orçamento existe para impedir."""
+    monkeypatch.setenv("B3_BRAPI_COTA_MES", "21")   # teto do dia = 1
+    assert bb.teto_dia() == 1
+
+    real_pode = bb.pode_gastar
+
+    def pode_gastar_com_pausa(fatia, now=None):
+        r = real_pode(fatia, now=now)
+        time.sleep(0.02)          # a janela que o refactor futuro abre
+        return r
+    monkeypatch.setattr(bb, "pode_gastar", pode_gastar_com_pausa)
+
+    def _corrida(fn):
+        bb.reset()
+        barreira = threading.Barrier(2)
+
+        def _r():
+            barreira.wait(timeout=5)
+            return fn("spot", now=TER_11H)
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as ex:
+            f1, f2 = ex.submit(_r), ex.submit(_r)
+            res = sorted([f1.result(), f2.result()])
+        return res, bb.snapshot(now=TER_11H)["total"]
+
+    def par_separado(fatia, n=1, now=None):
+        if not bb.pode_gastar(fatia, now=now):
+            return False
+        bb.debita(fatia, n=n, now=now)
+        return True
+
+    res_par, total_par = _corrida(par_separado)
+    assert res_par == [True, True], "o par separado é o caminho que estoura"
+    assert total_par == 2 > bb.teto_dia(), "duas requisições com teto de uma"
+
+    res_res, total_res = _corrida(bb.reservar)
+    assert res_res == [False, True], "reservar: uma ganha a vaga, a outra recusa"
+    assert total_res == 1, "nunca debita quando devolve False"
+
+
+def test_reservar_equivale_a_pode_gastar_mais_debita(monkeypatch):
+    """Guardião de EQUIVALÊNCIA: `reservar()` não pode ter inventado política
+    nova — é exatamente o par antigo, junto. Mesmo débito, mesma fatia."""
+    monkeypatch.setenv("B3_BRAPI_COTA_MES", "21000")   # teto do dia = 1.000
+    assert bb.reservar("spot", now=TER_11H) is True
+    s = bb.snapshot(now=TER_11H)
+    assert s["total"] == 1 and s["fatias"]["spot"]["gasto"] == 1
+
+    bb.reset()
+    assert bb.pode_gastar("spot", now=TER_11H) is True
+    bb.debita("spot", now=TER_11H)
+    s2 = bb.snapshot(now=TER_11H)
+    assert (s2["total"], s2["fatias"]["spot"]["gasto"]) == (1, 1)
+
+
+def test_reservar_respeita_o_gate_de_pregao_sem_debitar():
+    """Fora da janela de consumo `pode_gastar()` é False — `reservar()` herda
+    isso e NÃO pode debitar (o gate de pregão é a primeira linha de defesa da
+    cota)."""
+    assert bb.reservar("spot", now=TER_18H) is False
+    assert bb.snapshot(now=TER_18H)["total"] == 0
+    assert bb.reservar("spot", now=SAB_11H) is False
+    assert bb.snapshot(now=SAB_11H)["total"] == 0
+
+
+def test_reservar_cai_na_reserva_quando_a_fatia_enche(monkeypatch):
+    """A política de fatia→reserva é de `debita()`; `reservar()` a herda sem
+    reimplementar."""
+    monkeypatch.setenv("B3_BRAPI_COTA_MES", "21000")   # teto 1.000
+    limite_fund = bb.fatia_limite("fund")
+    for _ in range(limite_fund):
+        assert bb.reservar("fund", now=TER_11H) is True
+    assert bb.snapshot(now=TER_11H)["fatias"]["fund"]["gasto"] == limite_fund
+
+    assert bb.reservar("fund", now=TER_11H) is True     # agora vai p/ reserva
+    assert bb.snapshot(now=TER_11H)["fatias"]["reserva"]["gasto"] == 1
+    assert bb.snapshot(now=TER_11H)["fatias"]["fund"]["gasto"] == limite_fund
+
+
+def test_trava_e_reentrante_como_no_irmao():
+    """`reservar()` chama `pode_gastar()`/`debita()` por dentro da própria
+    trava — com `Lock` em vez de `RLock` isso travaria o processo. Guardião do
+    tipo, não do comportamento: um `Lock` passaria nos testes acima só porque
+    eles não aninham."""
+    assert isinstance(bb.BRAPI_BUDGET_LOCK, type(threading.RLock()))
+    with bb.BRAPI_BUDGET_LOCK:
+        with bb.BRAPI_BUDGET_LOCK:      # reentrada: não pode bloquear
+            assert True

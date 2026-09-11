@@ -12,10 +12,21 @@ import asyncio
 import hashlib
 import json
 import time
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 DEFAULT_TOP_N = 5
 MAX_TOP_N = 10
+
+# DECISÃO (260909-oyu, aplicada aqui em 260911-15a pelo achado A-10): produção
+# roda no Railway com o container em UTC, então `time.strftime` sem tz era UTC
+# e o "dia" do cache virava às 21:00 BRT. Consequência: na janela das 21:00 às
+# 23:59 o fallback de chave pulava para o dia seguinte e a mesma varredura era
+# reaprofundada DE GRAÇA na conta de quem paga a IA (uma chamada de LLM por
+# ativo do top-N). Offset fixo -3h porque o Brasil não tem horário de verão
+# desde 2019 (mesma justificativa de `brapi.py:31-33`). BRT local ao módulo é
+# o padrão do repo (`store`, `agent`, `brapi_budget`, `pregao`).
+BRT = timezone(timedelta(hours=-3))
 
 _DEEP_CACHE: dict = {}   # (ticker, period, yyyy-mm-dd) -> payload do ativo
 
@@ -26,7 +37,8 @@ def reset():
 
 
 def _day() -> str:
-    return time.strftime("%Y-%m-%d")
+    # A-10: era `time.strftime("%Y-%m-%d")` (local = UTC em produção).
+    return datetime.now(BRT).strftime("%Y-%m-%d")
 
 
 def leitor_fp(profile: dict = None, config: dict = None) -> str:

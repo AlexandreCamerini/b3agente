@@ -1,5 +1,15 @@
 # ADR-008: brapi (plano gratuito) como fonte master; Yahoo como backup
 
+> **Status atual (nota de sucessão acrescentada em 2026-09-11, achado A-15 da
+> [auditoria de 2026-09-10](../AUDITORIA-2026-09-10.md)):** o papel de fonte
+> master de candles diários descrito abaixo foi MUDADO pelo
+> [ADR-020](020-centralizacao-de-dados-no-mydata.md) (27/08/2026), que
+> centralizou a ingestão no hub mydata. Quem ler só este ADR tira conclusão
+> errada sobre o sistema de hoje. O corpo abaixo é preservado como registro da
+> decisão de 11/08/2026 — o orçamento de requisições (`brapi_budget.py`), a
+> política de fatias e o gatilho de troca de fonte continuam valendo e são
+> descritos aqui; o que mudou é QUEM é o master.
+
 **Status:** Aceito em direção (decisão do Alex, 11/08/2026: "brapi master, plano gratuito, Yahoo de backup, dividir as 15.000 requisições, só no período de funcionamento da bolsa"). **Fase 0 executada em 11/08 com token real** ([MEDICAO-Brapi-2026-08-11](../MEDICAO-Brapi-2026-08-11.md)) — gate aprovado com ressalva (delay do spot pendente de medição em pregão)
 **Data:** 2026-08-11
 **Decisor:** Alex
