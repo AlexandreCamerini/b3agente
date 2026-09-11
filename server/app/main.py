@@ -1040,7 +1040,7 @@ async def admin_mobile_handoff_exchange(body: dict = Body(default={})):
 
 # FASE 8B (diagnóstico): carimbo de build do BACKEND — confirma qual código o
 # Railway está rodando (o front tem o dele em web/src/version.js).
-SERVER_BUILD_ID = "F10-20260911-01"  # 2026-09-11: achados baixos da auditoria (A-09/A-10/A-11/A-14/A-15/A-16 + resto do A-00b) e marcadores de job persistidos — o painel admin dizia "nunca rodou" porque os quatro marcadores viviam só na memória do processo e cada reinício zerava. DEPLOY SÓ-BACKEND: bumpado À MÃO, o front segue em F10-20260910-02. Ao publicar front, passe o carimbo explícito a `bump.sh` (memória deploy-backend-carimbo).
+SERVER_BUILD_ID = "F10-20260911-02"  # 2026-09-11: família do `qty` falsy fechada nas 5 rotas (venda de opção com qty=0 vendia tudo; fechar lastreada com contratos inválido fechava tudo em silêncio) + fuso no prazo até o vencimento, que mudava a classificação no gate de liquidez entre 21h e 24h, e nos 3 carimbos visíveis na tela. DEPLOY SÓ-BACKEND: bumpado À MÃO, o front segue em F10-20260910-02. Ao publicar front, passe o carimbo explícito a `bump.sh` (memória deploy-backend-carimbo).
 # Normalmente sincronizado pelo entregar.sh a partir de web/src/version.js; num deploy
 # SÓ de backend (sem rebuild do front) bumpamos aqui para /api/health rastrear o servidor.
 
