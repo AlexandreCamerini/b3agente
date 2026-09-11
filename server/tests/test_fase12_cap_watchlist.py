@@ -21,13 +21,14 @@ em memória (managed, kill-switch, orçamento brapi) são globais de módulo.
 import concurrent.futures
 import importlib
 import os
-import pathlib
 import sys
 import tempfile
 import threading
 
 import pytest
 from fastapi.testclient import TestClient
+
+from .fonte_python import main_source_sem_comentarios
 
 
 @pytest.fixture(autouse=True)
@@ -344,9 +345,11 @@ def test_m_watchlist_lock_protege_put_e_post_add():
 # Guardião ESTÁTICO — fecha a CLASSE do bypass, não só a instância
 # ---------------------------------------------------------------------------
 
-def _main_source_sem_comentarios() -> str:
-    src = (pathlib.Path(__file__).resolve().parents[1] / "app" / "main.py").read_text(encoding="utf-8")
-    return "\n".join(line for line in src.splitlines() if not line.strip().startswith("#"))
+# 2026-09-10 (auditoria A-18): era a 3ª de três cópias de um filtro de
+# comentário que deixava passar comentário de CAUDA. Fonte única agora em
+# `tests/fonte_python.py`, com corte por `tokenize` (um `#` dentro de string
+# literal não pode levar código embora). Alias preserva o nome local.
+_main_source_sem_comentarios = main_source_sem_comentarios
 
 
 def test_put_watchlist_referencia_can_grow_watchlist_to_nao_e_mais_set_watchlist_puro():
