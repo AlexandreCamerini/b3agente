@@ -27,6 +27,8 @@ import re
 
 import pytest
 
+from .rotas_fastapi import nomes_dependencias, todas_as_rotas
+
 _APP_DIR = pathlib.Path(__file__).resolve().parent.parent / "app"
 
 # Arquivos da fronteira do ADR-027. Cresce junto com as rotas das Fases 2+.
@@ -170,50 +172,16 @@ def test_guardiao_iii_nenhum_literal_com_formato_de_segredo(caminho):
 # ─────────────────────────────────────────────────────────────────────────
 # (iv) — toda rota do serviço MCP passa por `require_user` E pelo cap.
 # ─────────────────────────────────────────────────────────────────────────
-def _nomes_dependencias(dependant, vistos=None) -> set:
-    """Cópia do helper de `test_adr013_cobertura_rotas` (guardião não importa
-    guardião). Recursivo porque `Depends()` aninha: `require_permission()`
-    devolve um `_dep` que por sua vez depende de `require_user`."""
-    vistos = vistos if vistos is not None else set()
-    out: set = set()
-    if dependant is None or id(dependant) in vistos:
-        return out
-    vistos.add(id(dependant))
-    for d in getattr(dependant, "dependencies", None) or []:
-        call = getattr(d, "call", None)
-        if call is not None:
-            out.add(getattr(call, "__name__", str(call)))
-        out |= _nomes_dependencias(d, vistos)
-    return out
-
-
-def _todas_as_rotas(rotas, vistos=None) -> list:
-    """Achata `app.routes` RECURSIVAMENTE.
-
-    ACHADO 2026-09-09 (aba-opcoes F1): com fastapi 0.141.1 / starlette 1.6.0,
-    `include_router()` NÃO copia as rotas para `app.routes` — ele insere um
-    objeto `_IncludedRouter`, com o `APIRouter` original pendurado em
-    `.original_router`. Um guardião que varre só `app.routes` procurando
-    `.path` fica CEGO para toda rota registrada por router (e passa por
-    vacuidade, que é o modo mais silencioso de um guardião falhar).
-    `test_adr013_cobertura_rotas.py` tem exatamente esse formato — está
-    registrado no SUMMARY desta quick como achado a decidir com o Alex, fora
-    do escopo desta fase para não mudar a semântica de um guardião de
-    segurança de raspão."""
-    vistos = vistos if vistos is not None else set()
-    fora = []
-    for r in rotas or []:
-        if id(r) in vistos:
-            continue
-        vistos.add(id(r))
-        if getattr(r, "path", None) is not None:
-            fora.append(r)
-        interno = getattr(r, "original_router", None)
-        if interno is not None:
-            fora.extend(_todas_as_rotas(getattr(interno, "routes", None), vistos))
-        elif getattr(r, "routes", None):
-            fora.extend(_todas_as_rotas(r.routes, vistos))
-    return fora
+# 2026-09-10 (auditoria A-17): estes dois helpers eram cópias locais, com a
+# justificativa "guardião não importa guardião" — que continua valendo e é
+# atendida de outro jeito: os dois agora lêem de `tests/rotas_fastapi.py`, um
+# módulo de INSUMO sem nenhuma asserção, então nenhum guardião depende do
+# veredito do outro. Era justamente a DIVERGÊNCIA entre as duas cópias o
+# defeito A-17: esta resolvia o router aninhado, a do ADR-013 não, e a do
+# ADR-013 — o guardião de segurança — passava cega. Os nomes com `_` são
+# preservados: o resto deste arquivo os usa e o histórico cita por nome.
+_nomes_dependencias = nomes_dependencias
+_todas_as_rotas = todas_as_rotas
 
 
 def _rotas_do_servico_mcp():

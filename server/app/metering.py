@@ -8,8 +8,42 @@ Fluxo nas rotas:
   ... chama o LLM ...
   metering.consume(conn, uid)   # só conta no SUCESSO (falha não gasta cota)
 
-`check` registra o timestamp para o rate limit (impede martelar), mas NÃO conta
-a cota diária — quem conta é `consume`, após a resposta vir.
+`check` registra o timestamp para o rate limit (impede martelar) e RESERVA o
+custo (ver A-07 abaixo), mas não CONTA a cota diária — quem conta é `consume`,
+após a resposta vir. Reserva ≠ contagem: `used()`/`snapshot()`/`month_used()`
+seguem devolvendo só o confirmado.
+
+2026-09-10 (auditoria A-07) — RESERVA ATÔMICA. Antes, `check` só COMPARAVA
+`count` com `quota`; quem debitava era `consume`, depois da resposta do modelo
+(até 60 s de espera em `llm.py`). Reproduzido no worktree desta correção, com
+`db.shared()` (uma conexão real por thread, igual ao singleton de `main.py`):
+
+    estado inicial: used=4 quota=5
+    passaram na checagem: 3      <- as três concorrentes
+    estado final: used=6 quota=5  ESTOUROU   (global: 7)
+
+Dois defeitos no mesmo traço: (a) as três passaram porque nada reservava; e
+(b) `used` terminou em 6 e o global em 7 — o read-modify-write de `consume`
+perdeu uma atualização, e o contador do usuário ficou MENOR que a verdade, o
+que ainda mascarava o estouro. Como a cota gerenciada usa a chave PAGA do
+servidor, o excesso é gasto real.
+
+Correção (desenho): `check` grava uma RESERVA (`resv`, lista de epochs — uma
+entrada por unidade de custo) dentro de `METERING_LOCK`, e passa a comparar
+`count + reservas + custo` com a cota. `consume` LIQUIDA a reserva
+(remove as `custo` mais antigas) ao mesmo tempo que incrementa o confirmado —
+nunca debita duas vezes. A propriedade que não pode quebrar fica de pé:
+FALHA NÃO GASTA COTA, porque `consume` continua sendo o único ponto que
+incrementa `count`.
+
+Como a reserva é DEVOLVIDA quando a chamada falha: por EXPIRAÇÃO
+(`RESERVA_TTL_S`), mais `liberar()` para devolução imediata. Por que não uma
+closure de estorno: o `consume` chega às rotas como closure criada em
+`main.py::_ai_apply_managed`, e estornar na falha exigiria `try/finally` em
+cinco call sites de `main.py`/`options_mcp_api.py` — mudança de escopo que
+ficou para decisão do dono do repositório (ver SUMMARY de 260910-wfp).
+`liberar()` já existe para esse dia; hoje nenhum caller a chama, então a
+devolução real é a expiração.
 
 2026-09-09 (aba-opcoes F1, ADR-027) — overrides `_dia`/`_mes`. Achado do
 inventário: `_now` NÃO decide o dia. `check(..., _now=...)` só alimenta o
@@ -27,9 +61,32 @@ regra que `_month` já documentava: nunca duas noções de tempo diferentes
 para dia e mês no mesmo registro.
 """
 from datetime import datetime, timezone
+import threading
 import time
 
 from . import db
+
+# A-07 (auditoria 2026-09-10): trava do read-modify-write de `check`/`consume`.
+# Mesmo padrão e mesmo motivo de `mydata_budget.MYDATA_BUDGET_LOCK` (WR-01) e
+# de `store.ORDER_LOCK`: o pool de threads do anyio/FastAPI intercala
+# leitura e escrita do MESMO registro do kv. RLock porque as funções públicas
+# podem vir a se chamar por dentro da trava (`liberar` dentro de `consume`,
+# por exemplo) — reentrância é de graça e evita um deadlock bobo no futuro.
+#
+# Limite declarado: a trava é de PROCESSO. O deploy é um único serviço uvicorn
+# (`server/Procfile`), então ela cobre a concorrência real. Com dois processos
+# servindo o mesmo SQLite, a atomicidade voltaria a depender de transação no
+# banco — anotado aqui para ninguém presumir proteção que não existe.
+METERING_LOCK = threading.RLock()
+
+# Quanto tempo uma reserva não liquidada continua valendo. Tem de cobrir a
+# janela REAL entre `check` e `consume` — fetch de candles + a chamada ao
+# modelo, cujo `httpx.AsyncClient(timeout=60)` em `llm.py` é o teto de uma
+# chamada (não há retry no módulo). 120 s = esse teto com folga.
+# Preço do número: reserva de request que NUNCA liquida (o caminho de cache da
+# aba Opções checa 3 e consome 0) segura cota por até 120 s. Bloqueio por
+# reserva é transitório e se cura sozinho; estouro de cota é dinheiro gasto.
+RESERVA_TTL_S = 120.0
 
 SECTION = "aiUsage"
 GLOBAL_SECTION = "aiUsageGlobal"   # qa/42: contador GLOBAL (kv sem escopo de usuário)
@@ -73,13 +130,26 @@ def _resolve_mes(_mes=None) -> str:
     return str(_mes) if _mes else _month()
 
 
+def _resv(rec, now) -> list:
+    """A-07: reservas AINDA válidas do registro, em ordem de criação. Filtra
+    entrada expirada e entrada de tipo torto (registro antigo do kv não tem
+    `resv`, e um valor corrompido não pode derrubar a rota de IA).
+
+    A expiração é a devolução da reserva quando o request morre sem liquidar —
+    ver o bloco A-07 do docstring do módulo."""
+    return [t for t in (rec.get("resv") or []) if isinstance(t, (int, float))
+            and not isinstance(t, bool) and (now - t) < RESERVA_TTL_S]
+
+
 def _load_global(conn, section: str = GLOBAL_SECTION, _dia=None) -> dict:
     hoje = _resolve_dia(_dia)
     g = db.kv_get(conn, section, None, user_id=None)
     if not isinstance(g, dict) or g.get("day") != hoje:
-        return {"day": hoje, "count": 0}
+        return {"day": hoje, "count": 0, "resv": []}
     if not isinstance(g.get("count"), int):
         g["count"] = 0
+    if not isinstance(g.get("resv"), list):
+        g["resv"] = []
     return g
 
 
@@ -97,11 +167,13 @@ def _load(conn, user_id, section: str = SECTION, _dia=None) -> dict:
     hoje = _resolve_dia(_dia)
     u = db.kv_get(conn, section, None, user_id=user_id)
     if not isinstance(u, dict) or u.get("day") != hoje:
-        return {"day": hoje, "count": 0, "rl": []}
+        return {"day": hoje, "count": 0, "rl": [], "resv": []}
     if not isinstance(u.get("rl"), list):
         u["rl"] = []
     if not isinstance(u.get("count"), int):
         u["count"] = 0
+    if not isinstance(u.get("resv"), list):   # A-07: registro de antes da reserva
+        u["resv"] = []
     return u
 
 
@@ -145,72 +217,136 @@ def used(conn, user_id, *, section: str = SECTION, _dia=None) -> int:
 # implícitos em SECTION/GLOBAL_SECTION).
 def check(conn, user_id, *, quota, rate_per_min, custo=1, cap_global=None, _now=None,
           section: str = SECTION, global_section: str = GLOBAL_SECTION, _dia=None):
-    """(permitido, motivo). Registra o uso para o rate limit; NÃO consome a cota
-    diária (isso é no consume, após sucesso).
+    """(permitido, motivo). Registra o uso para o rate limit e RESERVA o custo
+    (A-07); NÃO consome a cota diária (isso é no consume, após sucesso).
 
     qa/42 (FinOps): `custo` = quantas análises ESTE request pode disparar.
     O /api/scan/deep chamava check 1x e consume até 10x (1 por ticker do
     top-N) — quem tinha 19/20 passava no check e terminava em 29. Reservar o
     custo na COTA fecha o furo. O rate limit segue contando 1 por REQUEST
     (ele existe para impedir martelar): reservar 10 slots num teto de 6/min
-    bloquearia todo deep."""
-    u = _load(conn, user_id, section=section, _dia=_dia)
-    now = time.time() if _now is None else _now
-    custo = max(1, int(custo or 1))
-    u["rl"] = [t for t in u["rl"] if (now - t) < 60.0]
-    if rate_per_min is not None and len(u["rl"]) >= rate_per_min:
-        _save(conn, user_id, u, section=section)
-        return (False, "Muitas análises em pouco tempo. Aguarde alguns segundos e tente de novo.")
-    if quota is not None and u["count"] + custo > quota:
-        _save(conn, user_id, u, section=section)
-        restam = max(0, quota - int(u.get("count", 0)))
-        if custo > 1 and restam > 0:
+    bloquearia todo deep.
+
+    A-07 (auditoria 2026-09-10): o corpo inteiro roda sob `METERING_LOCK` e a
+    comparação passou a ser `count + reservas + custo` — sem isso, requisições
+    concorrentes passavam todas enquanto nenhuma tinha chegado ao `consume`.
+    Quando devolve False, NADA é reservado (só a poda do rate limit é salva)."""
+    with METERING_LOCK:
+        u = _load(conn, user_id, section=section, _dia=_dia)
+        now = time.time() if _now is None else _now
+        custo = max(1, int(custo or 1))
+        u["rl"] = [t for t in u["rl"] if (now - t) < 60.0]
+        # A-07: a poda da reserva usa o MESMO `now` do rate limit — com `_now`
+        # injetado (testes de janela), as duas noções de tempo não divergem.
+        u["resv"] = _resv(u, now)
+        reservado = len(u["resv"])
+        if rate_per_min is not None and len(u["rl"]) >= rate_per_min:
+            _save(conn, user_id, u, section=section)
+            return (False, "Muitas análises em pouco tempo. Aguarde alguns segundos e tente de novo.")
+        if quota is not None and u["count"] + reservado + custo > quota:
+            _save(conn, user_id, u, section=section)
+            restam = max(0, quota - int(u.get("count", 0)) - reservado)
+            if custo > 1 and restam > 0:
+                return (False, (
+                    "Esta varredura profunda faria %d análises e você tem %d restante(s) "
+                    "hoje (limite diário: %d). Reduza o número de ativos, use sua própria "
+                    "chave (BYOK) em Perfil → Conta & preferências para análises "
+                    "ilimitadas, ou volte amanhã." % (custo, restam, quota)
+                ))
             return (False, (
-                "Esta varredura profunda faria %d análises e você tem %d restante(s) "
-                "hoje (limite diário: %d). Reduza o número de ativos, use sua própria "
-                "chave (BYOK) em Perfil → Conta & preferências para análises "
-                "ilimitadas, ou volte amanhã." % (custo, restam, quota)
+                "Você atingiu o limite diário de %d análises com a IA do app. "
+                "Use sua própria chave (BYOK) em Perfil → Conta & preferências para "
+                "análises ilimitadas, ou volte amanhã." % quota
             ))
-        return (False, (
-            "Você atingiu o limite diário de %d análises com a IA do app. "
-            "Use sua própria chave (BYOK) em Perfil → Conta & preferências para "
-            "análises ilimitadas, ou volte amanhã." % quota
-        ))
-    # qa/42 (FinOps): teto GLOBAL — a última linha de defesa do bolso. Sem ele,
-    # o gasto do servidor era (nº de usuários) × cota/dia, ilimitado por cima.
-    # cap_global=None (default) => ilimitado => comportamento anterior intacto.
-    if cap_global is not None and _load_global(conn, section=global_section, _dia=_dia)["count"] + custo > cap_global:
+        # qa/42 (FinOps): teto GLOBAL — a última linha de defesa do bolso. Sem ele,
+        # o gasto do servidor era (nº de usuários) × cota/dia, ilimitado por cima.
+        # cap_global=None (default) => ilimitado => comportamento anterior intacto.
+        # A-07: com cap_global ligado, a reserva também vai para o registro
+        # global — senão N usuários concorrentes furariam o teto do servidor
+        # pelo mesmo motivo que um usuário furava a cota dele. Com
+        # cap_global=None o registro global NÃO é tocado por `check` (era assim
+        # antes e continua: nenhuma escrita nova no caminho default).
+        g = None
+        if cap_global is not None:
+            g = _load_global(conn, section=global_section, _dia=_dia)
+            g["resv"] = _resv(g, now)
+            if g["count"] + len(g["resv"]) + custo > cap_global:
+                _save(conn, user_id, u, section=section)
+                return (False, (
+                    "A IA do app atingiu o limite de uso de hoje (teto global do servidor). "
+                    "Use sua própria chave (BYOK) em Perfil → Conta & preferências para "
+                    "análises ilimitadas, ou volte amanhã."
+                ))
+        u["rl"].append(now)
+        u["resv"].extend([now] * custo)     # A-07: uma entrada por unidade
         _save(conn, user_id, u, section=section)
-        return (False, (
-            "A IA do app atingiu o limite de uso de hoje (teto global do servidor). "
-            "Use sua própria chave (BYOK) em Perfil → Conta & preferências para "
-            "análises ilimitadas, ou volte amanhã."
-        ))
-    u["rl"].append(now)
-    _save(conn, user_id, u, section=section)
-    return (True, None)
+        if g is not None:
+            g["resv"].extend([now] * custo)
+            db.kv_set(conn, global_section, g, user_id=None)
+        return (True, None)
 
 
 def consume(conn, user_id, *, custo: int = 1, section: str = SECTION, global_section: str = GLOBAL_SECTION,
-            month_section: str = MONTH_SECTION, _dia=None, _mes=None) -> int:
+            month_section: str = MONTH_SECTION, _dia=None, _mes=None, _now=None) -> int:
     """Conta análise(s) gerenciada(s) (chamar após o LLM responder com sucesso,
     ou — qa/47 — após um lote de eventos de analytics ser aceito).
     qa/42: conta no contador do usuário E no global (teto de gasto do servidor).
     qa/47: `custo` permite contar um LOTE inteiro numa chamada (em vez de
     laçar `consume()` N vezes) — default 1 preserva o comportamento anterior.
     C-33 (fase 5): também incrementa o acumulado MENSAL (registro próprio,
-    ver `MONTH_SECTION`) — é o único ponto de escrita do ledger mensal."""
-    custo = max(1, int(custo or 1))
-    u = _load(conn, user_id, section=section, _dia=_dia)
-    u["count"] = int(u.get("count", 0)) + custo
-    _save(conn, user_id, u, section=section)
-    g = _load_global(conn, section=global_section, _dia=_dia)
-    g["count"] = int(g.get("count", 0)) + custo
-    db.kv_set(conn, global_section, g, user_id=None)
-    m = _load_month(conn, user_id, section=month_section, _mes=_mes)
-    m["count"] = int(m.get("count", 0)) + custo
-    db.kv_set(conn, month_section, m, user_id=user_id)
-    return u["count"]
+    ver `MONTH_SECTION`) — é o único ponto de escrita do ledger mensal.
+
+    A-07 (auditoria 2026-09-10): LIQUIDA a reserva feita por `check` — as
+    `custo` mais antigas saem da fila ao mesmo tempo que o confirmado sobe, e
+    por isso não existe débito em dobro. Sem reserva viva (chamada direta, sem
+    `check` antes, ou reserva já expirada) só incrementa, como antes. A trava
+    também fecha o read-modify-write que perdia atualização: a reprodução do
+    A-07 terminava com o contador do usuário em 6 e o global em 7."""
+    with METERING_LOCK:
+        custo = max(1, int(custo or 1))
+        now = time.time() if _now is None else _now
+        u = _load(conn, user_id, section=section, _dia=_dia)
+        u["count"] = int(u.get("count", 0)) + custo
+        u["resv"] = _resv(u, now)[custo:]
+        _save(conn, user_id, u, section=section)
+        g = _load_global(conn, section=global_section, _dia=_dia)
+        g["count"] = int(g.get("count", 0)) + custo
+        g["resv"] = _resv(g, now)[custo:]
+        db.kv_set(conn, global_section, g, user_id=None)
+        m = _load_month(conn, user_id, section=month_section, _mes=_mes)
+        m["count"] = int(m.get("count", 0)) + custo
+        db.kv_set(conn, month_section, m, user_id=user_id)
+        return u["count"]
+
+
+def liberar(conn, user_id, *, custo: int = 1, section: str = SECTION,
+            global_section: str = GLOBAL_SECTION, _dia=None, _now=None) -> int:
+    """A-07: devolve reserva SEM contar uso — o estorno imediato para quando a
+    chamada falha. Devolve quantas unidades ainda ficaram reservadas.
+
+    Nenhum caller usa hoje (o estorno eager exige `try/finally` em cinco call
+    sites de `main.py`/`options_mcp_api.py`, mudança de escopo reservada ao
+    dono do repositório). Existe, testada, porque é o caminho correto de
+    devolução: enquanto ninguém a chamar, a devolução é a expiração por
+    `RESERVA_TTL_S`. NÃO toca `count` — chamar isto nunca pode gastar cota."""
+    with METERING_LOCK:
+        custo = max(1, int(custo or 1))
+        now = time.time() if _now is None else _now
+        u = _load(conn, user_id, section=section, _dia=_dia)
+        u["resv"] = _resv(u, now)[custo:]
+        _save(conn, user_id, u, section=section)
+        g = _load_global(conn, section=global_section, _dia=_dia)
+        g["resv"] = _resv(g, now)[custo:]
+        db.kv_set(conn, global_section, g, user_id=None)
+        return len(u["resv"])
+
+
+def reservado(conn, user_id, *, section: str = SECTION, _dia=None, _now=None) -> int:
+    """A-07: quantas unidades estão reservadas e ainda válidas. Complementa
+    `used()` (confirmado) — quem mostra "usado/limite" na tela segue usando
+    `used()`, porque reserva não é gasto."""
+    now = time.time() if _now is None else _now
+    return len(_resv(_load(conn, user_id, section=section, _dia=_dia), now))
 
 
 def snapshot(conn, user_id, quota, section: str = SECTION) -> dict:
