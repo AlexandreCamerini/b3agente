@@ -720,6 +720,54 @@ def test_auditoria_registra_a_criacao_e_a_desativacao(monkeypatch):
     assert por_novo["inativo"]["entityId"] == _SETUP_DA_IA["name"]
 
 
+def test_auditoria_que_falha_nao_derruba_escrita_ja_efetivada(monkeypatch):
+    """F-03 do `24-VERIFICATION.md`. `audit.record` roda DEPOIS de
+    `create_setup(confirm=true)` / `deactivate_setup`: quando chegamos aqui, a
+    escrita no armazém do serviço JÁ aconteceu.
+
+    Um 500 neste ponto (`database is locked` sob concorrência, disco cheio no
+    Railway) faz a pessoa acreditar que a gravação falhou e tentar de novo — e
+    o armazém é SEM DONO (ADR-027, Decisão 7), então a retentativa deixa dois
+    setups iguais para TODA a base. Perder uma linha de auditoria é ruim;
+    duplicar registro no armazém compartilhado é pior, e é o que o `try`
+    evita. Mesmo padrão já aplicado ao `ai_activity.registrar_uso` neste
+    arquivo ("contabilidade nunca derruba a rota").
+    """
+    from app import audit
+
+    c, _ = _client(monkeypatch)
+    p = _registra(c)
+    _espiao(monkeypatch)
+    _ia_proibida(monkeypatch)
+
+    def _quebra(*a, **k):
+        raise RuntimeError("database is locked")
+
+    monkeypatch.setattr(audit, "record", _quebra)
+    eventos = []
+    monkeypatch.setattr(obslog, "log", lambda *a, **k: eventos.append((a, k)))
+
+    visto = dict(_SETUP_DA_IA, description=_DESCRICAO, ticker="PETR4")
+    r = c.post("/api/options/mcp/setups/confirmar", headers=_auth(p["token"]),
+               json={"setup": visto})
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "ativo", (
+        "a escrita externa aconteceu; reportá-la como falha convida à "
+        "retentativa, que duplica o setup no armazém sem dono")
+
+    d = c.post(f"/api/options/mcp/setups/{_SETUP_DA_IA['name']}/desativar",
+               headers=_auth(p["token"]))
+    assert d.status_code == 200, d.text
+    assert d.json()["status"] == "inativo"
+
+    # Silêncio REGISTRADO, não silêncio: a falha de contabilidade tem de
+    # aparecer no obslog, senão ninguém sabe que a trilha ficou com buraco.
+    warns = [(a, k) for a, k in eventos if k.get("level") == "warn"
+             and any("auditoria" in str(x) for x in a)]
+    assert len(warns) == 2, f"a falha de auditoria não foi registrada: {eventos}"
+    assert all(k.get("erro") == "RuntimeError" for _a, k in warns), warns
+
+
 # ═══════════════════════════════════════════════════ 5. os três tetos ═════
 def test_cota_da_aba_cheia_recusa_antes_de_qualquer_rede(monkeypatch):
     """`mcp_cota` é o teto de CHAMADAS da aba — e o texto dele não fala de

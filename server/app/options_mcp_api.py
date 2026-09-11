@@ -1900,6 +1900,31 @@ def _erro_de_setup_desconhecido(e: mcp_client.McpErroDeTool) -> HTTPException:
     })
 
 
+def _audita(uid: str, nome: str, antes, depois, *, rota: str) -> None:
+    """Grava a auditoria da escrita de setup SEM poder derrubar a rota (F-03).
+
+    **A assimetria com o resto do arquivo é deliberada, e a razão é a ordem
+    dos fatos:** quando esta função roda, a escrita no armazém do serviço JÁ
+    aconteceu. Derrubar a resposta por falha de CONTABILIDADE (`database is
+    locked` sob concorrência, disco cheio no Railway) faria a pessoa acreditar
+    que o setup não foi criado e tentar de novo — e o armazém é SEM DONO
+    (ADR-027, Decisão 7), então a retentativa deixa dois setups iguais para
+    toda a base. Perder uma linha de auditoria é ruim; duplicar registro no
+    armazém compartilhado é pior.
+
+    Silêncio REGISTRADO, não silêncio: a falha vai ao obslog com `level="warn"`
+    — mesmo padrão do `ai_activity.registrar_uso` em `/setups/compilar`
+    ("contabilidade nunca derruba a rota"). Sem o registro, ninguém saberia
+    que a trilha ficou com buraco.
+    """
+    try:
+        audit.record(_conn, uid, ENTIDADE_AUDITORIA, nome, "status", antes, depois)
+    except Exception as e:  # noqa: BLE001 — contabilidade nunca derruba a rota
+        obslog.log("mcp", "auditoria do setup falhou", level="warn", rota=rota,
+                   uid=uid, setup=nome, estado=depois,
+                   erro=type(e).__name__, detalhe=str(e))
+
+
 def _erro_de_ia(e: Exception, *, rota: str, uid: str, ticker: str) -> HTTPException:
     """Falha de TRANSPORTE da LLM → 503 acionável (F-02 do 24-VERIFICATION).
 
@@ -2118,7 +2143,7 @@ async def setup_confirmar(body: dict = Body(default={}),
         # (ADR-027, Decisão 7), então quem gravou é a única resposta possível
         # para "de onde veio este setup". Antes do sucesso registraria uma
         # gravação que não aconteceu.
-        audit.record(_conn, uid, ENTIDADE_AUDITORIA, gravado, "status", None, estado)
+        _audita(uid, gravado, None, estado, rota=rota)
 
         obslog.log("mcp", "confirmar", rota=rota, uid=uid, setup=gravado, cache=cache)
 
@@ -2172,7 +2197,7 @@ async def setup_desativar(name: str,
         # Mesma regra de `/setups/confirmar`: a auditoria e a resposta leem a
         # MESMA variável, vinda do serviço.
         estado = str(dados.get("status") or "inativo")
-        audit.record(_conn, uid, ENTIDADE_AUDITORIA, alvo, "status", "ativo", estado)
+        _audita(uid, alvo, "ativo", estado, rota=rota)
 
         obslog.log("mcp", "desativar", rota=rota, uid=uid, setup=alvo, cache=cache)
 
