@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Opções v2
 status: executing
-stopped_at: Fase 24, plano 02 concluído (front da Fase 3 — PayoffChart + seções Analisar e Possibilidades); suíte canônica verde (2379 passed, 5 skipped; 128 arquivos .mjs) e `vite build` verde; nada empurrado a origin; 24-03 é o próximo
-last_updated: "2026-09-11T20:24:56.318Z"
-last_activity: "2026-09-11 — 24-02 executado na árvore principal (sem worktree): `PayoffChart` novo (curva em preço do objeto, ilimitado declarado e nunca fechado), seções Analisar e Possibilidades sob demanda com o custo em chamadas ANTES do clique, quatro rotas nos DOIS stores e 28 chaves de copy nas duas vozes. Guardião novo (`test_opcoes_analisar_ui.mjs`, 120 asserções) com as três regex de defeito provadas por injeção. Pendente de verificação: nada foi exercitado AO VIVO (`MCP_CLIENT_SECRET` fora do ambiente) nem no APARELHO (rolagem da tabela em 375 px, `select`/`input number` no WKWebView, contraste das duas cores de P&L)."
+stopped_at: Fase 24, plano 03 concluído (backend da Fase 5 — criar setup por descrição em português: compilar/confirmar/desativar, com permissão real, `system` montado em runtime do contrato vivo e auditoria); suíte canônica verde (2407 passed, 5 skipped; 128 arquivos .mjs, exit 0); nada empurrado a origin; 24-04 (front da Fase 5) é o próximo
+last_updated: "2026-09-11T20:51:05.936Z"
+last_activity: "2026-09-11 — 24-03 executado na árvore principal (sem worktree): três rotas de ESCRITA de setup (`/setups/compilar`, `/setups/confirmar`, `/setups/{name}/desativar`) atrás de `opcoes.criar_setup`, com o `system` do compilador montado em RUNTIME do `inputSchema` de `create_setup` + o resource `mydata://tools/create_setup` (zero vocabulário de DSL dentro do Boris, ENG-06), `description` restaurada com as palavras da pessoa, frescor que bloqueia criar e não bloqueia desativar, os dois 402 do gate de análise com texto próprio da aba e auditoria `opcoes_setup`. 27 testes novos em `test_opcoes_dsl.py`, com duas provas de não-vacuidade (403 e cap) feitas e revertidas. Pendente de verificação: nada foi exercitado AO VIVO (`MCP_CLIENT_SECRET` fora do ambiente) e NENHUMA chamada de LLM real foi feita — que um modelo devolva JSON compilável a partir do `system` montado é a primeira coisa a exercitar quando houver credencial."
 progress:
   total_phases: 8
   completed_phases: 5
   total_plans: 28
-  completed_plans: 25
+  completed_plans: 26
   percent: 63
 ---
 
@@ -26,10 +26,12 @@ See: .planning/PROJECT.md (updated 2026-09-06)
 ## Current Position
 
 Phase: 24 (Aba Opções sobre MCP — análise e criação de setups) — EXECUTING
-Plan: 3 of 5
+Plan: 4 of 5
 Status: Ready to execute
-Progress: [█████████░] 89%
-Last activity: 2026-09-11 — 24-02 executado na árvore principal (sem worktree): `PayoffChart` novo (curva em preço do objeto, ilimitado declarado e nunca fechado), seções Analisar e Possibilidades sob demanda com o custo em chamadas ANTES do clique, quatro rotas nos DOIS stores e 28 chaves de copy nas duas vozes. Guardião novo (`test_opcoes_analisar_ui.mjs`, 120 asserções) com as três regex de defeito provadas por injeção. Pendente de verificação: nada foi exercitado AO VIVO (`MCP_CLIENT_SECRET` fora do ambiente) nem no APARELHO (rolagem da tabela em 375 px, `select`/`input number` no WKWebView, contraste das duas cores de P&L).
+Progress: [█████████░] 93%
+Last activity: 2026-09-11 — 24-03 executado na árvore principal (sem worktree): três rotas de ESCRITA de setup (`/setups/compilar`, `/setups/confirmar`, `/setups/{name}/desativar`) atrás de `opcoes.criar_setup`, com o `system` do compilador montado em RUNTIME do `inputSchema` de `create_setup` + o resource `mydata://tools/create_setup` (zero vocabulário de DSL dentro do Boris, ENG-06), `description` restaurada com as palavras da pessoa, frescor que bloqueia criar e não bloqueia desativar, os dois 402 do gate de análise com texto próprio da aba e auditoria `opcoes_setup`. 27 testes novos em `test_opcoes_dsl.py`, com duas provas de não-vacuidade (403 e cap) feitas e revertidas. Pendente de verificação: nada foi exercitado AO VIVO (`MCP_CLIENT_SECRET` fora do ambiente) e NENHUMA chamada de LLM real foi feita — que um modelo devolva JSON compilável a partir do `system` montado é a primeira coisa a exercitar quando houver credencial.
+
+Anterior (2026-09-11) — 24-02: front da Fase 3 (`PayoffChart`, seções Analisar e Possibilidades sob demanda com o custo em chamadas ANTES do clique, quatro rotas nos DOIS stores, 28 chaves de copy nas duas vozes). Nada exercitado ao vivo nem no aparelho.
 
 Anterior (2026-09-11) — 24-01: `/cadeia`, `/operaveis`, `POST /proposta` e `POST /possibilidades` escritos, com reserva de cap em duas etapas e conversão por lote fechada no backend.
 
@@ -69,6 +71,7 @@ RESSALVA HONESTA: a verificação foi estática (suíte + build). As quatro corr
 | 23 | 4 | - | - |
 | 24 P01 | 32min | 3 tasks | 4 files |
 | 24 P02 | 28min | 4 tasks | 7 files |
+| 24 P03 | 25min | 3 tasks | 7 files |
 
 **Recent Trend:**
 
@@ -108,6 +111,10 @@ Recent decisions affecting current work:
 - [Phase 24]: 24-01: conversao por lote fica no backend; breakeven nunca entra em emReais (e preco do objeto, nao dinheiro)
 - [Phase 24]: 24-02: o eixo X do payoff e mapeado por PRECO, nao por indice
 - [Phase 24]: 24-02: a curva so se estende alem do ultimo strike quando o servico declarou os DOIS lados limitados
+- [Phase 24]: 24-03: o system do compilador se monta em RUNTIME do inputSchema vivo — nenhum vocabulario de DSL dentro do Boris (ENG-06 aplicado a prompt)
+- [Phase 24]: 24-03: description do setup e sempre a palavra da pessoa; a parafrase da IA e descartada antes de gravar
+- [Phase 24]: 24-03: frescor bloqueia CRIAR setup e nao bloqueia DESATIVAR — assimetria deliberada, travada por teste
+- [Phase 24]: 24-03: rota de escrita sem a fiacao de permissao responde 503, nunca 200 permissivo
 
 ### Roadmap Evolution
 
