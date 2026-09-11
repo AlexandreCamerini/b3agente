@@ -2335,7 +2335,19 @@ async def buy_option(body: dict = Body(default={}), scope: Optional[str] = Depen
     o próprio sistema classificou como não confiável."""
     underlying = _normalize_ticker(str(body.get("underlying") or ""))
     contract_symbol = str(body.get("contractSymbol") or "")
-    qty = int(body.get("qty") or 0)
+    # A-00b (auditoria de 2026-09-10), resto de escopo: o antigo
+    # `int(body.get("qty") or 0)` barrava negativo e zero pelo `qty <= 0` logo
+    # abaixo, mas `qty="abc"` levantava `ValueError` sem tratamento e virava
+    # 500 com o texto cru da exceção no corpo — o mesmo vazamento que a quick
+    # 260910-mqs fechou em `/api/buy` e que `/api/sell` já tratava desde
+    # F10-20260819. Aqui NÃO existe o caso "ausente = lote mínimo" de
+    # `/api/buy`: nesta rota `qty` ausente sempre foi rejeição (cai no `or 0`
+    # e morre no `qty <= 0`), então o não numérico cai na MESMA mensagem de
+    # 400 que já existia, sem caminho novo nem string nova.
+    try:
+        qty = int(body.get("qty") or 0)
+    except (TypeError, ValueError):
+        qty = 0
     if len(underlying) < 4 or not contract_symbol or qty <= 0:
         raise HTTPException(400, "Contrato de opção inválido.")
     chain = await options_provider.get_options(underlying, body.get("expiration"))
@@ -2382,7 +2394,19 @@ async def sell_option(body: dict = Body(default={}), scope: Optional[str] = Depe
     if not isinstance(price, (int, float)):
         raise HTTPException(502, "Sem prêmio disponível para este contrato.")
     _qty = body.get("qty")
-    store.sell_option(_conn, contract_symbol, price, user_id=scope, qty=int(_qty) if _qty else None, motivo="manual")
+    pnl = store.sell_option(_conn, contract_symbol, price, user_id=scope, qty=int(_qty) if _qty else None, motivo="manual")
+    if pnl is None:
+        # A-09 (auditoria de 2026-09-10): `store.sell_option` devolve `None`
+        # quando não acha a posição, e a leitura de `pos` lá em cima acontece
+        # ANTES do `await` da cadeia de opções — um vencimento liquidado pelo
+        # scheduler ou uma venda por outro caminho no intervalo zera a posição
+        # e esta rota devolvia **200 com `priceUsed`** para uma venda que não
+        # aconteceu. Espelha o 400 que `/api/sell` levanta quando `store.sell`
+        # devolve `None` (a rota de ação chama esse caso de "única exceção
+        # silenciosa" — opções tinha ficado de fora). Mensagem reusada da
+        # pré-checagem desta mesma rota: o motivo é idêntico (sem posição), só
+        # muda o instante em que se descobre.
+        raise HTTPException(400, "Sem posição em " + contract_symbol)
     out = store.public_state(_conn, user_id=scope)
     out["priceUsed"] = round(price, 2)
     return out

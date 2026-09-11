@@ -1,8 +1,8 @@
 // Fase 3, Task 1 (C-20/REPORT-01): guardião GENÉRICO exaustivo de paridade
 // `deviceStore()` × `serverStore()` (`web/src/persistence.js`).
 //
-// Por que existe: hoje os dois stores são simétricos (58 métodos de cada
-// lado, 0 assimetrias de nome), mas 28 dos 58 não têm NENHUMA referência em
+// Por que existe: hoje os dois stores são simétricos (70 métodos de cada
+// lado, 0 assimetrias de nome), mas 24 dos 70 não têm NENHUMA referência em
 // teste — a paridade depende do autor lembrar de escrever um teste pontual
 // (`test_deep_parity.mjs`, `test_didatica_parity.mjs`, ...). Os dois
 // incidentes reais que essa lacuna já causou:
@@ -11,6 +11,22 @@
 //   2. `initialBudget` sem sync device→servidor — campo lido no servidor,
 //      escrito só localmente no aparelho (F10-20260809-05).
 // Este guardião COMPLEMENTA os pontuais acima — nenhum deles é removido.
+//
+// O QUE ESTE GUARDIÃO NÃO COBRE (achado A-14 da auditoria de 2026-09-10; o
+// comentário acima dizia "58 métodos", número de outra época, corrigido para
+// 70 em 2026-09-11 — conferido contra a saída da assertiva (a), que imprime a
+// contagem):
+// ele prova paridade de NOME, não de COMPORTAMENTO. Os dois stores podem ter
+// o mesmo método dos dois lados e fazer coisas diferentes — que é exatamente
+// a forma dos dois incidentes citados acima (o método EXISTIA no deviceStore;
+// ele só não sincronizava). Sem teste pontual de comportamento, e escrevendo
+// estado, estão hoje:
+//     putSkill, putProfile, putSnapshot, putLlmPrompts,
+//     optionsBuy, optionsSell, restoreSkill
+// (verificado em 2026-09-11: zero referência em `web/tests/*.mjs` fora deste
+// arquivo). É a MESMA classe de método dos dois incidentes. Escrever esses
+// testes é escopo próprio, não deste guardião; este comentário é o rastro
+// honesto até lá — se alguém cobrir um deles, tire-o da lista.
 // Roda sem build: `node web/tests/test_fase3_paridade_stores_generica.mjs`.
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";

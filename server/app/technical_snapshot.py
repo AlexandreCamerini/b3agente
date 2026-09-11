@@ -29,7 +29,11 @@ from typing import Optional
 from . import candle_cache, indicators, setups, technical_models
 from . import candles as candles_mod
 
-_SNAP_CACHE: dict = {}  # (ticker, period) -> snapshot (validado por fingerprint)
+# A-16 (auditoria de 2026-09-10): o comentário dizia `(ticker, period)` — par,
+# o shape de ANTES do ADR-001. A chave é TRIPLA desde então (o `interval` entrou
+# porque diário e intraday disputavam a mesma entrada; ver a montagem real em
+# `get_or_build`). O código estava certo, o comentário mentia.
+_SNAP_CACHE: dict = {}  # (ticker, period, interval) -> snapshot (validado por fingerprint)
 
 
 def reset():

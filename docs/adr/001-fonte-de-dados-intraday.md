@@ -348,9 +348,13 @@ continua valendo para os dois modos.
 1. [x] ~~Validar a Decisão 2 com a medição de atraso~~ — FEITO em 31/07:
        15,0 min constantes. `15m` confirmado; a regra do "dobro do atraso" foi
        corrigida (engrossar a barra piorava a informação).
-1c.[ ] **Carimbo da barra na interface** — toda afirmação de timing mostra a
-       barra e o horário de fechamento dela. Sem isso a frase insinua tempo
-       real e vira falsa. Requisito da Decisão 2.
+1c.[x] ~~**Carimbo da barra na interface**~~ — FEITO: `TimingBadge`
+       (`web/src/App.jsx`) exibe a hora da barra 15m FECHADA (`asOf`) junto de
+       toda afirmação de timing, e troca a frase para "última barra X" quando a
+       barra é de outro dia. Checkbox fechado em 2026-09-11 pelo achado A-16 da
+       auditoria de 2026-09-10, que encontrou o item marcado como pendente com o
+       código já no ar — era o checkbox que estava atrasado, não a entrega.
+       Requisito da Decisão 2.
 1d.[x] ~~Detectar lacuna na série intraday~~ — FEITO: `candles.detectar_lacunas`
        (início tardio, buracos no meio, cobertura), ligado ao `dataQuality` do
        STU. Série furada derruba `tetoConfianca` para "baixa". Validado contra a

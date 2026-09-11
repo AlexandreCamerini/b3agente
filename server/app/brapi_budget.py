@@ -22,9 +22,23 @@ local é a previsão — `snapshot()` expõe os dois para reconciliação a olho
 """
 import json
 import os
+import threading
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Optional
+
+# A-11 (auditoria de 2026-09-10): trava dedicada para o read-modify-write de
+# `_estado` — PORTADA do módulo irmão `mydata_budget.py`, que fechou esta
+# mesma classe de bug no WR-01 (09-REVIEW.md). Aqui a correção é DEFESA EM
+# PROFUNDIDADE, não conserto de defeito ativo: a verificação adversarial da
+# auditoria rodou 50 chamadas concorrentes contra o contador sem UMA
+# corrupção, porque nenhum call site real tem ponto de espera entre a
+# checagem e o débito — só quebra com pausa artificial que o código não tem.
+# O que se corrige é a ASSIMETRIA entre os dois módulos de orçamento: com um
+# irmão travado e o outro não, o próximo refactor que introduzir um await no
+# meio reintroduz o problema sem ninguém notar. RLock porque `reservar()`
+# chama `pode_gastar()`/`debita()` por dentro da própria trava.
+BRAPI_BUDGET_LOCK = threading.RLock()
 
 BRT = timezone(timedelta(hours=-3))
 PREGOES_MES = 21
@@ -137,27 +151,58 @@ def _persiste() -> None:
 
 # -- API --------------------------------------------------------------------
 def pode_gastar(fatia: str, now: Optional[datetime] = None) -> bool:
-    """True se a chamada à brapi está autorizada agora, para esta fatia."""
-    if not em_pregao(now):
-        return False
-    _carrega(_hoje(now))
-    if _estado["total"] >= teto_dia():          # hard stop do dia
-        return False
-    gasto = _estado["fatias"].get(fatia, 0)
-    if gasto < fatia_limite(fatia):
-        return True
-    # fatia cheia: consome da reserva enquanto houver
-    reserva_gasta = _estado["fatias"].get("reserva", 0)
-    return reserva_gasta < _reserva_limite()
+    """True se a chamada à brapi está autorizada agora, para esta fatia.
+
+    Checagem PURA: não debita. Continua existindo (em vez de ser absorvida por
+    `reservar()`) porque há call site que precisa saber se há cota SEM
+    consumi-la — ver a nota em `reservar()`."""
+    with BRAPI_BUDGET_LOCK:
+        if not em_pregao(now):
+            return False
+        _carrega(_hoje(now))
+        if _estado["total"] >= teto_dia():          # hard stop do dia
+            return False
+        gasto = _estado["fatias"].get(fatia, 0)
+        if gasto < fatia_limite(fatia):
+            return True
+        # fatia cheia: consome da reserva enquanto houver
+        reserva_gasta = _estado["fatias"].get("reserva", 0)
+        return reserva_gasta < _reserva_limite()
 
 
 def debita(fatia: str, n: int = 1, now: Optional[datetime] = None) -> None:
-    _carrega(_hoje(now))
-    gasto = _estado["fatias"].get(fatia, 0)
-    alvo = fatia if gasto < fatia_limite(fatia) else "reserva"
-    _estado["fatias"][alvo] = _estado["fatias"].get(alvo, 0) + n
-    _estado["total"] += n
-    _persiste()
+    with BRAPI_BUDGET_LOCK:
+        _carrega(_hoje(now))
+        gasto = _estado["fatias"].get(fatia, 0)
+        alvo = fatia if gasto < fatia_limite(fatia) else "reserva"
+        _estado["fatias"][alvo] = _estado["fatias"].get(alvo, 0) + n
+        _estado["total"] += n
+        _persiste()
+
+
+def reservar(fatia: str, n: int = 1, now: Optional[datetime] = None) -> bool:
+    """A-11: check+debit ATÔMICO — mesma API de `mydata_budget.reservar()`,
+    acrescida do nome da fatia (este módulo divide spot/delta/fundamentos; o
+    irmão tem uma cota só). Sob a MESMA trava reentrante, reavalia
+    `pode_gastar(fatia)` e só debita se ainda houver vaga; NUNCA debita quando
+    devolve False. O chamador trata `False` exatamente como já tratava
+    `pode_gastar()` = False — mesma mensagem, mesmo caminho de backup.
+
+    NÃO é para todo lugar. `candle_provider._gate()` checa DE PROPÓSITO sem
+    debitar, porque o resultado dele é uma decisão de roteamento da cadeia de
+    provedores: quando o elo recusado por orçamento é o ÚLTIMO da cadeia, a
+    fronteira serve a requisição MESMO ASSIM, sem debitar (proteção de cota
+    não pode virar "sem dado" quando não existe alternativa). `reservar()` não
+    expressa isso — ou debita, ou recusa. Essa é a mesma razão pela qual o
+    WR-01 deixou `_gate()` fora de `mydata_budget.reservar()`, documentada
+    lá; aqui vale idêntico. Use `reservar()` onde o par
+    `pode_gastar`+`debita` é adjacente e o débito é certo (as duas fatias de
+    spot)."""
+    with BRAPI_BUDGET_LOCK:
+        if not pode_gastar(fatia, now=now):
+            return False
+        debita(fatia, n=n, now=now)
+        return True
 
 
 def degradado(fatia: str, now: Optional[datetime] = None) -> bool:
