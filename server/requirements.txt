@@ -3,9 +3,25 @@ starlette==1.6.0
 pydantic==2.13.5
 uvicorn[standard]==0.52.4
 httpx>=0.27
-# ADR-027 (aba-opcoes F1): SDK do serviço MCP autenticado. Traz httpx2,
-# mcp_types e python-multipart como transitivos — sem linha própria.
-mcp>=2.1,<3
+# ADR-027 (aba-opcoes F1): SDK do serviço MCP autenticado.
+#
+# PIN EXATO desde 2026-09-10 (achado A-04 da auditoria). Era `mcp>=2.1,<3`, e
+# a faixa fazia o build do Railway resolver a versão NA DATA DO DEPLOY: a
+# produção podia rodar um SDK que a suíte nunca exercitou. Isso não é
+# hipotético neste módulo — `mcp_client.py` depende da FORMA do SDK em três
+# pontos (tupla de DOIS fluxos no transporte, `snake_case` na resposta,
+# `CONNECTION_CLOSED`/`INTERNAL_ERROR` em `mcp.types`), e mudança de forma cai
+# no `except Exception` e sai como "o serviço não respondeu".
+#
+# `httpx2` GANHOU linha própria: o SDK só exige `httpx2>=2.5.0`, então ele
+# entrava como transitivo flutuante — o segundo stack HTTP do processo, e o que
+# de fato fala com o serviço, decidido pela data do deploy.
+#
+# `mcp-types` NÃO ganha linha: `mcp==2.2.0` já o exige como `mcp-types==2.2.0`
+# (pin `==` dentro dos metadados do próprio SDK, conferido na venv em
+# 2026-09-10), então declarar de novo não prende nada que já não esteja preso.
+mcp==2.2.0
+httpx2==2.12.0
 # dev/test
 pytest>=8.0
 # FASE 2: validação de ID token Apple/Google (login social). Opcional —

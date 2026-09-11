@@ -53,6 +53,7 @@ from __future__ import annotations
 import ast
 import inspect
 import pathlib
+import re
 
 import pytest
 
@@ -211,34 +212,68 @@ def test_guardiao_b_mcp_esta_nos_requirements_e_igual_nos_dois():
     passou a ser dependência nominal do contrato do serviço. O que este
     guardião protege AGORA é a divergência entre os dois arquivos: produção
     resolvendo uma faixa diferente da que a suíte exercitou é o modo
-    silencioso de o build publicado não ser o que foi verificado."""
-    server_dir = _APP_DIR.parent
-    encontradas = {}
-    for nome_arquivo in ("requirements.txt", "requirements-prod.txt"):
-        conteudo = (server_dir / nome_arquivo).read_text(encoding="utf-8")
-        linhas_mcp = [
-            linha.strip() for linha in conteudo.splitlines()
-            if linha.strip() and not linha.strip().startswith("#")
-            and linha.strip().lower().startswith("mcp")
-        ]
-        assert len(linhas_mcp) == 1, (
-            f"{nome_arquivo} deveria declarar EXATAMENTE uma linha de `mcp`, "
-            f"tem {len(linhas_mcp)}: {linhas_mcp} — o ADR-027 exige a "
-            f"dependência declarada uma vez só, sem linha duplicada com "
-            f"faixa diferente.")
-        encontradas[nome_arquivo] = linhas_mcp[0]
+    silencioso de o build publicado não ser o que foi verificado.
 
-    dev = encontradas["requirements.txt"]
-    prod = encontradas["requirements-prod.txt"]
-    assert dev == prod, (
-        f"a linha do `mcp` diverge entre os requirements: {dev!r} (dev/test) "
-        f"× {prod!r} (prod) — produção resolveria uma versão do SDK que a "
-        f"suíte nunca exercitou.")
-    assert ">=2.1" in dev and "<3" in dev, (
-        f"a faixa do `mcp` deixou de ser `>=2.1,<3` ({dev!r}) — `>=2.1` é o "
-        f"piso que o contrato do serviço nomeia (streamable-http com tupla de "
-        f"DOIS fluxos e resposta em snake_case); `<3` trava a próxima major, "
-        f"que pode mudar a forma da resposta sem aviso.")
+    APERTADO em 2026-09-10 (achado A-04 da auditoria). A régua era textual
+    (`">=2.1" in linha and "<3" in linha`) e por isso EXIGIA a faixa, o que
+    reprovava o pin exato — a correção certa do achado. A propriedade que
+    importa não mudou (o SDK que produção resolve tem de estar na faixa que o
+    contrato nomeia); o que mudou é que ela agora é verificada sobre a VERSÃO,
+    e o guardião passou a exigir `==` em vez de tolerar faixa: faixa significa
+    "o Railway escolhe no dia do deploy", que é o defeito do A-04. Isto NÃO é
+    afrouxamento — `==2.2.0` satisfaz `>=2.1,<3` e mais; é o oposto.
+    `httpx2` entrou no guardião porque é o stack HTTP que de fato fala com o
+    serviço e entrava como transitivo flutuante (`mcp` só pede `>=2.5.0`).
+    """
+    server_dir = _APP_DIR.parent
+
+    def _linha(conteudo: str, pacote: str) -> list:
+        """Linhas de requisito do PACOTE, por nome exato — `mcp` não casa
+        `mcp-types`, e `httpx2` não casa `httpx`."""
+        achadas = []
+        for bruta in conteudo.splitlines():
+            linha = bruta.strip()
+            if not linha or linha.startswith("#"):
+                continue
+            nome = re.split(r"[=<>!~\[; ]", linha, maxsplit=1)[0].strip().lower()
+            if nome == pacote:
+                achadas.append(linha)
+        return achadas
+
+    for pacote, piso in (("mcp", (2, 1)), ("httpx2", (2, 5))):
+        encontradas = {}
+        for nome_arquivo in ("requirements.txt", "requirements-prod.txt"):
+            conteudo = (server_dir / nome_arquivo).read_text(encoding="utf-8")
+            linhas = _linha(conteudo, pacote)
+            assert len(linhas) == 1, (
+                f"{nome_arquivo} deveria declarar EXATAMENTE uma linha de "
+                f"`{pacote}`, tem {len(linhas)}: {linhas} — o ADR-027 exige a "
+                f"dependência declarada uma vez só, sem linha duplicada com "
+                f"versão diferente.")
+            encontradas[nome_arquivo] = linhas[0]
+
+        dev = encontradas["requirements.txt"]
+        prod = encontradas["requirements-prod.txt"]
+        assert dev == prod, (
+            f"a linha do `{pacote}` diverge entre os requirements: {dev!r} "
+            f"(dev/test) × {prod!r} (prod) — produção resolveria uma versão "
+            f"que a suíte nunca exercitou.")
+        assert dev.lower().startswith(f"{pacote}=="), (
+            f"`{pacote}` voltou a ser faixa em vez de pin exato ({dev!r}) — "
+            f"faixa quer dizer 'o build do Railway escolhe a versão na data do "
+            f"deploy', que é exatamente o achado A-04 da auditoria de "
+            f"2026-09-10. Mudança de API do SDK cai no `except Exception` do "
+            f"`mcp_client` e chega ao usuário como 'o serviço não respondeu'. "
+            f"Para SUBIR a versão, pin novo nos dois arquivos + suíte verde.")
+        versao = dev.split("==", 1)[1].strip()
+        partes = tuple(int(p) for p in versao.split(".")[:2] if p.isdigit())
+        assert len(partes) == 2 and piso <= partes < (piso[0] + 1, 0), (
+            f"`{pacote}=={versao}` saiu da faixa que o contrato do serviço "
+            f"nomeia (>= {piso[0]}.{piso[1]}, < {piso[0] + 1}): o piso é a "
+            f"forma que o `mcp_client` assume (transporte streamable-http com "
+            f"tupla de DOIS fluxos, resposta em snake_case) e o teto trava a "
+            f"próxima major, que pode mudar essa forma sem aviso. Subir de "
+            f"major é decisão do Alex, não ajuste de pin.")
 
 
 # ─────────────────────────────────────────────────────────────────────────

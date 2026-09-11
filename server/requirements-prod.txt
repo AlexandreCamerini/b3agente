@@ -9,8 +9,18 @@ starlette==1.6.0
 pydantic==2.13.5
 uvicorn[standard]==0.52.4
 httpx>=0.27
-# ADR-027 (aba-opcoes F1): SDK do serviço MCP autenticado. Traz httpx2,
-# mcp_types e python-multipart como transitivos — sem linha própria.
-mcp>=2.1,<3
+# ADR-027 (aba-opcoes F1): SDK do serviço MCP autenticado.
+#
+# PIN EXATO desde 2026-09-10 (achado A-04 da auditoria). A linha TEM de ser
+# idêntica à do `requirements.txt` — é o que o guardião
+# `test_guardiao_b_mcp_esta_nos_requirements_e_igual_nos_dois` protege: faixa
+# diferente entre os dois arquivos é o modo silencioso de produção resolver um
+# SDK que a suíte nunca exercitou.
+#
+# `httpx2` ganhou linha própria (o SDK só pede `>=2.5.0`) e `mcp-types` NÃO
+# ganha: `mcp==2.2.0` já o exige como `mcp-types==2.2.0` nos próprios
+# metadados. Ver a nota longa no `requirements.txt`.
+mcp==2.2.0
+httpx2==2.12.0
 PyJWT[crypto]>=2.8
 h2>=4.1
