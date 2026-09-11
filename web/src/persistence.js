@@ -283,6 +283,15 @@ function serverStore() {
     mcpOperaveis: (t, q) => api.mcpOperaveis(t, q),
     mcpProposta: (body) => api.mcpProposta(body),
     mcpPossibilidades: (body) => api.mcpPossibilidades(body),
+    // aba-opcoes F5 (plano 24-04): as três rotas de ESCRITA de setup. Mesma
+    // delegação pura das irmãs de leitura, e aqui por uma razão a mais:
+    // criar/desativar setup mexe num armazém COMPARTILHADO e sem dono no
+    // serviço (ADR-027, Decisão 7) — reaplicar de fila offline gravaria o
+    // mesmo vigia duas vezes, do mesmo jeito que buy/sell devolveria caixa
+    // em dobro. Nunca entram em sync.mutate/outbox.
+    mcpSetupCompilar: (body) => api.mcpSetupCompilar(body),
+    mcpSetupConfirmar: (body) => api.mcpSetupConfirmar(body),
+    mcpSetupDesativar: (name) => api.mcpSetupDesativar(name),
     // 260911-k9g: carimbo do SERVIDOR ATUAL para o rodapé do Perfil —
     // diagnóstico, nunca persistido, mesma classe de delegação pura do
     // mcpStatus/optionsProposta acima.
@@ -1284,6 +1293,23 @@ function deviceStore() {
     async mcpPossibilidades(body) {
       ensure();
       return api.mcpPossibilidades(body);
+    },
+    // aba-opcoes F5 (plano 24-04): espelho das três rotas de ESCRITA de
+    // setup do serverStore, com o mesmo contrato. Escrita que mexe em
+    // armazém compartilhado NÃO entra em fila offline (ver o comentário no
+    // serverStore); `ensure()` antes da delegação aplica o serverUrl
+    // configurado no aparelho, como o resto do deviceStore.
+    async mcpSetupCompilar(body) {
+      ensure();
+      return api.mcpSetupCompilar(body);
+    },
+    async mcpSetupConfirmar(body) {
+      ensure();
+      return api.mcpSetupConfirmar(body);
+    },
+    async mcpSetupDesativar(name) {
+      ensure();
+      return api.mcpSetupDesativar(name);
     },
     // Fase 14 (Plano 05): logado, delega e adota o estado confirmado pelo
     // servidor (mesmo padrão de optionsBuy). Sem sessão, ramo local é

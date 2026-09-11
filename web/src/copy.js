@@ -121,6 +121,48 @@ export const COPY = {
     opcoesAlvoRotulo: "Preço-alvo (opcional)",
     opcoesStopRotulo: "Preço de stop (opcional)",
 
+    // aba Opções F5 (plano 24-04, 2026-09-11) — criar setup por descrição em
+    // português. O texto de MAIOR risco regulatório da aba é o do backtest:
+    // números de histórico lidos como promessa. Por isso a ressalva é a
+    // MESMA frase nos dois modos, fica FIXA junto dos números (não é
+    // tooltip) e nega as duas leituras erradas de uma vez — expectativa de
+    // retorno e taxa de acerto.
+    opcoesCriarTitulo: "CRIAR UM SETUP",
+    opcoesCriarAjuda: "Escreva a condição com as suas palavras, e escreva algo objetivo: um indicador, uma comparação e um número. A condição é avaliada UMA vez por pregão, sobre o fechamento — não durante o dia. Quem diz se o vocabulário é válido é o serviço de dados, não o app: se ele recusar, você vê o motivo dele, palavra por palavra. Mínimo de 15 caracteres.",
+    opcoesCriarPlaceholder: "Ex.: quando o IFR de 2 períodos ficar abaixo de 25 e o preço estiver acima da média de 200 pregões",
+    opcoesCriarBotao: "Ver a interpretação e o ensaio",
+    opcoesCriarConfirmar: "Gravar este setup",
+    opcoesCriarDesativar: "Desativar este setup",
+    opcoesCriarConfirmarDesativacao: "Confirmar a desativação",
+    opcoesCriarProblemas: "O serviço não aceitou este setup. O que ele apontou, item por item:",
+    opcoesCriarCru: "A IA não devolveu um setup que dê para ler, então nada foi gravado. O texto que ela respondeu, sem edição nenhuma:",
+    opcoesCriarFaltando: (campos) =>
+      "A resposta veio sem campo que o serviço exige: " +
+      (Array.isArray(campos) && campos.length ? campos.join(", ") : "—") +
+      ". Nada foi gravado — completar isso por conta seria inventar o que ninguém escreveu.",
+    opcoesCriarGravado: (nome) =>
+      "Setup " + (nome || "—") + " gravado e ativo. A partir de agora ele é avaliado uma vez por pregão, e aparece na lista acima.",
+    opcoesCriarDesativado: (nome) =>
+      "Setup " + (nome || "—") + " desativado. Ele deixa de ser avaliado; o histórico dele não é apagado.",
+    opcoesCriarSemPermissao: "Criar setup depende de uma permissão que esta conta não tem. Esconder o botão é só conveniência: o servidor recusa a gravação de qualquer forma.",
+    opcoesBacktestTitulo: "ENSAIO NO HISTÓRICO",
+    opcoesBacktestDisparos: (n, por100) =>
+      "No período coberto, esta condição ocorreu " + (n === null || n === undefined ? "—" : n) +
+      " vez(es) — " + (por100 === null || por100 === undefined ? "—" : por100) +
+      " a cada 100 pregões avaliáveis.",
+    opcoesBacktestRetorno: (passo, medio, mediano, comDado) =>
+      "Variação do ativo em " + (passo || "—") + " depois do disparo: média " +
+      (medio === null || medio === undefined ? "—" : medio) + ", mediana " +
+      (mediano === null || mediano === undefined ? "—" : mediano) + " (" +
+      (comDado === null || comDado === undefined ? "—" : comDado) + " disparo(s) com dado suficiente).",
+    opcoesBacktestRessalva: "Contagem do que já aconteceu no histórico. Não é expectativa de retorno, e taxa de disparo não é taxa de acerto.",
+    opcoesDadoAtrasado: (idade, motivo) =>
+      motivo === "nao_medido"
+        ? "Não foi possível medir a idade do dado de negociação nesta consulta, e sem essa medição o setup não é gravado — ele vigiaria um pregão que ninguém conferiu."
+        : "O dado de negociação da B3 está atrasado" +
+          (idade === null || idade === undefined || idade === "" ? "" : " (" + idade + ")") +
+          ": um setup criado agora vigiaria um pregão que já passou. Nada foi gravado.",
+
     // onboarding (home vazia) — qa/34: antes hardcodado na voz de Estudo
     welcomeTitulo: "Bem-vindo ao seu simulador",
     welcomeCorpo: "A jornada tem 3 passos: descubra oportunidades no Radar, acompanhe os melhores na Watchlist e simule operações no Portfólio — tudo com dinheiro simulado e leitura educacional.",
@@ -435,6 +477,46 @@ export const COPY = {
       "Lista cortada pelo serviço: " + (t || "sem detalhe informado."),
     opcoesAlvoRotulo: "Alvo (opcional)",
     opcoesStopRotulo: "Stop (opcional)",
+
+    // aba Opções F5 (plano 24-04, 2026-09-11) — criar setup por descrição.
+    // MESMAS chaves do ramo estudo. `opcoesBacktestRessalva` é IDÊNTICA
+    // byte a byte à do outro ramo, de propósito: ela não é tom, é o que o
+    // app AFIRMA sobre números de histórico — e isso não muda com a voz.
+    opcoesCriarTitulo: "CRIAR SETUP",
+    opcoesCriarAjuda: "Condição objetiva, nas suas palavras: indicador, comparação e número. Avaliada UMA vez por pregão, sobre o fechamento — não intradiária. Quem valida o vocabulário é o serviço de dados; a recusa dele volta verbatim. Mínimo de 15 caracteres.",
+    opcoesCriarPlaceholder: "Ex.: IFR de 2 períodos abaixo de 25 com o preço acima da média de 200 pregões",
+    opcoesCriarBotao: "Compilar e ensaiar",
+    opcoesCriarConfirmar: "Gravar setup",
+    opcoesCriarDesativar: "Desativar",
+    opcoesCriarConfirmarDesativacao: "Confirmar a desativação",
+    opcoesCriarProblemas: "Setup recusado pelo serviço. O que ele apontou, item por item:",
+    opcoesCriarCru: "A IA não devolveu um setup legível — nada foi gravado. Resposta dela, sem edição:",
+    opcoesCriarFaltando: (campos) =>
+      "Resposta sem campo obrigatório do serviço: " +
+      (Array.isArray(campos) && campos.length ? campos.join(", ") : "—") +
+      ". Nada gravado — completar por conta seria inventar o que ninguém escreveu.",
+    opcoesCriarGravado: (nome) =>
+      "Setup " + (nome || "—") + " ativo. Passa a ser avaliado uma vez por pregão e já aparece na lista acima.",
+    opcoesCriarDesativado: (nome) =>
+      "Setup " + (nome || "—") + " inativo. Deixa de ser avaliado; o histórico dele fica.",
+    opcoesCriarSemPermissao: "Criar setup exige permissão que esta conta não tem. Esconder o botão é conveniência: o servidor recusa a gravação de qualquer forma.",
+    opcoesBacktestTitulo: "ENSAIO NO HISTÓRICO",
+    opcoesBacktestDisparos: (n, por100) =>
+      "Disparos no período: " + (n === null || n === undefined ? "—" : n) + " — " +
+      (por100 === null || por100 === undefined ? "—" : por100) +
+      " a cada 100 pregões avaliáveis.",
+    opcoesBacktestRetorno: (passo, medio, mediano, comDado) =>
+      "Variação do ativo em " + (passo || "—") + " após o disparo: média " +
+      (medio === null || medio === undefined ? "—" : medio) + ", mediana " +
+      (mediano === null || mediano === undefined ? "—" : mediano) + " (" +
+      (comDado === null || comDado === undefined ? "—" : comDado) + " disparo(s) com dado suficiente).",
+    opcoesBacktestRessalva: "Contagem do que já aconteceu no histórico. Não é expectativa de retorno, e taxa de disparo não é taxa de acerto.",
+    opcoesDadoAtrasado: (idade, motivo) =>
+      motivo === "nao_medido"
+        ? "A idade do dado de negociação não foi medida nesta consulta. Sem medição, o setup não é gravado — ele vigiaria um pregão que ninguém conferiu."
+        : "Dado de negociação da B3 atrasado" +
+          (idade === null || idade === undefined || idade === "" ? "" : " (" + idade + ")") +
+          ": um setup criado agora vigiaria um pregão que já passou. Nada foi gravado.",
 
     // onboarding (home vazia) — qa/34: voz de mesa
     welcomeTitulo: "Bem-vindo à sua mesa de operações",

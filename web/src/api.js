@@ -349,6 +349,15 @@ export const api = {
   // o servidor já ter consumido o cap — a pessoa pagaria a cota e não veria
   // o resultado.
   mcpPossibilidades: (body) => req("POST", "/api/options/mcp/possibilidades", body, 60000),
+  // aba-opcoes F5 (planos 24-03/24-04) — as três rotas de ESCRITA de setup.
+  // `compilar` é a ÚNICA da aba que chama LLM (descrição em português →
+  // setup declarativo), e por isso é a única com `TIMEOUT_LLM`: com os 30 s
+  // das irmãs, o cliente desistiria DEPOIS de o servidor já ter gasto a
+  // chamada de modelo e as duas do cap — a pessoa pagaria e não veria o
+  // ensaio. Confirmar e desativar não chamam modelo nenhum: 30 s.
+  mcpSetupCompilar: (body) => req("POST", "/api/options/mcp/setups/compilar", body, TIMEOUT_LLM),
+  mcpSetupConfirmar: (body) => req("POST", "/api/options/mcp/setups/confirmar", body, 30000),
+  mcpSetupDesativar: (name) => req("POST", "/api/options/mcp/setups/" + encodeURIComponent(name) + "/desativar", {}, 30000),
   // FASE 8B (260911-k9g): carimbo de build do SERVIDOR JÁ CONFIGURADO
   // (runtimeBase) — diferente de testServer(url) acima, que valida um
   // ENDEREÇO DIGITADO antes de aplicá-lo. Usado só para exibir no rodapé do

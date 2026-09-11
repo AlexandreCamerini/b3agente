@@ -1,8 +1,8 @@
 /**
  * useOpcoesMcp.js — aba-opcoes F2 (ADR-027, quick 260910-biz, 2026-09-10).
  *
- * Estado das chamadas ao serviço MCP para a aba Opções. Três trios
- * `dados / carregando / erro`, um por chamada.
+ * Estado das chamadas ao serviço MCP para a aba Opções. Um trio
+ * `dados / carregando / erro` por chamada (3 na F2, +4 na F3, +1 na F5).
  *
  * O `store` chega por ARGUMENTO, nunca por import de `persistence.js`: é o
  * que mantém o hook testável e o que evita acoplar a tela ao módulo de
@@ -75,12 +75,24 @@ export function useOpcoesMcp(store, ticker) {
   // abrir um segundo setup não descartar a leitura ainda em voo.
   const tickerRef = useRef(0);
   const graficoRef = useRef(0);
+  // F5: contador PRÓPRIO da leitura. `recarregarLeitura()` (chamada depois de
+  // gravar ou desativar um setup) não é troca de ativo — se ela bumpasse
+  // `tickerRef`, invalidaria as chamadas sob demanda em voo, inclusive a que
+  // acabou de pedir a recarga. Com um contador só da leitura, as duas
+  // disciplinas convivem: `tickerRef` diz DE QUAL ATIVO é a resposta,
+  // `leituraRef` diz QUAL das leituras daquele ativo é a mais recente.
+  const leituraRef = useRef(0);
 
   // F3: os quatro trios sob demanda. Ordem fixa de chamada (regra dos hooks).
   const [cadeia, dispararCadeia, limparCadeia] = useChamadaSobDemanda(tickerRef);
   const [operaveis, dispararOperaveis, limparOperaveis] = useChamadaSobDemanda(tickerRef);
   const [proposta, dispararProposta, limparProposta] = useChamadaSobDemanda(tickerRef);
   const [possibilidades, dispararPossibilidades, limparPossibilidades] = useChamadaSobDemanda(tickerRef);
+  // F5: o trio da criação de setup. Um só para as TRÊS ações (compilar,
+  // confirmar, desativar) porque as três são a mesma conversa: a resposta de
+  // uma substitui a da anterior na tela, e `status` (`dry_run`/`ativo`/
+  // `inativo`) diz qual delas respondeu.
+  const [setupNovo, dispararSetup, limparSetup] = useChamadaSobDemanda(tickerRef);
 
   useEffect(() => {
     if (!store || typeof store.mcpStatus !== "function") { setStatus(VAZIO); return undefined; }
@@ -104,17 +116,41 @@ export function useOpcoesMcp(store, ticker) {
     limparOperaveis();
     limparProposta();
     limparPossibilidades();
+    limparSetup();
 
     if (!t || !store || typeof store.mcpLeitura !== "function") {
       setLeitura(VAZIO);
       return undefined;
     }
+    const minha = ++leituraRef.current;
     setLeitura({ dados: null, carregando: true, erro: null });
     store.mcpLeitura(t)
-      .then((d) => { if (tickerRef.current === meu) setLeitura({ dados: d, carregando: false, erro: null }); })
-      .catch((e) => { if (tickerRef.current === meu) setLeitura({ dados: null, carregando: false, erro: e }); });
+      .then((d) => { if (tickerRef.current === meu && leituraRef.current === minha) setLeitura({ dados: d, carregando: false, erro: null }); })
+      .catch((e) => { if (tickerRef.current === meu && leituraRef.current === minha) setLeitura({ dados: null, carregando: false, erro: e }); });
     return undefined;
-  }, [store, ticker, limparCadeia, limparOperaveis, limparProposta, limparPossibilidades]);
+  }, [store, ticker, limparCadeia, limparOperaveis, limparProposta, limparPossibilidades, limparSetup]);
+
+  // F5: recarga da leitura do MESMO ticker, sob demanda. Existe porque gravar
+  // ou desativar um setup muda a lista que a seção "SETUPS GRAVADOS" mostra —
+  // deixar a tela velha depois de um "gravado com sucesso" faria a pessoa
+  // duvidar de ter gravado, e duvidar leva a gravar de novo (o mesmo vigia,
+  // duas vezes, no armazém compartilhado do serviço).
+  //
+  // O corpo repete o do efeito acima de propósito: mover o `store.mcpLeitura`
+  // para fora do efeito quebraria a leitura que o guardião faz do fonte (o
+  // efeito PRECISA continuar sendo o lugar onde a leitura inicial dispara),
+  // e chamar esta função de dentro dele criaria uma dependência que
+  // reexecutaria o efeito a cada troca de `ticker` duas vezes.
+  const recarregarLeitura = useCallback(() => {
+    const t = (ticker || "").trim();
+    if (!t || !store || typeof store.mcpLeitura !== "function") return;
+    const meu = tickerRef.current;        // NÃO incrementa: não é troca de ativo
+    const minha = ++leituraRef.current;
+    setLeitura({ dados: null, carregando: true, erro: null });
+    store.mcpLeitura(t)
+      .then((d) => { if (tickerRef.current === meu && leituraRef.current === minha) setLeitura({ dados: d, carregando: false, erro: null }); })
+      .catch((e) => { if (tickerRef.current === meu && leituraRef.current === minha) setLeitura({ dados: null, carregando: false, erro: e }); });
+  }, [store, ticker]);
 
   // Sob demanda: o usuário abre o gráfico de UM setup. Não dispara por
   // efeito — cada abertura custa uma chamada do cap.
@@ -196,10 +232,43 @@ export function useOpcoesMcp(store, ticker) {
     }));
   }, [store, alvoAtual, dispararPossibilidades]);
 
+  // ---------------------------------------------------------------- F5 --
+  // As três ações de ESCRITA de setup. Também por clique, nunca por efeito:
+  // `compilar` gasta uma chamada de LLM paga além de duas do cap, e uma
+  // chamada de modelo disparada por render seria a conta que ninguém pediu.
+  //
+  // O ticker sai do argumento do hook, como nas quatro da F3: a pessoa nunca
+  // pode gravar um vigia sobre um ativo diferente do que está no cabeçalho.
+  const compilarSetup = useCallback((op) => {
+    if (!alvoAtual || !store || typeof store.mcpSetupCompilar !== "function") return;
+    const o = op || {};
+    dispararSetup(() => store.mcpSetupCompilar({ descricao: o.descricao, ticker: alvoAtual }));
+  }, [store, alvoAtual, dispararSetup]);
+
+  // O setup que viaja de volta é o MESMO objeto que a tela exibiu no ensaio —
+  // não é recompilado nem passa por LLM. Recarregar a leitura no sucesso é
+  // parte da ação, não cosmético: é o que prova à pessoa que o vigia nasceu.
+  const confirmarSetup = useCallback((setup) => {
+    if (!setup || !store || typeof store.mcpSetupConfirmar !== "function") return;
+    dispararSetup(() => store.mcpSetupConfirmar({ setup }).then((d) => {
+      recarregarLeitura();
+      return d;
+    }));
+  }, [store, dispararSetup, recarregarLeitura]);
+
+  const desativarSetup = useCallback((nome) => {
+    if (!nome || !store || typeof store.mcpSetupDesativar !== "function") return;
+    dispararSetup(() => store.mcpSetupDesativar(nome).then((d) => {
+      recarregarLeitura();
+      return d;
+    }));
+  }, [store, dispararSetup, recarregarLeitura]);
+
   return {
-    status, leitura, grafico, abrirGrafico, fecharGrafico,
+    status, leitura, grafico, abrirGrafico, fecharGrafico, recarregarLeitura,
     cadeia, operaveis, proposta, possibilidades,
     abrirCadeia, abrirOperaveis, montarProposta, verPossibilidades,
+    setupNovo, compilarSetup, confirmarSetup, desativarSetup,
   };
 }
 
