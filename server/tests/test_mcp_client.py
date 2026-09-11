@@ -76,6 +76,10 @@ class _SessaoFalsa:
         self.chamadas.append(("resources/read", uri))
         return self._responde()
 
+    async def list_tools(self):
+        self.chamadas.append(("tools/list",))
+        return self._responde()
+
 
 class _CtxFalso:
     def __init__(self, valor):
@@ -562,6 +566,32 @@ def test_get_prompt_e_read_resource_cacheiam_e_devolvem_o_objeto_do_sdk(monkeypa
     # o SDK exige `arguments: dict[str, str]` — o int virou str aqui, não no
     # chamador
     assert sessao.chamadas[0][2] == {"ticker": "PETR4", "lote": "100"}
+
+
+def test_list_tools_cacheia_por_uma_hora_e_devolve_o_objeto_do_sdk(monkeypatch):
+    """F5: `tools/list` é PROTOCOLO (não `tools/call`), então é de graça no
+    teto do serviço — e é a fonte do `inputSchema` de `create_setup` que o
+    compilador usa em runtime, em vez de uma cópia da DSL dentro do Boris
+    (ENG-06)."""
+    marcador = object()
+    sessao = _liga_sessao(monkeypatch, _SessaoFalsa(marcador))
+
+    t1 = asyncio.run(mcp_client.list_tools())
+    t2 = asyncio.run(mcp_client.list_tools())
+
+    assert t1.dados is marcador and t1.cache is False and t2.cache is True
+    assert len(sessao.chamadas) == 1, "cache não segurou a 2ª chamada de tools/list"
+    assert sessao.chamadas[0] == ("tools/list",)
+
+    # TTL de estático (1 h), não o default de tool: passado o default, ainda
+    # é cache — o catálogo de tools não muda por pregão.
+    base = mcp_client._mono()
+    monkeypatch.setattr(mcp_client, "_mono",
+                        lambda: base + mcp_client.TTL_DEFAULT_S + 1)
+    assert asyncio.run(mcp_client.list_tools()).cache is True
+    monkeypatch.setattr(mcp_client, "_mono",
+                        lambda: base + mcp_client.TTL_ESTATICO_S + 1)
+    assert asyncio.run(mcp_client.list_tools()).cache is False
 
 
 def test_reset_cache_limpa_tambem_o_token(monkeypatch):

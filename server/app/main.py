@@ -178,7 +178,24 @@ def require_permission(perm: str):
 # junto do `include_router(options_router)` lá em cima. Injeção pelo mesmo
 # padrão de `configure_db`/`set_historico_provider`: main importa o módulo,
 # nunca o contrário (evita import circular).
-options_mcp_api.configure(_conn, require_user)
+#
+# F5 (D-24.5): junto com a sessão vão a factory de permissão, o gate de
+# análise e a leitura da config do usuário — as três nascem AQUI (a primeira
+# depende de `rbac` + `_conn`, a segunda de `plan`/`managed`/`metering`, a
+# terceira de `store`), e importá-las de lá seria o mesmo import circular.
+# Sem elas as rotas de ESCRITA de setup respondem 503, nunca 200.
+#
+# `_gate_analise` é definido mais ABAIXO neste arquivo (ele depende de
+# `plan`/`managed`), por isso vai como lambda: o nome se resolve na hora da
+# CHAMADA, que é sempre depois do import terminar. A alternativa — descer
+# esta fiação para perto dele — mudaria a ordem de registro das rotas do
+# router, que é o que a nota da F1 acima fixa aqui.
+options_mcp_api.configure(
+    _conn, require_user,
+    require_permission_dep=require_permission,
+    gate_analise=lambda scope, config: _gate_analise(scope, config),
+    config_do_usuario=lambda uid: store.get(_conn, "config", user_id=uid),
+)
 app.include_router(options_mcp_router)
 
 

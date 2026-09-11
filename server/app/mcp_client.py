@@ -112,12 +112,23 @@ class McpTetoAtingido(McpErro):
 class McpErroDeTool(McpErro):
     """A requisição deu certo e a TOOL disse não (ticker sem cadeia,
     vencimento inexistente). É erro do pedido, não do serviço: repetir o
-    mesmo pedido não muda o resultado."""
+    mesmo pedido não muda o resultado.
 
-    def __init__(self, msg: str, available=None, hint=None) -> None:
+    `bruto` é o `structured_content` INTEIRO da recusa (F5): `create_setup`
+    devolve `{error, problems[]}` e `deactivate_setup` devolve
+    `{error, known_setups[]}`, e é essa lista que diz à pessoa o que corrigir.
+    Promover cada chave a atributo próprio (como `available`/`hint`, que são
+    do contrato genérico de tool) faria esta classe crescer a cada tool nova;
+    quem escolhe o que repassar é a ROTA, que lê a chave que espera e nunca
+    devolve o blob inteiro. Vazio por default — nenhuma recusa antiga muda de
+    forma.
+    """
+
+    def __init__(self, msg: str, available=None, hint=None, bruto=None) -> None:
         super().__init__(msg)
         self.available = available
         self.hint = hint
+        self.bruto = dict(bruto) if isinstance(bruto, dict) else {}
 
 
 # --------------------------------------------------------------------------
@@ -625,6 +636,7 @@ async def call_tool(nome: str, args: dict | None = None, *,
             str(erro or "a tool recusou o pedido"),
             available=sc.get("available") if isinstance(sc, dict) else None,
             hint=sc.get("hint") if isinstance(sc, dict) else None,
+            bruto=sc if isinstance(sc, dict) else None,
         )
 
     _cache_put(chave, sc)
@@ -656,6 +668,41 @@ async def get_prompt(nome: str, args: dict | None = None) -> ResultadoTool:
     _cache_put(chave, r)
     obslog.log("mcp", f"prompt {nome}", prompt=nome, cache=False,
                ms=int((_relogio() - t0) * 1000))
+    return ResultadoTool(r, False)
+
+
+async def list_tools() -> ResultadoTool:
+    """`tools/list`. NÃO conta no teto de 2.000/dia do serviço (é PROTOCOLO,
+    como `initialize` e `ping` — só `tools/call` é cobrado), então também não
+    entra no cap por usuário da rota.
+
+    Existe para a Fase 5 montar o `system` do compilador a partir do
+    `inputSchema` REAL de `create_setup`: copiar o vocabulário do setup
+    (indicadores, operadores, padrões) para dentro do Boris é exatamente o
+    que o ENG-06 proíbe — e uma cópia envelhece em silêncio no dia em que o
+    serviço acrescentar um indicador.
+
+    Devolve o objeto do SDK inteiro (`ListToolsResult`), como
+    `get_prompt`/`read_resource`: quem sabe qual tool procurar é o chamador,
+    e filtrar aqui esconderia do cache as outras. TTL de 1 h — o catálogo de
+    tools não muda por pregão.
+    """
+    rotulo = "tools/list"
+    chave = _chave(rotulo, {})
+
+    em_cache = _cache_get(chave, TTL_ESTATICO_S)
+    if em_cache is not None:
+        obslog.log("mcp", "tools", cache=True)
+        return ResultadoTool(em_cache, True)
+
+    t0 = _relogio()
+
+    async def _executar(sessao):
+        return await sessao.list_tools()
+
+    r = await _chamar(rotulo, _executar)
+    _cache_put(chave, r)
+    obslog.log("mcp", "tools", cache=False, ms=int((_relogio() - t0) * 1000))
     return ResultadoTool(r, False)
 
 

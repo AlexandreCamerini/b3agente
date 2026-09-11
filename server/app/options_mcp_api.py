@@ -53,6 +53,22 @@ FONTE = "mcp.semente.dev"
 CLASSE_CRITICA = "negociacao_b3"
 EM_DIA = "em_dia"
 
+# F5. A permissão é a do grupo `opcoes` do ADR-013; a entidade é o que
+# `audit.record` grava e o que `rbac.ENTIDADES_POR_PERMISSAO` publica ao
+# admin. Os dois nomes ficam aqui para que a rota, o teste e o mapa do RBAC
+# citem a MESMA string — divergir faria a auditoria existir e ninguém a ver.
+PERM_CRIAR_SETUP = "opcoes.criar_setup"
+ENTIDADE_AUDITORIA = "opcoes_setup"
+
+# Corpo do 503 de fiação ausente. Constante porque `require_user` e
+# `require_criar_setup` respondem a MESMA coisa pelo mesmo motivo (o router
+# não foi fiado no boot), e duas cópias divergiriam na primeira correção.
+_NAO_CONFIGURADO = {
+    "code": "mcp_nao_configurado",
+    "message": "Serviço de opções não configurado no servidor.",
+    "action": "O router não foi fiado no boot (options_mcp_api.configure).",
+}
+
 # Avisos de frescor, extraídos para constante na F2 (quick 260910-biz): eram
 # literal inline dentro de `_frescor`, sem cobertura do guardião imperativo.
 # Os dois dizem "não medido" com a razão do não-medido — e nenhum dos dois
@@ -128,16 +144,38 @@ CHAVES_DA_ESTRUTURA = (
 
 _conn = None
 _require_user = None
+_require_permission = None
+_gate_analise = None
+_config_do_usuario = None
 
 
-def configure(conn, require_user_dep) -> None:
+def configure(conn, require_user_dep, *, require_permission_dep=None,
+              gate_analise=None, config_do_usuario=None) -> None:
     """Injeção pelo mesmo padrão de `candle_cache.configure_db` /
     `setups.set_historico_provider`: `main.py` importa este módulo e entrega
     a conexão e a dependency de sessão. O inverso (este módulo importar
-    `main`) seria import circular — `require_user` e `_conn` nascem lá."""
-    global _conn, _require_user
+    `main`) seria import circular — `require_user` e `_conn` nascem lá.
+
+    Os três extras nascem na F5 (D-24.5) e são a fiação de LLM que a Fase 4
+    do PLANO traria; pela MESMA razão de `require_user`, todos moram em
+    `main.py`:
+
+    · `require_permission_dep` — a factory `require_permission(perm)`;
+    · `gate_analise` — `_gate_analise(scope, config)`, o ponto ÚNICO de gate
+      de análise (plano mensal + IA gerenciada), que devolve
+      `(config_efetiva, consume)`;
+    · `config_do_usuario` — `lambda uid: store.get(conn, "config", user_id=uid)`.
+
+    São KEYWORD e OPCIONAIS de propósito: `configure(conn, require_user)`
+    continua válido, e nenhum chamador (teste inclusive) precisa mudar. Sem
+    eles as rotas de ESCRITA falham FECHADO (503) — ver `require_criar_setup`.
+    """
+    global _conn, _require_user, _require_permission, _gate_analise, _config_do_usuario
     _conn = conn
     _require_user = require_user_dep
+    _require_permission = require_permission_dep
+    _gate_analise = gate_analise
+    _config_do_usuario = config_do_usuario
 
 
 def require_user(authorization: Optional[str] = Header(default=None)) -> dict:
@@ -150,12 +188,32 @@ def require_user(authorization: Optional[str] = Header(default=None)) -> dict:
     e obrigaria a mexer na allowlist pública, que é exatamente o que não
     pode acontecer numa rota autenticada."""
     if _require_user is None:
-        raise HTTPException(503, {
-            "code": "mcp_nao_configurado",
-            "message": "Serviço de opções não configurado no servidor.",
-            "action": "O router não foi fiado no boot (options_mcp_api.configure).",
-        })
+        raise HTTPException(503, _NAO_CONFIGURADO)
     return _require_user(authorization)
+
+
+def require_criar_setup(user: dict = Depends(require_user)) -> dict:
+    """Sessão + a permissão `opcoes.criar_setup` (ADR-013, grupo `opcoes`).
+
+    **Por que `Depends(require_user)` e não o header cru**: o guardião (iv)
+    de `test_mcp_guardioes` exige `require_user` nas dependências de TODA
+    rota `/api/options/mcp/*`, e o `test_adr013_cobertura_rotas` reconhece o
+    mesmo nome como gate de identidade. Recebendo o `user` já resolvido, a
+    árvore de dependências da rota carrega os DOIS nomes — sessão e permissão
+    — em vez de esconder a primeira dentro desta função.
+
+    **Por que 503 sem a fiação, e nunca um 200 permissivo:** esta é rota de
+    ESCRITA num armazém de setups SEM DONO (ADR-027, Decisão 7) — quem grava,
+    grava para todos os clientes do serviço. Falhar ABERTO aqui seria pior do
+    que não ter a rota: a recusa tem de ser do backend, não de um botão
+    escondido na tela.
+    """
+    if _require_permission is None:
+        raise HTTPException(503, _NAO_CONFIGURADO)
+    # A factory devolve a dependency de `main.py` (`_dep`), que faz
+    # `ensure_bootstrap_role` e levanta 403 nomeando a permissão. Chamá-la com
+    # o `user` já resolvido é o que evita resolver a sessão duas vezes.
+    return _require_permission(PERM_CRIAR_SETUP)(user)
 
 
 # --------------------------------------------------------------------------

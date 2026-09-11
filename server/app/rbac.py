@@ -98,10 +98,15 @@ ENTIDADES_POR_PERMISSAO = {
     "fontes_dados.configurar": {"brapi_spot_intervalo"},
     "execucao_automatica.ver": {"agent_kill_switch", "timing_watch_kill_switch"},
     "execucao_automatica.controlar": {"agent_kill_switch", "timing_watch_kill_switch"},
-    # ADR-027 §2.7: `opcoes.criar_setup` NÃO entra aqui na Fase 1 de propósito
-    # — nenhum `audit.record` grava entidade de setup ainda, e o contrato
-    # documentado deste mapa é "cobre toda `entity` HOJE gravada". A entrada
-    # entra na Fase 5, junto com a rota de escrita que a gravará.
+    # ADR-027 §2.7 — ENTROU na Fase 5 (2026-09-11), como a nota anterior
+    # previa: `POST /api/options/mcp/setups/confirmar` e
+    # `/setups/{name}/desativar` gravam `audit.record(..., "opcoes_setup",
+    # ...)`, então a entidade passou a ser HOJE gravada e o contrato deste
+    # mapa ("cobre toda `entity` gravada") voltou a valer com ela dentro. Sem
+    # esta linha a auditoria existiria e ninguém a veria: `entidades_visiveis`
+    # filtra o audit log por este mapa, e o evento cairia fora de todo filtro
+    # — inclusive para quem tem a permissão que o produziu.
+    "opcoes.criar_setup": {"opcoes_setup"},
 }
 
 
