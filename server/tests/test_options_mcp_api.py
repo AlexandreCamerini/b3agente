@@ -841,3 +841,153 @@ def test_falha_na_primeira_etapa_vira_422_sem_segunda_etapa(monkeypatch):
     # `test_f04_seis_evaluate_recusados_com_propose_em_cache_debitam_seis`.
     assert _usado(main, uid) == 1, "a recusa da tool não debitou a viagem"
     assert _reservado(main, uid) == 0
+
+
+# ══════════════════════════════════════════════ 24-07 — achado F-04 ═══════
+# O cenário MEDIDO pelo verificador, virado em teste. O serviço conta toda
+# `tools/call` no porteiro, antes de executar a tool; o Boris debitava só no
+# sucesso. Decisão do Alex em 2026-09-11: cobrar a viagem que a tool recusou.
+#
+# O que a verificação mediu (24-VERIFICATION.md, F-04), num ticker cuja cadeia
+# não traz `preco_objeto` e cujo `evaluate` recusa em todos os vencimentos:
+#
+#   requisição 1: 13 chamadas reais; cap do usuário debitado 7
+#   requisição 2 (dentro do TTL de 15 min): base e os 6 `propose` vêm do
+#     cache; os 6 `evaluate` NÃO estão em cache (recusa nunca entra no cache)
+#     → 6 chamadas reais cobradas pelo serviço, 0 debitadas do usuário
+#
+# Repetir o botão ~330 vezes esgotava os 2.000/dia de TODA a base sem mover o
+# contador de 60/dia de ninguém. É esse 0 que estes testes transformam em 6.
+_SEIS_VENCIMENTOS = ["2026-09-19", "2026-10-17", "2026-11-21",
+                     "2026-12-19", "2027-01-16", "2027-02-20"]
+
+
+def _espiao_cache_por_tool(monkeypatch, roteador, cache: dict):
+    """Como `_espiao`, mas com o flag de cache POR TOOL — o cenário do F-04 é
+    exatamente o MISTO: `propose` servido do cache (0 rede, 0 cap) e
+    `evaluate` indo à rede para ser recusado."""
+    chamadas: list = []
+
+    async def _falso(nome, args=None, *, read_timeout_seconds=None):
+        chamadas.append((nome, args))
+        v = roteador(nome, args)
+        if isinstance(v, Exception):
+            raise v
+        return mcp_client.ResultadoTool(v, bool(cache.get(nome, False)))
+
+    monkeypatch.setattr(mcp_client, "call_tool", _falso)
+    return chamadas
+
+
+def _recusa_da_cadeia_sem_objeto():
+    return mcp_client.McpErroDeTool(
+        "leg PETRI380: the chain carries no underlying price for this expiration",
+        available=None, hint=None)
+
+
+def test_f04_seis_evaluate_recusados_com_propose_em_cache_debitam_seis(monkeypatch):
+    """**O teste que mede o defeito relatado.** Sem a correção, `used` fica em
+    0: os 7 `propose` vêm do cache (não tocam a rede, não devem cobrar mesmo)
+    e as 6 recusas de `evaluate` tocavam a rede sem debitar nada."""
+    c, main = _client(monkeypatch)
+    p = _registra(c)
+    uid = p["user"]["id"]
+    chamadas = _espiao_cache_por_tool(
+        monkeypatch,
+        _roteador(base=dict(_BASE, expirations=list(_SEIS_VENCIMENTOS)),
+                  avaliacao=_recusa_da_cadeia_sem_objeto()),
+        cache={"propose_option_setups": True})
+
+    r = c.post("/api/options/mcp/possibilidades", json=_corpo_possibilidades(),
+               headers=_auth(p["token"]))
+    assert r.status_code == 200, r.text
+    corpo = r.json()
+
+    # o fan-out aconteceu inteiro: 1 base + 6 propose + 6 evaluate
+    assert len(chamadas) == 13, _nomes(chamadas)
+    assert _nomes(chamadas).count("evaluate_option_structure") == 6
+    assert corpo["chamadasPrevistas"] == 13
+    assert all(i["estrutura"] is None and i["erro"] for i in corpo["possibilidades"]), \
+        "os seis vencimentos deveriam ter sido recusados pela tool"
+
+    assert _usado(main, uid) == 6, (
+        "as seis recusas de `evaluate` não debitaram o cap: são seis chamadas "
+        "REAIS, já cobradas do teto compartilhado de 2.000/dia pelo serviço, "
+        "e zero no contador de 60/dia de quem as provocou (achado F-04)")
+    assert corpo["cap"]["usado"] == 6, "o bloco `cap` da resposta contradiz o débito"
+    assert _reservado(main, uid) == 0, "a resposta saiu com reserva presa"
+
+
+def test_f04_reserva_de_doze_com_seis_recusas_devolve_seis(monkeypatch):
+    """Cobrar a recusa não pode desarrumar a contabilidade da `_Reserva`:
+    devolver a MENOS prende cota (o defeito A-07), devolver a MAIS é cota de
+    graça. Com 1+12 reservados e 6 consumidos, as devoluções são 6 (etapa 2,
+    que sai primeiro) e 1 (etapa 1) — aritmética fechada."""
+    c, main = _client(monkeypatch)
+    p = _registra(c)
+    uid = p["user"]["id"]
+
+    reservas, consumos, devolucoes = [], [], []
+    check_real, consume_real, liberar_real = (metering.check, metering.consume,
+                                              metering.liberar)
+
+    def _check(conn, user_id, **kw):
+        ok, motivo = check_real(conn, user_id, **kw)
+        if ok:
+            reservas.append(max(1, int(kw.get("custo") or 1)))
+        return ok, motivo
+
+    def _consume(conn, user_id, **kw):
+        consumos.append(max(1, int(kw.get("custo") or 1)))
+        return consume_real(conn, user_id, **kw)
+
+    def _liberar(conn, user_id, **kw):
+        devolucoes.append(max(1, int(kw.get("custo") or 1)))
+        return liberar_real(conn, user_id, **kw)
+
+    monkeypatch.setattr(metering, "check", _check)
+    monkeypatch.setattr(metering, "consume", _consume)
+    monkeypatch.setattr(metering, "liberar", _liberar)
+    _espiao_cache_por_tool(
+        monkeypatch,
+        _roteador(base=dict(_BASE, expirations=list(_SEIS_VENCIMENTOS)),
+                  avaliacao=_recusa_da_cadeia_sem_objeto()),
+        cache={"propose_option_setups": True})
+
+    r = c.post("/api/options/mcp/possibilidades", json=_corpo_possibilidades(),
+               headers=_auth(p["token"]))
+    assert r.status_code == 200, r.text
+
+    assert reservas == [1, 12], f"as duas etapas do D-24.1 mudaram: {reservas}"
+    assert sum(consumos) == 6, f"consumo diferente das 6 recusas: {consumos}"
+    assert devolucoes == [6, 1], (
+        f"devoluções {devolucoes} — o `with` interno sai primeiro e devolve "
+        f"12−6=6; o externo devolve 1 (o `propose` base veio do cache)")
+    assert sum(devolucoes) == sum(reservas) - sum(consumos), (
+        "aritmética aberta: sobra presa (a menos) ou cota de graça (a mais)")
+    assert _usado(main, uid) == 6
+    assert _reservado(main, uid) == 0
+
+
+def test_f04_o_422_de_erro_de_tool_diz_que_cobrou(monkeypatch):
+    """Cobrar sem dizer que cobrou é a parte do defeito que o usuário enxerga:
+    a cota dele cai e a tela mostra só "o serviço recusou"."""
+    c, main = _client(monkeypatch)
+    p = _registra(c)
+    uid = p["user"]["id"]
+    _espiao(monkeypatch, _roteador(base=mcp_client.McpErroDeTool(
+        "ticker sem cotações", available=None, hint="confira o código")))
+
+    r = c.post("/api/options/mcp/possibilidades", json=_corpo_possibilidades(),
+               headers=_auth(p["token"]))
+    assert r.status_code == 422, r.text
+    detalhe = r.json()["detail"]
+    assert detalhe["code"] == "mcp_erro_de_tool"
+    assert detalhe["cobrado"] is True, (
+        "o 422 não declara que a tentativa consumiu cota — o front decide a "
+        "linha de aviso por este campo, nunca por raspagem da mensagem")
+    assert detalhe["nota"] == options_mcp_api.AVISO_RECUSA_COBRADA
+    assert options_mcp_api.AVISO_RECUSA_COBRADA in options_mcp_api.AVISOS, \
+        "texto fixo novo fora da varredura do guardião imperativo ([R-12])"
+    # e o que o 422 AFIRMA é o que de fato aconteceu no contador
+    assert _usado(main, uid) == 1, "o corpo diz 'cobrado' e o cap não moveu"
