@@ -306,7 +306,7 @@ Plans:
 
 **Wave 1**
 
-- [ ] 24-01-PLAN.md — backend da Fase 3: `/cadeia`, `/operaveis`, `/proposta`, `/possibilidades`, helper de lote e paridade `opcoes_payoff` × MCP
+- [x] 24-01-PLAN.md — backend da Fase 3: `/cadeia`, `/operaveis`, `/proposta`, `/possibilidades`, helper de lote e paridade `opcoes_payoff` × MCP
 
 **Wave 2** *(blocked on Wave 1; os dois planos tocam árvores disjuntas e rodam em paralelo)*
 
@@ -357,7 +357,7 @@ que o dispara). Detalhes em
 | 21. Duplicação removida e Portfólio consolidado | 4/4 | Complete    | 2026-09-06 |
 | 22. Componentes compartilhados (trilho, ícones, mascote) | 4/4 | Complete    | 2026-09-06 |
 | 23. Motion com propósito e ilustração unificada | 4/4 | Complete    | 2026-09-06 |
-| 24. Aba Opções sobre MCP — análise e criação de setups | standalone | In Progress|  |
+| 24. Aba Opções sobre MCP — análise e criação de setups | 1/5 | In Progress|  |
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2/v1.3
 

@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Opções v2
 status: executing
-stopped_at: Fase 17 — checkpoint humano bloqueante (Task 2 de 17-06-PLAN.md), aguardando o Alex
-last_updated: 2026-09-11T15:45:00.000Z
+stopped_at: Fase 24, plano 01 concluído (backend das quatro rotas da aba Opções + paridade opcoes_payoff x MCP); suíte canônica verde (2379 passed, 5 skipped); nada empurrado a origin; 24-02 (front) é o próximo
+last_updated: "2026-09-11T19:44:01.101Z"
 last_activity: 2026-09-11
 progress:
-  total_phases: 5
-  completed_phases: 2
-  total_plans: 23
-  completed_plans: 20
-  percent: 40
+  total_phases: 8
+  completed_phases: 5
+  total_plans: 28
+  completed_plans: 24
+  percent: 63
 ---
 
 # Project State
@@ -21,15 +21,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-06)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** v1.5 (Redesenho de UI) shipped e arquivado em 2026-09-06 (ver `.planning/milestones/v1.5-*`); v1.4 (Opções v2) é o único milestone aberto — aguardando checkpoints humanos das Fases 17/18/19
+**Current focus:** Phase 24 — Aba Opções sobre MCP — análise e criação de setups
 
 ## Current Position
 
-Phase: 17 (checkpoint humano bloqueante, Task 2 de `17-06-PLAN.md`)
-Plan: aguardando o Alex (mercado aberto + posição real elegível)
-Status: In Progress — travado em checkpoint humano, não em execução
-Progress: [████████░░░░░░░░░░░░] 40% (2/5 fases completas do v1.4; Fases 17/18/19 parciais)
-Last activity: 2026-09-11 — **produção em `F10-20260911-03`**, front e servidor no MESMO carimbo depois de dois dias de deploy só-backend (quick 260911-pub, PR #45). Entrou tudo do dia (família do `qty` falsy nas 5 rotas, fuso do prazo que mudava o gate de liquidez, carimbos visíveis) mais o rodapé do Perfil com os DOIS carimbos. **Build 12 preparado para o TestFlight** em `/Users/acamerini/dev/bolsia/b3-agente` (2.0/12, `aps-environment: production`, `APNS_SANDBOX` zerado no Railway) — Archive/Upload no Xcode é ação do Alex, ainda pendente; esse bundle leva o front `F10-20260910-02`, anterior a esta publicação. Push só se valida depois do TestFlight: o app hoje instalado no iPhone registrou token de DEVELOPMENT e o servidor de produção o recusa. Aberto, aguardando decisão: **A-12** (bootstrap do 1º admin) e **D-01** (recusa por rate limit diz "cota do dia esgotada" com uso 0).
+Phase: 24 (Aba Opções sobre MCP — análise e criação de setups) — EXECUTING
+Plan: 2 of 5
+Status: Ready to execute
+Progress: [█████████░] 86%
+Last activity: 2026-09-11 — 24-01 executado na árvore principal (sem worktree): `/cadeia`, `/operaveis`, `POST /proposta` e `POST /possibilidades` escritos, com reserva de cap em duas etapas e conversão por lote no backend. Pendente de verificação AO VIVO: `MCP_CLIENT_SECRET` não está no ambiente, então `test_paridade_viva` nasce pulado e o aceite de latência (N=6 abaixo de 20 s) não foi medido.
 
 Anterior (2026-09-08, tarde) — quick 260908-ldg, gate de liquidez em três faixas com consentimento, mesclada e testada (2110 passed). Junto com 260908-dnl (recalibração do score) fecha o achado do dia: opções estavam apagadas em produção por um gate impossível de cruzar com mydata. Front republicado junto no `F10-20260908-02` (o servidor passou a exigir `aceitaLiquidezDificil`; front velho quebraria). PR #32 mesclado e PROMOVIDO em 2026-09-08 — `/api/health` = `F10-20260908-02`, gate ao vivo confirmado (PETR4/ABEV3/VALE3/ITUB4 NEGOCIÁVEL, RADL3 DIFÍCIL 50,9). Produção tinha ficado em `F10-20260907-01` até então: o #31 foi mesclado mas nunca deployado, e o -02 o contém.
 
@@ -65,6 +65,7 @@ RESSALVA HONESTA: a verificação foi estática (suíte + build). As quatro corr
 | 21 | 4 | - | - |
 | 22 | 4 | - | - |
 | 23 | 4 | - | - |
+| 24 P01 | 32min | 3 tasks | 4 files |
 
 **Recent Trend:**
 
@@ -99,6 +100,9 @@ Recent decisions affecting current work:
   o que a biblioteca especificamente contribui (generalização N-pernas +
   collar como nova composição), correção feita após revisão do advisor
   antes de escrever os arquivos.
+
+- [Phase 24]: 24-01: /possibilidades reserva cap em duas etapas (1 + 2xN) — N so se conhece depois da primeira chamada
+- [Phase 24]: 24-01: conversao por lote fica no backend; breakeven nunca entra em emReais (e preco do objeto, nao dinheiro)
 
 ### Roadmap Evolution
 
@@ -294,9 +298,9 @@ Items acknowledged and carried forward from previous milestone close (v1.3 → v
 
 ## Session Continuity
 
-Last session: 2026-09-06T22:55:00.000Z
+Last session: 2026-09-11T19:43:41.768Z
 Stopped at: Quick tasks 260906-rla (`textDim`), 260906-ugb (C-18/C-08/C-28) e 260906-vf9 (C-06/C-07/C-09, achados de produto) concluídos — todos os 9 achados Baixo/produto do REPORT-01 fechados ou reverificados; milestone v1.5 fechado e arquivado (`.planning/milestones/v1.5-*`); nenhum push a `origin`
-Resume file: .planning/v1.5-MILESTONE-AUDIT.md (agora em .planning/milestones/v1.5-MILESTONE-AUDIT.md) — para o v1.4, ver `.planning/notes/checkpoints-pendentes-fase-17-18-19.md`
+Resume file: None
 
 ## Operator Next Steps
 
@@ -306,10 +310,12 @@ verificação humana pendentes, consolidados em
 urgência (nenhum bloqueia produto, ver `.planning/milestones/v1.5-MILESTONE-AUDIT.md`).
 
 **v1.4 (Opções v2) — único milestone aberto, retomar quando o Alex puder:**
+
 - Retomar o checkpoint humano da Fase 17 (`17-06-PLAN.md` Task 2) com o
   mercado aberto — payoff real, collar por caixa insuficiente, aceite/
   cancelamento, Radar vs. Watchlist, iPhone. Só depois considerar a Fase 17
   de fato fechada (e dar push pra origin).
+
 - `/gsd-plan-phase 18` — seção "Oportunidades de opções" em Posições.
 - `/gsd-plan-phase 19` — motor multi-candidato, depois da Fase 18 fechada.
 
