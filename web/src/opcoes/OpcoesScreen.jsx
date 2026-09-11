@@ -21,6 +21,7 @@ import { useState } from "react";
 import { useOpcoesMcp } from "./useOpcoesMcp.js";
 import SetupChart from "./SetupChart.jsx";
 import PayoffChart from "./PayoffChart.jsx";
+import CriarSetup, { BotaoDesativar } from "./CriarSetup.jsx";
 
 // Mesmos NOMES de variável CSS que `App.jsx` injeta em `:root` — padrão de
 // `pet/BorisChat.jsx`. Zero import de `App.jsx` (seria ciclo).
@@ -124,7 +125,24 @@ export default function OpcoesScreen({ ctx }) {
     status, leitura, grafico, abrirGrafico, fecharGrafico,
     cadeia, operaveis, proposta, possibilidades,
     abrirCadeia, abrirOperaveis, montarProposta, verPossibilidades,
+    setupNovo, compilarSetup, confirmarSetup, desativarSetup,
   } = useOpcoesMcp(store, ticker);
+
+  // F5 (plano 24-04) — a seção de ESCRITA de setup só aparece para quem tem
+  // `opcoes.criar_setup`. Isto é conveniência, não segurança: as três rotas
+  // respondem 403 sozinhas (ADR-013; provado por injeção de defeito no plano
+  // 24-03), e nada aqui muda esse fato. Sem a lista de permissões
+  // disponível (anônimo, ou estado ainda não carregado), FALSO — falhar
+  // fechado na UI é o lado certo de errar, já que o servidor recusaria de
+  // qualquer jeito e um botão que sempre dá 403 é pior que botão nenhum.
+  //
+  // A leitura vem de `ctx.authUser.permissions`, a MESMA fonte que o grupo
+  // "Administração" do Perfil já usa (ADR-014). Um segundo caminho de
+  // leitura de permissão divergiria do primeiro na próxima mudança do
+  // `_public_user`.
+  const permissoes = (ctx && ctx.authUser && Array.isArray(ctx.authUser.permissions))
+    ? ctx.authUser.permissions : [];
+  const podeCriarSetup = permissoes.includes("opcoes.criar_setup");
 
   // F3 — o que a pessoa escolhe antes de gastar chamada. Nada disto dispara
   // nada sozinho: são os argumentos dos cliques.
@@ -685,11 +703,43 @@ export default function OpcoesScreen({ ctx }) {
                         ) : null}
                       </div>
                     ) : null}
+
+                    {/* Desativar é ESCRITA: mesma permissão da seção de
+                        criação, e em dois toques (ver `BotaoDesativar`). O
+                        resultado aparece logo abaixo, na seção de criação —
+                        as duas ações compartilham o mesmo trio de estado
+                        porque são a mesma conversa com o serviço. */}
+                    {podeCriarSetup ? (
+                      <BotaoDesativar
+                        nome={s.name}
+                        onDesativar={desativarSetup}
+                        ocupado={setupNovo.carregando}
+                        cp={cp}
+                      />
+                    ) : null}
                   </div>
                 );
               })}
             </div>
           )}
+
+          {/* ======================================== CRIAR SETUP (F5) --
+              Depois da lista: criar vem depois de ver o que já existe —
+              com a lista acima, a pessoa não grava um segundo vigia para a
+              condição que já vigia. A permissão só ESCONDE; quem recusa é o
+              backend (ADR-013). */}
+          {podeCriarSetup ? (
+            <>
+              <Kicker>{cp.opcoesCriarTitulo || "CRIAR UM SETUP"}</Kicker>
+              <CriarSetup
+                ticker={ticker}
+                estado={setupNovo}
+                onCompilar={compilarSetup}
+                onConfirmar={confirmarSetup}
+                cp={cp}
+              />
+            </>
+          ) : null}
         </div>
       )}
 
