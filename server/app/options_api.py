@@ -1,7 +1,7 @@
 """Rotas e análise educacional de opcoes."""
 from __future__ import annotations
 
-import datetime as dt
+from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Body, HTTPException
@@ -23,6 +23,22 @@ from .options_quant import (
 
 router = APIRouter(prefix="/api/options", tags=["options"])
 
+# DECISÃO (260911-dtx, achado D-2 parte 2): produção roda no Railway com o
+# container em UTC, então `date.today()` naive já virou o dia às 21:00 BRT e o
+# prazo até o vencimento saía UM DIA A MENOS pelas três horas seguintes. Aqui
+# não é carimbo cosmético: `_days_to` alimenta `daysToExpiration`, que decide o
+# `riskFlag` de vencimento curto (<= 21 dias) e entra no `educational_score`.
+# Offset fixo -3h porque o Brasil não tem horário de verão desde 2019 (mesma
+# justificativa de `store.py:14-17`); BRT local ao módulo é o padrão do repo
+# (`store`, `pregao`, `agent`, `brapi_budget`) — não há módulo compartilhado
+# de fuso.
+BRT = timezone(timedelta(hours=-3))
+
+
+def hoje_brt() -> date:
+    """O "hoje" de Brasília — fonte única do dia neste módulo."""
+    return datetime.now(BRT).date()
+
 
 def _normalize_ticker(s: str) -> str:
     return tickers.normalize_ticker(s)
@@ -32,8 +48,8 @@ def _days_to(expiration: Optional[str]) -> int:
     if not expiration:
         return 0
     try:
-        d = dt.date.fromisoformat(expiration)
-        return max(0, (d - dt.date.today()).days)
+        d = date.fromisoformat(expiration)
+        return max(0, (d - hoje_brt()).days)
     except Exception:
         return 0
 

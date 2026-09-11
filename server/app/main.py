@@ -7,7 +7,7 @@ import asyncio
 import hmac
 import os
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from fastapi import Body, FastAPI, HTTPException, Request
@@ -560,6 +560,23 @@ async def ai_models():
 def now_str() -> str:
     # Fonte única do fuso (BRT): a regra mora em store.now_str(), não aqui.
     return store.now_str()
+
+
+# DECISÃO (260911-dtx, achado D-2 parte 2): o container do Railway roda em UTC,
+# então `dt.date.today()` naive vira o dia às 21:00 BRT. Este "hoje" viaja como
+# argumento `hoje` para `opcoes_lastreadas.propor`/`proposta_fechar` — que são
+# módulos PUROS por guardião (`test_opcoes_fronteira.py`: sem rede, sem relógio
+# interno) e por isso recebem o dia de fora. Um dia a mais aqui muda DECISÃO, não
+# texto: `_PRAZO_MIN_DIAS`/`_PRAZO_MAX_DIAS` (15..60) recusam ou aceitam o
+# candidato pelo prazo, então das 21:00 às 23:59 BRT um contrato na borda dos 15
+# dias sumia da tela sem nada ter mudado no mercado. A correção é NO CHAMADOR —
+# os módulos puros continuam sem relógio.
+BRT = timezone(timedelta(hours=-3))
+
+
+def _hoje_brt():
+    """O dia corrente em Brasília — o único "hoje" que pode virar prazo."""
+    return datetime.now(BRT).date()
 
 
 @app.middleware("http")
@@ -2394,7 +2411,45 @@ async def sell_option(body: dict = Body(default={}), scope: Optional[str] = Depe
     if not isinstance(price, (int, float)):
         raise HTTPException(502, "Sem prêmio disponível para este contrato.")
     _qty = body.get("qty")
-    pnl = store.sell_option(_conn, contract_symbol, price, user_id=scope, qty=int(_qty) if _qty else None, motivo="manual")
+    # D-1 (auditoria de 2026-09-11, achado do executor da quick 260911-15a ao
+    # corrigir o A-09 na linha de baixo): `int(_qty) if _qty else None` é a
+    # MESMA armadilha do falsy que F10-20260819 fechou em `/api/sell`. `qty=0`
+    # é falsy em Python e virava `None`; `store.sell_option` (store.py, o
+    # `isinstance(qty, (int, float)) and qty > 0`) lê `None` como "campo
+    # ausente" e vende a posição INTEIRA — pedir zero de propósito liquidava
+    # tudo em silêncio. E `qty="abc"` levantava `ValueError` sem tratamento,
+    # virando 500 com o texto cru da exceção no corpo.
+    #
+    # Esta é a QUARTA e última rota da família a ganhar a guarda: `/api/sell`
+    # (F10-20260819), `/api/buy` (quick 260910-mqs, A-00/A-00b) e
+    # `/api/options/buy` (quick 260911-15a) já estavam fechadas.
+    #
+    # Contrato PRESERVADO: `qty` AUSENTE continua significando venda TOTAL —
+    # é o que a tela usa hoje (`optionsSell` não manda `qty`). A guarda rejeita
+    # só o valor EXPLÍCITO zero/negativo/não numérico (`is not None`), com a
+    # mesma string "Quantidade inválida." das outras três rotas, para a UI não
+    # ganhar variante nova. A rejeição de conta logada grava no histórico com
+    # `store.registrar_rejeicao` usando o contractSymbol como `t` e tipo
+    # "VENDA" — mesmo formato que `abrir_call_coberta`/`fechar_call_coberta`
+    # já usam para rejeição de contrato de opção. Escopo anônimo NÃO grava
+    # (T-02-07: balde kv compartilhado entre todos os anônimos).
+    _qty_val = None
+    if _qty is not None:
+        try:
+            _qty_val = int(_qty)
+        except (TypeError, ValueError):
+            if scope is not None:
+                store.registrar_rejeicao(_conn, "VENDA", contract_symbol, _qty, price,
+                                          f"Quantidade inválida: {_qty}. A venda usa lotes de 100.",
+                                          user_id=scope, origem="manual")
+            raise HTTPException(400, "Quantidade inválida.")
+        if _qty_val <= 0:
+            if scope is not None:
+                store.registrar_rejeicao(_conn, "VENDA", contract_symbol, _qty_val, price,
+                                          f"Quantidade inválida: {_qty_val}. A venda usa lotes de 100.",
+                                          user_id=scope, origem="manual")
+            raise HTTPException(400, "Quantidade inválida.")
+    pnl = store.sell_option(_conn, contract_symbol, price, user_id=scope, qty=_qty_val, motivo="manual")
     if pnl is None:
         # A-09 (auditoria de 2026-09-10): `store.sell_option` devolve `None`
         # quando não acha a posição, e a leitura de `pos` lá em cima acontece
@@ -2442,7 +2497,6 @@ async def options_proposta(ticker: str, multiperna: bool = False, scope: Optiona
     estrutura é um risco DIFERENTE do apresentado na tela, não uma versão
     reduzida dele. Quem declara `multiperna=True` recebe o collar inteiro
     (ADR-025, Decisão 5); a Fase 17 é quem passa a declará-lo no cliente."""
-    import datetime as dt
     t = _normalize_ticker(ticker)
     if len(t) < 4:
         raise HTTPException(400, "Ticker inválido.")
@@ -2474,7 +2528,7 @@ async def options_proposta(ticker: str, multiperna: bool = False, scope: Optiona
             chain_pos = await options_provider.get_options(t, pos_op_aberta.get("expiration"))
             provider_status = chain_pos.get("providerStatus")
             source = chain_pos.get("source")
-            resultado = opcoes_lastreadas.proposta_fechar(pos_op_aberta, chain_pos, modo, dt.date.today())
+            resultado = opcoes_lastreadas.proposta_fechar(pos_op_aberta, chain_pos, modo, _hoje_brt())
         else:
             chain = await options_provider.get_options(t)
             provider_status = chain.get("providerStatus")
@@ -2499,7 +2553,7 @@ async def options_proposta(ticker: str, multiperna: bool = False, scope: Optiona
                 snap = await technical_snapshot.get(t, p, lambda rng: candle_provider.get_history(t, rng=rng))
                 plano = setups.plano_do_resultado(snap["setups"], close=snap.get("close"))
                 resultado = opcoes_lastreadas.propor(
-                    t, chain, spot, plano, posicao, cash, modo, dt.date.today(), multiperna=multiperna)
+                    t, chain, spot, plano, posicao, cash, modo, _hoje_brt(), multiperna=multiperna)
     except Exception:
         resultado = {"proposta": None, "motivo": "degradado"}
         provider_status = "degraded"
@@ -2633,7 +2687,6 @@ async def options_lastreada_abrir_collar(body: dict = Body(default={}), scope: O
     mercado/carteira entre a proposta exibida e o aceite, informação que a
     UI precisa para decidir entre corrigir o corpo e recarregar a proposta
     (ADR-026, Decisão 4)."""
-    import datetime as dt
     cfg = store.get(_conn, "config", user_id=scope) or {}
     if cfg.get("appMode") != "operador":
         raise HTTPException(403, "Modo Estudo não executa ordens — troque para o Modo Operador para operar.")
@@ -2700,7 +2753,7 @@ async def options_lastreada_abrir_collar(body: dict = Body(default={}), scope: O
         snap = await technical_snapshot.get(underlying, periodo, lambda rng: candle_provider.get_history(underlying, rng=rng))
         plano = setups.plano_do_resultado(snap["setups"], close=snap.get("close"))
         resultado = opcoes_lastreadas.propor(
-            underlying, chain, spot, plano, posicao, cash, modo, dt.date.today(), multiperna=True)
+            underlying, chain, spot, plano, posicao, cash, modo, _hoje_brt(), multiperna=True)
     except HTTPException:
         raise
     except Exception:
@@ -2813,11 +2866,66 @@ async def options_lastreada_fechar(body: dict = Body(default={}), scope: Optiona
     if not isinstance(price, (int, float)):
         raise HTTPException(502, "Sem prêmio disponível para este contrato.")
     contratos_body = body.get("contratos")
-    contratos_n = int(contratos_body) if isinstance(contratos_body, (int, float)) and contratos_body > 0 else None
+    # QUINTA e ÚLTIMA ocorrência da família do falsy aberta por F10-20260819 em
+    # `/api/sell` (as outras: `/api/buy` e `/api/options/buy` na quick
+    # 260910-mqs/260911-15a, `/api/options/sell` na quick 260911-cf1, que é a
+    # irmã mais próxima em forma). O antigo
+    #   `int(c) if isinstance(c, (int, float)) and c > 0 else None`
+    # mandava `0`, `-3` E `"abc"` todos para `None` — e `None` AQUI significa
+    # FECHAR A OPERAÇÃO INTEIRA. Reproduzido contra o endpoint real: os seis
+    # casos (3 valores × 2 ramos) devolviam 200 e zeravam a posição de 300.
+    #
+    # Agravante que faz esta ser a pior das cinco: o `isinstance` engolia o não
+    # numérico EM SILÊNCIO (nas outras rotas `"abc"` ao menos explodia num 500
+    # visível), e a TELA manda este campo — `App.jsx:3529`,
+    # `A.fecharLastreada({ contractSymbol, contratos: p.contratos })`. As
+    # quatro anteriores só eram alcançáveis por chamada direta à API; esta é
+    # alcançável por um `p.contratos` indefinido na proposta.
+    #
+    # Contrato PRESERVADO: `contratos` AUSENTE continua significando fechar
+    # TUDO, nos DOIS ramos — é o que a tela depende (guardião de contrato
+    # próprio em test_fase5_rejeicao_rotas.py, caminho 21). A guarda rejeita só
+    # o valor EXPLÍCITO inválido (`is not None`), com a mesma string
+    # "Quantidade inválida." das outras quatro rotas, para a UI não ganhar
+    # variante nova.
+    #
+    # `tipo` da rejeição segue o que o FECHAMENTO gravaria no sucesso, por
+    # ramo: `vendida` é RECOMPRA da call coberta (`fechar_call_coberta` grava
+    # "COMPRA"), `comprada` é venda da put (`sell_option` grava "VENDA") — a
+    # rota não registrava rejeição nenhuma antes desta correção, então o
+    # formato vem do motor, não é invenção nova. Escopo anônimo NÃO grava
+    # (T-02-07: balde kv compartilhado entre todos os anônimos). A guarda fica
+    # DEPOIS da cadeia, e não antes, pela mesma razão de `/api/sell` e
+    # `/api/options/sell`: o histórico da rejeição grava o `price` real do
+    # contrato, e ele só existe depois da cotação.
+    tipo_rejeicao = "COMPRA" if pos.get("side") == "vendida" else "VENDA"
+    contratos_n = None
+    if contratos_body is not None:
+        try:
+            contratos_n = int(contratos_body)
+        except (TypeError, ValueError):
+            # histórico grava o valor CRU quando não converte — mesmo que
+            # `/api/sell` e `/api/options/sell` fazem.
+            if scope is not None:
+                store.registrar_rejeicao(_conn, tipo_rejeicao, contract_symbol, contratos_body, price,
+                                          f"Quantidade inválida: {contratos_body}. O fechamento usa contratos inteiros.",
+                                          user_id=scope, origem="manual")
+            raise HTTPException(400, "Quantidade inválida.")
+        if contratos_n <= 0:
+            if scope is not None:
+                store.registrar_rejeicao(_conn, tipo_rejeicao, contract_symbol, contratos_n, price,
+                                          f"Quantidade inválida: {contratos_n}. O fechamento usa contratos inteiros.",
+                                          user_id=scope, origem="manual")
+            raise HTTPException(400, "Quantidade inválida.")
     if pos.get("side") == "vendida":
         store.fechar_call_coberta(_conn, contract_symbol, price, user_id=scope, contratos=contratos_n)
     elif pos.get("side") == "comprada":
-        qty = contratos_n * 100 if contratos_n else None
+        # `is not None`, não truthiness: depois da guarda acima `contratos_n` só
+        # pode ser `None` (ausente = fechar tudo) ou inteiro positivo, mas o
+        # `if contratos_n` original era o MESMO padrão falsy de novo, um andar
+        # abaixo — deixá-lo aqui manteria a guarda pela metade no dia em que
+        # alguém afrouxasse a de cima.
+        qty = contratos_n * 100 if contratos_n is not None else None
         store.sell_option(_conn, contract_symbol, price, user_id=scope, qty=qty, motivo="manual")
     else:
         raise HTTPException(400, "Sem posição em " + contract_symbol)

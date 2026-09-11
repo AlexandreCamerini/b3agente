@@ -23,7 +23,7 @@ ao vivo) — quem precisar dela anexa por fora, sem afetar o id.
 """
 import hashlib
 import json
-import time
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from . import candle_cache, indicators, setups, technical_models
@@ -35,10 +35,28 @@ from . import candles as candles_mod
 # `get_or_build`). O código estava certo, o comentário mentia.
 _SNAP_CACHE: dict = {}  # (ticker, period, interval) -> snapshot (validado por fingerprint)
 
+# DECISÃO (260911-dcq, achado D-2 parte 1): `generatedAt` usava
+# `time.strftime` sem fuso — em produção (Railway, container em UTC) o
+# carimbo saía 3h à frente do horário real de Brasília, contrariando o
+# princípio 3 do CLAUDE.md (dado de mercado exibe o horário real da última
+# atualização). Offset fixo -3h porque o Brasil não tem horário de verão
+# desde 2019 (mesma justificativa de `brapi.py:31-33`, `store.py`,
+# `scan_deep.py`). Formato mantido (`%Y-%m-%dT%H:%M:%S`, sem sufixo de fuso):
+# só a FONTE do relógio mudou, não a string — evita tocar quem já consome
+# este campo.
+BRT = timezone(timedelta(hours=-3))
+
 
 def reset():
     """Para testes."""
     _SNAP_CACHE.clear()
+
+
+def _now_iso() -> str:
+    """Carimbo de apuração em BRT (D-2 parte 1). Era `time.strftime` sem
+    fuso — extraído para função própria, testável isoladamente sem montar
+    um snapshot inteiro (mesmo padrão de `scan_deep._day()`)."""
+    return datetime.now(BRT).strftime("%Y-%m-%dT%H:%M:%S")
 
 
 def _fingerprint(cs: list, keep: int) -> str:
@@ -171,7 +189,7 @@ def build(ticker: str, raw_candles: list, period: Optional[str], interval: str =
         "asOf": last.get("date"),
         "barraEmFormacao": barra_em_formacao,
         "lacunas": lacunas,
-        "generatedAt": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        "generatedAt": _now_iso(),
         "candles": sl["candles"],
         "indicators": sl["indicators"],
         "summary": full["summary"],
