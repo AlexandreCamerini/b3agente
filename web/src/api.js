@@ -320,6 +320,28 @@ export const api = {
   mcpStatus: () => req("GET", "/api/options/mcp/status", undefined, 30000),
   mcpLeitura: (t) => req("GET", "/api/options/mcp/leitura/" + encodeURIComponent(t), undefined, 30000),
   mcpSetupGrafico: (name) => req("GET", "/api/options/mcp/setups/" + encodeURIComponent(name) + "/grafico", undefined, 30000),
+  // FASE 8B (260911-k9g): carimbo de build do SERVIDOR JÁ CONFIGURADO
+  // (runtimeBase) — diferente de testServer(url) acima, que valida um
+  // ENDEREÇO DIGITADO antes de aplicá-lo. Usado só para exibir no rodapé do
+  // Perfil (diagnóstico, não caminho crítico, buscado ao abrir a tela, não
+  // no boot). NÃO usa req(): timeout curto (8s — um carimbo não justifica os
+  // 15s padrão) e falha vira `null`, NUNCA exceção — a tela do Perfil não
+  // pode quebrar por causa disto, e `null` é o sinal para o chamador mostrar
+  // travessão em vez de repetir o build do front (ver App.jsx, rodapé do
+  // PerfilHub).
+  serverBuild: async () => {
+    if (nativeMode && !runtimeBase) return null;
+    let res;
+    try {
+      res = await fetchWithTimeout(runtimeBase + "/api/health", { method: "GET" }, 8000);
+    } catch {
+      return null;
+    }
+    if (!res.ok) return null;
+    const j = await readBody(res); // tolerante: nunca estoura em HTML/corpo vazio
+    if (!j || j._raw !== undefined || typeof j.build !== "string") return null;
+    return j.build;
+  },
   buy: (t, qty, meta) => req("POST", "/api/buy", meta ? { t, qty, meta } : { t, qty }),   // FASE 2 (2.4): setup de entrada
   sell: (t, qty) => req("POST", "/api/sell", qty ? { t, qty } : { t }),                    // FASE 2 (2.4): venda parcial
   putPosition: (t, b) => req("PUT", "/api/position/" + t, b),
