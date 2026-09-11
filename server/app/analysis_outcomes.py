@@ -86,6 +86,9 @@ def normalizar_confianca(valor) -> Optional[str]:
 # Telemetria em memória (mesmo padrão de radar_daily.LAST_DAILY — aparece no
 # status_snapshot da Observabilidade).
 LAST_EVAL = {"date": None, "avaliadas": 0, "erro": None}
+# 260911-axj: nome do marcador PERSISTIDO deste job (ver `db.marcar_job`) —
+# igual à chave que o painel lê no `status_snapshot`.
+JOB_NOME = "avaliacaoAnalises"
 
 
 def _key() -> str:
@@ -667,6 +670,10 @@ async def maybe_run(conn, fetch, cache_conn=None) -> Optional[int]:
         n = await avaliar_pendentes(conn, fetch)
         LAST_EVAL.update(date=_hoje(), avaliadas=n, erro=None)
         db.kv_set(conn, "analysisOutcomesLastRun", _hoje(), user_id=None)
+        # 260911-axj: `analysisOutcomesLastRun` é o GATE (só a data, e quem lê é
+        # o próprio job); o marcador abaixo é o que a OBSERVABILIDADE lê, com o
+        # registro completo (inclui `avaliadas`). Best-effort: nunca levanta.
+        db.marcar_job(conn, JOB_NOME, LAST_EVAL)
         if cache_conn is not None:
             try:
                 from . import analytics as analytics_mod  # import local: sem ciclo de import

@@ -56,6 +56,10 @@ LAST_PENDING = {"at": None, "escopos": 0, "executadas": 0, "canceladas": 0, "err
 RUN_HISTORY: list = []           # [{at, duracaoS, usuarios, executadas, erros:[..]}]
 RUN_HISTORY_MAX = 12
 NEXT_RUN_AT = {"ts": None}       # epoch da próxima passada do scheduler
+# 260911-axj: quando ESTE processo subiu. Entra no `status_snapshot` porque é o
+# que falta para separar "nunca rodou" de "o processo subiu depois da janela do
+# job" — sem ele, quatro deploys num dia fazem as duas coisas parecerem iguais.
+PROCESSO_DESDE_TS = time.time()
 _CYCLE_BUSY: set = set()          # escopos com ciclo em andamento
 # Intervalo do ciclo POR USUÁRIO (agent.intervalMin, min): o laço acorda na
 # cadência base (env B3_AGENT_INTERVAL_S) e só roda o ciclo de um usuário se já
@@ -1495,6 +1499,38 @@ async def scheduler_loop(conn, quotes_getter, notify_push=None, interval_s: int 
         await asyncio.sleep(interval)
 
 
+def _marcador_job(conn, nome: str, memoria: dict) -> tuple:
+    """O registro de execução de um job + DE ONDE ele veio — 260911-axj.
+
+    Devolve `(registro, origem)` com origem em "memoria" | "kv" | None. As três
+    origens são exatamente os três estados que o painel precisa distinguir:
+
+      • "memoria" — este processo viu o job rodar (caminho rápido, e sempre o
+        mais recente: o dict de memória é atualizado SEMPRE, a gravação no kv é
+        best-effort e pode ter falhado);
+      • "kv"      — o job rodou antes deste processo e o registro sobreviveu ao
+        reinício (era justamente o caso que o painel chamava de "nunca rodou");
+      • None      — não há registro em lugar nenhum, e só aí "nunca rodou" é
+        verdade.
+
+    O registro devolvido tem EXATAMENTE as chaves do dict de memória: um
+    marcador gravado por uma versão anterior (ou futura) do código não muda a
+    forma do `status_snapshot`, que é contrato com o portal admin. Um `erro`
+    que só a memória conhece (job falhou NESTE processo, antes de registrar
+    execução) prevalece sobre o persistido — a falha é deste processo.
+    """
+    mem = dict(memoria or {})
+    if any(mem.get(k) for k in ("date", "at")):
+        return mem, "memoria"
+    persistido = db.ler_job(conn, nome)   # nunca levanta
+    if not persistido:
+        return mem, None
+    registro = {k: persistido.get(k, v) for k, v in mem.items()}
+    if mem.get("erro"):
+        registro["erro"] = mem["erro"]
+    return registro, "kv"
+
+
 def status_snapshot(conn, interval_s: int = None) -> dict:
     """BLOCO D3 — estado observável do Operador IA no servidor."""
     prox = None
@@ -1518,6 +1554,14 @@ def status_snapshot(conn, interval_s: int = None) -> dict:
     _total_pendentes = sum(len(pending_orders.listar(conn, user_id=uid)) for uid in _escopos_pendentes)
     # P2 (liveness): heartbeat persistido (sobrevive a deploy e bate fora do pregão).
     intervalo = interval_s or int(os.environ.get("B3_AGENT_INTERVAL_S") or INTERVAL_S_DEFAULT)
+    # 260911-axj: os quatro marcadores de job passam a ser lidos do kv quando
+    # este processo não tem registro próprio (ver `_marcador_job`). Mesma lição
+    # do heartbeat logo abaixo: estado de observabilidade que zera no deploy não
+    # distingue "não aconteceu" de "não me lembro".
+    _mk_radar, _org_radar = _marcador_job(conn, radar_daily.JOB_NOME, radar_daily.LAST_DAILY)
+    _mk_aval, _org_aval = _marcador_job(conn, analysis_outcomes.JOB_NOME, analysis_outcomes.LAST_EVAL)
+    _mk_fund, _org_fund = _marcador_job(conn, fundamentals.JOB_NOME, fundamentals.LAST_WARM)
+    _mk_intra, _org_intra = _marcador_job(conn, intraday.JOB_NOME, intraday.LAST_PASS)
     hb = db.kv_get(conn, "agentHeartbeat", None, user_id=None) or {}
     hb_ha_s = int(time.time() - hb["ts"]) if hb.get("ts") else None
     # vivo se bateu dentro de ~2,5 intervalos (tolera 1 tick perdido + folga)
@@ -1531,12 +1575,37 @@ def status_snapshot(conn, interval_s: int = None) -> dict:
             "pregaoAbertoNoTick": hb.get("pregaoAberto"),
             "lacoVivo": laco_vivo,
         },
-        "radarDiario": dict(radar_daily.LAST_DAILY),  # FASE 4 (1.3)
-        "avaliacaoAnalises": dict(analysis_outcomes.LAST_EVAL),  # qa/30 (Fase A)
+        # MESMA FORMA de antes (as chaves saem do próprio dict de memória);
+        # 260911-axj só trocou a FONTE quando este processo não tem registro.
+        "radarDiario": _mk_radar,  # FASE 4 (1.3)
+        "avaliacaoAnalises": _mk_aval,  # qa/30 (Fase A)
         # qa/46 (Fase 2): 3 contadores que existiam só em memória, sem endpoint —
         # a função que os calcula já rodava; isto só liga o fio até o snapshot.
-        "aquecimentoFundamentos": dict(fundamentals.LAST_WARM),
-        "intraday": dict(intraday.LAST_PASS),
+        "aquecimentoFundamentos": _mk_fund,
+        "intraday": _mk_intra,
+        # 260911-axj — bloco ADITIVO (nenhuma chave existente mudou de nome ou
+        # tipo): o que falta para a tela dizer "aguardando a próxima janela" em
+        # vez de "nunca rodou" quando o processo subiu depois da janela do job.
+        # O front ainda NÃO lê isto (pendência registrada na entrega): o dado
+        # fica pronto no backend, que é o lado que sabe a janela de cada job.
+        "jobs": {
+            "processoDesdeBRT": datetime.fromtimestamp(PROCESSO_DESDE_TS, BRT).strftime("%d/%m %H:%M"),
+            "processoHaS": int(time.time() - PROCESSO_DESDE_TS),
+            "origem": {
+                "radarDiario": _org_radar,
+                "avaliacaoAnalises": _org_aval,
+                "aquecimentoFundamentos": _org_fund,
+                "intraday": _org_intra,
+            },
+            "janelas": {
+                # horário-alvo real (valida o env) + dia útil: antes dele, hoje,
+                # ausência de registro não é defeito nenhum.
+                "radarDiario": {"hhmm": radar_daily.janela_hhmm(), "diaUtil": True},
+                "intraday": {"pregao": True, "gapMinS": intraday.GAP_MIN_S},
+                "avaliacaoAnalises": {"porDia": 1},
+                "aquecimentoFundamentos": {"porDia": 1},
+            },
+        },
         "pushAutomaticoFalhasHoje": dict(PUSH_FAIL_TODAY),
         "ordensPendentes": {
             "total": _total_pendentes,

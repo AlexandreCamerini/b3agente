@@ -76,6 +76,9 @@ CHAVE = "intradayPass"
 # Telemetria em memória (aparece no status_snapshot da Observabilidade).
 LAST_PASS = {"at": None, "atLabel": None, "duracaoS": None,
              "ativos": 0, "comLacuna": 0, "erros": 0, "erro": None}
+# 260911-axj: nome do marcador PERSISTIDO deste job (ver `db.marcar_job`) —
+# igual à chave que o painel lê no `status_snapshot`.
+JOB_NOME = "intraday"
 
 
 def enabled() -> bool:
@@ -161,6 +164,12 @@ async def run_pass(conn, fetch, universo: Optional[list] = None) -> dict:
     LAST_PASS.update(at=agora.isoformat(), atLabel=payload["atLabel"],
                      duracaoS=round(time.monotonic() - t0, 2), ativos=len(resultados),
                      comLacuna=com_lacuna, erros=len(erros), erro=None)
+    # 260911-axj: o `payload` acima (CHAVE) é o RESULTADO da passada, consumido
+    # pelo Radar intraday (`get_stored`) — tem `at`/`atLabel`/`ativos`, mas em
+    # outra forma (`erros` é lista, não contagem; sem `duracaoS`). Mapear um no
+    # outro criaria uma segunda verdade divergente sobre a mesma passada; o
+    # marcador abaixo grava o registro de TELEMETRIA como ele é. Nunca levanta.
+    db.marcar_job(conn, JOB_NOME, LAST_PASS)
     return payload
 
 

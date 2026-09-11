@@ -5,7 +5,8 @@ import re
 import tempfile
 from datetime import datetime, timezone, timedelta
 
-from app import agent, db, indicators, store
+from app import (agent, analysis_outcomes, db, fundamentals, indicators,
+                 intraday, radar_daily, store)
 
 
 def _conn():
@@ -520,3 +521,220 @@ def test_a08_venda_real_continua_anunciada_com_resultado():
     assert "vendido" in compras[0]["text"] and "Resultado realizado" in compras[0]["text"]
     assert compras[0]["pnl"] is not None
     assert int(db.kv_get(c, "agent", {}, user_id="u1").get("opsToday") or 0) == 1
+
+
+# ---------------------------------------------------------------------------
+# 260911-axj — marcadores de job sobrevivem ao reinício do processo.
+#
+# Achado ao vivo no painel de administração (2026-09-11): quatro jobs apareciam
+# como "NUNCA RODOU" no mesmo dia em que rodaram — o marcador de cada um era um
+# dict de MÓDULO, em memória do processo, e produção reiniciou quatro vezes
+# (deploys -01 a -04). "Nunca rodou" é afirmação sobre toda a história do
+# sistema; o que o painel sabia era "sem registro NESTE processo".
+# ---------------------------------------------------------------------------
+
+# (nome no snapshot, dict de telemetria em memória, registro de uma execução)
+_JOBS_MARCADOS = [
+    (radar_daily.JOB_NOME, radar_daily.LAST_DAILY,
+     {"date": "2026-09-10", "atLabel": "10/09 08:45", "duracaoS": 12.3, "erro": None}),
+    (analysis_outcomes.JOB_NOME, analysis_outcomes.LAST_EVAL,
+     {"date": "2026-09-10", "avaliadas": 7, "erro": None}),
+    (fundamentals.JOB_NOME, fundamentals.LAST_WARM,
+     {"date": "2026-09-10", "aquecidos": 42, "erro": None}),
+    (intraday.JOB_NOME, intraday.LAST_PASS,
+     {"at": "2026-09-10T12:00:00-03:00", "atLabel": "10/09 12:00", "duracaoS": 0.5,
+      "ativos": 65, "comLacuna": 2, "erros": 0, "erro": None}),
+]
+
+# A FORMA que o portal admin lê (web-admin/src/App.jsx:118-130). Lista explícita
+# de propósito: é contrato com a tela, não detalhe interno.
+_FORMA_MARCADORES = {
+    "radarDiario": {"date", "atLabel", "duracaoS", "erro"},
+    "avaliacaoAnalises": {"date", "avaliadas", "erro"},
+    "aquecimentoFundamentos": {"date", "aquecidos", "erro"},
+    "intraday": {"at", "atLabel", "duracaoS", "ativos", "comLacuna", "erros", "erro"},
+}
+
+
+def _reinicia_processo(memoria):
+    """Simula o REINÍCIO DO PROCESSO: o dict de telemetria volta ao estado de
+    import (o deploy não faz mais do que isto — e era o bastante para o painel
+    passar a dizer "nunca rodou")."""
+    for k, v in list(memoria.items()):
+        memoria[k] = 0 if isinstance(v, int) and not isinstance(v, bool) else None
+
+
+def test_marcador_de_job_sobrevive_ao_reinicio_do_processo():
+    c = _conn()
+    _seed(c, [], {"serverEnabled": True})
+    guardados = [(mem, dict(mem)) for _n, mem, _r in _JOBS_MARCADOS]
+    try:
+        for nome, memoria, registro in _JOBS_MARCADOS:
+            memoria.update(registro)                        # o job rodou
+            assert db.marcar_job(c, nome, memoria) is True  # e anotou no kv
+            _reinicia_processo(memoria)                     # deploy: memória zerada
+
+        st = agent.status_snapshot(c, interval_s=60)
+        for nome, _memoria, registro in _JOBS_MARCADOS:
+            for campo, esperado in registro.items():
+                assert st[nome][campo] == esperado, (nome, campo)
+            # o que a tela lê para NÃO dizer "nunca rodou"
+            assert st[nome].get("date") or st[nome].get("atLabel")
+            assert st["jobs"]["origem"][nome] == "kv"
+            assert set(st[nome]) == _FORMA_MARCADORES[nome]
+    finally:
+        for mem, antes in guardados:
+            mem.clear()
+            mem.update(antes)
+
+
+def test_sem_registro_em_lugar_nenhum_nunca_rodou_continua_verdade():
+    """O outro lado do mesmo achado: com banco vazio E memória vazia, "nunca
+    rodou" é a única leitura honesta — e é o que a tela continua recebendo."""
+    c = _conn()
+    _seed(c, [], {"serverEnabled": True})
+    guardados = [(mem, dict(mem)) for _n, mem, _r in _JOBS_MARCADOS]
+    try:
+        for _nome, memoria, _registro in _JOBS_MARCADOS:
+            _reinicia_processo(memoria)
+        st = agent.status_snapshot(c, interval_s=60)
+        for nome, _memoria, _registro in _JOBS_MARCADOS:
+            assert not st[nome].get("date") and not st[nome].get("at")
+            assert not st[nome].get("atLabel")       # a tela cai no "nunca rodou"
+            assert st["jobs"]["origem"][nome] is None
+    finally:
+        for mem, antes in guardados:
+            mem.clear()
+            mem.update(antes)
+
+
+def test_falha_ao_gravar_o_marcador_nao_derruba_o_job(monkeypatch):
+    """O invariante que não pode quebrar: um job que falha por não conseguir
+    ANOTAR que rodou é pior que o defeito que o marcador corrige. Mesmo padrão
+    de `brapi_budget._persiste` ("contador é proteção, nunca derruba")."""
+    import sqlite3 as _sqlite3
+
+    c = _conn()
+    _seed(c, [], {"serverEnabled": True})
+    antes = dict(radar_daily.LAST_DAILY)
+    espiao = {"tentativas": 0}
+    kv_set_real = db.kv_set
+
+    def kv_set_que_levanta(conn, key, value, user_id=None):
+        if key.startswith(db.JOB_MARCADOR_PREFIX):
+            espiao["tentativas"] += 1
+            raise _sqlite3.OperationalError("database is locked")
+        return kv_set_real(conn, key, value, user_id=user_id)
+
+    async def scan_fake(period=None, fetch=None):
+        return {"period": period, "results": [], "universo": 0}
+
+    try:
+        monkeypatch.setattr(db, "kv_set", kv_set_que_levanta)
+        monkeypatch.setattr(radar_daily.scanner, "run_scan", scan_fake)
+        _reinicia_processo(radar_daily.LAST_DAILY)
+
+        r = asyncio.run(radar_daily.run_daily(c, None))
+
+        assert espiao["tentativas"] == 1           # tentou gravar o marcador
+        assert r.get("results") is not None        # e o JOB CONCLUIU mesmo assim
+        hoje = datetime.now(agent.BRT).date().isoformat()
+        assert radar_daily.LAST_DAILY["date"] == hoje   # memória segue atualizada
+        # e o snapshot segue de pé, servindo a memória deste processo
+        monkeypatch.setattr(db, "kv_set", kv_set_real)
+        st = agent.status_snapshot(c, interval_s=60)
+        assert st["radarDiario"]["date"] == hoje
+        assert st["jobs"]["origem"]["radarDiario"] == "memoria"
+    finally:
+        radar_daily.LAST_DAILY.clear()
+        radar_daily.LAST_DAILY.update(antes)
+
+
+def test_falha_ao_ler_o_marcador_nao_derruba_o_snapshot(monkeypatch):
+    """Mesma regra na leitura: a observabilidade é a tela a que alguém recorre
+    para diagnosticar — ela não pode ser a que cai."""
+    c = _conn()
+    _seed(c, [], {"serverEnabled": True})
+    antes = dict(radar_daily.LAST_DAILY)
+    kv_get_real = db.kv_get
+
+    def kv_get_que_levanta(conn, key, default=None, user_id=None):
+        if key.startswith(db.JOB_MARCADOR_PREFIX):
+            raise RuntimeError("kv indisponível")
+        return kv_get_real(conn, key, default, user_id=user_id)
+
+    try:
+        radar_daily.LAST_DAILY.update(date="2026-09-10", atLabel="10/09 08:45")
+        db.marcar_job(c, radar_daily.JOB_NOME, radar_daily.LAST_DAILY)
+        _reinicia_processo(radar_daily.LAST_DAILY)
+        monkeypatch.setattr(db, "kv_get", kv_get_que_levanta)
+
+        st = agent.status_snapshot(c, interval_s=60)
+        assert st["radarDiario"]["date"] is None           # degrada para "sem registro"
+        assert st["jobs"]["origem"]["radarDiario"] is None
+        assert set(st["radarDiario"]) == _FORMA_MARCADORES["radarDiario"]
+    finally:
+        radar_daily.LAST_DAILY.clear()
+        radar_daily.LAST_DAILY.update(antes)
+
+
+def test_marcador_persistido_por_outra_versao_nao_muda_a_forma_do_snapshot():
+    """O registro do kv é PROJETADO nas chaves do dict de memória: um marcador
+    gravado por outra versão do código (chave a mais, chave a menos) não vaza
+    para o contrato que o portal admin lê."""
+    c = _conn()
+    _seed(c, [], {"serverEnabled": True})
+    antes = dict(radar_daily.LAST_DAILY)
+    try:
+        db.marcar_job(c, radar_daily.JOB_NOME,
+                      {"date": "2026-09-10", "chaveDeOutraVersao": 1})
+        _reinicia_processo(radar_daily.LAST_DAILY)
+        st = agent.status_snapshot(c, interval_s=60)
+        assert set(st["radarDiario"]) == _FORMA_MARCADORES["radarDiario"]
+        assert st["radarDiario"]["date"] == "2026-09-10"
+        assert st["radarDiario"]["atLabel"] is None   # ausente no marcador: None
+    finally:
+        radar_daily.LAST_DAILY.clear()
+        radar_daily.LAST_DAILY.update(antes)
+
+
+def test_erro_deste_processo_prevalece_sobre_o_marcador_persistido():
+    """Job rodou ontem (está no kv) e falhou hoje, antes de registrar execução:
+    a data vem do kv, o erro vem da memória — o erro é DESTE processo."""
+    c = _conn()
+    _seed(c, [], {"serverEnabled": True})
+    antes = dict(radar_daily.LAST_DAILY)
+    try:
+        db.marcar_job(c, radar_daily.JOB_NOME,
+                      {"date": "2026-09-10", "atLabel": "10/09 08:45",
+                       "duracaoS": 9.0, "erro": None})
+        _reinicia_processo(radar_daily.LAST_DAILY)
+        radar_daily.LAST_DAILY["erro"] = "Sem dados de mercado"
+        st = agent.status_snapshot(c, interval_s=60)
+        assert st["radarDiario"]["date"] == "2026-09-10"
+        assert st["radarDiario"]["erro"] == "Sem dados de mercado"
+    finally:
+        radar_daily.LAST_DAILY.clear()
+        radar_daily.LAST_DAILY.update(antes)
+
+
+def test_status_snapshot_mantem_a_forma_que_o_portal_admin_le():
+    """260911-axj trocou a FONTE dos quatro marcadores, não a forma. A lista
+    abaixo é a do snapshot ANTES desta entrega + a chave aditiva `jobs`."""
+    c = _conn()
+    _seed(c, [], {"serverEnabled": True})
+    st = agent.status_snapshot(c, interval_s=60)
+    assert set(st) == {
+        "killSwitch", "pregaoAberto", "heartbeat", "radarDiario", "avaliacaoAnalises",
+        "aquecimentoFundamentos", "intraday", "pushAutomaticoFalhasHoje",
+        "ordensPendentes", "intervaloS", "usuariosHabilitados", "protecaoSemOperador",
+        "ultimoCiclo", "proximaPassadaEmS", "passadas", "agoraBRT",
+        "jobs",   # ADITIVA (260911-axj): nenhuma chave existente mudou
+    }
+    for nome, chaves in _FORMA_MARCADORES.items():
+        assert set(st[nome]) == chaves, nome
+    # o bloco aditivo carrega o que falta para a tela distinguir "aguardando a
+    # próxima janela" de "nunca rodou" — sem que o front mude agora.
+    assert st["jobs"]["processoDesdeBRT"] and st["jobs"]["processoHaS"] >= 0
+    assert set(st["jobs"]["origem"]) == set(_FORMA_MARCADORES)
+    assert st["jobs"]["janelas"]["radarDiario"]["hhmm"] == radar_daily.janela_hhmm()
