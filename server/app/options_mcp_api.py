@@ -64,7 +64,39 @@ AVISO_FRESCOR_NAO_MEDIDO = (
 AVISO_FRESCOR_NAO_MEDIDO_NA_LEITURA = (
     "frescor não medido nesta leitura: nenhum setup deste ticker foi avaliado"
 )
-AVISOS = AVISO_FRESCOR_NAO_MEDIDO + "\n" + AVISO_FRESCOR_NAO_MEDIDO_NA_LEITURA
+# F3: `find_tradable_options`, `propose_option_setups` e
+# `evaluate_option_structure` NÃO anexam `data_freshness` à resposta. O texto
+# diz onde a medição ESTÁ, em vez de calar: a tela combina este envelope com o
+# do `/status` (que mede) e prefere o medido. Silenciar aqui faria "não
+# medido" passar por "em dia", que é o erro que a Decisão 8 do ADR-027 existe
+# para impedir.
+AVISO_FRESCOR_SEM_ANEXO = (
+    "frescor não medido nesta consulta: esta chamada não traz o carimbo de "
+    "idade do dado; o estado medido está no cabeçalho da aba"
+)
+AVISOS = "\n".join((AVISO_FRESCOR_NAO_MEDIDO,
+                    AVISO_FRESCOR_NAO_MEDIDO_NA_LEITURA,
+                    AVISO_FRESCOR_SEM_ANEXO))
+
+# Critério de "operável" do BORIS, não do serviço (D-24.4). O serviço aceita
+# qualquer peneira; estes três números são escolha nossa, e por isso viajam na
+# resposta em `criterioAplicado` — número escondido vira "a peneira sumiu com
+# o meu strike" sem ninguém conseguir explicar por quê.
+OPERAVEIS_MIN_NEGOCIOS = 100
+OPERAVEIS_DELTA_MIN = 0.25
+OPERAVEIS_DELTA_MAX = 0.55
+
+# `kind` e `direction` aceitos. Valor fora da lista é 422 ANTES da rede: o
+# serviço recusaria de qualquer jeito, e a viagem já teria custado uma
+# chamada do teto compartilhado.
+TIPOS_DE_OPCAO = ("CALL", "PUT")
+DIRECOES = ("bullish", "bearish", "neutral")
+
+# `limit` da cadeia. Teto de 200 porque pedir mais multiplica o payload sem
+# multiplicar a informação — a cadeia inteira de um vencimento raramente
+# passa disso, e o `truncated` do serviço diz como pedir o resto.
+LIMITE_MIN = 1
+LIMITE_MAX = 200
 
 _conn = None
 _require_user = None
@@ -378,6 +410,66 @@ def _frescor(sc: Optional[dict], erro: Optional[str]) -> dict:
     }
 
 
+def _frescor_do_anexo(dados) -> Optional[dict]:
+    """Frescor a partir do `data_freshness` que a tool ANEXOU à resposta.
+
+    `None` quando a resposta não traz o anexo — e `None` aqui é "não veio",
+    que o chamador converte em "não medido" (`_frescor_nao_medido`), nunca em
+    "em dia".
+
+    Extraída de `_frescor_da_avaliacao` na F3, que passou a delegar: duas
+    tools anexam a MESMA estrutura (`evaluate_setups` e `get_option_chain`),
+    e duas leituras independentes dela divergiriam na primeira mudança de
+    contrato. Devolve as mesmas chaves de `_frescor` porque o front tem UM
+    renderizador de frescor, não três.
+    """
+    dados = dados if isinstance(dados, dict) else {}
+    df = dados.get("data_freshness")
+    if not (isinstance(df, dict) and df):
+        return None
+
+    situacao = df.get("quotes")
+    situacao = situacao if isinstance(situacao, str) else "desconhecido"
+    idade = df.get("quotes_age_hours")
+    # `bool` é subclasse de `int`: sem a recusa explícita, um `True` viraria
+    # "1 hora" na tela — número inventado a partir de um dado que não é
+    # número (mesma régua de `_numero` em `opcoes_payoff.py`).
+    idade_ok = isinstance(idade, (int, float)) and not isinstance(idade, bool)
+    aviso = df.get("warning")
+    aviso = aviso if isinstance(aviso, str) and aviso else None
+
+    classe = {
+        "classe": CLASSE_CRITICA,
+        "situacao": situacao,
+        # idade real quando o serviço mandou; `None` quando não mandou —
+        # nunca 0, que a tela leria como "acabou de atualizar".
+        "idadeHoras": idade if idade_ok else None,
+        "bruto": df,
+    }
+    classes = [classe]
+    return {
+        "classes": classes,
+        "stale": [c for c in classes if c.get("situacao") != EM_DIA],
+        # O `warning` do anexo é do PRÓPRIO serviço sobre o dado dele —
+        # quando vem, bloqueia: quem mediu é quem sabe dizer que não dá.
+        "warning": aviso,
+        "bloqueia": bool(aviso) or situacao != EM_DIA,
+        "medido": situacao != "desconhecido",
+        "bruto": df,
+    }
+
+
+def _frescor_nao_medido(motivo: str) -> dict:
+    """O outro lado de `_frescor_do_anexo`: a tool NÃO carimba idade de dado.
+
+    `medido: False` e `bloqueia: True` porque ausência de medição não é
+    medição favorável (ADR-027, Decisão 8). A tela combina este envelope com
+    o do `/status` e mostra o medido quando existir.
+    """
+    return {"classes": [], "stale": [], "warning": motivo,
+            "bloqueia": True, "medido": False, "bruto": None}
+
+
 def _frescor_da_avaliacao(evaluate_dados: Optional[dict], chamou_evaluate: bool) -> dict:
     """Frescor do `/leitura` derivado do que `evaluate_setups` JÁ devolveu.
 
@@ -394,29 +486,10 @@ def _frescor_da_avaliacao(evaluate_dados: Optional[dict], chamou_evaluate: bool)
     renderizador de frescor, não dois que divergem com o tempo.
     """
     dados = evaluate_dados if isinstance(evaluate_dados, dict) else {}
-    df = dados.get("data_freshness")
 
-    if isinstance(df, dict) and df:
-        situacao = df.get("quotes")
-        situacao = situacao if isinstance(situacao, str) else "desconhecido"
-        idade = df.get("quotes_age_hours")
-        classe = {
-            "classe": CLASSE_CRITICA,
-            "situacao": situacao,
-            # idade real quando o serviço mandou; `None` quando não mandou —
-            # nunca 0, que a tela leria como "acabou de atualizar".
-            "idadeHoras": idade if isinstance(idade, (int, float)) else None,
-            "bruto": df,
-        }
-        classes = [classe]
-        return {
-            "classes": classes,
-            "stale": [c for c in classes if c.get("situacao") != EM_DIA],
-            "warning": None,
-            "bloqueia": situacao != EM_DIA,
-            "medido": situacao != "desconhecido",
-            "bruto": df,
-        }
+    anexo = _frescor_do_anexo(dados)
+    if anexo is not None:
+        return anexo
 
     if chamou_evaluate and dados.get("status") == "nao_avaliado":
         # Gate de frescor do próprio serviço: o `reason` vai VERBATIM, sem
@@ -478,6 +551,109 @@ async def _chamada_com_cap(cap: _Reserva, nome: str, args: dict) -> tuple:
     if not r.cache:
         cap.consome(1)
     return (r.dados if isinstance(r.dados, dict) else {}), bool(r.cache)
+
+
+# --------------------------------------------------------------------------
+# Validação do pedido (recusa ANTES da rede) e a única conta desta camada.
+# --------------------------------------------------------------------------
+def _tipo_de_opcao(valor) -> Optional[str]:
+    """`kind` normalizado, ou `None` quando o pedido não restringe o tipo."""
+    if valor is None or valor == "":
+        return None
+    tipo = str(valor).strip().upper()
+    if tipo not in TIPOS_DE_OPCAO:
+        raise HTTPException(422, {
+            "code": "kind_invalido",
+            "message": "Escolha CALL ou PUT, ou deixe em branco para ver os dois.",
+            "recebido": repr(valor),
+        })
+    return tipo
+
+
+def _limite(valor) -> int:
+    if isinstance(valor, bool) or not isinstance(valor, int) \
+            or not (LIMITE_MIN <= valor <= LIMITE_MAX):
+        raise HTTPException(422, {
+            "code": "limite_invalido",
+            "message": f"Peça entre {LIMITE_MIN} e {LIMITE_MAX} contratos por vez.",
+            "recebido": repr(valor),
+        })
+    return valor
+
+
+def _lote(valor) -> int:
+    """Lote em número de AÇÕES (D-24.3).
+
+    NÃO exige múltiplo de 100: o tamanho do contrato é da SÉRIE, e recusar
+    150 seria inventar uma regra que a B3 não aplica uniformemente. O que se
+    recusa é o que não é lote: zero, negativo, fracionário, booleano e texto.
+    """
+    inteiro = None
+    if not isinstance(valor, bool) and isinstance(valor, (int, float)):
+        try:
+            if float(valor).is_integer():
+                inteiro = int(valor)
+        except (OverflowError, ValueError):
+            inteiro = None
+    if inteiro is None or inteiro <= 0:
+        raise HTTPException(422, {
+            "code": "lote_invalido",
+            "message": ("Informe o lote em número de ações (inteiro positivo). "
+                        "1 contrato = 100 ações."),
+            "recebido": repr(valor),
+        })
+    return inteiro
+
+
+def _vezes_lote(valor, lote: int) -> Optional[float]:
+    """Multiplica pelo lote SÓ o que é número. Qualquer outra coisa — `None`
+    de ganho ilimitado, texto, booleano — sai `None`: um 0 aqui seria a tela
+    afirmando "não ganha nada" onde o serviço disse "não tem teto"."""
+    if isinstance(valor, bool) or not isinstance(valor, (int, float)):
+        return None
+    return valor * lote
+
+
+# **Por que não há conversão de breakeven no bloco abaixo, e por que isso não
+# é esquecimento:** breakeven é PREÇO DO OBJETO, não dinheiro da posição.
+# Multiplicado pelo lote viraria um número sem significado que a tela
+# exibiria como reais. O campo fica FORA de `emReais`, na resposta da rota,
+# em preço — desenho que torna o defeito impossível em vez de proibido
+# (D-24.2).
+def _em_reais(dados: dict, lote: int) -> dict:
+    """Cifras da estrutura multiplicadas pelo lote, em reais.
+
+    `lote` é número de AÇÕES: o serviço devolve tudo por unidade do objeto
+    (uma ação), e o contrato padrão da B3 são 100 ações. Multiplicar é a
+    única conta que esta camada faz, e ela é fechada aqui para não haver uma
+    segunda versão dela no front — duas implementações da mesma conta
+    divergem na primeira correção feita só de um lado.
+
+    `None` entra e `None` sai (ver `_vezes_lote`). `preco do objeto` de
+    cenário viaja VERBATIM: é preço, não dinheiro da posição.
+    """
+    dados = dados if isinstance(dados, dict) else {}
+
+    bloco = dados.get("scenarios")
+    lista = bloco.get("scenarios") if isinstance(bloco, dict) else None
+    cenarios = []
+    for item in lista or []:
+        if not isinstance(item, dict):
+            continue
+        cenarios.append({
+            "name": item.get("name"),
+            "underlying": item.get("underlying"),
+            "resultado": _vezes_lote(item.get("result"), lote),
+        })
+
+    return {
+        "lote": lote,
+        "custoLiquido": _vezes_lote(dados.get("net_cost"), lote),
+        "ganhoMaximo": _vezes_lote(dados.get("max_gain"), lote),
+        "perdaMaxima": _vezes_lote(dados.get("max_loss"), lote),
+        "cenarios": cenarios,
+        "unidade": "reais para o lote informado (lote = número de ações)",
+    }
 
 
 def _registros_do_ticker(lista: Optional[dict], alvo: str) -> list:
@@ -710,5 +886,121 @@ async def setup_grafico(name: str, user: dict = Depends(require_user)) -> dict:
             "pregao": dados.get("trading_date") or None,
             "fonte": FONTE,
             "at": _agora_brt(),
+            "cap": _cap_bloco(uid),
+        }
+
+
+@router.get("/cadeia/{ticker}")
+async def cadeia(ticker: str, expiration: Optional[str] = None,
+                 kind: Optional[str] = None, limit: int = 50,
+                 user: dict = Depends(require_user)) -> dict:
+    """Cadeia de opções do ticker: os contratos que o serviço tem para aquele
+    pregão, com prêmio, strike, delta e volume — custo 1.
+
+    Nada aqui é calculado. `options` viaja VERBATIM, e `truncated` também: é
+    o serviço dizendo quantos contratos ficaram de fora e como pedir o resto.
+    Engolir esse aviso faria a tela afirmar sobre a cadeia inteira tendo
+    visto metade.
+    """
+    uid = user["id"]
+    alvo = (ticker or "").strip().upper()
+    # Validação ANTES do cap, e o cap antes da rede: mesmo princípio em dois
+    # degraus — pedido torto não pode custar uma chamada do teto compartilhado.
+    tipo = _tipo_de_opcao(kind)
+    limite = _limite(limit)
+
+    args = {"ticker": alvo, "limit": limite}
+    # Chave omitida ≠ chave com `None`: o serviço trata ausência como "todos
+    # os vencimentos", e mandar `expiration: None` é um filtro nulo explícito.
+    if expiration:
+        args["expiration"] = expiration
+    if tipo:
+        args["kind"] = tipo
+
+    with _cap_check(uid, 1) as cap:   # saldo não consumido volta na saída
+        rota = "/api/options/mcp/cadeia/{ticker}"
+        try:
+            dados, cache = await _chamada_com_cap(cap, "get_option_chain", args)
+        except (mcp_client.McpErro, ValueError) as e:
+            obslog.log("mcp", "cadeia falhou", level="warn", rota=rota, uid=uid,
+                       ticker=alvo, erro=type(e).__name__,
+                       detalhe=str(e))  # A-03 — ver nota em `/status`
+            raise _erro_http(e)
+
+        frescor = _frescor_do_anexo(dados) or _frescor_nao_medido(AVISO_FRESCOR_SEM_ANEXO)
+        obslog.log("mcp", "cadeia", rota=rota, uid=uid, ticker=alvo,
+                   vencimento=args.get("expiration"), tipo=tipo,
+                   retornados=dados.get("returned"), cache=cache)
+
+        return {
+            "ticker": alvo,
+            "pregao": dados.get("trading_date") or None,
+            "precoObjeto": dados.get("underlying_price"),
+            "fonte": FONTE,
+            "at": _agora_brt(),
+            "opcoes": dados.get("options") or [],
+            "encontrados": dados.get("matched"),
+            "retornados": dados.get("returned"),
+            "truncado": dados.get("truncated"),
+            "frescor": frescor,
+            "cap": _cap_bloco(uid),
+        }
+
+
+@router.get("/operaveis/{ticker}")
+async def operaveis(ticker: str, expiration: Optional[str] = None,
+                    kind: Optional[str] = None,
+                    user: dict = Depends(require_user)) -> dict:
+    """A cadeia depois da peneira de liquidez e delta — custo 1.
+
+    O critério é do BORIS (D-24.4), e por isso sai declarado em
+    `criterioAplicado` junto do `criteria` que o serviço escreve. Peneira que
+    some com o strike da pessoa sem dizer o número que a reprovou é peneira
+    que a tela não consegue explicar.
+    """
+    uid = user["id"]
+    alvo = (ticker or "").strip().upper()
+    tipo = _tipo_de_opcao(kind)
+
+    args = {"ticker": alvo, "min_trades": OPERAVEIS_MIN_NEGOCIOS,
+            "delta_min": OPERAVEIS_DELTA_MIN, "delta_max": OPERAVEIS_DELTA_MAX}
+    if expiration:
+        args["expiration"] = expiration
+    if tipo:
+        args["kind"] = tipo
+
+    with _cap_check(uid, 1) as cap:
+        rota = "/api/options/mcp/operaveis/{ticker}"
+        try:
+            dados, cache = await _chamada_com_cap(cap, "find_tradable_options", args)
+        except (mcp_client.McpErro, ValueError) as e:
+            obslog.log("mcp", "operaveis falhou", level="warn", rota=rota, uid=uid,
+                       ticker=alvo, erro=type(e).__name__,
+                       detalhe=str(e))  # A-03 — ver nota em `/status`
+            raise _erro_http(e)
+
+        obslog.log("mcp", "operaveis", rota=rota, uid=uid, ticker=alvo,
+                   vencimento=args.get("expiration"), tipo=tipo,
+                   opcoes=len(dados.get("options") or []), cache=cache)
+
+        return {
+            "ticker": alvo,
+            "pregao": dados.get("trading_date") or None,
+            "precoObjeto": dados.get("underlying_price"),
+            "fonte": FONTE,
+            "at": _agora_brt(),
+            "opcoes": dados.get("options") or [],
+            "criterio": dados.get("criteria"),
+            "criterioAplicado": {
+                "minNegocios": OPERAVEIS_MIN_NEGOCIOS,
+                "deltaMin": OPERAVEIS_DELTA_MIN,
+                "deltaMax": OPERAVEIS_DELTA_MAX,
+            },
+            "excluidos": dados.get("excluded"),
+            "nota": dados.get("note"),
+            # `find_tradable_options` não anexa `data_freshness`: aqui é
+            # sempre "não medido", nunca uma tentativa de ler anexo que não
+            # existe — e "não medido" declarado não pode virar silêncio.
+            "frescor": _frescor_nao_medido(AVISO_FRESCOR_SEM_ANEXO),
             "cap": _cap_bloco(uid),
         }
