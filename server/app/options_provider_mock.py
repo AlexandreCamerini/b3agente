@@ -25,7 +25,21 @@ from __future__ import annotations
 
 import datetime as dt
 import os
+from datetime import datetime  # nome patchável: padrão dos guardiões de fuso do repo
 from typing import Optional
+
+# DECISÃO (260911-dtx, achado D-2 parte 2): o calendário de vencimentos deste
+# provider partia de `dt.date.today()` naive. Em UTC (o container do Railway,
+# onde `B3_OPTIONS_PROVIDER=mock` é ligado para exercitar staging) o dia vira
+# às 21:00 BRT, e a terceira-sexta "mais próxima" podia pular uma no limiar —
+# a cadeia do staging deixaria de ser a mesma que o usuário vê no aparelho.
+# Mesmo offset fixo -3h dos demais módulos (ver `store.py:14-17`).
+BRT = dt.timezone(dt.timedelta(hours=-3))
+
+
+def hoje_brt() -> dt.date:
+    """O "hoje" de Brasília — o calendário de vencimento nasce dele."""
+    return datetime.now(BRT).date()
 
 MOCK_SPOT = {
     "PETR4": 38.00,
@@ -143,7 +157,7 @@ async def get_options(ticker: str, expiration: Optional[str] = None) -> dict:
         return _payload_degradado(ticker, expiration)
 
     spot = _spot_para(ticker)
-    expirations = [d.isoformat() for d in _proximas_terceiras_sextas(dt.date.today())]
+    expirations = [d.isoformat() for d in _proximas_terceiras_sextas(hoje_brt())]
     escolhido = expiration if expiration in expirations else expirations[0]
 
     strike_base = round(spot)

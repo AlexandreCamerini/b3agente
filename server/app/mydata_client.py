@@ -11,7 +11,7 @@ guardiões offline.
 """
 import asyncio
 import os
-from datetime import date, timedelta
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urlsplit
 
 import httpx
@@ -22,6 +22,13 @@ from .tickers import normalize_ticker
 # alias do MESMO serviço Railway (mesmo edge/trace), segue vivo mas não é
 # o nome a usar. Produção não seta MYDATA_URL, logo depende deste default.
 BASE_DEFAULT = "https://mydata.semente.dev"
+
+# DECISÃO (260911-dtx, achado D-2 parte 2): o container do Railway roda em UTC —
+# `date.today()` naive puxava a janela `de` do histórico a partir do dia
+# seguinte das 21:00 às 23:59 BRT, pedindo ao hub um dia a menos de acervo
+# (`RANGE_DIAS` é folgado, mas a janela deixava de ser a que o range nomeia).
+# Offset fixo -3h; BRT local ao módulo é o padrão do repo — ver `store.py:14-17`.
+BRT = timezone(timedelta(hours=-3))
 TIMEOUT_S = 20
 PAGINAS_MAX = 8
 LIMITE_MAX = 2000
@@ -199,7 +206,7 @@ async def get_history(ticker: str, rng: str = "1mo", interval: str = "1d",
         )
 
     symbol = normalize_ticker(ticker)
-    de = (date.today() - timedelta(days=RANGE_DIAS[rng])).isoformat()
+    de = (datetime.now(BRT).date() - timedelta(days=RANGE_DIAS[rng])).isoformat()
     linhas = await _paginar(
         f"/v1/cotacoes/{symbol}", {"de": de, "limite": LIMITE_MAX},
         fetch_json=fetch_json)

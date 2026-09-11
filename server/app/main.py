@@ -7,7 +7,7 @@ import asyncio
 import hmac
 import os
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from fastapi import Body, FastAPI, HTTPException, Request
@@ -560,6 +560,23 @@ async def ai_models():
 def now_str() -> str:
     # Fonte única do fuso (BRT): a regra mora em store.now_str(), não aqui.
     return store.now_str()
+
+
+# DECISÃO (260911-dtx, achado D-2 parte 2): o container do Railway roda em UTC,
+# então `dt.date.today()` naive vira o dia às 21:00 BRT. Este "hoje" viaja como
+# argumento `hoje` para `opcoes_lastreadas.propor`/`proposta_fechar` — que são
+# módulos PUROS por guardião (`test_opcoes_fronteira.py`: sem rede, sem relógio
+# interno) e por isso recebem o dia de fora. Um dia a mais aqui muda DECISÃO, não
+# texto: `_PRAZO_MIN_DIAS`/`_PRAZO_MAX_DIAS` (15..60) recusam ou aceitam o
+# candidato pelo prazo, então das 21:00 às 23:59 BRT um contrato na borda dos 15
+# dias sumia da tela sem nada ter mudado no mercado. A correção é NO CHAMADOR —
+# os módulos puros continuam sem relógio.
+BRT = timezone(timedelta(hours=-3))
+
+
+def _hoje_brt():
+    """O dia corrente em Brasília — o único "hoje" que pode virar prazo."""
+    return datetime.now(BRT).date()
 
 
 @app.middleware("http")
@@ -2480,7 +2497,6 @@ async def options_proposta(ticker: str, multiperna: bool = False, scope: Optiona
     estrutura é um risco DIFERENTE do apresentado na tela, não uma versão
     reduzida dele. Quem declara `multiperna=True` recebe o collar inteiro
     (ADR-025, Decisão 5); a Fase 17 é quem passa a declará-lo no cliente."""
-    import datetime as dt
     t = _normalize_ticker(ticker)
     if len(t) < 4:
         raise HTTPException(400, "Ticker inválido.")
@@ -2512,7 +2528,7 @@ async def options_proposta(ticker: str, multiperna: bool = False, scope: Optiona
             chain_pos = await options_provider.get_options(t, pos_op_aberta.get("expiration"))
             provider_status = chain_pos.get("providerStatus")
             source = chain_pos.get("source")
-            resultado = opcoes_lastreadas.proposta_fechar(pos_op_aberta, chain_pos, modo, dt.date.today())
+            resultado = opcoes_lastreadas.proposta_fechar(pos_op_aberta, chain_pos, modo, _hoje_brt())
         else:
             chain = await options_provider.get_options(t)
             provider_status = chain.get("providerStatus")
@@ -2537,7 +2553,7 @@ async def options_proposta(ticker: str, multiperna: bool = False, scope: Optiona
                 snap = await technical_snapshot.get(t, p, lambda rng: candle_provider.get_history(t, rng=rng))
                 plano = setups.plano_do_resultado(snap["setups"], close=snap.get("close"))
                 resultado = opcoes_lastreadas.propor(
-                    t, chain, spot, plano, posicao, cash, modo, dt.date.today(), multiperna=multiperna)
+                    t, chain, spot, plano, posicao, cash, modo, _hoje_brt(), multiperna=multiperna)
     except Exception:
         resultado = {"proposta": None, "motivo": "degradado"}
         provider_status = "degraded"
@@ -2671,7 +2687,6 @@ async def options_lastreada_abrir_collar(body: dict = Body(default={}), scope: O
     mercado/carteira entre a proposta exibida e o aceite, informação que a
     UI precisa para decidir entre corrigir o corpo e recarregar a proposta
     (ADR-026, Decisão 4)."""
-    import datetime as dt
     cfg = store.get(_conn, "config", user_id=scope) or {}
     if cfg.get("appMode") != "operador":
         raise HTTPException(403, "Modo Estudo não executa ordens — troque para o Modo Operador para operar.")
@@ -2738,7 +2753,7 @@ async def options_lastreada_abrir_collar(body: dict = Body(default={}), scope: O
         snap = await technical_snapshot.get(underlying, periodo, lambda rng: candle_provider.get_history(underlying, rng=rng))
         plano = setups.plano_do_resultado(snap["setups"], close=snap.get("close"))
         resultado = opcoes_lastreadas.propor(
-            underlying, chain, spot, plano, posicao, cash, modo, dt.date.today(), multiperna=True)
+            underlying, chain, spot, plano, posicao, cash, modo, _hoje_brt(), multiperna=True)
     except HTTPException:
         raise
     except Exception:
