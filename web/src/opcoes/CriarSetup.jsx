@@ -163,7 +163,10 @@ export default function CriarSetup({ ticker, estado, onCompilar, onConfirmar, cp
         {e.carregando ? (
           <Aviso>{c.opcoesCarregando || "Consultando o serviço de opções…"}</Aviso>
         ) : e.erro ? (
-          <ErroDaCriacao erro={e.erro} cp={c} />
+          <>
+            <ErroDaCriacao erro={e.erro} cp={c} />
+            <RecusaCobradaNaCriacao erro={e.erro} cp={c} />
+          </>
         ) : dados && dados.status === "dry_run" ? (
           <Ensaio dados={dados} cp={c} onConfirmar={onConfirmar} />
         ) : dados && dados.status === "inativo" ? (
@@ -188,6 +191,41 @@ export default function CriarSetup({ ticker, estado, onCompilar, onConfirmar, cp
 // `Ensaio` declarado acima, o literal do botão apareceria antes do
 // `"dry_run"` sem que nada tivesse mudado na tela. Declaração de função é
 // içada, então a ordem física não muda a execução.
+
+// 24-08: o aviso de que a recusa consumiu cota, na seção de criação — o
+// "Deferred" que o 24-07 registrou por ter esta tela fora dos `files_modified`
+// dele.
+//
+// **Por que a condição aqui NÃO é a mesma do `RecusaCobrada` de
+// `OpcoesScreen.jsx`:** lá a regra exige `code === "mcp_erro_de_tool"` E
+// `cobrado`, porque naquela tela os 422 de pedido torto (`kind_invalido`,
+// `lote_invalido`) são recusa ANTES da rede. Aqui o débito chega por OUTROS
+// códigos — `setup_invalido` e `setup_desconhecido` são a mesma viagem
+// cobrada, e é justamente o caso comum desta seção. Filtrar por
+// `mcp_erro_de_tool` deixaria de fora quase todo caso real.
+//
+// A regra passa a ser só `detail.cobrado === true`, e isso é seguro porque a
+// marca é posta no PONTO DO DÉBITO (`_chamada_com_cap`, 24-07), não montada
+// por código de erro: se ela está lá, o contador andou. Não afirmamos débito
+// por dedução em lugar nenhum.
+//
+// Componente local em vez de import: `OpcoesScreen.jsx` importa este arquivo,
+// então importar de lá seria ciclo. A duplicação é de 6 linhas e as duas
+// regras são deliberadamente diferentes — unificá-las exigiria a condição
+// mais frouxa nos dois lados, e o guardião de `test_opcoes_analisar_ui.mjs`
+// trava a mais estrita lá por um motivo que continua válido.
+function RecusaCobradaNaCriacao({ erro, cp }) {
+  const d = (erro && erro.detail && typeof erro.detail === "object") ? erro.detail : {};
+  if (d.cobrado !== true) return null;
+  // Discreta: é contabilidade, não alarme. Quem precisa agir lê a mensagem
+  // do serviço, logo acima.
+  return (
+    <div style={{ marginTop: "6px", fontSize: "11.5px", color: T.textMuted, lineHeight: 1.5 }}>
+      {(cp || {}).opcoesRecusaCobrada
+        || "Esta tentativa consumiu uma chamada da sua cota do dia."}
+    </div>
+  );
+}
 
 // A cascata de erro desta seção. Escolhe pelo `code` do backend, nunca
 // raspando a mensagem — e cada código tem um estado próprio, porque cada um

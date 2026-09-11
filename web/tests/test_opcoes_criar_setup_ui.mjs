@@ -265,5 +265,27 @@ ok("CriarSetup.jsx sem `|| 0` (ausência não é zero)", !OU_ZERO.test(criar));
 ok("sanidade: a regex de `|| 0` pega o padrão quando ele existe",
    OU_ZERO.test("const v = backtest.disparos || 0;"));
 
+// ---- 12) o aviso de recusa cobrada (24-08, "Deferred" do 24-07) ------------
+// Aqui a condição é SÓ `cobrado === true`, sem filtro por `code` — ao
+// contrário do `RecusaCobrada` de OpcoesScreen.jsx. Os códigos que carregam o
+// débito nesta seção são `setup_invalido`/`setup_desconhecido`, e filtrar por
+// `mcp_erro_de_tool` deixaria de fora o caso comum. É seguro porque a marca é
+// posta no ponto do débito no backend, nunca deduzida de código de erro.
+ok("existe o aviso de que a recusa consumiu cota",
+   /function RecusaCobradaNaCriacao/.test(criar));
+ok("o aviso é condicionado ao `cobrado` do detail",
+   /cobrado !== true/.test(criar));
+ok("o aviso NÃO filtra por `mcp_erro_de_tool` (o débito aqui vem de outros códigos)",
+   !/RecusaCobradaNaCriacao[\s\S]{0,400}mcp_erro_de_tool/.test(criar));
+ok("o aviso é renderizado no ramo de erro da seção",
+   /<RecusaCobradaNaCriacao/.test(criar)
+   && criar.indexOf("<RecusaCobradaNaCriacao") > criar.indexOf("<ErroDaCriacao"));
+ok("o aviso usa o texto do dicionário e tom discreto",
+   /RecusaCobradaNaCriacao[\s\S]{0,600}opcoesRecusaCobrada/.test(criar)
+   && /RecusaCobradaNaCriacao[\s\S]{0,600}T\.textMuted/.test(criar));
+ok("sanidade: a regex do filtro por código pegaria o padrão se ele existisse",
+   /RecusaCobradaNaCriacao[\s\S]{0,400}mcp_erro_de_tool/.test(
+     'function RecusaCobradaNaCriacao({ erro }) {\n  if (erro.code !== "mcp_erro_de_tool") return null;'));
+
 console.log(fails === 0 ? "\ntodos os testes passaram" : `\n${fails} FALHA(S)`);
 process.exit(fails === 0 ? 0 : 1);
