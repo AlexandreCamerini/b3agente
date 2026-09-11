@@ -402,20 +402,39 @@ def _prova_de_teto(dados) -> bool:
             and _numero(dados.get("teto")) is not None)
 
 
-def _recusa_do_servico(rotulo: str, status, motivo: str):
-    """Credencial recusada PELO SERVIÇO — um 401/403 que o hook mediu."""
-    obslog.log("mcp", "credencial recusada pelo serviço", level="error",
+async def _recusa_do_servico(rotulo: str, executar, status, motivo: str, renovou: bool):
+    """Credencial recusada PELO SERVIÇO (achado A-05). Invalida o token e
+    tenta UMA renovação — uma só.
+
+    Por que invalidar: `_TOKEN` só era limpo por `reset_cache()`, que nada
+    chama em runtime. Um token recusado ficava em memória até o `exp`, então
+    uma recusa pontual (virada de chave no serviço, allowlist atualizada)
+    virava falha permanente por até ~55 min.
+
+    Por que UMA: o contrato é explícito — "não fique tentando em laço: nenhuma
+    repetição transforma 401 em 200". A renovação existe para o caso em que o
+    token em mãos é que estava velho/errado; se o novo também é recusado, a
+    causa é configuração (audiência, allowlist) e repetir só queima chamada.
+    """
+    _TOKEN.clear()
+    if not renovou:
+        obslog.log("mcp", "credencial recusada pelo serviço; renovando o token UMA vez",
+                   level="warn", rotulo=rotulo, status=status, motivo=_trecho(motivo))
+        return await _chamar(rotulo, executar, _renovou=True)
+    obslog.log("mcp", "credencial recusada pelo serviço mesmo após renovar", level="error",
                rotulo=rotulo, status=status, motivo=_trecho(motivo))
     raise McpNaoAutorizado(
-        f"o serviço de opções recusou a credencial (status={status}; token "
-        f"expirado, audiência errada, ou client fora da lista do serviço): "
-        f"{_trecho(motivo)}"
+        f"o serviço de opções recusou a credencial mesmo depois de renovar o "
+        f"token (status={status}; audiência errada, ou client fora da lista "
+        f"do serviço): {_trecho(motivo)}"
     ) from None
 
 
-async def _chamar(rotulo: str, executar):
+async def _chamar(rotulo: str, executar, *, _renovou: bool = False):
     """Abre a sessão MCP e roda `executar(sessao)`, traduzindo TODA falha em
-    exceção de domínio. `rotulo` só entra em log/telemetria."""
+    exceção de domínio. `rotulo` só entra em log/telemetria. `_renovou` é
+    interno: marca a segunda e ÚLTIMA tentativa depois de o serviço recusar a
+    credencial (ver `_recusa_do_servico`)."""
     await _access_token()          # escreve o header no cliente compartilhado
     http = _cliente_http()
     u = url()                      # FORA do try: env torta é ValueError, não
@@ -470,7 +489,7 @@ async def _chamar(rotulo: str, executar):
             raise McpTetoAtingido(_trecho(mensagem), dados) from None
 
         if status in (401, 403):
-            _recusa_do_servico(rotulo, status, mensagem)
+            return await _recusa_do_servico(rotulo, executar, status, mensagem, _renovou)
 
         if codigo == CONNECTION_CLOSED:
             causa = ("conexão fechada (CONNECTION_CLOSED — o MESMO -32000 do "
@@ -504,7 +523,8 @@ async def _chamar(rotulo: str, executar):
         if status is None and medido:
             status = medido[-1]
         if status in (401, 403):
-            _recusa_do_servico(rotulo, status, type(e).__name__)
+            return await _recusa_do_servico(
+                rotulo, executar, status, type(e).__name__, _renovou)
         # SÓ `type(e).__name__`, nunca `{e!r}` — diferença deliberada em
         # relação a `mydata_client._fetch_json`, que usa repr: o repr de um
         # erro do stack HTTP do SDK pode arrastar headers da requisição, e o

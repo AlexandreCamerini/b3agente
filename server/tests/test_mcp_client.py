@@ -289,11 +289,30 @@ def test_401_do_servico_e_classificado_como_recusa_e_nao_como_fora_do_ar(monkeyp
     "serviço fora do ar", e foi isso que travou o diagnóstico da falha de
     produção."""
     sessao = _SessaoQueRecusa(recusas=99)
-    _liga_sessao_com_token_real(monkeypatch, sessao)
+    http = _liga_sessao_com_token_real(monkeypatch, sessao)
 
     with pytest.raises(mcp_client.McpNaoAutorizado) as exc:
         asyncio.run(mcp_client.call_tool("get_option_chain", {"ticker": "PETR4"}))
     assert "401" in str(exc.value)
+    # A-05: UMA renovação, não um laço — o contrato é explícito ("nenhuma
+    # repetição transforma 401 em 200"). 2 POSTs = emissão inicial + 1 renovação.
+    assert len(http.posts) == 2, f"renovou {len(http.posts) - 1}x, não 1x"
+    assert len(sessao.chamadas) == 2, "tentou o serviço mais de duas vezes"
+
+
+def test_recusa_pontual_renova_o_token_uma_vez_e_a_chamada_chega_ao_chamador(monkeypatch):
+    """A-05. `_TOKEN` só era limpo por `reset_cache()`, que nada chama em
+    runtime: um token recusado ficava em memória até o `exp` e uma recusa
+    pontual virava falha permanente por até ~55 min."""
+    sessao = _SessaoQueRecusa(recusas=1, resultado=_Resposta({"matched": 7}))
+    http = _liga_sessao_com_token_real(monkeypatch, sessao)
+
+    r = asyncio.run(mcp_client.call_tool("get_option_chain", {"ticker": "PETR4"}))
+
+    assert r.dados == {"matched": 7} and r.cache is False
+    assert len(http.posts) == 2, "não renovou o token depois da recusa"
+    assert len(sessao.chamadas) == 2
+    assert mcp_client._TOKEN.get("access_token") == TOKEN_DE_TESTE
 
 
 def test_internal_error_sem_status_medido_nao_afirma_recusa_de_credencial(monkeypatch):
