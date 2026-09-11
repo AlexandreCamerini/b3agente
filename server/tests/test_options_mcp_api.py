@@ -833,5 +833,11 @@ def test_falha_na_primeira_etapa_vira_422_sem_segunda_etapa(monkeypatch):
     assert r.status_code == 422, r.text
     assert r.json()["detail"]["code"] == "mcp_erro_de_tool"
     assert len(chamadas) == 1
-    assert _usado(main, uid) == 0, "chamada que levantou cobrou cap"
+    # 2026-09-11 (24-07, F-04): era `== 0` com a mensagem "chamada que
+    # levantou cobrou cap". A decisão do Alex inverteu a regra — a recusa da
+    # tool é viagem que o serviço já cobrou, e passou a debitar 1. O que este
+    # teste guarda (a segunda etapa NÃO acontece, e nada fica preso) não
+    # mudou; o número mudou porque o critério mudou, com guardião próprio em
+    # `test_f04_seis_evaluate_recusados_com_propose_em_cache_debitam_seis`.
+    assert _usado(main, uid) == 1, "a recusa da tool não debitou a viagem"
     assert _reservado(main, uid) == 0

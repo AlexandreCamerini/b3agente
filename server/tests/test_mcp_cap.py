@@ -412,20 +412,29 @@ def test_leitura_que_reserva_3_e_consome_1_devolve_2(monkeypatch):
 
 # --------------------------------------------------------------- (b) -------
 def test_leitura_que_levanta_devolve_a_reserva_inteira(monkeypatch):
-    """Falha não gasta cota (propriedade de 260910-wfp) E não SEGURA cota: o
-    422 sai com a reserva já devolvida, não com 3 unidades presas."""
+    """Falha não SEGURA cota: o 422 sai com a reserva já devolvida, não com
+    unidades presas até `RESERVA_TTL_S`.
+
+    **2026-09-11 (24-07, achado F-04):** este teste também afirmava "falha não
+    gasta cota" com `usado == 0`, e essa metade deixou de ser verdade por
+    decisão do Alex — recusa de TOOL é viagem que o serviço já cobrou, e
+    passou a debitar 1. O guardião não foi apagado: trocou o `McpErroDeTool`
+    por `McpIndisponivel`, que é uma falha SEM viagem provada e continua
+    provando o "não gasta" original, e a asserção de reserva presa (o que o
+    teste de fato guarda) segue intacta. O novo critério tem guardião próprio
+    em `test_recusa_de_tool_debita_um_porque_a_viagem_aconteceu`."""
     c, main = _client(monkeypatch)
     p = _registra(c)
     uid = p["user"]["id"]
     _espiao_cache_por_tool(
         monkeypatch,
-        dict(_LEITURA_FELIZ, propose_option_setups=mcp_client.McpErroDeTool(
-            "ticker inexistente", available=None, hint=None)),
+        dict(_LEITURA_FELIZ,
+             propose_option_setups=mcp_client.McpIndisponivel("serviço fora do ar")),
         cache={})
 
     r = c.get("/api/options/mcp/leitura/PETR4", headers=_auth(p["token"]))
-    assert r.status_code == 422, r.text
-    assert _usado(main, uid) == 0, "falha gastou cota"
+    assert r.status_code == 503, r.text
+    assert _usado(main, uid) == 0, "falha sem viagem provada gastou cota"
     assert _reservado(main, uid) == 0, (
         "a rota levantou e deixou a reserva presa — a devolução na saída do "
         "`with` existe exatamente para o caminho de exceção")

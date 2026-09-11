@@ -578,8 +578,19 @@ def test_material_ausente_vira_422_em_vez_de_compilar_de_memoria(monkeypatch):
 
     r = _compila(c, p["token"])
     assert r.status_code == 422, r.text
-    assert r.json()["detail"]["code"] == "mcp_erro_de_tool"
+    detalhe = r.json()["detail"]
+    assert detalhe["code"] == "mcp_erro_de_tool"
     assert options_mcp_api.TOOL_CREATE_SETUP not in _nomes(chamadas)
+    # 2026-09-11 (24-07, F-04): este `McpErroDeTool` é FABRICADO por
+    # `_material_do_compilador` — nenhuma `tools/call` aconteceu (`tools/list`
+    # e `resources/read` são protocolo, grátis no teto e fora do cap). Um
+    # `"cobrado": True` fixo no `_erro_http` afirmaria à pessoa um débito que
+    # não existe, que é o erro do F-04 invertido e agora na tela dela.
+    assert "cobrado" not in detalhe, (
+        "o 422 do material ausente afirma ter cobrado uma chamada que nunca "
+        "foi feita — `cobrado` vem da marca posta no ponto do débito, nunca "
+        "de um literal fixo")
+    assert "nota" not in detalhe
 
 
 # ════════════════════════════════════════════════════════ 3. frescor ══════

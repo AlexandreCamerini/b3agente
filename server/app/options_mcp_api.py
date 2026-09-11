@@ -158,6 +158,15 @@ RAZAO_PERDA_ZERO = (
     "dividir por zero é o número que mais engana numa tela de risco"
 )
 
+# 24-07 (F-04) — a recusa de tool passou a DEBITAR 1 do cap (decisão do Alex
+# em 2026-09-11: cobrar a viagem). Cobrar sem dizer que cobrou é a metade do
+# defeito que o usuário enxerga: a cota dele cai e a tela mostra só "o serviço
+# recusou". Esta frase é o que falta para a conta dele fechar.
+AVISO_RECUSA_COBRADA = (
+    "Esta tentativa consumiu uma chamada da sua cota do dia: o serviço cobra "
+    "a consulta mesmo quando recusa o pedido."
+)
+
 # `AVISOS` é a superfície de varredura do módulo no `test_guardrail_imperativo`
 # (FONTES) — não só os avisos de frescor. Texto fixo novo que chega ao usuário
 # entra aqui na fase que o cria.
@@ -173,7 +182,8 @@ AVISOS = "\n".join((AVISO_FRESCOR_NAO_MEDIDO,
                     RAZAO_GANHO_ILIMITADO,
                     RAZAO_PERDA_ILIMITADA,
                     RAZAO_SEM_DADO,
-                    RAZAO_PERDA_ZERO))
+                    RAZAO_PERDA_ZERO,
+                    AVISO_RECUSA_COBRADA))
 
 # Critério de "operável" do BORIS, não do serviço (D-24.4). O serviço aceita
 # qualquer peneira; estes três números são escolha nossa, e por isso viajam na
@@ -510,6 +520,30 @@ def _cap_consume(uid: str, custo: int) -> None:
 # --------------------------------------------------------------------------
 # Tradução de erro. NADA cai no handler 500.
 # --------------------------------------------------------------------------
+# 24-07 (F-04) — marca posta na exceção NO PONTO em que o débito acontece
+# (`_chamada_com_cap`) e lida só aqui, na tradução. Não é enfeite: um
+# `"cobrado": True` FIXO neste 422 mentiria, porque nem todo `McpErroDeTool`
+# vem de uma `tools/call`. `_material_do_compilador` FABRICA um quando o
+# serviço não publica o schema ou o texto de `create_setup`, e ali nenhuma
+# viagem contável aconteceu (`tools/list` e `resources/read` são protocolo,
+# grátis no teto do serviço e fora do cap). Afirmar um débito que não existe
+# é o mesmo erro do F-04 invertido, e desta vez na tela da pessoa.
+ATR_DEBITADO = "debitado_do_cap"
+
+
+def _debitou_a_viagem(e: Exception) -> bool:
+    """A recusa que chega à tradução já custou 1 do cap do usuário?"""
+    return bool(getattr(e, ATR_DEBITADO, False))
+
+
+def _bloco_cobrado(e: Exception) -> dict:
+    """Os dois campos que contam ao usuário o que a recusa custou. Sai VAZIO
+    quando não houve débito — a ausência do campo é a forma de não afirmar."""
+    if not _debitou_a_viagem(e):
+        return {}
+    return {"cobrado": True, "nota": AVISO_RECUSA_COBRADA}
+
+
 def _erro_http(e: Exception) -> HTTPException:
     if isinstance(e, mcp_client.McpNaoConfigurado) or isinstance(e, ValueError):
         # ValueError aqui só vem de `mcp_client.url()` com `MCP_URL` de
@@ -533,6 +567,8 @@ def _erro_http(e: Exception) -> HTTPException:
             "message": str(e),
             "available": e.available,
             "hint": e.hint,
+            # `cobrado`/`nota` só quando a recusa de fato debitou (F-04).
+            **_bloco_cobrado(e),
         })
     # McpNaoAutorizado e McpIndisponivel caem juntos, e o texto NÃO tem
     # número nem nome de credencial: para o usuário final os dois são "não
@@ -745,21 +781,55 @@ def _cap_bloco(uid: str) -> dict:
 async def _chamada_com_cap(cap: _Reserva, nome: str, args: dict) -> tuple:
     """Uma chamada de tool + o consumo de 1 do cap. Devolve `(dados, cache)`.
 
-    Duas regras de consumo, herdadas do `/status` da F1:
+    O critério é literal, e é UM só: **tocou a rede, debitou.**
+
     · **acerto de cache não consome** — o custo que o cap protege é a chamada
       ao serviço, e ela não aconteceu;
-    · **chamada que termina em exceção não consome** — inclusive
-      `McpErroDeTool`, porque o `cap.consome` fica depois do `await` e a
-      exceção o pula. É uma decisão a avalizar (SUMMARY da F2): dá para
-      inverter em uma linha se o Alex preferir cobrar a viagem que a tool
-      recusou.
+    · **recusa da TOOL consome** — a viagem aconteceu: o serviço conta toda
+      `tools/call` no porteiro, ANTES de executar a tool, então o teto
+      compartilhado de 2.000/dia já foi debitado quando a tool disse não;
+    · **as outras quatro falhas NÃO consomem**, cada uma por um motivo
+      próprio — ver o `except` abaixo.
 
-    O que NÃO foi consumido (cache ou exceção) volta ao balde de reservas na
-    saída do `with` da rota — ver `_Reserva`. Recebe a `_Reserva` em vez do
-    `uid` justamente para que o consumo seja CONTADO: sem isso, a rota não
-    saberia quanto sobrou da reserva para devolver.
+    A F2 deixou a recusa de graça e registrou a escolha como "a avalizar". O
+    achado F-04 do `24-VERIFICATION.md` mediu o preço dela depois que a Fase
+    24 acrescentou o fan-out de até 6 vencimentos do `/possibilidades`: seis
+    `evaluate` sobre uma cadeia que não precifica custavam 6 do teto da BASE
+    e 0 do cap de quem os provocou, e ~330 toques no botão esgotavam os
+    2.000/dia de todo mundo sem mover os 60/dia de ninguém. **Avalizado pelo
+    Alex em 2026-09-11: cobrar a viagem** (as outras duas opções — cachear a
+    recusa, limitar falhas por requisição — foram descartadas nesta rodada).
+
+    O que NÃO foi consumido (cache ou exceção sem viagem) volta ao balde de
+    reservas na saída do `with` da rota — ver `_Reserva`. Recebe a `_Reserva`
+    em vez do `uid` justamente para que o consumo seja CONTADO: sem isso, a
+    rota não saberia quanto sobrou da reserva para devolver.
     """
-    r = await mcp_client.call_tool(nome, args)
+    try:
+        r = await mcp_client.call_tool(nome, args)
+    except mcp_client.McpErroDeTool as e:
+        # A viagem ACONTECEU. `call_tool` serve o cache ANTES de abrir sessão
+        # e só levanta isto depois da resposta do serviço (`mcp_client`:
+        # a recusa nem chega ao `_cache_put`) — então um `McpErroDeTool` aqui
+        # é prova de rede tocada, nunca de acerto de cache.
+        #
+        # As outras QUATRO seguem sem debitar, e cada uma por uma razão
+        # diferente — está escrito porque a próxima pessoa vai querer
+        # "uniformizar" e precisa saber por que não:
+        #   · `McpNaoConfigurado` — não houve viagem: falta credencial e o
+        #     cliente nem abre sessão;
+        #   · `McpNaoAutorizado` — o porteiro do serviço recusa ANTES do
+        #     contador de tools;
+        #   · `McpTetoAtingido` — o próprio contrato do serviço diz que a
+        #     chamada recusada por teto não conta;
+        #   · `McpIndisponivel` — timeout/5xx: não há PROVA de que o serviço
+        #     contou, e cobrar por indisponibilidade puniria o usuário pela
+        #     queda do fornecedor.
+        # Cobrar o que não se sabe se foi cobrado é o mesmo erro do F-04,
+        # invertido.
+        cap.consome(1)
+        setattr(e, ATR_DEBITADO, True)
+        raise
     if not r.cache:
         cap.consome(1)
     return (r.dados if isinstance(r.dados, dict) else {}), bool(r.cache)
@@ -1010,6 +1080,12 @@ async def status(user: dict = Depends(require_user)) -> dict:
         try:
             r = await mcp_client.call_tool("check_data_freshness", {})
         except mcp_client.McpErroDeTool as e:
+            # A viagem aconteceu, mesma razão do `_chamada_com_cap` (F-04) —
+            # e aqui ela é mais fácil de esquecer justamente porque a rota
+            # responde 200: ninguém desconfia de que um 200 custou. O débito
+            # é o mesmo; o que segue diferente é só o CÓDIGO da resposta,
+            # pela finalidade da rota (reportar estado do dado).
+            cap.consome(1)
             erro_tool = str(e)
         except (mcp_client.McpErro, ValueError) as e:
             # `detalhe=str(e)` (achado A-03): o nome da classe sozinho não
@@ -1889,6 +1965,11 @@ def _erro_de_setup_invalido(e: mcp_client.McpErroDeTool) -> HTTPException:
         "code": "setup_invalido",
         "message": str(e),
         "problems": _lista_verbatim(e, "problems"),
+        # Recusa semântica também é viagem cobrada (F-04). O campo vem da
+        # MESMA marca dos outros 422 para não haver uma segunda regra: aqui
+        # ele está sempre presente na prática, porque este erro só nasce do
+        # `except` colado num `_chamada_com_cap`.
+        **_bloco_cobrado(e),
     })
 
 
@@ -1897,6 +1978,7 @@ def _erro_de_setup_desconhecido(e: mcp_client.McpErroDeTool) -> HTTPException:
         "code": "setup_desconhecido",
         "message": str(e),
         "known_setups": _lista_verbatim(e, "known_setups"),
+        **_bloco_cobrado(e),
     })
 
 
