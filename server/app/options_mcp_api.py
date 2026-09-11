@@ -9,6 +9,12 @@ O que este módulo NÃO faz: nenhuma conta financeira, nenhum número
 fabricado. `pregao` é `None` quando a resposta não traz pregão — princípio 4
 do CLAUDE.md: dado que falta é dado que falta, nunca um valor inventado.
 
+Cota e reserva: `_cap_check` RESERVA o custo declarado antes da rede e devolve
+uma `_Reserva`; a rota a usa como context manager, e o que foi reservado e não
+consumido volta na saída (quick 260911-lib, decisão (A) do achado A-07 — sem
+isso, o caminho de cache produzia um "Cota do dia da aba Opções esgotada"
+falso, com `usado: 0` no mesmo corpo da resposta).
+
 Fase 1 entregou `GET /status`. A Fase 2 (quick 260910-biz) acrescenta
 `GET /leitura/{ticker}` e `GET /setups/{name}/grafico`. Cadeia, proposta,
 possibilidades, veredito e criação de setups são as Fases 3–5 do
@@ -132,12 +138,98 @@ def _mes_sp(agora: Optional[datetime] = None) -> str:
 # --------------------------------------------------------------------------
 # Cap.
 # --------------------------------------------------------------------------
-def _cap_check(uid: str, custo: int) -> None:
+class _Reserva:
+    """Contabilidade de UMA reserva de cota dentro de uma rota: quanto foi
+    reservado pelo `_cap_check`, quanto virou consumo confirmado, e o que
+    sobrou — devolvido na saída, inclusive quando a rota levanta.
+
+    **Por que existe** (quick 260911-lib, decisão (A) do achado A-07): a
+    reserva atômica do `metering` protege de verdade, mas o que é reservado e
+    NÃO consumido só voltava por expiração (`RESERVA_TTL_S`, 120 s). Nas rotas
+    desta aba isso não é teórico — `/leitura` reserva 3 e consome 0 quando as
+    três tools vêm do cache. Medido no worktree da correção, com a cota em 6:
+
+        n  http  codigo     usado  reservado
+        1  200   -              0          3
+        2  200   -              0          6
+        3  402   mcp_cota       0          6   <- "Cota do dia ... esgotada."
+
+    A terceira leitura recusava com `usado: 0, limite: 6` — a resposta se
+    contradizendo no mesmo corpo. Afirmação falsa ao usuário é a MESMA classe
+    do A-08, corrigido no lote anterior; daí a devolução imediata.
+
+    **Por que um objeto em vez de `try/finally` em cada rota:** são três rotas
+    hoje e a quarta vem na Fase 3 do PLANO. Contabilidade manual espalhada
+    divergiria justamente na que for escrita depois — e divergir para o lado
+    de devolver a MAIS seria dar cota de graça, pior que o defeito original.
+
+    Invariantes, em ordem de perigo:
+    · **devolvido nunca excede reservado** — `saldo` desconta consumo E
+      devolução anterior, e `devolver()` NÃO chama `metering.liberar` com
+      saldo zero (`liberar` normaliza `custo` para no mínimo 1: chamá-la com
+      0 devolveria uma unidade que ninguém reservou);
+    · **consumo real nunca é escondido** — `consome()` sempre passa ao
+      `metering`, mesmo se a rota consumir mais do que reservou; nesse caso o
+      saldo satura em 0 e nada é devolvido (consumir menos que o checado é
+      permitido, o contrário nunca foi, e mascarar seria dar cota de graça);
+    · **`liberar` nunca toca `count`** — devolver reserva não é gastar nem
+      estornar gasto; quem conta é só o `consume`.
+    """
+
+    __slots__ = ("uid", "reservado", "consumido", "devolvido")
+
+    def __init__(self, uid: str, reservado: int) -> None:
+        self.uid = uid
+        self.reservado = max(0, int(reservado or 0))
+        self.consumido = 0
+        self.devolvido = 0
+
+    @property
+    def saldo(self) -> int:
+        """Unidades reservadas que ainda não viraram consumo nem voltaram."""
+        return max(0, self.reservado - self.consumido - self.devolvido)
+
+    def consome(self, custo: int = 1) -> None:
+        custo = int(custo or 0)
+        if custo <= 0:
+            return
+        _cap_consume(self.uid, custo)
+        self.consumido += custo
+
+    def devolver(self) -> int:
+        """Devolve o saldo ao balde de reservas. Idempotente: chamar duas
+        vezes (saída do `with` depois de uma devolução explícita) não devolve
+        nada na segunda."""
+        saldo = self.saldo
+        if saldo <= 0:
+            return 0
+        metering.liberar(
+            _conn, self.uid, custo=saldo,
+            section=SECTION, global_section=GLOBAL_SECTION, _dia=_dia_sp(),
+        )
+        self.devolvido += saldo
+        return saldo
+
+    def __enter__(self) -> "_Reserva":
+        return self
+
+    def __exit__(self, *_exc) -> bool:
+        self.devolver()
+        return False    # nunca engole a exceção da rota
+
+
+def _cap_check(uid: str, custo: int) -> _Reserva:
     """Recusa ANTES de chamar o serviço — o teto de 2.000/dia é compartilhado
     por toda a base do Boris, e uma chamada recusada pelo serviço já teria
-    custado a viagem."""
+    custado a viagem.
+
+    Devolve a `_Reserva` do que foi reservado, para a rota usar como context
+    manager: `with _cap_check(uid, 3) as cap:`. Quando a cota está cheia isto
+    LEVANTA — nada foi reservado e, por construção do `with`, nada é devolvido.
+    Usar sem o `with` volta ao comportamento antigo (devolução só por
+    expiração); é o que o guardião de `test_mcp_cap.py` impede."""
     if custo <= 0:
-        return
+        return _Reserva(uid, 0)
     dia = _dia_sp()
     ok, _motivo = metering.check(
         _conn, uid,
@@ -146,7 +238,7 @@ def _cap_check(uid: str, custo: int) -> None:
         section=SECTION, global_section=GLOBAL_SECTION, _dia=dia,
     )
     if ok:
-        return
+        return _Reserva(uid, custo)
     # O `_motivo` do metering é DESCARTADO de propósito: o texto dele fala de
     # BYOK e de "análises com a IA do app", que não é o que aconteceu aqui.
     # Mandar esse copy na aba Opções mandaria o usuário configurar uma chave
@@ -365,21 +457,26 @@ def _cap_bloco(uid: str) -> dict:
     }
 
 
-async def _chamada_com_cap(uid: str, nome: str, args: dict) -> tuple:
+async def _chamada_com_cap(cap: _Reserva, nome: str, args: dict) -> tuple:
     """Uma chamada de tool + o consumo de 1 do cap. Devolve `(dados, cache)`.
 
     Duas regras de consumo, herdadas do `/status` da F1:
     · **acerto de cache não consome** — o custo que o cap protege é a chamada
       ao serviço, e ela não aconteceu;
     · **chamada que termina em exceção não consome** — inclusive
-      `McpErroDeTool`, porque o `_cap_consume` fica depois do `await` e a
+      `McpErroDeTool`, porque o `cap.consome` fica depois do `await` e a
       exceção o pula. É uma decisão a avalizar (SUMMARY da F2): dá para
       inverter em uma linha se o Alex preferir cobrar a viagem que a tool
       recusou.
+
+    O que NÃO foi consumido (cache ou exceção) volta ao balde de reservas na
+    saída do `with` da rota — ver `_Reserva`. Recebe a `_Reserva` em vez do
+    `uid` justamente para que o consumo seja CONTADO: sem isso, a rota não
+    saberia quanto sobrou da reserva para devolver.
     """
     r = await mcp_client.call_tool(nome, args)
     if not r.cache:
-        _cap_consume(uid, 1)
+        cap.consome(1)
     return (r.dados if isinstance(r.dados, dict) else {}), bool(r.cache)
 
 
@@ -416,44 +513,49 @@ async def status(user: dict = Depends(require_user)) -> dict:
     rotas de leitura das Fases 2+, onde o erro da tool é falha do pedido.
     """
     uid = user["id"]
-    _cap_check(uid, 1)
+    # `with` (quick 260911-lib): o que for reservado e não consumido volta na
+    # saída — inclusive no `raise` abaixo. Ver `_Reserva`.
+    with _cap_check(uid, 1) as cap:
+        erro_tool = None
+        r = None
+        try:
+            r = await mcp_client.call_tool("check_data_freshness", {})
+        except mcp_client.McpErroDeTool as e:
+            erro_tool = str(e)
+        except (mcp_client.McpErro, ValueError) as e:
+            # `detalhe=str(e)` (achado A-03): o nome da classe sozinho não
+            # separa "emissor recusou" de "conexão fechada" de "erro de
+            # protocolo", e o diagnóstico ficava dedutivo. É seguro logar: as
+            # mensagens do `mcp_client` são livres de segredo por construção
+            # (docstring de topo do módulo, e o guardião T-waw-01 em
+            # `test_mcp_client.py` prova).
+            obslog.log("mcp", "status falhou", level="warn",
+                       rota="/api/options/mcp/status", uid=uid,
+                       erro=type(e).__name__, detalhe=str(e))
+            raise _erro_http(e)
 
-    erro_tool = None
-    r = None
-    try:
-        r = await mcp_client.call_tool("check_data_freshness", {})
-    except mcp_client.McpErroDeTool as e:
-        erro_tool = str(e)
-    except (mcp_client.McpErro, ValueError) as e:
-        # `detalhe=str(e)` (achado A-03): o nome da classe sozinho não separa
-        # "emissor recusou" de "conexão fechada" de "erro de protocolo", e o
-        # diagnóstico ficava dedutivo. É seguro logar: as mensagens do
-        # `mcp_client` são livres de segredo por construção (docstring de topo
-        # do módulo, e o guardião T-waw-01 em `test_mcp_client.py` prova).
-        obslog.log("mcp", "status falhou", level="warn",
-                   rota="/api/options/mcp/status", uid=uid,
-                   erro=type(e).__name__, detalhe=str(e))
-        raise _erro_http(e)
+        sc = r.dados if (r is not None and isinstance(r.dados, dict)) else None
+        if r is not None and not r.cache:
+            # Acerto de cache não gasta cap: o custo que o cap protege é a
+            # chamada ao serviço, e ela não aconteceu.
+            cap.consome(1)
 
-    sc = r.dados if (r is not None and isinstance(r.dados, dict)) else None
-    if r is not None and not r.cache:
-        # Acerto de cache não gasta cap: o custo que o cap protege é a
-        # chamada ao serviço, e ela não aconteceu.
-        _cap_consume(uid, 1)
+        frescor = _frescor(sc, erro_tool)
+        obslog.log("mcp", "status", rota="/api/options/mcp/status", uid=uid,
+                   cache=bool(r is not None and r.cache),
+                   bloqueia=frescor["bloqueia"])
 
-    frescor = _frescor(sc, erro_tool)
-    obslog.log("mcp", "status", rota="/api/options/mcp/status", uid=uid,
-               cache=bool(r is not None and r.cache), bloqueia=frescor["bloqueia"])
-
-    return {
-        # `None` quando a resposta não traz pregão — nunca uma data
-        # fabricada (princípio 4 do CLAUDE.md).
-        "pregao": (sc or {}).get("trading_date") or (sc or {}).get("pregao") or None,
-        "fonte": FONTE,
-        "at": _agora_brt(),
-        "frescor": frescor,
-        "cap": _cap_bloco(uid),
-    }
+        return {
+            # `None` quando a resposta não traz pregão — nunca uma data
+            # fabricada (princípio 4 do CLAUDE.md).
+            "pregao": (sc or {}).get("trading_date") or (sc or {}).get("pregao") or None,
+            "fonte": FONTE,
+            "at": _agora_brt(),
+            "frescor": frescor,
+            # `usado` é o CONFIRMADO (`metering.used`), não o reservado —
+            # reserva não é gasto, e a devolução do saldo não mexe em `count`.
+            "cap": _cap_bloco(uid),
+        }
 
 
 @router.get("/leitura/{ticker}")
@@ -471,102 +573,105 @@ async def leitura(ticker: str, user: dict = Depends(require_user)) -> dict:
     `None` — nunca 0, nunca lista inventada (princípio 4 do CLAUDE.md).
     """
     uid = user["id"]
-    _cap_check(uid, 3)
+    # Reserva 3, consome de 0 a 3 — e o que sobra volta na saída do `with`.
+    # É a rota onde o defeito A-07 aparecia inteiro: três acertos de cache
+    # reservavam 3 e consumiam 0 (quick 260911-lib, ver `_Reserva`).
+    with _cap_check(uid, 3) as cap:
+        alvo = (ticker or "").strip().upper()
+        rota = "/api/options/mcp/leitura/{ticker}"
 
-    alvo = (ticker or "").strip().upper()
-    rota = "/api/options/mcp/leitura/{ticker}"
+        passo = "propose_option_setups"
+        chamou_evaluate = False
+        cache_tudo = True
+        try:
+            proposta, c1 = await _chamada_com_cap(cap, "propose_option_setups",
+                                                  {"ticker": alvo})
+            cache_tudo = cache_tudo and c1
 
-    passo = "propose_option_setups"
-    chamou_evaluate = False
-    cache_tudo = True
-    try:
-        proposta, c1 = await _chamada_com_cap(uid, "propose_option_setups", {"ticker": alvo})
-        cache_tudo = cache_tudo and c1
+            passo = "list_setups"
+            lista, c2 = await _chamada_com_cap(cap, "list_setups", {})
+            cache_tudo = cache_tudo and c2
+            registros = _registros_do_ticker(lista, alvo)
 
-        passo = "list_setups"
-        lista, c2 = await _chamada_com_cap(uid, "list_setups", {})
-        cache_tudo = cache_tudo and c2
-        registros = _registros_do_ticker(lista, alvo)
+            avaliacao_dados: Optional[dict] = None
+            if registros:
+                passo = "evaluate_setups"
+                avaliacao_dados, c3 = await _chamada_com_cap(cap, "evaluate_setups", {})
+                cache_tudo = cache_tudo and c3
+                chamou_evaluate = True
+        except (mcp_client.McpErro, ValueError) as e:
+            # `McpErroDeTool` INCLUSIVE: aqui o erro da tool é falha do PEDIDO
+            # (ticker inexistente, sem cotações), não um estado a exibir — vira
+            # 422 por `_erro_http`. O 200-com-`bloqueia` é exclusividade do
+            # `/status`, cuja finalidade é justamente reportar estado do dado.
+            obslog.log("mcp", "leitura falhou", level="warn", rota=rota, uid=uid,
+                       ticker=alvo, passo=passo, erro=type(e).__name__,
+                       detalhe=str(e))  # A-03 — ver nota em `/status`
+            raise _erro_http(e)
 
-        avaliacao_dados: Optional[dict] = None
-        if registros:
-            passo = "evaluate_setups"
-            avaliacao_dados, c3 = await _chamada_com_cap(uid, "evaluate_setups", {})
-            cache_tudo = cache_tudo and c3
-            chamou_evaluate = True
-    except (mcp_client.McpErro, ValueError) as e:
-        # `McpErroDeTool` INCLUSIVE: aqui o erro da tool é falha do PEDIDO
-        # (ticker inexistente, sem cotações), não um estado a exibir — vira
-        # 422 por `_erro_http`. O 200-com-`bloqueia` é exclusividade do
-        # `/status`, cuja finalidade é justamente reportar estado do dado.
-        obslog.log("mcp", "leitura falhou", level="warn", rota=rota, uid=uid,
-                   ticker=alvo, passo=passo, erro=type(e).__name__,
-                   detalhe=str(e))  # A-03 — ver nota em `/status`
-        raise _erro_http(e)
+        avaliacoes = {}
+        nao_avaliado = None
+        if isinstance(avaliacao_dados, dict):
+            if avaliacao_dados.get("status") == "nao_avaliado":
+                # Gate de frescor do serviço: ninguém foi avaliado. O motivo vai
+                # VERBATIM ([R-15]) e NENHUM cartão recebe veredito — "não
+                # armado" por ausência de avaliação seria afirmação sem medição.
+                nao_avaliado = {"reason": avaliacao_dados.get("reason")}
+            else:
+                # `sem_setups` NÃO é bloqueio: é a ausência de setup, que a tela
+                # já mostra como estado vazio com motivo.
+                for av in avaliacao_dados.get("evaluations") or []:
+                    if isinstance(av, dict) and av.get("name"):
+                        avaliacoes[av["name"]] = av
 
-    avaliacoes = {}
-    nao_avaliado = None
-    if isinstance(avaliacao_dados, dict):
-        if avaliacao_dados.get("status") == "nao_avaliado":
-            # Gate de frescor do serviço: ninguém foi avaliado. O motivo vai
-            # VERBATIM ([R-15]) e NENHUM cartão recebe veredito — "não armado"
-            # por ausência de avaliação seria afirmação sem medição.
-            nao_avaliado = {"reason": avaliacao_dados.get("reason")}
-        else:
-            # `sem_setups` NÃO é bloqueio: é a ausência de setup, que a tela
-            # já mostra como estado vazio com motivo.
-            for av in avaliacao_dados.get("evaluations") or []:
-                if isinstance(av, dict) and av.get("name"):
-                    avaliacoes[av["name"]] = av
+        setups = []
+        for setup, registro in registros:
+            nome = setup.get("name")
+            av = avaliacoes.get(nome) if nome else None
+            setups.append({
+                "name": nome,
+                "ticker": alvo,
+                # `status` do REGISTRO (`ativo`/`inativo`). NÃO é o status da
+                # AVALIAÇÃO (`avaliado`/`nao_avaliavel`/`expirado`/…), que vive
+                # em `avaliacao.status` — confundir os dois faria a tela dizer
+                # "ativo" onde o serviço disse "não consegui avaliar".
+                "status": registro.get("status"),
+                "avaliacao": av,
+                "armed": av.get("armed") if av else None,
+                "streak": av.get("streak") if av else None,
+                # Sem avaliação, o `required_streak` cai no `consecutive_days`
+                # DECLARADO no próprio setup — valor que o usuário escreveu, não
+                # número calculado. Não é fabricação.
+                "required_streak": (av.get("required_streak") if av
+                                    else setup.get("consecutive_days")),
+                "conditions": av.get("conditions") if av else None,
+                "backtest_na_criacao": registro.get("backtest_na_criacao"),
+            })
 
-    setups = []
-    for setup, registro in registros:
-        nome = setup.get("name")
-        av = avaliacoes.get(nome) if nome else None
-        setups.append({
-            "name": nome,
+        frescor = _frescor_da_avaliacao(avaliacao_dados, chamou_evaluate)
+        obslog.log("mcp", "leitura", rota=rota, uid=uid, ticker=alvo,
+                   setups=len(setups), avaliou=chamou_evaluate,
+                   cache=cache_tudo, bloqueia=frescor["bloqueia"])
+
+        return {
             "ticker": alvo,
-            # `status` do REGISTRO (`ativo`/`inativo`). NÃO é o status da
-            # AVALIAÇÃO (`avaliado`/`nao_avaliavel`/`expirado`/…), que vive
-            # em `avaliacao.status` — confundir os dois faria a tela dizer
-            # "ativo" onde o serviço disse "não consegui avaliar".
-            "status": registro.get("status"),
-            "avaliacao": av,
-            "armed": av.get("armed") if av else None,
-            "streak": av.get("streak") if av else None,
-            # Sem avaliação, o `required_streak` cai no `consecutive_days`
-            # DECLARADO no próprio setup — valor que o usuário escreveu, não
-            # número calculado. Não é fabricação.
-            "required_streak": (av.get("required_streak") if av
-                                else setup.get("consecutive_days")),
-            "conditions": av.get("conditions") if av else None,
-            "backtest_na_criacao": registro.get("backtest_na_criacao"),
-        })
-
-    frescor = _frescor_da_avaliacao(avaliacao_dados, chamou_evaluate)
-    obslog.log("mcp", "leitura", rota=rota, uid=uid, ticker=alvo,
-               setups=len(setups), avaliou=chamou_evaluate,
-               cache=cache_tudo, bloqueia=frescor["bloqueia"])
-
-    return {
-        "ticker": alvo,
-        # `None` quando nenhuma das respostas trouxe pregão — nunca uma data
-        # fabricada (princípio 4 do CLAUDE.md).
-        "pregao": (proposta.get("trading_date")
-                   or (avaliacao_dados or {}).get("trading_date")
-                   or None),
-        "fonte": FONTE,
-        "at": _agora_brt(),
-        # Verbatim, sem interpretar: `behavior` pode ser
-        # `{"status": "sem_candles"}` e a tela tem estado próprio para isso.
-        "behavior": proposta.get("behavior"),
-        "catalog": proposta.get("catalog"),
-        "expirations": proposta.get("expirations"),
-        "setups": setups,
-        "setupsNaoAvaliados": nao_avaliado,
-        "frescor": frescor,
-        "cap": _cap_bloco(uid),
-    }
+            # `None` quando nenhuma das respostas trouxe pregão — nunca uma data
+            # fabricada (princípio 4 do CLAUDE.md).
+            "pregao": (proposta.get("trading_date")
+                       or (avaliacao_dados or {}).get("trading_date")
+                       or None),
+            "fonte": FONTE,
+            "at": _agora_brt(),
+            # Verbatim, sem interpretar: `behavior` pode ser
+            # `{"status": "sem_candles"}` e a tela tem estado próprio para isso.
+            "behavior": proposta.get("behavior"),
+            "catalog": proposta.get("catalog"),
+            "expirations": proposta.get("expirations"),
+            "setups": setups,
+            "setupsNaoAvaliados": nao_avaliado,
+            "frescor": frescor,
+            "cap": _cap_bloco(uid),
+        }
 
 
 @router.get("/setups/{name}/grafico")
@@ -584,25 +689,26 @@ async def setup_grafico(name: str, user: dict = Depends(require_user)) -> dict:
     `/grafico` do fim da URL. Nome com barra devolve 404 do roteador.
     """
     uid = user["id"]
-    _cap_check(uid, 1)
+    with _cap_check(uid, 1) as cap:   # saldo não consumido volta na saída
+        rota = "/api/options/mcp/setups/{name}/grafico"
+        try:
+            dados, cache = await _chamada_com_cap(cap, "get_setup_chart",
+                                                  {"name": name})
+        except (mcp_client.McpErro, ValueError) as e:
+            obslog.log("mcp", "grafico de setup falhou", level="warn", rota=rota,
+                       uid=uid, setup=name, erro=type(e).__name__,
+                       detalhe=str(e))  # A-03 — ver nota em `/status`
+            raise _erro_http(e)
 
-    rota = "/api/options/mcp/setups/{name}/grafico"
-    try:
-        dados, cache = await _chamada_com_cap(uid, "get_setup_chart", {"name": name})
-    except (mcp_client.McpErro, ValueError) as e:
-        obslog.log("mcp", "grafico de setup falhou", level="warn", rota=rota,
-                   uid=uid, setup=name, erro=type(e).__name__,
-                   detalhe=str(e))  # A-03 — ver nota em `/status`
-        raise _erro_http(e)
+        obslog.log("mcp", "grafico de setup", rota=rota, uid=uid, setup=name,
+                   cache=cache)
 
-    obslog.log("mcp", "grafico de setup", rota=rota, uid=uid, setup=name, cache=cache)
-
-    # Payload da tool PRIMEIRO, envelope DEPOIS: invertida, a ordem deixaria
-    # o `trading_date` do payload sobrescrever o `pregao` do envelope.
-    return {
-        **dados,
-        "pregao": dados.get("trading_date") or None,
-        "fonte": FONTE,
-        "at": _agora_brt(),
-        "cap": _cap_bloco(uid),
-    }
+        # Payload da tool PRIMEIRO, envelope DEPOIS: invertida, a ordem deixaria
+        # o `trading_date` do payload sobrescrever o `pregao` do envelope.
+        return {
+            **dados,
+            "pregao": dados.get("trading_date") or None,
+            "fonte": FONTE,
+            "at": _agora_brt(),
+            "cap": _cap_bloco(uid),
+        }
