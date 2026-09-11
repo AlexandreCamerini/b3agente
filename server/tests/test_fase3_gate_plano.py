@@ -48,6 +48,8 @@ from fastapi.testclient import TestClient
 
 from app import plan
 
+from .fonte_python import main_source_sem_comentarios, sem_comentarios
+
 
 @pytest.fixture(autouse=True)
 def _isolado(monkeypatch):
@@ -207,10 +209,14 @@ def test_d01_limites_do_plano_free_ativos():
 # (h)-(i) C-32 — guardião ESTÁTICO: gate único, sem duplicidade escondida
 # ---------------------------------------------------------------------------
 
-def _main_source_sem_comentarios() -> str:
-    import pathlib
-    src = (pathlib.Path(__file__).resolve().parents[1] / "app" / "main.py").read_text(encoding="utf-8")
-    return "\n".join(l for l in src.splitlines() if not l.strip().startswith("#"))
+# 2026-09-10 (auditoria A-18): este helper descartava só a linha que COMEÇA com
+# `#`, então comentário de CAUDA sobrevivia e inflava a contagem. O auditor
+# removeu a única chamada real ao gate comercial e deixou o nome da função num
+# comentário de cauda: a asserção abaixo continuou PASSANDO. Agora o corte é por
+# `tokenize` e vive em `tests/fonte_python.py`, fonte única das três cópias que
+# existiam (aqui, test_fase5_gate_mensal, test_fase12_cap_watchlist).
+# O nome local é preservado como alias — nada apagado.
+_main_source_sem_comentarios = main_source_sem_comentarios
 
 
 def test_plan_can_analyze_aparece_exatamente_uma_vez_no_main():
@@ -218,6 +224,25 @@ def test_plan_can_analyze_aparece_exatamente_uma_vez_no_main():
     direto, fora de `_gate_analise`), este guardião grita — é o mesmo bypass
     do gate único que o T-03-15 do threat model cobre."""
     assert _main_source_sem_comentarios().count("plan.can_analyze(") == 1
+
+
+def test_a18_comentario_de_cauda_nao_conta_como_chamada():
+    """A-18: o guardião de contagem acima só vale se o filtro de comentário
+    for de verdade. Aqui a propriedade é travada direto, sem depender de
+    main.py: comentário de cauda NÃO conta, e `#` dentro de string literal não
+    pode levar código embora junto (era o risco de cortar a linha no primeiro
+    `#` com busca textual)."""
+    fonte = (
+        'def rota():\n'
+        '    return 1  # plan.can_analyze(algo) -- era isto que passava\n'
+        '# plan.can_analyze(outro)\n'
+        'COR = "#ff0000"; x = plan.can_analyze(real)\n'
+    )
+    limpo = sem_comentarios(fonte)
+    assert limpo.count("plan.can_analyze(") == 1, \
+        "comentário (de cauda ou de linha) ainda está contando como chamada"
+    assert 'COR = "#ff0000"; x = plan.can_analyze(real)' in limpo, \
+        "`#` dentro de string literal levou código real embora"
 
 
 def test_as_duas_rotas_de_analise_chamam_gate_analise():

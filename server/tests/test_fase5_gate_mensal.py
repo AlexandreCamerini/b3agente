@@ -38,7 +38,6 @@ reimport de `app.main` por teste, reset dos caches em memória entre casos).
 """
 import importlib
 import os
-import pathlib
 import sys
 import tempfile
 
@@ -46,6 +45,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app import db, metering
+
+from .fonte_python import main_source_sem_comentarios
 
 
 def _fresh_db():
@@ -211,9 +212,11 @@ def test_ai_quota_escopo_anonimo_devolve_month_used_none(monkeypatch):
 # (h) guardião ESTÁTICO — fecha a CLASSE do erro, não só a instância
 # ---------------------------------------------------------------------------
 
-def _main_source_sem_comentarios() -> str:
-    src = (pathlib.Path(__file__).resolve().parents[1] / "app" / "main.py").read_text(encoding="utf-8")
-    return "\n".join(line for line in src.splitlines() if not line.strip().startswith("#"))
+# 2026-09-10 (auditoria A-18): era a 2ª de três cópias de um filtro de
+# comentário que deixava passar comentário de CAUDA (bypass do gate comercial
+# escondido no fim da linha continuava contando). Fonte única agora em
+# `tests/fonte_python.py`, com corte por `tokenize`. Alias preserva o nome.
+_main_source_sem_comentarios = main_source_sem_comentarios
 
 
 def test_main_py_nao_contem_mais_can_analyze_com_zero_hardcoded():
