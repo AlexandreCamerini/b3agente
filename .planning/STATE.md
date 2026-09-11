@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Opções v2
 status: executing
-stopped_at: Fase 24, plano 01 concluído (backend das quatro rotas da aba Opções + paridade opcoes_payoff x MCP); suíte canônica verde (2379 passed, 5 skipped); nada empurrado a origin; 24-02 (front) é o próximo
-last_updated: "2026-09-11T19:44:01.101Z"
-last_activity: 2026-09-11
+stopped_at: Fase 24, plano 02 concluído (front da Fase 3 — PayoffChart + seções Analisar e Possibilidades); suíte canônica verde (2379 passed, 5 skipped; 128 arquivos .mjs) e `vite build` verde; nada empurrado a origin; 24-03 é o próximo
+last_updated: "2026-09-11T20:24:56.318Z"
+last_activity: "2026-09-11 — 24-02 executado na árvore principal (sem worktree): `PayoffChart` novo (curva em preço do objeto, ilimitado declarado e nunca fechado), seções Analisar e Possibilidades sob demanda com o custo em chamadas ANTES do clique, quatro rotas nos DOIS stores e 28 chaves de copy nas duas vozes. Guardião novo (`test_opcoes_analisar_ui.mjs`, 120 asserções) com as três regex de defeito provadas por injeção. Pendente de verificação: nada foi exercitado AO VIVO (`MCP_CLIENT_SECRET` fora do ambiente) nem no APARELHO (rolagem da tabela em 375 px, `select`/`input number` no WKWebView, contraste das duas cores de P&L)."
 progress:
   total_phases: 8
   completed_phases: 5
   total_plans: 28
-  completed_plans: 24
+  completed_plans: 25
   percent: 63
 ---
 
@@ -26,10 +26,12 @@ See: .planning/PROJECT.md (updated 2026-09-06)
 ## Current Position
 
 Phase: 24 (Aba Opções sobre MCP — análise e criação de setups) — EXECUTING
-Plan: 2 of 5
+Plan: 3 of 5
 Status: Ready to execute
-Progress: [█████████░] 86%
-Last activity: 2026-09-11 — 24-01 executado na árvore principal (sem worktree): `/cadeia`, `/operaveis`, `POST /proposta` e `POST /possibilidades` escritos, com reserva de cap em duas etapas e conversão por lote no backend. Pendente de verificação AO VIVO: `MCP_CLIENT_SECRET` não está no ambiente, então `test_paridade_viva` nasce pulado e o aceite de latência (N=6 abaixo de 20 s) não foi medido.
+Progress: [█████████░] 89%
+Last activity: 2026-09-11 — 24-02 executado na árvore principal (sem worktree): `PayoffChart` novo (curva em preço do objeto, ilimitado declarado e nunca fechado), seções Analisar e Possibilidades sob demanda com o custo em chamadas ANTES do clique, quatro rotas nos DOIS stores e 28 chaves de copy nas duas vozes. Guardião novo (`test_opcoes_analisar_ui.mjs`, 120 asserções) com as três regex de defeito provadas por injeção. Pendente de verificação: nada foi exercitado AO VIVO (`MCP_CLIENT_SECRET` fora do ambiente) nem no APARELHO (rolagem da tabela em 375 px, `select`/`input number` no WKWebView, contraste das duas cores de P&L).
+
+Anterior (2026-09-11) — 24-01: `/cadeia`, `/operaveis`, `POST /proposta` e `POST /possibilidades` escritos, com reserva de cap em duas etapas e conversão por lote fechada no backend.
 
 Anterior (2026-09-08, tarde) — quick 260908-ldg, gate de liquidez em três faixas com consentimento, mesclada e testada (2110 passed). Junto com 260908-dnl (recalibração do score) fecha o achado do dia: opções estavam apagadas em produção por um gate impossível de cruzar com mydata. Front republicado junto no `F10-20260908-02` (o servidor passou a exigir `aceitaLiquidezDificil`; front velho quebraria). PR #32 mesclado e PROMOVIDO em 2026-09-08 — `/api/health` = `F10-20260908-02`, gate ao vivo confirmado (PETR4/ABEV3/VALE3/ITUB4 NEGOCIÁVEL, RADL3 DIFÍCIL 50,9). Produção tinha ficado em `F10-20260907-01` até então: o #31 foi mesclado mas nunca deployado, e o -02 o contém.
 
@@ -66,6 +68,7 @@ RESSALVA HONESTA: a verificação foi estática (suíte + build). As quatro corr
 | 22 | 4 | - | - |
 | 23 | 4 | - | - |
 | 24 P01 | 32min | 3 tasks | 4 files |
+| 24 P02 | 28min | 4 tasks | 7 files |
 
 **Recent Trend:**
 
@@ -103,6 +106,8 @@ Recent decisions affecting current work:
 
 - [Phase 24]: 24-01: /possibilidades reserva cap em duas etapas (1 + 2xN) — N so se conhece depois da primeira chamada
 - [Phase 24]: 24-01: conversao por lote fica no backend; breakeven nunca entra em emReais (e preco do objeto, nao dinheiro)
+- [Phase 24]: 24-02: o eixo X do payoff e mapeado por PRECO, nao por indice
+- [Phase 24]: 24-02: a curva so se estende alem do ultimo strike quando o servico declarou os DOIS lados limitados
 
 ### Roadmap Evolution
 
@@ -298,7 +303,7 @@ Items acknowledged and carried forward from previous milestone close (v1.3 → v
 
 ## Session Continuity
 
-Last session: 2026-09-11T19:43:41.768Z
+Last session: 2026-09-11T20:22:18.831Z
 Stopped at: Quick tasks 260906-rla (`textDim`), 260906-ugb (C-18/C-08/C-28) e 260906-vf9 (C-06/C-07/C-09, achados de produto) concluídos — todos os 9 achados Baixo/produto do REPORT-01 fechados ou reverificados; milestone v1.5 fechado e arquivado (`.planning/milestones/v1.5-*`); nenhum push a `origin`
 Resume file: None
 
