@@ -266,5 +266,50 @@ ok("os botões novos nascem com alvo de toque de 44 px",
 ok("a tabela rola no container, não no body",
    /const ROLAGEM = \{ overflowX: "auto"/.test(tela));
 
+// ---- 13) razão ganho/perda (F-01 do 24-VERIFICATION, plano 24-06) ----------
+// O critério 1 do ROADMAP termina em "breakevens e razão ganho/perda", e ela
+// não existia em lugar nenhum. Chega PRONTA do backend, adimensional. O que
+// este bloco tranca é o que só se prova lendo o fonte: a tela não recalcula a
+// razão, não a encosta no bloco de reais (razão não é dinheiro) e não a cala
+// quando ela não existe — travessão mudo faria a pessoa achar que o app não
+// calculou, e um número faria com que ela decidisse sobre uma razão que não
+// existe, que é a pior das três saídas.
+const iRazaoAnalisar = tela.slice(iAnalisar, iPossib).indexOf("razaoGanhoPerda");
+const iRazaoPossib = tela.slice(iPossib, iSetups).indexOf("razaoGanhoPerda");
+ok("a razão é renderizada nas DUAS seções (Analisar e Possibilidades)",
+   iRazaoAnalisar >= 0 && iRazaoPossib >= 0);
+ok("a razão tem componente próprio, alimentado pelo campo do backend",
+   /function RazaoGanhoPerda/.test(tela)
+   && /razao=\{proposta\.dados\.razaoGanhoPerda\}/.test(tela)
+   && /razao=\{item\.razaoGanhoPerda\}/.test(tela));
+ok("sem número, a tela mostra o MOTIVO em vez de calar ou inventar",
+   /razao\.motivo/.test(tela) && /ehNum\(razao\.valor\)/.test(tela));
+const DIVIDE_RAZAO = /max_gain\s*\/|\/\s*max_loss|ganhoMaximo\s*\/|\/\s*perdaMaxima/;
+for (const [nome, src] of Object.entries(fontes)) {
+  ok(`${nome} não divide para obter a razão (ela vem pronta do backend)`,
+     !DIVIDE_RAZAO.test(src));
+}
+ok("sanidade: a regex de divisão pega o padrão quando ele existe",
+   DIVIDE_RAZAO.test("const r = e.max_gain / e.max_loss;")
+   && DIVIDE_RAZAO.test("const r = emReais.ganhoMaximo / emReais.perdaMaxima;"));
+// Mesma trava do breakeven, pela mesma razão: a razão é adimensional, e
+// dentro de um bloco de reais ela seria lida como dinheiro.
+const REAIS_COM_RAZAO = /emReais[^\n]*razaoGanhoPerda|razaoGanhoPerda[^\n]*emReais/i;
+for (const [nome, src] of Object.entries(fontes)) {
+  ok(`${nome} não mistura emReais e a razão na mesma expressão`,
+     !REAIS_COM_RAZAO.test(src));
+}
+ok("sanidade: a regex pega emReais e a razão juntos quando eles estão",
+   REAIS_COM_RAZAO.test("const x = emReais.razaoGanhoPerda;")
+   && REAIS_COM_RAZAO.test("const y = razaoGanhoPerda.valor * emReais.lote;"));
+for (const modo of ["estudo", "operador"]) {
+  ok(`${modo}: a razão tem rótulo e ajuda próprios`,
+     typeof COPY[modo].opcoesRazaoRotulo === "string" && !!COPY[modo].opcoesRazaoRotulo
+     && typeof COPY[modo].opcoesRazaoAjuda === "string" && !!COPY[modo].opcoesRazaoAjuda);
+  ok(`${modo}: a ajuda diz o que a razão é e NEGA a leitura como probabilidade`,
+     /cabe na perda máxima/.test(COPY[modo].opcoesRazaoAjuda)
+     && /não é probabilidade/.test(COPY[modo].opcoesRazaoAjuda));
+}
+
 console.log(fails === 0 ? "\ntodos os testes passaram" : `\n${fails} FALHA(S)`);
 process.exit(fails === 0 ? 0 : 1);

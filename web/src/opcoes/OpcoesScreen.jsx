@@ -48,6 +48,35 @@ function Linha({ rotulo, valor }) {
   );
 }
 
+// aba-opcoes 24-06 (achado F-01): a razão ganho/perda que o critério 1 do
+// ROADMAP enumera e a Fase 24 tinha perdido no planejamento.
+//
+// Ela chega PRONTA do backend (`_razao_ganho_perda`), adimensional: aqui não
+// há divisão, não há lote e não há fallback numérico. Sem `valor`, o que
+// aparece é o MOTIVO — e ele ocupa a linha inteira, com quebra, porque é ele
+// que impede a leitura errada e não pode ser cortado em 375 px. Travessão
+// mudo seria "o app não calculou"; um número seria pior, porque a pessoa
+// compara 2,3 com 1,5 e decide.
+function RazaoGanhoPerda({ razao, cp }) {
+  if (!razao) return null;
+  const rotulo = cp.opcoesRazaoRotulo || "Razão ganho/perda";
+  return (
+    <div>
+      {ehNum(razao.valor) ? (
+        <Linha rotulo={rotulo} valor={"1 : " + fmt(razao.valor)} />
+      ) : (
+        <div style={{ padding: "7px 0", borderBottom: `1px solid ${T.borderFaint}` }}>
+          <div style={{ fontSize: "12.5px", color: T.textSecondary }}>{rotulo}</div>
+          <div style={{ fontSize: "12.5px", color: T.textPrimary, marginTop: "3px", whiteSpace: "pre-wrap", lineHeight: 1.45 }}>
+            {razao.motivo || "—"}
+          </div>
+        </div>
+      )}
+      <div style={AJUDA}>{cp.opcoesRazaoAjuda || ""}</div>
+    </div>
+  );
+}
+
 function Kicker({ children }) {
   return (
     <div style={{ fontSize: "11px", fontWeight: 800, letterSpacing: ".08em", color: T.textMuted, margin: "18px 0 8px" }}>
@@ -446,6 +475,7 @@ export default function OpcoesScreen({ ctx }) {
                         cp={cp}
                         palette={palette}
                       />
+                      <RazaoGanhoPerda razao={proposta.dados.razaoGanhoPerda} cp={cp} />
                       <Pernas pernas={proposta.dados.estruturas[0].legs} cp={cp} />
                     </>
                   ) : null}
@@ -604,6 +634,7 @@ export default function OpcoesScreen({ ctx }) {
                           ) : (
                             <>
                               <PayoffChart estrutura={item.estrutura} emReais={item.emReais} cp={cp} palette={palette} />
+                              <RazaoGanhoPerda razao={item.razaoGanhoPerda} cp={cp} />
                               <Cenarios emReais={item.emReais} cp={cp} />
                             </>
                           )}

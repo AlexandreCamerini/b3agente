@@ -28,6 +28,7 @@ credencial real.
 from __future__ import annotations
 
 import importlib
+import inspect
 import json
 import os
 import pathlib
@@ -659,6 +660,125 @@ def test_em_reais_e_puro_e_devolve_none_para_o_que_nao_e_numero():
     assert fora["cenarios"][0]["underlying"] == 41.0, "preço do cenário foi multiplicado"
     assert fora["cenarios"][1]["resultado"] is None, "booleano virou 100 reais"
     assert fora["lote"] == 100
+
+
+# ═════════════════════════════════════════════════ razão ganho/perda ══════
+# F-01 do `24-VERIFICATION.md` (plano 24-06): o critério 1 do ROADMAP termina
+# em "breakevens e razão ganho/perda", e a razão não existia em lugar nenhum.
+# O que estes testes travam não é a divisão — é o que acontece quando ela NÃO
+# existe: ganho sem teto, perda sem piso, campo ausente e perda zero. Um
+# número inventado em qualquer um dos quatro seria pior do que a ausência
+# anterior, porque a pessoa compara 2,3 com 1,5 e decide.
+def test_razao_ganho_perda_nao_recebe_lote():
+    """Adimensional por DESENHO: multiplicar os dois lados pelo mesmo lote não
+    muda a razão, e um parâmetro que não muda o resultado é convite a
+    multiplicá-lo por engano — o defeito irmão do breakeven × lote (D-24.2).
+    A assinatura é o que torna esse engano impossível."""
+    assert list(inspect.signature(
+        options_mcp_api._razao_ganho_perda).parameters) == ["dados"]
+
+
+def test_razao_ganho_perda_no_caso_normal():
+    """O cenário do achado F-01: trava de alta que paga 0,67 por 1 de risco —
+    o número que decide se vale montar, e que a tela nunca dizia."""
+    assert options_mcp_api._razao_ganho_perda(
+        {"max_gain": 0.80, "max_loss": -1.20}) == {"valor": 0.67, "motivo": None}
+    # sinal não importa: o serviço pode mandar a perda positiva ou negativa,
+    # e a razão é entre MAGNITUDES.
+    assert options_mcp_api._razao_ganho_perda(
+        {"max_gain": 1.38, "max_loss": 0.62})["valor"] == pytest.approx(2.23)
+
+
+@pytest.mark.parametrize("dados,constante", [
+    # ganho sem teto: dividir por um `max_gain` que o serviço declarou ausente
+    # daria "não ganha nada" sobre a estrutura de ganho ilimitado
+    ({"max_gain": None, "max_loss": -1.2, "unlimited_gain": True},
+     "RAZAO_GANHO_ILIMITADO"),
+    ({"max_gain": 1.2, "max_loss": None, "unlimited_loss": True},
+     "RAZAO_PERDA_ILIMITADA"),
+    # campo ausente e campo que não é número — `True` é o caso que um
+    # `isinstance(x, (int, float))` ingênuo deixaria passar como 1
+    ({"max_gain": 1.2}, "RAZAO_SEM_DADO"),
+    ({"max_gain": None, "max_loss": -1.2}, "RAZAO_SEM_DADO"),
+    ({"max_gain": True, "max_loss": 1.0}, "RAZAO_SEM_DADO"),
+    ({"max_gain": 1.2, "max_loss": "indefinido"}, "RAZAO_SEM_DADO"),
+    # divisão por zero: o número que mais engana na tela
+    ({"max_gain": 1.38, "max_loss": 0}, "RAZAO_PERDA_ZERO"),
+    ({"max_gain": 1.38, "max_loss": -0.0}, "RAZAO_PERDA_ZERO"),
+])
+def test_razao_indefinida_e_none_com_motivo_nunca_numero(dados, constante):
+    fora = options_mcp_api._razao_ganho_perda(dados)
+    assert fora["valor"] is None, (
+        "razão que não existe virou número — é a classe de fabricação que o "
+        "critério 2 do ROADMAP proíbe")
+    assert fora["motivo"] == getattr(options_mcp_api, constante)
+
+
+def test_os_quatro_motivos_da_razao_estao_em_avisos():
+    """[R-12]: texto fixo que chega ao usuário entra na superfície varrida
+    pelo `test_guardrail_imperativo` na fase que o cria."""
+    for nome in ("RAZAO_GANHO_ILIMITADO", "RAZAO_PERDA_ILIMITADA",
+                 "RAZAO_SEM_DADO", "RAZAO_PERDA_ZERO"):
+        assert getattr(options_mcp_api, nome) in options_mcp_api.AVISOS, nome
+
+
+def test_razao_chega_na_proposta_fora_do_bloco_de_reais(monkeypatch):
+    """No MESMO nível de `emReais`, e nunca DENTRO dele: razão é adimensional,
+    `emReais` é dinheiro. Dobrar o lote não pode mexer nela."""
+    c, _ = _client(monkeypatch)
+    p = _registra(c)
+    _espiao(monkeypatch)
+
+    def _pede(lote):
+        return c.post("/api/options/mcp/proposta",
+                      json={"ticker": "PETR4", "direction": "bullish", "lote": lote},
+                      headers=_auth(p["token"])).json()
+
+    corpo = _pede(100)
+    assert corpo["razaoGanhoPerda"]["valor"] == pytest.approx(2.23)
+    assert corpo["razaoGanhoPerda"]["motivo"] is None
+    assert not [k for k in corpo["emReais"] if "razao" in k.lower()], (
+        f"a razão entrou no bloco de reais: {sorted(corpo['emReais'])}")
+
+    dez_vezes = _pede(1000)
+    assert dez_vezes["emReais"]["custoLiquido"] == pytest.approx(620.0)
+    assert dez_vezes["razaoGanhoPerda"] == corpo["razaoGanhoPerda"], (
+        "a razão mudou com o lote — alguém a multiplicou")
+
+
+def test_razao_chega_em_cada_item_de_possibilidades(monkeypatch):
+    """Item com estrutura tem razão; item que não montou tem `None` — e não um
+    objeto de razão sobre estrutura nenhuma."""
+    c, _ = _client(monkeypatch)
+    p = _registra(c)
+    vazio = {"ticker": "PETR4", "trading_date": "2026-08-28", "setups": [],
+             "reason": "a cadeia deste vencimento não tem prêmio na segunda perna"}
+    _espiao(monkeypatch, _roteador(por_vencimento={_VENCIMENTOS[1]: vazio}))
+
+    corpo = c.post("/api/options/mcp/possibilidades",
+                   json=_corpo_possibilidades(), headers=_auth(p["token"])).json()
+    por_venc = {i["vencimento"]: i for i in corpo["possibilidades"]}
+
+    com_estrutura = por_venc[_VENCIMENTOS[0]]
+    assert com_estrutura["razaoGanhoPerda"]["valor"] == pytest.approx(2.23)
+    assert not [k for k in com_estrutura["emReais"] if "razao" in k.lower()]
+    assert por_venc[_VENCIMENTOS[1]]["razaoGanhoPerda"] is None
+
+
+def test_razao_de_estrutura_sem_teto_de_ganho_vai_com_motivo_ate_a_tela(monkeypatch):
+    """O caminho completo do caso perigoso: o serviço diz "sem teto", e o que
+    chega à tela é o motivo, não um número."""
+    c, _ = _client(monkeypatch)
+    p = _registra(c)
+    ilimitada = dict(_AVALIACAO, max_gain=None, unlimited_gain=True)
+    _espiao(monkeypatch, _roteador(avaliacao=ilimitada))
+
+    corpo = c.post("/api/options/mcp/possibilidades",
+                   json=_corpo_possibilidades(expirations=[_VENCIMENTOS[0]]),
+                   headers=_auth(p["token"])).json()
+    razao = corpo["possibilidades"][0]["razaoGanhoPerda"]
+    assert razao["valor"] is None
+    assert razao["motivo"] == options_mcp_api.RAZAO_GANHO_ILIMITADO
 
 
 # ═══════════════════════════════════════════════════════════ degradação ═══

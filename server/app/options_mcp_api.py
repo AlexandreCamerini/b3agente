@@ -125,6 +125,29 @@ AVISO_IA_GERENCIADA = (
     "virada do dia"
 )
 
+# 24-06 (F-01) — os quatro motivos de a razão ganho/perda NÃO existir. Cada um
+# diz QUAL caso é, porque os quatro são diferentes para quem decide: "sem
+# teto" é a melhor notícia possível, "sem piso" é a pior, "não veio o dado" é
+# ignorância do app e "perda máxima zero" é estrutura sem risco declarado. Um
+# `null` mudo no lugar de qualquer um deles devolveria a tela ao estado que o
+# achado F-01 descreve — a pessoa faz a conta de cabeça e erra o caso.
+RAZAO_GANHO_ILIMITADO = (
+    "razão ganho/perda indefinida: o serviço declarou ganho sem teto, e não "
+    "existe quanto vezes o ilimitado cabe na perda"
+)
+RAZAO_PERDA_ILIMITADA = (
+    "razão ganho/perda indefinida: o serviço declarou perda sem piso, e "
+    "dividir por uma perda sem limite não produz número que signifique algo"
+)
+RAZAO_SEM_DADO = (
+    "razão ganho/perda indefinida: o serviço não trouxe ganho máximo e perda "
+    "máxima como número nesta resposta"
+)
+RAZAO_PERDA_ZERO = (
+    "razão ganho/perda indefinida: não há perda máxima para comparar, e "
+    "dividir por zero é o número que mais engana numa tela de risco"
+)
+
 # `AVISOS` é a superfície de varredura do módulo no `test_guardrail_imperativo`
 # (FONTES) — não só os avisos de frescor. Texto fixo novo que chega ao usuário
 # entra aqui na fase que o cria.
@@ -135,7 +158,11 @@ AVISOS = "\n".join((AVISO_FRESCOR_NAO_MEDIDO,
                     AVISO_DADO_ATRASADO,
                     AVISO_DADO_NAO_MEDIDO,
                     AVISO_PLANO_ANALISES,
-                    AVISO_IA_GERENCIADA))
+                    AVISO_IA_GERENCIADA,
+                    RAZAO_GANHO_ILIMITADO,
+                    RAZAO_PERDA_ILIMITADA,
+                    RAZAO_SEM_DADO,
+                    RAZAO_PERDA_ZERO))
 
 # Critério de "operável" do BORIS, não do serviço (D-24.4). O serviço aceita
 # qualquer peneira; estes três números são escolha nossa, e por isso viajam na
@@ -864,6 +891,49 @@ def _em_reais(dados: dict, lote: int) -> dict:
     }
 
 
+def _razao_ganho_perda(dados: dict) -> dict:
+    """Quantas vezes o ganho máximo cabe na perda máxima.
+
+    Adimensional de propósito: NÃO recebe lote, porque multiplicar os dois
+    lados pelo mesmo número não muda a razão — e um parâmetro que não muda o
+    resultado é um convite a multiplicá-lo por engano, que é o defeito irmão
+    do breakeven × lote (D-24.2). Por isso ela também fica FORA de `emReais`:
+    razão não é dinheiro, e dentro do bloco de reais seria lida como tal.
+
+    `valor` é `None` sempre que a razão não EXISTE, e nesse caso `motivo` diz
+    qual dos casos é. Um número aqui onde não há razão seria a pior classe de
+    fabricação desta aba: o leitor compara 2,3 com 1,5 e decide.
+
+    A ORDEM dos testes é o desenho. Os dois `unlimited_*` vêm primeiro porque
+    são a afirmação MAIS forte do serviço sobre a estrutura — e nesse caso o
+    `max_gain`/`max_loss` costuma vir `null` junto, o que cairia em
+    `RAZAO_SEM_DADO` e trocaria "sem teto" (informação) por "não veio o dado"
+    (ignorância). A perda zero vem por último porque só se sabe que ela é zero
+    depois de confirmar que ela é número.
+    """
+    dados = dados if isinstance(dados, dict) else {}
+
+    if dados.get("unlimited_gain"):
+        return {"valor": None, "motivo": RAZAO_GANHO_ILIMITADO}
+    if dados.get("unlimited_loss"):
+        return {"valor": None, "motivo": RAZAO_PERDA_ILIMITADA}
+
+    ganho = dados.get("max_gain")
+    perda = dados.get("max_loss")
+    # Mesma régua de `_vezes_lote`: booleano NÃO é número. `True` passaria por
+    # 1 num `isinstance(x, (int, float))` ingênuo e produziria uma razão.
+    for v in (ganho, perda):
+        if isinstance(v, bool) or not isinstance(v, (int, float)):
+            return {"valor": None, "motivo": RAZAO_SEM_DADO}
+
+    if perda == 0:
+        return {"valor": None, "motivo": RAZAO_PERDA_ZERO}
+
+    # Magnitudes: o serviço pode mandar a perda máxima com sinal (−1,20) ou
+    # sem (1,20) — as duas dizem a mesma coisa, e a razão é entre tamanhos.
+    return {"valor": round(abs(ganho) / abs(perda), 2), "motivo": None}
+
+
 def _pernas_para_avaliar(setup: Optional[dict]) -> list:
     """Pernas do setup no formato que `evaluate_option_structure` aceita.
 
@@ -1309,6 +1379,11 @@ async def proposta(body: dict = Body(default={}),
         # Uma estrutura só: com duas na tela, um `emReais` no envelope não
         # diria de qual delas é o dinheiro.
         em_reais = _em_reais(estruturas[0], lote) if (lote and len(estruturas) == 1) else None
+        # A razão segue a MESMA régua de ambiguidade do `emReais` (uma
+        # estrutura só), e NÃO a de lote: ela é adimensional, então existe
+        # mesmo sem lote informado — é o número de decisão de quem ainda nem
+        # escolheu tamanho de posição.
+        razao = _razao_ganho_perda(estruturas[0]) if len(estruturas) == 1 else None
 
         obslog.log("mcp", "proposta", rota=rota, uid=uid, ticker=alvo,
                    direcao=direcao, tipo=tipo, estruturas=len(estruturas),
@@ -1329,6 +1404,8 @@ async def proposta(body: dict = Body(default={}),
             "motivo": dados.get("reason"),
             "nota": dados.get("note"),
             "emReais": em_reais,
+            # FORA de `emReais`, no mesmo nível: razão não é dinheiro (F-01).
+            "razaoGanhoPerda": razao,
             "frescor": _frescor_nao_medido(AVISO_FRESCOR_SEM_ANEXO),
             "cap": _cap_bloco(uid),
         }
@@ -1438,7 +1515,8 @@ async def possibilidades(body: dict = Body(default={}),
                             # O motivo é do serviço, verbatim ([R-15]).
                             lista.append({
                                 "vencimento": vencimento, "estrutura": None,
-                                "emReais": None, "erro": None,
+                                "emReais": None, "razaoGanhoPerda": None,
+                                "erro": None,
                                 "motivo": (proposta_do_venc.get("reason")
                                            or proposta_do_venc.get("note")),
                             })
@@ -1460,7 +1538,8 @@ async def possibilidades(body: dict = Body(default={}),
                                    vencimento=vencimento, passo=passo,
                                    detalhe=str(e))
                         lista.append({"vencimento": vencimento, "estrutura": None,
-                                      "emReais": None, "motivo": None, "erro": str(e)})
+                                      "emReais": None, "razaoGanhoPerda": None,
+                                      "motivo": None, "erro": str(e)})
                         continue
 
                     estrutura = {c: avaliacao.get(c) for c in CHAVES_DA_ESTRUTURA}
@@ -1476,6 +1555,9 @@ async def possibilidades(body: dict = Body(default={}),
                         # Reais calculados UMA vez, aqui. `breakevens` fica na
                         # estrutura, em preço do objeto — ver `_em_reais`.
                         "emReais": _em_reais(avaliacao, lote),
+                        # Irmã do bloco acima e deliberadamente FORA dele: a
+                        # razão é adimensional e não conhece lote (F-01).
+                        "razaoGanhoPerda": _razao_ganho_perda(avaliacao),
                         "motivo": None,
                         "erro": None,
                     })

@@ -109,6 +109,11 @@ export const COPY = {
     opcoesSemVencimento: "A leitura deste ativo não trouxe nenhum vencimento aberto, então não há o que comparar. Nada foi consultado.",
     opcoesBreakevenRotulo: "Preço de empate (breakeven)",
     opcoesBreakevenAjuda: "preço do ativo no vencimento em que a estrutura empata. É preço, não dinheiro: não se multiplica pelo lote.",
+    // 24-06 (achado F-01). A ajuda nega a leitura errada mais provável —
+    // razão não é chance de acerto — e ensina a ler o "1 : x", que sem isso
+    // é ambíguo (qual dos dois lados é o 1?).
+    opcoesRazaoRotulo: "Razão ganho/perda",
+    opcoesRazaoAjuda: "quantas vezes o ganho máximo cabe na perda máxima; não é probabilidade de nada. Leia \"1 : 0,67\" como: para cada 1 de risco, 0,67 de ganho máximo.",
     opcoesCenariosTitulo: "Cenários no vencimento",
     opcoesSigmaAjuda: "cenários ±1σ a partir da volatilidade realizada de 21 pregões — é conta de dispersão, não previsão de preço.",
     opcoesDeltaAjuda: "delta ≈ chance de terminar dentro do dinheiro (aproximação)",
@@ -466,6 +471,10 @@ export const COPY = {
     opcoesSemVencimento: "Nenhum vencimento aberto na leitura deste ativo. Nada a consultar.",
     opcoesBreakevenRotulo: "Breakeven",
     opcoesBreakevenAjuda: "preço do ativo no vencimento em que a estrutura empata. É preço, não dinheiro: não se multiplica pelo lote.",
+    // 24-06 (achado F-01). MESMA negação do outro ramo: "não é probabilidade"
+    // não é tom, é o que o app afirma sobre o número.
+    opcoesRazaoRotulo: "Razão G/P",
+    opcoesRazaoAjuda: "quantas vezes o ganho máximo cabe na perda máxima; não é probabilidade de nada. \"1 : 0,67\" = 0,67 de ganho máximo para cada 1 de risco.",
     opcoesCenariosTitulo: "Cenários",
     opcoesSigmaAjuda: "cenários ±1σ a partir da volatilidade realizada de 21 pregões — é conta de dispersão, não previsão de preço.",
     opcoesDeltaAjuda: "delta ≈ chance de terminar dentro do dinheiro (aproximação)",
