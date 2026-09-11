@@ -212,6 +212,24 @@ export async function testServer(url) {
   return { ok: !!(j && j.ok), message: j && j.ok ? "Servidor respondeu OK." : "Resposta inesperada do endereço." };
 }
 
+// Query string a partir de um objeto (aba-opcoes F3, 2026-09-11). Chave sem
+// valor (`undefined`/`null`/`""`) vira AUSÊNCIA do parâmetro, nunca `?kind=`
+// vazio: o backend distingue "não pedi" de "pedi vazio" — `kind` fora de
+// CALL/PUT é 422 ANTES da rede, e um vazio viraria erro no lugar de omissão.
+// `encodeURIComponent` na chave E no valor porque vencimento, tipo e limite
+// são entrada do usuário, não constante do app.
+// Nota de leitura: `scan()` abaixo tem um `const qs = []` local que SOMBREIA
+// este helper dentro daquela função — o array é pré-existente e continua
+// sendo o dela; quem for mexer em `scan()` não tem este `qs` à mão.
+function qs(params) {
+  const partes = [];
+  for (const [k, v] of Object.entries(params || {})) {
+    if (v === undefined || v === null || v === "") continue;
+    partes.push(encodeURIComponent(k) + "=" + encodeURIComponent(v));
+  }
+  return partes.length ? "?" + partes.join("&") : "";
+}
+
 export const api = {
   getState: () => req("GET", "/api/state"),
   putConfig: (b) => req("PUT", "/api/config", b),
@@ -320,6 +338,17 @@ export const api = {
   mcpStatus: () => req("GET", "/api/options/mcp/status", undefined, 30000),
   mcpLeitura: (t) => req("GET", "/api/options/mcp/leitura/" + encodeURIComponent(t), undefined, 30000),
   mcpSetupGrafico: (name) => req("GET", "/api/options/mcp/setups/" + encodeURIComponent(name) + "/grafico", undefined, 30000),
+  // aba-opcoes F3 (plano 24-01/24-02) — cadeia, peneira e montagem de
+  // estrutura. Mesmo timeout de 30 s das irmãs: dado de mercado, zero LLM.
+  mcpCadeia: (t, q) => req("GET", "/api/options/mcp/cadeia/" + encodeURIComponent(t) + qs(q), undefined, 30000),
+  mcpOperaveis: (t, q) => req("GET", "/api/options/mcp/operaveis/" + encodeURIComponent(t) + qs(q), undefined, 30000),
+  mcpProposta: (body) => req("POST", "/api/options/mcp/proposta", body, 30000),
+  // 60 s aqui, e não os 30 s das outras três: `/possibilidades` faz até 13
+  // chamadas ao serviço numa requisição só (2×N+1 com N≤6, §3.6 do PLANO).
+  // Com 30 s, a consulta mais cara do produto morreria no cliente DEPOIS de
+  // o servidor já ter consumido o cap — a pessoa pagaria a cota e não veria
+  // o resultado.
+  mcpPossibilidades: (body) => req("POST", "/api/options/mcp/possibilidades", body, 60000),
   // FASE 8B (260911-k9g): carimbo de build do SERVIDOR JÁ CONFIGURADO
   // (runtimeBase) — diferente de testServer(url) acima, que valida um
   // ENDEREÇO DIGITADO antes de aplicá-lo. Usado só para exibir no rodapé do

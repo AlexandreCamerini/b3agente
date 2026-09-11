@@ -274,6 +274,15 @@ function serverStore() {
     mcpStatus: () => api.mcpStatus(),
     mcpLeitura: (t) => api.mcpLeitura(t),
     mcpSetupGrafico: (name) => api.mcpSetupGrafico(name),
+    // aba-opcoes F3 (plano 24-02): mesma razão dos três acima — cadeia,
+    // peneira, proposta e possibilidades são dado de mercado de fim de
+    // pregão. Delegação PURA: cachear aqui carimbaria pregão velho como se
+    // fosse o do dia, e é justamente o frescor que a tela precisa dizer com
+    // verdade (ADR-027, Decisão 8).
+    mcpCadeia: (t, q) => api.mcpCadeia(t, q),
+    mcpOperaveis: (t, q) => api.mcpOperaveis(t, q),
+    mcpProposta: (body) => api.mcpProposta(body),
+    mcpPossibilidades: (body) => api.mcpPossibilidades(body),
     // 260911-k9g: carimbo do SERVIDOR ATUAL para o rodapé do Perfil —
     // diagnóstico, nunca persistido, mesma classe de delegação pura do
     // mcpStatus/optionsProposta acima.
@@ -1255,6 +1264,26 @@ function deviceStore() {
     async mcpSetupGrafico(name) {
       ensure();
       return api.mcpSetupGrafico(name);
+    },
+    // aba-opcoes F3 (plano 24-02): espelho dos quatro métodos novos do
+    // serverStore, com o mesmo contrato. Dado de mercado não se duplica no
+    // aparelho (ver comentário lá); `ensure()` antes da delegação aplica o
+    // serverUrl configurado no aparelho, como o resto do deviceStore.
+    async mcpCadeia(t, q) {
+      ensure();
+      return api.mcpCadeia(t, q);
+    },
+    async mcpOperaveis(t, q) {
+      ensure();
+      return api.mcpOperaveis(t, q);
+    },
+    async mcpProposta(body) {
+      ensure();
+      return api.mcpProposta(body);
+    },
+    async mcpPossibilidades(body) {
+      ensure();
+      return api.mcpPossibilidades(body);
     },
     // Fase 14 (Plano 05): logado, delega e adota o estado confirmado pelo
     // servidor (mesmo padrão de optionsBuy). Sem sessão, ramo local é

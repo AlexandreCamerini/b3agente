@@ -77,6 +77,50 @@ export const COPY = {
     opcoesGraficoTitulo: "Disparos do setup",
     opcoesDisparosRotulo: "Disparos",
 
+    // aba Opções F3 (plano 24-02, 2026-09-11) — analisar e comparar
+    // vencimentos. Voz de professor: cada número vem com o que ele é e o que
+    // ele NÃO é. Quatro textos aqui são afirmação regulatória e valem com a
+    // mesma substância nos dois modos (delta, ±1σ, breakeven e os dois
+    // "ilimitado"): mudar a substância deles muda o que o app afirma, não o
+    // tom com que afirma.
+    opcoesAnalisarTitulo: "O QUE DÁ PARA MONTAR",
+    opcoesPossibilidadesTitulo: "COMPARAR OS VENCIMENTOS",
+    opcoesTeseRotulo: "Qual é a sua tese para este ativo? Nem o serviço nem o app escolhem direção — essa parte é sua.",
+    opcoesTeseAlta: "Alta",
+    opcoesTeseBaixa: "Baixa",
+    opcoesTeseNeutra: "Neutra",
+    opcoesLoteRotulo: "Lote (número de ações)",
+    opcoesLoteAjuda: "1 contrato = 100 ações. O lote só serve para converter em reais os números que vêm por ação; a conta é feita no servidor.",
+    opcoesMontarEstrutura: "Montar a estrutura",
+    opcoesVerPossibilidades: "Comparar os vencimentos",
+    opcoesCustoChamadas: (n) =>
+      "Esta consulta gasta " + (typeof n === "number" ? n : "—") +
+      " chamada(s) da sua cota do dia: uma para listar os vencimentos e duas para cada vencimento consultado.",
+    opcoesVerCadeia: "Ver a cadeia de opções",
+    opcoesVerOperaveis: "Ver só as opções com liquidez",
+    opcoesCriterioOperaveis: (c) => {
+      const k = c || {};
+      const n = (v) => (typeof v === "number" ? String(v).replace(".", ",") : "—");
+      return "Peneira aplicada: pelo menos " + n(k.minNegocios) +
+        " negócios no pregão e delta entre " + n(k.deltaMin) + " e " + n(k.deltaMax) +
+        ". O critério é do Boris, não do serviço — um strike fora dessa faixa não sumiu por falta de dado, sumiu por escolha nossa.";
+    },
+    opcoesSemEstrutura: "O serviço não mandou os pontos da curva desta estrutura. Os números acima continuam valendo — o que falta é o desenho, e um gráfico vazio seria lido como resultado zero.",
+    opcoesSemVencimento: "A leitura deste ativo não trouxe nenhum vencimento aberto, então não há o que comparar. Nada foi consultado.",
+    opcoesBreakevenRotulo: "Preço de empate (breakeven)",
+    opcoesBreakevenAjuda: "preço do ativo no vencimento em que a estrutura empata. É preço, não dinheiro: não se multiplica pelo lote.",
+    opcoesCenariosTitulo: "Cenários no vencimento",
+    opcoesSigmaAjuda: "cenários ±1σ a partir da volatilidade realizada de 21 pregões — é conta de dispersão, não previsão de preço.",
+    opcoesDeltaAjuda: "delta ≈ chance de terminar dentro do dinheiro (aproximação)",
+    opcoesPorAcaoRotulo: "por ação",
+    opcoesEmReaisRotulo: "em reais, para o seu lote",
+    opcoesGanhoIlimitado: "sem teto",
+    opcoesPerdaIlimitada: "sem piso declarado pelo serviço",
+    opcoesCadeiaTruncada: (t) =>
+      "A lista veio cortada pelo serviço. Na palavra dele: " + (t || "sem detalhe informado."),
+    opcoesAlvoRotulo: "Preço-alvo (opcional)",
+    opcoesStopRotulo: "Preço de stop (opcional)",
+
     // onboarding (home vazia) — qa/34: antes hardcodado na voz de Estudo
     welcomeTitulo: "Bem-vindo ao seu simulador",
     welcomeCorpo: "A jornada tem 3 passos: descubra oportunidades no Radar, acompanhe os melhores na Watchlist e simule operações no Portfólio — tudo com dinheiro simulado e leitura educacional.",
@@ -348,6 +392,49 @@ export const COPY = {
     opcoesDisclaimer: "Conteúdo educacional. Dados de fim de pregão, possivelmente atrasados; nada aqui é ordem, recomendação ou promessa de resultado.",
     opcoesGraficoTitulo: "Disparos do setup",
     opcoesDisparosRotulo: "Disparos",
+
+    // aba Opções F3 (plano 24-02, 2026-09-11) — voz de mesa: direto ao
+    // estado e ao custo. MESMAS chaves do ramo estudo. Os quatro textos
+    // regulatórios (delta, ±1σ, breakeven e os dois "ilimitado") repetem a
+    // substância do outro ramo de propósito: é o que o app AFIRMA, e isso
+    // não muda com o tom.
+    opcoesAnalisarTitulo: "ESTRUTURA PARA A TESE",
+    opcoesPossibilidadesTitulo: "POSSIBILIDADES POR VENCIMENTO",
+    opcoesTeseRotulo: "Tese da mesa. O serviço não escolhe direção — e o app menos ainda.",
+    opcoesTeseAlta: "Alta",
+    opcoesTeseBaixa: "Baixa",
+    opcoesTeseNeutra: "Neutra",
+    opcoesLoteRotulo: "Lote (ações)",
+    opcoesLoteAjuda: "1 contrato = 100 ações. Converte em reais os números que vêm por ação; a conta é do servidor.",
+    opcoesMontarEstrutura: "Montar estrutura",
+    opcoesVerPossibilidades: "Ver possibilidades",
+    opcoesCustoChamadas: (n) =>
+      "Custo desta consulta: " + (typeof n === "number" ? n : "—") +
+      " chamada(s) da cota do dia (1 para listar os vencimentos + 2 por vencimento).",
+    opcoesVerCadeia: "Ver a cadeia",
+    opcoesVerOperaveis: "Ver as operáveis",
+    opcoesCriterioOperaveis: (c) => {
+      const k = c || {};
+      const n = (v) => (typeof v === "number" ? String(v).replace(".", ",") : "—");
+      return "Peneira: mín. " + n(k.minNegocios) + " negócios no pregão, delta entre " +
+        n(k.deltaMin) + " e " + n(k.deltaMax) +
+        ". Critério do Boris, não do serviço — strike fora da faixa saiu por escolha nossa, não por falta de dado.";
+    },
+    opcoesSemEstrutura: "Sem pontos de payoff nesta resposta. Os números do cabeçalho valem; a curva, não há — e desenhar um gráfico vazio seria afirmar resultado zero.",
+    opcoesSemVencimento: "Nenhum vencimento aberto na leitura deste ativo. Nada a consultar.",
+    opcoesBreakevenRotulo: "Breakeven",
+    opcoesBreakevenAjuda: "preço do ativo no vencimento em que a estrutura empata. É preço, não dinheiro: não se multiplica pelo lote.",
+    opcoesCenariosTitulo: "Cenários",
+    opcoesSigmaAjuda: "cenários ±1σ a partir da volatilidade realizada de 21 pregões — é conta de dispersão, não previsão de preço.",
+    opcoesDeltaAjuda: "delta ≈ chance de terminar dentro do dinheiro (aproximação)",
+    opcoesPorAcaoRotulo: "por ação",
+    opcoesEmReaisRotulo: "em reais (lote)",
+    opcoesGanhoIlimitado: "sem teto",
+    opcoesPerdaIlimitada: "sem piso declarado pelo serviço",
+    opcoesCadeiaTruncada: (t) =>
+      "Lista cortada pelo serviço: " + (t || "sem detalhe informado."),
+    opcoesAlvoRotulo: "Alvo (opcional)",
+    opcoesStopRotulo: "Stop (opcional)",
 
     // onboarding (home vazia) — qa/34: voz de mesa
     welcomeTitulo: "Bem-vindo à sua mesa de operações",
