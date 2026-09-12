@@ -167,6 +167,38 @@ AVISO_RECUSA_COBRADA = (
     "a consulta mesmo quando recusa o pedido."
 )
 
+# 24-11 (achado ao vivo 2026-09-11) — os três motivos de um campo da LEITURA
+# DO ATIVO vir vazio. Na tela do Alex, `Tendência`, `HV 21`, `HV 63`,
+# `Distância da média 63` e `Faixa de 63 pregões` mostravam travessão e mais
+# nada: quem olha não sabe se o app quebrou, se o ativo é estranho ou se falta
+# dado — e travessão mudo não é estado vazio (princípio 9 do CLAUDE.md).
+#
+# A saída NÃO é preencher: o número não existe na origem, e inventá-lo seria
+# fabricar (princípio 4). Nem recalcular: o Boris teria uma segunda
+# implementação do mesmo indicador, que diverge da do serviço na primeira
+# correção feita de um lado só (decisão do Alex, 2026-09-11: fonte única).
+# Resta dizer o motivo, e é o que estes três fazem — cada um diz O QUE falta,
+# POR QUE falta e que ninguém estimou nada no lugar. Nenhum culpa quem lê nem
+# sugere ação que não existe: "tente de novo" não encurta uma série de pregões.
+#
+# O "63" e o "21" que aparecem no texto são as JANELAS que o próprio serviço
+# nomeia nos campos (`sma63`, `range_63_sessions`, `change_21_sessions_pct`) —
+# NÃO uma contagem da série. O `behavior` não traz quantos candles existem, e
+# afirmar esse número seria inventá-lo; o guardião do 24-11 tranca essa
+# diferença nos dois sentidos.
+MOTIVO_JANELA_63 = (
+    "exigem 63 pregões e a série disponível não fecha essa janela — a de 21 "
+    "fecha, por isso os campos de 21 vieram"
+)
+MOTIVO_SERIE_CURTA = (
+    "a série de pregões é curta demais para as médias; só o que não depende "
+    "de janela veio"
+)
+MOTIVO_HV_AUSENTE = (
+    "o provedor não publica volatilidade realizada para este ativo; ela não é "
+    "calculada aqui, por isso não há número a mostrar"
+)
+
 # `AVISOS` é a superfície de varredura do módulo no `test_guardrail_imperativo`
 # (FONTES) — não só os avisos de frescor. Texto fixo novo que chega ao usuário
 # entra aqui na fase que o cria.
@@ -183,7 +215,10 @@ AVISOS = "\n".join((AVISO_FRESCOR_NAO_MEDIDO,
                     RAZAO_PERDA_ILIMITADA,
                     RAZAO_SEM_DADO,
                     RAZAO_PERDA_ZERO,
-                    AVISO_RECUSA_COBRADA))
+                    AVISO_RECUSA_COBRADA,
+                    MOTIVO_JANELA_63,
+                    MOTIVO_SERIE_CURTA,
+                    MOTIVO_HV_AUSENTE))
 
 # Critério de "operável" do BORIS, não do serviço (D-24.4). O serviço aceita
 # qualquer peneira; estes três números são escolha nossa, e por isso viajam na
@@ -1015,6 +1050,92 @@ def _razao_ganho_perda(dados: dict) -> dict:
     return {"valor": round(abs(ganho) / abs(perda), 2), "motivo": None}
 
 
+# Campos da leitura agrupados pela JANELA de que dependem — a mesma janela que
+# o nome de cada um já declara. `range_63_sessions` chega SEMPRE como dict
+# (`{"highest": None, "lowest": None}` quando a janela não fechou), então a
+# ausência dele é conteúdo nulo, não chave nula: ver `_campo_vazio`.
+_CAMPOS_DE_63 = ("trend", "distance_from_sma63_pct", "range_63_sessions")
+_CAMPOS_DE_JANELA = ("trend", "rsi14", "distance_from_sma21_pct",
+                     "distance_from_sma63_pct", "range_63_sessions",
+                     "change_21_sessions_pct")
+# `hv21`/`hv63` NÃO são calculados pelo serviço: são colunas DIRETAS do candle.
+# Nulos querem dizer que o provedor não publicou volatilidade realizada para
+# aquele ativo — motivo diferente dos outros dois, e por isso texto separado.
+_CAMPOS_DE_HV = ("hv21", "hv63")
+
+
+def _campo_vazio(behavior: dict, campo: str) -> bool:
+    """Se o campo da leitura veio sem número.
+
+    `range_63_sessions` é o único que exige olhar DENTRO: o serviço manda o
+    dicionário mesmo quando a janela não fechou, com os dois extremos nulos.
+    Tratá-lo como os demais faria o app dar por presente uma faixa que não
+    existe.
+    """
+    valor = behavior.get(campo)
+    if campo == "range_63_sessions":
+        if not isinstance(valor, dict):
+            return valor is None
+        return all(valor.get(k) is None for k in ("highest", "lowest"))
+    return valor is None
+
+
+def _lacunas_da_leitura(behavior) -> list:
+    """Por que cada campo ausente da leitura está ausente.
+
+    Deriva do que o PRÓPRIO `behavior` mostra — não consulta nada, não conta
+    pregão, não afirma tamanho de série. A regra é de observação: se a janela
+    de 21 fechou e a de 63 não, a série está entre as duas, e é isso que se
+    pode dizer com honestidade.
+
+    Existe porque travessão mudo não é estado vazio: a pessoa não sabe se o
+    app quebrou, se o ativo é estranho ou se falta dado (princípio 9). E
+    porque preencher o número seria fabricar (princípio 4) — os campos não
+    existem na origem, e o Boris NÃO os recalcula (decisão do Alex,
+    2026-09-11: fonte única).
+
+    Devolve `[{"campos": [...], "motivo": "<texto>"}]`, no máximo três
+    entradas, e NOMEIA só o que de fato veio vazio: citar um campo que chegou
+    seria a mesma classe de erro, na direção contrária.
+
+    Lista vazia quando não há o que explicar — `behavior` ausente, torto,
+    `status: "sem_candles"` ou sem nem o fechamento. Nesses casos a tela tem
+    estado próprio, e repetir o motivo aqui viraria duas mensagens para a
+    mesma ausência. Sem `close` também não se pode afirmar nada sobre o
+    provedor de volatilidade: não há leitura nenhuma para explicar.
+    """
+    if not isinstance(behavior, dict) or behavior.get("status") == "sem_candles":
+        return []
+    if behavior.get("close") is None:
+        return []
+
+    def _vazios(campos):
+        return [c for c in campos if _campo_vazio(behavior, c)]
+
+    lacunas = []
+    tem_sma21 = behavior.get("sma21") is not None
+    tem_sma63 = behavior.get("sma63") is not None
+
+    # A ORDEM é de precedência, não de conveniência: a janela de 63 e a série
+    # curta demais são o MESMO fato em graus diferentes, e emitir os dois
+    # diria duas coisas sobre a mesma ausência.
+    if tem_sma21 and not tem_sma63:
+        campos = _vazios(_CAMPOS_DE_63)
+        if campos:
+            lacunas.append({"campos": campos, "motivo": MOTIVO_JANELA_63})
+    elif not tem_sma21:
+        campos = _vazios(_CAMPOS_DE_JANELA)
+        if campos:
+            lacunas.append({"campos": campos, "motivo": MOTIVO_SERIE_CURTA})
+
+    # `hv` é independente das médias: pode faltar com a série inteira fechada,
+    # porque não é conta do serviço — é coluna que o provedor publica ou não.
+    hv = _vazios(_CAMPOS_DE_HV)
+    if hv:
+        lacunas.append({"campos": hv, "motivo": MOTIVO_HV_AUSENTE})
+    return lacunas
+
+
 def _pernas_para_avaliar(setup: Optional[dict]) -> list:
     """Pernas do setup no formato que `evaluate_option_structure` aceita.
 
@@ -1230,6 +1351,12 @@ async def leitura(ticker: str, user: dict = Depends(require_user)) -> dict:
             # Verbatim, sem interpretar: `behavior` pode ser
             # `{"status": "sem_candles"}` e a tela tem estado próprio para isso.
             "behavior": proposta.get("behavior"),
+            # 24-11 — POR QUE cada campo vazio do `behavior` está vazio. Campo
+            # NOVO ao lado, nunca reescrita do que o serviço mandou: `null`
+            # continua `null`, e a explicação é derivada do que JÁ veio nesta
+            # mesma resposta — nenhuma chamada de tool a mais, o custo
+            # declarado da rota continua 3.
+            "lacunas": _lacunas_da_leitura(proposta.get("behavior")),
             "catalog": proposta.get("catalog"),
             "expirations": proposta.get("expirations"),
             "setups": setups,
