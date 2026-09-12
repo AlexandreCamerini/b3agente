@@ -836,6 +836,25 @@ async def obs_opcoes_cota_aplicar(body: dict = Body(default={}),
 # própria (não mistura com a cota de IA gerenciada). 429 (não 402: não é
 # "cota paga", é proteção contra flood) — a mensagem de metering.check é
 # específica de IA, por isso não é repassada ao chamador aqui.
+#
+# 25-01: as três seções viram CONSTANTES em vez de literais repetidos em duas
+# chamadas. Os dois nomes antigos NÃO podem mudar de valor — já há contador
+# gravado no kv sob eles, e renomear perderia o histórico de quem usa o app.
+ANALYTICS_SECTION = "analyticsEvents"              # diário, por conta (rate limit)
+ANALYTICS_GLOBAL_SECTION = "analyticsEventsGlobal"  # diário, global (qa/42)
+# 25-01 — o achado: até aqui a rota chamava `metering.consume` SEM
+# `month_section`, e o default do módulo é `MONTH_SECTION = "aiUsageMonth"`,
+# que é EXATAMENTE o ledger que `plan.can_analyze` lê pelo `month_used` (o cap
+# comercial de 30 análises/mês do PLAN_FREE, ADR-010). Como o `custo` aqui é
+# `result["accepted"]` — o tamanho do LOTE, e o cliente envia em lotes de até
+# 50 (`web/src/analytics.js`) — cada sessão de uso do app descontava dezenas
+# de "análises" de quem não tinha pedido nenhuma. Medido no banco local antes
+# da correção: as três contas com ledger no mês tinham `count` exatamente
+# igual ao número de eventos de telemetria ingeridos. Telemetria tem ledger
+# mensal PRÓPRIO — contar continua, misturar não.
+ANALYTICS_MONTH_SECTION = "analyticsEventsMonth"
+
+
 def _analytics_quota_dia() -> int:
     return int(os.environ.get("B3_ANALYTICS_QUOTA_DIA") or 5000)
 
@@ -850,7 +869,7 @@ async def analytics_events(body: dict = Body(default={}), user: dict = Depends(r
     ok, _reason = metering.check(
         _conn, user["id"], quota=_analytics_quota_dia(), rate_per_min=_analytics_rate_min(),
         custo=len(events) if isinstance(events, list) else 1,
-        section="analyticsEvents", global_section="analyticsEventsGlobal",
+        section=ANALYTICS_SECTION, global_section=ANALYTICS_GLOBAL_SECTION,
     )
     if not ok:
         raise HTTPException(429, "Limite de envio de eventos de analytics excedido. Tente novamente mais tarde.")
@@ -860,7 +879,8 @@ async def analytics_events(body: dict = Body(default={}), user: dict = Depends(r
         obslog.log("analytics", f"ingest rejeitado (uid={user['id'][:8]}…): {e}", level="warn")
         raise HTTPException(400, str(e))
     metering.consume(_conn, user["id"], custo=result["accepted"],
-                     section="analyticsEvents", global_section="analyticsEventsGlobal")
+                     section=ANALYTICS_SECTION, global_section=ANALYTICS_GLOBAL_SECTION,
+                     month_section=ANALYTICS_MONTH_SECTION)
     return result
 
 
