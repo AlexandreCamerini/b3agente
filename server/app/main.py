@@ -1843,6 +1843,43 @@ async def put_llm_prompts(body: dict = Body(default={}), scope: Optional[str] = 
 
 
 # ---- Watchlist ----
+# 25-06: código da recusa por limite de watchlist, publicado no `detail` das
+# DUAS rotas abaixo. Por que existe: `api.js` já extrai `detail.code`/`detail`
+# do corpo de erro desde a aba Opções (2026-09-10) e o comentário de lá diz,
+# por escrito, que NENHUM consumidor lia isso — infraestrutura pronta e ociosa.
+# Estas são as duas ÚNICAS rotas que hoje devolvem 402 CRU ao cliente (o gate
+# de análise tem o 402 capturado e convertido em 200 com fallback
+# determinístico antes de chegar ao front, FIX-C01), e sem o par
+# (código, número) o app só teria a frase para adivinhar qual recusa é esta —
+# o mesmo acoplamento por substring que o 25-04 removeu da aba Opções.
+#
+# Diferença deliberada para o 402 de `_gate_analise`: LÁ o `detail` continua
+# STRING (25-04, decisão registrada — o app lê aquele texto direto e um dict
+# viraria `[object Object]`). Aqui o `detail` vira dict porque `message`
+# carrega a MESMA frase de antes e `enrichErrorMessage` (`web/src/api.js`) já
+# usa `d.message` como base quando o detail é objeto: o texto que chega ao
+# usuário não muda, o número passa a chegar junto.
+COD_WATCHLIST = "watchlist_limite"
+
+
+def _recusa_de_watchlist(reason: str, plano: dict, usado: int) -> HTTPException:
+    """402 estruturado das duas rotas de watchlist.
+
+    `message` é a frase de `plan.can_grow_watchlist_to`/`can_add_ticker`
+    VERBATIM — é o que preserva o conteúdo dos testes de Fase 12 com uma
+    mudança de caminho de acesso, não de texto. `usado` tem o MESMO
+    significado nas duas rotas (quantos ativos a conta tem HOJE, antes da
+    tentativa); um campo que mudasse de sentido entre as rotas produziria
+    número errado na tela compartilhada que o consome.
+    """
+    return HTTPException(402, {
+        "code": COD_WATCHLIST,
+        "message": reason,
+        "limite": plano.get("max_watchlist"),
+        "usado": usado,
+    })
+
+
 @app.post("/api/snapshot")
 async def post_snapshot(body: dict = Body(default={}), scope: Optional[str] = Depends(current_scope)):
     """Fase B1: grava o snapshot de patrimonio do dia (um por dia; sobrescreve)."""
@@ -1877,9 +1914,12 @@ async def put_watchlist(body: dict = Body(default={}), scope: Optional[str] = De
             # inteira, então comparamos o tamanho FINAL direto, sem valor sintético.
             # 25-04: o teto vem do catálogo (`_plano_efetivo`), não mais do
             # literal do dict — mesma função de gate, mesma frase de recusa.
-            allowed, reason = plan.can_grow_watchlist_to(len(final), plan=_plano_efetivo(scope))
+            plano = _plano_efetivo(scope)
+            allowed, reason = plan.can_grow_watchlist_to(len(final), plan=plano)
             if not allowed:
-                raise HTTPException(402, reason)
+                # 25-06: `usado` é `len(atual)` (o tamanho de HOJE), não
+                # `len(final)` (o tamanho PEDIDO) — ver `_recusa_de_watchlist`.
+                raise _recusa_de_watchlist(reason, plano, len(atual))
         store.set_watchlist(_conn, novos, user_id=scope)
     return store.public_state(_conn, user_id=scope)
 
@@ -1912,10 +1952,13 @@ async def watchlist_add(body: dict = Body(default={}), scope: Optional[str] = De
     with store.WATCHLIST_LOCK:
         # GANCHO FREEMIUM (hoje sempre permite): limite de ativos do tier gratuito.
         # 25-04: idem ao PUT — o limite passa a vir do catálogo de planos.
-        allowed, reason = plan.can_add_ticker(len(store.get(_conn, "watchlist", user_id=scope)),
-                                              plan=_plano_efetivo(scope))
+        plano = _plano_efetivo(scope)
+        atual = store.get(_conn, "watchlist", user_id=scope)
+        allowed, reason = plan.can_add_ticker(len(atual), plan=plano)
         if not allowed:
-            raise HTTPException(402, reason)  # 402 Payment Required (fase futura)
+            # 402 Payment Required (fase futura). 25-06: estruturado — o
+            # tamanho pré-adição é o que esta rota já calculava.
+            raise _recusa_de_watchlist(reason, plano, len(atual))
         store.add_custom(_conn, t, name, user_id=scope)
         wl = store.get(_conn, "watchlist", user_id=scope)
         if t not in wl:
