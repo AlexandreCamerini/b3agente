@@ -330,7 +330,8 @@ verificação goal-backward e dos testes ao vivo (é deles que vem o denominador
 - [x] 24-11-PLAN.md — achado ao vivo 2026-09-11: a LEITURA DO ATIVO diz por que cada campo vazio está vazio
 - [x] 24-12-PLAN.md — achado ao vivo 2026-09-11: a tela diz a distância em pregões até o último fechado, em vez de herdar o SLA da fonte
 - [x] 24-14-PLAN.md — achado ao vivo 2026-09-11: o ensaio diz quando não testou nada (janela que nunca fechou no histórico)
-- [ ] 24-15-PLAN.md — pedido do Alex 2026-09-11: limite da cota da aba Opções configurável pelo portal admin
+- [x] 24-15-PLAN.md — pedido do Alex 2026-09-11: limite da cota da aba Opções configurável pelo portal admin
+- [x] 24-16-PLAN.md — achado 2026-09-12: chave própria (BYOK) destrava o gate mensal do plano, que media consumo da chave do servidor
 
 **UI hint**: yes
 
@@ -368,7 +369,7 @@ que o dispara). Detalhes em
 | 21. Duplicação removida e Portfólio consolidado | 4/4 | Complete    | 2026-09-06 |
 | 22. Componentes compartilhados (trilho, ícones, mascote) | 4/4 | Complete    | 2026-09-06 |
 | 23. Motion com propósito e ilustração unificada | 4/4 | Complete    | 2026-09-06 |
-| 24. Aba Opções sobre MCP — análise e criação de setups | 9/11 | In Progress|  |
+| 24. Aba Opções sobre MCP — análise e criação de setups | 11/12 | In Progress|  |
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2/v1.3
 
