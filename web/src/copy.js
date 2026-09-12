@@ -66,16 +66,127 @@ export const COPY = {
       motivo
         ? "O serviço não avaliou os setups hoje. Motivo, na palavra dele: " + motivo
         : "O serviço não avaliou os setups hoje e não informou o motivo. Sem avaliação, nenhum setup pode ser dado como armado — ausência de leitura não é leitura negativa.",
+    // 24-11 (achado ao vivo 2026-09-11): campo vazio da leitura passou a dizer
+    // POR QUE está vazio. O MOTIVO vem pronto do backend e é exibido verbatim —
+    // aqui só se junta a lista de rótulos e a gramática que a une. Voz de
+    // professor: nomeia a ausência e fecha lembrando que ninguém estimou nada
+    // no lugar, que é a metade da informação que o travessão mudo escondia.
+    opcoesLacuna: (campos, motivo) => {
+      const lista = (Array.isArray(campos) ? campos : []).filter(Boolean);
+      const nomes = lista.length > 1
+        ? lista.slice(0, -1).join(", ") + " e " + lista[lista.length - 1]
+        : (lista[0] || "Este campo");
+      return nomes + (lista.length > 1 ? " não vieram: " : " não veio: ") +
+        (motivo || "o serviço não informou o motivo") +
+        ". Nada foi estimado no lugar.";
+    },
     opcoesNaoConfigurado: "O serviço de opções não está configurado neste servidor. Nada foi consultado — a tela não inventa leitura quando a fonte não responde.",
     opcoesCota: (reinicia) =>
       "Sua cota de consultas da aba Opções acabou por hoje." +
       (reinicia ? " Ela reinicia às " + reinicia + "." : " Ela reinicia na virada do dia."),
     opcoesIndisponivel: "O serviço de opções não respondeu agora. Tente de novo em alguns minutos — nenhum número foi estimado no lugar.",
+    // 24-07 (achado F-04). A recusa da tool passou a debitar uma chamada da
+    // cota do dia, porque a viagem até o serviço aconteceu. A frase é do
+    // front, e não do backend, porque o que ela conta é sobre a COTA DA
+    // PESSOA — o que aconteceu com o pedido dela já vem na mensagem do
+    // serviço, logo acima.
+    opcoesRecusaCobrada: "O serviço recusou esta consulta e ainda assim ela consumiu uma chamada da sua cota do dia: ele conta a chamada quando a recebe, antes de decidir se consegue respondê-la.",
     opcoesCarregando: "Consultando o serviço de opções…",
     opcoesEscolherAtivo: "Escolha um ativo da sua watchlist para ver a leitura dele.",
     opcoesDisclaimer: "Conteúdo educacional. Os dados são de fim de pregão e podem estar atrasados; nada aqui é ordem, recomendação ou promessa de resultado.",
     opcoesGraficoTitulo: "Disparos do setup",
     opcoesDisparosRotulo: "Disparos",
+
+    // aba Opções F3 (plano 24-02, 2026-09-11) — analisar e comparar
+    // vencimentos. Voz de professor: cada número vem com o que ele é e o que
+    // ele NÃO é. Quatro textos aqui são afirmação regulatória e valem com a
+    // mesma substância nos dois modos (delta, ±1σ, breakeven e os dois
+    // "ilimitado"): mudar a substância deles muda o que o app afirma, não o
+    // tom com que afirma.
+    opcoesAnalisarTitulo: "O QUE DÁ PARA MONTAR",
+    opcoesPossibilidadesTitulo: "COMPARAR OS VENCIMENTOS",
+    opcoesTeseRotulo: "Qual é a sua tese para este ativo? Nem o serviço nem o app escolhem direção — essa parte é sua.",
+    opcoesTeseAlta: "Alta",
+    opcoesTeseBaixa: "Baixa",
+    opcoesTeseNeutra: "Neutra",
+    opcoesLoteRotulo: "Lote (número de ações)",
+    opcoesLoteAjuda: "1 contrato = 100 ações. O lote só serve para converter em reais os números que vêm por ação; a conta é feita no servidor.",
+    opcoesMontarEstrutura: "Montar a estrutura",
+    opcoesVerPossibilidades: "Comparar os vencimentos",
+    opcoesCustoChamadas: (n) =>
+      "Esta consulta gasta " + (typeof n === "number" ? n : "—") +
+      " chamada(s) da sua cota do dia: uma para listar os vencimentos e duas para cada vencimento consultado.",
+    opcoesVerCadeia: "Ver a cadeia de opções",
+    opcoesVerOperaveis: "Ver só as opções com liquidez",
+    opcoesCriterioOperaveis: (c) => {
+      const k = c || {};
+      const n = (v) => (typeof v === "number" ? String(v).replace(".", ",") : "—");
+      return "Peneira aplicada: pelo menos " + n(k.minNegocios) +
+        " negócios no pregão e delta entre " + n(k.deltaMin) + " e " + n(k.deltaMax) +
+        ". O critério é do Boris, não do serviço — um strike fora dessa faixa não sumiu por falta de dado, sumiu por escolha nossa.";
+    },
+    opcoesSemEstrutura: "O serviço não mandou os pontos da curva desta estrutura. Os números acima continuam valendo — o que falta é o desenho, e um gráfico vazio seria lido como resultado zero.",
+    opcoesSemVencimento: "A leitura deste ativo não trouxe nenhum vencimento aberto, então não há o que comparar. Nada foi consultado.",
+    opcoesBreakevenRotulo: "Preço de empate (breakeven)",
+    opcoesBreakevenAjuda: "preço do ativo no vencimento em que a estrutura empata. É preço, não dinheiro: não se multiplica pelo lote.",
+    // 24-06 (achado F-01). A ajuda nega a leitura errada mais provável —
+    // razão não é chance de acerto — e ensina a ler o "1 : x", que sem isso
+    // é ambíguo (qual dos dois lados é o 1?).
+    opcoesRazaoRotulo: "Razão ganho/perda",
+    opcoesRazaoAjuda: "quantas vezes o ganho máximo cabe na perda máxima; não é probabilidade de nada. Leia \"1 : 0,67\" como: para cada 1 de risco, 0,67 de ganho máximo.",
+    opcoesCenariosTitulo: "Cenários no vencimento",
+    opcoesSigmaAjuda: "cenários ±1σ a partir da volatilidade realizada de 21 pregões — é conta de dispersão, não previsão de preço.",
+    opcoesDeltaAjuda: "delta ≈ chance de terminar dentro do dinheiro (aproximação)",
+    opcoesPorAcaoRotulo: "por ação",
+    opcoesEmReaisRotulo: "em reais, para o seu lote",
+    opcoesGanhoIlimitado: "sem teto",
+    opcoesPerdaIlimitada: "sem piso declarado pelo serviço",
+    opcoesCadeiaTruncada: (t) =>
+      "A lista veio cortada pelo serviço. Na palavra dele: " + (t || "sem detalhe informado."),
+    opcoesAlvoRotulo: "Preço-alvo (opcional)",
+    opcoesStopRotulo: "Preço de stop (opcional)",
+
+    // aba Opções F5 (plano 24-04, 2026-09-11) — criar setup por descrição em
+    // português. O texto de MAIOR risco regulatório da aba é o do backtest:
+    // números de histórico lidos como promessa. Por isso a ressalva é a
+    // MESMA frase nos dois modos, fica FIXA junto dos números (não é
+    // tooltip) e nega as duas leituras erradas de uma vez — expectativa de
+    // retorno e taxa de acerto.
+    opcoesCriarTitulo: "CRIAR UM SETUP",
+    opcoesCriarAjuda: "Escreva a condição com as suas palavras, e escreva algo objetivo: um indicador, uma comparação e um número. A condição é avaliada UMA vez por pregão, sobre o fechamento — não durante o dia. Quem diz se o vocabulário é válido é o serviço de dados, não o app: se ele recusar, você vê o motivo dele, palavra por palavra. Mínimo de 15 caracteres.",
+    opcoesCriarPlaceholder: "Ex.: quando o IFR de 2 períodos ficar abaixo de 25 e o preço estiver acima da média de 200 pregões",
+    opcoesCriarBotao: "Ver a interpretação e o ensaio",
+    opcoesCriarConfirmar: "Gravar este setup",
+    opcoesCriarDesativar: "Desativar este setup",
+    opcoesCriarConfirmarDesativacao: "Confirmar a desativação",
+    opcoesCriarProblemas: "O serviço não aceitou este setup. O que ele apontou, item por item:",
+    opcoesCriarCru: "A IA não devolveu um setup que dê para ler, então nada foi gravado. O texto que ela respondeu, sem edição nenhuma:",
+    opcoesCriarFaltando: (campos) =>
+      "A resposta veio sem campo que o serviço exige: " +
+      (Array.isArray(campos) && campos.length ? campos.join(", ") : "—") +
+      ". Nada foi gravado — completar isso por conta seria inventar o que ninguém escreveu.",
+    opcoesCriarGravado: (nome) =>
+      "Setup " + (nome || "—") + " gravado e ativo. A partir de agora ele é avaliado uma vez por pregão, e aparece na lista acima.",
+    opcoesCriarDesativado: (nome) =>
+      "Setup " + (nome || "—") + " desativado. Ele deixa de ser avaliado; o histórico dele não é apagado.",
+    opcoesCriarSemPermissao: "Criar setup depende de uma permissão que esta conta não tem. Esconder o botão é só conveniência: o servidor recusa a gravação de qualquer forma.",
+    opcoesBacktestTitulo: "ENSAIO NO HISTÓRICO",
+    opcoesBacktestDisparos: (n, por100) =>
+      "No período coberto, esta condição ocorreu " + (n === null || n === undefined ? "—" : n) +
+      " vez(es) — " + (por100 === null || por100 === undefined ? "—" : por100) +
+      " a cada 100 pregões avaliáveis.",
+    opcoesBacktestRetorno: (passo, medio, mediano, comDado) =>
+      "Variação do ativo em " + (passo || "—") + " depois do disparo: média " +
+      (medio === null || medio === undefined ? "—" : medio) + ", mediana " +
+      (mediano === null || mediano === undefined ? "—" : mediano) + " (" +
+      (comDado === null || comDado === undefined ? "—" : comDado) + " disparo(s) com dado suficiente).",
+    opcoesBacktestRessalva: "Contagem do que já aconteceu no histórico. Não é expectativa de retorno, e taxa de disparo não é taxa de acerto.",
+    opcoesDadoAtrasado: (idade, motivo) =>
+      motivo === "nao_medido"
+        ? "Não foi possível medir a idade do dado de negociação nesta consulta, e sem essa medição o setup não é gravado — ele vigiaria um pregão que ninguém conferiu."
+        : "O dado de negociação da B3 está atrasado" +
+          (idade === null || idade === undefined || idade === "" ? "" : " (" + idade + ")") +
+          ": um setup criado agora vigiaria um pregão que já passou. Nada foi gravado.",
 
     // onboarding (home vazia) — qa/34: antes hardcodado na voz de Estudo
     welcomeTitulo: "Bem-vindo ao seu simulador",
@@ -338,16 +449,118 @@ export const COPY = {
       motivo
         ? "Setups não avaliados hoje. Motivo do serviço: " + motivo
         : "Setups não avaliados hoje, sem motivo informado. Sem avaliação, nenhum setup entra como armado.",
+    // 24-11 — MESMA substância do outro ramo, em voz de mesa: o campo não tem
+    // número, este é o motivo, e nada foi estimado no lugar. O motivo segue
+    // verbatim do backend; só a moldura muda.
+    opcoesLacuna: (campos, motivo) => {
+      const lista = (Array.isArray(campos) ? campos : []).filter(Boolean);
+      const nomes = lista.length > 1
+        ? lista.slice(0, -1).join(", ") + " e " + lista[lista.length - 1]
+        : (lista[0] || "Este campo");
+      return nomes + " sem número: " +
+        (motivo || "o serviço não informou o motivo") +
+        ". Nada estimado no lugar.";
+    },
     opcoesNaoConfigurado: "Serviço de opções não configurado neste servidor. Nada foi consultado.",
     opcoesCota: (reinicia) =>
       "Cota de consultas da aba Opções esgotada no dia." +
       (reinicia ? " Reinicia às " + reinicia + "." : " Reinicia na virada do dia."),
     opcoesIndisponivel: "Serviço de opções sem resposta agora. Tente em alguns minutos — nenhum número foi estimado no lugar.",
+    // 24-07 (achado F-04). MESMA substância do outro ramo, em voz de mesa: o
+    // que a pessoa precisa é fechar a conta da própria cota.
+    opcoesRecusaCobrada: "Consulta recusada pelo serviço e cobrada assim mesmo: consumiu uma chamada da sua cota do dia. O serviço conta a chamada na entrada, não na resposta.",
     opcoesCarregando: "Consultando o serviço de opções…",
     opcoesEscolherAtivo: "Escolha um ativo do seu monitoramento para ver a leitura.",
     opcoesDisclaimer: "Conteúdo educacional. Dados de fim de pregão, possivelmente atrasados; nada aqui é ordem, recomendação ou promessa de resultado.",
     opcoesGraficoTitulo: "Disparos do setup",
     opcoesDisparosRotulo: "Disparos",
+
+    // aba Opções F3 (plano 24-02, 2026-09-11) — voz de mesa: direto ao
+    // estado e ao custo. MESMAS chaves do ramo estudo. Os quatro textos
+    // regulatórios (delta, ±1σ, breakeven e os dois "ilimitado") repetem a
+    // substância do outro ramo de propósito: é o que o app AFIRMA, e isso
+    // não muda com o tom.
+    opcoesAnalisarTitulo: "ESTRUTURA PARA A TESE",
+    opcoesPossibilidadesTitulo: "POSSIBILIDADES POR VENCIMENTO",
+    opcoesTeseRotulo: "Tese da mesa. O serviço não escolhe direção — e o app menos ainda.",
+    opcoesTeseAlta: "Alta",
+    opcoesTeseBaixa: "Baixa",
+    opcoesTeseNeutra: "Neutra",
+    opcoesLoteRotulo: "Lote (ações)",
+    opcoesLoteAjuda: "1 contrato = 100 ações. Converte em reais os números que vêm por ação; a conta é do servidor.",
+    opcoesMontarEstrutura: "Montar estrutura",
+    opcoesVerPossibilidades: "Ver possibilidades",
+    opcoesCustoChamadas: (n) =>
+      "Custo desta consulta: " + (typeof n === "number" ? n : "—") +
+      " chamada(s) da cota do dia (1 para listar os vencimentos + 2 por vencimento).",
+    opcoesVerCadeia: "Ver a cadeia",
+    opcoesVerOperaveis: "Ver as operáveis",
+    opcoesCriterioOperaveis: (c) => {
+      const k = c || {};
+      const n = (v) => (typeof v === "number" ? String(v).replace(".", ",") : "—");
+      return "Peneira: mín. " + n(k.minNegocios) + " negócios no pregão, delta entre " +
+        n(k.deltaMin) + " e " + n(k.deltaMax) +
+        ". Critério do Boris, não do serviço — strike fora da faixa saiu por escolha nossa, não por falta de dado.";
+    },
+    opcoesSemEstrutura: "Sem pontos de payoff nesta resposta. Os números do cabeçalho valem; a curva, não há — e desenhar um gráfico vazio seria afirmar resultado zero.",
+    opcoesSemVencimento: "Nenhum vencimento aberto na leitura deste ativo. Nada a consultar.",
+    opcoesBreakevenRotulo: "Breakeven",
+    opcoesBreakevenAjuda: "preço do ativo no vencimento em que a estrutura empata. É preço, não dinheiro: não se multiplica pelo lote.",
+    // 24-06 (achado F-01). MESMA negação do outro ramo: "não é probabilidade"
+    // não é tom, é o que o app afirma sobre o número.
+    opcoesRazaoRotulo: "Razão G/P",
+    opcoesRazaoAjuda: "quantas vezes o ganho máximo cabe na perda máxima; não é probabilidade de nada. \"1 : 0,67\" = 0,67 de ganho máximo para cada 1 de risco.",
+    opcoesCenariosTitulo: "Cenários",
+    opcoesSigmaAjuda: "cenários ±1σ a partir da volatilidade realizada de 21 pregões — é conta de dispersão, não previsão de preço.",
+    opcoesDeltaAjuda: "delta ≈ chance de terminar dentro do dinheiro (aproximação)",
+    opcoesPorAcaoRotulo: "por ação",
+    opcoesEmReaisRotulo: "em reais (lote)",
+    opcoesGanhoIlimitado: "sem teto",
+    opcoesPerdaIlimitada: "sem piso declarado pelo serviço",
+    opcoesCadeiaTruncada: (t) =>
+      "Lista cortada pelo serviço: " + (t || "sem detalhe informado."),
+    opcoesAlvoRotulo: "Alvo (opcional)",
+    opcoesStopRotulo: "Stop (opcional)",
+
+    // aba Opções F5 (plano 24-04, 2026-09-11) — criar setup por descrição.
+    // MESMAS chaves do ramo estudo. `opcoesBacktestRessalva` é IDÊNTICA
+    // byte a byte à do outro ramo, de propósito: ela não é tom, é o que o
+    // app AFIRMA sobre números de histórico — e isso não muda com a voz.
+    opcoesCriarTitulo: "CRIAR SETUP",
+    opcoesCriarAjuda: "Condição objetiva, nas suas palavras: indicador, comparação e número. Avaliada UMA vez por pregão, sobre o fechamento — não intradiária. Quem valida o vocabulário é o serviço de dados; a recusa dele volta verbatim. Mínimo de 15 caracteres.",
+    opcoesCriarPlaceholder: "Ex.: IFR de 2 períodos abaixo de 25 com o preço acima da média de 200 pregões",
+    opcoesCriarBotao: "Compilar e ensaiar",
+    opcoesCriarConfirmar: "Gravar setup",
+    opcoesCriarDesativar: "Desativar",
+    opcoesCriarConfirmarDesativacao: "Confirmar a desativação",
+    opcoesCriarProblemas: "Setup recusado pelo serviço. O que ele apontou, item por item:",
+    opcoesCriarCru: "A IA não devolveu um setup legível — nada foi gravado. Resposta dela, sem edição:",
+    opcoesCriarFaltando: (campos) =>
+      "Resposta sem campo obrigatório do serviço: " +
+      (Array.isArray(campos) && campos.length ? campos.join(", ") : "—") +
+      ". Nada gravado — completar por conta seria inventar o que ninguém escreveu.",
+    opcoesCriarGravado: (nome) =>
+      "Setup " + (nome || "—") + " ativo. Passa a ser avaliado uma vez por pregão e já aparece na lista acima.",
+    opcoesCriarDesativado: (nome) =>
+      "Setup " + (nome || "—") + " inativo. Deixa de ser avaliado; o histórico dele fica.",
+    opcoesCriarSemPermissao: "Criar setup exige permissão que esta conta não tem. Esconder o botão é conveniência: o servidor recusa a gravação de qualquer forma.",
+    opcoesBacktestTitulo: "ENSAIO NO HISTÓRICO",
+    opcoesBacktestDisparos: (n, por100) =>
+      "Disparos no período: " + (n === null || n === undefined ? "—" : n) + " — " +
+      (por100 === null || por100 === undefined ? "—" : por100) +
+      " a cada 100 pregões avaliáveis.",
+    opcoesBacktestRetorno: (passo, medio, mediano, comDado) =>
+      "Variação do ativo em " + (passo || "—") + " após o disparo: média " +
+      (medio === null || medio === undefined ? "—" : medio) + ", mediana " +
+      (mediano === null || mediano === undefined ? "—" : mediano) + " (" +
+      (comDado === null || comDado === undefined ? "—" : comDado) + " disparo(s) com dado suficiente).",
+    opcoesBacktestRessalva: "Contagem do que já aconteceu no histórico. Não é expectativa de retorno, e taxa de disparo não é taxa de acerto.",
+    opcoesDadoAtrasado: (idade, motivo) =>
+      motivo === "nao_medido"
+        ? "A idade do dado de negociação não foi medida nesta consulta. Sem medição, o setup não é gravado — ele vigiaria um pregão que ninguém conferiu."
+        : "Dado de negociação da B3 atrasado" +
+          (idade === null || idade === undefined || idade === "" ? "" : " (" + idade + ")") +
+          ": um setup criado agora vigiaria um pregão que já passou. Nada foi gravado.",
 
     // onboarding (home vazia) — qa/34: voz de mesa
     welcomeTitulo: "Bem-vindo à sua mesa de operações",

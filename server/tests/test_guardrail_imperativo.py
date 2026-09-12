@@ -55,6 +55,13 @@ FONTES = {
     # vocabulário de ordem é `web/tests/test_copy_theme.mjs` ("ramo ESTUDO
     # sem vocabulário de ordem"). É assim que o [R-12] do PLANO se cumpre.
     "options_mcp_api.AVISOS": options_mcp_api.AVISOS,
+    # 2026-09-11 (aba-opcoes F5): o cabeçalho fixo do compilador NL→DSL. É a
+    # fonte mais sensível desta lista — não é texto que a tela EXIBE, é texto
+    # que vira instrução de sistema numa LLM cuja resposta a pessoa GRAVA como
+    # setup. Imperativo de pressão aqui não seria lido: seria compilado, e
+    # ficaria vigiando o pregão dela. Entra na fase que o cria ([R-12]).
+    "options_mcp_api.SYSTEM_COMPILADOR_CABECALHO":
+        options_mcp_api.SYSTEM_COMPILADOR_CABECALHO,
 }
 
 

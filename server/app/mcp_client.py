@@ -112,12 +112,23 @@ class McpTetoAtingido(McpErro):
 class McpErroDeTool(McpErro):
     """A requisição deu certo e a TOOL disse não (ticker sem cadeia,
     vencimento inexistente). É erro do pedido, não do serviço: repetir o
-    mesmo pedido não muda o resultado."""
+    mesmo pedido não muda o resultado.
 
-    def __init__(self, msg: str, available=None, hint=None) -> None:
+    `bruto` é o `structured_content` INTEIRO da recusa (F5): `create_setup`
+    devolve `{error, problems[]}` e `deactivate_setup` devolve
+    `{error, known_setups[]}`, e é essa lista que diz à pessoa o que corrigir.
+    Promover cada chave a atributo próprio (como `available`/`hint`, que são
+    do contrato genérico de tool) faria esta classe crescer a cada tool nova;
+    quem escolhe o que repassar é a ROTA, que lê a chave que espera e nunca
+    devolve o blob inteiro. Vazio por default — nenhuma recusa antiga muda de
+    forma.
+    """
+
+    def __init__(self, msg: str, available=None, hint=None, bruto=None) -> None:
         super().__init__(msg)
         self.available = available
         self.hint = hint
+        self.bruto = dict(bruto) if isinstance(bruto, dict) else {}
 
 
 # --------------------------------------------------------------------------
@@ -197,6 +208,9 @@ _TOKEN: dict = {}
 _LOCK = asyncio.Lock()
 _SEM = asyncio.Semaphore(CONCORRENCIA)
 
+# Loop dono do `_HTTP` e das primitivas acima. Ver `_do_loop_corrente()`.
+_LOOP = None
+
 # Status HTTP não-2xx MEDIDO no cliente compartilhado (achado A-02).
 #
 # Por que isto existe: o transporte streamable-http do SDK **apaga o status**.
@@ -241,12 +255,50 @@ async def _anotar_status_http(resposta) -> None:
         return
 
 
+def _do_loop_corrente() -> None:
+    """Descarta o cliente HTTP e as primitivas de sincronização quando o loop
+    que os criou não é mais o loop em execução.
+
+    **Por que isto existe** (achado ao vivo, 2026-09-11): um `AsyncClient` do
+    `httpx2` guarda o pool de conexões, e uma conexão keep-alive estabelecida
+    dentro de um loop não sobrevive à morte dele — usá-la no loop seguinte
+    levanta `RuntimeError`. O mesmo vale para `asyncio.Lock` e `Semaphore`,
+    que se amarram ao loop no primeiro `await`.
+
+    Em produção isso nunca aparece: o uvicorn tem UM loop, de vida longa, e
+    esta função é um no-op a partir da segunda chamada. Quem troca de loop é
+    quem chama `asyncio.run()` mais de uma vez no mesmo processo — os testes
+    ao vivo (`test_mcp_vivo.py`), um script de diagnóstico, um `railway ssh`.
+    O sintoma era cruel: a PRIMEIRA chamada de rede passava e a segunda
+    falhava como `McpIndisponivel`, ou seja, o cliente acusava o SERVIÇO por
+    um defeito que era nosso.
+
+    O cliente antigo é descartado sem `aclose()` de propósito: fechar exige o
+    loop dono, que já morreu. Os sockets dele foram fechados junto com o loop.
+    """
+    global _HTTP, _LOCK, _SEM, _LOOP
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return                      # fora de loop: nada a decidir aqui
+    if _LOOP is loop:
+        return
+    if _LOOP is not None:
+        obslog.log("mcp", "loop trocou: cliente e primitivas recriados",
+                   level="warn")
+    _HTTP = None
+    _LOCK = asyncio.Lock()
+    _SEM = asyncio.Semaphore(CONCORRENCIA)
+    _LOOP = loop
+
+
 def _cliente_http():
     """Um único `AsyncClient` por processo. O header `Authorization` é
     escrito NELE na renovação do token (e não por requisição) porque o token
     é de MÁQUINA: é o mesmo para todo o processo, independente de qual
     usuário do Boris disparou a chamada."""
     global _HTTP
+    _do_loop_corrente()
     if _HTTP is None:
         try:
             import httpx2
@@ -264,6 +316,12 @@ def _cliente_http():
 async def _access_token() -> str:
     """Token `client_credentials` do emissor, em memória, renovado
     `MARGEM_RENOVACAO_S` antes do `exp`."""
+    # ANTES do `async with _LOCK`: o lock também se amarra ao loop no primeiro
+    # `await`, então adquiri-lo primeiro e só depois conferir o loop deixaria
+    # a falha acontecer justamente no `async with`, fora de qualquer `try`.
+    # Rebindar o lock aqui é seguro por construção: só acontece quando o loop
+    # MUDOU, e nesse caso ninguém do loop anterior está rodando para segurá-lo.
+    _do_loop_corrente()
     tok = _TOKEN.get("access_token")
     exp = _TOKEN.get("exp")
     if tok and isinstance(exp, (int, float)) and (exp - MARGEM_RENOVACAO_S) > _relogio():
@@ -305,8 +363,16 @@ async def _access_token() -> str:
         except McpErro:
             raise
         except Exception as e:  # noqa: BLE001 — transporte
+            # `str(e)` junto do nome da classe (mesmo achado A-03 já aplicado
+            # nas rotas): `RuntimeError` sozinho não separa "loop trocou" de
+            # "socket morreu" de "DNS não resolveu", e o diagnóstico ao vivo
+            # de 11/09 custou uma reprodução inteira por causa disso. Truncado
+            # por `_trecho`, que é o mesmo corte usado no resto do módulo;
+            # exceção de transporte não carrega credencial (o segredo vai no
+            # header, nunca na URL nem na mensagem).
             raise McpIndisponivel(
                 f"emissor de credencial inacessível: {type(e).__name__}"
+                + (f": {_trecho(str(e))}" if str(e) else "")
             ) from None
 
         status = getattr(r, "status_code", None)
@@ -573,7 +639,13 @@ def reset_cache() -> None:
     """Limpa o cache L1 **e o token**. O token é cache como qualquer outro:
     depois de trocar `MCP_CLIENT_ID`/`MCP_CLIENT_SECRET` em runtime, deixá-lo
     para trás faria o processo seguir usando a credencial antiga até o `exp`.
-    Os testes chamam isto entre casos."""
+    Os testes chamam isto entre casos.
+
+    **Não descarta o cliente HTTP**, e isso é deliberado: quem decide sobre o
+    cliente é `_do_loop_corrente()`, pelo loop dono. Descartá-lo aqui por
+    precaução criaria um segundo dono da mesma decisão, e a que sobrasse
+    divergiria — além de jogar fora um pool perfeitamente válido a cada troca
+    de credencial em runtime."""
     _CACHE.clear()
     _TOKEN.clear()
 
@@ -625,6 +697,7 @@ async def call_tool(nome: str, args: dict | None = None, *,
             str(erro or "a tool recusou o pedido"),
             available=sc.get("available") if isinstance(sc, dict) else None,
             hint=sc.get("hint") if isinstance(sc, dict) else None,
+            bruto=sc if isinstance(sc, dict) else None,
         )
 
     _cache_put(chave, sc)
@@ -656,6 +729,41 @@ async def get_prompt(nome: str, args: dict | None = None) -> ResultadoTool:
     _cache_put(chave, r)
     obslog.log("mcp", f"prompt {nome}", prompt=nome, cache=False,
                ms=int((_relogio() - t0) * 1000))
+    return ResultadoTool(r, False)
+
+
+async def list_tools() -> ResultadoTool:
+    """`tools/list`. NÃO conta no teto de 2.000/dia do serviço (é PROTOCOLO,
+    como `initialize` e `ping` — só `tools/call` é cobrado), então também não
+    entra no cap por usuário da rota.
+
+    Existe para a Fase 5 montar o `system` do compilador a partir do
+    `inputSchema` REAL de `create_setup`: copiar o vocabulário do setup
+    (indicadores, operadores, padrões) para dentro do Boris é exatamente o
+    que o ENG-06 proíbe — e uma cópia envelhece em silêncio no dia em que o
+    serviço acrescentar um indicador.
+
+    Devolve o objeto do SDK inteiro (`ListToolsResult`), como
+    `get_prompt`/`read_resource`: quem sabe qual tool procurar é o chamador,
+    e filtrar aqui esconderia do cache as outras. TTL de 1 h — o catálogo de
+    tools não muda por pregão.
+    """
+    rotulo = "tools/list"
+    chave = _chave(rotulo, {})
+
+    em_cache = _cache_get(chave, TTL_ESTATICO_S)
+    if em_cache is not None:
+        obslog.log("mcp", "tools", cache=True)
+        return ResultadoTool(em_cache, True)
+
+    t0 = _relogio()
+
+    async def _executar(sessao):
+        return await sessao.list_tools()
+
+    r = await _chamar(rotulo, _executar)
+    _cache_put(chave, r)
+    obslog.log("mcp", "tools", cache=False, ms=int((_relogio() - t0) * 1000))
     return ResultadoTool(r, False)
 
 

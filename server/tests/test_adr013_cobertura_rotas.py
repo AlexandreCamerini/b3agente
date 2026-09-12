@@ -53,6 +53,26 @@ _PUBLICAS_CONHECIDAS = {
     # portal, também antes de haver sessão — a segurança está no state PKCE
     # de uso único + validação do id_token, não numa dependency de rota.
     ("GET", "/api/auth/semente-id/inicio"), ("GET", "/api/auth/semente-id/callback"),
+    # 2026-09-11 — catch-all de `/api/*` INEXISTENTE (`_api_inexistente` em
+    # main.py). Entra na allowlist por decisão consciente, e a decisão é esta:
+    #
+    # · o que ele responde é 404 com `{code, message, metodo, build}`. Nenhum
+    #   dado de usuário, nenhuma carteira, nenhum estado — e `build` já é
+    #   público em `/api/health`, que também está fora de gate;
+    # · pôr `require_user` aqui seria ATIVAMENTE pior: quem investiga um app
+    #   à frente do servidor normalmente ainda não tem sessão válida, e um 401
+    #   no lugar do 404 esconderia de novo a informação que este handler existe
+    #   para dar ("esta rota não existe NESTE build");
+    # · ele não abre superfície nova: sem ele, o MESMO path caía no
+    #   `StaticFiles` do catch-all do front, que respondia 405 — igualmente
+    #   sem gate, só que mentindo sobre a causa.
+    #
+    # O guardião pegou esta rota na primeira execução, que é exatamente o que
+    # ele existe para fazer. A entrada aqui é a decisão explícita que ele
+    # cobrou, não um contorno.
+    ("GET", "/api/{resto:path}"), ("POST", "/api/{resto:path}"),
+    ("PUT", "/api/{resto:path}"), ("PATCH", "/api/{resto:path}"),
+    ("DELETE", "/api/{resto:path}"), ("OPTIONS", "/api/{resto:path}"),
 }
 
 
@@ -140,4 +160,15 @@ def test_allowlist_publica_nao_cresce_sem_atualizar_este_teste():
     # `/mcp/leitura/{ticker}`, `/mcp/setups/{name}/grafico`) têm
     # `require_user` e passam pelo gate, sem entrar na allowlist. Por isso o
     # número continua 19: nenhuma rota foi promovida a pública nesta correção.
-    assert len(_PUBLICAS_CONHECIDAS) == 19
+    #
+    # 2026-09-11: 19 + 6 = 25. Crescimento deliberado, e é UMA decisão, não
+    # seis: o catch-all de `/api/*` inexistente (`_api_inexistente`) declara
+    # seis métodos e a varredura conta uma entrada por método. Nenhuma ROTA
+    # nova de produto foi promovida a pública — o que entrou responde 404 com
+    # `{code, message, metodo, build}` e substitui o 405 que o `StaticFiles`
+    # do catch-all do front já dava no mesmo path, igualmente sem gate. A
+    # justificativa completa está junto das entradas, em `_PUBLICAS_CONHECIDAS`.
+    #
+    # Este guardião NÃO foi afrouxado: ele cobrou a decisão na primeira
+    # execução do handler e é por isso que a nota acima existe.
+    assert len(_PUBLICAS_CONHECIDAS) == 25

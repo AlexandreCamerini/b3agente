@@ -402,6 +402,17 @@ Use these entry points:
 - `/gsd-execute-phase` for planned phase work
 
 Do not make direct repo edits outside a GSD workflow unless the user explicitly asks to bypass it.
+
+**Não chame os mutadores de estado do `gsd-sdk`** (decisão do Alex, 2026-09-11):
+`state.advance-plan`, `state.record-session`, `state.record-metric` e
+`state.add-decision` corrompem o `.planning/STATE.md` deste repositório —
+sobrescrevem `stopped_at` e `status` com texto de sessões antigas, erram o
+contador de planos, calculam `percent` numa base diferente da barra e colam a
+linha de métrica fora da tabela. Três executores independentes bateram nisso na
+Fase 24, inclusive usando as flags nomeadas. **Edite o `STATE.md` à mão**, com
+Edit, e confira com `git diff .planning/STATE.md` antes do commit de docs. Os
+verbos de LEITURA do SDK (`init.*`, `phase-plan-index`, `config-get`, …)
+seguem confiáveis e continuam em uso.
 <!-- GSD:workflow-end -->
 
 <!-- GSD:profile-start -->

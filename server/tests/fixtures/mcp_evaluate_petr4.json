@@ -1,0 +1,85 @@
+{
+  "ticker": "PETR4",
+  "trading_date": "2026-08-28",
+  "underlying_price": 38.42,
+  "legs": [
+    {
+      "contract": "PETRI380",
+      "kind": "CALL",
+      "side": "buy",
+      "quantity": 1,
+      "strike": 38.0,
+      "premium": 1.2,
+      "delta": 0.62,
+      "expiration": "2026-09-19"
+    },
+    {
+      "contract": "PETRI400",
+      "kind": "CALL",
+      "side": "sell",
+      "quantity": 1,
+      "strike": 40.0,
+      "premium": 0.58,
+      "delta": 0.34,
+      "expiration": "2026-09-19"
+    }
+  ],
+  "net_cost": 0.62,
+  "flow": "debit",
+  "max_gain": 1.38,
+  "max_loss": 0.62,
+  "unlimited_gain": false,
+  "unlimited_loss": false,
+  "breakevens": [
+    38.62
+  ],
+  "net_delta": 0.28,
+  "legs_without_delta": 0,
+  "payoff": [
+    {
+      "underlying": 0.0,
+      "result": -0.62
+    },
+    {
+      "underlying": 38.0,
+      "result": -0.62
+    },
+    {
+      "underlying": 40.0,
+      "result": 1.38
+    }
+  ],
+  "unit": "por unidade do objeto (uma ação)",
+  "sessions_to_nearest_expiry": 15,
+  "scenarios": {
+    "sigma": {
+      "hv21": 0.31,
+      "sessions_to_expiry": 15,
+      "sigma_to_expiry": 0.0734,
+      "formula": "hv21 * sqrt(sessoes/252)"
+    },
+    "scenarios": [
+      {
+        "name": "alvo",
+        "underlying": 41.0,
+        "result": 1.38
+      },
+      {
+        "name": "stop",
+        "underlying": 36.5,
+        "result": -0.62
+      },
+      {
+        "name": "-1 sigma",
+        "underlying": 35.6,
+        "result": -0.62
+      },
+      {
+        "name": "+1 sigma",
+        "underlying": 41.24,
+        "result": 1.38
+      }
+    ]
+  },
+  "note": null
+}

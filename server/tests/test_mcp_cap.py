@@ -412,20 +412,29 @@ def test_leitura_que_reserva_3_e_consome_1_devolve_2(monkeypatch):
 
 # --------------------------------------------------------------- (b) -------
 def test_leitura_que_levanta_devolve_a_reserva_inteira(monkeypatch):
-    """Falha não gasta cota (propriedade de 260910-wfp) E não SEGURA cota: o
-    422 sai com a reserva já devolvida, não com 3 unidades presas."""
+    """Falha não SEGURA cota: o 422 sai com a reserva já devolvida, não com
+    unidades presas até `RESERVA_TTL_S`.
+
+    **2026-09-11 (24-07, achado F-04):** este teste também afirmava "falha não
+    gasta cota" com `usado == 0`, e essa metade deixou de ser verdade por
+    decisão do Alex — recusa de TOOL é viagem que o serviço já cobrou, e
+    passou a debitar 1. O guardião não foi apagado: trocou o `McpErroDeTool`
+    por `McpIndisponivel`, que é uma falha SEM viagem provada e continua
+    provando o "não gasta" original, e a asserção de reserva presa (o que o
+    teste de fato guarda) segue intacta. O novo critério tem guardião próprio
+    em `test_recusa_de_tool_debita_um_porque_a_viagem_aconteceu`."""
     c, main = _client(monkeypatch)
     p = _registra(c)
     uid = p["user"]["id"]
     _espiao_cache_por_tool(
         monkeypatch,
-        dict(_LEITURA_FELIZ, propose_option_setups=mcp_client.McpErroDeTool(
-            "ticker inexistente", available=None, hint=None)),
+        dict(_LEITURA_FELIZ,
+             propose_option_setups=mcp_client.McpIndisponivel("serviço fora do ar")),
         cache={})
 
     r = c.get("/api/options/mcp/leitura/PETR4", headers=_auth(p["token"]))
-    assert r.status_code == 422, r.text
-    assert _usado(main, uid) == 0, "falha gastou cota"
+    assert r.status_code == 503, r.text
+    assert _usado(main, uid) == 0, "falha sem viagem provada gastou cota"
     assert _reservado(main, uid) == 0, (
         "a rota levantou e deixou a reserva presa — a devolução na saída do "
         "`with` existe exatamente para o caminho de exceção")
@@ -648,3 +657,89 @@ def test_guardiao_toda_rota_usa_cap_check_dentro_de_um_with():
         f"rota(s) chamando `_cap_check` fora de um `with`: {sem_with!r} — a "
         f"reserva não consumida voltaria a ficar presa até expirar "
         f"(RESERVA_TTL_S), que é o defeito A-07 (quick 260911-lib).")
+
+
+# ====================================================================== #
+# 24-07 (achado F-04) — a viagem que a tool RECUSOU é cobrada.
+#
+# O serviço conta toda `tools/call` no porteiro, ANTES de executar a tool
+# (`~/dev/MCP/servers/mydata/servico.py`, middleware; o contrato confirma:
+# "Só `tools/call` conta"). Até 2026-09-11 o Boris debitava só no sucesso: a
+# recusa custava o teto compartilhado de 2.000/dia e não custava nada ao cap
+# de 60/dia do usuário. Decisão do Alex em 2026-09-11: **cobrar a viagem**.
+#
+# O critério que estes testes travam é literal: TOCOU A REDE, DEBITOU. Por
+# isso a divisão abaixo não é por exceção, é por FATO — houve viagem ou não.
+# ====================================================================== #
+def test_recusa_de_tool_debita_um_porque_a_viagem_aconteceu(monkeypatch):
+    """A tool recusou o pedido: a chamada chegou ao serviço, passou pelo
+    contador dele e só depois virou `error`. Não debitar aqui é dar a recusa
+    de graça para quem a provocou e cara para a base inteira."""
+    c, main = _client(monkeypatch)
+    p = _registra(c)
+    uid = p["user"]["id"]
+    _espiao_cache_por_tool(
+        monkeypatch,
+        dict(_LEITURA_FELIZ, propose_option_setups=mcp_client.McpErroDeTool(
+            "ticker inexistente", available=None, hint=None)),
+        cache={})
+
+    r = c.get("/api/options/mcp/leitura/PETR4", headers=_auth(p["token"]))
+    assert r.status_code == 422, r.text
+    assert _usado(main, uid) == 1, (
+        "recusa de tool não debitou o cap — a viagem ACONTECEU e o teto "
+        "compartilhado de 2.000/dia já foi cobrado pelo serviço (F-04)")
+    assert _reservado(main, uid) == 0, "o 422 saiu com reserva presa"
+
+
+@pytest.mark.parametrize("erro,http", [
+    # não houve viagem: falta credencial, o cliente nem abre sessão
+    (mcp_client.McpNaoConfigurado("sem MCP_CLIENT_SECRET"), 503),
+    # o porteiro recusa ANTES do contador de tools do serviço
+    (mcp_client.McpNaoAutorizado("o serviço recusou a credencial"), 503),
+    # timeout/5xx: não há PROVA de que o serviço contou, e cobrar por
+    # indisponibilidade puniria o usuário pela queda do fornecedor
+    (mcp_client.McpIndisponivel("timeout ao falar com o serviço"), 503),
+    # o próprio contrato do serviço diz que a chamada recusada por teto não
+    # conta — cobrar aqui seria inventar um débito que ninguém fez
+    (mcp_client.McpTetoAtingido("teto diário atingido",
+                                {"escopo": "global", "reinicia": "00:00"}), 402),
+])
+def test_as_quatro_falhas_sem_viagem_provada_nao_debitam(monkeypatch, erro, http):
+    """O espelho do teste acima, e a metade que impede a "uniformização":
+    cobrar o que não se sabe se foi cobrado é o MESMO erro do F-04, invertido.
+    Cada motivo está comentado no `_chamada_com_cap` e repetido aqui."""
+    c, main = _client(monkeypatch)
+    p = _registra(c)
+    uid = p["user"]["id"]
+    _espiao_cache_por_tool(
+        monkeypatch, dict(_LEITURA_FELIZ, propose_option_setups=erro), cache={})
+
+    r = c.get("/api/options/mcp/leitura/PETR4", headers=_auth(p["token"]))
+    assert r.status_code == http, r.text
+    assert _usado(main, uid) == 0, (
+        f"{type(erro).__name__} debitou o cap — ou a viagem não aconteceu, ou "
+        f"o próprio serviço declara que não cobrou por ela")
+    assert _reservado(main, uid) == 0, "a falha saiu com reserva presa"
+
+
+def test_status_com_erro_de_tool_segue_200_e_debita_um(monkeypatch):
+    """`/status` chama `call_tool` DIRETO (não passa por `_chamada_com_cap`) e
+    trata a recusa como ESTADO, respondendo 200 com `frescor.bloqueia` — isso
+    não muda. O que muda é o débito: a viagem aconteceu igual, e uma rota
+    respondendo 200 é justamente a que ninguém desconfiaria de ter custado."""
+    c, main = _client(monkeypatch)
+    p = _registra(c)
+    uid = p["user"]["id"]
+    _espiao(monkeypatch, erro=mcp_client.McpErroDeTool(
+        "hub MyData inacessível", available=None, hint=None))
+
+    r = c.get("/api/options/mcp/status", headers=_auth(p["token"]))
+    assert r.status_code == 200, r.text
+    assert r.json()["frescor"]["bloqueia"] is True
+    assert _usado(main, uid) == 1, (
+        "erro de tool no /status não debitou — a rota responde 200 e a viagem "
+        "aconteceu (F-04)")
+    assert r.json()["cap"]["usado"] == 1, (
+        "o bloco `cap` da própria resposta contradiz o que foi cobrado")
+    assert _reservado(main, uid) == 0
