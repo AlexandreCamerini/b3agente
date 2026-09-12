@@ -2359,13 +2359,44 @@ async def _frescor_bloqueante(cap: _Reserva) -> dict:
     return frescor
 
 
-# Marca do texto que SÓ `plan.can_analyze` produz ("...N analises/mes do plano
-# X"). O gate de análise é ponto único e devolve TEXTO, não código; separar os
-# dois 402 por esta marca é o preço de não duplicar a regra do plano aqui. O
-# guardião `test_marca_do_gate_mensal_ainda_existe_em_plan` trava a marca —
-# se `plan.py` mudar a frase, o teste falha ALTO em vez de esta rota passar a
-# chamar de "ia_gerenciada" um limite mensal de plano.
-_MARCA_DO_GATE_MENSAL = "analises/mes"
+# --------------------------------------------------------------------------
+# 25-04 (Fase 3 do 25-CONTEXT) — O CÓDIGO DA RECUSA.
+#
+# Até aqui esta tradução descobria QUAL teto barrou procurando a substring
+# `"analises/mes"` no TEXTO da mensagem (`_MARCA_DO_GATE_MENSAL`, 24-07). Era
+# acoplamento frágil e silencioso: bastava `plan.py` reescrever a frase — ou
+# traduzi-la, ou trocar "analises" por "análises" — para esta aba passar a
+# chamar de `ia_gerenciada` um limite MENSAL de plano, sem teste nenhum
+# reclamar na hora do erro. O guardião que travava a marca virou o guardião do
+# código (`test_opcoes_dsl.py`, nota datada lá).
+#
+# Agora o gate CARIMBA a exceção no ponto em que a decisão acontece, e aqui só
+# se lê o carimbo. É o mesmo padrão de `ATR_DEBITADO` logo abaixo, pelo mesmo
+# motivo: quem sabe a resposta é quem decidiu, não quem traduz.
+#
+# As três constantes moram NESTE módulo, e não em `plan.py`, por duas razões:
+# `main.py` já importa este módulo (o contrário seria circular), e os dois
+# códigos são CONTRATO publicado desta aba — o front lê `detail.code`. O texto
+# que chega ao usuário não muda em nada.
+# --------------------------------------------------------------------------
+ATR_CODIGO_DO_LIMITE = "codigo_do_limite"
+COD_PLANO_ANALISES = "plano_analises"
+COD_IA_GERENCIADA = "ia_gerenciada"
+
+
+def marcar_o_limite(exc: HTTPException, codigo: str) -> HTTPException:
+    """Carimba QUAL teto produziu esta recusa. Devolve a própria exceção para
+    o chamador poder escrever `raise marcar_o_limite(HTTPException(...), ...)`
+    numa linha — o carimbo esquecido é o defeito que isto existe para evitar."""
+    setattr(exc, ATR_CODIGO_DO_LIMITE, codigo)
+    return exc
+
+
+def codigo_do_limite(exc: Exception) -> Optional[str]:
+    """O carimbo, ou `None` quando a recusa veio de um caminho que ninguém
+    carimbou (código futuro, biblioteca, teste antigo)."""
+    codigo = getattr(exc, ATR_CODIGO_DO_LIMITE, None)
+    return codigo if isinstance(codigo, str) else None
 
 
 def _gate_de_analise(uid: str) -> tuple:
@@ -2378,6 +2409,9 @@ def _gate_de_analise(uid: str) -> tuple:
     `mcp_cota` (o `_cap_check`) é o teto de chamadas da aba. Mandar o copy de
     BYOK do `metering` aqui mandaria a pessoa configurar uma chave que não
     resolve nenhum dos três.
+
+    25-04: qual dos dois barrou vem do CARIMBO posto pelo gate, não mais da
+    frase da mensagem — ver o bloco de `ATR_CODIGO_DO_LIMITE` acima.
     """
     if _gate_analise is None or _config_do_usuario is None:
         raise HTTPException(503, _NAO_CONFIGURADO)
@@ -2388,9 +2422,12 @@ def _gate_de_analise(uid: str) -> tuple:
     except HTTPException as e:
         if e.status_code != 402:
             raise
-        mensal = _MARCA_DO_GATE_MENSAL in str(e.detail)
+        # Sem carimbo, cai em `ia_gerenciada` — o MESMO lado em que a raspagem
+        # antiga caía quando a marca não estava na frase. Um 402 de origem
+        # desconhecida vira uma recusa legível, nunca um 500.
+        mensal = codigo_do_limite(e) == COD_PLANO_ANALISES
         raise HTTPException(402, {
-            "code": "plano_analises" if mensal else "ia_gerenciada",
+            "code": COD_PLANO_ANALISES if mensal else COD_IA_GERENCIADA,
             "message": AVISO_PLANO_ANALISES if mensal else AVISO_IA_GERENCIADA,
         }) from None
 

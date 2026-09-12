@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import importlib
 import os
+import pathlib
 import re
 import sys
 import tempfile
@@ -45,6 +46,8 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from app import llm, mcp_client, metering, obslog, options_mcp_api, rbac
+
+from .fonte_python import sem_comentarios
 
 
 @pytest.fixture(autouse=True)
@@ -813,7 +816,14 @@ _COPY_DE_BYOK = ("byok", "chave", "modelo de ia", "configurações →", "config
 def test_gate_de_analise_nega_com_texto_proprio_da_aba(monkeypatch, motivo, esperado):
     """São DOIS tetos distintos e eles não significam a mesma coisa. O copy do
     `metering` mandaria a pessoa configurar uma chave que não resolve nem o
-    limite mensal do plano, nem o teto de chamadas da aba (§3.2 do PLANO)."""
+    limite mensal do plano, nem o teto de chamadas da aba (§3.2 do PLANO).
+
+    ATUALIZADO (25-04, 2026-09-12): a recusa simulada passa a vir CARIMBADA
+    (`marcar_o_limite`), como o gate real a produz desde esta data. O que
+    mudou é de onde a classificação vem — do código, não da substring
+    `"analises/mes"` da mensagem. As frases seguem aqui de propósito: elas são
+    o texto real de cada teto, e o teste continua provando que o copy de BYOK
+    não vaza para a aba."""
     c, _ = _client(monkeypatch)
     p = _registra(c)
     chamadas = _espiao(monkeypatch)
@@ -821,7 +831,7 @@ def test_gate_de_analise_nega_com_texto_proprio_da_aba(monkeypatch, motivo, espe
     _ia_proibida(monkeypatch)
 
     def _nega(scope, config):
-        raise HTTPException(402, motivo)
+        raise options_mcp_api.marcar_o_limite(HTTPException(402, motivo), esperado)
 
     monkeypatch.setattr(options_mcp_api, "_gate_analise", _nega)
 
@@ -835,17 +845,38 @@ def test_gate_de_analise_nega_com_texto_proprio_da_aba(monkeypatch, motivo, espe
     assert options_mcp_api.TOOL_CREATE_SETUP not in _nomes(chamadas)
 
 
-def test_marca_do_gate_mensal_ainda_existe_em_plan():
-    """O gate de análise é ponto ÚNICO e devolve TEXTO, não código: separar
-    `plano_analises` de `ia_gerenciada` custa esta marca. Se `plan.py` mudar a
-    frase, este teste falha ALTO — em vez de a rota passar a chamar de
-    "ia_gerenciada" um limite mensal de plano."""
+def test_a_classificacao_do_402_nao_depende_mais_da_frase():
+    """REVERSÃO DELIBERADA de `test_marca_do_gate_mensal_ainda_existe_em_plan`
+    (25-04, 2026-09-12) — guardrail do CLAUDE.md: guardião não se apaga,
+    atualiza-se com nota.
+
+    O guardião anterior travava a substring `"analises/mes"` na frase de
+    `plan.can_analyze`, porque era ELA que decidia se o 402 desta aba virava
+    `plano_analises` ou `ia_gerenciada`. Ele protegia o acoplamento em vez de
+    removê-lo, e cobria só metade do risco: mudar a frase quebrava a
+    classificação, e traduzir/acentuar ("análises/mês") quebraria igual.
+
+    Desde o 25-04 o gate CARIMBA o código no ponto da decisão
+    (`main._gate_analise` / `main._ai_apply_managed`) e esta aba só lê o
+    carimbo. O que se trava agora é o contrário do que se travava antes: que a
+    frase não decide mais nada, e que a raspagem não voltou. A frase em si
+    continua verificada onde ela é contrato — na tela do usuário
+    (`test_catalogo_planos.py`, `test_gates_por_plano.py`)."""
     from app import plan
 
     ok, motivo = plan.can_analyze(
         999, plan={"id": "free", "max_analyses_per_month": 30})
     assert ok is False
-    assert options_mcp_api._MARCA_DO_GATE_MENSAL in motivo
+    assert "analises/mes" in motivo, "a frase do usuário mudou sem aviso"
+
+    assert not hasattr(options_mcp_api, "_MARCA_DO_GATE_MENSAL"), \
+        "a raspagem de string voltou a existir"
+    fonte = sem_comentarios(
+        pathlib.Path(options_mcp_api.__file__).read_text(encoding="utf-8"))
+    assert "analises/mes" not in fonte, \
+        "a aba Opções voltou a citar a frase do gate mensal no código"
+    assert options_mcp_api.COD_PLANO_ANALISES == "plano_analises"
+    assert options_mcp_api.COD_IA_GERENCIADA == "ia_gerenciada"
 
 
 def test_tools_list_e_resource_nao_consomem_cap(monkeypatch):

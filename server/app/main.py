@@ -222,6 +222,30 @@ def _limite_do_plano(scope: Optional[str], chave: str, global_fn=None,
     return info["valor"] if info is not None else None
 
 
+def _escopo_e_owner(scope: Optional[str]) -> bool:
+    """A conta deste escopo é o dono do produto (`rbac.OWNER`, 25-02)?
+
+    25-04, decisão **D3** do Alex (2026-09-12): o owner não é barrado pelo cap
+    COMERCIAL — e **nunca** pelo físico (ver `_gate_analise`).
+
+    Consulta o banco a cada chamada, de propósito: o ADR-013 escolheu
+    revogação imediata acima de latência e `rbac` não tem cache. Não se
+    introduz um aqui — um papel cacheado é um papel que continua valendo
+    depois de revogado. O custo fica contido porque o chamador só pergunta
+    QUANDO o gate já decidiu negar (ver o call site).
+
+    Fail-closed: qualquer falha de leitura devolve `False`, ou seja, a conta
+    CONTINUA barrada. Errar para o lado de barrar o dono é um aborrecimento;
+    errar para o outro é liberar o cap comercial da base inteira num banco
+    intermitente."""
+    if not scope:
+        return False
+    try:
+        return rbac.OWNER in rbac.roles_for_user(_conn, scope)
+    except Exception:  # noqa: BLE001 — ver docstring: sem leitura, segue barrado
+        return False
+
+
 def _plano_efetivo(scope: Optional[str], plano: Optional[dict] = None) -> dict:
     """O dict de plano que os gates da Fase 12 leem, com os dois limites do
     CATÁLOGO aplicados. Os dois não têm override global (a env deles já é por
@@ -621,7 +645,11 @@ def _ai_apply_managed(scope, config, custo: int = 1, plano: Optional[dict] = Non
                                     rate_per_min=managed.rate_per_min(), custo=custo,
                                     cap_global=managed.global_daily_cap())
         if not ok:
-            raise HTTPException(402, reason)
+            # 25-04: o carimbo diz QUAL teto barrou. Quem traduz este 402 para
+            # o vocabulário da aba Opções lia a resposta na FRASE da mensagem
+            # até aqui — e a frase é justamente o que muda sem aviso.
+            raise options_mcp_api.marcar_o_limite(HTTPException(402, reason),
+                                                  options_mcp_api.COD_IA_GERENCIADA)
         # FASE 8B (B4): a config gerenciada é só a CHAVE/modelo — o modo de
         # trabalho do usuário viaja junto (senão a mesa falava como professor).
         # qa/42 (FinOps): `candlePeriod` TAMBÉM viaja. A config gerenciada
@@ -694,8 +722,22 @@ def _gate_analise(scope, config, custo: int = 1):
     # recusa são exatamente as mesmas — muda a FONTE do número, não a regra.
     allowed, reason = plan.can_analyze(metering.month_used(_conn, scope),
                                        plan=_plano_efetivo(scope, plano=plano))
-    if not allowed:
-        raise HTTPException(402, reason)
+    # D3 (decisão do Alex, 2026-09-12): o `owner` não é barrado pelo cap
+    # COMERCIAL — mesma posição lógica do BYOK logo acima, que também pula o
+    # gate mensal. E é SÓ o comercial: `_ai_apply_managed` continua rodando
+    # normalmente para ele, com a cota diária, o rate e o teto global da chave
+    # do servidor intactos. Aqueles tetos existem porque o serviço externo
+    # corta para a base INTEIRA; ignorá-los não criaria capacidade nenhuma —
+    # transferiria a recusa para outro usuário, com uma mensagem que não
+    # explica isso.
+    #
+    # A pergunta só é feita DEPOIS de o gate ter decidido negar: o resultado
+    # é o mesmo de perguntar antes, e o caminho feliz (a esmagadora maioria
+    # das requisições) não paga a consulta de papel. Ver `_escopo_e_owner`
+    # sobre por que não há cache.
+    if not allowed and not _escopo_e_owner(scope):
+        raise options_mcp_api.marcar_o_limite(HTTPException(402, reason),
+                                              options_mcp_api.COD_PLANO_ANALISES)
     config, consume = _ai_apply_managed(scope, config, custo=custo, plano=plano)
     return config, consume
 
