@@ -39,13 +39,49 @@ GRUPOS = {
 # uma vez — equivalente ao "admin total" que _is_obs_admin já concedia.
 ROLE_ADMIN = "role_admin"
 
+# 25-02 (Fase 1 do 25-CONTEXT, decisão D1 do Alex, 2026-09-12) — a âncora do
+# DONO DO PRODUTO. A diferença para `ROLE_ADMIN` não é de permissão (os dois
+# têm exatamente as mesmas, pela união abaixo), é de PERMANÊNCIA:
+#   • `role_admin` é bootstrap de governança — concedido e revogado pela rota
+#     de papéis como qualquer outro, e quem o tem pode perdê-lo;
+#   • `owner` não sai: `revoke_role` recusa (1ª camada) e `ensure_bootstrap_
+#     role` reconcede se ele escapar por outro caminho (2ª camada). Defesa em
+#     profundidade, porque cada camada cobre o que a outra não cobre — só
+#     recusar não alcança escrita direta no SQLite; só reconceder deixa a
+#     janela entre a revogação e o próximo request.
+# Quem é o dono vem de `B3_OWNER_EMAIL` (`_is_owner`), não da ordem de criação
+# das contas.
+OWNER = "owner"
+
+# Papéis TOTAIS: as permissões deles são a união DINÂMICA de `GRUPOS`, nunca
+# uma lista literal. É o que faz "o dono nunca perde função" continuar
+# verdadeiro no dia em que existir um grupo novo — acrescentar uma entrada em
+# `GRUPOS` basta, aqui não se mexe.
+_PAPEIS_TOTAIS = (ROLE_ADMIN, OWNER)
+
+# Âncora do `owner`, configurável por env. O e-mail não é segredo (não dá
+# acesso a nada sozinho — a conta ainda precisa autenticar), mas a âncora é
+# configurável para o dia em que o dono do produto mudar de endereço.
+OWNER_EMAIL_DEFAULT = "alexandre.camerini@gmail.com"
+
+
+class PapelIrrevogavel(ValueError):
+    """Tentativa de revogar um papel que, por decisão, não sai (hoje só
+    `OWNER`). Primeira regra do repositório que declara isso — até 25-02
+    `revoke_role` era um `DELETE` cru e NENHUM papel era de fato irrevogável:
+    o que salvava o `role_admin` era a reconcessão automática do bootstrap no
+    request seguinte, efeito colateral e não regra. Herda de `ValueError` para
+    quem já trata erro de domínio desta função genericamente continuar
+    funcionando; quem precisa distinguir (a rota, que responde 403 em vez de
+    400) captura a classe específica."""
+
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
 def permissoes_do_papel(role: str) -> set:
-    if role == ROLE_ADMIN:
+    if role in _PAPEIS_TOTAIS:
         out = set()
         for perms in GRUPOS.values():
             out |= perms
@@ -67,13 +103,21 @@ def user_has_permission(conn, user_id: str, perm: str) -> bool:
 
 def grant_role(conn, user_id: str, role: str, granted_by=None) -> None:
     from . import db
-    if role != ROLE_ADMIN and role not in GRUPOS:
+    if role not in _PAPEIS_TOTAIS and role not in GRUPOS:
         raise ValueError(f"Papel desconhecido: {role!r}")
     db.grant_role(conn, user_id, role, _now_iso(), granted_by=granted_by)
 
 
 def revoke_role(conn, user_id: str, role: str) -> None:
+    """25-02 (D1, 2026-09-12): `OWNER` não é revogável — a função recusa antes
+    de tocar no banco. A regra mora AQUI, e não só na rota, porque a rota é uma
+    porta conhecida entre várias possíveis (script de manutenção, rota futura,
+    tarefa de migração): quem chamar por outro caminho bate na mesma recusa."""
     from . import db
+    if role == OWNER:
+        raise PapelIrrevogavel(
+            "O papel 'owner' é a âncora do dono do produto e não pode ser revogado."
+        )
     db.revoke_role(conn, user_id, role)
 
 
@@ -146,14 +190,50 @@ def _is_admin_bootstrap(conn, user: dict) -> bool:
     return bool(row) and row[0] == user.get("id")
 
 
+def _is_owner(conn, user: dict) -> bool:
+    """25-02 (D1, 2026-09-12) — a âncora do dono do produto: `B3_OWNER_EMAIL`,
+    default `OWNER_EMAIL_DEFAULT`. Comparação com `strip` e caixa baixa, como
+    `_is_admin_bootstrap` já faz.
+
+    DELIBERADAMENTE **sem** o fallback de "primeira conta" que
+    `_is_admin_bootstrap` tem — é o achado A-12 da auditoria: eleger o papel
+    máximo por `ORDER BY created_at ASC LIMIT 1` faz o dono do produto depender
+    de quem se cadastrou primeiro num banco novo. Se o e-mail não bater em
+    nenhuma conta, NÃO há owner, e isso é melhor que eleger um por acidente.
+    (O `_is_admin_bootstrap` continua com o fallback porque é contrato testado
+    do ADR-013; fechar o A-12 para o `role_admin` é decisão separada.)
+
+    A env definida VAZIA significa "sem owner", e não "use o default" — é como
+    se desliga a âncora sem editar código. `conn` entra na assinatura por
+    simetria com `_is_admin_bootstrap`, e para o dia em que a âncora vier do
+    kv; hoje não é lido.
+    """
+    bruto = os.environ.get("B3_OWNER_EMAIL")
+    alvo = (bruto if bruto is not None else OWNER_EMAIL_DEFAULT).strip().lower()
+    if not alvo:
+        return False
+    email = (user.get("email") or "").strip().lower()
+    return bool(email) and email == alvo
+
+
 def ensure_bootstrap_role(conn, user: dict) -> None:
     """Chamado a cada login (mesmo ponto que hoje resolve `_is_obs_admin` por
     request) — se o usuário bate no bootstrap E ainda não tem `role_admin`,
     concede. Idempotente: não faz nada se já tiver o papel. Nunca REVOGA —
-    isso ficaria pra uma tela de gestão de usuários futura, não é este ADR."""
+    isso ficaria pra uma tela de gestão de usuários futura, não é este ADR.
+
+    25-02 (D1, 2026-09-12): reconcilia TAMBÉM o `OWNER`, e é a SEGUNDA camada
+    da defesa em profundidade — se o papel sumir por um caminho que não passa
+    por `revoke_role` (escrita direta no SQLite, restauração de backup antigo,
+    migração), o próximo request administrativo o devolve. As duas propriedades
+    de origem ficam de pé para os dois papéis: nunca revoga, e é idempotente."""
     from . import db
-    if not _is_admin_bootstrap(conn, user):
+    eh_owner = _is_owner(conn, user)
+    eh_admin = _is_admin_bootstrap(conn, user)
+    if not eh_owner and not eh_admin:
         return
-    if ROLE_ADMIN in db.roles_for_user(conn, user["id"]):
-        return
-    db.grant_role(conn, user["id"], ROLE_ADMIN, _now_iso(), granted_by=None)
+    atuais = db.roles_for_user(conn, user["id"])
+    if eh_owner and OWNER not in atuais:
+        db.grant_role(conn, user["id"], OWNER, _now_iso(), granted_by=None)
+    if eh_admin and ROLE_ADMIN not in atuais:
+        db.grant_role(conn, user["id"], ROLE_ADMIN, _now_iso(), granted_by=None)
