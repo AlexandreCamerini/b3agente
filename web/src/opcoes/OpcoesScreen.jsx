@@ -38,6 +38,13 @@ const pct = (v, casas = 2) => (ehNum(v) ? fmt(v, casas) + "%" : "—");
 // do próprio serviço a exibe. Sem valor, travessão.
 const fracPct = (v) => (ehNum(v) ? fmt(v * 100, 1) + "%" : "—");
 const txt = (v) => (typeof v === "string" && v ? v : "—");
+// `range_63_sessions` chega SEMPRE como dicionário — com os dois extremos
+// nulos quando a janela de 63 pregões não fechou. Exibi-lo sem esta checagem
+// produzia "— – —", que é travessão travestido de faixa: parece um intervalo
+// que o app não soube formatar, quando é ausência do dado (24-11). Ausência é
+// UM travessão, e o porquê dela aparece no rodapé do bloco.
+const faixa = (v) => ((v && (ehNum(v.lowest) || ehNum(v.highest)))
+  ? fmt(v.lowest) + " – " + fmt(v.highest) : "—");
 
 function Linha({ rotulo, valor }) {
   return (
@@ -73,6 +80,50 @@ function RazaoGanhoPerda({ razao, cp }) {
         </div>
       )}
       <div style={AJUDA}>{cp.opcoesRazaoAjuda || ""}</div>
+    </div>
+  );
+}
+
+// aba-opcoes 24-11 (achado ao vivo 2026-09-11): a LEITURA DO ATIVO de PETR4
+// mostrava travessão em cinco campos sem dizer por quê — a pessoa não sabe se
+// o app quebrou, se o ativo é estranho ou se falta dado (princípio 9).
+//
+// UM mapa só de rótulo↔campo, aqui, para que a explicação e a tabela falem o
+// MESMO vocabulário: dois mapas divergiriam no primeiro rótulo renomeado, e a
+// frase passaria a nomear um campo que a tabela não mostra com esse nome.
+const ROTULO_LEITURA = {
+  trend: "Tendência",
+  rsi14: "RSI 14",
+  hv21: "HV 21",
+  hv63: "HV 63",
+  sma63: "Média de 63",
+  distance_from_sma21_pct: "Distância da média 21",
+  distance_from_sma63_pct: "Distância da média 63",
+  range_63_sessions: "Faixa de 63 pregões",
+  change_21_sessions_pct: "Variação em 21 pregões",
+};
+
+// Os motivos vão AGRUPADOS no rodapé do bloco, ao lado do carimbo do pregão —
+// um por motivo, com os campos afetados nomeados. Repetir a explicação nas
+// cinco linhas da tabela empurraria para fora da tela os números que VIERAM,
+// que é o oposto do que o achado pede.
+//
+// O motivo é do backend e vai VERBATIM: aqui só se juntam os rótulos, e a
+// gramática (a vírgula, o "e", o singular/plural) mora no `copy.js`, com voz
+// por modo. Sem `lacunas`, nada é renderizado — estado normal é silêncio.
+function LacunasDaLeitura({ lacunas, cp }) {
+  const itens = (Array.isArray(lacunas) ? lacunas : []).filter(
+    (x) => x && x.motivo && Array.isArray(x.campos) && x.campos.length);
+  if (!itens.length) return null;
+  return (
+    <div style={{ fontSize: "11.5px", color: T.textMuted, marginTop: "4px", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+      {itens.map((x, i) => (
+        <div key={i} style={{ marginTop: i ? "3px" : 0 }}>
+          {cp.opcoesLacuna
+            ? cp.opcoesLacuna(x.campos.map((c) => ROTULO_LEITURA[c] || c), x.motivo)
+            : x.motivo}
+        </div>
+      ))}
     </div>
   );
 }
@@ -374,17 +425,16 @@ export default function OpcoesScreen({ ctx }) {
                 <Linha rotulo="HV 63" valor={fracPct(behavior.hv63)} />
                 <Linha rotulo="Distância da média 21" valor={pct(behavior.distance_from_sma21_pct, 1)} />
                 <Linha rotulo="Distância da média 63" valor={pct(behavior.distance_from_sma63_pct, 1)} />
-                <Linha
-                  rotulo="Faixa de 63 pregões"
-                  valor={behavior.range_63_sessions
-                    ? fmt(behavior.range_63_sessions.lowest) + " – " + fmt(behavior.range_63_sessions.highest)
-                    : "—"}
-                />
+                <Linha rotulo="Faixa de 63 pregões" valor={faixa(behavior.range_63_sessions)} />
                 <Linha rotulo="Variação em 21 pregões" valor={pct(behavior.change_21_sessions_pct, 1)} />
               </div>
               <div style={{ fontSize: "11.5px", color: T.textMuted, marginTop: "6px" }}>
                 {"Leitura referente ao pregão de " + (behavior.trading_date || pregao || "—") + "."}
               </div>
+              {/* 24-11 — o rodapé continua, e agora diz POR QUE os campos
+                  vazios estão vazios. A tabela acima segue com travessão:
+                  o objetivo é explicar a ausência, não preenchê-la. */}
+              <LacunasDaLeitura lacunas={l && l.lacunas} cp={cp} />
             </>
           ) : semCandles ? (
             <div style={{ marginTop: "14px" }}>

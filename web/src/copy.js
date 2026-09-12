@@ -66,6 +66,20 @@ export const COPY = {
       motivo
         ? "O serviço não avaliou os setups hoje. Motivo, na palavra dele: " + motivo
         : "O serviço não avaliou os setups hoje e não informou o motivo. Sem avaliação, nenhum setup pode ser dado como armado — ausência de leitura não é leitura negativa.",
+    // 24-11 (achado ao vivo 2026-09-11): campo vazio da leitura passou a dizer
+    // POR QUE está vazio. O MOTIVO vem pronto do backend e é exibido verbatim —
+    // aqui só se junta a lista de rótulos e a gramática que a une. Voz de
+    // professor: nomeia a ausência e fecha lembrando que ninguém estimou nada
+    // no lugar, que é a metade da informação que o travessão mudo escondia.
+    opcoesLacuna: (campos, motivo) => {
+      const lista = (Array.isArray(campos) ? campos : []).filter(Boolean);
+      const nomes = lista.length > 1
+        ? lista.slice(0, -1).join(", ") + " e " + lista[lista.length - 1]
+        : (lista[0] || "Este campo");
+      return nomes + (lista.length > 1 ? " não vieram: " : " não veio: ") +
+        (motivo || "o serviço não informou o motivo") +
+        ". Nada foi estimado no lugar.";
+    },
     opcoesNaoConfigurado: "O serviço de opções não está configurado neste servidor. Nada foi consultado — a tela não inventa leitura quando a fonte não responde.",
     opcoesCota: (reinicia) =>
       "Sua cota de consultas da aba Opções acabou por hoje." +
@@ -435,6 +449,18 @@ export const COPY = {
       motivo
         ? "Setups não avaliados hoje. Motivo do serviço: " + motivo
         : "Setups não avaliados hoje, sem motivo informado. Sem avaliação, nenhum setup entra como armado.",
+    // 24-11 — MESMA substância do outro ramo, em voz de mesa: o campo não tem
+    // número, este é o motivo, e nada foi estimado no lugar. O motivo segue
+    // verbatim do backend; só a moldura muda.
+    opcoesLacuna: (campos, motivo) => {
+      const lista = (Array.isArray(campos) ? campos : []).filter(Boolean);
+      const nomes = lista.length > 1
+        ? lista.slice(0, -1).join(", ") + " e " + lista[lista.length - 1]
+        : (lista[0] || "Este campo");
+      return nomes + " sem número: " +
+        (motivo || "o serviço não informou o motivo") +
+        ". Nada estimado no lugar.";
+    },
     opcoesNaoConfigurado: "Serviço de opções não configurado neste servidor. Nada foi consultado.",
     opcoesCota: (reinicia) =>
       "Cota de consultas da aba Opções esgotada no dia." +
