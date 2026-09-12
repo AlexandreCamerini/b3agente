@@ -618,9 +618,12 @@ def update_identity_email(conn: sqlite3.Connection, identity_id: str, email: str
 
 
 def set_user_plan(conn: sqlite3.Connection, user_id: str, plan: str) -> None:
-    """ADR-013: eixo de monetização, por conta. Sem tela de override manual
-    nesta rodada (decisão do Alex) — função existe para a migração/uso
-    programático (ex.: validação de recibo, quando o ADR-010 ligar isso)."""
+    """ADR-013: eixo de monetização, por conta. A nota aqui dizia "sem tela de
+    override manual nesta rodada (decisão do Alex)" — **isso mudou em
+    2026-09-12**: `POST /api/admin/users/{id}/plan` (portal admin, permissão
+    `usuarios.gerenciar`, auditado) passou a ser o chamador humano desta
+    função. Os outros usos previstos continuam de pé (migração, validação de
+    recibo quando o ADR-010 ligar a loja)."""
     conn.execute("UPDATE users SET plan = ? WHERE id = ?", (plan, user_id))
     conn.commit()
 

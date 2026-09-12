@@ -515,9 +515,19 @@ def _ai_apply_managed(scope, config, custo: int = 1):
         # (None) caía no default "1y" = 252 candles, mesmo com "1mo" escolhido:
         # ~7x mais tokens de input, JUSTO no caminho que gasta a chave do
         # servidor. Quem paga era quem mandava o prompt mais caro.
+        # 25-01: `month_section` EXPLÍCITA mesmo sendo o default do módulo.
+        # Aqui o ledger do gate comercial é o balde certo — esta é a análise
+        # de IA que `plan.can_analyze` cobra —, mas o default implícito foi
+        # exatamente por onde o defeito entrou na rota de analytics. Escrever
+        # o balde obriga quem adicionar um `consume` novo a escolher um, e é
+        # o que o guardião de `test_mcp_guardioes.py` passa a exigir de todo
+        # `metering.consume` do repositório. A constante vem de `metering`,
+        # nunca um literal repetido: duas cópias do nome divergem na primeira
+        # manutenção, e uma delas decidiria dinheiro.
         return ({**mcfg, "appMode": (config or {}).get("appMode"),
                  "candlePeriod": (config or {}).get("candlePeriod")},
-                (lambda: metering.consume(_conn, scope)))
+                (lambda: metering.consume(_conn, scope,
+                                          month_section=metering.MONTH_SECTION)))
     return config, (lambda: None)                    # sem BYOK e sem gerenciada: llm dará erro acionável
 
 
@@ -836,6 +846,25 @@ async def obs_opcoes_cota_aplicar(body: dict = Body(default={}),
 # própria (não mistura com a cota de IA gerenciada). 429 (não 402: não é
 # "cota paga", é proteção contra flood) — a mensagem de metering.check é
 # específica de IA, por isso não é repassada ao chamador aqui.
+#
+# 25-01: as três seções viram CONSTANTES em vez de literais repetidos em duas
+# chamadas. Os dois nomes antigos NÃO podem mudar de valor — já há contador
+# gravado no kv sob eles, e renomear perderia o histórico de quem usa o app.
+ANALYTICS_SECTION = "analyticsEvents"              # diário, por conta (rate limit)
+ANALYTICS_GLOBAL_SECTION = "analyticsEventsGlobal"  # diário, global (qa/42)
+# 25-01 — o achado: até aqui a rota chamava `metering.consume` SEM
+# `month_section`, e o default do módulo é `MONTH_SECTION = "aiUsageMonth"`,
+# que é EXATAMENTE o ledger que `plan.can_analyze` lê pelo `month_used` (o cap
+# comercial de 30 análises/mês do PLAN_FREE, ADR-010). Como o `custo` aqui é
+# `result["accepted"]` — o tamanho do LOTE, e o cliente envia em lotes de até
+# 50 (`web/src/analytics.js`) — cada sessão de uso do app descontava dezenas
+# de "análises" de quem não tinha pedido nenhuma. Medido no banco local antes
+# da correção: as três contas com ledger no mês tinham `count` exatamente
+# igual ao número de eventos de telemetria ingeridos. Telemetria tem ledger
+# mensal PRÓPRIO — contar continua, misturar não.
+ANALYTICS_MONTH_SECTION = "analyticsEventsMonth"
+
+
 def _analytics_quota_dia() -> int:
     return int(os.environ.get("B3_ANALYTICS_QUOTA_DIA") or 5000)
 
@@ -850,7 +879,7 @@ async def analytics_events(body: dict = Body(default={}), user: dict = Depends(r
     ok, _reason = metering.check(
         _conn, user["id"], quota=_analytics_quota_dia(), rate_per_min=_analytics_rate_min(),
         custo=len(events) if isinstance(events, list) else 1,
-        section="analyticsEvents", global_section="analyticsEventsGlobal",
+        section=ANALYTICS_SECTION, global_section=ANALYTICS_GLOBAL_SECTION,
     )
     if not ok:
         raise HTTPException(429, "Limite de envio de eventos de analytics excedido. Tente novamente mais tarde.")
@@ -860,7 +889,8 @@ async def analytics_events(body: dict = Body(default={}), user: dict = Depends(r
         obslog.log("analytics", f"ingest rejeitado (uid={user['id'][:8]}…): {e}", level="warn")
         raise HTTPException(400, str(e))
     metering.consume(_conn, user["id"], custo=result["accepted"],
-                     section="analyticsEvents", global_section="analyticsEventsGlobal")
+                     section=ANALYTICS_SECTION, global_section=ANALYTICS_GLOBAL_SECTION,
+                     month_section=ANALYTICS_MONTH_SECTION)
     return result
 
 
@@ -1099,18 +1129,44 @@ async def admin_prompts_put(chave: str, body: dict = Body(default={}), user: dic
     return {"ok": True, "chave": chave}
 
 
+def _planos_disponiveis() -> list:
+    """Ids de plano na ordem comercial, direto de `plan.py` — fonte ÚNICA.
+
+    Uma lista literal aqui (ou na UI) seria a segunda cópia, e ela não
+    acompanharia o dia em que existir um terceiro plano. O `+ [...]` no fim
+    cobre o caso de alguém acrescentar um plano a `PLANOS_POR_ID` e esquecer
+    `_ORDEM_PLANO`: some da ordenação, não do painel."""
+    ordenados = [p for p in plan._ORDEM_PLANO if p in plan.PLANOS_POR_ID]
+    return ordenados + [p for p in plan.PLANOS_POR_ID if p not in ordenados]
+
+
 @app.get("/api/admin/users")
 async def admin_users_get(user: dict = Depends(require_permission("usuarios.gerenciar"))):
+    # `plan` já vem de `db.list_users` (está em `_USER_COLS`, com default
+    # 'free' em `_user_row`) — não se acrescenta aqui. `planosDisponiveis` é
+    # o par comercial de `gruposDisponiveis`: a UI recebe os ids do backend
+    # em vez de escrevê-los (2026-09-12).
     usuarios = db.list_users(_conn)
     for u in usuarios:
         u["roles"] = rbac.roles_for_user(_conn, u["id"])
-    return {"usuarios": usuarios, "gruposDisponiveis": sorted(rbac.GRUPOS) + [rbac.ROLE_ADMIN]}
+    return {
+        "usuarios": usuarios,
+        "gruposDisponiveis": sorted(rbac.GRUPOS) + [rbac.ROLE_ADMIN],
+        "planosDisponiveis": _planos_disponiveis(),
+    }
 
 
 @app.post("/api/admin/users/{user_id}/roles")
 async def admin_users_roles_post(user_id: str, body: dict = Body(default={}), user: dict = Depends(require_permission("usuarios.gerenciar"))):
-    """`acao`: 'conceder' | 'revogar'. Sem override de plano nesta rodada
-    (decisão do Alex, ADR-013) — só papel de governança."""
+    """`acao`: 'conceder' | 'revogar'. Só papel de GOVERNANÇA.
+
+    Esta docstring dizia "Sem override de plano nesta rodada (decisão do Alex,
+    ADR-013)". **A decisão mudou em 2026-09-12**, a pedido do Alex: o override
+    existe agora na rota irmã `POST /api/admin/users/{user_id}/plan`. O motivo
+    original de separar continua valendo, e é justamente por isso que são DUAS
+    rotas — papel de governança (aqui) e plano comercial (ADR-010, lá) são
+    eixos independentes: um admin pode nunca ser `pro`, e um `pro` não ganha
+    permissão administrativa nenhuma por pagar."""
     role = str((body or {}).get("role") or "")
     acao = str((body or {}).get("acao") or "conceder")
     if not db.get_user_by_id(_conn, user_id):
@@ -1133,6 +1189,35 @@ async def admin_users_roles_post(user_id: str, body: dict = Body(default={}), us
     novo = rbac.roles_for_user(_conn, user_id)
     audit.record(_conn, user["id"], "user_role", user_id, "roles", anterior, novo)
     return {"ok": True, "userId": user_id, "roles": novo}
+
+
+@app.post("/api/admin/users/{user_id}/plan")
+async def admin_users_plan_post(user_id: str, body: dict = Body(default={}), user: dict = Depends(require_permission("usuarios.gerenciar"))):
+    """Eixo COMERCIAL da conta (ADR-010), separado do eixo de governança que a
+    rota de papéis controla. `pro` era, até 2026-09-12, alcançável só por
+    edição direta no SQLite do container (`scripts/plano-da-conta.sh`) — porta
+    que serve para a conta do dono e não escala para além dela.
+
+    Mudar o PRÓPRIO plano é permitido e fica auditado: quem tem
+    `usuarios.gerenciar` já pode conceder a si mesmo qualquer papel de
+    governança pela rota acima, e o registro com o nome de quem clicou é a
+    mitigação que o ADR-013 escolheu para essa classe. Um freio só aqui seria
+    assimétrico com o que existe ao lado.
+
+    Nada disto passa por `plan.requires_subscription` — esse gate é hook do
+    futuro (validar recibo de loja server-side) e continua intocado."""
+    alvo = db.get_user_by_id(_conn, user_id)
+    if not alvo:
+        raise HTTPException(404, "Usuário não encontrado.")
+    novo = (body or {}).get("plano")
+    # O backend recusa, não só a UI: a tela não é o único cliente possível
+    # desta rota, e `users.plan` decide cota de análises e de watchlist.
+    if not isinstance(novo, str) or novo not in plan.PLANOS_POR_ID:
+        raise HTTPException(400, "Plano inválido. Aceitos: " + ", ".join(_planos_disponiveis()) + ".")
+    anterior = alvo.get("plan") or "free"
+    db.set_user_plan(_conn, user_id, novo)
+    audit.record(_conn, user["id"], "user_plan", user_id, "plan", anterior, novo)
+    return {"ok": True, "userId": user_id, "plano": novo}
 
 
 @app.get("/api/admin/audit")
@@ -1176,7 +1261,7 @@ async def admin_mobile_handoff_exchange(body: dict = Body(default={})):
 
 # FASE 8B (diagnóstico): carimbo de build do BACKEND — confirma qual código o
 # Railway está rodando (o front tem o dele em web/src/version.js).
-SERVER_BUILD_ID = "F10-20260912-02"  # 2026-09-12: deploy SO-BACKEND (o front fica em -01; nada em web/src mudou). Chave propria de LLM passa a ser consultada ANTES do gate mensal do plano. Antes, quem gastava as analises gerenciadas do mes e depois trazia a propria chave continuava barrado — por um contador que mede so o consumo da chave do SERVIDOR, num recurso que essa pessoa nao ia usar. O codigo ja prometia o contrario em `_ai_apply_managed` ("BYOK utilizavel -> sem cota"); isto faz a promessa valer. Sem BYOK nada muda: o teto de 30/mes do plano free segue protegendo a chave do servidor, com guardiao proprio.
+SERVER_BUILD_ID = "F10-20260912-03"  # 2026-09-12: deploy SO-BACKEND (front fica em -01; nada em web/src mudou). Conserta o contador que o gate comercial le: o ingest de analytics consumia SEM `month_section`, e o default e `aiUsageMonth` — cada lote de telemetria descontava o LOTE INTEIRO da cota mensal de analises do usuario. Medido: nas contas com ledger, 100% do contador era telemetria e 0% era analise, e duas ja passavam do limite sem ter analisado nada. O guardiao de `month_section` passa a varrer todo o app (so olhava a aba Opcoes, e foi por ai que entrou) e `metering.snapshot` para de misturar o balde diario com o mensal. NENHUM limite mudou — isto conserta a medicao, nao a politica. O gate mensal nas tres rotas que hoje contam sem barrar segue DESLIGADO de proposito: o residuo ja gravado so zera na virada do mes, e ativar antes barraria por defeito, nao por uso.
 # Normalmente sincronizado pelo entregar.sh a partir de web/src/version.js; num deploy
 # SÓ de backend (sem rebuild do front) bumpamos aqui para /api/health rastrear o servidor.
 

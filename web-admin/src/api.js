@@ -84,6 +84,9 @@ export const api = {
 
   usersGet: () => req("GET", "/api/admin/users"),
   userRole: (userId, role, acao) => req("POST", "/api/admin/users/" + encodeURIComponent(userId) + "/roles", { role, acao }),
+  // 24-17 (2026-09-12): eixo COMERCIAL, rota separada da de papéis de propósito
+  // (ADR-010 × ADR-013). Os ids aceitos vêm do backend em `planosDisponiveis`.
+  userPlan: (userId, plano) => req("POST", "/api/admin/users/" + encodeURIComponent(userId) + "/plan", { plano }),
 
   auditGet: (n) => req("GET", "/api/admin/audit" + (n ? "?n=" + encodeURIComponent(n) : "")),
 

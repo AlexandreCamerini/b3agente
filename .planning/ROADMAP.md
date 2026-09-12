@@ -332,6 +332,7 @@ verificação goal-backward e dos testes ao vivo (é deles que vem o denominador
 - [x] 24-14-PLAN.md — achado ao vivo 2026-09-11: o ensaio diz quando não testou nada (janela que nunca fechou no histórico)
 - [x] 24-15-PLAN.md — pedido do Alex 2026-09-11: limite da cota da aba Opções configurável pelo portal admin
 - [x] 24-16-PLAN.md — achado 2026-09-12: chave própria (BYOK) destrava o gate mensal do plano, que media consumo da chave do servidor
+- [x] 24-17-PLAN.md — pedido do Alex 2026-09-12: o plano da conta muda pelo portal admin (rota gated e auditada), em vez de edição direta no SQLite do container
 
 **UI hint**: yes
 
@@ -340,6 +341,54 @@ iniciante, glossário, cobertura mobile) e a consolidação dos módulos puros
 (ADR-027 Decisão 3 fixa o gatilho; esta fase entrega só o teste de paridade
 que o dispara). Detalhes em
 `.planning/phases/24-opcoes-mcp-analise-e-setups/24-CONTEXT.md`.
+
+#### Phase 25: Planos comerciais — acesso por função e limites por plano — standalone
+**Goal**: O plano da conta deixa de ser um rótulo com um único efeito e vira o
+eixo que decide (a) quais funções do app a conta acessa e (b) o limite de cada
+ponto de controle de IA — configurável no portal admin, visível para o usuário.
+Junto, nasce o papel `owner`: todas as permissões, imune a revogação, ancorado
+em e-mail.
+**Depends on**: nada em código. Decisões do Alex de 2026-09-12 registradas em
+`.planning/phases/25-planos-comerciais/25-CONTEXT.md` (D1 owner irrevogável por
+defesa em profundidade; D2 RBAC = administração e plano = produto, com
+`opcoes.criar_setup` migrando para o plano; D3 owner ignora só o cap comercial).
+**Requirements**: ver 25-CONTEXT.md
+**Success Criteria** (what must be TRUE):
+  1. O contador que o gate comercial lê mede análise, e só análise — telemetria
+     não desconta cota (medido no 25-01: 100% do ledger era telemetria).
+  2. Cada ponto de controle de IA tem limite configurável POR PLANO, com
+     precedência memória → kv → env → default e a origem visível no portal.
+  3. Tetos FÍSICOS (teto global da chave do servidor, 2.000/dia do serviço MCP,
+     cota da brapi) NÃO variam por plano — ADR-010, decisão 2.
+  4. `owner` não pode ser revogado por rota nenhuma, e é reconcedido se
+     escapar por outro caminho.
+  5. Sem configuração, `free` e `pro` se comportam exatamente como hoje.
+  6. O usuário vê em que plano está, e a recusa por limite diz qual limite bateu.
+**Plans**: 6 previstos (um por fase do CONTEXT)
+
+Plans:
+
+**Wave 1**
+
+- [x] 25-01-PLAN.md — conserta o contador antes de configurá-lo: telemetria para de descontar cota; guardião de `month_section` varre todo o app; `snapshot` não mistura baldes
+
+**Ondas seguintes** *(cada plano é escrito quando a fase anterior informa a próxima)*
+
+- [ ] 25-02 — papel `owner` (D1)
+- [ ] 25-03 — catálogo de planos com limites e funções
+- [ ] 25-04 — gates leem o plano (D2, D3)
+- [ ] 25-05 — módulo de configuração no portal
+- [ ] 25-06 — plano visível no app (UI delegada a subagente de UX)
+
+**UI hint**: yes
+
+**Decisão pendente do Alex** (25-01): ativar o gate mensal em `/api/scan/deep`,
+`/api/carteira-stopalvo` e `/api/assistente` — hoje elas CONTAM mas não são
+barradas. O resíduo de telemetria já gravado só zera na virada do mês, então
+ativar antes disso barraria por um defeito, não por uso. Recomendação do
+executor: ativar junto com os limites configuráveis (25-03/25-04). O estado
+pendente está codificado como `xfail(strict=True)` — no dia da ativação os
+casos falham por XPASS e obrigam quem ativar a tirar a marca.
 
 ## Progress
 
@@ -369,7 +418,8 @@ que o dispara). Detalhes em
 | 21. Duplicação removida e Portfólio consolidado | 4/4 | Complete    | 2026-09-06 |
 | 22. Componentes compartilhados (trilho, ícones, mascote) | 4/4 | Complete    | 2026-09-06 |
 | 23. Motion com propósito e ilustração unificada | 4/4 | Complete    | 2026-09-06 |
-| 24. Aba Opções sobre MCP — análise e criação de setups | 11/12 | In Progress|  |
+| 24. Aba Opções sobre MCP — análise e criação de setups | 12/13 | In Progress|  |
+| 25. Planos comerciais — acesso por função e limites por plano | 1/6 | In Progress|  |
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2/v1.3
 
