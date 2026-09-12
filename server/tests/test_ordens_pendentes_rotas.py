@@ -449,9 +449,16 @@ def test_delete_pendente_id_inexistente_responde_404(monkeypatch):
     client, main = _client(monkeypatch)
     token, _uid = _registrar(client, "cancela-404@boris.dev")
     headers = {"authorization": f"Bearer {token}"}
+    # 24-10: o catch-all `_api_inexistente` responde 404 a QUALQUER
+    # `/api/*` desconhecido, então `status == 404` sozinho passaria
+    # mesmo se esta rota fosse apagada. Recusar `rota_inexistente` é o
+    # que mantém este guardião medindo a rota, e não o catch-all.
     r = client.delete("/api/orders/pending/po_inexistente", headers=headers)
     assert r.status_code == 404
-    assert "detail" in r.json()
+    corpo = r.json()
+    assert "detail" in corpo
+    d = corpo["detail"]
+    assert (d.get("code") if isinstance(d, dict) else None) != "rota_inexistente"
 
 
 def test_delete_pendente_sem_sessao_responde_401(monkeypatch):
@@ -471,8 +478,15 @@ def test_delete_pendente_de_outra_conta_responde_404_e_preserva_a_original(monke
     r = client.post("/api/buy", json={"t": "PETR4", "qty": 100}, headers=headers_a)
     order_id = r.json()["order"]["id"]
 
+    # 24-10: o catch-all `_api_inexistente` responde 404 a QUALQUER
+    # `/api/*` desconhecido, então `status == 404` sozinho passaria
+    # mesmo se esta rota fosse apagada. Recusar `rota_inexistente` é o
+    # que mantém este guardião medindo a rota, e não o catch-all.
     r = client.delete(f"/api/orders/pending/{order_id}", headers=headers_b)
     assert r.status_code == 404
+    d = r.json().get("detail")
+    assert (d.get("code") if isinstance(d, dict) else None) != "rota_inexistente", (
+        "isolamento entre contas só está provado se quem respondeu foi a ROTA")
 
     estado_a = client.get("/api/state", headers=headers_a).json()
     assert len(estado_a["pendingOrders"]) == 1

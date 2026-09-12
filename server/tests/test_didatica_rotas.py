@@ -92,7 +92,15 @@ def test_camada_desligada_NAO_e_404(cli):
 
 
 def test_id_inexistente_continua_404(cli):
-    assert cli.post("/api/conceito/nao-existe", json={}).status_code == 404
+    # 24-10: o catch-all `_api_inexistente` responde 404 a QUALQUER
+    # `/api/*` desconhecido, então `status == 404` sozinho passaria
+    # mesmo se esta rota fosse apagada. Recusar `rota_inexistente` é o
+    # que mantém este guardião medindo a rota, e não o catch-all.
+    r = cli.post("/api/conceito/nao-existe", json={})
+    assert r.status_code == 404
+    detalhe = r.json().get("detail")
+    codigo = detalhe.get("code") if isinstance(detalhe, dict) else None
+    assert codigo != "rota_inexistente", "a rota sumiu; quem respondeu foi o catch-all"
 
 
 def test_dados_hostis_nao_derrubam_a_rota(cli):
