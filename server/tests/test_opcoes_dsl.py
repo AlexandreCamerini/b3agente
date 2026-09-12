@@ -899,3 +899,54 @@ def test_system_do_compilador_e_puro_e_nao_carrega_indicador_hardcodado():
             f"{termo!r} está hardcodado no cabeçalho do compilador — o "
             f"vocabulário tem de vir do serviço, senão envelhece em silêncio")
     assert options_mcp_api.SYSTEM_COMPILADOR_CABECALHO in vazio
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# Envelope `{"setup": …}` — achado com LLM REAL em 2026-09-11
+#
+# Na primeira execução da etapa 5 do `fechar-fase-24.sh`, o modelo compilou a
+# descrição perfeitamente e ainda assim tomou 422 `forma_invalida`: respondeu
+# `{"setup": {...}}`, e a validação procurava os campos na raiz. Ele seguia o
+# `inputSchema` de `create_setup` — que é `{setup, confirm}` — ou seja, a forma
+# que NÓS demos a ele. Quem estava fora do contrato era o validador.
+#
+# Nenhum teste com LLM falsa pegaria isso: a falsa devolve o que o teste manda.
+# ──────────────────────────────────────────────────────────────────────────
+def test_desembrulha_setup_aceita_o_envelope_da_tool():
+    from app.options_mcp_api import _desembrulha_setup
+    miolo = {"name": "x", "ticker": "PETR4", "description": "d", "conditions": [{}]}
+    assert _desembrulha_setup({"setup": miolo}) == miolo
+    assert _desembrulha_setup({"setup": miolo, "confirm": False}) == miolo
+
+
+def test_desembrulha_setup_nao_mexe_no_setup_pelado():
+    from app.options_mcp_api import _desembrulha_setup
+    pelado = {"name": "x", "ticker": "PETR4", "description": "d", "conditions": [{}]}
+    assert _desembrulha_setup(pelado) is pelado
+
+
+def test_desembrulha_setup_nao_desembrulha_o_ambiguo():
+    """`setup` ao lado de `name`/`ticker` NÃO é envelope: é setup com campo
+    estranho. Desembrulhar aqui descartaria os campos de fora em silêncio —
+    quem decide esse caso é a validação de forma, que enxerga tudo."""
+    from app.options_mcp_api import _desembrulha_setup
+    ambiguo = {"name": "x", "ticker": "PETR4", "setup": {"name": "y"}}
+    assert _desembrulha_setup(ambiguo) is ambiguo
+
+
+def test_desembrulha_setup_tolera_lixo():
+    from app.options_mcp_api import _desembrulha_setup
+    assert _desembrulha_setup(None) is None
+    assert _desembrulha_setup([1, 2]) == [1, 2]
+    assert _desembrulha_setup({"setup": {}}) == {"setup": {}}       # vazio não é envelope
+    assert _desembrulha_setup({"setup": "texto"}) == {"setup": "texto"}
+
+
+def test_system_do_compilador_pede_o_objeto_sem_envelope():
+    """O desembrulho é rede de segurança; a instrução é a correção de origem.
+    Sem ela, toda compilação gasta uma chamada de LLM para produzir uma forma
+    que precisamos consertar depois."""
+    from app.options_mcp_api import SYSTEM_COMPILADOR_CABECALHO
+    t = SYSTEM_COMPILADOR_CABECALHO.lower()
+    assert "não o embrulhe" in t or "nao o embrulhe" in t
+    assert "nível de cima" in t or "nivel de cima" in t
