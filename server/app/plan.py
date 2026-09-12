@@ -54,8 +54,12 @@ def current_plan(user: Optional[dict] = None) -> dict:
     """ADR-013: resolve pelo campo persistido `users.plan` (free|pro) em vez
     do ACTIVE_PLAN global fixo. A VALIDACAO do recibo de loja que decide esse
     campo continua pendente do ADR-010 — aqui so liga a leitura ao dado que
-    ja existe em `db.users.plan` (default 'free', sem override manual nesta
-    rodada). `user=None` (anonimo) cai no fallback ACTIVE_PLAN, igual antes."""
+    ja existe em `db.users.plan` (default 'free'). O trecho "sem override
+    manual nesta rodada" que estava aqui deixou de valer em 2026-09-12: o
+    portal admin ganhou `POST /api/admin/users/{id}/plan` (permissao
+    `usuarios.gerenciar`, auditado). O recibo de loja segue pendente — o
+    override e manual e humano, nao e compra. `user=None` (anonimo) cai no
+    fallback ACTIVE_PLAN, igual antes."""
     if not user:
         return ACTIVE_PLAN
     return PLANOS_POR_ID.get(user.get("plan") or "free", PLAN_FREE)

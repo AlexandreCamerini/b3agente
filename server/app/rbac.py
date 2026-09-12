@@ -92,7 +92,14 @@ def roles_for_user(conn, user_id: str) -> list:
 # permissões abaixo via `permissoes_do_papel`, então a união natural das
 # entidades já cobre o audit log inteiro.
 ENTIDADES_POR_PERMISSAO = {
-    "usuarios.gerenciar": {"user_role"},
+    # 24-17 (2026-09-12): `user_plan` entrou junto de `user_role` porque a
+    # rota irmã `POST /api/admin/users/{id}/plan` passou a gravar
+    # `audit.record(..., "user_plan", ...)` sob a MESMA permissão. Sem esta
+    # entrada o evento é gravado e `entidades_visiveis` o filtra para fora de
+    # todo filtro — inclusive o de quem acabou de produzi-lo. São eixos
+    # diferentes (governança × plano comercial, ADR-010), mas quem administra
+    # contas administra os dois.
+    "usuarios.gerenciar": {"user_role", "user_plan"},
     "prompts.editar": {"prompt_default"},
     "llm.configurar": {"config_ia"},
     # 24-15 (2026-09-11): `mcp_cota` entrou junto de `brapi_spot_intervalo`

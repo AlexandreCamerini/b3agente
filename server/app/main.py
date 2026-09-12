@@ -1099,18 +1099,44 @@ async def admin_prompts_put(chave: str, body: dict = Body(default={}), user: dic
     return {"ok": True, "chave": chave}
 
 
+def _planos_disponiveis() -> list:
+    """Ids de plano na ordem comercial, direto de `plan.py` — fonte ÚNICA.
+
+    Uma lista literal aqui (ou na UI) seria a segunda cópia, e ela não
+    acompanharia o dia em que existir um terceiro plano. O `+ [...]` no fim
+    cobre o caso de alguém acrescentar um plano a `PLANOS_POR_ID` e esquecer
+    `_ORDEM_PLANO`: some da ordenação, não do painel."""
+    ordenados = [p for p in plan._ORDEM_PLANO if p in plan.PLANOS_POR_ID]
+    return ordenados + [p for p in plan.PLANOS_POR_ID if p not in ordenados]
+
+
 @app.get("/api/admin/users")
 async def admin_users_get(user: dict = Depends(require_permission("usuarios.gerenciar"))):
+    # `plan` já vem de `db.list_users` (está em `_USER_COLS`, com default
+    # 'free' em `_user_row`) — não se acrescenta aqui. `planosDisponiveis` é
+    # o par comercial de `gruposDisponiveis`: a UI recebe os ids do backend
+    # em vez de escrevê-los (2026-09-12).
     usuarios = db.list_users(_conn)
     for u in usuarios:
         u["roles"] = rbac.roles_for_user(_conn, u["id"])
-    return {"usuarios": usuarios, "gruposDisponiveis": sorted(rbac.GRUPOS) + [rbac.ROLE_ADMIN]}
+    return {
+        "usuarios": usuarios,
+        "gruposDisponiveis": sorted(rbac.GRUPOS) + [rbac.ROLE_ADMIN],
+        "planosDisponiveis": _planos_disponiveis(),
+    }
 
 
 @app.post("/api/admin/users/{user_id}/roles")
 async def admin_users_roles_post(user_id: str, body: dict = Body(default={}), user: dict = Depends(require_permission("usuarios.gerenciar"))):
-    """`acao`: 'conceder' | 'revogar'. Sem override de plano nesta rodada
-    (decisão do Alex, ADR-013) — só papel de governança."""
+    """`acao`: 'conceder' | 'revogar'. Só papel de GOVERNANÇA.
+
+    Esta docstring dizia "Sem override de plano nesta rodada (decisão do Alex,
+    ADR-013)". **A decisão mudou em 2026-09-12**, a pedido do Alex: o override
+    existe agora na rota irmã `POST /api/admin/users/{user_id}/plan`. O motivo
+    original de separar continua valendo, e é justamente por isso que são DUAS
+    rotas — papel de governança (aqui) e plano comercial (ADR-010, lá) são
+    eixos independentes: um admin pode nunca ser `pro`, e um `pro` não ganha
+    permissão administrativa nenhuma por pagar."""
     role = str((body or {}).get("role") or "")
     acao = str((body or {}).get("acao") or "conceder")
     if not db.get_user_by_id(_conn, user_id):
@@ -1133,6 +1159,35 @@ async def admin_users_roles_post(user_id: str, body: dict = Body(default={}), us
     novo = rbac.roles_for_user(_conn, user_id)
     audit.record(_conn, user["id"], "user_role", user_id, "roles", anterior, novo)
     return {"ok": True, "userId": user_id, "roles": novo}
+
+
+@app.post("/api/admin/users/{user_id}/plan")
+async def admin_users_plan_post(user_id: str, body: dict = Body(default={}), user: dict = Depends(require_permission("usuarios.gerenciar"))):
+    """Eixo COMERCIAL da conta (ADR-010), separado do eixo de governança que a
+    rota de papéis controla. `pro` era, até 2026-09-12, alcançável só por
+    edição direta no SQLite do container (`scripts/plano-da-conta.sh`) — porta
+    que serve para a conta do dono e não escala para além dela.
+
+    Mudar o PRÓPRIO plano é permitido e fica auditado: quem tem
+    `usuarios.gerenciar` já pode conceder a si mesmo qualquer papel de
+    governança pela rota acima, e o registro com o nome de quem clicou é a
+    mitigação que o ADR-013 escolheu para essa classe. Um freio só aqui seria
+    assimétrico com o que existe ao lado.
+
+    Nada disto passa por `plan.requires_subscription` — esse gate é hook do
+    futuro (validar recibo de loja server-side) e continua intocado."""
+    alvo = db.get_user_by_id(_conn, user_id)
+    if not alvo:
+        raise HTTPException(404, "Usuário não encontrado.")
+    novo = (body or {}).get("plano")
+    # O backend recusa, não só a UI: a tela não é o único cliente possível
+    # desta rota, e `users.plan` decide cota de análises e de watchlist.
+    if not isinstance(novo, str) or novo not in plan.PLANOS_POR_ID:
+        raise HTTPException(400, "Plano inválido. Aceitos: " + ", ".join(_planos_disponiveis()) + ".")
+    anterior = alvo.get("plan") or "free"
+    db.set_user_plan(_conn, user_id, novo)
+    audit.record(_conn, user["id"], "user_plan", user_id, "plan", anterior, novo)
+    return {"ok": True, "userId": user_id, "plano": novo}
 
 
 @app.get("/api/admin/audit")
