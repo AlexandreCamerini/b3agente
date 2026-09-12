@@ -1149,7 +1149,7 @@ async def admin_mobile_handoff_exchange(body: dict = Body(default={})):
 
 # FASE 8B (diagnóstico): carimbo de build do BACKEND — confirma qual código o
 # Railway está rodando (o front tem o dele em web/src/version.js).
-SERVER_BUILD_ID = "F10-20260911-07"  # 2026-09-11: deploy SÓ-BACKEND — o front fica em -06 de propósito, porque nada em `web/src/` mudou, e o rodapé do Perfil vai mostrar os dois carimbos diferentes (é o estado correto, não um erro). Entrega: o compilador NL→DSL aceita o envelope `{"setup": …}` que o próprio `inputSchema` de `create_setup` descreve. Medido com LLM real: o modelo compilava certo e tomava 422 `forma_invalida` porque a validação procurava os campos na raiz — quem estava fora do contrato era o validador. Sem isto, criar setup pela tela falha em produção.
+SERVER_BUILD_ID = "F10-20260912-01"  # 2026-09-12: duas entregas. (1) O ensaio de setup avisa quando NÃO testou nada: setup com média de 200 sobre 48 pregões voltava "0 disparos" — número certo, leitura errada, porque a condição nunca teve valor e o zero era por construção, não por raridade. A faixa vem ANTES dos números, e o botão de gravar continua lá: a tela impede a conclusão errada, não a ação. (2) Os três tetos da aba Opções viram configuração do portal admin (memória → kv → env → default), com prévia e auditoria por campo — o teto real de 2.000/dia é do serviço e compartilhado por toda a base, e ajustá-lo exigia redeploy. Publica também o portal (`admin_dist`).
 # Normalmente sincronizado pelo entregar.sh a partir de web/src/version.js; num deploy
 # SÓ de backend (sem rebuild do front) bumpamos aqui para /api/health rastrear o servidor.
 
