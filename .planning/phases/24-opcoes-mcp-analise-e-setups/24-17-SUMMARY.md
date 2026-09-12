@@ -238,3 +238,12 @@ promovida deixa de bater no cap de análises do `PLAN_FREE`.
 ---
 *Phase: 24-opcoes-mcp-analise-e-setups*
 *Completed: 2026-09-12*
+
+## Self-Check: PASSED
+
+Arquivos e commits conferidos por `[ -f ]` e `git log --oneline --all | grep`:
+
+- FOUND `server/tests/test_admin_plano_usuario.py`
+- FOUND `web/tests/test_admin_plano_ui.mjs`
+- FOUND `.planning/phases/24-opcoes-mcp-analise-e-setups/24-17-SUMMARY.md`
+- FOUND `7099f0c`, `19a622b`, `4a9486f`
