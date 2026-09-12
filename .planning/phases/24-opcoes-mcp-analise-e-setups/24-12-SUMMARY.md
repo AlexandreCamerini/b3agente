@@ -93,7 +93,7 @@ apagados).
 | Correção | Teste escrito primeiro | RED observado (código de antes) | GREEN |
 |---|---|---|---|
 | `_atraso_em_pregoes` + envelope das duas rotas | 16 testes do bloco 24-12 em `test_options_mcp_api.py` | `16 failed` — `AttributeError: module 'app.options_mcp_api' has no attribute '_atraso_em_pregoes'` (×14) e `KeyError: 'atraso'` (×2) | `16 passed` |
-| o chip diz a distância | bloco 12 de `test_opcoes_mcp_aba_ui.mjs` (23 asserções) | `14 FALHA(S)` | `todos os testes passaram` |
+| o chip diz a distância | 17 asserções rodadas contra o fonte de antes, depois consolidadas no bloco 12 de `test_opcoes_mcp_aba_ui.mjs` (19 asserções) | `14 FALHA(S)` | `todos os testes passaram` |
 
 RED do backend, agrupado:
 
@@ -116,7 +116,7 @@ FALHOU COPY tem opcoesAtrasoPregoes nos dois modos
 14 FALHA(S)
 ```
 
-As 3 asserções que já passavam no RED são as que **não descrevem a correção**:
+As 3 (de 17) que já passavam no RED são as que **não descrevem a correção**:
 a sanidade da checagem de ordem (que precisa passar nos dois estados — é o que
 sanidade significa), "a distância não pinta o chip" (verdadeira por ausência) e
 a paridade do conjunto `opcoes*` (que já valia e este plano não podia quebrar).
@@ -138,7 +138,7 @@ Cada commit foi conferido com `git diff --cached --stat` antes de fechar:
   import de `datetime`, `FONTE_DO_ATRASO`, `_atraso_em_pregoes`, e o
   `pregao_do_dado` extraído para variável nas duas rotas (era expressão
   inline no `return`) para que `atraso` meça o MESMO valor que `pregao` exibe
-- `server/tests/test_options_mcp_api.py` — bloco 24-12: 16 testes (8 do
+- `server/tests/test_options_mcp_api.py` — bloco 24-12: 16 testes (14 do
   helper puro, 9 deles vindos de uma parametrização, mais 2 de rota), duas
   linhas no docstring do arquivo, `date` e `pregao` nos imports
 - `web/src/opcoes/OpcoesScreen.jsx` — `atraso`/`pregoesAtras`/`distancia`, a
@@ -146,7 +146,7 @@ Cada commit foi conferido com `git diff --cached --stat` antes de fechar:
   condicionada ao alerta do serviço, e a linha de ajuda no rodapé do cabeçalho
 - `web/src/copy.js` — `opcoesAtrasoPregoes` e `opcoesAtrasoAjuda` nos DOIS
   modos
-- `web/tests/test_opcoes_mcp_aba_ui.mjs` — bloco 12 (23 asserções, 1 delas de
+- `web/tests/test_opcoes_mcp_aba_ui.mjs` — bloco 12 (19 asserções, 1 delas de
   sanidade de ordem) e cinco linhas no cabeçalho do arquivo
 
 ## O que a tela passou a dizer
@@ -316,5 +316,5 @@ Guardiões específicos, todos verdes: `test_options_mcp_api.py` (76),
 - `web/src/copy.js` — FOUND (`opcoesAtrasoPregoes`/`opcoesAtrasoAjuda` nos
   dois modos)
 - `server/tests/test_options_mcp_api.py` — FOUND (bloco 24-12, 16 testes)
-- `web/tests/test_opcoes_mcp_aba_ui.mjs` — FOUND (bloco 12, 23 asserções)
+- `web/tests/test_opcoes_mcp_aba_ui.mjs` — FOUND (bloco 12, 19 asserções)
 - Commits `0f10c7d`, `7c0b10d`, `5e43c74` — FOUND em `git log`
