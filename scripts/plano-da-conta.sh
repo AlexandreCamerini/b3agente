@@ -36,7 +36,7 @@ c = sqlite3.connect(p)
 for uid, em, pl in c.execute("SELECT id, email, plan FROM users ORDER BY created_at"):
     m = ((em or "")[:3] + "***@" + (em or "").split("@")[-1]) if em and "@" in em else "(sem e-mail)"
     print(f"  {uid[:8]}... | {m:26} | plano={pl}")
-'
+' < /dev/null
 
 [ -z "$EMAIL" ] && { echo; echo "  (só leitura — passe <e-mail> e <plano> para alterar)"; exit 0; }
 
