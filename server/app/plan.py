@@ -147,6 +147,24 @@ LIMITES_DE_PLANO = (
 # é esta palavra.
 TXT_SEM_LIMITE = "ilimitado"
 
+# 25-05 (2026-09-12) — o sentinela de "VOLTAR AO PADRÃO", gravado no kv.
+#
+# Até aqui não havia como LIMPAR um limite configurado: `db` expõe
+# `kv_delete_user` (por usuário) e não um delete de chave GLOBAL, então uma
+# vez gravado o valor vencia a env para sempre — limitação registrada no
+# 25-03 e repetida no 25-04. E gravar `None` NÃO serve: `None` aqui é valor
+# legítimo ("sem limite"), e usá-lo para as duas coisas transformaria "voltar
+# ao padrão" em "plano ilimitado", que é o oposto do pedido.
+#
+# Por isso o sentinela: uma linha PRESENTE cujo conteúdo significa "não
+# configurado". É o mesmo truque do `_AUSENTE` logo abaixo, agora atravessando
+# o kv — e é mais barato que inventar um DELETE novo em `db.py` para uma
+# chave global, que abriria a porta para apagar QUALQUER chave global.
+#
+# Não é valor aceitável de entrada: `_coerce_entrada` recusa a palavra como
+# recusa qualquer outro texto. Quem restaura chama `restaurar_padrao_do_plano`.
+TXT_PADRAO = "__padrao__"
+
 # Funções de PRODUTO liberadas por plano (decisão D2 do 25-CONTEXT: RBAC é
 # administração, plano é produto). Lista de chaves, não de permissões: a
 # permissão `opcoes.criar_setup` sai de `GRUPOS["opcoes"]` no 25-04, e é lá que
@@ -283,8 +301,17 @@ def _do_kv(chave_kv: str, tipo):
         return _AUSENTE
     if bruto is None:
         return None
-    if isinstance(bruto, str) and bruto.strip().lower() == TXT_SEM_LIMITE:
-        return None
+    if isinstance(bruto, str):
+        texto = bruto.strip().lower()
+        if texto == TXT_SEM_LIMITE:
+            return None
+        # 25-05: "voltar ao padrão" — a linha existe, o valor diz que não há
+        # configuração, e a decisão desce para env → default. EXPLÍCITO de
+        # propósito: qualquer texto não-numérico já cairia em `_AUSENTE` pelo
+        # `_numero_valido` abaixo, mas depender desse acidente faria o
+        # mecanismo de restauração sumir no dia em que a validação mudasse.
+        if texto == TXT_PADRAO:
+            return _AUSENTE
     return _numero_valido(bruto, tipo)
 
 
@@ -392,6 +419,54 @@ def set_limite_do_plano(plano_id: str, chave: str, valor):
         except Exception:  # noqa: BLE001 — vale neste processo; some no deploy
             pass
     return v
+
+
+def coerce_limite(chave: str, valor):
+    """A MESMA conversão que `set_limite_do_plano` aplica, exposta para quem
+    precisa validar ANTES de gravar. A rota admin (25-05) valida tudo-ou-nada:
+    metade da mudança de pé é pior que nenhuma, porque o admin não tem como
+    saber qual metade. Levanta `ValueError` no lixo."""
+    _chave, _sufixo, _molde, tipo, _padroes = _linha(chave)
+    return _coerce_entrada(valor, tipo)
+
+
+def valor_sem_painel(plano_id: str, chave: str) -> tuple:
+    """`(valor, origem)` que passariam a valer se a configuração do painel
+    sumisse — env → default, sem tocar no kv nem no cache.
+
+    É o que a PRÉVIA do botão "voltar ao padrão" mostra: um "→ (padrão)" sem
+    número faria o admin aplicar sem saber onde o valor vai cair, e "voltar ao
+    padrão" não é zerar — é devolver a decisão às camadas de BAIXO, que podem
+    ter uma env declarada."""
+    if plano_id not in PLANOS_POR_ID:
+        raise ValueError(f"plano desconhecido: {plano_id!r}")
+    _chave, _sufixo, _molde, tipo, padroes = _linha(chave)
+    v = _do_env(env_key(plano_id, chave), tipo)
+    if v is not _AUSENTE:
+        return v, "env"
+    return padroes[plano_id], "default"
+
+
+def restaurar_padrao_do_plano(plano_id: str, chave: str) -> tuple:
+    """Desfaz a configuração do painel para este limite: grava o sentinela
+    `TXT_PADRAO` e esquece o cache, devolvendo a decisão a env → default.
+
+    Devolve `(valor, origem)` vigentes depois da restauração — e a origem
+    NUNCA é `kv`, que é a prova observável de que o sentinela funcionou (ver
+    `TXT_PADRAO` sobre por que não é um `DELETE` e por que não é `None`)."""
+    if plano_id not in PLANOS_POR_ID:
+        raise ValueError(f"plano desconhecido: {plano_id!r}")
+    linha = _linha(chave)
+    chave_kv = kv_key(plano_id, chave)
+    # Sai do cache em vez de guardar o sentinela: `_valor_e_origem` consulta o
+    # cache por `in` e devolveria a marca como se fosse valor.
+    _limites_mem.pop(chave_kv, None)
+    if _conn is not None:
+        try:
+            db.kv_set(_conn, chave_kv, TXT_PADRAO, user_id=None)
+        except Exception:  # noqa: BLE001 — vale neste processo; some no deploy
+            pass
+    return _valor_e_origem(plano_id, linha)
 
 
 def funcoes_do_plano(plano_id: str) -> set:

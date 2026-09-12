@@ -143,7 +143,13 @@ ENTIDADES_POR_PERMISSAO = {
     # todo filtro — inclusive o de quem acabou de produzi-lo. São eixos
     # diferentes (governança × plano comercial, ADR-010), mas quem administra
     # contas administra os dois.
-    "usuarios.gerenciar": {"user_role", "user_plan"},
+    # 25-05 (2026-09-12): `plano_config` entrou pelo mesmo raciocínio que
+    # trouxe `user_plan` — quem administra contas administra os dois eixos. A
+    # diferença é o alcance: `user_plan` muda UMA conta de plano;
+    # `plano_config` muda o que o plano SIGNIFICA para todas as contas dele.
+    # Sem esta entrada o evento é gravado e `entidades_visiveis` o filtra para
+    # fora de todo filtro, inclusive o de quem acabou de produzi-lo.
+    "usuarios.gerenciar": {"user_role", "user_plan", "plano_config"},
     "prompts.editar": {"prompt_default"},
     "llm.configurar": {"config_ia"},
     # 24-15 (2026-09-11): `mcp_cota` entrou junto de `brapi_spot_intervalo`

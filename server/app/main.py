@@ -1410,6 +1410,210 @@ async def admin_users_plan_post(user_id: str, body: dict = Body(default={}), use
     return {"ok": True, "userId": user_id, "plano": novo}
 
 
+# ---------------------------------------------------------------------------
+# 25-05 (Fase 4 do `.planning/phases/25-planos-comerciais/25-CONTEXT.md`) — o
+# módulo de PLANOS do portal. Até aqui os cinco limites do catálogo (25-03) já
+# decidiam de verdade (25-04) e só eram configuráveis editando o kv à mão.
+#
+# A UI não escreve NENHUMA lista: planos, limites, rótulos e funções saem
+# daqui. O que este bloco acrescenta ao que `plan.py` declara é a metade que
+# só existe no CHAMADOR — quem decide o número quando o plano não decide.
+# Essa é a leitura que o 25-04 registrou como pendente: `origem: "default"`
+# num limite de PLANO não é "ninguém configurou nada", é "quem manda aqui é o
+# resolvedor GLOBAL" (o card vizinho do portal, ou a env dele).
+#
+# `_META_LIMITES`: (chave, rótulo, ajuda, rótulo do CARD que decide o global).
+# O 4º campo é o nome do card do portal quando existe um; `None` ali NÃO quer
+# dizer "sem resolvedor global" (ver `_resolvedor_global`) — quer dizer "não há
+# card; quem manda é a env, ou o próprio default do catálogo".
+# ---------------------------------------------------------------------------
+_META_LIMITES = (
+    ("max_watchlist", "Ativos na watchlist",
+     "quantos ativos a conta pode acompanhar ao mesmo tempo", None),
+    ("max_analyses_per_month", "Análises de IA por mês",
+     "o cap COMERCIAL do mês — é ele que produz o 402 do plano", None),
+    ("ia_gerenciada_dia", "IA gerenciada por dia",
+     "chamadas à chave do servidor que UMA conta pode fazer por dia",
+     "Mudança de LLM"),
+    ("opcoes_chamadas_dia", "Chamadas da aba Opções por dia",
+     "chamadas ao serviço MCP que UMA conta pode fazer por dia",
+     "Cota da aba Opções (aba Fontes de dados)"),
+    ("assistente_brl_dia", "Teto do assistente (R$/dia)",
+     "quanto o assistente pode custar por dia para UMA conta", None),
+)
+_META_POR_CHAVE = {chave: (rotulo, ajuda, card)
+                   for chave, rotulo, ajuda, card in _META_LIMITES}
+
+ENTIDADE_PLANO_CONFIG = "plano_config"
+
+# D2 NÃO migrou (decisão do Alex no 25-04): `funcoes_do_plano` declara a função
+# e NINGUÉM a lê — quem controla o acesso continua sendo o RBAC. A tela mostra
+# a função; esta nota impede a leitura errada de que o plano já a libera.
+_NOTAS_DE_FUNCAO = {
+    "opcoes.criar_setup": (
+        "Governança ainda controla este acesso — RBAC (permissão "
+        "`opcoes.criar_setup`), não o plano. A migração (D2) segue pendente "
+        "por decisão do Alex no 25-04: liberar por plano AMPLIARIA o acesso ao "
+        "armazém compartilhado do serviço MCP, que tem teto de 2.000 "
+        "chamadas/dia para a base inteira."
+    ),
+}
+
+
+def _resolvedor_global(chave: str):
+    """A função de HOJE que decide o limite quando o plano não decide — a
+    mesma que `_limite_do_plano` recebe como `global_fn` nos call sites reais.
+    Uma segunda lista de bindings divergiria da primeira; esta existe porque o
+    painel precisa mostrar o número EFETIVO, e ele é o conciliado, não o do
+    catálogo."""
+    if chave == "ia_gerenciada_dia":
+        return managed.daily_quota
+    if chave == "opcoes_chamadas_dia":
+        return options_mcp_api.cota_usuario_dia
+    if chave == "assistente_brl_dia":
+        from . import assistente as assist
+        return assist.teto_dia_brl
+    return None
+
+
+def _plano_config_payload() -> dict:
+    """Tudo que o card precisa: os ids de plano, os metadados de cada limite,
+    o valor vigente por plano (com origem, quem decide e o EFETIVO) e as
+    funções de produto."""
+    planos = _planos_disponiveis()
+    config = {}
+    for pid in planos:
+        atual = {}
+        for chave, info in plan.limites_do_plano(pid).items():
+            atual[chave] = {
+                **info,
+                # A resposta a "este número é do plano ou do global?" — a mesma
+                # pergunta que `_e_limite_por_plano` responde para o gate.
+                "decide": "plano" if _e_limite_por_plano(chave, info["origem"]) else "global",
+                # ...e o número que de fato barra. Quando `decide == "global"`,
+                # ele pode divergir do `valor` do catálogo: é o que o admin
+                # precisa ver para não decidir no escuro.
+                "efetivo": _limite_do_plano(None, chave, _resolvedor_global(chave),
+                                            plano=plan.PLANOS_POR_ID[pid]),
+            }
+        config[pid] = atual
+    limites = []
+    for chave, _sufixo, _molde, _tipo, _padroes in plan.LIMITES_DE_PLANO:
+        # Itera o CATÁLOGO, não os metadados: um ponto de controle novo aparece
+        # no painel com o nome interno em vez de sumir dele. Há guardião
+        # exigindo rótulo próprio, para a decisão ser consciente.
+        rotulo, ajuda, card = _META_POR_CHAVE.get(chave, (chave, "", None))
+        limites.append({
+            "chave": chave,
+            "rotulo": rotulo,
+            "ajuda": ajuda,
+            "tipo": config[planos[0]][chave]["tipo"],
+            "global": ({"rotulo": card, "env": plan.env_key(planos[0], chave)}
+                       if _resolvedor_global(chave) is not None else None),
+        })
+    return {
+        "planos": planos,
+        "limites": limites,
+        "config": config,
+        "funcoes": {pid: sorted(plan.funcoes_do_plano(pid)) for pid in planos},
+        "notasDeFuncao": _NOTAS_DE_FUNCAO,
+        # A palavra que representa "sem limite" fora do Python — a UI a recebe
+        # em vez de escrever "ilimitado" por conta própria.
+        "textoSemLimite": plan.TXT_SEM_LIMITE,
+    }
+
+
+def _plano_config_pedidos(body: dict) -> tuple:
+    """Valida TUDO antes de aplicar qualquer coisa — tudo-ou-nada, mesma
+    disciplina de `_cota_opcoes_pedidos`: metade da mudança de pé deixa o admin
+    sem saber qual metade.
+
+    Devolve `(plano, {chave: (valor, restaurar)})`. As três entradas possíveis
+    são diferentes de propósito:
+
+      · chave OMITIDA      → não mexer (mesmo contrato do card de cota);
+      · `null` EXPLÍCITO   → voltar ao padrão (grava o sentinela);
+      · `"ilimitado"`      → sem limite, que é CONFIGURAÇÃO do plano e vence o
+                             resolvedor global. O oposto de voltar ao padrão.
+    """
+    body = body or {}
+    plano = body.get("plano")
+    if not isinstance(plano, str) or plano not in plan.PLANOS_POR_ID:
+        raise HTTPException(400, "Plano inválido. Aceitos: " + ", ".join(_planos_disponiveis()) + ".")
+    limites = body.get("limites")
+    if limites is None:
+        limites = {}
+    if not isinstance(limites, dict):
+        raise HTTPException(400, "`limites` deve ser um objeto {chave: valor}.")
+    catalogo = {chave: ("inteiro" if tipo is int else "número decimal")
+                for chave, _s, _m, tipo, _p in plan.LIMITES_DE_PLANO}
+    pedidos = {}
+    for chave, bruto in limites.items():
+        if chave not in catalogo:
+            raise HTTPException(400, f"Limite desconhecido: {chave}. Aceitos: "
+                                     + ", ".join(catalogo) + ".")
+        if bruto is None:
+            pedidos[chave] = (None, True)
+            continue
+        try:
+            pedidos[chave] = (plan.coerce_limite(chave, bruto), False)
+        except ValueError:
+            raise HTTPException(400, f"{chave}: informe um {catalogo[chave]} >= 0, "
+                                     f"`{plan.TXT_SEM_LIMITE}` para sem limite, ou "
+                                     f"null para voltar ao padrão.")
+    if not pedidos:
+        raise HTTPException(400, "Informe ao menos um limite em `limites`.")
+    return plano, pedidos
+
+
+@app.get("/api/admin/planos")
+async def admin_planos_get(user: dict = Depends(require_permission("usuarios.gerenciar"))):
+    return _plano_config_payload()
+
+
+@app.post("/api/admin/planos")
+async def admin_planos_post(body: dict = Body(default={}),
+                            user: dict = Depends(require_permission("usuarios.gerenciar"))):
+    """Sem `aplicar: true`, é PRÉVIA: valida e devolve o que mudaria, sem
+    gravar nada. O par simular/aplicar é a confirmação da casa (nada de
+    `window.confirm` no portal para esta classe de decisão).
+
+    A auditoria é por CAMPO alterado — um agregado não responde "quem mudou o
+    quê" —, e o que conta como alteração é o par `(valor, origem)`, não só o
+    número: restaurar um limite gravado em 10 quando o padrão também é 10
+    devolve o mesmo 10, mas QUEM DECIDE mudou, e essa escrita não pode ficar
+    sem registro."""
+    plano, pedidos = _plano_config_pedidos(body)
+    antes = plan.limites_do_plano(plano)
+
+    mudancas = []
+    for chave, (valor, restaurar) in pedidos.items():
+        de = (antes[chave]["valor"], antes[chave]["origem"])
+        para = plan.valor_sem_painel(plano, chave) if restaurar else (valor, "kv")
+        if de != para:
+            mudancas.append({"plano": plano, "campo": chave,
+                             "de": de[0], "para": para[0],
+                             "origemDe": de[1], "origemPara": para[1],
+                             "restaurar": restaurar})
+
+    if not body.get("aplicar"):
+        return {"plano": plano, **_plano_config_payload(),
+                "mudancas": mudancas, "aplicado": False}
+
+    for chave, (valor, restaurar) in pedidos.items():
+        anterior = {"valor": antes[chave]["valor"], "origem": antes[chave]["origem"]}
+        if restaurar:
+            plan.restaurar_padrao_do_plano(plano, chave)
+        else:
+            plan.set_limite_do_plano(plano, chave, valor)
+        vigente = plan.limites_do_plano(plano)[chave]
+        novo = {"valor": vigente["valor"], "origem": vigente["origem"]}
+        if novo != anterior:
+            audit.record(_conn, user["id"], ENTIDADE_PLANO_CONFIG, plano, chave, anterior, novo)
+    return {"plano": plano, **_plano_config_payload(),
+            "mudancas": mudancas, "aplicado": True}
+
+
 @app.get("/api/admin/audit")
 async def admin_audit_get(n: int = 200, user: dict = Depends(require_any_admin_permission())):
     # ADR-013: "filtrado ao que a pessoa administra" — ver mapeamento e
