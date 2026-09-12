@@ -95,7 +95,12 @@ ENTIDADES_POR_PERMISSAO = {
     "usuarios.gerenciar": {"user_role"},
     "prompts.editar": {"prompt_default"},
     "llm.configurar": {"config_ia"},
-    "fontes_dados.configurar": {"brapi_spot_intervalo"},
+    # 24-15 (2026-09-11): `mcp_cota` entrou junto de `brapi_spot_intervalo`
+    # porque é a MESMA classe de decisão — teto de consumo de fonte de dados
+    # externa, não governança de IA. Sem esta entrada `audit.record` gravaria
+    # a mudança dos tetos da aba Opções e `entidades_visiveis` a filtraria
+    # para fora de TODO filtro, inclusive o de quem a produziu.
+    "fontes_dados.configurar": {"brapi_spot_intervalo", "mcp_cota"},
     "execucao_automatica.ver": {"agent_kill_switch", "timing_watch_kill_switch"},
     "execucao_automatica.controlar": {"agent_kill_switch", "timing_watch_kill_switch"},
     # ADR-027 §2.7 — ENTROU na Fase 5 (2026-09-11), como a nota anterior

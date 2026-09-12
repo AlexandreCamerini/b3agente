@@ -901,3 +901,175 @@ def test_consumo_global_hoje_le_a_secao_propria_da_aba(monkeypatch):
     assert g["cap"] == options_mcp_api.cota_global_dia()
     assert metering.global_snapshot(main._conn)["used"] == 0, (
         "o consumo da aba Opções vazou para o balde global da IA gerenciada")
+
+
+# ---------------------------------------------------------------------- #
+# A rota admin dos tetos. `fontes_dados.configurar` — a MESMA permissão do
+# orçamento brapi, porque é a mesma classe de decisão (teto de consumo de
+# fonte de dados externa), e criar uma permissão nova exigiria mexer nos
+# grupos do ADR-013 sem nenhum ganho de granularidade real.
+#
+# A rota mora em `/api/obs/...` (main.py), FORA do prefixo
+# `/api/options/mcp` — ela configura o cap, não consome o serviço, e por isso
+# não passa por `_cap_check`.
+# ---------------------------------------------------------------------- #
+def _eventos(c, token, entidade):
+    ev = c.get("/api/admin/audit", headers=_auth(token)).json()["eventos"]
+    return [e for e in ev if e["entity"] == entidade]
+
+
+def test_cota_opcoes_sem_sessao_e_401(monkeypatch):
+    c, _ = _client(monkeypatch)
+    assert c.get("/api/obs/opcoes/cota").status_code == 401
+    assert c.post("/api/obs/opcoes/cota", json={"cotaUsuarioDia": 5}).status_code == 401
+
+
+def test_cota_opcoes_com_sessao_sem_a_permissao_e_403(monkeypatch):
+    c, _ = _client(monkeypatch)
+    _registra(c, "dono@teste.com")            # 1º usuário = admin por bootstrap
+    comum = _registra(c, "comum@teste.com")
+    h = _auth(comum["token"])
+    assert c.get("/api/obs/opcoes/cota", headers=h).status_code == 403
+    assert c.post("/api/obs/opcoes/cota", json={"cotaUsuarioDia": 5}, headers=h).status_code == 403
+    assert options_mcp_api.cota_usuario_dia() == 60, "o 403 mexeu no teto"
+
+
+def test_cota_opcoes_get_mostra_os_tres_com_origem_e_o_consumo_de_hoje(monkeypatch):
+    c, _ = _client(monkeypatch)
+    admin = _registra(c, "dono@teste.com")
+    p = _registra(c, "usa@teste.com")
+    _espiao(monkeypatch, mcp_client.ResultadoTool(_FRESCOR_OK, False))
+    c.get("/api/options/mcp/status", headers=_auth(p["token"]))
+
+    corpo = c.get("/api/obs/opcoes/cota", headers=_auth(admin["token"])).json()
+    assert corpo["limites"]["cotaUsuarioDia"] == {
+        "valor": 60, "origem": "default", "env": "B3_MCP_COTA_USUARIO_DIA", "default": 60}
+    assert corpo["limites"]["rateMin"]["valor"] == 20
+    assert corpo["limites"]["cotaGlobalDia"]["valor"] == 1800
+    assert corpo["limites"]["tetoServicoDia"] == 2000
+    assert corpo["consumoGlobalHoje"]["used"] == 1, (
+        "o painel mostraria o consumo de outro balde — decidir no escuro é o "
+        "que este número existe para evitar")
+
+
+def test_cota_opcoes_previa_nao_escreve_nada(monkeypatch):
+    c, _ = _client(monkeypatch)
+    admin = _registra(c, "dono@teste.com")
+    h = _auth(admin["token"])
+
+    corpo = c.post("/api/obs/opcoes/cota", json={"cotaUsuarioDia": 30}, headers=h).json()
+    assert corpo["aplicado"] is False
+    assert corpo["mudancas"] == [{"campo": "cotaUsuarioDia", "de": 60, "para": 30}]
+    options_mcp_api.reset_limites_cache()
+    assert options_mcp_api.cota_usuario_dia() == 60, "a prévia gravou"
+    assert _eventos(c, admin["token"], "mcp_cota") == [], "a prévia auditou"
+
+
+def test_cota_opcoes_aplicar_grava_e_audita_um_evento_por_campo(monkeypatch):
+    c, _ = _client(monkeypatch)
+    admin = _registra(c, "dono@teste.com")
+    h = _auth(admin["token"])
+
+    corpo = c.post("/api/obs/opcoes/cota",
+                   json={"cotaUsuarioDia": 30, "cotaGlobalDia": 900, "aplicar": True},
+                   headers=h).json()
+    assert corpo["aplicado"] is True
+    assert corpo["limites"]["cotaUsuarioDia"] == {
+        "valor": 30, "origem": "kv", "env": "B3_MCP_COTA_USUARIO_DIA", "default": 60}
+
+    options_mcp_api.reset_limites_cache()
+    assert options_mcp_api.cota_usuario_dia() == 30
+    assert options_mcp_api.cota_global_dia() == 900
+    assert options_mcp_api.rate_min() == 20, "campo ausente no corpo foi alterado"
+
+    ev = _eventos(c, admin["token"], "mcp_cota")
+    assert {(e["field"], e["oldValue"], e["newValue"]) for e in ev} == {
+        ("cotaUsuarioDia", 60, 30), ("cotaGlobalDia", 1800, 900)}, (
+        "a auditoria tem de responder QUEM mudou O QUÊ — um registro agregado "
+        "não responde")
+    assert all(e["actorUserId"] == admin["user"]["id"] for e in ev)
+
+
+def test_cota_opcoes_valor_invalido_e_400_e_nada_muda(monkeypatch):
+    c, _ = _client(monkeypatch)
+    admin = _registra(c, "dono@teste.com")
+    h = _auth(admin["token"])
+
+    for corpo in ({"cotaUsuarioDia": 0}, {"rateMin": -1}, {"cotaGlobalDia": "banana"},
+                  {"cotaUsuarioDia": True}, {}):
+        r = c.post("/api/obs/opcoes/cota", json=dict(corpo, aplicar=True), headers=h)
+        assert r.status_code == 400, (corpo, r.text)
+
+    options_mcp_api.reset_limites_cache()
+    assert (options_mcp_api.cota_usuario_dia(), options_mcp_api.rate_min(),
+            options_mcp_api.cota_global_dia()) == (60, 20, 1800)
+    assert _eventos(c, admin["token"], "mcp_cota") == []
+
+
+def test_cota_opcoes_um_campo_invalido_nao_aplica_os_outros(monkeypatch):
+    """Tudo-ou-nada: validar depois de aplicar deixaria metade da mudança de
+    pé, e o admin não teria como saber qual metade."""
+    c, _ = _client(monkeypatch)
+    admin = _registra(c, "dono@teste.com")
+    h = _auth(admin["token"])
+
+    r = c.post("/api/obs/opcoes/cota",
+               json={"cotaUsuarioDia": 30, "rateMin": 0, "aplicar": True}, headers=h)
+    assert r.status_code == 400, r.text
+    options_mcp_api.reset_limites_cache()
+    assert options_mcp_api.cota_usuario_dia() == 60
+
+
+def test_cota_opcoes_acima_do_teto_do_servico_e_aceito_com_aviso(monkeypatch):
+    """Rejeitar fingiria que o Boris manda no teto do serviço; calar deixaria
+    o admin achar que subiu um teto que não subiu."""
+    c, _ = _client(monkeypatch)
+    admin = _registra(c, "dono@teste.com")
+    h = _auth(admin["token"])
+
+    corpo = c.post("/api/obs/opcoes/cota",
+                   json={"cotaGlobalDia": 5000, "aplicar": True}, headers=h).json()
+    assert corpo["aplicado"] is True
+    assert options_mcp_api.cota_global_dia() == 5000
+    aviso = corpo.get("aviso") or ""
+    assert "2.000" in aviso and "serviço" in aviso, aviso
+
+    # abaixo do teto, nenhum aviso — senão ele viraria ruído e ninguém o lê
+    sem = c.post("/api/obs/opcoes/cota", json={"cotaGlobalDia": 900}, headers=h).json()
+    assert sem.get("aviso") is None
+
+    # `rateMin` é por MINUTO: compará-lo com um teto DIÁRIO seria erro de
+    # unidade travestido de aviso
+    rate = c.post("/api/obs/opcoes/cota", json={"rateMin": 3000}, headers=h).json()
+    assert rate.get("aviso") is None
+
+
+def test_entidade_da_auditoria_dos_tetos_esta_no_mapa_do_rbac():
+    """Sem esta linha `audit.record` gravaria e `entidades_visiveis` filtraria
+    o evento para fora de TODO filtro — inclusive o de quem o produziu."""
+    from app import rbac
+
+    assert options_mcp_api.ENTIDADE_COTA == "mcp_cota"
+    assert options_mcp_api.ENTIDADE_COTA in \
+        rbac.ENTIDADES_POR_PERMISSAO["fontes_dados.configurar"]
+
+
+def test_as_duas_rotas_de_cota_sao_gated_e_nao_entram_na_allowlist_publica(monkeypatch):
+    """A allowlist pública do ADR-013 é o baseline de "rota sem gate por
+    decisão consciente". Rota de escrita administrativa nunca entra nela —
+    este teste é o espelho local do guardião de cobertura."""
+    from .rotas_fastapi import nomes_dependencias, todas_as_rotas
+    from .test_adr013_cobertura_rotas import _PUBLICAS_CONHECIDAS
+
+    c, main = _client(monkeypatch)
+    alvo = {("GET", "/api/obs/opcoes/cota"), ("POST", "/api/obs/opcoes/cota")}
+    achadas = set()
+    for r in todas_as_rotas(main.app.routes):
+        for metodo in (getattr(r, "methods", None) or []):
+            chave = (metodo, str(getattr(r, "path", "") or ""))
+            if chave in alvo:
+                achadas.add(chave)
+                assert "_dep" in nomes_dependencias(getattr(r, "dependant", None)), \
+                    f"{chave} sem dependency de permissão"
+    assert achadas == alvo, f"rotas não registradas: {alvo - achadas}"
+    assert not (alvo & _PUBLICAS_CONHECIDAS)
