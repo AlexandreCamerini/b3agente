@@ -20,7 +20,11 @@ O que este arquivo trava, em uma frase cada:
   - os dois 402 do gate de análise têm texto próprio da aba — nunca o copy de
     BYOK do `metering`;
   - `_system_compilador` é puro e não carrega nenhum indicador hardcodado
-    (ENG-06): o vocabulário chega do schema vivo e do texto do serviço.
+    (ENG-06): o vocabulário chega do schema vivo e do texto do serviço;
+  - 24-14: "0 disparos" que não testou nada é dito na resposta — o ensaio
+    nomeia a condição cuja janela não coube no histórico, e o veredito de
+    indisparabilidade fica reservado ao caso demonstrável (`AND` com condição
+    sem ponto nenhum).
 
 Esqueleto e isolamento herdados de `test_options_mcp_api.py` (B3_DB_PATH
 temporário + reset dos caches em memória). Nenhum teste depende de rede, de
@@ -31,6 +35,7 @@ from __future__ import annotations
 
 import importlib
 import os
+import re
 import sys
 import tempfile
 
@@ -950,3 +955,282 @@ def test_system_do_compilador_pede_o_objeto_sem_envelope():
     t = SYSTEM_COMPILADOR_CABECALHO.lower()
     assert "não o embrulhe" in t or "nao o embrulhe" in t
     assert "nível de cima" in t or "nivel de cima" in t
+
+
+# ═══════════════════════════════ 16. o ensaio que não testou nada (24-14) ═
+# Achado ao vivo em 2026-09-11, reproduzido contra o motor REAL do serviço: um
+# setup com média de 200 sobre 48 pregões devolve `disparos: 0` com
+# `pregoes_avaliaveis: 31`.
+#
+# Os dois números estão CERTOS — `AND` com um `False` conhecido é `False`, e
+# nos dias de RSI acima de 30 o dia é comprovadamente falso. O serviço não tem
+# defeito. O que engana é a LEITURA: "testei e não disparou", quando a verdade
+# é "nunca pôde disparar", porque a condição da média nunca teve valor em
+# pregão nenhum.
+#
+# É pior que o caso do 24-11: lá o campo vinha vazio e a pessoa via que faltava
+# algo; aqui vem um número plausível, e número plausível não levanta suspeita.
+# O fim da linha é alguém GRAVAR um setup acreditando que ele foi validado
+# contra o histórico.
+#
+# A demonstração é de IMPOSSIBILIDADE, não de opinião: se uma condição de um
+# `AND` nunca é verdadeira, `diario` nunca é `True`, logo `disparos` é 0 por
+# construção. O helper só faz aritmética de janela sobre números que JÁ vieram.
+
+# O caso MEDIDO, na forma em que o modelo o compilou ao vivo: a janela que
+# mata o ensaio mora na `reference` (`close > média de 200`), não no lado
+# esquerdo — é por isso que olhar só o `window` da condição não bastaria.
+_SETUP_DO_ACHADO = {
+    "name": "media longa + oscilador esticado",
+    "ticker": "PETR4",
+    "description": "preço acima da média de 200 com o oscilador abaixo de 30",
+    "logic": "AND",
+    "consecutive_days": 2,
+    "conditions": [
+        {"indicator": "close", "operator": ">",
+         "reference": {"indicator": "sma", "window": 200}},
+        {"indicator": "rsi", "window": 14, "operator": "<", "value": 30},
+    ],
+}
+# O backtest que voltou COM ele. Os números são os medidos, não inventados
+# para o teste: 48 pregões na janela, 31 avaliáveis, zero disparos.
+_BACKTEST_DO_ACHADO = {
+    "periodo": {"de": "2026-07-01", "ate": "2026-09-10", "pregoes": 48},
+    "pregoes_avaliaveis": 31,
+    "pregoes_sem_indicador": 17,
+    "disparos": 0,
+    "datas_de_disparo": [],
+    "disparos_por_100_pregoes_avaliaveis": 0.0,
+    "retorno_apos_disparo": {},
+}
+
+
+def test_ensaio_do_achado_e_indisparavel_e_nomeia_so_a_condicao_morta():
+    """O caso real, campo a campo. A condição da média de 200 é nomeada com a
+    janela que o próprio setup declara; a de 14, que CABE em 48 pregões, fica
+    de fora — dá-la como morta seria a mesma fabricação na direção contrária
+    (24-11)."""
+    r = options_mcp_api._ensaio_inconclusivo(_SETUP_DO_ACHADO, _BACKTEST_DO_ACHADO)
+    assert r["indisparavel"] is True
+    assert r["pregoes"] == 48
+    assert len(r["condicoes"]) == 1, "a condição de janela 14 foi dada como morta"
+    (cond,) = r["condicoes"]
+    assert cond["janela"] == 200
+    assert cond["pontos"] <= 0
+    assert cond["motivo"] == options_mcp_api.MOTIVO_JANELA_NUNCA_FECHOU
+    # O indicador nomeado é o do lado que BLOQUEIA (a `reference`), não o do
+    # lado esquerdo: é a média que não fecha, não o fechamento.
+    assert cond["indicador"] == "sma"
+
+
+def test_janela_na_reference_e_detectada_e_a_maior_das_duas_manda():
+    """A janela do lado direito conta igual — é justamente a do caso real. Com
+    janela nos DOIS lados, quem manda é a maior: é ela que decide quando a
+    comparação passa a ter valor."""
+    setup = dict(_SETUP_DO_ACHADO, consecutive_days=1, conditions=[
+        {"indicator": "sma", "window": 9, "operator": ">",
+         "reference": {"indicator": "sma", "window": 400}},
+    ])
+    (cond,) = options_mcp_api._ensaio_inconclusivo(
+        setup, _BACKTEST_DO_ACHADO)["condicoes"]
+    assert cond["janela"] == 400 and cond["indicador"] == "sma"
+
+
+def test_setup_cujas_janelas_cabem_no_historico_nao_ganha_aviso():
+    """Estado normal é SILÊNCIO. Uma ressalva em cima de um ensaio que de fato
+    testou o setup ensinaria a pessoa a ignorar a ressalva no dia em que ela
+    importa."""
+    setup = dict(_SETUP_DO_ACHADO, conditions=[
+        {"indicator": "rsi", "window": 14, "operator": "<", "value": 30},
+        {"indicator": "close", "operator": ">",
+         "reference": {"indicator": "sma", "window": 21}},
+    ])
+    assert options_mcp_api._ensaio_inconclusivo(setup, _BACKTEST_DO_ACHADO) == {
+        "indisparavel": False, "condicoes": [], "pregoes": 48}
+
+
+def test_or_com_condicao_morta_lista_mas_nao_afirma_indisparabilidade():
+    """Com `OR`, uma condição morta NÃO impede as outras de disparar — a
+    impossibilidade deixa de ser demonstrável, e o que não se pode provar não
+    se afirma. A condição continua listada: a ressalva é honesta, o veredito
+    não seria."""
+    setup = dict(_SETUP_DO_ACHADO, logic="OR")
+    r = options_mcp_api._ensaio_inconclusivo(setup, _BACKTEST_DO_ACHADO)
+    assert [c["janela"] for c in r["condicoes"]] == [200]
+    assert r["indisparavel"] is False
+
+
+def test_logic_ausente_e_o_and_do_servico():
+    """`logic` omitida vale `AND` no motor (`setup.get("logic", "AND")`).
+    Tratá-la como desconhecida faria o caso MAIS COMUM — setup sem `logic`
+    explícita — perder justamente o aviso."""
+    setup = {k: v for k, v in _SETUP_DO_ACHADO.items() if k != "logic"}
+    r = options_mcp_api._ensaio_inconclusivo(setup, _BACKTEST_DO_ACHADO)
+    assert r["indisparavel"] is True
+
+
+def test_pattern_e_indicador_sem_janela_nunca_entram_na_lista():
+    """Padrão de candle e indicador direto não declaram janela, e sem janela
+    declarada não há aritmética a fazer: a ausência de aviso aqui é a
+    resposta certa, não uma lacuna."""
+    setup = dict(_SETUP_DO_ACHADO, consecutive_days=1, conditions=[
+        {"pattern": "inside_bar"},
+        {"indicator": "close", "operator": ">", "value": 30},
+        {"indicator": "hv21", "operator": ">", "value": 0.3},
+    ])
+    r = options_mcp_api._ensaio_inconclusivo(setup, _BACKTEST_DO_ACHADO)
+    assert r["condicoes"] == [] and r["indisparavel"] is False
+
+
+def test_janela_que_fecha_tarde_demais_e_ressalva_e_nao_veredito():
+    """`0 < pontos < consecutive_days`: a condição TEVE valor em alguns
+    pregões, então o ensaio avaliou alguma coisa — o que não coube foi a
+    sequência. Chamar isso de "não testou nada" seria exagerar o que os
+    números provam."""
+    setup = dict(_SETUP_DO_ACHADO, consecutive_days=5, conditions=[
+        {"indicator": "sma", "window": 46, "operator": ">", "value": 30},
+    ])
+    r = options_mcp_api._ensaio_inconclusivo(setup, _BACKTEST_DO_ACHADO)
+    (cond,) = r["condicoes"]
+    assert cond["pontos"] == 3, "48 - 46 + 1"
+    assert cond["motivo"] == options_mcp_api.MOTIVO_JANELA_CURTA_PARA_SEQUENCIA
+    assert r["indisparavel"] is False
+
+
+@pytest.mark.parametrize("backtest", [
+    None, {}, "texto", 42, {"periodo": None}, {"periodo": {}},
+    {"periodo": {"pregoes": None}}, {"periodo": {"pregoes": "48"}},
+    {"periodo": {"pregoes": 0}}, {"periodo": {"pregoes": -3}},
+    {"periodo": {"pregoes": True}},
+])
+def test_sem_o_tamanho_do_periodo_o_helper_cala(backtest):
+    """Sem `pregoes` não existe a conta — e a tela não afirma nada. Um aviso
+    derivado de um tamanho que ninguém informou seria exatamente a fabricação
+    que este plano existe para impedir (princípio 4)."""
+    r = options_mcp_api._ensaio_inconclusivo(_SETUP_DO_ACHADO, backtest)
+    assert r == {"indisparavel": False, "condicoes": [], "pregoes": None}
+
+
+@pytest.mark.parametrize("setup", [
+    None, "texto", 42, {}, {"conditions": None}, {"conditions": "texto"},
+    {"conditions": [None, 7, "x"]}, {"conditions": [{"window": "200"}]},
+    {"conditions": [{"indicator": "sma", "window": True}]},
+    {"conditions": [{"indicator": "sma", "window": 0}]},
+])
+def test_setup_torto_nao_levanta_e_nao_inventa(setup):
+    """Forma estranha é silêncio, nunca exceção: este helper roda no caminho
+    de uma resposta 200 que já custou LLM e duas chamadas do cap. Derrubar a
+    rota para explicar um ensaio seria trocar informação por 500."""
+    r = options_mcp_api._ensaio_inconclusivo(setup, _BACKTEST_DO_ACHADO)
+    assert r["condicoes"] == [] and r["indisparavel"] is False
+
+
+def test_a_deteccao_sai_da_forma_do_dado_e_nao_de_uma_lista_de_indicadores():
+    """ENG-06 aplicado ao helper: quem declara janela é a CONDIÇÃO, e o
+    serviço só aceita `window` em indicador que a use ("não usa janela —
+    remova"). Guardar aqui a lista dos indicadores com janela criaria a
+    segunda cópia do contrato, a que ninguém lembra de atualizar quando o
+    serviço ganhar o próximo indicador."""
+    setup = dict(_SETUP_DO_ACHADO, consecutive_days=1, conditions=[
+        {"indicator": "indicador_que_ainda_nao_existe", "window": 300,
+         "operator": ">", "value": 1},
+    ])
+    r = options_mcp_api._ensaio_inconclusivo(setup, _BACKTEST_DO_ACHADO)
+    assert r["indisparavel"] is True
+    assert r["condicoes"][0]["indicador"] == "indicador_que_ainda_nao_existe"
+
+    # A varredura procura vocabulário como CÓDIGO — nome de indicador entre
+    # aspas, que é a forma de uma allowlist. Prosa que cita o achado ("nos
+    # dias de RSI acima de 30") não é cópia de contrato: ela não decide nada
+    # e não envelhece em silêncio quando o serviço ganhar um indicador novo.
+    import inspect
+    fonte = inspect.getsource(options_mcp_api._ensaio_inconclusivo).lower()
+    vocabulario = re.compile(
+        r"[\"'](sma|ema|rsi|atr|highest|lowest|rel_volume|change_pct|"
+        r"crosses_above|bullish_engulfing|inside_bar)[\"']")
+    assert not vocabulario.search(fonte), \
+        "o vocabulário da DSL foi copiado para dentro do helper"
+    assert vocabulario.search('com_janela = ("sma", "ema", "rsi")'), \
+        "sanidade: a regex de vocabulário pega a lista quando ela existe"
+    assert not vocabulario.search("nos dias de rsi acima de 30 o dia é falso"), \
+        "sanidade: a regex não confunde prosa com allowlist"
+
+
+def test_os_tres_textos_do_ensaio_estao_em_avisos():
+    """Texto fixo que chega ao usuário entra na varredura do guardião
+    imperativo na fase que o cria ([R-12])."""
+    for t in (options_mcp_api.MOTIVO_JANELA_NUNCA_FECHOU,
+              options_mcp_api.MOTIVO_JANELA_CURTA_PARA_SEQUENCIA,
+              options_mcp_api.AVISO_ENSAIO_INDISPARAVEL):
+        assert t in options_mcp_api.AVISOS
+
+
+# A regra que este plano NÃO pode violar ao corrigir o que corrige: o aviso
+# fala do que é DEMONSTRÁVEL (a janela não coube no período) e cala sobre o
+# resto. "Dispararia com mais histórico" é previsão; "o setup é ruim" é juízo;
+# "aumente o período" é ação que a tela não oferece. Nenhum dos três sai dos
+# números que vieram — e um aviso que extrapola vira a segunda leitura errada,
+# no lugar da primeira.
+_EXTRAPOLACAO = re.compile(
+    r"dispararia|teria disparado|vai disparar|com mais (dado|hist[óo]rico|preg)|"
+    r"aumente|diminua|troque|setup ruim|setup fraco|n[ãa]o presta|"
+    r"prov[áa]vel|probabilidade|esperad[oa]", re.IGNORECASE)
+
+
+def test_nenhum_texto_do_ensaio_extrapola_o_que_os_numeros_provam():
+    for t in (options_mcp_api.MOTIVO_JANELA_NUNCA_FECHOU,
+              options_mcp_api.MOTIVO_JANELA_CURTA_PARA_SEQUENCIA,
+              options_mcp_api.AVISO_ENSAIO_INDISPARAVEL):
+        assert not _EXTRAPOLACAO.search(t), f"texto extrapola: {t!r}"
+    assert _EXTRAPOLACAO.search("com mais histórico esta condição dispararia"), \
+        "sanidade: a regex pega a extrapolação quando ela existe"
+
+
+def test_compilar_devolve_o_ensaio_ao_lado_do_backtest_verbatim(monkeypatch):
+    """O campo novo viaja JUNTO do backtest, sem tocar num número dele: o
+    `backtest` continua byte a byte o que o serviço mandou, e o `ensaio` é a
+    leitura que faltava ao lado. Sem chamada nova — os dois saem da MESMA
+    resposta de `create_setup`."""
+    c, _ = _client(monkeypatch)
+    p = _registra(c)
+    _espiao(monkeypatch, create={
+        "status": "dry_run", "name": _SETUP_DO_ACHADO["name"],
+        "setup_as_interpreted": _SETUP_DO_ACHADO,
+        "backtest": _BACKTEST_DO_ACHADO,
+        "next_step": "confira a interpretação e confirme"})
+    _material(monkeypatch)
+    _ia(monkeypatch, resposta=_json_da_ia(_SETUP_DO_ACHADO))
+
+    r = _compila(c, p["token"])
+    assert r.status_code == 200, r.text
+    corpo = r.json()
+
+    assert corpo["backtest"] == _BACKTEST_DO_ACHADO, "o backtest foi mexido"
+    assert corpo["backtest"]["disparos"] == 0
+    assert corpo["ensaio"]["indisparavel"] is True
+    assert corpo["ensaio"]["pregoes"] == 48
+    assert [x["janela"] for x in corpo["ensaio"]["condicoes"]] == [200]
+    assert corpo["ensaio"]["condicoes"][0]["motivo"] == \
+        options_mcp_api.MOTIVO_JANELA_NUNCA_FECHOU
+
+
+def test_o_ensaio_sai_do_setup_INTERPRETADO_pelo_servico(monkeypatch):
+    """O aviso tem de descrever o objeto que a tela MOSTRA e que a pessoa
+    grava — `setup_as_interpreted`. Calculá-lo sobre o que a IA respondeu
+    descreveria um setup que ninguém vai gravar."""
+    c, _ = _client(monkeypatch)
+    p = _registra(c)
+    interpretado = dict(_SETUP_DO_ACHADO, conditions=[
+        {"indicator": "rsi", "window": 14, "operator": "<", "value": 30}])
+    _espiao(monkeypatch, create={
+        "status": "dry_run", "name": interpretado["name"],
+        "setup_as_interpreted": interpretado,
+        "backtest": _BACKTEST_DO_ACHADO,
+        "next_step": "confira a interpretação e confirme"})
+    _material(monkeypatch)
+    _ia(monkeypatch, resposta=_json_da_ia(_SETUP_DO_ACHADO))
+
+    corpo = _compila(c, p["token"]).json()
+    assert corpo["setup"] == interpretado
+    assert corpo["ensaio"] == {"indisparavel": False, "condicoes": [],
+                               "pregoes": 48}
