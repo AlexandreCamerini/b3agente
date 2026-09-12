@@ -743,3 +743,161 @@ def test_status_com_erro_de_tool_segue_200_e_debita_um(monkeypatch):
     assert r.json()["cap"]["usado"] == 1, (
         "o bloco `cap` da própria resposta contradiz o que foi cobrado")
     assert _reservado(main, uid) == 0
+
+
+# ====================================================================== #
+# 24-15 (pedido do Alex, 2026-09-11) — os três tetos da aba Opções deixam
+# de ser só env do Railway.
+#
+# A ordem é memória → kv → env → default, e cada camada tem uma razão:
+#   · kv    — sobrevive a redeploy; é o que faz o painel valer de fato;
+#   · env   — continua valendo porque é como o Railway muda um teto sem
+#             publicar código (e é o que `monkeypatch.setenv` exercita);
+#   · default — o que roda numa instalação limpa, sem nada configurado.
+#
+# Lixo em qualquer camada cai para a seguinte. Um `0` vindo do banco
+# desligaria o freio do teto compartilhado de 2.000/dia do serviço, que é o
+# oposto exato do que um limite existe para fazer.
+# ====================================================================== #
+def test_sem_kv_e_sem_env_os_tres_limites_sao_os_defaults_de_hoje(monkeypatch):
+    _client(monkeypatch)
+    assert options_mcp_api.cota_usuario_dia() == 60
+    assert options_mcp_api.rate_min() == 20
+    assert options_mcp_api.cota_global_dia() == 1800
+
+    lim = options_mcp_api.limites()
+    assert [lim[k]["valor"] for k in ("cotaUsuarioDia", "rateMin", "cotaGlobalDia")] == [60, 20, 1800]
+    assert [lim[k]["origem"] for k in ("cotaUsuarioDia", "rateMin", "cotaGlobalDia")] == ["default"] * 3
+
+
+def test_so_env_continua_mandando_e_a_origem_diz_env(monkeypatch):
+    """Não-regressão do comportamento de HOJE: quem configurou os tetos por
+    env do Railway não perde nada com este plano."""
+    _client(monkeypatch)
+    monkeypatch.setenv("B3_MCP_COTA_USUARIO_DIA", "9")
+    monkeypatch.setenv("B3_MCP_RATE_MIN", "3")
+    monkeypatch.setenv("B3_MCP_COTA_GLOBAL_DIA", "99")
+
+    lim = options_mcp_api.limites()
+    assert (lim["cotaUsuarioDia"]["valor"], lim["cotaUsuarioDia"]["origem"]) == (9, "env")
+    assert (lim["rateMin"]["valor"], lim["rateMin"]["origem"]) == (3, "env")
+    assert (lim["cotaGlobalDia"]["valor"], lim["cotaGlobalDia"]["origem"]) == (99, "env")
+    assert options_mcp_api._cota_usuario() == 9
+
+
+def test_env_muda_em_runtime_sem_reiniciar_o_processo(monkeypatch):
+    """O `_int_env` é lido A CADA leitura de propósito (o Railway troca env
+    sem redeploy do código). Cachear a env em memória mataria isso em
+    silêncio — daí o cache existir SÓ para o valor vindo do kv."""
+    _client(monkeypatch)
+    assert options_mcp_api.cota_usuario_dia() == 60
+    monkeypatch.setenv("B3_MCP_COTA_USUARIO_DIA", "11")
+    assert options_mcp_api.cota_usuario_dia() == 11, (
+        "a env deixou de valer depois da primeira leitura — o cache do kv "
+        "vazou para a camada de env")
+
+
+def test_kv_vence_a_env_e_a_origem_diz_kv(monkeypatch):
+    _client(monkeypatch)
+    monkeypatch.setenv("B3_MCP_COTA_USUARIO_DIA", "9")
+    monkeypatch.setenv("B3_MCP_RATE_MIN", "3")
+    monkeypatch.setenv("B3_MCP_COTA_GLOBAL_DIA", "99")
+
+    options_mcp_api.set_cota_usuario_dia(40)
+    options_mcp_api.set_rate_min(5)
+    options_mcp_api.set_cota_global_dia(1200)
+
+    lim = options_mcp_api.limites()
+    assert (lim["cotaUsuarioDia"]["valor"], lim["cotaUsuarioDia"]["origem"]) == (40, "kv")
+    assert (lim["rateMin"]["valor"], lim["rateMin"]["origem"]) == (5, "kv")
+    assert (lim["cotaGlobalDia"]["valor"], lim["cotaGlobalDia"]["origem"]) == (1200, "kv")
+
+
+def test_set_persiste_no_kv_e_sobrevive_a_um_processo_novo(monkeypatch):
+    """`reset_limites_cache()` é o processo novo em miniatura: memória vazia,
+    kv intacto. Sem a persistência o painel viraria um ajuste que o próximo
+    deploy apaga — que é exatamente o problema que este plano resolve."""
+    _client(monkeypatch)
+    options_mcp_api.set_cota_usuario_dia(7)
+    options_mcp_api.reset_limites_cache()
+    assert options_mcp_api.cota_usuario_dia() == 7
+    assert options_mcp_api.limites()["cotaUsuarioDia"]["origem"] == "kv"
+
+
+def test_kv_com_lixo_cai_para_env_ou_default_e_nunca_desliga_o_cap(monkeypatch):
+    """Um `0`/negativo/texto no banco não pode virar "sem limite". Cai para a
+    camada de baixo, igual a uma env torta."""
+    from app import db
+
+    _client(monkeypatch)
+    for lixo in (0, -5, "banana", None, True, 3.5, []):
+        db.kv_set(options_mcp_api._conn, "mcpCotaUsuarioDia", lixo, user_id=None)
+        options_mcp_api.reset_limites_cache()
+        assert options_mcp_api.cota_usuario_dia() == 60, f"kv={lixo!r} não caiu para o default"
+        assert options_mcp_api.limites()["cotaUsuarioDia"]["origem"] == "default"
+
+    monkeypatch.setenv("B3_MCP_COTA_USUARIO_DIA", "9")
+    db.kv_set(options_mcp_api._conn, "mcpCotaUsuarioDia", 0, user_id=None)
+    options_mcp_api.reset_limites_cache()
+    assert options_mcp_api.cota_usuario_dia() == 9
+    assert options_mcp_api.limites()["cotaUsuarioDia"]["origem"] == "env"
+
+
+def test_set_impoe_o_minimo_de_1_no_proprio_codigo(monkeypatch):
+    """O mínimo é do CÓDIGO, não da UI: uma cota 0 não é "limite baixo", é o
+    freio desligado — e a UI é a camada que menos se pode obrigar a lembrar."""
+    _client(monkeypatch)
+    assert options_mcp_api.set_cota_usuario_dia(0) == 1
+    assert options_mcp_api.set_rate_min(-3) == 1
+    assert options_mcp_api.set_cota_global_dia(0) == 1
+    assert options_mcp_api.cota_usuario_dia() == 1
+
+
+def test_os_privados_do_cap_delegam_nas_funcoes_publicas(monkeypatch):
+    """Uma fonte de verdade só. Duas portas para o mesmo número divergem na
+    primeira manutenção, e a que o `_cap_check` usa é a que decide de fato."""
+    _client(monkeypatch)
+    options_mcp_api.set_cota_usuario_dia(4)
+    options_mcp_api.set_rate_min(2)
+    options_mcp_api.set_cota_global_dia(13)
+    assert (options_mcp_api._cota_usuario(), options_mcp_api._rate_min(),
+            options_mcp_api._cota_global()) == (4, 2, 13)
+
+
+def test_o_cap_de_verdade_passa_a_obedecer_o_valor_do_painel(monkeypatch):
+    """O teste que amarra tudo: mudar pelo painel muda o 402 de verdade, sem
+    deploy e sem env."""
+    c, main = _client(monkeypatch)
+    p = _registra(c)
+    _espiao(monkeypatch, mcp_client.ResultadoTool(_FRESCOR_OK, False))
+    options_mcp_api.set_cota_usuario_dia(1)
+
+    r1 = c.get("/api/options/mcp/status", headers=_auth(p["token"]))
+    assert r1.status_code == 200, r1.text
+    r2 = c.get("/api/options/mcp/status", headers=_auth(p["token"]))
+    assert r2.status_code == 402, r2.text
+    assert r2.json()["detail"]["limite"] == 1
+
+
+def test_limites_publica_o_teto_do_proprio_servico(monkeypatch):
+    """2.000/dia é contrato do serviço (ADR-027), não configuração do Boris —
+    e é o número que dá sentido aos outros três."""
+    _client(monkeypatch)
+    assert options_mcp_api.TETO_SERVICO_DIA == 2000
+    assert options_mcp_api.limites()["tetoServicoDia"] == 2000
+
+
+def test_consumo_global_hoje_le_a_secao_propria_da_aba(monkeypatch):
+    """O admin decide olhando o consumo real; o número tem de vir do MESMO
+    balde que o cap usa (`mcpUsageGlobal`), não do da IA gerenciada."""
+    c, main = _client(monkeypatch)
+    p = _registra(c)
+    _espiao(monkeypatch, mcp_client.ResultadoTool(_FRESCOR_OK, False))
+
+    assert options_mcp_api.consumo_global_hoje()["used"] == 0
+    c.get("/api/options/mcp/status", headers=_auth(p["token"]))
+    g = options_mcp_api.consumo_global_hoje()
+    assert g["used"] == 1
+    assert g["cap"] == options_mcp_api.cota_global_dia()
+    assert metering.global_snapshot(main._conn)["used"] == 0, (
+        "o consumo da aba Opções vazou para o balde global da IA gerenciada")

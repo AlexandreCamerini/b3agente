@@ -30,7 +30,7 @@ from typing import Optional
 import httpx
 from fastapi import APIRouter, Body, Depends, Header, HTTPException
 
-from . import ai_activity, audit, llm, mcp_client, metering, obslog, pregao
+from . import ai_activity, audit, db, llm, mcp_client, metering, obslog, pregao
 
 router = APIRouter(prefix="/api/options/mcp", tags=["options-mcp"])
 
@@ -378,6 +378,11 @@ def configure(conn, require_user_dep, *, require_permission_dep=None,
     """
     global _conn, _require_user, _require_permission, _gate_analise, _config_do_usuario
     _conn = conn
+    # 24-15: os tetos vindos do kv são cache de PROCESSO, e este é o ponto em
+    # que o processo passa a falar com outro banco (é o que a suíte faz a cada
+    # cliente novo). Sem esta linha, o teto configurado num teste valeria como
+    # teto do seguinte, que roda contra um banco vazio.
+    reset_limites_cache()
     _require_user = require_user_dep
     _require_permission = require_permission_dep
     _gate_analise = gate_analise
@@ -423,28 +428,203 @@ def require_criar_setup(user: dict = Depends(require_user)) -> dict:
 
 
 # --------------------------------------------------------------------------
-# Envs — lidas A CADA chamada (o Railway muda env sem redeploy do código, e o
-# teste usa `monkeypatch.setenv`). Valor torto cai no default: env inválida
-# não pode derrubar a rota nem, pior, desligar o cap.
+# Os três tetos da aba: memória → kv → env → default.
+#
+# 24-15 (pedido do Alex, 2026-09-11). Antes eles eram SÓ env do Railway, e
+# mexer neles exigia redeploy — lento demais para o que controlam, ainda mais
+# depois de a Fase 24 multiplicar o consumo por sessão (`/possibilidades`
+# custa até 13 `tools/call`). O kv entra NA FRENTE da env; a env **continua
+# valendo** quando não há valor no kv, e é lida A CADA leitura de propósito:
+# é assim que o Railway troca um teto sem publicar código, e é o que
+# `monkeypatch.setenv` exercita na suíte.
+#
+# Padrão copiado de `brapi_budget.spot_intervalo_s`/`set_spot_intervalo` — o
+# precedente da casa para "configuração que sobrevive a deploy", incluindo o
+# `try/except` que engole falha de kv (um banco indisponível degrada para a
+# camada de baixo; nunca derruba a rota).
+#
+# Valor torto em qualquer camada cai para a seguinte. Isso não é
+# permissividade: um `0` vindo do banco não seria "limite baixo", seria o
+# freio DESLIGADO em cima de um teto de 2.000 chamadas/dia compartilhado por
+# toda a base do Boris.
 # --------------------------------------------------------------------------
-def _int_env(nome: str, padrao: int) -> int:
+COTA_USUARIO_DIA_DEFAULT = 60
+RATE_MIN_DEFAULT = 20
+COTA_GLOBAL_DIA_DEFAULT = 1800
+
+_KV_COTA_USUARIO = "mcpCotaUsuarioDia"
+_KV_RATE_MIN = "mcpRateMin"
+_KV_COTA_GLOBAL = "mcpCotaGlobalDia"
+
+# Contrato do serviço (ADR-027, "Contra (aceito)"): 2.000 `tools/call` por dia
+# para TODOS os usuários do Boris somados. Não é configuração daqui — é o
+# número que dá sentido aos três de cima, e a razão de o painel avisar quando
+# alguém configura acima dele.
+TETO_SERVICO_DIA = 2000
+
+# Entidade do audit log da escrita destes tetos. Fica aqui, junto do que ela
+# descreve, pelo MESMO motivo de `ENTIDADE_AUDITORIA`: a rota, o teste e
+# `rbac.ENTIDADES_POR_PERMISSAO` precisam citar a mesma string, e duas cópias
+# fariam a auditoria existir sem ninguém a ver.
+ENTIDADE_COTA = "mcp_cota"
+
+# Cache em memória do valor vindo do KV — e só dele.
+#
+# Por que existe: estes três são lidos no caminho de `_cap_check`, ou seja, a
+# cada chamada de tool. Por que é seguro aqui: o valor muda por ação
+# administrativa explícita (nunca por evento de mercado nem por virada de
+# dia), e quem o muda é `set_*`, que roda no MESMO processo e invalida a
+# entrada na hora. Por que NÃO cacheia a env nem o default: cachear a env
+# mataria em silêncio a troca de teto sem redeploy — o custo de não cachear é
+# um SELECT por chave primária no SQLite, a mesma classe do que o `metering`
+# já faz várias vezes por requisição.
+_limites_mem: dict = {}
+
+
+def reset_limites_cache() -> None:
+    """Esquece o que veio do kv. Chamado por `configure()` (processo fiado a
+    outro banco) e pelos testes entre casos — sem isto, um `set_*` de um teste
+    valeria como teto do seguinte, que roda contra outro banco."""
+    _limites_mem.clear()
+
+
+def _env_int(nome: str) -> Optional[int]:
+    """Inteiro > 0 declarado na env, ou `None`. Texto, vazio, 0 e negativo
+    devolvem `None` — a decisão cai para a camada de baixo."""
+    bruto = os.environ.get(nome)
+    if bruto is None:
+        return None
     try:
-        v = int(os.environ.get(nome) or padrao)
+        v = int(bruto)
     except (TypeError, ValueError):
-        return padrao
-    return v if v > 0 else padrao
+        return None
+    return v if v > 0 else None
 
 
+def _int_env(nome: str, padrao: int) -> int:
+    """Compatível byte a byte com o que existia antes deste plano (env vazia,
+    torta, 0 ou negativa → `padrao`); hoje é a TERCEIRA camada, não a
+    primeira."""
+    v = _env_int(nome)
+    return v if v is not None else padrao
+
+
+def _kv_int(chave: str) -> Optional[int]:
+    """Inteiro > 0 gravado no kv, ou `None`. `bool` é recusado de propósito
+    (`True` é `int` em Python, e um `True` no banco viraria cota 1)."""
+    if _conn is None:
+        return None
+    try:
+        v = db.kv_get(_conn, chave, None, user_id=None)
+    except Exception:  # noqa: BLE001 — banco indisponível degrada, não derruba
+        return None
+    if isinstance(v, bool) or not isinstance(v, int):
+        return None
+    return v if v > 0 else None
+
+
+def _valor_e_origem(chave_kv: str, env: str, padrao: int) -> tuple:
+    """O ÚNICO lugar que decide um teto vigente. `origem` é `"kv"`, `"env"` ou
+    `"default"` — sem ela o admin muda pelo painel, a env continua diferente e
+    ninguém sabe qual manda."""
+    v = _limites_mem.get(chave_kv)
+    if v is None:
+        v = _kv_int(chave_kv)
+        if v is not None:
+            _limites_mem[chave_kv] = v
+    if v is not None:
+        return v, "kv"
+    v = _env_int(env)
+    if v is not None:
+        return v, "env"
+    return padrao, "default"
+
+
+def _set_limite(chave_kv: str, n) -> int:
+    """Persiste e invalida o cache. O mínimo de 1 é imposto AQUI, no código,
+    não na UI — mesma decisão do `max(30, ...)` de `set_spot_intervalo`: a
+    camada que menos se pode obrigar a lembrar é justamente a de cima."""
+    v = max(1, int(n))
+    _limites_mem[chave_kv] = v
+    if _conn is not None:
+        try:
+            db.kv_set(_conn, chave_kv, v, user_id=None)
+        except Exception:  # noqa: BLE001 — vale neste processo; some no deploy
+            pass
+    return v
+
+
+def cota_usuario_dia() -> int:
+    return _valor_e_origem(_KV_COTA_USUARIO, "B3_MCP_COTA_USUARIO_DIA",
+                           COTA_USUARIO_DIA_DEFAULT)[0]
+
+
+def set_cota_usuario_dia(n) -> int:
+    return _set_limite(_KV_COTA_USUARIO, n)
+
+
+def rate_min() -> int:
+    return _valor_e_origem(_KV_RATE_MIN, "B3_MCP_RATE_MIN", RATE_MIN_DEFAULT)[0]
+
+
+def set_rate_min(n) -> int:
+    return _set_limite(_KV_RATE_MIN, n)
+
+
+def cota_global_dia() -> int:
+    return _valor_e_origem(_KV_COTA_GLOBAL, "B3_MCP_COTA_GLOBAL_DIA",
+                           COTA_GLOBAL_DIA_DEFAULT)[0]
+
+
+def set_cota_global_dia(n) -> int:
+    return _set_limite(_KV_COTA_GLOBAL, n)
+
+
+# Nome de cada teto → (chave de kv, env, default). Uma tupla só: a rota admin
+# itera por ela em vez de repetir a lista de três em cada ponto.
+LIMITES = (
+    ("cotaUsuarioDia", _KV_COTA_USUARIO, "B3_MCP_COTA_USUARIO_DIA", COTA_USUARIO_DIA_DEFAULT),
+    ("rateMin", _KV_RATE_MIN, "B3_MCP_RATE_MIN", RATE_MIN_DEFAULT),
+    ("cotaGlobalDia", _KV_COTA_GLOBAL, "B3_MCP_COTA_GLOBAL_DIA", COTA_GLOBAL_DIA_DEFAULT),
+)
+
+# Os que se medem POR DIA e por isso se comparam com `TETO_SERVICO_DIA`.
+# `rateMin` fica fora: é por MINUTO, e compará-lo com um teto diário seria
+# erro de unidade travestido de aviso.
+LIMITES_POR_DIA = ("cotaUsuarioDia", "cotaGlobalDia")
+
+
+def limites() -> dict:
+    """Os três tetos vigentes, cada um com a ORIGEM e a env que o declara,
+    mais o teto do próprio serviço."""
+    fora = {"tetoServicoDia": TETO_SERVICO_DIA}
+    for nome, chave_kv, env, padrao in LIMITES:
+        valor, origem = _valor_e_origem(chave_kv, env, padrao)
+        fora[nome] = {"valor": valor, "origem": origem, "env": env, "default": padrao}
+    return fora
+
+
+def consumo_global_hoje() -> dict:
+    """Consumo de HOJE do balde global da aba (`mcpUsageGlobal`), no dia de
+    São Paulo. Mora aqui, e não na rota, porque a seção e a noção de dia são
+    deste módulo — lidas de fora, divergiriam do que o cap de fato conta."""
+    return metering.global_snapshot(
+        _conn, cap=cota_global_dia(), section=GLOBAL_SECTION, _dia=_dia_sp())
+
+
+# As três privadas que o `_cap_check` usa delegam nas públicas: um lugar só
+# decide o valor vigente. Os nomes seguem porque são o vocabulário do cap (e
+# o que a suíte já exercita).
 def _cota_usuario() -> int:
-    return _int_env("B3_MCP_COTA_USUARIO_DIA", 60)
+    return cota_usuario_dia()
 
 
 def _rate_min() -> int:
-    return _int_env("B3_MCP_RATE_MIN", 20)
+    return rate_min()
 
 
 def _cota_global() -> int:
-    return _int_env("B3_MCP_COTA_GLOBAL_DIA", 1800)
+    return cota_global_dia()
 
 
 # --------------------------------------------------------------------------
