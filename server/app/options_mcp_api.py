@@ -199,6 +199,31 @@ MOTIVO_HV_AUSENTE = (
     "calculada aqui, por isso não há número a mostrar"
 )
 
+# 24-14 (achado ao vivo 2026-09-11) — o ensaio que não testou nada. O 24-11
+# tratou o campo VAZIO; este trata o caso pior, que é o número PLAUSÍVEL:
+# `disparos: 0` com `pregoes_avaliaveis: 31` se lê como "testei e não
+# disparou", quando a verdade é "nunca pôde disparar".
+#
+# Os três textos dizem só o que a aritmética de janela demonstra. Nenhum
+# afirma que o setup dispararia com mais histórico (previsão), que o setup é
+# ruim (juízo) nem manda mudar o período (ação que a tela não oferece) — quem
+# extrapola aqui só troca a primeira leitura errada por uma segunda.
+MOTIVO_JANELA_NUNCA_FECHOU = (
+    "esta condição precisa de mais pregões do que o histórico do ensaio tem, "
+    "então ela não teve valor em nenhum dia — não é que não tenha ocorrido, "
+    "é que não deu para verificar"
+)
+MOTIVO_JANELA_CURTA_PARA_SEQUENCIA = (
+    "esta condição só passou a ter valor nos últimos pregões do histórico, em "
+    "quantidade menor que a sequência de dias seguidos que o setup exige — a "
+    "sequência não teve como se formar"
+)
+AVISO_ENSAIO_INDISPARAVEL = (
+    "Este ensaio não testou o setup: uma das condições nunca pôde ser "
+    "verificada no histórico disponível, e por isso o número de disparos é "
+    "zero por construção — não por raridade."
+)
+
 # `AVISOS` é a superfície de varredura do módulo no `test_guardrail_imperativo`
 # (FONTES) — não só os avisos de frescor. Texto fixo novo que chega ao usuário
 # entra aqui na fase que o cria.
@@ -218,7 +243,10 @@ AVISOS = "\n".join((AVISO_FRESCOR_NAO_MEDIDO,
                     AVISO_RECUSA_COBRADA,
                     MOTIVO_JANELA_63,
                     MOTIVO_SERIE_CURTA,
-                    MOTIVO_HV_AUSENTE))
+                    MOTIVO_HV_AUSENTE,
+                    MOTIVO_JANELA_NUNCA_FECHOU,
+                    MOTIVO_JANELA_CURTA_PARA_SEQUENCIA,
+                    AVISO_ENSAIO_INDISPARAVEL))
 
 # Critério de "operável" do BORIS, não do serviço (D-24.4). O serviço aceita
 # qualquer peneira; estes três números são escolha nossa, e por isso viajam na
@@ -1913,6 +1941,118 @@ def _campos_faltando(setup) -> list:
     return faltando
 
 
+def _janela_declarada(spec) -> Optional[int]:
+    """A janela que um lado da comparação DECLARA, ou `None`.
+
+    A leitura é de FORMA, não de vocabulário: quem tem janela é a condição que
+    traz `window`, e o serviço só aceita `window` em indicador que a use
+    ("não usa janela — remova"). Guardar aqui a lista dos indicadores com
+    janela criaria a segunda cópia do contrato — a que ninguém atualiza quando
+    o serviço ganha o próximo indicador (ENG-06).
+
+    `bool` é recusado de propósito (subclasse de `int`): um `True` viraria
+    janela de 1 e produziria aviso sobre uma condição que não declarou nada.
+    """
+    if not isinstance(spec, dict):
+        return None
+    janela = spec.get("window")
+    if isinstance(janela, bool) or not isinstance(janela, int) or janela < 1:
+        return None
+    return janela
+
+
+def _ensaio_inconclusivo(setup, backtest) -> dict:
+    """Condições cuja janela não cabe no histórico usado pelo ensaio.
+
+    **Por que existe** (achado ao vivo, 2026-09-11): um setup com média de 200
+    sobre 48 pregões volta `disparos: 0` e `pregoes_avaliaveis: 31`. Os dois
+    números estão certos — `AND` com um `False` conhecido é `False`, e nos dias
+    de RSI acima de 30 o dia é comprovadamente falso. O que está errado é o que
+    a pessoa entende: "testei e não disparou", quando a verdade é que a
+    condição da média NUNCA teve valor e o setup era indisparável.
+
+    É pior que um campo vazio: vazio se vê, número plausível não. Alguém pode
+    GRAVAR um setup acreditando que ele passou por um teste que não houve.
+
+    A conta é de janela, não de análise técnica: uma janela de `w` sobre `n`
+    pregões produz `n - w + 1` pontos. `<= 0` significa que a condição nunca
+    teve valor; menos que `consecutive_days` significa que a sequência exigida
+    é impossível mesmo com todos os pontos verdadeiros.
+
+    `n - w + 1` é o TETO, e é assim de propósito: as médias produzem essa
+    contagem, e os indicadores que olham o pregão anterior produzem um ponto a
+    menos. Errar para o lado generoso só pode deixar de avisar — nunca dar
+    como morta uma condição que teve valor.
+
+    O veredito `indisparavel` é reservado ao caso DEMONSTRÁVEL: condição sem
+    ponto nenhum dentro de um `AND`. Aí a impossibilidade é aritmética — se
+    uma condição do `AND` nunca é verdadeira, o dia nunca é verdadeiro, e
+    `disparos` é 0 por construção. Com `OR`, uma condição morta não impede as
+    outras; com a janela curta para a sequência, a condição TEVE valor em
+    alguns pregões e o ensaio de fato avaliou alguma coisa. Nos dois, a
+    condição é listada como ressalva e o veredito é calado: afirmar
+    indisparabilidade que não se pode provar seria trocar uma leitura errada
+    por outra.
+
+    Nada aqui é recalculado e nada é consultado: `setup` e `backtest` são o
+    que o dry-run JÁ devolveu, na mesma resposta.
+    """
+    periodo = backtest.get("periodo") if isinstance(backtest, dict) else None
+    pregoes = periodo.get("pregoes") if isinstance(periodo, dict) else None
+    if isinstance(pregoes, bool) or not isinstance(pregoes, int) or pregoes < 1:
+        # Sem o tamanho do período não existe a conta, e a tela não afirma
+        # nada. Um aviso derivado de um número que ninguém informou seria a
+        # fabricação que este helper existe para impedir (princípio 4).
+        return {"indisparavel": False, "condicoes": [], "pregoes": None}
+
+    setup = setup if isinstance(setup, dict) else {}
+    # Os dois defaults são os do motor (`setup.get("logic", "AND")`,
+    # `setup.get("consecutive_days", 1)`). Tratar a ausência como
+    # "desconhecido" faria o caso mais comum — setup sem `logic` explícita —
+    # perder justamente o aviso.
+    and_logico = str(setup.get("logic") or "AND").strip().upper() == "AND"
+    exigidos = setup.get("consecutive_days")
+    if isinstance(exigidos, bool) or not isinstance(exigidos, int) or exigidos < 1:
+        exigidos = 1
+
+    condicoes = []
+    morta = False
+    for cond in (setup.get("conditions") or []):
+        if not isinstance(cond, dict):
+            continue
+        # Os DOIS lados contam, e a maior janela manda: é ela que decide
+        # quando a comparação passa a ter valor. No caso real a janela que
+        # mata o ensaio mora na `reference` (`close > média de 200`), não no
+        # lado esquerdo.
+        lados = [(_janela_declarada(lado), lado)
+                 for lado in (cond, cond.get("reference"))]
+        lados = [(j, lado) for j, lado in lados if j is not None]
+        if not lados:
+            continue
+        janela, lado = max(lados, key=lambda par: par[0])
+        pontos = pregoes - janela + 1
+        if pontos <= 0:
+            motivo = MOTIVO_JANELA_NUNCA_FECHOU
+            morta = True
+        elif pontos < exigidos:
+            motivo = MOTIVO_JANELA_CURTA_PARA_SEQUENCIA
+        else:
+            continue
+        # O nome do indicador sai VERBATIM do lado que bloqueia: é vocabulário
+        # do serviço, e traduzi-lo aqui criaria o segundo dicionário.
+        indicador = lado.get("indicator")
+        condicoes.append({
+            "indicador": indicador if isinstance(indicador, str) else None,
+            "janela": janela,
+            "pontos": pontos,
+            "motivo": motivo,
+        })
+
+    return {"indisparavel": bool(morta and and_logico),
+            "condicoes": condicoes,
+            "pregoes": pregoes}
+
+
 # Chaves toleradas para idade e SLA dentro da classe de frescor. Mesma razão
 # da tolerância de `_frescor`: a forma real de `check_data_freshness` só se
 # confirma ao vivo (`test_mcp_vivo.py`), e cravar UMA chave faria o número
@@ -2394,6 +2534,11 @@ async def setup_compilar(body: dict = Body(default={}),
         obslog.log("mcp", "compilar", rota=rota, uid=uid, ticker=alvo,
                    condicoes=len(setup.get("conditions") or []), cache=cache)
 
+        # O que o serviço ENTENDEU — e o que a tela mostra, e o que
+        # `/setups/confirmar` recebe de volta. O `ensaio` é lido DESTE objeto,
+        # não do que a IA respondeu: descrever um setup que ninguém vai gravar
+        # seria explicar a coisa errada.
+        interpretado = dados.get("setup_as_interpreted") or setup
         return {
             "status": dados.get("status") or "dry_run",
             "ticker": alvo,
@@ -2402,8 +2547,13 @@ async def setup_compilar(body: dict = Body(default={}),
             "descricao": descricao,
             # O que o serviço ENTENDEU. Na falta do eco, o que foi enviado —
             # é esse objeto que `/setups/confirmar` recebe de volta.
-            "setup": dados.get("setup_as_interpreted") or setup,
+            "setup": interpretado,
             "backtest": dados.get("backtest"),
+            # 24-14: a leitura que faltava AO LADO do backtest, nunca no lugar
+            # dele — o `backtest` continua verbatim, byte a byte. Sai dos
+            # mesmos números que já vieram: nenhuma chamada nova, nenhum
+            # indicador recalculado.
+            "ensaio": _ensaio_inconclusivo(interpretado, dados.get("backtest")),
             "proximoPasso": dados.get("next_step"),
             "pregao": _pregao_medido(frescor, dados),
             "fonte": FONTE,
