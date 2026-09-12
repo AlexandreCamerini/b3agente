@@ -531,7 +531,34 @@ def _gate_analise(scope, config, custo: int = 1):
     se ainda há cota da chave do servidor hoje. O CONTADOR é sempre o de
     `metering` — `plan.can_analyze` nunca mantém contagem própria (ver
     contrato em plan.py). Retorna (config_efetiva, consume), igual
-    `_ai_apply_managed`."""
+    `_ai_apply_managed`.
+
+    2026-09-12: a precedência ganhou um degrau ACIMA dos dois — a CHAVE
+    PRÓPRIA (BYOK). Continua sendo um único ponto de decisão; o que mudou é
+    QUANDO o gate mensal é consultado, nunca O QUE ele mede (nenhum contador
+    novo, `plan.py` intacto). Ver o porquê literal no corpo."""
+    # BYOK vem ANTES do gate mensal, e a razão é literal: `month_used` conta
+    # SÓ o consumo da chave do SERVIDOR (`metering.consume` é o único ponto de
+    # escrita do ledger mensal e só roda no ramo gerenciado de
+    # `_ai_apply_managed`), enquanto `plan.can_analyze` não sabe que existe
+    # chave própria. Na ordem antiga, quem gastava as 30 análises gerenciadas
+    # do mês e depois trazia a própria chave continuava barrado — por um
+    # contador de um recurso que ele não ia usar, pagando do bolso pelo que
+    # não conseguia rodar. O código já prometia o contrário em dois lugares
+    # ("BYOK utilizável → sem cota" em `_ai_apply_managed`, e o texto do 402
+    # falando de "análises do seu plano" para quem não usa a chave do plano);
+    # isto faz a promessa valer (achado 2026-09-12, bloqueio real em conta).
+    #
+    # Mesma definição de "tem chave" que `_ai_apply_managed` usa — duas
+    # definições de BYOK divergem na primeira manutenção. E `_ai_apply_managed`
+    # com BYOK não tem efeito colateral nenhum: devolve `(config, lambda:
+    # None)` na PRIMEIRA linha, sem tocar em `metering`.
+    #
+    # Sem BYOK nada muda: o gate mensal continua na frente do caminho
+    # gerenciado, que é o que protege a chave do servidor (guardião em
+    # tests/test_plan_gate_byok.py, caso 2).
+    if llm.resolve_key(config):
+        return _ai_apply_managed(scope, config, custo=custo)
     plano = _plano_do_escopo(scope)
     # C-33 (fase 5): a contagem passada ao gate de plano é a REAL do mês
     # corrente, lida do ledger único de `metering` (contrato escrito em
