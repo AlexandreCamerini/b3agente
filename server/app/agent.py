@@ -331,8 +331,13 @@ async def _alertar_kill_switch(conn, client=None) -> int:
     try:
         import httpx
 
+        # 25-02 (2026-09-12): `rbac.OWNER` entrou junto do `ROLE_ADMIN` porque
+        # esta varredura enumera GRUPOS, e papel FORA de `GRUPOS` fica
+        # invisível para ela — o dono do produto seria o único a não ser
+        # avisado de que a execução automática da base inteira está parada,
+        # que é exatamente o incidente que este alerta existe para não repetir.
         destinatarios = db.user_ids_with_roles(
-            conn, [rbac.ROLE_ADMIN] + [g for g in rbac.GRUPOS if "execucao_automatica.ver" in rbac.GRUPOS[g]]
+            conn, [rbac.ROLE_ADMIN, rbac.OWNER] + [g for g in rbac.GRUPOS if "execucao_automatica.ver" in rbac.GRUPOS[g]]
         )
 
         async def _fan_out(cli):

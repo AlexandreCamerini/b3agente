@@ -1151,7 +1151,16 @@ async def admin_users_get(user: dict = Depends(require_permission("usuarios.gere
         u["roles"] = rbac.roles_for_user(_conn, u["id"])
     return {
         "usuarios": usuarios,
+        # `gruposDisponiveis` é a lista do que o portal renderiza como TOGGLE
+        # (um botão por papel, conceder/revogar). `owner` NÃO entra nela, por
+        # desenho (25-02, D1): ali ele viraria um botão que sempre toma 403.
         "gruposDisponiveis": sorted(rbac.GRUPOS) + [rbac.ROLE_ADMIN],
+        # ...e entra AQUI, para a UI mostrar o papel como ESTADO. Sumir com
+        # ele da tela seria pior que o botão inútil: o admin olharia a conta do
+        # dono e concluiria que ela não tem o papel. A lista é do backend
+        # porque a regra é do backend — um literal "owner" no portal seria a
+        # segunda cópia dela (25-02, 2026-09-12).
+        "papeisIrrevogaveis": [rbac.OWNER],
         "planosDisponiveis": _planos_disponiveis(),
     }
 
@@ -1173,15 +1182,31 @@ async def admin_users_roles_post(user_id: str, body: dict = Body(default={}), us
         raise HTTPException(404, "Usuário não encontrado.")
     anterior = rbac.roles_for_user(_conn, user_id)
     if acao == "revogar":
-        rbac.revoke_role(_conn, user_id, role)
+        # 25-02 (D1, 2026-09-12): este ramo não tinha verificação NENHUMA —
+        # era `DELETE` direto. Agora a recusa do `owner` vem da função de
+        # domínio e vira 403 com a razão (403 e não 400: o papel existe e o
+        # pedido está bem formado; o que falta é autorização para o efeito).
+        # Esta é a 1ª camada da defesa em profundidade; a 2ª é a reconciliação
+        # em `rbac.ensure_bootstrap_role`.
+        try:
+            rbac.revoke_role(_conn, user_id, role)
+        except rbac.PapelIrrevogavel as e:
+            raise HTTPException(403, str(e))
     else:
         # Escalação de privilégio: "usuarios.gerenciar" concede QUALQUER papel
         # (inclusive role_admin, o bootstrap com todas as permissões) — sem
         # este freio, um titular só do grupo "usuarios" vira admin total de
         # si mesmo ou de terceiros. Só quem já É role_admin pode conceder
         # role_admin.
-        if role == rbac.ROLE_ADMIN and rbac.ROLE_ADMIN not in rbac.roles_for_user(_conn, user["id"]):
+        papeis_do_ator = rbac.roles_for_user(_conn, user["id"])
+        if role == rbac.ROLE_ADMIN and rbac.ROLE_ADMIN not in papeis_do_ator:
             raise HTTPException(403, "Só um administrador (role_admin) pode conceder o papel role_admin.")
+        # 25-02 (D1): o MESMO freio, um degrau acima. `role_admin` distribui
+        # qualquer grupo, mas não a âncora do dono do produto — senão `owner`
+        # viraria mais um papel que todo admin reparte, e a permanência dele
+        # (irrevogável) o tornaria pior que o role_admin: entra e não sai.
+        if role == rbac.OWNER and rbac.OWNER not in papeis_do_ator:
+            raise HTTPException(403, "Só o owner pode conceder o papel owner.")
         try:
             rbac.grant_role(_conn, user_id, role, granted_by=user["id"])
         except ValueError as e:

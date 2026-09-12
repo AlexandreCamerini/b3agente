@@ -1064,6 +1064,19 @@ function Usuarios({ user }) {
                 (plano × papéis), sem nome não dá para saber qual é qual */}
             <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "6px", alignItems: "center" }}>
               <span style={{ fontSize: "11px", color: T.faint, marginRight: "2px" }}>papéis:</span>
+              {/* 25-02 (D1, 2026-09-12): papel irrevogável entra como ESTADO,
+                  nunca como toggle — um botão ali sempre tomaria 403, e
+                  esconder o papel faria o admin achar que a conta do dono não
+                  o tem. A lista vem do backend (`papeisIrrevogaveis`): a regra
+                  é de lá, e um literal aqui seria a segunda cópia dela. */}
+              {(u.roles || []).filter((role) => (data.papeisIrrevogaveis || []).includes(role)).map((role) => (
+                <span key={role} title="Papel permanente — não pode ser revogado."
+                      style={{ ...btnGhost, display: "inline-block", cursor: "default",
+                               fontSize: "11.5px", padding: "11px 12px",
+                               background: T.accent, color: T.onAccent, borderColor: T.accent }}>
+                  {role} · permanente
+                </span>
+              ))}
               {(data.gruposDisponiveis || []).map((role) => {
                 const tem = (u.roles || []).includes(role);
                 return (
