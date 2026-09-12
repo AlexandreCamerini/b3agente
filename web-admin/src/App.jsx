@@ -976,7 +976,17 @@ function Prompts({ user }) {
 }
 
 // ADR-013 — Usuários e papéis: atribuir/revogar um dos 7 grupos de macro
-// função. SEM override de plano nesta rodada (decisão do Alex) — só leitura.
+// função. A nota aqui dizia "SEM override de plano nesta rodada (decisão do
+// Alex) — só leitura": a decisão MUDOU em 2026-09-12, a pedido do Alex, e o
+// card ganhou também o eixo COMERCIAL (ADR-010). Até então `pro` só existia
+// por edição direta do SQLite do container — porta que serve à conta do dono
+// e a mais ninguém. O motivo original de separar continua valendo, e é por
+// isso que são duas rotas e dois controles: papel de governança e plano pago
+// são eixos independentes.
+//
+// Os ids de plano NÃO são escritos aqui: vêm em `data.planosDisponiveis`,
+// derivados de `server/app/plan.py`. Uma lista na UI seria a segunda cópia, e
+// ela não acompanharia o dia em que existir um terceiro plano.
 function Usuarios({ user }) {
   const { loading, error, data, reload } = useFetch(() => api.usersGet(), []);
   const [busyKey, setBusyKey] = useState(null);
@@ -1000,6 +1010,24 @@ function Usuarios({ user }) {
     }
   };
 
+  const mudarPlano = async (u, plano) => {
+    // Mesma razão da confirmação dos papéis (ADR-014): o efeito é imediato, o
+    // portal abre no celular, e aqui o que muda é cota de análises e de
+    // watchlist da pessoa. A escrita já vai auditada com o nome de quem
+    // clicou — inclusive quando a conta é a própria (decisão de 2026-09-12).
+    const quem = u.email || u.id.slice(0, 10);
+    if (!window.confirm(`Mudar o plano de ${quem} para "${plano}"?`)) return;
+    setBusyKey(u.id + "plano" + plano); setMsg("");
+    try {
+      await api.userPlan(u.id, plano);
+      reload();
+    } catch (e) {
+      setMsg((e && e.message) || "Falha ao mudar o plano.");
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
   return (
     <Card title="Usuários e papéis">
       <Estado loading={loading} error={error} empty={data && (data.usuarios || []).length === 0}>
@@ -1010,9 +1038,32 @@ function Usuarios({ user }) {
                 documentElement 452px numa viewport de 390). */}
             <div style={{ display: "flex", justifyContent: "space-between", gap: "8px", flexWrap: "wrap", fontSize: "13px" }}>
               <span style={{ color: T.text, minWidth: 0, overflowWrap: "anywhere" }}>{u.email || u.id.slice(0, 10)}</span>
-              <span style={{ fontFamily: MONO, fontSize: "11px", color: T.faint }}>plano: {u.plan || "free"}</span>
+              {/* travessão, nunca um id chutado: o plano é do backend */}
+              <span style={{ fontFamily: MONO, fontSize: "11px", color: T.faint }}>plano: {u.plan || "—"}</span>
             </div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "6px" }}>
+            {/* eixo COMERCIAL (2026-09-12). O botão do plano vigente fica
+                marcado e desabilitado — reaplicar o mesmo plano só produziria
+                um evento de auditoria sem mudança. */}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "6px", alignItems: "center" }}>
+              <span style={{ fontSize: "11px", color: T.faint, marginRight: "2px" }}>mudar plano:</span>
+              {(data.planosDisponiveis || []).map((p) => {
+                const vigente = (u.plan || "") === p;
+                const ocupado = busyKey === u.id + "plano" + p;
+                return (
+                  <button key={p} onClick={() => mudarPlano(u, p)} disabled={vigente || ocupado}
+                          style={{ ...btnGhost, fontSize: "11.5px", padding: "11px 12px", minHeight: "44px",
+                                   background: vigente ? T.accent : "transparent", color: vigente ? T.onAccent : T.muted,
+                                   borderColor: vigente ? T.accent : T.border,
+                                   cursor: vigente ? "default" : "pointer", opacity: ocupado ? 0.5 : 1 }}>
+                    {p}
+                  </button>
+                );
+              })}
+            </div>
+            {/* rótulo: com DUAS fileiras de botões na mesma linha do usuário
+                (plano × papéis), sem nome não dá para saber qual é qual */}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "6px", alignItems: "center" }}>
+              <span style={{ fontSize: "11px", color: T.faint, marginRight: "2px" }}>papéis:</span>
               {(data.gruposDisponiveis || []).map((role) => {
                 const tem = (u.roles || []).includes(role);
                 return (
