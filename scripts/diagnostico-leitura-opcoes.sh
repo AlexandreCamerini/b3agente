@@ -70,5 +70,15 @@ if b.get("hv21") is None:
 print(f"\n=== pregão e frescor ===")
 print(f"  trading_date do behavior: {b.get('trading_date')}")
 print(f"  underlying_price: {prop.get('underlying_price')}")
-print(json.dumps(fres, indent=2, ensure_ascii=False, default=str)[:1200])
+# Frescor INTEIRO: o corte de 1200 chars escondia justamente a classe
+# `negociacao_b3`, que e a que decide se a cotacao esta velha (2026-09-11).
+classes = fres.get("classes") or []
+print(f"  warning global: {fres.get('warning')!r}")
+for c in classes:
+    nome = c.get("class") or c.get("classe")
+    idade, sla = c.get("age_hours"), c.get("sla_hours")
+    marca = "  <<< a que manda na cotacao" if nome == "negociacao_b3" else ""
+    print(f"  - {nome}: {c.get('status')} | idade {idade}h | SLA {sla}h{marca}")
+    if c.get("last_failure"):
+        print(f"      ultima falha: {str(c['last_failure'])[:300]}")
 PY
