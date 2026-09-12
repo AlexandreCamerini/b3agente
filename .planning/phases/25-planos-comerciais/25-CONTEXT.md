@@ -24,6 +24,12 @@ mensal que o gate comercial lê está errado nos dois sentidos:
    direto, **pulando o gate mensal**. Só `/api/analyze`,
    `/api/technical/analyze` e `/setups/compilar` passam por `_gate_analise`.
 
+   **Correção (25-01, medida com teste):** este item estava impreciso e a
+   diferença importa para a Fase 3. As três rotas **já CONTAM** no ledger que
+   o plano lê — o `consume` de `_ai_apply_managed` usa o `MONTH_SECTION`
+   default. O que falta nelas é o **gate**, não a contagem: elas gastam acima
+   do cap e registram o excesso. Há teste dedicado, verde hoje.
+
 Tornar esse número configurável por plano antes de consertá-lo daria controle
 fino sobre uma medição errada. Por isso a Fase 0 é o conserto.
 
@@ -60,8 +66,12 @@ Vender acima disso é prometer o que a física não entrega.
    o mesmo custo, senão conta 1 onde gasta 10.
 3. Estender o guardião de `month_section` para varrer `main.py` também — hoje
    ele só olha `options_mcp_api.py`, e foi por isso que o defeito passou.
-4. `metering.snapshot()` (`metering.py:352-358`) aceita `section` e ignora ao
-   chamar `_load_month`. Corrigir ou remover o parâmetro.
+4. `metering.snapshot()` (`metering.py:352-358`) — **correção (25-01):** ele
+   não "ignorava" `section`; usava para o dia e lia o mês sempre de
+   `aiUsageMonth`. O defeito era **mistura de baldes**, não parâmetro morto.
+   Resolvido com um `month_section` próprio, e não derivando o nome do mensal
+   a partir do diário — as chaves de kv são independentes, e derivar seria
+   adivinhar uma convenção que não existe.
 
 **Risco:** ligar o gate mensal em três rotas que hoje não o têm pode barrar
 usuários que antes passavam. Medir o impacto com `metering.month_used` antes
