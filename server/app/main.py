@@ -1057,7 +1057,7 @@ async def admin_mobile_handoff_exchange(body: dict = Body(default={})):
 
 # FASE 8B (diagnóstico): carimbo de build do BACKEND — confirma qual código o
 # Railway está rodando (o front tem o dele em web/src/version.js).
-SERVER_BUILD_ID = "F10-20260911-06"  # 2026-09-11: a aba Opções para de herdar o veredito do fornecedor sobre frescor. O serviço dizia `em_dia` com a cotação de terça numa sexta — coerente com o SLA de 96h dele, e ainda assim com dois pregões faltando. Agora o Boris MEDE a distância pelo calendário da B3 (`pregao.py`, com feriados fixos, móveis e as exceções por ofício) e o chip diz "N pregões atrás", que vence "dado em dia". O dia corrente não conta: o COTAHIST só sai depois do fechamento. Nada passou a ser bloqueado — quem bloqueia segue sendo o frescor do serviço (ADR-027, Decisão 8). Junto vai a leitura explicando cada campo vazio (24-11), que o -05 não alcançou.
+SERVER_BUILD_ID = "F10-20260911-07"  # 2026-09-11: deploy SÓ-BACKEND — o front fica em -06 de propósito, porque nada em `web/src/` mudou, e o rodapé do Perfil vai mostrar os dois carimbos diferentes (é o estado correto, não um erro). Entrega: o compilador NL→DSL aceita o envelope `{"setup": …}` que o próprio `inputSchema` de `create_setup` descreve. Medido com LLM real: o modelo compilava certo e tomava 422 `forma_invalida` porque a validação procurava os campos na raiz — quem estava fora do contrato era o validador. Sem isto, criar setup pela tela falha em produção.
 # Normalmente sincronizado pelo entregar.sh a partir de web/src/version.js; num deploy
 # SÓ de backend (sem rebuild do front) bumpamos aqui para /api/health rastrear o servidor.
 

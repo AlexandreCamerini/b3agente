@@ -306,6 +306,13 @@ SYSTEM_COMPILADOR_CABECALHO = "\n".join((
     "provável nem com um padrão seu.",
     "- Responda SÓ o objeto JSON, sem cerca de código, sem comentário e sem "
     "texto antes ou depois.",
+    # Medido com LLM real em 2026-09-11: sem esta linha o modelo respondia
+    # `{\"setup\": {...}}`, que é a forma que a especificação abaixo (o schema
+    # da FERRAMENTA) de fato descreve. Ele seguia o schema; faltava dizer que
+    # queremos só o miolo dele.
+    "- Responda o objeto de setup em si, com os campos no nível de cima. Não "
+    "o embrulhe em nenhum outro objeto, nem repita o nome da ferramenta em "
+    "volta dele.",
     "",
     "Contexto: isto é um simulador educacional. O objeto vira um vigia que "
     "avisa quando a condição descrita ocorre no pregão; nada é enviado ao "
@@ -2123,6 +2130,38 @@ async def _material_do_compilador() -> tuple:
     return schema, texto
 
 
+def _desembrulha_setup(objeto):
+    """Aceita o setup tanto pelado quanto dentro do envelope `{"setup": …}`.
+
+    **Medido com LLM real em 2026-09-11**, na primeira execução da etapa 5 do
+    `fechar-fase-24.sh`: o modelo compilou a descrição perfeitamente e ainda
+    assim tomou 422 `forma_invalida`, porque respondeu
+    `{"setup": {...}, ...}` e a validação procurava os campos na raiz.
+
+    E ele estava CERTO. O `system` do compilador é montado do `inputSchema` de
+    `create_setup`, que é `{setup: Setup, confirm: bool}` — o modelo devolveu
+    exatamente a forma que a especificação que nós demos a ele descreve. Quem
+    estava fora do contrato era o validador.
+
+    O `system` passou a pedir o objeto interno explicitamente (ver
+    `SYSTEM_COMPILADOR_CABECALHO`), mas isto fica como rede: instrução em
+    prosa disputando com um schema formal é disputa que o schema ganha, e
+    perder uma compilação boa por causa de um invólucro seria jogar fora
+    trabalho que o usuário já pagou.
+
+    Desembrulha SÓ quando não há ambiguidade: chaves de topo contidas em
+    `{"setup", "confirm"}` e `setup` sendo um dict não vazio. Um objeto que
+    tenha `setup` junto de `name`/`ticker` NÃO é envelope — é setup com campo
+    estranho, e aí quem decide é a validação de forma.
+    """
+    if not isinstance(objeto, dict):
+        return objeto
+    interno = objeto.get("setup")
+    if isinstance(interno, dict) and interno and set(objeto) <= {"setup", "confirm"}:
+        return interno
+    return objeto
+
+
 def _setup_do_corpo(corpo: dict) -> dict:
     """O setup que o usuário VIU no dry-run, de volta para gravar. Não é
     recompilado nem passa por LLM: se fosse, o que se grava poderia não ser o
@@ -2301,7 +2340,7 @@ async def setup_compilar(body: dict = Body(default={}),
             # cláusula irmã do mesmo `try`).
             raise _erro_de_ia(e, rota=rota, uid=uid, ticker=alvo) from None
 
-        setup = llm._parse_json_loose(cru)
+        setup = _desembrulha_setup(llm._parse_json_loose(cru))
         if not isinstance(setup, dict):
             # O texto CRU vai junto, rotulado, para a pessoa ver o que a IA
             # respondeu. Fabricar um setup para "salvar" a resposta seria
