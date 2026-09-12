@@ -42,12 +42,30 @@ function bodyOf(source, anchor) {
   return null;
 }
 
-// --- (1) exatamente 1 definição, exatamente 3 usos --------------------------
+// --- (1) exatamente 1 definição, exatamente 4 usos --------------------------
+// ATUALIZADO em 2026-09-12 (25-06): eram 3 pontos de exibição (subtítulo da
+// Watchlist, CatalogModal, Atividade da IA); a tela de PLANO é o 4º. O número
+// subiu porque nasceu um consumidor novo, NÃO porque alguém duplicou a lógica
+// — a asserção que importa (1 definição só) continua idêntica, e o uso novo é
+// verificado estruturalmente logo abaixo: ele tem de morar dentro de
+// `PlanoLinha`, senão um 4º uso solto em qualquer lugar passaria por este
+// contador sem ninguém perceber.
 const defsQuotaSeg = (src.match(/function QuotaSeg\(/g) || []).length;
 ok(`function QuotaSeg tem exatamente 1 definição (achado ${defsQuotaSeg})`, defsQuotaSeg === 1);
 
 const usosQuotaSeg = (src.match(/<QuotaSeg/g) || []).length;
-ok(`<QuotaSeg é usado exatamente 3 vezes (achado ${usosQuotaSeg})`, usosQuotaSeg === 3);
+ok(`<QuotaSeg é usado exatamente 4 vezes (achado ${usosQuotaSeg})`, usosQuotaSeg === 4);
+
+const planoLinhaBody = bodyOf(src, "function PlanoLinha({ texto, quota, count, indisponivel }) ");
+ok("corpo de PlanoLinha localizado (o 4º ponto de exibição, 25-06)", !!planoLinhaBody);
+ok(
+  "o 4º uso de <QuotaSeg mora DENTRO de PlanoLinha (não é um uso solto em outra tela)",
+  !!planoLinhaBody && (planoLinhaBody.match(/<QuotaSeg/g) || []).length === 1
+);
+ok(
+  "PlanoLinha NÃO reimplementa a lógica de cor do QuotaSeg (sem T.warn/T.negative/T.positive próprios)",
+  !!planoLinhaBody && !/T\.warn|T\.negative|T\.positive/.test(planoLinhaBody)
+);
 
 // Âncora até o parêntese de fechamento dos parâmetros (sem incluir a chave
 // de abertura do corpo) — QuotaSeg desestrutura `{ quota, count, ... }` no

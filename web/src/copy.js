@@ -37,6 +37,47 @@ export const COPY = {
         ? "Só 1 dia registrado ainda — a curva aparece a partir do 3º dia."
         : "Só 2 dias registrados ainda — a curva aparece a partir do 3º dia.",
 
+    // 25-06 (Fase 5 do 25-CONTEXT) — PLANO DA CONTA. Texto IDÊNTICO nos dois
+    // modos, mesmo precedente de `curvaPoucosDias` logo acima: é estado de
+    // CONTA, não voz de professor vs mesa. O plano não muda como se decide
+    // uma operação; ele diz quanto cabe no mês.
+    //
+    // Nenhuma chave de CTA de upgrade — de propósito, não esquecimento. Não
+    // existe loja/IAP no produto (ADR-010, decisão 4) e um botão "assine"
+    // prometeria o que não se cumpre. `test_plano_ui.mjs` trava a ausência.
+    planoRotulo: "Plano",
+    // Sem mapa id -> nome de exibição: o app JÁ mostra o id cru ao usuário no
+    // modal de watchlist ("do plano free") e duas vozes para a mesma coisa
+    // divergiriam. Um mapa no front também seria uma segunda lista de planos,
+    // que fica velha no dia em que existir um terceiro (mesmo raciocínio do
+    // guardião do portal, 25-05).
+    planoNome: (planId) => (planId ? String(planId) : "—"),
+    planoResumoTile: (planId) =>
+      (planId ? String(planId) + " — análises" : "Análises") +
+      " de IA por mês e ativos na watchlist",
+    planoTituloTela: "Plano",
+    planoDescricao:
+      "O plano da sua conta define quantas análises de IA cabem no mês e quantos ativos cabem na watchlist. Os números abaixo vêm do servidor, no momento em que esta tela abriu. Hoje o plano é definido pela administração do Boris+.",
+    // `null` quando o limite não existe: o app NUNCA escreve a palavra que
+    // significa "sem teto" nem "X/∞" (D-03 da Fase 13) — a linha some.
+    planoEntitlementAnalises: (limite) =>
+      (limite == null ? null : "Análises da IA — " + limite + " por mês. Usadas até agora:"),
+    planoEntitlementWatchlist: (limite) =>
+      (limite == null ? null : "Ativos na watchlist — até " + limite + ". Em uso agora:"),
+    // Princípio 4 do CLAUDE.md: limite que não pôde ser confirmado vira
+    // travessão + motivo, nunca número estimado.
+    planoLimiteIndisponivel:
+      "Não foi possível confirmar este limite agora. Ele continua valendo no servidor — só não deu para exibir o número.",
+    // Substitui a exibição da frase CRUA do backend no banner de recusa: a
+    // `reason` de plan.py é ASCII sem acento (convenção de log Python), não
+    // copy de produto. Sem contagem regressiva, sem "só resta 1", sem CTA.
+    planoAvisoLimiteWatchlist: (limite, usado) =>
+      (limite == null
+        ? "Sua watchlist chegou ao limite do seu plano."
+        : "Seu plano acompanha até " + limite + " ativos na watchlist.") +
+      (usado == null ? "" : " Você tem " + usado + " agora.") +
+      " Para acompanhar outro, tire um da lista.",
+
     // abas
     tabRadar: "Radar", // qa/34: rótulo CURTO da aba inferior (a tela usa tituloRadar)
     tituloRadar: "Radar de mercado",
@@ -440,6 +481,47 @@ export const COPY = {
       dias === 1
         ? "Só 1 dia registrado ainda — a curva aparece a partir do 3º dia."
         : "Só 2 dias registrados ainda — a curva aparece a partir do 3º dia.",
+
+    // 25-06 (Fase 5 do 25-CONTEXT) — PLANO DA CONTA. Texto IDÊNTICO nos dois
+    // modos, mesmo precedente de `curvaPoucosDias` logo acima: é estado de
+    // CONTA, não voz de professor vs mesa. O plano não muda como se decide
+    // uma operação; ele diz quanto cabe no mês.
+    //
+    // Nenhuma chave de CTA de upgrade — de propósito, não esquecimento. Não
+    // existe loja/IAP no produto (ADR-010, decisão 4) e um botão "assine"
+    // prometeria o que não se cumpre. `test_plano_ui.mjs` trava a ausência.
+    planoRotulo: "Plano",
+    // Sem mapa id -> nome de exibição: o app JÁ mostra o id cru ao usuário no
+    // modal de watchlist ("do plano free") e duas vozes para a mesma coisa
+    // divergiriam. Um mapa no front também seria uma segunda lista de planos,
+    // que fica velha no dia em que existir um terceiro (mesmo raciocínio do
+    // guardião do portal, 25-05).
+    planoNome: (planId) => (planId ? String(planId) : "—"),
+    planoResumoTile: (planId) =>
+      (planId ? String(planId) + " — análises" : "Análises") +
+      " de IA por mês e ativos na watchlist",
+    planoTituloTela: "Plano",
+    planoDescricao:
+      "O plano da sua conta define quantas análises de IA cabem no mês e quantos ativos cabem na watchlist. Os números abaixo vêm do servidor, no momento em que esta tela abriu. Hoje o plano é definido pela administração do Boris+.",
+    // `null` quando o limite não existe: o app NUNCA escreve a palavra que
+    // significa "sem teto" nem "X/∞" (D-03 da Fase 13) — a linha some.
+    planoEntitlementAnalises: (limite) =>
+      (limite == null ? null : "Análises da IA — " + limite + " por mês. Usadas até agora:"),
+    planoEntitlementWatchlist: (limite) =>
+      (limite == null ? null : "Ativos na watchlist — até " + limite + ". Em uso agora:"),
+    // Princípio 4 do CLAUDE.md: limite que não pôde ser confirmado vira
+    // travessão + motivo, nunca número estimado.
+    planoLimiteIndisponivel:
+      "Não foi possível confirmar este limite agora. Ele continua valendo no servidor — só não deu para exibir o número.",
+    // Substitui a exibição da frase CRUA do backend no banner de recusa: a
+    // `reason` de plan.py é ASCII sem acento (convenção de log Python), não
+    // copy de produto. Sem contagem regressiva, sem "só resta 1", sem CTA.
+    planoAvisoLimiteWatchlist: (limite, usado) =>
+      (limite == null
+        ? "Sua watchlist chegou ao limite do seu plano."
+        : "Seu plano acompanha até " + limite + " ativos na watchlist.") +
+      (usado == null ? "" : " Você tem " + usado + " agora.") +
+      " Para acompanhar outro, tire um da lista.",
 
     // abas
     tabRadar: "Mesa", // qa/34: a aba dizia "Radar" enquanto a tela é "Mesa de oportunidades"
