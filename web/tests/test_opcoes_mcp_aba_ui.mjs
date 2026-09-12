@@ -28,6 +28,12 @@
 // para o `/status`, que MEDIU de verdade. Mesma classe do defeito 2
 // (`escolherErroOpcoes`): escolha por QUALIDADE (`medido`), não por origem.
 //
+// 24-12 (2026-09-11) — QUARTA variante do chip, e a primeira com precedência
+// sobre "dado em dia": a distância em pregões até o último fechado. O achado
+// foi medido ao vivo — o serviço respondeu `em_dia` (49,58 h contra um SLA de
+// 96 h, coerente com o contrato dele) sobre um dado de DOIS pregões atrás. Um
+// veredito herdado de quem publica não é a resposta à pergunta de quem olha.
+//
 // Roda sem build: `node web/tests/test_opcoes_mcp_aba_ui.mjs`.
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
@@ -236,6 +242,61 @@ ok("carregando nasce verdadeiro (antes do vazio)",
    /useState\(\{ dados: null, carregando: true, erro: null \}\)/.test(hook));
 ok("o gráfico dispara sob demanda, não por efeito",
    /const abrirGrafico = useCallback/.test(hook));
+
+// ---- 12) 24-12: a distância MEDIDA vence o SLA herdado ----------------------
+// A regra central do plano, em duas asserções: a checagem do atraso vem ANTES
+// da que escolhe "dado em dia" no fonte, e "em dia" tem guarda explícita
+// contra ser escolhido quando há distância. Sem a ordem, o `else if` do
+// frescor decidiria primeiro e a tela voltaria a afirmar "em dia" sobre dado
+// de dois pregões atrás — que é exatamente o defeito.
+const blocoChip12 = tela.match(/let chip[\s\S]{0,1200}/);
+ok("bloco do chip (janela larga) encontrado", !!blocoChip12);
+ok("o chip tem a QUARTA variante (distância em pregões)",
+   /cp\.opcoesAtrasoPregoes/.test(tela));
+ok("a distância vem do `atraso` da resposta, na MESMA origem do `pregao`",
+   /const atraso = \(l && l\.atraso\) \|\| \(status\.dados && status\.dados\.atraso\) \|\| null;/.test(tela));
+ok("só há distância a partir de 1 pregão (0 e null seguem o caminho de hoje)",
+   /atraso\.pregoes >= 1/.test(tela));
+
+const ordemAtrasoAntesDeEmDia = (src) => {
+  const iAtraso = src.indexOf("atraso.pregoes");
+  const iEmDia = src.indexOf("cp.opcoesFrescorEmDia");
+  return iAtraso >= 0 && iEmDia >= 0 && iAtraso < iEmDia;
+};
+ok("a checagem do atraso aparece ANTES da que escolhe \"dado em dia\"",
+   ordemAtrasoAntesDeEmDia(tela));
+ok("sanidade: a checagem de ordem REPROVA a ordem invertida",
+   !ordemAtrasoAntesDeEmDia(
+     'chip = cp.opcoesFrescorEmDia;\nif (atraso.pregoes >= 1) chip = d;'));
+ok('com distância, "dado em dia" não é alcançável (guarda explícita no ramo)',
+   !!blocoChip12 && /!distancia[\s\S]{0,200}cp\.opcoesFrescorEmDia/.test(blocoChip12[0]));
+// Sem distância, o chip é EXATAMENTE o que as três variantes de sempre
+// produzem: a soma é condicionada, não incondicional.
+ok("sem distância nada é acrescentado ao chip",
+   /if \(distancia\) chip = chip \? chip \+ " · " \+ distancia : distancia;/.test(tela));
+ok("a ajuda da contagem vai no rodapé do cabeçalho",
+   /cp\.opcoesAtrasoAjuda/.test(tela) && !!cabecalho
+   && /cp\.opcoesAtrasoAjuda/.test(cabecalho[0]));
+ok("a distância não pinta o chip (é informação de data, não P&L)",
+   !!blocoChip12 && !/T\.(negative|positive)/.test(blocoChip12[0]));
+
+for (const k of ["opcoesAtrasoPregoes", "opcoesAtrasoAjuda"]) {
+  ok(`COPY tem ${k} nos dois modos`, !!COPY.estudo[k] && !!COPY.operador[k]);
+}
+for (const modo of ["estudo", "operador"]) {
+  const f = COPY[modo].opcoesAtrasoPregoes;
+  ok(`${modo}: singular correto em 1`,
+     typeof f === "function" && /1 pregão\b/.test(f(1)) && !/pregões/.test(f(1)));
+  ok(`${modo}: plural em 2`, typeof f === "function" && /2 pregões\b/.test(f(2)));
+  // A ajuda existe para a pessoa não ler "0 pregões atrás" às 11h e achar que
+  // o app está mentindo: o pregão de hoje ainda não foi publicado.
+  ok(`${modo}: a ajuda diz de onde vem a contagem e que hoje não conta`,
+     /B3/.test(COPY[modo].opcoesAtrasoAjuda) && /hoje/i.test(COPY[modo].opcoesAtrasoAjuda));
+}
+const opcoesEstudo = Object.keys(COPY.estudo).filter((k) => k.startsWith("opcoes")).sort();
+const opcoesOperador = Object.keys(COPY.operador).filter((k) => k.startsWith("opcoes")).sort();
+ok("o conjunto `opcoes*` continua idêntico nos dois modos",
+   JSON.stringify(opcoesEstudo) === JSON.stringify(opcoesOperador));
 
 console.log(fails === 0 ? "\ntodos os testes passaram" : `\n${fails} FALHA(S)`);
 process.exit(fails === 0 ? 0 : 1);

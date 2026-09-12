@@ -1057,7 +1057,7 @@ async def admin_mobile_handoff_exchange(body: dict = Body(default={})):
 
 # FASE 8B (diagnóstico): carimbo de build do BACKEND — confirma qual código o
 # Railway está rodando (o front tem o dele em web/src/version.js).
-SERVER_BUILD_ID = "F10-20260911-05"  # 2026-09-11: Fase 24 — a aba Opções sobre o serviço MCP ganha análise (cadeia, operáveis, proposta, possibilidades por vencimento com custo em reais para o lote) e criação de setups por descrição em português (compilar → ensaio → gravar, atrás de `opcoes.criar_setup`). Junto: recusa de tool passa a debitar o cap (o serviço cobra a viagem), `/api/*` inexistente responde 404 em vez do 405 do catch-all de estáticos, e a leitura do ativo explica cada campo que veio vazio em vez de mostrar travessão mudo. O -04 foi um bump intermediário que nunca chegou à produção.
+SERVER_BUILD_ID = "F10-20260911-06"  # 2026-09-11: a aba Opções para de herdar o veredito do fornecedor sobre frescor. O serviço dizia `em_dia` com a cotação de terça numa sexta — coerente com o SLA de 96h dele, e ainda assim com dois pregões faltando. Agora o Boris MEDE a distância pelo calendário da B3 (`pregao.py`, com feriados fixos, móveis e as exceções por ofício) e o chip diz "N pregões atrás", que vence "dado em dia". O dia corrente não conta: o COTAHIST só sai depois do fechamento. Nada passou a ser bloqueado — quem bloqueia segue sendo o frescor do serviço (ADR-027, Decisão 8). Junto vai a leitura explicando cada campo vazio (24-11), que o -05 não alcançou.
 # Normalmente sincronizado pelo entregar.sh a partir de web/src/version.js; num deploy
 # SÓ de backend (sem rebuild do front) bumpamos aqui para /api/health rastrear o servidor.
 

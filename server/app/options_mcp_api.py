@@ -22,7 +22,7 @@ possibilidades, veredito e criação de setups são as Fases 3–5 do
 """
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 import json
 import os
 from typing import Optional
@@ -30,7 +30,7 @@ from typing import Optional
 import httpx
 from fastapi import APIRouter, Body, Depends, Header, HTTPException
 
-from . import ai_activity, audit, llm, mcp_client, metering, obslog
+from . import ai_activity, audit, llm, mcp_client, metering, obslog, pregao
 
 router = APIRouter(prefix="/api/options/mcp", tags=["options-mcp"])
 
@@ -799,6 +799,63 @@ def _frescor_da_avaliacao(evaluate_dados: Optional[dict], chamou_evaluate: bool)
 
 
 # --------------------------------------------------------------------------
+# Distância em pregões — a medição que o Boris faz, ao lado do veredito que o
+# fornecedor assina.
+# --------------------------------------------------------------------------
+FONTE_DO_ATRASO = "calendario_b3"
+
+
+def _atraso_em_pregoes(data_do_dado, _hoje=None) -> dict:
+    """Quantos pregões separam o dado exibido do último pregão fechado.
+
+    Existe porque o SLA da fonte e a pergunta do usuário são coisas
+    diferentes. Medido em 2026-09-11: `negociacao_b3` com 49,58 h de idade
+    contra um SLA de 96 h é `em_dia` pelo contrato do fornecedor, e ainda
+    assim faltavam DOIS pregões na base — a tela dizia "dado em dia" sobre
+    uma cotação de terça, numa sexta. Repassar o veredito de quem publica,
+    em vez de medir a distância, é o que produz esse tipo de afirmação.
+
+    **O dia corrente não entra na conta**, e isso não é conservadorismo: o
+    COTAHIST de um pregão só sai depois do fechamento, então contar hoje
+    faria o app acusar atraso todas as manhãs, sobre um dado que ainda não
+    poderia existir.
+
+    `pregoes: None` para data ausente, malformada ou no futuro — nunca 0,
+    que afirmaria "está no último pregão" sem ter como saber.
+
+    Quem conhece o calendário é `pregao.py` (fixos, móveis derivados da
+    Páscoa, exceções por ofício e a env `B3_FERIADOS_EXTRA`) — fonte ÚNICA.
+    Uma segunda contagem aqui divergiria dele em silêncio no primeiro
+    Carnaval. `fonte` viaja no envelope para a tela poder dizer de onde saiu
+    o número sem raspar texto.
+
+    `_hoje` existe só para o teste fixar o relógio — mesmo padrão de
+    `_dia_sp`. Teste que muda de resultado em novembro é pior que teste
+    nenhum.
+    """
+    hoje = _hoje or datetime.now(timezone.utc).astimezone(BRT).date()
+    envelope = {"pregoes": None, "referencia": hoje.isoformat(),
+                "fonte": FONTE_DO_ATRASO}
+
+    try:
+        d = date.fromisoformat(data_do_dado)
+    except (ValueError, TypeError):
+        return envelope
+    if d > hoje:
+        # Dado carimbado no futuro é dado que não se sabe ler: qualquer
+        # número aqui seria invenção, e 0 seria a invenção mais cara —
+        # afirmaria que a tela está no último pregão fechado.
+        return envelope
+
+    # ESTRITAMENTE entre o dado e hoje: o próprio pregão do dado já está na
+    # tela, e o de hoje ainda não foi publicado.
+    dias = (hoje - d).days
+    envelope["pregoes"] = sum(
+        1 for n in range(1, dias) if pregao.is_trading_day(d + timedelta(days=n)))
+    return envelope
+
+
+# --------------------------------------------------------------------------
 # Envelope comum e chamada com cap.
 # --------------------------------------------------------------------------
 def _agora_brt() -> str:
@@ -1227,14 +1284,21 @@ async def status(user: dict = Depends(require_user)) -> dict:
             cap.consome(1)
 
         frescor = _frescor(sc, erro_tool)
+        # `None` quando a resposta não traz pregão — nunca uma data fabricada
+        # (princípio 4 do CLAUDE.md).
+        pregao_do_dado = (sc or {}).get("trading_date") or (sc or {}).get("pregao") or None
         obslog.log("mcp", "status", rota="/api/options/mcp/status", uid=uid,
                    cache=bool(r is not None and r.cache),
                    bloqueia=frescor["bloqueia"])
 
         return {
-            # `None` quando a resposta não traz pregão — nunca uma data
-            # fabricada (princípio 4 do CLAUDE.md).
-            "pregao": (sc or {}).get("trading_date") or (sc or {}).get("pregao") or None,
+            "pregao": pregao_do_dado,
+            # 24-12 — a distância MEDIDA até o último pregão fechado, ao lado
+            # do frescor que o serviço assina. São grandezas diferentes (idade
+            # da carga × pregões faltando) e nenhuma substitui a outra; esta
+            # não bloqueia nada (quem bloqueia segue sendo `frescor`).
+            # Derivada do mesmo valor que já vai em `pregao`, sem chamada nova.
+            "atraso": _atraso_em_pregoes(pregao_do_dado),
             "fonte": FONTE,
             "at": _agora_brt(),
             "frescor": frescor,
@@ -1335,17 +1399,22 @@ async def leitura(ticker: str, user: dict = Depends(require_user)) -> dict:
             })
 
         frescor = _frescor_da_avaliacao(avaliacao_dados, chamou_evaluate)
+        # `None` quando nenhuma das respostas trouxe pregão — nunca uma data
+        # fabricada (princípio 4 do CLAUDE.md).
+        pregao_do_dado = (proposta.get("trading_date")
+                          or (avaliacao_dados or {}).get("trading_date")
+                          or None)
         obslog.log("mcp", "leitura", rota=rota, uid=uid, ticker=alvo,
                    setups=len(setups), avaliou=chamou_evaluate,
                    cache=cache_tudo, bloqueia=frescor["bloqueia"])
 
         return {
             "ticker": alvo,
-            # `None` quando nenhuma das respostas trouxe pregão — nunca uma data
-            # fabricada (princípio 4 do CLAUDE.md).
-            "pregao": (proposta.get("trading_date")
-                       or (avaliacao_dados or {}).get("trading_date")
-                       or None),
+            "pregao": pregao_do_dado,
+            # 24-12 — a MESMA medição do `/status`, sobre o pregão que esta
+            # rota exibe. Derivada do valor que já está na mão: o custo
+            # declarado da rota continua 3.
+            "atraso": _atraso_em_pregoes(pregao_do_dado),
             "fonte": FONTE,
             "at": _agora_brt(),
             # Verbatim, sem interpretar: `behavior` pode ser
