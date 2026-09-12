@@ -20,6 +20,9 @@ O que este arquivo trava, em uma frase cada:
     que segue em preço do objeto;
   - serviço fora do ar no meio do laço é 503, não 200 parcial; erro de tool em
     UM vencimento não apaga os outros.
+  - a `/leitura` explica cada campo vazio do `behavior` sem preencher
+    nenhum deles, sem recalcular indicador e sem chamada de tool nova
+    (24-11).
 
 Isolamento e esqueleto herdados de `test_options_mcp_leitura.py` (B3_DB_PATH
 temporário + reset dos caches em memória). Nenhum teste depende de rede nem de
@@ -32,6 +35,7 @@ import inspect
 import json
 import os
 import pathlib
+import re
 import sys
 import tempfile
 
@@ -991,3 +995,209 @@ def test_f04_o_422_de_erro_de_tool_diz_que_cobrou(monkeypatch):
         "texto fixo novo fora da varredura do guardião imperativo ([R-12])"
     # e o que o 422 AFIRMA é o que de fato aconteceu no contador
     assert _usado(main, uid) == 1, "o corpo diz 'cobrado' e o cap não moveu"
+
+
+# ══════════════════════════════════ 24-11 — lacunas da leitura ═══
+# Achado ao vivo em 2026-09-11: a LEITURA DO ATIVO de PETR4 mostrava travessão
+# em `Tendência`, `HV 21`, `HV 63`, `Distância da média 63` e `Faixa de 63
+# pregões` sem dizer por quê. Decisão do Alex no mesmo dia: DIZER O MOTIVO na
+# tela, sem duplicar cálculo — preencher o número seria fabricar (princípio 4)
+# e recalcular o indicador criaria uma segunda implementação do mesmo número,
+# que diverge da do serviço na primeira correção feita de um lado só.
+#
+# O que este bloco trava, em uma frase cada:
+#   - o helper é PURO (import direto, sem TestClient);
+#   - o `behavior` da tela do Alex produz DUAS entradas — janela de 63 e hv —
+#     e nomeia só os campos que de fato vieram vazios;
+#   - `behavior` completo, torto ou `sem_candles` produz lista VAZIA: a tela
+#     tem estado próprio para o último, e repetir viraria duas mensagens para
+#     a mesma ausência;
+#   - nenhum texto afirma o TAMANHO da série, que ninguém contou — as únicas
+#     quantidades permitidas são as JANELAS que o serviço nomeia nos campos;
+#   - `lacunas` chega no payload da `/leitura`, que continua custando 3 e não
+#     ganhou chamada de tool nenhuma.
+
+# Os números SÃO os da screenshot de 2026-09-11 (fechamento 48,09, RSI 69,9,
+# distância da média 21 em 10,2%, variação de 21 pregões em 14,1%), não valores
+# inventados para o teste. `sma21` é o único derivado: a tabela não o exibe,
+# mas o serviço o manda, e 48,09/1,102 é o valor que a própria distância
+# implica. É ele que faz deste caso o da JANELA (a de 21 fechou, a de 63 não),
+# e não o da série curta demais.
+_BEHAVIOR_DA_TELA_DO_ALEX = {
+    "trading_date": "2026-09-08",
+    "close": 48.09,
+    "sma21": 43.64,
+    "sma63": None,
+    "distance_from_sma21_pct": 10.2,
+    "distance_from_sma63_pct": None,
+    "trend": None,
+    "rsi14": 69.9,
+    "hv21": None,
+    "hv63": None,
+    "range_63_sessions": {"highest": None, "lowest": None},
+    "change_21_sessions_pct": 14.1,
+}
+
+_BEHAVIOR_COMPLETO = {
+    "trading_date": "2026-08-28", "close": 38.42, "sma21": 37.9, "sma63": 36.4,
+    "distance_from_sma21_pct": 1.4, "distance_from_sma63_pct": 5.5,
+    "trend": "alta", "rsi14": 58.2, "hv21": 0.31, "hv63": 0.28,
+    "range_63_sessions": {"highest": 41.0, "lowest": 33.2},
+    "change_21_sessions_pct": 4.1,
+}
+
+_BEHAVIOR_CURTO = {
+    "trading_date": "2026-09-08", "close": 48.09, "sma21": None, "sma63": None,
+    "distance_from_sma21_pct": None, "distance_from_sma63_pct": None,
+    "trend": None, "rsi14": 69.9, "hv21": 0.31, "hv63": None,
+    "range_63_sessions": {"highest": None, "lowest": None},
+    "change_21_sessions_pct": None,
+}
+
+
+def test_lacunas_da_tela_do_alex_sao_janela_de_63_e_hv():
+    """O caso do achado, campo a campo: DUAS entradas, porque são dois motivos
+    diferentes. Misturá-los numa frase só diria que o hv depende da janela de
+    63 — e ele não depende de janela nenhuma, é coluna que o provedor publica
+    ou não."""
+    lac = options_mcp_api._lacunas_da_leitura(_BEHAVIOR_DA_TELA_DO_ALEX)
+    assert [x["motivo"] for x in lac] == [options_mcp_api.MOTIVO_JANELA_63,
+                                          options_mcp_api.MOTIVO_HV_AUSENTE]
+    assert lac[0]["campos"] == ["trend", "distance_from_sma63_pct",
+                                "range_63_sessions"]
+    assert lac[1]["campos"] == ["hv21", "hv63"]
+    # Os campos que VIERAM não aparecem em lugar nenhum: nomear `rsi14` ou
+    # `close` como ausente seria a mesma fabricação, na direção contrária.
+    nomeados = [c for x in lac for c in x["campos"]]
+    for presente in ("close", "rsi14", "distance_from_sma21_pct",
+                     "change_21_sessions_pct"):
+        assert presente not in nomeados, f"{presente} veio e foi dado como ausente"
+
+
+def test_lacunas_de_behavior_completo_e_vazia():
+    """Estado normal é SILÊNCIO. Uma linha de explicação com a leitura inteira
+    preenchida seria ruído em cima do que a pessoa veio ler."""
+    assert options_mcp_api._lacunas_da_leitura(_BEHAVIOR_COMPLETO) == []
+
+
+def test_lacunas_de_sem_candles_e_vazia():
+    """`sem_candles` já tem estado próprio na tela ("o serviço não tem candles
+    para este ativo"). Repetir aqui daria DUAS mensagens para a mesma
+    ausência, e a segunda contradiria a primeira ao falar de janela."""
+    assert options_mcp_api._lacunas_da_leitura({"status": "sem_candles"}) == []
+
+
+def test_lacunas_de_behavior_torto_e_vazia():
+    """Sem `close` não há leitura nenhuma para explicar — e afirmar que "o
+    provedor não publica volatilidade para este ativo" em cima de um envelope
+    vazio seria uma acusação que ninguém mediu."""
+    for v in (None, "texto", 42, [], {}, {"close": None}):
+        assert options_mcp_api._lacunas_da_leitura(v) == []
+
+
+def test_lacunas_nao_nomeiam_campo_que_veio():
+    """`range_63_sessions` é o único campo que exige olhar DENTRO: o serviço
+    manda o dicionário mesmo com a janela aberta, com os dois extremos nulos.
+    Com extremos de verdade, ele sai da lista — a lista é de observação, não
+    de dedução a partir do `sma63`."""
+    b = dict(_BEHAVIOR_DA_TELA_DO_ALEX,
+             range_63_sessions={"highest": 51.0, "lowest": 44.0})
+    lac = options_mcp_api._lacunas_da_leitura(b)
+    assert "range_63_sessions" not in lac[0]["campos"]
+
+
+def test_lacunas_de_serie_curta_demais():
+    """Série que não fecha nem a janela de 21: motivo DIFERENTE, porque a
+    frase da janela de 63 ("a de 21 fecha, por isso os campos de 21 vieram")
+    seria falsa aqui. E o `rsi14`, que precisa de 14 e veio, fica de fora."""
+    lac = options_mcp_api._lacunas_da_leitura(_BEHAVIOR_CURTO)
+    assert [x["motivo"] for x in lac] == [options_mcp_api.MOTIVO_SERIE_CURTA,
+                                          options_mcp_api.MOTIVO_HV_AUSENTE]
+    assert "rsi14" not in lac[0]["campos"], "rsi14 veio e foi dado como ausente"
+    assert lac[1]["campos"] == ["hv63"], "hv21 veio; só o hv63 falta neste caso"
+
+
+def test_os_tres_motivos_estao_em_avisos():
+    """Texto fixo que chega ao usuário entra na varredura do guardião
+    imperativo na fase que o cria ([R-12])."""
+    for m in (options_mcp_api.MOTIVO_JANELA_63, options_mcp_api.MOTIVO_SERIE_CURTA,
+              options_mcp_api.MOTIVO_HV_AUSENTE):
+        assert m in options_mcp_api.AVISOS
+
+
+# A regra central deste plano, em duas camadas. "exige 63 pregões" é o
+# requisito da JANELA — o serviço o declara no próprio nome do campo (`sma63`,
+# `range_63_sessions`). "a série tem 42 pregões" seria uma CONTAGEM que
+# ninguém fez: o `behavior` não traz o número de candles, e esse número só
+# poderia ter sido inventado.
+#
+# A primeira camada é de vocabulário (só as janelas declaradas podem aparecer
+# como número); a segunda é de forma (nenhuma frase diz que a série TEM n
+# pregões, mesmo com um número da allowlist). Uma sozinha não basta: a
+# primeira deixaria passar "a série tem 21 pregões", e a segunda deixaria
+# passar "restam 42 pregões na base".
+_JANELAS_DECLARADAS = {"21", "63"}
+_CONTAGEM_DE_SERIE = re.compile(
+    r"\b(tem|t[êe]m|possui|possuem|traz|trazem|cont[ée]m|conta com|[ée] de|"
+    r"apenas|somente|s[óo])\s+\d+\s+preg", re.IGNORECASE)
+
+
+def _todos_os_motivos():
+    casos = (_BEHAVIOR_DA_TELA_DO_ALEX, _BEHAVIOR_COMPLETO, _BEHAVIOR_CURTO,
+             dict(_BEHAVIOR_COMPLETO, hv63=None))
+    return [x["motivo"] for b in casos
+            for x in options_mcp_api._lacunas_da_leitura(b)]
+
+
+def test_nenhum_motivo_afirma_o_tamanho_da_serie():
+    motivos = _todos_os_motivos()
+    assert len(motivos) >= 4, "a matriz de casos parou de produzir motivos"
+    for texto in motivos:
+        assert set(re.findall(r"\d+", texto)) <= _JANELAS_DECLARADAS, (
+            f"número que não é janela declarada em: {texto}")
+        assert not _CONTAGEM_DE_SERIE.search(texto), (
+            f"o texto afirma quantos pregões a série tem: {texto}")
+    # A trava de FORMA vale para `AVISOS` inteiro: qualquer aviso desta aba
+    # que um dia afirme contagem de pregão cai aqui.
+    assert not _CONTAGEM_DE_SERIE.search(options_mcp_api.AVISOS)
+
+
+def test_sanidade_das_duas_travas_de_tamanho():
+    """Sem isto, um typo na regex faria o teste acima passar por vacuidade
+    para sempre — e a regra que ele existe para trancar morreria em silêncio."""
+    inventado = "a série tem 42 pregões"
+    assert not set(re.findall(r"\d+", inventado)) <= _JANELAS_DECLARADAS
+    assert _CONTAGEM_DE_SERIE.search(inventado)
+    # Pega mesmo com um número da allowlist: o que mente é a FORMA.
+    assert _CONTAGEM_DE_SERIE.search("o histórico tem 21 pregões")
+    # E o texto legítimo passa nas duas camadas — a trava não é um veto a
+    # falar de janela, é um veto a afirmar tamanho de série.
+    assert not _CONTAGEM_DE_SERIE.search(options_mcp_api.MOTIVO_JANELA_63)
+    assert (set(re.findall(r"\d+", options_mcp_api.MOTIVO_JANELA_63))
+            <= _JANELAS_DECLARADAS)
+
+
+def test_leitura_traz_as_lacunas_sem_chamada_nova(monkeypatch):
+    """A explicação é derivada do que JÁ veio na mesma resposta. Se um dia ela
+    custar uma chamada, o custo declarado da rota (3) vira mentira e o teto
+    compartilhado de 2.000/dia paga a conta."""
+    c, main = _client(monkeypatch)
+    p = _registra(c)
+    uid = p["user"]["id"]
+    chamadas = _espiao(monkeypatch, _roteador(
+        base=dict(_BASE, behavior=dict(_BEHAVIOR_DA_TELA_DO_ALEX))))
+
+    r = c.get("/api/options/mcp/leitura/PETR4", headers=_auth(p["token"]))
+    assert r.status_code == 200, r.text
+    corpo = r.json()
+    assert corpo["behavior"] == _BEHAVIOR_DA_TELA_DO_ALEX, (
+        "o `behavior` deixou de viajar verbatim — `lacunas` é campo NOVO ao "
+        "lado, nunca reescrita do que o serviço mandou")
+    assert [x["motivo"] for x in corpo["lacunas"]] == [
+        options_mcp_api.MOTIVO_JANELA_63, options_mcp_api.MOTIVO_HV_AUSENTE]
+    assert _nomes(chamadas) == ["propose_option_setups", "list_setups"], (
+        f"chamada de tool a mais para explicar o que já estava na resposta: "
+        f"{_nomes(chamadas)}")
+    assert _usado(main, uid) == 2
+    assert "_cap_check(uid, 3)" in inspect.getsource(options_mcp_api.leitura), (
+        "o custo declarado da `/leitura` mudou; o 24-11 não acrescenta tool")

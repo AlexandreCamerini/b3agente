@@ -18,13 +18,17 @@
 //  · ilimitado não vira teto: nenhum `<path>` preenchido fecha um lado que o
 //    serviço declarou sem limite;
 //  · nenhuma das quatro chamadas novas dispara por efeito — cada uma consome
-//    o cap compartilhado.
+//    o cap compartilhado;
+//  · (24-11) nenhum arquivo de `web/src/opcoes/` CALCULA indicador. A leitura
+//    vem pronta do serviço, e um hv caseiro aqui divergiria do dele na
+//    primeira correção feita de um lado só — em silêncio, porque os dois
+//    números teriam o mesmo nome na tela.
 //
 // Cada regex de defeito carrega asserção de SANIDADE: sem ela, um typo (ou um
 // Unicode diferente) faria o assert passar por vacuidade, para sempre.
 //
 // Roda sem build: `node web/tests/test_opcoes_analisar_ui.mjs`.
-import { readFileSync, existsSync } from "fs";
+import { readFileSync, existsSync, readdirSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { COPY } from "../src/copy.js";
@@ -344,6 +348,82 @@ for (const modo of ["estudo", "operador"]) {
   ok(`${modo}: a frase não promete devolução nem culpa o usuário`,
      !/estorn|devolv|culpa|erro seu/i.test(t || ""));
 }
+// ---- 15) as lacunas da leitura (24-11, achado ao vivo 2026-09-11) ---------
+// Na tela do Alex, cinco campos da LEITURA DO ATIVO mostravam travessão e
+// mais nada. Travessão mudo não é estado vazio: a pessoa não sabe se o app
+// quebrou, se o ativo é estranho ou se falta dado (princípio 9). A saída
+// escolhida foi dizer o motivo — sem preencher o número (seria fabricar,
+// princípio 4) e sem recalcular o indicador (seria uma segunda fonte).
+ok("existe componente próprio para as lacunas da leitura",
+   /function LacunasDaLeitura/.test(tela));
+ok("existe UM mapa rótulo↔campo, e ele cobre os cinco campos do achado",
+   /const ROTULO_LEITURA = /.test(tela)
+   && ["trend", "hv21", "hv63", "distance_from_sma63_pct", "range_63_sessions"]
+        .every((c) => new RegExp(c + ":\\s*\"").test(tela)));
+// Dois vocabulários divergiriam no primeiro rótulo renomeado, e a explicação
+// passaria a nomear um campo que a tabela não mostra com esse nome.
+ok("os rótulos do mapa são os MESMOS que a tabela exibe",
+   ["Tendência", "HV 21", "HV 63", "Distância da média 63", "Faixa de 63 pregões"]
+     .every((r) => (tela.match(new RegExp(r, "g")) || []).length >= 2));
+ok("`lacunas` vazio ou ausente não renderiza nada — estado normal é silêncio",
+   /function LacunasDaLeitura[\s\S]{0,600}return null;/.test(tela));
+ok("a linha é discreta (textMuted), como o carimbo do pregão ao lado",
+   /function LacunasDaLeitura[\s\S]{0,700}T\.textMuted/.test(tela));
+ok("o bloco é renderizado com as lacunas que vieram do backend",
+   /<LacunasDaLeitura[^>]*lacunas={[^}]*l\.lacunas}/.test(tela));
+
+// O motivo é do backend e chega pronto. O front junta os RÓTULOS e nada mais:
+// interpolá-lo dentro de outra frase aqui seria reescrever o que o serviço (e
+// o guardião de texto do backend) já pesaram palavra por palavra.
+const blocoLacunas = (tela.match(/function LacunasDaLeitura[\s\S]*?\n}/) || [""])[0];
+const REESCREVE_MOTIVO = /motivo\s*\+|\+\s*[A-Za-z_$][\w$]*\.motivo|`[^`]*\$\{[^}]*motivo/;
+ok("o motivo do backend só entra como ARGUMENTO de `cp.opcoesLacuna`",
+   /cp\.opcoesLacuna\(/.test(blocoLacunas) && !REESCREVE_MOTIVO.test(blocoLacunas));
+ok("sanidade: a regex pega uma reescrita do motivo",
+   REESCREVE_MOTIVO.test('const s = "porque " + x.motivo;')
+   && REESCREVE_MOTIVO.test("const s = `porque ${x.motivo}`;"));
+
+// `range_63_sessions` chega SEMPRE como dict — com os dois extremos nulos
+// quando a janela de 63 não fechou. Sem esta checagem a tela mostrava
+// "— – —": travessão travestido de faixa, que se lê como formatação quebrada
+// e não como ausência de dado.
+ok("a faixa de 63 usa o helper que devolve UM travessão sem os dois extremos",
+   /const faixa = /.test(tela) && /valor={faixa\(behavior\.range_63_sessions\)}/.test(tela));
+
+// A trava central do 24-11 do lado do front: nenhum campo da leitura passou a
+// ser CALCULADO aqui. Fonte única — quem calcula é o serviço.
+const RECALCULO = /Math\.(sqrt|log|pow|exp)\s*\(|desvio[_ ]?padr[ãa]o|stdev|std_dev|vari[âa]ncia/i;
+for (const arq of readdirSync(dirOpcoes).filter((f) => /\.(js|jsx)$/.test(f))) {
+  ok(`${arq} não recalcula indicador (nem hv, nem média, nem desvio)`,
+     !RECALCULO.test(semComentario(ler(join(dirOpcoes, arq)))));
+}
+ok("sanidade: a regex pega a assinatura de um hv caseiro",
+   RECALCULO.test("const hv = Math.sqrt(variancia) * Math.sqrt(252);")
+   && RECALCULO.test("function desvioPadrao(xs) { return 0; }"));
+
+// Sentinela em vez do texto real do backend: copiar a frase para cá criaria
+// uma segunda cópia dela, que envelheceria sem ninguém notar. O que se prova
+// é o TRÂNSITO — o que entra sai inteiro.
+const MOTIVO_SENTINELA = "MOTIVO-VERBATIM-DO-BACKEND";
+const AFIRMA_TAMANHO = /\b(tem|t[êe]m|possui|traz|cont[ée]m|apenas|somente|s[óo])\s+\d+\s+preg/i;
+for (const modo of ["estudo", "operador"]) {
+  const compor = COPY[modo].opcoesLacuna;
+  ok(`${modo}: `+"`opcoesLacuna` é função", typeof compor === "function");
+  const frase = typeof compor === "function"
+    ? compor(["Tendência", "HV 21", "HV 63"], MOTIVO_SENTINELA) : "";
+  ok(`${modo}: o motivo do backend aparece VERBATIM`, frase.includes(MOTIVO_SENTINELA));
+  ok(`${modo}: os três rótulos aparecem na frase`,
+     ["Tendência", "HV 21", "HV 63"].every((r) => frase.includes(r)));
+  ok(`${modo}: a frase diz que ninguém estimou nada no lugar`, /estimad/i.test(frase));
+  ok(`${modo}: a frase não afirma tamanho de série`, !AFIRMA_TAMANHO.test(frase));
+  const uma = typeof compor === "function" ? compor(["HV 63"], MOTIVO_SENTINELA) : "";
+  ok(`${modo}: um campo só também produz frase legível`,
+     uma.includes("HV 63") && uma.includes(MOTIVO_SENTINELA) && !/ e :|, :/.test(uma));
+}
+ok("sanidade: a regex de tamanho de série pega a afirmação inventada",
+   AFIRMA_TAMANHO.test("a série tem 42 pregões")
+   && AFIRMA_TAMANHO.test("o histórico tem 21 pregões"));
+
 // Paridade do conjunto `opcoes*` entre os dois modos — chave nova em um só
 // ramo deixaria metade da base sem a informação.
 const chaves = (m) => Object.keys(COPY[m]).filter((k) => k.startsWith("opcoes")).sort();
