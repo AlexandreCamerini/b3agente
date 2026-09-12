@@ -268,16 +268,44 @@ export default function OpcoesScreen({ ctx }) {
   //   (b) `frescor.medido === false` — o serviço respondeu e não mediu:
   //       "não medido" continua, e agora é verdade (houve resposta).
   //   (c) `frescor.medido === true` — em dia / atrasado com idade.
+  //   (d) 24-12 — a DISTÂNCIA em pregões até o último fechado, medida pelo
+  //       backend com o calendário da B3. É a única variante com precedência
+  //       sobre "dado em dia": no achado de 2026-09-11 o serviço estava
+  //       coerente com o próprio SLA (49,58 h contra 96 h) e ainda assim
+  //       faltavam DOIS pregões na base — "dado em dia" era falso mesmo com
+  //       o fornecedor assinando embaixo. O que o chip diz passa a ser o que
+  //       se pode medir.
+  //
+  // A distância acompanha o `pregao` (leitura primeiro, status depois): são
+  // carimbo e medição do MESMO dado exibido. `0` e `null` seguem o caminho de
+  // hoje — 0 é "está no último pregão fechado", e null é "não deu para medir".
+  const atraso = (l && l.atraso) || (status.dados && status.dados.atraso) || null;
+  const pregoesAtras = (atraso && ehNum(atraso.pregoes) && atraso.pregoes >= 1)
+    ? atraso.pregoes : 0;
+  const distancia = pregoesAtras
+    ? (cp.opcoesAtrasoPregoes ? cp.opcoesAtrasoPregoes(pregoesAtras)
+      : pregoesAtras + " pregões atrás")
+    : "";
+
   let chip = null;
   if (frescor && frescor.medido === false) {
     chip = cp.opcoesFrescorNaoMedido || "frescor não medido";
   } else if (frescor && frescor.medido) {
     const critica = (frescor.classes || [])[0];
     const idade = critica && ehNum(critica.idadeHoras) ? " (" + fmt(critica.idadeHoras, 0) + " h)" : "";
-    chip = frescor.bloqueia
-      ? (cp.opcoesFrescorAtrasado || "dado atrasado") + idade
-      : (cp.opcoesFrescorEmDia || "dado em dia");
+    if (frescor.bloqueia) {
+      // O alerta do serviço CONTINUA: idade da carga e pregões faltando são
+      // grandezas diferentes, e a distância entra somando, logo abaixo.
+      chip = (cp.opcoesFrescorAtrasado || "dado atrasado") + idade;
+    } else if (!distancia) {
+      // "dado em dia" só sobra quando NÃO há pregão faltando.
+      chip = cp.opcoesFrescorEmDia || "dado em dia";
+    }
   }
+  // A distância nunca é engolida por um veredito herdado: soma ao alerta de
+  // quem mediu a carga e ocupa sozinha o lugar do "em dia" que o ramo acima
+  // deixou de escolher.
+  if (distancia) chip = chip ? chip + " · " + distancia : distancia;
 
   // Vencimentos que a LEITURA já trouxe — é deles que sai o custo em
   // chamadas mostrado ANTES do clique. Nenhuma consulta extra para saber
@@ -331,6 +359,14 @@ export default function OpcoesScreen({ ctx }) {
       {frescor && frescor.bloqueia && frescor.warning ? (
         <div style={{ marginTop: "8px", fontSize: "12px", color: T.textSecondary, whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
           {frescor.warning}
+        </div>
+      ) : null}
+      {/* 24-12 — a regra da contagem, só quando há contagem na tela:
+          explicar um número que ninguém está vendo é ruído. Mesmo tom
+          discreto do rodapé das lacunas (24-11) — é informação, não erro. */}
+      {distancia && cp.opcoesAtrasoAjuda ? (
+        <div style={{ marginTop: "6px", fontSize: "11.5px", color: T.textMuted, lineHeight: 1.5 }}>
+          {cp.opcoesAtrasoAjuda}
         </div>
       ) : null}
     </div>

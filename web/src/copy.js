@@ -61,6 +61,13 @@ export const COPY = {
     opcoesFrescorEmDia: "dado em dia",
     opcoesFrescorAtrasado: "dado atrasado",
     opcoesFrescorNaoMedido: "frescor não medido",
+    // 24-12 (achado ao vivo 2026-09-11): o serviço dizia "em dia" — e pelo
+    // SLA dele, com razão — sobre uma cotação de dois pregões atrás. A
+    // distância é MEDIDA aqui, pelo calendário da B3, e vence o veredito
+    // herdado. Não é acusação à fonte: é a resposta à pergunta que quem olha
+    // a tela está fazendo, que é "de quando é este número?".
+    opcoesAtrasoPregoes: (n) => (n === 1 ? "1 pregão atrás" : n + " pregões atrás"),
+    opcoesAtrasoAjuda: "A conta é de pregões FECHADOS, pelo calendário da B3: fim de semana e feriado não entram. O pregão de hoje também não — o fechamento dele só sai à noite, então ele só passa a contar amanhã.",
     opcoesSemSetups: "Nenhum setup gravado para este ativo ainda. Setup é uma condição objetiva escrita antes do pregão — enquanto não houver uma, não há o que avaliar.",
     opcoesNaoAvaliado: (motivo) =>
       motivo
@@ -444,6 +451,11 @@ export const COPY = {
     opcoesFrescorEmDia: "dado em dia",
     opcoesFrescorAtrasado: "dado atrasado",
     opcoesFrescorNaoMedido: "frescor não medido",
+    // 24-12 — MESMA medição, em voz de mesa. O rótulo do chip é o mesmo nos
+    // dois modos de propósito: é contagem de pregão, não juízo — e "2 pregões
+    // atrás" já é a frase mais curta que diz o fato.
+    opcoesAtrasoPregoes: (n) => (n === 1 ? "1 pregão atrás" : n + " pregões atrás"),
+    opcoesAtrasoAjuda: "Contagem de pregões FECHADOS pelo calendário da B3 — fim de semana e feriado fora. O pregão de hoje só entra depois de publicado o fechamento.",
     opcoesSemSetups: "Nenhum setup gravado para este ativo. Sem condição escrita antes do pregão, não há o que a mesa avalie.",
     opcoesNaoAvaliado: (motivo) =>
       motivo
