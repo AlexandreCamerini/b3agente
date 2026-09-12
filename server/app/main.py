@@ -1057,7 +1057,7 @@ async def admin_mobile_handoff_exchange(body: dict = Body(default={})):
 
 # FASE 8B (diagnóstico): carimbo de build do BACKEND — confirma qual código o
 # Railway está rodando (o front tem o dele em web/src/version.js).
-SERVER_BUILD_ID = "F10-20260911-04"  # 2026-09-11: publicação de FRONT (quick 260911-pub) — sincronizado pelo publicar-web.sh, front e servidor voltam a andar juntos depois de dois dias de deploy só-backend. Entrega o rodapé do Perfil com os DOIS carimbos (quick 260911-k9g). Pulamos o -01 e o -02 de propósito: o -02 já estava no ar pelo deploy só-backend anterior (família do `qty` falsy nas 5 rotas + fuso no prazo até o vencimento), e `bump.sh` sem argumento teria gerado -01, ABAIXO do que já rodava.
+SERVER_BUILD_ID = "F10-20260911-05"  # 2026-09-11: Fase 24 — a aba Opções sobre o serviço MCP ganha análise (cadeia, operáveis, proposta, possibilidades por vencimento com custo em reais para o lote) e criação de setups por descrição em português (compilar → ensaio → gravar, atrás de `opcoes.criar_setup`). Junto: recusa de tool passa a debitar o cap (o serviço cobra a viagem), `/api/*` inexistente responde 404 em vez do 405 do catch-all de estáticos, e a leitura do ativo explica cada campo que veio vazio em vez de mostrar travessão mudo. O -04 foi um bump intermediário que nunca chegou à produção.
 # Normalmente sincronizado pelo entregar.sh a partir de web/src/version.js; num deploy
 # SÓ de backend (sem rebuild do front) bumpamos aqui para /api/health rastrear o servidor.
 
