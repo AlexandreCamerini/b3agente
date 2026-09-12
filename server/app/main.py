@@ -73,6 +73,12 @@ agent_mod.configure_db(_conn)
 # em runtime — sem isto o toggle admin nunca checaria o SQLite, igual ao caso
 # do agente acima.
 timing_watch.configure_db(_conn)
+# 25-03 (Fase 2 do 25-CONTEXT): o catálogo de planos ganha a camada de kv,
+# mesmo padrão memória→DB→env das linhas acima. Sem esta linha a camada de kv
+# fica inerte e o painel comercial (25-05) escreveria num lugar que ninguém lê.
+# NÃO muda comportamento hoje: os três gates de plano seguem lendo o dict
+# estático — quem passa a ler o catálogo é o 25-04.
+plan.configure_db(_conn)
 # ADR-017 (Bloco 1): liga o provedor de histórico medido a detect_setups —
 # sem esta linha, detect_setups nunca anexa `historico` e regime.ranquear
 # nunca vê `elegivel`: todo o ledger existiria sem consequência nenhuma na
