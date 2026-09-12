@@ -255,33 +255,53 @@ def _constantes_str_do_modulo(arvore) -> dict:
     return fora
 
 
-def test_guardiao_v_consume_do_cap_sempre_leva_month_section_propria():
-    caminho = _APP_DIR / "options_mcp_api.py"
-    arvore = _arvore(caminho)
-    constantes = _constantes_str_do_modulo(arvore)
-
-    chamadas = [
+def _chamadas_a_metering_consume(arvore) -> list:
+    return [
         n for n in ast.walk(arvore)
         if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
         and n.func.attr == "consume"
         and isinstance(n.func.value, ast.Name) and n.func.value.id == "metering"
     ]
+
+
+def _resolve_month_section(chamada, constantes):
+    """Valor REAL do `month_section` da chamada, ou `None` se ele não foi
+    declarado (ou não é resolvível estaticamente).
+
+    Três formas aceitas, todas resolvidas — nunca só reconhecidas:
+      • literal na chamada (`month_section="analyticsEventsMonth"`);
+      • constante do próprio módulo (`month_section=MONTH_SECTION`);
+      • constante do metering (`month_section=metering.MONTH_SECTION`), que é
+        como o caminho de IA de `main.py` declara o balde default SEM
+        duplicar o literal — duas cópias do nome divergem na primeira
+        manutenção, e uma delas decidiria dinheiro.
+    Aceitar o nome sem resolver deixaria `month_section=OUTRA_COISA` passar."""
+    kw = {k.arg: k.value for k in chamada.keywords if k.arg}
+    valor = kw.get("month_section")
+    if isinstance(valor, ast.Constant) and isinstance(valor.value, str):
+        return valor.value
+    if isinstance(valor, ast.Name):
+        return constantes.get(valor.id)
+    if isinstance(valor, ast.Attribute) and isinstance(valor.value, ast.Name) \
+            and valor.value.id == "metering":
+        from app import metering
+        resolvido = getattr(metering, valor.attr, None)
+        return resolvido if isinstance(resolvido, str) else None
+    return None
+
+
+def test_guardiao_v_consume_do_cap_sempre_leva_month_section_propria():
+    caminho = _APP_DIR / "options_mcp_api.py"
+    arvore = _arvore(caminho)
+    constantes = _constantes_str_do_modulo(arvore)
+
+    chamadas = _chamadas_a_metering_consume(arvore)
     assert chamadas, (
         "nenhuma chamada a `metering.consume` em options_mcp_api.py — este "
         "guardião estaria passando por vacuidade.")
 
-    ofensores = []
-    for chamada in chamadas:
-        kw = {k.arg: k.value for k in chamada.keywords if k.arg}
-        valor = kw.get("month_section")
-        if isinstance(valor, ast.Constant):
-            resolvido = valor.value
-        elif isinstance(valor, ast.Name):
-            resolvido = constantes.get(valor.id)
-        else:
-            resolvido = None
-        if resolvido != "mcpUsageMonth":
-            ofensores.append((chamada.lineno, resolvido))
+    ofensores = [(c.lineno, _resolve_month_section(c, constantes)) for c in chamadas
+                 if _resolve_month_section(c, constantes) != "mcpUsageMonth"]
 
     assert not ofensores, (
         f"`metering.consume` sem `month_section` própria: {ofensores!r} — o "
@@ -289,6 +309,61 @@ def test_guardiao_v_consume_do_cap_sempre_leva_month_section_propria():
         f"do plano comercial (ADR-010). Sem a seção própria, cada chamada de "
         f"tool da aba Opções tiraria uma análise de IA do usuário ([R-1] do "
         f"PLANO).")
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# (v-geral) — 25-01: o guardião acima só varria `options_mcp_api.py`, e foi
+# por isso que o defeito entrou por `main.py`: a rota de analytics chamava
+# `metering.consume` sem `month_section`, caía no default `aiUsageMonth` e
+# descontava o LOTE inteiro de telemetria da cota mensal de análises do
+# plano comercial. A regra geral não exige um valor único — cada módulo tem
+# o seu balde —, exige que o balde seja ESCRITO. O default implícito é a
+# armadilha; escolher `aiUsageMonth` de propósito, escrito, é legítimo.
+# ─────────────────────────────────────────────────────────────────────────
+def _consumes_sem_month_section(arvore, constantes) -> list:
+    return [c.lineno for c in _chamadas_a_metering_consume(arvore)
+            if not _resolve_month_section(c, constantes)]
+
+
+def test_guardiao_v_geral_todo_consume_do_app_declara_month_section():
+    ofensores, total = [], 0
+    for caminho in _modulos_app():
+        arvore = _arvore(caminho)
+        constantes = _constantes_str_do_modulo(arvore)
+        total += len(_chamadas_a_metering_consume(arvore))
+        ofensores += [(caminho.name, linha)
+                      for linha in _consumes_sem_month_section(arvore, constantes)]
+
+    assert total >= 2, (
+        f"só {total} chamada(s) a `metering.consume` em `server/app/` — o "
+        f"guardião estaria passando por vacuidade (havia 2 em 2026-09-12).")
+    assert not ofensores, (
+        f"`metering.consume` sem `month_section` declarada: {ofensores!r}. O "
+        f"default do módulo é `MONTH_SECTION = 'aiUsageMonth'`, o ledger que "
+        f"`plan.can_analyze` lê pelo `month_used` para decidir o cap comercial "
+        f"(30 análises/mês no PLAN_FREE). Quem consome sem escolher o balde "
+        f"desconta análise de quem não analisou — foi assim que a telemetria "
+        f"passou a comer a cota (25-01). Escreva o balde, mesmo que ele seja "
+        f"`metering.MONTH_SECTION`.")
+
+
+def test_guardiao_v_geral_reprova_um_consume_sem_month_section():
+    """SANIDADE do guardião acima: um guardião que nunca reprova nada não
+    guarda — e a regra aqui é 'ausência de argumento', o tipo de asserção que
+    passa por vacuidade com a maior facilidade. Fonte sintético, sem tocar
+    `server/app/`."""
+    ofensor = ast.parse("import metering\ndef f(conn, uid):\n"
+                        "    metering.consume(conn, uid, custo=50)\n")
+    assert _consumes_sem_month_section(ofensor, {}) == [3]
+
+    for forma in ('month_section="analyticsEventsMonth"',
+                  "month_section=MINHA_SECAO",
+                  "month_section=metering.MONTH_SECTION"):
+        ok = ast.parse("import metering\nMINHA_SECAO = 'xUsageMonth'\n"
+                       "def f(conn, uid):\n"
+                       f"    metering.consume(conn, uid, {forma})\n")
+        constantes = _constantes_str_do_modulo(ok)
+        assert _consumes_sem_month_section(ok, constantes) == [], forma
 
 
 # ─────────────────────────────────────────────────────────────────────────

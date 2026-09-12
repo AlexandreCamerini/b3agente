@@ -349,11 +349,27 @@ def reservado(conn, user_id, *, section: str = SECTION, _dia=None, _now=None) ->
     return len(_resv(_load(conn, user_id, section=section, _dia=_dia), now))
 
 
-def snapshot(conn, user_id, quota, section: str = SECTION) -> dict:
+def snapshot(conn, user_id, quota, section: str = SECTION,
+             month_section: str = MONTH_SECTION) -> dict:
+    """Foto do consumo de UM domínio: o dia e o mês do MESMO balde.
+
+    25-01: `month_section` existe porque `section` seguia para o `_load`
+    DIÁRIO e o mês era lido sempre de `aiUsageMonth`. Quem pedisse o snapshot
+    da telemetria (`section="analyticsEvents"`) recebia `used` da telemetria e
+    `monthUsed` da IA — dois baldes no mesmo dict, cada número verdadeiro
+    sozinho e a leitura conjunta mentindo.
+
+    Um parâmetro NOVO em vez de derivar o mês de `section`: os dois nomes são
+    chaves de kv independentes (`SECTION`/`MONTH_SECTION` aqui,
+    `SECTION`/`MONTH_SECTION` em `options_mcp_api.py`), e derivar
+    `"analyticsEvents"` + `"Month"` seria adivinhar uma convenção que nenhum
+    dos chamadores promete. Os defaults preservam o comportamento de hoje byte
+    a byte — nenhum chamador passa seção (`/api/ai/quota` usa a forma
+    posicional)."""
     u = _load(conn, user_id, section=section)
     used = int(u.get("count", 0))
     remaining = None if quota is None else max(0, quota - used)
-    m = _load_month(conn, user_id)
+    m = _load_month(conn, user_id, section=month_section)
     return {"day": u["day"], "used": used, "quota": quota, "remaining": remaining,
             "month": m["month"], "monthUsed": int(m.get("count", 0))}
 

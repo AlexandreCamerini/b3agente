@@ -515,9 +515,19 @@ def _ai_apply_managed(scope, config, custo: int = 1):
         # (None) caía no default "1y" = 252 candles, mesmo com "1mo" escolhido:
         # ~7x mais tokens de input, JUSTO no caminho que gasta a chave do
         # servidor. Quem paga era quem mandava o prompt mais caro.
+        # 25-01: `month_section` EXPLÍCITA mesmo sendo o default do módulo.
+        # Aqui o ledger do gate comercial é o balde certo — esta é a análise
+        # de IA que `plan.can_analyze` cobra —, mas o default implícito foi
+        # exatamente por onde o defeito entrou na rota de analytics. Escrever
+        # o balde obriga quem adicionar um `consume` novo a escolher um, e é
+        # o que o guardião de `test_mcp_guardioes.py` passa a exigir de todo
+        # `metering.consume` do repositório. A constante vem de `metering`,
+        # nunca um literal repetido: duas cópias do nome divergem na primeira
+        # manutenção, e uma delas decidiria dinheiro.
         return ({**mcfg, "appMode": (config or {}).get("appMode"),
                  "candlePeriod": (config or {}).get("candlePeriod")},
-                (lambda: metering.consume(_conn, scope)))
+                (lambda: metering.consume(_conn, scope,
+                                          month_section=metering.MONTH_SECTION)))
     return config, (lambda: None)                    # sem BYOK e sem gerenciada: llm dará erro acionável
 
 

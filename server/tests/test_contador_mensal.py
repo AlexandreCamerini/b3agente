@@ -318,3 +318,51 @@ def test_as_tres_rotas_ja_CONTAM_no_ledger_mensal_hoje(monkeypatch):
                headers=_auth(payload["token"]))
     assert r.status_code == 200, r.text
     assert main.metering.month_used(main._conn, scope) == 1
+
+
+# ---------------------------------------------------------------------------
+# (3) `metering.snapshot` — o par dia/mes tem de ser do MESMO dominio
+# ---------------------------------------------------------------------------
+
+def test_snapshot_nao_mistura_o_dia_de_um_dominio_com_o_mes_de_outro(monkeypatch):
+    """`snapshot` seguia `section` para ler o DIA e ignorava o dominio ao ler
+    o MES (`_load_month(conn, user_id)`, sempre `aiUsageMonth`). Quem pedisse
+    o snapshot da telemetria recebia `used` da telemetria e `monthUsed` da IA
+    — dois baldes diferentes no mesmo dict, cada numero verdadeiro sozinho e
+    a leitura conjunta mentindo."""
+    c, main = _client(monkeypatch)
+    payload = _registra(c, "snapshotmisto@teste.com")
+    uid = payload["user"]["id"]
+    m = main.metering
+
+    m.consume(main._conn, uid, custo=3)                      # IA: 3 no dia e no mes
+    m.consume(main._conn, uid, custo=50,                     # telemetria: 50
+              section=main.ANALYTICS_SECTION,
+              global_section=main.ANALYTICS_GLOBAL_SECTION,
+              month_section=main.ANALYTICS_MONTH_SECTION)
+
+    snap = m.snapshot(main._conn, uid, 100,
+                      section=main.ANALYTICS_SECTION,
+                      month_section=main.ANALYTICS_MONTH_SECTION)
+    assert snap["used"] == 50
+    assert snap["monthUsed"] == 50, (
+        "o mes veio do balde da IA enquanto o dia veio do da telemetria")
+
+
+def test_snapshot_sem_argumentos_de_secao_continua_sendo_o_da_IA(monkeypatch):
+    """Nao-regressao: nenhum chamador de hoje passa secao (`/api/ai/quota` usa
+    a forma posicional). O default tem de continuar lendo os dois baldes da
+    IA gerenciada."""
+    c, main = _client(monkeypatch)
+    payload = _registra(c, "snapshotdefault@teste.com")
+    uid = payload["user"]["id"]
+    m = main.metering
+
+    m.consume(main._conn, uid, custo=3)
+    m.consume(main._conn, uid, custo=50,
+              section=main.ANALYTICS_SECTION,
+              global_section=main.ANALYTICS_GLOBAL_SECTION,
+              month_section=main.ANALYTICS_MONTH_SECTION)
+
+    snap = m.snapshot(main._conn, uid, 100)
+    assert (snap["used"], snap["monthUsed"]) == (3, 3)
