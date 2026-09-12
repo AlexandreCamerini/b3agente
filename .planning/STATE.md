@@ -3,16 +3,18 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Opções v2
 status: executing
-stopped_at: "Fase 24 com a VERIFICAÇÃO AO VIVO verde (2026-09-11, tarde): o Alex rodou `scripts/fechar-fase-24.sh` e `test_mcp_vivo.py` + `test_opcoes_paridade_mcp.py::test_paridade_viva` passaram — primeira vez que `opcoes_payoff.perfil_da_estrutura` e `evaluate_option_structure` são confrontados sobre DADO REAL (antes só contra fixture derivada do próprio opcoes_payoff). NÃO conta como 1 dos 10 pregões do gatilho do ADR-027 Decisão 3, que pede paridade viva EM STAGING. A primeira tentativa falhou e NÃO era do serviço: era o cliente MCP atravessando event loops (corrigido no 24-09 — `_do_loop_corrente`). Também fechados fora de plano: 24-08 (linha de recusa cobrada na seção Criar setup) e `scripts/fechar-fase-24.sh` (wizard de 7 etapas, nenhum segredo em disco). Suíte: 2436 passed, 5 skipped + 129 .mjs, exit 0. Nada empurrado a origin, nenhum PR. PENDENTES, todos do Alex: etapas 4 (latência do /possibilidades com N=6 abaixo de 20s) e 5 (compilador NL→DSL com LLM real) do wizard, e o plano 24-05 (bump + publicar-web.sh + checkpoint no iPhone), que por desenho só roda com OK explícito dele."
-last_updated: "2026-09-11T23:30:00.000Z"
-last_activity: "2026-09-11 — 24-07 executado na árvore principal (sem worktree): fechamento do achado F-04, com a decisão do Alex já tomada (cobrar a viagem). O serviço MCP conta TODA `tools/call` no porteiro, antes de executar a tool; o Boris debitava só no sucesso, então a recusa custava o teto compartilhado de 2.000/dia e não custava nada ao cap de 60/dia de quem a provocava — com o fan-out de até 6 vencimentos do `/possibilidades`, ~330 toques esgotavam a cota de toda a base sem mover o contador de ninguém. Agora `_chamada_com_cap` consome 1 no `except McpErroDeTool` e re-levanta (ponto ÚNICO da regra; o `/status` repete só porque chama `call_tool` direto, e segue respondendo 200 porque a finalidade dele é reportar estado do dado). As QUATRO outras falhas continuam sem debitar, cada uma com o motivo escrito no código: sem credencial (não viajou), porteiro (recusa antes do contador de tools), teto do serviço (o contrato declara não cobrada) e indisponibilidade (sem prova de que o serviço contou) — cobrar o que não se sabe se foi cobrado é o mesmo erro, invertido. Transparência: `AVISO_RECUSA_COBRADA` em `AVISOS` ([R-12]), `cobrado`/`nota` nos três 422 de erro de tool e a linha discreta na tela (`opcoesRecusaCobrada` nos dois modos, `RecusaCobrada` nos dois ramos de erro). DESVIO que vale registrar: `cobrado: True` NÃO é literal fixo — `_material_do_compilador` fabrica um `McpErroDeTool` sem nenhuma `tools/call`, e o literal afirmaria um débito inexistente; o campo vem de uma marca posta no ponto do débito, com guardião próprio. Regra de ouro cumprida: os 9 testes novos de backend foram vistos VERMELHOS antes (o do cenário medido falhava com `assert 0 == 6`, o número exato do achado), e os quatro de \"não debita\" — que não podem ficar vermelhos — foram provados por injeção do defeito oposto. Suíte canônica: 2433 passed, 5 skipped + 129 .mjs, exit 0 (baseline 2424/5 — +9). `npx vite build` verde. Cache negativo NÃO implementado: 0 linhas em `mcp_client.py`; `with _cap_check(` segue em 12 linhas, nenhum custo declarado de rota mudou. Nada empurrado a origin, nenhum PR.
+stopped_at: "Fase 24 — 24-11 executado (2026-09-11, noite): a LEITURA DO ATIVO passou a dizer POR QUE cada campo vazio está vazio, sem preencher número nenhum, sem recalcular indicador nenhum e sem chamada de tool nova (custo da `/leitura` continua 3). Suíte canônica 2457 passed, 5 skipped + 129 .mjs, exit 0; `npx vite build` verde. Nada empurrado a origin, nenhum PR. PENDENTES, todos do Alex: etapas 4 (latência do /possibilidades com N=6 abaixo de 20s) e 5 (compilador NL→DSL com LLM real) do wizard `fechar-fase-24.sh`; o plano 24-05 (bump + publicar-web.sh + checkpoint no iPhone), de que este texto novo DEPENDE para chegar ao usuário; e o `24-12-PLAN.md`, que está em disco (não rastreado) e NÃO foi executado. Contexto anterior, ainda válido — VERIFICAÇÃO AO VIVO verde (2026-09-11, tarde): o Alex rodou `scripts/fechar-fase-24.sh` e `test_mcp_vivo.py` + `test_opcoes_paridade_mcp.py::test_paridade_viva` passaram — primeira vez que `opcoes_payoff.perfil_da_estrutura` e `evaluate_option_structure` são confrontados sobre DADO REAL (antes só contra fixture derivada do próprio opcoes_payoff). NÃO conta como 1 dos 10 pregões do gatilho do ADR-027 Decisão 3, que pede paridade viva EM STAGING. A primeira tentativa falhou e NÃO era do serviço: era o cliente MCP atravessando event loops (corrigido no 24-09 — `_do_loop_corrente`). Também fechados fora de plano: 24-08 (linha de recusa cobrada na seção Criar setup) e `scripts/fechar-fase-24.sh` (wizard de 7 etapas, nenhum segredo em disco). Suíte: 2436 passed, 5 skipped + 129 .mjs, exit 0. Nada empurrado a origin, nenhum PR. PENDENTES, todos do Alex: etapas 4 (latência do /possibilidades com N=6 abaixo de 20s) e 5 (compilador NL→DSL com LLM real) do wizard, e o plano 24-05 (bump + publicar-web.sh + checkpoint no iPhone), que por desenho só roda com OK explícito dele."
+last_updated: "2026-09-12T00:45:00.000Z"
+last_activity: "2026-09-11 (noite) — 24-11 executado na árvore principal (sem worktree): fechamento do achado ao vivo do mesmo dia — a LEITURA DO ATIVO de PETR4 mostrava travessão em Tendência, HV 21, HV 63, Distância da média 63 e Faixa de 63 pregões sem dizer por quê. Decisão do Alex, entre quatro saídas: DIZER O MOTIVO na tela, sem duplicar cálculo (preencher seria fabricar, princípio 4; recalcular criaria uma segunda implementação do mesmo indicador, divergindo da do serviço em silêncio). `_lacunas_da_leitura(behavior)` é helper PURO que deriva o motivo do que o próprio `behavior` mostra: janela de 63 que não fecha (a de 21 fecha, por isso os campos de 21 vieram), série curta demais para as médias, ou volatilidade realizada que o provedor não publica (hv21/hv63 são colunas DIRETAS do candle, o serviço não as calcula). A lista nomeia SÓ o que de fato veio vazio, e `behavior` ausente/torto/`sem_candles`/sem `close` produz lista vazia — a tela já tem estado próprio, e repetir viraria duas mensagens para a mesma ausência. `lacunas` viaja ao lado de `behavior` (que continua verbatim) e NÃO custa chamada de tool nenhuma: `_cap_check(uid, 3)` intacto. Na tela, `LacunasDaLeitura` agrupa os motivos no rodapé do bloco, ao lado do carimbo do pregão — repetir em cinco linhas da tabela empurraria para fora da tela os números que VIERAM. Os três motivos entram em `AVISOS` ([R-12]) e `opcoesLacuna` entra nas DUAS vozes; o motivo é do backend e vai verbatim, o front só junta os rótulos. A trava central mudou de forma em relação ao plano, que se contradizia (a regex 'dígito seguido de pregões' proibiria o próprio texto aprovado, 'exigem 63 pregões'): virou vocabulário (só as janelas declaradas 21/63 podem ser número) + forma (nenhuma frase diz que a série TEM n pregões), as duas com sanidade. Regra de ouro cumprida: os 10 testes de backend foram vistos VERMELHOS antes (`AttributeError: ... has no attribute '_lacunas_da_leitura'`, `KeyError: 'lacunas'`) e as 28 asserções do bloco 15 do guardião de front também (`18 FALHA(S)`). Achado extra corrigido no caminho: `range_63_sessions` chega SEMPRE como dict com os dois extremos nulos, e a tela mostrava '— – —' — travessão travestido de faixa. Suíte canônica: 2457 passed, 5 skipped + 129 .mjs, exit 0 (baseline 2447/5 — +10, exatamente os novos). `npx vite build` verde. NOTA OPERACIONAL: a árvore tinha trabalho em curso de outra sessão (version.js em F10-20260911-05, `server/web_dist` republicado, bundle iOS sincronizado); o `vite build` desta execução dessincronizou `web/dist` (mesmo carimbo, hashes diferentes) e fez `test_ios_assets.mjs` reprovar — `web/dist` foi restaurado a partir de `server/web_dist` e nenhum arquivo versionado de terceiros foi tocado. Nada empurrado a origin, nenhum PR.
+
+Anterior (2026-09-11) — 24-07 executado na árvore principal (sem worktree): fechamento do achado F-04, com a decisão do Alex já tomada (cobrar a viagem). O serviço MCP conta TODA `tools/call` no porteiro, antes de executar a tool; o Boris debitava só no sucesso, então a recusa custava o teto compartilhado de 2.000/dia e não custava nada ao cap de 60/dia de quem a provocava — com o fan-out de até 6 vencimentos do `/possibilidades`, ~330 toques esgotavam a cota de toda a base sem mover o contador de ninguém. Agora `_chamada_com_cap` consome 1 no `except McpErroDeTool` e re-levanta (ponto ÚNICO da regra; o `/status` repete só porque chama `call_tool` direto, e segue respondendo 200 porque a finalidade dele é reportar estado do dado). As QUATRO outras falhas continuam sem debitar, cada uma com o motivo escrito no código: sem credencial (não viajou), porteiro (recusa antes do contador de tools), teto do serviço (o contrato declara não cobrada) e indisponibilidade (sem prova de que o serviço contou) — cobrar o que não se sabe se foi cobrado é o mesmo erro, invertido. Transparência: `AVISO_RECUSA_COBRADA` em `AVISOS` ([R-12]), `cobrado`/`nota` nos três 422 de erro de tool e a linha discreta na tela (`opcoesRecusaCobrada` nos dois modos, `RecusaCobrada` nos dois ramos de erro). DESVIO que vale registrar: `cobrado: True` NÃO é literal fixo — `_material_do_compilador` fabrica um `McpErroDeTool` sem nenhuma `tools/call`, e o literal afirmaria um débito inexistente; o campo vem de uma marca posta no ponto do débito, com guardião próprio. Regra de ouro cumprida: os 9 testes novos de backend foram vistos VERMELHOS antes (o do cenário medido falhava com `assert 0 == 6`, o número exato do achado), e os quatro de \"não debita\" — que não podem ficar vermelhos — foram provados por injeção do defeito oposto. Suíte canônica: 2433 passed, 5 skipped + 129 .mjs, exit 0 (baseline 2424/5 — +9). `npx vite build` verde. Cache negativo NÃO implementado: 0 linhas em `mcp_client.py`; `with _cap_check(` segue em 12 linhas, nenhum custo declarado de rota mudou. Nada empurrado a origin, nenhum PR.
 
 Anterior (2026-09-11) — 24-06 executado na árvore principal (sem worktree): plano de CORREÇÃO dos três achados de escopo do `24-VERIFICATION.md`. (F-01) `_razao_ganho_perda(dados)` puro ao lado de `_em_reais` — adimensional, SEM `lote` na assinatura (o parâmetro que não muda o resultado é o convite a multiplicá-lo por engano); razão que não existe é `None` COM motivo nos quatro casos (ganho sem teto, perda sem piso, dado ausente, perda zero), nunca 0 nem ∞; campo `razaoGanhoPerda` FORA do bloco `emReais` em `/proposta` e por item de `/possibilidades`; `RazaoGanhoPerda` nas duas seções da tela, com o motivo em linha inteira quando não há número; os quatro motivos entram em `AVISOS` ([R-12]). (F-02) `/setups/compilar` capturava só `llm.LLMUserError` e deixava `httpx.ReadTimeout` subir ao handler global — agora 503 `ia_indisponivel` com 'nada foi gravado' e `action`, mais `except Exception` justificado por escrito (o provedor é código de terceiro; o critério 7 do ROADMAP é literal). (F-03) `audit.record` fatorado em `_audita()` com try/except + obslog `warn`: contabilidade não derruba rota cuja escrita externa JÁ aconteceu, porque o armazém é sem dono e a retentativa duplica setup para toda a base. Regra de ouro cumprida: os 17 testes novos foram escritos ANTES e vistos VERMELHOS contra o código antigo (14+13 asserções de F-01, 2 de F-02, 1 de F-03). Suíte canônica: 2424 passed, 5 skipped + 129 .mjs, exit 0. F-04 INTOCADO e provado por diff (0 linhas em `mcp_client.py`, nenhuma mudança em `cap.consome` nem em custo declarado de rota); existe um `24-07-PLAN.md` em disco (NÃO rastreado, NÃO executado) que já pressupõe uma das três saídas — a escolha é do Alex."
 progress:
   total_phases: 8
   completed_phases: 5
-  total_plans: 30
-  completed_plans: 29
+  total_plans: 31
+  completed_plans: 30
   percent: 97
 ---
 
@@ -28,8 +30,8 @@ See: .planning/PROJECT.md (updated 2026-09-06)
 ## Current Position
 
 Phase: 24 (Aba Opções sobre MCP — análise e criação de setups) — EXECUTING
-Plan: 24-07 concluído (6 de 7 planos concluídos: 24-01 a 24-04, 24-06 e 24-07), mais 24-08 e 24-09 fora de plano (ver abaixo)
-Status: os QUATRO achados do `24-VERIFICATION.md` estão fechados (F-01/F-02/F-03 no 24-06; F-04 no 24-07) e a VERIFICAÇÃO AO VIVO passou (2026-09-11, tarde). Único plano aberto: 24-05 (publicação), PENDENTE DE OK HUMANO por desenho (`autonomous: false`)
+Plan: 24-11 concluído (7 planos concluídos: 24-01 a 24-04, 24-06, 24-07 e 24-11), mais 24-08 e 24-09 fora de plano (ver abaixo)
+Status: os QUATRO achados do `24-VERIFICATION.md` estão fechados (F-01/F-02/F-03 no 24-06; F-04 no 24-07), a VERIFICAÇÃO AO VIVO passou (2026-09-11, tarde) e o achado ao vivo da noite (LEITURA DO ATIVO com campos vazios sem motivo) fechou no 24-11. Planos abertos: 24-05 (publicação), PENDENTE DE OK HUMANO por desenho (`autonomous: false`), e `24-12-PLAN.md`, em disco e não executado
 
 **PARIDADE VIVA VERDE (2026-09-11)** — o Alex rodou `scripts/fechar-fase-24.sh`
 com as credenciais lidas do Railway em memória, e `test_mcp_vivo.py` +
@@ -47,7 +49,58 @@ Duas ressalvas sobre o que isso significa, para ninguém ler a mais:
   vida de event loop corrigido no 24-09 (abaixo).
 Progress: [█████████░] 97%
 
-Last activity: 2026-09-11 (tarde) — três coisas fora de plano, todas commitadas:
+Last activity: 2026-09-11 (noite) — **24-11**: fechamento do achado ao vivo do
+mesmo dia. Na tela do Alex (PETR4, pregão de 2026-09-08), cinco campos da
+LEITURA DO ATIVO mostravam travessão e mais nada — e travessão mudo não é
+estado vazio: a pessoa não sabe se o app quebrou, se o ativo é estranho ou se
+falta dado (princípio 9). Entre quatro saídas, o Alex escolheu **dizer o motivo
+na tela, sem duplicar cálculo**: preencher o número seria fabricar (princípio
+4) e recalcular criaria uma segunda implementação do mesmo indicador,
+divergindo da do serviço em silêncio.
+
+`_lacunas_da_leitura(behavior)` é helper PURO e deriva o motivo do que o
+próprio `behavior` mostra — não consulta nada, não conta pregão, não afirma
+tamanho de série. Três motivos: janela de 63 que não fecha (a de 21 fecha, por
+isso os campos de 21 vieram), série curta demais para as médias, e
+volatilidade realizada que o provedor não publica (`hv21`/`hv63` são colunas
+DIRETAS do candle — o serviço MCP não as calcula). A lista nomeia só o que de
+fato veio vazio; `behavior` ausente, torto, `sem_candles` ou sem `close`
+produz lista vazia, porque a tela já tem estado próprio e repetir viraria duas
+mensagens para a mesma ausência.
+
+`lacunas` viaja ao lado de `behavior` (que segue verbatim) e **não custa
+chamada de tool nenhuma** — `_cap_check(uid, 3)` intacto. Na tela, os motivos
+vão AGRUPADOS no rodapé do bloco, ao lado do carimbo do pregão: repetir a
+explicação em cinco linhas da tabela empurraria para fora da tela os números
+que VIERAM, que é o oposto do que o achado pede. Os três textos entram em
+`AVISOS` ([R-12]) e `opcoesLacuna` entra nas DUAS vozes — o motivo é do
+backend e vai verbatim, o front só junta os rótulos.
+
+A trava central mudou de forma em relação ao plano, que se contradizia: a
+regex pedida ("dígito seguido de pregões") reprovaria o próprio texto aprovado
+no mesmo plano ("exigem 63 pregões"). Prevaleceu a intenção — não afirmar o
+tamanho da série —, em duas camadas com sanidade: vocabulário (só as janelas
+que o serviço declara, 21 e 63, podem ser número) e forma (nenhuma frase diz
+que a série TEM n pregões). Achado extra corrigido no caminho:
+`range_63_sessions` chega SEMPRE como dict com os dois extremos nulos, e a
+tela mostrava `— – —`, travessão travestido de faixa.
+
+Regra de ouro cumprida: 10 testes de backend vistos VERMELHOS antes
+(`AttributeError: ... '_lacunas_da_leitura'`, `KeyError: 'lacunas'`) e as 28
+asserções do bloco 15 do guardião de front também (`18 FALHA(S)`). Suíte
+canônica: **2457 passed, 5 skipped + 129 .mjs, exit 0** (baseline 2447/5 —
++10, exatamente os novos). `npx vite build` verde. Nada empurrado a origin,
+nenhum PR.
+
+NOTA OPERACIONAL: a árvore principal tinha trabalho em curso de OUTRA sessão
+(`web/src/version.js` em `F10-20260911-05`, `server/web_dist` republicado e o
+bundle iOS sincronizado com esse build). O `vite build` exigido pelo plano
+regerou `web/dist` com o MESMO carimbo e hashes diferentes, e
+`test_ios_assets.mjs` reprovou exatamente a condição que ele existe para pegar.
+`web/dist` foi restaurado a partir de `server/web_dist` (byte a byte o build
+anterior); nenhum arquivo versionado de terceiros foi tocado.
+
+Anterior (2026-09-11, tarde) — três coisas fora de plano, todas commitadas:
 **(24-08)** a seção `Criar setup` passou a renderizar a linha de recusa cobrada
 — o "Deferred" que o 24-07 registrou por ter aquela tela fora dos
 `files_modified` dele. A condição ali é SÓ `detail.cobrado === true`, sem o
@@ -131,6 +184,7 @@ RESSALVA HONESTA: a verificação foi estática (suíte + build). As quatro corr
 | 24 P04 | 47min | 3 tasks | 7 files |
 | 24 P06 | 41min | 3 tasks | 6 files |
 | 24 P07 | 25min | 3 tasks | 7 files |
+| 24 P11 | 35min | 3 tasks | 5 files |
 
 **Recent Trend:**
 

@@ -321,6 +321,14 @@ Plans:
 
 - [ ] 24-05-PLAN.md — bump + publicação do front e checkpoint humano no iPhone; só roda com OK explícito do Alex
 
+**Fora das waves** — planos de fechamento de achado, escritos depois da
+verificação goal-backward e dos testes ao vivo (é deles que vem o denominador
+8 na tabela de progresso):
+
+- [x] 24-06-PLAN.md — F-01/F-02/F-03 do `24-VERIFICATION.md` (razão ganho/perda, timeout da LLM, auditoria que não derruba a rota)
+- [x] 24-07-PLAN.md — F-04: a recusa de tool passou a debitar a viagem que ela custou
+- [x] 24-11-PLAN.md — achado ao vivo 2026-09-11: a LEITURA DO ATIVO diz por que cada campo vazio está vazio
+
 **UI hint**: yes
 
 Fora de escopo declarado: Fase 4 do PLANO (veredito), Fase 6 (fluxo do
@@ -357,7 +365,7 @@ que o dispara). Detalhes em
 | 21. Duplicação removida e Portfólio consolidado | 4/4 | Complete    | 2026-09-06 |
 | 22. Componentes compartilhados (trilho, ícones, mascote) | 4/4 | Complete    | 2026-09-06 |
 | 23. Motion com propósito e ilustração unificada | 4/4 | Complete    | 2026-09-06 |
-| 24. Aba Opções sobre MCP — análise e criação de setups | 6/7 | In Progress|  |
+| 24. Aba Opções sobre MCP — análise e criação de setups | 7/8 | In Progress|  |
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2/v1.3
 
