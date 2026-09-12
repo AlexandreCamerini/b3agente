@@ -61,6 +61,14 @@ export const api = {
   brapiProjecao: (intervaloS) => req("GET", "/api/obs/brapi/projecao" + (intervaloS ? "?intervaloS=" + encodeURIComponent(intervaloS) : "")),
   brapiProjecaoAplicar: (intervaloS) => req("POST", "/api/obs/brapi/projecao", { intervaloS, aplicar: true }),
 
+  // 24-15 — os três tetos da aba Opções (ADR-027). Prévia e aplicação são
+  // chamadas SEPARADAS de propósito: a diferença entre simular e gravar é um
+  // `aplicar: true`, e um flag opcional no meio de um objeto é justamente o
+  // que se esquece de passar.
+  opcoesCotaGet: () => req("GET", "/api/obs/opcoes/cota"),
+  opcoesCotaPrevia: (campos) => req("POST", "/api/obs/opcoes/cota", campos),
+  opcoesCotaAplicar: (campos) => req("POST", "/api/obs/opcoes/cota", { ...campos, aplicar: true }),
+
   configIaGet: () => req("GET", "/api/admin/config/ia"),
   configIaPut: (campos) => req("PUT", "/api/admin/config/ia", campos),
 
