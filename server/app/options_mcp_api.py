@@ -353,10 +353,16 @@ _require_user = None
 _require_permission = None
 _gate_analise = None
 _config_do_usuario = None
+# 25-04: a conciliação "limite do plano → override global → env → default".
+# Nasce em `main.py` (depende de `plan` + `_plano_do_escopo`) e chega por
+# injeção, como as três acima. Sem ela, os tetos desta aba resolvem
+# EXATAMENTE como resolviam antes — é a degradação certa, não uma falha.
+_limite_do_plano = None
 
 
 def configure(conn, require_user_dep, *, require_permission_dep=None,
-              gate_analise=None, config_do_usuario=None) -> None:
+              gate_analise=None, config_do_usuario=None,
+              limite_do_plano=None) -> None:
     """Injeção pelo mesmo padrão de `candle_cache.configure_db` /
     `setups.set_historico_provider`: `main.py` importa este módulo e entrega
     a conexão e a dependency de sessão. O inverso (este módulo importar
@@ -372,11 +378,19 @@ def configure(conn, require_user_dep, *, require_permission_dep=None,
       `(config_efetiva, consume)`;
     · `config_do_usuario` — `lambda uid: store.get(conn, "config", user_id=uid)`.
 
+    O quarto nasce no 25-04, pela MESMA razão:
+
+    · `limite_do_plano` — `_limite_do_plano(scope, chave, global_fn)`, a
+      conciliação entre o limite do PLANO da conta e o override GLOBAL que
+      esta aba já aplica. Ausente, `_cota_usuario` resolve como sempre
+      resolveu (kv global → env → default): degradação, não falha.
+
     São KEYWORD e OPCIONAIS de propósito: `configure(conn, require_user)`
     continua válido, e nenhum chamador (teste inclusive) precisa mudar. Sem
     eles as rotas de ESCRITA falham FECHADO (503) — ver `require_criar_setup`.
     """
     global _conn, _require_user, _require_permission, _gate_analise, _config_do_usuario
+    global _limite_do_plano
     _conn = conn
     # 24-15: os tetos vindos do kv são cache de PROCESSO, e este é o ponto em
     # que o processo passa a falar com outro banco (é o que a suíte faz a cada
@@ -387,6 +401,7 @@ def configure(conn, require_user_dep, *, require_permission_dep=None,
     _require_permission = require_permission_dep
     _gate_analise = gate_analise
     _config_do_usuario = config_do_usuario
+    _limite_do_plano = limite_do_plano
 
 
 def require_user(authorization: Optional[str] = Header(default=None)) -> dict:
@@ -555,6 +570,13 @@ def _set_limite(chave_kv: str, n) -> int:
 
 
 def cota_usuario_dia() -> int:
+    """O teto por usuário GLOBAL — o mesmo número para toda a base.
+
+    25-04: virou a camada de BAIXO da conciliação. Quem tem plano com
+    `opcoes_chamadas_dia` configurado é barrado pelo número do plano
+    (`_cota_usuario`); quem não tem cai aqui, e este valor continua sendo o que
+    o card `CotaOpcoes` do portal escreve e mostra. A função NÃO muda: é
+    exatamente por não mudar que "sem configuração, nada muda" vale."""
     return _valor_e_origem(_KV_COTA_USUARIO, "B3_MCP_COTA_USUARIO_DIA",
                            COTA_USUARIO_DIA_DEFAULT)[0]
 
@@ -615,7 +637,22 @@ def consumo_global_hoje() -> dict:
 # As três privadas que o `_cap_check` usa delegam nas públicas: um lugar só
 # decide o valor vigente. Os nomes seguem porque são o vocabulário do cap (e
 # o que a suíte já exercita).
-def _cota_usuario() -> int:
+def _cota_usuario(uid: Optional[str] = None) -> Optional[int]:
+    """O teto por usuário VIGENTE para `uid`. 25-04: o limite do PLANO da conta
+    vem na frente do teto global; sem plano configurado (ou sem a injeção do
+    `main.py`), é `cota_usuario_dia()` — o número de sempre.
+
+    Valor torto vindo do plano (tipo errado, negativo) é ignorado em vez de
+    virar cap: o teto do serviço MCP é COMPARTILHADO por toda a base, e um
+    número inválido aqui viraria o freio desligado — mesma disciplina do
+    `_kv_int` logo acima."""
+    if uid and _limite_do_plano is not None:
+        try:
+            v = _limite_do_plano(uid, "opcoes_chamadas_dia", cota_usuario_dia)
+        except Exception:  # noqa: BLE001 — eixo comercial não derruba a aba
+            v = None
+        if v is None or (isinstance(v, int) and not isinstance(v, bool) and v >= 0):
+            return v
     return cota_usuario_dia()
 
 
@@ -735,9 +772,14 @@ def _cap_check(uid: str, custo: int) -> _Reserva:
     if custo <= 0:
         return _Reserva(uid, 0)
     dia = _dia_sp()
+    # 25-04: só `quota` (o teto POR USUÁRIO) passa a conhecer o plano da conta.
+    # `rate_per_min` é freio contra flood e `cap_global` é o teto do SERVIÇO,
+    # compartilhado por toda a base do Boris (2.000 `tools/call`/dia, ADR-027):
+    # deixá-los variar por plano não criaria capacidade nenhuma — transferiria
+    # a recusa para outro usuário, com uma mensagem que não explica isso.
     ok, _motivo = metering.check(
         _conn, uid,
-        quota=_cota_usuario(), rate_per_min=_rate_min(), custo=custo,
+        quota=_cota_usuario(uid), rate_per_min=_rate_min(), custo=custo,
         cap_global=_cota_global(),
         section=SECTION, global_section=GLOBAL_SECTION, _dia=dia,
     )
@@ -751,7 +793,7 @@ def _cap_check(uid: str, custo: int) -> _Reserva:
         "code": "mcp_cota",
         "message": "Cota do dia da aba Opções esgotada.",
         "usado": metering.used(_conn, uid, section=SECTION, _dia=dia),
-        "limite": _cota_usuario(),
+        "limite": _cota_usuario(uid),
         "reinicia": RESET_TXT,
     })
 

@@ -38,8 +38,21 @@ MAX_HISTORICO_TURNOS = 6     # F5: teto de turnos — conversa não é log infin
 MAX_HISTORICO_CHARS = 4000   # F5: teto de caracteres do histórico inteiro
 
 
+# 25-04 (Fase 3 do 25-CONTEXT): sentinela próprio para "o chamador não informou
+# teto". `None` NÃO serve, porque a partir daqui `None` é um valor legítimo —
+# é como um plano diz "sem teto" (`plan.TXT_SEM_LIMITE`). Usar `None` para as
+# duas coisas transformaria "plano ilimitado" em "plano não configurado" e o
+# freio de 1 R$/dia voltaria calado.
+_TETO_NAO_INFORMADO = object()
+
+
 def teto_dia_brl() -> float:
-    """Teto de custo por escopo por dia (R$). Freio, não orçamento."""
+    """Teto de custo por escopo por dia (R$). Freio, não orçamento.
+
+    25-04: virou a camada de BAIXO. Quem decide o teto vigente é o chamador
+    (`main.post_assistente` → `_limite_do_plano`), que põe o limite do PLANO na
+    frente desta env; esta função é o que atende quem nunca configurou plano
+    nenhum — e é por isso que ela não muda uma linha."""
     try:
         return max(0.0, float(os.environ.get("B3_ASSISTENTE_TETO_BRL") or 1.0))
     except (TypeError, ValueError):
@@ -266,9 +279,15 @@ class TetoAtingido(Exception):
 
 async def responder(conn, config: dict, scope, modo: str, tela: str,
                     snapshot: dict, pergunta: str, byok: bool = False,
-                    historico=None) -> dict:
+                    historico=None, teto=_TETO_NAO_INFORMADO) -> dict:
     """Uma resposta do assistente. Levanta `TetoAtingido` no freio de custo e
     propaga os erros de configuração do `llm` (que já vêm com texto público).
+
+    `teto` (25-04) é o teto em R$/dia JÁ resolvido pelo chamador, que concilia
+    o limite do plano da conta com a env global. Omitido, cai em
+    `teto_dia_brl()` — é o que os testes unitários deste módulo fazem, e é
+    exatamente o comportamento anterior. `teto=None` significa SEM teto (plano
+    ilimitado), que é diferente de omitir.
 
     `byok=True` (o usuário trouxe a própria chave) DISPENSA o teto: ele existe
     para proteger o bolso do Alex, e barrar alguém de gastar o próprio dinheiro
@@ -283,8 +302,9 @@ async def responder(conn, config: dict, scope, modo: str, tela: str,
         raise TetoAtingido("O assistente está temporariamente desligado. "
                            "As explicações do app continuam disponíveis no “?”.")
     gasto = custo_hoje(conn, scope)
-    teto = teto_dia_brl()
-    if not byok and gasto >= teto:
+    if teto is _TETO_NAO_INFORMADO:
+        teto = teto_dia_brl()
+    if not byok and teto is not None and gasto >= teto:
         raise TetoAtingido(
             "Você atingiu o limite de uso da IA por hoje (R$ %.2f). As explicações "
             "do app continuam disponíveis no “?” de cada número — elas não gastam "
@@ -316,7 +336,9 @@ async def responder(conn, config: dict, scope, modo: str, tela: str,
             "prefixoCacheavel": prefixo_cacheavel(config.get("model") or "", system),
             # Com chave própria não há teto — o campo some em vez de mostrar um
             # número que não significa nada para quem paga a própria conta.
-            "restanteHojeBRL": (None if byok
+            # 25-04: plano SEM teto (`teto is None`) segue a mesma regra, pelo
+            # mesmo motivo — não há restante de um limite que não existe.
+            "restanteHojeBRL": (None if (byok or teto is None)
                                 else round(max(0.0, teto - custo_hoje(conn, scope)), 4))}
 
 
