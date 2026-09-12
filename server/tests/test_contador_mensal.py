@@ -152,3 +152,169 @@ def test_nomes_das_secoes_de_analytics_nao_mudaram(monkeypatch):
     assert main.ANALYTICS_MONTH_SECTION == "analyticsEventsMonth"
     assert main.ANALYTICS_MONTH_SECTION != main.metering.MONTH_SECTION, (
         "o ledger mensal da telemetria nao pode ser o mesmo do gate comercial")
+
+
+# ---------------------------------------------------------------------------
+# (2) AS TRES ROTAS ORFAS — pendente de decisao (ver 25-01-SUMMARY.md)
+#
+# `/api/scan/deep`, `/api/carteira-stopalvo` e `/api/assistente` chamam
+# `_ai_apply_managed` direto: CONTAM no ledger mensal (o `consume` do ramo
+# gerenciado usa o `MONTH_SECTION` default) mas nao passam pelo gate do plano,
+# entao a conta gasta acima do cap sem ser barrada. As tres assercoes abaixo
+# descrevem o estado ALVO. Ficam `xfail(strict=True)` porque a ativacao do
+# gate foi medida e devolvida como decisao do dono do produto: com o ledger
+# contaminado pelo defeito (1), ligar hoje barraria contas pela telemetria
+# delas, nao pelo uso. Strict de proposito — no dia da ativacao estes testes
+# passam a FALHAR por XPASS, obrigando quem ativar a tirar a marca.
+# ---------------------------------------------------------------------------
+PENDENTE = ("ativacao do gate mensal nas tres rotas orfas esta pendente de "
+            "decisao (25-01, Task 2): o ledger do mes corrente esta "
+            "contaminado por telemetria e barraria pelo defeito, nao pelo uso")
+
+LEDGER_ESTOURADO = 100
+MENSAGEM_LIMITE_FREE = "Voce atingiu o limite de 30 analises/mes do plano free."
+
+
+def _conta_com_ledger(c, main, email, n=LEDGER_ESTOURADO):
+    """Semeia SO o ledger MENSAL.
+
+    `consume` grava dia + global + mes na MESMA chamada, e semear o mes por
+    ele leva o contador DIARIO junto. Com a IA gerenciada ligada, `custo=100`
+    estoura o teto de 20/dia da chave do servidor e a rota responde 402 pelo
+    teto FISICO — nao pelo cap COMERCIAL de 30/mes, que e o que esta sob
+    teste. Os dois 402 sao indistinguiveis pelo status: so a mensagem separa.
+    `_dia` fixo no passado resolve na raiz — o registro diario nasce obsoleto
+    e `_load` devolve zerado para hoje."""
+    payload = _registra(c, email)
+    scope = payload["user"]["id"]
+    if n:  # `consume` faz `max(1, custo)` — pedir 0 gravaria 1
+        main.metering.consume(main._conn, scope, custo=n, _dia="1999-01-01")
+    assert main.metering.month_used(main._conn, scope) == n
+    assert main.metering.used(main._conn, scope) == 0, (
+        "o ledger DIARIO tem de ficar limpo — senao o teste mede o teto fisico")
+    return payload, scope
+
+
+async def _quote_fake(_t):
+    return {"t": "PETR4", "name": "Petrobras PN", "price": 35.5, "change": 0.5}
+
+
+async def _snap_fake(*_a, **_k):
+    return {
+        "context": {"setupsRadar": {}, "trend": {}, "volatility": {}, "levels": {}},
+        "asOf": "2026-09-12", "barraEmFormacao": None, "candles": [],
+        "currency": "BRL", "period": "1y", "snapshotId": "fake0001", "periodBars": [],
+    }
+
+
+@pytest.mark.xfail(strict=True, reason=PENDENTE)
+def test_scan_deep_barra_quando_o_mes_estourou(monkeypatch):
+    c, main = _client(monkeypatch)
+    payload, _scope = _conta_com_ledger(c, main, "scandeep@teste.com")
+
+    async def _sem_universo(*_a, **_k):
+        return []
+    monkeypatch.setattr(main.scanner, "run_scan", _sem_universo)
+
+    r = c.post("/api/scan/deep", json={"config": dict(CONFIG_SEM_BYOK)},
+               headers=_auth(payload["token"]))
+    assert r.status_code == 402, r.text
+    assert MENSAGEM_LIMITE_FREE in r.text
+
+
+@pytest.mark.xfail(strict=True, reason=PENDENTE)
+def test_carteira_stopalvo_barra_quando_o_mes_estourou(monkeypatch):
+    c, main = _client(monkeypatch)
+    payload, _scope = _conta_com_ledger(c, main, "stopalvo@teste.com")
+    monkeypatch.setattr(main.candle_provider, "get_quote", _quote_fake)
+    monkeypatch.setattr(main.technical_snapshot, "get", _snap_fake)
+
+    async def _llm_nunca(*_a, **_k):
+        raise AssertionError("a IA foi chamada com o mes estourado")
+    monkeypatch.setattr(main.llm, "analyze_carteira", _llm_nunca)
+
+    r = c.post("/api/carteira-stopalvo/PETR4", json={"config": dict(CONFIG_SEM_BYOK)},
+               headers=_auth(payload["token"]))
+    assert r.status_code == 402, r.text
+    assert MENSAGEM_LIMITE_FREE in r.text
+
+
+@pytest.mark.xfail(strict=True, reason=PENDENTE)
+def test_assistente_barra_quando_o_mes_estourou(monkeypatch):
+    c, main = _client(monkeypatch)
+    payload, _scope = _conta_com_ledger(c, main, "assistente@teste.com")
+
+    async def _responder_nunca(*_a, **_k):
+        raise AssertionError("a IA foi chamada com o mes estourado")
+    from app import assistente as assist
+    monkeypatch.setattr(assist, "responder", _responder_nunca)
+
+    r = c.post("/api/assistente",
+               json={"pergunta": "o que voce acha do meu PETR4 agora, em detalhe?",
+                     "tela": "carteira", "config": dict(CONFIG_SEM_BYOK)},
+               headers=_auth(payload["token"]))
+    assert r.status_code == 402, r.text
+    assert MENSAGEM_LIMITE_FREE in r.text
+
+
+# ---------------------------------------------------------------------------
+# O que JA vale hoje nessas rotas, e que a ativacao nao pode quebrar
+# ---------------------------------------------------------------------------
+
+def test_scan_deep_reserva_o_custo_do_top_n_nao_um(monkeypatch):
+    """`/api/scan/deep` dispara ate `topN` chamadas de LLM e reserva `custo=n`
+    (qa/42). Quando o gate mensal entrar, o MESMO custo tem de ir junto —
+    contar 1 onde gasta n trocaria um defeito de medicao por outro."""
+    c, main = _client(monkeypatch, env=ENV_GERENCIADA)
+    payload, _scope = _conta_com_ledger(c, main, "custon@teste.com", n=0)
+    vistos = []
+
+    def _check(*_a, **kw):
+        vistos.append(kw.get("custo"))
+        return (True, None)
+    monkeypatch.setattr(main.metering, "check", _check)
+
+    async def _sem_universo(*_a, **_k):
+        return []
+    monkeypatch.setattr(main.scanner, "run_scan", _sem_universo)
+
+    c.post("/api/scan/deep", json={"config": dict(CONFIG_SEM_BYOK), "topN": 7},
+           headers=_auth(payload["token"]))
+
+    assert vistos and vistos[0] == 7, (
+        f"o custo reservado foi {vistos!r} — o gate tem de receber o topN, nao 1")
+
+
+def test_byok_nao_move_o_contador_mensal_em_nenhuma_das_tres(monkeypatch):
+    """O ledger mensal e o da chave do SERVIDOR. Quem traz a propria chave nao
+    o move — nem para cima (nao gasta a chave do servidor) nem para baixo."""
+    c, main = _client(monkeypatch, env=ENV_GERENCIADA)
+    _payload, scope = _conta_com_ledger(c, main, "byoktres@teste.com", n=7)
+
+    for custo in (1, 5):
+        _cfg, consume = main._ai_apply_managed(scope, dict(CONFIG_COM_BYOK), custo=custo)
+        consume()
+
+    assert main.metering.month_used(main._conn, scope) == 7
+
+
+def test_as_tres_rotas_ja_CONTAM_no_ledger_mensal_hoje(monkeypatch):
+    """Precisao do diagnostico: o defeito (2) e a AUSENCIA DO GATE, nao a
+    ausencia de contagem. O `consume` devolvido por `_ai_apply_managed` usa o
+    `MONTH_SECTION` default, entao estas rotas ja escrevem no ledger que o
+    plano le — elas gastam acima do cap sem serem barradas, e o contador
+    registra o excesso. Exercitado por `/api/carteira-stopalvo`, o caminho
+    mais curto das tres; o `consume` e o MESMO objeto nas outras duas."""
+    c, main = _client(monkeypatch, env=ENV_GERENCIADA)
+    payload, scope = _conta_com_ledger(c, main, "contahoje@teste.com", n=0)
+    monkeypatch.setattr(main.candle_provider, "get_quote", _quote_fake)
+    monkeypatch.setattr(main.technical_snapshot, "get", _snap_fake)
+
+    async def _llm_ok(*_a, **_k):
+        return {"texto": "resposta de teste"}
+    monkeypatch.setattr(main.llm, "analyze_carteira", _llm_ok)
+
+    r = c.post("/api/carteira-stopalvo/PETR4", json={"config": dict(CONFIG_SEM_BYOK)},
+               headers=_auth(payload["token"]))
+    assert r.status_code == 200, r.text
+    assert main.metering.month_used(main._conn, scope) == 1
