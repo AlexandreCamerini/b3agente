@@ -188,6 +188,20 @@ export const COPY = {
       (mediano === null || mediano === undefined ? "—" : mediano) + " (" +
       (comDado === null || comDado === undefined ? "—" : comDado) + " disparo(s) com dado suficiente).",
     opcoesBacktestRessalva: "Contagem do que já aconteceu no histórico. Não é expectativa de retorno, e taxa de disparo não é taxa de acerto.",
+    // 24-14 (achado ao vivo 2026-09-11): o ensaio que devolve "0 disparos"
+    // sem ter testado nada. É o texto mais delicado desta fase — ele diz à
+    // pessoa que o número que ela está vendo não significa o que parece.
+    // Vem ANTES dos números de propósito: quem lê o número primeiro já
+    // formou a conclusão. O MOTIVO de cada condição vem pronto do backend e
+    // é exibido verbatim; aqui só mora a moldura, e ela tem voz por modo.
+    opcoesEnsaioIndisparavel: "Este ensaio não testou o setup. Uma das condições exige mais pregões do que o histórico usado aqui tem, então ela não teve valor em nenhum dia — e o setup só dispara quando todas as condições valem no mesmo pregão. Por isso o número de disparos abaixo é consequência da conta, não sinal de que a condição é rara. Nada foi estimado no lugar.",
+    opcoesEnsaioRessalva: "Antes dos números, uma ressalva: nem toda condição deste setup teve valor em todo o período do ensaio. O que ficou sem verificação está listado aqui; os números abaixo valem para os pregões em que deu para verificar.",
+    opcoesEnsaioCondicao: (indicador, janela, motivo) => {
+      const nome = (typeof indicador === "string" && indicador)
+        ? indicador : "condição sem indicador nomeado";
+      const j = Number.isFinite(janela) ? " (janela de " + janela + " pregões)" : "";
+      return nome + j + ": " + (motivo || "o serviço não informou o motivo") + ".";
+    },
     opcoesDadoAtrasado: (idade, motivo) =>
       motivo === "nao_medido"
         ? "Não foi possível medir a idade do dado de negociação nesta consulta, e sem essa medição o setup não é gravado — ele vigiaria um pregão que ninguém conferiu."
@@ -567,6 +581,20 @@ export const COPY = {
       (mediano === null || mediano === undefined ? "—" : mediano) + " (" +
       (comDado === null || comDado === undefined ? "—" : comDado) + " disparo(s) com dado suficiente).",
     opcoesBacktestRessalva: "Contagem do que já aconteceu no histórico. Não é expectativa de retorno, e taxa de disparo não é taxa de acerto.",
+    // 24-14 (achado ao vivo 2026-09-11): o ensaio que devolve "0 disparos"
+    // sem ter testado nada. É o texto mais delicado desta fase — ele diz à
+    // pessoa que o número que ela está vendo não significa o que parece.
+    // Vem ANTES dos números de propósito: quem lê o número primeiro já
+    // formou a conclusão. O MOTIVO de cada condição vem pronto do backend e
+    // é exibido verbatim; aqui só mora a moldura, e ela tem voz por modo.
+    opcoesEnsaioIndisparavel: "Ensaio sem valor de teste. Uma das condições exige mais pregões do que o histórico usado tem e ficou sem valor em todos os dias — e o setup só dispara com todas as condições valendo no mesmo pregão. O zero de disparos abaixo sai da conta, não de raridade. Nada estimado no lugar.",
+    opcoesEnsaioRessalva: "Ressalva antes dos números: condição sem valor em parte do período do ensaio. O que ficou sem verificação está listado; os números abaixo valem só nos pregões em que deu para verificar.",
+    opcoesEnsaioCondicao: (indicador, janela, motivo) => {
+      const nome = (typeof indicador === "string" && indicador)
+        ? indicador : "condição sem indicador nomeado";
+      const j = Number.isFinite(janela) ? " (janela de " + janela + " pregões)" : "";
+      return nome + j + ": " + (motivo || "o serviço não informou o motivo") + ".";
+    },
     opcoesDadoAtrasado: (idade, motivo) =>
       motivo === "nao_medido"
         ? "A idade do dado de negociação não foi medida nesta consulta. Sem medição, o setup não é gravado — ele vigiaria um pregão que ninguém conferiu."
