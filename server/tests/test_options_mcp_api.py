@@ -23,6 +23,9 @@ O que este arquivo trava, em uma frase cada:
   - a `/leitura` explica cada campo vazio do `behavior` sem preencher
     nenhum deles, sem recalcular indicador e sem chamada de tool nova
     (24-11).
+  - `/status` e `/leitura` dizem a DISTÂNCIA em pregões até o último
+    fechado, pelo calendário da B3 — o dia corrente nunca conta, e data
+    ausente/torta/futura é `None`, nunca 0 (24-12).
 
 Isolamento e esqueleto herdados de `test_options_mcp_leitura.py` (B3_DB_PATH
 temporário + reset dos caches em memória). Nenhum teste depende de rede nem de
@@ -38,11 +41,12 @@ import pathlib
 import re
 import sys
 import tempfile
+from datetime import date
 
 import pytest
 from fastapi.testclient import TestClient
 
-from app import db, mcp_client, metering, options_mcp_api
+from app import db, mcp_client, metering, options_mcp_api, pregao
 
 
 @pytest.fixture(autouse=True)
@@ -1201,3 +1205,115 @@ def test_leitura_traz_as_lacunas_sem_chamada_nova(monkeypatch):
     assert _usado(main, uid) == 2
     assert "_cap_check(uid, 3)" in inspect.getsource(options_mcp_api.leitura), (
         "o custo declarado da `/leitura` mudou; o 24-11 não acrescenta tool")
+
+
+# ═══════════════════════════════════════ 24-12 — distância em pregões ═══
+# Achado ao vivo de 2026-09-11, medido com `scripts/diagnostico-leitura-opcoes.sh`:
+# a aba dizia "dado em dia" numa SEXTA sobre o pregão de TERÇA (2026-09-08).
+# O serviço estava coerente com o próprio contrato — `negociacao_b3` com
+# 49,58 h de idade contra um SLA de 96 h — e ainda assim quarta (09) e quinta
+# (10) não estavam na base. Herdar o veredito de quem publica, em vez de medir
+# a distância, é o que produz esse tipo de afirmação.
+#
+# TODOS os casos abaixo fixam o relógio por `_hoje`: teste que muda de
+# resultado em novembro é pior que teste nenhum.
+_HOJE_DO_ACHADO = date(2026, 9, 11)  # sexta
+
+
+def test_atraso_do_achado_sao_dois_pregoes():
+    """O caso medido, com o relógio parado no dia dele: terça → sexta são
+    DOIS pregões (quarta e quinta). `fonte` viaja para a tela poder dizer de
+    onde saiu o número sem raspar texto."""
+    r = options_mcp_api._atraso_em_pregoes("2026-09-08", _hoje=_HOJE_DO_ACHADO)
+    assert r["pregoes"] == 2
+    assert r["referencia"] == "2026-09-11"
+    assert r["fonte"] == "calendario_b3"
+
+
+def test_o_dia_corrente_nunca_conta():
+    """O COTAHIST de um pregão só sai depois do fechamento. Contar hoje faria
+    o app acusar atraso todas as manhãs, sobre um dado que ainda não poderia
+    existir — e um alerta que toca todo dia deixa de ser lido."""
+    assert options_mcp_api._atraso_em_pregoes(
+        "2026-09-10", _hoje=_HOJE_DO_ACHADO)["pregoes"] == 0
+    assert options_mcp_api._atraso_em_pregoes(
+        "2026-09-11", _hoje=_HOJE_DO_ACHADO)["pregoes"] == 0
+
+
+def test_fim_de_semana_nao_infla_a_conta():
+    """Sexta → segunda é distância ZERO: sábado e domingo não são pregão, e
+    segunda é o dia corrente. Contar dias corridos acusaria atraso toda
+    segunda de manhã, sobre o dado mais novo que existe."""
+    assert options_mcp_api._atraso_em_pregoes(
+        "2026-09-11", _hoje=date(2026, 9, 14))["pregoes"] == 0
+
+
+def test_feriado_nao_infla_a_conta():
+    """2026-09-07 (Independência, segunda) é o feriado do próprio achado — é
+    dele o 404 do `COTAHIST_D07092026.ZIP` no `last_failure` do MyData, e a
+    B3 não publica arquivo de dia sem pregão. Sexta → quarta com o feriado no
+    meio é UM pregão (a terça), não quatro dias."""
+    assert pregao.is_holiday(date(2026, 9, 7)), "premissa do caso: 7/9 é feriado"
+    assert options_mcp_api._atraso_em_pregoes(
+        "2026-09-04", _hoje=date(2026, 9, 9))["pregoes"] == 1
+
+
+@pytest.mark.parametrize("valor", [
+    None, "", "banana", "2026-13-40", "08/09/2026", 42, {}, ["2026-09-08"],
+    "2026-09-12",  # futuro: dado carimbado adiante do relógio
+])
+def test_sem_data_utilizavel_e_none_nunca_zero(valor):
+    """`0` é uma AFIRMAÇÃO forte — "o dado está no último pregão fechado".
+    Por falta de informação ela não pode ser feita: `None` devolve a tela ao
+    comportamento de antes, que é o que se sabe dizer."""
+    r = options_mcp_api._atraso_em_pregoes(valor, _hoje=_HOJE_DO_ACHADO)
+    assert r["pregoes"] is None
+    assert r["referencia"] == "2026-09-11"
+    assert r["fonte"] == "calendario_b3"
+
+
+def test_a_contagem_vem_do_calendario_da_b3_sem_segunda_implementacao():
+    """`pregao.py` conhece Carnaval, Corpus Christi, as exceções por ofício e
+    a env `B3_FERIADOS_EXTRA`. Uma segunda contagem aqui (um `weekday() < 5`
+    solto, por exemplo) divergiria dele em silêncio no primeiro Carnaval."""
+    src = inspect.getsource(options_mcp_api._atraso_em_pregoes)
+    assert "pregao.is_trading_day" in src
+    assert "weekday()" not in src, "calendário reimplementado à margem de pregao.py"
+
+
+_FRESCOR_EM_DIA = {"trading_date": "2026-09-08",
+                   "classes": [{"classe": "negociacao_b3", "situacao": "em_dia"}]}
+
+
+def test_status_carrega_o_atraso_do_mesmo_pregao_que_exibe(monkeypatch):
+    """O `atraso` é medido sobre o MESMO valor que já vai em `pregao` — dois
+    carimbos discordando no mesmo corpo seria pior que carimbo nenhum. E o
+    custo declarado da rota não muda: a medição é local, sem tool nova."""
+    c, _ = _client(monkeypatch)
+    p = _registra(c)
+    _espiao(monkeypatch, lambda nome, args: _FRESCOR_EM_DIA)
+
+    corpo = c.get("/api/options/mcp/status", headers=_auth(p["token"])).json()
+    assert corpo["pregao"] == "2026-09-08"
+    assert corpo["atraso"] == options_mcp_api._atraso_em_pregoes(corpo["pregao"])
+    assert corpo["frescor"]["bloqueia"] is False, (
+        "o atraso INFORMA; quem bloqueia continua sendo o frescor do serviço "
+        "(ADR-027, Decisão 8) — mudar isso seria outra decisão")
+    assert "_cap_check(uid, 1)" in inspect.getsource(options_mcp_api.status)
+
+
+def test_leitura_carrega_o_atraso_sem_chamada_nova(monkeypatch):
+    c, main = _client(monkeypatch)
+    p = _registra(c)
+    uid = p["user"]["id"]
+    chamadas = _espiao(monkeypatch, _roteador(
+        base=dict(_BASE, trading_date="2026-09-08")))
+
+    corpo = c.get("/api/options/mcp/leitura/PETR4", headers=_auth(p["token"])).json()
+    assert corpo["pregao"] == "2026-09-08"
+    assert corpo["atraso"] == options_mcp_api._atraso_em_pregoes(corpo["pregao"])
+    assert _nomes(chamadas) == ["propose_option_setups", "list_setups"], (
+        f"chamada de tool a mais para medir o que o calendário já sabe: "
+        f"{_nomes(chamadas)}")
+    assert _usado(main, uid) == 2
+    assert "_cap_check(uid, 3)" in inspect.getsource(options_mcp_api.leitura)
