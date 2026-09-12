@@ -743,3 +743,333 @@ def test_status_com_erro_de_tool_segue_200_e_debita_um(monkeypatch):
     assert r.json()["cap"]["usado"] == 1, (
         "o bloco `cap` da própria resposta contradiz o que foi cobrado")
     assert _reservado(main, uid) == 0
+
+
+# ====================================================================== #
+# 24-15 (pedido do Alex, 2026-09-11) — os três tetos da aba Opções deixam
+# de ser só env do Railway.
+#
+# A ordem é memória → kv → env → default, e cada camada tem uma razão:
+#   · kv    — sobrevive a redeploy; é o que faz o painel valer de fato;
+#   · env   — continua valendo porque é como o Railway muda um teto sem
+#             publicar código (e é o que `monkeypatch.setenv` exercita);
+#   · default — o que roda numa instalação limpa, sem nada configurado.
+#
+# Lixo em qualquer camada cai para a seguinte. Um `0` vindo do banco
+# desligaria o freio do teto compartilhado de 2.000/dia do serviço, que é o
+# oposto exato do que um limite existe para fazer.
+# ====================================================================== #
+def test_sem_kv_e_sem_env_os_tres_limites_sao_os_defaults_de_hoje(monkeypatch):
+    _client(monkeypatch)
+    assert options_mcp_api.cota_usuario_dia() == 60
+    assert options_mcp_api.rate_min() == 20
+    assert options_mcp_api.cota_global_dia() == 1800
+
+    lim = options_mcp_api.limites()
+    assert [lim[k]["valor"] for k in ("cotaUsuarioDia", "rateMin", "cotaGlobalDia")] == [60, 20, 1800]
+    assert [lim[k]["origem"] for k in ("cotaUsuarioDia", "rateMin", "cotaGlobalDia")] == ["default"] * 3
+
+
+def test_so_env_continua_mandando_e_a_origem_diz_env(monkeypatch):
+    """Não-regressão do comportamento de HOJE: quem configurou os tetos por
+    env do Railway não perde nada com este plano."""
+    _client(monkeypatch)
+    monkeypatch.setenv("B3_MCP_COTA_USUARIO_DIA", "9")
+    monkeypatch.setenv("B3_MCP_RATE_MIN", "3")
+    monkeypatch.setenv("B3_MCP_COTA_GLOBAL_DIA", "99")
+
+    lim = options_mcp_api.limites()
+    assert (lim["cotaUsuarioDia"]["valor"], lim["cotaUsuarioDia"]["origem"]) == (9, "env")
+    assert (lim["rateMin"]["valor"], lim["rateMin"]["origem"]) == (3, "env")
+    assert (lim["cotaGlobalDia"]["valor"], lim["cotaGlobalDia"]["origem"]) == (99, "env")
+    assert options_mcp_api._cota_usuario() == 9
+
+
+def test_env_muda_em_runtime_sem_reiniciar_o_processo(monkeypatch):
+    """O `_int_env` é lido A CADA leitura de propósito (o Railway troca env
+    sem redeploy do código). Cachear a env em memória mataria isso em
+    silêncio — daí o cache existir SÓ para o valor vindo do kv."""
+    _client(monkeypatch)
+    assert options_mcp_api.cota_usuario_dia() == 60
+    monkeypatch.setenv("B3_MCP_COTA_USUARIO_DIA", "11")
+    assert options_mcp_api.cota_usuario_dia() == 11, (
+        "a env deixou de valer depois da primeira leitura — o cache do kv "
+        "vazou para a camada de env")
+
+
+def test_kv_vence_a_env_e_a_origem_diz_kv(monkeypatch):
+    _client(monkeypatch)
+    monkeypatch.setenv("B3_MCP_COTA_USUARIO_DIA", "9")
+    monkeypatch.setenv("B3_MCP_RATE_MIN", "3")
+    monkeypatch.setenv("B3_MCP_COTA_GLOBAL_DIA", "99")
+
+    options_mcp_api.set_cota_usuario_dia(40)
+    options_mcp_api.set_rate_min(5)
+    options_mcp_api.set_cota_global_dia(1200)
+
+    lim = options_mcp_api.limites()
+    assert (lim["cotaUsuarioDia"]["valor"], lim["cotaUsuarioDia"]["origem"]) == (40, "kv")
+    assert (lim["rateMin"]["valor"], lim["rateMin"]["origem"]) == (5, "kv")
+    assert (lim["cotaGlobalDia"]["valor"], lim["cotaGlobalDia"]["origem"]) == (1200, "kv")
+
+
+def test_set_persiste_no_kv_e_sobrevive_a_um_processo_novo(monkeypatch):
+    """`reset_limites_cache()` é o processo novo em miniatura: memória vazia,
+    kv intacto. Sem a persistência o painel viraria um ajuste que o próximo
+    deploy apaga — que é exatamente o problema que este plano resolve."""
+    _client(monkeypatch)
+    options_mcp_api.set_cota_usuario_dia(7)
+    options_mcp_api.reset_limites_cache()
+    assert options_mcp_api.cota_usuario_dia() == 7
+    assert options_mcp_api.limites()["cotaUsuarioDia"]["origem"] == "kv"
+
+
+def test_kv_com_lixo_cai_para_env_ou_default_e_nunca_desliga_o_cap(monkeypatch):
+    """Um `0`/negativo/texto no banco não pode virar "sem limite". Cai para a
+    camada de baixo, igual a uma env torta."""
+    from app import db
+
+    _client(monkeypatch)
+    for lixo in (0, -5, "banana", None, True, 3.5, []):
+        db.kv_set(options_mcp_api._conn, "mcpCotaUsuarioDia", lixo, user_id=None)
+        options_mcp_api.reset_limites_cache()
+        assert options_mcp_api.cota_usuario_dia() == 60, f"kv={lixo!r} não caiu para o default"
+        assert options_mcp_api.limites()["cotaUsuarioDia"]["origem"] == "default"
+
+    monkeypatch.setenv("B3_MCP_COTA_USUARIO_DIA", "9")
+    db.kv_set(options_mcp_api._conn, "mcpCotaUsuarioDia", 0, user_id=None)
+    options_mcp_api.reset_limites_cache()
+    assert options_mcp_api.cota_usuario_dia() == 9
+    assert options_mcp_api.limites()["cotaUsuarioDia"]["origem"] == "env"
+
+
+def test_set_impoe_o_minimo_de_1_no_proprio_codigo(monkeypatch):
+    """O mínimo é do CÓDIGO, não da UI: uma cota 0 não é "limite baixo", é o
+    freio desligado — e a UI é a camada que menos se pode obrigar a lembrar."""
+    _client(monkeypatch)
+    assert options_mcp_api.set_cota_usuario_dia(0) == 1
+    assert options_mcp_api.set_rate_min(-3) == 1
+    assert options_mcp_api.set_cota_global_dia(0) == 1
+    assert options_mcp_api.cota_usuario_dia() == 1
+
+
+def test_os_privados_do_cap_delegam_nas_funcoes_publicas(monkeypatch):
+    """Uma fonte de verdade só. Duas portas para o mesmo número divergem na
+    primeira manutenção, e a que o `_cap_check` usa é a que decide de fato."""
+    _client(monkeypatch)
+    options_mcp_api.set_cota_usuario_dia(4)
+    options_mcp_api.set_rate_min(2)
+    options_mcp_api.set_cota_global_dia(13)
+    assert (options_mcp_api._cota_usuario(), options_mcp_api._rate_min(),
+            options_mcp_api._cota_global()) == (4, 2, 13)
+
+
+def test_o_cap_de_verdade_passa_a_obedecer_o_valor_do_painel(monkeypatch):
+    """O teste que amarra tudo: mudar pelo painel muda o 402 de verdade, sem
+    deploy e sem env."""
+    c, main = _client(monkeypatch)
+    p = _registra(c)
+    _espiao(monkeypatch, mcp_client.ResultadoTool(_FRESCOR_OK, False))
+    options_mcp_api.set_cota_usuario_dia(1)
+
+    r1 = c.get("/api/options/mcp/status", headers=_auth(p["token"]))
+    assert r1.status_code == 200, r1.text
+    r2 = c.get("/api/options/mcp/status", headers=_auth(p["token"]))
+    assert r2.status_code == 402, r2.text
+    assert r2.json()["detail"]["limite"] == 1
+
+
+def test_limites_publica_o_teto_do_proprio_servico(monkeypatch):
+    """2.000/dia é contrato do serviço (ADR-027), não configuração do Boris —
+    e é o número que dá sentido aos outros três."""
+    _client(monkeypatch)
+    assert options_mcp_api.TETO_SERVICO_DIA == 2000
+    assert options_mcp_api.limites()["tetoServicoDia"] == 2000
+
+
+def test_consumo_global_hoje_le_a_secao_propria_da_aba(monkeypatch):
+    """O admin decide olhando o consumo real; o número tem de vir do MESMO
+    balde que o cap usa (`mcpUsageGlobal`), não do da IA gerenciada."""
+    c, main = _client(monkeypatch)
+    p = _registra(c)
+    _espiao(monkeypatch, mcp_client.ResultadoTool(_FRESCOR_OK, False))
+
+    assert options_mcp_api.consumo_global_hoje()["used"] == 0
+    c.get("/api/options/mcp/status", headers=_auth(p["token"]))
+    g = options_mcp_api.consumo_global_hoje()
+    assert g["used"] == 1
+    assert g["cap"] == options_mcp_api.cota_global_dia()
+    assert metering.global_snapshot(main._conn)["used"] == 0, (
+        "o consumo da aba Opções vazou para o balde global da IA gerenciada")
+
+
+# ---------------------------------------------------------------------- #
+# A rota admin dos tetos. `fontes_dados.configurar` — a MESMA permissão do
+# orçamento brapi, porque é a mesma classe de decisão (teto de consumo de
+# fonte de dados externa), e criar uma permissão nova exigiria mexer nos
+# grupos do ADR-013 sem nenhum ganho de granularidade real.
+#
+# A rota mora em `/api/obs/...` (main.py), FORA do prefixo
+# `/api/options/mcp` — ela configura o cap, não consome o serviço, e por isso
+# não passa por `_cap_check`.
+# ---------------------------------------------------------------------- #
+def _eventos(c, token, entidade):
+    ev = c.get("/api/admin/audit", headers=_auth(token)).json()["eventos"]
+    return [e for e in ev if e["entity"] == entidade]
+
+
+def test_cota_opcoes_sem_sessao_e_401(monkeypatch):
+    c, _ = _client(monkeypatch)
+    assert c.get("/api/obs/opcoes/cota").status_code == 401
+    assert c.post("/api/obs/opcoes/cota", json={"cotaUsuarioDia": 5}).status_code == 401
+
+
+def test_cota_opcoes_com_sessao_sem_a_permissao_e_403(monkeypatch):
+    c, _ = _client(monkeypatch)
+    _registra(c, "dono@teste.com")            # 1º usuário = admin por bootstrap
+    comum = _registra(c, "comum@teste.com")
+    h = _auth(comum["token"])
+    assert c.get("/api/obs/opcoes/cota", headers=h).status_code == 403
+    assert c.post("/api/obs/opcoes/cota", json={"cotaUsuarioDia": 5}, headers=h).status_code == 403
+    assert options_mcp_api.cota_usuario_dia() == 60, "o 403 mexeu no teto"
+
+
+def test_cota_opcoes_get_mostra_os_tres_com_origem_e_o_consumo_de_hoje(monkeypatch):
+    c, _ = _client(monkeypatch)
+    admin = _registra(c, "dono@teste.com")
+    p = _registra(c, "usa@teste.com")
+    _espiao(monkeypatch, mcp_client.ResultadoTool(_FRESCOR_OK, False))
+    c.get("/api/options/mcp/status", headers=_auth(p["token"]))
+
+    corpo = c.get("/api/obs/opcoes/cota", headers=_auth(admin["token"])).json()
+    assert corpo["limites"]["cotaUsuarioDia"] == {
+        "valor": 60, "origem": "default", "env": "B3_MCP_COTA_USUARIO_DIA", "default": 60}
+    assert corpo["limites"]["rateMin"]["valor"] == 20
+    assert corpo["limites"]["cotaGlobalDia"]["valor"] == 1800
+    assert corpo["limites"]["tetoServicoDia"] == 2000
+    assert corpo["consumoGlobalHoje"]["used"] == 1, (
+        "o painel mostraria o consumo de outro balde — decidir no escuro é o "
+        "que este número existe para evitar")
+
+
+def test_cota_opcoes_previa_nao_escreve_nada(monkeypatch):
+    c, _ = _client(monkeypatch)
+    admin = _registra(c, "dono@teste.com")
+    h = _auth(admin["token"])
+
+    corpo = c.post("/api/obs/opcoes/cota", json={"cotaUsuarioDia": 30}, headers=h).json()
+    assert corpo["aplicado"] is False
+    assert corpo["mudancas"] == [{"campo": "cotaUsuarioDia", "de": 60, "para": 30}]
+    options_mcp_api.reset_limites_cache()
+    assert options_mcp_api.cota_usuario_dia() == 60, "a prévia gravou"
+    assert _eventos(c, admin["token"], "mcp_cota") == [], "a prévia auditou"
+
+
+def test_cota_opcoes_aplicar_grava_e_audita_um_evento_por_campo(monkeypatch):
+    c, _ = _client(monkeypatch)
+    admin = _registra(c, "dono@teste.com")
+    h = _auth(admin["token"])
+
+    corpo = c.post("/api/obs/opcoes/cota",
+                   json={"cotaUsuarioDia": 30, "cotaGlobalDia": 900, "aplicar": True},
+                   headers=h).json()
+    assert corpo["aplicado"] is True
+    assert corpo["limites"]["cotaUsuarioDia"] == {
+        "valor": 30, "origem": "kv", "env": "B3_MCP_COTA_USUARIO_DIA", "default": 60}
+
+    options_mcp_api.reset_limites_cache()
+    assert options_mcp_api.cota_usuario_dia() == 30
+    assert options_mcp_api.cota_global_dia() == 900
+    assert options_mcp_api.rate_min() == 20, "campo ausente no corpo foi alterado"
+
+    ev = _eventos(c, admin["token"], "mcp_cota")
+    assert {(e["field"], e["oldValue"], e["newValue"]) for e in ev} == {
+        ("cotaUsuarioDia", 60, 30), ("cotaGlobalDia", 1800, 900)}, (
+        "a auditoria tem de responder QUEM mudou O QUÊ — um registro agregado "
+        "não responde")
+    assert all(e["actorUserId"] == admin["user"]["id"] for e in ev)
+
+
+def test_cota_opcoes_valor_invalido_e_400_e_nada_muda(monkeypatch):
+    c, _ = _client(monkeypatch)
+    admin = _registra(c, "dono@teste.com")
+    h = _auth(admin["token"])
+
+    for corpo in ({"cotaUsuarioDia": 0}, {"rateMin": -1}, {"cotaGlobalDia": "banana"},
+                  {"cotaUsuarioDia": True}, {}):
+        r = c.post("/api/obs/opcoes/cota", json=dict(corpo, aplicar=True), headers=h)
+        assert r.status_code == 400, (corpo, r.text)
+
+    options_mcp_api.reset_limites_cache()
+    assert (options_mcp_api.cota_usuario_dia(), options_mcp_api.rate_min(),
+            options_mcp_api.cota_global_dia()) == (60, 20, 1800)
+    assert _eventos(c, admin["token"], "mcp_cota") == []
+
+
+def test_cota_opcoes_um_campo_invalido_nao_aplica_os_outros(monkeypatch):
+    """Tudo-ou-nada: validar depois de aplicar deixaria metade da mudança de
+    pé, e o admin não teria como saber qual metade."""
+    c, _ = _client(monkeypatch)
+    admin = _registra(c, "dono@teste.com")
+    h = _auth(admin["token"])
+
+    r = c.post("/api/obs/opcoes/cota",
+               json={"cotaUsuarioDia": 30, "rateMin": 0, "aplicar": True}, headers=h)
+    assert r.status_code == 400, r.text
+    options_mcp_api.reset_limites_cache()
+    assert options_mcp_api.cota_usuario_dia() == 60
+
+
+def test_cota_opcoes_acima_do_teto_do_servico_e_aceito_com_aviso(monkeypatch):
+    """Rejeitar fingiria que o Boris manda no teto do serviço; calar deixaria
+    o admin achar que subiu um teto que não subiu."""
+    c, _ = _client(monkeypatch)
+    admin = _registra(c, "dono@teste.com")
+    h = _auth(admin["token"])
+
+    corpo = c.post("/api/obs/opcoes/cota",
+                   json={"cotaGlobalDia": 5000, "aplicar": True}, headers=h).json()
+    assert corpo["aplicado"] is True
+    assert options_mcp_api.cota_global_dia() == 5000
+    aviso = corpo.get("aviso") or ""
+    assert "2.000" in aviso and "serviço" in aviso, aviso
+
+    # abaixo do teto, nenhum aviso — senão ele viraria ruído e ninguém o lê
+    sem = c.post("/api/obs/opcoes/cota", json={"cotaGlobalDia": 900}, headers=h).json()
+    assert sem.get("aviso") is None
+
+    # `rateMin` é por MINUTO: compará-lo com um teto DIÁRIO seria erro de
+    # unidade travestido de aviso
+    rate = c.post("/api/obs/opcoes/cota", json={"rateMin": 3000}, headers=h).json()
+    assert rate.get("aviso") is None
+
+
+def test_entidade_da_auditoria_dos_tetos_esta_no_mapa_do_rbac():
+    """Sem esta linha `audit.record` gravaria e `entidades_visiveis` filtraria
+    o evento para fora de TODO filtro — inclusive o de quem o produziu."""
+    from app import rbac
+
+    assert options_mcp_api.ENTIDADE_COTA == "mcp_cota"
+    assert options_mcp_api.ENTIDADE_COTA in \
+        rbac.ENTIDADES_POR_PERMISSAO["fontes_dados.configurar"]
+
+
+def test_as_duas_rotas_de_cota_sao_gated_e_nao_entram_na_allowlist_publica(monkeypatch):
+    """A allowlist pública do ADR-013 é o baseline de "rota sem gate por
+    decisão consciente". Rota de escrita administrativa nunca entra nela —
+    este teste é o espelho local do guardião de cobertura."""
+    from .rotas_fastapi import nomes_dependencias, todas_as_rotas
+    from .test_adr013_cobertura_rotas import _PUBLICAS_CONHECIDAS
+
+    c, main = _client(monkeypatch)
+    alvo = {("GET", "/api/obs/opcoes/cota"), ("POST", "/api/obs/opcoes/cota")}
+    achadas = set()
+    for r in todas_as_rotas(main.app.routes):
+        for metodo in (getattr(r, "methods", None) or []):
+            chave = (metodo, str(getattr(r, "path", "") or ""))
+            if chave in alvo:
+                achadas.add(chave)
+                assert "_dep" in nomes_dependencias(getattr(r, "dependant", None)), \
+                    f"{chave} sem dependency de permissão"
+    assert achadas == alvo, f"rotas não registradas: {alvo - achadas}"
+    assert not (alvo & _PUBLICAS_CONHECIDAS)

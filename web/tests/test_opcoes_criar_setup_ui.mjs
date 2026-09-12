@@ -22,7 +22,10 @@
 //    tooltip nem fica atrás de um toque. É o texto de maior risco regulatório
 //    da fase: contagem de histórico lida como promessa;
 //  · o botão de GRAVAR só existe depois do ramo do ensaio bem-sucedido;
-//  · desativar exige DOIS toques.
+//  · desativar exige DOIS toques;
+//  · 24-14: a faixa do ensaio inconclusivo vem ANTES dos números do backtest,
+//    exibe o motivo do backend verbatim e NÃO tira o botão de gravar — o que
+//    a tela deve é impedir a conclusão errada, não a ação.
 //
 // Cada regex de defeito carrega asserção de SANIDADE: sem ela, um typo (ou um
 // Unicode diferente) faria o assert passar por vacuidade, para sempre.
@@ -286,6 +289,96 @@ ok("o aviso usa o texto do dicionário e tom discreto",
 ok("sanidade: a regex do filtro por código pegaria o padrão se ele existisse",
    /RecusaCobradaNaCriacao[\s\S]{0,400}mcp_erro_de_tool/.test(
      'function RecusaCobradaNaCriacao({ erro }) {\n  if (erro.code !== "mcp_erro_de_tool") return null;'));
+
+
+// ---- 13) a faixa do ensaio que não testou nada (24-14) ---------------------
+// Achado ao vivo 2026-09-11: `disparos: 0` com `pregoes_avaliaveis: 31` num
+// setup cuja condição de média nunca teve valor. O número é plausível, e
+// número plausível não levanta suspeita — alguém grava o setup acreditando
+// que ele passou por um teste que não houve.
+//
+// O que se prova aqui é POSIÇÃO e AUTONOMIA: a faixa vem ANTES dos números
+// (quem lê o número primeiro já formou a conclusão) e o botão de gravar
+// continua existindo (a tela não decide o que a pessoa pode fazer com um
+// setup que ela escreveu; o que ela deve é não deixá-la concluir errado).
+ok("existe componente próprio para o ensaio inconclusivo",
+   /function EnsaioInconclusivo/.test(criar));
+const iFaixa = criar.indexOf("<EnsaioInconclusivo");
+ok("a faixa é montada dentro do card do ensaio", iFaixa > 0);
+ok("a faixa aparece ANTES dos números do backtest",
+   iFaixa > 0 && iFaixa < criar.indexOf("opcoesBacktestTitulo"));
+// Sem `ensaio` no payload (servidor anterior ao 24-14) nada é renderizado:
+// uma caixa vazia afirmaria uma ausência que ninguém mediu.
+ok("sem condição listada, a faixa não renderiza nada",
+   /if \(!itens\.length\) return null;/.test(criar));
+ok("a lista de condições é filtrada antes de virar texto",
+   /Array\.isArray\(e\.condicoes\)/.test(criar));
+ok("o veredito só é forte com `indisparavel === true`",
+   /indisparavel === true/.test(criar));
+// O motivo é do BACKEND e viaja verbatim: entra como ARGUMENTO da função de
+// copy, nunca reescrito aqui. Uma segunda cópia da frase envelheceria sem
+// ninguém notar (padrão do 24-11).
+ok("o motivo do backend entra como argumento de `cp.opcoesEnsaioCondicao`",
+   /opcoesEnsaioCondicao[\s\S]{0,240}\bx\.motivo\b/.test(criar));
+ok("nenhuma frase de motivo do backend foi copiada para o front",
+   !/n[ãa]o teve valor em nenhum dia|zero por constru[çc][ãa]o/i.test(criar));
+// O botão de gravar SOBREVIVE ao aviso. Bloquear trocaria um problema de
+// informação por um de autonomia.
+const mGravarBotao = /opcoesCriarConfirmar(?!Desativacao)/.exec(criar);
+ok("o botão de gravar continua no fonte DEPOIS da faixa",
+   !!mGravarBotao && mGravarBotao.index > iFaixa);
+ok("o botão de gravar não é desabilitado pelo ensaio",
+   !/onConfirmar\(dados\.setup\)[\s\S]{0,240}disabled/.test(criar)
+   && !/indisparavel[^\n]{0,200}opcoesCriarConfirmar/.test(criar));
+ok("sanidade: a regex do bloqueio pegaria o padrão se ele existisse",
+   /onConfirmar\(dados\.setup\)[\s\S]{0,240}disabled/.test(
+     "onClick={() => onConfirmar(dados.setup)}\n  disabled={ensaio.indisparavel}"));
+ok("sanidade: a regex da faixa pega o componente quando ele existe",
+   /function EnsaioInconclusivo/.test("function EnsaioInconclusivo({ ensaio, cp }) {")
+   && !/function EnsaioInconclusivo/.test("function Ensaio({ dados, cp }) {"));
+
+// ---- 14) o texto da faixa nos dois modos, sem extrapolar --------------------
+const CHAVES_24_14 = ["opcoesEnsaioIndisparavel", "opcoesEnsaioRessalva",
+  "opcoesEnsaioCondicao"];
+for (const k of CHAVES_24_14) {
+  ok(`COPY tem ${k} nos dois modos`, !!COPY.estudo[k] && !!COPY.operador[k]);
+}
+ok("`opcoesEnsaioCondicao` é função nos dois modos",
+   ["estudo", "operador"].every((m) => typeof COPY[m].opcoesEnsaioCondicao === "function"));
+ok("`opcoesEnsaioCondicao` tolera argumento nulo e devolve string",
+   ["estudo", "operador"].every((m) =>
+     typeof COPY[m].opcoesEnsaioCondicao(null, null, null) === "string"));
+ok("`opcoesEnsaioCondicao` exibe o motivo VERBATIM do backend",
+   ["estudo", "operador"].every((m) =>
+     COPY[m].opcoesEnsaioCondicao("sma", 200, "MOTIVO-SENTINELA-DO-BACKEND")
+       .includes("MOTIVO-SENTINELA-DO-BACKEND")));
+ok("`opcoesEnsaioCondicao` nomeia a janela que o setup declarou",
+   ["estudo", "operador"].every((m) =>
+     COPY[m].opcoesEnsaioCondicao("sma", 200, "x").includes("200")));
+ok("sem janela numérica, nenhum número é inventado no lugar",
+   ["estudo", "operador"].every((m) =>
+     !/\d/.test(COPY[m].opcoesEnsaioCondicao(null, null, "x"))));
+// O aviso fala do que é DEMONSTRÁVEL (a janela não coube no período) e cala
+// sobre o resto: "dispararia com mais histórico" é previsão, "setup ruim" é
+// juízo, "aumente o período" é ação que a tela não oferece.
+const EXTRAPOLACAO = /dispararia|teria disparado|vai disparar|com mais (dado|hist[óo]rico)|aumente|diminua|setup ruim|setup fraco|prov[áa]vel|probabilidade/i;
+for (const modo of ["estudo", "operador"]) {
+  const texto = CHAVES_24_14.map((k) => COPY[modo][k])
+    .map((v) => (typeof v === "function" ? v("sma", 200, "motivo") + v(null, null, null) : v))
+    .join(" ");
+  ok(`${modo}: o texto da faixa não extrapola o que os números provam`,
+     !EXTRAPOLACAO.test(texto));
+  ok(`${modo}: o texto da faixa não promete retorno`, !EXPECTATIVA.test(texto));
+}
+ok("sanidade: a regex de extrapolação pega o padrão quando ele existe",
+   EXTRAPOLACAO.test("com mais histórico esta condição dispararia")
+   && EXTRAPOLACAO.test("aumente o período do ensaio"));
+// [R-12]: o ramo ESTUDO descreve condição, nunca dá ordem.
+ok("nenhuma chave nova do ramo estudo traz vocabulário de ordem",
+   !/\bcomprar\b|\bvender\b|\bexecute\b/i.test(
+     CHAVES_24_14.map((k) => COPY.estudo[k])
+       .map((v) => (typeof v === "function" ? v("sma", 200, "motivo") : v))
+       .join(" ")));
 
 console.log(fails === 0 ? "\ntodos os testes passaram" : `\n${fails} FALHA(S)`);
 process.exit(fails === 0 ? 0 : 1);

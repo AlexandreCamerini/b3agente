@@ -748,6 +748,7 @@ function FontesDeDados({ user }) {
   };
 
   return (
+    <>
     <Card title="Fontes de dados — orçamento brapi" right={<button onClick={reload} style={btnGhost}>↻ atualizar</button>}>
       <Estado loading={loading} error={error}>
         {data && (
@@ -764,6 +765,132 @@ function FontesDeDados({ user }) {
                         style={{ padding: "13px 16px", borderRadius: "8px", border: "none", background: T.accent, color: T.onAccent, fontWeight: 700, fontSize: "12.5px", cursor: "pointer", whiteSpace: "nowrap", opacity: busy ? 0.6 : 1 }}>
                   {busy ? "Aplicando…" : "Aplicar (auditado)"}
                 </button>
+              </div>
+            )}
+            {msg && <div style={{ marginTop: "8px", fontSize: "12px", color: T.muted }}>{msg}</div>}
+          </>
+        )}
+      </Estado>
+    </Card>
+    {/* 24-15 — mesma aba porque é a MESMA família: teto de consumo de fonte
+        externa. Aba separada faria o admin procurar em dois lugares a mesma
+        decisão. */}
+    <CotaOpcoes user={user} />
+    </>
+  );
+}
+
+// 24-15 (pedido do Alex, 2026-09-11) — os três tetos da aba Opções, que até
+// aqui só existiam como env do Railway e exigiam redeploy para mudar.
+//
+// "kv"/"env"/"default" são vocabulário de backend; o admin precisa saber de
+// ONDE o número veio, não como ele é guardado. Sem a origem, ele muda pelo
+// painel, a env continua diferente, e ninguém sabe qual manda.
+const ORIGEM_ROTULO = { kv: "painel", env: "variável de ambiente", default: "padrão" };
+
+const CAMPOS_COTA = [
+  ["cotaUsuarioDia", "Cota por usuário/dia", "chamadas ao serviço que UMA conta pode fazer por dia"],
+  ["rateMin", "Rate por minuto", "chamadas por minuto de uma mesma conta (freio de martelada)"],
+  ["cotaGlobalDia", "Cota global/dia", "teto do Boris inteiro no dia — o freio que protege a base"],
+];
+
+function CotaOpcoes({ user }) {
+  const podeEditar = (user?.permissions || []).includes("fontes_dados.configurar");
+  const { loading, error, data, reload } = useFetch(() => api.opcoesCotaGet(), []);
+  const [form, setForm] = useState({ cotaUsuarioDia: "", rateMin: "", cotaGlobalDia: "" });
+  const [previa, setPrevia] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  // Só os campos preenchidos viajam: campo vazio significa "não mexer nele",
+  // e mandar o valor vigente de volta fixaria a origem no painel sem ninguém
+  // ter pedido.
+  const campos = () => {
+    const fora = {};
+    for (const [chave] of CAMPOS_COTA) {
+      const bruto = String(form[chave] ?? "").trim();
+      if (!bruto) continue;
+      const n = Number(bruto);
+      if (!Number.isInteger(n) || n < 1) return { erro: `${chave}: informe um inteiro ≥ 1.` };
+      fora[chave] = n;
+    }
+    if (!Object.keys(fora).length) return { erro: "Preencha ao menos um limite." };
+    return { campos: fora };
+  };
+
+  const executar = async (aplicando) => {
+    const c = campos();
+    if (c.erro) { setMsg(c.erro); setPrevia(null); return; }
+    setBusy(true); setMsg("");
+    try {
+      const r = aplicando ? await api.opcoesCotaAplicar(c.campos) : await api.opcoesCotaPrevia(c.campos);
+      setPrevia(r);
+      if (aplicando) {
+        setMsg("Aplicado — auditado (um registro por limite alterado).");
+        setForm({ cotaUsuarioDia: "", rateMin: "", cotaGlobalDia: "" });
+        reload();
+      }
+    } catch (e) {
+      setPrevia(null);
+      setMsg((e && e.message) || "Falha ao falar com o servidor.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const lim = data?.limites;
+  return (
+    <Card title="Cota da aba Opções (ADR-027)" right={<button onClick={reload} style={btnGhost}>↻ atualizar</button>}>
+      <Estado loading={loading} error={error}>
+        {lim && (
+          <>
+            {CAMPOS_COTA.map(([chave, rotulo]) => (
+              <Kv key={chave} label={`${rotulo} — origem: ${ORIGEM_ROTULO[lim[chave]?.origem] || "—"}`}
+                  value={lim[chave]?.valor ?? "—"} />
+            ))}
+            <Kv label="Consumo global de hoje (todas as contas)"
+                value={(data.consumoGlobalHoje?.used ?? "—") + " / " + (data.consumoGlobalHoje?.cap ?? "—")} />
+
+            {/* A frase que faz a decisão fazer sentido. Sem ela, um admin sobe
+                a cota por usuário achando que aumentou o total disponível. */}
+            <div style={{ marginTop: "10px", fontSize: "11.5px", color: T.muted, lineHeight: 1.5 }}>
+              O teto de <b>2.000 chamadas/dia é do serviço</b> e é compartilhado por toda a base do
+              Boris — o Boris não o controla. Estes três limites são o freio do Boris <b>dentro</b> dele.
+            </div>
+
+            {podeEditar && (
+              <>
+                {CAMPOS_COTA.map(([chave, rotulo, ajuda]) => (
+                  <div key={chave} style={{ marginTop: "10px" }}>
+                    <div style={{ fontSize: "11.5px", color: T.faint, marginBottom: "4px" }}>{rotulo} — {ajuda}</div>
+                    <input value={form[chave]} inputMode="numeric"
+                           onChange={(e) => setForm({ ...form, [chave]: e.target.value })}
+                           placeholder={`vazio = mantém ${lim[chave]?.valor ?? ""}`}
+                           style={inputStyle} />
+                  </div>
+                ))}
+                <div style={{ marginTop: "10px", display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                  <button onClick={() => executar(false)} disabled={busy} style={btnGhost}>
+                    {busy ? "…" : "Simular (não grava)"}
+                  </button>
+                  <button onClick={() => executar(true)} disabled={busy}
+                          style={{ padding: "13px 16px", borderRadius: "8px", border: "none", background: T.accent, color: T.onAccent, fontWeight: 700, fontSize: "12.5px", cursor: "pointer", whiteSpace: "nowrap", opacity: busy ? 0.6 : 1 }}>
+                    {busy ? "Aplicando…" : "Aplicar (auditado)"}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {previa && (
+              <div style={{ marginTop: "10px", fontSize: "12px", color: T.muted }}>
+                {previa.mudancas?.length
+                  ? previa.mudancas.map((m) => (
+                      <div key={m.campo}>{m.campo}: {m.de} → {m.para}{previa.aplicado ? "" : " (simulação)"}</div>
+                    ))
+                  : <div>Nenhuma mudança — os valores informados já são os vigentes.</div>}
+                {previa.aviso && (
+                  <div style={{ marginTop: "6px", color: T.warn, lineHeight: 1.5 }}>{previa.aviso}</div>
+                )}
               </div>
             )}
             {msg && <div style={{ marginTop: "8px", fontSize: "12px", color: T.muted }}>{msg}</div>}

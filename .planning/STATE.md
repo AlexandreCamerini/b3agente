@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Opções v2
 status: executing
-stopped_at: "Fase 24 — 24-12 executado (2026-09-11, noite): a aba Opções passou a AFIRMAR a distância em pregões até o último pregão fechado, medida pelo calendário da B3 (`pregao.is_trading_day`), em vez de repassar o veredito de frescor do fornecedor. O achado, medido ao vivo com `scripts/diagnostico-leitura-opcoes.sh`: numa SEXTA (11/09) a tela dizia \"dado em dia\" sobre o pregão de TERÇA (08/09) — o serviço estava coerente com o próprio SLA (49,58 h contra 96 h) e ainda assim quarta e quinta não estavam na base. `_atraso_em_pregoes` é puro, conta os pregões ESTRITAMENTE entre o dado e hoje (o dia corrente nunca conta: o COTAHIST sai depois do fechamento), devolve `None` — nunca 0 — para data ausente/torta/futura, e viaja em `atraso` no envelope de `/status` e `/leitura` sem chamada de tool nova. No chip, a distância tem PRECEDÊNCIA sobre \"dado em dia\" e SOMA ao alerta quando o serviço também bloqueia. NADA passou a ser bloqueado por causa disto (ADR-027, Decisão 8 intacta). Suíte canônica 2473 passed, 5 skipped + 129 .mjs, exit 0 (baseline 2457/5 — +16, exatamente os novos); `npx vite build` verde. Nada empurrado a origin, nenhum PR. NOTA OPERACIONAL: outra sessão publicou o front na MESMA árvore durante esta execução (`F10-20260911-06` em `version.js`/`SERVER_BUILD_ID`, `server/web_dist` regravado) — nenhum arquivo dela entrou em commit meu (cada `git add` por caminho, conferido com `git diff --cached --stat`), e `web/dist` foi restaurado a partir de `server/web_dist` depois do build. PENDENTES, todos do Alex: etapas 4 (latência do /possibilidades com N=6 abaixo de 20s) e 5 (compilador NL→DSL com LLM real) do wizard `fechar-fase-24.sh`; e o plano 24-05 (bump + publicar-web.sh + checkpoint no iPhone), de que o texto do 24-11 e o deste plano DEPENDEM para chegar ao usuário — a publicação de hoje é de outra sessão e NÃO os contém."
-last_updated: "2026-09-12T01:50:00.000Z"
-last_activity: "2026-09-11 (noite) — 24-12 executado na árvore principal (sem worktree): segundo achado ao vivo do mesmo dia, agora sobre o CARIMBO do dado. A aba dizia \"dado em dia\" numa sexta sobre cotação de terça: `negociacao_b3` com 49,58 h de idade contra um SLA de 96 h é `em_dia` pelo contrato do fornecedor, e mesmo assim faltavam DOIS pregões na base. Decisão: medir em vez de herdar. `_atraso_em_pregoes(data, _hoje=None)` conta os pregões ESTRITAMENTE entre o dado e hoje usando `pregao.is_trading_day` — fonte única do calendário (Carnaval, Corpus Christi, exceções por ofício, `B3_FERIADOS_EXTRA`), com guardião que proíbe `weekday()` dentro do helper. O dia corrente NUNCA conta (o COTAHIST de um pregão só sai depois do fechamento; contar hoje faria o app acusar atraso toda manhã sobre dado que ainda não poderia existir) e data ausente, torta ou futura é `pregoes: None`, nunca 0 — 0 afirmaria \"está no último pregão fechado\". `atraso` entra no envelope de `/status` e `/leitura` derivado do MESMO valor que já vai em `pregao` (variável extraída, não recalculada), sem tool nova: custos declarados 1 e 3 intactos. No front o chip ganha a QUARTA variante, com PRECEDÊNCIA sobre \"dado em dia\" (guarda explícita no ramo + ordem no fonte, as duas travadas por guardião com sanidade que reprova a ordem invertida); quando o frescor também bloqueia, as duas informações SOMAM (\"dado atrasado (50 h) · 2 pregões atrás\") porque medem coisas diferentes. `opcoesAtrasoPregoes`/`opcoesAtrasoAjuda` nas duas vozes, com a ajuda aparecendo só quando há contagem na tela. NADA passou a ser bloqueado: quem barra veredito e criação de setup continua sendo o frescor do serviço (ADR-027, Decisão 8), com asserção explícita disso. Regra de ouro cumprida: os 16 testes de backend vistos VERMELHOS antes (`AttributeError: ... no attribute '_atraso_em_pregoes'` ×14, `KeyError: 'atraso'` ×2) e as asserções do bloco 12 do guardião de front também (`14 FALHA(S)` de 17 rodadas contra o fonte de antes; o bloco consolidado tem 19). Todo teste novo tem relógio FIXO por `_hoje` — nenhum muda de resultado conforme o dia em que a suíte roda. Suíte canônica: 2473 passed, 5 skipped + 129 .mjs, exit 0 (baseline 2457/5). `npx vite build` verde, com `web/dist` restaurado depois a partir de `server/web_dist` — outra sessão publicou o front na mesma árvore durante a execução (`F10-20260911-06`), e o build teria contaminado o artefato dela. Nada empurrado a origin, nenhum PR.
+stopped_at: "Fase 24 — 24-15 executado (2026-09-12, 00:35 -03): os três tetos da aba Opções (`B3_MCP_COTA_USUARIO_DIA` 60, `B3_MCP_RATE_MIN` 20, `B3_MCP_COTA_GLOBAL_DIA` 1800) saíram de env-só-do-Railway e passaram a ser configuráveis pelo portal admin, sem deploy. Pedido do Alex em 2026-09-11: o que esses três freiam é o contrato do serviço — 2.000 `tools/call` por dia para TODA a base somada — e a Fase 24 acabou de multiplicar o consumo por sessão (`/possibilidades` custa até 13), então o ajuste precisa ser de minutos quando o consumo real aparecer no `/observabilidade`. Precedência memória → kv → env → default, no padrão de `brapi_budget.spot_intervalo_s`; a env CONTINUA sendo camada e continua lida a cada leitura (é como o Railway troca um teto sem publicar código, e é o que 39 testes de cap exercitam com `monkeypatch.setenv`) — o cache em memória é só do valor vindo do kv. `limites()` publica a ORIGEM de cada número (`kv`/`env`/`default`), sem a qual o admin muda pelo painel, a env continua diferente e ninguém sabe qual manda. `GET`/`POST /api/obs/opcoes/cota` sob `fontes_dados.configurar` (a MESMA do orçamento brapi — é teto de fonte de dados, não governança de IA), com prévia, validação tudo-ou-nada antes de aplicar e um `audit.record("mcp_cota")` POR CAMPO alterado. Valor acima de 2.000/dia é ACEITO com aviso: recusar fingiria que o Boris manda no teto do serviço, calar deixaria o admin achar que subiu um teto que não subiu. Card no portal dentro da aba "Fontes de dados" (nenhuma aba nova, VIEWS intacto), com origem traduzida, consumo global de hoje e a frase do teto compartilhado. Suíte canônica 2532 passed, 5 skipped + 130 .mjs, exit 0 (baseline 2511/5 + 129 — +21 pytest são exatamente os novos, +1 .mjs é o guardião do card); `cd web-admin && npx vite build` verde. Nada empurrado a origin, nenhum PR, nenhuma publicação: o deploy do backend e o `publicar-admin.sh` são etapa posterior, já combinada com o Alex."
+last_updated: "2026-09-12T03:40:00.000Z"
+last_activity: "2026-09-12 (madrugada) — 24-15 executado na árvore principal (sem worktree): os três tetos da aba Opções deixaram de ser só env do Railway. Pedido do Alex de 2026-09-11. Precedência memória → kv → env → default (padrão do `brapi_budget`), com a env preservada como camada e lida a cada leitura; `limites()` publica a ORIGEM de cada número; `GET`/`POST /api/obs/opcoes/cota` com prévia, tudo-ou-nada e auditoria por campo; card no portal dentro da aba Fontes de dados, com consumo do dia e a ressalva de que o teto de 2.000/dia é do SERVIÇO. 2532 passed, 5 skipped + 130 .mjs; build do web-admin verde. Publicação e deploy são etapa posterior.\n\nAnterior (2026-09-12, madrugada) — 24-14 executado na árvore principal (sem worktree): terceiro achado ao vivo da mesma leva, agora sobre o ENSAIO do setup. `disparos: 0` com `pregoes_avaliaveis: 31` num setup cuja condição de média nunca teve valor — números certos que se leem como teste feito. O backend passou a devolver `ensaio` ao lado do `backtest` verbatim e a tela mostra, ACIMA dos números, quais condições nunca puderam ser verificadas; o botão de gravar continua existindo. 2511 passed, 5 skipped + 129 .mjs, exit 0.\n\nAnterior (2026-09-11, noite) — 24-12 executado na árvore principal (sem worktree): segundo achado ao vivo do mesmo dia, agora sobre o CARIMBO do dado. A aba dizia \"dado em dia\" numa sexta sobre cotação de terça: `negociacao_b3` com 49,58 h de idade contra um SLA de 96 h é `em_dia` pelo contrato do fornecedor, e mesmo assim faltavam DOIS pregões na base. Decisão: medir em vez de herdar. `_atraso_em_pregoes(data, _hoje=None)` conta os pregões ESTRITAMENTE entre o dado e hoje usando `pregao.is_trading_day` — fonte única do calendário (Carnaval, Corpus Christi, exceções por ofício, `B3_FERIADOS_EXTRA`), com guardião que proíbe `weekday()` dentro do helper. O dia corrente NUNCA conta (o COTAHIST de um pregão só sai depois do fechamento; contar hoje faria o app acusar atraso toda manhã sobre dado que ainda não poderia existir) e data ausente, torta ou futura é `pregoes: None`, nunca 0 — 0 afirmaria \"está no último pregão fechado\". `atraso` entra no envelope de `/status` e `/leitura` derivado do MESMO valor que já vai em `pregao` (variável extraída, não recalculada), sem tool nova: custos declarados 1 e 3 intactos. No front o chip ganha a QUARTA variante, com PRECEDÊNCIA sobre \"dado em dia\" (guarda explícita no ramo + ordem no fonte, as duas travadas por guardião com sanidade que reprova a ordem invertida); quando o frescor também bloqueia, as duas informações SOMAM (\"dado atrasado (50 h) · 2 pregões atrás\") porque medem coisas diferentes. `opcoesAtrasoPregoes`/`opcoesAtrasoAjuda` nas duas vozes, com a ajuda aparecendo só quando há contagem na tela. NADA passou a ser bloqueado: quem barra veredito e criação de setup continua sendo o frescor do serviço (ADR-027, Decisão 8), com asserção explícita disso. Regra de ouro cumprida: os 16 testes de backend vistos VERMELHOS antes (`AttributeError: ... no attribute '_atraso_em_pregoes'` ×14, `KeyError: 'atraso'` ×2) e as asserções do bloco 12 do guardião de front também (`14 FALHA(S)` de 17 rodadas contra o fonte de antes; o bloco consolidado tem 19). Todo teste novo tem relógio FIXO por `_hoje` — nenhum muda de resultado conforme o dia em que a suíte roda. Suíte canônica: 2473 passed, 5 skipped + 129 .mjs, exit 0 (baseline 2457/5). `npx vite build` verde, com `web/dist` restaurado depois a partir de `server/web_dist` — outra sessão publicou o front na mesma árvore durante a execução (`F10-20260911-06`), e o build teria contaminado o artefato dela. Nada empurrado a origin, nenhum PR.
 
 Anterior (2026-09-11, noite) — 24-11 fechamento do achado ao vivo do mesmo dia — a LEITURA DO ATIVO de PETR4 mostrava travessão em Tendência, HV 21, HV 63, Distância da média 63 e Faixa de 63 pregões sem dizer por quê. Decisão do Alex, entre quatro saídas: DIZER O MOTIVO na tela, sem duplicar cálculo (preencher seria fabricar, princípio 4; recalcular criaria uma segunda implementação do mesmo indicador, divergindo da do serviço em silêncio). `_lacunas_da_leitura(behavior)` é helper PURO que deriva o motivo do que o próprio `behavior` mostra: janela de 63 que não fecha (a de 21 fecha, por isso os campos de 21 vieram), série curta demais para as médias, ou volatilidade realizada que o provedor não publica (hv21/hv63 são colunas DIRETAS do candle, o serviço não as calcula). A lista nomeia SÓ o que de fato veio vazio, e `behavior` ausente/torto/`sem_candles`/sem `close` produz lista vazia — a tela já tem estado próprio, e repetir viraria duas mensagens para a mesma ausência. `lacunas` viaja ao lado de `behavior` (que continua verbatim) e NÃO custa chamada de tool nenhuma: `_cap_check(uid, 3)` intacto. Na tela, `LacunasDaLeitura` agrupa os motivos no rodapé do bloco, ao lado do carimbo do pregão — repetir em cinco linhas da tabela empurraria para fora da tela os números que VIERAM. Os três motivos entram em `AVISOS` ([R-12]) e `opcoesLacuna` entra nas DUAS vozes; o motivo é do backend e vai verbatim, o front só junta os rótulos. A trava central mudou de forma em relação ao plano, que se contradizia (a regex 'dígito seguido de pregões' proibiria o próprio texto aprovado, 'exigem 63 pregões'): virou vocabulário (só as janelas declaradas 21/63 podem ser número) + forma (nenhuma frase diz que a série TEM n pregões), as duas com sanidade. Regra de ouro cumprida: os 10 testes de backend foram vistos VERMELHOS antes (`AttributeError: ... has no attribute '_lacunas_da_leitura'`, `KeyError: 'lacunas'`) e as 28 asserções do bloco 15 do guardião de front também (`18 FALHA(S)`). Achado extra corrigido no caminho: `range_63_sessions` chega SEMPRE como dict com os dois extremos nulos, e a tela mostrava '— – —' — travessão travestido de faixa. Suíte canônica: 2457 passed, 5 skipped + 129 .mjs, exit 0 (baseline 2447/5 — +10, exatamente os novos). `npx vite build` verde. NOTA OPERACIONAL: a árvore tinha trabalho em curso de outra sessão (version.js em F10-20260911-05, `server/web_dist` republicado, bundle iOS sincronizado); o `vite build` desta execução dessincronizou `web/dist` (mesmo carimbo, hashes diferentes) e fez `test_ios_assets.mjs` reprovar — `web/dist` foi restaurado a partir de `server/web_dist` e nenhum arquivo versionado de terceiros foi tocado. Nada empurrado a origin, nenhum PR.
 
@@ -13,8 +13,8 @@ Anterior (2026-09-11) — 24-07 executado na árvore principal (sem worktree): f
 progress:
   total_phases: 8
   completed_phases: 5
-  total_plans: 32
-  completed_plans: 31
+  total_plans: 34
+  completed_plans: 33
   percent: 97
 ---
 
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-09-06)
 ## Current Position
 
 Phase: 24 (Aba Opções sobre MCP — análise e criação de setups) — EXECUTING
-Plan: 24-12 concluído (8 planos concluídos: 24-01 a 24-04, 24-06, 24-07, 24-11 e 24-12), mais 24-08 e 24-09 fora de plano (ver abaixo)
+Plan: 24-15 concluído (10 planos concluídos: 24-01 a 24-04, 24-06, 24-07, 24-11, 24-12, 24-14 e 24-15), mais 24-08 e 24-09 fora de plano (ver abaixo)
 Status: os QUATRO achados do `24-VERIFICATION.md` estão fechados (F-01/F-02/F-03 no 24-06; F-04 no 24-07), a VERIFICAÇÃO AO VIVO passou (2026-09-11, tarde) e os DOIS achados ao vivo da noite fecharam: campos vazios sem motivo na LEITURA DO ATIVO (24-11) e "dado em dia" com dois pregões faltando (24-12). Plano aberto: só o 24-05 (publicação), PENDENTE DE OK HUMANO por desenho (`autonomous: false`)
 
 **PARIDADE VIVA VERDE (2026-09-11)** — o Alex rodou `scripts/fechar-fase-24.sh`
@@ -49,7 +49,43 @@ Duas ressalvas sobre o que isso significa, para ninguém ler a mais:
   vida de event loop corrigido no 24-09 (abaixo).
 Progress: [█████████░] 97%
 
-Last activity: 2026-09-11 (noite) — **24-12**: o segundo achado ao vivo do
+Last activity: 2026-09-12 (madrugada) — **24-14**: o terceiro achado ao vivo
+da mesma leva, agora sobre o **ensaio** do setup. Reproduzido contra o motor
+real do serviço: um setup com `sma 200` sobre 48 pregões volta
+`disparos: 0` com `pregoes_avaliaveis: 31`.
+
+Os dois números estão **certos** — o motor curto-circuita (`AND` com um
+`False` conhecido é `False`), e nos 31 dias de RSI acima de 30 o dia é
+comprovadamente falso. O serviço não tem defeito. O que engana é a **leitura**:
+"testei e não disparou", quando a verdade é "**nunca pôde disparar**" — a
+condição da média não teve valor em pregão nenhum. É pior que o campo vazio do
+24-11: vazio se vê, número plausível não, e o fim da linha é alguém **gravar**
+um setup acreditando que ele foi validado contra o histórico.
+
+A correção é uma **demonstração de impossibilidade**, não uma opinião:
+`_ensaio_inconclusivo` compara a janela que cada condição DECLARA com o
+tamanho do período que o backtest informou (`pontos = n - w + 1`; a janela da
+`reference` conta igual e a maior manda). Nada é recalculado e nenhuma chamada
+nova é feita — `setup` e `backtest` são o que o dry-run já devolveu. O veredito
+`indisparavel` fica reservado ao caso demonstrável (condição sem ponto nenhum
+dentro de um `AND`); com `OR` ou com a janela curta para a sequência, a
+condição é listada como **ressalva** e o veredito é calado. A faixa entra
+**acima** dos números (quem lê o número primeiro já formou a conclusão) e o
+botão de gravar **continua existindo**: a tela impede a conclusão errada, não
+a ação.
+
+Dois desvios do PLAN, os dois registrados no SUMMARY: `JANELA_POR_INDICADOR`
+não foi criado (seria a segunda cópia do vocabulário do serviço — a detecção
+sai da FORMA do dado, ENG-06), e o texto do motivo de sequência foi reescrito
+("pregões demais no fim do histórico" se lê como "pregões em excesso", o
+oposto do que a condição descreve).
+
+Suíte canônica `2511 passed, 5 skipped` + 129 `.mjs`, exit 0 (baseline
+2478/5 — +33, exatamente os novos); `npx vite build` verde. Nada empurrado a
+origin, nenhum PR, nenhuma publicação — produção segue em `F10-20260911-07` e
+este texto só chega ao usuário no próximo bump + `publicar-web.sh`.
+
+Anterior (2026-09-11, noite) — **24-12**: o segundo achado ao vivo do
 mesmo dia, agora sobre o CARIMBO do dado. Medido com
 `scripts/diagnostico-leitura-opcoes.sh`: numa **sexta (11/09)** a aba mostrava
 "Pregão: 2026-09-08" com o chip dizendo **"dado em dia"**. O serviço estava
@@ -239,6 +275,7 @@ RESSALVA HONESTA: a verificação foi estática (suíte + build). As quatro corr
 | 24 P06 | 41min | 3 tasks | 6 files |
 | 24 P07 | 25min | 3 tasks | 7 files |
 | 24 P11 | 35min | 3 tasks | 5 files |
+| 24 P14 | 40min | 3 tasks | 5 files |
 
 **Recent Trend:**
 
@@ -253,6 +290,26 @@ RESSALVA HONESTA: a verificação foi estática (suíte + build). As quatro corr
 
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
+
+- 24-15 (2026-09-12): a env não sai quando o painel entra — ela vira camada.
+  Os três tetos da aba Opções passaram a ser configuráveis sem deploy
+  (memória → kv → env → default), e o kv entra NA FRENTE da env, nunca no
+  lugar dela: é como o Railway troca um teto sem publicar código. O que
+  fecha a decisão é a ORIGEM publicada junto do número — sem ela o admin
+  muda pelo painel, a env continua dizendo outra coisa, e as duas verdades
+  convivem sem ninguém saber qual manda. Valor acima do teto do SERVIÇO
+  (2.000/dia, compartilhado por toda a base) é aceito com aviso, não
+  recusado: recusar fingiria um controle que o Boris não tem.
+
+- 24-14 (2026-09-12): "zero por construção" não é "zero por raridade", e a
+  diferença é dita ANTES do número. O ensaio de um setup cuja condição nunca
+  fechou a janela devolvia `disparos: 0` com `pregoes_avaliaveis: 31` — os
+  dois certos, e por isso mesmo enganosos. O aviso afirma só o que a
+  aritmética de janela demonstra e cala onde a prova não alcança (`OR`,
+  sequência curta); nenhuma lista de indicadores entrou no Boris (a detecção
+  sai do `window` que a condição declara, ENG-06); e a tela NÃO bloqueia a
+  gravação — impedir a conclusão errada é dever dela, decidir pela pessoa
+  não é.
 
 - 24-12 (2026-09-11): a DISTÂNCIA medida vence o SLA herdado. O frescor do
   fornecedor responde "a carga está dentro do contrato dele"; a pessoa
@@ -527,8 +584,10 @@ Items acknowledged and carried forward from previous milestone close (v1.3 → v
 
 ## Session Continuity
 
-Last session: 2026-09-12T01:50:00Z
-Stopped at: Fase 24, plano 12 concluído — a aba Opções passou a afirmar a distância em pregões até o último pregão fechado (calendário da B3, `pregao.is_trading_day`) em vez de herdar o veredito de frescor do fornecedor. O dia corrente nunca conta; data ausente, torta ou futura é `None`, nunca 0; `atraso` viaja em `/status` e `/leitura` sem chamada de tool nova; e o chip diz "2 pregões atrás" onde antes lia "dado em dia", somando ao alerta do serviço quando ele também bloqueia. Nada passou a ser bloqueado (ADR-027, Decisão 8 intacta). 16 testes de backend (todos com relógio fixo por `_hoje`) e 17 asserções de front vistos VERMELHOS antes da correção; o bloco de front consolidado tem 19. Suíte canônica verde (2473 passed, 5 skipped; 129 arquivos .mjs, exit 0 — baseline 2457/5), `npx vite build` verde. Nada empurrado a origin, nenhum PR. **Os dois achados ao vivo de 2026-09-11 (24-11 e 24-12) estão fechados.** Fica aberto um único plano, por decisão humana: 24-05 (bump + publicar-web.sh + deploy do backend), que NÃO roda sem o OK explícito do Alex — e é dele que dependem, para chegar ao usuário, tanto o texto do 24-11 quanto o deste plano (a publicação `F10-20260911-06` que apareceu na árvore durante esta execução é de outra sessão e NÃO contém nenhum dos dois).
+Last session: 2026-09-12T03:40:00Z
+Stopped at: Fase 24, plano 15 concluído — os três tetos da aba Opções configuráveis pelo portal admin (precedência memória → kv → env → default, origem publicada, prévia, auditoria por campo e o aviso do teto compartilhado do serviço). Deploy do backend e `publicar-admin.sh` são etapa posterior, já combinada com o Alex.
+
+Anterior: Fase 24, plano 14 concluído — o ensaio de setup passou a dizer quando não testou nada (helper `_ensaio_inconclusivo`, campo `ensaio` no `/setups/compilar` e a faixa acima dos números do backtest). Nada publicado: produção segue em `F10-20260911-07`.
 Resume file: None
 
 ## Operator Next Steps

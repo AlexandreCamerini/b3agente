@@ -30,7 +30,7 @@ from typing import Optional
 import httpx
 from fastapi import APIRouter, Body, Depends, Header, HTTPException
 
-from . import ai_activity, audit, llm, mcp_client, metering, obslog, pregao
+from . import ai_activity, audit, db, llm, mcp_client, metering, obslog, pregao
 
 router = APIRouter(prefix="/api/options/mcp", tags=["options-mcp"])
 
@@ -199,6 +199,31 @@ MOTIVO_HV_AUSENTE = (
     "calculada aqui, por isso não há número a mostrar"
 )
 
+# 24-14 (achado ao vivo 2026-09-11) — o ensaio que não testou nada. O 24-11
+# tratou o campo VAZIO; este trata o caso pior, que é o número PLAUSÍVEL:
+# `disparos: 0` com `pregoes_avaliaveis: 31` se lê como "testei e não
+# disparou", quando a verdade é "nunca pôde disparar".
+#
+# Os três textos dizem só o que a aritmética de janela demonstra. Nenhum
+# afirma que o setup dispararia com mais histórico (previsão), que o setup é
+# ruim (juízo) nem manda mudar o período (ação que a tela não oferece) — quem
+# extrapola aqui só troca a primeira leitura errada por uma segunda.
+MOTIVO_JANELA_NUNCA_FECHOU = (
+    "esta condição precisa de mais pregões do que o histórico do ensaio tem, "
+    "então ela não teve valor em nenhum dia — não é que não tenha ocorrido, "
+    "é que não deu para verificar"
+)
+MOTIVO_JANELA_CURTA_PARA_SEQUENCIA = (
+    "esta condição só passou a ter valor nos últimos pregões do histórico, em "
+    "quantidade menor que a sequência de dias seguidos que o setup exige — a "
+    "sequência não teve como se formar"
+)
+AVISO_ENSAIO_INDISPARAVEL = (
+    "Este ensaio não testou o setup: uma das condições nunca pôde ser "
+    "verificada no histórico disponível, e por isso o número de disparos é "
+    "zero por construção — não por raridade."
+)
+
 # `AVISOS` é a superfície de varredura do módulo no `test_guardrail_imperativo`
 # (FONTES) — não só os avisos de frescor. Texto fixo novo que chega ao usuário
 # entra aqui na fase que o cria.
@@ -218,7 +243,10 @@ AVISOS = "\n".join((AVISO_FRESCOR_NAO_MEDIDO,
                     AVISO_RECUSA_COBRADA,
                     MOTIVO_JANELA_63,
                     MOTIVO_SERIE_CURTA,
-                    MOTIVO_HV_AUSENTE))
+                    MOTIVO_HV_AUSENTE,
+                    MOTIVO_JANELA_NUNCA_FECHOU,
+                    MOTIVO_JANELA_CURTA_PARA_SEQUENCIA,
+                    AVISO_ENSAIO_INDISPARAVEL))
 
 # Critério de "operável" do BORIS, não do serviço (D-24.4). O serviço aceita
 # qualquer peneira; estes três números são escolha nossa, e por isso viajam na
@@ -350,6 +378,11 @@ def configure(conn, require_user_dep, *, require_permission_dep=None,
     """
     global _conn, _require_user, _require_permission, _gate_analise, _config_do_usuario
     _conn = conn
+    # 24-15: os tetos vindos do kv são cache de PROCESSO, e este é o ponto em
+    # que o processo passa a falar com outro banco (é o que a suíte faz a cada
+    # cliente novo). Sem esta linha, o teto configurado num teste valeria como
+    # teto do seguinte, que roda contra um banco vazio.
+    reset_limites_cache()
     _require_user = require_user_dep
     _require_permission = require_permission_dep
     _gate_analise = gate_analise
@@ -395,28 +428,203 @@ def require_criar_setup(user: dict = Depends(require_user)) -> dict:
 
 
 # --------------------------------------------------------------------------
-# Envs — lidas A CADA chamada (o Railway muda env sem redeploy do código, e o
-# teste usa `monkeypatch.setenv`). Valor torto cai no default: env inválida
-# não pode derrubar a rota nem, pior, desligar o cap.
+# Os três tetos da aba: memória → kv → env → default.
+#
+# 24-15 (pedido do Alex, 2026-09-11). Antes eles eram SÓ env do Railway, e
+# mexer neles exigia redeploy — lento demais para o que controlam, ainda mais
+# depois de a Fase 24 multiplicar o consumo por sessão (`/possibilidades`
+# custa até 13 `tools/call`). O kv entra NA FRENTE da env; a env **continua
+# valendo** quando não há valor no kv, e é lida A CADA leitura de propósito:
+# é assim que o Railway troca um teto sem publicar código, e é o que
+# `monkeypatch.setenv` exercita na suíte.
+#
+# Padrão copiado de `brapi_budget.spot_intervalo_s`/`set_spot_intervalo` — o
+# precedente da casa para "configuração que sobrevive a deploy", incluindo o
+# `try/except` que engole falha de kv (um banco indisponível degrada para a
+# camada de baixo; nunca derruba a rota).
+#
+# Valor torto em qualquer camada cai para a seguinte. Isso não é
+# permissividade: um `0` vindo do banco não seria "limite baixo", seria o
+# freio DESLIGADO em cima de um teto de 2.000 chamadas/dia compartilhado por
+# toda a base do Boris.
 # --------------------------------------------------------------------------
-def _int_env(nome: str, padrao: int) -> int:
+COTA_USUARIO_DIA_DEFAULT = 60
+RATE_MIN_DEFAULT = 20
+COTA_GLOBAL_DIA_DEFAULT = 1800
+
+_KV_COTA_USUARIO = "mcpCotaUsuarioDia"
+_KV_RATE_MIN = "mcpRateMin"
+_KV_COTA_GLOBAL = "mcpCotaGlobalDia"
+
+# Contrato do serviço (ADR-027, "Contra (aceito)"): 2.000 `tools/call` por dia
+# para TODOS os usuários do Boris somados. Não é configuração daqui — é o
+# número que dá sentido aos três de cima, e a razão de o painel avisar quando
+# alguém configura acima dele.
+TETO_SERVICO_DIA = 2000
+
+# Entidade do audit log da escrita destes tetos. Fica aqui, junto do que ela
+# descreve, pelo MESMO motivo de `ENTIDADE_AUDITORIA`: a rota, o teste e
+# `rbac.ENTIDADES_POR_PERMISSAO` precisam citar a mesma string, e duas cópias
+# fariam a auditoria existir sem ninguém a ver.
+ENTIDADE_COTA = "mcp_cota"
+
+# Cache em memória do valor vindo do KV — e só dele.
+#
+# Por que existe: estes três são lidos no caminho de `_cap_check`, ou seja, a
+# cada chamada de tool. Por que é seguro aqui: o valor muda por ação
+# administrativa explícita (nunca por evento de mercado nem por virada de
+# dia), e quem o muda é `set_*`, que roda no MESMO processo e invalida a
+# entrada na hora. Por que NÃO cacheia a env nem o default: cachear a env
+# mataria em silêncio a troca de teto sem redeploy — o custo de não cachear é
+# um SELECT por chave primária no SQLite, a mesma classe do que o `metering`
+# já faz várias vezes por requisição.
+_limites_mem: dict = {}
+
+
+def reset_limites_cache() -> None:
+    """Esquece o que veio do kv. Chamado por `configure()` (processo fiado a
+    outro banco) e pelos testes entre casos — sem isto, um `set_*` de um teste
+    valeria como teto do seguinte, que roda contra outro banco."""
+    _limites_mem.clear()
+
+
+def _env_int(nome: str) -> Optional[int]:
+    """Inteiro > 0 declarado na env, ou `None`. Texto, vazio, 0 e negativo
+    devolvem `None` — a decisão cai para a camada de baixo."""
+    bruto = os.environ.get(nome)
+    if bruto is None:
+        return None
     try:
-        v = int(os.environ.get(nome) or padrao)
+        v = int(bruto)
     except (TypeError, ValueError):
-        return padrao
-    return v if v > 0 else padrao
+        return None
+    return v if v > 0 else None
 
 
+def _int_env(nome: str, padrao: int) -> int:
+    """Compatível byte a byte com o que existia antes deste plano (env vazia,
+    torta, 0 ou negativa → `padrao`); hoje é a TERCEIRA camada, não a
+    primeira."""
+    v = _env_int(nome)
+    return v if v is not None else padrao
+
+
+def _kv_int(chave: str) -> Optional[int]:
+    """Inteiro > 0 gravado no kv, ou `None`. `bool` é recusado de propósito
+    (`True` é `int` em Python, e um `True` no banco viraria cota 1)."""
+    if _conn is None:
+        return None
+    try:
+        v = db.kv_get(_conn, chave, None, user_id=None)
+    except Exception:  # noqa: BLE001 — banco indisponível degrada, não derruba
+        return None
+    if isinstance(v, bool) or not isinstance(v, int):
+        return None
+    return v if v > 0 else None
+
+
+def _valor_e_origem(chave_kv: str, env: str, padrao: int) -> tuple:
+    """O ÚNICO lugar que decide um teto vigente. `origem` é `"kv"`, `"env"` ou
+    `"default"` — sem ela o admin muda pelo painel, a env continua diferente e
+    ninguém sabe qual manda."""
+    v = _limites_mem.get(chave_kv)
+    if v is None:
+        v = _kv_int(chave_kv)
+        if v is not None:
+            _limites_mem[chave_kv] = v
+    if v is not None:
+        return v, "kv"
+    v = _env_int(env)
+    if v is not None:
+        return v, "env"
+    return padrao, "default"
+
+
+def _set_limite(chave_kv: str, n) -> int:
+    """Persiste e invalida o cache. O mínimo de 1 é imposto AQUI, no código,
+    não na UI — mesma decisão do `max(30, ...)` de `set_spot_intervalo`: a
+    camada que menos se pode obrigar a lembrar é justamente a de cima."""
+    v = max(1, int(n))
+    _limites_mem[chave_kv] = v
+    if _conn is not None:
+        try:
+            db.kv_set(_conn, chave_kv, v, user_id=None)
+        except Exception:  # noqa: BLE001 — vale neste processo; some no deploy
+            pass
+    return v
+
+
+def cota_usuario_dia() -> int:
+    return _valor_e_origem(_KV_COTA_USUARIO, "B3_MCP_COTA_USUARIO_DIA",
+                           COTA_USUARIO_DIA_DEFAULT)[0]
+
+
+def set_cota_usuario_dia(n) -> int:
+    return _set_limite(_KV_COTA_USUARIO, n)
+
+
+def rate_min() -> int:
+    return _valor_e_origem(_KV_RATE_MIN, "B3_MCP_RATE_MIN", RATE_MIN_DEFAULT)[0]
+
+
+def set_rate_min(n) -> int:
+    return _set_limite(_KV_RATE_MIN, n)
+
+
+def cota_global_dia() -> int:
+    return _valor_e_origem(_KV_COTA_GLOBAL, "B3_MCP_COTA_GLOBAL_DIA",
+                           COTA_GLOBAL_DIA_DEFAULT)[0]
+
+
+def set_cota_global_dia(n) -> int:
+    return _set_limite(_KV_COTA_GLOBAL, n)
+
+
+# Nome de cada teto → (chave de kv, env, default). Uma tupla só: a rota admin
+# itera por ela em vez de repetir a lista de três em cada ponto.
+LIMITES = (
+    ("cotaUsuarioDia", _KV_COTA_USUARIO, "B3_MCP_COTA_USUARIO_DIA", COTA_USUARIO_DIA_DEFAULT),
+    ("rateMin", _KV_RATE_MIN, "B3_MCP_RATE_MIN", RATE_MIN_DEFAULT),
+    ("cotaGlobalDia", _KV_COTA_GLOBAL, "B3_MCP_COTA_GLOBAL_DIA", COTA_GLOBAL_DIA_DEFAULT),
+)
+
+# Os que se medem POR DIA e por isso se comparam com `TETO_SERVICO_DIA`.
+# `rateMin` fica fora: é por MINUTO, e compará-lo com um teto diário seria
+# erro de unidade travestido de aviso.
+LIMITES_POR_DIA = ("cotaUsuarioDia", "cotaGlobalDia")
+
+
+def limites() -> dict:
+    """Os três tetos vigentes, cada um com a ORIGEM e a env que o declara,
+    mais o teto do próprio serviço."""
+    fora = {"tetoServicoDia": TETO_SERVICO_DIA}
+    for nome, chave_kv, env, padrao in LIMITES:
+        valor, origem = _valor_e_origem(chave_kv, env, padrao)
+        fora[nome] = {"valor": valor, "origem": origem, "env": env, "default": padrao}
+    return fora
+
+
+def consumo_global_hoje() -> dict:
+    """Consumo de HOJE do balde global da aba (`mcpUsageGlobal`), no dia de
+    São Paulo. Mora aqui, e não na rota, porque a seção e a noção de dia são
+    deste módulo — lidas de fora, divergiriam do que o cap de fato conta."""
+    return metering.global_snapshot(
+        _conn, cap=cota_global_dia(), section=GLOBAL_SECTION, _dia=_dia_sp())
+
+
+# As três privadas que o `_cap_check` usa delegam nas públicas: um lugar só
+# decide o valor vigente. Os nomes seguem porque são o vocabulário do cap (e
+# o que a suíte já exercita).
 def _cota_usuario() -> int:
-    return _int_env("B3_MCP_COTA_USUARIO_DIA", 60)
+    return cota_usuario_dia()
 
 
 def _rate_min() -> int:
-    return _int_env("B3_MCP_RATE_MIN", 20)
+    return rate_min()
 
 
 def _cota_global() -> int:
-    return _int_env("B3_MCP_COTA_GLOBAL_DIA", 1800)
+    return cota_global_dia()
 
 
 # --------------------------------------------------------------------------
@@ -1913,6 +2121,118 @@ def _campos_faltando(setup) -> list:
     return faltando
 
 
+def _janela_declarada(spec) -> Optional[int]:
+    """A janela que um lado da comparação DECLARA, ou `None`.
+
+    A leitura é de FORMA, não de vocabulário: quem tem janela é a condição que
+    traz `window`, e o serviço só aceita `window` em indicador que a use
+    ("não usa janela — remova"). Guardar aqui a lista dos indicadores com
+    janela criaria a segunda cópia do contrato — a que ninguém atualiza quando
+    o serviço ganha o próximo indicador (ENG-06).
+
+    `bool` é recusado de propósito (subclasse de `int`): um `True` viraria
+    janela de 1 e produziria aviso sobre uma condição que não declarou nada.
+    """
+    if not isinstance(spec, dict):
+        return None
+    janela = spec.get("window")
+    if isinstance(janela, bool) or not isinstance(janela, int) or janela < 1:
+        return None
+    return janela
+
+
+def _ensaio_inconclusivo(setup, backtest) -> dict:
+    """Condições cuja janela não cabe no histórico usado pelo ensaio.
+
+    **Por que existe** (achado ao vivo, 2026-09-11): um setup com média de 200
+    sobre 48 pregões volta `disparos: 0` e `pregoes_avaliaveis: 31`. Os dois
+    números estão certos — `AND` com um `False` conhecido é `False`, e nos dias
+    de RSI acima de 30 o dia é comprovadamente falso. O que está errado é o que
+    a pessoa entende: "testei e não disparou", quando a verdade é que a
+    condição da média NUNCA teve valor e o setup era indisparável.
+
+    É pior que um campo vazio: vazio se vê, número plausível não. Alguém pode
+    GRAVAR um setup acreditando que ele passou por um teste que não houve.
+
+    A conta é de janela, não de análise técnica: uma janela de `w` sobre `n`
+    pregões produz `n - w + 1` pontos. `<= 0` significa que a condição nunca
+    teve valor; menos que `consecutive_days` significa que a sequência exigida
+    é impossível mesmo com todos os pontos verdadeiros.
+
+    `n - w + 1` é o TETO, e é assim de propósito: as médias produzem essa
+    contagem, e os indicadores que olham o pregão anterior produzem um ponto a
+    menos. Errar para o lado generoso só pode deixar de avisar — nunca dar
+    como morta uma condição que teve valor.
+
+    O veredito `indisparavel` é reservado ao caso DEMONSTRÁVEL: condição sem
+    ponto nenhum dentro de um `AND`. Aí a impossibilidade é aritmética — se
+    uma condição do `AND` nunca é verdadeira, o dia nunca é verdadeiro, e
+    `disparos` é 0 por construção. Com `OR`, uma condição morta não impede as
+    outras; com a janela curta para a sequência, a condição TEVE valor em
+    alguns pregões e o ensaio de fato avaliou alguma coisa. Nos dois, a
+    condição é listada como ressalva e o veredito é calado: afirmar
+    indisparabilidade que não se pode provar seria trocar uma leitura errada
+    por outra.
+
+    Nada aqui é recalculado e nada é consultado: `setup` e `backtest` são o
+    que o dry-run JÁ devolveu, na mesma resposta.
+    """
+    periodo = backtest.get("periodo") if isinstance(backtest, dict) else None
+    pregoes = periodo.get("pregoes") if isinstance(periodo, dict) else None
+    if isinstance(pregoes, bool) or not isinstance(pregoes, int) or pregoes < 1:
+        # Sem o tamanho do período não existe a conta, e a tela não afirma
+        # nada. Um aviso derivado de um número que ninguém informou seria a
+        # fabricação que este helper existe para impedir (princípio 4).
+        return {"indisparavel": False, "condicoes": [], "pregoes": None}
+
+    setup = setup if isinstance(setup, dict) else {}
+    # Os dois defaults são os do motor (`setup.get("logic", "AND")`,
+    # `setup.get("consecutive_days", 1)`). Tratar a ausência como
+    # "desconhecido" faria o caso mais comum — setup sem `logic` explícita —
+    # perder justamente o aviso.
+    and_logico = str(setup.get("logic") or "AND").strip().upper() == "AND"
+    exigidos = setup.get("consecutive_days")
+    if isinstance(exigidos, bool) or not isinstance(exigidos, int) or exigidos < 1:
+        exigidos = 1
+
+    condicoes = []
+    morta = False
+    for cond in (setup.get("conditions") or []):
+        if not isinstance(cond, dict):
+            continue
+        # Os DOIS lados contam, e a maior janela manda: é ela que decide
+        # quando a comparação passa a ter valor. No caso real a janela que
+        # mata o ensaio mora na `reference` (`close > média de 200`), não no
+        # lado esquerdo.
+        lados = [(_janela_declarada(lado), lado)
+                 for lado in (cond, cond.get("reference"))]
+        lados = [(j, lado) for j, lado in lados if j is not None]
+        if not lados:
+            continue
+        janela, lado = max(lados, key=lambda par: par[0])
+        pontos = pregoes - janela + 1
+        if pontos <= 0:
+            motivo = MOTIVO_JANELA_NUNCA_FECHOU
+            morta = True
+        elif pontos < exigidos:
+            motivo = MOTIVO_JANELA_CURTA_PARA_SEQUENCIA
+        else:
+            continue
+        # O nome do indicador sai VERBATIM do lado que bloqueia: é vocabulário
+        # do serviço, e traduzi-lo aqui criaria o segundo dicionário.
+        indicador = lado.get("indicator")
+        condicoes.append({
+            "indicador": indicador if isinstance(indicador, str) else None,
+            "janela": janela,
+            "pontos": pontos,
+            "motivo": motivo,
+        })
+
+    return {"indisparavel": bool(morta and and_logico),
+            "condicoes": condicoes,
+            "pregoes": pregoes}
+
+
 # Chaves toleradas para idade e SLA dentro da classe de frescor. Mesma razão
 # da tolerância de `_frescor`: a forma real de `check_data_freshness` só se
 # confirma ao vivo (`test_mcp_vivo.py`), e cravar UMA chave faria o número
@@ -2394,6 +2714,11 @@ async def setup_compilar(body: dict = Body(default={}),
         obslog.log("mcp", "compilar", rota=rota, uid=uid, ticker=alvo,
                    condicoes=len(setup.get("conditions") or []), cache=cache)
 
+        # O que o serviço ENTENDEU — e o que a tela mostra, e o que
+        # `/setups/confirmar` recebe de volta. O `ensaio` é lido DESTE objeto,
+        # não do que a IA respondeu: descrever um setup que ninguém vai gravar
+        # seria explicar a coisa errada.
+        interpretado = dados.get("setup_as_interpreted") or setup
         return {
             "status": dados.get("status") or "dry_run",
             "ticker": alvo,
@@ -2402,8 +2727,13 @@ async def setup_compilar(body: dict = Body(default={}),
             "descricao": descricao,
             # O que o serviço ENTENDEU. Na falta do eco, o que foi enviado —
             # é esse objeto que `/setups/confirmar` recebe de volta.
-            "setup": dados.get("setup_as_interpreted") or setup,
+            "setup": interpretado,
             "backtest": dados.get("backtest"),
+            # 24-14: a leitura que faltava AO LADO do backtest, nunca no lugar
+            # dele — o `backtest` continua verbatim, byte a byte. Sai dos
+            # mesmos números que já vieram: nenhuma chamada nova, nenhum
+            # indicador recalculado.
+            "ensaio": _ensaio_inconclusivo(interpretado, dados.get("backtest")),
             "proximoPasso": dados.get("next_step"),
             "pregao": _pregao_medido(frescor, dados),
             "fonte": FONTE,

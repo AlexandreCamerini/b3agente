@@ -315,6 +315,7 @@ function Ensaio({ dados, cp, onConfirmar }) {
   const c = cp || {};
   const setup = (dados && dados.setup && typeof dados.setup === "object") ? dados.setup : {};
   const backtest = (dados && dados.backtest && typeof dados.backtest === "object") ? dados.backtest : null;
+  const ensaio = (dados && dados.ensaio && typeof dados.ensaio === "object") ? dados.ensaio : null;
   const condicoes = Array.isArray(setup.conditions) ? setup.conditions : [];
   const periodo = (backtest && backtest.periodo && typeof backtest.periodo === "object") ? backtest.periodo : {};
   const retornos = (backtest && backtest.retorno_apos_disparo && typeof backtest.retorno_apos_disparo === "object")
@@ -343,6 +344,11 @@ function Ensaio({ dados, cp, onConfirmar }) {
       ) : (
         <div style={AJUDA}>O serviço devolveu este setup sem condição listada. Nada foi suposto no lugar.</div>
       )}
+
+      {/* ACIMA dos números, nunca abaixo: quem lê "0 disparos" primeiro já
+          formou a conclusão, e uma ressalva que chega depois disso chega
+          tarde. */}
+      <EnsaioInconclusivo ensaio={ensaio} cp={c} />
 
       {backtest ? (
         <div style={{ marginTop: "14px" }}>
@@ -393,6 +399,61 @@ function Ensaio({ dados, cp, onConfirmar }) {
       >
         {c.opcoesCriarConfirmar || "Gravar este setup"}
       </button>
+    </div>
+  );
+}
+
+// 24-14 — a faixa que diz, ANTES dos números, que o ensaio não testou nada.
+//
+// Achado ao vivo (2026-09-11): um setup com média de 200 sobre 48 pregões
+// devolve `disparos: 0` com `pregoes_avaliaveis: 31`. Os dois números estão
+// certos; o que engana é a leitura — "testei e não disparou" quando a verdade
+// é "nunca pôde disparar". E é pior que campo vazio (24-11): vazio se vê,
+// número plausível não. O fim da linha é alguém GRAVAR um setup acreditando
+// que ele foi validado contra o histórico.
+//
+// Três coisas que este componente não negocia:
+// · a posição. Vem acima dos números, e não é tooltip nem fica atrás de um
+//   toque — ressalva que precisa ser procurada não protege ninguém;
+// · o motivo é do BACKEND e viaja verbatim, como ARGUMENTO da função de copy.
+//   Reescrevê-lo aqui criaria a segunda cópia da frase, a que envelhece sem
+//   ninguém notar (padrão do 24-11);
+// · o botão de gravar CONTINUA existindo nos dois casos. Não é a tela que
+//   decide o que a pessoa pode fazer com um setup que ela escreveu; o que a
+//   tela deve é não deixá-la concluir errado. Bloquear trocaria um problema
+//   de informação por um de autonomia.
+//
+// O veredito forte só sai com `indisparavel === true` — o backend o reserva
+// ao caso demonstrável. Quando há condição listada sem veredito (lógica `OR`,
+// ou janela curta para a sequência), a faixa é ressalva, em tom discreto.
+function EnsaioInconclusivo({ ensaio, cp }) {
+  const c = cp || {};
+  const e = (ensaio && typeof ensaio === "object") ? ensaio : {};
+  const itens = (Array.isArray(e.condicoes) ? e.condicoes : [])
+    .filter((x) => x && typeof x === "object");
+  // Sem `ensaio` no payload (servidor anterior a este plano) ou sem condição
+  // problemática, nada é renderizado: o estado normal é silêncio, e uma caixa
+  // vazia afirmaria uma ausência que ninguém mediu.
+  if (!itens.length) return null;
+  const veredito = e.indisparavel === true;
+  return (
+    <div style={{ marginTop: "12px" }}>
+      <Aviso tom={veredito ? "forte" : undefined}>
+        {veredito
+          ? (c.opcoesEnsaioIndisparavel
+            || "Este ensaio não testou o setup: uma das condições não pôde ser verificada no histórico.")
+          : (c.opcoesEnsaioRessalva
+            || "Uma condição deste setup não pôde ser verificada em todo o período do ensaio.")}
+        <ul style={{ margin: "8px 0 0", paddingLeft: "18px" }}>
+          {itens.map((x, i) => (
+            <li key={i} style={{ padding: "2px 0", whiteSpace: "pre-wrap" }}>
+              {(c.opcoesEnsaioCondicao
+                || ((ind, jan, mot) => String(ind || "—") + ": " + String(mot || "—")))(
+                x.indicador, x.janela, x.motivo)}
+            </li>
+          ))}
+        </ul>
+      </Aviso>
     </div>
   );
 }

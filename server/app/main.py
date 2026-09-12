@@ -712,6 +712,98 @@ async def obs_brapi_projecao_aplicar(body: dict = Body(default={}),
     return {"vigenteS": vigente, "projecao": proj, "aplicado": True}
 
 
+# 24-15 (pedido do Alex, 2026-09-11) — os três tetos da aba Opções, no MESMO
+# desenho do intervalo de spot logo acima: GET mostra, POST sem
+# `{"aplicar": true}` é PRÉVIA, e toda escrita vira `audit.record`.
+#
+# A permissão é `fontes_dados.configurar`, a mesma do orçamento brapi: isto é
+# teto de consumo de FONTE DE DADOS, não governança de IA. Criar uma permissão
+# nova obrigaria a mexer nos grupos do ADR-013 e nos testes de bootstrap sem
+# nenhum ganho de granularidade real.
+#
+# A rota mora aqui e não em `options_mcp_api.py` de propósito: ela CONFIGURA o
+# cap, não consome o serviço. Sob o prefixo `/api/options/mcp` ela precisaria
+# passar por `_cap_check` (guardião IV), o que é o contrário do que ela é —
+# ajustar um teto não pode gastar o teto.
+_CAMPOS_COTA_OPCOES = {
+    "cotaUsuarioDia": options_mcp_api.set_cota_usuario_dia,
+    "rateMin": options_mcp_api.set_rate_min,
+    "cotaGlobalDia": options_mcp_api.set_cota_global_dia,
+}
+
+# O teto real é do SERVIÇO e é compartilhado por toda a base. Aceitar sem
+# avisar deixaria o admin achar que subiu um teto que não subiu; recusar
+# fingiria que o Boris manda no que não manda.
+_AVISO_ACIMA_DO_TETO_DO_SERVICO = (
+    "Acima do teto do serviço: o contrato do MCP é de 2.000 chamadas/dia para "
+    "TODA a base do Boris somada, e quem o controla é o serviço, não o Boris. "
+    "Um limite acima disso não aumenta o que o serviço entrega — só faz o "
+    "freio do Boris parar de agir antes dele, e a recusa passa a vir do "
+    "próprio serviço."
+)
+
+
+def _cota_opcoes_pedidos(body: dict) -> dict:
+    """Valida ANTES de aplicar qualquer coisa — tudo-ou-nada. Validar campo a
+    campo enquanto aplica deixaria metade da mudança de pé, e o admin não
+    teria como saber qual metade."""
+    pedidos = {}
+    for nome in _CAMPOS_COTA_OPCOES:
+        if body.get(nome) is None:
+            continue
+        bruto = body[nome]
+        if isinstance(bruto, bool):
+            raise HTTPException(400, f"{nome}: informe um inteiro >= 1.")
+        try:
+            v = int(bruto)
+        except (TypeError, ValueError):
+            raise HTTPException(400, f"{nome}: informe um inteiro >= 1.")
+        if v < 1:
+            # Zero aqui não é "limite baixo", é o freio desligado.
+            raise HTTPException(400, f"{nome}: o mínimo é 1 (zero desligaria o limite).")
+        pedidos[nome] = v
+    if not pedidos:
+        raise HTTPException(400, "Informe ao menos um limite: cotaUsuarioDia, rateMin ou cotaGlobalDia.")
+    return pedidos
+
+
+@app.get("/api/obs/opcoes/cota")
+async def obs_opcoes_cota(user: dict = Depends(require_permission("fontes_dados.configurar"))):
+    return {
+        "limites": options_mcp_api.limites(),
+        # O consumo REAL de hoje, no mesmo balde que o cap conta. Sem ele o
+        # admin decide no escuro — que é o estado que este plano encerra.
+        "consumoGlobalHoje": options_mcp_api.consumo_global_hoje(),
+    }
+
+
+@app.post("/api/obs/opcoes/cota")
+async def obs_opcoes_cota_aplicar(body: dict = Body(default={}),
+                                  user: dict = Depends(require_permission("fontes_dados.configurar"))):
+    pedidos = _cota_opcoes_pedidos(body)
+    antes = options_mcp_api.limites()
+    mudancas = [{"campo": nome, "de": antes[nome]["valor"], "para": v}
+                for nome, v in pedidos.items() if antes[nome]["valor"] != v]
+    aviso = _AVISO_ACIMA_DO_TETO_DO_SERVICO if any(
+        v > options_mcp_api.TETO_SERVICO_DIA
+        for nome, v in pedidos.items() if nome in options_mcp_api.LIMITES_POR_DIA
+    ) else None
+
+    if not body.get("aplicar"):
+        return {"limites": antes, "mudancas": mudancas, "aplicado": False, "aviso": aviso}
+
+    for nome, v in pedidos.items():
+        anterior = antes[nome]["valor"]
+        vigente = _CAMPOS_COTA_OPCOES[nome](v)
+        if vigente != anterior:
+            # UM registro por campo: a auditoria responde "quem mudou o quê",
+            # e um agregado não responde.
+            audit.record(_conn, user["id"], options_mcp_api.ENTIDADE_COTA, None,
+                         nome, anterior, vigente)
+    return {"limites": options_mcp_api.limites(), "mudancas": mudancas,
+            "aplicado": True, "aviso": aviso}
+
+
 # qa/47 (Fase 1 — infra só, sem client SDK/dashboard): ingest genérico de
 # eventos de comportamento. Rate limit reusa metering.py com uma SEÇÃO
 # própria (não mistura com a cota de IA gerenciada). 429 (não 402: não é
@@ -1057,7 +1149,7 @@ async def admin_mobile_handoff_exchange(body: dict = Body(default={})):
 
 # FASE 8B (diagnóstico): carimbo de build do BACKEND — confirma qual código o
 # Railway está rodando (o front tem o dele em web/src/version.js).
-SERVER_BUILD_ID = "F10-20260911-07"  # 2026-09-11: deploy SÓ-BACKEND — o front fica em -06 de propósito, porque nada em `web/src/` mudou, e o rodapé do Perfil vai mostrar os dois carimbos diferentes (é o estado correto, não um erro). Entrega: o compilador NL→DSL aceita o envelope `{"setup": …}` que o próprio `inputSchema` de `create_setup` descreve. Medido com LLM real: o modelo compilava certo e tomava 422 `forma_invalida` porque a validação procurava os campos na raiz — quem estava fora do contrato era o validador. Sem isto, criar setup pela tela falha em produção.
+SERVER_BUILD_ID = "F10-20260912-01"  # 2026-09-12: duas entregas. (1) O ensaio de setup avisa quando NÃO testou nada: setup com média de 200 sobre 48 pregões voltava "0 disparos" — número certo, leitura errada, porque a condição nunca teve valor e o zero era por construção, não por raridade. A faixa vem ANTES dos números, e o botão de gravar continua lá: a tela impede a conclusão errada, não a ação. (2) Os três tetos da aba Opções viram configuração do portal admin (memória → kv → env → default), com prévia e auditoria por campo — o teto real de 2.000/dia é do serviço e compartilhado por toda a base, e ajustá-lo exigia redeploy. Publica também o portal (`admin_dist`).
 # Normalmente sincronizado pelo entregar.sh a partir de web/src/version.js; num deploy
 # SÓ de backend (sem rebuild do front) bumpamos aqui para /api/health rastrear o servidor.
 
