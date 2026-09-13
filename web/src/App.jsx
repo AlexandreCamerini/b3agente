@@ -3343,7 +3343,6 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
   const [opBusy, setOpBusy] = useState(null);
   // Fase 14 (Plano 06) — proposta pronta de venda coberta/put de proteção.
   const [opProposta, setOpProposta] = useState(null);
-  const [opPropostaBusy, setOpPropostaBusy] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -3356,6 +3355,13 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
   // liquidez — nenhuma requisição extra de proposta é feita além do que o
   // gate já dispara. `opGate && opGate.liquida` é primitivo (boolean) na
   // dependência: não recria o efeito a cada re-render do objeto do gate.
+  // ATUALIZADO 2026-09-13 (Fase 28, 28-03): o card de proposta lastreada
+  // saiu do AtivoCard (28-CONTEXT D1). Este efeito continua só porque
+  // `rotuloFechado` do acordeão de cadeia (cp.verCadeiaCompleta, abaixo)
+  // ainda lê `opProposta.proposta` para decidir o rótulo do acordeão.
+  // Dívida NOMEADA para a Fase 31 (polish pós-uso real): hoje é uma chamada
+  // de proposta por card de watchlist só para rotular um acordeão; cortá-la
+  // agora mudaria o rótulo da cadeia, decisão de produto separada desta fase.
   useEffect(() => {
     let alive = true;
     setOpProposta(null);
@@ -3417,65 +3423,6 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
     setOpBusy(contractId);
     try { await A.sellOption(contractId); }
     finally { setOpBusy(null); }
-  };
-
-  // Fase 14 (Plano 06): a posição já aberta que casa com a proposta ATUAL
-  // (mesmo contractSymbol) — quando existe, o CTA da proposta vira "fechar".
-  const posAberta = (opProposta && opProposta.proposta)
-    ? myOptionPositions.find((p) => p.id === opProposta.proposta.contractSymbol) || null
-    : null;
-  const onAbrirLastreada = async () => {
-    if (!opProposta || !opProposta.proposta) return;
-    const p = opProposta.proposta;
-    // Quick 260908-ldg (D-03): consentimento de liquidez é um confirm
-    // PRÓPRIO, disparado ANTES de qualquer confirm de estrutura — decide se
-    // a operação faz sentido; o da estrutura decide o que ela trava. O texto
-    // é `liq.aviso` VERBATIM (nunca composto aqui — "o front nunca compõe
-    // vocabulário", mesma regra da manchete). Motor mudo (`faixa === "DIFÍCIL"`
-    // sem `aviso`, backend antigo/degradado): aborta com erro nomeado, nunca
-    // inventa o texto.
-    const liq = p.liquidez || {};
-    let aceitaLiquidezDificil = false;
-    if (liq.faixa === "DIFÍCIL") {
-      if (!liq.aviso) { A.flash("Não foi possível confirmar a liquidez desta operação — tente novamente."); return; }
-      if (!window.confirm(liq.aviso)) return;
-      aceitaLiquidezDificil = true;
-    }
-    // Fase 17 (Plano 05, FLOW-02/FLOW-03): collar tem caminho de aceite
-    // PRÓPRIO — a trava TRAVA lastro pela perna da call, mesma razão que já
-    // obriga confirmação na venda coberta abaixo (T-14-24), aplicada à
-    // estrutura de 2 pernas (T-17-26). Corpo enviado carrega SÓ
-    // contractSymbol + lado por perna — prêmio e strike vêm da proposta que
-    // o servidor RE-DERIVA (Plano 17-03); reenviá-los daria a impressão de
-    // que o cliente os negocia (T-17-24).
-    if (p.tipo === "collar") {
-      if (!window.confirm(cp.confirmAbrirCollar(p.contratos, t, p.qtyAcoes))) return;
-      setOpPropostaBusy(true);
-      try {
-        await A.abrirCollar({
-          underlying: t,
-          pernasContratos: (p.pernasContratos || []).map((perna) => ({ contractSymbol: perna.contractSymbol, lado: perna.lado })),
-          contratos: p.contratos,
-          expiration: p.expiration,
-          aceitaLiquidezDificil,
-        });
-      } finally { setOpPropostaBusy(false); }
-      return;
-    }
-    // A confirmação existe pela TRAVA do lastro, não pelo gasto — só a CALL
-    // coberta trava ações; a PUT de proteção não trava nada (T-14-24).
-    if (p.optionType === "call" && !window.confirm(cp.confirmAbrirCoberta(p.contratos, t, p.qtyAcoes))) return;
-    setOpPropostaBusy(true);
-    try { await A.abrirLastreada({ underlying: t, contractSymbol: p.contractSymbol, expiration: p.expiration, contratos: p.contratos, aceitaLiquidezDificil }); }
-    finally { setOpPropostaBusy(false); }
-  };
-  const onFecharLastreada = async () => {
-    if (!opProposta || !opProposta.proposta) return;
-    const p = opProposta.proposta;
-    if (!window.confirm(cp.confirmFecharCoberta(price(p.premioTotal), p.qtyAcoes, t, p.optionType === "call"))) return;
-    setOpPropostaBusy(true);
-    try { await A.fecharLastreada({ contractSymbol: p.contractSymbol, contratos: p.contratos }); }
-    finally { setOpPropostaBusy(false); }
   };
 
   return (
@@ -3640,27 +3587,27 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
                   card nenhum: o estado de indisponibilidade chegou a ser exibido
                   e virou seis avisos idênticos por tela, pior que o silêncio. O
                   porquê da ausência mora no ADR-004, não no card. */}
+              {/* ATUALIZADO 2026-09-13 (Fase 28, 28-03): o card de proposta
+                  lastreada (o componente do módulo de proposta, ver import no
+                  topo do arquivo) e o espaçador de 24px que o separava da
+                  cadeia (14-UI-SPEC "Spacing Scale" lg, D-4) saíram daqui — Watchlist/Radar deixaram de ser lugar de
+                  abrir/fechar operação lastreada (28-CONTEXT D1). A proposta
+                  de um ativo agora vive na aba Opções, sub-aba Operar
+                  (`web/src/opcoes/OpcoesScreen.jsx`); o detalhe de posição em
+                  Portfólio (`PropostaDaPosicao`) é o outro consumidor do
+                  módulo `web/src/opcoes/PropostaLastreada.jsx`. Sem card
+                  acima, o espaçador perdeu o par — a cadeia volta a ser o
+                  único filho deste bloco. */}
               {opGate && opGate.liquida && (
-                <>
-                  <PropostaLastreada
-                    r={opProposta} operador={operador} cp={cp} busy={opPropostaBusy}
-                    onAbrir={onAbrirLastreada} onFechar={onFecharLastreada} posAberta={posAberta}
-                    onVerbeteLiquidez={(dados) => A.abrirVerbete("liquidez-opcao", dados)}
-                  />
-                  {/* 14-UI-SPEC.md "Spacing Scale" lg=24px: separação entre o
-                      card da proposta e a cadeia expansível abaixo (D-4). */}
-                  <div style={{ marginTop: "24px" }}>
-                    <OpcoesCamada
-                      t={t} cur={q.price} open={opOpen} onToggle={toggleOp}
-                      chain={opChain} chainLoading={opChainLoading}
-                      opContract={opContract} setOpContract={setOpContract}
-                      opShowAll={opShowAll} setOpShowAll={setOpShowAll}
-                      myPositions={myOptionPositionsLegado} decColor={decColor}
-                      onBuy={doBuyOption} onSell={doSellOption} busy={opBusy}
-                      rotuloFechado={opProposta && opProposta.proposta ? cp.verCadeiaCompleta : null}
-                    />
-                  </div>
-                </>
+                <OpcoesCamada
+                  t={t} cur={q.price} open={opOpen} onToggle={toggleOp}
+                  chain={opChain} chainLoading={opChainLoading}
+                  opContract={opContract} setOpContract={setOpContract}
+                  opShowAll={opShowAll} setOpShowAll={setOpShowAll}
+                  myPositions={myOptionPositionsLegado} decColor={decColor}
+                  onBuy={doBuyOption} onSell={doSellOption} busy={opBusy}
+                  rotuloFechado={opProposta && opProposta.proposta ? cp.verCadeiaCompleta : null}
+                />
               )}
 
               {/* qa/49 (v11): CAUDA por contexto — sem children, a cauda da watchlist
