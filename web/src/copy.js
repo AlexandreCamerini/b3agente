@@ -173,6 +173,23 @@ export const COPY = {
     // Vigia de ativo fora da carteira NÃO some da lista: ele existe e continua
     // sendo conferido. Escondê-lo repetiria o defeito que a fase fecha.
     opcoesVigiaForaDaCarteira: "Este vigia é de um ativo que não está na sua carteira agora. Ele continua existindo e continua sendo conferido pelo serviço — o que muda é que você não tem o papel para lastrear uma estrutura sobre ele.",
+    // Fase 27 (27-02, D4) — o lastro livre no cartão, ANTES da tentativa. Este
+    // número só existia na mensagem de recusa do backend ("Lastro
+    // insuficiente: N ação(ões) livres…"), depois de a pessoa tentar. Mesmo
+    // vocabulário de `badgeTravada`/`avisoTravaNaVenda`, que é como o resto do
+    // app já fala de lastro — um segundo vocabulário faria a Carteira e esta
+    // aba parecerem falar de coisas diferentes.
+    opcoesLastroLivre: (livres, contratos) =>
+      "Lastro livre: " + (typeof livres === "number" ? livres : "—") +
+      " ação(ões), o que dá para " + (typeof contratos === "number" ? contratos : "—") +
+      " contrato(s).",
+    opcoesLastroTravado: (travadas) =>
+      (typeof travadas === "number" ? travadas : "—") +
+      " ação(ões) já está(ão) travada(s) como lastro de uma call coberta aberta — volta(m) a ficar livre(s) quando a call for recomprada ou vencer.",
+    opcoesLastroAjuda: "1 contrato = 100 ações. É o mesmo número que a Carteira mostra, saído da mesma conta — e nenhuma ordem sai desta tela.",
+    // Travessão COM motivo: zero seria lido como "você não tem lastro", que é
+    // afirmação diferente de "não sei quanto você tem" (princípio 4).
+    opcoesLastroSemDado: "não deu para ler a quantidade desta posição, então o lastro não é afirmado aqui. Zero seria outra coisa: \"você não tem lastro\" é diferente de \"não sei quanto você tem\".",
     opcoesDisclaimer: "Conteúdo educacional. Os dados são de fim de pregão e podem estar atrasados; nada aqui é ordem, recomendação ou promessa de resultado.",
     opcoesGraficoTitulo: "Disparos do setup",
     opcoesDisparosRotulo: "Disparos",
@@ -634,6 +651,16 @@ export const COPY = {
     opcoesVigiasSemEstado: "— estado do dia ainda não pedido. Acima está só o cadastro, que é local e não custa cota. Estado é medição do serviço e sai sob pedido.",
     opcoesVigiasAtualizar: "Medir o estado do dia",
     opcoesVigiaForaDaCarteira: "Ativo fora da carteira. O vigia segue existindo e segue sendo conferido; o que falta é o papel para lastrear estrutura sobre ele.",
+    // Fase 27 (27-02, D4) — MESMAS chaves do ramo estudo, voz de mesa. Mesmo
+    // vocabulário de `badgeTravada`/`avisoTravaNaVenda`.
+    opcoesLastroLivre: (livres, contratos) =>
+      "Livre para lastro: " + (typeof livres === "number" ? livres : "—") +
+      " ação(ões) = " + (typeof contratos === "number" ? contratos : "—") + " contrato(s).",
+    opcoesLastroTravado: (travadas) =>
+      (typeof travadas === "number" ? travadas : "—") +
+      " ação(ões) travada(s) como lastro da call coberta aberta — liberam na recompra ou no vencimento.",
+    opcoesLastroAjuda: "1 contrato = 100 ações. Mesmo número da Carteira, mesma conta; nenhuma ordem sai desta tela.",
+    opcoesLastroSemDado: "quantidade desta posição ilegível, então o lastro não é afirmado. Zero diria \"sem lastro\", que é outra afirmação.",
     opcoesDisclaimer: "Conteúdo educacional. Dados de fim de pregão, possivelmente atrasados; nada aqui é ordem, recomendação ou promessa de resultado.",
     opcoesGraficoTitulo: "Disparos do setup",
     opcoesDisparosRotulo: "Disparos",

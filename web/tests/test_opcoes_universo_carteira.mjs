@@ -120,5 +120,50 @@ ok("o texto de carteira vazia DIFERE entre Estudo e Operador",
 ok("o rótulo do botão também tem voz por modo",
    COPY.estudo.opcoesIrParaCarteira !== COPY.operador.opcoesIrParaCarteira);
 
+// ---- 4) lastro livre no cartão, com FONTE ÚNICA ---------------------------
+// O número que hoje só aparece na recusa do backend ("Lastro insuficiente:
+// N ação(ões) livres de PETR4") passa a aparecer antes da tentativa. O que
+// este bloco protege não é a exibição — é a ARITMÉTICA: a subtração
+// `qty - qtyTravada` tem UMA implementação no front (`finance.js`, gêmea de
+// `store.qty_livre`), e uma segunda aqui divergiria da primeira na correção
+// seguinte, em silêncio, com o mesmo nome na tela.
+ok("OpcoesScreen.jsx IMPORTA qtyLivre de ../finance.js (linha de import, não identificador solto)",
+   /import\s*\{\s*qtyLivre\s*\}\s*from\s*["']\.\.\/finance\.js["']/.test(tela));
+ok("e a usa de fato (import sem uso seria fachada)", /qtyLivre\(pos\)/.test(tela));
+// Mesma regex de `test_carteira_lastro_ui.mjs`, que já protege App.jsx do
+// mesmo defeito. Comentários foram removidos acima: citar `qtyTravada` numa
+// EXPLICAÇÃO é legítimo, reimplementar a subtração não é.
+ok("OpcoesScreen.jsx NÃO reimplementa a subtração qty - qtyTravada",
+   !/qty\s*-\s*\(?[A-Za-z.]*qtyTravada/.test(tela));
+ok("sanidade: a regex de subtração pega o padrão quando ele existe",
+   /qty\s*-\s*\(?[A-Za-z.]*qtyTravada/.test("const livre = pos.qty - (pos.qtyTravada || 0);"));
+ok("o divisor do contrato é constante NOMEADA, espelho de store.py (qty = contratos * 100)",
+   /const ACOES_POR_CONTRATO = 100;/.test(tela) && /ACOES_POR_CONTRATO\)/.test(tela));
+ok("existe componente próprio para o lastro, alimentado pela posição do ctx",
+   /function LastroDoAtivo/.test(tela) && /<LastroDoAtivo pos=\{posicaoSelecionada\}/.test(tela));
+ok("ausência de quantidade vira travessão COM motivo, nunca 0",
+   /"— " \+ \(c\.opcoesLastroSemDado/.test(tela));
+ok("a linha de travadas só aparece quando há travadas (0 travadas seria ruído)",
+   /pos\.qtyTravada > 0\) \? pos\.qtyTravada : null/.test(tela));
+
+for (const modo of ["estudo", "operador"]) {
+  for (const k of ["opcoesLastroLivre", "opcoesLastroTravado"]) {
+    ok(`COPY.${modo}.${k} é função`, typeof COPY[modo][k] === "function");
+  }
+  for (const k of ["opcoesLastroAjuda", "opcoesLastroSemDado"]) {
+    ok(`COPY.${modo}.${k} existe e não é vazio`,
+       typeof COPY[modo][k] === "string" && !!COPY[modo][k].trim());
+  }
+  ok(`${modo}: a ajuda declara a régua 1 contrato = 100 ações`,
+     /100 ações/.test(COPY[modo].opcoesLastroAjuda));
+  ok(`${modo}: a ajuda diz, na própria tela, que nenhuma ordem sai daqui`,
+     /ordem/i.test(COPY[modo].opcoesLastroAjuda));
+  ok(`${modo}: o motivo da trava nomeia a call coberta (mesmo vocabulário da Carteira)`,
+     /call coberta/i.test(COPY[modo].opcoesLastroTravado(100)));
+  ok(`${modo}: sem número, as funções devolvem travessão e não 0`,
+     COPY[modo].opcoesLastroLivre(null, null).includes("—")
+     && COPY[modo].opcoesLastroTravado(null).includes("—"));
+}
+
 if (fails) { console.error(`\n${fails} falha(s)`); process.exit(1); }
 console.log("\ntodos os testes passaram");

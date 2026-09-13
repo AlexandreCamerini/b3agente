@@ -18,6 +18,13 @@
  * · vazio nunca é silêncio: todo estado vazio diz o porquê.
  */
 import { useState } from "react";
+// Fase 27 (27-02): `finance.js` é módulo PURO — zero import de `App.jsx` —,
+// então o isolamento do ADR-027 continua intacto (o guardião proíbe importar
+// `App.jsx`, não `finance.js`). `qtyLivre` é a FONTE ÚNICA da subtração
+// `qty - qtyTravada` no front, gêmea de `store.qty_livre` no backend:
+// recalculá-la aqui criaria uma segunda implementação que divergiria da
+// primeira na correção seguinte, em silêncio e com o mesmo nome na tela.
+import { qtyLivre } from "../finance.js";
 import { useOpcoesMcp } from "./useOpcoesMcp.js";
 import SetupChart from "./SetupChart.jsx";
 import PayoffChart from "./PayoffChart.jsx";
@@ -201,6 +208,13 @@ const N_MAX_VENCIMENTOS = 6;
 // nos dois lados porque a tela precisa dizer o preço ANTES do clique; quem
 // cobra de verdade é o backend.
 const CUSTO_LISTAR_VIGIAS = 2;
+
+// Fase 27 (27-02) — o tamanho do contrato padrão na B3. Espelho declarado de
+// `store.py` (`qty = contratos * 100`) e do conceito que o próprio arquivo já
+// enuncia em `opcoesLoteAjuda` ("1 contrato = 100 ações"). Constante nomeada
+// em vez de um `100` solto no meio do JSX: o número solto é indistinguível de
+// um palpite de layout, e este é um espelho de regra do backend.
+const ACOES_POR_CONTRATO = 100;
 
 export default function OpcoesScreen({ ctx }) {
   const cp = (ctx && ctx.cp) || {};
@@ -438,6 +452,10 @@ export default function OpcoesScreen({ ctx }) {
     : ((vigias.dados && Array.isArray(vigias.dados.vigias)) ? vigias.dados.vigias : []);
   const temEstadoDosVigias = !!(vigiasVivos.dados && Array.isArray(vigiasVivos.dados.vigias));
   const tickersEmCarteira = carteira.map((p) => p.t);
+  // Fase 27 (27-02): a posição do ativo escolhido, de onde sai o lastro. Pode
+  // não existir — clicar num vigia de ativo que saiu da carteira seleciona um
+  // ticker sem posição, e esse é um estado real a exibir, não um erro.
+  const posicaoSelecionada = ticker ? carteira.find((p) => p.t === ticker) : null;
 
   const blocoVigias = (
     <div>
@@ -522,6 +540,11 @@ export default function OpcoesScreen({ ctx }) {
           abrir vazia, e de graça. */}
       {blocoVigias}
       {carteira.length > 0 ? seletor : null}
+      {/* Fase 27 (D4): o lastro livre no cartão, ANTES da tentativa. Hoje este
+          número só aparece na mensagem de recusa do backend ("Lastro
+          insuficiente: N ação(ões) livres de PETR4"), depois de a pessoa
+          tentar — e recusa não é aviso, é recibo. */}
+      {ticker ? <LastroDoAtivo pos={posicaoSelecionada} cp={cp} /> : null}
 
       {/* ------------------------------------------------ 1. CARREGANDO --
           Antes do vazio, sempre: vazio pintado durante a consulta afirma
@@ -1079,6 +1102,44 @@ function RecusaCobrada({ erro, cp }) {
     <div style={{ marginTop: "6px", fontSize: "11.5px", color: T.textMuted, lineHeight: 1.5 }}>
       {(cp || {}).opcoesRecusaCobrada
         || "Esta tentativa consumiu uma chamada da sua cota do dia."}
+    </div>
+  );
+}
+
+// Fase 27 (27-02) — o LASTRO LIVRE do ativo escolhido.
+//
+// Três informações, todas derivadas da posição que já está no `ctx`: quantas
+// ações estão livres para lastro, quantas já estão travadas (e por quê) e
+// quantos contratos isso permite. Nenhuma chamada nova.
+//
+// A subtração NÃO acontece aqui: `qtyLivre` vem de `finance.js`, fonte única
+// do front e gêmea de `store.qty_livre`. Uma segunda implementação divergiria
+// da primeira na correção seguinte — com o mesmo nome na tela, e em silêncio.
+//
+// Ausência tem MOTIVO (princípio 4 do CLAUDE.md): posição sem `qty` legível
+// mostra travessão e o porquê, nunca `0`. Zero aqui seria lido como "você não
+// tem lastro", que é afirmação diferente de "não sei quanto você tem".
+function LastroDoAtivo({ pos, cp }) {
+  const c = cp || {};
+  const qtd = ehNum(pos && pos.qty) ? pos.qty : null;
+  const livres = ehNum(qtd) ? qtyLivre(pos) : null;
+  const contratos = ehNum(livres) ? Math.floor(livres / ACOES_POR_CONTRATO) : null;
+  // Travadas só aparecem quando existem: uma linha dizendo "0 travadas" seria
+  // ruído sobre o caso normal.
+  const travadas = (ehNum(pos && pos.qtyTravada) && pos.qtyTravada > 0) ? pos.qtyTravada : null;
+  return (
+    <div style={{ ...CAIXA, marginTop: "10px" }}>
+      <div style={{ fontSize: "12.5px", color: T.textPrimary, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+        {ehNum(livres)
+          ? (c.opcoesLastroLivre || ((l, k) => l + " livre(s) · " + k + " contrato(s)"))(livres, contratos)
+          : "— " + (c.opcoesLastroSemDado || "")}
+      </div>
+      {ehNum(travadas) ? (
+        <div style={{ fontSize: "12px", color: T.textSecondary, marginTop: "5px", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+          {(c.opcoesLastroTravado || ((t) => t + " travada(s)"))(travadas)}
+        </div>
+      ) : null}
+      <div style={AJUDA}>{c.opcoesLastroAjuda || ""}</div>
     </div>
   );
 }
