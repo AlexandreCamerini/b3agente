@@ -193,6 +193,15 @@ const num = (v) => {
 // aviso errado; quem corta de verdade é o backend.
 const N_MAX_VENCIMENTOS = 6;
 
+// Fase 27 (27-02) — custo do "Atualizar" do bloco de vigias, em chamadas do
+// cap. Espelho declarado de `options_mcp_api._cap_check(uid, 2)` na rota
+// `GET /api/options/mcp/setups`: são SEMPRE duas (`list_setups` +
+// `evaluate_setups`), qualquer que seja o número de vigias — o 27-01 tem teste
+// parametrizado com 2 e com 10 provando que o custo não cresce. O número vive
+// nos dois lados porque a tela precisa dizer o preço ANTES do clique; quem
+// cobra de verdade é o backend.
+const CUSTO_LISTAR_VIGIAS = 2;
+
 export default function OpcoesScreen({ ctx }) {
   const cp = (ctx && ctx.cp) || {};
   const store = ctx && ctx.store;
@@ -229,6 +238,7 @@ export default function OpcoesScreen({ ctx }) {
     cadeia, operaveis, proposta, possibilidades,
     abrirCadeia, abrirOperaveis, montarProposta, verPossibilidades,
     setupNovo, compilarSetup, confirmarSetup, desativarSetup,
+    vigias, vigiasVivos, atualizarVigias,
   } = useOpcoesMcp(store, ticker);
 
   // F5 (plano 24-04) — a seção de ESCRITA de setup só aparece para quem tem
@@ -263,6 +273,13 @@ export default function OpcoesScreen({ ctx }) {
     setTicker(t === ticker ? "" : t);
     setTese(""); setVencimento(""); setAlvo(""); setStop(""); setPainel("");
   };
+
+  // Fase 27: o cartão do vigia NAVEGA; ele não alterna. `escolherTicker` é
+  // toggle — é o que o chip precisa, para poder desselecionar —, e reusá-lo
+  // cru aqui faria clicar no vigia do ativo JÁ ABERTO fechar o ativo, o
+  // oposto de "me leve até ele" (SC-1: não precisar lembrar em qual ativo
+  // criei o vigia).
+  const irParaVigia = (t) => { if (t && t !== ticker) escolherTicker(t); };
 
   const l = leitura.dados;
   const behavior = l && l.behavior;
@@ -395,6 +412,88 @@ export default function OpcoesScreen({ ctx }) {
     </div>
   );
 
+  // ------------------------------------------- Fase 27: SEUS VIGIAS (27-02) --
+  // O bloco que corrige o defeito da fase. Ele existe FORA de qualquer ticker:
+  // é isso que faz o vigia gravado aparecer ao abrir a aba, em vez de só
+  // aparecer com o ativo dele selecionado (27-CONTEXT, defeito 2).
+  //
+  // Duas fontes, dois custos, e a diferença é deliberada:
+  //  · `vigias` — o ÍNDICE local da conta. Custo ZERO, sai no mount. Traz o
+  //    cadastro (nome que a pessoa escreveu, ticker, data) e NENHUM estado;
+  //  · `vigiasVivos` — o estado do dia (`armed`/`streak`). Custo 2, só de
+  //    clique.
+  //
+  // ORDENAÇÃO (decisão do executor, 27-CONTEXT "Em aberto" item 1, herdada do
+  // protótipo aprovado pelo Alex): quem disparou primeiro — `armed` na frente,
+  // depois sequência, depois antiguidade, depois nome. A tela NÃO reimplementa
+  // essa régua: o backend do 27-01 já ordena a listagem por ela
+  // (`_ordem_dos_vigias`) e o índice já chega mais-recente-primeiro
+  // (`opcoes_vigias.listar`). Uma segunda implementação em JavaScript
+  // divergiria da primeira na correção seguinte, em silêncio, com as duas
+  // listas parecendo a mesma coisa na tela. Por isso aqui só se ESCOLHE a
+  // fonte: com estado medido, a lista do dia (superset, já ordenada); sem
+  // estado, o índice (já em antiguidade decrescente).
+  const listaDeVigias = (vigiasVivos.dados && Array.isArray(vigiasVivos.dados.vigias))
+    ? vigiasVivos.dados.vigias
+    : ((vigias.dados && Array.isArray(vigias.dados.vigias)) ? vigias.dados.vigias : []);
+  const temEstadoDosVigias = !!(vigiasVivos.dados && Array.isArray(vigiasVivos.dados.vigias));
+  const tickersEmCarteira = carteira.map((p) => p.t);
+
+  const blocoVigias = (
+    <div>
+      <Kicker>{cp.opcoesVigiasTitulo || "SEUS VIGIAS"}</Kicker>
+      {/* carregando → erro → vazio com motivo → dados, a mesma cascata do
+          resto da tela: lista vazia pintada durante a consulta afirmaria
+          "você não tem vigia" sem ninguém ter medido. */}
+      {vigias.carregando ? (
+        <Aviso>{cp.opcoesCarregando || "Consultando o serviço de opções…"}</Aviso>
+      ) : vigias.erro ? (
+        <ErroDoMcp erro={vigias.erro} cp={cp} />
+      ) : listaDeVigias.length === 0 ? (
+        <Aviso>{cp.opcoesVigiasVazio || "Nenhum vigia gravado nesta conta ainda."}</Aviso>
+      ) : (
+        <div style={{ display: "grid", gap: "10px" }}>
+          {listaDeVigias.map((v, i) => (
+            <CartaoDeVigia
+              key={(v && v.nomeNoServico ? v.nomeNoServico : "vigia") + "-" + i}
+              vigia={v}
+              temEstado={temEstadoDosVigias}
+              selecionado={!!(v && v.ticker) && v.ticker === ticker}
+              naCarteira={!!(v && v.ticker) && tickersEmCarteira.includes(v.ticker)}
+              onIr={irParaVigia}
+              cp={cp}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* O custo vai DENTRO do controle, não ao lado: descobrir que o clique
+          custou 2 depois de gastá-las não é aviso, é recibo. Reusa
+          `opcoesCustoChamadas` — uma segunda forma de dizer custo criaria dois
+          vocabulários para a mesma grandeza. */}
+      <button
+        onClick={atualizarVigias}
+        disabled={vigiasVivos.carregando}
+        style={{ ...BOTAO, width: "100%", marginTop: "10px", ...desabilitado(vigiasVivos.carregando) }}
+      >
+        <span style={{ display: "block" }}>{cp.opcoesVigiasAtualizar || "Atualizar o estado dos vigias"}</span>
+        <span style={{ display: "block", fontSize: "11px", fontWeight: 600, color: T.textMuted, marginTop: "3px" }}>
+          {(cp.opcoesCustoChamadas || ((n) => String(n)))(CUSTO_LISTAR_VIGIAS)}
+        </span>
+      </button>
+
+      {vigiasVivos.carregando ? (
+        <div style={{ marginTop: "10px" }}>
+          <Aviso>{cp.opcoesCarregando || "Consultando o serviço de opções…"}</Aviso>
+        </div>
+      ) : vigiasVivos.erro ? (
+        <div style={{ marginTop: "10px" }}>
+          <ErroDoMcp erro={vigiasVivos.erro} cp={cp} />
+        </div>
+      ) : null}
+    </div>
+  );
+
   const seletor = (
     <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", margin: "14px 0 4px" }}>
       {carteira.map((p) => (
@@ -418,6 +517,10 @@ export default function OpcoesScreen({ ctx }) {
       </p>
 
       {cabecalho}
+      {/* Fase 27 (D4: "vigias antes da carteira"). SEMPRE renderizado, com ou
+          sem ativo escolhido — é o que faz a aba abrir com conteúdo em vez de
+          abrir vazia, e de graça. */}
+      {blocoVigias}
       {carteira.length > 0 ? seletor : null}
 
       {/* ------------------------------------------------ 1. CARREGANDO --
@@ -712,6 +815,14 @@ export default function OpcoesScreen({ ctx }) {
                     <div style={{ fontSize: "12.5px", color: T.textSecondary, lineHeight: 1.5 }}>
                       {(cp.opcoesCustoChamadas || ((n) => String(n)))(chamadasPrevistas)}
                     </div>
+                    {/* Fase 27 (27-02): a COMPOSIÇÃO do custo saiu de
+                        `opcoesCustoChamadas` (que agora também serve ao botão
+                        dos vigias, cuja conta é outra) e passou a ter chave
+                        própria. O número continua vindo da mesma frase de
+                        sempre, logo acima. */}
+                    <div style={{ ...AJUDA, marginTop: "6px" }}>
+                      {cp.opcoesCustoVencimentos || ""}
+                    </div>
                     <div style={{ ...AJUDA, marginTop: "6px" }}>
                       {"Vencimentos consultados: " + consultados.join(" · ")}
                       {vencimentos.length > N
@@ -969,6 +1080,81 @@ function RecusaCobrada({ erro, cp }) {
       {(cp || {}).opcoesRecusaCobrada
         || "Esta tentativa consumiu uma chamada da sua cota do dia."}
     </div>
+  );
+}
+
+// Fase 27 (27-02) — um cartão do bloco "Seus vigias".
+//
+// O nome exibido é SEMPRE o nome que a pessoa escreveu (`nome` no índice de
+// custo zero, `name` na listagem do dia). O `nomeNoServico` — que carrega os 8
+// hexadecimais do hash da conta — NUNCA chega à tela: ele é endereço no
+// armazém compartilhado do serviço, não rótulo. Exibi-lo é exatamente o dano
+// que a injeção nº 4 do 27-01 mediu ("o hash vira o nome que a pessoa lê").
+//
+// O cartão é um `<button>` de verdade, e não uma `div` com `onClick`: ele
+// navega, e navegação precisa de foco, de Enter e de alvo de toque.
+function CartaoDeVigia({ vigia, temEstado, selecionado, naCarteira, onIr, cp }) {
+  const v = vigia || {};
+  const c = cp || {};
+  const nome = txt(v.nome || v.name);
+  const alvo = txt(v.ticker);
+
+  // Três estados, e a diferença entre eles é O QUE FOI MEDIDO:
+  //  (a) o serviço não conhece mais este vigia → motivo do backend, VERBATIM.
+  //      Sumir do armazém é FATO a mostrar, não item a esconder;
+  //  (b) o estado do dia foi pedido → `armed`/`streak` como o serviço mediu;
+  //  (c) só o índice respondeu → travessão COM motivo. Nunca leitura negativa:
+  //      ausência de medição não é medição de ausência — a mesma simetria que
+  //      este arquivo já aplica aos setups do ticker.
+  const estado = v.motivo ? (
+    <div style={{ fontSize: "12.5px", color: T.textSecondary, marginTop: "6px", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
+      {v.motivo}
+    </div>
+  ) : temEstado ? (
+    <div style={{ fontSize: "12.5px", color: T.textSecondary, marginTop: "6px" }}>
+      {"armado: " + (v.armed === true ? "sim" : v.armed === false ? "não" : "—")}
+      {" · sequência: " + (ehNum(v.streak) ? v.streak : "—")
+        + "/" + (ehNum(v.required_streak) ? v.required_streak : "—")}
+    </div>
+  ) : (
+    <div style={{ fontSize: "12.5px", color: T.textMuted, marginTop: "6px", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
+      {c.opcoesVigiasSemEstado || "—"}
+    </div>
+  );
+
+  return (
+    <button
+      onClick={() => { if (onIr) onIr(v.ticker); }}
+      aria-pressed={!!selecionado}
+      aria-label={"Abrir " + alvo + " — vigia " + nome}
+      style={{
+        display: "block", width: "100%", textAlign: "left", minHeight: "44px",
+        border: `1px solid ${selecionado ? T.accent : T.borderSubtle}`,
+        borderRadius: "12px", padding: "12px 14px",
+        background: selecionado ? T.accentTint10 : T.bgPanel,
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", gap: "10px", alignItems: "baseline" }}>
+        <span style={{ fontSize: "14px", fontWeight: 700, color: selecionado ? T.accent : T.textPrimary }}>{nome}</span>
+        <span style={{ fontSize: "12px", fontWeight: 700, color: T.textMuted }}>{alvo}</span>
+      </div>
+      {estado}
+      {/* Vigia de ativo que saiu da carteira NÃO some: ele existe e continua
+          sendo avaliado pelo serviço. Escondê-lo repetiria o defeito desta
+          fase — o vigia invisível que parece nunca ter sido gravado. */}
+      {naCarteira ? null : (
+        <div style={{ fontSize: "11.5px", color: T.textMuted, marginTop: "6px", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
+          {c.opcoesVigiaForaDaCarteira || ""}
+        </div>
+      )}
+      {/* Data do índice. Sem data, o motivo do backend — nunca a data de hoje
+          no lugar (princípio 4 do CLAUDE.md). */}
+      {v.criadoEm || v.motivoCriadoEm ? (
+        <div style={{ fontSize: "11px", color: T.textFaint, marginTop: "6px" }}>
+          {v.criadoEm ? "criado em " + v.criadoEm : v.motivoCriadoEm}
+        </div>
+      ) : null}
+    </button>
   );
 }
 

@@ -17,8 +17,12 @@
 //    custou 13 chamadas depois de gastá-las não é aviso, é recibo;
 //  · ilimitado não vira teto: nenhum `<path>` preenchido fecha um lado que o
 //    serviço declarou sem limite;
-//  · nenhuma das quatro chamadas novas dispara por efeito — cada uma consome
-//    o cap compartilhado;
+//  · nenhuma chamada NOVA dispara por efeito — cada uma consome o cap
+//    compartilhado. Atualizado em 2026-09-13 (Fase 27): a contagem de efeitos
+//    virou uma ALLOWLIST nomeada (`EFEITO_PERMITIDO`), porque o bloco "Seus
+//    vigias" acrescentou um terceiro efeito legítimo (custo zero) e a
+//    contagem falharia sobre uma mudança correta enquanto passava calada
+//    sobre uma errada que não mexesse no número — ver a seção 8;
 //  · (24-11) nenhum arquivo de `web/src/opcoes/` CALCULA indicador. A leitura
 //    vem pronta do serviço, e um hv caseiro aqui divergiria do dele na
 //    primeira correção feita de um lado só — em silêncio, porque os dois
@@ -207,12 +211,64 @@ ok("as funções de copy toleram argumento nulo",
 ok("1 contrato = 100 ações aparece na ajuda do lote, nos dois modos",
    /100 ações/.test(COPY.estudo.opcoesLoteAjuda) && /100 ações/.test(COPY.operador.opcoesLoteAjuda));
 
-// ---- 8) nenhuma das quatro chamadas dispara por efeito ----------------------
-const METODOS = ["mcpCadeia", "mcpOperaveis", "mcpProposta", "mcpPossibilidades"];
+// ---- 8) nenhuma chamada NOVA dispara por efeito -----------------------------
+//
+// 2026-09-13 (Fase 27, plano 27-02) — esta seção afirmava
+// `efeitos.length === 2`. A contagem foi substituída por uma REGRA, que é o
+// que sempre importou: contar efeitos só pegava o defeito por acidente, e o
+// que se quer impedir é chamada consumindo cota sem clique.
+//
+// Motivo da mudança, declarado: o bloco "Seus vigias" acrescentou um TERCEIRO
+// `useEffect`, o do índice local. Ele é legítimo — `GET /api/options/vigias`
+// custa ZERO no cap, por contrato da rota (27-01) — mas a asserção de
+// contagem falharia deterministicamente sobre uma mudança correta, e passaria
+// calada sobre uma errada que não mexesse no número de efeitos.
+//
+// A regra: TODO `store.<método>` que apareça dentro de corpo de `useEffect`
+// precisa estar na allowlist abaixo, com o porquê escrito. Chamada nova dentro
+// de efeito sem entrar aqui reprova a suíte — que é o modo de falha desejado,
+// porque gastar cota sem clique é silencioso na tela e só aparece no contador.
+const EFEITO_PERMITIDO = [
+  // Exceção PRÉ-EXISTENTE (F2). Custa ATÉ 1 e alimenta o cabeçalho de frescor;
+  // o 27-05 passa a declarar esse custo na tela.
+  "mcpStatus",
+  // Custo ZERO por contrato da rota: lê o índice local do Boris+ e não toca
+  // `mcp.semente.dev` (27-01). É o que permite a aba abrir com conteúdo.
+  "mcpVigias",
+  // **TRANSITÓRIO, e a palavra é literal.** `mcpLeitura` custa 3, continua
+  // saindo do efeito de troca de ticker e **sai desta allowlist no 27-05**,
+  // quando virar clique com custo declarado. Consequência conhecida enquanto
+  // durar: clicar num cartão de vigia troca o ativo e gasta 3 sem o controle
+  // dizer. Uma allowlist com um item marcado transitório é honesta; uma que
+  // silenciasse o item seria mentira com cara de guardião.
+  "mcpLeitura",
+];
+// Lista POSITIVA de quem não pode disparar por efeito. `mcpSetupsListar`
+// entrou na Fase 27: ela custa 2 e tem UMA porta, o botão "Atualizar" do bloco
+// de vigias. `mcpLeitura` entra nesta mesma lista no 27-05, quando sair do
+// efeito — antecipar aqui faria a asserção nascer vermelha.
+const METODOS = ["mcpCadeia", "mcpOperaveis", "mcpProposta", "mcpPossibilidades",
+  "mcpSetupsListar"];
+// Um nome nos DOIS lados faria o teste dizer "pode" e "não pode" sobre a mesma
+// chamada, e o próximo leitor acreditaria no que lhe conviesse.
+ok("EFEITO_PERMITIDO e METODOS são disjuntos",
+   EFEITO_PERMITIDO.every((m) => !METODOS.includes(m)));
+
 // Corpo de cada `useEffect(` até o fechamento do argumento (heurística
-// suficiente: os dois efeitos do arquivo são curtos e seguidos de `}, [`).
+// suficiente: os efeitos do arquivo são curtos e seguidos de `}, [`).
 const efeitos = hook.split("useEffect(").slice(1).map((t) => t.split("}, [")[0]);
-ok("o hook continua com DOIS efeitos (status e troca de ticker)", efeitos.length === 2);
+// Sanidade: sem ela um typo no fatiador faria tudo passar por vacuidade.
+ok("o hook tem ao menos TRÊS efeitos (status, índice de vigias, troca de ticker)",
+   efeitos.length >= 3);
+const chamadasEmEfeito = [...new Set(
+  efeitos.flatMap((corpo) => [...corpo.matchAll(/store\.(mcp[A-Za-z0-9_]*)/g)]
+    .map((m) => m[1])))];
+ok("sanidade: a extração acha ao menos DOIS store.* distintos dentro de efeitos",
+   chamadasEmEfeito.length >= 2);
+for (const m of chamadasEmEfeito) {
+  ok(`store.${m} dentro de useEffect está na allowlist EFEITO_PERMITIDO`,
+     EFEITO_PERMITIDO.includes(m));
+}
 for (const m of METODOS) {
   ok(`nenhum useEffect chama store.${m}`, efeitos.every((corpo) => !corpo.includes(m)));
 }
@@ -251,7 +307,9 @@ for (const [nome, src] of Object.entries(fontes)) {
 ok("sanidade: a regex de `|| 0` pega o padrão quando ele existe",
    OU_ZERO.test("const v = dados.premio || 0;"));
 
-// ---- 11) as quatro rotas alcançáveis pelos DOIS stores ----------------------
+// ---- 11) as rotas de METODOS alcançáveis pelos DOIS stores ------------------
+// 2026-09-13 (Fase 27): a lista passou a incluir `mcpSetupsListar`, então este
+// bloco cobre CINCO rotas — o par de stores e o `api.js`, como antes.
 const iServer = persistencia.indexOf("function serverStore");
 const iDevice = persistencia.indexOf("function deviceStore");
 ok("os dois stores foram encontrados", iServer > 0 && iDevice > iServer);

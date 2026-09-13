@@ -82,10 +82,27 @@ ok("useOpcoesMcp.js recebe o store por ARGUMENTO (não importa persistence.js)",
    && !/from ["'][^"']*persistence\.js["']/.test(brutos["useOpcoesMcp.js"]));
 
 // ---- 2) a ordem dos estados no fonte ----------------------------------------
-const iCarregando = tela.indexOf("cp.opcoesCarregando");
-const iErro = tela.indexOf("mcp_nao_configurado");
-const iVazio = tela.indexOf("cp.opcoesEscolherAtivo");
-const iDados = tela.indexOf("cp.opcoesLeituraTitulo");
+// 2026-09-13 (Fase 27, plano 27-02) — as quatro buscas passaram a começar no
+// ponto em que a TELA começa a ser renderizada (`{cabecalho}`), e não no
+// início do arquivo.
+//
+// Motivo, medido: a aba ganhou um SEGUNDO bloco com cascata própria — "Seus
+// vigias", montado numa `const` antes do `return` — e ele reusa
+// `cp.opcoesCarregando`, que é o certo (uma frase só para "consultando o
+// serviço"). Com `indexOf` a partir do byte 0, `iCarregando` passou a apontar
+// para o carregando DAQUELE bloco, e a asserção da seção 5 ("o cabeçalho vem
+// antes da cadeia") virou vermelha sem que a cadeia tivesse mudado.
+//
+// Nada foi afrouxado: as quatro posições continuam exigidas na MESMA ordem, e
+// a seção 5 continua exigindo o cabeçalho antes da cadeia — agora contra o
+// ponto de render dela (`{carregando ? (`), que é uma âncora real e não
+// derivada de `iRender`.
+const iRender = tela.indexOf("{cabecalho}");
+ok("a tela renderiza o cabeçalho (âncora das buscas de ordem)", iRender >= 0);
+const iCarregando = tela.indexOf("cp.opcoesCarregando", iRender);
+const iErro = tela.indexOf("mcp_nao_configurado", iRender);
+const iVazio = tela.indexOf("cp.opcoesEscolherAtivo", iRender);
+const iDados = tela.indexOf("cp.opcoesLeituraTitulo", iRender);
 ok("os quatro estados existem", iCarregando >= 0 && iErro >= 0 && iVazio >= 0 && iDados >= 0);
 ok("ordem no fonte: carregando → erro → vazio com motivo → dados",
    iCarregando < iErro && iErro < iVazio && iVazio < iDados);
@@ -166,8 +183,12 @@ ok("bloco do cabeçalho encontrado", !!cabecalho);
 ok("o cabeçalho carrega pregão e fonte",
    !!cabecalho && /cp\.opcoesPregaoRotulo/.test(cabecalho[0])
    && /cp\.opcoesFonteRotulo/.test(cabecalho[0]) && /\{pregao \|\| "—"\}/.test(cabecalho[0]));
+// 2026-09-13 (Fase 27): comparação contra o PONTO DE RENDER da cadeia, não
+// contra `iCarregando` — que agora é derivado de `iRender` e deixaria esta
+// asserção tautológica. O que ela protege continua o mesmo: o carimbo do
+// pregão nunca pode ser engolido por um ramo de erro.
 ok("o cabeçalho é renderizado antes da cadeia de estados",
-   tela.indexOf("{cabecalho}") >= 0 && tela.indexOf("{cabecalho}") < iCarregando);
+   iRender >= 0 && tela.indexOf("{carregando ? (") > iRender);
 
 // ---- 6) acessibilidade e layout ---------------------------------------------
 ok('há alvo de toque de 44px', /minHeight: "44px"/.test(tela));

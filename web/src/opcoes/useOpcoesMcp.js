@@ -67,6 +67,13 @@ export function useOpcoesMcp(store, ticker) {
   const [status, setStatus] = useState({ dados: null, carregando: true, erro: null });
   const [leitura, setLeitura] = useState({ dados: null, carregando: true, erro: null });
   const [grafico, setGrafico] = useState({ dados: null, carregando: false, erro: null, setup: null });
+  // Fase 27 (27-02) — "Seus vigias": o ÍNDICE local da conta, que existe fora
+  // de qualquer ticker. Trio próprio, e não um campo da `leitura`, porque é
+  // justamente essa independência que corrige o defeito da fase (sair da aba e
+  // voltar deixava de mostrar setup nenhum). `carregando` nasce VERDADEIRO
+  // pela mesma razão do `status` e da `leitura`: uma lista vazia pintada
+  // durante a consulta é a afirmação "você não tem vigia", que ninguém mediu.
+  const [vigias, setVigias] = useState({ dados: null, carregando: true, erro: null });
 
   // Dois contadores de requisição, não um: `tickerRef` invalida TUDO que
   // estiver em voo quando o ticker muda (sem ele, trocar de ativo rápido
@@ -82,6 +89,16 @@ export function useOpcoesMcp(store, ticker) {
   // disciplinas convivem: `tickerRef` diz DE QUAL ATIVO é a resposta,
   // `leituraRef` diz QUAL das leituras daquele ativo é a mais recente.
   const leituraRef = useRef(0);
+  // Fase 27: contador TRANSVERSAL ao ticker, e é essa a razão de ele existir.
+  // `useChamadaSobDemanda(tickerRef)` descarta a resposta quando o ticker
+  // mudou entre o pedido e a volta — disciplina certa para cadeia, proposta e
+  // leitura, que são afirmações SOBRE um ativo. A lista de vigias não é: ela
+  // atravessa todos os ativos. Passar `tickerRef` aqui faria clicar num
+  // cartão de vigia (que troca o ticker) apagar a lista que a pessoa acabou
+  // de pagar 2 chamadas para ver. Um ref que nunca muda mantém a disciplina
+  // do contador próprio (`meuRef`, contra disparo repetido) e desliga só a
+  // conferência de ticker.
+  const vigiasRef = useRef(0);
 
   // F3: os quatro trios sob demanda. Ordem fixa de chamada (regra dos hooks).
   const [cadeia, dispararCadeia, limparCadeia] = useChamadaSobDemanda(tickerRef);
@@ -93,6 +110,10 @@ export function useOpcoesMcp(store, ticker) {
   // uma substitui a da anterior na tela, e `status` (`dry_run`/`ativo`/
   // `inativo`) diz qual delas respondeu.
   const [setupNovo, dispararSetup, limparSetup] = useChamadaSobDemanda(tickerRef);
+  // Fase 27: o ESTADO DO DIA dos vigias (`armed`/`streak`), sob demanda.
+  // Acrescentado no FIM do bloco, porque a ordem de chamada dos hooks é fixa.
+  // Sem `limpar`: a troca de ticker não invalida esta lista (ver `vigiasRef`).
+  const [vigiasVivos, dispararVigias] = useChamadaSobDemanda(vigiasRef);
 
   useEffect(() => {
     if (!store || typeof store.mcpStatus !== "function") { setStatus(VAZIO); return undefined; }
@@ -101,6 +122,26 @@ export function useOpcoesMcp(store, ticker) {
     store.mcpStatus()
       .then((d) => { if (vivo) setStatus({ dados: d, carregando: false, erro: null }); })
       .catch((e) => { if (vivo) setStatus({ dados: null, carregando: false, erro: e }); });
+    return () => { vivo = false; };
+  }, [store]);
+
+  // Fase 27 (27-02) — o ÚNICO efeito NOVO que dispara chamada sozinho, e ele é
+  // legítimo por CONTRATO DA ROTA, não por conveniência: `GET
+  // /api/options/vigias` custa **ZERO** no cap (27-01). Ela lê o índice local
+  // do Boris+ e não toca `mcp.semente.dev` — é por isso que a rota mora fora
+  // do prefixo `/mcp/`. O ADR-027 §3.3 proíbe gastar COTA ao abrir tela; ler
+  // o que é de graça é justamente o que permite a aba abrir com conteúdo em
+  // vez de abrir vazia.
+  //
+  // NÃO depende de `ticker`: o bloco "Seus vigias" existe fora de qualquer
+  // ativo, e essa independência É a correção do defeito 2 do 27-CONTEXT.
+  useEffect(() => {
+    if (!store || typeof store.mcpVigias !== "function") { setVigias(VAZIO); return undefined; }
+    let vivo = true;
+    setVigias((s) => ({ ...s, carregando: true }));
+    store.mcpVigias()
+      .then((d) => { if (vivo) setVigias({ dados: d, carregando: false, erro: null }); })
+      .catch((e) => { if (vivo) setVigias({ dados: null, carregando: false, erro: e }); });
     return () => { vivo = false; };
   }, [store]);
 
@@ -151,6 +192,38 @@ export function useOpcoesMcp(store, ticker) {
       .then((d) => { if (tickerRef.current === meu && leituraRef.current === minha) setLeitura({ dados: d, carregando: false, erro: null }); })
       .catch((e) => { if (tickerRef.current === meu && leituraRef.current === minha) setLeitura({ dados: null, carregando: false, erro: e }); });
   }, [store, ticker]);
+
+  // Fase 27: recarga do ÍNDICE, sob demanda e de custo ZERO. Existe porque
+  // gravar ou desativar um vigia muda a lista do topo da aba — e um vigia
+  // recém-criado que só aparece depois de um reload é exatamente o defeito que
+  // esta fase existe para fechar ("os setups não estão sendo gravados").
+  //
+  // O corpo repete o do efeito acima de propósito, pela MESMA razão já
+  // documentada em `recarregarLeitura`: o efeito PRECISA continuar sendo o
+  // lugar onde a leitura do índice dispara (é o que o guardião lê no fonte), e
+  // chamar esta função de dentro dele criaria uma dependência que
+  // reexecutaria o efeito. As duas chamadas custam zero.
+  const recarregarVigias = useCallback(() => {
+    if (!store || typeof store.mcpVigias !== "function") return;
+    setVigias((s) => ({ ...s, carregando: true }));
+    store.mcpVigias()
+      .then((d) => setVigias({ dados: d, carregando: false, erro: null }))
+      .catch((e) => setVigias({ dados: null, carregando: false, erro: e }));
+  }, [store]);
+
+  // Fase 27: o estado do dia dos vigias. NUNCA por efeito —
+  // `GET /api/options/mcp/setups` custa **2** chamadas do cap, sempre 2,
+  // qualquer que seja o número de vigias (27-01). Esta função é a única porta
+  // para a rota, e o botão que a abre declara o custo no próprio controle.
+  //
+  // UMA referência ao método, e o guard sobre ELA: "porta única" é o que o
+  // guardião lê no fonte, então o nome não é escrito em dois lugares.
+  // `.call(store)` preserva o `this` do `deviceStore`, que usa método-atalho.
+  const atualizarVigias = useCallback(() => {
+    const listar = store && store.mcpSetupsListar;
+    if (typeof listar !== "function") return;
+    dispararVigias(() => listar.call(store));
+  }, [store, dispararVigias]);
 
   // Sob demanda: o usuário abre o gráfico de UM setup. Não dispara por
   // efeito — cada abertura custa uma chamada do cap.
@@ -248,27 +321,37 @@ export function useOpcoesMcp(store, ticker) {
   // O setup que viaja de volta é o MESMO objeto que a tela exibiu no ensaio —
   // não é recompilado nem passa por LLM. Recarregar a leitura no sucesso é
   // parte da ação, não cosmético: é o que prova à pessoa que o vigia nasceu.
+  //
+  // Fase 27: além da leitura do ticker, recarrega o ÍNDICE (custo zero). Sem
+  // isso o vigia recém-criado não aparece no bloco do topo até um reload — e
+  // "não aparece" é literalmente o defeito que originou a fase.
   const confirmarSetup = useCallback((setup) => {
     if (!setup || !store || typeof store.mcpSetupConfirmar !== "function") return;
     dispararSetup(() => store.mcpSetupConfirmar({ setup }).then((d) => {
       recarregarLeitura();
+      recarregarVigias();
       return d;
     }));
-  }, [store, dispararSetup, recarregarLeitura]);
+  }, [store, dispararSetup, recarregarLeitura, recarregarVigias]);
 
   const desativarSetup = useCallback((nome) => {
     if (!nome || !store || typeof store.mcpSetupDesativar !== "function") return;
     dispararSetup(() => store.mcpSetupDesativar(nome).then((d) => {
       recarregarLeitura();
+      recarregarVigias();
       return d;
     }));
-  }, [store, dispararSetup, recarregarLeitura]);
+  }, [store, dispararSetup, recarregarLeitura, recarregarVigias]);
 
   return {
     status, leitura, grafico, abrirGrafico, fecharGrafico, recarregarLeitura,
     cadeia, operaveis, proposta, possibilidades,
     abrirCadeia, abrirOperaveis, montarProposta, verPossibilidades,
     setupNovo, compilarSetup, confirmarSetup, desativarSetup,
+    // Fase 27: os dois trios de "Seus vigias" e as duas recargas. `vigias` é o
+    // índice (custo zero, sai no mount); `vigiasVivos` é o estado do dia
+    // (custo 2, só de clique).
+    vigias, vigiasVivos, atualizarVigias, recarregarVigias,
   };
 }
 

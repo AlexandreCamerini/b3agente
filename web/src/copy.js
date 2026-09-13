@@ -155,6 +155,24 @@ export const COPY = {
     // porquê é de produto, não de bug.
     opcoesCarteiraVazia: "Esta aba trabalha sobre o que você já tem: toda estrutura de opção montada aqui é lastreada em ações da sua carteira. Como a carteira está vazia, não há ativo sobre o qual montar nem o que vigiar. A watchlist não entra no lugar: lista de interesse é intenção, e o que falta aqui é lastro. Comece escolhendo um ativo na Carteira.",
     opcoesIrParaCarteira: "Ir para a Carteira",
+    // Fase 27 (27-02) — bloco "Seus vigias", no topo da aba e FORA de qualquer
+    // ticker. É ele que corrige o defeito da fase: antes, um vigia gravado só
+    // aparecia com o ativo dele selecionado, e sair da aba e voltar dava a
+    // impressão de que nada tinha sido gravado.
+    //
+    // O título é o mesmo nos dois modos de propósito, como `tituloOpcoes`:
+    // "vigia" é o nome da coisa nos dois registros, e não há sinônimo de mesa
+    // para ele. A voz mora nos textos longos abaixo.
+    opcoesVigiasTitulo: "SEUS VIGIAS",
+    opcoesVigiasVazio: "Você ainda não gravou nenhum vigia. Vigia é uma condição objetiva que você escreve antes do pregão — por exemplo, \"o IFR de 2 períodos abaixo de 25\" — e que o serviço confere uma vez por dia, sobre o fechamento. Enquanto não houver uma condição escrita, não há o que conferir.",
+    // Travessão COM motivo, nunca leitura negativa: enquanto o estado do dia
+    // não foi pedido, ninguém mediu nada — e dizer que o vigia não disparou
+    // seria afirmar uma medição que não existe (princípio 4 do CLAUDE.md).
+    opcoesVigiasSemEstado: "— estado do dia ainda não pedido. O que está acima é o cadastro do vigia: ele vem do próprio Boris+, é de graça e não diz nada sobre hoje. Saber se a condição foi atendida é medição do serviço de dados, e ela só sai quando você pede.",
+    opcoesVigiasAtualizar: "Pedir o estado do dia",
+    // Vigia de ativo fora da carteira NÃO some da lista: ele existe e continua
+    // sendo conferido. Escondê-lo repetiria o defeito que a fase fecha.
+    opcoesVigiaForaDaCarteira: "Este vigia é de um ativo que não está na sua carteira agora. Ele continua existindo e continua sendo conferido pelo serviço — o que muda é que você não tem o papel para lastrear uma estrutura sobre ele.",
     opcoesDisclaimer: "Conteúdo educacional. Os dados são de fim de pregão e podem estar atrasados; nada aqui é ordem, recomendação ou promessa de resultado.",
     opcoesGraficoTitulo: "Disparos do setup",
     opcoesDisparosRotulo: "Disparos",
@@ -175,9 +193,17 @@ export const COPY = {
     opcoesLoteAjuda: "1 contrato = 100 ações. O lote só serve para converter em reais os números que vêm por ação; a conta é feita no servidor.",
     opcoesMontarEstrutura: "Montar a estrutura",
     opcoesVerPossibilidades: "Comparar os vencimentos",
+    // Fase 27 (27-02): a frase do CUSTO ficou genérica e a COMPOSIÇÃO saiu
+    // para uma chave própria. Ela é a forma única de declarar custo na aba, e
+    // agora também o botão do bloco de vigias a usa — cuja conta é outra
+    // (`list_setups` + `evaluate_setups`). Mantida como estava, ela afirmaria
+    // "uma para listar os vencimentos e duas para cada vencimento" sobre uma
+    // chamada que não consulta vencimento nenhum: número certo, explicação
+    // falsa.
     opcoesCustoChamadas: (n) =>
       "Esta consulta gasta " + (typeof n === "number" ? n : "—") +
-      " chamada(s) da sua cota do dia: uma para listar os vencimentos e duas para cada vencimento consultado.",
+      " chamada(s) da sua cota do dia.",
+    opcoesCustoVencimentos: "A conta: uma chamada para listar os vencimentos e duas para cada vencimento consultado.",
     opcoesVerCadeia: "Ver a cadeia de opções",
     opcoesVerOperaveis: "Ver só as opções com liquidez",
     opcoesCriterioOperaveis: (c) => {
@@ -601,6 +627,13 @@ export const COPY = {
     // seguida. MESMA substância do ramo estudo.
     opcoesCarteiraVazia: "A aba opera sobre a carteira: estrutura de opção aqui é lastreada em ação que você já tem. Carteira vazia, nada a lastrear e nada a vigiar. A watchlist não substitui — interesse não é lastro. Abra a Carteira e monte a posição antes.",
     opcoesIrParaCarteira: "Abrir a Carteira",
+    // Fase 27 (27-02) — MESMAS chaves do ramo estudo, voz de mesa. O título é
+    // igual nos dois por decisão (ver a nota no outro ramo).
+    opcoesVigiasTitulo: "SEUS VIGIAS",
+    opcoesVigiasVazio: "Nenhum vigia gravado nesta conta. Vigia é condição objetiva escrita antes do pregão e conferida uma vez por dia, sobre o fechamento. Sem condição escrita, não há o que conferir.",
+    opcoesVigiasSemEstado: "— estado do dia ainda não pedido. Acima está só o cadastro, que é local e não custa cota. Estado é medição do serviço e sai sob pedido.",
+    opcoesVigiasAtualizar: "Medir o estado do dia",
+    opcoesVigiaForaDaCarteira: "Ativo fora da carteira. O vigia segue existindo e segue sendo conferido; o que falta é o papel para lastrear estrutura sobre ele.",
     opcoesDisclaimer: "Conteúdo educacional. Dados de fim de pregão, possivelmente atrasados; nada aqui é ordem, recomendação ou promessa de resultado.",
     opcoesGraficoTitulo: "Disparos do setup",
     opcoesDisparosRotulo: "Disparos",
@@ -620,9 +653,12 @@ export const COPY = {
     opcoesLoteAjuda: "1 contrato = 100 ações. Converte em reais os números que vêm por ação; a conta é do servidor.",
     opcoesMontarEstrutura: "Montar estrutura",
     opcoesVerPossibilidades: "Ver possibilidades",
+    // Fase 27 (27-02): mesma separação do ramo estudo — custo genérico aqui,
+    // composição na chave própria abaixo.
     opcoesCustoChamadas: (n) =>
       "Custo desta consulta: " + (typeof n === "number" ? n : "—") +
-      " chamada(s) da cota do dia (1 para listar os vencimentos + 2 por vencimento).",
+      " chamada(s) da cota do dia.",
+    opcoesCustoVencimentos: "Composição: 1 chamada para listar os vencimentos + 2 por vencimento consultado.",
     opcoesVerCadeia: "Ver a cadeia",
     opcoesVerOperaveis: "Ver as operáveis",
     opcoesCriterioOperaveis: (c) => {
