@@ -195,3 +195,122 @@ def test_resumo_mercado_mantem_chave_itens(cli):
     """F4: `pet:mercado` não muda de formato — `itens` continua existindo."""
     b = cli.get("/api/pet/resumo", params={"tela": "mercado"}).json()
     assert "itens" in b and isinstance(b["itens"], list)
+
+
+# --------------------------------------------------------------------------- #
+# Fase 27 (2026-09-13) — o resumo de `opcoes` tem de descrever a aba que a fase
+# entregou, não a de antes dela.
+#
+# A classe de defeito é a MESMA que os achados A1/A5/A6 da Fase 26 corrigiram:
+# prosa que descreve um produto que já não existe, sem nada quebrar e sem nada
+# logar. Dois pontos mudaram nesta fase, e cada um tem o seu guardião:
+#   · o UNIVERSO virou a carteira (D3) — antes era a watchlist;
+#   · a FONTE da leitura técnica virou o motor interno (D1) — antes a função
+#     afirmava, numa frase só, que "a leitura da aba é de FIM DE PREGÃO e vem
+#     do serviço de opções".
+# Os dois guardiões anteriores (não é o resumo de mercado; não chama o serviço)
+# continuam intactos acima — nada foi apagado.
+# --------------------------------------------------------------------------- #
+
+def _com_estado(monkeypatch, *, positions=(), watchlist=(), option_positions=()):
+    """Injeta estado de kv no escopo da requisição sem tocar no banco real.
+
+    Monkeypatch em `store.get` e não escrita no banco de propósito: este
+    arquivo roda contra a instância de `app.main` já importada (sem
+    `B3_DB_PATH` próprio), e escrever ali vazaria estado para os outros 26
+    testes. As três chaves interceptadas são exatamente as que o resumo lê; o
+    resto cai no `store.get` real.
+    """
+    from app import store as store_mod
+
+    real = store_mod.get
+    dados = {
+        "positions": [dict(p) for p in positions],
+        "watchlist": list(watchlist),
+        "optionPositions": [dict(p) for p in option_positions],
+    }
+
+    def _fake(conn, key, *a, **kw):
+        if key in dados:
+            return dados[key]
+        return real(conn, key, *a, **kw)
+
+    monkeypatch.setattr(store_mod, "get", _fake)
+
+
+def _fala(cli):
+    b = cli.get("/api/pet/resumo", params={"tela": "opcoes"}).json()
+    assert b.get("tela") == "opcoes"
+    return b
+
+
+def test_resumo_opcoes_nomeia_os_papeis_DA_CARTEIRA(cli, monkeypatch):
+    """D3: o universo da aba é a CARTEIRA. A watchlist entra no cenário de
+    propósito, com papéis DIFERENTES — sem ela, uma reversão parcial (voltar a
+    ler a chave `watchlist`, cujos itens são strings e são filtrados pelo
+    `isinstance(p, dict)`) produziria universo vazio e passaria calada."""
+    _com_estado(
+        monkeypatch,
+        positions=[{"t": "PETR4", "qty": 100}, {"t": "VALE3", "qty": 50}],
+        watchlist=["ITUB4", "BBDC4"],
+    )
+    b = _fala(cli)
+    texto = " ".join(b["fala"])
+    assert "PETR4" in texto and "VALE3" in texto, "o resumo não nomeou os papéis da carteira"
+    assert "ITUB4" not in texto and "BBDC4" not in texto, (
+        "o resumo citou papel de watchlist — o universo da aba é a carteira (D3)"
+    )
+    assert b["universo"] == ["PETR4", "VALE3"]
+
+
+def test_resumo_opcoes_com_carteira_vazia_nao_cita_nenhum_ticker_da_watchlist(cli, monkeypatch):
+    """**Contra-guardião do universo.** Carteira vazia + watchlist cheia: o
+    texto não pode citar nenhum papel da lista de interesse, e tem de dar o
+    CAMINHO (D2) — a mesma substância do estado vazio da tela, para o
+    assistente não contradizer o que a pessoa está vendo."""
+    _com_estado(monkeypatch, positions=[], watchlist=["ITUB4", "BBDC4", "MGLU3"])
+    b = _fala(cli)
+    texto = " ".join(b["fala"])
+    for papel in ("ITUB4", "BBDC4", "MGLU3"):
+        assert papel not in texto, f"{papel} é da watchlist e vazou para o resumo da aba"
+    assert b["universo"] == []
+    assert "carteira" in texto.lower()
+    assert "Carteira" in texto, "estado vazio sem caminho: D2 pede motivo E para onde ir"
+
+
+def test_resumo_opcoes_nao_atribui_a_leitura_tecnica_ao_servico_de_opcoes(cli, monkeypatch):
+    """**C8.** A frase antiga — "A leitura da aba é de FIM DE PREGÃO e vem do
+    serviço de opções" — virou meia verdade dita como verdade inteira quando o
+    motor híbrido entrou (D1): tendência, volatilidade e suporte/resistência
+    passaram a sair do motor interno, com outro carimbo.
+
+    A granularidade da asserção é o ITEM de `fala`, não a sentença, e é
+    deliberadamente mais estrita: o defeito original era um único item
+    contendo as duas coisas, e checar por item reprova tanto a volta da frase
+    inteira quanto qualquer tentativa de reaproximá-las no mesmo bloco.
+    """
+    _com_estado(monkeypatch, positions=[{"t": "PETR4", "qty": 100}])
+    fala = _fala(cli)["fala"]
+
+    # (i) lado negativo: nenhum item mistura leitura técnica com o serviço.
+    for item in fala:
+        baixo = item.lower()
+        if "tendência" in baixo or "volatilidade" in baixo:
+            assert "serviço de opções" not in baixo, (
+                "o resumo atribui a leitura técnica do ativo ao serviço de opções: "
+                f"{item!r}"
+            )
+
+    # (ii) lado positivo — sem ele o teste passaria por VACUIDADE (bastaria
+    # apagar a frase). Alguma frase tem de nomear o motor interno como fonte
+    # da leitura técnica.
+    assert any(
+        "tendência" in i.lower() and ("motor" in i.lower() or "próprio app" in i.lower())
+        for i in fala
+    ), "nenhuma frase nomeia o motor interno como fonte da tendência/volatilidade"
+
+    # (iii) e a outra metade continua dita: o que é de OPÇÃO é do serviço.
+    assert any(
+        "serviço de opções" in i.lower() and ("cadeia" in i.lower() or "estruturas" in i.lower())
+        for i in fala
+    ), "o resumo deixou de dizer que cadeia/estruturas vêm do serviço de opções"

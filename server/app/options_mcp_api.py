@@ -30,7 +30,8 @@ from typing import Optional
 import httpx
 from fastapi import APIRouter, Body, Depends, Header, HTTPException
 
-from . import ai_activity, audit, db, llm, mcp_client, metering, obslog, pregao
+from . import (ai_activity, audit, db, llm, mcp_client, metering, obslog,
+               opcoes_vigias, pregao)
 
 router = APIRouter(prefix="/api/options/mcp", tags=["options-mcp"])
 
@@ -1474,10 +1475,28 @@ def _pernas_para_avaliar(setup: Optional[dict]) -> list:
     return pernas
 
 
-def _registros_do_ticker(lista: Optional[dict], alvo: str) -> list:
-    """Pares `(setup, registro)` de `list_setups` cujo ticker bate com `alvo`.
-    Registro torto (sem `setup`, sem ticker) é ignorado — não vira item vazio
-    na tela."""
+def _registros_do_ticker(lista: Optional[dict], alvo: str, uid) -> list:
+    """Pares `(setup, registro)` de `list_setups` cujo ticker bate com `alvo`
+    **e que são deste usuário**. Registro torto (sem `setup`, sem ticker) é
+    ignorado — não vira item vazio na tela.
+
+    **Regra de visibilidade, em duas linhas** (Fase 27; decisão do Alex de
+    2026-09-13, *"pode apagar os antigos"*): **meu** aparece; **todo o resto**
+    — setup de outro usuário ou sem prefixo nenhum — não aparece. As duas
+    exclusões têm razões diferentes e não devem ser confundidas: o de outro
+    usuário tem dono conhecido, e não sou eu; o legado não tem dono conhecido
+    nenhum, e o armazém é compartilhado com outros clientes do serviço
+    (`rbac.py:29-34`), então ele pode nem ser do Boris+.
+
+    O legado não é escondido por conveniência: ele deixou de ser conteúdo do
+    produto. A porta de REMOÇÃO dele continua aberta em `/setups/{name}/
+    desativar`, senão um órfão vira lixo permanente que ninguém remove pelo
+    produto enquanto o serviço segue avaliando-o todo pregão.
+
+    O parâmetro `uid` foi ACRESCENTADO em 2026-09-13, e o nome da função ficou:
+    renomeá-la quebraria o histórico de citação por nome nos guardiões e nos
+    ADRs.
+    """
     fora = []
     for item in (lista or {}).get("setups") or []:
         if not isinstance(item, dict):
@@ -1487,8 +1506,59 @@ def _registros_do_ticker(lista: Optional[dict], alvo: str) -> list:
         t = str(setup.get("ticker") or "").strip().upper()
         if not t or t != alvo:
             continue
+        if not opcoes_vigias.e_meu(uid, setup.get("name")):
+            continue
         fora.append((setup, item))
     return fora
+
+
+# ------------------------------------------------------------ gate de dono --
+# Código de erro ÚNICO para a recusa de dono. A tela ramifica por ele, nunca
+# por raspagem da mensagem — e as duas rotas que recusam por esta razão têm de
+# devolver o MESMO código, senão o front precisaria conhecer dois.
+CODIGO_DE_OUTRO_DONO = "setup_de_outro_dono"
+
+# Duas mensagens porque são duas situações, não por descuido: uma recusa de
+# ESCRITA precisa dizer que nada mudou (é a reasseguração que a pessoa
+# procura), e dizer isso num GET afirmaria que houve tentativa de alterar
+# alguma coisa — afirmação falsa sobre o que o produto fez.
+RECUSA_DONO_ESCRITA = "Este vigia foi criado por outra conta. Nada foi alterado."
+RECUSA_DONO_LEITURA = "Este vigia foi criado por outra conta. Você só vê os seus."
+
+
+def _exige_dono(uid, nome, *, rota: str, mensagem: str) -> None:
+    """403 `setup_de_outro_dono` quando `nome` não é meu nem legado.
+
+    **Uma função só para as DUAS rotas que recebem `{name}` na URL**
+    (`/setups/{name}/desativar` e `/setups/{name}/grafico`). Duas cópias da
+    mesma condição divergem na primeira correção feita de um lado só, e o lado
+    esquecido é justamente o que fica aberto — foi assim que `/grafico` passou
+    a Fase 27 inteira sem gate enquanto `/desativar` já tinha o dele.
+
+    A recusa é do BACKEND e não de um botão escondido: o armazém é
+    compartilhado e sem `owner` (ADR-027, Decisão 7), então esconder na UI
+    deixaria a rota aberta a qualquer um com um `curl` — mesma disciplina do
+    `require_criar_setup`.
+
+    **Chame ANTES do `_cap_check`.** Nenhuma viagem é feita numa recusa de
+    dono: cobrar cota do que não saiu do processo seria cobrar pelo que não
+    aconteceu.
+
+    **`e_legado` passa de propósito** (decisão do Alex, 2026-09-13): a
+    LISTAGEM é sobre "o que é meu", e estas duas rotas são sobre "isto ainda
+    dispara" e "o que este setup fez". Um setup sem prefixo não tem dono
+    conhecido e não interessa a ninguém na tela — mas continua sendo avaliado
+    pelo serviço todo pregão, e sem esta porta ele viraria lixo permanente que
+    o produto não remove. A limpeza é operacional e **um a um**, nunca uma
+    varredura por "não tem prefixo": o armazém "é visto por todos os clientes
+    do serviço" (`rbac.py:29-34`), então um nome sem prefixo pode ser de OUTRO
+    sistema, e não há `undo`.
+    """
+    if opcoes_vigias.e_meu(uid, nome) or opcoes_vigias.e_legado(nome):
+        return
+    obslog.log("mcp", "setup de dono alheio", level="warn", rota=rota,
+               uid=uid, setup=nome)
+    raise HTTPException(403, {"code": CODIGO_DE_OUTRO_DONO, "message": mensagem})
 
 
 # --------------------------------------------------------------------------
@@ -1598,7 +1668,7 @@ async def leitura(ticker: str, user: dict = Depends(require_user)) -> dict:
             passo = "list_setups"
             lista, c2 = await _chamada_com_cap(cap, "list_setups", {})
             cache_tudo = cache_tudo and c2
-            registros = _registros_do_ticker(lista, alvo)
+            registros = _registros_do_ticker(lista, alvo, uid)
 
             avaliacao_dados: Optional[dict] = None
             if registros:
@@ -1633,10 +1703,20 @@ async def leitura(ticker: str, user: dict = Depends(require_user)) -> dict:
 
         setups = []
         for setup, registro in registros:
+            # O nome do ARMAZÉM é a chave de tudo que fala com o serviço
+            # (avaliação, `/grafico`, `/desativar`); o nome da PESSOA é o que a
+            # tela mostra. Os dois viajam, com rótulos diferentes — deduzir um
+            # do outro no front recriaria o prefixo em JavaScript, e aí seriam
+            # duas implementações da mesma regra.
+            #
+            # **Sem campo `meu`**: nesta lista tudo é meu (o filtro é de
+            # `_registros_do_ticker`), e um booleano constante só convidaria a
+            # tela a desenhar um rótulo que nunca varia.
             nome = setup.get("name")
             av = avaliacoes.get(nome) if nome else None
             setups.append({
-                "name": nome,
+                "name": opcoes_vigias.nome_do_usuario(uid, nome),
+                "nomeNoServico": nome,
                 "ticker": alvo,
                 # `status` do REGISTRO (`ativo`/`inativo`). NÃO é o status da
                 # AVALIAÇÃO (`avaliado`/`nao_avaliavel`/`expirado`/…), que vive
@@ -1692,6 +1772,225 @@ async def leitura(ticker: str, user: dict = Depends(require_user)) -> dict:
         }
 
 
+# Motivos, em texto de produto: por que o campo veio vazio. Constantes de
+# módulo porque são a resposta a "cadê o dado?" — princípio 4 do CLAUDE.md diz
+# que o vazio carrega motivo, e motivo redigitado em dois lugares diverge.
+MOTIVO_FORA_DO_SERVICO = "o serviço não devolveu este vigia nesta consulta"
+MOTIVO_SEM_DATA = "criado antes de o Boris passar a registrar a data"
+
+# Posição de ordenação para o registro que o índice não conhece. Não é
+# "infinito arbitrário": é a declaração de que sem entrada no índice não há
+# ordem de criação para comparar, e o desempate cai para o nome.
+_SEM_POSICAO = 10 ** 9
+
+
+def _meus_registros(lista: Optional[dict], uid) -> dict:
+    """`{nome no serviço: (setup, registro)}` dos registros que são DESTE
+    usuário. Mesma regra de visibilidade do `_registros_do_ticker`, sem o
+    filtro de ticker: de outro dono e legado ficam de fora dos dois lados do
+    cruzamento (decisão do Alex, 2026-09-13)."""
+    fora = {}
+    for item in (lista or {}).get("setups") or []:
+        if not isinstance(item, dict):
+            continue
+        setup = item.get("setup")
+        setup = setup if isinstance(setup, dict) else {}
+        nome = setup.get("name")
+        if not nome or not opcoes_vigias.e_meu(uid, nome):
+            continue
+        fora[str(nome)] = (setup, item)
+    return fora
+
+
+def _item_de_vigia(*, nome, nome_servico, ticker, criado_em, posicao,
+                   setup, registro, avaliacao, no_indice) -> dict:
+    """Um item da listagem, nos MESMOS nomes de campo que a `/leitura` já usa —
+    a tela não pode ter dois formatos para a mesma coisa."""
+    av = avaliacao if isinstance(avaliacao, dict) else None
+    presente = registro is not None
+    return {
+        "name": nome,
+        "nomeNoServico": nome_servico,
+        "ticker": ticker,
+        "criadoEm": criado_em,
+        # Vazio COM motivo, nunca vazio mudo (princípio 4 do CLAUDE.md).
+        "motivoCriadoEm": None if criado_em else MOTIVO_SEM_DATA,
+        # `status` do REGISTRO (`ativo`/`inativo`), nunca o da AVALIAÇÃO —
+        # mesma distinção que a `/leitura` documenta.
+        "status": (registro or {}).get("status") if presente else None,
+        # Sumir do armazém é FATO a mostrar, não item a apagar em silêncio: o
+        # vigia parou de existir no serviço e a pessoa precisa saber disso.
+        "motivo": None if presente else MOTIVO_FORA_DO_SERVICO,
+        "avaliacao": av,
+        "armed": av.get("armed") if av else None,
+        "streak": av.get("streak") if av else None,
+        # Sem avaliação, cai no `consecutive_days` DECLARADO no setup — valor
+        # que a pessoa escreveu, não número calculado.
+        "required_streak": (av.get("required_streak") if av
+                            else (setup or {}).get("consecutive_days")),
+        "conditions": av.get("conditions") if av else None,
+        "backtest_na_criacao": (registro or {}).get("backtest_na_criacao"),
+        # Nunca omitido: "o serviço conhece e o índice não" é um estado real
+        # (vigia criado antes de o índice existir, ou índice perdido), e um
+        # campo ausente obrigaria a tela a adivinhar.
+        "noIndice": no_indice,
+        "_pos": posicao,
+    }
+
+
+def _ordem_dos_vigias(item: dict) -> tuple:
+    """**Quem disparou primeiro**, não ordem alfabética.
+
+    Decisão do EXECUTOR (2026-09-13), herdada do protótipo aprovado pelo Alex
+    — o 27-CONTEXT a deixou em "Em aberto" item 1 com instrução de manter
+    "disparou primeiro" e registrar como decisão se nada mudasse. Registrada
+    aqui.
+
+    A antiguidade desempata por **posição no índice**, e não pelo texto de
+    `criadoEm`: `_agora_brt()` grava `dd/mm/aaaa`, e ordenar essa string é
+    ordenar o dia do mês — `02/10/2026` viria depois de `13/09/2026` numa
+    comparação lexicográfica. O índice já nasce mais-recente-primeiro
+    (`opcoes_vigias.registrar` insere no topo), então a posição É a ordem de
+    criação, medida e não reconstruída.
+    """
+    armado = 0 if item.get("armed") is True else 1
+    streak = item.get("streak")
+    streak = streak if isinstance(streak, (int, float)) and not isinstance(streak, bool) \
+        else float("-inf")
+    return (armado, -streak, item.get("_pos", _SEM_POSICAO), str(item.get("name") or ""))
+
+
+@router.get("/setups")
+async def setups_listar(user: dict = Depends(require_user)) -> dict:
+    """**Seus vigias**, com o estado do dia — custo DECLARADO 2, sempre 2.
+
+    O custo é FIXO e não cresce com o número de vigias: `list_setups` e
+    `evaluate_setups` devolvem a base inteira de uma vez. Uma listagem que
+    virasse N chamadas esgotaria o teto compartilhado de 2.000/dia com uma
+    carteira grande — e o teto é do SERVIDOR, não do usuário. `evaluate_setups`
+    é PULADA quando nenhum vigia meu está no armazém: consumir menos que o
+    checado é sempre permitido, o contrário não.
+
+    **A lista é o cruzamento de duas verdades que podem divergir**, e nenhuma
+    delas é descartada:
+
+      · o ÍNDICE local sabe o nome que a pessoa escreveu, o ticker e a data —
+        o serviço não devolve nenhum dos três;
+      · o ARMAZÉM sabe o estado de hoje (`armed`, `streak`, condições) — o
+        índice não guarda estado de propósito (seria "armado" de ontem).
+
+    Item do índice que sumiu do armazém entra com `status: None` e motivo.
+    Registro meu que o índice não conhece entra com `noIndice: false` — nunca
+    omitido: vigia criado antes de o índice existir é vigia real, e uma
+    listagem que só enxerga o que nasceu depois dela não corrigiu o defeito
+    desta fase, mudou de assunto.
+
+    Registro de OUTRO dono e registro LEGADO (sem prefixo) ficam de fora dos
+    dois lados do cruzamento — decisão do Alex, 2026-09-13. O legado continua
+    removível por `/setups/{name}/desativar`.
+    """
+    uid = user["id"]
+    rota = "/api/options/mcp/setups"
+
+    with _cap_check(uid, 2) as cap:
+        try:
+            lista, c1 = await _chamada_com_cap(cap, "list_setups", {})
+        except (mcp_client.McpErro, ValueError) as e:
+            obslog.log("mcp", "setups falhou", level="warn", rota=rota, uid=uid,
+                       passo="list_setups", erro=type(e).__name__, detalhe=str(e))
+            raise _erro_http(e)
+
+        do_servico = _meus_registros(lista, uid)
+        indice = opcoes_vigias.listar(_conn, uid)
+
+        # Cruzamento em duas passadas: primeiro o que o índice conhece (na
+        # ordem dele, que é a ordem de criação), depois o que sobrou do
+        # serviço. `pop` garante que nenhum registro entre duas vezes.
+        pendentes = dict(do_servico)
+        brutos = []
+        for pos, entrada in enumerate(indice):
+            nome_servico = str(entrada.get("nomeNoServico") or "")
+            setup, registro = pendentes.pop(nome_servico, (None, None))
+            brutos.append({
+                "nome": entrada.get("nome") or opcoes_vigias.nome_do_usuario(uid, nome_servico),
+                "nome_servico": nome_servico,
+                "ticker": entrada.get("ticker") or (setup or {}).get("ticker"),
+                "criado_em": entrada.get("criadoEm"),
+                "posicao": pos,
+                "setup": setup,
+                "registro": registro,
+                "no_indice": True,
+            })
+        for nome_servico, (setup, registro) in pendentes.items():
+            brutos.append({
+                "nome": opcoes_vigias.nome_do_usuario(uid, nome_servico),
+                "nome_servico": nome_servico,
+                "ticker": setup.get("ticker"),
+                # O serviço não devolve data de criação: `None` COM motivo,
+                # nunca a data de hoje (princípio 4 do CLAUDE.md).
+                "criado_em": None,
+                "posicao": _SEM_POSICAO,
+                "setup": setup,
+                "registro": registro,
+                "no_indice": False,
+            })
+
+        # A segunda chamada só existe se houver o que avaliar NO ARMAZÉM:
+        # avaliar uma lista em que todo item sumiu do serviço gastaria o teto
+        # compartilhado por uma resposta que ninguém lê.
+        avaliacao_dados: Optional[dict] = None
+        chamou_evaluate = False
+        cache_tudo = c1
+        if any(b["registro"] is not None for b in brutos):
+            try:
+                avaliacao_dados, c2 = await _chamada_com_cap(cap, "evaluate_setups", {})
+                cache_tudo = cache_tudo and c2
+                chamou_evaluate = True
+            except (mcp_client.McpErro, ValueError) as e:
+                obslog.log("mcp", "setups falhou", level="warn", rota=rota, uid=uid,
+                           passo="evaluate_setups", erro=type(e).__name__,
+                           detalhe=str(e))
+                raise _erro_http(e)
+
+        avaliacoes = {}
+        nao_avaliado = None
+        if isinstance(avaliacao_dados, dict):
+            if avaliacao_dados.get("status") == "nao_avaliado":
+                # Mesma regra da `/leitura`: o motivo vai VERBATIM e NENHUM
+                # item recebe veredito — "não armado" por ausência de avaliação
+                # seria afirmação sem medição.
+                nao_avaliado = {"reason": avaliacao_dados.get("reason")}
+            else:
+                for av in avaliacao_dados.get("evaluations") or []:
+                    if isinstance(av, dict) and av.get("name"):
+                        avaliacoes[av["name"]] = av
+
+        itens = [_item_de_vigia(nome=b["nome"], nome_servico=b["nome_servico"],
+                                ticker=b["ticker"], criado_em=b["criado_em"],
+                                posicao=b["posicao"], setup=b["setup"],
+                                registro=b["registro"],
+                                avaliacao=avaliacoes.get(b["nome_servico"]),
+                                no_indice=b["no_indice"])
+                 for b in brutos]
+        itens.sort(key=_ordem_dos_vigias)
+        for item in itens:
+            item.pop("_pos", None)
+
+        frescor = _frescor_da_avaliacao(avaliacao_dados, chamou_evaluate)
+        obslog.log("mcp", "setups", rota=rota, uid=uid, vigias=len(itens),
+                   avaliou=chamou_evaluate, cache=cache_tudo,
+                   bloqueia=frescor["bloqueia"])
+
+        return {
+            "vigias": itens,
+            "setupsNaoAvaliados": nao_avaliado,
+            "fonte": FONTE,
+            "at": _agora_brt(),
+            "frescor": frescor,
+            "cap": _cap_bloco(uid),
+        }
+
+
 @router.get("/setups/{name}/grafico")
 async def setup_grafico(name: str, user: dict = Depends(require_user)) -> dict:
     """Série de candles de um setup gravado, com os índices de disparo.
@@ -1705,10 +2004,22 @@ async def setup_grafico(name: str, user: dict = Depends(require_user)) -> dict:
     Limitação conhecida: nome de setup contendo `/` não resolve aqui —
     `{name}` não é conversor `path`, e transformá-lo em um engoliria o
     `/grafico` do fim da URL. Nome com barra devolve 404 do roteador.
+
+    **Gate de dono desde 2026-09-13** (Fase 27, decisão do Alex). Até esta
+    data qualquer conta logada via o gráfico de qualquer setup, bastando
+    conhecer o nome completo — e o gráfico carrega as condições, a série e as
+    datas de disparo do vigia de outra pessoa. O risco era baixo (nenhuma rota
+    do produto enumera os nomes prefixados de terceiros), e "não enumerável"
+    nunca foi o mesmo que "fechado".
     """
     uid = user["id"]
+    rota = "/api/options/mcp/setups/{name}/grafico"
+    # MESMO gate de `/setups/{name}/desativar`, pela MESMA função: ver
+    # `_exige_dono`. Antes do `_cap_check` pela mesma razão de lá — a recusa
+    # não sai do processo, então não pode cobrar cota.
+    _exige_dono(uid, name, rota=rota, mensagem=RECUSA_DONO_LEITURA)
+
     with _cap_check(uid, 1) as cap:   # saldo não consumido volta na saída
-        rota = "/api/options/mcp/setups/{name}/grafico"
         try:
             dados, cache = await _chamada_com_cap(cap, "get_setup_chart",
                                                   {"name": name})
@@ -1725,6 +2036,14 @@ async def setup_grafico(name: str, user: dict = Depends(require_user)) -> dict:
         # o `trading_date` do payload sobrescrever o `pregao` do envelope.
         return {
             **dados,
+            # E é por causa dessa ordem que os dois nomes ficam AQUI: o payload
+            # da tool traz `name` PREFIXADO (o armazém devolve a chave que
+            # recebeu), e `SetupChart.jsx` imprime esse campo como título do
+            # gráfico. Sem o override, a pessoa lê o hash da própria conta.
+            # MESMO contrato das rotas irmãs: `name` é o da PESSOA,
+            # `nomeNoServico` é a chave do armazém.
+            "name": opcoes_vigias.nome_do_usuario(uid, dados.get("name") or name),
+            "nomeNoServico": str(dados.get("name") or name),
             "pregao": dados.get("trading_date") or None,
             "fonte": FONTE,
             "at": _agora_brt(),
@@ -2767,9 +3086,19 @@ async def setup_compilar(body: dict = Body(default={}),
         setup["description"] = descricao
         setup["ticker"] = alvo
 
+        # **O ensaio valida o nome REAL** — o mesmo que a gravação vai enviar.
+        # Até 2026-09-13 o dry-run mandava um nome e `/setups/confirmar` mandava
+        # outro; como quem valida o setup é o serviço, uma recusa de FORMATO do
+        # nome só apareceria na gravação, ou seja, DEPOIS de a pessoa já ter
+        # pago 2 chamadas do cap e uma análise de LLM. O dry-run existe para
+        # reprovar antes de cobrar; validar um nome diferente do que será
+        # gravado o esvazia.
+        nome_servico = opcoes_vigias.nome_no_servico(uid, setup.get("name"))
+
         try:
             dados, cache = await _chamada_com_cap(
-                cap, TOOL_CREATE_SETUP, {"setup": setup, "confirm": False})
+                cap, TOOL_CREATE_SETUP,
+                {"setup": dict(setup, name=nome_servico), "confirm": False})
         except mcp_client.McpErroDeTool as e:
             # Recusa SEMÂNTICA do serviço — é sobre este setup, não sobre o
             # serviço. Os `problems` voltam item a item.
@@ -2797,7 +3126,16 @@ async def setup_compilar(body: dict = Body(default={}),
         # `/setups/confirmar` recebe de volta. O `ensaio` é lido DESTE objeto,
         # não do que a IA respondeu: descrever um setup que ninguém vai gravar
         # seria explicar a coisa errada.
-        interpretado = dados.get("setup_as_interpreted") or setup
+        interpretado = dados.get("setup_as_interpreted")
+        interpretado = interpretado if isinstance(interpretado, dict) and interpretado \
+            else setup
+        # **O que a tela mostra é o nome da PESSOA, nunca o do armazém.** Este
+        # objeto é o que volta no corpo de `/setups/confirmar`, que prefixa de
+        # novo — e é por isso que `nome_no_servico` é idempotente por desenho
+        # (Fase 27): sem isso, um único ida-e-volta empilharia dois prefixos.
+        interpretado = dict(
+            interpretado,
+            name=opcoes_vigias.nome_do_usuario(uid, interpretado.get("name")))
         return {
             "status": dados.get("status") or "dry_run",
             "ticker": alvo,
@@ -2835,7 +3173,17 @@ async def setup_confirmar(body: dict = Body(default={}),
     uid = user["id"]
     corpo = body if isinstance(body, dict) else {}
     setup = _setup_do_corpo(corpo)
-    nome = str(setup.get("name") or "").strip()
+    # Os DOIS nomes, com rótulos diferentes porque são coisas diferentes: o que
+    # a pessoa escreveu (e viu no ensaio) e o que vive no armazém compartilhado.
+    #
+    # Por que prefixar aqui NÃO viola a regra do `_setup_do_corpo` ("o que se
+    # grava é o que a pessoa viu"): o prefixo é transformação DETERMINÍSTICA e
+    # declarada do nome, não recompilação. Nenhum campo de condição é tocado, o
+    # ensaio já validou este mesmo nome (ver `/setups/compilar`), e é isto que
+    # impede que o vigia de outra pessoa com o mesmo nome sobrescreva o dela
+    # num armazém sem `owner` (ADR-027, Decisão 7).
+    nome_da_pessoa = str(setup.get("name") or "").strip()
+    nome_servico = opcoes_vigias.nome_no_servico(uid, nome_da_pessoa)
     rota = "/api/options/mcp/setups/confirmar"
 
     with _cap_check(uid, 2) as cap:
@@ -2843,24 +3191,25 @@ async def setup_confirmar(body: dict = Body(default={}),
             frescor = await _frescor_bloqueante(cap)
         except (mcp_client.McpErro, ValueError) as e:
             obslog.log("mcp", "confirmar falhou", level="warn", rota=rota, uid=uid,
-                       setup=nome, passo="check_data_freshness",
+                       setup=nome_servico, passo="check_data_freshness",
                        erro=type(e).__name__, detalhe=str(e))
             raise _erro_http(e)
 
         try:
             dados, cache = await _chamada_com_cap(
-                cap, TOOL_CREATE_SETUP, {"setup": setup, "confirm": True})
+                cap, TOOL_CREATE_SETUP,
+                {"setup": dict(setup, name=nome_servico), "confirm": True})
         except mcp_client.McpErroDeTool as e:
             obslog.log("mcp", "confirmar: setup recusado", level="warn", rota=rota,
-                       uid=uid, setup=nome, detalhe=str(e))
+                       uid=uid, setup=nome_servico, detalhe=str(e))
             raise _erro_de_setup_invalido(e)
         except (mcp_client.McpErro, ValueError) as e:
             obslog.log("mcp", "confirmar falhou", level="warn", rota=rota, uid=uid,
-                       setup=nome, passo=TOOL_CREATE_SETUP,
+                       setup=nome_servico, passo=TOOL_CREATE_SETUP,
                        erro=type(e).__name__, detalhe=str(e))
             raise _erro_http(e)
 
-        gravado = str(dados.get("name") or nome)
+        gravado = str(dados.get("name") or nome_servico)
         # O estado sai do SERVIÇO, e a MESMA variável vai para a auditoria e
         # para a resposta: assim as duas não podem divergir — um log dizendo
         # "ativo" enquanto a tela mostra outra coisa seria pior que não logar.
@@ -2871,13 +3220,36 @@ async def setup_confirmar(body: dict = Body(default={}),
         # gravação que não aconteceu.
         _audita(uid, gravado, None, estado, rota=rota)
 
+        # Índice de vigias (Fase 27): o único lugar do sistema onde existe
+        # "meus vigias" com o nome que a PESSOA escreveu, o ticker e a data —
+        # `list_setups` não devolve nenhum dos três. MESMA razão do `_audita`
+        # para o `try/except`: quando chegamos aqui a escrita no armazém JÁ
+        # aconteceu, e derrubar a resposta por falha de contabilidade faria a
+        # pessoa gravar o vigia duas vezes num armazém sem dono.
+        try:
+            opcoes_vigias.registrar(_conn, uid,
+                                    nome_do_usuario=nome_da_pessoa,
+                                    nome_no_servico=gravado,
+                                    ticker=setup.get("ticker"),
+                                    criado_em=_agora_brt())
+        except Exception as e:  # noqa: BLE001 — contabilidade nunca derruba a rota
+            obslog.log("mcp", "registro do vigia falhou", level="warn", rota=rota,
+                       uid=uid, setup=gravado, erro=type(e).__name__, detalhe=str(e))
+
         obslog.log("mcp", "confirmar", rota=rota, uid=uid, setup=gravado, cache=cache)
+
+        interpretado = dados.get("setup_as_interpreted")
+        interpretado = interpretado if isinstance(interpretado, dict) and interpretado \
+            else setup
 
         return {
             "status": estado,
-            "name": gravado,
+            # `name` é o da PESSOA (é ele que a tela mostra) e `nomeNoServico` é
+            # a chave do armazém (é ela que `/grafico` e `/desativar` recebem).
+            "name": nome_da_pessoa,
+            "nomeNoServico": gravado,
             "ticker": setup.get("ticker"),
-            "setup": dados.get("setup_as_interpreted") or setup,
+            "setup": dict(interpretado, name=nome_da_pessoa),
             "backtest": dados.get("backtest"),
             "nota": dados.get("note"),
             "pregao": _pregao_medido(frescor, dados),
@@ -2906,6 +3278,12 @@ async def setup_desativar(name: str,
     uid = user["id"]
     rota = "/api/options/mcp/setups/{name}/desativar"
 
+    # Gate de dono (Fase 27). `{name}` é o nome do ARMAZÉM, como nas rotas
+    # irmãs; a regra inteira (inclusive por que o legado passa e por que a
+    # recusa vem antes do cap) mora em `_exige_dono`, compartilhada com
+    # `/setups/{name}/grafico`.
+    _exige_dono(uid, name, rota=rota, mensagem=RECUSA_DONO_ESCRITA)
+
     with _cap_check(uid, 1) as cap:
         try:
             dados, cache = await _chamada_com_cap(
@@ -2925,11 +3303,33 @@ async def setup_desativar(name: str,
         estado = str(dados.get("status") or "inativo")
         _audita(uid, alvo, "ativo", estado, rota=rota)
 
+        # Mesmo `try/except` de contabilidade do `/setups/confirmar`: a escrita
+        # no armazém já aconteceu. `False` aqui é caminho NORMAL, não erro —
+        # legado nunca teve entrada no índice, e é exatamente o caso que esta
+        # rota precisa continuar atendendo.
+        try:
+            opcoes_vigias.remover(_conn, uid, alvo)
+        except Exception as e:  # noqa: BLE001 — contabilidade nunca derruba a rota
+            obslog.log("mcp", "baixa do vigia falhou", level="warn", rota=rota,
+                       uid=uid, setup=alvo, erro=type(e).__name__, detalhe=str(e))
+
         obslog.log("mcp", "desativar", rota=rota, uid=uid, setup=alvo, cache=cache)
 
         return {
             "status": estado,
-            "name": alvo,
+            # MESMO contrato de `/setups/confirmar` e da `/leitura`: `name` é o
+            # da PESSOA (é ele que a tela mostra — `CriarSetup.jsx` monta
+            # "Setup … desativado" com este campo) e `nomeNoServico` é a chave
+            # do armazém. Devolver o nome prefixado aqui fazia a pessoa ler
+            # "Setup a1b2c3d4-IFR baixo desativado", e o prefixo existe
+            # justamente para ser invisível a ela.
+            #
+            # A desprefixação é do BACKEND de propósito: fazê-la em JavaScript
+            # recriaria a regra do prefixo num segundo lugar, e duas
+            # implementações da mesma regra divergem na primeira correção feita
+            # de um lado só.
+            "name": opcoes_vigias.nome_do_usuario(uid, alvo),
+            "nomeNoServico": alvo,
             "fonte": FONTE,
             "at": _agora_brt(),
             # Declarado "não medido" como nas outras rotas sem anexo — aqui

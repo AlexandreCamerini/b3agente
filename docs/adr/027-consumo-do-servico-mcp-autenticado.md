@@ -211,3 +211,204 @@ vigia nome de variável com espaço passa a vigiar o prefixo `MCP_` também.
 
 Nenhum desses valores entra no bundle do front (guardrail do CLAUDE.md:
 segredo só em env do servidor).
+
+## Emenda 1 (Fase 27, 2026-09-13) — Decisão 7: o dono passa a existir do lado do Boris
+
+A **lacuna declarada na Decisão 7 continua**: o campo `owner` não existe no
+MCP, e um setup criado segue visível a todos os clientes do serviço. O que
+muda é que o **Boris deixa de depender dela**.
+
+Quatro peças, todas no backend:
+
+1. **Prefixo determinístico por conta no nome enviado** —
+   `opcoes_vigias.nome_no_servico(uid, nome)` produz `sha256(uid)[:8] + "-" +
+   nome`. É `sha256` truncado e não o `user_id` porque o nome viaja para fora
+   e fica visível a todos os clientes do serviço: identificador de conta em
+   nome público é vazamento, não organização. O prefixo vale no **ensaio**
+   (`/setups/compilar`, `create_setup` com `confirm: false`) **e** na gravação
+   (`/setups/confirmar`) — até esta data o dry-run validava um nome e a
+   gravação mandava outro, e uma recusa de formato só apareceria depois de a
+   pessoa pagar 2 chamadas do cap e uma análise de LLM. A função é idempotente
+   por desenho, porque o objeto do ensaio volta pela tela para ser gravado.
+2. **Índice por usuário no kv** (`opcoes_vigias`, seção `opcoesVigias`,
+   escopada por `db._scoped`) — é o único lugar do sistema com o nome que a
+   PESSOA escreveu, o ticker e a data de criação. O `list_setups` não devolve
+   nenhum dos três. O índice **não guarda estado** (`armed`/`streak`): estado é
+   medição do serviço, e guardá-lo aqui produziria "armado" carimbado de
+   ontem (princípio 4 do CLAUDE.md).
+3. **Gate de dono no backend, nas DUAS rotas que recebem `{name}` na URL** —
+   `POST /setups/{name}/desativar` e `GET /setups/{name}/grafico` recusam com
+   403 `setup_de_outro_dono` quando o nome não é `e_meu` nem `e_legado`,
+   **antes** do `_cap_check`. Esconder o botão na UI deixaria a rota aberta a
+   qualquer `curl`; cobrar cota de uma recusa que não viajou seria cobrar pelo
+   que não aconteceu. É a MESMA função (`_exige_dono`) nos dois lugares: duas
+   cópias da condição divergem na primeira correção feita de um lado só, e o
+   lado esquecido é o que fica aberto.
+
+   **O `/grafico` só foi fechado em 2026-09-13, depois do 27-01, e o registro
+   importa.** O gate nasceu só no `/desativar` porque o threat model daquele
+   plano não listava a rota de gráfico — o executor não expandiu escopo por
+   conta própria e registrou o risco residual por escrito. Até o fechamento,
+   qualquer conta logada via as condições, a série e as datas de disparo do
+   vigia de outra pessoa, bastando conhecer o nome completo (incluindo os 8
+   hexadecimais do hash dela). Nenhuma rota do produto enumera esses nomes, o
+   que mantinha o risco baixo — mas "não enumerável" nunca foi o mesmo que
+   "fechado". Decisão do Alex, 2026-09-13: fechar.
+4. **Os dois nomes, com rótulos próprios, em TODA rota que responde ao
+   cliente** — `name` é sempre o que a **pessoa** escreveu e `nomeNoServico` é
+   sempre a chave do **armazém**. Vale em `/leitura/{ticker}`, `GET /setups`,
+   `/setups/compilar`, `/setups/confirmar`, `/setups/{name}/desativar` e
+   `GET /setups/{name}/grafico`. A desprefixação é do **backend**: fazê-la em
+   JavaScript recriaria a regra do prefixo num segundo lugar, e duas
+   implementações da mesma regra divergem na primeira correção feita de um
+   lado só.
+
+   **Duas rotas só entraram nesse contrato em 2026-09-13**, depois do 27-01, e
+   as duas mostravam o hash na tela: o `/desativar` devolvia `"name"` com o
+   nome do armazém (`CriarSetup.jsx` exibia *"Setup a1b2c3d4-IFR baixo
+   desativado"*) e o `/grafico` repassava o `name` do payload da tool, que
+   `SetupChart.jsx` imprime como título do gráfico. O prefixo existe para ser
+   invisível à pessoa; exibi-lo não é só feio, é mostrar como "o nome que você
+   escreveu" um texto que ninguém escreveu.
+
+**Medido contra o serviço real em 2026-09-13**, antes de qualquer código: o
+`create_setup` aceita `[8 hexadecimais]-[texto]` como `name` e devolve o nome
+EXATAMENTE como enviado, sem normalizar, truncar ou reescrever — no ensaio e
+na gravação. Um nome SEM prefixo também é aceito: o serviço não impõe formato
+nenhum, e a unicidade continua sendo responsabilidade do Boris.
+
+### Legado (setup sem prefixo) — decisão do Alex, 2026-09-13
+
+Perguntado o que fazer com os setups já gravados no armazém sem dono
+conhecido, a resposta foi literal: **"pode apagar os antigos"**. O que isso
+significa em código:
+
+- **Fora de toda listagem.** Um nome sem prefixo não aparece em
+  `/leitura/{ticker}`, não aparece em `GET /setups` e não aparece no bloco
+  "Seus vigias". Ele deixou de ser conteúdo do produto. Cai junto a ideia de
+  exibir legado com rótulo, e cai a ideia de "adoção".
+- **E ainda assim desativável** por quem tem `opcoes.criar_setup`. A porta
+  fica aberta de propósito: a LISTAGEM é sobre "o que é meu", a DESATIVAÇÃO é
+  sobre "isto ainda dispara". Sem ela, um órfão vira lixo permanente que o
+  produto não consegue remover enquanto o serviço segue avaliando-o todo
+  pregão. Há um teste dedicado só para impedir que essa porta seja fechada por
+  engano num refactor.
+- **O que NÃO se faz: varrer.** Nada de "desativa tudo que não tem prefixo". O
+  armazém "é visto por todos os clientes do serviço" (`server/app/rbac.py:29-34`),
+  então um nome sem prefixo pode ser de OUTRO sistema — não do Boris+ e não do
+  Alex. Apagar em massa ali seria destruir dado de terceiro, e não há `undo`.
+  A limpeza é **operacional, com lista na mão, um a um, com aprovação do
+  desenvolvedor**.
+
+### O que esta emenda NÃO muda
+
+`opcoes.criar_setup` continua restrita ao grupo `opcoes` do ADR-013. A emenda
+**reduz o dano** da lacuna da Decisão 7 (colisão de nome, desativação cruzada,
+invisibilidade dos próprios setups); ela **não fecha** a lacuna — quem tem a
+permissão continua escrevendo num armazém que todos os clientes do serviço
+enxergam. Por isso ela não é argumento para abrir a permissão.
+
+## Emenda 2 (Fase 27, 2026-09-13) — leitura técnica interna para a aba
+
+**Decisão D1 do Alex, 2026-09-13.** Perguntado de onde deve sair a análise
+técnica da evolução dos ativos na aba Opções, a resposta foi **híbrido:
+técnico interno + estrutura no MCP**. Este ADR fecha essa fronteira; a decisão
+a atravessa deliberadamente, e isto é o registro — não uma nota de rodapé no
+código.
+
+Convive com a Emenda 1 sem conflito: a Emenda 1 trata de **quem é o dono** do
+que se grava no armazém compartilhado do serviço; esta trata de **de onde sai
+o número** que a aba lê. As duas empurram na mesma direção — reduzir a
+dependência do serviço para o que o Boris já sabe fazer sozinho — e nenhuma
+delas relaxa o cap, o gate de permissão ou o custo declarado.
+
+### O que muda
+
+O backend passa a servir leitura técnica **interna** e determinística para a
+aba: `server/app/opcoes_tecnico.py` (módulo puro) e
+`GET /api/options/tecnico/{ticker}` (rota nova em `main.py`). Ela responde
+tendência, volatilidade histórica, suporte/resistência e uma régua de sete
+pregões, lendo o **mesmo Snapshot Técnico Único** que serve
+`/api/technicals/{ticker}`, o Radar e a Watchlist — nenhuma linha de
+matemática nova, e nenhuma chamada a `mcp.semente.dev`.
+
+A rota **não** mora em `options_mcp_api.py`, e isso é decisão e não
+conveniência: o guardião (iv) obriga toda rota `/api/options/mcp/*` a passar
+pelo `_cap_check`, e cobrar cota do serviço por uma leitura que não sai do
+processo seria cobrar pelo que não aconteceu. Mesma razão de
+`GET /api/options/vigias` (Emenda 1). Ela usa `Depends(current_scope)` — o
+MESMO gate de `/api/technicals/{ticker}`, porque é o MESMO dado de mercado
+público; exigir sessão só aqui criaria duas réguas de acesso para a mesma
+informação. A allowlist pública do ADR-013 **não cresce** (segue em 25).
+
+A resposta declara `custoMcp: 0` como campo de contrato — é dele que a tela
+tira o rótulo "grátis" do controle, em vez de o front inventar o rótulo por
+conta própria.
+
+### O que NÃO muda
+
+- **O isolamento de FRONT permanece.** `web/src/opcoes/*` continua sem
+  importar `App.jsx`, e o guardião que trava isso continua. O que atravessou a
+  fronteira foi o BACKEND, servindo dado do motor interno para a aba — não o
+  acoplamento de componentes que o ADR evitou.
+- **A Decisão 2 ("fato × juízo") permanece**, e esta emenda a reforça: o
+  número vem do motor determinístico, a LLM só interpreta. É o princípio 5 do
+  CLAUDE.md — se a leitura técnica viesse de um serviço pago por consulta, a
+  tela teria de escolher entre gastar cota a cada abertura ou mostrar menos.
+- **O §3.3 (custo de MCP só em clique explícito) NÃO afrouxa — fica mais
+  forte.** A leitura interna existe justamente para a aba abrir com conteúdo
+  sem gastar cota de ninguém. Toda chamada ao serviço continua saindo de
+  clique explícito, com o custo declarado no controle. Um teste com bomba em
+  `mcp_client.call_tool` prova que a rota nova não toca o serviço, e um teste
+  de `ast` prova que `opcoes_tecnico.py` não importa `mcp`/`httpx`/
+  `candle_provider`: custo zero é propriedade do grafo de imports, não frase
+  de docstring.
+
+### A divisão de trabalho (régua para quem acrescentar campo depois)
+
+| Responde | Fonte | Exemplos |
+|----------|-------|----------|
+| Comportamento do **ATIVO** | motor interno (`opcoes_tecnico.py`) | tendência, volatilidade histórica, suporte/resistência, evolução em 7 pregões |
+| O que é específico de **OPÇÃO** | serviço MCP | cadeia, vencimentos, estruturas operáveis, payoff, avaliação de setup |
+
+Campo novo se decide por esta régua, não por qual chamada já está aberta.
+
+### A consequência aceita: duas fontes descrevem o mesmo ativo
+
+O `behavior` que o serviço devolve e a leitura interna falam do MESMO ativo e
+**podem divergir** — HV medida pelo MyData × HV calculada pelo
+`technical_models` sobre a série do Yahoo/brapi, sobre janelas e calendários
+que não são obrigados a coincidir.
+
+**A divergência é INFORMAÇÃO, não erro.** Cada bloco carrega a própria `fonte`
+e o próprio carimbo (`snapshotId`, `asOf`, `source`, `cacheStatus` no lado
+interno; `trading_date` no lado do serviço) — princípio 3 do CLAUDE.md — e
+**nenhuma reescreve a outra**. Esconder uma das duas produziria a pior das
+saídas: um número único sem dono, impossível de explicar quando alguém
+perguntar por que a tela mudou.
+
+Cuidado medido e registrado aqui porque é como se erra 10× em silêncio: o
+`hv21Pct`/`hv63Pct` do `technical_models` está em **percentual**, enquanto o
+`hv21`/`hv63` do serviço chega em **fração**. Por isso o bloco de volatilidade
+da rota nova declara `"unidade": "pct"` **sempre**, inclusive quando os
+valores são `null` com motivo — é por esse campo que a tela escolhe o
+formatador, em vez de adivinhar.
+
+**Unificar as duas é decisão futura, com gatilho, e não entra nesta fase** —
+mesmo formato da Decisão 3: o ADR de unificação nasce depois de uma medição de
+paridade viva (HV interna × HV do serviço para o mesmo ticker e o mesmo
+pregão) em staging por 10 pregões seguidos, ou na primeira divergência
+material (sinal trocado ou ordem de grandeza), o que vier antes. Até lá as
+duas convivem, cada uma com o seu carimbo.
+
+### Fiação do assistente (mesma data)
+
+`_pet_resumo_opcoes` afirmava, numa frase só, que "a leitura da aba é de FIM DE
+PREGÃO e vem do serviço de opções". Com o híbrido no ar isso virou meia
+verdade dita como verdade inteira. O texto foi separado e nomeado: o que é do
+ATIVO vem do motor interno (pregão fechado, custo zero); o que é de OPÇÃO vem
+do serviço (fim de pregão). Guardião dedicado em `test_pet_todas_telas.py`,
+com lado positivo e lado negativo, impede a volta da frase meio-certa. O
+resumo continua **sem** chamar o serviço e passou a também **não** buscar
+candle: dizer de onde a leitura vem é diferente de buscá-la, e o orçamento da
+brapi é finito (ADR-008).

@@ -57,6 +57,25 @@ const BOTAO = {
   color: T.textSecondary, fontWeight: 700, fontSize: "13px",
 };
 const desabilitado = (cond) => (cond ? { opacity: 0.45, cursor: "not-allowed" } : null);
+
+// Fase 27 (27-05) — a segunda linha do botão, onde o custo é declarado. Mesma
+// forma de `OpcoesScreen.jsx`; o objeto é local pela mesma razão que o bloco
+// `VARKEY/TOKENS/T` é local neste arquivo (importar de `OpcoesScreen.jsx` seria
+// ciclo). Tokens existentes, nenhuma cor nova.
+const CUSTO_NO_BOTAO = {
+  display: "block", fontSize: "11px", fontWeight: 600,
+  color: T.textMuted, marginTop: "3px",
+};
+
+// Fase 27 (27-05) — a leitura do custo, com queda para travessão.
+//
+// A tabela chega por PROP (`custos`), e é o chamador que a espelha do backend.
+// Sem a prop (ou com a chave ausente), NÃO se inventa número: `opcoesCustoChamadas`
+// já devolve travessão para argumento não-numérico, e um "1" chutado aqui seria
+// a pior das saídas — um custo declarado errado é crível, e por isso pior que
+// custo nenhum.
+const custoDe = (custos, chave) => (custos && typeof custos[chave] === "number"
+  ? custos[chave] : null);
 const CAIXA = {
   border: `1px solid ${T.borderSubtle}`, borderRadius: "12px",
   padding: "12px 14px", background: T.bgPanel,
@@ -124,7 +143,7 @@ function condicaoEmTexto(c) {
   return partes.length ? partes.join(" · ") : "—";
 }
 
-export default function CriarSetup({ ticker, estado, onCompilar, onConfirmar, cp }) {
+export default function CriarSetup({ ticker, estado, onCompilar, onConfirmar, custos, cp }) {
   const c = cp || {};
   const e = estado || {};
   const dados = e.dados;
@@ -147,12 +166,25 @@ export default function CriarSetup({ ticker, estado, onCompilar, onConfirmar, cp
       />
       <div id={idAjuda} style={AJUDA}>{c.opcoesCriarAjuda || ""}</div>
 
+      {/* Fase 27 (27-05) — **o único controle da aba com custo em DOIS eixos.**
+          Compilar gasta 2 chamadas do cap do serviço de opções E uma análise da
+          cota de IA do dia (`consumir_analise()` no backend), que é outra cota,
+          com outra tela e outro teto. Declarar só a primeira faria a segunda
+          desaparecer justamente do controle que a consome.
+
+          O texto da IA NOMEIA o consumo e não cita número: o teto real vive no
+          gate do `metering` e já tem tela própria — um número redigitado aqui
+          envelheceria em silêncio no dia em que o plano mudasse. */}
       <button
         onClick={() => onCompilar && onCompilar({ descricao: descricao.trim() })}
         disabled={!podeEnviar}
         style={{ ...BOTAO, width: "100%", marginTop: "12px", ...desabilitado(!podeEnviar) }}
       >
-        {c.opcoesCriarBotao || "Ver a interpretação e o ensaio"}
+        <span style={{ display: "block" }}>{c.opcoesCriarBotao || "Ver a interpretação e o ensaio"}</span>
+        <span style={CUSTO_NO_BOTAO}>
+          {(c.opcoesCustoChamadas || ((n) => String(n)))(custoDe(custos, "compilar"))}
+        </span>
+        <span style={CUSTO_NO_BOTAO}>{c.opcoesCustoAnaliseIA || ""}</span>
       </button>
 
       {/* carregando → erro → dados. Vazio não tem estado próprio aqui: antes
@@ -168,7 +200,7 @@ export default function CriarSetup({ ticker, estado, onCompilar, onConfirmar, cp
             <RecusaCobradaNaCriacao erro={e.erro} cp={c} />
           </>
         ) : dados && dados.status === "dry_run" ? (
-          <Ensaio dados={dados} cp={c} onConfirmar={onConfirmar} />
+          <Ensaio dados={dados} cp={c} custos={custos} onConfirmar={onConfirmar} />
         ) : dados && dados.status === "inativo" ? (
           <Aviso>{(c.opcoesCriarDesativado || ((n) => "Setup " + n + " desativado."))(dados.name)}</Aviso>
         ) : dados ? (
@@ -311,7 +343,7 @@ function ErroDaCriacao({ erro, cp }) {
 
 // O ensaio: o que o serviço ENTENDEU + o backtest. Nenhum número é
 // recalculado aqui, e nenhum deles ganha cor — ver o cabeçalho do arquivo.
-function Ensaio({ dados, cp, onConfirmar }) {
+function Ensaio({ dados, cp, custos, onConfirmar }) {
   const c = cp || {};
   const setup = (dados && dados.setup && typeof dados.setup === "object") ? dados.setup : {};
   const backtest = (dados && dados.backtest && typeof dados.backtest === "object") ? dados.backtest : null;
@@ -397,7 +429,10 @@ function Ensaio({ dados, cp, onConfirmar }) {
         onClick={() => onConfirmar && onConfirmar(dados.setup)}
         style={{ ...BOTAO, width: "100%", marginTop: "14px" }}
       >
-        {c.opcoesCriarConfirmar || "Gravar este setup"}
+        <span style={{ display: "block" }}>{c.opcoesCriarConfirmar || "Gravar este setup"}</span>
+        <span style={CUSTO_NO_BOTAO}>
+          {(c.opcoesCustoChamadas || ((n) => String(n)))(custoDe(custos, "confirmar"))}
+        </span>
       </button>
     </div>
   );
@@ -467,12 +502,33 @@ function EnsaioInconclusivo({ ensaio, cp }) {
  * Mora neste arquivo (e não em `OpcoesScreen`) porque é a única outra ação de
  * ESCRITA de setup: as duas nascem e mudam juntas.
  */
-export function BotaoDesativar({ nome, onDesativar, cp, ocupado }) {
+/*
+ * Fase 27 (27-02) — DOIS nomes, e eles servem a coisas diferentes:
+ * · `nome` é a chave no ARMAZÉM do serviço (`nomeNoServico`, com o prefixo de
+ *   8 hexadecimais da conta). É ele que viaja em `/desativar`;
+ * · `nomeVisivel` é o nome que a PESSOA escreveu, e é só ele que pode entrar
+ *   num rótulo lido em voz alta. Sem esse segundo parâmetro, o leitor de tela
+ *   passaria a anunciar "Desativar este setup a1b2c3d4-IFR baixo" — o mesmo
+ *   dano que a injeção nº 4 do 27-01 mediu, só que no canal de acessibilidade.
+ * Cai em `nome` quando ausente, para o chamador que ainda passa um só.
+ */
+/*
+ * Fase 27 (27-05) — o custo (1 chamada) é declarado nos DOIS toques, e é de
+ * propósito: o primeiro toque não gasta nada, mas é onde a pessoa decide; o
+ * segundo é o que cobra. Declarar só no segundo seria avisar depois de ela já
+ * ter decidido, que é o mesmo defeito de declarar custo nenhum.
+ *
+ * O custo entra TAMBÉM no `aria-label`, porque ele substitui o texto do botão
+ * para quem usa leitor de tela — um custo que vivesse só no <span> seria
+ * invisível justamente para quem não pode conferir na tela.
+ */
+export function BotaoDesativar({ nome, nomeVisivel, onDesativar, cp, custos, ocupado }) {
   const c = cp || {};
   const [confirmando, setConfirmando] = useState(false);
   const rotulo = confirmando
     ? (c.opcoesCriarConfirmarDesativacao || "Confirmar a desativação")
     : (c.opcoesCriarDesativar || "Desativar este setup");
+  const custo = (c.opcoesCustoChamadas || ((n) => String(n)))(custoDe(custos, "desativar"));
   return (
     <button
       onClick={() => {
@@ -481,10 +537,11 @@ export function BotaoDesativar({ nome, onDesativar, cp, ocupado }) {
         if (onDesativar) onDesativar(nome);
       }}
       disabled={!!ocupado}
-      aria-label={rotulo + " " + (nome || "")}
+      aria-label={rotulo + " " + (nomeVisivel || nome || "") + ". " + custo}
       style={{ ...BOTAO, width: "100%", marginTop: "8px", ...desabilitado(!!ocupado), ...(confirmando ? { borderColor: T.negative, color: T.negative } : null) }}
     >
-      {rotulo}
+      <span style={{ display: "block" }}>{rotulo}</span>
+      <span style={CUSTO_NO_BOTAO}>{custo}</span>
     </button>
   );
 }

@@ -390,6 +390,110 @@ executor: ativar junto com os limites configuráveis (25-03/25-04). O estado
 pendente está codificado como `xfail(strict=True)` — no dia da ativação os
 casos falham por XPASS e obrigam quem ativar a tirar a marca.
 
+#### Phase 26: Otimização de UX e da camada de IA — standalone
+**Goal**: Fechar a distância entre o que o app faz e o que ele diz que faz —
+telas invisíveis para o assistente, texto que descreve produto inexistente, e
+caminhos de menu mortos — sem adicionar funcionalidade nova.
+**Depends on**: nada em código. Briefing e decisões do Alex de 2026-09-12 em
+`.planning/phases/26-otimizacao-ux-ia/26-CONTEXT.md`.
+**Requirements**: ver 26-CONTEXT.md
+**Success Criteria** (what must be TRUE):
+  1. Toda aba do `BottomNav` é conhecida por todos os registros de tela
+     (assistente, tour, ajuda, snapshot do pet) — nenhuma responde 400 nem cai
+     em fallback silencioso de outra tela.
+  2. Pergunta coberta pelos 83 verbetes da KB é respondida sem depender da tela
+     de origem, sem afrouxar allowlist.
+  3. Todo texto de produto citado em prosa pelo backend aponta para um destino
+     que existe, travado por guardião que deriva da fonte.
+**Plans**: 1 executado; backlog (B2, B3, C1, C2, C3) registrado no CONTEXT
+
+Plans:
+
+**Wave 1**
+
+- [x] 26-01-PLAN.md — Fase A: sete correções baratas e independentes (aba Opções visível ao assistente, KB antes da checagem de tela, tour cobrindo a tela de abertura, três textos mortos corrigidos)
+
+**Ondas seguintes** *(cada plano é escrito quando a fase anterior informa a próxima)*
+
+- [ ] B2 — preservar estado ao trocar de aba (sem decisão de abordagem)
+- [ ] B3 — ligar a aba Opções às rotas de execução, com lastro obrigatório e flag opt-in para operação a descoberto (pesquisa concluída; decisão de escopo pendente)
+- [ ] C1 — porta de busca para os 83 verbetes da KB
+- [ ] C2 — ancorar verbete nas quatro abas sem cobertura
+- [ ] C3 — consolidar os cinco registros paralelos de tela do front num ponto único
+
+**UI hint**: yes
+
+#### Phase 27: Aba Opções sobre a carteira — standalone
+**Goal**: A aba Opções deixa de ser um consultor de tickers avulsos e passa a
+operar sobre o que o usuário tem. O universo vira a carteira, os vigias
+(setups) passam a existir fora do ticker que os criou, e a leitura técnica do
+ativo chega de graça pelo motor determinístico do próprio app — reservando o
+serviço externo de opções para o que só ele sabe (cadeia, vencimentos,
+payoff), sob clique explícito e com custo declarado.
+**Depends on**: Phase 24 (aba Opções sobre MCP) e Phase 26 (Fase A, que tornou
+a aba visível ao assistente). Protótipo de UX aprovado pelo Alex em 2026-09-13.
+**Requirements**: ver 27-CONTEXT.md
+**Success Criteria** (what must be TRUE):
+  1. Um setup gravado continua visível depois de sair e voltar à aba, sem que o
+     usuário precise lembrar em qual ativo o criou.
+  2. A aba nunca abre vazia para quem tem posição em carteira; para quem não
+     tem, o estado vazio explica o porquê e oferece caminho.
+     *(Leitura fixada em 2026-09-13: "não abre vazia" = tem CONTEÚDO — a lista
+     das posições e o bloco "Seus vigias", os dois de custo zero. NÃO significa
+     ativo pré-selecionado: selecionar um ativo dispara uma leitura de custo 3,
+     e auto-selecionar violaria o critério 4 logo abaixo.)*
+  3. Tendência, volatilidade e suporte/resistência do ativo aparecem sem
+     consumir cota do serviço externo.
+  4. Toda chamada que consome cota sai de clique explícito, com o custo visível
+     no próprio controle (ADR-027 preservado neste ponto).
+  5. O lastro livre aparece ANTES da tentativa de operar, não só na recusa.
+**Plans**: 5 planos em 4 ondas
+
+Plans:
+
+**Wave 1**
+
+- [x] 27-01-PLAN.md — índice de vigias por usuário, isolamento no armazém compartilhado do MCP e as duas rotas de listagem (custo 0 e custo 2); emenda à Decisão 7 do ADR-027
+
+**Wave 2** *(paralelos — nenhum arquivo em comum)*
+
+- [x] 27-02-PLAN.md — front: universo = carteira, ticker que não nasce vazio, bloco "Seus vigias" no topo, lastro livre no cartão, estado vazio com caminho
+- [x] 27-03-PLAN.md — backend: ponte com o motor técnico interno (`opcoes_tecnico.py` + `GET /api/options/tecnico/{ticker}`), Emenda 2 ao ADR-027, assistente falando da aba sobre a carteira
+
+**Wave 3**
+
+- [x] 27-04-PLAN.md — front: bloco de leitura interna com carimbo, régua de regime de 7 pregões, formatador escolhido pela unidade declarada
+
+**Wave 4**
+
+- [x] 27-05-PLAN.md — front: custo declarado em TODO controle (tabela espelhada do `_cap_check`), leitura do serviço sob clique explícito, custo do frescor declarado no cabeçalho
+
+**Nota de planejamento (2026-09-13):** eram 3 planos previstos; viraram 4. O
+critério 4 ("custo visível no próprio controle") hoje é falso em sete dos oito
+controles da aba, e a régua de 7 pregões do protótipo aprovado é componente
+novo — os dois não cabiam no orçamento de contexto do plano de front sem
+reduzir escopo, o que não é opção. A fronteira dos três planos originais foi
+preservada: 27-03 continua sendo "ponte técnica + emenda ao ADR", e o 27-04 é a
+metade de tela dele somada ao custo declarado.
+
+**Revisão de 2026-09-13 (verificação adversarial):** viraram **5 planos em 4
+ondas**. O custo declarado saiu do 27-04 para o **27-05** porque cresceu: além
+de rotular os controles, ele passou a mover `mcpLeitura` para fora do
+`useEffect` (hoje trocar de ativo gasta 3 chamadas sem controle nenhum dizer),
+a declarar o custo do frescor no cabeçalho e a cruzar o rótulo do front com o
+`_cap_check` de cada rota do backend — seis arquivos e um guardião não-trivial.
+Somado às duas tasks que ficaram no 27-04, o plano passaria de 70% de contexto.
+Nada foi reduzido: o escopo inteiro continua na fase. Também entrou uma Task 0
+no 27-01 (provar, antes de qualquer código, que o serviço aceita um nome
+prefixado) e caiu toda a complexidade de legado, por decisão do Alex
+(27-CONTEXT, D6).
+
+**UI hint**: yes
+
+**Fora de escopo, explicitamente**: ligar a aba à execução de ordens (B3 da
+Fase 26) — a regra de lastro obrigatório × flag de operação a descoberto
+continua pendente de decisão e não entra aqui.
+
 ## Progress
 
 | Phase | Milestone | Status | Completed |
@@ -420,6 +524,8 @@ casos falham por XPASS e obrigam quem ativar a tirar a marca.
 | 23. Motion com propósito e ilustração unificada | 4/4 | Complete    | 2026-09-06 |
 | 24. Aba Opções sobre MCP — análise e criação de setups | 12/13 | In Progress|  |
 | 25. Planos comerciais — acesso por função e limites por plano | 6/6 | Complete | 2026-09-12 |
+| 26. Otimização de UX e da camada de IA | 1/6 | In Progress|  |
+| 27. Aba Opções sobre a carteira | 5/5 | Code complete | 2026-09-13 |
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2/v1.3
 

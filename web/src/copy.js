@@ -101,12 +101,27 @@ export const COPY = {
     tituloOperadorIA: "Operador IA",
     linkOperadorIA: "Abrir o Operador IA →",
     opcoesLeituraTitulo: "LEITURA DO ATIVO",
+    // Fase 27 (27-05) — a leitura do SERVIÇO virou clique. As duas chaves
+    // abaixo são o convite: o botão e o que ele traz de diferente do bloco
+    // técnico interno (grátis, 27-04) que já está na tela logo acima. Sem
+    // dizer a diferença, pagar 3 consultas por "mais uma leitura" pareceria
+    // pagar duas vezes pela mesma coisa.
+    opcoesLerNoServico: "Ler no serviço de opções",
+    opcoesLeituraConvite: "A leitura acima é do motor do próprio Boris+ e não custa nada. O serviço de opções acrescenta o que só ele tem: o catálogo de estruturas montáveis, os vencimentos abertos e a avaliação de hoje dos vigias deste ativo.",
     opcoesSetupsTitulo: "SETUPS GRAVADOS",
     opcoesPregaoRotulo: "Pregão",
     opcoesFonteRotulo: "Fonte",
     opcoesFrescorEmDia: "dado em dia",
     opcoesFrescorAtrasado: "dado atrasado",
     opcoesFrescorNaoMedido: "frescor não medido",
+    // Fase 27 (27-05) — a ÚNICA chamada da aba que ainda sai sem clique, dita
+    // na tela. O frescor (`/status`) reserva 1 chamada e só a consome quando
+    // precisa mesmo ir ao serviço; com o frescor em cache, o custo é zero. Ele
+    // não vira botão porque um gate de frescor que só aparece depois de um
+    // clique não protege ninguém (ADR-027, Decisão 8): o cabeçalho tem de
+    // poder dizer a idade do dado desde o primeiro frame. Declarar é a
+    // correção honesta; esconder seria a outra.
+    opcoesCustoFrescor: "Abrir esta aba consulta o frescor do dado no serviço: consome até 1 chamada da sua cota do dia, e nenhuma quando o frescor já está em cache. É a única consulta desta tela que sai sem você pedir — todas as outras saem de um botão que diz o preço.",
     // 24-12 (achado ao vivo 2026-09-11): o serviço dizia "em dia" — e pelo
     // SLA dele, com razão — sobre uma cotação de dois pregões atrás. A
     // distância é MEDIDA aqui, pelo calendário da B3, e vence o veredito
@@ -145,7 +160,92 @@ export const COPY = {
     // serviço, logo acima.
     opcoesRecusaCobrada: "O serviço recusou esta consulta e ainda assim ela consumiu uma chamada da sua cota do dia: ele conta a chamada quando a recebe, antes de decidir se consegue respondê-la.",
     opcoesCarregando: "Consultando o serviço de opções…",
-    opcoesEscolherAtivo: "Escolha um ativo da sua watchlist para ver a leitura dele.",
+    // Fase 27 (D3, 2026-09-13): o universo da aba virou a CARTEIRA. A frase
+    // dizia "da sua watchlist" e passou a dizer da carteira — a chave NÃO foi
+    // renomeada de propósito: `test_opcoes_mcp_aba_ui.mjs` usa o nome dela
+    // como marcador da ordem dos estados no fonte da tela.
+    opcoesEscolherAtivo: "Escolha um ativo da sua carteira para ver a leitura dele.",
+    // Fase 27 (D2): carteira vazia tem motivo E caminho. Dizer só "não há nada
+    // aqui" transferiria para a pessoa a tarefa de descobrir por quê — e o
+    // porquê é de produto, não de bug.
+    opcoesCarteiraVazia: "Esta aba trabalha sobre o que você já tem: toda estrutura de opção montada aqui é lastreada em ações da sua carteira. Como a carteira está vazia, não há ativo sobre o qual montar nem o que vigiar. A watchlist não entra no lugar: lista de interesse é intenção, e o que falta aqui é lastro. Comece escolhendo um ativo na Carteira.",
+    opcoesIrParaCarteira: "Ir para a Carteira",
+    // Fase 27 (27-02) — bloco "Seus vigias", no topo da aba e FORA de qualquer
+    // ticker. É ele que corrige o defeito da fase: antes, um vigia gravado só
+    // aparecia com o ativo dele selecionado, e sair da aba e voltar dava a
+    // impressão de que nada tinha sido gravado.
+    //
+    // O título é o mesmo nos dois modos de propósito, como `tituloOpcoes`:
+    // "vigia" é o nome da coisa nos dois registros, e não há sinônimo de mesa
+    // para ele. A voz mora nos textos longos abaixo.
+    opcoesVigiasTitulo: "SEUS VIGIAS",
+    opcoesVigiasVazio: "Você ainda não gravou nenhum vigia. Vigia é uma condição objetiva que você escreve antes do pregão — por exemplo, \"o IFR de 2 períodos abaixo de 25\" — e que o serviço confere uma vez por dia, sobre o fechamento. Enquanto não houver uma condição escrita, não há o que conferir.",
+    // Travessão COM motivo, nunca leitura negativa: enquanto o estado do dia
+    // não foi pedido, ninguém mediu nada — e dizer que o vigia não disparou
+    // seria afirmar uma medição que não existe (princípio 4 do CLAUDE.md).
+    opcoesVigiasSemEstado: "— estado do dia ainda não pedido. O que está acima é o cadastro do vigia: ele vem do próprio Boris+, é de graça e não diz nada sobre hoje. Saber se a condição foi atendida é medição do serviço de dados, e ela só sai quando você pede.",
+    opcoesVigiasAtualizar: "Pedir o estado do dia",
+    // Vigia de ativo fora da carteira NÃO some da lista: ele existe e continua
+    // sendo conferido. Escondê-lo repetiria o defeito que a fase fecha.
+    opcoesVigiaForaDaCarteira: "Este vigia é de um ativo que não está na sua carteira agora. Ele continua existindo e continua sendo conferido pelo serviço — o que muda é que você não tem o papel para lastrear uma estrutura sobre ele.",
+    // Fase 27 (27-02, D4) — o lastro livre no cartão, ANTES da tentativa. Este
+    // número só existia na mensagem de recusa do backend ("Lastro
+    // insuficiente: N ação(ões) livres…"), depois de a pessoa tentar. Mesmo
+    // vocabulário de `badgeTravada`/`avisoTravaNaVenda`, que é como o resto do
+    // app já fala de lastro — um segundo vocabulário faria a Carteira e esta
+    // aba parecerem falar de coisas diferentes.
+    opcoesLastroLivre: (livres, contratos) =>
+      "Lastro livre: " + (typeof livres === "number" ? livres : "—") +
+      " ação(ões), o que dá para " + (typeof contratos === "number" ? contratos : "—") +
+      " contrato(s).",
+    opcoesLastroTravado: (travadas) =>
+      (typeof travadas === "number" ? travadas : "—") +
+      " ação(ões) já está(ão) travada(s) como lastro de uma call coberta aberta — volta(m) a ficar livre(s) quando a call for recomprada ou vencer.",
+    opcoesLastroAjuda: "1 contrato = 100 ações. É o mesmo número que a Carteira mostra, saído da mesma conta — e nenhuma ordem sai desta tela.",
+    // Travessão COM motivo: zero seria lido como "você não tem lastro", que é
+    // afirmação diferente de "não sei quanto você tem" (princípio 4).
+    opcoesLastroSemDado: "não deu para ler a quantidade desta posição, então o lastro não é afirmado aqui. Zero seria outra coisa: \"você não tem lastro\" é diferente de \"não sei quanto você tem\".",
+    // Fase 27 (27-04, D1/D4) — A LEITURA TÉCNICA INTERNA.
+    //
+    // Bloco que nasce do lado do app, não do serviço de opções: tendência,
+    // volatilidade, suporte/resistência e a régua de sete pregões saem do
+    // motor determinístico que já alimenta Radar e Watchlist (27-03). Custo
+    // ZERO de cota — é isso que permite escolher um ativo e ter resposta na
+    // hora, em vez de só ter resposta paga.
+    opcoesInternaTitulo: "LEITURA TÉCNICA DO ATIVO",
+    // O carimbo é o princípio 3 do CLAUDE.md: de QUANDO é a leitura e DE ONDE
+    // ela veio. Sem fonte declarada, travessão — nunca um nome de fonte por
+    // default, que é o mesmo defeito que o cabeçalho da aba já corrigiu.
+    opcoesInternaCarimbo: (asOf, fonte) =>
+      "Leitura do pregão de " + (asOf || "—") + ", calculada pelo próprio Boris+ a partir de " +
+      (fonte || "—") + ". É o mesmo motor que o Radar e a Watchlist usam, então o número aqui é o mesmo de lá.",
+    // Selo DERIVADO de `custoMcp === 0` na resposta, nunca escrito à mão: se a
+    // rota um dia passar a custar, o selo some sozinho.
+    opcoesSemCusto: "grátis — motor do próprio app, sem consultar o serviço de opções",
+    opcoesInternaCarregando: "Calculando a leitura técnica no próprio app…",
+    opcoesInternaErro: "A leitura técnica interna deste ativo não saiu agora. Nada foi estimado no lugar — e o resto da tela não depende dela: os vigias e a leitura do serviço continuam valendo.",
+    // Os quatro regimes de `server/app/regime.py::REGIMES`. Uma tabela só,
+    // aqui, para que a linha de tendência e a régua digam a MESMA palavra
+    // sobre o mesmo estado — dois vocabulários divergiriam na primeira
+    // renomeação e a régua passaria a contradizer a linha logo acima dela.
+    opcoesRegimeRotulo: {
+      tendencia_alta: "tendência de alta",
+      tendencia_baixa: "tendência de baixa",
+      lateral: "sem tendência definida (lateral)",
+      indefinido: "indefinido — faltou dado para classificar",
+    },
+    opcoesForcaRotulo: { forte: "forte", transicao: "em transição", fraca: "fraca" },
+    // Ressalva, não erro: o valor continua na tela. O que muda é que a janela
+    // de 200 pregões não fechou e o filtro de direção se apoiou na média de
+    // 50 — dizer isso é diferente de esconder o número.
+    opcoesRegimeNaoConfiavel: "Esta classificação se apoiou na média de 50 pregões, não na de 200: o histórico disponível ainda não fecha a janela longa. O número continua valendo para o que ele mede — o que não dá para afirmar é tendência de longo prazo.",
+    // A régua de sete pregões (D4 do 27-CONTEXT). Cada segmento é um pregão
+    // FECHADO e a cor é o estado MEDIDO naquele dia. Nada ali é previsão — a
+    // frase diz isso com todas as letras porque uma faixa horizontal com
+    // cores é lida como projeção se ninguém disser o contrário.
+    opcoesReguaTitulo: "Como a semana evoluiu",
+    opcoesReguaAjuda: "Cada segmento é um pregão fechado, do mais antigo à esquerda até o mais recente à direita, e a cor é o regime que foi MEDIDO naquele dia — não uma previsão do próximo. Segmento mais apagado é dia em que a janela longa não estava disponível e a classificação se apoiou na média curta.",
+    opcoesReguaSemDados: "Não há pregões suficientes para montar a evolução da semana deste ativo. A faixa fica de fora em vez de aparecer vazia: sete segmentos \"indefinido\" seriam lidos como \"a semana inteira sem direção\", que é afirmação diferente de \"não há dado\".",
     opcoesDisclaimer: "Conteúdo educacional. Os dados são de fim de pregão e podem estar atrasados; nada aqui é ordem, recomendação ou promessa de resultado.",
     opcoesGraficoTitulo: "Disparos do setup",
     opcoesDisparosRotulo: "Disparos",
@@ -166,9 +266,23 @@ export const COPY = {
     opcoesLoteAjuda: "1 contrato = 100 ações. O lote só serve para converter em reais os números que vêm por ação; a conta é feita no servidor.",
     opcoesMontarEstrutura: "Montar a estrutura",
     opcoesVerPossibilidades: "Comparar os vencimentos",
+    // Fase 27 (27-02): a frase do CUSTO ficou genérica e a COMPOSIÇÃO saiu
+    // para uma chave própria. Ela é a forma única de declarar custo na aba, e
+    // agora também o botão do bloco de vigias a usa — cuja conta é outra
+    // (`list_setups` + `evaluate_setups`). Mantida como estava, ela afirmaria
+    // "uma para listar os vencimentos e duas para cada vencimento" sobre uma
+    // chamada que não consulta vencimento nenhum: número certo, explicação
+    // falsa.
     opcoesCustoChamadas: (n) =>
       "Esta consulta gasta " + (typeof n === "number" ? n : "—") +
-      " chamada(s) da sua cota do dia: uma para listar os vencimentos e duas para cada vencimento consultado.",
+      " chamada(s) da sua cota do dia.",
+    opcoesCustoVencimentos: "A conta: uma chamada para listar os vencimentos e duas para cada vencimento consultado.",
+    // Fase 27 (27-05) — o SEGUNDO eixo de custo, e ele só existe num controle:
+    // compilar um setup usa o modelo de linguagem, que tem cota própria, teto
+    // próprio e tela própria. Sem número aqui de propósito — o teto vive no
+    // gate do `metering`, e um número redigitado nesta frase envelheceria em
+    // silêncio no dia em que o plano mudasse.
+    opcoesCustoAnaliseIA: "E consome uma análise de IA da sua cota do dia, que é uma cota separada desta.",
     opcoesVerCadeia: "Ver a cadeia de opções",
     opcoesVerOperaveis: "Ver só as opções com liquidez",
     opcoesCriterioOperaveis: (c) => {
@@ -548,12 +662,20 @@ export const COPY = {
     tituloOperadorIA: "Operador IA",
     linkOperadorIA: "Abrir o Operador IA →",
     opcoesLeituraTitulo: "LEITURA DO ATIVO",
+    // Fase 27 (27-05) — MESMA substância do ramo estudo, em voz de mesa: o que
+    // o serviço acrescenta ao que o motor interno já entregou de graça.
+    opcoesLerNoServico: "Puxar a leitura do serviço",
+    opcoesLeituraConvite: "O bloco acima sai do motor interno, custo zero. O serviço acrescenta o que só ele tem: catálogo de estruturas, vencimentos abertos e a avaliação de hoje dos vigias deste ativo.",
     opcoesSetupsTitulo: "SETUPS GRAVADOS",
     opcoesPregaoRotulo: "Pregão",
     opcoesFonteRotulo: "Fonte",
     opcoesFrescorEmDia: "dado em dia",
     opcoesFrescorAtrasado: "dado atrasado",
     opcoesFrescorNaoMedido: "frescor não medido",
+    // Fase 27 (27-05) — a única chamada da aba sem clique, declarada. Mesma
+    // razão do ramo estudo: o gate de frescor precisa existir na abertura
+    // (ADR-027, Decisão 8), então o que resta é dizer o preço dele.
+    opcoesCustoFrescor: "Abrir a aba consulta o frescor no serviço: até 1 chamada da cota do dia, zero quando o frescor está em cache. É a única consulta desta tela que sai sem pedido — o resto sai de botão com o preço escrito.",
     // 24-12 — MESMA medição, em voz de mesa. O rótulo do chip é o mesmo nos
     // dois modos de propósito: é contagem de pregão, não juízo — e "2 pregões
     // atrás" já é a frase mais curta que diz o fato.
@@ -585,7 +707,50 @@ export const COPY = {
     // que a pessoa precisa é fechar a conta da própria cota.
     opcoesRecusaCobrada: "Consulta recusada pelo serviço e cobrada assim mesmo: consumiu uma chamada da sua cota do dia. O serviço conta a chamada na entrada, não na resposta.",
     opcoesCarregando: "Consultando o serviço de opções…",
-    opcoesEscolherAtivo: "Escolha um ativo do seu monitoramento para ver a leitura.",
+    // Fase 27 (D3): mesma troca do outro ramo — o universo é a carteira, não o
+    // monitoramento. Chave preservada (é marcador de ordem no guardião).
+    opcoesEscolherAtivo: "Escolha um ativo da carteira para ver a leitura.",
+    // Fase 27 (D2), voz de mesa: o motivo em uma linha e o caminho logo em
+    // seguida. MESMA substância do ramo estudo.
+    opcoesCarteiraVazia: "A aba opera sobre a carteira: estrutura de opção aqui é lastreada em ação que você já tem. Carteira vazia, nada a lastrear e nada a vigiar. A watchlist não substitui — interesse não é lastro. Abra a Carteira e monte a posição antes.",
+    opcoesIrParaCarteira: "Abrir a Carteira",
+    // Fase 27 (27-02) — MESMAS chaves do ramo estudo, voz de mesa. O título é
+    // igual nos dois por decisão (ver a nota no outro ramo).
+    opcoesVigiasTitulo: "SEUS VIGIAS",
+    opcoesVigiasVazio: "Nenhum vigia gravado nesta conta. Vigia é condição objetiva escrita antes do pregão e conferida uma vez por dia, sobre o fechamento. Sem condição escrita, não há o que conferir.",
+    opcoesVigiasSemEstado: "— estado do dia ainda não pedido. Acima está só o cadastro, que é local e não custa cota. Estado é medição do serviço e sai sob pedido.",
+    opcoesVigiasAtualizar: "Medir o estado do dia",
+    opcoesVigiaForaDaCarteira: "Ativo fora da carteira. O vigia segue existindo e segue sendo conferido; o que falta é o papel para lastrear estrutura sobre ele.",
+    // Fase 27 (27-02, D4) — MESMAS chaves do ramo estudo, voz de mesa. Mesmo
+    // vocabulário de `badgeTravada`/`avisoTravaNaVenda`.
+    opcoesLastroLivre: (livres, contratos) =>
+      "Livre para lastro: " + (typeof livres === "number" ? livres : "—") +
+      " ação(ões) = " + (typeof contratos === "number" ? contratos : "—") + " contrato(s).",
+    opcoesLastroTravado: (travadas) =>
+      (typeof travadas === "number" ? travadas : "—") +
+      " ação(ões) travada(s) como lastro da call coberta aberta — liberam na recompra ou no vencimento.",
+    opcoesLastroAjuda: "1 contrato = 100 ações. Mesmo número da Carteira, mesma conta; nenhuma ordem sai desta tela.",
+    opcoesLastroSemDado: "quantidade desta posição ilegível, então o lastro não é afirmado. Zero diria \"sem lastro\", que é outra afirmação.",
+    // Fase 27 (27-04, D1/D4) — a leitura técnica interna, voz de mesa: o
+    // estado, a fonte e o custo, sem a aula. MESMAS chaves do ramo estudo.
+    opcoesInternaTitulo: "TÉCNICO DO ATIVO",
+    opcoesInternaCarimbo: (asOf, fonte) =>
+      "Pregão de " + (asOf || "—") + " · motor interno sobre " + (fonte || "—") +
+      ". Mesma fonte do Radar e da Watchlist.",
+    opcoesSemCusto: "grátis — motor interno, não consulta o serviço",
+    opcoesInternaCarregando: "Calculando o técnico no app…",
+    opcoesInternaErro: "Técnico interno indisponível agora. Nada estimado no lugar; vigias e leitura do serviço seguem valendo.",
+    opcoesRegimeRotulo: {
+      tendencia_alta: "tendência de alta",
+      tendencia_baixa: "tendência de baixa",
+      lateral: "lateral",
+      indefinido: "indefinido — sem dado para classificar",
+    },
+    opcoesForcaRotulo: { forte: "forte", transicao: "em transição", fraca: "fraca" },
+    opcoesRegimeNaoConfiavel: "Classificação apoiada na média de 50, não na de 200 — a janela longa ainda não fechou. Vale para o que mede; não afirma tendência longa.",
+    opcoesReguaTitulo: "Evolução da semana",
+    opcoesReguaAjuda: "Um segmento por pregão fechado, mais antigo à esquerda. A cor é o regime MEDIDO no dia; não é previsão do próximo. Segmento apagado = janela longa indisponível, classificação pela média curta.",
+    opcoesReguaSemDados: "Pregões insuficientes para a evolução da semana. A faixa fica fora em vez de vir vazia: sete \"indefinido\" seriam lidos como semana sem direção, que é outra afirmação.",
     opcoesDisclaimer: "Conteúdo educacional. Dados de fim de pregão, possivelmente atrasados; nada aqui é ordem, recomendação ou promessa de resultado.",
     opcoesGraficoTitulo: "Disparos do setup",
     opcoesDisparosRotulo: "Disparos",
@@ -605,9 +770,15 @@ export const COPY = {
     opcoesLoteAjuda: "1 contrato = 100 ações. Converte em reais os números que vêm por ação; a conta é do servidor.",
     opcoesMontarEstrutura: "Montar estrutura",
     opcoesVerPossibilidades: "Ver possibilidades",
+    // Fase 27 (27-02): mesma separação do ramo estudo — custo genérico aqui,
+    // composição na chave própria abaixo.
     opcoesCustoChamadas: (n) =>
       "Custo desta consulta: " + (typeof n === "number" ? n : "—") +
-      " chamada(s) da cota do dia (1 para listar os vencimentos + 2 por vencimento).",
+      " chamada(s) da cota do dia.",
+    opcoesCustoVencimentos: "Composição: 1 chamada para listar os vencimentos + 2 por vencimento consultado.",
+    // Fase 27 (27-05) — mesmo fato, voz de mesa: dois eixos de custo no mesmo
+    // controle, e o número da cota de IA mora no gate, não nesta frase.
+    opcoesCustoAnaliseIA: "Consome também 1 análise de IA da cota do dia — cota separada desta.",
     opcoesVerCadeia: "Ver a cadeia",
     opcoesVerOperaveis: "Ver as operáveis",
     opcoesCriterioOperaveis: (c) => {

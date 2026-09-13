@@ -18,7 +18,20 @@
  * · vazio nunca é silêncio: todo estado vazio diz o porquê.
  */
 import { useState } from "react";
+// Fase 27 (27-02): `finance.js` é módulo PURO — zero import de `App.jsx` —,
+// então o isolamento do ADR-027 continua intacto (o guardião proíbe importar
+// `App.jsx`, não `finance.js`). `qtyLivre` é a FONTE ÚNICA da subtração
+// `qty - qtyTravada` no front, gêmea de `store.qty_livre` no backend:
+// recalculá-la aqui criaria uma segunda implementação que divergiria da
+// primeira na correção seguinte, em silêncio e com o mesmo nome na tela.
+import { qtyLivre } from "../finance.js";
+// Fase 27 (27-04): o formatador de volatilidade é ESCOLHIDO pela unidade que
+// o contrato declara. Ver o comentário do bloco de HV em `LeituraInterna` —
+// nesta mesma tela convivem um percentual (motor interno) e uma fração
+// (serviço MCP), e trocá-los erra por 10× em silêncio.
+import { formatarVolatilidade } from "./unidades.js";
 import { useOpcoesMcp } from "./useOpcoesMcp.js";
+import ReguaRegime from "./ReguaRegime.jsx";
 import SetupChart from "./SetupChart.jsx";
 import PayoffChart from "./PayoffChart.jsx";
 import CriarSetup, { BotaoDesativar } from "./CriarSetup.jsx";
@@ -156,6 +169,20 @@ const BOTAO = {
 // vira "o app não faz isso".
 const desabilitado = (cond) => (cond ? { opacity: 0.45, cursor: "not-allowed" } : null);
 
+// Fase 27 (27-05) — a SEGUNDA LINHA do botão, onde o custo é declarado. Estilo
+// nomeado e não repetido botão a botão: são sete controles com a mesma linha, e
+// sete cópias de um objeto de estilo divergem na primeira manutenção feita só
+// numa delas. Tokens existentes, nenhuma cor nova (Brand Book v2).
+//
+// DENTRO do botão, não ao lado: o custo tem de viajar junto do alvo de toque,
+// senão a pessoa lê o rótulo e clica no controle errado. Peso e tamanho menores
+// que o rótulo porque a ação é o que se lê primeiro; o preço é a ressalva que
+// vem grudada nela.
+const CUSTO_NO_BOTAO = {
+  display: "block", fontSize: "11px", fontWeight: 600,
+  color: T.textMuted, marginTop: "3px",
+};
+
 const CAIXA = {
   border: `1px solid ${T.borderSubtle}`, borderRadius: "12px",
   padding: "12px 14px", background: T.bgPanel,
@@ -193,19 +220,91 @@ const num = (v) => {
 // aviso errado; quem corta de verdade é o backend.
 const N_MAX_VENCIMENTOS = 6;
 
+// Fase 27 (27-05) — **O CUSTO DE CADA AÇÃO DA ABA, EM CHAMADAS DO CAP.**
+//
+// Três coisas que esta tabela é, e que o próximo leitor precisa saber antes de
+// mexer num número:
+//
+//  1. **Ela é ESPELHO do backend.** Cada valor aqui é o `N` de um
+//     `_cap_check(uid, N)` de `server/app/options_mcp_api.py` — a mesma
+//     disciplina de `N_MAX_VENCIMENTOS` logo acima, e a mesma de
+//     `ACOES_POR_CONTRATO` logo abaixo. Quem cobra de verdade é o backend;
+//     esta tabela existe só para a tela poder dizer o preço ANTES do clique.
+//  2. **O número vive nos dois lados de propósito.** Perguntar ao servidor
+//     quanto vai custar seria uma chamada para saber o preço de uma chamada.
+//     O preço do espelho é o risco de divergir — e é por isso que ele não é
+//     livre: `web/tests/test_opcoes_custo_declarado.mjs` lê ESTE objeto e os
+//     `_cap_check` do backend e reprova a suíte quando os dois discordam.
+//     Mudar um `_cap_check` sem mudar aqui não produz um rótulo errado em
+//     produção: produz um teste vermelho.
+//  3. **Custo zero não entra.** `mcpVigias` e `opcoesTecnico` custam 0 por
+//     contrato da rota; declarar custo onde não há custo mentiria para o outro
+//     lado, e o guardião proíbe. `mcpPossibilidades` também fica fora: o custo
+//     dela é CALCULADO (`2 * N + 1`) e já é declarado no próprio controle.
+//     `mcpStatus` fica fora pela terceira razão: ela não tem controle — é o
+//     frescor do cabeçalho, e o custo dela é declarado em texto
+//     (`cp.opcoesCustoFrescor`).
+//
+// `listarVigias` era a constante solta `CUSTO_LISTAR_VIGIAS` (27-02); entrou na
+// tabela sem mudar de valor — duas formas de declarar a mesma grandeza na
+// mesma tela divergiriam na primeira manutenção feita só numa delas.
+const CUSTO_DA_ACAO = {
+  leitura: 3,        // GET /mcp/leitura/{ticker}      — _cap_check(uid, 3)
+  cadeia: 1,         // GET /mcp/cadeia/{ticker}       — _cap_check(uid, 1)
+  operaveis: 1,      // GET /mcp/operaveis/{ticker}    — _cap_check(uid, 1)
+  proposta: 1,       // POST /mcp/proposta             — _cap_check(uid, 1)
+  grafico: 1,        // GET /mcp/setups/{name}/grafico — _cap_check(uid, 1)
+  compilar: 2,       // POST /mcp/setups/compilar      — _cap_check(uid, 2) + 1 análise de IA
+  confirmar: 2,      // POST /mcp/setups/confirmar     — _cap_check(uid, 2)
+  desativar: 1,      // POST /mcp/setups/{name}/desativar — _cap_check(uid, 1)
+  listarVigias: 2,   // GET /mcp/setups                — _cap_check(uid, 2)
+};
+
+// Fase 27 (27-02) — o tamanho do contrato padrão na B3. Espelho declarado de
+// `store.py` (`qty = contratos * 100`) e do conceito que o próprio arquivo já
+// enuncia em `opcoesLoteAjuda` ("1 contrato = 100 ações"). Constante nomeada
+// em vez de um `100` solto no meio do JSX: o número solto é indistinguível de
+// um palpite de layout, e este é um espelho de regra do backend.
+const ACOES_POR_CONTRATO = 100;
+
 export default function OpcoesScreen({ ctx }) {
   const cp = (ctx && ctx.cp) || {};
   const store = ctx && ctx.store;
   const palette = (ctx && ctx.palette) || {};
-  // Universo = a watchlist do usuário. Não se inventa um universo aqui, e
-  // não há chamada extra para descobrir tickers.
-  const watchlist = (ctx && ctx.data && ctx.data.watchlist) || [];
+  // Fase 27 (D3 do 27-CONTEXT, 2026-09-13) — o universo desta aba é a
+  // CARTEIRA, não a watchlist. O pedido do Alex é literal ("que a aba de
+  // opções só apresentasse os ativos que estão no portfolio e que os setups
+  // fossem armados sob os mesmos"), e a razão é de produto: toda estrutura
+  // que esta aba monta é lastreada no papel em carteira. Watchlist é
+  // INTENÇÃO; posição é LASTRO — e é o lastro que decide o que dá para
+  // montar. Sem chamada nova: `positions` já chega no `ctx` (a MESMA fonte
+  // que o `App.jsx` usa para marcar "em carteira").
+  //
+  // Ordem: a que `positions` chega. Nada é reordenado aqui — "Em aberto 2" do
+  // 27-CONTEXT (carteira grande, acima de ~8 posições, vira rolagem longa)
+  // segue sem decisão do Alex, e o desenho abaixo não impede uma busca depois
+  // nem a inventa agora.
+  const carteira = ((ctx && ctx.data && ctx.data.positions) || []).filter((p) => p && p.t);
+  // O ticker NASCE VAZIO — e isto é a decisão, não a omissão. Escolher um
+  // ativo dispara `mcpLeitura` pelo efeito de troca de ticker
+  // (`useOpcoesMcp.js`), e essa chamada custa **3** no cap do ADR-027.
+  // Auto-selecionar o primeiro da carteira cobraria 3 consultas de quem só
+  // abriu a aba — exatamente o que o §3.3 proíbe ("custo de MCP só em clique
+  // explícito, nunca ao abrir tela") e o que o guardião
+  // `test_opcoes_analisar_ui.mjs` reprova.
+  //
+  // A aba não abre VAZIA; ela abre sem ATIVO ESCOLHIDO, que é outra coisa: a
+  // lista das posições e o bloco "Seus vigias" já estão na tela quando ela
+  // abre, os dois de custo zero. É o desenho aprovado (D4: a aba abre na
+  // lista, e entrar num ativo é um toque).
   const [ticker, setTicker] = useState("");
   const {
-    status, leitura, grafico, abrirGrafico, fecharGrafico,
+    status, leitura, grafico, abrirGrafico, fecharGrafico, abrirLeitura,
     cadeia, operaveis, proposta, possibilidades,
     abrirCadeia, abrirOperaveis, montarProposta, verPossibilidades,
     setupNovo, compilarSetup, confirmarSetup, desativarSetup,
+    vigias, vigiasVivos, atualizarVigias,
+    tecnico,
   } = useOpcoesMcp(store, ticker);
 
   // F5 (plano 24-04) — a seção de ESCRITA de setup só aparece para quem tem
@@ -240,6 +339,13 @@ export default function OpcoesScreen({ ctx }) {
     setTicker(t === ticker ? "" : t);
     setTese(""); setVencimento(""); setAlvo(""); setStop(""); setPainel("");
   };
+
+  // Fase 27: o cartão do vigia NAVEGA; ele não alterna. `escolherTicker` é
+  // toggle — é o que o chip precisa, para poder desselecionar —, e reusá-lo
+  // cru aqui faria clicar no vigia do ativo JÁ ABERTO fechar o ativo, o
+  // oposto de "me leve até ele" (SC-1: não precisar lembrar em qual ativo
+  // criei o vigia).
+  const irParaVigia = (t) => { if (t && t !== ticker) escolherTicker(t); };
 
   const l = leitura.dados;
   const behavior = l && l.behavior;
@@ -369,19 +475,174 @@ export default function OpcoesScreen({ ctx }) {
           {cp.opcoesAtrasoAjuda}
         </div>
       ) : null}
+      {/* Fase 27 (27-05) — **A ÚNICA EXCEÇÃO AO CRITÉRIO 4, DITA NA TELA.**
+
+          `mcpStatus` sai no mount e reserva 1 chamada do cap; ela só vira
+          consumo quando a consulta precisa mesmo ir ao serviço (acerto de
+          cache não gasta — `options_mcp_api.py`, `status`). É a única chamada
+          desta aba que não nasce de um clique, e a exceção é PRÉ-EXISTENTE:
+          ela vem da F2, não desta fase.
+
+          Por que ela não vira botão: o cabeçalho precisa dizer a idade do dado
+          desde o primeiro frame (ADR-027, Decisão 8), e um gate de frescor que
+          só aparece depois de um clique não protege ninguém — a pessoa já
+          teria lido a tela inteira acreditando no dado. A correção honesta não
+          é esconder o custo, é declará-lo; e é isto aqui.
+
+          Sem condição de render: o custo existe mesmo quando o serviço não
+          respondeu (a reserva sai antes da resposta), então escondê-lo no
+          estado de erro seria calar justamente onde a pessoa vai reclamar do
+          contador. */}
+      <div style={{ marginTop: "8px", fontSize: "11.5px", color: T.textMuted, lineHeight: 1.5 }}>
+        {cp.opcoesCustoFrescor || ""}
+      </div>
+    </div>
+  );
+
+  // ------------------------------------------- Fase 27: SEUS VIGIAS (27-02) --
+  // O bloco que corrige o defeito da fase. Ele existe FORA de qualquer ticker:
+  // é isso que faz o vigia gravado aparecer ao abrir a aba, em vez de só
+  // aparecer com o ativo dele selecionado (27-CONTEXT, defeito 2).
+  //
+  // Duas fontes, dois custos, e a diferença é deliberada:
+  //  · `vigias` — o ÍNDICE local da conta. Custo ZERO, sai no mount. Traz o
+  //    cadastro (nome que a pessoa escreveu, ticker, data) e NENHUM estado;
+  //  · `vigiasVivos` — o estado do dia (`armed`/`streak`). Custo 2, só de
+  //    clique.
+  //
+  // ORDENAÇÃO (decisão do executor, 27-CONTEXT "Em aberto" item 1, herdada do
+  // protótipo aprovado pelo Alex): quem disparou primeiro — `armed` na frente,
+  // depois sequência, depois antiguidade, depois nome. A tela NÃO reimplementa
+  // essa régua: o backend do 27-01 já ordena a listagem por ela
+  // (`_ordem_dos_vigias`) e o índice já chega mais-recente-primeiro
+  // (`opcoes_vigias.listar`). Uma segunda implementação em JavaScript
+  // divergiria da primeira na correção seguinte, em silêncio, com as duas
+  // listas parecendo a mesma coisa na tela. Por isso aqui só se ESCOLHE a
+  // fonte: com estado medido, a lista do dia (superset, já ordenada); sem
+  // estado, o índice (já em antiguidade decrescente).
+  const listaDeVigias = (vigiasVivos.dados && Array.isArray(vigiasVivos.dados.vigias))
+    ? vigiasVivos.dados.vigias
+    : ((vigias.dados && Array.isArray(vigias.dados.vigias)) ? vigias.dados.vigias : []);
+  const temEstadoDosVigias = !!(vigiasVivos.dados && Array.isArray(vigiasVivos.dados.vigias));
+  const tickersEmCarteira = carteira.map((p) => p.t);
+  // Fase 27 (27-02): a posição do ativo escolhido, de onde sai o lastro. Pode
+  // não existir — clicar num vigia de ativo que saiu da carteira seleciona um
+  // ticker sem posição, e esse é um estado real a exibir, não um erro.
+  const posicaoSelecionada = ticker ? carteira.find((p) => p.t === ticker) : null;
+
+  const blocoVigias = (
+    <div>
+      <Kicker>{cp.opcoesVigiasTitulo || "SEUS VIGIAS"}</Kicker>
+      {/* carregando → erro → vazio com motivo → dados, a mesma cascata do
+          resto da tela: lista vazia pintada durante a consulta afirmaria
+          "você não tem vigia" sem ninguém ter medido. */}
+      {vigias.carregando ? (
+        <Aviso>{cp.opcoesCarregando || "Consultando o serviço de opções…"}</Aviso>
+      ) : vigias.erro ? (
+        <ErroDoMcp erro={vigias.erro} cp={cp} />
+      ) : listaDeVigias.length === 0 ? (
+        <Aviso>{cp.opcoesVigiasVazio || "Nenhum vigia gravado nesta conta ainda."}</Aviso>
+      ) : (
+        <div style={{ display: "grid", gap: "10px" }}>
+          {listaDeVigias.map((v, i) => (
+            <CartaoDeVigia
+              key={(v && v.nomeNoServico ? v.nomeNoServico : "vigia") + "-" + i}
+              vigia={v}
+              temEstado={temEstadoDosVigias}
+              selecionado={!!(v && v.ticker) && v.ticker === ticker}
+              naCarteira={!!(v && v.ticker) && tickersEmCarteira.includes(v.ticker)}
+              onIr={irParaVigia}
+              cp={cp}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* O custo vai DENTRO do controle, não ao lado: descobrir que o clique
+          custou 2 depois de gastá-las não é aviso, é recibo. Reusa
+          `opcoesCustoChamadas` — uma segunda forma de dizer custo criaria dois
+          vocabulários para a mesma grandeza. */}
+      <button
+        onClick={atualizarVigias}
+        disabled={vigiasVivos.carregando}
+        style={{ ...BOTAO, width: "100%", marginTop: "10px", ...desabilitado(vigiasVivos.carregando) }}
+      >
+        <span style={{ display: "block" }}>{cp.opcoesVigiasAtualizar || "Atualizar o estado dos vigias"}</span>
+        <span style={CUSTO_NO_BOTAO}>
+          {(cp.opcoesCustoChamadas || ((n) => String(n)))(CUSTO_DA_ACAO.listarVigias)}
+        </span>
+      </button>
+
+      {vigiasVivos.carregando ? (
+        <div style={{ marginTop: "10px" }}>
+          <Aviso>{cp.opcoesCarregando || "Consultando o serviço de opções…"}</Aviso>
+        </div>
+      ) : vigiasVivos.erro ? (
+        <div style={{ marginTop: "10px" }}>
+          <ErroDoMcp erro={vigiasVivos.erro} cp={cp} />
+        </div>
+      ) : null}
+    </div>
+  );
+
+  // ------------------------ Fase 27 (27-05): A LEITURA DO SERVIÇO, SOB CLIQUE --
+  //
+  // O convite que substitui o disparo automático. Até este plano, escolher um
+  // ativo — inclusive tocando num cartão de "Seus vigias", que na tela parece
+  // navegação — gastava 3 chamadas do cap sem nenhum controle dizer isso.
+  //
+  // **Por que ele não mora dentro do bloco "LEITURA DO ATIVO" da cascata**, que
+  // é onde o plano o pedia: aquele bloco só é renderizado no ramo 4 (DADOS),
+  // que depende de `temLeitura` — ou seja, de a leitura JÁ ter voltado. Um
+  // convite para pedir a leitura que só aparece depois de a leitura existir
+  // seria inalcançável. Ele é irmão de `blocoVigias`: montado fora da cascata,
+  // renderizado logo abaixo do bloco técnico interno (grátis, 27-04), que é a
+  // ordem que a Emenda 2 do ADR-027 fixou — o que não custa vem primeiro.
+  //
+  // Some quando o serviço declarou um estado que o clique não resolve (os
+  // quatro códigos acionáveis: não configurado, cota, teto, indisponível). A
+  // cascata abaixo já diz o que fazer, e um botão que só pode falhar é pior que
+  // botão nenhum — mesma disciplina de `podeCriarSetup`. Erro SEM código
+  // (falha pontual da própria leitura) mantém o convite: ali repetir é
+  // legítimo, e sem ele a pessoa ficaria sem porta nenhuma.
+  const servicoIndisponivel = !!(erro && CODIGOS_ACIONAVEIS.includes(erro.code));
+  const podePedirLeitura = !!ticker && !leitura.dados && !leitura.carregando
+    && !servicoIndisponivel;
+  const blocoLeituraDoServico = (
+    <div style={{ marginTop: "14px" }}>
+      <Kicker>{cp.opcoesLeituraTitulo || "LEITURA DO ATIVO"}</Kicker>
+      <div style={CAIXA}>
+        <div style={{ fontSize: "12.5px", color: T.textSecondary, lineHeight: 1.5 }}>
+          {cp.opcoesLeituraConvite || ""}
+        </div>
+        {/* O custo vai DENTRO do controle, na segunda linha do próprio botão —
+            mesmo padrão do "Atualizar" dos vigias (27-02). O número sai de
+            `CUSTO_DA_ACAO.leitura`, espelho do `_cap_check(uid, 3)` da rota:
+            um `3` solto aqui envelheceria em silêncio no dia em que o backend
+            mudasse, e é exatamente essa divergência que o guardião reprova. */}
+        <button
+          onClick={abrirLeitura}
+          style={{ ...BOTAO, width: "100%", marginTop: "12px" }}
+        >
+          <span style={{ display: "block" }}>{cp.opcoesLerNoServico || "Ler no serviço de opções"}</span>
+          <span style={CUSTO_NO_BOTAO}>
+            {(cp.opcoesCustoChamadas || ((n) => String(n)))(CUSTO_DA_ACAO.leitura)}
+          </span>
+        </button>
+      </div>
     </div>
   );
 
   const seletor = (
     <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", margin: "14px 0 4px" }}>
-      {watchlist.map((t) => (
+      {carteira.map((p) => (
         <button
-          key={t}
-          onClick={() => escolherTicker(t)}
-          aria-pressed={t === ticker}
-          style={{ minHeight: "44px", padding: "8px 14px", borderRadius: "11px", border: `1px solid ${t === ticker ? T.accent : T.borderSubtle}`, background: t === ticker ? T.accentTint10 : T.bgPanel, color: t === ticker ? T.accent : T.textSecondary, fontWeight: 700, fontSize: "13px" }}
+          key={p.t}
+          onClick={() => escolherTicker(p.t)}
+          aria-pressed={p.t === ticker}
+          style={{ minHeight: "44px", padding: "8px 14px", borderRadius: "11px", border: `1px solid ${p.t === ticker ? T.accent : T.borderSubtle}`, background: p.t === ticker ? T.accentTint10 : T.bgPanel, color: p.t === ticker ? T.accent : T.textSecondary, fontWeight: 700, fontSize: "13px" }}
         >
-          {t}
+          {p.t}
         </button>
       ))}
     </div>
@@ -395,7 +656,24 @@ export default function OpcoesScreen({ ctx }) {
       </p>
 
       {cabecalho}
-      {watchlist.length > 0 ? seletor : null}
+      {/* Fase 27 (D4: "vigias antes da carteira"). SEMPRE renderizado, com ou
+          sem ativo escolhido — é o que faz a aba abrir com conteúdo em vez de
+          abrir vazia, e de graça. */}
+      {blocoVigias}
+      {carteira.length > 0 ? seletor : null}
+      {/* Fase 27 (D4): o lastro livre no cartão, ANTES da tentativa. Hoje este
+          número só aparece na mensagem de recusa do backend ("Lastro
+          insuficiente: N ação(ões) livres de PETR4"), depois de a pessoa
+          tentar — e recusa não é aviso, é recibo. */}
+      {ticker ? <LastroDoAtivo pos={posicaoSelecionada} cp={cp} /> : null}
+      {/* Fase 27 (27-04, D1): a leitura de GRAÇA vem primeiro; a paga só
+          quando a pessoa clica. Fica FORA da cascata de estados do serviço de
+          opções de propósito — são fontes independentes, e é exatamente
+          quando o MCP está fora do ar que esta leitura mais vale. */}
+      {ticker ? <LeituraInterna tecnico={tecnico} cp={cp} /> : null}
+      {/* Fase 27 (27-05): e a paga, logo depois, atrás de um clique que diz o
+          preço. A ordem é a decisão: grátis primeiro, pago depois. */}
+      {podePedirLeitura ? blocoLeituraDoServico : null}
 
       {/* ------------------------------------------------ 1. CARREGANDO --
           Antes do vazio, sempre: vazio pintado durante a consulta afirma
@@ -434,7 +712,24 @@ export default function OpcoesScreen({ ctx }) {
         /* ------------------------------------------ 3. VAZIO COM MOTIVO --
            Vazio nunca é silêncio. */
         <div style={{ marginTop: "14px", display: "grid", gap: "10px" }}>
-          {semTicker ? (
+          {/* Fase 27 (D2) — carteira vazia tem MOTIVO e CAMINHO. O destino é a
+              CARTEIRA e não o Mercado por decisão explícita do Alex
+              (27-CONTEXT, D2: "estado vazio com caminho para a carteira"), e a
+              aba NÃO cai para a watchlist: lista de interesse não serve de
+              lastro. O ramo vem ANTES do `semTicker` porque sem posição nenhuma
+              não há ativo a escolher — "escolha um ativo" seria pedir o
+              impossível. */}
+          {carteira.length === 0 ? (
+            <Aviso>
+              {cp.opcoesCarteiraVazia || "Esta aba trabalha sobre os ativos que você tem em carteira."}
+              <button
+                onClick={() => { if (ctx && ctx.goCarteira) ctx.goCarteira(); }}
+                style={{ ...BOTAO, width: "100%", marginTop: "12px" }}
+              >
+                {cp.opcoesIrParaCarteira || "Ir para a Carteira"}
+              </button>
+            </Aviso>
+          ) : semTicker ? (
             <Aviso>{cp.opcoesEscolherAtivo || "Escolha um ativo para ver a leitura."}</Aviso>
           ) : null}
           {semCandles ? (
@@ -443,7 +738,16 @@ export default function OpcoesScreen({ ctx }) {
               comportamento para mostrar. Nada foi estimado no lugar.
             </Aviso>
           ) : null}
-          {!semTicker && setups.length === 0 ? (
+          {/* Fase 27 (27-05) — o `l &&` é a correção que a saída da leitura do
+              efeito tornou obrigatória. "Nenhum setup gravado para este ativo"
+              é uma AFIRMAÇÃO sobre o armazém do serviço, e quem a mede é a
+              própria leitura. Com a leitura virando clique, ela passa a não
+              existir enquanto ninguém pedir — e sem esta guarda a tela diria
+              "nenhum setup" sobre um ativo que ela nunca consultou, que é
+              exatamente o princípio 4 do CLAUDE.md ao contrário (não inventar
+              estado quando a fonte não respondeu). Sem leitura pedida, quem
+              fala é o convite acima. */}
+          {!semTicker && l && setups.length === 0 ? (
             <Aviso>{cp.opcoesSemSetups || "Nenhum setup gravado para este ativo."}</Aviso>
           ) : null}
         </div>
@@ -535,12 +839,20 @@ export default function OpcoesScreen({ ctx }) {
                 />
                 <div id="opcoes-lote-ajuda" style={AJUDA}>{cp.opcoesLoteAjuda || ""}</div>
 
+                {/* Fase 27 (27-05): o custo DENTRO do controle, na segunda
+                    linha do próprio botão — mesmo padrão do "Atualizar" dos
+                    vigias e do "Ler no serviço". Uma forma só de dizer custo
+                    (`opcoesCustoChamadas`) em toda a aba: duas divergiriam na
+                    primeira manutenção feita só numa delas. */}
                 <button
                   onClick={() => montarProposta({ direction: tese, expiration: vencimento || undefined, lote: loteNum })}
                   disabled={!temTese || !loteOk}
                   style={{ ...BOTAO, width: "100%", marginTop: "12px", ...desabilitado(!temTese || !loteOk) }}
                 >
-                  {cp.opcoesMontarEstrutura || "Montar estrutura"}
+                  <span style={{ display: "block" }}>{cp.opcoesMontarEstrutura || "Montar estrutura"}</span>
+                  <span style={CUSTO_NO_BOTAO}>
+                    {(cp.opcoesCustoChamadas || ((n) => String(n)))(CUSTO_DA_ACAO.proposta)}
+                  </span>
                 </button>
 
                 {/* carregando → erro → vazio com motivo → dados */}
@@ -580,14 +892,20 @@ export default function OpcoesScreen({ ctx }) {
                     aria-pressed={painel === "cadeia"}
                     style={{ ...BOTAO, flex: "1 1 150px" }}
                   >
-                    {cp.opcoesVerCadeia || "Ver a cadeia"}
+                    <span style={{ display: "block" }}>{cp.opcoesVerCadeia || "Ver a cadeia"}</span>
+                    <span style={CUSTO_NO_BOTAO}>
+                      {(cp.opcoesCustoChamadas || ((n) => String(n)))(CUSTO_DA_ACAO.cadeia)}
+                    </span>
                   </button>
                   <button
                     onClick={() => { const abrir = painel !== "operaveis"; setPainel(abrir ? "operaveis" : ""); if (abrir) abrirOperaveis({ expiration: vencimento || undefined }); }}
                     aria-pressed={painel === "operaveis"}
                     style={{ ...BOTAO, flex: "1 1 150px" }}
                   >
-                    {cp.opcoesVerOperaveis || "Ver as operáveis"}
+                    <span style={{ display: "block" }}>{cp.opcoesVerOperaveis || "Ver as operáveis"}</span>
+                    <span style={CUSTO_NO_BOTAO}>
+                      {(cp.opcoesCustoChamadas || ((n) => String(n)))(CUSTO_DA_ACAO.operaveis)}
+                    </span>
                   </button>
                 </div>
 
@@ -671,6 +989,14 @@ export default function OpcoesScreen({ ctx }) {
                         é recibo. */}
                     <div style={{ fontSize: "12.5px", color: T.textSecondary, lineHeight: 1.5 }}>
                       {(cp.opcoesCustoChamadas || ((n) => String(n)))(chamadasPrevistas)}
+                    </div>
+                    {/* Fase 27 (27-02): a COMPOSIÇÃO do custo saiu de
+                        `opcoesCustoChamadas` (que agora também serve ao botão
+                        dos vigias, cuja conta é outra) e passou a ter chave
+                        própria. O número continua vindo da mesma frase de
+                        sempre, logo acima. */}
+                    <div style={{ ...AJUDA, marginTop: "6px" }}>
+                      {cp.opcoesCustoVencimentos || ""}
                     </div>
                     <div style={{ ...AJUDA, marginTop: "6px" }}>
                       {"Vencimentos consultados: " + consultados.join(" · ")}
@@ -758,9 +1084,17 @@ export default function OpcoesScreen({ ctx }) {
             <div style={{ display: "grid", gap: "10px" }}>
               {setups.map((s) => {
                 const av = s.avaliacao;
-                const aberto = grafico.setup === s.name;
+                // Fase 27 (27-02) — DOIS nomes, e confundi-los quebra a tela.
+                // A partir do 27-01 a `/leitura` devolve `name` = o nome que a
+                // PESSOA escreveu e `nomeNoServico` = a chave real no armazém
+                // compartilhado (com o prefixo de 8 hexadecimais da conta).
+                // Tudo que VIAJA ao serviço — `/grafico`, `/desativar` — usa
+                // `nomeNoServico`; tudo que a pessoa LÊ usa `name`. Mandar o
+                // nome sem prefixo ao serviço leva 422 `setup_desconhecido`.
+                const chave = s.nomeNoServico || s.name;
+                const aberto = grafico.setup === chave;
                 return (
-                  <div key={s.name} style={{ border: `1px solid ${T.borderSubtle}`, borderRadius: "12px", padding: "12px 14px", background: T.bgPanel }}>
+                  <div key={chave} style={{ border: `1px solid ${T.borderSubtle}`, borderRadius: "12px", padding: "12px 14px", background: T.bgPanel }}>
                     <div style={{ display: "flex", justifyContent: "space-between", gap: "10px", alignItems: "baseline" }}>
                       <div style={{ fontSize: "14px", fontWeight: 700, color: T.textPrimary }}>{s.name}</div>
                       <div style={{ fontSize: "11.5px", color: T.textMuted }}>{"registro: " + txt(s.status)}</div>
@@ -804,13 +1138,30 @@ export default function OpcoesScreen({ ctx }) {
                       </div>
                     ) : null}
 
+                    {/* Fase 27 (27-05): só ABRIR custa (1 chamada); fechar é
+                        local. O rótulo de custo acompanha a ação que cobra e
+                        some quando o botão vira "Fechar gráfico" — declarar
+                        custo numa ação de graça mentiria na outra direção.
+
+                        O custo entra TAMBÉM no `aria-label`: ele SUBSTITUI o
+                        texto do botão para quem usa leitor de tela, então um
+                        custo que vivesse só no <span> seria invisível
+                        justamente para quem não pode conferir na tela. */}
                     <button
-                      onClick={() => (aberto ? fecharGrafico() : abrirGrafico(s.name))}
+                      onClick={() => (aberto ? fecharGrafico() : abrirGrafico(chave))}
                       aria-pressed={aberto}
-                      aria-label={(aberto ? "Fechar" : "Ver") + " disparos do setup " + s.name}
+                      aria-label={(aberto ? "Fechar" : "Ver") + " disparos do setup " + s.name
+                        + (aberto ? "" : ". " + (cp.opcoesCustoChamadas || ((n) => String(n)))(CUSTO_DA_ACAO.grafico))}
                       style={{ marginTop: "10px", width: "100%", minHeight: "44px", borderRadius: "11px", border: `1px solid ${T.borderSubtle}`, background: "transparent", color: T.textSecondary, fontWeight: 700, fontSize: "13px" }}
                     >
-                      {aberto ? "Fechar gráfico" : (cp.opcoesGraficoTitulo || "Disparos do setup")}
+                      <span style={{ display: "block" }}>
+                        {aberto ? "Fechar gráfico" : (cp.opcoesGraficoTitulo || "Disparos do setup")}
+                      </span>
+                      {aberto ? null : (
+                        <span style={CUSTO_NO_BOTAO}>
+                          {(cp.opcoesCustoChamadas || ((n) => String(n)))(CUSTO_DA_ACAO.grafico)}
+                        </span>
+                      )}
                     </button>
 
                     {aberto ? (
@@ -832,9 +1183,11 @@ export default function OpcoesScreen({ ctx }) {
                         porque são a mesma conversa com o serviço. */}
                     {podeCriarSetup ? (
                       <BotaoDesativar
-                        nome={s.name}
+                        nome={chave}
+                        nomeVisivel={s.name}
                         onDesativar={desativarSetup}
                         ocupado={setupNovo.carregando}
+                        custos={CUSTO_DA_ACAO}
                         cp={cp}
                       />
                     ) : null}
@@ -852,11 +1205,17 @@ export default function OpcoesScreen({ ctx }) {
           {podeCriarSetup ? (
             <>
               <Kicker>{cp.opcoesCriarTitulo || "CRIAR UM SETUP"}</Kicker>
+              {/* Fase 27 (27-05): a tabela de custo chega por PROP, como tudo
+                  o mais que este componente recebe. Importá-la de
+                  `OpcoesScreen.jsx` criaria uma segunda porta de acoplamento
+                  de graça — e `CriarSetup` é deliberadamente um componente sem
+                  fonte de dado própria. */}
               <CriarSetup
                 ticker={ticker}
                 estado={setupNovo}
                 onCompilar={compilarSetup}
                 onConfirmar={confirmarSetup}
+                custos={CUSTO_DA_ACAO}
                 cp={cp}
               />
             </>
@@ -929,6 +1288,267 @@ function RecusaCobrada({ erro, cp }) {
       {(cp || {}).opcoesRecusaCobrada
         || "Esta tentativa consumiu uma chamada da sua cota do dia."}
     </div>
+  );
+}
+
+// Fase 27 (27-02) — o LASTRO LIVRE do ativo escolhido.
+//
+// Três informações, todas derivadas da posição que já está no `ctx`: quantas
+// ações estão livres para lastro, quantas já estão travadas (e por quê) e
+// quantos contratos isso permite. Nenhuma chamada nova.
+//
+// A subtração NÃO acontece aqui: `qtyLivre` vem de `finance.js`, fonte única
+// do front e gêmea de `store.qty_livre`. Uma segunda implementação divergiria
+// da primeira na correção seguinte — com o mesmo nome na tela, e em silêncio.
+//
+// Ausência tem MOTIVO (princípio 4 do CLAUDE.md): posição sem `qty` legível
+// mostra travessão e o porquê, nunca `0`. Zero aqui seria lido como "você não
+// tem lastro", que é afirmação diferente de "não sei quanto você tem".
+function LastroDoAtivo({ pos, cp }) {
+  const c = cp || {};
+  const qtd = ehNum(pos && pos.qty) ? pos.qty : null;
+  const livres = ehNum(qtd) ? qtyLivre(pos) : null;
+  const contratos = ehNum(livres) ? Math.floor(livres / ACOES_POR_CONTRATO) : null;
+  // Travadas só aparecem quando existem: uma linha dizendo "0 travadas" seria
+  // ruído sobre o caso normal.
+  const travadas = (ehNum(pos && pos.qtyTravada) && pos.qtyTravada > 0) ? pos.qtyTravada : null;
+  return (
+    <div style={{ ...CAIXA, marginTop: "10px" }}>
+      <div style={{ fontSize: "12.5px", color: T.textPrimary, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+        {ehNum(livres)
+          ? (c.opcoesLastroLivre || ((l, k) => l + " livre(s) · " + k + " contrato(s)"))(livres, contratos)
+          : "— " + (c.opcoesLastroSemDado || "")}
+      </div>
+      {ehNum(travadas) ? (
+        <div style={{ fontSize: "12px", color: T.textSecondary, marginTop: "5px", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+          {(c.opcoesLastroTravado || ((t) => t + " travada(s)"))(travadas)}
+        </div>
+      ) : null}
+      <div style={AJUDA}>{c.opcoesLastroAjuda || ""}</div>
+    </div>
+  );
+}
+
+// Fase 27 (27-04) — A LEITURA TÉCNICA INTERNA DO ATIVO (D1 do 27-CONTEXT).
+//
+// Primeiro bloco que a pessoa vê depois de escolher um ativo, e o único que
+// responde de GRAÇA: tendência, volatilidade, suporte/resistência e a régua
+// de sete pregões saem do motor determinístico do próprio Boris+
+// (`/api/options/tecnico/{ticker}`, 27-03) — o MESMO que alimenta Radar e
+// Watchlist. Sem ele, escolher um ativo continuaria só tendo resposta paga.
+//
+// **Independente do bloco do serviço, nos DOIS sentidos.** Ele é renderizado
+// fora da cascata de estados do MCP de propósito: se o serviço de opções
+// estiver fora do ar ou não configurado, esta leitura continua aparecendo (é
+// justamente quando ela mais vale); e se ela degradar, a leitura do serviço e
+// os vigias continuam na tela. Duas fontes, dois carimbos, nenhuma
+// escondendo a outra — é o que a Emenda 2 do ADR-027 aceitou por escrito.
+//
+// Nenhum número é calculado aqui. A régua de regime também não é derivada na
+// tela: ela vem pronta do backend, que a monta chamando `regime.classificar`
+// um pregão por vez. Uma segunda régua em JavaScript divergiria da primeira
+// na correção seguinte — é a classe de defeito que o Snapshot Técnico Único
+// existe para matar.
+//
+// Em que média o filtro de direção se apoiou. Tabela de campo↔rótulo local,
+// como `ROTULO_LEITURA`: é vocabulário técnico idêntico nos dois modos (o
+// número da janela não muda de nome na mesa), e o que tem voz por modo — a
+// ressalva de confiabilidade — mora no `copy.js`.
+const ROTULO_BASE = {
+  sma200: "média de 200 pregões",
+  sma50: "média de 50 pregões",
+};
+
+// Preço do nível MAIS a distância até ele, quando as duas coisas existem.
+// Sem preço, travessão: um nível sem valor não vira "0" nem some da lista, e
+// a distância sozinha não é nível nenhum.
+const nivelComDistancia = (preco, distanciaPct) => (ehNum(preco)
+  ? fmt(preco) + (ehNum(distanciaPct) ? " · " + pct(distanciaPct, 1) : "")
+  : "—");
+
+function LeituraInterna({ tecnico, cp }) {
+  const c = cp || {};
+  const t = tecnico || {};
+  const dados = t.dados;
+  // Sem pedido em curso, sem erro e sem dado não há bloco: um quadro vazio
+  // com título seria lido como "este ativo não tem leitura técnica", que é
+  // afirmação diferente de "ainda não perguntei".
+  if (!t.carregando && !t.erro && !dados) return null;
+
+  const tend = (dados && dados.tendencia) || {};
+  const vol = (dados && dados.volatilidade) || {};
+  const niveis = (dados && dados.niveis) || {};
+  const carimbo = (dados && dados.carimbo) || {};
+  const rotuloRegime = ((c.opcoesRegimeRotulo || {})[tend.regime]) || "—";
+  const rotuloForca = ((c.opcoesForcaRotulo || {})[tend.forca]) || null;
+  // O selo de gratuidade é DERIVADO da resposta, nunca escrito fixo: o dia em
+  // que esta rota passar a custar, ele some sozinho (T-27-19).
+  const semCusto = !!dados && dados.custoMcp === 0;
+  // A régua só é desenhada com segmento MEDIDO. Sem nenhum, quem fala é o
+  // motivo do backend — faixa vazia seria lida como "a semana inteira
+  // indefinida", que é outra afirmação.
+  const regua = (dados && dados.regua) || null;
+  const temRegua = !!(regua && Array.isArray(regua.itens) && regua.itens.length);
+  const motivoDaRegua = (regua && typeof regua.motivo === "string" && regua.motivo) || "";
+  // Motivos de ausência, do backend e VERBATIM. Cada bloco traz o seu quando
+  // o insumo não existe; juntá-los no rodapé é o mesmo desenho de
+  // `LacunasDaLeitura` — explicar a ausência sem preencher o número.
+  const motivos = [tend.motivo, vol.motivo, niveis.motivo, carimbo.motivo]
+    .filter((m) => typeof m === "string" && m);
+
+  return (
+    <>
+      <Kicker>{c.opcoesInternaTitulo || "LEITURA TÉCNICA DO ATIVO"}</Kicker>
+      {t.carregando ? (
+        <Aviso>{c.opcoesInternaCarregando || "Calculando a leitura técnica no próprio app…"}</Aviso>
+      ) : t.erro ? (
+        <>
+          <Aviso tom="forte">{(t.erro && t.erro.message) || "—"}</Aviso>
+          <div style={{ fontSize: "11.5px", color: T.textMuted, marginTop: "6px", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+            {c.opcoesInternaErro || ""}
+          </div>
+        </>
+      ) : (
+        <>
+          <div style={{ border: `1px solid ${T.borderSubtle}`, borderRadius: "12px", padding: "4px 14px 10px", background: T.bgPanel }}>
+            <Linha rotulo="Tendência" valor={rotuloRegime} />
+            <Linha rotulo="Força (ADX 14)" valor={rotuloForca ? rotuloForca + " · " + fmt(tend.adx14, 1) : "—"} />
+            <Linha rotulo="Base do filtro" valor={ROTULO_BASE[tend.base] || "—"} />
+            {/* ATENÇÃO À UNIDADE — o erro de 10× mora aqui.
+                `hv21Pct`/`hv63Pct` deste bloco vêm em PERCENTUAL (31,4 = 31,4%)
+                e o contrato declara `unidade: "pct"`; o `behavior.hv21` do
+                serviço MCP, exibido no bloco "LEITURA DO ATIVO" logo abaixo,
+                vem em FRAÇÃO (0,314) e continua passando por `fracPct`. Os
+                dois ficam no MESMO ecrã. Por isso o formatador não é fixo: ele
+                é ESCOLHIDO pela unidade que a própria resposta declara, e
+                unidade que o app não conhece vira travessão com motivo, nunca
+                palpite (`unidades.js`). */}
+            <Linha rotulo="HV 21" valor={formatarVolatilidade(vol.hv21Pct, vol.unidade)} />
+            <Linha rotulo="HV 63" valor={formatarVolatilidade(vol.hv63Pct, vol.unidade)} />
+            <Linha rotulo="Suporte mais próximo" valor={nivelComDistancia(niveis.nearestSupport, niveis.distanceToSupportPct)} />
+            <Linha rotulo="Resistência mais próxima" valor={nivelComDistancia(niveis.nearestResistance, niveis.distanceToResistancePct)} />
+
+            {/* A régua vem LOGO ABAIXO da linha de tendência e das demais: é
+                ali que a pergunta "mudou esta semana?" nasce. Ela lê
+                `dados.regua`, o MESMO objeto de que sai a linha de tendência
+                (`dados.tendencia`) — o último segmento e a linha dizem o mesmo
+                regime porque vêm da mesma resposta, classificada uma única vez
+                no backend. A tela não deriva regime em lugar nenhum. */}
+            {temRegua ? (
+              <ReguaRegime regua={dados.regua} cp={cp} />
+            ) : (
+              <div style={{ fontSize: "11.5px", color: T.textMuted, marginTop: "8px", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+                {c.opcoesReguaSemDados || ""}
+                {motivoDaRegua ? "\n" + motivoDaRegua : ""}
+              </div>
+            )}
+          </div>
+
+          {/* Ressalva, NÃO erro: o valor acima continua valendo. O que ela diz
+              é em que janela ele se apoiou — esconder o número seria pior. */}
+          {tend.confiavel === false ? (
+            <div style={{ fontSize: "11.5px", color: T.textMuted, marginTop: "6px", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+              {c.opcoesRegimeNaoConfiavel || ""}
+            </div>
+          ) : null}
+
+          {motivos.map((m, i) => (
+            <div key={i} style={{ fontSize: "11.5px", color: T.textMuted, marginTop: "4px", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+              {m}
+            </div>
+          ))}
+
+          {/* Carimbo (princípio 3): de qual pregão é a leitura e de onde veio a
+              série. Fonte ausente vira travessão dentro da própria frase — um
+              nome de fonte por default é a mentira que o cabeçalho da aba já
+              corrigiu uma vez ("Fonte: —"). */}
+          <div style={{ fontSize: "11.5px", color: T.textMuted, marginTop: "6px", lineHeight: 1.5 }}>
+            {(c.opcoesInternaCarimbo || ((a, f) => "Pregão: " + (a || "—") + " · fonte: " + (f || "—")))(
+              carimbo.asOf, carimbo.source)}
+          </div>
+          {semCusto ? (
+            <div style={{ display: "inline-block", marginTop: "6px", fontSize: "11px", fontWeight: 700, color: T.textSecondary, border: `1px solid ${T.borderSubtle}`, borderRadius: "999px", padding: "3px 9px" }}>
+              {c.opcoesSemCusto || ""}
+            </div>
+          ) : null}
+        </>
+      )}
+    </>
+  );
+}
+
+// Fase 27 (27-02) — um cartão do bloco "Seus vigias".
+//
+// O nome exibido é SEMPRE o nome que a pessoa escreveu (`nome` no índice de
+// custo zero, `name` na listagem do dia). O `nomeNoServico` — que carrega os 8
+// hexadecimais do hash da conta — NUNCA chega à tela: ele é endereço no
+// armazém compartilhado do serviço, não rótulo. Exibi-lo é exatamente o dano
+// que a injeção nº 4 do 27-01 mediu ("o hash vira o nome que a pessoa lê").
+//
+// O cartão é um `<button>` de verdade, e não uma `div` com `onClick`: ele
+// navega, e navegação precisa de foco, de Enter e de alvo de toque.
+function CartaoDeVigia({ vigia, temEstado, selecionado, naCarteira, onIr, cp }) {
+  const v = vigia || {};
+  const c = cp || {};
+  const nome = txt(v.nome || v.name);
+  const alvo = txt(v.ticker);
+
+  // Três estados, e a diferença entre eles é O QUE FOI MEDIDO:
+  //  (a) o serviço não conhece mais este vigia → motivo do backend, VERBATIM.
+  //      Sumir do armazém é FATO a mostrar, não item a esconder;
+  //  (b) o estado do dia foi pedido → `armed`/`streak` como o serviço mediu;
+  //  (c) só o índice respondeu → travessão COM motivo. Nunca leitura negativa:
+  //      ausência de medição não é medição de ausência — a mesma simetria que
+  //      este arquivo já aplica aos setups do ticker.
+  const estado = v.motivo ? (
+    <span style={{ display: "block", fontSize: "12.5px", color: T.textSecondary, marginTop: "6px", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
+      {v.motivo}
+    </span>
+  ) : temEstado ? (
+    <span style={{ display: "block", fontSize: "12.5px", color: T.textSecondary, marginTop: "6px" }}>
+      {"armado: " + (v.armed === true ? "sim" : v.armed === false ? "não" : "—")}
+      {" · sequência: " + (ehNum(v.streak) ? v.streak : "—")
+        + "/" + (ehNum(v.required_streak) ? v.required_streak : "—")}
+    </span>
+  ) : (
+    <span style={{ display: "block", fontSize: "12.5px", color: T.textMuted, marginTop: "6px", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
+      {c.opcoesVigiasSemEstado || "—"}
+    </span>
+  );
+
+  return (
+    <button
+      onClick={() => { if (onIr) onIr(v.ticker); }}
+      aria-pressed={!!selecionado}
+      aria-label={"Abrir " + alvo + " — vigia " + nome}
+      style={{
+        display: "block", width: "100%", textAlign: "left", minHeight: "44px",
+        border: `1px solid ${selecionado ? T.accent : T.borderSubtle}`,
+        borderRadius: "12px", padding: "12px 14px",
+        background: selecionado ? T.accentTint10 : T.bgPanel,
+      }}
+    >
+      <span style={{ display: "flex", justifyContent: "space-between", gap: "10px", alignItems: "baseline" }}>
+        <span style={{ fontSize: "14px", fontWeight: 700, color: selecionado ? T.accent : T.textPrimary }}>{nome}</span>
+        <span style={{ fontSize: "12px", fontWeight: 700, color: T.textMuted }}>{alvo}</span>
+      </span>
+      {estado}
+      {/* Vigia de ativo que saiu da carteira NÃO some: ele existe e continua
+          sendo avaliado pelo serviço. Escondê-lo repetiria o defeito desta
+          fase — o vigia invisível que parece nunca ter sido gravado. */}
+      {naCarteira ? null : (
+        <span style={{ display: "block", fontSize: "11.5px", color: T.textMuted, marginTop: "6px", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
+          {c.opcoesVigiaForaDaCarteira || ""}
+        </span>
+      )}
+      {/* Data do índice. Sem data, o motivo do backend — nunca a data de hoje
+          no lugar (princípio 4 do CLAUDE.md). */}
+      {v.criadoEm || v.motivoCriadoEm ? (
+        <span style={{ display: "block", fontSize: "11px", color: T.textFaint, marginTop: "6px" }}>
+          {v.criadoEm ? "criado em " + v.criadoEm : v.motivoCriadoEm}
+        </span>
+      ) : null}
+    </button>
   );
 }
 
@@ -1037,8 +1657,9 @@ function Cenarios({ emReais, cp }) {
 const CODIGOS_ACIONAVEIS = ["mcp_nao_configurado", "mcp_cota", "mcp_teto_servico", "mcp_indisponivel"];
 
 // Achado ao vivo (2026-09-10): `leitura.erro || status.erro` deixava o 404 da
-// leitura (dispara sempre que a pessoa escolhe um ticker, mesmo com o
-// serviço fora do ar) mascarar o `mcp_nao_configurado` do `/status` — que é
+// leitura (que, até a Fase 27 (27-05), disparava sempre que a pessoa escolhia
+// um ticker — hoje ela só sai do botão "Ler no serviço", e o `leitura.erro` só
+// existe depois desse clique) mascarar o `mcp_nao_configurado` do `/status` — que é
 // o único dos dois que diz o que fazer. Escolha por ACIONABILIDADE: erro COM
 // `code` conhecido vence erro SEM código, venha de onde vier; com os dois
 // codificados (ou os dois sem código), a leitura vence — é a chamada que a

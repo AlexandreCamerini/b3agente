@@ -358,6 +358,29 @@ export const api = {
   mcpSetupCompilar: (body) => req("POST", "/api/options/mcp/setups/compilar", body, TIMEOUT_LLM),
   mcpSetupConfirmar: (body) => req("POST", "/api/options/mcp/setups/confirmar", body, 30000),
   mcpSetupDesativar: (name) => req("POST", "/api/options/mcp/setups/" + encodeURIComponent(name) + "/desativar", {}, 30000),
+  // Fase 27 — "Seus vigias", o par que corrige o defeito da fase (um setup
+  // gravado era indistinguível de um que nunca existiu, porque a única leitura
+  // filtrava por ticker). São DUAS rotas porque são dois custos diferentes, e
+  // o custo é o que decide qual a tela chama:
+  //   · `mcpVigias` NÃO passa por `/mcp/` de propósito — ela lê o índice local
+  //     e não toca `mcp.semente.dev`. Custo ZERO, e é a que a aba chama ao
+  //     ABRIR (ADR-027 §3.3: custo de MCP só em clique explícito).
+  //   · `mcpSetupsListar` custa 2, sempre 2, qualquer que seja o número de
+  //     vigias — é a que traz o estado do dia (`armed`/`streak`), e só deve
+  //     ser chamada em clique explícito, com o custo declarado no botão.
+  mcpVigias: () => req("GET", "/api/options/vigias", undefined, 30000),
+  mcpSetupsListar: () => req("GET", "/api/options/mcp/setups", undefined, 30000),
+  // Fase 27 (decisão D1) — leitura técnica do ATIVO: tendência, volatilidade,
+  // suporte/resistência e a régua de 7 pregões, do motor determinístico do
+  // próprio app (o mesmo Snapshot Técnico Único de `technicals`).
+  //
+  // O nome NÃO tem o prefixo `mcp`, e isso é a informação: neste arquivo
+  // `mcp*` significa "custa cota do serviço de opções", e esta rota não custa
+  // nada — não sai do processo. Chamá-la de `mcpTecnico` faria a próxima
+  // pessoa hesitar em usá-la ao abrir a tela, que é exatamente para o que ela
+  // existe (ADR-027 §3.3: a aba abre sem gastar). A resposta declara
+  // `custoMcp: 0`, e é dele que o rótulo "grátis" do controle sai.
+  opcoesTecnico: (t, q) => req("GET", "/api/options/tecnico/" + encodeURIComponent(t) + qs(q), undefined, 30000),
   // FASE 8B (260911-k9g): carimbo de build do SERVIDOR JÁ CONFIGURADO
   // (runtimeBase) — diferente de testServer(url) acima, que valida um
   // ENDEREÇO DIGITADO antes de aplicá-lo. Usado só para exibir no rodapé do

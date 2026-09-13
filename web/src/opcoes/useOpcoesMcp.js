@@ -17,6 +17,26 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 const VAZIO = { dados: null, carregando: false, erro: null };
 
+// Fase 27 (27-04) — período da LEITURA TÉCNICA INTERNA, FIXO e nomeado.
+//
+// Duas coisas o número resolve, e nenhuma delas é estética:
+//
+//  1. **A régua precisa de sete velas FECHADAS na cauda.** Com um período
+//     curto a série viria truncada e o `motivo` da régua ("a série tem menos
+//     de 7 pregões") apareceria em TODA leitura, sem defeito nenhum por trás
+//     — um aviso que aparece sempre deixa de ser lido.
+//  2. **O período escolhe a CAUDA, não o histórico.** O warmup das médias
+//     longas é fixo em 2 anos no backend (`server/app/candles.py`,
+//     `FETCH_RANGE`), então a confiabilidade da SMA200 — e portanto o
+//     `confiavel` de cada segmento — NÃO depende deste valor.
+//
+// O que ele não pode é VARIAR por chamada: dois períodos diferentes na mesma
+// tela produziriam duas leituras do mesmo dia, e a régua discordaria da linha
+// de tendência logo acima dela (correção C7 do plano). Não passar `period` é
+// a alternativa pior: o default fica implícito no backend e some do fonte que
+// a tela lê.
+const PERIODO_DA_LEITURA = "1y";
+
 // aba-opcoes F3 (plano 24-02): cadeia, operáveis, proposta e possibilidades
 // são QUATRO chamadas com a mesma disciplina — e quatro cópias do mesmo bloco
 // divergem na primeira manutenção feita só numa delas.
@@ -65,8 +85,31 @@ export function useOpcoesMcp(store, ticker) {
   // estado "vazio", nunca depois — vazio pintado durante a consulta é uma
   // afirmação ("não há nada") que ninguém mediu ainda.
   const [status, setStatus] = useState({ dados: null, carregando: true, erro: null });
-  const [leitura, setLeitura] = useState({ dados: null, carregando: true, erro: null });
+  // Fase 27 (27-05) — a `leitura` NASCE VAZIA, e não `carregando: true` como
+  // nasceu da F2 até aqui. A mudança acompanha a correção central deste plano:
+  // a leitura do serviço deixou de sair sozinha na troca de ativo e passou a
+  // sair de um clique (`abrirLeitura`). Mantido o `carregando: true`, a tela
+  // ficaria presa em "Consultando o serviço de opções…" para sempre — e, pior
+  // que travar, ela AFIRMARIA uma consulta que ninguém pediu. É a mesma
+  // disciplina que o `tecnico` já segue desde o 27-04, pela mesma razão.
+  const [leitura, setLeitura] = useState(VAZIO);
   const [grafico, setGrafico] = useState({ dados: null, carregando: false, erro: null, setup: null });
+  // Fase 27 (27-02) — "Seus vigias": o ÍNDICE local da conta, que existe fora
+  // de qualquer ticker. Trio próprio, e não um campo da `leitura`, porque é
+  // justamente essa independência que corrige o defeito da fase (sair da aba e
+  // voltar deixava de mostrar setup nenhum). `carregando` nasce VERDADEIRO
+  // pela mesma razão do `status` e da `leitura`: uma lista vazia pintada
+  // durante a consulta é a afirmação "você não tem vigia", que ninguém mediu.
+  const [vigias, setVigias] = useState({ dados: null, carregando: true, erro: null });
+  // Fase 27 (27-04) — a LEITURA TÉCNICA INTERNA do ativo (tendência,
+  // volatilidade, níveis e a régua de 7 pregões), do motor determinístico do
+  // próprio Boris+.
+  //
+  // Nasce VAZIO, e não `carregando: true` como os três acima: eles saem no
+  // mount e a tela tem de dizer "consultando" desde o primeiro frame; este só
+  // existe DEPOIS de haver ativo escolhido, e o bloco não é renderizado sem
+  // ticker. Nascer "carregando" afirmaria uma consulta que não foi pedida.
+  const [tecnico, setTecnico] = useState(VAZIO);
 
   // Dois contadores de requisição, não um: `tickerRef` invalida TUDO que
   // estiver em voo quando o ticker muda (sem ele, trocar de ativo rápido
@@ -82,6 +125,16 @@ export function useOpcoesMcp(store, ticker) {
   // disciplinas convivem: `tickerRef` diz DE QUAL ATIVO é a resposta,
   // `leituraRef` diz QUAL das leituras daquele ativo é a mais recente.
   const leituraRef = useRef(0);
+  // Fase 27: contador TRANSVERSAL ao ticker, e é essa a razão de ele existir.
+  // `useChamadaSobDemanda(tickerRef)` descarta a resposta quando o ticker
+  // mudou entre o pedido e a volta — disciplina certa para cadeia, proposta e
+  // leitura, que são afirmações SOBRE um ativo. A lista de vigias não é: ela
+  // atravessa todos os ativos. Passar `tickerRef` aqui faria clicar num
+  // cartão de vigia (que troca o ticker) apagar a lista que a pessoa acabou
+  // de pagar 2 chamadas para ver. Um ref que nunca muda mantém a disciplina
+  // do contador próprio (`meuRef`, contra disparo repetido) e desliga só a
+  // conferência de ticker.
+  const vigiasRef = useRef(0);
 
   // F3: os quatro trios sob demanda. Ordem fixa de chamada (regra dos hooks).
   const [cadeia, dispararCadeia, limparCadeia] = useChamadaSobDemanda(tickerRef);
@@ -93,6 +146,10 @@ export function useOpcoesMcp(store, ticker) {
   // uma substitui a da anterior na tela, e `status` (`dry_run`/`ativo`/
   // `inativo`) diz qual delas respondeu.
   const [setupNovo, dispararSetup, limparSetup] = useChamadaSobDemanda(tickerRef);
+  // Fase 27: o ESTADO DO DIA dos vigias (`armed`/`streak`), sob demanda.
+  // Acrescentado no FIM do bloco, porque a ordem de chamada dos hooks é fixa.
+  // Sem `limpar`: a troca de ticker não invalida esta lista (ver `vigiasRef`).
+  const [vigiasVivos, dispararVigias] = useChamadaSobDemanda(vigiasRef);
 
   useEffect(() => {
     if (!store || typeof store.mcpStatus !== "function") { setStatus(VAZIO); return undefined; }
@@ -104,9 +161,47 @@ export function useOpcoesMcp(store, ticker) {
     return () => { vivo = false; };
   }, [store]);
 
+  // Fase 27 (27-02) — o ÚNICO efeito NOVO que dispara chamada sozinho, e ele é
+  // legítimo por CONTRATO DA ROTA, não por conveniência: `GET
+  // /api/options/vigias` custa **ZERO** no cap (27-01). Ela lê o índice local
+  // do Boris+ e não toca `mcp.semente.dev` — é por isso que a rota mora fora
+  // do prefixo `/mcp/`. O ADR-027 §3.3 proíbe gastar COTA ao abrir tela; ler
+  // o que é de graça é justamente o que permite a aba abrir com conteúdo em
+  // vez de abrir vazia.
+  //
+  // NÃO depende de `ticker`: o bloco "Seus vigias" existe fora de qualquer
+  // ativo, e essa independência É a correção do defeito 2 do 27-CONTEXT.
   useEffect(() => {
-    const t = (ticker || "").trim();
-    const meu = ++tickerRef.current;
+    if (!store || typeof store.mcpVigias !== "function") { setVigias(VAZIO); return undefined; }
+    let vivo = true;
+    setVigias((s) => ({ ...s, carregando: true }));
+    store.mcpVigias()
+      .then((d) => { if (vivo) setVigias({ dados: d, carregando: false, erro: null }); })
+      .catch((e) => { if (vivo) setVigias({ dados: null, carregando: false, erro: e }); });
+    return () => { vivo = false; };
+  }, [store]);
+
+  // Fase 27 (27-05) — **ESTE EFEITO APAGA; ELE NUNCA PEDE.**
+  //
+  // Até aqui ele disparava `store.mcpLeitura`, que custa **3** chamadas do cap.
+  // Enquanto o ticker nascia vazio e a única porta era o chip do ativo, o gasto
+  // ainda era consequência indireta de um clique de quem queria a leitura. O
+  // bloco "Seus vigias" (27-02) quebrou essa leitura benigna: clicar num vigia
+  // TAMBÉM troca o ticker, e aí a pessoa pagava 3 por um toque que, na tela, se
+  // parece com navegação — sem nenhum controle dizer o preço. O §3.3 do ADR-027
+  // não fala de `useEffect`, fala de CLIQUE EXPLÍCITO COM CUSTO DECLARADO, e
+  // navegar não é pedir a leitura.
+  //
+  // O efeito continua existindo e continua LIMPANDO: dado do ativo anterior sob
+  // o cabeçalho do ativo novo é afirmação falsa. Quem pede agora é
+  // `abrirLeitura`, abaixo, chamado pelo botão que declara as 3 consultas.
+  //
+  // A leitura em voo não precisa de invalidação própria: o `++tickerRef.current`
+  // desta linha já derruba a conferência `tickerRef.current === meu` de toda
+  // resposta pedida para o ticker anterior — `leituraRef` continua existindo
+  // para o outro eixo (qual das leituras DO MESMO ativo é a mais recente).
+  useEffect(() => {
+    ++tickerRef.current;
     graficoRef.current += 1;               // gráfico do ticker anterior morre junto
     setGrafico({ dados: null, carregando: false, erro: null, setup: null });
     // Os quatro trios da F3 morrem junto pela MESMA razão: são afirmações
@@ -117,31 +212,62 @@ export function useOpcoesMcp(store, ticker) {
     limparProposta();
     limparPossibilidades();
     limparSetup();
-
-    if (!t || !store || typeof store.mcpLeitura !== "function") {
-      setLeitura(VAZIO);
-      return undefined;
-    }
-    const minha = ++leituraRef.current;
-    setLeitura({ dados: null, carregando: true, erro: null });
-    store.mcpLeitura(t)
-      .then((d) => { if (tickerRef.current === meu && leituraRef.current === minha) setLeitura({ dados: d, carregando: false, erro: null }); })
-      .catch((e) => { if (tickerRef.current === meu && leituraRef.current === minha) setLeitura({ dados: null, carregando: false, erro: e }); });
+    setLeitura(VAZIO);
     return undefined;
   }, [store, ticker, limparCadeia, limparOperaveis, limparProposta, limparPossibilidades, limparSetup]);
 
-  // F5: recarga da leitura do MESMO ticker, sob demanda. Existe porque gravar
-  // ou desativar um setup muda a lista que a seção "SETUPS GRAVADOS" mostra —
-  // deixar a tela velha depois de um "gravado com sucesso" faria a pessoa
-  // duvidar de ter gravado, e duvidar leva a gravar de novo (o mesmo vigia,
-  // duas vezes, no armazém compartilhado do serviço).
+  // Fase 27 (27-04) — a leitura técnica INTERNA, disparada pela troca de
+  // ticker.
   //
-  // O corpo repete o do efeito acima de propósito: mover o `store.mcpLeitura`
-  // para fora do efeito quebraria a leitura que o guardião faz do fonte (o
-  // efeito PRECISA continuar sendo o lugar onde a leitura inicial dispara),
-  // e chamar esta função de dentro dele criaria uma dependência que
-  // reexecutaria o efeito a cada troca de `ticker` duas vezes.
-  const recarregarLeitura = useCallback(() => {
+  // **Por que ESTE efeito pode disparar sozinho quando quase nenhum outro
+  // pode.** O §3.3 do ADR-027 proíbe gastar COTA do serviço de opções sem
+  // clique explícito. Aqui não há cota nenhuma a gastar: `GET
+  // /api/options/tecnico/{ticker}` é rota INTERNA, declara `custoMcp: 0` como
+  // campo de contrato e não toca `mcp.semente.dev` (27-03, provado no backend
+  // por bomba no `mcp_client.call_tool`). É a mesma justificativa do efeito de
+  // `mcpVigias` logo acima, e é ela que permite a aba responder "tendência,
+  // volatilidade e níveis" assim que a pessoa escolhe um ativo, de graça.
+  //
+  // **Invalidação: `vivo`, e não `tickerRef`.** É a MESMA disciplina dos dois
+  // efeitos de cima, de propósito. Ler `tickerRef.current` aqui faria a
+  // correção depender da ORDEM DE DECLARAÇÃO dos efeitos — quem incrementa
+  // `tickerRef` é o efeito de `leitura`, logo acima —, e mover este bloco
+  // para cima dele deixaria a comparação falsa para sempre: nenhuma resposta
+  // pintaria a tela, em silêncio e sem teste vermelho. O `vivo` do cleanup dá
+  // a MESMA garantia ("resposta de PETR4 nunca pinta a tela de VALE3", porque
+  // a troca de ticker roda o cleanup antes de reexecutar o efeito) sem
+  // depender de ordem nenhuma.
+  //
+  // UMA referência ao método `opcoesTecnico` do store, com o guard sobre ELA
+  // (e não sobre o nome escrito de novo) — mesmo
+  // padrão de "porta única" de `atualizarVigias`. `.call(store)` preserva o
+  // `this` do `deviceStore`, que declara o método no estilo atalho.
+  useEffect(() => {
+    const t = (ticker || "").trim();
+    const ler = store && store.opcoesTecnico;
+    if (!t || typeof ler !== "function") { setTecnico(VAZIO); return undefined; }
+    let vivo = true;
+    setTecnico({ dados: null, carregando: true, erro: null });
+    ler.call(store, t, { period: PERIODO_DA_LEITURA })
+      .then((d) => { if (vivo) setTecnico({ dados: d, carregando: false, erro: null }); })
+      .catch((e) => { if (vivo) setTecnico({ dados: null, carregando: false, erro: e }); });
+    return () => { vivo = false; };
+  }, [store, ticker]);
+
+  // Fase 27 (27-05) — **A PORTA ÚNICA DA LEITURA PAGA, e ela é um clique.**
+  //
+  // `GET /api/options/mcp/leitura/{ticker}` custa **3** chamadas do cap
+  // (`options_mcp_api.py`, `_cap_check(uid, 3)`). Ela é a chamada mais cara da
+  // aba fora de `/possibilidades`, e até este plano saía sozinha na troca de
+  // ativo. O botão que chama esta função declara o número ANTES do clique
+  // (`CUSTO_DA_ACAO.leitura` em `OpcoesScreen.jsx`); descobrir o preço depois
+  // de pagar não é aviso, é recibo.
+  //
+  // NÃO incrementa `tickerRef`: não é troca de ativo, e bumpá-lo invalidaria as
+  // chamadas sob demanda em voo, inclusive a que acabou de pedir a recarga.
+  // `leituraRef` diz QUAL das leituras deste ativo é a mais recente;
+  // `tickerRef` diz DE QUAL ATIVO é a resposta. As duas conferências juntas.
+  const abrirLeitura = useCallback(() => {
     const t = (ticker || "").trim();
     if (!t || !store || typeof store.mcpLeitura !== "function") return;
     const meu = tickerRef.current;        // NÃO incrementa: não é troca de ativo
@@ -151,6 +277,55 @@ export function useOpcoesMcp(store, ticker) {
       .then((d) => { if (tickerRef.current === meu && leituraRef.current === minha) setLeitura({ dados: d, carregando: false, erro: null }); })
       .catch((e) => { if (tickerRef.current === meu && leituraRef.current === minha) setLeitura({ dados: null, carregando: false, erro: e }); });
   }, [store, ticker]);
+
+  // F5: recarga da leitura do MESMO ticker depois de gravar ou desativar um
+  // setup. Existe porque as duas escritas mudam a lista que a seção "SETUPS
+  // GRAVADOS" mostra — deixar a tela velha depois de um "gravado com sucesso"
+  // faria a pessoa duvidar de ter gravado, e duvidar leva a gravar de novo (o
+  // mesmo vigia, duas vezes, no armazém compartilhado do serviço).
+  //
+  // Fase 27 (27-05) — **sem corpo próprio: é a MESMA chamada de
+  // `abrirLeitura`.** Até aqui havia duas cópias do bloco (o efeito de troca de
+  // ticker e esta função), e a duplicação tinha uma razão escrita: o efeito
+  // PRECISAVA continuar sendo o lugar do disparo inicial, porque era dali que
+  // o guardião lia. Com a leitura virando clique, essa razão desapareceu — e
+  // duas cópias do mesmo pedido divergem na primeira manutenção feita só numa
+  // delas. O nome próprio fica porque o MOTIVO é outro: a pessoa não pediu
+  // esta leitura, ela é consequência da escrita que ela já pagou — e quem lê
+  // `confirmarSetup` precisa disso no nome, não num comentário distante.
+  const recarregarLeitura = useCallback(() => { abrirLeitura(); }, [abrirLeitura]);
+
+  // Fase 27: recarga do ÍNDICE, sob demanda e de custo ZERO. Existe porque
+  // gravar ou desativar um vigia muda a lista do topo da aba — e um vigia
+  // recém-criado que só aparece depois de um reload é exatamente o defeito que
+  // esta fase existe para fechar ("os setups não estão sendo gravados").
+  //
+  // O corpo repete o do efeito acima de propósito, pela MESMA razão já
+  // documentada em `recarregarLeitura`: o efeito PRECISA continuar sendo o
+  // lugar onde a leitura do índice dispara (é o que o guardião lê no fonte), e
+  // chamar esta função de dentro dele criaria uma dependência que
+  // reexecutaria o efeito. As duas chamadas custam zero.
+  const recarregarVigias = useCallback(() => {
+    if (!store || typeof store.mcpVigias !== "function") return;
+    setVigias((s) => ({ ...s, carregando: true }));
+    store.mcpVigias()
+      .then((d) => setVigias({ dados: d, carregando: false, erro: null }))
+      .catch((e) => setVigias({ dados: null, carregando: false, erro: e }));
+  }, [store]);
+
+  // Fase 27: o estado do dia dos vigias. NUNCA por efeito —
+  // `GET /api/options/mcp/setups` custa **2** chamadas do cap, sempre 2,
+  // qualquer que seja o número de vigias (27-01). Esta função é a única porta
+  // para a rota, e o botão que a abre declara o custo no próprio controle.
+  //
+  // UMA referência ao método, e o guard sobre ELA: "porta única" é o que o
+  // guardião lê no fonte, então o nome não é escrito em dois lugares.
+  // `.call(store)` preserva o `this` do `deviceStore`, que usa método-atalho.
+  const atualizarVigias = useCallback(() => {
+    const listar = store && store.mcpSetupsListar;
+    if (typeof listar !== "function") return;
+    dispararVigias(() => listar.call(store));
+  }, [store, dispararVigias]);
 
   // Sob demanda: o usuário abre o gráfico de UM setup. Não dispara por
   // efeito — cada abertura custa uma chamada do cap.
@@ -248,27 +423,43 @@ export function useOpcoesMcp(store, ticker) {
   // O setup que viaja de volta é o MESMO objeto que a tela exibiu no ensaio —
   // não é recompilado nem passa por LLM. Recarregar a leitura no sucesso é
   // parte da ação, não cosmético: é o que prova à pessoa que o vigia nasceu.
+  //
+  // Fase 27: além da leitura do ticker, recarrega o ÍNDICE (custo zero). Sem
+  // isso o vigia recém-criado não aparece no bloco do topo até um reload — e
+  // "não aparece" é literalmente o defeito que originou a fase.
   const confirmarSetup = useCallback((setup) => {
     if (!setup || !store || typeof store.mcpSetupConfirmar !== "function") return;
     dispararSetup(() => store.mcpSetupConfirmar({ setup }).then((d) => {
       recarregarLeitura();
+      recarregarVigias();
       return d;
     }));
-  }, [store, dispararSetup, recarregarLeitura]);
+  }, [store, dispararSetup, recarregarLeitura, recarregarVigias]);
 
   const desativarSetup = useCallback((nome) => {
     if (!nome || !store || typeof store.mcpSetupDesativar !== "function") return;
     dispararSetup(() => store.mcpSetupDesativar(nome).then((d) => {
       recarregarLeitura();
+      recarregarVigias();
       return d;
     }));
-  }, [store, dispararSetup, recarregarLeitura]);
+  }, [store, dispararSetup, recarregarLeitura, recarregarVigias]);
 
   return {
-    status, leitura, grafico, abrirGrafico, fecharGrafico, recarregarLeitura,
+    // Fase 27 (27-05): `abrirLeitura` é a porta da leitura PAGA (3 chamadas),
+    // e ela só sai de clique — o efeito de troca de ticker agora só apaga.
+    status, leitura, grafico, abrirGrafico, fecharGrafico,
+    abrirLeitura, recarregarLeitura,
     cadeia, operaveis, proposta, possibilidades,
     abrirCadeia, abrirOperaveis, montarProposta, verPossibilidades,
     setupNovo, compilarSetup, confirmarSetup, desativarSetup,
+    // Fase 27: os dois trios de "Seus vigias" e as duas recargas. `vigias` é o
+    // índice (custo zero, sai no mount); `vigiasVivos` é o estado do dia
+    // (custo 2, só de clique).
+    vigias, vigiasVivos, atualizarVigias, recarregarVigias,
+    // Fase 27 (27-04): a leitura técnica interna do ativo — custo ZERO de
+    // cota, motor determinístico do próprio app.
+    tecnico,
   };
 }
 

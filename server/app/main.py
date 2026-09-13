@@ -46,6 +46,8 @@ from .options_api import router as options_router, _spot_from_chain_or_quote
 from .options_provider import get_options as _get_options_for_status
 from . import options_mcp_api  # aba-opcoes F1 (ADR-027): router do serviço MCP autenticado
 from .options_mcp_api import router as options_mcp_router
+from . import opcoes_vigias  # Fase 27: índice de "meus vigias" (custo ZERO de MCP)
+from . import opcoes_tecnico  # Fase 27 (D1): leitura técnica interna da aba (custo ZERO de MCP)
 from . import opcoes_lastreadas  # Fase 14 (Plano 03): motor de proposta lastreada (venda coberta/put)
 from .options_quant import FAIXA_DIFICIL, FAIXA_SEM_MERCADO, faixa_de_liquidez, liquidity_score  # quick 260908-ldg: gate de liquidez em três faixas
 from . import skill_ref  # Fase 14 (Plano 03): frase canônica da proposta lastreada por modo
@@ -1655,7 +1657,7 @@ async def admin_mobile_handoff_exchange(body: dict = Body(default={})):
 
 # FASE 8B (diagnóstico): carimbo de build do BACKEND — confirma qual código o
 # Railway está rodando (o front tem o dele em web/src/version.js).
-SERVER_BUILD_ID = "F10-20260913-01"  # 2026-09-13: primeira entrega conjunta da Fase 25 (planos comerciais, completa em codigo desde 2026-09-12 mas nunca publicada) com a Fase 26/Fase A (sete correcoes baratas de UX e da camada de IA, mais um oitavo achado). Aba Opcoes deixou de ser invisivel para o assistente: PET_TELAS ganhou a oitava tela, /api/pet/resumo tem ramo proprio com custo ZERO de MCP por contrato, petSnapshot do front tem case proprio. KB (83 verbetes) responde ANTES da checagem de tela/setor, sem afrouxar allowlist nenhuma. Tour comeca nomeando a tela em que o app abre (Acompanhar, nao Radar) e cobre a aba Opcoes. Frase canonica unica para evidencia insuficiente, lida do proprio CLAUDE.md em vez de redigitada (as duas tinham divergido em silencio). Duas mensagens que citavam "Perfil -> Conta & preferencias" (caminho morto desde o qa/45 Decisao 1) corrigidas para o tile real — metering.py (A6) e api.js (A8, achado pelo proprio guardiao ampliado, que tambem pegou um terceiro caso da mesma classe no caminho). SKILL.md da didatica descreve o pet real (componente Boris, nao Coruja; sem restricao de aba ou modo). Fase 25: papel `owner` irrevogavel ancorado em B3_OWNER_EMAIL, catalogo de cinco limites por plano com precedencia plano -> override global -> env -> default, modulo de configuracao no portal, plano visivel no app — ver comentario da entrega anterior para o detalhe completo, inalterado desde entao.
+SERVER_BUILD_ID = "F10-20260913-03"  # 2026-09-13: Fase 27 — a aba Opcoes passa a operar sobre a CARTEIRA. O universo da aba deixa de ser a watchlist e vira as posicoes; os setups ("vigias") passam a existir fora do ticker que os criou. O defeito relatado ("os setups nao estao sendo gravados") NAO era falha de escrita: o armazem do servico e compartilhado e SEM DONO (ADR-027 Dec. 7), nao havia rota de listar (list_setups so era chamado dentro de /leitura/{ticker} e filtrado por ticker) e o ticker nascia vazio a cada abertura — tres fatos que somados sao indistinguiveis de "nao gravou". Agora ha indice de vigias por usuario no kv e namespacing por sha256(uid)[:8] no nome que vai ao servico; o nome que a pessoa escreveu vive so no indice e na tela. Medido ao vivo antes de construir: o servico aceita nome prefixado e devolve o `name` byte a byte. Rotas novas: GET /api/options/vigias (custo ZERO) e GET /api/options/tecnico/{ticker} (custo ZERO) — as duas em main.py, fora do router do MCP, porque toda rota daquele router passa pelo cap e cobrar cota por leitura local seria mentir sobre custo. A leitura tecnica (tendencia, ADX, HV21/HV63, suporte/resistencia, regua de 7 pregoes) passa a sair do motor interno deterministico — MESMA fonte do Radar e da Watchlist, principio 5 — e o servico externo fica so com cadeia/vencimento/payoff, sob clique com o preco escrito no controle. Emendas 1 e 2 ao ADR-027 registram a fronteira nova. Gate de dono fechado em /setups/{name}/desativar e /setups/{name}/grafico por helper unico; e o nome do armazem parou de vazar para o cliente em tres pontos, um deles imprimindo o hash como TITULO do grafico. Suite 2780 passed, 5 skipped, 3 xfailed + 143 .mjs. Backend e front SAEM JUNTOS por necessidade: separados, as acoes de setup no app quebrariam com 422.
 # Normalmente sincronizado pelo entregar.sh a partir de web/src/version.js; num deploy
 # SÓ de backend (sem rebuild do front) bumpamos aqui para /api/health rastrear o servidor.
 
@@ -3244,6 +3246,91 @@ async def options_proposta(ticker: str, multiperna: bool = False, scope: Optiona
     }
 
 
+# ---- Fase 27: "Seus vigias" — a lista que existe FORA de qualquer ticker ----
+@app.get("/api/options/vigias")
+async def options_vigias(scope: Optional[str] = Depends(current_scope)):
+    """Os vigias do usuário logado, direto do índice local. **Custo ZERO.**
+
+    **O que esta rota NÃO faz, e por que ela mora aqui e não em
+    `options_mcp_api.py`:** ela não toca `mcp.semente.dev`. O guardião (iv)
+    (`test_mcp_guardioes.py`) obriga TODA rota `/api/options/mcp/*` a passar
+    pelo `_cap_check` — e passar uma leitura puramente local pelo cap cobraria
+    cota de uma chamada ao serviço que não existe. Rota de custo zero e prefixo
+    `/mcp` são coisas incompatíveis por desenho, não por acaso.
+
+    É esta rota que a aba usa ao ABRIR (ADR-027 §3.3: custo de MCP só em clique
+    explícito). Ela devolve o que o índice sabe — o nome que a pessoa escreveu,
+    o ticker e a data — e **nenhum estado** (`armed`/`streak`): estado é
+    medição do serviço, e um "armado" carimbado de ontem seria afirmação sem
+    medição (princípio 4 do CLAUDE.md). Quem quer o estado do dia chama
+    `GET /api/options/mcp/setups`, que declara o custo 2.
+
+    Escopo anônimo devolve `[]`: as rotas que gravam exigem sessão, então quem
+    não tem conta não tem vigia — e não há índice de ninguém a vazar aqui.
+    """
+    return {
+        "vigias": opcoes_vigias.listar(_conn, scope),
+        "fonte": "local",
+        "at": now_str(),
+    }
+
+
+@app.get("/api/options/tecnico/{ticker}")
+async def options_tecnico(ticker: str, period: Optional[str] = None,
+                          scope: Optional[str] = Depends(current_scope)):
+    """Leitura técnica do ATIVO para a aba Opções — tendência, volatilidade,
+    suporte/resistência e a régua de sete pregões. **Custo ZERO de MCP.**
+
+    Decisão D1 da Fase 27 (Alex, 2026-09-13), registrada como Emenda 2 do
+    ADR-027: esta leitura sai do motor determinístico do próprio app —
+    `technical_snapshot.get`, o MESMO Snapshot Técnico Único que serve
+    `/api/technicals/{ticker}`, o Radar e a Watchlist. Nenhuma linha de
+    matemática nova: o número já existia, só não chegava à aba.
+
+    **Por que a rota mora aqui e não em `options_mcp_api.py`.** O guardião (iv)
+    (`test_mcp_guardioes.py`) obriga TODA rota `/api/options/mcp/*` a passar
+    pelo `_cap_check`. Passar esta leitura pelo cap cobraria cota do serviço
+    por uma chamada ao serviço que **não acontece** — cobrar pelo que não
+    aconteceu. Rota de custo zero e prefixo `/mcp/` são incompatíveis por
+    desenho, e é a mesma razão pela qual `/api/options/vigias` mora aqui em
+    cima.
+
+    **Por que `current_scope` e não `require_user`.** É o MESMO motor e o
+    MESMO dado de `/api/technicals/{ticker}`, que já é `current_scope` (dado
+    de mercado público, nenhum dado de conta viaja na resposta — o `scope` não
+    entra no payload). Exigir sessão só aqui criaria duas réguas de acesso
+    para a mesma informação, e a divergência entre elas seria o defeito.
+
+    **Nada nesta rota toca `mcp.semente.dev`** — provado por bomba no
+    `mcp_client.call_tool` em `test_opcoes_tecnico_rota.py`. O ADR-027 §3.3
+    (custo de MCP só em clique explícito) sai FORTALECIDO: é justamente esta
+    leitura que permite a aba abrir com conteúdo sem gastar cota de ninguém.
+
+    `custoMcp: 0` é campo de CONTRATO, não enfeite: é dele que a tela tira o
+    rótulo "grátis" do controle (SC-4). Com o custo na resposta, o front não
+    precisa (nem pode) inventar o rótulo por conta própria — e o dia em que
+    uma rota passar a custar, o rótulo muda sozinho.
+    """
+    t = _normalize_ticker(ticker)
+    if len(t) < 4:
+        raise HTTPException(400, "Ticker invalido.")
+    try:
+        snap = await technical_snapshot.get(t, period, lambda rng: candle_provider.get_history(t, rng=rng))
+    except ValueError:
+        raise HTTPException(502, "Sem historico para " + t)
+    return {
+        "t": t,
+        **opcoes_tecnico.leitura(snap),
+        "fonte": "motor interno",
+        "custoMcp": 0,
+        "at": now_str(),
+        # C-11/C-30 (REPORT-01), mesmo par de `/api/technicals`: o estado do
+        # orçamento da brapi entra na resposta para a tela nunca esconder que
+        # o dado pode estar mais velho que o habitual.
+        "degradado": _degradado_spot(),
+    }
+
+
 @app.post("/api/options/lastreada/abrir")
 async def options_lastreada_abrir(body: dict = Body(default={}), scope: Optional[str] = Depends(current_scope)):
     """Abre a operação lastreada (venda coberta OU put de proteção) a partir
@@ -3939,29 +4026,51 @@ def _pet_resumo_opcoes(scope: Optional[str], operador: bool) -> dict:
     O que esta rota NÃO faz, de propósito (princípio 4 do CLAUDE.md, "não
     invente valores"):
 
-    · não consulta `mcp.semente.dev`. A leitura do ativo, a cadeia e a proposta
-      da aba custam chamadas ao serviço e só saem de um clique explícito da
-      pessoa (ADR-027); disparar aqui gastaria orçamento sem ninguém pedir e
-      esta família de rotas é custo-zero por contrato;
+    · não consulta `mcp.semente.dev`. A cadeia, a proposta e a avaliação de
+      setup da aba custam chamadas ao serviço e só saem de um clique explícito
+      da pessoa (ADR-027 §3.3); disparar aqui gastaria orçamento sem ninguém
+      pedir e esta família de rotas é custo-zero por contrato;
+    · **também não busca candle nem monta snapshot técnico.** A Fase 27 (D1)
+      criou `GET /api/options/tecnico/{ticker}`, que é custo ZERO de MCP — mas
+      não é custo zero de REQUISIÇÃO de mercado: ela pode acionar o provedor de
+      candles e o orçamento da brapi é finito (ADR-008). Dizer DE ONDE a
+      leitura técnica vem é diferente de buscá-la, e este resumo só diz;
     · não afirma qual ativo/tese/vencimento está selecionado. Essa escolha é
       estado LOCAL de `OpcoesScreen.jsx` (isolado por desenho — não importa
       nada de `App.jsx`) e não existe no servidor. Ela chega ao assistente pelo
       `snapshot` que o front manda no POST /api/assistente, não por aqui.
 
-    Sobra o que é determinístico do lado do servidor: o universo da aba (a
-    watchlist, mesma fonte que `OpcoesScreen` usa) e as posições de opção já
-    abertas na carteira simulada (`optionPositions`, ADR-003). E o resumo DIZ
-    o que não sabe, em vez de calar."""
-    wl = [t for t in (store.get(_conn, "watchlist", user_id=scope) or []) if isinstance(t, str)]
+    Sobra o que é determinístico do lado do servidor: o universo da aba (as
+    POSIÇÕES da carteira, mesma fonte que `OpcoesScreen` passou a usar) e as
+    posições de opção já abertas na carteira simulada (`optionPositions`,
+    ADR-003). E o resumo DIZ o que não sabe, em vez de calar.
+
+    2026-09-13 (Fase 27, D3): até esta data o universo era a `watchlist`, e a
+    troca não é cosmética — a aba monta estrutura LASTREADA em ação que a
+    pessoa tem, e lista de interesse não é lastro. O texto abaixo acompanhou a
+    troca em TODOS os pontos, não só no que lê o kv: descrever um produto que
+    já não existe é o defeito A1/A5/A6 que a Fase 26 acabou de corrigir."""
+    posicoes = [p for p in (store.get(_conn, "positions", user_id=scope) or []) if isinstance(p, dict)]
+    universo = []
+    for p in posicoes:
+        t = p.get("t")
+        if isinstance(t, str) and t and t not in universo:
+            universo.append(t)
     opts = [p for p in (store.get(_conn, "optionPositions", user_id=scope) or []) if isinstance(p, dict)]
     com_lastro = [p for p in opts if p.get("lastro")]
     fala = [_PET_NAO_FAZ]
-    if wl:
-        fala.append(f"A aba Opções estuda um ativo por vez, escolhido entre os {len(wl)} "
-                    f"da sua lista: {', '.join(wl[:6])}" + ("…" if len(wl) > 6 else "") + ".")
+    if universo:
+        fala.append(f"A aba Opções trabalha sobre os ativos que você TEM: os {len(universo)} "
+                    f"da sua carteira, um por vez — {', '.join(universo[:6])}"
+                    + ("…" if len(universo) > 6 else "") + ".")
     else:
-        fala.append("A aba Opções estuda um ativo por vez, escolhido na sua lista — "
-                    "e a sua lista ainda está vazia.")
+        # Mesma substância do estado vazio da TELA (D2, `copy.opcoesCarteiraVazia`):
+        # o motivo e o caminho. Se o assistente dissesse outra coisa, ele
+        # contradiria a tela que a pessoa está olhando enquanto pergunta.
+        fala.append("A aba Opções trabalha sobre os ativos que você TEM: toda estrutura "
+                    "montada lá é lastreada em ação da sua carteira, e a sua carteira "
+                    "simulada ainda está vazia. Lista de interesse não entra no lugar — "
+                    "interesse não é lastro. Comece escolhendo um ativo na Carteira.")
     if opts:
         subjacentes = sorted({str(p.get("underlying")) for p in opts if p.get("underlying")})
         fala.append(f"Na carteira simulada você tem {len(opts)} posição(ões) de opção"
@@ -3970,8 +4079,22 @@ def _pet_resumo_opcoes(scope: Optional[str], operador: bool) -> dict:
             fala.append(f"{len(com_lastro)} dela(s) está(ão) com lastro registrado em ações da carteira.")
     else:
         fala.append("Você ainda não tem nenhuma posição de opção na carteira simulada.")
-    fala.append("A leitura da aba é de FIM DE PREGÃO e vem do serviço de opções: "
-                "ela não é o agora, e nada é recalculado aqui.")
+    # 2026-09-13 (Fase 27, D1 — correção C8). Até esta data a função afirmava,
+    # numa frase só: "A leitura da aba é de FIM DE PREGÃO e vem do serviço de
+    # opções". Com o motor híbrido no ar isso virou meia verdade dita como
+    # verdade inteira — tendência, volatilidade e suporte/resistência passaram
+    # a sair do motor interno, sobre a série diária, com OUTRO carimbo. As duas
+    # fontes ficam separadas e NOMEADAS; o que continua verdadeiro das duas
+    # (nada é recalculado aqui, nenhuma delas é "o agora") continua dito.
+    fala.append("Tendência, volatilidade e suporte/resistência do ativo — e a evolução "
+                "dos últimos sete pregões — saem do motor determinístico do próprio "
+                "app, sobre a série diária: é leitura de pregão FECHADO e não custa "
+                "consulta nenhuma.")
+    fala.append("Cadeia, vencimentos, estruturas e a avaliação dos seus vigias vêm do "
+                "serviço de opções, e essa parte é de FIM DE PREGÃO.")
+    fala.append("Nenhuma das duas é o agora, e nada é recalculado aqui.")
+    fala.append("Os vigias que você gravou aparecem no topo da aba e não dependem do "
+                "ativo aberto: eles continuam lá mesmo com nenhum ativo selecionado.")
     fala.append("Eu não sei qual ativo você abriu na aba agora — essa escolha "
                 "vive na tela, não no servidor. Pergunte com a tela aberta e eu "
                 "leio o que ela me manda.")
@@ -3982,7 +4105,9 @@ def _pet_resumo_opcoes(scope: Optional[str], operador: bool) -> dict:
                  ["O que é uma opção?",
                   "Qual a diferença entre call e put?",
                   "Por que a leitura de opções é de fim de pregão?"])
-    return {"fala": fala, "universo": wl[:12], "posicoesOpcoes": len(opts),
+    # A CHAVE `universo` fica (é contrato do front); o que mudou é o que ela
+    # carrega — os tickers das POSIÇÕES, não os da lista de interesse.
+    return {"fala": fala, "universo": universo[:12], "posicoesOpcoes": len(opts),
             "posicoesComLastro": len(com_lastro), "perguntas": perguntas}
 
 
