@@ -549,6 +549,57 @@ def test_grafico_de_setup_LEGADO_continua_visivel(monkeypatch):
     assert chamadas == [("get_setup_chart", {"name": _NOME_DA_PESSOA})]
 
 
+# ═════════ o nome que a pessoa LÊ no gráfico (Fase 27, 2026-09-13) ═════════
+def test_o_name_do_grafico_e_o_da_PESSOA_e_nao_o_do_ARMAZEM(monkeypatch):
+    """Mesmo defeito do `/desativar` (ver `test_opcoes_dsl.py`), num canal
+    diferente e mais visível: o payload de `get_setup_chart` traz `name`
+    PREFIXADO — o armazém devolve a chave que recebeu — e a rota o repassava
+    junto com o resto do payload. `SetupChart.jsx` imprime esse campo como
+    TÍTULO do gráfico, então a pessoa lia "Disparos do setup ·
+    a1b2c3d4-IFR baixo".
+
+    **O esperado é DERIVADO**: sai de `opcoes_vigias.nome_do_usuario` sobre a
+    chave que o próprio teste montou. Um literal aqui congelaria o hash e
+    passaria a testar a cópia em vez da regra.
+    """
+    c, _ = _client(monkeypatch)
+    p = _registra(c)
+    uid = p["user"]["id"]
+    meu = _no_servico(uid)
+    _espiao_por_tool(monkeypatch, {"get_setup_chart": dict(_GRAFICO, name=meu)})
+
+    corpo = c.get(f"/api/options/mcp/setups/{meu}/grafico",
+                  headers=_auth(p["token"])).json()
+
+    assert corpo["name"] == opcoes_vigias.nome_do_usuario(uid, meu)
+    assert corpo["name"] == _NOME_DA_PESSOA, (
+        "o título do gráfico deixou de ser o nome que a pessoa escreveu")
+    assert opcoes_vigias.prefixo(uid) not in corpo["name"], \
+        "o hash da conta vazou para o título do gráfico"
+    assert corpo["nomeNoServico"] == meu, (
+        "a chave do armazém precisa continuar viajando COM rótulo próprio — "
+        "sem ela o front teria de deduzi-la, recriando o prefixo em JavaScript")
+    # E o resto do payload continua VERBATIM: o override é de DOIS campos
+    # nomeados, não uma reescrita da resposta do serviço.
+    assert corpo["conditions"] == _GRAFICO["conditions"]
+    assert corpo["series"] == _GRAFICO["series"]
+    assert corpo["triggers"] == _GRAFICO["triggers"]
+
+
+def test_o_name_do_grafico_de_setup_LEGADO_volta_intacto(monkeypatch):
+    """Desprefixar um nome sem prefixo tem de ser NO-OP. Um `[:9]` cego aqui
+    mostraria "rompimento" onde a pessoa (ou outro cliente do serviço)
+    escreveu "petr4-rompimento"."""
+    c, _ = _client(monkeypatch)
+    p = _registra(c)
+    _espiao_por_tool(monkeypatch, {"get_setup_chart": _GRAFICO})
+
+    corpo = c.get(f"/api/options/mcp/setups/{_NOME_DA_PESSOA}/grafico",
+                  headers=_auth(p["token"])).json()
+    assert corpo["name"] == _NOME_DA_PESSOA
+    assert corpo["nomeNoServico"] == _NOME_DA_PESSOA
+
+
 def test_o_gate_do_grafico_e_o_MESMO_do_desativar():
     """Não é estilo: duas cópias da condição divergem na primeira correção
     feita de um lado só, e o lado esquecido é o que fica aberto — foi

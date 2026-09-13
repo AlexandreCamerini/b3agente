@@ -928,6 +928,54 @@ def test_desativar_setup_LEGADO_continua_funcionando(monkeypatch):
     assert r.status_code == 200, r.text
     assert r.json()["status"] == "inativo"
     assert dict(chamadas)[options_mcp_api.TOOL_DEACTIVATE_SETUP] == {"name": legado}
+    # 2026-09-13: a desprefixação da resposta (ver o teste seguinte) tem de ser
+    # um NO-OP aqui — legado não tem prefixo para tirar, e tirar um pedaço dele
+    # mostraria um nome que ninguém escreveu.
+    assert r.json()["name"] == legado
+    assert r.json()["nomeNoServico"] == legado
+
+
+def test_o_nome_que_volta_do_desativar_e_o_da_PESSOA_e_nao_o_do_ARMAZEM(monkeypatch):
+    """O defeito que este teste reprova (achado do 27-02, corrigido em
+    2026-09-13): `/desativar` devolvia `"name": alvo`, e `alvo` é a chave do
+    ARMAZÉM. `CriarSetup.jsx` monta a confirmação com esse campo, então a
+    pessoa lia *"Setup a1b2c3d4-IFR baixo desativado"* — o prefixo existe
+    exatamente para ser invisível a ela.
+
+    A correção é do BACKEND, e a alternativa (desprefixar em JavaScript)
+    recriaria a regra do prefixo num segundo lugar: duas implementações da
+    mesma regra divergem na primeira correção feita de um lado só.
+
+    **O esperado é DERIVADO, nunca redigitado.** A rota irmã `/setups/confirmar`
+    já devolve o par certo, e é contra a resposta DELA que este teste compara —
+    um literal aqui congelaria a cópia e deixaria de testar a regra. A terceira
+    asserção existe para o caso em que as DUAS rotas regridem juntas: aí a
+    igualdade passaria, e só o prefixo derivado do `uid` pega.
+    """
+    c, _ = _client(monkeypatch)
+    p = _registra(c)
+    uid = p["user"]["id"]
+    _espiao(monkeypatch)
+    _ia_proibida(monkeypatch)
+
+    visto = dict(_SETUP_DA_IA, description=_DESCRICAO, ticker="PETR4")
+    gravado = c.post("/api/options/mcp/setups/confirmar", headers=_auth(p["token"]),
+                     json={"setup": visto})
+    assert gravado.status_code == 200, gravado.text
+    criado = gravado.json()
+
+    r = c.post(f"/api/options/mcp/setups/{criado['nomeNoServico']}/desativar",
+               headers=_auth(p["token"]))
+    assert r.status_code == 200, r.text
+    baixado = r.json()
+
+    assert baixado["name"] == criado["name"], (
+        f"o `name` do desativar ({baixado['name']!r}) divergiu do que o "
+        f"`confirmar` mostrou à pessoa ({criado['name']!r})")
+    assert baixado["nomeNoServico"] == criado["nomeNoServico"], (
+        "a chave do armazém sumiu ou mudou — é ela que o front usa nas ações")
+    assert opcoes_vigias.prefixo(uid) not in baixado["name"], (
+        "o hash da conta vazou para o nome que a pessoa lê")
 
 
 # ═══════════════════════════════════════════════════ 5. os três tetos ═════

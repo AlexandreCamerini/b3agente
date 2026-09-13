@@ -2036,6 +2036,14 @@ async def setup_grafico(name: str, user: dict = Depends(require_user)) -> dict:
         # o `trading_date` do payload sobrescrever o `pregao` do envelope.
         return {
             **dados,
+            # E é por causa dessa ordem que os dois nomes ficam AQUI: o payload
+            # da tool traz `name` PREFIXADO (o armazém devolve a chave que
+            # recebeu), e `SetupChart.jsx` imprime esse campo como título do
+            # gráfico. Sem o override, a pessoa lê o hash da própria conta.
+            # MESMO contrato das rotas irmãs: `name` é o da PESSOA,
+            # `nomeNoServico` é a chave do armazém.
+            "name": opcoes_vigias.nome_do_usuario(uid, dados.get("name") or name),
+            "nomeNoServico": str(dados.get("name") or name),
             "pregao": dados.get("trading_date") or None,
             "fonte": FONTE,
             "at": _agora_brt(),
@@ -3309,7 +3317,19 @@ async def setup_desativar(name: str,
 
         return {
             "status": estado,
-            "name": alvo,
+            # MESMO contrato de `/setups/confirmar` e da `/leitura`: `name` é o
+            # da PESSOA (é ele que a tela mostra — `CriarSetup.jsx` monta
+            # "Setup … desativado" com este campo) e `nomeNoServico` é a chave
+            # do armazém. Devolver o nome prefixado aqui fazia a pessoa ler
+            # "Setup a1b2c3d4-IFR baixo desativado", e o prefixo existe
+            # justamente para ser invisível a ela.
+            #
+            # A desprefixação é do BACKEND de propósito: fazê-la em JavaScript
+            # recriaria a regra do prefixo num segundo lugar, e duas
+            # implementações da mesma regra divergem na primeira correção feita
+            # de um lado só.
+            "name": opcoes_vigias.nome_do_usuario(uid, alvo),
+            "nomeNoServico": alvo,
             "fonte": FONTE,
             "at": _agora_brt(),
             # Declarado "não medido" como nas outras rotas sem anexo — aqui

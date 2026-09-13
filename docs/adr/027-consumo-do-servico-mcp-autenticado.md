@@ -218,7 +218,7 @@ A **lacuna declarada na Decisão 7 continua**: o campo `owner` não existe no
 MCP, e um setup criado segue visível a todos os clientes do serviço. O que
 muda é que o **Boris deixa de depender dela**.
 
-Três peças, todas no backend:
+Quatro peças, todas no backend:
 
 1. **Prefixo determinístico por conta no nome enviado** —
    `opcoes_vigias.nome_no_servico(uid, nome)` produz `sha256(uid)[:8] + "-" +
@@ -254,6 +254,22 @@ Três peças, todas no backend:
    hexadecimais do hash dela). Nenhuma rota do produto enumera esses nomes, o
    que mantinha o risco baixo — mas "não enumerável" nunca foi o mesmo que
    "fechado". Decisão do Alex, 2026-09-13: fechar.
+4. **Os dois nomes, com rótulos próprios, em TODA rota que responde ao
+   cliente** — `name` é sempre o que a **pessoa** escreveu e `nomeNoServico` é
+   sempre a chave do **armazém**. Vale em `/leitura/{ticker}`, `GET /setups`,
+   `/setups/compilar`, `/setups/confirmar`, `/setups/{name}/desativar` e
+   `GET /setups/{name}/grafico`. A desprefixação é do **backend**: fazê-la em
+   JavaScript recriaria a regra do prefixo num segundo lugar, e duas
+   implementações da mesma regra divergem na primeira correção feita de um
+   lado só.
+
+   **Duas rotas só entraram nesse contrato em 2026-09-13**, depois do 27-01, e
+   as duas mostravam o hash na tela: o `/desativar` devolvia `"name"` com o
+   nome do armazém (`CriarSetup.jsx` exibia *"Setup a1b2c3d4-IFR baixo
+   desativado"*) e o `/grafico` repassava o `name` do payload da tool, que
+   `SetupChart.jsx` imprime como título do gráfico. O prefixo existe para ser
+   invisível à pessoa; exibi-lo não é só feio, é mostrar como "o nome que você
+   escreveu" um texto que ninguém escreveu.
 
 **Medido contra o serviço real em 2026-09-13**, antes de qualquer código: o
 `create_setup` aceita `[8 hexadecimais]-[texto]` como `name` e devolve o nome
