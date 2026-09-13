@@ -552,7 +552,17 @@ def setores() -> dict:
 # Telas que o PET conhece — allowlist de `tela: "pet:<id>"` no /api/assistente,
 # irmã da SETORES. F4: o pet passou a existir em TODAS as abas do app — tela
 # nova entra AQUI antes de existir no front.
-PET_TELAS = ("mercado", "carteira", "evolucao", "radar", "agente", "historico", "perfil")
+#
+# 2026-09-12 (Fase 26, achado A1): "opcoes" entrou. A aba Opções nasceu na
+# Fase 24 (`aba-opcoes F2`) já no `BottomNav` do front, mas NUNCA foi
+# registrada aqui — resultado: `/api/assistente` recusava `tela: "pet:opcoes"`
+# com 400 "Tela desconhecida." e `/api/pet/resumo?tela=opcoes` caía no
+# fallback de "mercado" (devolvia a Watchlist, indistinguível). O Boris ficava
+# mudo na aba mais nova do app sem nenhum erro visível. A causa-raiz (cinco
+# listas paralelas de tela, sem teste amarrando uma na outra) está registrada
+# como C3 no `.planning/phases/26-otimizacao-ux-ia/26-CONTEXT.md` e fica para
+# uma fase de arquitetura própria — aqui é o fix pontual.
+PET_TELAS = ("mercado", "carteira", "evolucao", "radar", "agente", "historico", "perfil", "opcoes")
 
 
 def catalogo(modo: str = "educacional", resumido: bool = False) -> list:

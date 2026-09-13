@@ -9391,6 +9391,38 @@ export default function App() {
           pnlTotalFechadas: pnlTotal,
         };
       }
+      // Fase 26 / achado A1 (2026-09-12): a aba Opções entrou no `BottomNav`
+      // na Fase 24 e ficou de fora DESTE switch e de `conceitos.PET_TELAS` —
+      // o Boris caía no `default: return {}` e o backend respondia o resumo
+      // de "mercado" (a Watchlist). Ficava mudo na aba mais nova, sem erro.
+      //
+      // O que NÃO vai aqui, e por quê: o ativo escolhido, a tese, o vencimento
+      // e a cadeia são estado LOCAL de `OpcoesScreen.jsx`, que é isolado por
+      // desenho (não importa nada de `App.jsx`, e o contrário seria ciclo).
+      // Içar esse estado para o App é exatamente o item B2/C3 do
+      // `26-CONTEXT.md`, deixado FORA desta rodada por decisão registrada.
+      // Inventar os campos aqui (mandar `ticker: null` como se a tela não
+      // tivesse ativo aberto) mentiria para o assistente — princípio 4. Então
+      // o snapshot manda só o que o App realmente tem: o universo da aba (a
+      // mesma watchlist que `OpcoesScreen` recebe via `ctx.data.watchlist`) e
+      // as posições de opção da carteira simulada (ADR-003).
+      case "opcoes": {
+        const opts = data.optionPositions || [];
+        return {
+          universo: (data.watchlist || []).slice(0, 12),
+          posicoesOpcoes: opts.slice(0, 12).map((p) => ({
+            contrato: p.id, subjacente: p.underlying, tipo: p.optionType,
+            strike: p.strike, vencimento: p.expiration, qty: p.qty,
+            premioMedio: p.avg, lastro: !!p.lastro,
+          })),
+          totalPosicoesOpcoes: opts.length,
+          // Nem null nem omissão: as duas seriam lidas como "a pessoa não
+          // escolheu ativo nenhum". O MOTIVO ocupa o lugar do valor ausente —
+          // o mesmo padrão de `RazaoGanhoPerda` em `OpcoesScreen.jsx`, onde
+          // sem número vai o porquê. Ver comentário acima.
+          selecaoDaTela: "não disponível: o ativo/tese/vencimento escolhidos vivem no estado local da aba Opções e não chegam a este snapshot",
+        };
+      }
       case "perfil": {
         const cfg = data.config || {};
         const prof = data.profile || {};

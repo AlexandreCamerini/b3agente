@@ -19,7 +19,8 @@
 //     não mais um botão dedicado sobre o resumo.
 //  5. A pergunta LLM do pet vai com `tela: "pet:<aba ativa>"` (allowlist no
 //     backend) e o snapshot é o view-model que a tela já usa — dado, não
-//     instrução. F4: as 7 abas do plano têm snapshot próprio.
+//     instrução. F4: as 7 abas do plano têm snapshot próprio; a 8ª ("opcoes")
+//     entrou em 2026-09-12, pelo achado A1 da Fase 26.
 //  6. Paridade: `petResumo` nos DOIS stores (agora recebendo `tela`).
 //
 // Roda sem build: `node web/tests/test_pet_ui.mjs`.
@@ -157,7 +158,13 @@ ok("a LLM continua opt-in atrás da didática grátis (BorisChat, não chamada d
 // variável — `petTela`/`telaAtual`) — confere que (a) o cálculo da aba ativa
 // cobre as 7, e (b) cada uma tem um ramo de snapshot ou é a rota já coberta
 // (mercado, tratada dentro do PetSheet a partir do resumo).
-const ABAS_PET = ["mercado", "carteira", "evolucao", "radar", "agente", "historico", "perfil"];
+// 2026-09-12 (Fase 26, achado A1) — "opcoes" ENTROU na lista. Ela estava
+// faltando desde a Fase 24: a aba nasceu no `BottomNav` e nunca chegou ao
+// `petSnapshot` nem a `conceitos.PET_TELAS`, e este `for` não a cobria porque
+// a lista era escrita à mão. Acrescentar aqui não basta para impedir a
+// repetição — é para isso que existe o `test_pet_opcoes.mjs`, que DERIVA a
+// lista do `BottomNav` em vez de repeti-la.
+const ABAS_PET = ["mercado", "carteira", "evolucao", "radar", "agente", "historico", "perfil", "opcoes"];
 // 2026-09-10 (aba-opcoes F2, quick 260910-biz) — asserção ATUALIZADA, não
 // relaxada. O que mudou: o "Operador IA" saiu da barra inferior (que passou a
 // ter "Opções" no 5º lugar) e virou SUB-TELA do Portfólio, pelo mesmo

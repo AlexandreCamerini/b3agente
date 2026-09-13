@@ -3930,6 +3930,62 @@ def _pet_resumo_perfil(scope: Optional[str], cfg: dict, operador: bool) -> dict:
     return {"fala": fala, "modo": modo_app, "notificacoesAtivas": notif_on, "perguntas": perguntas}
 
 
+def _pet_resumo_opcoes(scope: Optional[str], operador: bool) -> dict:
+    """`pet:opcoes` — Fase 26, achado A1. A aba Opções existia no front desde a
+    Fase 24 e nunca foi registrada em `conceitos.PET_TELAS`: o resumo caía no
+    fallback de "mercado" (devolvia a Watchlist) e o /api/assistente recusava
+    `pet:opcoes` com 400.
+
+    O que esta rota NÃO faz, de propósito (princípio 4 do CLAUDE.md, "não
+    invente valores"):
+
+    · não consulta `mcp.semente.dev`. A leitura do ativo, a cadeia e a proposta
+      da aba custam chamadas ao serviço e só saem de um clique explícito da
+      pessoa (ADR-027); disparar aqui gastaria orçamento sem ninguém pedir e
+      esta família de rotas é custo-zero por contrato;
+    · não afirma qual ativo/tese/vencimento está selecionado. Essa escolha é
+      estado LOCAL de `OpcoesScreen.jsx` (isolado por desenho — não importa
+      nada de `App.jsx`) e não existe no servidor. Ela chega ao assistente pelo
+      `snapshot` que o front manda no POST /api/assistente, não por aqui.
+
+    Sobra o que é determinístico do lado do servidor: o universo da aba (a
+    watchlist, mesma fonte que `OpcoesScreen` usa) e as posições de opção já
+    abertas na carteira simulada (`optionPositions`, ADR-003). E o resumo DIZ
+    o que não sabe, em vez de calar."""
+    wl = [t for t in (store.get(_conn, "watchlist", user_id=scope) or []) if isinstance(t, str)]
+    opts = [p for p in (store.get(_conn, "optionPositions", user_id=scope) or []) if isinstance(p, dict)]
+    com_lastro = [p for p in opts if p.get("lastro")]
+    fala = [_PET_NAO_FAZ]
+    if wl:
+        fala.append(f"A aba Opções estuda um ativo por vez, escolhido entre os {len(wl)} "
+                    f"da sua lista: {', '.join(wl[:6])}" + ("…" if len(wl) > 6 else "") + ".")
+    else:
+        fala.append("A aba Opções estuda um ativo por vez, escolhido na sua lista — "
+                    "e a sua lista ainda está vazia.")
+    if opts:
+        subjacentes = sorted({str(p.get("underlying")) for p in opts if p.get("underlying")})
+        fala.append(f"Na carteira simulada você tem {len(opts)} posição(ões) de opção"
+                    + (f" sobre {', '.join(subjacentes)}" if subjacentes else "") + ".")
+        if com_lastro:
+            fala.append(f"{len(com_lastro)} dela(s) está(ão) com lastro registrado em ações da carteira.")
+    else:
+        fala.append("Você ainda não tem nenhuma posição de opção na carteira simulada.")
+    fala.append("A leitura da aba é de FIM DE PREGÃO e vem do serviço de opções: "
+                "ela não é o agora, e nada é recalculado aqui.")
+    fala.append("Eu não sei qual ativo você abriu na aba agora — essa escolha "
+                "vive na tela, não no servidor. Pergunte com a tela aberta e eu "
+                "leio o que ela me manda.")
+    perguntas = (["Que estruturas fazem sentido com o ativo neste comportamento?",
+                  "Por que abrir a cadeia custa chamadas ao serviço?",
+                  "O que muda no risco quando eu vendo uma opção em vez de comprar?"]
+                 if operador else
+                 ["O que é uma opção?",
+                  "Qual a diferença entre call e put?",
+                  "Por que a leitura de opções é de fim de pregão?"])
+    return {"fala": fala, "universo": wl[:12], "posicoesOpcoes": len(opts),
+            "posicoesComLastro": len(com_lastro), "perguntas": perguntas}
+
+
 @app.get("/api/pet/resumo")
 async def get_pet_resumo(modo: Optional[str] = None, tela: Optional[str] = None,
                          scope: Optional[str] = Depends(current_scope)):
@@ -3961,6 +4017,10 @@ async def get_pet_resumo(modo: Optional[str] = None, tela: Optional[str] = None,
         extra = _pet_resumo_agente(scope, operador)
     elif aba == "historico":
         extra = _pet_resumo_historico(scope, operador)
+    elif aba == "opcoes":
+        # Fase 26 / A1 — sem `await`: a rota de opções é custo-zero, não toca
+        # o serviço de opções (ver docstring de `_pet_resumo_opcoes`).
+        extra = _pet_resumo_opcoes(scope, operador)
     else:  # "perfil"
         extra = _pet_resumo_perfil(scope, cfg, operador)
     return {"ligada": True, "modo": voc, "tela": aba, **extra}
