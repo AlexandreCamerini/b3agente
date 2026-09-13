@@ -20,6 +20,7 @@ em memória (managed, kill-switch, orçamento brapi) são globais de módulo.
 """
 import concurrent.futures
 import importlib
+import json
 import os
 import sys
 import tempfile
@@ -95,6 +96,12 @@ def _semeia(main, scope, n):
 # ---------------------------------------------------------------------------
 
 def test_a_free_10_ativos_put_com_11_devolve_402_com_10_ativos_no_detail(monkeypatch):
+    """ATUALIZADO em 2026-09-12 (25-06): o `detail` deixou de ser string e virou
+    dict (`code`/`message`/`limite`/`usado`) para o app poder renderizar a
+    recusa sem adivinhar pela frase. Mudou o CAMINHO de acesso
+    (`["detail"]` -> `["detail"]["message"]`), NÃO o conteúdo: a frase de
+    `plan.can_grow_watchlist_to` continua sendo o que chega ao usuário — é
+    exatamente isso que esta asserção guarda, e por isso ela não foi apagada."""
     c, main = _client(monkeypatch)
     payload = _registra(c, "free10@teste.com")
     scope = payload["user"]["id"]
@@ -103,7 +110,7 @@ def test_a_free_10_ativos_put_com_11_devolve_402_com_10_ativos_no_detail(monkeyp
 
     r = c.put("/api/watchlist", json={"tickers": base + [catalogo[10]]}, headers=_auth(payload["token"]))
     assert r.status_code == 402, r.text
-    assert "10 ativos" in r.json()["detail"]
+    assert "10 ativos" in r.json()["detail"]["message"]
 
 
 def test_b_free_9_ativos_put_com_10_devolve_200(monkeypatch):
@@ -236,6 +243,10 @@ def test_i_apos_recusa_no_put_resto_do_app_continua_respondendo(monkeypatch):
 # ---------------------------------------------------------------------------
 
 def test_j_detail_do_402_nao_contem_linguagem_de_upgrade(monkeypatch):
+    """ATUALIZADO em 2026-09-12 (25-06): varre o `detail` INTEIRO serializado,
+    não só a frase. O detail virou dict e uma chave nova poderia trazer CTA de
+    upgrade sem que a `message` mudasse — a asserção ficou mais forte, não mais
+    fraca, e cobre o que o ADR-010 (decisão 4) proíbe."""
     c, main = _client(monkeypatch)
     payload = _registra(c, "semcta@teste.com")
     scope = payload["user"]["id"]
@@ -244,7 +255,7 @@ def test_j_detail_do_402_nao_contem_linguagem_de_upgrade(monkeypatch):
 
     r = c.put("/api/watchlist", json={"tickers": base + [catalogo[10]]}, headers=_auth(payload["token"]))
     assert r.status_code == 402, r.text
-    detail = r.json()["detail"].lower()
+    detail = json.dumps(r.json()["detail"], ensure_ascii=False).lower()
     assert "upgrade" not in detail
     assert "assine" not in detail
 
@@ -387,3 +398,109 @@ def test_frase_de_recusa_nao_duplicada_no_main():
     """A frase de recusa mora só em plan.py (D-05/CAP-07) — main.py nunca
     reescreve a string, sempre reusa o `reason` devolvido pelo hook."""
     assert _main_source_sem_comentarios().count("atingiu o limite") == 0
+
+
+# ---------------------------------------------------------------------------
+# 25-06: o 402 estruturado das DUAS rotas de watchlist
+# ---------------------------------------------------------------------------
+# Por que aqui e não num arquivo novo: é o MESMO gate que este arquivo já
+# guarda desde a Fase 12; a Fase 25 só mudou a FORMA do corpo do 402. Um
+# arquivo separado deixaria as duas metades do mesmo contrato em lugares
+# diferentes, e a próxima mudança de forma atualizaria só uma.
+
+
+def test_25_06_put_devolve_detail_estruturado_com_codigo_e_numeros(monkeypatch):
+    c, main = _client(monkeypatch)
+    payload = _registra(c, "estruturado_put@teste.com")
+    scope = payload["user"]["id"]
+    base = _semeia(main, scope, 10)
+    catalogo = main.store.CATALOG_TICKERS
+
+    r = c.put("/api/watchlist", json={"tickers": base + [catalogo[10]]}, headers=_auth(payload["token"]))
+    assert r.status_code == 402, r.text
+    d = r.json()["detail"]
+    assert isinstance(d, dict), d
+    assert d["code"] == "watchlist_limite"
+    assert d["limite"] == 10
+    # `usado` é o tamanho de HOJE (10), NÃO o pedido (11): o mesmo campo é lido
+    # por um componente compartilhado no front, e um sentido por rota faria a
+    # tela mostrar número certo numa e errado na outra.
+    assert d["usado"] == 10
+
+
+def test_25_06_post_add_devolve_detail_estruturado_com_codigo_e_numeros(monkeypatch):
+    c, main = _client(monkeypatch)
+    monkeypatch.setattr(main.candle_provider, "get_quote", _quote_fake)
+    payload = _registra(c, "estruturado_add@teste.com")
+    scope = payload["user"]["id"]
+    _semeia(main, scope, 10)
+
+    r = c.post("/api/watchlist/add", json={"ticker": "RDOR3"}, headers=_auth(payload["token"]))
+    assert r.status_code == 402, r.text
+    d = r.json()["detail"]
+    assert isinstance(d, dict), d
+    assert d["code"] == "watchlist_limite"
+    assert d["limite"] == 10
+    assert d["usado"] == 10
+
+
+def test_25_06_message_e_a_frase_de_plan_py_verbatim(monkeypatch):
+    """O critério que impede esta mudança de virar reescrita de copy: a frase
+    que chega ao usuário é BYTE A BYTE a que `plan.py` produz — comparada
+    contra a fonte, não contra um literal copiado para cá (que divergiria em
+    silêncio na primeira mudança de texto do backend)."""
+    c, main = _client(monkeypatch)
+    payload = _registra(c, "verbatim@teste.com")
+    scope = payload["user"]["id"]
+    base = _semeia(main, scope, 10)
+    catalogo = main.store.CATALOG_TICKERS
+
+    _allowed, esperado = main.plan.can_grow_watchlist_to(11, plan=main.plan.PLAN_FREE)
+    r = c.put("/api/watchlist", json={"tickers": base + [catalogo[10]]}, headers=_auth(payload["token"]))
+    assert r.status_code == 402, r.text
+    assert r.json()["detail"]["message"] == esperado
+
+
+def test_25_06_conta_grandfathered_reporta_o_que_tem_hoje_nao_o_teto(monkeypatch):
+    """D-04 (grandfather clause) pelo lado do número publicado: quem tem 15 com
+    teto 10 recebe `usado: 15` e `limite: 10`. Truncar `usado` no teto seria
+    fabricar um número (princípio 4 do CLAUDE.md) e esconder justamente a
+    conta em que os dois valores divergem."""
+    c, main = _client(monkeypatch)
+    payload = _registra(c, "grandfather402@teste.com")
+    scope = payload["user"]["id"]
+    base = _semeia(main, scope, 15)
+    catalogo = main.store.CATALOG_TICKERS
+
+    r = c.put("/api/watchlist", json={"tickers": base + [catalogo[15]]}, headers=_auth(payload["token"]))
+    assert r.status_code == 402, r.text
+    d = r.json()["detail"]
+    assert d["usado"] == 15
+    assert d["limite"] == 10
+
+
+def test_25_06_o_402_do_gate_de_analise_continua_string(monkeypatch):
+    """A fronteira desta mudança. O 402 de `_gate_analise` NÃO virou dict: o
+    app lê aquele texto direto (`enrichErrorMessage`/fallback determinístico do
+    FIX-C01) e o 25-04 registrou a decisão por escrito. Sem esta asserção, a
+    próxima pessoa 'uniformiza' os dois e a tela mostra `[object Object]`."""
+    c, main = _client(monkeypatch)
+    payload = _registra(c, "analise_string@teste.com")
+    uid = payload["user"]["id"]
+    # Estoura o mês pelo LEDGER (monkeypatch), não configurando o catálogo:
+    # `plan.set_limite_do_plano` grava num cache de MÓDULO que sobrevive ao
+    # reimport de `app.main` e vazaria para os outros casos da suíte.
+    monkeypatch.setattr(main.metering, "month_used", lambda *_a, **_k: 10 ** 6)
+    with pytest.raises(main.HTTPException) as e:
+        main._gate_analise(uid, {})
+    assert e.value.status_code == 402
+    assert isinstance(e.value.detail, str)
+
+
+def test_25_06_o_codigo_e_a_constante_publicada_nao_um_literal_solto():
+    """`COD_WATCHLIST` existe como constante (contrato publicado, lido pelo
+    front) e as duas rotas passam pelo MESMO construtor de recusa — duas
+    montagens do dict divergiriam no primeiro campo novo."""
+    src = _main_source_sem_comentarios()
+    assert 'COD_WATCHLIST = "watchlist_limite"' in src
+    assert src.count("_recusa_de_watchlist(") == 3  # 1 definição + 2 call sites

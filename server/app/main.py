@@ -73,6 +73,12 @@ agent_mod.configure_db(_conn)
 # em runtime — sem isto o toggle admin nunca checaria o SQLite, igual ao caso
 # do agente acima.
 timing_watch.configure_db(_conn)
+# 25-03 (Fase 2 do 25-CONTEXT): o catálogo de planos ganha a camada de kv,
+# mesmo padrão memória→DB→env das linhas acima. Sem esta linha a camada de kv
+# fica inerte e o painel comercial (25-05) escreveria num lugar que ninguém lê.
+# NÃO muda comportamento hoje: os três gates de plano seguem lendo o dict
+# estático — quem passa a ler o catálogo é o 25-04.
+plan.configure_db(_conn)
 # ADR-017 (Bloco 1): liga o provedor de histórico medido a detect_setups —
 # sem esta linha, detect_setups nunca anexa `historico` e regime.ranquear
 # nunca vê `elegivel`: todo o ledger existiria sem consequência nenhuma na
@@ -141,6 +147,121 @@ def _plano_do_escopo(scope: Optional[str]) -> dict:
         return plan.ACTIVE_PLAN
 
 
+# ---------------------------------------------------------------------------
+# 25-04 (Fase 3 do 25-CONTEXT) — A CONCILIAÇÃO.
+#
+# O 25-03 criou o catálogo (`plan.LIMITES_DE_PLANO`) e deixou uma lacuna
+# NOMEADA: `plan.py` não pode importar `managed` nem `options_mcp_api` (ciclo),
+# então os overrides GLOBAIS que aqueles módulos já aplicam hoje — o
+# `llmDailyQuota` que o portal escreve em `admin_config`, o `mcpCotaUsuarioDia`
+# no kv — ficaram FORA da cadeia do catálogo. Enquanto ninguém lia o catálogo
+# isso era só uma inconsistência de relatório; a partir daqui decidiria dinheiro.
+#
+# A regra, e é a que menos quebra:
+#
+#     limite do PLANO (kv por plano → env por plano)
+#       → override GLOBAL de hoje (admin_config / kv, que o portal já escreve)
+#         → env global
+#           → default
+#
+# Quem nunca configurar plano nenhum cai no override global e continua
+# EXATAMENTE onde estava — é o critério mais importante desta fase, e há
+# guardião dedicado (`tests/test_gates_por_plano.py`, bloco 1). Configurar o
+# plano é que passa a ter precedência.
+#
+# Ela mora AQUI, no chamador, e não em `plan.py`: é o que evita o ciclo de
+# import e mantém o catálogo como DECLARAÇÃO. `options_mcp_api` recebe esta
+# função por injeção (`configure(..., limite_do_plano=...)`), pelo mesmo motivo
+# que já recebe `require_user` e `gate_analise`.
+# ---------------------------------------------------------------------------
+def _e_limite_por_plano(chave: str, origem: str) -> bool:
+    """O valor resolvido pelo catálogo é POR PLANO (e portanto vence o
+    override global), ou é o mesmo número global de sempre?
+
+    · `kv` — sempre por plano: a chave de kv carrega o id (`planoFree.…`);
+    · `env` — só quando o molde tem `{PLANO}`. Nos três pontos cujo valor de
+      HOJE já é global, o catálogo reusa a MESMA env que aqueles módulos leem
+      (`B3_MANAGED_DAILY_QUOTA` etc.) — tratá-la como "configuração do plano"
+      faria a env global saltar na frente do painel admin, invertendo a
+      precedência que vale hoje;
+    · `default` — nunca: o default do catálogo é o número de sempre, e ele é a
+      ÚLTIMA camada, não a primeira.
+    """
+    if origem == "kv":
+        return True
+    if origem == "env":
+        try:
+            return plan.env_key("free", chave) != plan.env_key("pro", chave)
+        except Exception:
+            return False
+    return False
+
+
+def _limite_do_plano(scope: Optional[str], chave: str, global_fn=None,
+                     plano: Optional[dict] = None):
+    """O limite VIGENTE de um ponto de controle, conciliado com o resolvedor
+    GLOBAL que já existe. `global_fn` é a função de hoje (`managed.daily_quota`,
+    `options_mcp_api.cota_usuario_dia`, `assistente.teto_dia_brl`); passá-la é
+    o que mantém "sem configuração, nada muda".
+
+    `plano` evita uma segunda leitura do usuário quando o chamador já o
+    resolveu (`_gate_analise` → `_ai_apply_managed`).
+
+    Degradação: qualquer falha (chave fora do catálogo, banco indisponível,
+    plano desconhecido) cai no resolvedor global. O eixo comercial nunca pode
+    derrubar uma rota de análise — mesma disciplina de `_plano_do_escopo`."""
+    try:
+        plano = plano or _plano_do_escopo(scope)
+        info = plan.limites_do_plano(plano["id"])[chave]
+    except Exception:  # noqa: BLE001 — ver docstring: degrada, não derruba
+        info = None
+    if info is not None and _e_limite_por_plano(chave, info["origem"]):
+        return info["valor"]
+    if global_fn is not None:
+        return global_fn()
+    return info["valor"] if info is not None else None
+
+
+def _escopo_e_owner(scope: Optional[str]) -> bool:
+    """A conta deste escopo é o dono do produto (`rbac.OWNER`, 25-02)?
+
+    25-04, decisão **D3** do Alex (2026-09-12): o owner não é barrado pelo cap
+    COMERCIAL — e **nunca** pelo físico (ver `_gate_analise`).
+
+    Consulta o banco a cada chamada, de propósito: o ADR-013 escolheu
+    revogação imediata acima de latência e `rbac` não tem cache. Não se
+    introduz um aqui — um papel cacheado é um papel que continua valendo
+    depois de revogado. O custo fica contido porque o chamador só pergunta
+    QUANDO o gate já decidiu negar (ver o call site).
+
+    Fail-closed: qualquer falha de leitura devolve `False`, ou seja, a conta
+    CONTINUA barrada. Errar para o lado de barrar o dono é um aborrecimento;
+    errar para o outro é liberar o cap comercial da base inteira num banco
+    intermitente."""
+    if not scope:
+        return False
+    try:
+        return rbac.OWNER in rbac.roles_for_user(_conn, scope)
+    except Exception:  # noqa: BLE001 — ver docstring: sem leitura, segue barrado
+        return False
+
+
+def _plano_efetivo(scope: Optional[str], plano: Optional[dict] = None) -> dict:
+    """O dict de plano que os gates da Fase 12 leem, com os dois limites do
+    CATÁLOGO aplicados. Os dois não têm override global (a env deles já é por
+    plano), então a cadeia é a do catálogo inteira.
+
+    Devolve o MESMO objeto quando nada foi configurado — não é micro-otimização:
+    `test_fase3_gate_plano` compara por IDENTIDADE com `plan.ACTIVE_PLAN`, e
+    "sem configuração nada muda" vale até aí."""
+    plano = plano or _plano_do_escopo(scope)
+    novos = {chave: _limite_do_plano(scope, chave, plano=plano)
+             for chave in ("max_watchlist", "max_analyses_per_month")}
+    if all(plano.get(chave) == valor for chave, valor in novos.items()):
+        return plano
+    return {**plano, **novos}
+
+
 def require_user(authorization: Optional[str] = Header(default=None)) -> dict:
     """Exige sessão válida (rotas de conta: /me, /logout, DELETE /account)."""
     if not authorization:
@@ -195,6 +316,10 @@ options_mcp_api.configure(
     require_permission_dep=require_permission,
     gate_analise=lambda scope, config: _gate_analise(scope, config),
     config_do_usuario=lambda uid: store.get(_conn, "config", user_id=uid),
+    # 25-04: a conciliação plano × override global. Vai por injeção pela MESMA
+    # razão das três acima — ela depende de `plan` + `db` + `_plano_do_escopo`,
+    # que nascem aqui, e o import ao contrário seria circular.
+    limite_do_plano=_limite_do_plano,
 )
 app.include_router(options_mcp_router)
 
@@ -492,22 +617,39 @@ async def delete_account(user: dict = Depends(require_user)):
 # LOGADO cai na IA gerenciada (modelo barato do servidor) sob cota diária +
 # rate limit por usuário. Anônimo e sem BYOK seguem o comportamento atual.
 # ===========================================================================
-def _ai_apply_managed(scope, config, custo: int = 1):
+def _ai_apply_managed(scope, config, custo: int = 1, plano: Optional[dict] = None):
     """Retorna (config_efetiva, consume). Levanta 402 se a cota/rate bloquear.
     Chame consume() APÓS o LLM responder com sucesso (falha não gasta cota).
 
     qa/42 (FinOps): `custo` = quantas análises este request pode disparar
     (o /api/scan/deep faz até MAX_TOP_N). Sem isso, o check media 1 e o
-    consume contava N — a cota era furada em até +9 por request."""
+    consume contava N — a cota era furada em até +9 por request.
+
+    25-04: `plano` é opcional e existe só para o chamador que JÁ resolveu o
+    plano (`_gate_analise`) não pagar uma segunda leitura do usuário."""
     if llm.resolve_key(config):                      # BYOK utilizável → sem cota
         return config, (lambda: None)
     mcfg = managed.managed_config()
     if scope and mcfg:                               # logado + gerenciada habilitada
-        ok, reason = metering.check(_conn, scope, quota=managed.daily_quota(),
+        # 25-04: a cota DIÁRIA por usuário passa a ser a do plano da conta —
+        # `managed.daily_quota` (override admin → env → default) vira a camada
+        # de BAIXO, e é ela que atende quem nunca configurou plano nenhum. Os
+        # dois vizinhos na mesma chamada NÃO mudam e não podem mudar:
+        # `rate_per_min` é freio contra flood (vender "mais requisições por
+        # minuto" é vender o direito de derrubar o serviço) e
+        # `global_daily_cap` é o teto FÍSICO da chave do servidor — ADR-010,
+        # decisão 2: "um usuário pago consome da MESMA cota física".
+        ok, reason = metering.check(_conn, scope,
+                                    quota=_limite_do_plano(scope, "ia_gerenciada_dia",
+                                                           managed.daily_quota, plano=plano),
                                     rate_per_min=managed.rate_per_min(), custo=custo,
                                     cap_global=managed.global_daily_cap())
         if not ok:
-            raise HTTPException(402, reason)
+            # 25-04: o carimbo diz QUAL teto barrou. Quem traduz este 402 para
+            # o vocabulário da aba Opções lia a resposta na FRASE da mensagem
+            # até aqui — e a frase é justamente o que muda sem aviso.
+            raise options_mcp_api.marcar_o_limite(HTTPException(402, reason),
+                                                  options_mcp_api.COD_IA_GERENCIADA)
         # FASE 8B (B4): a config gerenciada é só a CHAVE/modelo — o modo de
         # trabalho do usuário viaja junto (senão a mesa falava como professor).
         # qa/42 (FinOps): `candlePeriod` TAMBÉM viaja. A config gerenciada
@@ -574,10 +716,29 @@ def _gate_analise(scope, config, custo: int = 1):
     # corrente, lida do ledger único de `metering` (contrato escrito em
     # plan.py) — nunca um segundo contador paralelo. Escopo anônimo (None)
     # também resolve: `metering.month_used` devolve 0 para o balde sem user_id.
-    allowed, reason = plan.can_analyze(metering.month_used(_conn, scope), plan=plano)
-    if not allowed:
-        raise HTTPException(402, reason)
-    config, consume = _ai_apply_managed(scope, config, custo=custo)
+    #
+    # 25-04: o LIMITE deixou de ser o literal do dict estático e passa a vir do
+    # catálogo (`_plano_efetivo`). A função de gate, a contagem e a frase de
+    # recusa são exatamente as mesmas — muda a FONTE do número, não a regra.
+    allowed, reason = plan.can_analyze(metering.month_used(_conn, scope),
+                                       plan=_plano_efetivo(scope, plano=plano))
+    # D3 (decisão do Alex, 2026-09-12): o `owner` não é barrado pelo cap
+    # COMERCIAL — mesma posição lógica do BYOK logo acima, que também pula o
+    # gate mensal. E é SÓ o comercial: `_ai_apply_managed` continua rodando
+    # normalmente para ele, com a cota diária, o rate e o teto global da chave
+    # do servidor intactos. Aqueles tetos existem porque o serviço externo
+    # corta para a base INTEIRA; ignorá-los não criaria capacidade nenhuma —
+    # transferiria a recusa para outro usuário, com uma mensagem que não
+    # explica isso.
+    #
+    # A pergunta só é feita DEPOIS de o gate ter decidido negar: o resultado
+    # é o mesmo de perguntar antes, e o caminho feliz (a esmagadora maioria
+    # das requisições) não paga a consulta de papel. Ver `_escopo_e_owner`
+    # sobre por que não há cache.
+    if not allowed and not _escopo_e_owner(scope):
+        raise options_mcp_api.marcar_o_limite(HTTPException(402, reason),
+                                              options_mcp_api.COD_PLANO_ANALISES)
+    config, consume = _ai_apply_managed(scope, config, custo=custo, plano=plano)
     return config, consume
 
 
@@ -597,10 +758,14 @@ async def ai_quota(scope: Optional[str] = Depends(current_scope)):
                 "monthUsed": None, "monthLimit": None}
     cfg = store.get(_conn, "config", user_id=scope)
     byok = bool(llm.resolve_key(cfg))
-    snap = metering.snapshot(_conn, scope, managed.daily_quota()) if (avail and not byok) else None
+    # 25-04: os dois números que esta rota publica são os que de fato barram —
+    # mostrar `managed.daily_quota()` enquanto o gate aplica o limite do plano
+    # faria a tela "Atividade da IA" dizer um teto e o 402 dizer outro.
+    cota_dia = _limite_do_plano(scope, "ia_gerenciada_dia", managed.daily_quota)
+    snap = metering.snapshot(_conn, scope, cota_dia) if (avail and not byok) else None
     return {"managed": avail, "loggedIn": True, "byok": byok, "quota": snap,
             "monthUsed": metering.month_used(_conn, scope),
-            "monthLimit": _plano_do_escopo(scope).get("max_analyses_per_month")}
+            "monthLimit": _plano_efetivo(scope).get("max_analyses_per_month")}
 
 
 @app.get("/api/ai/models")
@@ -1151,7 +1316,16 @@ async def admin_users_get(user: dict = Depends(require_permission("usuarios.gere
         u["roles"] = rbac.roles_for_user(_conn, u["id"])
     return {
         "usuarios": usuarios,
+        # `gruposDisponiveis` é a lista do que o portal renderiza como TOGGLE
+        # (um botão por papel, conceder/revogar). `owner` NÃO entra nela, por
+        # desenho (25-02, D1): ali ele viraria um botão que sempre toma 403.
         "gruposDisponiveis": sorted(rbac.GRUPOS) + [rbac.ROLE_ADMIN],
+        # ...e entra AQUI, para a UI mostrar o papel como ESTADO. Sumir com
+        # ele da tela seria pior que o botão inútil: o admin olharia a conta do
+        # dono e concluiria que ela não tem o papel. A lista é do backend
+        # porque a regra é do backend — um literal "owner" no portal seria a
+        # segunda cópia dela (25-02, 2026-09-12).
+        "papeisIrrevogaveis": [rbac.OWNER],
         "planosDisponiveis": _planos_disponiveis(),
     }
 
@@ -1173,15 +1347,31 @@ async def admin_users_roles_post(user_id: str, body: dict = Body(default={}), us
         raise HTTPException(404, "Usuário não encontrado.")
     anterior = rbac.roles_for_user(_conn, user_id)
     if acao == "revogar":
-        rbac.revoke_role(_conn, user_id, role)
+        # 25-02 (D1, 2026-09-12): este ramo não tinha verificação NENHUMA —
+        # era `DELETE` direto. Agora a recusa do `owner` vem da função de
+        # domínio e vira 403 com a razão (403 e não 400: o papel existe e o
+        # pedido está bem formado; o que falta é autorização para o efeito).
+        # Esta é a 1ª camada da defesa em profundidade; a 2ª é a reconciliação
+        # em `rbac.ensure_bootstrap_role`.
+        try:
+            rbac.revoke_role(_conn, user_id, role)
+        except rbac.PapelIrrevogavel as e:
+            raise HTTPException(403, str(e))
     else:
         # Escalação de privilégio: "usuarios.gerenciar" concede QUALQUER papel
         # (inclusive role_admin, o bootstrap com todas as permissões) — sem
         # este freio, um titular só do grupo "usuarios" vira admin total de
         # si mesmo ou de terceiros. Só quem já É role_admin pode conceder
         # role_admin.
-        if role == rbac.ROLE_ADMIN and rbac.ROLE_ADMIN not in rbac.roles_for_user(_conn, user["id"]):
+        papeis_do_ator = rbac.roles_for_user(_conn, user["id"])
+        if role == rbac.ROLE_ADMIN and rbac.ROLE_ADMIN not in papeis_do_ator:
             raise HTTPException(403, "Só um administrador (role_admin) pode conceder o papel role_admin.")
+        # 25-02 (D1): o MESMO freio, um degrau acima. `role_admin` distribui
+        # qualquer grupo, mas não a âncora do dono do produto — senão `owner`
+        # viraria mais um papel que todo admin reparte, e a permanência dele
+        # (irrevogável) o tornaria pior que o role_admin: entra e não sai.
+        if role == rbac.OWNER and rbac.OWNER not in papeis_do_ator:
+            raise HTTPException(403, "Só o owner pode conceder o papel owner.")
         try:
             rbac.grant_role(_conn, user_id, role, granted_by=user["id"])
         except ValueError as e:
@@ -1218,6 +1408,210 @@ async def admin_users_plan_post(user_id: str, body: dict = Body(default={}), use
     db.set_user_plan(_conn, user_id, novo)
     audit.record(_conn, user["id"], "user_plan", user_id, "plan", anterior, novo)
     return {"ok": True, "userId": user_id, "plano": novo}
+
+
+# ---------------------------------------------------------------------------
+# 25-05 (Fase 4 do `.planning/phases/25-planos-comerciais/25-CONTEXT.md`) — o
+# módulo de PLANOS do portal. Até aqui os cinco limites do catálogo (25-03) já
+# decidiam de verdade (25-04) e só eram configuráveis editando o kv à mão.
+#
+# A UI não escreve NENHUMA lista: planos, limites, rótulos e funções saem
+# daqui. O que este bloco acrescenta ao que `plan.py` declara é a metade que
+# só existe no CHAMADOR — quem decide o número quando o plano não decide.
+# Essa é a leitura que o 25-04 registrou como pendente: `origem: "default"`
+# num limite de PLANO não é "ninguém configurou nada", é "quem manda aqui é o
+# resolvedor GLOBAL" (o card vizinho do portal, ou a env dele).
+#
+# `_META_LIMITES`: (chave, rótulo, ajuda, rótulo do CARD que decide o global).
+# O 4º campo é o nome do card do portal quando existe um; `None` ali NÃO quer
+# dizer "sem resolvedor global" (ver `_resolvedor_global`) — quer dizer "não há
+# card; quem manda é a env, ou o próprio default do catálogo".
+# ---------------------------------------------------------------------------
+_META_LIMITES = (
+    ("max_watchlist", "Ativos na watchlist",
+     "quantos ativos a conta pode acompanhar ao mesmo tempo", None),
+    ("max_analyses_per_month", "Análises de IA por mês",
+     "o cap COMERCIAL do mês — é ele que produz o 402 do plano", None),
+    ("ia_gerenciada_dia", "IA gerenciada por dia",
+     "chamadas à chave do servidor que UMA conta pode fazer por dia",
+     "Mudança de LLM"),
+    ("opcoes_chamadas_dia", "Chamadas da aba Opções por dia",
+     "chamadas ao serviço MCP que UMA conta pode fazer por dia",
+     "Cota da aba Opções (aba Fontes de dados)"),
+    ("assistente_brl_dia", "Teto do assistente (R$/dia)",
+     "quanto o assistente pode custar por dia para UMA conta", None),
+)
+_META_POR_CHAVE = {chave: (rotulo, ajuda, card)
+                   for chave, rotulo, ajuda, card in _META_LIMITES}
+
+ENTIDADE_PLANO_CONFIG = "plano_config"
+
+# D2 NÃO migrou (decisão do Alex no 25-04): `funcoes_do_plano` declara a função
+# e NINGUÉM a lê — quem controla o acesso continua sendo o RBAC. A tela mostra
+# a função; esta nota impede a leitura errada de que o plano já a libera.
+_NOTAS_DE_FUNCAO = {
+    "opcoes.criar_setup": (
+        "Governança ainda controla este acesso — RBAC (permissão "
+        "`opcoes.criar_setup`), não o plano. A migração (D2) segue pendente "
+        "por decisão do Alex no 25-04: liberar por plano AMPLIARIA o acesso ao "
+        "armazém compartilhado do serviço MCP, que tem teto de 2.000 "
+        "chamadas/dia para a base inteira."
+    ),
+}
+
+
+def _resolvedor_global(chave: str):
+    """A função de HOJE que decide o limite quando o plano não decide — a
+    mesma que `_limite_do_plano` recebe como `global_fn` nos call sites reais.
+    Uma segunda lista de bindings divergiria da primeira; esta existe porque o
+    painel precisa mostrar o número EFETIVO, e ele é o conciliado, não o do
+    catálogo."""
+    if chave == "ia_gerenciada_dia":
+        return managed.daily_quota
+    if chave == "opcoes_chamadas_dia":
+        return options_mcp_api.cota_usuario_dia
+    if chave == "assistente_brl_dia":
+        from . import assistente as assist
+        return assist.teto_dia_brl
+    return None
+
+
+def _plano_config_payload() -> dict:
+    """Tudo que o card precisa: os ids de plano, os metadados de cada limite,
+    o valor vigente por plano (com origem, quem decide e o EFETIVO) e as
+    funções de produto."""
+    planos = _planos_disponiveis()
+    config = {}
+    for pid in planos:
+        atual = {}
+        for chave, info in plan.limites_do_plano(pid).items():
+            atual[chave] = {
+                **info,
+                # A resposta a "este número é do plano ou do global?" — a mesma
+                # pergunta que `_e_limite_por_plano` responde para o gate.
+                "decide": "plano" if _e_limite_por_plano(chave, info["origem"]) else "global",
+                # ...e o número que de fato barra. Quando `decide == "global"`,
+                # ele pode divergir do `valor` do catálogo: é o que o admin
+                # precisa ver para não decidir no escuro.
+                "efetivo": _limite_do_plano(None, chave, _resolvedor_global(chave),
+                                            plano=plan.PLANOS_POR_ID[pid]),
+            }
+        config[pid] = atual
+    limites = []
+    for chave, _sufixo, _molde, _tipo, _padroes in plan.LIMITES_DE_PLANO:
+        # Itera o CATÁLOGO, não os metadados: um ponto de controle novo aparece
+        # no painel com o nome interno em vez de sumir dele. Há guardião
+        # exigindo rótulo próprio, para a decisão ser consciente.
+        rotulo, ajuda, card = _META_POR_CHAVE.get(chave, (chave, "", None))
+        limites.append({
+            "chave": chave,
+            "rotulo": rotulo,
+            "ajuda": ajuda,
+            "tipo": config[planos[0]][chave]["tipo"],
+            "global": ({"rotulo": card, "env": plan.env_key(planos[0], chave)}
+                       if _resolvedor_global(chave) is not None else None),
+        })
+    return {
+        "planos": planos,
+        "limites": limites,
+        "config": config,
+        "funcoes": {pid: sorted(plan.funcoes_do_plano(pid)) for pid in planos},
+        "notasDeFuncao": _NOTAS_DE_FUNCAO,
+        # A palavra que representa "sem limite" fora do Python — a UI a recebe
+        # em vez de escrever "ilimitado" por conta própria.
+        "textoSemLimite": plan.TXT_SEM_LIMITE,
+    }
+
+
+def _plano_config_pedidos(body: dict) -> tuple:
+    """Valida TUDO antes de aplicar qualquer coisa — tudo-ou-nada, mesma
+    disciplina de `_cota_opcoes_pedidos`: metade da mudança de pé deixa o admin
+    sem saber qual metade.
+
+    Devolve `(plano, {chave: (valor, restaurar)})`. As três entradas possíveis
+    são diferentes de propósito:
+
+      · chave OMITIDA      → não mexer (mesmo contrato do card de cota);
+      · `null` EXPLÍCITO   → voltar ao padrão (grava o sentinela);
+      · `"ilimitado"`      → sem limite, que é CONFIGURAÇÃO do plano e vence o
+                             resolvedor global. O oposto de voltar ao padrão.
+    """
+    body = body or {}
+    plano = body.get("plano")
+    if not isinstance(plano, str) or plano not in plan.PLANOS_POR_ID:
+        raise HTTPException(400, "Plano inválido. Aceitos: " + ", ".join(_planos_disponiveis()) + ".")
+    limites = body.get("limites")
+    if limites is None:
+        limites = {}
+    if not isinstance(limites, dict):
+        raise HTTPException(400, "`limites` deve ser um objeto {chave: valor}.")
+    catalogo = {chave: ("inteiro" if tipo is int else "número decimal")
+                for chave, _s, _m, tipo, _p in plan.LIMITES_DE_PLANO}
+    pedidos = {}
+    for chave, bruto in limites.items():
+        if chave not in catalogo:
+            raise HTTPException(400, f"Limite desconhecido: {chave}. Aceitos: "
+                                     + ", ".join(catalogo) + ".")
+        if bruto is None:
+            pedidos[chave] = (None, True)
+            continue
+        try:
+            pedidos[chave] = (plan.coerce_limite(chave, bruto), False)
+        except ValueError:
+            raise HTTPException(400, f"{chave}: informe um {catalogo[chave]} >= 0, "
+                                     f"`{plan.TXT_SEM_LIMITE}` para sem limite, ou "
+                                     f"null para voltar ao padrão.")
+    if not pedidos:
+        raise HTTPException(400, "Informe ao menos um limite em `limites`.")
+    return plano, pedidos
+
+
+@app.get("/api/admin/planos")
+async def admin_planos_get(user: dict = Depends(require_permission("usuarios.gerenciar"))):
+    return _plano_config_payload()
+
+
+@app.post("/api/admin/planos")
+async def admin_planos_post(body: dict = Body(default={}),
+                            user: dict = Depends(require_permission("usuarios.gerenciar"))):
+    """Sem `aplicar: true`, é PRÉVIA: valida e devolve o que mudaria, sem
+    gravar nada. O par simular/aplicar é a confirmação da casa (nada de
+    `window.confirm` no portal para esta classe de decisão).
+
+    A auditoria é por CAMPO alterado — um agregado não responde "quem mudou o
+    quê" —, e o que conta como alteração é o par `(valor, origem)`, não só o
+    número: restaurar um limite gravado em 10 quando o padrão também é 10
+    devolve o mesmo 10, mas QUEM DECIDE mudou, e essa escrita não pode ficar
+    sem registro."""
+    plano, pedidos = _plano_config_pedidos(body)
+    antes = plan.limites_do_plano(plano)
+
+    mudancas = []
+    for chave, (valor, restaurar) in pedidos.items():
+        de = (antes[chave]["valor"], antes[chave]["origem"])
+        para = plan.valor_sem_painel(plano, chave) if restaurar else (valor, "kv")
+        if de != para:
+            mudancas.append({"plano": plano, "campo": chave,
+                             "de": de[0], "para": para[0],
+                             "origemDe": de[1], "origemPara": para[1],
+                             "restaurar": restaurar})
+
+    if not body.get("aplicar"):
+        return {"plano": plano, **_plano_config_payload(),
+                "mudancas": mudancas, "aplicado": False}
+
+    for chave, (valor, restaurar) in pedidos.items():
+        anterior = {"valor": antes[chave]["valor"], "origem": antes[chave]["origem"]}
+        if restaurar:
+            plan.restaurar_padrao_do_plano(plano, chave)
+        else:
+            plan.set_limite_do_plano(plano, chave, valor)
+        vigente = plan.limites_do_plano(plano)[chave]
+        novo = {"valor": vigente["valor"], "origem": vigente["origem"]}
+        if novo != anterior:
+            audit.record(_conn, user["id"], ENTIDADE_PLANO_CONFIG, plano, chave, anterior, novo)
+    return {"plano": plano, **_plano_config_payload(),
+            "mudancas": mudancas, "aplicado": True}
 
 
 @app.get("/api/admin/audit")
@@ -1261,7 +1655,7 @@ async def admin_mobile_handoff_exchange(body: dict = Body(default={})):
 
 # FASE 8B (diagnóstico): carimbo de build do BACKEND — confirma qual código o
 # Railway está rodando (o front tem o dele em web/src/version.js).
-SERVER_BUILD_ID = "F10-20260912-03"  # 2026-09-12: deploy SO-BACKEND (front fica em -01; nada em web/src mudou). Conserta o contador que o gate comercial le: o ingest de analytics consumia SEM `month_section`, e o default e `aiUsageMonth` — cada lote de telemetria descontava o LOTE INTEIRO da cota mensal de analises do usuario. Medido: nas contas com ledger, 100% do contador era telemetria e 0% era analise, e duas ja passavam do limite sem ter analisado nada. O guardiao de `month_section` passa a varrer todo o app (so olhava a aba Opcoes, e foi por ai que entrou) e `metering.snapshot` para de misturar o balde diario com o mensal. NENHUM limite mudou — isto conserta a medicao, nao a politica. O gate mensal nas tres rotas que hoje contam sem barrar segue DESLIGADO de proposito: o residuo ja gravado so zera na virada do mes, e ativar antes barraria por defeito, nao por uso.
+SERVER_BUILD_ID = "F10-20260912-04"  # 2026-09-12: Fase 25 completa — planos comerciais. O plano da conta deixa de ser um rotulo com um so efeito e vira o eixo que decide acesso e limite. Papel `owner`: todas as permissoes por uniao dinamica de GRUPOS, irrevogavel nas duas camadas (rota recusa + bootstrap reconcede), ancorado em B3_OWNER_EMAIL sem fallback de primeira conta. Catalogo de cinco limites (analises/mes, watchlist, IA gerenciada/dia, cota da aba Opcoes/dia, teto do assistente em R$/dia) com precedencia plano -> override global -> env -> default — sem configuracao, nada mudou (provado por teste). Owner pula o cap COMERCIAL, nunca o teto FISICO (D3). Modulo de configuracao no portal, com previa, auditoria por campo e "voltar ao padrao" via sentinela. Plano visivel no app: tile no Perfil, tela propria, banner de limite inline nas duas rotas de watchlist (402 estruturado). Zero linguagem de upgrade — nao ha loja/IAP. `opcoes.criar_setup` (D2) segue no RBAC, nao migrado para o plano, por decisao explicita do Alex (ampliaria acesso ao armazem compartilhado do servico MCP). O gate mensal em scan/deep, carteira-stopalvo e assistente segue DESLIGADO — ativacao e decisao pendente, ver STATE.md.
 # Normalmente sincronizado pelo entregar.sh a partir de web/src/version.js; num deploy
 # SÓ de backend (sem rebuild do front) bumpamos aqui para /api/health rastrear o servidor.
 
@@ -1449,6 +1843,43 @@ async def put_llm_prompts(body: dict = Body(default={}), scope: Optional[str] = 
 
 
 # ---- Watchlist ----
+# 25-06: código da recusa por limite de watchlist, publicado no `detail` das
+# DUAS rotas abaixo. Por que existe: `api.js` já extrai `detail.code`/`detail`
+# do corpo de erro desde a aba Opções (2026-09-10) e o comentário de lá diz,
+# por escrito, que NENHUM consumidor lia isso — infraestrutura pronta e ociosa.
+# Estas são as duas ÚNICAS rotas que hoje devolvem 402 CRU ao cliente (o gate
+# de análise tem o 402 capturado e convertido em 200 com fallback
+# determinístico antes de chegar ao front, FIX-C01), e sem o par
+# (código, número) o app só teria a frase para adivinhar qual recusa é esta —
+# o mesmo acoplamento por substring que o 25-04 removeu da aba Opções.
+#
+# Diferença deliberada para o 402 de `_gate_analise`: LÁ o `detail` continua
+# STRING (25-04, decisão registrada — o app lê aquele texto direto e um dict
+# viraria `[object Object]`). Aqui o `detail` vira dict porque `message`
+# carrega a MESMA frase de antes e `enrichErrorMessage` (`web/src/api.js`) já
+# usa `d.message` como base quando o detail é objeto: o texto que chega ao
+# usuário não muda, o número passa a chegar junto.
+COD_WATCHLIST = "watchlist_limite"
+
+
+def _recusa_de_watchlist(reason: str, plano: dict, usado: int) -> HTTPException:
+    """402 estruturado das duas rotas de watchlist.
+
+    `message` é a frase de `plan.can_grow_watchlist_to`/`can_add_ticker`
+    VERBATIM — é o que preserva o conteúdo dos testes de Fase 12 com uma
+    mudança de caminho de acesso, não de texto. `usado` tem o MESMO
+    significado nas duas rotas (quantos ativos a conta tem HOJE, antes da
+    tentativa); um campo que mudasse de sentido entre as rotas produziria
+    número errado na tela compartilhada que o consome.
+    """
+    return HTTPException(402, {
+        "code": COD_WATCHLIST,
+        "message": reason,
+        "limite": plano.get("max_watchlist"),
+        "usado": usado,
+    })
+
+
 @app.post("/api/snapshot")
 async def post_snapshot(body: dict = Body(default={}), scope: Optional[str] = Depends(current_scope)):
     """Fase B1: grava o snapshot de patrimonio do dia (um por dia; sobrescreve)."""
@@ -1481,9 +1912,14 @@ async def put_watchlist(body: dict = Body(default={}), scope: Optional[str] = De
             # WR-02 (12-REVIEW.md): hook honesto pro caso BULK — can_add_ticker
             # espera "tamanho ANTES de uma adição"; aqui é uma troca da lista
             # inteira, então comparamos o tamanho FINAL direto, sem valor sintético.
-            allowed, reason = plan.can_grow_watchlist_to(len(final), plan=_plano_do_escopo(scope))
+            # 25-04: o teto vem do catálogo (`_plano_efetivo`), não mais do
+            # literal do dict — mesma função de gate, mesma frase de recusa.
+            plano = _plano_efetivo(scope)
+            allowed, reason = plan.can_grow_watchlist_to(len(final), plan=plano)
             if not allowed:
-                raise HTTPException(402, reason)
+                # 25-06: `usado` é `len(atual)` (o tamanho de HOJE), não
+                # `len(final)` (o tamanho PEDIDO) — ver `_recusa_de_watchlist`.
+                raise _recusa_de_watchlist(reason, plano, len(atual))
         store.set_watchlist(_conn, novos, user_id=scope)
     return store.public_state(_conn, user_id=scope)
 
@@ -1515,10 +1951,14 @@ async def watchlist_add(body: dict = Body(default={}), scope: Optional[str] = De
     # e o último a escrever `wl + [t]` sobrescreve a adição do outro.
     with store.WATCHLIST_LOCK:
         # GANCHO FREEMIUM (hoje sempre permite): limite de ativos do tier gratuito.
-        allowed, reason = plan.can_add_ticker(len(store.get(_conn, "watchlist", user_id=scope)),
-                                              plan=_plano_do_escopo(scope))
+        # 25-04: idem ao PUT — o limite passa a vir do catálogo de planos.
+        plano = _plano_efetivo(scope)
+        atual = store.get(_conn, "watchlist", user_id=scope)
+        allowed, reason = plan.can_add_ticker(len(atual), plan=plano)
         if not allowed:
-            raise HTTPException(402, reason)  # 402 Payment Required (fase futura)
+            # 402 Payment Required (fase futura). 25-06: estruturado — o
+            # tamanho pré-adição é o que esta rota já calculava.
+            raise _recusa_de_watchlist(reason, plano, len(atual))
         store.add_custom(_conn, t, name, user_id=scope)
         wl = store.get(_conn, "watchlist", user_id=scope)
         if t not in wl:
@@ -1544,7 +1984,11 @@ async def watchlist_quota(scope: Optional[str] = Depends(current_scope)):
     existe de verdade no balde `user_id=None` — anonimo recebe `limit: 10`
     real, coerente com o gate que `POST /api/watchlist/add` ja aplica ao
     mesmo escopo desde a Fase 12."""
-    plano = _plano_do_escopo(scope)
+    # 25-04: `limit` é o que o gate vai aplicar, resolvido pelo catálogo — esta
+    # rota é a UNICA fonte de `max_watchlist` fora de `plan.py` (o `deviceStore`
+    # do iOS não pode hardcodar 10), e publicar aqui um número diferente do que
+    # barra no `POST /add` seria mentir para o contador da tela.
+    plano = _plano_efetivo(scope)
     count = len(store.get(_conn, "watchlist", user_id=scope) or [])
     return {"count": count, "limit": plano.get("max_watchlist"), "planId": plano.get("id")}
 
@@ -3595,10 +4039,15 @@ async def post_assistente(body: dict = Body(default={}), scope: Optional[str] = 
     # estado da conversa que o front já tem (mensagens trocadas), não algo
     # que o servidor guarda entre chamadas.
     historico = b.get("historico")
+    # 25-04: o teto em R$/dia passa a ser o do plano da conta, resolvido AQUI
+    # (no chamador) e entregue pronto — `assistente.teto_dia_brl` continua
+    # sendo a camada de baixo, para quem não configurou plano nenhum. Resolver
+    # lá dentro obrigaria `assistente.py` a conhecer o catálogo e o escopo.
+    teto = _limite_do_plano(scope, "assistente_brl_dia", assist.teto_dia_brl)
     try:
         r = await assist.responder(_conn, config, scope, modo,
                                    b.get("tela"), b.get("snapshot"), pergunta,
-                                   byok=byok, historico=historico)
+                                   byok=byok, historico=historico, teto=teto)
     except assist.TetoAtingido as e:
         raise HTTPException(429, str(e))
     except Exception as e:  # noqa: BLE001 — erro do provedor vira texto público

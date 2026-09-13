@@ -118,6 +118,16 @@ def _int_env(name: str, default: int) -> int:
 
 
 def daily_quota() -> int:
+    """Cota diária por usuário GLOBAL — igual para toda a base.
+
+    25-04 (Fase 3 do 25-CONTEXT): virou a camada de BAIXO. O gate
+    (`main._ai_apply_managed`) resolve primeiro o limite do PLANO da conta e só
+    cai aqui quando não há nada configurado — que é o caso de toda instalação
+    que nunca abriu o módulo comercial. O override admin (`llmDailyQuota`)
+    continua valendo, e continua na frente da env, exatamente como antes: esta
+    função NÃO muda uma linha, e é disso que depende "sem configuração de
+    plano, nada muda". O teto GLOBAL (`global_daily_cap`) e o `rate_per_min`
+    logo abaixo NÃO entram no eixo comercial — ADR-010, decisão 2."""
     override = _override("llmDailyQuota")
     if isinstance(override, int):
         return override

@@ -1029,6 +1029,7 @@ function Usuarios({ user }) {
   };
 
   return (
+    <>
     <Card title="Usuários e papéis">
       <Estado loading={loading} error={error} empty={data && (data.usuarios || []).length === 0}>
         {data && data.usuarios.map((u) => (
@@ -1064,6 +1065,19 @@ function Usuarios({ user }) {
                 (plano × papéis), sem nome não dá para saber qual é qual */}
             <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "6px", alignItems: "center" }}>
               <span style={{ fontSize: "11px", color: T.faint, marginRight: "2px" }}>papéis:</span>
+              {/* 25-02 (D1, 2026-09-12): papel irrevogável entra como ESTADO,
+                  nunca como toggle — um botão ali sempre tomaria 403, e
+                  esconder o papel faria o admin achar que a conta do dono não
+                  o tem. A lista vem do backend (`papeisIrrevogaveis`): a regra
+                  é de lá, e um literal aqui seria a segunda cópia dela. */}
+              {(u.roles || []).filter((role) => (data.papeisIrrevogaveis || []).includes(role)).map((role) => (
+                <span key={role} title="Papel permanente — não pode ser revogado."
+                      style={{ ...btnGhost, display: "inline-block", cursor: "default",
+                               fontSize: "11.5px", padding: "11px 12px",
+                               background: T.accent, color: T.onAccent, borderColor: T.accent }}>
+                  {role} · permanente
+                </span>
+              ))}
               {(data.gruposDisponiveis || []).map((role) => {
                 const tem = (u.roles || []).includes(role);
                 return (
@@ -1080,6 +1094,202 @@ function Usuarios({ user }) {
         ))}
       </Estado>
       {msg && <div style={{ marginTop: "8px", fontSize: "12px", color: T.negative }}>{msg}</div>}
+    </Card>
+    {/* 25-05 — mesma aba porque é a MESMA decisão comercial: ali se muda o
+        plano de UMA conta, aqui se muda o que o plano SIGNIFICA. Em abas
+        separadas, o admin mudaria um limite sem ver quem está no plano. */}
+    <PlanosConfig user={user} />
+    </>
+  );
+}
+
+// 25-05 (Fase 4 do 25-CONTEXT, 2026-09-12) — a leitura de origem que o card de
+// cota não precisava ter, e este precisa.
+//
+// Achado do 25-04: `origem: "default"` num limite de PLANO **não** significa
+// "ninguém configurou nada". Significa "quem decide este número, hoje, é o
+// resolvedor GLOBAL" — o card vizinho do portal, ou a env dele. Sem esta
+// linha o admin lê `60 · padrão` no plano gratuito e conclui que o plano
+// define 60; e aí muda o número no lugar errado.
+//
+// Dois casos diferentes, duas frases diferentes, porque a consequência é
+// diferente: com `global` no metadado, existe outro lugar que manda e ele é
+// nomeado; sem, o default do catálogo é a última palavra mesmo.
+const notaOrigemStyle = { marginTop: "3px", marginBottom: "6px", fontSize: "11px", color: T.faint, lineHeight: 1.5 };
+
+function NotaDeOrigem({ meta, lim }) {
+  if (!lim) return null;
+  if (lim.origem === "default") {
+    return (
+      <div style={notaOrigemStyle}>
+        Sem valor próprio neste plano — {meta.global
+          ? <>quem decide é <b>{meta.global.rotulo || "a variável de ambiente"}</b> ({meta.global.env}).</>
+          : <>vale o padrão do catálogo, e não há outro lugar que o sobreponha.</>}
+      </div>
+    );
+  }
+  // A env dos pontos compartilhados vale para os DOIS planos — o catálogo a
+  // reusa de propósito, e por isso ela não é "configuração deste plano".
+  if (lim.decide === "global") {
+    return (
+      <div style={notaOrigemStyle}>
+        {lim.env} é uma variável <b>global</b> (vale para os dois planos) — quem decide
+        continua sendo {(meta.global && meta.global.rotulo) || "o resolvedor global"}, não este plano.
+      </div>
+    );
+  }
+  return null;
+}
+
+// O card: dois planos × cinco limites, no molde do `CotaOpcoes` (prévia ×
+// aplicar como chamadas separadas, origem traduzida, campo vazio = "não
+// mexer"). Nenhuma lista de plano, limite ou função mora aqui — tudo vem de
+// `api.planosGet()`, senão a segunda cópia do catálogo não acompanharia a
+// próxima mudança. Guardião: web/tests/test_admin_planos_config_ui.mjs.
+function PlanosConfig({ user }) {
+  const podeEditar = (user?.permissions || []).includes("usuarios.gerenciar");
+  const { loading, error, data, reload } = useFetch(() => api.planosGet(), []);
+  const [form, setForm] = useState({});
+  const [previa, setPrevia] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  // "sem limite" é `null` no fio e uma palavra na tela — e a palavra vem do
+  // backend, que é quem a define (`plan.TXT_SEM_LIMITE`).
+  const mostrar = (v) => (v === null || v === undefined ? (data?.textoSemLimite || "—") : String(v));
+  const nome = (pid, chave) => pid + "." + chave;
+
+  const enviar = async (corpo, aplicando) => {
+    setBusy(true); setMsg("");
+    try {
+      const r = aplicando ? await api.planosAplicar(corpo) : await api.planosPrevia(corpo);
+      setPrevia(r);
+      if (aplicando) {
+        setMsg("Aplicado — auditado (um registro por limite alterado).");
+        setForm({});
+        reload();
+      }
+    } catch (e) {
+      setPrevia(null);
+      setMsg((e && e.message) || "Falha ao falar com o servidor.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Só os campos preenchidos viajam: vazio significa "não mexer nele", e
+  // mandar o valor vigente de volta fixaria a origem no painel sem ninguém ter
+  // pedido. O texto vai cru — quem valida tipo e faixa é o backend, que é a
+  // fonte única disso e não pode confiar na tela de qualquer forma.
+  const executar = (pid, aplicando) => {
+    const limites = {};
+    for (const L of data.limites) {
+      const bruto = String(form[nome(pid, L.chave)] ?? "").trim();
+      if (bruto) limites[L.chave] = bruto;
+    }
+    if (!Object.keys(limites).length) {
+      setPrevia(null); setMsg("Preencha ao menos um limite deste plano.");
+      return;
+    }
+    return enviar({ plano: pid, limites }, aplicando);
+  };
+
+  // "Voltar ao padrão": `null` naquele campo, pelo MESMO caminho de aplicar —
+  // o backend grava o sentinela e a decisão volta para a env ou o default.
+  const restaurar = (pid, chave) => enviar({ plano: pid, limites: { [chave]: null } }, true);
+
+  return (
+    <Card title="Limites e funções por plano" right={<button onClick={reload} style={btnGhost}>↻ atualizar</button>}>
+      <Estado loading={loading} error={error}>
+        {data && data.planos.map((pid) => (
+          <div key={pid} style={{ marginTop: "14px" }}>
+            <div style={{ fontSize: "11.5px", fontWeight: 700, color: T.text, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+              plano {pid}
+            </div>
+            {data.limites.map((L) => {
+              const lim = data.config[pid][L.chave];
+              return (
+                <div key={L.chave} style={{ marginTop: "8px" }}>
+                  {/* o valor do catálogo E o que de fato barra hoje: quando o
+                      plano não decide, os dois podem divergir, e é justamente
+                      esse o estado que este card existe para desfazer */}
+                  <Kv label={`${L.rotulo} — origem: ${ORIGEM_ROTULO[lim.origem] || "—"}`}
+                      value={mostrar(lim.valor) + (lim.efetivo !== lim.valor ? ` · aplicado hoje: ${mostrar(lim.efetivo)}` : "")} />
+                  <NotaDeOrigem meta={L} lim={lim} />
+                  {podeEditar && (
+                    <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+                      <input value={form[nome(pid, L.chave)] || ""}
+                             inputMode={L.tipo === "int" ? "numeric" : "decimal"}
+                             onChange={(e) => setForm({ ...form, [nome(pid, L.chave)]: e.target.value })}
+                             placeholder={`${L.ajuda} — vazio = mantém ${mostrar(lim.valor)}`}
+                             style={{ ...inputStyle, flex: 1, minWidth: 0, width: "auto" }} />
+                      {/* só há configuração de painel para desfazer quando ela
+                          existe — com origem env/padrão o botão seria um
+                          no-op que grava um evento de auditoria vazio */}
+                      {lim.origem === "kv" && (
+                        <button onClick={() => restaurar(pid, L.chave)} disabled={busy} style={btnGhost}
+                                title="Apaga a configuração do painel e devolve a decisão à variável de ambiente ou ao padrão.">
+                          voltar ao padrão
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {podeEditar && (
+              <div style={{ marginTop: "10px", display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                <button onClick={() => executar(pid, false)} disabled={busy} style={btnGhost}>
+                  {busy ? "…" : "Simular (não grava)"}
+                </button>
+                <button onClick={() => executar(pid, true)} disabled={busy}
+                        style={{ padding: "13px 16px", borderRadius: "8px", border: "none", background: T.accent, color: T.onAccent, fontWeight: 700, fontSize: "12.5px", cursor: "pointer", whiteSpace: "nowrap", opacity: busy ? 0.6 : 1 }}>
+                  {busy ? "Aplicando…" : "Aplicar (auditado)"}
+                </button>
+              </div>
+            )}
+            {/* funções do plano — SOMENTE LEITURA (D2 pendente por decisão do
+                Alex no 25-04: liberar `opcoes.criar_setup` por plano AMPLIARIA
+                o acesso ao armazém compartilhado do serviço MCP). Nenhum
+                controle de escrita aqui dentro, e há guardião exigindo isso. */}
+            <div style={{ marginTop: "10px", fontSize: "11.5px", color: T.muted, lineHeight: 1.5 }}>
+              <span style={{ color: T.faint }}>funções liberadas: </span>
+              {(data.funcoes[pid] || []).length
+                ? (data.funcoes[pid] || []).map((f) => (
+                    <span key={f}>
+                      <b style={{ fontFamily: MONO }}>{f}</b>
+                      {data.notasDeFuncao[f] ? " — " + data.notasDeFuncao[f] : ""}
+                    </span>
+                  ))
+                : <span style={{ color: T.faint }}>nenhuma</span>}
+            </div>
+            {/* fim das funções do plano */}
+          </div>
+        ))}
+
+        {/* A frase que faz a decisão fazer sentido, no mesmo papel que a do
+            card de cota: sem ela, um admin sobe um limite de plano achando que
+            aumentou a capacidade do serviço. */}
+        <div style={{ marginTop: "14px", fontSize: "11.5px", color: T.muted, lineHeight: 1.5 }}>
+          Estes limites são o que o Boris aplica <b>À CONTA</b>. Os tetos <b>globais</b> — as
+          2.000 chamadas/dia do serviço da aba Opções, a cota mensal da brapi, o teto da chave
+          do servidor — continuam protegendo o app inteiro e <b>não mudam aqui</b>.
+        </div>
+
+        {previa && (
+          <div style={{ marginTop: "10px", fontSize: "12px", color: T.muted }}>
+            {previa.mudancas?.length
+              ? previa.mudancas.map((m) => (
+                  <div key={m.plano + m.campo}>
+                    {m.campo} do plano {m.plano}: {mostrar(m.de)} → {mostrar(m.para)}
+                    {m.restaurar ? " (volta ao padrão)" : ""}{previa.aplicado ? "" : " (simulação)"}
+                  </div>
+                ))
+              : <div>Nenhuma mudança — os valores informados já são os vigentes.</div>}
+          </div>
+        )}
+        {msg && <div style={{ marginTop: "8px", fontSize: "12px", color: T.muted }}>{msg}</div>}
+      </Estado>
     </Card>
   );
 }

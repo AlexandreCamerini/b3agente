@@ -13,7 +13,7 @@ import OpcoesScreen from "./opcoes/OpcoesScreen.jsx";
 import { BUILD_ID } from "./version.js";
 // carimbo no console: prova de qual build está rodando (device/web)
 try { console.log("[b3] build", BUILD_ID); } catch { /* noop */ }
-import { canAddTicker, canAnalyze } from "./plan.js";
+import { canAddTicker, canAnalyze, erroDeLimiteWatchlist, limiteDeWatchlist } from "./plan.js";
 import { portfolioMetrics, dayReturnPct, equityCurve, markPrice, sizingPlano, RR_MIN_TXT, historicoEstado, historicoDesatualizado, benchmarkSerie, concentracaoMaxima, qtyLivre, resumoOperacao, setupOperavel, metaDeEntrada, faixaDeLiquidez } from "./finance.js";
 import * as notify from "./notify.js";
 import { track, setAnalyticsUser, flush as flushAnalytics } from "./analytics.js"; // qa/47 (Fase 2)
@@ -469,6 +469,36 @@ function QuotaSeg({ quota, count, prefix, suffix }) {
   }
   const cor = count / quota.limit >= 0.9 ? T.warn : "inherit";
   return <>{prefix}<span style={{ fontFamily: MONO, fontWeight: 700, color: cor }}>{count}/{quota.limit}</span>{suffix}</>;
+}
+
+// 25-06 (Fase 5 do 25-CONTEXT): aviso ÚNICO de "bateu o limite do plano".
+// Extrai a caixa T.warn que já estava repetida inline em quatro pontos do
+// arquivo (drawdown alto, nudge do Operador, etc.) — mesma gramática visual.
+//
+// Três decisões que este componente existe para carregar, todas do relatório
+// do UX Researcher desta fase:
+//  1) COR: `T.warn`, nunca `T.negative`. Vermelho é reservado a P&L neste app
+//     (mesma razão do QuotaSeg logo acima); usá-lo aqui faria "bati o teto"
+//     parecer prejuízo. Bater o limite é estado ESPERADO, não catástrofe.
+//  2) LUGAR: renderizado INLINE, no ponto onde a tentativa aconteceu — nunca
+//     `flash()` (toast de 2,6s, curto demais para algo que a pessoa precisa
+//     entender) e nunca modal bloqueante.
+//  3) GATILHO: só com `code` reconhecido. Erro técnico (provedor fora do ar,
+//     rede) e recusa de plano são categorias diferentes (princípio 4 do
+//     CLAUDE.md) e não podem cair no mesmo aviso — por isso a leitura passa
+//     por `limiteDeWatchlist`, que devolve null para qualquer outro erro.
+// O texto vem de `cp.*`, nunca de `erro.message`: a `reason` do backend é
+// ASCII sem acento, convenção de log Python, não copy de produto.
+function LimiteAtingido({ erro, cp }) {
+  const lim = limiteDeWatchlist(erro);
+  if (!lim) return null;
+  return (
+    <div role="status" style={{ marginTop: "9px", padding: "10px 12px", borderRadius: "10px", background: "color-mix(in srgb, " + T.warn + " 12%, transparent)", border: `1px solid ${T.warn}` }}>
+      <div style={{ fontSize: "12px", color: T.textPrimary, lineHeight: 1.5 }}>
+        {cp.planoAvisoLimiteWatchlist(lim.limite, lim.usado)}
+      </div>
+    </div>
+  );
 }
 
 // Marcador MÍNIMO junto ao conteúdo de IA (o texto completo vive em "Sobre").
@@ -2542,6 +2572,16 @@ function PerfilHub({ ctx, onOpen }) {
       <div style={hubGroup}>Conta</div>
       <ProfileTile wide onClick={() => ctx.openAuth && ctx.openAuth()} title={ctx.authUser ? "Conta" : "Entrar ou criar conta"} sub={ctx.authUser ? ((((ctx.authUser.name || "").trim()) || (/@privaterelay\.appleid\.com$/i.test(ctx.authUser.email || "") ? "Sua conta Apple" : ctx.authUser.email) || "conectado") + " · toque para gerenciar") : "Opcional — salva sua carteira e sincroniza entre aparelhos"} icon={
         <svg width="19" height="19" viewBox="0 0 24 24" aria-hidden><circle cx="12" cy="8.5" r="3.6" fill="none" stroke="currentColor" strokeWidth="1.9" /><path d="M5 19.5c0-3.6 3.1-5.5 7-5.5s7 1.9 7 5.5" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" /></svg>
+      } />
+      {/* 25-06 (Fase 5 do 25-CONTEXT): o plano mora no grupo CONTA, logo
+          abaixo do tile de login — não em "IA e desempenho" (lá o eixo é
+          modelo/BYOK/custo, ortogonal ao entitlement) e NUNCA como badge
+          global. Plano muda raríssimo (hoje só por atribuição manual da
+          administração): um badge permanente para um dado quase nunca
+          consultado cobra carga cognitiva em TODA tela pela estética de
+          freemium agressivo que o ADR-010 (decisão 4) proíbe. */}
+      <ProfileTile wide onClick={() => onOpen("plano")} title={ctx.cp.planoRotulo} sub={ctx.cp.planoResumoTile(ctx.authUser && ctx.authUser.plan)} icon={
+        <svg width="19" height="19" viewBox="0 0 24 24" aria-hidden><rect x="3.5" y="6" width="17" height="12" rx="2.5" fill="none" stroke="currentColor" strokeWidth="1.8" /><path d="M3.5 10.5h17" stroke="currentColor" strokeWidth="1.6" /><path d="M7 14.5h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
       } />
 
       <div style={hubGroup}>Personalização e simulação</div>
@@ -5713,6 +5753,70 @@ function BorisConfigSection({ ctx, sectionTitle }) {
 // qa/32 — CONFIGURAÇÕES DE IA: modelo/provedor do agente + skills por modo +
 // prompts, que antes viviam espalhados dentro de "Conta & preferências"
 // (monólito de 7 seções). Reorganizado a pedido do Alex.
+// 25-06 (Fase 5 do 25-CONTEXT) — PLANO DA CONTA. Sub-tela do Perfil, no molde
+// de AiConfigScreen. Compõe o que já existe e não inventa nada: `plan` vem de
+// `/api/auth/me` (já no `authUser`), e os DOIS limites vêm das rotas de cota,
+// que desde o 25-04 publicam o número EFETIVO do plano — a mesma fonte que o
+// gate aplica, então a tela não pode divergir do que barra.
+//
+// O que esta tela deliberadamente NÃO tem: CTA de upgrade (não existe
+// loja/IAP — ADR-010, decisão 4), tabela comparativa Free x Pro, contagem
+// regressiva ("só resta 1!") e qualquer cor de P&L.
+//
+// Custo reconhecido: são 2 chamadas de rede ao abrir. Não é grátis, e é por
+// isso que elas acontecem AQUI (tela aberta de propósito, raríssimo) e não no
+// boot nem num badge global.
+function PlanoLinha({ texto, quota, count, indisponivel }) {
+  // Mesma semântica de 3 estados do `QuotaSeg`, um nível acima: `undefined`
+  // (carregando) omite a linha inteira — sem flash de travessão; `null`
+  // (falhou) diz o MOTIVO em vez de mostrar número estimado (princípio 4 do
+  // CLAUDE.md); `limit == null` (plano sem teto) omite, porque o app nunca
+  // escreve a palavra que significa "sem teto" (D-03 da Fase 13).
+  if (quota === undefined) return null;
+  if (quota === null) return <div style={{ fontSize: "12px", color: T.textFaint, lineHeight: 1.5, marginTop: "8px" }}>{indisponivel}</div>;
+  if (quota.limit == null) return null;
+  return (
+    <div style={{ fontSize: "13px", color: T.textSecondary, lineHeight: 1.6, marginTop: "8px" }}>
+      {texto}<QuotaSeg quota={quota} count={count} prefix=" " suffix="" />
+    </div>
+  );
+}
+
+function PlanoScreen({ ctx }) {
+  const { cp } = ctx;
+  const planId = (ctx.authUser && ctx.authUser.plan) || null;
+  const [aiq, setAiq] = useState(undefined);
+  const [wlq, setWlq] = useState(undefined);
+  useEffect(() => {
+    let vivo = true;
+    // Catches SEPARADOS: a falha de um não pode apagar o outro (mesmo cuidado
+    // de AtividadeIAScreen — o limite da watchlist tem de aparecer mesmo se a
+    // cota de análises não responder).
+    store.aiQuota().then((r) => { if (vivo) setAiq(r); }).catch(() => { if (vivo) setAiq(null); });
+    store.watchlistQuota().then((r) => { if (vivo) setWlq(r); }).catch(() => { if (vivo) setWlq(null); });
+    return () => { vivo = false; };
+  }, []);
+  // `{ limit }` adapta os dois formatos ({monthUsed,monthLimit} e
+  // {count,limit,planId}) ao contrato único que o QuotaSeg espera — a lógica
+  // de cor/omissão continua morando nele, não aqui.
+  const aiQuotaObj = aiq === undefined ? undefined : (aiq === null ? null : { limit: aiq.monthLimit });
+  const aiCount = (aiq && typeof aiq.monthUsed === "number") ? aiq.monthUsed : null;
+  const wlQuotaObj = wlq === undefined ? undefined : (wlq === null ? null : { limit: wlq.limit });
+  const wlCount = (wlq && typeof wlq.count === "number") ? wlq.count : null;
+  return (
+    <div>
+      <h1 style={{ margin: "0 0 6px", fontSize: "22px", fontWeight: 700, fontFamily: DISPLAY }}>{cp.planoTituloTela}</h1>
+      <p style={{ margin: "0 0 18px", color: T.textMuted, fontSize: "12.5px", lineHeight: 1.5, maxWidth: "560px" }}>{cp.planoDescricao}</p>
+      <div style={{ ...card, padding: "17px 18px" }}>
+        <div style={{ fontSize: "11px", fontWeight: 800, letterSpacing: "0.05em", color: T.textSecondary, textTransform: "uppercase" }}>{cp.planoRotulo}</div>
+        <div style={{ fontFamily: MONO, fontSize: "18px", fontWeight: 800, color: T.accent, marginTop: "5px" }}>{cp.planoNome(planId)}</div>
+        <PlanoLinha texto={cp.planoEntitlementAnalises(aiQuotaObj && aiQuotaObj.limit)} quota={aiQuotaObj} count={aiCount} indisponivel={cp.planoLimiteIndisponivel} />
+        <PlanoLinha texto={cp.planoEntitlementWatchlist(wlQuotaObj && wlQuotaObj.limit)} quota={wlQuotaObj} count={wlCount} indisponivel={cp.planoLimiteIndisponivel} />
+      </div>
+    </div>
+  );
+}
+
 function AiConfigScreen({ ctx }) {
   const { data, A, test } = ctx;
   const c = data.config;
@@ -7596,7 +7700,7 @@ function ConfigScreen({ ctx }) {
 }
 
 function CatalogModal({ ctx }) {
-  const { data, catalogSel, setCatalogSel, addState, setAddState, A, wlQuota } = ctx;
+  const { data, catalogSel, setCatalogSel, addState, setAddState, A, wlQuota, catalogLimite, cp } = ctx;
   const [tk, setTk] = useState("");
   const toggle = (t) => setCatalogSel((sel) => (sel.includes(t) ? sel.filter((x) => x !== t) : [...sel, t]));
   const submit = async () => {
@@ -7624,7 +7728,7 @@ function CatalogModal({ ctx }) {
           <div style={{ display: "flex", gap: "8px" }}>
             <input
               value={tk}
-              onChange={(e) => { setTk(e.target.value.toUpperCase()); if (addState.msg) setAddState({ busy: false, msg: "" }); }}
+              onChange={(e) => { setTk(e.target.value.toUpperCase()); if (addState.msg || addState.limite) setAddState({ busy: false, msg: "", limite: null }); }}
               onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
               placeholder="ex.: TAEE11"
               maxLength={8}
@@ -7636,6 +7740,10 @@ function CatalogModal({ ctx }) {
             </button>
           </div>
           {addState.msg && <div style={{ marginTop: "8px", fontSize: "12px", color: addState.msg.startsWith("✓") ? T.positive : T.negative }}>{addState.msg}</div>}
+          {/* 25-06: recusa por limite do plano, INLINE no ponto da tentativa
+              (o campo de adicionar), em T.warn — não é erro técnico nem
+              prejuízo. Ver `LimiteAtingido`. */}
+          <LimiteAtingido erro={addState.limite} cp={cp} />
         </div>
 
         <div style={{ overflowY: "auto", padding: "12px 14px", display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(150px,1fr))", gap: "8px" }}>
@@ -7653,9 +7761,14 @@ function CatalogModal({ ctx }) {
             );
           })}
         </div>
-        <div style={{ padding: "14px 18px", borderTop: `1px solid ${T.borderSubtle}`, display: "flex", gap: "8px", justifyContent: "flex-end" }}>
+        <div style={{ padding: "14px 18px", borderTop: `1px solid ${T.borderSubtle}` }}>
+          {/* 25-06: a recusa da gravação EM MASSA aparece junto do botão que a
+              produziu — nunca como toast, que some antes de ser lido. */}
+          <LimiteAtingido erro={catalogLimite} cp={cp} />
+          <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end", marginTop: catalogLimite ? "10px" : 0 }}>
           <button onClick={A.closeCatalog} style={{ padding: "10px 16px", borderRadius: "8px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 600, fontSize: "13px" }}>Cancelar</button>
           <button onClick={A.saveCatalog} style={{ padding: "10px 18px", borderRadius: "8px", border: `1px solid ${T.accent}`, background: T.accent, color: T.onAccent, fontWeight: 800, fontSize: "13px" }}>Salvar watchlist</button>
+          </div>
         </div>
       </div>
     </div>
@@ -7866,7 +7979,7 @@ export default function App() {
   const [quotesLoading, setQuotesLoading] = useState(false);
   const [tab, setTab] = useState("evolucao");
   const [carteiraView, setCarteiraView] = useState("main"); // main | historico | agente
-  const [perfilView, setPerfilView] = useState("hub");       // hub | config | ia | notificacoes | eficiencia | logs
+  const [perfilView, setPerfilView] = useState("hub");       // hub | plano | config | ia | notificacoes | eficiencia | logs
   const navigate = (t) => { setCarteiraView("main"); setPerfilView("hub"); setTab(t); };
   const [analysis, setAnalysis] = useState({});
   const [expanded, setExpanded] = useState({});
@@ -7883,7 +7996,12 @@ export default function App() {
   const [keyDraft, setKeyDraft] = useState("");
   const [test, setTest] = useState({ status: null, msg: "" });
   const [cycleBusy, setCycleBusy] = useState(false);
-  const [addState, setAddState] = useState({ busy: false, msg: "" });
+  const [addState, setAddState] = useState({ busy: false, msg: "", limite: null });
+  // 25-06: recusa por limite da gravação EM MASSA da watchlist (PUT). Estado
+  // separado do `addState` de propósito: são dois pontos de tentativa
+  // diferentes dentro do mesmo modal (o campo de adicionar, no topo; o botão
+  // de salvar, no rodapé) e o aviso tem de aparecer onde a pessoa tocou.
+  const [catalogLimite, setCatalogLimite] = useState(null);
   // FASE 13 (13-03, CAP-06): par uso/limite da watchlist (QuotaSeg acima).
   // `undefined` = ainda não carregou (boot), `null` = falha ao confirmar
   // (nunca reexibe valor antigo), objeto `{ count, limit, planId }` = dado
@@ -8305,11 +8423,19 @@ export default function App() {
     go: (t) => { setCarteiraView("main"); setPerfilView("hub"); setTab(t); },
     // FASE 6 (fix 4): atalho direto para a CENTRAL de notificações (Config)
     openNotifCentral: () => { setCarteiraView("main"); setPerfilView("notificacoes"); setTab("perfil"); },
-    openCatalog: () => { setCatalogSel(data ? [...data.watchlist] : []); setCatalogOpen(true); },
+    openCatalog: () => { setCatalogSel(data ? [...data.watchlist] : []); setCatalogLimite(null); setCatalogOpen(true); },
     closeCatalog: () => setCatalogOpen(false),
     saveCatalog: async () => {
+      setCatalogLimite(null);
       try { const s = await store.putWatchlist(catalogSel); setData(s); setCatalogOpen(false); flash("Watchlist salva."); }
-      catch (e) { flash("Erro: " + (e.message || e)); }
+      catch (e) {
+        // 25-06: a recusa por limite fica INLINE no modal, junto do botão que
+        // a pessoa acabou de tocar — o `flash` (2,6s) sumiria antes de ela
+        // entender, e ainda fecharia o assunto longe do ponto da tentativa.
+        // Erro técnico continua no toast: categorias diferentes.
+        if (limiteDeWatchlist(e)) { setCatalogLimite(e); return; }
+        flash("Erro: " + (e.message || e));
+      }
     },
     analyze: async (t) => {
       // GANCHO FREEMIUM (hoje sempre permite): limite de análises/mês do gratuito.
@@ -8845,8 +8971,12 @@ export default function App() {
       const dbg = (() => { try { return (typeof window !== "undefined" && window.B3_DEBUG) || (typeof localStorage !== "undefined" && localStorage.getItem("b3-debug")); } catch { return false; } })();
       // GANCHO FREEMIUM (hoje sempre permite): limite de ativos do tier gratuito.
       const gate = canAddTicker((data.watchlist || []).length);
-      if (!gate.ok) { setAddState({ busy: false, msg: "✗ " + gate.reason }); return false; }
-      setAddState({ busy: true, msg: "" });
+      // 25-06: a recusa por limite deixa de virar linha vermelha com a frase
+      // crua do gate e passa pelo banner compartilhado (T.warn, texto de
+      // copy.js). `msg` fica VAZIA nesse caminho — duas mensagens para a
+      // mesma recusa, uma delas em cor de prejuízo, é o que se está desfazendo.
+      if (!gate.ok) { setAddState({ busy: false, msg: "", limite: erroDeLimiteWatchlist(gate) }); return false; }
+      setAddState({ busy: true, msg: "", limite: null });
       try {
         const s = await store.addWatchlistTicker(ticker);
         setData(s); // (g) UI relê o estado retornado pelo store
@@ -8855,11 +8985,16 @@ export default function App() {
           setCatalogSel((sel) => Array.from(new Set([...(sel || []), s.added.t])));
           refreshQuotes(); // (h) recarrega cotações para o novo ativo já aparecer com preço
         }
-        setAddState({ busy: false, msg: "✓ " + (s.added ? s.added.t + " adicionado à watchlist" : "adicionado") });
+        setAddState({ busy: false, msg: "✓ " + (s.added ? s.added.t + " adicionado à watchlist" : "adicionado"), limite: null });
         return true;
       } catch (e) {
         if (dbg) console.log("[b3:add:erro]", e && e.message);
-        setAddState({ busy: false, msg: "✗ " + (e.message || String(e)) });
+        // 25-06: 402 estruturado do servidor (web) ou recusa do gate local
+        // (iOS) — as duas chegam com o mesmo `code` e vão para o banner.
+        // Qualquer OUTRO erro (ticker inexistente, provedor fora do ar)
+        // continua na linha de erro de sempre: são categorias diferentes.
+        if (limiteDeWatchlist(e)) { setAddState({ busy: false, msg: "", limite: e }); return false; }
+        setAddState({ busy: false, msg: "✗ " + (e.message || String(e)), limite: null });
         return false;
       }
     },
@@ -9054,6 +9189,7 @@ export default function App() {
     recarregarMercado: () => { const fn = consultarMercadoRef.current; if (fn) fn(); },
     data, quotes, analysis, expanded, analysisModel, setAnalysisModel, A, quotesAt, quotesLoading, test, keyDraft, setKeyDraft, cp, wlQuota,
     catalogSel, setCatalogSel, buyModal, setBuyModal, cycleBusy, addState, setAddState,
+    catalogLimite,   // 25-06: recusa por limite do PUT em massa (CatalogModal)
     sellModal, setSellModal, wlScan, wlScanLoading, destaque,
     themePref, themeKey, aboutOpen,
     stopAlvo, stopAlvoFor,
@@ -9339,7 +9475,9 @@ export default function App() {
             : carteiraView === "agente"
               ? (<><BackHeader title={cp.tituloOperadorIA || "Operador IA"} onBack={() => setCarteiraView("main")} /><AgenteScreen ctx={ctx} /></>)
             : (<><div style={{ marginBottom: "14px" }}><button onClick={() => ctx.goAgente()} style={{ width: "100%", minHeight: "48px", padding: "13px", borderRadius: "13px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 700, fontSize: "13.5px", display: "flex", alignItems: "center", justifyContent: "space-between" }}><span>{cp.linkOperadorIA || "Abrir o Operador IA →"}</span><span aria-hidden style={{ color: T.textFaint }}>›</span></button></div><CarteiraScreen ctx={ctx} /><div style={{ marginTop: "14px" }}><button onClick={() => setCarteiraView("historico")} style={{ width: "100%", minHeight: "48px", padding: "13px", borderRadius: "13px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 700, fontSize: "13.5px", display: "flex", alignItems: "center", justifyContent: "space-between" }}><span>Ver histórico de operações</span><span aria-hidden style={{ color: T.textFaint }}>›</span></button></div></>))}
-          {tab === "perfil" && (perfilView === "config"
+          {tab === "perfil" && (perfilView === "plano"
+            ? (<><BackHeader title={cp.planoTituloTela} onBack={() => setPerfilView("hub")} /><PlanoScreen ctx={ctx} /></>)
+            : perfilView === "config"
             ? (<><BackHeader title="Preferências" onBack={() => setPerfilView("hub")} /><ConfigScreen ctx={ctx} /></>)
             : perfilView === "ia"
               ? (<><BackHeader title="IA & Boris" onBack={() => setPerfilView("hub")} /><AiConfigScreen ctx={ctx} /></>)

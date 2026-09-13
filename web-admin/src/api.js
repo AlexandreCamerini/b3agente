@@ -88,6 +88,16 @@ export const api = {
   // (ADR-010 × ADR-013). Os ids aceitos vêm do backend em `planosDisponiveis`.
   userPlan: (userId, plano) => req("POST", "/api/admin/users/" + encodeURIComponent(userId) + "/plan", { plano }),
 
+  // 25-05 — os cinco limites e as funções de cada PLANO (o que o plano
+  // significa), ao lado da rota que muda o plano de UMA conta. Prévia e
+  // aplicação separadas pela mesma razão da cota de Opções: a diferença entre
+  // simular e gravar é um `aplicar: true`, e um flag opcional no meio de um
+  // objeto é justamente o que se esquece de passar. O corpo (plano, limites)
+  // é montado pelo card a partir do que o backend publicou.
+  planosGet: () => req("GET", "/api/admin/planos"),
+  planosPrevia: (corpo) => req("POST", "/api/admin/planos", corpo),
+  planosAplicar: (corpo) => req("POST", "/api/admin/planos", { ...corpo, aplicar: true }),
+
   auditGet: (n) => req("GET", "/api/admin/audit" + (n ? "?n=" + encodeURIComponent(n) : "")),
 
   // ADR-014: troca o código de handoff (mintado pelo app nativo) por uma

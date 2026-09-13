@@ -27,7 +27,7 @@ import { qtyLivre, faixaDeLiquidez } from "./finance.js";
 // direto no store porque no iOS não existe gate autoritativo no servidor
 // para watchlist (device é a fonte da verdade); esta checagem local é a
 // ÚNICA linha de defesa (ver comentários em putWatchlist/addWatchlistTicker).
-import { canAddTicker, canGrowWatchlistTo } from "./plan.js";
+import { canAddTicker, canGrowWatchlistTo, erroDeLimiteWatchlist } from "./plan.js";
 // FASE 2: camada de sync (token + cache otimista + fila offline). serverStore
 // fala com o servidor ATRAVÉS dela; deviceStore segue local-first, EXCETO a
 // carteira quando logado (ver cabeçalho do arquivo).
@@ -869,7 +869,11 @@ function deviceStore() {
           throw new Error("Não foi possível confirmar o limite do plano agora. Tente de novo.");
         }
         const r = canGrowWatchlistTo(final.length, { id: quota.planId || "free", maxWatchlist: quota.limit });
-        if (!r.ok) throw new Error(r.reason);
+        // 25-06: a recusa sobe com `code`/`detail` — a MESMA forma que o 402
+        // do servidor produz no web. Sem isto o banner compartilhado seria
+        // código morto no iPhone, onde este gate local é o único que existe.
+        // `usado` é o tamanho de HOJE (o doc local), não o pedido.
+        if (!r.ok) throw erroDeLimiteWatchlist(r, (doc.watchlist || []).length);
       }
       doc.watchlist = final;
       write();
@@ -935,7 +939,9 @@ function deviceStore() {
         // ...)` em putWatchlist logo acima; só `limit`/`planId` vêm do
         // servidor (a fonte real do LIMITE, nunca da contagem local).
         const r = canAddTicker(doc.watchlist.length, { id: quota.planId || "free", maxWatchlist: quota.limit });
-        if (!r.ok) throw new Error(r.reason);
+        // 25-06: idem ao putWatchlist acima — recusa estruturada, mesma forma
+        // do 402 do servidor. `r.usado` já é o tamanho local de hoje.
+        if (!r.ok) throw erroDeLimiteWatchlist(r);
       }
       if (!CATALOG_TICKERS.includes(info.t) && !(doc.custom || []).some((c) => c.t === info.t)) {
         doc.custom = [...(doc.custom || []), { t: info.t, n: info.n || info.t }];
