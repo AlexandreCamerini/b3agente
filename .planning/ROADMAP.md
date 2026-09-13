@@ -443,18 +443,30 @@ a aba visível ao assistente). Protótipo de UX aprovado pelo Alex em 2026-09-13
   4. Toda chamada que consome cota sai de clique explícito, com o custo visível
      no próprio controle (ADR-027 preservado neste ponto).
   5. O lastro livre aparece ANTES da tentativa de operar, não só na recusa.
-**Plans**: 3 previstos (backend/persistência, front/universo, ponte técnica)
+**Plans**: 4 planos em 3 ondas
 
 Plans:
 
 **Wave 1**
 
-- [ ] 27-01 — índice de setups por usuário + rota de listagem (corrige o defeito de setups que somem)
+- [ ] 27-01-PLAN.md — índice de vigias por usuário, isolamento no armazém compartilhado do MCP e as duas rotas de listagem (custo 0 e custo 2); emenda à Decisão 7 do ADR-027
 
-**Ondas seguintes** *(cada plano é escrito quando a fase anterior informa a próxima)*
+**Wave 2** *(paralelos — nenhum arquivo em comum)*
 
-- [ ] 27-02 — universo da aba = carteira, vigias no topo, lastro no cartão, estado vazio
-- [ ] 27-03 — ponte com o motor técnico interno + emenda ao ADR-027
+- [ ] 27-02-PLAN.md — front: universo = carteira, ticker que não nasce vazio, bloco "Seus vigias" no topo, lastro livre no cartão, estado vazio com caminho
+- [ ] 27-03-PLAN.md — backend: ponte com o motor técnico interno (`opcoes_tecnico.py` + `GET /api/options/tecnico/{ticker}`), Emenda 2 ao ADR-027, assistente falando da aba sobre a carteira
+
+**Wave 3**
+
+- [ ] 27-04-PLAN.md — front: bloco de leitura interna com carimbo, régua de regime de 7 pregões, custo declarado em TODO controle que consome cota
+
+**Nota de planejamento (2026-09-13):** eram 3 planos previstos; viraram 4. O
+critério 4 ("custo visível no próprio controle") hoje é falso em sete dos oito
+controles da aba, e a régua de 7 pregões do protótipo aprovado é componente
+novo — os dois não cabiam no orçamento de contexto do plano de front sem
+reduzir escopo, o que não é opção. A fronteira dos três planos originais foi
+preservada: 27-03 continua sendo "ponte técnica + emenda ao ADR", e o 27-04 é a
+metade de tela dele somada ao custo declarado.
 
 **UI hint**: yes
 
@@ -493,7 +505,7 @@ continua pendente de decisão e não entra aqui.
 | 24. Aba Opções sobre MCP — análise e criação de setups | 12/13 | In Progress|  |
 | 25. Planos comerciais — acesso por função e limites por plano | 6/6 | Complete | 2026-09-12 |
 | 26. Otimização de UX e da camada de IA | 1/6 | In Progress|  |
-| 27. Aba Opções sobre a carteira | 0/3 | In Progress|  |
+| 27. Aba Opções sobre a carteira | 0/4 | In Progress|  |
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2/v1.3
 
