@@ -89,20 +89,17 @@ ok("App.jsx importa faixaDeLiquidez de finance.js",
 //    como o guardião CENTRAL desta quick, autocontido).
 // ---------------------------------------------------------------------------
 // ATUALIZADO 2026-09-13 (Fase 28, 28-01): `aceitarCandidato` saiu de App.jsx
-// e virou `useAceiteLastreado`, no módulo — `onAbrirLastreada` (AtivoCard)
-// não mudou de lugar. Mesmo invariante ("dois handlers de aceite, mesma
-// régua de liquidez"), agora medido em cada fonte onde o handler vive.
+// e virou `useAceiteLastreado`, no módulo.
+// ATUALIZADO 2026-09-13 (Fase 28, 28-03): `onAbrirLastreada` (AtivoCard) foi
+// REMOVIDA — Watchlist/Radar deixaram de ter caminho de aceite próprio
+// (28-CONTEXT D1). Só resta a fonte única do módulo.
 (() => {
   const handlers = [];
-  {
-    const i = app.indexOf("const onAbrirLastreada = async () => {");
-    if (i > -1) handlers.push({ nome: "onAbrirLastreada (App.jsx)", fonte: app, inicio: i, fimMarcador: "const onFecharLastreada" });
-  }
   {
     const i = modulo.indexOf("const aceitarCandidato = async (p) => {");
     if (i > -1) handlers.push({ nome: "aceitarCandidato (módulo)", fonte: modulo, inicio: i, fimMarcador: "const fecharLastreada" });
   }
-  ok("existem exatamente 2 handlers de aceite", handlers.length === 2, String(handlers.length));
+  ok("existe exatamente 1 handler de aceite (aceitarCandidato no módulo — onAbrirLastreada de AtivoCard removida na Fase 28-03)", handlers.length === 1, String(handlers.length));
 
   handlers.forEach(({ nome, fonte, inicio: iInicio, fimMarcador }, n) => {
     const iFim = fonte.indexOf(fimMarcador, iInicio);

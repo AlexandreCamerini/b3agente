@@ -215,8 +215,14 @@ ok("abrirOpcoesDe chama setOpcoesFor(",
 // o módulo — a fonte da asserção muda, a exigência de assinatura exata não.
 ok("assinatura de PropostaLastreada é { r, operador, cp, busy, onAbrir, onFechar, posAberta, onVerbeteLiquidez }",
   /function PropostaLastreada\(\{ r, operador, cp, busy, onAbrir, onFechar, posAberta, onVerbeteLiquidez \}\)/.test(modulo));
-ok("<PropostaLastreada aparece 2x no fonte (AtivoCard + PropostaDaPosicao — a Fase 18 ADICIONOU um ponto, não moveu o existente)",
-  (fonteSemComentario.match(/<PropostaLastreada/g) || []).length === 2);
+// ATUALIZADO 2026-09-13 (Fase 28, 28-03): o ponto de uso de AtivoCard foi
+// REMOVIDO (28-CONTEXT D1) — Watchlist/Radar deixaram de abrir/fechar
+// operação lastreada. Resta 1x em App.jsx (PropostaDaPosicao); o segundo
+// ponto de uso do teto de 2 mudou de arquivo (OpcoesScreen.jsx, sub-aba
+// Operar) e é medido cross-arquivo por test_opcoes_multi_candidato_ui.mjs
+// item (9), não repetido aqui.
+ok("<PropostaLastreada aparece 1x no fonte de App.jsx (PropostaDaPosicao — AtivoCard removido na Fase 28-03)",
+  (fonteSemComentario.match(/<PropostaLastreada/g) || []).length === 1);
 
 if (fails) { console.error(`\n${fails} falha(s)`); process.exit(1); }
 console.log("\ntodos os testes passaram");

@@ -111,21 +111,19 @@ ok("api.js monta ?multiperna=1 quando o parâmetro é passado",
 // ---------------------------------------------------------------------------
 // ATUALIZADO 2026-09-13 (Fase 28, 28-01): `aceitarCandidato` (o handler de
 // PropostaDaPosicao) saiu de App.jsx e virou `useAceiteLastreado`, no
-// módulo. `onAbrirLastreada` (AtivoCard) não mudou de lugar. O invariante —
-// dois handlers de aceite, cada um confirmando ANTES de executar — passa a
-// ser medido em cada fonte onde o handler efetivamente vive.
+// módulo.
+// ATUALIZADO 2026-09-13 (Fase 28, 28-03): `onAbrirLastreada` (AtivoCard) foi
+// REMOVIDA — Watchlist/Radar deixaram de ter caminho de aceite próprio
+// (28-CONTEXT D1). Só resta a fonte única do módulo; o invariante (confirmar
+// ANTES de executar) passa a ser medido só sobre ela.
 (() => {
   const handlers = [];
-  {
-    const i = app.indexOf("const onAbrirLastreada = async () => {");
-    if (i > -1) handlers.push({ fonte: app, inicio: i, fimMarcador: "const onFecharLastreada" });
-  }
   {
     const i = modulo.indexOf("const aceitarCandidato = async (p) => {");
     if (i > -1) handlers.push({ fonte: modulo, inicio: i, fimMarcador: "const fecharLastreada" });
   }
   ok("pelo menos um handler de aceite localizado", handlers.length > 0, String(handlers.length));
-  ok("existem exatamente 2 handlers de aceite (onAbrirLastreada em App.jsx/AtivoCard + aceitarCandidato no módulo/useAceiteLastreado)", handlers.length === 2, String(handlers.length));
+  ok("existe exatamente 1 handler de aceite (aceitarCandidato no módulo/useAceiteLastreado — onAbrirLastreada de AtivoCard removida na Fase 28-03)", handlers.length === 1, String(handlers.length));
 
   handlers.forEach(({ fonte, inicio: iOnAbrir, fimMarcador }, n) => {
     // Delimita o handler pelo próximo marcador de fechamento — vizinho
@@ -187,11 +185,15 @@ ok("api.js monta ?multiperna=1 quando o parâmetro é passado",
 //    negocia. O objeto passado a A.abrirCollar( só carrega
 //    underlying/pernasContratos(contractSymbol+lado)/contratos/expiration.
 // ---------------------------------------------------------------------------
+// ATUALIZADO 2026-09-13 (Fase 28, 28-03): a chamada A.abrirCollar( vivia em
+// `onAbrirLastreada` (AtivoCard), removida nesta fase — a única chamada
+// restante é a do módulo (useAceiteLastreado, compartilhada por
+// PropostaDaPosicao e pela sub-aba Operar).
 (() => {
-  const iExec = app.indexOf("A.abrirCollar(");
-  ok("A.abrirCollar( localizado em App.jsx", iExec > -1);
+  const iExec = modulo.indexOf("A.abrirCollar(");
+  ok("A.abrirCollar( localizado no módulo (useAceiteLastreado)", iExec > -1);
   const openParenIdx = iExec > -1 ? iExec + "A.abrirCollar".length : -1;
-  const chamada = openParenIdx > -1 ? extrairBalanceado(app, openParenIdx) : "";
+  const chamada = openParenIdx > -1 ? extrairBalanceado(modulo, openParenIdx) : "";
   ok("corpo de A.abrirCollar( extraído (parse mudo)", chamada.length > 20, String(chamada.length));
   ok("corpo enviado NÃO contém a substring \"premio\" (case-insensitive)", !/premio/i.test(chamada));
   ok("corpo enviado NÃO contém a substring \"strike\" (case-insensitive)", !/strike/i.test(chamada));

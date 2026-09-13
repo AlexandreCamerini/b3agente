@@ -36,7 +36,7 @@
 // test_carteira_opcoes_tira.mjs, test_opcoes_collar_ui.mjs,
 // test_opcoes_proposta_ui.mjs): readFileSync de App.jsx + import de COPY,
 // sem build e sem DOM. Roda isolado: `node web/tests/test_opcoes_multi_candidato_ui.mjs`.
-import { readFileSync } from "fs";
+import { readFileSync, readdirSync, statSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { COPY } from "../src/copy.js";
@@ -121,9 +121,46 @@ ok("PropostaDaPosicao continua renderizando PropostaLastreada no ramo de candida
   /<PropostaLastreada/.test(fatiaPDP));
 
 // ---- (9) <PropostaLastreada em exatamente 2 pontos de uso (Fase 18, reafirmado) ----
-ok("<PropostaLastreada aparece exatamente 2x no fonte inteiro (o ramo multi não virou um 3º ponto de uso)",
-  (fonteSemComentario.match(/<PropostaLastreada/g) || []).length === 2,
+// ATUALIZADO 2026-09-13 (Fase 28, 28-03): o segundo ponto de uso não é mais
+// AtivoCard/Watchlist — foi removido (28-CONTEXT D1). O teto de 2 continua
+// sendo a regra (um terceiro ponto é a duplicação de EXPERIÊNCIA que a Fase
+// 28 existiu para fechar), só que os dois pontos agora moram em ARQUIVOS
+// diferentes: App.jsx (PropostaDaPosicao) e OpcoesScreen.jsx (SubAbaOperar).
+// Varre web/src/**/*.jsx e afirma que SÓ esses dois arquivos têm a tag.
+function listarJsxRecursivo(dir) {
+  const out = [];
+  for (const nome of readdirSync(dir)) {
+    const caminho = join(dir, nome);
+    const st = statSync(caminho);
+    if (st.isDirectory()) out.push(...listarJsxRecursivo(caminho));
+    else if (nome.endsWith(".jsx")) out.push(caminho);
+  }
+  return out;
+}
+
+const srcDir = join(here, "..", "src");
+const todosJsx = listarJsxRecursivo(srcDir);
+const contagemPorArquivo = todosJsx.map((caminho) => {
+  const conteudo = readFileSync(caminho, "utf8");
+  const semComentario = conteudo.split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n");
+  return { caminho, n: (semComentario.match(/<PropostaLastreada/g) || []).length };
+}).filter((r) => r.n > 0);
+
+const appJsxPath = join(here, "..", "src", "App.jsx");
+const opcoesScreenPath = join(here, "..", "src", "opcoes", "OpcoesScreen.jsx");
+ok("<PropostaLastreada aparece exatamente 1x em App.jsx (PropostaDaPosicao)",
+  (fonteSemComentario.match(/<PropostaLastreada/g) || []).length === 1,
   String((fonteSemComentario.match(/<PropostaLastreada/g) || []).length));
+const opcoesScreenSemComentario = readFileSync(opcoesScreenPath, "utf8").split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n");
+ok("<PropostaLastreada aparece exatamente 1x em OpcoesScreen.jsx (SubAbaOperar)",
+  (opcoesScreenSemComentario.match(/<PropostaLastreada/g) || []).length === 1,
+  String((opcoesScreenSemComentario.match(/<PropostaLastreada/g) || []).length));
+const outrosComTag = contagemPorArquivo.filter((r) => r.caminho !== appJsxPath && r.caminho !== opcoesScreenPath);
+ok("nenhum outro .jsx de web/src/ usa <PropostaLastreada (teto de 2 pontos de uso, Fase 28 D1)",
+  outrosComTag.length === 0, outrosComTag.map((r) => r.caminho + ":" + r.n).join(", "));
+ok("total de pontos de uso de <PropostaLastreada em web/src/**/*.jsx é 2 (App.jsx + OpcoesScreen.jsx)",
+  contagemPorArquivo.reduce((acc, r) => acc + r.n, 0) === 2,
+  String(contagemPorArquivo.reduce((acc, r) => acc + r.n, 0)));
 
 // ---- (10) Caminho de aceite único, compartilhado pelos candidatos ----------
 ok("CandidatoOpcao é renderizado com onAceitar={aceitarCandidato} (o MESMO handler para todos os candidatos)",

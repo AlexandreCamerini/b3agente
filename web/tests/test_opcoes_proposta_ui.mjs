@@ -83,11 +83,21 @@ ok("front não compõe a manchete (\"Vender \" + variável) — módulo", !/"Ven
 ok("front não duplica a frase didática (\"Se você tivesse\") — App.jsx", !app.includes("Se você tivesse"));
 ok("front não duplica a frase didática (\"Se você tivesse\") — módulo", !modulo.includes("Se você tivesse"));
 
-// A cadeia sobrevive: OpcoesCamada continua renderizada, e <PropostaLastreada
-// aparece ANTES de <OpcoesCamada no arquivo (JSX de uso, não só definição) — D-4.
+// A cadeia sobrevive: OpcoesCamada continua renderizada em App.jsx.
+// ATUALIZADO 2026-09-13 (Fase 28, 28-03): o invariante "<PropostaLastreada
+// aparece ANTES de <OpcoesCamada no JSX de uso" (D-4, 14-UI-SPEC) media o
+// card do ativo em Watchlist/Radar, ONDE OS DOIS EXISTIAM JUNTOS. O card saiu
+// de AtivoCard (28-CONTEXT D1) — ordem entre dois elementos que não coexistem
+// mais no mesmo bloco deixou de ser um invariante mensurável ali. O que o
+// invariante REALMENTE protegia (a proposta não desapareceu, e o bloco do
+// gate de liquidez não ficou com o card órfão dentro) passa a ser medido por
+// três asserções: OpcoesCamada continua em App.jsx; o bloco `opGate.liquida`
+// de AtivoCard não contém PropostaLastreada; e PropostaLastreada aparece em
+// OpcoesScreen.jsx (a proposta mudou de tela, não sumiu).
 ok("<OpcoesCamada continua renderizada", /<OpcoesCamada/.test(app));
-ok("<PropostaLastreada aparece antes de <OpcoesCamada no JSX de uso",
-  app.indexOf("<PropostaLastreada") > -1 && app.indexOf("<PropostaLastreada") < app.indexOf("<OpcoesCamada"));
+const opcoesScreen = readFileSync(join(here, "..", "src", "opcoes", "OpcoesScreen.jsx"), "utf8");
+ok("<PropostaLastreada aparece em OpcoesScreen.jsx (a proposta mudou de tela — sub-aba Operar)",
+  /<PropostaLastreada/.test(opcoesScreen));
 
 // Split de modo: CTA só sob `operador`; a frase didática só sob a condição
 // contrária — Estudo não recebe botão de executar (T-14-23, defesa em UI).
@@ -109,8 +119,12 @@ ok("CTA (<button) condicionado a `operador`", /\{operador && \([\s\S]{0,60}<butt
 
 // Confirmação da trava: existe window.confirm com cp.confirmAbrirCoberta no
 // caminho da CALL coberta (T-14-24).
-ok("window.confirm com cp.confirmAbrirCoberta existe", /window\.confirm\(cp\.confirmAbrirCoberta\(/.test(app));
-ok("window.confirm com cp.confirmFecharCoberta existe", /window\.confirm\(cp\.confirmFecharCoberta\(/.test(app));
+// ATUALIZADO 2026-09-13 (Fase 28, 28-03): os dois `window.confirm` viviam em
+// `onAbrirLastreada`/`onFecharLastreada` de AtivoCard, removidos nesta fase
+// (28-CONTEXT D1) — a implementação única agora é `useAceiteLastreado`, no
+// módulo.
+ok("window.confirm com cp.confirmAbrirCoberta existe (módulo, useAceiteLastreado)", /window\.confirm\(cp\.confirmAbrirCoberta\(/.test(modulo));
+ok("window.confirm com cp.confirmFecharCoberta existe (módulo, useAceiteLastreado)", /window\.confirm\(cp\.confirmFecharCoberta\(/.test(modulo));
 
 // ---------------------------------------------------------------------------
 // Quick 260908-ldg (D-03, G11): consentimento de liquidez é um confirm
@@ -122,20 +136,16 @@ ok("window.confirm com cp.confirmFecharCoberta existe", /window\.confirm\(cp\.co
 // ---------------------------------------------------------------------------
 // ATUALIZADO 2026-09-13 (Fase 28, 28-01): `aceitarCandidato` saiu de App.jsx
 // (era local a `PropostaDaPosicao`) e foi para `useAceiteLastreado`, no
-// módulo. `onAbrirLastreada` (AtivoCard) NÃO mudou de lugar — este plano não
-// toca AtivoCard. O invariante medido é o MESMO de sempre (dois handlers de
-// aceite, cada um com o confirm de liquidez ANTES do confirm de estrutura),
-// agora medido em CADA FONTE onde o handler efetivamente vive.
+// módulo.
+// ATUALIZADO 2026-09-13 (Fase 28, 28-03): `onAbrirLastreada` (a cópia local
+// de AtivoCard) foi REMOVIDA — Watchlist/Radar deixaram de ter caminho de
+// aceite próprio (28-CONTEXT D1). Não sobra um segundo handler para medir: a
+// única implementação que resta é `aceitarCandidato`, no módulo, compartilhada
+// por todo consumidor (PropostaDaPosicao e a sub-aba Operar). O invariante
+// (confirm de liquidez ANTES do confirm de estrutura) continua medido, agora
+// sobre essa fonte única.
 (() => {
   const handlers = [];
-  {
-    const iOnAbrir = app.indexOf("const onAbrirLastreada = async () => {");
-    ok("onAbrirLastreada (AtivoCard) localizado em App.jsx", iOnAbrir > -1);
-    if (iOnAbrir > -1) {
-      const iOnFechar = app.indexOf("const onFecharLastreada", iOnAbrir);
-      handlers.push({ nome: "onAbrirLastreada (App.jsx/AtivoCard)", corpo: iOnFechar > iOnAbrir ? app.slice(iOnAbrir, iOnFechar) : "" });
-    }
-  }
   {
     const iAceitar = modulo.indexOf("const aceitarCandidato = async (p) => {");
     ok("aceitarCandidato (useAceiteLastreado) localizado no módulo", iAceitar > -1);
@@ -144,7 +154,7 @@ ok("window.confirm com cp.confirmFecharCoberta existe", /window\.confirm\(cp\.co
       handlers.push({ nome: "aceitarCandidato (módulo/useAceiteLastreado)", corpo: iFechar > iAceitar ? modulo.slice(iAceitar, iFechar) : "" });
     }
   }
-  ok("existem exatamente 2 handlers de aceite (onAbrirLastreada em App.jsx + aceitarCandidato no módulo)", handlers.length === 2, String(handlers.length));
+  ok("existe exatamente 1 handler de aceite (aceitarCandidato no módulo — onAbrirLastreada de AtivoCard foi removida na Fase 28-03)", handlers.length === 1, String(handlers.length));
 
   handlers.forEach(({ nome, corpo: handler }, n) => {
     ok(`handler de aceite #${n + 1} (${nome}): window.confirm(liq.aviso) aparece exatamente 1 vez`,
@@ -191,15 +201,16 @@ ok("PropostaLastreada chama ctaFecharLastreada(price(p.premioTotal), isCall)",
   /ctaFecharLastreada\(price\(p\.premioTotal\), isCall\)/.test(modulo));
 // ATUALIZADO 2026-09-13 (Fase 28, 28-01): o invariante era "os dois call
 // sites (AtivoCard + PropostaDaPosicao) em paridade" — dois lugares
-// calculando a mesma coisa, sujeitos a divergir. Com `useAceiteLastreado`, o
-// de PropostaDaPosicao virou a implementação ÚNICA no módulo; só resta o de
-// AtivoCard em App.jsx (que este plano não toca — remoção é do 28-03). O
-// invariante agora é "uma implementação em cada lado, nenhuma duplicada
-// dentro do mesmo arquivo".
+// calculando a mesma coisa, sujeitos a divergir.
+// ATUALIZADO 2026-09-13 (Fase 28, 28-03): o call site de AtivoCard foi
+// REMOVIDO junto com `onAbrirLastreada`/`onFecharLastreada` (28-CONTEXT D1).
+// `useAceiteLastreado` é agora a implementação ÚNICA — a asserção de paridade
+// entre dois arquivos vira asserção de unicidade (0× em App.jsx, 1× no
+// módulo).
 ok("confirmFecharCoberta(...) aparece exatamente 1× no módulo (useAceiteLastreado)",
   (modulo.match(/confirmFecharCoberta\(price\(p\.premioTotal\), p\.qtyAcoes, ticker, p\.optionType === "call"\)/g) || []).length === 1);
-ok("confirmFecharCoberta(...) aparece exatamente 1× em App.jsx (AtivoCard, pendente de remoção no 28-03)",
-  (app.match(/confirmFecharCoberta\(price\(p\.premioTotal\), p\.qtyAcoes, t, p\.optionType === "call"\)/g) || []).length === 1);
+ok("confirmFecharCoberta(...) não aparece mais em App.jsx (AtivoCard removido na Fase 28-03)",
+  (app.match(/confirmFecharCoberta\(price\(p\.premioTotal\), p\.qtyAcoes, t, p\.optionType === "call"\)/g) || []).length === 0);
 
 // Cor da manchete por polaridade: T.positive/T.negative decidido por
 // optionType (via isCall), e a MANCHETE nunca usa T.accent (regra do
@@ -318,8 +329,13 @@ ok("putOptionPosition permanece em persistence.js", /putOptionPosition/.test(per
     }
     opGateBlock = closeIdx > openParenIdx ? ativoCardBody.slice(openParenIdx, closeIdx + 1) : "";
   }
-  ok("bloco opGate.liquida tem conteúdo (parse mudo)", opGateBlock.length > 100, String(opGateBlock.length));
-  ok("bloco opGate.liquida referencia PropostaLastreada", opGateBlock.includes("PropostaLastreada"));
+  ok("bloco opGate.liquida tem conteúdo (parse mudo)", opGateBlock.length > 50, String(opGateBlock.length));
+  // ATUALIZADO 2026-09-13 (Fase 28, 28-03): o card de proposta saiu do bloco
+  // (28-CONTEXT D1) — o invariante agora é a negativa (nada de
+  // PropostaLastreada órfão sobrevivendo aqui) mais a positiva de que
+  // OpcoesCamada é o conteúdo do bloco.
+  ok("bloco opGate.liquida referencia OpcoesCamada", opGateBlock.includes("OpcoesCamada"));
+  ok("bloco opGate.liquida NÃO referencia PropostaLastreada (removida, Fase 28 D1)", !opGateBlock.includes("PropostaLastreada"));
 
   // campos de vm efetivamente lidos dentro do bloco (identificador isolado —
   // nem prefixado por `.` nem colado a outro identificador).

@@ -412,3 +412,56 @@ com lado positivo e lado negativo, impede a volta da frase meio-certa. O
 resumo continua **sem** chamar o serviço e passou a também **não** buscar
 candle: dizer de onde a leitura vem é diferente de buscá-la, e o orçamento da
 brapi é finito (ADR-008).
+
+## Emenda 3 (Fase 28, 2026-09-13) — componente de UI compartilhado sob isolamento de duas vias
+
+**O problema.** A Decisão 3 isolou a aba do núcleo: `OpcoesScreen.jsx` não
+importa `App.jsx`. Isso resolveu o ciclo (App.jsx importa a aba para montá-la
+como tela — composição pai→filho, não o ciclo proibido) e manteve a aba
+auditável sozinha — mas transformou "trazer a operação lastreada para dentro
+da aba" em escolha entre duas coisas ruins: duplicar o componente (duas
+manchetes de motor divergindo na próxima correção, em silêncio) ou quebrar o
+isolamento importando `OpcoesScreen.jsx` de dentro de `App.jsx`'s
+`AtivoCard`, ou o inverso.
+
+**A decisão.** Componente de UI compartilhado entre o núcleo e a aba vive em
+`web/src/opcoes/`, é importado pelos DOIS, e **não importa nenhum dos dois**.
+A fiação é de uma via para cada lado: `App.jsx → módulo` e
+`OpcoesScreen.jsx → módulo`, nunca `módulo → App.jsx` nem
+`módulo → OpcoesScreen.jsx`. É a mesma técnica das Emendas 1 e 2, aplicada a
+componente de apresentação em vez de a dado. O primeiro caso é
+`web/src/opcoes/PropostaLastreada.jsx` (Fase 28, Plano 28-01): exporta o
+componente `PropostaLastreada`, os subcomponentes `FonteDoDadoProposta` e
+`ChipDaProposta`, e o hook de caminho de aceite/fechamento
+`useAceiteLastreado`. `App.jsx` o consome em `PropostaDaPosicao` (detalhe de
+posição em Portfólio); `OpcoesScreen.jsx` o consome em `SubAbaOperar`
+(Fase 28, Plano 28-02). O ponto de uso que existia dentro de `AtivoCard`
+(Watchlist/Radar) foi REMOVIDO no Plano 28-03 — Watchlist/Radar deixaram de
+ser lugar de abrir/fechar operação lastreada; a proposta de um ativo passou a
+viver só na aba Opções (sub-aba Operar) e no detalhe de posição em Portfólio
+(28-CONTEXT D1).
+
+**A consequência aceita, declarada.** O módulo não pode importar os tokens,
+o `price` nem o `FONTE_LABEL` de `App.jsx`, então os declara localmente —
+mesmo padrão já em uso por `OpcoesScreen.jsx`, `SetupChart.jsx` e
+`pet/BorisChat.jsx`. A cópia é real e o risco é divergir o formatador de
+dinheiro entre duas telas; por isso ela é MEDIDA, não confiada: guardião de
+igualdade caractere a caractere das quatro linhas de formatador (`MONO`,
+`nf2`, `price`, `FONTE_LABEL`) entre `App.jsx` e o módulo (Plano 28-01,
+Task 3; provado por injeção de defeito).
+
+**O guardião.** `web/tests/test_opcoes_mcp_aba_ui.mjs` mede o invariante de
+duas vias (nenhum dos três — `App.jsx`, `OpcoesScreen.jsx`,
+`PropostaLastreada.jsx` — importa o outro na direção proibida);
+`web/tests/test_opcoes_subabas_ui.mjs` mede que a aba não ganhou caminho de
+execução próprio (sem `window.confirm` reimplementado, sem chamada direta a
+`A.abrirLastreada`/`A.abrirCollar`/`A.fecharLastreada`, só o hook único
+`useAceiteLastreado`); `web/tests/test_opcoes_multi_candidato_ui.mjs` mede o
+teto de 2 pontos de uso do componente `PropostaLastreada` em todo
+`web/src/**/*.jsx` (App.jsx + OpcoesScreen.jsx, nenhum terceiro arquivo).
+
+**O que a Emenda NÃO decide.** Ela não unifica `PropostaLastreada` com
+`PayoffChart.jsx` (o payoff do caminho MCP). São fontes de dado diferentes —
+motor interno × serviço MCP —, a mesma distinção que a Emenda 2 já aceitou
+por escrito para a leitura técnica. A unificação, se vier, é ADR próprio com
+gatilho medido, no mesmo formato da Decisão 3 e da Emenda 2.
