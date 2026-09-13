@@ -2,7 +2,7 @@
 phase: 28-aba-opcoes-sub-aba-operar
 plan: 03
 subsystem: ui
-tags: [react, jsx, refactor, opcoes, adr-027, checkpoint-pending]
+tags: [react, jsx, refactor, opcoes, adr-027, checkpoint-fechado-risco-aceito]
 
 # Dependency graph
 requires:
@@ -330,6 +330,37 @@ sem mock nem mercado forçado — com o mesmo rigor de evidência (rede
 observada, screenshots) que os passos 1-3/6-9 já têm, e o Alex confirma o
 conjunto completo.
 
+### Checkpoint fechado por decisão explícita do Alex (2026-09-13)
+
+O orquestrador trouxe a recusa do executor de volta ao Alex, diretamente na
+conversa (não a segunda mensagem que o executor rejeitou) — as três
+objeções acima foram apresentadas por extenso, com a escolha explícita entre
+"aceitar o risco residual e fechar agora" ou "testar você mesmo fechar/
+collar antes". **O Alex respondeu, na própria conversa: "Fechar agora".**
+
+Isto é uma decisão de produto do dono do repositório, aceitando risco
+residual medido e nomeado — não uma alegação de que os passos 4/5 foram
+verificados. Fica registrado, sem maquiar o que é:
+
+- **Verificado ao vivo (ainda que sob mock/mercado forçado)**: passos 1, 2,
+  3, metade do 4 (abrir + CTA vira Fechar), 6, 7, 8, 9 — evidência de rede
+  (`POST /api/options/lastreada/abrir → 200`, ausência de qualquer
+  `/api/options/mcp/*`) e de tela, coletada pelo orquestrador.
+- **NÃO verificado, aceito como risco residual pelo Alex**: fechar uma
+  lastreada de fato (a escrita determinística de caixa/lastro na operação
+  de fechamento) e collar (a estrutura de 2 pernas). A leitura que embasa
+  aceitar o risco: `onFecharLastreada`/`abrirCollar` são os MESMOS caminhos
+  de `store.py`/`useAceiteLastreado` que já operam em produção desde as
+  Fases 14/17/19 — esta fase só mudou de ONDE eles são chamados na UI
+  (extração para módulo compartilhado, Plano 28-01), não a lógica de
+  fechamento/collar em si.
+- **O que isto não é**: não é o Alex tendo exercitado os 9 passos com a
+  própria conta real, como o `how-to-verify` da Task 3 pedia literalmente.
+  É uma decisão consciente de aceitar a diferença entre as duas coisas.
+
+Checkpoint fechado. Fase 28 completa em código, com o risco residual acima
+nomeado — não silencioso.
+
 ## Known Stubs
 
 Nenhum novo. A remoção não introduziu dado vazio/placeholder.
@@ -349,13 +380,17 @@ real — isso é verificação, não setup de infraestrutura.
 
 ## Next Phase Readiness
 
-- Bloqueado pela aprovação do checkpoint humano (Task 3). Se o Alex aprovar
-  os 9 passos, a fase 28 fecha; se algum passo falhar, a fase permanece
-  aberta e o executor seguinte recebe o número do passo e o sintoma.
-- Nenhum bloqueio técnico conhecido além da aprovação humana.
-- STATE.md e ROADMAP.md ficam para o orquestrador atualizar à mão, por
-  convenção deste repositório — só depois da aprovação (ou do registro dos
-  defeitos, se algum passo falhar).
+- **Checkpoint fechado** — decisão explícita do Alex ("Fechar agora"),
+  aceitando o risco residual nomeado acima (fechar/collar não exercitados
+  ao vivo com dado real). Fase 28 completa em código.
+- Nenhum bloqueio técnico conhecido.
+- **Publicação continua sendo passo humano separado**, fora do escopo desta
+  fase (28-CONTEXT, Guardrails): `scripts/bump.sh` + `publicar-web.sh` e o
+  deploy de backend, quando o Alex decidir publicar. Nada foi empurrado a
+  `origin` até aqui.
+- STATE.md e ROADMAP.md atualizados à mão pelo orquestrador logo em
+  seguida, por convenção deste repositório (mutators `gsd-sdk state.*`
+  proibidos).
 
 ## Self-Check
 
@@ -388,4 +423,4 @@ Saída: `dentro de PropostaDaPosicao: true` / `ocorrencias totais: 1`.
 
 ---
 *Phase: 28-aba-opcoes-sub-aba-operar*
-*Completed (Tasks 1+2): 2026-09-13 — checkpoint (Task 3) pendente de aprovação humana*
+*Completed: 2026-09-13 — checkpoint fechado por decisão explícita do Alex, risco residual (fechar/collar não exercitados ao vivo) aceito e registrado*
