@@ -69,8 +69,9 @@ necessariamente cobertas por ação em carteira).
 
 Segunda pergunta do Alex, para INVESTIGAR antes de planejar: **o Operador IA
 (agente autônomo, `server/app/agent.py`) hoje analisa opções? Consegue
-transacioná-las automaticamente?** — resposta factual pendente (ver seção
-"Pesquisa pendente" abaixo).
+transacioná-las automaticamente?** — respondida (ver seção
+"Pesquisa CONCLUÍDA" abaixo): fechar/liquidar automaticamente já existe;
+abrir posição nova automaticamente não existe, é a construir do zero.
 
 **Isto vira uma fase de planejamento própria** (não `/gsd-quick`, não
 `/gsd-execute-phase` direto) — precisa de `RESEARCH.md` sobre o sistema de
@@ -85,23 +86,51 @@ escolhida — **fica em backlog, sem implementação**, até uma decisão clara.
 Não presumir a opção "recomendada" do briefing original só porque ela era a
 sugestão.
 
-## Pesquisa pendente — B3 (Operador IA × opções)
+## Pesquisa CONCLUÍDA — B3 (Operador IA × opções)
 
-Perguntas factuais a responder ANTES de desenhar o flag de lastro/naked:
+Investigado por agente de leitura em 2026-09-12 (à noite), com citação
+arquivo:linha para cada resposta. Isto é FATO levantado do código atual —
+não é decisão nem plano de execução, que continuam pendentes de uma fase
+própria (ver abaixo).
 
-1. `server/app/agent.py` — o ciclo do agente autônomo (`scheduler_loop`)
-   itera sobre quê? Só tickers de ação, ou também posições de opção
-   (`optionPositions`)?
-2. Existe algum caminho, hoje, em que o agente decide ABRIR uma posição de
-   opção sozinho (sem o usuário confirmar)? Ou o agente só atua sobre
-   posições de AÇÃO (stop/alvo dinâmico) e as opções lastreadas são sempre
-   por proposta que o usuário aceita manualmente (`options_lastreada_abrir`)?
-3. O motor de proposta multi-candidato (Fase 19, `opcoes_motor.py`) é
-   consultado pelo agente em algum ponto, ou só pela tela?
-4. A aba Opções (MCP) e o sistema de opções lastreadas (`opcoes_lastreadas.py`,
-   `opcoes_payoff.py`) são o MESMO motor de cálculo ou dois caminhos
-   paralelos? (O ADR-027 já registra que são dois, com paridade viva como
-   gatilho de consolidação — confirmar se isso mudou.)
+1. **O agente já itera sobre posições de opção, não só ação.**
+   `scheduler_loop` (`agent.py:1182`) → `run_cycle_for` → `_run_cycle_inner`
+   (`agent.py:876`) chama `_avaliar_opcoes` (`agent.py:1006-1007`), que lê
+   `optionPositions` direto (`agent.py:548`). O briefing original presumia
+   que o agente só decidia sobre ações — **falso**, ele já maneja opções
+   abertas.
+2. **Não existe abertura automática de opção, só fechamento/liquidação.**
+   O agente VENDE (fecha) opção por stop/alvo automaticamente
+   (`store.sell_option(..., origem="automatico")`, `agent.py:646`) e liquida
+   por vencimento (`agent.py:602`, `agent.py:568`) — sempre sobre posição
+   JÁ existente. As quatro funções que ABREM posição nova
+   (`buy_option`/`abrir_call_coberta`/`comprar_put_protecao`/`abrir_collar`,
+   `store.py:774,894,1029,1117`) só são chamadas a partir de rotas HTTP em
+   `main.py` (`:3058`, `:3247`, `:3317-3319`, `:3331`, `:3498`), todas atrás
+   de `Depends(current_scope)`. Nenhum caminho de cron/webhook abre opção
+   sozinho (grep zero em `agent.py` e zero por `webhook`/`callback` em
+   `app/*.py`).
+3. **`opcoes_motor.py` nunca é chamado por `agent.py`.** Zero referência.
+   Só é consumido por `opcoes_lastreadas.py` (proposta sob demanda, disparada
+   pela tela).
+4. **Dois motores paralelos, por decisão já registrada, não acidente.**
+   `docs/adr/027-consumo-do-servico-mcp-autenticado.md` (Decisão 3) já
+   declara que a consolidação é um ADR futuro, com gatilho: "10 pregões
+   seguidos de paridade viva verde em staging, ou a primeira divergência".
+   `test_opcoes_paridade_mcp.py` já testa a paridade (`:69-106`), tem
+   contra-guardião (`:131`) e um teste vivo gated por credencial
+   (`:158`, não roda em CI comum). `options_mcp_api.py` (`/setups/compilar`
+   `:2667`, `/setups/confirmar` `:2825`) grava "setups" via `create_setup` e
+   NUNCA toca `optionPositions` nem chama as funções de abertura do
+   `store.py` — é caminho de análise/monitoramento, não de execução.
+
+**Implicação para o flag de lastro/naked** (do próprio relatório do
+agente): "transacionar opções automaticamente" é **meio existente, meio
+novo**. Fechar/liquidar automaticamente já está em produção, restrito à
+saída de uma posição que o usuário abriu manualmente. Abrir posição nova
+automaticamente — lastreada ou naked — **não tem nenhum precedente de
+código hoje**; é funcionalidade de ponta a ponta a construir. A aba Opções
+(MCP) hoje só analisa (cria setups de alerta), nunca transaciona.
 
 ## Itens NÃO tocados nesta rodada (backlog, registrado, não esquecido)
 
