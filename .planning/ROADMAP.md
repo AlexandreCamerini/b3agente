@@ -438,12 +438,16 @@ a aba visível ao assistente). Protótipo de UX aprovado pelo Alex em 2026-09-13
      usuário precise lembrar em qual ativo o criou.
   2. A aba nunca abre vazia para quem tem posição em carteira; para quem não
      tem, o estado vazio explica o porquê e oferece caminho.
+     *(Leitura fixada em 2026-09-13: "não abre vazia" = tem CONTEÚDO — a lista
+     das posições e o bloco "Seus vigias", os dois de custo zero. NÃO significa
+     ativo pré-selecionado: selecionar um ativo dispara uma leitura de custo 3,
+     e auto-selecionar violaria o critério 4 logo abaixo.)*
   3. Tendência, volatilidade e suporte/resistência do ativo aparecem sem
      consumir cota do serviço externo.
   4. Toda chamada que consome cota sai de clique explícito, com o custo visível
      no próprio controle (ADR-027 preservado neste ponto).
   5. O lastro livre aparece ANTES da tentativa de operar, não só na recusa.
-**Plans**: 4 planos em 3 ondas
+**Plans**: 5 planos em 4 ondas
 
 Plans:
 
@@ -458,7 +462,11 @@ Plans:
 
 **Wave 3**
 
-- [ ] 27-04-PLAN.md — front: bloco de leitura interna com carimbo, régua de regime de 7 pregões, custo declarado em TODO controle que consome cota
+- [ ] 27-04-PLAN.md — front: bloco de leitura interna com carimbo, régua de regime de 7 pregões, formatador escolhido pela unidade declarada
+
+**Wave 4**
+
+- [ ] 27-05-PLAN.md — front: custo declarado em TODO controle (tabela espelhada do `_cap_check`), leitura do serviço sob clique explícito, custo do frescor declarado no cabeçalho
 
 **Nota de planejamento (2026-09-13):** eram 3 planos previstos; viraram 4. O
 critério 4 ("custo visível no próprio controle") hoje é falso em sete dos oito
@@ -467,6 +475,18 @@ novo — os dois não cabiam no orçamento de contexto do plano de front sem
 reduzir escopo, o que não é opção. A fronteira dos três planos originais foi
 preservada: 27-03 continua sendo "ponte técnica + emenda ao ADR", e o 27-04 é a
 metade de tela dele somada ao custo declarado.
+
+**Revisão de 2026-09-13 (verificação adversarial):** viraram **5 planos em 4
+ondas**. O custo declarado saiu do 27-04 para o **27-05** porque cresceu: além
+de rotular os controles, ele passou a mover `mcpLeitura` para fora do
+`useEffect` (hoje trocar de ativo gasta 3 chamadas sem controle nenhum dizer),
+a declarar o custo do frescor no cabeçalho e a cruzar o rótulo do front com o
+`_cap_check` de cada rota do backend — seis arquivos e um guardião não-trivial.
+Somado às duas tasks que ficaram no 27-04, o plano passaria de 70% de contexto.
+Nada foi reduzido: o escopo inteiro continua na fase. Também entrou uma Task 0
+no 27-01 (provar, antes de qualquer código, que o serviço aceita um nome
+prefixado) e caiu toda a complexidade de legado, por decisão do Alex
+(27-CONTEXT, D6).
 
 **UI hint**: yes
 

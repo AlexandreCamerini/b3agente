@@ -27,6 +27,16 @@ gravou"**:
    `OpcoesScreen.jsx:203`; a escolha é um toggle de chips
    (`OpcoesScreen.jsx:240`). Sair da aba e voltar = tela sem ativo
    selecionado = nenhum setup à vista.
+
+   > **Nota de 2026-09-13 (revisão adversarial do planejamento):** o sintoma é
+   > real, mas a correção NÃO é auto-selecionar um ativo ao abrir. Selecionar
+   > um ativo dispara `mcpLeitura` pelo efeito de troca de ticker
+   > (`useOpcoesMcp.js:107-131`), e essa chamada custa **3** — auto-selecionar
+   > significaria cobrar 3 consultas de quem só abriu a aba, contra o ADR-027
+   > §3.3, contra o guardrail desta fase e contra o próprio protótipo aprovado
+   > (D4: a aba abre na lista, entrar num ativo é um toque). A correção é o
+   > bloco **"Seus vigias"** no topo, que existe fora de qualquer ticker e é de
+   > custo zero. O ticker continua nascendo `""`.
 3. **O armazém do MCP é compartilhado e sem dono** (ADR-027 Decisão 7,
    comentado no próprio código em `options_mcp_api.py:2868`). Setup não tem
    `user_id`. **O conceito "meus setups" não existe em lugar nenhum do
@@ -94,6 +104,28 @@ Protótipo em <https://claude.ai/code/artifact/97e3ba12-10d3-4ffc-9ec8-fdd989654
   depois da tentativa (`store.py:938`).
 - Tokens do Brand Book v2, 375 px, tema escuro do Modo Estudo.
 
+### D6 — Setups antigos (legado): "pode apagar os antigos" (2026-09-13)
+
+Perguntado o que fazer com os setups que já estão no armazém do serviço sem
+dono conhecido. Resposta do Alex, literal: **"pode apagar os antigos"**.
+
+Consequências, decididas e fechadas:
+
+- **Legado não aparece em lista nenhuma.** Nem em `/leitura/{ticker}`, nem em
+  `GET /setups`, nem no bloco "Seus vigias". Cai toda a complexidade de exibir
+  e rotular legado que os planos previam, e cai junto a ideia de "adoção".
+- **A capacidade técnica de desativar um órfão fica.** Sem ela, um setup antigo
+  que sobre vira lixo permanente que ninguém consegue remover pelo produto —
+  e ele continua sendo avaliado pelo serviço. O gate de `desativar` aceita
+  `e_meu(uid, nome) or e_legado(nome)`.
+- **A limpeza é operacional, com lista na mão, um a um.** No checkpoint do
+  27-01 o executor LISTA os setups existentes, apresenta ao Alex e desativa só
+  os aprovados.
+- **Proibido varrer.** Nada de "desativa tudo que não tem prefixo": o armazém
+  "é visto por todos os clientes do serviço" (`server/app/rbac.py:29-34`),
+  então um nome sem prefixo pode ser de OUTRO sistema, que não é o Boris+ nem
+  é do Alex. Não há `undo`.
+
 ### D5 — Skill de UX: não se aplica
 
 O Alex pediu `/bencium-innovative-ux-designer`. Ela cria identidade visual do
@@ -124,10 +156,15 @@ arquitetura de informação, não identidade visual.
 2. **Carteira grande** — a aba não tem busca. Sinalizado que acima de ~8
    posições isso vira rolagem longa. Sem decisão; não inventar busca nesta
    fase, mas não desenhar nada que a impeça depois.
-3. **Namespacing do nome do setup** no armazém compartilhado — o risco de
-   colisão é real (ver corolário acima). A abordagem é decisão de
-   implementação do plano 27-01; o que não pode acontecer é dois usuários
-   enxergarem ou desativarem o setup um do outro.
+3. ~~**Namespacing do nome do setup**~~ — **FECHADO em 2026-09-13.** A
+   abordagem é prefixo determinístico por conta (`sha256(uid)[:8] + "-"`) no
+   nome enviado ao serviço, mais um índice por usuário no kv do Boris; o gate
+   de desativação é do backend. Registrado como Emenda 1 do ADR-027 (plano
+   27-01). O tratamento do legado saiu daqui e virou a decisão **D6** acima.
+   Risco residual, tratado antes de qualquer código: não há contrato publicado
+   sobre o campo `name` do serviço — a **Task 0 do 27-01** grava um nome
+   prefixado pela rota atual e confirma que `mcp.semente.dev` aceita; se
+   recusar, o formato volta a ser decisão do Alex.
 
 ## Guardrails (herdados, não re-litigar)
 
