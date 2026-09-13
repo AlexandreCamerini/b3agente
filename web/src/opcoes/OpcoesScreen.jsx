@@ -17,7 +17,7 @@
  * · o motivo de uma recusa do serviço vai VERBATIM, sem reescrita;
  * · vazio nunca é silêncio: todo estado vazio diz o porquê.
  */
-import { useState } from "react";
+import { useState, useEffect } from "react";
 // Fase 27 (27-02): `finance.js` é módulo PURO — zero import de `App.jsx` —,
 // então o isolamento do ADR-027 continua intacto (o guardião proíbe importar
 // `App.jsx`, não `finance.js`). `qtyLivre` é a FONTE ÚNICA da subtração
@@ -35,6 +35,9 @@ import ReguaRegime from "./ReguaRegime.jsx";
 import SetupChart from "./SetupChart.jsx";
 import PayoffChart from "./PayoffChart.jsx";
 import CriarSetup, { BotaoDesativar } from "./CriarSetup.jsx";
+// Fase 28 (28-02): módulo terceiro do 28-01 — nenhum import de `App.jsx`
+// aqui (isolamento ADR-027 Decisão 3 intacto).
+import PropostaLastreada, { FonteDoDadoProposta, useAceiteLastreado } from "./PropostaLastreada.jsx";
 
 // Mesmos NOMES de variável CSS que `App.jsx` injeta em `:root` — padrão de
 // `pet/BorisChat.jsx`. Zero import de `App.jsx` (seria ciclo).
@@ -298,6 +301,12 @@ export default function OpcoesScreen({ ctx }) {
   // abre, os dois de custo zero. É o desenho aprovado (D4: a aba abre na
   // lista, e entrar num ativo é um toque).
   const [ticker, setTicker] = useState("");
+  // Fase 28 (28-02) — a aba ganha duas sub-abas: "Setups" (esta tela, tal
+  // como a Fase 27 entregou) e "Operar" (proposta lastreada da posição
+  // escolhida). Nasce em "setups" porque é a tela que abre de graça hoje. O
+  // `ticker` acima é COMPARTILHADO entre as duas: quem escolheu um ativo
+  // para ler não deve reescolher para operar.
+  const [subaba, setSubaba] = useState("setups");
   const {
     status, leitura, grafico, abrirGrafico, fecharGrafico, abrirLeitura,
     cadeia, operaveis, proposta, possibilidades,
@@ -648,13 +657,52 @@ export default function OpcoesScreen({ ctx }) {
     </div>
   );
 
+  // Fase 28 (28-02) — o alternador de sub-aba. Mesma régua visual do
+  // `seletor` acima (D2/D3 do 28-CONTEXT: reusar, não inventar): mesmos
+  // tokens (`T.accent`/`T.accentTint10`/`T.bgPanel`/`T.borderSubtle`/
+  // `T.textSecondary`, já em TOKENS — nenhuma chave nova), mesma métrica
+  // (44px de alvo tátil, raio 11px, padding 8/14, peso 700, 13px), mesma
+  // afordância (`aria-pressed`, sem `role="tab"` — este app não usa ARIA de
+  // tab em lugar nenhum, ver BottomNav em App.jsx).
+  const subabas = (
+    <div style={{ display: "flex", gap: "8px", margin: "10px 0 4px" }}>
+      {[
+        { id: "setups", rotulo: cp.opcoesSubabaSetups || "Setups" },
+        { id: "operar", rotulo: cp.opcoesSubabaOperar || "Operar" },
+      ].map((s) => (
+        <button
+          key={s.id}
+          type="button"
+          onClick={() => setSubaba(s.id)}
+          aria-pressed={subaba === s.id}
+          style={{ minHeight: "44px", padding: "8px 14px", borderRadius: "11px", border: `1px solid ${subaba === s.id ? T.accent : T.borderSubtle}`, background: subaba === s.id ? T.accentTint10 : T.bgPanel, color: subaba === s.id ? T.accent : T.textSecondary, fontWeight: 700, fontSize: "13px" }}
+        >
+          {s.rotulo}
+        </button>
+      ))}
+    </div>
+  );
+
   return (
     <section>
       <h1 style={{ fontSize: "22px", fontWeight: 800, margin: "0 0 4px" }}>{cp.tituloOpcoes || "Opções"}</h1>
       <p style={{ fontSize: "13px", color: T.textSecondary, margin: "0 0 14px", lineHeight: 1.5 }}>
         {cp.subtituloOpcoes || ""}
       </p>
+      {subabas}
 
+      {subaba !== "setups" ? (
+        <SubAbaOperar
+          carteira={carteira}
+          ticker={ticker}
+          posicaoSelecionada={posicaoSelecionada}
+          tecnico={tecnico}
+          cp={cp}
+          ctx={ctx}
+          seletor={seletor}
+        />
+      ) : (
+      <>
       {cabecalho}
       {/* Fase 27 (D4: "vigias antes da carteira"). SEMPRE renderizado, com ou
           sem ativo escolhido — é o que faz a aba abrir com conteúdo em vez de
@@ -1226,7 +1274,124 @@ export default function OpcoesScreen({ ctx }) {
       <p style={{ marginTop: "20px", fontSize: "11.5px", color: T.textMuted, lineHeight: 1.55 }}>
         {cp.opcoesDisclaimer || ""}
       </p>
+      </>
+      )}
     </section>
+  );
+}
+
+// -------------------------------------------------------- SUB-ABA OPERAR --
+// Fase 28 (28-02). Universo = CARTEIRA (Fase 27 D3), nunca watchlist; o
+// `seletor` é recebido POR PROP (o mesmo chip que "Setups" usa, não uma
+// segunda implementação) para que trocar de sub-aba nunca perca o ativo
+// escolhido — os dois ramos leem o MESMO `ticker` do componente pai.
+//
+// Decisão registrada (Fase 30 não redescobrir): o ramo multi-candidato
+// (`r.candidatos.length > 1` / `CandidatoOpcao`, hoje só em `App.jsx` dentro
+// de `PropostaDaPosicao`) NÃO é replicado aqui. Com multi-candidato,
+// `PropostaLastreada` mostra `r.proposta` (o candidato principal que o motor
+// devolve) — o mesmo comportamento que `AtivoCard` já tem hoje. Trazer o
+// seletor de N candidatos para esta sub-aba exigiria uma quarta cópia do
+// padrão visual (App.jsx tem duas: AtivoCard e PropostaDaPosicao), fora de
+// escopo deste plano.
+function SubAbaOperar({ carteira, ticker, posicaoSelecionada, tecnico, cp, ctx, seletor }) {
+  const store = ctx && ctx.store;
+  const A = ctx && ctx.A;
+  // Fonte única de appMode (FIX-C21) — nunca redevirar de ctx.data.config.
+  const operador = !!(ctx && ctx.operador);
+
+  // Hook chamado incondicionalmente, antes de qualquer return (regra dos
+  // hooks) — mesmo com ticker vazio, ele só fica ocioso.
+  const { busy, aceitarCandidato, fecharLastreada } = useAceiteLastreado({ A, cp, ticker });
+
+  const [gate, setGate] = useState(null);
+  const [prop, setProp] = useState(null);
+
+  // Réplica do par gate→proposta de AtivoCard (App.jsx, useEffect de
+  // opGate/opProposta) — mesma disciplina: dois efeitos em cascata, cada um
+  // best-effort (`.catch` silencioso), flag `vivo` no cleanup para que a
+  // resposta de PETR4 nunca pinte a tela de VALE3, e a segunda chamada
+  // guardada por um PRIMITIVO (`gate && gate.liquida`), não pelo objeto —
+  // um objeto novo a cada resposta recriaria o efeito em loop.
+  //
+  // As duas rotas são INTERNAS, custo ZERO de cota do MCP
+  // (`/api/options/gate`, `/api/options/proposta`) — é só por isso que podem
+  // sair de efeito em vez de clique explícito (ADR-027 §3.3), a mesma
+  // justificativa já aceita por escrito para `/api/options/tecnico` (Emenda
+  // 2) e `/api/options/vigias` (Emenda 1). NENHUMA chamada aos métodos de
+  // leitura paga do serviço externo (o prefixo `mcp` do store) vive aqui.
+  useEffect(() => {
+    let vivo = true;
+    setGate(null);
+    if (!store || !ticker) return () => { vivo = false; };
+    store.optionsGate(ticker).then((r) => { if (vivo) setGate(r); }).catch(() => { /* best-effort */ });
+    return () => { vivo = false; };
+  }, [store, ticker]);
+
+  useEffect(() => {
+    let vivo = true;
+    setProp(null);
+    if (!store || !ticker || !(gate && gate.liquida)) return () => { vivo = false; };
+    store.optionsProposta(ticker, true).then((r) => { if (vivo) setProp(r); }).catch(() => { /* best-effort */ });
+    return () => { vivo = false; };
+  }, [store, ticker, gate && gate.liquida]);
+
+  // Fórmula de App.jsx (PropostaDaPosicao): a posição de opções já ABERTA
+  // que casa com o candidato principal da proposta, para o CTA virar
+  // "fechar" em vez de "abrir".
+  const myOptionPositions = ((ctx && ctx.data && ctx.data.optionPositions) || []).filter((p) => p.underlying === ticker);
+  const posAberta = (prop && prop.proposta)
+    ? myOptionPositions.find((p) => p.id === prop.proposta.contractSymbol) || null
+    : null;
+
+  return (
+    <>
+      <p style={{ fontSize: "13px", color: T.textSecondary, margin: "0 0 14px", lineHeight: 1.5 }}>
+        {cp.opcoesOperarIntro || ""}
+      </p>
+      {carteira.length === 0 ? (
+        // Fase 27 D2 — carteira vazia tem MOTIVO e CAMINHO, e o destino é a
+        // Carteira, nunca a watchlist. Reuso verbatim do mesmo bloco da
+        // sub-aba Setups (chaves já existentes, nenhuma nova).
+        <Aviso>
+          {cp.opcoesCarteiraVazia || "Esta aba trabalha sobre os ativos que você tem em carteira."}
+          <button
+            onClick={() => { if (ctx && ctx.goCarteira) ctx.goCarteira(); }}
+            style={{ ...BOTAO, width: "100%", marginTop: "12px" }}
+          >
+            {cp.opcoesIrParaCarteira || "Ir para a Carteira"}
+          </button>
+        </Aviso>
+      ) : (
+        <>
+          {seletor}
+          {!ticker ? (
+            <Aviso>{cp.opcoesOperarEscolherPosicao || "Escolha uma posição para ver a proposta."}</Aviso>
+          ) : (
+            <>
+              <LastroDoAtivo pos={posicaoSelecionada} cp={cp} />
+              <LeituraInterna tecnico={tecnico} cp={cp} />
+              {gate === null ? (
+                <Aviso>{cp.opcoesCarregando || "Consultando o serviço de opções…"}</Aviso>
+              ) : !gate.liquida ? (
+                <Aviso>{(cp.opcoesOperarSemLiquidez || ((t) => "Sem liquidez confirmada para " + t + " agora."))(ticker)}</Aviso>
+              ) : (
+                <PropostaLastreada
+                  r={prop}
+                  operador={operador}
+                  cp={cp}
+                  busy={busy}
+                  onAbrir={() => aceitarCandidato(prop && prop.proposta)}
+                  onFechar={() => fecharLastreada(prop)}
+                  posAberta={posAberta}
+                  onVerbeteLiquidez={(dados) => { if (A && A.abrirVerbete) A.abrirVerbete("liquidez-opcao", dados); }}
+                />
+              )}
+            </>
+          )}
+        </>
+      )}
+    </>
   );
 }
 
