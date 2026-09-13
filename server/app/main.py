@@ -1655,7 +1655,7 @@ async def admin_mobile_handoff_exchange(body: dict = Body(default={})):
 
 # FASE 8B (diagnóstico): carimbo de build do BACKEND — confirma qual código o
 # Railway está rodando (o front tem o dele em web/src/version.js).
-SERVER_BUILD_ID = "F10-20260912-04"  # 2026-09-12: Fase 25 completa — planos comerciais. O plano da conta deixa de ser um rotulo com um so efeito e vira o eixo que decide acesso e limite. Papel `owner`: todas as permissoes por uniao dinamica de GRUPOS, irrevogavel nas duas camadas (rota recusa + bootstrap reconcede), ancorado em B3_OWNER_EMAIL sem fallback de primeira conta. Catalogo de cinco limites (analises/mes, watchlist, IA gerenciada/dia, cota da aba Opcoes/dia, teto do assistente em R$/dia) com precedencia plano -> override global -> env -> default — sem configuracao, nada mudou (provado por teste). Owner pula o cap COMERCIAL, nunca o teto FISICO (D3). Modulo de configuracao no portal, com previa, auditoria por campo e "voltar ao padrao" via sentinela. Plano visivel no app: tile no Perfil, tela propria, banner de limite inline nas duas rotas de watchlist (402 estruturado). Zero linguagem de upgrade — nao ha loja/IAP. `opcoes.criar_setup` (D2) segue no RBAC, nao migrado para o plano, por decisao explicita do Alex (ampliaria acesso ao armazem compartilhado do servico MCP). O gate mensal em scan/deep, carteira-stopalvo e assistente segue DESLIGADO — ativacao e decisao pendente, ver STATE.md.
+SERVER_BUILD_ID = "F10-20260913-01"  # 2026-09-13: primeira entrega conjunta da Fase 25 (planos comerciais, completa em codigo desde 2026-09-12 mas nunca publicada) com a Fase 26/Fase A (sete correcoes baratas de UX e da camada de IA, mais um oitavo achado). Aba Opcoes deixou de ser invisivel para o assistente: PET_TELAS ganhou a oitava tela, /api/pet/resumo tem ramo proprio com custo ZERO de MCP por contrato, petSnapshot do front tem case proprio. KB (83 verbetes) responde ANTES da checagem de tela/setor, sem afrouxar allowlist nenhuma. Tour comeca nomeando a tela em que o app abre (Acompanhar, nao Radar) e cobre a aba Opcoes. Frase canonica unica para evidencia insuficiente, lida do proprio CLAUDE.md em vez de redigitada (as duas tinham divergido em silencio). Duas mensagens que citavam "Perfil -> Conta & preferencias" (caminho morto desde o qa/45 Decisao 1) corrigidas para o tile real — metering.py (A6) e api.js (A8, achado pelo proprio guardiao ampliado, que tambem pegou um terceiro caso da mesma classe no caminho). SKILL.md da didatica descreve o pet real (componente Boris, nao Coruja; sem restricao de aba ou modo). Fase 25: papel `owner` irrevogavel ancorado em B3_OWNER_EMAIL, catalogo de cinco limites por plano com precedencia plano -> override global -> env -> default, modulo de configuracao no portal, plano visivel no app — ver comentario da entrega anterior para o detalhe completo, inalterado desde entao.
 # Normalmente sincronizado pelo entregar.sh a partir de web/src/version.js; num deploy
 # SÓ de backend (sem rebuild do front) bumpamos aqui para /api/health rastrear o servidor.
 
@@ -3930,6 +3930,62 @@ def _pet_resumo_perfil(scope: Optional[str], cfg: dict, operador: bool) -> dict:
     return {"fala": fala, "modo": modo_app, "notificacoesAtivas": notif_on, "perguntas": perguntas}
 
 
+def _pet_resumo_opcoes(scope: Optional[str], operador: bool) -> dict:
+    """`pet:opcoes` — Fase 26, achado A1. A aba Opções existia no front desde a
+    Fase 24 e nunca foi registrada em `conceitos.PET_TELAS`: o resumo caía no
+    fallback de "mercado" (devolvia a Watchlist) e o /api/assistente recusava
+    `pet:opcoes` com 400.
+
+    O que esta rota NÃO faz, de propósito (princípio 4 do CLAUDE.md, "não
+    invente valores"):
+
+    · não consulta `mcp.semente.dev`. A leitura do ativo, a cadeia e a proposta
+      da aba custam chamadas ao serviço e só saem de um clique explícito da
+      pessoa (ADR-027); disparar aqui gastaria orçamento sem ninguém pedir e
+      esta família de rotas é custo-zero por contrato;
+    · não afirma qual ativo/tese/vencimento está selecionado. Essa escolha é
+      estado LOCAL de `OpcoesScreen.jsx` (isolado por desenho — não importa
+      nada de `App.jsx`) e não existe no servidor. Ela chega ao assistente pelo
+      `snapshot` que o front manda no POST /api/assistente, não por aqui.
+
+    Sobra o que é determinístico do lado do servidor: o universo da aba (a
+    watchlist, mesma fonte que `OpcoesScreen` usa) e as posições de opção já
+    abertas na carteira simulada (`optionPositions`, ADR-003). E o resumo DIZ
+    o que não sabe, em vez de calar."""
+    wl = [t for t in (store.get(_conn, "watchlist", user_id=scope) or []) if isinstance(t, str)]
+    opts = [p for p in (store.get(_conn, "optionPositions", user_id=scope) or []) if isinstance(p, dict)]
+    com_lastro = [p for p in opts if p.get("lastro")]
+    fala = [_PET_NAO_FAZ]
+    if wl:
+        fala.append(f"A aba Opções estuda um ativo por vez, escolhido entre os {len(wl)} "
+                    f"da sua lista: {', '.join(wl[:6])}" + ("…" if len(wl) > 6 else "") + ".")
+    else:
+        fala.append("A aba Opções estuda um ativo por vez, escolhido na sua lista — "
+                    "e a sua lista ainda está vazia.")
+    if opts:
+        subjacentes = sorted({str(p.get("underlying")) for p in opts if p.get("underlying")})
+        fala.append(f"Na carteira simulada você tem {len(opts)} posição(ões) de opção"
+                    + (f" sobre {', '.join(subjacentes)}" if subjacentes else "") + ".")
+        if com_lastro:
+            fala.append(f"{len(com_lastro)} dela(s) está(ão) com lastro registrado em ações da carteira.")
+    else:
+        fala.append("Você ainda não tem nenhuma posição de opção na carteira simulada.")
+    fala.append("A leitura da aba é de FIM DE PREGÃO e vem do serviço de opções: "
+                "ela não é o agora, e nada é recalculado aqui.")
+    fala.append("Eu não sei qual ativo você abriu na aba agora — essa escolha "
+                "vive na tela, não no servidor. Pergunte com a tela aberta e eu "
+                "leio o que ela me manda.")
+    perguntas = (["Que estruturas fazem sentido com o ativo neste comportamento?",
+                  "Por que abrir a cadeia custa chamadas ao serviço?",
+                  "O que muda no risco quando eu vendo uma opção em vez de comprar?"]
+                 if operador else
+                 ["O que é uma opção?",
+                  "Qual a diferença entre call e put?",
+                  "Por que a leitura de opções é de fim de pregão?"])
+    return {"fala": fala, "universo": wl[:12], "posicoesOpcoes": len(opts),
+            "posicoesComLastro": len(com_lastro), "perguntas": perguntas}
+
+
 @app.get("/api/pet/resumo")
 async def get_pet_resumo(modo: Optional[str] = None, tela: Optional[str] = None,
                          scope: Optional[str] = Depends(current_scope)):
@@ -3961,6 +4017,10 @@ async def get_pet_resumo(modo: Optional[str] = None, tela: Optional[str] = None,
         extra = _pet_resumo_agente(scope, operador)
     elif aba == "historico":
         extra = _pet_resumo_historico(scope, operador)
+    elif aba == "opcoes":
+        # Fase 26 / A1 — sem `await`: a rota de opções é custo-zero, não toca
+        # o serviço de opções (ver docstring de `_pet_resumo_opcoes`).
+        extra = _pet_resumo_opcoes(scope, operador)
     else:  # "perfil"
         extra = _pet_resumo_perfil(scope, cfg, operador)
     return {"ligada": True, "modo": voc, "tela": aba, **extra}
@@ -4009,24 +4069,37 @@ async def post_assistente(body: dict = Body(default={}), scope: Optional[str] = 
     pergunta = str(b.get("pergunta") or "").strip()
     if not pergunta:
         raise HTTPException(400, "Escreva a sua pergunta sobre esta tela.")
-    # `tela: "setor:<id>"` e `tela: "pet:<id>"` validam contra os REGISTROS,
-    # antes de gastar qualquer coisa: id que o backend não conhece é 400,
-    # nunca contexto de prompt. As allowlists são SETORES e PET_TELAS — as
-    # mesmas fontes que o catálogo e o pet servem.
     tela = str(b.get("tela") or "")
-    if tela.startswith("setor:") and tela[len("setor:"):] not in conceitos.SETORES:
-        raise HTTPException(400, "Setor desconhecido.")
-    if tela.startswith("pet:") and tela[len("pet:"):] not in conceitos.PET_TELAS:
-        raise HTTPException(400, "Tela desconhecida.")
     # `config` no CORPO é o caminho do iPhone: lá o modelo e a chave vivem no
     # aparelho, e o servidor não os tem. Omitir isto foi o que produziu
     # "Nenhum modelo de IA configurado" em produção no scanDeep (qa/29).
     config = b.get("config") or store.get(_conn, "config", user_id=scope)
     modo = b.get("modo") or (config or {}).get("appMode") or "estudo"
     voc = "operador" if modo == "operador" else "educacional"
+    # 2026-09-12 (Fase 26, achado A2) — A KB VEM ANTES DA CHECAGEM DE TELA.
+    # Ordem anterior: validar `tela` contra as allowlists e só depois tentar a
+    # KB. Efeito: uma pergunta de glossário que os 83 verbetes respondem de
+    # graça ("o que é RSI?") era recusada com 400 por causa da TELA de onde
+    # ela partiu — e foi exatamente isso que aconteceu com a aba Opções entre
+    # a Fase 24 e hoje (achado A1). A dependência estava invertida: a KB não
+    # lê a tela para responder, então a tela não pode ser condição para ela.
+    #
+    # Isto NÃO afrouxa a allowlist, e a razão dela continua intacta: `tela`
+    # nunca entra em `kb.resolver` (que recebe só `pergunta` e `voc`), logo um
+    # id desconhecido segue sem virar contexto de prompt. Quando a KB não
+    # resolve, as duas checagens rodam abaixo, antes de exigir conta e antes
+    # de qualquer gasto — id que o backend não conhece continua 400.
     resolvido_pela_kb = kb.resolver(pergunta, voc)
     if resolvido_pela_kb is not None:
         return resolvido_pela_kb
+    # `tela: "setor:<id>"` e `tela: "pet:<id>"` validam contra os REGISTROS,
+    # antes de gastar qualquer coisa: id que o backend não conhece é 400,
+    # nunca contexto de prompt. As allowlists são SETORES e PET_TELAS — as
+    # mesmas fontes que o catálogo e o pet servem.
+    if tela.startswith("setor:") and tela[len("setor:"):] not in conceitos.SETORES:
+        raise HTTPException(400, "Setor desconhecido.")
+    if tela.startswith("pet:") and tela[len("pet:"):] not in conceitos.PET_TELAS:
+        raise HTTPException(400, "Tela desconhecida.")
     if not scope:
         raise HTTPException(401, "Faça login para continuar.")
     # Chave PRÓPRIA dispensa o teto: ele protege o bolso do Alex, e barrar

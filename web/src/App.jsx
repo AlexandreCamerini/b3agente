@@ -1442,7 +1442,23 @@ function AnalysisView({ an }) {
   const body = an.markdown || d.resumo || an.text || an.analysis || "";
   const source = an.fonte === "deterministico" ? "deterministico" : "ia";
   // an.semDados (contrato do backend) ou corpo vazio no caminho determinístico
-  // (nem setup foi detectado) — frase MANDATÓRIA do CLAUDE.md, verbatim.
+  // (nem setup foi detectado) — a frase abaixo é a do CLAUDE.md, agora de
+  // fato verbatim.
+  //
+  // 2026-09-12 (Fase 26, achado A5): este comentário dizia "frase MANDATÓRIA
+  // do CLAUDE.md, verbatim" e o texto renderizado era OUTRO — "…para uma
+  // explicação agora." contra "…para concluir." da norma. O comentário mentia
+  // e o guardião (`test_fonte_explicacao.mjs`) travava a divergência,
+  // repetindo a mesma alegação falsa: o app tinha duas frases para a mesma
+  // coisa e uma delas se dizia cópia da outra. `docs/MANUAL-BORIS-PLUS.md`
+  // (linha do glossário) já documentava a versão do CLAUDE.md — ou seja, o
+  // texto da tela era o único fora de compasso. A canônica é a do CLAUDE.md,
+  // que é a norma declarada do produto.
+  //
+  // NÃO confundir com `skill_ref.vocab[*]["sem_setup"]`: aquela é ausência de
+  // SETUP (não há operação com vantagem estatística clara), esta é ausência
+  // de DADO/evidência. Frases diferentes para coisas diferentes — a de lá
+  // está certa e não se toca.
   const semDados = an.semDados === true || (source === "deterministico" && !body);
   // FASE 1: a análise do ativo individual exibe SÓ texto. O stop/alvo
   // (an.proposal) foi desacoplado deste fluxo — a lógica permanece em
@@ -1451,7 +1467,7 @@ function AnalysisView({ an }) {
     <div style={{ display: "grid", gap: "2px" }}>
       {an.iaIndisponivel && <div style={{ fontSize: "11px", color: T.textFaint, lineHeight: 1.4, marginBottom: "6px" }}>IA indisponível agora — mostrando a explicação automática do app, sem IA.</div>}
       {semDados
-        ? <div style={{ color: T.textMuted, fontSize: "13px" }}>Não há dados suficientes para uma explicação agora.</div>
+        ? <div style={{ color: T.textMuted, fontSize: "13px" }}>Não há dados suficientes para concluir.</div>
         : (body ? <Markdown text={body} /> : <div style={{ color: T.textMuted, fontSize: "13px" }}>A análise foi gerada, mas não veio texto legível. Tente reanalisar.</div>)}
       {Array.isArray(d.fatos) && d.fatos.length > 0 && (
         <div style={{ marginTop: "14px", padding: "13px 14px", borderRadius: "11px", background: T.bgBase, border: `1px solid ${T.borderSubtle}` }}>
@@ -2379,6 +2395,7 @@ const hubGrid = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }
 // fonte só, reusada pela tela de Ajuda, pelo tour e pelo doc externo (AJUDA.md).
 function ajudaSecoes(cp, operador) {
   const tRadar = cp.tituloRadar, tWl = cp.tituloWatchlist, tPort = cp.tituloPortfolio;
+  const tOpc = cp.tituloOpcoes || "Opções";
   const aprofundar = cp.btnAprofundar; // "Aprofundar com IA" / "Plano da mesa (IA)"
   return [
     ["O que é o Boris+", [
@@ -2407,6 +2424,16 @@ function ajudaSecoes(cp, operador) {
       "Sua carteira **simulada**: patrimônio, resultado do dia e cada posição com a régua do plano (invalidação → gatilho → alvo).",
       "Você simula compras e vendas, define stop e alvo, e acompanha o resultado em R — sem risco de dinheiro real.",
     ]],
+    // 2026-09-12 (Fase 26, achado A4): a aba Opções existe na barra desde a
+    // Fase 24 e a Ajuda nunca a descreveu — a pessoa tocava o 5º ícone sem
+    // nenhuma explicação do que aquilo é, de onde vem o dado e por que ele é
+    // de fim de pregão. Mantido no mesmo formato título/parágrafos das outras,
+    // e ESPELHADO em `docs/AJUDA.md` (a regra do topo daquele arquivo).
+    [tOpc, [
+      "Estuda **opções** sobre um ativo por vez, escolhido na sua " + tWl + ": como o ativo vem se comportando, quais estruturas do catálogo fazem sentido, os vencimentos disponíveis e os setups já armados.",
+      "O dado vem de um serviço externo de opções e é uma **leitura de fim de pregão** — não é o preço de agora. O app não recalcula nada aqui: campo que o serviço não mandou aparece como travessão, nunca como zero.",
+      "Abrir a cadeia de um vencimento custa consultas ao serviço, e a tela diz **antes** quantas vão ser. Nenhuma ordem sai desta aba: é estudo da estrutura, do risco e do retorno possível.",
+    ]],
     ["Operador IA", [
       "Um agente que acompanha as posições da carteira simulada e age pelas regras que você define (proteger stop, realizar no alvo). Com conta, roda no servidor 24×5, mesmo com o app fechado.",
       "Você escolhe **Executar** (ele simula a saída no stop/alvo) ou **Apenas sinalizar** (só avisa), define regras e tetos, e o intervalo de reavaliação. Sempre sobre a carteira simulada.",
@@ -2430,12 +2457,27 @@ function ajudaSecoes(cp, operador) {
 }
 
 // Passos do tour de primeiro uso (funil). Curto, aponta o caminho.
+//
+// 2026-09-12 (Fase 26, achado A4) — DOIS passos entraram, e a ordem mudou:
+//
+//  · O PASSO ZERO nomeia a tela em que a pessoa JÁ ESTÁ. O tour abre sobre o
+//    "Acompanhar" (`useState("evolucao")` é a tab inicial) e começava
+//    apontando para o Radar — mandava procurar outra tela antes de dizer onde
+//    a pessoa tinha caído. "Acompanhar" vai literal, como no `BottomNav.defs`
+//    (o rótulo da barra não muda por modo; `ajudaSecoes` já o escreve assim).
+//  · A SAUDAÇÃO subiu para esse passo zero e o antigo passo 0 ficou com o
+//    título que sempre descreveu o corpo dele (o que o app é — e o que não é).
+//    O TEXTO do corpo não mudou: é a mesma frase de mission+disclaimer.
+//  · A ABA OPÇÕES entrou como 4º passo do funil. Ela é o 5º item da barra
+//    desde a Fase 24 e o tour nunca a apresentou.
 function tourPassos(cp) {
   return [
-    ["Bem-vindo ao Boris+", "Um app para **estudar** o mercado da B3 com uma carteira simulada. Tudo aqui é educacional — nenhuma ordem real é enviada."],
+    ["Bem-vindo · você está em Acompanhar", "Esta é a tela em que o app abre: o resumo do seu dia — as melhores oportunidades da sua " + cp.tituloWatchlist + ", a curva do patrimônio simulado e o próximo passo."],
+    ["O que o Boris+ é — e o que não é", "Um app para **estudar** o mercado da B3 com uma carteira simulada. Tudo aqui é educacional — nenhuma ordem real é enviada."],
     ["1 · Descubra no " + cp.tituloRadar, "O " + cp.tituloRadar + " varre o mercado e mostra os ativos com setup, com confluência e leitura rápida."],
     ["2 · Acompanhe na " + cp.tituloWatchlist, "Leve os melhores para a " + cp.tituloWatchlist + " e acompanhe de perto antes de agir."],
     ["3 · Simule no " + cp.tituloPortfolio, "Simule compras e vendas no " + cp.tituloPortfolio + " — com stop, alvo e risco em R, sem dinheiro real."],
+    ["4 · Estude estruturas em " + (cp.tituloOpcoes || "Opções"), "A aba " + (cp.tituloOpcoes || "Opções") + " lê o comportamento de um ativo da sua lista e mostra as estruturas de opções que cabem nele — leitura de fim de pregão, sem ordem nenhuma."],
   ];
 }
 
@@ -9389,6 +9431,38 @@ export default function App() {
           operacoes: h.slice(-12).map((x) => ({ data: x.date, tipo: x.type, ticker: x.t, qty: x.qty, preco: x.price, pnl: x.pnl })),
           totalOperacoes: h.length,
           pnlTotalFechadas: pnlTotal,
+        };
+      }
+      // Fase 26 / achado A1 (2026-09-12): a aba Opções entrou no `BottomNav`
+      // na Fase 24 e ficou de fora DESTE switch e de `conceitos.PET_TELAS` —
+      // o Boris caía no `default: return {}` e o backend respondia o resumo
+      // de "mercado" (a Watchlist). Ficava mudo na aba mais nova, sem erro.
+      //
+      // O que NÃO vai aqui, e por quê: o ativo escolhido, a tese, o vencimento
+      // e a cadeia são estado LOCAL de `OpcoesScreen.jsx`, que é isolado por
+      // desenho (não importa nada de `App.jsx`, e o contrário seria ciclo).
+      // Içar esse estado para o App é exatamente o item B2/C3 do
+      // `26-CONTEXT.md`, deixado FORA desta rodada por decisão registrada.
+      // Inventar os campos aqui (mandar `ticker: null` como se a tela não
+      // tivesse ativo aberto) mentiria para o assistente — princípio 4. Então
+      // o snapshot manda só o que o App realmente tem: o universo da aba (a
+      // mesma watchlist que `OpcoesScreen` recebe via `ctx.data.watchlist`) e
+      // as posições de opção da carteira simulada (ADR-003).
+      case "opcoes": {
+        const opts = data.optionPositions || [];
+        return {
+          universo: (data.watchlist || []).slice(0, 12),
+          posicoesOpcoes: opts.slice(0, 12).map((p) => ({
+            contrato: p.id, subjacente: p.underlying, tipo: p.optionType,
+            strike: p.strike, vencimento: p.expiration, qty: p.qty,
+            premioMedio: p.avg, lastro: !!p.lastro,
+          })),
+          totalPosicoesOpcoes: opts.length,
+          // Nem null nem omissão: as duas seriam lidas como "a pessoa não
+          // escolheu ativo nenhum". O MOTIVO ocupa o lugar do valor ausente —
+          // o mesmo padrão de `RazaoGanhoPerda` em `OpcoesScreen.jsx`, onde
+          // sem número vai o porquê. Ver comentário acima.
+          selecaoDaTela: "não disponível: o ativo/tese/vencimento escolhidos vivem no estado local da aba Opções e não chegam a este snapshot",
         };
       }
       case "perfil": {

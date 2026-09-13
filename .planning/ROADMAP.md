@@ -374,11 +374,11 @@ Plans:
 
 **Ondas seguintes** *(cada plano é escrito quando a fase anterior informa a próxima)*
 
-- [ ] 25-02 — papel `owner` (D1)
-- [ ] 25-03 — catálogo de planos com limites e funções
-- [ ] 25-04 — gates leem o plano (D2, D3)
-- [ ] 25-05 — módulo de configuração no portal
-- [ ] 25-06 — plano visível no app (UI delegada a subagente de UX)
+- [x] 25-02 — papel `owner` (D1)
+- [x] 25-03 — catálogo de planos com limites e funções
+- [x] 25-04 — gates leem o plano (D2, D3)
+- [x] 25-05 — módulo de configuração no portal
+- [x] 25-06 — plano visível no app (UI delegada a subagente de UX)
 
 **UI hint**: yes
 
@@ -419,7 +419,7 @@ casos falham por XPASS e obrigam quem ativar a tirar a marca.
 | 22. Componentes compartilhados (trilho, ícones, mascote) | 4/4 | Complete    | 2026-09-06 |
 | 23. Motion com propósito e ilustração unificada | 4/4 | Complete    | 2026-09-06 |
 | 24. Aba Opções sobre MCP — análise e criação de setups | 12/13 | In Progress|  |
-| 25. Planos comerciais — acesso por função e limites por plano | 1/6 | In Progress|  |
+| 25. Planos comerciais — acesso por função e limites por plano | 6/6 | Complete | 2026-09-12 |
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2/v1.3
 

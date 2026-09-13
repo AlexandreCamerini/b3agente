@@ -90,6 +90,11 @@ export const COPY = {
     // aba Opções (aba-opcoes F2, 2026-09-10) — voz de professor: explica o
     // que o número é antes de dizer o que ele mostra. O Operador IA saiu da
     // barra e virou sub-tela do Portfólio (D-0.1 do PLANO-aba-opcoes).
+    // 2026-09-12 (Fase 26, achado A3): o par estudo×operador destas chaves
+    // agora tem guardião — `web/tests/test_vocabulario_opcoes.mjs` trava que o
+    // SUBTÍTULO difere entre os modos, que o TÍTULO é igual por decisão, que
+    // `tabOpcoes` não muda, e que os dois subtítulos dizem que nenhuma ordem
+    // sai da aba. Voltar a escrever qualquer um deles direto no JSX falha.
     tabOpcoes: "Opções",
     tituloOpcoes: "Opções",
     subtituloOpcoes: "Como o ativo vem se comportando e quais estruturas de opções fazem sentido estudar — leitura de fim de pregão, sem ordem nenhuma.",
@@ -534,7 +539,9 @@ export const COPY = {
 
     // aba Opções (aba-opcoes F2, 2026-09-10) — voz de mesa: direto ao estado
     // do dado e ao que está armado. Mesmas chaves do ramo estudo (o guardião
-    // test_copy_theme.mjs compara os conjuntos ordenados).
+    // test_copy_theme.mjs compara os conjuntos ordenados; desde 2026-09-12,
+    // `test_vocabulario_opcoes.mjs` também trava a DIFERENÇA de subtítulo
+    // entre os modos — ver a nota no ramo estudo, achado A3 da Fase 26).
     tabOpcoes: "Opções",
     tituloOpcoes: "Opções",
     subtituloOpcoes: "Comportamento do ativo, estruturas do catálogo e os setups armados — leitura de fim de pregão. Nenhuma ordem sai daqui.",

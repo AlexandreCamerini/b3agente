@@ -5,6 +5,28 @@ num POOL de threads. Com a conexão global antiga, resolve_session explodia com
 `sqlite3.ProgrammingError: SQLite objects created in a thread can only be used
 in that same thread`. Com db.shared() (uma conexão por thread), o mesmo fluxo
 funciona de qualquer thread — inclusive escrita concorrente (WAL+busy_timeout).
+
+NOTA (2026-09-13): estes testes dependem de timing real de thread/SQLite e
+foram observados falhando intermitentemente quando a suíte COMPLETA roda sob
+carga externa pesada — em particular, múltiplas sessões rodando
+`bash scripts/executar.sh --testes` ao mesmo tempo na mesma máquina (ambiente
+com vários worktrees/sessões concorrentes), o que nesse mesmo episódio também
+esgotou o disco (ENOSPC). Investigado a partir de uma falha observada em
+`test_opcoes_dsl.py` (teste sem nenhuma relação de código com thread-safety)
+na suíte completa: reproduzida em worktree isolado, sem qualquer outra carga
+conhecida, a suíte passou 100% duas vezes seguidas e na terceira falhou este
+arquivo — nunca o mesmo teste duas vezes. Rodando só este arquivo,
+isoladamente, 15/15 execuções passaram em ~0,15s cada. Ou seja: não é
+poluição de estado entre módulos de teste (não é ordem-dependente), é
+sensibilidade a contenção externa (CPU e/ou disco) — cada teste cria seu
+próprio SQLite temporário via `tempfile.mkdtemp()` e nada limpa isso entre
+execuções, o que acumula com múltiplas sessões rodando a suíte em paralelo.
+Se este arquivo (ou qualquer teste que passe por TestClient/`current_scope`,
+que roda no mesmo pool de threads sobre `db.shared()`) falhar de forma
+isolada e não reproduzir sozinho, é este mecanismo — não um bug de lógica.
+Não mitigado no código (retry/timeout maior seria defensivo sem confirmação
+da causa exata); decisão registrada em 2026-09-13: documentar e não alterar
+comportamento.
 """
 import os
 import tempfile

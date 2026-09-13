@@ -810,7 +810,7 @@ _COPY_DE_BYOK = ("byok", "chave", "modelo de ia", "configurações →", "config
 @pytest.mark.parametrize("motivo,esperado", [
     ("Voce atingiu o limite de 30 analises/mes do plano free.", "plano_analises"),
     ("Você atingiu o limite diário de 20 análises com a IA do app. Use sua "
-     "própria chave (BYOK) em Perfil → Conta & preferências para análises "
+     "própria chave (BYOK) em Perfil → IA & Boris para análises "
      "ilimitadas, ou volte amanhã.", "ia_gerenciada"),
 ])
 def test_gate_de_analise_nega_com_texto_proprio_da_aba(monkeypatch, motivo, esperado):
@@ -823,7 +823,15 @@ def test_gate_de_analise_nega_com_texto_proprio_da_aba(monkeypatch, motivo, espe
     mudou é de onde a classificação vem — do código, não da substring
     `"analises/mes"` da mensagem. As frases seguem aqui de propósito: elas são
     o texto real de cada teto, e o teste continua provando que o copy de BYOK
-    não vaza para a aba."""
+    não vaza para a aba.
+
+    ATUALIZADO (26-01/A6, 2026-09-13): "Perfil → Conta & preferências" virou
+    "Perfil → IA & Boris" na frase do teto diário, acompanhando o rename do
+    tile em `metering.py` (o caminho antigo morreu no qa/45 Decisão 1 e a
+    mensagem de cota apontava para uma tela que não existe mais). Isto aqui é
+    DADO de teste, não asserção: o parametrize reproduz o texto real de cada
+    teto, então ele acompanha a fonte. Quem trava a correspondência
+    frase↔tile é `web/tests/test_perfil_reorg.mjs` (seção 7)."""
     c, _ = _client(monkeypatch)
     p = _registra(c)
     chamadas = _espiao(monkeypatch)
