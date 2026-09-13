@@ -54,18 +54,28 @@ O front declara regiões (`SetorAlvo`); **o que cada região explica** vem de
 
 Guardiões: `server/tests/test_setores.py`, `web/tests/test_setor_toque.mjs`.
 
-## O pet (coruja) e a voz
+## O pet (Boris) e a voz
 
-Mascote do assistente: `PetFab`/`PetSheet`/`Coruja` em `web/src/App.jsx` —
-só na Watchlist do Estudo, com a tela livre, e NUNCA abre sozinho (o único
-one-shot proativo segue sendo o do gatilho). O resumo vem de
-`GET /api/pet/resumo` (determinístico: frases canônicas de `timing.montar` +
-conectivas NA ROTA — o front exibe e fala a MESMA lista `fala`). A pergunta
-LLM usa `tela: "pet:<id>"`, allowlist `conceitos.PET_TELAS`. Voz de saída:
-`speechSynthesis` pt-BR (no WKWebView é o AVSpeechSynthesizer do iOS);
-fechar a folha CALA a voz; sem voz, o texto continua inteiro. Pendente de
-medição no aparelho real. Guardiões: `server/tests/test_pet.py`,
-`web/tests/test_pet_ui.mjs`.
+Mascote do assistente: o componente é `Boris` (a coruja desenhada em
+`web/src/pet/Boris.jsx`), montado por `PetFab`/`PetSheet` em
+`web/src/App.jsx`. Aparece em QUALQUER aba e nos DOIS modos de trabalho — a
+restrição por modo foi revertida na Fase 1 da auditoria de UX (2026-08-08,
+reversão registrada no comentário do render em `App.jsx`, ~`:9590`). O que
+ainda condiciona o FAB não é aba nem modo: didática ligada, tela livre de
+overlay (some sob folha aberta, para não competir) e o interruptor
+`config.fabVisivel` (F10-20260809, default LIGADO nos dois modos — é opção
+de esconder, não reversão da Fase 1). E NUNCA abre sozinho (o único one-shot
+proativo segue sendo o do gatilho). O resumo vem de `GET /api/pet/resumo`
+(determinístico: frases canônicas de `timing.montar` + conectivas NA ROTA —
+o front exibe e fala a MESMA lista `fala`). A pergunta LLM usa
+`tela: "pet:<id>"`, allowlist `conceitos.PET_TELAS`. Voz de saída: roteada
+por plataforma em `web/src/pet/vozBoris.js` (`falarTexto`/`calarVoz`) — Web
+Speech API pt-BR no PWA, plugin TTS nativo
+(`@capacitor-community/text-to-speech`) no app Capacitor, porque o WKWebView
+não confia no `speechSynthesis`; fechar a folha CALA a voz; sem voz, o texto
+continua inteiro. Guardiões: `server/tests/test_pet.py`,
+`server/tests/test_pet_todas_telas.py`, `web/tests/test_pet_ui.mjs`,
+`web/tests/test_boris_voz_nativa.mjs`.
 
 ## Explicação boa, nesta base
 
