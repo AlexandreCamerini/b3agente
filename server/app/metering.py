@@ -250,12 +250,12 @@ def check(conn, user_id, *, quota, rate_per_min, custo=1, cap_global=None, _now=
                 return (False, (
                     "Esta varredura profunda faria %d análises e você tem %d restante(s) "
                     "hoje (limite diário: %d). Reduza o número de ativos, use sua própria "
-                    "chave (BYOK) em Perfil → Conta & preferências para análises "
+                    "chave (BYOK) em Perfil → IA & Boris para análises "
                     "ilimitadas, ou volte amanhã." % (custo, restam, quota)
                 ))
             return (False, (
                 "Você atingiu o limite diário de %d análises com a IA do app. "
-                "Use sua própria chave (BYOK) em Perfil → Conta & preferências para "
+                "Use sua própria chave (BYOK) em Perfil → IA & Boris para "
                 "análises ilimitadas, ou volte amanhã." % quota
             ))
         # qa/42 (FinOps): teto GLOBAL — a última linha de defesa do bolso. Sem ele,
@@ -274,7 +274,7 @@ def check(conn, user_id, *, quota, rate_per_min, custo=1, cap_global=None, _now=
                 _save(conn, user_id, u, section=section)
                 return (False, (
                     "A IA do app atingiu o limite de uso de hoje (teto global do servidor). "
-                    "Use sua própria chave (BYOK) em Perfil → Conta & preferências para "
+                    "Use sua própria chave (BYOK) em Perfil → IA & Boris para "
                     "análises ilimitadas, ou volte amanhã."
                 ))
         u["rl"].append(now)

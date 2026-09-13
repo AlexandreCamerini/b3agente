@@ -12,7 +12,10 @@
 //  3) ConfigScreen (agora só "Conta & preferências") NÃO contém mais as
 //     seções que se mudaram — sem duplicação de UI;
 //  4) o roteamento (perfilView) cobre as 6 rotas;
-//  5) o atalho de notificações (A.openNotifCentral) aponta pra área nova.
+//  5) o atalho de notificações (A.openNotifCentral) aponta pra área nova;
+//  6) (26-01/A6, 2026-09-13) todo "Perfil → X" que o `server/app/metering.py`
+//     cita nas mensagens de cota é um tile que EXISTE no PerfilHub — ver
+//     seção 7, no fim do arquivo.
 //
 // ATUALIZAÇÃO 2026-08-12 (qa/45 Decisão 1, pedido do Alex "pode seguir com a
 // decisão 1 (as 5 telas)"): reversão deliberada dos nomes de tile trancados
@@ -114,6 +117,40 @@ ok("rota: logs → LogsDebugScreen", /perfilView === "logs"[\s\S]{0,120}<LogsDeb
 
 // ---- 6) Atalho de notificações aponta pra área nova -----------------------
 ok("openNotifCentral navega para notificacoes", /openNotifCentral:.*setPerfilView\("notificacoes"\).*setTab\("perfil"\)/.test(app));
+
+// ---- 7) "Perfil → X" citado pelo backend é um tile que EXISTE -------------
+// NOVO em 26-01/A6 (2026-09-13). O achado: as três mensagens de 402 do
+// `metering.py` mandavam a pessoa para "Perfil → Conta & preferências" — tela
+// que o qa/45 Decisão 1 renomeou (o bloco de BYOK/modelo vive em "IA & Boris").
+// O rename passou silencioso porque NADA cruzava o texto do backend com os
+// tiles reais do PerfilHub: o teste acima trava os tiles, o `metering.py` cita
+// um caminho em prosa, e os dois nunca se olhavam. Este bloco fecha o par —
+// um próximo rename de tile quebra AQUI, em vez de deixar a mensagem de cota
+// apontando para um endereço morto.
+//
+// Fora de escopo, registrado: `web/src/api.js:11` (ADDR_HINT) tem o MESMO
+// defeito com outro destino — cita "Perfil → Conta & preferências" quando o
+// bloco SERVIDOR DO APP migrou para "Perfil → Fonte de dados" (qa/45 Decisão
+// 1). Não foi corrigido no A6 (escopado a `metering.py`) e por isso este
+// guardião lê só o `metering.py`: ampliá-lo para o front sem a correção
+// falharia de propósito. Quando o achado for fechado, troque a leitura por um
+// laço sobre os dois arquivos.
+const metering = readFileSync(join(here, "..", "..", "server", "app", "metering.py"), "utf8");
+const hubTightEnd = app.indexOf("function SetorAlvo(");
+ok("PerfilHub delimitado (corpo real, não até MercadoScreen)", hubTightEnd > hubStart);
+const tiles = [...app.slice(hubStart, hubTightEnd).matchAll(/title="([^"]+)"/g)].map((m) => m[1]);
+ok("PerfilHub expõe tiles com título literal", tiles.length >= 6);
+
+const SETA = "Perfil → ";
+const citacoes = [];
+for (let i = metering.indexOf(SETA); i > -1; i = metering.indexOf(SETA, i + 1)) {
+  const depois = metering.slice(i + SETA.length);
+  citacoes.push({ tile: tiles.find((t) => depois.startsWith(t)), trecho: depois.slice(0, 40) });
+}
+ok("metering.py cita as 3 mensagens de cota com caminho do Perfil", citacoes.length === 3);
+for (const { tile, trecho } of citacoes) {
+  ok(`metering.py → tile real (${tile || "NENHUM: " + JSON.stringify(trecho)})`, !!tile);
+}
 
 console.log(fails ? `\n${fails} falha(s)` : "\ntodos os testes passaram");
 process.exit(fails ? 1 : 0);
