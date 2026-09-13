@@ -278,3 +278,108 @@ significa em código:
 invisibilidade dos próprios setups); ela **não fecha** a lacuna — quem tem a
 permissão continua escrevendo num armazém que todos os clientes do serviço
 enxergam. Por isso ela não é argumento para abrir a permissão.
+
+## Emenda 2 (Fase 27, 2026-09-13) — leitura técnica interna para a aba
+
+**Decisão D1 do Alex, 2026-09-13.** Perguntado de onde deve sair a análise
+técnica da evolução dos ativos na aba Opções, a resposta foi **híbrido:
+técnico interno + estrutura no MCP**. Este ADR fecha essa fronteira; a decisão
+a atravessa deliberadamente, e isto é o registro — não uma nota de rodapé no
+código.
+
+Convive com a Emenda 1 sem conflito: a Emenda 1 trata de **quem é o dono** do
+que se grava no armazém compartilhado do serviço; esta trata de **de onde sai
+o número** que a aba lê. As duas empurram na mesma direção — reduzir a
+dependência do serviço para o que o Boris já sabe fazer sozinho — e nenhuma
+delas relaxa o cap, o gate de permissão ou o custo declarado.
+
+### O que muda
+
+O backend passa a servir leitura técnica **interna** e determinística para a
+aba: `server/app/opcoes_tecnico.py` (módulo puro) e
+`GET /api/options/tecnico/{ticker}` (rota nova em `main.py`). Ela responde
+tendência, volatilidade histórica, suporte/resistência e uma régua de sete
+pregões, lendo o **mesmo Snapshot Técnico Único** que serve
+`/api/technicals/{ticker}`, o Radar e a Watchlist — nenhuma linha de
+matemática nova, e nenhuma chamada a `mcp.semente.dev`.
+
+A rota **não** mora em `options_mcp_api.py`, e isso é decisão e não
+conveniência: o guardião (iv) obriga toda rota `/api/options/mcp/*` a passar
+pelo `_cap_check`, e cobrar cota do serviço por uma leitura que não sai do
+processo seria cobrar pelo que não aconteceu. Mesma razão de
+`GET /api/options/vigias` (Emenda 1). Ela usa `Depends(current_scope)` — o
+MESMO gate de `/api/technicals/{ticker}`, porque é o MESMO dado de mercado
+público; exigir sessão só aqui criaria duas réguas de acesso para a mesma
+informação. A allowlist pública do ADR-013 **não cresce** (segue em 25).
+
+A resposta declara `custoMcp: 0` como campo de contrato — é dele que a tela
+tira o rótulo "grátis" do controle, em vez de o front inventar o rótulo por
+conta própria.
+
+### O que NÃO muda
+
+- **O isolamento de FRONT permanece.** `web/src/opcoes/*` continua sem
+  importar `App.jsx`, e o guardião que trava isso continua. O que atravessou a
+  fronteira foi o BACKEND, servindo dado do motor interno para a aba — não o
+  acoplamento de componentes que o ADR evitou.
+- **A Decisão 2 ("fato × juízo") permanece**, e esta emenda a reforça: o
+  número vem do motor determinístico, a LLM só interpreta. É o princípio 5 do
+  CLAUDE.md — se a leitura técnica viesse de um serviço pago por consulta, a
+  tela teria de escolher entre gastar cota a cada abertura ou mostrar menos.
+- **O §3.3 (custo de MCP só em clique explícito) NÃO afrouxa — fica mais
+  forte.** A leitura interna existe justamente para a aba abrir com conteúdo
+  sem gastar cota de ninguém. Toda chamada ao serviço continua saindo de
+  clique explícito, com o custo declarado no controle. Um teste com bomba em
+  `mcp_client.call_tool` prova que a rota nova não toca o serviço, e um teste
+  de `ast` prova que `opcoes_tecnico.py` não importa `mcp`/`httpx`/
+  `candle_provider`: custo zero é propriedade do grafo de imports, não frase
+  de docstring.
+
+### A divisão de trabalho (régua para quem acrescentar campo depois)
+
+| Responde | Fonte | Exemplos |
+|----------|-------|----------|
+| Comportamento do **ATIVO** | motor interno (`opcoes_tecnico.py`) | tendência, volatilidade histórica, suporte/resistência, evolução em 7 pregões |
+| O que é específico de **OPÇÃO** | serviço MCP | cadeia, vencimentos, estruturas operáveis, payoff, avaliação de setup |
+
+Campo novo se decide por esta régua, não por qual chamada já está aberta.
+
+### A consequência aceita: duas fontes descrevem o mesmo ativo
+
+O `behavior` que o serviço devolve e a leitura interna falam do MESMO ativo e
+**podem divergir** — HV medida pelo MyData × HV calculada pelo
+`technical_models` sobre a série do Yahoo/brapi, sobre janelas e calendários
+que não são obrigados a coincidir.
+
+**A divergência é INFORMAÇÃO, não erro.** Cada bloco carrega a própria `fonte`
+e o próprio carimbo (`snapshotId`, `asOf`, `source`, `cacheStatus` no lado
+interno; `trading_date` no lado do serviço) — princípio 3 do CLAUDE.md — e
+**nenhuma reescreve a outra**. Esconder uma das duas produziria a pior das
+saídas: um número único sem dono, impossível de explicar quando alguém
+perguntar por que a tela mudou.
+
+Cuidado medido e registrado aqui porque é como se erra 10× em silêncio: o
+`hv21Pct`/`hv63Pct` do `technical_models` está em **percentual**, enquanto o
+`hv21`/`hv63` do serviço chega em **fração**. Por isso o bloco de volatilidade
+da rota nova declara `"unidade": "pct"` **sempre**, inclusive quando os
+valores são `null` com motivo — é por esse campo que a tela escolhe o
+formatador, em vez de adivinhar.
+
+**Unificar as duas é decisão futura, com gatilho, e não entra nesta fase** —
+mesmo formato da Decisão 3: o ADR de unificação nasce depois de uma medição de
+paridade viva (HV interna × HV do serviço para o mesmo ticker e o mesmo
+pregão) em staging por 10 pregões seguidos, ou na primeira divergência
+material (sinal trocado ou ordem de grandeza), o que vier antes. Até lá as
+duas convivem, cada uma com o seu carimbo.
+
+### Fiação do assistente (mesma data)
+
+`_pet_resumo_opcoes` afirmava, numa frase só, que "a leitura da aba é de FIM DE
+PREGÃO e vem do serviço de opções". Com o híbrido no ar isso virou meia
+verdade dita como verdade inteira. O texto foi separado e nomeado: o que é do
+ATIVO vem do motor interno (pregão fechado, custo zero); o que é de OPÇÃO vem
+do serviço (fim de pregão). Guardião dedicado em `test_pet_todas_telas.py`,
+com lado positivo e lado negativo, impede a volta da frase meio-certa. O
+resumo continua **sem** chamar o serviço e passou a também **não** buscar
+candle: dizer de onde a leitura vem é diferente de buscá-la, e o orçamento da
+brapi é finito (ADR-008).

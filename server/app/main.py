@@ -4026,29 +4026,51 @@ def _pet_resumo_opcoes(scope: Optional[str], operador: bool) -> dict:
     O que esta rota NÃO faz, de propósito (princípio 4 do CLAUDE.md, "não
     invente valores"):
 
-    · não consulta `mcp.semente.dev`. A leitura do ativo, a cadeia e a proposta
-      da aba custam chamadas ao serviço e só saem de um clique explícito da
-      pessoa (ADR-027); disparar aqui gastaria orçamento sem ninguém pedir e
-      esta família de rotas é custo-zero por contrato;
+    · não consulta `mcp.semente.dev`. A cadeia, a proposta e a avaliação de
+      setup da aba custam chamadas ao serviço e só saem de um clique explícito
+      da pessoa (ADR-027 §3.3); disparar aqui gastaria orçamento sem ninguém
+      pedir e esta família de rotas é custo-zero por contrato;
+    · **também não busca candle nem monta snapshot técnico.** A Fase 27 (D1)
+      criou `GET /api/options/tecnico/{ticker}`, que é custo ZERO de MCP — mas
+      não é custo zero de REQUISIÇÃO de mercado: ela pode acionar o provedor de
+      candles e o orçamento da brapi é finito (ADR-008). Dizer DE ONDE a
+      leitura técnica vem é diferente de buscá-la, e este resumo só diz;
     · não afirma qual ativo/tese/vencimento está selecionado. Essa escolha é
       estado LOCAL de `OpcoesScreen.jsx` (isolado por desenho — não importa
       nada de `App.jsx`) e não existe no servidor. Ela chega ao assistente pelo
       `snapshot` que o front manda no POST /api/assistente, não por aqui.
 
-    Sobra o que é determinístico do lado do servidor: o universo da aba (a
-    watchlist, mesma fonte que `OpcoesScreen` usa) e as posições de opção já
-    abertas na carteira simulada (`optionPositions`, ADR-003). E o resumo DIZ
-    o que não sabe, em vez de calar."""
-    wl = [t for t in (store.get(_conn, "watchlist", user_id=scope) or []) if isinstance(t, str)]
+    Sobra o que é determinístico do lado do servidor: o universo da aba (as
+    POSIÇÕES da carteira, mesma fonte que `OpcoesScreen` passou a usar) e as
+    posições de opção já abertas na carteira simulada (`optionPositions`,
+    ADR-003). E o resumo DIZ o que não sabe, em vez de calar.
+
+    2026-09-13 (Fase 27, D3): até esta data o universo era a `watchlist`, e a
+    troca não é cosmética — a aba monta estrutura LASTREADA em ação que a
+    pessoa tem, e lista de interesse não é lastro. O texto abaixo acompanhou a
+    troca em TODOS os pontos, não só no que lê o kv: descrever um produto que
+    já não existe é o defeito A1/A5/A6 que a Fase 26 acabou de corrigir."""
+    posicoes = [p for p in (store.get(_conn, "positions", user_id=scope) or []) if isinstance(p, dict)]
+    universo = []
+    for p in posicoes:
+        t = p.get("t")
+        if isinstance(t, str) and t and t not in universo:
+            universo.append(t)
     opts = [p for p in (store.get(_conn, "optionPositions", user_id=scope) or []) if isinstance(p, dict)]
     com_lastro = [p for p in opts if p.get("lastro")]
     fala = [_PET_NAO_FAZ]
-    if wl:
-        fala.append(f"A aba Opções estuda um ativo por vez, escolhido entre os {len(wl)} "
-                    f"da sua lista: {', '.join(wl[:6])}" + ("…" if len(wl) > 6 else "") + ".")
+    if universo:
+        fala.append(f"A aba Opções trabalha sobre os ativos que você TEM: os {len(universo)} "
+                    f"da sua carteira, um por vez — {', '.join(universo[:6])}"
+                    + ("…" if len(universo) > 6 else "") + ".")
     else:
-        fala.append("A aba Opções estuda um ativo por vez, escolhido na sua lista — "
-                    "e a sua lista ainda está vazia.")
+        # Mesma substância do estado vazio da TELA (D2, `copy.opcoesCarteiraVazia`):
+        # o motivo e o caminho. Se o assistente dissesse outra coisa, ele
+        # contradiria a tela que a pessoa está olhando enquanto pergunta.
+        fala.append("A aba Opções trabalha sobre os ativos que você TEM: toda estrutura "
+                    "montada lá é lastreada em ação da sua carteira, e a sua carteira "
+                    "simulada ainda está vazia. Lista de interesse não entra no lugar — "
+                    "interesse não é lastro. Comece escolhendo um ativo na Carteira.")
     if opts:
         subjacentes = sorted({str(p.get("underlying")) for p in opts if p.get("underlying")})
         fala.append(f"Na carteira simulada você tem {len(opts)} posição(ões) de opção"
@@ -4057,8 +4079,22 @@ def _pet_resumo_opcoes(scope: Optional[str], operador: bool) -> dict:
             fala.append(f"{len(com_lastro)} dela(s) está(ão) com lastro registrado em ações da carteira.")
     else:
         fala.append("Você ainda não tem nenhuma posição de opção na carteira simulada.")
-    fala.append("A leitura da aba é de FIM DE PREGÃO e vem do serviço de opções: "
-                "ela não é o agora, e nada é recalculado aqui.")
+    # 2026-09-13 (Fase 27, D1 — correção C8). Até esta data a função afirmava,
+    # numa frase só: "A leitura da aba é de FIM DE PREGÃO e vem do serviço de
+    # opções". Com o motor híbrido no ar isso virou meia verdade dita como
+    # verdade inteira — tendência, volatilidade e suporte/resistência passaram
+    # a sair do motor interno, sobre a série diária, com OUTRO carimbo. As duas
+    # fontes ficam separadas e NOMEADAS; o que continua verdadeiro das duas
+    # (nada é recalculado aqui, nenhuma delas é "o agora") continua dito.
+    fala.append("Tendência, volatilidade e suporte/resistência do ativo — e a evolução "
+                "dos últimos sete pregões — saem do motor determinístico do próprio "
+                "app, sobre a série diária: é leitura de pregão FECHADO e não custa "
+                "consulta nenhuma.")
+    fala.append("Cadeia, vencimentos, estruturas e a avaliação dos seus vigias vêm do "
+                "serviço de opções, e essa parte é de FIM DE PREGÃO.")
+    fala.append("Nenhuma das duas é o agora, e nada é recalculado aqui.")
+    fala.append("Os vigias que você gravou aparecem no topo da aba e não dependem do "
+                "ativo aberto: eles continuam lá mesmo com nenhum ativo selecionado.")
     fala.append("Eu não sei qual ativo você abriu na aba agora — essa escolha "
                 "vive na tela, não no servidor. Pergunte com a tela aberta e eu "
                 "leio o que ela me manda.")
@@ -4069,7 +4105,9 @@ def _pet_resumo_opcoes(scope: Optional[str], operador: bool) -> dict:
                  ["O que é uma opção?",
                   "Qual a diferença entre call e put?",
                   "Por que a leitura de opções é de fim de pregão?"])
-    return {"fala": fala, "universo": wl[:12], "posicoesOpcoes": len(opts),
+    # A CHAVE `universo` fica (é contrato do front); o que mudou é o que ela
+    # carrega — os tickers das POSIÇÕES, não os da lista de interesse.
+    return {"fala": fala, "universo": universo[:12], "posicoesOpcoes": len(opts),
             "posicoesComLastro": len(com_lastro), "perguntas": perguntas}
 
 
