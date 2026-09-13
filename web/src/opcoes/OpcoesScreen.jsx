@@ -206,14 +206,45 @@ const num = (v) => {
 // aviso errado; quem corta de verdade é o backend.
 const N_MAX_VENCIMENTOS = 6;
 
-// Fase 27 (27-02) — custo do "Atualizar" do bloco de vigias, em chamadas do
-// cap. Espelho declarado de `options_mcp_api._cap_check(uid, 2)` na rota
-// `GET /api/options/mcp/setups`: são SEMPRE duas (`list_setups` +
-// `evaluate_setups`), qualquer que seja o número de vigias — o 27-01 tem teste
-// parametrizado com 2 e com 10 provando que o custo não cresce. O número vive
-// nos dois lados porque a tela precisa dizer o preço ANTES do clique; quem
-// cobra de verdade é o backend.
-const CUSTO_LISTAR_VIGIAS = 2;
+// Fase 27 (27-05) — **O CUSTO DE CADA AÇÃO DA ABA, EM CHAMADAS DO CAP.**
+//
+// Três coisas que esta tabela é, e que o próximo leitor precisa saber antes de
+// mexer num número:
+//
+//  1. **Ela é ESPELHO do backend.** Cada valor aqui é o `N` de um
+//     `_cap_check(uid, N)` de `server/app/options_mcp_api.py` — a mesma
+//     disciplina de `N_MAX_VENCIMENTOS` logo acima, e a mesma de
+//     `ACOES_POR_CONTRATO` logo abaixo. Quem cobra de verdade é o backend;
+//     esta tabela existe só para a tela poder dizer o preço ANTES do clique.
+//  2. **O número vive nos dois lados de propósito.** Perguntar ao servidor
+//     quanto vai custar seria uma chamada para saber o preço de uma chamada.
+//     O preço do espelho é o risco de divergir — e é por isso que ele não é
+//     livre: `web/tests/test_opcoes_custo_declarado.mjs` lê ESTE objeto e os
+//     `_cap_check` do backend e reprova a suíte quando os dois discordam.
+//     Mudar um `_cap_check` sem mudar aqui não produz um rótulo errado em
+//     produção: produz um teste vermelho.
+//  3. **Custo zero não entra.** `mcpVigias` e `opcoesTecnico` custam 0 por
+//     contrato da rota; declarar custo onde não há custo mentiria para o outro
+//     lado, e o guardião proíbe. `mcpPossibilidades` também fica fora: o custo
+//     dela é CALCULADO (`2 * N + 1`) e já é declarado no próprio controle.
+//     `mcpStatus` fica fora pela terceira razão: ela não tem controle — é o
+//     frescor do cabeçalho, e o custo dela é declarado em texto
+//     (`cp.opcoesCustoFrescor`).
+//
+// `listarVigias` era a constante solta `CUSTO_LISTAR_VIGIAS` (27-02); entrou na
+// tabela sem mudar de valor — duas formas de declarar a mesma grandeza na
+// mesma tela divergiriam na primeira manutenção feita só numa delas.
+const CUSTO_DA_ACAO = {
+  leitura: 3,        // GET /mcp/leitura/{ticker}      — _cap_check(uid, 3)
+  cadeia: 1,         // GET /mcp/cadeia/{ticker}       — _cap_check(uid, 1)
+  operaveis: 1,      // GET /mcp/operaveis/{ticker}    — _cap_check(uid, 1)
+  proposta: 1,       // POST /mcp/proposta             — _cap_check(uid, 1)
+  grafico: 1,        // GET /mcp/setups/{name}/grafico — _cap_check(uid, 1)
+  compilar: 2,       // POST /mcp/setups/compilar      — _cap_check(uid, 2) + 1 análise de IA
+  confirmar: 2,      // POST /mcp/setups/confirmar     — _cap_check(uid, 2)
+  desativar: 1,      // POST /mcp/setups/{name}/desativar — _cap_check(uid, 1)
+  listarVigias: 2,   // GET /mcp/setups                — _cap_check(uid, 2)
+};
 
 // Fase 27 (27-02) — o tamanho do contrato padrão na B3. Espelho declarado de
 // `store.py` (`qty = contratos * 100`) e do conceito que o próprio arquivo já
@@ -254,7 +285,7 @@ export default function OpcoesScreen({ ctx }) {
   // lista, e entrar num ativo é um toque).
   const [ticker, setTicker] = useState("");
   const {
-    status, leitura, grafico, abrirGrafico, fecharGrafico,
+    status, leitura, grafico, abrirGrafico, fecharGrafico, abrirLeitura,
     cadeia, operaveis, proposta, possibilidades,
     abrirCadeia, abrirOperaveis, montarProposta, verPossibilidades,
     setupNovo, compilarSetup, confirmarSetup, desativarSetup,
@@ -430,6 +461,27 @@ export default function OpcoesScreen({ ctx }) {
           {cp.opcoesAtrasoAjuda}
         </div>
       ) : null}
+      {/* Fase 27 (27-05) — **A ÚNICA EXCEÇÃO AO CRITÉRIO 4, DITA NA TELA.**
+
+          `mcpStatus` sai no mount e reserva 1 chamada do cap; ela só vira
+          consumo quando a consulta precisa mesmo ir ao serviço (acerto de
+          cache não gasta — `options_mcp_api.py`, `status`). É a única chamada
+          desta aba que não nasce de um clique, e a exceção é PRÉ-EXISTENTE:
+          ela vem da F2, não desta fase.
+
+          Por que ela não vira botão: o cabeçalho precisa dizer a idade do dado
+          desde o primeiro frame (ADR-027, Decisão 8), e um gate de frescor que
+          só aparece depois de um clique não protege ninguém — a pessoa já
+          teria lido a tela inteira acreditando no dado. A correção honesta não
+          é esconder o custo, é declará-lo; e é isto aqui.
+
+          Sem condição de render: o custo existe mesmo quando o serviço não
+          respondeu (a reserva sai antes da resposta), então escondê-lo no
+          estado de erro seria calar justamente onde a pessoa vai reclamar do
+          contador. */}
+      <div style={{ marginTop: "8px", fontSize: "11.5px", color: T.textMuted, lineHeight: 1.5 }}>
+        {cp.opcoesCustoFrescor || ""}
+      </div>
     </div>
   );
 
@@ -503,7 +555,7 @@ export default function OpcoesScreen({ ctx }) {
       >
         <span style={{ display: "block" }}>{cp.opcoesVigiasAtualizar || "Atualizar o estado dos vigias"}</span>
         <span style={{ display: "block", fontSize: "11px", fontWeight: 600, color: T.textMuted, marginTop: "3px" }}>
-          {(cp.opcoesCustoChamadas || ((n) => String(n)))(CUSTO_LISTAR_VIGIAS)}
+          {(cp.opcoesCustoChamadas || ((n) => String(n)))(CUSTO_DA_ACAO.listarVigias)}
         </span>
       </button>
 
@@ -516,6 +568,54 @@ export default function OpcoesScreen({ ctx }) {
           <ErroDoMcp erro={vigiasVivos.erro} cp={cp} />
         </div>
       ) : null}
+    </div>
+  );
+
+  // ------------------------ Fase 27 (27-05): A LEITURA DO SERVIÇO, SOB CLIQUE --
+  //
+  // O convite que substitui o disparo automático. Até este plano, escolher um
+  // ativo — inclusive tocando num cartão de "Seus vigias", que na tela parece
+  // navegação — gastava 3 chamadas do cap sem nenhum controle dizer isso.
+  //
+  // **Por que ele não mora dentro do bloco "LEITURA DO ATIVO" da cascata**, que
+  // é onde o plano o pedia: aquele bloco só é renderizado no ramo 4 (DADOS),
+  // que depende de `temLeitura` — ou seja, de a leitura JÁ ter voltado. Um
+  // convite para pedir a leitura que só aparece depois de a leitura existir
+  // seria inalcançável. Ele é irmão de `blocoVigias`: montado fora da cascata,
+  // renderizado logo abaixo do bloco técnico interno (grátis, 27-04), que é a
+  // ordem que a Emenda 2 do ADR-027 fixou — o que não custa vem primeiro.
+  //
+  // Some quando o serviço declarou um estado que o clique não resolve (os
+  // quatro códigos acionáveis: não configurado, cota, teto, indisponível). A
+  // cascata abaixo já diz o que fazer, e um botão que só pode falhar é pior que
+  // botão nenhum — mesma disciplina de `podeCriarSetup`. Erro SEM código
+  // (falha pontual da própria leitura) mantém o convite: ali repetir é
+  // legítimo, e sem ele a pessoa ficaria sem porta nenhuma.
+  const servicoIndisponivel = !!(erro && CODIGOS_ACIONAVEIS.includes(erro.code));
+  const podePedirLeitura = !!ticker && !leitura.dados && !leitura.carregando
+    && !servicoIndisponivel;
+  const blocoLeituraDoServico = (
+    <div style={{ marginTop: "14px" }}>
+      <Kicker>{cp.opcoesLeituraTitulo || "LEITURA DO ATIVO"}</Kicker>
+      <div style={CAIXA}>
+        <div style={{ fontSize: "12.5px", color: T.textSecondary, lineHeight: 1.5 }}>
+          {cp.opcoesLeituraConvite || ""}
+        </div>
+        {/* O custo vai DENTRO do controle, na segunda linha do próprio botão —
+            mesmo padrão do "Atualizar" dos vigias (27-02). O número sai de
+            `CUSTO_DA_ACAO.leitura`, espelho do `_cap_check(uid, 3)` da rota:
+            um `3` solto aqui envelheceria em silêncio no dia em que o backend
+            mudasse, e é exatamente essa divergência que o guardião reprova. */}
+        <button
+          onClick={abrirLeitura}
+          style={{ ...BOTAO, width: "100%", marginTop: "12px" }}
+        >
+          <span style={{ display: "block" }}>{cp.opcoesLerNoServico || "Ler no serviço de opções"}</span>
+          <span style={{ display: "block", fontSize: "11px", fontWeight: 600, color: T.textMuted, marginTop: "3px" }}>
+            {(cp.opcoesCustoChamadas || ((n) => String(n)))(CUSTO_DA_ACAO.leitura)}
+          </span>
+        </button>
+      </div>
     </div>
   );
 
@@ -557,6 +657,9 @@ export default function OpcoesScreen({ ctx }) {
           opções de propósito — são fontes independentes, e é exatamente
           quando o MCP está fora do ar que esta leitura mais vale. */}
       {ticker ? <LeituraInterna tecnico={tecnico} cp={cp} /> : null}
+      {/* Fase 27 (27-05): e a paga, logo depois, atrás de um clique que diz o
+          preço. A ordem é a decisão: grátis primeiro, pago depois. */}
+      {podePedirLeitura ? blocoLeituraDoServico : null}
 
       {/* ------------------------------------------------ 1. CARREGANDO --
           Antes do vazio, sempre: vazio pintado durante a consulta afirma
@@ -621,7 +724,16 @@ export default function OpcoesScreen({ ctx }) {
               comportamento para mostrar. Nada foi estimado no lugar.
             </Aviso>
           ) : null}
-          {!semTicker && setups.length === 0 ? (
+          {/* Fase 27 (27-05) — o `l &&` é a correção que a saída da leitura do
+              efeito tornou obrigatória. "Nenhum setup gravado para este ativo"
+              é uma AFIRMAÇÃO sobre o armazém do serviço, e quem a mede é a
+              própria leitura. Com a leitura virando clique, ela passa a não
+              existir enquanto ninguém pedir — e sem esta guarda a tela diria
+              "nenhum setup" sobre um ativo que ela nunca consultou, que é
+              exatamente o princípio 4 do CLAUDE.md ao contrário (não inventar
+              estado quando a fonte não respondeu). Sem leitura pedida, quem
+              fala é o convite acima. */}
+          {!semTicker && l && setups.length === 0 ? (
             <Aviso>{cp.opcoesSemSetups || "Nenhum setup gravado para este ativo."}</Aviso>
           ) : null}
         </div>
@@ -1493,8 +1605,9 @@ function Cenarios({ emReais, cp }) {
 const CODIGOS_ACIONAVEIS = ["mcp_nao_configurado", "mcp_cota", "mcp_teto_servico", "mcp_indisponivel"];
 
 // Achado ao vivo (2026-09-10): `leitura.erro || status.erro` deixava o 404 da
-// leitura (dispara sempre que a pessoa escolhe um ticker, mesmo com o
-// serviço fora do ar) mascarar o `mcp_nao_configurado` do `/status` — que é
+// leitura (que, até a Fase 27 (27-05), disparava sempre que a pessoa escolhia
+// um ticker — hoje ela só sai do botão "Ler no serviço", e o `leitura.erro` só
+// existe depois desse clique) mascarar o `mcp_nao_configurado` do `/status` — que é
 // o único dos dois que diz o que fazer. Escolha por ACIONABILIDADE: erro COM
 // `code` conhecido vence erro SEM código, venha de onde vier; com os dois
 // codificados (ou os dois sem código), a leitura vence — é a chamada que a

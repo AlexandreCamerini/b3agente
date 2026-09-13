@@ -257,8 +257,27 @@ ok("opcoesNaoAvaliado e opcoesCota toleram nulo",
 
 // ---- 11) invalidação de resposta em voo -------------------------------------
 const hook = fontes["useOpcoesMcp.js"];
+// 2026-09-13 (Fase 27, plano 27-05) — a FORMA mudou; o mecanismo protegido é o
+// mesmo e continua exigido nos dois lados.
+//
+// Antes, o efeito de troca de ticker CAPTURAVA o número novo
+// (`const meu = ++tickerRef.current`) porque era ele próprio quem disparava a
+// leitura e precisava conferir na volta. A leitura saiu do efeito (virou
+// `abrirLeitura`, sob clique com custo declarado), então não há mais o que
+// capturar ali — sobrou o incremento, que é justamente a parte que invalida
+// tudo o que estiver em voo. Quem captura agora é quem pede.
+//
+// A asserção não foi afrouxada: ela passou a exigir que o INCREMENTO esteja
+// dentro de um `useEffect` (fora dele, trocar de ativo deixaria de invalidar
+// nada) E que a conferência na volta continue existindo. Manter a forma antiga
+// só deixaria o guardião vermelho sobre uma mudança correta.
+const efeitoQueInvalida = hook.split("useEffect(").slice(1)
+  .map((t) => t.split("}, [")[0])
+  .find((corpo) => /\+\+tickerRef\.current/.test(corpo));
+ok("a troca de ticker incrementa o contador dentro do efeito (invalida o que está em voo)",
+   !!efeitoQueInvalida);
 ok("resposta antiga é descartada quando o ticker muda",
-   /tickerRef\.current === meu/.test(hook) && /const meu = \+\+tickerRef\.current/.test(hook));
+   /tickerRef\.current === meu/.test(hook) && !!efeitoQueInvalida);
 ok("carregando nasce verdadeiro (antes do vazio)",
    /useState\(\{ dados: null, carregando: true, erro: null \}\)/.test(hook));
 ok("o gráfico dispara sob demanda, não por efeito",

@@ -101,12 +101,27 @@ export const COPY = {
     tituloOperadorIA: "Operador IA",
     linkOperadorIA: "Abrir o Operador IA →",
     opcoesLeituraTitulo: "LEITURA DO ATIVO",
+    // Fase 27 (27-05) — a leitura do SERVIÇO virou clique. As duas chaves
+    // abaixo são o convite: o botão e o que ele traz de diferente do bloco
+    // técnico interno (grátis, 27-04) que já está na tela logo acima. Sem
+    // dizer a diferença, pagar 3 consultas por "mais uma leitura" pareceria
+    // pagar duas vezes pela mesma coisa.
+    opcoesLerNoServico: "Ler no serviço de opções",
+    opcoesLeituraConvite: "A leitura acima é do motor do próprio Boris+ e não custa nada. O serviço de opções acrescenta o que só ele tem: o catálogo de estruturas montáveis, os vencimentos abertos e a avaliação de hoje dos vigias deste ativo.",
     opcoesSetupsTitulo: "SETUPS GRAVADOS",
     opcoesPregaoRotulo: "Pregão",
     opcoesFonteRotulo: "Fonte",
     opcoesFrescorEmDia: "dado em dia",
     opcoesFrescorAtrasado: "dado atrasado",
     opcoesFrescorNaoMedido: "frescor não medido",
+    // Fase 27 (27-05) — a ÚNICA chamada da aba que ainda sai sem clique, dita
+    // na tela. O frescor (`/status`) reserva 1 chamada e só a consome quando
+    // precisa mesmo ir ao serviço; com o frescor em cache, o custo é zero. Ele
+    // não vira botão porque um gate de frescor que só aparece depois de um
+    // clique não protege ninguém (ADR-027, Decisão 8): o cabeçalho tem de
+    // poder dizer a idade do dado desde o primeiro frame. Declarar é a
+    // correção honesta; esconder seria a outra.
+    opcoesCustoFrescor: "Abrir esta aba consulta o frescor do dado no serviço: consome até 1 chamada da sua cota do dia, e nenhuma quando o frescor já está em cache. É a única consulta desta tela que sai sem você pedir — todas as outras saem de um botão que diz o preço.",
     // 24-12 (achado ao vivo 2026-09-11): o serviço dizia "em dia" — e pelo
     // SLA dele, com razão — sobre uma cotação de dois pregões atrás. A
     // distância é MEDIDA aqui, pelo calendário da B3, e vence o veredito
@@ -641,12 +656,20 @@ export const COPY = {
     tituloOperadorIA: "Operador IA",
     linkOperadorIA: "Abrir o Operador IA →",
     opcoesLeituraTitulo: "LEITURA DO ATIVO",
+    // Fase 27 (27-05) — MESMA substância do ramo estudo, em voz de mesa: o que
+    // o serviço acrescenta ao que o motor interno já entregou de graça.
+    opcoesLerNoServico: "Puxar a leitura do serviço",
+    opcoesLeituraConvite: "O bloco acima sai do motor interno, custo zero. O serviço acrescenta o que só ele tem: catálogo de estruturas, vencimentos abertos e a avaliação de hoje dos vigias deste ativo.",
     opcoesSetupsTitulo: "SETUPS GRAVADOS",
     opcoesPregaoRotulo: "Pregão",
     opcoesFonteRotulo: "Fonte",
     opcoesFrescorEmDia: "dado em dia",
     opcoesFrescorAtrasado: "dado atrasado",
     opcoesFrescorNaoMedido: "frescor não medido",
+    // Fase 27 (27-05) — a única chamada da aba sem clique, declarada. Mesma
+    // razão do ramo estudo: o gate de frescor precisa existir na abertura
+    // (ADR-027, Decisão 8), então o que resta é dizer o preço dele.
+    opcoesCustoFrescor: "Abrir a aba consulta o frescor no serviço: até 1 chamada da cota do dia, zero quando o frescor está em cache. É a única consulta desta tela que sai sem pedido — o resto sai de botão com o preço escrito.",
     // 24-12 — MESMA medição, em voz de mesa. O rótulo do chip é o mesmo nos
     // dois modos de propósito: é contagem de pregão, não juízo — e "2 pregões
     // atrás" já é a frase mais curta que diz o fato.

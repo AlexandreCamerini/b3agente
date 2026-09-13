@@ -235,13 +235,16 @@ const EFEITO_PERMITIDO = [
   // Custo ZERO por contrato da rota: lê o índice local do Boris+ e não toca
   // `mcp.semente.dev` (27-01). É o que permite a aba abrir com conteúdo.
   "mcpVigias",
-  // **TRANSITÓRIO, e a palavra é literal.** `mcpLeitura` custa 3, continua
-  // saindo do efeito de troca de ticker e **sai desta allowlist no 27-05**,
-  // quando virar clique com custo declarado. Consequência conhecida enquanto
-  // durar: clicar num cartão de vigia troca o ativo e gasta 3 sem o controle
-  // dizer. Uma allowlist com um item marcado transitório é honesta; uma que
-  // silenciasse o item seria mentira com cara de guardião.
-  "mcpLeitura",
+  // 2026-09-13 (Fase 27, plano 27-05) — **`mcpLeitura` SAIU DAQUI.** Ela entrou
+  // no 27-02 marcada TRANSITÓRIA, com o plano que a removeria escrito ao lado;
+  // o 27-05 executou: a chamada saiu do efeito de troca de ticker e virou
+  // `abrirLeitura`, sob clique, com as 3 consultas declaradas no próprio botão.
+  // A entrada foi APAGADA, não comentada: allowlist com item morto é permissão
+  // que ninguém revoga. `mcpLeitura` está agora em `METODOS`, logo abaixo — e
+  // as duas listas são disjuntas por asserção, o que impede a troca pela
+  // metade (deixá-la nos dois lados faria o guardião dizer "pode" e "não pode"
+  // sobre a mesma chamada).
+  //
   // 2026-09-13 (Fase 27, plano 27-04). Custo ZERO por contrato da ROTA:
   // `GET /api/options/tecnico/{ticker}` é interna, devolve `custoMcp: 0` e
   // não toca `mcp.semente.dev` — provado no backend por bomba no
@@ -255,11 +258,17 @@ const EFEITO_PERMITIDO = [
   "opcoesTecnico",
 ];
 // Lista POSITIVA de quem não pode disparar por efeito. `mcpSetupsListar`
-// entrou na Fase 27: ela custa 2 e tem UMA porta, o botão "Atualizar" do bloco
-// de vigias. `mcpLeitura` entra nesta mesma lista no 27-05, quando sair do
-// efeito — antecipar aqui faria a asserção nascer vermelha.
+// entrou na Fase 27 (27-02): ela custa 2 e tem UMA porta, o botão "Atualizar"
+// do bloco de vigias.
+//
+// 2026-09-13 (Fase 27, plano 27-05) — **`mcpLeitura` entrou aqui**, vinda da
+// allowlist. Ela custa **3** (`_cap_check(uid, 3)` na rota `leitura`), é a
+// chamada mais cara da aba fora de `/possibilidades`, e devolvê-la para dentro
+// de um `useEffect` reprova esta seção. O que isso protege, em uma frase:
+// clicar num cartão de "Seus vigias" troca o ticker, e trocar o ticker não
+// pode voltar a custar 3 chamadas em silêncio.
 const METODOS = ["mcpCadeia", "mcpOperaveis", "mcpProposta", "mcpPossibilidades",
-  "mcpSetupsListar"];
+  "mcpSetupsListar", "mcpLeitura"];
 // Um nome nos DOIS lados faria o teste dizer "pode" e "não pode" sobre a mesma
 // chamada, e o próximo leitor acreditaria no que lhe conviesse.
 ok("EFEITO_PERMITIDO e METODOS são disjuntos",
@@ -300,8 +309,29 @@ for (const m of chamadasEmEfeito) {
 for (const m of METODOS) {
   ok(`nenhum useEffect chama store.${m}`, efeitos.every((corpo) => !corpo.includes(m)));
 }
+// 2026-09-13 (Fase 27, plano 27-05) — **a âncora de sanidade mudou de método,
+// e a troca é obrigatória.** Ela era `store.mcpLeitura`, que acabou de sair de
+// todos os efeitos; mantida como estava, ela ficaria PERMANENTEMENTE FALSA — e
+// o resultado não seria um vermelho honesto, seria o oposto: quem a visse
+// falhar ia apagá-la, e sem ela um fatiador quebrado (um `"}, ["` que deixasse
+// de casar) faria `efeitos` virar lista de corpos vazios e a seção INTEIRA
+// passaria por vacuidade, com zero chamadas auditadas.
+//
+// `store.mcpStatus` é a substituta certa: continua dentro de um `useEffect`
+// (é o frescor do cabeçalho, exceção pré-existente declarada na allowlist e,
+// desde o 27-05, declarada também na tela) e não tem plano de sair de lá —
+// o gate de frescor precisa existir na abertura (ADR-027, Decisão 8).
 ok("sanidade: a fatia de efeito enxerga o que está dentro dele",
-   efeitos.some((corpo) => corpo.includes("store.mcpLeitura")));
+   efeitos.some((corpo) => corpo.includes("store.mcpStatus")));
+// 2026-09-13 (Fase 27, plano 27-05): a leitura paga tem porta própria, e ela é
+// um clique. Mesmo par de asserções das quatro ações da F3 logo abaixo —
+// existe como `useCallback` no hook E é chamada pela tela; sem o segundo lado,
+// um hook que exporta a função e uma tela que nunca a chama passaria verde
+// com a leitura inalcançável.
+ok("o hook exporta a ação abrirLeitura (a leitura paga, sob demanda)",
+   /const abrirLeitura = useCallback/.test(hook) && /\babrirLeitura\b/.test(tela));
+ok("a recarga pós-escrita não duplica o corpo da leitura (porta única)",
+   /const recarregarLeitura = useCallback\(\(\) => \{ abrirLeitura\(\); \}/.test(hook));
 for (const acao of ["abrirCadeia", "abrirOperaveis", "montarProposta", "verPossibilidades"]) {
   ok(`o hook exporta a ação ${acao} (sob demanda)`,
      new RegExp(`const ${acao} = useCallback`).test(hook)

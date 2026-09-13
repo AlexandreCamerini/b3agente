@@ -85,7 +85,14 @@ export function useOpcoesMcp(store, ticker) {
   // estado "vazio", nunca depois — vazio pintado durante a consulta é uma
   // afirmação ("não há nada") que ninguém mediu ainda.
   const [status, setStatus] = useState({ dados: null, carregando: true, erro: null });
-  const [leitura, setLeitura] = useState({ dados: null, carregando: true, erro: null });
+  // Fase 27 (27-05) — a `leitura` NASCE VAZIA, e não `carregando: true` como
+  // nasceu da F2 até aqui. A mudança acompanha a correção central deste plano:
+  // a leitura do serviço deixou de sair sozinha na troca de ativo e passou a
+  // sair de um clique (`abrirLeitura`). Mantido o `carregando: true`, a tela
+  // ficaria presa em "Consultando o serviço de opções…" para sempre — e, pior
+  // que travar, ela AFIRMARIA uma consulta que ninguém pediu. É a mesma
+  // disciplina que o `tecnico` já segue desde o 27-04, pela mesma razão.
+  const [leitura, setLeitura] = useState(VAZIO);
   const [grafico, setGrafico] = useState({ dados: null, carregando: false, erro: null, setup: null });
   // Fase 27 (27-02) — "Seus vigias": o ÍNDICE local da conta, que existe fora
   // de qualquer ticker. Trio próprio, e não um campo da `leitura`, porque é
@@ -174,9 +181,27 @@ export function useOpcoesMcp(store, ticker) {
     return () => { vivo = false; };
   }, [store]);
 
+  // Fase 27 (27-05) — **ESTE EFEITO APAGA; ELE NUNCA PEDE.**
+  //
+  // Até aqui ele disparava `store.mcpLeitura`, que custa **3** chamadas do cap.
+  // Enquanto o ticker nascia vazio e a única porta era o chip do ativo, o gasto
+  // ainda era consequência indireta de um clique de quem queria a leitura. O
+  // bloco "Seus vigias" (27-02) quebrou essa leitura benigna: clicar num vigia
+  // TAMBÉM troca o ticker, e aí a pessoa pagava 3 por um toque que, na tela, se
+  // parece com navegação — sem nenhum controle dizer o preço. O §3.3 do ADR-027
+  // não fala de `useEffect`, fala de CLIQUE EXPLÍCITO COM CUSTO DECLARADO, e
+  // navegar não é pedir a leitura.
+  //
+  // O efeito continua existindo e continua LIMPANDO: dado do ativo anterior sob
+  // o cabeçalho do ativo novo é afirmação falsa. Quem pede agora é
+  // `abrirLeitura`, abaixo, chamado pelo botão que declara as 3 consultas.
+  //
+  // A leitura em voo não precisa de invalidação própria: o `++tickerRef.current`
+  // desta linha já derruba a conferência `tickerRef.current === meu` de toda
+  // resposta pedida para o ticker anterior — `leituraRef` continua existindo
+  // para o outro eixo (qual das leituras DO MESMO ativo é a mais recente).
   useEffect(() => {
-    const t = (ticker || "").trim();
-    const meu = ++tickerRef.current;
+    ++tickerRef.current;
     graficoRef.current += 1;               // gráfico do ticker anterior morre junto
     setGrafico({ dados: null, carregando: false, erro: null, setup: null });
     // Os quatro trios da F3 morrem junto pela MESMA razão: são afirmações
@@ -187,16 +212,7 @@ export function useOpcoesMcp(store, ticker) {
     limparProposta();
     limparPossibilidades();
     limparSetup();
-
-    if (!t || !store || typeof store.mcpLeitura !== "function") {
-      setLeitura(VAZIO);
-      return undefined;
-    }
-    const minha = ++leituraRef.current;
-    setLeitura({ dados: null, carregando: true, erro: null });
-    store.mcpLeitura(t)
-      .then((d) => { if (tickerRef.current === meu && leituraRef.current === minha) setLeitura({ dados: d, carregando: false, erro: null }); })
-      .catch((e) => { if (tickerRef.current === meu && leituraRef.current === minha) setLeitura({ dados: null, carregando: false, erro: e }); });
+    setLeitura(VAZIO);
     return undefined;
   }, [store, ticker, limparCadeia, limparOperaveis, limparProposta, limparPossibilidades, limparSetup]);
 
@@ -238,18 +254,20 @@ export function useOpcoesMcp(store, ticker) {
     return () => { vivo = false; };
   }, [store, ticker]);
 
-  // F5: recarga da leitura do MESMO ticker, sob demanda. Existe porque gravar
-  // ou desativar um setup muda a lista que a seção "SETUPS GRAVADOS" mostra —
-  // deixar a tela velha depois de um "gravado com sucesso" faria a pessoa
-  // duvidar de ter gravado, e duvidar leva a gravar de novo (o mesmo vigia,
-  // duas vezes, no armazém compartilhado do serviço).
+  // Fase 27 (27-05) — **A PORTA ÚNICA DA LEITURA PAGA, e ela é um clique.**
   //
-  // O corpo repete o do efeito acima de propósito: mover o `store.mcpLeitura`
-  // para fora do efeito quebraria a leitura que o guardião faz do fonte (o
-  // efeito PRECISA continuar sendo o lugar onde a leitura inicial dispara),
-  // e chamar esta função de dentro dele criaria uma dependência que
-  // reexecutaria o efeito a cada troca de `ticker` duas vezes.
-  const recarregarLeitura = useCallback(() => {
+  // `GET /api/options/mcp/leitura/{ticker}` custa **3** chamadas do cap
+  // (`options_mcp_api.py`, `_cap_check(uid, 3)`). Ela é a chamada mais cara da
+  // aba fora de `/possibilidades`, e até este plano saía sozinha na troca de
+  // ativo. O botão que chama esta função declara o número ANTES do clique
+  // (`CUSTO_DA_ACAO.leitura` em `OpcoesScreen.jsx`); descobrir o preço depois
+  // de pagar não é aviso, é recibo.
+  //
+  // NÃO incrementa `tickerRef`: não é troca de ativo, e bumpá-lo invalidaria as
+  // chamadas sob demanda em voo, inclusive a que acabou de pedir a recarga.
+  // `leituraRef` diz QUAL das leituras deste ativo é a mais recente;
+  // `tickerRef` diz DE QUAL ATIVO é a resposta. As duas conferências juntas.
+  const abrirLeitura = useCallback(() => {
     const t = (ticker || "").trim();
     if (!t || !store || typeof store.mcpLeitura !== "function") return;
     const meu = tickerRef.current;        // NÃO incrementa: não é troca de ativo
@@ -259,6 +277,23 @@ export function useOpcoesMcp(store, ticker) {
       .then((d) => { if (tickerRef.current === meu && leituraRef.current === minha) setLeitura({ dados: d, carregando: false, erro: null }); })
       .catch((e) => { if (tickerRef.current === meu && leituraRef.current === minha) setLeitura({ dados: null, carregando: false, erro: e }); });
   }, [store, ticker]);
+
+  // F5: recarga da leitura do MESMO ticker depois de gravar ou desativar um
+  // setup. Existe porque as duas escritas mudam a lista que a seção "SETUPS
+  // GRAVADOS" mostra — deixar a tela velha depois de um "gravado com sucesso"
+  // faria a pessoa duvidar de ter gravado, e duvidar leva a gravar de novo (o
+  // mesmo vigia, duas vezes, no armazém compartilhado do serviço).
+  //
+  // Fase 27 (27-05) — **sem corpo próprio: é a MESMA chamada de
+  // `abrirLeitura`.** Até aqui havia duas cópias do bloco (o efeito de troca de
+  // ticker e esta função), e a duplicação tinha uma razão escrita: o efeito
+  // PRECISAVA continuar sendo o lugar do disparo inicial, porque era dali que
+  // o guardião lia. Com a leitura virando clique, essa razão desapareceu — e
+  // duas cópias do mesmo pedido divergem na primeira manutenção feita só numa
+  // delas. O nome próprio fica porque o MOTIVO é outro: a pessoa não pediu
+  // esta leitura, ela é consequência da escrita que ela já pagou — e quem lê
+  // `confirmarSetup` precisa disso no nome, não num comentário distante.
+  const recarregarLeitura = useCallback(() => { abrirLeitura(); }, [abrirLeitura]);
 
   // Fase 27: recarga do ÍNDICE, sob demanda e de custo ZERO. Existe porque
   // gravar ou desativar um vigia muda a lista do topo da aba — e um vigia
@@ -411,7 +446,10 @@ export function useOpcoesMcp(store, ticker) {
   }, [store, dispararSetup, recarregarLeitura, recarregarVigias]);
 
   return {
-    status, leitura, grafico, abrirGrafico, fecharGrafico, recarregarLeitura,
+    // Fase 27 (27-05): `abrirLeitura` é a porta da leitura PAGA (3 chamadas),
+    // e ela só sai de clique — o efeito de troca de ticker agora só apaga.
+    status, leitura, grafico, abrirGrafico, fecharGrafico,
+    abrirLeitura, recarregarLeitura,
     cadeia, operaveis, proposta, possibilidades,
     abrirCadeia, abrirOperaveis, montarProposta, verPossibilidades,
     setupNovo, compilarSetup, confirmarSetup, desativarSetup,

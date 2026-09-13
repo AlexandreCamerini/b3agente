@@ -100,8 +100,20 @@ ok("o rótulo do botão vem do copy (cp.opcoesVigiasAtualizar)",
    /cp\.opcoesVigiasAtualizar/.test(botao));
 ok("o custo é declarado DENTRO do botão, reusando cp.opcoesCustoChamadas",
    /cp\.opcoesCustoChamadas/.test(botao));
+// 2026-09-13 (Fase 27, plano 27-05) — a constante solta `CUSTO_LISTAR_VIGIAS`
+// virou uma entrada da tabela `CUSTO_DA_ACAO`, que passou a declarar o custo
+// de TODOS os controles da aba. O valor não mudou (2, espelho do
+// `_cap_check(uid, 2)` da rota `setups_listar`); o que mudou é que agora há uma
+// fonte só na tela em vez de uma constante por botão — duas formas de declarar
+// a mesma grandeza divergiriam na primeira manutenção feita só numa delas.
+//
+// A asserção NÃO foi afrouxada: ela continua exigindo o número literal no
+// fonte e continua exigindo que o botão leia a constante, não um `2` digitado.
+// O cruzamento com o backend (que esta aqui nunca fez) passou a existir em
+// `test_opcoes_custo_declarado.mjs`, que lê os `_cap_check` do fonte Python.
 ok("o custo é a constante nomeada, espelho do _cap_check(uid, 2) do backend",
-   /const CUSTO_LISTAR_VIGIAS = 2;/.test(tela) && /CUSTO_LISTAR_VIGIAS/.test(botao));
+   /const CUSTO_DA_ACAO = \{[\s\S]*?listarVigias: 2,/.test(tela)
+   && /CUSTO_DA_ACAO\.listarVigias/.test(botao));
 ok("o botão tem alvo de toque de 44 px (reusa BOTAO)", /\.\.\.BOTAO/.test(botao));
 
 // ---- 4) o nome exibido é o da PESSOA, nunca o do armazém -------------------
