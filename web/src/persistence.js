@@ -471,6 +471,11 @@ function deviceStore() {
       // FASE 7 (F7.1) — Modo Operador: backfill de docs antigos
       if (doc.config.appMode !== "estudo" && doc.config.appMode !== "operador") doc.config.appMode = "estudo";
       if (doc.config.operadorTermo !== null && typeof doc.config.operadorTermo !== "object") doc.config.operadorTermo = null;
+      // FASE 29: mesmo padrão dos dois campos acima — doc legado sem a chave
+      // ou com lixo (`"true"`, `1`) nunca resolve para "ligado": fail-closed,
+      // espelho de server/app/store.py:102-103.
+      if (doc.config.descobertoTermo !== null && typeof doc.config.descobertoTermo !== "object") doc.config.descobertoTermo = null;
+      doc.config.permitirOpcaoADescoberto = !!doc.config.permitirOpcaoADescoberto;
       if (!doc.config.risco || typeof doc.config.risco !== "object") doc.config.risco = { pctPorTrade: 1.0, capital: null };
       // FASE 2: coleção de prompts. Backfill da seção e de chaves novas, sem
       // sobrescrever valores que o usuário já editou.
@@ -753,6 +758,17 @@ function deviceStore() {
         if (!(patch.appMode === "operador" && !(c.operadorTermo && typeof c.operadorTermo === "object"))) c.appMode = patch.appMode;
         _agendarSyncPrefs();   // o vocabulário do push segue o modo do aparelho
       }
+      // FASE 29: flag de opção a descoberto — espelho estrutural EXATO de
+      // store.py.set_config (linhas 312-328). Termo primeiro; "ligar" só com
+      // termo já aceito ou vindo no MESMO patch (nunca sem aceite, igual
+      // operadorTermo/appMode acima). Desligar é SEMPRE livre e não apaga
+      // descobertoTermo — religar não pede releitura do termo.
+      if (patch.descobertoTermo && typeof patch.descobertoTermo === "object" && patch.descobertoTermo.aceitoEm && patch.descobertoTermo.versao) {
+        c.descobertoTermo = { aceitoEm: String(patch.descobertoTermo.aceitoEm).slice(0, 40), versao: String(patch.descobertoTermo.versao).slice(0, 10) };
+      }
+      if ("permitirOpcaoADescoberto" in patch) {
+        if (!(patch.permitirOpcaoADescoberto && !(c.descobertoTermo && typeof c.descobertoTermo === "object"))) c.permitirOpcaoADescoberto = !!patch.permitirOpcaoADescoberto;
+      }
       // 2026-08-09: orçamento SÓ no aparelho (local-first, como o resto da
       // config) nunca chegava ao servidor — MAS resetPortfolio() logado abaixo
       // chama api.resetPortfolio(), que roda no servidor e lê o
@@ -804,6 +820,11 @@ function deviceStore() {
         if (patch.appMode === "estudo" || patch.appMode === "operador") enviar.appMode = c.appMode;
         if ("operadorTermo" in patch) enviar.operadorTermo = c.operadorTermo;
         if (typeof patch.initialBudget === "number") enviar.initialBudget = c.initialBudget;
+        // FASE 29: mesmo par local da Task 1b precisa subir no MESMO
+        // putConfig que o mudou — senão o aparelho liga o flag e o servidor
+        // nunca aprende (T-29-09, mesma classe de incidente de appMode acima).
+        if ("descobertoTermo" in patch) enviar.descobertoTermo = c.descobertoTermo;
+        if ("permitirOpcaoADescoberto" in patch) enviar.permitirOpcaoADescoberto = c.permitirOpcaoADescoberto;
         // 260824-kc2: `notif` passa a subir. Sem isto, o `config.notif` do
         // servidor ficaria eternamente no default e o web reenviaria as três
         // classes LIGADAS por cima do que o aparelho desligou. Com isto, o
@@ -829,6 +850,13 @@ function deviceStore() {
         // ainda não o tem (store.set_config) — some junto, nunca sozinho.
         if (enviar.appMode === "operador" && !enviar.operadorTermo && c.operadorTermo) {
           enviar.operadorTermo = c.operadorTermo;
+        }
+        // FASE 29: mesmo motivo do bloco acima — ligar "permitirOpcaoADescoberto"
+        // exige o termo no MESMO patch quando o servidor ainda não o tem
+        // (store.set_config recusa ligar sem termo); sem isto, o aparelho
+        // fica ligado com o servidor desligado (T-29-09).
+        if (enviar.permitirOpcaoADescoberto === true && !enviar.descobertoTermo && c.descobertoTermo) {
+          enviar.descobertoTermo = c.descobertoTermo;
         }
         if (Object.keys(enviar).length) await api.putConfig(enviar);
       }
