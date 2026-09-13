@@ -13,8 +13,9 @@
 //     seções que se mudaram — sem duplicação de UI;
 //  4) o roteamento (perfilView) cobre as 6 rotas;
 //  5) o atalho de notificações (A.openNotifCentral) aponta pra área nova;
-//  6) (26-01/A6, 2026-09-13) todo "Perfil → X" que o `server/app/metering.py`
-//     cita nas mensagens de cota é um tile que EXISTE no PerfilHub — ver
+//  6) (26-01/A6+A8, 2026-09-13) todo "Perfil → X" citado em prosa — pelas
+//     mensagens de cota do `server/app/metering.py` (A6) e pelo `ADDR_HINT`
+//     de `web/src/api.js` (A8) — é um tile que EXISTE no PerfilHub — ver
 //     seção 7, no fim do arquivo.
 //
 // ATUALIZAÇÃO 2026-08-12 (qa/45 Decisão 1, pedido do Alex "pode seguir com a
@@ -118,7 +119,7 @@ ok("rota: logs → LogsDebugScreen", /perfilView === "logs"[\s\S]{0,120}<LogsDeb
 // ---- 6) Atalho de notificações aponta pra área nova -----------------------
 ok("openNotifCentral navega para notificacoes", /openNotifCentral:.*setPerfilView\("notificacoes"\).*setTab\("perfil"\)/.test(app));
 
-// ---- 7) "Perfil → X" citado pelo backend é um tile que EXISTE -------------
+// ---- 7) "Perfil → X" citado em prosa é um tile que EXISTE -----------------
 // NOVO em 26-01/A6 (2026-09-13). O achado: as três mensagens de 402 do
 // `metering.py` mandavam a pessoa para "Perfil → Conta & preferências" — tela
 // que o qa/45 Decisão 1 renomeou (o bloco de BYOK/modelo vive em "IA & Boris").
@@ -128,28 +129,44 @@ ok("openNotifCentral navega para notificacoes", /openNotifCentral:.*setPerfilVie
 // um próximo rename de tile quebra AQUI, em vez de deixar a mensagem de cota
 // apontando para um endereço morto.
 //
-// Fora de escopo, registrado: `web/src/api.js:11` (ADDR_HINT) tem o MESMO
-// defeito com outro destino — cita "Perfil → Conta & preferências" quando o
+// AMPLIADO em A8 (2026-09-13): `web/src/api.js` (ADDR_HINT) tinha o MESMO
+// defeito com outro destino — citava "Perfil → Conta & preferências" quando o
 // bloco SERVIDOR DO APP migrou para "Perfil → Fonte de dados" (qa/45 Decisão
-// 1). Não foi corrigido no A6 (escopado a `metering.py`) e por isso este
-// guardião lê só o `metering.py`: ampliá-lo para o front sem a correção
-// falharia de propósito. Quando o achado for fechado, troque a leitura por um
-// laço sobre os dois arquivos.
+// 1). Corrigido junto; o laço abaixo agora cobre as duas fontes em vez de só
+// `metering.py`, para que os dois lados do par nunca voltem a divergir sem o
+// teste notar.
 const metering = readFileSync(join(here, "..", "..", "server", "app", "metering.py"), "utf8");
+const apiJs = readFileSync(join(here, "..", "src", "api.js"), "utf8");
 const hubTightEnd = app.indexOf("function SetorAlvo(");
 ok("PerfilHub delimitado (corpo real, não até MercadoScreen)", hubTightEnd > hubStart);
 const tiles = [...app.slice(hubStart, hubTightEnd).matchAll(/title="([^"]+)"/g)].map((m) => m[1]);
 ok("PerfilHub expõe tiles com título literal", tiles.length >= 6);
 
 const SETA = "Perfil → ";
-const citacoes = [];
-for (let i = metering.indexOf(SETA); i > -1; i = metering.indexOf(SETA, i + 1)) {
-  const depois = metering.slice(i + SETA.length);
-  citacoes.push({ tile: tiles.find((t) => depois.startsWith(t)), trecho: depois.slice(0, 40) });
+function citacoesDe(fonte) {
+  const out = [];
+  for (let i = fonte.indexOf(SETA); i > -1; i = fonte.indexOf(SETA, i + 1)) {
+    const depois = fonte.slice(i + SETA.length);
+    out.push({ tile: tiles.find((t) => depois.startsWith(t)), trecho: depois.slice(0, 40) });
+  }
+  return out;
 }
-ok("metering.py cita as 3 mensagens de cota com caminho do Perfil", citacoes.length === 3);
-for (const { tile, trecho } of citacoes) {
+
+const citacoesMetering = citacoesDe(metering);
+ok("metering.py cita as 3 mensagens de cota com caminho do Perfil", citacoesMetering.length === 3);
+for (const { tile, trecho } of citacoesMetering) {
   ok(`metering.py → tile real (${tile || "NENHUM: " + JSON.stringify(trecho)})`, !!tile);
+}
+
+// Achado A8, ao rodar este guardião pela primeira vez: uma SEGUNDA citação
+// stale apareceu de graça — o comentário de `analysisOutcomesStats` ainda
+// dizia "(Perfil → Observabilidade)", a tela monolítica que o qa/45 já tinha
+// dividido em 6 áreas (item 2 acima). Corrigido para "Eficiência da IA", o
+// tile real da estatística que o comentário descreve.
+const citacoesApi = citacoesDe(apiJs);
+ok("api.js cita 2 caminhos do Perfil (ADDR_HINT + comentário)", citacoesApi.length === 2);
+for (const { tile, trecho } of citacoesApi) {
+  ok(`api.js → tile real (${tile || "NENHUM: " + JSON.stringify(trecho)})`, !!tile);
 }
 
 console.log(fails ? `\n${fails} falha(s)` : "\ntodos os testes passaram");

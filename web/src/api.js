@@ -8,7 +8,7 @@ const TIMEOUT_MS = 15000;
 const TIMEOUT_LLM = 90000; // análise/teste da IA demoram
 
 // Mensagem única para o problema de endereçamento do backend no mobile.
-const ADDR_HINT = "Configure o endereço do servidor em Perfil → Conta & preferências (ex.: http://SEU_IP:8787) e toque em Testar conexão.";
+const ADDR_HINT = "Configure o endereço do servidor em Perfil → Fonte de dados (ex.: http://SEU_IP:8787) e toque em Testar conexão.";
 
 // FASE 6 (fix 1): URL de PRODUÇÃO embutida como padrão do app NATIVO. Antes,
 // sem VITE_API_BASE no build, o iPhone nascia sem endereço — login e tudo o
@@ -426,7 +426,7 @@ export const api = {
   // qa/47 (Fase 2): ingest em lote de eventos de comportamento — ver analytics.js.
   analyticsEvents: (events) => req("POST", "/api/analytics/events", { events }, 15000),
   // qa/30 (Fase A): autoavaliação da IA — estatísticas do painel "Eficiência
-  // da IA" (Perfil → Observabilidade). `modo` opcional filtra estudo/operador.
+  // da IA" (Perfil → Eficiência da IA). `modo` opcional filtra estudo/operador.
   analysisOutcomesStats: (modo) => req("GET", "/api/analysis-outcomes/stats" + (modo ? "?modo=" + encodeURIComponent(modo) : ""), undefined, 15000),
   aiActivity: () => req("GET", "/api/ai-activity", undefined, 15000), // qa/45: custo + histórico da IA
   // qa/35 (P2): export CSV da eficiência — TEXTO puro, não passa pelo parse
