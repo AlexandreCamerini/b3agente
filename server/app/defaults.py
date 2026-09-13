@@ -262,6 +262,12 @@ def default_state() -> dict:
             # FASE 7 (F7.1) — Modo Operador
             "appMode": "estudo",       # estudo | operador (operador exige termo aceito)
             "operadorTermo": None,     # {aceitoEm, versao} registrado no aceite
+            # FASE 29: operar opção A DESCOBERTO (sem lastro) exige opt-in
+            # explícito — lastro obrigatório é o padrão desta conta, o flag é
+            # a exceção nomeada. Espelha appMode/operadorTermo acima: booleano
+            # + registro versionado do aceite, nunca ligado por default.
+            "permitirOpcaoADescoberto": False,  # default DESLIGADO, sempre
+            "descobertoTermo": None,            # {aceitoEm, versao} registrado no aceite
             "risco": {"pctPorTrade": 1.0, "capital": None},  # sizing (capital None => usa initialBudget)
             # Tela de configuração do Boris (F10-20260809): voz, presença do
             # FAB e o único canal de aviso espontâneo (o mesmo `notif.gatilho`

@@ -96,6 +96,11 @@ def ensure_defaults(conn, user_id=None) -> None:
         # FASE 7 (F7.1): modo de trabalho + risco (backfill de docs antigos)
         cfg.setdefault("appMode", "estudo")
         cfg.setdefault("operadorTermo", None)
+        # FASE 29: backfill de doc antigo — conta legada ganha o flag de
+        # opção a descoberto DESLIGADO, nunca ligado (SC-1, sem migração
+        # silenciosa para ligado).
+        cfg.setdefault("permitirOpcaoADescoberto", False)
+        cfg.setdefault("descobertoTermo", None)
         cfg.setdefault("risco", dict(d["config"].get("risco") or {"pctPorTrade": 1.0, "capital": None}))
         # Tela de configuração do Boris (backfill de docs antigos)
         cfg.setdefault("vozAtiva", d["config"]["vozAtiva"])
@@ -304,6 +309,23 @@ def set_config(conn, patch: dict, user_id=None) -> dict:
                     mudou = True
                 if mudou:
                     db.kv_set(conn, "agent", ag, user_id=user_id)
+    # FASE 29: flag de opção a descoberto (sem lastro) — mesma regra de
+    # aceite de operadorTermo/appMode acima: ligar EXIGE descobertoTermo
+    # (aceitoEm+versao) já registrado ou vindo no MESMO patch.
+    if isinstance(patch.get("descobertoTermo"), dict):
+        t = patch["descobertoTermo"]
+        if t.get("aceitoEm") and t.get("versao"):
+            cfg["descobertoTermo"] = {"aceitoEm": str(t["aceitoEm"])[:40], "versao": str(t["versao"])[:10]}
+    if "permitirOpcaoADescoberto" in patch:
+        if patch["permitirOpcaoADescoberto"] and not isinstance(cfg.get("descobertoTermo"), dict):
+            pass  # sem termo aceito, o flag NÃO liga (silencioso e seguro, igual appMode="operador")
+        else:
+            # Desligar é sempre livre — não exige termo, não dispara migração
+            # nenhuma (nada em agent/positions depende deste flag), espelha
+            # "voltar ao Estudo é livre" do Modo Operador. `descobertoTermo`
+            # NÃO é apagado ao desligar: religar não pede releitura do termo,
+            # igual a operadorTermo.
+            cfg["permitirOpcaoADescoberto"] = bool(patch["permitirOpcaoADescoberto"])
     # Tela de configuração do Boris: voz, presença do FAB. O aviso espontâneo
     # (5º controle) não tem campo próprio — usa o `notif.gatilho` já tratado
     # acima, então não precisa de handler aqui.
