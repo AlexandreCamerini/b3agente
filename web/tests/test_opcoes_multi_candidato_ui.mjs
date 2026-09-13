@@ -43,6 +43,10 @@ import { COPY } from "../src/copy.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const app = readFileSync(join(here, "..", "src", "App.jsx"), "utf8");
+// ATUALIZADO 2026-09-13 (Fase 28, 28-01): `aceitarCandidato` saiu de App.jsx
+// (PropostaDaPosicao) e virou `useAceiteLastreado`, em
+// web/src/opcoes/PropostaLastreada.jsx.
+const modulo = readFileSync(join(here, "..", "src", "opcoes", "PropostaLastreada.jsx"), "utf8");
 
 let fails = 0;
 const ok = (name, cond, detail) => { console.log((cond ? "ok " : "FALHOU ") + name + (detail !== undefined ? ` (${detail})` : "")); if (!cond) fails++; };
@@ -124,8 +128,18 @@ ok("<PropostaLastreada aparece exatamente 2x no fonte inteiro (o ramo multi não
 // ---- (10) Caminho de aceite único, compartilhado pelos candidatos ----------
 ok("CandidatoOpcao é renderizado com onAceitar={aceitarCandidato} (o MESMO handler para todos os candidatos)",
   /onAceitar=\{aceitarCandidato\}/.test(fatiaPDP));
-ok("PropostaDaPosicao declara `const aceitarCandidato = async (p) =>` (handler único, parametrizado)",
-  /const aceitarCandidato = async \(p\) => \{/.test(fatiaPDP));
+// ATUALIZADO 2026-09-13 (Fase 28, 28-01): `aceitarCandidato` deixou de ser
+// declarado LOCALMENTE em PropostaDaPosicao — agora vem do hook
+// `useAceiteLastreado`, importado do módulo. O invariante ("handler único,
+// compartilhado por todos os candidatos") passa a ser medido em três partes:
+// (a) PropostaDaPosicao consome o hook; (b) a implementação é única, no
+// módulo; (c) App.jsx não voltou a ter uma implementação própria.
+ok("PropostaDaPosicao consome o hook useAceiteLastreado({ A, cp, ticker: t })",
+  /useAceiteLastreado\(\{ A, cp, ticker: t \}\)/.test(fatiaPDP));
+ok("o módulo declara `const aceitarCandidato = async (p) =>` exatamente 1× (implementação única)",
+  (modulo.match(/const aceitarCandidato = async \(p\) => \{/g) || []).length === 1);
+ok("App.jsx NÃO declara mais `const aceitarCandidato = async (p) =>` (a implementação está fora)",
+  !/const aceitarCandidato = async \(p\) => \{/.test(app));
 
 // ---- (11) Nenhuma chave de copy nova ---------------------------------------
 const chavesCp = new Set();
@@ -145,6 +159,12 @@ ok('fonte inteiro NÃO compõe "Vender " + (manchete/didática do motor)',
   !/"Vender " \+/.test(fonteSemComentario));
 ok('fonte inteiro NÃO contém "Se você tivesse" (didática do motor, nunca duplicada em copy.js/App.jsx)',
   !fonteSemComentario.includes("Se você tivesse"));
+// ATUALIZADO 2026-09-13 (Fase 28, 28-01): as mesmas duas proibições, agora
+// também sobre o módulo extraído — a proibição segue o código.
+ok('módulo NÃO compõe "Vender " + (manchete/didática do motor)',
+  !/"Vender " \+/.test(modulo));
+ok('módulo NÃO contém "Se você tivesse" (didática do motor, nunca duplicada)',
+  !modulo.includes("Se você tivesse"));
 
 if (fails) { console.error(`\n${fails} falha(s)`); process.exit(1); }
 console.log("\ntodos os testes passaram");

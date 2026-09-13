@@ -48,6 +48,12 @@ const brutos = {
   "OpcoesScreen.jsx": ler("OpcoesScreen.jsx"),
   "useOpcoesMcp.js": ler("useOpcoesMcp.js"),
   "SetupChart.jsx": ler("SetupChart.jsx"),
+  // ATUALIZADO 2026-09-13 (Fase 28, 28-01): PropostaLastreada.jsx é o
+  // terceiro consumidor do isolamento ADR-027 — módulo que App.jsx E
+  // OpcoesScreen.jsx importam, sem nenhum dos dois importar o outro
+  // (Emenda 3). Entra no mesmo loop de isolamento e na exigência de bloco
+  // de tokens local dos irmãos que desenham.
+  "PropostaLastreada.jsx": ler("PropostaLastreada.jsx"),
 };
 // Sem comentários: eles citam os mesmos termos ao explicar as decisões, e
 // contá-los faria o guardião se auto-invalidar.
@@ -72,7 +78,7 @@ for (const [nome, src] of Object.entries(brutos)) {
 // de tokens ali seria código morto que o próximo leitor tomaria por cor em
 // uso. O que se exige DELE é o oposto: nenhum acoplamento ao módulo de
 // estado (o `store` chega por argumento).
-for (const nome of ["OpcoesScreen.jsx", "SetupChart.jsx"]) {
+for (const nome of ["OpcoesScreen.jsx", "SetupChart.jsx", "PropostaLastreada.jsx"]) {
   const src = fontes[nome];
   ok(`${nome} declara o bloco VARKEY/TOKENS/T local`,
      /const VARKEY = /.test(src) && /const TOKENS = \[/.test(src) && /const T = Object\.fromEntries/.test(src));
@@ -80,6 +86,28 @@ for (const nome of ["OpcoesScreen.jsx", "SetupChart.jsx"]) {
 ok("useOpcoesMcp.js recebe o store por ARGUMENTO (não importa persistence.js)",
    /export function useOpcoesMcp\(store, ticker\)/.test(fontes["useOpcoesMcp.js"])
    && !/from ["'][^"']*persistence\.js["']/.test(brutos["useOpcoesMcp.js"]));
+
+// NOVO (2026-09-13, Fase 28, 28-01) — T-28-06: o invariante de DUAS VIAS da
+// Emenda 3 ao ADR-027, para o módulo compartilhado.
+//
+// DESVIO REGISTRADO (Rule 1, achado durante a execução): o texto do plano
+// pedia também "App.jsx não importa OpcoesScreen.jsx" como parte deste
+// guardião. Isso é FALSO no código real e sempre foi: App.jsx:12 importa
+// `OpcoesScreen` de propósito, para MONTAR a aba como tela (composição
+// pai→filho, `<OpcoesScreen ... />` em algum lugar de App.jsx) — isso não é
+// o ciclo que a Emenda 3 proíbe. O ciclo proibido é OpcoesScreen.jsx (ou o
+// módulo compartilhado) importando DE VOLTA algo de App.jsx, o que já é
+// medido pelo loop da seção 1 acima (`${nome} não importa App.jsx`, agora
+// cobrindo os quatro arquivos, incluindo PropostaLastreada.jsx). Escrever a
+// asserção como o plano pedia literalmente teria criado um guardião FALSO
+// (reprovaria uma importação legítima e necessária) — o invariante real de
+// "duas vias" para o módulo COMPARTILHADO é: ele não importa App.jsx (já
+// coberto) nem OpcoesScreen.jsx (novo, abaixo). A ausência de ciclo entre
+// App.jsx e OpcoesScreen.jsx já está garantida pela mesma seção 1 (OpcoesScreen
+// não importa App.jsx) — a direção App.jsx→OpcoesScreen é composição normal,
+// não um ciclo.
+ok("PropostaLastreada.jsx não importa OpcoesScreen.jsx (ADR-027, Emenda 3 — isolamento de duas vias do módulo compartilhado)",
+   !/from\s+["'][^"']*OpcoesScreen\.jsx["']/.test(brutos["PropostaLastreada.jsx"]));
 
 // ---- 2) a ordem dos estados no fonte ----------------------------------------
 // 2026-09-13 (Fase 27, plano 27-02) — as quatro buscas passaram a começar no

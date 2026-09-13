@@ -11,6 +11,12 @@ import { COPY } from "../src/copy.js";
 const here = dirname(fileURLToPath(import.meta.url));
 const app = readFileSync(join(here, "..", "src", "App.jsx"), "utf8");
 const persistence = readFileSync(join(here, "..", "src", "persistence.js"), "utf8");
+// ATUALIZADO 2026-09-13 (Fase 28, 28-01): FonteDoDadoProposta/ChipDaProposta/
+// PropostaLastreada saíram de App.jsx para web/src/opcoes/PropostaLastreada.jsx
+// (ADR-027, Emenda 3 — módulo compartilhado que os dois lados importam, sem
+// nenhum importar o outro). As asserções que mediam "está em App.jsx" abaixo
+// passam a ler `modulo`, com nota datada em cada uma.
+const modulo = readFileSync(join(here, "..", "src", "opcoes", "PropostaLastreada.jsx"), "utf8");
 
 let fails = 0;
 const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if (!cond) fails++; };
@@ -50,17 +56,32 @@ ok("nenhuma chave de copy.js carrega a manchete do motor (\"Se você tivesse\")"
 // ATUALIZADO 2026-09-08 (quick 260908-ldg): assinatura ganhou `onVerbeteLiquidez`
 // (D-09, chip de liquidez → verbete) — guardião de igualdade exata continua
 // exigindo a assinatura INTEIRA, agora com o parâmetro novo.
-ok("componente PropostaLastreada existe", /function PropostaLastreada\(\{ r, operador, cp, busy, onAbrir, onFechar, posAberta, onVerbeteLiquidez \}\)/.test(app));
-ok("PropostaLastreada vem ANTES de OpcoesCamada no arquivo (definição)",
-  app.indexOf("function PropostaLastreada") < app.indexOf("function OpcoesCamada"));
+// ATUALIZADO 2026-09-13 (Fase 28, 28-01): a assinatura exata mora agora no
+// módulo — PropostaLastreada saiu de App.jsx.
+ok("componente PropostaLastreada existe", /function PropostaLastreada\(\{ r, operador, cp, busy, onAbrir, onFechar, posAberta, onVerbeteLiquidez \}\)/.test(modulo));
+// ATUALIZADO 2026-09-13 (Fase 28, 28-01): "PropostaLastreada vem antes de
+// OpcoesCamada NO ARQUIVO" media ordem de definição dentro do MESMO arquivo —
+// com a proposta em outro módulo, ordem entre arquivos não é um invariante.
+// O invariante real: (a) OpcoesCamada continua definida em App.jsx; (b) o
+// módulo extraído não arrastou a cadeia (OpcoesCamada) consigo — a extração
+// foi só do card de proposta, não da cadeia de contratos.
+ok("função OpcoesCamada continua definida em App.jsx", /function OpcoesCamada/.test(app));
+ok("o módulo extraído não menciona OpcoesCamada (não arrastou a cadeia)", !modulo.includes("OpcoesCamada"));
 
-const iPL = app.indexOf("function PropostaLastreada");
-const iOC = app.indexOf("function OpcoesCamada");
-const propostaFn = app.slice(iPL, iOC);
+// ATUALIZADO 2026-09-13 (Fase 28, 28-01): PropostaLastreada é o último
+// componente do módulo — a fatia recalculada a partir de `modulo` alimenta
+// todas as asserções de payoff/manchete abaixo.
+const iPL = modulo.indexOf("function PropostaLastreada");
+const propostaFn = modulo.slice(iPL);
 
 ok("p.manchete é renderizado direto (sem composição)", /\{p\.manchete\}/.test(propostaFn));
-ok("front não compõe a manchete (\"Vender \" + variável)", !/"Vender " \+/.test(app));
-ok("front não duplica a frase didática (\"Se você tivesse\")", !app.includes("Se você tivesse"));
+// Guardiões GLOBAIS de composição de frase (T-28-04) — a proibição segue o
+// código: continuam válidos sobre App.jsx E passam a valer também sobre o
+// módulo extraído (2026-09-13, Fase 28, 28-01).
+ok("front não compõe a manchete (\"Vender \" + variável) — App.jsx", !/"Vender " \+/.test(app));
+ok("front não compõe a manchete (\"Vender \" + variável) — módulo", !/"Vender " \+/.test(modulo));
+ok("front não duplica a frase didática (\"Se você tivesse\") — App.jsx", !app.includes("Se você tivesse"));
+ok("front não duplica a frase didática (\"Se você tivesse\") — módulo", !modulo.includes("Se você tivesse"));
 
 // A cadeia sobrevive: OpcoesCamada continua renderizada, e <PropostaLastreada
 // aparece ANTES de <OpcoesCamada no arquivo (JSX de uso, não só definição) — D-4.
@@ -99,32 +120,46 @@ ok("window.confirm com cp.confirmFecharCoberta existe", /window\.confirm\(cp\.co
 // já usado em test_opcoes_collar_ui.mjs (arquivo autocontido, sem import
 // cruzado de teste).
 // ---------------------------------------------------------------------------
+// ATUALIZADO 2026-09-13 (Fase 28, 28-01): `aceitarCandidato` saiu de App.jsx
+// (era local a `PropostaDaPosicao`) e foi para `useAceiteLastreado`, no
+// módulo. `onAbrirLastreada` (AtivoCard) NÃO mudou de lugar — este plano não
+// toca AtivoCard. O invariante medido é o MESMO de sempre (dois handlers de
+// aceite, cada um com o confirm de liquidez ANTES do confirm de estrutura),
+// agora medido em CADA FONTE onde o handler efetivamente vive.
 (() => {
-  const idxs = [];
-  const reOnAbrir = /const onAbrirLastreada = async \(\) => \{/g;
-  const reAceitar = /const aceitarCandidato = async \(p\) => \{/g;
-  let m;
-  while ((m = reOnAbrir.exec(app))) idxs.push(m.index);
-  while ((m = reAceitar.exec(app))) idxs.push(m.index);
-  idxs.sort((a, b) => a - b);
-  ok("existem exatamente 2 handlers de aceite (onAbrirLastreada + aceitarCandidato)", idxs.length === 2, String(idxs.length));
+  const handlers = [];
+  {
+    const iOnAbrir = app.indexOf("const onAbrirLastreada = async () => {");
+    ok("onAbrirLastreada (AtivoCard) localizado em App.jsx", iOnAbrir > -1);
+    if (iOnAbrir > -1) {
+      const iOnFechar = app.indexOf("const onFecharLastreada", iOnAbrir);
+      handlers.push({ nome: "onAbrirLastreada (App.jsx/AtivoCard)", corpo: iOnFechar > iOnAbrir ? app.slice(iOnAbrir, iOnFechar) : "" });
+    }
+  }
+  {
+    const iAceitar = modulo.indexOf("const aceitarCandidato = async (p) => {");
+    ok("aceitarCandidato (useAceiteLastreado) localizado no módulo", iAceitar > -1);
+    if (iAceitar > -1) {
+      const iFechar = modulo.indexOf("const fecharLastreada", iAceitar);
+      handlers.push({ nome: "aceitarCandidato (módulo/useAceiteLastreado)", corpo: iFechar > iAceitar ? modulo.slice(iAceitar, iFechar) : "" });
+    }
+  }
+  ok("existem exatamente 2 handlers de aceite (onAbrirLastreada em App.jsx + aceitarCandidato no módulo)", handlers.length === 2, String(handlers.length));
 
-  idxs.forEach((iOnAbrir, n) => {
-    const iOnFechar = app.indexOf("const onFecharLastreada", iOnAbrir);
-    const handler = iOnFechar > iOnAbrir ? app.slice(iOnAbrir, iOnFechar) : "";
-    ok(`handler de aceite #${n + 1}: window.confirm(liq.aviso) aparece exatamente 1 vez`,
+  handlers.forEach(({ nome, corpo: handler }, n) => {
+    ok(`handler de aceite #${n + 1} (${nome}): window.confirm(liq.aviso) aparece exatamente 1 vez`,
       (handler.match(/window\.confirm\(liq\.aviso\)/g) || []).length === 1);
     const iLiq = handler.indexOf("window.confirm(liq.aviso)");
     const iCoberta = handler.indexOf("window.confirm(cp.confirmAbrirCoberta(");
-    ok(`handler de aceite #${n + 1}: confirmação de liquidez existe`, iLiq > -1);
+    ok(`handler de aceite #${n + 1} (${nome}): confirmação de liquidez existe`, iLiq > -1);
     // iCoberta pode ser -1 no handler que só tem o ramo da PUT sem CALL
     // coberta neste ponto específico do código-fonte — a asserção de ordem
     // só se aplica quando os dois confirms existem no MESMO handler.
     if (iCoberta > -1) {
-      ok(`handler de aceite #${n + 1}: confirmação de liquidez vem ANTES da confirmação de estrutura (venda coberta)`,
+      ok(`handler de aceite #${n + 1} (${nome}): confirmação de liquidez vem ANTES da confirmação de estrutura (venda coberta)`,
         iLiq > -1 && iLiq < iCoberta);
     }
-    ok(`handler de aceite #${n + 1}: aceitaLiquidezDificil é declarado no handler`,
+    ok(`handler de aceite #${n + 1} (${nome}): aceitaLiquidezDificil é declarado no handler`,
       handler.includes("aceitaLiquidezDificil"));
   });
 })();
@@ -151,10 +186,20 @@ const confirmFecharCall = COPY.operador.confirmFecharCoberta("65,00", 100, "ABEV
 ok("confirmação de fechamento de CALL não regrediu (Recomprar/destrava)",
   /Recomprar/.test(confirmFecharCall) && confirmFecharCall.includes("destrava"));
 
+// ATUALIZADO 2026-09-13 (Fase 28, 28-01): PropostaLastreada mora no módulo.
 ok("PropostaLastreada chama ctaFecharLastreada(price(p.premioTotal), isCall)",
-  /ctaFecharLastreada\(price\(p\.premioTotal\), isCall\)/.test(app));
-ok("os DOIS call sites de confirmFecharCoberta estão em paridade (AtivoCard + PropostaDaPosicao)",
-  (app.match(/confirmFecharCoberta\(price\(p\.premioTotal\), p\.qtyAcoes, t, p\.optionType === "call"\)/g) || []).length === 2);
+  /ctaFecharLastreada\(price\(p\.premioTotal\), isCall\)/.test(modulo));
+// ATUALIZADO 2026-09-13 (Fase 28, 28-01): o invariante era "os dois call
+// sites (AtivoCard + PropostaDaPosicao) em paridade" — dois lugares
+// calculando a mesma coisa, sujeitos a divergir. Com `useAceiteLastreado`, o
+// de PropostaDaPosicao virou a implementação ÚNICA no módulo; só resta o de
+// AtivoCard em App.jsx (que este plano não toca — remoção é do 28-03). O
+// invariante agora é "uma implementação em cada lado, nenhuma duplicada
+// dentro do mesmo arquivo".
+ok("confirmFecharCoberta(...) aparece exatamente 1× no módulo (useAceiteLastreado)",
+  (modulo.match(/confirmFecharCoberta\(price\(p\.premioTotal\), p\.qtyAcoes, ticker, p\.optionType === "call"\)/g) || []).length === 1);
+ok("confirmFecharCoberta(...) aparece exatamente 1× em App.jsx (AtivoCard, pendente de remoção no 28-03)",
+  (app.match(/confirmFecharCoberta\(price\(p\.premioTotal\), p\.qtyAcoes, t, p\.optionType === "call"\)/g) || []).length === 1);
 
 // Cor da manchete por polaridade: T.positive/T.negative decidido por
 // optionType (via isCall), e a MANCHETE nunca usa T.accent (regra do
@@ -309,10 +354,12 @@ ok("putOptionPosition permanece em persistence.js", /putOptionPosition/.test(per
 // declaração de fonte/horário nos dois ramos do card.
 // ---------------------------------------------------------------------------
 
-const iFonte = app.indexOf("function FonteDoDadoProposta");
+// ATUALIZADO 2026-09-13 (Fase 28, 28-01): as duas definições vivem agora no
+// módulo — a ordem relativa dentro dele é a mesma de antes em App.jsx.
+const iFonte = modulo.indexOf("function FonteDoDadoProposta");
 ok("FonteDoDadoProposta localizado, definido ANTES de PropostaLastreada",
   iFonte > -1 && iFonte < iPL);
-const fonteFnBody = iFonte > -1 ? app.slice(iFonte, iPL) : "";
+const fonteFnBody = iFonte > -1 ? modulo.slice(iFonte, iPL) : "";
 
 // 1) payoff nunca multiplica campo anulável direto — em JS `null * 100 === 0`;
 // multiplicar antes de checar transforma "não aplicável" em "R$ 0,00", a
@@ -352,6 +399,27 @@ ok("FonteDoDadoProposta não tem rótulo de fonte hardcoded (Yahoo/brapi/MyData)
 // não devolve estrutura/caixa/precoObjeto)
 ok("bloco de payoff guardado por `{est && (`",
   /\{est && \(/.test(propostaFn));
+
+// ---------------------------------------------------------------------------
+// NOVO (2026-09-13, Fase 28, 28-01) — T-28-05: o módulo declara MONO/nf2/
+// price/FONTE_LABEL localmente porque não pode importar App.jsx (ADR-027,
+// Emenda 3). Um `price`/`FONTE_LABEL` divergente mostraria número/rótulo
+// diferente para o MESMO dado na mesma tela — este guardião trava as quatro
+// linhas caractere a caractere entre os dois arquivos.
+// ---------------------------------------------------------------------------
+(() => {
+  const NOMES = ["const MONO = ", "const nf2 = ", "const price = ", "const FONTE_LABEL = "];
+  for (const nome of NOMES) {
+    const reApp = new RegExp("^" + nome.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ".*$", "m");
+    const reModulo = new RegExp("^" + nome.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ".*$", "m");
+    const linhaApp = (app.match(reApp) || [null])[0];
+    const linhaModulo = (modulo.match(reModulo) || [null])[0];
+    ok(`${nome.trim()} existe em App.jsx`, linhaApp != null);
+    ok(`${nome.trim()} existe no módulo`, linhaModulo != null);
+    ok(`${nome.trim()} é IDÊNTICA caractere a caractere entre App.jsx e o módulo (T-28-05)`,
+      linhaApp != null && linhaModulo != null && linhaApp === linhaModulo);
+  }
+})();
 
 if (fails) { console.error(`\n${fails} falha(s)`); process.exit(1); }
 console.log("\ntodos os testes passaram");

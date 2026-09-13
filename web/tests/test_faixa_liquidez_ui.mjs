@@ -14,6 +14,9 @@ const app = readFileSync(join(here, "..", "src", "App.jsx"), "utf8");
 const persistence = readFileSync(join(here, "..", "src", "persistence.js"), "utf8");
 const financeJs = readFileSync(join(here, "..", "src", "finance.js"), "utf8");
 const optionsQuantPy = readFileSync(join(here, "..", "..", "server", "app", "options_quant.py"), "utf8");
+// ATUALIZADO 2026-09-13 (Fase 28, 28-01): FonteDoDadoProposta/ChipDaProposta/
+// PropostaLastreada saíram de App.jsx para web/src/opcoes/PropostaLastreada.jsx.
+const modulo = readFileSync(join(here, "..", "src", "opcoes", "PropostaLastreada.jsx"), "utf8");
 
 let fails = 0;
 const ok = (name, cond, extra) => { console.log((cond ? "ok " : "FALHOU ") + name + (extra ? ` (${extra})` : "")); if (!cond) fails++; };
@@ -65,10 +68,14 @@ ok("finance.js documenta o espelho (comentário aponta para options_quant.faixa_
 // 3) OpcaoContrato — literais 55/30 saíram do componente (usa faixaDeLiquidez)
 // ---------------------------------------------------------------------------
 (() => {
+  // ATUALIZADO 2026-09-13 (Fase 28, 28-01): FonteDoDadoProposta saiu de
+  // App.jsx (foi para o módulo) — deixou de servir de fronteira para esta
+  // fatia. `function OpcoesCamada` é o próximo componente depois de
+  // OpcaoContrato em App.jsx agora, e delimita a mesma fatia de sempre.
   const iOC = app.indexOf("function OpcaoContrato");
-  const iFonteDoDado = app.indexOf("function FonteDoDadoProposta");
-  ok("OpcaoContrato localizado antes de FonteDoDadoProposta", iOC > -1 && iFonteDoDado > iOC);
-  const fatia = iOC > -1 && iFonteDoDado > iOC ? app.slice(iOC, iFonteDoDado) : "";
+  const iFimFatia = app.indexOf("function OpcoesCamada");
+  ok("OpcaoContrato localizado antes de OpcoesCamada", iOC > -1 && iFimFatia > iOC);
+  const fatia = iOC > -1 && iFimFatia > iOC ? app.slice(iOC, iFimFatia) : "";
   ok("OpcaoContrato usa faixaDeLiquidez(", fatia.includes("faixaDeLiquidez("));
   ok("OpcaoContrato NÃO tem mais o literal >= 55 inline", !/liq\.score[\s\S]{0,10}>=\s*55/.test(fatia));
   ok("OpcaoContrato NÃO tem mais o literal >= 30 inline", !/liq\.score[\s\S]{0,10}>=\s*30/.test(fatia));
@@ -81,20 +88,26 @@ ok("App.jsx importa faixaDeLiquidez de finance.js",
 //    test_opcoes_proposta_ui.mjs/test_opcoes_collar_ui.mjs — reafirmado aqui
 //    como o guardião CENTRAL desta quick, autocontido).
 // ---------------------------------------------------------------------------
+// ATUALIZADO 2026-09-13 (Fase 28, 28-01): `aceitarCandidato` saiu de App.jsx
+// e virou `useAceiteLastreado`, no módulo — `onAbrirLastreada` (AtivoCard)
+// não mudou de lugar. Mesmo invariante ("dois handlers de aceite, mesma
+// régua de liquidez"), agora medido em cada fonte onde o handler vive.
 (() => {
-  const idxs = [];
-  const reOnAbrir = /const onAbrirLastreada = async \(\) => \{/g;
-  const reAceitar = /const aceitarCandidato = async \(p\) => \{/g;
-  let m;
-  while ((m = reOnAbrir.exec(app))) idxs.push(m.index);
-  while ((m = reAceitar.exec(app))) idxs.push(m.index);
-  idxs.sort((a, b) => a - b);
-  ok("existem exatamente 2 handlers de aceite", idxs.length === 2, String(idxs.length));
+  const handlers = [];
+  {
+    const i = app.indexOf("const onAbrirLastreada = async () => {");
+    if (i > -1) handlers.push({ nome: "onAbrirLastreada (App.jsx)", fonte: app, inicio: i, fimMarcador: "const onFecharLastreada" });
+  }
+  {
+    const i = modulo.indexOf("const aceitarCandidato = async (p) => {");
+    if (i > -1) handlers.push({ nome: "aceitarCandidato (módulo)", fonte: modulo, inicio: i, fimMarcador: "const fecharLastreada" });
+  }
+  ok("existem exatamente 2 handlers de aceite", handlers.length === 2, String(handlers.length));
 
-  idxs.forEach((iInicio, n) => {
-    const iFim = app.indexOf("const onFecharLastreada", iInicio);
-    const handler = iFim > iInicio ? app.slice(iInicio, iFim) : "";
-    ok(`handler #${n + 1}: liq = p.liquidez || {} declarado`, /const liq = p\.liquidez \|\| \{\};/.test(handler));
+  handlers.forEach(({ nome, fonte, inicio: iInicio, fimMarcador }, n) => {
+    const iFim = fonte.indexOf(fimMarcador, iInicio);
+    const handler = iFim > iInicio ? fonte.slice(iInicio, iFim) : "";
+    ok(`handler #${n + 1} (${nome}): liq = p.liquidez || {} declarado`, /const liq = p\.liquidez \|\| \{\};/.test(handler));
     ok(`handler #${n + 1}: liq.faixa === "DIFÍCIL" checado`, handler.includes('liq.faixa === "DIFÍCIL"'));
     ok(`handler #${n + 1}: motor mudo (sem aviso) aborta sem inventar texto`, /if \(!liq\.aviso\)/.test(handler));
     ok(`handler #${n + 1}: window.confirm(liq.aviso) presente`, handler.includes("window.confirm(liq.aviso)"));
@@ -130,10 +143,18 @@ ok("App.jsx importa faixaDeLiquidez de finance.js",
 // 5) Chip de liquidez → verbete (D-09): abrirVerbete("liquidez-opcao", ...)
 // ---------------------------------------------------------------------------
 ok('App.jsx chama A.abrirVerbete("liquidez-opcao", ...)', /abrirVerbete\("liquidez-opcao"/.test(app));
-ok("ChipDaProposta existe e trata k === \"liquidez\" como botão", /function ChipDaProposta/.test(app) && /c\.k === "liquidez"/.test(app));
-ok("o botão de liquidez tem aria-label acessível", app.includes('aria-label="O que é liquidez de opção?"'));
-ok("PropostaLastreada e CandidatoOpcao usam <ChipDaProposta (não mais <span cru para os chips)",
-  (app.match(/<ChipDaProposta /g) || []).length === 2);
+// ATUALIZADO 2026-09-13 (Fase 28, 28-01): ChipDaProposta saiu de App.jsx —
+// vive agora no módulo.
+ok("ChipDaProposta existe e trata k === \"liquidez\" como botão", /function ChipDaProposta/.test(modulo) && /c\.k === "liquidez"/.test(modulo));
+ok("o botão de liquidez tem aria-label acessível", modulo.includes('aria-label="O que é liquidez de opção?"'));
+// ATUALIZADO 2026-09-13 (Fase 28, 28-01): a asserção cobria PropostaLastreada
+// (módulo, 1 uso) E CandidatoOpcao (App.jsx, 1 uso) somados — dividida em
+// duas, cada uma sobre a sua fonte, sem perder a exigência de <ChipDaProposta
+// (nada de <span cru para os chips) em nenhum dos dois lados.
+ok("PropostaLastreada (módulo) usa <ChipDaProposta (não <span cru para os chips)",
+  (modulo.match(/<ChipDaProposta /g) || []).length === 1);
+ok("CandidatoOpcao (App.jsx) usa <ChipDaProposta (não <span cru para os chips)",
+  (app.match(/<ChipDaProposta /g) || []).length === 1);
 
 // ---------------------------------------------------------------------------
 // 6) Ramo OFFLINE do deviceStore.optionsAbrirLastreada aplica a MESMA régua

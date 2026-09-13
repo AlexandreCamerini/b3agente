@@ -32,6 +32,9 @@ import { COPY } from "../src/copy.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const app = readFileSync(join(here, "..", "src", "App.jsx"), "utf8");
+// ATUALIZADO 2026-09-13 (Fase 28, 28-01): PropostaLastreada saiu de App.jsx
+// para web/src/opcoes/PropostaLastreada.jsx.
+const modulo = readFileSync(join(here, "..", "src", "opcoes", "PropostaLastreada.jsx"), "utf8");
 
 let fails = 0;
 const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if (!cond) fails++; };
@@ -208,8 +211,10 @@ ok("abrirOpcoesDe chama setOpcoesFor(",
 // ---- (11) Assinatura de PropostaLastreada ---------------------------
 // ATUALIZADO 2026-09-08 (quick 260908-ldg): ganhou `onVerbeteLiquidez`
 // (D-09) — guardião de igualdade exata continua, agora com o campo novo.
+// ATUALIZADO 2026-09-13 (Fase 28, 28-01): a definição saiu de App.jsx para
+// o módulo — a fonte da asserção muda, a exigência de assinatura exata não.
 ok("assinatura de PropostaLastreada é { r, operador, cp, busy, onAbrir, onFechar, posAberta, onVerbeteLiquidez }",
-  /function PropostaLastreada\(\{ r, operador, cp, busy, onAbrir, onFechar, posAberta, onVerbeteLiquidez \}\)/.test(app));
+  /function PropostaLastreada\(\{ r, operador, cp, busy, onAbrir, onFechar, posAberta, onVerbeteLiquidez \}\)/.test(modulo));
 ok("<PropostaLastreada aparece 2x no fonte (AtivoCard + PropostaDaPosicao — a Fase 18 ADICIONOU um ponto, não moveu o existente)",
   (fonteSemComentario.match(/<PropostaLastreada/g) || []).length === 2);
 

@@ -21,6 +21,11 @@ const here = dirname(fileURLToPath(import.meta.url));
 const app = readFileSync(join(here, "..", "src", "App.jsx"), "utf8");
 const persistence = readFileSync(join(here, "..", "src", "persistence.js"), "utf8");
 const apiJs = readFileSync(join(here, "..", "src", "api.js"), "utf8");
+// ATUALIZADO 2026-09-13 (Fase 28, 28-01, achado durante execução — este
+// arquivo não estava em files_modified do plano, mas quebrava pela mesma
+// causa dos outros guardiões: PropostaLastreada/aceitarCandidato saíram de
+// App.jsx para web/src/opcoes/PropostaLastreada.jsx).
+const modulo = readFileSync(join(here, "..", "src", "opcoes", "PropostaLastreada.jsx"), "utf8");
 
 let fails = 0;
 const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if (!cond) fails++; };
@@ -104,23 +109,30 @@ ok("api.js monta ?multiperna=1 quando o parâmetro é passado",
 //    `cp.`) E acrescentar a asserção POSITIVA do segundo confirm, em vez de
 //    deixá-la implícita/confiar que "não quebrou por acidente".
 // ---------------------------------------------------------------------------
+// ATUALIZADO 2026-09-13 (Fase 28, 28-01): `aceitarCandidato` (o handler de
+// PropostaDaPosicao) saiu de App.jsx e virou `useAceiteLastreado`, no
+// módulo. `onAbrirLastreada` (AtivoCard) não mudou de lugar. O invariante —
+// dois handlers de aceite, cada um confirmando ANTES de executar — passa a
+// ser medido em cada fonte onde o handler efetivamente vive.
 (() => {
-  const idxs = [];
-  const reOnAbrir = /const onAbrirLastreada = async \(\) => \{/g;
-  const reAceitar = /const aceitarCandidato = async \(p\) => \{/g;
-  let m;
-  while ((m = reOnAbrir.exec(app))) idxs.push(m.index);
-  while ((m = reAceitar.exec(app))) idxs.push(m.index);
-  idxs.sort((a, b) => a - b);
-  ok("pelo menos um handler de aceite localizado", idxs.length > 0, String(idxs.length));
-  ok("existem exatamente 2 handlers de aceite (onAbrirLastreada em AtivoCard + aceitarCandidato em PropostaDaPosicao, Fase 19 Plano 03)", idxs.length === 2, String(idxs.length));
+  const handlers = [];
+  {
+    const i = app.indexOf("const onAbrirLastreada = async () => {");
+    if (i > -1) handlers.push({ fonte: app, inicio: i, fimMarcador: "const onFecharLastreada" });
+  }
+  {
+    const i = modulo.indexOf("const aceitarCandidato = async (p) => {");
+    if (i > -1) handlers.push({ fonte: modulo, inicio: i, fimMarcador: "const fecharLastreada" });
+  }
+  ok("pelo menos um handler de aceite localizado", handlers.length > 0, String(handlers.length));
+  ok("existem exatamente 2 handlers de aceite (onAbrirLastreada em App.jsx/AtivoCard + aceitarCandidato no módulo/useAceiteLastreado)", handlers.length === 2, String(handlers.length));
 
-  idxs.forEach((iOnAbrir, n) => {
-    // Delimita o handler pelo próximo `const onFecharLastreada` (vizinho
-    // imediato, mesmo padrão usado nos outros guardiões deste arquivo — o
-    // nome onFecharLastreada não mudou em nenhum dos dois pontos de uso).
-    const iOnFechar = app.indexOf("const onFecharLastreada", iOnAbrir);
-    const handler = iOnFechar > iOnAbrir ? app.slice(iOnAbrir, iOnFechar) : "";
+  handlers.forEach(({ fonte, inicio: iOnAbrir, fimMarcador }, n) => {
+    // Delimita o handler pelo próximo marcador de fechamento — vizinho
+    // imediato na MESMA fonte (App.jsx usa onFecharLastreada; o módulo usa
+    // fecharLastreada).
+    const iOnFechar = fonte.indexOf(fimMarcador, iOnAbrir);
+    const handler = iOnFechar > iOnAbrir ? fonte.slice(iOnAbrir, iOnFechar) : "";
     ok(`handler de aceite #${n + 1} tem conteúdo (parse mudo)`, handler.length > 100, String(handler.length));
 
     const ocorrenciasConfirm = (handler.match(/window\.confirm\(cp\.confirmAbrirCollar\(/g) || []).length;
@@ -152,11 +164,13 @@ ok("api.js monta ?multiperna=1 quando o parâmetro é passado",
 //    especificamente para o caminho do collar (a UI de defesa; o servidor
 //    recusa com 403 mesmo se este código tivesse um bug).
 // ---------------------------------------------------------------------------
+// ATUALIZADO 2026-09-13 (Fase 28, 28-01): PropostaLastreada saiu de App.jsx
+// para o módulo — a fatia passa a vir de `modulo` (é o último componente do
+// arquivo, então a fatia vai até o fim).
 (() => {
-  const iPL = app.indexOf("function PropostaLastreada");
-  const iOC = app.indexOf("function OpcoesCamada");
-  ok("PropostaLastreada localizado antes de OpcoesCamada", iPL > -1 && iOC > iPL);
-  const propostaFn = iPL > -1 && iOC > iPL ? app.slice(iPL, iOC) : "";
+  const iPL = modulo.indexOf("function PropostaLastreada");
+  ok("PropostaLastreada localizado no módulo", iPL > -1);
+  const propostaFn = iPL > -1 ? modulo.slice(iPL) : "";
 
   ok("PropostaLastreada renderiza o ramo collar (isCollar)", /isCollar/.test(propostaFn));
 
