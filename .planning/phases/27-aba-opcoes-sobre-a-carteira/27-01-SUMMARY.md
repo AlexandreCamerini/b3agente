@@ -257,13 +257,47 @@ fechar em 27-02/27-03 ou aceitar por escrito.
 Nenhum. Nenhuma variável de ambiente nova, nenhum pacote novo
 (`T-27-SC` do threat model: zero `npm install`/`pip install` nesta fase).
 
-## Checkpoint final — ABERTO (bloqueante)
+## Checkpoint final — PARTE 2 FECHADA, PARTE 1 AGUARDA PUBLICAÇÃO
 
 O plano termina num `checkpoint:human-verify` com duas partes, e **nenhuma das
 duas pode ser automatizada**: a primeira precisa do serviço real com as
 credenciais do Railway, a segunda é operação destrutiva sobre dado real de um
-armazém compartilhado. Está aberto e aguardando o Alex. Ver a seção
-"Awaiting" no relato devolvido ao orquestrador.
+armazém compartilhado.
+
+### Parte 2 — limpeza dos antigos: FEITA em 2026-09-13, 12:03 (decisão D6)
+
+O Alex executou a varredura (o agente foi barrado pelo classificador de
+permissão nas duas tentativas — credencial de produção + escrita destrutiva em
+serviço externo; ele rodou no terminal dele). Saída verbatim registrada:
+
+| nome verbatim | prefixo? | ticker | status antes | ação |
+|---|---|---|---|---|
+| `PETR4 3 pregões abaixo da média móvel` | NÃO | PETR4 | ativo | **desativado** |
+| `Pullback + Confirmação` | NÃO | PETR4 | ativo | **desativado** |
+| `VALE3 Pullback + Confirmação Direcional` | NÃO | VALE3 | ativo | **desativado** |
+| `abcdef12-teste-fase-27` | sim | PETR4 | ativo | **mantido de propósito** |
+
+O armazém inteiro tinha **4 registros**. Os três legados eram inequivocamente
+do Alex (nomes em português, tickers da B3, vocabulário do produto), o que
+confirma em retrospecto que a ressalva de "pode haver setup de outro cliente
+do serviço" era teórica neste caso — `mcp.semente.dev` é do próprio Alex, como
+`boris.semente.dev` e `mydata.semente.dev`. A cautela de não varrer continua
+correta como regra; só não tinha mordida aqui.
+
+`abcdef12-teste-fase-27` **fica até a fase fechar** — é o pré-existente que a
+Parte 1 usa para provar a listagem e o gate de dono sobre algo que nasceu
+antes do índice. Removê-lo é passo de encerramento da fase, não de agora.
+Note que ele NÃO é legado para o código (`abcdef12` casa o formato de
+prefixo), então serve de controle negativo: `/desativar` sobre ele responde
+403 para qualquer conta cujo hash não seja `abcdef12`.
+
+### Parte 1 — validação ao vivo: BLOQUEADA POR SEQUÊNCIA DE PUBLICAÇÃO
+
+Não é pendência de disposição do Alex: ela exige o backend desta fase **no
+ar**, e publicar só o backend quebraria "Disparos do setup" e "Desativar" no
+app publicado (o front de hoje manda `s.name` sem prefixo → 422). Por isso
+**27-01 e 27-02 saem juntos**, e a Parte 1 vira validação conjunta pós-deploy.
+Detalhe no achado nº 1 da seção "Achados que exigem decisão do Alex".
 
 **Nada foi publicado e nada foi empurrado a `origin`.** Sem `bump.sh`, sem
 `publicar-web.sh`, sem `entregar.sh`. `server/web_dist`, `server/admin_dist`,
