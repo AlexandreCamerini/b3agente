@@ -4,8 +4,17 @@
 // Contrato:
 //  (a) AiNote tem as duas variantes de texto (ia / deterministico);
 //  (b) AnalysisView escolhe a variante por an.fonte;
-//  (c) a frase "Não há dados suficientes para uma explicação agora."
-//      (mandatória, CLAUDE.md) está presente verbatim;
+//  (c) a frase de evidência insuficiente do CLAUDE.md está presente verbatim;
+//      2026-09-12 (Fase 26, achado A5) — GUARDIÃO CORRIGIDO, NÃO RELAXADO.
+//      Até aqui ele travava "Não há dados suficientes para uma explicação
+//      agora." dizendo-a "mandatória, CLAUDE.md". Ela não era: a norma
+//      (CLAUDE.md, seção "Camada educacional") manda "Não há dados suficientes
+//      para concluir.", e `docs/MANUAL-BORIS-PLUS.md` já documentava ESSA. O
+//      app tinha duas frases para a mesma coisa, e o guardião fixava a errada
+//      alegando ser cópia da certa. A asserção continua sendo de igualdade
+//      verbatim e de ocorrência única — só passou a apontar para a frase real,
+//      LIDA DO CLAUDE.md em vez de redigitada aqui (redigitar é justamente
+//      como as duas divergiram);
 //  (d) a linha "IA indisponível agora ..." está presente verbatim;
 //  (e) o caminho determinístico usa <Markdown, não um contêiner de erro;
 //  (f) persistence.js persiste `fonte` em doc.analyses.
@@ -57,11 +66,22 @@ ok("a chamada de AiNote fora de AnalysisView não passa source (mantém default 
    /<AiNote \/>/.test(segundaChamada));
 
 // ------------------------------------------------------- (c) sem dados ----
-const FRASE_SEM_DADOS = "Não há dados suficientes para uma explicação agora.";
-ok("frase mandatória \"Não há dados suficientes para uma explicação agora.\" presente verbatim",
+// A frase é LIDA DA NORMA, não redigitada aqui: duas cópias manuais foi
+// exatamente o que produziu o achado A5. No CLAUDE.md ela vem quebrada em duas
+// linhas pelo limite de coluna — o `\s+` normalizado é formatação do markdown,
+// não diferença de texto.
+const claudeMd = readFileSync(join(here, "..", "..", "CLAUDE.md"), "utf8");
+const mNorma = claudeMd.match(/diz explicitamente:\s*\*\*"([^"]+)"\*\*/);
+ok("a frase de evidência insuficiente foi encontrada no CLAUDE.md", !!mNorma);
+const FRASE_SEM_DADOS = mNorma ? mNorma[1].replace(/\s+/g, " ").trim() : "(não encontrada)";
+ok(`frase da norma ("${FRASE_SEM_DADOS}") presente verbatim na AnalysisView`,
    analysisView.includes(FRASE_SEM_DADOS));
-ok("frase mandatória aparece 1x no arquivo inteiro",
-   (app.match(/Não há dados suficientes para uma explicação agora\./g) || []).length === 1);
+ok("a frase da norma aparece 1x no arquivo inteiro",
+   (app.split(FRASE_SEM_DADOS).length - 1) === 1);
+// A variante antiga não pode voltar a coexistir com a canônica: duas frases
+// para a mesma coisa é o defeito, não o texto de nenhuma delas.
+ok("a variante antiga (\"…para uma explicação agora.\") não existe mais no app",
+   !/Não há dados suficientes para uma explicação agora\./.test(app));
 ok("semDados deriva de an.semDados OU corpo vazio no caminho determinístico (fail-safe, não hardcoded)",
    /const semDados = an\.semDados === true \|\| \(source === "deterministico" && !body\);/.test(analysisView));
 

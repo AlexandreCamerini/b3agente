@@ -1442,7 +1442,23 @@ function AnalysisView({ an }) {
   const body = an.markdown || d.resumo || an.text || an.analysis || "";
   const source = an.fonte === "deterministico" ? "deterministico" : "ia";
   // an.semDados (contrato do backend) ou corpo vazio no caminho determinístico
-  // (nem setup foi detectado) — frase MANDATÓRIA do CLAUDE.md, verbatim.
+  // (nem setup foi detectado) — a frase abaixo é a do CLAUDE.md, agora de
+  // fato verbatim.
+  //
+  // 2026-09-12 (Fase 26, achado A5): este comentário dizia "frase MANDATÓRIA
+  // do CLAUDE.md, verbatim" e o texto renderizado era OUTRO — "…para uma
+  // explicação agora." contra "…para concluir." da norma. O comentário mentia
+  // e o guardião (`test_fonte_explicacao.mjs`) travava a divergência,
+  // repetindo a mesma alegação falsa: o app tinha duas frases para a mesma
+  // coisa e uma delas se dizia cópia da outra. `docs/MANUAL-BORIS-PLUS.md`
+  // (linha do glossário) já documentava a versão do CLAUDE.md — ou seja, o
+  // texto da tela era o único fora de compasso. A canônica é a do CLAUDE.md,
+  // que é a norma declarada do produto.
+  //
+  // NÃO confundir com `skill_ref.vocab[*]["sem_setup"]`: aquela é ausência de
+  // SETUP (não há operação com vantagem estatística clara), esta é ausência
+  // de DADO/evidência. Frases diferentes para coisas diferentes — a de lá
+  // está certa e não se toca.
   const semDados = an.semDados === true || (source === "deterministico" && !body);
   // FASE 1: a análise do ativo individual exibe SÓ texto. O stop/alvo
   // (an.proposal) foi desacoplado deste fluxo — a lógica permanece em
@@ -1451,7 +1467,7 @@ function AnalysisView({ an }) {
     <div style={{ display: "grid", gap: "2px" }}>
       {an.iaIndisponivel && <div style={{ fontSize: "11px", color: T.textFaint, lineHeight: 1.4, marginBottom: "6px" }}>IA indisponível agora — mostrando a explicação automática do app, sem IA.</div>}
       {semDados
-        ? <div style={{ color: T.textMuted, fontSize: "13px" }}>Não há dados suficientes para uma explicação agora.</div>
+        ? <div style={{ color: T.textMuted, fontSize: "13px" }}>Não há dados suficientes para concluir.</div>
         : (body ? <Markdown text={body} /> : <div style={{ color: T.textMuted, fontSize: "13px" }}>A análise foi gerada, mas não veio texto legível. Tente reanalisar.</div>)}
       {Array.isArray(d.fatos) && d.fatos.length > 0 && (
         <div style={{ marginTop: "14px", padding: "13px 14px", borderRadius: "11px", background: T.bgBase, border: `1px solid ${T.borderSubtle}` }}>
