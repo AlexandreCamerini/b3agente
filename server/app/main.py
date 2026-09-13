@@ -47,6 +47,7 @@ from .options_provider import get_options as _get_options_for_status
 from . import options_mcp_api  # aba-opcoes F1 (ADR-027): router do serviço MCP autenticado
 from .options_mcp_api import router as options_mcp_router
 from . import opcoes_vigias  # Fase 27: índice de "meus vigias" (custo ZERO de MCP)
+from . import opcoes_tecnico  # Fase 27 (D1): leitura técnica interna da aba (custo ZERO de MCP)
 from . import opcoes_lastreadas  # Fase 14 (Plano 03): motor de proposta lastreada (venda coberta/put)
 from .options_quant import FAIXA_DIFICIL, FAIXA_SEM_MERCADO, faixa_de_liquidez, liquidity_score  # quick 260908-ldg: gate de liquidez em três faixas
 from . import skill_ref  # Fase 14 (Plano 03): frase canônica da proposta lastreada por modo
@@ -3271,6 +3272,62 @@ async def options_vigias(scope: Optional[str] = Depends(current_scope)):
         "vigias": opcoes_vigias.listar(_conn, scope),
         "fonte": "local",
         "at": now_str(),
+    }
+
+
+@app.get("/api/options/tecnico/{ticker}")
+async def options_tecnico(ticker: str, period: Optional[str] = None,
+                          scope: Optional[str] = Depends(current_scope)):
+    """Leitura técnica do ATIVO para a aba Opções — tendência, volatilidade,
+    suporte/resistência e a régua de sete pregões. **Custo ZERO de MCP.**
+
+    Decisão D1 da Fase 27 (Alex, 2026-09-13), registrada como Emenda 2 do
+    ADR-027: esta leitura sai do motor determinístico do próprio app —
+    `technical_snapshot.get`, o MESMO Snapshot Técnico Único que serve
+    `/api/technicals/{ticker}`, o Radar e a Watchlist. Nenhuma linha de
+    matemática nova: o número já existia, só não chegava à aba.
+
+    **Por que a rota mora aqui e não em `options_mcp_api.py`.** O guardião (iv)
+    (`test_mcp_guardioes.py`) obriga TODA rota `/api/options/mcp/*` a passar
+    pelo `_cap_check`. Passar esta leitura pelo cap cobraria cota do serviço
+    por uma chamada ao serviço que **não acontece** — cobrar pelo que não
+    aconteceu. Rota de custo zero e prefixo `/mcp/` são incompatíveis por
+    desenho, e é a mesma razão pela qual `/api/options/vigias` mora aqui em
+    cima.
+
+    **Por que `current_scope` e não `require_user`.** É o MESMO motor e o
+    MESMO dado de `/api/technicals/{ticker}`, que já é `current_scope` (dado
+    de mercado público, nenhum dado de conta viaja na resposta — o `scope` não
+    entra no payload). Exigir sessão só aqui criaria duas réguas de acesso
+    para a mesma informação, e a divergência entre elas seria o defeito.
+
+    **Nada nesta rota toca `mcp.semente.dev`** — provado por bomba no
+    `mcp_client.call_tool` em `test_opcoes_tecnico_rota.py`. O ADR-027 §3.3
+    (custo de MCP só em clique explícito) sai FORTALECIDO: é justamente esta
+    leitura que permite a aba abrir com conteúdo sem gastar cota de ninguém.
+
+    `custoMcp: 0` é campo de CONTRATO, não enfeite: é dele que a tela tira o
+    rótulo "grátis" do controle (SC-4). Com o custo na resposta, o front não
+    precisa (nem pode) inventar o rótulo por conta própria — e o dia em que
+    uma rota passar a custar, o rótulo muda sozinho.
+    """
+    t = _normalize_ticker(ticker)
+    if len(t) < 4:
+        raise HTTPException(400, "Ticker invalido.")
+    try:
+        snap = await technical_snapshot.get(t, period, lambda rng: candle_provider.get_history(t, rng=rng))
+    except ValueError:
+        raise HTTPException(502, "Sem historico para " + t)
+    return {
+        "t": t,
+        **opcoes_tecnico.leitura(snap),
+        "fonte": "motor interno",
+        "custoMcp": 0,
+        "at": now_str(),
+        # C-11/C-30 (REPORT-01), mesmo par de `/api/technicals`: o estado do
+        # orçamento da brapi entra na resposta para a tela nunca esconder que
+        # o dado pode estar mais velho que o habitual.
+        "degradado": _degradado_spot(),
     }
 
 

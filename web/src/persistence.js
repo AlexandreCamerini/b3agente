@@ -299,6 +299,12 @@ function serverStore() {
     // que outra sessão da mesma conta gravou ou desativou um vigia.
     mcpVigias: () => api.mcpVigias(),
     mcpSetupsListar: () => api.mcpSetupsListar(),
+    // Fase 27 (D1): leitura técnica interna do ativo — custo ZERO de MCP,
+    // motor determinístico do próprio app. Delegação PURA, como as irmãs:
+    // é dado de mercado de pregão FECHADO, e cachear aqui carimbaria pregão
+    // velho como se fosse o do dia. Sem o prefixo `mcp` de propósito (ver o
+    // comentário em api.js): `mcp*` neste código significa "custa cota".
+    opcoesTecnico: (t, q) => api.opcoesTecnico(t, q),
     // 260911-k9g: carimbo do SERVIDOR ATUAL para o rodapé do Perfil —
     // diagnóstico, nunca persistido, mesma classe de delegação pura do
     // mcpStatus/optionsProposta acima.
@@ -1336,6 +1342,16 @@ function deviceStore() {
     async mcpSetupsListar() {
       ensure();
       return api.mcpSetupsListar();
+    },
+    // Fase 27 (D1): espelho de `opcoesTecnico` do serverStore, mesmo
+    // contrato. Não há ramo local aqui de propósito — a leitura vem do
+    // Snapshot Técnico Único do SERVIDOR, e reimplementá-la no aparelho
+    // criaria uma segunda régua de regime no app (o defeito que o STU existe
+    // para matar). `ensure()` antes da delegação aplica o serverUrl
+    // configurado no aparelho, como o resto do deviceStore.
+    async opcoesTecnico(t, q) {
+      ensure();
+      return api.opcoesTecnico(t, q);
     },
     // Fase 14 (Plano 05): logado, delega e adota o estado confirmado pelo
     // servidor (mesmo padrão de optionsBuy). Sem sessão, ramo local é
