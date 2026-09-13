@@ -37,7 +37,7 @@ import PayoffChart from "./PayoffChart.jsx";
 import CriarSetup, { BotaoDesativar } from "./CriarSetup.jsx";
 // Fase 28 (28-02): módulo terceiro do 28-01 — nenhum import de `App.jsx`
 // aqui (isolamento ADR-027 Decisão 3 intacto).
-import PropostaLastreada, { FonteDoDadoProposta, useAceiteLastreado } from "./PropostaLastreada.jsx";
+import PropostaLastreada, { useAceiteLastreado } from "./PropostaLastreada.jsx";
 
 // Mesmos NOMES de variável CSS que `App.jsx` injeta em `:root` — padrão de
 // `pet/BorisChat.jsx`. Zero import de `App.jsx` (seria ciclo).
