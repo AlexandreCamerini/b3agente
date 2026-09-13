@@ -560,6 +560,41 @@ melhores estruturas (Fase 30); polish de UX pós-uso real (Fase 31).
 `publicar-web.sh`. Publicação é passo humano separado, fora do escopo desta
 fase.
 
+#### Phase 29: Opção a descoberto com flag opt-in — standalone
+**Goal**: `buy_option`/`sell_option` (o caminho "a seco", hoje sem NENHUM
+gate de lastro) passam a exigir um flag opt-in em Configurações para abrir
+posição nova — lastro obrigatório continua sendo o padrão para toda conta,
+sem exceção silenciosa. Fechar uma posição a seco já aberta nunca é
+bloqueado pelo flag.
+**Depends on**: Phase 28 (aba Opções com sub-abas Setups/Operar — não
+tocada por esta fase, ver D2) e a decisão do Alex registrada em
+`26-CONTEXT.md` (lastro obrigatório por padrão × flag opt-in).
+**Requirements**: ver `29-CONTEXT.md`
+**Success Criteria** (what must be TRUE):
+  1. Conta nova nasce com o flag desligado — sem exceção, sem migração
+     silenciosa de conta existente para "ligado".
+  2. `buy_option` recusa abrir posição a seco quando o flag está desligado,
+     com mensagem clara apontando para Configurações — recusa no backend,
+     nunca só escondida na UI.
+  3. Ligar o flag exige o mesmo padrão de fricção do Modo Operador (D1):
+     termo de responsabilidade, leitura até o fim, checkbox, versão do
+     texto registrada.
+  4. `sell_option` (fechar posição a seco já aberta) nunca é bloqueado pelo
+     flag, em nenhum estado.
+  5. `OpcoesCamada` (Watchlist/Radar) continua sendo a UI da compra a seco
+     nesta fase — sem migração para a sub-aba "Operar" (D2, fechada).
+  6. Suíte canônica sem regressão da baseline medida no início da fase;
+     `npx vite build` verde.
+**Plans**: gerados por `/gsd:plan-phase 29`
+
+**UI hint**: yes
+
+**Fora de escopo, explicitamente**: migrar `OpcoesCamada` para a sub-aba
+"Operar" (D2 — fase seguinte, sobre o gate já testado); abrir posição de
+opção automaticamente pelo Operador IA (lastreada ou a descoberto — sem
+precedente de código, não pedido); curadoria de IA das 4 melhores
+estruturas (Fase 30); polish de UX pós-uso real (Fase 31).
+
 ## Progress
 
 | Phase | Milestone | Status | Completed |
@@ -593,6 +628,7 @@ fase.
 | 26. Otimização de UX e da camada de IA | 1/6 | In Progress|  |
 | 27. Aba Opções sobre a carteira | 5/5 | Code complete | 2026-09-13 |
 | 28. Sub-aba "Operar" e extração de `PropostaLastreada` | 3/3 | Code complete | 2026-09-13 |
+| 29. Opção a descoberto com flag opt-in | 0/? | Pending |  |
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2/v1.3
 
