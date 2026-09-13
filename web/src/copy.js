@@ -369,6 +369,18 @@ export const COPY = {
           (idade === null || idade === undefined || idade === "" ? "" : " (" + idade + ")") +
           ": um setup criado agora vigiaria um pregão que já passou. Nada foi gravado.",
 
+    // Fase 28-02 — sub-aba "Operar" dentro da aba Opções. "Setups" é IGUAL
+    // nos dois modos de propósito (mesma razão de tituloOpcoes: é o nome do
+    // artefato, não uma ação). "Operar"/"Operação" DIFERE de propósito
+    // (vocabulário por modo do repositório: Estudo descreve com substantivo,
+    // Operador manda com imperativo — skill_ref.py/copy.js).
+    opcoesSubabaSetups: "Setups",
+    opcoesSubabaOperar: "Operação",
+    opcoesOperarIntro: "Aqui você vê a estrutura lastreada que o motor propõe para cada posição da sua carteira, com ganho máximo, perda máxima e pontos de empate em número. Nada é enviado a nenhuma corretora.",
+    opcoesOperarEscolherPosicao: "Escolha uma posição da carteira para ver a estrutura lastreada que o motor propõe para ela.",
+    opcoesOperarSemLiquidez: (t) =>
+      "Não há contrato com liquidez confirmada para " + (t || "este ativo") + " agora. Sem cadeia líquida o motor não monta estrutura, e nada foi estimado no lugar.",
+
     // onboarding (home vazia) — qa/34: antes hardcodado na voz de Estudo
     welcomeTitulo: "Bem-vindo ao seu simulador",
     welcomeCorpo: "A jornada tem 3 passos: descubra oportunidades no Radar, acompanhe os melhores na Watchlist e simule operações no Portfólio — tudo com dinheiro simulado e leitura educacional.",
@@ -861,6 +873,16 @@ export const COPY = {
         : "Dado de negociação da B3 atrasado" +
           (idade === null || idade === undefined || idade === "" ? "" : " (" + idade + ")") +
           ": um setup criado agora vigiaria um pregão que já passou. Nada foi gravado.",
+
+    // Fase 28-02 — sub-aba "Operar". Mesma nota do ramo estudo: "Setups" é
+    // IGUAL nos dois modos (nome do artefato); "Operar" é imperativo (a mesa
+    // executa, não só descreve).
+    opcoesSubabaSetups: "Setups",
+    opcoesSubabaOperar: "Operar",
+    opcoesOperarIntro: "Aqui está a estrutura lastreada que o motor propõe para cada posição da carteira, com ganho máximo, perda máxima e pontos de empate em número. Abrir e fechar acontece direto aqui — nenhuma ordem sai para corretora nenhuma.",
+    opcoesOperarEscolherPosicao: "Escolha uma posição da carteira para ver a estrutura que a mesa propõe para ela.",
+    opcoesOperarSemLiquidez: (t) =>
+      "Sem contrato com liquidez confirmada para " + (t || "este ativo") + " agora. Sem cadeia líquida a mesa não monta estrutura, e nada foi estimado no lugar.",
 
     // onboarding (home vazia) — qa/34: voz de mesa
     welcomeTitulo: "Bem-vindo à sua mesa de operações",
