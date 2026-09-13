@@ -453,20 +453,20 @@ Plans:
 
 **Wave 1**
 
-- [ ] 27-01-PLAN.md — índice de vigias por usuário, isolamento no armazém compartilhado do MCP e as duas rotas de listagem (custo 0 e custo 2); emenda à Decisão 7 do ADR-027
+- [x] 27-01-PLAN.md — índice de vigias por usuário, isolamento no armazém compartilhado do MCP e as duas rotas de listagem (custo 0 e custo 2); emenda à Decisão 7 do ADR-027
 
 **Wave 2** *(paralelos — nenhum arquivo em comum)*
 
-- [ ] 27-02-PLAN.md — front: universo = carteira, ticker que não nasce vazio, bloco "Seus vigias" no topo, lastro livre no cartão, estado vazio com caminho
-- [ ] 27-03-PLAN.md — backend: ponte com o motor técnico interno (`opcoes_tecnico.py` + `GET /api/options/tecnico/{ticker}`), Emenda 2 ao ADR-027, assistente falando da aba sobre a carteira
+- [x] 27-02-PLAN.md — front: universo = carteira, ticker que não nasce vazio, bloco "Seus vigias" no topo, lastro livre no cartão, estado vazio com caminho
+- [x] 27-03-PLAN.md — backend: ponte com o motor técnico interno (`opcoes_tecnico.py` + `GET /api/options/tecnico/{ticker}`), Emenda 2 ao ADR-027, assistente falando da aba sobre a carteira
 
 **Wave 3**
 
-- [ ] 27-04-PLAN.md — front: bloco de leitura interna com carimbo, régua de regime de 7 pregões, formatador escolhido pela unidade declarada
+- [x] 27-04-PLAN.md — front: bloco de leitura interna com carimbo, régua de regime de 7 pregões, formatador escolhido pela unidade declarada
 
 **Wave 4**
 
-- [ ] 27-05-PLAN.md — front: custo declarado em TODO controle (tabela espelhada do `_cap_check`), leitura do serviço sob clique explícito, custo do frescor declarado no cabeçalho
+- [x] 27-05-PLAN.md — front: custo declarado em TODO controle (tabela espelhada do `_cap_check`), leitura do serviço sob clique explícito, custo do frescor declarado no cabeçalho
 
 **Nota de planejamento (2026-09-13):** eram 3 planos previstos; viraram 4. O
 critério 4 ("custo visível no próprio controle") hoje é falso em sete dos oito
@@ -525,7 +525,7 @@ continua pendente de decisão e não entra aqui.
 | 24. Aba Opções sobre MCP — análise e criação de setups | 12/13 | In Progress|  |
 | 25. Planos comerciais — acesso por função e limites por plano | 6/6 | Complete | 2026-09-12 |
 | 26. Otimização de UX e da camada de IA | 1/6 | In Progress|  |
-| 27. Aba Opções sobre a carteira | 0/4 | In Progress|  |
+| 27. Aba Opções sobre a carteira | 5/5 | Code complete | 2026-09-13 |
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2/v1.3
 
