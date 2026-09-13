@@ -3057,7 +3057,13 @@ async def buy_option(body: dict = Body(default={}), scope: Optional[str] = Depen
         "expiration": chain.get("expiration"),
         "ivEntrada": contrato.get("impliedVolatility"),
     }
-    store.buy_option(_conn, contract, qty, price, user_id=scope, meta=body.get("meta"))
+    # FASE 29 (T-29-05): sem esta tradução, o ValueError do gate de opção a
+    # descoberto vaza como 500 com texto cru (handler global, main.py:99) —
+    # mesma classe de vazamento que a auditoria A-00b já fechou em /api/buy.
+    try:
+        store.buy_option(_conn, contract, qty, price, user_id=scope, meta=body.get("meta"))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
     out = store.public_state(_conn, user_id=scope)
     out["priceUsed"] = round(price, 2)
     return out

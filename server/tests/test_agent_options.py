@@ -48,6 +48,14 @@ def _option_getter(payloads: dict):
     return getter
 
 
+def _liberar_descoberto(conn, user_id=None):
+    """Fase 29: `buy_option` passou a exigir o flag opt-in. Estes testes são
+    sobre a ARITMÉTICA da compra a seco, não sobre o gate — o gate tem
+    guardião próprio em test_opcao_descoberto_gate.py."""
+    store.set_config(conn, {"descobertoTermo": {"aceitoEm": "2026-09-13T00:00:00Z", "versao": "1.0"},
+                            "permitirOpcaoADescoberto": True}, user_id=user_id)
+
+
 def _run(c, option_getter):
     return asyncio.run(agent.run_cycle_for(c, "u1", _empty_quotes(), option_quotes_getter=option_getter))
 
@@ -75,6 +83,7 @@ def test_intrinseco_put_itm_e_a_diferenca():
 # ---------------------------------------------------------------------------
 def test_buy_option_debita_caixa_e_cria_posicao():
     c = _conn()
+    _liberar_descoberto(c, user_id="u1")
     store.buy_option(c, {"id": "PETRH340", "underlying": "PETR4", "optionType": "call",
                           "strike": 34.0, "expiration": "2099-01-01"}, 100, 1.25, user_id="u1")
     opts = store.get(c, "optionPositions", user_id="u1")
@@ -84,6 +93,7 @@ def test_buy_option_debita_caixa_e_cria_posicao():
 
 def test_sell_option_total_fecha_posicao_e_registra_motivo():
     c = _conn()
+    _liberar_descoberto(c, user_id="u1")
     store.buy_option(c, {"id": "PETRH340", "underlying": "PETR4", "optionType": "call",
                           "strike": 34.0, "expiration": "2099-01-01"}, 100, 1.0, user_id="u1")
     pnl = store.sell_option(c, "PETRH340", 2.5, user_id="u1", motivo="alvo")
@@ -95,6 +105,7 @@ def test_sell_option_total_fecha_posicao_e_registra_motivo():
 
 def test_close_option_vencida_pode_liquidar_a_zero():
     c = _conn()
+    _liberar_descoberto(c, user_id="u1")
     store.buy_option(c, {"id": "PETRH340", "underlying": "PETR4", "optionType": "call",
                           "strike": 34.0, "expiration": "2020-01-01"}, 100, 1.0, user_id="u1")
     pnl = store.close_option_vencida(c, "PETRH340", 0.0, user_id="u1")
@@ -105,6 +116,7 @@ def test_close_option_vencida_pode_liquidar_a_zero():
 
 def test_reset_portfolio_zera_optionpositions():
     c = _conn()
+    _liberar_descoberto(c, user_id="u1")
     store.buy_option(c, {"id": "X", "underlying": "PETR4", "optionType": "call",
                           "strike": 34.0, "expiration": "2099-01-01"}, 100, 1.0, user_id="u1")
     out = store.reset_portfolio(c, user_id="u1")

@@ -41,6 +41,14 @@ def _contract_put(id_="PETR4P456", underlying="PETR4", strike=40.0, expiration="
             "expiration": expiration, "ivEntrada": 0.30, "deltaEntrada": -0.4, "hv21Entrada": 0.28}
 
 
+def _liberar_descoberto(conn, user_id=None):
+    """Fase 29: `buy_option` passou a exigir o flag opt-in. Estes testes são
+    sobre a ARITMÉTICA da compra a seco, não sobre o gate — o gate tem
+    guardião próprio em test_opcao_descoberto_gate.py."""
+    store.set_config(conn, {"descobertoTermo": {"aceitoEm": "2026-09-13T00:00:00Z", "versao": "1.0"},
+                            "permitirOpcaoADescoberto": True}, user_id=user_id)
+
+
 # ---------------------------------------------------------------------------
 # Parte 1 — store.liquidar_lastreada_vencida (motor puro)
 # ---------------------------------------------------------------------------
@@ -107,6 +115,7 @@ def test_liquidar_put_protecao_vencida_itm_credita_intrinseco_sem_mexer_trava():
 
 def test_liquidar_posicao_sem_lastro_e_recusada_caminho_legado_intacto():
     conn, _ = _fresh_db()
+    _liberar_descoberto(conn)
     store.buy_option(conn, {"id": "PETRH340", "underlying": "PETR4", "optionType": "call",
                              "strike": 34.0, "expiration": "2020-01-01"}, 100, 1.0)
     with pytest.raises(ValueError):
@@ -220,6 +229,7 @@ def test_ciclo_liquida_lastreada_e_legada_no_mesmo_ciclo():
     c = _conn()
     store.buy(c, "PETR4", 200, 35.0, user_id="u1")
     store.abrir_call_coberta(c, _contract_call(id_="PETR4O123", strike=38.0), 2, 1.50, user_id="u1")
+    _liberar_descoberto(c, user_id="u1")
     store.buy_option(c, {"id": "PETRH340", "underlying": "PETR4", "optionType": "call",
                           "strike": 34.0, "expiration": "2020-01-01"}, 100, 1.0, user_id="u1")
     _seed_agent(c)

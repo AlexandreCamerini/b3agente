@@ -387,6 +387,15 @@ def test_buy_qty_ausente_continua_comprando_lote_minimo_contrato_preservado(monk
 _EXP_OPCAO = "2026-10-30"
 
 
+def _liberar_descoberto(m, uid=None):
+    """Fase 29: `POST /api/options/buy` passou a exigir o flag opt-in. Estes
+    testes já existentes são sobre a rota de VENDA/rejeição, não sobre o gate
+    de abertura — habilita o flag direto no motor (mesmo padrão de
+    `_monta_lastreada` abaixo, que já bypassa a rota de config para setup)."""
+    m.store.set_config(m._conn, {"descobertoTermo": {"aceitoEm": "2026-09-13T00:00:00Z", "versao": "1.0"},
+                                  "permitirOpcaoADescoberto": True}, user_id=uid)
+
+
 def _chain_opcao(symbol="PETRK30", price=1.5):
     """Cadeia sintética no formato ADR-004 (mesmo shape de
     `test_gate_liquidez_rotas.py::_chain`), com UM contrato negociável."""
@@ -412,6 +421,8 @@ def test_options_sell_posicao_sumida_400_auditoria_a09(monkeypatch):
     token, uid = _registrar(client, "optsell-sumida@boris.dev")
     headers = {"authorization": f"Bearer {token}"}
     chain = _chain_opcao()
+
+    _liberar_descoberto(m, uid)
 
     async def _chain_ok(*a, **k):
         return chain
@@ -504,8 +515,10 @@ def test_options_buy_qty_ausente_e_zero_continuam_400_contrato_preservado(monkey
 # F10-20260819. O caminho 17 trava o contrato que a correção preservou.
 # ===========================================================================
 
-def _monta_posicao_opcao(client, m, monkeypatch, headers, qty=200, price=1.5):
+def _monta_posicao_opcao(client, m, monkeypatch, headers, qty=200, price=1.5, uid=None):
     """Compra `qty` na opção sintética e devolve o estado pós-compra."""
+    _liberar_descoberto(m, uid)
+
     async def _chain_ok(*a, **k):
         return _chain_opcao(price=price)
     monkeypatch.setattr(m.options_provider, "get_options", _chain_ok)
@@ -525,9 +538,9 @@ def test_options_sell_qty_zero_400_d1_mesma_armadilha_f10_20260819(monkeypatch):
     A asserção que decide: a posição fica INTACTA. Só o 400 não bastaria —
     é a venda total que precisa provar que não aconteceu."""
     client, m = _client_isolado(monkeypatch)
-    token, _uid = _registrar(client, "optsell-qtyzero@boris.dev")
+    token, uid = _registrar(client, "optsell-qtyzero@boris.dev")
     headers = {"authorization": f"Bearer {token}"}
-    estado_compra = _monta_posicao_opcao(client, m, monkeypatch, headers)
+    estado_compra = _monta_posicao_opcao(client, m, monkeypatch, headers, uid=uid)
     assert estado_compra["optionPositions"][0]["qty"] == 200
     assert estado_compra["cash"] == 9700.0
 
@@ -556,9 +569,9 @@ def test_options_sell_qty_negativo_400_d1(monkeypatch):
     negativo dava exatamente o mesmo estrago do zero, por um caminho
     diferente."""
     client, m = _client_isolado(monkeypatch)
-    token, _uid = _registrar(client, "optsell-qtyneg@boris.dev")
+    token, uid = _registrar(client, "optsell-qtyneg@boris.dev")
     headers = {"authorization": f"Bearer {token}"}
-    _monta_posicao_opcao(client, m, monkeypatch, headers)
+    _monta_posicao_opcao(client, m, monkeypatch, headers, uid=uid)
 
     r = client.post("/api/options/sell", json={"contractSymbol": "PETRK30", "qty": -500},
                     headers=headers)
@@ -578,9 +591,9 @@ def test_options_sell_qty_nao_inteiro_400_d1(monkeypatch):
     260910-mqs fechou em `/api/buy` e a 260911-15a em `/api/options/buy`.
     Cai na MESMA mensagem de 400 das outras três rotas. Nunca 500."""
     client, m = _client_isolado(monkeypatch)
-    token, _uid = _registrar(client, "optsell-qtynaoint@boris.dev")
+    token, uid = _registrar(client, "optsell-qtynaoint@boris.dev")
     headers = {"authorization": f"Bearer {token}"}
-    _monta_posicao_opcao(client, m, monkeypatch, headers)
+    _monta_posicao_opcao(client, m, monkeypatch, headers, uid=uid)
 
     r = client.post("/api/options/sell", json={"contractSymbol": "PETRK30", "qty": "abc"},
                     headers=headers)
@@ -601,7 +614,7 @@ def test_options_sell_qty_invalida_anonimo_nao_grava_no_balde_compartilhado(monk
     aqui, então precisa nascer com a mesma regra das outras: o balde anônimo é
     compartilhado entre todos os usuários sem login e nunca recebe rejeição."""
     client, m = _client_isolado(monkeypatch)
-    _monta_posicao_opcao(client, m, monkeypatch, headers={})
+    _monta_posicao_opcao(client, m, monkeypatch, headers={}, uid=None)
 
     r = client.post("/api/options/sell", json={"contractSymbol": "PETRK30", "qty": 0})
     assert r.status_code == 400, r.text
@@ -623,9 +636,9 @@ def test_options_sell_qty_ausente_continua_vendendo_tudo_contrato_preservado(mon
     rejeição nem em venda parcial. Se um dia esse contrato mudar, que mude por
     decisão explícita, com este teste atualizado junto."""
     client, m = _client_isolado(monkeypatch)
-    token, _uid = _registrar(client, "optsell-qtyausente@boris.dev")
+    token, uid = _registrar(client, "optsell-qtyausente@boris.dev")
     headers = {"authorization": f"Bearer {token}"}
-    _monta_posicao_opcao(client, m, monkeypatch, headers)
+    _monta_posicao_opcao(client, m, monkeypatch, headers, uid=uid)
 
     r = client.post("/api/options/sell", json={"contractSymbol": "PETRK30"}, headers=headers)
     assert r.status_code == 200, r.text
@@ -644,9 +657,9 @@ def test_options_sell_qty_parcial_valida_continua_funcionando(monkeypatch):
     posição de 200 continua sendo venda PARCIAL — o caminho legítimo não pode
     ter sido fechado junto."""
     client, m = _client_isolado(monkeypatch)
-    token, _uid = _registrar(client, "optsell-qtyparcial@boris.dev")
+    token, uid = _registrar(client, "optsell-qtyparcial@boris.dev")
     headers = {"authorization": f"Bearer {token}"}
-    _monta_posicao_opcao(client, m, monkeypatch, headers)
+    _monta_posicao_opcao(client, m, monkeypatch, headers, uid=uid)
 
     r = client.post("/api/options/sell", json={"contractSymbol": "PETRK30", "qty": 100},
                     headers=headers)

@@ -25,6 +25,14 @@ def _analytics_conn():
     return analytics.connect(os.path.join(d, "analytics.db"))
 
 
+def _liberar_descoberto(conn, user_id=None):
+    """Fase 29: `buy_option` passou a exigir o flag opt-in. Estes testes são
+    sobre a ARITMÉTICA da compra a seco, não sobre o gate — o gate tem
+    guardião próprio em test_opcao_descoberto_gate.py."""
+    store.set_config(conn, {"descobertoTermo": {"aceitoEm": "2026-09-13T00:00:00Z", "versao": "1.0"},
+                            "permitirOpcaoADescoberto": True}, user_id=user_id)
+
+
 @pytest.fixture(autouse=True)
 def _reset_last_cache_refresh():
     automacao.LAST_CACHE_REFRESH.update(date=None, erro=None)
@@ -62,6 +70,7 @@ def test_sell_grava_origem():
 def test_buy_option_e_sell_option_gravam_origem():
     conn = _fresh_db()
     contract = {"id": "PETR4C40", "underlying": "PETR4", "optionType": "CALL", "strike": 40.0, "expiration": "2027-01-15"}
+    _liberar_descoberto(conn, user_id="u1")
     store.buy_option(conn, contract, 100, 1.5, user_id="u1", origem="automatico")
     store.sell_option(conn, "PETR4C40", 2.0, user_id="u1", motivo="alvo", origem="automatico")
     h = store.get(conn, "history", user_id="u1")
@@ -73,6 +82,7 @@ def test_buy_option_e_sell_option_gravam_origem():
 def test_close_option_vencida_grava_origem_sistema_nao_automatico():
     conn = _fresh_db()
     contract = {"id": "PETR4C40", "underlying": "PETR4", "optionType": "CALL", "strike": 40.0, "expiration": "2027-01-15"}
+    _liberar_descoberto(conn, user_id="u1")
     store.buy_option(conn, contract, 100, 1.5, user_id="u1")
     store.close_option_vencida(conn, "PETR4C40", 0.0, user_id="u1")
     h = store.get(conn, "history", user_id="u1")

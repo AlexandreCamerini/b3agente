@@ -793,17 +793,43 @@ def registrar_rejeicao(conn, tipo: str, t: str, qty, price, motivo: str, user_id
 
 
 # ---------- optionPositions (ADR-003: coleção própria, nunca mistura com `positions`) ----------
+# FASE 29: mensagem única do gate de opção a descoberto — fonte única,
+# espelhada byte a byte em web/src/persistence.js pelo plano 29-02 (guardião
+# compara os dois arquivos). Nenhuma variante, nenhuma segunda redação.
+MOTIVO_DESCOBERTO_DESLIGADO = (
+    "Operar opções a descoberto está desligado — ligue o flag em Preferências "
+    "→ Operar opções a descoberto. Lastro obrigatório é o padrão desta conta."
+)
+
+
 def buy_option(conn, contract: dict, qty: int, price: float, user_id=None, meta=None, origem: str = "manual") -> None:
     """Compra simulada de UM contrato de opção. `contract` traz id (contractSymbol,
     chave primária e de cotação — ADR-003) / underlying / optionType / strike /
     expiration, vindos do provider. `price` é o PRÊMIO por ação, mesma unidade
     de `avg` — nunca o preço do ativo-objeto."""
     qty = max(100, round(qty / 100) * 100)
+    cid = contract.get("id")
+    # FASE 29 (SC-1/SC-2): gate de opção a descoberto. Decisões deliberadas:
+    # 1. Fail-closed por ausência — `cfg.get(...)` devolve `None` para conta
+    #    legada sem backfill; `None` é falsy e o gate BARRA. Ausência da
+    #    chave nunca significa "liberado".
+    # 2. Sem ORDER_LOCK (ao contrário de abrir_call_coberta): a trava lá
+    #    existe porque `qty_livre` é recurso CONSUMÍVEL sob concorrência. Um
+    #    flag booleano de config não é consumível — não há lost-update a
+    #    fechar, e travar aqui mudaria a concorrência de uma função que nunca
+    #    teve trava.
+    # 3. `registrar_rejeicao` roda também para user_id=None, espelhando
+    #    abrir_call_coberta — o caminho anônimo é legado (CLAUDE.md: login
+    #    obrigatório), espelhar o irmão direto vale mais que otimizá-lo.
+    cfg = get(conn, "config", user_id=user_id) or {}
+    if not cfg.get("permitirOpcaoADescoberto"):
+        registrar_rejeicao(conn, "COMPRA", cid, qty, price, MOTIVO_DESCOBERTO_DESLIGADO,
+                            user_id=user_id, origem=origem)
+        raise ValueError(MOTIVO_DESCOBERTO_DESLIGADO)
     opts = get(conn, "optionPositions", user_id=user_id)
     cash = get(conn, "cash", user_id=user_id)
     history = get(conn, "history", user_id=user_id)
     m = _sanitize_trade_meta(meta)
-    cid = contract.get("id")
     existing = next((p for p in opts if p["id"] == cid), None)
     if existing:
         total = existing["qty"] + qty
@@ -850,6 +876,11 @@ def set_option_position(conn, contract_id: str, stop=None, alvo=None, has_stop=F
 
 def sell_option(conn, contract_id: str, price: float, user_id=None, qty=None, motivo: str = "manual",
                  origem: str = "manual"):
+    # FASE 29 (SC-4): esta função NUNCA recebe o gate de opção a descoberto.
+    # Guardrail do CLAUDE.md ("Stop/alvo nunca são vetados") — impedir
+    # alguém de SAIR de uma posição a seco que já tem seria pior que não ter
+    # gate. Guardião: test_opcao_descoberto_gate.py (comportamento e source
+    # assertion sobre a ausência do campo de config do flag neste corpo).
     """Venda simulada TOTAL ou PARCIAL de um contrato. `motivo` (ADR-005):
     'manual' | 'stop' | 'alvo' | 'vencimento' — estruturado desde o início,
     ao contrário do texto descartável que `positions`/history de ação usa
