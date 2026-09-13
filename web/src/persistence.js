@@ -292,6 +292,13 @@ function serverStore() {
     mcpSetupCompilar: (body) => api.mcpSetupCompilar(body),
     mcpSetupConfirmar: (body) => api.mcpSetupConfirmar(body),
     mcpSetupDesativar: (name) => api.mcpSetupDesativar(name),
+    // Fase 27 — "Seus vigias". Delegação PURA também aqui, e por uma razão
+    // própria: o índice de vigias vive no SERVIDOR (é kv escopado por
+    // `user_id`, não estado do aparelho). Cachear no device criaria uma
+    // SEGUNDA verdade sobre quem criou o quê — e o iPhone não tem como saber
+    // que outra sessão da mesma conta gravou ou desativou um vigia.
+    mcpVigias: () => api.mcpVigias(),
+    mcpSetupsListar: () => api.mcpSetupsListar(),
     // 260911-k9g: carimbo do SERVIDOR ATUAL para o rodapé do Perfil —
     // diagnóstico, nunca persistido, mesma classe de delegação pura do
     // mcpStatus/optionsProposta acima.
@@ -1316,6 +1323,19 @@ function deviceStore() {
     async mcpSetupDesativar(name) {
       ensure();
       return api.mcpSetupDesativar(name);
+    },
+    // Fase 27: espelho do par "Seus vigias" do serverStore, com o mesmo
+    // contrato. O índice mora no SERVIDOR (kv por `user_id`) — não há ramo
+    // local aqui de propósito: guardar a lista no aparelho criaria uma segunda
+    // verdade sobre quem criou o quê. `ensure()` antes da delegação aplica o
+    // serverUrl configurado no aparelho, como o resto do deviceStore.
+    async mcpVigias() {
+      ensure();
+      return api.mcpVigias();
+    },
+    async mcpSetupsListar() {
+      ensure();
+      return api.mcpSetupsListar();
     },
     // Fase 14 (Plano 05): logado, delega e adota o estado confirmado pelo
     // servidor (mesmo padrão de optionsBuy). Sem sessão, ramo local é

@@ -46,6 +46,7 @@ from .options_api import router as options_router, _spot_from_chain_or_quote
 from .options_provider import get_options as _get_options_for_status
 from . import options_mcp_api  # aba-opcoes F1 (ADR-027): router do serviço MCP autenticado
 from .options_mcp_api import router as options_mcp_router
+from . import opcoes_vigias  # Fase 27: índice de "meus vigias" (custo ZERO de MCP)
 from . import opcoes_lastreadas  # Fase 14 (Plano 03): motor de proposta lastreada (venda coberta/put)
 from .options_quant import FAIXA_DIFICIL, FAIXA_SEM_MERCADO, faixa_de_liquidez, liquidity_score  # quick 260908-ldg: gate de liquidez em três faixas
 from . import skill_ref  # Fase 14 (Plano 03): frase canônica da proposta lastreada por modo
@@ -3241,6 +3242,35 @@ async def options_proposta(ticker: str, multiperna: bool = False, scope: Optiona
         # cobre os ramos de fechamento e de degradação — não mascara falha de
         # dado de mercado (essa já vira `motivo="degradado"` antes daqui).
         "candidatos": resultado.get("candidatos", []),
+    }
+
+
+# ---- Fase 27: "Seus vigias" — a lista que existe FORA de qualquer ticker ----
+@app.get("/api/options/vigias")
+async def options_vigias(scope: Optional[str] = Depends(current_scope)):
+    """Os vigias do usuário logado, direto do índice local. **Custo ZERO.**
+
+    **O que esta rota NÃO faz, e por que ela mora aqui e não em
+    `options_mcp_api.py`:** ela não toca `mcp.semente.dev`. O guardião (iv)
+    (`test_mcp_guardioes.py`) obriga TODA rota `/api/options/mcp/*` a passar
+    pelo `_cap_check` — e passar uma leitura puramente local pelo cap cobraria
+    cota de uma chamada ao serviço que não existe. Rota de custo zero e prefixo
+    `/mcp` são coisas incompatíveis por desenho, não por acaso.
+
+    É esta rota que a aba usa ao ABRIR (ADR-027 §3.3: custo de MCP só em clique
+    explícito). Ela devolve o que o índice sabe — o nome que a pessoa escreveu,
+    o ticker e a data — e **nenhum estado** (`armed`/`streak`): estado é
+    medição do serviço, e um "armado" carimbado de ontem seria afirmação sem
+    medição (princípio 4 do CLAUDE.md). Quem quer o estado do dia chama
+    `GET /api/options/mcp/setups`, que declara o custo 2.
+
+    Escopo anônimo devolve `[]`: as rotas que gravam exigem sessão, então quem
+    não tem conta não tem vigia — e não há índice de ninguém a vazar aqui.
+    """
+    return {
+        "vigias": opcoes_vigias.listar(_conn, scope),
+        "fonte": "local",
+        "at": now_str(),
     }
 
 

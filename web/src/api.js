@@ -358,6 +358,18 @@ export const api = {
   mcpSetupCompilar: (body) => req("POST", "/api/options/mcp/setups/compilar", body, TIMEOUT_LLM),
   mcpSetupConfirmar: (body) => req("POST", "/api/options/mcp/setups/confirmar", body, 30000),
   mcpSetupDesativar: (name) => req("POST", "/api/options/mcp/setups/" + encodeURIComponent(name) + "/desativar", {}, 30000),
+  // Fase 27 — "Seus vigias", o par que corrige o defeito da fase (um setup
+  // gravado era indistinguível de um que nunca existiu, porque a única leitura
+  // filtrava por ticker). São DUAS rotas porque são dois custos diferentes, e
+  // o custo é o que decide qual a tela chama:
+  //   · `mcpVigias` NÃO passa por `/mcp/` de propósito — ela lê o índice local
+  //     e não toca `mcp.semente.dev`. Custo ZERO, e é a que a aba chama ao
+  //     ABRIR (ADR-027 §3.3: custo de MCP só em clique explícito).
+  //   · `mcpSetupsListar` custa 2, sempre 2, qualquer que seja o número de
+  //     vigias — é a que traz o estado do dia (`armed`/`streak`), e só deve
+  //     ser chamada em clique explícito, com o custo declarado no botão.
+  mcpVigias: () => req("GET", "/api/options/vigias", undefined, 30000),
+  mcpSetupsListar: () => req("GET", "/api/options/mcp/setups", undefined, 30000),
   // FASE 8B (260911-k9g): carimbo de build do SERVIDOR JÁ CONFIGURADO
   // (runtimeBase) — diferente de testServer(url) acima, que valida um
   // ENDEREÇO DIGITADO antes de aplicá-lo. Usado só para exibir no rodapé do
