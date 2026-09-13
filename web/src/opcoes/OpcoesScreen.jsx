@@ -169,6 +169,20 @@ const BOTAO = {
 // vira "o app não faz isso".
 const desabilitado = (cond) => (cond ? { opacity: 0.45, cursor: "not-allowed" } : null);
 
+// Fase 27 (27-05) — a SEGUNDA LINHA do botão, onde o custo é declarado. Estilo
+// nomeado e não repetido botão a botão: são sete controles com a mesma linha, e
+// sete cópias de um objeto de estilo divergem na primeira manutenção feita só
+// numa delas. Tokens existentes, nenhuma cor nova (Brand Book v2).
+//
+// DENTRO do botão, não ao lado: o custo tem de viajar junto do alvo de toque,
+// senão a pessoa lê o rótulo e clica no controle errado. Peso e tamanho menores
+// que o rótulo porque a ação é o que se lê primeiro; o preço é a ressalva que
+// vem grudada nela.
+const CUSTO_NO_BOTAO = {
+  display: "block", fontSize: "11px", fontWeight: 600,
+  color: T.textMuted, marginTop: "3px",
+};
+
 const CAIXA = {
   border: `1px solid ${T.borderSubtle}`, borderRadius: "12px",
   padding: "12px 14px", background: T.bgPanel,
@@ -554,7 +568,7 @@ export default function OpcoesScreen({ ctx }) {
         style={{ ...BOTAO, width: "100%", marginTop: "10px", ...desabilitado(vigiasVivos.carregando) }}
       >
         <span style={{ display: "block" }}>{cp.opcoesVigiasAtualizar || "Atualizar o estado dos vigias"}</span>
-        <span style={{ display: "block", fontSize: "11px", fontWeight: 600, color: T.textMuted, marginTop: "3px" }}>
+        <span style={CUSTO_NO_BOTAO}>
           {(cp.opcoesCustoChamadas || ((n) => String(n)))(CUSTO_DA_ACAO.listarVigias)}
         </span>
       </button>
@@ -611,7 +625,7 @@ export default function OpcoesScreen({ ctx }) {
           style={{ ...BOTAO, width: "100%", marginTop: "12px" }}
         >
           <span style={{ display: "block" }}>{cp.opcoesLerNoServico || "Ler no serviço de opções"}</span>
-          <span style={{ display: "block", fontSize: "11px", fontWeight: 600, color: T.textMuted, marginTop: "3px" }}>
+          <span style={CUSTO_NO_BOTAO}>
             {(cp.opcoesCustoChamadas || ((n) => String(n)))(CUSTO_DA_ACAO.leitura)}
           </span>
         </button>
@@ -825,12 +839,20 @@ export default function OpcoesScreen({ ctx }) {
                 />
                 <div id="opcoes-lote-ajuda" style={AJUDA}>{cp.opcoesLoteAjuda || ""}</div>
 
+                {/* Fase 27 (27-05): o custo DENTRO do controle, na segunda
+                    linha do próprio botão — mesmo padrão do "Atualizar" dos
+                    vigias e do "Ler no serviço". Uma forma só de dizer custo
+                    (`opcoesCustoChamadas`) em toda a aba: duas divergiriam na
+                    primeira manutenção feita só numa delas. */}
                 <button
                   onClick={() => montarProposta({ direction: tese, expiration: vencimento || undefined, lote: loteNum })}
                   disabled={!temTese || !loteOk}
                   style={{ ...BOTAO, width: "100%", marginTop: "12px", ...desabilitado(!temTese || !loteOk) }}
                 >
-                  {cp.opcoesMontarEstrutura || "Montar estrutura"}
+                  <span style={{ display: "block" }}>{cp.opcoesMontarEstrutura || "Montar estrutura"}</span>
+                  <span style={CUSTO_NO_BOTAO}>
+                    {(cp.opcoesCustoChamadas || ((n) => String(n)))(CUSTO_DA_ACAO.proposta)}
+                  </span>
                 </button>
 
                 {/* carregando → erro → vazio com motivo → dados */}
@@ -870,14 +892,20 @@ export default function OpcoesScreen({ ctx }) {
                     aria-pressed={painel === "cadeia"}
                     style={{ ...BOTAO, flex: "1 1 150px" }}
                   >
-                    {cp.opcoesVerCadeia || "Ver a cadeia"}
+                    <span style={{ display: "block" }}>{cp.opcoesVerCadeia || "Ver a cadeia"}</span>
+                    <span style={CUSTO_NO_BOTAO}>
+                      {(cp.opcoesCustoChamadas || ((n) => String(n)))(CUSTO_DA_ACAO.cadeia)}
+                    </span>
                   </button>
                   <button
                     onClick={() => { const abrir = painel !== "operaveis"; setPainel(abrir ? "operaveis" : ""); if (abrir) abrirOperaveis({ expiration: vencimento || undefined }); }}
                     aria-pressed={painel === "operaveis"}
                     style={{ ...BOTAO, flex: "1 1 150px" }}
                   >
-                    {cp.opcoesVerOperaveis || "Ver as operáveis"}
+                    <span style={{ display: "block" }}>{cp.opcoesVerOperaveis || "Ver as operáveis"}</span>
+                    <span style={CUSTO_NO_BOTAO}>
+                      {(cp.opcoesCustoChamadas || ((n) => String(n)))(CUSTO_DA_ACAO.operaveis)}
+                    </span>
                   </button>
                 </div>
 
@@ -1110,13 +1138,30 @@ export default function OpcoesScreen({ ctx }) {
                       </div>
                     ) : null}
 
+                    {/* Fase 27 (27-05): só ABRIR custa (1 chamada); fechar é
+                        local. O rótulo de custo acompanha a ação que cobra e
+                        some quando o botão vira "Fechar gráfico" — declarar
+                        custo numa ação de graça mentiria na outra direção.
+
+                        O custo entra TAMBÉM no `aria-label`: ele SUBSTITUI o
+                        texto do botão para quem usa leitor de tela, então um
+                        custo que vivesse só no <span> seria invisível
+                        justamente para quem não pode conferir na tela. */}
                     <button
                       onClick={() => (aberto ? fecharGrafico() : abrirGrafico(chave))}
                       aria-pressed={aberto}
-                      aria-label={(aberto ? "Fechar" : "Ver") + " disparos do setup " + s.name}
+                      aria-label={(aberto ? "Fechar" : "Ver") + " disparos do setup " + s.name
+                        + (aberto ? "" : ". " + (cp.opcoesCustoChamadas || ((n) => String(n)))(CUSTO_DA_ACAO.grafico))}
                       style={{ marginTop: "10px", width: "100%", minHeight: "44px", borderRadius: "11px", border: `1px solid ${T.borderSubtle}`, background: "transparent", color: T.textSecondary, fontWeight: 700, fontSize: "13px" }}
                     >
-                      {aberto ? "Fechar gráfico" : (cp.opcoesGraficoTitulo || "Disparos do setup")}
+                      <span style={{ display: "block" }}>
+                        {aberto ? "Fechar gráfico" : (cp.opcoesGraficoTitulo || "Disparos do setup")}
+                      </span>
+                      {aberto ? null : (
+                        <span style={CUSTO_NO_BOTAO}>
+                          {(cp.opcoesCustoChamadas || ((n) => String(n)))(CUSTO_DA_ACAO.grafico)}
+                        </span>
+                      )}
                     </button>
 
                     {aberto ? (
@@ -1142,6 +1187,7 @@ export default function OpcoesScreen({ ctx }) {
                         nomeVisivel={s.name}
                         onDesativar={desativarSetup}
                         ocupado={setupNovo.carregando}
+                        custos={CUSTO_DA_ACAO}
                         cp={cp}
                       />
                     ) : null}
@@ -1159,11 +1205,17 @@ export default function OpcoesScreen({ ctx }) {
           {podeCriarSetup ? (
             <>
               <Kicker>{cp.opcoesCriarTitulo || "CRIAR UM SETUP"}</Kicker>
+              {/* Fase 27 (27-05): a tabela de custo chega por PROP, como tudo
+                  o mais que este componente recebe. Importá-la de
+                  `OpcoesScreen.jsx` criaria uma segunda porta de acoplamento
+                  de graça — e `CriarSetup` é deliberadamente um componente sem
+                  fonte de dado própria. */}
               <CriarSetup
                 ticker={ticker}
                 estado={setupNovo}
                 onCompilar={compilarSetup}
                 onConfirmar={confirmarSetup}
+                custos={CUSTO_DA_ACAO}
                 cp={cp}
               />
             </>

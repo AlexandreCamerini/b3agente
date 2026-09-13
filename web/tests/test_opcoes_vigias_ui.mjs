@@ -147,8 +147,20 @@ ok("desativar viaja com a chave do armazém e exibe o nome da pessoa",
    && !/nome=\{s\.name\}/.test(tela));
 ok("o que a pessoa LÊ continua sendo s.name", /\{s\.name\}<\/div>/.test(tela));
 const criar = semComentario(ler("CriarSetup.jsx"));
+// 2026-09-13 (Fase 27, plano 27-05) — a forma ganhou um SUFIXO: o custo da
+// ação (1 chamada) passou a entrar no `aria-label`. A razão é a mesma que
+// criou esta asserção: `aria-label` SUBSTITUI o texto do botão para quem usa
+// leitor de tela, então um custo que vivesse só no <span> visível seria
+// invisível justamente para quem não pode conferir na tela.
+//
+// O que a asserção protege continua idêntico (o nome anunciado é o LEGÍVEL,
+// nunca a chave do armazém); ela só deixou de exigir que a expressão TERMINE
+// ali. O `}` foi trocado por uma segunda asserção, positiva, sobre o sufixo —
+// afrouxar sem repor seria abrir espaço para qualquer coisa depois do nome.
 ok("o rótulo lido em voz alta usa o nome visível, nunca o do armazém",
-   /aria-label=\{rotulo \+ " " \+ \(nomeVisivel \|\| nome \|\| ""\)\}/.test(criar));
+   /aria-label=\{rotulo \+ " " \+ \(nomeVisivel \|\| nome \|\| ""\)/.test(criar));
+ok("o custo também é falado em voz alta (o aria-label substitui o texto do botão)",
+   /aria-label=\{rotulo \+ " " \+ \(nomeVisivel \|\| nome \|\| ""\) \+ "\. " \+ custo\}/.test(criar));
 
 // ---- 5) sem medição não há veredito ----------------------------------------
 ok("o estado ausente usa cp.opcoesVigiasSemEstado (travessão COM motivo)",

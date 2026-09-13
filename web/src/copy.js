@@ -277,6 +277,12 @@ export const COPY = {
       "Esta consulta gasta " + (typeof n === "number" ? n : "—") +
       " chamada(s) da sua cota do dia.",
     opcoesCustoVencimentos: "A conta: uma chamada para listar os vencimentos e duas para cada vencimento consultado.",
+    // Fase 27 (27-05) — o SEGUNDO eixo de custo, e ele só existe num controle:
+    // compilar um setup usa o modelo de linguagem, que tem cota própria, teto
+    // próprio e tela própria. Sem número aqui de propósito — o teto vive no
+    // gate do `metering`, e um número redigitado nesta frase envelheceria em
+    // silêncio no dia em que o plano mudasse.
+    opcoesCustoAnaliseIA: "E consome uma análise de IA da sua cota do dia, que é uma cota separada desta.",
     opcoesVerCadeia: "Ver a cadeia de opções",
     opcoesVerOperaveis: "Ver só as opções com liquidez",
     opcoesCriterioOperaveis: (c) => {
@@ -770,6 +776,9 @@ export const COPY = {
       "Custo desta consulta: " + (typeof n === "number" ? n : "—") +
       " chamada(s) da cota do dia.",
     opcoesCustoVencimentos: "Composição: 1 chamada para listar os vencimentos + 2 por vencimento consultado.",
+    // Fase 27 (27-05) — mesmo fato, voz de mesa: dois eixos de custo no mesmo
+    // controle, e o número da cota de IA mora no gate, não nesta frase.
+    opcoesCustoAnaliseIA: "Consome também 1 análise de IA da cota do dia — cota separada desta.",
     opcoesVerCadeia: "Ver a cadeia",
     opcoesVerOperaveis: "Ver as operáveis",
     opcoesCriterioOperaveis: (c) => {

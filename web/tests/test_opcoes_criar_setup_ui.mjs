@@ -215,8 +215,16 @@ ok("o segundo toque age e desarma", /setConfirmando\(false\);[\s\S]{0,80}onDesat
 //
 // O que esta asserção protege é o mesmo de sempre (o botão NOMEIA o setup em
 // voz alta), agora exigindo que o nome anunciado seja o legível.
+// 2026-09-13 (Fase 27, plano 27-05) — a forma ganhou um SUFIXO: o custo da
+// ação entrou no `aria-label` porque ele SUBSTITUI o texto do botão para quem
+// usa leitor de tela. Sem isso, a declaração de custo do critério 4 do ROADMAP
+// existiria só para quem enxerga a tela. A exigência sobre o NOME anunciado
+// (o legível, nunca a chave do armazém) é a mesma; o que saiu foi a âncora de
+// fim de expressão, reposta pela asserção positiva sobre o sufixo logo abaixo.
 ok("o botão nomeia o setup para quem usa leitor de tela, com o nome LEGÍVEL",
-   /aria-label=\{rotulo \+ " " \+ \(nomeVisivel \|\| nome \|\| ""\)\}/.test(criar));
+   /aria-label=\{rotulo \+ " " \+ \(nomeVisivel \|\| nome \|\| ""\)/.test(criar));
+ok("o custo da desativação também é falado em voz alta",
+   /aria-label=\{rotulo \+ " " \+ \(nomeVisivel \|\| nome \|\| ""\) \+ "\. " \+ custo\}/.test(criar));
 ok("sanidade: sem o estado intermediário, o assert de dois toques falharia",
    !/const \[confirmando, setConfirmando\] = useState\(false\)/.test("onClick={() => onDesativar(nome)}"));
 
