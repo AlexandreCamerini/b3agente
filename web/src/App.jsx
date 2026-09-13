@@ -10,6 +10,7 @@ import { copyFor, historicoTxt, entradaAutoTxt } from "./copy.js";
 import { Markdown, MdInline } from "./markdown.jsx";
 import { extentOf, linePath, lastVal } from "./chartutil.js";
 import OpcoesScreen from "./opcoes/OpcoesScreen.jsx";
+import PropostaLastreada, { FonteDoDadoProposta, ChipDaProposta, useAceiteLastreado } from "./opcoes/PropostaLastreada.jsx";
 import { BUILD_ID } from "./version.js";
 // carimbo no console: prova de qual build está rodando (device/web)
 try { console.log("[b3] build", BUILD_ID); } catch { /* noop */ }
@@ -3264,164 +3265,9 @@ function OpcaoContrato({ c, cur, chain, isOpen, onToggle, sustains, pos, onBuy, 
   );
 }
 
-// Fase 17 (Plano 04, FLOW-04): declara fonte e horário do dado da proposta
-// (CLAUDE.md princípio 3) — reusa FONTE_LABEL (App.jsx:1185), mesmo padrão
-// já em produção em App.jsx:1655. "Não há proposta" também é uma afirmação
-// sobre dado de mercado — renderizado nos DOIS ramos de PropostaLastreada,
-// inclusive o vazio (T-17-19).
-function FonteDoDadoProposta({ r, cp }) {
-  return (
-    <div style={{ fontSize: "10px", color: T.textFaint, marginTop: "10px" }}>
-      {r.source ? cp.fontePropostaLinha(FONTE_LABEL(r.source), r.at || "—") : cp.fontePropostaSemDado}
-    </div>
-  );
-}
-
-// Quick 260908-ldg (D-09): chip de liquidez → verbete determinístico. Único
-// chip com afordância de toque entre os de `p.chips` — os outros seguem
-// `<span>` (a afordância nova é só do chip que tem verbete, App.jsx:3220-3223
-// da versão anterior). `minHeight: 44px` = alvo tátil mínimo, mesmo padrão do
-// resto do app (ex.: botões de CTA); os outros chips continuam pill de 20px
-// porque não são interativos.
-function ChipDaProposta({ c, p, ticker, onVerbeteLiquidez }) {
-  if (c.k === "liquidez" && onVerbeteLiquidez) {
-    const liq = p.liquidez || {};
-    return (
-      <button
-        type="button"
-        onClick={() => onVerbeteLiquidez({ ticker, faixa: liq.faixa, score: liq.score, volume: liq.volume, spreadPct: liq.spreadPct })}
-        aria-label="O que é liquidez de opção?"
-        style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "999px", background: T.bgBase, color: T.textSecondary, fontWeight: 700, border: "none", cursor: "pointer", minHeight: "44px", display: "inline-flex", alignItems: "center" }}
-      >
-        {c.k} <b style={{ fontWeight: 800, color: T.textPrimary, marginLeft: "4px" }}>{c.v}</b>
-      </button>
-    );
-  }
-  return (
-    <span style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "999px", background: T.bgBase, color: T.textSecondary, fontWeight: 700 }}>
-      {c.k} <b style={{ fontWeight: 800, color: T.textPrimary }}>{c.v}</b>
-    </span>
-  );
-}
-
-// Fase 14 (Plano 06, 14-UI-SPEC.md) — o CARD DE PROPOSTA: venda coberta ou
-// put de proteção prontas, no mesmo formato visual da manchete única do hero
-// (App.jsx:3172-3174 — Display 17/800, eyebrow 10/800). A MANCHETE e a frase
-// didática são SEMPRE `proposta.manchete`/`proposta.didatica` — o motor
-// determinístico decide o texto (guardrail CVM, T-14-22); este componente só
-// arruma layout e decide CTA × explicação pelo modo (T-14-23, defesa em UI —
-// o servidor recusa com 403 mesmo que este código tivesse um bug).
-function PropostaLastreada({ r, operador, cp, busy, onAbrir, onFechar, posAberta, onVerbeteLiquidez }) {
-  if (!r) return null; // ainda carregando — silêncio, a proposta é secundária ao card (sem esqueleto)
-  if (!r.proposta) {
-    return (
-      <div style={{ marginTop: "11px", padding: "16px", borderRadius: "11px", background: T.bgCard, border: `1px solid ${T.borderFaint}` }}>
-        <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em", color: T.textFaint }}>{cp.propostaVaziaTitulo}</div>
-        <div style={{ fontSize: "12px", color: T.textMuted, lineHeight: 1.5, marginTop: "4px" }}>
-          {r.motivo === "degradado" ? cp.propostaIndisponivelDegradada : r.motivoTexto}
-        </div>
-        <FonteDoDadoProposta r={r} cp={cp} />
-      </div>
-    );
-  }
-  const p = r.proposta;
-  const isCall = p.optionType === "call";
-  const cor = isCall ? T.positive : T.negative; // NUNCA T.accent — mesma regra da manchete do ativo (App.jsx:768-773)
-  // Fase 17 (Plano 05, FLOW-02/FLOW-03): collar (2 pernas, call + put) —
-  // `optionType`/`strike` vêm `null` na proposta de collar (isCall fica
-  // false, cor sai T.negative: coerente, é operação defensiva), por isso
-  // eyebrow/identificação de contrato/CTA ganham um ramo próprio abaixo.
-  const isCollar = p.tipo === "collar";
-  const eyebrow = isCollar ? cp.eyebrowPropostaCollar : isCall ? cp.eyebrowPropostaCall : cp.eyebrowPropostaPut;
-  const degradado = r.providerStatus !== "ok";
-  // Fase 17 (Plano 04, FLOW-01): payoff completo que a Fase 16 já calcula
-  // (proposta.estrutura/proposta.caixa) — ausente em proposta de FECHAMENTO
-  // (proposta_fechar não devolve estrutura/caixa/precoObjeto), por isso o
-  // bloco inteiro é guardado por `est &&` mais abaixo (T-17-21).
-  const est = p.estrutura || null;
-  // ATENÇÃO: `null * 100 === 0` em JS — só multiplica NÚMERO; null/undefined
-  // continuam null e caem em price(null) → "—" (regra "null nunca 0.0"
-  // aplicada à UI, T-17-17). Nunca multiplicar campo anulável da estrutura
-  // direto por qtyAcoes — sempre passar pelo helper abaixo.
-  const porLote = (v) => (typeof v === "number" ? v * (p.qtyAcoes || 0) : null);
-  return (
-    <div style={{ marginTop: "11px", padding: "16px", borderRadius: "11px", background: T.bgCard, border: `1px solid ${T.borderFaint}` }}>
-      <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em", color: T.accent }}>{eyebrow}</div>
-      <div style={{ fontSize: "17px", fontWeight: 800, color: cor, marginTop: "2px" }}>{p.manchete}</div>
-      <div style={{ fontFamily: MONO, fontWeight: 800, fontSize: "13px", color: T.textSecondary, marginTop: "6px" }}>
-        {isCollar
-          ? cp.collarPernasLinha(p.contratos, r.ticker, price(p.strikeCall), price(p.strikePut))
-          : `${p.contratos}× ${isCall ? "CALL" : "PUT"} ${r.ticker} · strike ${price(p.strike)}`}
-      </div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "10px" }}>
-        {(p.chips || []).map((c) => (
-          <ChipDaProposta key={c.k} c={c} p={p} ticker={r.ticker} onVerbeteLiquidez={onVerbeteLiquidez} />
-        ))}
-      </div>
-      {est && (
-        <div style={{ marginTop: "10px", padding: "10px", borderRadius: "9px", background: T.bgBase }}>
-          <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em", color: T.textFaint }}>{cp.payoffTitulo}</div>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", marginTop: "6px" }}>
-            <span style={{ color: T.textSecondary }}>{cp.payoffGanhoMaximo}</span>
-            <b style={{ fontFamily: MONO, fontWeight: 800, color: T.textPrimary }}>
-              {est.ganho_ilimitado ? cp.payoffIlimitado : "R$ " + price(porLote(est.ganho_maximo))}
-            </b>
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", marginTop: "4px" }}>
-            <span style={{ color: T.textSecondary }}>{cp.payoffPerdaMaxima}</span>
-            <b style={{ fontFamily: MONO, fontWeight: 800, color: T.textPrimary }}>
-              {est.perda_ilimitada ? cp.payoffIlimitado : "R$ " + price(porLote(est.perda_maxima))}
-            </b>
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", marginTop: "4px" }}>
-            <span style={{ color: T.textSecondary }}>{cp.payoffBreakeven}</span>
-            <b style={{ fontFamily: MONO, fontWeight: 800, color: T.textPrimary }}>
-              {Array.isArray(est.breakevens) && est.breakevens.length ? est.breakevens.map((b) => price(b)).join(" / ") : cp.payoffSemDado}
-            </b>
-          </div>
-          {p.caixa && (
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", marginTop: "4px" }}>
-              <span style={{ color: T.textSecondary }}>
-                {p.caixa.fluxo === "credito" ? cp.payoffCaixaCredito : p.caixa.fluxo === "debito" ? cp.payoffCaixaDebito : cp.payoffCaixaNeutro}
-              </span>
-              {p.caixa.fluxo !== "neutro" && (
-                <b style={{ fontFamily: MONO, fontWeight: 800, color: T.textPrimary }}>R$ {price(Math.abs(p.caixa.custoLiquidoTotal))}</b>
-              )}
-            </div>
-          )}
-          <div style={{ fontSize: "10px", color: T.textFaint, marginTop: "8px" }}>{cp.payoffNota(price(p.precoObjeto))}</div>
-        </div>
-      )}
-      {/* Modo Estudo (vocab["educacional"]): a MESMA proposta, condicional —
-          nunca um botão de executar (T-14-23). */}
-      {!operador && (
-        <div style={{ fontSize: "12px", color: T.textMuted, lineHeight: 1.5, marginTop: "10px" }}>{p.didatica}</div>
-      )}
-      {/* Modo Operador: CTA imperativo. Com posAberta (a proposta atual casa
-          com uma posição já lastreada neste contrato), o botão vira fechar. */}
-      {operador && (
-        <button
-          onClick={posAberta ? onFechar : onAbrir}
-          disabled={busy || degradado}
-          style={{ marginTop: "12px", width: "100%", minHeight: "40px", borderRadius: "9px", border: `1px solid ${T.accent}`, background: T.accentTint, color: T.accent, fontWeight: 800, fontSize: "12.5px" }}
-        >
-          {degradado
-            ? cp.propostaIndisponivelDegradada
-            : posAberta
-            ? cp.ctaFecharLastreada(price(p.premioTotal), isCall)
-            : isCollar
-            ? (p.caixa && p.caixa.fluxo === "credito"
-                ? cp.ctaCollarCredito(p.contratos, r.ticker, price(p.strikeCall), price(p.strikePut), price(Math.abs((p.caixa && p.caixa.custoLiquidoTotal) || 0)))
-                : cp.ctaCollarDebito(p.contratos, r.ticker, price(p.strikeCall), price(p.strikePut), price(Math.abs((p.caixa && p.caixa.custoLiquidoTotal) || 0))))
-            : isCall
-            ? cp.ctaVendaCoberta(p.contratos, r.ticker, price(p.strike), price(p.premioTotal))
-            : cp.ctaPutProtecao(p.contratos, r.ticker, price(p.strike), price(p.premioTotal))}
-        </button>
-      )}
-      <FonteDoDadoProposta r={r} cp={cp} />
-    </div>
-  );
-}
+// Fase 28 (28-01): FonteDoDadoProposta/ChipDaProposta/PropostaLastreada
+// agora vivem em web/src/opcoes/PropostaLastreada.jsx — extraídas para que
+// OpcoesScreen.jsx possa usá-las sem importar App.jsx (ADR-027, Emenda 3).
 
 // v2 (ADR-003/004/005) — linha colapsada + painel expandido ("A acoplado").
 // Gate de descobribilidade: só existe se `/api/options/gate` confirmar
@@ -4317,10 +4163,12 @@ function OportunidadesOpcoes({ propostas, carregando, positions, cp, onAbrir }) 
 // aparece sobre ticker sem posição real" é ESTRUTURAL neste ponto: quem
 // chama este componente (CarteiraScreen) só itera data.positions.
 function PropostaDaPosicao({ t, r, cp, operador, A, data, aberto, onToggle }) {
-  // Estado local ANTES de qualquer return condicional (regra dos hooks) —
-  // cada posição tem o próprio "em voo", senão aceitar numa posição travaria
-  // o botão de outra.
-  const [busy, setBusy] = useState(false);
+  // Estado do "em voo" e o caminho de aceite/fechamento — hook compartilhado
+  // com AtivoCard e a sub-aba Operar futura (Fase 28, 28-01,
+  // web/src/opcoes/PropostaLastreada.jsx). Chamado ANTES de qualquer return
+  // condicional (regra dos hooks) — cada posição tem o próprio "em voo",
+  // senão aceitar numa posição travaria o botão de outra.
+  const { busy, aceitarCandidato, fecharLastreada } = useAceiteLastreado({ A, cp, ticker: t });
 
   // Guarda de silêncio: diferente da tira (Plano 18-03, estado vazio
   // agregado uma vez só), o card de POSIÇÃO não mostra caixa vazia — o
@@ -4343,56 +4191,6 @@ function PropostaDaPosicao({ t, r, cp, operador, A, data, aberto, onToggle }) {
     ? myOptionPositions.find((p) => p.id === r.proposta.contractSymbol) || null
     : null;
 
-  // Réplica de App.jsx:3292-3321 — mesmo corpo, agora parametrizado pelo
-  // candidato clicado (Fase 19, MULTI-02: uma posição pode ter N candidatos,
-  // cada um com seu próprio CTA; `busy` continua único por posição, lido por
-  // TODOS os candidatos — 19-UI-SPEC.md, Decisão de Interação 1). Corpo
-  // enviado ao collar carrega SÓ contractSymbol + lado por perna — prêmio e
-  // strike o servidor re-deriva (T-17-24).
-  const aceitarCandidato = async (p) => {
-    if (!p) return;
-    // Quick 260908-ldg (D-03): mesmo confirm de liquidez de App.jsx:3446
-    // (onAbrirLastreada) — a put, que hoje não tinha confirm nenhum, passa a
-    // ter este quando é DIFÍCIL. Vem ANTES de qualquer confirm de estrutura.
-    const liq = p.liquidez || {};
-    let aceitaLiquidezDificil = false;
-    if (liq.faixa === "DIFÍCIL") {
-      if (!liq.aviso) { A.flash("Não foi possível confirmar a liquidez desta operação — tente novamente."); return; }
-      if (!window.confirm(liq.aviso)) return;
-      aceitaLiquidezDificil = true;
-    }
-    if (p.tipo === "collar") {
-      if (!window.confirm(cp.confirmAbrirCollar(p.contratos, t, p.qtyAcoes))) return;
-      setBusy(true);
-      try {
-        await A.abrirCollar({
-          underlying: t,
-          pernasContratos: (p.pernasContratos || []).map((perna) => ({ contractSymbol: perna.contractSymbol, lado: perna.lado })),
-          contratos: p.contratos,
-          expiration: p.expiration,
-          aceitaLiquidezDificil,
-        });
-      } finally { setBusy(false); }
-      return;
-    }
-    // A confirmação existe pela TRAVA do lastro, não pelo gasto — só a CALL
-    // coberta trava ações; a PUT de proteção não trava nada (T-14-24).
-    if (p.optionType === "call" && !window.confirm(cp.confirmAbrirCoberta(p.contratos, t, p.qtyAcoes))) return;
-    setBusy(true);
-    try { await A.abrirLastreada({ underlying: t, contractSymbol: p.contractSymbol, expiration: p.expiration, contratos: p.contratos, aceitaLiquidezDificil }); }
-    finally { setBusy(false); }
-  };
-
-  // Réplica de App.jsx:3322-3329.
-  const onFecharLastreada = async () => {
-    if (!r || !r.proposta) return;
-    const p = r.proposta;
-    if (!window.confirm(cp.confirmFecharCoberta(price(p.premioTotal), p.qtyAcoes, t, p.optionType === "call"))) return;
-    setBusy(true);
-    try { await A.fecharLastreada({ contractSymbol: p.contractSymbol, contratos: p.contratos }); }
-    finally { setBusy(false); }
-  };
-
   return (
     <div style={{ marginTop: "10px", paddingTop: "9px", borderTop: `1px solid ${T.borderFaint}` }}>
       <button type="button" onClick={onToggle} aria-expanded={aberto} style={{ display: "flex", width: "100%", alignItems: "center", justifyContent: "space-between", padding: "5px 0", background: "transparent", border: "none", color: T.textMuted, fontSize: "11.5px", fontWeight: 700, cursor: "pointer" }}>
@@ -4413,7 +4211,7 @@ function PropostaDaPosicao({ t, r, cp, operador, A, data, aberto, onToggle }) {
             <FonteDoDadoProposta r={r} cp={cp} />
           </>
         ) : (
-          <PropostaLastreada r={r} operador={operador} cp={cp} busy={busy} onAbrir={() => aceitarCandidato(r.proposta)} onFechar={onFecharLastreada} posAberta={posAberta} onVerbeteLiquidez={(dados) => A.abrirVerbete("liquidez-opcao", dados)} />
+          <PropostaLastreada r={r} operador={operador} cp={cp} busy={busy} onAbrir={() => aceitarCandidato(r.proposta)} onFechar={() => fecharLastreada(r)} posAberta={posAberta} onVerbeteLiquidez={(dados) => A.abrirVerbete("liquidez-opcao", dados)} />
         )
       )}
     </div>
