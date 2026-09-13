@@ -836,14 +836,16 @@ Resume file: None
 
 ## Operator Next Steps
 
-**PUBLICAÇÃO PENDENTE, acumulando duas fases (2026-09-13).** A Fase 25 fechou
-em código sem ir ao ar, e a Fase 26 (plano 01) empilhou por cima: backend
-(`conceitos.py`, `main.py`, `metering.py`) e front (`App.jsx`, `copy.js`).
-Ordem obrigatória quando houver OK humano: deploy do backend **com bump manual
-de `SERVER_BUILD_ID`**, depois `scripts/bump.sh` + `scripts/publicar-web.sh`,
-depois `scripts/publicar-admin.sh`. Enquanto isso não acontece, nada da Fase 25
-nem da 26 chega ao usuário — e quanto mais fases empilham, mais caro fica
-isolar um defeito de publicação.
+**PUBLICADO (2026-09-13, carimbo `F10-20260913-01`, PR [#54](https://github.com/AlexandreCamerini/b3agente/pull/54), merge `29962bb`).**
+Fase 25 (planos comerciais) foi ao ar pela primeira vez, junto com a Fase
+26/Fase A completa (A1-A8). `bump.sh` → `server/app/main.py` (SERVER_BUILD_ID
+sincronizado à mão + comentário) → `npx vite build` → `publicar-web.sh
+--so-publicar` → commit único → push → PR → merge. Verificado ao vivo:
+`https://boris.semente.dev/api/health` responde `F10-20260913-01`, e o bundle
+servido carrega o mesmo carimbo. `web-admin` (portal) **não** foi tocado
+nesta rodada — a Fase 26 não mexeu nele, e o `admin_dist` publicado em
+`62d1e88` (Fase 25) já estava atualizado. Sem pendência de publicação no
+momento.
 
 **v1.5 (Redesenho de UI) — SHIPPED, sem próximo passo mecânico.** 4 itens de
 verificação humana pendentes, consolidados em
