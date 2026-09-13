@@ -494,6 +494,59 @@ prefixado) e caiu toda a complexidade de legado, por decisão do Alex
 Fase 26) — a regra de lastro obrigatório × flag de operação a descoberto
 continua pendente de decisão e não entra aqui.
 
+#### Phase 28: Sub-aba "Operar" e extração de `PropostaLastreada` — standalone
+**Goal**: Toda operação lastreada (venda coberta, put de proteção, collar) que
+hoje só existe dentro do card do ativo em Watchlist/Radar passa a existir
+dentro da aba Opções, numa sub-aba nova ("Operar") — sem duplicar o
+componente que já faz isso (`PropostaLastreada`), extraído para um módulo
+compartilhado que os dois lados importam (nenhum dos dois importa do outro,
+preservando o isolamento do ADR-027). A aba Opções ganha duas sub-abas:
+"Setups" (o que a Fase 27 já entrega, intocado) e "Operar" (nova).
+**Depends on**: Phase 27 (aba Opções sobre a carteira — universo, leitura
+técnica) e Phase 17/19 (motor de proposta lastreada e multi-candidato,
+`opcoes_lastreadas.py`/`store.py`, inalterados nesta fase).
+**Requirements**: ver `28-CONTEXT.md`
+**Success Criteria** (what must be TRUE):
+  1. Abrir e fechar venda coberta, put de proteção e collar funciona a partir
+     da sub-aba "Operar", sobre uma posição real da carteira — nenhuma rota
+     nova, nenhuma mudança no motor determinístico (`opcoes_lastreadas.py`/
+     `store.py`).
+  2. O componente que renderiza a proposta (manchete do motor, payoff
+     numérico — ganho máximo, perda máxima, breakevens —, CTA de abrir/
+     fechar) existe em UM módulo só, importado por `App.jsx` e por
+     `OpcoesScreen.jsx` — nenhum dos dois importa do outro (Emenda 3 ao
+     ADR-027).
+  3. O card de proposta lastreada dentro do `AtivoCard` (Watchlist/Radar) não
+     existe mais — abrir/fechar por ali deixa de ser possível; o caminho
+     passa a ser a aba Opções. A tira `OportunidadesOpcoes` em Posições
+     (Fase 18) permanece intocada (não usa `PropostaLastreada` hoje, não
+     depende desta extração).
+  4. A sub-aba "Setups" continua idêntica ao que a Fase 27 entrega (vigias,
+     leitura técnica, cadeia/possibilidades, criar/desativar setup) — zero
+     regressão.
+  5. Suíte canônica sem regressão da baseline medida no início da fase;
+     `npx vite build` verde.
+**Plans:** 3 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 28-01-PLAN.md — extrai `PropostaLastreada`/`FonteDoDadoProposta`/`ChipDaProposta` + o caminho de aceite para `web/src/opcoes/PropostaLastreada.jsx`, reaponta `App.jsx` e os guardiões
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 28-02-PLAN.md — sub-abas "Setups"/"Operar" em `OpcoesScreen.jsx`, `SubAbaOperar` com a proposta lastreada da posição, chaves de copy nos dois modos e guardião novo
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 28-03-PLAN.md — remove o card de proposta do `AtivoCard` + código órfão, reaponta os 3 guardiões restantes, Emenda 3 ao ADR-027 e checkpoint de verificação ao vivo
+
+**UI hint**: yes
+
+**Fora de escopo, explicitamente**: opção a descoberto/naked (Fase 29, exige
+o flag opt-in em Configurações que ainda não existe); curadoria de IA das 4
+melhores estruturas (Fase 30); polish de UX pós-uso real (Fase 31).
+
 ## Progress
 
 | Phase | Milestone | Status | Completed |
@@ -526,6 +579,7 @@ continua pendente de decisão e não entra aqui.
 | 25. Planos comerciais — acesso por função e limites por plano | 6/6 | Complete | 2026-09-12 |
 | 26. Otimização de UX e da camada de IA | 1/6 | In Progress|  |
 | 27. Aba Opções sobre a carteira | 5/5 | Code complete | 2026-09-13 |
+| 28. Sub-aba "Operar" e extração de `PropostaLastreada` | 0/? | Pending |  |
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2/v1.3
 
