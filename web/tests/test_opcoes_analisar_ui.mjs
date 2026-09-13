@@ -242,6 +242,17 @@ const EFEITO_PERMITIDO = [
   // dizer. Uma allowlist com um item marcado transitório é honesta; uma que
   // silenciasse o item seria mentira com cara de guardião.
   "mcpLeitura",
+  // 2026-09-13 (Fase 27, plano 27-04). Custo ZERO por contrato da ROTA:
+  // `GET /api/options/tecnico/{ticker}` é interna, devolve `custoMcp: 0` e
+  // não toca `mcp.semente.dev` — provado no backend por bomba no
+  // `mcp_client.call_tool` (27-03, `test_opcoes_tecnico_rota.py`). É ela que
+  // permite escolher um ativo e ter tendência, volatilidade e níveis na hora
+  // sem mexer no contador de cota (critério 3 do ROADMAP).
+  //
+  // Sem prefixo `mcp`, e isso é decisão do 27-03: neste código `mcp*`
+  // significa "custa cota". Ver a nota na extração logo abaixo — foi por causa
+  // deste item que ela deixou de olhar só para `store.mcp*`.
+  "opcoesTecnico",
 ];
 // Lista POSITIVA de quem não pode disparar por efeito. `mcpSetupsListar`
 // entrou na Fase 27: ela custa 2 e tem UMA porta, o botão "Atualizar" do bloco
@@ -260,9 +271,26 @@ const efeitos = hook.split("useEffect(").slice(1).map((t) => t.split("}, [")[0])
 // Sanidade: sem ela um typo no fatiador faria tudo passar por vacuidade.
 ok("o hook tem ao menos TRÊS efeitos (status, índice de vigias, troca de ticker)",
    efeitos.length >= 3);
+// 2026-09-13 (Fase 27, plano 27-04) — a extração passou a olhar TODO
+// `store.<método>`, e não só `store.mcp*`.
+//
+// Medido, não presumido: a allowlist acima ganhou `opcoesTecnico` e, com a
+// regex antiga (`store\.(mcp[A-Za-z0-9_]*)`), a entrada nasceria INERTE —
+// nenhum método sem o prefixo `mcp` era sequer visto pelo guardião. O buraco
+// não é teórico: o 27-03 decidiu, com razão, que `mcp*` neste código
+// significa "custa cota", então toda rota barata nasce FORA do prefixo — e
+// era justamente essa classe de chamada que atravessava o portão sem ser
+// conferida. Uma chamada cara que alguém batizasse sem o prefixo entraria
+// num `useEffect` sem reprovar nada.
+//
+// O que a regra passa a dizer: TODA chamada ao store dentro de efeito precisa
+// estar na allowlist, com o porquê escrito — o prefixo do nome não é mais o
+// que decide quem é auditado.
 const chamadasEmEfeito = [...new Set(
-  efeitos.flatMap((corpo) => [...corpo.matchAll(/store\.(mcp[A-Za-z0-9_]*)/g)]
+  efeitos.flatMap((corpo) => [...corpo.matchAll(/store\.([A-Za-z0-9_]+)/g)]
     .map((m) => m[1])))];
+ok("sanidade: a extração enxerga chamada de store SEM o prefixo `mcp` (senão a allowlist nasceria inerte)",
+   chamadasEmEfeito.some((m) => !/^mcp/.test(m)));
 ok("sanidade: a extração acha ao menos DOIS store.* distintos dentro de efeitos",
    chamadasEmEfeito.length >= 2);
 for (const m of chamadasEmEfeito) {

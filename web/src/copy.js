@@ -190,6 +190,47 @@ export const COPY = {
     // Travessão COM motivo: zero seria lido como "você não tem lastro", que é
     // afirmação diferente de "não sei quanto você tem" (princípio 4).
     opcoesLastroSemDado: "não deu para ler a quantidade desta posição, então o lastro não é afirmado aqui. Zero seria outra coisa: \"você não tem lastro\" é diferente de \"não sei quanto você tem\".",
+    // Fase 27 (27-04, D1/D4) — A LEITURA TÉCNICA INTERNA.
+    //
+    // Bloco que nasce do lado do app, não do serviço de opções: tendência,
+    // volatilidade, suporte/resistência e a régua de sete pregões saem do
+    // motor determinístico que já alimenta Radar e Watchlist (27-03). Custo
+    // ZERO de cota — é isso que permite escolher um ativo e ter resposta na
+    // hora, em vez de só ter resposta paga.
+    opcoesInternaTitulo: "LEITURA TÉCNICA DO ATIVO",
+    // O carimbo é o princípio 3 do CLAUDE.md: de QUANDO é a leitura e DE ONDE
+    // ela veio. Sem fonte declarada, travessão — nunca um nome de fonte por
+    // default, que é o mesmo defeito que o cabeçalho da aba já corrigiu.
+    opcoesInternaCarimbo: (asOf, fonte) =>
+      "Leitura do pregão de " + (asOf || "—") + ", calculada pelo próprio Boris+ a partir de " +
+      (fonte || "—") + ". É o mesmo motor que o Radar e a Watchlist usam, então o número aqui é o mesmo de lá.",
+    // Selo DERIVADO de `custoMcp === 0` na resposta, nunca escrito à mão: se a
+    // rota um dia passar a custar, o selo some sozinho.
+    opcoesSemCusto: "grátis — motor do próprio app, sem consultar o serviço de opções",
+    opcoesInternaCarregando: "Calculando a leitura técnica no próprio app…",
+    opcoesInternaErro: "A leitura técnica interna deste ativo não saiu agora. Nada foi estimado no lugar — e o resto da tela não depende dela: os vigias e a leitura do serviço continuam valendo.",
+    // Os quatro regimes de `server/app/regime.py::REGIMES`. Uma tabela só,
+    // aqui, para que a linha de tendência e a régua digam a MESMA palavra
+    // sobre o mesmo estado — dois vocabulários divergiriam na primeira
+    // renomeação e a régua passaria a contradizer a linha logo acima dela.
+    opcoesRegimeRotulo: {
+      tendencia_alta: "tendência de alta",
+      tendencia_baixa: "tendência de baixa",
+      lateral: "sem tendência definida (lateral)",
+      indefinido: "indefinido — faltou dado para classificar",
+    },
+    opcoesForcaRotulo: { forte: "forte", transicao: "em transição", fraca: "fraca" },
+    // Ressalva, não erro: o valor continua na tela. O que muda é que a janela
+    // de 200 pregões não fechou e o filtro de direção se apoiou na média de
+    // 50 — dizer isso é diferente de esconder o número.
+    opcoesRegimeNaoConfiavel: "Esta classificação se apoiou na média de 50 pregões, não na de 200: o histórico disponível ainda não fecha a janela longa. O número continua valendo para o que ele mede — o que não dá para afirmar é tendência de longo prazo.",
+    // A régua de sete pregões (D4 do 27-CONTEXT). Cada segmento é um pregão
+    // FECHADO e a cor é o estado MEDIDO naquele dia. Nada ali é previsão — a
+    // frase diz isso com todas as letras porque uma faixa horizontal com
+    // cores é lida como projeção se ninguém disser o contrário.
+    opcoesReguaTitulo: "Como a semana evoluiu",
+    opcoesReguaAjuda: "Cada segmento é um pregão fechado, do mais antigo à esquerda até o mais recente à direita, e a cor é o regime que foi MEDIDO naquele dia — não uma previsão do próximo. Segmento mais apagado é dia em que a janela longa não estava disponível e a classificação se apoiou na média curta.",
+    opcoesReguaSemDados: "Não há pregões suficientes para montar a evolução da semana deste ativo. A faixa fica de fora em vez de aparecer vazia: sete segmentos \"indefinido\" seriam lidos como \"a semana inteira sem direção\", que é afirmação diferente de \"não há dado\".",
     opcoesDisclaimer: "Conteúdo educacional. Os dados são de fim de pregão e podem estar atrasados; nada aqui é ordem, recomendação ou promessa de resultado.",
     opcoesGraficoTitulo: "Disparos do setup",
     opcoesDisparosRotulo: "Disparos",
@@ -661,6 +702,26 @@ export const COPY = {
       " ação(ões) travada(s) como lastro da call coberta aberta — liberam na recompra ou no vencimento.",
     opcoesLastroAjuda: "1 contrato = 100 ações. Mesmo número da Carteira, mesma conta; nenhuma ordem sai desta tela.",
     opcoesLastroSemDado: "quantidade desta posição ilegível, então o lastro não é afirmado. Zero diria \"sem lastro\", que é outra afirmação.",
+    // Fase 27 (27-04, D1/D4) — a leitura técnica interna, voz de mesa: o
+    // estado, a fonte e o custo, sem a aula. MESMAS chaves do ramo estudo.
+    opcoesInternaTitulo: "TÉCNICO DO ATIVO",
+    opcoesInternaCarimbo: (asOf, fonte) =>
+      "Pregão de " + (asOf || "—") + " · motor interno sobre " + (fonte || "—") +
+      ". Mesma fonte do Radar e da Watchlist.",
+    opcoesSemCusto: "grátis — motor interno, não consulta o serviço",
+    opcoesInternaCarregando: "Calculando o técnico no app…",
+    opcoesInternaErro: "Técnico interno indisponível agora. Nada estimado no lugar; vigias e leitura do serviço seguem valendo.",
+    opcoesRegimeRotulo: {
+      tendencia_alta: "tendência de alta",
+      tendencia_baixa: "tendência de baixa",
+      lateral: "lateral",
+      indefinido: "indefinido — sem dado para classificar",
+    },
+    opcoesForcaRotulo: { forte: "forte", transicao: "em transição", fraca: "fraca" },
+    opcoesRegimeNaoConfiavel: "Classificação apoiada na média de 50, não na de 200 — a janela longa ainda não fechou. Vale para o que mede; não afirma tendência longa.",
+    opcoesReguaTitulo: "Evolução da semana",
+    opcoesReguaAjuda: "Um segmento por pregão fechado, mais antigo à esquerda. A cor é o regime MEDIDO no dia, não projeção do próximo. Segmento apagado = janela longa indisponível, classificação pela média curta.",
+    opcoesReguaSemDados: "Pregões insuficientes para a evolução da semana. A faixa fica fora em vez de vir vazia: sete \"indefinido\" seriam lidos como semana sem direção, que é outra afirmação.",
     opcoesDisclaimer: "Conteúdo educacional. Dados de fim de pregão, possivelmente atrasados; nada aqui é ordem, recomendação ou promessa de resultado.",
     opcoesGraficoTitulo: "Disparos do setup",
     opcoesDisparosRotulo: "Disparos",

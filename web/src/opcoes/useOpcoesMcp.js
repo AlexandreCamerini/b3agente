@@ -17,6 +17,26 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 const VAZIO = { dados: null, carregando: false, erro: null };
 
+// Fase 27 (27-04) — período da LEITURA TÉCNICA INTERNA, FIXO e nomeado.
+//
+// Duas coisas o número resolve, e nenhuma delas é estética:
+//
+//  1. **A régua precisa de sete velas FECHADAS na cauda.** Com um período
+//     curto a série viria truncada e o `motivo` da régua ("a série tem menos
+//     de 7 pregões") apareceria em TODA leitura, sem defeito nenhum por trás
+//     — um aviso que aparece sempre deixa de ser lido.
+//  2. **O período escolhe a CAUDA, não o histórico.** O warmup das médias
+//     longas é fixo em 2 anos no backend (`server/app/candles.py`,
+//     `FETCH_RANGE`), então a confiabilidade da SMA200 — e portanto o
+//     `confiavel` de cada segmento — NÃO depende deste valor.
+//
+// O que ele não pode é VARIAR por chamada: dois períodos diferentes na mesma
+// tela produziriam duas leituras do mesmo dia, e a régua discordaria da linha
+// de tendência logo acima dela (correção C7 do plano). Não passar `period` é
+// a alternativa pior: o default fica implícito no backend e some do fonte que
+// a tela lê.
+const PERIODO_DA_LEITURA = "1y";
+
 // aba-opcoes F3 (plano 24-02): cadeia, operáveis, proposta e possibilidades
 // são QUATRO chamadas com a mesma disciplina — e quatro cópias do mesmo bloco
 // divergem na primeira manutenção feita só numa delas.
@@ -74,6 +94,15 @@ export function useOpcoesMcp(store, ticker) {
   // pela mesma razão do `status` e da `leitura`: uma lista vazia pintada
   // durante a consulta é a afirmação "você não tem vigia", que ninguém mediu.
   const [vigias, setVigias] = useState({ dados: null, carregando: true, erro: null });
+  // Fase 27 (27-04) — a LEITURA TÉCNICA INTERNA do ativo (tendência,
+  // volatilidade, níveis e a régua de 7 pregões), do motor determinístico do
+  // próprio Boris+.
+  //
+  // Nasce VAZIO, e não `carregando: true` como os três acima: eles saem no
+  // mount e a tela tem de dizer "consultando" desde o primeiro frame; este só
+  // existe DEPOIS de haver ativo escolhido, e o bloco não é renderizado sem
+  // ticker. Nascer "carregando" afirmaria uma consulta que não foi pedida.
+  const [tecnico, setTecnico] = useState(VAZIO);
 
   // Dois contadores de requisição, não um: `tickerRef` invalida TUDO que
   // estiver em voo quando o ticker muda (sem ele, trocar de ativo rápido
@@ -170,6 +199,44 @@ export function useOpcoesMcp(store, ticker) {
       .catch((e) => { if (tickerRef.current === meu && leituraRef.current === minha) setLeitura({ dados: null, carregando: false, erro: e }); });
     return undefined;
   }, [store, ticker, limparCadeia, limparOperaveis, limparProposta, limparPossibilidades, limparSetup]);
+
+  // Fase 27 (27-04) — a leitura técnica INTERNA, disparada pela troca de
+  // ticker.
+  //
+  // **Por que ESTE efeito pode disparar sozinho quando quase nenhum outro
+  // pode.** O §3.3 do ADR-027 proíbe gastar COTA do serviço de opções sem
+  // clique explícito. Aqui não há cota nenhuma a gastar: `GET
+  // /api/options/tecnico/{ticker}` é rota INTERNA, declara `custoMcp: 0` como
+  // campo de contrato e não toca `mcp.semente.dev` (27-03, provado no backend
+  // por bomba no `mcp_client.call_tool`). É a mesma justificativa do efeito de
+  // `mcpVigias` logo acima, e é ela que permite a aba responder "tendência,
+  // volatilidade e níveis" assim que a pessoa escolhe um ativo, de graça.
+  //
+  // **Invalidação: `vivo`, e não `tickerRef`.** É a MESMA disciplina dos dois
+  // efeitos de cima, de propósito. Ler `tickerRef.current` aqui faria a
+  // correção depender da ORDEM DE DECLARAÇÃO dos efeitos — quem incrementa
+  // `tickerRef` é o efeito de `leitura`, logo acima —, e mover este bloco
+  // para cima dele deixaria a comparação falsa para sempre: nenhuma resposta
+  // pintaria a tela, em silêncio e sem teste vermelho. O `vivo` do cleanup dá
+  // a MESMA garantia ("resposta de PETR4 nunca pinta a tela de VALE3", porque
+  // a troca de ticker roda o cleanup antes de reexecutar o efeito) sem
+  // depender de ordem nenhuma.
+  //
+  // UMA referência ao método `opcoesTecnico` do store, com o guard sobre ELA
+  // (e não sobre o nome escrito de novo) — mesmo
+  // padrão de "porta única" de `atualizarVigias`. `.call(store)` preserva o
+  // `this` do `deviceStore`, que declara o método no estilo atalho.
+  useEffect(() => {
+    const t = (ticker || "").trim();
+    const ler = store && store.opcoesTecnico;
+    if (!t || typeof ler !== "function") { setTecnico(VAZIO); return undefined; }
+    let vivo = true;
+    setTecnico({ dados: null, carregando: true, erro: null });
+    ler.call(store, t, { period: PERIODO_DA_LEITURA })
+      .then((d) => { if (vivo) setTecnico({ dados: d, carregando: false, erro: null }); })
+      .catch((e) => { if (vivo) setTecnico({ dados: null, carregando: false, erro: e }); });
+    return () => { vivo = false; };
+  }, [store, ticker]);
 
   // F5: recarga da leitura do MESMO ticker, sob demanda. Existe porque gravar
   // ou desativar um setup muda a lista que a seção "SETUPS GRAVADOS" mostra —
@@ -352,6 +419,9 @@ export function useOpcoesMcp(store, ticker) {
     // índice (custo zero, sai no mount); `vigiasVivos` é o estado do dia
     // (custo 2, só de clique).
     vigias, vigiasVivos, atualizarVigias, recarregarVigias,
+    // Fase 27 (27-04): a leitura técnica interna do ativo — custo ZERO de
+    // cota, motor determinístico do próprio app.
+    tecnico,
   };
 }
 

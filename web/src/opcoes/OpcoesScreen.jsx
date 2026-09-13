@@ -25,6 +25,11 @@ import { useState } from "react";
 // recalculá-la aqui criaria uma segunda implementação que divergiria da
 // primeira na correção seguinte, em silêncio e com o mesmo nome na tela.
 import { qtyLivre } from "../finance.js";
+// Fase 27 (27-04): o formatador de volatilidade é ESCOLHIDO pela unidade que
+// o contrato declara. Ver o comentário do bloco de HV em `LeituraInterna` —
+// nesta mesma tela convivem um percentual (motor interno) e uma fração
+// (serviço MCP), e trocá-los erra por 10× em silêncio.
+import { formatarVolatilidade } from "./unidades.js";
 import { useOpcoesMcp } from "./useOpcoesMcp.js";
 import SetupChart from "./SetupChart.jsx";
 import PayoffChart from "./PayoffChart.jsx";
@@ -253,6 +258,7 @@ export default function OpcoesScreen({ ctx }) {
     abrirCadeia, abrirOperaveis, montarProposta, verPossibilidades,
     setupNovo, compilarSetup, confirmarSetup, desativarSetup,
     vigias, vigiasVivos, atualizarVigias,
+    tecnico,
   } = useOpcoesMcp(store, ticker);
 
   // F5 (plano 24-04) — a seção de ESCRITA de setup só aparece para quem tem
@@ -545,6 +551,11 @@ export default function OpcoesScreen({ ctx }) {
           insuficiente: N ação(ões) livres de PETR4"), depois de a pessoa
           tentar — e recusa não é aviso, é recibo. */}
       {ticker ? <LastroDoAtivo pos={posicaoSelecionada} cp={cp} /> : null}
+      {/* Fase 27 (27-04, D1): a leitura de GRAÇA vem primeiro; a paga só
+          quando a pessoa clica. Fica FORA da cascata de estados do serviço de
+          opções de propósito — são fontes independentes, e é exatamente
+          quando o MCP está fora do ar que esta leitura mais vale. */}
+      {ticker ? <LeituraInterna tecnico={tecnico} cp={cp} /> : null}
 
       {/* ------------------------------------------------ 1. CARREGANDO --
           Antes do vazio, sempre: vazio pintado durante a consulta afirma
@@ -1150,6 +1161,133 @@ function LastroDoAtivo({ pos, cp }) {
       ) : null}
       <div style={AJUDA}>{c.opcoesLastroAjuda || ""}</div>
     </div>
+  );
+}
+
+// Fase 27 (27-04) — A LEITURA TÉCNICA INTERNA DO ATIVO (D1 do 27-CONTEXT).
+//
+// Primeiro bloco que a pessoa vê depois de escolher um ativo, e o único que
+// responde de GRAÇA: tendência, volatilidade, suporte/resistência e a régua
+// de sete pregões saem do motor determinístico do próprio Boris+
+// (`/api/options/tecnico/{ticker}`, 27-03) — o MESMO que alimenta Radar e
+// Watchlist. Sem ele, escolher um ativo continuaria só tendo resposta paga.
+//
+// **Independente do bloco do serviço, nos DOIS sentidos.** Ele é renderizado
+// fora da cascata de estados do MCP de propósito: se o serviço de opções
+// estiver fora do ar ou não configurado, esta leitura continua aparecendo (é
+// justamente quando ela mais vale); e se ela degradar, a leitura do serviço e
+// os vigias continuam na tela. Duas fontes, dois carimbos, nenhuma
+// escondendo a outra — é o que a Emenda 2 do ADR-027 aceitou por escrito.
+//
+// Nenhum número é calculado aqui. A régua de regime também não é derivada na
+// tela: ela vem pronta do backend, que a monta chamando `regime.classificar`
+// um pregão por vez. Uma segunda régua em JavaScript divergiria da primeira
+// na correção seguinte — é a classe de defeito que o Snapshot Técnico Único
+// existe para matar.
+//
+// Em que média o filtro de direção se apoiou. Tabela de campo↔rótulo local,
+// como `ROTULO_LEITURA`: é vocabulário técnico idêntico nos dois modos (o
+// número da janela não muda de nome na mesa), e o que tem voz por modo — a
+// ressalva de confiabilidade — mora no `copy.js`.
+const ROTULO_BASE = {
+  sma200: "média de 200 pregões",
+  sma50: "média de 50 pregões",
+};
+
+// Preço do nível MAIS a distância até ele, quando as duas coisas existem.
+// Sem preço, travessão: um nível sem valor não vira "0" nem some da lista, e
+// a distância sozinha não é nível nenhum.
+const nivelComDistancia = (preco, distanciaPct) => (ehNum(preco)
+  ? fmt(preco) + (ehNum(distanciaPct) ? " · " + pct(distanciaPct, 1) : "")
+  : "—");
+
+function LeituraInterna({ tecnico, cp }) {
+  const c = cp || {};
+  const t = tecnico || {};
+  const dados = t.dados;
+  // Sem pedido em curso, sem erro e sem dado não há bloco: um quadro vazio
+  // com título seria lido como "este ativo não tem leitura técnica", que é
+  // afirmação diferente de "ainda não perguntei".
+  if (!t.carregando && !t.erro && !dados) return null;
+
+  const tend = (dados && dados.tendencia) || {};
+  const vol = (dados && dados.volatilidade) || {};
+  const niveis = (dados && dados.niveis) || {};
+  const carimbo = (dados && dados.carimbo) || {};
+  const rotuloRegime = ((c.opcoesRegimeRotulo || {})[tend.regime]) || "—";
+  const rotuloForca = ((c.opcoesForcaRotulo || {})[tend.forca]) || null;
+  // O selo de gratuidade é DERIVADO da resposta, nunca escrito fixo: o dia em
+  // que esta rota passar a custar, ele some sozinho (T-27-19).
+  const semCusto = !!dados && dados.custoMcp === 0;
+  // Motivos de ausência, do backend e VERBATIM. Cada bloco traz o seu quando
+  // o insumo não existe; juntá-los no rodapé é o mesmo desenho de
+  // `LacunasDaLeitura` — explicar a ausência sem preencher o número.
+  const motivos = [tend.motivo, vol.motivo, niveis.motivo, carimbo.motivo]
+    .filter((m) => typeof m === "string" && m);
+
+  return (
+    <>
+      <Kicker>{c.opcoesInternaTitulo || "LEITURA TÉCNICA DO ATIVO"}</Kicker>
+      {t.carregando ? (
+        <Aviso>{c.opcoesInternaCarregando || "Calculando a leitura técnica no próprio app…"}</Aviso>
+      ) : t.erro ? (
+        <>
+          <Aviso tom="forte">{(t.erro && t.erro.message) || "—"}</Aviso>
+          <div style={{ fontSize: "11.5px", color: T.textMuted, marginTop: "6px", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+            {c.opcoesInternaErro || ""}
+          </div>
+        </>
+      ) : (
+        <>
+          <div style={{ border: `1px solid ${T.borderSubtle}`, borderRadius: "12px", padding: "4px 14px 10px", background: T.bgPanel }}>
+            <Linha rotulo="Tendência" valor={rotuloRegime} />
+            <Linha rotulo="Força (ADX 14)" valor={rotuloForca ? rotuloForca + " · " + fmt(tend.adx14, 1) : "—"} />
+            <Linha rotulo="Base do filtro" valor={ROTULO_BASE[tend.base] || "—"} />
+            {/* ATENÇÃO À UNIDADE — o erro de 10× mora aqui.
+                `hv21Pct`/`hv63Pct` deste bloco vêm em PERCENTUAL (31,4 = 31,4%)
+                e o contrato declara `unidade: "pct"`; o `behavior.hv21` do
+                serviço MCP, exibido no bloco "LEITURA DO ATIVO" logo abaixo,
+                vem em FRAÇÃO (0,314) e continua passando por `fracPct`. Os
+                dois ficam no MESMO ecrã. Por isso o formatador não é fixo: ele
+                é ESCOLHIDO pela unidade que a própria resposta declara, e
+                unidade que o app não conhece vira travessão com motivo, nunca
+                palpite (`unidades.js`). */}
+            <Linha rotulo="HV 21" valor={formatarVolatilidade(vol.hv21Pct, vol.unidade)} />
+            <Linha rotulo="HV 63" valor={formatarVolatilidade(vol.hv63Pct, vol.unidade)} />
+            <Linha rotulo="Suporte mais próximo" valor={nivelComDistancia(niveis.nearestSupport, niveis.distanceToSupportPct)} />
+            <Linha rotulo="Resistência mais próxima" valor={nivelComDistancia(niveis.nearestResistance, niveis.distanceToResistancePct)} />
+          </div>
+
+          {/* Ressalva, NÃO erro: o valor acima continua valendo. O que ela diz
+              é em que janela ele se apoiou — esconder o número seria pior. */}
+          {tend.confiavel === false ? (
+            <div style={{ fontSize: "11.5px", color: T.textMuted, marginTop: "6px", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+              {c.opcoesRegimeNaoConfiavel || ""}
+            </div>
+          ) : null}
+
+          {motivos.map((m, i) => (
+            <div key={i} style={{ fontSize: "11.5px", color: T.textMuted, marginTop: "4px", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+              {m}
+            </div>
+          ))}
+
+          {/* Carimbo (princípio 3): de qual pregão é a leitura e de onde veio a
+              série. Fonte ausente vira travessão dentro da própria frase — um
+              nome de fonte por default é a mentira que o cabeçalho da aba já
+              corrigiu uma vez ("Fonte: —"). */}
+          <div style={{ fontSize: "11.5px", color: T.textMuted, marginTop: "6px", lineHeight: 1.5 }}>
+            {(c.opcoesInternaCarimbo || ((a, f) => "Pregão: " + (a || "—") + " · fonte: " + (f || "—")))(
+              carimbo.asOf, carimbo.source)}
+          </div>
+          {semCusto ? (
+            <div style={{ display: "inline-block", marginTop: "6px", fontSize: "11px", fontWeight: 700, color: T.textSecondary, border: `1px solid ${T.borderSubtle}`, borderRadius: "999px", padding: "3px 9px" }}>
+              {c.opcoesSemCusto || ""}
+            </div>
+          ) : null}
+        </>
+      )}
+    </>
   );
 }
 
