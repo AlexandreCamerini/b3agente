@@ -9248,6 +9248,13 @@ export default function App() {
     // nasce como ponto único para um deep link ou push futuro ter um lugar
     // só para apontar, em vez de replicar os três setters.
     goAgente: () => { setPerfilView("hub"); setTab("carteira"); setCarteiraView("agente"); },
+    // Fase 27 (27-02, D2 do 27-CONTEXT): caminho do estado vazio da aba
+    // Opções. O destino é a CARTEIRA e não o Mercado por decisão explícita do
+    // Alex — a aba opera sobre o que a pessoa TEM, e mandá-la para a watchlist
+    // seria oferecer intenção onde o que falta é lastro. Mesmo padrão de três
+    // setters do `goAgente` acima, pela mesma razão: ponto único de entrada,
+    // em vez de replicar a navegação em cada chamador.
+    goCarteira: () => { setPerfilView("hub"); setTab("carteira"); setCarteiraView("main"); },
     // aba-opcoes F2: telas fora de App.jsx (web/src/opcoes/) não podem
     // importar daqui — seria ciclo. `PriceChart` e a paleta em HEX (var()
     // não resolve em canvas) chegam pelo ctx, e o `store` também: ele é

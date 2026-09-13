@@ -197,9 +197,32 @@ export default function OpcoesScreen({ ctx }) {
   const cp = (ctx && ctx.cp) || {};
   const store = ctx && ctx.store;
   const palette = (ctx && ctx.palette) || {};
-  // Universo = a watchlist do usuário. Não se inventa um universo aqui, e
-  // não há chamada extra para descobrir tickers.
-  const watchlist = (ctx && ctx.data && ctx.data.watchlist) || [];
+  // Fase 27 (D3 do 27-CONTEXT, 2026-09-13) — o universo desta aba é a
+  // CARTEIRA, não a watchlist. O pedido do Alex é literal ("que a aba de
+  // opções só apresentasse os ativos que estão no portfolio e que os setups
+  // fossem armados sob os mesmos"), e a razão é de produto: toda estrutura
+  // que esta aba monta é lastreada no papel em carteira. Watchlist é
+  // INTENÇÃO; posição é LASTRO — e é o lastro que decide o que dá para
+  // montar. Sem chamada nova: `positions` já chega no `ctx` (a MESMA fonte
+  // que o `App.jsx` usa para marcar "em carteira").
+  //
+  // Ordem: a que `positions` chega. Nada é reordenado aqui — "Em aberto 2" do
+  // 27-CONTEXT (carteira grande, acima de ~8 posições, vira rolagem longa)
+  // segue sem decisão do Alex, e o desenho abaixo não impede uma busca depois
+  // nem a inventa agora.
+  const carteira = ((ctx && ctx.data && ctx.data.positions) || []).filter((p) => p && p.t);
+  // O ticker NASCE VAZIO — e isto é a decisão, não a omissão. Escolher um
+  // ativo dispara `mcpLeitura` pelo efeito de troca de ticker
+  // (`useOpcoesMcp.js`), e essa chamada custa **3** no cap do ADR-027.
+  // Auto-selecionar o primeiro da carteira cobraria 3 consultas de quem só
+  // abriu a aba — exatamente o que o §3.3 proíbe ("custo de MCP só em clique
+  // explícito, nunca ao abrir tela") e o que o guardião
+  // `test_opcoes_analisar_ui.mjs` reprova.
+  //
+  // A aba não abre VAZIA; ela abre sem ATIVO ESCOLHIDO, que é outra coisa: a
+  // lista das posições e o bloco "Seus vigias" já estão na tela quando ela
+  // abre, os dois de custo zero. É o desenho aprovado (D4: a aba abre na
+  // lista, e entrar num ativo é um toque).
   const [ticker, setTicker] = useState("");
   const {
     status, leitura, grafico, abrirGrafico, fecharGrafico,
@@ -374,14 +397,14 @@ export default function OpcoesScreen({ ctx }) {
 
   const seletor = (
     <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", margin: "14px 0 4px" }}>
-      {watchlist.map((t) => (
+      {carteira.map((p) => (
         <button
-          key={t}
-          onClick={() => escolherTicker(t)}
-          aria-pressed={t === ticker}
-          style={{ minHeight: "44px", padding: "8px 14px", borderRadius: "11px", border: `1px solid ${t === ticker ? T.accent : T.borderSubtle}`, background: t === ticker ? T.accentTint10 : T.bgPanel, color: t === ticker ? T.accent : T.textSecondary, fontWeight: 700, fontSize: "13px" }}
+          key={p.t}
+          onClick={() => escolherTicker(p.t)}
+          aria-pressed={p.t === ticker}
+          style={{ minHeight: "44px", padding: "8px 14px", borderRadius: "11px", border: `1px solid ${p.t === ticker ? T.accent : T.borderSubtle}`, background: p.t === ticker ? T.accentTint10 : T.bgPanel, color: p.t === ticker ? T.accent : T.textSecondary, fontWeight: 700, fontSize: "13px" }}
         >
-          {t}
+          {p.t}
         </button>
       ))}
     </div>
@@ -395,7 +418,7 @@ export default function OpcoesScreen({ ctx }) {
       </p>
 
       {cabecalho}
-      {watchlist.length > 0 ? seletor : null}
+      {carteira.length > 0 ? seletor : null}
 
       {/* ------------------------------------------------ 1. CARREGANDO --
           Antes do vazio, sempre: vazio pintado durante a consulta afirma
@@ -434,7 +457,24 @@ export default function OpcoesScreen({ ctx }) {
         /* ------------------------------------------ 3. VAZIO COM MOTIVO --
            Vazio nunca é silêncio. */
         <div style={{ marginTop: "14px", display: "grid", gap: "10px" }}>
-          {semTicker ? (
+          {/* Fase 27 (D2) — carteira vazia tem MOTIVO e CAMINHO. O destino é a
+              CARTEIRA e não o Mercado por decisão explícita do Alex
+              (27-CONTEXT, D2: "estado vazio com caminho para a carteira"), e a
+              aba NÃO cai para a watchlist: lista de interesse não serve de
+              lastro. O ramo vem ANTES do `semTicker` porque sem posição nenhuma
+              não há ativo a escolher — "escolha um ativo" seria pedir o
+              impossível. */}
+          {carteira.length === 0 ? (
+            <Aviso>
+              {cp.opcoesCarteiraVazia || "Esta aba trabalha sobre os ativos que você tem em carteira."}
+              <button
+                onClick={() => { if (ctx && ctx.goCarteira) ctx.goCarteira(); }}
+                style={{ ...BOTAO, width: "100%", marginTop: "12px" }}
+              >
+                {cp.opcoesIrParaCarteira || "Ir para a Carteira"}
+              </button>
+            </Aviso>
+          ) : semTicker ? (
             <Aviso>{cp.opcoesEscolherAtivo || "Escolha um ativo para ver a leitura."}</Aviso>
           ) : null}
           {semCandles ? (

@@ -145,7 +145,16 @@ export const COPY = {
     // serviço, logo acima.
     opcoesRecusaCobrada: "O serviço recusou esta consulta e ainda assim ela consumiu uma chamada da sua cota do dia: ele conta a chamada quando a recebe, antes de decidir se consegue respondê-la.",
     opcoesCarregando: "Consultando o serviço de opções…",
-    opcoesEscolherAtivo: "Escolha um ativo da sua watchlist para ver a leitura dele.",
+    // Fase 27 (D3, 2026-09-13): o universo da aba virou a CARTEIRA. A frase
+    // dizia "da sua watchlist" e passou a dizer da carteira — a chave NÃO foi
+    // renomeada de propósito: `test_opcoes_mcp_aba_ui.mjs` usa o nome dela
+    // como marcador da ordem dos estados no fonte da tela.
+    opcoesEscolherAtivo: "Escolha um ativo da sua carteira para ver a leitura dele.",
+    // Fase 27 (D2): carteira vazia tem motivo E caminho. Dizer só "não há nada
+    // aqui" transferiria para a pessoa a tarefa de descobrir por quê — e o
+    // porquê é de produto, não de bug.
+    opcoesCarteiraVazia: "Esta aba trabalha sobre o que você já tem: toda estrutura de opção montada aqui é lastreada em ações da sua carteira. Como a carteira está vazia, não há ativo sobre o qual montar nem o que vigiar. A watchlist não entra no lugar: lista de interesse é intenção, e o que falta aqui é lastro. Comece escolhendo um ativo na Carteira.",
+    opcoesIrParaCarteira: "Ir para a Carteira",
     opcoesDisclaimer: "Conteúdo educacional. Os dados são de fim de pregão e podem estar atrasados; nada aqui é ordem, recomendação ou promessa de resultado.",
     opcoesGraficoTitulo: "Disparos do setup",
     opcoesDisparosRotulo: "Disparos",
@@ -585,7 +594,13 @@ export const COPY = {
     // que a pessoa precisa é fechar a conta da própria cota.
     opcoesRecusaCobrada: "Consulta recusada pelo serviço e cobrada assim mesmo: consumiu uma chamada da sua cota do dia. O serviço conta a chamada na entrada, não na resposta.",
     opcoesCarregando: "Consultando o serviço de opções…",
-    opcoesEscolherAtivo: "Escolha um ativo do seu monitoramento para ver a leitura.",
+    // Fase 27 (D3): mesma troca do outro ramo — o universo é a carteira, não o
+    // monitoramento. Chave preservada (é marcador de ordem no guardião).
+    opcoesEscolherAtivo: "Escolha um ativo da carteira para ver a leitura.",
+    // Fase 27 (D2), voz de mesa: o motivo em uma linha e o caminho logo em
+    // seguida. MESMA substância do ramo estudo.
+    opcoesCarteiraVazia: "A aba opera sobre a carteira: estrutura de opção aqui é lastreada em ação que você já tem. Carteira vazia, nada a lastrear e nada a vigiar. A watchlist não substitui — interesse não é lastro. Abra a Carteira e monte a posição antes.",
+    opcoesIrParaCarteira: "Abrir a Carteira",
     opcoesDisclaimer: "Conteúdo educacional. Dados de fim de pregão, possivelmente atrasados; nada aqui é ordem, recomendação ou promessa de resultado.",
     opcoesGraficoTitulo: "Disparos do setup",
     opcoesDisparosRotulo: "Disparos",
