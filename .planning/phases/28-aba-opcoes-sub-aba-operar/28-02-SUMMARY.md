@@ -30,7 +30,7 @@ key-files:
 
 key-decisions:
   - "Ramo multi-candidato (CandidatoOpcao) NÃO replicado em SubAbaOperar — fica exclusivo de App.jsx/PropostaDaPosicao (App.jsx, dentro da função PropostaDaPosicao). Com multi-candidato, PropostaLastreada mostra r.proposta (candidato principal), mesmo comportamento de AtivoCard hoje. Registrado em comentário no código, acima de SubAbaOperar, para a Fase 30 não redescobrir."
-  - "Import de FonteDoDadoProposta em OpcoesScreen.jsx mantido mesmo sem uso direto (PropostaLastreada já a renderiza internamente) — seguido literalmente do texto do plano (Task 2, passo 1); não causa erro de build (esbuild não falha em import não usado)."
+  - "Import de FonteDoDadoProposta em OpcoesScreen.jsx: o plano pedia o import literal (Task 2, passo 1), mas PropostaLastreada já a renderiza internamente — SubAbaOperar nunca a usou direto. Corrigido no self-review pós-execução (removido, commit 5803c4d): manter import morto contradiria diffs limpos/deliberados. As acceptance criteria do plano nunca checam esse símbolo, então a remoção não quebra nenhum critério."
 
 requirements-completed: [SC-1, SC-4]
 
@@ -94,6 +94,7 @@ Saída: `FALHOU SubAbaOperar deriva o modo só de ctx.operador` (exit 1).
 1. **Task 1: Chaves de copy da sub-aba Operar nos dois modos** — `86f4f36` (feat)
 2. **Task 2: Alternador de sub-aba e SubAbaOperar em OpcoesScreen.jsx** — `3d0f29a` (feat)
 3. **Task 3: Guardião das sub-abas** — `f8409ad` (test)
+4. **Self-review (advisor): remove import não usado de FonteDoDadoProposta** — `5803c4d` (refactor)
 
 _Sem plano de publicação: `commit_docs=true`, mas STATE.md/ROADMAP.md ficam para o orquestrador atualizar à mão (gsd-sdk `state.*`/`roadmap.*` mutators proibidos neste repositório — ver CLAUDE.md)._
 
