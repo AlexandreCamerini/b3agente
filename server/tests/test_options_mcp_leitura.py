@@ -477,3 +477,93 @@ def test_pregao_e_none_quando_nenhuma_resposta_traz_trading_date(monkeypatch):
     g = c.get("/api/options/mcp/setups/petr4-rompimento/grafico",
               headers=_auth(p["token"])).json()
     assert g["pregao"] is None
+
+
+# ═══════════════ gate de dono no gráfico (Fase 27, 2026-09-13) ════════════
+# Até 2026-09-13 o `/grafico` exigia só sessão: qualquer conta logada via o
+# gráfico de qualquer setup — condições, série e datas de disparo do vigia de
+# outra pessoa — bastando conhecer o nome completo. O `/desativar` já tinha o
+# gate desde o 27-01; esta rota ficou de fora porque o threat model daquele
+# plano não a listava. Decisão do Alex de 2026-09-13: fechar.
+#
+# As três asserções abaixo são uma matriz, não três testes soltos: fechar a
+# porta errada (barrar o dono) e fechar demais (barrar o legado) são defeitos
+# tão reais quanto deixá-la aberta.
+def test_grafico_de_setup_de_outra_conta_e_403_do_backend_sem_tocar_o_servico(monkeypatch):
+    """Mesma disciplina do `/desativar`: a recusa é do BACKEND, porque o
+    armazém é compartilhado e esconder o botão na UI deixaria a rota aberta a
+    qualquer um com um `curl`. E ela vem ANTES do cap — cobrar cota de uma
+    recusa que não saiu do processo seria cobrar pelo que não aconteceu."""
+    c, main = _client(monkeypatch)
+    p = _registra(c)
+    uid = p["user"]["id"]
+    chamadas = _espiao_por_tool(monkeypatch, {"get_setup_chart": _GRAFICO})
+
+    alheio = opcoes_vigias.nome_no_servico("u-de-outra-conta", "vigia do outro")
+    assert opcoes_vigias.e_legado(alheio) is False, \
+        "o nome do outro dono precisa ser PREFIXADO, senão o teste vira o do legado"
+
+    r = c.get(f"/api/options/mcp/setups/{alheio}/grafico", headers=_auth(p["token"]))
+    assert r.status_code == 403, r.text
+    assert r.json()["detail"]["code"] == options_mcp_api.CODIGO_DE_OUTRO_DONO
+    assert chamadas == [], "a recusa de dono chegou a tocar o serviço"
+    assert metering.used(main._conn, uid, section="mcpUsage",
+                         _dia=options_mcp_api._dia_sp()) == 0, \
+        "uma recusa que não viajou cobrou cota"
+
+
+def test_grafico_do_MEU_setup_continua_200(monkeypatch):
+    """O par negativo do teste acima. Sem ele, trocar o gate por um `403`
+    incondicional passaria — e a tela perderia o gráfico de todo mundo."""
+    c, main = _client(monkeypatch)
+    p = _registra(c)
+    uid = p["user"]["id"]
+    meu = _no_servico(uid)
+    chamadas = _espiao_por_tool(monkeypatch, {
+        "get_setup_chart": dict(_GRAFICO, name=meu)})
+
+    r = c.get(f"/api/options/mcp/setups/{meu}/grafico", headers=_auth(p["token"]))
+    assert r.status_code == 200, r.text
+    assert chamadas == [("get_setup_chart", {"name": meu})], (
+        "o que viaja ao serviço é a chave do ARMAZÉM, byte a byte como veio "
+        "da URL")
+    assert r.json()["dates"] == _GRAFICO["dates"]
+    assert metering.used(main._conn, uid, section="mcpUsage",
+                         _dia=options_mcp_api._dia_sp()) == 1
+
+
+def test_grafico_de_setup_LEGADO_continua_visivel(monkeypatch):
+    """Requisito, não sobra — mesma razão do `test_desativar_setup_LEGADO_
+    continua_funcionando` em `test_opcoes_dsl.py`. Um nome sem prefixo não tem
+    dono conhecido, e barrá-lo aqui deixaria o desenvolvedor sem como OLHAR o
+    órfão antes de decidir removê-lo, um a um, pelo `/desativar` (a limpeza é
+    operacional e não há `undo`)."""
+    c, _ = _client(monkeypatch)
+    p = _registra(c)
+    chamadas = _espiao_por_tool(monkeypatch, {"get_setup_chart": _GRAFICO})
+
+    assert opcoes_vigias.e_legado(_NOME_DA_PESSOA) is True
+    r = c.get(f"/api/options/mcp/setups/{_NOME_DA_PESSOA}/grafico",
+              headers=_auth(p["token"]))
+    assert r.status_code == 200, r.text
+    assert chamadas == [("get_setup_chart", {"name": _NOME_DA_PESSOA})]
+
+
+def test_o_gate_do_grafico_e_o_MESMO_do_desativar():
+    """Não é estilo: duas cópias da condição divergem na primeira correção
+    feita de um lado só, e o lado esquecido é o que fica aberto — foi
+    exatamente assim que o `/grafico` passou a Fase 27 inteira sem gate. A
+    asserção é sobre a FONTE porque nenhum teste de comportamento reprova uma
+    segunda implementação que hoje acerta."""
+    import inspect
+
+    for funcao in (options_mcp_api.setup_grafico, options_mcp_api.setup_desativar):
+        fonte = inspect.getsource(funcao)
+        assert "_exige_dono(" in fonte, (
+            f"{funcao.__name__} deixou de usar o gate compartilhado")
+        assert "e_meu" not in fonte and "e_legado" not in fonte, (
+            f"{funcao.__name__} reimplementou a condição de dono em vez de "
+            f"chamar `_exige_dono`")
+        assert fonte.index("_exige_dono(") < fonte.index("_cap_check("), (
+            f"o gate de {funcao.__name__} passou para depois do cap — recusa "
+            f"que não viaja não pode cobrar cota")

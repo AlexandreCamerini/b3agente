@@ -236,11 +236,24 @@ Três peças, todas no backend:
    nenhum dos três. O índice **não guarda estado** (`armed`/`streak`): estado é
    medição do serviço, e guardá-lo aqui produziria "armado" carimbado de
    ontem (princípio 4 do CLAUDE.md).
-3. **Gate de desativação no backend** — `POST /setups/{name}/desativar` recusa
-   com 403 `setup_de_outro_dono` quando o nome não é `e_meu` nem `e_legado`,
+3. **Gate de dono no backend, nas DUAS rotas que recebem `{name}` na URL** —
+   `POST /setups/{name}/desativar` e `GET /setups/{name}/grafico` recusam com
+   403 `setup_de_outro_dono` quando o nome não é `e_meu` nem `e_legado`,
    **antes** do `_cap_check`. Esconder o botão na UI deixaria a rota aberta a
    qualquer `curl`; cobrar cota de uma recusa que não viajou seria cobrar pelo
-   que não aconteceu.
+   que não aconteceu. É a MESMA função (`_exige_dono`) nos dois lugares: duas
+   cópias da condição divergem na primeira correção feita de um lado só, e o
+   lado esquecido é o que fica aberto.
+
+   **O `/grafico` só foi fechado em 2026-09-13, depois do 27-01, e o registro
+   importa.** O gate nasceu só no `/desativar` porque o threat model daquele
+   plano não listava a rota de gráfico — o executor não expandiu escopo por
+   conta própria e registrou o risco residual por escrito. Até o fechamento,
+   qualquer conta logada via as condições, a série e as datas de disparo do
+   vigia de outra pessoa, bastando conhecer o nome completo (incluindo os 8
+   hexadecimais do hash dela). Nenhuma rota do produto enumera esses nomes, o
+   que mantinha o risco baixo — mas "não enumerável" nunca foi o mesmo que
+   "fechado". Decisão do Alex, 2026-09-13: fechar.
 
 **Medido contra o serviço real em 2026-09-13**, antes de qualquer código: o
 `create_setup` aceita `[8 hexadecimais]-[texto]` como `name` e devolve o nome

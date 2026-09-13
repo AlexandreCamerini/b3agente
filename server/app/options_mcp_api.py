@@ -1512,6 +1512,55 @@ def _registros_do_ticker(lista: Optional[dict], alvo: str, uid) -> list:
     return fora
 
 
+# ------------------------------------------------------------ gate de dono --
+# Código de erro ÚNICO para a recusa de dono. A tela ramifica por ele, nunca
+# por raspagem da mensagem — e as duas rotas que recusam por esta razão têm de
+# devolver o MESMO código, senão o front precisaria conhecer dois.
+CODIGO_DE_OUTRO_DONO = "setup_de_outro_dono"
+
+# Duas mensagens porque são duas situações, não por descuido: uma recusa de
+# ESCRITA precisa dizer que nada mudou (é a reasseguração que a pessoa
+# procura), e dizer isso num GET afirmaria que houve tentativa de alterar
+# alguma coisa — afirmação falsa sobre o que o produto fez.
+RECUSA_DONO_ESCRITA = "Este vigia foi criado por outra conta. Nada foi alterado."
+RECUSA_DONO_LEITURA = "Este vigia foi criado por outra conta. Você só vê os seus."
+
+
+def _exige_dono(uid, nome, *, rota: str, mensagem: str) -> None:
+    """403 `setup_de_outro_dono` quando `nome` não é meu nem legado.
+
+    **Uma função só para as DUAS rotas que recebem `{name}` na URL**
+    (`/setups/{name}/desativar` e `/setups/{name}/grafico`). Duas cópias da
+    mesma condição divergem na primeira correção feita de um lado só, e o lado
+    esquecido é justamente o que fica aberto — foi assim que `/grafico` passou
+    a Fase 27 inteira sem gate enquanto `/desativar` já tinha o dele.
+
+    A recusa é do BACKEND e não de um botão escondido: o armazém é
+    compartilhado e sem `owner` (ADR-027, Decisão 7), então esconder na UI
+    deixaria a rota aberta a qualquer um com um `curl` — mesma disciplina do
+    `require_criar_setup`.
+
+    **Chame ANTES do `_cap_check`.** Nenhuma viagem é feita numa recusa de
+    dono: cobrar cota do que não saiu do processo seria cobrar pelo que não
+    aconteceu.
+
+    **`e_legado` passa de propósito** (decisão do Alex, 2026-09-13): a
+    LISTAGEM é sobre "o que é meu", e estas duas rotas são sobre "isto ainda
+    dispara" e "o que este setup fez". Um setup sem prefixo não tem dono
+    conhecido e não interessa a ninguém na tela — mas continua sendo avaliado
+    pelo serviço todo pregão, e sem esta porta ele viraria lixo permanente que
+    o produto não remove. A limpeza é operacional e **um a um**, nunca uma
+    varredura por "não tem prefixo": o armazém "é visto por todos os clientes
+    do serviço" (`rbac.py:29-34`), então um nome sem prefixo pode ser de OUTRO
+    sistema, e não há `undo`.
+    """
+    if opcoes_vigias.e_meu(uid, nome) or opcoes_vigias.e_legado(nome):
+        return
+    obslog.log("mcp", "setup de dono alheio", level="warn", rota=rota,
+               uid=uid, setup=nome)
+    raise HTTPException(403, {"code": CODIGO_DE_OUTRO_DONO, "message": mensagem})
+
+
 # --------------------------------------------------------------------------
 # Rotas.
 # --------------------------------------------------------------------------
@@ -1955,10 +2004,22 @@ async def setup_grafico(name: str, user: dict = Depends(require_user)) -> dict:
     Limitação conhecida: nome de setup contendo `/` não resolve aqui —
     `{name}` não é conversor `path`, e transformá-lo em um engoliria o
     `/grafico` do fim da URL. Nome com barra devolve 404 do roteador.
+
+    **Gate de dono desde 2026-09-13** (Fase 27, decisão do Alex). Até esta
+    data qualquer conta logada via o gráfico de qualquer setup, bastando
+    conhecer o nome completo — e o gráfico carrega as condições, a série e as
+    datas de disparo do vigia de outra pessoa. O risco era baixo (nenhuma rota
+    do produto enumera os nomes prefixados de terceiros), e "não enumerável"
+    nunca foi o mesmo que "fechado".
     """
     uid = user["id"]
+    rota = "/api/options/mcp/setups/{name}/grafico"
+    # MESMO gate de `/setups/{name}/desativar`, pela MESMA função: ver
+    # `_exige_dono`. Antes do `_cap_check` pela mesma razão de lá — a recusa
+    # não sai do processo, então não pode cobrar cota.
+    _exige_dono(uid, name, rota=rota, mensagem=RECUSA_DONO_LEITURA)
+
     with _cap_check(uid, 1) as cap:   # saldo não consumido volta na saída
-        rota = "/api/options/mcp/setups/{name}/grafico"
         try:
             dados, cache = await _chamada_com_cap(cap, "get_setup_chart",
                                                   {"name": name})
@@ -3210,30 +3271,10 @@ async def setup_desativar(name: str,
     rota = "/api/options/mcp/setups/{name}/desativar"
 
     # Gate de dono (Fase 27). `{name}` é o nome do ARMAZÉM, como nas rotas
-    # irmãs. A recusa é do BACKEND e não de um botão escondido: o armazém é
-    # compartilhado e sem `owner`, então esconder na UI deixaria a rota aberta
-    # a qualquer um com um `curl` — mesma disciplina do `require_criar_setup`.
-    #
-    # E ela acontece ANTES do `_cap_check` porque nenhuma viagem é feita:
-    # cobrar cota de uma recusa que não saiu do processo seria cobrar pelo que
-    # não aconteceu.
-    #
-    # **`e_legado` passa de propósito** (decisão do Alex, 2026-09-13): a
-    # LISTAGEM é sobre "o que é meu", a DESATIVAÇÃO é sobre "isto ainda
-    # dispara". Um setup sem prefixo não tem dono conhecido e não interessa a
-    # ninguém na tela — mas continua sendo avaliado pelo serviço todo pregão, e
-    # sem esta porta ele viraria lixo permanente que o produto não remove. A
-    # limpeza é operacional e **um a um**, nunca uma varredura por "não tem
-    # prefixo": o armazém "é visto por todos os clientes do serviço"
-    # (`rbac.py:29-34`), então um nome sem prefixo pode ser de OUTRO sistema, e
-    # não há `undo`.
-    if not (opcoes_vigias.e_meu(uid, name) or opcoes_vigias.e_legado(name)):
-        obslog.log("mcp", "desativar: dono alheio", level="warn", rota=rota,
-                   uid=uid, setup=name)
-        raise HTTPException(403, {
-            "code": "setup_de_outro_dono",
-            "message": "Este vigia foi criado por outra conta. Nada foi alterado.",
-        })
+    # irmãs; a regra inteira (inclusive por que o legado passa e por que a
+    # recusa vem antes do cap) mora em `_exige_dono`, compartilhada com
+    # `/setups/{name}/grafico`.
+    _exige_dono(uid, name, rota=rota, mensagem=RECUSA_DONO_ESCRITA)
 
     with _cap_check(uid, 1) as cap:
         try:
