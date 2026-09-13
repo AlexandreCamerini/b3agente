@@ -1177,19 +1177,19 @@ function CartaoDeVigia({ vigia, temEstado, selecionado, naCarteira, onIr, cp }) 
   //      ausência de medição não é medição de ausência — a mesma simetria que
   //      este arquivo já aplica aos setups do ticker.
   const estado = v.motivo ? (
-    <div style={{ fontSize: "12.5px", color: T.textSecondary, marginTop: "6px", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
+    <span style={{ display: "block", fontSize: "12.5px", color: T.textSecondary, marginTop: "6px", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
       {v.motivo}
-    </div>
+    </span>
   ) : temEstado ? (
-    <div style={{ fontSize: "12.5px", color: T.textSecondary, marginTop: "6px" }}>
+    <span style={{ display: "block", fontSize: "12.5px", color: T.textSecondary, marginTop: "6px" }}>
       {"armado: " + (v.armed === true ? "sim" : v.armed === false ? "não" : "—")}
       {" · sequência: " + (ehNum(v.streak) ? v.streak : "—")
         + "/" + (ehNum(v.required_streak) ? v.required_streak : "—")}
-    </div>
+    </span>
   ) : (
-    <div style={{ fontSize: "12.5px", color: T.textMuted, marginTop: "6px", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
+    <span style={{ display: "block", fontSize: "12.5px", color: T.textMuted, marginTop: "6px", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
       {c.opcoesVigiasSemEstado || "—"}
-    </div>
+    </span>
   );
 
   return (
@@ -1204,25 +1204,25 @@ function CartaoDeVigia({ vigia, temEstado, selecionado, naCarteira, onIr, cp }) 
         background: selecionado ? T.accentTint10 : T.bgPanel,
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", gap: "10px", alignItems: "baseline" }}>
+      <span style={{ display: "flex", justifyContent: "space-between", gap: "10px", alignItems: "baseline" }}>
         <span style={{ fontSize: "14px", fontWeight: 700, color: selecionado ? T.accent : T.textPrimary }}>{nome}</span>
         <span style={{ fontSize: "12px", fontWeight: 700, color: T.textMuted }}>{alvo}</span>
-      </div>
+      </span>
       {estado}
       {/* Vigia de ativo que saiu da carteira NÃO some: ele existe e continua
           sendo avaliado pelo serviço. Escondê-lo repetiria o defeito desta
           fase — o vigia invisível que parece nunca ter sido gravado. */}
       {naCarteira ? null : (
-        <div style={{ fontSize: "11.5px", color: T.textMuted, marginTop: "6px", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
+        <span style={{ display: "block", fontSize: "11.5px", color: T.textMuted, marginTop: "6px", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
           {c.opcoesVigiaForaDaCarteira || ""}
-        </div>
+        </span>
       )}
       {/* Data do índice. Sem data, o motivo do backend — nunca a data de hoje
           no lugar (princípio 4 do CLAUDE.md). */}
       {v.criadoEm || v.motivoCriadoEm ? (
-        <div style={{ fontSize: "11px", color: T.textFaint, marginTop: "6px" }}>
+        <span style={{ display: "block", fontSize: "11px", color: T.textFaint, marginTop: "6px" }}>
           {v.criadoEm ? "criado em " + v.criadoEm : v.motivoCriadoEm}
-        </div>
+        </span>
       ) : null}
     </button>
   );
