@@ -585,7 +585,24 @@ tocada por esta fase, ver D2) e a decisão do Alex registrada em
      nesta fase — sem migração para a sub-aba "Operar" (D2, fechada).
   6. Suíte canônica sem regressão da baseline medida no início da fase;
      `npx vite build` verde.
-**Plans**: gerados por `/gsd:plan-phase 29`
+**Plans:** 3 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 29-01-PLAN.md — backend: `permitirOpcaoADescoberto` + `descobertoTermo` em `config`, gate determinístico em `store.buy_option`, tradução 400 em `/api/options/buy`, e guardião (default off, fail-closed, `sell_option` nunca gateado)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 29-02-PLAN.md — espelho no `deviceStore`: os dois campos com a regra do servidor + sync, gate no ramo LOCAL de `optionsBuy` (o buraco do iOS sem sessão) com a mensagem byte a byte do backend, e guardião de paridade
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 29-03-PLAN.md — UI: termo de responsabilidade versionado (`TermoDescobertoModal`, fricção do Modo Operador reusada) + card "OPÇÕES A DESCOBERTO" em Preferências, guardião do fence D2, e checkpoint de verificação humana
+
+**Baseline da suíte medida em 2026-09-13 (início da fase)**: pytest 2780
+passed / 5 skipped / 3 xfailed; 144 arquivos `web/tests/*.mjs` todos `[OK]`;
+exit 0.
 
 **UI hint**: yes
 
