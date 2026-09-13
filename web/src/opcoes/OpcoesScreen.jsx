@@ -31,6 +31,7 @@ import { qtyLivre } from "../finance.js";
 // (serviço MCP), e trocá-los erra por 10× em silêncio.
 import { formatarVolatilidade } from "./unidades.js";
 import { useOpcoesMcp } from "./useOpcoesMcp.js";
+import ReguaRegime from "./ReguaRegime.jsx";
 import SetupChart from "./SetupChart.jsx";
 import PayoffChart from "./PayoffChart.jsx";
 import CriarSetup, { BotaoDesativar } from "./CriarSetup.jsx";
@@ -1219,6 +1220,12 @@ function LeituraInterna({ tecnico, cp }) {
   // O selo de gratuidade é DERIVADO da resposta, nunca escrito fixo: o dia em
   // que esta rota passar a custar, ele some sozinho (T-27-19).
   const semCusto = !!dados && dados.custoMcp === 0;
+  // A régua só é desenhada com segmento MEDIDO. Sem nenhum, quem fala é o
+  // motivo do backend — faixa vazia seria lida como "a semana inteira
+  // indefinida", que é outra afirmação.
+  const regua = (dados && dados.regua) || null;
+  const temRegua = !!(regua && Array.isArray(regua.itens) && regua.itens.length);
+  const motivoDaRegua = (regua && typeof regua.motivo === "string" && regua.motivo) || "";
   // Motivos de ausência, do backend e VERBATIM. Cada bloco traz o seu quando
   // o insumo não existe; juntá-los no rodapé é o mesmo desenho de
   // `LacunasDaLeitura` — explicar a ausência sem preencher o número.
@@ -1256,6 +1263,21 @@ function LeituraInterna({ tecnico, cp }) {
             <Linha rotulo="HV 63" valor={formatarVolatilidade(vol.hv63Pct, vol.unidade)} />
             <Linha rotulo="Suporte mais próximo" valor={nivelComDistancia(niveis.nearestSupport, niveis.distanceToSupportPct)} />
             <Linha rotulo="Resistência mais próxima" valor={nivelComDistancia(niveis.nearestResistance, niveis.distanceToResistancePct)} />
+
+            {/* A régua vem LOGO ABAIXO da linha de tendência e das demais: é
+                ali que a pergunta "mudou esta semana?" nasce. Ela lê
+                `dados.regua`, o MESMO objeto de que sai a linha de tendência
+                (`dados.tendencia`) — o último segmento e a linha dizem o mesmo
+                regime porque vêm da mesma resposta, classificada uma única vez
+                no backend. A tela não deriva regime em lugar nenhum. */}
+            {temRegua ? (
+              <ReguaRegime regua={dados.regua} cp={cp} />
+            ) : (
+              <div style={{ fontSize: "11.5px", color: T.textMuted, marginTop: "8px", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+                {c.opcoesReguaSemDados || ""}
+                {motivoDaRegua ? "\n" + motivoDaRegua : ""}
+              </div>
+            )}
           </div>
 
           {/* Ressalva, NÃO erro: o valor acima continua valendo. O que ela diz

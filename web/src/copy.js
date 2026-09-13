@@ -720,7 +720,7 @@ export const COPY = {
     opcoesForcaRotulo: { forte: "forte", transicao: "em transição", fraca: "fraca" },
     opcoesRegimeNaoConfiavel: "Classificação apoiada na média de 50, não na de 200 — a janela longa ainda não fechou. Vale para o que mede; não afirma tendência longa.",
     opcoesReguaTitulo: "Evolução da semana",
-    opcoesReguaAjuda: "Um segmento por pregão fechado, mais antigo à esquerda. A cor é o regime MEDIDO no dia, não projeção do próximo. Segmento apagado = janela longa indisponível, classificação pela média curta.",
+    opcoesReguaAjuda: "Um segmento por pregão fechado, mais antigo à esquerda. A cor é o regime MEDIDO no dia; não é previsão do próximo. Segmento apagado = janela longa indisponível, classificação pela média curta.",
     opcoesReguaSemDados: "Pregões insuficientes para a evolução da semana. A faixa fica fora em vez de vir vazia: sete \"indefinido\" seriam lidos como semana sem direção, que é outra afirmação.",
     opcoesDisclaimer: "Conteúdo educacional. Dados de fim de pregão, possivelmente atrasados; nada aqui é ordem, recomendação ou promessa de resultado.",
     opcoesGraficoTitulo: "Disparos do setup",
