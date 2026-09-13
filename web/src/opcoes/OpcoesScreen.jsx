@@ -932,9 +932,17 @@ export default function OpcoesScreen({ ctx }) {
             <div style={{ display: "grid", gap: "10px" }}>
               {setups.map((s) => {
                 const av = s.avaliacao;
-                const aberto = grafico.setup === s.name;
+                // Fase 27 (27-02) — DOIS nomes, e confundi-los quebra a tela.
+                // A partir do 27-01 a `/leitura` devolve `name` = o nome que a
+                // PESSOA escreveu e `nomeNoServico` = a chave real no armazém
+                // compartilhado (com o prefixo de 8 hexadecimais da conta).
+                // Tudo que VIAJA ao serviço — `/grafico`, `/desativar` — usa
+                // `nomeNoServico`; tudo que a pessoa LÊ usa `name`. Mandar o
+                // nome sem prefixo ao serviço leva 422 `setup_desconhecido`.
+                const chave = s.nomeNoServico || s.name;
+                const aberto = grafico.setup === chave;
                 return (
-                  <div key={s.name} style={{ border: `1px solid ${T.borderSubtle}`, borderRadius: "12px", padding: "12px 14px", background: T.bgPanel }}>
+                  <div key={chave} style={{ border: `1px solid ${T.borderSubtle}`, borderRadius: "12px", padding: "12px 14px", background: T.bgPanel }}>
                     <div style={{ display: "flex", justifyContent: "space-between", gap: "10px", alignItems: "baseline" }}>
                       <div style={{ fontSize: "14px", fontWeight: 700, color: T.textPrimary }}>{s.name}</div>
                       <div style={{ fontSize: "11.5px", color: T.textMuted }}>{"registro: " + txt(s.status)}</div>
@@ -979,7 +987,7 @@ export default function OpcoesScreen({ ctx }) {
                     ) : null}
 
                     <button
-                      onClick={() => (aberto ? fecharGrafico() : abrirGrafico(s.name))}
+                      onClick={() => (aberto ? fecharGrafico() : abrirGrafico(chave))}
                       aria-pressed={aberto}
                       aria-label={(aberto ? "Fechar" : "Ver") + " disparos do setup " + s.name}
                       style={{ marginTop: "10px", width: "100%", minHeight: "44px", borderRadius: "11px", border: `1px solid ${T.borderSubtle}`, background: "transparent", color: T.textSecondary, fontWeight: 700, fontSize: "13px" }}
@@ -1006,7 +1014,8 @@ export default function OpcoesScreen({ ctx }) {
                         porque são a mesma conversa com o serviço. */}
                     {podeCriarSetup ? (
                       <BotaoDesativar
-                        nome={s.name}
+                        nome={chave}
+                        nomeVisivel={s.name}
                         onDesativar={desativarSetup}
                         ocupado={setupNovo.carregando}
                         cp={cp}

@@ -205,8 +205,18 @@ ok("há um estado intermediário de confirmação", /const \[confirmando, setCon
 ok("o primeiro toque NÃO age — só arma a confirmação",
    /if \(!confirmando\) \{ setConfirmando\(true\); return; \}/.test(criar));
 ok("o segundo toque age e desarma", /setConfirmando\(false\);[\s\S]{0,80}onDesativar\(nome\)/.test(criar));
-ok("o botão nomeia o setup para quem usa leitor de tela",
-   /aria-label=\{rotulo \+ " " \+ \(nome \|\| ""\)\}/.test(criar));
+// 2026-09-13 (Fase 27, plano 27-02) — a forma exata mudou porque o componente
+// passou a receber DOIS nomes. O que ele recebe em `nome` virou a chave do
+// ARMAZÉM (`nomeNoServico`, com o prefixo de 8 hexadecimais da conta), que é o
+// que precisa viajar em `/desativar`; o nome que a PESSOA escreveu chega em
+// `nomeVisivel`. Mantida a forma antiga, o leitor de tela passaria a anunciar
+// "Desativar este setup a1b2c3d4-IFR baixo" — o guardião continuaria verde
+// enquanto a acessibilidade regredia.
+//
+// O que esta asserção protege é o mesmo de sempre (o botão NOMEIA o setup em
+// voz alta), agora exigindo que o nome anunciado seja o legível.
+ok("o botão nomeia o setup para quem usa leitor de tela, com o nome LEGÍVEL",
+   /aria-label=\{rotulo \+ " " \+ \(nomeVisivel \|\| nome \|\| ""\)\}/.test(criar));
 ok("sanidade: sem o estado intermediário, o assert de dois toques falharia",
    !/const \[confirmando, setConfirmando\] = useState\(false\)/.test("onClick={() => onDesativar(nome)}"));
 

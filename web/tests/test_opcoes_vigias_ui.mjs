@@ -113,6 +113,31 @@ ok("o cartão lê o nome do usuário (nome no índice, name na listagem do dia)"
 ok("o cartão NÃO toca em nomeNoServico (é endereço no armazém, não rótulo)",
    !/nomeNoServico/.test(cartao));
 
+// ---- 4b) o MESMO contrato na lista de setups do ticker ---------------------
+// Achado de execução (27-02): o 27-01 mudou a `/leitura` para devolver `name`
+// (nome da pessoa) E `nomeNoServico` (chave no armazém), mas a lista de setups
+// do ticker continuava passando `s.name` para `abrirGrafico` e para
+// `BotaoDesativar`. Com o backend novo isso manda ao serviço um nome SEM
+// prefixo: 422 `setup_desconhecido` nos dois botões, em produção. Nenhum teste
+// de render pegaria — a tela fica igual até alguém clicar.
+//
+// A regra é uma frase: o que VIAJA usa `nomeNoServico`; o que a pessoa LÊ usa
+// `name`. Deduzir um do outro aqui recriaria o prefixo em JavaScript, e aí
+// seriam duas implementações da mesma regra.
+ok("a lista de setups deriva UMA chave de serviço, com fallback",
+   /const chave = s\.nomeNoServico \|\| s\.name;/.test(tela));
+ok("o gráfico é aberto pela chave do ARMAZÉM, não pelo nome da pessoa",
+   /abrirGrafico\(chave\)/.test(tela) && !/abrirGrafico\(s\.name\)/.test(tela));
+ok("o painel aberto é casado pela chave do armazém",
+   /grafico\.setup === chave/.test(tela));
+ok("desativar viaja com a chave do armazém e exibe o nome da pessoa",
+   /nome=\{chave\}/.test(tela) && /nomeVisivel=\{s\.name\}/.test(tela)
+   && !/nome=\{s\.name\}/.test(tela));
+ok("o que a pessoa LÊ continua sendo s.name", /\{s\.name\}<\/div>/.test(tela));
+const criar = semComentario(ler("CriarSetup.jsx"));
+ok("o rótulo lido em voz alta usa o nome visível, nunca o do armazém",
+   /aria-label=\{rotulo \+ " " \+ \(nomeVisivel \|\| nome \|\| ""\)\}/.test(criar));
+
 // ---- 5) sem medição não há veredito ----------------------------------------
 ok("o estado ausente usa cp.opcoesVigiasSemEstado (travessão COM motivo)",
    /cp\.opcoesVigiasSemEstado|c\.opcoesVigiasSemEstado/.test(cartao));

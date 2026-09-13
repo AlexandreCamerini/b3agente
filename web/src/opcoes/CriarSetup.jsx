@@ -467,7 +467,17 @@ function EnsaioInconclusivo({ ensaio, cp }) {
  * Mora neste arquivo (e não em `OpcoesScreen`) porque é a única outra ação de
  * ESCRITA de setup: as duas nascem e mudam juntas.
  */
-export function BotaoDesativar({ nome, onDesativar, cp, ocupado }) {
+/*
+ * Fase 27 (27-02) — DOIS nomes, e eles servem a coisas diferentes:
+ * · `nome` é a chave no ARMAZÉM do serviço (`nomeNoServico`, com o prefixo de
+ *   8 hexadecimais da conta). É ele que viaja em `/desativar`;
+ * · `nomeVisivel` é o nome que a PESSOA escreveu, e é só ele que pode entrar
+ *   num rótulo lido em voz alta. Sem esse segundo parâmetro, o leitor de tela
+ *   passaria a anunciar "Desativar este setup a1b2c3d4-IFR baixo" — o mesmo
+ *   dano que a injeção nº 4 do 27-01 mediu, só que no canal de acessibilidade.
+ * Cai em `nome` quando ausente, para o chamador que ainda passa um só.
+ */
+export function BotaoDesativar({ nome, nomeVisivel, onDesativar, cp, ocupado }) {
   const c = cp || {};
   const [confirmando, setConfirmando] = useState(false);
   const rotulo = confirmando
@@ -481,7 +491,7 @@ export function BotaoDesativar({ nome, onDesativar, cp, ocupado }) {
         if (onDesativar) onDesativar(nome);
       }}
       disabled={!!ocupado}
-      aria-label={rotulo + " " + (nome || "")}
+      aria-label={rotulo + " " + (nomeVisivel || nome || "")}
       style={{ ...BOTAO, width: "100%", marginTop: "8px", ...desabilitado(!!ocupado), ...(confirmando ? { borderColor: T.negative, color: T.negative } : null) }}
     >
       {rotulo}
