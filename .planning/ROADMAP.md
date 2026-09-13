@@ -531,21 +531,34 @@ técnica) e Phase 17/19 (motor de proposta lastreada e multi-candidato,
 Plans:
 **Wave 1**
 
-- [ ] 28-01-PLAN.md — extrai `PropostaLastreada`/`FonteDoDadoProposta`/`ChipDaProposta` + o caminho de aceite para `web/src/opcoes/PropostaLastreada.jsx`, reaponta `App.jsx` e os guardiões
+- [x] 28-01-PLAN.md — extrai `PropostaLastreada`/`FonteDoDadoProposta`/`ChipDaProposta` + o caminho de aceite para `web/src/opcoes/PropostaLastreada.jsx`, reaponta `App.jsx` e os guardiões
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 28-02-PLAN.md — sub-abas "Setups"/"Operar" em `OpcoesScreen.jsx`, `SubAbaOperar` com a proposta lastreada da posição, chaves de copy nos dois modos e guardião novo
+- [x] 28-02-PLAN.md — sub-abas "Setups"/"Operar" em `OpcoesScreen.jsx`, `SubAbaOperar` com a proposta lastreada da posição, chaves de copy nos dois modos e guardião novo
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 28-03-PLAN.md — remove o card de proposta do `AtivoCard` + código órfão, reaponta os 3 guardiões restantes, Emenda 3 ao ADR-027 e checkpoint de verificação ao vivo
+- [x] 28-03-PLAN.md — remove o card de proposta do `AtivoCard` + código órfão, reaponta os 3 guardiões restantes, Emenda 3 ao ADR-027 e checkpoint de verificação ao vivo
 
 **UI hint**: yes
+
+**Checkpoint da Task 3 (28-03) fechado em 2026-09-13** por decisão explícita
+do Alex ("Fechar agora"), aceitando risco residual nomeado: passos 4
+(fechar lastreada de fato) e 5 (collar) do roteiro de 9 passos não foram
+exercitados com o app rodando sobre dado real — só sob provider mock/
+mercado forçado aberto, numa verificação feita pelo orquestrador. Os outros
+7 passos (custo zero, abrir, CTA vira Fechar, Modo Estudo sem CTA, remoção
+do card, Posições intocado, ticker persiste) foram confirmados com
+evidência de rede e tela. Detalhe completo em `28-03-SUMMARY.md`.
 
 **Fora de escopo, explicitamente**: opção a descoberto/naked (Fase 29, exige
 o flag opt-in em Configurações que ainda não existe); curadoria de IA das 4
 melhores estruturas (Fase 30); polish de UX pós-uso real (Fase 31).
+
+**NÃO ESTÁ NO AR**: nenhum push a `origin`, nenhum `bump.sh`/
+`publicar-web.sh`. Publicação é passo humano separado, fora do escopo desta
+fase.
 
 ## Progress
 
@@ -579,7 +592,7 @@ melhores estruturas (Fase 30); polish de UX pós-uso real (Fase 31).
 | 25. Planos comerciais — acesso por função e limites por plano | 6/6 | Complete | 2026-09-12 |
 | 26. Otimização de UX e da camada de IA | 1/6 | In Progress|  |
 | 27. Aba Opções sobre a carteira | 5/5 | Code complete | 2026-09-13 |
-| 28. Sub-aba "Operar" e extração de `PropostaLastreada` | 0/? | Pending |  |
+| 28. Sub-aba "Operar" e extração de `PropostaLastreada` | 3/3 | Code complete | 2026-09-13 |
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2/v1.3
 
