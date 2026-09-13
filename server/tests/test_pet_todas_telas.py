@@ -8,7 +8,8 @@ Watchlist. O que estes guardiões travam, e por quê:
   • A ALLOWLIST é a fronteira (D7 do plano): para CADA tela registrada, uma
     pergunta que a KB cobre (grátis, sem conta) precisa passar da checagem de
     `tela` — nunca cair no 400 "Tela desconhecida.". `pet:invalida` continua
-    fora, sempre.
+    fora, sempre — mas agora medido com uma pergunta que a KB NÃO cobre, ver
+    a nota de 2026-09-12 em `test_tela_invalida_continua_recusada`.
   • `/api/pet/resumo?tela=<aba>` — a variação por tela (F4) não pode quebrar:
     para as 8 abas, a rota devolve 200, `ligada: True` e pelo menos uma frase
     em `fala` (nunca lista vazia, nunca 500) — mesmo com o banco do teste
@@ -23,6 +24,12 @@ from app import conceitos
 from app.main import app, require_user
 
 PERGUNTA_KB = "o que é ATR?"  # a mesma pergunta canônica de test_assistente_kb.py
+# 2026-09-12 (Fase 26, achado A2): a KB passou a ser consultada ANTES da
+# checagem de `tela`, então provar a allowlist exige uma pergunta que a KB NÃO
+# resolve — com uma que ela resolve, a resposta (correta, e nova) é 200/kb.
+# Genérica de propósito: sem termo de glossário, nenhum dos 83 verbetes pontua
+# acima do corte de confiança de `kb.resolver`.
+PERGUNTA_FORA_DA_KB = "o que é isto?"
 
 
 @pytest.fixture
@@ -69,19 +76,63 @@ def test_cada_tela_registrada_passa_da_allowlist(cli, aba):
 
 
 def test_tela_invalida_continua_recusada(cli):
-    r = cli.post("/api/assistente", json={"tela": "pet:invalida", "pergunta": PERGUNTA_KB})
+    """GUARDIÃO ATUALIZADO, NÃO RELAXADO — 2026-09-12 (Fase 26, achado A2).
+
+    O que mudou no produto: `kb.resolver` passou a ser consultado ANTES da
+    checagem de `tela`, porque a KB não lê a tela para responder e a tela
+    portanto não pode ser condição para ela (o achado A1 é a prova viva: a aba
+    Opções ficou semanas recusando glossário por não estar cadastrada).
+
+    O que este guardião continua travando, com a mesma força: tela fora da
+    allowlist é 400, e o id desconhecido nunca vira contexto de prompt. O que
+    mudou aqui foi só a PERGUNTA — com `PERGUNTA_KB` a resposta certa agora é
+    200/kb (travado em `test_kb_responde_mesmo_com_tela_invalida`), então a
+    prova da allowlist usa uma pergunta que a KB não cobre. Trocar a asserção
+    por "!= 200" teria sido relaxar; trocar a pergunta mantém a fronteira
+    exatamente onde ela está."""
+    r = cli.post("/api/assistente", json={"tela": "pet:invalida", "pergunta": PERGUNTA_FORA_DA_KB})
     assert r.status_code == 400
     assert "Tela" in r.json()["detail"]
 
 
 def test_tela_invalida_continua_recusada_mesmo_logado(cli):
-    """A allowlist barra ANTES de exigir conta — tela ruim é 400, não 401."""
+    """A allowlist barra ANTES de exigir conta — tela ruim é 400, não 401.
+    (2026-09-12: pergunta trocada pela mesma razão do guardião acima.)"""
     app.dependency_overrides[require_user] = lambda: {"id": "u-pet-f4"}
     try:
-        r = cli.post("/api/assistente", json={"tela": "pet:invalida", "pergunta": PERGUNTA_KB})
+        r = cli.post("/api/assistente", json={"tela": "pet:invalida",
+                                              "pergunta": PERGUNTA_FORA_DA_KB})
         assert r.status_code == 400
     finally:
         app.dependency_overrides.pop(require_user, None)
+
+
+def test_kb_responde_mesmo_com_tela_invalida(cli):
+    """Fase 26 / A2 — o comportamento NOVO, agora travado: pergunta que os 83
+    verbetes cobrem sai pela KB (grátis, sem conta, sem LLM) mesmo partindo de
+    uma tela que o backend não conhece. Era 400 antes; o custo do defeito era
+    silencioso, porque a pessoa via "Tela desconhecida." numa pergunta de
+    glossário que nada tinha a ver com a tela."""
+    r = cli.post("/api/assistente", json={"tela": "pet:invalida", "pergunta": PERGUNTA_KB})
+    assert r.status_code == 200, r.json()
+    assert r.json().get("fonte") == "kb"
+
+
+def test_kb_responde_mesmo_com_setor_invalido(cli):
+    """A inversão vale para as DUAS allowlists — `setor:` também não pode ser
+    condição para a KB responder (mesma razão do teste acima)."""
+    r = cli.post("/api/assistente", json={"tela": "setor:inexistente", "pergunta": PERGUNTA_KB})
+    assert r.status_code == 200, r.json()
+    assert r.json().get("fonte") == "kb"
+
+
+def test_setor_invalido_continua_recusado_quando_a_kb_nao_cobre(cli):
+    """E a fronteira do `setor:` continua de pé quando a KB não resolve — a
+    inversão do A2 não abriu porta para id desconhecido passar sem checagem."""
+    r = cli.post("/api/assistente", json={"tela": "setor:inexistente",
+                                          "pergunta": PERGUNTA_FORA_DA_KB})
+    assert r.status_code == 400
+    assert "Setor" in r.json()["detail"]
 
 
 # ---------------------------------------------------- /api/pet/resumo por tela

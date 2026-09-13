@@ -4069,24 +4069,37 @@ async def post_assistente(body: dict = Body(default={}), scope: Optional[str] = 
     pergunta = str(b.get("pergunta") or "").strip()
     if not pergunta:
         raise HTTPException(400, "Escreva a sua pergunta sobre esta tela.")
-    # `tela: "setor:<id>"` e `tela: "pet:<id>"` validam contra os REGISTROS,
-    # antes de gastar qualquer coisa: id que o backend não conhece é 400,
-    # nunca contexto de prompt. As allowlists são SETORES e PET_TELAS — as
-    # mesmas fontes que o catálogo e o pet servem.
     tela = str(b.get("tela") or "")
-    if tela.startswith("setor:") and tela[len("setor:"):] not in conceitos.SETORES:
-        raise HTTPException(400, "Setor desconhecido.")
-    if tela.startswith("pet:") and tela[len("pet:"):] not in conceitos.PET_TELAS:
-        raise HTTPException(400, "Tela desconhecida.")
     # `config` no CORPO é o caminho do iPhone: lá o modelo e a chave vivem no
     # aparelho, e o servidor não os tem. Omitir isto foi o que produziu
     # "Nenhum modelo de IA configurado" em produção no scanDeep (qa/29).
     config = b.get("config") or store.get(_conn, "config", user_id=scope)
     modo = b.get("modo") or (config or {}).get("appMode") or "estudo"
     voc = "operador" if modo == "operador" else "educacional"
+    # 2026-09-12 (Fase 26, achado A2) — A KB VEM ANTES DA CHECAGEM DE TELA.
+    # Ordem anterior: validar `tela` contra as allowlists e só depois tentar a
+    # KB. Efeito: uma pergunta de glossário que os 83 verbetes respondem de
+    # graça ("o que é RSI?") era recusada com 400 por causa da TELA de onde
+    # ela partiu — e foi exatamente isso que aconteceu com a aba Opções entre
+    # a Fase 24 e hoje (achado A1). A dependência estava invertida: a KB não
+    # lê a tela para responder, então a tela não pode ser condição para ela.
+    #
+    # Isto NÃO afrouxa a allowlist, e a razão dela continua intacta: `tela`
+    # nunca entra em `kb.resolver` (que recebe só `pergunta` e `voc`), logo um
+    # id desconhecido segue sem virar contexto de prompt. Quando a KB não
+    # resolve, as duas checagens rodam abaixo, antes de exigir conta e antes
+    # de qualquer gasto — id que o backend não conhece continua 400.
     resolvido_pela_kb = kb.resolver(pergunta, voc)
     if resolvido_pela_kb is not None:
         return resolvido_pela_kb
+    # `tela: "setor:<id>"` e `tela: "pet:<id>"` validam contra os REGISTROS,
+    # antes de gastar qualquer coisa: id que o backend não conhece é 400,
+    # nunca contexto de prompt. As allowlists são SETORES e PET_TELAS — as
+    # mesmas fontes que o catálogo e o pet servem.
+    if tela.startswith("setor:") and tela[len("setor:"):] not in conceitos.SETORES:
+        raise HTTPException(400, "Setor desconhecido.")
+    if tela.startswith("pet:") and tela[len("pet:"):] not in conceitos.PET_TELAS:
+        raise HTTPException(400, "Tela desconhecida.")
     if not scope:
         raise HTTPException(401, "Faça login para continuar.")
     # Chave PRÓPRIA dispensa o teto: ele protege o bolso do Alex, e barrar
