@@ -134,14 +134,13 @@ código hoje**; é funcionalidade de ponta a ponta a construir. A aba Opções
 
 ## Itens NÃO tocados nesta rodada (backlog, registrado, não esquecido)
 
-- **A8 (novo, achado durante a execução de A6, 2026-09-13)**:
-  `web/src/api.js:11` (`ADDR_HINT`) tem o MESMO defeito do A6 — manda o
-  usuário para "Perfil → Conta & preferências" para configurar o endereço
-  do servidor, mas esse bloco migrou para "Perfil → Fonte de dados" no
-  qa/45 (Decisão 1). Fora do escopo literal de A6 (escopado a
-  `server/app/metering.py`), deliberadamente não corrigido — candidato a
-  quick-task isolado. Registrado também no guardião `test_perfil_reorg.mjs`
-  (comentário da seção 7) e na mensagem do commit `704955d`.
+- **A8 — FECHADO (2026-09-13, commit `839a430`)**: `web/src/api.js:11`
+  (`ADDR_HINT`) tinha o MESMO defeito do A6 — corrigido para "Perfil →
+  Fonte de dados". O guardião `test_perfil_reorg.mjs` foi ampliado para
+  cruzar `api.js` também (não só `metering.py`), e ao rodar ampliado achou
+  de graça um SEGUNDO defeito da mesma classe: um comentário citava
+  "Perfil → Observabilidade" (tela monolítica extinta desde o qa/45) —
+  também corrigido, para "Eficiência da IA".
 - **B2**: preservar estado ao trocar de aba — sem decisão de abordagem.
 - **B3 execução**: aguarda a pesquisa acima + um plano de fase próprio.
 - **C1**: porta de busca para os 83 verbetes da KB — precisa de decisão de
