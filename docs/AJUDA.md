@@ -50,6 +50,20 @@ Sua carteira **simulada**: patrimônio, resultado do dia e cada posição com a
 régua do plano (invalidação → gatilho → alvo). Você simula compras e vendas,
 define stop e alvo, e acompanha o resultado em R — sem risco de dinheiro real.
 
+## Opções
+
+Estuda **opções** sobre um ativo por vez, escolhido na sua Watchlist /
+Monitoramento: como o ativo vem se comportando, quais estruturas do catálogo
+fazem sentido, os vencimentos disponíveis e os setups já armados.
+
+O dado vem de um serviço externo de opções e é uma **leitura de fim de
+pregão** — não é o preço de agora. O app não recalcula nada aqui: campo que o
+serviço não mandou aparece como travessão, nunca como zero.
+
+Abrir a cadeia de um vencimento custa consultas ao serviço, e a tela diz
+**antes** quantas vão ser. Nenhuma ordem sai desta aba: é estudo da estrutura,
+do risco e do retorno possível.
+
 ## Operador IA
 
 Um agente que acompanha as posições da carteira simulada e age pelas regras que
