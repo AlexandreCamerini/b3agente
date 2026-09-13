@@ -11,7 +11,19 @@ O que este arquivo trava, em uma frase cada:
     é exclusividade do `/status`);
   - cota cheia recusa ANTES da rede;
   - acerto de cache não gasta cap;
-  - `pregao` é `None` quando nenhuma resposta trouxe pregão.
+  - `pregao` é `None` quando nenhuma resposta trouxe pregão;
+  - **2026-09-13 (Fase 27)** — a `/leitura` mostra SÓ os setups do usuário
+    logado: o de outro dono e o legado (sem prefixo) somem, por razões
+    diferentes, e cada item leva `name` (o da pessoa) e `nomeNoServico`.
+
+**Mudança de contrato de 2026-09-13 (Fase 27).** O armazém de setups é
+compartilhado e sem `owner` (ADR-027, Decisão 7), então o nome que viaja ao
+serviço passou a levar um prefixo determinístico por conta
+(`opcoes_vigias.nome_no_servico`) e a `/leitura` filtra por ele. Os payloads
+que antes eram constantes de módulo (`_LISTA`, `_AVALIACAO`, `_FELIZ`) viraram
+FÁBRICAS por `uid` (`_feliz(uid)`), porque o prefixo só existe depois que a
+conta existe. As constantes ficaram — sem prefixo, elas agora representam o
+LEGADO, e é assim que o teste de filtro as usa.
 
 Isolamento e esqueleto herdados de `test_mcp_cap.py` (B3_DB_PATH temporário
 + reset dos caches em memória). Nenhum teste depende de credencial real.
@@ -26,7 +38,7 @@ import tempfile
 import pytest
 from fastapi.testclient import TestClient
 
-from app import db, mcp_client, metering, options_mcp_api
+from app import db, mcp_client, metering, opcoes_vigias, options_mcp_api
 
 
 @pytest.fixture(autouse=True)
@@ -136,6 +148,36 @@ _AVALIACAO = {
 _FELIZ = {"propose_option_setups": _PROPOSTA, "list_setups": _LISTA,
           "evaluate_setups": _AVALIACAO}
 
+# 2026-09-13 (Fase 27) — o nome no ARMAZÉM leva o prefixo da conta, e o
+# prefixo só existe depois que a conta existe. Daí as fábricas por `uid`: as
+# constantes acima continuam válidas, e agora representam o LEGADO (nome sem
+# prefixo nenhum), que é exatamente o que o teste de filtro precisa.
+_NOME_DA_PESSOA = "petr4-rompimento"
+
+
+def _no_servico(uid, nome=_NOME_DA_PESSOA):
+    return opcoes_vigias.nome_no_servico(uid, nome)
+
+
+def _registro_de(uid, nome=_NOME_DA_PESSOA, ticker="PETR4"):
+    setup = dict(_REGISTRO["setup"], name=_no_servico(uid, nome), ticker=ticker)
+    return dict(_REGISTRO, setup=setup)
+
+
+def _avaliacao_de(uid, nome=_NOME_DA_PESSOA):
+    nome_servico = _no_servico(uid, nome)
+    av = [dict(_AVALIACAO["evaluations"][0], name=nome_servico)]
+    return dict(_AVALIACAO, evaluations=av, armed=[nome_servico])
+
+
+def _feliz(uid):
+    """`_FELIZ` com o setup no nome prefixado DESTE usuário — é a única forma
+    de a `/leitura` continuar enxergando o registro depois do filtro de dono."""
+    return {"propose_option_setups": _PROPOSTA,
+            "list_setups": {"setups": [_registro_de(uid)], "count": 1},
+            "evaluate_setups": _avaliacao_de(uid)}
+
+
 _GRAFICO = {
     "name": "petr4-rompimento", "ticker": "PETR4", "trading_date": "2026-08-28",
     "description": "close acima da média de 21", "logic": "AND",
@@ -164,7 +206,7 @@ def test_leitura_feliz_devolve_behavior_catalogo_e_setups_verbatim(monkeypatch):
     c, main = _client(monkeypatch)
     p = _registra(c)
     uid = p["user"]["id"]
-    chamadas = _espiao_por_tool(monkeypatch, _FELIZ)
+    chamadas = _espiao_por_tool(monkeypatch, _feliz(uid))
 
     r = c.get("/api/options/mcp/leitura/petr4", headers=_auth(p["token"]))
     assert r.status_code == 200, r.text
@@ -185,7 +227,14 @@ def test_leitura_feliz_devolve_behavior_catalogo_e_setups_verbatim(monkeypatch):
     assert _nomes(chamadas) == ["propose_option_setups", "list_setups", "evaluate_setups"]
 
     s = corpo["setups"][0]
+    # 2026-09-13 (Fase 27): `name` passou a ser o nome da PESSOA (sem prefixo)
+    # e `nomeNoServico` a chave do armazém. A asserção não afrouxou — ficou
+    # mais estreita: antes ela aceitava qualquer nome que o serviço devolvesse,
+    # agora ela exige que a desprefixação tenha acontecido nos dois sentidos.
     assert s["name"] == "petr4-rompimento"
+    assert s["nomeNoServico"] == _no_servico(uid)
+    assert s["nomeNoServico"].startswith(opcoes_vigias.prefixo(uid))
+    assert "meu" not in s, "booleano constante numa lista em que tudo é meu"
     assert s["status"] == "ativo", "status do REGISTRO trocado pelo da avaliação"
     assert (s["armed"], s["streak"], s["required_streak"]) == (True, 3, 2)
     assert s["conditions"] == [{"summary": "close > sma21", "met": True}]
@@ -195,6 +244,48 @@ def test_leitura_feliz_devolve_behavior_catalogo_e_setups_verbatim(monkeypatch):
     assert corpo["frescor"]["classes"][0]["idadeHoras"] == 12
     assert metering.used(main._conn, uid, section="mcpUsage",
                          _dia=options_mcp_api._dia_sp()) == 3
+
+
+# --------------------------------------------------------- filtro de dono ---
+def test_leitura_mostra_so_os_meus_e_as_duas_exclusoes_tem_razoes_diferentes(monkeypatch):
+    """2026-09-13 (Fase 27) — o armazém é compartilhado e sem `owner`
+    (ADR-027, Decisão 7), e a `/leitura` passou a filtrar por dono.
+
+    Três registros no MESMO ticker, e a resposta traz UM. Os dois que somem
+    somem por razões diferentes, e a distinção importa:
+
+      · `de_outro_dono` tem dono conhecido — e não sou eu. Mostrá-lo vazaria o
+        vigia de outra conta, e pior: a tela ofereceria "Desativar" num setup
+        que o backend recusa (403).
+      · `legado sem prefixo` NÃO tem dono conhecido nenhum. Ele deixou de ser
+        conteúdo do produto (decisão do Alex, 2026-09-13, "pode apagar os
+        antigos"), e pode nem ser do Boris+: o armazém "é visto por todos os
+        clientes do serviço" (`rbac.py:29-34`). A porta que o REMOVE continua
+        aberta em `/desativar` — ver `test_opcoes_dsl.py`.
+    """
+    c, _ = _client(monkeypatch)
+    p = _registra(c)
+    uid = p["user"]["id"]
+    outro_uid = "u-de-outra-conta"
+
+    meu = _registro_de(uid)
+    de_outro_dono = _registro_de(outro_uid, nome="vigia do outro")
+    legado = dict(_REGISTRO, setup=dict(_REGISTRO["setup"],
+                                        name="legado sem prefixo"))
+    assert opcoes_vigias.e_legado(legado["setup"]["name"]) is True
+    assert opcoes_vigias.e_legado(de_outro_dono["setup"]["name"]) is False, \
+        "o registro de outro dono precisa ser PREFIXADO, senão o teste vira o do legado"
+
+    chamadas = _espiao_por_tool(monkeypatch, dict(
+        _feliz(uid),
+        list_setups={"setups": [meu, de_outro_dono, legado], "count": 3}))
+
+    corpo = c.get("/api/options/mcp/leitura/PETR4", headers=_auth(p["token"])).json()
+    nomes = [s["name"] for s in corpo["setups"]]
+    assert nomes == [_NOME_DA_PESSOA], f"vazou registro alheio ou legado: {nomes}"
+    assert corpo["setups"][0]["nomeNoServico"] == _no_servico(uid)
+    # E o serviço foi consultado uma vez só: o filtro é local, não custa nada.
+    assert _nomes(chamadas).count("list_setups") == 1
 
 
 # ------------------------------------------------- economia de chamada ----
@@ -232,7 +323,8 @@ def test_nao_avaliado_e_200_com_reason_verbatim_e_zero_veredito(monkeypatch):
     motivo = ("dado de negociação com 51 h de atraso; a avaliação de setups "
               "exige fechamento do pregão anterior")
     chamadas = _espiao_por_tool(monkeypatch, dict(
-        _FELIZ, evaluate_setups={"status": "nao_avaliado", "reason": motivo}))
+        _feliz(p["user"]["id"]),
+        evaluate_setups={"status": "nao_avaliado", "reason": motivo}))
 
     r = c.get("/api/options/mcp/leitura/PETR4", headers=_auth(p["token"]))
     assert r.status_code == 200, r.text
@@ -253,7 +345,8 @@ def test_sem_setups_nao_e_bloqueio_de_avaliacao(monkeypatch):
     c, _ = _client(monkeypatch)
     p = _registra(c)
     _espiao_por_tool(monkeypatch, dict(
-        _FELIZ, evaluate_setups={"status": "sem_setups", "note": "nenhum ativo"}))
+        _feliz(p["user"]["id"]),
+        evaluate_setups={"status": "sem_setups", "note": "nenhum ativo"}))
 
     corpo = c.get("/api/options/mcp/leitura/PETR4", headers=_auth(p["token"])).json()
     assert corpo["setupsNaoAvaliados"] is None, \
@@ -266,8 +359,8 @@ def test_behavior_sem_candles_chega_identico(monkeypatch):
     c, _ = _client(monkeypatch)
     p = _registra(c)
     _espiao_por_tool(monkeypatch, dict(
-        _FELIZ, propose_option_setups=dict(_PROPOSTA,
-                                           behavior={"status": "sem_candles"})))
+        _feliz(p["user"]["id"]),
+        propose_option_setups=dict(_PROPOSTA, behavior={"status": "sem_candles"})))
 
     r = c.get("/api/options/mcp/leitura/PETR4", headers=_auth(p["token"]))
     assert r.status_code == 200, r.text
@@ -283,7 +376,7 @@ def test_erro_de_tool_em_qualquer_passo_vira_422(monkeypatch, tool):
     reportar estado do dado. Aqui o erro da tool é falha do PEDIDO."""
     c, _ = _client(monkeypatch)
     p = _registra(c)
-    _espiao_por_tool(monkeypatch, dict(_FELIZ, **{
+    _espiao_por_tool(monkeypatch, dict(_feliz(p["user"]["id"]), **{
         tool: mcp_client.McpErroDeTool("ticker sem cotações",
                                        available=None, hint="confira o código")}))
 
@@ -298,7 +391,7 @@ def test_cota_cheia_recusa_a_leitura_sem_tocar_o_servico(monkeypatch):
     monkeypatch.setenv("B3_MCP_COTA_USUARIO_DIA", "60")
     p = _registra(c)
     uid = p["user"]["id"]
-    chamadas = _espiao_por_tool(monkeypatch, _FELIZ)
+    chamadas = _espiao_por_tool(monkeypatch, _feliz(uid))
     db.kv_set(main._conn, "mcpUsage",
               {"day": options_mcp_api._dia_sp(), "count": 58, "rl": []}, user_id=uid)
 
@@ -314,7 +407,7 @@ def test_cache_hit_nas_tres_tools_nao_consome_cap(monkeypatch):
     c, main = _client(monkeypatch)
     p = _registra(c)
     uid = p["user"]["id"]
-    _espiao_por_tool(monkeypatch, _FELIZ, cache=True)
+    _espiao_por_tool(monkeypatch, _feliz(uid), cache=True)
 
     assert c.get("/api/options/mcp/leitura/PETR4",
                  headers=_auth(p["token"])).status_code == 200
@@ -368,9 +461,11 @@ def test_pregao_e_none_quando_nenhuma_resposta_traz_trading_date(monkeypatch):
     hoje aqui faria a tela carimbar leitura velha como se fosse do pregão."""
     c, _ = _client(monkeypatch)
     p = _registra(c)
+    uid = p["user"]["id"]
     sem_data = {k: v for k, v in _PROPOSTA.items() if k != "trading_date"}
-    sem_data_av = {k: v for k, v in _AVALIACAO.items() if k != "trading_date"}
-    _espiao_por_tool(monkeypatch, dict(_FELIZ, propose_option_setups=sem_data,
+    sem_data_av = {k: v for k, v in _avaliacao_de(uid).items()
+                   if k != "trading_date"}
+    _espiao_por_tool(monkeypatch, dict(_feliz(uid), propose_option_setups=sem_data,
                                        evaluate_setups=sem_data_av))
 
     corpo = c.get("/api/options/mcp/leitura/PETR4", headers=_auth(p["token"])).json()

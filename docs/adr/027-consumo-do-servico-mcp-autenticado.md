@@ -211,3 +211,70 @@ vigia nome de variável com espaço passa a vigiar o prefixo `MCP_` também.
 
 Nenhum desses valores entra no bundle do front (guardrail do CLAUDE.md:
 segredo só em env do servidor).
+
+## Emenda 1 (Fase 27, 2026-09-13) — Decisão 7: o dono passa a existir do lado do Boris
+
+A **lacuna declarada na Decisão 7 continua**: o campo `owner` não existe no
+MCP, e um setup criado segue visível a todos os clientes do serviço. O que
+muda é que o **Boris deixa de depender dela**.
+
+Três peças, todas no backend:
+
+1. **Prefixo determinístico por conta no nome enviado** —
+   `opcoes_vigias.nome_no_servico(uid, nome)` produz `sha256(uid)[:8] + "-" +
+   nome`. É `sha256` truncado e não o `user_id` porque o nome viaja para fora
+   e fica visível a todos os clientes do serviço: identificador de conta em
+   nome público é vazamento, não organização. O prefixo vale no **ensaio**
+   (`/setups/compilar`, `create_setup` com `confirm: false`) **e** na gravação
+   (`/setups/confirmar`) — até esta data o dry-run validava um nome e a
+   gravação mandava outro, e uma recusa de formato só apareceria depois de a
+   pessoa pagar 2 chamadas do cap e uma análise de LLM. A função é idempotente
+   por desenho, porque o objeto do ensaio volta pela tela para ser gravado.
+2. **Índice por usuário no kv** (`opcoes_vigias`, seção `opcoesVigias`,
+   escopada por `db._scoped`) — é o único lugar do sistema com o nome que a
+   PESSOA escreveu, o ticker e a data de criação. O `list_setups` não devolve
+   nenhum dos três. O índice **não guarda estado** (`armed`/`streak`): estado é
+   medição do serviço, e guardá-lo aqui produziria "armado" carimbado de
+   ontem (princípio 4 do CLAUDE.md).
+3. **Gate de desativação no backend** — `POST /setups/{name}/desativar` recusa
+   com 403 `setup_de_outro_dono` quando o nome não é `e_meu` nem `e_legado`,
+   **antes** do `_cap_check`. Esconder o botão na UI deixaria a rota aberta a
+   qualquer `curl`; cobrar cota de uma recusa que não viajou seria cobrar pelo
+   que não aconteceu.
+
+**Medido contra o serviço real em 2026-09-13**, antes de qualquer código: o
+`create_setup` aceita `[8 hexadecimais]-[texto]` como `name` e devolve o nome
+EXATAMENTE como enviado, sem normalizar, truncar ou reescrever — no ensaio e
+na gravação. Um nome SEM prefixo também é aceito: o serviço não impõe formato
+nenhum, e a unicidade continua sendo responsabilidade do Boris.
+
+### Legado (setup sem prefixo) — decisão do Alex, 2026-09-13
+
+Perguntado o que fazer com os setups já gravados no armazém sem dono
+conhecido, a resposta foi literal: **"pode apagar os antigos"**. O que isso
+significa em código:
+
+- **Fora de toda listagem.** Um nome sem prefixo não aparece em
+  `/leitura/{ticker}`, não aparece em `GET /setups` e não aparece no bloco
+  "Seus vigias". Ele deixou de ser conteúdo do produto. Cai junto a ideia de
+  exibir legado com rótulo, e cai a ideia de "adoção".
+- **E ainda assim desativável** por quem tem `opcoes.criar_setup`. A porta
+  fica aberta de propósito: a LISTAGEM é sobre "o que é meu", a DESATIVAÇÃO é
+  sobre "isto ainda dispara". Sem ela, um órfão vira lixo permanente que o
+  produto não consegue remover enquanto o serviço segue avaliando-o todo
+  pregão. Há um teste dedicado só para impedir que essa porta seja fechada por
+  engano num refactor.
+- **O que NÃO se faz: varrer.** Nada de "desativa tudo que não tem prefixo". O
+  armazém "é visto por todos os clientes do serviço" (`server/app/rbac.py:29-34`),
+  então um nome sem prefixo pode ser de OUTRO sistema — não do Boris+ e não do
+  Alex. Apagar em massa ali seria destruir dado de terceiro, e não há `undo`.
+  A limpeza é **operacional, com lista na mão, um a um, com aprovação do
+  desenvolvedor**.
+
+### O que esta emenda NÃO muda
+
+`opcoes.criar_setup` continua restrita ao grupo `opcoes` do ADR-013. A emenda
+**reduz o dano** da lacuna da Decisão 7 (colisão de nome, desativação cruzada,
+invisibilidade dos próprios setups); ela **não fecha** a lacuna — quem tem a
+permissão continua escrevendo num armazém que todos os clientes do serviço
+enxergam. Por isso ela não é argumento para abrir a permissão.

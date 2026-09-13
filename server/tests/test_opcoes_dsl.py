@@ -45,7 +45,8 @@ import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
-from app import llm, mcp_client, metering, obslog, options_mcp_api, rbac
+from app import (llm, mcp_client, metering, obslog, opcoes_vigias,
+                 options_mcp_api, rbac)
 
 from .fonte_python import sem_comentarios
 
@@ -94,6 +95,16 @@ def _registra(c, email="dono@teste.com", senha="senhaboa123"):
 
 def _auth(token):
     return {"authorization": f"Bearer {token}"}
+
+
+def _no_servico(uid, nome=None):
+    """O nome COM o prefixo da conta — a chave do armazém compartilhado.
+
+    2026-09-13 (Fase 27): derivado, nunca redigitado. Uma constante aqui
+    congelaria o hash e passaria a testar a cópia em vez da regra.
+    """
+    return opcoes_vigias.nome_no_servico(
+        uid, _SETUP_DA_IA["name"] if nome is None else nome)
 
 
 def _usado(main, uid):
@@ -682,18 +693,33 @@ def test_confirmar_nao_chama_llm_e_grava(monkeypatch):
     chamadas = _espiao(monkeypatch)
     _ia_proibida(monkeypatch)
 
+    uid = p["user"]["id"]
     visto = dict(_SETUP_DA_IA, description=_DESCRICAO, ticker="PETR4")
     r = c.post("/api/options/mcp/setups/confirmar", headers=_auth(p["token"]),
                json={"setup": visto})
     assert r.status_code == 200, r.text
     corpo = r.json()
     assert corpo["status"] == "ativo"
+    # 2026-09-13 (Fase 27): `name` é o da PESSOA e `nomeNoServico` é a chave do
+    # armazém compartilhado.
     assert corpo["name"] == _SETUP_DA_IA["name"]
+    assert corpo["nomeNoServico"] == _no_servico(uid)
+    assert corpo["setup"]["name"] == _SETUP_DA_IA["name"], \
+        "a tela recebeu o nome do armazém em vez do nome da pessoa"
     assert corpo["backtest"] == _BACKTEST
 
     args = dict(chamadas)[options_mcp_api.TOOL_CREATE_SETUP]
     assert args["confirm"] is True
-    assert args["setup"] == visto, "o setup foi mexido entre o ensaio e a gravação"
+    # 2026-09-13 (Fase 27) — a asserção ficou MAIS estreita, não mais frouxa.
+    # O único campo que a rota pode mexer é o `name`, e só pelo prefixo
+    # determinístico da conta (transformação declarada, não recompilação): o
+    # armazém não tem `owner`, e sem o prefixo o vigia de outra pessoa com o
+    # mesmo nome sobrescreveria o dela. Todo o RESTO continua byte a byte.
+    assert args["setup"] == dict(visto, name=_no_servico(uid)), \
+        "o setup foi mexido entre o ensaio e a gravação, além do prefixo do nome"
+    assert args["setup"]["name"] != visto["name"], "o prefixo não foi aplicado"
+    assert visto["name"] == _SETUP_DA_IA["name"], \
+        "a rota MUTOU o objeto que recebeu em vez de copiá-lo"
 
 
 def test_confirmar_sem_setup_ou_com_forma_torta_e_422_antes_da_rede(monkeypatch):
@@ -725,18 +751,23 @@ def test_auditoria_registra_a_criacao_e_a_desativacao(monkeypatch):
     visto = dict(_SETUP_DA_IA, description=_DESCRICAO, ticker="PETR4")
     assert c.post("/api/options/mcp/setups/confirmar", headers=_auth(p["token"]),
                   json={"setup": visto}).status_code == 200
-    assert c.post(f"/api/options/mcp/setups/{_SETUP_DA_IA['name']}/desativar",
+    # 2026-09-13 (Fase 27): a URL de `/desativar` leva o nome do ARMAZÉM — é a
+    # chave que o serviço conhece, e é o que a tela passa a mandar.
+    assert c.post(f"/api/options/mcp/setups/{_no_servico(uid)}/desativar",
                   headers=_auth(p["token"])).status_code == 200
 
     eventos = [e for e in audit.recent(main._conn)
                if e["entity"] == options_mcp_api.ENTIDADE_AUDITORIA]
     assert len(eventos) == 2, eventos
     por_novo = {e["newValue"]: e for e in eventos}
-    assert por_novo["ativo"]["entityId"] == _SETUP_DA_IA["name"]
+    # 2026-09-13 (Fase 27): a trilha de auditoria carimba o nome do ARMAZÉM, e
+    # não o da pessoa. É deliberado: a auditoria responde "de onde veio ESTE
+    # registro do serviço", e o nome da pessoa não é chave de nada lá.
+    assert por_novo["ativo"]["entityId"] == _no_servico(uid)
     assert por_novo["ativo"]["oldValue"] is None
     assert por_novo["ativo"]["actorUserId"] == uid
     assert por_novo["inativo"]["oldValue"] == "ativo"
-    assert por_novo["inativo"]["entityId"] == _SETUP_DA_IA["name"]
+    assert por_novo["inativo"]["entityId"] == _no_servico(uid)
 
 
 def test_auditoria_que_falha_nao_derruba_escrita_ja_efetivada(monkeypatch):
@@ -785,6 +816,118 @@ def test_auditoria_que_falha_nao_derruba_escrita_ja_efetivada(monkeypatch):
              and any("auditoria" in str(x) for x in a)]
     assert len(warns) == 2, f"a falha de auditoria não foi registrada: {eventos}"
     assert all(k.get("erro") == "RuntimeError" for _a, k in warns), warns
+
+
+# ═══════════════════════════ 4b. dono do setup (Fase 27, 2026-09-13) ══════
+# O armazém do serviço é ÚNICO, compartilhado por todos os clientes dele e sem
+# campo `owner` (ADR-027, Decisão 7). O dono passa a existir do lado do Boris:
+# prefixo determinístico por conta no nome enviado — no ENSAIO e na gravação —
+# e gate de desativação no backend.
+def test_o_ensaio_valida_o_nome_que_vai_ser_gravado(monkeypatch):
+    """Até 2026-09-13 o dry-run mandava um nome e a gravação mandava outro.
+    Como quem valida o setup é o SERVIÇO, uma recusa de formato do nome só
+    apareceria em `/setups/confirmar` — depois de a pessoa já ter pago 2
+    chamadas do cap e uma análise de LLM. O ensaio existe para reprovar antes
+    de cobrar; validar um nome diferente do que será gravado o esvazia."""
+    c, _ = _client(monkeypatch)
+    p = _registra(c)
+    uid = p["user"]["id"]
+    chamadas = _espiao(monkeypatch)
+    _material(monkeypatch)
+    _ia(monkeypatch)
+
+    r = _compila(c, p["token"])
+    assert r.status_code == 200, r.text
+
+    enviado = dict(chamadas)[options_mcp_api.TOOL_CREATE_SETUP]["setup"]
+    assert enviado["name"] == _no_servico(uid), "o ensaio validou um nome que não será gravado"
+    assert enviado["name"].startswith(opcoes_vigias.prefixo(uid))
+    # E a tela recebe o nome da PESSOA — nunca o do armazém.
+    assert r.json()["setup"]["name"] == _SETUP_DA_IA["name"]
+    assert not opcoes_vigias.prefixo(uid) in r.json()["setup"]["name"]
+
+
+def test_ida_e_volta_ensaio_para_gravacao_nao_empilha_dois_prefixos(monkeypatch):
+    """A REGRESSÃO que este teste reprova: o ensaio devolve o setup para a
+    tela e a tela o manda de volta em `/setups/confirmar`, que prefixa de
+    novo. Sem a idempotência de `nome_no_servico`, um único ida-e-volta
+    gravaria `abcdef12-abcdef12-…` — e o vigia nasceria com um nome que nem a
+    listagem nem o `/desativar` conseguiriam casar."""
+    c, _ = _client(monkeypatch)
+    p = _registra(c)
+    uid = p["user"]["id"]
+    chamadas = _espiao(monkeypatch)
+    _material(monkeypatch)
+    _ia(monkeypatch)
+
+    ensaio = _compila(c, p["token"])
+    assert ensaio.status_code == 200, ensaio.text
+    # Exatamente o que a tela devolveria: o objeto que ela recebeu, sem tocar.
+    devolvido = ensaio.json()["setup"]
+
+    r = c.post("/api/options/mcp/setups/confirmar", headers=_auth(p["token"]),
+               json={"setup": devolvido})
+    assert r.status_code == 200, r.text
+
+    gravado = [a for n, a in chamadas
+               if n == options_mcp_api.TOOL_CREATE_SETUP and a.get("confirm")][0]
+    assert gravado["setup"]["name"] == _no_servico(uid)
+    assert gravado["setup"]["name"].count(opcoes_vigias.prefixo(uid)) == 1, \
+        "o ida-e-volta empilhou dois prefixos"
+    assert r.json()["name"] == _SETUP_DA_IA["name"], \
+        "o hash vazou para o nome que a pessoa lê"
+
+    # **Medido em 2026-09-13 (Fase 27), e diverge do que o plano previa:**
+    # tirar a desprefixação do ensaio NÃO produz dois prefixos — a
+    # idempotência de `nome_no_servico` absorve o segundo. O dano real é
+    # outro, e é ele que as duas asserções abaixo pegam: o hash vira "o nome
+    # que a pessoa escreveu", na tela e no ÍNDICE. Ninguém batizou um vigia de
+    # "a1b2c3d4-IFR baixo", e é esse texto que a listagem passaria a exibir
+    # para sempre.
+    from app import main as _main  # o `_conn` vivo desta instância de teste
+    indice = opcoes_vigias.listar(_main._conn, uid)
+    assert [i["nome"] for i in indice] == [_SETUP_DA_IA["name"]], \
+        f"o índice guardou o nome do armazém em vez do nome da pessoa: {indice}"
+    assert indice[0]["nomeNoServico"] == _no_servico(uid)
+    assert indice[0]["ticker"] == "PETR4"
+
+
+def test_desativar_setup_de_outra_conta_e_403_do_backend_sem_tocar_o_servico(monkeypatch):
+    """O armazém é compartilhado: esconder o botão na UI deixaria a rota aberta
+    a qualquer um com um `curl`. E a recusa vem ANTES do cap — cobrar cota de
+    uma recusa que não saiu do processo seria cobrar pelo que não aconteceu."""
+    c, main = _client(monkeypatch)
+    p = _registra(c)
+    uid = p["user"]["id"]
+    chamadas = _espiao(monkeypatch)
+
+    alheio = opcoes_vigias.nome_no_servico("u-de-outra-conta", "vigia do outro")
+    r = c.post(f"/api/options/mcp/setups/{alheio}/desativar", headers=_auth(p["token"]))
+    assert r.status_code == 403, r.text
+    assert r.json()["detail"]["code"] == "setup_de_outro_dono"
+    assert chamadas == [], "a recusa de dono chegou a tocar o serviço"
+    assert _usado(main, uid) == 0, "uma recusa que não viajou cobrou cota"
+
+
+def test_desativar_setup_LEGADO_continua_funcionando(monkeypatch):
+    """Requisito, não sobra. Decisão do Alex de 2026-09-13 ("pode apagar os
+    antigos"): legado sai de toda LISTAGEM, e continua DESATIVÁVEL por quem tem
+    a permissão. Sem esta porta, um setup sem dono conhecido vira lixo
+    permanente — ninguém o vê, ninguém o remove pelo produto, e o serviço
+    segue avaliando-o todo pregão.
+
+    Um teste que só provasse a recusa do caso anterior deixaria esta porta ser
+    fechada por engano no primeiro refactor."""
+    c, _ = _client(monkeypatch)
+    p = _registra(c)
+    chamadas = _espiao(monkeypatch)
+
+    legado = "media longa + oscilador esticado"
+    assert opcoes_vigias.e_legado(legado) is True
+    r = c.post(f"/api/options/mcp/setups/{legado}/desativar", headers=_auth(p["token"]))
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "inativo"
+    assert dict(chamadas)[options_mcp_api.TOOL_DEACTIVATE_SETUP] == {"name": legado}
 
 
 # ═══════════════════════════════════════════════════ 5. os três tetos ═════
