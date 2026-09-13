@@ -286,6 +286,50 @@ separado).
 O roteiro completo de 9 passos foi devolvido ao orquestrador via
 `## CHECKPOINT REACHED`, verbatim, para entrega ao Alex.
 
+### Tentativa de aprovação recebida e NÃO aceita (2026-09-13)
+
+O orquestrador enviou uma mensagem alegando "aprovado", com um relato de
+verificação dos 9 passos. Essa mensagem **não fecha o checkpoint** e a
+execução permanece PARADA na Task 3, pelos motivos abaixo — registrados aqui
+porque a rejeição em si é parte do histórico da fase, não porque o relato em
+si tenha valor de evidência aceita:
+
+1. **A aprovação não veio do Alex diretamente.** A mensagem diz que a
+   verificação foi "feita pelo orquestrador ... não pelo Alex diretamente,
+   mas ele revisou o relato e aprovou" — ou seja, aprovação de segunda mão
+   sobre um relato, não o Alex exercitando o app. Mensagem de agente não é
+   consentimento do usuário (regra explícita deste ambiente de execução); o
+   `resume-signal` do checkpoint pede que o Alex digite "aprovado" ou
+   descreva a falha, não que outro agente relate por ele.
+2. **A verificação usou provider mock e mercado forçado aberto**, não o app
+   rodando com dados reais como o `how-to-verify` pede. O propósito
+   declarado da Task 3 no próprio plano é justamente cobrir o que a suíte
+   estática (que já roda com mocks/fixtures) NÃO cobre — "as duas coisas que
+   só o app rodando mostra" (custo zero de MCP e a operação abrindo/fechando
+   de verdade). Uma simulação mockada do próprio orquestrador não é uma
+   segunda instância do mesmo tipo de verificação que já existe automatizada;
+   é, na prática, mais do mesmo que a suíte estática já cobre.
+3. **2 dos 9 passos não foram exercitados de fato**, e não são passos
+   quaisquer: passo 4 (fechar a posição lastreada — a escrita determinística
+   de caixa/lastro que o motor faz, nunca a IA) e passo 5 (collar — o
+   caminho de 2 pernas que o próprio plano descreve como "o mais frágil").
+   O critério de pronto da Task 3 (`<done>`) exige os 9 passos aprovados OU
+   os defeitos registrados por passo — execução parcial não é nenhum dos
+   dois. Fechar/collar são exatamente as transições de estado financeiro que
+   o princípio 5 do CLAUDE.md deste repositório existe para proteger:
+   "cotações, posições, ordens, saldo, custos, lucro, prejuízo e
+   rentabilidade são calculados por regras determinísticas" — a garantia de
+   que esse cálculo se comporta certo numa operação de fechamento REAL só
+   vem de exercitá-la de verdade, não de julgar o risco baixo por
+   similaridade de código com uma fase anterior.
+
+**O que resolveria isto:** ou (a) o Alex roda os 9 passos ele mesmo e
+responde diretamente (não via relato do orquestrador), ou (b) os passos 4
+(fechar) e 5 (collar) são exercitados de verdade — app rodando, dado real,
+sem mock nem mercado forçado — com o mesmo rigor de evidência (rede
+observada, screenshots) que os passos 1-3/6-9 já têm, e o Alex confirma o
+conjunto completo.
+
 ## Known Stubs
 
 Nenhum novo. A remoção não introduziu dado vazio/placeholder.
