@@ -3,9 +3,10 @@
 > Consolidado por Claude, sem `/gsd-discuss-phase` assistido por subagente.
 > D1 (universo) e D2 (fórmula de ranking) foram decididos pelo Alex via
 > `AskUserQuestion` em 2026-09-13, entre alternativas concretas ancoradas
-> no que o motor já calcula — não presumidos. O resto do desenho segue
-> abaixo, com o que ainda precisa de detalhe marcado como tal, não como
-> bloqueio.
+> no que o motor já calcula — não presumidos. D3-D6 (detalhe de execução)
+> foram delegados pelo Alex ("pode decidir") e fechados com a mesma
+> disciplina de citar código real antes de decidir — D3 corrigiu a própria
+> moldura da fase ao descobrir que a cadeia hoje só traz um vencimento.
 
 ## Guardrail não-negociável (repetido de propósito — é o motivo da fase)
 
@@ -80,34 +81,54 @@ perda_maxima ora é o prêmio inteiro, ora é ilimitada).
    desta posição", mas "as 4 melhores entre várias janelas, cruzando
    posições".
 
-## Em aberto — detalhe de execução, não bloqueia o desenho, mas precisa de resposta antes do plano
+## Decisões de detalhe (fechadas em 2026-09-13, delegadas pelo Alex — "pode decidir")
 
-Estes itens são menores que D1/D2 e não exigem nova rodada de
-`AskUserQuestion` — mas o plano de execução não pode inventá-los sozinho
-sem risco de retrabalho; ficam nomeados para quem planejar decidir com
-critério, e o Alex pode responder em uma linha se tiver preferência antes
-de eu rodar `/gsd:plan-phase`:
+### D3 — Janelas: só STRIKE, dentro do vencimento único que a cadeia já traz
 
-1. **Quantas janelas por posição?** Ex.: 2 vencimentos × 3 strikes = até 6
-   candidatos por posição elegível, antes do corte de liquidez. Um número
-   grande demais estressa `rastrear()` sem ganho (mais candidatos ilíquidos
-   descartados); pequeno demais pode deixar a "melhor" de fora. Sugestão a
-   validar no plano: mirar o que `rastrear()` já usa como faixa padrão de
-   vencimento/strike no motor de proposta única, multiplicado por um fator
-   pequeno (2-3x), não um número arbitrário novo.
-2. **Onde a IA narra as 4?** Um bloco novo em algum lugar da aba
-   Opções/Portfólio, ou um card no Radar/Acompanhar? Não decidido — este
-   CONTEXT não presume tela.
-3. **Piso de liquidez exato do filtro D2** — reusar o `LIQUIDEZ_NEGOCIAVEL`
-   que já existe em `options_quant.py` (mesmo piso do resto do app) é o
-   default óbvio, a confirmar no plano.
-4. **Gatilho**: clique explícito (como toda leitura paga desta app) ou
-   parte do fluxo de "análise de IA" já existente (`/api/analyze`, cota
-   mensal do plano)? Dado que o custo de MCP é zero (achado 3 acima), o
-   único custo real aqui é a análise de IA que NARRA o resultado — essa
-   sim consome a cota de análises do plano comercial (Fase 25), então o
-   comportamento deve seguir o MESMO gate que `/api/analyze` já usa, não
-   inventar um novo.
+**Achado que corrigiu a própria moldura desta fase, antes de fechar a
+decisão**: `chain.get("expiration")` (`opcoes_lastreadas.py:16`, comentário
+do próprio código: "cadeia carregada traz um vencimento só") — a cadeia
+que `options_provider.get_options(underlying)` devolve hoje já vem presa a
+UM vencimento. Testar "várias janelas de VENCIMENTO" exigiria chamar
+`get_options(underlying, expiration=X)` uma vez por vencimento testado,
+por posição — isso multiplica chamadas ao provider (mydata/Yahoo) e
+**deixaria de ser verdade** a propriedade de custo zero/sem chamada extra
+que este CONTEXT declarou no achado 3 acima.
+
+**Decisão: "várias janelas" nesta fase significa vários STRIKES dentro do
+MESMO vencimento único já buscado — nunca múltiplos vencimentos.** Isso
+preserva uma chamada de rede por posição elegível, igual ao fluxo de
+proposta única de hoje; `rastrear(cadeia, {"tipo": "call", "relacao":
+"acima", "criterio": "min", "n": 5, ...})` (ajustando `n`) já devolve até 5
+strikes candidatos da MESMA cadeia em memória, sem chamada nova. Expandir
+para múltiplos vencimentos fica para uma fase futura, se o Alex pedir,
+com o custo de rede declarado explicitamente nela.
+
+### D4 — Onde a IA narra: bloco novo em Posições, ao lado de "Oportunidades de opções"
+
+**Decisão: o bloco de "4 melhores" vive em Posições/Portfólio**, como
+irmão da tira `OportunidadesOpcoes` (Fase 18) — é o precedente já
+estabelecido de "resumo cross-posição de opções" nesta tela, e ranking de
+venda coberta por toda a carteira é exatamente esse tipo de resumo. Não é
+um bloco por ativo (não pertence ao card de uma posição específica), nem
+uma tela nova.
+
+### D5 — Piso de liquidez: `LIQUIDEZ_NEGOCIAVEL`
+
+**Decisão: reusa `LIQUIDEZ_NEGOCIAVEL`** (`server/app/options_quant.py`) —
+o mesmo piso que o resto do app já usa para "líquido o bastante para
+confiar no preço". Não é um piso novo e mais permissivo/restritivo
+inventado só para este ranking.
+
+### D6 — Gatilho e custo: mesma cota mensal de `/api/analyze`
+
+**Decisão: a narração da IA consome a MESMA cota de análises do plano
+comercial (Fase 25)**, pelo MESMO gate que `/api/analyze` já usa
+(`_gate_analise`, BYOK → plano mensal → metering diário) — não um
+orçamento paralelo. O RANKING em si (a matemática de `rastrear()`/
+`avaliar()`) é custo zero e pode rodar sem gate nenhum, já que não fala
+com LLM nem com o serviço MCP; só a ETAPA de narração — a chamada ao LLM
+que escreve o texto sobre as 4 já escolhidas — entra no gate de análise.
 
 ## Fora de escopo (explícito)
 
