@@ -593,27 +593,53 @@ export const COPY = {
     tiraOpcoesSemMercado: "As opções das suas posições estão hoje na faixa SEM MERCADO — negociaram tão pouco que o preço da tela não seria o preço real de uma ordem. Por isso nenhuma estrutura é estudada sobre elas agora.",
     linhaPropostaNaPosicao: "Estrutura de opções possível nesta posição",
 
-    // Fase 30 (Plano 04, D4): bloco "as 4 melhores vendas cobertas",
-    // irmão da tira acima. Nenhuma frase promete rentabilidade, garante
-    // lucro ou usa linguagem de enriquecimento (princípios 6/8 do
-    // CLAUDE.md) — a manchete de cada item vem SÓ do motor
-    // (item.manchete), nunca de uma chave de copy. `curadoriaSubtitulo`
-    // nomeia de onde vem a ordem sem citar IA; `curadoriaIaRotulo`/
-    // `curadoriaIaRessalva` deixam explícito que o texto seguinte é
-    // explicação da IA sobre uma lista já decidida pelo motor.
-    curadoriaTitulo: "AS 4 MELHORES VENDAS COBERTAS",
+    // Fase 30 (Plano 04, D4): bloco "as 4 melhores estruturas", irmão da
+    // tira acima. Nenhuma frase promete rentabilidade, garante lucro ou usa
+    // linguagem de enriquecimento (princípios 6/8 do CLAUDE.md) — a
+    // manchete de cada item vem SÓ do motor (item.manchete), nunca de uma
+    // chave de copy. `curadoriaSubtitulo` nomeia de onde vem a ordem sem
+    // citar IA; `curadoriaIaRotulo`/`curadoriaIaRessalva` deixam explícito
+    // que o texto seguinte é explicação da IA sobre uma lista já decidida
+    // pelo motor.
+    //
+    // Fase 31 (Plano 04, D-04): a Fase 30 varria só venda coberta —
+    // `curadoriaTitulo`/`curadoriaSubtitulo`/`curadoriaCarregando`/
+    // `curadoriaVazio` reescritas porque o universo agora cobre as 4
+    // estruturas do motor (venda coberta, put de proteção, collar, opção a
+    // descoberto). Reversão deliberada, não apagamento — guardião
+    // atualizado com nota (D-04). Chaves novas: `curadoriaTipo*` (rótulo de
+    // categoria por tipo, nunca a manchete), `curadoriaVarreduraRotulo`
+    // (resumo do que a varredura cobriu) e `curadoriaPayoffRotulo` (rótulo
+    // da curva de payoff do item nº 1). `curadoriaRazaoAjuda` explica o
+    // SINAL do prêmio (negativo = a estrutura custa para montar), não
+    // promove estrutura nenhuma — é didática sobre o número que o motor já
+    // calculou (princípio 5).
+    curadoriaTitulo: "AS 4 MELHORES OPORTUNIDADES DE OPÇÕES",
     curadoriaSubtitulo: "Ordenadas pelo motor por prêmio sobre perda máxima — a ordem não muda com a explicação da IA.",
-    curadoriaCarregando: "Varrendo sua carteira em busca das melhores vendas cobertas…",
+    curadoriaCarregando: "Varrendo sua carteira em busca das melhores oportunidades…",
     // ESTADO (NAV-03), sem CTA — nomeia o motivo, mesmo precedente de
     // tiraOpcoesSemCobertura acima.
-    curadoriaVazio: "Nenhuma das suas posições tem lote livre de 100 ações com uma call líquida disponível no vencimento — por isso não há estrutura para ranquear agora.",
+    curadoriaVazio: "Nenhuma estrutura elegível nos vencimentos varridos — por isso não há nada para ranquear agora.",
     curadoriaRazaoRotulo: "prêmio sobre perda máxima",
+    curadoriaRazaoAjuda: "Prêmio negativo significa que montar a estrutura custa dinheiro (é uma proteção) — por isso ela pode aparecer embaixo na mesma régua, sem que isso seja um defeito do ranking.",
+    curadoriaTipoCallCoberta: "venda coberta",
+    curadoriaTipoPutProtecao: "put de proteção",
+    // Achado 31-01 (Rule 1, mesma colisão): "trava protetora" é
+    // string-âncora protegida por guardrail CVM desde a Fase 16 (LIB-03,
+    // test_opcoes_collar_vocab.py::test_nenhum_arquivo_front_compoe_
+    // manchete_do_collar) — nenhum arquivo do front pode compor esse
+    // texto, só skill_ref.py. Rótulo de TIPO aqui usa o mesmo texto
+    // descritivo já adotado em opcoes_curadoria.py (31-01).
+    curadoriaTipoCollar: "collar (call vendida + put comprada)",
+    curadoriaTipoDescoberto: "a descoberto",
+    curadoriaVarreduraRotulo: "o que esta varredura cobriu",
+    curadoriaPayoffRotulo: "Curva de resultado da estrutura nº 1",
     curadoriaNarrarCta: "Pedir explicação da IA",
     curadoriaNarrando: "Escrevendo a explicação…",
     curadoriaIaRotulo: "Explicação da IA sobre esta lista",
     curadoriaIaRessalva: "A IA explica a ordem que o motor já decidiu — ela não escolhe nem reordena as estruturas.",
-    curadoriaCotaEsgotada: "Sua cota mensal de análises de IA acabou. Os 4 itens acima continuam valendo — só a explicação em texto não está disponível agora.",
-    curadoriaErroNarrar: "Não foi possível gerar a explicação agora. Os 4 itens acima continuam calculados pelo motor e não dependem deste texto.",
+    curadoriaCotaEsgotada: "Sua cota mensal de análises de IA acabou. Os itens acima continuam valendo — só a explicação em texto não está disponível agora.",
+    curadoriaErroNarrar: "Não foi possível gerar a explicação agora. Os itens acima continuam calculados pelo motor e não dependem deste texto.",
   },
 
   operador: {
@@ -1099,17 +1125,27 @@ export const COPY = {
 
     // Fase 30 (Plano 04, D4): mesma chave do ramo estudo (ver comentário
     // acima). Voz de mesa, sem verbo de ordem, sem promessa de lucro.
-    curadoriaTitulo: "AS 4 MELHORES VENDAS COBERTAS",
+    //
+    // Fase 31 (Plano 04, D-04): mesma reescrita/extensão do ramo estudo
+    // (ver comentário acima) — voz de mesa, curta.
+    curadoriaTitulo: "AS 4 MELHORES OPORTUNIDADES DE OPÇÕES",
     curadoriaSubtitulo: "Ordenadas pelo motor por prêmio sobre perda máxima — a ordem não muda com o texto da IA.",
     curadoriaCarregando: "Varrendo a carteira…",
-    curadoriaVazio: "Nenhuma posição com lote livre de 100 ações e call líquida no vencimento — sem estrutura para ranquear agora.",
+    curadoriaVazio: "Nenhuma estrutura elegível nos vencimentos varridos — sem nada para ranquear agora.",
     curadoriaRazaoRotulo: "prêmio / perda máxima",
+    curadoriaRazaoAjuda: "Prêmio negativo = a estrutura custa para montar (proteção) — por isso pode aparecer embaixo na régua.",
+    curadoriaTipoCallCoberta: "venda coberta",
+    curadoriaTipoPutProtecao: "put de proteção",
+    curadoriaTipoCollar: "collar (call vendida + put comprada)",
+    curadoriaTipoDescoberto: "a descoberto",
+    curadoriaVarreduraRotulo: "o que a varredura cobriu",
+    curadoriaPayoffRotulo: "Payoff da estrutura nº 1",
     curadoriaNarrarCta: "Explicação da IA",
     curadoriaNarrando: "Gerando…",
     curadoriaIaRotulo: "Leitura da IA sobre esta lista",
     curadoriaIaRessalva: "A IA lê a ordem que o motor decidiu — não escolhe nem reordena.",
-    curadoriaCotaEsgotada: "Cota mensal de análises esgotada. Os 4 itens seguem valendo; só o texto da IA fica indisponível.",
-    curadoriaErroNarrar: "Falha ao gerar o texto agora. Os 4 itens não dependem dele.",
+    curadoriaCotaEsgotada: "Cota mensal de análises esgotada. Os itens seguem valendo; só o texto da IA fica indisponível.",
+    curadoriaErroNarrar: "Falha ao gerar o texto agora. Os itens não dependem dele.",
   },
 };
 
