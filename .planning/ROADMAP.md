@@ -707,7 +707,29 @@ oportunidade, não só da execução).
      — sem estender a watchlist/catálogo.
   7. Suíte canônica sem regressão da baseline medida no início da fase;
      `npx vite build` verde.
-**Plans:** TBD — planejamento em andamento (`/gsd:plan-phase 31`)
+**Plans:** 4 plans (3 waves)
+
+Plans:
+**Wave 1**
+
+- [ ] 31-01-PLAN.md — motor PURO: as 4 estruturas (venda coberta, put de proteção, collar, opção a descoberto) sobre a mesma cadeia em memória, prêmio líquido COM SINAL, `idCandidato`, `proximos_vencimentos()` e o gate de descoberta `permitir_a_descoberto` (D-04/D-05/D-06)
+- [ ] 31-03-PLAN.md — `PayoffChart.jsx` legível em 375px: piso de tipografia no SVG, geometria com respiro, rótulos sem sobreposição; sem overlay e sem interatividade (D-07/D-08)
+
+**Wave 2** *(blocked on Wave 1)*
+
+- [ ] 31-02-PLAN.md — rota: até 2 vencimentos por posição elegível provado por contagem exata, meta `candidatosPorTipo`/`tetoVencimentos`, flag lido só da config do SERVIDOR (nunca do corpo), e cache de vencimentos no mydata (3 requisições/posição em vez de 4) (D-01/D-03/D-05/D-09)
+
+**Wave 3** *(blocked on Wave 2)*
+
+- [ ] 31-04-PLAN.md — bloco de Posições: rótulo de tipo, chave de render estável, resumo da varredura, curva de payoff do nº 1 via adaptador puro, guardiões atualizados + checkpoint de verificação ao vivo em 375px
+
+**Consequência conhecida e aceita de D-06** (registrada no plano, não é
+defeito): com uma fórmula só (prêmio líquido ÷ perda máxima), put de
+proteção, collar de débito e opção a descoberto têm prêmio líquido NEGATIVO
+e rankeiam abaixo de qualquer venda coberta — o top-4 pode ficar todo de
+venda coberta. É por isso que a varredura publica `candidatosPorTipo`: a
+cobertura das 4 estruturas (SC-2) e o gate do a descoberto (SC-3) ficam
+verificáveis sem criar seção separada por objetivo, que D-06 proíbe.
 
 **Fora de escopo, explicitamente**: watchlist/catálogo sem posição
 (D-09); overlay de múltiplos candidatos e interatividade no payoff (D-08);
