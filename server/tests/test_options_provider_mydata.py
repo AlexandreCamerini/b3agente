@@ -43,6 +43,7 @@ _HOJE = dt.date(2026, 9, 14)
 @pytest.fixture(autouse=True)
 def _cache_limpo(monkeypatch):
     provider._cache.clear()
+    provider._venc_cache.clear()  # Fase 31 (Plano 02, Task 3): não vazar cache de vencimentos entre testes
     # Reset do orçamento em TODO teste deste arquivo, não só nos que testam
     # o gate — a partir desta entrega `get_options` sempre consulta a cota
     # real por baixo (a menos que o teste monkeypatche `pode_gastar`), e os
@@ -55,6 +56,7 @@ def _cache_limpo(monkeypatch):
     monkeypatch.setattr(provider, "hoje_brt", lambda: _HOJE)
     yield
     provider._cache.clear()
+    provider._venc_cache.clear()
     mydata_budget.reset()
 
 
@@ -456,6 +458,169 @@ def test_duas_chamadas_seguidas_mesmo_ticker_fazem_uma_ida_ao_cliente(monkeypatc
     asyncio.run(provider.get_options("PETR4"))
     asyncio.run(provider.get_options("PETR4"))
     assert chamadas["n"] == 1
+
+
+# ---------------------------------------------------------------------------
+# Cache de vencimentos (Fase 31, Plano 02, Task 3) — 1 `get_vencimentos`
+# por ticker/dia, não 1 por cadeia buscada. Prova de contagem exata, mesmo
+# estilo do resto deste arquivo.
+# ---------------------------------------------------------------------------
+def test_duas_cadeias_mesmo_ticker_mesmo_dia_custam_3_requisicoes_nao_4(monkeypatch):
+    """A varredura de 2 vencimentos (Fase 31/D-01) chamaria `get_vencimentos`
+    duas vezes para o MESMO ticker no MESMO dia sem este cache — a lista é
+    idêntica nas duas buscas. Com o cache: 1 `get_vencimentos` + 2
+    `get_options_chain` + 3 `reservar` (débitos), nunca 4."""
+    chamadas_venc = []
+    chamadas_chain = []
+    debitos = []
+
+    async def fake_vencimentos(ticker, pregao=None, *, fetch_json=None):
+        chamadas_venc.append(ticker)
+        return _venc_bbas3_real()
+
+    async def fake_chain(ticker, vencimento=None, pregao=None, tipo=None, *, fetch_json=None):
+        chamadas_chain.append(vencimento)
+        return [_linha_petr4()]
+
+    monkeypatch.setattr(provider.mydata_client, "get_vencimentos", fake_vencimentos)
+    monkeypatch.setattr(provider.mydata_client, "get_options_chain", fake_chain)
+    monkeypatch.setattr(mydata_budget, "pode_gastar", lambda n=1, now=None: True)
+    monkeypatch.setattr(mydata_budget, "debita", lambda n=1, now=None: debitos.append(n))
+
+    primeira = asyncio.run(provider.get_options("PETR4"))
+    segunda = asyncio.run(provider.get_options("PETR4", expiration="2026-10-16"))
+
+    assert primeira["providerStatus"] == "ok"
+    assert segunda["providerStatus"] == "ok"
+    assert len(chamadas_venc) == 1, f"get_vencimentos deveria ser chamado 1 vez, veio {chamadas_venc!r}"
+    assert len(chamadas_chain) == 2, f"get_options_chain deveria ser chamado 2 vezes, veio {chamadas_chain!r}"
+    assert len(debitos) == 3, f"reservar deveria debitar 3 vezes, veio {debitos!r}"
+
+
+def test_tickers_diferentes_nao_compartilham_cache_de_vencimentos(monkeypatch):
+    chamadas_venc = []
+
+    async def fake_vencimentos(ticker, pregao=None, *, fetch_json=None):
+        chamadas_venc.append(ticker)
+        return _vencimentos_ok()
+
+    async def fake_chain(ticker, vencimento=None, pregao=None, tipo=None, *, fetch_json=None):
+        return [_linha_petr4()]
+
+    monkeypatch.setattr(provider.mydata_client, "get_vencimentos", fake_vencimentos)
+    monkeypatch.setattr(provider.mydata_client, "get_options_chain", fake_chain)
+
+    asyncio.run(provider.get_options("PETR4"))
+    asyncio.run(provider.get_options("BBAS3"))
+
+    assert chamadas_venc == ["PETR4", "BBAS3"]
+
+
+def test_lista_de_vencimentos_vazia_nao_e_cacheada(monkeypatch):
+    """Mesma postura A-07 do `_gate`: indisponibilidade não se estende além
+    da causa — uma lista vazia (fonte sem pregão publicado) não pode
+    "travar" vazia pelos próximos `_VENC_TTL` segundos."""
+    chamadas_venc = {"n": 0}
+
+    async def fake_vencimentos(ticker, pregao=None, *, fetch_json=None):
+        chamadas_venc["n"] += 1
+        # Primeira chamada: fonte não publicou nada. Segunda: publicou.
+        return [] if chamadas_venc["n"] == 1 else _vencimentos_ok()
+
+    async def fake_chain(ticker, vencimento=None, pregao=None, tipo=None, *, fetch_json=None):
+        return [_linha_petr4()]
+
+    monkeypatch.setattr(provider.mydata_client, "get_vencimentos", fake_vencimentos)
+    monkeypatch.setattr(provider.mydata_client, "get_options_chain", fake_chain)
+
+    # `expiration` explícito DIFERENTE da 1ª chamada: chave do `_cache` de
+    # payload (nível de cima) muda, então este teste exercita só o cache de
+    # VENCIMENTOS — não o cache de erro (`_ERROR_TTL`) da cadeia inteira,
+    # que já é coberto por outro teste deste arquivo.
+    primeira = asyncio.run(provider.get_options("PETR4"))
+    segunda = asyncio.run(provider.get_options("PETR4", expiration="2026-09-19"))
+
+    assert primeira["providerStatus"] == "degraded"
+    assert segunda["providerStatus"] == "ok"
+    assert chamadas_venc["n"] == 2, "a lista vazia da 1ª chamada não pode ter sido cacheada"
+
+
+def test_erro_na_busca_de_vencimentos_nao_e_cacheado(monkeypatch):
+    import app.mydata_client as mc
+    chamadas_venc = {"n": 0}
+
+    async def fake_vencimentos(ticker, pregao=None, *, fetch_json=None):
+        chamadas_venc["n"] += 1
+        if chamadas_venc["n"] == 1:
+            raise mc.MydataIndisponivel("mydata quota excedida")
+        return _vencimentos_ok()
+
+    async def fake_chain(ticker, vencimento=None, pregao=None, tipo=None, *, fetch_json=None):
+        return [_linha_petr4()]
+
+    monkeypatch.setattr(provider.mydata_client, "get_vencimentos", fake_vencimentos)
+    monkeypatch.setattr(provider.mydata_client, "get_options_chain", fake_chain)
+
+    primeira = asyncio.run(provider.get_options("PETR4"))
+    segunda = asyncio.run(provider.get_options("PETR4", expiration="2026-09-19"))
+
+    assert primeira["providerStatus"] == "degraded"
+    assert segunda["providerStatus"] == "ok"
+    assert chamadas_venc["n"] == 2, "o erro da 1ª chamada não pode ter sido cacheado"
+
+
+def test_virada_de_dia_invalida_a_entrada_do_cache_de_vencimentos(monkeypatch):
+    chamadas_venc = []
+
+    async def fake_vencimentos(ticker, pregao=None, *, fetch_json=None):
+        chamadas_venc.append(1)
+        return _venc_bbas3_real() + [{"dt_vencimento": "2026-11-13", "vence_no_pregao": 0}]
+
+    async def fake_chain(ticker, vencimento=None, pregao=None, tipo=None, *, fetch_json=None):
+        return [_linha_petr4()]
+
+    monkeypatch.setattr(provider.mydata_client, "get_vencimentos", fake_vencimentos)
+    monkeypatch.setattr(provider.mydata_client, "get_options_chain", fake_chain)
+
+    asyncio.run(provider.get_options("PETR4", hoje=dt.date(2026, 9, 14)))
+    asyncio.run(provider.get_options("PETR4", hoje=dt.date(2026, 9, 20)))
+
+    assert len(chamadas_venc) == 2, "dia diferente precisa invalidar o cache de vencimentos, igual _cache já faz"
+
+
+def test_sem_cota_no_pre_filtro_de_1_ainda_degrada_sem_tocar_o_cliente(monkeypatch):
+    """Cache de vencimentos FRESCO reduz o pré-filtro para `_gate(1)` — este
+    guardião prova que a degradação por falta de cota continua funcionando
+    nesse caminho reduzido, sem tocar `get_options_chain`."""
+    chamadas_venc = []
+    chamadas_chain = []
+
+    async def fake_vencimentos(ticker, pregao=None, *, fetch_json=None):
+        chamadas_venc.append(ticker)
+        return _venc_bbas3_real()
+
+    async def fake_chain(ticker, vencimento=None, pregao=None, tipo=None, *, fetch_json=None):
+        chamadas_chain.append(vencimento)
+        return [_linha_petr4()]
+
+    monkeypatch.setattr(provider.mydata_client, "get_vencimentos", fake_vencimentos)
+    monkeypatch.setattr(provider.mydata_client, "get_options_chain", fake_chain)
+
+    primeira = asyncio.run(provider.get_options("PETR4"))
+    assert primeira["providerStatus"] == "ok"
+    assert len(chamadas_venc) == 1
+    chain_calls_apos_primeira = len(chamadas_chain)
+
+    # Cache de vencimentos agora está fresco — a 2ª busca (2º vencimento)
+    # usaria só `_gate(1)`. Cota estoura bem aqui.
+    monkeypatch.setattr(mydata_budget, "pode_gastar", lambda n=1, now=None: False)
+    segunda = asyncio.run(provider.get_options("PETR4", expiration="2026-10-16"))
+
+    assert segunda["providerStatus"] == "degraded"
+    assert "cota" in segunda["providerError"]
+    assert len(chamadas_chain) == chain_calls_apos_primeira, \
+        "sem cota, a 2ª busca não deveria ter chamado get_options_chain"
+    assert len(chamadas_venc) == 1, "cache de vencimentos fresco não deveria gerar rede nova"
 
 
 # ---------------------------------------------------------------------------

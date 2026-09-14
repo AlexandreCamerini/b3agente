@@ -69,6 +69,16 @@ _OPTIONS_TTL = 300
 _ERROR_TTL = 60
 _cache: dict[str, tuple[float, dict]] = {}
 
+# Fase 31 (Plano 02, Task 3): cache DEDICADO da LISTA de vencimentos,
+# separado de `_cache` (que guarda payload de CADEIA). A varredura de 2
+# vencimentos (D-01) chamaria `get_vencimentos` duas vezes para o MESMO
+# ticker no MESMO dia — a lista é idêntica nas duas buscas — então cachear
+# derruba o custo por posição de 4 para 3 requisições mydata, a diferença
+# entre caber e não caber no teto de 60/min numa carteira de 15-20
+# posições. Mesmo TTL de `_OPTIONS_TTL` (reusado, não um número novo).
+_VENC_TTL = _OPTIONS_TTL
+_venc_cache: dict[str, tuple[float, list]] = {}
+
 # Precedente: options_provider_mock.py:31-42 (decisão 260911-dtx) — offset BRT
 # fixo, nunca `dt.date.today()`: o container Railway roda em UTC e o dia
 # naive vira às 21:00 BRT, desalinhando a cadeia do que o usuário vê.
@@ -219,6 +229,34 @@ def _debita(n: int = 1) -> bool:
     return mydata_budget.reservar(n)
 
 
+async def _vencimentos(t: str, hoje_efetivo: dt.date) -> Optional[list]:
+    """Lista de vencimentos (formato CRU do mydata, mesma forma que
+    `mydata_client.get_vencimentos` devolve) cacheada por ticker/dia — Fase
+    31 (Plano 02, Task 3), ver comentário de `_venc_cache` acima.
+
+    Devolve a lista do cache quando fresca (SEM `_debita`, SEM rede);
+    caso contrário reserva cota (`_debita`) e chama `mydata_client.
+    get_vencimentos`. Só grava no cache quando a lista volta NÃO-vazia —
+    mesma postura A-07 (`_gate`, acima): indisponibilidade não se estende
+    além da causa; uma lista vazia por falha temporária não pode "travar"
+    vazia pelos próximos `_VENC_TTL` segundos.
+
+    Devolve `None` para "não consegui reservar cota" (o chamador degrada
+    exatamente como o WR-01 já fazia no ponto de `_debita()` original) e
+    `[]` para "fonte não publicou vencimento" (o chamador cai no
+    `_empty_payload` que já existe para esse caso)."""
+    key = f"{t}@{hoje_efetivo.isoformat()}"
+    hit = _venc_cache.get(key)
+    if hit and (time.time() - hit[0]) < _VENC_TTL:
+        return hit[1]
+    if not _debita():
+        return None
+    venc = await mydata_client.get_vencimentos(t)
+    if venc:
+        _venc_cache[key] = (time.time(), venc)
+    return venc
+
+
 async def get_options(ticker: str, expiration: Optional[str] = None,
                        hoje: Optional[dt.date] = None) -> dict:
     hoje_efetivo = hoje or hoje_brt()
@@ -233,7 +271,17 @@ async def get_options(ticker: str, expiration: Optional[str] = None,
     if hit and (time.time() - hit[0]) < _OPTIONS_TTL:
         return hit[1]
 
-    motivo = _gate(2)
+    # Fase 31: o pré-filtro precisa prever quantas requisições de rede ESTA
+    # chamada ainda vai fazer, não um número fixo — `_gate(1)` quando a
+    # lista de vencimentos já está em cache fresco (só falta
+    # `get_options_chain`), `_gate(2)` quando não está
+    # (`get_vencimentos` + `get_options_chain`). Continua sendo só um
+    # pré-filtro otimista (sem lock); o commit atômico continua sendo
+    # `_debita()`/`reservar()`, dentro de `_vencimentos()` e antes de
+    # `get_options_chain`, exatamente como antes (WR-01).
+    venc_fresco_hit = _venc_cache.get(f"{t}@{hoje_efetivo.isoformat()}")
+    venc_fresco = venc_fresco_hit is not None and (time.time() - venc_fresco_hit[0]) < _VENC_TTL
+    motivo = _gate(1 if venc_fresco else 2)
     if motivo is not None:
         # A-07: recusa por cota NÃO é escrita em `_cache` — a janela do
         # minuto libera em até 60s; cachear pelo TTL de sucesso (300s) ou
@@ -245,14 +293,15 @@ async def get_options(ticker: str, expiration: Optional[str] = None,
             error="sem cota mydata (60/min · 2.000/dia)")
 
     try:
-        if not _debita():
-            # WR-01: pré-filtro _gate(2) passou, mas outra thread esgotou a
-            # cota entre o pré-filtro e este commit — degrada aqui, nunca
-            # toca a rede sem cota reservada de verdade.
+        venc = await _vencimentos(t, hoje_efetivo)
+        if venc is None:
+            # WR-01: pré-filtro passou, mas outra thread esgotou a cota
+            # entre o pré-filtro e o commit dentro de `_vencimentos()` —
+            # degrada aqui, nunca toca a rede sem cota reservada de
+            # verdade.
             return _empty_payload(
                 ticker, expiration, MYDATA_ORCAMENTO_WARNING,
                 error="sem cota mydata (60/min · 2.000/dia)")
-        venc = await mydata_client.get_vencimentos(t)
         if not venc:
             payload = _empty_payload(
                 ticker, expiration,
