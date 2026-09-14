@@ -1,111 +1,164 @@
-# Fase 31 — Varredura de oportunidades de opções · CONTEXT (rascunho inicial)
+# Phase 31: Varredura de oportunidades de opções - Context
 
-> Aberto na noite de 2026-09-14, ao final de uma sessão longa (Fases 27-30 +
-> fix de produção do mydata). Registra só as três decisões colhidas via
-> `AskUserQuestion` — **não é um CONTEXT.md fechado**, tem lacunas reais de
-> desenho ainda por resolver antes de qualquer plano de execução. Continuar
-> isso é trabalho de fase nova, recomendado para uma sessão com orçamento
-> fresco (`/handoff`), não uma extensão do que já rodou hoje.
+**Gathered:** 2026-09-14
+**Status:** Ready for planning
 
-## Por que esta fase existe
+<domain>
+## Phase Boundary
 
-Depois do fix de produção da noite (seleção de vencimento em
-`options_provider_mydata.py`, ver `quick/260914-b6p`), o Alex reconsiderou a
-decisão que tinha acabado de tomar ("primeiro futuro, seja qual for") e
-pediu algo maior: **"sempre trazer as opções disponíveis no futuro"**, com
-**"uma análise AI ou determinística destas opções disponíveis usando os
-principais setups de opções e os gráficos de payoff para trazer para o
-usuário as oportunidades"**.
+Estender a curadoria determinística de oportunidades de opções (Fase 30) de
+"1 vencimento × 1 estrutura (venda coberta)" para "vários vencimentos ×
+as 4 estruturas que o motor interno já executa (venda coberta, put de
+proteção, collar, opção a descoberto)", sobre as posições que o usuário já
+tem na carteira — mais um payoff visual (`PayoffChart.jsx`) responsivo no
+bloco de curadoria. A seleção de quais oportunidades aparecem continua
+100% determinística (`opcoes_motor.avaliar()`/`opcoes_curadoria.py`); a IA,
+se aparecer, só narra.
 
-## Guardrail não-negociável (repetido, é o mesmo de toda a sessão)
+</domain>
 
-A frase "análise AI **ou** determinística" é exatamente a ambiguidade que o
-princípio 5 do CLAUDE.md e o pedido original desta sessão inteira vieram
-para fechar. **Não é uma escolha entre as duas** — a seleção de quais
-oportunidades aparecem tem de ser 100% determinística (mesma régua da Fase
-30: razão prêmio/perda máxima, ou o que for decidido para as estruturas
-novas, sempre calculada por `opcoes_motor.avaliar()`/`opcoes_payoff.py`,
-nunca por um LLM). A IA, se entrar, **narra** o que o número já escolheu.
-Isto não foi reaberto pelo Alex — só a frase dele reabriu a ambiguidade que
-precisa ficar fechada de novo no plano de execução.
+<decisions>
+## Implementation Decisions
 
-## Decisões coletadas (via `AskUserQuestion`, 2026-09-14)
+### D1 — Vencimentos: teto fixo de 2 por posição elegível
+- **D-01:** Varrer até **2 vencimentos** por posição elegível (o mais
+  próximo + o segundo mais próximo publicado por
+  `mydata_client.get_vencimentos(ticker)`), não só o mais próximo como
+  hoje. Custo de rede passa a ser **2× o de hoje**, previsível — nunca
+  "todos os vencimentos que a cadeia trouxer" nem uma janela de dias sem
+  teto.
+- **D-02:** Isso substitui a decisão literal do Alex de horas atrás
+  ("primeiro futuro, seja qual for") e a de ontem à noite ("todos os
+  vencimentos") por um meio-termo com custo declarado — não é varredura
+  ilimitada.
+- **D-03 (achado técnico, não decisão de produto):** `get_vencimentos()` é
+  1 chamada barata que já retorna a lista inteira; `get_options_chain(t,
+  vencimento=X)` é 1 chamada cara POR vencimento. O teto de 2 significa
+  até 2 chamadas de `get_options_chain` por posição elegível (vs. 1 hoje).
+  Qualquer plano de execução precisa declarar esse número explicitamente
+  contra o orçamento medido do mydata (60/min · 2.000/dia, ver
+  `docs/MEDICAO-Mydata-2026-08-27.md`).
 
-### D1 — Escopo do "futuro": varredura completa, não só o próximo vencimento
+### D2 — Estruturas: as 4 do motor interno, oportunidade a descoberto só para quem já tem o flag ligado
+- **D-04:** A varredura passa a cobrir as 4 estruturas do motor interno —
+  venda coberta, put de proteção, collar e opção a descoberto — não só
+  venda coberta como a Fase 30. Isso é uma ampliação explícita do universo
+  D1 da Fase 30 (que excluiu put/collar de propósito).
+- **D-05:** Oportunidade a descoberto só aparece na varredura para contas
+  com `permitirOpcaoADescoberto = true` já ligado (Fase 29). Quem não
+  ligou o flag não vê essas oportunidades — nem com aviso. A Fase 29 e seu
+  gate de execução não mudam.
+- **D-06:** Ranking usa **uma fórmula só (prêmio ÷ perda máxima) para as 4
+  estruturas**, decisão explícita do Alex mesmo sabendo que put/collar de
+  proteção rankeiam estruturalmente mal nessa fórmula (perda máxima baixa
+  por design, prêmio líquido às vezes negativo) — aceito porque o objetivo
+  declarado da varredura é "gerar receita com risco mínimo", não proteção.
+  Não criar seções separadas por objetivo nesta fase.
 
-Ao contrário da decisão de horas atrás ("primeiro futuro, seja qual for"),
-o Alex escolheu explicitamente a opção maior: **varrer VÁRIOS vencimentos
-futuros** atrás de oportunidades, não só pegar o mais próximo disponível e
-aceitar vazio quando ele estiver curto demais (achado de hoje: quase todo o
-mercado cai no mesmo vencimento mensal — 18/09 na medição, 4 dias, abaixo
-do piso de 15 — então "só o próximo" deixa a tela vazia por boa parte de
-cada ciclo).
+### D3 — Payoff visual: responsivo mobile primeiro, sem overlay
+- **D-07:** Prioridade única desta fase para `PayoffChart.jsx`: garantir
+  que funciona bem em 375px (mobile), sem mudar a lógica de exibição —
+  continua recebendo **uma estrutura por vez**, igual hoje.
+- **D-08:** Overlay de múltiplos candidatos na mesma curva e
+  interatividade (tocar/zoom) ficam **fora de escopo** desta fase — são
+  trabalho novo real (o componente não suporta hoje), não reuso. Podem
+  virar fase própria se o Alex pedir depois de ver o resultado desta.
 
-**Não decidido ainda**: até onde varrer (todos os vencimentos que a cadeia
-trouxer? Um teto, tipo 90 ou 120 dias? A mesma janela 15-60 da Fase 30,
-aplicada vencimento a vencimento em vez de só ao mais próximo?). Isso muda
-diretamente o custo de rede: hoje `options_provider.get_options(ticker)`
-busca UM vencimento por chamada (Decisão D3 da Fase 30 — nunca mais de uma
-chamada por posição, de propósito, pra não estourar o orçamento do
-mydata/60 por minuto). Varrer N vencimentos por ticker multiplica isso por
-N — precisa de desenho novo de orçamento, não é extensão trivial do que já
-existe.
+### D4 — Universo de tickers: só posições já na carteira
+- **D-09:** A varredura cobre só tickers com posição aberta na carteira do
+  usuário — o mesmo universo da Fase 30. Não se estende a
+  watchlist/catálogo sem posição. Isso vale inclusive para opção a
+  descoberto: mesmo sem exigir lastro no motor, o escopo de BUSCA desta
+  fase continua sendo a carteira do usuário, não o catálogo B3 inteiro.
 
-### D2 — Estruturas: as 3 do motor interno + opção a descoberto
+### Claude's Discretion
+- Layout exato do bloco de resultado na tela de Posições (extensão do
+  bloco da Fase 30 vs. bloco novo ao lado) — decidir na pesquisa/plano com
+  base no que já existe em `CuradoriaEstruturas`.
+- Texto de narração da IA para put/collar/naked quando rankeados mal pela
+  fórmula única (D-06) — desde que não avance a leitura do princípio 5
+  (a IA explica o número, não o promove).
 
-Além de venda coberta/put/collar (o motor interno já cobre as 3), o Alex
-quer **opção a descoberto** incluída na varredura de oportunidades.
+</decisions>
 
-**Tensão a resolver, não trivial**: a Fase 29 fechou, com checkpoint
-aprovado, que operar a descoberto exige lastro OU flag opt-in ligado (com
-termo de responsabilidade) — é o oposto do resto do produto, que nunca
-esconde possibilidade, só bloqueia a AÇÃO. Uma varredura de "oportunidades"
-que já mostra estruturas a descoberto pra conta SEM o flag ligado violaria
-o espírito da Fase 29 (mostrar risco antes de operar) — mas simplesmente
-OMITIR essas oportunidades pra quem não tem o flag também é uma escolha de
-produto que ninguém validou ainda. **Não decidido**: a oportunidade a
-descoberto aparece pra todo mundo (com aviso "ligue o flag pra operar") ou
-só pra quem já tem o flag ligado?
+<canonical_refs>
+## Canonical References
 
-### D3 — Payoff visual: reusar `PayoffChart.jsx`, mas melhorado
+**Downstream agents MUST read these before planning or implementing.**
 
-Decisão: sim à curva visual (não só os números que a Fase 30 já mostra),
-reaproveitando `web/src/opcoes/PayoffChart.jsx` como base — mas o Alex
-pediu explicitamente para **melhorar o gráfico**, não só reusar como está.
+### Fase 30 — base a estender (não jogar fora)
+- `.planning/phases/30-curadoria-ia-melhores-estruturas/30-CONTEXT.md` — D1 (universo/fórmula), D3 (achado que 1 chamada = 1 vencimento, motivo do teto agora virar 2), D4 (onde a IA narra)
+- `server/app/opcoes_curadoria.py` — `candidatos_da_posicao`, `rankear`, `exigir_ranking` (padrão de ranking determinístico a estender pras 4 estruturas)
+- `server/app/curadoria_narrativa.py` — narração de IA sobre o ranking já pronto
 
-**Não decidido**: o que "melhorar" significa concretamente. Nenhum detalhe
-foi pedido ainda (mobile 375px? múltiplos candidatos sobrepostos na mesma
-curva pra comparar? interatividade — tocar num ponto e ver o preço?
-zoom/pan?). Isto é a pergunta mais aberta das três — precisa de uma rodada
-de design antes de virar plano de execução, não é algo para presumir.
+### Fase 29 — gate de execução a descoberto (invariante, não mexer)
+- `.planning/phases/29-opcao-a-descoberto-flag-opt-in/29-CONTEXT.md`
+- `server/app/store.py:102,319-328,825` — `permitirOpcaoADescoberto`, gate de `sell_option`/`buy_option` a descoberto
 
-## O que já existe e pode ser reaproveitado (não é fase do zero)
+### Correção de vencimento (base técnica do D1/D3)
+- `.planning/quick/260914-b6p-corrigir-bug-de-selecao-de-vencimento-em/260914-b6p-SUMMARY.md`
+- `server/app/options_provider_mydata.py:183-334` — `_primeiro_vencimento_futuro`, `get_options()` (1 chamada de `get_vencimentos` + 1 de `get_options_chain` por vencimento buscado)
+- `docs/MEDICAO-Mydata-2026-08-27.md` — orçamento real medido (60/min · 2.000/dia) contra o qual o custo 2× de D1 precisa ser declarado
 
-- `opcoes_motor.rastrear()`/`avaliar()` — já suportam N candidatos por
-  chamada de `rastrear` (parâmetro `n`), sobre uma cadeia já em memória.
-- `opcoes_curadoria.py` (Fase 30) — o padrão de ranking determinístico
-  (`rankear`/`exigir_ranking`, que recusa estruturalmente pool não
-  ordenado) é o molde a estender, não a jogar fora.
-- `PayoffChart.jsx` — componente de curva + números já em produção no
-  caminho MCP; ponto de partida citado pelo próprio Alex.
-- `buy_option`/`sell_option` + o flag `permitirOpcaoADescoberto` (Fase 29)
-  — a mecânica de execução a descoberto já existe e já está gateada; esta
-  fase não precisa reconstruir isso, só decidir como a DESCOBERTA de
-  oportunidade interage com o gate de EXECUÇÃO.
+### Motor determinístico (guardrail principio 5)
+- `docs/adr/023-opcoes-lastreadas.md` — mecânica lastreada (venda coberta/put/collar)
+- `server/app/opcoes_motor.py` — `rastrear()`/`avaliar()`, já suporta N candidatos por chamada sobre cadeia em memória
 
-## Fora de escopo até decisão em contrário
+### Payoff visual
+- `web/src/opcoes/PayoffChart.jsx` — componente a tornar responsivo (recebe 1 `estrutura` por vez, sem overlay hoje)
 
-- Mudar a Fase 29 (lastro obrigatório/flag opt-in) — invariante, não
-  re-litigada por este pedido.
-- Qualquer coisa que aproxime a IA de ESCOLHER/RANKEAR oportunidades —
-  guardrail não-negociável, repetido acima.
+</canonical_refs>
 
-## Recomendação de processo
+<code_context>
+## Existing Code Insights
 
-Dado o tamanho real (orçamento de rede novo pra multi-vencimento, tensão
-de produto com o flag de opção a descoberto, e um pedido de design aberto
-pro gráfico), esta fase precisa de `/gsd-discuss-phase` de verdade — não dá
-pra fechar as três lacunas acima só com suposição razoável, cada uma muda
-o plano de execução de forma material. **Recomendado**: continuar em sessão
-nova (`/handoff`), com orçamento fresco, começando por essas três lacunas
-antes de qualquer `/gsd-plan-phase`.
+### Reusable Assets
+- `opcoes_motor.rastrear()`/`avaliar()`: já aceitam parâmetro `n` para retornar múltiplos candidatos de uma cadeia já em memória — nenhuma chamada de rede extra por candidato dentro do MESMO vencimento.
+- `opcoes_curadoria.py` (`rankear`/`exigir_ranking`): molde de ranking determinístico que recusa estruturalmente pool não ordenado — estender para 4 estruturas em vez de reescrever.
+- `buy_option`/`sell_option` + `permitirOpcaoADescoberto` (Fase 29): mecânica de execução a descoberto já existe e já está gateada — esta fase só decide como a DESCOBERTA de oportunidade interage com o gate de EXECUÇÃO (D-05), não reconstrói a execução.
+- `PayoffChart.jsx`: componente de curva + números já em produção no caminho MCP — ponto de partida citado pelo próprio Alex, precisa só de ajuste de responsividade (D-07).
+
+### Established Patterns
+- 1 chamada de `get_options_chain` por vencimento buscado é o ponto de contenção de custo real (D-03) — qualquer expansão de escopo de varredura precisa declarar esse número explicitamente, igual a Fase 30 fez.
+- `permitirOpcaoADescoberto` é lido no momento da EXECUÇÃO (`store.py`); esta fase introduz o primeiro lugar onde o flag também precisa ser checado no momento da DESCOBERTA/exibição (D-05) — não existe hoje esse ponto de checagem em `opcoes_curadoria.py`.
+
+### Integration Points
+- Bloco de resultado em Posições (extensão de `CuradoriaEstruturas`/`useCuradoria`, Fase 30) é o ponto de entrada mais provável — a decidir em detalhe na pesquisa/plano (Claude's Discretion).
+
+</code_context>
+
+<specifics>
+## Specific Ideas
+
+Pedido original do Alex, na íntegra: "sempre trazer as opções disponíveis
+no futuro" + "uma análise AI ou determinística destas opções disponíveis
+usando os principais setups de opções e os gráficos de payoff para trazer
+para o usuário as oportunidades". A ambiguidade "IA ou determinística" foi
+fechada por D-01/D-06/guardrail do CLAUDE.md: seleção é sempre
+determinística, IA só narra — não foi reaberta pelo Alex nesta sessão de
+discuss-phase.
+
+</specifics>
+
+<deferred>
+## Deferred Ideas
+
+- Varredura sobre watchlist/catálogo sem posição na carteira (D-09 recusa
+  por ora) — poderia virar fase própria se o Alex pedir depois de ver o
+  resultado desta.
+- Overlay de múltiplos candidatos e interatividade no payoff (D-08) —
+  candidato natural para uma fase de "polish" depois que o mobile
+  responsivo estiver validado.
+- Seções de ranking separadas por objetivo (receita vs. proteção),
+  recusada em D-06 — revisitar se o Alex achar que put/collar rankeando
+  mal na fórmula única está confundindo o usuário na prática.
+
+### Reviewed Todos (not folded)
+None — discussion stayed within phase scope.
+
+</deferred>
+
+---
+
+*Phase: 31-varredura-oportunidades-opcoes*
+*Context gathered: 2026-09-14*
