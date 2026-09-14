@@ -273,6 +273,11 @@ function serverStore() {
     // outbox (mesma decisão de buy/sell/cancelPendingOrder: reaplicar de fila
     // offline devolveria caixa duas vezes).
     optionsProposta: (t, multiperna) => api.optionsProposta(t, multiperna),
+    // Fase 30 (Plano 04): ranking determinístico (custo zero) e narração de
+    // IA (cota de /api/analyze) da curadoria de venda coberta — delegação
+    // PURA, dado de mercado + IA não se duplicam no aparelho.
+    opcoesCuradoria: () => api.opcoesCuradoria(),
+    opcoesCuradoriaNarrativa: (config) => api.opcoesCuradoriaNarrativa(config),
     // aba-opcoes F2 (ADR-027): leitura do serviço MCP é dado de mercado —
     // delegação PURA, nada persistido. Cachear no aparelho carimbaria pregão
     // velho como se fosse do dia, e o frescor é justamente o que a tela
@@ -1328,6 +1333,19 @@ function deviceStore() {
     async optionsProposta(t, multiperna) {
       ensure();
       return api.optionsProposta(t, multiperna);
+    },
+    // Fase 30 (Plano 04): mesma razão do optionsProposta acima — ranking e
+    // narração são dado de mercado + IA, nunca se duplicam/cacheiam no
+    // aparelho; carimbar pregão velho como se fosse do dia é justamente o
+    // que o princípio 3 do CLAUDE.md proíbe. `ensure()` antes da delegação,
+    // como o resto do deviceStore.
+    async opcoesCuradoria() {
+      ensure();
+      return api.opcoesCuradoria();
+    },
+    async opcoesCuradoriaNarrativa(config) {
+      ensure();
+      return api.opcoesCuradoriaNarrativa(config);
     },
     // aba-opcoes F2 (ADR-027): espelho dos três métodos do serverStore.
     // Mesma razão do optionsProposta acima — dado de mercado não se duplica

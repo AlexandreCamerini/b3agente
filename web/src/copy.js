@@ -592,6 +592,28 @@ export const COPY = {
     // liquidez suficiente" genérico. Voz de professor: descreve a condição.
     tiraOpcoesSemMercado: "As opções das suas posições estão hoje na faixa SEM MERCADO — negociaram tão pouco que o preço da tela não seria o preço real de uma ordem. Por isso nenhuma estrutura é estudada sobre elas agora.",
     linhaPropostaNaPosicao: "Estrutura de opções possível nesta posição",
+
+    // Fase 30 (Plano 04, D4): bloco "as 4 melhores vendas cobertas",
+    // irmão da tira acima. Nenhuma frase promete rentabilidade, garante
+    // lucro ou usa linguagem de enriquecimento (princípios 6/8 do
+    // CLAUDE.md) — a manchete de cada item vem SÓ do motor
+    // (item.manchete), nunca de uma chave de copy. `curadoriaSubtitulo`
+    // nomeia de onde vem a ordem sem citar IA; `curadoriaIaRotulo`/
+    // `curadoriaIaRessalva` deixam explícito que o texto seguinte é
+    // explicação da IA sobre uma lista já decidida pelo motor.
+    curadoriaTitulo: "AS 4 MELHORES VENDAS COBERTAS",
+    curadoriaSubtitulo: "Ordenadas pelo motor por prêmio sobre perda máxima — a ordem não muda com a explicação da IA.",
+    curadoriaCarregando: "Varrendo sua carteira em busca das melhores vendas cobertas…",
+    // ESTADO (NAV-03), sem CTA — nomeia o motivo, mesmo precedente de
+    // tiraOpcoesSemCobertura acima.
+    curadoriaVazio: "Nenhuma das suas posições tem lote livre de 100 ações com uma call líquida disponível no vencimento — por isso não há estrutura para ranquear agora.",
+    curadoriaRazaoRotulo: "prêmio sobre perda máxima",
+    curadoriaNarrarCta: "Pedir explicação da IA",
+    curadoriaNarrando: "Escrevendo a explicação…",
+    curadoriaIaRotulo: "Explicação da IA sobre esta lista",
+    curadoriaIaRessalva: "A IA explica a ordem que o motor já decidiu — ela não escolhe nem reordena as estruturas.",
+    curadoriaCotaEsgotada: "Sua cota mensal de análises de IA acabou. Os 4 itens acima continuam valendo — só a explicação em texto não está disponível agora.",
+    curadoriaErroNarrar: "Não foi possível gerar a explicação agora. Os 4 itens acima continuam calculados pelo motor e não dependem deste texto.",
   },
 
   operador: {
@@ -1074,6 +1096,20 @@ export const COPY = {
     // comentário acima). Voz de mesa, sem verbo de ordem.
     tiraOpcoesSemMercado: "As opções das suas posições estão hoje na faixa SEM MERCADO — negociaram tão pouco que o preço da tela não é um preço real de execução. Nenhuma estrutura é montada sobre elas agora.",
     linhaPropostaNaPosicao: "Estrutura de opções disponível nesta posição",
+
+    // Fase 30 (Plano 04, D4): mesma chave do ramo estudo (ver comentário
+    // acima). Voz de mesa, sem verbo de ordem, sem promessa de lucro.
+    curadoriaTitulo: "AS 4 MELHORES VENDAS COBERTAS",
+    curadoriaSubtitulo: "Ordenadas pelo motor por prêmio sobre perda máxima — a ordem não muda com o texto da IA.",
+    curadoriaCarregando: "Varrendo a carteira…",
+    curadoriaVazio: "Nenhuma posição com lote livre de 100 ações e call líquida no vencimento — sem estrutura para ranquear agora.",
+    curadoriaRazaoRotulo: "prêmio / perda máxima",
+    curadoriaNarrarCta: "Explicação da IA",
+    curadoriaNarrando: "Gerando…",
+    curadoriaIaRotulo: "Leitura da IA sobre esta lista",
+    curadoriaIaRessalva: "A IA lê a ordem que o motor decidiu — não escolhe nem reordena.",
+    curadoriaCotaEsgotada: "Cota mensal de análises esgotada. Os 4 itens seguem valendo; só o texto da IA fica indisponível.",
+    curadoriaErroNarrar: "Falha ao gerar o texto agora. Os 4 itens não dependem dele.",
   },
 };
 

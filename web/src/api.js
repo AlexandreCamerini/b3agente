@@ -330,6 +330,19 @@ export const api = {
   // executa as 2 pernas do collar, com re-derivação server-side da proposta.
   optionsAbrirCollar: (body) => req("POST", "/api/options/lastreada/abrir-collar", body),
   optionsFecharLastreada: (body) => req("POST", "/api/options/lastreada/fechar", body),
+  // Fase 30 (Plano 02): ranking determinístico do top-4 de venda coberta —
+  // dado de mercado, mesma classe/timeout de optionsProposta/optionsGate
+  // (30 s, zero LLM). Nome `opcoesCuradoria` (prefixo `opcoes`, não `mcp`)
+  // porque os guardiões test_opcoes_tecnico_stores.mjs/
+  // test_opcoes_vigias_stores.mjs exigem que TODO método `opcoes*`/`mcp*`
+  // dos stores tenha a função de MESMO NOME em api.js — nome divergente
+  // (ex.: `curadoria`) faz o guardião (e) falhar mesmo com a rota funcionando.
+  opcoesCuradoria: () => req("GET", "/api/options/curadoria", undefined, 30000),
+  // Fase 30 (Plano 03): narração da IA sobre o top já rankeado — classe
+  // "chama IA" (timeout de 90 s), igual analyzeOption. O corpo manda SÓ
+  // `config`: mandar estruturas daqui daria ao cliente poder sobre a ordem
+  // que o servidor decide, exatamente o que o guardião do Plano 03 proíbe.
+  opcoesCuradoriaNarrativa: (config) => req("POST", "/api/options/curadoria/narrativa", { config }, TIMEOUT_LLM),
   // aba-opcoes F1/F2 (ADR-027) — serviço MCP autenticado (`mcp.semente.dev`).
   // Timeout de 30 s, a mesma classe de `optionsChain`/`optionsGate`: é dado de
   // mercado, nenhuma delas chama LLM (por isso NÃO usam `TIMEOUT_LLM`).
