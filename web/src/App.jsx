@@ -11,6 +11,12 @@ import { Markdown, MdInline } from "./markdown.jsx";
 import { extentOf, linePath, lastVal } from "./chartutil.js";
 import OpcoesScreen from "./opcoes/OpcoesScreen.jsx";
 import PropostaLastreada, { FonteDoDadoProposta, ChipDaProposta, useAceiteLastreado } from "./opcoes/PropostaLastreada.jsx";
+// Fase 31 (Plano 04, D-08): payoff do item nº 1 do bloco de curadoria —
+// mesmo componente já em produção no caminho MCP (Fase 24/31-03), via o
+// adaptador puro que traduz o envelope PT do motor interno pro envelope
+// INGLÊS que este componente consome.
+import PayoffChart from "./opcoes/PayoffChart.jsx";
+import { estruturaParaPayoff } from "./opcoes/estruturaParaPayoff.js";
 import { BUILD_ID } from "./version.js";
 // carimbo no console: prova de qual build está rodando (device/web)
 try { console.log("[b3] build", BUILD_ID); } catch { /* noop */ }
@@ -4176,7 +4182,42 @@ function OportunidadesOpcoes({ propostas, carregando, positions, cp, onAbrir }) 
 // recriaria no cliente exatamente o poder que o backend nega à IA.
 // `item.manchete` é renderizado VERBATIM — é PROIBIDO compor frase a
 // partir de strike/contratos/premioTotal/optionType aqui.
-function CuradoriaEstruturas({ top, meta, carregando, erro, narrativa, narrando, erroNarrativa, onNarrar, cp, onAbrir }) {
+// Fase 31 (Plano 04, D-04): mapa local tipo → chave de copy, usado só para
+// o CHIP de categoria acima da manchete (nunca compõe a manchete em si,
+// que continua vindo verbatim de item.manchete — guardrail CVM). Módulo,
+// não estado: os 4 tipos são fechados (mesmo conjunto de
+// server/app/opcoes_curadoria.py TIPOS).
+const ROTULO_TIPO_CURADORIA = {
+  call_coberta: "curadoriaTipoCallCoberta",
+  put_protecao: "curadoriaTipoPutProtecao",
+  collar: "curadoriaTipoCollar",
+  opcao_a_descoberto: "curadoriaTipoDescoberto",
+};
+
+function CuradoriaEstruturas({ top, meta, carregando, erro, narrativa, narrando, erroNarrativa, onNarrar, cp, onAbrir, palette }) {
+  // Fase 31 (Plano 04, D-04/D-05): resumo da varredura — evidência visível
+  // de SC-2/SC-3 mesmo quando o top-4 fica todo de um tipo só (D-06). Lê
+  // SÓ meta.candidatosPorTipo/tetoVencimentos; campo ausente vira "—",
+  // NUNCA 0 inventado (princípio 4 do CLAUDE.md). Conta sem o flag de
+  // opção a descoberto: candidatosPorTipo.opcao_a_descoberto === 0, sem
+  // nenhum texto convidando a ligar o flag (D-05) — esta linha só lê o
+  // número que o servidor já mandou, nunca compõe convite.
+  const porTipo = (meta && meta.candidatosPorTipo) || null;
+  const resumoVarredura = porTipo
+    ? [
+        (porTipo.call_coberta != null ? porTipo.call_coberta : "—") + " " + cp.curadoriaTipoCallCoberta,
+        (porTipo.put_protecao != null ? porTipo.put_protecao : "—") + " " + cp.curadoriaTipoPutProtecao,
+        (porTipo.collar != null ? porTipo.collar : "—") + " " + cp.curadoriaTipoCollar,
+        (porTipo.opcao_a_descoberto != null ? porTipo.opcao_a_descoberto : "—") + " " + cp.curadoriaTipoDescoberto,
+      ].join(" · ")
+    : null;
+  const tetoVencimentosTxt = meta && meta.tetoVencimentos != null ? meta.tetoVencimentos : "—";
+
+  // Fase 31 (Plano 04, D-07/D-08): payoff do item nº 1 — uma curva só, sem
+  // seletor, sem overlay. `top` continua sendo a ordem do motor (nenhum
+  // sort/reverse aqui); o nº 1 é simplesmente top[0].
+  const payoffPrimeiro = top.length > 0 ? estruturaParaPayoff(top[0].estrutura, top[0].ticker) : null;
+
   return (
     <div style={{ marginBottom: "14px" }}>
       {/* Cabeçalho FIXO nos três estados (itens/carregando/vazio) — mesmo
@@ -4184,17 +4225,27 @@ function CuradoriaEstruturas({ top, meta, carregando, erro, narrativa, narrando,
           desaparece em silêncio quando há posições. */}
       <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em", color: T.textFaint, marginBottom: "4px" }}>{cp.curadoriaTitulo}</div>
       <div style={{ fontSize: "11.5px", color: T.textMuted, marginBottom: "8px", lineHeight: 1.4 }}>{cp.curadoriaSubtitulo}</div>
+      {resumoVarredura && (
+        <div style={{ fontSize: "10.5px", color: T.textFaint, marginBottom: "8px", lineHeight: 1.5 }}>
+          {cp.curadoriaVarreduraRotulo}: {resumoVarredura} · até {tetoVencimentosTxt} vencimentos por posição
+        </div>
+      )}
       {top.length > 0 && (
         <div style={carouselTrackStyle({ gap: "10px", scrollbarWidth: "none", paddingBottom: "2px" })}>
           {top.map((item) => (
             <button
-              key={item.contractSymbol}
+              key={item.idCandidato || item.contractSymbol}
               type="button"
-              aria-label={item.posicaoNoRanking + ". " + item.ticker}
+              aria-label={(ROTULO_TIPO_CURADORIA[item.tipo] ? cp[ROTULO_TIPO_CURADORIA[item.tipo]] + " — " : "") + item.posicaoNoRanking + ". " + item.ticker}
               onClick={() => onAbrir(item.ticker)}
               style={{ ...carouselItemStyle("start"), flex: "0 0 220px", minWidth: "220px", minHeight: "44px", textAlign: "left", padding: "11px 12px", borderRadius: "11px", background: T.bgCard, border: `1px solid ${T.borderFaint}`, cursor: "pointer" }}
             >
               <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em", color: T.accent }}>{item.posicaoNoRanking}. {item.ticker}</div>
+              {/* Fase 31 (Plano 04, D-04): chip de TIPO — categoria, nunca
+                  a manchete. Fallback "" em tipo desconhecido. */}
+              <div style={{ fontSize: "9px", fontWeight: 700, letterSpacing: "0.03em", color: T.textFaint, textTransform: "uppercase", marginTop: "3px" }}>
+                {ROTULO_TIPO_CURADORIA[item.tipo] ? cp[ROTULO_TIPO_CURADORIA[item.tipo]] : ""}
+              </div>
               {/* manchete do motor, verbatim — guardrail CVM (CLAUDE.md);
                   nunca truncada/concatenada: cortar reescreveria a
                   afirmação do motor. */}
@@ -4203,6 +4254,16 @@ function CuradoriaEstruturas({ top, meta, carregando, erro, narrativa, narrando,
               <div style={{ fontSize: "10.5px", color: T.textFaint, marginTop: "2px" }}>{money(item.premioTotal)} · {item.diasParaVencimento}d · {item.liquidez && item.liquidez.faixa}</div>
             </button>
           ))}
+        </div>
+      )}
+      {/* Fase 31 (Plano 04, D-07/D-08): payoff do nº 1 — abaixo da lista,
+          antes do bloco de narração. `emReais={null}` é deliberado: esta
+          rota não manda o bloco em reais, e multiplicar no front criaria
+          a segunda versão da conta que o repositório proíbe. */}
+      {payoffPrimeiro && (
+        <div style={{ marginTop: "10px" }}>
+          <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em", color: T.textFaint, marginBottom: "4px" }}>{cp.curadoriaPayoffRotulo}</div>
+          <PayoffChart estrutura={payoffPrimeiro} emReais={null} cp={cp} palette={palette} />
         </div>
       )}
       {/* carregando ANTES do vazio — mesma razão de OportunidadesOpcoes:
@@ -4675,6 +4736,7 @@ function CarteiraScreen({ ctx }) {
             onNarrar={() => narrarCuradoria(data.config)}
             cp={cp}
             onAbrir={abrirOpcoesDe}
+            palette={ctx.palette}
           />
         </>
       )}
