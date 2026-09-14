@@ -479,9 +479,13 @@ function deviceStore() {
       if (doc.config.operadorTermo !== null && typeof doc.config.operadorTermo !== "object") doc.config.operadorTermo = null;
       // FASE 29: mesmo padrão dos dois campos acima — doc legado sem a chave
       // ou com lixo (`"true"`, `1`) nunca resolve para "ligado": fail-closed,
-      // espelho de server/app/store.py:102-103.
+      // espelho de server/app/store.py:102-103. IGUALDADE ESTRITA com `true`
+      // de propósito, NUNCA `!!` — `!!"true"` e `!!1` são `true` em JS (bug
+      // real encontrado na execução deste plano, corrigido antes do
+      // guardião): só o booleano `true` de verdade liga o flag, qualquer
+      // outro valor (string, número, `null`, ausência) resolve para `false`.
       if (doc.config.descobertoTermo !== null && typeof doc.config.descobertoTermo !== "object") doc.config.descobertoTermo = null;
-      doc.config.permitirOpcaoADescoberto = !!doc.config.permitirOpcaoADescoberto;
+      doc.config.permitirOpcaoADescoberto = doc.config.permitirOpcaoADescoberto === true;
       if (!doc.config.risco || typeof doc.config.risco !== "object") doc.config.risco = { pctPorTrade: 1.0, capital: null };
       // FASE 2: coleção de prompts. Backfill da seção e de chaves novas, sem
       // sobrescrever valores que o usuário já editou.
