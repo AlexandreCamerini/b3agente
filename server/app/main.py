@@ -3283,14 +3283,29 @@ async def options_vigias(scope: Optional[str] = Depends(current_scope)):
     }
 
 
-# ---- Fase 30 (Plano 02): curadoria das 4 melhores vendas cobertas ----
-async def _curadoria_top(scope: Optional[str], modo: str) -> tuple[list[dict], dict]:
-    """Varredura cross-posição: uma cadeia por posição ELEGÍVEL (comprada,
-    lote livre >= 100), nunca uma chamada extra por strike candidato (D3) —
+# ---- Fase 30 (Plano 02) / Fase 31 (Plano 02): curadoria das 4 melhores estruturas ----
+async def _curadoria_top(scope: Optional[str], modo: str,
+                          permitir_a_descoberto: bool = False) -> tuple[list[dict], dict]:
+    """Varredura cross-posição: até `opcoes_curadoria.VENCIMENTOS_POR_POSICAO`
+    (2) cadeias por posição ELEGÍVEL (comprada, lote livre >= 100) — Fase 31/
+    D-01 substitui a regra da Fase 30 ("uma busca por posição elegível",
+    nunca mais). Até 2 buscas de cadeia por posição elegível = até 1
+    `get_vencimentos` + 2 `get_options_chain` no mydata (cache de vencimentos
+    do Plano 31-02/Task 3), contra o orçamento medido 60/min · 2.000/dia
+    (`docs/MEDICAO-Mydata-2026-08-27.md`) — declarado em 31-02-PLAN.md e no
+    docstring de `VENCIMENTOS_POR_POSICAO`. Nunca uma chamada extra por
+    strike candidato dentro de UMA cadeia (D3 da Fase 30, ainda válido) —
     `opcoes_curadoria.candidatos_da_posicao` enumera vários strikes da MESMA
     cadeia já buscada. Reusado pelo Plano 03 (rota de narração) para que a
     lista narrada seja SEMPRE a mesma lista mostrada aqui — duas varreduras
     divergentes narraria uma coisa e mostraria outra.
+
+    `permitir_a_descoberto` (Fase 31/D-05): default `False` fail-closed pelo
+    MESMO motivo do gate em `opcoes_curadoria.candidatos_da_posicao` — um
+    chamador que esqueça de passar o flag nunca vaza oportunidade a
+    descoberto. A leitura de `cfg.get("permitirOpcaoADescoberto")` é
+    responsabilidade EXCLUSIVA de quem chama esta função (as duas rotas
+    abaixo), sempre da config do SERVIDOR — nunca deste corpo.
 
     Não busca `technical_snapshot`/`setups`/candles: D1 define elegibilidade
     só por lastro (comprado + lote livre), a curadoria não consulta plano
@@ -3298,9 +3313,9 @@ async def _curadoria_top(scope: Optional[str], modo: str) -> tuple[list[dict], d
     proposta única de hoje paga.
     """
     positions = store.get(_conn, "positions", user_id=scope) or []
-    # Partição ANTES de qualquer rede: é ela que faz a promessa "uma chamada
-    # por posição ELEGÍVEL" ser verificável por contagem (SC-2), em vez de
-    # "uma chamada por posição, descartada depois".
+    # Partição ANTES de qualquer rede: é ela que faz a promessa "até 2
+    # buscas por posição ELEGÍVEL" ser verificável por contagem (SC-2), em
+    # vez de "uma chamada por posição, descartada depois".
     elegiveis = [p for p in positions if isinstance(p, dict) and store.qty_livre(p) >= 100]
     ignoradas = [p.get("t") if isinstance(p, dict) else p for p in positions
                  if not (isinstance(p, dict) and store.qty_livre(p) >= 100)]
@@ -3308,6 +3323,7 @@ async def _curadoria_top(scope: Optional[str], modo: str) -> tuple[list[dict], d
 
     pool: list[dict] = []
     degradados: list[str] = []
+    vencimentos_por_ticker: dict[str, list[str]] = {}
     source = None
     hoje = _hoje_brt()
 
@@ -3316,13 +3332,11 @@ async def _curadoria_top(scope: Optional[str], modo: str) -> tuple[list[dict], d
         if not t:
             continue
         try:
-            # UMA chamada por posição elegível, SEM `expiration` — a cadeia
-            # devolvida traz UM vencimento só (`opcoes_lastreadas.py:16`,
-            # D3). Passar `expiration` aqui, ou chamar num laço de
-            # vencimentos, multiplicaria o consumo do provider e destruiria
-            # a propriedade de custo declarada nesta fase (30-CONTEXT). Quem
-            # quiser outros vencimentos abre uma fase nova, com o custo de
-            # rede declarado nela.
+            # Primeira busca, SEM `expiration` — vencimento futuro mais
+            # próximo (corrigido pela quick 260914-b6p). Falha ou
+            # `providerStatus != "ok"` aqui derruba a posição inteira: sem
+            # a primeira cadeia não há `expirations` para descobrir o
+            # segundo vencimento nem candidatos a gerar.
             chain = await options_provider.get_options(t)
         except Exception:
             degradados.append(t)
@@ -3335,19 +3349,65 @@ async def _curadoria_top(scope: Optional[str], modo: str) -> tuple[list[dict], d
         if source is None:
             source = chain.get("source")
 
+        # Cotação UMA vez por TICKER, antes do laço de vencimentos — mover
+        # isto para dentro do laço dobraria o custo de candles sem ganho
+        # nenhum (o spot não muda entre vencimentos do mesmo ticker no
+        # mesmo instante).
         try:
             quote = await candle_provider.get_quote(t)
         except Exception:
             quote = None
         spot = _spot_from_chain_or_quote(chain, quote)
 
-        pool.extend(opcoes_curadoria.candidatos_da_posicao(t, chain, spot, posicao, modo, hoje))
+        vencs_varridos = [chain.get("expiration")] if chain.get("expiration") else []
+        pool.extend(opcoes_curadoria.candidatos_da_posicao(
+            t, chain, spot, posicao, modo, hoje, permitir_a_descoberto=permitir_a_descoberto))
+
+        # Vencimentos extras (Fase 31/D-01): até `VENCIMENTOS_POR_POSICAO - 1`
+        # datas futuras além da já buscada acima. Cada extra é tratada
+        # independentemente — uma falha aqui NUNCA derruba o vencimento que
+        # já deu certo, nem faz `continue` no laço de posições.
+        vencs = opcoes_curadoria.proximos_vencimentos(chain.get("expirations"), hoje)
+        extras = [v for v in vencs if v != chain.get("expiration")][
+            :opcoes_curadoria.VENCIMENTOS_POR_POSICAO - 1]
+        ticker_degradado_extra = False
+        for venc_extra in extras:
+            try:
+                chain_extra = await options_provider.get_options(t, expiration=venc_extra)
+            except Exception:
+                ticker_degradado_extra = True
+                continue
+            if chain_extra.get("providerStatus") != "ok":
+                ticker_degradado_extra = True
+                continue
+            vencs_varridos.append(venc_extra)
+            pool.extend(opcoes_curadoria.candidatos_da_posicao(
+                t, chain_extra, spot, posicao, modo, hoje,
+                permitir_a_descoberto=permitir_a_descoberto))
+        if ticker_degradado_extra and t not in degradados:
+            degradados.append(t)
+
+        vencimentos_por_ticker[t] = vencs_varridos
+
+    # `candidatosPorTipo` sobre o pool ANTES do corte de `rankear` — é essa
+    # contagem que torna SC-2/SC-3 verificáveis quando o top-4 fica todo de
+    # venda coberta (consequência conhecida e aceita de D-06: put/collar/
+    # descoberto rankeiam estruturalmente mal na fórmula única). As 4 chaves
+    # de `opcoes_curadoria.TIPOS` sempre presentes, zero inclusive.
+    candidatos_por_tipo = {tipo: 0 for tipo in opcoes_curadoria.TIPOS}
+    for c in pool:
+        tipo = c.get("tipo")
+        if tipo in candidatos_por_tipo:
+            candidatos_por_tipo[tipo] += 1
 
     meta = {
         "avaliadas": avaliadas,
         "ignoradas": ignoradas,
         "degradados": degradados,
         "candidatosAvaliados": len(pool),
+        "candidatosPorTipo": candidatos_por_tipo,
+        "vencimentosPorTicker": vencimentos_por_ticker,
+        "tetoVencimentos": opcoes_curadoria.VENCIMENTOS_POR_POSICAO,
         "source": source,
     }
     return opcoes_curadoria.rankear(pool), meta
@@ -3369,11 +3429,19 @@ async def options_curadoria(scope: Optional[str] = Depends(current_scope)):
     """
     cfg = store.get(_conn, "config", user_id=scope) or {}
     modo = cfg.get("appMode") or "estudo"
+    # Fase 31/D-05/T-31-01: o flag de descoberta vem SÓ da config do
+    # SERVIDOR — esta rota não aceita corpo nenhum, então não há superfície
+    # de adulteração aqui; a leitura espelha a mesma `cfg` já usada pro modo.
+    permitir = bool(cfg.get("permitirOpcaoADescoberto"))
     try:
-        top, meta = await _curadoria_top(scope, modo)
+        top, meta = await _curadoria_top(scope, modo, permitir_a_descoberto=permitir)
     except Exception:
         top, meta = [], {"avaliadas": [], "ignoradas": [], "degradados": [],
-                          "candidatosAvaliados": 0, "source": None}
+                          "candidatosAvaliados": 0,
+                          "candidatosPorTipo": {t: 0 for t in opcoes_curadoria.TIPOS},
+                          "vencimentosPorTicker": {},
+                          "tetoVencimentos": opcoes_curadoria.VENCIMENTOS_POR_POSICAO,
+                          "source": None}
     return {
         "top": top, "modo": modo, "fonte": "deterministico", "at": now_str(),
         **meta,
@@ -3404,13 +3472,23 @@ async def options_curadoria_narrativa(body: dict = Body(default={}), scope: Opti
     # Captura o modo ANTES do gate, que pode recriar a config — mesma
     # armadilha documentada em analyze_technical_model (linha ~2394).
     modo = (config or {}).get("appMode") or "estudo"
+    # Fase 31/D-05/T-31-01: NÃO derive o flag de descoberta de
+    # `body["config"]` — o corpo desta rota é entrada do CLIENTE. Aceitar
+    # `permitirOpcaoADescoberto` dali deixaria um cliente adulterado (ou só
+    # desatualizado) exibir, e o LLM narrar, oportunidade a descoberto para
+    # uma conta que nunca aceitou o termo da Fase 29. Lê-se a config do
+    # SERVIDOR explicitamente, ignorando o que veio no corpo para este
+    # campo específico — `modo`, ao contrário, continua saindo de
+    # `body["config"]` como hoje (é preferência de exibição, não gate).
+    cfg_servidor = store.get(_conn, "config", user_id=scope) or {}
+    permitir = bool(cfg_servidor.get("permitirOpcaoADescoberto"))
     # Ao contrário de /api/technical/analyze (que converte 402 em
     # indisponibilidade e cai num fallback determinístico), aqui o 402
     # PROPAGA: o fallback determinístico desta tela já é a própria rota
     # irmã, que não gasta cota. Mascarar o 402 num 200 sem texto esconderia
     # do usuário que a cota acabou.
     config, _consume_ai = _gate_analise(scope, config)
-    top, meta = await _curadoria_top(scope, modo)
+    top, meta = await _curadoria_top(scope, modo, permitir_a_descoberto=permitir)
     if not top:
         # top vazio não chama o modelo nem gasta cota: não há o que narrar.
         return {"texto": None, "motivo": "sem_estrutura", "top": [], "modo": modo,
