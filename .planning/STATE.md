@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Opções v2
 status: executing
-stopped_at: 'Fase 31 (Varredura de oportunidades de opções) — EXECUTANDO (2026-09-14, /gsd:execute-phase 31). Onda 1 (31-01 motor puro + 31-03 PayoffChart responsivo) disparada; use_worktrees=false neste repo então execução é sequencial no working tree principal. Nota de guardrail aplicada: mutadores de estado do gsd-sdk (state.*, roadmap.update-plan-progress, phase.complete) não são chamados nesta execução — STATE.md/ROADMAP.md editados à mão por Edit, conferidos com git diff antes de cada commit de docs (decisão do Alex 2026-09-11, ver memory gsd-sdk-state-corrompe). Ver `.planning/phases/31-varredura-oportunidades-opcoes/`.'
+stopped_at: 'Fase 31 (Varredura de oportunidades de opções) — EXECUTANDO (2026-09-14, /gsd:execute-phase 31). Onda 1 (31-01 motor puro + 31-03 PayoffChart responsivo) e Onda 2 (31-02 rota + cache mydata) completas, suíte canônica verde após cada onda (2899→2910 passed, 0 failed, 147-148/148 .mjs). Falta Onda 3 (31-04, checkpoint humano ao vivo). Nota de guardrail aplicada: mutadores de estado do gsd-sdk não são chamados nesta execução — STATE.md/ROADMAP.md editados à mão por Edit, conferidos com git diff antes de cada commit de docs (decisão do Alex 2026-09-11, ver memory gsd-sdk-state-corrompe). Ver `.planning/phases/31-varredura-oportunidades-opcoes/`.'
 last_updated: "2026-09-14T00:00:00.000Z"
-last_activity: "2026-09-14 — /gsd:execute-phase 31: início da execução, Onda 1 (31-01, 31-03) disparada sequencialmente."
+last_activity: "2026-09-14 — /gsd:execute-phase 31: Onda 1 e Onda 2 executadas e commitadas; falta Onda 3 (31-04, tem checkpoint humano)."
 progress:
   total_phases: 10
   completed_phases: 5

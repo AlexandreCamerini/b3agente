@@ -717,7 +717,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1)*
 
-- [ ] 31-02-PLAN.md — rota: até 2 vencimentos por posição elegível provado por contagem exata, meta `candidatosPorTipo`/`tetoVencimentos`, flag lido só da config do SERVIDOR (nunca do corpo), e cache de vencimentos no mydata (3 requisições/posição em vez de 4) (D-01/D-03/D-05/D-09)
+- [x] 31-02-PLAN.md — rota: até 2 vencimentos por posição elegível provado por contagem exata, meta `candidatosPorTipo`/`tetoVencimentos`, flag lido só da config do SERVIDOR (nunca do corpo), e cache de vencimentos no mydata (3 requisições/posição em vez de 4) (D-01/D-03/D-05/D-09)
 
 **Wave 3** *(blocked on Wave 2)*
 
