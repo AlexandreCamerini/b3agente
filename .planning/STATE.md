@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Opções v2
 status: executing
-stopped_at: 'Fase 31 (Varredura de oportunidades de opções) — CONTEXT.md fechado via /gsd-discuss-phase nesta sessão (2026-09-14, continuação de handoff), decisões D1-D4: teto de 2 vencimentos por posição elegível (custo declarado 2× o de hoje contra o orçamento mydata 60/min·2.000/dia); as 4 estruturas do motor interno (venda coberta/put/collar/a descoberto), com a descoberto só visível na varredura para quem já tem `permitirOpcaoADescoberto` ligado (Fase 29 intacta) e ranking com a MESMA fórmula prêmio÷perda-máxima da Fase 30 pras 4, aceito mesmo sabendo que põe put/collar em desvantagem estrutural; `PayoffChart.jsx` só ganha responsividade mobile 375px nesta fase (sem overlay/interatividade); universo de tickers continua só posições já na carteira (sem watchlist/catálogo). Ver `.planning/phases/31-varredura-oportunidades-opcoes/31-CONTEXT.md`. Próximo passo: `/gsd-plan-phase 31`. **Antes desta sessão, entre 2026-09-13 (noite) e 2026-09-14, as Fases 27-30 foram publicadas juntas em produção** (carimbo `F10-20260914-01`) e um bug de produção achado no checkpoint ao vivo da Fase 30 (seleção de vencimento errada em `options_provider_mydata.py`, zerava a proposta de venda coberta desde a Fase 14) foi corrigido e publicado à parte (`F10-20260914-02`, quick task `260914-b6p`, ver linha da tabela de quick tasks abaixo). Fase 29 (texto original abaixo, preservado) segue sendo a última narrativa completa de fase registrada nesta seção — Fases 27/28/30 têm CONTEXT.md/SUMMARY próprios em `.planning/phases/` mas não foram reconciliadas nesta seção narrativa do STATE.md; não presumir que "Current Position" abaixo é o estado real do produto.'
+stopped_at: 'Fase 31 (Varredura de oportunidades de opções) — PLANEJADA, pronta para executar (2026-09-14, /gsd-plan-phase 31). Fase 31 não estava no ROADMAP.md (só tinha 31-CONTEXT.md de um discuss-phase anterior) — registrada na tabela e como seção "#### Phase 31" antes de planejar, Goal/Success Criteria derivados das decisões D1-D9 já travadas, sem decisão de produto nova. Pattern-mapper rodou (31-PATTERNS.md), pesquisa pulada por padrão do projeto (workflow.research=false) e por já haver CONTEXT.md+PATTERNS.md detalhados. UI-SPEC.md pulado deliberadamente, mesmo precedente das Fases 29/30 (ambas UI hint:yes sem UI-SPEC formal). 4 planos em 3 ondas (31-01/31-03 onda 1, 31-02 onda 2, 31-04 onda 3 com checkpoint humano). gsd-plan-checker: VERIFICATION PASSED, 0 blockers, 2 warnings (docstrings D1/D3 obsoletos em opcoes_curadoria.py, teto de orçamento otimista 60→54/min real via MARGEM) — ambos corrigidos nos planos antes de fechar. Gate de cobertura de decisão: 8/8 D-NN citadas em must_haves.truths (0/8 na primeira rodada — prosa "(D-05)" não batia o padrão literal "D-NN:" do gate; corrigido sem mudar substância). Ver `.planning/phases/31-varredura-oportunidades-opcoes/`. Próximo passo: `/gsd:execute-phase 31`.'
 last_updated: "2026-09-14T00:00:00.000Z"
-last_activity: "2026-09-14 — sessão de continuação (handoff): branch v2/interacao-estrutural estava 59 commits atrás de origin/main (Fases 27-30 publicadas + fix 260914-b6p aconteceram numa sessão/worktree diferente); fast-forward aplicado antes de continuar. /gsd-discuss-phase 31 executado do zero sobre o rascunho de 31-CONTEXT.md deixado pela sessão anterior: 4 áreas discutidas com o Alex (D1 orçamento de vencimentos, D2 opção a descoberto + fórmula de ranking, D3 payoff visual, D4 universo de tickers), CONTEXT.md fechado, DISCUSSION-LOG.md escrito, commit dafc219. Nenhum código de produto tocado nesta sessão — só planejamento."
+last_activity: "2026-09-14 — /gsd:plan-phase 31: registrou a Fase 31 no ROADMAP.md (faltava), rodou gsd-pattern-mapper + gsd-planner (4 planos/3 ondas) + gsd-plan-checker (passou com 2 warnings, corrigidos manualmente nos planos), fechou o gate de cobertura de decisão (8/8). Nenhum código de produto tocado — só planejamento."
 progress:
   total_phases: 10
   completed_phases: 5
@@ -21,17 +21,53 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-06)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Phase 31 — Varredura de oportunidades de opções (CONTEXT.md fechado nesta sessão; próximo passo `/gsd-plan-phase 31`)
+**Current focus:** Phase 31 — Varredura de oportunidades de opções (planejada nesta sessão, 4 planos/3 ondas; próximo passo `/gsd:execute-phase 31`)
 
 ## Current Position
 
-Phase: 31 (Varredura de oportunidades de opções) — CONTEXT GATHERED (discuss-phase), sem plano ainda
+Phase: 31 (Varredura de oportunidades de opções) — PLANEJADA, pronta para executar
 
 **Contexto de chegada nesta fase:** Fases 27-30 (aba Opções sobre a carteira, sub-aba Operar, flag opt-in de opção a descoberto, curadoria de IA das 4 melhores vendas cobertas) foram publicadas juntas em produção em 2026-09-14 (`F10-20260914-01`), e um bug de produção achado no checkpoint ao vivo da Fase 30 — `options_provider_mydata.get_options` escolhia vencimento vencido por confiar num campo (`vence_no_pregao`) que vem falso em 100% dos dados reais, zerando a proposta de venda coberta desde a Fase 14 — foi corrigido e publicado à parte (`F10-20260914-02`, quick task `260914-b6p`). Ao final dessa sessão o Alex reabriu uma decisão que tinha acabado de fechar ("primeiro vencimento futuro, seja qual for") e pediu uma varredura maior de oportunidades — a Fase 31 nasceu desse pedido, registrada só como rascunho (`31-CONTEXT.md`) com 3 lacunas abertas.
 
 **Esta sessão (continuação via handoff, 2026-09-14):** a branch `v2/interacao-estrutural` estava 59 commits atrás de `origin/main` (todo o parágrafo acima aconteceu numa sessão/worktree diferente) — fast-forward aplicado antes de qualquer trabalho. Rodado `/gsd-discuss-phase 31` de verdade sobre o rascunho: **D1** teto fixo de 2 vencimentos por posição elegível (custo declarado 2× o de hoje contra o orçamento medido do mydata, 60/min·2.000/dia — `get_vencimentos` é barato/lista inteira, `get_options_chain` é 1 chamada cara POR vencimento); **D2** as 4 estruturas do motor interno entram na varredura (venda coberta/put/collar/a descoberto, ampliando o universo estreito da Fase 30), mas a descoberto só aparece pra quem já tem `permitirOpcaoADescoberto` ligado (Fase 29 intacta, gate de execução não muda) e o ranking usa a MESMA fórmula prêmio÷perda-máxima da Fase 30 pras 4 estruturas, mesmo sabendo que isso desfavorece put/collar estruturalmente; **D3** `PayoffChart.jsx` ganha só responsividade mobile 375px nesta fase, sem overlay de múltiplos candidatos nem interatividade (component hoje recebe 1 estrutura por vez, confirmado por leitura); **D4** universo de tickers continua só posições já na carteira, sem estender a watchlist/catálogo. Nenhum código de produto tocado — só planejamento. Ver `.planning/phases/31-varredura-oportunidades-opcoes/31-CONTEXT.md` e `31-DISCUSSION-LOG.md`.
 
-**Próximo passo:** `/gsd:plan-phase 31` (ou `/clear` antes, para começar a pesquisa/plano com orçamento fresco).
+**Planejamento desta sessão (`/gsd:plan-phase 31`, 2026-09-14):** a Fase 31
+tinha `31-CONTEXT.md` fechado mas nunca tinha sido registrada no
+ROADMAP.md (`roadmap.get-phase` devolvia `found: false`) — registrada como
+tabela + seção `#### Phase 31`, Goal/Success Criteria derivados 1:1 das
+decisões D1-D9 já travadas, sem decisão de produto nova (commit
+`714101b`). Pesquisa pulada por padrão do projeto
+(`workflow.research=false`) e por já haver CONTEXT.md detalhado;
+`gsd-pattern-mapper` rodou e produziu `31-PATTERNS.md` (7 arquivos
+mapeados, todos extensão de arquivo já existente, sem módulo/rota/
+componente genuinamente novo). UI-SPEC.md pulado deliberadamente — mesmo
+precedente das Fases 29/30 (ambas "UI hint: yes" sem gate formal de
+UI-SPEC). `gsd-planner` (modelo opus) gerou 4 planos em 3 ondas: 31-01
+(motor puro — 4 estruturas, prêmio líquido com sinal, gate de descoberta
+D-05) e 31-03 (PayoffChart 375px) na onda 1; 31-02 (rota + cache de
+vencimentos no mydata) na onda 2; 31-04 (bloco de Posições + checkpoint
+humano ao vivo) na onda 3. `gsd-plan-checker` (modelo sonnet): VERIFICATION
+PASSED, 0 blockers, 2 warnings — cross-checou contra o código real (não só
+a descrição dos planos): confirmou que o gate D-05 é genuinamente novo
+(tempo de DESCOBERTA, separado do gate de EXECUÇÃO em `store.py`) e que o
+número de requisições declarado (3/posição) bate com
+`options_provider_mydata.get_options()` real. Os 2 warnings foram
+corrigidos nos planos antes de fechar a fase: (1) 31-01 não mandava
+atualizar os docstrings de `opcoes_curadoria.py` que hoje dizem "pare: é
+mudança de escopo (D1)" — exatamente o que esta fase reverte de propósito;
+(2) 31-02 declarava custo "exatamente 60/min" mas o teto REALMENTE
+enforçado em `mydata_budget._teto_util_min()` é `int(60*MARGEM)` = **54**,
+contador global compartilhado com `candle_provider`/agente, não 60 nem
+por-usuário (commit `4f6f88b`). Gate de cobertura de decisão
+(`check.decision-coverage-plan`) achou 0/8 D-NN cobertas na primeira
+rodada — os planos citam decisões em prosa como "(D-05)", sem o formato
+literal "D-NN:" que o gate escaneia em `must_haves.truths`; corrigido
+adicionando o prefixo `D-NN:` às truths já existentes, sem mudar
+substância — 8/8 na segunda rodada (commit `455b897`). Nenhum código de
+produto tocado nesta sessão — só planejamento.
+
+**Próximo passo:** `/gsd:execute-phase 31` (`/clear` antes, para começar a
+onda 1 com contexto limpo).
 
 ## Posição anterior (Phase 29)
 

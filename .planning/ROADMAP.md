@@ -770,7 +770,7 @@ seções de ranking separadas por objetivo receita vs. proteção (D-06).
 | 28. Sub-aba "Operar" e extração de `PropostaLastreada` | 3/3 | Code complete | 2026-09-13 |
 | 29. Opção a descoberto com flag opt-in | 3/3 | Code complete | 2026-09-13 |
 | 30. Curadoria de IA das 4 melhores estruturas | 0/4 | Planned |  |
-| 31. Varredura de oportunidades de opções | standalone | Context gathered |  |
+| 31. Varredura de oportunidades de opções | 0/4 | Planned |  |
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2/v1.3
 
