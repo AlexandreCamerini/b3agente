@@ -32,8 +32,20 @@ const TOKENS = ["bgBase", "bgPanel", "borderSubtle", "borderFaint", "textPrimary
   "textSecondary", "textMuted", "textFaint", "accent", "accentTint10", "negative", "scrim"];
 const T = Object.fromEntries(TOKENS.map((k) => [k, `var(${VARKEY(k)})`]));
 
-const W = 320, H = 180;
-const PAD_E = 10, PAD_D = 10, PAD_T = 14, PAD_B = 26;
+// H/PAD_T/PAD_B cresceram no plano 31-03 (D-07, legibilidade em 375px): o
+// viewBox é a única "unidade" que este SVG tem — tipografia maior sem mais
+// respiro vertical corta rótulo no eixo. W fica em 320 de propósito: é a
+// razão de aspecto que casa com a largura útil de um cartão em 375px, e
+// mudá-la mudaria o enquadramento da curva, não a legibilidade.
+const W = 320, H = 192;
+const PAD_E = 10, PAD_D = 10, PAD_T = 18, PAD_B = 32;
+
+// Piso de legibilidade (D-07): com viewBox de 320 de largura e um container
+// de ~315px num aparelho de 375px, a escala é ~0,98 — o tamanho em
+// user-space é praticamente o tamanho em CSS px, então fontSize="9.5" era
+// 9,5px reais na tela, abaixo do piso de legibilidade.
+const FONTE_MIN = 11.5;
+const FONTE_SETA = 14;
 
 const ehNum = (v) => typeof v === "number" && isFinite(v);
 const fmt = (v, casas = 2) => (ehNum(v) ? v.toFixed(casas).replace(".", ",") : "—");
@@ -191,7 +203,13 @@ export default function PayoffChart({ estrutura, emReais, cp, palette }) {
   );
 
   const caixa = (filho) => (
-    <div style={{ border: `1px solid ${T.borderSubtle}`, borderRadius: "12px", padding: "12px", background: T.bgPanel }}>
+    <div style={{
+      border: `1px solid ${T.borderSubtle}`, borderRadius: "12px", padding: "12px", background: T.bgPanel,
+      // filho de grid/flex tem `min-width: auto` por padrão e pode estourar
+      // a coluna em 375px (D-07) — `minWidth: 0` deixa o próprio SVG encolher
+      // até a largura real do container em vez de vazar.
+      minWidth: 0, maxWidth: "100%",
+    }}>
       {cabecalho}
       {filho}
     </div>
@@ -230,7 +248,7 @@ export default function PayoffChart({ estrutura, emReais, cp, palette }) {
         aria-label={descricao}
         viewBox={`0 0 ${W} ${H}`}
         preserveAspectRatio="xMidYMid meet"
-        style={{ width: "100%", height: "auto", display: "block" }}
+        style={{ width: "100%", height: "auto", display: "block", maxWidth: "100%" }}
       >
         <title>{descricao}</title>
         <defs>
@@ -256,41 +274,66 @@ export default function PayoffChart({ estrutura, emReais, cp, palette }) {
         <path d={d} fill="none" stroke={corLucro} strokeWidth="2" clipPath={`url(#lucro-${uid})`} />
         <path d={d} fill="none" stroke={corPerda} strokeWidth="2" clipPath={`url(#perda-${uid})`} />
 
-        {/* 3. breakevens: a única marca medida no eixo X, em preço */}
-        {marcas.map((b, i) => {
-          const x = sx(b);
-          const ancora = x < 22 ? "start" : x > W - 22 ? "end" : "middle";
-          return (
-            <g key={"be-" + i}>
-              <line x1={x} y1={PAD_T} x2={x} y2={H - PAD_B} stroke={T.textMuted} strokeWidth="1" strokeDasharray="2 4" />
-              <text x={x} y={H - PAD_B + 12} textAnchor={ancora} fontSize="9.5" fill={T.textMuted}>{fmt(b)}</text>
-            </g>
-          );
-        })}
+        {/* 3. breakevens: a única marca medida no eixo X, em preço. Ordenados
+            por X antes de decidir o que cabe (regra (d) do plano 31-03): a
+            LINHA do preço é SEMPRE desenhada — é dado, não decoração — e só
+            o TEXTO se suprime quando dois rótulos ficam próximos demais para
+            não se sobrepor. A descrição completa de todos os breakevens
+            continua no aria-label/<title> do SVG acima, então nada de dado
+            desaparece — só o texto ilegível/duplicado some da tela. */}
+        {(() => {
+          const ordenadas = [...marcas].sort((a, b) => sx(a) - sx(b));
+          let ultimoX = -Infinity;
+          return ordenadas.map((b, i) => {
+            const x = sx(b);
+            const mostrarTexto = x - ultimoX >= 44;
+            if (mostrarTexto) ultimoX = x;
+            const ancora = x < 28 ? "start" : x > W - 28 ? "end" : "middle";
+            return (
+              <g key={"be-" + i}>
+                <line x1={x} y1={PAD_T} x2={x} y2={H - PAD_B} stroke={T.textMuted} strokeWidth="1" strokeDasharray="2 4" />
+                {mostrarTexto ? (
+                  <text x={x} y={H - PAD_B + 12} textAnchor={ancora} fontSize={FONTE_MIN} fill={T.textMuted}>{fmt(b)}</text>
+                ) : null}
+              </g>
+            );
+          });
+        })()}
 
-        {/* 4. cenários do serviço (±1σ e os nomeados alvo/stop) */}
-        {cenarios.map((s, i) => {
-          const x = sx(s.underlying);
-          const y = ehNum(s.result) ? sy(s.result) : yZero;
-          const ancora = x > W - 44 ? "end" : "start";
-          return (
-            <g key={"ce-" + i}>
-              <circle cx={x} cy={y} r="3" fill={T.textPrimary} />
-              <text x={ancora === "end" ? x - 5 : x + 5} y={y - 5} textAnchor={ancora}
-                fontSize="9.5" fill={T.textSecondary}>
-                {typeof s.name === "string" ? s.name : "—"}
-              </text>
-            </g>
-          );
-        })}
+        {/* 4. cenários do serviço (±1σ e os nomeados alvo/stop). Mesma regra
+            de supressão: o CÍRCULO (marca) é sempre desenhado, só o texto
+            some quando um rótulo já desenhado fica a menos de 52 em x E
+            menos de 14 em y — perto o bastante pra colidir. */}
+        {(() => {
+          const desenhados = [];
+          return cenarios.map((s, i) => {
+            const x = sx(s.underlying);
+            const y = ehNum(s.result) ? sy(s.result) : yZero;
+            const colide = desenhados.some((p) => Math.abs(x - p.x) < 52 && Math.abs(y - p.y) < 14);
+            const mostrarTexto = !colide;
+            if (mostrarTexto) desenhados.push({ x, y });
+            const ancora = x > W - 52 ? "end" : "start";
+            return (
+              <g key={"ce-" + i}>
+                <circle cx={x} cy={y} r="3" fill={T.textPrimary} />
+                {mostrarTexto ? (
+                  <text x={ancora === "end" ? x - 5 : x + 5} y={y - 5} textAnchor={ancora}
+                    fontSize={FONTE_MIN} fill={T.textSecondary}>
+                    {typeof s.name === "string" ? s.name : "—"}
+                  </text>
+                ) : null}
+              </g>
+            );
+          });
+        })()}
 
         {/* 5. lado sem limite: seta na borda, sem fechar a curva. O texto vai
             na legenda abaixo (cabe e é lido por leitor de tela lá). */}
         {ganhoIlimitado ? (
-          <text aria-hidden x={W - PAD_D} y={PAD_T + 8} textAnchor="end" fontSize="11" fill={corLucro}>↑</text>
+          <text aria-hidden x={W - PAD_D} y={PAD_T + 8} textAnchor="end" fontSize={FONTE_SETA} fill={corLucro}>↑</text>
         ) : null}
         {perdaIlimitada ? (
-          <text aria-hidden x={W - PAD_D} y={H - PAD_B - 2} textAnchor="end" fontSize="11" fill={corPerda}>↓</text>
+          <text aria-hidden x={W - PAD_D} y={H - PAD_B - 2} textAnchor="end" fontSize={FONTE_SETA} fill={corPerda}>↓</text>
         ) : null}
       </svg>
 
