@@ -35,6 +35,7 @@ key-files:
 
 key-decisions:
   - "Checkpoint humano (Task 4) fechado com base em verificação ao vivo do orquestrador contra o provedor MOCK (api-qa-opcoes), não o servidor real que o executor anterior deixou no ar — Alex aprovou explicitamente sabendo dessa lacuna (ver seção Checkpoint abaixo). Registrado com proveniência completa, não apresentado como verificação direta do executor."
+  - "requirements-completed SC-2 e SC-3 especificamente (4 tipos distinguíveis + resumo auditável; conta sem o flag sem CTA) dependem dos passos 2/3/5/6 do checkpoint — logo herdam a mesma ressalva mock-vs-real acima. SC-4/SC-5 (régua única, payoff 375px) idem via passos 1/4. Só SC-7 (suíte + vite build) foi reverificado diretamente por este agente contra o ambiente real."
   - "Publicação (bump.sh + publicar-web.sh) NÃO executada nesta rodada — Alex pediu só fechamento local ('Aprovado, fechar a fase'), sem publicar."
 
 patterns-established:
