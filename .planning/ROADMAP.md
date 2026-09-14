@@ -628,6 +628,45 @@ operacional nomeada**: o app nativo (iPhone) não reflete esta fase até um
 build novo ser gerado e instalado (`cap sync` + Xcode) — não bloqueia,
 porque o gate é do servidor, não confia em UI nenhuma.
 
+#### Phase 30: Curadoria de IA das 4 melhores estruturas — standalone
+**Goal**: A aba/tela de Posições ganha um bloco novo, ao lado de
+"Oportunidades de opções" (Fase 18), mostrando as 4 melhores propostas de
+venda coberta da carteira inteira por razão prêmio/perda máxima — a
+escolha das 4 é 100% determinística (`rastrear()`/`avaliar()`, já em
+produção desde a Fase 15/16), a IA só narra o que o número já decidiu.
+Custo ZERO do serviço MCP externo, por arquitetura (a cadeia vem do
+`options_provider` mydata/Yahoo, nunca de `mcp.semente.dev`).
+**Depends on**: Phase 15/16 (motor `rastrear()`/`avaliar()` e o payoff de
+N pernas) e Phase 18 (`OportunidadesOpcoes`, o precedente de UI que este
+bloco acompanha). Não depende das Fases 28/29 (sub-aba Operar e flag a
+descoberto) — universo aqui é só venda coberta lastreada.
+**Requirements**: ver `30-CONTEXT.md`
+**Success Criteria** (what must be TRUE):
+  1. As 4 estruturas mostradas são sempre as 4 de maior razão prêmio/perda
+     máxima entre os candidatos elegíveis (vários strikes, um vencimento
+     por posição, piso de liquidez `LIQUIDEZ_NEGOCIAVEL`) — nenhuma
+     chamada a LLM decide OU reordena a lista.
+  2. Nenhuma chamada nova ao serviço MCP externo (`mcp_client`/
+     `options_mcp_api`) — toda leitura de cadeia usa `options_provider`
+     já em produção, uma busca por posição elegível, igual ao fluxo de
+     proposta única de hoje.
+  3. A narração da IA sobre as 4 estruturas consome a MESMA cota mensal de
+     `/api/analyze` (Fase 25) — sem orçamento paralelo, sem gate novo.
+  4. Put de proteção, collar e qualquer estrutura via MCP NÃO entram no
+     ranking desta fase (D1) — só venda coberta.
+  5. Suíte canônica sem regressão da baseline medida no início da fase;
+     `npx vite build` verde.
+**Plans**: gerados por `/gsd:plan-phase 30`
+
+**UI hint**: yes
+
+**Fora de escopo, explicitamente**: put de proteção e collar no ranking
+(D1); estruturas via serviço MCP (D1); múltiplos vencimentos por posição
+(D3 — a cadeia hoje só traz um; expandir exigiria chamada de rede nova,
+não pedida aqui); estender a lista `candidatos` da Fase 19/28 (esta UI é
+nova, não extensão da proposta única por posição); polish de UX pós-uso
+real (Fase 31).
+
 ## Progress
 
 | Phase | Milestone | Status | Completed |
@@ -662,6 +701,7 @@ porque o gate é do servidor, não confia em UI nenhuma.
 | 27. Aba Opções sobre a carteira | 5/5 | Code complete | 2026-09-13 |
 | 28. Sub-aba "Operar" e extração de `PropostaLastreada` | 3/3 | Code complete | 2026-09-13 |
 | 29. Opção a descoberto com flag opt-in | 3/3 | Code complete | 2026-09-13 |
+| 30. Curadoria de IA das 4 melhores estruturas | 0/? | Pending |  |
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2/v1.3
 
