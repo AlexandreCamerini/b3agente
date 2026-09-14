@@ -1,13 +1,21 @@
-// Fase 30 (Plano 04, D4) — Guardião estático do bloco "as 4 melhores vendas
-// cobertas" em CarteiraScreen (CuradoriaEstruturas + useCuradoria).
+// Fase 30 (Plano 04, D4) — Guardião estático do bloco "as 4 melhores
+// oportunidades de opções" em CarteiraScreen (CuradoriaEstruturas +
+// useCuradoria). Estendido na Fase 31 (Plano 04, D-04/D-05/D-07/D-08).
 //
-// Este arquivo tranca a CLASSE de erros que a Fase 30 pode reintroduzir, não
-// a instância — cada bloco abaixo defende uma regra que o autor de uma
+// Este arquivo tranca a CLASSE de erros que a Fase 30/31 pode reintroduzir,
+// não a instância — cada bloco abaixo defende uma regra que o autor de uma
 // edição futura em App.jsx não tem por que conhecer de cor:
 //
-//   1. as 11 chaves de copy da curadoria existem nos dois modos, string
+//   1. as chaves `curadoria*` de copy existem nos dois modos, string
 //      literal, sem palavra de enriquecimento/promessa de lucro (princípios
-//      6/8 do CLAUDE.md);
+//      6/8 do CLAUDE.md). NOTA (Fase 31/D-04): eram 11 na Fase 30 (só venda
+//      coberta); agora são 18 — a varredura passou a cobrir as 4 estruturas
+//      do motor (venda coberta, put de proteção, collar, opção a
+//      descoberto), ganhando `curadoriaTipo*` (4), `curadoriaRazaoAjuda`,
+//      `curadoriaVarreduraRotulo` e `curadoriaPayoffRotulo`. Reversão
+//      deliberada, não apagamento — mesmo guardrail do CLAUDE.md
+//      ("guardiões de teste não se apagam, reversão deliberada atualiza o
+//      guardião com nota");
 //   2. `item.manchete` é renderizado VERBATIM — guardrail CVM (CLAUDE.md):
 //      nenhuma composição de frase a partir de strike/premioTotal, nenhum
 //      truncamento;
@@ -22,7 +30,19 @@
 //      `data.positions.length > 0 &&` da tira irmã (D4);
 //   7. toda chamada de rede do hook é best-effort (`.catch(` no próprio
 //      encadeamento) — T-30-21;
-//   8. nenhuma frase de copy da curadoria promete lucro/garante resultado.
+//   8. nenhuma frase de copy da curadoria promete lucro/garante resultado;
+//   9. (Fase 31, D-04) a chave de render é `item.idCandidato` — collar não
+//      tem `contractSymbol` único, e `key={item.contractSymbol}` colidiria
+//      com `null`;
+//   10. (Fase 31, D-04) existe rótulo de tipo para os 4 tipos do motor,
+//      resolvido por um mapa tipo→chave de copy, nunca hardcoded na
+//      manchete;
+//   11. (Fase 31, D-02/D-03) a linha de resumo da varredura lê
+//      `meta.candidatosPorTipo`;
+//   12. (Fase 31, D-07/D-08) existe exatamente UM `<PayoffChart` renderizado
+//      no bloco — uma curva, nunca overlay;
+//   13. (Fase 31, D-05) nenhuma copy da curadoria convida a ligar o flag de
+//      opção a descoberto — o gate não é substituído por marketing.
 //
 // Padrão "static source inspection" da casa (mesmo de
 // test_carteira_opcoes_tira.mjs, test_opcoes_proposta_ui.mjs): readFileSync
@@ -74,16 +94,28 @@ const fatiaCarteira = fonteSemComentario.slice(
   fonteSemComentario.indexOf("function HistoricoScreen("),
 );
 
-// ---- (1) 11 chaves de copy nos dois modos, string literal ----------------
+// ---- (1) 18 chaves de copy nos dois modos, string literal -----------------
+// NOTA (Fase 31, Plano 04, D-04): eram 11 na Fase 30 (só venda coberta);
+// reversão deliberada — guardião atualizado com nota, não apagado. As 7
+// novas nascem da ampliação do universo pras 4 estruturas do motor.
 const CHAVES = [
   "curadoriaTitulo", "curadoriaSubtitulo", "curadoriaCarregando", "curadoriaVazio",
   "curadoriaRazaoRotulo", "curadoriaNarrarCta", "curadoriaNarrando", "curadoriaIaRotulo",
   "curadoriaIaRessalva", "curadoriaCotaEsgotada", "curadoriaErroNarrar",
+  "curadoriaRazaoAjuda", "curadoriaTipoCallCoberta", "curadoriaTipoPutProtecao",
+  "curadoriaTipoCollar", "curadoriaTipoDescoberto", "curadoriaVarreduraRotulo",
+  "curadoriaPayoffRotulo",
 ];
-ok("11 chaves da curadoria existem em COPY.estudo e COPY.operador",
+ok("18 chaves da curadoria existem em COPY.estudo e COPY.operador",
   CHAVES.every((k) => k in COPY.estudo) && CHAVES.every((k) => k in COPY.operador));
-ok("todas as 11 chaves são string literal (não função)",
+ok("todas as 18 chaves são string literal (não função)",
   CHAVES.every((k) => typeof COPY.estudo[k] === "string") && CHAVES.every((k) => typeof COPY.operador[k] === "string"));
+// Paridade de CONJUNTO (não só a lista fixa acima): qualquer chave
+// `curadoria*` nova que um dos dois modos ganhe sem a irmã no outro cai
+// aqui, mesmo que ninguém lembre de atualizar CHAVES.
+const chavesCuradoriaDe = (copy) => Object.keys(copy).filter((k) => k.startsWith("curadoria")).sort();
+ok("(Fase 31) o CONJUNTO de chaves curadoria* é idêntico nos dois modos",
+  JSON.stringify(chavesCuradoriaDe(COPY.estudo)) === JSON.stringify(chavesCuradoriaDe(COPY.operador)));
 
 // ---- (2) Guardrail CVM: manchete verbatim, nada de strike/composição -----
 ok("CuradoriaEstruturas renderiza {item.manchete} direto (sem composição)",
@@ -106,6 +138,15 @@ ok("CuradoriaEstruturas NÃO compara item.razao (nenhuma comparação a.razao/b.
   !/[ab]\.razao\s*[<>-]/.test(fatiaCuradoria));
 ok("CuradoriaEstruturas itera top.map( direto — sem [...top].sort/slice antes",
   /\btop\.map\(/.test(fatiaCuradoria) && !/\[\.\.\.top\]/.test(fatiaCuradoria));
+
+// ---- (9, Fase 31/D-04) chave de render é item.idCandidato -----------------
+// Collar não tem contractSymbol único (2 pernas) — key={item.contractSymbol}
+// colidiria em null. O fallback (|| item.contractSymbol) é aceitável, mas
+// idCandidato precisa vir PRIMEIRO na expressão de key.
+ok("(Fase 31) a chave de render do carrossel é item.idCandidato",
+  /key=\{item\.idCandidato/.test(fatiaCuradoria));
+ok("(Fase 31) key={item.contractSymbol} sozinho (sem idCandidato) NÃO aparece mais no bloco",
+  !/key=\{item\.contractSymbol\}/.test(fatiaCuradoria));
 
 // ---- (4) narrar() nunca chamado dentro do useEffect (cota só por toque) --
 const iEffectCur = fatiaHookCur.indexOf("useEffect(");
@@ -180,10 +221,54 @@ function copySemPromessa(copy) {
     return PROIBIDAS.every((p) => !v.includes(p));
   });
 }
-ok("nenhuma das 11 frases de COPY.estudo contém palavra de promessa de lucro/garantia",
+ok("nenhuma das 18 frases de COPY.estudo contém palavra de promessa de lucro/garantia",
   copySemPromessa(COPY.estudo));
-ok("nenhuma das 11 frases de COPY.operador contém palavra de promessa de lucro/garantia",
+ok("nenhuma das 18 frases de COPY.operador contém palavra de promessa de lucro/garantia",
   copySemPromessa(COPY.operador));
+
+// ---- (10, Fase 31/D-04) rótulo de tipo para os 4 tipos do motor ----------
+// O mapa tipo→chave de copy vive ANTES da função (módulo), não dentro dela
+// — por isso a busca usa um recorte próprio, não `fatiaCuradoria`.
+const iRotuloTipo = app.indexOf("ROTULO_TIPO_CURADORIA");
+ok("(Fase 31) existe um mapa ROTULO_TIPO_CURADORIA definido antes de CuradoriaEstruturas",
+  iRotuloTipo > -1 && iRotuloTipo < iCuradoria);
+const fatiaMapaTipo = iRotuloTipo > -1 ? app.slice(iRotuloTipo, iCuradoria) : "";
+const TIPOS_MOTOR = ["call_coberta", "put_protecao", "collar", "opcao_a_descoberto"];
+ok("(Fase 31) o mapa de rótulo cobre os 4 tipos do motor (call_coberta/put_protecao/collar/opcao_a_descoberto)",
+  TIPOS_MOTOR.every((t) => fatiaMapaTipo.includes(t + ":")));
+ok("(Fase 31) cada tipo aponta para uma chave curadoriaTipo* de copy",
+  (fatiaMapaTipo.match(/curadoriaTipo\w+/g) || []).length === 4);
+ok("(Fase 31) o chip de tipo é renderizado no card (lookup dinâmico do mapa, nunca hardcoded)",
+  /ROTULO_TIPO_CURADORIA\[item\.tipo\]/.test(fatiaCuradoria));
+
+// ---- (11, Fase 31/D-02/D-03) resumo da varredura lê meta.candidatosPorTipo
+ok("(Fase 31) a linha de resumo lê meta.candidatosPorTipo",
+  fatiaCuradoria.includes("meta.candidatosPorTipo"));
+ok("(Fase 31) a linha de resumo lê meta.tetoVencimentos",
+  fatiaCuradoria.includes("meta.tetoVencimentos"));
+ok("(Fase 31) campo ausente do resumo vira travessão, não 0 (princípio 4 do CLAUDE.md)",
+  fatiaCuradoria.includes('"—"'));
+
+// ---- (12, Fase 31/D-07/D-08) exatamente UM <PayoffChart no bloco ---------
+ok("(Fase 31) <PayoffChart aparece exatamente 1x dentro de CuradoriaEstruturas (uma curva, sem overlay)",
+  (fatiaCuradoria.match(/<PayoffChart/g) || []).length === 1);
+ok("(Fase 31) o payoff renderizado é do item nº 1 (top[0]), não de um índice arbitrário",
+  fatiaCuradoria.includes("top[0].estrutura"));
+
+// ---- (13, Fase 31/D-05) nenhuma copy da curadoria convida a ligar o flag -
+// D-05: conta sem permitirOpcaoADescoberto não vê oportunidade a descoberto
+// NEM com aviso — é proibido criar texto tipo "ative o flag para ver mais".
+const PROIBIDAS_D05 = ["flag", "ative", "libere", "desbloque"];
+function copySemConviteAoFlag(copy) {
+  return CHAVES.every((k) => {
+    const v = (copy[k] || "").toLowerCase();
+    return PROIBIDAS_D05.every((p) => !v.includes(p));
+  });
+}
+ok("(Fase 31/D-05) nenhuma das 18 frases de COPY.estudo convida a ligar o flag de opção a descoberto",
+  copySemConviteAoFlag(COPY.estudo));
+ok("(Fase 31/D-05) nenhuma das 18 frases de COPY.operador convida a ligar o flag de opção a descoberto",
+  copySemConviteAoFlag(COPY.operador));
 
 // ---- Sanidade adicional: CarteiraScreen chama useCuradoria() -------------
 ok("CarteiraScreen chama useCuradoria()",

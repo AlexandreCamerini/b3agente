@@ -624,12 +624,13 @@ export const COPY = {
     curadoriaRazaoAjuda: "Prêmio negativo significa que montar a estrutura custa dinheiro (é uma proteção) — por isso ela pode aparecer embaixo na mesma régua, sem que isso seja um defeito do ranking.",
     curadoriaTipoCallCoberta: "venda coberta",
     curadoriaTipoPutProtecao: "put de proteção",
-    // Achado 31-01 (Rule 1, mesma colisão): "trava protetora" é
-    // string-âncora protegida por guardrail CVM desde a Fase 16 (LIB-03,
-    // test_opcoes_collar_vocab.py::test_nenhum_arquivo_front_compoe_
-    // manchete_do_collar) — nenhum arquivo do front pode compor esse
-    // texto, só skill_ref.py. Rótulo de TIPO aqui usa o mesmo texto
-    // descritivo já adotado em opcoes_curadoria.py (31-01).
+    // Achado 31-01 (Rule 1, mesma colisão): a expressão canônica de collar
+    // de proteção é string-âncora protegida por guardrail CVM desde a Fase
+    // 16 (LIB-03, test_opcoes_collar_vocab.py::test_nenhum_arquivo_front_
+    // compoe_manchete_do_collar) — nenhum arquivo do front pode compor esse
+    // texto (nem em comentário: o guardião varre o arquivo inteiro, sem
+    // filtrar comentário), só skill_ref.py. Rótulo de TIPO aqui usa o
+    // mesmo texto descritivo já adotado em opcoes_curadoria.py (31-01).
     curadoriaTipoCollar: "collar (call vendida + put comprada)",
     curadoriaTipoDescoberto: "a descoberto",
     curadoriaVarreduraRotulo: "o que esta varredura cobriu",
