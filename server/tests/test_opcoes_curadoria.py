@@ -184,3 +184,142 @@ def test_nenhuma_chamada_de_rede_cadeia_em_memoria_basta():
         "PETR4", chain, _SPOT, _posicao(), "operador", _HOJE, n=3)
     assert len(candidatos) == 3
 
+
+# ─────────────────────────────────────────────────────────────────────────
+# rankear() — ordem total, determinística
+# ─────────────────────────────────────────────────────────────────────────
+
+def _candidato_sintetico(symbol, razao, premio_unitario=1.0):
+    return {
+        "tipo": "call_coberta", "ticker": "PETR4", "contractSymbol": symbol,
+        "optionType": "call", "strike": 30.0, "expiration": _EXPIRATION_OK,
+        "diasParaVencimento": 22, "contratos": 1, "qtyAcoes": 100,
+        "premioUnitario": premio_unitario, "premioTotal": premio_unitario * 100,
+        "liquidez": {"score": 60, "faixa": "NEGOCIÁVEL", "volume": 100, "spreadPct": 0.01, "aviso": None},
+        "estrutura": {"ganho_maximo": 5.0, "perda_maxima": round(premio_unitario / razao, 4),
+                      "breakevens": [29.0], "custo_liquido": 0, "fluxo": "credito"},
+        "razao": razao, "manchete": f"manchete {symbol}", "didatica": f"didatica {symbol}",
+        "precoObjeto": _SPOT,
+    }
+
+
+def test_rankear_9_candidatos_devolve_4_em_ordem_decrescente():
+    candidatos = [_candidato_sintetico(f"C{i}", razao=float(i)) for i in range(1, 10)]
+    top = opcoes_curadoria.rankear(candidatos)
+    assert len(top) == opcoes_curadoria.TOPO
+    razoes = [c["razao"] for c in top]
+    assert razoes == sorted(razoes, reverse=True)
+    assert [c["contractSymbol"] for c in top] == ["C9", "C8", "C7", "C6"]
+
+
+def test_rankear_permuta_entrada_nao_muda_saida():
+    base = [_candidato_sintetico(f"C{i}", razao=float(i) * 0.37 % 5 + 0.01) for i in range(1, 12)]
+    esperado = [c["contractSymbol"] for c in opcoes_curadoria.rankear(base)]
+    rnd = random.Random(20260913)
+    for _ in range(20):
+        embaralhado = list(base)
+        rnd.shuffle(embaralhado)
+        top = opcoes_curadoria.rankear(embaralhado)
+        assert [c["contractSymbol"] for c in top] == esperado
+
+
+def test_rankear_empate_desempata_por_premio_depois_contractsymbol():
+    a = _candidato_sintetico("ZZZ", razao=1.0, premio_unitario=1.0)
+    b = _candidato_sintetico("AAA", razao=1.0, premio_unitario=1.0)
+    c = _candidato_sintetico("MMM", razao=1.0, premio_unitario=2.0)
+    top = opcoes_curadoria.rankear([a, b, c])
+    # c tem premioUnitario maior (2.0) -> vem primeiro; entre a e b (mesma
+    # razão e mesmo prêmio), desempate por contractSymbol ascendente: AAA < ZZZ.
+    assert [x["contractSymbol"] for x in top] == ["MMM", "AAA", "ZZZ"]
+
+
+def test_rankear_posicao_no_ranking_sequencial_e_nao_altera_outros_campos():
+    candidatos = [_candidato_sintetico(f"C{i}", razao=float(i)) for i in range(1, 6)]
+    top = opcoes_curadoria.rankear(candidatos)
+    assert [c["posicaoNoRanking"] for c in top] == [1, 2, 3, 4]
+    originais_por_symbol = {c["contractSymbol"]: c for c in candidatos}
+    for item in top:
+        original = originais_por_symbol[item["contractSymbol"]]
+        sem_posicao = {k: v for k, v in item.items() if k != "posicaoNoRanking"}
+        assert sem_posicao == original
+
+
+def test_rankear_lista_vazia():
+    assert opcoes_curadoria.rankear([]) == []
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# exigir_ranking() — recusa estrutural de pool não rankeado
+# ─────────────────────────────────────────────────────────────────────────
+
+def test_exigir_ranking_aceita_saida_de_rankear():
+    candidatos = [_candidato_sintetico(f"C{i}", razao=float(i)) for i in range(1, 6)]
+    top = opcoes_curadoria.rankear(candidatos)
+    opcoes_curadoria.exigir_ranking(top)  # não levanta
+
+
+def test_exigir_ranking_recusa_mais_de_topo_itens():
+    candidatos = [_candidato_sintetico(f"C{i}", razao=float(i), ) for i in range(1, 6)]
+    pool_nao_rankeado = [{**c, "posicaoNoRanking": i} for i, c in enumerate(candidatos, start=1)]
+    with pytest.raises(ValueError):
+        opcoes_curadoria.exigir_ranking(pool_nao_rankeado)
+
+
+def test_exigir_ranking_recusa_razao_crescente():
+    top = [
+        {**_candidato_sintetico("A", razao=1.0), "posicaoNoRanking": 1},
+        {**_candidato_sintetico("B", razao=2.0), "posicaoNoRanking": 2},
+    ]
+    with pytest.raises(ValueError):
+        opcoes_curadoria.exigir_ranking(top)
+
+
+def test_exigir_ranking_recusa_posicao_fora_de_ordem():
+    top = [
+        {**_candidato_sintetico("A", razao=2.0), "posicaoNoRanking": 2},
+        {**_candidato_sintetico("B", razao=1.0), "posicaoNoRanking": 1},
+    ]
+    with pytest.raises(ValueError):
+        opcoes_curadoria.exigir_ranking(top)
+
+
+def test_exigir_ranking_recusa_item_sem_razao():
+    item = {**_candidato_sintetico("A", razao=1.0), "posicaoNoRanking": 1}
+    del item["razao"]
+    with pytest.raises(ValueError):
+        opcoes_curadoria.exigir_ranking([item])
+
+
+def test_exigir_ranking_recusa_entrada_que_nao_e_lista():
+    with pytest.raises(ValueError):
+        opcoes_curadoria.exigir_ranking({"nao": "e lista"})
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# narrativa_system() / narrativa_user()
+# ─────────────────────────────────────────────────────────────────────────
+
+@pytest.mark.parametrize("modo", ["operador", "estudo"])
+def test_narrativa_system_contem_principios_e_disclaimer(modo):
+    texto = opcoes_curadoria.narrativa_system(modo)
+    assert skill_ref.PRINCIPIOS in texto
+    assert skill_ref.DISCLAIMER in texto
+
+
+def test_narrativa_user_recusa_lista_fora_de_ordem_antes_de_montar_texto():
+    top = [
+        {**_candidato_sintetico("A", razao=1.0), "posicaoNoRanking": 2},
+        {**_candidato_sintetico("B", razao=2.0), "posicaoNoRanking": 1},
+    ]
+    with pytest.raises(ValueError):
+        opcoes_curadoria.narrativa_user(top, "operador")
+
+
+def test_narrativa_user_inclui_contractsymbol_razao_e_instrucao_de_nao_reordenar():
+    candidatos = [_candidato_sintetico(f"C{i}", razao=float(i)) for i in range(1, 5)]
+    top = opcoes_curadoria.rankear(candidatos)
+    texto = opcoes_curadoria.narrativa_user(top, "operador")
+    for item in top:
+        assert item["contractSymbol"] in texto
+        assert skill_ref.num_br(item["razao"]) in texto
+    assert "não reordene" in texto.lower() or "nao reordene" in texto.lower()

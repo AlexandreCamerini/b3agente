@@ -22,9 +22,10 @@ Dois cercos da Fase 30, declarados aqui porque é aqui que valem:
 
 Guardrail não-negociável (CLAUDE.md princípio 5 + 30-CONTEXT): a escolha das
 4 melhores é 100% aritmética de `opcoes_motor.rastrear()`/`avaliar()`, nunca
-de LLM. Este módulo é o único lugar do repositório onde os candidatos são
-enumerados; a etapa de ranking (Task 2) consome a lista devolvida aqui, nunca
-recalcula.
+de LLM. `rankear()` é a única função que decide ordem; `exigir_ranking()`
+torna essa regra comportamento do código, não promessa de comentário — a
+camada de narração (`narrativa_user`) é estruturalmente incapaz de receber
+um pool não rankeado.
 """
 from __future__ import annotations
 
@@ -35,8 +36,6 @@ from .opcoes_lastreadas import _PRAZO_MAX_DIAS, _PRAZO_MIN_DIAS, _bloco_liquidez
 from .options_quant import LIQUIDEZ_NEGOCIAVEL, liquidity_score
 
 # TOPO: quantas estruturas a UI mostra ("as 4 melhores" — pedido original).
-# Ainda não consumida nesta task (entra em `rankear`, Task 2); declarada
-# aqui porque é constante de módulo, junto das outras duas.
 TOPO = 4
 # STRIKES_POR_POSICAO: quantos strikes candidatos `rastrear()` devolve por
 # posição elegível, dentro do vencimento único da cadeia (D3).
@@ -179,3 +178,121 @@ def candidatos_da_posicao(
         })
 
     return candidatos
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# rankear() / exigir_ranking() — ordem total, determinística, auditável
+# ─────────────────────────────────────────────────────────────────────────
+
+def rankear(candidatos: list[dict[str, Any]], *, topo: int = TOPO) -> list[dict[str, Any]]:
+    """As `topo` melhores estruturas, por razão prêmio/perda máxima
+    decrescente, com desempate TOTAL e determinístico.
+
+    Chave de ordenação: `(-razao, -premioUnitario, contractSymbol)`. Sem um
+    último critério TOTAL (o `contractSymbol`), dois candidatos de razão e
+    prêmio iguais ficariam na ordem de chegada — e a ordem de chegada depende
+    da ordem das posições na carteira/da cadeia, então a MESMA carteira
+    produziria rankings diferentes entre requisições. "As 4 melhores"
+    deixaria de ser uma afirmação verificável.
+
+    Esta chave de ordenação é a ÚNICA fonte da ordem: sem peso configurável,
+    sem entrada de usuário, sem qualquer campo vindo de LLM (D2 + princípio 5
+    do CLAUDE.md). `rankear` não altera nenhum campo dos candidatos além de
+    acrescentar `posicaoNoRanking` (1-based, cópia rasa — os dicts de entrada
+    não são mutados).
+    """
+    ordenados = sorted(candidatos, key=lambda c: (-c["razao"], -c["premioUnitario"], c.get("contractSymbol") or ""))
+    cortados = ordenados[:topo]
+    return [{**c, "posicaoNoRanking": i} for i, c in enumerate(cortados, start=1)]
+
+
+def exigir_ranking(top: Any) -> None:
+    """Recusa qualquer coisa que não seja a saída de `rankear`.
+
+    Esta função existe para que a etapa de IA seja INCAPAZ de receber um pool
+    não rankeado — o guardrail vira comportamento do código, não promessa de
+    comentário (30-CONTEXT, "guardrail não-negociável"). Levanta `ValueError`
+    nomeando o defeito quando: `top` não é lista; tem mais de `TOPO` itens;
+    algum item não é dict ou não tem `razao` numérica; `posicaoNoRanking` não
+    é exatamente `1..len(top)` na ordem; a sequência de `razao` não é
+    monotonicamente não-crescente.
+    """
+    if not isinstance(top, list):
+        raise ValueError(f"ranking precisa ser uma lista, veio {type(top).__name__}")
+    if len(top) > TOPO:
+        raise ValueError(f"ranking tem {len(top)} itens, máximo permitido é {TOPO}")
+
+    razao_anterior = None
+    for i, item in enumerate(top, start=1):
+        if not isinstance(item, dict):
+            raise ValueError(f"item {i} do ranking não é dict")
+        razao = item.get("razao")
+        if not isinstance(razao, (int, float)) or isinstance(razao, bool):
+            raise ValueError(f"item {i} do ranking não tem razao numérica (veio {razao!r})")
+        if item.get("posicaoNoRanking") != i:
+            raise ValueError(
+                f"item {i} do ranking tem posicaoNoRanking={item.get('posicaoNoRanking')!r}, "
+                f"esperado {i} (ranking precisa vir na própria ordem, 1..N)")
+        if razao_anterior is not None and razao > razao_anterior:
+            raise ValueError(
+                f"ranking fora de ordem: item {i} tem razao {razao} maior que o anterior {razao_anterior}")
+        razao_anterior = razao
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# narrativa_system() / narrativa_user() — prompts da etapa de narração
+# ─────────────────────────────────────────────────────────────────────────
+
+def narrativa_system(modo: str) -> str:
+    """Prefixo ESTÁVEL por modo (mesmo padrão de
+    `assistente.system_prefixo`, server/app/assistente.py:189-196) — nada
+    variável (timestamp, id, ticker) aqui dentro: variável invalida o cache
+    de prompt em silêncio."""
+    regras = "\n".join([
+        "# Regras desta narração",
+        "A ordem das estruturas já foi decidida por um motor determinístico "
+        "(razão prêmio recebido / perda máxima), fora do seu alcance.",
+        "Descreva as estruturas NA ORDEM recebida.",
+        "É PROIBIDO: reordenar as estruturas, sugerir outra ordem, "
+        "acrescentar estrutura que não está na lista, inventar número que "
+        "não está na lista, prometer lucro ou tratar o texto como "
+        "recomendação de investimento.",
+    ])
+    return "\n\n".join([
+        regras,
+        skill_ref.PRINCIPIOS,
+        skill_ref.PRINCIPIO_DADOS_SEM_PACOTE,
+        "# Aviso obrigatório\n" + skill_ref.DISCLAIMER,
+    ])
+
+
+def narrativa_user(top: list[dict[str, Any]], modo: str) -> str:
+    """Prompt de usuário da narração. PRIMEIRA ação é `exigir_ranking(top)` —
+    uma lista fora de ordem levanta `ValueError` e NUNCA chega a montar
+    texto, muito menos a sair como prompt para o LLM.
+
+    Serializa só os campos que a narração precisa (T-30-03: lista FECHADA,
+    sem `curva`, sem dado de conta, sem saldo, sem id de sessão) — nunca "tudo
+    que houver no dict".
+    """
+    exigir_ranking(top)
+
+    linhas = ["Estas são as estruturas já escolhidas pelo motor determinístico, "
+              "na ordem final (não reordene):"]
+    for item in top:
+        estrutura = item.get("estrutura") or {}
+        liquidez = item.get("liquidez") or {}
+        linhas.append(
+            f"{item.get('posicaoNoRanking')}. {item.get('ticker')} "
+            f"{item.get('contractSymbol')} — strike R$ {skill_ref.num_br(item.get('strike'))}, "
+            f"{item.get('diasParaVencimento')} dias, prêmio unitário "
+            f"R$ {skill_ref.num_br(item.get('premioUnitario'))}, prêmio total "
+            f"R$ {skill_ref.num_br(item.get('premioTotal'))}, razão "
+            f"{skill_ref.num_br(item.get('razao'))}, ganho máximo "
+            f"R$ {skill_ref.num_br(estrutura.get('ganho_maximo'))}, perda máxima "
+            f"R$ {skill_ref.num_br(estrutura.get('perda_maxima'))}, breakevens "
+            f"{estrutura.get('breakevens')}, liquidez {liquidez.get('faixa')}."
+        )
+    linhas.append("")
+    linhas.append("Escreva um parágrafo curto por estrutura, na ordem dada acima.")
+    return "\n".join(linhas)
