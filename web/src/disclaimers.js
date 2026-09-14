@@ -36,6 +36,12 @@ export const DISCLAIMERS = {
   // FASE 7 — Termo de responsabilidade (aceite obrigatório na 1ª ativação)
   operadorTermo:
     "O Modo Operador é uma ferramenta de DECISÃO e DISCIPLINA. O Boris+ não envia ordens a corretoras, não garante resultado e não faz recomendação personalizada de investimento (não substitui um analista credenciado). Os planos apresentados são cenários probabilísticos calculados sobre dados passados pelos detectores determinísticos do app; podem estar errados e o mercado pode se mover contra qualquer plano. Toda execução — e todo resultado, inclusive PERDAS — é de responsabilidade exclusivamente sua. Operar exige stop em toda posição, dimensionamento pela sua tolerância a risco e disciplina para aceitar os planos 'NÃO OPERAR'. Ao ativar, você declara que entende e aceita estes termos.",
+
+  // FASE 29 — Termo de responsabilidade de opção A DESCOBERTO (aceite
+  // obrigatório para ligar o flag em Preferências)
+  descobertoTermo:
+    "Uma posição de opção A DESCOBERTO é aberta sem o lastro de ações que cubra a operação — diferente de uma posição LASTREADA (venda coberta, put de proteção, collar), em que a posição em ações limita o risco. O padrão desta conta é lastro obrigatório; este flag é a exceção nomeada que você está pedindo para ligar. Numa opção a descoberto a perda pode ser a totalidade do prêmio pago: no vencimento, a posição é liquidada mecanicamente pelo valor intrínseco — que pode ser ZERO — sem que nenhum stop tenha sido rompido e sem nenhum aviso adicional além deste. Tudo aqui é simulação com dinheiro virtual: o Boris+ não envia ordens a corretoras, não garante resultado e não faz recomendação personalizada de investimento (não substitui um analista credenciado). Os números da simulação são calculados por regra determinística; a IA explica o que aconteceu, nunca decide por você. Ao ligar este flag, você declara que entende e aceita estes termos.",
 };
 
 export const TERMO_OPERADOR_VERSAO = "1.0";
+export const TERMO_DESCOBERTO_VERSAO = "1.0";

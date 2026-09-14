@@ -5,7 +5,7 @@ import { defaultLlmPrompts } from "./catalog.js";
 import { testServer, describeRuntimeConfig, getApiBase, PROD_BASE } from "./api.js";
 import { createChart, ColorType, CrosshairMode, LineStyle } from "lightweight-charts";
 import { sampleTechnicals } from "./demo.js";
-import { DISCLAIMERS, TERMO_OPERADOR_VERSAO } from "./disclaimers.js";
+import { DISCLAIMERS, TERMO_OPERADOR_VERSAO, TERMO_DESCOBERTO_VERSAO } from "./disclaimers.js";
 import { copyFor, historicoTxt, entradaAutoTxt } from "./copy.js";
 import { Markdown, MdInline } from "./markdown.jsx";
 import { extentOf, linePath, lastVal } from "./chartutil.js";
@@ -2367,6 +2367,72 @@ function TermoOperadorModal({ ctx, onClose }) {
         <div style={{ display: "flex", gap: "9px", marginTop: "14px" }}>
           <button onClick={onClose} style={{ flex: 1, padding: "11px", borderRadius: "10px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 700, fontSize: "13px" }}>Continuar no Estudo</button>
           <button onClick={ativar} disabled={!liTudo || !aceito || busy} style={{ flex: 1, padding: "11px", borderRadius: "10px", border: "none", background: (liTudo && aceito) ? T.accent : T.bgBase, color: (liTudo && aceito) ? T.onAccent : T.textFaint, fontWeight: 800, fontSize: "13px" }}>{busy ? "Ativando…" : "Ativar Modo Operador"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// FASE 29 (D1) — mesmo padrão de fricção do TermoOperadorModal acima, para a
+// mesma classe de decisão de risco (operar a descoberto não é menos arriscado
+// que ligar o Modo Operador). Reusa a máquina liTudo/aceito/busy e o fallback
+// de montagem — NÃO reinventa um terceiro modal do zero.
+function TermoDescobertoModal({ ctx, onClose }) {
+  const { A } = ctx;
+  const [liTudo, setLiTudo] = useState(false);   // exige rolar até o fim
+  const [aceito, setAceito] = useState(false);
+  const [busy, setBusy] = useState(false);
+  // Mesmo fallback do irmão (FASE 8B/P2): se o texto CABE sem rolagem, o
+  // onScroll nunca dispara e o aceite travaria para sempre em tela grande.
+  const termoRef = useRef(null);
+  useEffect(() => {
+    const check = () => {
+      const el = termoRef.current;
+      if (el && el.scrollHeight - el.clientHeight < 12) setLiTudo(true);
+    };
+    check();
+    const id = setTimeout(check, 250); // reflow tardio do WebView (fontes)
+    window.addEventListener("resize", check);
+    return () => { clearTimeout(id); window.removeEventListener("resize", check); };
+  }, []);
+  const onScroll = (e) => {
+    const el = e.target;
+    if (el.scrollHeight - el.scrollTop - el.clientHeight < 12) setLiTudo(true);
+  };
+  const ativar = async () => {
+    setBusy(true);
+    try {
+      // termo PRIMEIRO (mesmo patch): os dois stores só ligam o flag com ele
+      // (29-01 Task 1c / 29-02 Task 1b) — espelha ativar() do TermoOperadorModal.
+      await A.saveConfig({ descobertoTermo: { aceitoEm: new Date().toISOString(), versao: TERMO_DESCOBERTO_VERSAO }, permitirOpcaoADescoberto: true });
+      onClose();
+      // Diferente do Modo Operador: NENHUM reload aqui. `appMode` é lido de
+      // forma independente em mais de 10 lugares (comentário em escolher(),
+      // acima), então o reload é necessário para todos refletirem o modo
+      // novo. `permitirOpcaoADescoberto` é lido em UM lugar só (o gate do
+      // store), e `saveConfig` já atualiza `data.config` — recarregar o app
+      // por causa dele seria custo sem ganho. Não "conserte" isso para
+      // reload; são decisões diferentes por motivo diferente.
+      A.flash("Opções a descoberto ligadas.");
+    } catch (e) { A.flash("Erro ao ligar: " + (e.message || e)); }
+    finally { setBusy(false); }
+  };
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 84, background: T.scrim, display: "flex", alignItems: "center", justifyContent: "center", padding: "18px" }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: "440px", ...card, padding: "20px", maxHeight: "88vh", display: "flex", flexDirection: "column" }}>
+        <div style={{ fontSize: "16px", fontWeight: 800, marginBottom: "4px" }}>Termo de Responsabilidade</div>
+        <div style={{ fontSize: "11.5px", color: T.textMuted, marginBottom: "10px" }}>Opções a descoberto · versão {TERMO_DESCOBERTO_VERSAO} — leia até o fim para habilitar o aceite.</div>
+        <div ref={termoRef} onScroll={onScroll} style={{ overflowY: "auto", border: `1px solid ${T.borderSubtle}`, borderRadius: "10px", padding: "12px", fontSize: "12.5px", color: T.textSecondary, lineHeight: 1.6, maxHeight: "34vh", WebkitOverflowScrolling: "touch" }}>
+          {DISCLAIMERS.descobertoTermo}
+        </div>
+        {!liTudo && <div style={{ fontSize: "10.5px", color: T.textFaint, marginTop: "6px", textAlign: "center" }}>↓ role o texto até o fim para liberar o aceite</div>}
+        <label style={{ display: "flex", gap: "9px", alignItems: "flex-start", marginTop: "12px", fontSize: "12.5px", color: liTudo ? T.textPrimary : T.textFaint, lineHeight: 1.5 }}>
+          <input type="checkbox" disabled={!liTudo} checked={aceito} onChange={(e) => setAceito(e.target.checked)} style={{ marginTop: "2px" }} />
+          <span>Li até o fim e entendo que posso perder o prêmio inteiro, inclusive por vencimento a zero, operando por minha conta e risco.</span>
+        </label>
+        <div style={{ display: "flex", gap: "9px", marginTop: "14px" }}>
+          <button onClick={onClose} style={{ flex: 1, padding: "11px", borderRadius: "10px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 700, fontSize: "13px" }}>Cancelar</button>
+          <button onClick={ativar} disabled={!liTudo || !aceito || busy} style={{ flex: 1, padding: "11px", borderRadius: "10px", border: "none", background: (liTudo && aceito) ? T.accent : T.bgBase, color: (liTudo && aceito) ? T.onAccent : T.textFaint, fontWeight: 800, fontSize: "13px" }}>{busy ? "Ligando…" : "Ligar opções a descoberto"}</button>
         </div>
       </div>
     </div>
