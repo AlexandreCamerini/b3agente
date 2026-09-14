@@ -590,19 +590,29 @@ tocada por esta fase, ver D2) e a decisão do Alex registrada em
 Plans:
 **Wave 1**
 
-- [ ] 29-01-PLAN.md — backend: `permitirOpcaoADescoberto` + `descobertoTermo` em `config`, gate determinístico em `store.buy_option`, tradução 400 em `/api/options/buy`, e guardião (default off, fail-closed, `sell_option` nunca gateado)
+- [x] 29-01-PLAN.md — backend: `permitirOpcaoADescoberto` + `descobertoTermo` em `config`, gate determinístico em `store.buy_option`, tradução 400 em `/api/options/buy`, e guardião (default off, fail-closed, `sell_option` nunca gateado)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 29-02-PLAN.md — espelho no `deviceStore`: os dois campos com a regra do servidor + sync, gate no ramo LOCAL de `optionsBuy` (o buraco do iOS sem sessão) com a mensagem byte a byte do backend, e guardião de paridade
+- [x] 29-02-PLAN.md — espelho no `deviceStore`: os dois campos com a regra do servidor + sync, gate no ramo LOCAL de `optionsBuy` (o buraco do iOS sem sessão) com a mensagem byte a byte do backend, e guardião de paridade
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 29-03-PLAN.md — UI: termo de responsabilidade versionado (`TermoDescobertoModal`, fricção do Modo Operador reusada) + card "OPÇÕES A DESCOBERTO" em Preferências, guardião do fence D2, e checkpoint de verificação humana
+- [x] 29-03-PLAN.md — UI: termo de responsabilidade versionado (`TermoDescobertoModal`, fricção do Modo Operador reusada) + card "OPÇÕES A DESCOBERTO" em Preferências, guardião do fence D2, e checkpoint de verificação humana
 
 **Baseline da suíte medida em 2026-09-13 (início da fase)**: pytest 2780
 passed / 5 skipped / 3 xfailed; 144 arquivos `web/tests/*.mjs` todos `[OK]`;
 exit 0.
+
+**Checkpoint da Task 3 (29-03) fechado em 2026-09-13** por aprovação direta
+do Alex, depois de um alarme falso investigado no caminho: ele reportou que
+o card "OPÇÕES A DESCOBERTO" não aparecia; o orquestrador verificou o mesmo
+servidor ativo (mesma conta, card presente) antes de aceitar qualquer
+coisa, isolou a causa para o app NATIVO do iPhone não recompilado nesta
+sessão (não é defeito — pendência de build/`cap sync` nomeada, fora de
+escopo), pediu o roteiro completo na web com ênfase no passo 7 (desligar o
+flag não pode bloquear fechar posição já aberta) e recebeu "aprovado"
+direto e literal. Detalhe completo em `29-03-SUMMARY.md`.
 
 **UI hint**: yes
 
@@ -611,6 +621,12 @@ exit 0.
 opção automaticamente pelo Operador IA (lastreada ou a descoberto — sem
 precedente de código, não pedido); curadoria de IA das 4 melhores
 estruturas (Fase 30); polish de UX pós-uso real (Fase 31).
+
+**NÃO ESTÁ NO AR**: nenhum push a `origin`, nenhum `bump.sh`/
+`publicar-web.sh`. Publicação é passo humano separado. **Pendência
+operacional nomeada**: o app nativo (iPhone) não reflete esta fase até um
+build novo ser gerado e instalado (`cap sync` + Xcode) — não bloqueia,
+porque o gate é do servidor, não confia em UI nenhuma.
 
 ## Progress
 
@@ -645,7 +661,7 @@ estruturas (Fase 30); polish de UX pós-uso real (Fase 31).
 | 26. Otimização de UX e da camada de IA | 1/6 | In Progress|  |
 | 27. Aba Opções sobre a carteira | 5/5 | Code complete | 2026-09-13 |
 | 28. Sub-aba "Operar" e extração de `PropostaLastreada` | 3/3 | Code complete | 2026-09-13 |
-| 29. Opção a descoberto com flag opt-in | 0/? | Pending |  |
+| 29. Opção a descoberto com flag opt-in | 3/3 | Code complete | 2026-09-13 |
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2/v1.3
 
