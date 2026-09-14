@@ -656,7 +656,13 @@ descoberto) — universo aqui é só venda coberta lastreada.
      ranking desta fase (D1) — só venda coberta.
   5. Suíte canônica sem regressão da baseline medida no início da fase;
      `npx vite build` verde.
-**Plans**: gerados por `/gsd:plan-phase 30`
+**Plans:** 4 plans (4 waves)
+
+Plans:
+- [ ] 30-01-PLAN.md — motor PURO: enumera vários strikes de venda coberta na cadeia já em memória, calcula prêmio/perda máxima e ordena o top-4 com desempate total (D1/D2/D3/D5)
+- [ ] 30-02-PLAN.md — `GET /api/options/curadoria`: varredura cross-posição com UMA busca de cadeia por posição elegível, provada por guardião de contagem exata (SC-2)
+- [ ] 30-03-PLAN.md — narração da IA sobre o top-4 já ordenado, sob o mesmo `_gate_analise` de `/api/analyze` (D6), incapaz de reordenar por construção
+- [ ] 30-04-PLAN.md — bloco em Posições ao lado de "Oportunidades de opções" (D4), manchete verbatim do motor, narração rotulada e separada + checkpoint de verificação ao vivo
 
 **UI hint**: yes
 
@@ -701,7 +707,7 @@ real (Fase 31).
 | 27. Aba Opções sobre a carteira | 5/5 | Code complete | 2026-09-13 |
 | 28. Sub-aba "Operar" e extração de `PropostaLastreada` | 3/3 | Code complete | 2026-09-13 |
 | 29. Opção a descoberto com flag opt-in | 3/3 | Code complete | 2026-09-13 |
-| 30. Curadoria de IA das 4 melhores estruturas | 0/? | Pending |  |
+| 30. Curadoria de IA das 4 melhores estruturas | 0/4 | Planned |  |
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2/v1.3
 
