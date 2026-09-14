@@ -4166,6 +4166,88 @@ function OportunidadesOpcoes({ propostas, carregando, positions, cp, onAbrir }) 
   );
 }
 
+// Fase 30 (Plano 04, D4): bloco cross-posição "as 4 melhores vendas
+// cobertas" — irmão de OportunidadesOpcoes acima (mesmo precedente de
+// "resumo cross-posição de opções" nesta tela, 30-CONTEXT D4).
+//
+// GUARDRAIL CVM (CLAUDE.md) / T-30-18/T-30-19: `top` é iterado NA ORDEM
+// RECEBIDA — nenhum sort/reverse/comparação de `razao` neste componente.
+// A ordem é do motor (`item.posicaoNoRanking`); reordenar no front
+// recriaria no cliente exatamente o poder que o backend nega à IA.
+// `item.manchete` é renderizado VERBATIM — é PROIBIDO compor frase a
+// partir de strike/contratos/premioTotal/optionType aqui.
+function CuradoriaEstruturas({ top, meta, carregando, erro, narrativa, narrando, erroNarrativa, onNarrar, cp, onAbrir }) {
+  return (
+    <div style={{ marginBottom: "14px" }}>
+      {/* Cabeçalho FIXO nos três estados (itens/carregando/vazio) — mesmo
+          precedente de OportunidadesOpcoes (NAV-03): a seção nunca
+          desaparece em silêncio quando há posições. */}
+      <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em", color: T.textFaint, marginBottom: "4px" }}>{cp.curadoriaTitulo}</div>
+      <div style={{ fontSize: "11.5px", color: T.textMuted, marginBottom: "8px", lineHeight: 1.4 }}>{cp.curadoriaSubtitulo}</div>
+      {top.length > 0 && (
+        <div style={carouselTrackStyle({ gap: "10px", scrollbarWidth: "none", paddingBottom: "2px" })}>
+          {top.map((item) => (
+            <button
+              key={item.contractSymbol}
+              type="button"
+              aria-label={item.posicaoNoRanking + ". " + item.ticker}
+              onClick={() => onAbrir(item.ticker)}
+              style={{ ...carouselItemStyle("start"), flex: "0 0 220px", minWidth: "220px", minHeight: "44px", textAlign: "left", padding: "11px 12px", borderRadius: "11px", background: T.bgCard, border: `1px solid ${T.borderFaint}`, cursor: "pointer" }}
+            >
+              <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em", color: T.accent }}>{item.posicaoNoRanking}. {item.ticker}</div>
+              {/* manchete do motor, verbatim — guardrail CVM (CLAUDE.md);
+                  nunca truncada/concatenada: cortar reescreveria a
+                  afirmação do motor. */}
+              <div style={{ fontSize: "12.5px", fontWeight: 700, color: T.textPrimary, marginTop: "4px", whiteSpace: "normal" }}>{item.manchete}</div>
+              <div style={{ fontSize: "10.5px", color: T.textFaint, marginTop: "6px" }}>{cp.curadoriaRazaoRotulo}: {item.razao != null ? item.razao.toFixed(2) : "—"}</div>
+              <div style={{ fontSize: "10.5px", color: T.textFaint, marginTop: "2px" }}>{money(item.premioTotal)} · {item.diasParaVencimento}d · {item.liquidez && item.liquidez.faixa}</div>
+            </button>
+          ))}
+        </div>
+      )}
+      {/* carregando ANTES do vazio — mesma razão de OportunidadesOpcoes:
+          sem esse ramo o bloco piscaria "sem estrutura" durante a busca. */}
+      {top.length === 0 && carregando && (
+        <div style={{ fontSize: "12px", color: T.textFaint, lineHeight: 1.5 }}>{cp.curadoriaCarregando}</div>
+      )}
+      {/* ESTADO vazio (NAV-03) — sem CTA, nomeia o motivo. */}
+      {top.length === 0 && !carregando && (
+        <div style={{ padding: "10px 11px", borderRadius: "9px", background: T.bgCard, border: `1px solid ${T.borderFaint}`, fontSize: "12px", color: T.textSecondary, lineHeight: 1.5 }}>
+          {cp.curadoriaVazio}
+        </div>
+      )}
+      {top.length > 0 && (
+        <button
+          type="button"
+          onClick={onNarrar}
+          disabled={narrando}
+          style={{ marginTop: "8px", minHeight: "44px", width: "100%", padding: "10px", borderRadius: "10px", border: `1px solid ${T.borderSubtle}`, background: "transparent", color: T.accent, fontWeight: 700, fontSize: "12.5px" }}
+        >
+          {narrando ? cp.curadoriaNarrando : cp.curadoriaNarrarCta}
+        </button>
+      )}
+      {/* Bloco de narrativa SEPARADO dos itens e rotulado. A lista de
+          itens ACIMA lê `top`, NUNCA `narrativa.estruturas` — a ordem e
+          os números não mudam quando o texto da IA chega (T-30-20). */}
+      {narrativa && narrativa.texto && (
+        <div style={{ marginTop: "8px", padding: "11px 12px", borderRadius: "10px", background: T.bgCard, border: `1px solid ${T.borderFaint}` }}>
+          <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em", color: T.textFaint, marginBottom: "4px" }}>{cp.curadoriaIaRotulo}</div>
+          <div style={{ fontSize: "12px", color: T.textSecondary, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{narrativa.texto}</div>
+          <div style={{ fontSize: "10.5px", color: T.textFaint, marginTop: "6px", fontStyle: "italic" }}>{cp.curadoriaIaRessalva}</div>
+        </div>
+      )}
+      {/* Erros de narração são ESTADO (texto, sem CTA) — nunca apagam os
+          itens determinísticos acima. */}
+      {erroNarrativa === "cota" && (
+        <div style={{ marginTop: "8px", fontSize: "11.5px", color: T.textFaint, lineHeight: 1.5 }}>{cp.curadoriaCotaEsgotada}</div>
+      )}
+      {erroNarrativa === "erro" && (
+        <div style={{ marginTop: "8px", fontSize: "11.5px", color: T.textFaint, lineHeight: 1.5 }}>{cp.curadoriaErroNarrar}</div>
+      )}
+    </div>
+  );
+}
+
 // Fase 18 (Plano 02, NAV-02): SEGUNDO ponto de renderização de
 // PropostaLastreada — o primeiro, em AtivoCard (linha ~3492), continua
 // intocado, é a superfície de descoberta de Watchlist/Radar. Este componente
@@ -4406,6 +4488,64 @@ function useOpcoesPropostas(tickers) {
   return { propostas, carregando };
 }
 
+// Fase 30 (Plano 04, D4): busca cross-posição do top-4 de venda coberta
+// (ranking determinístico, custo zero, D6) e, só por toque explícito, a
+// narração de IA sobre essas mesmas 4 (cota de /api/analyze, D6). SEM
+// parâmetro — ao contrário do hook irmão acima, a rota é cross-posição e
+// decide sozinha as posições elegíveis no servidor (D1/D3); por isso a
+// dependência do efeito é `[]` (uma busca por montagem), não uma chave
+// primitiva de tickers.
+function useCuradoria() {
+  const [top, setTop] = useState([]);
+  const [meta, setMeta] = useState(null);
+  const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState(false);
+  const [narrativa, setNarrativa] = useState(null);
+  const [narrando, setNarrando] = useState(false);
+  // "cota" (402 do gate de plano) | "erro" (genérico) | null — tratados
+  // como ESTADO distinto pelo componente, nunca a mesma frase.
+  const [erroNarrativa, setErroNarrativa] = useState(null);
+  const aliveRef = useRef(true);
+
+  useEffect(() => {
+    aliveRef.current = true;
+    setCarregando(true);
+    // best-effort, igual useOpcoesPropostas acima: falha de rede só deixa
+    // o bloco sem item, nunca quebra a tela.
+    store.opcoesCuradoria()
+      .then((r) => {
+        if (!aliveRef.current) return;
+        setTop((r && r.top) || []);
+        setMeta(r || null);
+      })
+      .catch(() => { if (aliveRef.current) setErro(true); })
+      .finally(() => { if (aliveRef.current) setCarregando(false); });
+    return () => { aliveRef.current = false; };
+  }, []);
+
+  // narrar() NUNCA é chamado dentro do useEffect acima: o parágrafo da IA
+  // custa cota (D6) — buscar narração no mount gastaria cota de quem só
+  // abriu a aba Posições. Só existe por toque explícito do usuário.
+  const narrar = (config) => {
+    setNarrando(true);
+    setErroNarrativa(null);
+    store.opcoesCuradoriaNarrativa(config)
+      .then((r) => {
+        if (!aliveRef.current) return;
+        if (r && r.texto) setNarrativa({ texto: r.texto, estruturas: r.estruturas || [] });
+      })
+      .catch((e) => {
+        if (!aliveRef.current) return;
+        // 402 do gate de plano é tratado separado de erro genérico (falha
+        // de LLM/rede) — frases diferentes, mesmo precedente do 30-CONTEXT.
+        setErroNarrativa(e && e.status === 402 ? "cota" : "erro");
+      })
+      .finally(() => { if (aliveRef.current) setNarrando(false); });
+  };
+
+  return { top, meta, carregando, erro, narrativa, narrando, erroNarrativa, narrar };
+}
+
 function CarteiraScreen({ ctx }) {
   // FASE 2 (2.5): qual posição está com o histórico de análises aberto
   const [histFor, setHistFor] = useState(null);
@@ -4424,6 +4564,13 @@ function CarteiraScreen({ ctx }) {
   // o Plano 18-03 os consome por nome, sem mexer nesta chamada.
   // `opcoesCarregando` fica sem uso NESTE plano — existe pra tira do 18-03.
   const { propostas: opcoesPorTicker, carregando: opcoesCarregando } = useOpcoesPropostas(data.positions.map((p) => p.t));
+  // Fase 30 (Plano 04, D4): bloco cross-posição "as 4 melhores vendas
+  // cobertas" — SEM parâmetro (ver comentário de useCuradoria).
+  const {
+    top: curadoriaTop, meta: curadoriaMeta, carregando: curadoriaCarregando, erro: curadoriaErro,
+    narrativa: curadoriaNarrativa, narrando: curadoriaNarrando, erroNarrativa: curadoriaErroNarrativa,
+    narrar: narrarCuradoria,
+  } = useCuradoria();
   // Fase 18 (Plano 03, NAV-01/NAV-03): abre o detalhe da posição a partir da
   // tira agregada e rola o card correspondente pra vista. O `setTimeout`
   // existe porque o `scrollIntoView` precisa acontecer DEPOIS do re-render
@@ -4512,7 +4659,24 @@ function CarteiraScreen({ ctx }) {
           abaixo já explica o que fazer quando não há nenhuma posição, duas
           mensagens pra mesma ausência seria ruído. */}
       {data.positions.length > 0 && (
-        <OportunidadesOpcoes propostas={opcoesPorTicker} carregando={opcoesCarregando} positions={data.positions} cp={cp} onAbrir={abrirOpcoesDe} />
+        <>
+          <OportunidadesOpcoes propostas={opcoesPorTicker} carregando={opcoesCarregando} positions={data.positions} cp={cp} onAbrir={abrirOpcoesDe} />
+          {/* Fase 30 (Plano 04, D4): irmão da tira acima — mesma razão de
+              "duas mensagens pra mesma ausência seria ruído" para a
+              carteira vazia (guarda abaixo). */}
+          <CuradoriaEstruturas
+            top={curadoriaTop}
+            meta={curadoriaMeta}
+            carregando={curadoriaCarregando}
+            erro={curadoriaErro}
+            narrativa={curadoriaNarrativa}
+            narrando={curadoriaNarrando}
+            erroNarrativa={curadoriaErroNarrativa}
+            onNarrar={() => narrarCuradoria(data.config)}
+            cp={cp}
+            onAbrir={abrirOpcoesDe}
+          />
+        </>
       )}
 
       {data.positions.length === 0 && (
