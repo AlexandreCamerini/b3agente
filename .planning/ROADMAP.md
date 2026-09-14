@@ -712,8 +712,8 @@ oportunidade, não só da execução).
 Plans:
 **Wave 1**
 
-- [ ] 31-01-PLAN.md — motor PURO: as 4 estruturas (venda coberta, put de proteção, collar, opção a descoberto) sobre a mesma cadeia em memória, prêmio líquido COM SINAL, `idCandidato`, `proximos_vencimentos()` e o gate de descoberta `permitir_a_descoberto` (D-04/D-05/D-06)
-- [ ] 31-03-PLAN.md — `PayoffChart.jsx` legível em 375px: piso de tipografia no SVG, geometria com respiro, rótulos sem sobreposição; sem overlay e sem interatividade (D-07/D-08)
+- [x] 31-01-PLAN.md — motor PURO: as 4 estruturas (venda coberta, put de proteção, collar, opção a descoberto) sobre a mesma cadeia em memória, prêmio líquido COM SINAL, `idCandidato`, `proximos_vencimentos()` e o gate de descoberta `permitir_a_descoberto` (D-04/D-05/D-06)
+- [x] 31-03-PLAN.md — `PayoffChart.jsx` legível em 375px: piso de tipografia no SVG, geometria com respiro, rótulos sem sobreposição; sem overlay e sem interatividade (D-07/D-08)
 
 **Wave 2** *(blocked on Wave 1)*
 
