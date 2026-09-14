@@ -169,6 +169,7 @@ def candidatos_da_posicao(
     hoje: Any,
     *,
     n: int = STRIKES_POR_POSICAO,
+    permitir_a_descoberto: bool = False,
 ) -> list[dict[str, Any]]:
     """Candidatos de curadoria para UMA posição, a partir de UMA cadeia (um
     único vencimento) já buscada em memória. Devolve SEMPRE lista — `[]` em
@@ -182,6 +183,17 @@ def candidatos_da_posicao(
     Todas nascem da MESMA cadeia já buscada, nenhuma chamada de rede nova
     dentro deste módulo — quem varre múltiplos vencimentos é o CHAMADOR
     (Fase 31/D-01, ver docstring do módulo).
+
+    `permitir_a_descoberto` (Fase 31/D-05): default `False` é FAIL-CLOSED
+    e proposital — um chamador que esqueça de passar o flag nunca vaza
+    oportunidade a descoberto. Este é o primeiro ponto do sistema onde
+    `permitirOpcaoADescoberto` é lido no momento da DESCOBERTA (o segundo
+    ponto, depois do gate de EXECUÇÃO em `store.buy_option`,
+    store.py:815-828). A semântica aqui é PULO SILENCIOSO — sem `raise`,
+    sem `registrar_rejeicao`, sem aviso ao usuário — deliberadamente
+    diferente do gate de execução, que recusa alto e registra rejeição. Os
+    dois comportamentos NÃO devem ser unificados: um é filtro de exibição
+    (esta função), o outro é recusa de ordem (`store.buy_option`).
 
     Portas fechadas, na ordem, espelhando `opcoes_lastreadas.propor`
     (opcoes_lastreadas.py:220-237, 260-262) — mesmos motivos, mesma ordem de
@@ -458,6 +470,78 @@ def candidatos_da_posicao(
                                          strike_call=strike_call, strike_put=strike_put),
         })
 
+    # ─────────────────────────────────────────────────────────────────
+    # opcao_a_descoberto — Fase 31, Plano 01, Task 3 (D-05). Só roda com o
+    # flag ligado; reusa `selecionados` (as MESMAS calls OTM do ramo
+    # call_coberta) — zero `rastrear()` novo, zero rede nova. Escopo de
+    # BUSCA continua sendo a carteira do usuário mesmo sem exigir lastro
+    # (D-09): a oportunidade a descoberto nasce sobre os tickers que o
+    # usuário já tem, nunca sobre o catálogo B3 inteiro.
+    #
+    # Escolha registrada (discrição do plano, não decisão nova de produto):
+    # a estrutura "a descoberto" desta fase é a COMPRA de call a seco — o
+    # caminho que a Fase 29 gateou (`store.buy_option`). Venda de call NUA
+    # não entra: `avaliar` devolve `perda_maxima=None` para perda
+    # ilimitada, e a porta de `perda_maxima` já existente descartaria o
+    # candidato de qualquer jeito — publicar razão sobre perda indefinida
+    # violaria o princípio 4 do CLAUDE.md.
+    if permitir_a_descoberto:
+        for contrato in selecionados:
+            try:
+                # Sem perna de ação — é exatamente o que "a descoberto"
+                # significa: nenhum lastro.
+                perna_opcao = opcoes_motor.perna_de_contrato(contrato, "compra", quantidade=1)
+                estrutura = opcoes_motor.avaliar([perna_opcao])
+            except ValueError:
+                continue
+
+            perda_maxima = estrutura.get("perda_maxima")
+            if not isinstance(perda_maxima, (int, float)) or isinstance(perda_maxima, bool) or perda_maxima <= 0:
+                continue
+
+            contratos_naked = CONTRATOS_A_DESCOBERTO
+            qty_acoes_naked = contratos_naked * 100
+            # Débito da compra a seco: NEGATIVO por desenho, nunca filtrado
+            # (D-06) — é o risco máximo inteiro da estrutura.
+            premio_unitario = premio_liquido_unitario([perna_opcao])
+            premio_total = round(premio_unitario * qty_acoes_naked, 2)
+            razao = round(premio_unitario / perda_maxima, 6)
+
+            liq = liquidity_score(contrato.get("volume"), contrato.get("openInterest"),
+                                   contrato.get("bid"), contrato.get("ask"))
+            strike = contrato.get("strike")
+
+            # Mesma assimetria sinal-no-campo/módulo-na-frase da put de
+            # proteção: a frase canônica diz "pagaria R$ {premioTotal}".
+            dados = {
+                "n": str(contratos_naked), "ticker": underlying, "strike": skill_ref.num_br(strike),
+                "premioTotal": skill_ref.num_br(abs(premio_total)), "qtyAcoes": str(qty_acoes_naked),
+            }
+            manchete = skill_ref.opcoes_lastreadas_txt(modo, "opcao_a_descoberto", **dados)
+            didatica = skill_ref.opcoes_lastreadas_txt("educacional", "opcao_a_descoberto", **dados)
+
+            candidatos.append({
+                "tipo": "opcao_a_descoberto",
+                "ticker": underlying,
+                "contractSymbol": contrato.get("contractSymbol"),
+                "optionType": contrato.get("optionType"),
+                "strike": strike,
+                "expiration": chain.get("expiration"),
+                "diasParaVencimento": dias,
+                "contratos": contratos_naked,
+                "qtyAcoes": qty_acoes_naked,
+                "premioUnitario": premio_unitario,
+                "premioTotal": premio_total,
+                "liquidez": _bloco_liquidez(contrato, liq, modo),
+                "estrutura": estrutura,
+                "razao": razao,
+                "manchete": manchete,
+                "didatica": didatica,
+                "precoObjeto": round(float(spot), 2),
+                "idCandidato": id_candidato("opcao_a_descoberto", underlying, chain.get("expiration"),
+                                             contrato.get("contractSymbol")),
+            })
+
     return candidatos
 
 
@@ -469,12 +553,18 @@ def rankear(candidatos: list[dict[str, Any]], *, topo: int = TOPO) -> list[dict[
     """As `topo` melhores estruturas, por razão prêmio/perda máxima
     decrescente, com desempate TOTAL e determinístico.
 
-    Chave de ordenação: `(-razao, -premioUnitario, contractSymbol)`. Sem um
-    último critério TOTAL (o `contractSymbol`), dois candidatos de razão e
-    prêmio iguais ficariam na ordem de chegada — e a ordem de chegada depende
-    da ordem das posições na carteira/da cadeia, então a MESMA carteira
-    produziria rankings diferentes entre requisições. "As 4 melhores"
-    deixaria de ser uma afirmação verificável.
+    Chave de ordenação (Fase 31, Plano 01, Task 3 — cresceu de 3 para 4
+    critérios): `(-razao, -premioUnitario, contractSymbol, idCandidato)`.
+    `contractSymbol` permanece como TERCEIRO critério de propósito — preserva
+    byte a byte a ordem que os guardiões da Fase 30 já travaram.
+    `idCandidato` entra como QUARTO critério só para desempatar o que antes
+    não tinha como desempatar: o collar não tem `contractSymbol` único (Fase
+    31/D-04), então dois collars empatados em razão e prêmio ficariam ambos
+    com `contractSymbol=None` — sem um quarto critério TOTAL, a ordem entre
+    eles voltaria a depender da ordem de chegada. `premioUnitario`/
+    `idCandidato` lidos via `.get(...) or <default>` porque os guardiões
+    mínimos da Fase 30 (dicts sintéticos de teste) não carregam `idCandidato`
+    — nenhum campo novo virou obrigatório.
 
     Esta chave de ordenação é a ÚNICA fonte da ordem: sem peso configurável,
     sem entrada de usuário, sem qualquer campo vindo de LLM (D2 + princípio 5
@@ -482,7 +572,10 @@ def rankear(candidatos: list[dict[str, Any]], *, topo: int = TOPO) -> list[dict[
     acrescentar `posicaoNoRanking` (1-based, cópia rasa — os dicts de entrada
     não são mutados).
     """
-    ordenados = sorted(candidatos, key=lambda c: (-c["razao"], -c["premioUnitario"], c.get("contractSymbol") or ""))
+    ordenados = sorted(candidatos, key=lambda c: (
+        -c["razao"], -(c.get("premioUnitario") or 0.0),
+        c.get("contractSymbol") or "", c.get("idCandidato") or "",
+    ))
     cortados = ordenados[:topo]
     return [{**c, "posicaoNoRanking": i} for i, c in enumerate(cortados, start=1)]
 
@@ -538,6 +631,13 @@ def narrativa_system(modo: str) -> str:
         "acrescentar estrutura que não está na lista, inventar número que "
         "não está na lista, prometer lucro ou tratar o texto como "
         "recomendação de investimento.",
+        # Fase 31, Plano 01, Task 3 (D-06): put de proteção, collar de
+        # débito e opção a descoberto podem trazer prêmio líquido negativo
+        # (débito) — isso é o usuário PAGANDO para montar a estrutura, não
+        # ganho nenhum.
+        "É PROIBIDO descrever um prêmio líquido NEGATIVO como receita, "
+        "ganho ou entrada de caixa — número negativo significa que o "
+        "usuário paga para montar aquela estrutura.",
     ])
     return "\n\n".join([
         regras,
@@ -545,6 +645,22 @@ def narrativa_system(modo: str) -> str:
         skill_ref.PRINCIPIO_DADOS_SEM_PACOTE,
         "# Aviso obrigatório\n" + skill_ref.DISCLAIMER,
     ])
+
+
+# Fase 31, Plano 01, Task 3: rótulo em PT-BR de cada tipo do universo
+# fechado `TIPOS`, para a narração nomear a estrutura explicitamente em vez
+# de tratar tudo como venda coberta.
+_ROTULO_TIPO = {
+    "call_coberta": "venda coberta",
+    "put_protecao": "put de proteção",
+    # "collar (call vendida + put comprada)", não "trava protetora (collar)":
+    # a string-âncora "trava protetora" é guardada por CVM em
+    # test_opcoes_collar_vocab.py (a manchete do collar nasce SÓ em
+    # skill_ref.py) — este rótulo é só a etiqueta de TIPO da narração, não
+    # pode reusar o texto da manchete nem por acidente.
+    "collar": "collar (call vendida + put comprada)",
+    "opcao_a_descoberto": "opção a descoberto",
+}
 
 
 def narrativa_user(top: list[dict[str, Any]], modo: str) -> str:
@@ -563,10 +679,18 @@ def narrativa_user(top: list[dict[str, Any]], modo: str) -> str:
     for item in top:
         estrutura = item.get("estrutura") or {}
         liquidez = item.get("liquidez") or {}
+        rotulo = _ROTULO_TIPO.get(item.get("tipo"), item.get("tipo"))
+        # O collar não tem `contractSymbol` único (2 pernas, Fase 31/D-04) —
+        # imprimir `None` aqui seria pior que impreciso, seria ilegível.
+        # `strikeCall`/`strikePut` já existem no candidato para exatamente
+        # este caso.
+        identificador = item.get("contractSymbol") or \
+            f"call {item.get('strikeCall')} / put {item.get('strikePut')}"
         linhas.append(
-            f"{item.get('posicaoNoRanking')}. {item.get('ticker')} "
-            f"{item.get('contractSymbol')} — strike R$ {skill_ref.num_br(item.get('strike'))}, "
-            f"{item.get('diasParaVencimento')} dias, prêmio unitário "
+            f"{item.get('posicaoNoRanking')}. [{rotulo}] {item.get('ticker')} "
+            f"{identificador} — strike R$ {skill_ref.num_br(item.get('strike'))}, "
+            f"{item.get('diasParaVencimento')} dias, prêmio líquido unitário "
+            f"(positivo = recebido, negativo = pago) "
             f"R$ {skill_ref.num_br(item.get('premioUnitario'))}, prêmio total "
             f"R$ {skill_ref.num_br(item.get('premioTotal'))}, razão "
             f"{skill_ref.num_br(item.get('razao'))}, ganho máximo "

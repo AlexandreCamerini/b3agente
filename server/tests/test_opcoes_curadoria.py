@@ -284,7 +284,9 @@ def test_ramo_put_protecao_e_collar_usam_a_mesma_porta_de_perda_maxima():
     src = open(opcoes_curadoria.__file__).read()
     linhas_sem_comentario = [l for l in src.splitlines() if not l.strip().startswith("#")]
     ocorrencias = sum(1 for l in linhas_sem_comentario if "perda_maxima <= 0" in l)
-    assert ocorrencias >= 3
+    # ATUALIZADO Fase 31, Plano 01, Task 3: o ramo opcao_a_descoberto soma
+    # uma 4ª ocorrência da mesma porta.
+    assert ocorrencias >= 4
 
 
 def test_nenhum_parametro_de_caixa_em_candidatos_da_posicao():
@@ -292,6 +294,138 @@ def test_nenhum_parametro_de_caixa_em_candidatos_da_posicao():
     assinatura = inspect.signature(opcoes_curadoria.candidatos_da_posicao)
     assert "cash" not in assinatura.parameters
     assert "caixa" not in assinatura.parameters
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# opcao_a_descoberto — Fase 31, Plano 01, Task 3 (D-05): gate de descoberta
+# ─────────────────────────────────────────────────────────────────────────
+
+def test_permitir_a_descoberto_false_por_padrao_nao_gera_naked():
+    chain = _cadeia_calls_e_puts_liquidas()
+    candidatos = opcoes_curadoria.candidatos_da_posicao(
+        "PETR4", chain, _SPOT, _posicao(qty=200), "operador", _HOJE)
+    tipos = {c["tipo"] for c in candidatos}
+    assert "opcao_a_descoberto" not in tipos
+    assert tipos == {"call_coberta", "put_protecao", "collar"}
+
+
+def test_permitir_a_descoberto_explicito_false_tambem_nao_gera_naked():
+    # D-05 é fail-closed: mesmo passando o flag explicitamente False (não só
+    # por omissão), zero candidatos a descoberto — cadeia idêntica à do
+    # teste acima, que PRODUZIRIA candidatos a descoberto se o flag ligasse.
+    chain = _cadeia_calls_e_puts_liquidas()
+    candidatos = opcoes_curadoria.candidatos_da_posicao(
+        "PETR4", chain, _SPOT, _posicao(qty=200), "operador", _HOJE, permitir_a_descoberto=False)
+    assert not any(c["tipo"] == "opcao_a_descoberto" for c in candidatos)
+
+
+def test_permitir_a_descoberto_true_gera_naked_com_campos_esperados():
+    chain = _cadeia_calls_e_puts_liquidas()
+    candidatos = opcoes_curadoria.candidatos_da_posicao(
+        "PETR4", chain, _SPOT, _posicao(qty=200), "operador", _HOJE, permitir_a_descoberto=True)
+    naked = [c for c in candidatos if c["tipo"] == "opcao_a_descoberto"]
+    assert naked, "cadeia com calls líquidas + flag ligado precisa gerar opcao_a_descoberto"
+    for c in naked:
+        assert c["contratos"] == opcoes_curadoria.CONTRATOS_A_DESCOBERTO == 1
+        assert c["qtyAcoes"] == 100
+        assert c["premioUnitario"] < 0
+        # perda máxima de uma call comprada a seco = o próprio prêmio pago.
+        assert c["estrutura"]["perda_maxima"] == pytest.approx(-c["premioUnitario"])
+        assert c["idCandidato"]
+
+
+def test_permitir_a_descoberto_true_nao_soma_chamada_de_rastrear(monkeypatch):
+    # O ramo reusa `selecionados` (as MESMAS calls do ramo call_coberta) —
+    # zero `rastrear()` novo, zero rede nova, com ou sem o flag.
+    from app import opcoes_motor as _om
+    original = _om.rastrear
+    chamadas = {"n": 0}
+
+    def _contando(*a, **kw):
+        chamadas["n"] += 1
+        return original(*a, **kw)
+
+    monkeypatch.setattr(opcoes_curadoria.opcoes_motor, "rastrear", _contando)
+    chain = _cadeia_calls_e_puts_liquidas()
+    opcoes_curadoria.candidatos_da_posicao(
+        "PETR4", chain, _SPOT, _posicao(qty=200), "operador", _HOJE, permitir_a_descoberto=True)
+    assert chamadas["n"] == 2  # 1 de calls + 1 de puts, igual com o flag desligado
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# rankear() — ordem TOTAL mesmo sem contractSymbol (Fase 31, Plano 01, Task 3)
+# ─────────────────────────────────────────────────────────────────────────
+
+def test_rankear_desempata_dois_collars_empatados_por_idcandidato():
+    base = _candidato_sintetico("IGNORADO", razao=1.0, premio_unitario=1.0)
+    collar_a = {**base, "tipo": "collar", "contractSymbol": None,
+                "idCandidato": "collar:PETR4:2026-10-05:30.0/25.0"}
+    collar_b = {**base, "tipo": "collar", "contractSymbol": None,
+                "idCandidato": "collar:PETR4:2026-10-05:31.0/26.0"}
+    top1 = opcoes_curadoria.rankear([collar_a, collar_b])
+    top2 = opcoes_curadoria.rankear([collar_b, collar_a])
+    assert [c["idCandidato"] for c in top1] == [collar_a["idCandidato"], collar_b["idCandidato"]]
+    assert [c["idCandidato"] for c in top2] == [collar_a["idCandidato"], collar_b["idCandidato"]]
+
+
+def test_exigir_ranking_continua_aceitando_dict_minimo_sem_idcandidato():
+    # Nenhum campo novo virou obrigatório — os guardiões da Fase 30
+    # alimentam dicts mínimos (sem idCandidato) e precisam continuar
+    # passando sem edição.
+    candidatos = [_candidato_sintetico(f"C{i}", razao=float(i)) for i in range(1, 6)]
+    top = opcoes_curadoria.rankear(candidatos)
+    opcoes_curadoria.exigir_ranking(top)  # não levanta
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# narrativa_user()/narrativa_system() — ciência de tipo (Fase 31, Plano 01, Task 3)
+# ─────────────────────────────────────────────────────────────────────────
+
+def _sintetico_por_tipo(tipo, posicao_no_ranking, razao=1.0, premio_unitario=1.0, contract_symbol="XXX"):
+    return {
+        "tipo": tipo, "ticker": "PETR4", "contractSymbol": contract_symbol,
+        "optionType": "put" if tipo == "put_protecao" else "call",
+        "strike": 30.0, "strikeCall": 30.0, "strikePut": 25.0,
+        "expiration": _EXPIRATION_OK, "diasParaVencimento": 22,
+        "contratos": 1, "qtyAcoes": 100,
+        "premioUnitario": premio_unitario, "premioTotal": premio_unitario * 100,
+        "liquidez": {"score": 60, "faixa": "NEGOCIÁVEL", "volume": 100, "spreadPct": 0.01, "aviso": None},
+        "estrutura": {"ganho_maximo": 5.0, "perda_maxima": 2.0, "breakevens": [29.0],
+                      "custo_liquido": 0, "fluxo": "credito"},
+        "razao": razao, "manchete": f"manchete {tipo}", "didatica": f"didatica {tipo}",
+        "precoObjeto": _SPOT, "posicaoNoRanking": posicao_no_ranking,
+        "idCandidato": f"{tipo}:PETR4:{_EXPIRATION_OK}:{contract_symbol}",
+    }
+
+
+def test_narrativa_user_nomeia_tipo_de_cada_estrutura_e_nao_imprime_none_no_collar():
+    collar = _sintetico_por_tipo("collar", 1, razao=1.0, contract_symbol=None)
+    top = [
+        collar,
+        _sintetico_por_tipo("call_coberta", 2, razao=0.9),
+        _sintetico_por_tipo("put_protecao", 3, razao=-0.1, premio_unitario=-0.8),
+        _sintetico_por_tipo("opcao_a_descoberto", 4, razao=-0.2, premio_unitario=-1.2),
+    ]
+    texto = opcoes_curadoria.narrativa_user(top, "operador")
+    assert "None" not in texto
+    assert "venda coberta" in texto
+    assert "put de proteção" in texto
+    assert "collar (call vendida + put comprada)" in texto
+    assert "opção a descoberto" in texto
+    assert "call 30.0 / put 25.0" in texto
+
+
+def test_narrativa_user_usa_rotulo_premio_liquido_unitario():
+    top = [_sintetico_por_tipo("call_coberta", 1)]
+    texto = opcoes_curadoria.narrativa_user(top, "operador")
+    assert "prêmio líquido unitário" in texto.lower()
+
+
+@pytest.mark.parametrize("modo", ["operador", "estudo"])
+def test_narrativa_system_proibe_tratar_premio_negativo_como_receita(modo):
+    texto = opcoes_curadoria.narrativa_system(modo)
+    assert "receita" in texto.lower()
+    assert "negativo" in texto.lower()
 
 
 # ─────────────────────────────────────────────────────────────────────────
