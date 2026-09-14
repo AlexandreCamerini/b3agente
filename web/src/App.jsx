@@ -7404,6 +7404,43 @@ function DeepModal({ t, d, onClose, onAvaliar, cp }) {
   );
 }
 
+// FASE 29 (D2) — card do flag de opção a descoberto em Preferências.
+// Componente próprio (não inline em ConfigScreen) porque precisa de um
+// useState (termoOpen) para o modal — mesma solução de ModoTrabalhoCard.
+// Assimetria deliberada: LIGAR sempre passa pelo termo; DESLIGAR é um toque
+// direto, sem modal, sem confirmação — mesma simetria de "voltar ao Estudo
+// é livre" do Modo Operador (App.jsx:2240).
+function OpcaoDescobertoCard({ ctx }) {
+  const { data, A } = ctx;
+  const c = data.config || {};
+  const [termoOpen, setTermoOpen] = useState(false);
+  const ligado = !!c.permitirOpcaoADescoberto;
+  const onToggle = () => {
+    if (!ligado) { setTermoOpen(true); return; } // LIGAR: sempre pelo termo
+    A.saveConfig({ permitirOpcaoADescoberto: false }); // DESLIGAR: livre, sem modal
+  };
+  return (
+    <div style={{ ...card, padding: "17px 18px", marginBottom: "16px" }}>
+      <div style={{ fontSize: "13px", fontWeight: 800, letterSpacing: "0.04em", color: T.accent }}>OPÇÕES A DESCOBERTO</div>
+      <p style={{ margin: "6px 0 14px", color: T.textMuted, fontSize: "12.5px", lineHeight: 1.5, maxWidth: "560px" }}>
+        O padrão desta conta é operar opção COM lastro de ações. Ligar isto libera abrir
+        posição de opção SEM lastro, que pode perder o prêmio inteiro — inclusive por
+        vencimento a zero, sem nenhum stop ter sido rompido.
+      </p>
+      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+        <Toggle on={ligado} onClick={onToggle} label="Operar opções a descoberto" />
+        <div style={{ fontSize: "13px", fontWeight: 600 }}>Operar opções a descoberto</div>
+      </div>
+      <div style={{ fontSize: "11.5px", color: T.textMuted, marginTop: "9px", lineHeight: 1.5 }}>
+        {ligado
+          ? <>Termo aceito em {(c.descobertoTermo || {}).aceitoEm ? String(c.descobertoTermo.aceitoEm).slice(0, 10) : "—"} (v{(c.descobertoTermo || {}).versao || "?"}).</>
+          : <>Desligado — a compra a seco em Watchlist/Radar é recusada até você ligar aqui.</>}
+      </div>
+      {termoOpen && <TermoDescobertoModal ctx={ctx} onClose={() => setTermoOpen(false)} />}
+    </div>
+  );
+}
+
 function ConfigScreen({ ctx }) {
   const { data, A, themePref } = ctx;
   const c = data.config;
@@ -7537,6 +7574,8 @@ function ConfigScreen({ ctx }) {
           </div>
         );
       })()}
+
+      <OpcaoDescobertoCard ctx={ctx} />
 
       {/* Ponto único do aviso completo + boas-vindas */}
       <div style={{ display: "flex", gap: "10px", marginTop: "16px", flexWrap: "wrap" }}>
