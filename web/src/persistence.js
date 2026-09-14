@@ -55,6 +55,12 @@ function dlog(stage, info) { if (dbgOn()) { try { console.log("[b3:add:" + stage
 // stores, CLAUDE.md).
 const CAP_REJEICOES_LOCAL = 100;
 
+// FASE 29: mensagem única do gate de opção a descoberto — espelho byte a
+// byte de server/app/store.py:MOTIVO_DESCOBERTO_DESLIGADO. Guardião
+// web/tests/test_opcao_descoberto_store.mjs lê os dois arquivos do disco e
+// compara os literais; NÃO redigite esta string sem atualizar lá também.
+const MOTIVO_DESCOBERTO_DESLIGADO = "Operar opções a descoberto está desligado — ligue o flag em Preferências → Operar opções a descoberto. Lastro obrigatório é o padrão desta conta.";
+
 // Fase B1: insere/atualiza o snapshot do dia (chave = `data`), sem duplicar.
 // FASE 2 (2.4): contexto de ENTRADA registrado na compra (setup do STU da F1)
 // — espelho exato de store.py._sanitize_trade_meta: só campos conhecidos,
@@ -1219,6 +1225,19 @@ function deviceStore() {
         out.priceUsed = r && r.priceUsed;
         return out;
       }
+      // FASE 29 (SC-1/SC-2, T-29-06): gate do ramo LOCAL — mesma regra do
+      // motor no servidor (store.buy_option). Vem ANTES do fetch da cadeia
+      // por duas razões: 1. uma compra já proibida não pode queimar
+      // requisição do provedor de opções (orçamento brapi de 15k/mês para o
+      // app inteiro, ADR-008); 2. o gate não depende de preço nenhum, nada
+      // se ganha esperando. `price` é null de propósito (convenção da casa:
+      // null, nunca 0.0, para valor desconhecido no momento da rejeição).
+      if (!doc.config.permitirOpcaoADescoberto) {
+        const qtyRejeitada = Math.max(100, Math.round((body.qty || 0) / 100) * 100);
+        _registrarRejeicaoLocal("COMPRA", body.contractSymbol, qtyRejeitada, null, MOTIVO_DESCOBERTO_DESLIGADO);
+        write();
+        throw new Error(MOTIVO_DESCOBERTO_DESLIGADO);
+      }
       const chain = await api.optionsChain(body.underlying, body.expiration);
       if (chain.providerStatus !== "ok") throw new Error("Cotação de opções indisponível no momento — tente novamente.");
       const contrato = [...(chain.calls || []), ...(chain.puts || [])].find((c) => c.contractSymbol === body.contractSymbol);
@@ -1255,6 +1274,13 @@ function deviceStore() {
     },
     async optionsSell(body) {
       ensure();
+      // FASE 29 (SC-4, T-29-07): NUNCA gateado pelo flag — fechar uma
+      // posição já aberta não pode ser bloqueado, mesmo se o flag foi
+      // desligado depois da abertura (guardrail do CLAUDE.md: "Stop/alvo
+      // nunca são vetados... a UI sempre permite Aplicar proteção"). Nenhuma
+      // linha abaixo muda por causa da FASE 29. Guardião: source assertion +
+      // sequência ligar→comprar→desligar→vender em
+      // web/tests/test_opcao_descoberto_store.mjs.
       if (sync.hasSession()) {
         const r = await api.optionsSell(body);
         _adotarCarteiraDoServidor(r);
