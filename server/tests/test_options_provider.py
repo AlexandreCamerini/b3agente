@@ -13,6 +13,7 @@ O que estes testes protegem:
     orçamento do mydata nunca é sequer consultado.
 """
 import asyncio
+import datetime as dt
 
 import pytest
 
@@ -94,6 +95,11 @@ def test_get_options_despacha_para_yahoo_por_default_sem_chamar_mydata(monkeypat
 # ---------------------------------------------------------------------------
 def test_payload_ok_mydata_contem_todas_as_chaves_de_topo_do_payload_ok_yahoo(monkeypatch):
     from app import options_provider_mydata
+
+    # 260914-b6p: fixa `hoje` para `2026-09-19` (vencimento único do fake)
+    # continuar sendo um FUTURO válido independente de quando a suíte roda —
+    # mesma data/motivo do monkeypatch em test_options_provider_mydata.py.
+    monkeypatch.setattr(options_provider_mydata, "hoje_brt", lambda: dt.date(2026, 9, 14))
 
     async def fake_vencimentos(ticker, pregao=None, *, fetch_json=None):
         return [{"dt_vencimento": "2026-09-19", "vence_no_pregao": 0}]

@@ -18,17 +18,30 @@ O que estes testes protegem:
     (OPTGATE-01 / WR-01 do `09-REVIEW.md`, Fase 0/Plano 02).
 Offline: `monkeypatch.setattr(provider.mydata_client, "get_vencimentos"/
 "get_options_chain", fake)` — nenhum teste toca rede.
+
+Correção 260914-b6p (seleção de vencimento por data, não por flag da fonte):
+`_HOJE` fixa o dia de TODA chamada de `get_options` neste arquivo via
+`hoje_brt` monkeypatchado — é a data REAL medida em produção
+(`railway run`, 2026-09-14). Sem isso, as fixtures antigas (`2026-09-19`/
+`2026-10-17`) viram passado em semanas e a suíte vira bomba de tempo, já que
+a escolha agora depende do relógio.
 """
 import asyncio
+import datetime as dt
 
 import pytest
 
 from app import mydata_budget, options_provider_mydata as provider
 from app.options_quant import liquidity_score
 
+# Data REAL da medição de produção (railway run, 2026-09-14) que expôs o bug
+# de seleção de vencimento — fixada aqui para a suíte nunca virar bomba de
+# tempo (decisão 260914-b6p).
+_HOJE = dt.date(2026, 9, 14)
+
 
 @pytest.fixture(autouse=True)
-def _cache_limpo():
+def _cache_limpo(monkeypatch):
     provider._cache.clear()
     # Reset do orçamento em TODO teste deste arquivo, não só nos que testam
     # o gate — a partir desta entrega `get_options` sempre consulta a cota
@@ -36,6 +49,10 @@ def _cache_limpo():
     # testes de contrato/cache pré-existentes não devem ficar reféns de
     # ordem de execução nem de estado deixado por outro arquivo de teste.
     mydata_budget.reset()
+    # 260914-b6p: fixa `hoje` de toda chamada de `get_options` deste arquivo
+    # em `_HOJE`, para nenhuma das ~30 chamadas existentes precisar passar
+    # `hoje=` explicitamente.
+    monkeypatch.setattr(provider, "hoje_brt", lambda: _HOJE)
     yield
     provider._cache.clear()
     mydata_budget.reset()
@@ -106,7 +123,11 @@ def test_expirations_saem_da_lista_de_vencimentos_em_ordem(monkeypatch):
     assert data["expirations"] == ["2026-09-19", "2026-10-17"]
 
 
-def test_sem_expiration_escolhe_primeiro_vencimento_que_nao_vence_no_pregao(monkeypatch):
+def test_sem_expiration_escolhe_o_primeiro_vencimento_futuro(monkeypatch):
+    # RENOMEADO 260914-b6p (era ..._que_nao_vence_no_pregao): a assertion
+    # continua `2026-09-19`, mas agora pelo motivo certo — `2026-08-25` é
+    # PASSADO em relação a `_HOJE` (2026-09-14), não porque o flag da fonte
+    # era 1. Medição de produção mostrou o flag sempre 0; ele não decide mais.
     _patch(monkeypatch, vencimentos=[
         {"dt_vencimento": "2026-08-25", "vence_no_pregao": 1},
         {"dt_vencimento": "2026-09-19", "vence_no_pregao": 0},
@@ -115,13 +136,147 @@ def test_sem_expiration_escolhe_primeiro_vencimento_que_nao_vence_no_pregao(monk
     assert data["expiration"] == "2026-09-19"
 
 
-def test_todos_vencem_no_pregao_escolhe_o_primeiro_da_lista(monkeypatch):
-    _patch(monkeypatch, vencimentos=[
-        {"dt_vencimento": "2026-08-25", "vence_no_pregao": 1},
-        {"dt_vencimento": "2026-08-25", "vence_no_pregao": 1},
-    ])
+def test_todos_vencidos_degrada_sem_chamar_a_cadeia(monkeypatch):
+    # REVERSÃO DELIBERADA 260914-b6p — este guardião ERA
+    # `test_todos_vencem_no_pregao_escolhe_o_primeiro_da_lista` e protegia o
+    # comportamento AGORA ERRADO de servir um vencimento vencido quando todos
+    # os itens da lista tinham o flag ligado. Caiu porque a medição de
+    # produção em 2026-09-14 (railway run) achou esse flag ZERADO em 100% dos
+    # itens reais (BBAS3 27/27, PETR4 31/31) — o comportamento antigo nunca
+    # era exercitado como o teste supunha, e quando o flag realmente estava
+    # ligado, servir o vencido produzia dias NEGATIVOS em `_dias_ate` e
+    # zerava a Fase 14/Fase 30. O que este guardião protege agora: sem
+    # nenhum vencimento futuro na lista, `get_options` degrada (D-04) e
+    # NUNCA chama `get_options_chain` (cota não gasta à toa).
+    chamadas_chain = []
+
+    async def fake_vencimentos(ticker, pregao=None, *, fetch_json=None):
+        return [
+            {"dt_vencimento": "2026-08-25", "vence_no_pregao": 1},
+            {"dt_vencimento": "2026-08-25", "vence_no_pregao": 1},
+        ]
+
+    async def fake_chain(ticker, vencimento=None, pregao=None, tipo=None, *, fetch_json=None):
+        chamadas_chain.append(vencimento)
+        return [_linha_petr4()]
+
+    monkeypatch.setattr(provider.mydata_client, "get_vencimentos", fake_vencimentos)
+    monkeypatch.setattr(provider.mydata_client, "get_options_chain", fake_chain)
     data = asyncio.run(provider.get_options("PETR4"))
-    assert data["expiration"] == "2026-08-25"
+    assert data["providerStatus"] == "degraded"
+    assert "futuro" in data["warning"]
+    assert chamadas_chain == []
+
+
+# ---------------------------------------------------------------------------
+# Regressão 260914-b6p — forma REAL medida em produção (railway run,
+# 2026-09-14): todo item com `vence_no_pregao: 0`, primeiro item no passado.
+# Amostra BBAS3 (27 vencimentos na produção real; aqui os 3 mais próximos).
+# ---------------------------------------------------------------------------
+def _venc_bbas3_real():
+    return [
+        {"dt_vencimento": "2026-09-11", "contratos": 120, "com_sigma": 100,
+         "vence_no_pregao": 0, "menor_strike": 20.0, "maior_strike": 35.0},
+        {"dt_vencimento": "2026-09-18", "contratos": 107, "com_sigma": 91,
+         "vence_no_pregao": 0, "menor_strike": 20.0, "maior_strike": 35.0},
+        {"dt_vencimento": "2026-10-16", "contratos": 60, "com_sigma": 50,
+         "vence_no_pregao": 0, "menor_strike": 20.0, "maior_strike": 35.0},
+    ]
+
+
+def test_forma_real_de_producao_escolhe_futuro_e_nao_o_vencido(monkeypatch):
+    _patch(monkeypatch, vencimentos=_venc_bbas3_real())
+    data = asyncio.run(provider.get_options("BBAS3"))
+    assert data["expiration"] == "2026-09-18"
+    assert data["expiration"] != "2026-09-11"
+
+
+def test_forma_real_de_producao_propriedade_dura_expiration_e_estritamente_futuro(monkeypatch):
+    _patch(monkeypatch, vencimentos=_venc_bbas3_real())
+    data = asyncio.run(provider.get_options("BBAS3"))
+    assert dt.date.fromisoformat(data["expiration"]) > _HOJE
+
+
+def test_lista_fora_de_ordem_escolhe_o_futuro_mais_proximo(monkeypatch):
+    # D-05: `sorted()` defensivo — a ordem da lista é contrato de terceiro
+    # não documentado.
+    _patch(monkeypatch, vencimentos=[
+        {"dt_vencimento": "2026-10-16", "vence_no_pregao": 0},
+        {"dt_vencimento": "2026-09-18", "vence_no_pregao": 0},
+    ])
+    data = asyncio.run(provider.get_options("BBAS3"))
+    assert data["expiration"] == "2026-09-18"
+
+
+def test_vencimento_igual_a_hoje_nao_e_escolhido_futuro_estrito(monkeypatch):
+    _patch(monkeypatch, vencimentos=[
+        {"dt_vencimento": _HOJE.isoformat(), "vence_no_pregao": 0},
+        {"dt_vencimento": "2026-10-16", "vence_no_pregao": 0},
+    ])
+    data = asyncio.run(provider.get_options("BBAS3"))
+    assert data["expiration"] == "2026-10-16"
+
+
+def test_vence_no_pregao_ligado_num_futuro_nao_impede_a_escolha(monkeypatch):
+    # D-02, guardião de que o flag saiu da decisão: mesmo LIGADO (1) num
+    # vencimento futuro, ele continua elegível.
+    _patch(monkeypatch, vencimentos=[
+        {"dt_vencimento": "2026-09-18", "vence_no_pregao": 1},
+        {"dt_vencimento": "2026-10-16", "vence_no_pregao": 0},
+    ])
+    data = asyncio.run(provider.get_options("BBAS3"))
+    assert data["expiration"] == "2026-09-18"
+
+
+def test_item_com_dt_vencimento_malformado_e_ignorado_sem_levantar(monkeypatch):
+    _patch(monkeypatch, vencimentos=[
+        {"dt_vencimento": None, "vence_no_pregao": 0},
+        {"dt_vencimento": "31/12/2026", "vence_no_pregao": 0},
+        {"dt_vencimento": "2026-09-18", "vence_no_pregao": 0},
+    ])
+    data = asyncio.run(provider.get_options("BBAS3"))
+    assert data["providerStatus"] == "ok"
+    assert data["expiration"] == "2026-09-18"
+
+
+def test_expiration_explicito_vencido_continua_honrado(monkeypatch):
+    # D-03: fechar posição vencida não pode ser bloqueado — só o ramo `else`
+    # (sem `expiration`) muda com esta correção.
+    chamadas = []
+
+    async def fake_chain(ticker, vencimento=None, pregao=None, tipo=None, *, fetch_json=None):
+        chamadas.append(vencimento)
+        return [_linha_petr4(dt_vencimento="2026-09-11")]
+
+    _patch(monkeypatch, vencimentos=_venc_bbas3_real())
+    monkeypatch.setattr(provider.mydata_client, "get_options_chain", fake_chain)
+    data = asyncio.run(provider.get_options("BBAS3", expiration="2026-09-11"))
+    assert chamadas == ["2026-09-11"]
+    assert data["expiration"] == "2026-09-11"
+    assert data["providerStatus"] == "ok"
+
+
+def test_cache_nao_reusa_entre_dias_diferentes_para_ramo_sem_expiration(monkeypatch):
+    chamadas_venc = []
+
+    async def fake_vencimentos(ticker, pregao=None, *, fetch_json=None):
+        chamadas_venc.append(1)
+        return _venc_bbas3_real() + [
+            {"dt_vencimento": "2026-11-13", "vence_no_pregao": 0},
+        ]
+
+    async def fake_chain(ticker, vencimento=None, pregao=None, tipo=None, *, fetch_json=None):
+        return [_linha_petr4()]
+
+    monkeypatch.setattr(provider.mydata_client, "get_vencimentos", fake_vencimentos)
+    monkeypatch.setattr(provider.mydata_client, "get_options_chain", fake_chain)
+
+    primeira = asyncio.run(provider.get_options("PETR4", hoje=dt.date(2026, 9, 14)))
+    segunda = asyncio.run(provider.get_options("PETR4", hoje=dt.date(2026, 9, 20)))
+
+    assert primeira["expiration"] == "2026-09-18"
+    assert segunda["expiration"] == "2026-10-16"
+    assert len(chamadas_venc) == 2
 
 
 def test_expiration_pedido_presente_vai_no_filtro_da_chamada_de_cadeia(monkeypatch):
