@@ -34,9 +34,31 @@ A-05/A-06/A-07):
   • a recusa por cota NUNCA é escrita em `_cache` — a janela do minuto
     libera em até 60s; cachear a recusa pelo TTL de erro (60s) ou de
     sucesso (300s) estenderia a indisponibilidade muito além da causa real.
+
+Correção 260914-b6p — seleção de vencimento por DATA, não pelo flag de
+vencimento-no-pregão da fonte: medição de produção em 2026-09-14 (`railway
+run`) achou esse flag zerado (falsy) em 100% dos itens de BBAS3 (27/27) e
+PETR4 (31/31), inclusive no vencimento já passado — o filtro antigo não
+filtrava nada e `escolhido` virava o primeiro item cru da lista, sem nenhuma
+comparação contra hoje. Efeito: em 2026-09-14 a função escolhia `2026-09-11`
+(3 dias no passado), o que fazia `_dias_ate` (`opcoes_lastreadas.py`)
+computar dias NEGATIVOS e zerava toda proposta de venda coberta (Fase 14) e a
+curadoria de 4 melhores (Fase 30). Decisões:
+  D-01 `hoje` entra por argumento opcional, default `hoje_brt()` (offset BRT
+       fixo, não `date.today()` — o container Railway roda em UTC);
+  D-02 o flag de vencimento-no-pregão sai da decisão — campo não confiável
+       (100% zerado em produção), mas permanece no payload cru/`_clean_contract`
+       sob o mesmo nome de chave de sempre;
+  D-03 `expiration` EXPLÍCITO continua honrado mesmo vencido (fechar posição
+       vencida não pode ser bloqueado);
+  D-04 sem nenhum vencimento futuro → degrada ANTES da segunda perna de rede
+       (`get_options_chain` nunca chamado, cota não gasta à toa);
+  D-05 `sorted()` defensivo — a ordem da lista é contrato de terceiro não
+       documentado; "o primeiro futuro" só é o mais próximo se ordenado.
 """
 from __future__ import annotations
 
+import datetime as dt
 import time
 from typing import Optional
 
@@ -46,6 +68,15 @@ from .tickers import normalize_ticker
 _OPTIONS_TTL = 300
 _ERROR_TTL = 60
 _cache: dict[str, tuple[float, dict]] = {}
+
+# Precedente: options_provider_mock.py:31-42 (decisão 260911-dtx) — offset BRT
+# fixo, nunca `dt.date.today()`: o container Railway roda em UTC e o dia
+# naive vira às 21:00 BRT, desalinhando a cadeia do que o usuário vê.
+BRT = dt.timezone(dt.timedelta(hours=-3))
+
+
+def hoje_brt() -> dt.date:
+    return dt.datetime.now(BRT).date()
 
 
 MYDATA_OPTIONS_WARNING = (
@@ -57,6 +88,11 @@ MYDATA_OPTIONS_WARNING = (
 MYDATA_ORCAMENTO_WARNING = (
     "A consulta à cadeia de opções foi adiada para respeitar o limite de "
     "requisições do hub de dados da B3. Tente novamente em instantes."
+)
+
+MYDATA_SEM_VENCIMENTO_FUTURO_WARNING = (
+    "Não há vencimento futuro publicado para este ativo no acervo oficial "
+    "da B3 — o último vencimento disponível já venceu."
 )
 
 
@@ -144,6 +180,29 @@ def _gate(n: int = 2) -> Optional[str]:
     return None
 
 
+def _primeiro_vencimento_futuro(venc: list, hoje: dt.date) -> Optional[str]:
+    """Escolhe o vencimento ESTRITAMENTE futuro mais próximo de `hoje`,
+    espelhando `opcoes_lastreadas._dias_ate` (mesmo padrão `dt.date.
+    fromisoformat` + `try/except (TypeError, ValueError)`, item malformado é
+    ignorado, nunca levanta). O flag de vencimento-no-pregão da fonte NÃO
+    participa (D-02 — 100% zerado na amostra de produção). `sorted()`
+    defensivo (D-05): a ordem da lista é contrato de terceiro não
+    documentado."""
+    candidatos: list[tuple[dt.date, str]] = []
+    for v in venc:
+        raw = v.get("dt_vencimento")
+        try:
+            d = dt.date.fromisoformat(raw)
+        except (TypeError, ValueError):
+            continue
+        if d > hoje:
+            candidatos.append((d, raw))
+    if not candidatos:
+        return None
+    candidatos.sort(key=lambda item: item[0])
+    return candidatos[0][1]
+
+
 def _debita(n: int = 1) -> bool:
     """Debita `n` imediatamente antes de CADA requisição de rede — mesma
     posição que `candle_provider._debita` ocupa (nunca depois da chamada).
@@ -160,9 +219,16 @@ def _debita(n: int = 1) -> bool:
     return mydata_budget.reservar(n)
 
 
-async def get_options(ticker: str, expiration: Optional[str] = None) -> dict:
+async def get_options(ticker: str, expiration: Optional[str] = None,
+                       hoje: Optional[dt.date] = None) -> dict:
+    hoje_efetivo = hoje or hoje_brt()
     t = normalize_ticker(ticker)
-    key = f"{t}:{expiration or 'first'}"
+    # Chave carrega o dia (D-01/D-05): "primeiro vencimento" agora depende de
+    # `hoje_efetivo` — sem isso, um payload cacheado às 23:58 BRT poderia
+    # servir por até 5min (TTL 300s) um vencimento que virou passado à
+    # meia-noite. `expiration` explícito não muda com o dia, então mantém a
+    # chave antiga (D-03).
+    key = f"{t}:{expiration}" if expiration else f"{t}:first@{hoje_efetivo.isoformat()}"
     hit = _cache.get(key)
     if hit and (time.time() - hit[0]) < _OPTIONS_TTL:
         return hit[1]
@@ -210,8 +276,16 @@ async def get_options(ticker: str, expiration: Optional[str] = None) -> dict:
                 return payload
             escolhido = expiration
         else:
-            nao_vence_hoje = [v for v in venc if not v.get("vence_no_pregao")]
-            escolhido = (nao_vence_hoje[0] if nao_vence_hoje else venc[0]).get("dt_vencimento")
+            escolhido = _primeiro_vencimento_futuro(venc, hoje_efetivo)
+            if escolhido is None:
+                # D-04: sem nenhum vencimento futuro, degrada ANTES da
+                # segunda perna de rede — a requisição de vencimentos já
+                # saiu, mas `get_options_chain`/segundo `_debita()` nunca
+                # rodam (o contador não infla o que não foi gasto, A-08).
+                payload = _empty_payload(
+                    ticker, expiration, MYDATA_SEM_VENCIMENTO_FUTURO_WARNING)
+                _cache[key] = (time.time() - (_OPTIONS_TTL - _ERROR_TTL), payload)
+                return payload
 
         if not _debita():
             # WR-01: mesma degradação do primeiro ponto de commit — a
