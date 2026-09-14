@@ -45,6 +45,14 @@ def _cadeia_6_calls_liquidas():
     return _cadeia(calls=calls)
 
 
+def _cadeia_calls_e_puts_liquidas():
+    """Fase 31, Plano 01 (Task 2): cadeia com calls OTM acima do spot e puts
+    OTM abaixo do spot, todas líquidas por padrão de `_contrato`."""
+    calls = [_contrato(f"C{s}", "call", s, price=1.5) for s in (30, 31, 32)]
+    puts = [_contrato(f"P{s}", "put", s, price=1.0) for s in (26, 27, 28)]
+    return _cadeia(calls=calls, puts=puts)
+
+
 def _posicao(qty=200, qty_travada=0):
     return {"t": "PETR4", "qty": qty, "qtyTravada": qty_travada, "pm": 25.0}
 
@@ -59,10 +67,18 @@ def test_modulo_nao_importa_camadas_de_rede():
         assert banido not in src, f"{banido!r} não pode aparecer em opcoes_curadoria.py"
 
 
-def test_nenhum_filtro_put_no_arquivo():
+def test_filtro_de_put_existe_desde_a_fase_31_d04():
+    # ATUALIZADO Fase 31, Plano 01 (D-04, 2026-09-14): este guardião se
+    # chamava `test_nenhum_filtro_put_no_arquivo` e provava o OPOSTO — Fase
+    # 30/D1 proibia qualquer filtro de PUT, porque o universo era só venda
+    # coberta. A Fase 31 reverteu essa decisão de propósito (put de proteção
+    # e collar entram na varredura) — reversão deliberada atualiza o
+    # guardião com nota, não apaga a história (mesma disciplina já usada
+    # noutros pontos desta base). Este teste agora prova que o filtro de put
+    # PRECISA existir.
     src = open(opcoes_curadoria.__file__).read()
     linhas_sem_comentario = [l for l in src.splitlines() if not l.strip().startswith("#")]
-    assert not any('"tipo": "put"' in l for l in linhas_sem_comentario)
+    assert any('"tipo": "put"' in l for l in linhas_sem_comentario)
 
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -183,6 +199,99 @@ def test_nenhuma_chamada_de_rede_cadeia_em_memoria_basta():
     candidatos = opcoes_curadoria.candidatos_da_posicao(
         "PETR4", chain, _SPOT, _posicao(), "operador", _HOJE, n=3)
     assert len(candidatos) == 3
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# put_protecao / collar — Fase 31, Plano 01, Task 2 (D-04)
+# ─────────────────────────────────────────────────────────────────────────
+
+def test_cadeia_com_puts_gera_put_protecao_e_collar_alem_de_call_coberta():
+    chain = _cadeia_calls_e_puts_liquidas()
+    candidatos = opcoes_curadoria.candidatos_da_posicao(
+        "PETR4", chain, _SPOT, _posicao(qty=200), "operador", _HOJE)
+    tipos = {c["tipo"] for c in candidatos}
+    assert tipos == {"call_coberta", "put_protecao", "collar"}
+
+
+def test_put_protecao_tem_premio_e_razao_negativos_e_permanece_na_lista():
+    chain = _cadeia_calls_e_puts_liquidas()
+    candidatos = opcoes_curadoria.candidatos_da_posicao(
+        "PETR4", chain, _SPOT, _posicao(qty=200), "operador", _HOJE)
+    puts = [c for c in candidatos if c["tipo"] == "put_protecao"]
+    assert puts, "cadeia com puts líquidas precisa gerar candidatos put_protecao"
+    for c in puts:
+        assert c["premioUnitario"] < 0
+        assert c["razao"] < 0
+        assert c["premioTotal"] < 0
+        # D-06: rankeado mal, mas NUNCA filtrado por prêmio negativo.
+        assert isinstance(c["razao"], float)
+
+
+def test_collar_tem_contractsymbol_none_strikes_pernas_e_id():
+    chain = _cadeia_calls_e_puts_liquidas()
+    candidatos = opcoes_curadoria.candidatos_da_posicao(
+        "PETR4", chain, _SPOT, _posicao(qty=200), "operador", _HOJE)
+    collars = [c for c in candidatos if c["tipo"] == "collar"]
+    assert collars, "cadeia com calls e puts líquidas precisa gerar candidatos collar"
+    for c in collars:
+        assert c["contractSymbol"] is None
+        assert c["optionType"] is None
+        assert c["strike"] is None
+        assert c["strikeCall"] is not None
+        assert c["strikePut"] is not None
+        assert len(c["pernasContratos"]) == 2
+        for perna in c["pernasContratos"]:
+            assert perna["contractSymbol"] is not None
+            assert perna["lado"] in ("venda", "compra")
+        assert c["idCandidato"]
+        assert c["idCandidato"] == opcoes_curadoria.id_candidato(
+            "collar", "PETR4", chain["expiration"], None,
+            strike_call=c["strikeCall"], strike_put=c["strikePut"])
+
+
+def test_sem_put_liquida_nao_gera_put_protecao_nem_collar_mas_call_coberta_sim():
+    chain = _cadeia_6_calls_liquidas()  # só calls, sem puts
+    candidatos = opcoes_curadoria.candidatos_da_posicao(
+        "PETR4", chain, _SPOT, _posicao(qty=200), "operador", _HOJE)
+    tipos = {c["tipo"] for c in candidatos}
+    assert "put_protecao" not in tipos
+    assert "collar" not in tipos
+    assert "call_coberta" in tipos
+
+
+def test_put_com_optiontype_invalido_e_pulada_demais_sobrevivem():
+    # `rastrear()` só filtra por preço/liquidez, não por `optionType` — um
+    # contrato com `optionType` corrompido passa a seleção e só falha dentro
+    # de `perna_de_contrato` (ValueError), exatamente o cenário que o
+    # try/except deste ramo precisa tolerar sem derrubar os demais
+    # candidatos (mesma postura do ramo call_coberta, Task 1).
+    put_ruim = _contrato("P26", "put", 26, price=1.0, optionType="invalido")
+    put_boa = _contrato("P27", "put", 27, price=1.0)
+    calls = [_contrato("C30", "call", 30, price=1.5)]
+    chain = _cadeia(calls=calls, puts=[put_ruim, put_boa])
+    candidatos = opcoes_curadoria.candidatos_da_posicao(
+        "PETR4", chain, _SPOT, _posicao(qty=200), "operador", _HOJE)
+    puts_gerados = [c for c in candidatos if c["tipo"] == "put_protecao"]
+    assert len(puts_gerados) == 1
+    assert puts_gerados[0]["strike"] == 27
+
+
+def test_ramo_put_protecao_e_collar_usam_a_mesma_porta_de_perda_maxima():
+    # Estrutural, não numérico: a porta `perda_maxima <= 0` (mesmo código de
+    # `test_perda_maxima_zero_descarta_candidato_sem_razao_infinita`) precisa
+    # se repetir por ramo — call_coberta, put_protecao, collar — nunca
+    # reescrita como validação frouxa/duplicada por caminho.
+    src = open(opcoes_curadoria.__file__).read()
+    linhas_sem_comentario = [l for l in src.splitlines() if not l.strip().startswith("#")]
+    ocorrencias = sum(1 for l in linhas_sem_comentario if "perda_maxima <= 0" in l)
+    assert ocorrencias >= 3
+
+
+def test_nenhum_parametro_de_caixa_em_candidatos_da_posicao():
+    import inspect
+    assinatura = inspect.signature(opcoes_curadoria.candidatos_da_posicao)
+    assert "cash" not in assinatura.parameters
+    assert "caixa" not in assinatura.parameters
 
 
 # ─────────────────────────────────────────────────────────────────────────

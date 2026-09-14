@@ -297,6 +297,167 @@ def candidatos_da_posicao(
                                          contrato.get("contractSymbol")),
         })
 
+    # ─────────────────────────────────────────────────────────────────
+    # put_protecao / collar — Fase 31, Plano 01, Task 2 (D-04). Segunda
+    # seleção em memória, ZERO chamada de rede nova: mesma cadeia já em
+    # mãos. `liquidez_minima` EXPLÍCITO pelo MESMO motivo (D5) do ramo das
+    # calls acima — sem ele, `rastrear` cairia para a segunda passada
+    # DIFÍCIL, e um contrato DIFÍCIL entraria num ranking lido como "as
+    # melhores oportunidades". Nenhuma porta nova: `selecionados_put` vazio
+    # simplesmente não gera estes dois ramos, os `call_coberta` de cima já
+    # saíram normalmente.
+    selecionados_put = opcoes_motor.rastrear(chain, {
+        "tipo": "put", "referencia": spot, "relacao": "abaixo_ou_igual",
+        "criterio": "max", "n": n, "liquidez_minima": PISO_LIQUIDEZ,
+    })
+
+    for contrato_put in selecionados_put:
+        try:
+            perna_opcao = opcoes_motor.perna_de_contrato(contrato_put, "compra", quantidade=1)
+            pernas = [opcoes_motor.perna_de_acao(underlying, spot, quantidade=1), perna_opcao]
+            estrutura = opcoes_motor.avaliar(pernas)
+        except ValueError:
+            # Mesma tolerância a contrato defeituoso individual do ramo
+            # call_coberta acima — um `optionType` corrompido não derruba a
+            # curadoria da carteira inteira.
+            continue
+
+        perda_maxima = estrutura.get("perda_maxima")
+        if not isinstance(perda_maxima, (int, float)) or isinstance(perda_maxima, bool) or perda_maxima <= 0:
+            continue
+
+        # Débito da compra: NEGATIVO por desenho (D-06) — nunca filtrado.
+        premio_unitario = premio_liquido_unitario([perna_opcao])
+        premio_total = round(premio_unitario * qty_acoes, 2)
+        razao = round(premio_unitario / perda_maxima, 6)
+
+        liq = liquidity_score(contrato_put.get("volume"), contrato_put.get("openInterest"),
+                               contrato_put.get("bid"), contrato_put.get("ask"))
+        strike = contrato_put.get("strike")
+
+        # A frase canônica de put_protecao diz "pagaria R$ {premioTotal}" —
+        # o marcador recebe o MÓDULO (nunca "pagaria R$ -65,00"); o sinal
+        # vive só no campo JSON premioUnitario/premioTotal, não na frase.
+        # Assimetria deliberada, não bug.
+        dados = {
+            "n": str(contratos), "ticker": underlying, "strike": skill_ref.num_br(strike),
+            "premioTotal": skill_ref.num_br(abs(premio_total)), "qtyAcoes": str(qty_acoes),
+        }
+        manchete = skill_ref.opcoes_lastreadas_txt(modo, "put_protecao", **dados)
+        didatica = skill_ref.opcoes_lastreadas_txt("educacional", "put_protecao", **dados)
+
+        candidatos.append({
+            "tipo": "put_protecao",
+            "ticker": underlying,
+            "contractSymbol": contrato_put.get("contractSymbol"),
+            "optionType": contrato_put.get("optionType"),
+            "strike": strike,
+            "expiration": chain.get("expiration"),
+            "diasParaVencimento": dias,
+            "contratos": contratos,
+            "qtyAcoes": qty_acoes,
+            "premioUnitario": premio_unitario,
+            "premioTotal": premio_total,
+            "liquidez": _bloco_liquidez(contrato_put, liq, modo),
+            "estrutura": estrutura,
+            "razao": razao,
+            "manchete": manchete,
+            "didatica": didatica,
+            "precoObjeto": round(float(spot), 2),
+            "idCandidato": id_candidato("put_protecao", underlying, chain.get("expiration"),
+                                         contrato_put.get("contractSymbol")),
+        })
+
+    # collar — usa SEMPRE `selecionados[0]` (a call OTM de menor strike,
+    # mesma régua de `_propor_collar`, opcoes_lastreadas.py:74-78),
+    # combinada com CADA put selecionada.
+    contrato_call_collar = selecionados[0]
+    for contrato_put in selecionados_put:
+        try:
+            perna_call = opcoes_motor.perna_de_contrato(contrato_call_collar, "venda", quantidade=1)
+            perna_put = opcoes_motor.perna_de_contrato(contrato_put, "compra", quantidade=1)
+            pernas_opcao = [perna_call, perna_put]
+            pernas = [opcoes_motor.perna_de_acao(underlying, spot, quantidade=1), *pernas_opcao]
+            estrutura = opcoes_motor.avaliar(pernas)
+        except ValueError:
+            continue
+
+        perda_maxima = estrutura.get("perda_maxima")
+        if not isinstance(perda_maxima, (int, float)) or isinstance(perda_maxima, bool) or perda_maxima <= 0:
+            continue
+
+        # Crédito quando a call vale mais que a put, débito no caso
+        # contrário — sinal natural, nunca filtrado (D-06).
+        premio_unitario = premio_liquido_unitario(pernas_opcao)
+        premio_total = round(premio_unitario * qty_acoes, 2)
+        razao = round(premio_unitario / perda_maxima, 6)
+
+        strike_call = contrato_call_collar.get("strike")
+        strike_put = contrato_put.get("strike")
+
+        liq_call = liquidity_score(contrato_call_collar.get("volume"), contrato_call_collar.get("openInterest"),
+                                    contrato_call_collar.get("bid"), contrato_call_collar.get("ask"))
+        liq_put = liquidity_score(contrato_put.get("volume"), contrato_put.get("openInterest"),
+                                   contrato_put.get("bid"), contrato_put.get("ask"))
+        # A estrutura só é tão negociável quanto a sua perna PIOR — exibir a
+        # melhor seria otimismo embutido no dado (mesma régua de
+        # `_propor_collar`, opcoes_lastreadas.py:113-124).
+        if liq_call["score"] <= liq_put["score"]:
+            contrato_pior, pior = contrato_call_collar, liq_call
+        else:
+            contrato_pior, pior = contrato_put, liq_put
+
+        dados = {
+            "n": str(contratos), "ticker": underlying,
+            "strikeCall": skill_ref.num_br(strike_call), "strikePut": skill_ref.num_br(strike_put),
+            "qtyAcoes": str(qty_acoes),
+        }
+        manchete = skill_ref.opcoes_lastreadas_txt(modo, "collar", **dados)
+        didatica = skill_ref.opcoes_lastreadas_txt("educacional", "collar", **dados)
+
+        candidatos.append({
+            "tipo": "collar",
+            "ticker": underlying,
+            # O collar não tem CONTRATO único nem STRIKE único — preencher
+            # com o valor de UMA das pernas faria uma estrutura de 2 pernas
+            # se passar por operação de 1 perna só (mesma regra de
+            # `_propor_collar`, "null nunca 0.0").
+            "contractSymbol": None,
+            "optionType": None,
+            "strike": None,
+            "strikeCall": strike_call,
+            "strikePut": strike_put,
+            "pernasContratos": [
+                {"contractSymbol": contrato_call_collar.get("contractSymbol"),
+                 "optionType": contrato_call_collar.get("optionType"), "lado": "venda",
+                 "strike": strike_call,
+                 "premioUnitario": round(float(contrato_call_collar.get("lastPrice") or 0), 2)},
+                {"contractSymbol": contrato_put.get("contractSymbol"),
+                 "optionType": contrato_put.get("optionType"), "lado": "compra",
+                 "strike": strike_put,
+                 "premioUnitario": round(float(contrato_put.get("lastPrice") or 0), 2)},
+            ],
+            "expiration": chain.get("expiration"),
+            "diasParaVencimento": dias,
+            # Sem gate de caixa aqui, ao contrário de `_propor_collar`:
+            # `candidatos_da_posicao` é PURA e não recebe `cash` — a
+            # varredura é DESCOBERTA, o caixa é cobrado na execução
+            # (`store.abrir_collar`). Não "conserte" adicionando um
+            # parâmetro de caixa.
+            "contratos": contratos,
+            "qtyAcoes": qty_acoes,
+            "premioUnitario": premio_unitario,
+            "premioTotal": premio_total,
+            "liquidez": _bloco_liquidez(contrato_pior, pior, modo),
+            "estrutura": estrutura,
+            "razao": razao,
+            "manchete": manchete,
+            "didatica": didatica,
+            "precoObjeto": round(float(spot), 2),
+            "idCandidato": id_candidato("collar", underlying, chain.get("expiration"), None,
+                                         strike_call=strike_call, strike_put=strike_put),
+        })
+
     return candidatos
 
 
