@@ -721,7 +721,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2)*
 
-- [ ] 31-04-PLAN.md — bloco de Posições: rótulo de tipo, chave de render estável, resumo da varredura, curva de payoff do nº 1 via adaptador puro, guardiões atualizados + checkpoint de verificação ao vivo em 375px
+- [x] 31-04-PLAN.md — bloco de Posições: rótulo de tipo, chave de render estável, resumo da varredura, curva de payoff do nº 1 via adaptador puro, guardiões atualizados + checkpoint de verificação ao vivo em 375px
 
 **Consequência conhecida e aceita de D-06** (registrada no plano, não é
 defeito): com uma fórmula só (prêmio líquido ÷ perda máxima), put de
@@ -770,7 +770,7 @@ seções de ranking separadas por objetivo receita vs. proteção (D-06).
 | 28. Sub-aba "Operar" e extração de `PropostaLastreada` | 3/3 | Code complete | 2026-09-13 |
 | 29. Opção a descoberto com flag opt-in | 3/3 | Code complete | 2026-09-13 |
 | 30. Curadoria de IA das 4 melhores estruturas | 0/4 | Planned |  |
-| 31. Varredura de oportunidades de opções | 0/4 | Planned |  |
+| 31. Varredura de oportunidades de opções | 4/4 | Code complete | 2026-09-14 |
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2/v1.3
 

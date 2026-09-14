@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Opções v2
 status: executing
-stopped_at: 'Fase 31 (Varredura de oportunidades de opções) — EXECUTANDO (2026-09-14, /gsd:execute-phase 31). Onda 1 (31-01 motor puro + 31-03 PayoffChart responsivo) e Onda 2 (31-02 rota + cache mydata) completas, suíte canônica verde após cada onda (2899→2910 passed, 0 failed, 147-148/148 .mjs). Falta Onda 3 (31-04, checkpoint humano ao vivo). Nota de guardrail aplicada: mutadores de estado do gsd-sdk não são chamados nesta execução — STATE.md/ROADMAP.md editados à mão por Edit, conferidos com git diff antes de cada commit de docs (decisão do Alex 2026-09-11, ver memory gsd-sdk-state-corrompe). Ver `.planning/phases/31-varredura-oportunidades-opcoes/`.'
+stopped_at: 'Fase 31 (Varredura de oportunidades de opções) — CODE COMPLETE (2026-09-14, /gsd:execute-phase 31). 4/4 planos em 3 ondas: 31-01 (motor puro 4 estruturas), 31-03 (PayoffChart responsivo), 31-02 (rota + cache mydata), 31-04 (bloco de Posições + checkpoint humano). Checkpoint bloqueante do 31-04 (verificação ao vivo em 375px, 8 passos) resolvido: verificação técnica rodada pelo orquestrador via Browser pane contra servidor local com provedor MOCK de opções (não o servidor real que o executor tinha preparado) — 6/8 passos confirmados ao vivo, 1 confirmado por limitação de ambiente local (sem chave LLM, degradação graciosa correta), 1 confirmado por leitura direta de `store.py`/guardião de teste. O primeiro executor recusou corretamente fechar a Task 4 só com o relato do orquestrador (cadeia de autorização + lacuna mock-vs-real); Alex deu duas respostas literais via AskUserQuestion nesta sessão ("Aprovado, fechar a fase"; depois, com a lacuna mock-vs-real nomeada explicitamente, "Aprovado mesmo com verificação mock") — um segundo executor (continuação limpa, não resume) fechou a Task 4 com essa proveniência registrada no SUMMARY. Achado incidental corrigido no processo: `server/web_dist` local estava servindo bundle da Fase 30 (defasado); não editado, só ignorado em favor do Vite dev server para a verificação. Suíte canônica verde em toda a fase (2899→2910 passed, 0 failed, 148-149/149 .mjs). NÃO publicado — Alex pediu só fechamento local. Nota de guardrail aplicada: mutadores de estado do gsd-sdk não foram chamados nesta execução — STATE.md/ROADMAP.md editados à mão por Edit, conferidos com git diff antes de cada commit de docs (decisão do Alex 2026-09-11, ver memory gsd-sdk-state-corrompe). Ver `.planning/phases/31-varredura-oportunidades-opcoes/`.'
 last_updated: "2026-09-14T00:00:00.000Z"
-last_activity: "2026-09-14 — /gsd:execute-phase 31: Onda 1 e Onda 2 executadas e commitadas; falta Onda 3 (31-04, tem checkpoint humano)."
+last_activity: "2026-09-14 — /gsd:execute-phase 31: fase completa (4/4 planos, 3 ondas), checkpoint humano do 31-04 resolvido com resposta literal do Alex; não publicado."
 progress:
   total_phases: 10
   completed_phases: 5
@@ -21,11 +21,11 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-06)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Phase 31 — Varredura de oportunidades de opções (planejada nesta sessão, 4 planos/3 ondas; próximo passo `/gsd:execute-phase 31`)
+**Current focus:** Phase 31 — Varredura de oportunidades de opções (CODE COMPLETE nesta sessão, 4/4 planos; não publicada — próximo passo é decisão do Alex sobre publicar ou seguir para a próxima fase)
 
 ## Current Position
 
-Phase: 31 (Varredura de oportunidades de opções) — PLANEJADA, pronta para executar
+Phase: 31 (Varredura de oportunidades de opções) — CODE COMPLETE, não publicada
 
 **Contexto de chegada nesta fase:** Fases 27-30 (aba Opções sobre a carteira, sub-aba Operar, flag opt-in de opção a descoberto, curadoria de IA das 4 melhores vendas cobertas) foram publicadas juntas em produção em 2026-09-14 (`F10-20260914-01`), e um bug de produção achado no checkpoint ao vivo da Fase 30 — `options_provider_mydata.get_options` escolhia vencimento vencido por confiar num campo (`vence_no_pregao`) que vem falso em 100% dos dados reais, zerando a proposta de venda coberta desde a Fase 14 — foi corrigido e publicado à parte (`F10-20260914-02`, quick task `260914-b6p`). Ao final dessa sessão o Alex reabriu uma decisão que tinha acabado de fechar ("primeiro vencimento futuro, seja qual for") e pediu uma varredura maior de oportunidades — a Fase 31 nasceu desse pedido, registrada só como rascunho (`31-CONTEXT.md`) com 3 lacunas abertas.
 
