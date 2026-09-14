@@ -561,6 +561,17 @@ OPCOES_LASTREADAS = {
         # abatimento é parcial — afirmar financiamento completo é a promessa
         # que o CLAUDE.md proíbe.
         "collar": "Vender {n} call(s) de {ticker} strike {strikeCall} e comprar {n} put(s) strike {strikePut} sobre {qtyAcoes} ação(ões) — trava protetora: o prêmio da call abate o custo da put.",
+        # Fase 31, Plano 01 (D-05): quarta estrutura da varredura de
+        # oportunidades — compra de call a seco (mesma mecânica da Fase 29,
+        # `store.buy_option`), sem nenhuma ação como lastro. Esta frase só é
+        # emitida pela varredura quando `permitirOpcaoADescoberto` está
+        # ligado na conta; o gate mora em `opcoes_curadoria.
+        # candidatos_da_posicao` (parâmetro `permitir_a_descoberto`), não
+        # aqui — este dict só guarda o TEXTO, nunca a decisão de exibir.
+        # Fala como mesa (verbo de ordem), risco máximo nomeado explícito:
+        # sem promessa de lucro/enriquecimento (princípios 6 e 8 do
+        # CLAUDE.md).
+        "opcao_a_descoberto": "Comprar {n} call(s) de {ticker} strike {strike} a seco por R$ {premioTotal} — sem lastro em ações: o risco máximo é todo o prêmio pago.",
         "sem_lastro": "Sem posição em {ticker} na carteira — venda coberta e put de proteção exigem uma posição real do ativo-lastro.",
         "sem_setup": "A leitura técnica de {ticker} não indica venda coberta nem put de proteção agora. A cadeia completa continua disponível abaixo.",
         "degradado": "Proposta indisponível — cotação de opções degradada.",
@@ -587,6 +598,10 @@ OPCOES_LASTREADAS = {
         # reais do registro operador acima (ver comentário lá) — condição
         # descrita, nunca ordem, e sem promessa de financiamento completo.
         "collar": "Se você tivesse montado esta trava protetora agora, {qtyAcoes} ação(ões) ficariam protegidas contra queda abaixo de R$ {strikePut} e o ganho ficaria limitado a partir de R$ {strikeCall} — o prêmio da call vendida abate o custo da put comprada.",
+        # Fase 31, Plano 01 (D-05): mesmo registro condicional de
+        # `put_protecao` acima — condição, nunca ordem. Ver comentário do
+        # registro `operador` sobre o gate (`permitirOpcaoADescoberto`).
+        "opcao_a_descoberto": "Se você tivesse comprado esta call a seco agora, pagaria R$ {premioTotal} e perderia todo esse valor se a opção virasse pó no vencimento — nenhuma ação sua entra como lastro.",
         "sem_lastro": "Sem posição em {ticker} na carteira — venda coberta e put de proteção exigem uma posição real do ativo-lastro.",
         "sem_setup": "A leitura técnica de {ticker} não indica venda coberta nem put de proteção agora. A cadeia completa continua disponível abaixo.",
         "degradado": "Proposta indisponível — cotação de opções degradada.",

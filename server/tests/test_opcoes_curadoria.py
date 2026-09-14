@@ -9,7 +9,7 @@ import random
 
 import pytest
 
-from app import opcoes_curadoria, skill_ref
+from app import opcoes_curadoria, opcoes_motor, skill_ref
 
 _SPOT = 29.0
 _HOJE = dt.date(2026, 9, 13)
@@ -183,6 +183,132 @@ def test_nenhuma_chamada_de_rede_cadeia_em_memoria_basta():
     candidatos = opcoes_curadoria.candidatos_da_posicao(
         "PETR4", chain, _SPOT, _posicao(), "operador", _HOJE, n=3)
     assert len(candidatos) == 3
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# premio_liquido_unitario() — Fase 31, Plano 01 (D-06): sinal do prêmio
+# líquido, positivo quando o usuário RECEBE e negativo quando PAGA.
+# ─────────────────────────────────────────────────────────────────────────
+
+def test_premio_liquido_unitario_call_vendida_credito_positivo():
+    perna = opcoes_motor.perna_de_contrato(_contrato("C30", "call", 30, price=1.5), "venda", quantidade=1)
+    assert opcoes_curadoria.premio_liquido_unitario([perna]) == 1.5
+
+
+def test_premio_liquido_unitario_put_comprada_debito_negativo():
+    perna = opcoes_motor.perna_de_contrato(_contrato("P25", "put", 25, price=0.8), "compra", quantidade=1)
+    assert opcoes_curadoria.premio_liquido_unitario([perna]) == -0.8
+
+
+def test_premio_liquido_unitario_collar_sinal_da_diferenca_call_menos_put():
+    perna_call = opcoes_motor.perna_de_contrato(_contrato("C30", "call", 30, price=1.5), "venda", quantidade=1)
+    perna_put = opcoes_motor.perna_de_contrato(_contrato("P25", "put", 25, price=0.8), "compra", quantidade=1)
+    assert opcoes_curadoria.premio_liquido_unitario([perna_call, perna_put]) == round(1.5 - 0.8, 2)
+
+
+def test_premio_liquido_unitario_collar_de_debito_fica_negativo():
+    # put mais cara que a call: crédito da call não cobre o débito da put —
+    # resultado tem de sair negativo, e D-06 exige que isso NÃO seja filtrado.
+    perna_call = opcoes_motor.perna_de_contrato(_contrato("C30", "call", 30, price=0.5), "venda", quantidade=1)
+    perna_put = opcoes_motor.perna_de_contrato(_contrato("P25", "put", 25, price=1.2), "compra", quantidade=1)
+    assert opcoes_curadoria.premio_liquido_unitario([perna_call, perna_put]) == round(0.5 - 1.2, 2)
+
+
+def test_premio_liquido_unitario_call_coberta_refatorada_bate_com_numero_antigo():
+    # A refatoração do ramo call_coberta (Task 1c) precisa devolver o MESMO
+    # número que `round(contrato["lastPrice"], 2)` dava antes desta fase.
+    chain = _cadeia(calls=[_contrato("C30", "call", 30, price=1.5)])
+    candidatos = opcoes_curadoria.candidatos_da_posicao(
+        "PETR4", chain, _SPOT, _posicao(), "operador", _HOJE)
+    assert candidatos[0]["premioUnitario"] == 1.5
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# proximos_vencimentos() — Fase 31, Plano 01 (D-01): teto de vencimentos
+# futuros por posição elegível.
+# ─────────────────────────────────────────────────────────────────────────
+
+def test_proximos_vencimentos_feliz_descarta_passado_ordena_teto_2():
+    expirations = ["2026-09-11", "2026-10-16", "2026-11-20"]
+    assert opcoes_curadoria.proximos_vencimentos(expirations, dt.date(2026, 9, 14)) == \
+        ["2026-10-16", "2026-11-20"]
+
+
+def test_proximos_vencimentos_tolera_item_malformado_none_e_data_invalida():
+    expirations = ["2026-10-16", None, "nao-e-data", "2026-11-20"]
+    assert opcoes_curadoria.proximos_vencimentos(expirations, dt.date(2026, 9, 14)) == \
+        ["2026-10-16", "2026-11-20"]
+
+
+def test_proximos_vencimentos_lista_vazia_devolve_vazio():
+    assert opcoes_curadoria.proximos_vencimentos([], dt.date(2026, 9, 14)) == []
+
+
+def test_proximos_vencimentos_entrada_nao_lista_devolve_vazio():
+    assert opcoes_curadoria.proximos_vencimentos(None, dt.date(2026, 9, 14)) == []
+    assert opcoes_curadoria.proximos_vencimentos("2026-10-16", dt.date(2026, 9, 14)) == []
+
+
+def test_proximos_vencimentos_respeita_teto_customizado():
+    expirations = ["2026-10-16", "2026-11-20", "2026-12-18"]
+    assert opcoes_curadoria.proximos_vencimentos(expirations, dt.date(2026, 9, 14), teto=1) == ["2026-10-16"]
+
+
+def test_proximos_vencimentos_hoje_nunca_entra_estritamente_futuro():
+    expirations = ["2026-09-14", "2026-10-16"]
+    assert opcoes_curadoria.proximos_vencimentos(expirations, dt.date(2026, 9, 14)) == ["2026-10-16"]
+
+
+def test_proximos_vencimentos_e_funcao_pura_default_teto_bate_com_constante():
+    assert opcoes_curadoria.VENCIMENTOS_POR_POSICAO == 2
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# id_candidato() — Fase 31, Plano 01: identidade estável e total do
+# candidato (desempate do collar sem contractSymbol, chave de React estável).
+# ─────────────────────────────────────────────────────────────────────────
+
+def test_id_candidato_com_contract_symbol():
+    assert opcoes_curadoria.id_candidato("call_coberta", "PETR4", "2026-10-16", "C30") == \
+        "call_coberta:PETR4:2026-10-16:C30"
+
+
+def test_id_candidato_sem_contract_symbol_usa_par_de_strikes():
+    assert opcoes_curadoria.id_candidato(
+        "collar", "PETR4", "2026-10-16", None, strike_call=30.0, strike_put=25.0) == \
+        "collar:PETR4:2026-10-16:30.0/25.0"
+
+
+def test_id_candidato_presente_e_estavel_em_call_coberta():
+    chain = _cadeia(calls=[_contrato("C30", "call", 30, price=1.5)])
+    candidatos = opcoes_curadoria.candidatos_da_posicao(
+        "PETR4", chain, _SPOT, _posicao(), "operador", _HOJE)
+    c = candidatos[0]
+    esperado = opcoes_curadoria.id_candidato("call_coberta", "PETR4", chain["expiration"], "C30")
+    assert c["idCandidato"] == esperado
+    # estabilidade: mesma chamada, mesma entrada, mesmo resultado.
+    assert opcoes_curadoria.id_candidato("call_coberta", "PETR4", chain["expiration"], "C30") == esperado
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# opcao_a_descoberto — frase canônica em skill_ref (Fase 31, Plano 01)
+# ─────────────────────────────────────────────────────────────────────────
+
+@pytest.mark.parametrize("modo", ["operador", "educacional"])
+def test_opcao_a_descoberto_existe_nos_dois_registros_e_nao_cai_no_fallback(modo):
+    dados = {
+        "n": "1", "ticker": "PETR4", "strike": skill_ref.num_br(30.0),
+        "premioTotal": skill_ref.num_br(150.0), "qtyAcoes": "100",
+    }
+    frase = skill_ref.opcoes_lastreadas_txt(modo, "opcao_a_descoberto", **dados)
+    sem_setup = skill_ref.opcoes_lastreadas_txt(modo, "sem_setup", ticker="PETR4")
+    assert frase != sem_setup
+    assert "{" not in frase, f"marcador não interpolado sobrou na frase: {frase!r}"
+
+
+def test_opcao_a_descoberto_chave_existe_literalmente_nos_dois_dicts():
+    assert "opcao_a_descoberto" in skill_ref.OPCOES_LASTREADAS["operador"]
+    assert "opcao_a_descoberto" in skill_ref.OPCOES_LASTREADAS["educacional"]
 
 
 # ─────────────────────────────────────────────────────────────────────────

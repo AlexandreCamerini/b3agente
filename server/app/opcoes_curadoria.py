@@ -1,24 +1,33 @@
 """Fase 30, Plano 01 — motor PURO da curadoria das 4 melhores estruturas.
+Estendido na Fase 31, Plano 01 (D-04/D-01/D-05/D-06) — ver abaixo.
 
 Módulo PURO — sem rede, sem banco, sem LLM, sem leitura de relógio interna
 (`hoje` entra por argumento), mesma disciplina de
 `opcoes_motor.py`/`opcoes_lastreadas.py`/`opcoes_payoff.py`.
 
-Dois cercos da Fase 30, declarados aqui porque é aqui que valem:
+Dois cercos da Fase 30 foram DELIBERADAMENTE revertidos pela Fase 31 —
+reversão deliberada atualiza o guardião com nota, não apaga a história
+(mesma disciplina já usada nos testes desta base):
 
-- **Universo (D1): SÓ venda coberta.** Put de proteção e collar não entram
-  neste ranking — misturar "proteção" com "gerar receita" no mesmo ranking
-  de risco mínimo não faz sentido matemático (put por definição não gera
-  receita). Se você está pensando em acrescentar um filtro de PUT no lado do
-  contrato aqui, pare: é mudança de escopo de produto (D1), não melhoria.
-- **Janelas (D3): vários STRIKES dentro do vencimento ÚNICO que a cadeia já
-  traz, nunca múltiplos vencimentos.** A cadeia devolvida pelo provider de
-  mercado (mydata/Yahoo, ADR-004/008/009) hoje já vem presa a UM vencimento
-  (`chain["expiration"]`). Testar vários vencimentos exigiria uma busca por
-  vencimento testado, por posição — isso destruiria a propriedade de custo
-  de rede ZERO desta fase (30-CONTEXT, achado 3 e decisão D3).
-  `candidatos_da_posicao` só enumera `n` strikes dentro da MESMA cadeia já
-  buscada, em memória.
+- **Universo (Fase 30/D1 → Fase 31/D-04): SÓ venda coberta virou as 4
+  estruturas do motor interno.** Put de proteção, collar e opção a
+  descoberto agora entram neste módulo — a Fase 30 excluiu essas estruturas
+  de propósito (misturar "proteção" com "gerar receita" no mesmo ranking de
+  risco mínimo não fazia sentido matemático); a Fase 31 amplia o universo de
+  propósito, com a MESMA fórmula de ranking para as 4 mesmo sabendo que
+  put/collar rankeiam estruturalmente mal nela (Fase 31/D-06 — não é bug,
+  não filtre). A opção a descoberto só existe quando `permitir_a_descoberto`
+  é `True` (Fase 31/D-05, ver `candidatos_da_posicao` abaixo) — a Fase 29 e
+  seu gate de EXECUÇÃO (`store.buy_option`) não mudam.
+- **Janelas (Fase 30/D3 → Fase 31/D-01): vencimento único por CHAMADA,
+  teto de 2 vencimentos por posição no CHAMADOR.** `candidatos_da_posicao`
+  continua recebendo UMA `chain` por chamada — nada muda aqui, este módulo
+  continua puro e alheio a rede. O que muda é fora deste arquivo: o chamador
+  (`server/app/main.py`, Plano 31-02) passa a invocar esta função até
+  `VENCIMENTOS_POR_POSICAO` (2) vezes por posição elegível, uma por
+  vencimento buscado, em vez de uma vez só — e é o CHAMADOR que paga o custo
+  de rede declarado (30-CONTEXT achado 3; 31-CONTEXT D-01/D-03), nunca este
+  módulo.
 
 Guardrail não-negociável (CLAUDE.md princípio 5 + 30-CONTEXT): a escolha das
 4 melhores é 100% aritmética de `opcoes_motor.rastrear()`/`avaliar()`, nunca
@@ -29,6 +38,7 @@ um pool não rankeado.
 """
 from __future__ import annotations
 
+import datetime as dt
 from typing import Any
 
 from . import opcoes_motor, skill_ref, store
@@ -38,13 +48,112 @@ from .options_quant import LIQUIDEZ_NEGOCIAVEL, liquidity_score
 # TOPO: quantas estruturas a UI mostra ("as 4 melhores" — pedido original).
 TOPO = 4
 # STRIKES_POR_POSICAO: quantos strikes candidatos `rastrear()` devolve por
-# posição elegível, dentro do vencimento único da cadeia (D3).
+# posição elegível, dentro do vencimento único da cadeia (D3 da Fase 30,
+# ainda válido: continua sendo "strikes dentro de UMA cadeia", só que agora
+# o chamador pode repetir a chamada para até 2 cadeias/vencimentos, Fase 31/
+# D-01).
 STRIKES_POR_POSICAO = 5
 # PISO_LIQUIDEZ: D5 — reusa o piso já em produção, nunca um corte novo
 # inventado só para este ranking. Importado de `.options_quant`, nunca o
 # literal 55, para que uma recalibração futura (como a quick 260908-ldg já
 # fez uma vez) propague sozinha.
 PISO_LIQUIDEZ = LIQUIDEZ_NEGOCIAVEL
+# VENCIMENTOS_POR_POSICAO: Fase 31/D-01 — teto FIXO de vencimentos varridos
+# por posição elegível. Cada vencimento a mais é 1 chamada de
+# `get_options_chain` por posição, contra o orçamento medido do mydata
+# (60/min · 2.000/dia, `docs/MEDICAO-Mydata-2026-08-27.md`). Quem subir esta
+# constante paga rede por posição × vencimento — não é parâmetro de ajuste
+# fino, é decisão de custo de produto (mesma disciplina de
+# `STRIKES_POR_POSICAO`/`PISO_LIQUIDEZ` acima). Usada como default de
+# `proximos_vencimentos` abaixo; o LOOP que multiplica chamadas por
+# vencimento vive no chamador (main.py, Plano 31-02), não aqui.
+VENCIMENTOS_POR_POSICAO = 2
+# CONTRATOS_A_DESCOBERTO: a opção a descoberto não tem lastro contra o qual
+# dimensionar (Fase 31/D-05) — a varredura é DESCOBERTA, não execução: 1
+# contrato = 100 unidades do objeto, fixo. A checagem de caixa acontece na
+# execução (`store.buy_option`), nunca aqui.
+CONTRATOS_A_DESCOBERTO = 1
+# TIPOS: universo fechado de estruturas desta fase (Fase 31/D-04).
+TIPOS = ("call_coberta", "put_protecao", "collar", "opcao_a_descoberto")
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# premio_liquido_unitario() / id_candidato() / proximos_vencimentos() —
+# funções puras novas da Fase 31, Plano 01
+# ─────────────────────────────────────────────────────────────────────────
+
+def premio_liquido_unitario(pernas_opcao: list[dict[str, Any]]) -> float:
+    """Fluxo de caixa líquido das pernas de OPÇÃO de uma estrutura, por
+    unidade do objeto — positivo quando o usuário RECEBE (crédito), negativo
+    quando PAGA (débito).
+
+    Recebe SÓ as pernas de opção (nunca a perna de ação — incluí-la somaria
+    o preço do papel ao "prêmio", que é um número de opção, não de carteira).
+    É reuso do número que `opcoes_motor.avaliar` já calcula
+    (`custo_liquido`: >0 débito, <0 crédito — ver `opcoes_payoff.
+    custo_liquido`), o mesmo padrão que `_propor_collar` já usa
+    (`caixa_pernas = avaliar(pernas_opcao)`), não uma segunda aritmética.
+
+    Prêmio NEGATIVO é resultado ESPERADO em put de proteção, em collar de
+    débito e em opção a descoberto (compra a seco) — Fase 31/D-06 exige que
+    esses candidatos continuem no ranking, rankeados naturalmente mal pela
+    MESMA fórmula (prêmio ÷ perda máxima), nunca filtrados por prêmio
+    negativo.
+    """
+    return round(-opcoes_motor.avaliar(pernas_opcao)["custo_liquido"], 2)
+
+
+def id_candidato(
+    tipo: str,
+    ticker: str,
+    expiration: Any,
+    contract_symbol: str | None = None,
+    *,
+    strike_call: Any = None,
+    strike_put: Any = None,
+) -> str:
+    """Identidade estável e TOTAL de um candidato de curadoria.
+
+    Existe por dois motivos nomeados: (1) o collar não tem `contractSymbol`
+    único (duas pernas — `opcoes_lastreadas.py:145-156` já explica por que
+    preencher com uma das pernas seria mentira), e sem um último critério
+    TOTAL dois collars empatados em `razao`/`premioUnitario` voltariam em
+    ordem de chegada, não determinística (ver `rankear`); (2) o front
+    precisa de uma chave de React estável (`web/src/App.jsx:4191`, hoje
+    `key={item.contractSymbol}`, que colide em `null`).
+    """
+    sufixo = contract_symbol or f"{strike_call}/{strike_put}"
+    return f"{tipo}:{ticker}:{expiration}:{sufixo}"
+
+
+def proximos_vencimentos(
+    expirations: Any, hoje: Any, *, teto: int = VENCIMENTOS_POR_POSICAO
+) -> list[str]:
+    """Até `teto` vencimentos ESTRITAMENTE futuros de `expirations` (lista
+    ISO da cadeia ADR-004), ordenados crescente, sem repetição.
+
+    Mesma tolerância a item malformado da escolha de vencimento do provedor
+    mydata (`_primeiro_vencimento_futuro`, módulo do provider de mercado —
+    citado aqui só pelo NOME da função, este arquivo não importa camada de
+    rede) — `dt.date.fromisoformat` dentro de `try/except (TypeError,
+    ValueError): continue` — e `sorted()` defensivo pelo mesmo motivo (D-05
+    da quick 260914-b6p: a ordem da lista é contrato de terceiro não
+    documentado). Entrada que não é lista devolve `[]`. Função PURA: `hoje`
+    entra por argumento, nunca lê relógio.
+    """
+    if not isinstance(expirations, list):
+        return []
+
+    candidatos: list[tuple[dt.date, str]] = []
+    for exp in expirations:
+        try:
+            d = dt.date.fromisoformat(exp)
+        except (TypeError, ValueError):
+            continue
+        if d > hoje:
+            candidatos.append((d, exp))
+    candidatos.sort(key=lambda item: item[0])
+    return [exp for _, exp in candidatos[:teto]]
 
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -61,10 +170,18 @@ def candidatos_da_posicao(
     *,
     n: int = STRIKES_POR_POSICAO,
 ) -> list[dict[str, Any]]:
-    """Candidatos de venda coberta (um por strike distinto) para UMA posição,
-    a partir de UMA cadeia já buscada em memória. Devolve SEMPRE lista — `[]`
-    em toda porta fechada, nunca `None`, nunca exceção (mesma postura de
+    """Candidatos de curadoria para UMA posição, a partir de UMA cadeia (um
+    único vencimento) já buscada em memória. Devolve SEMPRE lista — `[]` em
+    toda porta fechada, nunca `None`, nunca exceção (mesma postura de
     `opcoes_motor.rastrear`/`opcoes_lastreadas.propor`).
+
+    Fase 31/D-04 amplia o universo desta função de "só venda coberta"
+    (Fase 30/D1) para as 4 estruturas do motor interno — venda coberta, put
+    de proteção, collar e opção a descoberto (esta última só quando
+    `permitir_a_descoberto=True`, Fase 31/D-05; ver Plano 31-01 Tasks 2/3).
+    Todas nascem da MESMA cadeia já buscada, nenhuma chamada de rede nova
+    dentro deste módulo — quem varre múltiplos vencimentos é o CHAMADOR
+    (Fase 31/D-01, ver docstring do módulo).
 
     Portas fechadas, na ordem, espelhando `opcoes_lastreadas.propor`
     (opcoes_lastreadas.py:220-237, 260-262) — mesmos motivos, mesma ordem de
@@ -81,12 +198,12 @@ def candidatos_da_posicao(
 
     Deliberadamente NÃO há porta de setup/plano técnico aqui, ao contrário de
     `propor()` (que exige `decisao`/`lado` e devolve `sem_setup` quando o
-    motor técnico lê alta). D1 define elegibilidade como "comprado, com lote
-    livre >= 100 ações", e só — é decisão de produto fechada, não descuido.
-    Consequência nomeada: uma posição que o motor técnico lê como ALTA PODE
-    aparecer neste ranking mesmo que não apareceria na proposta única da
-    mesma tela (que recusaria com `sem_setup`). Não "corrija" isso
-    adicionando um gate técnico aqui.
+    motor técnico lê alta). Fase 30/D1 define elegibilidade como "comprado,
+    com lote livre >= 100 ações", e só — é decisão de produto fechada, não
+    descuido, e a Fase 31 não reabre isso. Consequência nomeada: uma posição
+    que o motor técnico lê como ALTA PODE aparecer neste ranking mesmo que
+    não apareceria na proposta única da mesma tela (que recusaria com
+    `sem_setup`). Não "corrija" isso adicionando um gate técnico aqui.
     """
     if not isinstance(chain, dict) or chain.get("providerStatus") != "ok":
         return []
@@ -119,10 +236,8 @@ def candidatos_da_posicao(
     candidatos: list[dict[str, Any]] = []
     for contrato in selecionados:
         try:
-            pernas = [
-                opcoes_motor.perna_de_acao(underlying, spot, quantidade=1),
-                opcoes_motor.perna_de_contrato(contrato, "venda", quantidade=1),
-            ]
+            perna_opcao = opcoes_motor.perna_de_contrato(contrato, "venda", quantidade=1)
+            pernas = [opcoes_motor.perna_de_acao(underlying, spot, quantidade=1), perna_opcao]
             estrutura = opcoes_motor.avaliar(pernas)
         except ValueError:
             # Um contrato defeituoso individual (prêmio ausente, optionType
@@ -138,9 +253,12 @@ def candidatos_da_posicao(
         if not isinstance(perda_maxima, (int, float)) or isinstance(perda_maxima, bool) or perda_maxima <= 0:
             continue
 
-        premio = float(contrato.get("lastPrice") or 0)
-        premio_unitario = round(premio, 2)
-        premio_total = round(premio * qty_acoes, 2)
+        # `premio_liquido_unitario` sobre SÓ a perna de opção dá exatamente
+        # `+lastPrice` (crédito da venda) — idêntico ao `round(premio, 2)`
+        # de antes desta fase, agora via a função reusável pelas 4
+        # estruturas (Fase 31, Plano 01, Task 1c).
+        premio_unitario = premio_liquido_unitario([perna_opcao])
+        premio_total = round(premio_unitario * qty_acoes, 2)
         razao = round(premio_unitario / perda_maxima, 6)
 
         liq = liquidity_score(contrato.get("volume"), contrato.get("openInterest"),
@@ -175,6 +293,8 @@ def candidatos_da_posicao(
             "manchete": manchete,
             "didatica": didatica,
             "precoObjeto": round(float(spot), 2),
+            "idCandidato": id_candidato("call_coberta", underlying, chain.get("expiration"),
+                                         contrato.get("contractSymbol")),
         })
 
     return candidatos
