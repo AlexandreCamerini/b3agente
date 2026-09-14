@@ -20,6 +20,9 @@ from app import candle_provider, db, options_provider, store
 from app.main import app, _conn
 
 _EXP = (dt.date.today() + dt.timedelta(days=30)).isoformat()  # sempre dentro de 15..60 dias
+# Fase 31/D-01: segundo vencimento futuro, também dentro de 15..60 dias —
+# usado pelos guardiões novos de "até 2 vencimentos por posição".
+_EXP2 = (dt.date.today() + dt.timedelta(days=45)).isoformat()
 _SPOT = 29.0
 
 
@@ -36,25 +39,47 @@ def _contrato(symbol, strike, price=1.5, volume=5000, oi=1000, bid=1.48, ask=1.5
     }
 
 
-def _cadeia(underlying, n_strikes=1, provider_status="ok", spot=_SPOT):
+def _cadeia(underlying, n_strikes=1, provider_status="ok", spot=_SPOT,
+            expiration=None, expirations=None):
+    """Fase 31/D-01: `expiration`/`expirations` opcionais para simular uma
+    fonte com 2 vencimentos futuros — quando ausentes, o comportamento é
+    idêntico ao de antes desta fase (1 vencimento só, `_EXP`)."""
     base = 30
     calls = [_contrato(f"{underlying}C{base + i}", base + i) for i in range(n_strikes)]
+    exp = expiration or _EXP
+    exps = expirations if expirations is not None else [_EXP]
     return {
         "providerStatus": provider_status, "underlyingPrice": spot,
-        "expiration": _EXP, "expirations": [_EXP],
+        "expiration": exp, "expirations": exps,
         "calls": calls, "puts": [], "source": "teste",
     }
 
 
 def _contador(chains: dict):
-    """Embrulha `options_provider.get_options`: incrementa uma lista de
-    tickers chamados e devolve a cadeia da fixture (ou uma cadeia degradada
-    para ticker não mapeado — nunca KeyError)."""
-    chamados = []
+    """Embrulha `options_provider.get_options`: registra uma lista de pares
+    `(ticker, expiration)` chamados — `expiration=None` é a primeira busca
+    (Fase 31/D-01: antes desta fase só existia essa) — e devolve a cadeia da
+    fixture (ou uma cadeia degradada para ticker não mapeado — nunca
+    KeyError).
 
-    async def _fake(ticker, *a, **k):
-        chamados.append(ticker)
-        return chains.get(ticker, _cadeia(ticker, provider_status="degraded"))
+    `chains[ticker]` aceita DUAS formas: uma cadeia única (compat com os
+    guardiões de 1 vencimento já existentes — qualquer `expiration` pedido
+    devolve a MESMA cadeia) ou um dict `{expiration_pedido: cadeia}` para
+    simular uma fonte com 2 vencimentos (a chave `None` é a primeira busca,
+    sem `expiration` explícito)."""
+    chamados: list[tuple[str, str | None]] = []
+
+    async def _fake(ticker, expiration=None, *a, **k):
+        chamados.append((ticker, expiration))
+        entry = chains.get(ticker)
+        if entry is None:
+            return _cadeia(ticker, provider_status="degraded")
+        if isinstance(entry, dict) and "providerStatus" not in entry:
+            cadeia = entry.get(expiration)
+            if cadeia is None:
+                return _cadeia(ticker, provider_status="degraded")
+            return cadeia
+        return entry
 
     return chamados, _fake
 
@@ -117,6 +142,15 @@ def _seed_carteira_padrao(uid):
 
 def test_uma_chamada_por_posicao_elegivel(cli, monkeypatch):
     # SC-2: uma busca de cadeia por posição ELEGÍVEL, zero por inelegível.
+    #
+    # NOTA (Fase 31/D-01, reversão deliberada datada): antes desta fase,
+    # "uma busca" era o TETO absoluto (Fase 30/D3) — nenhuma cadeia jamais
+    # tinha mais de 1 vencimento buscado. A Fase 31 substitui esse teto por
+    # `VENCIMENTOS_POR_POSICAO` (2): "uma busca" continua correto aqui só
+    # porque a fixture default (`_cadeia` sem `expirations=`) declara 1 único
+    # vencimento futuro — o CHÃO da nova regra, não mais o TETO. O teto real
+    # de 2 é provado por `test_duas_buscas_quando_cadeia_tem_dois_vencimentos`
+    # abaixo. Guardião de teste não se apaga.
     uid, headers = _novo_escopo(cli, "01")
     _liga_operador(uid)
     _seed_carteira_padrao(uid)
@@ -127,14 +161,22 @@ def test_uma_chamada_por_posicao_elegivel(cli, monkeypatch):
     r = cli.get("/api/options/curadoria", headers=headers)
     assert r.status_code == 200, r.text
     assert len(chamados) == 2, f"esperado exatamente 2 chamadas, veio {chamados!r}"
-    assert sorted(chamados) == ["PETR4", "VALE3"]
-    assert "ITUB4" not in chamados
+    tickers_chamados = sorted(t for t, _exp in chamados)
+    assert tickers_chamados == ["PETR4", "VALE3"]
+    assert all(exp is None for _t, exp in chamados), \
+        "cadeia de 1 vencimento só não pode gerar busca com expiration explícito"
+    assert not any(t == "ITUB4" for t, _exp in chamados)
 
 
 def test_nenhuma_chamada_extra_por_strike(cli, monkeypatch):
     # SC-2/D3: 8 calls líquidas por ticker (mais que os 5 strikes que o
     # motor pede) não gera nenhuma chamada de rede extra — a enumeração de
     # strikes é aritmética em memória sobre a MESMA cadeia já buscada.
+    #
+    # NOTA (Fase 31/D-01, reversão deliberada datada): a contagem esperada
+    # continua 2 pelo MESMO motivo do guardião acima (fixture de 1
+    # vencimento só) — a regra que mudou é o teto de vencimentos, não a
+    # regra "zero chamada extra por strike", que segue intocada.
     uid, headers = _novo_escopo(cli, "02")
     _liga_operador(uid)
     _seed_carteira_padrao(uid)
@@ -145,6 +187,141 @@ def test_nenhuma_chamada_extra_por_strike(cli, monkeypatch):
     r = cli.get("/api/options/curadoria", headers=headers)
     assert r.status_code == 200, r.text
     assert len(chamados) == 2, f"esperado exatamente 2 chamadas, veio {chamados!r}"
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Vencimentos por posição (Fase 31/D-01) — teto de 2, nunca piso
+# ─────────────────────────────────────────────────────────────────────────
+
+def test_duas_buscas_quando_cadeia_tem_dois_vencimentos(cli, monkeypatch):
+    # D-01: posição elegível cuja cadeia traz 2+ vencimentos futuros →
+    # EXATAMENTE 2 chamadas a `options_provider.get_options` para aquele
+    # ticker (uma sem `expiration`, outra com o segundo vencimento), nunca
+    # 3 — teto provado pela contagem exata dos pares (ticker, expiration).
+    uid, headers = _novo_escopo(cli, "10")
+    _liga_operador(uid)
+    store.buy(_conn, "PETR4", 200, 25.0, user_id=uid)
+    store.buy(_conn, "VALE3", 300, 60.0, user_id=uid)
+    chains = {
+        "PETR4": {
+            None: _cadeia("PETR4", n_strikes=1, expiration=_EXP, expirations=[_EXP, _EXP2]),
+            _EXP2: _cadeia("PETR4", n_strikes=1, expiration=_EXP2, expirations=[_EXP, _EXP2]),
+        },
+        "VALE3": {
+            None: _cadeia("VALE3", n_strikes=1, expiration=_EXP, expirations=[_EXP, _EXP2]),
+            _EXP2: _cadeia("VALE3", n_strikes=1, expiration=_EXP2, expirations=[_EXP, _EXP2]),
+        },
+    }
+    chamados, fake = _contador(chains)
+    monkeypatch.setattr(options_provider, "get_options", fake)
+
+    r = cli.get("/api/options/curadoria", headers=headers)
+    assert r.status_code == 200, r.text
+    assert len(chamados) == 4, f"esperado exatamente 4 chamadas, veio {chamados!r}"
+    esperado = {("PETR4", None), ("PETR4", _EXP2), ("VALE3", None), ("VALE3", _EXP2)}
+    assert set(chamados) == esperado
+    body = r.json()
+    assert body["tetoVencimentos"] == 2
+    assert sorted(body["vencimentosPorTicker"]["PETR4"]) == sorted([_EXP, _EXP2])
+    assert sorted(body["vencimentosPorTicker"]["VALE3"]) == sorted([_EXP, _EXP2])
+
+
+def test_teto_nao_vira_piso_cadeia_com_um_vencimento_so(cli, monkeypatch):
+    # D-01: o teto é TETO, não piso — cadeia com 1 vencimento futuro só
+    # gera EXATAMENTE 1 chamada, mesmo com VENCIMENTOS_POR_POSICAO=2.
+    uid, headers = _novo_escopo(cli, "11")
+    _liga_operador(uid)
+    store.buy(_conn, "PETR4", 200, 25.0, user_id=uid)
+    chains = {"PETR4": _cadeia("PETR4", n_strikes=1, expirations=[_EXP])}
+    chamados, fake = _contador(chains)
+    monkeypatch.setattr(options_provider, "get_options", fake)
+
+    r = cli.get("/api/options/curadoria", headers=headers)
+    assert r.status_code == 200, r.text
+    assert chamados == [("PETR4", None)], f"esperado exatamente 1 chamada, veio {chamados!r}"
+    body = r.json()
+    assert body["vencimentosPorTicker"]["PETR4"] == [_EXP]
+
+
+def test_segundo_vencimento_degradado_nao_derruba_o_primeiro(cli, monkeypatch):
+    # D-01: a segunda busca (vencimento extra) levantando exceção não pode
+    # derrubar os candidatos do primeiro vencimento, que já deu certo — o
+    # ticker aparece UMA única vez em `degradados`, HTTP 200.
+    uid, headers = _novo_escopo(cli, "12")
+    _liga_operador(uid)
+    store.buy(_conn, "PETR4", 200, 25.0, user_id=uid)
+    chain_primeiro = _cadeia("PETR4", n_strikes=1, expiration=_EXP, expirations=[_EXP, _EXP2])
+
+    async def _fake(ticker, expiration=None, *a, **k):
+        if expiration is None:
+            return chain_primeiro
+        raise RuntimeError("provider fora do ar no segundo vencimento")
+
+    monkeypatch.setattr(options_provider, "get_options", _fake)
+    r = cli.get("/api/options/curadoria", headers=headers)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["degradados"].count("PETR4") == 1, \
+        f"ticker deve aparecer UMA única vez em degradados, veio {body['degradados']!r}"
+    assert any(c["ticker"] == "PETR4" for c in body["top"]), \
+        "candidatos do primeiro vencimento (que deu certo) devem continuar presentes"
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Gate server-side de opção a descoberto (Fase 31/D-05, T-31-01)
+# ─────────────────────────────────────────────────────────────────────────
+
+def test_flag_desligado_corpo_adulterado_nao_liga_opcao_a_descoberto(cli, monkeypatch):
+    # T-31-01: conta com o flag DESLIGADO na config do SERVIDOR — postar
+    # `{"config": {"permitirOpcaoADescoberto": true, ...}}` no corpo de
+    # `POST /api/options/curadoria/narrativa` NÃO liga a descoberta. Um
+    # cliente adulterado (ou só desatualizado) não pode fazer o servidor
+    # exibir/narrar oportunidade a descoberto para uma conta que nunca
+    # aceitou o termo da Fase 29.
+    uid, headers = _novo_escopo(cli, "13")
+    _liga_operador(uid)
+    store.buy(_conn, "PETR4", 200, 25.0, user_id=uid)
+    chains = {"PETR4": _cadeia("PETR4", n_strikes=3)}
+    _, fake = _contador(chains)
+    monkeypatch.setattr(options_provider, "get_options", fake)
+
+    import app.main as main_mod
+    from app import llm
+    monkeypatch.setattr(main_mod, "_gate_analise",
+                         lambda scope, config, custo=1: (config, lambda: None))
+
+    async def _fake_llm(config, key, system, user, max_tokens):
+        return "texto"
+    monkeypatch.setattr(llm, "_call_llm", _fake_llm)
+
+    r = cli.post(
+        "/api/options/curadoria/narrativa",
+        json={"config": {"appMode": "operador", "permitirOpcaoADescoberto": True}},
+        headers=headers)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["candidatosPorTipo"]["opcao_a_descoberto"] == 0
+
+
+def test_flag_ligado_no_servidor_libera_opcao_a_descoberto(cli, monkeypatch):
+    # T-31-01: mesma conta, flag LIGADO via `store.set_config` (servidor,
+    # com o termo da Fase 29 aceito no MESMO patch) →
+    # candidatosPorTipo["opcao_a_descoberto"] > 0.
+    uid, headers = _novo_escopo(cli, "14")
+    _liga_operador(uid)
+    store.set_config(_conn, {
+        "descobertoTermo": {"aceitoEm": "2026-01-01", "versao": "1"},
+        "permitirOpcaoADescoberto": True,
+    }, user_id=uid)
+    store.buy(_conn, "PETR4", 200, 25.0, user_id=uid)
+    chains = {"PETR4": _cadeia("PETR4", n_strikes=3)}
+    _, fake = _contador(chains)
+    monkeypatch.setattr(options_provider, "get_options", fake)
+
+    r = cli.get("/api/options/curadoria", headers=headers)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["candidatosPorTipo"]["opcao_a_descoberto"] > 0
 
 
 def test_carteira_sem_posicao_elegivel_zero_chamadas(cli, monkeypatch):
