@@ -57,6 +57,19 @@ tratar disso, condicionado à aprovação do `plano-mcp-servico.md`.
 Base completa da decisão: `.planning/seeds/opcoes-v2-setups-propostos-via-b-mcp.md`
 e `.planning/notes/opcoes-v2-b-mcp-exploracao.md`.
 
+**Fase 31 (2026-09-14) — CODE COMPLETE, não publicada:** varredura de
+oportunidades de opções estendida de "1 vencimento × venda coberta" (Fase
+30) para "até 2 vencimentos × as 4 estruturas do motor interno" (venda
+coberta, put de proteção, collar, opção a descoberto — esta só visível com
+`permitirOpcaoADescoberto` ligado, gate D-05), mais responsividade mobile
+375px do `PayoffChart.jsx`. 4 planos, checkpoint humano ao vivo resolvido
+com aprovação literal do Alex (verificação técnica rodou contra provedor
+mock, não o ambiente real — ressalva registrada em `31-VERIFICATION.md`).
+Code review: 0 bloqueadores, 3 avisos de UX no front (estado de erro de
+fetch não exibido, texto de ajuda do D-06 nunca renderizado, lista não
+revalida ao mudar posições) — não bloqueiam, não corrigidos nesta fase. Ver
+`.planning/phases/31-varredura-oportunidades-opcoes/`.
+
 ## Milestone v1.5 Redesenho de UI — simplificação e acessibilidade — SHIPPED 2026-09-06
 
 **Goal:** eliminar a duplicação e as inconsistências visuais achadas numa
@@ -472,4 +485,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-09-06 — milestone v1.5 (redesenho de UI) shipped; v1.4 (Opções v2) segue em execução, checkpoints humanos das Fases 17/18/19 pendentes do Alex*
+*Last updated: 2026-09-14 — Fase 31 (varredura de oportunidades de opções, v1.4) code complete via /gsd:execute-phase, não publicada; demais seções abaixo desta data não foram revisadas nesta sessão*
