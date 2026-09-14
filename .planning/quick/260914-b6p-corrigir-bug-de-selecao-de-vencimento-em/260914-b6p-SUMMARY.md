@@ -83,9 +83,11 @@ Esta correção mata os dias NEGATIVOS, mas por si só NÃO garante que a Fase 1
 
 Pergunta em aberto (fora do escopo pedido): o provider deveria preferir o primeiro vencimento DENTRO da janela 15..60 em vez do primeiro futuro? Mudaria a cadeia default para TODOS os consumidores (inclusive o vencimento pré-selecionado na UI de opções) — decisão de produto. Alternativa menos invasiva: o motor de propostas pedir explicitamente o vencimento da janela via `get_options(t, expiration=...)` (já existe e é honrado, D-03), usando a lista `expirations` que o payload já devolve.
 
+**Decisão do Alex (2026-09-14, depois de ver o impacto medido em 16 tickers líquidos — todos caem no mesmo vencimento 18/09, 4 dias, abaixo do piso): manter "o primeiro futuro, seja qual for".** Não mudar para pular pro primeiro dentro da janela 15-60. Consequência aceita conscientemente: a proposta de venda coberta e a curadoria (Fase 30) ficam vazias para o mercado inteiro sempre que o vencimento mais próximo cair abaixo de 15 dias — o que acontece por boa parte de cada ciclo mensal (nesta medição, só volta a produzir por volta de meados de outubro, quando `2026-10-16` entrar na janela). **Fechado — não re-litigar sem novo pedido explícito do Alex.**
+
 ## Deploy
 
-NÃO publicado. Mudança é backend-only; caminho é `scripts/atualizar.sh --somente-deploy` + bump manual de `SERVER_BUILD_ID` (`server/app/main.py:1662`) — decisão do Alex, não executada nesta entrega.
+**Publicado em produção**: `F10-20260914-02` (deploy só-backend, `server/app/main.py:1662`), confirmado ao vivo via `railway run` contra o mydata real — BBAS3/PETR4 agora resolvem `expiration: 2026-09-18` (futuro), não mais `2026-09-11` (vencido). Suíte canônica verde antes do push (2864 passed, 147 .mjs, exit 0). Commit `70ffa53`.
 
 ## Self-Check: PASSED
 
