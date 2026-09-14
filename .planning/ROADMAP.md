@@ -673,6 +673,46 @@ não pedida aqui); estender a lista `candidatos` da Fase 19/28 (esta UI é
 nova, não extensão da proposta única por posição); polish de UX pós-uso
 real (Fase 31).
 
+#### Phase 31: Varredura de oportunidades de opções — standalone
+**Goal**: Estender a curadoria determinística de oportunidades de opções
+(Fase 30) de "1 vencimento × 1 estrutura (venda coberta)" para "até 2
+vencimentos × as 4 estruturas que o motor interno já executa" (venda
+coberta, put de proteção, collar, opção a descoberto), sobre as posições
+que o usuário já tem na carteira — mais responsividade mobile do
+`PayoffChart.jsx`. A seleção de quais oportunidades aparecem continua 100%
+determinística (`opcoes_motor.avaliar()`/`opcoes_curadoria.py`); a IA, se
+aparecer, só narra.
+**Depends on**: Phase 30 (base determinística a estender, não substituir)
+e Phase 29 (gate `permitirOpcaoADescoberto`, intocado na execução; esta
+fase introduz a primeira checagem do flag no momento da EXIBIÇÃO da
+oportunidade, não só da execução).
+**Requirements**: ver `31-CONTEXT.md`
+**Success Criteria** (what must be TRUE):
+  1. Varredura cobre até 2 vencimentos por posição elegível (o mais
+     próximo + o segundo mais próximo publicado por
+     `mydata_client.get_vencimentos`), nunca mais — custo declarado de até
+     2× `get_options_chain` por posição elegível contra o orçamento
+     medido do mydata (60/min · 2.000/dia).
+  2. Varredura cobre as 4 estruturas do motor interno (venda coberta, put
+     de proteção, collar, opção a descoberto) — não só venda coberta como
+     a Fase 30.
+  3. Oportunidade a descoberto só aparece na varredura para contas com
+     `permitirOpcaoADescoberto = true` já ligado — sem exceção, sem aviso
+     substituindo o gate.
+  4. Ranking usa uma fórmula só (prêmio ÷ perda máxima) para as 4
+     estruturas — sem seções separadas por objetivo.
+  5. `PayoffChart.jsx` funciona corretamente em 375px (mobile) sem mudar a
+     lógica de exibição (uma estrutura por vez, sem overlay).
+  6. Varredura cobre só tickers com posição aberta na carteira do usuário
+     — sem estender a watchlist/catálogo.
+  7. Suíte canônica sem regressão da baseline medida no início da fase;
+     `npx vite build` verde.
+**Plans:** TBD — planejamento em andamento (`/gsd:plan-phase 31`)
+
+**Fora de escopo, explicitamente**: watchlist/catálogo sem posição
+(D-09); overlay de múltiplos candidatos e interatividade no payoff (D-08);
+seções de ranking separadas por objetivo receita vs. proteção (D-06).
+
 ## Progress
 
 | Phase | Milestone | Status | Completed |
@@ -708,6 +748,7 @@ real (Fase 31).
 | 28. Sub-aba "Operar" e extração de `PropostaLastreada` | 3/3 | Code complete | 2026-09-13 |
 | 29. Opção a descoberto com flag opt-in | 3/3 | Code complete | 2026-09-13 |
 | 30. Curadoria de IA das 4 melhores estruturas | 0/4 | Planned |  |
+| 31. Varredura de oportunidades de opções | standalone | Context gathered |  |
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2/v1.3
 
