@@ -49,6 +49,7 @@ from .options_mcp_api import router as options_mcp_router
 from . import opcoes_vigias  # Fase 27: índice de "meus vigias" (custo ZERO de MCP)
 from . import opcoes_tecnico  # Fase 27 (D1): leitura técnica interna da aba (custo ZERO de MCP)
 from . import opcoes_lastreadas  # Fase 14 (Plano 03): motor de proposta lastreada (venda coberta/put)
+from . import opcoes_curadoria  # Fase 30 (Plano 01/02): motor puro + varredura cross-posição das 4 melhores
 from .options_quant import FAIXA_DIFICIL, FAIXA_SEM_MERCADO, faixa_de_liquidez, liquidity_score  # quick 260908-ldg: gate de liquidez em três faixas
 from . import skill_ref  # Fase 14 (Plano 03): frase canônica da proposta lastreada por modo
 
@@ -3278,6 +3279,103 @@ async def options_vigias(scope: Optional[str] = Depends(current_scope)):
         "vigias": opcoes_vigias.listar(_conn, scope),
         "fonte": "local",
         "at": now_str(),
+    }
+
+
+# ---- Fase 30 (Plano 02): curadoria das 4 melhores vendas cobertas ----
+async def _curadoria_top(scope: Optional[str], modo: str) -> tuple[list[dict], dict]:
+    """Varredura cross-posição: uma cadeia por posição ELEGÍVEL (comprada,
+    lote livre >= 100), nunca uma chamada extra por strike candidato (D3) —
+    `opcoes_curadoria.candidatos_da_posicao` enumera vários strikes da MESMA
+    cadeia já buscada. Reusado pelo Plano 03 (rota de narração) para que a
+    lista narrada seja SEMPRE a mesma lista mostrada aqui — duas varreduras
+    divergentes narraria uma coisa e mostraria outra.
+
+    Não busca `technical_snapshot`/`setups`/candles: D1 define elegibilidade
+    só por lastro (comprado + lote livre), a curadoria não consulta plano
+    técnico — isso também evita pagar candles por posição, coisa que a
+    proposta única de hoje paga.
+    """
+    positions = store.get(_conn, "positions", user_id=scope) or []
+    # Partição ANTES de qualquer rede: é ela que faz a promessa "uma chamada
+    # por posição ELEGÍVEL" ser verificável por contagem (SC-2), em vez de
+    # "uma chamada por posição, descartada depois".
+    elegiveis = [p for p in positions if isinstance(p, dict) and store.qty_livre(p) >= 100]
+    ignoradas = [p.get("t") if isinstance(p, dict) else p for p in positions
+                 if not (isinstance(p, dict) and store.qty_livre(p) >= 100)]
+    avaliadas = [p.get("t") for p in elegiveis]
+
+    pool: list[dict] = []
+    degradados: list[str] = []
+    source = None
+    hoje = _hoje_brt()
+
+    for posicao in elegiveis:
+        t = posicao.get("t")
+        if not t:
+            continue
+        try:
+            # UMA chamada por posição elegível, SEM `expiration` — a cadeia
+            # devolvida traz UM vencimento só (`opcoes_lastreadas.py:16`,
+            # D3). Passar `expiration` aqui, ou chamar num laço de
+            # vencimentos, multiplicaria o consumo do provider e destruiria
+            # a propriedade de custo declarada nesta fase (30-CONTEXT). Quem
+            # quiser outros vencimentos abre uma fase nova, com o custo de
+            # rede declarado nela.
+            chain = await options_provider.get_options(t)
+        except Exception:
+            degradados.append(t)
+            continue
+
+        if chain.get("providerStatus") != "ok":
+            degradados.append(t)
+            continue
+
+        if source is None:
+            source = chain.get("source")
+
+        try:
+            quote = await candle_provider.get_quote(t)
+        except Exception:
+            quote = None
+        spot = _spot_from_chain_or_quote(chain, quote)
+
+        pool.extend(opcoes_curadoria.candidatos_da_posicao(t, chain, spot, posicao, modo, hoje))
+
+    meta = {
+        "avaliadas": avaliadas,
+        "ignoradas": ignoradas,
+        "degradados": degradados,
+        "candidatosAvaliados": len(pool),
+        "source": source,
+    }
+    return opcoes_curadoria.rankear(pool), meta
+
+
+@app.get("/api/options/curadoria")
+async def options_curadoria(scope: Optional[str] = Depends(current_scope)):
+    """As 4 melhores vendas cobertas da carteira inteira (Fase 30). Custo
+    ZERO de IA e ZERO de serviço MCP — esta rota não fala com nenhum modelo
+    de linguagem, então não passa pelo gate de análise (D6: só a ETAPA de
+    narração, que é um plano separado, entra nesse gate). A ordem da lista é
+    100% do motor determinístico (`opcoes_curadoria.rankear`), nunca de IA
+    (princípio 5 do CLAUDE.md, 30-CONTEXT).
+
+    Best-effort ADR-004: `_curadoria_top` já engole exceção por posição; o
+    `except` de última instância aqui é só para o inesperado (ex.: `store`
+    fora do ar) — a rota NUNCA cai em 500 por indisponibilidade de dado de
+    mercado.
+    """
+    cfg = store.get(_conn, "config", user_id=scope) or {}
+    modo = cfg.get("appMode") or "estudo"
+    try:
+        top, meta = await _curadoria_top(scope, modo)
+    except Exception:
+        top, meta = [], {"avaliadas": [], "ignoradas": [], "degradados": [],
+                          "candidatosAvaliados": 0, "source": None}
+    return {
+        "top": top, "modo": modo, "fonte": "deterministico", "at": now_str(),
+        **meta,
     }
 
 
