@@ -50,6 +50,7 @@ from . import opcoes_vigias  # Fase 27: índice de "meus vigias" (custo ZERO de 
 from . import opcoes_tecnico  # Fase 27 (D1): leitura técnica interna da aba (custo ZERO de MCP)
 from . import opcoes_lastreadas  # Fase 14 (Plano 03): motor de proposta lastreada (venda coberta/put)
 from . import opcoes_curadoria  # Fase 30 (Plano 01/02): motor puro + varredura cross-posição das 4 melhores
+from . import curadoria_narrativa  # Fase 30 (Plano 03): camada fina de LLM sobre o top já rankeado
 from .options_quant import FAIXA_DIFICIL, FAIXA_SEM_MERCADO, faixa_de_liquidez, liquidity_score  # quick 260908-ldg: gate de liquidez em três faixas
 from . import skill_ref  # Fase 14 (Plano 03): frase canônica da proposta lastreada por modo
 
@@ -3376,6 +3377,55 @@ async def options_curadoria(scope: Optional[str] = Depends(current_scope)):
     return {
         "top": top, "modo": modo, "fonte": "deterministico", "at": now_str(),
         **meta,
+    }
+
+
+@app.post("/api/options/curadoria/narrativa")
+async def options_curadoria_narrativa(body: dict = Body(default={}), scope: Optional[str] = Depends(current_scope)):
+    """Narra em texto as estruturas que `/api/options/curadoria` já elegeu
+    (Fase 30, Plano 03). Três decisões, cada uma com o porquê:
+
+    1. O corpo aceita SOMENTE `config` (mesmo padrão de
+       `/api/technical/analyze`). A rota NÃO aceita estruturas por
+       parâmetro: ela RECOMPUTA o ranking (mesma varredura cross-posição da
+       rota irmã) e narra o que o servidor ordenou, nunca o que o cliente
+       mandar. Um cliente adulterado (ou só desatualizado) não pode fazer o
+       modelo descrever uma ordem que o motor nunca produziu — senão a
+       promessa "a escolha é determinística" viraria uma promessa sobre o
+       CLIENTE, não sobre o sistema.
+    2. A cota é a MESMA de `/api/analyze`, pelo MESMO gate de análise
+       (D6) — sem orçamento paralelo, sem gate novo.
+    3. Custo de rede: a recomputação reusa o cache de 300s do provedor de
+       cadeias, então narrar logo após ver o bloco não dobra o consumo na
+       prática. Uma chamada por posição elegível segue sendo o teto (D3).
+    """
+    body = body or {}
+    config = body.get("config") or store.get(_conn, "config", user_id=scope)
+    # Captura o modo ANTES do gate, que pode recriar a config — mesma
+    # armadilha documentada em analyze_technical_model (linha ~2394).
+    modo = (config or {}).get("appMode") or "estudo"
+    # Ao contrário de /api/technical/analyze (que converte 402 em
+    # indisponibilidade e cai num fallback determinístico), aqui o 402
+    # PROPAGA: o fallback determinístico desta tela já é a própria rota
+    # irmã, que não gasta cota. Mascarar o 402 num 200 sem texto esconderia
+    # do usuário que a cota acabou.
+    config, _consume_ai = _gate_analise(scope, config)
+    top, meta = await _curadoria_top(scope, modo)
+    if not top:
+        # top vazio não chama o modelo nem gasta cota: não há o que narrar.
+        return {"texto": None, "motivo": "sem_estrutura", "top": [], "modo": modo,
+                "at": now_str(), **meta}
+    try:
+        resultado = await curadoria_narrativa.narrar(_conn, config, scope, modo, top)
+    except HTTPException:
+        raise
+    except Exception as e:  # noqa: BLE001 — mesmo tratamento do precedente de análise técnica
+        raise HTTPException(502, llm.public_error(e))
+    _consume_ai()  # conta a cota só no sucesso
+    return {
+        "texto": resultado["texto"], "estruturas": resultado["estruturas"],
+        "top": top, "motivo": "narrado", "modo": modo,
+        "fonte": "ia-sobre-ranking-deterministico", "at": now_str(), **meta,
     }
 
 
