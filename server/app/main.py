@@ -1659,7 +1659,7 @@ async def admin_mobile_handoff_exchange(body: dict = Body(default={})):
 
 # FASE 8B (diagnóstico): carimbo de build do BACKEND — confirma qual código o
 # Railway está rodando (o front tem o dele em web/src/version.js).
-SERVER_BUILD_ID = "F10-20260914-03"  # 2026-09-14: publica a Fase 31 (varredura de oportunidades de opções) — backend (motor de 4 estruturas, rota + cache de vencimentos no mydata) e front (PayoffChart responsivo 375px, bloco de Posições) juntos. Corrige colisão de carimbo: bump.sh incrementa só a partir de web/src/version.js e não sabia do deploy so-backend anterior (quick-260914-b6p) que já tinha levado SERVER_BUILD_ID a "F10-20260914-02" com o front ainda em "-01" — o bump seguinte reusou "-02" para o front, então os dois carimbos colidiram em "-02" apontando para entregas diferentes. Suite 2910 passed, 149 .mjs, exit 0.
+SERVER_BUILD_ID = "F10-20260915-01"  # 2026-09-15: quick task 260915-j5l — corrige o clique nos cards da lista curada da Fase 31 (só passava o ticker, sem caminho de execução real para put de proteção/collar/a descoberto). Front-only: módulo puro executarCandidato.js despacha por tipo pras 3 rotas já existentes (lastreada/abrir, lastreada/abrir-collar, options/buy), confirmação inline no card, sem cálculo financeiro novo no front. Backend intocado nesta entrega (nenhuma rota nova, nenhum método de store novo). Verificado ao vivo pelo orquestrador contra o servidor local (mock): clique → confirmação → Executar → posição real aberta, cash creditado. Suite 2910 passed, 150 .mjs, exit 0.
 # Normalmente sincronizado pelo entregar.sh a partir de web/src/version.js; num deploy
 # SÓ de backend (sem rebuild do front) bumpamos aqui para /api/health rastrear o servidor.
 
