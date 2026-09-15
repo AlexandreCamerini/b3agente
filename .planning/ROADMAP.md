@@ -735,6 +735,34 @@ verificáveis sem criar seção separada por objetivo, que D-06 proíbe.
 (D-09); overlay de múltiplos candidatos e interatividade no payoff (D-08);
 seções de ranking separadas por objetivo receita vs. proteção (D-06).
 
+#### Phase 32: Consolidação das operações de opções na aba Opções — standalone
+**Goal**: Concentrar na aba Opções todo o conteúdo de OPERAÇÃO com opções
+que hoje vive espalhado entre Posições e Opções, reduzindo a poluição da
+tela de Posições sem perder a descoberta da oportunidade. Hoje há quatro
+blocos de opções em Posições (`OportunidadesOpcoes`, `CuradoriaEstruturas`,
+o acordeão `PropostaDaPosicao` e o `PropostaLastreada` dentro dele) e dois
+na aba Opções (sub-abas "Setups" e "Operar"); a sub-aba "Operar"
+(`OpcoesScreen.jsx:1297`) já recebe `carteira`/`posicaoSelecionada`, então
+o destino já existe — esta fase move e unifica, não constrói tela nova.
+**Depends on**: Phase 27 (aba Opções), Phase 28 (sub-aba Operar), Phase 30
+e 31 (curadoria e varredura, os blocos que se movem), e a quick
+`260915-ndt` (rota de execução do collar curado, que precisa continuar
+funcionando de onde quer que o card passe a viver).
+**Requirements**: ver `32-CONTEXT.md`
+**Success Criteria** (what must be TRUE): a fechar em
+`/gsd-discuss-phase 32` — a decisão de produto (o que move, o que fica
+como chamada em Posições, o que some) é do Alex e ainda não foi tomada.
+Registrada aqui como fase para destravar a discussão; critérios entram
+antes de planejar, mesmo procedimento da Fase 31.
+
+**Pergunta central já nomeada** (não é decisão, é o trade-off a resolver):
+mover tudo limpa Posições mas exige que o usuário lembre de ir à aba
+Opções — a descoberta hoje acontece exatamente onde ele vê a posição.
+**Histórico relevante**: o projeto já oscilou nesse eixo — a Fase 18
+reverteu uma aba própria de opções ("Candidato A") para colocar o conteúdo
+em Posições, e a Fase 27 criou a aba Opções mesmo assim. Esta fase precisa
+registrar o porquê para não oscilar uma terceira vez.
+
 ## Progress
 
 | Phase | Milestone | Status | Completed |
@@ -771,6 +799,7 @@ seções de ranking separadas por objetivo receita vs. proteção (D-06).
 | 29. Opção a descoberto com flag opt-in | 3/3 | Code complete | 2026-09-13 |
 | 30. Curadoria de IA das 4 melhores estruturas | 0/4 | Planned |  |
 | 31. Varredura de oportunidades de opções | 4/4 | Code complete | 2026-09-14 |
+| 32. Consolidação das operações de opções na aba Opções | 0/0 | Discussing |  |
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2/v1.3
 

@@ -5,7 +5,7 @@ milestone_name: Opções v2
 status: executing
 stopped_at: 'Fase 31 e quick task 260915-j5l ambas em produção. **Achado de infraestrutura de deploy (2026-09-15)**: Railway só observa a branch `main` — `git push` em `v2/interacao-estrutural` sozinho nunca chega à produção. A Fase 31 tinha ficado presa por isso desde 2026-09-14 (push só na branch de longa duração); corrigido com fast-forward + push explícito em `main`, e o mesmo padrão (`git push origin HEAD:main`, além da branch de trabalho) foi repetido para o quick task seguinte. Daqui pra frente, publicar = push nas DUAS branches, não só na de trabalho. **260915-j5l**: Alex achou em produção que os 4 cards da lista curada da Fase 31 mostravam a estrutura mas o clique não executava nenhuma (`onClick` só passava o ticker, caindo no acordeão antigo de proposta única). Confirmação inline no card, despacho por tipo pras 3 rotas já existentes, verificado ao vivo pelo orquestrador (clique real → posição real aberta, cash creditado). Em produção desde F10-20260915-01. Nota de guardrail aplicada: mutadores de estado do gsd-sdk não foram chamados — STATE.md editado à mão. Ver `.planning/quick/260915-j5l-corrigir-clique-nos-cards-da-lista-curad/`.'
 last_updated: "2026-09-15T00:00:00.000Z"
-last_activity: "2026-09-15 — quick task 260915-ndt: collar da lista curada passa a executar (rota nova re-derivando pelo motor da curadoria, anti-adulteração intacta) + rótulo de prêmio corrigido. Suíte 2923/150 verde, verificado ao vivo pelo orquestrador."
+last_activity: "2026-09-15 — /gsd-discuss-phase 32 (consolidação das operações de opções na aba Opções): Fase 32 registrada no ROADMAP e CONTEXT.md fechado com D-01..D-06. Antes disso, as quick tasks 260915-j5l e 260915-ndt foram publicadas (F10-20260915-01 e -02)."
 progress:
   total_phases: 10
   completed_phases: 5
@@ -21,11 +21,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-06)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Phase 31 — Varredura de oportunidades de opções (CODE COMPLETE nesta sessão, 4/4 planos; não publicada — próximo passo é decisão do Alex sobre publicar ou seguir para a próxima fase)
+**Current focus:** Phase 32 — Consolidação das operações de opções na aba Opções (DISCUTIDA em 2026-09-15, `32-CONTEXT.md` fechado com D-01..D-06; próximo passo `/gsd:plan-phase 32`). Fase 31 e as duas quick tasks do dia estão em produção.
 
 ## Current Position
 
-Phase: 31 (Varredura de oportunidades de opções) — CODE COMPLETE, não publicada
+Phase: 32 (Consolidação das operações de opções na aba Opções) — DISCUTIDA, pronta para planejar
+
+**Como chegamos aqui (2026-09-15):** a Fase 31 foi publicada e o Alex testou em produção. Achou dois defeitos em sequência — (1) os cards da lista curada não executavam nada (quick `260915-j5l`, confirmação inline no card) e (2) o collar sempre dava 409 porque a rota de execução re-derivava pelo motor errado (quick `260915-ndt`, rota nova pelo motor da curadoria). Ambas em produção (`F10-20260915-01`, `F10-20260915-02`). No meio disso ele levantou três vezes o mesmo incômodo — *"gostaria de deixar todo conteúdo em relação a opções na aba opções"*, *"as telas estão ficando muito poluídas"* — que virou a Fase 32. Discussão rodada: **D-01** Posições perde os 4 blocos de opções e fica com UMA linha de chamada com contagem; **D-02** o clique leva à lista na aba Opções (não a uma oportunidade específica — a leitura de deep-link foi desambiguada e caiu); **D-03** a contagem sai do mesmo dado da lista, nunca calculada à parte; **D-04..D-06** delegadas a mim ("decide o resto por mim"): blocos cross-carteira vão pro topo da aba junto dos vigias (precedente D4 da Fase 27, já aprovado), os dois motores ficam lado a lado com rótulos honestos em vez de unificar agora, e a rolagem longa fica aceita e adiada. Ver `.planning/phases/32-consolida-o-das-opera-es-de-op-es-na-aba-op-es-standalone/`.
+
+## Posição anterior (Phase 31)
+
+Phase: 31 (Varredura de oportunidades de opções) — EM PRODUÇÃO
 
 **Contexto de chegada nesta fase:** Fases 27-30 (aba Opções sobre a carteira, sub-aba Operar, flag opt-in de opção a descoberto, curadoria de IA das 4 melhores vendas cobertas) foram publicadas juntas em produção em 2026-09-14 (`F10-20260914-01`), e um bug de produção achado no checkpoint ao vivo da Fase 30 — `options_provider_mydata.get_options` escolhia vencimento vencido por confiar num campo (`vence_no_pregao`) que vem falso em 100% dos dados reais, zerando a proposta de venda coberta desde a Fase 14 — foi corrigido e publicado à parte (`F10-20260914-02`, quick task `260914-b6p`). Ao final dessa sessão o Alex reabriu uma decisão que tinha acabado de fechar ("primeiro vencimento futuro, seja qual for") e pediu uma varredura maior de oportunidades — a Fase 31 nasceu desse pedido, registrada só como rascunho (`31-CONTEXT.md`) com 3 lacunas abertas.
 
