@@ -641,6 +641,18 @@ export const COPY = {
     curadoriaIaRessalva: "A IA explica a ordem que o motor já decidiu — ela não escolhe nem reordena as estruturas.",
     curadoriaCotaEsgotada: "Sua cota mensal de análises de IA acabou. Os itens acima continuam valendo — só a explicação em texto não está disponível agora.",
     curadoriaErroNarrar: "Não foi possível gerar a explicação agora. Os itens acima continuam calculados pelo motor e não dependem deste texto.",
+
+    // Quick 260915-j5l: o clique no card passa a abrir uma confirmação
+    // INLINE (prêmio/perda máxima/breakeven + botão) em vez de rolar para o
+    // acordeão de UMA posição. Voz de professor: descreve a condição, nunca
+    // convida a trocar de modo com linguagem de venda.
+    curadoriaExecutarCta: "Executar esta estrutura",
+    curadoriaExecutando: "Executando…",
+    curadoriaFechar: "Fechar",
+    curadoriaExecutada: "Estrutura executada — veja a posição na carteira.",
+    curadoriaLiquidezConsentir: "Entendo que esta opção negociou pouco hoje e o preço pode se mover contra mim ao executar.",
+    curadoriaEstudoNaoExecuta: "No Modo Estudo você não executa operações — esta é a leitura de como a estrutura funcionaria.",
+    curadoriaVerPosicao: "Ver detalhe da posição",
   },
 
   operador: {
@@ -1147,6 +1159,16 @@ export const COPY = {
     curadoriaIaRessalva: "A IA lê a ordem que o motor decidiu — não escolhe nem reordena.",
     curadoriaCotaEsgotada: "Cota mensal de análises esgotada. Os itens seguem valendo; só o texto da IA fica indisponível.",
     curadoriaErroNarrar: "Falha ao gerar o texto agora. Os itens não dependem dele.",
+
+    // Quick 260915-j5l: mesma chave do ramo estudo (ver comentário acima).
+    // Voz de mesa, curta, sem verbo de ordem.
+    curadoriaExecutarCta: "Executar estrutura",
+    curadoriaExecutando: "Executando…",
+    curadoriaFechar: "Fechar",
+    curadoriaExecutada: "Executada — veja a posição na carteira.",
+    curadoriaLiquidezConsentir: "Ciente: esta opção negociou pouco hoje, o preço pode se mover contra a execução.",
+    curadoriaEstudoNaoExecuta: "Modo Estudo não executa operações — esta é a leitura de como a estrutura funcionaria.",
+    curadoriaVerPosicao: "Ver posição",
   },
 };
 

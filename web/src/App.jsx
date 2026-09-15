@@ -17,6 +17,7 @@ import PropostaLastreada, { FonteDoDadoProposta, ChipDaProposta, useAceiteLastre
 // INGLÊS que este componente consome.
 import PayoffChart from "./opcoes/PayoffChart.jsx";
 import { estruturaParaPayoff } from "./opcoes/estruturaParaPayoff.js";
+import { executarCandidato } from "./opcoes/executarCandidato.js";
 import { BUILD_ID } from "./version.js";
 // carimbo no console: prova de qual build está rodando (device/web)
 try { console.log("[b3] build", BUILD_ID); } catch { /* noop */ }
@@ -4194,7 +4195,42 @@ const ROTULO_TIPO_CURADORIA = {
   opcao_a_descoberto: "curadoriaTipoDescoberto",
 };
 
-function CuradoriaEstruturas({ top, meta, carregando, erro, narrativa, narrando, erroNarrativa, onNarrar, cp, onAbrir, palette }) {
+function CuradoriaEstruturas({ top, meta, carregando, erro, narrativa, narrando, erroNarrativa, onNarrar, cp, onAbrir, onExecutar, operador, palette }) {
+  // Quick 260915-j5l: clicar num card abre uma confirmação INLINE dentro do
+  // próprio bloco (não rola a tela, não abre o acordeão antigo de UMA
+  // posição). Estado indexado por idCandidato — NUNCA por ticker: dois
+  // candidatos do mesmo ticker (ex.: call_coberta e put_protecao da mesma
+  // posição) convivem no top-4 e precisam de estado independente.
+  const [abertoId, setAbertoId] = useState(null);
+  const [execucao, setExecucao] = useState({}); // {[id]: {busy, erro, ok}}
+  const [liquidezOk, setLiquidezOk] = useState({}); // {[id]: true} — consentimento de liquidez DIFÍCIL
+  const item = top.find((c) => (c.idCandidato || c.contractSymbol) === abertoId) || null;
+  const idAberto = item ? (item.idCandidato || item.contractSymbol) : null;
+  const execAtual = idAberto ? (execucao[idAberto] || {}) : {};
+  // ATENÇÃO: `null * 100 === 0` em JS — porLote null-safe, mesmo padrão de
+  // PropostaLastreada.jsx:200 ("null nunca 0.0", princípio 4 do CLAUDE.md).
+  const porLote = item ? (v) => (typeof v === "number" ? v * (item.qtyAcoes || 0) : null) : null;
+  const estAberto = item ? (item.estrutura || null) : null;
+  const liquidezDificil = !!(item && item.liquidez && item.liquidez.faixa === "DIFÍCIL");
+  const liquidezSemAviso = liquidezDificil && !item.liquidez.aviso;
+  const consentido = idAberto ? !!liquidezOk[idAberto] : false;
+  const executarTravado = execAtual.busy || (liquidezDificil && (liquidezSemAviso || !consentido));
+  const handleExecutar = async () => {
+    if (!item || !idAberto) return;
+    setExecucao((s) => ({ ...s, [idAberto]: { busy: true, erro: null, ok: false } }));
+    try {
+      // aceitaLiquidezDificil nasce SÓ do estado de consentimento do card
+      // (liquidezOk) — nunca um `true` solto (T-J5L-04).
+      await onExecutar(item, { aceitaLiquidezDificil: !!liquidezOk[idAberto] });
+      setExecucao((s) => ({ ...s, [idAberto]: { busy: false, erro: null, ok: true } }));
+    } catch (e) {
+      // e.message VERBATIM — nenhuma composição/adivinhação de causa
+      // (princípio 4 do CLAUDE.md, T-J5L-03). Sem reenvio automático: o
+      // usuário decide o próximo clique.
+      setExecucao((s) => ({ ...s, [idAberto]: { busy: false, erro: (e && e.message) || String(e), ok: false } }));
+    }
+  };
+
   // Fase 31 (Plano 04, D-04/D-05): resumo da varredura — evidência visível
   // de SC-2/SC-3 mesmo quando o top-4 fica todo de um tipo só (D-06). Lê
   // SÓ meta.candidatosPorTipo/tetoVencimentos; campo ausente vira "—",
@@ -4233,27 +4269,119 @@ function CuradoriaEstruturas({ top, meta, carregando, erro, narrativa, narrando,
       {top.length > 0 && (
         <div style={carouselTrackStyle({ gap: "10px", scrollbarWidth: "none", paddingBottom: "2px" })}>
           {top.map((item) => (
-            <button
-              key={item.idCandidato || item.contractSymbol}
-              type="button"
-              aria-label={(ROTULO_TIPO_CURADORIA[item.tipo] ? cp[ROTULO_TIPO_CURADORIA[item.tipo]] + " — " : "") + item.posicaoNoRanking + ". " + item.ticker}
-              onClick={() => onAbrir(item.ticker)}
-              style={{ ...carouselItemStyle("start"), flex: "0 0 220px", minWidth: "220px", minHeight: "44px", textAlign: "left", padding: "11px 12px", borderRadius: "11px", background: T.bgCard, border: `1px solid ${T.borderFaint}`, cursor: "pointer" }}
-            >
-              <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em", color: T.accent }}>{item.posicaoNoRanking}. {item.ticker}</div>
-              {/* Fase 31 (Plano 04, D-04): chip de TIPO — categoria, nunca
-                  a manchete. Fallback "" em tipo desconhecido. */}
-              <div style={{ fontSize: "9px", fontWeight: 700, letterSpacing: "0.03em", color: T.textFaint, textTransform: "uppercase", marginTop: "3px" }}>
-                {ROTULO_TIPO_CURADORIA[item.tipo] ? cp[ROTULO_TIPO_CURADORIA[item.tipo]] : ""}
-              </div>
-              {/* manchete do motor, verbatim — guardrail CVM (CLAUDE.md);
-                  nunca truncada/concatenada: cortar reescreveria a
-                  afirmação do motor. */}
-              <div style={{ fontSize: "12.5px", fontWeight: 700, color: T.textPrimary, marginTop: "4px", whiteSpace: "normal" }}>{item.manchete}</div>
-              <div style={{ fontSize: "10.5px", color: T.textFaint, marginTop: "6px" }}>{cp.curadoriaRazaoRotulo}: {item.razao != null ? item.razao.toFixed(2) : "—"}</div>
-              <div style={{ fontSize: "10.5px", color: T.textFaint, marginTop: "2px" }}>{money(item.premioTotal)} · {item.diasParaVencimento}d · {item.liquidez && item.liquidez.faixa}</div>
-            </button>
+              <button
+                key={item.idCandidato || item.contractSymbol}
+                type="button"
+                aria-label={(ROTULO_TIPO_CURADORIA[item.tipo] ? cp[ROTULO_TIPO_CURADORIA[item.tipo]] + " — " : "") + item.posicaoNoRanking + ". " + item.ticker}
+                aria-expanded={abertoId === (item.idCandidato || item.contractSymbol)}
+                // Quick 260915-j5l: o clique alterna a confirmação inline
+                // (clicar de novo fecha) — NÃO chama mais onAbrir(ticker)
+                // aqui, que descartava idCandidato/contractSymbol/
+                // pernasContratos/tipo e levava ao acordeão genérico de UMA
+                // posição, sempre venda coberta (o bug que este plano
+                // corrige). onAbrir sobrevive abaixo, como link secundário
+                // dentro do painel expandido.
+                onClick={() => setAbertoId((atual) => (atual === (item.idCandidato || item.contractSymbol) ? null : (item.idCandidato || item.contractSymbol)))}
+                style={{ ...carouselItemStyle("start"), flex: "0 0 220px", minWidth: "220px", minHeight: "44px", textAlign: "left", padding: "11px 12px", borderRadius: "11px", background: T.bgCard, border: `1px solid ${T.borderFaint}`, cursor: "pointer" }}
+              >
+                <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em", color: T.accent }}>{item.posicaoNoRanking}. {item.ticker}</div>
+                {/* Fase 31 (Plano 04, D-04): chip de TIPO — categoria, nunca
+                    a manchete. Fallback "" em tipo desconhecido. */}
+                <div style={{ fontSize: "9px", fontWeight: 700, letterSpacing: "0.03em", color: T.textFaint, textTransform: "uppercase", marginTop: "3px" }}>
+                  {ROTULO_TIPO_CURADORIA[item.tipo] ? cp[ROTULO_TIPO_CURADORIA[item.tipo]] : ""}
+                </div>
+                {/* manchete do motor, verbatim — guardrail CVM (CLAUDE.md);
+                    nunca truncada/concatenada: cortar reescreveria a
+                    afirmação do motor. */}
+                <div style={{ fontSize: "12.5px", fontWeight: 700, color: T.textPrimary, marginTop: "4px", whiteSpace: "normal" }}>{item.manchete}</div>
+                <div style={{ fontSize: "10.5px", color: T.textFaint, marginTop: "6px" }}>{cp.curadoriaRazaoRotulo}: {item.razao != null ? item.razao.toFixed(2) : "—"}</div>
+                <div style={{ fontSize: "10.5px", color: T.textFaint, marginTop: "2px" }}>{money(item.premioTotal)} · {item.diasParaVencimento}d · {item.liquidez && item.liquidez.faixa}</div>
+              </button>
           ))}
+        </div>
+      )}
+      {/* Quick 260915-j5l: painel de confirmação inline — abaixo da lista
+          de cards, dentro do MESMO container (nunca scrollIntoView, nunca
+          modal). Renderiza só o candidato com idCandidato === abertoId; lê
+          exclusivamente item.estrutura/item.premioTotal/item.liquidez —
+          nenhuma chamada de store/api neste bloco (T-J5L-05: o estado da
+          carteira já vem pronto de A.executarCandidatoCurado via setData). */}
+      {item && (
+        <div style={{ marginTop: "10px", padding: "14px", borderRadius: "11px", background: T.bgCard, border: `1px solid ${T.borderFaint}` }}>
+          <div style={{ fontSize: "13px", fontWeight: 800, color: T.textPrimary, lineHeight: 1.4 }}>{item.manchete}</div>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", marginTop: "10px" }}>
+            <span style={{ color: T.textSecondary }}>{cp.curadoriaRazaoRotulo}</span>
+            <b style={{ fontFamily: MONO, fontWeight: 800, color: T.textPrimary }}>{money(item.premioTotal)}</b>
+          </div>
+          {estAberto && (
+            <>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", marginTop: "4px" }}>
+                <span style={{ color: T.textSecondary }}>{cp.payoffPerdaMaxima}</span>
+                <b style={{ fontFamily: MONO, fontWeight: 800, color: T.textPrimary }}>
+                  {estAberto.perda_ilimitada ? cp.payoffIlimitado : "R$ " + price(porLote(estAberto.perda_maxima))}
+                </b>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", marginTop: "4px" }}>
+                <span style={{ color: T.textSecondary }}>{cp.payoffBreakeven}</span>
+                <b style={{ fontFamily: MONO, fontWeight: 800, color: T.textPrimary }}>
+                  {Array.isArray(estAberto.breakevens) && estAberto.breakevens.length ? estAberto.breakevens.map((b) => price(b)).join(" / ") : cp.payoffSemDado}
+                </b>
+              </div>
+            </>
+          )}
+          {/* Modo Estudo (T-14-23, mesma defesa em UI de PropostaLastreada):
+              NADA de botão executar — o 403 do servidor é a defesa real. */}
+          {!operador && (
+            <div style={{ fontSize: "12px", color: T.textMuted, lineHeight: 1.5, marginTop: "10px" }}>
+              {item.didatica}
+              <div style={{ marginTop: "6px", fontStyle: "italic" }}>{cp.curadoriaEstudoNaoExecuta}</div>
+            </div>
+          )}
+          {operador && (
+            <>
+              {liquidezDificil && !liquidezSemAviso && (
+                <label style={{ display: "flex", alignItems: "flex-start", gap: "8px", marginTop: "10px", fontSize: "11.5px", color: T.textSecondary, lineHeight: 1.5 }}>
+                  <input type="checkbox" checked={consentido} onChange={(e) => setLiquidezOk((s) => ({ ...s, [idAberto]: e.target.checked }))} style={{ marginTop: "2px" }} />
+                  <span>{item.liquidez.aviso} {cp.curadoriaLiquidezConsentir}</span>
+                </label>
+              )}
+              {/* liquidez DIFÍCIL sem aviso do servidor: nunca inferir
+                  consentimento que o usuário não leu (T-J5L-04) — mesmo
+                  texto de useAceiteLastreado ao lado. */}
+              {liquidezSemAviso && (
+                <div style={{ marginTop: "10px", fontSize: "11.5px", color: T.warn, lineHeight: 1.5 }}>
+                  Não foi possível confirmar a liquidez desta operação — tente novamente.
+                </div>
+              )}
+              {execAtual.erro && (
+                <div style={{ marginTop: "10px", padding: "9px 10px", borderRadius: "8px", background: "color-mix(in srgb, " + T.warn + " 12%, transparent)", border: `1px solid ${T.warn}`, fontSize: "11.5px", color: T.warn, lineHeight: 1.5 }}>
+                  {execAtual.erro}
+                </div>
+              )}
+              {execAtual.ok ? (
+                <div style={{ marginTop: "10px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
+                  <span style={{ fontSize: "12px", color: T.positive, fontWeight: 700 }}>{cp.curadoriaExecutada}</span>
+                  <button type="button" onClick={() => setAbertoId(null)} style={{ minHeight: "40px", padding: "8px 14px", borderRadius: "8px", border: `1px solid ${T.borderSubtle}`, background: "transparent", color: T.textSecondary, fontWeight: 700, fontSize: "12px" }}>{cp.curadoriaFechar}</button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleExecutar}
+                  disabled={executarTravado}
+                  style={{ marginTop: "10px", minHeight: "44px", width: "100%", padding: "10px", borderRadius: "10px", border: "none", background: T.accent, color: "#fff", fontWeight: 700, fontSize: "13px", opacity: executarTravado ? 0.55 : 1, cursor: executarTravado ? "default" : "pointer" }}
+                >
+                  {execAtual.busy ? cp.curadoriaExecutando : cp.curadoriaExecutarCta}
+                </button>
+              )}
+            </>
+          )}
+          <button
+            type="button"
+            onClick={() => onAbrir(item.ticker)}
+            style={{ marginTop: "10px", display: "block", background: "transparent", border: "none", padding: 0, color: T.accent, fontWeight: 700, fontSize: "11.5px", textDecoration: "none" }}
+          >
+            {cp.curadoriaVerPosicao}
+          </button>
         </div>
       )}
       {/* Fase 31 (Plano 04, D-07/D-08): payoff do nº 1 — abaixo da lista,
@@ -4736,6 +4864,8 @@ function CarteiraScreen({ ctx }) {
             onNarrar={() => narrarCuradoria(data.config)}
             cp={cp}
             onAbrir={abrirOpcoesDe}
+            onExecutar={(cand, o) => A.executarCandidatoCurado(cand, o)}
+            operador={operador}
             palette={ctx.palette}
           />
         </>
@@ -8806,6 +8936,22 @@ export default function App() {
         track("trade_simulated", { side: "abrir", ticker: body.underlying, instrument: "opcao_collar" });
         flash("Collar aberto — " + body.underlying + ".");
       } catch (e) { flash("Montar collar: " + (e.message || e)); }
+    },
+    // Quick 260915-j5l: despacho por tipo do bloco de curadoria (Fase 31) —
+    // reusa executarCandidato() (módulo puro) para traduzir o candidato no
+    // corpo exato da rota certa. Divergência DELIBERADA dos irmãos acima
+    // (abrirLastreada/abrirCollar): o erro NÃO vira `flash` — é relançado
+    // (`throw`), porque aqui a mensagem do servidor pertence ao PAINEL
+    // INLINE do card que o usuário clicou, não a um toast de 2,6s sobre um
+    // card já expandido (isso duplicaria a mesma falha em duas superfícies).
+    // Quem chama (CuradoriaEstruturas) grava `e.message` no próprio estado
+    // do card.
+    executarCandidatoCurado: async (cand, opts) => {
+      const s = await executarCandidato(cand, { store, aceitaLiquidezDificil: opts && opts.aceitaLiquidezDificil });
+      setData(s);
+      track("trade_simulated", { side: "abrir", ticker: cand.ticker, instrument: "curadoria_" + cand.tipo });
+      flash(cp.curadoriaExecutada);
+      return s;
     },
     fecharLastreada: async (body) => {
       try {
