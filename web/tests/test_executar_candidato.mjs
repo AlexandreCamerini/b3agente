@@ -65,6 +65,10 @@ function storeEspiao() {
     chamadas,
     optionsAbrirLastreada: (body) => { chamadas.push({ metodo: "optionsAbrirLastreada", body }); return Promise.resolve({ fake: "lastreada" }); },
     optionsAbrirCollar: (body) => { chamadas.push({ metodo: "optionsAbrirCollar", body }); return Promise.resolve({ fake: "collar" }); },
+    // Quick 260915-ndt: método NOVO (chave nomeada aqui achada pelo
+    // plan-checker — sem ela o espião não tem `store[metodo]` e o despacho
+    // do collar vira TypeError síncrono, não uma asserção que falha).
+    optionsCuradoriaAbrirCollar: (body) => { chamadas.push({ metodo: "optionsCuradoriaAbrirCollar", body }); return Promise.resolve({ fake: "collar-curado" }); },
     optionsBuy: (body) => { chamadas.push({ metodo: "optionsBuy", body }); return Promise.resolve({ fake: "buy" }); },
   };
 }
@@ -82,17 +86,25 @@ ok("put_protecao resolve metodo optionsAbrirLastreada (mesma rota da call)", r2.
 ok("put_protecao: corpo idêntico",
   mesmoObjeto(r2.body, { underlying: "PETR4", contractSymbol: "PETRP456", expiration: "2026-10-16", contratos: 2 }));
 
-// ---- (3) collar → optionsAbrirCollar, 2 pernas SÓ contractSymbol+lado -----
+// ---- (3) collar → optionsCuradoriaAbrirCollar, 2 pernas SÓ contractSymbol+lado
+// REVERSÃO DELIBERADA (2026-09-15, quick 260915-ndt): antes desta quick, o
+// collar ia para `optionsAbrirCollar` (rota `/lastreada/abrir-collar`, que
+// re-deriva por `opcoes_lastreadas.propor()` e 409ava todo collar curado
+// quando a leitura técnica não endossava collar — o caso comum). Agora vai
+// para `optionsCuradoriaAbrirCollar` (rota `/curadoria/abrir-collar`, que
+// re-deriva pelo motor que gerou o card), com `idCandidato` no corpo no
+// lugar de `expiration` (o id já carrega a expiração).
 const r3 = corpoDoCandidato(collar);
-ok("collar resolve metodo optionsAbrirCollar", r3.metodo === "optionsAbrirCollar");
+ok("collar resolve metodo optionsCuradoriaAbrirCollar", r3.metodo === "optionsCuradoriaAbrirCollar");
 ok("collar: exatamente 2 pernas", Array.isArray(r3.body.pernasContratos) && r3.body.pernasContratos.length === 2);
 ok("collar: cada perna tem SOMENTE contractSymbol e lado (Object.keys === 2)",
   r3.body.pernasContratos.every((p) => Object.keys(p).length === 2 && "contractSymbol" in p && "lado" in p));
-ok("collar: corpo idêntico (underlying/pernasContratos/contratos/expiration, SEM strike/prêmio)",
+ok("collar: corpo idêntico (underlying/idCandidato/pernasContratos/contratos, SEM expiration/strike/prêmio)",
   mesmoObjeto(r3.body, {
     underlying: "VALE3",
+    idCandidato: "id-collar-1",
     pernasContratos: [{ contractSymbol: "VALEC1", lado: "venda" }, { contractSymbol: "VALEP1", lado: "compra" }],
-    contratos: 1, expiration: "2026-11-20",
+    contratos: 1,
   }));
 
 // ---- (4) opcao_a_descoberto → optionsBuy, qty=qtyAcoes, SEM liquidez -------
@@ -109,6 +121,7 @@ const r5a = corpoDoCandidato(callCoberta, { aceitaLiquidezDificil: true });
 ok("call_coberta com consentimento: aceitaLiquidezDificil === true (identidade)", r5a.body.aceitaLiquidezDificil === true);
 const r5b = corpoDoCandidato(collar, { aceitaLiquidezDificil: true });
 ok("collar com consentimento: aceitaLiquidezDificil === true (identidade)", r5b.body.aceitaLiquidezDificil === true);
+ok("collar com consentimento: metodo continua optionsCuradoriaAbrirCollar", r5b.metodo === "optionsCuradoriaAbrirCollar");
 const r5c = corpoDoCandidato(descoberto, { aceitaLiquidezDificil: true });
 ok("opcao_a_descoberto com consentimento: aceitaLiquidezDificil AINDA AUSENTE (rota sem gate de liquidez)",
   !("aceitaLiquidezDificil" in r5c.body));
@@ -137,8 +150,22 @@ try { corpoDoCandidato({ tipo: "call_coberta", ticker: "PETR4" }); } catch (e) {
 ok("call_coberta sem contractSymbol lança Error (nunca corpo incompleto)", lancouIncompleto);
 
 let lancouCollarIncompleto = false;
-try { corpoDoCandidato({ tipo: "collar", ticker: "VALE3", pernasContratos: [{ contractSymbol: "A", lado: "venda" }] }); } catch (e) { lancouCollarIncompleto = e instanceof Error; }
+try { corpoDoCandidato({ tipo: "collar", ticker: "VALE3", contratos: 1, idCandidato: "x", pernasContratos: [{ contractSymbol: "A", lado: "venda" }] }); } catch (e) { lancouCollarIncompleto = e instanceof Error; }
 ok("collar com só 1 perna lança Error (exige exatamente 2)", lancouCollarIncompleto);
+
+// Caso NOVO (quick 260915-ndt): collar sem idCandidato lança ANTES de
+// tocar store nenhum — idCandidato é a CHAVE de re-derivação server-side
+// (ADR-026 D2), sem ela a rota nova não tem como recalcular a estrutura.
+let lancouCollarSemIdCandidato = false;
+const espiaoSemId = storeEspiao();
+try {
+  await executarCandidato(
+    { tipo: "collar", ticker: "VALE3", contratos: 1, pernasContratos: collar.pernasContratos },
+    { store: espiaoSemId },
+  );
+} catch (e) { lancouCollarSemIdCandidato = e instanceof Error; }
+ok("collar sem idCandidato lança Error e NÃO chama store nenhum",
+  lancouCollarSemIdCandidato && espiaoSemId.chamadas.length === 0);
 
 // executarCandidato: despacha para o store espião correto e NUNCA chama
 // store nenhum quando o tipo é inválido.
@@ -149,8 +176,9 @@ ok("executarCandidato(call_coberta) chamou store.optionsAbrirLastreada exatament
 
 const espiao2 = storeEspiao();
 await executarCandidato(collar, { store: espiao2, aceitaLiquidezDificil: true });
-ok("executarCandidato(collar, consentido) chamou store.optionsAbrirCollar com aceitaLiquidezDificil true",
-  espiao2.chamadas.length === 1 && espiao2.chamadas[0].body.aceitaLiquidezDificil === true);
+ok("executarCandidato(collar, consentido) chamou store.optionsCuradoriaAbrirCollar com aceitaLiquidezDificil true",
+  espiao2.chamadas.length === 1 && espiao2.chamadas[0].metodo === "optionsCuradoriaAbrirCollar"
+  && espiao2.chamadas[0].body.aceitaLiquidezDificil === true);
 
 const espiao3 = storeEspiao();
 await executarCandidato(descoberto, { store: espiao3 });

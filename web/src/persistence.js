@@ -325,6 +325,9 @@ function serverStore() {
     // cancelPendingOrder) — reaplicar de fila offline devolveria caixa duas
     // vezes; abrir-collar fica FORA de sync.mutate/outbox, delegação pura.
     optionsAbrirCollar: (body) => api.optionsAbrirCollar(body),
+    // Quick 260915-ndt: mesma delegação pura — execução, fora de sync.mutate/
+    // outbox, mesma razão de optionsAbrirCollar acima.
+    optionsCuradoriaAbrirCollar: (body) => api.optionsCuradoriaAbrirCollar(body),
     optionsFecharLastreada: (body) => api.optionsFecharLastreada(body),
     cachedTechnicals: (_t, _period) => null,
     buy: (t, qty, meta) => api.buy(t, qty, meta),  // FASE 2 (2.4): mesma interface do deviceStore
@@ -1620,6 +1623,25 @@ function deviceStore() {
       ensure();
       if (sync.hasSession()) {
         const r = await api.optionsAbrirCollar(body);
+        _adotarCarteiraDoServidor(r);
+        write();
+        const out = pub();
+        out.premiosUsados = r && r.premiosUsados;
+        return out;
+      }
+      throw new Error("Montar um collar exige estar conectado à sua conta — as duas pernas são validadas juntas no servidor.");
+    },
+    // Quick 260915-ndt: espelho EXATO de optionsAbrirCollar acima, trocando
+    // a rota de destino (o candidato CURADO — re-derivação pelo motor da
+    // curadoria). O motivo de não reimplementar localmente é AINDA MAIS
+    // forte aqui: a re-derivação pela varredura de opcoes_curadoria (não
+    // opcoes_lastreadas.propor()) é a própria defesa desta rota — um
+    // segundo motor no aparelho divergiria exatamente do que a rota existe
+    // para garantir.
+    async optionsCuradoriaAbrirCollar(body) {
+      ensure();
+      if (sync.hasSession()) {
+        const r = await api.optionsCuradoriaAbrirCollar(body);
         _adotarCarteiraDoServidor(r);
         write();
         const out = pub();

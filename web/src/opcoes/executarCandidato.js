@@ -19,6 +19,15 @@
  * - ZERO método novo de store: despacha só para os três que já existem nos
  *   DOIS stores (serverStore e deviceStore) — preserva a paridade
  *   `deviceStore`↔`serverStore` sem tocar em persistence.js.
+ *   REVERSÃO DELIBERADA (2026-09-15, quick 260915-ndt): esta frase deixou de
+ *   valer para o ramo collar. `POST /api/options/lastreada/abrir-collar`
+ *   re-deriva por `opcoes_lastreadas.propor()` e 409ava TODO collar curado
+ *   quando a leitura técnica não endossava collar (o caso comum) — a lista
+ *   curada nasce sem esse gate de propósito (Fase 30/D1). O collar agora
+ *   despacha para `optionsCuradoriaAbrirCollar`, método NOVO adicionado nos
+ *   DOIS stores (`persistence.js`), que re-deriva pelo motor que gerou o
+ *   card (`opcoes_curadoria`). Não apagada em silêncio: a frase antiga
+ *   documenta a regra que os outros três tipos ainda seguem.
  * - `aceitaLiquidezDificil` só entra no corpo por IDENTIDADE (`=== true`),
  *   nunca por truthiness — um valor truthy acidental (string, objeto) não
  *   pode virar consentimento de liquidez DIFÍCIL.
@@ -66,7 +75,16 @@ export function corpoDoCandidato(cand, opts = {}) {
   }
 
   if (tipo === "collar") {
-    exigirCampos(cand, ["ticker", "contratos", "expiration"], "collar");
+    // `expiration` FORA da lista de campos exigidos (quick 260915-ndt): o
+    // corpo antigo mandava `expiration` para `/api/options/lastreada/abrir-
+    // collar`, que re-deriva por `opcoes_lastreadas.propor()` e 409ava todo
+    // collar curado quando a leitura técnica não endossava collar (o caso
+    // comum — a lista curada nasce sem esse gate, Fase 30/D1). A rota nova
+    // re-deriva pelo motor que gerou o card (`opcoes_curadoria`), e
+    // `idCandidato` é a CHAVE dessa re-derivação — `expiration` saiu do
+    // corpo porque o `idCandidato` já a carrega, e duas fontes para o mesmo
+    // campo é como elas divergem.
+    exigirCampos(cand, ["ticker", "contratos", "idCandidato"], "collar");
     const pernas = Array.isArray(cand.pernasContratos) ? cand.pernasContratos : [];
     if (pernas.length !== 2) {
       throw new Error("Candidato de collar precisa de exatamente 2 pernas.");
@@ -82,12 +100,12 @@ export function corpoDoCandidato(cand, opts = {}) {
     });
     const body = {
       underlying: cand.ticker,
+      idCandidato: cand.idCandidato,
       pernasContratos,
       contratos: cand.contratos,
-      expiration: cand.expiration,
     };
     if (aceitaLiquidezDificil) body.aceitaLiquidezDificil = true;
-    return { metodo: "optionsAbrirCollar", body };
+    return { metodo: "optionsCuradoriaAbrirCollar", body };
   }
 
   if (tipo === "opcao_a_descoberto") {

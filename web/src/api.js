@@ -329,6 +329,14 @@ export const api = {
   // executa uma perna por chamada; esta rota nova é o único caminho que
   // executa as 2 pernas do collar, com re-derivação server-side da proposta.
   optionsAbrirCollar: (body) => req("POST", "/api/options/lastreada/abrir-collar", body),
+  // Quick 260915-ndt: rota do candidato CURADO (re-derivação pelo motor da
+  // curadoria — opcoes_curadoria, o MESMO que gerou o card) — `optionsAbrirCollar`
+  // acima continua servindo a proposta única (a tira "OPORTUNIDADES DE
+  // OPÇÕES"), re-derivada por opcoes_lastreadas.propor(). Nome com prefixo
+  // `options` para ficar junto dos outros métodos de EXECUÇÃO (o
+  // `opcoesCuradoria` vizinho é leitura); `Curadoria` no meio para não
+  // colidir como substring com os guardiões existentes de `optionsAbrirCollar`.
+  optionsCuradoriaAbrirCollar: (body) => req("POST", "/api/options/curadoria/abrir-collar", body),
   optionsFecharLastreada: (body) => req("POST", "/api/options/lastreada/fechar", body),
   // Fase 30 (Plano 02): ranking determinístico do top-4 de venda coberta —
   // dado de mercado, mesma classe/timeout de optionsProposta/optionsGate

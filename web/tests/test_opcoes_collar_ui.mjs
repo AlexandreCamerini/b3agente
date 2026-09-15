@@ -225,6 +225,30 @@ ok("api.js monta ?multiperna=1 quando o parâmetro é passado",
 })();
 
 // ---------------------------------------------------------------------------
+// 6b) paridade dos dois stores para o candidato CURADO (quick 260915-ndt)
+//     optionsCuradoriaAbrirCollar existe nos DOIS stores; mesmo espelho do
+//     bloco 6 acima, para a rota nova (re-derivação pelo motor da
+//     curadoria) — nome NÃO colide como substring com optionsAbrirCollar
+//     ("Curadoria" no meio), então o regex do bloco 6 não conta esta chave.
+// ---------------------------------------------------------------------------
+(() => {
+  const ocorrencias = (persistence.match(/optionsCuradoriaAbrirCollar/g) || []).length;
+  ok("optionsCuradoriaAbrirCollar aparece pelo menos 2x em persistence.js (um por store)", ocorrencias >= 2, String(ocorrencias));
+
+  const iDevice = persistence.indexOf("function deviceStore()");
+  const iExport = persistence.indexOf("export const store");
+  const deviceBlock = iDevice > -1 && iExport > iDevice ? persistence.slice(iDevice, iExport) : "";
+
+  const iMetodo = deviceBlock.indexOf("async optionsCuradoriaAbrirCollar(body)");
+  ok("optionsCuradoriaAbrirCollar existe dentro de deviceStore", iMetodo > -1);
+  const vizinhanca = iMetodo > -1 ? deviceBlock.slice(iMetodo, iMetodo + 800) : "";
+  ok("ramo sem sessão de deviceStore.optionsCuradoriaAbrirCollar lança erro nomeado (throw new Error()",
+    /throw new Error\(/.test(vizinhanca));
+  ok("deviceStore.optionsCuradoriaAbrirCollar NÃO reimplementa a estrutura sem sessão (sem chamada a api.optionsChain dentro deste método)",
+    !vizinhanca.includes("api.optionsChain"));
+})();
+
+// ---------------------------------------------------------------------------
 // 7) front não compõe manchete/didática do collar (T-17-27)
 //    As frases canônicas do motor para collar (skill_ref.py) nunca são
 //    duplicadas em copy.js — reafirma, para as chaves NOVAS deste plano, a
