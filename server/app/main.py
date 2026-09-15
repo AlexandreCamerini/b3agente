@@ -3284,6 +3284,88 @@ async def options_vigias(scope: Optional[str] = Depends(current_scope)):
 
 
 # ---- Fase 30 (Plano 02) / Fase 31 (Plano 02): curadoria das 4 melhores estruturas ----
+async def _curadoria_scan_posicao(t: str, posicao: dict, modo: str, hoje, *,
+                                   permitir_a_descoberto: bool = False):
+    """Varre UMA posição por até `opcoes_curadoria.VENCIMENTOS_POR_POSICAO`
+    cadeias — o corpo que `_curadoria_top` fazia inline, extraído (quick
+    260915-ndt) para reuso por `options_curadoria_abrir_collar` abaixo: a
+    execução de um candidato curado precisa re-derivar pela MESMA varredura
+    que gerou o card, senão card e execução voltam a divergir (era
+    exatamente esse o defeito que gerou esta quick — `/lastreada/abrir-
+    collar` re-deriva por `opcoes_lastreadas.propor()`, um motor DIFERENTE
+    do que gerou a lista curada).
+
+    Devolve `(candidatos, chains_por_expiration, vencs_varridos, degradado)`.
+    `chains_por_expiration` mapeia a expiração EFETIVA de cada cadeia
+    buscada (a chave é sempre `chain.get("expiration")`, nunca o
+    `expiration` PEDIDO) para a própria cadeia — é dela que a rota de
+    execução tira `impliedVolatility`/`strike` do contrato final, porque o
+    candidato de curadoria não carrega IV (só `pernasContratos[*].
+    premioUnitario`, herdado de `lastPrice`). Falha ou
+    `providerStatus != "ok"` na PRIMEIRA cadeia (a única obrigatória)
+    devolve `([], {}, [], True)` — sem ela não há `expirations` para
+    descobrir extras nem candidatos a gerar.
+
+    Mudança de comportamento observável em relação ao código que isto
+    substitui: NENHUMA — `_curadoria_top` (abaixo) chama esta função dentro
+    do MESMO laço, com a MESMA lógica de agregação; a prova é
+    `test_opcoes_curadoria_rota.py` continuar passando sem edição.
+    """
+    try:
+        # Primeira busca, SEM `expiration` — vencimento futuro mais próximo
+        # (corrigido pela quick 260914-b6p).
+        chain = await options_provider.get_options(t)
+    except Exception:
+        return [], {}, [], True
+
+    if chain.get("providerStatus") != "ok":
+        return [], {}, [], True
+
+    # Cotação UMA vez por TICKER, antes do laço de vencimentos — mover isto
+    # para dentro do laço dobraria o custo de candles sem ganho nenhum (o
+    # spot não muda entre vencimentos do mesmo ticker no mesmo instante).
+    try:
+        quote = await candle_provider.get_quote(t)
+    except Exception:
+        quote = None
+    spot = _spot_from_chain_or_quote(chain, quote)
+
+    exp_primaria = chain.get("expiration")
+    chains_por_expiration: dict[str, dict] = {}
+    if exp_primaria:
+        chains_por_expiration[exp_primaria] = chain
+
+    vencs_varridos = [exp_primaria] if exp_primaria else []
+    candidatos = list(opcoes_curadoria.candidatos_da_posicao(
+        t, chain, spot, posicao, modo, hoje, permitir_a_descoberto=permitir_a_descoberto))
+
+    # Vencimentos extras (Fase 31/D-01): até `VENCIMENTOS_POR_POSICAO - 1`
+    # datas futuras além da já buscada acima. Cada extra é tratada
+    # independentemente — uma falha aqui NUNCA derruba o vencimento que já
+    # deu certo.
+    vencs = opcoes_curadoria.proximos_vencimentos(chain.get("expirations"), hoje)
+    extras = [v for v in vencs if v != exp_primaria][:opcoes_curadoria.VENCIMENTOS_POR_POSICAO - 1]
+    degradado_extra = False
+    for venc_extra in extras:
+        try:
+            chain_extra = await options_provider.get_options(t, expiration=venc_extra)
+        except Exception:
+            degradado_extra = True
+            continue
+        if chain_extra.get("providerStatus") != "ok":
+            degradado_extra = True
+            continue
+        vencs_varridos.append(venc_extra)
+        exp_extra = chain_extra.get("expiration")
+        if exp_extra:
+            chains_por_expiration[exp_extra] = chain_extra
+        candidatos.extend(opcoes_curadoria.candidatos_da_posicao(
+            t, chain_extra, spot, posicao, modo, hoje,
+            permitir_a_descoberto=permitir_a_descoberto))
+
+    return candidatos, chains_por_expiration, vencs_varridos, degradado_extra
+
+
 async def _curadoria_top(scope: Optional[str], modo: str,
                           permitir_a_descoberto: bool = False) -> tuple[list[dict], dict]:
     """Varredura cross-posição: até `opcoes_curadoria.VENCIMENTOS_POR_POSICAO`
@@ -3331,62 +3413,20 @@ async def _curadoria_top(scope: Optional[str], modo: str,
         t = posicao.get("t")
         if not t:
             continue
-        try:
-            # Primeira busca, SEM `expiration` — vencimento futuro mais
-            # próximo (corrigido pela quick 260914-b6p). Falha ou
-            # `providerStatus != "ok"` aqui derruba a posição inteira: sem
-            # a primeira cadeia não há `expirations` para descobrir o
-            # segundo vencimento nem candidatos a gerar.
-            chain = await options_provider.get_options(t)
-        except Exception:
+        candidatos, chains_por_expiration, vencs_varridos, degradado = await _curadoria_scan_posicao(
+            t, posicao, modo, hoje, permitir_a_descoberto=permitir_a_descoberto)
+        if not chains_por_expiration and degradado:
+            # Falha (ou `providerStatus != "ok"`) na PRIMEIRA cadeia derruba
+            # a posição inteira — mesmo comportamento de antes da extração.
             degradados.append(t)
             continue
 
-        if chain.get("providerStatus") != "ok":
+        if source is None and chains_por_expiration:
+            source = next(iter(chains_por_expiration.values())).get("source")
+
+        pool.extend(candidatos)
+        if degradado and t not in degradados:
             degradados.append(t)
-            continue
-
-        if source is None:
-            source = chain.get("source")
-
-        # Cotação UMA vez por TICKER, antes do laço de vencimentos — mover
-        # isto para dentro do laço dobraria o custo de candles sem ganho
-        # nenhum (o spot não muda entre vencimentos do mesmo ticker no
-        # mesmo instante).
-        try:
-            quote = await candle_provider.get_quote(t)
-        except Exception:
-            quote = None
-        spot = _spot_from_chain_or_quote(chain, quote)
-
-        vencs_varridos = [chain.get("expiration")] if chain.get("expiration") else []
-        pool.extend(opcoes_curadoria.candidatos_da_posicao(
-            t, chain, spot, posicao, modo, hoje, permitir_a_descoberto=permitir_a_descoberto))
-
-        # Vencimentos extras (Fase 31/D-01): até `VENCIMENTOS_POR_POSICAO - 1`
-        # datas futuras além da já buscada acima. Cada extra é tratada
-        # independentemente — uma falha aqui NUNCA derruba o vencimento que
-        # já deu certo, nem faz `continue` no laço de posições.
-        vencs = opcoes_curadoria.proximos_vencimentos(chain.get("expirations"), hoje)
-        extras = [v for v in vencs if v != chain.get("expiration")][
-            :opcoes_curadoria.VENCIMENTOS_POR_POSICAO - 1]
-        ticker_degradado_extra = False
-        for venc_extra in extras:
-            try:
-                chain_extra = await options_provider.get_options(t, expiration=venc_extra)
-            except Exception:
-                ticker_degradado_extra = True
-                continue
-            if chain_extra.get("providerStatus") != "ok":
-                ticker_degradado_extra = True
-                continue
-            vencs_varridos.append(venc_extra)
-            pool.extend(opcoes_curadoria.candidatos_da_posicao(
-                t, chain_extra, spot, posicao, modo, hoje,
-                permitir_a_descoberto=permitir_a_descoberto))
-        if ticker_degradado_extra and t not in degradados:
-            degradados.append(t)
-
         vencimentos_por_ticker[t] = vencs_varridos
 
     # `candidatosPorTipo` sobre o pool ANTES do corte de `rankear` — é essa
@@ -3505,6 +3545,170 @@ async def options_curadoria_narrativa(body: dict = Body(default={}), scope: Opti
         "top": top, "motivo": "narrado", "modo": modo,
         "fonte": "ia-sobre-ranking-deterministico", "at": now_str(), **meta,
     }
+
+
+@app.post("/api/options/curadoria/abrir-collar")
+async def options_curadoria_abrir_collar(body: dict = Body(default={}), scope: Optional[str] = Depends(current_scope)):
+    """Executa um collar da lista curada (quick 260915-ndt) — o caminho que
+    fecha o defeito em que TODO collar de "AS 4 MELHORES OPORTUNIDADES DE
+    OPÇÕES" devolvia 409.
+
+    (a) Rota NOVA, não uma flag na rota irmã: o mesmo precedente do próprio
+    repositório (ADR-026, Decisão 1, citado no docstring de
+    `options_lastreada_abrir_collar` acima) — um campo tipo
+    `origem: "curadoria"` no corpo escolhendo QUAL motor valida seria o
+    MESMO anti-padrão agravado: o cliente escolheria qual gate atravessar.
+    Namespace `curadoria` porque o namespace nomeia o motor que valida.
+    `/api/options/lastreada/abrir-collar` continua existindo, byte a byte,
+    com o gate do `propor()` intacto — ela serve o card da tira "OPORTUNI-
+    DADES DE OPÇÕES", que nasceu do `propor()`.
+    (b) A re-derivação é por `opcoes_curadoria` (`_curadoria_scan_posicao`,
+    a MESMA varredura que gera o card de curadoria), nunca por
+    `opcoes_lastreadas.propor()`: o card curado nasce SEM porta de setup/
+    plano técnico (Fase 30/D1, `opcoes_curadoria.candidatos_da_posicao`) —
+    exigir esse gate só na execução era a incoerência que esta quick fecha
+    (decisão do Alex, 2026-09-15, alinhada ao guardrail do CLAUDE.md:
+    "Stop/alvo nunca são vetados: `operar: false` é parecer, não veto").
+    (c) A defesa anti-adulteração continua INTEIRA (ADR-026, Decisão 2): o
+    corpo é lido só para CROSS-CHECK (contratos, `{contractSymbol: lado}`)
+    — nunca como fonte de `premioUnitario`/`strike`/`expiration`, que saem
+    sempre do candidato RE-DERIVADO. `idCandidato` é a CHAVE da
+    re-derivação, não a fonte dos dados: o servidor recalcula os candidatos
+    daquela posição e procura o que bate; um `idCandidato` que não bate (ou
+    aponta pra posição errada) cai em 409, nunca vira brecha.
+    """
+    cfg = store.get(_conn, "config", user_id=scope) or {}
+    if cfg.get("appMode") != "operador":
+        raise HTTPException(403, "Modo Estudo não executa ordens — troque para o Modo Operador para operar.")
+
+    underlying = _normalize_ticker(str(body.get("underlying") or ""))
+    if len(underlying) < 4:
+        raise HTTPException(400, "Operação lastreada inválida.")
+
+    id_candidato = body.get("idCandidato")
+    if not isinstance(id_candidato, str) or not id_candidato:
+        raise HTTPException(400, "Estrutura curada inválida — falta a identificação do candidato.")
+
+    pernas = body.get("pernasContratos")
+    pernas_validas = (
+        isinstance(pernas, list) and len(pernas) == 2
+        and all(isinstance(perna, dict) and isinstance(perna.get("contractSymbol"), str)
+                and perna.get("contractSymbol") and perna.get("lado") in ("venda", "compra")
+                for perna in pernas)
+    )
+    if not pernas_validas:
+        raise HTTPException(400, "Collar exige exatamente duas pernas.")
+
+    contratos_body = body.get("contratos")
+    if not isinstance(contratos_body, (int, float)) or contratos_body < 1:
+        raise HTTPException(400, "Operação lastreada inválida.")
+
+    # Precondição de ESTADO (mesma ordem/motivo da rota irmã): ANTES da
+    # re-derivação, para evitar um fetch de cadeia inútil.
+    option_positions = store.get(_conn, "optionPositions", user_id=scope)
+    pos_op_aberta = next(
+        (pp for pp in option_positions if pp.get("underlying") == underlying and pp.get("lastro")), None)
+    if pos_op_aberta:
+        raise HTTPException(
+            409, f"Já existe uma operação lastreada aberta em {underlying} — "
+                 "feche-a antes de montar outra estrutura.")
+
+    positions = store.get(_conn, "positions", user_id=scope) or []
+    posicao = next((pp for pp in positions if pp.get("t") == underlying), None)
+    if not posicao or store.qty_livre(posicao) < 100:
+        raise HTTPException(409, "Esta estrutura não está mais disponível — o servidor refez a "
+                                  "varredura e o resultado mudou.")
+
+    # RE-DERIVAÇÃO server-side: a MESMA varredura de `_curadoria_top`, pela
+    # MESMA função que serve `GET /api/options/curadoria` (é dessa lista que
+    # o card exibido nasceu). `permitir_a_descoberto=False` é FIXO — nunca
+    # lido do corpo nem da config: esta rota só executa collar, e um `True`
+    # aqui só serviria para transformá-la num caminho paralelo ao gate de
+    # execução da Fase 29 (`store.buy_option`).
+    modo = cfg.get("appMode") or "estudo"
+    try:
+        candidatos, chains, _vencs, degradado = await _curadoria_scan_posicao(
+            underlying, posicao, modo, _hoje_brt(), permitir_a_descoberto=False)
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(502, "Não foi possível recalcular a varredura — tente novamente.")
+    if degradado and not candidatos:
+        raise HTTPException(502, "Cotação de opções indisponível no momento — tente novamente.")
+
+    p = next((c for c in candidatos if c.get("idCandidato") == id_candidato and c.get("tipo") == "collar"), None)
+    if not p:
+        raise HTTPException(409, "Esta estrutura não está mais disponível — o servidor refez a "
+                                  "varredura e o resultado mudou.")
+
+    # CROSS-CHECK contra o candidato RE-DERIVADO — cobre de uma vez contrato
+    # trocado, contrato faltando, contrato duplicado e lado invertido.
+    if int(contratos_body) != p["contratos"]:
+        raise HTTPException(409, "Os contratos enviados não conferem com a estrutura recalculada pelo servidor.")
+    esperado = {perna["contractSymbol"]: perna["lado"] for perna in p["pernasContratos"]}
+    enviado = {perna["contractSymbol"]: perna["lado"] for perna in pernas}
+    if enviado != esperado:
+        raise HTTPException(409, "Os contratos enviados não conferem com a estrutura recalculada pelo servidor.")
+
+    # Gate de liquidez em três faixas — as MESMAS duas mensagens da rota
+    # irmã, lendo a faixa do candidato RE-DERIVADO (`p["liquidez"]["faixa"]`),
+    # nunca do corpo.
+    liq_faixa = p["liquidez"]["faixa"]
+    liq_score = p["liquidez"]["score"]
+    if liq_faixa == FAIXA_SEM_MERCADO:
+        raise HTTPException(
+            400, f"Liquidez SEM MERCADO (score {int(round(liq_score))}/100) — sem "
+                 "negócio registrado hoje não dá um prêmio real para simular. Este collar não "
+                 "pode ser aberto.")
+    if liq_faixa == FAIXA_DIFICIL and body.get("aceitaLiquidezDificil") is not True:
+        raise HTTPException(
+            400, f"Liquidez DIFÍCIL (score {int(round(liq_score))}/100) — esta operação "
+                 "exige confirmação explícita de liquidez. Reenvie com aceitaLiquidezDificil: "
+                 "true depois de o usuário confirmar o aviso.")
+
+    # Pernas por `optionType` (nunca por índice).
+    perna_call = next((perna for perna in p["pernasContratos"] if perna.get("optionType") == "call"), None)
+    perna_put = next((perna for perna in p["pernasContratos"] if perna.get("optionType") == "put"), None)
+    if not perna_call or not perna_put:
+        raise HTTPException(409, "Os contratos enviados não conferem com a estrutura recalculada pelo servidor.")
+
+    chain = chains.get(p["expiration"])
+    if not chain:
+        raise HTTPException(502, "Não foi possível recalcular a varredura — tente novamente.")
+
+    todos_contratos = [*chain.get("calls", []), *chain.get("puts", [])]
+    contrato_call = next((c for c in todos_contratos if c.get("contractSymbol") == perna_call["contractSymbol"]), None)
+    contrato_put = next((c for c in todos_contratos if c.get("contractSymbol") == perna_put["contractSymbol"]), None)
+    if not contrato_call or not contrato_put:
+        raise HTTPException(404, "Contrato não encontrado na cadeia atual.")
+
+    contract_call = {
+        "id": contrato_call.get("contractSymbol"), "underlying": underlying,
+        "optionType": contrato_call.get("optionType"), "strike": contrato_call.get("strike"),
+        "expiration": chain.get("expiration"), "ivEntrada": contrato_call.get("impliedVolatility"),
+    }
+    contract_put = {
+        "id": contrato_put.get("contractSymbol"), "underlying": underlying,
+        "optionType": contrato_put.get("optionType"), "strike": contrato_put.get("strike"),
+        "expiration": chain.get("expiration"), "ivEntrada": contrato_put.get("impliedVolatility"),
+    }
+    # Prêmios do candidato RE-DERIVADO — nunca do corpo (guardião
+    # `test_guardiao_estrutural_rota_nao_le_premio_strike_expiration_do_corpo`).
+    premio_call = float(perna_call["premioUnitario"])
+    premio_put = float(perna_put["premioUnitario"])
+
+    try:
+        store.abrir_collar(_conn, contract_call, contract_put, int(p["contratos"]),
+                            premio_call, premio_put, user_id=scope)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    _disparar_ciclo_imediato(scope)
+    out = store.public_state(_conn, user_id=scope)
+    out["premiosUsados"] = [
+        {"contractSymbol": perna_call["contractSymbol"], "lado": "venda", "premioUnitario": round(premio_call, 2)},
+        {"contractSymbol": perna_put["contractSymbol"], "lado": "compra", "premioUnitario": round(premio_put, 2)},
+    ]
+    return out
 
 
 @app.get("/api/options/tecnico/{ticker}")
