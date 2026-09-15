@@ -1,18 +1,21 @@
 // Fase 30 (Plano 04, D4) — Guardião estático do bloco "as 4 melhores
 // oportunidades de opções" em CarteiraScreen (CuradoriaEstruturas +
-// useCuradoria). Estendido na Fase 31 (Plano 04, D-04/D-05/D-07/D-08).
+// useCuradoria). Estendido na Fase 31 (Plano 04, D-04/D-05/D-07/D-08) e no
+// Quick 260915-j5l (2026-09-15).
 //
-// Este arquivo tranca a CLASSE de erros que a Fase 30/31 pode reintroduzir,
-// não a instância — cada bloco abaixo defende uma regra que o autor de uma
-// edição futura em App.jsx não tem por que conhecer de cor:
+// Este arquivo tranca a CLASSE de erros que a Fase 30/31/quick pode
+// reintroduzir, não a instância — cada bloco abaixo defende uma regra que o
+// autor de uma edição futura em App.jsx não tem por que conhecer de cor:
 //
 //   1. as chaves `curadoria*` de copy existem nos dois modos, string
 //      literal, sem palavra de enriquecimento/promessa de lucro (princípios
 //      6/8 do CLAUDE.md). NOTA (Fase 31/D-04): eram 11 na Fase 30 (só venda
-//      coberta); agora são 18 — a varredura passou a cobrir as 4 estruturas
-//      do motor (venda coberta, put de proteção, collar, opção a
-//      descoberto), ganhando `curadoriaTipo*` (4), `curadoriaRazaoAjuda`,
-//      `curadoriaVarreduraRotulo` e `curadoriaPayoffRotulo`. Reversão
+//      coberta); 18 na Fase 31 (as 4 estruturas do motor). NOTA (Quick
+//      260915-j5l, 2026-09-15): agora são 25 — o clique passou a abrir uma
+//      confirmação INLINE por card (em vez de rolar para o acordeão de UMA
+//      posição), ganhando `curadoriaExecutarCta`, `curadoriaExecutando`,
+//      `curadoriaFechar`, `curadoriaExecutada`, `curadoriaLiquidezConsentir`,
+//      `curadoriaEstudoNaoExecuta` e `curadoriaVerPosicao`. Reversão
 //      deliberada, não apagamento — mesmo guardrail do CLAUDE.md
 //      ("guardiões de teste não se apagam, reversão deliberada atualiza o
 //      guardião com nota");
@@ -42,7 +45,37 @@
 //   12. (Fase 31, D-07/D-08) existe exatamente UM `<PayoffChart` renderizado
 //      no bloco — uma curva, nunca overlay;
 //   13. (Fase 31, D-05) nenhuma copy da curadoria convida a ligar o flag de
-//      opção a descoberto — o gate não é substituído por marketing.
+//      opção a descoberto — o gate não é substituído por marketing;
+//   14. (Quick 260915-j5l) o card NÃO chama mais `onAbrir(item.ticker)` no
+//      `onClick` principal — era o bug: o clique descartava o candidato
+//      inteiro (idCandidato/contractSymbol/pernasContratos/tipo) e abria o
+//      acordeão genérico de UMA posição, sempre venda coberta;
+//   15. (Quick 260915-j5l) `onExecutar` recebe o ITEM inteiro
+//      (`onExecutar(item`), nunca só o ticker;
+//   16. (Quick 260915-j5l) o despacho por tipo mora em
+//      `web/src/opcoes/executarCandidato.js`, importado por App.jsx —
+//      `CuradoriaEstruturas` não contém nenhum literal de rota
+//      (`/api/options/`): rota escrita na UI seria a segunda cópia do
+//      contrato;
+//   17. (Quick 260915-j5l) o painel inline lê `item.estrutura`/
+//      `item.premioTotal` e não chama `store.`/`api.` dentro do componente
+//      (sem rede nova no clique — T-J5L-05);
+//   18. (Quick 260915-j5l) `porLote` do painel é null-safe
+//      (`typeof v === "number"`) — `null * 100 === 0` inventaria "perda
+//      máxima R$ 0,00" (princípio 4 do CLAUDE.md, "null nunca 0.0");
+//   19. (Quick 260915-j5l) a caixa de erro do painel usa `T.warn` e nunca
+//      `T.negative` — vermelho é de P&L, precedente do `LimiteAtingido` da
+//      Fase 25;
+//   20. (Quick 260915-j5l) nenhum `window.confirm(` dentro de
+//      `CuradoriaEstruturas` — a confirmação é inline (decisão do Alex,
+//      2026-09-15);
+//   21. (Quick 260915-j5l) `aceitaLiquidezDificil` nunca é enviado sem o
+//      consentimento do card — o identificador só aparece no componente
+//      junto do estado de consentimento (`liquidezOk`), nunca como literal
+//      `true` solto (T-J5L-04);
+//   22. (Quick 260915-j5l) o botão de executar mora dentro de um ramo
+//      guardado por `operador` — Modo Estudo sem CTA (defesa em UI
+//      espelhando o 403 do servidor, T-14-23).
 //
 // Padrão "static source inspection" da casa (mesmo de
 // test_carteira_opcoes_tira.mjs, test_opcoes_proposta_ui.mjs): readFileSync
@@ -94,10 +127,11 @@ const fatiaCarteira = fonteSemComentario.slice(
   fonteSemComentario.indexOf("function HistoricoScreen("),
 );
 
-// ---- (1) 18 chaves de copy nos dois modos, string literal -----------------
+// ---- (1) 25 chaves de copy nos dois modos, string literal -----------------
 // NOTA (Fase 31, Plano 04, D-04): eram 11 na Fase 30 (só venda coberta);
-// reversão deliberada — guardião atualizado com nota, não apagado. As 7
-// novas nascem da ampliação do universo pras 4 estruturas do motor.
+// 18 na Fase 31 (4 estruturas do motor). NOTA (Quick 260915-j5l,
+// 2026-09-15): agora são 25 — reversão deliberada, guardião atualizado com
+// nota, não apagado. As 7 novas nascem da confirmação inline por card.
 const CHAVES = [
   "curadoriaTitulo", "curadoriaSubtitulo", "curadoriaCarregando", "curadoriaVazio",
   "curadoriaRazaoRotulo", "curadoriaNarrarCta", "curadoriaNarrando", "curadoriaIaRotulo",
@@ -105,10 +139,12 @@ const CHAVES = [
   "curadoriaRazaoAjuda", "curadoriaTipoCallCoberta", "curadoriaTipoPutProtecao",
   "curadoriaTipoCollar", "curadoriaTipoDescoberto", "curadoriaVarreduraRotulo",
   "curadoriaPayoffRotulo",
+  "curadoriaExecutarCta", "curadoriaExecutando", "curadoriaFechar", "curadoriaExecutada",
+  "curadoriaLiquidezConsentir", "curadoriaEstudoNaoExecuta", "curadoriaVerPosicao",
 ];
-ok("18 chaves da curadoria existem em COPY.estudo e COPY.operador",
+ok("25 chaves da curadoria existem em COPY.estudo e COPY.operador",
   CHAVES.every((k) => k in COPY.estudo) && CHAVES.every((k) => k in COPY.operador));
-ok("todas as 18 chaves são string literal (não função)",
+ok("todas as 25 chaves são string literal (não função)",
   CHAVES.every((k) => typeof COPY.estudo[k] === "string") && CHAVES.every((k) => typeof COPY.operador[k] === "string"));
 // Paridade de CONJUNTO (não só a lista fixa acima): qualquer chave
 // `curadoria*` nova que um dos dois modos ganhe sem a irmã no outro cai
@@ -221,9 +257,9 @@ function copySemPromessa(copy) {
     return PROIBIDAS.every((p) => !v.includes(p));
   });
 }
-ok("nenhuma das 18 frases de COPY.estudo contém palavra de promessa de lucro/garantia",
+ok("nenhuma das 25 frases de COPY.estudo contém palavra de promessa de lucro/garantia",
   copySemPromessa(COPY.estudo));
-ok("nenhuma das 18 frases de COPY.operador contém palavra de promessa de lucro/garantia",
+ok("nenhuma das 25 frases de COPY.operador contém palavra de promessa de lucro/garantia",
   copySemPromessa(COPY.operador));
 
 // ---- (10, Fase 31/D-04) rótulo de tipo para os 4 tipos do motor ----------
@@ -265,10 +301,91 @@ function copySemConviteAoFlag(copy) {
     return PROIBIDAS_D05.every((p) => !v.includes(p));
   });
 }
-ok("(Fase 31/D-05) nenhuma das 18 frases de COPY.estudo convida a ligar o flag de opção a descoberto",
+ok("(Fase 31/D-05) nenhuma das 25 frases de COPY.estudo convida a ligar o flag de opção a descoberto",
   copySemConviteAoFlag(COPY.estudo));
-ok("(Fase 31/D-05) nenhuma das 18 frases de COPY.operador convida a ligar o flag de opção a descoberto",
+ok("(Fase 31/D-05) nenhuma das 25 frases de COPY.operador convida a ligar o flag de opção a descoberto",
   copySemConviteAoFlag(COPY.operador));
+
+// ---- (14, Quick 260915-j5l) o card NÃO chama mais onAbrir(item.ticker) ---
+// no onClick PRINCIPAL — era o bug: o clique descartava o candidato
+// inteiro. onAbrir sobrevive só como link secundário dentro do painel
+// (rotulado cp.curadoriaVerPosicao) — por isso a prova é POSICIONAL, não
+// "zero ocorrências": a ÚNICA chamada onAbrir(item.ticker) do arquivo tem
+// de estar perto do rótulo curadoriaVerPosicao, nunca dentro do bloco do
+// botão do card (identificado por key={item.idCandidato).
+const iCardBtn = fatiaCuradoria.indexOf("key={item.idCandidato");
+const iCardBtnStyleAttr = fatiaCuradoria.indexOf("...carouselItemStyle", iCardBtn);
+const trechoOnClickDoCard = iCardBtn > -1 && iCardBtnStyleAttr > -1 ? fatiaCuradoria.slice(iCardBtn, iCardBtnStyleAttr) : "";
+ok("(Quick 260915-j5l) o card foi localizado (key={item.idCandidato) e tem o atributo de estilo do carrossel na sequência esperada",
+  trechoOnClickDoCard.length > 0);
+ok("(Quick 260915-j5l) o onClick do card principal NÃO chama onAbrir( — o clique deixou de descartar o candidato inteiro",
+  !trechoOnClickDoCard.includes("onAbrir("));
+ok("(Quick 260915-j5l) o onClick do card principal ALTERNA abertoId (toggle, com setAbertoId)",
+  /onClick=\{\(\)\s*=>\s*setAbertoId/.test(trechoOnClickDoCard));
+const ocorrenciasOnAbrirTicker = (fatiaCuradoria.match(/onAbrir\(item\.ticker\)/g) || []).length;
+ok("(Quick 260915-j5l) onAbrir(item.ticker) aparece exatamente 1x no arquivo (só o link secundário do painel)",
+  ocorrenciasOnAbrirTicker === 1);
+const iOnAbrirTicker = fatiaCuradoria.indexOf("onAbrir(item.ticker)");
+const iVerPosicaoCopy = fatiaCuradoria.indexOf("curadoriaVerPosicao");
+ok("(Quick 260915-j5l) a única chamada onAbrir(item.ticker) precede o rótulo curadoriaVerPosicao no mesmo botão (é o link do painel, não o onClick do card)",
+  iOnAbrirTicker > -1 && iVerPosicaoCopy > iOnAbrirTicker && (iVerPosicaoCopy - iOnAbrirTicker) < 500);
+
+// ---- (15, Quick 260915-j5l) onExecutar recebe o ITEM, nunca só o ticker --
+ok("(Quick 260915-j5l) onExecutar é chamado com o item inteiro (onExecutar(item, )",
+  /onExecutar\(item,/.test(fatiaCuradoria));
+ok("(Quick 260915-j5l) onExecutar NUNCA é chamado só com item.ticker",
+  !/onExecutar\(item\.ticker/.test(fatiaCuradoria));
+
+// ---- (16, Quick 260915-j5l) despacho por tipo mora em executarCandidato.js
+ok("(Quick 260915-j5l) App.jsx importa executarCandidato de ./opcoes/executarCandidato.js",
+  /from\s+"\.\/opcoes\/executarCandidato\.js"/.test(app));
+ok("(Quick 260915-j5l) CuradoriaEstruturas NÃO contém literal de rota /api/options/ — rota escrita na UI seria a segunda cópia do contrato",
+  !fatiaCuradoria.includes("/api/options/"));
+
+// ---- (17, Quick 260915-j5l) painel inline sem chamada de store/api -------
+ok("(Quick 260915-j5l) o painel lê item.estrutura",
+  fatiaCuradoria.includes("item.estrutura"));
+ok("(Quick 260915-j5l) o painel lê item.premioTotal",
+  fatiaCuradoria.includes("item.premioTotal"));
+ok("(Quick 260915-j5l) CuradoriaEstruturas NÃO chama store.<metodo>( dentro do componente (sem rede nova no clique)",
+  !/\bstore\.\w+\(/.test(fatiaCuradoria));
+ok("(Quick 260915-j5l) CuradoriaEstruturas NÃO chama api.<metodo>( dentro do componente",
+  !/\bapi\.\w+\(/.test(fatiaCuradoria));
+
+// ---- (18, Quick 260915-j5l) porLote do painel é null-safe -----------------
+ok('(Quick 260915-j5l) porLote checa typeof v === "number" (null-safe, "null nunca 0.0")',
+  fatiaCuradoria.includes('typeof v === "number"'));
+ok("(Quick 260915-j5l) perda_maxima/breakevens passam por porLote/price — nenhuma multiplicação direta de estAberto.perda_maxima fora do helper",
+  !/estAberto\.perda_maxima\s*\*/.test(fatiaCuradoria));
+
+// ---- (19, Quick 260915-j5l) caixa de erro usa T.warn, nunca T.negative ---
+ok("(Quick 260915-j5l) a caixa de erro do painel usa color: T.warn",
+  /execAtual\.erro[\s\S]{0,300}?color:\s*T\.warn/.test(fatiaCuradoria));
+ok("(Quick 260915-j5l) CuradoriaEstruturas NÃO usa T.negative em lugar nenhum (vermelho é de P&L, não de recusa)",
+  !fatiaCuradoria.includes("T.negative"));
+
+// ---- (20, Quick 260915-j5l) nenhum window.confirm( — confirmação é inline
+ok("(Quick 260915-j5l) CuradoriaEstruturas NÃO usa window.confirm(",
+  !fatiaCuradoria.includes("window.confirm("));
+
+// ---- (21, Quick 260915-j5l) aceitaLiquidezDificil sempre junto de liquidezOk
+ok("(Quick 260915-j5l) aceitaLiquidezDificil é derivado de liquidezOk (identidade, nunca um `true` solto)",
+  /aceitaLiquidezDificil:\s*!!liquidezOk/.test(fatiaCuradoria));
+// Toda ATRIBUIÇÃO a `aceitaLiquidezDificil:` no componente tem de carregar
+// `liquidezOk` na própria expressão — nenhuma outra ocorrência (ex.: um
+// `aceitaLiquidezDificil: true` solto) é permitida.
+const atribuicoesLiquidez = [...fatiaCuradoria.matchAll(/aceitaLiquidezDificil:\s*([^\s,}]+)/g)].map((m) => m[1]);
+ok("(Quick 260915-j5l) TODA atribuição a aceitaLiquidezDificil: referencia liquidezOk (nenhum true solto)",
+  atribuicoesLiquidez.length > 0 && atribuicoesLiquidez.every((v) => v.includes("liquidezOk")));
+
+// ---- (22, Quick 260915-j5l) CTA de executar dentro de ramo guardado por operador
+const iOperadorBloco = fatiaCuradoria.indexOf("{operador && (");
+const iEstudoBloco = fatiaCuradoria.indexOf("{!operador && (");
+const iExecutarCta = fatiaCuradoria.indexOf("curadoriaExecutarCta");
+ok("(Quick 260915-j5l) existe um ramo {!operador && ( com curadoriaEstudoNaoExecuta (Modo Estudo sem CTA)",
+  iEstudoBloco > -1 && fatiaCuradoria.indexOf("curadoriaEstudoNaoExecuta", iEstudoBloco) > iEstudoBloco);
+ok("(Quick 260915-j5l) o CTA de executar (curadoriaExecutarCta) está DEPOIS do início do ramo {operador && ( — nunca fora dele",
+  iOperadorBloco > -1 && iExecutarCta > iOperadorBloco);
 
 // ---- Sanidade adicional: CarteiraScreen chama useCuradoria() -------------
 ok("CarteiraScreen chama useCuradoria()",
