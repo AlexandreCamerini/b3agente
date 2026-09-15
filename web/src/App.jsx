@@ -4310,7 +4310,7 @@ function CuradoriaEstruturas({ top, meta, carregando, erro, narrativa, narrando,
         <div style={{ marginTop: "10px", padding: "14px", borderRadius: "11px", background: T.bgCard, border: `1px solid ${T.borderFaint}` }}>
           <div style={{ fontSize: "13px", fontWeight: 800, color: T.textPrimary, lineHeight: 1.4 }}>{item.manchete}</div>
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", marginTop: "10px" }}>
-            <span style={{ color: T.textSecondary }}>{cp.curadoriaRazaoRotulo}</span>
+            <span style={{ color: T.textSecondary }}>{cp.curadoriaPremioRotulo}</span>
             <b style={{ fontFamily: MONO, fontWeight: 800, color: T.textPrimary }}>{money(item.premioTotal)}</b>
           </div>
           {estAberto && (

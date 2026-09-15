@@ -1,7 +1,7 @@
 // Fase 30 (Plano 04, D4) — Guardião estático do bloco "as 4 melhores
 // oportunidades de opções" em CarteiraScreen (CuradoriaEstruturas +
-// useCuradoria). Estendido na Fase 31 (Plano 04, D-04/D-05/D-07/D-08) e no
-// Quick 260915-j5l (2026-09-15).
+// useCuradoria). Estendido na Fase 31 (Plano 04, D-04/D-05/D-07/D-08), no
+// Quick 260915-j5l (2026-09-15) e no Quick 260915-ndt (2026-09-15).
 //
 // Este arquivo tranca a CLASSE de erros que a Fase 30/31/quick pode
 // reintroduzir, não a instância — cada bloco abaixo defende uma regra que o
@@ -11,14 +11,16 @@
 //      literal, sem palavra de enriquecimento/promessa de lucro (princípios
 //      6/8 do CLAUDE.md). NOTA (Fase 31/D-04): eram 11 na Fase 30 (só venda
 //      coberta); 18 na Fase 31 (as 4 estruturas do motor). NOTA (Quick
-//      260915-j5l, 2026-09-15): agora são 25 — o clique passou a abrir uma
+//      260915-j5l, 2026-09-15): 25 — o clique passou a abrir uma
 //      confirmação INLINE por card (em vez de rolar para o acordeão de UMA
 //      posição), ganhando `curadoriaExecutarCta`, `curadoriaExecutando`,
 //      `curadoriaFechar`, `curadoriaExecutada`, `curadoriaLiquidezConsentir`,
-//      `curadoriaEstudoNaoExecuta` e `curadoriaVerPosicao`. Reversão
-//      deliberada, não apagamento — mesmo guardrail do CLAUDE.md
-//      ("guardiões de teste não se apagam, reversão deliberada atualiza o
-//      guardião com nota");
+//      `curadoriaEstudoNaoExecuta` e `curadoriaVerPosicao`. NOTA (Quick
+//      260915-ndt, 2026-09-15): agora são 26 — `curadoriaPremioRotulo` nova,
+//      corrige o painel inline usando o rótulo da RAZÃO ao lado do PRÊMIO EM
+//      REAIS (ver itens 23-25 abaixo). Reversão deliberada, não apagamento —
+//      mesmo guardrail do CLAUDE.md ("guardiões de teste não se apagam,
+//      reversão deliberada atualiza o guardião com nota");
 //   2. `item.manchete` é renderizado VERBATIM — guardrail CVM (CLAUDE.md):
 //      nenhuma composição de frase a partir de strike/premioTotal, nenhum
 //      truncamento;
@@ -76,6 +78,15 @@
 //   22. (Quick 260915-j5l) o botão de executar mora dentro de um ramo
 //      guardado por `operador` — Modo Estudo sem CTA (defesa em UI
 //      espelhando o 403 do servidor, T-14-23).
+//   23. (Quick 260915-ndt) o rótulo ao lado de `money(item.premioTotal)` no
+//      painel inline é `cp.curadoriaPremioRotulo`, nunca
+//      `curadoriaRazaoRotulo` — o defeito era mostrar "prêmio / perda
+//      máxima  R$ 847,00" com o número do prêmio sob o rótulo da razão.
+//   24. (Quick 260915-ndt) `cp.curadoriaRazaoRotulo` aparece EXATAMENTE 1x
+//      em `CuradoriaEstruturas` — só no card, ao lado de `item.razao`; dois
+//      usos é a regressão que esta quick fecha.
+//   25. (Quick 260915-ndt) `curadoriaPremioRotulo` !== `curadoriaRazaoRotulo`
+//      nos dois modos — rótulos iguais para números diferentes é o defeito.
 //
 // Padrão "static source inspection" da casa (mesmo de
 // test_carteira_opcoes_tira.mjs, test_opcoes_proposta_ui.mjs): readFileSync
@@ -127,11 +138,15 @@ const fatiaCarteira = fonteSemComentario.slice(
   fonteSemComentario.indexOf("function HistoricoScreen("),
 );
 
-// ---- (1) 25 chaves de copy nos dois modos, string literal -----------------
+// ---- (1) 26 chaves de copy nos dois modos, string literal -----------------
 // NOTA (Fase 31, Plano 04, D-04): eram 11 na Fase 30 (só venda coberta);
 // 18 na Fase 31 (4 estruturas do motor). NOTA (Quick 260915-j5l,
-// 2026-09-15): agora são 25 — reversão deliberada, guardião atualizado com
-// nota, não apagado. As 7 novas nascem da confirmação inline por card.
+// 2026-09-15): 25 — reversão deliberada, guardião atualizado com nota, não
+// apagado. As 7 novas nascem da confirmação inline por card. NOTA (Quick
+// 260915-ndt, 2026-09-15): 26 — `curadoriaPremioRotulo` nova, corrige o
+// painel inline usando o rótulo da RAZÃO (`curadoriaRazaoRotulo`) ao lado
+// do PRÊMIO EM REAIS (`money(item.premioTotal)`) — mesmo rótulo, dois
+// números diferentes, defeito de produto financeiro (princípio 4).
 const CHAVES = [
   "curadoriaTitulo", "curadoriaSubtitulo", "curadoriaCarregando", "curadoriaVazio",
   "curadoriaRazaoRotulo", "curadoriaNarrarCta", "curadoriaNarrando", "curadoriaIaRotulo",
@@ -141,10 +156,11 @@ const CHAVES = [
   "curadoriaPayoffRotulo",
   "curadoriaExecutarCta", "curadoriaExecutando", "curadoriaFechar", "curadoriaExecutada",
   "curadoriaLiquidezConsentir", "curadoriaEstudoNaoExecuta", "curadoriaVerPosicao",
+  "curadoriaPremioRotulo",
 ];
-ok("25 chaves da curadoria existem em COPY.estudo e COPY.operador",
+ok("26 chaves da curadoria existem em COPY.estudo e COPY.operador",
   CHAVES.every((k) => k in COPY.estudo) && CHAVES.every((k) => k in COPY.operador));
-ok("todas as 25 chaves são string literal (não função)",
+ok("todas as 26 chaves são string literal (não função)",
   CHAVES.every((k) => typeof COPY.estudo[k] === "string") && CHAVES.every((k) => typeof COPY.operador[k] === "string"));
 // Paridade de CONJUNTO (não só a lista fixa acima): qualquer chave
 // `curadoria*` nova que um dos dois modos ganhe sem a irmã no outro cai
@@ -257,9 +273,9 @@ function copySemPromessa(copy) {
     return PROIBIDAS.every((p) => !v.includes(p));
   });
 }
-ok("nenhuma das 25 frases de COPY.estudo contém palavra de promessa de lucro/garantia",
+ok("nenhuma das 26 frases de COPY.estudo contém palavra de promessa de lucro/garantia",
   copySemPromessa(COPY.estudo));
-ok("nenhuma das 25 frases de COPY.operador contém palavra de promessa de lucro/garantia",
+ok("nenhuma das 26 frases de COPY.operador contém palavra de promessa de lucro/garantia",
   copySemPromessa(COPY.operador));
 
 // ---- (10, Fase 31/D-04) rótulo de tipo para os 4 tipos do motor ----------
@@ -301,9 +317,9 @@ function copySemConviteAoFlag(copy) {
     return PROIBIDAS_D05.every((p) => !v.includes(p));
   });
 }
-ok("(Fase 31/D-05) nenhuma das 25 frases de COPY.estudo convida a ligar o flag de opção a descoberto",
+ok("(Fase 31/D-05) nenhuma das 26 frases de COPY.estudo convida a ligar o flag de opção a descoberto",
   copySemConviteAoFlag(COPY.estudo));
-ok("(Fase 31/D-05) nenhuma das 25 frases de COPY.operador convida a ligar o flag de opção a descoberto",
+ok("(Fase 31/D-05) nenhuma das 26 frases de COPY.operador convida a ligar o flag de opção a descoberto",
   copySemConviteAoFlag(COPY.operador));
 
 // ---- (14, Quick 260915-j5l) o card NÃO chama mais onAbrir(item.ticker) ---
@@ -386,6 +402,36 @@ ok("(Quick 260915-j5l) existe um ramo {!operador && ( com curadoriaEstudoNaoExec
   iEstudoBloco > -1 && fatiaCuradoria.indexOf("curadoriaEstudoNaoExecuta", iEstudoBloco) > iEstudoBloco);
 ok("(Quick 260915-j5l) o CTA de executar (curadoriaExecutarCta) está DEPOIS do início do ramo {operador && ( — nunca fora dele",
   iOperadorBloco > -1 && iExecutarCta > iOperadorBloco);
+
+// ---- (23, Quick 260915-ndt) painel inline: rótulo do PRÊMIO é
+// curadoriaPremioRotulo, não curadoriaRazaoRotulo -----------------------
+// Defeito corrigido: o painel usava cp.curadoriaRazaoRotulo (rótulo da
+// RAZÃO) ao lado de money(item.premioTotal) (o PRÊMIO EM REAIS). Prova
+// POSICIONAL (mesma técnica das regras 14/17): há EXATAMENTE 2 ocorrências
+// de "money(item.premioTotal)" em CuradoriaEstruturas — a do CARD (regra
+// (24) abaixo prova que o rótulo ali é curadoriaRazaoRotulo, ao lado de
+// item.razao, não de money) e a do PAINEL, que é a que este guardião mira.
+const ocorrenciasMoneyPremioTotal = [...fatiaCuradoria.matchAll(/money\(item\.premioTotal\)/g)];
+ok("(Quick 260915-ndt) money(item.premioTotal) aparece exatamente 2x em CuradoriaEstruturas (card + painel)",
+  ocorrenciasMoneyPremioTotal.length === 2);
+const iMoneyPainel = ocorrenciasMoneyPremioTotal.length === 2 ? ocorrenciasMoneyPremioTotal[1].index : -1;
+const iPremioRotuloAntesDoPainel = iMoneyPainel > -1 ? fatiaCuradoria.lastIndexOf("curadoriaPremioRotulo", iMoneyPainel) : -1;
+ok("(Quick 260915-ndt) o rótulo mais próximo ANTES do money(item.premioTotal) do painel é cp.curadoriaPremioRotulo",
+  iPremioRotuloAntesDoPainel > -1 && (iMoneyPainel - iPremioRotuloAntesDoPainel) < 200);
+
+// ---- (24, Quick 260915-ndt) curadoriaRazaoRotulo aparece EXATAMENTE 1x —
+// a regressão que esta quick fecha (dois usos = rótulo da razão de volta
+// sobre um número que não é razão) -----------------------------------------
+const ocorrenciasRazaoRotulo = (fatiaCuradoria.match(/curadoriaRazaoRotulo/g) || []).length;
+ok("(Quick 260915-ndt) cp.curadoriaRazaoRotulo aparece exatamente 1x em CuradoriaEstruturas (só no card, ao lado de item.razao)",
+  ocorrenciasRazaoRotulo === 1);
+
+// ---- (25, Quick 260915-ndt) rótulos DIFERENTES para números diferentes,
+// nos dois modos — rótulos iguais para números diferentes é o defeito ------
+ok("(Quick 260915-ndt) COPY.estudo.curadoriaPremioRotulo !== COPY.estudo.curadoriaRazaoRotulo",
+  COPY.estudo.curadoriaPremioRotulo !== COPY.estudo.curadoriaRazaoRotulo);
+ok("(Quick 260915-ndt) COPY.operador.curadoriaPremioRotulo !== COPY.operador.curadoriaRazaoRotulo",
+  COPY.operador.curadoriaPremioRotulo !== COPY.operador.curadoriaRazaoRotulo);
 
 // ---- Sanidade adicional: CarteiraScreen chama useCuradoria() -------------
 ok("CarteiraScreen chama useCuradoria()",

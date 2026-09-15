@@ -622,6 +622,17 @@ export const COPY = {
     curadoriaVazio: "Nenhuma estrutura elegível nos vencimentos varridos — por isso não há nada para ranquear agora.",
     curadoriaRazaoRotulo: "prêmio sobre perda máxima",
     curadoriaRazaoAjuda: "Prêmio negativo significa que montar a estrutura custa dinheiro (é uma proteção) — por isso ela pode aparecer embaixo na mesma régua, sem que isso seja um defeito do ranking.",
+    // Quick 260915-ndt: defeito corrigido — o painel inline de confirmação
+    // (App.jsx, quick 260915-j5l) usava `curadoriaRazaoRotulo` ("prêmio
+    // sobre perda máxima") ao lado de `money(item.premioTotal)`, que é o
+    // PRÊMIO EM REAIS, não a razão. Em produção o painel mostrou "prêmio /
+    // perda máxima  R$ 847,00" enquanto o card acima mostrava a razão real
+    // (77.00) sob o MESMO rótulo — dois números diferentes, um rótulo só,
+    // num app financeiro (princípio 4 do CLAUDE.md). Chave separada, nunca
+    // reaproveita `curadoriaRazaoRotulo`. O modo Estudo explica o SINAL, que
+    // é justamente o que confunde em put de proteção e collar de débito
+    // (mesma assimetria de `opcoes_curadoria.py:341-343`).
+    curadoriaPremioRotulo: "prêmio líquido (positivo você recebe, negativo você paga)",
     curadoriaTipoCallCoberta: "venda coberta",
     curadoriaTipoPutProtecao: "put de proteção",
     // Achado 31-01 (Rule 1, mesma colisão): a expressão canônica de collar
@@ -1147,6 +1158,10 @@ export const COPY = {
     curadoriaVazio: "Nenhuma estrutura elegível nos vencimentos varridos — sem nada para ranquear agora.",
     curadoriaRazaoRotulo: "prêmio / perda máxima",
     curadoriaRazaoAjuda: "Prêmio negativo = a estrutura custa para montar (proteção) — por isso pode aparecer embaixo na régua.",
+    // Quick 260915-ndt: mesmo defeito/motivo do ramo estudo (ver comentário
+    // acima) — chave separada para o prêmio em reais do painel inline.
+    // Mesa fala curto: o sinal já está no número.
+    curadoriaPremioRotulo: "prêmio líquido",
     curadoriaTipoCallCoberta: "venda coberta",
     curadoriaTipoPutProtecao: "put de proteção",
     curadoriaTipoCollar: "collar (call vendida + put comprada)",
