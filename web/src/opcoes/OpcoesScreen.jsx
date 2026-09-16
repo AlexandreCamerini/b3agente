@@ -37,13 +37,22 @@ import PayoffChart from "./PayoffChart.jsx";
 import CriarSetup, { BotaoDesativar } from "./CriarSetup.jsx";
 // Fase 28 (28-02): módulo terceiro do 28-01 — nenhum import de `App.jsx`
 // aqui (isolamento ADR-027 Decisão 3 intacto).
-import PropostaLastreada, { useAceiteLastreado } from "./PropostaLastreada.jsx";
+// Fase 32 (32-04): `FonteDoDadoProposta` entra no import — o ramo
+// multi-candidato de `SubAbaOperar` passa a exibir o frescor do dado abaixo
+// do carrossel, mesmo padrão que `PropostaDaPosicao` tinha em App.jsx.
+import PropostaLastreada, { FonteDoDadoProposta, useAceiteLastreado } from "./PropostaLastreada.jsx";
 // Fase 32 (32-03): os dois blocos cross-carteira migram para o topo desta
 // sub-aba (D-04/D-07) — módulos terceiros (ADR-027 Emenda 3, 32-02), nenhum
 // import de App.jsx.
 import OportunidadesOpcoes from "./OportunidadesOpcoes.jsx";
 import CuradoriaEstruturas from "./CuradoriaEstruturas.jsx";
 import { useOpcoesPropostas } from "./useOpcoesPropostas.js";
+// Fase 32 (32-04): `CandidatoOpcao` (o cartão de UM candidato) é reusado
+// verbatim — o ramo multi-candidato de `PropostaDaPosicao` (App.jsx) é
+// portado para dentro de `SubAbaOperar`, e `PropostaDaPosicao` morre em
+// App.jsx (ver 32-04-PLAN.md, decisão arquitetural B). Módulo terceiro,
+// nenhum import de App.jsx.
+import CandidatoOpcao from "./CandidatoOpcao.jsx";
 
 // Mesmos NOMES de variável CSS que `App.jsx` injeta em `:root` — padrão de
 // `pet/BorisChat.jsx`. Zero import de `App.jsx` (seria ciclo).
@@ -51,6 +60,21 @@ const VARKEY = (k) => "--" + k.replace(/[A-Z]/g, (c) => "-" + c.toLowerCase());
 const TOKENS = ["bgBase", "bgPanel", "borderSubtle", "borderFaint", "textPrimary",
   "textSecondary", "textMuted", "textFaint", "accent", "accentTint10", "negative", "scrim"];
 const T = Object.fromEntries(TOKENS.map((k) => [k, `var(${VARKEY(k)})`]));
+
+// Fase 32 (32-04): espelho declarado de App.jsx (padrão ÚNICO de rolagem
+// horizontal, Fase 22 SYS-01) — mesmo padrão já usado em
+// OportunidadesOpcoes.jsx/CuradoriaEstruturas.jsx (Fase 32, 32-02): nunca
+// importar de App.jsx (ADR-027, isolamento de duas vias). Usado só pelo
+// container do ramo multi-candidato de `SubAbaOperar` — `CandidatoOpcao.jsx`
+// já declara seu próprio `carouselItemStyle` local, então este arquivo não
+// precisa dele.
+const carouselTrackStyle = (extra) => ({
+  display: "flex",
+  overflowX: "auto",
+  scrollSnapType: "x proximity",
+  WebkitOverflowScrolling: "touch",
+  ...extra,
+});
 
 const ehNum = (v) => typeof v === "number" && isFinite(v);
 const fmt = (v, casas = 2) => (ehNum(v) ? v.toFixed(casas).replace(".", ",") : "—");
@@ -1367,14 +1391,17 @@ export default function OpcoesScreen({ ctx }) {
 // segunda implementação) para que trocar de sub-aba nunca perca o ativo
 // escolhido — os dois ramos leem o MESMO `ticker` do componente pai.
 //
-// Decisão registrada (Fase 30 não redescobrir): o ramo multi-candidato
-// (`r.candidatos.length > 1` / `CandidatoOpcao`, hoje só em `App.jsx` dentro
-// de `PropostaDaPosicao`) NÃO é replicado aqui. Com multi-candidato,
-// `PropostaLastreada` mostra `r.proposta` (o candidato principal que o motor
-// devolve) — o mesmo comportamento que `AtivoCard` já tem hoje. Trazer o
-// seletor de N candidatos para esta sub-aba exigiria uma quarta cópia do
-// padrão visual (App.jsx tem duas: AtivoCard e PropostaDaPosicao), fora de
-// escopo deste plano.
+// Decisão de Fase 30 SUPERADA (Fase 32, 32-04, 2026-09-16): o parágrafo
+// abaixo dizia que o ramo multi-candidato NÃO seria replicado aqui — essa
+// lacuna foi fechada nesta fase. `PropostaDaPosicao` (App.jsx) morreu; o
+// ramo de N candidatos que só existia nela foi PORTADO para
+// este componente (ver 32-04-PLAN.md, decisão arquitetural B): quando a
+// proposta traz mais de um candidato, os N aparecem lado a lado via
+// `CandidatoOpcao` (reusado verbatim, não recriado), com o MESMO
+// `aceitarCandidato` de `useAceiteLastreado` para todos — sem regressão de
+// MULTI-02. Candidato único continua caindo em `PropostaLastreada`, como
+// sempre. O texto histórico abaixo (AtivoCard nunca teve seletor de N
+// candidatos) segue válido — só o "aqui" mudou de resposta.
 function SubAbaOperar({ carteira, ticker, posicaoSelecionada, tecnico, cp, ctx, seletor }) {
   const store = ctx && ctx.store;
   const A = ctx && ctx.A;
@@ -1417,13 +1444,24 @@ function SubAbaOperar({ carteira, ticker, posicaoSelecionada, tecnico, cp, ctx, 
     return () => { vivo = false; };
   }, [store, ticker, gate && gate.liquida]);
 
-  // Fórmula de App.jsx (PropostaDaPosicao): a posição de opções já ABERTA
-  // que casa com o candidato principal da proposta, para o CTA virar
-  // "fechar" em vez de "abrir".
+  // Fórmula de App.jsx (PropostaDaPosicao, aposentada — Fase 32/32-04): a
+  // posição de opções já ABERTA que casa com o candidato principal da
+  // proposta, para o CTA virar "fechar" em vez de "abrir". Esta é agora a
+  // ÚNICA implementação (App.jsx tinha uma irmã idêntica dentro de
+  // PropostaDaPosicao; morreu junto com o componente para as duas nunca
+  // mais divergirem — ver 32-04-PLAN.md, "Duplicações resolvidas").
   const myOptionPositions = ((ctx && ctx.data && ctx.data.optionPositions) || []).filter((p) => p.underlying === ticker);
   const posAberta = (prop && prop.proposta)
     ? myOptionPositions.find((p) => p.id === prop.proposta.contractSymbol) || null
     : null;
+
+  // Fase 32 (32-04, MULTI-02 portado de PropostaDaPosicao/App.jsx): quando a
+  // proposta traz mais de um candidato (ex.: venda coberta E put de proteção
+  // sobre a MESMA posição), os dois aparecem lado a lado em vez de o motor
+  // escolher um só por trás das cenas. `candidatos` é SEMPRE array (default
+  // [] no servidor) — a mesma guarda `Array.isArray` de PropostaDaPosicao.
+  const candidatos = Array.isArray(prop && prop.candidatos) ? prop.candidatos : [];
+  const multi = candidatos.length > 1;
 
   return (
     <>
@@ -1456,6 +1494,36 @@ function SubAbaOperar({ carteira, ticker, posicaoSelecionada, tecnico, cp, ctx, 
                 <Aviso>{cp.opcoesCarregando || "Consultando o serviço de opções…"}</Aviso>
               ) : !gate.liquida ? (
                 <Aviso>{(cp.opcoesOperarSemLiquidez || ((t) => "Sem liquidez confirmada para " + t + " agora."))(ticker)}</Aviso>
+              ) : multi ? (
+                <>
+                  {/* Fase 32 (32-04, MULTI-02 portado): dois (ou mais)
+                      candidatos disputam a MESMA decisão sobre a MESMA
+                      posição — largura fixa e igual entre eles (vem de
+                      dentro de CandidatoOpcao) porque um cartão maior que o
+                      outro passaria peso visual diferente para a mesma
+                      escolha (princípio 9 do CLAUDE.md, mesma razão já
+                      registrada em App.jsx quando este ramo vivia em
+                      PropostaDaPosicao). O aceite continua exclusivo por
+                      rodada: todos os candidatos usam o MESMO
+                      `aceitarCandidato` de `useAceiteLastreado` — não existe
+                      (nem é criado aqui) nenhuma trava nova na UI; a
+                      exclusividade é garantida pelo motor no backend. */}
+                  <div style={carouselTrackStyle({ marginTop: "11px", gap: "10px", scrollbarWidth: "none", paddingBottom: "2px" })}>
+                    {candidatos.map((c) => (
+                      <CandidatoOpcao
+                        key={c.tipo + "-" + (c.contractSymbol || "collar")}
+                        p={c}
+                        r={prop}
+                        cp={cp}
+                        operador={operador}
+                        busy={busy}
+                        onAceitar={aceitarCandidato}
+                        onVerbeteLiquidez={(dados) => { if (A && A.abrirVerbete) A.abrirVerbete("liquidez-opcao", dados); }}
+                      />
+                    ))}
+                  </div>
+                  <FonteDoDadoProposta r={prop} cp={cp} />
+                </>
               ) : (
                 <PropostaLastreada
                   r={prop}
