@@ -4216,15 +4216,29 @@ function useOpcoesPropostas(tickers) {
 
 // Fase 30 (Plano 04, D4): busca cross-posição do top-4 de venda coberta
 // (ranking determinístico, custo zero, D6) e, só por toque explícito, a
-// narração de IA sobre essas mesmas 4 (cota de /api/analyze, D6). SEM
-// parâmetro — ao contrário do hook irmão acima, a rota é cross-posição e
-// decide sozinha as posições elegíveis no servidor (D1/D3); por isso a
-// dependência do efeito é `[]` (uma busca por montagem), não uma chave
-// primitiva de tickers.
-function useCuradoria() {
+// narração de IA sobre essas mesmas 4 (cota de /api/analyze, D6).
+//
+// Fase 32 (32-02), Decisão A: o hook subiu para App() (chamado UMA vez,
+// exposto por ctx.curadoria às duas telas que precisam do MESMO dado —
+// D-03) e o fetch passa a ser CONDICIONAL. `ativo` é a flag monotônica
+// controlada por App() (liga ao visitar Posições ou Opções, nunca desliga,
+// nunca dispara em boot puro — ver o efeito em App()). Sem essa guarda, o
+// hook rodaria em TODO boot do app, inclusive para quem nunca abre as duas
+// telas: aumento real de consumo contra `mydata_budget` (ADR-008), que o
+// `_curadoria_top`/`_curadoria_scan_posicao` do backend consome mesmo sendo
+// custo ZERO de IA/MCP. Com a flag, o resultado é ZERO chamadas para quem
+// nunca visita as telas (igual a hoje) e UMA busca por sessão para quem
+// visita — menos que hoje, que refazia a busca a cada remount de
+// CarteiraScreen. `recarregar()` é o único jeito de repetir a busca depois
+// da primeira — ligado a exatamente dois eventos deliberados (botão "Tentar
+// de novo" do estado de erro, e o fim de uma execução bem-sucedida no
+// painel inline), nunca a um efeito de montagem.
+function useCuradoria(ativo) {
   const [top, setTop] = useState([]);
   const [meta, setMeta] = useState(null);
-  const [carregando, setCarregando] = useState(true);
+  // Nasce false (não true): com a flag desligada não há busca em voo, e a
+  // tela não pode mostrar "Verificando…" para sempre.
+  const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState(false);
   const [narrativa, setNarrativa] = useState(null);
   const [narrando, setNarrando] = useState(false);
@@ -4232,10 +4246,20 @@ function useCuradoria() {
   // como ESTADO distinto pelo componente, nunca a mesma frase.
   const [erroNarrativa, setErroNarrativa] = useState(null);
   const aliveRef = useRef(true);
+  // Nonce dedicado de recarregar() — trocar de valor é o único jeito de o
+  // efeito abaixo rodar de novo depois da primeira busca, sem reintroduzir
+  // `[]` (que perderia a guarda de `ativo`) nem um polling automático.
+  const [nonce, setNonce] = useState(0);
+  const recarregar = () => setNonce((n) => n + 1);
 
   useEffect(() => {
+    // Guarda ANTES de qualquer chamada de rede — nenhuma requisição sai
+    // enquanto a flag estiver desligada (T-32-03, mitigação do DoS
+    // auto-infligido contra mydata_budget).
+    if (!ativo) return;
     aliveRef.current = true;
     setCarregando(true);
+    setErro(false);
     // best-effort, igual useOpcoesPropostas acima: falha de rede só deixa
     // o bloco sem item, nunca quebra a tela.
     store.opcoesCuradoria()
@@ -4247,7 +4271,7 @@ function useCuradoria() {
       .catch(() => { if (aliveRef.current) setErro(true); })
       .finally(() => { if (aliveRef.current) setCarregando(false); });
     return () => { aliveRef.current = false; };
-  }, []);
+  }, [ativo, nonce]);
 
   // narrar() NUNCA é chamado dentro do useEffect acima: o parágrafo da IA
   // custa cota (D6) — buscar narração no mount gastaria cota de quem só
@@ -4269,7 +4293,7 @@ function useCuradoria() {
       .finally(() => { if (aliveRef.current) setNarrando(false); });
   };
 
-  return { top, meta, carregando, erro, narrativa, narrando, erroNarrativa, narrar };
+  return { top, meta, carregando, erro, narrativa, narrando, erroNarrativa, narrar, recarregar };
 }
 
 function CarteiraScreen({ ctx }) {
@@ -4290,13 +4314,15 @@ function CarteiraScreen({ ctx }) {
   // o Plano 18-03 os consome por nome, sem mexer nesta chamada.
   // `opcoesCarregando` fica sem uso NESTE plano — existe pra tira do 18-03.
   const { propostas: opcoesPorTicker, carregando: opcoesCarregando } = useOpcoesPropostas(data.positions.map((p) => p.t));
-  // Fase 30 (Plano 04, D4): bloco cross-posição "as 4 melhores vendas
-  // cobertas" — SEM parâmetro (ver comentário de useCuradoria).
+  // Fase 32 (32-02), Decisão A: o hook de curadoria subiu para App() —
+  // chamado UMA vez, publicado em ctx.curadoria. CarteiraScreen só
+  // DESESTRUTURA o mesmo objeto que OpcoesScreen também lerá (D-03: uma
+  // fonte, duas leituras) — nenhuma segunda instância do hook aqui.
   const {
     top: curadoriaTop, meta: curadoriaMeta, carregando: curadoriaCarregando, erro: curadoriaErro,
     narrativa: curadoriaNarrativa, narrando: curadoriaNarrando, erroNarrativa: curadoriaErroNarrativa,
     narrar: narrarCuradoria,
-  } = useCuradoria();
+  } = ctx.curadoria;
   // Fase 18 (Plano 03, NAV-01/NAV-03): abre o detalhe da posição a partir da
   // tira agregada e rola o card correspondente pra vista. O `setTimeout`
   // existe porque o `scrollIntoView` precisa acontecer DEPOIS do re-render
@@ -7766,6 +7792,20 @@ export default function App() {
   const [carteiraView, setCarteiraView] = useState("main"); // main | historico | agente
   const [perfilView, setPerfilView] = useState("hub");       // hub | plano | config | ia | notificacoes | eficiencia | logs
   const navigate = (t) => { setCarteiraView("main"); setPerfilView("hub"); setTab(t); };
+  // Fase 32 (32-02), Decisão A: flag monotônica que autoriza o hook de
+  // curadoria a buscar — liga ao visitar Posições (carteiraView main) ou
+  // Opções, NUNCA desliga, NUNCA liga sozinha em boot. Guarda
+  // `if (curadoriaAtiva) return;` evita re-setar o mesmo valor a cada
+  // render de tab/carteiraView.
+  const [curadoriaAtiva, setCuradoriaAtiva] = useState(false);
+  useEffect(() => {
+    if (curadoriaAtiva) return;
+    if (tab === "opcoes" || (tab === "carteira" && carteiraView === "main")) setCuradoriaAtiva(true);
+  }, [tab, carteiraView]);
+  // Chamado UMA vez — o resultado vai para ctx.curadoria, lido por
+  // CarteiraScreen e (Plano 32-03) por OpcoesScreen (D-03: mesmo dado
+  // alimenta a contagem em Posições e a lista em Opções).
+  const curadoria = useCuradoria(curadoriaAtiva);
   const [analysis, setAnalysis] = useState({});
   const [expanded, setExpanded] = useState({});
   const [analysisModel, setAnalysisModel] = useState("completo");
@@ -9014,6 +9054,14 @@ export default function App() {
     // setters do `goAgente` acima, pela mesma razão: ponto único de entrada,
     // em vez de replicar a navegação em cada chamador.
     goCarteira: () => { setPerfilView("hub"); setTab("carteira"); setCarteiraView("main"); },
+    // Fase 32 (32-02), D-03: PONTO ÚNICO de entrada na aba Opções a partir de
+    // outra tela — mesma razão registrada em goAgente acima. `navigate` já
+    // zera carteiraView/perfilView, então este destino chega sempre limpo.
+    goOpcoes: () => navigate("opcoes"),
+    // Fase 32 (32-02), Decisão A: fonte única do bloco cross-posição de
+    // opções — CarteiraScreen e (Plano 32-03) OpcoesScreen leem o MESMO
+    // objeto, nunca duas instâncias do hook.
+    curadoria,
     // aba-opcoes F2: telas fora de App.jsx (web/src/opcoes/) não podem
     // importar daqui — seria ciclo. `PriceChart` e a paleta em HEX (var()
     // não resolve em canvas) chegam pelo ctx, e o `store` também: ele é
