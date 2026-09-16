@@ -2,9 +2,9 @@
 quick_id: 260916-g6p
 slug: corrigir-os-tres-ou-zero-diferidos-da-fase-32
 date: 2026-09-16
-status: partial
-tasks_completed: [1, 2]
-task_deferred: 3
+status: complete
+tasks_completed: [1, 2, 3]
+task_deferred: null
 subsystem: web/opcoes
 tags: [null-safety, guardiao, principio-4, opcoes]
 dependency-graph:
@@ -28,7 +28,7 @@ metrics:
   completed: 2026-09-16
 ---
 
-# Quick 260916-g6p: Corrigir os três `|| 0` diferidos da Fase 32 — Tasks 1-2 Summary
+# Quick 260916-g6p: Corrigir os três `|| 0` diferidos da Fase 32 — Summary
 
 Guard null-safe explícito nas três cópias do helper `porLote`/CTA de collar
 em `web/src/opcoes/`, e remoção da exceção `ARQUIVOS_EXCECAO_OU_ZERO` do
@@ -177,14 +177,35 @@ Nenhum.
 Nenhum — mudança é puramente de guard null-safe em componentes de exibição
 já existentes; nenhuma superfície nova (rede, auth, schema).
 
-## Task 3 — DEFERIDA de propósito
+## Task 3 — executada após confirmação explícita do Alex
 
-Não executada nesta sessão, por instrução explícita: bump (`scripts/bump.sh`),
-`scripts/publicar-web.sh`, reescrita do comentário de `SERVER_BUILD_ID`,
-push em `v2/interacao-estrutural` e em `origin/main`, e confirmação HTTP em
-`boris.semente.dev/api/health` ficam **pendentes de confirmação explícita do
-Alex** para tocar produção. O estado atual é: código corrigido e testado
-localmente (dois commits em `v2/interacao-estrutural`), **NÃO publicado**.
+Alex confirmou a publicação ("Pública") na mesma sessão, em turno separado.
+Sequência executada pelo orquestrador (fora do sandbox, mesmo motivo de TLS
+das Tasks 1-2):
+
+1. `git fetch origin main` — `origin/main` confirmado ancestral do HEAD antes
+   de tocar em qualquer coisa.
+2. `bash scripts/bump.sh` — `F10-20260916-02` → `F10-20260916-03`.
+3. `bash scripts/publicar-web.sh` (`npm ci` + `vite build`, publica em
+   `server/web_dist`, sincroniza `SERVER_BUILD_ID`) — verde, `dist` com o
+   carimbo `F10-20260916-03` confirmado por `grep`.
+4. Comentário do `SERVER_BUILD_ID` em `server/app/main.py` reescrito à mão
+   (script só sincroniza o valor, não o texto): nova entrada descrevendo esta
+   quick, texto anterior (entrega `F10-20260916-02`, quick `260916-cod`)
+   preservado como `HISTORICO`, no padrão do repositório.
+5. Suíte canônica completa pós-bump, fora do sandbox: **2923 pytest + 152
+   `.mjs`, exit 0** — idêntico à Task 2, sem queda.
+6. Commit `bc2e03a` (`web/src/version.js`, `server/web_dist`,
+   `server/app/main.py`). `git status --porcelain` limpo depois.
+7. Push em `v2/interacao-estrutural` e `git push origin HEAD:main`
+   (Railway só observa `main`) — ambos fast-forward, sem merge.
+8. Confirmação HTTP: `curl https://boris.semente.dev/api/health` respondeu
+   `{"ok":true,"build":"F10-20260916-02"}` por ~6 min (Railway ainda
+   redesplegando) e então `{"ok":true,"build":"F10-20260916-03"}` — carimbo
+   novo em produção, confirmado.
+
+**Estado final:** `git rev-parse HEAD == origin/main == bc2e03a`, produção
+respondendo `F10-20260916-03`. Nada pendente desta quick.
 
 ## Self-Check
 
@@ -201,6 +222,7 @@ Commits citados:
 ```
 FOUND commit: c584c96 (Task 1)
 FOUND commit: 47b8907 (Task 2)
+FOUND commit: bc2e03a (Task 3)
 ```
 
 ## Self-Check: PASSED
