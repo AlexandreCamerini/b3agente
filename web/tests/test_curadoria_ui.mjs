@@ -157,15 +157,19 @@ const moduloSemComentario = modulo.split("\n").filter((l) => !/^\s*\/\//.test(l)
 // de função é substituída por `LinhaChamadaOpcoes` (novo componente,
 // inserido entre `useCuradoria` e `CarteiraScreen`): PropostaDaPosicao <
 // useCuradoria < LinhaChamadaOpcoes < CarteiraScreen < HistoricoScreen.
-const iPDP = app.indexOf("function PropostaDaPosicao");
+// ATUALIZADO 2026-09-16 (Fase 32, 32-04, deviation Rule 1): `PropostaDaPosicao`
+// foi REMOVIDA de App.jsx — não é mais uma âncora válida. Restam 4:
+// useCuradoria < LinhaChamadaOpcoes < CarteiraScreen < HistoricoScreen.
 const iHookCur = app.indexOf("function useCuradoria");
 const iLinhaChamada = app.indexOf("function LinhaChamadaOpcoes");
 const iCarteira = app.indexOf("function CarteiraScreen(");
 const iHistorico = app.indexOf("function HistoricoScreen(");
-ok("(Fase 32/32-03) as 5 âncoras de função foram localizadas, na ordem esperada (PropostaDaPosicao < useCuradoria < LinhaChamadaOpcoes < CarteiraScreen < HistoricoScreen)",
-  iPDP > -1 && iHookCur > iPDP && iLinhaChamada > iHookCur && iCarteira > iLinhaChamada && iHistorico > iCarteira);
+ok("(Fase 32/32-04) as 4 âncoras de função foram localizadas, na ordem esperada (useCuradoria < LinhaChamadaOpcoes < CarteiraScreen < HistoricoScreen)",
+  iHookCur > -1 && iLinhaChamada > iHookCur && iCarteira > iLinhaChamada && iHistorico > iCarteira);
 ok("(Fase 32/32-03) function useOpcoesPropostas NÃO existe mais em App.jsx (definição saiu para o módulo)",
   !/function useOpcoesPropostas/.test(fonteSemComentario));
+ok("(Fase 32/32-04) function PropostaDaPosicao NÃO existe mais em App.jsx",
+  !/function PropostaDaPosicao/.test(fonteSemComentario));
 
 const fatiaHookCurComComentario = app.slice(iHookCur, iCarteira);
 const fatiaCarteiraComComentario = app.slice(iCarteira, iHistorico);

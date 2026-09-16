@@ -114,20 +114,26 @@ ok("dentro de Operador, SemMercado ≠ SemCobertura e SemMercado ≠ SemSetup",
 // também saiu de App.jsx (para ./opcoes/useOpcoesPropostas.js) — só a
 // CHAMADA sobrevive dentro de CarteiraScreen. Restam PropostaDaPosicao <
 // CarteiraScreen < HistoricoScreen (3 âncoras).
-const iPDP = app.indexOf("function PropostaDaPosicao");
+// ATUALIZADO 2026-09-16 (Fase 32, 32-04, deviation Rule 1): `PropostaDaPosicao`
+// foi REMOVIDA de App.jsx — o card de proposta por posição (com o ramo
+// multi-candidato) foi portado para `SubAbaOperar`
+// (web/src/opcoes/OpcoesScreen.jsx, D-04). Restam CarteiraScreen <
+// HistoricoScreen (2 âncoras). As asserções que mediam `fatiaPDP` (silêncio
+// deliberado do card, estado `opcoesFor`) saíram — o que elas guardavam
+// agora é guardado por `test_opcoes_multi_candidato_ui.mjs` e
+// `test_opcoes_subabas_ui.mjs`, sobre o novo local.
 const iCarteira = app.indexOf("function CarteiraScreen(");
 const iHistorico = app.indexOf("function HistoricoScreen(");
-ok("(Fase 32/32-03) as 3 âncoras de função restantes em App.jsx foram localizadas, na ordem esperada",
-  iPDP > -1 && iCarteira > iPDP && iHistorico > iCarteira);
+ok("(Fase 32/32-04) as 2 âncoras de função restantes em App.jsx foram localizadas, na ordem esperada",
+  iCarteira > -1 && iHistorico > iCarteira);
 ok("(Fase 32/32-03) function useOpcoesPropostas NÃO existe mais em App.jsx (definição saiu para o módulo)",
   !/function useOpcoesPropostas/.test(app.split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n")));
+ok("(Fase 32/32-04) function PropostaDaPosicao NÃO existe mais em App.jsx (o card de proposta por posição migrou para SubAbaOperar)",
+  !/function PropostaDaPosicao/.test(app.split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n")));
 
 // A "fatia" de OportunidadesOpcoes agora É o módulo inteiro — substitui o
 // antigo `app.slice(iOO, iPDP)`.
 const fatiaOO = moduloOO;
-// PropostaDaPosicao vai até a próxima função declarada em App.jsx (era
-// `function useOpcoesPropostas`, que saiu — agora é `function useCuradoria`).
-const fatiaPDP = app.slice(iPDP, app.indexOf("function useCuradoria"));
 const fatiaCarteira = app.slice(iCarteira, iHistorico);
 
 // ---- (2) Guardrail CVM na tira --------------------------------------------
@@ -175,11 +181,12 @@ ok("(Fase 32/32-03) App.jsx contém <LinhaChamadaOpcoes exatamente 1x (D-01: sub
 // saiu para o módulo) — dois chamadores agora, ambos sobre posição real:
 // CarteiraScreen (data.positions) e OpcoesScreen.jsx (carteira, que é
 // ctx.data.positions filtrado).
-ok("useOpcoesPropostas( dentro de CarteiraScreen recebe (store, data.positions.map( como argumentos",
-  /useOpcoesPropostas\(store, data\.positions\.map\(/.test(fatiaCarteira));
-const linhaHookCall = (fatiaCarteira.match(/^.*useOpcoesPropostas\(.*$/m) || [""])[0];
-ok("a chamada de useOpcoesPropostas em CarteiraScreen não menciona watchlist nem radar",
-  linhaHookCall.length > 0 && !/watchlist|radar/i.test(linhaHookCall));
+// ATUALIZADO 2026-09-16 (Fase 32, 32-04, deviation Rule 1): a chamada em
+// CarteiraScreen foi REMOVIDA junto com `PropostaDaPosicao` (o único
+// consumidor) — resta 1 chamador (OpcoesScreen.jsx). A asserção de
+// CarteiraScreen vira negativa: a chamada não existe mais em App.jsx.
+ok("(Fase 32/32-04) useOpcoesPropostas( NÃO aparece mais em App.jsx (o único chamador, CarteiraScreen, foi removido junto com PropostaDaPosicao)",
+  !/useOpcoesPropostas\(/.test(fonteSemComentario));
 ok("(Fase 32/32-03) useOpcoesPropostas( dentro de OpcoesScreen.jsx recebe (store, carteira.map( como argumentos",
   /useOpcoesPropostas\(store, carteira\.map\(/.test(telaOpcoesSemComentario));
 const linhaHookCallTela = (telaOpcoesSemComentario.match(/^.*useOpcoesPropostas\(.*$/m) || [""])[0];
@@ -249,19 +256,27 @@ ok("(Fase 32/32-03) store.optionsProposta( aparece exatamente 1x em useOpcoesPro
 ok("(Fase 32/32-03) OpcoesScreen.jsx importa useOpcoesPropostas (não reimplementa o fan-out)",
   /from\s+"\.\/useOpcoesPropostas\.js"/.test(telaOpcoes));
 
-// ---- (8) Silêncio deliberado do card individual ----------------------------
-ok("PropostaDaPosicao tem guarda de retorno null quando não há proposta",
-  /if \(!r \|\| !r\.proposta\) return null;/.test(fatiaPDP));
-ok("PropostaDaPosicao NÃO referencia cp.tiraOpcoesSemCobertura (o vazio agregado não vaza pro card)",
-  !fatiaPDP.includes("cp.tiraOpcoesSemCobertura"));
-ok("PropostaDaPosicao NÃO referencia cp.tiraOpcoesSemSetup",
-  !fatiaPDP.includes("cp.tiraOpcoesSemSetup"));
+// ---- (8, Fase 32/32-04) Silêncio deliberado do card individual — APOSENTADO
+// `PropostaDaPosicao` (o card com a guarda `if (!r || !r.proposta) return
+// null`, ADR-004) foi removida de App.jsx nesta fase. A guarda não foi
+// PORTADA para `SubAbaOperar` porque deixou de fazer sentido no novo local:
+// a sub-aba Operar mostra UMA posição selecionada por vez (nunca itera N
+// posições), então o raciocínio original — "um aviso por card, repetido
+// posição a posição, vira ruído" — não se aplica; lá, ausência de proposta
+// já cai numa das cascatas existentes (`gate === null`/`!gate.liquida`),
+// não em silêncio. Sem asserção equivalente aqui — não há mais o que medir
+// nesta classe de regra em App.jsx.
+ok("(Fase 32/32-04) function PropostaDaPosicao NÃO existe mais em App.jsx (redundante com a âncora acima, reafirmado aqui por ser o contexto histórico desta seção)",
+  !/function PropostaDaPosicao/.test(fonteSemComentario));
 
-// ---- (9) Estado por ticker no padrão da casa --------------------------------
-ok("CarteiraScreen declara const [opcoesFor, setOpcoesFor] = useState(null);",
-  /const \[opcoesFor, setOpcoesFor\] = useState\(null\);/.test(fatiaCarteira));
-ok("o laço de posições lê opcoesFor === p.t",
-  /opcoesFor === p\.t/.test(fatiaCarteira));
+// ---- (9, Fase 32/32-04) Estado por ticker no padrão da casa — APOSENTADO
+// `opcoesFor`/`setOpcoesFor` (o estado "qual posição tem o detalhe aberto")
+// foi removido de CarteiraScreen junto com `PropostaDaPosicao`, seu único
+// consumidor. `histFor`/`editFor` continuam de pé — são de OUTRAS
+// affordances do card de posição (histórico de análises, edição de
+// stop/alvo), não tocadas por esta fase.
+ok("(Fase 32/32-04) opcoesFor NÃO aparece mais em CarteiraScreen (estado removido junto com PropostaDaPosicao)",
+  !/opcoesFor/.test(fatiaCarteira));
 ok("histFor === p.t segue presente (padrão copiado, não substituído)",
   /histFor === p\.t/.test(fatiaCarteira));
 ok("editFor === p.t segue presente",
@@ -293,12 +308,14 @@ ok("assinatura de PropostaLastreada é { r, operador, cp, busy, onAbrir, onFecha
   /function PropostaLastreada\(\{ r, operador, cp, busy, onAbrir, onFechar, posAberta, onVerbeteLiquidez \}\)/.test(modulo));
 // ATUALIZADO 2026-09-13 (Fase 28, 28-03): o ponto de uso de AtivoCard foi
 // REMOVIDO (28-CONTEXT D1) — Watchlist/Radar deixaram de abrir/fechar
-// operação lastreada. Resta 1x em App.jsx (PropostaDaPosicao); o segundo
-// ponto de uso do teto de 2 mudou de arquivo (OpcoesScreen.jsx, sub-aba
-// Operar) e é medido cross-arquivo por test_opcoes_multi_candidato_ui.mjs
+// operação lastreada. Restava 1x em App.jsx (PropostaDaPosicao).
+// ATUALIZADO 2026-09-16 (Fase 32, 32-04, deviation Rule 1): `PropostaDaPosicao`
+// também foi removida — App.jsx não renderiza mais `<PropostaLastreada`
+// nenhuma vez. O único ponto de uso restante (OpcoesScreen.jsx, sub-aba
+// Operar) é medido cross-arquivo por test_opcoes_multi_candidato_ui.mjs
 // item (9), não repetido aqui.
-ok("<PropostaLastreada aparece 1x no fonte de App.jsx (PropostaDaPosicao — AtivoCard removido na Fase 28-03)",
-  (fonteSemComentario.match(/<PropostaLastreada/g) || []).length === 1);
+ok("(Fase 32/32-04) <PropostaLastreada aparece 0x no fonte de App.jsx (PropostaDaPosicao removida — único ponto de uso restante é OpcoesScreen.jsx)",
+  (fonteSemComentario.match(/<PropostaLastreada/g) || []).length === 0);
 
 if (fails) { console.error(`\n${fails} falha(s)`); process.exit(1); }
 console.log("\ntodos os testes passaram");

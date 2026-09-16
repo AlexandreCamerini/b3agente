@@ -25,6 +25,13 @@
 // (chamaria `process.exit(1)` e derrubaria o arquivo inteiro em silêncio,
 // escondendo as demais asserções). Os dois passam a ser lidos direto dos
 // módulos; nenhuma asserção de conteúdo mudou.
+// ATUALIZADO 2026-09-16 (Fase 32, 32-04, deviation Rule 1): `PropostaDaPosicao`
+// (o QUARTO trilho — a linha de N candidatos dentro do card de posição) foi
+// REMOVIDA de App.jsx nesta fase; `isolarFuncao("PropostaDaPosicao")`
+// chamaria `process.exit(1)` pelo mesmo motivo do parágrafo acima. O trilho
+// não sumiu: o ramo multi-candidato foi portado para `SubAbaOperar`
+// (web/src/opcoes/OpcoesScreen.jsx) — a seção A passa a isolar esse
+// componente de lá em vez de App.jsx.
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
@@ -33,6 +40,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const app = readFileSync(join(here, "..", "src", "App.jsx"), "utf8");
 const moduloOportunidadesOpcoes = readFileSync(join(here, "..", "src", "opcoes", "OportunidadesOpcoes.jsx"), "utf8");
 const moduloCandidatoOpcao = readFileSync(join(here, "..", "src", "opcoes", "CandidatoOpcao.jsx"), "utf8");
+const telaOpcoes = readFileSync(join(here, "..", "src", "opcoes", "OpcoesScreen.jsx"), "utf8");
 
 let fails = 0;
 const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if (!cond) fails++; };
@@ -59,7 +67,21 @@ const evolucaoScreen = isolarFuncao("EvolucaoScreen");
 // Fase 32 (32-02): lidos direto do módulo (ver nota datada do cabeçalho) —
 // não mais isolados de App.jsx via `isolarFuncao`.
 const oportunidadesOpcoes = moduloOportunidadesOpcoes;
-const propostaDaPosicao = isolarFuncao("PropostaDaPosicao");
+// Fase 32 (32-04): `PropostaDaPosicao` morreu em App.jsx — o trilho do ramo
+// multi-candidato agora vive em `SubAbaOperar`, OpcoesScreen.jsx. Isolamento
+// por marcador (mesmo padrão de `isolarFuncao`, mas sobre `telaOpcoes`):
+// aborta com mensagem explícita se o marcador sumir, nunca passa em silêncio.
+function isolarFuncaoDeOpcoesScreen(nome) {
+  const marcador = `function ${nome}(`;
+  const inicio = telaOpcoes.indexOf(marcador);
+  if (inicio < 0) {
+    console.error(`FALHOU: ${marcador} não encontrado em OpcoesScreen.jsx — guardião não pode isolar o componente`);
+    process.exit(1);
+  }
+  const fim = telaOpcoes.indexOf("\nfunction ", inicio + 10);
+  return telaOpcoes.slice(inicio, fim > inicio ? fim : undefined);
+}
+const subAbaOperar = isolarFuncaoDeOpcoesScreen("SubAbaOperar");
 const candidatoOpcao = moduloCandidatoOpcao;
 
 // TECH_MODELS não vive dentro de uma função nomeada própria — isolar pelo
@@ -127,9 +149,16 @@ ok(
 // seção prova ("nenhum trilho novo reimplementa overflowX inline") continua
 // válida — só passou a se espalhar por mais de um arquivo. A contagem soma
 // App.jsx + o módulo extraído por esta mesma fase.
+// ATUALIZADO 2026-09-16 (Fase 32, 32-04, deviation Rule 1): o 4º site
+// (dentro de `PropostaDaPosicao`) saiu de App.jsx junto com o componente —
+// o ramo multi-candidato foi portado para `SubAbaOperar`
+// (web/src/opcoes/OpcoesScreen.jsx), que declara seu PRÓPRIO
+// `carouselTrackStyle` local (mesmo padrão, nunca importado de App.jsx). A
+// soma passa a cobrir os três arquivos.
 const totalTrackCalls = (app.match(/carouselTrackStyle\(/g) || []).length
-  + (moduloOportunidadesOpcoes.match(/carouselTrackStyle\(/g) || []).length;
-ok("os 4 containers de trilho chamam `carouselTrackStyle(` (limiar >= 4, definição não conta; soma App.jsx + OportunidadesOpcoes.jsx desde a Fase 32)", totalTrackCalls >= 4);
+  + (moduloOportunidadesOpcoes.match(/carouselTrackStyle\(/g) || []).length
+  + (telaOpcoes.match(/carouselTrackStyle\(/g) || []).length;
+ok("os 4 containers de trilho chamam `carouselTrackStyle(` (limiar >= 4, definição não conta; soma App.jsx + OportunidadesOpcoes.jsx + OpcoesScreen.jsx desde a Fase 32)", totalTrackCalls >= 4, String(totalTrackCalls));
 
 // --- 5. Os 4 itens de carouselItemStyle( -------------------------------------
 // Mesma razão do item 4: `const carouselItemStyle = (align = "start") => ...`
@@ -148,7 +177,8 @@ ok("os 4 itens chamam `carouselItemStyle(` (limiar >= 4, definição não conta;
 
 ok("recorte de TECH_MODELS.map( chama `carouselTrackStyle(`", techModelsBloco.includes("carouselTrackStyle("));
 ok("função OportunidadesOpcoes chama `carouselTrackStyle(`", oportunidadesOpcoes.includes("carouselTrackStyle("));
-ok("função PropostaDaPosicao chama `carouselTrackStyle(`", propostaDaPosicao.includes("carouselTrackStyle("));
+ok("(Fase 32/32-04) função SubAbaOperar (OpcoesScreen.jsx) chama `carouselTrackStyle(` no ramo multi-candidato (antigo 4º site, PropostaDaPosicao, App.jsx)",
+  subAbaOperar.includes("carouselTrackStyle("));
 ok("função EvolucaoScreen (HERO-CARROSSEL) chama `carouselTrackStyle(`", evolucaoScreen.includes("carouselTrackStyle("));
 
 // --- 7. Taxonomia preservada (Decisão 1 do 22-UI-SPEC): peek de 84% só HERO -

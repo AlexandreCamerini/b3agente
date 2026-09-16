@@ -142,8 +142,17 @@ ok("App.jsx importa faixaDeLiquidez de finance.js",
 
 // ---------------------------------------------------------------------------
 // 5) Chip de liquidez → verbete (D-09): abrirVerbete("liquidez-opcao", ...)
+// ATUALIZADO 2026-09-16 (Fase 32, 32-04, deviation Rule 1): o único ponto
+// de App.jsx que chamava A.abrirVerbete("liquidez-opcao", ...) vivia dentro
+// do card de detalhe de posição (removido nesta fase — ver
+// 32-04-PLAN.md/32-04-SUMMARY.md). O chamador não sumiu: migrou junto com o
+// resto da proposta lastreada para SubAbaOperar
+// (web/src/opcoes/OpcoesScreen.jsx), que mantém os dois pontos (ramo único e
+// ramo multi-candidato) chamando A.abrirVerbete("liquidez-opcao", ...).
 // ---------------------------------------------------------------------------
-ok('App.jsx chama A.abrirVerbete("liquidez-opcao", ...)', /abrirVerbete\("liquidez-opcao"/.test(app));
+const telaOpcoesFaixaLiquidez = readFileSync(join(here, "..", "src", "opcoes", "OpcoesScreen.jsx"), "utf8");
+ok('OpcoesScreen.jsx chama A.abrirVerbete("liquidez-opcao", ...) (SubAbaOperar — App.jsx não tem mais consumidor)',
+  /abrirVerbete\("liquidez-opcao"/.test(telaOpcoesFaixaLiquidez));
 // ATUALIZADO 2026-09-13 (Fase 28, 28-01): ChipDaProposta saiu de App.jsx —
 // vive agora no módulo.
 ok("ChipDaProposta existe e trata k === \"liquidez\" como botão", /function ChipDaProposta/.test(modulo) && /c\.k === "liquidez"/.test(modulo));

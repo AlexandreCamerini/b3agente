@@ -16,7 +16,7 @@ import OpcoesScreen from "./opcoes/OpcoesScreen.jsx";
 // por posição migrou para `SubAbaOperar`, web/src/opcoes/OpcoesScreen.jsx,
 // que já importa os quatro do módulo diretamente). `AtivoCard` (Watchlist/
 // Radar) nunca consumiu este módulo — renderiza `OpcoesCamada`, que é outra
-// coisa (ver comentário abaixo de `function OpcoesCamada`).
+// coisa (ver comentário acima da chamada de OpcoesCamada em AtivoCard).
 // Fase 31 (Plano 04, D-08): payoff do item nº 1 do bloco de curadoria —
 // mesmo componente já em produção no caminho MCP (Fase 24/31-03), via o
 // adaptador puro que traduz o envelope PT do motor interno pro envelope
