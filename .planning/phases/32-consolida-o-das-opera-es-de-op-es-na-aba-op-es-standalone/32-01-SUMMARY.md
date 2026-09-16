@@ -106,3 +106,12 @@ None - nenhuma configuração de serviço externo.
 ---
 *Phase: 32-consolida-o-das-opera-es-de-op-es-na-aba-op-es-standalone*
 *Completed: 2026-09-15*
+
+## Self-Check: PASSED
+
+- FOUND: `web/tests/test_consolidacao_opcoes_copy.mjs`
+- FOUND: `.planning/phases/32-consolida-o-das-opera-es-de-op-es-na-aba-op-es-standalone/32-01-SUMMARY.md`
+- FOUND: commit `56c3f20` (Task 1)
+- FOUND: commit `f194879` (Task 2)
+- FOUND: commit `f1ea53d` (docs, este SUMMARY)
+- `.planning/STATE.md` e `.planning/ROADMAP.md` não modificados nesta execução (confirmado por `git status --short`), conforme guardrail do repositório
