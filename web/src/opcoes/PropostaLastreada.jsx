@@ -197,7 +197,10 @@ export function PropostaLastreada({ r, operador, cp, busy, onAbrir, onFechar, po
   // continuam null e caem em price(null) → "—" (regra "null nunca 0.0"
   // aplicada à UI, T-17-17). Nunca multiplicar campo anulável da estrutura
   // direto por qtyAcoes — sempre passar pelo helper abaixo.
-  const porLote = (v) => (typeof v === "number" ? v * (p.qtyAcoes || 0) : null);
+  // ATUALIZADO 2026-09-16 (quick 260916-g6p): o `|| 0` que ficava DENTRO da
+  // multiplicação virou guard explícito — `qtyAcoes` ausente devolve
+  // `null`, nunca 0, antes de chegar em `price`.
+  const porLote = (v) => (typeof v === "number" && typeof p.qtyAcoes === "number" ? v * p.qtyAcoes : null);
   return (
     <div style={{ marginTop: "11px", padding: "16px", borderRadius: "11px", background: T.bgCard, border: `1px solid ${T.borderFaint}` }}>
       <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em", color: T.accent }}>{eyebrow}</div>
@@ -265,8 +268,8 @@ export function PropostaLastreada({ r, operador, cp, busy, onAbrir, onFechar, po
             ? cp.ctaFecharLastreada(price(p.premioTotal), isCall)
             : isCollar
             ? (p.caixa && p.caixa.fluxo === "credito"
-                ? cp.ctaCollarCredito(p.contratos, r.ticker, price(p.strikeCall), price(p.strikePut), price(Math.abs((p.caixa && p.caixa.custoLiquidoTotal) || 0)))
-                : cp.ctaCollarDebito(p.contratos, r.ticker, price(p.strikeCall), price(p.strikePut), price(Math.abs((p.caixa && p.caixa.custoLiquidoTotal) || 0))))
+                ? cp.ctaCollarCredito(p.contratos, r.ticker, price(p.strikeCall), price(p.strikePut), price(p.caixa && typeof p.caixa.custoLiquidoTotal === "number" ? Math.abs(p.caixa.custoLiquidoTotal) : null))
+                : cp.ctaCollarDebito(p.contratos, r.ticker, price(p.strikeCall), price(p.strikePut), price(p.caixa && typeof p.caixa.custoLiquidoTotal === "number" ? Math.abs(p.caixa.custoLiquidoTotal) : null)))
             : isCall
             ? cp.ctaVendaCoberta(p.contratos, r.ticker, price(p.strike), price(p.premioTotal))
             : cp.ctaPutProtecao(p.contratos, r.ticker, price(p.strike), price(p.premioTotal))}

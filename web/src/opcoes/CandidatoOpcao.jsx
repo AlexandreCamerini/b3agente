@@ -54,7 +54,10 @@ export default function CandidatoOpcao({ p, r, cp, operador, busy, onAceitar, on
   // ATENÇÃO: `null * 100 === 0` em JS — só multiplica NÚMERO; null/undefined
   // continuam null e caem em price(null) → "—" (regra "null nunca 0.0"
   // aplicada à UI, mesmo helper de App.jsx:3051-3055).
-  const porLote = (v) => (typeof v === "number" ? v * (p.qtyAcoes || 0) : null);
+  // ATUALIZADO 2026-09-16 (quick 260916-g6p): o `|| 0` dentro da
+  // multiplicação virou guard explícito — `qtyAcoes` ausente devolve
+  // `null`, nunca 0, antes de chegar em `price`.
+  const porLote = (v) => (typeof v === "number" && typeof p.qtyAcoes === "number" ? v * p.qtyAcoes : null);
   return (
     // teto de largura (achado ao vivo 2026-09-07, staging/iPhone, dois
     // candidatos put_protecao + collar): sem `flex-basis` fixo o item
@@ -140,8 +143,8 @@ export default function CandidatoOpcao({ p, r, cp, operador, busy, onAceitar, on
             ? cp.propostaIndisponivelDegradada
             : isCollar
             ? (p.caixa && p.caixa.fluxo === "credito"
-                ? cp.ctaCollarCredito(p.contratos, r.ticker, price(p.strikeCall), price(p.strikePut), price(Math.abs((p.caixa && p.caixa.custoLiquidoTotal) || 0)))
-                : cp.ctaCollarDebito(p.contratos, r.ticker, price(p.strikeCall), price(p.strikePut), price(Math.abs((p.caixa && p.caixa.custoLiquidoTotal) || 0))))
+                ? cp.ctaCollarCredito(p.contratos, r.ticker, price(p.strikeCall), price(p.strikePut), price(p.caixa && typeof p.caixa.custoLiquidoTotal === "number" ? Math.abs(p.caixa.custoLiquidoTotal) : null))
+                : cp.ctaCollarDebito(p.contratos, r.ticker, price(p.strikeCall), price(p.strikePut), price(p.caixa && typeof p.caixa.custoLiquidoTotal === "number" ? Math.abs(p.caixa.custoLiquidoTotal) : null)))
             : isCall
             ? cp.ctaVendaCoberta(p.contratos, r.ticker, price(p.strike), price(p.premioTotal))
             : cp.ctaPutProtecao(p.contratos, r.ticker, price(p.strike), price(p.premioTotal))}

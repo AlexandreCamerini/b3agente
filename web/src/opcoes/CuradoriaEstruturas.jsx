@@ -96,7 +96,11 @@ export default function CuradoriaEstruturas({ top, meta, carregando, erro, concl
   const execAtual = idAberto ? (execucao[idAberto] || {}) : {};
   // ATENÇÃO: `null * 100 === 0` em JS — porLote null-safe, mesmo padrão de
   // PropostaLastreada.jsx:200 ("null nunca 0.0", princípio 4 do CLAUDE.md).
-  const porLote = item ? (v) => (typeof v === "number" ? v * (item.qtyAcoes || 0) : null) : null;
+  // ATUALIZADO 2026-09-16 (quick 260916-g6p): o guard passou a ENVOLVER a
+  // multiplicação (`typeof item.qtyAcoes === "number"`) em vez do `|| 0`
+  // dentro dela — `qtyAcoes` ausente cai direto em `price(null)` e vira
+  // "—", nunca "R$ 0,00".
+  const porLote = item ? (v) => (typeof v === "number" && typeof item.qtyAcoes === "number" ? v * item.qtyAcoes : null) : null;
   const estAberto = item ? (item.estrutura || null) : null;
   const liquidezDificil = !!(item && item.liquidez && item.liquidez.faixa === "DIFÍCIL");
   const liquidezSemAviso = liquidezDificil && !item.liquidez.aviso;
