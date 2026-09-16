@@ -748,12 +748,31 @@ o destino já existe — esta fase move e unifica, não constrói tela nova.
 e 31 (curadoria e varredura, os blocos que se movem), e a quick
 `260915-ndt` (rota de execução do collar curado, que precisa continuar
 funcionando de onde quer que o card passe a viver).
-**Requirements**: ver `32-CONTEXT.md`
-**Success Criteria** (what must be TRUE): a fechar em
-`/gsd-discuss-phase 32` — a decisão de produto (o que move, o que fica
-como chamada em Posições, o que some) é do Alex e ainda não foi tomada.
-Registrada aqui como fase para destravar a discussão; critérios entram
-antes de planejar, mesmo procedimento da Fase 31.
+**Requirements**: ver `32-CONTEXT.md` — decisões rastreáveis D-01 a D-07
+**Plans**: 5 plans
+
+Plans:
+- [ ] 32-01-PLAN.md — vocabulário da fase em `copy.js` (rótulos dos dois motores, frase-ponte, linha de chamada, erro de busca) + guardião de paridade
+- [ ] 32-02-PLAN.md — extração dos três componentes para `web/src/opcoes/` e `useCuradoria` subindo para `App()` com gatilho condicional (Decisão A)
+- [ ] 32-03-PLAN.md — os dois blocos cross-carteira migram para o topo da sub-aba Setups; Posições fica com a linha de chamada única
+- [ ] 32-04-PLAN.md — sub-aba Operar ganha multi-candidato (Decisão B); `PropostaDaPosicao` sai de Posições
+- [ ] 32-05-PLAN.md — auditoria da cadeia do collar curado, checkpoint ao vivo e publicação (bump + `publicar-web.sh` + push nas duas branches)
+
+**Success Criteria** (what must be TRUE), fechados em `/gsd-discuss-phase 32`
+e no `32-UI-SPEC.md` (aprovado 6/6):
+- Posições exibe UMA linha de chamada com contagem real e nenhum outro
+  conteúdo de opções cross-posição (D-01).
+- Tocar nessa linha abre a aba Opções na lista, sem ativo pré-selecionado e
+  sem deep-link para uma oportunidade específica (D-02).
+- O número da linha vem de `ctx.curadoria.top.length` — a MESMA fonte que
+  alimenta a lista curada, sem segunda chamada de rede (D-03).
+- A lista curada e a tira do motor com gate ficam no topo da sub-aba Setups,
+  antes dos vigias; os blocos por posição ficam na sub-aba Operar (D-04/D-07).
+- Os dois motores aparecem lado a lado, rotulados, sob uma frase-ponte sempre
+  visível e nunca colapsável (D-05).
+- Nada desenhado nesta fase impede acrescentar busca na aba depois (D-06).
+- A rota de execução do collar curado continua funcionando a partir do card na
+  nova tela, provada por clique real no checkpoint do Plano 32-05.
 
 **Pergunta central já nomeada** (não é decisão, é o trade-off a resolver):
 mover tudo limpa Posições mas exige que o usuário lembre de ir à aba
