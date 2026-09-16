@@ -754,19 +754,19 @@ funcionando de onde quer que o card passe a viver).
 Plans:
 
 **Wave 1**
-- [ ] 32-01-PLAN.md — vocabulário da fase em `copy.js` (rótulos dos dois motores, frase-ponte, linha de chamada, erro de busca) + guardião de paridade
+- [x] 32-01-PLAN.md — vocabulário da fase em `copy.js` (rótulos dos dois motores, frase-ponte, linha de chamada, erro de busca) + guardião de paridade
 
 **Wave 2** *(blocked on Wave 1 completion)*
-- [ ] 32-02-PLAN.md — extração dos três componentes para `web/src/opcoes/` e `useCuradoria` subindo para `App()` com gatilho condicional (Decisão A)
+- [x] 32-02-PLAN.md — extração dos três componentes para `web/src/opcoes/` e `useCuradoria` subindo para `App()` com gatilho condicional (Decisão A)
 
 **Wave 3** *(blocked on Wave 2 completion)*
-- [ ] 32-03-PLAN.md — os dois blocos cross-carteira migram para o topo da sub-aba Setups; Posições fica com a linha de chamada única
+- [x] 32-03-PLAN.md — os dois blocos cross-carteira migram para o topo da sub-aba Setups; Posições fica com a linha de chamada única
 
 **Wave 4** *(blocked on Wave 3 completion)*
-- [ ] 32-04-PLAN.md — sub-aba Operar ganha multi-candidato (Decisão B); `PropostaDaPosicao` sai de Posições
+- [x] 32-04-PLAN.md — sub-aba Operar ganha multi-candidato (Decisão B); `PropostaDaPosicao` sai de Posições
 
 **Wave 5** *(blocked on Wave 4 completion)*
-- [ ] 32-05-PLAN.md — auditoria da cadeia do collar curado, checkpoint ao vivo e publicação (bump + `publicar-web.sh` + push nas duas branches)
+- [x] 32-05-PLAN.md — auditoria da cadeia do collar curado, checkpoint ao vivo e publicação (bump + `publicar-web.sh` + push nas duas branches)
 
 **Success Criteria** (what must be TRUE), fechados em `/gsd-discuss-phase 32`
 e no `32-UI-SPEC.md` (aprovado 6/6):
@@ -828,7 +828,7 @@ registrar o porquê para não oscilar uma terceira vez.
 | 29. Opção a descoberto com flag opt-in | 3/3 | Code complete | 2026-09-13 |
 | 30. Curadoria de IA das 4 melhores estruturas | 0/4 | Planned |  |
 | 31. Varredura de oportunidades de opções | 4/4 | Code complete | 2026-09-14 |
-| 32. Consolidação das operações de opções na aba Opções | 0/0 | Discussing |  |
+| 32. Consolidação das operações de opções na aba Opções | 5/5 | Code complete | 2026-09-16 |
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2/v1.3
 

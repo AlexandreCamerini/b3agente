@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Opções v2
 status: executing
-stopped_at: 'Fase 31 e quick task 260915-j5l ambas em produção. **Achado de infraestrutura de deploy (2026-09-15)**: Railway só observa a branch `main` — `git push` em `v2/interacao-estrutural` sozinho nunca chega à produção. A Fase 31 tinha ficado presa por isso desde 2026-09-14 (push só na branch de longa duração); corrigido com fast-forward + push explícito em `main`, e o mesmo padrão (`git push origin HEAD:main`, além da branch de trabalho) foi repetido para o quick task seguinte. Daqui pra frente, publicar = push nas DUAS branches, não só na de trabalho. **260915-j5l**: Alex achou em produção que os 4 cards da lista curada da Fase 31 mostravam a estrutura mas o clique não executava nenhuma (`onClick` só passava o ticker, caindo no acordeão antigo de proposta única). Confirmação inline no card, despacho por tipo pras 3 rotas já existentes, verificado ao vivo pelo orquestrador (clique real → posição real aberta, cash creditado). Em produção desde F10-20260915-01. Nota de guardrail aplicada: mutadores de estado do gsd-sdk não foram chamados — STATE.md editado à mão. Ver `.planning/quick/260915-j5l-corrigir-clique-nos-cards-da-lista-curad/`.'
-last_updated: "2026-09-15T00:00:00.000Z"
-last_activity: "2026-09-15 — /gsd:plan-phase 32: 5 planos em 5 waves sequenciais, VERIFICATION PASSED na 2ª iteração (1 blocker real fechado: referência pendurada de `opcoesPorTicker` entre as waves 3 e 4) e gate de decisões 4/4. Antes, no mesmo dia: /gsd-discuss-phase 32 (D-01..D-06), a pesquisa (que gerou D-07) e o UI-SPEC aprovado 6/6. Próximo passo: /gsd:execute-phase 32."
+stopped_at: 'Fase 32 COMPLETA e em produção sob o carimbo `F10-20260916-01` (confirmado por HTTP em `boris.semente.dev/api/health` às 01:58 de 2026-09-16). Os 5 planos rodaram em 5 waves sequenciais, executor `sonnet`, sem worktree (`use_worktrees=false`). O checkpoint bloqueante do 32-05 foi conduzido ao vivo com `api-qa-opcoes` (mercado aberto + provider mock) e o Alex aprovou com ciência de duas ressalvas. **Ressalva 1 — item 8 do roteiro (multi-candidato) NUNCA foi visto rodando**: o ramo só renderiza quando a leitura técnica endossa put isolada E collar na MESMA posição (MULTI-01, Fase 19), e o mock não produz essa coexistência (5 posições testadas, todas `candidatos: []`). Cobertura hoje é só o guardião estático `test_opcoes_multi_candidato_ui.mjs`. **Ressalva 2 — `deferred-items.md`**: três cópias de `v * (X || 0)` (`CuradoriaEstruturas.jsx`, `CandidatoOpcao.jsx`, `PropostaLastreada.jsx`) renderizariam "R$ 0,00" em vez de "—" se o campo viesse nulo; em vez de afrouxar a regra `OU_ZERO`, o guardião ganhou exceção datada e nomeada para dois arquivos, com a correção das TRÊS cópias deferida. **Achado de processo**: o range `main...HEAD` do plano 32-05 apontava para a branch LOCAL `main` (atrasada); a referência correta é `origin/main` — conferir range de auditoria sempre contra o remoto. Publicação seguiu a lição de 2026-09-15: push nas DUAS branches, `HEAD == origin/main == 6c74b94`. Guardrail aplicado: nenhum mutador de estado do gsd-sdk foi chamado — STATE.md e ROADMAP.md editados à mão. ANTES: Fase 31 e quick task 260915-j5l ambas em produção. **Achado de infraestrutura de deploy (2026-09-15)**: Railway só observa a branch `main` — `git push` em `v2/interacao-estrutural` sozinho nunca chega à produção. A Fase 31 tinha ficado presa por isso desde 2026-09-14 (push só na branch de longa duração); corrigido com fast-forward + push explícito em `main`, e o mesmo padrão (`git push origin HEAD:main`, além da branch de trabalho) foi repetido para o quick task seguinte. Daqui pra frente, publicar = push nas DUAS branches, não só na de trabalho. **260915-j5l**: Alex achou em produção que os 4 cards da lista curada da Fase 31 mostravam a estrutura mas o clique não executava nenhuma (`onClick` só passava o ticker, caindo no acordeão antigo de proposta única). Confirmação inline no card, despacho por tipo pras 3 rotas já existentes, verificado ao vivo pelo orquestrador (clique real → posição real aberta, cash creditado). Em produção desde F10-20260915-01. Nota de guardrail aplicada: mutadores de estado do gsd-sdk não foram chamados — STATE.md editado à mão. Ver `.planning/quick/260915-j5l-corrigir-clique-nos-cards-da-lista-curad/`.'
+last_updated: "2026-09-16T00:00:00.000Z"
+last_activity: "2026-09-16 — /gsd:execute-phase 32: 5/5 planos, 5 waves sequenciais, suíte canônica verde em todas (2923 passed + 152 .mjs, exit 0). Checkpoint ao vivo aprovado pelo Alex; publicado em produção (F10-20260916-01, commit 6c74b94, push em v2/interacao-estrutural E main). Duas ressalvas abertas: item 8 do roteiro (multi-candidato) não exercitado ao vivo e as três cópias de `|| 0` em `deferred-items.md`. Próximo passo: decidir com o Alex — verificação do multi-candidato, os itens diferidos, ou nova fase."
 progress:
   total_phases: 10
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 49
-  completed_plans: 43
-  percent: 88
+  completed_plans: 48
+  percent: 98
 ---
 
 # Project State
@@ -21,11 +21,60 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-06)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Phase 32 — Consolidação das operações de opções na aba Opções (PLANEJADA em 2026-09-15, 5 planos; próximo passo `/gsd:execute-phase 32`). Fase 31 e as duas quick tasks do dia estão em produção.
+**Current focus:** Phase 32 — COMPLETA e em produção desde 2026-09-16 (`F10-20260916-01`). Próximo passo é decisão do Alex: fechar as duas ressalvas abertas (multi-candidato não verificado ao vivo; três cópias de `|| 0` em `deferred-items.md`) ou abrir fase nova.
 
 ## Current Position
 
-Phase: 32 (Consolidação das operações de opções na aba Opções) — PLANEJADA, pronta para executar
+Phase: 32 (Consolidação das operações de opções na aba Opções) — **COMPLETA, em produção**
+
+**Sessão de 2026-09-16 (execução):**
+
+As 5 waves rodaram sequenciais (uma por plano — `App.jsx`/`OpcoesScreen.jsx`
+são tocados por quase todos, não havia paralelismo honesto). Executor `sonnet`,
+sem worktree. Cada plano fechou com a suíte canônica inteira, não com meia
+baseline: **2923 passed + 152 `.mjs`, exit 0** em todas as waves, mais
+`vite build`.
+
+O que mudou de verdade para o usuário: Posições perdeu os quatro blocos de
+opções e ganhou UMA linha de chamada cuja contagem lê `ctx.curadoria` (fonte
+única, D-03); a aba Opções abre com a frase-ponte que nega hierarquia entre os
+dois motores (D-05, mitigação regulatória, incondicional por desenho) e os dois
+blocos lado a lado, cada um com o rótulo que diz qual motor representa; a
+sub-aba Operar ganhou o ramo multi-candidato e `PropostaDaPosicao` morreu.
+
+**Um defeito de princípio 4 foi corrigido de passagem (32-03):** a curadoria
+exibia "nenhuma estrutura elegível" também quando a BUSCA FALHAVA — afirmava um
+resultado que ninguém mediu. Erro passou a ter precedência sobre vazio, com
+texto e CTA próprios, e a linha em Posições nunca mostra número no estado de
+erro (verificado ao vivo, com o fetch da curadoria forçado a 502).
+
+**A verificação ao vivo pegou o que teste estático não pega.** A cadeia de
+execução foi provada nos dois ramos: venda coberta por **clique real** (posição
+`ITUB4MOCK06C` aberta, caixa +R$ 195,00 exatamente o prêmio) e collar pelo
+MESMO `executarCandidato` + `store` reais servidos pelo Vite — porque no mock a
+razão prêmio÷perda das vendas cobertas sempre ganha e **nenhum collar chega ao
+top-4**, então o ramo era inalcançável por clique. O collar abriu as duas pernas
+de verdade (call 31 vendida + put 29 comprada, 400 cada), caixa inalterado por
+serem prêmios iguais. Nota metodológica: o ramo foi exercitado com o código de
+produção, nunca com uma reimplementação do caminho.
+
+**Duas ressalvas ficaram abertas, com o Alex ciente ao aprovar:**
+1. *Item 8 do roteiro (multi-candidato) nunca foi visto rodando* — só renderiza
+   com put isolada E collar endossados na mesma posição (MULTI-01, Fase 19), e
+   o mock não produz isso. Dívida de verificação, não de código.
+2. *`deferred-items.md`* — três cópias de `v * (X || 0)` que renderizariam
+   "R$ 0,00" no lugar de "—" se o campo viesse nulo. A terceira
+   (`PropostaLastreada.jsx`, Fase 28) está fora do escopo do plano que achou o
+   padrão, então o guardião ganhou exceção **datada e nomeada** em vez de a
+   regra ser afrouxada.
+
+**Achado de processo:** o plano 32-05 mandava auditar `main...HEAD`, mas `main`
+LOCAL estava parada em `54ff538` e o range acusava arquivos proibidos que a
+fase nem tocou. A referência certa é `origin/main` — que já era ancestral do
+HEAD, tornando a publicação um fast-forward sem merge.
+
+*Guardrail aplicado:* mutadores de estado do gsd-sdk não foram chamados —
+STATE.md e ROADMAP.md editados à mão.
 
 **Sessão de 2026-09-15 (planejamento), depois do UI-SPEC:**
 
