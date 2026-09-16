@@ -474,8 +474,16 @@ rotas já existentes e não testadas por esta fase.
 
 ## Open Questions
 
-1. **Qual é o destino de `OportunidadesOpcoes` (e do hook `useOpcoesPropostas`
-   que a alimenta)?**
+> **Nota de status (2026-09-15, pós-pesquisa):** a pergunta #1 abaixo **foi
+> respondida pelo Alex** e virou a decisão **D-07** no `32-CONTEXT.md`:
+> `OportunidadesOpcoes` vai para o topo da aba Opções, ao lado da lista
+> curada, e `useOpcoesPropostas` move junto. O texto original fica preservado
+> como registro do raciocínio. As perguntas #2 e #3 seguem abertas e viraram
+> obrigação de declaração explícita no PLAN.md (ver `32-CONTEXT.md`,
+> "Decisões delegadas que o PLAN.md tem de declarar por escrito").
+
+1. ~~**Qual é o destino de `OportunidadesOpcoes` (e do hook `useOpcoesPropostas`
+   que a alimenta)?**~~ — **RESOLVIDA: D-07.**
    - O que sabemos: o CONTEXT.md lista `OportunidadesOpcoes` entre os 4 blocos
      que SAEM de Posições (`<domain>`), mas D-04 (onde os blocos aterrissam)
      só nomeia explicitamente `CuradoriaEstruturas` (→ topo da aba) e
