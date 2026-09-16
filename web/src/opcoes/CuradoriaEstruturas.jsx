@@ -74,7 +74,15 @@ const ROTULO_TIPO_CURADORIA = {
   opcao_a_descoberto: "curadoriaTipoDescoberto",
 };
 
-export default function CuradoriaEstruturas({ top, meta, carregando, erro, narrativa, narrando, erroNarrativa, onNarrar, onRecarregar, cp, onAbrir, onExecutar, operador, palette }) {
+export default function CuradoriaEstruturas({ top, meta, carregando, erro, concluido, narrativa, narrando, erroNarrativa, onNarrar, onRecarregar, cp, onAbrir, onExecutar, operador, palette }) {
+  // WR-01 (32-REVIEW.md, 2026-09-16, quick 260916-cod): mesmo defeito de
+  // App.jsx/LinhaChamadaOpcoes, mesma fonte (`ctx.curadoria`) — na janela
+  // antes da primeira busca terminar, `top: [], carregando: false,
+  // erro: false` caía no ramo de vazio (`cp.curadoriaVazio`), afirmando
+  // "nenhuma estrutura elegível" antes de a varredura sequer começar.
+  // `naoMedido` trata essa janela como carregando, nunca como vazio
+  // confirmado (princípio 4 do CLAUDE.md).
+  const naoMedido = carregando || !concluido;
   // Quick 260915-j5l: clicar num card abre uma confirmação INLINE dentro do
   // próprio bloco (não rola a tela, não abre o acordeão antigo de UMA
   // posição). Estado indexado por idCandidato — NUNCA por ticker: dois
@@ -279,9 +287,11 @@ export default function CuradoriaEstruturas({ top, meta, carregando, erro, narra
           <PayoffChart estrutura={payoffPrimeiro} emReais={null} cp={cp} palette={palette} />
         </div>
       )}
-      {/* carregando ANTES do vazio — mesma razão de OportunidadesOpcoes:
-          sem esse ramo o bloco piscaria "sem estrutura" durante a busca. */}
-      {top.length === 0 && carregando && (
+      {/* carregando/não-medido ANTES do vazio — mesma razão de
+          OportunidadesOpcoes (sem esse ramo o bloco piscaria "sem
+          estrutura" durante a busca) MAIS WR-01 (naoMedido cobre também a
+          janela antes de a busca começar). */}
+      {top.length === 0 && naoMedido && (
         <div style={{ fontSize: "12px", color: T.textFaint, lineHeight: 1.5 }}>{cp.curadoriaCarregando}</div>
       )}
       {/* Fase 32 (32-03): correção de estado obrigatória (UI-SPEC, achado do
@@ -289,7 +299,7 @@ export default function CuradoriaEstruturas({ top, meta, carregando, erro, narra
           desta correção, uma busca que FALHAVA caía no mesmo ramo de "nada
           elegível", afirmando um resultado que ninguém mediu (princípio 4
           do CLAUDE.md). Cor de aviso — nunca a cor reservada a P&L. */}
-      {top.length === 0 && !carregando && erro && (
+      {top.length === 0 && !naoMedido && erro && (
         <div style={{ padding: "10px 11px", borderRadius: "9px", background: "color-mix(in srgb, " + T.warn + " 12%, transparent)", border: `1px solid ${T.warn}`, fontSize: "12px", color: T.warn, lineHeight: 1.5 }}>
           <div>{cp.curadoriaErroBusca}</div>
           {onRecarregar && (
@@ -303,10 +313,11 @@ export default function CuradoriaEstruturas({ top, meta, carregando, erro, narra
           )}
         </div>
       )}
-      {/* ESTADO vazio (NAV-03) — sem CTA, nomeia o motivo. Exige `!erro`: a
-          busca ter FALHADO não é o mesmo resultado que "varri e não achei
-          nada elegível" (ramo acima). */}
-      {top.length === 0 && !carregando && !erro && (
+      {/* ESTADO vazio (NAV-03) — sem CTA, nomeia o motivo. Exige `!erro` E
+          `concluido` (WR-01): nem a busca ter FALHADO, nem ela ainda NÃO
+          ter terminado, são o mesmo resultado que "varri e não achei nada
+          elegível" (ramo acima). */}
+      {top.length === 0 && !naoMedido && !erro && (
         <div style={{ padding: "10px 11px", borderRadius: "9px", background: T.bgCard, border: `1px solid ${T.borderFaint}`, fontSize: "12px", color: T.textSecondary, lineHeight: 1.5 }}>
           {cp.curadoriaVazio}
         </div>

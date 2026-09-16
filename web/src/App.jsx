@@ -4141,9 +4141,21 @@ function useCuradoria(ativo) {
   const [top, setTop] = useState([]);
   const [meta, setMeta] = useState(null);
   // Nasce false (não true): com a flag desligada não há busca em voo, e a
-  // tela não pode mostrar "Verificando…" para sempre.
+  // tela não pode mostrar "Verificando…" para sempre. O estado "ainda não
+  // buscou nada" (distinto de "buscou e top ficou vazio") passa a ser
+  // expresso por `concluido`, abaixo — WR-01 (32-REVIEW.md), corrigido na
+  // quick 260916-cod: `useState(!!ativo)` aqui seria NO-OP (só roda no
+  // mount de App(), quando `ativo` é sempre false) — por isso a correção
+  // não mexe neste estado, cria um novo.
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState(false);
+  // WR-01 (32-REVIEW.md, 2026-09-16): true só depois que a PRIMEIRA busca
+  // terminar (sucesso OU falha, via `.finally`) — nunca reseta a `false`
+  // depois disso (recarregar() busca de novo, mas não "desconclui" a
+  // primeira medição). Os consumidores (LinhaChamadaOpcoes,
+  // CuradoriaEstruturas) tratam `!concluido` como "ainda carregando",
+  // nunca como "vazio confirmado" — princípio 4 do CLAUDE.md.
+  const [concluido, setConcluido] = useState(false);
   const [narrativa, setNarrativa] = useState(null);
   const [narrando, setNarrando] = useState(false);
   // "cota" (402 do gate de plano) | "erro" (genérico) | null — tratados
@@ -4174,7 +4186,14 @@ function useCuradoria(ativo) {
         setMeta(r || null);
       })
       .catch(() => { if (aliveRef.current) setErro(true); })
-      .finally(() => { if (aliveRef.current) setCarregando(false); });
+      .finally(() => {
+        if (!aliveRef.current) return;
+        setCarregando(false);
+        // WR-01: roda para sucesso E falha (finally sempre executa depois
+        // do catch) — "concluí a primeira busca" não é o mesmo fato que
+        // "a busca deu certo".
+        setConcluido(true);
+      });
     return () => { aliveRef.current = false; };
   }, [ativo, nonce]);
 
@@ -4198,7 +4217,7 @@ function useCuradoria(ativo) {
       .finally(() => { if (aliveRef.current) setNarrando(false); });
   };
 
-  return { top, meta, carregando, erro, narrativa, narrando, erroNarrativa, narrar, recarregar };
+  return { top, meta, carregando, erro, concluido, narrativa, narrando, erroNarrativa, narrar, recarregar };
 }
 
 // Fase 32 (32-03, D-01/D-02/D-03): substitui os dois blocos que a tela de
@@ -4217,16 +4236,23 @@ function LinhaChamadaOpcoes({ curadoria, cp, onIr }) {
   const top = (curadoria && curadoria.top) || [];
   const carregando = !!(curadoria && curadoria.carregando);
   const erro = !!(curadoria && curadoria.erro);
+  // WR-01 (32-REVIEW.md, 2026-09-16): `curadoria` pode existir com
+  // `top: [], carregando: false, erro: false` ANTES de a primeira busca
+  // sequer começar (janela entre `curadoriaAtiva` ligar e o efeito de
+  // `useCuradoria` rodar) — inclusive `curadoria` pode ser `undefined` na
+  // primeira chamada. `!concluido` trata os dois casos como "ainda não
+  // medi", nunca como "medi e não achei nada".
+  const concluido = !!(curadoria && curadoria.concluido);
 
-  // Precedência: erro > carregando > vazio > n≥1. Erro NUNCA mostra
-  // contagem (mostrar "0" quando a busca falhou seria inventar valor —
-  // princípio 4 do CLAUDE.md). Carregando não mostra o ícone ⚡ — não
-  // promete resultado antes de saber. Vazio continua visível e clicável
-  // (princípio 9: nunca some).
+  // Precedência: erro > carregando/não-medido > vazio > n≥1. Erro NUNCA
+  // mostra contagem (mostrar "0" quando a busca falhou seria inventar
+  // valor — princípio 4 do CLAUDE.md). Carregando não mostra o ícone ⚡ —
+  // não promete resultado antes de saber. Vazio continua visível e
+  // clicável (princípio 9: nunca some).
   let texto, corTexto, corIcone, peso, mostrarIcone = true;
   if (erro) {
     texto = cp.linhaChamadaOpcoesErro; corTexto = T.warn; corIcone = T.warn; peso = 700;
-  } else if (carregando) {
+  } else if (carregando || !concluido) {
     texto = cp.linhaChamadaOpcoesCarregando; corTexto = T.textFaint; corIcone = T.textFaint; peso = 700; mostrarIcone = false;
   } else if (top.length === 0) {
     texto = cp.linhaChamadaOpcoesVazia; corTexto = T.textFaint; corIcone = T.textFaint; peso = 400;

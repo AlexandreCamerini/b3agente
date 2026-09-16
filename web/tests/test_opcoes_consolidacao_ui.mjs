@@ -36,6 +36,13 @@
 //      defeito que este plano quase criou (ver 32-03-PLAN.md, achado do
 //      plan-checker) e que nem `vite build` nem os outros guardiões de
 //      string pegam.
+//  13. WR-01 (32-REVIEW.md, quick 260916-cod, 2026-09-16): nem
+//      LinhaChamadaOpcoes (App.jsx) nem CuradoriaEstruturas.jsx podem
+//      afirmar "vazio" antes de a primeira busca de useCuradoria terminar —
+//      os dois têm de tratar `!concluido` como "ainda carregando", na
+//      MESMA condição que já trata `carregando`, e ANTES do ramo de vazio.
+//      OpcoesScreen.jsx precisa repassar `concluido` de ctx.curadoria para
+//      CuradoriaEstruturas (mesma fonte, D-03).
 //
 // Roda sem build: `node web/tests/test_opcoes_consolidacao_ui.mjs`.
 import { readFileSync } from "fs";
@@ -193,6 +200,28 @@ for (const nome of ["opcoesPorTicker", "opcoesCarregando", "opcoesFor"]) {
      (r.usado && !r.declarado ? " — PENDURADO" : ""),
      !r.usado || r.declarado);
 }
+
+// ---- (13) WR-01: nenhum dos dois consumidores afirma "vazio" antes de ------
+//           a primeira busca terminar (32-REVIEW.md, quick 260916-cod)
+const fatiaLinhaSC = semComentario(fatiaLinha);
+ok("LinhaChamadaOpcoes (App.jsx) trata `!concluido` como carregando, na MESMA condição que `carregando` (ramo `carregando || !concluido`)",
+  /\bcarregando\s*\|\|\s*!concluido\b/.test(fatiaLinhaSC));
+const iCarregandoOuNaoConcluido = fatiaLinhaSC.indexOf("!concluido");
+const iVazioLinhaChamada = fatiaLinhaSC.indexOf("top.length === 0");
+ok("`!concluido` é checado ANTES do ramo de vazio (top.length === 0) dentro de LinhaChamadaOpcoes",
+  iCarregandoOuNaoConcluido > -1 && iVazioLinhaChamada > -1 && iCarregandoOuNaoConcluido < iVazioLinhaChamada);
+
+ok("CuradoriaEstruturas.jsx recebe `concluido` como prop (mesma fonte ctx.curadoria, D-03)",
+  /function CuradoriaEstruturas\(\{[^}]*\bconcluido\b/.test(curadoriaSC));
+ok("CuradoriaEstruturas.jsx combina `carregando || !concluido` (nunca só `carregando`) para decidir o ramo de vazio",
+  /\bcarregando\s*\|\|\s*!concluido\b/.test(curadoriaSC));
+const iNaoMedidoUsoCarregando = curadoriaSC.indexOf("top.length === 0 && naoMedido");
+const iNaoMedidoUsoVazio = curadoriaSC.indexOf("top.length === 0 && !naoMedido && !erro");
+ok("o ramo de vazio de CuradoriaEstruturas.jsx exige o estado combinado (naoMedido) resolvido, não só `!carregando`",
+  iNaoMedidoUsoCarregando > -1 && iNaoMedidoUsoVazio > -1);
+
+ok("OpcoesScreen.jsx repassa concluido={...ctx.curadoria.concluido} para CuradoriaEstruturas",
+  /concluido=\{!!\(ctx\s*&&\s*ctx\.curadoria\s*&&\s*ctx\.curadoria\.concluido\)\}/.test(telaSC));
 
 if (fails) { console.error(`\n${fails} falha(s)`); process.exit(1); }
 console.log("\ntodos os testes passaram");

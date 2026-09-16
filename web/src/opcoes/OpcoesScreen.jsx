@@ -738,6 +738,7 @@ export default function OpcoesScreen({ ctx }) {
       meta={ctx && ctx.curadoria && ctx.curadoria.meta}
       carregando={!!(ctx && ctx.curadoria && ctx.curadoria.carregando)}
       erro={!!(ctx && ctx.curadoria && ctx.curadoria.erro)}
+      concluido={!!(ctx && ctx.curadoria && ctx.curadoria.concluido)}
       narrativa={ctx && ctx.curadoria && ctx.curadoria.narrativa}
       narrando={!!(ctx && ctx.curadoria && ctx.curadoria.narrando)}
       erroNarrativa={ctx && ctx.curadoria && ctx.curadoria.erroNarrativa}
