@@ -47,7 +47,12 @@ const ler = (p) => readFileSync(p, "utf8");
 // guardiões de "nenhum arquivo de web/src/opcoes/ multiplica por lote"/"não
 // mistura emReais e breakeven"/"sem promessa de resultado" (seções 2/3/8
 // abaixo) ficariam inertes para os três módulos novos.
-const ARQUIVOS = ["OpcoesScreen.jsx", "useOpcoesMcp.js", "SetupChart.jsx", "PayoffChart.jsx", "OportunidadesOpcoes.jsx", "CuradoriaEstruturas.jsx", "CandidatoOpcao.jsx"];
+// ATUALIZADO 2026-09-16, quick 260916-g6p: `PropostaLastreada.jsx` (Fase 28)
+// entra na allowlist — era a cópia original do helper `porLote`/CTA de
+// collar e nunca tinha estado aqui, por isso nunca foi flagrada pela seção
+// 10 abaixo. A correção do `|| 0` nas três cópias (Task 1 desta quick)
+// torna a inclusão segura.
+const ARQUIVOS = ["OpcoesScreen.jsx", "useOpcoesMcp.js", "SetupChart.jsx", "PayoffChart.jsx", "OportunidadesOpcoes.jsx", "CuradoriaEstruturas.jsx", "CandidatoOpcao.jsx", "PropostaLastreada.jsx"];
 const brutos = Object.fromEntries(ARQUIVOS.map((f) => [f, ler(join(dirOpcoes, f))]));
 // Sem comentários: eles citam os mesmos termos ao EXPLICAR as decisões
 // ("não se multiplica pelo lote"), e contá-los faria o guardião se
@@ -364,27 +369,19 @@ ok("preço ausente vira ausência do cenário, nunca zero",
    /const alvoNum = ehNum\(num\(alvo\)\) && num\(alvo\) > 0 \? num\(alvo\) : undefined;/.test(tela));
 
 // ---- 10) `null` nunca vira 0 ------------------------------------------------
-// ACHADO (2026-09-15, Fase 32, 32-02): CuradoriaEstruturas.jsx e
-// CandidatoOpcao.jsx entraram na allowlist ARQUIVOS nesta task (item 4 do
-// plano) e passaram a reprovar aqui — mas o `|| 0` que eles carregam
-// (`item.qtyAcoes || 0`/`p.qtyAcoes || 0` no helper `porLote`, e
-// `(p.caixa && p.caixa.custoLiquidoTotal) || 0` no CTA de collar) é PADRÃO
-// JÁ ESTABELECIDO no código de opções, idêntico caractere a caractere ao de
-// `web/src/opcoes/PropostaLastreada.jsx:200,268-269` (Fase 28) — que nunca
-// esteve nesta allowlist e por isso nunca foi flagrado por esta regra.
-// Extração verbatim (Task 1 deste plano, 32-02-PLAN.md: "ZERO mudança de
-// comportamento") proíbe corrigir o comportamento destes dois módulos nesta
-// task, e corrigir só aqui sem tocar o gêmeo em PropostaLastreada.jsx criaria
-// divergência entre três cópias do MESMO helper. Regra NÃO afrouxada
-// (OU_ZERO segue idêntica); os dois arquivos são excluídos SÓ desta seção,
-// pelo nome — continuam sujeitos a MULT_LOTE/REAIS_COM_BREAKEVEN/PROMESSA/
-// DIVIDE_RAZAO/REAIS_COM_RAZAO acima e abaixo. Achado registrado no SUMMARY
-// do 32-02 para avaliação de correção conjunta das três cópias numa fase
-// futura — não é lacuna de cobertura, é convenção pré-existente e deliberada.
+// RESOLVIDO (2026-09-16, quick 260916-g6p): o achado de 2026-09-15 (Fase 32,
+// 32-02) — CuradoriaEstruturas.jsx/CandidatoOpcao.jsx reprovando esta regra
+// por causa do `|| 0` dentro de `porLote`/CTA de collar, com
+// PropostaLastreada.jsx (Fase 28) carregando a MESMA cópia fora desta
+// allowlist e por isso nunca flagrada — foi fechado corrigindo as TRÊS
+// cópias (Task 1 desta quick): o guard passou a ENVOLVER a multiplicação/o
+// `Math.abs` (`typeof X === "number" ? ... : null`) em vez do `|| 0` de
+// dentro dela. A exceção nomeada por dois arquivos que existia aqui foi
+// removida — TODOS os arquivos da allowlist `ARQUIVOS`, incluindo
+// `PropostaLastreada.jsx` (agora presente nela), passam pela regra `OU_ZERO`
+// sem exceção. Referência à origem preservada: Fase 32, plano 32-02.
 const OU_ZERO = /\|\|\s*0\b/;
-const ARQUIVOS_EXCECAO_OU_ZERO = new Set(["CuradoriaEstruturas.jsx", "CandidatoOpcao.jsx"]);
 for (const [nome, src] of Object.entries(fontes)) {
-  if (ARQUIVOS_EXCECAO_OU_ZERO.has(nome)) continue;
   ok(`${nome} sem \`|| 0\` (ausência não é zero)`, !OU_ZERO.test(src));
 }
 ok("sanidade: a regex de `|| 0` pega o padrão quando ele existe",

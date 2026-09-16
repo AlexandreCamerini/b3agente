@@ -57,3 +57,20 @@ na prática, não deveria ocorrer para um candidato válido.
 (`typeof X === "number" ? v * X : null` / `typeof Y === "number" ? Y : null`),
 nas TRÊS cópias na mesma task, e então remover a exceção
 `ARQUIVOS_EXCECAO_OU_ZERO` do guardião.
+
+## RESOLVIDO (2026-09-16, quick `260916-g6p`)
+
+As TRÊS cópias (`CuradoriaEstruturas.jsx`, `CandidatoOpcao.jsx`,
+`PropostaLastreada.jsx`) foram corrigidas na mesma task, exatamente como a
+sugestão acima descrevia: `porLote` e os quatro call sites do CTA de collar
+trocaram `v * (X || 0)`/`Math.abs((p.caixa && Y) || 0)` por um guard
+explícito que ENVOLVE a operação (`typeof X === "number" ? v * X : null` /
+`p.caixa && typeof Y === "number" ? Math.abs(Y) : null`), sem alterar o
+guard `p.caixa &&` que protege o acesso.
+
+`PropostaLastreada.jsx` entrou na allowlist `ARQUIVOS` de
+`web/tests/test_opcoes_analisar_ui.mjs`, e a exceção
+`ARQUIVOS_EXCECAO_OU_ZERO` foi removida — a regra `OU_ZERO` (seção 10)
+volta a cobrir os três arquivos sem exceção nenhuma. Prova negativa real
+feita (reintroduzir `|| 0` à mão, confirmar falha nomeando o arquivo,
+reverter e confirmar diff limpo) — ver `260916-g6p-SUMMARY.md`.
