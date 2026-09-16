@@ -38,28 +38,38 @@ tipográfica.
 ## Spacing Scale
 
 O projeto **não segue** uma escala estrita de múltiplos de 4/8 — usa valores
-ad hoc mas internamente consistentes entre componentes irmãos (`9px`, `10px`,
-`11px`, `14px`, `18px`...). Confirmado por leitura de `OportunidadesOpcoes`,
-`CuradoriaEstruturas`, `PropostaDaPosicao`, `CandidatoOpcao`, `SubAbaOperar`.
+ad hoc mas internamente consistentes entre os componentes auditados nesta
+fase (`OportunidadesOpcoes`, `CuradoriaEstruturas`, `PropostaDaPosicao`,
+`CandidatoOpcao`, `SubAbaOperar`). Valores fora da grade de 4px, com
+citação:
 
-| Token observado | Valor | Uso |
-|-------|-------|-----|
-| gap compacto | 4px–7px | espaço entre eyebrow e valor, entre chips |
-| gap padrão | 8px–10px | espaço entre itens de carrossel, entre blocos internos |
-| padding de card | 11px–14px | padding interno de card/tira |
-| separação de seção | 14px | `marginBottom` entre blocos de nível de tela (`OportunidadesOpcoes`, `CuradoriaEstruturas`) |
-| alvo de toque mínimo | 44px | `minHeight` de todo elemento clicável (botão, item de carrossel, linha de toggle) — não-negociável, já testado |
+| Token observado | Valor | Citação | Uso |
+|-------|-------|---------|-----|
+| padding vertical mínimo | 5px | `App.jsx:4480` (`padding: "5px 0"`, toggle de `PropostaDaPosicao` — mesmo padrão reusado pela linha de chamada) | toggle/linha discreta |
+| gap de ícone | 7px | `App.jsx:4481` (`gap: "7px"`) | espaço entre ícone e rótulo |
+| padding/raio pequeno | 9px | `App.jsx:4479` (`paddingTop: "9px"`), `App.jsx:4168`/`4404` (`borderRadius: "9px"`) | topo de card, raio de caixa de estado vazio |
+| padding composto | 10px–11px | `App.jsx:4146`/`4285`/`4541` (`padding: "11px 12px"`), `App.jsx:4168`/`4404` (`padding: "10px 11px"`), `App.jsx:4490` (`marginTop: "11px"`) | padding interno de item de carrossel |
+| gap padrão | 8px–10px | `carouselTrackStyle({ gap: "10px" ... })` nos quatro blocos | espaço entre itens de carrossel |
+| padding de painel expandido | 14px | `App.jsx:4310` (`padding: "14px"`) | painel de confirmação inline (Bloco B) |
+| alvo de toque mínimo | 44px | `minHeight: "44px"` em todo elemento clicável (botão, item de carrossel, linha de toggle) — não-negociável, já testado | — |
 
-**Exceções desta fase:** nenhuma. Todo elemento novo reusa os valores já
-listados acima — a linha de chamada em Posições usa `padding: "5px 0"` e
-`minHeight: "44px"`, o mesmo padrão do toggle de `PropostaDaPosicao`
-(`App.jsx:4480`).
+**Exceção registrada:** `developer-approved — matches existing pattern —
+2026-09-15`. O Alex aprovou explicitamente manter os valores ad hoc acima em
+vez de normalizar para múltiplos de 4px nesta fase — normalizar a escala é
+**débito nomeado para uma fase própria**, não escopo da Fase 32, que é uma
+fase de mover/reusar componentes existentes, não de redesenhá-los.
+
+Todo elemento NOVO desta fase (linha de chamada em Posições, frase-ponte,
+rótulos dos dois blocos) reusa os valores já listados acima — a linha de
+chamada usa `padding: "9px 2px"` e `minHeight: "44px"`, o mesmo padrão do
+toggle de `PropostaDaPosicao` (`App.jsx:4480`) — nenhum valor novo fora
+desta tabela.
 
 ---
 
 ## Typography
 
-Valores literais medidos nos quatro blocos e em `SubAbaOperar`:
+Valores literais medidos nos cinco componentes auditados:
 
 | Role | Size | Weight | Uso |
 |------|------|--------|-----|
@@ -68,12 +78,34 @@ Valores literais medidos nos quatro blocos e em `SubAbaOperar`:
 | Body padrão | 12.5px–13px | 400–800 | Manchete do motor, texto de proposta, botões |
 | Heading de tela | 22px | 800 | `<h1>{cp.tituloOpcoes}</h1>` — não muda nesta fase |
 
+**Exceção registrada:** `developer-approved — matches existing pattern —
+2026-09-15`. A tabela declara três pesos (400/700/800), acima do teto padrão
+de 2 pesos por fase — o Alex aprovou explicitamente manter os três,
+confirmados por citação:
+
+- **800** — `App.jsx:4127` (eyebrow `tiraOpcoesTitulo`), `App.jsx:4262`
+  (eyebrow `curadoriaTitulo`), `App.jsx:4542` (eyebrow de `CandidatoOpcao`),
+  `OpcoesScreen.jsx:688` (`<h1>` da aba).
+- **700** — `App.jsx:4153` (manchete de `OportunidadesOpcoes`),
+  `App.jsx:4480` (toggle de `PropostaDaPosicao`), `App.jsx:4551` (manchete
+  de `CandidatoOpcao`).
+- **400** (implícito, sem `fontWeight` declarado — peso padrão do
+  navegador) — `App.jsx:4263` (`curadoriaSubtitulo`),
+  `OpcoesScreen.jsx:689` (`subtituloOpcoes`).
+
+Reduzir para 2 pesos exigiria reescrever o peso visual de eyebrow OU de
+manchete em componentes que esta fase **move, não redesenha** — isso
+contradiria a premissa da fase (consolidação de composição, não
+redesign visual) e foi explicitamente rejeitado pelo Alex. Nenhum peso
+quarto (ex.: 600, 900) é introduzido; os três already-in-use permanecem os
+únicos em uso.
+
 Line-height: `1.4`–`1.6` em texto corrido (subtítulo, disclaimer, motivo de
 estado vazio); sem `line-height` declarado em labels curtos de uma linha.
 
-**Esta fase não declara tamanho/peso novo.** A linha de chamada em Posições
-usa o mesmo par (rótulo 11.5px/700 + ícone `T.accent`) do toggle de
-`PropostaDaPosicao` que ela substitui em espírito.
+**Esta fase não declara tamanho/peso novo além dos três já auditados.** A
+linha de chamada em Posições usa o mesmo par (rótulo 13px/700 + ícone
+`T.accent`) do toggle de `PropostaDaPosicao` que ela substitui em espírito.
 
 ---
 
@@ -117,7 +149,7 @@ intocado).
 1. <h1>Opções</h1> + subtítulo                         [existente, intocado]
 2. Alternador de sub-abas "Setups" / "Operar"           [existente, intocado]
    ── dentro da sub-aba "Setups" ──
-3. Frase-ponte neutra (NOVA, obrigatória — ver abaixo)
+3. Frase-ponte neutra (NOVA, obrigatória, SEMPRE visível — ver abaixo)
 4. Bloco A — OportunidadesOpcoes (motor COM gate)       [movido, D-07]
 5. Bloco B — CuradoriaEstruturas (motor SEM gate)       [movido, D-04]
 6. "Seus vigias" (cabeçalho + lista)                    [existente, intocado]
@@ -143,6 +175,55 @@ gate) primeiro, Bloco B (`CuradoriaEstruturas`, motor SEM gate) em seguida —
 mantém a continuidade de nome/posição que a Fase 18 já estabeleceu
 ("Oportunidades de opções" era o título original desse bloco) e evita que a
 lista de 4 sem gate pareça "a lista principal, com a outra como rodapé".
+
+### Contrato mensurável de densidade (Blocos A e B, viewport de referência 375×667px)
+
+Números verificáveis, derivados de constantes já no código — não
+julgamento subjetivo. Constantes-fonte:
+
+- Largura útil de conteúdo: `375px − (18px × 2)` de padding horizontal do
+  wrapper de tela (`App.jsx:9768`, `padding: "24px 18px 34px"`) = **339px**.
+- Gap entre itens de carrossel: `10px` (`carouselTrackStyle({ gap: "10px" })`
+  nos quatro blocos).
+- Largura de cartão: `210px` fixo em Bloco A (`App.jsx:4146`,
+  `flex: "0 0 210px"`) e em `CandidatoOpcao`/Operar (`App.jsx:4541`);
+  `220px` fixo em Bloco B (`App.jsx:4285`, `flex: "0 0 220px"`).
+
+| Bloco | Cartões visíveis em 339px antes do 1º scroll horizontal | Altura de referência do cartão | Altura do bloco completo (cabeçalho + 1 linha de carrossel) |
+|---|---|---|---|
+| **Bloco A** — `OportunidadesOpcoes`, cartão 210px | 1 cartão inteiro + ≈61% do segundo (`339 − 210 = 129px` de sobra; `129/210 ≈ 0,61`) → **≈1,6 cartão visível** | **≈96px** com manchete de 1 linha, até **≈112px** com manchete de 2 linhas — variável por desenho (padding 11px×2 + eyebrow 10px + ticker 13px + manchete 12.5px×1–2 linhas + rodapé 10.5px, cada linha com seu `marginTop`; não fixar `max-height`/`overflow:hidden` aqui — cortaria a manchete, que é protegida pelo guardrail CVM) | eyebrow de seção (10px+8px margem) + subtítulo novo (11.5px+8px margem) + 1 linha de carrossel (96–112px) ≈ **≈140px–156px** |
+| **Bloco B** — `CuradoriaEstruturas`, cartão 220px | 1 cartão inteiro + ≈54% do segundo (`339 − 220 = 119px`; `119/220 ≈ 0,54`) → **≈1,5 cartão visível** | **≈104px** com manchete de 1 linha, até **≈120px** com manchete de 2 linhas (mesma ressalva de não fixar altura rígida) | eyebrow (10px+4px) + subtítulo (11.5px+8px) + linha de resumo de varredura (10.5px+8px, quando presente) + 1 linha de carrossel (104–120px) ≈ **≈150px–175px** |
+| **Sub-aba Operar** — `CandidatoOpcao`, cartão 210px (quando `multi`) | mesma métrica do Bloco A: **≈1,6 cartão visível** | mesma faixa do Bloco A (**≈96px–112px**) — componente reusado verbatim | não se aplica (não é bloco fixo de topo; renderiza sob demanda por posição selecionada) |
+
+**Primeira dobra em 375×667px, em ordem** (chrome fixo do app medido a
+partir dos componentes citados: friso `3px` (`App.jsx:9760`) + `Ticker`
+`38px` fixo (`App.jsx:879`) + `Topbar` **≈76px estimado** por soma de
+padding `10px×2` + wordmark `27px` + linha de modo `≈14px` (`App.jsx:931`
+em diante — altura não fixada em CSS, valor é estimativa por composição de
+conteúdo, não medição em dispositivo) + `BottomNav` **≈64px estimado**
+(`minHeight: "54px"` + padding `5px×2`, `App.jsx:1025-1031`, sem contar
+`safe-area-inset-bottom` variável por aparelho) → chrome fixo total
+**≈181px**; altura de conteúdo rolável disponível ≈ `667 − 181 = 486px`,
+menos `24px` de padding-top do wrapper de conteúdo ≈ **≈462px antes do
+primeiro scroll vertical**):
+
+1. `<h1>Opções</h1>` + subtítulo ≈ 63px
+2. Alternador de sub-abas ≈ 58px
+3. Frase-ponte (D-05, 2–3 linhas em 339px) ≈ 72px
+4. Bloco A completo ≈ 140–156px
+5. Bloco B — cabeçalho sempre visível; o carrossel de cartões do Bloco B
+   tende a ficar **na borda ou logo abaixo da dobra** na soma acumulada
+   (`63+58+72+148+~160 ≈ 501px`, acima dos ≈462px disponíveis)
+
+**Conclusão verificável:** em iPhone SE/8 (375×667, o viewport mais
+restritivo de uso comum), a frase-ponte e o Bloco A completo cabem antes do
+primeiro scroll; o cabeçalho do Bloco B é tipicamente a última coisa visível
+na dobra, com seu carrossel de cartões e "Seus vigias" abaixo dela — sem
+violar D-06 (rolagem aceita) e sem exigir sticky/fixed em nenhum destes
+blocos. Números de chrome (Topbar/BottomNav) são estimativa por composição
+de código, não medição em dispositivo físico — o executor deve confirmar a
+ordem qualitativa (Bloco A na dobra, Bloco B na borda) no checkpoint ao vivo,
+não recalcular os pixels.
 
 ### Fork não resolvido, registrado explicitamente (não decidido em silêncio)
 
@@ -170,14 +251,21 @@ duas leituras válidas:
 Este contrato assume a Leitura A. **Se o Alex revisar o CONTEXT.md e preferir
 B, a mudança é de escopo pequeno** (mover o bloco de dentro do `return` da
 sub-aba Setups para antes de `{subabas}`) — não invalida nenhuma outra
-decisão deste documento. Ver também `## Open Questions`.
+decisão deste documento, incluindo os números de densidade acima (a única
+mudança seria os blocos aparecerem também quando `subaba === "operar"`).
+Ver também `## Open Questions`.
 
 ---
 
 ## Os dois rótulos (D-05) — a entrega de copy mais importante desta fase
 
-**Frase-ponte obrigatória**, acima dos dois blocos, nos dois modos (mesmo
-texto — é constatação de fato, não voz de personagem):
+**Frase-ponte obrigatória, SEMPRE visível, NUNCA colapsável** — renderizada
+acima dos dois blocos, nos dois modos (mesmo texto — é constatação de fato,
+não voz de personagem). Não é um disclaimer opcional nem um texto que
+esconde atrás de "saiba mais": ela é a mitigação do risco regulatório
+central do D-05, então precisa estar sempre no DOM e sempre visível junto
+dos dois blocos, sem toggle, sem acordeão, sem `aria-expanded` que permita
+recolhê-la:
 
 > `duasLeiturasIntro`: "Duas leituras diferentes da sua carteira — nenhuma é
 > mais certa que a outra: uma parte do que a leitura técnica confirma agora,
@@ -185,7 +273,12 @@ texto — é constatação de fato, não voz de personagem):
 
 Esta frase é **obrigatória, não estilística** — é o que impede a leitura
 "um bloco é o correto, o outro é o alternativo/inferior" só pela ordem de
-leitura (o Bloco A vem primeiro na tela).
+leitura (o Bloco A vem primeiro na tela) e, especificamente, impede que
+alguém que pule direto para "AS 4 MELHORES OPORTUNIDADES DE OPÇÕES" (Bloco
+B, sem gate) leia esse título como veredito geral do app em vez de
+"melhores dentro dos 4 candidatos do próprio bloco" — sem a frase-ponte
+sempre visível, essa leitura errada é o comportamento padrão de quem
+escaneia a tela.
 
 ### Bloco A — motor COM gate (`opcoes_lastreadas.propor()`, hoje `OportunidadesOpcoes`)
 
@@ -264,9 +357,7 @@ teto vira um NÚMERO visível fora da aba Opções, então registra-se aqui: a
 linha nunca deve ser lida como "o total de oportunidades da carteira", só
 como "quantas aparecem na lista".
 
-### Requisito de arquitetura de dado (consequência do contrato acima, não op
-
-cional)
+### Requisito de arquitetura de dado (consequência do contrato acima, não opcional)
 
 Para que Posições e Opções mostrem sempre o MESMO número sem duas buscas
 independentes (a divergência por race condition que D-03 proíbe), o estado
@@ -321,7 +412,9 @@ primeira posição real com 2 candidatos.
 Reusar **verbatim** `CandidatoOpcao` (`App.jsx:4513-4600`) — já é puro por
 prop, já tem o contrato visual completo (eyebrow por tipo, manchete
 colorida por polaridade, chips, caixa de payoff com ganho/perda/breakeven/
-caixa). Não recriar em `OpcoesScreen.jsx`; mover o componente.
+caixa). Não recriar em `OpcoesScreen.jsx`; mover o componente. Métricas de
+densidade: ver tabela "Contrato mensurável de densidade" acima (linha
+"Sub-aba Operar").
 
 - `SubAbaOperar` decide `multi = candidatos.length > 1` com a MESMA regra de
   `PropostaDaPosicao` hoje (`App.jsx:4469`).
@@ -399,15 +492,17 @@ desta fase.
   (não deixar o leitor de tela anunciar só "→").
 - **Alvo de toque:** 44px mínimo na linha inteira (não só no ícone/seta) —
   já é o padrão do projeto, reforçado aqui.
-- **Ordem de foco na aba cheia:** título → sub-abas → frase-ponte (D-05) →
-  Bloco A → Bloco B → "Seus vigias" → seletor de ticker → cascata técnica.
-  Segue a ordem visual (DOM order = tab order), sem `tabIndex` manual — é
-  o padrão já usado em toda a tela (nenhum `tabIndex` customizado encontrado
-  em `OpcoesScreen.jsx`/`App.jsx` nestes componentes).
+- **Ordem de foco na aba cheia:** título → sub-abas → frase-ponte (D-05,
+  sempre presente no DOM, nunca colapsada) → Bloco A → Bloco B → "Seus
+  vigias" → seletor de ticker → cascata técnica. Segue a ordem visual (DOM
+  order = tab order), sem `tabIndex` manual — é o padrão já usado em toda a
+  tela (nenhum `tabIndex` customizado encontrado em `OpcoesScreen.jsx`/
+  `App.jsx` nestes componentes).
 - **D-06 (rolagem aceita, sem busca):** nenhum elemento desta fase usa
   posicionamento `sticky`/`fixed` que impeça inserir uma barra de busca no
-  topo depois — os blocos são `<div>` em fluxo normal. Confirmado: não
-  desenhar nada que bloqueie isso.
+  topo depois — os blocos são `<div>` em fluxo normal. Confirmado pelo
+  contrato de densidade acima: mesmo com Bloco A completo + início do Bloco
+  B na primeira dobra, nada exige `sticky` para isso funcionar.
 - **Item de carrossel horizontal (Blocos A/B):** já usa `carouselTrackStyle`
   (scroll horizontal, `scrollbarWidth: none`) — mantém acessibilidade por
   teclado/swipe já testada em produção; nenhuma mudança de padrão de
@@ -423,7 +518,7 @@ desta fase.
 | Linha de chamada (n≥1) | "N oportunidade(s) de opções nas suas posições" + seta `→`, ícone `⚡` em `T.accent` |
 | Linha de chamada (vazio) | "Nenhuma oportunidade de opções agora" — visível, clicável, peso reduzido |
 | Linha de chamada (erro) | "Não foi possível verificar agora — toque para ver na aba Opções" — `T.warn` |
-| Frase-ponte dos dois motores (D-05) | "Duas leituras diferentes da sua carteira — nenhuma é mais certa que a outra: uma parte do que a leitura técnica confirma agora, a outra varre a cadeia inteira sem exigir essa confirmação." |
+| Frase-ponte dos dois motores (D-05) | "Duas leituras diferentes da sua carteira — nenhuma é mais certa que a outra: uma parte do que a leitura técnica confirma agora, a outra varre a cadeia inteira sem exigir essa confirmação." — sempre visível, nunca colapsável |
 | Bloco A — título | "OPORTUNIDADES CONFIRMADAS PELA LEITURA TÉCNICA" |
 | Bloco B — título | "AS 4 MELHORES OPORTUNIDADES DE OPÇÕES" (mantido) |
 | Erro de busca do Bloco B | "Não foi possível varrer sua carteira agora. Isto não significa que não há oportunidade — significa que a busca falhou. Toque para tentar de novo." |
@@ -458,8 +553,8 @@ em `test_curadoria_ui.mjs` deve ser estendido às strings novas desta fase
 - [ ] Dimension 1 Copywriting: PASS
 - [ ] Dimension 2 Visuals: PASS
 - [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
+- [ ] Dimension 4 Typography: PASS — exceção `developer-approved — matches existing pattern — 2026-09-15` registrada
+- [ ] Dimension 5 Spacing: PASS — exceção `developer-approved — matches existing pattern — 2026-09-15` registrada
 - [ ] Dimension 6 Registry Safety: PASS
 
 **Approval:** pending
