@@ -478,9 +478,13 @@ rotas já existentes e não testadas por esta fase.
 > respondida pelo Alex** e virou a decisão **D-07** no `32-CONTEXT.md`:
 > `OportunidadesOpcoes` vai para o topo da aba Opções, ao lado da lista
 > curada, e `useOpcoesPropostas` move junto. O texto original fica preservado
-> como registro do raciocínio. As perguntas #2 e #3 seguem abertas e viraram
-> obrigação de declaração explícita no PLAN.md (ver `32-CONTEXT.md`,
-> "Decisões delegadas que o PLAN.md tem de declarar por escrito").
+> como registro do raciocínio.
+>
+> **Atualização (2026-09-15, pós-planejamento):** as perguntas #2 e #3 também
+> estão RESOLVIDAS — viraram decisões declaradas por escrito nos planos, como
+> o `32-CONTEXT.md` exigia ("Decisões delegadas que o PLAN.md tem de declarar
+> por escrito"): #2 em `32-02-PLAN.md` `<decisao_arquitetural_A>` e #3 em
+> `32-04-PLAN.md` `<decisao_arquitetural_B>`.
 
 1. ~~**Qual é o destino de `OportunidadesOpcoes` (e do hook `useOpcoesPropostas`
    que a alimenta)?**~~ — **RESOLVIDA: D-07.**
@@ -509,7 +513,14 @@ rotas já existentes e não testadas por esta fase.
      `useOpcoesPropostas` precisa mover/ser lifted junto, ou pode ser
      deletado com o componente).
 
-2. **Onde exatamente o fetch de `useCuradoria()` deve morar após a mudança?**
+2. ~~**Onde exatamente o fetch de `useCuradoria()` deve morar após a mudança?**~~
+   — **RESOLVED (2026-09-15) — ver `32-02-PLAN.md`, seção
+   `<decisao_arquitetural_A>`.** O hook sobe para `App()` com flag monotônica
+   de "visitou Posições ou Opções", continua DEFINIDO em `App.jsx`, publica o
+   resultado em `ctx.curadoria` e ganha `recarregar()` com dois chamadores
+   (botão "Tentar de novo" e fim de execução bem-sucedida). O tradeoff de
+   custo do `mydata_budget` está escrito no plano. Texto original preservado
+   abaixo como registro do raciocínio.
    - O que sabemos: hoje mora em `CarteiraScreen`, dispara 1x por mount dessa
      tela. Precisa ser lido por Posições (para a contagem, D-03) e por
      Opções (para a lista completa, D-04).
@@ -521,8 +532,13 @@ rotas já existentes e não testadas por esta fase.
      tradeoff de custo (orçamento mydata) documentado — não uma escolha
      implícita dentro da task de "mover o componente".
 
-3. **`SubAbaOperar` ganha suporte a multi-candidato nesta fase, ou isso é
-   descoberto como fora de escopo?**
+3. ~~**`SubAbaOperar` ganha suporte a multi-candidato nesta fase, ou isso é
+   descoberto como fora de escopo?**~~ — **RESOLVED (2026-09-15) — ver
+   `32-04-PLAN.md`, seção `<decisao_arquitetural_B>`.** O suporte é PORTADO,
+   não aceito como débito: `PropostaDaPosicao` morre e só o ramo `multi` migra
+   para `SubAbaOperar`, com `CandidatoOpcao` importado do módulo. O fetch
+   redundante de gate/proposta fica como débito NOMEADO, com TODO em
+   `.planning/todos/pending/`. Texto original preservado abaixo.
    - O que sabemos: o suporte não existe hoje (achado desta pesquisa); a
      casca (props) está pronta, a lógica não.
    - O que não está claro: se o CONTEXT.md considerou isso ao dizer "não
