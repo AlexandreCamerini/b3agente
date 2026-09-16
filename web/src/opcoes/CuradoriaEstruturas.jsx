@@ -74,7 +74,7 @@ const ROTULO_TIPO_CURADORIA = {
   opcao_a_descoberto: "curadoriaTipoDescoberto",
 };
 
-export default function CuradoriaEstruturas({ top, meta, carregando, erro, narrativa, narrando, erroNarrativa, onNarrar, cp, onAbrir, onExecutar, operador, palette }) {
+export default function CuradoriaEstruturas({ top, meta, carregando, erro, narrativa, narrando, erroNarrativa, onNarrar, onRecarregar, cp, onAbrir, onExecutar, operador, palette }) {
   // Quick 260915-j5l: clicar num card abre uma confirmação INLINE dentro do
   // próprio bloco (não rola a tela, não abre o acordeão antigo de UMA
   // posição). Estado indexado por idCandidato — NUNCA por ticker: dois
@@ -102,6 +102,12 @@ export default function CuradoriaEstruturas({ top, meta, carregando, erro, narra
       // (liquidezOk) — nunca um `true` solto (T-J5L-04).
       await onExecutar(item, { aceitaLiquidezDificil: !!liquidezOk[idAberto] });
       setExecucao((s) => ({ ...s, [idAberto]: { busy: false, erro: null, ok: true } }));
+      // Fase 32 (32-03): depois de uma execução bem-sucedida, recarrega a
+      // varredura — o candidato executado precisa sair da lista (senão o
+      // top-4 continua oferecendo algo que já virou posição). Guardado por
+      // `if (onRecarregar)` porque nem todo chamador precisa passar a
+      // função (ex.: um teste isolado do componente).
+      if (onRecarregar) onRecarregar();
     } catch (e) {
       // e.message VERBATIM — nenhuma composição/adivinhação de causa
       // (princípio 4 do CLAUDE.md, T-J5L-03). Sem reenvio automático: o
@@ -278,8 +284,29 @@ export default function CuradoriaEstruturas({ top, meta, carregando, erro, narra
       {top.length === 0 && carregando && (
         <div style={{ fontSize: "12px", color: T.textFaint, lineHeight: 1.5 }}>{cp.curadoriaCarregando}</div>
       )}
-      {/* ESTADO vazio (NAV-03) — sem CTA, nomeia o motivo. */}
-      {top.length === 0 && !carregando && (
+      {/* Fase 32 (32-03): correção de estado obrigatória (UI-SPEC, achado do
+          checker). `erro` tem PRECEDÊNCIA sobre o ramo vazio abaixo — antes
+          desta correção, uma busca que FALHAVA caía no mesmo ramo de "nada
+          elegível", afirmando um resultado que ninguém mediu (princípio 4
+          do CLAUDE.md). `T.warn`, nunca `T.negative` (vermelho é de P&L). */}
+      {top.length === 0 && !carregando && erro && (
+        <div style={{ padding: "10px 11px", borderRadius: "9px", background: "color-mix(in srgb, " + T.warn + " 12%, transparent)", border: `1px solid ${T.warn}`, fontSize: "12px", color: T.warn, lineHeight: 1.5 }}>
+          <div>{cp.curadoriaErroBusca}</div>
+          {onRecarregar && (
+            <button
+              type="button"
+              onClick={onRecarregar}
+              style={{ marginTop: "10px", minHeight: "40px", padding: "8px 14px", borderRadius: "8px", border: `1px solid ${T.warn}`, background: "transparent", color: T.warn, fontWeight: 700, fontSize: "12px" }}
+            >
+              {cp.curadoriaErroBuscaCta}
+            </button>
+          )}
+        </div>
+      )}
+      {/* ESTADO vazio (NAV-03) — sem CTA, nomeia o motivo. Exige `!erro`: a
+          busca ter FALHADO não é o mesmo resultado que "varri e não achei
+          nada elegível" (ramo acima). */}
+      {top.length === 0 && !carregando && !erro && (
         <div style={{ padding: "10px 11px", borderRadius: "9px", background: T.bgCard, border: `1px solid ${T.borderFaint}`, fontSize: "12px", color: T.textSecondary, lineHeight: 1.5 }}>
           {cp.curadoriaVazio}
         </div>

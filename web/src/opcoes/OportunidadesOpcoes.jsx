@@ -21,7 +21,7 @@
  * declarado — mesmo padrão de `PropostaLastreada.jsx:22-49` (Fase 28).
  */
 const VARKEY = (k) => "--" + k.replace(/[A-Z]/g, (c) => "-" + c.toLowerCase());
-const TOKENS = ["bgCard", "borderFaint", "textPrimary", "textSecondary", "textFaint", "accent", "positive", "negative"];
+const TOKENS = ["bgCard", "borderFaint", "textPrimary", "textSecondary", "textMuted", "textFaint", "accent", "positive", "negative"];
 const T = Object.fromEntries(TOKENS.map((k) => [k, `var(${VARKEY(k)})`]));
 
 // Espelho declarado de App.jsx:264 (Fase 32, 32-02) — só a fonte MONO, único
@@ -80,7 +80,12 @@ export default function OportunidadesOpcoes({ propostas, carregando, positions, 
   });
   return (
     <div style={{ marginBottom: "14px" }}>
-      <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em", color: T.textFaint, marginBottom: "8px" }}>{cp.tiraOpcoesTitulo}</div>
+      <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em", color: T.textFaint, marginBottom: "4px" }}>{cp.tiraOpcoesTitulo}</div>
+      {/* Fase 32 (32-03, D-05): subtítulo NOMEIA o motor deste bloco (COM
+          gate) — os dois blocos cross-carteira passam a conviver na mesma
+          tela, então o eyebrow sozinho não basta mais para dizer qual é
+          qual. Mesma métrica de CuradoriaEstruturas.jsx:142. */}
+      <div style={{ fontSize: "11.5px", color: T.textMuted, marginBottom: "8px", lineHeight: 1.4 }}>{cp.tiraOpcoesSubtitulo}</div>
       {itens.length > 0 && (
         <div style={carouselTrackStyle({ gap: "10px", scrollbarWidth: "none", paddingBottom: "2px" })}>
           {itens.map((p) => {

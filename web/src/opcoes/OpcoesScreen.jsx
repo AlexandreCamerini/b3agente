@@ -38,6 +38,12 @@ import CriarSetup, { BotaoDesativar } from "./CriarSetup.jsx";
 // Fase 28 (28-02): módulo terceiro do 28-01 — nenhum import de `App.jsx`
 // aqui (isolamento ADR-027 Decisão 3 intacto).
 import PropostaLastreada, { useAceiteLastreado } from "./PropostaLastreada.jsx";
+// Fase 32 (32-03): os dois blocos cross-carteira migram para o topo desta
+// sub-aba (D-04/D-07) — módulos terceiros (ADR-027 Emenda 3, 32-02), nenhum
+// import de App.jsx.
+import OportunidadesOpcoes from "./OportunidadesOpcoes.jsx";
+import CuradoriaEstruturas from "./CuradoriaEstruturas.jsx";
+import { useOpcoesPropostas } from "./useOpcoesPropostas.js";
 
 // Mesmos NOMES de variável CSS que `App.jsx` injeta em `:root` — padrão de
 // `pet/BorisChat.jsx`. Zero import de `App.jsx` (seria ciclo).
@@ -356,6 +362,21 @@ export default function OpcoesScreen({ ctx }) {
   // criei o vigia).
   const irParaVigia = (t) => { if (t && t !== ticker) escolherTicker(t); };
 
+  // Fase 32 (32-03): destino do "ver posição" de dentro do painel curado
+  // (Bloco B) e do "ver detalhe" da tira (Bloco A) — substitui o
+  // `abrirOpcoesDe`/`scrollIntoView` de CarteiraScreen, que dependia de um
+  // elemento `#posicao-<t>` que só existe naquela tela (Pitfall 4 do
+  // 32-RESEARCH.md). MESMA guarda de `irParaVigia` acima: `escolherTicker`
+  // é TOGGLE, e chamá-lo cru com o ticker já aberto DESSELECIONARIA o
+  // ativo — o oposto de "me leve até ele".
+  const irParaOperar = (t) => { if (t && t !== ticker) escolherTicker(t); setSubaba("operar"); };
+
+  // Fase 32 (32-03), Decisão A: fan-out gate+proposta por ticker sobre o
+  // universo desta aba (a carteira) — mesma fonte que alimentava a tira em
+  // CarteiraScreen (ADR-027 Emenda 3, módulo compartilhado).
+  const { propostas: opcoesPorTicker, carregando: opcoesPorTickerCarregando } =
+    useOpcoesPropostas(store, carteira.map((p) => p.t));
+
   const l = leitura.dados;
   const behavior = l && l.behavior;
   const setups = (l && Array.isArray(l.setups) && l.setups) || [];
@@ -657,6 +678,55 @@ export default function OpcoesScreen({ ctx }) {
     </div>
   );
 
+  // Fase 32 (32-03, D-05): frase-ponte entre os dois motores cross-
+  // carteira, SEMPRE no DOM, sem estado de colapso, sem `aria-expanded`,
+  // sem toggle — tornar esta frase colapsável seria regressão regulatória,
+  // não ajuste visual (é a mitigação do risco de D-05: sem ela, quem
+  // escaneia a tela lê "AS 4 MELHORES" do Bloco B como veredito geral do
+  // app, em vez de "melhores entre os 4 candidatos do próprio bloco").
+  const fraseDuasLeituras = (
+    <p style={{ fontSize: "12px", color: T.textMuted, lineHeight: 1.5, margin: "10px 0 14px" }}>
+      {cp.duasLeiturasIntro}
+    </p>
+  );
+
+  // Fase 32 (32-03, D-07): Bloco A — motor COM gate (`OportunidadesOpcoes`).
+  // Alimentado pelo fan-out desta tela (useOpcoesPropostas acima) — nunca
+  // uma segunda instância do hook. `onAbrir={irParaOperar}` substitui o
+  // `abrirOpcoesDe`/`scrollIntoView` de CarteiraScreen.
+  const blocoOportunidades = (
+    <OportunidadesOpcoes
+      propostas={opcoesPorTicker}
+      carregando={opcoesPorTickerCarregando}
+      positions={carteira}
+      cp={cp}
+      onAbrir={irParaOperar}
+    />
+  );
+
+  // Fase 32 (32-03, D-04): Bloco B — motor SEM gate (`CuradoriaEstruturas`),
+  // alimentado por `ctx.curadoria` — MESMA fonte que a linha de chamada em
+  // Posições (D-03: uma fonte, duas leituras), nunca uma segunda instância
+  // de `useCuradoria`.
+  const blocoCuradoria = (
+    <CuradoriaEstruturas
+      top={(ctx && ctx.curadoria && ctx.curadoria.top) || []}
+      meta={ctx && ctx.curadoria && ctx.curadoria.meta}
+      carregando={!!(ctx && ctx.curadoria && ctx.curadoria.carregando)}
+      erro={!!(ctx && ctx.curadoria && ctx.curadoria.erro)}
+      narrativa={ctx && ctx.curadoria && ctx.curadoria.narrativa}
+      narrando={!!(ctx && ctx.curadoria && ctx.curadoria.narrando)}
+      erroNarrativa={ctx && ctx.curadoria && ctx.curadoria.erroNarrativa}
+      onNarrar={() => ctx.curadoria.narrar(ctx.data && ctx.data.config)}
+      onRecarregar={ctx && ctx.curadoria && ctx.curadoria.recarregar}
+      cp={cp}
+      onAbrir={irParaOperar}
+      onExecutar={(cand, o) => ctx.A.executarCandidatoCurado(cand, o)}
+      operador={!!(ctx && ctx.operador)}
+      palette={palette}
+    />
+  );
+
   // Fase 28 (28-02) — o alternador de sub-aba. Mesma régua visual do
   // `seletor` acima (D2/D3 do 28-CONTEXT: reusar, não inventar): mesmos
   // tokens (`T.accent`/`T.accentTint10`/`T.bgPanel`/`T.borderSubtle`/
@@ -704,6 +774,17 @@ export default function OpcoesScreen({ ctx }) {
       ) : (
       <>
       {cabecalho}
+      {/* Fase 32 (32-03, D-02): os três blocos abaixo ficam DENTRO da
+          sub-aba Setups, nunca acima de {subabas} — é a Leitura A do
+          UI-SPEC (decidida pelo Alex, 2026-09-15): "topo da aba" em
+          D-04/D-07 significa topo desta sub-aba, onde os vigias já vivem.
+          Como esta tela sempre abre em subaba==="setups"/ticker==="", o que
+          está no topo daqui é literalmente o que a linha de chamada de
+          Posições leva a ver (D-02: "a lista de oportunidades", não outro
+          conteúdo). Ordem: frase-ponte → Bloco A → Bloco B → vigias. */}
+      {fraseDuasLeituras}
+      {blocoOportunidades}
+      {blocoCuradoria}
       {/* Fase 27 (D4: "vigias antes da carteira"). SEMPRE renderizado, com ou
           sem ativo escolhido — é o que faz a aba abrir com conteúdo em vez de
           abrir vazia, e de graça. */}

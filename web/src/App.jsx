@@ -25,6 +25,11 @@ import { executarCandidato } from "./opcoes/executarCandidato.js";
 import OportunidadesOpcoes from "./opcoes/OportunidadesOpcoes.jsx";
 import CuradoriaEstruturas from "./opcoes/CuradoriaEstruturas.jsx";
 import CandidatoOpcao from "./opcoes/CandidatoOpcao.jsx";
+// Fase 32 (32-03): o hook de fan-out gate+proposta por ticker saiu de
+// App.jsx para o módulo (ADR-027 Emenda 3) — a aba Opções passa a consumi-lo
+// também. A chamada em CarteiraScreen SOBREVIVE até o Plano 32-04 (ver nota
+// no corpo de CarteiraScreen): `PropostaDaPosicao` ainda lê `opcoesPorTicker`.
+import { useOpcoesPropostas } from "./opcoes/useOpcoesPropostas.js";
 import { BUILD_ID } from "./version.js";
 // carimbo no console: prova de qual build está rodando (device/web)
 try { console.log("[b3] build", BUILD_ID); } catch { /* noop */ }
@@ -4156,64 +4161,6 @@ function PropostaDaPosicao({ t, r, cp, operador, A, data, aberto, onToggle }) {
   );
 }
 
-// Fase 18 (Plano 01, NAV-01/NAV-02): uma busca de gate+proposta por ticker
-// serve as DUAS superfícies desta fase — a tira agregada ("Oportunidades de
-// opções", NAV-01) e o detalhe dentro do card de posição em CarteiraScreen
-// (NAV-02). Não existe rota bulk por decisão explícita do 18-CONTEXT.md: o
-// fan-out por ticker é o MESMO precedente de custo já aceito no ADR-004
-// ("1 chamada leve por card, best-effort"), estendido de 1 card pra N —
-// carteiras deste produto são de poucas posições (simulador educacional).
-// Réplica do par gate→proposta de AtivoCard (linhas 3213-3234 acima), NÃO
-// consumido neste plano ainda — CarteiraScreen só passa a chamá-lo no
-// Plano 18-02.
-function useOpcoesPropostas(tickers) {
-  const [propostas, setPropostas] = useState({});
-  const [carregando, setCarregando] = useState(false);
-  // Chave PRIMITIVA (string) como dependência do efeito — um array de
-  // tickers recriaria o efeito a cada render de CarteiraScreen, disparando
-  // N requisições por render (mesma disciplina do `opGate && opGate.liquida`
-  // primitivo em AtivoCard).
-  const chave = (tickers || []).join(",");
-
-  useEffect(() => {
-    let alive = true;
-    const lista = chave ? chave.split(",") : [];
-    setPropostas({});
-    if (lista.length === 0) {
-      setCarregando(false);
-      return () => { alive = false; };
-    }
-    setCarregando(true);
-    let pendentes = lista.length;
-    // Decrementado em TODOS os caminhos (sucesso, gate reprovado e erro) —
-    // nunca só no caminho feliz, senão a tira fica presa no texto de
-    // carregamento quando o backend falha.
-    const marcarPendenteResolvido = () => {
-      pendentes -= 1;
-      if (alive && pendentes <= 0) setCarregando(false);
-    };
-    lista.forEach((t) => {
-      store.optionsGate(t)
-        .then((gate) => {
-          if (!alive) return;
-          if (gate && gate.liquida) {
-            store.optionsProposta(t, true)
-              .then((proposta) => { if (alive) setPropostas((m) => ({ ...m, [t]: { gate, proposta } })); })
-              .catch(() => { if (alive) setPropostas((m) => ({ ...m, [t]: { gate, proposta: null } })); })
-              .finally(marcarPendenteResolvido);
-          } else {
-            setPropostas((m) => ({ ...m, [t]: { gate, proposta: null } }));
-            marcarPendenteResolvido();
-          }
-        })
-        .catch(() => { marcarPendenteResolvido(); /* best-effort: sem gate/proposta o ticker só não aparece na tira */ });
-    });
-    return () => { alive = false; };
-  }, [chave]);
-
-  return { propostas, carregando };
-}
-
 // Fase 30 (Plano 04, D4): busca cross-posição do top-4 de venda coberta
 // (ranking determinístico, custo zero, D6) e, só por toque explícito, a
 // narração de IA sobre essas mesmas 4 (cota de /api/analyze, D6).
@@ -4311,9 +4258,17 @@ function CarteiraScreen({ ctx }) {
   useEffect(() => { track("portfolio_view"); }, []);   // qa/47 (Fase 2)
   // Fase 18 (Plano 01/02): fan-out gate→proposta por ticker, uma vez por
   // posição real — nomes exatos `opcoesPorTicker`/`opcoesCarregando` porque
-  // o Plano 18-03 os consome por nome, sem mexer nesta chamada.
-  // `opcoesCarregando` fica sem uso NESTE plano — existe pra tira do 18-03.
-  const { propostas: opcoesPorTicker, carregando: opcoesCarregando } = useOpcoesPropostas(data.positions.map((p) => p.t));
+  // `PropostaDaPosicao` os consome por nome, sem mexer nesta chamada.
+  // Fase 32 (32-03): a DEFINIÇÃO do hook saiu para
+  // ./opcoes/useOpcoesPropostas.js (ADR-027 Emenda 3) — esta CHAMADA
+  // sobrevive aqui até o Plano 32-04, que remove o último consumidor
+  // (`PropostaDaPosicao`, App.jsx). Apagar a chamada antes disso deixaria
+  // `opcoesPorTicker` livre em JSX — ReferenceError em render para toda
+  // conta com posição aberta (armadilha nomeada no 32-03-PLAN.md).
+  // `opcoesCarregando` fica sem consumidor NESTE plano (o consumidor era a
+  // tira, que saiu de CarteiraScreen na Task 2 abaixo) — não remover a
+  // declaração, só o USO em JSX; ela sai junto da chamada no 32-04.
+  const { propostas: opcoesPorTicker, carregando: opcoesCarregando } = useOpcoesPropostas(store, data.positions.map((p) => p.t));
   // Fase 32 (32-02), Decisão A: o hook de curadoria subiu para App() —
   // chamado UMA vez, publicado em ctx.curadoria. CarteiraScreen só
   // DESESTRUTURA o mesmo objeto que OpcoesScreen também lerá (D-03: uma
