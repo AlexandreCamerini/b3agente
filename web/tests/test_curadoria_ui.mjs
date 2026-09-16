@@ -1,11 +1,20 @@
 // Fase 30 (Plano 04, D4) — Guardião estático do bloco "as 4 melhores
-// oportunidades de opções" em CarteiraScreen (CuradoriaEstruturas +
-// useCuradoria). Estendido na Fase 31 (Plano 04, D-04/D-05/D-07/D-08), no
-// Quick 260915-j5l (2026-09-15) e no Quick 260915-ndt (2026-09-15).
+// oportunidades de opções" (CuradoriaEstruturas + useCuradoria). Estendido na
+// Fase 31 (Plano 04, D-04/D-05/D-07/D-08), no Quick 260915-j5l (2026-09-15),
+// no Quick 260915-ndt (2026-09-15) e na Fase 32 (32-02, 2026-09-15).
 //
-// Este arquivo tranca a CLASSE de erros que a Fase 30/31/quick pode
+// NOTA (2026-09-15, Fase 32, 32-02): `CuradoriaEstruturas` (e o mapa interno
+// `ROTULO_TIPO_CURADORIA`) saíram de App.jsx para
+// web/src/opcoes/CuradoriaEstruturas.jsx (ADR-027 Emenda 3). As âncoras de
+// DEFINIÇÃO passam a apontar para o módulo — este arquivo lê os DOIS fontes
+// (App.jsx + o módulo). `useCuradoria`/`CarteiraScreen` CONTINUAM em App.jsx
+// (só o componente de UI se moveu; o hook subiu para App(), ver Decisão A do
+// 32-02-PLAN.md). As âncoras de USO (call site, `<CuradoriaEstruturas`)
+// continuam em App.jsx até o Plano 32-03, que move o bloco de tela.
+//
+// Este arquivo tranca a CLASSE de erros que a Fase 30/31/32/quick pode
 // reintroduzir, não a instância — cada bloco abaixo defende uma regra que o
-// autor de uma edição futura em App.jsx não tem por que conhecer de cor:
+// autor de uma edição futura não tem por que conhecer de cor:
 //
 //   1. as chaves `curadoria*` de copy existem nos dois modos, string
 //      literal, sem palavra de enriquecimento/promessa de lucro (princípios
@@ -87,11 +96,20 @@
 //      usos é a regressão que esta quick fecha.
 //   25. (Quick 260915-ndt) `curadoriaPremioRotulo` !== `curadoriaRazaoRotulo`
 //      nos dois modos — rótulos iguais para números diferentes é o defeito.
+//   26. (Fase 32, 32-02, Decisão A) o efeito de busca de useCuradoria tem
+//      dependência `[ativo, nonce]` (não mais `[]`) e uma guarda
+//      `if (!ativo) return` ANTES de `store.opcoesCuradoria(` — sem essa
+//      guarda o hook buscaria em TODO boot do app (T-32-03, consumo
+//      auto-infligido de mydata_budget).
+//   27. (Fase 32, 32-02, Decisão A) `useCuradoria(` aparece exatamente 2x em
+//      App.jsx (a definição do hook + a única chamada, em App()) — trava
+//      "uma fonte, duas leituras" (D-03): duas instâncias divergiriam por
+//      timing, exatamente o que D-03 proíbe.
 //
 // Padrão "static source inspection" da casa (mesmo de
 // test_carteira_opcoes_tira.mjs, test_opcoes_proposta_ui.mjs): readFileSync
-// de App.jsx + import de COPY, sem build e sem DOM. Roda isolado:
-// `node web/tests/test_curadoria_ui.mjs`.
+// de App.jsx + do módulo + import de COPY, sem build e sem DOM. Roda
+// isolado: `node web/tests/test_curadoria_ui.mjs`.
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
@@ -99,6 +117,7 @@ import { COPY } from "../src/copy.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const app = readFileSync(join(here, "..", "src", "App.jsx"), "utf8");
+const modulo = readFileSync(join(here, "..", "src", "opcoes", "CuradoriaEstruturas.jsx"), "utf8");
 
 let fails = 0;
 const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if (!cond) fails++; };
@@ -109,26 +128,22 @@ const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if 
 // comentário explicativo do próprio componente infla a contagem.
 const linhasSemComentario = app.split("\n").filter((l) => !/^\s*\/\//.test(l));
 const fonteSemComentario = linhasSemComentario.join("\n");
+const moduloSemComentario = modulo.split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n");
 
-// ---- Âncoras de função, na ordem esperada de inserção (Fase 30) ----------
-const iOO = app.indexOf("function OportunidadesOpcoes");
-const iCuradoria = app.indexOf("function CuradoriaEstruturas");
+// ---- Âncoras de função em App.jsx, na ordem esperada de inserção --------
+// ATUALIZADO 2026-09-15 (Fase 32, 32-02): `OportunidadesOpcoes` e
+// `CuradoriaEstruturas` saíram de App.jsx — restam PropostaDaPosicao <
+// useOpcoesPropostas < useCuradoria < CarteiraScreen < HistoricoScreen.
 const iPDP = app.indexOf("function PropostaDaPosicao");
 const iHookOp = app.indexOf("function useOpcoesPropostas");
 const iHookCur = app.indexOf("function useCuradoria");
 const iCarteira = app.indexOf("function CarteiraScreen(");
 const iHistorico = app.indexOf("function HistoricoScreen(");
-ok("as 6 âncoras de função foram localizadas, na ordem esperada (OportunidadesOpcoes < CuradoriaEstruturas < PropostaDaPosicao < useOpcoesPropostas < useCuradoria < CarteiraScreen)",
-  iOO > -1 && iCuradoria > iOO && iPDP > iCuradoria && iHookOp > iPDP && iHookCur > iHookOp && iCarteira > iHookCur && iHistorico > iCarteira);
+ok("as 5 âncoras de função foram localizadas, na ordem esperada (PropostaDaPosicao < useOpcoesPropostas < useCuradoria < CarteiraScreen < HistoricoScreen)",
+  iPDP > -1 && iHookOp > iPDP && iHookCur > iHookOp && iCarteira > iHookCur && iHistorico > iCarteira);
 
-const fatiaCuradoriaComComentario = app.slice(iCuradoria, iPDP);
 const fatiaHookCurComComentario = app.slice(iHookCur, iCarteira);
 const fatiaCarteiraComComentario = app.slice(iCarteira, iHistorico);
-// versões sem comentário, para as contagens (sort/reverse/manchete etc.)
-const fatiaCuradoria = fonteSemComentario.slice(
-  fonteSemComentario.indexOf("function CuradoriaEstruturas"),
-  fonteSemComentario.indexOf("function PropostaDaPosicao"),
-);
 const fatiaHookCur = fonteSemComentario.slice(
   fonteSemComentario.indexOf("function useCuradoria"),
   fonteSemComentario.indexOf("function CarteiraScreen("),
@@ -137,6 +152,11 @@ const fatiaCarteira = fonteSemComentario.slice(
   fonteSemComentario.indexOf("function CarteiraScreen("),
   fonteSemComentario.indexOf("function HistoricoScreen("),
 );
+
+// A "fatia" do componente CuradoriaEstruturas agora É o módulo inteiro —
+// substitui o antigo `app.slice(iCuradoria, iPDP)`.
+const fatiaCuradoriaComComentario = modulo;
+const fatiaCuradoria = moduloSemComentario;
 
 // ---- (1) 26 chaves de copy nos dois modos, string literal -----------------
 // NOTA (Fase 31, Plano 04, D-04): eram 11 na Fase 30 (só venda coberta);
@@ -201,15 +221,30 @@ ok("(Fase 31) key={item.contractSymbol} sozinho (sem idCandidato) NÃO aparece m
   !/key=\{item\.contractSymbol\}/.test(fatiaCuradoria));
 
 // ---- (4) narrar() nunca chamado dentro do useEffect (cota só por toque) --
+// ATUALIZADO 2026-09-15 (Fase 32, 32-02, Decisão A): o marcador de fim do
+// efeito mudou de `}, []);` para `}, [ativo, nonce]);` — ver item (26).
 const iEffectCur = fatiaHookCur.indexOf("useEffect(");
-const iEffectCurFim = fatiaHookCur.indexOf("}, []);", iEffectCur);
-ok("useCuradoria tem exatamente um useEffect com dependência []",
+const iEffectCurFim = fatiaHookCur.indexOf("}, [ativo, nonce]);", iEffectCur);
+ok("useCuradoria tem exatamente um useEffect com dependência [ativo, nonce]",
   iEffectCur > -1 && iEffectCurFim > iEffectCur);
 const corpoEffectCur = iEffectCur > -1 && iEffectCurFim > -1 ? fatiaHookCur.slice(iEffectCur, iEffectCurFim) : "";
 ok("o corpo do useEffect de useCuradoria NÃO chama narrar(",
   corpoEffectCur.length > 0 && !corpoEffectCur.includes("narrar("));
 ok("narrar é retornado pelo hook (só sai por toque explícito do componente)",
   /return\s*\{[^}]*\bnarrar\b/.test(fatiaHookCur));
+
+// ---- (26, Fase 32/32-02, Decisão A) guarda de flag desligada -------------
+ok("(Fase 32) o corpo do useEffect de useCuradoria tem `if (!ativo) return` ANTES de store.opcoesCuradoria(",
+  corpoEffectCur.length > 0 && corpoEffectCur.indexOf("if (!ativo) return") > -1
+  && corpoEffectCur.indexOf("if (!ativo) return") < corpoEffectCur.indexOf("store.opcoesCuradoria("));
+ok("(Fase 32) recarregar é retornado pelo hook",
+  /return\s*\{[^}]*\brecarregar\b/.test(fatiaHookCur));
+
+// ---- (27, Fase 32/32-02, Decisão A) useCuradoria( aparece 2x em App.jsx --
+ok("(Fase 32) useCuradoria( aparece exatamente 2x em App.jsx (definição + chamada única em App())",
+  (fonteSemComentario.match(/useCuradoria\(/g) || []).length === 2);
+ok("(Fase 32) CarteiraScreen lê ctx.curadoria (nenhuma segunda instância do hook)",
+  /\}\s*=\s*ctx\.curadoria;/.test(fatiaCarteira));
 
 // ---- (5) itens vêm de `top`; narrativa.estruturas nunca em map( de render
 ok("CuradoriaEstruturas mapeia top.map( para renderizar os itens",
@@ -219,8 +254,9 @@ ok("narrativa.estruturas NÃO aparece em nenhum map( de CuradoriaEstruturas",
 ok("nenhum .map( do componente itera sobre narrativa (só `top.map(` renderiza itens)",
   !/narrativa\.map\(|narrativa\.estruturas\.map\(/.test(fatiaCuradoria));
 
-// ---- (6) <CuradoriaEstruturas aparece 1x, dentro do bloco data.positions.length > 0
-ok("<CuradoriaEstruturas aparece exatamente 1x no fonte",
+// ---- (6) <CuradoriaEstruturas aparece 1x em App.jsx, dentro do bloco
+// data.positions.length > 0 (call site — segue em App.jsx até o Plano 03)
+ok("<CuradoriaEstruturas aparece exatamente 1x no fonte de App.jsx",
   (fonteSemComentario.match(/<CuradoriaEstruturas/g) || []).length === 1);
 const iTagCur = app.indexOf("<CuradoriaEstruturas");
 const iTagOO = app.indexOf("<OportunidadesOpcoes");
@@ -279,12 +315,13 @@ ok("nenhuma das 26 frases de COPY.operador contém palavra de promessa de lucro/
   copySemPromessa(COPY.operador));
 
 // ---- (10, Fase 31/D-04) rótulo de tipo para os 4 tipos do motor ----------
-// O mapa tipo→chave de copy vive ANTES da função (módulo), não dentro dela
-// — por isso a busca usa um recorte próprio, não `fatiaCuradoria`.
-const iRotuloTipo = app.indexOf("ROTULO_TIPO_CURADORIA");
-ok("(Fase 31) existe um mapa ROTULO_TIPO_CURADORIA definido antes de CuradoriaEstruturas",
-  iRotuloTipo > -1 && iRotuloTipo < iCuradoria);
-const fatiaMapaTipo = iRotuloTipo > -1 ? app.slice(iRotuloTipo, iCuradoria) : "";
+// O mapa tipo→chave de copy vive ANTES da função, DENTRO do módulo (Fase 32,
+// 32-02: interno, não exportado) — não dentro dela.
+const iRotuloTipo = modulo.indexOf("ROTULO_TIPO_CURADORIA = {");
+const iExportCuradoria = modulo.indexOf("export default function CuradoriaEstruturas");
+ok("(Fase 31) existe um mapa ROTULO_TIPO_CURADORIA definido antes de CuradoriaEstruturas, dentro do módulo",
+  iRotuloTipo > -1 && iExportCuradoria > -1 && iRotuloTipo < iExportCuradoria);
+const fatiaMapaTipo = iRotuloTipo > -1 ? modulo.slice(iRotuloTipo, iExportCuradoria) : "";
 const TIPOS_MOTOR = ["call_coberta", "put_protecao", "collar", "opcao_a_descoberto"];
 ok("(Fase 31) o mapa de rótulo cobre os 4 tipos do motor (call_coberta/put_protecao/collar/opcao_a_descoberto)",
   TIPOS_MOTOR.every((t) => fatiaMapaTipo.includes(t + ":")));
@@ -292,6 +329,10 @@ ok("(Fase 31) cada tipo aponta para uma chave curadoriaTipo* de copy",
   (fatiaMapaTipo.match(/curadoriaTipo\w+/g) || []).length === 4);
 ok("(Fase 31) o chip de tipo é renderizado no card (lookup dinâmico do mapa, nunca hardcoded)",
   /ROTULO_TIPO_CURADORIA\[item\.tipo\]/.test(fatiaCuradoria));
+ok("(Fase 32) ROTULO_TIPO_CURADORIA NÃO é exportado (interno ao módulo)",
+  !/export\s+(const|\{[^}]*ROTULO_TIPO_CURADORIA)/.test(modulo.replace(/export default function CuradoriaEstruturas/, "")));
+ok("(Fase 32) App.jsx NÃO define mais ROTULO_TIPO_CURADORIA",
+  !app.includes("ROTULO_TIPO_CURADORIA"));
 
 // ---- (11, Fase 31/D-02/D-03) resumo da varredura lê meta.candidatosPorTipo
 ok("(Fase 31) a linha de resumo lê meta.candidatosPorTipo",
@@ -326,7 +367,7 @@ ok("(Fase 31/D-05) nenhuma das 26 frases de COPY.operador convida a ligar o flag
 // no onClick PRINCIPAL — era o bug: o clique descartava o candidato
 // inteiro. onAbrir sobrevive só como link secundário dentro do painel
 // (rotulado cp.curadoriaVerPosicao) — por isso a prova é POSICIONAL, não
-// "zero ocorrências": a ÚNICA chamada onAbrir(item.ticker) do arquivo tem
+// "zero ocorrências": a ÚNICA chamada onAbrir(item.ticker) do módulo tem
 // de estar perto do rótulo curadoriaVerPosicao, nunca dentro do bloco do
 // botão do card (identificado por key={item.idCandidato).
 const iCardBtn = fatiaCuradoria.indexOf("key={item.idCandidato");
@@ -339,7 +380,7 @@ ok("(Quick 260915-j5l) o onClick do card principal NÃO chama onAbrir( — o cli
 ok("(Quick 260915-j5l) o onClick do card principal ALTERNA abertoId (toggle, com setAbertoId)",
   /onClick=\{\(\)\s*=>\s*setAbertoId/.test(trechoOnClickDoCard));
 const ocorrenciasOnAbrirTicker = (fatiaCuradoria.match(/onAbrir\(item\.ticker\)/g) || []).length;
-ok("(Quick 260915-j5l) onAbrir(item.ticker) aparece exatamente 1x no arquivo (só o link secundário do painel)",
+ok("(Quick 260915-j5l) onAbrir(item.ticker) aparece exatamente 1x no módulo (só o link secundário do painel)",
   ocorrenciasOnAbrirTicker === 1);
 const iOnAbrirTicker = fatiaCuradoria.indexOf("onAbrir(item.ticker)");
 const iVerPosicaoCopy = fatiaCuradoria.indexOf("curadoriaVerPosicao");
@@ -433,9 +474,13 @@ ok("(Quick 260915-ndt) COPY.estudo.curadoriaPremioRotulo !== COPY.estudo.curador
 ok("(Quick 260915-ndt) COPY.operador.curadoriaPremioRotulo !== COPY.operador.curadoriaRazaoRotulo",
   COPY.operador.curadoriaPremioRotulo !== COPY.operador.curadoriaRazaoRotulo);
 
-// ---- Sanidade adicional: CarteiraScreen chama useCuradoria() -------------
-ok("CarteiraScreen chama useCuradoria()",
-  /useCuradoria\(\)/.test(fatiaCarteira));
+// ---- Sanidade adicional: nem App.jsx nem o módulo importam um do outro ---
+// (Fase 32, 32-02): CuradoriaEstruturas.jsx NÃO pode importar App.jsx
+// (ciclo), e App.jsx importa o módulo por caminho relativo.
+ok("(Fase 32) CuradoriaEstruturas.jsx NÃO importa App.jsx",
+  !/from\s+"[^"]*App\.jsx"/.test(modulo));
+ok("(Fase 32) App.jsx importa CuradoriaEstruturas de ./opcoes/CuradoriaEstruturas.jsx",
+  /from\s+"\.\/opcoes\/CuradoriaEstruturas\.jsx"/.test(app));
 
 if (fails) { console.error(`\n${fails} falha(s)`); process.exit(1); }
 console.log("\ntodos os testes passaram");

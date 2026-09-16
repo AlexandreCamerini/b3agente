@@ -17,6 +17,10 @@ const optionsQuantPy = readFileSync(join(here, "..", "..", "server", "app", "opt
 // ATUALIZADO 2026-09-13 (Fase 28, 28-01): FonteDoDadoProposta/ChipDaProposta/
 // PropostaLastreada saíram de App.jsx para web/src/opcoes/PropostaLastreada.jsx.
 const modulo = readFileSync(join(here, "..", "src", "opcoes", "PropostaLastreada.jsx"), "utf8");
+// ATUALIZADO 2026-09-15 (Fase 32, 32-02, deviation Rule 1): CandidatoOpcao
+// saiu de App.jsx para web/src/opcoes/CandidatoOpcao.jsx — o uso de
+// <ChipDaProposta dentro dele migrou junto.
+const moduloCandidatoOpcao = readFileSync(join(here, "..", "src", "opcoes", "CandidatoOpcao.jsx"), "utf8");
 
 let fails = 0;
 const ok = (name, cond, extra) => { console.log((cond ? "ok " : "FALHOU ") + name + (extra ? ` (${extra})` : "")); if (!cond) fails++; };
@@ -148,10 +152,13 @@ ok("o botão de liquidez tem aria-label acessível", modulo.includes('aria-label
 // (módulo, 1 uso) E CandidatoOpcao (App.jsx, 1 uso) somados — dividida em
 // duas, cada uma sobre a sua fonte, sem perder a exigência de <ChipDaProposta
 // (nada de <span cru para os chips) em nenhum dos dois lados.
+// ATUALIZADO 2026-09-15 (Fase 32, 32-02, deviation Rule 1): CandidatoOpcao
+// saiu de App.jsx — a segunda metade da asserção passa a ler do módulo
+// dedicado, não mais de App.jsx (que não contém mais <ChipDaProposta).
 ok("PropostaLastreada (módulo) usa <ChipDaProposta (não <span cru para os chips)",
   (modulo.match(/<ChipDaProposta /g) || []).length === 1);
-ok("CandidatoOpcao (App.jsx) usa <ChipDaProposta (não <span cru para os chips)",
-  (app.match(/<ChipDaProposta /g) || []).length === 1);
+ok("CandidatoOpcao (módulo) usa <ChipDaProposta (não <span cru para os chips)",
+  (moduloCandidatoOpcao.match(/<ChipDaProposta /g) || []).length === 1);
 
 // ---------------------------------------------------------------------------
 // 6) Ramo OFFLINE do deviceStore.optionsAbrirLastreada aplica a MESMA régua

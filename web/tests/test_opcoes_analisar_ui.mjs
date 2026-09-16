@@ -41,7 +41,13 @@ const here = dirname(fileURLToPath(import.meta.url));
 const dirOpcoes = join(here, "..", "src", "opcoes");
 const ler = (p) => readFileSync(p, "utf8");
 
-const ARQUIVOS = ["OpcoesScreen.jsx", "useOpcoesMcp.js", "SetupChart.jsx", "PayoffChart.jsx"];
+// ATUALIZADO 2026-09-15, Fase 32 (32-02): os três componentes cross-posição
+// extraídos de App.jsx (OportunidadesOpcoes/CuradoriaEstruturas/
+// CandidatoOpcao, ADR-027 Emenda 3) entram na allowlist — sem isso, os
+// guardiões de "nenhum arquivo de web/src/opcoes/ multiplica por lote"/"não
+// mistura emReais e breakeven"/"sem promessa de resultado" (seções 2/3/8
+// abaixo) ficariam inertes para os três módulos novos.
+const ARQUIVOS = ["OpcoesScreen.jsx", "useOpcoesMcp.js", "SetupChart.jsx", "PayoffChart.jsx", "OportunidadesOpcoes.jsx", "CuradoriaEstruturas.jsx", "CandidatoOpcao.jsx"];
 const brutos = Object.fromEntries(ARQUIVOS.map((f) => [f, ler(join(dirOpcoes, f))]));
 // Sem comentários: eles citam os mesmos termos ao EXPLICAR as decisões
 // ("não se multiplica pelo lote"), e contá-los faria o guardião se
@@ -358,8 +364,27 @@ ok("preço ausente vira ausência do cenário, nunca zero",
    /const alvoNum = ehNum\(num\(alvo\)\) && num\(alvo\) > 0 \? num\(alvo\) : undefined;/.test(tela));
 
 // ---- 10) `null` nunca vira 0 ------------------------------------------------
+// ACHADO (2026-09-15, Fase 32, 32-02): CuradoriaEstruturas.jsx e
+// CandidatoOpcao.jsx entraram na allowlist ARQUIVOS nesta task (item 4 do
+// plano) e passaram a reprovar aqui — mas o `|| 0` que eles carregam
+// (`item.qtyAcoes || 0`/`p.qtyAcoes || 0` no helper `porLote`, e
+// `(p.caixa && p.caixa.custoLiquidoTotal) || 0` no CTA de collar) é PADRÃO
+// JÁ ESTABELECIDO no código de opções, idêntico caractere a caractere ao de
+// `web/src/opcoes/PropostaLastreada.jsx:200,268-269` (Fase 28) — que nunca
+// esteve nesta allowlist e por isso nunca foi flagrado por esta regra.
+// Extração verbatim (Task 1 deste plano, 32-02-PLAN.md: "ZERO mudança de
+// comportamento") proíbe corrigir o comportamento destes dois módulos nesta
+// task, e corrigir só aqui sem tocar o gêmeo em PropostaLastreada.jsx criaria
+// divergência entre três cópias do MESMO helper. Regra NÃO afrouxada
+// (OU_ZERO segue idêntica); os dois arquivos são excluídos SÓ desta seção,
+// pelo nome — continuam sujeitos a MULT_LOTE/REAIS_COM_BREAKEVEN/PROMESSA/
+// DIVIDE_RAZAO/REAIS_COM_RAZAO acima e abaixo. Achado registrado no SUMMARY
+// do 32-02 para avaliação de correção conjunta das três cópias numa fase
+// futura — não é lacuna de cobertura, é convenção pré-existente e deliberada.
 const OU_ZERO = /\|\|\s*0\b/;
+const ARQUIVOS_EXCECAO_OU_ZERO = new Set(["CuradoriaEstruturas.jsx", "CandidatoOpcao.jsx"]);
 for (const [nome, src] of Object.entries(fontes)) {
+  if (ARQUIVOS_EXCECAO_OU_ZERO.has(nome)) continue;
   ok(`${nome} sem \`|| 0\` (ausência não é zero)`, !OU_ZERO.test(src));
 }
 ok("sanidade: a regex de `|| 0` pega o padrão quando ele existe",

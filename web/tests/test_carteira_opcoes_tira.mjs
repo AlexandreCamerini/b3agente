@@ -1,6 +1,11 @@
 // Fase 18 (Plano 04) — Guardião estático da tira "Oportunidades de opções"
 // (NAV-01) e do detalhe por posição (NAV-02) em CarteiraScreen.
 //
+// 2026-09-15, Fase 32 (32-02): `OportunidadesOpcoes` saiu de App.jsx para
+// web/src/opcoes/OportunidadesOpcoes.jsx (ADR-027 Emenda 3). A âncora de
+// DEFINIÇÃO passa a apontar para o módulo; as âncoras de USO (call site em
+// CarteiraScreen) continuam em App.jsx até o Plano 32-03.
+//
 // Este arquivo tranca a CLASSE de erros que a Fase 18 pode reintroduzir, não
 // a instância — cada bloco abaixo defende uma regra que o autor de uma
 // edição futura em App.jsx não tem por que conhecer de cor:
@@ -35,6 +40,12 @@ const app = readFileSync(join(here, "..", "src", "App.jsx"), "utf8");
 // ATUALIZADO 2026-09-13 (Fase 28, 28-01): PropostaLastreada saiu de App.jsx
 // para web/src/opcoes/PropostaLastreada.jsx.
 const modulo = readFileSync(join(here, "..", "src", "opcoes", "PropostaLastreada.jsx"), "utf8");
+// ATUALIZADO 2026-09-15 (Fase 32, 32-02): OportunidadesOpcoes saiu de
+// App.jsx para web/src/opcoes/OportunidadesOpcoes.jsx (ADR-027 Emenda 3). A
+// âncora de DEFINIÇÃO passa a apontar para o módulo; as âncoras de USO
+// (`<OportunidadesOpcoes`, `useOpcoesPropostas`, `CarteiraScreen`) continuam
+// em App.jsx até o Plano 32-03.
+const moduloOO = readFileSync(join(here, "..", "src", "opcoes", "OportunidadesOpcoes.jsx"), "utf8");
 
 let fails = 0;
 const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if (!cond) fails++; };
@@ -80,15 +91,19 @@ ok("dentro de Operador, SemMercado ≠ SemCobertura e SemMercado ≠ SemSetup",
   COPY.operador.tiraOpcoesSemMercado !== COPY.operador.tiraOpcoesSemSetup);
 
 // ---- Âncoras de função usadas pelas fatias abaixo ------------------------
-const iOO = app.indexOf("function OportunidadesOpcoes");
+// ATUALIZADO 2026-09-15 (Fase 32, 32-02): `OportunidadesOpcoes` saiu de
+// App.jsx — restam PropostaDaPosicao < useOpcoesPropostas < CarteiraScreen <
+// HistoricoScreen (4 âncoras, não mais 5).
 const iPDP = app.indexOf("function PropostaDaPosicao");
 const iHook = app.indexOf("function useOpcoesPropostas");
 const iCarteira = app.indexOf("function CarteiraScreen(");
 const iHistorico = app.indexOf("function HistoricoScreen(");
-ok("as 5 âncoras de função da Fase 18 foram localizadas, na ordem esperada",
-  iOO > -1 && iPDP > iOO && iHook > iPDP && iCarteira > iHook && iHistorico > iCarteira);
+ok("as 4 âncoras de função restantes em App.jsx foram localizadas, na ordem esperada",
+  iPDP > -1 && iHook > iPDP && iCarteira > iHook && iHistorico > iCarteira);
 
-const fatiaOO = app.slice(iOO, iPDP);
+// A "fatia" de OportunidadesOpcoes agora É o módulo inteiro — substitui o
+// antigo `app.slice(iOO, iPDP)`.
+const fatiaOO = moduloOO;
 const fatiaPDP = app.slice(iPDP, iHook);
 const fatiaCarteira = app.slice(iCarteira, iHistorico);
 

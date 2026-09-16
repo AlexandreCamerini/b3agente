@@ -2,6 +2,11 @@
 // dentro do detalhe da posição em Posições (`CandidatoOpcao` +
 // `PropostaDaPosicao`).
 //
+// 2026-09-15, Fase 32 (32-02): `CandidatoOpcao` saiu de App.jsx para
+// web/src/opcoes/CandidatoOpcao.jsx (ADR-027 Emenda 3). A âncora de
+// DEFINIÇÃO passa a apontar para o módulo; `PropostaDaPosicao` e a âncora de
+// USO (`<CandidatoOpcao`, dentro de PropostaDaPosicao) continuam em App.jsx.
+//
 // Este arquivo tranca a CLASSE de erros que um edito futuro poderia
 // reintroduzir, não a instância — cada bloco abaixo defende uma regra que o
 // autor de uma edição futura em App.jsx não tem por que conhecer de cor:
@@ -47,6 +52,11 @@ const app = readFileSync(join(here, "..", "src", "App.jsx"), "utf8");
 // (PropostaDaPosicao) e virou `useAceiteLastreado`, em
 // web/src/opcoes/PropostaLastreada.jsx.
 const modulo = readFileSync(join(here, "..", "src", "opcoes", "PropostaLastreada.jsx"), "utf8");
+// ATUALIZADO 2026-09-15 (Fase 32, 32-02): `CandidatoOpcao` saiu de App.jsx
+// para web/src/opcoes/CandidatoOpcao.jsx (ADR-027 Emenda 3). A âncora de
+// DEFINIÇÃO passa a apontar para o módulo; PropostaDaPosicao (o chamador) e
+// a âncora de USO continuam em App.jsx.
+const moduloCO = readFileSync(join(here, "..", "src", "opcoes", "CandidatoOpcao.jsx"), "utf8");
 
 let fails = 0;
 const ok = (name, cond, detail) => { console.log((cond ? "ok " : "FALHOU ") + name + (detail !== undefined ? ` (${detail})` : "")); if (!cond) fails++; };
@@ -59,18 +69,30 @@ const ok = (name, cond, detail) => { console.log((cond ? "ok " : "FALHOU ") + na
 const linhasSemComentario = app.split("\n").filter((l) => !/^\s*\/\//.test(l));
 const fonteSemComentario = linhasSemComentario.join("\n");
 
-// ---- (1) CandidatoOpcao está na fatia certa --------------------------------
+// ---- (1) CandidatoOpcao é importado por App.jsx e não reimplementado -----
+// ATUALIZADO 2026-09-15 (Fase 32, 32-02): "CandidatoOpcao está ENTRE
+// PropostaDaPosicao e useOpcoesPropostas" perdeu o sentido — o componente
+// saiu de App.jsx. Regra equivalente em espírito: CandidatoOpcao é
+// IMPORTADO por App.jsx e não é reimplementado em nenhum outro .jsx de
+// web/src/ (contagem de `function CandidatoOpcao`/`export default function
+// CandidatoOpcao` no diretório inteiro igual a 1).
 const iPDP = app.indexOf("function PropostaDaPosicao");
-const iCO = app.indexOf("function CandidatoOpcao");
 const iHook = app.indexOf("function useOpcoesPropostas");
 ok("function PropostaDaPosicao localizada", iPDP > -1);
-ok("function CandidatoOpcao localizada", iCO > -1);
+ok("function CandidatoOpcao localizada (no módulo)", moduloCO.includes("export default function CandidatoOpcao"));
 ok("function useOpcoesPropostas localizada", iHook > -1);
-ok("CandidatoOpcao está ENTRE PropostaDaPosicao e useOpcoesPropostas",
-  iPDP > -1 && iCO > iPDP && iHook > iCO);
+ok("App.jsx importa CandidatoOpcao de ./opcoes/CandidatoOpcao.jsx",
+  /from\s+"\.\/opcoes\/CandidatoOpcao\.jsx"/.test(app));
+ok("App.jsx NÃO define mais function CandidatoOpcao",
+  !fonteSemComentario.includes("function CandidatoOpcao"));
+ok("CandidatoOpcao.jsx NÃO importa App.jsx (seria ciclo)",
+  !/from\s+"[^"]*App\.jsx"/.test(moduloCO));
 
 const fatiaPDP = iPDP > -1 && iHook > iPDP ? app.slice(iPDP, iHook) : "";
-const fatiaCO = iCO > -1 && iHook > iCO ? app.slice(iCO, iHook) : "";
+// A "fatia" de CandidatoOpcao agora É o módulo inteiro (sem comentários,
+// mesma higiene do resto do arquivo) — substitui o antigo
+// `app.slice(iCO, iHook)`.
+const fatiaCO = moduloCO.split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n");
 
 // ---- (2) Guardrail CVM: manchete verbatim, nunca concatenada ---------------
 ok("CandidatoOpcao renderiza {p.manchete} direto (sem composição)",
@@ -162,6 +184,18 @@ ok("total de pontos de uso de <PropostaLastreada em web/src/**/*.jsx é 2 (App.j
   contagemPorArquivo.reduce((acc, r) => acc + r.n, 0) === 2,
   String(contagemPorArquivo.reduce((acc, r) => acc + r.n, 0)));
 
+// ---- (1, continuação) `function CandidatoOpcao` existe em exatamente 1
+// arquivo de web/src/**/*.jsx (Fase 32, 32-02: o módulo, nenhuma
+// reimplementação em outro lugar) --------------------------------------
+const contagemDefCandidatoOpcao = todosJsx.map((caminho) => {
+  const conteudo = readFileSync(caminho, "utf8");
+  const semComentario = conteudo.split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n");
+  return { caminho, n: (semComentario.match(/function CandidatoOpcao/g) || []).length };
+}).filter((r) => r.n > 0);
+ok("(Fase 32) function CandidatoOpcao existe em exatamente 1 arquivo de web/src/**/*.jsx",
+  contagemDefCandidatoOpcao.length === 1 && contagemDefCandidatoOpcao[0].caminho.endsWith(join("opcoes", "CandidatoOpcao.jsx")),
+  contagemDefCandidatoOpcao.map((r) => r.caminho + ":" + r.n).join(", "));
+
 // ---- (10) Caminho de aceite único, compartilhado pelos candidatos ----------
 ok("CandidatoOpcao é renderizado com onAceitar={aceitarCandidato} (o MESMO handler para todos os candidatos)",
   /onAceitar=\{aceitarCandidato\}/.test(fatiaPDP));
@@ -202,6 +236,13 @@ ok('módulo NÃO compõe "Vender " + (manchete/didática do motor)',
   !/"Vender " \+/.test(modulo));
 ok('módulo NÃO contém "Se você tivesse" (didática do motor, nunca duplicada)',
   !modulo.includes("Se você tivesse"));
+// ATUALIZADO 2026-09-15 (Fase 32, 32-02): as mesmas duas proibições, agora
+// também sobre CandidatoOpcao.jsx — a proibição segue o código onde quer
+// que ele more.
+ok('CandidatoOpcao.jsx NÃO compõe "Vender " + (manchete/didática do motor)',
+  !/"Vender " \+/.test(moduloCO));
+ok('CandidatoOpcao.jsx NÃO contém "Se você tivesse" (didática do motor, nunca duplicada)',
+  !moduloCO.includes("Se você tivesse"));
 
 if (fails) { console.error(`\n${fails} falha(s)`); process.exit(1); }
 console.log("\ntodos os testes passaram");

@@ -18,12 +18,21 @@
 // Padrão da casa: regex sobre App.jsx lido com readFileSync — o módulo
 // importa @capacitor/core e não é importável fora do build (ver
 // test_fase21_dedup_consolidacao.mjs, test_fase3_c19_card_status.mjs).
+//
+// ATUALIZADO 2026-09-15 (Fase 32, 32-02, deviation Rule 1): `OportunidadesOpcoes`
+// e `CandidatoOpcao` saíram de App.jsx para módulos de web/src/opcoes/
+// (ADR-027 Emenda 3) — `isolarFuncao` não os encontra mais em App.jsx
+// (chamaria `process.exit(1)` e derrubaria o arquivo inteiro em silêncio,
+// escondendo as demais asserções). Os dois passam a ser lidos direto dos
+// módulos; nenhuma asserção de conteúdo mudou.
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const app = readFileSync(join(here, "..", "src", "App.jsx"), "utf8");
+const moduloOportunidadesOpcoes = readFileSync(join(here, "..", "src", "opcoes", "OportunidadesOpcoes.jsx"), "utf8");
+const moduloCandidatoOpcao = readFileSync(join(here, "..", "src", "opcoes", "CandidatoOpcao.jsx"), "utf8");
 
 let fails = 0;
 const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if (!cond) fails++; };
@@ -47,9 +56,11 @@ function isolarFuncao(nome) {
 }
 
 const evolucaoScreen = isolarFuncao("EvolucaoScreen");
-const oportunidadesOpcoes = isolarFuncao("OportunidadesOpcoes");
+// Fase 32 (32-02): lidos direto do módulo (ver nota datada do cabeçalho) —
+// não mais isolados de App.jsx via `isolarFuncao`.
+const oportunidadesOpcoes = moduloOportunidadesOpcoes;
 const propostaDaPosicao = isolarFuncao("PropostaDaPosicao");
-const candidatoOpcao = isolarFuncao("CandidatoOpcao");
+const candidatoOpcao = moduloCandidatoOpcao;
 
 // TECH_MODELS não vive dentro de uma função nomeada própria — isolar pelo
 // próprio marcador do container + o `.map()` que segue, com um recorte
@@ -107,16 +118,31 @@ ok(
 // A definição é `const carouselTrackStyle = (extra) => ({...})` — o nome
 // seguido de parêntese sem espaço não ocorre nessa forma, então a definição
 // não entra na contagem de chamadas.
-
-const totalTrackCalls = (app.match(/carouselTrackStyle\(/g) || []).length;
-ok("os 4 containers de trilho chamam `carouselTrackStyle(` (limiar >= 4, definição não conta)", totalTrackCalls >= 4);
+//
+// ATUALIZADO 2026-09-15 (Fase 32, 32-02, deviation Rule 1): um dos 4 sites
+// (dentro de OportunidadesOpcoes) saiu de App.jsx para
+// web/src/opcoes/OportunidadesOpcoes.jsx, que declara seu PRÓPRIO
+// `carouselTrackStyle` local (mesmo padrão de módulo isolado que
+// PropostaLastreada.jsx já usa — ver 32-02-PLAN.md). A garantia que esta
+// seção prova ("nenhum trilho novo reimplementa overflowX inline") continua
+// válida — só passou a se espalhar por mais de um arquivo. A contagem soma
+// App.jsx + o módulo extraído por esta mesma fase.
+const totalTrackCalls = (app.match(/carouselTrackStyle\(/g) || []).length
+  + (moduloOportunidadesOpcoes.match(/carouselTrackStyle\(/g) || []).length;
+ok("os 4 containers de trilho chamam `carouselTrackStyle(` (limiar >= 4, definição não conta; soma App.jsx + OportunidadesOpcoes.jsx desde a Fase 32)", totalTrackCalls >= 4);
 
 // --- 5. Os 4 itens de carouselItemStyle( -------------------------------------
 // Mesma razão do item 4: `const carouselItemStyle = (align = "start") => ...`
 // não casa com o padrão `nome(`.
-
-const totalItemCalls = (app.match(/carouselItemStyle\(/g) || []).length;
-ok("os 4 itens chamam `carouselItemStyle(` (limiar >= 4, definição não conta)", totalItemCalls >= 4);
+//
+// ATUALIZADO 2026-09-15 (Fase 32, 32-02, deviation Rule 1): mesmo raciocínio
+// da seção 4 — o item de OportunidadesOpcoes e o item de CandidatoOpcao
+// (a linha de N candidatos, antes dentro de PropostaDaPosicao) migraram
+// para os módulos extraídos; a contagem soma os três.
+const totalItemCalls = (app.match(/carouselItemStyle\(/g) || []).length
+  + (moduloOportunidadesOpcoes.match(/carouselItemStyle\(/g) || []).length
+  + (moduloCandidatoOpcao.match(/carouselItemStyle\(/g) || []).length;
+ok("os 4 itens chamam `carouselItemStyle(` (limiar >= 4, definição não conta; soma App.jsx + módulos extraídos desde a Fase 32)", totalItemCalls >= 4);
 
 // --- 6. Presença nomeada de cada um dos 4 call sites -------------------------
 
