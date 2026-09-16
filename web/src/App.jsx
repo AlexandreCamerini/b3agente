@@ -20,9 +20,11 @@ import OpcoesScreen from "./opcoes/OpcoesScreen.jsx";
 // Fase 31 (Plano 04, D-08): payoff do item nº 1 do bloco de curadoria —
 // mesmo componente já em produção no caminho MCP (Fase 24/31-03), via o
 // adaptador puro que traduz o envelope PT do motor interno pro envelope
-// INGLÊS que este componente consome.
-import PayoffChart from "./opcoes/PayoffChart.jsx";
-import { estruturaParaPayoff } from "./opcoes/estruturaParaPayoff.js";
+// INGLÊS que este componente consome. Os imports de PayoffChart/
+// estruturaParaPayoff que viviam aqui ficaram ÓRFÃOS depois que a Fase 32
+// (32-02) moveu o bloco de curadoria (único consumidor em App.jsx) para
+// web/src/opcoes/CuradoriaEstruturas.jsx, que já os importa diretamente —
+// removidos (IN-01, 32-REVIEW.md, quick 260916-cod, 2026-09-16).
 import { executarCandidato } from "./opcoes/executarCandidato.js";
 // Fase 32 (32-02): os três componentes cross-posição saíram de App.jsx para
 // módulos de web/src/opcoes/ (ADR-027 Emenda 3) — OpcoesScreen.jsx não pode

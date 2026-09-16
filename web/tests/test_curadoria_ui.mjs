@@ -240,14 +240,18 @@ ok("CuradoriaEstruturas NÃO compara item.razao (nenhuma comparação a.razao/b.
 ok("CuradoriaEstruturas itera top.map( direto — sem [...top].sort/slice antes",
   /\btop\.map\(/.test(fatiaCuradoria) && !/\[\.\.\.top\]/.test(fatiaCuradoria));
 
-// ---- (9, Fase 31/D-04) chave de render é item.idCandidato -----------------
-// Collar não tem contractSymbol único (2 pernas) — key={item.contractSymbol}
-// colidiria em null. O fallback (|| item.contractSymbol) é aceitável, mas
+// ---- (9, Fase 31/D-04) chave de render é <var>.idCandidato ----------------
+// Collar não tem contractSymbol único (2 pernas) — key={<var>.contractSymbol}
+// colidiria em null. O fallback (|| <var>.contractSymbol) é aceitável, mas
 // idCandidato precisa vir PRIMEIRO na expressão de key.
-ok("(Fase 31) a chave de render do carrossel é item.idCandidato",
-  /key=\{item\.idCandidato/.test(fatiaCuradoria));
-ok("(Fase 31) key={item.contractSymbol} sozinho (sem idCandidato) NÃO aparece mais no bloco",
-  !/key=\{item\.contractSymbol\}/.test(fatiaCuradoria));
+// NOTA (2026-09-16, IN-02/32-REVIEW.md, quick 260916-cod): o parâmetro do
+// `.map()` foi renomeado de `item` (sombreava o `item` = candidato ABERTO,
+// declarado no escopo do componente) para `cand` — renome local, sem mudança
+// de comportamento. Guardião ATUALIZADO para a nova string, não apagado.
+ok("(Fase 31) a chave de render do carrossel é cand.idCandidato",
+  /key=\{cand\.idCandidato/.test(fatiaCuradoria));
+ok("(Fase 31) key={cand.contractSymbol} sozinho (sem idCandidato) NÃO aparece no bloco",
+  !/key=\{cand\.contractSymbol\}/.test(fatiaCuradoria));
 
 // ---- (4) narrar() nunca chamado dentro do useEffect (cota só por toque) --
 // ATUALIZADO 2026-09-15 (Fase 32, 32-02, Decisão A): o marcador de fim do
@@ -377,8 +381,10 @@ ok("(Fase 31) o mapa de rótulo cobre os 4 tipos do motor (call_coberta/put_prot
   TIPOS_MOTOR.every((t) => fatiaMapaTipo.includes(t + ":")));
 ok("(Fase 31) cada tipo aponta para uma chave curadoriaTipo* de copy",
   (fatiaMapaTipo.match(/curadoriaTipo\w+/g) || []).length === 4);
+// NOTA (2026-09-16, IN-02): idem — `item.tipo` do card virou `cand.tipo`
+// (renome local, mesmo rename da regra 9).
 ok("(Fase 31) o chip de tipo é renderizado no card (lookup dinâmico do mapa, nunca hardcoded)",
-  /ROTULO_TIPO_CURADORIA\[item\.tipo\]/.test(fatiaCuradoria));
+  /ROTULO_TIPO_CURADORIA\[cand\.tipo\]/.test(fatiaCuradoria));
 ok("(Fase 32) ROTULO_TIPO_CURADORIA NÃO é exportado (interno ao módulo)",
   !/export\s+(const|\{[^}]*ROTULO_TIPO_CURADORIA)/.test(modulo.replace(/export default function CuradoriaEstruturas/, "")));
 ok("(Fase 32) App.jsx NÃO define mais ROTULO_TIPO_CURADORIA",
@@ -419,11 +425,14 @@ ok("(Fase 31/D-05) nenhuma das 26 frases de COPY.operador convida a ligar o flag
 // (rotulado cp.curadoriaVerPosicao) — por isso a prova é POSICIONAL, não
 // "zero ocorrências": a ÚNICA chamada onAbrir(item.ticker) do módulo tem
 // de estar perto do rótulo curadoriaVerPosicao, nunca dentro do bloco do
-// botão do card (identificado por key={item.idCandidato).
-const iCardBtn = fatiaCuradoria.indexOf("key={item.idCandidato");
+// botão do card (identificado por key={cand.idCandidato — NOTA 2026-09-16,
+// IN-02: era key={item.idCandidato antes do renome do parâmetro do `.map`;
+// `item.ticker` do onAbrir continua correto — é o `item` ABERTO do painel,
+// variável diferente, não tocada por este renome).
+const iCardBtn = fatiaCuradoria.indexOf("key={cand.idCandidato");
 const iCardBtnStyleAttr = fatiaCuradoria.indexOf("...carouselItemStyle", iCardBtn);
 const trechoOnClickDoCard = iCardBtn > -1 && iCardBtnStyleAttr > -1 ? fatiaCuradoria.slice(iCardBtn, iCardBtnStyleAttr) : "";
-ok("(Quick 260915-j5l) o card foi localizado (key={item.idCandidato) e tem o atributo de estilo do carrossel na sequência esperada",
+ok("(Quick 260915-j5l) o card foi localizado (key={cand.idCandidato) e tem o atributo de estilo do carrossel na sequência esperada",
   trechoOnClickDoCard.length > 0);
 ok("(Quick 260915-j5l) o onClick do card principal NÃO chama onAbrir( — o clique deixou de descartar o candidato inteiro",
   !trechoOnClickDoCard.includes("onAbrir("));
@@ -497,15 +506,22 @@ ok("(Quick 260915-j5l) o CTA de executar (curadoriaExecutarCta) está DEPOIS do 
 // ---- (23, Quick 260915-ndt) painel inline: rótulo do PRÊMIO é
 // curadoriaPremioRotulo, não curadoriaRazaoRotulo -----------------------
 // Defeito corrigido: o painel usava cp.curadoriaRazaoRotulo (rótulo da
-// RAZÃO) ao lado de money(item.premioTotal) (o PRÊMIO EM REAIS). Prova
-// POSICIONAL (mesma técnica das regras 14/17): há EXATAMENTE 2 ocorrências
-// de "money(item.premioTotal)" em CuradoriaEstruturas — a do CARD (regra
-// (24) abaixo prova que o rótulo ali é curadoriaRazaoRotulo, ao lado de
-// item.razao, não de money) e a do PAINEL, que é a que este guardião mira.
-const ocorrenciasMoneyPremioTotal = [...fatiaCuradoria.matchAll(/money\(item\.premioTotal\)/g)];
-ok("(Quick 260915-ndt) money(item.premioTotal) aparece exatamente 2x em CuradoriaEstruturas (card + painel)",
-  ocorrenciasMoneyPremioTotal.length === 2);
-const iMoneyPainel = ocorrenciasMoneyPremioTotal.length === 2 ? ocorrenciasMoneyPremioTotal[1].index : -1;
+// RAZÃO) ao lado de money(item.premioTotal) (o PRÊMIO EM REAIS).
+// NOTA (2026-09-16, IN-02, quick 260916-cod): antes do renome do parâmetro
+// do `.map` (item → cand), CARD e PAINEL compartilhavam o literal
+// "money(item.premioTotal)" e a prova era POSICIONAL (2ª ocorrência =
+// painel). Depois do renome, o CARD usa "money(cand.premioTotal)" e só o
+// PAINEL usa "money(item.premioTotal)" — a prova fica mais simples (cada
+// variável aparece exatamente 1x), sem perder a checagem original: card
+// rotulado por curadoriaRazaoRotulo (ao lado de cand.razao, regra 24 abaixo)
+// e painel rotulado por curadoriaPremioRotulo (checado aqui).
+const ocorrenciasMoneyPremioTotalCard = [...fatiaCuradoria.matchAll(/money\(cand\.premioTotal\)/g)];
+const ocorrenciasMoneyPremioTotalPainel = [...fatiaCuradoria.matchAll(/money\(item\.premioTotal\)/g)];
+ok("(Quick 260915-ndt) money(cand.premioTotal) aparece exatamente 1x em CuradoriaEstruturas (card)",
+  ocorrenciasMoneyPremioTotalCard.length === 1);
+ok("(Quick 260915-ndt) money(item.premioTotal) aparece exatamente 1x em CuradoriaEstruturas (painel)",
+  ocorrenciasMoneyPremioTotalPainel.length === 1);
+const iMoneyPainel = ocorrenciasMoneyPremioTotalPainel.length === 1 ? ocorrenciasMoneyPremioTotalPainel[0].index : -1;
 const iPremioRotuloAntesDoPainel = iMoneyPainel > -1 ? fatiaCuradoria.lastIndexOf("curadoriaPremioRotulo", iMoneyPainel) : -1;
 ok("(Quick 260915-ndt) o rótulo mais próximo ANTES do money(item.premioTotal) do painel é cp.curadoriaPremioRotulo",
   iPremioRotuloAntesDoPainel > -1 && (iMoneyPainel - iPremioRotuloAntesDoPainel) < 200);

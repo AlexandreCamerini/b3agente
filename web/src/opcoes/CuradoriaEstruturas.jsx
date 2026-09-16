@@ -161,12 +161,12 @@ export default function CuradoriaEstruturas({ top, meta, carregando, erro, concl
       )}
       {top.length > 0 && (
         <div style={carouselTrackStyle({ gap: "10px", scrollbarWidth: "none", paddingBottom: "2px" })}>
-          {top.map((item) => (
+          {top.map((cand) => (
               <button
-                key={item.idCandidato || item.contractSymbol}
+                key={cand.idCandidato || cand.contractSymbol}
                 type="button"
-                aria-label={(ROTULO_TIPO_CURADORIA[item.tipo] ? cp[ROTULO_TIPO_CURADORIA[item.tipo]] + " — " : "") + item.posicaoNoRanking + ". " + item.ticker}
-                aria-expanded={abertoId === (item.idCandidato || item.contractSymbol)}
+                aria-label={(ROTULO_TIPO_CURADORIA[cand.tipo] ? cp[ROTULO_TIPO_CURADORIA[cand.tipo]] + " — " : "") + cand.posicaoNoRanking + ". " + cand.ticker}
+                aria-expanded={abertoId === (cand.idCandidato || cand.contractSymbol)}
                 // Quick 260915-j5l: o clique alterna a confirmação inline
                 // (clicar de novo fecha) — NÃO chama mais onAbrir(ticker)
                 // aqui, que descartava idCandidato/contractSymbol/
@@ -174,21 +174,21 @@ export default function CuradoriaEstruturas({ top, meta, carregando, erro, concl
                 // posição, sempre venda coberta (o bug que este plano
                 // corrige). onAbrir sobrevive abaixo, como link secundário
                 // dentro do painel expandido.
-                onClick={() => setAbertoId((atual) => (atual === (item.idCandidato || item.contractSymbol) ? null : (item.idCandidato || item.contractSymbol)))}
+                onClick={() => setAbertoId((atual) => (atual === (cand.idCandidato || cand.contractSymbol) ? null : (cand.idCandidato || cand.contractSymbol)))}
                 style={{ ...carouselItemStyle("start"), flex: "0 0 220px", minWidth: "220px", minHeight: "44px", textAlign: "left", padding: "11px 12px", borderRadius: "11px", background: T.bgCard, border: `1px solid ${T.borderFaint}`, cursor: "pointer" }}
               >
-                <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em", color: T.accent }}>{item.posicaoNoRanking}. {item.ticker}</div>
+                <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em", color: T.accent }}>{cand.posicaoNoRanking}. {cand.ticker}</div>
                 {/* Fase 31 (Plano 04, D-04): chip de TIPO — categoria, nunca
                     a manchete. Fallback "" em tipo desconhecido. */}
                 <div style={{ fontSize: "9px", fontWeight: 700, letterSpacing: "0.03em", color: T.textFaint, textTransform: "uppercase", marginTop: "3px" }}>
-                  {ROTULO_TIPO_CURADORIA[item.tipo] ? cp[ROTULO_TIPO_CURADORIA[item.tipo]] : ""}
+                  {ROTULO_TIPO_CURADORIA[cand.tipo] ? cp[ROTULO_TIPO_CURADORIA[cand.tipo]] : ""}
                 </div>
                 {/* manchete do motor, verbatim — guardrail CVM (CLAUDE.md);
                     nunca truncada/concatenada: cortar reescreveria a
                     afirmação do motor. */}
-                <div style={{ fontSize: "12.5px", fontWeight: 700, color: T.textPrimary, marginTop: "4px", whiteSpace: "normal" }}>{item.manchete}</div>
-                <div style={{ fontSize: "10.5px", color: T.textFaint, marginTop: "6px" }}>{cp.curadoriaRazaoRotulo}: {item.razao != null ? item.razao.toFixed(2) : "—"}</div>
-                <div style={{ fontSize: "10.5px", color: T.textFaint, marginTop: "2px" }}>{money(item.premioTotal)} · {item.diasParaVencimento}d · {item.liquidez && item.liquidez.faixa}</div>
+                <div style={{ fontSize: "12.5px", fontWeight: 700, color: T.textPrimary, marginTop: "4px", whiteSpace: "normal" }}>{cand.manchete}</div>
+                <div style={{ fontSize: "10.5px", color: T.textFaint, marginTop: "6px" }}>{cp.curadoriaRazaoRotulo}: {cand.razao != null ? cand.razao.toFixed(2) : "—"}</div>
+                <div style={{ fontSize: "10.5px", color: T.textFaint, marginTop: "2px" }}>{money(cand.premioTotal)} · {cand.diasParaVencimento}d · {cand.liquidez && cand.liquidez.faixa}</div>
               </button>
           ))}
         </div>
