@@ -22,8 +22,10 @@ import { executarCandidato } from "./opcoes/executarCandidato.js";
 // módulos de web/src/opcoes/ (ADR-027 Emenda 3) — OpcoesScreen.jsx não pode
 // importar App.jsx, e App.jsx não pode importar OpcoesScreen.jsx (ciclo); um
 // módulo terceiro que os dois importam é a fiação correta.
-import OportunidadesOpcoes from "./opcoes/OportunidadesOpcoes.jsx";
-import CuradoriaEstruturas from "./opcoes/CuradoriaEstruturas.jsx";
+// Fase 32 (32-03): `OportunidadesOpcoes`/`CuradoriaEstruturas` saíram de
+// CarteiraScreen — os dois blocos cross-carteira migraram para o topo da
+// sub-aba Setups (web/src/opcoes/OpcoesScreen.jsx), que já os importa
+// diretamente. Import removido daqui: App.jsx não os renderiza mais.
 import CandidatoOpcao from "./opcoes/CandidatoOpcao.jsx";
 // Fase 32 (32-03): o hook de fan-out gate+proposta por ticker saiu de
 // App.jsx para o módulo (ADR-027 Emenda 3) — a aba Opções passa a consumi-lo
@@ -4243,6 +4245,55 @@ function useCuradoria(ativo) {
   return { top, meta, carregando, erro, narrativa, narrando, erroNarrativa, narrar, recarregar };
 }
 
+// Fase 32 (32-03, D-01/D-02/D-03): substitui os dois blocos que a tela de
+// Posições tinha (OportunidadesOpcoes/CuradoriaEstruturas, que migraram
+// para o topo da sub-aba Setups da aba Opções) por UMA linha de chamada
+// discreta. Estilo derivado do toggle de PropostaDaPosicao (App.jsx, mesmo
+// padrão de `padding: "9px 2px"`/`minHeight: "44px"`), mas sem a seta
+// ▴/▾ — esta linha NAVEGA, não expande.
+//
+// A contagem vem EXCLUSIVAMENTE de `curadoria.top.length`, o MESMO objeto
+// que alimenta a lista na aba Opções (D-03) — nenhuma segunda instância do
+// hook, nenhum recálculo local. `top` tem teto 4 por desenho do motor
+// (`opcoes_curadoria` devolve no máximo "as 4 melhores"): a linha diz
+// quantas aparecem na lista, nunca "o total elegível da carteira".
+function LinhaChamadaOpcoes({ curadoria, cp, onIr }) {
+  const top = (curadoria && curadoria.top) || [];
+  const carregando = !!(curadoria && curadoria.carregando);
+  const erro = !!(curadoria && curadoria.erro);
+
+  // Precedência: erro > carregando > vazio > n≥1. Erro NUNCA mostra
+  // contagem (mostrar "0" quando a busca falhou seria inventar valor —
+  // princípio 4 do CLAUDE.md). Carregando não mostra o ícone ⚡ — não
+  // promete resultado antes de saber. Vazio continua visível e clicável
+  // (princípio 9: nunca some).
+  let texto, corTexto, corIcone, peso, mostrarIcone = true;
+  if (erro) {
+    texto = cp.linhaChamadaOpcoesErro; corTexto = T.warn; corIcone = T.warn; peso = 700;
+  } else if (carregando) {
+    texto = cp.linhaChamadaOpcoesCarregando; corTexto = T.textFaint; corIcone = T.textFaint; peso = 700; mostrarIcone = false;
+  } else if (top.length === 0) {
+    texto = cp.linhaChamadaOpcoesVazia; corTexto = T.textFaint; corIcone = T.textFaint; peso = 400;
+  } else {
+    texto = cp.linhaChamadaOpcoesTexto(top.length); corTexto = T.textPrimary; corIcone = T.accent; peso = 700;
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onIr}
+      aria-label={cp.linhaChamadaOpcoesAria(texto)}
+      style={{ display: "flex", width: "100%", alignItems: "center", justifyContent: "space-between", minHeight: "44px", padding: "9px 2px", background: "transparent", border: "none", borderBottom: `1px solid ${T.borderFaint}`, cursor: "pointer" }}
+    >
+      <span style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", fontWeight: peso, color: corTexto }}>
+        {mostrarIcone && <span style={{ color: corIcone }}>⚡</span>}
+        {texto}
+      </span>
+      <span style={{ color: T.textFaint }}>→</span>
+    </button>
+  );
+}
+
 function CarteiraScreen({ ctx }) {
   // FASE 2 (2.5): qual posição está com o histórico de análises aberto
   const [histFor, setHistFor] = useState(null);
@@ -4269,29 +4320,6 @@ function CarteiraScreen({ ctx }) {
   // tira, que saiu de CarteiraScreen na Task 2 abaixo) — não remover a
   // declaração, só o USO em JSX; ela sai junto da chamada no 32-04.
   const { propostas: opcoesPorTicker, carregando: opcoesCarregando } = useOpcoesPropostas(store, data.positions.map((p) => p.t));
-  // Fase 32 (32-02), Decisão A: o hook de curadoria subiu para App() —
-  // chamado UMA vez, publicado em ctx.curadoria. CarteiraScreen só
-  // DESESTRUTURA o mesmo objeto que OpcoesScreen também lerá (D-03: uma
-  // fonte, duas leituras) — nenhuma segunda instância do hook aqui.
-  const {
-    top: curadoriaTop, meta: curadoriaMeta, carregando: curadoriaCarregando, erro: curadoriaErro,
-    narrativa: curadoriaNarrativa, narrando: curadoriaNarrando, erroNarrativa: curadoriaErroNarrativa,
-    narrar: narrarCuradoria,
-  } = ctx.curadoria;
-  // Fase 18 (Plano 03, NAV-01/NAV-03): abre o detalhe da posição a partir da
-  // tira agregada e rola o card correspondente pra vista. O `setTimeout`
-  // existe porque o `scrollIntoView` precisa acontecer DEPOIS do re-render
-  // que expande o detalhe — rolar antes leva o card pra posição errada, já
-  // que a altura muda ao abrir. Mesmo mecanismo do deep link de push
-  // (App.jsx:7682-7689), com a guarda `if (!el) return;` preservada.
-  const abrirOpcoesDe = (t) => {
-    setOpcoesFor(t);
-    setTimeout(() => {
-      const el = document.getElementById("posicao-" + t);
-      if (!el) return;
-      el.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, 60);
-  };
   const byQ = (t) => quotes[t] || {};
   const m = portfolioMetrics(data.positions, quotes, data.cash, data.caixaReservado || 0, data.optionPositions);
   const positionsValue = m.posVal;
@@ -4361,32 +4389,15 @@ function CarteiraScreen({ ctx }) {
         );
       })()}
 
-      {/* Fase 18 (Plano 03, NAV-01/NAV-03): tira agregada de oportunidades de
-          opções — só com carteira não-vazia; o estado vazio de portfólio logo
-          abaixo já explica o que fazer quando não há nenhuma posição, duas
-          mensagens pra mesma ausência seria ruído. */}
+      {/* Fase 32 (32-03, D-01): os dois blocos cross-carteira que viviam
+          aqui (OportunidadesOpcoes/CuradoriaEstruturas) migraram para o
+          topo da sub-aba Setups da aba Opções — sobra UMA linha de chamada
+          discreta, com contagem real da MESMA fonte (D-03). MESMA guarda de
+          antes (`data.positions.length > 0`): o estado vazio de portfólio
+          logo abaixo já explica a ausência de posições, duas mensagens pra
+          mesma ausência seria ruído (razão herdada da Fase 18). */}
       {data.positions.length > 0 && (
-        <>
-          <OportunidadesOpcoes propostas={opcoesPorTicker} carregando={opcoesCarregando} positions={data.positions} cp={cp} onAbrir={abrirOpcoesDe} />
-          {/* Fase 30 (Plano 04, D4): irmão da tira acima — mesma razão de
-              "duas mensagens pra mesma ausência seria ruído" para a
-              carteira vazia (guarda abaixo). */}
-          <CuradoriaEstruturas
-            top={curadoriaTop}
-            meta={curadoriaMeta}
-            carregando={curadoriaCarregando}
-            erro={curadoriaErro}
-            narrativa={curadoriaNarrativa}
-            narrando={curadoriaNarrando}
-            erroNarrativa={curadoriaErroNarrativa}
-            onNarrar={() => narrarCuradoria(data.config)}
-            cp={cp}
-            onAbrir={abrirOpcoesDe}
-            onExecutar={(cand, o) => A.executarCandidatoCurado(cand, o)}
-            operador={operador}
-            palette={ctx.palette}
-          />
-        </>
+        <LinhaChamadaOpcoes curadoria={ctx.curadoria} cp={cp} onIr={ctx.goOpcoes} />
       )}
 
       {data.positions.length === 0 && (
