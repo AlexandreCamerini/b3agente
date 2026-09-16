@@ -98,6 +98,14 @@ ok("<OpcoesCamada continua renderizada", /<OpcoesCamada/.test(app));
 const opcoesScreen = readFileSync(join(here, "..", "src", "opcoes", "OpcoesScreen.jsx"), "utf8");
 ok("<PropostaLastreada aparece em OpcoesScreen.jsx (a proposta mudou de tela — sub-aba Operar)",
   /<PropostaLastreada/.test(opcoesScreen));
+// ATUALIZADO 2026-09-16 (Fase 32, 32-04): `PropostaDaPosicao` (App.jsx) foi
+// removida — o card de proposta por posição, com o ramo multi-candidato
+// (MULTI-02), foi portado para `SubAbaOperar`, dentro deste mesmo arquivo.
+// A contagem confirma que o ramo condicional novo NÃO duplicou a ocorrência
+// de <PropostaLastreada (continua 1x — só o ramo de candidato único).
+const opcoesScreenSemComentarioProposta = opcoesScreen.split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n");
+ok("(Fase 32/32-04) <PropostaLastreada aparece exatamente 1x em OpcoesScreen.jsx (o ramo multi-candidato novo usa CandidatoOpcao, não duplica esta tag)",
+  (opcoesScreenSemComentarioProposta.match(/<PropostaLastreada/g) || []).length === 1);
 
 // Split de modo: CTA só sob `operador`; a frase didática só sob a condição
 // contrária — Estudo não recebe botão de executar (T-14-23, defesa em UI).

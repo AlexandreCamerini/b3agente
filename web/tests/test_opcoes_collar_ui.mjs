@@ -100,6 +100,16 @@ ok("api.js monta ?multiperna=1 quando o parâmetro é passado",
 //    `onAbrirLastreada`, e a nova em PropostaDaPosicao) e continua exigindo
 //    TOTAL de 2 handlers.
 //
+//    2026-09-15, Fase 32 (32-04): `PropostaDaPosicao` (o "detalhe dentro do
+//    card de Posições" citado no parágrafo acima) deixou de existir — o
+//    acordeão de opções saiu de Posições (D-01/D-04), e o ramo
+//    multi-candidato que ela hospedava foi portado para `SubAbaOperar`
+//    (`OpcoesScreen.jsx`, sub-aba Operar da aba Opções). Isto NÃO muda a
+//    contagem de handlers medida abaixo: desde a Fase 28 (28-01/28-03) a
+//    ÚNICA implementação é `aceitarCandidato` no módulo
+//    (`useAceiteLastreado`), compartilhada por todo consumidor — App.jsx
+//    nunca teve handler próprio para o guardião contar aqui.
+//
 //    ATUALIZADO 2026-09-08 (quick 260908-ldg): cada handler ganhou um SEGUNDO
 //    `window.confirm` — o de CONSENTIMENTO DE LIQUIDEZ (`window.confirm(liq.aviso)`),
 //    que dispara ANTES do de estrutura quando a pior perna é DIFÍCIL. Este

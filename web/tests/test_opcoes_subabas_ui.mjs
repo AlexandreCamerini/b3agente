@@ -18,8 +18,10 @@
 //     recusaria, mas gastando o disparo do efeito à toa.
 //  5. **Manchete recomposta dentro de `SubAbaOperar`** — o guardrail CVM
 //     (CLAUDE.md princípio 5) exige que só o motor determinístico decida a
-//     manchete; `SubAbaOperar` tem que delegar a `PropostaLastreada`, nunca
-//     renderizar `manchete` com as próprias mãos.
+//     manchete; `SubAbaOperar` tem que delegar a `PropostaLastreada` (ramo
+//     único) OU `CandidatoOpcao` (ramo multi-candidato, portado na Fase 32,
+//     32-04 — ver nota datada abaixo), nunca renderizar `manchete` com as
+//     próprias mãos.
 //  6. **Segunda implementação do caminho de aceite** — `window.confirm`
 //     próprio ou chamada direta a `A.abrirLastreada`/`A.abrirCollar`/
 //     `A.fecharLastreada` dentro de `SubAbaOperar` divergiria do hook único
@@ -38,6 +40,12 @@
 //      `blocoVigias`, `seletor`, `LastroDoAtivo`, `LeituraInterna`,
 //      `blocoLeituraDoServico`) — regressão silenciosa no rewrap do JSX que
 //      criou a sub-aba nova.
+//
+// 2026-09-15, Fase 32 (32-04): `PropostaDaPosicao` deixou de existir; o ramo
+// multi-candidato que só vivia nela foi portado para `SubAbaOperar`
+// (`OpcoesScreen.jsx`), e o acordeão de opções saiu de Posições (D-01/D-04).
+// A regra 5 (manchete só via componente delegado) passa a aceitar
+// `CandidatoOpcao` como delegação legítima, ao lado de `PropostaLastreada`.
 //
 // Roda sem build: `node web/tests/test_opcoes_subabas_ui.mjs`.
 import { readFileSync, readdirSync } from "fs";
@@ -130,11 +138,20 @@ const guardaProposta = (idxSetProp >= 0 && idxCallProposta > idxSetProp)
 ok("a chamada de `store.optionsProposta` está guardada por um `if`/`return` que testa `gate`/`liquida` ANTES da chamada",
    /if\s*\([^)]*!\(gate && gate\.liquida\)[^)]*\)\s*return/.test(guardaProposta));
 
-// ---- 5) manchete só via PropostaLastreada (guardrail CVM) -------------------
-ok("`SubAbaOperar` não renderiza `manchete` própria (delega a PropostaLastreada)",
+// ---- 5) manchete só via PropostaLastreada OU CandidatoOpcao (guardrail CVM) -
+// ATUALIZADO 2026-09-16 (Fase 32, 32-04): `SubAbaOperar` ganhou o ramo
+// multi-candidato (MULTI-02, portado de `PropostaDaPosicao`/App.jsx,
+// aposentada nesta fase). A guarda NEGATIVA (nenhuma manchete própria) segue
+// intacta e independente — só a checagem POSITIVA de delegação passa a
+// aceitar os dois componentes legítimos: `PropostaLastreada` (candidato
+// único) e `CandidatoOpcao` (N candidatos). O card continua sendo um
+// componente IMPORTADO em ambos os ramos, nunca reimplementado inline.
+ok("`SubAbaOperar` não renderiza `manchete` própria (delega a PropostaLastreada/CandidatoOpcao)",
    !/\{[^}]*\bmanchete\b[^}]*\}/.test(subAba) && !/\.manchete/.test(subAba));
-ok("`SubAbaOperar` usa `<PropostaLastreada` (não reimplementa o card)",
+ok("`SubAbaOperar` usa `<PropostaLastreada` (ramo de candidato único, não reimplementa o card)",
    /<PropostaLastreada/.test(subAba));
+ok("`SubAbaOperar` usa `<CandidatoOpcao` (ramo multi-candidato, não reimplementa o card)",
+   /<CandidatoOpcao/.test(subAba));
 
 // ---- 6) caminho de aceite único (useAceiteLastreado) ------------------------
 ok("`SubAbaOperar` não declara `window.confirm` próprio",
