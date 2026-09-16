@@ -51,13 +51,16 @@ const fonteSemComentario = linhasSemComentario.join("\n");
 // ATUALIZADO 2026-09-08 (quick 260908-ldg, G10): `tiraOpcoesSemMercado`
 // entra na lista — terceiro caso do estado vazio (D-07), com as MESMAS
 // asserções de distinção dos dois anteriores.
+// ATUALIZADO 2026-09-15, Fase 32 (32-01): a tira ganhou `tiraOpcoesSubtitulo`
+// porque os dois blocos cross-carteira passam a conviver na mesma tela e o
+// título sozinho não diz mais qual motor é qual (D-05) — de 7 para 8 chaves.
 const CHAVES = [
-  "tiraOpcoesTitulo", "tiraOpcoesVerDetalhe", "tiraOpcoesCarregando",
+  "tiraOpcoesTitulo", "tiraOpcoesSubtitulo", "tiraOpcoesVerDetalhe", "tiraOpcoesCarregando",
   "tiraOpcoesSemCobertura", "tiraOpcoesSemSetup", "tiraOpcoesSemMercado", "linhaPropostaNaPosicao",
 ];
-ok("7 chaves da tira existem em COPY.estudo e COPY.operador",
+ok("8 chaves da tira existem em COPY.estudo e COPY.operador",
   CHAVES.every((k) => k in COPY.estudo) && CHAVES.every((k) => k in COPY.operador));
-ok("todas as 7 chaves são string literal (não função)",
+ok("todas as 8 chaves são string literal (não função)",
   CHAVES.every((k) => typeof COPY.estudo[k] === "string") && CHAVES.every((k) => typeof COPY.operador[k] === "string"));
 ok("tiraOpcoesSemCobertura difere entre Estudo e Operador (voz de professor x voz de mesa)",
   COPY.estudo.tiraOpcoesSemCobertura !== COPY.operador.tiraOpcoesSemCobertura);
