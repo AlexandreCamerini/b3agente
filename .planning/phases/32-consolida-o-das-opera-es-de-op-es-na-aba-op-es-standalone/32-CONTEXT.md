@@ -50,6 +50,19 @@ motor determinístico; busca/filtro na aba Opções (ver D-06).
   diverge do que a aba mostra é pior que não ter número (princípio 4 do
   `CLAUDE.md`: não inventar valor).
 
+- **D-07:** `OportunidadesOpcoes` (o motor **COM** gate técnico,
+  `opcoes_lastreadas.propor()`) vai para o **topo da aba Opções, ao lado da
+  lista curada**, fora do seletor de ticker — não é deletada nem empurrada
+  para dentro de Operar. `useOpcoesPropostas` move junto. Decisão do Alex
+  (2026-09-15), tomada em resposta à Open Question #1 da `32-RESEARCH.md`:
+  o `<domain>` listava `OportunidadesOpcoes` entre os quatro blocos que saem
+  de Posições, mas o D-04 não lhe dava destino. Esta é a leitura que cumpre
+  o D-05 ao pé da letra — os dois motores cross-posição ficam visíveis lado
+  a lado, com rótulos que expliquem a diferença ("o que a leitura técnica
+  endossa agora" × "o melhor da cadeia, endossado ou não"). Consequência
+  aceita: o topo da aba passa a ter dois blocos cross-carteira mais os
+  vigias, o que agrava a rolagem já registrada em D-06.
+
 ### Claude's Discretion
 
 O Alex delegou explicitamente as três áreas restantes (2026-09-15: *"decide
@@ -85,6 +98,27 @@ este arquivo antes de planejar se quiser mudar.
   rolagem longa. Sem decisão; não inventar busca nesta fase, mas não
   desenhar nada que a impeça depois"*) — a mesma regra vale aqui. O planner
   não pode desenhar nada que **impeça** busca depois.
+
+### Decisões delegadas que o PLAN.md tem de declarar por escrito
+
+A `32-RESEARCH.md` levantou duas escolhas de arquitetura que caem sob a
+delegação acima, mas que **não podem ser tomadas em silêncio dentro de uma
+task de "mover o componente"** — cada uma vira uma decisão explícita e
+justificada no PLAN.md:
+
+- **Onde mora o fetch de `useCuradoria()`** (Open Question #2). Hoje dispara
+  1× por mount de `CarteiraScreen`. Passa a ser lido por Posições (contagem,
+  D-03) e por Opções (lista, D-04). Subir para `App()` sem gatilho
+  condicional muda o timing para "todo boot do app" — e essa rota consome
+  orçamento do `mydata_budget` (Fase 31 D1). O tradeoff de custo tem de
+  estar escrito.
+- **Suporte multi-candidato em `SubAbaOperar`** (Open Question #3). A
+  pesquisa achou que `SubAbaOperar` (`OpcoesScreen.jsx:1297`) nunca lê
+  `prop.candidatos` — sempre renderiza `PropostaLastreada` única. A casca
+  (props) está pronta; a lógica não. Mover `PropostaDaPosicao` para lá sem
+  portar essa lógica **regride MULTI-02 em silêncio**. O plano declara: ou
+  porta o suporte (recomendado), ou nomeia a lacuna como débito com
+  guardião.
 
 </decisions>
 
