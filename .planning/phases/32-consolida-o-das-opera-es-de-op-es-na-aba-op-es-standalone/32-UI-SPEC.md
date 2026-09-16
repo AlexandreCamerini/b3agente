@@ -563,13 +563,14 @@ em `test_curadoria_ui.mjs` deve ser estendido às strings novas desta fase
 
 ## Open Questions
 
-1. **Fork de hierarquia (Leitura A × B, ver seção "Contrato de composição").**
-   D-04/D-07 dizem "topo da aba Opções"; este contrato assume que isso
-   significa "topo da sub-aba Setups" (Leitura A), pelo precedente de código
-   de que todo conteúdo cross-carteira de hoje (vigias) já vive lá dentro.
-   Se o Alex quis dizer "acima do alternador de sub-abas, nas duas"
-   (Leitura B), a mudança é pequena mas muda a estrutura de render de
-   `OpcoesScreen.jsx`. Recomenda-se confirmar antes de planejar.
+1. ~~**Fork de hierarquia (Leitura A × B, ver seção "Contrato de composição").**~~
+   **RESOLVIDA (2026-09-15, Alex): Leitura A.** "Topo da aba Opções" em
+   D-04/D-07 significa **topo da sub-aba Setups** — onde os vigias já vivem.
+   Os dois blocos cross-carteira NÃO aparecem em Operar. Razão dada na
+   escolha: segue o precedente de código, e quem está em Operar está focado
+   numa posição — não precisa do cross-carteira empurrando o conteúdo
+   per-posição para baixo (o que agravaria a rolagem que o D-06 já aceitou).
+   A estrutura de render de `OpcoesScreen.jsx` não muda.
 
 2. **Arquitetura do fetch compartilhado de `useCuradoria()`** (Open Question
    #2 do `32-RESEARCH.md`) — este UI-SPEC exige o RESULTADO (uma fonte, duas
@@ -584,11 +585,17 @@ em `test_curadoria_ui.mjs` deve ser estendido às strings novas desta fase
    de erro ao Bloco A seria mudança de hook mais profunda — registrado aqui
    como candidato a fase/quick task futura, não incluído no escopo desta.
 
-4. **Frescor/carimbo de dado ausente nos dois blocos cross-carteira** — nem
+4. ~~**Frescor/carimbo de dado ausente nos dois blocos cross-carteira**~~ —
+   **RESOLVIDA (2026-09-15, Alex): fora de escopo, vira quick task.** Nem
    `OportunidadesOpcoes` nem `CuradoriaEstruturas` mostram "pregão"/"em
    dia"/"atrasado" hoje, ao contrário do bloco de leitura técnica por
-   ticker. Não há requirement desta fase pedindo isso; registrado como
-   lacuna pré-existente, não como pendência desta fase.
+   ticker — o que é lacuna de princípio 3 do `CLAUDE.md`. A Fase 32 não
+   criou o problema, mas promove os dois blocos ao topo da aba e o torna
+   mais visível. Decisão: manter a fase no que ela é (mover e unificar) e
+   registrar a lacuna como TODO nomeado
+   (`.planning/todos/pending/carimbo-frescor-blocos-cross-carteira.md`).
+   A fase já carrega uma correção de princípio — o `erro` da curadoria que
+   hoje se disfarça de estado vazio.
 
 ---
 

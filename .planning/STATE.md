@@ -5,7 +5,7 @@ milestone_name: Opções v2
 status: executing
 stopped_at: 'Fase 31 e quick task 260915-j5l ambas em produção. **Achado de infraestrutura de deploy (2026-09-15)**: Railway só observa a branch `main` — `git push` em `v2/interacao-estrutural` sozinho nunca chega à produção. A Fase 31 tinha ficado presa por isso desde 2026-09-14 (push só na branch de longa duração); corrigido com fast-forward + push explícito em `main`, e o mesmo padrão (`git push origin HEAD:main`, além da branch de trabalho) foi repetido para o quick task seguinte. Daqui pra frente, publicar = push nas DUAS branches, não só na de trabalho. **260915-j5l**: Alex achou em produção que os 4 cards da lista curada da Fase 31 mostravam a estrutura mas o clique não executava nenhuma (`onClick` só passava o ticker, caindo no acordeão antigo de proposta única). Confirmação inline no card, despacho por tipo pras 3 rotas já existentes, verificado ao vivo pelo orquestrador (clique real → posição real aberta, cash creditado). Em produção desde F10-20260915-01. Nota de guardrail aplicada: mutadores de estado do gsd-sdk não foram chamados — STATE.md editado à mão. Ver `.planning/quick/260915-j5l-corrigir-clique-nos-cards-da-lista-curad/`.'
 last_updated: "2026-09-15T00:00:00.000Z"
-last_activity: "2026-09-15 — /gsd-discuss-phase 32 (consolidação das operações de opções na aba Opções): Fase 32 registrada no ROADMAP e CONTEXT.md fechado com D-01..D-06. Antes disso, as quick tasks 260915-j5l e 260915-ndt foram publicadas (F10-20260915-01 e -02)."
+last_activity: "2026-09-15 — /gsd:ui-phase 32: UI-SPEC aprovado 6/6 pelo checker (2 BLOCKs de forma resolvidos com assinatura do Alex nas escalas herdadas; FLAG de hierarquia fechado com contrato mensurável em 375×667). Antes, no mesmo dia: /gsd-discuss-phase 32 (D-01..D-06) e a pesquisa da fase, que gerou D-07. Próximo passo: /gsd:plan-phase 32."
 progress:
   total_phases: 10
   completed_phases: 5
@@ -21,11 +21,71 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-06)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Phase 32 — Consolidação das operações de opções na aba Opções (DISCUTIDA em 2026-09-15, `32-CONTEXT.md` fechado com D-01..D-06; próximo passo `/gsd:plan-phase 32`). Fase 31 e as duas quick tasks do dia estão em produção.
+**Current focus:** Phase 32 — Consolidação das operações de opções na aba Opções (DISCUTIDA + PESQUISADA + UI-SPEC APROVADO em 2026-09-15; próximo passo `/gsd:plan-phase 32`). Fase 31 e as duas quick tasks do dia estão em produção.
 
 ## Current Position
 
-Phase: 32 (Consolidação das operações de opções na aba Opções) — DISCUTIDA, pronta para planejar
+Phase: 32 (Consolidação das operações de opções na aba Opções) — UI-SPEC APROVADO, pronta para planejar
+
+**Sessão de 2026-09-15 (pesquisa + contrato de UI), depois da discussão:**
+
+*Pesquisa (`32-RESEARCH.md`).* Mapeou por leitura direta os 4 blocos que se
+movem (as linhas do CONTEXT.md tinham deslocado), o hook `useCuradoria()`, a
+cadeia de execução do collar curado e os guardiões estáticos em risco. Três
+achados que a discussão não tinha: (a) a regressão que o CONTEXT.md temia —
+a cadeia de execução do collar — **não** depende de onde o card renderiza
+(`ctx.A.executarCandidatoCurado` já chega idêntico às duas telas); o risco
+real são os testes; (b) **seis** guardiões quebram, não três —
+`test_curadoria_ui.mjs` (26 regras) precisa de reescrita total porque ancora
+em `indexOf("function CuradoriaEstruturas")` dentro de `App.jsx`; (c)
+`SubAbaOperar` **nunca lê `prop.candidatos`** — a casca de props está pronta,
+a lógica de multi-candidato não existe, então mover `PropostaDaPosicao` para
+lá sem portá-la regride MULTI-02 em silêncio.
+
+*Decisões novas.* **D-07** (Alex, respondendo à Open Question #1 da pesquisa):
+`OportunidadesOpcoes` — o motor COM gate — vai para o **topo da aba, ao lado
+da lista curada**, não é deletada nem empurrada para Operar. É a leitura que
+cumpre o D-05 ao pé da letra: os dois motores cross-posição visíveis lado a
+lado. Consequência aceita: agrava a rolagem do D-06. As Open Questions #2
+(onde mora o fetch compartilhado de `useCuradoria()`, com o custo de
+`mydata_budget` declarado) e #3 (portar multi-candidato ou nomear o débito)
+viraram **obrigação de declaração explícita no PLAN.md**, registradas no
+`32-CONTEXT.md`.
+
+*Contrato de UI (`32-UI-SPEC.md`, aprovado 6/6).* Entrega central: os dois
+rótulos do D-05 nos dois modos, com uma **frase-ponte obrigatória, sempre
+visível e nunca colapsável** ("nenhuma é mais certa que a outra") — sem ela,
+quem escaneia a tela lê "AS 4 MELHORES" (bloco sem gate) como veredito geral
+do app. Também: a linha de chamada de Posições em 4 estados, contrato
+mensurável de densidade em 375×667px (cartões de 210/220px, composição
+exata da primeira dobra) para honrar o D-06 sem busca nem acordeão, e o
+porte de multi-candidato reusando `CandidatoOpcao` verbatim. O checker achou
+um bug de princípio que a pesquisa não pegou: **`useCuradoria().erro` existe
+mas nunca é exibido** — falha de fonte cai hoje no estado "vazio", violando
+o princípio 4 do `CLAUDE.md`. A correção entra na fase, especificada de
+forma verificável.
+
+*Duas decisões de fechamento (Alex, 2026-09-15).* (1) "Topo da aba" =
+**topo da sub-aba Setups**, onde os vigias já vivem — os blocos
+cross-carteira não aparecem em Operar, e a estrutura de render de
+`OpcoesScreen.jsx` não muda. (2) A lacuna de **carimbo de frescor** nos dois
+blocos cross-carteira (princípio 3: dado de mercado exibe horário e se está
+atrasado) é pré-existente e fica **fora do escopo** — virou
+`.planning/todos/pending/carimbo-frescor-blocos-cross-carteira.md`.
+
+*Exceção assinada.* O UI-SPEC reusa as escalas herdadas do `App.jsx` (três
+pesos de fonte, spacing fora da grade de 4px) em vez de normalizar. O Alex
+assinou a exceção (`developer-approved — matches existing pattern —
+2026-09-15`) com citações `file:line`; normalizar a escala é débito nomeado
+para fase própria. Normalizar dentro da 32 transformaria "mover blocos" em
+"mover + reestilizar".
+
+*Guardrail aplicado:* mutadores de estado do gsd-sdk não foram chamados —
+este STATE.md foi editado à mão.
+
+## Posição anterior nesta fase (discussão)
+
+Phase: 32 — DISCUTIDA, pronta para planejar
 
 **Como chegamos aqui (2026-09-15):** a Fase 31 foi publicada e o Alex testou em produção. Achou dois defeitos em sequência — (1) os cards da lista curada não executavam nada (quick `260915-j5l`, confirmação inline no card) e (2) o collar sempre dava 409 porque a rota de execução re-derivava pelo motor errado (quick `260915-ndt`, rota nova pelo motor da curadoria). Ambas em produção (`F10-20260915-01`, `F10-20260915-02`). No meio disso ele levantou três vezes o mesmo incômodo — *"gostaria de deixar todo conteúdo em relação a opções na aba opções"*, *"as telas estão ficando muito poluídas"* — que virou a Fase 32. Discussão rodada: **D-01** Posições perde os 4 blocos de opções e fica com UMA linha de chamada com contagem; **D-02** o clique leva à lista na aba Opções (não a uma oportunidade específica — a leitura de deep-link foi desambiguada e caiu); **D-03** a contagem sai do mesmo dado da lista, nunca calculada à parte; **D-04..D-06** delegadas a mim ("decide o resto por mim"): blocos cross-carteira vão pro topo da aba junto dos vigias (precedente D4 da Fase 27, já aprovado), os dois motores ficam lado a lado com rótulos honestos em vez de unificar agora, e a rolagem longa fica aceita e adiada. Ver `.planning/phases/32-consolida-o-das-opera-es-de-op-es-na-aba-op-es-standalone/`.
 
