@@ -1,13 +1,15 @@
 ---
 phase: 32-consolida-o-das-opera-es-de-op-es-na-aba-op-es-standalone
 verified: 2026-09-16T00:00:00Z
-status: human_needed
-score: 7/7 truths verificadas por código+suíte; 1/1 comportamento (multi-candidato) segue como dívida de verificação ao vivo
+status: passed
+score: 8/8 — 7/7 truths verificadas por código+suíte; o comportamento pendente (multi-candidato) foi observado ao vivo na quick 260916-cod
+resolved_by: 260916-cod (2026-09-16) — ver .planning/quick/260916-cod-fecha-achados-pos-fase-32/260916-cod-SUMMARY.md
 overrides_applied: 0
 human_verification:
   - test: "Multi-candidato lado a lado na sub-aba Operar (item 8 do roteiro do 32-05-PLAN.md)"
     expected: "Uma posição com 2+ candidatos elegíveis (ex.: put isolada + collar na mesma posição, MULTI-01) mostra os cartões lado a lado, mesma largura, na sub-aba Operar da aba Opções."
-    why_human: "O código existe e está coberto por guardião estático (test_opcoes_multi_candidato_ui.mjs, sanidade comprovada por injeção real de defeito no 32-04) e pela cadeia real de dados (API /api/options/proposta/{ticker} sempre devolve candidatos). Mas o provedor mock usado na verificação ao vivo do 32-05 nunca produziu a coexistência put isolada + collar na mesma posição — o ramo `multi` nunca foi observado renderizando em navegador. Grep e teste estático não substituem ver rodando; é dívida de verificação, não de implementação (ver 32-05-SUMMARY.md, item 8 da tabela de checkpoint, e estado_conhecido desta verificação)."
+    resolvido_em: "2026-09-16, quick 260916-cod — OBSERVADO AO VIVO. A fixture era escolher a posição certa, não alterar código: a coexistência put isolada + collar exige plano com decisao==VENDER ou lado==baixa (opcoes_lastreadas.py:247); as sessões anteriores só tinham testado posições de alta/lateral. Com ABEV3 (plano de baixa) 500 cotas, /api/options/proposta/ABEV3?multiperna=1 devolveu candidatos [put_protecao, collar] e a sub-aba Operar renderizou os dois cartões — PUT DE PROTEÇÃO e TRAVA PROTETORA — na mesma linha (y=399), mesma largura (210px), x=165 e x=385, medido no DOM."
+    why_human_original: "O código existe e está coberto por guardião estático (test_opcoes_multi_candidato_ui.mjs, sanidade comprovada por injeção real de defeito no 32-04) e pela cadeia real de dados (API /api/options/proposta/{ticker} sempre devolve candidatos). Mas o provedor mock usado na verificação ao vivo do 32-05 nunca produziu a coexistência put isolada + collar na mesma posição — o ramo `multi` nunca foi observado renderizando em navegador. Grep e teste estático não substituem ver rodando; é dívida de verificação, não de implementação (ver 32-05-SUMMARY.md, item 8 da tabela de checkpoint, e estado_conhecido desta verificação)."
 ---
 
 # Phase 32: Consolidação das operações de opções na aba Opções — Verification Report
@@ -17,7 +19,7 @@ que hoje vive espalhado entre Posições e Opções, reduzindo a poluição da t
 de Posições sem perder a descoberta da oportunidade.
 
 **Verified:** 2026-09-16
-**Status:** human_needed
+**Status:** passed *(era `human_needed`; o único item pendente foi observado ao vivo na quick `260916-cod`, 2026-09-16)*
 **Re-verification:** Não — verificação inicial (nenhum `32-VERIFICATION.md` prévio encontrado).
 
 ## Método
@@ -44,9 +46,9 @@ SUMMARY.
 | 5 | D-05 — os dois motores lado a lado com rótulos que negam hierarquia | ✓ VERIFIED | `OpcoesScreen.jsx:711-713` renderiza `cp.duasLeiturasIntro` incondicionalmente (sem `&&`/ternário, sem `aria-expanded`); `copy.js` contém a chave nos dois modos com "nenhuma é mais certa que a outra"; guardião novo comprovou por injeção (aria-expanded reprovou, revertido) |
 | 6 | D-06 — nada impede busca/filtro futuro; sem sticky/fixed novo nos blocos | ✓ VERIFIED | Verificado por esta verificação (não só pelo AUDITORIA): nenhum `position: sticky/fixed` em `OpcoesScreen.jsx`/`CandidatoOpcao.jsx`/`CuradoriaEstruturas.jsx`/`OportunidadesOpcoes.jsx`; os `position: fixed` que existem em `App.jsx` são modais pré-existentes não relacionados (buy/sell/catálogo/toast), não os blocos migrados; os `<input>` existentes em `OpcoesScreen.jsx`/`CuradoriaEstruturas.jsx` são campo "Lote"/checkbox de liquidez pré-existentes, não busca/filtro novo |
 | 7 | D-07 — `OportunidadesOpcoes` (motor COM gate) permanece visível, topo da aba, ao lado da curadoria | ✓ VERIFIED | `OpcoesScreen.jsx` `blocoOportunidades` renderiza `<OportunidadesOpcoes .../>` antes de `blocoCuradoria`, fora do seletor de ticker; componente não foi deletado nem movido para dentro de Operar |
-| 8 | MULTI-02 (REQUIREMENTS.md) — N candidatos lado a lado, usuário aceita exatamente um | HUMAN_NEEDED | Código existe e é coberto por guardião estático com sanidade comprovada (injeção de defeito no 32-04); nunca foi visto rodando em navegador — ver seção "Human Verification Required" |
+| 8 | MULTI-02 (REQUIREMENTS.md) — N candidatos lado a lado, usuário aceita exatamente um | ✓ VERIFIED *(ao vivo, quick 260916-cod)* | Observado renderizando com ABEV3 (plano de baixa, o que faz `propor()` entrar no ramo `put_protecao` e tentar o collar): dois cartões lado a lado, mesma linha e mesma largura, medidos no DOM. Guardião estático `test_opcoes_multi_candidato_ui.mjs` segue cobrindo a regressão |
 
-**Score:** 7/7 truths de código verificadas; 1 comportamento pendente de observação ao vivo (não é falha de implementação).
+**Score:** 8/8 — 7/7 truths de código verificadas nesta verificação, mais o comportamento multi-candidato observado ao vivo na quick `260916-cod` (2026-09-16).
 
 ### Requirements Coverage
 

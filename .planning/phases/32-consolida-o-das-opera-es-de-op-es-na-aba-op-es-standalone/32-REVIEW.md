@@ -18,7 +18,10 @@ findings:
   warning: 1
   info: 2
   total: 3
-status: issues_found
+  resolvidos: 3
+status: resolved
+resolved_by: 260916-cod (2026-09-16) — WR-01, IN-01 e IN-02 corrigidos e publicados em F10-20260916-02; ver .planning/quick/260916-cod-fecha-achados-pos-fase-32/260916-cod-SUMMARY.md
+nota_wr01: "O escopo real do WR-01 era maior que o descrito aqui — o MESMO defeito existia em CuradoriaEstruturas.jsx (Bloco B da aba Opções), não só em LinhaChamadaOpcoes. Os dois foram corrigidos." 
 ---
 
 # Fase 32: Relatório de Code Review
