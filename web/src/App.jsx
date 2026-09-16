@@ -10,7 +10,13 @@ import { copyFor, historicoTxt, entradaAutoTxt } from "./copy.js";
 import { Markdown, MdInline } from "./markdown.jsx";
 import { extentOf, linePath, lastVal } from "./chartutil.js";
 import OpcoesScreen from "./opcoes/OpcoesScreen.jsx";
-import PropostaLastreada, { FonteDoDadoProposta, ChipDaProposta, useAceiteLastreado } from "./opcoes/PropostaLastreada.jsx";
+// Fase 32 (32-04): PropostaLastreada/FonteDoDadoProposta/ChipDaProposta/
+// useAceiteLastreado deixaram de ser importados aqui — o único consumidor em
+// App.jsx era `PropostaDaPosicao`, que morreu nesta fase (o ramo de proposta
+// por posição migrou para `SubAbaOperar`, web/src/opcoes/OpcoesScreen.jsx,
+// que já importa os quatro do módulo diretamente). `AtivoCard` (Watchlist/
+// Radar) nunca consumiu este módulo — renderiza `OpcoesCamada`, que é outra
+// coisa (ver comentário abaixo de `function OpcoesCamada`).
 // Fase 31 (Plano 04, D-08): payoff do item nº 1 do bloco de curadoria —
 // mesmo componente já em produção no caminho MCP (Fase 24/31-03), via o
 // adaptador puro que traduz o envelope PT do motor interno pro envelope
@@ -26,12 +32,12 @@ import { executarCandidato } from "./opcoes/executarCandidato.js";
 // CarteiraScreen — os dois blocos cross-carteira migraram para o topo da
 // sub-aba Setups (web/src/opcoes/OpcoesScreen.jsx), que já os importa
 // diretamente. Import removido daqui: App.jsx não os renderiza mais.
-import CandidatoOpcao from "./opcoes/CandidatoOpcao.jsx";
-// Fase 32 (32-03): o hook de fan-out gate+proposta por ticker saiu de
-// App.jsx para o módulo (ADR-027 Emenda 3) — a aba Opções passa a consumi-lo
-// também. A chamada em CarteiraScreen SOBREVIVE até o Plano 32-04 (ver nota
-// no corpo de CarteiraScreen): `PropostaDaPosicao` ainda lê `opcoesPorTicker`.
-import { useOpcoesPropostas } from "./opcoes/useOpcoesPropostas.js";
+// Fase 32 (32-04): o import de `CandidatoOpcao` e o do hook de fan-out
+// gate→proposta por ticker (módulo terceiro em web/src/opcoes/, ADR-027
+// Emenda 3) saíram — os dois últimos consumidores (o card de detalhe de
+// posição e a chamada em `CarteiraScreen`) foram removidos nesta fase.
+// `SubAbaOperar` (web/src/opcoes/OpcoesScreen.jsx) importa os dois módulos
+// diretamente.
 import { BUILD_ID } from "./version.js";
 // carimbo no console: prova de qual build está rodando (device/web)
 try { console.log("[b3] build", BUILD_ID); } catch { /* noop */ }
@@ -3680,11 +3686,14 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
                   cadeia (14-UI-SPEC "Spacing Scale" lg, D-4) saíram daqui — Watchlist/Radar deixaram de ser lugar de
                   abrir/fechar operação lastreada (28-CONTEXT D1). A proposta
                   de um ativo agora vive na aba Opções, sub-aba Operar
-                  (`web/src/opcoes/OpcoesScreen.jsx`); o detalhe de posição em
-                  Portfólio (`PropostaDaPosicao`) é o outro consumidor do
-                  módulo `web/src/opcoes/PropostaLastreada.jsx`. Sem card
-                  acima, o espaçador perdeu o par — a cadeia volta a ser o
-                  único filho deste bloco. */}
+                  (`web/src/opcoes/OpcoesScreen.jsx`). ATUALIZADO 2026-09-16
+                  (Fase 32, 32-04): o detalhe de posição em Portfólio que era
+                  o outro consumidor do módulo (o antigo card de proposta
+                  dentro do card de posição em CarteiraScreen, aposentado
+                  nesta fase) também saiu — a sub-aba Operar acima é agora o
+                  ÚNICO lugar que renderiza proposta lastreada. Sem card
+                  acima, o espaçador perdeu o
+                  par — a cadeia volta a ser o único filho deste bloco. */}
               {opGate && opGate.liquida && (
                 <OpcoesCamada
                   t={t} cur={q.price} open={opOpen} onToggle={toggleOp}
@@ -4098,70 +4107,16 @@ function StopAlvoModal({ ctx }) {
   );
 }
 
-// Fase 18 (Plano 02, NAV-02): SEGUNDO ponto de renderização de
-// PropostaLastreada — o primeiro, em AtivoCard (linha ~3492), continua
-// intocado, é a superfície de descoberta de Watchlist/Radar. Este componente
-// é o detalhe dentro do card de UMA posição em CarteiraScreen: recebe `r`
-// PRONTO por prop (vindo de useOpcoesPropostas, o hook do Plano 18-01) —
-// nunca chama store.optionsGate/optionsProposta aqui, isso reintroduziria a
-// busca dupla que o hook existe pra evitar. A garantia "nunca uma estrutura
-// aparece sobre ticker sem posição real" é ESTRUTURAL neste ponto: quem
-// chama este componente (CarteiraScreen) só itera data.positions.
-function PropostaDaPosicao({ t, r, cp, operador, A, data, aberto, onToggle }) {
-  // Estado do "em voo" e o caminho de aceite/fechamento — hook compartilhado
-  // com AtivoCard e a sub-aba Operar futura (Fase 28, 28-01,
-  // web/src/opcoes/PropostaLastreada.jsx). Chamado ANTES de qualquer return
-  // condicional (regra dos hooks) — cada posição tem o próprio "em voo",
-  // senão aceitar numa posição travaria o botão de outra.
-  const { busy, aceitarCandidato, fecharLastreada } = useAceiteLastreado({ A, cp, ticker: t });
-
-  // Guarda de silêncio: diferente da tira (Plano 18-03, estado vazio
-  // agregado uma vez só), o card de POSIÇÃO não mostra caixa vazia — o
-  // mesmo raciocínio já registrado em App.jsx:3484-3489 (ADR-004): um aviso
-  // por card, repetido posição a posição, vira "seis avisos idênticos por
-  // tela", pior que o silêncio.
-  if (!r || !r.proposta) return null;
-
-  // Fase 19 (Plano 03, MULTI-02): candidatos é SEMPRE array (default [] no
-  // servidor); quando há mais de um, o ramo abaixo mostra os N lado a lado —
-  // um candidato só continua caindo no card de hoje (nenhuma regressão
-  // visual/funcional para posições com um candidato só).
-  const candidatos = Array.isArray(r.candidatos) ? r.candidatos : [];
-  const multi = candidatos.length > 1;
-
-  // Réplica de App.jsx:3266/3289-3291, escopada a `t` (o ticker desta
-  // posição) em vez do closure de AtivoCard.
-  const myOptionPositions = ((data && data.optionPositions) || []).filter((p) => p.underlying === t);
-  const posAberta = (r && r.proposta)
-    ? myOptionPositions.find((p) => p.id === r.proposta.contractSymbol) || null
-    : null;
-
-  return (
-    <div style={{ marginTop: "10px", paddingTop: "9px", borderTop: `1px solid ${T.borderFaint}` }}>
-      <button type="button" onClick={onToggle} aria-expanded={aberto} style={{ display: "flex", width: "100%", alignItems: "center", justifyContent: "space-between", padding: "5px 0", background: "transparent", border: "none", color: T.textMuted, fontSize: "11.5px", fontWeight: 700, cursor: "pointer" }}>
-        <span style={{ display: "flex", alignItems: "center", gap: "7px" }}><span style={{ color: T.accent }}>⚡</span> {cp.linhaPropostaNaPosicao}</span>
-        <span style={{ color: T.textFaint }}>{aberto ? "▴" : "▾"}</span>
-      </button>
-      {aberto && (
-        multi ? (
-          <>
-            {/* Fase 19 (Plano 03, MULTI-02): N candidatos lado a lado — mesmo
-                padrão de linha horizontal de OportunidadesOpcoes (Fase 18,
-                App.jsx:3938-3964); nunca um terceiro padrão visual novo. */}
-            <div style={carouselTrackStyle({ marginTop: "11px", gap: "10px", scrollbarWidth: "none", paddingBottom: "2px" })}>
-              {candidatos.map((c) => (
-                <CandidatoOpcao key={c.tipo + "-" + (c.contractSymbol || "collar")} p={c} r={r} cp={cp} operador={operador} busy={busy} onAceitar={aceitarCandidato} onVerbeteLiquidez={(dados) => A.abrirVerbete("liquidez-opcao", dados)} />
-              ))}
-            </div>
-            <FonteDoDadoProposta r={r} cp={cp} />
-          </>
-        ) : (
-          <PropostaLastreada r={r} operador={operador} cp={cp} busy={busy} onAbrir={() => aceitarCandidato(r.proposta)} onFechar={() => fecharLastreada(r)} posAberta={posAberta} onVerbeteLiquidez={(dados) => A.abrirVerbete("liquidez-opcao", dados)} />
-        )
-      )}
-    </div>
-  );
-}
+// Fase 32 (32-04, 2026-09-16): `PropostaDaPosicao` (o detalhe de proposta
+// dentro do card de UMA posição, Fase 18 NAV-02) foi REMOVIDA — App.jsx não
+// define nem renderiza mais nenhum bloco de opções por posição. O que ela
+// fazia — mostrar a proposta lastreada da posição selecionada, com suporte a
+// N candidatos lado a lado (Fase 19, MULTI-02) — foi PORTADO para
+// `SubAbaOperar`, dentro da sub-aba Operar da aba Opções
+// (web/src/opcoes/OpcoesScreen.jsx). A descoberta a partir de Posições agora
+// é a linha de chamada única `LinhaChamadaOpcoes` (D-01, Plano 32-03) —
+// quem procurar o card de proposta aqui embaixo do card de posição não vai
+// achar um bug, vai achar esta nota.
 
 // Fase 30 (Plano 04, D4): busca cross-posição do top-4 de venda coberta
 // (ranking determinístico, custo zero, D6) e, só por toque explícito, a
@@ -4209,7 +4164,8 @@ function useCuradoria(ativo) {
     aliveRef.current = true;
     setCarregando(true);
     setErro(false);
-    // best-effort, igual useOpcoesPropostas acima: falha de rede só deixa
+    // best-effort, mesmo padrão do hook de fan-out gate→proposta por ticker
+    // (módulo terceiro em web/src/opcoes/): falha de rede só deixa
     // o bloco sem item, nunca quebra a tela.
     store.opcoesCuradoria()
       .then((r) => {
@@ -4300,26 +4256,14 @@ function CarteiraScreen({ ctx }) {
   // FASE 3 (mock v2): edição de stop/alvo sob demanda + compras da posição
   const [editFor, setEditFor] = useState(null);
   const [comprasOpen, setComprasOpen] = useState({});
-  // Fase 18 (Plano 02, NAV-02): qual posição está com o detalhe de opções
-  // aberto — mesma forma de histFor/editFor (uma por vez; abrir a de outra
-  // posição fecha a anterior). O Plano 18-03 escreve neste MESMO estado a
-  // partir da tira agregada — não renomear.
-  const [opcoesFor, setOpcoesFor] = useState(null);
   const { data, quotes, analysis, A, goMercado, cp, operador } = ctx;   // FASE 8B (B1)
   useEffect(() => { track("portfolio_view"); }, []);   // qa/47 (Fase 2)
-  // Fase 18 (Plano 01/02): fan-out gate→proposta por ticker, uma vez por
-  // posição real — nomes exatos `opcoesPorTicker`/`opcoesCarregando` porque
-  // `PropostaDaPosicao` os consome por nome, sem mexer nesta chamada.
-  // Fase 32 (32-03): a DEFINIÇÃO do hook saiu para
-  // ./opcoes/useOpcoesPropostas.js (ADR-027 Emenda 3) — esta CHAMADA
-  // sobrevive aqui até o Plano 32-04, que remove o último consumidor
-  // (`PropostaDaPosicao`, App.jsx). Apagar a chamada antes disso deixaria
-  // `opcoesPorTicker` livre em JSX — ReferenceError em render para toda
-  // conta com posição aberta (armadilha nomeada no 32-03-PLAN.md).
-  // `opcoesCarregando` fica sem consumidor NESTE plano (o consumidor era a
-  // tira, que saiu de CarteiraScreen na Task 2 abaixo) — não remover a
-  // declaração, só o USO em JSX; ela sai junto da chamada no 32-04.
-  const { propostas: opcoesPorTicker, carregando: opcoesCarregando } = useOpcoesPropostas(store, data.positions.map((p) => p.t));
+  // Fase 32 (32-04): o estado de "qual posição tem o detalhe de opções
+  // aberto" (Fase 18, NAV-02) e a chamada do hook de fan-out gate→proposta
+  // por ticker (Fase 18/32-03) foram removidos — o card de detalhe de
+  // posição, único consumidor dos dois, morreu nesta fase. A fonte de dado
+  // que Posições usa agora é `ctx.curadoria` (via
+  // `LinhaChamadaOpcoes`, Plano 32-03), não mais este hook.
   const byQ = (t) => quotes[t] || {};
   const m = portfolioMetrics(data.positions, quotes, data.cash, data.caixaReservado || 0, data.optionPositions);
   const positionsValue = m.posVal;
@@ -4419,8 +4363,13 @@ function CarteiraScreen({ ctx }) {
           const cell = (label, value, c) => (<div><div style={kicker}>{label}</div><div style={{ fontFamily: MONO, fontSize: "13px", color: c }}>{value}</div></div>);
           return (
             // id: âncora de scroll — mesmo mecanismo já em produção pro deep
-            // link do push (App.jsx:7446-7449, "ativo-"+t); o Plano 18-03 usa
-            // "posicao-"+p.t pra rolar até aqui a partir da tira agregada.
+            // link do push (App.jsx:7446-7449, "ativo-"+t). Fase 32 (32-04):
+            // o scroll-to-id que a alimentava (a tira agregada do Plano
+            // 18-03) perdeu o chamador — a tira mudou de tela na Fase 32
+            // (32-03) e a navegação de lá pra cá virou `ctx.goOpcoes`, não
+            // mais `scrollIntoView`. A âncora FICA: é o mesmo mecanismo do
+            // deep link de push acima, e removê-la quebraria um caminho que
+            // não é desta fase.
             <div key={p.t} id={"posicao-" + p.t} style={{ ...card, padding: "14px 15px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "10px", flexWrap: "wrap" }}>
                 <div>
@@ -4528,16 +4477,12 @@ function CarteiraScreen({ ctx }) {
                   Histórico de análises ({((data.analysisLog || {})[p.t] || []).length})
                 </button>
               </div>
-              {/* Fase 18 (Plano 02, NAV-02): opções são uma CAMADA sobre a
-                  posição, não o primeiro assunto do card — por isso entra
-                  depois da régua de risco/plano/CTAs, na mesma região das
-                  outras afordâncias secundárias (histórico, edição).
-                  PropostaDaPosicao já devolve null sem proposta ativa —
-                  posição sem estrutura não ganha nada visualmente. */}
-              <PropostaDaPosicao
-                t={p.t} r={(opcoesPorTicker[p.t] || {}).proposta} cp={cp} operador={operador} A={A} data={data}
-                aberto={opcoesFor === p.t} onToggle={() => setOpcoesFor(opcoesFor === p.t ? null : p.t)}
-              />
+              {/* Fase 32 (32-04): o card de proposta que morava aqui
+                  (o detalhe de opções por posição da Fase 18, NAV-02) foi
+                  removido — a proposta da posição selecionada agora vive na sub-aba
+                  Operar da aba Opções (D-04). Quem procura o detalhe de
+                  opções por posição encontra a linha de chamada única no
+                  topo desta tela (`LinhaChamadaOpcoes`, D-01, Plano 32-03). */}
               {histFor === p.t && (
                 <div style={{ marginTop: "9px", padding: "10px 11px", borderRadius: "10px", background: T.bgBase, border: `1px solid ${T.borderFaint}` }}>
                   {(((data.analysisLog || {})[p.t]) || []).length === 0 && (
