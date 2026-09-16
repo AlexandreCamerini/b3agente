@@ -582,7 +582,16 @@ export const COPY = {
     // afordância da posição têm voz de modo. Nenhuma destas seis chaves
     // pode conter a manchete do motor nem frase que a substitua — a
     // manchete continua vindo só de proposta.manchete (guardrail CVM).
-    tiraOpcoesTitulo: "OPORTUNIDADES DE OPÇÕES",
+    //
+    // Fase 32 (32-01, D-01/D-03/D-05): título REESCRITO — antes era
+    // "OPORTUNIDADES DE OPÇÕES" nos dois modos, igual ao título do bloco de
+    // curadoria (Bloco B, abaixo). Os dois blocos cross-carteira passam a
+    // conviver na mesma tela (topo da sub-aba Setups), então o título
+    // sozinho não basta mais para dizer qual motor é qual — agora NOMEIA o
+    // motor (LEITURA TÉCNICA = o motor COM gate). `tiraOpcoesSubtitulo`
+    // (chave nova) reforça a mesma distinção em prosa.
+    tiraOpcoesTitulo: "OPORTUNIDADES CONFIRMADAS PELA LEITURA TÉCNICA",
+    tiraOpcoesSubtitulo: "Só aparecem aqui as posições em que a leitura técnica do próprio ativo confirma a estrutura agora — o mesmo motor que decide o gatilho do Radar.",
     tiraOpcoesVerDetalhe: "ver detalhe",
     tiraOpcoesCarregando: "Procurando estruturas possíveis nas suas posições…",
     tiraOpcoesSemCobertura: "Nenhuma das suas posições tem opção com liquidez suficiente hoje — sem contrato líquido, não dá para estudar uma estrutura sobre ela.",
@@ -592,6 +601,35 @@ export const COPY = {
     // liquidez suficiente" genérico. Voz de professor: descreve a condição.
     tiraOpcoesSemMercado: "As opções das suas posições estão hoje na faixa SEM MERCADO — negociaram tão pouco que o preço da tela não seria o preço real de uma ordem. Por isso nenhuma estrutura é estudada sobre elas agora.",
     linhaPropostaNaPosicao: "Estrutura de opções possível nesta posição",
+
+    // Fase 32 (32-01, D-05): frase-ponte entre os dois motores cross-
+    // carteira (Bloco A = OportunidadesOpcoes, com gate; Bloco B =
+    // CuradoriaEstruturas, sem gate), sempre visível e NUNCA colapsável —
+    // é a mitigação do risco regulatório do D-05: sem ela, quem escaneia a
+    // tela lê "AS 4 MELHORES" (Bloco B) como veredito geral do app, em vez
+    // de "melhores dentro dos 4 candidatos do próprio bloco". Texto
+    // IDÊNTICO nos dois modos DE PROPÓSITO — é constatação de fato sobre
+    // dois motores determinísticos, não voz de personagem (mesmo
+    // precedente de linhaPatrimonioOpcoes/avisoLiquidacaoForcada acima).
+    duasLeiturasIntro: "Duas leituras diferentes da sua carteira — nenhuma é mais certa que a outra: uma parte do que a leitura técnica confirma agora, a outra varre a cadeia inteira sem exigir essa confirmação.",
+
+    // Fase 32 (32-01, D-01/D-02/D-03): linha de chamada em Posições,
+    // substituindo os quatro blocos que hoje vivem lá — texto IDÊNTICO nos
+    // dois modos (constatação de fato sobre contagem, não voz de
+    // personagem). `linhaChamadaOpcoesTexto`/`linhaChamadaOpcoesAria` são
+    // FUNÇÕES (as outras chaves deste grupo são string). A contagem `n`
+    // vem de `useCuradoria().top.length` — nunca uma segunda busca (D-03).
+    linhaChamadaOpcoesTexto: (n) => n === 1
+      ? "1 oportunidade de opções nas suas posições"
+      : `${n} oportunidades de opções nas suas posições`,
+    linhaChamadaOpcoesVazia: "Nenhuma oportunidade de opções agora",
+    linhaChamadaOpcoesCarregando: "Verificando oportunidades de opções…",
+    // Estado de ERRO de busca — distinto de "vazio" (que é um resultado
+    // real, zero candidatos elegíveis). Mostrar "0" aqui seria inventar
+    // valor (princípio 4 do CLAUDE.md); por isso a frase não cita número.
+    linhaChamadaOpcoesErro: "Não foi possível verificar agora — toque para ver na aba Opções",
+    // Existe porque o leitor de tela não deve anunciar só a seta "→".
+    linhaChamadaOpcoesAria: (texto) => `${texto} — abrir aba Opções`,
 
     // Fase 30 (Plano 04, D4): bloco "as 4 melhores estruturas", irmão da
     // tira acima. Nenhuma frase promete rentabilidade, garante lucro ou usa
@@ -615,11 +653,24 @@ export const COPY = {
     // promove estrutura nenhuma — é didática sobre o número que o motor já
     // calculou (princípio 5).
     curadoriaTitulo: "AS 4 MELHORES OPORTUNIDADES DE OPÇÕES",
-    curadoriaSubtitulo: "Ordenadas pelo motor por prêmio sobre perda máxima — a ordem não muda com a explicação da IA.",
+    // Fase 32 (32-01, D-05): reescrito — nomeia explicitamente que a
+    // varredura inclui posições que a leitura técnica ainda NÃO confirma
+    // (é o que distingue o Bloco B do Bloco A/tira, agora vizinhos na
+    // mesma tela) e reforça que a ordem é do motor, não da IA.
+    curadoriaSubtitulo: "As 4 melhores por prêmio ÷ perda máxima, entre todas as posições e vencimentos varridos — inclusive as que a leitura técnica ainda não confirma. A ordem é do motor; não muda com a explicação da IA.",
     curadoriaCarregando: "Varrendo sua carteira em busca das melhores oportunidades…",
     // ESTADO (NAV-03), sem CTA — nomeia o motivo, mesmo precedente de
     // tiraOpcoesSemCobertura acima.
     curadoriaVazio: "Nenhuma estrutura elegível nos vencimentos varridos — por isso não há nada para ranquear agora.",
+    // Fase 32 (32-01): correção de estado obrigatória (achado do UI-SPEC).
+    // `useCuradoria().erro` já existia mas nunca era exibido — falha de
+    // busca caía no ramo `top.length === 0 && !carregando`, que mostra
+    // `curadoriaVazio` ("nenhuma estrutura elegível"), afirmando um
+    // resultado que ninguém mediu (princípio 4 do CLAUDE.md: não invente
+    // valores, mostre o estado correto). Texto IDÊNTICO nos dois modos —
+    // constatação de fato sobre falha técnica, não voz de personagem.
+    curadoriaErroBusca: "Não foi possível varrer sua carteira agora. Isto não significa que não há oportunidade — significa que a busca falhou. Toque para tentar de novo.",
+    curadoriaErroBuscaCta: "Tentar de novo",
     curadoriaRazaoRotulo: "prêmio sobre perda máxima",
     curadoriaRazaoAjuda: "Prêmio negativo significa que montar a estrutura custa dinheiro (é uma proteção) — por isso ela pode aparecer embaixo na mesma régua, sem que isso seja um defeito do ranking.",
     // Quick 260915-ndt: defeito corrigido — o painel inline de confirmação
@@ -1137,7 +1188,11 @@ export const COPY = {
     // comentário acima). Registro de mesa nos estados de carregamento/vazio
     // e na afordância da posição; rótulo de seção e micro-rótulo de ação
     // permanecem idênticos ao ramo estudo.
-    tiraOpcoesTitulo: "OPORTUNIDADES DE OPÇÕES",
+    //
+    // Fase 32 (32-01, D-01/D-03/D-05): título REESCRITO, mesmo motivo do
+    // ramo estudo (ver comentário acima) — voz de mesa, curta.
+    tiraOpcoesTitulo: "CONFIRMADAS PELA LEITURA TÉCNICA",
+    tiraOpcoesSubtitulo: "Só entram aqui posições cuja leitura técnica confirma a estrutura agora — mesmo motor do gatilho do Radar.",
     tiraOpcoesVerDetalhe: "ver detalhe",
     tiraOpcoesCarregando: "Varrendo suas posições…",
     tiraOpcoesSemCobertura: "Nenhuma posição com opção líquida hoje — sem contrato líquido, não há estrutura para montar.",
@@ -1147,15 +1202,36 @@ export const COPY = {
     tiraOpcoesSemMercado: "As opções das suas posições estão hoje na faixa SEM MERCADO — negociaram tão pouco que o preço da tela não é um preço real de execução. Nenhuma estrutura é montada sobre elas agora.",
     linhaPropostaNaPosicao: "Estrutura de opções disponível nesta posição",
 
+    // Fase 32 (32-01, D-05): mesma chave do ramo estudo (ver comentário
+    // acima) — texto IDÊNTICO nos dois modos DE PROPÓSITO (constatação de
+    // fato sobre dois motores determinísticos, não voz de personagem).
+    duasLeiturasIntro: "Duas leituras diferentes da sua carteira — nenhuma é mais certa que a outra: uma parte do que a leitura técnica confirma agora, a outra varre a cadeia inteira sem exigir essa confirmação.",
+
+    // Fase 32 (32-01, D-01/D-02/D-03): mesma chave do ramo estudo (ver
+    // comentário acima) — texto IDÊNTICO nos dois modos.
+    linhaChamadaOpcoesTexto: (n) => n === 1
+      ? "1 oportunidade de opções nas suas posições"
+      : `${n} oportunidades de opções nas suas posições`,
+    linhaChamadaOpcoesVazia: "Nenhuma oportunidade de opções agora",
+    linhaChamadaOpcoesCarregando: "Verificando oportunidades de opções…",
+    linhaChamadaOpcoesErro: "Não foi possível verificar agora — toque para ver na aba Opções",
+    linhaChamadaOpcoesAria: (texto) => `${texto} — abrir aba Opções`,
+
     // Fase 30 (Plano 04, D4): mesma chave do ramo estudo (ver comentário
     // acima). Voz de mesa, sem verbo de ordem, sem promessa de lucro.
     //
     // Fase 31 (Plano 04, D-04): mesma reescrita/extensão do ramo estudo
     // (ver comentário acima) — voz de mesa, curta.
     curadoriaTitulo: "AS 4 MELHORES OPORTUNIDADES DE OPÇÕES",
-    curadoriaSubtitulo: "Ordenadas pelo motor por prêmio sobre perda máxima — a ordem não muda com o texto da IA.",
+    // Fase 32 (32-01, D-05): reescrito, mesmo motivo do ramo estudo (ver
+    // comentário acima) — voz de mesa, curta.
+    curadoriaSubtitulo: "As 4 melhores por prêmio ÷ perda máxima, entre todas as posições e vencimentos varridos — inclusive as que a leitura técnica ainda não confirma. Ordem do motor; a IA não reordena.",
     curadoriaCarregando: "Varrendo a carteira…",
     curadoriaVazio: "Nenhuma estrutura elegível nos vencimentos varridos — sem nada para ranquear agora.",
+    // Fase 32 (32-01): mesma correção de estado do ramo estudo (ver
+    // comentário acima) — texto IDÊNTICO nos dois modos.
+    curadoriaErroBusca: "Não foi possível varrer sua carteira agora. Isto não significa que não há oportunidade — significa que a busca falhou. Toque para tentar de novo.",
+    curadoriaErroBuscaCta: "Tentar de novo",
     curadoriaRazaoRotulo: "prêmio / perda máxima",
     curadoriaRazaoAjuda: "Prêmio negativo = a estrutura custa para montar (proteção) — por isso pode aparecer embaixo na régua.",
     // Quick 260915-ndt: mesmo defeito/motivo do ramo estudo (ver comentário
