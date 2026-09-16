@@ -5,13 +5,13 @@ milestone_name: Opções v2
 status: executing
 stopped_at: 'Fase 31 e quick task 260915-j5l ambas em produção. **Achado de infraestrutura de deploy (2026-09-15)**: Railway só observa a branch `main` — `git push` em `v2/interacao-estrutural` sozinho nunca chega à produção. A Fase 31 tinha ficado presa por isso desde 2026-09-14 (push só na branch de longa duração); corrigido com fast-forward + push explícito em `main`, e o mesmo padrão (`git push origin HEAD:main`, além da branch de trabalho) foi repetido para o quick task seguinte. Daqui pra frente, publicar = push nas DUAS branches, não só na de trabalho. **260915-j5l**: Alex achou em produção que os 4 cards da lista curada da Fase 31 mostravam a estrutura mas o clique não executava nenhuma (`onClick` só passava o ticker, caindo no acordeão antigo de proposta única). Confirmação inline no card, despacho por tipo pras 3 rotas já existentes, verificado ao vivo pelo orquestrador (clique real → posição real aberta, cash creditado). Em produção desde F10-20260915-01. Nota de guardrail aplicada: mutadores de estado do gsd-sdk não foram chamados — STATE.md editado à mão. Ver `.planning/quick/260915-j5l-corrigir-clique-nos-cards-da-lista-curad/`.'
 last_updated: "2026-09-15T00:00:00.000Z"
-last_activity: "2026-09-15 — /gsd:ui-phase 32: UI-SPEC aprovado 6/6 pelo checker (2 BLOCKs de forma resolvidos com assinatura do Alex nas escalas herdadas; FLAG de hierarquia fechado com contrato mensurável em 375×667). Antes, no mesmo dia: /gsd-discuss-phase 32 (D-01..D-06) e a pesquisa da fase, que gerou D-07. Próximo passo: /gsd:plan-phase 32."
+last_activity: "2026-09-15 — /gsd:plan-phase 32: 5 planos em 5 waves sequenciais, VERIFICATION PASSED na 2ª iteração (1 blocker real fechado: referência pendurada de `opcoesPorTicker` entre as waves 3 e 4) e gate de decisões 4/4. Antes, no mesmo dia: /gsd-discuss-phase 32 (D-01..D-06), a pesquisa (que gerou D-07) e o UI-SPEC aprovado 6/6. Próximo passo: /gsd:execute-phase 32."
 progress:
   total_phases: 10
   completed_phases: 5
-  total_plans: 44
+  total_plans: 49
   completed_plans: 43
-  percent: 98
+  percent: 88
 ---
 
 # Project State
@@ -21,13 +21,65 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-06)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Phase 32 — Consolidação das operações de opções na aba Opções (DISCUTIDA + PESQUISADA + UI-SPEC APROVADO em 2026-09-15; próximo passo `/gsd:plan-phase 32`). Fase 31 e as duas quick tasks do dia estão em produção.
+**Current focus:** Phase 32 — Consolidação das operações de opções na aba Opções (PLANEJADA em 2026-09-15, 5 planos; próximo passo `/gsd:execute-phase 32`). Fase 31 e as duas quick tasks do dia estão em produção.
 
 ## Current Position
 
-Phase: 32 (Consolidação das operações de opções na aba Opções) — UI-SPEC APROVADO, pronta para planejar
+Phase: 32 (Consolidação das operações de opções na aba Opções) — PLANEJADA, pronta para executar
 
-**Sessão de 2026-09-15 (pesquisa + contrato de UI), depois da discussão:**
+**Sessão de 2026-09-15 (planejamento), depois do UI-SPEC:**
+
+`gsd-pattern-mapper` rodou primeiro: 7 arquivos mapeados, 7 com analog exato —
+esta é fase de extração/movimentação, não de UI nova. O achado que mais
+importa para o executor: `test_opcoes_analisar_ui.mjs` tem uma allowlist
+`ARQUIVOS` hardcoded que NÃO cobre arquivo novo em `web/src/opcoes/`, então
+guardião que parece passar pode estar inerte.
+
+`gsd-planner` (opus) gerou **5 planos em 5 waves, todas sequenciais** — não há
+paralelismo honesto a extrair porque `App.jsx` e `OpcoesScreen.jsx` são tocados
+por quase todos. 32-01 vocabulário em `copy.js`; 32-02 extração dos 3
+componentes para `web/src/opcoes/` + `useCuradoria` sobe para `App()`; 32-03 os
+blocos cross-carteira migram para o topo da sub-aba Setups e Posições fica com
+a linha única; 32-04 sub-aba Operar ganha multi-candidato e `PropostaDaPosicao`
+morre; 32-05 auditoria da cadeia do collar + checkpoint ao vivo + bump/
+publicação (`autonomous: false`, checkpoint bloqueante).
+
+**As duas decisões que o CONTEXT exigia por escrito ficaram escritas.**
+(A, no 32-02) o fetch de `useCuradoria()` sobe para `App()` com flag monotônica
+`curadoriaAtiva`, ligada por visita a Posições ou Opções, **nunca por boot** —
+zero chamada para quem não abre as telas, uma varredura por sessão para quem
+abre, menos que hoje, que refaz a cada volta a Posições; o custo contra
+`mydata_budget` está declarado no plano. (B, no 32-04) multi-candidato é
+**portado**, não aceito como débito: `PropostaDaPosicao` não se move, ela morre,
+porque das três coisas que faz só o ramo `multi` tem valor fora da lista de
+posições.
+
+**O plan-checker achou 1 blocker real, e ele não era de forma.** O 32-03
+removia a chamada de `useOpcoesPropostas` em `CarteiraScreen` na wave 3, mas o
+consumidor da linha ~5009 (`PropostaDaPosicao`) só sumia na wave 4 —
+`ReferenceError` em render para qualquer usuário com posição aberta, ou seja, o
+caminho principal da fase. Nada automatizado pegaria: `vite build` é esbuild,
+sem TypeScript e sem ESLint em `web/`, e os guardiões `.mjs` são regex sobre o
+fonte, nenhum renderiza. Corrigido invertendo a ordem (a definição sai na wave
+3, a chamada sobrevive e só sai na wave 4, junto do último consumidor) e —
+mais importante — com **regra nova de guardião contra a classe inteira do
+defeito**: identificador usado sem declaração em `App.jsx` reprova. Re-verificado:
+VERIFICATION PASSED, incluindo a checagem de que o estado intermediário da wave
+3 não chega a produção (só o 32-05 publica) nem a `mydata_budget` (o provider de
+produção desse caminho é Yahoo, não mydata).
+
+**Gate de cobertura de decisões reprovou primeiro, e expôs uma lacuna real.**
+1/4 na primeira rodada: D-01, D-02 e D-07 só existiam no `requirements:` do
+frontmatter, que o gate não lê — ele só procura `D-NN` em
+`must_haves`/`truths`/`objective`. Corrigir não foi colar ids: o D-07 **não
+tinha nenhuma truth**, então um executor que DELETASSE `OportunidadesOpcoes` em
+vez de movê-la passaria em todos os critérios de aceite. Truth nova escrita para
+ele. 4/4 na segunda rodada, conferido pelo orquestrador.
+
+*Guardrail aplicado:* mutadores de estado do gsd-sdk não foram chamados —
+este STATE.md foi editado à mão.
+
+## Posição anterior nesta fase (pesquisa + contrato de UI)
 
 *Pesquisa (`32-RESEARCH.md`).* Mapeou por leitura direta os 4 blocos que se
 movem (as linhas do CONTEXT.md tinham deslocado), o hook `useCuradoria()`, a

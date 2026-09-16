@@ -752,10 +752,20 @@ funcionando de onde quer que o card passe a viver).
 **Plans**: 5 plans
 
 Plans:
+
+**Wave 1**
 - [ ] 32-01-PLAN.md — vocabulário da fase em `copy.js` (rótulos dos dois motores, frase-ponte, linha de chamada, erro de busca) + guardião de paridade
+
+**Wave 2** *(blocked on Wave 1 completion)*
 - [ ] 32-02-PLAN.md — extração dos três componentes para `web/src/opcoes/` e `useCuradoria` subindo para `App()` com gatilho condicional (Decisão A)
+
+**Wave 3** *(blocked on Wave 2 completion)*
 - [ ] 32-03-PLAN.md — os dois blocos cross-carteira migram para o topo da sub-aba Setups; Posições fica com a linha de chamada única
+
+**Wave 4** *(blocked on Wave 3 completion)*
 - [ ] 32-04-PLAN.md — sub-aba Operar ganha multi-candidato (Decisão B); `PropostaDaPosicao` sai de Posições
+
+**Wave 5** *(blocked on Wave 4 completion)*
 - [ ] 32-05-PLAN.md — auditoria da cadeia do collar curado, checkpoint ao vivo e publicação (bump + `publicar-web.sh` + push nas duas branches)
 
 **Success Criteria** (what must be TRUE), fechados em `/gsd-discuss-phase 32`
