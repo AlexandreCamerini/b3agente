@@ -13,7 +13,15 @@ artefato desta task é este próprio arquivo).
 
 ## 1. `git diff --name-only` do range que cobre a fase
 
-### 1a. Achado preliminar: `main...HEAD` (ingênuo) LISTA os arquivos proibidos
+**Aviso ao orquestrador/Alex, antes do veredito:** este item tem uma decisão
+de julgamento que o PLAN.md manda ESCALAR ("Se listar, é ACHADO: parar e
+reportar"), não resolver por conta própria. Reporto os dois resultados por
+completo abaixo, com o raciocínio de por que considero `bd459f1..HEAD` o
+range certo para julgar ESTA fase — mas essa é minha leitura, não um fato
+que eu possa fechar sozinho. Se o Alex (ou quem revisar isto) discordar do
+range, o veredito de "LIMPO" do item 1 muda.
+
+### 1a. Resultado bruto: `main...HEAD` (o range literal do texto do plano) LISTA os arquivos proibidos
 
 ```
 $ git diff --name-only main...HEAD
@@ -41,9 +49,23 @@ Ou seja: os arquivos proibidos foram tocados pelos QUICKS, que são
 PRÉ-REQUISITO desta fase (o 32-05-PLAN.md lista
 `260915-ndt-PLAN.md` como contexto obrigatório de leitura — é o commit que
 criou `optionsCuradoriaAbrirCollar`), não pela Fase 32 em si. `main...HEAD`
-mistura os dois. Não é ACHADO de regressão — é o range errado.
+mistura os dois.
 
-### 1b. Range correto: `bd459f1..HEAD` (só os commits da Fase 32)
+**Isto NÃO é um não-achado automático.** É um fato relevante por si só, com
+peso independente do range escolhido: `main`/`origin/main` estão atrasados
+de TODA a Fase 31 (publicada em produção via
+`F10-20260914-02/-03`... releases, mas aparentemente não mesclada de volta a
+`main` nesta branch) e dos dois quicks (`260915-j5l`/`260915-ndt`, também
+com releases próprios). A Interface section do 32-05-PLAN.md já avisa que
+"`bump.sh` deriva do valor LOCAL: mesclar `origin/main` ANTES de bumpar" —
+exatamente porque esse tipo de divergência existe. A Task 3 (retida, não
+executada por este agente) tem um passo explícito de merge antes do bump por
+esse motivo. Registro aqui para quem for decidir a Task 2/3: o estado de
+`main`/`origin/main` precisa ser investigado por quem aprovar a publicação —
+não é escopo desta Task 1 resolver, mas é fato que a Task 1 descobriu e não
+deve ficar enterrado.
+
+### 1b. Leitura alternativa: `bd459f1..HEAD` (só os commits da Fase 32)
 
 `bd459f1` é `docs(quick-260915-ndt): marca publicado em F10-20260915-02` — o
 ÚLTIMO commit antes de `df34cb6 docs(32): registra a Fase 32 e captura o
@@ -61,13 +83,20 @@ NÃO lista `web/src/opcoes/executarCandidato.js`, `web/src/persistence.js`,
 criaram ou modificaram (`CandidatoOpcao.jsx`, `CuradoriaEstruturas.jsx`,
 `OpcoesScreen.jsx`, `OportunidadesOpcoes.jsx`, `useOpcoesPropostas.js`), os 12
 guardiões `.mjs` tocados pelos planos anteriores, e artefatos de planejamento
-(`.planning/**`). **Critério de aceite do item 1 satisfeito, com o range
-correto.**
+(`.planning/**`). **Critério de aceite do item 1 satisfeito, SE este for o range aceito como
+"o range que cobre a fase".**
 
-**Veredito do item 1: LIMPO**, com a ressalva registrada acima sobre qual
-range é o certo (documentar isso é o próprio propósito da auditoria — evitar
-que um push ingênuo de `main...HEAD` levasse a Fase 31 e os dois quicks junto
-com a Fase 32, sem terem passado pela Task 2/3 desta fase).
+**Veredito do item 1: LIMPO condicional ao range `bd459f1..HEAD` ser
+aceito como o correto para julgar a Fase 32 — decisão que fica sinalizada
+para o orquestrador/Alex ratificar, não resolvida unilateralmente por este
+agente.** Pelo range literal do texto do plano (`main...HEAD`), o resultado
+é ACHADO: lista os 4 arquivos/diretórios proibidos, mais `server/web_dist`
+inteiro. A causa raiz não é código da Fase 32 vazando para fora do escopo —
+é `main`/`origin/main` estarem muito atrasados nesta branch (Fase 31 + 2
+quicks não mesclados de volta). Isso é, em si, um fato que quem for aprovar
+a Task 3 (merge + bump + publicação) precisa considerar antes de mesclar
+`origin/main`, exatamente pelo motivo que a seção `<interfaces>` do
+32-05-PLAN.md já registra.
 
 ---
 
@@ -223,9 +252,16 @@ tabela final, para o veredito não virar falso-positivo de regressão:
    registrado no 32-02-SUMMARY não bate nem com a contagem estática (51,
    confirmada por `git show` em TODOS os commits relevantes da fase, de
    antes da 32-02 até HEAD — sempre 51, nunca mudou) nem com nenhuma leitura
-   óbvia do arquivo. Não há como reconciliar essa transcrição
-   retroativamente; registro aqui como discrepância de PROSA no SUMMARY
-   32-02, não como evidência de perda de regra — a evidência direta
+   óbvia do arquivo. Verifiquei explicitamente se existe algum mecanismo de
+   subconjunto (flag de CLI, `process.argv`, `describe`/`only`, bloco
+   nomeado por seção) que rodasse só 13 das 51 asserções deste arquivo — não
+   existe: `grep -n "process.argv\|SECTION\|describe(\|only\b"` no arquivo
+   não devolve nada, e `node test_faixa_liquidez_ui.mjs` sempre executa e
+   imprime as 51. Não há como reconciliar essa transcrição retroativamente
+   com nenhum mecanismo real do arquivo; registro aqui como discrepância de
+   PROSA no SUMMARY 32-02 (possível erro de transcrição do executor daquela
+   sessão, não algo que eu consiga explicar por diferença de metodologia),
+   não como evidência de perda de regra — a evidência direta
    (`git show <commit>:<arquivo> | grep -c "ok("`) mostra 51 em todo ponto
    verificável da fase, sem nenhuma queda.
 
@@ -269,11 +305,21 @@ pré-Fase-32 (43→47) segue positiva.
 
 ## Veredito final da Task 1
 
-**LIMPA**, com uma ressalva documentada (item 1a — `main...HEAD` não é o
-range certo para julgar esta fase; `bd459f1..HEAD` é) e uma nota de
-metodologia sobre a contagem de `ok(` (item 7 — estática vs. execução, e uma
-discrepância de prosa em dois SUMMARYs anteriores que não corresponde a
-nenhuma perda real de regra, verificada via `git show`).
+**LIMPA nos itens 2 a 7, sem ressalva** — a cadeia de execução do collar
+curado, a paridade dos stores, o chamador único de UI, a suíte canônica
+inteira, o build e os 11 guardiões nominais não têm nenhum achado.
+
+**Item 1 fica ACHADO-CONDICIONAL, sinalizado e não resolvido
+unilateralmente:** pelo range literal do plano (`main...HEAD`), o diff
+LISTA os 4 arquivos/diretórios proibidos — não porque a Fase 32 os tocou,
+mas porque `main`/`origin/main` estão atrasados de toda a Fase 31 e dos
+quicks 260915-j5l/260915-ndt nesta branch. Uso `bd459f1..HEAD` (só os
+commits da Fase 32) como a leitura que julgo correta, e por esse range o
+item 1 também é LIMPO — mas essa escolha de range é uma decisão que o
+próprio plano manda escalar, não fechar por conta própria. Fica para o
+orquestrador/Alex ratificar antes da Task 3 (que já tem, por desenho, um
+passo de merge com `origin/main` antes do bump — o lugar certo para lidar
+com essa divergência).
 
 A cadeia de execução do collar curado (`card → handleExecutar → onExecutar →
 ctx.A.executarCandidatoCurado → executarCandidato() → store.optionsCuradoriaAbrirCollar
