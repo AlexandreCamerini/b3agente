@@ -40,7 +40,7 @@
 //      criou a sub-aba nova.
 //
 // Roda sem build: `node web/tests/test_opcoes_subabas_ui.mjs`.
-import { readFileSync } from "fs";
+import { readFileSync, readdirSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { COPY } from "../src/copy.js";
@@ -88,6 +88,24 @@ ok("OpcoesScreen.jsx não importa App.jsx",
    !/from\s+["'][^"']*App\.jsx["']/.test(fontes["OpcoesScreen.jsx"]));
 ok("PropostaLastreada.jsx não importa OpcoesScreen.jsx",
    !/from\s+["'][^"']*OpcoesScreen\.jsx["']/.test(propostaModulo));
+
+// Fase 32 (32-03, 2026-09-15): estende o invariante acima a TODOS os arquivos de
+// web/src/opcoes/, inclusive os criados pelos Planos 32-02/32-03
+// (OportunidadesOpcoes.jsx, CuradoriaEstruturas.jsx, CandidatoOpcao.jsx,
+// useOpcoesPropostas.js) — nenhum módulo desta pasta pode importar
+// App.jsx (fecharia o ciclo que a Emenda 3 do ADR-027 proíbe). Varredura
+// por DIRETÓRIO, não lista fixa: um arquivo novo entra automaticamente na
+// checagem, sem precisar lembrar de atualizar este guardião.
+const arquivosOpcoesDir = readdirSync(dirOpcoes).filter((f) => f.endsWith(".jsx") || f.endsWith(".js"));
+ok("achou pelo menos 10 arquivos em web/src/opcoes/ (sanidade da varredura por diretório)",
+   arquivosOpcoesDir.length >= 10);
+const comImportDeApp = arquivosOpcoesDir.filter((f) => {
+  const src = readFileSync(join(dirOpcoes, f), "utf8");
+  return /from\s+["'][^"']*App\.jsx["']/.test(src);
+});
+ok("nenhum arquivo de web/src/opcoes/ importa App.jsx"
+   + (comImportDeApp.length ? " (violam: " + comImportDeApp.join(", ") + ")" : ""),
+   comImportDeApp.length === 0);
 
 // ---- 2) custo zero de MCP em SubAbaOperar -----------------------------------
 ok("`SubAbaOperar` não chama nenhum método `store.mcp*` (ADR-027 §3.3)",

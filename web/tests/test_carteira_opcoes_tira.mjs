@@ -6,6 +6,16 @@
 // DEFINIÇÃO passa a apontar para o módulo; as âncoras de USO (call site em
 // CarteiraScreen) continuam em App.jsx até o Plano 32-03.
 //
+// 2026-09-15, Fase 32 (32-03): o bloco cross-carteira mudou de TELA — de
+// `CarteiraScreen` (`App.jsx`) para o topo da sub-aba Setups
+// (`OpcoesScreen.jsx`, D-04/D-07). As âncoras de USO passam a apontar para
+// lá; `App.jsx` não renderiza mais `<OportunidadesOpcoes` — Posições passa
+// a ter uma linha de chamada (`LinhaChamadaOpcoes`) no lugar. A DEFINIÇÃO
+// de `useOpcoesPropostas` também saiu de App.jsx (para
+// ./opcoes/useOpcoesPropostas.js) — a chamada em CarteiraScreen sobrevive
+// (PropostaDaPosicao ainda a consome, até o Plano 32-04), e OpcoesScreen.jsx
+// ganha uma segunda chamada, sobre o mesmo universo (a carteira).
+//
 // Este arquivo tranca a CLASSE de erros que a Fase 18 pode reintroduzir, não
 // a instância — cada bloco abaixo defende uma regra que o autor de uma
 // edição futura em App.jsx não tem por que conhecer de cor:
@@ -46,6 +56,12 @@ const modulo = readFileSync(join(here, "..", "src", "opcoes", "PropostaLastreada
 // (`<OportunidadesOpcoes`, `useOpcoesPropostas`, `CarteiraScreen`) continuam
 // em App.jsx até o Plano 32-03.
 const moduloOO = readFileSync(join(here, "..", "src", "opcoes", "OportunidadesOpcoes.jsx"), "utf8");
+// Fase 32 (32-03): o call site (`<OportunidadesOpcoes`) mudou de tela, e a
+// DEFINIÇÃO de useOpcoesPropostas saiu para seu próprio módulo.
+const telaOpcoes = readFileSync(join(here, "..", "src", "opcoes", "OpcoesScreen.jsx"), "utf8");
+const telaOpcoesSemComentario = telaOpcoes.split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n");
+const moduloUOP = readFileSync(join(here, "..", "src", "opcoes", "useOpcoesPropostas.js"), "utf8");
+const moduloUOPSemComentario = moduloUOP.split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n");
 
 let fails = 0;
 const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if (!cond) fails++; };
@@ -94,17 +110,24 @@ ok("dentro de Operador, SemMercado ≠ SemCobertura e SemMercado ≠ SemSetup",
 // ATUALIZADO 2026-09-15 (Fase 32, 32-02): `OportunidadesOpcoes` saiu de
 // App.jsx — restam PropostaDaPosicao < useOpcoesPropostas < CarteiraScreen <
 // HistoricoScreen (4 âncoras, não mais 5).
+// ATUALIZADO 2026-09-15 (Fase 32, 32-03): a DEFINIÇÃO de `useOpcoesPropostas`
+// também saiu de App.jsx (para ./opcoes/useOpcoesPropostas.js) — só a
+// CHAMADA sobrevive dentro de CarteiraScreen. Restam PropostaDaPosicao <
+// CarteiraScreen < HistoricoScreen (3 âncoras).
 const iPDP = app.indexOf("function PropostaDaPosicao");
-const iHook = app.indexOf("function useOpcoesPropostas");
 const iCarteira = app.indexOf("function CarteiraScreen(");
 const iHistorico = app.indexOf("function HistoricoScreen(");
-ok("as 4 âncoras de função restantes em App.jsx foram localizadas, na ordem esperada",
-  iPDP > -1 && iHook > iPDP && iCarteira > iHook && iHistorico > iCarteira);
+ok("(Fase 32/32-03) as 3 âncoras de função restantes em App.jsx foram localizadas, na ordem esperada",
+  iPDP > -1 && iCarteira > iPDP && iHistorico > iCarteira);
+ok("(Fase 32/32-03) function useOpcoesPropostas NÃO existe mais em App.jsx (definição saiu para o módulo)",
+  !/function useOpcoesPropostas/.test(app.split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n")));
 
 // A "fatia" de OportunidadesOpcoes agora É o módulo inteiro — substitui o
 // antigo `app.slice(iOO, iPDP)`.
 const fatiaOO = moduloOO;
-const fatiaPDP = app.slice(iPDP, iHook);
+// PropostaDaPosicao vai até a próxima função declarada em App.jsx (era
+// `function useOpcoesPropostas`, que saiu — agora é `function useCuradoria`).
+const fatiaPDP = app.slice(iPDP, app.indexOf("function useCuradoria"));
 const fatiaCarteira = app.slice(iCarteira, iHistorico);
 
 // ---- (2) Guardrail CVM na tira --------------------------------------------
@@ -132,23 +155,36 @@ ok("OportunidadesOpcoes referencia cp.tiraOpcoesCarregando",
 ok("o ramo de carregando é avaliado ANTES do ramo vazio (a tira não mente durante a busca)",
   fatiaOO.indexOf("cp.tiraOpcoesCarregando") < fatiaOO.indexOf("cp.tiraOpcoesSemCobertura"));
 
-// ---- (4) Tira ausente com carteira vazia ----------------------------------
-const iTag = app.indexOf("<OportunidadesOpcoes");
-const iEmptyGuard = app.indexOf("{data.positions.length === 0 && (");
-ok("<OportunidadesOpcoes aparece depois de function CarteiraScreen(",
-  iTag > iCarteira);
-ok("<OportunidadesOpcoes aparece antes da guarda de portfólio vazio",
-  iTag > -1 && iEmptyGuard > -1 && iTag < iEmptyGuard);
-const antesTag = app.slice(Math.max(0, iTag - 120), iTag);
-ok("os 120 caracteres imediatamente anteriores a <OportunidadesOpcoes contêm data.positions.length > 0",
-  antesTag.includes("data.positions.length > 0"));
+// ---- (4, Fase 32/32-03) Tira migrou para OpcoesScreen.jsx -----------------
+// O call site (`<OportunidadesOpcoes`) e sua guarda de carteira vazia
+// pertenciam a CarteiraScreen; agora o bloco vive no topo da sub-aba Setups
+// de OpcoesScreen.jsx, e Posições fica com a linha de chamada (D-01).
+ok("(Fase 32/32-03) <OportunidadesOpcoes aparece exatamente 1x no fonte de OpcoesScreen.jsx",
+  (telaOpcoesSemComentario.match(/<OportunidadesOpcoes/g) || []).length === 1);
+ok("(Fase 32/32-03) <OportunidadesOpcoes aparece 0x em App.jsx (call site saiu de CarteiraScreen)",
+  (fonteSemComentario.match(/<OportunidadesOpcoes/g) || []).length === 0);
+const iUsoOOTela = telaOpcoesSemComentario.indexOf("{blocoOportunidades}");
+const iUsoVigiasTela = telaOpcoesSemComentario.indexOf("{blocoVigias}");
+ok("(Fase 32/32-03) {blocoOportunidades} é usado antes de {blocoVigias} em OpcoesScreen.jsx",
+  iUsoOOTela > -1 && iUsoVigiasTela > iUsoOOTela);
+ok("(Fase 32/32-03) App.jsx contém <LinhaChamadaOpcoes exatamente 1x (D-01: substitui os dois blocos em Posições)",
+  (fonteSemComentario.match(/<LinhaChamadaOpcoes/g) || []).length === 1);
 
 // ---- (5) Estrutura só sobre posição real -----------------------------------
-ok("useOpcoesPropostas( dentro de CarteiraScreen recebe data.positions.map( como argumento",
-  /useOpcoesPropostas\(data\.positions\.map\(/.test(fatiaCarteira));
+// ATUALIZADO (Fase 32/32-03): store passou a ser o 1º argumento (a DEFINIÇÃO
+// saiu para o módulo) — dois chamadores agora, ambos sobre posição real:
+// CarteiraScreen (data.positions) e OpcoesScreen.jsx (carteira, que é
+// ctx.data.positions filtrado).
+ok("useOpcoesPropostas( dentro de CarteiraScreen recebe (store, data.positions.map( como argumentos",
+  /useOpcoesPropostas\(store, data\.positions\.map\(/.test(fatiaCarteira));
 const linhaHookCall = (fatiaCarteira.match(/^.*useOpcoesPropostas\(.*$/m) || [""])[0];
-ok("a chamada de useOpcoesPropostas não menciona watchlist nem radar",
+ok("a chamada de useOpcoesPropostas em CarteiraScreen não menciona watchlist nem radar",
   linhaHookCall.length > 0 && !/watchlist|radar/i.test(linhaHookCall));
+ok("(Fase 32/32-03) useOpcoesPropostas( dentro de OpcoesScreen.jsx recebe (store, carteira.map( como argumentos",
+  /useOpcoesPropostas\(store, carteira\.map\(/.test(telaOpcoesSemComentario));
+const linhaHookCallTela = (telaOpcoesSemComentario.match(/^.*useOpcoesPropostas\(.*$/m) || [""])[0];
+ok("(Fase 32/32-03) a chamada de useOpcoesPropostas em OpcoesScreen.jsx não menciona watchlist nem radar",
+  linhaHookCallTela.length > 0 && !/watchlist|radar/i.test(linhaHookCallTela));
 
 // ---- (6) Best-effort preservado --------------------------------------------
 // Em vez de uma janela fixa de caracteres (que quebra em falso quando uma
@@ -183,22 +219,35 @@ function encadeamentoTemCatch(src, chamada) {
   }
   return { achou: true, temCatch };
 }
-const fatiaHookSemComentario = fonteSemComentario.slice(
-  fonteSemComentario.indexOf("function useOpcoesPropostas"),
-  fonteSemComentario.indexOf("function CarteiraScreen(")
-);
+// ATUALIZADO (Fase 32/32-03): o corpo do hook não vive mais dentro de
+// App.jsx — a fatia agora É o módulo inteiro (useOpcoesPropostas.js), mesmo
+// padrão de fatiaOO acima (a "fatia" de um componente/hook extraído passa a
+// ser o arquivo inteiro, não um slice de App.jsx).
+const fatiaHookSemComentario = moduloUOPSemComentario;
 const rGate = encadeamentoTemCatch(fatiaHookSemComentario, "store.optionsGate(");
 const rProp = encadeamentoTemCatch(fatiaHookSemComentario, "store.optionsProposta(");
-ok("store.optionsGate( encontrado no corpo de useOpcoesPropostas", rGate.achou);
+ok("store.optionsGate( encontrado no corpo de useOpcoesPropostas (módulo)", rGate.achou);
 ok("o encadeamento de store.optionsGate( contém .catch(", rGate.temCatch);
-ok("store.optionsProposta( encontrado no corpo de useOpcoesPropostas", rProp.achou);
+ok("store.optionsProposta( encontrado no corpo de useOpcoesPropostas (módulo)", rProp.achou);
 ok("o encadeamento de store.optionsProposta( contém .catch(", rProp.temCatch);
 
 // ---- (7) Uma busca por ticker, não duas ------------------------------------
-ok("store.optionsGate( aparece exatamente 2x no fonte (AtivoCard + hook — não uma 3ª busca duplicada)",
-  (fonteSemComentario.match(/store\.optionsGate\(/g) || []).length === 2);
-ok("store.optionsProposta( aparece exatamente 2x no fonte (AtivoCard + hook)",
-  (fonteSemComentario.match(/store\.optionsProposta\(/g) || []).length === 2);
+// ATUALIZADO (Fase 32/32-03): a DEFINIÇÃO do hook saiu de App.jsx — a
+// contagem de 2x (AtivoCard + hook) no MESMO arquivo não se aplica mais.
+// Agora: App.jsx tem só a chamada de AtivoCard (1x); o hook (a busca de
+// verdade) mora sozinho no módulo (1x) — dois CHAMADORES do hook
+// (CarteiraScreen + OpcoesScreen.jsx) continuam sendo UMA busca cada, via
+// import da MESMA função, nunca uma reimplementação.
+ok("(Fase 32/32-03) store.optionsGate( aparece exatamente 1x em App.jsx (só AtivoCard — a busca do hook saiu daqui)",
+  (fonteSemComentario.match(/store\.optionsGate\(/g) || []).length === 1);
+ok("(Fase 32/32-03) store.optionsProposta( aparece exatamente 1x em App.jsx (só AtivoCard)",
+  (fonteSemComentario.match(/store\.optionsProposta\(/g) || []).length === 1);
+ok("(Fase 32/32-03) store.optionsGate( aparece exatamente 1x em useOpcoesPropostas.js (não uma 3ª busca duplicada)",
+  (moduloUOPSemComentario.match(/store\.optionsGate\(/g) || []).length === 1);
+ok("(Fase 32/32-03) store.optionsProposta( aparece exatamente 1x em useOpcoesPropostas.js",
+  (moduloUOPSemComentario.match(/store\.optionsProposta\(/g) || []).length === 1);
+ok("(Fase 32/32-03) OpcoesScreen.jsx importa useOpcoesPropostas (não reimplementa o fan-out)",
+  /from\s+"\.\/useOpcoesPropostas\.js"/.test(telaOpcoes));
 
 // ---- (8) Silêncio deliberado do card individual ----------------------------
 ok("PropostaDaPosicao tem guarda de retorno null quando não há proposta",
@@ -218,13 +267,22 @@ ok("histFor === p.t segue presente (padrão copiado, não substituído)",
 ok("editFor === p.t segue presente",
   /editFor === p\.t/.test(fatiaCarteira));
 
-// ---- (10) Âncora de scroll ligada --------------------------------------------
+// ---- (10, Fase 32/32-03) scroll-to-id aposentado, substituído por navegação
+// A âncora `id={"posicao-" + p.t}` continua no card de posição (não é
+// exigida por nenhum consumidor novo, mas removê-la é fora de escopo deste
+// plano — não é usada por nada que quebre se ficar). `abrirOpcoesDe`
+// (o scroll-to-id que a alimentava) foi REMOVIDO: o Pitfall 4 do
+// 32-RESEARCH.md é exatamente isto — o elemento `#posicao-<t>` só existe
+// em CarteiraScreen, então "ver posição" a partir da aba Opções não pode
+// depender de scrollIntoView. A navegação de Posições para a aba Opções
+// agora é `ctx.goOpcoes` (ver test_curadoria_ui.mjs/
+// test_opcoes_consolidacao_ui.mjs).
 ok('id={"posicao-" + p.t} presente no card de posição',
   app.includes('id={"posicao-" + p.t}'));
-ok('getElementById("posicao-" + t) seguido de scrollIntoView( presente',
-  /getElementById\("posicao-" \+ t\)[\s\S]{0,120}scrollIntoView\(/.test(app));
-ok("abrirOpcoesDe chama setOpcoesFor(",
-  /const abrirOpcoesDe = \(t\) => \{\s*setOpcoesFor\(/.test(fatiaCarteira));
+ok("(Fase 32/32-03) abrirOpcoesDe NÃO existe mais em App.jsx (scroll-to-id sem chamador nesta tela)",
+  !fonteSemComentario.includes("abrirOpcoesDe"));
+ok("(Fase 32/32-03) getElementById(\"posicao-\" + t) seguido de scrollIntoView( NÃO aparece mais em App.jsx",
+  !/getElementById\("posicao-" \+ t\)[\s\S]{0,120}scrollIntoView\(/.test(app));
 
 // ---- (11) Assinatura de PropostaLastreada ---------------------------
 // ATUALIZADO 2026-09-08 (quick 260908-ldg): ganhou `onVerbeteLiquidez`

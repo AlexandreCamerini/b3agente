@@ -76,11 +76,22 @@ const fonteSemComentario = linhasSemComentario.join("\n");
 // IMPORTADO por App.jsx e não é reimplementado em nenhum outro .jsx de
 // web/src/ (contagem de `function CandidatoOpcao`/`export default function
 // CandidatoOpcao` no diretório inteiro igual a 1).
+// ATUALIZADO 2026-09-15 (Fase 32, 32-03, deviation — Rule 1, guardião
+// colateral fora de files_modified): a DEFINIÇÃO de `useOpcoesPropostas`
+// também saiu de App.jsx (para ./opcoes/useOpcoesPropostas.js) — a âncora
+// `function useOpcoesPropostas` não existe mais no arquivo, e usá-la como
+// fim de fatia produzia `iHook === -1` e `fatiaPDP === ""` (mudo, não
+// vazio-e-correto), fazendo as regras que dependem de `fatiaPDP` passarem
+// por vacuidade ou falharem por ausência de conteúdo. A próxima função
+// declarada em App.jsx depois de PropostaDaPosicao passou a ser
+// `useCuradoria` (32-02) — usada como novo limite.
 const iPDP = app.indexOf("function PropostaDaPosicao");
-const iHook = app.indexOf("function useOpcoesPropostas");
+const iHookCur = app.indexOf("function useCuradoria");
 ok("function PropostaDaPosicao localizada", iPDP > -1);
 ok("function CandidatoOpcao localizada (no módulo)", moduloCO.includes("export default function CandidatoOpcao"));
-ok("function useOpcoesPropostas localizada", iHook > -1);
+ok("(Fase 32/32-03) function useOpcoesPropostas NÃO existe mais em App.jsx (definição saiu para o módulo)",
+  !fonteSemComentario.includes("function useOpcoesPropostas"));
+ok("(Fase 32/32-03) function useCuradoria localizada (novo limite de fatia de PropostaDaPosicao)", iHookCur > -1);
 ok("App.jsx importa CandidatoOpcao de ./opcoes/CandidatoOpcao.jsx",
   /from\s+"\.\/opcoes\/CandidatoOpcao\.jsx"/.test(app));
 ok("App.jsx NÃO define mais function CandidatoOpcao",
@@ -88,7 +99,9 @@ ok("App.jsx NÃO define mais function CandidatoOpcao",
 ok("CandidatoOpcao.jsx NÃO importa App.jsx (seria ciclo)",
   !/from\s+"[^"]*App\.jsx"/.test(moduloCO));
 
-const fatiaPDP = iPDP > -1 && iHook > iPDP ? app.slice(iPDP, iHook) : "";
+const fatiaPDP = iPDP > -1 && iHookCur > iPDP ? app.slice(iPDP, iHookCur) : "";
+ok("(Fase 32/32-03) fatiaPDP não é vazia (parse mudo — sem isto, as regras abaixo passariam por vacuidade)",
+  fatiaPDP.length > 100);
 // A "fatia" de CandidatoOpcao agora É o módulo inteiro (sem comentários,
 // mesma higiene do resto do arquivo) — substitui o antigo
 // `app.slice(iCO, iHook)`.

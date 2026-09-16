@@ -288,7 +288,7 @@ export default function CuradoriaEstruturas({ top, meta, carregando, erro, narra
           checker). `erro` tem PRECEDÊNCIA sobre o ramo vazio abaixo — antes
           desta correção, uma busca que FALHAVA caía no mesmo ramo de "nada
           elegível", afirmando um resultado que ninguém mediu (princípio 4
-          do CLAUDE.md). `T.warn`, nunca `T.negative` (vermelho é de P&L). */}
+          do CLAUDE.md). Cor de aviso — nunca a cor reservada a P&L. */}
       {top.length === 0 && !carregando && erro && (
         <div style={{ padding: "10px 11px", borderRadius: "9px", background: "color-mix(in srgb, " + T.warn + " 12%, transparent)", border: `1px solid ${T.warn}`, fontSize: "12px", color: T.warn, lineHeight: 1.5 }}>
           <div>{cp.curadoriaErroBusca}</div>
