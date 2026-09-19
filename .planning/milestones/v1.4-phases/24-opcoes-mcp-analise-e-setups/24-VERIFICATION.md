@@ -1,8 +1,14 @@
 ---
 phase: 24-opcoes-mcp-analise-e-setups
 verified: 2026-09-11T21:26:30Z
-status: gaps_found
-score: 5/7 critérios plenamente verificados (2 parciais)
+status: resolved
+resolved_at: 2026-09-19
+resolved_note: >-
+  F-01/F-02/F-03/F-04 fechados por planos de acompanhamento 24-06/24-07 (nunca
+  atualizaram este arquivo). Confirmado por grep no código atual antes do
+  fechamento do milestone v1.4, não por reverificação goal-backward completa —
+  ver seção "Resolvido" ao final.
+score: 5/7 critérios plenamente verificados (2 parciais) — na verificação original de 2026-09-11
 veredito: cumpre com ressalvas
 overrides_applied: 0
 gaps:
@@ -430,3 +436,30 @@ da base inteira, não de quem testa.
 
 *Verificado: 2026-09-11T21:26:30Z*
 *Verificador: Claude (gsd-verifier) — goal-backward, stance adversarial*
+
+## Resolvido (2026-09-19, ao fechar o milestone v1.4)
+
+Os quatro achados foram fechados por planos de acompanhamento (`24-06`, `24-07`)
+que corrigiram o código mas nunca atualizaram este documento — a auditoria de
+fechamento do v1.4 achou o `status: gaps_found` desatualizado e a checagem
+abaixo confirmou por grep, não por reverificação goal-backward completa:
+
+- **F-01** (razão ganho/perda ausente) — `web/src/copy.js`: `opcoesRazaoRotulo`/
+  `opcoesRazaoAjuda`. `server/app/options_mcp_api.py:145-153`: constantes
+  `RAZAO_GANHO_ILIMITADO`/`RAZAO_PERDA_ILIMITADA`/`RAZAO_SEM_DADO` tratando
+  explicitamente os casos de `unlimited_gain`/`unlimited_loss`/`max_loss = 0`
+  que o achado original exigia (nunca `0` nem `∞` silencioso).
+- **F-02** (`/setups/compilar` cai em 500 genérico) — `options_mcp_api.py:3038`:
+  `except (httpx.TimeoutException, httpx.HTTPError)` explícito, com comentário
+  "F-02: o caso que DE FATO acontece", traduzindo pra erro acionável em vez do
+  handler global.
+- **F-03** (`audit.record` sem guarda) — `options_mcp_api.py:2939`: função
+  dedicada, comentário "Grava a auditoria da escrita de setup SEM poder
+  derrubar a rota (F-03)".
+- **F-04** (recusa de tool não debitava cap, decisão do Alex) — decidido e
+  implementado em `24-07`: "a recusa de tool passou a DEBITAR 1 do cap"
+  (`options_mcp_api.py:162,816-863`) — opção (a) das três que o achado original
+  apresentou.
+
+Nenhum dos quatro achados está aberto no código atual. `status` acima passa a
+`resolved` para o audit de fechamento de milestone parar de acusar gap.
