@@ -52,29 +52,27 @@ Deferido, decidido em conversa antes deste milestone — fora do roadmap atual.
 
 ## Traceability
 
-Preenchido na criação do roadmap.
-
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| REORG-01 | TBD | Pending |
-| REORG-02 | TBD | Pending |
-| REORG-03 | TBD | Pending |
-| REORG-04 | TBD | Pending |
-| REORG-05 | TBD | Pending |
-| REORG-06 | TBD | Pending |
-| REORG-07 | TBD | Pending |
-| NAV-01 | TBD | Pending |
-| NAV-02 | TBD | Pending |
-| NAV-03 | TBD | Pending |
-| NAV-04 | TBD | Pending |
-| NAV-05 | TBD | Pending |
-| NAV-06 | TBD | Pending |
+| REORG-01 | Phase 33 | Pending |
+| REORG-02 | Phase 33 | Pending |
+| REORG-03 | Phase 33 | Pending |
+| REORG-04 | Phase 33 | Pending |
+| REORG-05 | Phase 33 | Pending |
+| REORG-06 | Phase 33 | Pending |
+| REORG-07 | Phase 33 | Pending |
+| NAV-01 | Phase 34 | Pending |
+| NAV-02 | Phase 34 | Pending |
+| NAV-03 | Phase 34 | Pending |
+| NAV-04 | Phase 34 | Pending |
+| NAV-05 | Phase 34 | Pending |
+| NAV-06 | Phase 34 | Pending |
 
 **Coverage:**
 - v1 requirements: 13 total
-- Mapped to phases: 0
-- Unmapped: 13 ⚠️ (roadmap ainda não criado)
+- Mapped to phases: 13
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-09-19*
-*Last updated: 2026-09-19 after initial definition*
+*Last updated: 2026-09-19 after roadmap creation (Phase 33 + Phase 34, full coverage)*

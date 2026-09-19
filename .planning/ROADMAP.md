@@ -8,6 +8,7 @@
 - ✅ **v1.3 Cap comercial (plano gratuito)** — Phases 12-13 (shipped 2026-08-31) — [detalhes](milestones/v1.3-ROADMAP.md)
 - ✅ **v1.5 Redesenho de UI — simplificação e acessibilidade** — Phases 20-23 (shipped 2026-09-06) — [detalhes](milestones/v1.5-ROADMAP.md)
 - ✅ **v1.4 Opções v2** — Phases 15-19, 24-32 (shipped 2026-09-19) — [detalhes](milestones/v1.4-ROADMAP.md)
+- 🚧 **v1.6 Simplificação da aba Opções** — Phases 33-34 (in progress)
 
 ## Phases
 
@@ -115,6 +116,99 @@ completo, decisões e tech debt: [milestones/v1.4-ROADMAP.md](milestones/v1.4-RO
 
 </details>
 
+### 🚧 v1.6 Simplificação da aba Opções (In Progress)
+
+**Milestone Goal:** reorganizar a sub-aba "Setups" da aba Opções por
+job-to-be-done — hoje 5 trabalhos diferentes (descobrir oportunidades
+cross-carteira, gerenciar vigias, analisar um ticker manualmente, comparar
+vencimentos, gerenciar/criar setups salvos) competem numa rolagem só, ~16
+controles fixos mais os que escalam com o tamanho da carteira — sem
+adicionar nenhuma funcionalidade nova, só reorganização/separação do que já
+existe.
+
+**Origem:** avaliação da aba Opções sob a lente agentic UX/relationship-
+centric (2026-09-19) + pesquisa de domínio (`research/SUMMARY.md`), que
+recomenda dividir o trabalho em duas fases de risco crescente para não
+misturar o eixo "estrutura de arquivo" com o eixo "fluxo de navegação" numa
+fase só — confirmado com o Alex.
+
+**Phase Numbering:** continua a partir do fim do v1.4 (Phase 32). Fase 34
+depende do fechamento verde da Fase 33 — as duas fases não são
+paralelizáveis por desenho: fundir extração de componente com redesenho de
+navegação faria dois eixos de risco mudarem ao mesmo tempo sem checkpoint
+intermediário em que a suíte ainda esteja verde.
+
+- [ ] **Phase 33: Extração dos 5 jobs em componentes próprios** - Cada job vira uma seção isolada em arquivo próprio, comportamento/dados/ordem idênticos aos de hoje
+- [ ] **Phase 34: Navegação hub + workspace** - Sub-aba Setups troca a rolagem única por hub (sem ticker) e workspace (ticker selecionado)
+
+## Phase Details
+
+### Phase 33: Extração dos 5 jobs em componentes próprios
+**Goal**: Cada um dos 5 jobs hoje misturados na sub-aba "Setups" (descobrir
+oportunidades cross-carteira, gerenciar vigias, analisar um ticker
+manualmente, comparar vencimentos, gerenciar/criar setups salvos) vive em
+seu próprio componente, sem nenhuma mudança de comportamento, dado ou ordem
+visível ao usuário — pré-condição estrutural para o redesenho de navegação
+da Fase 34.
+**Depends on**: Nothing (primeira fase do milestone; parte da estrutura já
+existente de `OpcoesScreen.jsx`)
+**Requirements**: REORG-01, REORG-02, REORG-03, REORG-04, REORG-05, REORG-06, REORG-07
+**Success Criteria** (what must be TRUE):
+  1. Usuário abre a sub-aba "Setups" e vê as mesmas 5 seções de hoje —
+     mesmo conteúdo, mesmos dados, mesma ordem — agora fisicamente
+     separadas em componentes próprios, sem nenhuma funcionalidade nova nem
+     removida. [REORG-01, REORG-02]
+  2. Nenhuma seção nova instancia `useOpcoesMcp` por conta própria nem
+     promove `curadoriaAtiva` a gate por seção — o dado continua chegando
+     por prop do orquestrador (`OpcoesScreen.jsx`) e o fetch pago continua
+     gateado só por `tab` em `App.jsx`, exatamente como hoje. [REORG-03,
+     REORG-04]
+  3. A suíte de guardiões de opções (`test_opcoes_subabas_ui.mjs`,
+     `test_opcoes_consolidacao_ui.mjs`, `test_opcoes_analisar_ui.mjs`,
+     `test_opcoes_vigias_ui.mjs`, `test_opcoes_mcp_aba_ui.mjs`) passa
+     verde, atualizada para a nova estrutura de arquivos sem afrouxar
+     nenhuma garantia que já verificava. [REORG-05]
+  4. Qualquer seção nova que renderize `.manchete` está coberta pelo
+     guardrail CVM — não mais escopado só a `SubAbaOperar`. [REORG-06]
+  5. A seleção determinística do motor (`top`/`meta`) chega intacta —
+     mesmos valores, mesma ordem — a qualquer seção nova; nenhuma seção
+     nova ordena ou filtra a curadoria por conveniência de exibição.
+     [REORG-07]
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 34: Navegação hub + workspace
+**Goal**: Usuário navega a sub-aba "Setups" em dois modos — hub (descoberta,
+vigias, setups salvos, sem ticker selecionado) e workspace (análise do
+ticker + comparação de vencimentos) — em vez de uma rolagem única com os 5
+jobs empilhados.
+**Depends on**: Phase 33 — checkpoint bloqueante. Fase 34 só começa com a
+Fase 33 completa e a suíte canônica (`scripts/executar.sh --testes`) verde;
+ver nota de Phase Numbering acima sobre por que as duas fases não podem
+rodar em paralelo.
+**Requirements**: NAV-01, NAV-02, NAV-03, NAV-04, NAV-05, NAV-06
+**Success Criteria** (what must be TRUE):
+  1. Sem nenhum ticker selecionado, a sub-aba "Setups" abre em modo hub:
+     frase-ponte + Bloco A + Bloco B + vigias + setups salvos. [NAV-01]
+  2. Selecionar um ticker troca a tela para modo workspace (análise manual
+     do ticker + comparação de vencimentos), escondendo os blocos de
+     descoberta cross-carteira. [NAV-02]
+  3. De dentro do workspace, um único botão leva de volta ao hub — sem
+     breadcrumb nem histórico de navegação. [NAV-03]
+  4. A frase-ponte (mitigação regulatória D-05) permanece fisicamente
+     adjacente ao Bloco B em qualquer arranjo do hub — nunca separada por
+     gate ou rolagem. [NAV-04]
+  5. Trocar entre "analisar ticker", "comparar vencimentos" e "gerenciar
+     setups salvos" dentro do workspace não dispara uma nova leitura paga —
+     os três jobs continuam compartilhando a mesma leitura MCP (3
+     chamadas), custo atual preservado. [NAV-05]
+  6. Um estado de erro/degradado hoje visível independente de posição na
+     rolagem (ex.: MCP fora do ar) continua visível independente de qual
+     seção o usuário está olhando — nenhum aviso crítico fica isolado numa
+     seção fechada. [NAV-06]
+**Plans**: TBD
+**UI hint**: yes
+
 ## Progress
 
 | Phase | Milestone | Status | Completed |
@@ -152,6 +246,8 @@ completo, decisões e tech debt: [milestones/v1.4-ROADMAP.md](milestones/v1.4-RO
 | 30. Curadoria de IA das 4 melhores estruturas | 4/4 | Complete (30-04 sem SUMMARY — bookkeeping) | 2026-09-14 |
 | 31. Varredura de oportunidades de opções | 4/4 | Complete | 2026-09-14 |
 | 32. Consolidação das operações de opções na aba Opções | 5/5 | Complete | 2026-09-16 |
+| 33. Extração dos 5 jobs em componentes próprios | v1.6 | Not started | - |
+| 34. Navegação hub + workspace | v1.6 | Not started | - |
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2/v1.3
 
@@ -226,4 +322,7 @@ Plans:
 v1.5 Redesenho de UI (Phases 20-23) shipped em 2026-09-06 — ver
 [milestones/v1.5-ROADMAP.md](milestones/v1.5-ROADMAP.md). v1.4 Opções v2
 (Phases 15-19, 24-32) shipped em 2026-09-19, com ressalvas documentadas —
-ver [milestones/v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md).
+ver [milestones/v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md). v1.6
+Simplificação da aba Opções (Phases 33-34) aberto em 2026-09-19 — Fase 33
+(extração) e Fase 34 (navegação hub/workspace, dependente de checkpoint
+verde da Fase 33).
