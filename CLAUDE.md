@@ -136,6 +136,18 @@ educacional → 8. registrar o aprendizado e comparar com o benchmark.
   servidor/Railway, nunca no bundle do front nem commitados.
 - **Login obrigatório** (conta é núcleo: sync, Operador server-side, push);
   conta nova nasce limpa; sem posições-demo no estado inicial.
+- **Três esquemas de versão, três cadências, não confundir** (reconciliado
+  2026-09-19): (1) **tag git `vX.Y`** — checkpoint de milestone interno, 1:1
+  com `.planning/milestones/`, numerado pela ORDEM DE ABERTURA do milestone
+  (não de fechamento — `v1.5` fechou antes de `v1.4` porque rodaram em
+  paralelo no mesmo branch; ver mensagem da tag `v1.5`). Corta uma tag nova
+  só ao fechar um milestone. (2) **`BUILD_ID`/`SERVER_BUILD_ID`**
+  (`F10-AAAAMMDD-NN`) — carimbo de ENTREGA, intocado por este guardrail;
+  segue as regras de `scripts/bump.sh` acima. (3) **`package.json`
+  (raiz/`web`/`web-admin`) + `MARKETING_VERSION` (iOS)** — versão PÚBLICA,
+  o que o usuário vê na App Store; os dois sobem juntos, na cadência que o
+  Alex decidir (não a cada milestone). Nenhum dos três lê os outros em
+  runtime — são só rótulos; misturar as cadências é o erro, não o número.
 
 <!-- GSD:project-start source:PROJECT.md -->
 ## Project
