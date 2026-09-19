@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.4
-milestone_name: Opções v2
-status: shipped
-stopped_at: 'Milestone v1.4 (Opções v2) ARQUIVADO em 2026-09-19 — 14 fases (15-19, 24-32) movidas para `.planning/milestones/v1.4-phases/`, `v1.4-ROADMAP.md`/`v1.4-REQUIREMENTS.md` escritos, `ROADMAP.md` colapsado para uma linha, `MILESTONES.md`/`PROJECT.md` atualizados. Tag git `v1.4` já existia (criada à mão antes do arquivamento, ao reconciliar os 4 esquemas de versão do repo). Achado no fechamento: `24-VERIFICATION.md` estava `gaps_found` desde 2026-09-11 mas os 4 achados (F-01 a F-04) já tinham sido corrigidos por planos de acompanhamento (`24-06`, `24-07`) que nunca atualizaram o documento — confirmado por grep no código atual e documentado inline, status virou `resolved`. Auditoria de itens abertos (`audit-open`) rodada antes do fechamento: 49 "quick tasks missing" eram falso-positivo do scanner (confirmado contra `260916-g6p`, que existe com `status: complete`); 4 todos pendentes genuínos ficaram como backlog carregado, não bloqueiam o milestone. Guardrail aplicado: nenhum mutador `gsd-sdk query state.*`/`milestone.complete` foi chamado — arquivamento inteiro feito por Read/Write/Edit/git à mão (subagente instruído explicitamente a não tocar STATE.md; este arquivo foi editado só por mim, agora). Próximo passo: abrir milestone novo (`/gsd-new-milestone`) para a reorganização da aba Opções por job-to-be-done (avaliação agentic UX, 2026-09-19 — ver decisão abaixo).'
-last_updated: "2026-09-19T21:00:00.000Z"
-last_activity: "2026-09-19 — milestone v1.4 (Opções v2) arquivado: 14 fases movidas pra .planning/milestones/v1.4-phases/, ROADMAP.md colapsado, 24-VERIFICATION.md corrigido de gaps_found (stale) para resolved (F-01 a F-04 já fechados por 24-06/24-07). Tag v1.4 e reconciliação dos 4 esquemas de versão (package.json→2.0.0, BUILD_ID intocado) feitas antes, na mesma sessão. Abrindo milestone novo para reorganizar a aba Opções por job-to-be-done."
+milestone: v1.6
+milestone_name: Simplificação da aba Opções
+status: planning
+stopped_at: 'Milestone v1.6 (Simplificação da aba Opções) ABERTO em 2026-09-19, logo após arquivar o v1.4. Escopo confirmado pelo Alex: reorganizar a sub-aba "Setups" por job-to-be-done (descobrir oportunidades, vigias, analisar ticker, comparar vencimentos, gerenciar setups salvos), sem feature nova — Fases 2-4 (explicação adaptativa, progresso do aprendiz, desafio personalizado) decididas mas fora de escopo, para depois. Alex escolheu "Pesquisar antes" — pesquisa de domínio (4 agentes paralelos: stack, features, arquitetura, armadilhas) roda antes de travar REQUIREMENTS.md. Guardrail aplicado: nenhum mutador `gsd-sdk query state.*` foi chamado — STATE.md editado à mão pelo orquestrador, não pelo `/gsd-new-milestone`.'
+last_updated: "2026-09-19T21:15:00.000Z"
+last_activity: "2026-09-19 — milestone v1.6 (Simplificação da aba Opções) aberto logo após arquivar v1.4. PROJECT.md ganhou a seção do milestone; pesquisa de domínio solicitada pelo Alex antes de definir requirements."
 progress:
-  total_phases: 10
-  completed_phases: 10
-  total_plans: 49
-  completed_plans: 49
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -21,14 +21,18 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-06)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Milestone v1.4 (Opções v2) ARQUIVADO (2026-09-19). Abrindo milestone novo: reorganizar a aba Opções por job-to-be-done, primeira fase de um plano de simplificação de UX avaliado sob a lente agentic/relationship-centric (memória de progresso, desafio observado, explicação adaptativa — decididas, escopadas para depois da reorganização).
+**Current focus:** Milestone v1.6 (Simplificação da aba Opções) — definindo requisitos. Pesquisa de domínio solicitada pelo Alex antes de travar REQUIREMENTS.md.
 
 ## Current Position
 
+Phase: Not started (pesquisa de domínio em andamento, requisitos ainda não definidos)
+Plan: —
+Status: Pesquisando (4 agentes: stack, features, arquitetura, armadilhas)
+Last activity: 2026-09-19 — Milestone v1.6 aberto, escopo confirmado (reorganizar "Setups" por job-to-be-done), pesquisa solicitada antes de requirements
+
 **Milestone v1.4 (Opções v2) ARQUIVADO em 2026-09-19.** 14 fases (15-19, 24-32) em
 `.planning/milestones/v1.4-phases/`; detalhe completo em
-[`v1.4-ROADMAP.md`](milestones/v1.4-ROADMAP.md). Próximo: `/gsd-new-milestone` para a
-reorganização da aba Opções (ver decisão de produto abaixo, sessão de 2026-09-19).
+[`v1.4-ROADMAP.md`](milestones/v1.4-ROADMAP.md).
 
 **Decisão de produto (2026-09-19, avaliação agentic UX escopada à aba Opções):**
 mapeamento factual da aba (14 arquivos, ~4.960 linhas) achou a sub-aba "Setups"

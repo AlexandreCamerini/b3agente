@@ -22,6 +22,32 @@ funciona — não decorou uma resposta, aprendeu o raciocínio — e só então 
 acesso a automações do Modo Operador. Se o storyline pedagógico não convencer,
 nada mais no produto importa.
 
+## Milestone v1.6 Simplificação da aba Opções — EM ANDAMENTO (definindo requisitos)
+
+**Goal:** reorganizar a sub-aba "Setups" da aba Opções por job-to-be-done, sem
+adicionar feature nova — a tela hoje mistura 5 trabalhos diferentes numa
+rolagem só (descobrir oportunidades cross-carteira, gerenciar vigias,
+analisar um ticker manualmente, comparar vencimentos, gerenciar/criar setups
+salvos), ~16 controles fixos mais os que escalam com o tamanho da carteira.
+
+**Origem:** avaliação da aba Opções sob a lente agentic UX/relationship-
+centric (2026-09-19) — mapeamento factual encontrou a mistura de jobs como
+causa estrutural de confusão, mais concreta que falta de personalização.
+Decisão do Alex: reorganizar primeiro, personalizar depois.
+
+**Fora de escopo desta milestone (decidido, não esquecido):** Fase 2
+(explicação adaptativa/progressive disclosure — alvo inicial: a frase-ponte
+de `OpcoesScreen.jsx:711-714`, que nunca colapsa), Fase 3 (modelo de
+progresso do aprendiz, escopado a conceitos de opções), Fase 4 (desafio
+personalizado por padrão observado, risco regulatório de soar recomendação)
+— todas decididas em conversa, nenhuma planejada ainda.
+
+**Target features:**
+- Sub-aba "Setups" separada por job-to-be-done (não uma rolagem única)
+- Nenhuma funcionalidade nova — só reorganização/separação do que já existe
+- Base pronta para a Fase 2 (explicação adaptativa) entrar depois sem
+  reabrir a reorganização
+
 ## Milestone v1.4 Opções v2 — SHIPPED 2026-09-19
 
 **Goal:** nova experiência de Opções no Boris+ — do motor de proposta
@@ -519,7 +545,7 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-09-19 — Milestone v1.4 (Opções v2, Fases 15-19 e 24-32)
-arquivado; ver `.planning/milestones/v1.4-ROADMAP.md`/`v1.4-REQUIREMENTS.md`
-para o detalhe completo, decisões e tech debt. Passo seguinte: decisão do
-Alex sobre o próximo milestone/fase.*
+*Last updated: 2026-09-19 — Milestone v1.6 (Simplificação da aba Opções)
+aberto, ainda definindo requisitos e pesquisa. v1.4 (Opções v2, Fases 15-19
+e 24-32) arquivado no mesmo dia; ver `.planning/milestones/v1.4-ROADMAP.md`/
+`v1.4-REQUIREMENTS.md` para o detalhe completo, decisões e tech debt.*
