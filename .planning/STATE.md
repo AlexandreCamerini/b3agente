@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-06)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Milestone v1.6 (Simplificação da aba Opções) — roadmap aprovado (Fases 33-34), pronto para planejar a Fase 33.
+**Current focus:** Milestone v1.6 (Simplificação da aba Opções) — contexto da Fase 33 capturado e aprovado, pronto para `/gsd-plan-phase 33`.
 
 ## Current Position
 
-Phase: 33 (Extração dos 5 jobs em componentes próprios) — roadmap criado, ainda não planejada
+Phase: 33 (Extração dos 5 jobs em componentes próprios) — CONTEXT.md capturado, ainda não planejada
 Plan: —
-Status: Pronto para `/gsd-discuss-phase 33` ou `/gsd-plan-phase 33`
-Last activity: 2026-09-19 — pesquisa de domínio (4 agentes) + SUMMARY.md sintetizado; REQUIREMENTS.md (13 itens, REORG/NAV) e ROADMAP.md (Fases 33-34, checkpoint bloqueante entre elas) definidos e aprovados pelo Alex. v2 (explicação adaptativa, progresso do aprendiz, desafio personalizado) fica no backlog, fora do roadmap.
+Status: Pronto para `/gsd-plan-phase 33`
+Last activity: 2026-09-19 — `/gsd-discuss-phase 33` capturou 4 decisões com o Alex: D-01 nomenclatura (`SecaoDescobrir/Vigias/Analisar/Comparar/Setups`), D-02 guardião por diretório inteiro (mirrora `test_opcoes_subabas_ui.mjs:101-114`), D-03 ordem de extração (5 planos sequenciais, mais isolado primeiro: Vigias→Descobrir→Setups→Comparar→Analisar), D-04 dois todos dobrados nesta fase (fetch redundante do SubAbaOperar, sem exceção de escopo; carimbo de frescor nos Blocos A/B, EXCEÇÃO EXPLÍCITA a "zero feature nova"). Ver `.planning/phases/33-extra-o-dos-5-jobs-em-componentes-pr-prios/33-CONTEXT.md`.
 
 **Milestone v1.4 (Opções v2) ARQUIVADO em 2026-09-19.** 14 fases (15-19, 24-32) em
 `.planning/milestones/v1.4-phases/`; detalhe completo em
