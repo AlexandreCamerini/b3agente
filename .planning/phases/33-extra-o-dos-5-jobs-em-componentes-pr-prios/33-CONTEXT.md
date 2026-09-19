@@ -68,10 +68,20 @@ fechar com suíte verde.
   Ataca exatamente o que REORG-03/04 já exige — não é escopo extra de
   verdade. Ao extrair `SecaoAnalisar`, subir `opcoesPorTicker`/
   `opcoesCarregando` (saída de `useOpcoesPropostas`, já calculada no topo)
-  por prop, em vez dos dois `useEffect` locais. Cair no fetch local só
-  quando o ticker não tiver sido varrido no fan-out do topo. Atualizar
+  por prop, em vez dos dois `useEffect` locais. Atualizar
   `test_opcoes_subabas_ui.mjs` regra 3 com nota datada quando a contagem
   cair de 1 pra 0 nesse componente.
+  **Emenda (plan-checker + verificação do orquestrador, na fase de
+  planejamento):** a cláusula original ("cair no fetch local só quando o
+  ticker não tiver sido varrido no fan-out") foi REMOVIDA — é código morto
+  provado, não uma simplificação por conveniência. O fan-out
+  (`useOpcoesPropostas(store, carteira.map((p) => p.t))`,
+  `OpcoesScreen.jsx:402`) varre exatamente o mesmo `carteira` de onde o
+  seletor de ticker (`OpcoesScreen.jsx:692`) tira as opções — logo todo
+  ticker selecionável em `SecaoAnalisar` já foi varrido pelo fan-out, sempre.
+  Implementar o fallback seria a SEGUNDA fonte que a regra 3 do guardião
+  existe pra impedir. Plano 33-05 mantém o gate "se a medição contradisser
+  essa premissa, PARAR e registrar" em vez de programar um ramo inatingível.
 - **D-04b (fold-in 2, EXCEÇÃO EXPLÍCITA a REORG-02):** Carimbo de frescor
   nos Blocos A/B
   (`.planning/todos/pending/carimbo-frescor-blocos-cross-carteira.md`).
