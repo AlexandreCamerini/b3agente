@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-06)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Milestone v1.6 (Simplificação da aba Opções) — definindo requisitos. Pesquisa de domínio solicitada pelo Alex antes de travar REQUIREMENTS.md.
+**Current focus:** Milestone v1.6 (Simplificação da aba Opções) — roadmap aprovado (Fases 33-34), pronto para planejar a Fase 33.
 
 ## Current Position
 
-Phase: Not started (pesquisa de domínio em andamento, requisitos ainda não definidos)
+Phase: 33 (Extração dos 5 jobs em componentes próprios) — roadmap criado, ainda não planejada
 Plan: —
-Status: Pesquisando (4 agentes: stack, features, arquitetura, armadilhas)
-Last activity: 2026-09-19 — Milestone v1.6 aberto, escopo confirmado (reorganizar "Setups" por job-to-be-done), pesquisa solicitada antes de requirements
+Status: Pronto para `/gsd-discuss-phase 33` ou `/gsd-plan-phase 33`
+Last activity: 2026-09-19 — pesquisa de domínio (4 agentes) + SUMMARY.md sintetizado; REQUIREMENTS.md (13 itens, REORG/NAV) e ROADMAP.md (Fases 33-34, checkpoint bloqueante entre elas) definidos e aprovados pelo Alex. v2 (explicação adaptativa, progresso do aprendiz, desafio personalizado) fica no backlog, fora do roadmap.
 
 **Milestone v1.4 (Opções v2) ARQUIVADO em 2026-09-19.** 14 fases (15-19, 24-32) em
 `.planning/milestones/v1.4-phases/`; detalhe completo em
