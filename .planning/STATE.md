@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Opções v2
-status: executing
-stopped_at: 'Quick `260916-g6p` COMPLETA e EM PRODUÇÃO sob o carimbo `F10-20260916-03` (confirmado por HTTP em `boris.semente.dev/api/health`). Fechou a única ressalva aberta da Fase 32 — guard null-safe nas três cópias de `porLote`/CTA de collar (`CuradoriaEstruturas.jsx`, `CandidatoOpcao.jsx`, `PropostaLastreada.jsx`), ENVOLVENDO a operação (`typeof X === "number" ? ... : null`) em vez de `|| 0` dentro dela (evita `Math.abs(null) === 0`); campo ausente agora renderiza "—" nunca "R$ 0,00" (princípio 4). Exceção `ARQUIVOS_EXCECAO_OU_ZERO` removida do guardião `OU_ZERO`; `PropostaLastreada.jsx` (cópia original, Fase 28, nunca coberta) entrou na allowlist, com prova negativa real. Suíte canônica completa rodada fora do sandbox DUAS vezes (Tasks 1-2 e depois do bump): 2923 pytest + 152 `.mjs`, exit 0 nas duas rodadas, idêntico à baseline da Fase 32. Alex confirmou a publicação explicitamente ("Pública") em turno separado, só depois disso a Task 3 rodou: `bump.sh` (`F10-20260916-02`→`-03`), `publicar-web.sh` fora do sandbox (TLS do `npm ci` falha dentro dele, achado já conhecido), comentário do `SERVER_BUILD_ID` reescrito à mão preservando histórico, push nas DUAS branches (`v2/interacao-estrutural` e `origin/main`, fast-forward, `HEAD == origin/main == bc2e03a`). Commits: `c584c96`/`47b8907` (Tasks 1-2) + `bc2e03a` (Task 3, publicação). Guardrail aplicado: nenhum mutador de estado do gsd-sdk foi chamado — STATE.md editado à mão. Ver `.planning/quick/260916-g6p-corrigir-os-tres-0-diferidos-da-fase-32-/`. Milestone v1.4 sem pendência conhecida no momento — próximo passo é decisão do Alex sobre novo milestone/fase.'
-last_updated: "2026-09-16T16:05:00.000Z"
-last_activity: "2026-09-16 — quick 260916-g6p COMPLETA e publicada: guard null-safe nas três cópias diferidas da Fase 32, exceção do guardião OU_ZERO removida, prova negativa real, suíte canônica sem queda (2923 pytest + 152 .mjs, duas rodadas). Publicado com confirmação explícita do Alex: bump F10-20260916-03, push nas duas branches, carimbo confirmado por HTTP em produção. Commits c584c96/47b8907/bc2e03a. Sem pendência aberta no milestone v1.4 no momento."
+status: shipped
+stopped_at: 'Milestone v1.4 (Opções v2) ARQUIVADO em 2026-09-19 — 14 fases (15-19, 24-32) movidas para `.planning/milestones/v1.4-phases/`, `v1.4-ROADMAP.md`/`v1.4-REQUIREMENTS.md` escritos, `ROADMAP.md` colapsado para uma linha, `MILESTONES.md`/`PROJECT.md` atualizados. Tag git `v1.4` já existia (criada à mão antes do arquivamento, ao reconciliar os 4 esquemas de versão do repo). Achado no fechamento: `24-VERIFICATION.md` estava `gaps_found` desde 2026-09-11 mas os 4 achados (F-01 a F-04) já tinham sido corrigidos por planos de acompanhamento (`24-06`, `24-07`) que nunca atualizaram o documento — confirmado por grep no código atual e documentado inline, status virou `resolved`. Auditoria de itens abertos (`audit-open`) rodada antes do fechamento: 49 "quick tasks missing" eram falso-positivo do scanner (confirmado contra `260916-g6p`, que existe com `status: complete`); 4 todos pendentes genuínos ficaram como backlog carregado, não bloqueiam o milestone. Guardrail aplicado: nenhum mutador `gsd-sdk query state.*`/`milestone.complete` foi chamado — arquivamento inteiro feito por Read/Write/Edit/git à mão (subagente instruído explicitamente a não tocar STATE.md; este arquivo foi editado só por mim, agora). Próximo passo: abrir milestone novo (`/gsd-new-milestone`) para a reorganização da aba Opções por job-to-be-done (avaliação agentic UX, 2026-09-19 — ver decisão abaixo).'
+last_updated: "2026-09-19T21:00:00.000Z"
+last_activity: "2026-09-19 — milestone v1.4 (Opções v2) arquivado: 14 fases movidas pra .planning/milestones/v1.4-phases/, ROADMAP.md colapsado, 24-VERIFICATION.md corrigido de gaps_found (stale) para resolved (F-01 a F-04 já fechados por 24-06/24-07). Tag v1.4 e reconciliação dos 4 esquemas de versão (package.json→2.0.0, BUILD_ID intocado) feitas antes, na mesma sessão. Abrindo milestone novo para reorganizar a aba Opções por job-to-be-done."
 progress:
   total_phases: 10
-  completed_phases: 6
+  completed_phases: 10
   total_plans: 49
-  completed_plans: 48
-  percent: 98
+  completed_plans: 49
+  percent: 100
 ---
 
 # Project State
@@ -21,9 +21,28 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-06)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Phase 32 — COMPLETA, verificada (`passed`) e em produção. A única ressalva (três cópias de `v * (X || 0)`) foi corrigida e PUBLICADA pela quick `260916-g6p` (`F10-20260916-03`). Milestone v1.4 sem pendência conhecida — próximo passo é decisão do Alex sobre novo milestone/fase.
+**Current focus:** Milestone v1.4 (Opções v2) ARQUIVADO (2026-09-19). Abrindo milestone novo: reorganizar a aba Opções por job-to-be-done, primeira fase de um plano de simplificação de UX avaliado sob a lente agentic/relationship-centric (memória de progresso, desafio observado, explicação adaptativa — decididas, escopadas para depois da reorganização).
 
 ## Current Position
+
+**Milestone v1.4 (Opções v2) ARQUIVADO em 2026-09-19.** 14 fases (15-19, 24-32) em
+`.planning/milestones/v1.4-phases/`; detalhe completo em
+[`v1.4-ROADMAP.md`](milestones/v1.4-ROADMAP.md). Próximo: `/gsd-new-milestone` para a
+reorganização da aba Opções (ver decisão de produto abaixo, sessão de 2026-09-19).
+
+**Decisão de produto (2026-09-19, avaliação agentic UX escopada à aba Opções):**
+mapeamento factual da aba (14 arquivos, ~4.960 linhas) achou a sub-aba "Setups"
+misturando 5 trabalhos diferentes numa rolagem só (descobrir oportunidades cross-
+carteira, vigias, analisar ticker manual, comparar vencimentos, gerenciar setups) —
+~16 controles fixos mais os que escalam com a carteira. Achado adicional: a
+"frase-ponte" (`OpcoesScreen.jsx:711-714`) nunca colapsa, repete a mesma explicação
+toda visita. Alex decidiu: **reorganizar por job-to-be-done primeiro**, personalização
+(progresso do aprendiz, desafio por padrão observado, explicação adaptativa) depois —
+personalizar uma tela que já mistura 5 tarefas só entregaria "memória inteligente"
+dentro da bagunça. Fase 2 (explicação adaptativa) é candidata a atacar a frase-ponte
+como primeiro alvo mensurável.
+
+## Posição anterior (v1.4, antes do arquivamento)
 
 Phase: 32 (Consolidação das operações de opções na aba Opções) — **COMPLETA, em produção**. Única ressalva pendente corrigida e publicada pela quick `260916-g6p` (`F10-20260916-03`).
 
