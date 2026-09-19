@@ -174,7 +174,14 @@ existente de `OpcoesScreen.jsx`)
      mesmos valores, mesma ordem — a qualquer seção nova; nenhuma seção
      nova ordena ou filtra a curadoria por conveniência de exibição.
      [REORG-07]
-**Plans**: TBD
+**Plans**: 5 plans (5 ondas sequenciais, uma por job — D-03 do 33-CONTEXT.md:
+cada extração fecha com a suíte canônica verde antes de a próxima começar, para
+isolar o risco de quebra de guardião)
+- [ ] 33-01-PLAN.md — `SecaoVigias` + módulo de primitivos compartilhados (`uiOpcoes.jsx`); 6 guardiões reapontados
+- [ ] 33-02-PLAN.md — `SecaoDescobrir` (frase-ponte + Blocos A/B juntos), guardrail CVM generalizado (REORG-06), carimbo de frescor (D-04b)
+- [ ] 33-03-PLAN.md — `SecaoSetups` (listagem gravados + porta de criação), cruzamento de custo por varredura
+- [ ] 33-04-PLAN.md — `SecaoComparar` (comparação de vencimentos, custo antes do disparo)
+- [ ] 33-05-PLAN.md — `SecaoAnalisar` (leitura + montador) e fold-in D-04a (SubAbaOperar lê o fan-out)
 **UI hint**: yes
 
 ### Phase 34: Navegação hub + workspace
@@ -246,7 +253,7 @@ rodar em paralelo.
 | 30. Curadoria de IA das 4 melhores estruturas | 4/4 | Complete (30-04 sem SUMMARY — bookkeeping) | 2026-09-14 |
 | 31. Varredura de oportunidades de opções | 4/4 | Complete | 2026-09-14 |
 | 32. Consolidação das operações de opções na aba Opções | 5/5 | Complete | 2026-09-16 |
-| 33. Extração dos 5 jobs em componentes próprios | v1.6 | Not started | - |
+| 33. Extração dos 5 jobs em componentes próprios | 0/5 | Planned | - |
 | 34. Navegação hub + workspace | v1.6 | Not started | - |
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2/v1.3
