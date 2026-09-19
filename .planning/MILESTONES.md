@@ -1,5 +1,31 @@
 # Milestones
 
+## v1.4 Opções v2 (Shipped: 2026-09-19)
+
+**Phases completed:** 14 phases (15-19, 24-32), 63 plans, ~211 tasks — 13
+fases integralmente completas, Fase 26 parcial (1/6 planos, por decisão de
+escopo do produto)
+
+**Key accomplishments:**
+
+- Motor interno de N-pernas nasce atrás de um limite (`opcoes_motor.rastrear()`/`avaliar()`) no vocabulário do contrato ADR-004/`mydata_client.py` — payoff portado e testado de `calculos.py` (b-mcp), seleção pela régua `liquidity_score ≥ 40` + strike extremo já em produção (nunca o critério por delta do b-mcp), zero chamada de rede ao b-mcp, gatilho reusando o Radar/`setups.py` existente — trocável por chamadas reais ao serviço externo sem redesenho (Fase 15).
+- Venda coberta e put de proteção migram do motor single-leg isolado da Fase 14 para o motor comum de N-pernas; collar nasce como terceira composição das mesmas duas pernas — prova de que o motor compõe estruturas de verdade (Fase 16).
+- Fluxo de aceite: proposta mostra estrutura/pernas/prêmio/breakeven/ganho-perda máximos e fonte+horário do dado antes da decisão; aceite explícito executa pelo motor de ordens já em produção (`store.abrir_collar`, tudo-ou-nada numa única aquisição de `ORDER_LOCK`) — sem automação nova (Fase 17).
+- Tira "Oportunidades de opções" agrega propostas ativas no topo de Posições, com detalhe completo por posição e estado vazio explícito — decisão de navegação (sem aba nova) que seria revertida quatro fases depois (Fase 18).
+- Motor multi-candidato: `propor()` passa a devolver uma LISTA de candidatos elegíveis (venda coberta, put de proteção, collar) em vez de uma escolha única fixa; usuário aceita exatamente um por rodada, com exclusão mútua provada nas duas ordens (Fase 19).
+- Aba Opções passa a ler o serviço `mcp.semente.dev` de verdade — cadeia, catálogo, proposta e possibilidades por vencimento com custo/ganho/perda em reais para o lote — mais criação de setups técnicos por descrição em português com ensaio (dry-run) antes de gravar; paridade `opcoes_payoff` × `evaluate_option_structure` confirmada contra dado real em produção pela primeira vez (Fase 24).
+- Plano comercial vira eixo de produto: papel `owner` irrevogável (ancorado em e-mail, imune a revogação por qualquer rota), RBAC (administração) e plano (produto/limites) como eixos independentes, cinco pontos de controle de IA com limite configurável por plano via portal com precedência memória→kv→env→default, plano visível no app (Fase 25).
+- Sete correções baratas de UX/IA shippadas (aba Opções visível ao assistente, KB antes da checagem de tela, tour cobrindo a tela de abertura, três textos mortos corrigidos) — mas só esta fatia ("Fase A") da fase, com cinco itens de backlog (B2/B3/C1/C2/C3) nunca executados e carregados adiante como dívida de produto, não escondidos (Fase 26, parcial).
+- Universo da aba Opções vira a carteira do usuário — vigias (setups) persistem fora do ticker que os criou, leitura técnica (tendência/volatilidade/suporte-resistência) chega de graça pelo motor interno, reservando o serviço externo para o que só ele sabe sob clique explícito com custo declarado (Fase 27).
+- Sub-aba "Operar" nasce dentro da aba Opções; `PropostaLastreada` (antes só dentro do card de ativo em Watchlist/Radar) é extraída para módulo compartilhado sem import cruzado (Emenda 3 ao ADR-027); o card de proposta lastreada some do card de ativo (Fase 28).
+- Opção a descoberto exige flag opt-in em Configurações, default OFF para toda conta nova, mesma fricção (termo de responsabilidade versionado) do Modo Operador; fechar posição a seco já aberta nunca é bloqueado pelo flag (Fase 29).
+- Bloco de curadoria de IA com as 4 melhores vendas cobertas da carteira por razão prêmio/perda máxima, escolha 100% determinística, custo ZERO do serviço externo, narração de IA sob a mesma cota mensal de `/api/analyze` (Fase 30).
+- Varredura de oportunidades estendida de 1 estrutura×1 vencimento para as 4 estruturas do motor interno (venda coberta, put de proteção, collar, opção a descoberto) × até 2 vencimentos, com `PayoffChart.jsx` responsivo em 375px — consequência aceita e documentada: fórmula única de ranking deixa estruturas de prêmio negativo abaixo de qualquer venda coberta (Fase 31).
+- Consolidação final: os quatro blocos de opções espalhados em Posições convergem para uma única linha de chamada; a aba Opções ganha os dois motores (interno determinístico custo-zero + serviço MCP custo-declarado) lado a lado sob uma frase-ponte permanente e nunca colapsável; as três cópias residuais do padrão `v * (X || 0)` corrigidas por guard explícito na mesma task, sem exceção de guardião sobrando (Fase 32 + quick `260916-g6p`).
+- Auditoria de fechamento (2026-09-19): 18/18 requirements formais (Fases 15-19) mapeados como Complete, com duas ressalvas de verificação humana carregadas explicitamente em vez de apagadas — o roteiro completo de checkpoint das Fases 17/18/19 nunca fechou 100% ao vivo, e o item específico de multi-candidato lado a lado seguia sem confirmação em navegador real mesmo na verificação da última fase da milestone (`32-VERIFICATION.md`, 2026-09-16). Nenhuma fase foi reprovada ou revertida; Fase 26 é a única com escopo genuinamente parcial.
+
+---
+
 ## v1.5 Redesenho de UI — simplificação e acessibilidade (Shipped: 2026-09-06)
 
 **Phases completed:** 4 phases, 16 plans, 38 tasks

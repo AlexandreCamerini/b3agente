@@ -22,53 +22,54 @@ funciona — não decorou uma resposta, aprendeu o raciocínio — e só então 
 acesso a automações do Modo Operador. Se o storyline pedagógico não convencer,
 nada mais no produto importa.
 
-## Current Milestone: v1.4 Opções v2 (EM EXECUÇÃO — não shipped)
+## Milestone v1.4 Opções v2 — SHIPPED 2026-09-19
 
-**Goal:** nova experiência de Opções no Boris+ que propõe setups (venda
-coberta, put de proteção, collar) a partir da análise técnica sobre posições
-reais da carteira, com aceite manual do usuário — independente do MCP
-externo (b-mcp, projeto paralelo) até ele ficar pronto.
+**Goal:** nova experiência de Opções no Boris+ — do motor de proposta
+interno (venda coberta, put de proteção, collar) sobre posições reais da
+carteira, com aceite manual, até a integração real com o serviço MCP
+externo (`mcp.semente.dev`), planos comerciais e a consolidação de toda
+operação de opções numa única aba com dois motores lado a lado.
 
-**Target features:**
-- Tira "Oportunidades de opções" no topo de Posições/Portfólio + detalhe
-  completo dentro de cada posição — sem aba nova na navegação inferior
-  (Candidato A revertido em 03/09: a barra real tem 5 abas, não 4; ver
-  `.planning/ROADMAP.md` Phase 18 e `.planning/notes/opcoes-v2-b-mcp-exploracao.md`)
-- Biblioteca v1: venda coberta + put de proteção + collar, só sobre posições
-  com cobertura real (sem opção nua)
-- Motor de proposta com critério de seleção `liquidity_score ≥ 40` + strike
-  extremo (mantém a régua já em produção da Fase 14, não adota o critério
-  por delta do b-mcp)
-- Matemática de payoff (custo líquido, ganho/perda máximos, breakeven, delta
-  somado) portada por cópia de `calculos.py` do b-mcp
-- Limite/interface interno `rastrear()`/`avaliar()`, no vocabulário do
-  contrato ADR-004/`mydata_client.py` — pronto pra trocar por chamadas MCP
-  reais quando `plano-mcp-servico.md` for aprovado, sem redesenho
-- Fluxo de aceite reusa o motor de ordens de opções lastreadas da Fase 14 —
-  nenhuma automação nova
+**Entregue (14 fases — 15-19, 24-32 — 63 planos, ~211 tasks, 2026-09-02 a
+2026-09-16, arquivado em 2026-09-19):**
+- Fases 15-19: motor interno de N-pernas (`rastrear()`/`avaliar()`),
+  biblioteca de estruturas (venda coberta, put de proteção, collar), fluxo
+  de aceite reusando o motor de ordens da Fase 14, tira "Oportunidades de
+  opções" em Posições, motor multi-candidato.
+- Fase 24: aba Opções passa a ler o serviço MCP externo de verdade (cadeia,
+  possibilidades, custo em reais) + criação de setups por linguagem
+  natural com ensaio.
+- Fase 25: planos comerciais como eixo de produto — papel `owner`, RBAC×
+  plano como eixos independentes, limites de IA configuráveis por plano.
+- Fase 26: **parcial** — só a "Fase A" (sete correções baratas de UX/IA)
+  shippou; B2/B3/C1/C2/C3 nunca executados.
+- Fases 27-29: universo da aba Opções vira a carteira; sub-aba "Operar"
+  extrai `PropostaLastreada` para módulo compartilhado; opção a descoberto
+  exige flag opt-in default OFF.
+- Fases 30-32: curadoria de IA (top-4 determinístico), varredura de
+  oportunidades (4 estruturas × 2 vencimentos), consolidação final — os
+  dois motores (interno grátis + MCP com custo declarado) lado a lado sob
+  frase-ponte permanente, Posições reduzida a uma linha de chamada.
 
-**Fora de escopo (decidido no kickoff):** plano comercial (gratuito vs.
-pago) desta feature — mesmo padrão do v1.3, que ativou infraestrutura sem
-loja/IAP ainda; DSL de setups técnicos (`setups.py` do b-mcp) — risco de
-sinal já corrigido uma vez (ADR-016/017), gatilho já vem do Radar do Boris;
-integração MCP de verdade (Estratégia C) — fica pro próximo milestone que
-tratar disso, condicionado à aprovação do `plano-mcp-servico.md`.
+**Fora de escopo (mantido, não reaberto):** setup customizado pelo usuário;
+straddle/strangle coberto e cash-secured put (liquidez/definição); DSL de
+setups técnicos do `b-mcp` local (nunca portada — a criação de setups da
+Fase 24 usa o PRÓPRIO serviço MCP externo compilando linguagem natural, um
+mecanismo estruturalmente diferente).
 
-Base completa da decisão: `.planning/seeds/opcoes-v2-setups-propostos-via-b-mcp.md`
-e `.planning/notes/opcoes-v2-b-mcp-exploracao.md`.
+**Ressalvas carregadas explicitamente (não escondidas):** o roteiro de
+verificação humana das Fases 17/18/19 (`checkpoints-pendentes-fase-17-18-
+19.md`, registrado 2026-09-04) nunca fechou 100% ao vivo — a única
+tentativa caiu com o mercado fechado; o item específico de multi-candidato
+lado a lado (Fase 19) seguia sem confirmação em navegador real mesmo na
+verificação da ÚLTIMA fase da milestone (`32-VERIFICATION.md`, 2026-09-16).
+O plano de publicação dedicado da Fase 24 (`24-05`) nunca rodou como plano
+próprio — a função foi cumprida por publicações conjuntas posteriores. A
+Fase 26 é a única com escopo genuinamente parcial (backlog B2/B3/C1/C2/C3
+carregado adiante). Nenhuma fase foi reprovada ou revertida.
 
-**Fase 31 (2026-09-14) — CODE COMPLETE, não publicada:** varredura de
-oportunidades de opções estendida de "1 vencimento × venda coberta" (Fase
-30) para "até 2 vencimentos × as 4 estruturas do motor interno" (venda
-coberta, put de proteção, collar, opção a descoberto — esta só visível com
-`permitirOpcaoADescoberto` ligado, gate D-05), mais responsividade mobile
-375px do `PayoffChart.jsx`. 4 planos, checkpoint humano ao vivo resolvido
-com aprovação literal do Alex (verificação técnica rodou contra provedor
-mock, não o ambiente real — ressalva registrada em `31-VERIFICATION.md`).
-Code review: 0 bloqueadores, 3 avisos de UX no front (estado de erro de
-fetch não exibido, texto de ajuda do D-06 nunca renderizado, lista não
-revalida ao mudar posições) — não bloqueiam, não corrigidos nesta fase. Ver
-`.planning/phases/31-varredura-oportunidades-opcoes/`.
+Ver `.planning/milestones/v1.4-ROADMAP.md`, `.planning/milestones/
+v1.4-REQUIREMENTS.md` e `.planning/MILESTONES.md`.
 
 ## Milestone v1.5 Redesenho de UI — simplificação e acessibilidade — SHIPPED 2026-09-06
 
@@ -273,6 +274,17 @@ faltavam os números).
   abaixo) — Fase 11 do v1.2, execução autônoma noturna, ÚLTIMA fase do
   milestone
 
+- ✓ Opções v2 — v1.4 (Fases 15-19, 24-32): motor de proposta interno
+  (`rastrear()`/`avaliar()`) com biblioteca de 3 estruturas (venda coberta,
+  put de proteção, collar) sobre posições reais, fluxo de aceite e motor
+  multi-candidato; integração real com o serviço MCP externo para cadeia/
+  possibilidades/criação de setups; plano comercial como eixo de produto
+  (`owner`, limites de IA por plano); consolidação final na aba Opções com
+  os dois motores (interno grátis + MCP com custo declarado) lado a lado.
+  18/18 requirements formais mapeados Complete, com duas ressalvas de
+  verificação humana carregadas explicitamente (não fechadas 100% ao vivo)
+  — ver `.planning/milestones/v1.4-ROADMAP.md` Milestone Summary. Fase 26 é
+  parcial (backlog B2/B3/C1/C2/C3 carregado adiante, ver Active) — v1.4
 - ✓ Redesenho de UI v1.5 (Fases 20-23): shell sem vazamento horizontal,
   teto de 720px em desktop, escala tipográfica numérica nomeada com
   `tabular-nums`, gate de `prefers-reduced-motion`, deduplicação de
@@ -319,6 +331,18 @@ faltavam os números).
 
 ### Active
 
+- [ ] Backlog da Fase 26 (v1.4), nunca executado: B2 (preservar estado ao
+  trocar de aba, sem decisão de abordagem), B3 (ligar a aba Opções às rotas
+  de execução com flag opt-in a descoberto, pesquisa concluída/decisão de
+  escopo pendente), C1 (busca nos 83 verbetes da KB), C2 (ancorar verbete
+  nas quatro abas sem cobertura), C3 (consolidar os cinco registros
+  paralelos de tela do front) — ver `26-CONTEXT.md`
+- [ ] Multi-candidato lado a lado (MULTI-02, Fase 19 → sub-aba Operar na
+  Fase 32) nunca foi visto renderizando em navegador real com dado real —
+  só sob provider mock, reconfirmado como dívida de verificação herdada até
+  a última verificação da milestone v1.4 (`32-VERIFICATION.md`,
+  2026-09-16); código implementado e coberto por guardião com injeção de
+  defeito real
 - [ ] Item 8 do checkpoint 08-05: verificação ao vivo da entrada automática
   gated por um pregão inteiro (`entradaAuto` ligado, confirmar que só
   dispara nos setups elegíveis do momento) — depende do Alex ligar a
@@ -419,6 +443,16 @@ faltavam os números).
   sem tocá-lo (invariante técnico: só `web/src/`, zero mudança em
   `server/app/*.py` ou contrato de API). 17/17 requirements, ver
   `.planning/milestones/v1.5-MILESTONE-AUDIT.md`.
+- **v1.4 entregou**: Fases 15-19 (motor de proposta, biblioteca de
+  estruturas, fluxo de aceite, tira de Posições, motor multi-candidato) +
+  Fases 24-32 (integração real com o serviço MCP, planos comerciais,
+  otimização parcial de UX/IA, e a consolidação final de toda operação de
+  opções numa única aba). 14 fases, 63 planos, ~211 tasks, 2026-09-02 a
+  2026-09-16 (arquivado 2026-09-19). Fase 26 parcial (só "Fase A" das 6
+  fatias previstas). 18/18 requirements formais (Fases 15-19) mapeados
+  Complete, com ressalvas de verificação humana carregadas explicitamente
+  — ver `.planning/milestones/v1.4-ROADMAP.md` e
+  `.planning/milestones/v1.4-REQUIREMENTS.md`.
 - Suíte canônica de teste: `bash scripts/executar.sh --testes` (pytest +
   web/tests/*.mjs); `scripts/test.sh` sozinho é meia baseline. Desde a Fase
   5 (FIX-C24), o próprio `executar.sh` resolve `web/node_modules` ausente
@@ -485,4 +519,7 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-09-14 — Fase 31 (varredura de oportunidades de opções, v1.4) code complete via /gsd:execute-phase, não publicada; demais seções abaixo desta data não foram revisadas nesta sessão*
+*Last updated: 2026-09-19 — Milestone v1.4 (Opções v2, Fases 15-19 e 24-32)
+arquivado; ver `.planning/milestones/v1.4-ROADMAP.md`/`v1.4-REQUIREMENTS.md`
+para o detalhe completo, decisões e tech debt. Passo seguinte: decisão do
+Alex sobre o próximo milestone/fase.*
