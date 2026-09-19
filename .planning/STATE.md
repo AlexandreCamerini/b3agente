@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-06)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Milestone v1.6 (Simplificação da aba Opções) — contexto da Fase 33 capturado e aprovado, pronto para `/gsd-plan-phase 33`.
+**Current focus:** Milestone v1.6 (Simplificação da aba Opções) — Fase 33 planejada (5 planos, 5 ondas sequenciais), pronta para `/gsd-execute-phase 33`.
 
 ## Current Position
 
-Phase: 33 (Extração dos 5 jobs em componentes próprios) — CONTEXT.md capturado, ainda não planejada
-Plan: —
-Status: Pronto para `/gsd-plan-phase 33`
-Last activity: 2026-09-19 — `/gsd-discuss-phase 33` capturou 4 decisões com o Alex: D-01 nomenclatura (`SecaoDescobrir/Vigias/Analisar/Comparar/Setups`), D-02 guardião por diretório inteiro (mirrora `test_opcoes_subabas_ui.mjs:101-114`), D-03 ordem de extração (5 planos sequenciais, mais isolado primeiro: Vigias→Descobrir→Setups→Comparar→Analisar), D-04 dois todos dobrados nesta fase (fetch redundante do SubAbaOperar, sem exceção de escopo; carimbo de frescor nos Blocos A/B, EXCEÇÃO EXPLÍCITA a "zero feature nova"). Ver `.planning/phases/33-extra-o-dos-5-jobs-em-componentes-pr-prios/33-CONTEXT.md`.
+Phase: 33 (Extração dos 5 jobs em componentes próprios) — 5/5 planos criados, plan-checker passou (1 blocker fechado por emenda ao CONTEXT.md), pronta para executar
+Plan: 33-01 a 33-05 (ondas sequenciais, cada uma depende da anterior)
+Status: Pronto para `/gsd-execute-phase 33`
+Last activity: 2026-09-19 — `/gsd-plan-phase 33`: pesquisa de fase pulada (pesquisa do milestone já cobria), UI-SPEC pulado (fase é extração pura, zero mudança visual por desenho), `gsd-pattern-mapper` achou analog pros 11 arquivos (11/11), `gsd-planner` gerou 5 planos sequenciais (33-01 SecaoVigias → 33-02 SecaoDescobrir+D-04b → 33-03 SecaoSetups → 33-04 SecaoComparar → 33-05 SecaoAnalisar+D-04a). Achados do planejamento que corrigiram o CONTEXT.md original: lista de guardiões era 5, achou 9 reais (censo por plano vira piso, não a lista fixa); D-04b confirmado front-only por medição direta do backend (`/api/options/curadoria` já devolve `at`/`meta.source`); achado um guardião (`test_opcoes_mcp_aba_ui.mjs:133`) que ficaria falso-positivo silencioso pós-extração (chave `opcoesLeituraTitulo` duplicada em `OpcoesScreen.jsx:667,913`) — corrigido no plano 33-05. `gsd-plan-checker` achou 1 blocker real (33-05 removeu o fallback que D-04a original exigia) — verificado pelo orquestrador (`carteira.map` em `OpcoesScreen.jsx:402` e `:692` são o mesmo array, fallback é código morto provado) e fechado por emenda de uma linha ao CONTEXT.md, sem replanejar. 2 warnings não-bloqueantes: publicação combinada 33+34 ainda sem plano formal (decidir ao fim da Fase 34); 33-02/33-05 têm 4 tasks (limiar de aviso, não erro). Guardrail aplicado: nenhum mutador `gsd-sdk query state.*`/`roadmap.*` foi chamado — STATE.md editado à mão; anotação de dependências no ROADMAP.md pulada por precaução (já visível no frontmatter de cada plano).
 
 **Milestone v1.4 (Opções v2) ARQUIVADO em 2026-09-19.** 14 fases (15-19, 24-32) em
 `.planning/milestones/v1.4-phases/`; detalhe completo em
