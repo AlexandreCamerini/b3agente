@@ -200,6 +200,31 @@ const violamNomeNoServico = arquivosOpcoesTodo.filter((f) => {
 ok("nenhum arquivo de web/src/opcoes/ expõe nomeNoServico fora da derivação da chave"
    + (violamNomeNoServico.length ? " (violam: " + violamNomeNoServico.join(", ") + ")" : ""),
    violamNomeNoServico.length === 0);
+
+// ---- 4d) estado compartilhado entre jobs não se redeclara em Secao*.jsx ----
+// 2026-09-20, Fase 33 (33-04), injeção 5 da prova negativa de SecaoComparar:
+// declarar `const [tese, setTese] = useState("")` DENTRO da seção não fazia
+// NENHUM dos 7 guardiões desta fase reprovar — nenhum cobria o Pitfall 6
+// (estado consumido por 2+ jobs — `ticker`/`tese`/`vencimento`/`lote` — tem
+// que ficar SÓ no orquestrador). Asserção nova, por VARREDURA DE DIRETÓRIO
+// (D-02): nenhum `Secao*.jsx` pode declarar `useState` ligado a um desses
+// quatro nomes. Vale para os 5 componentes desta fase, não só para
+// SecaoComparar.jsx.
+const arquivosSecaoTodo = arquivosOpcoesTodo.filter((f) => /^Secao.*\.jsx?$/.test(f));
+ok("sanidade: achou pelo menos 1 arquivo Secao*.jsx (varredura por diretório)",
+   arquivosSecaoTodo.length >= 1, `achou ${arquivosSecaoTodo.length}`);
+const ESTADO_COMPARTILHADO = /const\s*\[\s*(ticker|tese|vencimento|lote)\s*,/;
+const violamEstadoCompartilhado = arquivosSecaoTodo.filter((f) => {
+  const src = semComentario(ler(f));
+  return ESTADO_COMPARTILHADO.test(src);
+});
+ok("sanidade: a regex de estado compartilhado pega o padrão quando ele existe",
+   ESTADO_COMPARTILHADO.test('const [tese, setTese] = useState("");')
+   && ESTADO_COMPARTILHADO.test("const [ticker, setTicker] = useState('');"));
+ok("nenhum Secao*.jsx redeclara ticker/tese/vencimento/lote como estado local (Pitfall 6)"
+   + (violamEstadoCompartilhado.length ? " (violam: " + violamEstadoCompartilhado.join(", ") + ")" : ""),
+   violamEstadoCompartilhado.length === 0);
+
 const criar = semComentario(ler("CriarSetup.jsx"));
 // 2026-09-13 (Fase 27, plano 27-05) — a forma ganhou um SUFIXO: o custo da
 // ação (1 chamada) passou a entrar no `aria-label`. A razão é a mesma que

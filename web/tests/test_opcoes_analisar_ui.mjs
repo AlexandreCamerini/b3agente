@@ -150,9 +150,14 @@ ok("o custo é 2×N+1 com N ≤ 6, derivado dos vencimentos que a leitura trouxe
    && /2 \* N \+ 1/.test(tela) && /const N_MAX_VENCIMENTOS = 6/.test(tela));
 // NOVA (33-04): "uma conta só" deixa de ser convenção e passa a ser travada —
 // a extração TORNA possível (e necessária) proibir a segunda cópia da fórmula
-// dentro do componente que só recebe o número pronto.
+// dentro do componente que só recebe o número pronto. `Math\.min\(` entra na
+// mesma proibição: uma reescrita da fórmula com outro nome de variável (ex.:
+// `2 * Math.min(vencimentos.length, 6) + 1`) driblaria uma regex que só
+// buscasse o literal `2 * N + 1` — achado real da prova negativa (Task 3,
+// injeção 2, 2026-09-20).
 ok("SecaoComparar.jsx não recalcula o teto nem a fórmula do custo (uma conta só)",
-   !/N_MAX_VENCIMENTOS/.test(secaoComparar) && !/2 \* N \+ 1/.test(secaoComparar));
+   !/N_MAX_VENCIMENTOS/.test(secaoComparar) && !/2 \* N \+ 1/.test(secaoComparar)
+   && !/Math\.min\(/.test(secaoComparar));
 ok("sem vencimento, a seção diz o motivo e o botão não fica habilitado",
    /cp\.opcoesSemVencimento/.test(secaoComparar) && /disabled=\{!temTese \|\| !loteOk\}/.test(secaoComparar));
 ok("possibilidades exige TESE: o backend responde 422 tese_ausente sem ela",
