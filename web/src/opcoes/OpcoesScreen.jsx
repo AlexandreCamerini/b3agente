@@ -737,53 +737,72 @@ export default function OpcoesScreen({ ctx }) {
         /* ------------------------------------------ 3. VAZIO COM MOTIVO --
            Vazio nunca é silêncio. */
         <div style={{ marginTop: "14px", display: "grid", gap: "10px" }}>
-          {/* Fase 27 (D2) — carteira vazia tem MOTIVO e CAMINHO. O destino é a
-              CARTEIRA e não o Mercado por decisão explícita do Alex
-              (27-CONTEXT, D2: "estado vazio com caminho para a carteira"), e a
-              aba NÃO cai para a watchlist: lista de interesse não serve de
-              lastro. O ramo vem ANTES do `semTicker` porque sem posição nenhuma
-              não há ativo a escolher — "escolha um ativo" seria pedir o
-              impossível. */}
-          {carteira.length === 0 ? (
-            <Aviso>
-              {cp.opcoesCarteiraVazia || "Esta aba trabalha sobre os ativos que você tem em carteira."}
-              <button
-                onClick={() => { if (ctx && ctx.goCarteira) ctx.goCarteira(); }}
-                style={{ ...BOTAO, width: "100%", marginTop: "12px" }}
-              >
-                {cp.opcoesIrParaCarteira || "Ir para a Carteira"}
-              </button>
-            </Aviso>
-          ) : semTicker ? (
-            <Aviso>{cp.opcoesEscolherAtivo || "Escolha um ativo para ver a leitura."}</Aviso>
-          ) : null}
-          {semCandles ? (
-            <Aviso>
-              O serviço não tem candles para este ativo, então não há leitura de
-              comportamento para mostrar. Nada foi estimado no lugar.
-            </Aviso>
-          ) : null}
-          {/* Fase 27 (27-05) — o `l &&` é a correção que a saída da leitura do
-              efeito tornou obrigatória. "Nenhum setup gravado para este ativo"
-              é uma AFIRMAÇÃO sobre o armazém do serviço, e quem a mede é a
-              própria leitura. Com a leitura virando clique, ela passa a não
-              existir enquanto ninguém pedir — e sem esta guarda a tela diria
-              "nenhum setup" sobre um ativo que ela nunca consultou, que é
-              exatamente o princípio 4 do CLAUDE.md ao contrário (não inventar
-              estado quando a fonte não respondeu). Sem leitura pedida, quem
-              fala é o convite acima.
+          {/* Fase 34 (34-02): o CONTEÚDO deste ramo passa a ser particionado
+              por modo — `nadaParaMostrar` (o GATILHO do ramo, acima) não
+              muda. Hub (`!ticker`) só pode ver os dois avisos que fazem
+              sentido sem ativo escolhido; workspace (`ticker`) só pode ver os
+              dois que dependem de uma leitura ticker-scoped — misturar os
+              dois seria afirmar sobre um ativo que a tela nunca consultou
+              (T-34-03, princípio 4 do CLAUDE.md). */}
+          {!ticker ? (
+            <>
+              {/* Fase 27 (D2) — carteira vazia tem MOTIVO e CAMINHO. O destino é a
+                  CARTEIRA e não o Mercado por decisão explícita do Alex
+                  (27-CONTEXT, D2: "estado vazio com caminho para a carteira"), e a
+                  aba NÃO cai para a watchlist: lista de interesse não serve de
+                  lastro. O ramo vem ANTES do `semTicker` porque sem posição nenhuma
+                  não há ativo a escolher — "escolha um ativo" seria pedir o
+                  impossível. */}
+              {carteira.length === 0 ? (
+                <Aviso>
+                  {cp.opcoesCarteiraVazia || "Esta aba trabalha sobre os ativos que você tem em carteira."}
+                  <button
+                    onClick={() => { if (ctx && ctx.goCarteira) ctx.goCarteira(); }}
+                    style={{ ...BOTAO, width: "100%", marginTop: "12px" }}
+                  >
+                    {cp.opcoesIrParaCarteira || "Ir para a Carteira"}
+                  </button>
+                </Aviso>
+              ) : semTicker ? (
+                <Aviso>{cp.opcoesEscolherAtivo || "Escolha um ativo para ver a leitura."}</Aviso>
+              ) : null}
+            </>
+          ) : (
+            <>
+              {semCandles ? (
+                <Aviso>
+                  O serviço não tem candles para este ativo, então não há leitura de
+                  comportamento para mostrar. Nada foi estimado no lugar.
+                </Aviso>
+              ) : null}
+              {/* Fase 27 (27-05) — o `l &&` é a correção que a saída da leitura do
+                  efeito tornou obrigatória. "Nenhum setup gravado para este ativo"
+                  é uma AFIRMAÇÃO sobre o armazém do serviço, e quem a mede é a
+                  própria leitura. Com a leitura virando clique, ela passa a não
+                  existir enquanto ninguém pedir — e sem esta guarda a tela diria
+                  "nenhum setup" sobre um ativo que ela nunca consultou, que é
+                  exatamente o princípio 4 do CLAUDE.md ao contrário (não inventar
+                  estado quando a fonte não respondeu). Sem leitura pedida, quem
+                  fala é o convite acima.
 
-              2026-09-20 (Fase 33, 33-03) — este aviso NÃO é duplicata do
-              aviso interno de SecaoSetups.jsx (mesma chave `cp.opcoesSemSetups`,
-              de propósito): este aqui fala quando NENHUMA leitura foi pedida
-              (ramo "3. VAZIO" da cascata); o de dentro da seção fala quando a
-              leitura ACONTECEU e voltou sem setups (ramo "4. DADOS"). São
-              medições diferentes, com a MESMA frase porque o resultado que a
-              pessoa vê ("nenhum setup") é o mesmo nos dois casos — só o motivo
-              muda. Não "limpar" um dos dois como redundante. */}
-          {!semTicker && l && setups.length === 0 ? (
-            <Aviso>{cp.opcoesSemSetups || "Nenhum setup gravado para este ativo."}</Aviso>
-          ) : null}
+                  2026-09-20 (Fase 33, 33-03) — este aviso NÃO é duplicata do
+                  aviso interno de SecaoSetups.jsx (mesma chave `cp.opcoesSemSetups`,
+                  de propósito): este aqui fala quando NENHUMA leitura foi pedida
+                  (ramo "3. VAZIO" da cascata); o de dentro da seção fala quando a
+                  leitura ACONTECEU e voltou sem setups (ramo "4. DADOS"). São
+                  medições diferentes, com a MESMA frase porque o resultado que a
+                  pessoa vê ("nenhum setup") é o mesmo nos dois casos — só o motivo
+                  muda. Não "limpar" um dos dois como redundante.
+
+                  Fase 34 (34-02): a guarda `!semTicker` some daqui — ela virou
+                  redundante quando este bloco só monta com `ticker` truthy
+                  (a guarda subiu de nível, para o `!ticker ? ... : ...` acima);
+                  não é afrouxamento, é o mesmo gate movido para fora. */}
+              {l && setups.length === 0 ? (
+                <Aviso>{cp.opcoesSemSetups || "Nenhum setup gravado para este ativo."}</Aviso>
+              ) : null}
+            </>
+          )}
         </div>
       ) : (
         /* ------------------------------------------------------ 4. DADOS -- */
