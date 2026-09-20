@@ -17,7 +17,7 @@
  * · o motivo de uma recusa do serviço vai VERBATIM, sem reescrita;
  * · vazio nunca é silêncio: todo estado vazio diz o porquê.
  */
-import { useState, useEffect } from "react";
+import { useState } from "react";
 // Fase 27 (27-02): `finance.js` é módulo PURO — zero import de `App.jsx` —,
 // então o isolamento do ADR-027 continua intacto (o guardião proíbe importar
 // `App.jsx`, não `finance.js`). `qtyLivre` é a FONTE ÚNICA da subtração
@@ -51,11 +51,18 @@ import CandidatoOpcao from "./CandidatoOpcao.jsx";
 // (ramifica nos 4 códigos do ADR-027) reusada por esta tela e pelas seções
 // job-to-be-done (`Secao*.jsx`, D-01 do 33-CONTEXT.md). `SecaoVigias` é o job
 // 2 ("gerenciar vigias"), extraído na Fase 33-01.
-// Fase 33 (33-04): `Linha`/`RazaoGanhoPerda` entram nesta importação —
-// migraram para `uiOpcoes.jsx` porque job 3 (abaixo) e job 4
-// (`SecaoComparar.jsx`) renderizam a MESMA razão ganho/perda.
-import { Kicker, Aviso, ErroDoMcp, RecusaCobrada, Linha, RazaoGanhoPerda } from "./uiOpcoes.jsx";
+// Fase 33 (33-04): `Linha` migrou para `uiOpcoes.jsx` — LeituraInterna
+// (abaixo, custo zero) e as seções job-to-be-done usam a MESMA implementação.
+// `RazaoGanhoPerda` migrou junto no 33-04, mas o único consumidor que restava
+// em OpcoesScreen.jsx (o job 3, "O QUE DÁ PARA MONTAR") saiu na Fase 33-05
+// para SecaoAnalisar.jsx — o import daqui foi removido (SecaoAnalisar.jsx/
+// SecaoComparar.jsx importam `RazaoGanhoPerda` de `uiOpcoes.jsx` direto).
+import { Kicker, Aviso, ErroDoMcp, RecusaCobrada, Linha } from "./uiOpcoes.jsx";
 import SecaoVigias from "./SecaoVigias.jsx";
+// Fase 33 (33-05): `SecaoAnalisar` é o job 3 ("analisar um ticker
+// manualmente") — LEITURA DO ATIVO + O QUE DÁ PARA MONTAR, com o painel local
+// de cadeia/operáveis. Último dos 5 jobs extraídos; fecha D-03.
+import SecaoAnalisar from "./SecaoAnalisar.jsx";
 // Fase 33 (33-02): `SecaoDescobrir` é o job 1 ("descobrir oportunidades
 // cross-carteira") — frase-ponte + Bloco A (OportunidadesOpcoes) + Bloco B
 // (CuradoriaEstruturas) juntos, adjacentes (D-05). `OportunidadesOpcoes.jsx`/
@@ -99,67 +106,16 @@ const carouselTrackStyle = (extra) => ({
 const ehNum = (v) => typeof v === "number" && isFinite(v);
 const fmt = (v, casas = 2) => (ehNum(v) ? v.toFixed(casas).replace(".", ",") : "—");
 const pct = (v, casas = 2) => (ehNum(v) ? fmt(v, casas) + "%" : "—");
-// `hv21`/`hv63` chegam como FRAÇÃO (0,31 = 31%). A conversão para % é
-// formatação da mesma grandeza, não conta nova — é exatamente como o portal
-// do próprio serviço a exibe. Sem valor, travessão.
-const fracPct = (v) => (ehNum(v) ? fmt(v * 100, 1) + "%" : "—");
-const txt = (v) => (typeof v === "string" && v ? v : "—");
-// `range_63_sessions` chega SEMPRE como dicionário — com os dois extremos
-// nulos quando a janela de 63 pregões não fechou. Exibi-lo sem esta checagem
-// produzia "— – —", que é travessão travestido de faixa: parece um intervalo
-// que o app não soube formatar, quando é ausência do dado (24-11). Ausência é
-// UM travessão, e o porquê dela aparece no rodapé do bloco.
-const faixa = (v) => ((v && (ehNum(v.lowest) || ehNum(v.highest)))
-  ? fmt(v.lowest) + " – " + fmt(v.highest) : "—");
 
-// Fase 33 (33-04): `Linha`/`RazaoGanhoPerda` migraram para `uiOpcoes.jsx` —
-// job 3 (Analisar, abaixo) e job 4 (Comparar, `SecaoComparar.jsx`) usam a
-// MESMA implementação; duas cópias divergiriam na primeira correção feita só
-// numa delas. Ver o import de `uiOpcoes.jsx` no topo do arquivo.
-
-// aba-opcoes 24-11 (achado ao vivo 2026-09-11): a LEITURA DO ATIVO de PETR4
-// mostrava travessão em cinco campos sem dizer por quê — a pessoa não sabe se
-// o app quebrou, se o ativo é estranho ou se falta dado (princípio 9).
+// Fase 33 (33-04): `Linha` migrou para `uiOpcoes.jsx` — LeituraInterna
+// (custo zero, abaixo) e as seções job-to-be-done usam a MESMA implementação.
+// Ver o import de `uiOpcoes.jsx` no topo do arquivo.
 //
-// UM mapa só de rótulo↔campo, aqui, para que a explicação e a tabela falem o
-// MESMO vocabulário: dois mapas divergiriam no primeiro rótulo renomeado, e a
-// frase passaria a nomear um campo que a tabela não mostra com esse nome.
-const ROTULO_LEITURA = {
-  trend: "Tendência",
-  rsi14: "RSI 14",
-  hv21: "HV 21",
-  hv63: "HV 63",
-  sma63: "Média de 63",
-  distance_from_sma21_pct: "Distância da média 21",
-  distance_from_sma63_pct: "Distância da média 63",
-  range_63_sessions: "Faixa de 63 pregões",
-  change_21_sessions_pct: "Variação em 21 pregões",
-};
-
-// Os motivos vão AGRUPADOS no rodapé do bloco, ao lado do carimbo do pregão —
-// um por motivo, com os campos afetados nomeados. Repetir a explicação nas
-// cinco linhas da tabela empurraria para fora da tela os números que VIERAM,
-// que é o oposto do que o achado pede.
-//
-// O motivo é do backend e vai VERBATIM: aqui só se juntam os rótulos, e a
-// gramática (a vírgula, o "e", o singular/plural) mora no `copy.js`, com voz
-// por modo. Sem `lacunas`, nada é renderizado — estado normal é silêncio.
-function LacunasDaLeitura({ lacunas, cp }) {
-  const itens = (Array.isArray(lacunas) ? lacunas : []).filter(
-    (x) => x && x.motivo && Array.isArray(x.campos) && x.campos.length);
-  if (!itens.length) return null;
-  return (
-    <div style={{ fontSize: "11.5px", color: T.textMuted, marginTop: "4px", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
-      {itens.map((x, i) => (
-        <div key={i} style={{ marginTop: i ? "3px" : 0 }}>
-          {cp.opcoesLacuna
-            ? cp.opcoesLacuna(x.campos.map((c) => ROTULO_LEITURA[c] || c), x.motivo)
-            : x.motivo}
-        </div>
-      ))}
-    </div>
-  );
-}
+// Fase 33 (33-05): `fracPct`/`txt`/`faixa`, `ROTULO_LEITURA`/
+// `LacunasDaLeitura` e o botão de "Montar estrutura" desabilitado saíram
+// daqui — único consumidor de cada um era o job 3 ("LEITURA DO ATIVO"/"O QUE
+// DÁ PARA MONTAR"), extraído para `SecaoAnalisar.jsx` (que declara os mesmos
+// nomes localmente, espelho declarado de formatador de uma linha).
 
 // aba-opcoes F3 (plano 24-02). Alvo de toque de 44 px em TODO botão novo —
 // os dois estilos abaixo existem para que nenhum deles possa esquecer disso.
@@ -168,10 +124,6 @@ const BOTAO = {
   border: `1px solid ${T.borderSubtle}`, background: "transparent",
   color: T.textSecondary, fontWeight: 700, fontSize: "13px",
 };
-// Botão desabilitado FICA VISÍVEL, em vez de sumir: a pessoa precisa ver que
-// a ação existe e o que falta para liberá-la (tese, lote) — botão que some
-// vira "o app não faz isso".
-const desabilitado = (cond) => (cond ? { opacity: 0.45, cursor: "not-allowed" } : null);
 
 // Fase 27 (27-05) — a SEGUNDA LINHA do botão, onde o custo é declarado. Estilo
 // nomeado e não repetido botão a botão: são sete controles com a mesma linha, e
@@ -191,27 +143,14 @@ const CAIXA = {
   border: `1px solid ${T.borderSubtle}`, borderRadius: "12px",
   padding: "12px 14px", background: T.bgPanel,
 };
-const CAMPO = {
-  minHeight: "44px", width: "100%", boxSizing: "border-box", padding: "8px 10px",
-  borderRadius: "10px", border: `1px solid ${T.borderSubtle}`,
-  background: T.bgBase, color: T.textPrimary, fontSize: "14px",
-};
-const ROTULO = { display: "block", fontSize: "12.5px", color: T.textSecondary, margin: "12px 0 4px" };
 const AJUDA = { fontSize: "11px", color: T.textMuted, marginTop: "4px", lineHeight: 1.45 };
 
-// Rolagem horizontal no CONTAINER da tabela, nunca no `body`: a cadeia tem
-// mais colunas do que cabem em 375 px, e empurrar a página inteira para o
-// lado quebra a leitura de tudo o mais.
-const ROLAGEM = { overflowX: "auto", WebkitOverflowScrolling: "touch", margin: "8px 0" };
-const TABELA = { borderCollapse: "collapse", fontSize: "12px", minWidth: "460px", width: "100%" };
-const TH = { textAlign: "left", padding: "6px 8px", color: T.textMuted, fontWeight: 700, borderBottom: `1px solid ${T.borderSubtle}`, whiteSpace: "nowrap" };
-const TD = { padding: "6px 8px", color: T.textSecondary, borderBottom: `1px solid ${T.borderFaint}`, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" };
-
-// `side` do serviço descreve a PERNA da estrutura ("esta trava compra o
-// strike 38 e vende o 40"), não uma instrução a quem lê — por isso vale nos
-// dois modos, inclusive no Estudo. O que o Estudo não tem é veredito em voz
-// de ordem, e isso continua valendo.
-const LADO = { buy: "compra", sell: "venda" };
+// Fase 33 (33-05): `CAMPO`/`ROTULO` (campos de formulário do job 3) e
+// `ROLAGEM`/`TABELA`/`TH`/`TD`/`LADO` (tabela de pernas/cadeia/operáveis, só
+// usada por `Pernas`/`TabelaDeOpcoes`, que migraram junto) saíram daqui —
+// único consumidor de cada um era o job 3, extraído para
+// `SecaoAnalisar.jsx` (espelho declarado local, mesmo padrão de
+// `SecaoComparar.jsx`).
 
 const num = (v) => {
   const n = Number(v);
@@ -340,14 +279,18 @@ export default function OpcoesScreen({ ctx }) {
   const [lote, setLote] = useState("100");
   const [alvo, setAlvo] = useState("");
   const [stop, setStop] = useState("");
-  const [painel, setPainel] = useState("");  // "" | "cadeia" | "operaveis"
 
   // Trocar de ativo apaga a TESE e os preços: tese é juízo sobre AQUELE
   // ativo, e um alvo de 41,00 herdado de outro papel seria um cenário falso.
-  // O lote fica — ele é da pessoa, não do ativo.
+  // O lote fica — ele é da pessoa, não do ativo. `painel` (cadeia/operáveis)
+  // virou estado LOCAL de SecaoAnalisar.jsx na Fase 33 (33-05) — o
+  // componente não desmonta ao trocar de ticker (fica na mesma posição da
+  // árvore), então o reset agora é um `useEffect([ticker])` DENTRO dele
+  // (mesma garantia de antes: painel fecha ao trocar de ativo), em vez de
+  // `setPainel("")` aqui.
   const escolherTicker = (t) => {
     setTicker(t === ticker ? "" : t);
-    setTese(""); setVencimento(""); setAlvo(""); setStop(""); setPainel("");
+    setTese(""); setVencimento(""); setAlvo(""); setStop("");
   };
 
   // Fase 27: o cartão do vigia NAVEGA; ele não alterna. `escolherTicker` é
@@ -690,6 +633,8 @@ export default function OpcoesScreen({ ctx }) {
           cp={cp}
           ctx={ctx}
           seletor={seletor}
+          opcoesPorTicker={opcoesPorTicker}
+          opcoesPorTickerCarregando={opcoesPorTickerCarregando}
         />
       ) : (
       <>
@@ -824,255 +769,67 @@ export default function OpcoesScreen({ ctx }) {
       ) : (
         /* ------------------------------------------------------ 4. DADOS -- */
         <div>
+          {/* Fase 33 (33-05, 2026-09-20): job 3 ("analisar um ticker
+              manualmente") extraído para SecaoAnalisar.jsx — último dos 5
+              jobs a sair. Posição EXATA de hoje: primeiro elemento do ramo
+              DADOS, renderizado antes do job 4 logo abaixo. `temLeitura`/
+              `semCandles` continuam decididos aqui (o orquestrador é dono do
+              estado compartilhado); a seção só recebe o resultado pronto. */}
+          <SecaoAnalisar
+            ticker={ticker}
+            temLeitura={temLeitura}
+            semCandles={semCandles}
+            behavior={behavior}
+            lacunas={l && l.lacunas}
+            pregao={pregao}
+            expirations={l && l.expirations}
+            tese={tese}
+            setTese={setTese}
+            temTese={temTese}
+            vencimento={vencimento}
+            setVencimento={setVencimento}
+            vencimentos={vencimentos}
+            lote={lote}
+            setLote={setLote}
+            loteOk={loteOk}
+            proposta={proposta}
+            montarProposta={montarProposta}
+            cadeia={cadeia}
+            operaveis={operaveis}
+            abrirCadeia={abrirCadeia}
+            abrirOperaveis={abrirOperaveis}
+            custos={CUSTO_DA_ACAO}
+            cp={cp}
+            palette={palette}
+          />
+
           {temLeitura ? (
-            <>
-              <Kicker>{cp.opcoesLeituraTitulo || "LEITURA DO ATIVO"}</Kicker>
-              <div style={{ border: `1px solid ${T.borderSubtle}`, borderRadius: "12px", padding: "4px 14px 10px", background: T.bgPanel }}>
-                <Linha rotulo="Tendência" valor={txt(behavior.trend)} />
-                <Linha rotulo="Fechamento" valor={fmt(behavior.close)} />
-                <Linha rotulo="RSI 14" valor={fmt(behavior.rsi14, 1)} />
-                <Linha rotulo="HV 21" valor={fracPct(behavior.hv21)} />
-                <Linha rotulo="HV 63" valor={fracPct(behavior.hv63)} />
-                <Linha rotulo="Distância da média 21" valor={pct(behavior.distance_from_sma21_pct, 1)} />
-                <Linha rotulo="Distância da média 63" valor={pct(behavior.distance_from_sma63_pct, 1)} />
-                <Linha rotulo="Faixa de 63 pregões" valor={faixa(behavior.range_63_sessions)} />
-                <Linha rotulo="Variação em 21 pregões" valor={pct(behavior.change_21_sessions_pct, 1)} />
-              </div>
-              <div style={{ fontSize: "11.5px", color: T.textMuted, marginTop: "6px" }}>
-                {"Leitura referente ao pregão de " + (behavior.trading_date || pregao || "—") + "."}
-              </div>
-              {/* 24-11 — o rodapé continua, e agora diz POR QUE os campos
-                  vazios estão vazios. A tabela acima segue com travessão:
-                  o objetivo é explicar a ausência, não preenchê-la. */}
-              <LacunasDaLeitura lacunas={l && l.lacunas} cp={cp} />
-            </>
-          ) : semCandles ? (
-            <div style={{ marginTop: "14px" }}>
-              <Aviso>
-                O serviço não tem candles para este ativo — sem leitura de
-                comportamento. Os setups abaixo continuam valendo.
-              </Aviso>
-            </div>
-          ) : null}
-
-          {Array.isArray(l && l.expirations) && l.expirations.length > 0 ? (
-            <div style={{ fontSize: "12px", color: T.textSecondary, marginTop: "10px" }}>
-              {"Vencimentos disponíveis: " + l.expirations.join(" · ")}
-            </div>
-          ) : null}
-
-          {/* ============================================ ANALISAR (F3) --
-              Depois da leitura e ANTES dos setups: a ordem da tela é a ordem
-              do raciocínio — leio o ativo, vejo o que dá para montar, e só
-              então olho os setups que vigiam. Sem leitura não há de onde a
-              tese sair, então a seção inteira depende de `temLeitura`. */}
-          {temLeitura ? (
-            <>
-              <Kicker>{cp.opcoesAnalisarTitulo || "O QUE DÁ PARA MONTAR"}</Kicker>
-              <div style={CAIXA}>
-                {/* Nenhuma tese vem pré-selecionada: o serviço não escolhe
-                    direção (é 422 `tese_ausente` sem ela) e a tela não pode
-                    escolher no lugar de quem opera. */}
-                <div id="opcoes-tese-rotulo" style={{ ...ROTULO, margin: "0 0 6px" }}>
-                  {cp.opcoesTeseRotulo || "Qual é a sua tese para este ativo?"}
-                </div>
-                <div role="group" aria-labelledby="opcoes-tese-rotulo" style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                  {[["bullish", cp.opcoesTeseAlta || "Alta"],
-                    ["bearish", cp.opcoesTeseBaixa || "Baixa"],
-                    ["neutral", cp.opcoesTeseNeutra || "Neutra"]].map(([valor, rotulo]) => (
-                      <button
-                        key={valor}
-                        onClick={() => setTese(valor === tese ? "" : valor)}
-                        aria-pressed={valor === tese}
-                        style={{ ...BOTAO, flex: "1 1 90px", ...(valor === tese ? { borderColor: T.accent, background: T.accentTint10, color: T.accent } : null) }}
-                      >
-                        {rotulo}
-                      </button>
-                    ))}
-                </div>
-
-                {/* "o serviço escolhe" é o default HONESTO: `propose_option_setups`
-                    sem `expiration` decide pelo critério dele, e fingir que
-                    fomos nós que escolhemos o primeiro da lista seria a tela
-                    assumindo uma decisão que não tomou. */}
-                <label htmlFor="opcoes-venc" style={ROTULO}>Vencimento</label>
-                <select id="opcoes-venc" value={vencimento} onChange={(ev) => setVencimento(ev.target.value)} style={CAMPO}>
-                  <option value="">o serviço escolhe</option>
-                  {vencimentos.map((v) => <option key={v} value={v}>{v}</option>)}
-                </select>
-
-                <label htmlFor="opcoes-lote" style={ROTULO}>{cp.opcoesLoteRotulo || "Lote (ações)"}</label>
-                <input
-                  id="opcoes-lote" type="number" step="100" min="100" inputMode="numeric"
-                  value={lote} onChange={(ev) => setLote(ev.target.value)}
-                  aria-describedby="opcoes-lote-ajuda" style={CAMPO}
-                />
-                <div id="opcoes-lote-ajuda" style={AJUDA}>{cp.opcoesLoteAjuda || ""}</div>
-
-                {/* Fase 27 (27-05): o custo DENTRO do controle, na segunda
-                    linha do próprio botão — mesmo padrão do "Atualizar" dos
-                    vigias e do "Ler no serviço". Uma forma só de dizer custo
-                    (`opcoesCustoChamadas`) em toda a aba: duas divergiriam na
-                    primeira manutenção feita só numa delas. */}
-                <button
-                  onClick={() => montarProposta({ direction: tese, expiration: vencimento || undefined, lote: loteNum })}
-                  disabled={!temTese || !loteOk}
-                  style={{ ...BOTAO, width: "100%", marginTop: "12px", ...desabilitado(!temTese || !loteOk) }}
-                >
-                  <span style={{ display: "block" }}>{cp.opcoesMontarEstrutura || "Montar estrutura"}</span>
-                  <span style={CUSTO_NO_BOTAO}>
-                    {(cp.opcoesCustoChamadas || ((n) => String(n)))(CUSTO_DA_ACAO.proposta)}
-                  </span>
-                </button>
-
-                {/* carregando → erro → vazio com motivo → dados */}
-                <div style={{ marginTop: "10px" }}>
-                  {proposta.carregando ? (
-                    <Aviso>{cp.opcoesCarregando || "Consultando o serviço de opções…"}</Aviso>
-                  ) : proposta.erro ? (
-                    <ErroDoMcp erro={proposta.erro} cp={cp} />
-                  ) : proposta.dados && !(proposta.dados.estruturas || []).length ? (
-                    <Aviso>
-                      {/* Motivo do serviço, VERBATIM. Sem motivo nenhum, a
-                          tela diz que não houve motivo — não preenche com um
-                          palpite sobre o porquê. */}
-                      {proposta.dados.motivo || proposta.dados.nota
-                        || "O serviço não montou estrutura para esta tese e não informou o motivo. Nada foi estimado no lugar."}
-                    </Aviso>
-                  ) : proposta.dados ? (
-                    <>
-                      <PayoffChart
-                        estrutura={proposta.dados.estruturas[0]}
-                        emReais={proposta.dados.emReais}
-                        cp={cp}
-                        palette={palette}
-                      />
-                      <RazaoGanhoPerda razao={proposta.dados.razaoGanhoPerda} cp={cp} />
-                      <Pernas pernas={proposta.dados.estruturas[0].legs} cp={cp} />
-                    </>
-                  ) : null}
-                </div>
-
-                {/* Duas consultas secundárias, cada uma custando 1 chamada.
-                    Reabrir o painel refaz o pedido — e o cache L1 do serviço
-                    (15 min) devolve sem tocar a rede, sem consumir cap. */}
-                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginTop: "14px" }}>
-                  <button
-                    onClick={() => { const abrir = painel !== "cadeia"; setPainel(abrir ? "cadeia" : ""); if (abrir) abrirCadeia({ expiration: vencimento || undefined }); }}
-                    aria-pressed={painel === "cadeia"}
-                    style={{ ...BOTAO, flex: "1 1 150px" }}
-                  >
-                    <span style={{ display: "block" }}>{cp.opcoesVerCadeia || "Ver a cadeia"}</span>
-                    <span style={CUSTO_NO_BOTAO}>
-                      {(cp.opcoesCustoChamadas || ((n) => String(n)))(CUSTO_DA_ACAO.cadeia)}
-                    </span>
-                  </button>
-                  <button
-                    onClick={() => { const abrir = painel !== "operaveis"; setPainel(abrir ? "operaveis" : ""); if (abrir) abrirOperaveis({ expiration: vencimento || undefined }); }}
-                    aria-pressed={painel === "operaveis"}
-                    style={{ ...BOTAO, flex: "1 1 150px" }}
-                  >
-                    <span style={{ display: "block" }}>{cp.opcoesVerOperaveis || "Ver as operáveis"}</span>
-                    <span style={CUSTO_NO_BOTAO}>
-                      {(cp.opcoesCustoChamadas || ((n) => String(n)))(CUSTO_DA_ACAO.operaveis)}
-                    </span>
-                  </button>
-                </div>
-
-                {painel === "cadeia" ? (
-                  <div style={{ marginTop: "10px" }}>
-                    {cadeia.carregando ? (
-                      <Aviso>{cp.opcoesCarregando || "Consultando o serviço de opções…"}</Aviso>
-                    ) : cadeia.erro ? (
-                      <ErroDoMcp erro={cadeia.erro} cp={cp} />
-                    ) : cadeia.dados && !(cadeia.dados.opcoes || []).length ? (
-                      <Aviso>A cadeia deste ativo voltou sem contrato para os filtros pedidos. Nada foi estimado no lugar.</Aviso>
-                    ) : cadeia.dados ? (
-                      <>
-                        <div style={{ fontSize: "11.5px", color: T.textMuted }}>
-                          {"Contratos: " + (ehNum(cadeia.dados.retornados) ? cadeia.dados.retornados : "—")
-                            + " de " + (ehNum(cadeia.dados.encontrados) ? cadeia.dados.encontrados : "—")}
-                        </div>
-                        {cadeia.dados.truncado ? (
-                          <div style={{ marginTop: "8px" }}>
-                            <Aviso>{(cp.opcoesCadeiaTruncada || ((t) => t))(cadeia.dados.truncado)}</Aviso>
-                          </div>
-                        ) : null}
-                        <TabelaDeOpcoes linhas={cadeia.dados.opcoes} />
-                        <div style={AJUDA}>{cp.opcoesDeltaAjuda || ""}</div>
-                      </>
-                    ) : null}
-                  </div>
-                ) : null}
-
-                {painel === "operaveis" ? (
-                  <div style={{ marginTop: "10px" }}>
-                    {operaveis.carregando ? (
-                      <Aviso>{cp.opcoesCarregando || "Consultando o serviço de opções…"}</Aviso>
-                    ) : operaveis.erro ? (
-                      <ErroDoMcp erro={operaveis.erro} cp={cp} />
-                    ) : operaveis.dados && !(operaveis.dados.opcoes || []).length ? (
-                      <Aviso>
-                        {/* Peneira vazia NÃO é "não há opções": é "nenhuma
-                            passou no critério". Por isso o critério aparece
-                            junto — a pessoa precisa saber o que sumiu com os
-                            strikes dela. */}
-                        {(cp.opcoesCriterioOperaveis || (() => ""))(operaveis.dados.criterioAplicado)}
-                        {"\n\nNenhum contrato passou nessa peneira neste ativo."}
-                      </Aviso>
-                    ) : operaveis.dados ? (
-                      <>
-                        <div style={{ fontSize: "11.5px", color: T.textSecondary, lineHeight: 1.5 }}>
-                          {(cp.opcoesCriterioOperaveis || (() => ""))(operaveis.dados.criterioAplicado)}
-                        </div>
-                        {operaveis.dados.criterio ? (
-                          <div style={{ ...AJUDA, whiteSpace: "pre-wrap" }}>
-                            {/* Texto do serviço, verbatim (vem em inglês) —
-                                reescrever seria a tela falando pelo serviço. */}
-                            {"Como o serviço descreveu a peneira: " + operaveis.dados.criterio}
-                          </div>
-                        ) : null}
-                        <TabelaDeOpcoes linhas={operaveis.dados.opcoes} />
-                        <div style={AJUDA}>
-                          {ehNum(operaveis.dados.excluidos) ? "Descartados pela peneira: " + operaveis.dados.excluidos + ". " : ""}
-                          {cp.opcoesDeltaAjuda || ""}
-                        </div>
-                        {operaveis.dados.nota ? (
-                          <div style={{ ...AJUDA, whiteSpace: "pre-wrap" }}>{operaveis.dados.nota}</div>
-                        ) : null}
-                      </>
-                    ) : null}
-                  </div>
-                ) : null}
-              </div>
-
-              {/* Fase 33 (33-04): job 4 ("comparar os vencimentos"), extraído
-                  para SecaoComparar.jsx. Posição EXATA de hoje — logo depois
-                  do bloco "O QUE DÁ PARA MONTAR" (job 3) acima, dentro do
-                  MESMO ramo `temLeitura` (comportamento idêntico: sem leitura
-                  não há de onde a tese sair). `tese`/`lote` continuam o MESMO
-                  formulário do job 3 (Pitfall 6); `alvo`/`stop` ficam aqui no
-                  orquestrador para não resetarem entre re-renders. */}
-              <SecaoComparar
-                ticker={ticker}
-                tese={tese}
-                temTese={temTese}
-                lote={lote}
-                loteOk={loteOk}
-                alvo={alvo}
-                setAlvo={setAlvo}
-                stop={stop}
-                setStop={setStop}
-                vencimentos={vencimentos}
-                consultados={consultados}
-                chamadasPrevistas={chamadasPrevistas}
-                possibilidades={possibilidades}
-                verPossibilidades={verPossibilidades}
-                custos={CUSTO_DA_ACAO}
-                cp={cp}
-                palette={palette}
-              />
-            </>
+            /* Fase 33 (33-04): job 4 ("comparar os vencimentos"), extraído
+                para SecaoComparar.jsx. Posição EXATA de hoje — logo depois
+                do job 3 acima, dentro do MESMO ramo `temLeitura`
+                (comportamento idêntico: sem leitura não há de onde a tese
+                sair). `tese`/`lote` continuam o MESMO formulário do job 3
+                (Pitfall 6); `alvo`/`stop` ficam aqui no orquestrador para
+                não resetarem entre re-renders. */
+            <SecaoComparar
+              ticker={ticker}
+              tese={tese}
+              temTese={temTese}
+              lote={lote}
+              loteOk={loteOk}
+              alvo={alvo}
+              setAlvo={setAlvo}
+              stop={stop}
+              setStop={setStop}
+              vencimentos={vencimentos}
+              consultados={consultados}
+              chamadasPrevistas={chamadasPrevistas}
+              possibilidades={possibilidades}
+              verPossibilidades={verPossibilidades}
+              custos={CUSTO_DA_ACAO}
+              cp={cp}
+              palette={palette}
+            />
           ) : null}
 
           {/* Fase 33 (33-03): job 5 ("gerenciar/criar setups salvos"),
@@ -1127,7 +884,10 @@ export default function OpcoesScreen({ ctx }) {
 // MULTI-02. Candidato único continua caindo em `PropostaLastreada`, como
 // sempre. O texto histórico abaixo (AtivoCard nunca teve seletor de N
 // candidatos) segue válido — só o "aqui" mudou de resposta.
-function SubAbaOperar({ carteira, ticker, posicaoSelecionada, tecnico, cp, ctx, seletor }) {
+function SubAbaOperar({
+  carteira, ticker, posicaoSelecionada, tecnico, cp, ctx, seletor,
+  opcoesPorTicker, opcoesPorTickerCarregando,
+}) {
   const store = ctx && ctx.store;
   const A = ctx && ctx.A;
   // Fonte única de appMode (FIX-C21) — nunca redevirar de ctx.data.config.
@@ -1137,37 +897,26 @@ function SubAbaOperar({ carteira, ticker, posicaoSelecionada, tecnico, cp, ctx, 
   // hooks) — mesmo com ticker vazio, ele só fica ocioso.
   const { busy, aceitarCandidato, fecharLastreada } = useAceiteLastreado({ A, cp, ticker });
 
-  const [gate, setGate] = useState(null);
-  const [prop, setProp] = useState(null);
-
-  // Réplica do par gate→proposta de AtivoCard (App.jsx, useEffect de
-  // opGate/opProposta) — mesma disciplina: dois efeitos em cascata, cada um
-  // best-effort (`.catch` silencioso), flag `vivo` no cleanup para que a
-  // resposta de PETR4 nunca pinte a tela de VALE3, e a segunda chamada
-  // guardada por um PRIMITIVO (`gate && gate.liquida`), não pelo objeto —
-  // um objeto novo a cada resposta recriaria o efeito em loop.
-  //
-  // As duas rotas são INTERNAS, custo ZERO de cota do MCP
-  // (`/api/options/gate`, `/api/options/proposta`) — é só por isso que podem
-  // sair de efeito em vez de clique explícito (ADR-027 §3.3), a mesma
-  // justificativa já aceita por escrito para `/api/options/tecnico` (Emenda
-  // 2) e `/api/options/vigias` (Emenda 1). NENHUMA chamada aos métodos de
-  // leitura paga do serviço externo (o prefixo `mcp` do store) vive aqui.
-  useEffect(() => {
-    let vivo = true;
-    setGate(null);
-    if (!store || !ticker) return () => { vivo = false; };
-    store.optionsGate(ticker).then((r) => { if (vivo) setGate(r); }).catch(() => { /* best-effort */ });
-    return () => { vivo = false; };
-  }, [store, ticker]);
-
-  useEffect(() => {
-    let vivo = true;
-    setProp(null);
-    if (!store || !ticker || !(gate && gate.liquida)) return () => { vivo = false; };
-    store.optionsProposta(ticker, true).then((r) => { if (vivo) setProp(r); }).catch(() => { /* best-effort */ });
-    return () => { vivo = false; };
-  }, [store, ticker, gate && gate.liquida]);
+  // 2026-09-20, Fase 33 (33-05), fold-in D-04a
+  // (`.planning/todos/pending/subaba-operar-fetch-redundante-gate-proposta.md`):
+  // o par gate→proposta NÃO sumiu, mudou de dono. Antes, esta função tinha
+  // dois `useEffect` chamando `store.optionsGate(ticker)`/
+  // `store.optionsProposta(ticker, true)` toda vez que o ticker mudava — a
+  // MESMA busca que `useOpcoesPropostas(store, carteira.map((p) => p.t))`
+  // (topo de OpcoesScreen.jsx) já faz para TODA a carteira, com a MESMA
+  // guarda (`gate && gate.liquida`) e o MESMO `multiperna: true`. O universo
+  // do fan-out é exatamente a carteira de onde este `ticker` é escolhido —
+  // ele está sempre coberto. A rota é interna e de custo ZERO (ADR-027
+  // §3.3); o que se ganha não é cota de MCP, é uma busca a menos e uma fonte
+  // só para os dois destinos da aba (Setups já lia o fan-out; Operar refazia
+  // a mesma pergunta).
+  const entrada = opcoesPorTicker[ticker] || null;
+  const gate = entrada && entrada.gate;
+  const prop = entrada && entrada.proposta;
+  // "Ainda não varrido" é o estado correto quando o fan-out do topo ainda não
+  // respondeu para este ticker — NUNCA um fallback de fetch local (seria a
+  // segunda fonte que a regra 3 do guardião existe para impedir).
+  const carregandoGate = opcoesPorTickerCarregando && !entrada;
 
   // Fórmula de App.jsx (PropostaDaPosicao, aposentada — Fase 32/32-04): a
   // posição de opções já ABERTA que casa com o candidato principal da
@@ -1215,9 +964,9 @@ function SubAbaOperar({ carteira, ticker, posicaoSelecionada, tecnico, cp, ctx, 
             <>
               <LastroDoAtivo pos={posicaoSelecionada} cp={cp} />
               <LeituraInterna tecnico={tecnico} cp={cp} />
-              {gate === null ? (
+              {carregandoGate ? (
                 <Aviso>{cp.opcoesCarregando || "Consultando o serviço de opções…"}</Aviso>
-              ) : !gate.liquida ? (
+              ) : !gate || !gate.liquida ? (
                 <Aviso>{(cp.opcoesOperarSemLiquidez || ((t) => "Sem liquidez confirmada para " + t + " agora."))(ticker)}</Aviso>
               ) : multi ? (
                 <>
@@ -1462,77 +1211,10 @@ function LeituraInterna({ tecnico, cp }) {
 // Fase 33 (33-01, 2026-09-19): `CartaoDeVigia` migrou para dentro de
 // `SecaoVigias.jsx` — uso exclusivo dele, nenhum outro consumidor no app.
 
-// Pernas da estrutura. `side` e os números vêm do serviço; nada é recalculado
-// — inclusive a quantidade, que é do contrato e não do lote.
-function Pernas({ pernas, cp }) {
-  const lista = Array.isArray(pernas) ? pernas.filter((p) => p && typeof p === "object") : [];
-  if (!lista.length) return null;
-  return (
-    <>
-      <div style={ROLAGEM}>
-        <table style={TABELA}>
-          <thead>
-            <tr>
-              <th style={TH}>Contrato</th><th style={TH}>Lado</th><th style={TH}>Qtd.</th>
-              <th style={TH}>Strike</th><th style={TH}>Prêmio</th><th style={TH}>Delta</th>
-            </tr>
-          </thead>
-          <tbody>
-            {lista.map((p, i) => (
-              <tr key={(p.contract || "perna") + "-" + i}>
-                <td style={{ ...TD, color: T.textPrimary, fontWeight: 700 }}>{txt(p.contract)}</td>
-                <td style={TD}>{LADO[p.side] || txt(p.side)}</td>
-                <td style={TD}>{ehNum(p.quantity) ? p.quantity : "—"}</td>
-                <td style={TD}>{fmt(p.strike)}</td>
-                <td style={TD}>{fmt(p.premium)}</td>
-                <td style={TD}>{fmt(p.delta)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <div style={AJUDA}>{(cp && cp.opcoesDeltaAjuda) || ""}</div>
-    </>
-  );
-}
-
-// Cadeia e operáveis: MESMA tabela, porque as duas rotas devolvem a mesma
-// linha do serviço (chaves em PT-BR, ao contrário das pernas). `situacao_sigma`
-// é coluna de primeira classe: é ela que explica por que delta e volatilidade
-// vêm vazios em ~10% dos contratos — sem ela, o travessão vira "o app não
-// sabe" quando o serviço declarou o motivo.
-function TabelaDeOpcoes({ linhas }) {
-  const lista = Array.isArray(linhas) ? linhas.filter((o) => o && typeof o === "object") : [];
-  if (!lista.length) return null;
-  return (
-    <div style={ROLAGEM}>
-      <table style={TABELA}>
-        <thead>
-          <tr>
-            <th style={TH}>Contrato</th><th style={TH}>Tipo</th><th style={TH}>Strike</th>
-            <th style={TH}>Prêmio</th><th style={TH}>Delta</th><th style={TH}>Vol. impl.</th>
-            <th style={TH}>Negócios</th><th style={TH}>Vencimento</th><th style={TH}>Obs.</th>
-          </tr>
-        </thead>
-        <tbody>
-          {lista.map((o, i) => (
-            <tr key={(o.contrato || "opcao") + "-" + i}>
-              <td style={{ ...TD, color: T.textPrimary, fontWeight: 700 }}>{txt(o.contrato)}</td>
-              <td style={TD}>{txt(o.tipo)}</td>
-              <td style={TD}>{fmt(o.strike)}</td>
-              <td style={TD}>{fmt(o.premio)}</td>
-              <td style={TD}>{fmt(o.delta)}</td>
-              <td style={TD}>{fracPct(o.volatilidade_implicita)}</td>
-              <td style={TD}>{ehNum(o.total_negocios) ? o.total_negocios : "—"}</td>
-              <td style={TD}>{txt(o.dt_vencimento)}</td>
-              <td style={TD}>{txt(o.situacao_sigma)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
+// Fase 33 (33-05, 2026-09-20): `Pernas`/`TabelaDeOpcoes` migraram para dentro
+// de `SecaoAnalisar.jsx` — único consumidor de cada uma (a tabela de pernas
+// da proposta e as tabelas de cadeia/operáveis, todas dentro do job 3),
+// nenhum outro lugar de `web/src/opcoes/` as chama.
 
 // Fase 33 (33-04): `Cenarios` migrou para dentro de SecaoComparar.jsx — era o
 // único consumidor (o mapa de "COMPARAR OS VENCIMENTOS"), então não virou

@@ -56,6 +56,12 @@ const regua = semComentario(bruteRegua);
 const bruteTela = ler(join(dirOpcoes, "OpcoesScreen.jsx"));
 const tela = semComentario(bruteTela);
 const hook = semComentario(ler(join(dirOpcoes, "useOpcoesMcp.js")));
+// 2026-09-20, Fase 33 (33-05): job 3 ("LEITURA DO ATIVO", os campos hv21/hv63
+// do serviço MCP que passam por `fracPct`) saiu de OpcoesScreen.jsx para
+// SecaoAnalisar.jsx — a seção 5b (achado além do censo do plano, achado ao
+// rodar a suíte completa) precisa ler esta fonte também, senão a sanidade
+// "há uso de fracPct" passa por vacuidade (nenhum uso sobrou em `tela`).
+const secaoAnalisar = semComentario(ler(join(dirOpcoes, "SecaoAnalisar.jsx")));
 const regimePy = ler(join(here, "..", "..", "server", "app", "regime.py"));
 
 let fails = 0;
@@ -151,8 +157,11 @@ ok("valor ausente vira travessão, nunca 0",
 // `fracPct` multiplica por 100 — é o conversor do contrato do SERVIÇO, que
 // manda fração. Sobre um campo que já vem em percentual, ele erra por 10×.
 const ARG_INTERNO = /^(tecnico|dados)\b|hv21Pct|hv63Pct|atr14Pct/;
-const usosFracPct = [...tela.matchAll(/fracPct\(([^)]*)\)/g)].map((m) => m[1].trim());
-ok("há uso de fracPct na tela (o guardião não está vazio)", usosFracPct.length >= 1);
+const usosFracPct = [
+  ...tela.matchAll(/fracPct\(([^)]*)\)/g),
+  ...secaoAnalisar.matchAll(/fracPct\(([^)]*)\)/g),
+].map((m) => m[1].trim());
+ok("há uso de fracPct em OpcoesScreen.jsx/SecaoAnalisar.jsx (o guardião não está vazio)", usosFracPct.length >= 1);
 ok("nenhum fracPct recebe campo do bloco interno (unidade trocada = 10×)",
    usosFracPct.every((arg) => !ARG_INTERNO.test(arg)));
 ok("sanidade: o teste de argumento REPROVA o campo interno quando ele aparece",

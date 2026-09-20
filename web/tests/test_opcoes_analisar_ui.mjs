@@ -73,6 +73,11 @@ const uiOpcoesFonte = fontes["uiOpcoes.jsx"] || "";
 // OpcoesScreen.jsx para SecaoComparar.jsx — as regras de custo/ordem/razão
 // que ancoravam nele passam a ler esta fonte.
 const secaoComparar = fontes["SecaoComparar.jsx"] || "";
+// 2026-09-20, Fase 33 (33-05): job 3 ("analisar um ticker manualmente") saiu
+// de OpcoesScreen.jsx para SecaoAnalisar.jsx — a fatia "Analisar" passa a ser
+// este arquivo INTEIRO (mesmo precedente do 33-04 com "Possibilidades"), não
+// mais um slice de `tela`.
+const secaoAnalisar = fontes["SecaoAnalisar.jsx"] || "";
 
 let fails = 0;
 const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if (!cond) fails++; };
@@ -164,23 +169,27 @@ ok("possibilidades exige TESE: o backend responde 422 tese_ausente sem ela",
    /const temTese = !!tese;/.test(tela));
 
 // ---- 5) cada seção repete carregando → erro → vazio com motivo → dados ------
-const iAnalisar = tela.indexOf("cp.opcoesAnalisarTitulo");
-// 2026-09-20, Fase 33 (33-04): "COMPARAR OS VENCIMENTOS" saiu de
-// OpcoesScreen.jsx para SecaoComparar.jsx (job 4) — a fatia "Possibilidades"
-// passa a ser o ARQUIVO SecaoComparar.jsx inteiro, não mais um slice de
-// `tela`. O marcador de ordem em `tela` troca de `cp.opcoesPossibilidadesTitulo`
-// (sumiu do arquivo-fonte) para a TAG JSX `<SecaoComparar`. "Analisar"
-// continua saindo de OpcoesScreen.jsx até o 33-05 mudar isso — por ora
-// convive uma tag (Possibilidades/Setups) com um `cp.X` (Analisar) no mesmo
-// comparador de ordem (mesmo precedente do 33-03, registrado abaixo).
+// 2026-09-20, Fase 33 (33-05): job 3 ("analisar") saiu de OpcoesScreen.jsx
+// para SecaoAnalisar.jsx — a fatia "Analisar" passa a ser o ARQUIVO
+// SecaoAnalisar.jsx inteiro (mesmo precedente do 33-04 com "Possibilidades"/
+// SecaoComparar.jsx), não mais um slice de `tela`. O marcador de ordem em
+// `tela` troca de `cp.opcoesAnalisarTitulo` (sumiu do arquivo-fonte) para a
+// TAG JSX `<SecaoAnalisar`.
+//
+// A checagem antiga comparava a PRIMEIRA ocorrência de `cp.opcoesLeituraTitulo`
+// em `tela` contra `iAnalisar` — hoje essa chave só existe em
+// `blocoLeituraDoServico` (o convite da leitura paga, que não se move) e não
+// mede mais nada sobre a ordem interna do job 3, que virou uma caixa preta em
+// SecaoAnalisar.jsx. Removida sem perder garantia: a ordem que importa (job 3
+// → job 4 → job 5) continua travada pelas três tags abaixo.
+const iAnalisar = tela.indexOf("<SecaoAnalisar");
 const iSecaoComparar = tela.indexOf("<SecaoComparar");
 const iSetups = tela.indexOf("<SecaoSetups");
-ok("as duas seções existem, entre a leitura e os setups gravados",
-   iAnalisar > 0 && iSecaoComparar > iAnalisar && iSetups > iSecaoComparar
-   && tela.indexOf("cp.opcoesLeituraTitulo") < iAnalisar);
+ok("as três seções existem, na ordem job 3 → job 4 → job 5",
+   iAnalisar > 0 && iSecaoComparar > iAnalisar && iSetups > iSecaoComparar);
 
 for (const [secao, bloco, trio, vazio, dados] of [
-  ["Analisar", tela.slice(iAnalisar, iSecaoComparar), "proposta", "proposta.dados.motivo", "<PayoffChart"],
+  ["Analisar", secaoAnalisar, "proposta", "proposta.dados.motivo", "<PayoffChart"],
   ["Possibilidades", secaoComparar, "possibilidades", "possibilidades.dados.motivo",
     "possibilidades.dados.possibilidades.map"],
 ]) {
@@ -448,11 +457,17 @@ ok("/possibilidades tem timeout maior (até 13 chamadas ao serviço numa só)",
    /mcpPossibilidades: \(body\) => req\("POST", "\/api\/options\/mcp\/possibilidades", body, 60000\)/.test(api));
 
 // ---- 12) alvo de toque e rolagem no container ------------------------------
+// 2026-09-20, Fase 33 (33-05): `CAMPO` (campo de formulário do job 3) e
+// `ROLAGEM` (container de tabela de `Pernas`/`TabelaDeOpcoes`, job 3) saíram
+// de OpcoesScreen.jsx — único consumidor de cada um era o job 3, extraído
+// para SecaoAnalisar.jsx. `BOTAO` continua em OpcoesScreen.jsx (usado por
+// `blocoLeituraDoServico`, pela carteira vazia e por SubAbaOperar) — a
+// asserção passa a ler os DOIS arquivos, um para cada estilo.
 ok("os botões novos nascem com alvo de toque de 44 px",
    /const BOTAO = \{[\s\S]{0,120}minHeight: "44px"/.test(tela)
-   && /const CAMPO = \{[\s\S]{0,120}minHeight: "44px"/.test(tela));
+   && /const CAMPO = \{[\s\S]{0,120}minHeight: "44px"/.test(secaoAnalisar));
 ok("a tabela rola no container, não no body",
-   /const ROLAGEM = \{ overflowX: "auto"/.test(tela));
+   /const ROLAGEM = \{ overflowX: "auto"/.test(secaoAnalisar));
 
 // ---- 13) razão ganho/perda (F-01 do 24-VERIFICATION, plano 24-06) ----------
 // O critério 1 do ROADMAP termina em "breakevens e razão ganho/perda", e ela
@@ -467,13 +482,16 @@ ok("a tabela rola no container, não no body",
 // MESMA implementação); `razao={item.razaoGanhoPerda}` migrou junto com o
 // bloco "Possibilidades" para SecaoComparar.jsx. A garantia "a razão é
 // renderizada nas DUAS seções" continua valendo, agora somando os arquivos.
-const iRazaoAnalisar = tela.slice(iAnalisar, iSecaoComparar).indexOf("razaoGanhoPerda");
+// 2026-09-20, Fase 33 (33-05): `razao={proposta.dados.razaoGanhoPerda}`
+// migrou junto com o job 3 para SecaoAnalisar.jsx — a checagem passa a ler
+// esse arquivo em vez de `tela`.
+const iRazaoAnalisar = secaoAnalisar.indexOf("razaoGanhoPerda");
 const iRazaoPossib = secaoComparar.indexOf("razaoGanhoPerda");
 ok("a razão é renderizada nas DUAS seções (Analisar e Possibilidades)",
    iRazaoAnalisar >= 0 && iRazaoPossib >= 0);
 ok("a razão tem componente próprio, alimentado pelo campo do backend",
    /function RazaoGanhoPerda/.test(uiOpcoesFonte)
-   && /razao=\{proposta\.dados\.razaoGanhoPerda\}/.test(tela)
+   && /razao=\{proposta\.dados\.razaoGanhoPerda\}/.test(secaoAnalisar)
    && /razao=\{item\.razaoGanhoPerda\}/.test(secaoComparar));
 ok("sem número, a seção mostra o MOTIVO em vez de calar ou inventar",
    /razao\.motivo/.test(uiOpcoesFonte) && /ehNum\(razao\.valor\)/.test(uiOpcoesFonte));
@@ -549,28 +567,37 @@ for (const modo of ["estudo", "operador"]) {
 // quebrou, se o ativo é estranho ou se falta dado (princípio 9). A saída
 // escolhida foi dizer o motivo — sem preencher o número (seria fabricar,
 // princípio 4) e sem recalcular o indicador (seria uma segunda fonte).
+// 2026-09-20, Fase 33 (33-05): `LacunasDaLeitura`/`ROTULO_LEITURA` migraram
+// de OpcoesScreen.jsx para SecaoAnalisar.jsx (job 3, único consumidor) — as
+// checagens abaixo passam a ler esta fonte. O trânsito do dado agora cruza
+// DOIS arquivos: OpcoesScreen.jsx lê `l.lacunas` e passa por prop;
+// SecaoAnalisar.jsx repassa a prop crua para `<LacunasDaLeitura>`.
 ok("existe componente próprio para as lacunas da leitura",
-   /function LacunasDaLeitura/.test(tela));
+   /function LacunasDaLeitura/.test(secaoAnalisar));
 ok("existe UM mapa rótulo↔campo, e ele cobre os cinco campos do achado",
-   /const ROTULO_LEITURA = /.test(tela)
+   /const ROTULO_LEITURA = /.test(secaoAnalisar)
    && ["trend", "hv21", "hv63", "distance_from_sma63_pct", "range_63_sessions"]
-        .every((c) => new RegExp(c + ":\\s*\"").test(tela)));
+        .every((c) => new RegExp(c + ":\\s*\"").test(secaoAnalisar)));
 // Dois vocabulários divergiriam no primeiro rótulo renomeado, e a explicação
 // passaria a nomear um campo que a tabela não mostra com esse nome.
 ok("os rótulos do mapa são os MESMOS que a tabela exibe",
    ["Tendência", "HV 21", "HV 63", "Distância da média 63", "Faixa de 63 pregões"]
-     .every((r) => (tela.match(new RegExp(r, "g")) || []).length >= 2));
+     .every((r) => (secaoAnalisar.match(new RegExp(r, "g")) || []).length >= 2));
 ok("`lacunas` vazio ou ausente não renderiza nada — estado normal é silêncio",
-   /function LacunasDaLeitura[\s\S]{0,600}return null;/.test(tela));
+   /function LacunasDaLeitura[\s\S]{0,600}return null;/.test(secaoAnalisar));
 ok("a linha é discreta (textMuted), como o carimbo do pregão ao lado",
-   /function LacunasDaLeitura[\s\S]{0,700}T\.textMuted/.test(tela));
-ok("o bloco é renderizado com as lacunas que vieram do backend",
-   /<LacunasDaLeitura[^>]*lacunas={[^}]*l\.lacunas}/.test(tela));
+   /function LacunasDaLeitura[\s\S]{0,700}T\.textMuted/.test(secaoAnalisar));
+ok("OpcoesScreen.jsx passa as lacunas do backend por prop para SecaoAnalisar",
+   /lacunas=\{l && l\.lacunas\}/.test(tela));
+ok("o bloco é renderizado com as lacunas recebidas por prop (sem recalcular)",
+   /<LacunasDaLeitura[^>]*lacunas={lacunas}/.test(secaoAnalisar));
 
 // O motivo é do backend e chega pronto. O front junta os RÓTULOS e nada mais:
 // interpolá-lo dentro de outra frase aqui seria reescrever o que o serviço (e
 // o guardião de texto do backend) já pesaram palavra por palavra.
-const blocoLacunas = (tela.match(/function LacunasDaLeitura[\s\S]*?\n}/) || [""])[0];
+// 2026-09-20, Fase 33 (33-05): `LacunasDaLeitura` migrou para
+// SecaoAnalisar.jsx — a fatia passa a ser lida de lá.
+const blocoLacunas = (secaoAnalisar.match(/function LacunasDaLeitura[\s\S]*?\n}/) || [""])[0];
 const REESCREVE_MOTIVO = /motivo\s*\+|\+\s*[A-Za-z_$][\w$]*\.motivo|`[^`]*\$\{[^}]*motivo/;
 ok("o motivo do backend só entra como ARGUMENTO de `cp.opcoesLacuna`",
    /cp\.opcoesLacuna\(/.test(blocoLacunas) && !REESCREVE_MOTIVO.test(blocoLacunas));
@@ -582,8 +609,11 @@ ok("sanidade: a regex pega uma reescrita do motivo",
 // quando a janela de 63 não fechou. Sem esta checagem a tela mostrava
 // "— – —": travessão travestido de faixa, que se lê como formatação quebrada
 // e não como ausência de dado.
+// 2026-09-20, Fase 33 (33-05): `faixa` e o uso `valor={faixa(...)}` migraram
+// juntos para SecaoAnalisar.jsx — único consumidor de cada um (job 3). A
+// garantia ("UM travessão, nunca '— – —'") não afrouxa por troca de arquivo.
 ok("a faixa de 63 usa o helper que devolve UM travessão sem os dois extremos",
-   /const faixa = /.test(tela) && /valor={faixa\(behavior\.range_63_sessions\)}/.test(tela));
+   /const faixa = /.test(secaoAnalisar) && /valor={faixa\(behavior\.range_63_sessions\)}/.test(secaoAnalisar));
 
 // A trava central do 24-11 do lado do front: nenhum campo da leitura passou a
 // ser CALCULADO aqui. Fonte única — quem calcula é o serviço.

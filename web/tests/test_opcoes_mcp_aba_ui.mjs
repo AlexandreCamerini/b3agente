@@ -137,7 +137,20 @@ ok("a tela renderiza o cabeçalho (âncora das buscas de ordem)", iRender >= 0);
 const iCarregando = tela.indexOf("cp.opcoesCarregando", iRender);
 const iErro = tela.indexOf("mcp_nao_configurado", iRender);
 const iVazio = tela.indexOf("cp.opcoesEscolherAtivo", iRender);
-const iDados = tela.indexOf("cp.opcoesLeituraTitulo", iRender);
+// 2026-09-20, Fase 33 (33-05) — a âncora do ramo DADOS mudou de
+// `cp.opcoesLeituraTitulo` para `<SecaoAnalisar`. Motivo: essa chave existe
+// em DOIS lugares de OpcoesScreen.jsx por razões diferentes —
+// `blocoLeituraDoServico` (o convite da leitura paga, que NÃO se move) e a
+// tabela "LEITURA DO ATIVO" do ramo DADOS (job 3, que migrou para
+// SecaoAnalisar.jsx nesta fase). Antes da extração, a segunda ocorrência
+// (depois de `iRender`) era o que este guardião media; agora ela não existe
+// mais em `tela`, e a primeira ocorrência fica ANTES de `iRender` (é uma
+// `const` declarada fora do `return`), então a busca a partir de `iRender`
+// dava -1 — falha ALTA, não falso-positivo silencioso, mas de qualquer forma
+// o guardião pararia de medir o que diz medir. `<SecaoAnalisar` é o marcador
+// certo agora: só existe uma vez no arquivo, exatamente no ponto em que o
+// ramo DADOS renderiza o job 3.
+const iDados = tela.indexOf("<SecaoAnalisar", iRender);
 ok("os quatro estados existem", iCarregando >= 0 && iErro >= 0 && iVazio >= 0 && iDados >= 0);
 ok("ordem no fonte: carregando → erro → vazio com motivo → dados",
    iCarregando < iErro && iErro < iVazio && iVazio < iDados);

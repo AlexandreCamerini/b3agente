@@ -119,24 +119,55 @@ ok("nenhum arquivo de web/src/opcoes/ importa App.jsx"
 ok("`SubAbaOperar` não chama nenhum método `store.mcp*` (ADR-027 §3.3)",
    !/store\.mcp/.test(subAba));
 
-// ---- 3) sem busca duplicada de gate/proposta --------------------------------
-const nGate = (tela.match(/store\.optionsGate\(/g) || []).length;
-const nProposta = (tela.match(/store\.optionsProposta\(/g) || []).length;
-ok("`store.optionsGate(` aparece exatamente 1× em OpcoesScreen.jsx", nGate === 1);
-ok("`store.optionsProposta(` aparece exatamente 1× em OpcoesScreen.jsx", nProposta === 1);
+// ---- 3) sem busca duplicada de gate/proposta (varredura de diretório) ------
+// 2026-09-20, Fase 33 (33-05), fold-in D-04a
+// (`.planning/todos/pending/subaba-operar-fetch-redundante-gate-proposta.md`):
+// a contagem em `OpcoesScreen.jsx` cai de 1 para 0 porque a busca MIGROU DE
+// DONO, não porque desapareceu — `SubAbaOperar` passou a ler o fan-out que
+// `useOpcoesPropostas(store, carteira.map((p) => p.t))` (topo do mesmo
+// arquivo) já paga para toda a carteira, em vez de refazer a mesma pergunta
+// por conta própria. A garantia "uma fonte só" fica MAIS FORTE, não mais
+// fraca, e passa a ser medida por VARREDURA DE DIRETÓRIO (mesmo padrão da
+// seção 1 acima, `arquivosOpcoesDir`): `store.optionsGate(`/
+// `store.optionsProposta(` aparecem exatamente 1× cada somando TODOS os
+// arquivos de `web/src/opcoes/` — a ocorrência legítima é a de
+// `useOpcoesPropostas.js` — e 0× em `OpcoesScreen.jsx` especificamente.
+const semComentarioArquivo = (f) => semComentario(readFileSync(join(dirOpcoes, f), "utf8"));
+const contarNaPasta = (regex) => arquivosOpcoesDir.reduce(
+  (soma, f) => soma + (semComentarioArquivo(f).match(regex) || []).length, 0);
+const nGateDir = contarNaPasta(/store\.optionsGate\(/g);
+const nPropostaDir = contarNaPasta(/store\.optionsProposta\(/g);
+ok("`store.optionsGate(` aparece exatamente 1× em toda web/src/opcoes/ (fonte única, fold-in D-04a)",
+   nGateDir === 1, `achou ${nGateDir}`);
+ok("`store.optionsProposta(` aparece exatamente 1× em toda web/src/opcoes/ (fonte única, fold-in D-04a)",
+   nPropostaDir === 1, `achou ${nPropostaDir}`);
+const nGateTela = (tela.match(/store\.optionsGate\(/g) || []).length;
+const nPropostaTela = (tela.match(/store\.optionsProposta\(/g) || []).length;
+ok("`store.optionsGate(` aparece 0× em OpcoesScreen.jsx (queda de 1→0: a busca mudou de arquivo, não desapareceu)",
+   nGateTela === 0);
+ok("`store.optionsProposta(` aparece 0× em OpcoesScreen.jsx (queda de 1→0: a busca mudou de arquivo, não desapareceu)",
+   nPropostaTela === 0);
 
-// ---- 4) optionsProposta guardado por gate/liquida ---------------------------
-// Precisão deliberada: olhar só o TEXTO ENTRE `setProp(null)` e a chamada —
-// não o componente inteiro, senão a dependência do useEffect
-// (`[store, ticker, gate && gate.liquida]`, que sempre existe) faria esta
-// asserção passar mesmo com o `if` de guarda removido (achado por injeção de
-// defeito real durante a escrita deste guardião — ver SUMMARY).
-const idxSetProp = subAba.indexOf("setProp(null);");
-const idxCallProposta = subAba.indexOf("store.optionsProposta(", idxSetProp >= 0 ? idxSetProp : 0);
-const guardaProposta = (idxSetProp >= 0 && idxCallProposta > idxSetProp)
-  ? subAba.slice(idxSetProp, idxCallProposta) : "";
-ok("a chamada de `store.optionsProposta` está guardada por um `if`/`return` que testa `gate`/`liquida` ANTES da chamada",
-   /if\s*\([^)]*!\(gate && gate\.liquida\)[^)]*\)\s*return/.test(guardaProposta));
+// ---- 4) optionsProposta guardado por gate/liquida (agora no hook) ----------
+// 2026-09-20, Fase 33 (33-05), fold-in D-04a: a guarda "proposta só é pedida
+// quando gate.liquida" não desaparece — ela passa a ser medida em
+// `useOpcoesPropostas.js`, que JÁ a implementa (mesma rota, mesmo
+// `multiperna: true`), em vez de na fatia de `SubAbaOperar` (que não tem mais
+// chamada nenhuma para guardar). Forma diferente da guarda antiga (era um
+// `if (!(gate && gate.liquida)) return` dentro de um `useEffect`; o hook usa
+// `if (gate && gate.liquida) { store.optionsProposta(...) }` dentro do
+// `.then` do gate) — MESMA garantia, forma que o hook já tinha desde a
+// Fase 32 (32-03).
+const hookPropostasFonte = semComentarioArquivo("useOpcoesPropostas.js");
+const idxGuardaHook = hookPropostasFonte.indexOf("if (gate && gate.liquida)");
+const idxChamadaHook = hookPropostasFonte.indexOf("store.optionsProposta(", idxGuardaHook >= 0 ? idxGuardaHook : 0);
+ok("useOpcoesPropostas.js guarda `store.optionsProposta` com `if (gate && gate.liquida)` ANTES da chamada",
+   idxGuardaHook >= 0 && idxChamadaHook > idxGuardaHook);
+// Contrapartida NOVA (trava o retorno do fetch redundante): `SubAbaOperar`
+// não pode ter voltado a buscar gate/proposta por conta própria — nenhuma
+// forma de `store.options`, nem gate nem proposta.
+ok("`SubAbaOperar` não contém `store.options` nenhum (gate/proposta vêm do fan-out por prop, não de fetch local)",
+   !/store\.options/.test(subAba));
 
 // ---- 5) manchete só via PropostaLastreada OU CandidatoOpcao (guardrail CVM) -
 // ATUALIZADO 2026-09-16 (Fase 32, 32-04): `SubAbaOperar` ganhou o ramo
