@@ -26,7 +26,28 @@ hoje na sub-aba Setups.
   seção própria ao lado de vigias — é isso que NAV-01 descreve. **Criar** um
   setup novo (exige ticker/tese/vencimento) fica no **workspace**, como uma
   terceira aba ao lado de Analisar e Comparar, reusando a leitura MCP já
-  paga do ticker selecionado — é isso que NAV-05 descreve. Resolve a
+  paga do ticker selecionado — é isso que NAV-05 descreve.
+
+  **Emenda (planner + verificação do orquestrador, na fase de planejamento,
+  2026-09-20):** a leitura literal acima ("listagem cross-ticker no hub") é
+  **impossível com o modelo de dado atual** — medido, não suposto:
+  `OpcoesScreen.jsx:320` deriva `setups` só de `leitura.dados` (a leitura
+  PAGA, ticker-scoped), e `useOpcoesMcp.js` zera `leitura` pra `VAZIO` em
+  toda troca de ticker — com `ticker === ""` (o próprio modo hub), a lista
+  seria `[]` sempre, por construção. Não existe hoje nenhum índice
+  cross-ticker de setups salvos — a única lista cross-ticker real é o índice
+  de vigias (`server/app/opcoes_vigias.py`, confirmado por leitura direta:
+  "o índice local é o único lugar do sistema onde existe 'meus vigias'").
+  Alex confirmado (2026-09-20): **hub = Descobrir → Vigias (listagem
+  cross-ticker real) → seletor; `SecaoSetups` inteira (lista ticker-scoped +
+  criação) vai pro workspace**, como 3ª aba do pill row, renomeada para
+  "Setups salvos" (`cp.opcoesAbaSetupsSalvos`) em vez de "Criar Setup"
+  (`cp.opcoesAbaCriarSetup`, nome original do UI-SPEC). Efeito colateral
+  bom: `SecaoSetups.jsx` não precisa de prop `modo` nenhuma — sai do diff da
+  fase inteiro, mais fiel a "reorganização pura". NAV-02/03/04/06 são
+  idênticos nos dois cenários; só o rótulo da 3ª aba e a origem da listagem
+  do hub mudam. Ver `34-02-PLAN.md`/`34-03-PLAN.md` (seção
+  `blocking_finding`) para o detalhamento técnico completo.
   aparente contradição entre NAV-01 ("setups salvos" no hub) e NAV-05
   ("gerenciar setups salvos" dentro do workspace): os dois estão certos,
   cada um descrevendo a metade certa. `SecaoSetups.jsx` (Fase 33) se

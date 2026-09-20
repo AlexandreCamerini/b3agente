@@ -93,7 +93,7 @@ both branches — render once, above.
 | 2. Erro | `escolherErroOpcoes(leitura.erro, status.erro)` | Above split (both modes) | `status.erro` fires pre-ticker |
 | 3a. Vazio — carteira vazia / escolher ativo | `semTicker` (includes `carteira.length === 0`) | Hub only | Both messages only make sense with no ticker selected |
 | 3b. Vazio — sem candles / sem setups ainda | `!temLeitura && setups.length === 0` (ticker present) | Workspace only | Both messages require a ticker (`behavior`/`l` are ticker-scoped) |
-| 4. Dados | `temLeitura` or `setups.length > 0` | Workspace only | `SecaoAnalisar`/`SecaoComparar`/`SecaoSetups`(criar) all require a ticker read |
+| 4. Dados | `temLeitura` or `setups.length > 0` | Workspace only | `SecaoAnalisar`/`SecaoComparar`/`SecaoSetups` (whole component, D-01 amendment) all require a ticker read |
 
 Branches 1–2 keep the exact `if (carregando) ... else if (erro) ...`
 short-circuit they have today (they are mutually exclusive with 3/4, so
@@ -105,10 +105,17 @@ nor workspace content below it renders, same as today).
 ```
 Hub
   SecaoDescobrir            (frase-ponte + Bloco A + Bloco B, D-04 of Fase 33 — untouched, still one component)
-  SecaoVigias               (Meus vigias — unchanged)
+  SecaoVigias               (Meus vigias — unchanged; the hub's real cross-ticker listing, D-01 amendment)
   seletor                   (ticker chip row — carteira.length > 0 only; ENTRY POINT into workspace)
-  SecaoSetups (modo="lista") (Meus setups salvos — LISTING ONLY, D-01)
 ```
+
+**D-01 amendment:** `SecaoSetups` does NOT render in the hub. The original
+plan to put a "listing only" mode of `SecaoSetups` here was impossible with
+the current data model (`setups` derives only from the paid, ticker-scoped
+`leitura.dados`, which is always empty when `ticker === ""`) — see
+`34-CONTEXT.md` D-01 amendment for the full record. `SecaoVigias` is the
+hub's cross-ticker list; `SecaoSetups` (whole component) moved to the
+workspace's 3rd pill ("Setups salvos", see Workspace composition below).
 
 `SecaoDescobrir` is NOT split or touched — it is already one component from
 Fase 33 (33-02) containing frase-ponte + Bloco A + Bloco B adjacent, which is
@@ -147,10 +154,20 @@ Workspace (ticker truthy)
   LeituraInterna                     (unchanged, free technical read)
   blocoLeituraDoServico              (unchanged, paid-read invite — shown only pre-leitura)
   workspacePillRow                   (NEW — D-02: 3 tabs, reuses `subabas`/`seletor` pill style verbatim)
-    "Analisar"    → SecaoAnalisar
-    "Comparar"    → SecaoComparar   (only when temLeitura, unchanged gate)
-    "Criar Setup" → SecaoSetups (modo="criar")   (creation block only, D-01)
+    "Analisar"     → SecaoAnalisar
+    "Comparar"     → SecaoComparar   (only when temLeitura, unchanged gate)
+    "Setups salvos" → SecaoSetups (whole component: list + creation, D-01 amendment)
 ```
+
+**D-01 amendment (2026-09-20, planner + orchestrator verification, Alex
+confirmed):** the literal D-01 reading ("cross-ticker setups list in the
+hub") is impossible with the current data model — `setups` derives only
+from `leitura.dados` (paid, ticker-scoped read), which resets to empty on
+every ticker change, including `ticker === ""` (hub mode). The hub's real
+cross-ticker list is the vigias index instead. `SecaoSetups` moves to the
+workspace WHOLE (no `modo` prop split needed) as the 3rd pill, renamed
+"Setups salvos" (`cp.opcoesAbaSetupsSalvos`) — see `34-CONTEXT.md` D-01 for
+the full amendment record.
 
 `LastroDoAtivo` + `LeituraInterna` + `blocoLeituraDoServico` sit ABOVE the
 3-tab pill row, shared by all three tabs — this is the mechanism that
@@ -170,16 +187,15 @@ deliberately de-emphasized (neutral `BOTAO` style, no accent — see Color
 section) precisely so the paid-read content, not the navigation chrome,
 draws the eye first.
 
-### `SecaoSetups.jsx` partition (D-01, Claude's Discretion per CONTEXT)
+### `SecaoSetups.jsx` — no partition needed (D-01 amendment)
 
-Confirmed by reading the file: the list block and the create block are
-already physically distinguishable inside `SecaoSetups.jsx` by their own
-`Kicker` headings — `cp.opcoesSetupsTitulo` ("SETUPS GRAVADOS", the list) at
-line ~56, and `cp.opcoesCriarTitulo` ("CRIAR UM SETUP", the creation form)
-at line ~193. Recommended implementation shape (non-binding, per
-CONTEXT.md's discretion note): keep one file, add a `modo: "lista" |
-"criar"` prop that gates which of the two existing blocks renders — do not
-duplicate the file or rename the internal Kicker copy.
+Superseded by the D-01 amendment: `SecaoSetups.jsx` moves to the workspace's
+3rd pill AS A WHOLE COMPONENT — both its list block (`cp.opcoesSetupsTitulo`,
+"SETUPS GRAVADOS", ~line 56) and its create block (`cp.opcoesCriarTitulo`,
+"CRIAR UM SETUP", ~line 193) render together, unmodified, ticker-scoped by
+the workspace gate itself. No `modo` prop, no internal split, no change to
+`SecaoSetups.jsx` at all — it is untouched by this phase, only its caller
+(`OpcoesScreen.jsx`) changes where it renders it.
 
 ### `.manchete` guardrail check (project_skill_context requirement)
 
@@ -254,7 +270,7 @@ existing sizes/weights:
 |------|------|--------|-------------|--------|
 | Workspace header — ticker name | 15px | 800 | 1.3 | New; matches weight/heaviness of section Kickers, one step down from `h1` (22px/800) since it's a sub-header, not the screen title |
 | Workspace header — "Voltar" button | 13px | 700 | n/a (button) | Reused verbatim from existing `BOTAO` constant (`OpcoesScreen.jsx:122-126`) |
-| Pill-row tab labels (incl. new "Criar Setup") | 13px | 700 | n/a (button) | Reused verbatim from existing `subabas`/`seletor` pill pattern (`OpcoesScreen.jsx:600-617`) |
+| Pill-row tab labels (incl. new "Setups salvos") | 13px | 700 | n/a (button) | Reused verbatim from existing `subabas`/`seletor` pill pattern (`OpcoesScreen.jsx:600-617`) |
 | Body/help text (unchanged blocks) | 11.5–13px | 400–600 | 1.45–1.5 | Unchanged, inherited from `Aviso`/`AJUDA`/existing components |
 
 ---
@@ -298,11 +314,11 @@ page's primary action.
 |---------|------|-------|
 | Primary CTA (workspace entry) | Existing ticker chip (`seletor`) — no new CTA copy, tapping a ticker chip enters the workspace | Unchanged from today |
 | Workspace header — back action | New key `cp.opcoesVoltarAoHub`, default `"Voltar"` | Follows existing `cp.*` naming convention (`skill_ref.py`/`copy.js` mode vocabulary pattern); pairs with the ticker name (no new string needed for the ticker itself, it renders `{ticker}` verbatim). Considered `"Voltar ao hub"` for clarity when read out of visual context (checker suggestion); kept `"Voltar"` because the button sits inside `WorkspaceHeader` directly beside the ticker name — the header itself supplies the "where am I / where does this go" context, and every other back/cancel affordance in this file tree (`BOTAO`-styled) uses a bare single verb, not a destination-qualified phrase. Revisit only if `WorkspaceHeader` is ever read by a screen-reader in isolation from the ticker-name label. |
-| Workspace pill-row tab labels | New keys `cp.opcoesAbaAnalisar` ("Analisar"), `cp.opcoesAbaComparar` ("Comparar"), `cp.opcoesAbaCriarSetup` ("Criar Setup") | Mirrors existing `cp.opcoesSubabaSetups`/`cp.opcoesSubabaOperar` naming pattern (`OpcoesScreen.jsx:603-604`) |
+| Workspace pill-row tab labels | New keys `cp.opcoesAbaAnalisar` ("Analisar"), `cp.opcoesAbaComparar` ("Comparar"), `cp.opcoesAbaSetupsSalvos` ("Setups salvos") | Mirrors existing `cp.opcoesSubabaSetups`/`cp.opcoesSubabaOperar` naming pattern (`OpcoesScreen.jsx:603-604`). Third key renamed from the original `cp.opcoesAbaCriarSetup`/"Criar Setup" per the D-01 amendment (`34-CONTEXT.md`) — `SecaoSetups` moves to the workspace WHOLE (list + creation), not just the creation block, so the label names the whole job, not just one action inside it. |
 | Empty state — hub, no positions | Reused verbatim: `cp.opcoesCarteiraVazia` + `cp.opcoesIrParaCarteira` button | No copy change, only relocation to hub-only branch |
 | Empty state — hub, no ticker chosen | Reused verbatim: `cp.opcoesEscolherAtivo` | No copy change, only relocation to hub-only branch |
 | Empty state — workspace, no candles | Reused verbatim (inline string today, "O serviço não tem candles...") | No copy change, only relocation to workspace-only branch |
-| Empty state — workspace, no setups yet | Reused verbatim: `cp.opcoesSemSetups` | No copy change — note in `OpcoesScreen.jsx:757-764` this is intentionally the SAME copy as `SecaoSetups.jsx`'s internal empty message for a different reason; do not deduplicate, per the existing comment |
+| Empty state — workspace, no setups yet | Reused verbatim: `cp.opcoesSemSetups` | No copy change — note in `OpcoesScreen.jsx:757-764` this is intentionally the SAME copy as `SecaoSetups.jsx`'s internal empty message for a different reason; do not deduplicate, per the existing comment. Now rendered inside the workspace's 3rd pill ("Setups salvos"), not the hub. |
 | Error state | Reused verbatim: existing `code`-branched messages (`cp.opcoesNaoConfigurado`, `cp.opcoesCota`, `cp.opcoesIndisponivel`, raw `erro.message`) | No copy change — only relocated to render above the hub/workspace split (see Layout contract) |
 | Destructive confirmation | Unchanged: setup deactivation (`BotaoDesativar`, `SecaoSetups.jsx`) | Not touched by this phase — no new destructive action introduced |
 
