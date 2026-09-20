@@ -289,5 +289,34 @@ ok("OpcoesScreen.jsx passa curadoria={ctx.curadoria} inteiro para SecaoDescobrir
 ok("SecaoDescobrir.jsx repassa concluido={!!(curadoria && curadoria.concluido)} para CuradoriaEstruturas",
   /concluido=\{!!\(curadoria\s*&&\s*curadoria\.concluido\)\}/.test(secaoDescobrirSC));
 
+// ---- (14) REORG-07 (Fase 33, 33-02): curadoria.top/curadoria.meta são
+// consumidos por REFERÊNCIA e por ÍNDICE em SecaoDescobrir.jsx — a seleção
+// é do motor determinístico (opcoes_curadoria.rankear), nunca do front.
+// Achado por INJEÇÃO REAL durante a escrita deste guardião (Task 4 do
+// 33-02-PLAN.md): nenhum guardião existente pegava um .sort( aplicado a
+// `curadoria.top` antes de repassar para <CuradoriaEstruturas — mesmo
+// precedente de CuradoriaEstruturas.jsx NÃO usar .sort(/.reverse( no
+// próprio corpo (test_curadoria_ui.mjs, seção 3), estendido ao wrapper
+// novo que também tem acesso à lista.
+ok("SecaoDescobrir.jsx NÃO usa .sort( no corpo",
+  !secaoDescobrirSC.includes(".sort("));
+ok("SecaoDescobrir.jsx NÃO usa .reverse( no corpo",
+  !secaoDescobrirSC.includes(".reverse("));
+
+// ---- (15) princípios 3/4 do CLAUDE.md (Fase 33, 33-02): carimbo de frescor
+// derivado só do campo que a resposta já trouxe, NUNCA do relógio de quem
+// está com a tela aberta. Achado por INJEÇÃO REAL durante a escrita deste
+// guardião (Task 4 do 33-02-PLAN.md): nenhum guardião existente pegava
+// `new Date().toLocaleTimeString()`/`Date.now()` substituindo o `at` da
+// resposta em SecaoDescobrir.jsx — varredura de DIRETÓRIO (não só este
+// arquivo) para cobrir qualquer seção nova que venha a exibir carimbo.
+const comRelogioDoCliente = arquivosOpcoesDirConsolidacao.filter((f) => {
+  const src = semComentario(readFileSync(join(dirOpcoes, f), "utf8"));
+  return /Date\.now\(\)|new Date\(/.test(src);
+});
+ok("nenhum arquivo de web/src/opcoes/ usa Date.now()/new Date( como fonte de carimbo"
+  + (comRelogioDoCliente.length ? " (violam: " + comRelogioDoCliente.join(", ") + ")" : ""),
+  comRelogioDoCliente.length === 0);
+
 if (fails) { console.error(`\n${fails} falha(s)`); process.exit(1); }
 console.log("\ntodos os testes passaram");
