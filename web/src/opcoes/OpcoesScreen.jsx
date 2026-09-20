@@ -850,43 +850,54 @@ export default function OpcoesScreen({ ctx }) {
               jobs a sair. Posição EXATA de hoje: primeiro elemento do ramo
               DADOS, renderizado antes do job 4 logo abaixo. `temLeitura`/
               `semCandles` continuam decididos aqui (o orquestrador é dono do
-              estado compartilhado); a seção só recebe o resultado pronto. */}
-          <SecaoAnalisar
-            ticker={ticker}
-            temLeitura={temLeitura}
-            semCandles={semCandles}
-            behavior={behavior}
-            lacunas={l && l.lacunas}
-            pregao={pregao}
-            expirations={l && l.expirations}
-            tese={tese}
-            setTese={setTese}
-            temTese={temTese}
-            vencimento={vencimento}
-            setVencimento={setVencimento}
-            vencimentos={vencimentos}
-            lote={lote}
-            setLote={setLote}
-            loteOk={loteOk}
-            proposta={proposta}
-            montarProposta={montarProposta}
-            cadeia={cadeia}
-            operaveis={operaveis}
-            abrirCadeia={abrirCadeia}
-            abrirOperaveis={abrirOperaveis}
-            custos={CUSTO_DA_ACAO}
-            cp={cp}
-            palette={palette}
-          />
+              estado compartilhado); a seção só recebe o resultado pronto.
+              Fase 34 (34-03): a partir de agora o bloco é gateado pela aba do
+              workspace ativa — mesmas props de sempre, nenhuma acrescentada/
+              removida; trocar de aba DESMONTA a seção anterior (ver SUMMARY
+              sobre o estado local `painel` que reseta, consistente com D-03,
+              sem custo novo — os dados pagos vivem no hook, no orquestrador). */}
+          {abaWorkspace === "analisar" ? (
+            <SecaoAnalisar
+              ticker={ticker}
+              temLeitura={temLeitura}
+              semCandles={semCandles}
+              behavior={behavior}
+              lacunas={l && l.lacunas}
+              pregao={pregao}
+              expirations={l && l.expirations}
+              tese={tese}
+              setTese={setTese}
+              temTese={temTese}
+              vencimento={vencimento}
+              setVencimento={setVencimento}
+              vencimentos={vencimentos}
+              lote={lote}
+              setLote={setLote}
+              loteOk={loteOk}
+              proposta={proposta}
+              montarProposta={montarProposta}
+              cadeia={cadeia}
+              operaveis={operaveis}
+              abrirCadeia={abrirCadeia}
+              abrirOperaveis={abrirOperaveis}
+              custos={CUSTO_DA_ACAO}
+              cp={cp}
+              palette={palette}
+            />
+          ) : null}
 
-          {temLeitura ? (
+          {abaWorkspace === "comparar" && temLeitura ? (
             /* Fase 33 (33-04): job 4 ("comparar os vencimentos"), extraído
                 para SecaoComparar.jsx. Posição EXATA de hoje — logo depois
                 do job 3 acima, dentro do MESMO ramo `temLeitura`
                 (comportamento idêntico: sem leitura não há de onde a tese
                 sair). `tese`/`lote` continuam o MESMO formulário do job 3
                 (Pitfall 6); `alvo`/`stop` ficam aqui no orquestrador para
-                não resetarem entre re-renders. */
+                não resetarem entre re-renders.
+                Fase 34 (34-03): `temLeitura` PERMANECE — sem leitura não há
+                de onde a tese sair — só combinado com o gate de aba; a MESMA
+                seção some ao trocar de aba OU sem leitura, o que já era
+                verdade antes desta fase para o segundo caso. */
             <SecaoComparar
               ticker={ticker}
               tese={tese}
@@ -913,7 +924,11 @@ export default function OpcoesScreen({ ctx }) {
               depois do bloco "COMPARAR OS VENCIMENTOS" acima, dentro do ramo
               "4. DADOS" da cascata. `naoAvaliado`/`setups`/`grafico` e os 4
               callbacks continuam vindo do hook aqui no orquestrador; a
-              seção só recebe o que já foi derivado. */}
+              seção só recebe o que já foi derivado.
+              Fase 34 (34-03, D-01 amendment): `SecaoSetups` migra INTEIRA
+              (listagem + criação) para a 3ª aba do workspace — "Setups
+              salvos" — sem prop `modo`, sem mudança em SecaoSetups.jsx. */}
+          {abaWorkspace === "setups" ? (
           <SecaoSetups
             ticker={ticker}
             setups={setups}
@@ -931,6 +946,7 @@ export default function OpcoesScreen({ ctx }) {
             ctx={ctx}
             palette={palette}
           />
+          ) : null}
         </div>
       )}
 
