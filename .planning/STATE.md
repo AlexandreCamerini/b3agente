@@ -21,9 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-06)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Milestone v1.6 (Simplificação da aba Opções) — Fase 33 EXECUTADA e VERIFICADA (7/7 must-haves, PASSED). Aguardando decisão do Alex sobre iniciar `/gsd-plan-phase 34`.
+**Current focus:** Milestone v1.6 (Simplificação da aba Opções) — Fase 33 fechada e verificada. Fase 34 (Navegação hub + workspace) DISCUTIDA (`34-CONTEXT.md`), pronta para `/gsd-plan-phase 34`.
 
 ## Current Position
+
+Phase: 34 (Navegação hub + workspace) — **DISCUTIDA, pronta para planejar**
+Status: `/gsd-discuss-phase 34` rodado nesta sessão (2026-09-20). Decisões travadas em `34-CONTEXT.md`: (D-01) "setups salvos" se divide — listagem cross-ticker no hub, criação (ticker-scoped) no workspace; (D-02) pill row do workspace tem 3 abas (Analisar/Comparar/Criar Setup), não 2; (D-03) estado do workspace (tese/vencimento/lote) reseta sempre ao voltar — backlog B2 explicitamente NÃO fechado de passagem; (D-04) ordem fixa do hub = frase-ponte+Bloco A+Bloco B → vigias → setups salvos (lista), conforme `research/FEATURES.md`; (D-05) botão de voltar (NAV-03) vira header fixo no topo do workspace com o nome do ticker, mitigando o risco de desorientação que a pesquisa apontou como maior chance de virar feature nova. Resolvida contradição de redação entre NAV-01 e NAV-05 do ROADMAP.md (os dois estavam certos, cada um descrevendo a metade certa de "setups salvos"). 2 todos pendentes revisados e não dobrados (`medir-rate-limit-mydata.md`, `opcoes-v2-confirmar-hub-mydata-e-acesso-b-mcp.md` — tracking externo, fora do domínio de UI). Achado 2 todos já dobrados/executados na Fase 33 (`carimbo-frescor-blocos-cross-carteira.md`, `subaba-operar-fetch-redundante-gate-proposta.md`) esquecidos em `.planning/todos/pending/` — dívida de processo pra arquivar depois, não bloqueia nada. Commit `d49b2bf`.
+
+**Próximo passo:** `/gsd-plan-phase 34` (planejamento executável — pesquisa/pattern-mapper/planner/plan-checker).
+
+## Posição anterior (Fase 33, fechada)
 
 Phase: 33 (Extração dos 5 jobs em componentes próprios) — **EXECUTADA e VERIFICADA — VERIFICATION PASSED (7/7)**
 Plan: 33-01 ✓ | 33-02 ✓ | 33-03 ✓ | 33-04 ✓ | 33-05 ✓ (todas as 5 ondas completas)
