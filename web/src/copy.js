@@ -382,6 +382,17 @@ export const COPY = {
     // Operador manda com imperativo — skill_ref.py/copy.js).
     opcoesSubabaSetups: "Setups",
     opcoesSubabaOperar: "Operação",
+
+    // Fase 34 (34-01) — header fixo do workspace (D-05) + pill row de 3 abas
+    // do workspace (D-02). "Voltar" fica curto de propósito: o botão mora
+    // DENTRO do header, colado ao nome do ticker, mesmo verbo único que todo
+    // botão de volta/cancelar deste diretório usa. As 3 abas são pills numa
+    // linha a 375px — rótulo longo estoura a linha (UI-SPEC, Typography).
+    opcoesVoltarAoHub: "Voltar",
+    opcoesAbaAnalisar: "Analisar",
+    opcoesAbaComparar: "Comparar",
+    opcoesAbaSetupsSalvos: "Setups salvos",
+
     opcoesOperarIntro: "Aqui você vê a estrutura lastreada que o motor propõe para cada posição da sua carteira, com ganho máximo, perda máxima e pontos de empate em número. Nada é enviado a nenhuma corretora.",
     opcoesOperarEscolherPosicao: "Escolha uma posição da carteira para ver a estrutura lastreada que o motor propõe para ela.",
     opcoesOperarSemLiquidez: (t) =>
@@ -1011,6 +1022,16 @@ export const COPY = {
     // executa, não só descreve).
     opcoesSubabaSetups: "Setups",
     opcoesSubabaOperar: "Operar",
+
+    // Fase 34 (34-01) — mesma nota do ramo estudo: header fixo do workspace
+    // (D-05) + pill row de 3 abas (D-02). Tom mais terso que o Estudo, igual
+    // ao restante do vocabulário de mesa (rótulo da 3ª aba fica "Setups" em
+    // vez de "Setups salvos" — mesma divergência de tom de opcoesSubabaOperar).
+    opcoesVoltarAoHub: "Voltar",
+    opcoesAbaAnalisar: "Analisar",
+    opcoesAbaComparar: "Comparar",
+    opcoesAbaSetupsSalvos: "Setups",
+
     opcoesOperarIntro: "Aqui está a estrutura lastreada que o motor propõe para cada posição da carteira, com ganho máximo, perda máxima e pontos de empate em número. Abrir e fechar acontece direto aqui — nenhuma ordem sai para corretora nenhuma.",
     opcoesOperarEscolherPosicao: "Escolha uma posição da carteira para ver a estrutura que a mesa propõe para ela.",
     opcoesOperarSemLiquidez: (t) =>
