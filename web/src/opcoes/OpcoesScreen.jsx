@@ -80,6 +80,11 @@ import SecaoSetups from "./SecaoSetups.jsx";
 // vencimento. Posição EXATA de hoje: entre o job 3 (Analisar, ainda aqui) e a
 // seção de setups gravados (job 5), abaixo.
 import SecaoComparar from "./SecaoComparar.jsx";
+// Fase 34 (34-01/34-02): `WorkspaceHeader` é o header fixo do modo workspace
+// (D-05/NAV-03) — nome do ticker + botão "Voltar" ligado a `escolherTicker`
+// já existente (D-03: reset de tese/vencimento/alvo/stop sem segundo
+// caminho). Componente props-only, criado no 34-01.
+import WorkspaceHeader from "./WorkspaceHeader.jsx";
 
 // Mesmos NOMES de variável CSS que `App.jsx` injeta em `:root` — padrão de
 // `pet/BorisChat.jsx`. Zero import de `App.jsx` (seria ciclo).
@@ -616,6 +621,53 @@ export default function OpcoesScreen({ ctx }) {
     </div>
   );
 
+  // Fase 34 (34-02): particiona por `ticker` o que fica ACIMA da cascata de
+  // estados do serviço — hub (sem ticker) × workspace (com ticker). Nenhum
+  // estado novo, nenhuma chamada nova: o ternário sobre `ticker`, logo
+  // abaixo no `return`, é a única leitura de estado acrescentada
+  // (34-CONTEXT.md, <objective>).
+  // Cabecalho e os ramos 1-2 da cascata (carregando/erro) NÃO entram aqui —
+  // continuam únicos, acima desta partição, porque nascem verdadeiros mesmo
+  // sem ticker (NAV-06, ver comentário no `return`).
+  //
+  // D-04 (ordem fixa do hub): frase-ponte+Bloco A+Bloco B (já um componente
+  // só, SecaoDescobrir) → Meus vigias → seletor. Mesmas props de sempre,
+  // nenhuma acrescentada/removida.
+  const hubTopo = (
+    <>
+      {secaoDescobrir}
+      <SecaoVigias
+        vigias={vigias}
+        vigiasVivos={vigiasVivos}
+        atualizarVigias={atualizarVigias}
+        listaDeVigias={listaDeVigias}
+        temEstado={temEstadoDosVigias}
+        tickersEmCarteira={tickersEmCarteira}
+        ticker={ticker}
+        onIr={irParaVigia}
+        custos={CUSTO_DA_ACAO}
+        cp={cp}
+      />
+      {carteira.length > 0 ? seletor : null}
+    </>
+  );
+
+  // D-05/D-03: header fixo do workspace, ligado à MESMA `escolherTicker` que
+  // já reseta tese/vencimento/alvo/stop ao fechar o ticker — nenhum segundo
+  // caminho de reset (duas implementações do mesmo reset divergiriam na
+  // primeira manutenção feita só numa delas). Os dois `ticker ? ... : null`
+  // que existiam soltos no `return` (LastroDoAtivo/LeituraInterna) somem
+  // AQUI DENTRO porque a guarda subiu de nível: `workspaceTopo` só é
+  // escolhido quando `ticker` já é truthy.
+  const workspaceTopo = (
+    <>
+      <WorkspaceHeader ticker={ticker} onVoltar={() => escolherTicker(ticker)} cp={cp} />
+      <LastroDoAtivo pos={posicaoSelecionada} cp={cp} />
+      <LeituraInterna tecnico={tecnico} cp={cp} />
+      {podePedirLeitura ? blocoLeituraDoServico : null}
+    </>
+  );
+
   return (
     <section>
       <h1 style={{ fontSize: "22px", fontWeight: 800, margin: "0 0 4px" }}>{cp.tituloOpcoes || "Opções"}</h1>
@@ -639,47 +691,14 @@ export default function OpcoesScreen({ ctx }) {
       ) : (
       <>
       {cabecalho}
-      {/* Fase 32 (32-03, D-02): os três blocos abaixo ficam DENTRO da
-          sub-aba Setups, nunca acima de {subabas} — é a Leitura A do
-          UI-SPEC (decidida pelo Alex, 2026-09-15): "topo da aba" em
-          D-04/D-07 significa topo desta sub-aba, onde os vigias já vivem.
-          Como esta tela sempre abre em subaba==="setups"/ticker==="", o que
-          está no topo daqui é literalmente o que a linha de chamada de
-          Posições leva a ver (D-02: "a lista de oportunidades", não outro
-          conteúdo). Ordem: frase-ponte → Bloco A → Bloco B → vigias.
-          Fase 33 (33-02, 2026-09-20): os três primeiros viram o componente
-          SecaoDescobrir, um só. */}
-      {secaoDescobrir}
-      {/* Fase 27 (D4: "vigias antes da carteira"). SEMPRE renderizado, com ou
-          sem ativo escolhido — é o que faz a aba abrir com conteúdo em vez de
-          abrir vazia, e de graça.
-          Fase 33 (33-01, 2026-09-19): o bloco virou componente próprio. */}
-      <SecaoVigias
-        vigias={vigias}
-        vigiasVivos={vigiasVivos}
-        atualizarVigias={atualizarVigias}
-        listaDeVigias={listaDeVigias}
-        temEstado={temEstadoDosVigias}
-        tickersEmCarteira={tickersEmCarteira}
-        ticker={ticker}
-        onIr={irParaVigia}
-        custos={CUSTO_DA_ACAO}
-        cp={cp}
-      />
-      {carteira.length > 0 ? seletor : null}
-      {/* Fase 27 (D4): o lastro livre no cartão, ANTES da tentativa. Hoje este
-          número só aparece na mensagem de recusa do backend ("Lastro
-          insuficiente: N ação(ões) livres de PETR4"), depois de a pessoa
-          tentar — e recusa não é aviso, é recibo. */}
-      {ticker ? <LastroDoAtivo pos={posicaoSelecionada} cp={cp} /> : null}
-      {/* Fase 27 (27-04, D1): a leitura de GRAÇA vem primeiro; a paga só
-          quando a pessoa clica. Fica FORA da cascata de estados do serviço de
-          opções de propósito — são fontes independentes, e é exatamente
-          quando o MCP está fora do ar que esta leitura mais vale. */}
-      {ticker ? <LeituraInterna tecnico={tecnico} cp={cp} /> : null}
-      {/* Fase 27 (27-05): e a paga, logo depois, atrás de um clique que diz o
-          preço. A ordem é a decisão: grátis primeiro, pago depois. */}
-      {podePedirLeitura ? blocoLeituraDoServico : null}
+      {/* Fase 34 (34-02): o que ficava aqui como sequência plana (frase-
+          ponte/Bloco A/Bloco B, vigias, seletor, lastro, leitura interna,
+          convite pago) passa a ser escolhido por MODO — `hubTopo` (sem
+          ticker) ou `workspaceTopo` (com ticker), ambos definidos acima do
+          `return`. Nenhum bloco some, nenhum é duplicado: cada um migrou
+          para dentro do fragmento do seu modo, na MESMA ordem relativa de
+          antes (D-04 no hub; grátis-antes-do-pago no workspace). */}
+      {ticker ? workspaceTopo : hubTopo}
 
       {/* ------------------------------------------------ 1. CARREGANDO --
           Antes do vazio, sempre: vazio pintado durante a consulta afirma
