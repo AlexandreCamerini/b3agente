@@ -179,7 +179,7 @@ cada extração fecha com a suíte canônica verde antes de a próxima começar,
 isolar o risco de quebra de guardião)
 - [x] 33-01-PLAN.md — `SecaoVigias` + módulo de primitivos compartilhados (`uiOpcoes.jsx`); 7 guardiões reapontados — completo 2026-09-20 (2923 pytest + 151/152 mjs, 1 falha pré-existente documentada/`test_ios_assets.mjs`)
 - [x] 33-02-PLAN.md — `SecaoDescobrir` (frase-ponte + Blocos A/B juntos), guardrail CVM generalizado (REORG-06), carimbo de frescor (D-04b) — completo 2026-09-20 (D-04b front-only, backend já devolvia `at`/`meta.source`; 2923 pytest + 151/152 mjs, mesma baseline)
-- [ ] 33-03-PLAN.md — `SecaoSetups` (listagem gravados + porta de criação), cruzamento de custo por varredura
+- [x] 33-03-PLAN.md — `SecaoSetups` (listagem gravados + porta de criação), cruzamento de custo por varredura — completo 2026-09-20 (5 provas negativas, App.jsx intocado, mesma baseline de suíte)
 - [ ] 33-04-PLAN.md — `SecaoComparar` (comparação de vencimentos, custo antes do disparo)
 - [ ] 33-05-PLAN.md — `SecaoAnalisar` (leitura + montador) e fold-in D-04a (SubAbaOperar lê o fan-out)
 **UI hint**: yes

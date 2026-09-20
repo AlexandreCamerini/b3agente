@@ -21,14 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-06)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Milestone v1.6 (Simplificação da aba Opções) — Fase 33 em execução: 2/5 planos completos (33-01, 33-02), Alex autorizou seguir sem parar até o fim da fase.
+**Current focus:** Milestone v1.6 (Simplificação da aba Opções) — Fase 33 em execução: 3/5 planos completos (33-01, 33-02, 33-03), Alex autorizou seguir sem parar até o fim da fase.
 
 ## Current Position
 
-Phase: 33 (Extração dos 5 jobs em componentes próprios) — EM EXECUÇÃO: 33-01/33-02 completos, 33-03 a 33-05 em andamento
-Plan: 33-01 ✓ | 33-02 ✓ | 33-03 → 33-05 pendentes (ondas sequenciais, cada uma depende da anterior)
+Phase: 33 (Extração dos 5 jobs em componentes próprios) — EM EXECUÇÃO: 33-01/33-02/33-03 completos, 33-04/33-05 em andamento
+Plan: 33-01 ✓ | 33-02 ✓ | 33-03 ✓ | 33-04 → 33-05 pendentes (ondas sequenciais, cada uma depende da anterior)
 Status: Executando sequencialmente, sem pausa entre planos (autorização explícita do Alex: "Continuar até o final")
-Last activity: 2026-09-20 — `33-02` completo: `SecaoDescobrir.jsx` compõe Blocos A/B + frase-ponte sem reescrever nenhum dos dois motores; D-04b (carimbo de frescor) resolvido FRONT-ONLY (backend já devolvia `at`/`meta.source`); REORG-06 (guardrail CVM) generalizado por varredura de diretório; 5 guardiões reapontados + 2 asserções novas (REORG-07, relógio do cliente no carimbo). Suíte idêntica à baseline (2923 pytest + 151/152 mjs). Commits `20d1818`/`032efcb`/`5b21a61`. `App.jsx` intocado.
+Last activity: 2026-09-20 — `33-03` completo: `SecaoSetups.jsx` extraído (listagem de setups gravados + porta de criação, reusa `CriarSetup.jsx` sem duplicar); 5 guardiões reapontados (achou mais um, `test_opcoes_mcp_aba_ui.mjs`, só na suíte completa); prova negativa 3 gerou guardião novo pra `nomeNoServico` fora da tela, com um falso-positivo contra uso legítimo de `key=` pego e corrigido antes de commitar. Suíte idêntica à baseline (2923 pytest + 151/152 mjs). Commits `3729144`/`84203f1`/`8a59ede`. `App.jsx` intocado.
+
+Anterior — `33-02` completo: `SecaoDescobrir.jsx` compõe Blocos A/B + frase-ponte sem reescrever nenhum dos dois motores; D-04b (carimbo de frescor) resolvido FRONT-ONLY (backend já devolvia `at`/`meta.source`); REORG-06 (guardrail CVM) generalizado por varredura de diretório; 5 guardiões reapontados + 2 asserções novas (REORG-07, relógio do cliente no carimbo). Suíte idêntica à baseline (2923 pytest + 151/152 mjs). Commits `20d1818`/`032efcb`/`5b21a61`. `App.jsx` intocado.
 
 Anterior — `33-01` completo: `SecaoVigias.jsx` + `uiOpcoes.jsx` (módulo de primitivos compartilhados) extraídos de `OpcoesScreen.jsx`; 7 guardiões reapontados (achou 1 a mais que o censo do planejamento, só na suíte completa: `test_opcoes_custo_declarado.mjs`); 4 provas negativas reais por injeção. Suíte: 2923 pytest (baseline) + 151/152 `.mjs` (1 falha pré-existente, `test_ios_assets.mjs`, documentada em `CLAUDE.md:236` — `web/ios/` gitignored, não é regressão). Uma interrupção por rate limit no meio da execução (sessão retomada do ponto exato, nenhum trabalho perdido). Commits `b72ab44`/`dd954e2`/`0f6be6f`.
 
