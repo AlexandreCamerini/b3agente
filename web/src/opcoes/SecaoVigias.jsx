@@ -3,8 +3,8 @@
  *
  * Job 2 do PROJECT.md ("gerenciar vigias") — hoje inline em OpcoesScreen.jsx
  * (`blocoVigias`, `CartaoDeVigia`). Comportamento idêntico, zero
- * funcionalidade nova (D-03 do 33-CONTEXT.md). Recebe TUDO por prop; não
- * não lê o estado bruto nem chama hook de dado nenhum diretamente — só o
+ * funcionalidade nova (D-03 do 33-CONTEXT.md). Recebe TUDO por prop; não lê
+ * o estado bruto nem chama hook de dado nenhum diretamente — só o
  * orquestrador (OpcoesScreen) faz isso (padrão Emenda 3 do ADR-027, já
  * replicado por OportunidadesOpcoes.jsx/CuradoriaEstruturas.jsx na Fase 32).
  */
