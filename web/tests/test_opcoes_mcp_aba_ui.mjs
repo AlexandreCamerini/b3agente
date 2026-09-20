@@ -268,9 +268,12 @@ ok("ausência de avaliação NÃO vira \"não armado\"",
    /sem avaliação hoje/.test(tela));
 
 // ---- 10) as chaves de copy existem nos dois modos ---------------------------
+// Fase 33 (33-02, D-04b): `opcoesConsultadoEmRotulo` nova — rótulo do
+// carimbo de frescor dos dois blocos cross-carteira (SecaoDescobrir.jsx).
 const CHAVES = ["tituloOpcoes", "subtituloOpcoes", "opcoesLeituraTitulo",
   "opcoesSetupsTitulo", "opcoesPregaoRotulo", "opcoesFonteRotulo",
   "opcoesFrescorEmDia", "opcoesFrescorAtrasado", "opcoesFrescorNaoMedido",
+  "opcoesConsultadoEmRotulo",
   "opcoesSemSetups", "opcoesNaoAvaliado", "opcoesNaoConfigurado", "opcoesCota",
   "opcoesIndisponivel", "opcoesCarregando", "opcoesEscolherAtivo",
   "opcoesDisclaimer", "opcoesGraficoTitulo", "opcoesDisparosRotulo"];

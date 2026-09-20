@@ -41,11 +41,6 @@ import CriarSetup, { BotaoDesativar } from "./CriarSetup.jsx";
 // multi-candidato de `SubAbaOperar` passa a exibir o frescor do dado abaixo
 // do carrossel, mesmo padrão que `PropostaDaPosicao` tinha em App.jsx.
 import PropostaLastreada, { FonteDoDadoProposta, useAceiteLastreado } from "./PropostaLastreada.jsx";
-// Fase 32 (32-03): os dois blocos cross-carteira migram para o topo desta
-// sub-aba (D-04/D-07) — módulos terceiros (ADR-027 Emenda 3, 32-02), nenhum
-// import de App.jsx.
-import OportunidadesOpcoes from "./OportunidadesOpcoes.jsx";
-import CuradoriaEstruturas from "./CuradoriaEstruturas.jsx";
 import { useOpcoesPropostas } from "./useOpcoesPropostas.js";
 // Fase 32 (32-04): `CandidatoOpcao` (o cartão de UM candidato) é reusado
 // verbatim — o ramo multi-candidato de `PropostaDaPosicao` (App.jsx) é
@@ -57,9 +52,15 @@ import CandidatoOpcao from "./CandidatoOpcao.jsx";
 // o módulo de primitivos compartilhados — uma implementação só de `ErroDoMcp`
 // (ramifica nos 4 códigos do ADR-027) reusada por esta tela e pelas seções
 // job-to-be-done (`Secao*.jsx`, D-01 do 33-CONTEXT.md). `SecaoVigias` é o job
-// 2 ("gerenciar vigias"), extraído nesta mesma fase.
+// 2 ("gerenciar vigias"), extraído na Fase 33-01.
 import { Kicker, Aviso, ErroDoMcp, RecusaCobrada } from "./uiOpcoes.jsx";
 import SecaoVigias from "./SecaoVigias.jsx";
+// Fase 33 (33-02): `SecaoDescobrir` é o job 1 ("descobrir oportunidades
+// cross-carteira") — frase-ponte + Bloco A (OportunidadesOpcoes) + Bloco B
+// (CuradoriaEstruturas) juntos, adjacentes (D-05). `OportunidadesOpcoes.jsx`/
+// `CuradoriaEstruturas.jsx` deixam de ser importados AQUI: quem os compõe
+// agora é o componente novo, não mais esta tela.
+import SecaoDescobrir from "./SecaoDescobrir.jsx";
 
 // Mesmos NOMES de variável CSS que `App.jsx` injeta em `:root` — padrão de
 // `pet/BorisChat.jsx`. Zero import de `App.jsx` (seria ciclo).
@@ -644,53 +645,27 @@ export default function OpcoesScreen({ ctx }) {
     </div>
   );
 
-  // Fase 32 (32-03, D-05): frase-ponte entre os dois motores cross-
-  // carteira, SEMPRE no DOM, sem estado de colapso, sem `aria-expanded`,
-  // sem toggle — tornar esta frase colapsável seria regressão regulatória,
-  // não ajuste visual (é a mitigação do risco de D-05: sem ela, quem
-  // escaneia a tela lê "AS 4 MELHORES" do Bloco B como veredito geral do
-  // app, em vez de "melhores entre os 4 candidatos do próprio bloco").
-  const fraseDuasLeituras = (
-    <p style={{ fontSize: "12px", color: T.textMuted, lineHeight: 1.5, margin: "10px 0 14px" }}>
-      {cp.duasLeiturasIntro}
-    </p>
-  );
-
-  // Fase 32 (32-03, D-07): Bloco A — motor COM gate (`OportunidadesOpcoes`).
-  // Alimentado pelo fan-out desta tela (useOpcoesPropostas acima) — nunca
-  // uma segunda instância do hook. `onAbrir={irParaOperar}` substitui o
-  // `abrirOpcoesDe`/`scrollIntoView` de CarteiraScreen.
-  const blocoOportunidades = (
-    <OportunidadesOpcoes
-      propostas={opcoesPorTicker}
-      carregando={opcoesPorTickerCarregando}
-      positions={carteira}
-      cp={cp}
-      onAbrir={irParaOperar}
-    />
-  );
-
-  // Fase 32 (32-03, D-04): Bloco B — motor SEM gate (`CuradoriaEstruturas`),
-  // alimentado por `ctx.curadoria` — MESMA fonte que a linha de chamada em
-  // Posições (D-03: uma fonte, duas leituras), nunca uma segunda instância
-  // de `useCuradoria`.
-  const blocoCuradoria = (
-    <CuradoriaEstruturas
-      top={(ctx && ctx.curadoria && ctx.curadoria.top) || []}
-      meta={ctx && ctx.curadoria && ctx.curadoria.meta}
-      carregando={!!(ctx && ctx.curadoria && ctx.curadoria.carregando)}
-      erro={!!(ctx && ctx.curadoria && ctx.curadoria.erro)}
-      concluido={!!(ctx && ctx.curadoria && ctx.curadoria.concluido)}
-      narrativa={ctx && ctx.curadoria && ctx.curadoria.narrativa}
-      narrando={!!(ctx && ctx.curadoria && ctx.curadoria.narrando)}
-      erroNarrativa={ctx && ctx.curadoria && ctx.curadoria.erroNarrativa}
-      onNarrar={() => ctx.curadoria.narrar(ctx.data && ctx.data.config)}
-      onRecarregar={ctx && ctx.curadoria && ctx.curadoria.recarregar}
-      cp={cp}
+  // Fase 33 (33-02): o job 1 ("descobrir oportunidades cross-carteira") —
+  // frase-ponte + Bloco A + Bloco B — virou componente próprio
+  // (`SecaoDescobrir.jsx`). Comportamento idêntico ao que estava inline
+  // aqui até a Fase 32 (D-04/D-05/D-07), zero funcionalidade nova além do
+  // carimbo de frescor (D-04b, exceção explícita e aprovada). `curadoria`
+  // desce como o objeto `ctx.curadoria` INTEIRO — MESMA fonte que a linha
+  // de chamada em Posições (D-03: uma fonte, duas leituras), nunca uma
+  // segunda instância do hook que a busca.
+  const secaoDescobrir = (
+    <SecaoDescobrir
+      opcoesPorTicker={opcoesPorTicker}
+      opcoesPorTickerCarregando={opcoesPorTickerCarregando}
+      carteira={carteira}
+      curadoria={ctx && ctx.curadoria}
       onAbrir={irParaOperar}
       onExecutar={(cand, o) => ctx.A.executarCandidatoCurado(cand, o)}
+      onNarrar={() => ctx.curadoria.narrar(ctx.data && ctx.data.config)}
+      onRecarregar={ctx && ctx.curadoria && ctx.curadoria.recarregar}
       operador={!!(ctx && ctx.operador)}
       palette={palette}
+      cp={cp}
     />
   );
 
@@ -748,10 +723,10 @@ export default function OpcoesScreen({ ctx }) {
           Como esta tela sempre abre em subaba==="setups"/ticker==="", o que
           está no topo daqui é literalmente o que a linha de chamada de
           Posições leva a ver (D-02: "a lista de oportunidades", não outro
-          conteúdo). Ordem: frase-ponte → Bloco A → Bloco B → vigias. */}
-      {fraseDuasLeituras}
-      {blocoOportunidades}
-      {blocoCuradoria}
+          conteúdo). Ordem: frase-ponte → Bloco A → Bloco B → vigias.
+          Fase 33 (33-02, 2026-09-20): os três primeiros viram o componente
+          SecaoDescobrir, um só. */}
+      {secaoDescobrir}
       {/* Fase 27 (D4: "vigias antes da carteira"). SEMPRE renderizado, com ou
           sem ativo escolhido — é o que faz a aba abrir com conteúdo em vez de
           abrir vazia, e de graça.

@@ -40,12 +40,13 @@
 // test_opcoes_proposta_ui.mjs, test_carteira_lastro_ui.mjs,
 // test_fase5_appmode_fonte_unica.mjs): readFileSync de App.jsx + import de
 // COPY, sem build e sem DOM. Roda isolado: `node web/tests/test_carteira_opcoes_tira.mjs`.
-import { readFileSync } from "fs";
+import { readFileSync, readdirSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { COPY } from "../src/copy.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
+const dirOpcoes = join(here, "..", "src", "opcoes");
 const app = readFileSync(join(here, "..", "src", "App.jsx"), "utf8");
 // ATUALIZADO 2026-09-13 (Fase 28, 28-01): PropostaLastreada saiu de App.jsx
 // para web/src/opcoes/PropostaLastreada.jsx.
@@ -161,21 +162,38 @@ ok("OportunidadesOpcoes referencia cp.tiraOpcoesCarregando",
 ok("o ramo de carregando é avaliado ANTES do ramo vazio (a tira não mente durante a busca)",
   fatiaOO.indexOf("cp.tiraOpcoesCarregando") < fatiaOO.indexOf("cp.tiraOpcoesSemCobertura"));
 
-// ---- (4, Fase 32/32-03) Tira migrou para OpcoesScreen.jsx -----------------
-// O call site (`<OportunidadesOpcoes`) e sua guarda de carteira vazia
-// pertenciam a CarteiraScreen; agora o bloco vive no topo da sub-aba Setups
-// de OpcoesScreen.jsx, e Posições fica com a linha de chamada (D-01).
-ok("(Fase 32/32-03) <OportunidadesOpcoes aparece exatamente 1x no fonte de OpcoesScreen.jsx",
-  (telaOpcoesSemComentario.match(/<OportunidadesOpcoes/g) || []).length === 1);
+// ---- (4, Fase 33/33-02) Tira migrou para SecaoDescobrir.jsx ----------------
+// O call site (`<OportunidadesOpcoes`) migrou de CarteiraScreen (App.jsx,
+// até a Fase 32) para o topo da sub-aba Setups de OpcoesScreen.jsx (Fase
+// 32-03) e agora, na Fase 33-02, para dentro de SecaoDescobrir.jsx (frase-
+// ponte + Bloco A + Bloco B viraram um componente só). Migrado para
+// varredura de DIRETÓRIO (mesmo padrão de test_curadoria_ui.mjs para
+// CuradoriaEstruturas nesta mesma fase): exatamente 1x em toda a pasta
+// web/src/opcoes/, 0x em App.jsx e 0x em OpcoesScreen.jsx.
+const arquivosOpcoesDirTira = readdirSync(dirOpcoes).filter((f) => f.endsWith(".jsx") || f.endsWith(".js"));
+ok("(Fase 33/33-02) achou pelo menos 15 arquivos em web/src/opcoes/ (sanidade da varredura)",
+  arquivosOpcoesDirTira.length >= 15);
+const ocorrenciasOOPorArquivo = arquivosOpcoesDirTira.map((f) => {
+  const src = readFileSync(join(dirOpcoes, f), "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n");
+  return { f, n: (src.match(/<OportunidadesOpcoes/g) || []).length };
+});
+const totalOONaPasta = ocorrenciasOOPorArquivo.reduce((acc, e) => acc + e.n, 0);
+ok("(Fase 33/33-02) <OportunidadesOpcoes aparece exatamente 1x em toda a pasta web/src/opcoes/"
+  + " (" + ocorrenciasOOPorArquivo.filter((e) => e.n > 0).map((e) => e.f + ":" + e.n).join(", ") + ")",
+  totalOONaPasta === 1);
+ok("(Fase 33/33-02) <OportunidadesOpcoes aparece 0x em OpcoesScreen.jsx (call site migrou para SecaoDescobrir.jsx)",
+  (telaOpcoesSemComentario.match(/<OportunidadesOpcoes/g) || []).length === 0);
 ok("(Fase 32/32-03) <OportunidadesOpcoes aparece 0x em App.jsx (call site saiu de CarteiraScreen)",
   (fonteSemComentario.match(/<OportunidadesOpcoes/g) || []).length === 0);
-// 2026-09-19, Fase 33 (33-01): `{blocoVigias}` virou `<SecaoVigias` (o
-// bloco migrou para componente próprio, D-01 do 33-CONTEXT.md) — o marcador
-// muda de forma, a relação de ordem que este guardião prova é a mesma.
-const iUsoOOTela = telaOpcoesSemComentario.indexOf("{blocoOportunidades}");
+// 2026-09-20, Fase 33 (33-02): o par de ordem {blocoOportunidades} →
+// <SecaoVigias vira <SecaoDescobrir → <SecaoVigias em OpcoesScreen.jsx (os
+// três marcadores antigos viraram um componente só).
+const iUsoSecaoDescobrirTela = telaOpcoesSemComentario.indexOf("<SecaoDescobrir");
 const iUsoVigiasTela = telaOpcoesSemComentario.indexOf("<SecaoVigias");
-ok("(Fase 32/32-03) {blocoOportunidades} é usado antes de <SecaoVigias em OpcoesScreen.jsx",
-  iUsoOOTela > -1 && iUsoVigiasTela > iUsoOOTela);
+ok("(Fase 33/33-02) <SecaoDescobrir é usado antes de <SecaoVigias em OpcoesScreen.jsx",
+  iUsoSecaoDescobrirTela > -1 && iUsoVigiasTela > iUsoSecaoDescobrirTela);
 ok("(Fase 32/32-03) App.jsx contém <LinhaChamadaOpcoes exatamente 1x (D-01: substitui os dois blocos em Posições)",
   (fonteSemComentario.match(/<LinhaChamadaOpcoes/g) || []).length === 1);
 

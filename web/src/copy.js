@@ -114,6 +114,12 @@ export const COPY = {
     opcoesFrescorEmDia: "dado em dia",
     opcoesFrescorAtrasado: "dado atrasado",
     opcoesFrescorNaoMedido: "frescor não medido",
+    // Fase 33 (33-02, D-04b): rótulo do carimbo de frescor dos dois blocos
+    // cross-carteira ("descobrir oportunidades") — TODO fechado
+    // (carimbo-frescor-blocos-cross-carteira.md). Mesmo tom neutro dos
+    // vizinhos acima (Pregão/Fonte), que também são idênticos nos dois
+    // modos.
+    opcoesConsultadoEmRotulo: "Consultado",
     // Fase 27 (27-05) — a ÚNICA chamada da aba que ainda sai sem clique, dita
     // na tela. O frescor (`/status`) reserva 1 chamada e só a consome quando
     // precisa mesmo ir ao serviço; com o frescor em cache, o custo é zero. Ele
@@ -807,6 +813,9 @@ export const COPY = {
     opcoesFrescorEmDia: "dado em dia",
     opcoesFrescorAtrasado: "dado atrasado",
     opcoesFrescorNaoMedido: "frescor não medido",
+    // Fase 33 (33-02, D-04b): mesmo rótulo do ramo estudo — é o nome do
+    // dado, não juízo, igual aos vizinhos Pregão/Fonte.
+    opcoesConsultadoEmRotulo: "Consultado",
     // Fase 27 (27-05) — a única chamada da aba sem clique, declarada. Mesma
     // razão do ramo estudo: o gate de frescor precisa existir na abertura
     // (ADR-027, Decisão 8), então o que resta é dizer o preço dele.

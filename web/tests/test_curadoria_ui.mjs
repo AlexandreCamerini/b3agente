@@ -120,12 +120,13 @@
 // test_carteira_opcoes_tira.mjs, test_opcoes_proposta_ui.mjs): readFileSync
 // de App.jsx + do módulo + import de COPY, sem build e sem DOM. Roda
 // isolado: `node web/tests/test_curadoria_ui.mjs`.
-import { readFileSync } from "fs";
+import { readFileSync, readdirSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { COPY } from "../src/copy.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
+const dirOpcoes = join(here, "..", "src", "opcoes");
 const app = readFileSync(join(here, "..", "src", "App.jsx"), "utf8");
 const modulo = readFileSync(join(here, "..", "src", "opcoes", "CuradoriaEstruturas.jsx"), "utf8");
 // Fase 32 (32-03): o call site (`<CuradoriaEstruturas`) mudou de tela —
@@ -135,6 +136,13 @@ const modulo = readFileSync(join(here, "..", "src", "opcoes", "CuradoriaEstrutur
 // inserção histórica fora de ordem — também precisa dele.
 const telaOpcoes = readFileSync(join(here, "..", "src", "opcoes", "OpcoesScreen.jsx"), "utf8");
 const telaOpcoesSemComentario = telaOpcoes.split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n");
+// Fase 33 (33-02): o call site (`<CuradoriaEstruturas`) mudou de tela de
+// NOVO — de OpcoesScreen.jsx para SecaoDescobrir.jsx (frase-ponte + Bloco A
+// + Bloco B viraram um componente só).
+const secaoDescobrir = readFileSync(join(dirOpcoes, "SecaoDescobrir.jsx"), "utf8");
+const secaoDescobrirSemComentario = secaoDescobrir
+  .replace(/\/\*[\s\S]*?\*\//g, "")
+  .split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n");
 
 let fails = 0;
 const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if (!cond) fails++; };
@@ -287,8 +295,14 @@ ok("(Fase 32/32-03) CarteiraScreen NÃO desestrutura mais ctx.curadoria (consumi
   !/\}\s*=\s*ctx\.curadoria;/.test(fatiaCarteira));
 ok("(Fase 32/32-03) CarteiraScreen passa ctx.curadoria inteiro como prop para LinhaChamadaOpcoes",
   /curadoria=\{ctx\.curadoria\}/.test(fatiaCarteira));
-ok("(Fase 32/32-03) OpcoesScreen.jsx (blocoCuradoria) lê ctx.curadoria.top/meta/carregando/erro — mesma fonte, segunda leitura",
-  /ctx\.curadoria\.top/.test(telaOpcoesSemComentario) && /ctx\.curadoria\.meta/.test(telaOpcoesSemComentario));
+// Fase 33 (33-02): OpcoesScreen.jsx deixou de ler `.top`/`.meta` diretamente
+// — passa `ctx.curadoria` INTEIRO para SecaoDescobrir.jsx, que é quem lê
+// `.top`/`.meta` agora (segunda leitura da MESMA fonte, D-03 preservado,
+// nenhuma segunda instância do hook).
+ok("(Fase 33/33-02) OpcoesScreen.jsx passa curadoria={ctx.curadoria} inteiro para SecaoDescobrir",
+  /curadoria=\{ctx\s*&&\s*ctx\.curadoria\}/.test(telaOpcoesSemComentario));
+ok("(Fase 33/33-02) SecaoDescobrir.jsx lê curadoria.top/curadoria.meta — mesma fonte, segunda leitura",
+  /curadoria\.top/.test(secaoDescobrirSemComentario) && /curadoria\.meta/.test(secaoDescobrirSemComentario));
 
 // ---- (5) itens vêm de `top`; narrativa.estruturas nunca em map( de render
 ok("CuradoriaEstruturas mapeia top.map( para renderizar os itens",
@@ -298,30 +312,42 @@ ok("narrativa.estruturas NÃO aparece em nenhum map( de CuradoriaEstruturas",
 ok("nenhum .map( do componente itera sobre narrativa (só `top.map(` renderiza itens)",
   !/narrativa\.map\(|narrativa\.estruturas\.map\(/.test(fatiaCuradoria));
 
-// ---- (6, Fase 32/32-03) <CuradoriaEstruturas aparece 1x em OpcoesScreen.jsx,
-// no topo da sub-aba Setups — call site migrou de CarteiraScreen (App.jsx)
-// para lá (D-04/D-07). App.jsx NÃO renderiza mais o componente.
-ok("(Fase 32/32-03) <CuradoriaEstruturas aparece exatamente 1x no fonte de OpcoesScreen.jsx",
-  (telaOpcoesSemComentario.match(/<CuradoriaEstruturas/g) || []).length === 1);
+// ---- (6, Fase 33/33-02) <CuradoriaEstruturas migrou de tela DE NOVO — de
+// OpcoesScreen.jsx (Fase 32) para SecaoDescobrir.jsx (Fase 33-02, frase-
+// ponte + Bloco A + Bloco B viraram um componente só). Migrado para
+// varredura de DIRETÓRIO (achado do plano-checker desta fase, D-02 do
+// 33-CONTEXT.md): exatamente 1x em toda a pasta web/src/opcoes/, 0x em
+// App.jsx e 0x em OpcoesScreen.jsx (não é mais lá que o call site mora).
+const arquivosOpcoesDirCuradoria = readdirSync(dirOpcoes).filter((f) => f.endsWith(".jsx") || f.endsWith(".js"));
+ok("(Fase 33/33-02) achou pelo menos 15 arquivos em web/src/opcoes/ (sanidade da varredura)",
+  arquivosOpcoesDirCuradoria.length >= 15);
+const ocorrenciasCuradoriaPorArquivo = arquivosOpcoesDirCuradoria.map((f) => {
+  const src = readFileSync(join(dirOpcoes, f), "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n");
+  return { f, n: (src.match(/<CuradoriaEstruturas/g) || []).length };
+});
+const totalCuradoriaNaPasta = ocorrenciasCuradoriaPorArquivo.reduce((acc, e) => acc + e.n, 0);
+ok("(Fase 33/33-02) <CuradoriaEstruturas aparece exatamente 1x em toda a pasta web/src/opcoes/"
+  + " (" + ocorrenciasCuradoriaPorArquivo.filter((e) => e.n > 0).map((e) => e.f + ":" + e.n).join(", ") + ")",
+  totalCuradoriaNaPasta === 1);
+ok("(Fase 33/33-02) <CuradoriaEstruturas aparece 0x em OpcoesScreen.jsx (call site migrou para SecaoDescobrir.jsx)",
+  (telaOpcoesSemComentario.match(/<CuradoriaEstruturas/g) || []).length === 0);
 ok("(Fase 32/32-03) <CuradoriaEstruturas aparece 0x em App.jsx (call site saiu de CarteiraScreen)",
   (fonteSemComentario.match(/<CuradoriaEstruturas/g) || []).length === 0);
-const iTagCur = telaOpcoesSemComentario.indexOf("<CuradoriaEstruturas");
-const iTagOO = telaOpcoesSemComentario.indexOf("<OportunidadesOpcoes");
-ok("(Fase 32/32-03) <CuradoriaEstruturas aparece depois de <OportunidadesOpcoes (irmão, nesta ordem) em OpcoesScreen.jsx",
-  iTagCur > iTagOO && iTagOO > -1);
-// A ordem exigida é a de MONTAGEM na árvore ({blocoOportunidades} antes de
-// {blocoCuradoria}, ambos antes de <SecaoVigias, dentro do ramo
-// subaba === "setups") — não mais "dentro do mesmo bloco
-// data.positions.length > 0", que era a guarda de CarteiraScreen e não
-// existe mais neste destino.
-// 2026-09-19, Fase 33 (33-01): `{blocoVigias}` virou `<SecaoVigias` (o
-// bloco migrou para componente próprio, D-01 do 33-CONTEXT.md) —
-// `{blocoOportunidades}`/`{blocoCuradoria}` ficam como estão, migram no 33-02.
-const iUsoBlocoOO = telaOpcoesSemComentario.indexOf("{blocoOportunidades}");
-const iUsoBlocoCur = telaOpcoesSemComentario.indexOf("{blocoCuradoria}");
+const iTagCurSD = secaoDescobrirSemComentario.indexOf("<CuradoriaEstruturas");
+const iTagOOSD = secaoDescobrirSemComentario.indexOf("<OportunidadesOpcoes");
+ok("(Fase 33/33-02) <CuradoriaEstruturas aparece depois de <OportunidadesOpcoes (irmão, nesta ordem) em SecaoDescobrir.jsx",
+  iTagCurSD > iTagOOSD && iTagOOSD > -1);
+// A ordem exigida é a de MONTAGEM na árvore (Bloco A antes de Bloco B DENTRO
+// de SecaoDescobrir.jsx, e <SecaoDescobrir inteiro antes de <SecaoVigias em
+// OpcoesScreen.jsx) — não mais "dentro do mesmo bloco
+// data.positions.length > 0", que era a guarda de CarteiraScreen de antes
+// da Fase 32 e não existe mais neste destino.
+const iUsoSecaoDescobrir = telaOpcoesSemComentario.indexOf("<SecaoDescobrir");
 const iUsoBlocoVigias = telaOpcoesSemComentario.indexOf("<SecaoVigias");
-ok("(Fase 32/32-03) {blocoCuradoria} é usado depois de {blocoOportunidades} e antes de <SecaoVigias em OpcoesScreen.jsx",
-  iUsoBlocoOO > -1 && iUsoBlocoCur > iUsoBlocoOO && iUsoBlocoVigias > iUsoBlocoCur);
+ok("(Fase 33/33-02) <SecaoDescobrir é usado antes de <SecaoVigias em OpcoesScreen.jsx",
+  iUsoSecaoDescobrir > -1 && iUsoBlocoVigias > iUsoSecaoDescobrir);
 
 // ---- (7) Best-effort: toda chamada de rede do hook tem .catch( -----------
 // Mesmo algoritmo de test_carteira_opcoes_tira.mjs: caminha o encadeamento
@@ -553,8 +579,12 @@ ok("(Fase 32) CuradoriaEstruturas.jsx NÃO importa App.jsx",
   !/from\s+"[^"]*App\.jsx"/.test(modulo));
 ok("(Fase 32/32-03) App.jsx NÃO importa mais CuradoriaEstruturas (call site saiu para OpcoesScreen.jsx)",
   !/from\s+"\.\/opcoes\/CuradoriaEstruturas\.jsx"/.test(app));
-ok("(Fase 32/32-03) OpcoesScreen.jsx importa CuradoriaEstruturas de ./CuradoriaEstruturas.jsx",
-  /from\s+"\.\/CuradoriaEstruturas\.jsx"/.test(telaOpcoes));
+// Fase 33 (33-02): o import migrou DE NOVO — de OpcoesScreen.jsx para
+// SecaoDescobrir.jsx (quem agora compõe o componente).
+ok("(Fase 33/33-02) OpcoesScreen.jsx NÃO importa mais CuradoriaEstruturas (call site saiu para SecaoDescobrir.jsx)",
+  !/from\s+"\.\/CuradoriaEstruturas\.jsx"/.test(telaOpcoes));
+ok("(Fase 33/33-02) SecaoDescobrir.jsx importa CuradoriaEstruturas de ./CuradoriaEstruturas.jsx",
+  /from\s+"\.\/CuradoriaEstruturas\.jsx"/.test(secaoDescobrir));
 
 if (fails) { console.error(`\n${fails} falha(s)`); process.exit(1); }
 console.log("\ntodos os testes passaram");

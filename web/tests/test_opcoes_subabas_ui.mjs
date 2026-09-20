@@ -195,6 +195,52 @@ for (const nome of ["cabecalho", "<SecaoVigias", "seletor", "LastroDoAtivo", "Le
   ok(`\`${nome}\` continua referenciado em OpcoesScreen.jsx`, tela.includes(nome));
 }
 
+// ---- 12) REORG-06 (Fase 33, 33-02, 2026-09-20): guardrail CVM de manchete,
+// generalizado por varredura de DIRETÓRIO -------------------------------------
+// A regra 5 acima cobre só o texto de `SubAbaOperar` — escopo de VARIÁVEL
+// ÚNICA que bastava até a Fase 32, porque `SubAbaOperar` era o único lugar
+// novo que renderizava candidato de opções. A Fase 33 cria seções job-to-be-
+// done (`Secao*.jsx`) fora de `SubAbaOperar` capazes de compor os mesmos
+// componentes que exibem `manchete` — a primeira é `SecaoDescobrir.jsx`
+// (33-02), que embute `OportunidadesOpcoes`/`CuradoriaEstruturas`. Um
+// arquivo novo que passasse a renderizar `candidato.manchete` diretamente
+// (sem delegar a um dos 4 renderizadores já cobertos) passaria calado pela
+// regra 5, que só lê `SubAbaOperar`. A allowlist abaixo é dos 4 arquivos que
+// HOJE renderizam manchete verbatim (medido por grep em 2026-09-19/20):
+// `PropostaLastreada.jsx`, `CandidatoOpcao.jsx`, `CuradoriaEstruturas.jsx`,
+// `OportunidadesOpcoes.jsx`. Nenhuma outra `Secao*.jsx`/arquivo desta pasta
+// pode conter manchete.
+const RENDERIZADORES_DE_MANCHETE = [
+  "PropostaLastreada.jsx", "CandidatoOpcao.jsx",
+  "CuradoriaEstruturas.jsx", "OportunidadesOpcoes.jsx",
+];
+// Sanidade 1: a varredura por diretório não prova nada se o diretório for
+// pequeno demais para uma reorganização em 5 seções ter deixado marca —
+// número real de hoje (Fase 33-02): 17 arquivos.
+ok("achou pelo menos 15 arquivos em web/src/opcoes/ (sanidade da varredura, REORG-06)",
+   arquivosOpcoesDir.length >= 15);
+// Sanidade 2: a allowlist não pode envelhecer — se um dos 4 renderizadores
+// parar de conter manchete (refactor futuro que a esvazie), a allowlist
+// estaria autorizando algo que já não existe mais, escondendo o dia em que
+// isso mudou.
+const semMancheteNaAllowlist = RENDERIZADORES_DE_MANCHETE.filter((f) => {
+  const src = readFileSync(join(dirOpcoes, f), "utf8");
+  return !/\.manchete\b/.test(src);
+});
+ok("cada arquivo da allowlist de manchete CONTÉM .manchete de fato (allowlist não envelheceu)"
+   + (semMancheteNaAllowlist.length ? " (sem manchete: " + semMancheteNaAllowlist.join(", ") + ")" : ""),
+   semMancheteNaAllowlist.length === 0);
+// A regra em si: todo .jsx/.js de web/src/opcoes/ FORA da allowlist não pode
+// renderizar manchete — nem `{...manchete...}` (JSX) nem `.manchete` avulso.
+const comMancheteForaDaAllowlist = arquivosOpcoesDir.filter((f) => {
+  if (RENDERIZADORES_DE_MANCHETE.includes(f)) return false;
+  const src = readFileSync(join(dirOpcoes, f), "utf8");
+  return /\{[^}]*\bmanchete\b[^}]*\}/.test(src) || /\.manchete\b/.test(src);
+});
+ok("nenhum arquivo de web/src/opcoes/ FORA da allowlist renderiza manchete (REORG-06)"
+   + (comMancheteForaDaAllowlist.length ? " (violam: " + comMancheteForaDaAllowlist.join(", ") + ")" : ""),
+   comMancheteForaDaAllowlist.length === 0);
+
 if (fails > 0) {
   console.log(`\n${fails} falha(s).`);
   process.exit(1);
