@@ -221,8 +221,10 @@ rodar em paralelo.
 - [x] 34-01-PLAN.md — 4 chaves de copy (2 modos) + `WorkspaceHeader.jsx`
   (D-05) + guardião novo, parte 1 — completo 2026-09-20 (2923 pytest +
   152/153 mjs, mesma baseline; prova negativa real)
-- [ ] 34-02-PLAN.md — split hub × workspace acima da cascata + ramos 3/4 por
-  modo + censo/reaponte de 21 guardiões que leem `OpcoesScreen.jsx`
+- [x] 34-02-PLAN.md — split hub × workspace acima da cascata + ramos 3/4 por
+  modo + censo/reaponte de 21 guardiões que leem `OpcoesScreen.jsx` —
+  completo 2026-09-20 (guardião inerte pego e corrigido pela prova
+  negativa; `App.jsx` intocado; mesma baseline de suíte)
 - [ ] 34-03-PLAN.md — pill row de 3 abas (D-02) + gate do ramo Dados por aba
   + guardião de NAV-05 (trocar de aba não paga de novo)
 - [ ] 34-04-PLAN.md — checkpoint humano bloqueante + publicação do front
@@ -267,7 +269,7 @@ rodar em paralelo.
 | 31. Varredura de oportunidades de opções | 4/4 | Complete | 2026-09-14 |
 | 32. Consolidação das operações de opções na aba Opções | 5/5 | Complete | 2026-09-16 |
 | 33. Extração dos 5 jobs em componentes próprios | 5/5 | Complete (verified, 7/7) | 2026-09-20 |
-| 34. Navegação hub + workspace | v1.6 | Executing (1/4) | - |
+| 34. Navegação hub + workspace | v1.6 | Executing (2/4) | - |
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2/v1.3
 
