@@ -54,13 +54,13 @@ Deferido, decidido em conversa antes deste milestone — fora do roadmap atual.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| REORG-01 | Phase 33 | Pending |
-| REORG-02 | Phase 33 | Pending |
-| REORG-03 | Phase 33 | Pending |
-| REORG-04 | Phase 33 | Pending |
-| REORG-05 | Phase 33 | Pending |
-| REORG-06 | Phase 33 | Pending |
-| REORG-07 | Phase 33 | Pending |
+| REORG-01 | Phase 33 | Done |
+| REORG-02 | Phase 33 | Done |
+| REORG-03 | Phase 33 | Done |
+| REORG-04 | Phase 33 | Done |
+| REORG-05 | Phase 33 | Done |
+| REORG-06 | Phase 33 | Done |
+| REORG-07 | Phase 33 | Done |
 | NAV-01 | Phase 34 | Pending |
 | NAV-02 | Phase 34 | Pending |
 | NAV-03 | Phase 34 | Pending |

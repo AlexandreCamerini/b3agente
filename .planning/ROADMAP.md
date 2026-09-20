@@ -253,7 +253,7 @@ rodar em paralelo.
 | 30. Curadoria de IA das 4 melhores estruturas | 4/4 | Complete (30-04 sem SUMMARY — bookkeeping) | 2026-09-14 |
 | 31. Varredura de oportunidades de opções | 4/4 | Complete | 2026-09-14 |
 | 32. Consolidação das operações de opções na aba Opções | 5/5 | Complete | 2026-09-16 |
-| 33. Extração dos 5 jobs em componentes próprios | 5/5 | Executed | 2026-09-20 |
+| 33. Extração dos 5 jobs em componentes próprios | 5/5 | Complete (verified, 7/7) | 2026-09-20 |
 | 34. Navegação hub + workspace | v1.6 | Not started | - |
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2/v1.3
