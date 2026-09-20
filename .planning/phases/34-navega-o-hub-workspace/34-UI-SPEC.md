@@ -1,11 +1,12 @@
 ---
 phase: 34
 slug: navega-o-hub-workspace
-status: draft
+status: approved
 shadcn_initialized: false
 preset: none
 created: 2026-09-20
 revised: 2026-09-20
+reviewed_at: 2026-09-20
 ---
 
 # Phase 34 — UI Design Contract
