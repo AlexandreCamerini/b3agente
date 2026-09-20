@@ -34,7 +34,7 @@
 //     conferido; escondê-lo repetiria o defeito da fase.
 //
 // Roda sem build: `node web/tests/test_opcoes_vigias_ui.mjs`.
-import { readFileSync } from "fs";
+import { readFileSync, readdirSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { COPY } from "../src/copy.js";
@@ -173,6 +173,33 @@ ok("desativar viaja com a chave do armazém e exibe o nome da pessoa",
    /nome=\{chave\}/.test(telaSetups) && /nomeVisivel=\{s\.name\}/.test(telaSetups)
    && !/nome=\{s\.name\}/.test(telaSetups));
 ok("o que a pessoa LÊ continua sendo s.name", /\{s\.name\}<\/div>/.test(telaSetups));
+
+// ---- 4c) nomeNoServico nunca chega a texto renderizado (T-33-08) ----------
+// 2026-09-20, Fase 33 (33-03), injeção 3 da prova negativa: nenhum dos
+// guardiões existentes (vigias, custo declarado, criar-setup, analisar,
+// mcp-aba, subabas, consolidação) reprovava `{s.nomeNoServico}` renderizado
+// dentro de SecaoSetups.jsx — o hash de 8 hexadecimais da conta apareceria na
+// tela como se fosse o nome do setup (mesmo dano da injeção nº 4 do 27-01,
+// desta vez no job 5). Asserção nova, por VARREDURA DE DIRETÓRIO (D-02):
+// `nomeNoServico` só pode aparecer na forma exata da derivação da chave —
+// qualquer outra ocorrência é candidata a estar sendo lida por uma pessoa.
+const dirOpcoesTodo = join(here, "..", "src", "opcoes");
+const arquivosOpcoesTodo = readdirSync(dirOpcoesTodo).filter((f) => /\.jsx?$/.test(f));
+ok("sanidade: achou pelo menos 10 arquivos em web/src/opcoes/ (varredura por diretório)",
+   arquivosOpcoesTodo.length >= 10, `achou ${arquivosOpcoesTodo.length}`);
+// Duas formas SEGURAS, que não expõem o hash à leitura: a derivação da chave
+// que viaja ao serviço, e o `key=` do React (reconciliação interna, nunca
+// pintado na tela).
+const DERIVACAO_SEGURA = /const chave = s\.nomeNoServico \|\| s\.name;/g;
+const KEY_PROP_SEGURO = /key=\{[^}]*nomeNoServico[^}]*\}/g;
+const violamNomeNoServico = arquivosOpcoesTodo.filter((f) => {
+  const src = semComentario(ler(f));
+  const semSeguro = src.replace(DERIVACAO_SEGURA, "").replace(KEY_PROP_SEGURO, "");
+  return /nomeNoServico/.test(semSeguro);
+});
+ok("nenhum arquivo de web/src/opcoes/ expõe nomeNoServico fora da derivação da chave"
+   + (violamNomeNoServico.length ? " (violam: " + violamNomeNoServico.join(", ") + ")" : ""),
+   violamNomeNoServico.length === 0);
 const criar = semComentario(ler("CriarSetup.jsx"));
 // 2026-09-13 (Fase 27, plano 27-05) — a forma ganhou um SUFIXO: o custo da
 // ação (1 chamada) passou a entrar no `aria-label`. A razão é a mesma que
