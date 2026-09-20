@@ -69,6 +69,10 @@ const tela = fontes["OpcoesScreen.jsx"];
 const hook = fontes["useOpcoesMcp.js"];
 const payoff = fontes["PayoffChart.jsx"];
 const uiOpcoesFonte = fontes["uiOpcoes.jsx"] || "";
+// 2026-09-20, Fase 33 (33-04): job 4 ("comparar os vencimentos") saiu de
+// OpcoesScreen.jsx para SecaoComparar.jsx — as regras de custo/ordem/razão
+// que ancoravam nele passam a ler esta fonte.
+const secaoComparar = fontes["SecaoComparar.jsx"] || "";
 
 let fails = 0;
 const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if (!cond) fails++; };
@@ -131,41 +135,50 @@ ok("sanidade: a regex pega emReais e breakeven juntos quando eles estão",
    && REAIS_COM_BREAKEVEN.test("const y = breakevens[0] * emReais.lote;"));
 
 // ---- 4) o custo em chamadas aparece ANTES do disparo ------------------------
-const iCusto = tela.indexOf("cp.opcoesCustoChamadas");
-const iDispara = tela.indexOf("verPossibilidades(");
-ok("a tela mostra o custo em chamadas e dispara as possibilidades",
+// 2026-09-20, Fase 33 (33-04): o controle (custo + disparo) migrou de
+// OpcoesScreen.jsx para SecaoComparar.jsx — a garantia se divide em duas,
+// sem perder nada: (a) a CONTA (N_MAX_VENCIMENTOS/2*N+1) continua só no
+// orquestrador, medida abaixo em `tela`; (b) a ORDEM custo-antes-do-disparo e
+// o gate visual são medidos em `secaoComparar`, onde o controle está.
+const iCusto = secaoComparar.indexOf("cp.opcoesCustoChamadas");
+const iDispara = secaoComparar.indexOf("verPossibilidades(");
+ok("a seção mostra o custo em chamadas e dispara as possibilidades",
    iCusto >= 0 && iDispara >= 0);
 ok("o custo aparece no fonte ANTES do disparo (aviso, não recibo)", iCusto < iDispara);
-ok("o custo é 2×N+1 com N ≤ 6, derivado dos vencimentos que a leitura trouxe",
+ok("o custo é 2×N+1 com N ≤ 6, derivado dos vencimentos que a leitura trouxe (fica no orquestrador)",
    /Math\.min\(vencimentos\.length, N_MAX_VENCIMENTOS\)/.test(tela)
    && /2 \* N \+ 1/.test(tela) && /const N_MAX_VENCIMENTOS = 6/.test(tela));
+// NOVA (33-04): "uma conta só" deixa de ser convenção e passa a ser travada —
+// a extração TORNA possível (e necessária) proibir a segunda cópia da fórmula
+// dentro do componente que só recebe o número pronto.
+ok("SecaoComparar.jsx não recalcula o teto nem a fórmula do custo (uma conta só)",
+   !/N_MAX_VENCIMENTOS/.test(secaoComparar) && !/2 \* N \+ 1/.test(secaoComparar));
 ok("sem vencimento, a seção diz o motivo e o botão não fica habilitado",
-   /cp\.opcoesSemVencimento/.test(tela) && /disabled=\{!temTese \|\| !loteOk\}/.test(tela));
+   /cp\.opcoesSemVencimento/.test(secaoComparar) && /disabled=\{!temTese \|\| !loteOk\}/.test(secaoComparar));
 ok("possibilidades exige TESE: o backend responde 422 tese_ausente sem ela",
    /const temTese = !!tese;/.test(tela));
 
 // ---- 5) cada seção repete carregando → erro → vazio com motivo → dados ------
 const iAnalisar = tela.indexOf("cp.opcoesAnalisarTitulo");
-const iPossib = tela.indexOf("cp.opcoesPossibilidadesTitulo");
-// 2026-09-20, Fase 33 (33-03): "SETUPS GRAVADOS" saiu de OpcoesScreen.jsx para
-// SecaoSetups.jsx (job 5) — o marcador de texto (`cp.opcoesSetupsTitulo`) some
-// do arquivo-fonte, mas os TRÊS componentes continuam renderizados na MESMA
-// ordem dentro de `OpcoesScreen.jsx` (Analisar → Possibilidades → <SecaoSetups).
-// A garantia de ORDEM sobrevive trocando o marcador pela TAG JSX — os outros
-// dois (`opcoesAnalisarTitulo`/`opcoesPossibilidadesTitulo`) só migram nos
-// planos 33-04/33-05, então por ora convivem um tag e dois `cp.X` no mesmo
-// comparador (aceitável e registrado, a asserção mede POSIÇÃO no mesmo texto).
+// 2026-09-20, Fase 33 (33-04): "COMPARAR OS VENCIMENTOS" saiu de
+// OpcoesScreen.jsx para SecaoComparar.jsx (job 4) — a fatia "Possibilidades"
+// passa a ser o ARQUIVO SecaoComparar.jsx inteiro, não mais um slice de
+// `tela`. O marcador de ordem em `tela` troca de `cp.opcoesPossibilidadesTitulo`
+// (sumiu do arquivo-fonte) para a TAG JSX `<SecaoComparar`. "Analisar"
+// continua saindo de OpcoesScreen.jsx até o 33-05 mudar isso — por ora
+// convive uma tag (Possibilidades/Setups) com um `cp.X` (Analisar) no mesmo
+// comparador de ordem (mesmo precedente do 33-03, registrado abaixo).
+const iSecaoComparar = tela.indexOf("<SecaoComparar");
 const iSetups = tela.indexOf("<SecaoSetups");
 ok("as duas seções existem, entre a leitura e os setups gravados",
-   iAnalisar > 0 && iPossib > iAnalisar && iSetups > iPossib
+   iAnalisar > 0 && iSecaoComparar > iAnalisar && iSetups > iSecaoComparar
    && tela.indexOf("cp.opcoesLeituraTitulo") < iAnalisar);
 
-for (const [secao, ini, fim, trio, vazio, dados] of [
-  ["Analisar", iAnalisar, iPossib, "proposta", "proposta.dados.motivo", "<PayoffChart"],
-  ["Possibilidades", iPossib, iSetups, "possibilidades", "possibilidades.dados.motivo",
+for (const [secao, bloco, trio, vazio, dados] of [
+  ["Analisar", tela.slice(iAnalisar, iSecaoComparar), "proposta", "proposta.dados.motivo", "<PayoffChart"],
+  ["Possibilidades", secaoComparar, "possibilidades", "possibilidades.dados.motivo",
     "possibilidades.dados.possibilidades.map"],
 ]) {
-  const bloco = tela.slice(ini, fim);
   const i1 = bloco.indexOf(`${trio}.carregando`);
   const i2 = bloco.indexOf(`${trio}.erro`);
   const i3 = bloco.indexOf(vazio);
@@ -380,14 +393,21 @@ ok("cada chamada confere o ticker na volta",
 // em `scenarios: [{name: "alvo", underlying: …}]` — mandar `name` do front
 // seria outro contrato. O que este guardião tranca é que não virem número
 // solto: chave nomeada no corpo, rótulo próprio na tela.
+//
+// 2026-09-20, Fase 33 (33-04) — ACHADO FORA DO CENSO do plano (não estava nos
+// itens 4/5/13): o controle de alvo/stop (campos, rótulos e o disparo que os
+// nomeia) migrou inteiro para SecaoComparar.jsx, e `alvoNum`/`stopNum` (a
+// derivação numérica) foram junto — único consumidor do par desde que o
+// disparo saiu de OpcoesScreen.jsx. As quatro asserções abaixo passam a ler
+// `secaoComparar`; a garantia (nomeado, nunca número solto) não afrouxa.
 ok("o corpo de possibilidades nomeia alvo e stop",
    /alvo: o\.alvo/.test(hook) && /stop: o\.stop/.test(hook));
-ok("a tela manda alvo e stop pelos campos próprios",
-   /alvo: alvoNum/.test(tela) && /stop: stopNum/.test(tela));
-ok("alvo e stop têm rótulo próprio na tela",
-   /cp\.opcoesAlvoRotulo/.test(tela) && /cp\.opcoesStopRotulo/.test(tela));
+ok("a seção manda alvo e stop pelos campos próprios",
+   /alvo: alvoNum/.test(secaoComparar) && /stop: stopNum/.test(secaoComparar));
+ok("alvo e stop têm rótulo próprio na seção",
+   /cp\.opcoesAlvoRotulo/.test(secaoComparar) && /cp\.opcoesStopRotulo/.test(secaoComparar));
 ok("preço ausente vira ausência do cenário, nunca zero",
-   /const alvoNum = ehNum\(num\(alvo\)\) && num\(alvo\) > 0 \? num\(alvo\) : undefined;/.test(tela));
+   /const alvoNum = ehNum\(num\(alvo\)\) && num\(alvo\) > 0 \? num\(alvo\) : undefined;/.test(secaoComparar));
 
 // ---- 10) `null` nunca vira 0 ------------------------------------------------
 // RESOLVIDO (2026-09-16, quick 260916-g6p): o achado de 2026-09-15 (Fase 32,
@@ -437,16 +457,21 @@ ok("a tabela rola no container, não no body",
 // quando ela não existe — travessão mudo faria a pessoa achar que o app não
 // calculou, e um número faria com que ela decidisse sobre uma razão que não
 // existe, que é a pior das três saídas.
-const iRazaoAnalisar = tela.slice(iAnalisar, iPossib).indexOf("razaoGanhoPerda");
-const iRazaoPossib = tela.slice(iPossib, iSetups).indexOf("razaoGanhoPerda");
+// 2026-09-20, Fase 33 (33-04): `RazaoGanhoPerda`/`Linha` migraram de
+// OpcoesScreen.jsx para uiOpcoes.jsx (job 3 e job 4/SecaoComparar.jsx usam a
+// MESMA implementação); `razao={item.razaoGanhoPerda}` migrou junto com o
+// bloco "Possibilidades" para SecaoComparar.jsx. A garantia "a razão é
+// renderizada nas DUAS seções" continua valendo, agora somando os arquivos.
+const iRazaoAnalisar = tela.slice(iAnalisar, iSecaoComparar).indexOf("razaoGanhoPerda");
+const iRazaoPossib = secaoComparar.indexOf("razaoGanhoPerda");
 ok("a razão é renderizada nas DUAS seções (Analisar e Possibilidades)",
    iRazaoAnalisar >= 0 && iRazaoPossib >= 0);
 ok("a razão tem componente próprio, alimentado pelo campo do backend",
-   /function RazaoGanhoPerda/.test(tela)
+   /function RazaoGanhoPerda/.test(uiOpcoesFonte)
    && /razao=\{proposta\.dados\.razaoGanhoPerda\}/.test(tela)
-   && /razao=\{item\.razaoGanhoPerda\}/.test(tela));
-ok("sem número, a tela mostra o MOTIVO em vez de calar ou inventar",
-   /razao\.motivo/.test(tela) && /ehNum\(razao\.valor\)/.test(tela));
+   && /razao=\{item\.razaoGanhoPerda\}/.test(secaoComparar));
+ok("sem número, a seção mostra o MOTIVO em vez de calar ou inventar",
+   /razao\.motivo/.test(uiOpcoesFonte) && /ehNum\(razao\.valor\)/.test(uiOpcoesFonte));
 const DIVIDE_RAZAO = /max_gain\s*\/|\/\s*max_loss|ganhoMaximo\s*\/|\/\s*perdaMaxima/;
 for (const [nome, src] of Object.entries(fontes)) {
   ok(`${nome} não divide para obter a razão (ela vem pronta do backend)`,

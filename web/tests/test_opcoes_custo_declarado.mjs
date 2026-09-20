@@ -63,6 +63,9 @@ const tela = semComentario(telaBruta);
 const criar = semComentario(criarBruto);
 const hook = semComentario(ler(join(dirOpcoes, "useOpcoesMcp.js")));
 const py = ler(join(here, "..", "..", "server", "app", "options_mcp_api.py"));
+// 2026-09-20, Fase 33 (33-04): "COMPARAR OS VENCIMENTOS" (o controle do custo
+// CALCULADO, seção 7 abaixo) saiu de OpcoesScreen.jsx para SecaoComparar.jsx.
+const secaoComparar = semComentario(ler(join(dirOpcoes, "SecaoComparar.jsx")));
 
 let fails = 0;
 const ok = (name, cond, extra) => {
@@ -196,10 +199,19 @@ for (const modo of ["estudo", "operador"]) {
 }
 
 // ---------------------- 7) o custo CALCULADO tem rótulo, e é expressão
+// 2026-09-20, Fase 33 (33-04): CONFERIDO, não reescrito por reflexo — o
+// controle (o `<span>`/`<div>` que mostra o número, e o disparo que segue)
+// migrou de OpcoesScreen.jsx para SecaoComparar.jsx; a CONTA (`chamadasPrevistas
+// = 2 * N + 1`) fica no orquestrador (é ela que precisa cruzar com o cap do
+// backend). A garantia "o número chega ao controle pela mesma função de
+// copy" passou a medir SecaoComparar.jsx (onde o controle está de verdade) —
+// medir `tela` aqui teria virado vácuo silencioso: a extração fez o padrão
+// `opcoesCustoChamadas(...)(chamadasPrevistas)` sumir de OpcoesScreen.jsx sem
+// que o número mudasse de sentido.
 ok("o custo de /possibilidades é derivado (2 * N + 1), não um literal",
    /const chamadasPrevistas = 2 \* N \+ 1;/.test(tela));
-ok("e ele chega ao controle pela mesma função de copy",
-   /opcoesCustoChamadas[\s\S]{0,80}\(chamadasPrevistas\)/.test(tela));
+ok("e ele chega ao controle (agora em SecaoComparar.jsx) pela mesma função de copy",
+   /opcoesCustoChamadas[\s\S]{0,80}\(chamadasPrevistas\)/.test(secaoComparar));
 ok("mcpPossibilidades continua FORA da tabela (o custo dela não é constante)",
    !("possibilidades" in CUSTO_DA_ACAO));
 

@@ -51,7 +51,10 @@ import CandidatoOpcao from "./CandidatoOpcao.jsx";
 // (ramifica nos 4 códigos do ADR-027) reusada por esta tela e pelas seções
 // job-to-be-done (`Secao*.jsx`, D-01 do 33-CONTEXT.md). `SecaoVigias` é o job
 // 2 ("gerenciar vigias"), extraído na Fase 33-01.
-import { Kicker, Aviso, ErroDoMcp, RecusaCobrada } from "./uiOpcoes.jsx";
+// Fase 33 (33-04): `Linha`/`RazaoGanhoPerda` entram nesta importação —
+// migraram para `uiOpcoes.jsx` porque job 3 (abaixo) e job 4
+// (`SecaoComparar.jsx`) renderizam a MESMA razão ganho/perda.
+import { Kicker, Aviso, ErroDoMcp, RecusaCobrada, Linha, RazaoGanhoPerda } from "./uiOpcoes.jsx";
 import SecaoVigias from "./SecaoVigias.jsx";
 // Fase 33 (33-02): `SecaoDescobrir` é o job 1 ("descobrir oportunidades
 // cross-carteira") — frase-ponte + Bloco A (OportunidadesOpcoes) + Bloco B
@@ -65,6 +68,11 @@ import SecaoDescobrir from "./SecaoDescobrir.jsx";
 // `BotaoDesativar`/`SetupChart` deixam de ser importados AQUI: quem os
 // envolve agora é o componente novo.
 import SecaoSetups from "./SecaoSetups.jsx";
+// Fase 33 (33-04): `SecaoComparar` é o job 4 ("comparar os vencimentos") — a
+// caixa com custo declarado, alvo/stop e a cascata de possibilidades por
+// vencimento. Posição EXATA de hoje: entre o job 3 (Analisar, ainda aqui) e a
+// seção de setups gravados (job 5), abaixo.
+import SecaoComparar from "./SecaoComparar.jsx";
 
 // Mesmos NOMES de variável CSS que `App.jsx` injeta em `:root` — padrão de
 // `pet/BorisChat.jsx`. Zero import de `App.jsx` (seria ciclo).
@@ -104,43 +112,10 @@ const txt = (v) => (typeof v === "string" && v ? v : "—");
 const faixa = (v) => ((v && (ehNum(v.lowest) || ehNum(v.highest)))
   ? fmt(v.lowest) + " – " + fmt(v.highest) : "—");
 
-function Linha({ rotulo, valor }) {
-  return (
-    <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", padding: "7px 0", borderBottom: `1px solid ${T.borderFaint}` }}>
-      <span style={{ fontSize: "12.5px", color: T.textSecondary }}>{rotulo}</span>
-      <span style={{ fontSize: "12.5px", color: T.textPrimary, fontVariantNumeric: "tabular-nums" }}>{valor}</span>
-    </div>
-  );
-}
-
-// aba-opcoes 24-06 (achado F-01): a razão ganho/perda que o critério 1 do
-// ROADMAP enumera e a Fase 24 tinha perdido no planejamento.
-//
-// Ela chega PRONTA do backend (`_razao_ganho_perda`), adimensional: aqui não
-// há divisão, não há lote e não há fallback numérico. Sem `valor`, o que
-// aparece é o MOTIVO — e ele ocupa a linha inteira, com quebra, porque é ele
-// que impede a leitura errada e não pode ser cortado em 375 px. Travessão
-// mudo seria "o app não calculou"; um número seria pior, porque a pessoa
-// compara 2,3 com 1,5 e decide.
-function RazaoGanhoPerda({ razao, cp }) {
-  if (!razao) return null;
-  const rotulo = cp.opcoesRazaoRotulo || "Razão ganho/perda";
-  return (
-    <div>
-      {ehNum(razao.valor) ? (
-        <Linha rotulo={rotulo} valor={"1 : " + fmt(razao.valor)} />
-      ) : (
-        <div style={{ padding: "7px 0", borderBottom: `1px solid ${T.borderFaint}` }}>
-          <div style={{ fontSize: "12.5px", color: T.textSecondary }}>{rotulo}</div>
-          <div style={{ fontSize: "12.5px", color: T.textPrimary, marginTop: "3px", whiteSpace: "pre-wrap", lineHeight: 1.45 }}>
-            {razao.motivo || "—"}
-          </div>
-        </div>
-      )}
-      <div style={AJUDA}>{cp.opcoesRazaoAjuda || ""}</div>
-    </div>
-  );
-}
+// Fase 33 (33-04): `Linha`/`RazaoGanhoPerda` migraram para `uiOpcoes.jsx` —
+// job 3 (Analisar, abaixo) e job 4 (Comparar, `SecaoComparar.jsx`) usam a
+// MESMA implementação; duas cópias divergiriam na primeira correção feita só
+// numa delas. Ver o import de `uiOpcoes.jsx` no topo do arquivo.
 
 // aba-opcoes 24-11 (achado ao vivo 2026-09-11): a LEITURA DO ATIVO de PETR4
 // mostrava travessão em cinco campos sem dizer por quê — a pessoa não sabe se
@@ -477,11 +452,10 @@ export default function OpcoesScreen({ ctx }) {
   // regra que a B3 aplica por série, e o backend também não recusa.
   const loteNum = ehNum(num(lote)) ? Math.trunc(num(lote)) : null;
   const loteOk = ehNum(loteNum) && loteNum >= 1;
-  // Preço não existente é AUSÊNCIA: `undefined` some do JSON e o cenário
-  // simplesmente não é pedido. Zero seria um preço — e um cenário de ativo
-  // valendo zero.
-  const alvoNum = ehNum(num(alvo)) && num(alvo) > 0 ? num(alvo) : undefined;
-  const stopNum = ehNum(num(stop)) && num(stop) > 0 ? num(stop) : undefined;
+  // Fase 33 (33-04): `alvoNum`/`stopNum` (a forma numérica de `alvo`/`stop`,
+  // preço ausente vira AUSÊNCIA — `undefined`, nunca zero) migraram para
+  // dentro de SecaoComparar.jsx, único consumidor do par desde que o disparo
+  // de `verPossibilidades` saiu daqui.
   const temTese = !!tese;
 
   const erro = escolherErroOpcoes(leitura.erro, status.erro);
@@ -1072,94 +1046,32 @@ export default function OpcoesScreen({ ctx }) {
                 ) : null}
               </div>
 
-              {/* ==================================== POSSIBILIDADES (F3) -- */}
-              <Kicker>{cp.opcoesPossibilidadesTitulo || "COMPARAR OS VENCIMENTOS"}</Kicker>
-              <div style={CAIXA}>
-                {N === 0 ? (
-                  <Aviso>{cp.opcoesSemVencimento || "Nenhum vencimento aberto na leitura deste ativo."}</Aviso>
-                ) : (
-                  <>
-                    {/* O custo ANTES do clique. `2 * N + 1` sai dos
-                        vencimentos que a leitura já trouxe, sem consultar
-                        nada: descobrir o preço depois de pagar não é aviso,
-                        é recibo. */}
-                    <div style={{ fontSize: "12.5px", color: T.textSecondary, lineHeight: 1.5 }}>
-                      {(cp.opcoesCustoChamadas || ((n) => String(n)))(chamadasPrevistas)}
-                    </div>
-                    {/* Fase 27 (27-02): a COMPOSIÇÃO do custo saiu de
-                        `opcoesCustoChamadas` (que agora também serve ao botão
-                        dos vigias, cuja conta é outra) e passou a ter chave
-                        própria. O número continua vindo da mesma frase de
-                        sempre, logo acima. */}
-                    <div style={{ ...AJUDA, marginTop: "6px" }}>
-                      {cp.opcoesCustoVencimentos || ""}
-                    </div>
-                    <div style={{ ...AJUDA, marginTop: "6px" }}>
-                      {"Vencimentos consultados: " + consultados.join(" · ")}
-                      {vencimentos.length > N
-                        ? " (os " + N + " primeiros de " + vencimentos.length + ")"
-                        : ""}
-                    </div>
-
-                    <label htmlFor="opcoes-alvo" style={ROTULO}>{cp.opcoesAlvoRotulo || "Alvo (opcional)"}</label>
-                    <input id="opcoes-alvo" type="number" step="0.01" min="0" inputMode="decimal"
-                      value={alvo} onChange={(ev) => setAlvo(ev.target.value)} style={CAMPO} />
-                    <label htmlFor="opcoes-stop" style={ROTULO}>{cp.opcoesStopRotulo || "Stop (opcional)"}</label>
-                    <input id="opcoes-stop" type="number" step="0.01" min="0" inputMode="decimal"
-                      value={stop} onChange={(ev) => setStop(ev.target.value)} style={CAMPO} />
-
-                    <button
-                      onClick={() => verPossibilidades({
-                        direction: tese, lote: loteNum, alvo: alvoNum, stop: stopNum,
-                        expirations: consultados,
-                      })}
-                      disabled={!temTese || !loteOk}
-                      style={{ ...BOTAO, width: "100%", marginTop: "12px", ...desabilitado(!temTese || !loteOk) }}
-                    >
-                      {cp.opcoesVerPossibilidades || "Ver possibilidades"}
-                    </button>
-                  </>
-                )}
-
-                <div style={{ marginTop: "10px" }}>
-                  {possibilidades.carregando ? (
-                    <Aviso>{cp.opcoesCarregando || "Consultando o serviço de opções…"}</Aviso>
-                  ) : possibilidades.erro ? (
-                    <ErroDoMcp erro={possibilidades.erro} cp={cp} />
-                  ) : possibilidades.dados && !(possibilidades.dados.possibilidades || []).length ? (
-                    <Aviso>{possibilidades.dados.motivo || cp.opcoesSemVencimento || ""}</Aviso>
-                  ) : possibilidades.dados ? (
-                    <div style={{ display: "grid", gap: "10px" }}>
-                      {/* Um vencimento que falhou NÃO apaga os outros — é a
-                          razão de o backend não abortar o laço, e a lista
-                          aqui é uniforme justamente para não precisar testar
-                          existência de chave. */}
-                      {possibilidades.dados.possibilidades.map((item) => (
-                        <div key={item.vencimento}>
-                          {item.erro ? (
-                            <Aviso tom="forte">{item.vencimento + ": " + item.erro}</Aviso>
-                          ) : !item.estrutura ? (
-                            <Aviso>
-                              {item.vencimento + ": "
-                                + (item.motivo || "o serviço não montou estrutura e não informou o motivo.")}
-                            </Aviso>
-                          ) : (
-                            <>
-                              <PayoffChart estrutura={item.estrutura} emReais={item.emReais} cp={cp} palette={palette} />
-                              <RazaoGanhoPerda razao={item.razaoGanhoPerda} cp={cp} />
-                              <Cenarios emReais={item.emReais} cp={cp} />
-                            </>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-
-                {/* Ressalva FIXA, não tooltip opcional: ela acompanha todo
-                    número de cenário que a seção mostra. */}
-                <div style={{ ...AJUDA, marginTop: "12px" }}>{cp.opcoesSigmaAjuda || ""}</div>
-              </div>
+              {/* Fase 33 (33-04): job 4 ("comparar os vencimentos"), extraído
+                  para SecaoComparar.jsx. Posição EXATA de hoje — logo depois
+                  do bloco "O QUE DÁ PARA MONTAR" (job 3) acima, dentro do
+                  MESMO ramo `temLeitura` (comportamento idêntico: sem leitura
+                  não há de onde a tese sair). `tese`/`lote` continuam o MESMO
+                  formulário do job 3 (Pitfall 6); `alvo`/`stop` ficam aqui no
+                  orquestrador para não resetarem entre re-renders. */}
+              <SecaoComparar
+                ticker={ticker}
+                tese={tese}
+                temTese={temTese}
+                lote={lote}
+                loteOk={loteOk}
+                alvo={alvo}
+                setAlvo={setAlvo}
+                stop={stop}
+                setStop={setStop}
+                vencimentos={vencimentos}
+                consultados={consultados}
+                chamadasPrevistas={chamadasPrevistas}
+                possibilidades={possibilidades}
+                verPossibilidades={verPossibilidades}
+                custos={CUSTO_DA_ACAO}
+                cp={cp}
+                palette={palette}
+              />
             </>
           ) : null}
 
@@ -1622,28 +1534,9 @@ function TabelaDeOpcoes({ linhas }) {
   );
 }
 
-// Cenários em REAIS, já multiplicados pelo backend. O preço do objeto viaja
-// verbatim (é preço, não dinheiro da posição) e o resultado ausente é
-// travessão — 0 aqui seria "empata neste cenário", que é outra afirmação.
-function Cenarios({ emReais, cp }) {
-  const lista = (emReais && Array.isArray(emReais.cenarios) ? emReais.cenarios : [])
-    .filter((s) => s && typeof s === "object");
-  if (!lista.length) return null;
-  return (
-    <div style={{ marginTop: "8px" }}>
-      <div style={{ fontSize: "11px", fontWeight: 800, letterSpacing: ".06em", color: T.textMuted, marginBottom: "4px" }}>
-        {((cp && cp.opcoesCenariosTitulo) || "Cenários").toUpperCase()}
-      </div>
-      {lista.map((s, i) => (
-        <Linha
-          key={(s.name || "cenario") + "-" + i}
-          rotulo={txt(s.name) + " · ativo a " + fmt(s.underlying)}
-          valor={ehNum(s.resultado) ? "R$ " + fmt(s.resultado) : "—"}
-        />
-      ))}
-    </div>
-  );
-}
+// Fase 33 (33-04): `Cenarios` migrou para dentro de SecaoComparar.jsx — era o
+// único consumidor (o mapa de "COMPARAR OS VENCIMENTOS"), então não virou
+// primitivo compartilhado em uiOpcoes.jsx.
 
 // Códigos de degradação do ADR-027 que dizem à pessoa O QUE FAZER ("não
 // configurado", "sem cota", "fora do ar"). Um erro SEM código conhecido (ex.:

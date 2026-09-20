@@ -20,10 +20,19 @@
  * arquivo de `web/src/opcoes/` (mesmo padrão de `OportunidadesOpcoes.jsx`/
  * `CuradoriaEstruturas.jsx`) — mas qualquer coisa com RAMIFICAÇÃO de lógica
  * (como os `if (erro.code === ...)` abaixo) vive numa fonte só, aqui.
+ *
+ * Fase 33 (33-04): `Linha`/`RazaoGanhoPerda` entram aqui pela mesma razão que
+ * `ErroDoMcp` — job 3 (Analisar, em `OpcoesScreen.jsx`) e job 4 (Comparar, em
+ * `SecaoComparar.jsx`) renderizam a MESMA razão ganho/perda; duas cópias
+ * divergiriam na primeira correção feita só numa delas.
  */
 const VARKEY = (k) => "--" + k.replace(/[A-Z]/g, (c) => "-" + c.toLowerCase());
-const TOKENS = ["textMuted", "borderSubtle", "negative", "bgPanel", "textSecondary"];
+const TOKENS = ["textMuted", "borderSubtle", "negative", "bgPanel", "textSecondary", "textPrimary", "borderFaint"];
 const T = Object.fromEntries(TOKENS.map((k) => [k, `var(${VARKEY(k)})`]));
+
+const ehNum = (v) => typeof v === "number" && isFinite(v);
+const fmt = (v, casas = 2) => (ehNum(v) ? v.toFixed(casas).replace(".", ",") : "—");
+const AJUDA = { fontSize: "11px", color: T.textMuted, marginTop: "4px", lineHeight: 1.45 };
 
 export function Kicker({ children }) {
   return (
@@ -37,6 +46,48 @@ export function Aviso({ children, tom }) {
   return (
     <div style={{ border: `1px solid ${tom === "forte" ? T.negative : T.borderSubtle}`, borderRadius: "12px", padding: "12px", background: T.bgPanel, color: T.textSecondary, fontSize: "12.5px", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
       {children}
+    </div>
+  );
+}
+
+// Fase 33 (33-04): migrou de OpcoesScreen.jsx — linha rótulo↔valor genérica,
+// reusada pela LEITURA DO ATIVO (job 3), por `RazaoGanhoPerda` logo abaixo e
+// por `Cenarios` (SecaoComparar.jsx, job 4).
+export function Linha({ rotulo, valor }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", padding: "7px 0", borderBottom: `1px solid ${T.borderFaint}` }}>
+      <span style={{ fontSize: "12.5px", color: T.textSecondary }}>{rotulo}</span>
+      <span style={{ fontSize: "12.5px", color: T.textPrimary, fontVariantNumeric: "tabular-nums" }}>{valor}</span>
+    </div>
+  );
+}
+
+// aba-opcoes 24-06 (achado F-01): a razão ganho/perda que o critério 1 do
+// ROADMAP enumera. Migrou de OpcoesScreen.jsx nesta fase (33-04) — job 3
+// (Analisar) e job 4 (Comparar, SecaoComparar.jsx) renderizam a MESMA razão.
+//
+// Ela chega PRONTA do backend (`_razao_ganho_perda`), adimensional: aqui não
+// há divisão, não há lote e não há fallback numérico. Sem `valor`, o que
+// aparece é o MOTIVO — e ele ocupa a linha inteira, com quebra, porque é ele
+// que impede a leitura errada e não pode ser cortado em 375 px. Travessão
+// mudo seria "o app não calculou"; um número seria pior, porque a pessoa
+// compara 2,3 com 1,5 e decide.
+export function RazaoGanhoPerda({ razao, cp }) {
+  if (!razao) return null;
+  const rotulo = cp.opcoesRazaoRotulo || "Razão ganho/perda";
+  return (
+    <div>
+      {ehNum(razao.valor) ? (
+        <Linha rotulo={rotulo} valor={"1 : " + fmt(razao.valor)} />
+      ) : (
+        <div style={{ padding: "7px 0", borderBottom: `1px solid ${T.borderFaint}` }}>
+          <div style={{ fontSize: "12.5px", color: T.textSecondary }}>{rotulo}</div>
+          <div style={{ fontSize: "12.5px", color: T.textPrimary, marginTop: "3px", whiteSpace: "pre-wrap", lineHeight: 1.45 }}>
+            {razao.motivo || "—"}
+          </div>
+        </div>
+      )}
+      <div style={AJUDA}>{cp.opcoesRazaoAjuda || ""}</div>
     </div>
   );
 }
