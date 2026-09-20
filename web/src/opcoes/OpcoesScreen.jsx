@@ -252,6 +252,12 @@ export default function OpcoesScreen({ ctx }) {
   // `ticker` acima é COMPARTILHADO entre as duas: quem escolheu um ativo
   // para ler não deve reescolher para operar.
   const [subaba, setSubaba] = useState("setups");
+  // Fase 34 (34-03) — estado de NAVEGAÇÃO local do workspace: qual dos três
+  // jobs (Analisar/Comparar/Setups salvos) está em foco agora. Ortogonal ao
+  // `subaba` acima (que decide Setups × Operar, Fase 28-02) — reusar aquele
+  // estado faria a aba interna do workspace mudar a sub-aba da tela inteira.
+  // Nasce em "analisar" porque é o job que a leitura paga entrega primeiro.
+  const [abaWorkspace, setAbaWorkspace] = useState("analisar");
   const {
     status, leitura, grafico, abrirGrafico, fecharGrafico, abrirLeitura,
     cadeia, operaveis, proposta, possibilidades,
@@ -621,6 +627,33 @@ export default function OpcoesScreen({ ctx }) {
     </div>
   );
 
+  // Fase 34 (34-03) — pill row de 3 abas DENTRO do workspace (D-02): Analisar
+  // / Comparar / Setups salvos. Copia VERBATIM a régua visual de `subabas`
+  // acima (mesmos tokens, mesma métrica de alvo de toque), trocando só o
+  // array de abas e o estado que cada `onClick` grava. O `onClick` só grava a
+  // aba escolhida — nenhum disparador de leitura aqui: trocar de aba não
+  // pode pagar (NAV-05, §3.3 do ADR-027). Os três jobs compartilham a MESMA
+  // leitura pedida acima, fora deste gate (`workspaceTopo`/`podePedirLeitura`).
+  const workspacePillRow = (
+    <div style={{ display: "flex", gap: "8px", margin: "10px 0 4px" }}>
+      {[
+        { id: "analisar", rotulo: cp.opcoesAbaAnalisar || "Analisar" },
+        { id: "comparar", rotulo: cp.opcoesAbaComparar || "Comparar" },
+        { id: "setups", rotulo: cp.opcoesAbaSetupsSalvos || "Setups salvos" },
+      ].map((a) => (
+        <button
+          key={a.id}
+          type="button"
+          onClick={() => setAbaWorkspace(a.id)}
+          aria-pressed={abaWorkspace === a.id}
+          style={{ minHeight: "44px", padding: "8px 14px", borderRadius: "11px", border: `1px solid ${abaWorkspace === a.id ? T.accent : T.borderSubtle}`, background: abaWorkspace === a.id ? T.accentTint10 : T.bgPanel, color: abaWorkspace === a.id ? T.accent : T.textSecondary, fontWeight: 700, fontSize: "13px" }}
+        >
+          {a.rotulo}
+        </button>
+      ))}
+    </div>
+  );
+
   // Fase 34 (34-02): particiona por `ticker` o que fica ACIMA da cascata de
   // estados do serviço — hub (sem ticker) × workspace (com ticker). Nenhum
   // estado novo, nenhuma chamada nova: o ternário sobre `ticker`, logo
@@ -665,6 +698,11 @@ export default function OpcoesScreen({ ctx }) {
       <LastroDoAtivo pos={posicaoSelecionada} cp={cp} />
       <LeituraInterna tecnico={tecnico} cp={cp} />
       {podePedirLeitura ? blocoLeituraDoServico : null}
+      {/* Fase 34 (34-03): pill row de 3 abas, ÚLTIMO elemento acima da
+          cascata — lastro, leitura interna e convite pago são compartilhados
+          pelas três abas e pedidos uma vez aqui, fora do gate de aba abaixo
+          (ramo "4. DADOS"). É esta posição que faz NAV-05 estrutural. */}
+      {workspacePillRow}
     </>
   );
 
