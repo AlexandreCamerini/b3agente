@@ -177,7 +177,7 @@ existente de `OpcoesScreen.jsx`)
 **Plans**: 5 plans (5 ondas sequenciais, uma por job — D-03 do 33-CONTEXT.md:
 cada extração fecha com a suíte canônica verde antes de a próxima começar, para
 isolar o risco de quebra de guardião)
-- [ ] 33-01-PLAN.md — `SecaoVigias` + módulo de primitivos compartilhados (`uiOpcoes.jsx`); 6 guardiões reapontados
+- [x] 33-01-PLAN.md — `SecaoVigias` + módulo de primitivos compartilhados (`uiOpcoes.jsx`); 7 guardiões reapontados — completo 2026-09-20 (2923 pytest + 151/152 mjs, 1 falha pré-existente documentada/`test_ios_assets.mjs`)
 - [ ] 33-02-PLAN.md — `SecaoDescobrir` (frase-ponte + Blocos A/B juntos), guardrail CVM generalizado (REORG-06), carimbo de frescor (D-04b)
 - [ ] 33-03-PLAN.md — `SecaoSetups` (listagem gravados + porta de criação), cruzamento de custo por varredura
 - [ ] 33-04-PLAN.md — `SecaoComparar` (comparação de vencimentos, custo antes do disparo)
