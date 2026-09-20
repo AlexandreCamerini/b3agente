@@ -30,7 +30,7 @@
 // `useOpcoesMcp.js`, e método novo sem classificação reprova a suíte.
 //
 // Roda sem build e sem servidor: `node web/tests/test_opcoes_custo_declarado.mjs`.
-import { readFileSync } from "fs";
+import { readFileSync, readdirSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { COPY } from "../src/copy.js";
@@ -52,12 +52,15 @@ const criarBruto = ler(join(dirOpcoes, "CriarSetup.jsx"));
 // SecaoVigias.jsx (D-01 do 33-CONTEXT.md) — este arquivo entrou no CENSO
 // tardiamente (achado ao rodar a suíte canônica, não pelo grep de palavras-
 // chave do plano: ele não cita `atualizarVigias`/`blocoVigias`/etc, só
-// `listarVigias`). Entra na leitura para que a seção 8 continue vendo a
-// declaração do custo, agora vinda da PROP `custos.listarVigias`.
-const vigiasBruto = ler(join(dirOpcoes, "SecaoVigias.jsx"));
+// `listarVigias`).
+//
+// 2026-09-20, Fase 33 (33-03): a leitura de `Secao*.jsx` deixou de ser uma
+// lista de nomes crescendo a cada plano (era só `SecaoVigias.jsx` até aqui) e
+// virou VARREDURA DE DIRETÓRIO — ver a seção 8, onde `arquivosSecao` é
+// derivado de `readdirSync`. `SecaoSetups.jsx` (job 5) entra por essa
+// varredura, sem precisar de uma linha nova aqui.
 const tela = semComentario(telaBruta);
 const criar = semComentario(criarBruto);
-const vigias = semComentario(vigiasBruto);
 const hook = semComentario(ler(join(dirOpcoes, "useOpcoesMcp.js")));
 const py = ler(join(here, "..", "..", "server", "app", "options_mcp_api.py"));
 
@@ -204,7 +207,22 @@ ok("mcpPossibilidades continua FORA da tabela (o custo dela não é constante)",
 // Forma canônica ÚNICA: `opcoesCustoChamadas(...)`. Duas maneiras de dizer a
 // mesma coisa divergem na primeira manutenção feita só numa delas — por isso a
 // busca é pela função, e não por "algum texto com o número".
-const linhasDeCusto = [...tela.split("\n"), ...criar.split("\n"), ...vigias.split("\n")]
+//
+// 2026-09-20, Fase 33 (33-03) — migrado para VARREDURA DE DIRETÓRIO (D-02 do
+// 33-CONTEXT.md, mesmo precedente de `test_opcoes_subabas_ui.mjs:100-116`):
+// em vez de uma lista fixa de arquivos (`tela`/`criar`/`vigias`), a leitura
+// soma `OpcoesScreen.jsx` + `CriarSetup.jsx` + TODOS os `Secao*.jsx` de
+// `web/src/opcoes/`. Um `Secao*.jsx` novo (33-04/33-05) entra automaticamente
+// na cobertura, sem precisar lembrar de atualizar este guardião de novo — a
+// mesma lição do achado tardio deste arquivo no 33-01.
+const arquivosSecao = readdirSync(dirOpcoes)
+  .filter((f) => /^Secao.*\.jsx?$/.test(f));
+ok("sanidade: achou pelo menos 1 arquivo Secao*.jsx (33-01/33-02/33-03 já extraíram)",
+   arquivosSecao.length >= 1, `achou ${arquivosSecao.length}`);
+const fontesDeCusto = [telaBruta, criarBruto,
+  ...arquivosSecao.map((f) => ler(join(dirOpcoes, f)))];
+const linhasDeCusto = fontesDeCusto
+  .flatMap((src) => semComentario(src).split("\n"))
   .filter((l) => l.includes("opcoesCustoChamadas"));
 ok("sanidade: há declarações de custo suficientes para cobrir os controles",
    linhasDeCusto.length >= Object.keys(ACOES).length,

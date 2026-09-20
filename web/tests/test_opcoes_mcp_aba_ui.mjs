@@ -54,6 +54,12 @@ const brutos = {
   // (Emenda 3). Entra no mesmo loop de isolamento e na exigência de bloco
   // de tokens local dos irmãos que desenham.
   "PropostaLastreada.jsx": ler("PropostaLastreada.jsx"),
+  // ATUALIZADO 2026-09-20 (Fase 33, 33-03): SETUPS GRAVADOS/CRIAR UM SETUP
+  // (job 5) migraram de OpcoesScreen.jsx para SecaoSetups.jsx — o aviso de
+  // "não avaliado hoje", o aria-label do botão de gráfico e o texto "sem
+  // avaliação hoje" moram lá agora. Entra na leitura para as seções 6, 8 e 9
+  // continuarem vendo o que só mudou de ARQUIVO, não de comportamento.
+  "SecaoSetups.jsx": ler("SecaoSetups.jsx"),
 };
 // Sem comentários: eles citam os mesmos termos ao explicar as decisões, e
 // contá-los faria o guardião se auto-invalidar.
@@ -68,6 +74,7 @@ const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if 
 
 const tela = fontes["OpcoesScreen.jsx"];
 const chart = fontes["SetupChart.jsx"];
+const telaSetups = fontes["SecaoSetups.jsx"];
 
 // ---- 1) sem ciclo, com tokens locais ----------------------------------------
 for (const [nome, src] of Object.entries(brutos)) {
@@ -220,8 +227,12 @@ ok("o cabeçalho é renderizado antes da cadeia de estados",
 
 // ---- 6) acessibilidade e layout ---------------------------------------------
 ok('há alvo de toque de 44px', /minHeight: "44px"/.test(tela));
-ok("há aria-label em botão só-ícone/ação", /aria-label=/.test(tela));
-ok("há aria-pressed em seletor", /aria-pressed=/.test(tela));
+// 2026-09-20, Fase 33 (33-03): o único `aria-label` desta tela era o do botão
+// "Disparos do setup" — migrou para SecaoSetups.jsx junto com o job 5. A
+// asserção passa a olhar os DOIS arquivos: o dia em que outro botão só-ícone
+// nascer em qualquer um deles, ela continua vendo.
+ok("há aria-label em botão só-ícone/ação", /aria-label=/.test(tela) || /aria-label=/.test(telaSetups));
+ok("há aria-pressed em seletor", /aria-pressed=/.test(tela) || /aria-pressed=/.test(telaSetups));
 for (const [nome, src] of Object.entries(fontes)) {
   ok(`${nome} não usa CONTENT_MAX_WIDTH`, !/CONTENT_MAX_WIDTH/.test(src));
 }
@@ -257,15 +268,19 @@ for (const [nome, src] of Object.entries(fontes)) {
   ok(`${nome} sem promessa de resultado`,
      !/probabilidade de sucesso|garantia de lucro|lucro certo|ganho garantido/i.test(src));
 }
+// 2026-09-20, Fase 33 (33-03): `cp.opcoesNaoAvaliado` e "sem avaliação hoje"
+// migraram para SecaoSetups.jsx (job 5); `cp.opcoesDisclaimer` e
+// `cp.opcoesSemSetups` continuam em OpcoesScreen.jsx (este último também no
+// ramo VAZIO da cascata principal — ver nota datada no próprio arquivo).
 ok("os textos de estado da tela vêm do dicionário de copy",
    /cp\.opcoesDisclaimer/.test(tela) && /cp\.opcoesSemSetups/.test(tela)
-   && /cp\.opcoesNaoAvaliado/.test(tela));
+   && /cp\.opcoesNaoAvaliado/.test(telaSetups));
 
 // ---- 9) o motivo do serviço vai verbatim ------------------------------------
 ok("o `reason` de setupsNaoAvaliados é repassado à copy sem reescrita",
-   /cp\.opcoesNaoAvaliado[\s\S]{0,200}naoAvaliado\.reason/.test(tela));
+   /cp\.opcoesNaoAvaliado[\s\S]{0,200}naoAvaliado\.reason/.test(telaSetups));
 ok("ausência de avaliação NÃO vira \"não armado\"",
-   /sem avaliação hoje/.test(tela));
+   /sem avaliação hoje/.test(telaSetups));
 
 // ---- 10) as chaves de copy existem nos dois modos ---------------------------
 // Fase 33 (33-02, D-04b): `opcoesConsultadoEmRotulo` nova — rótulo do

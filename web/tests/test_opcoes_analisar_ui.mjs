@@ -147,7 +147,15 @@ ok("possibilidades exige TESE: o backend responde 422 tese_ausente sem ela",
 // ---- 5) cada seção repete carregando → erro → vazio com motivo → dados ------
 const iAnalisar = tela.indexOf("cp.opcoesAnalisarTitulo");
 const iPossib = tela.indexOf("cp.opcoesPossibilidadesTitulo");
-const iSetups = tela.indexOf("cp.opcoesSetupsTitulo");
+// 2026-09-20, Fase 33 (33-03): "SETUPS GRAVADOS" saiu de OpcoesScreen.jsx para
+// SecaoSetups.jsx (job 5) — o marcador de texto (`cp.opcoesSetupsTitulo`) some
+// do arquivo-fonte, mas os TRÊS componentes continuam renderizados na MESMA
+// ordem dentro de `OpcoesScreen.jsx` (Analisar → Possibilidades → <SecaoSetups).
+// A garantia de ORDEM sobrevive trocando o marcador pela TAG JSX — os outros
+// dois (`opcoesAnalisarTitulo`/`opcoesPossibilidadesTitulo`) só migram nos
+// planos 33-04/33-05, então por ora convivem um tag e dois `cp.X` no mesmo
+// comparador (aceitável e registrado, a asserção mede POSIÇÃO no mesmo texto).
+const iSetups = tela.indexOf("<SecaoSetups");
 ok("as duas seções existem, entre a leitura e os setups gravados",
    iAnalisar > 0 && iPossib > iAnalisar && iSetups > iPossib
    && tela.indexOf("cp.opcoesLeituraTitulo") < iAnalisar);

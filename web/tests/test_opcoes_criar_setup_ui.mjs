@@ -82,10 +82,18 @@ ok("sem lista de permissões, falha FECHADO (array vazio, nunca 'libera tudo')",
 // O que este par tranca de verdade: a MONTAGEM do componente e o botão de
 // desativar estão os DOIS sob a mesma condição. Sem isto, tirar a condição de
 // um deles passaria despercebido.
+//
+// 2026-09-20, Fase 33 (33-03): o gate VISUAL (`{podeCriarSetup ? (...`)
+// migrou para dentro de `SecaoSetups.jsx`, agora sobre a PROP `podeCriarSetup`
+// (não mais a derivação `permissoes.includes(...)` — essa continua só em
+// `OpcoesScreen.jsx`, medida acima). A garantia não muda: "a porta de criação
+// só existe com a permissão".
+const setupsSrc = fontes["SecaoSetups.jsx"];
+ok("SecaoSetups.jsx existe e é lido pela varredura de diretório", !!setupsSrc);
 ok("a montagem de <CriarSetup é condicionada a `podeCriarSetup`",
-   /\{podeCriarSetup \? \([\s\S]{0,400}<CriarSetup/.test(tela));
+   /\{podeCriarSetup \? \([\s\S]{0,400}<CriarSetup/.test(setupsSrc));
 ok("o botão de desativar também é condicionado a `podeCriarSetup`",
-   /\{podeCriarSetup \? \([\s\S]{0,300}<BotaoDesativar/.test(tela));
+   /\{podeCriarSetup \? \([\s\S]{0,300}<BotaoDesativar/.test(setupsSrc));
 ok("sanidade: a regex da permissão pega o literal quando ele existe",
    PERMISSAO.test('permissoes.includes("opcoes.criar_setup")')
    && !PERMISSAO.test('permissoes.includes("obs.ver")'));

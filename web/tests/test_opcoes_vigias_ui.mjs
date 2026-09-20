@@ -153,19 +153,26 @@ ok("o cartão NÃO toca em nomeNoServico (é endereço no armazém, não rótulo
 // prefixo: 422 `setup_desconhecido` nos dois botões, em produção. Nenhum teste
 // de render pegaria — a tela fica igual até alguém clicar.
 //
-// A regra é uma frase: o que VIAJA usa `nomeNoServico`; o que a pessoa LÊ usa
-// `name`. Deduzir um do outro aqui recriaria o prefixo em JavaScript, e aí
-// seriam duas implementações da mesma regra.
+// A regra é uma frase, e continua sendo a MESMA frase: o que VIAJA usa
+// `nomeNoServico`; o que a pessoa LÊ usa `name`. Deduzir um do outro aqui
+// recriaria o prefixo em JavaScript, e aí seriam duas implementações da mesma
+// regra.
+//
+// 2026-09-20, Fase 33 (33-03): a lista de setups do ticker virou componente
+// próprio (`SecaoSetups.jsx`) — só o ARQUIVO lido mudou (mesmo padrão da
+// seção 4 acima, migrada no 33-01). A regra e as cinco asserções continuam
+// idênticas.
+const telaSetups = semComentario(ler("SecaoSetups.jsx"));
 ok("a lista de setups deriva UMA chave de serviço, com fallback",
-   /const chave = s\.nomeNoServico \|\| s\.name;/.test(tela));
+   /const chave = s\.nomeNoServico \|\| s\.name;/.test(telaSetups));
 ok("o gráfico é aberto pela chave do ARMAZÉM, não pelo nome da pessoa",
-   /abrirGrafico\(chave\)/.test(tela) && !/abrirGrafico\(s\.name\)/.test(tela));
+   /abrirGrafico\(chave\)/.test(telaSetups) && !/abrirGrafico\(s\.name\)/.test(telaSetups));
 ok("o painel aberto é casado pela chave do armazém",
-   /grafico\.setup === chave/.test(tela));
+   /grafico\.setup === chave/.test(telaSetups));
 ok("desativar viaja com a chave do armazém e exibe o nome da pessoa",
-   /nome=\{chave\}/.test(tela) && /nomeVisivel=\{s\.name\}/.test(tela)
-   && !/nome=\{s\.name\}/.test(tela));
-ok("o que a pessoa LÊ continua sendo s.name", /\{s\.name\}<\/div>/.test(tela));
+   /nome=\{chave\}/.test(telaSetups) && /nomeVisivel=\{s\.name\}/.test(telaSetups)
+   && !/nome=\{s\.name\}/.test(telaSetups));
+ok("o que a pessoa LÊ continua sendo s.name", /\{s\.name\}<\/div>/.test(telaSetups));
 const criar = semComentario(ler("CriarSetup.jsx"));
 // 2026-09-13 (Fase 27, plano 27-05) — a forma ganhou um SUFIXO: o custo da
 // ação (1 chamada) passou a entrar no `aria-label`. A razão é a mesma que
