@@ -181,7 +181,7 @@ isolar o risco de quebra de guardião)
 - [x] 33-02-PLAN.md — `SecaoDescobrir` (frase-ponte + Blocos A/B juntos), guardrail CVM generalizado (REORG-06), carimbo de frescor (D-04b) — completo 2026-09-20 (D-04b front-only, backend já devolvia `at`/`meta.source`; 2923 pytest + 151/152 mjs, mesma baseline)
 - [x] 33-03-PLAN.md — `SecaoSetups` (listagem gravados + porta de criação), cruzamento de custo por varredura — completo 2026-09-20 (5 provas negativas, App.jsx intocado, mesma baseline de suíte)
 - [x] 33-04-PLAN.md — `SecaoComparar` (comparação de vencimentos, custo antes do disparo) — completo 2026-09-20 (novo guardião de diretório trava useState de estado compartilhado nos 5 Secao*.jsx; App.jsx intocado)
-- [ ] 33-05-PLAN.md — `SecaoAnalisar` (leitura + montador) e fold-in D-04a (SubAbaOperar lê o fan-out)
+- [x] 33-05-PLAN.md — `SecaoAnalisar` (leitura + montador) e fold-in D-04a (SubAbaOperar lê o fan-out) — completo 2026-09-20 (landmine da chave duplicada `opcoesLeituraTitulo` corrigido, guardião reancorado em `<SecaoAnalisar`; App.jsx intocado nas 5 ondas)
 **UI hint**: yes
 
 ### Phase 34: Navegação hub + workspace
@@ -253,7 +253,7 @@ rodar em paralelo.
 | 30. Curadoria de IA das 4 melhores estruturas | 4/4 | Complete (30-04 sem SUMMARY — bookkeeping) | 2026-09-14 |
 | 31. Varredura de oportunidades de opções | 4/4 | Complete | 2026-09-14 |
 | 32. Consolidação das operações de opções na aba Opções | 5/5 | Complete | 2026-09-16 |
-| 33. Extração dos 5 jobs em componentes próprios | 0/5 | Planned | - |
+| 33. Extração dos 5 jobs em componentes próprios | 5/5 | Executed | 2026-09-20 |
 | 34. Navegação hub + workspace | v1.6 | Not started | - |
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2/v1.3
