@@ -10,8 +10,8 @@
 |--------------------|------|-----------|-----------------|---------------|
 | `web/src/opcoes/OpcoesScreen.jsx` (modified — split render into Hub/Workspace branches) | component (screen orchestrator) | request-response (renders from `ticker`/`subaba`/hook state, no new fetch) | itself — `subabas` pill-row block (lines 600-617) and `cabecalho` box (lines 411-467) as internal analogs for the two new pieces | exact (same file, same author conventions) |
 | `web/src/opcoes/WorkspaceHeader.jsx` (NEW — D-05, ticker name + "Voltar") | component (small presentational, props-only) | request-response (pure render, one callback prop) | `web/src/opcoes/SecaoVigias.jsx` (whole-file pattern: VARKEY/TOKENS mirror + local `BOTAO` + props-only) | role-match (closest existing "small extracted job component" shape in this directory) |
-| `web/src/opcoes/SecaoSetups.jsx` (modified — add `modo: "lista" \| "criar"` prop, gate the two existing blocks) | component (CRUD list + create) | CRUD | itself — the file already splits cleanly at the two `Kicker` blocks (list at line 56, create at line 193) | exact |
-| `web/src/copy.js` (modified — add `cp.opcoesVoltarAoHub`, `cp.opcoesAbaAnalisar`, `cp.opcoesAbaComparar`, `cp.opcoesAbaCriarSetup` in BOTH `COPY.estudo` and `COPY.operador`) | config (i18n/vocab dictionary) | CRUD (dictionary entries) | existing sibling keys `opcoesSubabaSetups`/`opcoesSubabaOperar` (estudo: lines 383-384; operador: lines 1012-1013) | exact |
+| `web/src/opcoes/SecaoSetups.jsx` (UNMODIFIED — D-01 amendment: moves whole into the workspace's 3rd pill, no `modo` prop, no split) | component (CRUD list + create) | CRUD | n/a — untouched by this phase | n/a |
+| `web/src/copy.js` (modified — add `cp.opcoesVoltarAoHub`, `cp.opcoesAbaAnalisar`, `cp.opcoesAbaComparar`, `cp.opcoesAbaSetupsSalvos` in BOTH `COPY.estudo` and `COPY.operador`) | config (i18n/vocab dictionary) | CRUD (dictionary entries) | existing sibling keys `opcoesSubabaSetups`/`opcoesSubabaOperar` (estudo: lines 383-384; operador: lines 1012-1013) | exact |
 | `web/tests/test_opcoes_hub_workspace_ui.mjs` (NEW guardian test) | test | transform (static-source grep assertions, no runtime render) | `web/tests/test_opcoes_subabas_ui.mjs` (whole-file pattern: no-build source-slice + regex guardian) | exact |
 
 ## Pattern Assignments
@@ -53,7 +53,7 @@ const subabas = (
   </div>
 );
 ```
-New `workspacePillRow` (3 tabs: Analisar/Comparar/Criar Setup, new local `useState` — same mechanism, NOT the existing `subaba` state which is the outer Setups/Operar switch) copies this block verbatim, only changing the tab array and the state variable name (e.g. `abaWorkspace`/`setAbaWorkspace`) and the `cp.*` keys (`cp.opcoesAbaAnalisar`, `cp.opcoesAbaComparar`, `cp.opcoesAbaCriarSetup`). Do not reuse the outer `subaba` state — that one already means "Setups vs Operar" and is orthogonal to the new workspace-internal tab.
+New `workspacePillRow` (3 tabs: Analisar/Comparar/Setups salvos, new local `useState` — same mechanism, NOT the existing `subaba` state which is the outer Setups/Operar switch) copies this block verbatim, only changing the tab array and the state variable name (e.g. `abaWorkspace`/`setAbaWorkspace`) and the `cp.*` keys (`cp.opcoesAbaAnalisar`, `cp.opcoesAbaComparar`, `cp.opcoesAbaSetupsSalvos`). Do not reuse the outer `subaba` state — that one already means "Setups vs Operar" and is orthogonal to the new workspace-internal tab.
 
 **Box pattern to copy for `WorkspaceHeader`'s container** (`cabecalho`, lines 411-412 — UI-SPEC mandates reusing this exact box):
 ```javascript
@@ -89,7 +89,7 @@ const escolherTicker = (t) => {
       {ticker ? <LeituraInterna .../> : null}
       {podePedirLeitura ? blocoLeituraDoServico : null}
       {workspacePillRow}
-      {/* branch 3b / 4 content, ticker-scoped, tab-gated */}
+      {/* branch 3b / 4 content, ticker-scoped, tab-gated; 3rd tab renders <SecaoSetups .../> WHOLE — no modo prop */}
     </>
   ) : (
     <>
@@ -97,12 +97,11 @@ const escolherTicker = (t) => {
       <SecaoVigias .../>
       {carteira.length > 0 ? seletor : null}
       {/* branch 3a content */}
-      <SecaoSetups modo="lista" .../>
     </>
   )
 }
 ```
-`seletor` (lines 554-567) moves inside the hub-only branch and is NOT rendered once `ticker` is truthy (UI-SPEC's explicit resolution of the toggle-vs-back-button ambiguity — do not duplicate it into the workspace).
+`SecaoSetups` does NOT render in the hub branch (D-01 amendment — see `34-CONTEXT.md`: the cross-ticker listing the hub needs is already `SecaoVigias`, not `SecaoSetups`, whose data is ticker-scoped by construction). `seletor` (lines 554-567) moves inside the hub-only branch and is NOT rendered once `ticker` is truthy (UI-SPEC's explicit resolution of the toggle-vs-back-button ambiguity — do not duplicate it into the workspace).
 
 **Error handling pattern** (already correct, do not alter): `escolherErroOpcoes`/`erro.code` branching (lines 691-716) stays exactly where it is, above the split — untouched by this phase.
 
@@ -151,46 +150,27 @@ Typography values (15px/800 for ticker name, 13px/700 for the button label) are 
 
 ---
 
-### `web/src/opcoes/SecaoSetups.jsx` (component, CRUD)
+### `web/src/opcoes/SecaoSetups.jsx` — NOT modified (D-01 amendment)
 
-**Analog:** itself
+**Superseded pattern, kept for history:** an earlier draft of this phase
+planned to add a `modo: "lista" | "criar"` prop to `SecaoSetups.jsx` so the
+hub could render the list half and the workspace the create half. That
+design was ruled out during planning: the list's data (`setups`) derives
+exclusively from the paid, ticker-scoped `leitura.dados` (see
+`OpcoesScreen.jsx:320`), which is always empty with `ticker === ""` (the
+hub). A `modo="lista"` render in the hub would therefore render a
+permanently empty, false-state block — see `34-CONTEXT.md` D-01 amendment
+for the full measured argument.
 
-**Current structure to partition** (full file already read — 210 lines):
-- Lines 48-56: function signature + `Kicker` "SETUPS GRAVADOS" (list section start)
-- Lines 58-184: the entire list render (naoAvaliado banner, empty state, `listaSetups.map(...)` cards with grafico/BotaoDesativar)
-- Lines 186-207: `Kicker` "CRIAR UM SETUP" + `<CriarSetup .../>` (create section, gated by `podeCriarSetup`)
-
-**Core pattern — add `modo` prop, gate each existing block, do not duplicate the file** (per UI-SPEC's explicit, non-binding-but-recommended shape):
-```javascript
-export default function SecaoSetups({
-  ticker, setups, naoAvaliado, grafico, abrirGrafico, fecharGrafico,
-  setupNovo, compilarSetup, confirmarSetup, desativarSetup,
-  podeCriarSetup, custos, cp, ctx, palette,
-  modo, // NEW: "lista" | "criar"
-}) {
-  const listaSetups = Array.isArray(setups) ? setups : [];
-  return (
-    <>
-      {modo === "lista" ? (
-        <>
-          <Kicker>{cp.opcoesSetupsTitulo || "SETUPS GRAVADOS"}</Kicker>
-          {/* ...existing lines 58-184, unchanged... */}
-        </>
-      ) : null}
-
-      {modo === "criar" && podeCriarSetup ? (
-        <>
-          <Kicker>{cp.opcoesCriarTitulo || "CRIAR UM SETUP"}</Kicker>
-          <CriarSetup ticker={ticker} estado={setupNovo} onCompilar={compilarSetup} onConfirmar={confirmarSetup} custos={custos} cp={cp} />
-        </>
-      ) : null}
-    </>
-  );
-}
-```
-Do not rename the internal `Kicker` copy keys (`cp.opcoesSetupsTitulo`, `cp.opcoesCriarTitulo`) — UI-SPEC explicitly forbids this ("do not duplicate the file or rename the internal Kicker copy"). Caller in `OpcoesScreen.jsx` passes `modo="lista"` in the hub branch and `modo="criar"` in the workspace branch (inside the new 3rd pill-row tab), each time omitting the props only relevant to the other mode is NOT required — pass everything as today, `modo` is purely a render gate, not a prop-surface reduction.
-
-**Error/empty-state pattern (unchanged, do not touch):** `naoAvaliado` banner (lines 58-65) and the `listaSetups.length === 0` empty-state (`cp.opcoesSemSetups`, line 68) stay exactly as-is — they belong to `modo === "lista"` and are not reachable from `modo === "criar"`.
+**Current pattern:** `SecaoSetups.jsx` is untouched by this phase.
+`OpcoesScreen.jsx`'s only change with respect to it is WHERE it is called:
+the 3rd tab of `workspacePillRow` renders `<SecaoSetups .../>` passing the
+exact same props it receives today — no new prop, no gate inside the
+component, no duplicated file. Both its existing internal `Kicker` blocks
+("SETUPS GRAVADOS" list, `cp.opcoesSetupsTitulo`; "CRIAR UM SETUP" creation
+form, `cp.opcoesCriarTitulo`) render together, as they already do, now
+inside the ticker-scoped workspace instead of inline in the old single
+scroll.
 
 ---
 
@@ -204,14 +184,14 @@ Do not rename the internal `Kicker` copy keys (`cp.opcoesSetupsTitulo`, `cp.opco
 opcoesVoltarAoHub: "Voltar",
 opcoesAbaAnalisar: "Analisar",
 opcoesAbaComparar: "Comparar",
-opcoesAbaCriarSetup: "Criar Setup",
+opcoesAbaSetupsSalvos: "Setups salvos",
 
 // COPY.operador — same or terser tone, following the existing estudo/operador
 // divergence pattern seen in opcoesSubabaOperar ("Operação" vs "Operar")
 opcoesVoltarAoHub: "Voltar",
 opcoesAbaAnalisar: "Analisar",
 opcoesAbaComparar: "Comparar",
-opcoesAbaCriarSetup: "Criar Setup",
+opcoesAbaSetupsSalvos: "Setups salvos",
 ```
 **Mandatory parity rule** (this is what `test_opcoes_subabas_ui.mjs`'s check #9 enforces and the new guardian test below must repeat): every `cp.X` key referenced from any file in `web/src/opcoes/` MUST exist in BOTH `COPY.estudo` and `COPY.operador` — a key present in only one locale passes silently until the untested mode is opened live and throws.
 
@@ -252,10 +232,10 @@ const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if 
 **Concrete guardian assertions this new test file should encode** (derived directly from `34-CONTEXT.md` D-01..D-05 and the UI-SPEC Layout Contract — each is a defect this phase could silently reintroduce):
 1. `cabecalho` and the `carregando`/`erro` cascade branches render ABOVE `ticker ? ... : ...` — i.e. the literal `ticker ?` conditional text appears in the source AFTER `carregando ?`/`erro ?` (line-index comparison, same technique as check #11's `tela.includes(nome)` but with `indexOf` ordering).
 2. `seletor` is referenced inside the hub branch only, never inside a block that also references `<WorkspaceHeader` (slice-based, same technique as check #1's `subAba` slice in the analog).
-3. `<SecaoSetups modo="lista"` appears exactly once and `<SecaoSetups modo="criar"` appears exactly once in `OpcoesScreen.jsx` (regression guard for D-01's split).
+3. `<SecaoSetups` appears exactly once in `OpcoesScreen.jsx`, inside the workspace branch only, with no `modo=` prop (regression guard for D-01's amendment — a re-appearing `modo="lista"` or a hub-branch occurrence means the ruled-out design crept back in).
 4. Every `cp.X` referenced in `WorkspaceHeader.jsx` and the new pill-row block exists in both `COPY.estudo` and `COPY.operador` (same technique as check #9).
 5. The new pill-row button markup contains `aria-pressed=` and `minHeight: "44px"` (same technique as check #10).
-6. `SecaoSetups.jsx` still contains both `cp.opcoesSetupsTitulo` and `cp.opcoesCriarTitulo` unchanged (guards against the UI-SPEC's explicit "do not rename" instruction).
+6. `SecaoSetups.jsx` is byte-identical to its pre-phase version (this phase does not modify it) — or, if that's too strict for the guardian's technique, at minimum still contains both `cp.opcoesSetupsTitulo` and `cp.opcoesCriarTitulo` unchanged, with no `modo` prop added to its signature.
 7. No manchete-rendering leak: `WorkspaceHeader.jsx` is NOT added to `RENDERIZADORES_DE_MANCHETE` and does not match `/\.manchete\b/` — reuse check #12's `arquivosOpcoesDir` scan technique from the analog (it is directory-wide already, so this file is automatically covered if the analog test itself is re-run; the new test file only needs its own targeted assertion if it duplicates the scan rather than relying on the existing one).
 
 **Exit pattern** (lines 275-279, copy verbatim):
@@ -296,7 +276,7 @@ const T = Object.fromEntries(TOKENS.map((k) => [k, `var(${VARKEY(k)})`]));
 
 ### Locale-parity for every new `cp.X` key
 **Source:** `web/src/copy.js` (two top-level branches `COPY.estudo` / `COPY.operador`), enforced by `web/tests/test_opcoes_subabas_ui.mjs` lines 203-212 (check #9)
-**Apply to:** `opcoesVoltarAoHub`, `opcoesAbaAnalisar`, `opcoesAbaComparar`, `opcoesAbaCriarSetup` — each MUST be added to both `COPY.estudo` and `COPY.operador` in the same commit, or the existing guardian test (which already scans `OpcoesScreen.jsx`'s `cp.X` references against both locales) will start failing the moment `OpcoesScreen.jsx` references the new keys, and any new guardian test for `WorkspaceHeader.jsx` should apply the identical check to that file too.
+**Apply to:** `opcoesVoltarAoHub`, `opcoesAbaAnalisar`, `opcoesAbaComparar`, `opcoesAbaSetupsSalvos` — each MUST be added to both `COPY.estudo` and `COPY.operador` in the same commit, or the existing guardian test (which already scans `OpcoesScreen.jsx`'s `cp.X` references against both locales) will start failing the moment `OpcoesScreen.jsx` references the new keys, and any new guardian test for `WorkspaceHeader.jsx` should apply the identical check to that file too.
 
 ## No Analog Found
 

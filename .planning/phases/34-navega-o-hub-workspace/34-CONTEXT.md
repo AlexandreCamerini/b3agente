@@ -55,8 +55,11 @@ hoje na sub-aba Setups.
   dois arquivos, mas o componente do workspace só renderiza o bloco de
   criação, não a lista inteira.
 - **D-02:** Pill row do workspace tem **3 abas**: Analisar / Comparar /
-  Criar Setup — não 2. Mesmo componente de pill já usado em Setups/Operar
-  (um nível abaixo), consistente visualmente, sem componente novo.
+  Setups salvos — não 2. Mesmo componente de pill já usado em Setups/Operar
+  (um nível abaixo), consistente visualmente, sem componente novo. (Rótulo
+  da 3ª aba corrigido pela emenda de D-01 acima: era "Criar Setup" na
+  formulação original, virou "Setups salvos" porque `SecaoSetups` migra
+  inteira — lista + criação — não só o bloco de criação.)
 
 ### Estado do workspace
 - **D-03:** Sair do workspace (botão voltar) **reseta** tese/vencimento/lote
@@ -146,7 +149,7 @@ REORG-03/04 da Fase 33 não muda) ficam a critério de quem planeja/executa.
   necessário pro split hub/workspace (`ticker ? <Workspace/> : <Hub/>`),
   sem novo estado
 - Pill row de Setups/Operar (componente já existente) — reusar um nível
-  abaixo para Analisar/Comparar/Criar Setup dentro do workspace (D-02)
+  abaixo para Analisar/Comparar/Setups salvos dentro do workspace (D-02)
 - Os 5 `Secao*.jsx` da Fase 33 — cada um já isolado, prontos pra distribuir
   entre hub e workspace por composição, sem reescrever lógica interna
 
