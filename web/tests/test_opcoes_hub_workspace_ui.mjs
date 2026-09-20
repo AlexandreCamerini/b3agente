@@ -55,6 +55,37 @@
 //      `SecaoDescobrir`) tem de continuar imediatamente seguida por
 //      `SecaoVigias` no ramo do hub, sem gate condicional entre os dois.
 //
+// 2026-09-20, Fase 34 (34-03) — ACRESCENTA 7 asserções sobre a pill row de 3
+// abas do workspace (Analisar/Comparar/Setups salvos, D-02) e o gate do ramo
+// "4. DADOS" por ela (NAV-05, o núcleo desta fase):
+//
+//  14. **A pill row cobrando ao trocar de aba** — a fatia de
+//      `workspacePillRow` não pode conter nenhum disparador de chamada
+//      (`abrirLeitura`/`abrirCadeia`/`abrirOperaveis`/`montarProposta`/
+//      `verPossibilidades`/`atualizarVigias`/`compilarSetup`/
+//      `confirmarSetup`). É o vetor pelo qual trocar de aba passaria a cobrar
+//      3 chamadas por toque (§3.3 do ADR-027).
+//  15. **Um `useEffect` reagindo a `abaWorkspace`** — a porta pela qual o
+//      custo voltaria em silêncio (mesma classe de defeito que a Fase 27
+//      27-05 fechou para a troca de ticker).
+//  16. **`abaWorkspace` e `subaba` se confundindo** — `setSubaba` vazando
+//      para dentro da pill row do workspace, ou `setAbaWorkspace` vazando
+//      para dentro do alternador Setups×Operar, faria a aba interna do
+//      workspace mudar a sub-aba da tela (ou vice-versa).
+//  17. **Rótulo literal solto na pill row** — as 3 abas têm de usar chave de
+//      copy (`cp.opcoesAbaAnalisar`/`cp.opcoesAbaComparar`/
+//      `cp.opcoesAbaSetupsSalvos`), nunca uma string crua que quebraria a
+//      paridade estudo/operador em silêncio.
+//  18. **Pill sem alvo de toque ou sem afordância** — regressão de
+//      acessibilidade idêntica ao item 4 acima, agora na pill row nova.
+//  19. **O gate `temLeitura` de `SecaoComparar` sumindo** — sem leitura não
+//      há de onde a tese sair; o gate de aba não pode substituí-lo, só
+//      combinar com ele.
+//  20. **Os três jobs do ramo 4 deixando de ser mutuamente exclusivos** — um
+//      id órfão que nunca vira pill, ou uma pill sem destino no ramo 4,
+//      quebraria a exclusividade que faz a troca de aba trocar de CONTEÚDO
+//      em vez de acumular seções.
+//
 // Roda sem build: `node web/tests/test_opcoes_hub_workspace_ui.mjs`.
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
@@ -211,6 +242,82 @@ const trechoEntreDescobrirEVigiasHub = (iSecaoDescobrirUsoHub >= 0 && iSecaoVigi
 ok("nenhum gate condicional (?/:) entre {secaoDescobrir} e <SecaoVigias dentro de hubTopo",
    trechoEntreDescobrirEVigiasHub.length > 0
    && !/\?/.test(trechoEntreDescobrirEVigiasHub) && !/&&/.test(trechoEntreDescobrirEVigiasHub));
+
+// ---- 14-20) pill row de 3 abas do workspace + gate do ramo 4 (34-03) -------
+// Fatia de `workspacePillRow`: de `const workspacePillRow` até o `);` que a
+// fecha — mesma técnica de fatiamento de `corpoWorkspaceTopo` acima.
+const iWorkspacePillRowDef = opcoesScreen.indexOf("const workspacePillRow = (");
+const iFimWorkspacePillRow = iWorkspacePillRowDef >= 0
+  ? opcoesScreen.indexOf(");", iWorkspacePillRowDef) : -1;
+const workspacePillRowSlice = (iWorkspacePillRowDef >= 0 && iFimWorkspacePillRow > iWorkspacePillRowDef)
+  ? opcoesScreen.slice(iWorkspacePillRowDef, iFimWorkspacePillRow) : "";
+ok("a fatia de workspacePillRow (const workspacePillRow até o fechamento) foi localizada",
+   workspacePillRowSlice.length > 0);
+
+// Fatia de `subabas` (o alternador Setups×Operar, Fase 28) — para a
+// asserção 16 de baixo, mesma técnica.
+const iSubabasDef = opcoesScreen.indexOf("const subabas = (");
+const iFimSubabas = iSubabasDef >= 0 ? opcoesScreen.indexOf(");", iSubabasDef) : -1;
+const subabasSlice = (iSubabasDef >= 0 && iFimSubabas > iSubabasDef)
+  ? opcoesScreen.slice(iSubabasDef, iFimSubabas) : "";
+ok("a fatia de subabas (const subabas até o fechamento) foi localizada",
+   subabasSlice.length > 0);
+
+// ---- 14) NAV-05, o núcleo: trocar de aba não pode pagar --------------------
+const DISPARADORES_PROIBIDOS = /abrirLeitura|abrirCadeia|abrirOperaveis|montarProposta|verPossibilidades|atualizarVigias|compilarSetup|confirmarSetup/;
+ok("workspacePillRow não contém nenhum disparador de leitura paga (NAV-05, §3.3 do ADR-027)",
+   workspacePillRowSlice.length > 0 && !DISPARADORES_PROIBIDOS.test(workspacePillRowSlice));
+
+// ---- 15) nenhum useEffect do arquivo depende de abaWorkspace ---------------
+// OpcoesScreen.jsx hoje não declara `useEffect` nenhum próprio (as duas
+// ocorrências da palavra no arquivo são comentário, filtradas por
+// `semComentario`) — a asserção cobre tanto o presente (vacuamente
+// verdadeira) quanto um `useEffect` novo que viesse a depender de
+// `abaWorkspace` no futuro.
+const blocosDeEfeito = opcoesScreen.split("useEffect(").slice(1);
+const efeitoComAbaWorkspace = blocosDeEfeito.some((bloco) => {
+  const fimDeps = bloco.indexOf("])");
+  const trecho = fimDeps >= 0 ? bloco.slice(0, fimDeps + 2) : bloco;
+  return /\babaWorkspace\b/.test(trecho);
+});
+ok("nenhum useEffect do arquivo lista abaWorkspace nas dependências (NAV-05)",
+   !efeitoComAbaWorkspace);
+
+// ---- 16) abaWorkspace e subaba são estados distintos -----------------------
+ok("`setSubaba` NÃO aparece dentro da fatia de workspacePillRow",
+   workspacePillRowSlice.length > 0 && !/setSubaba/.test(workspacePillRowSlice));
+ok("`setAbaWorkspace` NÃO aparece dentro da fatia de subabas",
+   subabasSlice.length > 0 && !/setAbaWorkspace/.test(subabasSlice));
+
+// ---- 17) as 3 abas usam chave de copy, nenhum rótulo literal solto ---------
+const idsPillRow = (workspacePillRowSlice.match(/\{ id: "/g) || []).length;
+ok("workspacePillRow declara exatamente 3 abas",
+   idsPillRow === 3);
+const CHAVES_PILL = ["opcoesAbaAnalisar", "opcoesAbaComparar", "opcoesAbaSetupsSalvos"];
+ok("workspacePillRow usa cp.opcoesAbaAnalisar, cp.opcoesAbaComparar e cp.opcoesAbaSetupsSalvos, uma vez cada",
+   CHAVES_PILL.every((k) => (workspacePillRowSlice.match(new RegExp("cp\\." + k + "\\b", "g")) || []).length === 1));
+
+// ---- 18) alvo de toque + afordância na pill row ----------------------------
+ok("workspacePillRow declara minHeight: \"44px\"",
+   /minHeight:\s*"44px"/.test(workspacePillRowSlice));
+ok("workspacePillRow declara aria-pressed",
+   /aria-pressed/.test(workspacePillRowSlice));
+
+// ---- 19) o gate temLeitura de SecaoComparar sobreviveu ---------------------
+const iCompararGate = opcoesScreen.indexOf('abaWorkspace === "comparar" && temLeitura ? (');
+const iSecaoCompararUsoGate = iCompararGate >= 0 ? opcoesScreen.indexOf("<SecaoComparar", iCompararGate) : -1;
+ok("o render de <SecaoComparar continua condicionado a temLeitura, combinado com o gate de aba",
+   iCompararGate >= 0 && iSecaoCompararUsoGate > iCompararGate
+   && iSecaoCompararUsoGate - iCompararGate < 800);
+
+// ---- 20) os três renders do ramo 4 são mutuamente exclusivos ---------------
+const comparacoesAbaWorkspace = opcoesScreen.match(/abaWorkspace === "(analisar|comparar|setups)"/g) || [];
+ok("existem exatamente 3 comparações abaWorkspace === \"...\" no arquivo (ramo 4 mutuamente exclusivo)",
+   comparacoesAbaWorkspace.length === 3);
+const idsComparados = new Set(comparacoesAbaWorkspace.map((s) => s.match(/"([^"]+)"/)[1]));
+ok("os três ids comparados são analisar, comparar e setups — nenhum órfão, nenhuma pill sem destino",
+   idsComparados.size === 3 && idsComparados.has("analisar")
+   && idsComparados.has("comparar") && idsComparados.has("setups"));
 
 if (fails > 0) {
   console.log(`\n${fails} falha(s).`);
