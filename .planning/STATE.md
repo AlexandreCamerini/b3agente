@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Simplificação da aba Opções
 status: planning
-stopped_at: 'Milestone v1.6 (Simplificação da aba Opções) ABERTO em 2026-09-19, logo após arquivar o v1.4. Escopo confirmado pelo Alex: reorganizar a sub-aba "Setups" por job-to-be-done (descobrir oportunidades, vigias, analisar ticker, comparar vencimentos, gerenciar setups salvos), sem feature nova — Fases 2-4 (explicação adaptativa, progresso do aprendiz, desafio personalizado) decididas mas fora de escopo, para depois. Alex escolheu "Pesquisar antes" — pesquisa de domínio (4 agentes paralelos: stack, features, arquitetura, armadilhas) roda antes de travar REQUIREMENTS.md. Guardrail aplicado: nenhum mutador `gsd-sdk query state.*` foi chamado — STATE.md editado à mão pelo orquestrador, não pelo `/gsd-new-milestone`.'
-last_updated: "2026-09-19T21:15:00.000Z"
-last_activity: "2026-09-19 — milestone v1.6 (Simplificação da aba Opções) aberto logo após arquivar v1.4. PROJECT.md ganhou a seção do milestone; pesquisa de domínio solicitada pelo Alex antes de definir requirements."
+stopped_at: 'Fase 34 (Navegação hub + workspace) PLANEJADA — 4 planos em 4 ondas sequenciais, plan-checker VERIFICATION PASSED (0 blockers), gate de cobertura de decisão 5/5, gate de cobertura de requisitos 6/6 NAV-01..06. Pronta para /gsd-execute-phase 34. Guardrail aplicado: nenhum mutador `gsd-sdk query state.*`/`roadmap.annotate-dependencies`/`state.planned-phase` foi chamado — STATE.md e ROADMAP.md editados à mão pelo orquestrador.'
+last_updated: "2026-09-20T00:00:00.000Z"
+last_activity: "2026-09-20 — Fase 34 planejada de ponta a ponta: discuss-phase (6 decisões D-01..D-05), UI-phase (UI-SPEC aprovado 6/6 após 1 revisão de spacing), pattern-mapper (5/5 analogs), planner (4 planos), plan-checker (0 blockers, 1 warning de doc drift já corrigido). Achado real do planner (D-01 originalmente pedia listagem cross-ticker de setups no hub, mas o dado é ticker-scoped por construção) verificado pelo orquestrador e confirmado pelo Alex: SecaoSetups migra inteira pro workspace."
 progress:
   total_phases: 0
   completed_phases: 0
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-06)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Milestone v1.6 (Simplificação da aba Opções) — Fase 33 fechada e verificada. Fase 34 (Navegação hub + workspace) DISCUTIDA (`34-CONTEXT.md`), pronta para `/gsd-plan-phase 34`.
+**Current focus:** Milestone v1.6 (Simplificação da aba Opções) — Fase 33 fechada e verificada. Fase 34 (Navegação hub + workspace) PLANEJADA (4 planos, 4 ondas), pronta para `/gsd-execute-phase 34`.
 
 ## Current Position
 
-Phase: 34 (Navegação hub + workspace) — **DISCUTIDA, pronta para planejar**
-Status: `/gsd-discuss-phase 34` rodado nesta sessão (2026-09-20). Decisões travadas em `34-CONTEXT.md`: (D-01) "setups salvos" se divide — listagem cross-ticker no hub, criação (ticker-scoped) no workspace; (D-02) pill row do workspace tem 3 abas (Analisar/Comparar/Criar Setup), não 2; (D-03) estado do workspace (tese/vencimento/lote) reseta sempre ao voltar — backlog B2 explicitamente NÃO fechado de passagem; (D-04) ordem fixa do hub = frase-ponte+Bloco A+Bloco B → vigias → setups salvos (lista), conforme `research/FEATURES.md`; (D-05) botão de voltar (NAV-03) vira header fixo no topo do workspace com o nome do ticker, mitigando o risco de desorientação que a pesquisa apontou como maior chance de virar feature nova. Resolvida contradição de redação entre NAV-01 e NAV-05 do ROADMAP.md (os dois estavam certos, cada um descrevendo a metade certa de "setups salvos"). 2 todos pendentes revisados e não dobrados (`medir-rate-limit-mydata.md`, `opcoes-v2-confirmar-hub-mydata-e-acesso-b-mcp.md` — tracking externo, fora do domínio de UI). Achado 2 todos já dobrados/executados na Fase 33 (`carimbo-frescor-blocos-cross-carteira.md`, `subaba-operar-fetch-redundante-gate-proposta.md`) esquecidos em `.planning/todos/pending/` — dívida de processo pra arquivar depois, não bloqueia nada. Commit `d49b2bf`.
+Phase: 34 (Navegação hub + workspace) — **PLANEJADA, pronta para executar**
+Status: `/gsd-discuss-phase 34` → `/gsd-ui-phase 34` → `/gsd-plan-phase 34` completos nesta sessão (2026-09-20). Decisões travadas em `34-CONTEXT.md`: (D-01, EMENDADO) hub = SecaoDescobrir → SecaoVigias (listagem cross-ticker real) → seletor; SecaoSetups migra INTEIRA (lista + criação) pro workspace como 3ª aba "Setups salvos" — a leitura original de D-01 (listagem de setups no hub) era impossível: `setups` deriva só de `leitura.dados` (leitura paga, ticker-scoped), sempre vazio com `ticker=""`. Achado do planner, verificado pelo orquestrador por leitura direta (`OpcoesScreen.jsx:320`, `useOpcoesMcp.js`), confirmado pelo Alex. (D-02) pill row do workspace com 3 abas: Analisar/Comparar/Setups salvos. (D-03) estado do workspace reseta sempre ao voltar — B2 não fechado de passagem. (D-04) ordem fixa do hub. (D-05) botão de voltar vira header fixo com o ticker. UI-SPEC aprovado pelo `gsd-ui-checker` (6/6 dimensões, 1 revisão de citação de spacing). `gsd-pattern-mapper`: 5/5 analogs. `gsd-planner` (opus): 4 planos em 4 ondas sequenciais (`OpcoesScreen.jsx` tocado por 34-02/34-03, sem paralelismo honesto, mesmo padrão da Fase 33). `gsd-plan-checker`: VERIFICATION PASSED, 0 blockers, 1 warning (doc drift do achado D-01 em `34-PATTERNS.md`/planos — corrigido). Gate de cobertura de requisitos 6/6 NAV-01..06. Gate de cobertura de decisão: 3/5 na 1ª rodada (D-01/D-03 só em prosa, sem tag `D-NN:` literal — mesma classe de ajuste da Fase 31), 5/5 após adicionar as tags nas truths do 34-02. Commits `d49b2bf`(discuss) → `d8556ea`/`565a08b`/`6b71e41`(UI-SPEC) → `a2b0f9d`(planos) → `55594fd`/`5dc45b6`(emendas D-01) → `3f807ef`(decision coverage).
 
-**Próximo passo:** `/gsd-plan-phase 34` (planejamento executável — pesquisa/pattern-mapper/planner/plan-checker).
+**Próximo passo:** `/gsd-execute-phase 34` (4 ondas sequenciais; 34-04 tem checkpoint humano bloqueante antes de publicar 33+34 juntas).
 
 ## Posição anterior (Fase 33, fechada)
 

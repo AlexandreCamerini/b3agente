@@ -196,24 +196,36 @@ rodar em paralelo.
 **Requirements**: NAV-01, NAV-02, NAV-03, NAV-04, NAV-05, NAV-06
 **Success Criteria** (what must be TRUE):
   1. Sem nenhum ticker selecionado, a sub-aba "Setups" abre em modo hub:
-     frase-ponte + Bloco A + Bloco B + vigias + setups salvos. [NAV-01]
+     frase-ponte + Bloco A + Bloco B + vigias + seletor de ativo. [NAV-01]
+     (Emenda D-01, `34-CONTEXT.md`, 2026-09-20: "setups salvos" saiu do hub
+     — o dado é ticker-scoped por construção, não cabe num modo sem ticker;
+     "vigias" já É a listagem cross-ticker que este critério pedia.)
   2. Selecionar um ticker troca a tela para modo workspace (análise manual
-     do ticker + comparação de vencimentos), escondendo os blocos de
-     descoberta cross-carteira. [NAV-02]
+     do ticker + comparação de vencimentos + setups salvos daquele ticker),
+     escondendo os blocos de descoberta cross-carteira. [NAV-02]
   3. De dentro do workspace, um único botão leva de volta ao hub — sem
      breadcrumb nem histórico de navegação. [NAV-03]
   4. A frase-ponte (mitigação regulatória D-05) permanece fisicamente
      adjacente ao Bloco B em qualquer arranjo do hub — nunca separada por
      gate ou rolagem. [NAV-04]
-  5. Trocar entre "analisar ticker", "comparar vencimentos" e "gerenciar
-     setups salvos" dentro do workspace não dispara uma nova leitura paga —
-     os três jobs continuam compartilhando a mesma leitura MCP (3
-     chamadas), custo atual preservado. [NAV-05]
+  5. Trocar entre "analisar ticker", "comparar vencimentos" e "setups
+     salvos" dentro do workspace não dispara uma nova leitura paga — os
+     três jobs continuam compartilhando a mesma leitura MCP (3 chamadas),
+     custo atual preservado. [NAV-05]
   6. Um estado de erro/degradado hoje visível independente de posição na
      rolagem (ex.: MCP fora do ar) continua visível independente de qual
      seção o usuário está olhando — nenhum aviso crítico fica isolado numa
      seção fechada. [NAV-06]
-**Plans**: TBD
+**Plans**: 4 plans (4 ondas sequenciais — `OpcoesScreen.jsx` é tocado por
+34-02 e 34-03, sem paralelismo honesto, mesmo padrão da Fase 33)
+- [ ] 34-01-PLAN.md — 4 chaves de copy (2 modos) + `WorkspaceHeader.jsx`
+  (D-05) + guardião novo, parte 1
+- [ ] 34-02-PLAN.md — split hub × workspace acima da cascata + ramos 3/4 por
+  modo + censo/reaponte de 21 guardiões que leem `OpcoesScreen.jsx`
+- [ ] 34-03-PLAN.md — pill row de 3 abas (D-02) + gate do ramo Dados por aba
+  + guardião de NAV-05 (trocar de aba não paga de novo)
+- [ ] 34-04-PLAN.md — checkpoint humano bloqueante + publicação do front
+  (33+34 juntas) + docs à mão
 **UI hint**: yes
 
 ## Progress
@@ -254,7 +266,7 @@ rodar em paralelo.
 | 31. Varredura de oportunidades de opções | 4/4 | Complete | 2026-09-14 |
 | 32. Consolidação das operações de opções na aba Opções | 5/5 | Complete | 2026-09-16 |
 | 33. Extração dos 5 jobs em componentes próprios | 5/5 | Complete (verified, 7/7) | 2026-09-20 |
-| 34. Navegação hub + workspace | v1.6 | Not started | - |
+| 34. Navegação hub + workspace | v1.6 | Planned (0/4) | - |
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2/v1.3
 
