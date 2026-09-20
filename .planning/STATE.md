@@ -21,14 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-06)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Milestone v1.6 (Simplificação da aba Opções) — Fase 33 em execução: 3/5 planos completos (33-01, 33-02, 33-03), Alex autorizou seguir sem parar até o fim da fase.
+**Current focus:** Milestone v1.6 (Simplificação da aba Opções) — Fase 33 em execução: 4/5 planos completos (33-01 a 33-04), última onda (33-05) em andamento.
 
 ## Current Position
 
-Phase: 33 (Extração dos 5 jobs em componentes próprios) — EM EXECUÇÃO: 33-01/33-02/33-03 completos, 33-04/33-05 em andamento
-Plan: 33-01 ✓ | 33-02 ✓ | 33-03 ✓ | 33-04 → 33-05 pendentes (ondas sequenciais, cada uma depende da anterior)
+Phase: 33 (Extração dos 5 jobs em componentes próprios) — EM EXECUÇÃO: 33-01/33-02/33-03/33-04 completos, 33-05 (última) em andamento
+Plan: 33-01 ✓ | 33-02 ✓ | 33-03 ✓ | 33-04 ✓ | 33-05 pendente (última onda, inclui fold-in D-04a)
 Status: Executando sequencialmente, sem pausa entre planos (autorização explícita do Alex: "Continuar até o final")
-Last activity: 2026-09-20 — `33-03` completo: `SecaoSetups.jsx` extraído (listagem de setups gravados + porta de criação, reusa `CriarSetup.jsx` sem duplicar); 5 guardiões reapontados (achou mais um, `test_opcoes_mcp_aba_ui.mjs`, só na suíte completa); prova negativa 3 gerou guardião novo pra `nomeNoServico` fora da tela, com um falso-positivo contra uso legítimo de `key=` pego e corrigido antes de commitar. Suíte idêntica à baseline (2923 pytest + 151/152 mjs). Commits `3729144`/`84203f1`/`8a59ede`. `App.jsx` intocado.
+Last activity: 2026-09-20 — `33-04` completo: `SecaoComparar.jsx` extraído; `Linha`/`RazaoGanhoPerda` subiram pra `uiOpcoes.jsx` (reuso, não duplicação); 3 achados além do censo do plano: um guardião (`test_opcoes_analisar_ui.mjs` seção 9, "alvo e stop viajam nomeados") ficaria inerte, repontado pra `SecaoComparar.jsx`; a asserção nova de "sem recálculo de custo" só pegava a forma literal `2*N+1`, prova negativa 2 escapou por `Math.min(...)`, regra alargada; **guardião novo, proativo**: varredura de diretório trava `useState` redeclarando `tese`/`ticker`/`vencimento`/`lote` em QUALQUER dos 5 `Secao*.jsx` desta fase (Pitfall 6), não só neste arquivo — protege a 33-05 antes dela rodar. Suíte idêntica à baseline. Commits `3002958`/`7fe429b`/`2e06d75`. `App.jsx` intocado. 3 avisos de lint (props não usadas em `SecaoComparar.jsx`: `ticker`/`custos`/`setTese`) — não bloqueiam, suíte canônica é a fonte de verdade, revisar depois se sobrar tempo.
+
+Anterior — `33-03` completo: `SecaoSetups.jsx` extraído (listagem de setups gravados + porta de criação, reusa `CriarSetup.jsx` sem duplicar); 5 guardiões reapontados (achou mais um, `test_opcoes_mcp_aba_ui.mjs`, só na suíte completa); prova negativa 3 gerou guardião novo pra `nomeNoServico` fora da tela, com um falso-positivo contra uso legítimo de `key=` pego e corrigido antes de commitar. Suíte idêntica à baseline (2923 pytest + 151/152 mjs). Commits `3729144`/`84203f1`/`8a59ede`. `App.jsx` intocado.
 
 Anterior — `33-02` completo: `SecaoDescobrir.jsx` compõe Blocos A/B + frase-ponte sem reescrever nenhum dos dois motores; D-04b (carimbo de frescor) resolvido FRONT-ONLY (backend já devolvia `at`/`meta.source`); REORG-06 (guardrail CVM) generalizado por varredura de diretório; 5 guardiões reapontados + 2 asserções novas (REORG-07, relógio do cliente no carimbo). Suíte idêntica à baseline (2923 pytest + 151/152 mjs). Commits `20d1818`/`032efcb`/`5b21a61`. `App.jsx` intocado.
 
