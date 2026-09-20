@@ -53,6 +53,13 @@ import { useOpcoesPropostas } from "./useOpcoesPropostas.js";
 // App.jsx (ver 32-04-PLAN.md, decisão arquitetural B). Módulo terceiro,
 // nenhum import de App.jsx.
 import CandidatoOpcao from "./CandidatoOpcao.jsx";
+// Fase 33 (33-01): `Kicker`/`Aviso`/`ErroDoMcp`/`RecusaCobrada` migraram para
+// o módulo de primitivos compartilhados — uma implementação só de `ErroDoMcp`
+// (ramifica nos 4 códigos do ADR-027) reusada por esta tela e pelas seções
+// job-to-be-done (`Secao*.jsx`, D-01 do 33-CONTEXT.md). `SecaoVigias` é o job
+// 2 ("gerenciar vigias"), extraído nesta mesma fase.
+import { Kicker, Aviso, ErroDoMcp, RecusaCobrada } from "./uiOpcoes.jsx";
+import SecaoVigias from "./SecaoVigias.jsx";
 
 // Mesmos NOMES de variável CSS que `App.jsx` injeta em `:root` — padrão de
 // `pet/BorisChat.jsx`. Zero import de `App.jsx` (seria ciclo).
@@ -170,22 +177,6 @@ function LacunasDaLeitura({ lacunas, cp }) {
             : x.motivo}
         </div>
       ))}
-    </div>
-  );
-}
-
-function Kicker({ children }) {
-  return (
-    <div style={{ fontSize: "11px", fontWeight: 800, letterSpacing: ".08em", color: T.textMuted, margin: "18px 0 8px" }}>
-      {children}
-    </div>
-  );
-}
-
-function Aviso({ children, tom }) {
-  return (
-    <div style={{ border: `1px solid ${tom === "forte" ? T.negative : T.borderSubtle}`, borderRadius: "12px", padding: "12px", background: T.bgPanel, color: T.textSecondary, fontSize: "12.5px", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
-      {children}
     </div>
   );
 }
@@ -584,60 +575,11 @@ export default function OpcoesScreen({ ctx }) {
   // ticker sem posição, e esse é um estado real a exibir, não um erro.
   const posicaoSelecionada = ticker ? carteira.find((p) => p.t === ticker) : null;
 
-  const blocoVigias = (
-    <div>
-      <Kicker>{cp.opcoesVigiasTitulo || "SEUS VIGIAS"}</Kicker>
-      {/* carregando → erro → vazio com motivo → dados, a mesma cascata do
-          resto da tela: lista vazia pintada durante a consulta afirmaria
-          "você não tem vigia" sem ninguém ter medido. */}
-      {vigias.carregando ? (
-        <Aviso>{cp.opcoesCarregando || "Consultando o serviço de opções…"}</Aviso>
-      ) : vigias.erro ? (
-        <ErroDoMcp erro={vigias.erro} cp={cp} />
-      ) : listaDeVigias.length === 0 ? (
-        <Aviso>{cp.opcoesVigiasVazio || "Nenhum vigia gravado nesta conta ainda."}</Aviso>
-      ) : (
-        <div style={{ display: "grid", gap: "10px" }}>
-          {listaDeVigias.map((v, i) => (
-            <CartaoDeVigia
-              key={(v && v.nomeNoServico ? v.nomeNoServico : "vigia") + "-" + i}
-              vigia={v}
-              temEstado={temEstadoDosVigias}
-              selecionado={!!(v && v.ticker) && v.ticker === ticker}
-              naCarteira={!!(v && v.ticker) && tickersEmCarteira.includes(v.ticker)}
-              onIr={irParaVigia}
-              cp={cp}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* O custo vai DENTRO do controle, não ao lado: descobrir que o clique
-          custou 2 depois de gastá-las não é aviso, é recibo. Reusa
-          `opcoesCustoChamadas` — uma segunda forma de dizer custo criaria dois
-          vocabulários para a mesma grandeza. */}
-      <button
-        onClick={atualizarVigias}
-        disabled={vigiasVivos.carregando}
-        style={{ ...BOTAO, width: "100%", marginTop: "10px", ...desabilitado(vigiasVivos.carregando) }}
-      >
-        <span style={{ display: "block" }}>{cp.opcoesVigiasAtualizar || "Atualizar o estado dos vigias"}</span>
-        <span style={CUSTO_NO_BOTAO}>
-          {(cp.opcoesCustoChamadas || ((n) => String(n)))(CUSTO_DA_ACAO.listarVigias)}
-        </span>
-      </button>
-
-      {vigiasVivos.carregando ? (
-        <div style={{ marginTop: "10px" }}>
-          <Aviso>{cp.opcoesCarregando || "Consultando o serviço de opções…"}</Aviso>
-        </div>
-      ) : vigiasVivos.erro ? (
-        <div style={{ marginTop: "10px" }}>
-          <ErroDoMcp erro={vigiasVivos.erro} cp={cp} />
-        </div>
-      ) : null}
-    </div>
-  );
+  // Fase 33 (33-01, 2026-09-19): o bloco virou componente próprio
+  // (`SecaoVigias.jsx`) — comportamento idêntico, zero funcionalidade nova
+  // (D-03 do 33-CONTEXT.md). `listaDeVigias`/`temEstadoDosVigias`/
+  // `tickersEmCarteira` continuam DERIVADOS aqui (a régua de ordenação é do
+  // backend) e descem por prop.
 
   // ------------------------ Fase 27 (27-05): A LEITURA DO SERVIÇO, SOB CLIQUE --
   //
@@ -812,8 +754,20 @@ export default function OpcoesScreen({ ctx }) {
       {blocoCuradoria}
       {/* Fase 27 (D4: "vigias antes da carteira"). SEMPRE renderizado, com ou
           sem ativo escolhido — é o que faz a aba abrir com conteúdo em vez de
-          abrir vazia, e de graça. */}
-      {blocoVigias}
+          abrir vazia, e de graça.
+          Fase 33 (33-01, 2026-09-19): o bloco virou componente próprio. */}
+      <SecaoVigias
+        vigias={vigias}
+        vigiasVivos={vigiasVivos}
+        atualizarVigias={atualizarVigias}
+        listaDeVigias={listaDeVigias}
+        temEstado={temEstadoDosVigias}
+        tickersEmCarteira={tickersEmCarteira}
+        ticker={ticker}
+        onIr={irParaVigia}
+        custos={CUSTO_DA_ACAO}
+        cp={cp}
+      />
       {carteira.length > 0 ? seletor : null}
       {/* Fase 27 (D4): o lastro livre no cartão, ANTES da tentativa. Hoje este
           número só aparece na mensagem de recusa do backend ("Lastro
@@ -1545,66 +1499,9 @@ function SubAbaOperar({ carteira, ticker, posicaoSelecionada, tecnico, cp, ctx, 
   );
 }
 
-// ---------------------------------------------------------------- F3 --
-// As quatro peças que as seções novas repetem. Todas declaradas DEPOIS do
-// componente, pela mesma razão do `CODIGOS_ACIONAVEIS` abaixo: o guardião lê
-// a ORDEM das primeiras ocorrências no fonte (carregando → erro → vazio →
-// dados), e um literal `mcp_nao_configurado` acima do componente inverteria
-// essa ordem sem que nada tivesse mudado na tela. Declaração de função é
-// içada, então a ordem física não muda a execução.
-
-// A mesma cascata de códigos da cadeia de estados principal, para os quatro
-// trios sob demanda. Não substitui a de cima: aquela é o texto que o guardião
-// lê na posição em que ele exige lê-la.
-function ErroDoMcp({ erro, cp }) {
-  if (!erro) return null;
-  const c = cp || {};
-  if (erro.code === "mcp_nao_configurado") {
-    return <Aviso>{c.opcoesNaoConfigurado || "Serviço de opções não configurado."}</Aviso>;
-  }
-  if (erro.code === "mcp_cota" || erro.code === "mcp_teto_servico") {
-    return (
-      <Aviso>
-        {(c.opcoesCota || ((r) => "Cota esgotada." + (r ? " Reinicia às " + r + "." : "")))(
-          erro.detail && erro.detail.reinicia)}
-      </Aviso>
-    );
-  }
-  if (erro.code === "mcp_indisponivel") {
-    return <Aviso>{c.opcoesIndisponivel || "Serviço de opções sem resposta agora."}</Aviso>;
-  }
-  // Inclui `mcp_erro_de_tool` e os 422 de pedido torto: a mensagem já vem
-  // pronta e multi-linha do `enrichErrorMessage`, e vai crua (React escapa).
-  return (
-    <>
-      <Aviso tom="forte">{erro.message}</Aviso>
-      <RecusaCobrada erro={erro} cp={cp} />
-    </>
-  );
-}
-
-// 24-07 (achado F-04). A recusa da tool passou a DEBITAR uma chamada do cap:
-// a viagem aconteceu e o serviço já a cobrou do teto compartilhado. Cobrar
-// sem dizer que cobrou é a metade do defeito que a pessoa enxerga — a cota
-// dela cai e a tela mostra só "o serviço recusou".
-//
-// As DUAS condições são necessárias, e nenhuma delas é zelo: os 422 de pedido
-// torto (`kind_invalido`, `lote_invalido`, `ticker_ausente`) são recusa ANTES
-// da rede e não custam chamada nenhuma. Afirmar cobrança neles seria inventar
-// um débito — o mesmo erro do F-04, invertido e agora na tela.
-function RecusaCobrada({ erro, cp }) {
-  if (!erro || erro.code !== "mcp_erro_de_tool") return null;
-  const d = (erro.detail && typeof erro.detail === "object") ? erro.detail : {};
-  if (d.cobrado !== true) return null;
-  // Discreta de propósito: é informação de contabilidade, não alarme. Quem
-  // precisa agir sobre a recusa lê a mensagem do serviço, acima.
-  return (
-    <div style={{ marginTop: "6px", fontSize: "11.5px", color: T.textMuted, lineHeight: 1.5 }}>
-      {(cp || {}).opcoesRecusaCobrada
-        || "Esta tentativa consumiu uma chamada da sua cota do dia."}
-    </div>
-  );
-}
+// Fase 33 (33-01, 2026-09-19): `ErroDoMcp`/`RecusaCobrada` migraram para
+// `uiOpcoes.jsx` (import no topo do arquivo) — uma implementação só,
+// reusada por esta tela e pelas seções job-to-be-done novas.
 
 // Fase 27 (27-02) — o LASTRO LIVRE do ativo escolhido.
 //
@@ -1792,80 +1689,8 @@ function LeituraInterna({ tecnico, cp }) {
   );
 }
 
-// Fase 27 (27-02) — um cartão do bloco "Seus vigias".
-//
-// O nome exibido é SEMPRE o nome que a pessoa escreveu (`nome` no índice de
-// custo zero, `name` na listagem do dia). O `nomeNoServico` — que carrega os 8
-// hexadecimais do hash da conta — NUNCA chega à tela: ele é endereço no
-// armazém compartilhado do serviço, não rótulo. Exibi-lo é exatamente o dano
-// que a injeção nº 4 do 27-01 mediu ("o hash vira o nome que a pessoa lê").
-//
-// O cartão é um `<button>` de verdade, e não uma `div` com `onClick`: ele
-// navega, e navegação precisa de foco, de Enter e de alvo de toque.
-function CartaoDeVigia({ vigia, temEstado, selecionado, naCarteira, onIr, cp }) {
-  const v = vigia || {};
-  const c = cp || {};
-  const nome = txt(v.nome || v.name);
-  const alvo = txt(v.ticker);
-
-  // Três estados, e a diferença entre eles é O QUE FOI MEDIDO:
-  //  (a) o serviço não conhece mais este vigia → motivo do backend, VERBATIM.
-  //      Sumir do armazém é FATO a mostrar, não item a esconder;
-  //  (b) o estado do dia foi pedido → `armed`/`streak` como o serviço mediu;
-  //  (c) só o índice respondeu → travessão COM motivo. Nunca leitura negativa:
-  //      ausência de medição não é medição de ausência — a mesma simetria que
-  //      este arquivo já aplica aos setups do ticker.
-  const estado = v.motivo ? (
-    <span style={{ display: "block", fontSize: "12.5px", color: T.textSecondary, marginTop: "6px", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
-      {v.motivo}
-    </span>
-  ) : temEstado ? (
-    <span style={{ display: "block", fontSize: "12.5px", color: T.textSecondary, marginTop: "6px" }}>
-      {"armado: " + (v.armed === true ? "sim" : v.armed === false ? "não" : "—")}
-      {" · sequência: " + (ehNum(v.streak) ? v.streak : "—")
-        + "/" + (ehNum(v.required_streak) ? v.required_streak : "—")}
-    </span>
-  ) : (
-    <span style={{ display: "block", fontSize: "12.5px", color: T.textMuted, marginTop: "6px", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
-      {c.opcoesVigiasSemEstado || "—"}
-    </span>
-  );
-
-  return (
-    <button
-      onClick={() => { if (onIr) onIr(v.ticker); }}
-      aria-pressed={!!selecionado}
-      aria-label={"Abrir " + alvo + " — vigia " + nome}
-      style={{
-        display: "block", width: "100%", textAlign: "left", minHeight: "44px",
-        border: `1px solid ${selecionado ? T.accent : T.borderSubtle}`,
-        borderRadius: "12px", padding: "12px 14px",
-        background: selecionado ? T.accentTint10 : T.bgPanel,
-      }}
-    >
-      <span style={{ display: "flex", justifyContent: "space-between", gap: "10px", alignItems: "baseline" }}>
-        <span style={{ fontSize: "14px", fontWeight: 700, color: selecionado ? T.accent : T.textPrimary }}>{nome}</span>
-        <span style={{ fontSize: "12px", fontWeight: 700, color: T.textMuted }}>{alvo}</span>
-      </span>
-      {estado}
-      {/* Vigia de ativo que saiu da carteira NÃO some: ele existe e continua
-          sendo avaliado pelo serviço. Escondê-lo repetiria o defeito desta
-          fase — o vigia invisível que parece nunca ter sido gravado. */}
-      {naCarteira ? null : (
-        <span style={{ display: "block", fontSize: "11.5px", color: T.textMuted, marginTop: "6px", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
-          {c.opcoesVigiaForaDaCarteira || ""}
-        </span>
-      )}
-      {/* Data do índice. Sem data, o motivo do backend — nunca a data de hoje
-          no lugar (princípio 4 do CLAUDE.md). */}
-      {v.criadoEm || v.motivoCriadoEm ? (
-        <span style={{ display: "block", fontSize: "11px", color: T.textFaint, marginTop: "6px" }}>
-          {v.criadoEm ? "criado em " + v.criadoEm : v.motivoCriadoEm}
-        </span>
-      ) : null}
-    </button>
-  );
-}
+// Fase 33 (33-01, 2026-09-19): `CartaoDeVigia` migrou para dentro de
+// `SecaoVigias.jsx` — uso exclusivo dele, nenhum outro consumidor no app.
 
 // Pernas da estrutura. `side` e os números vêm do serviço; nada é recalculado
 // — inclusive a quantidade, que é do contrato e não do lote.

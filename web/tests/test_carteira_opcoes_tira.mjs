@@ -169,9 +169,12 @@ ok("(Fase 32/32-03) <OportunidadesOpcoes aparece exatamente 1x no fonte de Opcoe
   (telaOpcoesSemComentario.match(/<OportunidadesOpcoes/g) || []).length === 1);
 ok("(Fase 32/32-03) <OportunidadesOpcoes aparece 0x em App.jsx (call site saiu de CarteiraScreen)",
   (fonteSemComentario.match(/<OportunidadesOpcoes/g) || []).length === 0);
+// 2026-09-19, Fase 33 (33-01): `{blocoVigias}` virou `<SecaoVigias` (o
+// bloco migrou para componente próprio, D-01 do 33-CONTEXT.md) — o marcador
+// muda de forma, a relação de ordem que este guardião prova é a mesma.
 const iUsoOOTela = telaOpcoesSemComentario.indexOf("{blocoOportunidades}");
-const iUsoVigiasTela = telaOpcoesSemComentario.indexOf("{blocoVigias}");
-ok("(Fase 32/32-03) {blocoOportunidades} é usado antes de {blocoVigias} em OpcoesScreen.jsx",
+const iUsoVigiasTela = telaOpcoesSemComentario.indexOf("<SecaoVigias");
+ok("(Fase 32/32-03) {blocoOportunidades} é usado antes de <SecaoVigias em OpcoesScreen.jsx",
   iUsoOOTela > -1 && iUsoVigiasTela > iUsoOOTela);
 ok("(Fase 32/32-03) App.jsx contém <LinhaChamadaOpcoes exatamente 1x (D-01: substitui os dois blocos em Posições)",
   (fonteSemComentario.match(/<LinhaChamadaOpcoes/g) || []).length === 1);

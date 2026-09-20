@@ -52,29 +52,36 @@ const semComentario = (s) => s
 
 const tela = semComentario(ler("OpcoesScreen.jsx"));
 const hook = semComentario(ler("useOpcoesMcp.js"));
+// 2026-09-19, Fase 33 (33-01): o bloco "SEUS VIGIAS" virou componente próprio
+// (`SecaoVigias.jsx`) — o marcador migrou de ARQUIVO, não regrediu (Pitfall 3
+// do 33-RESEARCH/PITFALLS.md). A existência/incondicionalidade do bloco em si
+// passa a ser medida na FONTE NOVA; a ORDEM de montagem (D4 da Fase 27:
+// "vigias antes da carteira") continua medida em OpcoesScreen.jsx, que é onde
+// as duas tags (`<SecaoVigias`/o seletor) são de fato renderizadas lado a
+// lado.
+const telaVigias = semComentario(ler("SecaoVigias.jsx"));
 
 let fails = 0;
 const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if (!cond) fails++; };
 
 // ---- 1) o bloco existe e vem ANTES do seletor de ativos (D4) ---------------
-const iBloco = tela.indexOf("cp.opcoesVigiasTitulo");
-// Âncora no `const seletor = (`, e não em `carteira.map(` — a derivação dos
-// tickers em carteira (usada pelo próprio bloco de vigias, para saber quais
-// deles ainda têm lastro) também mapeia `carteira`, e casar nela compararia o
-// bloco consigo mesmo.
-const iSeletorFonte = tela.indexOf("const seletor = (");
-ok("o bloco de vigias existe na tela", iBloco >= 0);
-ok("o seletor de ativos existe na tela", iSeletorFonte >= 0);
-ok("o bloco de vigias é montado ANTES do seletor de ativos (vigias antes da carteira)",
-   iBloco >= 0 && iSeletorFonte > iBloco);
-const iRenderBloco = tela.indexOf("{blocoVigias}");
+const iBloco = telaVigias.indexOf("c.opcoesVigiasTitulo");
+ok("o bloco de vigias existe em SecaoVigias.jsx", iBloco >= 0);
+
+const iRenderBloco = tela.indexOf("<SecaoVigias");
 const iRenderSeletor = tela.indexOf("carteira.length > 0 ? seletor");
-ok("o bloco de vigias é RENDERIZADO antes do seletor",
-   iRenderBloco >= 0 && iRenderSeletor > iRenderBloco);
-// Sem `ticker` no caminho: o bloco existe fora de qualquer ativo — é essa
-// independência que corrige o defeito 2 do 27-CONTEXT.
+ok("<SecaoVigias é renderizado em OpcoesScreen.jsx", iRenderBloco >= 0);
+ok("o marcador do seletor existe em OpcoesScreen.jsx", iRenderSeletor >= 0);
+ok("o bloco de vigias é RENDERIZADO antes do seletor (D4: vigias antes da carteira)",
+   iRenderBloco >= 0 && iRenderSeletor >= 0 && iRenderSeletor > iRenderBloco);
+// Sem `ticker` no caminho: o componente é montado incondicionalmente, fora de
+// qualquer ativo — é essa independência que corrige o defeito 2 do
+// 27-CONTEXT. O `-1` silencioso é o modo como este guardião ficaria inerte
+// se `<SecaoVigias` não existisse: por isso a checagem `>= 0` roda ANTES de
+// qualquer fatiamento, acima.
+const antesDoRender = iRenderBloco >= 0 ? tela.slice(Math.max(0, iRenderBloco - 40), iRenderBloco) : "";
 ok("o bloco é renderizado sem depender de haver ticker escolhido",
-   /\n\s*\{blocoVigias\}\n/.test(tela));
+   iRenderBloco >= 0 && !/[?&]\s*$/.test(antesDoRender));
 
 // ---- 2) custo zero ao abrir; custo 2 só no clique --------------------------
 const efeitos = hook.split("useEffect(").slice(1).map((t) => t.split("}, [")[0]);
@@ -93,13 +100,20 @@ ok("o hook exporta os dois trios e a ação de atualizar",
    /vigias, vigiasVivos, atualizarVigias, recarregarVigias,/.test(hook));
 
 // ---- 3) o botão declara o custo NO PRÓPRIO CONTROLE -------------------------
-const iBotao = tela.indexOf("onClick={atualizarVigias}");
+// 2026-09-19, Fase 33 (33-01): o botão fatiado agora vem de SecaoVigias.jsx.
+// A garantia de fonte única do custo (nunca um literal) passa a exigir TRÊS
+// pontas, não mais uma: a tabela `CUSTO_DA_ACAO` permanece em
+// OpcoesScreen.jsx (FICOU lá por decisão do plano, guardiões ancoram nela);
+// ela desce por prop (`custos={CUSTO_DA_ACAO}`) para `<SecaoVigias`; e o
+// botão, dentro do componente novo, lê `custos.listarVigias` — nunca
+// `CUSTO_DA_ACAO` reimportado nem um `2` digitado ali dentro.
+const iBotao = telaVigias.indexOf("onClick={atualizarVigias}");
 ok("existe o botão que dispara a atualização", iBotao >= 0);
-const botao = iBotao >= 0 ? tela.slice(iBotao, tela.indexOf("</button>", iBotao)) : "";
-ok("o rótulo do botão vem do copy (cp.opcoesVigiasAtualizar)",
-   /cp\.opcoesVigiasAtualizar/.test(botao));
-ok("o custo é declarado DENTRO do botão, reusando cp.opcoesCustoChamadas",
-   /cp\.opcoesCustoChamadas/.test(botao));
+const botao = iBotao >= 0 ? telaVigias.slice(iBotao, telaVigias.indexOf("</button>", iBotao)) : "";
+ok("o rótulo do botão vem do copy (c.opcoesVigiasAtualizar)",
+   /c\.opcoesVigiasAtualizar/.test(botao));
+ok("o custo é declarado DENTRO do botão, reusando c.opcoesCustoChamadas",
+   /c\.opcoesCustoChamadas/.test(botao));
 // 2026-09-13 (Fase 27, plano 27-05) — a constante solta `CUSTO_LISTAR_VIGIAS`
 // virou uma entrada da tabela `CUSTO_DA_ACAO`, que passou a declarar o custo
 // de TODOS os controles da aba. O valor não mudou (2, espelho do
@@ -108,18 +122,24 @@ ok("o custo é declarado DENTRO do botão, reusando cp.opcoesCustoChamadas",
 // a mesma grandeza divergiriam na primeira manutenção feita só numa delas.
 //
 // A asserção NÃO foi afrouxada: ela continua exigindo o número literal no
-// fonte e continua exigindo que o botão leia a constante, não um `2` digitado.
-// O cruzamento com o backend (que esta aqui nunca fez) passou a existir em
-// `test_opcoes_custo_declarado.mjs`, que lê os `_cap_check` do fonte Python.
-ok("o custo é a constante nomeada, espelho do _cap_check(uid, 2) do backend",
-   /const CUSTO_DA_ACAO = \{[\s\S]*?listarVigias: 2,/.test(tela)
-   && /CUSTO_DA_ACAO\.listarVigias/.test(botao));
+// fonte e continua exigindo que o componente NUNCA reimporte a constante
+// (só receba o valor já resolvido por prop). O cruzamento com o backend (que
+// esta aqui nunca fez) passou a existir em `test_opcoes_custo_declarado.mjs`,
+// que lê os `_cap_check` do fonte Python.
+ok("a tabela de custo permanece em OpcoesScreen.jsx, número inalterado",
+   /const CUSTO_DA_ACAO = \{[\s\S]*?listarVigias: 2,/.test(tela));
+ok("a tabela desce por prop para <SecaoVigias — nunca reimportada no componente",
+   /custos=\{CUSTO_DA_ACAO\}/.test(tela) && !/CUSTO_DA_ACAO/.test(telaVigias));
+ok("o custo é lido pela PROP custos.listarVigias, nunca um literal",
+   /custos\.listarVigias/.test(botao));
 ok("o botão tem alvo de toque de 44 px (reusa BOTAO)", /\.\.\.BOTAO/.test(botao));
 
 // ---- 4) o nome exibido é o da PESSOA, nunca o do armazém -------------------
-const iCartao = tela.indexOf("function CartaoDeVigia");
+// 2026-09-19, Fase 33 (33-01): `CartaoDeVigia` migrou para dentro de
+// SecaoVigias.jsx (uso exclusivo dele) — fatiado da fonte nova.
+const iCartao = telaVigias.indexOf("function CartaoDeVigia");
 ok("existe componente próprio para o cartão do vigia", iCartao >= 0);
-const cartao = iCartao >= 0 ? tela.slice(iCartao, tela.indexOf("\n}", iCartao) + 2) : "";
+const cartao = iCartao >= 0 ? telaVigias.slice(iCartao, telaVigias.indexOf("\n}", iCartao) + 2) : "";
 ok("o cartão lê o nome do usuário (nome no índice, name na listagem do dia)",
    /v\.nome \|\| v\.name/.test(cartao));
 ok("o cartão NÃO toca em nomeNoServico (é endereço no armazém, não rótulo)",
@@ -165,8 +185,11 @@ ok("o custo também é falado em voz alta (o aria-label substitui o texto do bot
 // ---- 5) sem medição não há veredito ----------------------------------------
 ok("o estado ausente usa cp.opcoesVigiasSemEstado (travessão COM motivo)",
    /cp\.opcoesVigiasSemEstado|c\.opcoesVigiasSemEstado/.test(cartao));
-ok("o fonte da tela não carrega a string \"não armado\" como default do bloco",
-   !/não armado/i.test(tela));
+// 2026-09-19, Fase 33 (33-01): a garantia passa a valer nos DOIS arquivos —
+// o bloco migrou de OpcoesScreen.jsx para SecaoVigias.jsx, e "não armado"
+// não pode ressurgir em nenhum dos dois.
+ok("nem OpcoesScreen.jsx nem SecaoVigias.jsx carregam \"não armado\" como default do bloco",
+   !/não armado/i.test(tela) && !/não armado/i.test(telaVigias));
 ok("armed/streak só aparecem sob o estado MEDIDO (ramo temEstado)",
    /temEstado \?/.test(cartao) && /v\.armed === true/.test(cartao));
 ok("o motivo do backend (vigia sumido do armazém) vai VERBATIM",

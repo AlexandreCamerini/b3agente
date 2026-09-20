@@ -12,7 +12,8 @@
 // 32-03-PLAN.md, por leitura estática de source (sem build, sem DOM):
 //
 //  1. ordem no ramo `setups`: fraseDuasLeituras < blocoOportunidades <
-//     blocoCuradoria < blocoVigias;
+//     blocoCuradoria < <SecaoVigias (Fase 33/33-01: o marcador migrou de
+//     const para tag JSX — o bloco virou componente próprio);
 //  2. a frase-ponte (D-05) é incondicional — nunca colapsável;
 //  3. App.jsx não contém <OportunidadesOpcoes nem <CuradoriaEstruturas;
 //  4. App.jsx contém <LinhaChamadaOpcoes exatamente 1x (D-01);
@@ -75,13 +76,17 @@ let fails = 0;
 const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if (!cond) fails++; };
 
 // ---- (1) ordem no ramo setups ---------------------------------------------
+// 2026-09-19, Fase 33 (33-01): `{blocoVigias}` virou `<SecaoVigias` — o
+// bloco migrou para componente próprio (D-01 do 33-CONTEXT.md). O marcador
+// muda de forma (const → tag JSX); a relação de ORDEM que este guardião
+// prova é a mesma.
 const iFrase = telaSC.indexOf("{fraseDuasLeituras}");
 const iBlocoA = telaSC.indexOf("{blocoOportunidades}");
 const iBlocoB = telaSC.indexOf("{blocoCuradoria}");
-const iVigias = telaSC.indexOf("{blocoVigias}");
+const iVigias = telaSC.indexOf("<SecaoVigias");
 ok("os 4 marcadores foram localizados em OpcoesScreen.jsx",
   iFrase > -1 && iBlocoA > -1 && iBlocoB > -1 && iVigias > -1);
-ok("ordem: {fraseDuasLeituras} < {blocoOportunidades} < {blocoCuradoria} < {blocoVigias}",
+ok("ordem: {fraseDuasLeituras} < {blocoOportunidades} < {blocoCuradoria} < <SecaoVigias",
   iFrase < iBlocoA && iBlocoA < iBlocoB && iBlocoB < iVigias);
 
 // ---- (2) frase-ponte incondicional (D-05) ---------------------------------

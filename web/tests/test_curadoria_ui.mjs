@@ -310,14 +310,17 @@ const iTagOO = telaOpcoesSemComentario.indexOf("<OportunidadesOpcoes");
 ok("(Fase 32/32-03) <CuradoriaEstruturas aparece depois de <OportunidadesOpcoes (irmão, nesta ordem) em OpcoesScreen.jsx",
   iTagCur > iTagOO && iTagOO > -1);
 // A ordem exigida é a de MONTAGEM na árvore ({blocoOportunidades} antes de
-// {blocoCuradoria}, ambos antes de {blocoVigias}, dentro do ramo
+// {blocoCuradoria}, ambos antes de <SecaoVigias, dentro do ramo
 // subaba === "setups") — não mais "dentro do mesmo bloco
 // data.positions.length > 0", que era a guarda de CarteiraScreen e não
 // existe mais neste destino.
+// 2026-09-19, Fase 33 (33-01): `{blocoVigias}` virou `<SecaoVigias` (o
+// bloco migrou para componente próprio, D-01 do 33-CONTEXT.md) —
+// `{blocoOportunidades}`/`{blocoCuradoria}` ficam como estão, migram no 33-02.
 const iUsoBlocoOO = telaOpcoesSemComentario.indexOf("{blocoOportunidades}");
 const iUsoBlocoCur = telaOpcoesSemComentario.indexOf("{blocoCuradoria}");
-const iUsoBlocoVigias = telaOpcoesSemComentario.indexOf("{blocoVigias}");
-ok("(Fase 32/32-03) {blocoCuradoria} é usado depois de {blocoOportunidades} e antes de {blocoVigias} em OpcoesScreen.jsx",
+const iUsoBlocoVigias = telaOpcoesSemComentario.indexOf("<SecaoVigias");
+ok("(Fase 32/32-03) {blocoCuradoria} é usado depois de {blocoOportunidades} e antes de <SecaoVigias em OpcoesScreen.jsx",
   iUsoBlocoOO > -1 && iUsoBlocoCur > iUsoBlocoOO && iUsoBlocoVigias > iUsoBlocoCur);
 
 // ---- (7) Best-effort: toda chamada de rede do hook tem .catch( -----------

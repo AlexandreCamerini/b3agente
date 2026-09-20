@@ -188,7 +188,10 @@ ok("o alternador usa `aria-pressed`", /aria-pressed=/.test(blocoSubabas));
 ok("o alternador usa `minHeight: \"44px\"` (alvo tátil mínimo)", /minHeight:\s*"44px"/.test(blocoSubabas));
 
 // ---- 11) nada da Fase 27 desapareceu -----------------------------------------
-for (const nome of ["cabecalho", "blocoVigias", "seletor", "LastroDoAtivo", "LeituraInterna", "blocoLeituraDoServico"]) {
+// 2026-09-19, Fase 33 (33-01): `blocoVigias` virou `<SecaoVigias` (o bloco
+// migrou para componente próprio, nomenclatura de tag em vez de const) — os
+// outros cinco NÃO se movem nesta fase, continuam const/nome idêntico.
+for (const nome of ["cabecalho", "<SecaoVigias", "seletor", "LastroDoAtivo", "LeituraInterna", "blocoLeituraDoServico"]) {
   ok(`\`${nome}\` continua referenciado em OpcoesScreen.jsx`, tela.includes(nome));
 }
 

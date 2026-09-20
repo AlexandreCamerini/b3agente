@@ -48,8 +48,16 @@ const semComentario = (s) => s
 
 const telaBruta = ler(join(dirOpcoes, "OpcoesScreen.jsx"));
 const criarBruto = ler(join(dirOpcoes, "CriarSetup.jsx"));
+// 2026-09-19, Fase 33 (33-01): o botão de `listarVigias` migrou para
+// SecaoVigias.jsx (D-01 do 33-CONTEXT.md) — este arquivo entrou no CENSO
+// tardiamente (achado ao rodar a suíte canônica, não pelo grep de palavras-
+// chave do plano: ele não cita `atualizarVigias`/`blocoVigias`/etc, só
+// `listarVigias`). Entra na leitura para que a seção 8 continue vendo a
+// declaração do custo, agora vinda da PROP `custos.listarVigias`.
+const vigiasBruto = ler(join(dirOpcoes, "SecaoVigias.jsx"));
 const tela = semComentario(telaBruta);
 const criar = semComentario(criarBruto);
+const vigias = semComentario(vigiasBruto);
 const hook = semComentario(ler(join(dirOpcoes, "useOpcoesMcp.js")));
 const py = ler(join(here, "..", "..", "server", "app", "options_mcp_api.py"));
 
@@ -196,13 +204,19 @@ ok("mcpPossibilidades continua FORA da tabela (o custo dela não é constante)",
 // Forma canônica ÚNICA: `opcoesCustoChamadas(...)`. Duas maneiras de dizer a
 // mesma coisa divergem na primeira manutenção feita só numa delas — por isso a
 // busca é pela função, e não por "algum texto com o número".
-const linhasDeCusto = [...tela.split("\n"), ...criar.split("\n")]
+const linhasDeCusto = [...tela.split("\n"), ...criar.split("\n"), ...vigias.split("\n")]
   .filter((l) => l.includes("opcoesCustoChamadas"));
 ok("sanidade: há declarações de custo suficientes para cobrir os controles",
    linhasDeCusto.length >= Object.keys(ACOES).length,
    `achou ${linhasDeCusto.length} linha(s)`);
+// 2026-09-19, Fase 33 (33-01): terceira forma de "declara", `custos.<chave>` —
+// o valor chega por PROP em vez da constante importada diretamente
+// (SecaoVigias.jsx nunca importa CUSTO_DA_ACAO, REORG-03). A garantia não
+// afrouxa: continua exigindo que ALGUMA das três formas aponte para a mesma
+// chave nomeada, nunca um número solto.
 const declara = (chave) => linhasDeCusto.some((l) =>
-  l.includes("CUSTO_DA_ACAO." + chave) || l.includes('"' + chave + '"'));
+  l.includes("CUSTO_DA_ACAO." + chave) || l.includes('"' + chave + '"')
+  || l.includes("custos." + chave));
 for (const chave of Object.keys(CUSTO_DA_ACAO)) {
   ok(`o controle de ${chave} declara o custo com cp.opcoesCustoChamadas`,
      declara(chave));

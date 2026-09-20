@@ -41,18 +41,17 @@ const here = dirname(fileURLToPath(import.meta.url));
 const dirOpcoes = join(here, "..", "src", "opcoes");
 const ler = (p) => readFileSync(p, "utf8");
 
-// ATUALIZADO 2026-09-15, Fase 32 (32-02): os três componentes cross-posição
-// extraídos de App.jsx (OportunidadesOpcoes/CuradoriaEstruturas/
-// CandidatoOpcao, ADR-027 Emenda 3) entram na allowlist — sem isso, os
-// guardiões de "nenhum arquivo de web/src/opcoes/ multiplica por lote"/"não
-// mistura emReais e breakeven"/"sem promessa de resultado" (seções 2/3/8
-// abaixo) ficariam inertes para os três módulos novos.
-// ATUALIZADO 2026-09-16, quick 260916-g6p: `PropostaLastreada.jsx` (Fase 28)
-// entra na allowlist — era a cópia original do helper `porLote`/CTA de
-// collar e nunca tinha estado aqui, por isso nunca foi flagrada pela seção
-// 10 abaixo. A correção do `|| 0` nas três cópias (Task 1 desta quick)
-// torna a inclusão segura.
-const ARQUIVOS = ["OpcoesScreen.jsx", "useOpcoesMcp.js", "SetupChart.jsx", "PayoffChart.jsx", "OportunidadesOpcoes.jsx", "CuradoriaEstruturas.jsx", "CandidatoOpcao.jsx", "PropostaLastreada.jsx"];
+// ATUALIZADO 2026-09-19, Fase 33 (33-01): a allowlist `ARQUIVOS` deixa de ser
+// lista fixa — varredura de DIRETÓRIO inteiro, mesmo padrão já usado em
+// `test_opcoes_subabas_ui.mjs:100-116` e na seção 534-537 mais abaixo NESTE
+// MESMO arquivo (a extrapolação é mudança de grau, não de espécie, aqui).
+// Lista fixa deixaria os componentes novos das fases 33-02..33-05
+// (`SecaoDescobrir`/`SecaoSetups`/`SecaoComparar`/`SecaoAnalisar`, além do
+// `SecaoVigias`/`uiOpcoes.jsx` desta fase) fora das regras de lote/
+// breakeven/razão/`|| 0` — exatamente a lacuna que a truth do 33-CONTEXT.md
+// nomeia. Medido no planejamento: a varredura do diretório inteiro passa
+// hoje sem nenhum hit novo, então a mudança não afrouxa nem reprova em falso.
+const ARQUIVOS = readdirSync(dirOpcoes).filter((f) => /\.(js|jsx)$/.test(f));
 const brutos = Object.fromEntries(ARQUIVOS.map((f) => [f, ler(join(dirOpcoes, f))]));
 // Sem comentários: eles citam os mesmos termos ao EXPLICAR as decisões
 // ("não se multiplica pelo lote"), e contá-los faria o guardião se
@@ -69,9 +68,17 @@ const persistencia = semComentario(ler(join(here, "..", "src", "persistence.js")
 const tela = fontes["OpcoesScreen.jsx"];
 const hook = fontes["useOpcoesMcp.js"];
 const payoff = fontes["PayoffChart.jsx"];
+const uiOpcoesFonte = fontes["uiOpcoes.jsx"] || "";
 
 let fails = 0;
 const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if (!cond) fails++; };
+
+// Sanidade da varredura por diretório (D-02): um `readdirSync` que retornasse
+// vazio ou apontasse para o lugar errado faria toda regra de lote/breakeven/
+// razão/`|| 0` abaixo passar por vacuidade — nenhum arquivo, nenhuma
+// reprovação possível.
+ok("achou pelo menos 14 arquivos em web/src/opcoes/ (sanidade da varredura por diretório)",
+   ARQUIVOS.length >= 14);
 
 // ---- 1) PayoffChart existe, sem ciclo, com tokens locais e os dois ilimitados
 ok("PayoffChart.jsx existe", existsSync(join(dirOpcoes, "PayoffChart.jsx")));
@@ -163,7 +170,13 @@ for (const [secao, ini, fim, trio, vazio, dados] of [
 }
 // A cascata reusada pelas seções cobre os MESMOS quatro códigos do ADR-027
 // que a cadeia de estados principal cobre.
-const erroDoMcp = tela.slice(tela.indexOf("function ErroDoMcp"));
+// 2026-09-19, Fase 33 (33-01): `ErroDoMcp` migrou de OpcoesScreen.jsx para
+// `uiOpcoes.jsx` — a fatia passa a ler a fonte NOVA. O `-1` silencioso é o
+// modo como este guardião ficaria inerte se a função não existisse mais em
+// lugar nenhum; por isso a checagem `>= 0` roda ANTES do fatiamento.
+const iErroDoMcp = uiOpcoesFonte.indexOf("function ErroDoMcp");
+ok("function ErroDoMcp existe em uiOpcoes.jsx (migrou de arquivo nesta fase)", iErroDoMcp >= 0);
+const erroDoMcp = iErroDoMcp >= 0 ? uiOpcoesFonte.slice(iErroDoMcp) : "";
 for (const code of ["mcp_nao_configurado", "mcp_cota", "mcp_teto_servico", "mcp_indisponivel"]) {
   ok(`ErroDoMcp trata ${code}`, erroDoMcp.includes(code));
 }
@@ -460,21 +473,27 @@ for (const modo of ["estudo", "operador"]) {
 // cota dela cai e a tela mostra só "o serviço recusou". A frase é do FRONT
 // porque é sobre a cota DELA, não sobre o pedido — e por isso tem voz por
 // modo, como todo o resto do `copy.js`.
+// 2026-09-19, Fase 33 (33-01): `RecusaCobrada` migrou de OpcoesScreen.jsx
+// para `uiOpcoes.jsx`. A definição passa a ser exigida na fonte NOVA.
 ok("existe componente próprio para a linha da recusa cobrada",
-   /function RecusaCobrada/.test(tela));
+   /function RecusaCobrada/.test(uiOpcoesFonte));
 // A linha só pode aparecer com o campo do backend. Sem ele, a tela não
 // afirma nada sobre cota: uma linha incondicional mentiria em todo 422 de
 // pedido torto (`kind_invalido`, `lote_invalido`), que é recusa ANTES da rede
 // e não custa chamada nenhuma.
 ok("a linha é condicionada ao `cobrado` do detail E ao código do erro",
-   /erro\.code !== "mcp_erro_de_tool"/.test(tela)
-   && /cobrado !== true/.test(tela));
-const iRecusa1 = tela.indexOf("<RecusaCobrada");
-const iRecusa2 = tela.indexOf("<RecusaCobrada", iRecusa1 + 1);
-ok("a linha aparece nos DOIS ramos de erro (cascata principal e ErroDoMcp)",
-   iRecusa1 >= 0 && iRecusa2 > iRecusa1);
+   /erro\.code !== "mcp_erro_de_tool"/.test(uiOpcoesFonte)
+   && /cobrado !== true/.test(uiOpcoesFonte));
+// A garantia "aparece nos DOIS ramos de erro" sobrevive à migração: 1 uso na
+// cascata principal (que continua em OpcoesScreen.jsx, importando o
+// componente) + 1 uso DENTRO da própria definição de ErroDoMcp (agora em
+// uiOpcoes.jsx) — a soma continua 2, e continua provando as duas portas.
+const iRecusaTela = tela.indexOf("<RecusaCobrada");
+const iRecusaUi = uiOpcoesFonte.indexOf("<RecusaCobrada");
+ok("a linha aparece nos DOIS ramos de erro (1 na cascata principal de OpcoesScreen.jsx + 1 dentro de ErroDoMcp em uiOpcoes.jsx)",
+   iRecusaTela >= 0 && iRecusaUi >= 0);
 ok("a linha é discreta (textMuted), não alarme",
-   /function RecusaCobrada[\s\S]{0,400}T\.textMuted/.test(tela));
+   /function RecusaCobrada[\s\S]{0,400}T\.textMuted/.test(uiOpcoesFonte));
 for (const modo of ["estudo", "operador"]) {
   const t = COPY[modo].opcoesRecusaCobrada;
   ok(`${modo}: `+"`opcoesRecusaCobrada` existe e é texto",
