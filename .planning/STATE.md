@@ -21,11 +21,18 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-20)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Milestone v1.7 (Confiabilidade explicativa da aba Opções) — Fase 35 (Jornada Guiada do Workspace) FECHADA e publicada (F10-20260921-01). Próximo: `/gsd-discuss-phase 36` (Motor de Payoff Genérico).
+**Current focus:** Milestone v1.7 (Confiabilidade explicativa da aba Opções) — Fase 35 FECHADA e publicada (F10-20260921-01). Fase 36 (Motor de Payoff Genérico) DISCUTIDA, pronta para `/gsd-plan-phase 36`.
 
 ## Current Position
 
-Phase: 35 (Jornada Guiada do Workspace) — **FECHADA (3/3 ondas + checkpoint humano + publicação)**
+Phase: 36 (Motor de Payoff Genérico) — 2 of 3 fases do v1.7 — DISCUTIDA, pronta para planejar
+Plan: — (discuss-phase completo, planejamento ainda não rodou)
+Status: `/gsd-discuss-phase 36` completo nesta sessão (2026-09-21). Achado central, verificado por leitura de código + execução direta (não suposição): `server/app/opcoes_payoff.py` já é um motor genérico de N pernas em produção desde a Fase 15 (`perfil_da_estrutura()`), com 4 consumidores e 25 testes — o caso golden do Alex bate exato quando rodado direto nele, múltiplos breakevens já funcionam (testado com straddle). Isso reduziu drasticamente o escopo real da fase: **estender o módulo existente, não criar motor novo** — decisão do Alex depois de pedir e receber a comparação completa (prós/contras/custo de cada opção). Decisões travadas em `36-CONTEXT.md`: D-01 (estender), D-02 (convenção quantidade/lote preservada), D-03 (vencimento por perna + degradação explícita de calendário/diagonal), D-04 (defeito real achado nesta discussão — breakeven espúrio em S=0 quando a posição é degenerada — a corrigir junto), D-05/D-06 (domínio X/Y e segmentos estruturados novos para a Fase 37), D-07 (cobertura de teste obrigatória). `36-CONTEXT.md`/`36-DISCUSSION-LOG.md` escritos e commitados.
+Last activity: 2026-09-21 — Discuss-phase da Fase 36 completo. Próximo passo: `/gsd-plan-phase 36`.
+
+## Posição anterior nesta fase (Fase 35, fechada)
+
+Phase: 35 (Jornada Guiada do Workspace) — **FECHADA (3/3 ondas + checkpoint humano + publicação)** — histórico, superado pela entrada acima
 Plan: 35-01 ✓ | 35-02 ✓ | 35-03 ✓ (checkpoint aprovado ao vivo — 8 leituras de contraste nas 4 combinações tema×modo — publicação confirmada em produção)
 Status: `/gsd-execute-phase 35` completo nesta sessão (2026-09-21), sem worktree (`workflow.use_worktrees=false`), executor sequencial por onda. Cada executor foi instruído a NÃO tocar STATE.md/ROADMAP.md — o orquestrador edita à mão após cada onda, guardrail do repositório.
 Last activity: 2026-09-21 — `35-03` fechou a fase: (1) checkpoint humano do roteiro de 8 itens aprovado AO VIVO pelo Alex, incluindo as 8 leituras de contraste (rótulo + subtexto de custo, 4 combinações tema×modo — claro/escuro × Estudo/Operador), fechando o risco aberto de D-07; achado de ambiente registrado (não do produto): `bash scripts/executar.sh` sozinho trava neste host por `lsof`/`ps` travados — contornado subindo backend/Vite diretamente; (2) publicação: `bump.sh` → `F10-20260921-01` → `publicar-web.sh` → comentário do `SERVER_BUILD_ID` reescrito à mão (histórico da entrega anterior preservado como "HISTORICO") → suíte canônica pós-bump confirmada (2923 pytest + guardião novo verde) → push em `v2/interacao-estrutural` E `origin/main` (fast-forward confirmado, `HEAD == origin/main`) → `/api/health` confirmado servindo o carimbo novo após ~3-4min de redeploy do Railway (dois carimbos observados: `F10-20260920-01` até 17:47, `F10-20260921-01` a partir de 17:47:36). Nenhuma PR envolvida — publicação é push direto (confirmado via `gh pr list`, zero PRs abertas neste repo).
