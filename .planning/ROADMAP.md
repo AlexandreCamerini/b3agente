@@ -9,7 +9,7 @@
 - ✅ **v1.5 Redesenho de UI — simplificação e acessibilidade** — Phases 20-23 (shipped 2026-09-06) — [detalhes](milestones/v1.5-ROADMAP.md)
 - ✅ **v1.4 Opções v2** — Phases 15-19, 24-32 (shipped 2026-09-19) — [detalhes](milestones/v1.4-ROADMAP.md)
 - ✅ **v1.6 Simplificação da aba Opções** — Phases 33-34 (shipped 2026-09-20) — [detalhes](milestones/v1.6-ROADMAP.md)
-- 🚧 **v1.7 Confiabilidade explicativa da aba Opções** — Phases TBD (in progress)
+- 🚧 **v1.7 Confiabilidade explicativa da aba Opções** — Phases 35-37 (in progress)
 
 ## Phases
 
@@ -138,11 +138,23 @@ recomendação.
 (2026-09-20) — a reorganização estrutural não tocou qualidade de explicação
 por desenho (ver `PROJECT.md`, seção do milestone anterior); mapeia para
 PERS-01 (`v1.6-REQUIREMENTS.md`), descoberto na prática como dois problemas
-mais concretos.
+mais concretos: jornada do workspace sem passos visíveis, e gráfico de
+payoff (`PayoffChart.jsx`) matematicamente incorreto (screenshot de
+produção, 2026-09-20).
 
-**Phase Numbering:** continua a partir do fim do v1.6 (Phase 34) — fases
-ainda não definidas, pendente de `/gsd-roadmapper` a partir de
-`REQUIREMENTS.md` v1.7.
+- [ ] Phase 35: Jornada Guiada do Workspace (0/? plans)
+- [ ] Phase 36: Motor de Payoff Genérico (0/? plans)
+- [ ] Phase 37: Gráfico de Payoff e Explicação Confiáveis (0/? plans)
+
+**Phase Numbering:** continua a partir do fim do v1.6 (Phase 34) — Fases
+35-37 definidas por `/gsd-roadmapper` a partir de `REQUIREMENTS.md` v1.7
+(14 requirements: JORN-01..03, PAYOFF-01..03, CHART-01..05, EXPL-01..03).
+Ordem de dependência: Fase 36 (motor de payoff, puro/determinístico) precisa
+fechar antes da Fase 37 (gráfico SVG + explicação), que consome a forma de
+saída do motor. Fase 35 (jornada do workspace, toca só navegação/copy de
+`OpcoesScreen.jsx`) não depende de nenhuma das outras duas — sequenciada
+primeiro por conveniência de execução (branch única, `workflow.use_worktrees=false`),
+não por dependência técnica real.
 
 ## Progress
 
@@ -183,8 +195,90 @@ ainda não definidas, pendente de `/gsd-roadmapper` a partir de
 | 32. Consolidação das operações de opções na aba Opções | 5/5 | Complete | 2026-09-16 |
 | 33. Extração dos 5 jobs em componentes próprios | 5/5 | Complete (verified, 7/7) | 2026-09-20 |
 | 34. Navegação hub + workspace | 4/4 | Complete (verified, checkpoint humano aprovado ao vivo) | 2026-09-20 |
+| 35. Jornada Guiada do Workspace | 0/? | Not started | - |
+| 36. Motor de Payoff Genérico | 0/? | Not started | - |
+| 37. Gráfico de Payoff e Explicação Confiáveis | 0/? | Not started | - |
 
 ## Phase Details
+
+### Phase 35: Jornada Guiada do Workspace
+
+**Goal**: Usuário monta e analisa uma estrutura de opções dentro do
+workspace (pills Analisar/Comparar/Setups salvos) vendo passos claros do
+ticker escolhido até "ver possibilidades", sem se perder e sem precisar de
+explicação externa.
+**Depends on**: Nenhuma (independente de PAYOFF/CHART/EXPL — sequenciada
+primeiro por conveniência de execução, não por dependência técnica)
+**Requirements**: JORN-01, JORN-02, JORN-03
+**Success Criteria** (what must be TRUE):
+  1. Na pill Analisar, o usuário vê indicação visual de progresso/etapas do
+     ticker escolhido até "ver possibilidades" (JORN-01)
+  2. O botão "ver possibilidades" é visualmente proeminente e comunica seu
+     propósito sem exigir explicação externa (JORN-02)
+  3. As pills Comparar e Setups salvos exibem o mesmo padrão de clareza de
+     passos que Analisar — paridade de tratamento entre as 3 (JORN-03)
+  4. Em qualquer uma das 3 pills do componente `OpcoesScreen.jsx`, o usuário
+     consegue dizer em qual etapa está e o que falta para avançar
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 36: Motor de Payoff Genérico
+
+**Goal**: O motor de payoff calcula, de forma pura e determinística,
+resultado/breakevens/ganho-perda máxima/domínio X-Y para qualquer combinação
+de legs, sem lógica por nome de estratégia, cobrindo os casos-limite
+especificados — base que a Fase 37 (gráfico + explicação) consome.
+**Depends on**: Nenhuma (fase fundacional do motor; independente da Fase 35)
+**Requirements**: PAYOFF-01, PAYOFF-02, PAYOFF-03
+**Success Criteria** (what must be TRUE):
+  1. Dado um conjunto de legs (`kind`/`side`/`strike`/`premium`/`qty`/`expiry`),
+     o motor devolve resultado/breakevens/ganho-máx/perda-máx/domínio X-Y
+     corretos, sem nenhum `switch`/`case` ou dicionário de texto por nome de
+     estratégia (PAYOFF-01)
+  2. Os casos-limite documentados (perna única, venda descoberta/ratio
+     spread, travas de alta/baixa, borboleta/condor, straddle/strangle,
+     covered call/collar, box, calendário/diagonal degradando com
+     honestidade, lotes assimétricos, entrada degenerada) produzem resultado
+     correto ou recusa com mensagem clara — nunca `NaN` (PAYOFF-02)
+  3. O caso golden (trava de alta com calls, strikes 49,17/49,67, débito
+     0,25, lote 100) é teste de regressão nomeado que trava breakeven 49,42,
+     ganho/perda máx R$ 25,00, 3 segmentos, nenhum ilimitado (PAYOFF-03)
+  4. Nenhum ponto do motor decide o cálculo a partir do nome da estratégia —
+     auditável por leitura direta do módulo puro (sem chamada de IA, sem
+     dependência nova de charting de terceiros)
+**Plans**: TBD
+
+### Phase 37: Gráfico de Payoff e Explicação Confiáveis
+
+**Goal**: O componente SVG de payoff (`PayoffChart.jsx`) e o texto
+explicativo gerado a partir da curva calculada são matematicamente corretos,
+coerentes entre si e com o motor da Fase 36 — vocabulário leigo, sem jargão
+técnico banido e sem promover recomendação.
+**Depends on**: Phase 36 (consome PAYOFF-01/02/03 — segmentos, breakevens e
+domínio X-Y do motor de payoff)
+**Requirements**: CHART-01, CHART-02, CHART-03, CHART-04, CHART-05, EXPL-01,
+EXPL-02, EXPL-03
+**Success Criteria** (what must be TRUE):
+  1. O gráfico mostra a linha do zero tracejada rotulada "R$ 0", eixo
+     vertical com escala visível, todo strike/breakeven marcado e rotulado,
+     e o spot marcado "hoje {preço}" (CHART-01, CHART-02)
+  2. Segmento de risco ilimitado termina em seta aberta na borda rotulada
+     "sem teto"/"sem piso" — nunca desenha um platô falso onde o risco é
+     ilimitado (CHART-03)
+  3. O domínio X (min/max strike + margem especificada, spot sempre dentro)
+     e o domínio Y (inclui zero, +15% do extremo finito) nunca cortam um
+     platô real (CHART-04)
+  4. O valor de marcação a mercado ("hoje · valor de mercado da estrutura")
+     aparece separado e rotulado, distinto do resultado "no vencimento ·
+     {data}" — corrige a regressão confirmada em produção por screenshot
+     (CHART-05)
+  5. O texto explicativo é derivado dos segmentos da curva calculada
+     (segmento onde o spot está descrito primeiro), livre do vocabulário
+     técnico banido, e a razão G/P impressa no texto é o mesmo número
+     exibido em tela — corrige a regressão confirmada em produção
+     ("1:1,00" exibido vs. "1:0,67" no texto) (EXPL-01, EXPL-02, EXPL-03)
+**Plans**: TBD
+**UI hint**: yes
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2/v1.3
 
@@ -260,6 +354,9 @@ v1.5 Redesenho de UI (Phases 20-23) shipped em 2026-09-06 — ver
 [milestones/v1.5-ROADMAP.md](milestones/v1.5-ROADMAP.md). v1.4 Opções v2
 (Phases 15-19, 24-32) shipped em 2026-09-19, com ressalvas documentadas —
 ver [milestones/v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md). v1.6
-Simplificação da aba Opções (Phases 33-34) aberto em 2026-09-19 — Fase 33
-(extração) e Fase 34 (navegação hub/workspace, dependente de checkpoint
-verde da Fase 33).
+Simplificação da aba Opções (Phases 33-34) shipped em 2026-09-20 — ver
+[milestones/v1.6-ROADMAP.md](milestones/v1.6-ROADMAP.md). v1.7
+Confiabilidade explicativa da aba Opções (Phases 35-37) aberto em
+2026-09-20 — Fase 35 (jornada do workspace, independente), Fase 36 (motor
+de payoff genérico, fundacional) e Fase 37 (gráfico + explicação,
+dependente da Fase 36).

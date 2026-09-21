@@ -65,26 +65,26 @@ Deferido, decidido em conversa antes deste milestone — fora do roadmap atual.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| JORN-01 | TBD | Pending |
-| JORN-02 | TBD | Pending |
-| JORN-03 | TBD | Pending |
-| PAYOFF-01 | TBD | Pending |
-| PAYOFF-02 | TBD | Pending |
-| PAYOFF-03 | TBD | Pending |
-| CHART-01 | TBD | Pending |
-| CHART-02 | TBD | Pending |
-| CHART-03 | TBD | Pending |
-| CHART-04 | TBD | Pending |
-| CHART-05 | TBD | Pending |
-| EXPL-01 | TBD | Pending |
-| EXPL-02 | TBD | Pending |
-| EXPL-03 | TBD | Pending |
+| JORN-01 | Phase 35 | Pending |
+| JORN-02 | Phase 35 | Pending |
+| JORN-03 | Phase 35 | Pending |
+| PAYOFF-01 | Phase 36 | Pending |
+| PAYOFF-02 | Phase 36 | Pending |
+| PAYOFF-03 | Phase 36 | Pending |
+| CHART-01 | Phase 37 | Pending |
+| CHART-02 | Phase 37 | Pending |
+| CHART-03 | Phase 37 | Pending |
+| CHART-04 | Phase 37 | Pending |
+| CHART-05 | Phase 37 | Pending |
+| EXPL-01 | Phase 37 | Pending |
+| EXPL-02 | Phase 37 | Pending |
+| EXPL-03 | Phase 37 | Pending |
 
 **Coverage:**
 - v1 requirements: 14 total
-- Mapped to phases: 0 (roadmap ainda não gerado)
-- Unmapped: 14
+- Mapped to phases: 14 (Phase 35: JORN-01..03; Phase 36: PAYOFF-01..03; Phase 37: CHART-01..05, EXPL-01..03)
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-09-20*
-*Last updated: 2026-09-20 — REQUIREMENTS.md v1.7 criado após arquivamento do v1.6 (13/13 Done, ver `.planning/milestones/v1.6-REQUIREMENTS.md`).*
+*Last updated: 2026-09-20 — Roadmap gerado (`/gsd-roadmapper`): 14/14 requirements mapeados às Fases 35-37 (100% coverage), traceability atualizada de TBD para os números de fase reais.*

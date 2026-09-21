@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Confiabilidade explicativa da aba Opções
-status: planning
-stopped_at: 'Milestone v1.6 arquivado (13/13 requirements, .planning/milestones/v1.6-ROADMAP.md/v1.6-REQUIREMENTS.md). Milestone v1.7 aberto: resumo confirmado com o Alex (jornada do workspace + motor/gráfico de payoff), pesquisa pulada por decisão dele (spec técnica já travada), REQUIREMENTS.md v1.7 confirmado (14 itens, JORN/PAYOFF/CHART/EXPL). Falta rodar o roadmapper para gerar as fases. Guardrail aplicado: nenhum mutador `gsd-sdk query state.*`/`milestone.complete`/`roadmap.*` foi chamado — todo arquivamento e toda transição de milestone feitos à mão (Edit + git diff antes do commit).'
+status: roadmap_ready
+stopped_at: 'Roadmap do milestone v1.7 gerado por /gsd-roadmapper: 3 fases (35 Jornada Guiada do Workspace, 36 Motor de Payoff Genérico, 37 Gráfico de Payoff e Explicação Confiáveis), 14/14 requirements mapeados (100% coverage, JORN->35, PAYOFF->36, CHART+EXPL->37). ROADMAP.md e REQUIREMENTS.md (traceability) escritos à mão. Falta /gsd:plan-phase 35 (primeira fase). Guardrail aplicado: nenhum mutador `gsd-sdk query state.*`/`roadmap.*` foi chamado — STATE.md/ROADMAP.md editados à mão.'
 last_updated: "2026-09-20T00:00:00.000Z"
-last_activity: "2026-09-20 — /gsd-complete-milestone 1.6 rodado à mão (sem o mutador gsd-sdk query milestone.complete, por guardrail do repositório): auditoria pré-fechamento (54 itens, 49 quick-tasks confirmadas resolvidas por evidência cruzada git+STATE.md, 5 todos pendentes reconhecidos e mantidos em pending/), MILESTONES.md com entrada v1.6, milestones/v1.6-ROADMAP.md e v1.6-REQUIREMENTS.md criados, ROADMAP.md colapsado pra <details>, PROJECT.md evoluído (Validated + Key Decisions + nova seção do milestone v1.7). Em seguida /gsd-new-milestone rodado para v1.7: resumo e 14 requirements (JORN-01..03, PAYOFF-01..03, CHART-01..05, EXPL-01..03) confirmados com o Alex via AskUserQuestion, pesquisa pulada (spec técnica do gráfico já travada por ele)."
+last_activity: "2026-09-20 — /gsd-roadmapper rodado para v1.7: 3 fases derivadas das 14 requirements (Fase 35 JORN-01..03, independente; Fase 36 PAYOFF-01..03, motor puro/determinístico, fundacional; Fase 37 CHART-01..05+EXPL-01..03, dependente da Fase 36). ROADMAP.md ganhou Phase Details completo (Goal/Depends on/Requirements/Success Criteria/UI hint) e Progress table atualizada; REQUIREMENTS.md traceability passou de TBD para Phase 35/36/37, coverage 14/14. Nenhum código tocado — só planejamento. Próximo passo: /gsd:plan-phase 35."
 progress:
-  total_phases: 0
+  total_phases: 3
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-20)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Milestone v1.7 (Confiabilidade explicativa da aba Opções) — requirements definidos e confirmados (14 itens), roadmap ainda não gerado. Próximo passo: `gsd-roadmapper` a partir de `REQUIREMENTS.md` v1.7, começando em Phase 35 (continua de onde o v1.6 parou).
+**Current focus:** Milestone v1.7 (Confiabilidade explicativa da aba Opções) — roadmap gerado (Fases 35-37, 14/14 requirements mapeados). Próximo passo: `/gsd:plan-phase 35` (Jornada Guiada do Workspace).
 
 ## Current Position
 
-Phase: Not started (roadmap ainda não gerado)
-Plan: —
-Status: Definindo roadmap do milestone v1.7. `REQUIREMENTS.md` já reflete v1.7 (14 requirements: JORN-01..03, PAYOFF-01..03, CHART-01..05, EXPL-01..03), confirmado com o Alex. Falta rodar o roadmapper.
-Last activity: 2026-09-20 — Milestone v1.7 iniciado logo após o fechamento do v1.6, na mesma sessão. Contexto completo do pedido (jornada confusa do workspace + gráfico de payoff pouco confiável, com especificação técnica detalhada do motor/gráfico já travada pelo Alex e screenshot de produção confirmando 3 bugs reais) foi absorvido em `PROJECT.md`/`REQUIREMENTS.md`.
+Phase: 35 (Jornada Guiada do Workspace) — 1 of 3 fases do v1.7 (numeração de fase não é contígua por milestone neste projeto — 37 é o número da última fase, não o total) — not started
+Plan: — (roadmap gerado, planejamento da Fase 35 ainda não rodou)
+Status: Ready to plan. Roadmap do milestone v1.7 gerado por `/gsd-roadmapper`: 3 fases (35 Jornada Guiada do Workspace — JORN-01..03; 36 Motor de Payoff Genérico — PAYOFF-01..03; 37 Gráfico de Payoff e Explicação Confiáveis — CHART-01..05+EXPL-01..03), 14/14 requirements mapeados (100% coverage). Fase 37 depende da Fase 36 (consome a forma de saída do motor); Fase 35 é independente. `ROADMAP.md` e `REQUIREMENTS.md` (traceability) escritos.
+Last activity: 2026-09-20 — Roadmap do v1.7 gerado e escrito em `ROADMAP.md`/`REQUIREMENTS.md`. Próximo passo: `/gsd:plan-phase 35`.
 
 **Pendências herdadas do v1.6, ainda abertas (não bloqueiam o v1.7):**
 1. App iOS não recebeu a navegação nova — só chega num build de TestFlight, decisão do Alex.
