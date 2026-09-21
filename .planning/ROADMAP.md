@@ -142,7 +142,7 @@ mais concretos: jornada do workspace sem passos visíveis, e gráfico de
 payoff (`PayoffChart.jsx`) matematicamente incorreto (screenshot de
 produção, 2026-09-20).
 
-- [ ] Phase 35: Jornada Guiada do Workspace (0/? plans)
+- [ ] Phase 35: Jornada Guiada do Workspace (0/3 plans)
 - [ ] Phase 36: Motor de Payoff Genérico (0/? plans)
 - [ ] Phase 37: Gráfico de Payoff e Explicação Confiáveis (0/? plans)
 
@@ -219,7 +219,10 @@ primeiro por conveniência de execução, não por dependência técnica)
      passos que Analisar — paridade de tratamento entre as 3 (JORN-03)
   4. Em qualquer uma das 3 pills do componente `OpcoesScreen.jsx`, o usuário
      consegue dizer em qual etapa está e o que falta para avançar
-**Plans**: TBD
+**Plans**: 3 plans
+- [ ] 35-01-PLAN.md — vocabulário da jornada (7 chaves nos dois modos) + rótulos de estágio, gate por pill ativa e ramo "leitura já feita" em `OpcoesScreen.jsx` (D-01/D-02/D-06/D-08)
+- [ ] 35-02-PLAN.md — `BOTAO_PRIMARIO` nos 3 CTAs da jornada com `T.onAccent`, marca de resultado re-clicável e varredura de tokens do diretório (D-03/D-04/D-05/D-06/D-07)
+- [ ] 35-03-PLAN.md — checkpoint humano ao vivo nos 4 pares tema × modo (fecha o risco aberto de D-07) + bump/publicação gated pela aprovação
 **UI hint**: yes
 
 ### Phase 36: Motor de Payoff Genérico
