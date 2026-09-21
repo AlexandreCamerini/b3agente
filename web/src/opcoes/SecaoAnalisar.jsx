@@ -39,8 +39,10 @@ import PayoffChart from "./PayoffChart.jsx";
 // espelho declarado, mesmo padrão dos irmãos desta pasta. Zero import do
 // núcleo do app (seria ciclo, ADR-027 Decisão 3).
 const VARKEY = (k) => "--" + k.replace(/[A-Z]/g, (c) => "-" + c.toLowerCase());
+// Fase 35 (35-02, D-03): onAccent é o token calibrado para texto SOBRE
+// preenchimento de accent — token fora deste array vira `undefined` calado.
 const TOKENS = ["bgBase", "bgPanel", "borderSubtle", "borderFaint", "textPrimary",
-  "textSecondary", "textMuted", "accent", "accentTint10"];
+  "textSecondary", "textMuted", "accent", "accentTint10", "onAccent"];
 const T = Object.fromEntries(TOKENS.map((k) => [k, `var(${VARKEY(k)})`]));
 
 const ehNum = (v) => typeof v === "number" && isFinite(v);
@@ -84,6 +86,33 @@ const desabilitado = (cond) => (cond ? { opacity: 0.45, cursor: "not-allowed" } 
 const CUSTO_NO_BOTAO = {
   display: "block", fontSize: "11px", fontWeight: 600,
   color: T.textMuted, marginTop: "3px",
+};
+
+// Fase 35 (35-02, D-03): MESMA geometria do BOTAO acima — só troca
+// border/background/color para o preenchimento sólido de accent. color é
+// T.onAccent, nunca #fff literal (reprova AA em Dark·Estudo 2,90:1 e
+// Dark·Operador 2,10:1, medido em 35-UI-SPEC.md). Aplica-se a exatamente
+// 3 botões do app (D-04): este é o de "Montar estrutura".
+const BOTAO_PRIMARIO = {
+  minHeight: "44px", padding: "10px 14px", borderRadius: "11px",
+  border: "none", background: T.accent, color: T.onAccent,
+  fontWeight: 700, fontSize: "13px",
+};
+// D-05: 0,55 (não o 0,45 do neutro acima) — um preenchido a 0,45 ainda lê
+// como vívido/clicável sobre fundo escuro. Precedente em produção:
+// CuradoriaEstruturas.jsx:268. A regra de nunca sumir vale igual — só
+// opacity/cursor mudam, nunca display: none.
+const desabilitadoPrimario = (cond) => (cond ? { opacity: 0.55, cursor: "not-allowed" } : null);
+const CUSTO_NO_BOTAO_PRIMARIO = {
+  display: "block", fontSize: "11px", fontWeight: 600,
+  color: T.onAccent, marginTop: "3px",
+};
+// D-06: T.textMuted, NUNCA T.positive/T.negative — esse par é reservado a
+// direção financeira (PropostaLastreada.jsx:183); reusá-lo para "sucesso de
+// UI" colidiria com "alta"/"baixa" no mesmo campo visual.
+const MARCA_RESULTADO = {
+  display: "flex", alignItems: "center", gap: "5px",
+  fontSize: "11px", color: T.textMuted, marginTop: "6px",
 };
 
 // Rolagem horizontal no CONTAINER da tabela, nunca no `body` — mesmo espelho
@@ -320,13 +349,27 @@ export default function SecaoAnalisar({
             <button
               onClick={() => montarProposta({ direction: tese, expiration: vencimento || undefined, lote: loteNum })}
               disabled={!temTese || !loteOk}
-              style={{ ...BOTAO, width: "100%", marginTop: "12px", ...desabilitado(!temTese || !loteOk) }}
+              style={{ ...BOTAO_PRIMARIO, width: "100%", marginTop: "12px", ...desabilitadoPrimario(!temTese || !loteOk) }}
             >
               <span style={{ display: "block" }}>{cp.opcoesMontarEstrutura || "Montar estrutura"}</span>
-              <span style={CUSTO_NO_BOTAO}>
+              <span style={CUSTO_NO_BOTAO_PRIMARIO}>
                 {(cp.opcoesCustoChamadas || ((n) => String(n)))(custos.proposta)}
               </span>
             </button>
+
+            {/* Fase 35 (35-02, D-06): marca neutra de resultado — o botão
+                acima NÃO some nem desabilita depois do clique (trocar
+                tese/lote e montar de novo é uso legítimo, comparar
+                cenários). Gate é resultado COM CONTEÚDO — nunca carregando,
+                nunca erro, nunca vazio-com-motivo: afirmar "montada" sobre
+                uma resposta sem estrutura seria afirmar resultado que não
+                existe (princípio 4 do CLAUDE.md). */}
+            {proposta.dados && (proposta.dados.estruturas || []).length ? (
+              <div style={MARCA_RESULTADO}>
+                <span>✓</span>
+                <span>{cp.opcoesEstruturaMontada || "Estrutura montada"}</span>
+              </div>
+            ) : null}
 
             {/* carregando → erro → vazio com motivo → dados */}
             <div style={{ marginTop: "10px" }}>

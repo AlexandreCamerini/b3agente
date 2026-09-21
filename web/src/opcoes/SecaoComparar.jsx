@@ -44,7 +44,9 @@ import PayoffChart from "./PayoffChart.jsx";
 // espelho declarado, mesmo padrão dos irmãos desta pasta. Zero import do
 // núcleo do app (seria ciclo, ADR-027 Decisão 3).
 const VARKEY = (k) => "--" + k.replace(/[A-Z]/g, (c) => "-" + c.toLowerCase());
-const TOKENS = ["textSecondary", "textMuted", "borderSubtle", "bgPanel", "bgBase", "textPrimary"];
+// Fase 35 (35-02, D-03): este arquivo não tinha accent nem onAccent — sem
+// os dois o botão preenchido ficaria sem fundo E sem cor de texto.
+const TOKENS = ["textSecondary", "textMuted", "borderSubtle", "bgPanel", "bgBase", "textPrimary", "accent", "onAccent"];
 const T = Object.fromEntries(TOKENS.map((k) => [k, `var(${VARKEY(k)})`]));
 
 const ehNum = (v) => typeof v === "number" && isFinite(v);
@@ -74,6 +76,26 @@ const BOTAO = {
 // Botão desabilitado FICA VISÍVEL, em vez de sumir — mesma regra dos irmãos
 // desta pasta.
 const desabilitado = (cond) => (cond ? { opacity: 0.45, cursor: "not-allowed" } : null);
+
+// Fase 35 (35-02, D-03): MESMA geometria do BOTAO acima — só troca
+// border/background/color para o preenchimento sólido de accent. color é
+// T.onAccent, nunca #fff literal. Aplica-se a exatamente 3 botões do app
+// (D-04): este é o de "Ver possibilidades". NÃO declarar
+// CUSTO_NO_BOTAO_PRIMARIO aqui: o custo deste fluxo é linha própria ANTES
+// do botão (acima), não subtexto dentro dele.
+const BOTAO_PRIMARIO = {
+  minHeight: "44px", padding: "10px 14px", borderRadius: "11px",
+  border: "none", background: T.accent, color: T.onAccent,
+  fontWeight: 700, fontSize: "13px",
+};
+// D-05: 0,55 (não o 0,45 do neutro acima) — precedente CuradoriaEstruturas.jsx:268.
+const desabilitadoPrimario = (cond) => (cond ? { opacity: 0.55, cursor: "not-allowed" } : null);
+// D-06: T.textMuted, NUNCA T.positive/T.negative — reservados a direção
+// financeira (PropostaLastreada.jsx:183).
+const MARCA_RESULTADO = {
+  display: "flex", alignItems: "center", gap: "5px",
+  fontSize: "11px", color: T.textMuted, marginTop: "6px",
+};
 
 // Cenários em REAIS, já multiplicados pelo backend. O preço do objeto viaja
 // verbatim (é preço, não dinheiro da posição) e o resultado ausente é
@@ -155,10 +177,21 @@ export default function SecaoComparar({
                 expirations: consultados,
               })}
               disabled={!temTese || !loteOk}
-              style={{ ...BOTAO, width: "100%", marginTop: "12px", ...desabilitado(!temTese || !loteOk) }}
+              style={{ ...BOTAO_PRIMARIO, width: "100%", marginTop: "12px", ...desabilitadoPrimario(!temTese || !loteOk) }}
             >
               {cp.opcoesVerPossibilidades || "Ver possibilidades"}
             </button>
+
+            {/* Fase 35 (35-02, D-06): marca neutra de resultado — o botão
+                acima NÃO some nem desabilita depois do clique (trocar
+                tese/alvo/stop e comparar de novo é uso legítimo). Gate é
+                resultado COM CONTEÚDO — nunca carregando/erro/vazio. */}
+            {possibilidades.dados && (possibilidades.dados.possibilidades || []).length ? (
+              <div style={MARCA_RESULTADO}>
+                <span>✓</span>
+                <span>{cp.opcoesPossibilidadesVistas || "Possibilidades carregadas"}</span>
+              </div>
+            ) : null}
           </>
         )}
 
