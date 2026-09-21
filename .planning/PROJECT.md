@@ -22,31 +22,58 @@ funciona — não decorou uma resposta, aprendeu o raciocínio — e só então 
 acesso a automações do Modo Operador. Se o storyline pedagógico não convencer,
 nada mais no produto importa.
 
-## Milestone v1.6 Simplificação da aba Opções — EM ANDAMENTO (definindo requisitos)
+## Milestone v1.7 Confiabilidade explicativa da aba Opções — EM ANDAMENTO (definindo requisitos)
 
-**Goal:** reorganizar a sub-aba "Setups" da aba Opções por job-to-be-done, sem
-adicionar feature nova — a tela hoje mistura 5 trabalhos diferentes numa
-rolagem só (descobrir oportunidades cross-carteira, gerenciar vigias,
-analisar um ticker manualmente, comparar vencimentos, gerenciar/criar setups
-salvos), ~16 controles fixos mais os que escalam com o tamanho da carteira.
+**Goal:** corrigir a jornada de montar/analisar uma estrutura de opções
+dentro do workspace (v1.6) e tornar o gráfico de payoff — e sua explicação —
+matematicamente correto e genérico para qualquer estrutura, sem promover
+recomendação.
 
-**Origem:** avaliação da aba Opções sob a lente agentic UX/relationship-
-centric (2026-09-19) — mapeamento factual encontrou a mistura de jobs como
-causa estrutural de confusão, mais concreta que falta de personalização.
-Decisão do Alex: reorganizar primeiro, personalizar depois.
+**Origem:** pedido direto do Alex ao usar a navegação nova do v1.6 em
+produção (2026-09-20). Dois problemas concretos, não hipotéticos: (1) a
+jornada de montar/ver uma estrutura dentro do workspace (Analisar/Comparar/
+Setups salvos) continua sem passos visíveis; (2) o gráfico de payoff mistura
+valor de hoje com resultado no vencimento, eixo Y sem escala, platô cortado,
+e a razão G/P no texto usa um número diferente do exibido — confirmado por
+screenshot de produção. Mapeia para PERS-01 (v1.6), que a milestone anterior
+já havia identificado e deferido deliberadamente até a reorganização
+estrutural estar pronta.
 
-**Fora de escopo desta milestone (decidido, não esquecido):** Fase 2
-(explicação adaptativa/progressive disclosure — alvo inicial: a frase-ponte
-de `OpcoesScreen.jsx:711-714`, que nunca colapsa), Fase 3 (modelo de
-progresso do aprendiz, escopado a conceitos de opções), Fase 4 (desafio
-personalizado por padrão observado, risco regulatório de soar recomendação)
-— todas decididas em conversa, nenhuma planejada ainda.
+**Fora de escopo desta milestone (decidido, não esquecido):** PERS-02
+(modelo de progresso do aprendiz) e PERS-03 (desafio personalizado por
+padrão observado) — mesma decisão do v1.6 de não personalizar antes da
+explicação básica estar correta; migração do motor de opções para um MCP
+único (`revisao-arquitetura-mcp-ecossistema-b3.md`, revisão de arquitetura
+maior e separada).
 
 **Target features:**
-- Sub-aba "Setups" separada por job-to-be-done (não uma rolagem única)
-- Nenhuma funcionalidade nova — só reorganização/separação do que já existe
-- Base pronta para a Fase 2 (explicação adaptativa) entrar depois sem
-  reabrir a reorganização
+- Jornada guiada dentro do workspace, com passos visíveis e o botão "ver
+  possibilidades" proeminente
+- Motor de payoff genérico (qualquer combinação de legs, sem hardcode por
+  nome de estratégia), cobrindo os casos-limite especificados
+- Componente de gráfico SVG corrigido (zero rotulado, eixo Y com escala,
+  domínio que nunca corta platô, "hoje" separado de "no vencimento")
+- Camada explicativa derivada da curva calculada, vocabulário leigo, razão
+  G/P consistente com o número exibido
+
+## Milestone v1.6 Simplificação da aba Opções — SHIPPED 2026-09-20
+
+**Entregue:** reorganização da sub-aba "Setups" por job-to-be-done em duas
+fases de risco crescente — Fase 33 extraiu os 5 jobs (descobrir cross-
+carteira, vigias, analisar ticker, comparar vencimentos, setups salvos) em
+componentes próprios sem mudar comportamento; Fase 34 substituiu a rolagem
+única por navegação hub (sem ticker) + workspace (ticker selecionado, 3
+pills compartilhando uma única leitura paga). 13/13 requirements v1
+(REORG-01..07, NAV-01..06) Done, publicado em produção (`F10-20260920-01`),
+checkpoint humano aprovado ao vivo com medição real de rede confirmando
+NAV-05. Detalhe completo: `.planning/milestones/v1.6-ROADMAP.md` e
+`v1.6-REQUIREMENTS.md`.
+
+**Achado que virou a próxima milestone:** a reorganização não tocou
+qualidade de explicação por desenho (PERS-01 deferido desde o kickoff). Ao
+usar a navegação nova em produção, o Alex confirmou que isso ainda dói —
+jornada do workspace confusa e gráfico de payoff pouco confiável — origem
+do v1.7.
 
 ## Milestone v1.4 Opções v2 — SHIPPED 2026-09-19
 
@@ -355,8 +382,20 @@ faltavam os números).
   tela/aba/endpoint novo) — rejeitadas continuam só com "Rejeitada: ...".
   3 guardiões novos, nenhum guardião pré-existente quebrado
 
+- ✓ Simplificação da aba Opções — v1.6 (Fases 33-34): sub-aba "Setups"
+  reorganizada por job-to-be-done — 5 jobs extraídos em componentes próprios
+  (Fase 33) e navegação hub+workspace substituindo a rolagem única (Fase
+  34), com 3 pills do workspace compartilhando uma única leitura paga
+  (NAV-05, verificado ao vivo por medição de rede). 13/13 requirements v1
+  Done — ver `.planning/milestones/v1.6-ROADMAP.md`.
+
 ### Active
 
+- [ ] Jornada de montar/analisar uma estrutura de opções dentro do
+  workspace (Analisar/Comparar/Setups salvos) continua sem passos visíveis,
+  e o gráfico de payoff (`PayoffChart`) mistura valor de hoje com resultado
+  no vencimento, corta o platô no domínio X e usa um número diferente do
+  exibido na razão G/P — puxado para o milestone v1.7 (em andamento)
 - [ ] Backlog da Fase 26 (v1.4), nunca executado: B2 (preservar estado ao
   trocar de aba, sem decisão de abordagem), B3 (ligar a aba Opções às rotas
   de execução com flag opt-in a descoberto, pesquisa concluída/decisão de
@@ -515,6 +554,7 @@ faltavam os números).
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
+| D-01 emendado na Fase 34: hub usa SecaoVigias em vez de listar "setups salvos" | A leitura literal original era impossível — `setups` deriva só de `leitura.dados` (leitura paga, ticker-scoped), sempre vazio com `ticker=""`; achado do planner, verificado pelo orquestrador por leitura direta do código antes de aceitar | ✓ Good — evitou implementar um recurso que nunca funcionaria; SecaoVigias já era a listagem cross-ticker real que o critério original pedia |
 | Bootstrap do GSD via `/gsd:new-project` num produto brownfield maduro | Usuário pediu revisão geral estruturada; GSD dá rastreabilidade de achado→fase de correção | ✓ Good — todos os 50 requirements de v1.1 rastreados até o REPORT-01/ADR-015/016/017, 44/44 planos com SUMMARY |
 | Fase 1 é só diagnóstico, sem correção inline | Usuário escolheu explicitamente — quer priorizar antes de mexer em código | ✓ Good — checkpoint humano confirmou a régua de severidade antes de qualquer código mudar |
 | 5 plans paralelos (wave 1) + 1 de consolidação (wave 2) | Mesmo padrão do map-codebase — reduz wall-clock | ✓ Good, causa raiz resolvida — o worktree isolado clona de `origin/main`, não do HEAD local; a partir da Fase 6, `git push` sempre roda antes de spawnar a wave seguinte (nunca mais o problema reapareceu) |
@@ -545,7 +585,8 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-09-19 — Milestone v1.6 (Simplificação da aba Opções)
-aberto, ainda definindo requisitos e pesquisa. v1.4 (Opções v2, Fases 15-19
-e 24-32) arquivado no mesmo dia; ver `.planning/milestones/v1.4-ROADMAP.md`/
-`v1.4-REQUIREMENTS.md` para o detalhe completo, decisões e tech debt.*
+*Last updated: 2026-09-20 — Milestone v1.6 (Simplificação da aba Opções,
+Fases 33-34) fechado e arquivado (13/13 requirements, `F10-20260920-01`);
+Milestone v1.7 (Confiabilidade explicativa da aba Opções) aberto, ainda
+definindo requisitos e roadmap. Ver `.planning/milestones/v1.6-ROADMAP.md`/
+`v1.6-REQUIREMENTS.md` para o detalhe completo do v1.6.*

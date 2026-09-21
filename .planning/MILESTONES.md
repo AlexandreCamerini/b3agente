@@ -1,5 +1,50 @@
 # Milestones
 
+## v1.6 Simplificação da aba Opções (Shipped: 2026-09-20)
+
+**Phases completed:** 2 phases (33-34), 9 plans, 38 tasks. Git range
+`f8346d5`→`1a83007`, 2026-09-19 19:37 → 2026-09-20 23:17 (~1 dia), 75
+arquivos alterados, +9858/-1712 linhas.
+
+**Key accomplishments:**
+
+- Sub-aba "Setups" da aba Opções deixou de ser uma rolagem única com 5
+  trabalhos misturados — cada job (Descobrir, Vigias, Analisar, Comparar,
+  Setups salvos) passou a viver em componente próprio, sem nenhuma mudança
+  de comportamento/dado/ordem visível ao usuário (Fase 33, REORG-01..07).
+- Navegação hub+workspace substituiu a rolagem: hub sem ticker mostra
+  descoberta cross-carteira + vigias; escolher um ativo abre o workspace
+  com 3 pills (Analisar/Comparar/Setups salvos) compartilhando uma única
+  leitura paga — trocar de pill nunca dispara nova chamada MCP, travado por
+  guardião com prova negativa dupla (Fase 34, NAV-01..06).
+- Um bug real de modelo de dados foi pego e corrigido ANTES de virar
+  código: a decisão original (D-01) pedia listagem cross-ticker de "setups
+  salvos" no hub, mas esse dado é ticker-scoped por construção
+  (`leitura.dados`, sempre vazio com `ticker=""`) — corrigido substituindo
+  por SecaoVigias, a listagem cross-ticker que já existia de verdade.
+- Checkpoint humano ao vivo confirmou por medição real de rede (não por
+  leitura de código) que trocar de pill dentro do workspace não paga de
+  novo — o item mais frágil de NAV-05, verificado no navegador antes de
+  publicar.
+- Publicação combinada das Fases 33+34 (a 33 tinha fechado verificada em
+  2026-09-16 mas nunca fora ao ar) sob o carimbo `F10-20260920-01`, com
+  suíte canônica idêntica à baseline em todos os checkpoints (2923 pytest +
+  152-153/153 `.mjs`).
+- Disciplina de prova negativa por injeção pegou pelo menos 2 defeitos
+  reais de guardião (asserções que ficariam inertes por colisão de
+  homônimos em `SubAbaOperar`) antes de chegarem a produção.
+
+**Known deferred items at close:** 54 flagged pela auditoria pré-fechamento
+— 49 quick-tasks (`[missing]`) confirmadas já resolvidas por evidência
+cruzada (`git log --all` + `STATE.md`, todas com commit e registro
+histórico reais; status "missing" é artefato de índice, não trabalho em
+aberto); 5 todos pendentes continuam abertos em `.planning/todos/pending/`
+sem bloquear esta milestone (nenhum é requirement do v1.6), incluindo um de
+prioridade alta (`revisao-arquitetura-mcp-ecossistema-b3.md`) que o Alex
+optou explicitamente por tratar depois, não agora.
+
+---
+
 ## v1.4 Opções v2 (Shipped: 2026-09-19)
 
 **Phases completed:** 14 phases (15-19, 24-32), 63 plans, ~211 tasks — 13
