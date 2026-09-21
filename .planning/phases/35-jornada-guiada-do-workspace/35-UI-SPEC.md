@@ -1,10 +1,11 @@
 ---
 phase: 35
 slug: jornada-guiada-do-workspace
-status: draft
+status: approved
 shadcn_initialized: false
 preset: none
 created: 2026-09-21
+reviewed_at: 2026-09-21
 ---
 
 # Phase 35 — UI Design Contract
@@ -456,11 +457,11 @@ reason.
 
 ## Checker Sign-Off
 
-- [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS
-- [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
-- [ ] Dimension 6 Registry Safety: PASS
+- [x] Dimension 1 Copywriting: PASS
+- [x] Dimension 2 Visuals: PASS
+- [x] Dimension 3 Color: PASS
+- [x] Dimension 4 Typography: PASS (developer-approved reuse of 4 weights, 2026-09-21)
+- [x] Dimension 5 Spacing: PASS (developer-approved reuse of 3px/6px, 2026-09-21)
+- [x] Dimension 6 Registry Safety: PASS
 
-**Approval:** pending
+**Approval:** approved 2026-09-21 — gsd-ui-checker, 6/6 after one revision round (typography/spacing developer sign-off)
