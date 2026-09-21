@@ -664,3 +664,86 @@ def test_segmentos_primeiro_de_sempre_zero_nunca_none():
     ):
         segs = m.segmentos_da_curva(perfil)
         assert segs[0]["de"] == 0.0
+
+
+# --------------------------- Parte 6: caso golden nomeado e auditoria de nome (PAYOFF-01/03, Fase 36) ---------------------------
+
+def test_golden_trava_de_alta_49_17_49_67_debito_025():
+    """Regressão nomeada de PAYOFF-03: trava de alta com calls, strikes
+    49,17/49,67, débito 0,25, lote 100.
+
+    Trava, num só lugar, as 5 propriedades que o requisito exige: custo/
+    fluxo, breakeven único, ganho/perda máximos por unidade, nenhum lado
+    ilimitado e a segmentação em 3 trechos com fronteira nos strikes. Prova
+    também as duas metades de D-02 sobre o lote: `ganho_maximo`/
+    `perda_maxima` multiplicam pelo lote FORA do módulo (a conta que
+    `options_mcp_api._em_reais()` faz, não este arquivo) e viram R$ 25,00;
+    `breakevens` é PREÇO do objeto e nunca é multiplicado — `_em_reais()`
+    deixa breakeven de fora de propósito (comentário nas linhas 1283-1289 de
+    `options_mcp_api.py`: multiplicado pelo lote viraria um número sem
+    significado que a tela exibiria como reais).
+    """
+    r = m.perfil_da_estrutura([
+        {"tipo": "CALL", "lado": "compra", "strike": 49.17, "premio": 0.40},
+        {"tipo": "CALL", "lado": "venda", "strike": 49.67, "premio": 0.15},
+    ])
+
+    assert r["custo_liquido"] == 0.25
+    assert r["fluxo"] == "debito"
+    assert r["breakevens"] == [49.42]
+    assert r["ganho_maximo"] == 0.25
+    assert r["perda_maxima"] == 0.25
+    assert r["ganho_ilimitado"] is False
+    assert r["perda_ilimitada"] is False
+
+    segs = m.segmentos_da_curva(r)
+    assert len(segs) == 3
+    assert [s["de"] for s in segs] == [0.0, 49.17, 49.67]
+    assert [s["ate"] for s in segs] == [49.17, 49.67, None]
+
+    # D-02, metade 1: lote multiplica FORA do motor (padrão de
+    # `_vezes_lote`/`_em_reais` em options_mcp_api.py, não reimplementado
+    # aqui — o teste só prova a fronteira, não duplica a conta).
+    lote = 100
+    assert r["ganho_maximo"] * lote == 25.0
+    assert r["perda_maxima"] * lote == 25.0
+
+    # D-02, metade 2: breakeven é preço do objeto, nunca multiplicado pelo
+    # lote — continua 49.42, o mesmo valor de cima.
+    assert r["breakevens"][0] == 49.42
+
+
+def test_motor_nao_decide_pelo_nome_da_estrutura():
+    """Auditoria de PAYOFF-01: nenhum campo do resultado muda por causa do
+    nome do contrato — só o passthrough `contrato` dentro de `pernas` pode
+    divergir. Um motor que ramificasse por nome de estratégia falharia aqui.
+    """
+    pernas_neutras = [
+        {"tipo": "CALL", "lado": "compra", "strike": 49.17, "premio": 0.40,
+         "contrato": "PETR4C4917"},
+        {"tipo": "CALL", "lado": "venda", "strike": 49.67, "premio": 0.15,
+         "contrato": "PETR4C4967"},
+    ]
+    pernas_com_nome_de_estrategia = [
+        {"tipo": "CALL", "lado": "compra", "strike": 49.17, "premio": 0.40,
+         "contrato": "BORBOLETA"},
+        {"tipo": "CALL", "lado": "venda", "strike": 49.67, "premio": 0.15,
+         "contrato": "STRADDLE"},
+    ]
+
+    r_neutro = m.perfil_da_estrutura(pernas_neutras)
+    r_nomeado = m.perfil_da_estrutura(pernas_com_nome_de_estrategia)
+
+    for chave in r_neutro:
+        if chave == "pernas":
+            continue
+        assert r_nomeado[chave] == r_neutro[chave], f"campo {chave} divergiu por causa do nome"
+
+    for i, (p_neutro, p_nomeado) in enumerate(zip(r_neutro["pernas"], r_nomeado["pernas"])):
+        for chave in p_neutro:
+            if chave == "contrato":
+                continue
+            assert p_nomeado[chave] == p_neutro[chave], f"perna {i} campo {chave} divergiu"
+
+    assert m.segmentos_da_curva(r_neutro) == m.segmentos_da_curva(r_nomeado)
+    assert m.dominio_da_curva(r_neutro, spot=49.4) == m.dominio_da_curva(r_nomeado, spot=49.4)
