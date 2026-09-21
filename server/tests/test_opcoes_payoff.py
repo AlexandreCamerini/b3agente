@@ -365,3 +365,131 @@ def test_perfil_breakevens_regressao_apos_correcao_de_s_zero_espurio():
         {"tipo": "CALL", "lado": "compra", "strike": 60, "premio": 0.5},
     ])
     assert condor["breakevens"] == [47.0, 58.0]
+
+
+# --------------------------- Parte 3: casos-limite de PAYOFF-02 (D-07, Fase 36) ---------------------------
+#
+# Checklist de PAYOFF-02 (.planning/REQUIREMENTS.md), cada item mapeado a um
+# teste nomeado (ou a um teste pré-existente citado, para o checklist ficar
+# rastreável inteiro por leitura):
+#   - compra/venda seca (1 perna)              -> test_perfil_call_seca_comprada_ganho_ilimitado /
+#                                                  test_perfil_call_seca_vendida_perda_ilimitada (Parte 2, já existentes)
+#   - venda descoberta (perda ilimitada)        -> test_perfil_call_seca_vendida_perda_ilimitada (Parte 2, já existente — NÃO duplicado)
+#   - ratio spread (perda ilimitada)            -> test_perfil_ratio_1x2_custo_zero_breakevens_sem_zero_espurio (Parte 2c) +
+#                                                  test_perfil_quantidades_assimetricas_ratio_1x2_lote_fora_do_motor (abaixo)
+#   - trava de alta com calls                   -> test_perfil_trava_de_alta_com_calls_caso_golden (abaixo)
+#   - trava de baixa com puts                   -> test_perfil_trava_de_baixa_com_puts_ganho_e_perda_finitos_um_breakeven (abaixo)
+#   - borboleta/condor (2 breakevens + platô)   -> test_perfil_breakevens_regressao_apos_correcao_de_s_zero_espurio (Parte 2c) +
+#                                                  test_perfil_borboleta_platô_e_extremos_nomeados / test_perfil_condor_plato_central_mesmo_resultado (abaixo)
+#   - straddle/strangle                         -> test_perfil_straddle_comprado_dois_breakevens /
+#                                                  test_perfil_strangle_comprado_dois_breakevens (abaixo)
+#   - covered call/collar (perna ACAO)          -> test_perfil_venda_coberta_ganho_limitado / test_perfil_collar_travado_dos_dois_lados (Parte 2, já existentes)
+#   - box (curva plana não-zero)                -> test_perfil_box_resultado_constante_nao_zero_sem_breakevens (abaixo)
+#   - lotSize/quantidades assimétricas          -> test_perfil_quantidades_assimetricas_ratio_1x2_lote_fora_do_motor (abaixo)
+#   - entrada degenerada (recusa, nunca NaN)    -> test_perfil_entrada_degenerada_recusa_citando_sem_exposicao (Parte 2c, já existente)
+
+def test_perfil_trava_de_alta_com_calls_caso_golden():
+    r = m.perfil_da_estrutura([
+        {"tipo": "CALL", "lado": "compra", "strike": 49.17, "premio": 0.40},
+        {"tipo": "CALL", "lado": "venda", "strike": 49.67, "premio": 0.15},
+    ])
+    assert r["custo_liquido"] == 0.25
+    assert r["breakevens"] == [49.42]
+    assert r["ganho_maximo"] == 0.25
+    assert r["perda_maxima"] == 0.25
+    assert r["ganho_ilimitado"] is False
+    assert r["perda_ilimitada"] is False
+
+
+def test_perfil_trava_de_baixa_com_puts_ganho_e_perda_finitos_um_breakeven():
+    r = m.perfil_da_estrutura([
+        {"tipo": "PUT", "lado": "compra", "strike": 50, "premio": 3},
+        {"tipo": "PUT", "lado": "venda", "strike": 45, "premio": 1},
+    ])
+    assert r["ganho_ilimitado"] is False
+    assert r["perda_ilimitada"] is False
+    assert r["ganho_maximo"] == 3.0
+    assert r["perda_maxima"] == 2.0
+    assert r["breakevens"] == [48.0]
+
+
+def test_perfil_straddle_comprado_dois_breakevens():
+    r = m.perfil_da_estrutura([
+        {"tipo": "CALL", "lado": "compra", "strike": 50, "premio": 1},
+        {"tipo": "PUT", "lado": "compra", "strike": 50, "premio": 1},
+    ])
+    assert r["breakevens"] == [48.0, 52.0]
+    assert len(r["breakevens"]) == 2
+    assert r["ganho_ilimitado"] is True
+
+
+def test_perfil_strangle_comprado_dois_breakevens():
+    r = m.perfil_da_estrutura([
+        {"tipo": "PUT", "lado": "compra", "strike": 45, "premio": 1},
+        {"tipo": "CALL", "lado": "compra", "strike": 55, "premio": 1},
+    ])
+    assert len(r["breakevens"]) == 2
+    inferior, superior = r["breakevens"]
+    assert inferior < 45
+    assert superior > 55
+
+
+def test_perfil_borboleta_plato_e_extremos_nomeados():
+    r = m.perfil_da_estrutura([
+        {"tipo": "CALL", "lado": "compra", "strike": 45, "premio": 6},
+        {"tipo": "CALL", "lado": "venda", "strike": 50, "premio": 3, "quantidade": 2},
+        {"tipo": "CALL", "lado": "compra", "strike": 55, "premio": 1.5},
+    ])
+    assert r["custo_liquido"] == 1.5
+    assert r["breakevens"] == [46.5, 53.5]
+    assert r["ganho_maximo"] == 3.5
+    assert r["perda_maxima"] == 1.5
+    assert r["ganho_ilimitado"] is False
+    assert r["perda_ilimitada"] is False
+
+
+def test_perfil_condor_plato_central_mesmo_resultado():
+    r = m.perfil_da_estrutura([
+        {"tipo": "CALL", "lado": "compra", "strike": 45, "premio": 6},
+        {"tipo": "CALL", "lado": "venda", "strike": 50, "premio": 3},
+        {"tipo": "CALL", "lado": "venda", "strike": 55, "premio": 1.5},
+        {"tipo": "CALL", "lado": "compra", "strike": 60, "premio": 0.5},
+    ])
+    assert r["breakevens"] == [47.0, 58.0]
+    assert r["ganho_maximo"] == 3.0
+    assert r["perda_maxima"] == 2.0
+    pontos_platô = {p["preco_objeto"]: p["resultado"] for p in r["curva"]
+                    if p["preco_objeto"] in (50.0, 55.0)}
+    assert pontos_platô[50.0] == pontos_platô[55.0] == 3.0
+
+
+def test_perfil_box_resultado_constante_nao_zero_sem_breakevens():
+    # Diferente do degenerado (D-04.1): custo != 0, e o resultado travado é
+    # um valor fixo NÃO-zero em qualquer preço — existe exposição real, só
+    # que ela não varia. Guarda a distinção de três partes da D-04.1 de nunca
+    # degenerar para duas.
+    r = m.perfil_da_estrutura([
+        {"tipo": "CALL", "lado": "compra", "strike": 50, "premio": 6},
+        {"tipo": "CALL", "lado": "venda", "strike": 55, "premio": 3},
+        {"tipo": "PUT", "lado": "compra", "strike": 55, "premio": 3.5},
+        {"tipo": "PUT", "lado": "venda", "strike": 50, "premio": 2},
+    ])
+    assert r["custo_liquido"] == 4.5
+    assert all(p["resultado"] == 0.5 for p in r["curva"])
+    assert r["breakevens"] == []
+    assert r["ganho_maximo"] == 0.5
+    assert r["perda_maxima"] == 0.0
+    assert r["ganho_ilimitado"] is False
+    assert r["perda_ilimitada"] is False
+
+
+def test_perfil_quantidades_assimetricas_ratio_1x2_lote_fora_do_motor():
+    # Quantidade é número de CONTRATOS, nenhum fator de lote entra no motor
+    # (D-02) — a perna vendida tem o dobro de contratos da comprada.
+    r = m.perfil_da_estrutura([
+        {"tipo": "CALL", "lado": "compra", "strike": 50, "premio": 3},
+        {"tipo": "CALL", "lado": "venda", "strike": 55, "premio": 1.5, "quantidade": 2},
+    ])
+    assert r["custo_liquido"] == 0.0
+    assert r["perda_ilimitada"] is True
+    assert r["ganho_maximo"] == 5.0
