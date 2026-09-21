@@ -24,9 +24,9 @@ recomendação.
 
 ### Motor de Payoff (PAYOFF)
 
-- [ ] **PAYOFF-01**: Motor genérico calcula resultado/breakevens/ganho-perda máxima/domínio X-Y para qualquer combinação de legs (`kind`/`side`/`strike`/`premium`/`qty`/`expiry`), sem lógica por nome de estratégia — proibido switch/case ou dicionário de textos por estratégia
-- [ ] **PAYOFF-02**: Motor cobre os casos-limite: compra/venda seca (1 perna), venda descoberta/ratio spread (perda ilimitada), travas de alta/baixa com calls/puts, borboleta/condor (2 breakevens + platô central), straddle/strangle, covered call/collar (perna de ação sem strike), box (curva plana não-zero), calendário/diagonal (vencimentos diferentes — degrada com honestidade, nunca aproxima linearmente), lotSize/quantidades assimétricas, entrada degenerada (prêmio zero/strikes iguais — recusa com mensagem clara, nunca NaN)
-- [ ] **PAYOFF-03**: Caso golden (trava de alta com calls, strikes 49,17/49,67, débito 0,25, lote 100 → breakeven 49,42, ganho/perda máx R$ 25,00, 3 segmentos, nenhum ilimitado) é teste de regressão nomeado
+- [x] **PAYOFF-01**: Motor genérico calcula resultado/breakevens/ganho-perda máxima/domínio X-Y para qualquer combinação de legs (`kind`/`side`/`strike`/`premium`/`qty`/`expiry`), sem lógica por nome de estratégia — proibido switch/case ou dicionário de textos por estratégia
+- [x] **PAYOFF-02**: Motor cobre os casos-limite: compra/venda seca (1 perna), venda descoberta/ratio spread (perda ilimitada), travas de alta/baixa com calls/puts, borboleta/condor (2 breakevens + platô central), straddle/strangle, covered call/collar (perna de ação sem strike), box (curva plana não-zero), calendário/diagonal (vencimentos diferentes — degrada com honestidade, nunca aproxima linearmente), lotSize/quantidades assimétricas, entrada degenerada (prêmio zero/strikes iguais — recusa com mensagem clara, nunca NaN)
+- [x] **PAYOFF-03**: Caso golden (trava de alta com calls, strikes 49,17/49,67, débito 0,25, lote 100 → breakeven 49,42, ganho/perda máx R$ 25,00, 3 segmentos, nenhum ilimitado) é teste de regressão nomeado
 
 ### Gráfico de Payoff (CHART)
 
@@ -68,9 +68,9 @@ Deferido, decidido em conversa antes deste milestone — fora do roadmap atual.
 | JORN-01 | Phase 35 | Done |
 | JORN-02 | Phase 35 | Done |
 | JORN-03 | Phase 35 | Done |
-| PAYOFF-01 | Phase 36 | Pending |
-| PAYOFF-02 | Phase 36 | Pending |
-| PAYOFF-03 | Phase 36 | Pending |
+| PAYOFF-01 | Phase 36 | Done |
+| PAYOFF-02 | Phase 36 | Done |
+| PAYOFF-03 | Phase 36 | Done |
 | CHART-01 | Phase 37 | Pending |
 | CHART-02 | Phase 37 | Pending |
 | CHART-03 | Phase 37 | Pending |

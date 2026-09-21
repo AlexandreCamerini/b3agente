@@ -143,7 +143,7 @@ payoff (`PayoffChart.jsx`) matematicamente incorreto (screenshot de
 produção, 2026-09-20).
 
 - [x] Phase 35: Jornada Guiada do Workspace (3/3 plans) — completed 2026-09-21
-- [ ] Phase 36: Motor de Payoff Genérico (0/2 plans)
+- [x] Phase 36: Motor de Payoff Genérico (2/2 plans) — completed 2026-09-21
 - [ ] Phase 37: Gráfico de Payoff e Explicação Confiáveis (0/? plans)
 
 **Phase Numbering:** continua a partir do fim do v1.6 (Phase 34) — Fases
@@ -196,7 +196,7 @@ não por dependência técnica real.
 | 33. Extração dos 5 jobs em componentes próprios | 5/5 | Complete (verified, 7/7) | 2026-09-20 |
 | 34. Navegação hub + workspace | 4/4 | Complete (verified, checkpoint humano aprovado ao vivo) | 2026-09-20 |
 | 35. Jornada Guiada do Workspace | 3/3 | Complete (checkpoint humano aprovado ao vivo) | 2026-09-21 |
-| 36. Motor de Payoff Genérico | 0/2 | Planned | - |
+| 36. Motor de Payoff Genérico | 2/2 | Complete | 2026-09-21 |
 | 37. Gráfico de Payoff e Explicação Confiáveis | 0/? | Not started | - |
 
 ## Phase Details
@@ -258,9 +258,11 @@ ESTENDE, não recria (D-01).
   S=0 (D-04); casos-limite de PAYOFF-02 em teste nomeado (D-07 parte 1) —
   completo 2026-09-21 (verificado de novo direto no código pelo orquestrador
   após o executor; 48 testes, 2943 pytest + 154/154 mjs, App/web intocados)
-- [ ] 36-02-PLAN.md — `dominio_da_curva()` (D-05); `segmentos_da_curva()`
+- [x] 36-02-PLAN.md — `dominio_da_curva()` (D-05); `segmentos_da_curva()`
   (D-06); caso golden como regressão nomeada + auditoria de PAYOFF-01 +
-  suíte canônica
+  suíte canônica — completo 2026-09-21 (verificado de novo direto no
+  código; 65 testes, 2960 pytest + 154/154 mjs; nada publicado, backend
+  puro sem consumidor ainda)
 
 ### Phase 37: Gráfico de Payoff e Explicação Confiáveis
 
