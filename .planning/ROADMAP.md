@@ -253,9 +253,11 @@ especificados — base que a Fase 37 (gráfico + explicação) consome.
 tocado pelos dois, sem paralelismo honesto). Achado da discussão: um motor
 genérico já existe em produção (`opcoes_payoff.py`, Fase 15) — esta fase
 ESTENDE, não recria (D-01).
-- [ ] 36-01-PLAN.md — `vencimento` por perna + degradação de calendário
+- [x] 36-01-PLAN.md — `vencimento` por perna + degradação de calendário
   (D-03); recusa de entrada degenerada + correção do breakeven espúrio em
-  S=0 (D-04); casos-limite de PAYOFF-02 em teste nomeado (D-07 parte 1)
+  S=0 (D-04); casos-limite de PAYOFF-02 em teste nomeado (D-07 parte 1) —
+  completo 2026-09-21 (verificado de novo direto no código pelo orquestrador
+  após o executor; 48 testes, 2943 pytest + 154/154 mjs, App/web intocados)
 - [ ] 36-02-PLAN.md — `dominio_da_curva()` (D-05); `segmentos_da_curva()`
   (D-06); caso golden como regressão nomeada + auditoria de PAYOFF-01 +
   suíte canônica
