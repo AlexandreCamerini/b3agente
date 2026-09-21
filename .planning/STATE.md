@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Simplificação da aba Opções
-status: planning
-stopped_at: 'Fase 34 (Navegação hub + workspace) PLANEJADA — 4 planos em 4 ondas sequenciais, plan-checker VERIFICATION PASSED (0 blockers), gate de cobertura de decisão 5/5, gate de cobertura de requisitos 6/6 NAV-01..06. Pronta para /gsd-execute-phase 34. Guardrail aplicado: nenhum mutador `gsd-sdk query state.*`/`roadmap.annotate-dependencies`/`state.planned-phase` foi chamado — STATE.md e ROADMAP.md editados à mão pelo orquestrador.'
+status: complete
+stopped_at: 'Fase 34 (Navegação hub + workspace) FECHADA — checkpoint humano aprovado ao vivo (navegador real, contagem de rede confirmando NAV-05), publicação combinada das Fases 33+34 em produção (F10-20260920-01), NAV-01..06 marcadas Done em REQUIREMENTS.md, Fase 34 marcada completa em ROADMAP.md. Milestone v1.6 com 13/13 requirements v1 entregues — pronta para /gsd-complete-milestone 1.6. Guardrail aplicado: nenhum mutador `gsd-sdk query state.*`/`roadmap.*` foi chamado — STATE.md/ROADMAP.md/REQUIREMENTS.md editados à mão pelo orquestrador.'
 last_updated: "2026-09-20T00:00:00.000Z"
-last_activity: "2026-09-20 — Fase 34 planejada de ponta a ponta: discuss-phase (6 decisões D-01..D-05), UI-phase (UI-SPEC aprovado 6/6 após 1 revisão de spacing), pattern-mapper (5/5 analogs), planner (4 planos), plan-checker (0 blockers, 1 warning de doc drift já corrigido). Achado real do planner (D-01 originalmente pedia listagem cross-ticker de setups no hub, mas o dado é ticker-scoped por construção) verificado pelo orquestrador e confirmado pelo Alex: SecaoSetups migra inteira pro workspace."
+last_activity: "2026-09-20 — Fase 34 fechada de ponta a ponta: checkpoint humano (Task 1) aprovado ao vivo pelo Alex após verificação em navegador real dos 6 itens do roteiro, incluindo a medição de rede que prova NAV-05 (trocar de pill não dispara nova leitura MCP). Publicação combinada das Fases 33+34 (Task 2): bump para F10-20260920-01, publicar-web.sh, /api/health confirmado no ar. Fechamento de documentos (Task 3): REQUIREMENTS.md (NAV-01..06 Done), ROADMAP.md (checkboxes Fase 33/34, Plans da Fase 34 completos, Progress table), STATE.md (esta entrada)."
 progress:
-  total_phases: 0
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_phases: 2
+  completed_phases: 2
+  total_plans: 9
+  completed_plans: 9
+  percent: 100
 ---
 
 # Project State
@@ -21,11 +21,27 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-06)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Milestone v1.6 (Simplificação da aba Opções) — Fase 33 fechada e verificada. Fase 34 (Navegação hub + workspace) EXECUTANDO — 34-01 ✓, 34-02 ✓, 34-03 ✓ (3/4 ondas). 34-04 pendente (checkpoint humano bloqueante).
+**Current focus:** Milestone v1.6 (Simplificação da aba Opções) — Fase 33 e Fase 34 FECHADAS e publicadas (F10-20260920-01). 13/13 requirements v1 (REORG-01..07 + NAV-01..06) Done. Milestone pronta para `/gsd-complete-milestone 1.6`; nenhum novo trabalho de código pendente neste milestone.
 
 ## Current Position
 
-Phase: 34 (Navegação hub + workspace) — **EXECUTANDO, 3/4 ondas**
+Phase: 34 (Navegação hub + workspace) — **FECHADA (4/4 ondas + checkpoint humano + publicação)**
+Plan: 34-01 ✓ | 34-02 ✓ | 34-03 ✓ | 34-04 ✓ (checkpoint humano aprovado ao vivo, publicação combinada 33+34, docs fechados à mão)
+Status: Fase 34 completa. Milestone v1.6 completo (Fase 33 + Fase 34, 13/13 requirements). Próximo passo é do Alex: fechar o milestone formalmente (`/gsd-complete-milestone 1.6`) ou abrir o próximo (ver pendências abaixo).
+Last activity: 2026-09-20 — `34-04` fechou a fase: (1) checkpoint humano do roteiro de 6 itens aprovado ao vivo pelo Alex em navegador real (hub sem ticker, entrar/sair do workspace, reset ao voltar D-03, 3 pills sem fetch novo ao trocar — NAV-05 confirmado por contagem de rede, erro visível nos dois modos, 375px sem quebra); (2) publicação combinada das Fases 33+34 (a 33 nunca tinha ido ao ar): `bump.sh` → `F10-20260920-01` → `publicar-web.sh` → `/api/health` confirmado servindo o carimbo novo; (3) documentos fechados à mão — `REQUIREMENTS.md` (NAV-01..06 Done, 13/13 v1 requirements), `ROADMAP.md` (checkboxes Fase 33/34, Plans da Fase 34 completos com o item 34-04, Progress table atualizada), este STATE.md.
+
+**Pendências abertas, declaradas e não escondidas:**
+1. **App iOS não recebeu a navegação nova ainda.** O app nativo carrega bundle local (sem `server.url`) — só chega num build novo de TestFlight (`scripts/ios-testflight.sh`). Fora do escopo desta fase, decisão do Alex quando ele quiser rodar. (Nota separada: em 2026-09-20 rodou `scripts/instalar-iphone.sh` para um install LOCAL de teste no iPhone físico do Alex, apontando para produção — isso é instalação ad hoc via Xcode, não o pipeline de TestFlight; não fecha esta pendência.)
+2. **Backlog B2** (estado do workspace não sobrevive à troca de seção) segue aberto por decisão explícita — D-03 do `34-CONTEXT.md` fixou "reseta sempre" como comportamento correto, não como defeito a corrigir depois.
+3. **2 todos que já foram executados na Fase 33** ainda estão fisicamente em `.planning/todos/pending/` (fold-in do fetch redundante e do carimbo de frescor, ambos dobrados na Fase 33) — mover para `done/` é limpeza de bookkeeping, não bloqueia nada.
+4. **Avisos de lint acumulados em `web/src/opcoes/`** (`PayoffChart`/`ErroDoMcp` importados sem uso, `store` declarado sem uso em 2 lugares) — confirmados pré-existentes em toda fase, candidatos a limpeza numa fase futura, nunca bloquearam a suíte canônica.
+5. **`web/.env.local` ausente neste worktree** — login Google falha no build local instalado no iPhone em 2026-09-20 (Apple/SIWA e e-mail/senha não são afetados); copiar de `web/env-local.example` quando for testar login Google no aparelho.
+
+**Pedido novo do Alex (2026-09-20, mesma sessão):** avaliação de UX ao vivo do app achou dois problemas fora do escopo do v1.6 (que só cobria reorganização estrutural, não qualidade de explicação): (a) a jornada de montar/ver uma estrutura de opções continua confusa nas sub-abas Analisar/Comparar/Setups salvos do workspace (passos não numerados, botão "ver possibilidades" pouco visível); (b) o gráfico de payoff (`PayoffChart`) mistura valor de hoje com resultado no vencimento, eixo Y sem escala, platô cortado, e o texto da razão G/P usa um número diferente do exibido — confirmado por screenshot real de produção. O Alex já fechou uma especificação técnica detalhada para o motor/componente de gráfico (arquitetura: explicação DERIVADA da curva calculada, nunca por nome de estratégia). **Isto não cabe como Fase 35 do v1.6** — o `ROADMAP.md` (linha ~129-139, nota "Phase Numbering") define o milestone v1.6 como exatamente as Fases 33-34, ambas fechadas; o próximo passo correto é `/gsd-new-milestone`, não `/gsd-discuss-phase` sobre uma fase que não existe no roadmap. Mapeia para "Fase 2 (explicação adaptativa/progressive disclosure)" já prevista como v2 requirement (`PERS-01` em `REQUIREMENTS.md`) desde a criação deste milestone. Contexto completo, screenshot e especificação técnica preservados na conversa; ainda não formalizados em `.planning/` — próximo passo é rodar `/gsd-new-milestone` com esse conteúdo.
+
+## Posição anterior (Fase 34, executando — 3/4 ondas)
+
+Phase: 34 (Navegação hub + workspace) — EXECUTANDO, 3/4 ondas (histórico, superado pela entrada acima)
 Plan: 34-01 ✓ | 34-02 ✓ | 34-03 ✓ | 34-04 pendente (checkpoint humano bloqueante — publica 33+34 juntas)
 Status: `/gsd-execute-phase 34` rodando nesta sessão (2026-09-20), sem worktree (`workflow.use_worktrees=false`), executor sequencial por onda. Cada executor foi instruído a NÃO tocar STATE.md/ROADMAP.md — o orquestrador edita à mão após cada onda, guardrail do repositório (2026-09-11).
 Last activity: 2026-09-20 — `34-03` completo: pill row de 3 abas (Analisar/Comparar/Setups salvos) acrescentada ao workspace; ramo 4 (Dados) da cascata passou a gatear pela aba ativa, não mais por um bloco único. Guardião estendido com 7 asserções novas + prova negativa DUPLA (NAV-05: trocar de aba não dispara fetch novo). Dois achados documentados no SUMMARY em vez de corrigidos silenciosamente ou ignorados: (1) o guardião trava a garantia só em `OpcoesScreen.jsx`, não com um check de runtime em `SecaoAnalisar.jsx` — fronteira de cobertura honesta, não lacuna; (2) `cp.opcoesAbaSetupsSalvos` diverge de propósito entre estudo ("Setups salvos") e operador ("Setups") — herdado do 34-01, mesmo padrão de tom de `opcoesSubabaOperar`. Suíte canônica idêntica à baseline. `npx vite build` verde. `App.jsx` intocado. 4 diagnósticos de lint (`PayoffChart`/`ErroDoMcp`/2×`store`) confirmados PRÉ-EXISTENTES (mesmas 2 declarações de sempre, só deslocadas de linha). Commits `7180ae4`/`c09fee7`/`8924a49`/`1172104`/`f65785f`/`9d5f570`.
@@ -33,10 +49,6 @@ Last activity: 2026-09-20 — `34-03` completo: pill row de 3 abas (Analisar/Com
 Anterior — `34-02` completo: `OpcoesScreen.jsx` particiona `hubTopo` × `workspaceTopo` acima da cascata (ramos 1-2 continuam únicos, ramos 3/4 particionados por modo) — o split hub/workspace de verdade. Guardião `test_opcoes_hub_workspace_ui.mjs` estendido. **Defeito real pego pela própria disciplina de prova negativa do plano**: a primeira versão do guardião buscava marcadores da cascata (`carregando ? (`, `erro ? (`, `!ticker ? (`) no arquivo INTEIRO, batendo por engano em homônimos dentro de `SubAbaOperar` — duas asserções ficaram inertes (defeito injetado de propósito não falhou). Corrigido escopando a busca à fatia da sub-aba "Setups" antes de qualquer inércia ir pro commit; prova negativa re-rodada e confirmada, revertida. Suíte canônica idêntica à baseline: 2923 pytest + 152/153 `.mjs`. `npx vite build` verde. `App.jsx` confirmado intocado (`git diff --stat 67c7472..HEAD -- web/src/App.jsx` vazio). 3 diagnósticos de lint novos investigados e confirmados PRÉ-EXISTENTES (mesma contagem de uso antes/depois do commit — `PayoffChart`/`ErroDoMcp` importados sem uso, `store` declarado sem uso em `SubAbaOperar`, todos herdados de fases anteriores). Commits `0bf14de`/`5d686ef`/`96174ae`/`9c3ab29`.
 
 **Contexto do planejamento (sessão anterior, mesmo dia):** `/gsd-discuss-phase 34` → `/gsd-ui-phase 34` → `/gsd-plan-phase 34`. Decisões travadas em `34-CONTEXT.md`: (D-01, EMENDADO) hub = SecaoDescobrir → SecaoVigias (listagem cross-ticker real) → seletor; SecaoSetups migra INTEIRA (lista + criação) pro workspace como 3ª aba "Setups salvos" — a leitura original de D-01 (listagem de setups no hub) era impossível: `setups` deriva só de `leitura.dados` (leitura paga, ticker-scoped), sempre vazio com `ticker=""`. Achado do planner, verificado pelo orquestrador por leitura direta, confirmado pelo Alex. (D-02) pill row do workspace com 3 abas. (D-03) estado do workspace reseta sempre ao voltar — B2 não fechado de passagem. (D-04) ordem fixa do hub. (D-05) botão de voltar vira header fixo com o ticker. UI-SPEC aprovado (6/6). `gsd-planner` (opus): 4 planos em 4 ondas sequenciais. `gsd-plan-checker`: VERIFICATION PASSED, 0 blockers. Gates de cobertura: 6/6 requisitos, 5/5 decisões. Commits `d49b2bf` → `d8556ea`/`565a08b`/`6b71e41` → `a2b0f9d` → `55594fd`/`5dc45b6` → `3f807ef` → `1272930`.
-
-**Próximo passo:** `/gsd-execute-phase 34` continua — Onda 2 (34-02, o split hub × workspace).
-
-**Próximo passo:** `/gsd-execute-phase 34` (4 ondas sequenciais; 34-04 tem checkpoint humano bloqueante antes de publicar 33+34 juntas).
 
 ## Posição anterior (Fase 33, fechada)
 

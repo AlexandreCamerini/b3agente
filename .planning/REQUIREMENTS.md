@@ -21,12 +21,12 @@ Reorganizar a sub-aba "Setups" da aba Opções por job-to-be-done. Duas fases de
 
 ### Navegação (NAV) — Fase B: hub + workspace
 
-- [ ] **NAV-01**: Sub-aba "Setups" abre em modo hub (frase-ponte + Bloco A + Bloco B + vigias + setups salvos) quando nenhum ticker está selecionado
-- [ ] **NAV-02**: Selecionar um ticker troca para modo workspace (análise manual do ticker + comparação de vencimentos), sem os blocos de descoberta cross-carteira
-- [ ] **NAV-03**: Workspace tem um caminho de volta claro ao hub — um botão, sem breadcrumb nem histórico de navegação
-- [ ] **NAV-04**: A frase-ponte (mitigação regulatória D-05) permanece fisicamente adjacente ao Bloco B em qualquer novo arranjo do hub — nunca separada por gate ou rolagem
-- [ ] **NAV-05**: Os jobs "analisar ticker", "comparar vencimentos" e "gerenciar setups salvos" continuam compartilhando uma única leitura paga (3 chamadas MCP) — trocar entre eles dentro do workspace não paga de novo (decisão confirmada com o Alex: manter custo atual)
-- [ ] **NAV-06**: Estados de erro/degradado hoje visíveis independente de posição na rolagem (ex.: MCP fora do ar) continuam visíveis independente de qual seção o usuário está olhando — nenhum aviso crítico fica isolado numa seção fechada
+- [x] **NAV-01**: Sub-aba "Setups" abre em modo hub (frase-ponte + Bloco A + Bloco B + vigias + setups salvos) quando nenhum ticker está selecionado
+- [x] **NAV-02**: Selecionar um ticker troca para modo workspace (análise manual do ticker + comparação de vencimentos), sem os blocos de descoberta cross-carteira
+- [x] **NAV-03**: Workspace tem um caminho de volta claro ao hub — um botão, sem breadcrumb nem histórico de navegação
+- [x] **NAV-04**: A frase-ponte (mitigação regulatória D-05) permanece fisicamente adjacente ao Bloco B em qualquer novo arranjo do hub — nunca separada por gate ou rolagem
+- [x] **NAV-05**: Os jobs "analisar ticker", "comparar vencimentos" e "gerenciar setups salvos" continuam compartilhando uma única leitura paga (3 chamadas MCP) — trocar entre eles dentro do workspace não paga de novo (decisão confirmada com o Alex: manter custo atual)
+- [x] **NAV-06**: Estados de erro/degradado hoje visíveis independente de posição na rolagem (ex.: MCP fora do ar) continuam visíveis independente de qual seção o usuário está olhando — nenhum aviso crítico fica isolado numa seção fechada
 
 ## v2 Requirements
 
@@ -61,12 +61,12 @@ Deferido, decidido em conversa antes deste milestone — fora do roadmap atual.
 | REORG-05 | Phase 33 | Done |
 | REORG-06 | Phase 33 | Done |
 | REORG-07 | Phase 33 | Done |
-| NAV-01 | Phase 34 | Pending |
-| NAV-02 | Phase 34 | Pending |
-| NAV-03 | Phase 34 | Pending |
-| NAV-04 | Phase 34 | Pending |
-| NAV-05 | Phase 34 | Pending |
-| NAV-06 | Phase 34 | Pending |
+| NAV-01 | Phase 34 | Done |
+| NAV-02 | Phase 34 | Done |
+| NAV-03 | Phase 34 | Done |
+| NAV-04 | Phase 34 | Done |
+| NAV-05 | Phase 34 | Done |
+| NAV-06 | Phase 34 | Done |
 
 **Coverage:**
 - v1 requirements: 13 total
@@ -75,4 +75,4 @@ Deferido, decidido em conversa antes deste milestone — fora do roadmap atual.
 
 ---
 *Requirements defined: 2026-09-19*
-*Last updated: 2026-09-19 after roadmap creation (Phase 33 + Phase 34, full coverage)*
+*Last updated: 2026-09-20 — NAV-01..06 marcados Done após verificação humana e publicação combinada das Fases 33+34 (F10-20260920-01). Milestone v1.6 com 13/13 requirements v1 concluídos.*

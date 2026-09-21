@@ -8,7 +8,7 @@
 - ✅ **v1.3 Cap comercial (plano gratuito)** — Phases 12-13 (shipped 2026-08-31) — [detalhes](milestones/v1.3-ROADMAP.md)
 - ✅ **v1.5 Redesenho de UI — simplificação e acessibilidade** — Phases 20-23 (shipped 2026-09-06) — [detalhes](milestones/v1.5-ROADMAP.md)
 - ✅ **v1.4 Opções v2** — Phases 15-19, 24-32 (shipped 2026-09-19) — [detalhes](milestones/v1.4-ROADMAP.md)
-- 🚧 **v1.6 Simplificação da aba Opções** — Phases 33-34 (in progress)
+- 🚧 **v1.6 Simplificação da aba Opções** — Phases 33-34 (código completo e publicado, F10-20260920-01 — aguardando `/gsd-complete-milestone 1.6`)
 
 ## Phases
 
@@ -138,8 +138,8 @@ paralelizáveis por desenho: fundir extração de componente com redesenho de
 navegação faria dois eixos de risco mudarem ao mesmo tempo sem checkpoint
 intermediário em que a suíte ainda esteja verde.
 
-- [ ] **Phase 33: Extração dos 5 jobs em componentes próprios** - Cada job vira uma seção isolada em arquivo próprio, comportamento/dados/ordem idênticos aos de hoje
-- [ ] **Phase 34: Navegação hub + workspace** - Sub-aba Setups troca a rolagem única por hub (sem ticker) e workspace (ticker selecionado)
+- [x] **Phase 33: Extração dos 5 jobs em componentes próprios** - Cada job vira uma seção isolada em arquivo próprio, comportamento/dados/ordem idênticos aos de hoje
+- [x] **Phase 34: Navegação hub + workspace** - Sub-aba Setups troca a rolagem única por hub (sem ticker) e workspace (ticker selecionado)
 
 ## Phase Details
 
@@ -228,8 +228,12 @@ rodar em paralelo.
 - [x] 34-03-PLAN.md — pill row de 3 abas (D-02) + gate do ramo Dados por aba
   + guardião de NAV-05 (trocar de aba não paga de novo) — completo
   2026-09-20 (prova negativa dupla; `App.jsx` intocado; mesma baseline)
-- [ ] 34-04-PLAN.md — checkpoint humano bloqueante + publicação do front
-  (33+34 juntas) + docs à mão
+- [x] 34-04-PLAN.md — checkpoint humano bloqueante (aprovado ao vivo,
+  navegador, incl. contagem de rede confirmando NAV-05) + publicação do
+  front (33+34 juntas, F10-20260920-01) + docs à mão — completo 2026-09-20
+  (pendência declarada: app iOS carrega bundle local, navegação nova só
+  chega num build de TestFlight — decisão do Alex, fora do escopo desta
+  fase)
 **UI hint**: yes
 
 ## Progress
@@ -270,7 +274,7 @@ rodar em paralelo.
 | 31. Varredura de oportunidades de opções | 4/4 | Complete | 2026-09-14 |
 | 32. Consolidação das operações de opções na aba Opções | 5/5 | Complete | 2026-09-16 |
 | 33. Extração dos 5 jobs em componentes próprios | 5/5 | Complete (verified, 7/7) | 2026-09-20 |
-| 34. Navegação hub + workspace | v1.6 | Executing (3/4) | - |
+| 34. Navegação hub + workspace | 4/4 | Complete (verified, checkpoint humano aprovado ao vivo) | 2026-09-20 |
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2/v1.3
 
