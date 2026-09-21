@@ -143,7 +143,7 @@ payoff (`PayoffChart.jsx`) matematicamente incorreto (screenshot de
 produção, 2026-09-20).
 
 - [x] Phase 35: Jornada Guiada do Workspace (3/3 plans) — completed 2026-09-21
-- [ ] Phase 36: Motor de Payoff Genérico (0/? plans)
+- [ ] Phase 36: Motor de Payoff Genérico (0/2 plans)
 - [ ] Phase 37: Gráfico de Payoff e Explicação Confiáveis (0/? plans)
 
 **Phase Numbering:** continua a partir do fim do v1.6 (Phase 34) — Fases
@@ -196,7 +196,7 @@ não por dependência técnica real.
 | 33. Extração dos 5 jobs em componentes próprios | 5/5 | Complete (verified, 7/7) | 2026-09-20 |
 | 34. Navegação hub + workspace | 4/4 | Complete (verified, checkpoint humano aprovado ao vivo) | 2026-09-20 |
 | 35. Jornada Guiada do Workspace | 3/3 | Complete (checkpoint humano aprovado ao vivo) | 2026-09-21 |
-| 36. Motor de Payoff Genérico | 0/? | Not started | - |
+| 36. Motor de Payoff Genérico | 0/2 | Planned | - |
 | 37. Gráfico de Payoff e Explicação Confiáveis | 0/? | Not started | - |
 
 ## Phase Details
@@ -249,7 +249,16 @@ especificados — base que a Fase 37 (gráfico + explicação) consome.
   4. Nenhum ponto do motor decide o cálculo a partir do nome da estratégia —
      auditável por leitura direta do módulo puro (sem chamada de IA, sem
      dependência nova de charting de terceiros)
-**Plans**: TBD
+**Plans**: 2 plans (2 ondas sequenciais — `server/app/opcoes_payoff.py` é
+tocado pelos dois, sem paralelismo honesto). Achado da discussão: um motor
+genérico já existe em produção (`opcoes_payoff.py`, Fase 15) — esta fase
+ESTENDE, não recria (D-01).
+- [ ] 36-01-PLAN.md — `vencimento` por perna + degradação de calendário
+  (D-03); recusa de entrada degenerada + correção do breakeven espúrio em
+  S=0 (D-04); casos-limite de PAYOFF-02 em teste nomeado (D-07 parte 1)
+- [ ] 36-02-PLAN.md — `dominio_da_curva()` (D-05); `segmentos_da_curva()`
+  (D-06); caso golden como regressão nomeada + auditoria de PAYOFF-01 +
+  suíte canônica
 
 ### Phase 37: Gráfico de Payoff e Explicação Confiáveis
 
