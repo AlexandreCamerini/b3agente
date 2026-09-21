@@ -539,7 +539,11 @@ export default function OpcoesScreen({ ctx }) {
     && !servicoIndisponivel;
   const blocoLeituraDoServico = (
     <div style={{ marginTop: "14px" }}>
-      <Kicker>{cp.opcoesLeituraTitulo || "LEITURA DO ATIVO"}</Kicker>
+      {/* Fase 35 (35-01, D-01): sufixo de estágio ("Passo 1 de 2") — mesmo
+          separador " · " que D-06 usa para "leitura já feita" abaixo, uma
+          convenção só. Zero mudança de arquitetura: rótulo sobre a estrutura
+          existente, não reabertura de condição de render. */}
+      <Kicker>{(cp.opcoesLeituraTitulo || "LEITURA DO ATIVO") + " · " + (cp.opcoesPasso1de2 || "Passo 1 de 2")}</Kicker>
       <div style={CAIXA}>
         <div style={{ fontSize: "12.5px", color: T.textSecondary, lineHeight: 1.5 }}>
           {cp.opcoesLeituraConvite || ""}
@@ -697,7 +701,39 @@ export default function OpcoesScreen({ ctx }) {
       <WorkspaceHeader ticker={ticker} onVoltar={() => escolherTicker(ticker)} cp={cp} />
       <LastroDoAtivo pos={posicaoSelecionada} cp={cp} />
       <LeituraInterna tecnico={tecnico} cp={cp} />
-      {podePedirLeitura ? blocoLeituraDoServico : null}
+      {/* Fase 35 (35-01, D-02) — bug corrigido: SecaoSetups.jsx NUNCA leu
+          `temLeitura` (confirmado por leitura direta do arquivo), então o
+          convite pago acima dela era portão sem porta — quem só quer ver/
+          criar um setup salvo era barrado por uma leitura que a própria
+          seção nunca usa. Usar desigualdade contra a pill "setups", NUNCA
+          uma terceira comparação de igualdade equivalente (o guardião da
+          Fase 34 trava exatamente 3 ocorrências desse padrão no arquivo). */}
+      {podePedirLeitura && abaWorkspace !== "setups" ? blocoLeituraDoServico : null}
+      {/* Fase 35 (35-01, D-06) — metadado de "leitura já feita" no MESMO
+          lugar onde o convite acima desaparece. Gate é `temLeitura` SOZINHO,
+          sem `abaWorkspace`: tudo que fica acima do carril (LastroDoAtivo,
+          LeituraInterna, este metadado) é contexto do TICKER, compartilhado
+          pelas três pills — D-02 remove da pill "Setups salvos" a AÇÃO paga,
+          não o contexto. Estender o gate de D-06 por simetria visual seria
+          ampliar uma decisão travada por conta própria (35-UI-SPEC.md,
+          discretion note). Borda conhecida, preservada de propósito: com
+          `leitura.dados` presente mas `behavior` ausente (`sem_candles`),
+          nem o convite nem este metadado aparecem — comportamento de HOJE;
+          inventar texto para esse estado afirmaria leitura que o motor não
+          endossou. */}
+      {temLeitura ? (
+        <div style={{ marginTop: "14px" }}>
+          <Kicker>{(cp.opcoesLeituraTitulo || "LEITURA DO ATIVO") + " · " + (cp.opcoesLeituraJaFeita || "leitura já feita")}</Kicker>
+        </div>
+      ) : null}
+      {/* Fase 35 (35-01, D-08) — rótulo do estágio 2, SEM gate (é o rótulo
+          que dá a JORN-03 paridade estrutural entre as três pills — aparece
+          igual não importa qual esteja ativa) — e a linha de transição
+          quando a leitura já existe. Analisar/Comparar nunca são numeradas
+          ENTRE SI (princípio 5 do CLAUDE.md): o Kicker nomeia o JOB do
+          estágio ("O QUE FAZER"), não uma posição de sequência. */}
+      <Kicker>{(cp.opcoesEscolhaTitulo || "O QUE FAZER") + " · " + (cp.opcoesPasso2de2 || "Passo 2 de 2")}</Kicker>
+      {temLeitura ? <div style={AJUDA}>{cp.opcoesLeituraConcluidaAjuda || "Leitura concluída — escolha Analisar ou Comparar."}</div> : null}
       {/* Fase 34 (34-03): pill row de 3 abas, ÚLTIMO elemento acima da
           cascata — lastro, leitura interna e convite pago são compartilhados
           pelas três abas e pedidos uma vez aqui, fora do gate de aba abaixo
