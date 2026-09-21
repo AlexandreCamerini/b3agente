@@ -18,9 +18,9 @@ recomendação.
 
 ### Jornada do Workspace (JORN)
 
-- [ ] **JORN-01**: Usuário vê indicação clara de progresso/etapas ao montar uma estrutura em Analisar, do ticker escolhido até "ver possibilidades"
-- [ ] **JORN-02**: O botão que revela as estruturas possíveis é visualmente proeminente e seu propósito é evidente sem explicação externa
-- [ ] **JORN-03**: Comparar e Setups salvos recebem a mesma clareza de passos que Analisar
+- [x] **JORN-01**: Usuário vê indicação clara de progresso/etapas ao montar uma estrutura em Analisar, do ticker escolhido até "ver possibilidades"
+- [x] **JORN-02**: O botão que revela as estruturas possíveis é visualmente proeminente e seu propósito é evidente sem explicação externa
+- [x] **JORN-03**: Comparar e Setups salvos recebem a mesma clareza de passos que Analisar
 
 ### Motor de Payoff (PAYOFF)
 
@@ -65,9 +65,9 @@ Deferido, decidido em conversa antes deste milestone — fora do roadmap atual.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| JORN-01 | Phase 35 | Pending |
-| JORN-02 | Phase 35 | Pending |
-| JORN-03 | Phase 35 | Pending |
+| JORN-01 | Phase 35 | Done |
+| JORN-02 | Phase 35 | Done |
+| JORN-03 | Phase 35 | Done |
 | PAYOFF-01 | Phase 36 | Pending |
 | PAYOFF-02 | Phase 36 | Pending |
 | PAYOFF-03 | Phase 36 | Pending |

@@ -142,7 +142,7 @@ mais concretos: jornada do workspace sem passos visíveis, e gráfico de
 payoff (`PayoffChart.jsx`) matematicamente incorreto (screenshot de
 produção, 2026-09-20).
 
-- [ ] Phase 35: Jornada Guiada do Workspace (0/3 plans)
+- [x] Phase 35: Jornada Guiada do Workspace (3/3 plans) — completed 2026-09-21
 - [ ] Phase 36: Motor de Payoff Genérico (0/? plans)
 - [ ] Phase 37: Gráfico de Payoff e Explicação Confiáveis (0/? plans)
 
@@ -195,7 +195,7 @@ não por dependência técnica real.
 | 32. Consolidação das operações de opções na aba Opções | 5/5 | Complete | 2026-09-16 |
 | 33. Extração dos 5 jobs em componentes próprios | 5/5 | Complete (verified, 7/7) | 2026-09-20 |
 | 34. Navegação hub + workspace | 4/4 | Complete (verified, checkpoint humano aprovado ao vivo) | 2026-09-20 |
-| 35. Jornada Guiada do Workspace | 0/? | Not started | - |
+| 35. Jornada Guiada do Workspace | 3/3 | Complete (checkpoint humano aprovado ao vivo) | 2026-09-21 |
 | 36. Motor de Payoff Genérico | 0/? | Not started | - |
 | 37. Gráfico de Payoff e Explicação Confiáveis | 0/? | Not started | - |
 
@@ -222,7 +222,7 @@ primeiro por conveniência de execução, não por dependência técnica)
 **Plans**: 3 plans
 - [x] 35-01-PLAN.md — vocabulário da jornada (7 chaves nos dois modos) + rótulos de estágio, gate por pill ativa e ramo "leitura já feita" em `OpcoesScreen.jsx` (D-01/D-02/D-06/D-08) — completo 2026-09-21 (guardião novo com 3 provas negativas reais; 2923 pytest + mjs verde; App.jsx intocado)
 - [x] 35-02-PLAN.md — `BOTAO_PRIMARIO` nos 3 CTAs da jornada com `T.onAccent`, marca de resultado re-clicável e varredura de tokens do diretório (D-03/D-04/D-05/D-06/D-07) — completo 2026-09-21 (fold-in real do bug `T.bgPanel` em `SecaoVigias.jsx`; guardião com 70 asserções e 4 provas negativas; 2923 pytest + mjs verde; App.jsx intocado)
-- [ ] 35-03-PLAN.md — checkpoint humano ao vivo nos 4 pares tema × modo (fecha o risco aberto de D-07) + bump/publicação gated pela aprovação
+- [x] 35-03-PLAN.md — checkpoint humano ao vivo nos 4 pares tema × modo (fecha o risco aberto de D-07) + bump/publicação gated pela aprovação — completo 2026-09-21 (aprovado ao vivo, publicado F10-20260921-01, /api/health confirmado)
 **UI hint**: yes
 
 ### Phase 36: Motor de Payoff Genérico
