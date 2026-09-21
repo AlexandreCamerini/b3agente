@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-20)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Milestone v1.7 (Confiabilidade explicativa da aba Opções) — roadmap gerado (Fases 35-37, 14/14 requirements mapeados). Próximo passo: `/gsd:plan-phase 35` (Jornada Guiada do Workspace).
+**Current focus:** Milestone v1.7 (Confiabilidade explicativa da aba Opções) — Fase 35 (Jornada Guiada do Workspace) DISCUTIDA, pronta pra planejar. Próximo passo: `/gsd:plan-phase 35`.
 
 ## Current Position
 
-Phase: 35 (Jornada Guiada do Workspace) — 1 of 3 fases do v1.7 (numeração de fase não é contígua por milestone neste projeto — 37 é o número da última fase, não o total) — not started
-Plan: — (roadmap gerado, planejamento da Fase 35 ainda não rodou)
-Status: Ready to plan. Roadmap do milestone v1.7 gerado por `/gsd-roadmapper`: 3 fases (35 Jornada Guiada do Workspace — JORN-01..03; 36 Motor de Payoff Genérico — PAYOFF-01..03; 37 Gráfico de Payoff e Explicação Confiáveis — CHART-01..05+EXPL-01..03), 14/14 requirements mapeados (100% coverage). Fase 37 depende da Fase 36 (consome a forma de saída do motor); Fase 35 é independente. `ROADMAP.md` e `REQUIREMENTS.md` (traceability) escritos.
-Last activity: 2026-09-20 — Roadmap do v1.7 gerado e escrito em `ROADMAP.md`/`REQUIREMENTS.md`. Próximo passo: `/gsd:plan-phase 35`.
+Phase: 35 (Jornada Guiada do Workspace) — 1 of 3 fases do v1.7 (numeração de fase não é contígua por milestone neste projeto — 37 é o número da última fase, não o total) — DISCUTIDA, pronta para planejar
+Plan: — (discuss-phase completo, planejamento ainda não rodou)
+Status: `/gsd-plan-phase 35` tinha detectado ausência de `35-CONTEXT.md` e, seguindo o gate #1009 (AskUserQuestion não funciona aninhado), pausou e pediu pra rodar `/gsd-discuss-phase 35` como comando de topo. Rodado nesta sessão: o Alex pediu explicitamente para trazer agentes especializados (UX Researcher + UI Designer) antes de travar decisões pontuais, em vez de responder as 4 perguntas mecânicas direto. `35-CONTEXT.md`/`35-DISCUSSION-LOG.md` escritos e commitados. Próximo passo: re-rodar `/gsd:plan-phase 35`.
+Last activity: 2026-09-21 — Discuss-phase da Fase 35 completo. Dois agentes especializados rodados em paralelo a pedido do Alex: UX Researcher (pesquisa de padrões reais de progressive disclosure/apps de trading, achou que o portão de leitura fora do carril de pills é decisão de arquitetura já fechada na Fase 27/ADR-027 Emenda 2, não descuido — e achou de graça que `SecaoSetups` fica bloqueada pelo portão sem precisar dele); UI Designer (leu o design system real do workspace + `34-UI-SPEC.md`, propôs `BOTAO_PRIMARIO` estendendo o reserved-for de `T.accent`, com precedente em produção em `CuradoriaEstruturas.jsx`). Decisões travadas: Opção A do fluxo (passo numerado só no nível porta→carril, nunca numerando Analisar/Comparar entre si — decisão que preserva o princípio 5 do CLAUDE.md de não inventar sequência que não existe), extensão aprovada do accent, risco de contraste no tema claro declarado como verificação obrigatória pendente. Opção B (carril numerado com cadeado, desloca Setups salvos) registrada como candidata futura, não descartada.
 
 **Pendências herdadas do v1.6, ainda abertas (não bloqueiam o v1.7):**
 1. App iOS não recebeu a navegação nova — só chega num build de TestFlight, decisão do Alex.
