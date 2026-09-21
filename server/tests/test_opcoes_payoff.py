@@ -291,3 +291,77 @@ def test_perfil_vencimentos_divergentes_degrada_sem_curva():
     assert r["ganho_ilimitado"] is False
     assert r["perda_ilimitada"] is False
     assert r["custo_liquido"] == 0.25
+
+
+# --------------------------- Parte 2c: entrada degenerada e S=0 espurio (D-04, Fase 36) ---------------------------
+
+def test_perfil_entrada_degenerada_recusa_citando_sem_exposicao():
+    with pytest.raises(ValueError) as exc:
+        m.perfil_da_estrutura([
+            {"tipo": "CALL", "lado": "compra", "strike": 50, "premio": 1},
+            {"tipo": "CALL", "lado": "venda", "strike": 50, "premio": 1},
+        ])
+    assert "sem exposição" in str(exc.value)
+
+
+def test_perfil_call_premio_zero_nao_e_degenerada_breakeven_so_no_strike():
+    r = m.perfil_da_estrutura([{"tipo": "CALL", "lado": "compra", "strike": 50, "premio": 0}])
+    assert r["breakevens"] == [50.0]
+    assert r["ganho_ilimitado"] is True
+
+
+def test_perfil_box_travado_em_zero_custo_nao_zero_nao_e_degenerada_sem_breakevens():
+    r = m.perfil_da_estrutura([
+        {"tipo": "CALL", "lado": "compra", "strike": 50, "premio": 6},
+        {"tipo": "CALL", "lado": "venda", "strike": 55, "premio": 3},
+        {"tipo": "PUT", "lado": "compra", "strike": 55, "premio": 4},
+        {"tipo": "PUT", "lado": "venda", "strike": 50, "premio": 2},
+    ])
+    assert r["custo_liquido"] == 5.0
+    assert r["breakevens"] == []
+
+
+def test_perfil_ratio_1x2_custo_zero_breakevens_sem_zero_espurio():
+    r = m.perfil_da_estrutura([
+        {"tipo": "CALL", "lado": "compra", "strike": 50, "premio": 3},
+        {"tipo": "CALL", "lado": "venda", "strike": 55, "premio": 1.5, "quantidade": 2},
+    ])
+    assert r["breakevens"] == [50.0, 60.0]
+    assert r["perda_ilimitada"] is True
+
+
+def test_perfil_divergencia_de_vencimento_tem_precedencia_sobre_guarda_degenerada():
+    # Estrutura simultaneamente degenerada (mesma perna comprada e vendida no
+    # mesmo strike/premio, custo zero, inclinação zero) E com vencimentos
+    # divergentes: a divergência (fato sobre a ENTRADA) vence e devolve o
+    # dicionário degradado de D-03 — nunca levanta ValueError de D-04.1.
+    r = m.perfil_da_estrutura([
+        {"tipo": "CALL", "lado": "compra", "strike": 50, "premio": 1,
+         "vencimento": "2026-10-16"},
+        {"tipo": "CALL", "lado": "venda", "strike": 50, "premio": 1,
+         "vencimento": "2026-11-20"},
+    ])
+    assert r["vencimentos"]["divergentes"] is True
+    assert r["curva"] == []
+
+
+def test_perfil_breakevens_regressao_apos_correcao_de_s_zero_espurio():
+    assert m.perfil_da_estrutura([
+        {"tipo": "ACAO", "lado": "compra", "premio": 30},
+        {"tipo": "CALL", "lado": "venda", "strike": 32, "premio": 1.5},
+    ])["breakevens"] == [28.5]
+    assert m.perfil_da_estrutura(
+        [{"tipo": "CALL", "lado": "compra", "strike": 40, "premio": 2}])["breakevens"] == [42.0]
+    borboleta = m.perfil_da_estrutura([
+        {"tipo": "CALL", "lado": "compra", "strike": 45, "premio": 6},
+        {"tipo": "CALL", "lado": "venda", "strike": 50, "premio": 3, "quantidade": 2},
+        {"tipo": "CALL", "lado": "compra", "strike": 55, "premio": 1.5},
+    ])
+    assert borboleta["breakevens"] == [46.5, 53.5]
+    condor = m.perfil_da_estrutura([
+        {"tipo": "CALL", "lado": "compra", "strike": 45, "premio": 6},
+        {"tipo": "CALL", "lado": "venda", "strike": 50, "premio": 3},
+        {"tipo": "CALL", "lado": "venda", "strike": 55, "premio": 1.5},
+        {"tipo": "CALL", "lado": "compra", "strike": 60, "premio": 0.5},
+    ])
+    assert condor["breakevens"] == [47.0, 58.0]

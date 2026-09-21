@@ -254,6 +254,19 @@ def perfil_da_estrutura(pernas: Sequence[dict[str, Any]]) -> dict[str, Any]:
         p["sinal"] * p["quantidade"] for p in normalizadas
         if p["tipo"] in ("CALL", "ACAO"))
 
+    # D-04.1: entrada degenerada — sem exposição real nenhuma — recusada
+    # ANTES de qualquer extremo/breakeven ser calculado em cima dela. As três
+    # condições são obrigatórias, nenhuma sozinha basta: custo líquido zero
+    # sozinho não descarta (ratio spread de custo zero é legítimo), curva
+    # toda em zero sozinha não descarta (box travado em zero tem custo != 0 e
+    # é legítimo, não degenerado) — só a conjunção das três descreve "não há
+    # o que analisar aqui".
+    if custo == 0 and inclinacao_direita == 0 and all(
+            ponto["resultado"] == 0 for ponto in curva):
+        raise ValueError(
+            "estrutura sem exposição: custo líquido e resultado são zero "
+            "em qualquer preço do objeto — não há o que analisar")
+
     resultados = [ponto["resultado"] for ponto in curva]
     ganho_ilimitado = inclinacao_direita > 0
     perda_ilimitada = inclinacao_direita < 0
@@ -287,19 +300,29 @@ def _breakevens(curva: list[dict[str, Any]], inclinacao_direita: float) -> list[
     Dois casos: cruzamento entre dois pontos avaliados (interpolação linear,
     exata porque o trecho é reto) e cruzamento na cauda à direita do último
     strike, onde não há próximo ponto e quem responde é a inclinação.
+
+    Um ponto de resultado zero só é breakeven quando a curva DEIXA o zero
+    indo para a direita — não quando ela apenas encosta no zero sem sair
+    dele (D-04.2, Fase 36). `y0 == 0` sozinho não basta: exige também que o
+    próximo ponto seja não-zero, senão uma CALL de prêmio zero, um ratio
+    spread de custo zero ou um box travado em zero relatariam `S=0` como
+    cruzamento espúrio.
     """
     pontos: list[float] = []
 
     for anterior, atual in zip(curva, curva[1:]):
         y0, y1 = anterior["resultado"], atual["resultado"]
         x0, x1 = anterior["preco_objeto"], atual["preco_objeto"]
-        if y0 == 0:
+        if y0 == 0 and y1 != 0:
             pontos.append(x0)
         if (y0 < 0 < y1) or (y1 < 0 < y0):
             pontos.append(round(x0 + (x1 - x0) * (-y0) / (y1 - y0), 4))
 
+    # Mesma lógica na cauda: resultado zero no último strike só é cruzamento
+    # se a curva não ficar plana em zero para sempre a partir dali — com
+    # inclinação zero ela fica, e o último strike não é cruzamento nenhum.
     ultimo = curva[-1]
-    if ultimo["resultado"] == 0:
+    if ultimo["resultado"] == 0 and inclinacao_direita:
         pontos.append(ultimo["preco_objeto"])
     elif inclinacao_direita:
         adiante = ultimo["preco_objeto"] - ultimo["resultado"] / inclinacao_direita
