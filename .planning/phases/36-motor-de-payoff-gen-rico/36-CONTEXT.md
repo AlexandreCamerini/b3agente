@@ -201,12 +201,26 @@ nunca pela IA (princípio 5 do CLAUDE.md).
 <specifics>
 ## Specific Ideas
 
-Formato proposto de segmento (D-06), ponto de partida pro planner:
+Formato proposto de segmento (D-06), ponto de partida pro planner. **Corrigido
+nesta sessão** (achado do `gsd-pattern-mapper`, resolvido sem reabrir
+pergunta ao Alex — a contagem "3 segmentos" já está travada em PAYOFF-03/
+ROADMAP.md, e a camada explicativa original trata breakeven como frase de
+PONTO separada, nunca como fronteira de segmento): segmentos quebram SÓ nos
+strikes (onde a inclinação aritmética muda de verdade), nunca em breakevens
+(onde só o SINAL cruza zero dentro do mesmo segmento reto). Verificado
+rodando a curva real do caso golden — `curva` já devolve exatamente os
+pontos de quebra certos (`[{"preco_objeto": 0.0, "resultado": -25.0},
+{"preco_objeto": 49.17, "resultado": -25.0}, {"preco_objeto": 49.67,
+"resultado": 25.0}]`), e o breakeven 49,42 cai DENTRO do segundo segmento,
+não na fronteira:
 ```python
-{"de": 0.0, "ate": 49.42, "inclinacao": "zero", "e_plato": True}
-{"de": 49.42, "ate": 49.67, "inclinacao": "positiva", "e_plato": False}
+{"de": 0.0, "ate": 49.17, "inclinacao": "zero", "e_plato": True}
+{"de": 49.17, "ate": 49.67, "inclinacao": "positiva", "e_plato": False}
 {"de": 49.67, "ate": None, "inclinacao": "zero", "e_plato": True}
 ```
+3 segmentos — bate exato com PAYOFF-03. O breakeven (49,42) continua sendo
+reportado por `breakevens` (já existe), consumido pela Fase 37 como frase de
+ponto própria ("Empate em 49,42..."), não como divisor de segmento.
 
 Caso golden do Alex, para usar como teste nomeado (D-07):
 trava de alta com calls, strikes 49,17/49,67, débito 0,25, lote 100 →
