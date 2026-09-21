@@ -89,8 +89,12 @@ import WorkspaceHeader from "./WorkspaceHeader.jsx";
 // Mesmos NOMES de variável CSS que `App.jsx` injeta em `:root` — padrão de
 // `pet/BorisChat.jsx`. Zero import de `App.jsx` (seria ciclo).
 const VARKEY = (k) => "--" + k.replace(/[A-Z]/g, (c) => "-" + c.toLowerCase());
+// Fase 35 (35-02, D-03): onAccent é o token calibrado para texto SOBRE
+// preenchimento de accent (contraste ≥ 4,5:1 nas 4 combinações tema×modo,
+// medido em 35-UI-SPEC.md) — token fora deste array vira `undefined` calado.
 const TOKENS = ["bgBase", "bgPanel", "borderSubtle", "borderFaint", "textPrimary",
-  "textSecondary", "textMuted", "textFaint", "accent", "accentTint10", "negative", "scrim"];
+  "textSecondary", "textMuted", "textFaint", "accent", "accentTint10", "negative", "scrim",
+  "onAccent"];
 const T = Object.fromEntries(TOKENS.map((k) => [k, `var(${VARKEY(k)})`]));
 
 // Fase 32 (32-04): espelho declarado de App.jsx (padrão ÚNICO de rolagem
@@ -130,6 +134,21 @@ const BOTAO = {
   color: T.textSecondary, fontWeight: 700, fontSize: "13px",
 };
 
+// Fase 35 (35-02, D-03): MESMA geometria do BOTAO acima (nenhum valor de
+// espaçamento novo) — extensão aprovada pelo Alex do "reserved-for" de
+// T.accent (34-UI-SPEC.md dizia "nada novo ganha accent nesta fase";
+// aqui o accent ganha uma SEGUNDA forma: tint+borda = pill ativa da Fase
+// 34, preenchido = CTA do próximo passo obrigatório). `color: T.onAccent`,
+// NUNCA `#fff` literal — `#fff` reprova AA em Dark·Estudo (2,90:1) e
+// Dark·Operador (2,10:1), medido em 35-UI-SPEC.md contra os hex reais de
+// App.jsx. Aplica-se a exatamente 3 botões do app (D-04) — ver
+// 35-CONTEXT.md, não estender a mais nenhum controle.
+const BOTAO_PRIMARIO = {
+  minHeight: "44px", padding: "10px 14px", borderRadius: "11px",
+  border: "none", background: T.accent, color: T.onAccent,
+  fontWeight: 700, fontSize: "13px",
+};
+
 // Fase 27 (27-05) — a SEGUNDA LINHA do botão, onde o custo é declarado. Estilo
 // nomeado e não repetido botão a botão: são sete controles com a mesma linha, e
 // sete cópias de um objeto de estilo divergem na primeira manutenção feita só
@@ -142,6 +161,15 @@ const BOTAO = {
 const CUSTO_NO_BOTAO = {
   display: "block", fontSize: "11px", fontWeight: 600,
   color: T.textMuted, marginTop: "3px",
+};
+
+// Fase 35 (35-02, D-07): mesma geometria do CUSTO_NO_BOTAO acima, só a cor
+// muda — `T.onAccent`, nunca alpha/`color-mix`. 35-UI-SPEC.md mediu que
+// `color-mix(#fff 72%, transparent)` reprova em TODOS os temas (2,20:1 a
+// 3,38:1); `T.onAccent` já cobre ≥ 4,5:1 sem depender de tamanho de fonte.
+const CUSTO_NO_BOTAO_PRIMARIO = {
+  display: "block", fontSize: "11px", fontWeight: 600,
+  color: T.onAccent, marginTop: "3px",
 };
 
 const CAIXA = {
@@ -555,10 +583,10 @@ export default function OpcoesScreen({ ctx }) {
             mudasse, e é exatamente essa divergência que o guardião reprova. */}
         <button
           onClick={abrirLeitura}
-          style={{ ...BOTAO, width: "100%", marginTop: "12px" }}
+          style={{ ...BOTAO_PRIMARIO, width: "100%", marginTop: "12px" }}
         >
           <span style={{ display: "block" }}>{cp.opcoesLerNoServico || "Ler no serviço de opções"}</span>
-          <span style={CUSTO_NO_BOTAO}>
+          <span style={CUSTO_NO_BOTAO_PRIMARIO}>
             {(cp.opcoesCustoChamadas || ((n) => String(n)))(CUSTO_DA_ACAO.leitura)}
           </span>
         </button>

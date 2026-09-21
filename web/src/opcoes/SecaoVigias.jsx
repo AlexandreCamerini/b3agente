@@ -14,7 +14,11 @@ import { Kicker, Aviso, ErroDoMcp } from "./uiOpcoes.jsx";
 // espelho declarado, mesmo padrão de `OportunidadesOpcoes.jsx:23-25`. Zero
 // import do núcleo do app (seria ciclo, ADR-027 Decisão 3).
 const VARKEY = (k) => "--" + k.replace(/[A-Z]/g, (c) => "-" + c.toLowerCase());
-const TOKENS = ["textSecondary", "textMuted", "accent", "borderSubtle", "accentTint10", "textPrimary", "textFaint"];
+// Fase 35 (35-02) fold-in: bgPanel era referenciado na linha do chip de
+// vigia (abaixo) sem estar neste array desde a Fase 33 (33-01) — resolvia
+// para `undefined` calado, e o chip não selecionado ficava sem fundo.
+// Achado pela varredura de tokens por diretório desta fase, não por relato.
+const TOKENS = ["textSecondary", "textMuted", "accent", "borderSubtle", "accentTint10", "textPrimary", "textFaint", "bgPanel"];
 const T = Object.fromEntries(TOKENS.map((k) => [k, `var(${VARKEY(k)})`]));
 
 const ehNum = (v) => typeof v === "number" && isFinite(v);
