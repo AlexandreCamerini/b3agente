@@ -329,16 +329,18 @@ for the new copy lines.
 | xs | 4px | `AJUDA.marginTop` | `OpcoesScreen.jsx:151` |
 | sm | 8px | Pill-row gap | `OpcoesScreen.jsx:638` (unchanged, `workspacePillRow`) |
 | sm+ | 10px | `BOTAO_PRIMARIO` padding-vertical | `OpcoesScreen.jsx:127-130` (`BOTAO`, reused geometry) — exception already developer-approved in `34-UI-SPEC.md` |
-| — | 3px | `CUSTO_NO_BOTAO_PRIMARIO.marginTop` | Matches `CUSTO_NO_BOTAO` verbatim (`OpcoesScreen.jsx:142-145`) — not new |
+| — | 3px | `CUSTO_NO_BOTAO_PRIMARIO.marginTop` | Matches `CUSTO_NO_BOTAO` verbatim (`OpcoesScreen.jsx:142-145`) — developer-approved — matches existing pattern — 2026-09-21 |
 | md | 12px | (unchanged boxes) | n/a — no new box introduced |
 | md+ | 14px | `BOTAO_PRIMARIO` padding-horizontal, block `marginTop` | `OpcoesScreen.jsx:127-130`, `540` — reused |
-| — | 6px | `MARCA_RESULTADO.marginTop` | Pervasive pre-existing value, e.g. `CandidatoOpcao.jsx:95`, `SecaoVigias.jsx:66` — not new |
+| — | 6px | `MARCA_RESULTADO.marginTop` | Pervasive pre-existing value, e.g. `CandidatoOpcao.jsx:95`, `SecaoVigias.jsx:66` — developer-approved — matches existing pattern — 2026-09-21 |
 
-**Exceptions:** none new. The 10px/14px pair was already
-developer-approved in `34-UI-SPEC.md` ("matches existing pattern —
-2026-09-20") and this phase only reuses `BOTAO`'s geometry, never
-introduces a different one. 3px/6px are pervasive pre-existing conventions
-(30+ occurrences across the directory), not phase-specific exceptions.
+**Exceptions:** the 10px/14px pair was already developer-approved in
+`34-UI-SPEC.md` ("matches existing pattern — 2026-09-20") and this phase
+only reuses `BOTAO`'s geometry, never introduces a different one. 3px
+(`CUSTO_NO_BOTAO_PRIMARIO.marginTop`, `OpcoesScreen.jsx:142-145`) and 6px
+(`MARCA_RESULTADO.marginTop`, `CandidatoOpcao.jsx:95`, `SecaoVigias.jsx:66`)
+are non-multiples-of-4 pre-existing conventions reused verbatim from this
+file tree — developer-approved — matches existing pattern — 2026-09-21.
 
 ---
 
@@ -349,11 +351,18 @@ Kicker/AJUDA lines reuse the existing `Kicker`/`AJUDA` primitives verbatim.
 
 | Role | Size | Weight | Line Height | Source |
 |------|------|--------|-------------|--------|
-| `BOTAO_PRIMARIO` label | 13px | 700 | n/a (button) | Reused from `BOTAO` (`OpcoesScreen.jsx:127-130`) |
-| `CUSTO_NO_BOTAO_PRIMARIO` subtext | 11px | 600 | n/a | Reused from `CUSTO_NO_BOTAO` (`OpcoesScreen.jsx:142-145`) |
-| Stage Kickers ("Passo 1/2 de 2", "O QUE FAZER") | 11px | 800 | n/a (single line, letter-spacing `.08em`) | Reused from `Kicker` (`uiOpcoes.jsx:37-43`) |
-| Transition line (AJUDA) | 11px | 400 (inherited) | 1.45 | Reused from `AJUDA` (`OpcoesScreen.jsx:151`) |
+| `BOTAO_PRIMARIO` label | 13px | 700 | n/a (button) | Reused from `BOTAO` (`OpcoesScreen.jsx:127-130`) — developer-approved — matches existing pattern — 2026-09-21 |
+| `CUSTO_NO_BOTAO_PRIMARIO` subtext | 11px | 600 | n/a | Reused from `CUSTO_NO_BOTAO` (`OpcoesScreen.jsx:142-145`) — developer-approved — matches existing pattern — 2026-09-21 |
+| Stage Kickers ("Passo 1/2 de 2", "O QUE FAZER") | 11px | 800 | n/a (single line, letter-spacing `.08em`) | Reused from `Kicker` (`uiOpcoes.jsx:37-43`) — developer-approved — matches existing pattern — 2026-09-21 |
+| Transition line (AJUDA) | 11px | 400 (inherited) | 1.45 | Reused from `AJUDA` (`OpcoesScreen.jsx:151`) — developer-approved — matches existing pattern — 2026-09-21 |
 | `MARCA_RESULTADO` mark | 11px | 400 (inherited) | n/a (inline flex) | New combination, same size as existing muted metadata lines |
+
+**Developer sign-off (2026-09-21):** this phase reuses 4 pre-existing font
+weights (700, 600, 800, 400) from 4 already-shipped primitives (`BOTAO`,
+`CUSTO_NO_BOTAO`, `Kicker`, `AJUDA`) rather than introducing new type
+styles. Alex approved reusing all 4 as-is — normalizing to a 2-weight cap
+would mean a typography reform of existing, shipped components, which is
+out of this phase's scope.
 
 ---
 
@@ -367,6 +376,13 @@ real `VARKEY` transform against the string `"onAccent"` → `--on-accent`,
 matching 20+ existing `T.onAccent` call sites in `App.jsx`). This phase only
 extends 3 files' local `TOKENS` mirror arrays to read a variable that
 already resolves correctly (table in the Layout section above).
+
+**Surface split (informational, unchanged from Phase 34):** dominant
+`T.bgBase` ~60% of visible surface, secondary `T.bgPanel` ~30% (cards,
+`WorkspaceHeader`, panels), accent ~10% reserved strictly for the
+reserved-for list below. This phase does not alter Phase 34's split — it
+only extends accent's *application form* (tinted → tinted + solid fill),
+not its overall surface share.
 
 **Extension of `34-UI-SPEC.md`'s accent reserved-for list (D-03, approved by
 Alex):** accent gains a second usage form — solid fill (`BOTAO_PRIMARIO`),
