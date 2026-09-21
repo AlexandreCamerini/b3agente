@@ -114,6 +114,11 @@ def _validar_perna(perna: dict[str, Any], i: int) -> dict[str, Any]:
         "premio": premio,
         "quantidade": quantidade,
         "delta": _numero(perna.get("delta")),
+        # Dado OPACO neste módulo (D-03, Fase 36): passthrough permissivo,
+        # igual a `delta` — nunca parseado como data, nunca comparado com o
+        # relógio (docstring do módulo, linhas 1-4: "sem leitura de relógio").
+        # Comparado só por igualdade entre pernas, em `perfil_da_estrutura`.
+        "vencimento": perna.get("vencimento"),
     }
 
 
@@ -170,13 +175,63 @@ def perfil_da_estrutura(pernas: Sequence[dict[str, Any]]) -> dict[str, Any]:
     Sem esse passo, a função devolveria o maior número que viu e chamaria de
     ganho máximo, e uma call vendida a descoberto passaria por operação
     limitada.
+
+    Vencimentos divergentes entre pernas (D-03, Fase 36) são um caso à
+    parte: sem uma data comum, o resultado de uma perna no seu próprio
+    vencimento depende do valor que ainda resta na outra ponta, então não há
+    curva única para desenhar — a função devolve um estado explícito
+    (`vencimentos.divergentes=True`, com `motivo`) em vez de aproximar
+    linearmente.
     """
     if not pernas:
         raise ValueError("estrutura sem pernas: informe ao menos um contrato")
 
     normalizadas = [_validar_perna(p, i) for i, p in enumerate(pernas, start=1)]
+    pernas_out = [
+        {"contrato": p["contrato"], "tipo": p["tipo"], "lado": p["lado"],
+         "quantidade": p["quantidade"], "strike": p["strike"], "premio": p["premio"]}
+        for p in normalizadas
+    ]
 
     custo = custo_liquido(normalizadas)
+    fluxo = "debito" if custo > 0 else ("credito" if custo < 0 else "neutro")
+
+    # D-03: vencimentos divergentes é um fato sobre a ENTRADA — checado
+    # antes de qualquer fato sobre o RESULTADO calculado (a guarda de
+    # entrada degenerada, D-04.1, chega numa fase seguinte desta mesma
+    # função). Pernas com `vencimento` omitido (`None`) contam como "mesmo
+    # vencimento implícito" entre si — só valores distintos e não-`None`
+    # configuram divergência. Ordem em first-appearance, nunca `sorted()`:
+    # vencimento é dado opaco, tipos mistos levantariam `TypeError`.
+    vencimentos_vistos: list[Any] = []
+    for p in normalizadas:
+        v = p["vencimento"]
+        if v is not None and v not in vencimentos_vistos:
+            vencimentos_vistos.append(v)
+
+    if len(vencimentos_vistos) > 1:
+        return {
+            "pernas": pernas_out,
+            "custo_liquido": custo,
+            "fluxo": fluxo,
+            "ganho_maximo": None,
+            "perda_maxima": None,
+            "ganho_ilimitado": False,
+            "perda_ilimitada": False,
+            "breakevens": [],
+            "delta_total": _delta_total(normalizadas),
+            "curva": [],
+            "unidade": "por unidade do objeto (uma ação); multiplique pelo lote se precisar",
+            "vencimentos": {
+                "divergentes": True,
+                "distintos": vencimentos_vistos,
+                "motivo": (
+                    "vencimentos diferentes entre as pernas: o resultado de "
+                    "cada perna no seu vencimento depende do valor que ainda "
+                    "resta na outra ponta naquela data, então a curva não "
+                    "pode ser calculada nem aproximada linearmente"),
+            },
+        }
 
     # A perna ACAO entra com strike 0, que já é o ponto de partida da
     # avaliação: o conjunto evita avaliar o mesmo preço duas vezes e
@@ -211,13 +266,9 @@ def perfil_da_estrutura(pernas: Sequence[dict[str, Any]]) -> dict[str, Any]:
         perda_maxima = round(-pior, 4) if pior < 0 else 0.0
 
     return {
-        "pernas": [
-            {"contrato": p["contrato"], "tipo": p["tipo"], "lado": p["lado"],
-             "quantidade": p["quantidade"], "strike": p["strike"], "premio": p["premio"]}
-            for p in normalizadas
-        ],
+        "pernas": pernas_out,
         "custo_liquido": custo,
-        "fluxo": "debito" if custo > 0 else ("credito" if custo < 0 else "neutro"),
+        "fluxo": fluxo,
         "ganho_maximo": ganho_maximo,
         "perda_maxima": perda_maxima,
         "ganho_ilimitado": ganho_ilimitado,
@@ -226,6 +277,7 @@ def perfil_da_estrutura(pernas: Sequence[dict[str, Any]]) -> dict[str, Any]:
         "delta_total": _delta_total(normalizadas),
         "curva": curva,
         "unidade": "por unidade do objeto (uma ação); multiplique pelo lote se precisar",
+        "vencimentos": {"divergentes": False, "distintos": [], "motivo": None},
     }
 
 

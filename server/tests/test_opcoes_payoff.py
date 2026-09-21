@@ -219,3 +219,75 @@ def test_resultado_no_vencimento_coincide_com_ponto_da_curva_no_strike():
     perfil = m.perfil_da_estrutura(pernas)
     ponto_32 = next(p for p in perfil["curva"] if p["preco_objeto"] == 32.0)
     assert m.resultado_no_vencimento(pernas, 32.0) == ponto_32["resultado"]
+
+
+# --------------------------- Parte 2b: vencimento por perna e calendário (D-03, Fase 36) ---------------------------
+
+def test_validar_perna_sem_vencimento_normaliza_para_none():
+    p = m._validar_perna({"tipo": "CALL", "lado": "compra", "strike": 40, "premio": 1}, 1)
+    assert p["vencimento"] is None
+
+
+def test_validar_perna_vencimento_preservado_verbatim():
+    p = m._validar_perna(
+        {"tipo": "CALL", "lado": "compra", "strike": 40, "premio": 1,
+         "vencimento": "2026-10-16"}, 1)
+    assert p["vencimento"] == "2026-10-16"
+
+
+def test_perfil_sem_vencimento_em_nenhuma_perna_mantem_resultado_e_declara_nao_divergente():
+    r = m.perfil_da_estrutura([
+        {"tipo": "CALL", "lado": "compra", "strike": 49.17, "premio": 0.40},
+        {"tipo": "CALL", "lado": "venda", "strike": 49.67, "premio": 0.15},
+    ])
+    assert r["custo_liquido"] == 0.25
+    assert r["breakevens"] == [49.42]
+    assert r["ganho_maximo"] == 0.25
+    assert r["perda_maxima"] == 0.25
+    assert r["vencimentos"] == {"divergentes": False, "distintos": [], "motivo": None}
+
+
+def test_perfil_mesmo_vencimento_nas_duas_pernas_identico_a_sem_vencimento():
+    pernas_sem = [
+        {"tipo": "CALL", "lado": "compra", "strike": 49.17, "premio": 0.40},
+        {"tipo": "CALL", "lado": "venda", "strike": 49.67, "premio": 0.15},
+    ]
+    pernas_com = [
+        {**pernas_sem[0], "vencimento": "2026-10-16"},
+        {**pernas_sem[1], "vencimento": "2026-10-16"},
+    ]
+    r_sem = m.perfil_da_estrutura(pernas_sem)
+    r_com = m.perfil_da_estrutura(pernas_com)
+    for chave in r_sem:
+        if chave == "pernas":
+            continue
+        assert r_com[chave] == r_sem[chave], f"campo {chave} divergiu"
+
+
+def test_perfil_vencimento_omitido_em_uma_perna_nao_e_divergencia():
+    r = m.perfil_da_estrutura([
+        {"tipo": "CALL", "lado": "compra", "strike": 49.17, "premio": 0.40,
+         "vencimento": "2026-10-16"},
+        {"tipo": "CALL", "lado": "venda", "strike": 49.67, "premio": 0.15},
+    ])
+    assert r["vencimentos"]["divergentes"] is False
+    assert r["breakevens"] == [49.42]
+
+
+def test_perfil_vencimentos_divergentes_degrada_sem_curva():
+    r = m.perfil_da_estrutura([
+        {"tipo": "CALL", "lado": "compra", "strike": 49.17, "premio": 0.40,
+         "vencimento": "2026-10-16"},
+        {"tipo": "CALL", "lado": "venda", "strike": 49.67, "premio": 0.15,
+         "vencimento": "2026-11-20"},
+    ])
+    assert r["vencimentos"]["divergentes"] is True
+    assert "vencimentos diferentes" in r["vencimentos"]["motivo"]
+    assert r["vencimentos"]["distintos"] == ["2026-10-16", "2026-11-20"]
+    assert r["curva"] == []
+    assert r["breakevens"] == []
+    assert r["ganho_maximo"] is None
+    assert r["perda_maxima"] is None
+    assert r["ganho_ilimitado"] is False
+    assert r["perda_ilimitada"] is False
+    assert r["custo_liquido"] == 0.25
