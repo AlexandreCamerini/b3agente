@@ -1,45 +1,44 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.6
-milestone_name: Simplificação da aba Opções
-status: complete
-stopped_at: 'Fase 34 (Navegação hub + workspace) FECHADA — checkpoint humano aprovado ao vivo (navegador real, contagem de rede confirmando NAV-05), publicação combinada das Fases 33+34 em produção (F10-20260920-01), NAV-01..06 marcadas Done em REQUIREMENTS.md, Fase 34 marcada completa em ROADMAP.md. Milestone v1.6 com 13/13 requirements v1 entregues — pronta para /gsd-complete-milestone 1.6. Guardrail aplicado: nenhum mutador `gsd-sdk query state.*`/`roadmap.*` foi chamado — STATE.md/ROADMAP.md/REQUIREMENTS.md editados à mão pelo orquestrador.'
+milestone: v1.7
+milestone_name: Confiabilidade explicativa da aba Opções
+status: planning
+stopped_at: 'Milestone v1.6 arquivado (13/13 requirements, .planning/milestones/v1.6-ROADMAP.md/v1.6-REQUIREMENTS.md). Milestone v1.7 aberto: resumo confirmado com o Alex (jornada do workspace + motor/gráfico de payoff), pesquisa pulada por decisão dele (spec técnica já travada), REQUIREMENTS.md v1.7 confirmado (14 itens, JORN/PAYOFF/CHART/EXPL). Falta rodar o roadmapper para gerar as fases. Guardrail aplicado: nenhum mutador `gsd-sdk query state.*`/`milestone.complete`/`roadmap.*` foi chamado — todo arquivamento e toda transição de milestone feitos à mão (Edit + git diff antes do commit).'
 last_updated: "2026-09-20T00:00:00.000Z"
-last_activity: "2026-09-20 — Fase 34 fechada de ponta a ponta: checkpoint humano (Task 1) aprovado ao vivo pelo Alex após verificação em navegador real dos 6 itens do roteiro, incluindo a medição de rede que prova NAV-05 (trocar de pill não dispara nova leitura MCP). Publicação combinada das Fases 33+34 (Task 2): bump para F10-20260920-01, publicar-web.sh, /api/health confirmado no ar. Fechamento de documentos (Task 3): REQUIREMENTS.md (NAV-01..06 Done), ROADMAP.md (checkboxes Fase 33/34, Plans da Fase 34 completos, Progress table), STATE.md (esta entrada)."
+last_activity: "2026-09-20 — /gsd-complete-milestone 1.6 rodado à mão (sem o mutador gsd-sdk query milestone.complete, por guardrail do repositório): auditoria pré-fechamento (54 itens, 49 quick-tasks confirmadas resolvidas por evidência cruzada git+STATE.md, 5 todos pendentes reconhecidos e mantidos em pending/), MILESTONES.md com entrada v1.6, milestones/v1.6-ROADMAP.md e v1.6-REQUIREMENTS.md criados, ROADMAP.md colapsado pra <details>, PROJECT.md evoluído (Validated + Key Decisions + nova seção do milestone v1.7). Em seguida /gsd-new-milestone rodado para v1.7: resumo e 14 requirements (JORN-01..03, PAYOFF-01..03, CHART-01..05, EXPL-01..03) confirmados com o Alex via AskUserQuestion, pesquisa pulada (spec técnica do gráfico já travada por ele)."
 progress:
-  total_phases: 2
-  completed_phases: 2
-  total_plans: 9
-  completed_plans: 9
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-09-06)
+See: .planning/PROJECT.md (updated 2026-09-20)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Milestone v1.6 (Simplificação da aba Opções) — Fase 33 e Fase 34 FECHADAS e publicadas (F10-20260920-01). 13/13 requirements v1 (REORG-01..07 + NAV-01..06) Done. Milestone pronta para `/gsd-complete-milestone 1.6`; nenhum novo trabalho de código pendente neste milestone.
+**Current focus:** Milestone v1.7 (Confiabilidade explicativa da aba Opções) — requirements definidos e confirmados (14 itens), roadmap ainda não gerado. Próximo passo: `gsd-roadmapper` a partir de `REQUIREMENTS.md` v1.7, começando em Phase 35 (continua de onde o v1.6 parou).
 
 ## Current Position
 
-Phase: 34 (Navegação hub + workspace) — **FECHADA (4/4 ondas + checkpoint humano + publicação)**
-Plan: 34-01 ✓ | 34-02 ✓ | 34-03 ✓ | 34-04 ✓ (checkpoint humano aprovado ao vivo, publicação combinada 33+34, docs fechados à mão)
-Status: Fase 34 completa. Milestone v1.6 completo (Fase 33 + Fase 34, 13/13 requirements). Próximo passo é do Alex: fechar o milestone formalmente (`/gsd-complete-milestone 1.6`) ou abrir o próximo (ver pendências abaixo).
-Last activity: 2026-09-20 — `34-04` fechou a fase: (1) checkpoint humano do roteiro de 6 itens aprovado ao vivo pelo Alex em navegador real (hub sem ticker, entrar/sair do workspace, reset ao voltar D-03, 3 pills sem fetch novo ao trocar — NAV-05 confirmado por contagem de rede, erro visível nos dois modos, 375px sem quebra); (2) publicação combinada das Fases 33+34 (a 33 nunca tinha ido ao ar): `bump.sh` → `F10-20260920-01` → `publicar-web.sh` → `/api/health` confirmado servindo o carimbo novo; (3) documentos fechados à mão — `REQUIREMENTS.md` (NAV-01..06 Done, 13/13 v1 requirements), `ROADMAP.md` (checkboxes Fase 33/34, Plans da Fase 34 completos com o item 34-04, Progress table atualizada), este STATE.md.
+Phase: Not started (roadmap ainda não gerado)
+Plan: —
+Status: Definindo roadmap do milestone v1.7. `REQUIREMENTS.md` já reflete v1.7 (14 requirements: JORN-01..03, PAYOFF-01..03, CHART-01..05, EXPL-01..03), confirmado com o Alex. Falta rodar o roadmapper.
+Last activity: 2026-09-20 — Milestone v1.7 iniciado logo após o fechamento do v1.6, na mesma sessão. Contexto completo do pedido (jornada confusa do workspace + gráfico de payoff pouco confiável, com especificação técnica detalhada do motor/gráfico já travada pelo Alex e screenshot de produção confirmando 3 bugs reais) foi absorvido em `PROJECT.md`/`REQUIREMENTS.md`.
 
-**Pendências abertas, declaradas e não escondidas:**
-1. **App iOS não recebeu a navegação nova ainda.** O app nativo carrega bundle local (sem `server.url`) — só chega num build novo de TestFlight (`scripts/ios-testflight.sh`). Fora do escopo desta fase, decisão do Alex quando ele quiser rodar. (Nota separada: em 2026-09-20 rodou `scripts/instalar-iphone.sh` para um install LOCAL de teste no iPhone físico do Alex, apontando para produção — isso é instalação ad hoc via Xcode, não o pipeline de TestFlight; não fecha esta pendência.)
-2. **Backlog B2** (estado do workspace não sobrevive à troca de seção) segue aberto por decisão explícita — D-03 do `34-CONTEXT.md` fixou "reseta sempre" como comportamento correto, não como defeito a corrigir depois.
-3. **2 todos que já foram executados na Fase 33** ainda estão fisicamente em `.planning/todos/pending/` (fold-in do fetch redundante e do carimbo de frescor, ambos dobrados na Fase 33) — mover para `done/` é limpeza de bookkeeping, não bloqueia nada.
-4. **Avisos de lint acumulados em `web/src/opcoes/`** (`PayoffChart`/`ErroDoMcp` importados sem uso, `store` declarado sem uso em 2 lugares) — confirmados pré-existentes em toda fase, candidatos a limpeza numa fase futura, nunca bloquearam a suíte canônica.
-5. **`web/.env.local` ausente neste worktree** — login Google falha no build local instalado no iPhone em 2026-09-20 (Apple/SIWA e e-mail/senha não são afetados); copiar de `web/env-local.example` quando for testar login Google no aparelho.
+**Pendências herdadas do v1.6, ainda abertas (não bloqueiam o v1.7):**
+1. App iOS não recebeu a navegação nova — só chega num build de TestFlight, decisão do Alex.
+2. Backlog B2 (estado do workspace não sobrevive à troca de seção) — aberto por desenho (D-03 da Fase 34).
+3. 2 todos já executados como fold-in na Fase 33 ainda fisicamente em `.planning/todos/pending/` (bookkeeping).
+4. Avisos de lint pré-existentes em `web/src/opcoes/` — nunca bloquearam a suíte canônica.
+5. `web/.env.local` ausente neste worktree — login Google falha no build local instalado no iPhone; Apple/SIWA e e-mail/senha não são afetados.
+6. Todo de prioridade alta `revisao-arquitetura-mcp-ecossistema-b3.md` — o Alex optou explicitamente por tratar depois, não faz parte do v1.7.
 
-**Pedido novo do Alex (2026-09-20, mesma sessão):** avaliação de UX ao vivo do app achou dois problemas fora do escopo do v1.6 (que só cobria reorganização estrutural, não qualidade de explicação): (a) a jornada de montar/ver uma estrutura de opções continua confusa nas sub-abas Analisar/Comparar/Setups salvos do workspace (passos não numerados, botão "ver possibilidades" pouco visível); (b) o gráfico de payoff (`PayoffChart`) mistura valor de hoje com resultado no vencimento, eixo Y sem escala, platô cortado, e o texto da razão G/P usa um número diferente do exibido — confirmado por screenshot real de produção. O Alex já fechou uma especificação técnica detalhada para o motor/componente de gráfico (arquitetura: explicação DERIVADA da curva calculada, nunca por nome de estratégia). **Isto não cabe como Fase 35 do v1.6** — o `ROADMAP.md` (linha ~129-139, nota "Phase Numbering") define o milestone v1.6 como exatamente as Fases 33-34, ambas fechadas; o próximo passo correto é `/gsd-new-milestone`, não `/gsd-discuss-phase` sobre uma fase que não existe no roadmap. Mapeia para "Fase 2 (explicação adaptativa/progressive disclosure)" já prevista como v2 requirement (`PERS-01` em `REQUIREMENTS.md`) desde a criação deste milestone. Contexto completo, screenshot e especificação técnica preservados na conversa; ainda não formalizados em `.planning/` — próximo passo é rodar `/gsd-new-milestone` com esse conteúdo.
-
-## Posição anterior (Fase 34, executando — 3/4 ondas)
+## Posição anterior (v1.6, arquivado — Fase 34, fechada)
 
 Phase: 34 (Navegação hub + workspace) — EXECUTANDO, 3/4 ondas (histórico, superado pela entrada acima)
 Plan: 34-01 ✓ | 34-02 ✓ | 34-03 ✓ | 34-04 pendente (checkpoint humano bloqueante — publica 33+34 juntas)

@@ -1,32 +1,46 @@
-# Requirements: Boris+ (b3-agente) — Milestone v1.6
+# Requirements: Boris+ (b3-agente) — Milestone v1.7
 
-**Defined:** 2026-09-19
+**Defined:** 2026-09-20
 **Core Value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
 
-Base: pesquisa em `.planning/research/` (STACK/FEATURES/ARCHITECTURE/PITFALLS/SUMMARY), avaliação agentic UX escopada à aba Opções (sessão 2026-09-19), decisões confirmadas com o Alex via AskUserQuestion na mesma sessão.
+Base: uso real em produção do milestone v1.6 (navegação hub+workspace) pelo
+Alex em 2026-09-20, especificação técnica do motor/gráfico de payoff já
+fechada por ele, screenshot de produção confirmando 3 bugs reais no gráfico
+atual. Confirmado via AskUserQuestion na mesma sessão (resumo do milestone,
+decisão de pular pesquisa, lista de requisitos).
 
 ## v1 Requirements
 
-Reorganizar a sub-aba "Setups" da aba Opções por job-to-be-done. Duas fases de risco crescente, confirmadas pelo Alex: primeiro extrair (sem tocar navegação), depois redesenhar a navegação.
+Corrigir a jornada de montar/analisar uma estrutura de opções dentro do
+workspace (v1.6) e tornar o gráfico de payoff — e sua explicação —
+matematicamente correto e genérico para qualquer estrutura, sem promover
+recomendação.
 
-### Extração (REORG) — Fase A: separar os 5 jobs sem mudar comportamento
+### Jornada do Workspace (JORN)
 
-- [ ] **REORG-01**: Usuário vê os 5 jobs hoje misturados numa rolagem só — descobrir oportunidades cross-carteira (Blocos A+B), gerenciar vigias, analisar um ticker manualmente, comparar vencimentos, gerenciar/criar setups salvos — como seções fisicamente separadas em componentes próprios
-- [ ] **REORG-02**: Cada seção extraída preserva exatamente o comportamento, os dados e a ordem atuais — nenhuma funcionalidade nova, nenhuma removida
-- [ ] **REORG-03**: Nenhuma seção extraída instancia `useOpcoesMcp` de novo — todo dado chega por prop do orquestrador (`OpcoesScreen.jsx`)
-- [ ] **REORG-04**: `curadoriaAtiva` continua gateado por `tab` em `App.jsx`, nunca promovido a gate por seção/job — não pode reintroduzir o bug que a Fase 32 corrigiu (fetch pago amarrado à visita de uma tela)
-- [ ] **REORG-05**: Guardiões de teste que dependem de ordem/posição por arquivo (`test_opcoes_subabas_ui.mjs`, `test_opcoes_consolidacao_ui.mjs`, `test_opcoes_analisar_ui.mjs`, `test_opcoes_vigias_ui.mjs`, `test_opcoes_mcp_aba_ui.mjs`) são atualizados junto com a extração, sem afrouxar a garantia que cada um verifica
-- [ ] **REORG-06**: O guardrail CVM de manchete (hoje escopado só a `SubAbaOperar`) passa a cobrir qualquer seção nova que renderize `.manchete` — nenhuma seção nova fica fora do guardião
-- [ ] **REORG-07**: `top`/`meta` (seleção determinística do motor) permanecem imutáveis e passados por referência/índice a qualquer seção nova — nenhuma seção nova reordena ou filtra a curadoria por conveniência de exibição
+- [ ] **JORN-01**: Usuário vê indicação clara de progresso/etapas ao montar uma estrutura em Analisar, do ticker escolhido até "ver possibilidades"
+- [ ] **JORN-02**: O botão que revela as estruturas possíveis é visualmente proeminente e seu propósito é evidente sem explicação externa
+- [ ] **JORN-03**: Comparar e Setups salvos recebem a mesma clareza de passos que Analisar
 
-### Navegação (NAV) — Fase B: hub + workspace
+### Motor de Payoff (PAYOFF)
 
-- [x] **NAV-01**: Sub-aba "Setups" abre em modo hub (frase-ponte + Bloco A + Bloco B + vigias + setups salvos) quando nenhum ticker está selecionado
-- [x] **NAV-02**: Selecionar um ticker troca para modo workspace (análise manual do ticker + comparação de vencimentos), sem os blocos de descoberta cross-carteira
-- [x] **NAV-03**: Workspace tem um caminho de volta claro ao hub — um botão, sem breadcrumb nem histórico de navegação
-- [x] **NAV-04**: A frase-ponte (mitigação regulatória D-05) permanece fisicamente adjacente ao Bloco B em qualquer novo arranjo do hub — nunca separada por gate ou rolagem
-- [x] **NAV-05**: Os jobs "analisar ticker", "comparar vencimentos" e "gerenciar setups salvos" continuam compartilhando uma única leitura paga (3 chamadas MCP) — trocar entre eles dentro do workspace não paga de novo (decisão confirmada com o Alex: manter custo atual)
-- [x] **NAV-06**: Estados de erro/degradado hoje visíveis independente de posição na rolagem (ex.: MCP fora do ar) continuam visíveis independente de qual seção o usuário está olhando — nenhum aviso crítico fica isolado numa seção fechada
+- [ ] **PAYOFF-01**: Motor genérico calcula resultado/breakevens/ganho-perda máxima/domínio X-Y para qualquer combinação de legs (`kind`/`side`/`strike`/`premium`/`qty`/`expiry`), sem lógica por nome de estratégia — proibido switch/case ou dicionário de textos por estratégia
+- [ ] **PAYOFF-02**: Motor cobre os casos-limite: compra/venda seca (1 perna), venda descoberta/ratio spread (perda ilimitada), travas de alta/baixa com calls/puts, borboleta/condor (2 breakevens + platô central), straddle/strangle, covered call/collar (perna de ação sem strike), box (curva plana não-zero), calendário/diagonal (vencimentos diferentes — degrada com honestidade, nunca aproxima linearmente), lotSize/quantidades assimétricas, entrada degenerada (prêmio zero/strikes iguais — recusa com mensagem clara, nunca NaN)
+- [ ] **PAYOFF-03**: Caso golden (trava de alta com calls, strikes 49,17/49,67, débito 0,25, lote 100 → breakeven 49,42, ganho/perda máx R$ 25,00, 3 segmentos, nenhum ilimitado) é teste de regressão nomeado
+
+### Gráfico de Payoff (CHART)
+
+- [ ] **CHART-01**: Linha do zero tracejada rotulada "R$ 0"; eixo vertical com escala visível (resultado por ação, legenda "multiplique por lotSize para o lote")
+- [ ] **CHART-02**: Todo strike e todo breakeven marcado e rotulado no eixo; spot marcado "hoje {preço}"
+- [ ] **CHART-03**: Segmento ilimitado termina em seta aberta na borda + rótulo "sem teto"/"sem piso" — nunca desenha platô falso onde o risco é ilimitado
+- [ ] **CHART-04**: Domínio X (min/max strike + margem `max(12% do span, 4% do spot)`, spot sempre dentro) e domínio Y (inclui zero, +15% do extremo finito) nunca cortam um platô real
+- [ ] **CHART-05**: Valor de marcação a mercado ("hoje · valor de mercado da estrutura") aparece separado e rotulado, distinto do resultado "no vencimento · {data}" — regressão confirmada em produção (screenshot 2026-09-20)
+
+### Camada Explicativa (EXPL)
+
+- [ ] **EXPL-01**: Texto explicativo é derivado dos segmentos da curva calculada, percorrida da esquerda para a direita com a frase do segmento onde o spot está vindo primeiro — nunca por nome de estratégia
+- [ ] **EXPL-02**: Vocabulário do corpo explicativo livre de jargão técnico banido (strike, prêmio, delta, theta, volatilidade implícita, exercício, rolagem, ITM/OTM/ATM, "perna")
+- [ ] **EXPL-03**: Razão G/P no texto usa o mesmo número exibido em tela — regressão confirmada em produção (screenshot mostra "1:1,00" exibido vs. "1:0,67" no texto)
 
 ## v2 Requirements
 
@@ -34,7 +48,6 @@ Deferido, decidido em conversa antes deste milestone — fora do roadmap atual.
 
 ### Personalização (PERS)
 
-- **PERS-01**: Explicação com profundidade adaptativa (progressive disclosure) — alvo inicial: a frase-ponte, que hoje nunca colapsa
 - **PERS-02**: Modelo de progresso do aprendiz, escopado a conceitos de opções (venda coberta, put de proteção, collar, razão prêmio/perda)
 - **PERS-03**: Desafio personalizado por padrão observado no comportamento do usuário — risco regulatório de soar recomendação, precisa de desenho cuidadoso de texto antes de virar requisito v1
 
@@ -42,37 +55,36 @@ Deferido, decidido em conversa antes deste milestone — fora do roadmap atual.
 
 | Feature | Reason |
 |---------|--------|
-| Router / URLs por job | App não usa router, decisão de arquitetura já travada na v1.5; navegação por estado (`ticker`) já resolve o drill-down sem precisar de rota |
-| Terceiro nível de abas aninhadas dentro de "Setups" | App já está em 2 níveis (bottom nav → Setups/Operar); pesquisa (UX Planet, LogRocket, Design Monks) converge em não passar disso |
-| Layout multi-painel estilo terminal profissional (Bloomberg-like) | Usuário do Boris+ é leigo aprendendo, não trader profissional — contradiz o Core Value |
-| Busca universal "ir para qualquer coisa" | Não existe hoje, não é reorganização — seria feature nova |
-| Auto-refresh contínuo do hub | Conflita com a disciplina de frescor/staleness já estabelecida (princípio 3 do CLAUDE.md) |
-| Cada job pagando a própria leitura MCP (em vez de leitura compartilhada) | Decidido com o Alex: manter uma leitura só para os 3 jobs, custo atual não deve subir |
-| Fechar o backlog B2 (estado não sobrevive à troca de aba) | Dívida pré-existente (Fase 26, v1.4), não causada por esta reorganização — a pesquisa recomenda aproveitar a fase pra fechar, mas isso é feature/correção nova, não reorganização; fica registrado aqui para decisão futura, não incluído sem pedido explícito |
+| Reorganização estrutural das sub-abas | v1.6, já entregue (Fases 33-34) |
+| Migração do motor de opções para um MCP único | `revisao-arquitetura-mcp-ecossistema-b3.md`, revisão de arquitetura maior e separada, prioridade alta mas tratada à parte por decisão do Alex |
+| Modelo de progresso do aprendiz / desafio personalizado (PERS-02/03) | Mesma decisão do v1.6: não personalizar antes de a explicação básica estar correta |
+| Precificação de opções com vencimentos diferentes (calendário/diagonal) | O motor degrada com honestidade (estado explícito, sem gráfico) em vez de aproximar — precificação real fica fora de escopo até haver modelo disponível |
+| Biblioteca de charting de terceiros | Gráfico é SVG próprio por decisão do Alex — proibido puxar dependência nova para isso |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| REORG-01 | Phase 33 | Done |
-| REORG-02 | Phase 33 | Done |
-| REORG-03 | Phase 33 | Done |
-| REORG-04 | Phase 33 | Done |
-| REORG-05 | Phase 33 | Done |
-| REORG-06 | Phase 33 | Done |
-| REORG-07 | Phase 33 | Done |
-| NAV-01 | Phase 34 | Done |
-| NAV-02 | Phase 34 | Done |
-| NAV-03 | Phase 34 | Done |
-| NAV-04 | Phase 34 | Done |
-| NAV-05 | Phase 34 | Done |
-| NAV-06 | Phase 34 | Done |
+| JORN-01 | TBD | Pending |
+| JORN-02 | TBD | Pending |
+| JORN-03 | TBD | Pending |
+| PAYOFF-01 | TBD | Pending |
+| PAYOFF-02 | TBD | Pending |
+| PAYOFF-03 | TBD | Pending |
+| CHART-01 | TBD | Pending |
+| CHART-02 | TBD | Pending |
+| CHART-03 | TBD | Pending |
+| CHART-04 | TBD | Pending |
+| CHART-05 | TBD | Pending |
+| EXPL-01 | TBD | Pending |
+| EXPL-02 | TBD | Pending |
+| EXPL-03 | TBD | Pending |
 
 **Coverage:**
-- v1 requirements: 13 total
-- Mapped to phases: 13
-- Unmapped: 0 ✓
+- v1 requirements: 14 total
+- Mapped to phases: 0 (roadmap ainda não gerado)
+- Unmapped: 14
 
 ---
-*Requirements defined: 2026-09-19*
-*Last updated: 2026-09-20 — NAV-01..06 marcados Done após verificação humana e publicação combinada das Fases 33+34 (F10-20260920-01). Milestone v1.6 com 13/13 requirements v1 concluídos.*
+*Requirements defined: 2026-09-20*
+*Last updated: 2026-09-20 — REQUIREMENTS.md v1.7 criado após arquivamento do v1.6 (13/13 Done, ver `.planning/milestones/v1.6-REQUIREMENTS.md`).*
