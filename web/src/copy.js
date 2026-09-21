@@ -108,6 +108,14 @@ export const COPY = {
     // pagar duas vezes pela mesma coisa.
     opcoesLerNoServico: "Ler no serviço de opções",
     opcoesLeituraConvite: "A leitura acima é do motor do próprio Boris+ e não custa nada. O serviço de opções acrescenta o que só ele tem: o catálogo de estruturas montáveis, os vencimentos abertos e a avaliação de hoje dos vigias deste ativo.",
+    // Fase 35 (35-01, D-01/D-06) — rótulo de progresso do estágio 1 (a
+    // "porta" de leitura paga) e o metadado que ocupa o lugar do convite
+    // quando a leitura já existe. Valor IDÊNTICO nos dois modos: são
+    // metadado de estado, categoria já neutra neste arquivo (mesmo padrão
+    // de opcoesPregaoRotulo/opcoesFonteRotulo/opcoesConsultadoEmRotulo) —
+    // divergir de tom aqui inventaria voz onde não há ação nem dinheiro.
+    opcoesPasso1de2: "Passo 1 de 2",
+    opcoesLeituraJaFeita: "leitura já feita",
     opcoesSetupsTitulo: "SETUPS GRAVADOS",
     opcoesPregaoRotulo: "Pregão",
     opcoesFonteRotulo: "Fonte",
@@ -272,6 +280,12 @@ export const COPY = {
     opcoesLoteAjuda: "1 contrato = 100 ações. O lote só serve para converter em reais os números que vêm por ação; a conta é feita no servidor.",
     opcoesMontarEstrutura: "Montar a estrutura",
     opcoesVerPossibilidades: "Comparar os vencimentos",
+    // Fase 35 (35-01, D-06): marca neutra de resultado re-clicável — nunca
+    // celebração, T.textMuted (par T.positive/T.negative é reservado para
+    // direção financeira). Mesmo motivo de neutralidade de tom das duas
+    // chaves de progresso acima: metadado, não ação nem dinheiro.
+    opcoesEstruturaMontada: "Estrutura montada",
+    opcoesPossibilidadesVistas: "Possibilidades carregadas",
     // Fase 27 (27-02): a frase do CUSTO ficou genérica e a COMPOSIÇÃO saiu
     // para uma chave própria. Ela é a forma única de declarar custo na aba, e
     // agora também o botão do bloco de vigias a usa — cuja conta é outra
@@ -392,6 +406,13 @@ export const COPY = {
     opcoesAbaAnalisar: "Analisar",
     opcoesAbaComparar: "Comparar",
     opcoesAbaSetupsSalvos: "Setups salvos",
+    // Fase 35 (35-01, D-01/D-08): rótulo do estágio 2 (o carril de pills) e
+    // a linha de transição que aparece quando a leitura já foi feita. Nunca
+    // numera Analisar/Comparar entre si (princípio 5 do CLAUDE.md) — o
+    // Kicker nomeia o JOB do estágio, não uma posição de sequência.
+    opcoesEscolhaTitulo: "O QUE FAZER",
+    opcoesPasso2de2: "Passo 2 de 2",
+    opcoesLeituraConcluidaAjuda: "Leitura concluída — escolha Analisar ou Comparar.",
 
     opcoesOperarIntro: "Aqui você vê a estrutura lastreada que o motor propõe para cada posição da sua carteira, com ganho máximo, perda máxima e pontos de empate em número. Nada é enviado a nenhuma corretora.",
     opcoesOperarEscolherPosicao: "Escolha uma posição da carteira para ver a estrutura lastreada que o motor propõe para ela.",
@@ -818,6 +839,10 @@ export const COPY = {
     // o serviço acrescenta ao que o motor interno já entregou de graça.
     opcoesLerNoServico: "Puxar a leitura do serviço",
     opcoesLeituraConvite: "O bloco acima sai do motor interno, custo zero. O serviço acrescenta o que só ele tem: catálogo de estruturas, vencimentos abertos e a avaliação de hoje dos vigias deste ativo.",
+    // Fase 35 (35-01) — MESMA nota do ramo estudo: metadado de progresso,
+    // valor idêntico nos dois modos por desenho (D-01/D-06).
+    opcoesPasso1de2: "Passo 1 de 2",
+    opcoesLeituraJaFeita: "leitura já feita",
     opcoesSetupsTitulo: "SETUPS GRAVADOS",
     opcoesPregaoRotulo: "Pregão",
     opcoesFonteRotulo: "Fonte",
@@ -925,6 +950,10 @@ export const COPY = {
     opcoesLoteAjuda: "1 contrato = 100 ações. Converte em reais os números que vêm por ação; a conta é do servidor.",
     opcoesMontarEstrutura: "Montar estrutura",
     opcoesVerPossibilidades: "Ver possibilidades",
+    // Fase 35 (35-01) — MESMA nota do ramo estudo: marca neutra, T.textMuted,
+    // valor idêntico nos dois modos (D-06).
+    opcoesEstruturaMontada: "Estrutura montada",
+    opcoesPossibilidadesVistas: "Possibilidades carregadas",
     // Fase 27 (27-02): mesma separação do ramo estudo — custo genérico aqui,
     // composição na chave própria abaixo.
     opcoesCustoChamadas: (n) =>
@@ -1031,6 +1060,12 @@ export const COPY = {
     opcoesAbaAnalisar: "Analisar",
     opcoesAbaComparar: "Comparar",
     opcoesAbaSetupsSalvos: "Setups",
+    // Fase 35 (35-01) — MESMA nota do ramo estudo: rótulo do estágio 2 e
+    // linha de transição, nunca numerando Analisar/Comparar entre si (D-01/
+    // D-08, princípio 5 do CLAUDE.md).
+    opcoesEscolhaTitulo: "O QUE FAZER",
+    opcoesPasso2de2: "Passo 2 de 2",
+    opcoesLeituraConcluidaAjuda: "Leitura concluída — escolha Analisar ou Comparar.",
 
     opcoesOperarIntro: "Aqui está a estrutura lastreada que o motor propõe para cada posição da carteira, com ganho máximo, perda máxima e pontos de empate em número. Abrir e fechar acontece direto aqui — nenhuma ordem sai para corretora nenhuma.",
     opcoesOperarEscolherPosicao: "Escolha uma posição da carteira para ver a estrutura que a mesa propõe para ela.",
