@@ -493,3 +493,96 @@ def test_perfil_quantidades_assimetricas_ratio_1x2_lote_fora_do_motor():
     assert r["custo_liquido"] == 0.0
     assert r["perda_ilimitada"] is True
     assert r["ganho_maximo"] == 5.0
+
+
+# --------------------------- Parte 4: domínio X/Y da curva (D-05, Fase 36) ---------------------------
+#
+# Números conferidos por execução direta do módulo nesta sessão (ver
+# 36-02-PLAN.md <interfaces>) — se a execução divergir, é bug a investigar,
+# não o teste a ajustar.
+
+def _golden():
+    return m.perfil_da_estrutura([
+        {"tipo": "CALL", "lado": "compra", "strike": 49.17, "premio": 0.40},
+        {"tipo": "CALL", "lado": "venda", "strike": 49.67, "premio": 0.15},
+    ])
+
+
+def test_dominio_golden_spot_dentro_margem_domina_pelo_termo_do_spot():
+    d = m.dominio_da_curva(_golden(), spot=49.40)
+    assert d["margem"] == 1.976
+    assert d["x_min"] == 47.194
+    assert d["x_max"] == 51.646
+    assert d["y_max"] == 0.2875
+    assert d["y_min"] == -0.2875
+    assert d["spot"] == 49.40
+
+
+def test_dominio_golden_spot_fora_expande_so_o_lado_que_falta():
+    d = m.dominio_da_curva(_golden(), spot=55.0)
+    assert d["margem"] == 2.2
+    assert d["x_min"] == 46.97
+    assert d["x_max"] == 55.0
+
+
+def test_dominio_golden_sem_spot_usa_so_margem_do_span_e_declara_motivo():
+    d = m.dominio_da_curva(_golden(), spot=None)
+    assert d["margem"] == 0.06
+    assert d["x_min"] == 49.11
+    assert d["x_max"] == 49.73
+    assert d["motivo"] is not None
+
+
+def test_dominio_perna_unica_ganho_ilimitado_y_max_none_nunca_teto_inventado():
+    perfil = m.perfil_da_estrutura(
+        [{"tipo": "CALL", "lado": "compra", "strike": 40, "premio": 2}])
+    d = m.dominio_da_curva(perfil, spot=41)
+    assert d["x_min"] == 36.0
+    assert d["x_max"] == 44.0
+    assert d["y_max"] is None
+    assert d["y_min"] == -2.3
+
+
+def test_dominio_venda_coberta_ignora_strike_zero_da_perna_acao():
+    perfil = m.perfil_da_estrutura([
+        {"tipo": "ACAO", "lado": "compra", "premio": 30},
+        {"tipo": "CALL", "lado": "venda", "strike": 32, "premio": 1.5},
+    ])
+    d = m.dominio_da_curva(perfil, spot=31)
+    assert d["x_min"] == 28.8
+    assert d["x_max"] == 35.2
+
+
+def test_dominio_straddle_strike_unico_y_max_none_y_min_finito():
+    perfil = m.perfil_da_estrutura([
+        {"tipo": "CALL", "lado": "compra", "strike": 50, "premio": 1},
+        {"tipo": "PUT", "lado": "compra", "strike": 50, "premio": 1},
+    ])
+    d = m.dominio_da_curva(perfil, spot=50)
+    assert d["x_min"] == 45.0
+    assert d["x_max"] == 55.0
+    assert d["y_max"] is None
+    assert d["y_min"] is not None
+
+
+def test_dominio_so_perna_acao_ancora_no_preco_do_papel_sem_spot():
+    perfil = m.perfil_da_estrutura([{"tipo": "ACAO", "lado": "compra", "premio": 30}])
+    d = m.dominio_da_curva(perfil, spot=None)
+    assert d["x_min"] == 27.0
+    assert d["x_max"] == 33.0
+    assert d["motivo"] is not None
+
+
+def test_dominio_vencimentos_divergentes_devolve_tudo_none():
+    perfil = m.perfil_da_estrutura([
+        {"tipo": "CALL", "lado": "compra", "strike": 49.17, "premio": 0.40,
+         "vencimento": "2026-10-16"},
+        {"tipo": "CALL", "lado": "venda", "strike": 49.67, "premio": 0.15,
+         "vencimento": "2026-11-20"},
+    ])
+    d = m.dominio_da_curva(perfil, spot=49.40)
+    assert d["x_min"] is None
+    assert d["x_max"] is None
+    assert d["y_min"] is None
+    assert d["y_max"] is None
+    assert d["motivo"] is not None

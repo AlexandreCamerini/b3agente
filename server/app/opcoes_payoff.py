@@ -294,6 +294,98 @@ def perfil_da_estrutura(pernas: Sequence[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def dominio_da_curva(perfil: dict[str, Any], spot: Any = None) -> dict[str, Any]:
+    """Domínio X/Y do gráfico de payoff (D-05, Fase 36) — dado de RENDERIZAÇÃO,
+    separado de propósito de `perfil_da_estrutura` (cálculo financeiro puro).
+    Misturar as duas coisas na mesma função é exatamente o que o CONTEXT.md
+    desta fase proíbe: quem desenha faz uma pergunta diferente de quem
+    calcula resultado/breakeven, mesmo consumindo o mesmo dicionário.
+
+    Recebe o dicionário JÁ calculado por `perfil_da_estrutura` mais o `spot`
+    (cotação externa, não confiável — T-36-04) — nunca remonta pernas, nunca
+    reconstrói curva. Devolve `x_min`/`x_max`/`y_min`/`y_max` (domínio do
+    gráfico), `margem` (aplicada aos strikes), `spot` (ecoado, já validado),
+    `ganho_ilimitado`/`perda_ilimitada` (passthrough dos já calculados) e
+    `motivo` (não-nulo sempre que o cálculo foi degradado — nunca um `None`
+    silencioso, mesmo guardrail de `_delta_total`).
+    """
+    if perfil.get("vencimentos", {}).get("divergentes"):
+        return {
+            "x_min": None, "x_max": None, "y_min": None, "y_max": None,
+            "margem": None, "spot": _numero(spot),
+            "ganho_ilimitado": perfil.get("ganho_ilimitado"),
+            "perda_ilimitada": perfil.get("perda_ilimitada"),
+            "motivo": ("vencimentos divergentes: sem curva única, o domínio "
+                       "não pode ser calculado nem aproximado"),
+        }
+
+    spot_num = _numero(spot)
+    motivo = None
+
+    strikes = sorted({p["strike"] for p in perfil["pernas"] if p["tipo"] in ("CALL", "PUT")})
+
+    if len(strikes) >= 2:
+        span = strikes[-1] - strikes[0]
+        if spot_num is not None:
+            margem = max(0.12 * span, 0.04 * spot_num)
+        else:
+            margem = 0.12 * span
+            motivo = "domínio calculado sem spot: margem usa só o span dos strikes"
+        x_min = strikes[0] - margem
+        x_max = strikes[-1] + margem
+    elif len(strikes) == 1:
+        margem = 0.10 * strikes[0]
+        x_min = strikes[0] - margem
+        x_max = strikes[0] + margem
+    else:
+        # Sem strike de opção: a única âncora possível é o preço do papel —
+        # o spot quando disponível, senão o maior prêmio entre as pernas
+        # ACAO (que é o preço do papel, ver comentário de `_validar_perna`).
+        if spot_num is not None:
+            ancora = spot_num
+            motivo = "domínio ancorado no spot: estrutura sem strike de opção"
+        else:
+            premios_acao = [p["premio"] for p in perfil["pernas"] if p["tipo"] == "ACAO"]
+            ancora = max(premios_acao) if premios_acao else 0.0
+            motivo = ("domínio ancorado no preço do papel: sem spot e sem "
+                       "strike de opção")
+        margem = 0.10 * ancora
+        x_min = ancora - margem
+        x_max = ancora + margem
+
+    # Preço do objeto negativo não existe neste módulo (mesmo guardrail de
+    # `resultado_no_vencimento`, que recusa `s < 0`).
+    x_min = max(0.0, x_min)
+
+    # Spot sempre dentro do domínio — expande só o lado que falta, sem
+    # margem extra além dele (D-05: "até incluí-lo").
+    if spot_num is not None:
+        if spot_num < x_min:
+            x_min = spot_num
+        if spot_num > x_max:
+            x_max = spot_num
+
+    ganho_ilimitado = perfil.get("ganho_ilimitado")
+    perda_ilimitada = perfil.get("perda_ilimitada")
+
+    # Nunca `0.0` no lugar de "sem teto" (docstring do módulo, linhas 13-17):
+    # lado ilimitado sinaliza `None`, quem desenha a seta é a Fase 37.
+    y_max = None if ganho_ilimitado else round(max(perfil["ganho_maximo"], 0.0) * 1.15, 4)
+    y_min = None if perda_ilimitada else round(-max(perfil["perda_maxima"], 0.0) * 1.15, 4)
+
+    return {
+        "x_min": round(x_min, 4),
+        "x_max": round(x_max, 4),
+        "y_min": y_min,
+        "y_max": y_max,
+        "margem": round(margem, 4),
+        "spot": round(spot_num, 4) if spot_num is not None else None,
+        "ganho_ilimitado": ganho_ilimitado,
+        "perda_ilimitada": perda_ilimitada,
+        "motivo": motivo,
+    }
+
+
 def _breakevens(curva: list[dict[str, Any]], inclinacao_direita: float) -> list[float]:
     """Onde a curva de resultado cruza o zero.
 
