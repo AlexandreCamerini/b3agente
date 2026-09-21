@@ -586,3 +586,81 @@ def test_dominio_vencimentos_divergentes_devolve_tudo_none():
     assert d["y_min"] is None
     assert d["y_max"] is None
     assert d["motivo"] is not None
+
+
+# --------------------------- Parte 5: segmentos da curva (D-06, Fase 36) ---------------------------
+#
+# Segmentos cortam SÓ nos strikes (onde a curva dobra de verdade), nunca em
+# breakevens (onde só o sinal cruza zero, dentro de um trecho que continua
+# reto) — leitura fechada em 36-CONTEXT.md, corrigida depois do pattern-map.
+# O breakeven do golden é 49,42 e cai DENTRO do segundo segmento; a fronteira
+# do segmento é 49,17.
+
+def test_segmentos_golden_tres_segmentos_fronteira_nos_strikes_nao_no_breakeven():
+    segs = m.segmentos_da_curva(_golden())
+    assert segs == [
+        {"de": 0.0, "ate": 49.17, "inclinacao": "zero", "e_plato": True},
+        {"de": 49.17, "ate": 49.67, "inclinacao": "positiva", "e_plato": False},
+        {"de": 49.67, "ate": None, "inclinacao": "zero", "e_plato": True},
+    ]
+
+
+def test_segmentos_call_seca_unaria_ilimitada_dois_segmentos():
+    perfil = m.perfil_da_estrutura(
+        [{"tipo": "CALL", "lado": "compra", "strike": 40, "premio": 2}])
+    segs = m.segmentos_da_curva(perfil)
+    assert segs == [
+        {"de": 0.0, "ate": 40.0, "inclinacao": "zero", "e_plato": True},
+        {"de": 40.0, "ate": None, "inclinacao": "positiva", "e_plato": False},
+    ]
+
+
+def test_segmentos_condor_cinco_segmentos_com_plato_central():
+    perfil = m.perfil_da_estrutura([
+        {"tipo": "CALL", "lado": "compra", "strike": 45, "premio": 6},
+        {"tipo": "CALL", "lado": "venda", "strike": 50, "premio": 3},
+        {"tipo": "CALL", "lado": "venda", "strike": 55, "premio": 1.5},
+        {"tipo": "CALL", "lado": "compra", "strike": 60, "premio": 0.5},
+    ])
+    segs = m.segmentos_da_curva(perfil)
+    assert len(segs) == 5
+    assert segs[2] == {"de": 50.0, "ate": 55.0, "inclinacao": "zero", "e_plato": True}
+    assert segs[-1] == {"de": 60.0, "ate": None, "inclinacao": "zero", "e_plato": True}
+
+
+def test_segmentos_straddle_dois_segmentos_apesar_de_dois_breakevens():
+    perfil = m.perfil_da_estrutura([
+        {"tipo": "CALL", "lado": "compra", "strike": 50, "premio": 1},
+        {"tipo": "PUT", "lado": "compra", "strike": 50, "premio": 1},
+    ])
+    assert len(perfil["breakevens"]) == 2
+    segs = m.segmentos_da_curva(perfil)
+    assert segs == [
+        {"de": 0.0, "ate": 50.0, "inclinacao": "negativa", "e_plato": False},
+        {"de": 50.0, "ate": None, "inclinacao": "positiva", "e_plato": False},
+    ]
+
+
+def test_segmentos_so_perna_acao_um_segmento_sem_par():
+    perfil = m.perfil_da_estrutura([{"tipo": "ACAO", "lado": "compra", "premio": 30}])
+    segs = m.segmentos_da_curva(perfil)
+    assert segs == [{"de": 0.0, "ate": None, "inclinacao": "positiva", "e_plato": False}]
+
+
+def test_segmentos_vencimentos_divergentes_lista_vazia():
+    perfil = m.perfil_da_estrutura([
+        {"tipo": "CALL", "lado": "compra", "strike": 49.17, "premio": 0.40,
+         "vencimento": "2026-10-16"},
+        {"tipo": "CALL", "lado": "venda", "strike": 49.67, "premio": 0.15,
+         "vencimento": "2026-11-20"},
+    ])
+    assert m.segmentos_da_curva(perfil) == []
+
+
+def test_segmentos_primeiro_de_sempre_zero_nunca_none():
+    for perfil in (
+        _golden(),
+        m.perfil_da_estrutura([{"tipo": "ACAO", "lado": "compra", "premio": 30}]),
+    ):
+        segs = m.segmentos_da_curva(perfil)
+        assert segs[0]["de"] == 0.0

@@ -386,6 +386,66 @@ def dominio_da_curva(perfil: dict[str, Any], spot: Any = None) -> dict[str, Any]
     }
 
 
+def segmentos_da_curva(perfil: dict[str, Any]) -> list[dict[str, Any]]:
+    """Leitura da curva segmento a segmento, esquerda para a direita (D-06,
+    Fase 36) — a Fase 37 gera uma frase por segmento nessa ordem.
+
+    Corta SÓ nos strikes, onde a curva dobra de verdade (muda de inclinação
+    aritmética). NÃO corta em breakeven: ali só o SINAL do resultado cruza
+    zero, dentro de um trecho que continua reto — reportado por
+    `breakevens` (já existe) como frase de PONTO própria, nunca como
+    fronteira de segmento. Um implementador futuro tentando "melhorar" isso
+    cortando em cada breakeven quebra a contagem de 3 segmentos que
+    PAYOFF-03 trava para o caso golden (breakeven 49,42 cai DENTRO do
+    segundo segmento, cuja fronteira real é o strike 49,17).
+
+    Não recalcula nada que `perfil_da_estrutura` já sabe: reusa `curva`
+    (pontos onde a curva dobra) e os booleanos `ganho_ilimitado`/
+    `perda_ilimitada` já calculados para a cauda — não expõe
+    `inclinacao_direita` (variável local daquela função) nem refaz a soma de
+    sinais.
+    """
+    curva = perfil.get("curva") or []
+    if not curva:
+        return []
+
+    segmentos: list[dict[str, Any]] = []
+    for anterior, atual in zip(curva, curva[1:]):
+        y0, y1 = anterior["resultado"], atual["resultado"]
+        if y1 > y0:
+            inclinacao = "positiva"
+        elif y1 < y0:
+            inclinacao = "negativa"
+        else:
+            inclinacao = "zero"
+        segmentos.append({
+            "de": round(anterior["preco_objeto"], 4),
+            "ate": round(atual["preco_objeto"], 4),
+            "inclinacao": inclinacao,
+            "e_plato": inclinacao == "zero",
+        })
+
+    # Cauda: sempre presente havendo ao menos um ponto de curva. `de` é o
+    # último strike avaliado, `ate` é `None` (sem teto/piso) — preço do
+    # objeto negativo não existe neste módulo, por isso só `ate` pode ser
+    # nulo (assimetria proposital com o primeiro `de`, sempre 0.0).
+    ultimo = curva[-1]
+    if perfil.get("ganho_ilimitado"):
+        inclinacao_cauda = "positiva"
+    elif perfil.get("perda_ilimitada"):
+        inclinacao_cauda = "negativa"
+    else:
+        inclinacao_cauda = "zero"
+    segmentos.append({
+        "de": round(ultimo["preco_objeto"], 4),
+        "ate": None,
+        "inclinacao": inclinacao_cauda,
+        "e_plato": inclinacao_cauda == "zero",
+    })
+
+    return segmentos
+
+
 def _breakevens(curva: list[dict[str, Any]], inclinacao_direita: float) -> list[float]:
     """Onde a curva de resultado cruza o zero.
 
