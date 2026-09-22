@@ -144,7 +144,7 @@ produção, 2026-09-20).
 
 - [x] Phase 35: Jornada Guiada do Workspace (3/3 plans) — completed 2026-09-21
 - [x] Phase 36: Motor de Payoff Genérico (2/2 plans) — completed 2026-09-21
-- [ ] Phase 37: Gráfico de Payoff e Explicação Confiáveis (0/? plans)
+- [ ] Phase 37: Gráfico de Payoff e Explicação Confiáveis (0/5 plans)
 
 **Phase Numbering:** continua a partir do fim do v1.6 (Phase 34) — Fases
 35-37 definidas por `/gsd-roadmapper` a partir de `REQUIREMENTS.md` v1.7
@@ -293,7 +293,14 @@ EXPL-02, EXPL-03
      técnico banido, e a razão G/P impressa no texto é o mesmo número
      exibido em tela — corrige a regressão confirmada em produção
      ("1:1,00" exibido vs. "1:0,67" no texto) (EXPL-01, EXPL-02, EXPL-03)
-**Plans**: TBD
+**Plans**: 5 plans (3 ondas — mesmo arquivo força onda sequencial em
+`options_mcp_api.py`/`copy.js`/`PayoffChart.jsx`; contrato de campo
+camelCase fixado no planejamento habilita paralelismo dentro de cada onda)
+- [ ] 37-01-PLAN.md — adaptador EN→PT + `dominio`/`segmentos` no envelope de `proposta`/`possibilidades` (CHART-04)
+- [ ] 37-02-PLAN.md — `copy.js` (todas as chaves novas + D-04) + `formatarRazao()` extraído + `ExplicacaoPayoff.jsx` novo (EXPL-01/02/03)
+- [ ] 37-03-PLAN.md — busca de `valorHoje` via `get_option_chain`, gate do 1º candidato em `possibilidades()` (CHART-05 backend)
+- [ ] 37-04-PLAN.md — `PayoffChart.jsx`: eixo Y, strike/spot no eixo, setas rotuladas, bloco Hoje/No vencimento (CHART-01/02/03 + CHART-05 frontend)
+- [ ] 37-05-PLAN.md — wiring em `SecaoAnalisar.jsx`/`SecaoComparar.jsx` + checkpoint humano ao vivo (fecha CHART-01..05/EXPL-01..03 de ponta a ponta)
 **UI hint**: yes
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2/v1.3
