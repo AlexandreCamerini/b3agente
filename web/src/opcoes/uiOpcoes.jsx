@@ -62,6 +62,17 @@ export function Linha({ rotulo, valor }) {
   );
 }
 
+// Fase 37 (37-02, D-05/EXPL-03): fonte ÚNICA de formatação da razão G/P.
+// Extraída de dentro de `RazaoGanhoPerda` (era a expressão inline abaixo) —
+// a regressão confirmada em produção (razão exibida "1:1,00" vs. texto
+// dizendo "1:0,67") era exatamente dois formatadores independentes do mesmo
+// número divergindo. `ExplicacaoPayoff.jsx` importa e chama esta mesma
+// função — nunca reformata `razao.valor` por conta própria.
+export function formatarRazao(razao) {
+  if (!razao) return "—";
+  return ehNum(razao.valor) ? "1 : " + fmt(razao.valor) : (razao.motivo || "—");
+}
+
 // aba-opcoes 24-06 (achado F-01): a razão ganho/perda que o critério 1 do
 // ROADMAP enumera. Migrou de OpcoesScreen.jsx nesta fase (33-04) — job 3
 // (Analisar) e job 4 (Comparar, SecaoComparar.jsx) renderizam a MESMA razão.
@@ -78,12 +89,12 @@ export function RazaoGanhoPerda({ razao, cp }) {
   return (
     <div>
       {ehNum(razao.valor) ? (
-        <Linha rotulo={rotulo} valor={"1 : " + fmt(razao.valor)} />
+        <Linha rotulo={rotulo} valor={formatarRazao(razao)} />
       ) : (
         <div style={{ padding: "7px 0", borderBottom: `1px solid ${T.borderFaint}` }}>
           <div style={{ fontSize: "12.5px", color: T.textSecondary }}>{rotulo}</div>
           <div style={{ fontSize: "12.5px", color: T.textPrimary, marginTop: "3px", whiteSpace: "pre-wrap", lineHeight: 1.45 }}>
-            {razao.motivo || "—"}
+            {formatarRazao(razao)}
           </div>
         </div>
       )}
