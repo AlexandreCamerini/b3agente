@@ -1440,6 +1440,56 @@ def _dominio_e_segmentos(avaliacao: dict, spot) -> tuple[Optional[dict], list]:
     return dominio_camel, segmentos_camel
 
 
+async def _valor_hoje(cap: "_Reserva", ticker: str, legs: list) -> dict:
+    """Valor de MERCADO ATUAL da estrutura — soma do prêmio de HOJE por
+    perna (`get_option_chain`, D-01 de `37-CONTEXT.md`), nunca o resultado
+    no vencimento que `payoff`/`scenarios` já descrevem. Confundir os dois
+    era exatamente a regressão de produção que este campo fecha.
+
+    Recebe a `_Reserva` já aberta pelo CHAMADOR (mesmo padrão de
+    `_chamada_com_cap` em toda a rota) — esta função não abre seu próprio
+    `with _cap_check`. Falha do serviço NUNCA propaga daqui: reusa
+    `_erro_http` para produzir o MESMO shape de erro que `ErroDoMcp` no
+    front já sabe interpretar, em vez de inventar um segundo formato.
+
+    `emReais` sai `None` de propósito — quem multiplica pelo lote é o
+    chamador (`proposta()`/`possibilidades()`, via `_vezes_lote`), mesma
+    disciplina "lote multiplica fora" de `_em_reais`.
+    """
+    legs = legs if isinstance(legs, list) else []
+    try:
+        dados, _cache = await _chamada_com_cap(cap, "get_option_chain",
+                                               {"ticker": ticker})
+    except (mcp_client.McpErro, ValueError) as e:
+        return {"erro": _erro_http(e).detail}
+
+    premio_atual_por_contrato = {
+        opcao.get("contrato"): opcao.get("premio")
+        for opcao in (dados.get("options") or [])
+        if isinstance(opcao, dict)
+    }
+
+    valor_por_acao = 0.0
+    for perna in legs:
+        if not isinstance(perna, dict):
+            continue
+        contrato = perna.get("contract")
+        if contrato not in premio_atual_por_contrato or \
+                premio_atual_por_contrato[contrato] is None:
+            # Cadeia truncada ou vencimento sem negócio: nunca soma parcial
+            # calada (T-37-07) — o erro é explícito.
+            return {"erro": {
+                "code": "valor_hoje_incompleto",
+                "message": ("O serviço não devolveu cotação atual para "
+                            "todas as pernas desta estrutura."),
+            }}
+        sinal = 1.0 if perna.get("side") == "buy" else -1.0
+        quantidade = perna.get("quantity") or 0
+        valor_por_acao += sinal * quantidade * premio_atual_por_contrato[contrato]
+
+    return {"dados": {"porAcao": round(valor_por_acao, 4), "emReais": None}}
+
+
 # Campos da leitura agrupados pela JANELA de que dependem — a mesma janela que
 # o nome de cada um já declara. `range_63_sessions` chega SEMPRE como dict
 # (`{"highest": None, "lowest": None}` quando a janela não fechou), então a
@@ -2325,6 +2375,19 @@ async def proposta(body: dict = Body(default={}),
             _dominio_e_segmentos(estruturas[0], dados.get("underlying_price"))
             if len(estruturas) == 1 else (None, []))
 
+        # Valor de HOJE (CHART-05, D-01): só faz sentido mostrar `emReais`
+        # se há lote — mesma régua de ambiguidade de `emReais`/`dominio`
+        # acima (uma estrutura só). Reserva ANINHADA (D-24.1), mesmo padrão
+        # de `possibilidades()`.
+        valor_hoje = None
+        if lote and len(estruturas) == 1:
+            with _cap_check(uid, 1) as cap_hoje:
+                valor_hoje = await _valor_hoje(cap_hoje, alvo,
+                                               estruturas[0].get("legs") or [])
+            if "dados" in valor_hoje:
+                valor_hoje["dados"]["emReais"] = _vezes_lote(
+                    valor_hoje["dados"]["porAcao"], lote)
+
         obslog.log("mcp", "proposta", rota=rota, uid=uid, ticker=alvo,
                    direcao=direcao, tipo=tipo, estruturas=len(estruturas),
                    cache=cache)
@@ -2350,6 +2413,9 @@ async def proposta(body: dict = Body(default={}),
             # `opcoes_payoff.py` (Fase 36) — nunca recalculados aqui.
             "dominio": dominio,
             "segmentos": segmentos,
+            # Valor de mercado de HOJE (CHART-05) — `None` quando não há
+            # lote ou há mais de uma estrutura (mesma régua de `emReais`).
+            "valorHoje": valor_hoje,
             "frescor": _frescor_nao_medido(AVISO_FRESCOR_SEM_ANEXO),
             "cap": _cap_bloco(uid),
         }
@@ -2421,8 +2487,11 @@ async def possibilidades(body: dict = Body(default={}),
             "vencimentosConsiderados": escolhidos,
             "vencimentosDisponiveis": disponiveis,
             # O MESMO número que a UI mostra antes de disparar — sai na
-            # resposta para que os dois lados não possam divergir.
-            "chamadasPrevistas": 2 * len(escolhidos) + 1,
+            # resposta para que os dois lados não possam divergir. O `+2`
+            # (era `+1`) é a chamada extra e constante de `get_option_chain`
+            # do valor de HOJE (CHART-05, D-02): só o candidato de índice 0
+            # é tentado, então o custo não escala com N.
+            "chamadasPrevistas": 2 * len(escolhidos) + 2,
             "behavior": base.get("behavior"),
             "frescor": _frescor_nao_medido(AVISO_FRESCOR_SEM_ANEXO),
         }
@@ -2439,7 +2508,7 @@ async def possibilidades(body: dict = Body(default={}),
             lista = []
             passo = "propose_option_setups"
             try:
-                for vencimento in escolhidos:
+                for i, vencimento in enumerate(escolhidos):
                     try:
                         passo = "propose_option_setups"
                         args = {"ticker": alvo, "expiration": vencimento}
@@ -2500,7 +2569,7 @@ async def possibilidades(body: dict = Body(default={}),
                     dominio, segmentos = _dominio_e_segmentos(
                         estrutura, envelope.get("precoObjeto"))
 
-                    lista.append({
+                    item = {
                         "vencimento": vencimento,
                         "estrutura": estrutura,
                         # Reais calculados UMA vez, aqui. `breakevens` fica na
@@ -2515,7 +2584,19 @@ async def possibilidades(body: dict = Body(default={}),
                         "segmentos": segmentos,
                         "motivo": None,
                         "erro": None,
-                    })
+                    }
+                    if i == 0:
+                        # D-02: só o 1º candidato tenta o valor de HOJE
+                        # (CHART-05) — os demais NÃO recebem a chave (estado
+                        # "não tentado", distinto de "tentado e falhou").
+                        with _cap_check(uid, 1) as cap_hoje:
+                            valor_hoje = await _valor_hoje(
+                                cap_hoje, alvo, estrutura.get("legs") or [])
+                        if "dados" in valor_hoje:
+                            valor_hoje["dados"]["emReais"] = _vezes_lote(
+                                valor_hoje["dados"]["porAcao"], lote)
+                        item["valorHoje"] = valor_hoje
+                    lista.append(item)
             except (mcp_client.McpErro, ValueError) as e:
                 # Condição do SERVIÇO (sem credencial, fora do ar, teto
                 # atingido): não é sobre um vencimento, é sobre todos. A
