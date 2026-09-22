@@ -1,10 +1,11 @@
 ---
 phase: 37
 slug: gr-fico-de-payoff-e-explica-o-confi-veis
-status: draft
+status: approved
 shadcn_initialized: false
 preset: none
 created: 2026-09-21
+reviewed_at: 2026-09-21
 ---
 
 # Phase 37 — UI Design Contract
@@ -50,6 +51,14 @@ extension) is touched.
 ---
 
 ## Layout & Interaction Contract
+
+**Visual hierarchy (primary focal point):** the P&L curve (color-coded
+`corLucro`/`corPerda`) remains the card's primary visual anchor, unchanged
+by this phase. The new axis labels/marks (zero line, Y-axis ticks, strike/
+spot marks) are secondary — they annotate the curve, never compete with it
+for attention (hence muted/faint tokens, never accent). The explanation
+text block (§3) is tertiary — it sits below the chart and restates in words
+what the curve already shows visually.
 
 This is the load-bearing section: `37-CONTEXT.md` locks *what* must appear
 (CHART-01..05, EXPL-01..03) but explicitly leaves *where/how* to the UI
@@ -405,7 +414,7 @@ introduces no DOM spacing value that isn't already blessed in
 | sm | 8px | n/a in this phase | — |
 | sm+ | 10px | `caixa()` padding, gap between `PayoffChart`/`RazaoGanhoPerda`/`ExplicacaoPayoff` in the grid | `PayoffChart.jsx:207` (`padding: "12px"` — see md below), `SecaoComparar.jsx:220` (`gap: "10px"`) — developer-approved — matches existing pattern — 2026-09-20/21 (34/35-UI-SPEC precedent) |
 | md | 12px | `caixa()` border-radius/padding (unchanged), new "Hoje"/"No vencimento" Kicker `margin` (reuses `Kicker`'s own `18px 0 8px`, see below) | `PayoffChart.jsx:207` |
-| — | 18px 0 8px | `Kicker` margin (existing component, unchanged, imported not reinvented) | `uiOpcoes.jsx:39` |
+| — | 18px 0 8px | `Kicker` margin (existing component, unchanged, imported not reinvented) | `uiOpcoes.jsx:39` — developer-approved — matches existing pattern — 2026-09-21 (imported component, not a new declaration by this phase) |
 
 **Exceptions:** none new — every value above is either a direct reuse of an
 existing constant (`Kicker`, `caixa()`, the `10px` grid gap already used by
@@ -426,7 +435,13 @@ No new type scale. Every new text element reuses an existing role verbatim.
 | Y-axis tick labels, spot/strike in-chart labels | 11.5px (`FONTE_MIN`) | 400 (SVG default) | n/a | Reused from the file's own existing legibility-floor constant (`PayoffChart.jsx:47`) — not a new size |
 | In-chart "sem teto"/"sem piso" short labels | 11.5px (`FONTE_MIN`) | 400 | n/a | Same constant, new use |
 
-**No new font size or weight is introduced by this phase.**
+**No new font size or weight is introduced by this phase.** The three sizes
+(11px/11.5px/12.5px) sit close together numerically, but each maps to a
+distinct, already-shipped component role — Kicker label (11px, weight 800,
+letter-spaced), inline data body text (11.5px, weight 400), explanatory
+prose (12.5px, weight 400) — not three freshly-chosen sizes for this phase.
+The weight difference (800 vs. 400) and role difference (label vs. body vs.
+prose) are what separate them visually, not the 0.5-1px size delta alone.
 
 ---
 
@@ -458,6 +473,13 @@ CTAs. This phase adds **nothing** to that list — the P&L curve's
 `corLucro`/`corPerda` resolution to `T.accent`/`T.negative` for the *lucro*
 side is pre-existing (`PayoffChart.jsx:166`, `P.positive || T.accent`), not
 introduced here.
+
+**60/30/10 split unaffected:** every new mark this phase adds (Y-axis
+ticks, strike, spot, "sem teto"/"sem piso" in-chart labels) uses
+`T.textMuted`/`T.borderFaint`/`T.textPrimary` — dominant/secondary
+surface-adjacent tokens, never `T.accent`. The existing 60/30/10
+dominant/secondary/accent ratio (established in `34-UI-SPEC.md`) is
+unchanged by this phase.
 
 ---
 
@@ -495,11 +517,11 @@ introduced here.
 
 ## Checker Sign-Off
 
-- [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS
-- [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
-- [ ] Dimension 6 Registry Safety: PASS
+- [x] Dimension 1 Copywriting: PASS
+- [x] Dimension 2 Visuals: PASS (checker FLAG resolved — primary focal point stated above)
+- [x] Dimension 3 Color: PASS (checker FLAG resolved — 60/30/10 split stated above)
+- [x] Dimension 4 Typography: PASS (checker FLAG resolved — role distinction stated above)
+- [x] Dimension 5 Spacing: PASS (checker FLAG resolved — citation added to 18px 0 8px row)
+- [x] Dimension 6 Registry Safety: PASS
 
-**Approval:** pending
+**Approval:** approved by gsd-ui-checker 2026-09-21 (0 BLOCK, 4 FLAG — all 4 resolved inline by the orchestrator before commit)
