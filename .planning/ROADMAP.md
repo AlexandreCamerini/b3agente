@@ -197,7 +197,7 @@ não por dependência técnica real.
 | 34. Navegação hub + workspace | 4/4 | Complete (verified, checkpoint humano aprovado ao vivo) | 2026-09-20 |
 | 35. Jornada Guiada do Workspace | 3/3 | Complete (checkpoint humano aprovado ao vivo) | 2026-09-21 |
 | 36. Motor de Payoff Genérico | 2/2 | Complete | 2026-09-21 |
-| 37. Gráfico de Payoff e Explicação Confiáveis | 0/? | Not started | - |
+| 37. Gráfico de Payoff e Explicação Confiáveis | 2/5 | Executing (wave 1/3) | - |
 
 ## Phase Details
 
@@ -296,8 +296,8 @@ EXPL-02, EXPL-03
 **Plans**: 5 plans (3 ondas — mesmo arquivo força onda sequencial em
 `options_mcp_api.py`/`copy.js`/`PayoffChart.jsx`; contrato de campo
 camelCase fixado no planejamento habilita paralelismo dentro de cada onda)
-- [ ] 37-01-PLAN.md — adaptador EN→PT + `dominio`/`segmentos` no envelope de `proposta`/`possibilidades` (CHART-04)
-- [ ] 37-02-PLAN.md — `copy.js` (todas as chaves novas + D-04) + `formatarRazao()` extraído + `ExplicacaoPayoff.jsx` novo (EXPL-01/02/03)
+- [x] 37-01-PLAN.md — adaptador EN→PT + `dominio`/`segmentos` no envelope de `proposta`/`possibilidades` (CHART-04) — completo 2026-09-21 (2968 pytest + 154/154 mjs)
+- [x] 37-02-PLAN.md — `copy.js` (todas as chaves novas + D-04) + `formatarRazao()` extraído + `ExplicacaoPayoff.jsx` novo (EXPL-01/02/03) — completo 2026-09-21 (TDD RED→GREEN, npx vite build ok)
 - [ ] 37-03-PLAN.md — busca de `valorHoje` via `get_option_chain`, gate do 1º candidato em `possibilidades()` (CHART-05 backend)
 - [ ] 37-04-PLAN.md — `PayoffChart.jsx`: eixo Y, strike/spot no eixo, setas rotuladas, bloco Hoje/No vencimento (CHART-01/02/03 + CHART-05 frontend)
 - [ ] 37-05-PLAN.md — wiring em `SecaoAnalisar.jsx`/`SecaoComparar.jsx` + checkpoint humano ao vivo (fecha CHART-01..05/EXPL-01..03 de ponta a ponta)
