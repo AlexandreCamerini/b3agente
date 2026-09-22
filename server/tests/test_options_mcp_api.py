@@ -1648,6 +1648,31 @@ def test_possibilidades_valor_hoje_so_no_indice_0(monkeypatch):
             "D-02 limita a busca ao 1º candidato")
 
 
+def test_possibilidades_indice_0_sem_estrutura_tambem_nao_recebe_a_chave(monkeypatch):
+    """Variante do caso (4): quando o PRÓPRIO candidato de índice 0 não
+    monta estrutura ([R-15], `_pernas_para_avaliar` vazio), o `continue` sai
+    ANTES do bloco que tentaria o valor de hoje — `valorHoje` fica ausente
+    também no índice 0, nunca `None` (mesma forma uniforme de
+    `emReais`/`dominio` nesse ramo)."""
+    c, _ = _client(monkeypatch)
+    p = _registra(c)
+    vazio = {"ticker": "PETR4", "trading_date": "2026-08-28", "setups": [],
+             "reason": "nenhum strike com prêmio neste vencimento"}
+    chamadas = _espiao(monkeypatch, _roteador(por_vencimento={_VENCIMENTOS[0]: vazio}))
+
+    corpo = c.post("/api/options/mcp/possibilidades", json=_corpo_possibilidades(),
+                   headers=_auth(p["token"])).json()
+
+    itens = corpo["possibilidades"]
+    assert itens[0]["vencimento"] == _VENCIMENTOS[0]
+    assert itens[0]["estrutura"] is None
+    assert "valorHoje" not in itens[0], (
+        "índice 0 sem estrutura tentou o valor de hoje — não há perna "
+        "nenhuma para buscar cotação")
+    assert "get_option_chain" not in _nomes(chamadas), (
+        "valor de hoje chamou o serviço mesmo sem estrutura no índice 0")
+
+
 # (5) `chamadasPrevistas == 2×len(escolhidos)+2` já é travado por
 # `test_possibilidades_com_3_vencimentos_faz_2n_mais_2_chamadas` (N=3) e por
 # `test_vencimentos_pedidos_sao_intersectados_e_limitados_a_seis` (N=6) —
