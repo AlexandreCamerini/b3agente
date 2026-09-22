@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Confiabilidade explicativa da aba Opções
-status: context_gathered
-stopped_at: 'Fase 37 (Gráfico de Payoff e Explicação Confiáveis) — contexto capturado via /gsd-discuss-phase 37, 4 áreas discutidas (fonte de hoje·valor de mercado, origem da divergência de razão G/P, arquitetura da explicação, escopo dos consumidores). Falta /gsd-plan-phase 37. Guardrail aplicado: nenhum mutador `gsd-sdk query state.*`/`roadmap.*` foi chamado — STATE.md editado à mão.'
+status: ui_spec_approved
+stopped_at: 'Fase 37 (Gráfico de Payoff e Explicação Confiáveis) — UI-SPEC.md aprovado via /gsd-ui-phase 37 (gsd-ui-checker: 0 BLOCK, 4 FLAG, todos resolvidos inline). Falta /gsd-plan-phase 37. Guardrail aplicado: nenhum mutador `gsd-sdk query state.*`/`roadmap.*` foi chamado — STATE.md editado à mão.'
 last_updated: "2026-09-21T00:00:00.000Z"
-last_activity: "2026-09-21 — /gsd-discuss-phase 37 completo: 4 áreas discutidas com o Alex (12 perguntas), ver 37-CONTEXT.md/37-DISCUSSION-LOG.md para o detalhe. Nenhum código tocado — só planejamento. Próximo passo: /gsd-plan-phase 37."
+last_activity: "2026-09-21 — /gsd-discuss-phase 37 completo (4 áreas, 12 perguntas, ver 37-CONTEXT.md/37-DISCUSSION-LOG.md); /gsd-plan-phase 37 iniciado, gate de UI disparou (fase é frontend, sem UI-SPEC) → /gsd-ui-phase 37 rodado: gsd-ui-researcher escreveu 37-UI-SPEC.md (achou 2 correções reais via revisão própria: rótulo do eixo Y precisa de 2 casas decimais, não inteiro — senão lê '0' pro caso golden desta fase de R$0,25/ação; spot colapsado em dominio.spot em vez de prop separada, evita duplicar número), gsd-ui-checker aprovou (0 BLOCK, 4 FLAG não-bloqueantes — hierarquia visual primária, split 60/30/10, distinção de papel tipográfico, citação de aprovação numa linha — todos resolvidos inline antes do commit). Achado importante para o plano: init.plan-phase retornou phase_req_ids truncado (6 de 8, perdeu EXPL-02/EXPL-03 por quebra de linha no ROADMAP.md) — o orquestrador vai passar a lista completa manualmente ao planner/checker. Nenhum código de produto tocado — só planejamento. Próximo passo: /gsd-plan-phase 37."
 progress:
   total_phases: 3
   completed_phases: 0
