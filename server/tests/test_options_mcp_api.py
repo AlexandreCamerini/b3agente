@@ -1317,3 +1317,201 @@ def test_leitura_carrega_o_atraso_sem_chamada_nova(monkeypatch):
         f"{_nomes(chamadas)}")
     assert _usado(main, uid) == 2
     assert "_cap_check(uid, 3)" in inspect.getsource(options_mcp_api.leitura)
+
+
+# ═══════════════════════════════════ 37-01 — domínio/segmentos do payoff ═══
+# CHART-04: `dominio_da_curva()`/`segmentos_da_curva()` (Fase 36) chamadas
+# VERBATIM pelo adaptador EN->PT `_perfil_para_curva`/`_dominio_e_segmentos`.
+# O que este bloco trava: as 9 chaves camelCase de `dominio` e as 4 de cada
+# item de `segmentos` chegam nos dois endpoints; a mesma regra de
+# ambiguidade de `emReais`/`razaoGanhoPerda` (uma estrutura só) vale para
+# `dominio`; o caso golden da Fase 36 bate NÚMERO A NÚMERO pela rota MCP; e
+# um guardião estático prova que o adaptador não soma/multiplica nenhum
+# campo financeiro.
+_CHAVES_DOMINIO = {"xMin", "xMax", "yMin", "yMax", "margem", "spot",
+                    "ganhoIlimitado", "perdaIlimitada", "motivo"}
+_CHAVES_SEGMENTO = {"de", "ate", "inclinacao", "ePlato"}
+
+
+def test_dominio_e_segmentos_chegam_na_proposta_com_uma_estrutura(monkeypatch):
+    """Estrutura única, `payoff`/`legs` no formato real do serviço (fixture
+    de `evaluate_option_structure`, reusada como o `setups[0]` que
+    `propose_option_setups` devolveria) — as 9 chaves de domínio e os
+    segmentos batem a forma que `opcoes_payoff.py` produz."""
+    c, _ = _client(monkeypatch)
+    p = _registra(c)
+    _espiao(monkeypatch, _roteador(com_tese={
+        "ticker": "PETR4", "trading_date": "2026-08-28",
+        "underlying_price": _AVALIACAO["underlying_price"],
+        "setups": [_AVALIACAO]}))
+
+    corpo = c.post("/api/options/mcp/proposta",
+                   json={"ticker": "PETR4", "direction": "bullish"},
+                   headers=_auth(p["token"])).json()
+
+    dominio = corpo["dominio"]
+    assert dominio is not None
+    assert set(dominio) == _CHAVES_DOMINIO
+    segmentos = corpo["segmentos"]
+    assert segmentos, "estrutura com pernas e curva não pode devolver segmentos vazios"
+    assert all(set(s) == _CHAVES_SEGMENTO for s in segmentos)
+
+
+def test_proposta_com_duas_estruturas_dominio_e_none(monkeypatch):
+    """Mesma regra de ambiguidade de `emReais`/`razaoGanhoPerda`: com duas
+    estruturas na tela, `dominio` não diria de qual delas é o gráfico."""
+    c, _ = _client(monkeypatch)
+    p = _registra(c)
+    _espiao(monkeypatch, _roteador(com_tese={
+        "ticker": "PETR4", "trading_date": "2026-08-28",
+        "setups": [_setup(_VENCIMENTOS[0]), _setup(_VENCIMENTOS[1])]}))
+
+    corpo = c.post("/api/options/mcp/proposta",
+                   json={"ticker": "PETR4", "direction": "bullish"},
+                   headers=_auth(p["token"])).json()
+    assert len(corpo["estruturas"]) == 2
+    assert corpo["dominio"] is None
+    assert corpo["segmentos"] == []
+
+
+def test_golden_trava_de_alta_49_17_49_67_via_mcp_bate_com_motor_local(monkeypatch):
+    """PAYOFF-03/D-05/D-06 (Fase 36) travam este caso no motor LOCAL
+    (`test_dominio_golden_spot_dentro_margem_domina_pelo_termo_do_spot`,
+    `test_segmentos_golden_tres_segmentos_fronteira_nos_strikes_nao_no_
+    breakeven`). Este teste prova que a MESMA trava de alta (strikes
+    49,17/49,67, débito 0,25, lote 100), com os mesmos números, chega ao
+    MESMO resultado pela rota MCP — caminho de código inteiramente
+    diferente (`_perfil_para_curva` em vez de `perfil_da_estrutura`)."""
+    c, _ = _client(monkeypatch)
+    p = _registra(c)
+    setup_golden = {
+        "kind": "trava_de_alta", "name": "trava de alta golden",
+        "expiration": _VENCIMENTOS[0],
+        "legs": [
+            {"contract": "GOLDEN17", "side": "buy", "quantity": 1,
+             "kind": "CALL", "strike": 49.17, "premium": 0.40},
+            {"contract": "GOLDEN67", "side": "sell", "quantity": 1,
+             "kind": "CALL", "strike": 49.67, "premium": 0.15},
+        ],
+        "net_cost": 0.25, "flow": "debit", "max_gain": 0.25, "max_loss": 0.25,
+        "unlimited_gain": False, "unlimited_loss": False, "breakevens": [49.42],
+        "payoff": [
+            {"underlying": 0.0, "result": -0.25},
+            {"underlying": 49.17, "result": -0.25},
+            {"underlying": 49.67, "result": 0.25},
+        ],
+    }
+    _espiao(monkeypatch, _roteador(com_tese={
+        "ticker": "PETR4", "trading_date": "2026-08-28",
+        "underlying_price": 49.40, "setups": [setup_golden]}))
+
+    corpo = c.post("/api/options/mcp/proposta",
+                   json={"ticker": "PETR4", "direction": "bullish"},
+                   headers=_auth(p["token"])).json()
+
+    # Números conferidos por execução direta do motor local nesta sessão —
+    # os mesmos de `test_dominio_golden_spot_dentro_margem_domina_pelo_
+    # termo_do_spot` (`server/tests/test_opcoes_payoff.py`).
+    dominio = corpo["dominio"]
+    assert dominio["margem"] == 1.976
+    assert dominio["xMin"] == 47.194
+    assert dominio["xMax"] == 51.646
+    assert dominio["yMax"] == 0.2875
+    assert dominio["yMin"] == -0.2875
+    assert dominio["spot"] == 49.40
+
+    segmentos = corpo["segmentos"]
+    assert [s["de"] for s in segmentos] == [0.0, 49.17, 49.67]
+    assert [s["ate"] for s in segmentos] == [49.17, 49.67, None]
+    assert [s["inclinacao"] for s in segmentos] == ["zero", "positiva", "zero"]
+    assert [s["ePlato"] for s in segmentos] == [True, False, True]
+
+
+def test_dominio_e_segmentos_em_cada_item_de_possibilidades(monkeypatch):
+    c, _ = _client(monkeypatch)
+    p = _registra(c)
+    _espiao(monkeypatch)
+
+    corpo = c.post("/api/options/mcp/possibilidades", json=_corpo_possibilidades(),
+                   headers=_auth(p["token"])).json()
+
+    assert corpo["possibilidades"], "fixture de 3 vencimentos não pode vir vazia"
+    for item in corpo["possibilidades"]:
+        assert item["estrutura"] is not None
+        assert set(item["dominio"]) == _CHAVES_DOMINIO
+        assert item["segmentos"], "estrutura avaliada não pode ter segmentos vazios"
+        assert all(set(s) == _CHAVES_SEGMENTO for s in item["segmentos"])
+
+
+def test_dominio_e_segmentos_sao_none_e_vazio_sem_estrutura(monkeypatch):
+    """[R-15]: vencimento sem estrutura montada (motivo do serviço) não tem
+    curva para desenhar — `dominio`/`segmentos` seguem a MESMA forma
+    uniforme de `emReais`/`razaoGanhoPerda` nesse ramo."""
+    c, _ = _client(monkeypatch)
+    p = _registra(c)
+    vazio = {"ticker": "PETR4", "trading_date": "2026-08-28", "setups": [],
+             "reason": "a cadeia deste vencimento não tem prêmio na segunda perna"}
+    _espiao(monkeypatch, _roteador(por_vencimento={_VENCIMENTOS[1]: vazio}))
+
+    corpo = c.post("/api/options/mcp/possibilidades", json=_corpo_possibilidades(),
+                   headers=_auth(p["token"])).json()
+    por_venc = {i["vencimento"]: i for i in corpo["possibilidades"]}
+    assert por_venc[_VENCIMENTOS[1]]["estrutura"] is None
+    assert por_venc[_VENCIMENTOS[1]]["dominio"] is None
+    assert por_venc[_VENCIMENTOS[1]]["segmentos"] == []
+
+
+def test_dominio_e_segmentos_sao_none_e_vazio_no_erro_de_tool(monkeypatch):
+    """Mesma forma uniforme no ramo de erro de tool (vencimento recusado) —
+    nunca chave ausente."""
+    c, _ = _client(monkeypatch)
+    p = _registra(c)
+    _espiao(monkeypatch, _roteador(por_vencimento={
+        _VENCIMENTOS[1]: mcp_client.McpErroDeTool(
+            "vencimento 2026-10-17 sem cotação no pregão",
+            available=None, hint="tente outro vencimento")}))
+
+    corpo = c.post("/api/options/mcp/possibilidades", json=_corpo_possibilidades(),
+                   headers=_auth(p["token"])).json()
+    item = corpo["possibilidades"][1]
+    assert item["estrutura"] is None
+    assert item["erro"] is not None
+    assert item["dominio"] is None
+    assert item["segmentos"] == []
+
+
+# Mesma técnica de `web/tests/test_estrutura_para_payoff.mjs:107-135`:
+# regex sobre o próprio fonte, sem executar — cobre os nomes EN (entrada,
+# vindos do envelope do serviço) e PT (saída, formato de `opcoes_payoff.py`),
+# porque a proibição vale nos dois sentidos.
+_CAMPOS_FINANCEIROS_PAYOFF = (
+    "max_gain", "max_loss", "underlying", "result", "strike", "premium",
+    "ganho_maximo", "perda_maxima", "preco_objeto", "resultado",
+)
+_ARITMETICA_FINANCEIRA_PAYOFF = re.compile(
+    r"(" + "|".join(_CAMPOS_FINANCEIROS_PAYOFF) + r")\s*[*/+-]\s*[\w.]"
+    r"|[\w.]\s*[*/+-]\s*(?:\w+\.)?(" + "|".join(_CAMPOS_FINANCEIROS_PAYOFF) + r")")
+
+
+def test_adaptador_de_curva_e_zero_aritmetica_guardiao_estatico():
+    fonte = (inspect.getsource(options_mcp_api._perfil_para_curva) + "\n"
+             + inspect.getsource(options_mcp_api._dominio_e_segmentos))
+    fonte_sem_comentario = "\n".join(
+        linha for linha in fonte.split("\n")
+        if not re.match(r"^\s*#", linha))
+    achado = _ARITMETICA_FINANCEIRA_PAYOFF.search(fonte_sem_comentario)
+    assert achado is None, (
+        f"aritmética financeira encontrada no adaptador ({achado.group()!r}) "
+        "— ele só pode renomear chave, nunca calcular")
+
+
+def test_sanidade_da_regex_de_aritmetica_financeira_do_payoff():
+    """A regex do guardião acima PEGA uma conta inventada — sem esta prova,
+    um guardião que nunca reprova nada passaria despercebido."""
+    assert _ARITMETICA_FINANCEIRA_PAYOFF.search(
+        "emCentavos = avaliacao.max_gain * 100"), (
+        "sanidade: a regex não pegou uma conta inventada (campo * número)")
+    assert _ARITMETICA_FINANCEIRA_PAYOFF.search(
+        "emCentavos = 100 * avaliacao.max_gain"), (
+        "sanidade: a regex não pegou a mesma conta com o operador antes "
+        "(número * campo)")
