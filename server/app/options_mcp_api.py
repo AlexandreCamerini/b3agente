@@ -2487,11 +2487,15 @@ async def possibilidades(body: dict = Body(default={}),
             "vencimentosConsiderados": escolhidos,
             "vencimentosDisponiveis": disponiveis,
             # O MESMO número que a UI mostra antes de disparar — sai na
-            # resposta para que os dois lados não possam divergir. O `+2`
-            # (era `+1`) é a chamada extra e constante de `get_option_chain`
-            # do valor de HOJE (CHART-05, D-02): só o candidato de índice 0
-            # é tentado, então o custo não escala com N.
-            "chamadasPrevistas": 2 * len(escolhidos) + 2,
+            # resposta para que os dois lados não possam divergir. `+2` (era
+            # `+1`) é a chamada extra e constante de `get_option_chain` do
+            # valor de HOJE (CHART-05, D-02): só o candidato de índice 0 é
+            # tentado, então o custo não escala com N. Sem candidato nenhum
+            # (`escolhidos` vazio) não existe índice 0 a tentar — `+1`, não
+            # `+2`, ou a previsão afirmaria uma chamada que é IMPOSSÍVEL
+            # acontecer (não incerta, como o resto do fan-out; ver
+            # `test_vencimento_que_nao_monta_nao_gasta_a_avaliacao`).
+            "chamadasPrevistas": 2 * len(escolhidos) + (2 if escolhidos else 1),
             "behavior": base.get("behavior"),
             "frescor": _frescor_nao_medido(AVISO_FRESCOR_SEM_ANEXO),
         }

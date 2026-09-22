@@ -169,17 +169,24 @@ def _proposta(vencimento) -> dict:
             "note": "prêmios do fechamento do pregão anterior"}
 
 
-def _roteador(*, base=None, com_tese=None, por_vencimento=None, avaliacao=None):
+def _roteador(*, base=None, com_tese=None, por_vencimento=None, avaliacao=None,
+              cadeia=None):
     """Despacha pelo NOME da tool E pela FORMA do pedido.
 
     `propose_option_setups` tem duas formas no contrato — sem tese devolve
     catálogo e vencimentos; com tese devolve estruturas — e metade das
     afirmações deste arquivo é justamente sobre qual das duas aconteceu.
     Espião que despacha só por nome não conseguiria distingui-las.
+
+    `cadeia` (37-03): sobrepõe a resposta de `get_option_chain` — default
+    `_CADEIA` (mesmos contratos de `_setup`/`_AVALIACAO`, valor de hoje
+    resolve). Testes de `valorHoje` truncado/incompleto passam uma cadeia
+    própria, sem os contratos das pernas.
     """
     base = _BASE if base is None else base
     por_vencimento = por_vencimento or {}
     avaliacao = _AVALIACAO if avaliacao is None else avaliacao
+    cadeia = _CADEIA if cadeia is None else cadeia
 
     def _rota(nome, args):
         args = args or {}
@@ -193,7 +200,7 @@ def _roteador(*, base=None, com_tese=None, por_vencimento=None, avaliacao=None):
         if nome == "evaluate_option_structure":
             return avaliacao
         if nome == "get_option_chain":
-            return _CADEIA
+            return cadeia
         if nome == "find_tradable_options":
             return _OPERAVEIS
         return {}
@@ -405,7 +412,11 @@ def test_proposta_com_lote_converte_a_estrutura_unica(monkeypatch):
 
 
 # ═══════════════════════════════════════════════════════ possibilidades ═══
-def test_possibilidades_com_3_vencimentos_faz_2n_mais_1_chamadas(monkeypatch):
+def test_possibilidades_com_3_vencimentos_faz_2n_mais_2_chamadas(monkeypatch):
+    """37-03: o `+2` (era `+1`) é a chamada extra e constante de
+    `get_option_chain` do valor de HOJE (CHART-05) — só o candidato de
+    índice 0 é tentado, e neste roteador ele tem estrutura, então a chamada
+    acontece de verdade."""
     c, main = _client(monkeypatch)
     p = _registra(c)
     uid = p["user"]["id"]
@@ -416,21 +427,24 @@ def test_possibilidades_com_3_vencimentos_faz_2n_mais_1_chamadas(monkeypatch):
     assert r.status_code == 200, r.text
     corpo = r.json()
 
-    assert len(chamadas) == 7, (
-        f"o custo declarado é 2×3+1=7 e foram {len(chamadas)} chamadas: "
+    assert len(chamadas) == 8, (
+        f"o custo declarado é 2×3+2=8 e foram {len(chamadas)} chamadas: "
         f"{_nomes(chamadas)}")
-    assert corpo["chamadasPrevistas"] == 7, (
+    assert corpo["chamadasPrevistas"] == 8, (
         "a rota anuncia um número e gasta outro — a UI mostra esse mesmo "
         "campo ANTES de disparar")
     assert _nomes(chamadas)[0] == "propose_option_setups"
     assert chamadas[0][1] == {"ticker": "PETR4"}, (
         "a primeira chamada é a que descobre os vencimentos; com tese ela "
         "devolveria estruturas em vez de `expirations`")
+    assert _nomes(chamadas).count("get_option_chain") == 1, (
+        "a chamada extra do valor de hoje deveria acontecer exatamente uma "
+        "vez — só para o candidato de índice 0")
     assert corpo["vencimentosDisponiveis"] == _VENCIMENTOS
     assert corpo["vencimentosConsiderados"] == _VENCIMENTOS
     assert [i["vencimento"] for i in corpo["possibilidades"]] == _VENCIMENTOS
     assert corpo["lote"] == 100
-    assert _usado(main, uid) == 7
+    assert _usado(main, uid) == 8
     assert _reservado(main, uid) == 0, "sobrou reserva presa depois da resposta"
 
 
@@ -448,8 +462,10 @@ def test_vencimentos_pedidos_sao_intersectados_e_limitados_a_seis(monkeypatch):
                    headers=_auth(p["token"])).json()
     assert corpo["vencimentosConsiderados"] == muitos[:6]
     assert "2030-01-01" not in corpo["vencimentosConsiderados"]
-    assert corpo["chamadasPrevistas"] == 13
-    assert len(chamadas) == 13
+    # 37-03: 2×6+2=14 — o `+2` inclui a chamada extra e constante de
+    # `get_option_chain` do valor de HOJE (índice 0, com estrutura).
+    assert corpo["chamadasPrevistas"] == 14
+    assert len(chamadas) == 14
 
 
 def test_sem_vencimento_aberto_e_200_sem_segunda_etapa(monkeypatch):
@@ -490,11 +506,15 @@ def test_vencimento_que_nao_monta_nao_gasta_a_avaliacao(monkeypatch):
     assert corpo["possibilidades"][0]["estrutura"] is not None
     assert corpo["possibilidades"][2]["estrutura"] is not None
 
-    assert len(chamadas) == 6, (
+    # 37-03: +1 chamada real (`get_option_chain`) porque o candidato de
+    # índice 0 (`_VENCIMENTOS[0]`, não o que falha) TEM estrutura — o valor
+    # de hoje é tentado para ele.
+    assert len(chamadas) == 7, (
         f"o vencimento sem estrutura foi avaliado mesmo assim: {_nomes(chamadas)}")
     assert _nomes(chamadas).count("evaluate_option_structure") == 2
-    assert _usado(main, uid) == 6
-    assert corpo["chamadasPrevistas"] == 7, (
+    assert _nomes(chamadas).count("get_option_chain") == 1
+    assert _usado(main, uid) == 7
+    assert corpo["chamadasPrevistas"] == 8, (
         "`chamadasPrevistas` é a PREVISÃO mostrada antes de disparar; o gasto "
         "real pode ser menor, nunca maior")
 
@@ -522,11 +542,13 @@ def test_cota_que_so_cobre_a_primeira_etapa_recusa_antes_de_avaliar(monkeypatch)
 
 def test_duas_consultas_por_cache_nao_produzem_falso_esgotado(monkeypatch):
     """A classe de defeito do A-07, agora na rota de custo variável: com a
-    cota em 7 e 3 vencimentos, a consulta reserva 1+6=7 e consome 0 (tudo
-    cache). Sem a devolução do saldo, a SEGUNDA consulta recusaria com
-    "Cota do dia da aba Opções esgotada" tendo `usado: 0` no mesmo corpo."""
+    cota em 8 e 3 vencimentos, a consulta reserva 1 (base) + 6 (fan-out) + 1
+    (valor de hoje do candidato de índice 0, 37-03) = 8 simultâneos e
+    consome 0 (tudo cache). Sem a devolução do saldo, a SEGUNDA consulta
+    recusaria com "Cota do dia da aba Opções esgotada" tendo `usado: 0` no
+    mesmo corpo."""
     c, main = _client(monkeypatch)
-    monkeypatch.setenv("B3_MCP_COTA_USUARIO_DIA", "7")
+    monkeypatch.setenv("B3_MCP_COTA_USUARIO_DIA", "8")
     p = _registra(c)
     uid = p["user"]["id"]
     _espiao(monkeypatch, cache=True)
@@ -911,10 +933,17 @@ def test_f04_seis_evaluate_recusados_com_propose_em_cache_debitam_seis(monkeypat
     assert r.status_code == 200, r.text
     corpo = r.json()
 
-    # o fan-out aconteceu inteiro: 1 base + 6 propose + 6 evaluate
+    # o fan-out aconteceu inteiro: 1 base + 6 propose + 6 evaluate. O valor
+    # de hoje NUNCA é tentado aqui: o candidato de índice 0 também recusa no
+    # `evaluate` (mesma fixture para todos os vencimentos), então o item
+    # nunca chega ao ramo de sucesso que dispararia `get_option_chain`.
     assert len(chamadas) == 13, _nomes(chamadas)
     assert _nomes(chamadas).count("evaluate_option_structure") == 6
-    assert corpo["chamadasPrevistas"] == 13
+    assert "get_option_chain" not in _nomes(chamadas)
+    # 37-03: a PREVISÃO (2×6+2=14) inclui o valor de hoje que este cenário
+    # nunca chega a tentar — "real pode ser menor, nunca maior" (mesmo
+    # princípio de `test_vencimento_que_nao_monta_nao_gasta_a_avaliacao`).
+    assert corpo["chamadasPrevistas"] == 14
     assert all(i["estrutura"] is None and i["erro"] for i in corpo["possibilidades"]), \
         "os seis vencimentos deveriam ter sido recusados pela tool"
 
@@ -1515,3 +1544,111 @@ def test_sanidade_da_regex_de_aritmetica_financeira_do_payoff():
         "emCentavos = 100 * avaliacao.max_gain"), (
         "sanidade: a regex não pegou a mesma conta com o operador antes "
         "(número * campo)")
+
+
+# ══════════════════════════════════════════════════════════ valorHoje ═════
+# CHART-05/D-01/D-02 — `valorHoje` no envelope de `proposta()`/
+# `possibilidades()`: valor de MERCADO ATUAL da estrutura (soma do prêmio de
+# HOJE por perna, via `get_option_chain`), nunca o resultado no vencimento
+# que `payoff`/`scenarios` já descrevem — a confusão que era a regressão de
+# produção. O que este bloco trava: a soma assinada (buy=+1, sell=-1) bate
+# com valores conhecidos; contrato ausente da cadeia é erro explícito, nunca
+# soma parcial calada; falha do serviço NUNCA aborta a rota (200 sempre);
+# só o candidato de índice 0 de `possibilidades()` tenta a busca (D-02).
+def test_proposta_valor_hoje_soma_pernas_por_sinal(monkeypatch):
+    """(1) `get_option_chain` devolve prêmio atual para TODAS as pernas —
+    `valorHoje.dados.porAcao` é a soma assinada esperada e
+    `valorHoje.dados.emReais` é `porAcao × lote`."""
+    c, _ = _client(monkeypatch)
+    p = _registra(c)
+    _espiao(monkeypatch)
+
+    corpo = c.post("/api/options/mcp/proposta",
+                   json={"ticker": "PETR4", "direction": "bullish", "lote": 100},
+                   headers=_auth(p["token"])).json()
+
+    # PETRI380 buy 1×1,20 (+1,20) + PETRI400 sell 1×0,58 (−0,58) = 0,62
+    # (mesmos números de `_CADEIA`/`_setup`, sinal de `_validar_perna`)
+    assert corpo["valorHoje"]["dados"]["porAcao"] == pytest.approx(0.62)
+    assert corpo["valorHoje"]["dados"]["emReais"] == pytest.approx(62.0)
+
+
+def test_proposta_valor_hoje_incompleto_nao_contamina_o_resto(monkeypatch):
+    """(2) cadeia sem um dos contratos das pernas — `valorHoje` é erro
+    explícito (`valor_hoje_incompleto`), NUNCA soma parcial calada (T-37-07)
+    — e o resto do envelope (`estruturas`/`emReais`) segue presente e
+    correto; status 200, a falha não vira 502/422 da rota inteira."""
+    c, _ = _client(monkeypatch)
+    p = _registra(c)
+    cadeia_truncada = dict(_CADEIA, options=[_CADEIA["options"][0]])  # falta PETRI400
+    _espiao(monkeypatch, _roteador(cadeia=cadeia_truncada))
+
+    r = c.post("/api/options/mcp/proposta",
+               json={"ticker": "PETR4", "direction": "bullish", "lote": 100},
+               headers=_auth(p["token"]))
+    assert r.status_code == 200, r.text
+    corpo = r.json()
+    assert corpo["valorHoje"] == {"erro": {
+        "code": "valor_hoje_incompleto",
+        "message": ("O serviço não devolveu cotação atual para todas "
+                    "as pernas desta estrutura."),
+    }}
+    assert len(corpo["estruturas"]) == 1, "a falha do valor de hoje apagou a estrutura"
+    assert corpo["emReais"]["custoLiquido"] == pytest.approx(62.0), (
+        "o resto da conversão em reais não pode ser contaminado pela falha "
+        "do valor de hoje")
+
+
+def test_proposta_valor_hoje_com_servico_indisponivel_nao_aborta_a_rota(monkeypatch):
+    """(3) `get_option_chain` levanta erro do SERVIÇO — mesmo resultado do
+    caso (2): `valorHoje.erro` presente, resto da resposta intacto, status
+    200. Só `propose_option_setups`/o loop principal de `possibilidades()`
+    abortam a rota inteira; a falha pontual do fetch de valor de hoje
+    nunca é dessas."""
+    c, _ = _client(monkeypatch)
+    p = _registra(c)
+    base_roteador = _roteador()
+
+    def _rota(nome, args):
+        if nome == "get_option_chain":
+            return mcp_client.McpIndisponivel("timeout ao falar com o serviço")
+        return base_roteador(nome, args)
+
+    _espiao(monkeypatch, _rota)
+
+    r = c.post("/api/options/mcp/proposta",
+               json={"ticker": "PETR4", "direction": "bullish", "lote": 100},
+               headers=_auth(p["token"]))
+    assert r.status_code == 200, r.text
+    corpo = r.json()
+    assert corpo["valorHoje"]["erro"]["code"] == "mcp_indisponivel"
+    assert len(corpo["estruturas"]) == 1
+    assert corpo["emReais"]["custoLiquido"] == pytest.approx(62.0)
+
+
+def test_possibilidades_valor_hoje_so_no_indice_0(monkeypatch):
+    """(4) D-02: só o candidato de índice 0 tenta o valor de hoje — os
+    demais itens NÃO recebem a chave `valorHoje` (estado "não tentado",
+    distinto de "tentado e falhou", que o front — Plano 37-05 — distingue
+    pela PRESENÇA da chave, nunca por `is None`)."""
+    c, _ = _client(monkeypatch)
+    p = _registra(c)
+    _espiao(monkeypatch)
+
+    corpo = c.post("/api/options/mcp/possibilidades", json=_corpo_possibilidades(),
+                   headers=_auth(p["token"])).json()
+
+    itens = corpo["possibilidades"]
+    assert len(itens) == 3
+    assert "valorHoje" in itens[0]
+    assert itens[0]["valorHoje"]["dados"]["porAcao"] == pytest.approx(0.62)
+    for item in itens[1:]:
+        assert "valorHoje" not in item, (
+            "candidato que não é o índice 0 recebeu a chave valorHoje — "
+            "D-02 limita a busca ao 1º candidato")
+
+
+# (5) `chamadasPrevistas == 2×len(escolhidos)+2` já é travado por
+# `test_possibilidades_com_3_vencimentos_faz_2n_mais_2_chamadas` (N=3) e por
+# `test_vencimentos_pedidos_sao_intersectados_e_limitados_a_seis` (N=6) —
+# não duplicado aqui.
