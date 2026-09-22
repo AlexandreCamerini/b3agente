@@ -39,6 +39,7 @@
  */
 import { Kicker, Aviso, ErroDoMcp, Linha, RazaoGanhoPerda } from "./uiOpcoes.jsx";
 import PayoffChart from "./PayoffChart.jsx";
+import ExplicacaoPayoff from "./ExplicacaoPayoff.jsx";
 
 // Mesmos NOMES de variável CSS que o núcleo do app injeta em `:root` —
 // espelho declarado, mesmo padrão dos irmãos desta pasta. Zero import do
@@ -218,8 +219,22 @@ export default function SecaoComparar({
                     </Aviso>
                   ) : (
                     <>
-                      <PayoffChart estrutura={item.estrutura} emReais={item.emReais} cp={cp} palette={palette} />
+                      <PayoffChart
+                        estrutura={item.estrutura}
+                        emReais={item.emReais}
+                        cp={cp}
+                        palette={palette}
+                        dominio={item.dominio}
+                        segmentos={item.segmentos}
+                        valorHoje={item.valorHoje}
+                      />
                       <RazaoGanhoPerda razao={item.razaoGanhoPerda} cp={cp} />
+                      <ExplicacaoPayoff
+                        segmentos={item.segmentos}
+                        spot={item.dominio && item.dominio.spot}
+                        razao={item.razaoGanhoPerda}
+                        cp={cp}
+                      />
                       <Cenarios emReais={item.emReais} cp={cp} />
                     </>
                   )}

@@ -34,6 +34,7 @@
 import { useState, useEffect } from "react";
 import { Kicker, Aviso, ErroDoMcp, Linha, RazaoGanhoPerda } from "./uiOpcoes.jsx";
 import PayoffChart from "./PayoffChart.jsx";
+import ExplicacaoPayoff from "./ExplicacaoPayoff.jsx";
 
 // Mesmos NOMES de variável CSS que o núcleo do app injeta em `:root` —
 // espelho declarado, mesmo padrão dos irmãos desta pasta. Zero import do
@@ -392,8 +393,17 @@ export default function SecaoAnalisar({
                     emReais={proposta.dados.emReais}
                     cp={cp}
                     palette={palette}
+                    dominio={proposta.dados.dominio}
+                    segmentos={proposta.dados.segmentos}
+                    valorHoje={proposta.dados.valorHoje}
                   />
                   <RazaoGanhoPerda razao={proposta.dados.razaoGanhoPerda} cp={cp} />
+                  <ExplicacaoPayoff
+                    segmentos={proposta.dados.segmentos}
+                    spot={proposta.dados.dominio && proposta.dados.dominio.spot}
+                    razao={proposta.dados.razaoGanhoPerda}
+                    cp={cp}
+                  />
                   <Pernas pernas={proposta.dados.estruturas[0].legs} cp={cp} />
                 </>
               ) : null}
