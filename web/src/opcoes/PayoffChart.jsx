@@ -422,11 +422,20 @@ export default function PayoffChart({ estrutura, emReais, cp, palette, dominio, 
           const temSpot = dominio && ehNum(dominio.spot);
           const xSpot = temSpot ? sx(dominio.spot) : null;
           const ySpot = temSpot ? (() => {
-            for (let i = 0; curva && i < curva.length - 1; i++) {
+            for (let i = 0; i < curva.length - 1; i++) {
               const a = curva[i], b = curva[i + 1];
               if (dominio.spot >= a.underlying && dominio.spot <= b.underlying) return sy(entre(a, b, dominio.spot));
             }
-            return yZero;
+            // Spot fora dos nós conhecidos de `curva`: acontece quando só UM
+            // lado é ilimitado (a cauda plana só é sintetizada com os DOIS
+            // lados limitados, ver comentário acima no useMemo) e o domínio
+            // do backend abre espaço extra pra seta. `entre()` não recorta —
+            // extrapola pela reta do segmento mais próximo, que É a mesma
+            // inclinação declarada além do último nó (estrutura linear por
+            // partes): continuação matemática do payoff, não invenção.
+            return dominio.spot < curva[0].underlying
+              ? sy(entre(curva[0], curva[1], dominio.spot))
+              : sy(entre(curva[curva.length - 2], curva[curva.length - 1], dominio.spot));
           })() : null;
           const desenhados = temSpot ? [{ x: xSpot, y: ySpot }] : [];
           const marcasCenario = cenarios.map((s, i) => {
