@@ -25,7 +25,7 @@
  */
 import { useId, useMemo } from "react";
 import { extentOf } from "../chartutil.js";
-import { Kicker, Aviso, ErroDoMcp } from "./uiOpcoes.jsx";
+import { Kicker, ErroDoMcp } from "./uiOpcoes.jsx";
 
 // Mesmos NOMES de variável CSS que `App.jsx` injeta em `:root`.
 const VARKEY = (k) => "--" + k.replace(/[A-Z]/g, (c) => "-" + c.toLowerCase());
