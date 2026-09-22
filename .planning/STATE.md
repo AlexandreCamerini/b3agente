@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Confiabilidade explicativa da aba Opções
-status: roadmap_ready
-stopped_at: 'Roadmap do milestone v1.7 gerado por /gsd-roadmapper: 3 fases (35 Jornada Guiada do Workspace, 36 Motor de Payoff Genérico, 37 Gráfico de Payoff e Explicação Confiáveis), 14/14 requirements mapeados (100% coverage, JORN->35, PAYOFF->36, CHART+EXPL->37). ROADMAP.md e REQUIREMENTS.md (traceability) escritos à mão. Falta /gsd:plan-phase 35 (primeira fase). Guardrail aplicado: nenhum mutador `gsd-sdk query state.*`/`roadmap.*` foi chamado — STATE.md/ROADMAP.md editados à mão.'
-last_updated: "2026-09-20T00:00:00.000Z"
-last_activity: "2026-09-20 — /gsd-roadmapper rodado para v1.7: 3 fases derivadas das 14 requirements (Fase 35 JORN-01..03, independente; Fase 36 PAYOFF-01..03, motor puro/determinístico, fundacional; Fase 37 CHART-01..05+EXPL-01..03, dependente da Fase 36). ROADMAP.md ganhou Phase Details completo (Goal/Depends on/Requirements/Success Criteria/UI hint) e Progress table atualizada; REQUIREMENTS.md traceability passou de TBD para Phase 35/36/37, coverage 14/14. Nenhum código tocado — só planejamento. Próximo passo: /gsd:plan-phase 35."
+status: context_gathered
+stopped_at: 'Fase 37 (Gráfico de Payoff e Explicação Confiáveis) — contexto capturado via /gsd-discuss-phase 37, 4 áreas discutidas (fonte de hoje·valor de mercado, origem da divergência de razão G/P, arquitetura da explicação, escopo dos consumidores). Falta /gsd-plan-phase 37. Guardrail aplicado: nenhum mutador `gsd-sdk query state.*`/`roadmap.*` foi chamado — STATE.md editado à mão.'
+last_updated: "2026-09-21T00:00:00.000Z"
+last_activity: "2026-09-21 — /gsd-discuss-phase 37 completo: 4 áreas discutidas com o Alex (12 perguntas), ver 37-CONTEXT.md/37-DISCUSSION-LOG.md para o detalhe. Nenhum código tocado — só planejamento. Próximo passo: /gsd-plan-phase 37."
 progress:
   total_phases: 3
   completed_phases: 0
@@ -21,20 +21,27 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-20)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Milestone v1.7 (Confiabilidade explicativa da aba Opções) — Fase 36 (Motor de Payoff Genérico) FECHADA (2/2 ondas). Próximo: `/gsd-discuss-phase 37` (Gráfico de Payoff e Explicação Confiáveis) — última fase do milestone.
+**Current focus:** Milestone v1.7 (Confiabilidade explicativa da aba Opções) — Fase 37 (Gráfico de Payoff e Explicação Confiáveis) CONTEXTO CAPTURADO. Próximo: `/gsd-plan-phase 37`.
 
 ## Current Position
 
-Phase: 36 (Motor de Payoff Genérico) — **FECHADA (2/2 ondas)**
+Phase: 37 (Gráfico de Payoff e Explicação Confiáveis) — **CONTEXTO CAPTURADO, aguardando plano**
+Plan: nenhum ainda — próximo passo é `/gsd-plan-phase 37`
+Status: `/gsd-discuss-phase 37` completo nesta sessão (2026-09-21). 4 áreas discutidas com o Alex, 12 perguntas via AskUserQuestion (algumas resolvidas sem pergunta, por serem decisão de arquitetura sem ambiguidade real — ex. guardrail de reuso literal de variável). `37-CONTEXT.md`/`37-DISCUSSION-LOG.md` escritos, commit `71fd51d`.
+Last activity: 2026-09-21 — Decisões travadas: (D-01/D-02) "hoje · valor de mercado" busca prêmio atual via `get_option_chain` (I/O novo, custo de cota aceito pelo Alex), mas em `SecaoComparar` só para o 1º candidato do ranking de curadoria — não para todos (evita multiplicar chamadas); (D-03/D-04/D-05) confirmado que a divergência de razão G/P do screenshot é `CuradoriaEstruturas.jsx:194` (`cand.razao`, score de ranking) confundido com `RazaoGanhoPerda` (`_razao_ganho_perda`, ganho/perda real) — renomeia para "Pontuação de curadoria", e qualquer texto novo que cite a razão reusa a MESMA variável, nunca recalcula (guardrail explícito, mesma classe de bug do `RR_MIN`/CTA de collar); (D-06/D-07) camada explicativa 100% determinística, JS puro, zero LLM/I/O, descrevendo TODOS os segmentos de `segmentos_da_curva()` com o do spot primeiro; (D-08/D-09) correção de leitura própria durante a discussão — `PayoffChart.jsx` tem 3 consumidores reais, não 4 (`CriarSetup.jsx` só cita em comentário) — gráfico corrigido chega aos 3 de graça (mesmo componente), blocos novos (texto+hoje) só em Analisar/Comparar, `CuradoriaEstruturas` fica de fora nesta fase (deferred). Nenhum código tocado — só planejamento.
+
+**Fase 37 em planejamento.** Consome `dominio_da_curva()`/`segmentos_da_curva()` da Fase 36 (já em produção no backend, sem consumidor ainda). Canonical refs completos em `37-CONTEXT.md` — inclui achado de que `PayoffChart.jsx` calcula seu PRÓPRIO domínio localmente hoje (linhas 100-160) e precisa passar a consumir o do backend.
+
+**Próximo passo:** `/gsd-plan-phase 37`.
+
+## Posição anterior nesta fase (Fase 36, fechada)
+
+Phase: 36 (Motor de Payoff Genérico) — **FECHADA (2/2 ondas)** — histórico, superado pela entrada acima
 Plan: 36-01 ✓ | 36-02 ✓ (sem checkpoint humano, sem publicação — backend puro, `opcoes_payoff.py` ainda sem consumidor novo; a Fase 37 é quem publica)
-Status: `/gsd-execute-phase 36` completo nesta sessão (2026-09-21), sem worktree (`workflow.use_worktrees=false`), executor sequencial por onda. Cada executor foi instruído a NÃO tocar STATE.md/ROADMAP.md — o orquestrador edita à mão após cada onda.
-Last activity: 2026-09-21 — `36-02` fechou a fase: `dominio_da_curva()` (D-05, margem 12%/4%/15%/10%, exclui o strike=0.0 da perna ACAO, spot sempre dentro) e `segmentos_da_curva()` (D-06, corta só nos strikes, cauda com `ate` nulo) declaradas ao lado de `perfil_da_estrutura`; caso golden travado como regressão nomeada única (`test_golden_trava_de_alta_49_17_49_67_debito_025`, as 5 propriedades de PAYOFF-03 num só teste); auditoria de PAYOFF-01 (`grep` confirma zero ramificação por nome de estratégia no módulo). **Verificado por mim de novo, direto no código, não só confiando no SUMMARY**: golden reproduzido (`breakevens [49.42]`, 3 segmentos com fronteira em 49.17/49.67, não em 49.42), domínio com `spot=49.40` batendo exato (`x_min 47.194, x_max 51.646, y_max/y_min ±0.2875`, mesma aritmética já conferida na discussão), venda coberta confirmando a exclusão do strike-ACAO (`x_min 28.8, x_max 35.2`). Prova negativa real do corte em breakeven executada (injetou, viu o golden falhar nomeando 4 segmentos, reverteu, viu verde). 65 testes no arquivo (48+17 novos). Suíte canônica: sandbox recusou `nice()` desta vez (achado ambiental diferente do de antes, mesma classe) — rodada fora do sandbox: 2960 pytest (baseline 2943 + 17, exato) + 154/154 `.mjs`. Nada publicado (backend puro, sem consumidor ainda — a Fase 37 é quem publica). Commits `31e7db7`/`6317698`/`0c0c27f`/`5fd9f86`.
+Status: `/gsd-execute-phase 36` completo (2026-09-21), sem worktree (`workflow.use_worktrees=false`), executor sequencial por onda.
+Last activity: 2026-09-21 — `36-02` fechou a fase: `dominio_da_curva()` (D-05, margem 12%/4%/15%/10%, exclui o strike=0.0 da perna ACAO, spot sempre dentro) e `segmentos_da_curva()` (D-06, corta só nos strikes, cauda com `ate` nulo) declaradas ao lado de `perfil_da_estrutura`; caso golden travado como regressão nomeada única (`test_golden_trava_de_alta_49_17_49_67_debito_025`, as 5 propriedades de PAYOFF-03 num só teste); auditoria de PAYOFF-01 (`grep` confirma zero ramificação por nome de estratégia no módulo). 65 testes no arquivo (48+17 novos). Suíte canônica: 2960 pytest + 154/154 `.mjs`. Nada publicado. Commits `31e7db7`/`6317698`/`0c0c27f`/`5fd9f86`.
 
-**Fase 36 fechada.** PAYOFF-01/02/03 → Done em REQUIREMENTS.md. `server/app/opcoes_payoff.py` agora tem: `vencimento` por perna, guarda de entrada degenerada, breakeven corrigido, `dominio_da_curva()`, `segmentos_da_curva()`, tudo sem arquivo novo (D-01) e sem regredir os 4 consumidores existentes.
-
-**Contexto do planejamento (sessão anterior, mesmo dia):** `/gsd-discuss-phase 36` → `gsd-pattern-mapper` → `gsd-planner` opus (2 planos) → `gsd-plan-checker` (VERIFICATION PASSED, 0 blockers). Achado central: `server/app/opcoes_payoff.py` já era um motor genérico em produção desde a Fase 15 — esta fase ESTENDEU (D-01), nunca recriou.
-
-**Próximo passo:** `/gsd-discuss-phase 37` (Gráfico de Payoff e Explicação Confiáveis) — última fase do milestone v1.7, consome `dominio_da_curva()`/`segmentos_da_curva()` desta fase.
+**Contexto do planejamento:** `/gsd-discuss-phase 36` → `gsd-pattern-mapper` → `gsd-planner` opus (2 planos) → `gsd-plan-checker` (VERIFICATION PASSED, 0 blockers). Achado central: `server/app/opcoes_payoff.py` já era um motor genérico em produção desde a Fase 15 — esta fase ESTENDEU (D-01), nunca recriou.
 
 ## Posição anterior nesta fase (Fase 35, fechada)
 
