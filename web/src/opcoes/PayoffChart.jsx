@@ -38,7 +38,12 @@ const T = Object.fromEntries(TOKENS.map((k) => [k, `var(${VARKEY(k)})`]));
 // razão de aspecto que casa com a largura útil de um cartão em 375px, e
 // mudá-la mudaria o enquadramento da curva, não a legibilidade.
 const W = 320, H = 192;
-const PAD_E = 10, PAD_D = 10, PAD_T = 18, PAD_B = 32;
+// PAD_E cresceu de 10 para 48 no plano 37-04 (CHART-01): orçamento pro pior
+// caso de rótulo do eixo Y de 2 casas ("-99,99", 6 chars) a FONTE_MIN=11,5px
+// — ver `37-UI-SPEC.md` §1.1 pela conta completa. Desloca a borda esquerda
+// da curva ~38px pra dentro, mesma categoria de troca que H/PAD_T/PAD_B já
+// fizeram uma vez (Fase 31 D-07, legibilidade sobre área bruta de plot).
+const PAD_E = 48, PAD_D = 10, PAD_T = 18, PAD_B = 32;
 
 // Piso de legibilidade (D-07): com viewBox de 320 de largura e um container
 // de ~315px num aparelho de 375px, a escala é ~0,98 — o tamanho em
@@ -80,7 +85,7 @@ function recortar(pontos, x0, x1) {
   return fora;
 }
 
-export default function PayoffChart({ estrutura, emReais, cp, palette }) {
+export default function PayoffChart({ estrutura, emReais, cp, palette, dominio }) {
   const e = estrutura || {};
   const c = cp || {};
   const P = palette || {};
@@ -96,6 +101,14 @@ export default function PayoffChart({ estrutura, emReais, cp, palette }) {
   const ganhoIlimitado = e.unlimited_gain === true;
   const perdaIlimitada = e.unlimited_loss === true;
   const breakevens = (Array.isArray(e.breakevens) ? e.breakevens : []).filter(ehNum);
+  // CHART-02: strikes únicos das pernas de opção (nunca da perna ACAO, que
+  // não carrega `kind`/`strike` numérico) — marcados no eixo junto dos
+  // breakevens, nunca calculados aqui (só leitura de `e.legs`).
+  const strikesUnicos = [...new Set(
+    (Array.isArray(e.legs) ? e.legs : [])
+      .filter((p) => p && (p.kind === "CALL" || p.kind === "PUT") && ehNum(p.strike))
+      .map((p) => p.strike),
+  )];
 
   const desenho = useMemo(() => {
     const pontos = (Array.isArray(e.payoff) ? e.payoff : [])
@@ -108,21 +121,38 @@ export default function PayoffChart({ estrutura, emReais, cp, palette }) {
     const cenarios = (Array.isArray(bloco.scenarios) ? bloco.scenarios : [])
       .filter((s) => s && ehNum(s.underlying));
 
-    // Janela: onde a decisão acontece. O nó em S=0 fica de fora do cálculo do
-    // foco (preço zero não é cenário de ninguém), mas a curva ATÉ ele segue
-    // valendo — o recorte interpola em vez de descartar.
-    const foco = [
-      ...pontos.filter((p) => p.underlying > 0).map((p) => p.underlying),
-      ...breakevens,
-      ...cenarios.map((s) => s.underlying),
-    ];
-    const base = foco.length ? foco : pontos.map((p) => p.underlying);
-    let x0 = Math.min(...base), x1 = Math.max(...base);
-    if (x1 === x0) { const d = Math.max(Math.abs(x0) * 0.05, 0.5); x0 -= d; x1 += d; }
-    const folga = (x1 - x0) * 0.08;
-    x0 = Math.max(0, x0 - folga);             // preço negativo não existe
-    x1 += folga;
+    // CHART-04: quando o backend já mandou as 4 bordas do domínio
+    // (`dominio_da_curva()`, Fase 36), usa-as DIRETO — sem recalcular janela
+    // local. Com QUALQUER uma ausente, cai no cálculo local de sempre
+    // (fallback que mantém `CuradoriaEstruturas.jsx`/qualquer chamador que
+    // não passa `dominio` idêntico a antes deste plano, D-09).
+    const dominioCompleto = dominio
+      && ehNum(dominio.xMin) && ehNum(dominio.xMax)
+      && ehNum(dominio.yMin) && ehNum(dominio.yMax);
 
+    let x0, x1, ymin, ymax;
+    if (dominioCompleto) {
+      x0 = dominio.xMin; x1 = dominio.xMax;
+      ymin = dominio.yMin; ymax = dominio.yMax;
+    } else {
+      // Janela: onde a decisão acontece. O nó em S=0 fica de fora do cálculo
+      // do foco (preço zero não é cenário de ninguém), mas a curva ATÉ ele
+      // segue valendo — o recorte interpola em vez de descartar.
+      const foco = [
+        ...pontos.filter((p) => p.underlying > 0).map((p) => p.underlying),
+        ...breakevens,
+        ...cenarios.map((s) => s.underlying),
+      ];
+      const base = foco.length ? foco : pontos.map((p) => p.underlying);
+      x0 = Math.min(...base); x1 = Math.max(...base);
+      if (x1 === x0) { const d = Math.max(Math.abs(x0) * 0.05, 0.5); x0 -= d; x1 += d; }
+      const folga = (x1 - x0) * 0.08;
+      x0 = Math.max(0, x0 - folga);            // preço negativo não existe
+      x1 += folga;
+    }
+
+    // Curva: SEMPRE recortada/interpolada dentro da janela acima, venha ela
+    // do backend ou do cálculo local — é o mesmo "zoom", não edição.
     let curva = recortar(pontos, x0, x1);
     // Janela que não deixou curva nenhuma é janela errada: melhor a curva
     // inteira esmagada do que um retângulo vazio, que se lê como "zero".
@@ -140,9 +170,12 @@ export default function PayoffChart({ estrutura, emReais, cp, palette }) {
     }
 
     // Zero SEMPRE na escala: é a linha que separa lucro de prejuízo, e sem
-    // ela a curva não significa nada.
-    const [ymin, ymax] = extentOf([[...curva.map((p) => p.result),
-      ...cenarios.filter((s) => ehNum(s.result)).map((s) => s.result), 0]]);
+    // ela a curva não significa nada. Só recalcula localmente quando o
+    // domínio não veio pronto do backend.
+    if (!dominioCompleto) {
+      [ymin, ymax] = extentOf([[...curva.map((p) => p.result),
+        ...cenarios.filter((s) => ehNum(s.result)).map((s) => s.result), 0]]);
+    }
 
     const sx = (u) => PAD_E + ((u - x0) / (x1 - x0 || 1)) * (W - PAD_E - PAD_D);
     const sy = (r) => PAD_T + (1 - (r - ymin) / (ymax - ymin || 1)) * (H - PAD_T - PAD_B);
@@ -152,12 +185,13 @@ export default function PayoffChart({ estrutura, emReais, cp, palette }) {
       .join(" ");
 
     return {
-      d, sx, sy, x0, x1,
+      d, sx, sy, x0, x1, ymin, ymax,
       yZero: sy(0),
+      curva,
       cenarios: cenarios.filter((s) => s.underlying >= x0 && s.underlying <= x1),
       marcas: breakevens.filter((b) => b >= x0 && b <= x1),
     };
-  }, [e.payoff, e.scenarios, breakevens.join(","), ganhoIlimitado, perdaIlimitada]);
+  }, [e.payoff, e.scenarios, breakevens.join(","), ganhoIlimitado, perdaIlimitada, dominio]);
 
   // Cores de P&L — o ÚNICO lugar desta tela onde verde e vermelho são
   // permitidos, porque aqui eles significam lucro e prejuízo, não juízo.
@@ -227,7 +261,10 @@ export default function PayoffChart({ estrutura, emReais, cp, palette }) {
     );
   }
 
-  const { d, sx, sy, x0, x1, yZero, cenarios, marcas } = desenho;
+  const { d, sx, sy, x0, x1, ymin, ymax, yZero, curva, cenarios, marcas } = desenho;
+  // CHART-02: só os strikes que caem dentro da janela visível ganham marca
+  // no eixo — mesma disciplina de `marcas` (breakevens) acima.
+  const strikesVisiveis = strikesUnicos.filter((v) => v >= x0 && v <= x1);
   const descricao = "Curva de resultado no vencimento de " + nome
     + (vencimento ? ", vencimento " + vencimento : "")
     + ", por preço do ativo entre " + fmt(x0) + " e " + fmt(x1) + " reais. "
@@ -239,7 +276,12 @@ export default function PayoffChart({ estrutura, emReais, cp, palette }) {
     + ", perda máxima " + perdaTxt + (perdaIlimitada ? "" : " por ação") + ". "
     + (breakevens.length
       ? "Empata com o ativo em " + breakevens.map((b) => fmt(b)).join(" ou ") + "."
-      : "O serviço não informou preço de empate.");
+      : "O serviço não informou preço de empate.")
+    // CHART-02 (acessibilidade): todos os strikes, não só os visíveis na
+    // tela — mesma disciplina do breakeven acima.
+    + (strikesUnicos.length
+      ? " Strikes desta estrutura: " + strikesUnicos.map((v) => fmt(v)).join(", ") + "."
+      : "");
 
   return caixa(
     <>
@@ -268,45 +310,90 @@ export default function PayoffChart({ estrutura, emReais, cp, palette }) {
         <line x1={PAD_E} y1={yZero} x2={W - PAD_D} y2={yZero}
           stroke={T.borderSubtle} strokeWidth="1" strokeDasharray="3 3" />
 
+        {/* 1b. eixo Y (CHART-01): até 3 marcas (topo/zero/base), coluna
+            esquerda em x=44, tick de 4px até PAD_E=48. A linha acima é o
+            TRAÇO do zero na área do gráfico; isto é o EIXO (tick+número) —
+            propósitos diferentes, nunca fundidos num só desenho. */}
+        {(() => {
+          const yTopo = sy(dominio?.yMax ?? ymax);
+          const suprimirTopo = dominio?.ganhoIlimitado === true || Math.abs(yTopo - yZero) < 3;
+          const yBase = sy(dominio?.yMin ?? ymin);
+          const suprimirBase = dominio?.perdaIlimitada === true || Math.abs(yBase - yZero) < 3;
+          const marcasEixo = [
+            !suprimirTopo ? { y: yTopo, label: fmt(dominio?.yMax ?? ymax) } : null,
+            { y: yZero, label: c.opcoesEixoZeroRotulo || "R$ 0" },
+            !suprimirBase ? { y: yBase, label: fmt(dominio?.yMin ?? ymin) } : null,
+          ].filter(Boolean);
+          return marcasEixo.map((mrc, i) => (
+            <g key={"eixo-y-" + i}>
+              <line x1={44} y1={mrc.y} x2={PAD_E} y2={mrc.y} stroke={T.textMuted} strokeWidth="1" />
+              <text x={44} y={mrc.y} textAnchor="end" dominantBaseline="central"
+                fontSize={FONTE_MIN} fill={T.textMuted}>{mrc.label}</text>
+            </g>
+          ));
+        })()}
+
         {/* 2. a curva, nas duas cores de P&L. Só traço: NENHUM `fill` em
             lugar nenhum — é o que garante que um lado ilimitado não apareça
             fechado por um retângulo. */}
         <path d={d} fill="none" stroke={corLucro} strokeWidth="2" clipPath={`url(#lucro-${uid})`} />
         <path d={d} fill="none" stroke={corPerda} strokeWidth="2" clipPath={`url(#perda-${uid})`} />
 
-        {/* 3. breakevens: a única marca medida no eixo X, em preço. Ordenados
-            por X antes de decidir o que cabe (regra (d) do plano 31-03): a
-            LINHA do preço é SEMPRE desenhada — é dado, não decoração — e só
-            o TEXTO se suprime quando dois rótulos ficam próximos demais para
-            não se sobrepor. A descrição completa de todos os breakevens
-            continua no aria-label/<title> do SVG acima, então nada de dado
-            desaparece — só o texto ilegível/duplicado some da tela. */}
+        {/* 3. breakevens + strikes (CHART-02): a mesma marca medida no eixo
+            X, em preço, mescladas num único array ordenado por X antes de
+            decidir o que cabe (regra (d) do plano 31-03, estendida pelo
+            37-04) — a LINHA do preço é SEMPRE desenhada — é dado, não
+            decoração — e só o TEXTO se suprime quando dois rótulos ficam
+            próximos demais para não se sobrepor. Em empate de slot,
+            breakeven vem primeiro no array de entrada (ordenação estável) e
+            GANHA a exibição do texto. A descrição completa de todos os
+            breakevens/strikes continua no aria-label/<title> do SVG acima,
+            então nada de dado desaparece — só o texto ilegível/duplicado
+            some da tela. */}
         {(() => {
-          const ordenadas = [...marcas].sort((a, b) => sx(a) - sx(b));
+          const itens = [
+            ...marcas.map((v) => ({ valor: v, tipoMarca: "breakeven" })),
+            ...strikesVisiveis.map((v) => ({ valor: v, tipoMarca: "strike" })),
+          ].sort((a, b) => sx(a.valor) - sx(b.valor));
           let ultimoX = -Infinity;
-          return ordenadas.map((b, i) => {
-            const x = sx(b);
+          return itens.map((item, i) => {
+            const x = sx(item.valor);
             const mostrarTexto = x - ultimoX >= 44;
             if (mostrarTexto) ultimoX = x;
-            const ancora = x < 28 ? "start" : x > W - 28 ? "end" : "middle";
+            const ancora = x < PAD_E + 18 ? "start" : x > W - 28 ? "end" : "middle";
+            const ehBreakeven = item.tipoMarca === "breakeven";
             return (
-              <g key={"be-" + i}>
-                <line x1={x} y1={PAD_T} x2={x} y2={H - PAD_B} stroke={T.textMuted} strokeWidth="1" strokeDasharray="2 4" />
+              <g key={"marca-" + i}>
+                <line x1={x} y1={PAD_T} x2={x} y2={H - PAD_B}
+                  stroke={ehBreakeven ? T.textMuted : T.borderFaint} strokeWidth="1"
+                  strokeDasharray={ehBreakeven ? "2 4" : "1 3"} />
                 {mostrarTexto ? (
-                  <text x={x} y={H - PAD_B + 12} textAnchor={ancora} fontSize={FONTE_MIN} fill={T.textMuted}>{fmt(b)}</text>
+                  <text x={x} y={H - PAD_B + 12} textAnchor={ancora} fontSize={FONTE_MIN} fill={T.textMuted}>{fmt(item.valor)}</text>
                 ) : null}
               </g>
             );
           });
         })()}
 
-        {/* 4. cenários do serviço (±1σ e os nomeados alvo/stop). Mesma regra
-            de supressão: o CÍRCULO (marca) é sempre desenhado, só o texto
-            some quando um rótulo já desenhado fica a menos de 52 em x E
-            menos de 14 em y — perto o bastante pra colidir. */}
+        {/* 4. cenários do serviço (±1σ e os nomeados alvo/stop) + spot
+            (CHART-02, "hoje"). Mesma regra de supressão: o CÍRCULO (marca) é
+            sempre desenhado, só o texto some quando um rótulo já desenhado
+            fica a menos de 52 em x E menos de 14 em y — perto o bastante pra
+            colidir. O spot entra PRIMEIRO na lista de colisão — CHART-02
+            exige spot sempre marcado, então ele nunca perde o texto; um
+            cenário que colida com ele é quem cede. */}
         {(() => {
-          const desenhados = [];
-          return cenarios.map((s, i) => {
+          const temSpot = dominio && ehNum(dominio.spot);
+          const xSpot = temSpot ? sx(dominio.spot) : null;
+          const ySpot = temSpot ? (() => {
+            for (let i = 0; curva && i < curva.length - 1; i++) {
+              const a = curva[i], b = curva[i + 1];
+              if (dominio.spot >= a.underlying && dominio.spot <= b.underlying) return sy(entre(a, b, dominio.spot));
+            }
+            return yZero;
+          })() : null;
+          const desenhados = temSpot ? [{ x: xSpot, y: ySpot }] : [];
+          const marcasCenario = cenarios.map((s, i) => {
             const x = sx(s.underlying);
             const y = ehNum(s.result) ? sy(s.result) : yZero;
             const colide = desenhados.some((p) => Math.abs(x - p.x) < 52 && Math.abs(y - p.y) < 14);
@@ -325,21 +412,49 @@ export default function PayoffChart({ estrutura, emReais, cp, palette }) {
               </g>
             );
           });
+          const anchoraSpot = xSpot > W - 52 ? "end" : "start";
+          return (
+            <>
+              {marcasCenario}
+              {temSpot ? (
+                <g key="spot">
+                  <line x1={xSpot} y1={PAD_T} x2={xSpot} y2={H - PAD_B} stroke={T.textPrimary} strokeWidth="1" />
+                  <circle cx={xSpot} cy={ySpot} r="3" fill={T.textPrimary} />
+                  <text x={anchoraSpot === "end" ? xSpot - 5 : xSpot + 5} y={ySpot - 5} textAnchor={anchoraSpot}
+                    fontSize={FONTE_MIN} fill={T.textPrimary}>
+                    {(c.opcoesHojePrefixoEixo || "hoje") + " " + fmt(dominio.spot)}
+                  </text>
+                </g>
+              ) : null}
+            </>
+          );
         })()}
 
-        {/* 5. lado sem limite: seta na borda, sem fechar a curva. O texto vai
-            na legenda abaixo (cabe e é lido por leitor de tela lá). */}
+        {/* 5. lado sem limite: seta na borda, sem fechar a curva, agora com
+            rótulo curto colado (CHART-03) — a leitura completa segue na
+            legenda abaixo (cabe e é lida por leitor de tela lá). */}
         {ganhoIlimitado ? (
-          <text aria-hidden x={W - PAD_D} y={PAD_T + 8} textAnchor="end" fontSize={FONTE_SETA} fill={corLucro}>↑</text>
+          <>
+            <text aria-hidden x={W - PAD_D - 16} y={PAD_T + 8} textAnchor="end" fontSize={FONTE_MIN} fill={corLucro}>
+              {c.opcoesGanhoIlimitado || "sem teto"}
+            </text>
+            <text aria-hidden x={W - PAD_D} y={PAD_T + 8} textAnchor="end" fontSize={FONTE_SETA} fill={corLucro}>↑</text>
+          </>
         ) : null}
         {perdaIlimitada ? (
-          <text aria-hidden x={W - PAD_D} y={H - PAD_B - 2} textAnchor="end" fontSize={FONTE_SETA} fill={corPerda}>↓</text>
+          <>
+            <text aria-hidden x={W - PAD_D - 16} y={H - PAD_B - 2} textAnchor="end" fontSize={FONTE_MIN} fill={corPerda}>
+              {c.opcoesPerdaIlimitadaCurta || "sem piso"}
+            </text>
+            <text aria-hidden x={W - PAD_D} y={H - PAD_B - 2} textAnchor="end" fontSize={FONTE_SETA} fill={corPerda}>↓</text>
+          </>
         ) : null}
       </svg>
 
       <div style={{ fontSize: "11px", color: T.textMuted, marginTop: "6px", lineHeight: 1.45 }}>
         {"Eixo horizontal: preço do ativo no vencimento (" + fmt(x0) + " a " + fmt(x1) + "). "}
         {"Eixo vertical: resultado " + (c.opcoesPorAcaoRotulo || "por ação") + "."}
+        {" " + (c.opcoesEixoVerticalLoteAjuda || "Multiplique pelo lote para o valor total.")}
         {ganhoIlimitado ? " Ganho: " + (c.opcoesGanhoIlimitado || "sem teto") + "." : ""}
         {perdaIlimitada ? " Perda: " + (c.opcoesPerdaIlimitada || "sem piso declarado pelo serviço") + "." : ""}
       </div>
