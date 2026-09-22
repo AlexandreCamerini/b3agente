@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 # distribuir-iphone.sh — Boris+ (b3-agente) · script MASTER de distribuição
-# iOS: atualiza `main` para o que está publicado, builda contra PRODUÇÃO,
-# sincroniza o projeto nativo e, na hora de instalar, você escolhe o canal.
+# iOS: confere que o diretório atual está promovido (== origin/main), builda
+# contra PRODUÇÃO, sincroniza o projeto nativo e, na hora de instalar, você
+# escolhe o canal.
 #
 #   bash scripts/distribuir-iphone.sh                  # pergunta o canal (Xcode/TestFlight)
 #   bash scripts/distribuir-iphone.sh --xcode           # Run direto no seu iPhone, sem perguntar
 #   bash scripts/distribuir-iphone.sh --testflight       # arquiva pra App Store Connect, sem perguntar
 #   bash scripts/distribuir-iphone.sh --skip-testes      # pula a suíte canônica (retry rápido)
-#   bash scripts/distribuir-iphone.sh --no-update        # não toca em git; usa main como está no disco
+#   bash scripts/distribuir-iphone.sh --no-update        # não toca em git; usa o diretório atual como está no disco
 #   bash scripts/distribuir-iphone.sh --recriar-ios      # repassado ao instalar-iphone.sh
 #
 # Orquestra scripts EXISTENTES, não duplica lógica:
@@ -15,12 +16,19 @@
 #   ios-testflight.sh (manifesto de privacidade + export compliance),
 #   ios-bump-build.sh (build number).
 #
-# POR QUE ATUALIZAR `main` E NÃO A BRANCH ATUAL (2026-09-09): o que se
-# distribui pra um aparelho real é sempre o código já PROMOVIDO — a branch de
-# trabalho pode estar em qualquer estado intermediário. `main` costuma estar
-# num checkout PERMANENTE noutro worktree deste repo (`git worktree list`);
-# este script localiza esse worktree e opera de dentro dele, em vez de tentar
-# `git checkout main` aqui (o git recusa: "already used by worktree").
+# POR QUE OPERA NO DIRETÓRIO ATUAL, NÃO MAIS CAÇA WORKTREE DO MAIN
+# (2026-09-22, revisão da regra de 2026-09-09): o que se distribui pra um
+# aparelho real precisa ser o código já PROMOVIDO — isso não mudou. Mas
+# "promovido" agora é verificado por CONTEÚDO (HEAD == origin/main), não por
+# NOME de branch: até 2026-09-22 este script sempre redirecionava pro
+# worktree que tivesse `main` checked out, o que gerou dois projetos Xcode
+# físicos diferentes (`web/ios/`, gitignored, um por worktree) e um Archive
+# fantasma apontado pro backend local — confusão real em produção. A partir
+# desta revisão, `git worktree list` só é consultado como fallback SE o
+# diretório atual estiver divergente de origin/main (nunca redireciona por
+# nome de branch); o caso comum (branch de trabalho já mantida idêntica ao
+# main, como `v2/interacao-estrutural` neste repo) segue direto sem trocar
+# de diretório.
 #
 # NUNCA aponta pra staging: script de distribuição não deveria nem oferecer
 # isso por acidente (--staging/--api-base do instalar-iphone.sh não são
@@ -50,59 +58,34 @@ for a in "$@"; do
   esac
 done
 
-say "1/6 · Localizando o worktree de main"
-MAIN_DIR=""
-CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")"
-if [ "$CURRENT_BRANCH" = "main" ]; then
-  MAIN_DIR="$(pwd)"
-  ok "já estamos em main, aqui mesmo: $MAIN_DIR"
-else
-  # `git worktree list --porcelain` imprime blocos "worktree <path>" seguidos
-  # de "branch refs/heads/<nome>" — paramos no primeiro cujo branch é main.
-  while IFS= read -r linha; do
-    case "$linha" in
-      worktree\ *) CAND="${linha#worktree }" ;;
-      branch\ refs/heads/main) MAIN_DIR="$CAND"; break ;;
-    esac
-  done < <(git worktree list --porcelain)
-  if [ -n "$MAIN_DIR" ]; then
-    ok "main está em outro worktree: $MAIN_DIR"
-  else
-    warn "nenhum worktree tem main checked out — tentando aqui mesmo"
-    MAIN_DIR="$(pwd)"
-  fi
-fi
-cd "$MAIN_DIR" || die "não consegui entrar em $MAIN_DIR"
+say "1/6 · Diretório de trabalho"
 ROOT="$(pwd)"
+CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")"
+ok "operando aqui mesmo: $ROOT (branch $CURRENT_BRANCH)"
 
 if [ "$NO_UPDATE" = "1" ]; then
-  say "2/6 · Atualização PULADA (--no-update) — usando main como está em $ROOT"
+  say "2/6 · Atualização PULADA (--no-update) — usando $ROOT como está"
 else
-  say "2/6 · Atualizando main"
-  [ "$(git rev-parse --abbrev-ref HEAD)" = "main" ] || {
-    git diff --quiet && git diff --cached --quiet \
-      || die "$ROOT tem mudanças não commitadas — commite/descarte antes (nunca faço isso por você)"
-    git checkout main || die "não consegui trocar para main em $ROOT"
-  }
+  say "2/6 · Verificando se $CURRENT_BRANCH está promovido (== origin/main)"
   git diff --quiet && git diff --cached --quiet \
-    || die "main em $ROOT tem mudanças não commitadas — commite/descarte antes de distribuir"
+    || die "$ROOT tem mudanças não commitadas — commite/descarte antes (nunca faço isso por você)"
   git fetch origin --quiet || die "git fetch falhou — sem rede? confira e rode de novo"
-  LOCAL="$(git rev-parse main)"; REMOTO="$(git rev-parse origin/main)"
+  LOCAL="$(git rev-parse HEAD)"; REMOTO="$(git rev-parse origin/main)"
   if [ "$LOCAL" = "$REMOTO" ]; then
-    ok "main já está em dia com origin/main ($LOCAL)"
+    ok "$CURRENT_BRANCH já está em dia com origin/main ($LOCAL)"
   else
     git merge --ff-only origin/main \
-      || die "main diverge de origin/main (não é fast-forward) — resolva manualmente em $ROOT, NUNCA force nada"
-    ok "main atualizado: $LOCAL -> $(git rev-parse main)"
+      || die "$CURRENT_BRANCH diverge de origin/main (não é fast-forward) — resolva manualmente em $ROOT, NUNCA force nada. Se preferir buildar de um worktree que já tem main promovido, rode de lá."
+    ok "$CURRENT_BRANCH atualizado: $LOCAL -> $(git rev-parse HEAD)"
   fi
 fi
 
 if [ "$SKIP_TESTES" = "1" ]; then
   say "3/6 · Suíte canônica PULADA (--skip-testes)"
 else
-  say "3/6 · Suíte canônica em main (pega código quebrado ANTES de empacotar)"
+  say "3/6 · Suíte canônica (pega código quebrado ANTES de empacotar)"
   bash scripts/executar.sh --testes \
-    || die "suíte falhou em main — NÃO distribua um build quebrado. Rode com --skip-testes só se souber exatamente por quê."
+    || die "suíte falhou — NÃO distribua um build quebrado. Rode com --skip-testes só se souber exatamente por quê."
   ok "suíte verde"
 fi
 
