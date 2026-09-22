@@ -31,7 +31,7 @@ import httpx
 from fastapi import APIRouter, Body, Depends, Header, HTTPException
 
 from . import (ai_activity, audit, db, llm, mcp_client, metering, obslog,
-               opcoes_vigias, pregao)
+               opcoes_payoff, opcoes_vigias, pregao)
 
 router = APIRouter(prefix="/api/options/mcp", tags=["options-mcp"])
 
@@ -1365,6 +1365,81 @@ def _razao_ganho_perda(dados: dict) -> dict:
     return {"valor": round(abs(ganho) / abs(perda), 2), "motivo": None}
 
 
+def _perfil_para_curva(avaliacao: dict) -> dict:
+    """Traduz o envelope EN do serviço MCP (`legs`/`max_gain`/`payoff`/...)
+    para o formato PT que `opcoes_payoff.dominio_da_curva()`/
+    `segmentos_da_curva()` (Fase 36) esperam (`pernas`/`ganho_maximo`/
+    `curva`/...).
+
+    Zero aritmética — só renomeia chave, mesma disciplina de
+    `estruturaParaPayoff.js` (`web/src/opcoes/`), sentido inverso.
+    """
+    avaliacao = avaliacao if isinstance(avaliacao, dict) else {}
+
+    pernas = [
+        {"strike": leg.get("strike"), "tipo": leg.get("kind")}
+        for leg in (avaliacao.get("legs") or [])
+        if isinstance(leg, dict)
+    ]
+    curva = [
+        {"preco_objeto": ponto.get("underlying"), "resultado": ponto.get("result")}
+        for ponto in (avaliacao.get("payoff") or [])
+        if isinstance(ponto, dict)
+    ]
+
+    return {
+        "pernas": pernas,
+        "ganho_maximo": avaliacao.get("max_gain"),
+        "perda_maxima": avaliacao.get("max_loss"),
+        "ganho_ilimitado": avaliacao.get("unlimited_gain"),
+        "perda_ilimitada": avaliacao.get("unlimited_loss"),
+        "curva": curva,
+        # O serviço externo já resolve uma única estrutura avaliada — não
+        # reabre o ramo de vencimentos divergentes de `perfil_da_estrutura`,
+        # exclusivo do motor local da Fase 36.
+        "vencimentos": {"divergentes": False},
+    }
+
+
+def _dominio_e_segmentos(avaliacao: dict, spot) -> tuple[Optional[dict], list]:
+    """Domínio X/Y (D-05) e segmentos (D-06) da curva de payoff, Fase 36 —
+    calculados a partir do envelope EN do serviço MCP, nunca recalculados
+    aqui (T-37-01: `dominio_da_curva`/`segmentos_da_curva` são chamadas
+    VERBATIM, sem argumento extra, sem transformar o resultado além de
+    renomear chave para camelCase).
+
+    Pernas vazias ou curva sem ponto nenhum é guarda DESTE adaptador, não das
+    funções da Fase 36 — elas não validam entrada vazia sozinhas, então
+    chamá-las aqui estouraria `ValueError` não tratada. Devolve `(None, [])`
+    em vez disso, mesmo padrão de `emReais`/`razaoGanhoPerda` quando não há o
+    que calcular.
+    """
+    perfil = _perfil_para_curva(avaliacao)
+    if not perfil["pernas"] or not perfil["curva"]:
+        return None, []
+
+    dominio = opcoes_payoff.dominio_da_curva(perfil, spot=spot)
+    segmentos = opcoes_payoff.segmentos_da_curva(perfil)
+
+    dominio_camel = {
+        "xMin": dominio["x_min"],
+        "xMax": dominio["x_max"],
+        "yMin": dominio["y_min"],
+        "yMax": dominio["y_max"],
+        "margem": dominio["margem"],
+        "spot": dominio["spot"],
+        "ganhoIlimitado": dominio["ganho_ilimitado"],
+        "perdaIlimitada": dominio["perda_ilimitada"],
+        "motivo": dominio["motivo"],
+    }
+    segmentos_camel = [
+        {"de": s["de"], "ate": s["ate"], "inclinacao": s["inclinacao"],
+         "ePlato": s["e_plato"]}
+        for s in segmentos
+    ]
+    return dominio_camel, segmentos_camel
+
+
 # Campos da leitura agrupados pela JANELA de que dependem — a mesma janela que
 # o nome de cada um já declara. `range_63_sessions` chega SEMPRE como dict
 # (`{"highest": None, "lowest": None}` quando a janela não fechou), então a
@@ -2243,6 +2318,12 @@ async def proposta(body: dict = Body(default={}),
         # mesmo sem lote informado — é o número de decisão de quem ainda nem
         # escolheu tamanho de posição.
         razao = _razao_ganho_perda(estruturas[0]) if len(estruturas) == 1 else None
+        # Mesma regra de ambiguidade de `emReais`/`razaoGanhoPerda`: uma
+        # estrutura só (CHART-04) — com duas na tela, `dominio` não diria de
+        # qual delas é o gráfico.
+        dominio, segmentos = (
+            _dominio_e_segmentos(estruturas[0], dados.get("underlying_price"))
+            if len(estruturas) == 1 else (None, []))
 
         obslog.log("mcp", "proposta", rota=rota, uid=uid, ticker=alvo,
                    direcao=direcao, tipo=tipo, estruturas=len(estruturas),
@@ -2265,6 +2346,10 @@ async def proposta(body: dict = Body(default={}),
             "emReais": em_reais,
             # FORA de `emReais`, no mesmo nível: razão não é dinheiro (F-01).
             "razaoGanhoPerda": razao,
+            # Domínio X/Y (CHART-04) e segmentos, calculados por
+            # `opcoes_payoff.py` (Fase 36) — nunca recalculados aqui.
+            "dominio": dominio,
+            "segmentos": segmentos,
             "frescor": _frescor_nao_medido(AVISO_FRESCOR_SEM_ANEXO),
             "cap": _cap_bloco(uid),
         }
@@ -2375,6 +2460,7 @@ async def possibilidades(body: dict = Body(default={}),
                             lista.append({
                                 "vencimento": vencimento, "estrutura": None,
                                 "emReais": None, "razaoGanhoPerda": None,
+                                "dominio": None, "segmentos": [],
                                 "erro": None,
                                 "motivo": (proposta_do_venc.get("reason")
                                            or proposta_do_venc.get("note")),
@@ -2398,6 +2484,7 @@ async def possibilidades(body: dict = Body(default={}),
                                    detalhe=str(e))
                         lista.append({"vencimento": vencimento, "estrutura": None,
                                       "emReais": None, "razaoGanhoPerda": None,
+                                      "dominio": None, "segmentos": [],
                                       "motivo": None, "erro": str(e)})
                         continue
 
@@ -2408,6 +2495,11 @@ async def possibilidades(body: dict = Body(default={}),
                         if estrutura.get(chave) is None:
                             estrutura[chave] = (setup or {}).get(chave)
 
+                    # `estrutura` já carrega `legs`/`max_gain`/`payoff`/... —
+                    # não precisa reler `avaliacao` bruto.
+                    dominio, segmentos = _dominio_e_segmentos(
+                        estrutura, envelope.get("precoObjeto"))
+
                     lista.append({
                         "vencimento": vencimento,
                         "estrutura": estrutura,
@@ -2417,6 +2509,10 @@ async def possibilidades(body: dict = Body(default={}),
                         # Irmã do bloco acima e deliberadamente FORA dele: a
                         # razão é adimensional e não conhece lote (F-01).
                         "razaoGanhoPerda": _razao_ganho_perda(avaliacao),
+                        # Domínio X/Y (CHART-04) e segmentos, calculados por
+                        # `opcoes_payoff.py` (Fase 36) — nunca recalculados aqui.
+                        "dominio": dominio,
+                        "segmentos": segmentos,
                         "motivo": None,
                         "erro": None,
                     })
