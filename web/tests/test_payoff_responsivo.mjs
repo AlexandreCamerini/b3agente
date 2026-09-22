@@ -131,21 +131,43 @@ ok("aria-label e <title> usam a mesma `descricao` (leitor de tela não perde nad
 ok("a `descricao` lista TODOS os breakevens, não só os visíveis na tela",
    /breakevens\.map/.test(fonte) && /Empata com o ativo em/.test(fonte));
 
-// ---- 8) plano 37-04: eixo Y de 2 casas, strike no eixo, seta rotulada, Kicker importado
+// ---- 8) plano 37-04: eixo Y de 2 casas, strike no eixo, seta rotulada, Kicker
+// importado. Cada asserção nova ganha sua companheira de SANIDADE, mesmo
+// padrão do resto do arquivo (ver comentário no topo) — sem ela, um typo na
+// regex faria o assert passar por vacuidade, pra sempre.
 ok("PAD_E cresceu para 48 (orçamento do rótulo do eixo Y, CHART-01)",
    valorConst("PAD_E", fonte) === 48);
+ok("sanidade: valorConst(PAD_E) resolve o valor ANTIGO corretamente contra uma fonte engenheirada (prova que a regex funciona, não vacuidade)",
+   valorConst("PAD_E", "const PAD_E = 10, PAD_D = 10;") === 10);
+
 ok("chave opcoesEixoZeroRotulo em uso (rótulo do zero no eixo Y)",
    /opcoesEixoZeroRotulo/.test(fonte));
+ok("sanidade: a regex de opcoesEixoZeroRotulo não casa com fonte sem a chave",
+   !/opcoesEixoZeroRotulo/.test("const x = c.opcoesOutraCoisa;"));
+
 ok('strokeDasharray "1 3" em uso (marca de strike, distinta do "2 4" do breakeven)',
    /strokeDasharray=(?:"1 3"|\{[^}]*"1 3"[^}]*\})/.test(fonte));
+ok('sanidade: a regex de strokeDasharray "1 3" não casa quando só "2 4" existe',
+   !/strokeDasharray=(?:"1 3"|\{[^}]*"1 3"[^}]*\})/.test('strokeDasharray="2 4"'));
+
 ok("opcoesPerdaIlimitadaCurta aparece junto de uma seta aria-hidden (CHART-03)",
    (() => {
      const idxCurta = fonte.indexOf("opcoesPerdaIlimitadaCurta");
      const blocoSeta = idxCurta >= 0 ? fonte.slice(Math.max(0, idxCurta - 200), idxCurta + 300) : "";
      return /aria-hidden/.test(blocoSeta) && /↓/.test(blocoSeta);
    })());
+ok("sanidade: a checagem de proximidade falha quando opcoesPerdaIlimitadaCurta não está perto de seta nenhuma",
+   (() => {
+     const src = "const x = c.opcoesPerdaIlimitadaCurta; ".padEnd(250, ".") + "sem seta nenhuma aqui";
+     const idx = src.indexOf("opcoesPerdaIlimitadaCurta");
+     const bloco = idx >= 0 ? src.slice(Math.max(0, idx - 200), idx + 300) : "";
+     return !(/aria-hidden/.test(bloco) && /↓/.test(bloco));
+   })());
+
 ok("Kicker é importado de ./uiOpcoes.jsx",
    /import\s*\{[^}]*\bKicker\b[^}]*\}\s*from\s*"\.\/uiOpcoes\.jsx"/.test(fonte));
+ok("sanidade: a regex de import do Kicker não casa com import de outro módulo",
+   !/import\s*\{[^}]*\bKicker\b[^}]*\}\s*from\s*"\.\/uiOpcoes\.jsx"/.test('import { Kicker } from "./outro.jsx";'));
 
 console.log(fails === 0 ? "\ntodos os testes passaram" : `\n${fails} FALHA(S)`);
 process.exit(fails === 0 ? 0 : 1);
