@@ -40,7 +40,7 @@ key-decisions:
 requirements-completed: [CHART-01, CHART-02, CHART-03]
 
 # Metrics
-duration: ~45min
+duration: ~55min
 completed: 2026-09-22
 ---
 
@@ -70,6 +70,7 @@ completed: 2026-09-22
 1. **Task 1: eixo Y, strike+spot no eixo, setas rotuladas, domínio do backend** - `d3fafb3` (feat)
 2. **Task 2: bloco No vencimento/Hoje + testes de geometria** - `027cf1a` (feat)
 3. **Correção pós-self-review: extrapolação da posição Y do spot** - `69e38e5` (fix)
+4. **Correção pós-self-review: sanidade nas 5 asserções novas do guardião** - `6a718a3` (test)
 
 ## Files Created/Modified
 
@@ -100,10 +101,18 @@ completed: 2026-09-22
 - **Verification:** `node web/tests/test_payoff_responsivo.mjs` + `npx vite build` + suíte canônica completa, todos exit 0/sem regressão, após a correção
 - **Committed in:** `69e38e5`
 
+**3. [Rule 2 — funcionalidade crítica ausente] As 5 asserções novas da Task 2 não tinham a companheira de sanidade que o resto do arquivo exige por convenção**
+- **Found during:** self-review pré-conclusão (segunda rodada, após a correção 2 acima)
+- **Issue:** o cabeçalho do próprio `test_payoff_responsivo.mjs` declara a convenção: "Cada regex carrega uma asserção de SANIDADE: sem ela, um typo... faria o assert passar por vacuidade, para sempre" — e o texto da Task 2 pedia explicitamente extensão "mesmo padrão do arquivo". As 5 asserções que eu adicionei (`PAD_E===48`, `opcoesEixoZeroRotulo`, `strokeDasharray "1 3"`, `opcoesPerdaIlimitadaCurta` perto de seta, import do `Kicker`) ficaram sem essa proteção — um typo em qualquer uma delas passaria silenciosamente para sempre, exatamente a classe de falha que a convenção existe para prevenir
+- **Fix:** 5 asserções de sanidade novas, uma por checagem, cada uma testando o MESMO regex/lógica contra uma entrada engenheirada para NÃO casar — mesmo padrão de todas as outras 7 sanidades pré-existentes no arquivo
+- **Files modified:** `web/tests/test_payoff_responsivo.mjs`
+- **Verification:** `node web/tests/test_payoff_responsivo.mjs` — 29 asserções, exit 0; suíte canônica completa repetida, sem regressão (2973 pytest + 156/156 `.mjs`)
+- **Committed in:** `6a718a3`
+
 ---
 
-**Total deviations:** 2 auto-fixed (1 Rule 3 — guardião com âncora obsoleta, 1 Rule 1 — bug de posicionamento silencioso descoberto no self-review, não pelos testes estáticos)
-**Impact on plan:** Nenhuma mudança de escopo; ambas as correções são estritamente dentro do que o plano já pedia (geometria correta do eixo/marcadores).
+**Total deviations:** 3 auto-fixed (1 Rule 3 — guardião com âncora obsoleta, 1 Rule 1 — bug de posicionamento silencioso descoberto no self-review, 1 Rule 2 — convenção de sanidade do próprio arquivo de teste ausente nas asserções novas)
+**Impact on plan:** Nenhuma mudança de escopo; as três correções são estritamente dentro do que o plano já pedia (geometria correta do eixo/marcadores + "mesmo padrão do arquivo" para os testes novos).
 
 ## Issues Encountered
 
@@ -123,9 +132,9 @@ Nenhum achado de superfície nova fora do que o `<threat_model>` do plano já co
 
 ## Verificação
 
-- `node web/tests/test_payoff_responsivo.mjs` — exit 0 (24 asserções: 19 pré-existentes reancoradas + 5 novas)
-- `bash scripts/executar.sh --testes` (fora do sandbox, TLS bloqueado dentro dele) — **2973 pytest passed / 5 skipped / 3 xfailed + 156/156 `.mjs`**, exit 0, idêntico à baseline do Plano 37-03 (rodado 2x: após Task 2 e novamente após a correção pós-self-review)
-- `npx vite build` (dentro de `web/`) — exit 0, 112 módulos, sem erro de sintaxe (rodado 3x, uma vez por commit)
+- `node web/tests/test_payoff_responsivo.mjs` — exit 0 (29 asserções: 19 pré-existentes reancoradas + 5 novas + 5 sanidades das novas)
+- `bash scripts/executar.sh --testes` (fora do sandbox, TLS bloqueado dentro dele) — **2973 pytest passed / 5 skipped / 3 xfailed + 156/156 `.mjs`**, exit 0, idêntico à baseline do Plano 37-03 (rodado 3x: após Task 2, após a correção da posição do spot, e após as sanidades)
+- `npx vite build` (dentro de `web/`) — exit 0, 112 módulos, sem erro de sintaxe (rodado 3x, uma vez por commit de código)
 - 5 acceptance criteria da Task 1 confirmados por grep direto: `PAD_E = 48`, as 4 chaves de copy em uso, `dominio` desestruturado+usado no `useMemo`, `npx vite build` exit 0, os 3 consumidores confirmados nas 4 props antigas (`grep PayoffChart` em `SecaoAnalisar.jsx`/`SecaoComparar.jsx`/`CuradoriaEstruturas.jsx`)
 - 4 acceptance criteria da Task 2 confirmados por grep direto: import de `Kicker` de `uiOpcoes.jsx`, as 3 chaves `opcoesNoVencimentoTitulo`/`opcoesHojeTitulo`/`opcoesHojeAjuda` em uso
 
@@ -144,4 +153,5 @@ Nenhum achado de superfície nova fora do que o `<threat_model>` do plano já co
 - FOUND: `.planning/phases/37-gr-fico-de-payoff-e-explica-o-confi-veis/37-04-SUMMARY.md`
 - FOUND: `d3fafb3` (Task 1)
 - FOUND: `027cf1a` (Task 2)
-- FOUND: `69e38e5` (correção pós-self-review)
+- FOUND: `69e38e5` (correção pós-self-review — posição Y do spot)
+- FOUND: `6a718a3` (correção pós-self-review — sanidade das asserções novas)
