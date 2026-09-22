@@ -333,6 +333,35 @@ export const COPY = {
     opcoesAlvoRotulo: "Preço-alvo (opcional)",
     opcoesStopRotulo: "Preço de stop (opcional)",
 
+    // Fase 37 (37-02) — gráfico de payoff corrigido (CHART-01/02/03/05) e
+    // camada explicativa determinística (EXPL-01/02/03). Chaves preparadas
+    // para os Planos 37-04 (geometria do gráfico) e 37-05 (wiring) — nenhum
+    // consumidor ainda nesta plano, por desenho (37-02-PLAN.md).
+    opcoesEixoZeroRotulo: "R$ 0",
+    opcoesEixoVerticalLoteAjuda: "Multiplique pelo lote para o valor total.",
+    opcoesNoVencimentoTitulo: "No vencimento",
+    opcoesHojeTitulo: "Hoje · valor de mercado",
+    opcoesHojeAjuda: "Preço de mercado agora — pode mudar a qualquer momento, diferente do resultado no vencimento acima.",
+    opcoesPerdaIlimitadaCurta: "sem piso",
+    opcoesHojePrefixoEixo: "hoje",
+    opcoesComoLerTitulo: "Como ler esta estrutura",
+    // EXPL-01/02/03 — 11 templates de frase (segmento-posição × inclinação),
+    // consumidos por `ExplicacaoPayoff.jsx`. Redação idêntica nos dois modos
+    // (Estudo/Operador): o UI-SPEC (37-UI-SPEC.md §3) não pede variação de
+    // voz para estas 11 chaves — só a citação da razão, que reusa
+    // `formatarRazao`, tratada pelo componente, não pela chave de copy.
+    opcoesExplicSpotPositiva: "Hoje, com o ativo em R$ {spot}, você está numa faixa de alta: se o preço subir, seu resultado melhora; se cair, piora.",
+    opcoesExplicSpotNegativa: "Hoje, com o ativo em R$ {spot}, você está numa faixa de baixa: se o preço cair, seu resultado melhora; se subir, piora.",
+    opcoesExplicSpotPlato: "Hoje, com o ativo em R$ {spot}, seu resultado está travado: dentro desta faixa, o preço subir ou cair não muda nada.",
+    opcoesExplicSpotCaudaGanho: "Hoje, com o ativo em R$ {spot}, você está na faixa sem teto de ganho: quanto mais o preço subir, maior o resultado, sem limite declarado pelo serviço.",
+    opcoesExplicSpotCaudaPerda: "Hoje, com o ativo em R$ {spot}, você está na faixa sem piso de perda: quanto mais o preço subir, maior a perda, sem limite declarado pelo serviço.",
+    opcoesExplicOutroPositiva: "Entre R$ {de} e R$ {ate}, o resultado sobe conforme o preço do ativo sobe.",
+    opcoesExplicOutroNegativa: "Entre R$ {de} e R$ {ate}, o resultado cai conforme o preço do ativo sobe.",
+    opcoesExplicOutroPlato: "Entre R$ {de} e R$ {ate}, o resultado fica travado — não muda com o preço.",
+    opcoesExplicOutroCaudaPlato: "Acima de R$ {de}, o resultado fica travado, mesmo que o preço continue subindo.",
+    opcoesExplicOutroCaudaGanho: "Acima de R$ {de}, o ganho aumenta sem limite conforme o preço sobe.",
+    opcoesExplicOutroCaudaPerda: "Acima de R$ {de}, a perda aumenta sem limite conforme o preço sobe.",
+
     // aba Opções F5 (plano 24-04, 2026-09-11) — criar setup por descrição em
     // português. O texto de MAIOR risco regulatório da aba é o do backtest:
     // números de histórico lidos como promessa. Por isso a ressalva é a
@@ -709,7 +738,12 @@ export const COPY = {
     // constatação de fato sobre falha técnica, não voz de personagem.
     curadoriaErroBusca: "Não foi possível varrer sua carteira agora. Isto não significa que não há oportunidade — significa que a busca falhou. Toque para tentar de novo.",
     curadoriaErroBuscaCta: "Tentar de novo",
-    curadoriaRazaoRotulo: "prêmio sobre perda máxima",
+    // Fase 37 (37-02, D-04): renomeado — o valor antigo ("prêmio sobre
+    // perda máxima") lia como resultado financeiro e foi a causa raiz da
+    // confusão confirmada em produção com `RazaoGanhoPerda` (ver comentário
+    // do quick 260915-ndt logo abaixo). `cand.razao` (campo JS) não muda —
+    // é só o rótulo lido por humano.
+    curadoriaRazaoRotulo: "Pontuação de curadoria (ordena a lista — não é o resultado da estrutura)",
     curadoriaRazaoAjuda: "Prêmio negativo significa que montar a estrutura custa dinheiro (é uma proteção) — por isso ela pode aparecer embaixo na mesma régua, sem que isso seja um defeito do ranking.",
     // Quick 260915-ndt: defeito corrigido — o painel inline de confirmação
     // (App.jsx, quick 260915-j5l) usava `curadoriaRazaoRotulo` ("prêmio
@@ -991,6 +1025,29 @@ export const COPY = {
       "Lista cortada pelo serviço: " + (t || "sem detalhe informado."),
     opcoesAlvoRotulo: "Alvo (opcional)",
     opcoesStopRotulo: "Stop (opcional)",
+
+    // Fase 37 (37-02) — mesmas chaves do ramo estudo (ver comentário lá),
+    // redação idêntica: o UI-SPEC (37-UI-SPEC.md §3) não pede variação de
+    // voz para estas 19 chaves.
+    opcoesEixoZeroRotulo: "R$ 0",
+    opcoesEixoVerticalLoteAjuda: "Multiplique pelo lote para o valor total.",
+    opcoesNoVencimentoTitulo: "No vencimento",
+    opcoesHojeTitulo: "Hoje · valor de mercado",
+    opcoesHojeAjuda: "Preço de mercado agora — pode mudar a qualquer momento, diferente do resultado no vencimento acima.",
+    opcoesPerdaIlimitadaCurta: "sem piso",
+    opcoesHojePrefixoEixo: "hoje",
+    opcoesComoLerTitulo: "Como ler esta estrutura",
+    opcoesExplicSpotPositiva: "Hoje, com o ativo em R$ {spot}, você está numa faixa de alta: se o preço subir, seu resultado melhora; se cair, piora.",
+    opcoesExplicSpotNegativa: "Hoje, com o ativo em R$ {spot}, você está numa faixa de baixa: se o preço cair, seu resultado melhora; se subir, piora.",
+    opcoesExplicSpotPlato: "Hoje, com o ativo em R$ {spot}, seu resultado está travado: dentro desta faixa, o preço subir ou cair não muda nada.",
+    opcoesExplicSpotCaudaGanho: "Hoje, com o ativo em R$ {spot}, você está na faixa sem teto de ganho: quanto mais o preço subir, maior o resultado, sem limite declarado pelo serviço.",
+    opcoesExplicSpotCaudaPerda: "Hoje, com o ativo em R$ {spot}, você está na faixa sem piso de perda: quanto mais o preço subir, maior a perda, sem limite declarado pelo serviço.",
+    opcoesExplicOutroPositiva: "Entre R$ {de} e R$ {ate}, o resultado sobe conforme o preço do ativo sobe.",
+    opcoesExplicOutroNegativa: "Entre R$ {de} e R$ {ate}, o resultado cai conforme o preço do ativo sobe.",
+    opcoesExplicOutroPlato: "Entre R$ {de} e R$ {ate}, o resultado fica travado — não muda com o preço.",
+    opcoesExplicOutroCaudaPlato: "Acima de R$ {de}, o resultado fica travado, mesmo que o preço continue subindo.",
+    opcoesExplicOutroCaudaGanho: "Acima de R$ {de}, o ganho aumenta sem limite conforme o preço sobe.",
+    opcoesExplicOutroCaudaPerda: "Acima de R$ {de}, a perda aumenta sem limite conforme o preço sobe.",
 
     // aba Opções F5 (plano 24-04, 2026-09-11) — criar setup por descrição.
     // MESMAS chaves do ramo estudo. `opcoesBacktestRessalva` é IDÊNTICA
@@ -1297,7 +1354,9 @@ export const COPY = {
     // comentário acima) — texto IDÊNTICO nos dois modos.
     curadoriaErroBusca: "Não foi possível varrer sua carteira agora. Isto não significa que não há oportunidade — significa que a busca falhou. Toque para tentar de novo.",
     curadoriaErroBuscaCta: "Tentar de novo",
-    curadoriaRazaoRotulo: "prêmio / perda máxima",
+    // Fase 37 (37-02, D-04): renomeado, mesmo motivo do ramo estudo (ver
+    // comentário lá) — mesa fala curto.
+    curadoriaRazaoRotulo: "Pontuação de curadoria",
     curadoriaRazaoAjuda: "Prêmio negativo = a estrutura custa para montar (proteção) — por isso pode aparecer embaixo na régua.",
     // Quick 260915-ndt: mesmo defeito/motivo do ramo estudo (ver comentário
     // acima) — chave separada para o prêmio em reais do painel inline.
