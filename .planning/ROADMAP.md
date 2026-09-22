@@ -144,7 +144,7 @@ produção, 2026-09-20).
 
 - [x] Phase 35: Jornada Guiada do Workspace (3/3 plans) — completed 2026-09-21
 - [x] Phase 36: Motor de Payoff Genérico (2/2 plans) — completed 2026-09-21
-- [ ] Phase 37: Gráfico de Payoff e Explicação Confiáveis (0/5 plans)
+- [x] Phase 37: Gráfico de Payoff e Explicação Confiáveis (5/5 plans) — completed 2026-09-22
 
 **Phase Numbering:** continua a partir do fim do v1.6 (Phase 34) — Fases
 35-37 definidas por `/gsd-roadmapper` a partir de `REQUIREMENTS.md` v1.7
@@ -197,7 +197,7 @@ não por dependência técnica real.
 | 34. Navegação hub + workspace | 4/4 | Complete (verified, checkpoint humano aprovado ao vivo) | 2026-09-20 |
 | 35. Jornada Guiada do Workspace | 3/3 | Complete (checkpoint humano aprovado ao vivo) | 2026-09-21 |
 | 36. Motor de Payoff Genérico | 2/2 | Complete | 2026-09-21 |
-| 37. Gráfico de Payoff e Explicação Confiáveis | 4/5 | Executing (wave 2/3) | - |
+| 37. Gráfico de Payoff e Explicação Confiáveis | 5/5 | Complete (checkpoint com ressalva — ver STATE.md) | 2026-09-22 |
 
 ## Phase Details
 
@@ -300,7 +300,7 @@ camelCase fixado no planejamento habilita paralelismo dentro de cada onda)
 - [x] 37-02-PLAN.md — `copy.js` (todas as chaves novas + D-04) + `formatarRazao()` extraído + `ExplicacaoPayoff.jsx` novo (EXPL-01/02/03) — completo 2026-09-21 (TDD RED→GREEN, npx vite build ok)
 - [x] 37-03-PLAN.md — busca de `valorHoje` via `get_option_chain`, gate do 1º candidato em `possibilidades()` (CHART-05 backend) — completo 2026-09-22 (bug de fórmula em chamadasPrevistas achado e corrigido pelo próprio executor)
 - [x] 37-04-PLAN.md — `PayoffChart.jsx`: eixo Y, strike/spot no eixo, setas rotuladas, bloco Hoje/No vencimento (CHART-01/02/03 + CHART-05 frontend) — completo 2026-09-22 (2 achados corrigidos: posição Y do spot fora dos nós, import morto de Aviso)
-- [ ] 37-05-PLAN.md — wiring em `SecaoAnalisar.jsx`/`SecaoComparar.jsx` + checkpoint humano ao vivo (fecha CHART-01..05/EXPL-01..03 de ponta a ponta)
+- [x] 37-05-PLAN.md — wiring em `SecaoAnalisar.jsx`/`SecaoComparar.jsx` + checkpoint humano ao vivo (fecha CHART-01..05/EXPL-01..03 de ponta a ponta) — completo 2026-09-22, publicado `F10-20260922-01` (checkpoint aprovado com ressalva — ver STATE.md)
 **UI hint**: yes
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2/v1.3
