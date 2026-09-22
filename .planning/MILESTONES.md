@@ -1,5 +1,24 @@
 # Milestones
 
+## v1.7 Confiabilidade explicativa da aba Opções (Shipped: 2026-09-22)
+
+**Phases completed:** 3 phases, 10 plans, 23 tasks
+
+**Key accomplishments:**
+
+- Dois estágios nomeados (porta de leitura → carril de pills), linha de transição quando a leitura já foi feita, e bug fix que liberava a pill "Setups salvos" do portão de leitura paga que ela nunca precisou.
+- Os 3 CTAs que movem a jornada (Ler no serviço de opções, Montar estrutura, Ver possibilidades) passam do estilo neutro genérico a um preenchimento sólido de `T.accent` com texto `T.onAccent` (nunca `#fff` literal — reprova AA em 2 das 4 combinações tema×modo), e os dois re-clicáveis ganham uma marca `✓` discreta quando produzem resultado.
+- A jornada guiada do workspace foi aprovada ao vivo pelo Alex — incluindo as 8 leituras de contraste nas 4 combinações tema×modo que fechavam o risco aberto de D-07 — e publicada em produção sob o carimbo `F10-20260921-01`. Fase 35 e milestone v1.7 (3/3 requirements desta fase) formalmente fechados.
+- `opcoes_payoff.py` ganhou campo `vencimento` opcional por perna com degradação honesta em vencimentos divergentes (D-03), guarda de entrada degenerada (D-04.1) e correção do breakeven espúrio em S=0 que afetava CALL de prêmio zero, ratio spread de custo zero e box travado em zero (D-04.2), com 20 testes novos nomeados travando os casos-limite de PAYOFF-02.
+- `opcoes_payoff.py` ganhou `dominio_da_curva()` (domínio X/Y do gráfico, D-05) e `segmentos_da_curva()` (leitura segmento a segmento cortando só nos strikes, D-06), e a fase fecha com o caso golden do Alex travado como regressão NOMEADA cobrindo as 5 propriedades de PAYOFF-03 e a independência de nome de estratégia provada por teste e por auditoria de leitura (PAYOFF-01).
+- Adaptador rename-only (`_perfil_para_curva`/`_dominio_e_segmentos`) liga `POST /api/options/mcp/proposta` e `POST /api/options/mcp/possibilidades` a `opcoes_payoff.dominio_da_curva()`/`segmentos_da_curva()` (Fase 36), fechando CHART-04 — domínio X/Y do gráfico agora calculado no backend, nunca localmente pelo `PayoffChart.jsx`.
+- Camada explicativa determinística do payoff (EXPL-01/02/03): 19 chaves novas de copy, `formatarRazao()` extraída como fonte única da razão ganho/perda, e `ExplicacaoPayoff.jsx` — componente React puro, zero I/O — que descreve todos os segmentos da curva de payoff em português leigo, o segmento do spot sempre primeiro.
+- `_valor_hoje()` soma o prêmio ATUAL de cada perna via `get_option_chain` (sinal×quantidade×prêmio), anexado como `valorHoje` no envelope de `proposta()` (sempre) e `possibilidades()` (só o candidato de índice 0), corrigindo a regressão de produção onde "hoje" e "no vencimento" se confundiam no mesmo número.
+- `PayoffChart.jsx` ganha eixo Y com escala visível de 2 casas decimais, strikes e spot marcados no eixo (reusando o algoritmo de colisão de 44px dos breakevens), setas de lado ilimitado com rótulo curto colado, e o par de blocos "No vencimento"/"Hoje · valor de mercado" — tudo opcional via 3 props novas que preservam os 3 consumidores reais existentes quando não passadas.
+- `SecaoAnalisar.jsx`/`SecaoComparar.jsx` passam a passar `dominio`/`segmentos`/`valorHoje` ao `PayoffChart` corrigido (Plano 37-04) e a renderizar `<ExplicacaoPayoff/>` (Plano 37-02) — a onda de fechamento que torna CHART-01..05/EXPL-01..03 observáveis de ponta a ponta nos dois consumidores reais que um usuário vê, publicada em produção com carimbo `F10-20260922-01`.
+
+---
+
 ## v1.6 Simplificação da aba Opções (Shipped: 2026-09-20)
 
 **Phases completed:** 2 phases (33-34), 9 plans, 38 tasks. Git range
@@ -12,24 +31,29 @@ arquivos alterados, +9858/-1712 linhas.
   trabalhos misturados — cada job (Descobrir, Vigias, Analisar, Comparar,
   Setups salvos) passou a viver em componente próprio, sem nenhuma mudança
   de comportamento/dado/ordem visível ao usuário (Fase 33, REORG-01..07).
+
 - Navegação hub+workspace substituiu a rolagem: hub sem ticker mostra
   descoberta cross-carteira + vigias; escolher um ativo abre o workspace
   com 3 pills (Analisar/Comparar/Setups salvos) compartilhando uma única
   leitura paga — trocar de pill nunca dispara nova chamada MCP, travado por
   guardião com prova negativa dupla (Fase 34, NAV-01..06).
+
 - Um bug real de modelo de dados foi pego e corrigido ANTES de virar
   código: a decisão original (D-01) pedia listagem cross-ticker de "setups
   salvos" no hub, mas esse dado é ticker-scoped por construção
   (`leitura.dados`, sempre vazio com `ticker=""`) — corrigido substituindo
   por SecaoVigias, a listagem cross-ticker que já existia de verdade.
+
 - Checkpoint humano ao vivo confirmou por medição real de rede (não por
   leitura de código) que trocar de pill dentro do workspace não paga de
   novo — o item mais frágil de NAV-05, verificado no navegador antes de
   publicar.
+
 - Publicação combinada das Fases 33+34 (a 33 tinha fechado verificada em
   2026-09-16 mas nunca fora ao ar) sob o carimbo `F10-20260920-01`, com
   suíte canônica idêntica à baseline em todos os checkpoints (2923 pytest +
   152-153/153 `.mjs`).
+
 - Disciplina de prova negativa por injeção pegou pelo menos 2 defeitos
   reais de guardião (asserções que ficariam inertes por colisão de
   homônimos em `SubAbaOperar`) antes de chegarem a produção.

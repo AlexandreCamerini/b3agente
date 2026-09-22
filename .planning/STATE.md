@@ -1,11 +1,11 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.7
-milestone_name: Confiabilidade explicativa da aba Opções
-status: fechada
-stopped_at: 'Fase 37 (Gráfico de Payoff e Explicação Confiáveis) FECHADA e PUBLICADA (F10-20260922-01, 2026-09-22). Milestone v1.7 (Confiabilidade explicativa da aba Opções) tem as 3 fases completas (35/36/37) — falta rodar /gsd-complete-milestone quando o Alex quiser. Ressalva registrada: o checkpoint humano da Task 2 foi aprovado SEM verificação visual ao vivo com dado real (bloqueada por credenciais ausentes no backend local de teste) — aprovação se apoiou em evidência automática + revisão de código, não em olho humano no gráfico corrigido. Verificação visual em produção fica como pendência recomendada, não bloqueante. Guardrail aplicado: nenhum mutador `gsd-sdk query state.*`/`roadmap.*` foi chamado — STATE.md editado à mão pelo orquestrador.'
+milestone: none
+milestone_name: Awaiting next milestone
+status: milestone_archived
+stopped_at: 'Milestone v1.7 (Confiabilidade explicativa da aba Opções) arquivada em 2026-09-22 — `.planning/milestones/v1.7-ROADMAP.md`/`v1.7-REQUIREMENTS.md` criados (14/14 requirements Done), `.planning/MILESTONES.md` ganhou a entrada v1.7. Achado real: `gsd-sdk query milestone.complete` corrompeu o STATE.md na primeira tentativa (sobrescreveu stopped_at/progress com texto e contagem de uma sessão antiga da Fase 27, e contou as fases standalone 9/14 como parte da v1.7, dando 60% em vez de 100%) — mesma classe de bug já documentada para os mutadores state.*; revertido via git checkout e refeito à mão. Guardrail expandido: também não confiar cegamente em milestone.complete sem diff. Falta: reorganizar ROADMAP.md (colapsar v1.7 pro resumo de uma linha), git rm REQUIREMENTS.md, evolução do PROJECT.md, retrospectiva, tag git.'
 last_updated: "2026-09-22T00:00:00.000Z"
-last_activity: "2026-09-22 — Fase 37 fechada e publicada (F10-20260922-01). Onda 3 (37-05): Task 1 conectou dominio/segmentos/valorHoje/ExplicacaoPayoff em SecaoAnalisar.jsx/SecaoComparar.jsx; Task 2 (checkpoint humano) — tentativa de verificação visual ao vivo no iPhone do Alex esbarrou em 2 achados reais de ambiente (não do produto): script padrão de instalação sempre builda a partir da branch main, que ainda não tinha a Fase 37 — contornado buildando direto deste worktree com --api-base apontando pro backend local; backend local subiu sem BRAPI_TOKEN/BOLSAI_API_KEY, então a aba Opções não respondia nada — sem credenciais à mão, o Alex optou por aprovar com base em evidência automática (suíte 3x verde, build verde, plan-checker 2x aprovado, revisão de código linha a linha) em vez de esperar. Ressalva registrada explicitamente no SUMMARY e no comentário do SERVER_BUILD_ID — verificação visual em produção com dado real fica pendência recomendada, não bloqueante. Task 3: merge safety → bump.sh → publicar-web.sh (histórico do SERVER_BUILD_ID preservado, F10-20260921-01/Fase 35 rebaixado a HISTORICO) → suíte pós-bump verde → push fast-forward nos dois branches → /api/health confirmado em produção (F10-20260922-01). REQUIREMENTS.md marcado 8/8 Done via gsd-sdk query requirements.mark-complete (verbo fora do guardrail que só proíbe mutadores de STATE.md/ROADMAP.md). Verificado por mim de novo, independente: produção respondendo o carimbo novo, HEAD==origin/main==origin/v2/interacao-estrutural, histórico do SERVER_BUILD_ID íntegro, REQUIREMENTS.md sem corrupção, suíte 2973 pytest + 156/156 mjs. Milestone v1.7 com as 3 fases completas — falta /gsd-complete-milestone."
+last_activity: "2026-09-22 — Fechamento da Fase 37 (ver Posição anterior abaixo) seguido do fechamento da milestone v1.7 inteira. Pre-close artifact audit: 54 itens em aberto (49 quick tasks de ago/set, pré-v1.7, referências órfãs do scanner; 5 todos já revisados e adiados 4x nesta sessão) — reconhecidos e registrados em Deferred Items abaixo, nenhum bloqueia a v1.7. Arquivamento: v1.7-ROADMAP.md/v1.7-REQUIREMENTS.md criados, MILESTONES.md atualizado. Corrupção do STATE.md pelo mutador `milestone.complete` detectada e revertida (ver stopped_at). Continuando o fechamento manualmente: reorganização do ROADMAP.md, remoção de REQUIREMENTS.md, evolução do PROJECT.md, retrospectiva, tag."
 progress:
   total_phases: 3
   completed_phases: 3
@@ -21,7 +21,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-20)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Milestone v1.7 (Confiabilidade explicativa da aba Opções) — as 3 fases (35/36/37) FECHADAS e publicadas. Próximo: `/gsd-complete-milestone` (quando o Alex decidir) ou novo milestone.
+**Current focus:** Milestone v1.7 arquivada (2026-09-22). Aguardando `/gsd-new-milestone` para o próximo escopo.
 
 ## Current Position
 
@@ -1316,3 +1316,28 @@ urgência (nenhum bloqueia produto, ver `.planning/milestones/v1.5-MILESTONE-AUD
 
 **Depois do v1.4 fechar:** `/gsd-new-milestone` para decidir o próximo
 milestone (nenhum roteirizado ainda além do v1.4).
+
+## Deferred Items
+
+Itens reconhecidos e adiados no fechamento da milestone v1.7 (2026-09-22),
+via `gsd-sdk query audit-open` — nenhum é um gap desta milestone; a decisão
+foi "reconhecer e fechar", não "resolver antes".
+
+| Categoria | Item | Status |
+|---|---|---|
+| quick_task | 49 tarefas datadas 2026-08-20 a 2026-09-16 (antes da v1.7 existir) | missing (referência órfã do scanner — provável dívida já resolvida de milestones anteriores v1.4/v1.5/v1.6, não investigada a fundo) |
+| todo | `carimbo-frescor-blocos-cross-carteira.md` | pending (revisado e não dobrado nas Fases 34/35/36/37 — match fraco por palavra-chave) |
+| todo | `medir-rate-limit-mydata.md` | pending (revisado, sem relação com o escopo de payoff/gráfico) |
+| todo | `opcoes-v2-confirmar-hub-mydata-e-acesso-b-mcp.md` | pending (tracking de aprovação de serviço externo, fora do controle do time) |
+| todo | `revisao-arquitetura-mcp-ecossistema-b3.md` | pending (prioridade alta, mas decisão explícita do Alex de tratar à parte, fora do roadmap da v1.7) |
+| todo | `subaba-operar-fetch-redundante-gate-proposta.md` | pending (baixa prioridade, revisado 4x, nunca dobrado) |
+
+## Pendência não-bloqueante da Fase 37 (verificação visual)
+
+O checkpoint humano da Task 2 do 37-05 foi aprovado com base em evidência
+automática (suíte, build, plan-checker, revisão de código), não em
+confirmação visual com dado real de mercado — bloqueada pela ausência de
+`BRAPI_TOKEN`/`BOLSAI_API_KEY` no backend local usado na tentativa de
+instalar no iPhone do Alex. Recomendado: dar uma olhada no gráfico/
+explicação em produção (`https://boris.semente.dev`) quando conveniente.
+Não bloqueia nada — só registrado para não se perder.

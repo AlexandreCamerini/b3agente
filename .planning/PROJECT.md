@@ -22,7 +22,7 @@ funciona — não decorou uma resposta, aprendeu o raciocínio — e só então 
 acesso a automações do Modo Operador. Se o storyline pedagógico não convencer,
 nada mais no produto importa.
 
-## Milestone v1.7 Confiabilidade explicativa da aba Opções — EM ANDAMENTO (definindo requisitos)
+## Milestone v1.7 Confiabilidade explicativa da aba Opções — SHIPPED 2026-09-22
 
 **Goal:** corrigir a jornada de montar/analisar uma estrutura de opções
 dentro do workspace (v1.6) e tornar o gráfico de payoff — e sua explicação —
@@ -39,22 +39,26 @@ screenshot de produção. Mapeia para PERS-01 (v1.6), que a milestone anterior
 já havia identificado e deferido deliberadamente até a reorganização
 estrutural estar pronta.
 
+**Entregue:** 3 fases (35-37), 10 plans, 14/14 requirements Done. Jornada
+guiada do workspace com passos nomeados e CTAs com hierarquia visual real
+(Fase 35). Motor de payoff genérico estendido — não recriado — com correção
+de um bug real de breakeven espúrio, domínio X/Y e segmentação calculados no
+backend (Fase 36). Gráfico SVG corrigido (eixo Y com escala real, strikes/
+spot marcados, setas de risco ilimitado rotuladas, "hoje" separado de "no
+vencimento") e explicação por segmento 100% determinística, fechando a
+divergência real de razão G/P confirmada em produção (Fase 37). Publicado em
+dois carimbos: `F10-20260921-01` (Fase 35) e `F10-20260922-01` (Fase 37).
+Pendência não-bloqueante: verificação visual em produção com dado real do
+gráfico corrigido (o checkpoint da Fase 37 fechou com evidência automática,
+sem essa confirmação visual — credenciais ausentes no backend local usado na
+tentativa).
+
 **Fora de escopo desta milestone (decidido, não esquecido):** PERS-02
 (modelo de progresso do aprendiz) e PERS-03 (desafio personalizado por
 padrão observado) — mesma decisão do v1.6 de não personalizar antes da
 explicação básica estar correta; migração do motor de opções para um MCP
 único (`revisao-arquitetura-mcp-ecossistema-b3.md`, revisão de arquitetura
 maior e separada).
-
-**Target features:**
-- Jornada guiada dentro do workspace, com passos visíveis e o botão "ver
-  possibilidades" proeminente
-- Motor de payoff genérico (qualquer combinação de legs, sem hardcode por
-  nome de estratégia), cobrindo os casos-limite especificados
-- Componente de gráfico SVG corrigido (zero rotulado, eixo Y com escala,
-  domínio que nunca corta platô, "hoje" separado de "no vencimento")
-- Camada explicativa derivada da curva calculada, vocabulário leigo, razão
-  G/P consistente com o número exibido
 
 ## Milestone v1.6 Simplificação da aba Opções — SHIPPED 2026-09-20
 
@@ -388,14 +392,19 @@ faltavam os números).
   34), com 3 pills do workspace compartilhando uma única leitura paga
   (NAV-05, verificado ao vivo por medição de rede). 13/13 requirements v1
   Done — ver `.planning/milestones/v1.6-ROADMAP.md`.
+- ✓ Confiabilidade explicativa da aba Opções — v1.7 (Fases 35-37): jornada
+  guiada do workspace com passos nomeados e CTAs com hierarquia visual real
+  (Fase 35); motor de payoff genérico estendido com correção de um bug real
+  de breakeven espúrio (Fase 36); gráfico SVG corrigido (eixo Y com escala,
+  strikes/spot marcados, "hoje" separado de "no vencimento") e explicação
+  por segmento 100% determinística, fechando a divergência real de razão
+  G/P confirmada em produção (Fase 37). 14/14 requirements v1 Done — ver
+  `.planning/milestones/v1.7-ROADMAP.md`. Pendência não-bloqueante:
+  verificação visual em produção com dado real (checkpoint fechou com
+  evidência automática, sem confirmação visual — ver STATE.md).
 
 ### Active
 
-- [ ] Jornada de montar/analisar uma estrutura de opções dentro do
-  workspace (Analisar/Comparar/Setups salvos) continua sem passos visíveis,
-  e o gráfico de payoff (`PayoffChart`) mistura valor de hoje com resultado
-  no vencimento, corta o platô no domínio X e usa um número diferente do
-  exibido na razão G/P — puxado para o milestone v1.7 (em andamento)
 - [ ] Backlog da Fase 26 (v1.4), nunca executado: B2 (preservar estado ao
   trocar de aba, sem decisão de abordagem), B3 (ligar a aba Opções às rotas
   de execução com flag opt-in a descoberto, pesquisa concluída/decisão de
@@ -566,6 +575,10 @@ faltavam os números).
 | Code review obrigatório pós-fase (`code_review_gate`) não é cerimônia — achou um Critical real na Fase 13 | Gate fail-closed do CAP-12/CR-01 no iOS comparava a contagem do servidor (sempre desconectada, iOS é local-first) em vez da do aparelho; guardião existente só checava ORDEM das chamadas, não qual valor alimentava a decisão — o próprio objetivo da fase (fechar CR-01) não estava de fato fechado até esse achado | ✓ Good — corrigido, guardião reforçado (mutation-tested), e o mesmo padrão replicado preventivamente no caminho irmão (`putWatchlist`) antes mesmo de virar bug lá |
 | Consolidar toda pendência de verificação humana de um milestone num ÚNICO documento (`20-HUMAN-UAT.md`), nunca fragmentar por fase | v1.5 gerou 4 itens humanos em 3 fases diferentes (limitação de ferramenta de emulação de `prefers-reduced-motion`, dependência de horário de pregão); decisão explícita do orquestrador de não criar `21-HUMAN-UAT.md`/`22-HUMAN-UAT.md`/`23-HUMAN-UAT.md` separados | ✓ Good — Alex recebe uma lista só pra revisar no fim, em vez de garimpar N arquivos de fase |
 | Executar um milestone inteiro (4 fases) de ponta a ponta sem pausa para aprovação humana intermediária, sob autorização explícita | Alex pediu evolução autônoma completa do v1.5 e configurou o ambiente pra não exigir permissão de tool; v1.4 seguia em paralelo com checkpoints bloqueados, sem interferência entre os dois fluxos | ✓ Good — 4 fases, 16 planos, 123 commits, 17/17 requirements, zero push a `origin` (mesma disciplina do v1.4 pendente), único gap real foi tooling (sem CDP `Emulation.setEmulatedMedia` neste ambiente para testar `prefers-reduced-motion` de verdade) |
+| Fase 36: estender `opcoes_payoff.py` em vez de criar um motor de payoff novo | Comparação explícita das duas opções pro Alex; risco de duas fontes de verdade divergentes já aconteceu 2x no repo (`RR_MIN`, CTA de collar) | ✓ Good — motor genérico já existia desde a Fase 15, esta fase só estendeu (domínio/segmentos/correção de bug), zero duplicação |
+| Fallback pontual pro Sonnet quando o planner (Opus) da Fase 37 falhou 4x seguidas (500→529, capacidade esgotada) | Autorizado explicitamente pelo Alex após o sinal mudar de erro transiente pra overload real; mesmo prompt/contexto, só o modelo trocou | ✓ Good — 5 planos de qualidade equivalente, checker aprovou (1 ciclo de revisão, motivo não relacionado ao modelo) |
+| Checkpoint humano da Fase 37 aprovado com evidência automática, não visual, quando a verificação ao vivo esbarrou em credenciais ausentes no backend local | O Alex escolheu explicitamente não esperar; ressalva registrada com precisão no SUMMARY, no comentário do `SERVER_BUILD_ID` e aqui — nunca apresentada como se tivesse sido uma confirmação visual real | ⚠️ Revisit — pendência não-bloqueante de verificação visual em produção, recomendada mas não forçada |
+| `gsd-sdk query milestone.complete` não é confiável sem diff — corrompeu STATE.md na primeira tentativa (fechamento da v1.7) | Mesma classe de bug já documentada para os mutadores `state.*` (texto/contagem de sessão antiga sobrescrevendo o atual), mas num verbo NÃO listado no guardrail original — `progress.percent` caiu de 100% pra 60% contando fases standalone (9, 14) como parte da milestone | ✓ Good, causa raiz contida — revertido via `git checkout`, refeito à mão; guardrail expandido na prática para "qualquer mutador de STATE.md do gsd-sdk", não só os 4 nomeados originalmente |
 
 ## Evolution
 
@@ -585,8 +598,8 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-09-20 — Milestone v1.6 (Simplificação da aba Opções,
-Fases 33-34) fechado e arquivado (13/13 requirements, `F10-20260920-01`);
-Milestone v1.7 (Confiabilidade explicativa da aba Opções) aberto, ainda
-definindo requisitos e roadmap. Ver `.planning/milestones/v1.6-ROADMAP.md`/
-`v1.6-REQUIREMENTS.md` para o detalhe completo do v1.6.*
+*Last updated: 2026-09-22 — Milestone v1.7 (Confiabilidade explicativa da
+aba Opções, Fases 35-37) fechado e arquivado (14/14 requirements,
+`F10-20260921-01`/`F10-20260922-01`). Nenhum milestone aberto no momento —
+próximo passo é `/gsd-new-milestone`. Ver `.planning/milestones/v1.7-ROADMAP.md`/
+`v1.7-REQUIREMENTS.md` para o detalhe completo do v1.7.*
