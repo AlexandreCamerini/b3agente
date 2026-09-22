@@ -91,8 +91,12 @@ ok("wrapper `caixa` ganhou minWidth: 0 (não estoura coluna grid em 375px)",
 // ---- 4) fence D-08: zero interatividade, contrato de props inalterado
 ok("D-08: zero useState/onClick/onPointer/onTouch/onMouse no componente",
    !/useState|onClick|onPointer|onTouch|onMouse/.test(fonte));
-ok("assinatura continua com as 4 props de sempre (estrutura, emReais, cp, palette)",
-   /export default function PayoffChart\(\{\s*estrutura,\s*emReais,\s*cp,\s*palette\s*\}\)/.test(bruto));
+// Plano 37-04: a assinatura ganhou 3 props NOVAS e opcionais
+// (dominio/segmentos/valorHoje, CHART-04/05) — D-08 continua provado pelo
+// bloco acima (zero useState/onClick/...); esta asserção agora trava que as
+// 4 props ORIGINAIS não mudaram de nome/ordem, não mais um total fechado.
+ok("assinatura mantém as 4 props originais + as 3 novas opcionais do plano 37-04 (dominio, segmentos, valorHoje)",
+   /export default function PayoffChart\(\{\s*estrutura,\s*emReais,\s*cp,\s*palette,\s*dominio,\s*segmentos,\s*valorHoje\s*\}\)/.test(bruto));
 ok("sanidade: a regex de interatividade pega onClick real",
    /useState|onClick|onPointer|onTouch|onMouse/.test("const [x] = useState(0);"));
 
@@ -104,13 +108,14 @@ ok("sanidade: a regex de aritmética pega uma conta inventada",
    ARITMETICA_FINANCEIRA.test("const dobro = e.max_gain * 2;"));
 
 // ---- 6) a linha do breakeven nunca depende da mesma condição que suprime o texto
-// Marcadores de CÓDIGO (não de comentário — o comentário "3. breakevens" /
-// "4. cenários" é removido por `semComentario`): o bloco de breakevens vai
-// da ordenação de `marcas` até o início do `.map` dos cenários.
-const iniBe = fonte.indexOf("[...marcas].sort");
+// Marcadores de CÓDIGO (não de comentário — os comentários são removidos por
+// `semComentario`): plano 37-04 mesclou breakeven+strike num único array de
+// colisão (`tipoMarca: "breakeven"` é o discriminador que nasce nessa
+// mesclagem); o bloco vai dali até o início do `.map` dos cenários.
+const iniBe = fonte.indexOf('tipoMarca: "breakeven"');
 const iniCen = fonte.indexOf("cenarios.map((s, i)");
 const blocoBreakeven = iniBe >= 0 && iniCen > iniBe ? fonte.slice(iniBe, iniCen) : "";
-ok("o bloco de breakevens foi localizado no fonte", blocoBreakeven.length > 0);
+ok("o bloco de breakevens (agora mesclado com strikes, plano 37-04) foi localizado no fonte", blocoBreakeven.length > 0);
 ok("a <line> do breakeven não tem guarda condicional imediata (&&/`?` antes dela)",
    /<line/.test(blocoBreakeven)
    && !/&&\s*<line/.test(blocoBreakeven)
@@ -125,6 +130,22 @@ ok("aria-label e <title> usam a mesma `descricao` (leitor de tela não perde nad
    /aria-label=\{descricao\}/.test(bruto) && /<title>\{descricao\}<\/title>/.test(bruto));
 ok("a `descricao` lista TODOS os breakevens, não só os visíveis na tela",
    /breakevens\.map/.test(fonte) && /Empata com o ativo em/.test(fonte));
+
+// ---- 8) plano 37-04: eixo Y de 2 casas, strike no eixo, seta rotulada, Kicker importado
+ok("PAD_E cresceu para 48 (orçamento do rótulo do eixo Y, CHART-01)",
+   valorConst("PAD_E", fonte) === 48);
+ok("chave opcoesEixoZeroRotulo em uso (rótulo do zero no eixo Y)",
+   /opcoesEixoZeroRotulo/.test(fonte));
+ok('strokeDasharray "1 3" em uso (marca de strike, distinta do "2 4" do breakeven)',
+   /strokeDasharray=(?:"1 3"|\{[^}]*"1 3"[^}]*\})/.test(fonte));
+ok("opcoesPerdaIlimitadaCurta aparece junto de uma seta aria-hidden (CHART-03)",
+   (() => {
+     const idxCurta = fonte.indexOf("opcoesPerdaIlimitadaCurta");
+     const blocoSeta = idxCurta >= 0 ? fonte.slice(Math.max(0, idxCurta - 200), idxCurta + 300) : "";
+     return /aria-hidden/.test(blocoSeta) && /↓/.test(blocoSeta);
+   })());
+ok("Kicker é importado de ./uiOpcoes.jsx",
+   /import\s*\{[^}]*\bKicker\b[^}]*\}\s*from\s*"\.\/uiOpcoes\.jsx"/.test(fonte));
 
 console.log(fails === 0 ? "\ntodos os testes passaram" : `\n${fails} FALHA(S)`);
 process.exit(fails === 0 ? 0 : 1);

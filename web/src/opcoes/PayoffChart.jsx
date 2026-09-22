@@ -25,6 +25,7 @@
  */
 import { useId, useMemo } from "react";
 import { extentOf } from "../chartutil.js";
+import { Kicker, Aviso, ErroDoMcp } from "./uiOpcoes.jsx";
 
 // Mesmos NOMES de variável CSS que `App.jsx` injeta em `:root`.
 const VARKEY = (k) => "--" + k.replace(/[A-Z]/g, (c) => "-" + c.toLowerCase());
@@ -85,7 +86,11 @@ function recortar(pontos, x0, x1) {
   return fora;
 }
 
-export default function PayoffChart({ estrutura, emReais, cp, palette, dominio }) {
+export default function PayoffChart({ estrutura, emReais, cp, palette, dominio, segmentos, valorHoje }) {
+  // `segmentos` chega pronto do backend (Fase 36/37-01) mas este componente
+  // não o consome — quem lê `segmentos` é `ExplicacaoPayoff.jsx` (37-02),
+  // um irmão desta árvore, não este arquivo (interfaces do 37-04-PLAN.md).
+  void segmentos;
   const e = estrutura || {};
   const c = cp || {};
   const P = palette || {};
@@ -209,6 +214,10 @@ export default function PayoffChart({ estrutura, emReais, cp, palette, dominio }
 
   const cabecalho = (
     <div style={{ marginBottom: "8px" }}>
+      {/* CHART-05: "No vencimento" e "Hoje" são dois pesos IGUAIS, mesma
+          lógica da frase-ponte D-05 da Fase 32 ("nenhuma é mais certa que a
+          outra") — nunca hierarquia primário/secundário entre os dois. */}
+      <Kicker>{(c.opcoesNoVencimentoTitulo || "No vencimento") + (vencimento ? " · " + vencimento : "")}</Kicker>
       <div style={{ fontSize: "13px", fontWeight: 700, color: T.textPrimary }}>
         {nome}{vencimento ? " · " + vencimento : ""}
       </div>
@@ -233,6 +242,33 @@ export default function PayoffChart({ estrutura, emReais, cp, palette, dominio }
       <div style={{ fontSize: "11px", color: T.textMuted, marginTop: "2px", lineHeight: 1.45 }}>
         {c.opcoesBreakevenAjuda || ""}
       </div>
+      {/* CHART-05: bloco "Hoje · valor de mercado", ausente por completo
+          (nem o Kicker aparece) quando `valorHoje` não foi tentado —
+          distinto de "tentado e falhou" (erro) e de "tentado e deu certo"
+          (dados). Decisão do CHAMADOR (SecaoAnalisar.jsx/SecaoComparar.jsx,
+          Plano 37-05), nunca inferida aqui. */}
+      {valorHoje != null ? (
+        <>
+          <Kicker>{c.opcoesHojeTitulo || "Hoje · valor de mercado"}</Kicker>
+          {valorHoje.erro ? (
+            <ErroDoMcp erro={valorHoje.erro} cp={cp} />
+          ) : valorHoje.dados ? (
+            <>
+              <div style={{ fontSize: "11.5px", color: T.textSecondary, marginTop: "2px", fontVariantNumeric: "tabular-nums" }}>
+                {(c.opcoesPorAcaoRotulo || "por ação") + ": " + moeda(valorHoje.dados.porAcao)}
+              </div>
+              {ehNum(valorHoje.dados.emReais) ? (
+                <div style={{ fontSize: "11.5px", color: T.textSecondary, marginTop: "2px", fontVariantNumeric: "tabular-nums" }}>
+                  {(c.opcoesEmReaisRotulo || "em reais") + ": " + moeda(valorHoje.dados.emReais)}
+                </div>
+              ) : null}
+              <div style={{ fontSize: "11px", color: T.textMuted, marginTop: "2px", lineHeight: 1.45 }}>
+                {c.opcoesHojeAjuda || ""}
+              </div>
+            </>
+          ) : null}
+        </>
+      ) : null}
     </div>
   );
 
