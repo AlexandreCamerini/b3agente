@@ -92,3 +92,12 @@ None - no external service configuration required.
 ---
 *Phase: 37-gr-fico-de-payoff-e-explica-o-confi-veis*
 *Completed: 2026-09-21*
+
+## Self-Check: PASSED
+
+- FOUND: server/app/options_mcp_api.py
+- FOUND: server/tests/test_options_mcp_api.py
+- FOUND: .planning/phases/37-gr-fico-de-payoff-e-explica-o-confi-veis/37-01-SUMMARY.md
+- FOUND commit: 9e6fd72 (Task 1)
+- FOUND commit: dbe5a6b (Task 2)
+- FOUND commit: b2e5512 (docs: summary)
