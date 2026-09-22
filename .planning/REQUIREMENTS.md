@@ -30,17 +30,17 @@ recomendação.
 
 ### Gráfico de Payoff (CHART)
 
-- [ ] **CHART-01**: Linha do zero tracejada rotulada "R$ 0"; eixo vertical com escala visível (resultado por ação, legenda "multiplique por lotSize para o lote")
-- [ ] **CHART-02**: Todo strike e todo breakeven marcado e rotulado no eixo; spot marcado "hoje {preço}"
-- [ ] **CHART-03**: Segmento ilimitado termina em seta aberta na borda + rótulo "sem teto"/"sem piso" — nunca desenha platô falso onde o risco é ilimitado
-- [ ] **CHART-04**: Domínio X (min/max strike + margem `max(12% do span, 4% do spot)`, spot sempre dentro) e domínio Y (inclui zero, +15% do extremo finito) nunca cortam um platô real
-- [ ] **CHART-05**: Valor de marcação a mercado ("hoje · valor de mercado da estrutura") aparece separado e rotulado, distinto do resultado "no vencimento · {data}" — regressão confirmada em produção (screenshot 2026-09-20)
+- [x] **CHART-01**: Linha do zero tracejada rotulada "R$ 0"; eixo vertical com escala visível (resultado por ação, legenda "multiplique por lotSize para o lote")
+- [x] **CHART-02**: Todo strike e todo breakeven marcado e rotulado no eixo; spot marcado "hoje {preço}"
+- [x] **CHART-03**: Segmento ilimitado termina em seta aberta na borda + rótulo "sem teto"/"sem piso" — nunca desenha platô falso onde o risco é ilimitado
+- [x] **CHART-04**: Domínio X (min/max strike + margem `max(12% do span, 4% do spot)`, spot sempre dentro) e domínio Y (inclui zero, +15% do extremo finito) nunca cortam um platô real
+- [x] **CHART-05**: Valor de marcação a mercado ("hoje · valor de mercado da estrutura") aparece separado e rotulado, distinto do resultado "no vencimento · {data}" — regressão confirmada em produção (screenshot 2026-09-20)
 
 ### Camada Explicativa (EXPL)
 
-- [ ] **EXPL-01**: Texto explicativo é derivado dos segmentos da curva calculada, percorrida da esquerda para a direita com a frase do segmento onde o spot está vindo primeiro — nunca por nome de estratégia
-- [ ] **EXPL-02**: Vocabulário do corpo explicativo livre de jargão técnico banido (strike, prêmio, delta, theta, volatilidade implícita, exercício, rolagem, ITM/OTM/ATM, "perna")
-- [ ] **EXPL-03**: Razão G/P no texto usa o mesmo número exibido em tela — regressão confirmada em produção (screenshot mostra "1:1,00" exibido vs. "1:0,67" no texto)
+- [x] **EXPL-01**: Texto explicativo é derivado dos segmentos da curva calculada, percorrida da esquerda para a direita com a frase do segmento onde o spot está vindo primeiro — nunca por nome de estratégia
+- [x] **EXPL-02**: Vocabulário do corpo explicativo livre de jargão técnico banido (strike, prêmio, delta, theta, volatilidade implícita, exercício, rolagem, ITM/OTM/ATM, "perna")
+- [x] **EXPL-03**: Razão G/P no texto usa o mesmo número exibido em tela — regressão confirmada em produção (screenshot mostra "1:1,00" exibido vs. "1:0,67" no texto)
 
 ## v2 Requirements
 
@@ -71,14 +71,14 @@ Deferido, decidido em conversa antes deste milestone — fora do roadmap atual.
 | PAYOFF-01 | Phase 36 | Done |
 | PAYOFF-02 | Phase 36 | Done |
 | PAYOFF-03 | Phase 36 | Done |
-| CHART-01 | Phase 37 | Pending |
-| CHART-02 | Phase 37 | Pending |
-| CHART-03 | Phase 37 | Pending |
-| CHART-04 | Phase 37 | Pending |
-| CHART-05 | Phase 37 | Pending |
-| EXPL-01 | Phase 37 | Pending |
-| EXPL-02 | Phase 37 | Pending |
-| EXPL-03 | Phase 37 | Pending |
+| CHART-01 | Phase 37 | Complete |
+| CHART-02 | Phase 37 | Complete |
+| CHART-03 | Phase 37 | Complete |
+| CHART-04 | Phase 37 | Complete |
+| CHART-05 | Phase 37 | Complete |
+| EXPL-01 | Phase 37 | Complete |
+| EXPL-02 | Phase 37 | Complete |
+| EXPL-03 | Phase 37 | Complete |
 
 **Coverage:**
 - v1 requirements: 14 total
