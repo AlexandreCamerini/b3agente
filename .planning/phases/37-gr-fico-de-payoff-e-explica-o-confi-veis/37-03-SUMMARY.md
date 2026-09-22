@@ -106,3 +106,11 @@ None - no external service configuration required.
 ---
 *Phase: 37-gr-fico-de-payoff-e-explica-o-confi-veis*
 *Completed: 2026-09-22*
+
+## Self-Check: PASSED
+
+- FOUND: `.planning/phases/37-gr-fico-de-payoff-e-explica-o-confi-veis/37-03-SUMMARY.md`
+- FOUND: `d4307ed` (Task 1)
+- FOUND: `a1ff6ca` (Task 2)
+- FOUND: `c26f0c4` (edge-case test)
+- FOUND: `afc76a8` (this doc commit)
