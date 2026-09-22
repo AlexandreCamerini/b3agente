@@ -484,6 +484,116 @@
 
 ---
 
+## Milestone: v1.7 — Confiabilidade explicativa da aba Opções
+
+**Shipped:** 2026-09-22
+**Phases:** 3 (35-37) | **Plans:** 10 | **Sessions:** 1 (contínua, com um handoff de contexto no meio)
+
+### What Was Built
+- Fase 35 (jornada guiada do workspace): dois estágios nomeados ("Passo 1
+  de 2"/"Passo 2 de 2") sem numerar ações que não são sequenciais, `T.accent`
+  sólido + `T.onAccent` nos 3 CTAs da jornada (contraste AA verificado nas 4
+  combinações tema×modo ao vivo), marca de resultado discreta nos
+  re-clicáveis.
+- Fase 36 (motor de payoff genérico): `opcoes_payoff.py` estendido — não
+  recriado — com `vencimento` por perna, degradação honesta de calendário,
+  correção de um bug real de produção (breakeven espúrio em S=0),
+  `dominio_da_curva()`/`segmentos_da_curva()` como base pro gráfico.
+- Fase 37 (gráfico + explicação): `PayoffChart.jsx` com eixo Y de escala
+  real, strikes/spot marcados, setas de risco ilimitado rotuladas, bloco
+  "Hoje · valor de mercado" separado de "No vencimento"; `ExplicacaoPayoff.jsx`
+  — texto 100% determinístico por segmento, reusando literalmente a mesma
+  variável de `RazaoGanhoPerda`.
+
+### What Worked
+- **Comparação explícita de arquitetura antes de escolher** — Fase 36
+  apresentou ao Alex o desenho de "estender `opcoes_payoff.py`" vs. "motor
+  novo", com prós/contras/custo de cada um, antes de decidir. A decisão
+  (estender) evitou reproduzir o padrão de duas-fontes-divergentes já visto
+  2x no repo (`RR_MIN`, CTA de collar).
+- **`gsd-pattern-mapper` resolvendo uma pergunta em aberto do `gsd-ui-researcher`
+  por leitura direta do código** — o UI-SPEC da Fase 37 deixou explicitamente
+  não resolvido qual rota HTTP liga `dominio_da_curva()`/`segmentos_da_curva()`
+  ao front; o pattern-mapper achou (por leitura de fixture real, não suposição)
+  que os 3 consumidores reais de `PayoffChart.jsx` usam DOIS caminhos de
+  dado distintos, e desenhou o adaptador certo antes do planner precisar.
+- **Verificação independente linha a linha, não só confiar no subagente** —
+  todo achado numérico de executor (fórmula de `chamadasPrevistas`, guarda
+  de `None` antes de multiplicação, posição Y do spot extrapolada) foi
+  reproduzido pelo orquestrador direto no código antes de aceitar, disciplina
+  mantida do início ao fim das 3 fases.
+- **Guardrail de decisão-coverage mecânico, mas travável sem reabrir
+  conteúdo** — quando o gate de cobertura de decisões acusou 6/9 `D-NN` não
+  citados literalmente (falso positivo de regex, não gap real, confirmado
+  2x pelo `gsd-plan-checker`), a correção foi anotar as tags nos
+  `must_haves` já verdadeiros, sem mudar nenhum conteúdo.
+
+### What Was Inefficient
+- **Opus (planner) falhou 4x seguidas** (500→529, capacidade de servidor
+  esgotada) na Fase 37 antes de um fallback pontual pro Sonnet ser
+  autorizado — nenhuma perda de trabalho (zero plano gravado em disco nas 4
+  tentativas), mas ~15 minutos de tentativas antes de trocar de modelo.
+- **Tentativa de verificação visual ao vivo no iPhone falhou por 2 motivos
+  em cascata**: o script padrão de instalação sempre builda a partir da
+  `main` (sem a fase ainda não promovida), contornado buildando direto do
+  worktree; e o backend local subiu sem `BRAPI_TOKEN`/`BOLSAI_API_KEY`,
+  então a aba Opções não respondia nada. O checkpoint humano fechou com
+  evidência automática em vez de confirmação visual — ressalva registrada
+  com precisão, não escondida, mas o objetivo original do checkpoint não
+  foi cumprido integralmente.
+- **`gsd-sdk query milestone.complete` corrompeu o STATE.md** — mesma
+  classe de bug já documentada para os mutadores `state.*` nomeados
+  (sobrescreveu `stopped_at`/`progress` com texto e contagem de uma sessão
+  antiga da Fase 27, contando fases standalone como parte da milestone) —
+  um verbo NÃO coberto pelo guardrail original precisou do mesmo tratamento
+  na prática: revertido via `git checkout`, refeito à mão.
+
+### Patterns Established
+- **Checkpoint aprovado com ressalva explícita ainda é um checkpoint
+  válido** — quando a verificação planejada não é possível (aqui, por
+  credenciais ausentes), a alternativa correta não é fabricar uma
+  confirmação nem travar a fase indefinidamente: é dar ao dono do produto a
+  escolha explícita entre esperar e aprovar com evidência parcial, e
+  registrar com precisão qual decisão foi tomada e por quê — nos três
+  lugares que alguém leria depois (SUMMARY, comentário de build, STATE.md).
+- **Desconfiança de mutador do `gsd-sdk` generaliza além da lista nomeada**
+  — o guardrail original (2026-09-11) nomeava 4 verbos `state.*`
+  especificamente; esta milestone mostrou que qualquer mutador que escreve
+  em STATE.md/ROADMAP.md neste repo precisa do mesmo tratamento (diff antes
+  de confiar), não só os 4 originais.
+
+### Key Lessons
+1. Um erro 500 (transiente) e um erro 529 (capacidade esgotada) pedem
+   respostas diferentes — 500 vale retry, 529 repetido vale trocar de
+   modelo mais cedo, não insistir no mesmo.
+2. Um script de instalação que "sempre builda de `main`" por desenho de
+   segurança (nunca instalar código não-promovido num aparelho real) tem um
+   caso de uso legítimo de exceção: verificação de pré-publicação — buildar
+   direto do worktree de trabalho, apontando a API pro backend local, é o
+   jeito certo de contornar sem violar a intenção do guardrail original.
+3. Nem toda tentativa de verificação ao vivo termina em verificação ao
+   vivo — quando a infraestrutura de teste (credenciais, ambiente) não
+   suporta o roteiro planejado, documentar a tentativa, o motivo do
+   bloqueio, e a decisão alternativa tomada é mais honesto do que insistir
+   até funcionar ou fingir que funcionou.
+
+### Cost Observations
+- Model mix: Sonnet para quase toda a cadeia (discuss/ui-phase/pattern-
+  mapper/plan-checker/executor/verifier); Opus tentado para o planner da
+  Fase 37 e trocado por Sonnet após 4 falhas de capacidade — única milestone
+  até agora com troca de modelo NO MEIO de uma etapa por indisponibilidade,
+  não por escolha de custo/benefício.
+- Sessões: 1 contínua, incluindo um `/handoff` de contexto (compactação)
+  no meio sem perda de continuidade — a sessão retomou exatamente do ponto
+  onde parou (fechamento da Fase 36) sem precisar re-perguntar nada já
+  decidido.
+- Notável: zero push a `origin` durante toda a execução da Fase 37 até o
+  checkpoint aprovar — mesma disciplina de milestones autônomas anteriores,
+  mas aqui aplicada com humano no loop (checkpoint bloqueante), não por
+  ausência de humano.
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -495,6 +605,7 @@
 | v1.2 | 1 (autônoma) | 3 (0, 10, 11) | Primeira milestone executada de ponta a ponta sem humano no loop (contrato de autonomia explícito, hard-stops nomeados) — nenhum push durante toda a execução (diferente de v1.1, onde push por wave era o padrão); UAT `human_needed` fechado como arquivo `pending` genuíno em vez de aprovação fabricada, resolvido pelo Alex numa sessão separada antes do fechamento formal do milestone |
 | v1.3 | 2 (com `/handoff`) | 2 (12, 13) | Primeira milestone com consulta direta a design specialists de nicho (navigation/typography) fora do pipeline GSD nativo; code review pós-fase pegou 1 Critical real que nenhum teste de ordem de chamada capturava (contagem servidor×dispositivo num gate fail-closed local-first); checkpoint humano ao vivo conduzido pelo orquestrador no chat, não delegado a subagente; divergência de `main` local vs remoto (trabalho concorrente de outra sessão) descoberta e reconciliada sem conflito antes do fechamento |
 | v1.5 | 1 (autônoma, sem handoff) | 4 (20-23) | Primeira milestone autorizada a evoluir "até o final sem necessidade de autorização" (autonomia mais ampla que o contrato com hard-stops nomeados da v1.2); conviveu no mesmo branch/`App.jsx` com o v1.4 ainda bloqueado em checkpoint humano, sem tocá-lo (invariante técnico: só `web/src/`); pendência humana de 3 fases diferentes consolidada num único `20-HUMAN-UAT.md`; fechamento de milestone precisou de desvio do workflow padrão porque `REQUIREMENTS.md` continha dois milestones ao mesmo tempo (v1.5 fechando, v1.4 aberto) — arquivado só o trecho do v1.5, nunca `git rm` no arquivo inteiro |
+| v1.7 | 1 (contínua, com 1 `/handoff` no meio) | 3 (35-37) | Primeira milestone com checkpoint humano aprovado explicitamente COM RESSALVA (evidência automática, não visual) por indisponibilidade de infraestrutura de teste, não por escolha; primeira vez que um mutador do `gsd-sdk` fora da lista nomeada original (`milestone.complete`) corrompeu STATE.md, generalizando o guardrail de "não confiar sem diff" pra além dos 4 verbos `state.*` originais; planner trocou de modelo (Opus→Sonnet) NO MEIO de uma etapa por indisponibilidade de capacidade, não por custo |
 
 ### Cumulative Quality
 
@@ -505,14 +616,17 @@
 | v1.2 | 1674 backend (pytest) + suíte web completa (.mjs), ambas verdes em toda validação de wave — crescimento de ~135 testes backend (candle/opções/ledger/put_bridge/put_lifecycle) | não medido numericamente (sem pytest-cov) | 0 (nenhuma dependência nova — backend-only, nenhum `package.json` tocado) |
 | v1.3 | 1742 backend (pytest) + suíte web completa (.mjs), ambas verdes no fechamento — crescimento de ~68 testes backend | não medido numericamente (sem pytest-cov) | 0 (nenhuma dependência nova) |
 | v1.5 | 2022 backend (pytest, 2021 passed/1 skipped) + 118 web (.mjs), ambas verdes no fechamento — milestone front-end-only, crescimento de teste concentrado em `web/tests/*.mjs` (novos guardiões `test_fase20_fundacao_visual.mjs`, `test_fase22_*`, `test_fase23_motion.mjs`) | não medido numericamente (sem pytest-cov) | 0 (nenhuma dependência nova — `BorisFlat.jsx` é SVG inline, zero lib de ilustração) |
+| v1.7 | 2973 backend (pytest, 5 skipped/3 xfailed) + 156 web (.mjs), ambas verdes no fechamento — crescimento de ~30 testes backend (Fase 36 casos-limite + Fase 37 adaptador/valor_hoje) e ~2 web (`test_payoff_responsivo.mjs`/`test_explicacao_payoff.mjs`) | não medido numericamente (sem pytest-cov) | 0 (nenhuma dependência nova — `ExplicacaoPayoff.jsx` é componente puro, zero lib nova) |
 
 ### Top Lessons (Verified Across Milestones)
 
 1. `isolation="worktree"` em plans paralelos precisa de validação de base antes de disparar em lote — **confirmado como mitigação eficaz na v1.1**: dar `git push` antes de spawnar cada wave seguinte eliminou completamente a recorrência do problema descoberto na v1.0.
-2. Checkpoint humano bloqueante represa o push da FASE INTEIRA, não só da task do checkpoint — descoberto por incidente real na v1.1 (Fase 8), aplicado corretamente daí em diante (Fase 5).
-3. Fase que toca frontend precisa de task explícita de build+publish no planejamento — "suíte verde" não implica "publicado em produção" (achado na v1.1, Fase 4).
+2. Checkpoint humano bloqueante represa o push da FASE INTEIRA, não só da task do checkpoint — descoberto por incidente real na v1.1 (Fase 8), aplicado corretamente daí em diante (Fase 5), e de novo na v1.7 (Fase 37: todos os commits de 37-01..37-04 ficaram locais até o checkpoint do 37-05 aprovar).
+3. Fase que toca frontend precisa de task explícita de build+publish no planejamento — "suíte verde" não implica "publicado em produção" (achado na v1.1, Fase 4); o mesmo padrão de checker pegou a AUSÊNCIA dessa task na v1.7 (Fase 37, 1ª passada do plan-checker) antes da execução começar, não depois.
 4. Execução autônoma sem push (v1.2) é uma variante mais segura do que push-por-wave (v1.1) quando não há humano pra aprovar em tempo real — o contrato de autonomia explícito (hard-stops nomeados, viés de desempate declarado) é o que torna a ausência de checkpoint humano segura, não a ausência de checkpoint em si.
 5. UAT `human_needed`/`pending` genuíno, persistido em arquivo e fechado mecanicamente sem aprovação fabricada, é o padrão certo para separar "trabalho mecânico concluído" de "decisão que só o humano pode tomar" (v1.2, Fase 11) — generaliza o padrão de UAT já usado desde v1.1 (Fases 3, 08-05) para o caso específico de execução autônoma.
 6. Um teste que prova ORDEM de chamadas de rede não prova QUAL VALOR alimenta a decisão de negócio — um gate fail-closed pode estar "chamando a API certa, na hora certa" e ainda assim usar o número errado (v1.3, CR-01: contagem do servidor num app local-first). O guardião precisa pinar o argumento exato, não só a sequência.
 7. Débito técnico decidido explicitamente em múltiplas fases sucessivas (documentado, não escondido) não é gap de auditoria — é escopo deliberadamente nunca reaberto (v1.5, `numHero` sem consumidor real, decidido em 3 fases seguidas).
 8. Quando o `REQUIREMENTS.md` do repo contém mais de um milestone simultaneamente (um fechando, outro ainda em execução), o fechamento de milestone precisa arquivar só a seção do milestone que fechou — nunca assumir "um arquivo = um milestone" do workflow padrão e apagar o arquivo inteiro (v1.5, convivendo com v1.4 ainda aberto).
+9. Desconfiança de mutador do `gsd-sdk` que escreve em STATE.md/ROADMAP.md não se limita aos verbos já flagrados — `milestone.complete` corrompeu o arquivo na v1.7 do mesmo jeito que os 4 verbos `state.*` originais (texto/contagem de sessão errada sobrescrevendo o estado atual). Regra prática: SEMPRE `git diff` depois de qualquer mutador desses antes de confiar, não só os nomeados numa lista fixa.
+10. Erro 500 (transiente) e erro 529 (capacidade esgotada) do provedor de modelo pedem respostas diferentes — retry vale pro primeiro, trocar de modelo mais cedo vale pro segundo quando ele se repete (v1.7, planner da Fase 37).
