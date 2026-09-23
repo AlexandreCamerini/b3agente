@@ -26,14 +26,17 @@ import { dirname, join } from "path";
 const here = dirname(fileURLToPath(import.meta.url));
 const app = readFileSync(join(here, "..", "src", "App.jsx"), "utf8");
 const persistence = readFileSync(join(here, "..", "src", "persistence.js"), "utf8");
+// Fase 38 (38-02, 2026-09-23): AiNote migrou para web/src/entendimento.jsx —
+// bloco localizado aqui; AnalysisView (que consome AiNote) fica em App.jsx.
+const ent = readFileSync(join(here, "..", "src", "entendimento.jsx"), "utf8");
 
 let fails = 0;
 const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if (!cond) fails++; };
 
 // ------------------------------------------------------- localizar blocos
-const iAiNote = app.indexOf("const AiNote = ");
-const iAiNoteEnd = app.indexOf(");", iAiNote);
-const aiNote = iAiNote >= 0 && iAiNoteEnd > iAiNote ? app.slice(iAiNote, iAiNoteEnd) : "";
+const iAiNote = ent.indexOf("const AiNote = ");
+const iAiNoteEnd = ent.indexOf(");", iAiNote);
+const aiNote = iAiNote >= 0 && iAiNoteEnd > iAiNote ? ent.slice(iAiNote, iAiNoteEnd) : "";
 ok("AiNote localizado", aiNote.length > 0);
 
 const iAnalysisView = app.indexOf("function AnalysisView(");
@@ -49,10 +52,15 @@ ok("variante source=\"deterministico\" com a copy exata do UI-SPEC",
    aiNote.includes('"Explicação automática do app (sem IA) · baseada no setup/indicador detectado" + (at ? " · " + at : "")'));
 
 // grep global: string original não duplicou/alterou, nova aparece 1x
-const totalIaText = (app.match(/Conteúdo educacional de IA · não é recomendação/g) || []).length;
-ok("\"Conteúdo educacional de IA · não é recomendação\" aparece 1x no arquivo", totalIaText === 1);
-const totalDetText = (app.match(/Explicação automática do app \(sem IA\)/g) || []).length;
-ok("\"Explicação automática do app (sem IA)\" aparece 1x no arquivo", totalDetText === 1);
+// Fase 38 (38-02, 2026-09-23): AiNote migrou para entendimento.jsx — a prova
+// de não-duplicação agora exige 1x em ent E 0x em app (a extração não deixou
+// cópia divergente para trás).
+const totalIaTextEnt = (ent.match(/Conteúdo educacional de IA · não é recomendação/g) || []).length;
+const totalIaTextApp = (app.match(/Conteúdo educacional de IA · não é recomendação/g) || []).length;
+ok("\"Conteúdo educacional de IA · não é recomendação\" aparece 1x em entendimento.jsx e 0x em App.jsx", totalIaTextEnt === 1 && totalIaTextApp === 0);
+const totalDetTextEnt = (ent.match(/Explicação automática do app \(sem IA\)/g) || []).length;
+const totalDetTextApp = (app.match(/Explicação automática do app \(sem IA\)/g) || []).length;
+ok("\"Explicação automática do app (sem IA)\" aparece 1x em entendimento.jsx e 0x em App.jsx", totalDetTextEnt === 1 && totalDetTextApp === 0);
 
 // ------------------------------------------ (b) AnalysisView escolhe por an.fonte
 ok("AnalysisView deriva source de an.fonte === \"deterministico\"",
@@ -61,9 +69,10 @@ ok("AnalysisView passa source à AiNote", /<AiNote at=\{an\.at\} source=\{source
 
 // a 2ª chamada de AiNote (fora de AnalysisView) continua sem passar source —
 // mantém o texto de IA por causa do default.
-const segundaChamada = app.slice(iAnalysisViewEnd);
+// Fase 38 (38-02, 2026-09-23): a 2ª chamada (dentro de AssistenteBox) migrou
+// para entendimento.jsx — todo o arquivo já está "fora de AnalysisView".
 ok("a chamada de AiNote fora de AnalysisView não passa source (mantém default \"ia\")",
-   /<AiNote \/>/.test(segundaChamada));
+   /<AiNote \/>/.test(ent));
 
 // ------------------------------------------------------- (c) sem dados ----
 // A frase é LIDA DA NORMA, não redigitada aqui: duas cópias manuais foi

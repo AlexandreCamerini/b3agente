@@ -137,8 +137,16 @@ ok("openNotifCentral navega para notificacoes", /openNotifCentral:.*setPerfilVie
 // teste notar.
 const metering = readFileSync(join(here, "..", "..", "server", "app", "metering.py"), "utf8");
 const apiJs = readFileSync(join(here, "..", "src", "api.js"), "utf8");
-const hubTightEnd = app.indexOf("function SetorAlvo(");
+// Fase 38 (38-02, 2026-09-23): `function SetorAlvo(` migrou para
+// entendimento.jsx e deixou de marcar o FIM do PerfilHub — usa-se a próxima
+// declaração de topo real (`TIMING_STYLE`) em vez do símbolo que saiu daqui.
+const hubTightEnd = app.indexOf("\nconst TIMING_STYLE = {", hubStart);
 ok("PerfilHub delimitado (corpo real, não até MercadoScreen)", hubTightEnd > hubStart);
+// Prova de parse-não-mudo: a fatia contém o marcador interno esperado e não
+// vaza para dentro de outro componente de topo.
+const hubFatia = app.slice(hubStart, hubTightEnd);
+ok("a fatia do PerfilHub contém hubGroup e não vaza para outro componente de topo",
+  hubFatia.includes("hubGroup") && !/^function \w+\(/m.test(hubFatia.slice(hubFatia.indexOf("hubGroup"))));
 const tiles = [...app.slice(hubStart, hubTightEnd).matchAll(/title="([^"]+)"/g)].map((m) => m[1]);
 ok("PerfilHub expõe tiles com título literal", tiles.length >= 6);
 

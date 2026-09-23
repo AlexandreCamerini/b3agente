@@ -25,6 +25,10 @@ import { dirname, join } from "path";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const app = readFileSync(join(here, "..", "src", "App.jsx"), "utf8");
+// Fase 38 (38-02, 2026-09-23): ConceitoSheet/SetorAlvo/AssistenteBox/AiNote/
+// SUBLINHADO migraram para web/src/entendimento.jsx — guardiões que liam o
+// código movido por regex sobre App.jsx passam a ler este arquivo.
+const ent = readFileSync(join(here, "..", "src", "entendimento.jsx"), "utf8");
 
 let fails = 0;
 const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if (!cond) fails++; };
@@ -33,17 +37,21 @@ const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if 
 // Asserções sobre o que NÃO pode mudar (o contrato), não sobre a assinatura
 // literal: regex sobre fonte quebra quando o código melhora e passa quando ele
 // regride. Este arquivo já deu esse problema duas vezes.
+// Fase 38 (38-02, 2026-09-23): ConceitoSheet migrou para entendimento.jsx — asserção reapontada, contrato intacto.
 ok("ConceitoSheet existe e busca o conceito ANCORADO (dados do card no corpo)",
-   /function ConceitoSheet\(/.test(app) && /store\.conceito\(cid, \{ dados \}\)/.test(app));
+   /function ConceitoSheet\(/.test(ent) && /store\.conceito\(cid, \{ dados \}\)/.test(ent));
 ok("a folha abre SOBRE o card (não empurra o fluxo vertical da lista)",
    /position: "fixed", inset: 0, zIndex: 75/.test(app)
    && /alignItems: "flex-end"/.test(app));
+// Fase 38 (38-02, 2026-09-23): CONCEITO_BLOCOS migrou para entendimento.jsx — asserção reapontada, contrato intacto.
 ok("ordem dos blocos: o que o app NÃO faz vem primeiro",
-   /\["naoAcontece", "O QUE O APP NÃO FAZ"\],\s*\n\s*\["oQueE", "O QUE É"\],\s*\n\s*\["oQueAcontece", "O QUE ACONTECE"\]/.test(app));
+   /\["naoAcontece", "O QUE O APP NÃO FAZ"\],\s*\n\s*\["oQueE", "O QUE É"\],\s*\n\s*\["oQueAcontece", "O QUE ACONTECE"\]/.test(ent));
+// Fase 38 (38-02, 2026-09-23): laço de blocos de ConceitoSheet migrou para entendimento.jsx — asserção reapontada, contrato intacto.
 ok("bloco vazio não vira seção vazia (campo ausente sumiu no backend)",
-   /\(c\[chave\] \|\| \[\]\)\.length > 0/.test(app));
+   /\(c\[chave\] \|\| \[\]\)\.length > 0/.test(ent));
+// Fase 38 (38-02, 2026-09-23): texto de falha de ConceitoSheet migrou para entendimento.jsx — asserção reapontada, contrato intacto.
 ok("falha de rede na folha não quebra o card",
-   /Não consegui carregar a explicação agora\. O card continua válido\./.test(app));
+   /Não consegui carregar a explicação agora\. O card continua válido\./.test(ent));
 
 // --------------------------------------------------------------- duas vias
 // A via permanente é TOQUE no termo SUBLINHADO (padrão Duolingo) — o "?" de
@@ -51,13 +59,16 @@ ok("falha de rede na folha não quebra o card",
 // indicação + seleção de texto). O contrato: setor declarado, conceito
 // primário do REGISTRO do backend (didatica.setores), indicação no próprio
 // termo. Os detalhes do toque têm guardião próprio: test_setor_toque.mjs.
+// Fase 38 (38-02, 2026-09-23): SetorAlvo migrou para entendimento.jsx — asserção reapontada, contrato intacto.
 ok("via PERMANENTE: tocar o setor abre o conceito ancorado (SetorAlvo)",
-   /function SetorAlvo\(\{ setorId, dados, rotulo, A, didatica/.test(app)
-   && /A\.abrirSetor\(setorId, cid, dados, origem\)/.test(app));
+   /function SetorAlvo\(\{ setorId, dados, rotulo, A, didatica/.test(ent)
+   && /A\.abrirSetor\(setorId, cid, dados, origem\)/.test(ent));
+// Fase 38 (38-02, 2026-09-23): corpo de SetorAlvo migrou para entendimento.jsx — asserção reapontada, contrato intacto.
 ok("o conceito do setor vem do REGISTRO do backend, nunca de dict do front",
-   /didatica\.setores\) \? didatica\.setores\[setorId\] : null/.test(app));
+   /didatica\.setores\) \? didatica\.setores\[setorId\] : null/.test(ent));
+// Fase 38 (38-02, 2026-09-23): SUBLINHADO migrou para entendimento.jsx — checagem passa a cobrir os DOIS arquivos (prova de que ConceitoDot não ressurgiu em nenhum dos dois).
 ok("nenhum ConceitoDot sobrou no card (a indicação é o sublinhado pontilhado)",
-   !/ConceitoDot/.test(app) && /const SUBLINHADO = /.test(app));
+   !/ConceitoDot/.test(app) && !/ConceitoDot/.test(ent) && /const SUBLINHADO = /.test(ent));
 ok("via PROATIVA: abre uma vez e marca como visto",
    /A\.openConceito\("gatilho", dados\);\s*\n\s*A\.marcarConceitoVisto\("gatilho"\);/.test(app));
 ok("proativa só dispara se ainda NÃO foi vista",
@@ -76,15 +87,21 @@ ok("o Radar fica fora da via proativa (vitrine, não lugar de aprender)",
    /proativo=\{contexto !== "radar" && overlayLivre\}/.test(app));
 ok("a folha ADIA enquanto houver outro overlay (não queima a estreia)",
    /overlayLivre: !tourOpen && !aboutOpen && !welcomeOpen && !welcomeAuthOpen && !conceitoAberto/.test(app));
+// Fase 38 (38-02, 2026-09-23): o zIndex 86 de ConceitoSheet migrou para
+// entendimento.jsx. Reapontado (não só reconfirmado): App.jsx contém OUTRO
+// zIndex 86 coincidente (PetSheet, App.jsx ~2872, mesmo padrão visual de
+// folha) que faria esta asserção "passar" medindo o componente ERRADO —
+// achado da própria extração, silêncio que o guardrail T-38-07 proíbe.
 ok("a folha fica ACIMA de todos os outros overlays (zIndex 86 > portão 85)",
-   /zIndex: 86, background: T\.scrim, display: "flex", alignItems: "flex-end"/.test(app));
+   /zIndex: 86, background: T\.scrim, display: "flex", alignItems: "flex-end", justifyContent: "center"/.test(ent));
 
 // ------------------------------------------------ acessibilidade do gesto
 // VoiceOver e teclado não têm "segurar 600ms" — cada setor carrega um botão
 // só-para-leitor que abre a mesma folha. O gesto é a via visual, nunca a única.
+// Fase 38 (38-02, 2026-09-23): botão sr-only de SetorAlvo migrou para entendimento.jsx — asserção reapontada, contrato intacto.
 ok("cada setor tem caminho acessível equivalente (botão sr-only)",
-   /aria-label=\{"O que é " \+ rotulo \+ "\?"\} style=\{SR_ONLY\}/.test(app)
-   && /clipPath: "inset\(50%\)"/.test(app));
+   /aria-label=\{"O que é " \+ rotulo \+ "\?"\} style=\{SR_ONLY\}/.test(ent)
+   && /clipPath: "inset\(50%\)"/.test(ent));
 
 // ------------------------------------ Fase 3: cobertura e encadeamento
 // O inventário conta 18 afirmações no card. O gesto é UM só; a cobertura vem
@@ -112,8 +129,9 @@ ok("a cadeia tem VOLTA (trilha), não só 'fechar tudo'",
    && /‹ voltar/.test(app));
 ok("a régua com só alvo não explica um stop que não está no card",
    /setorId=\{pos\.stop != null \? "risco" : "alvo"\}/.test(app));
+// Fase 38 (38-02, 2026-09-23): lookup de 'veja também' migrou para entendimento.jsx — asserção reapontada, contrato intacto.
 ok("'veja também' só mostra conceito que o catálogo conhece",
-   /\(didatica\.conceitos \|\| \[\]\)\.find\(\(x\) => x && x\.id === vid\)/.test(app));
+   /\(didatica\.conceitos \|\| \[\]\)\.find\(\(x\) => x && x\.id === vid\)/.test(ent));
 
 // ------------------------------- o push não pode travar a estreia didática
 // O universo do push é watchlist ∪ POSIÇÕES, mas a tela lista só a watchlist.

@@ -10,6 +10,8 @@ import { dirname, join } from "path";
 const here = dirname(fileURLToPath(import.meta.url));
 const fin = readFileSync(join(here, "..", "src", "finance.js"), "utf8");
 const app = readFileSync(join(here, "..", "src", "App.jsx"), "utf8");
+// Fase 38 (38-02, 2026-09-23): AssistenteBox migrou para web/src/entendimento.jsx.
+const ent = readFileSync(join(here, "..", "src", "entendimento.jsx"), "utf8");
 let fails = 0;
 const ok = (n, c) => { console.log((c ? "ok " : "FALHOU ") + n); if (!c) fails++; };
 
@@ -42,8 +44,9 @@ ok("quem entra logando passa pelo onboarding (orçamento/perfil)",
   /if \(!\(data\.config && data\.config\.onboarded\)\) setWelcomeOpen\(true\);/.test(app));
 
 // --- markdown na segunda superfície de IA ------------------------------------
+// Fase 38 (38-02, 2026-09-23): AssistenteBox migrou para entendimento.jsx — asserção reapontada, contrato intacto.
 ok("AssistenteBox renderiza markdown (mesma resposta do chat)",
-  /<Markdown text=\{r\.texto\} \/>/.test(app));
+  /<Markdown text=\{r\.texto\} \/>/.test(ent));
 
 console.log(fails ? `\n${fails} falha(s)` : "\ntodos os testes passaram");
 process.exit(fails ? 1 : 0);

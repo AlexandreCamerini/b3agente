@@ -32,6 +32,9 @@ const here = dirname(fileURLToPath(import.meta.url));
 const app = readFileSync(join(here, "..", "src", "App.jsx"), "utf8");
 const brainSrc = readFileSync(join(here, "..", "src", "pet", "useBorisBrain.js"), "utf8");
 const chatSrc = readFileSync(join(here, "..", "src", "pet", "BorisChat.jsx"), "utf8");
+// Fase 38 (38-02, 2026-09-23): AssistenteBox/ConceitoSheet migraram para
+// web/src/entendimento.jsx — as duas asserções abaixo passam a lê-lo.
+const ent = readFileSync(join(here, "..", "src", "entendimento.jsx"), "utf8");
 
 let fails = 0;
 const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if (!cond) fails++; };
@@ -89,11 +92,13 @@ ok("sem STT, nenhum código tenta usar a API (guarda antes de instanciar)",
    /if \(!SR \|\| ouvindo\) return;/.test(chatSrc));
 
 // --------------------------------------------------- AssistenteBox intocada
+// Fase 38 (38-02, 2026-09-23): AssistenteBox migrou para entendimento.jsx — asserção reapontada, contrato intacto.
 ok("AssistenteBox (pergunta única, sem histórico) continua existindo tal qual, sem `historico` nenhum",
-   /function AssistenteBox\(\{ cid, dados, setor, tela \}\)/.test(app)
-   && !/AssistenteBox[\s\S]{0,400}historico/.test(app.slice(app.indexOf("function AssistenteBox"), app.indexOf("function AssistenteBox") + 2200)));
+   /function AssistenteBox\(\{ cid, dados, setor, tela \}\)/.test(ent)
+   && !/AssistenteBox[\s\S]{0,400}historico/.test(ent.slice(ent.indexOf("function AssistenteBox"), ent.indexOf("function AssistenteBox") + 2200)));
+// Fase 38 (38-02, 2026-09-23): ConceitoSheet migrou para entendimento.jsx — asserção reapontada, contrato intacto.
 ok("ConceitoSheet continua chamando AssistenteBox sem tela (pergunta isolada por conceito)",
-   /\{didatica && didatica\.assistente && <AssistenteBox cid=\{cid\} dados=\{dados\} setor=\{setor\} \/>\}/.test(app));
+   /\{didatica && didatica\.assistente && <AssistenteBox cid=\{cid\} dados=\{dados\} setor=\{setor\} \/>\}/.test(ent));
 
 if (fails) { console.error(`\n${fails} falha(s)`); process.exit(1); }
 console.log("\ntodos os testes passaram");

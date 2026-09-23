@@ -24,11 +24,16 @@ import { dirname, join } from "path";
 const here = dirname(fileURLToPath(import.meta.url));
 const app = readFileSync(join(here, "..", "src", "App.jsx"), "utf8");
 const persistence = readFileSync(join(here, "..", "src", "persistence.js"), "utf8");
+// Fase 38 (38-02, 2026-09-23): SetorAlvo/AssistenteBox/SUBLINHADO/SR_ONLY
+// migraram para web/src/entendimento.jsx — a fatia setorAlvo passa a ser
+// tirada daqui; asserções de call-site (abrirSetor, <SetorAlvo .../> etc.)
+// continuam medindo App.jsx.
+const ent = readFileSync(join(here, "..", "src", "entendimento.jsx"), "utf8");
 
 let fails = 0;
 const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if (!cond) fails++; };
 
-const setorAlvo = app.slice(app.indexOf("function SetorAlvo("), app.indexOf("function AssistenteBox("));
+const setorAlvo = ent.slice(ent.indexOf("function SetorAlvo("), ent.indexOf("function AssistenteBox("));
 ok("SetorAlvo existe e é isolável para as asserções de ausência", setorAlvo.length > 200);
 
 // ------------------------------------------------------------------ o toque
@@ -48,8 +53,9 @@ ok("o chip do fundamento é setor DENTRO da linha de análise",
    /setorId="analise"/.test(app) && /setorId="fundamento"/.test(app));
 
 // ------------------------------------------------------------- a indicação
+// Fase 38 (38-02, 2026-09-23): SUBLINHADO migrou para entendimento.jsx — asserção reapontada, contrato intacto.
 ok("a convenção do sublinhado pontilhado existe e é única",
-   /const SUBLINHADO = \{ textDecorationLine: "underline", textDecorationStyle: "dotted"/.test(app));
+   /const SUBLINHADO = \{ textDecorationLine: "underline", textDecorationStyle: "dotted"/.test(ent));
 for (const [onde, padrao] of [
   ["rótulo do badge (com plano)", /\.\.\.\(didaticaOk \? SUBLINHADO : \{\}\) \}\}>\{operador \? rotOp : rotEdu\}/],
   ["carimbo da barra", /fontFamily: MONO, \.\.\.SUBLINHADO \}\}>\s*\n\s*\{\/\* barra de outro dia/],
@@ -76,9 +82,10 @@ ok("o timing só arma o toque com PLANO (ativo={didaticaOk})",
    /setorId="timing" dados=\{dados\}[\s\S]{0,200}ativo=\{didaticaOk\}/.test(app));
 
 // ------------------------------------------------------------ acessibilidade
+// Fase 38 (38-02, 2026-09-23): SR_ONLY migrou para entendimento.jsx — segunda metade reapontada, contrato intacto.
 ok("cada setor tem caminho nomeado para leitor de tela (sr-only)",
    /aria-label=\{"O que é " \+ rotulo \+ "\?"\} style=\{SR_ONLY\}/.test(setorAlvo)
-   && /clipPath: "inset\(50%\)"/.test(app));
+   && /clipPath: "inset\(50%\)"/.test(ent));
 
 // --------------------------------------------------- medição de descoberta
 ok("abrirSetor conta toque × botão (o pontilhado está sendo encontrado?)",
@@ -90,9 +97,10 @@ ok("deviceStore espelha gestoUso com merge MONOTÔNICO (max, nunca substituiçã
    && /Math\.max\(base\[k\] \|\| 0, Math\.min\(Math\.floor\(v\), 100000\)\)/.test(persistence));
 
 // -------------------------------------------------- assistente com o setor
+// Fase 38 (38-02, 2026-09-23): AssistenteBox (2ª metade) migrou para entendimento.jsx — asserção dividida, contrato intacto.
 ok("a folha carrega o setor de origem e o assistente pergunta de lá",
    /setor=\{conceitoAberto\.setor \|\| null\}/.test(app)
-   && /tela: tela \|\| \(setor \? "setor:" \+ setor : "conceito:" \+ cid\)/.test(app));
+   && /tela: tela \|\| \(setor \? "setor:" \+ setor : "conceito:" \+ cid\)/.test(ent));
 ok("navegar a cadeia SAI do setor (tela volta a ser o conceito)",
    /trocarConceito: \(cid\) => setConceitoAberto\(\(c\) => \(c \? \{ \.\.\.c, cid, setor: null/.test(app));
 

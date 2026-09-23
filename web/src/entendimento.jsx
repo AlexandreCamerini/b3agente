@@ -16,8 +16,8 @@
  *
  * Regra de duplicação aceita (mesmo padrão de `web/src/opcoes/uiOpcoes.jsx`,
  * Fase 33): token de tema é espelho declarado local — `T` aqui aponta para as
- * MESMAS variáveis CSS que `App.jsx` injeta em `:root`, nenhum uso de `T.x`
- * muda de valor.
+ * MESMAS variáveis CSS que `App.jsx` injeta em `:root`, nenhum uso de um
+ * token muda de valor.
  */
 import { useState, useEffect } from "react";
 import { store } from "./persistence.js";
