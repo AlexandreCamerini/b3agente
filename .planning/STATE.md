@@ -46,7 +46,9 @@ Ambos os executores instruídos a não tocar STATE.md/ROADMAP.md; spot-check do 
 
 **Onda 2 completa (38-03) — 2026-09-23:** commits `8b5e0e6`/`c6fe822`/`c8cf969`. `web/src/glossario.js` novo (módulo puro, `catalogoKbValido`/`verbeteDoCatalogo`, base pro 38-04); `kbCatalogo` nos dois stores + `ctx` (paridade confirmada); `A.abrirVerbeteKb` como ação separada (não mexeu na assinatura de `A.abrirVerbete`, protegendo `test_concentracao_carteira.mjs`); `ConceitoSheet` resolve verbete kb síncrono do catálogo em memória, sem fetch. `npx vite build` limpo, suíte fora do sandbox sem falha nova (só a ambiental conhecida de `test_ios_assets.mjs`).
 
-**Próximo passo:** Onda 3 — `38-04` (KB-01, tela Glossário).
+**Onda 3 completa (38-04) — 2026-09-23:** commits `caeb49d`/`3cde3cc`/`86810bf`. KB-01 entregue: `TelaGlossario` em Perfil, filtros puros (`normalizarBusca`/`filtrarVerbetes`/`agruparPorFamilia` em `glossario.js`), busca live client-side + navegação por família (acordeão), estados vazio/erro honestos. 31/31 asserções em `test_glossario.mjs`, `npx vite build` limpo, sem falha nova na suíte. Gap anotado (não bloqueia): a pré-condição visual do checkpoint humano do 38-06 não foi exercitada nesta onda (sem servidor local rodando) — fica pro checkpoint de verdade na Onda 5.
+
+**Próximo passo:** Onda 4 — `38-05` (KB-02, **checkpoint bloqueante de decisão D-08** antes de codar os links).
 
 ## Posição anterior nesta fase (Fase 36, fechada)
 
