@@ -409,6 +409,44 @@ def test_proposta_com_lote_converte_a_estrutura_unica(monkeypatch):
     # `propose_option_setups` não devolve `scenarios`; lista vazia, nunca
     # cenário inventado
     assert corpo["emReais"]["cenarios"] == []
+    # Quick 260923-ndy (Task 1): `_setup()` é trava de alta, 2 pernas — o
+    # bloco de execução manual recusa com o motivo nomeado, nunca um corpo
+    # parcial (T-NDY-01).
+    assert corpo["execucao"] == {
+        "executavel": False,
+        "motivo": options_mcp_api.MOTIVO_EXEC_MULTIPERNA,
+    }
+
+
+def test_proposta_lote_200_deriva_execucao_call_coberta(monkeypatch):
+    """Quick 260923-ndy (Task 1): estrutura de 1 perna sell+CALL com lote em
+    múltiplo de 100 devolve o bloco `execucao` executável, com `contratos`
+    já convertido (lote em ações ÷ 100) — a conta que o front NUNCA faz."""
+    c, _ = _client(monkeypatch)
+    p = _registra(c)
+    _espiao(monkeypatch, _roteador(com_tese={
+        "ticker": "PETR4", "trading_date": "2026-08-28",
+        "underlying_price": 38.42, "direction": "bullish", "kind": None,
+        "setups": [{
+            "kind": "venda_coberta", "name": "venda coberta 2026-09-19",
+            "expiration": "2026-09-19",
+            "legs": [{"contract": "PETRI400", "side": "sell", "quantity": 1,
+                      "kind": "CALL", "strike": 40.0, "premium": 0.58,
+                      "delta": 0.34}],
+            "net_cost": -0.58, "flow": "credit", "max_gain": 0.58,
+            "max_loss": None, "unlimited_gain": False, "unlimited_loss": True,
+            "breakevens": [40.58],
+        }],
+        "note": "prêmios do fechamento do pregão anterior"}))
+
+    corpo = c.post("/api/options/mcp/proposta",
+                   json={"ticker": "PETR4", "direction": "bullish", "lote": 200},
+                   headers=_auth(p["token"])).json()
+    assert corpo["execucao"]["executavel"] is True
+    assert corpo["execucao"]["tipo"] == "call_coberta"
+    assert corpo["execucao"]["contratos"] == 2
+    assert corpo["execucao"]["contractSymbol"] == "PETRI400"
+    assert corpo["execucao"]["expiration"] == "2026-09-19"
 
 
 # ═══════════════════════════════════════════════════════ possibilidades ═══
