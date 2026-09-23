@@ -24,11 +24,14 @@ O que este módulo é:
 
 Formato de um verbete (dict):
     id       — string curta e estável, kebab-case (ex.: "ind-rsi").
+    titulo   — dict {"educacional": "...", "operador": "..."}. Título curto
+               (substantivo neutro na maioria dos casos; só forka por modo
+               onde o vocabulário diverge). Fase 38 (KB Didática ampliada).
     termos   — tupla de strings de busca que levam ao verbete (sinônimos,
                abreviações, nome do campo no app).
-    familia  — uma das 9 categorias do plano F2: "indicadores", "estrutura",
-               "familias", "modelos", "setups", "plano_risco", "fundamentos",
-               "mercado_b3", "estados_app".
+    familia  — uma das 9 categorias do plano F2 (ver `FAMILIAS`): "indicadores",
+               "estrutura", "familias", "modelos", "setups", "plano_risco",
+               "fundamentos", "mercado_b3", "estados_app".
     texto    — dict {"educacional": "...", "operador": "..."}. Modo Estudo
                nunca usa verbo de ordem; modo Operador fala como mesa. Nenhum
                texto promete resultado.
@@ -41,11 +44,19 @@ Funções públicas:
     verbete(id) -> dict | None      um verbete pelo id.
     buscar(pergunta, limite) -> list[dict]   busca por pontuação, sem corte de
                                               confiança (rota pública de busca).
-    formatar(verbete, modo) -> dict          verbete pronto para a API (texto
-                                              só do modo pedido + `veja`).
+    formatar(verbete, modo) -> dict          verbete pronto para a API (titulo
+                                              + texto só do modo pedido + `veja`).
+    catalogo_formatado(modo) -> dict         catálogo COMPLETO pronto para a
+                                              API (D-04), com `familias`
+                                              rotuladas e `termos` por verbete
+                                              — serve `GET /api/kb/catalogo`
+                                              (Fase 38), busca client-side.
     resolver(pergunta, modo) -> dict | None  decide se a KB cobre a pergunta
                                               com confiança suficiente para
                                               dispensar a LLM (Fase F3).
+
+Constante pública:
+    FAMILIAS — tupla de pares (id, rótulo) das 9 famílias, na ordem canônica.
 """
 from __future__ import annotations
 
@@ -110,6 +121,7 @@ def _de_conceito(cid: str) -> dict:
     termos = {cid, c["titulo"]["educacional"], c["titulo"]["operador"]}
     return {
         "id": cid,
+        "titulo": c["titulo"],  # referência, não cópia (D4 do docstring do módulo)
         "termos": tuple(sorted(t for t in termos if t)),
         "familia": _FAMILIA_DO_CONCEITO[cid],
         "texto": texto,
@@ -152,6 +164,7 @@ def _de_timing(vid: str) -> dict:
     estado, termos = _ESTADOS_TIMING[vid]
     return {
         "id": vid,
+        "titulo": _TITULO_TIMING[vid],
         "termos": tuple(termos),
         "familia": "estados_app",
         "texto": {
@@ -811,6 +824,7 @@ def _modelo_verbete(chave: str) -> dict:
     edu, ope = _MODELOS_EXTRA[chave]
     return {
         "id": "modelo-" + chave,
+        "titulo": _titulo("Modelo " + m["label"]),
         "termos": (chave, m["label"], "modelo " + m["label"].lower()),
         "familia": "modelos",
         "texto": {
@@ -1628,6 +1642,23 @@ def _construir() -> list:
     return out
 
 
+# As 9 famílias do plano F2, na ordem em que aparecem no catálogo. Rótulo
+# mora no BACKEND (skill didatica-boris: o front não compõe vocabulário) —
+# mesmos nos dois modos. Consumida por `catalogo_formatado()`/
+# `GET /api/kb/catalogo` (D-04).
+FAMILIAS = (
+    ("indicadores", "Indicadores"),
+    ("estrutura", "Estrutura de preço"),
+    ("familias", "Famílias de leitura"),
+    ("modelos", "Modelos de análise"),
+    ("setups", "Setups"),
+    ("plano_risco", "Plano e risco"),
+    ("fundamentos", "Fundamentos"),
+    ("mercado_b3", "Mercado e B3"),
+    ("estados_app", "Estados e leituras do app"),
+)
+
+
 def catalogo() -> list:
     """Todos os verbetes da KB. Reconstrói a cada chamada (o custo é
     desprezível para o tamanho deste catálogo) para refletir o estado atual
@@ -1693,13 +1724,43 @@ def buscar(pergunta: str, limite: int = 5) -> list:
 def formatar(v: dict, modo: str) -> dict:
     """Um verbete, pronto para a API: só o texto do MODO pedido (nunca os
     dois — o caminho antigo do `assistente.py` decide o vocabulário uma vez,
-    a KB segue a mesma regra) e o `veja` para navegação."""
+    a KB segue a mesma regra), o `titulo` do mesmo modo e o `veja` para
+    navegação. Aditivo: `resolver()`/`GET /api/kb/buscar` passam a carregar
+    `titulo` também — JSON aceita campo extra, sem ramificar por chamador."""
     voc = "operador" if modo == "operador" else "educacional"
+    titulo = v.get("titulo") or {}
     return {
         "id": v["id"],
         "familia": v.get("familia"),
+        "titulo": titulo.get(voc) or titulo.get("educacional") or "",
         "texto": v["texto"].get(voc) or v["texto"].get("educacional") or "",
         "veja": list(v.get("veja") or []),
+    }
+
+
+def catalogo_formatado(modo: str) -> dict:
+    """Catálogo COMPLETO pronto para a API (D-04): usado por
+    `GET /api/kb/catalogo`, que o front chama uma vez por modo para ter tudo
+    localmente e filtrar por busca client-side, sem custo de LLM.
+
+    Cada verbete é `formatar(v, modo)` acrescido de `termos` (a busca
+    client-side precisa dos sinônimos — "IFR" acha RSI). Verbete cujo `texto`
+    formatado é vazio (didática desligada zera os 9 derivados de
+    `conceitos.py`) é EXCLUÍDO — servir título sem corpo seria dado inválido
+    na tela (princípio 4 do CLAUDE.md: nunca inventar, nunca mostrar estado
+    incompleto como se fosse completo)."""
+    voc = "operador" if modo == "operador" else "educacional"
+    verbetes = []
+    for v in catalogo():
+        f = formatar(v, voc)
+        if not f["texto"]:
+            continue
+        f["termos"] = list(v.get("termos") or [])
+        verbetes.append(f)
+    return {
+        "modo": voc,
+        "familias": [{"id": fid, "rotulo": rotulo} for fid, rotulo in FAMILIAS],
+        "verbetes": verbetes,
     }
 
 

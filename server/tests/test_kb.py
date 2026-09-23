@@ -15,13 +15,15 @@ Guardiões deste arquivo:
 quando `MODELS`/`setups.py`/`kpi._MAPS`/`conceitos.CONCEITOS` ganham entradas
 novas.
 """
+import inspect
 import os
 import re
 import unicodedata
 
 import pytest
 
-from app import kb
+from app import conceitos, kb
+from app.technical_models import MODELS
 
 
 @pytest.fixture(autouse=True)
@@ -210,6 +212,57 @@ def test_tributacao_cita_numeros_de_mercado_ref_nao_hardcoded():
     assert str(mercado_ref.SWING_ALIQUOTA_PCT) in edu
     assert str(mercado_ref.DAY_TRADE_ALIQUOTA_PCT) in edu
     assert mercado_ref.DARF_CODIGO in edu
+
+
+# ------------------------------------------------ Fase 38: titulo/FAMILIAS
+def test_titulo_do_conceito_e_referencia_nao_copia():
+    v = kb.verbete("gatilho")
+    assert v["titulo"] == conceitos.CONCEITOS["gatilho"]["titulo"]
+    assert v["titulo"] is conceitos.CONCEITOS["gatilho"]["titulo"], \
+        "titulo do derivado de conceitos.py deve ser o MESMO objeto (D4), não cópia"
+
+
+def test_titulo_do_modelo_deriva_de_technical_models():
+    v = kb.verbete("modelo-completo")
+    assert v["titulo"]["educacional"] == "Modelo " + MODELS["completo"]["label"]
+    assert v["titulo"]["operador"] == "Modelo " + MODELS["completo"]["label"]
+
+
+def test_titulo_do_estado_de_timing_forka_por_modo():
+    v = kb.verbete("estado-atingido")
+    assert kb.formatar(v, "educacional")["titulo"] == "Condição de estudo atingida"
+    assert kb.formatar(v, "operador")["titulo"] == "Gatilho atingido"
+
+
+def test_todo_verbete_tem_titulo_nao_vazio_nos_dois_modos_e_limpo():
+    padroes = (r"\bcompre\b", r"\bcomprem\b", r"\bvenda\s+(agora|j[áa])\b",
+              r"\bentre\s+agora\b")
+    for v in kb.catalogo():
+        titulo = v.get("titulo") or {}
+        for modo in ("educacional", "operador"):
+            t = titulo.get(modo)
+            assert isinstance(t, str) and t.strip(), \
+                f"{v['id']} sem titulo no modo {modo!r}"
+            for exp in EXPRESSOES_PROIBIDAS:
+                assert not _ocorrencias_fora_de_negacao(t, exp), \
+                    f"{v['id']} titulo ({modo}) usa expressão proibida: {exp}"
+        edu = _normalizar(titulo.get("educacional") or "")
+        for pat in padroes:
+            assert not re.search(pat, edu), \
+                f"{v['id']} titulo educacional usa verbo de ordem: {pat}"
+
+
+def test_familias_tem_as_9_categorias_na_ordem_canonica():
+    ids = [f for f, _ in kb.FAMILIAS]
+    assert ids == ["indicadores", "estrutura", "familias", "modelos", "setups",
+                   "plano_risco", "fundamentos", "mercado_b3", "estados_app"]
+    familias_do_catalogo = {v["familia"] for v in kb.catalogo()}
+    assert familias_do_catalogo == set(ids)
+
+
+def test_buscar_limite_continua_5_por_assinatura():
+    """D-02/D-03: `kb.buscar()` não muda de comportamento nesta fase."""
+    assert inspect.signature(kb.buscar).parameters["limite"].default == 5
 
 
 def test_proventos_nao_arrisca_numero_da_reforma_2026_sem_ressalva():

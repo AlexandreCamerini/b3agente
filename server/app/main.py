@@ -4608,6 +4608,26 @@ async def get_kb_buscar(q: str = "", modo: Optional[str] = None,
     return {"query": q, "resultados": [kb.formatar(v, voc) for v in achados]}
 
 
+# Fase 38 (KB Didática ampliada) — D-04: o front busca o catálogo INTEIRO uma
+# única vez por modo e filtra localmente (busca live client-side), em vez de
+# bater na rota de busca a cada tecla. Pública, sem custo, sem conta — mesmo
+# perfil de `GET /api/kb/buscar`. Sem cache de servidor: o catálogo já é
+# "custo desprezível" (ver docstring de `kb.catalogo()`).
+@app.get("/api/kb/catalogo")
+async def get_kb_catalogo(modo: Optional[str] = None,
+                          scope: Optional[str] = Depends(current_scope)):
+    """Catálogo completo da base de conhecimento — sem custo, sem conta.
+
+    Devolve o catálogo formatado no modo resolvido: `familias` (9, rotuladas)
+    + todos os `verbetes` (com `titulo`/`texto`/`termos`/`veja`). Só
+    `appMode` da config sai daqui para escolher o vocabulário — nada mais da
+    config é ecoado na resposta."""
+    from . import kb
+    cfg = store.get(_conn, "config", user_id=scope) or {}
+    voc = "operador" if (modo or cfg.get("appMode")) == "operador" else "educacional"
+    return kb.catalogo_formatado(voc)
+
+
 # Fase 4/F3 — ASSISTENTE de entendimento. A KB (grátis) responde primeiro; só
 # quando ela não cobre a pergunta com confiança é que a rota cai para a LLM
 # (paga, sob conta).
