@@ -1322,6 +1322,113 @@ def _em_reais(dados: dict, lote: int) -> dict:
     }
 
 
+# Quick 260923-ndy (Task 1) — textos VERBATIM na UI (princípio 4 do
+# CLAUDE.md), fonte única aqui.
+MOTIVO_EXEC_VARIAS = ("O serviço devolveu mais de uma estrutura. Escolha um "
+                      "vencimento e monte de novo para executar uma só.")
+MOTIVO_EXEC_MULTIPERNA = ("Estruturas de mais de uma perna (como travas e "
+                          "collar) ainda não são executáveis a partir da "
+                          "análise manual. O collar pode ser executado pelo "
+                          "bloco \"As 4 melhores oportunidades de opções\".")
+MOTIVO_EXEC_VENDA_PUT = ("Venda de put não tem caminho de execução no "
+                         "simulador — esta estrutura fica só como leitura.")
+MOTIVO_EXEC_INCOMPLETA = ("O serviço não informou o contrato ou o "
+                          "vencimento desta perna — nada é executado sem "
+                          "eles.")
+MOTIVO_EXEC_PROPORCAO = ("A perna veio com proporção diferente de 1 "
+                         "contrato por lote — a execução manual só cobre a "
+                         "proporção 1:1.")
+MOTIVO_EXEC_SEM_LOTE = ("Informe o lote em ações e monte a estrutura de novo "
+                        "para executar.")
+MOTIVO_EXEC_LOTE_CENTENA = ("Para executar, o lote precisa ser múltiplo de "
+                            "100 ações (1 contrato = 100 ações). Ajuste o "
+                            "lote e monte de novo.")
+
+
+def _execucao_da_proposta(estruturas: list, lote) -> Optional[dict]:
+    """Deriva o bloco `execucao` (candidato a execução manual, quick
+    260923-ndy) a partir da(s) estrutura(s) de `propose_option_setups`.
+
+    Por que esta conta vive AQUI, no backend, e não no front (princípio 5 do
+    CLAUDE.md; premissa 2 do plano da quick): `contratos` é número de
+    CONTRATOS e o lote do Analisar é em AÇÕES — converter no cliente seria
+    uma segunda versão da mesma conta que `_em_reais`/D-24.2 já proíbem.
+
+    Mapa perna → tipo de execução (premissa 6 do plano da quick): sell+CALL
+    vira `call_coberta`; buy+PUT vira `put_protecao` (lastro é a regra
+    padrão da conta — sem posição no ativo o servidor recusa, verbatim, na
+    hora de executar); buy+CALL vira `opcao_a_descoberto` (mesma leitura de
+    `opcoes_curadoria.py` ~linha 480: compra de call a seco); sell+PUT não
+    tem rota de venda de put no simulador — fica só como leitura.
+
+    `[]` devolve `None` (nada montado; a UI já mostra `motivo` do serviço
+    para esse caso). Qualquer forma inesperada — 2+ estruturas, perna que
+    não é única, contrato/vencimento ausente, proporção diferente de 1,
+    combinação de lado×tipo sem rota — vira `executavel: False` com um
+    motivo nomeado, NUNCA um corpo parcial (T-NDY-01 do threat model).
+
+    Ordem das checagens (fonte única, comentada em vez de re-derivada por
+    quem lê o código): vazio → várias → pernas≠1 → incompleta → proporção →
+    lado/tipo → lote ausente → lote fora de centena. `contratos`/`qtyAcoes`
+    SÓ nascem depois de provar `lote % 100 == 0` — o que executa precisa ser
+    do MESMO tamanho que `emReais` já mostrou em reais (a rota de
+    `store.buy_option` normaliza para centena e divergiria em silêncio se a
+    execução aceitasse um lote que a leitura não aceitou).
+    """
+    if not estruturas:
+        return None
+    if len(estruturas) > 1:
+        return {"executavel": False, "motivo": MOTIVO_EXEC_VARIAS}
+
+    estrutura = estruturas[0] if isinstance(estruturas[0], dict) else {}
+    legs = [p for p in (estrutura.get("legs") or []) if isinstance(p, dict)]
+    if len(legs) != 1:
+        return {"executavel": False, "motivo": MOTIVO_EXEC_MULTIPERNA}
+
+    perna = legs[0]
+    contract = perna.get("contract")
+    expiration = estrutura.get("expiration") or perna.get("expiration")
+    if not contract or not expiration:
+        return {"executavel": False, "motivo": MOTIVO_EXEC_INCOMPLETA}
+
+    # `True`/`False` NÃO é 1 nem 0 — mesma disciplina de `_lote`/`_vezes_lote`
+    # (um booleano truthy passaria por "1 contrato por lote" sem ser).
+    quantity = perna.get("quantity")
+    if isinstance(quantity, bool) or quantity != 1:
+        return {"executavel": False, "motivo": MOTIVO_EXEC_PROPORCAO}
+
+    side = str(perna.get("side") or "").strip().lower()
+    kind = str(perna.get("kind") or "").strip().upper()
+
+    if side == "sell" and kind == "CALL":
+        tipo = "call_coberta"
+    elif side == "buy" and kind == "PUT":
+        tipo = "put_protecao"
+    elif side == "buy" and kind == "CALL":
+        tipo = "opcao_a_descoberto"
+    elif side == "sell" and kind == "PUT":
+        return {"executavel": False, "motivo": MOTIVO_EXEC_VENDA_PUT}
+    else:
+        # side/kind fora do vocabulário conhecido do serviço — mesma
+        # incerteza de "não sei montar o corpo" que a falta de contrato/
+        # vencimento já cobre.
+        return {"executavel": False, "motivo": MOTIVO_EXEC_INCOMPLETA}
+
+    if lote is None:
+        return {"executavel": False, "motivo": MOTIVO_EXEC_SEM_LOTE}
+    if isinstance(lote, bool) or not isinstance(lote, int) or lote % 100 != 0:
+        return {"executavel": False, "motivo": MOTIVO_EXEC_LOTE_CENTENA}
+
+    return {
+        "executavel": True,
+        "tipo": tipo,
+        "contractSymbol": contract,
+        "expiration": expiration,
+        "contratos": lote // 100,
+        "qtyAcoes": lote,
+    }
+
+
 def _razao_ganho_perda(dados: dict) -> dict:
     """Quantas vezes o ganho máximo cabe na perda máxima.
 
@@ -2418,6 +2525,10 @@ async def proposta(body: dict = Body(default={}),
             "valorHoje": valor_hoje,
             "frescor": _frescor_nao_medido(AVISO_FRESCOR_SEM_ANEXO),
             "cap": _cap_bloco(uid),
+            # Quick 260923-ndy (Task 1): candidato a execução manual da
+            # estrutura montada — `None`/`executavel: False` com motivo
+            # nomeado quando não dá, nunca um corpo parcial.
+            "execucao": _execucao_da_proposta(estruturas, lote),
         }
 
 
