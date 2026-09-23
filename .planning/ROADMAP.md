@@ -200,7 +200,7 @@ Full phase details: [milestones/v1.7-ROADMAP.md](milestones/v1.7-ROADMAP.md)
 | 35. Jornada Guiada do Workspace | 3/3 | Complete (checkpoint humano aprovado ao vivo) | 2026-09-21 |
 | 36. Motor de Payoff Genérico | 2/2 | Complete | 2026-09-21 |
 | 37. Gráfico de Payoff e Explicação Confiáveis | 5/5 | Complete (checkpoint com ressalva — ver STATE.md) | 2026-09-22 |
-| 38. KB Didática ampliada | 0/? | Not started | - |
+| 38. KB Didática ampliada | 2/6 | In progress | 2026-09-23 |
 | 39. Continuidade da aba Opções | 0/? | Not started | - |
 | 40. Consolidação de registros de tela | 0/? | Not started | - |
 
@@ -226,8 +226,8 @@ que é o core value do produto.
      `App.jsx`, e `OpcoesScreen.jsx` continua sem importar nada de `App.jsx`
      (isolamento deliberado preservado, `OpcoesScreen.jsx:20-24`)
 **Plans**: 6 plans em 5 ondas (01 ∥ 02, depois 03 → 04 → 05 → 06)
-- [ ] 38-01-PLAN.md — KB backend: `titulo` nos 83 verbetes (65 autorados + 18 derivados), `FAMILIAS` rotuladas, `GET /api/kb/catalogo`
-- [ ] 38-02-PLAN.md — extração pura de `SetorAlvo`/`ConceitoSheet`/`AssistenteBox`/`AiNote` para `web/src/entendimento.jsx` + 6 guardiões reapontados
+- [x] 38-01-PLAN.md — KB backend: `titulo` nos 83 verbetes (65 autorados + 18 derivados), `FAMILIAS` rotuladas, `GET /api/kb/catalogo`
+- [x] 38-02-PLAN.md — extração pura de `SetorAlvo`/`ConceitoSheet`/`AssistenteBox`/`AiNote` para `web/src/entendimento.jsx` + 6 guardiões reapontados
 - [ ] 38-03-PLAN.md — ponte kb × conceito: `fonte` explícita na `ConceitoSheet`, `kbCatalogo` nos dois stores e no `ctx`, `A.abrirVerbeteKb`
 - [ ] 38-04-PLAN.md — KB-01: tela Glossário em Perfil (busca live + 9 famílias + vazio/erro honestos)
 - [ ] 38-05-PLAN.md — KB-02: checkpoint de decisão D-08 (vid por aba) + 4 "saiba mais" (Opções via módulo compartilhado)

@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v1.8
 milestone_name: Didática ampliada + continuidade da aba Opções
-status: planning
-last_updated: "2026-09-23T06:10:00.000Z"
+status: executing
+last_updated: "2026-09-23T06:20:00.000Z"
 last_activity: 2026-09-23
 progress:
   total_phases: 3
@@ -20,7 +20,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-20)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Milestone v1.8 (Didática ampliada + continuidade da aba Opções) — ROADMAP.md criado (Phases 38-40, 4/4 requirements mapeados). Fase 38 planejada, pronta para executar. Próximo passo: `/gsd:execute-phase 38`.
+**Current focus:** Milestone v1.8 (Didática ampliada + continuidade da aba Opções) — ROADMAP.md criado (Phases 38-40, 4/4 requirements mapeados). Fase 38 EXECUTANDO (`/gsd-execute-phase 38`, sem worktree, sequencial por onda).
 
 ## Current Position
 
@@ -36,9 +36,15 @@ Status: `/gsd-plan-phase 38` completo (2026-09-23). Sequência: gate de UI-SPEC 
 
 **Risco declarado, não resolvido:** para cumprir D-08 ao pé da letra (isolamento `OpcoesScreen.jsx`↔`App.jsx`, "ambos importam do módulo novo"), o "saiba mais" de Opções monta uma cópia local da folha de conceito em vez de reusar a folha global já em produção — o botão flutuante do Boris provavelmente não se esconde sob essa folha local. Declarado no 38-05, conferido no checkpoint humano do 38-06.
 
-**Guardrail aplicado:** mutadores de estado do gsd-sdk não foram chamados (`state.planned-phase` etc.) — este STATE.md foi editado à mão; `roadmap.annotate-dependencies` (não é `state.*`) rodou e confirmou `updated: false` (planner já tinha anotado o ROADMAP.md).
+**Onda 1 completa (38-01, 38-02) — 2026-09-23, `/gsd-execute-phase 38` sem worktree, sequencial:**
+- `38-01` (backend, commits `66f7d1e`/`6f24e00`/`46a19ad`): 65 títulos autorados + 18 derivados, `FAMILIAS`, `catalogo_formatado()`, rota `GET /api/kb/catalogo`. 65 testes-alvo + suíte completa fora do sandbox: 2987 pytest, 0 falhas relevantes (27 falhas dentro do sandbox são artefato de rede/mocking pré-existente, nenhuma toca `kb.py`/`main.py`).
+- `38-02` (frontend, commits `bbab82e`/`5f47f18`/`4471a49`): `SetorAlvo`/`ConceitoSheet`/`AssistenteBox`/`AiNote` extraídos verbatim para `web/src/entendimento.jsx`; 6 guardiões reapontados + 1 novo (`test_entendimento_modulo.mjs`). **Defeito real achado e corrigido pela própria extração:** a asserção de `zIndex:86` em `test_conceito_ui.mjs` vinha passando silenciosamente contra o componente ERRADO (`PetSheet`, coincidência de zIndex) desde antes desta fase — reapontada pra testar `ConceitoSheet` de verdade. `npx vite build` limpo. Suíte fora do sandbox: 2987 pytest + 156/157 `.mjs` (só a falha ambiental conhecida, `test_ios_assets.mjs`).
 
-**Próximo passo:** `/gsd:execute-phase 38` (`/clear` antes).
+Ambos os executores instruídos a não tocar STATE.md/ROADMAP.md; spot-check do orquestrador confirmou os 2 SUMMARY.md e os 6 commits antes de prosseguir pra Onda 2 (38-03).
+
+**Guardrail aplicado:** mutadores de estado do gsd-sdk não foram chamados (`state.planned-phase`/`state.begin-phase` etc.) — este STATE.md foi editado à mão; `roadmap.annotate-dependencies` (não é `state.*`) rodou e confirmou `updated: false` (planner já tinha anotado o ROADMAP.md).
+
+**Próximo passo:** Onda 2 — `38-03` (ponte kb×conceito).
 
 ## Posição anterior nesta fase (Fase 36, fechada)
 
