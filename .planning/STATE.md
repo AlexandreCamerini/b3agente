@@ -48,7 +48,11 @@ Ambos os executores instruídos a não tocar STATE.md/ROADMAP.md; spot-check do 
 
 **Onda 3 completa (38-04) — 2026-09-23:** commits `caeb49d`/`3cde3cc`/`86810bf`. KB-01 entregue: `TelaGlossario` em Perfil, filtros puros (`normalizarBusca`/`filtrarVerbetes`/`agruparPorFamilia` em `glossario.js`), busca live client-side + navegação por família (acordeão), estados vazio/erro honestos. 31/31 asserções em `test_glossario.mjs`, `npx vite build` limpo, sem falha nova na suíte. Gap anotado (não bloqueia): a pré-condição visual do checkpoint humano do 38-06 não foi exercitada nesta onda (sem servidor local rodando) — fica pro checkpoint de verdade na Onda 5.
 
-**Próximo passo:** Onda 4 — `38-05` (KB-02, **checkpoint bloqueante de decisão D-08** antes de codar os links).
+**Onda 4 completa (38-05) — 2026-09-23:** commits `4f5a4d6`/`2b8d1a7`/`0e73680`. **D-08 resolvido:** Alex aprovou a proposta original do UI-SPEC sem alteração via AskUserQuestion do orquestrador (Acompanhar→`mkt-carteira-simulada`, Radar→`confluencia`, Watchlist→`ind-rsi`, Opções→`mkt-opcao`), confirmado contra `kb.catalogo()` antes de codar. `ANCORAS_KB` (fonte única, `Object.freeze`) em `glossario.js`; 3 links em `App.jsx` (Evolução/Mercado/Radar) com portão `didatica.ligada && verbeteDoCatalogo(...)`; link em `OpcoesScreen.jsx` com `ConceitoSheet` LOCAL importada de `../entendimento.jsx` — zero import de `App.jsx` confirmado (isolamento ADR-027 intacto). Suíte fora do sandbox: 2991 pytest + 156/157 `.mjs`, sem falha nova.
+
+**Tensão declarada, NÃO resolvida por desenho — a conferir no checkpoint humano do 38-06:** a folha local de conceito em Opções (Task 3 do 38-05) não entra em `ctx.overlayLivre`, então o FAB do Boris provavelmente não se esconde sob ela.
+
+**Próximo passo:** Onda 5 — `38-06` (verificação humana ao vivo + publicação, **checkpoint bloqueante**).
 
 ## Posição anterior nesta fase (Fase 36, fechada)
 
