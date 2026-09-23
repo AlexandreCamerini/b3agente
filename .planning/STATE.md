@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.8
 milestone_name: Didática ampliada + continuidade da aba Opções
 status: planning
-last_updated: "2026-09-23T03:57:38.119Z"
+last_updated: "2026-09-23T04:30:00.000Z"
 last_activity: 2026-09-23
 progress:
   total_phases: 3
@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-20)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Milestone v1.8 (Didática ampliada + continuidade da aba Opções) — ROADMAP.md criado (Phases 38-40, 4/4 requirements mapeados). Próximo passo: `/gsd:plan-phase 38`.
+**Current focus:** Milestone v1.8 (Didática ampliada + continuidade da aba Opções) — ROADMAP.md criado (Phases 38-40, 4/4 requirements mapeados). CONTEXT.md da Fase 38 capturado. Próximo passo: `/gsd:plan-phase 38`.
 
 ## Current Position
 
-Phase: 38 (KB Didática ampliada) — não iniciada
+Phase: 38 (KB Didática ampliada) — contexto capturado, planejamento não iniciado
 Plan: —
-Status: ROADMAP.md criado (Phases 38-40: KB Didática ampliada, Continuidade da aba Opções, Consolidação de registros de tela). 4/4 requirements v1 mapeados, 0 orfãos. Aguardando `/gsd:plan-phase 38`.
-Last activity: 2026-09-23 — ROADMAP.md e traceability de REQUIREMENTS.md criados para o milestone v1.8
+Status: `/gsd-discuss-phase 38` completo (2026-09-23) — `38-CONTEXT.md`/`38-DISCUSSION-LOG.md` commitados (`1a13964`). Decisões: busca livre+família na mesma tela (campo filtra client-side, live, sem limite, estado vazio explícito); vive num tile novo em Perfil (mesmo padrão de `ProfileTile`); "saiba mais" fixo por aba nas 4 sem cobertura (Acompanhar/Radar/Watchlist/Opções), `vid` exato proposto pelo planner e aprovado antes de codar. Achado do scout: `kb.buscar()`/`kbBuscar` já existem ponta a ponta (backend+frontend) mas SEM NENHUM consumidor de UI hoje; não existe endpoint de catálogo completo (só busca pontuada/limitada) — fica para o planner endereçar. Aguardando `/gsd:plan-phase 38`.
+Last activity: 2026-09-23 — `38-CONTEXT.md` capturado via discuss-phase (4 áreas discutidas: mecanismo de busca, onde a busca vive, âncora do "saiba mais" por aba, comportamento dos resultados)
 
 ## Posição anterior nesta fase (Fase 36, fechada)
 
