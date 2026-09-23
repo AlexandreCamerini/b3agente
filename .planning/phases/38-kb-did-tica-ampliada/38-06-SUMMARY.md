@@ -142,3 +142,11 @@ None — nenhuma configuração externa necessária.
 ---
 *Phase: 38-kb-did-tica-ampliada*
 *Completed: 2026-09-23*
+
+## Self-Check: PASSED
+
+`38-06-SUMMARY.md` confirmado presente no filesystem; commits `727d1e0`
+(Task 2, publicação) e `4f85e05` (Task 3, fechamento dos docs) confirmados em
+`git log --oneline --all`. Produção confirmada por HTTP: `/api/health` →
+`F10-20260923-01`, `/api/kb/catalogo` → 83 verbetes/9 famílias.
+`git log origin/main -1` == `git rev-parse HEAD` (`4f85e05`).
