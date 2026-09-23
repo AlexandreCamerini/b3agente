@@ -967,6 +967,15 @@ export default function OpcoesScreen({ ctx }) {
               custos={CUSTO_DA_ACAO}
               cp={cp}
               palette={palette}
+              // Quick 260923-ndy (Task 2): fio de execução da estrutura
+              // montada manualmente — despacha pelo MESMO caminho do bloco
+              // de curadoria (`ctx.A.executarCandidatoCurado`), com
+              // `origem: "analisar"` para o track diferenciar as duas
+              // superfícies. Forma DIFERENTE da literal travada em
+              // test_opcoes_consolidacao_ui.mjs:197 — a contagem de 1
+              // daquele guardião continua valendo (é outro prop).
+              operador={!!(ctx && ctx.operador)}
+              onExecutarProposta={(cand, o) => ctx.A.executarCandidatoCurado(cand, { ...o, origem: "analisar" })}
             />
           ) : null}
 

@@ -286,6 +286,10 @@ export const COPY = {
     // chaves de progresso acima: metadado, não ação nem dinheiro.
     opcoesEstruturaMontada: "Estrutura montada",
     opcoesPossibilidadesVistas: "Possibilidades carregadas",
+    // Quick 260923-ndy (Task 2): linha fixa acima do botão de execução do
+    // bloco `ExecutarProposta.jsx` — reforça, na hora do clique, que a
+    // ordem é virtual (princípio 1/8 do CLAUDE.md). Sem linguagem de ganho.
+    opcoesExecucaoSimulada: "Execução simulada com dinheiro virtual — nenhuma ordem vai para corretora ou bolsa.",
     // Fase 27 (27-02): a frase do CUSTO ficou genérica e a COMPOSIÇÃO saiu
     // para uma chave própria. Ela é a forma única de declarar custo na aba, e
     // agora também o botão do bloco de vigias a usa — cuja conta é outra
@@ -1006,6 +1010,8 @@ export const COPY = {
     // valor idêntico nos dois modos (D-06).
     opcoesEstruturaMontada: "Estrutura montada",
     opcoesPossibilidadesVistas: "Possibilidades carregadas",
+    // Quick 260923-ndy (Task 2): mesma linha do ramo estudo, voz de mesa.
+    opcoesExecucaoSimulada: "Execução simulada, saldo virtual — nenhuma ordem sai do app.",
     // Fase 27 (27-02): mesma separação do ramo estudo — custo genérico aqui,
     // composição na chave própria abaixo.
     opcoesCustoChamadas: (n) =>

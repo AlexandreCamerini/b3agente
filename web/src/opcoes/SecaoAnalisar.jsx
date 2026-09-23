@@ -25,6 +25,14 @@
  * `stopNum` (Option B, 33-04-SUMMARY.md), formatação de UMA linha, não a
  * conta de negócio que esta extração proíbe recalcular.
  *
+ * NOTA 2026-09-23 (quick 260923-ndy, Task 2): "zero funcionalidade nova
+ * (D-03)" acima descreve a extração da Fase 33 — histórico, não se
+ * reescreve. Esta quick ACRESCENTA funcionalidade nova e deliberada: o
+ * bloco `<ExecutarProposta>` logo depois de `<Pernas>`, fechando o buraco
+ * de fluxo achado ao vivo pelo Alex (a estrutura montada em Analisar não
+ * tinha caminho de execução). Recebe `operador`/`onExecutarProposta` por
+ * prop — mesmo padrão de "tudo por prop" do resto deste arquivo.
+ *
  * `Linha`/`RazaoGanhoPerda`/`ErroDoMcp`/`Kicker`/`Aviso` vêm de `uiOpcoes.jsx`
  * (job 3 e job 4/`SecaoComparar.jsx` usam a MESMA implementação). `Pernas`,
  * `TabelaDeOpcoes` e `LacunasDaLeitura` migraram para DENTRO deste arquivo —
@@ -35,6 +43,7 @@ import { useState, useEffect } from "react";
 import { Kicker, Aviso, ErroDoMcp, Linha, RazaoGanhoPerda } from "./uiOpcoes.jsx";
 import PayoffChart from "./PayoffChart.jsx";
 import ExplicacaoPayoff from "./ExplicacaoPayoff.jsx";
+import ExecutarProposta from "./ExecutarProposta.jsx";
 
 // Mesmos NOMES de variável CSS que o núcleo do app injeta em `:root` —
 // espelho declarado, mesmo padrão dos irmãos desta pasta. Zero import do
@@ -238,6 +247,7 @@ export default function SecaoAnalisar({
   proposta, montarProposta,
   cadeia, operaveis, abrirCadeia, abrirOperaveis,
   custos, cp, palette,
+  operador, onExecutarProposta,
 }) {
   // "" | "cadeia" | "operaveis" — visual, exclusivo deste job (Pitfall 6).
   const [painel, setPainel] = useState("");
@@ -405,6 +415,16 @@ export default function SecaoAnalisar({
                     cp={cp}
                   />
                   <Pernas pernas={proposta.dados.estruturas[0].legs} cp={cp} />
+                  {/* Quick 260923-ndy (Task 2): bloco de execução da
+                      estrutura que o usuário acabou de montar — gate de
+                      Estudo, motivo/erro verbatim e consentimento de
+                      liquidez ficam DENTRO do componente. */}
+                  <ExecutarProposta
+                    dados={proposta.dados}
+                    operador={operador}
+                    onExecutar={onExecutarProposta}
+                    cp={cp}
+                  />
                 </>
               ) : null}
             </div>

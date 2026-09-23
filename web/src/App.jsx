@@ -8423,7 +8423,10 @@ export default function App() {
     executarCandidatoCurado: async (cand, opts) => {
       const s = await executarCandidato(cand, { store, aceitaLiquidezDificil: opts && opts.aceitaLiquidezDificil });
       setData(s);
-      track("trade_simulated", { side: "abrir", ticker: cand.ticker, instrument: "curadoria_" + cand.tipo });
+      // Quick 260923-ndy: `origem: "analisar"` (ExecutarProposta.jsx) usa o
+      // mesmo despacho da curadoria — só o rótulo do track diferencia as
+      // duas superfícies, nada mais muda.
+      track("trade_simulated", { side: "abrir", ticker: cand.ticker, instrument: (opts && opts.origem === "analisar" ? "analisar_" : "curadoria_") + cand.tipo });
       flash(cp.curadoriaExecutada);
       return s;
     },
