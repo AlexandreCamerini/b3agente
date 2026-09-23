@@ -85,6 +85,15 @@ import SecaoComparar from "./SecaoComparar.jsx";
 // já existente (D-03: reset de tese/vencimento/alvo/stop sem segundo
 // caminho). Componente props-only, criado no 34-01.
 import WorkspaceHeader from "./WorkspaceHeader.jsx";
+// Fase 38 (38-05): módulo terceiro, nenhum import de App.jsx — isolamento
+// ADR-027 intacto. `ConceitoSheet` é a MESMA folha global que App.jsx monta,
+// mas instanciada aqui com estado LOCAL (D-08, KB-02) — o dado atravessa o
+// isolamento por `ctx` (canal já estabelecido), nunca por import de App.jsx.
+import { ConceitoSheet } from "../entendimento.jsx";
+// Fase 38 (38-05): ANCORAS_KB é a fonte única do vid fixo desta aba
+// (KB-02, D-07/D-08); `verbeteDoCatalogo` é o mesmo portão que App.jsx usa
+// para as outras 3 abas — sem link morto enquanto o catálogo carrega/falha.
+import { ANCORAS_KB, verbeteDoCatalogo } from "../glossario.js";
 
 // Mesmos NOMES de variável CSS que `App.jsx` injeta em `:root` — padrão de
 // `pet/BorisChat.jsx`. Zero import de `App.jsx` (seria ciclo).
@@ -286,6 +295,11 @@ export default function OpcoesScreen({ ctx }) {
   // estado faria a aba interna do workspace mudar a sub-aba da tela inteira.
   // Nasce em "analisar" porque é o job que a leitura paga entrega primeiro.
   const [abaWorkspace, setAbaWorkspace] = useState("analisar");
+  // Fase 38 (38-05, KB-02): estado LOCAL da folha de conceito do "saiba
+  // mais" fixo desta aba — trilha própria (D-08), mesma semântica de
+  // A.trocarConceito/A.voltarConceito em App.jsx, sem tocar o overlay
+  // global (`conceitoAberto`) nem `A.abrirVerbete`.
+  const [verbeteAberto, setVerbeteAberto] = useState(null); // {cid, trilha}
   const {
     status, leitura, grafico, abrirGrafico, fecharGrafico, abrirLeitura,
     cadeia, operaveis, proposta, possibilidades,
@@ -776,6 +790,12 @@ export default function OpcoesScreen({ ctx }) {
       <p style={{ fontSize: "13px", color: T.textSecondary, margin: "0 0 14px", lineHeight: 1.5 }}>
         {cp.subtituloOpcoes || ""}
       </p>
+      {/* Fase 38 (38-05, KB-02): link "saiba mais" fixo (D-07/D-08) — mesmo
+          portão/estilo do precedente de Portfólio em App.jsx (diversificacao,
+          ~L4275); aqui abre a folha LOCAL, não `A.abrirVerbeteKb`. */}
+      {ctx && ctx.didatica && ctx.didatica.ligada && verbeteDoCatalogo(ctx.kbCatalogo, ANCORAS_KB.opcoes) && (
+        <button type="button" onClick={() => setVerbeteAberto({ cid: ANCORAS_KB.opcoes, trilha: [] })} style={{ background: "transparent", border: "none", padding: 0, marginTop: "6px", color: T.accent, fontWeight: 700, fontSize: "12px", textDecoration: "none" }}>{cp.saibaMais || "saiba mais"}</button>
+      )}
       {subabas}
 
       {subaba !== "setups" ? (
@@ -1018,6 +1038,24 @@ export default function OpcoesScreen({ ctx }) {
         {cp.opcoesDisclaimer || ""}
       </p>
       </>
+      )}
+      {/* Fase 38 (38-05, KB-02): instância LOCAL da folha de conceito — a
+          MESMA semântica de trilha de A.trocarConceito/A.voltarConceito
+          (App.jsx), estado próprio. Tensão conhecida e declarada (não
+          resolvida aqui, ver 38-05-PLAN.md <objective>): esta folha NÃO
+          entra em `ctx.overlayLivre`, então o FAB do Boris provavelmente
+          não se esconde sob ela — a conferir no checkpoint humano do 38-06. */}
+      {verbeteAberto && (
+        <ConceitoSheet
+          cid={verbeteAberto.cid}
+          dados={null}
+          fonte="kb"
+          kbCatalogo={ctx && ctx.kbCatalogo}
+          didatica={ctx && ctx.didatica}
+          onClose={() => setVerbeteAberto(null)}
+          onTrocar={(vid) => setVerbeteAberto((v) => ({ cid: vid, trilha: [...v.trilha, v.cid] }))}
+          voltar={verbeteAberto.trilha.length ? () => setVerbeteAberto((v) => ({ cid: v.trilha[v.trilha.length - 1], trilha: v.trilha.slice(0, -1) })) : null}
+        />
       )}
     </section>
   );
