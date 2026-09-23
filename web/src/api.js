@@ -283,6 +283,8 @@ export const api = {
   // Base de conhecimento (Fase F3): busca pública, custo zero, sem conta —
   // mesma camada que /api/assistente já consulta primeiro por dentro.
   kbBuscar: (q, modo) => req("GET", "/api/kb/buscar?q=" + encodeURIComponent(q || "") + (modo ? "&modo=" + encodeURIComponent(modo) : ""), undefined, 15000),
+  // Fase 38 (38-03): catálogo completo, uma vez por modo (D-04) — o filtro é local.
+  kbCatalogo: (modo) => req("GET", "/api/kb/catalogo" + (modo ? "?modo=" + encodeURIComponent(modo) : ""), undefined, 15000),
   // Assistente: a KB responde primeiro (grátis, sem conta); só cai para a
   // LLM (camada PAGA, exige conta) quando ela não cobre — o servidor decide
   // sozinho e devolve `fonte: "kb" | "llm"`.

@@ -243,6 +243,8 @@ function serverStore() {
     conceitos: (modo, resumido) => api.conceitos(modo, resumido),
     conceito: (cid, body) => api.conceito(cid, body),
     kbBuscar: (q, modo) => api.kbBuscar(q, modo),
+    // Fase 38 (38-03): catálogo completo da KB — mesmo desenho de kbBuscar.
+    kbCatalogo: (modo) => api.kbCatalogo(modo),
     assistente: (body) => api.assistente(body),
     petResumo: (tela) => api.petResumo(undefined, tela),           // pet: modo fica com o servidor; F4: tela escolhe a aba
 
@@ -1186,6 +1188,8 @@ function deviceStore() {
     async conceito(cid, body) { ensure(); return api.conceito(cid, { modo: doc.config.appMode || "estudo", ...(body || {}) }); },
     // KB: modo local-first, mesma regra do conceitos/timing.
     async kbBuscar(q, modo) { ensure(); return api.kbBuscar(q, modo || doc.config.appMode || "estudo"); },
+    // Fase 38 (38-03): catálogo completo, modo local-first, mesma regra do kbBuscar.
+    async kbCatalogo(modo) { ensure(); return api.kbCatalogo(modo || doc.config.appMode || "estudo"); },
     // Assistente: no aparelho o MODELO e a CHAVE são locais — o servidor não
     // os tem. Mandar `config` no corpo é o que evita repetir o qa/29
     // ("Nenhum modelo de IA configurado" em produção, só no iPhone).

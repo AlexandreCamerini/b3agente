@@ -54,6 +54,9 @@ import { falarTexto, calarVoz, setVozConfig, listarVozes } from "./pet/vozBoris.
 // Fase 38 (38-02): camada de entendimento extraída para módulo terceiro —
 // importável também por opcoes/OpcoesScreen.jsx sem ciclo.
 import { AiNote, SUBLINHADO, SetorAlvo, ConceitoSheet } from "./entendimento.jsx";
+// Fase 38 (38-03): ponte kb×conceito — helper puro que valida o catálogo da
+// KB buscado abaixo (ConceitoSheet importa o outro helper, verbeteDoCatalogo).
+import { catalogoKbValido } from "./glossario.js";
 
 /* =============================================================================
    Boris+ — simulador EDUCACIONAL de paper trading da B3.
@@ -7564,6 +7567,11 @@ export default function App() {
   // ambiente, não build de iOS.
   const [didatica, setDidatica] = useState(null);
   const [conceitoAberto, setConceitoAberto] = useState(null);  // {cid, dados}
+  // Fase 38 (38-03): catálogo GENÉRICO da KB (kb.py) — fonte separada do
+  // catálogo de conceitos.py acima (`didatica`). Três estados honestos:
+  // `undefined` = carregando, `null` = falhou (a ConceitoSheet mostra erro
+  // com retry — nunca lista parcial/inventada, princípio 4), objeto = pronto.
+  const [kbCatalogo, setKbCatalogo] = useState(undefined);
   const [petOpen, setPetOpen] = useState(false);               // folha do pet (mascote)
   // F6: fonte ÚNICA que liga o pet — o FAB e o "Conversar agora" da
   // apresentação chamam a MESMA função (nunca duplicam a chamada que abre),
@@ -7832,6 +7840,21 @@ export default function App() {
       .then((r) => { if (alive) setDidatica(r); })
       .catch(() => { if (alive) setDidatica({ ligada: false, conceitos: [] }); });
     return () => { alive = false; };
+  }, [modoApp]);
+  // Fase 38 (38-03): catálogo da KB (kb.py) — fonte separada, buscado igual
+  // (1x por modo, custo zero). `carregarKb` fica memoizada em `modoApp` para
+  // poder ser reusada como retry explícito via ctx.recarregarKb (mesmo padrão
+  // de ctx.recarregarMercado), sem duplicar a lógica de busca.
+  const carregarKb = useCallback(() => {
+    let alive = true;
+    setKbCatalogo(undefined);
+    store.kbCatalogo(modoApp)
+      .then((r) => { if (alive) setKbCatalogo(catalogoKbValido(r) ? r : null); })
+      .catch(() => { if (alive) setKbCatalogo(null); });
+    return () => { alive = false; };
+  }, [modoApp]);
+  useEffect(() => {
+    return carregarKb();
   }, [modoApp]);
   // qa/38 (Help): abre o tour UMA vez no primeiro uso — depois que o portão de
   // abertura (login) fecha e só se `tourSeen` ainda não foi marcado. Guardado
@@ -8405,6 +8428,13 @@ export default function App() {
     // `gestoUso`, a medição do sublinhado pontilhado) servem aqui; usar
     // qualquer uma contaminaria uma métrica que não é desta interação.
     abrirVerbete: (cid, dados) => setConceitoAberto({ cid, dados: dados || null, trilha: [] }),
+    // Fase 38 (38-03): abre um verbete do GLOSSÁRIO (kb.py), não da explicação
+    // ancorada (conceitos.py) — ação SEPARADA, não um 3º parâmetro em
+    // abrirVerbete: test_concentracao_carteira.mjs trava a assinatura literal
+    // `abrirVerbete: (cid, dados) =>` por indexOf, e o nome da ação carrega a
+    // fonte em vez de uma flag posicional. Mesma disciplina de telemetria do
+    // abrirVerbete acima: não chama track() nem toca gestoUso.
+    abrirVerbeteKb: (vid) => setConceitoAberto({ cid: vid, dados: null, trilha: [], fonte: "kb" }),
     // navegar pela cadeia sai do setor: a tela passa a ser o conceito.
     trocarConceito: (cid) => setConceitoAberto((c) => (c ? { ...c, cid, setor: null, trilha: [...(c.trilha || []), c.cid] } : c)),
     voltarConceito: () => setConceitoAberto((c) => {
@@ -8757,6 +8787,7 @@ export default function App() {
     themePref, themeKey, aboutOpen,
     stopAlvo, stopAlvoFor,
     didatica, conceitoAberto,   // camada de entendimento
+    kbCatalogo, recarregarKb: carregarKb,  // Fase 38 (38-03): glossário genérico da KB
     // A folha proativa ADIA enquanto houver outro overlay na tela: ela é
     // one-shot por conceito, para sempre, e abrir sob o portão de abertura ou
     // sob o tour queimaria a estreia sem ninguém ler.
