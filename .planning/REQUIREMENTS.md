@@ -12,10 +12,10 @@ de produto — não por ordem de descoberta.
 
 ### KB Didática
 
-- [ ] **KB-01**: Usuário pode buscar um verbete entre os 83 da KB de mecânica
+- [x] **KB-01**: Usuário pode buscar um verbete entre os 83 da KB de mecânica
   B3 (mecanismo de busca — livre, por família, ou os dois — decidido em
   discuss-phase, não travado aqui)
-- [ ] **KB-02**: Usuário vê link "saiba mais" para um verbete relevante nas 4
+- [x] **KB-02**: Usuário vê link "saiba mais" para um verbete relevante nas 4
   abas que hoje não têm essa cobertura (requer extrair `SetorAlvo`/
   `ConceitoSheet` de `App.jsx` para módulo compartilhado, sem violar o
   isolamento deliberado de `OpcoesScreen.jsx` — `OpcoesScreen.jsx:20-24` não
@@ -61,8 +61,8 @@ Reconhecido, mas fora desta milestone — decisão de escopo pendente do Alex.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| KB-01 | Phase 38 | Pending |
-| KB-02 | Phase 38 | Pending |
+| KB-01 | Phase 38 | Done |
+| KB-02 | Phase 38 | Done |
 | ESTADO-01 | Phase 39 | Pending |
 | TELAS-01 | Phase 40 | Pending |
 
@@ -73,4 +73,6 @@ Reconhecido, mas fora desta milestone — decisão de escopo pendente do Alex.
 
 ---
 *Requirements defined: 2026-09-23*
-*Last updated: 2026-09-23 — roadmap criado, traceability preenchida (Phases 38-40)*
+*Last updated: 2026-09-23 — Fase 38 fechada: KB-01/KB-02 Done, publicado em
+produção (`F10-20260923-01`), checkpoint humano do roteiro de 9 itens
+aprovado pelo Alex (38-06). Ver STATE.md/ROADMAP.md para o detalhe.*

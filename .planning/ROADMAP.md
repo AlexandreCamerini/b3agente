@@ -17,7 +17,7 @@
 <details open>
 <summary>🚧 v1.8 Didática ampliada + continuidade da aba Opções (Phases 38-40) — IN PROGRESS</summary>
 
-- [ ] Phase 38: KB Didática ampliada (0/6 plans) — planned
+- [x] Phase 38: KB Didática ampliada (6/6 plans) — completed 2026-09-23
 - [ ] Phase 39: Continuidade da aba Opções (0/? plans) — not started
 - [ ] Phase 40: Consolidação de registros de tela (0/? plans) — not started
 
@@ -200,7 +200,7 @@ Full phase details: [milestones/v1.7-ROADMAP.md](milestones/v1.7-ROADMAP.md)
 | 35. Jornada Guiada do Workspace | 3/3 | Complete (checkpoint humano aprovado ao vivo) | 2026-09-21 |
 | 36. Motor de Payoff Genérico | 2/2 | Complete | 2026-09-21 |
 | 37. Gráfico de Payoff e Explicação Confiáveis | 5/5 | Complete (checkpoint com ressalva — ver STATE.md) | 2026-09-22 |
-| 38. KB Didática ampliada | 5/6 | In progress | 2026-09-23 |
+| 38. KB Didática ampliada | 6/6 | Complete (publicado, checkpoint humano aprovado ao vivo) | 2026-09-23 |
 | 39. Continuidade da aba Opções | 0/? | Not started | - |
 | 40. Consolidação de registros de tela | 0/? | Not started | - |
 
@@ -231,7 +231,11 @@ que é o core value do produto.
 - [x] 38-03-PLAN.md — ponte kb × conceito: `fonte` explícita na `ConceitoSheet`, `kbCatalogo` nos dois stores e no `ctx`, `A.abrirVerbeteKb`
 - [x] 38-04-PLAN.md — KB-01: tela Glossário em Perfil (busca live + 9 famílias + vazio/erro honestos)
 - [x] 38-05-PLAN.md — KB-02: checkpoint de decisão D-08 (vid por aba) + 4 "saiba mais" (Opções via módulo compartilhado)
-- [ ] 38-06-PLAN.md — verificação humana, publicação (front + backend) e fechamento dos docs à mão
+- [x] 38-06-PLAN.md — verificação humana, publicação (front + backend) e fechamento dos docs à mão
+
+**Fase 38 fechada em 2026-09-23** — publicada em produção (`F10-20260923-01`),
+checkpoint humano do roteiro de 9 itens aprovado pelo Alex antes do push. Ver
+`38-06-SUMMARY.md` e "Current Position" em `STATE.md`.
 **UI hint**: yes
 
 ### Phase 39: Continuidade da aba Opções

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.8
 milestone_name: Didática ampliada + continuidade da aba Opções
 status: executing
-last_updated: "2026-09-23T06:20:00.000Z"
+last_updated: "2026-09-23T18:30:00.000Z"
 last_activity: 2026-09-23
 progress:
   total_phases: 3
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 6
-  completed_plans: 0
-  percent: 0
+  completed_plans: 6
+  percent: 33
 ---
 
 # Project State
@@ -20,11 +20,38 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-20)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Milestone v1.8 (Didática ampliada + continuidade da aba Opções) — ROADMAP.md criado (Phases 38-40, 4/4 requirements mapeados). Fase 38 EXECUTANDO (`/gsd-execute-phase 38`, sem worktree, sequencial por onda).
+**Current focus:** Milestone v1.8 (Didática ampliada + continuidade da aba Opções) — ROADMAP.md criado (Phases 38-40, 4/4 requirements mapeados). Fase 38 FECHADA e publicada em produção (`F10-20260923-01`); próximo passo é `/gsd-plan-phase 39` (Continuidade da aba Opções, ESTADO-01).
 
 ## Current Position
 
-Phase: 38 (KB Didática ampliada) — PLANEJADA, pronta para executar (não iniciada)
+Phase: 38 (KB Didática ampliada) — **FECHADA (6/6 plans)**, publicada em produção
+Plan: 38-01 ✓ | 38-02 ✓ | 38-03 ✓ | 38-04 ✓ | 38-05 ✓ | 38-06 ✓ (checkpoint humano aprovado ao vivo + publicação)
+Status: `/gsd-execute-phase 38` completo (2026-09-23), sem worktree (`workflow.use_worktrees=false`), executor sequencial por onda. Fase publicada em produção como `F10-20260923-01` (front+backend juntos, deploy Railway confirmado via `/api/health` e `/api/kb/catalogo`).
+Last activity: 2026-09-23 — `38-06` fechou a fase em duas partes: (1) verificação humana ao vivo do roteiro de 9 itens, rodada pelo orquestrador contra servidores locais (api:8787, web:5174), aprovada pelo Alex ("Aprovado, pode publicar") — ver `38-06-SUMMARY.md` para o registro item a item; achado positivo não previsto pelo risco declarado no 38-05: o FAB do Boris fica ESCONDIDO sob a folha local de Opções por z-index puro (overlay=86 > FAB=60, confirmado por `elementFromPoint`) — a tensão de duas vias de folha na mesma tela NÃO se materializou como defeito visual/funcional; achado cosmético menor, não-bloqueante: dois ícones "×" sobrepostos no campo de busca do Glossário em 375px (`input type="search"` nativo do WebKit/Chromium + "×" customizado do app — sugestão de fix: `type="text"` ou `-webkit-appearance: none`); (2) publicação — merge de `origin/main` (no-op, HEAD já continha os 28 commits), suíte canônica pré-bump confirmada na baseline (2964 pytest passed/27 falhas conhecidas de TLS-sandbox + 159/160 `.mjs`, só `test_ios_assets.mjs` ambiental), `bump.sh` (`F10-20260922-01`→`F10-20260923-01`), `publicar-web.sh` (achado de ambiente: `npm ci` deu `EPERM` de sandbox ao tentar apagar `node_modules/xmlbuilder/.vscode/launch.json` — contornado rodando só o passo de build fora do sandbox, nenhum código de produto tocado), comentário do `SERVER_BUILD_ID` reescrito à mão preservando o histórico completo como `HISTORICO`, push em `v2/interacao-estrutural` E fast-forward de `origin/main` confirmado (`HEAD == origin/main`), `/api/health`/`/api/kb/catalogo` confirmados em produção (83 verbetes, 9 famílias) após ~5,5min de redeploy do Railway (um 502 transitório durante a troca de container, esperado).
+
+**Decisões de implementação que o próximo leitor não deve redescobrir (KB-01/KB-02):**
+- `ConceitoSheet` tem discriminador explícito `fonte: "conceito"|"kb"`, default `"conceito"` — sem fallback silencioso por 404 quando um `vid` não existe no catálogo errado.
+- Ação `A.abrirVerbeteKb(vid)` é SEPARADA de `A.abrirVerbete(...)` — não é um 3º parâmetro da função existente, porque `test_concentracao_carteira.mjs` trava a assinatura literal de `abrirVerbete`.
+- O lookup de "veja também" (chips dentro da folha kb) resolve por `fonte`: dentro de um verbete kb, "veja também" abre outro verbete kb; dentro de um verbete conceito (ancorado), "veja também" continua no universo de `conceitos.py`. As duas trilhas não se cruzam.
+- Busca do Glossário é por SUBSTRING, não por fronteira de palavra — decisão deliberada (D-02 do CONTEXT.md trava só `kb.buscar()` do backend; a tela do Glossário não chama essa função, filtra client-side em `glossario.js`).
+- Tile "Glossário" vive no grupo "Ajuda" do Perfil, não em "IA e desempenho" — glossário é conteúdo didático estático, não é feature de IA.
+- O tile mostra a CONTAGEM DINÂMICA de verbetes (hoje 83), não um número hardcoded — lida do mesmo `kb.catalogo()` que a tela consome.
+- `kb.catalogo()`/`catalogo_formatado()` EXCLUI verbete de texto vazio quando a didática está desligada (`didatica.ligada=false`) — nunca mostra um card sem conteúdo.
+- O módulo compartilhado (`SetorAlvo`/`ConceitoSheet`/`AssistenteBox`/`AiNote`) chama-se `entendimento.jsx`, não `didatica.jsx` — colidiria com o estado/prop `didatica` já existente em `App.jsx`.
+- `ANCORAS_KB` (glossario.js, `Object.freeze`) é a fonte única dos 4 `vid` por aba (D-08): Acompanhar→`mkt-carteira-simulada`, Radar→`confluencia`, Watchlist→`ind-rsi`, Opções→`mkt-opcao` — sem lógica condicional por contexto (D-07: sempre o mesmo verbete por aba).
+- `OpcoesScreen.jsx` mantém ZERO import de `App.jsx` (isolamento ADR-027): o "saiba mais" desta aba monta uma instância LOCAL/própria de `ConceitoSheet` (importada só de `entendimento.jsx`/`glossario.js`), em vez de reusar o overlay global — por desenho, não por descuido (D-08, "ambos importam do módulo novo, nenhum importa do outro").
+
+**Pendências abertas, declaradas, não escondidas:**
+- **iOS/TestFlight**: o app nativo carrega bundle LOCAL (sem `server.url`) — Glossário e os 4 "saiba mais" só chegam ao iPhone num build novo de TestFlight (`scripts/ios-bump-build.sh` → `scripts/ios-testflight.sh`); a rota de backend (`GET /api/kb/catalogo`) já vale para ele hoje, só o bundle front está desatualizado. Decisão do Alex, quando quiser distribuir.
+- **Tensão das duas vias de folha em Opções** (chip de liquidez → overlay global; "saiba mais" → folha local): declarada no 38-05 como risco de FAB não se esconder — a verificação ao vivo do 38-06 mostrou que o risco NÃO SE MATERIALIZOU (z-index puro já resolve: overlay=86 > FAB=60). A duplicação estrutural (duas instâncias de `ConceitoSheet` na mesma tela) continua existindo por desenho (ADR-027), mas não é mais um risco funcional em aberto — só uma nota de arquitetura.
+- **Achado cosmético não-bloqueante**: dois ícones "×" sobrepostos no campo de busca do Glossário em viewport mobile (375px) — candidato a polish futuro, não registrado como todo formal.
+- **Fase 39 (ESTADO-01) herda `entendimento.jsx`/`glossario.js` como módulos de terceiros já disponíveis** — qualquer trabalho de continuidade de estado da aba Opções pode importar deles sem recriar nada; nenhuma mudança de contrato é esperada desses dois módulos vinda da Fase 39.
+
+**Próximo passo:** `/gsd-plan-phase 39` (Continuidade da aba Opções, ESTADO-01) — independente de KB-01/KB-02, sem arquivo compartilhado esperado com a Fase 38.
+
+## Posição anterior nesta fase (Fase 38, fechada — narrativa de planejamento e execução das Ondas 1-4)
+
+Phase: 38 (KB Didática ampliada) — PLANEJADA, pronta para executar (não iniciada) — histórico, superado pela entrada acima
 Plan: 38-01 a 38-06 (6 planos em 5 ondas), nenhum executado ainda
 Status: `/gsd-plan-phase 38` completo (2026-09-23). Sequência: gate de UI-SPEC bloqueou a primeira tentativa (fase tem `UI hint: yes`, sem `38-UI-SPEC.md`) → `/gsd-ui-phase 38` rodado a pedido do Alex → `gsd-ui-researcher` gerou `38-UI-SPEC.md` (commit `537fd23`) → `gsd-ui-checker` aprovou 6/6 (1 FLAG não-bloqueante: `aria-label` do botão "×" de limpar busca, foco visual primário da tela) → Alex escolheu pesquisar antes de planejar → `gsd-phase-researcher` (`38-RESEARCH.md`, commit `61c6e19`, confiança HIGH) → `gsd-pattern-mapper` (`38-PATTERNS.md`, 9/9 analogs) → `gsd-planner` opus (6 planos, commit `e7cf22a`, também atualizou ROADMAP.md) → `gsd-plan-checker` VERIFICATION PASSED (0 blockers, 1 warning cosmético: Open Questions do RESEARCH sem sufixo `(RESOLVED)`, ambas de fato resolvidas nos planos). Gates de cobertura: 2/2 requisitos (KB-01, KB-02) e 8/8 decisões do CONTEXT.md.
 
@@ -34,7 +61,7 @@ Status: `/gsd-plan-phase 38` completo (2026-09-23). Sequência: gate de UI-SPEC 
 
 **D-08 (qual verbete cada aba abre) segue como decisão bloqueante**, checkpoint no início do 38-05 — nenhum link "saiba mais" é escrito antes da resposta do Alex. Proposta: Acompanhar→`mkt-carteira-simulada`, Radar→`confluencia`, Watchlist→`ind-rsi`, Opções→`mkt-opcao` (alternativas no próprio checkpoint: Acompanhar→`estado-armado`, Watchlist→`familia-tendencia`).
 
-**Risco declarado, não resolvido:** para cumprir D-08 ao pé da letra (isolamento `OpcoesScreen.jsx`↔`App.jsx`, "ambos importam do módulo novo"), o "saiba mais" de Opções monta uma cópia local da folha de conceito em vez de reusar a folha global já em produção — o botão flutuante do Boris provavelmente não se esconde sob essa folha local. Declarado no 38-05, conferido no checkpoint humano do 38-06.
+**Risco declarado, não resolvido nesta fase da narrativa:** para cumprir D-08 ao pé da letra (isolamento `OpcoesScreen.jsx`↔`App.jsx`, "ambos importam do módulo novo"), o "saiba mais" de Opções monta uma cópia local da folha de conceito em vez de reusar a folha global já em produção — o botão flutuante do Boris provavelmente não se esconde sob essa folha local. Declarado no 38-05, **conferido e resolvido (risco não se materializou) no checkpoint humano do 38-06 — ver "Current Position" acima**.
 
 **Onda 1 completa (38-01, 38-02) — 2026-09-23, `/gsd-execute-phase 38` sem worktree, sequencial:**
 - `38-01` (backend, commits `66f7d1e`/`6f24e00`/`46a19ad`): 65 títulos autorados + 18 derivados, `FAMILIAS`, `catalogo_formatado()`, rota `GET /api/kb/catalogo`. 65 testes-alvo + suíte completa fora do sandbox: 2987 pytest, 0 falhas relevantes (27 falhas dentro do sandbox são artefato de rede/mocking pré-existente, nenhuma toca `kb.py`/`main.py`).
@@ -50,9 +77,9 @@ Ambos os executores instruídos a não tocar STATE.md/ROADMAP.md; spot-check do 
 
 **Onda 4 completa (38-05) — 2026-09-23:** commits `4f5a4d6`/`2b8d1a7`/`0e73680`. **D-08 resolvido:** Alex aprovou a proposta original do UI-SPEC sem alteração via AskUserQuestion do orquestrador (Acompanhar→`mkt-carteira-simulada`, Radar→`confluencia`, Watchlist→`ind-rsi`, Opções→`mkt-opcao`), confirmado contra `kb.catalogo()` antes de codar. `ANCORAS_KB` (fonte única, `Object.freeze`) em `glossario.js`; 3 links em `App.jsx` (Evolução/Mercado/Radar) com portão `didatica.ligada && verbeteDoCatalogo(...)`; link em `OpcoesScreen.jsx` com `ConceitoSheet` LOCAL importada de `../entendimento.jsx` — zero import de `App.jsx` confirmado (isolamento ADR-027 intacto). Suíte fora do sandbox: 2991 pytest + 156/157 `.mjs`, sem falha nova.
 
-**Tensão declarada, NÃO resolvida por desenho — a conferir no checkpoint humano do 38-06:** a folha local de conceito em Opções (Task 3 do 38-05) não entra em `ctx.overlayLivre`, então o FAB do Boris provavelmente não se esconde sob ela.
+**Tensão declarada nesta onda, resolução registrada no 38-06:** a folha local de conceito em Opções (Task 3 do 38-05) não entra em `ctx.overlayLivre`, então o FAB do Boris provavelmente não se esconde sob ela — **conferido ao vivo no 38-06: o FAB fica escondido por z-index puro, risco não se materializou.**
 
-**Próximo passo:** Onda 5 — `38-06` (verificação humana ao vivo + publicação, **checkpoint bloqueante**).
+**Onda 5 (38-06) executada — publicação e fechamento, ver "Current Position" acima para o resultado.**
 
 ## Posição anterior nesta fase (Fase 36, fechada)
 
