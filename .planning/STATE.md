@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.8
 milestone_name: Didática ampliada + continuidade da aba Opções
 status: planning
-last_updated: "2026-09-23T04:30:00.000Z"
+last_updated: "2026-09-23T06:10:00.000Z"
 last_activity: 2026-09-23
 progress:
   total_phases: 3
   completed_phases: 0
-  total_plans: 0
+  total_plans: 6
   completed_plans: 0
   percent: 0
 ---
@@ -20,14 +20,25 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-20)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Milestone v1.8 (Didática ampliada + continuidade da aba Opções) — ROADMAP.md criado (Phases 38-40, 4/4 requirements mapeados). CONTEXT.md da Fase 38 capturado. Próximo passo: `/gsd:plan-phase 38`.
+**Current focus:** Milestone v1.8 (Didática ampliada + continuidade da aba Opções) — ROADMAP.md criado (Phases 38-40, 4/4 requirements mapeados). Fase 38 planejada, pronta para executar. Próximo passo: `/gsd:execute-phase 38`.
 
 ## Current Position
 
-Phase: 38 (KB Didática ampliada) — contexto capturado, planejamento não iniciado
-Plan: —
-Status: `/gsd-discuss-phase 38` completo (2026-09-23) — `38-CONTEXT.md`/`38-DISCUSSION-LOG.md` commitados (`1a13964`). Decisões: busca livre+família na mesma tela (campo filtra client-side, live, sem limite, estado vazio explícito); vive num tile novo em Perfil (mesmo padrão de `ProfileTile`); "saiba mais" fixo por aba nas 4 sem cobertura (Acompanhar/Radar/Watchlist/Opções), `vid` exato proposto pelo planner e aprovado antes de codar. Achado do scout: `kb.buscar()`/`kbBuscar` já existem ponta a ponta (backend+frontend) mas SEM NENHUM consumidor de UI hoje; não existe endpoint de catálogo completo (só busca pontuada/limitada) — fica para o planner endereçar. Aguardando `/gsd:plan-phase 38`.
-Last activity: 2026-09-23 — `38-CONTEXT.md` capturado via discuss-phase (4 áreas discutidas: mecanismo de busca, onde a busca vive, âncora do "saiba mais" por aba, comportamento dos resultados)
+Phase: 38 (KB Didática ampliada) — PLANEJADA, pronta para executar (não iniciada)
+Plan: 38-01 a 38-06 (6 planos em 5 ondas), nenhum executado ainda
+Status: `/gsd-plan-phase 38` completo (2026-09-23). Sequência: gate de UI-SPEC bloqueou a primeira tentativa (fase tem `UI hint: yes`, sem `38-UI-SPEC.md`) → `/gsd-ui-phase 38` rodado a pedido do Alex → `gsd-ui-researcher` gerou `38-UI-SPEC.md` (commit `537fd23`) → `gsd-ui-checker` aprovou 6/6 (1 FLAG não-bloqueante: `aria-label` do botão "×" de limpar busca, foco visual primário da tela) → Alex escolheu pesquisar antes de planejar → `gsd-phase-researcher` (`38-RESEARCH.md`, commit `61c6e19`, confiança HIGH) → `gsd-pattern-mapper` (`38-PATTERNS.md`, 9/9 analogs) → `gsd-planner` opus (6 planos, commit `e7cf22a`, também atualizou ROADMAP.md) → `gsd-plan-checker` VERIFICATION PASSED (0 blockers, 1 warning cosmético: Open Questions do RESEARCH sem sufixo `(RESOLVED)`, ambas de fato resolvidas nos planos). Gates de cobertura: 2/2 requisitos (KB-01, KB-02) e 8/8 decisões do CONTEXT.md.
+
+**Achado central da pesquisa:** 3 dos 4 `vid` propostos no UI-SPEC (`mkt-carteira-simulada`, `ind-rsi`, `mkt-opcao`) NÃO existem em `conceitos.CONCEITOS` — a rota atual `POST /api/conceito/{cid}` daria 404 neles hoje; só `confluencia` existe nos dois catálogos. Fix: discriminador explícito `fonte: "conceito"|"kb"` na `ConceitoSheet`, default `"conceito"`, sem fallback silencioso por 404. `kb.formatar()` não tem campo `titulo` — vira tarefa própria (~74 verbetes × 2 modos ≈ 148 strings novas sob as regras do `didatica-boris`), não um detalhe escondido dentro de "ligar a ponte".
+
+**Onde os planos se afastaram da pesquisa/UI-SPEC (razão declarada em cada plano):** ação nova `A.abrirVerbeteKb(vid)` em vez de 3º parâmetro em `abrirVerbete` (guardião `test_concentracao_carteira.mjs` trava a assinatura literal); busca por substring em vez de palavra inteira (D-02 trava só o `kb.buscar()` do backend, esta tela não o chama); tile "Glossário" no grupo "Ajuda", não em "IA e desempenho" (glossário não é IA); módulo compartilhado chamado `entendimento.jsx`, não `didatica.jsx` (colidiria com o estado/prop `didatica` já existente em `App.jsx`).
+
+**D-08 (qual verbete cada aba abre) segue como decisão bloqueante**, checkpoint no início do 38-05 — nenhum link "saiba mais" é escrito antes da resposta do Alex. Proposta: Acompanhar→`mkt-carteira-simulada`, Radar→`confluencia`, Watchlist→`ind-rsi`, Opções→`mkt-opcao` (alternativas no próprio checkpoint: Acompanhar→`estado-armado`, Watchlist→`familia-tendencia`).
+
+**Risco declarado, não resolvido:** para cumprir D-08 ao pé da letra (isolamento `OpcoesScreen.jsx`↔`App.jsx`, "ambos importam do módulo novo"), o "saiba mais" de Opções monta uma cópia local da folha de conceito em vez de reusar a folha global já em produção — o botão flutuante do Boris provavelmente não se esconde sob essa folha local. Declarado no 38-05, conferido no checkpoint humano do 38-06.
+
+**Guardrail aplicado:** mutadores de estado do gsd-sdk não foram chamados (`state.planned-phase` etc.) — este STATE.md foi editado à mão; `roadmap.annotate-dependencies` (não é `state.*`) rodou e confirmou `updated: false` (planner já tinha anotado o ROADMAP.md).
+
+**Próximo passo:** `/gsd:execute-phase 38` (`/clear` antes).
 
 ## Posição anterior nesta fase (Fase 36, fechada)
 
