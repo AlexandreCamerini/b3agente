@@ -44,7 +44,9 @@ Ambos os executores instruídos a não tocar STATE.md/ROADMAP.md; spot-check do 
 
 **Guardrail aplicado:** mutadores de estado do gsd-sdk não foram chamados (`state.planned-phase`/`state.begin-phase` etc.) — este STATE.md foi editado à mão; `roadmap.annotate-dependencies` (não é `state.*`) rodou e confirmou `updated: false` (planner já tinha anotado o ROADMAP.md).
 
-**Próximo passo:** Onda 2 — `38-03` (ponte kb×conceito).
+**Onda 2 completa (38-03) — 2026-09-23:** commits `8b5e0e6`/`c6fe822`/`c8cf969`. `web/src/glossario.js` novo (módulo puro, `catalogoKbValido`/`verbeteDoCatalogo`, base pro 38-04); `kbCatalogo` nos dois stores + `ctx` (paridade confirmada); `A.abrirVerbeteKb` como ação separada (não mexeu na assinatura de `A.abrirVerbete`, protegendo `test_concentracao_carteira.mjs`); `ConceitoSheet` resolve verbete kb síncrono do catálogo em memória, sem fetch. `npx vite build` limpo, suíte fora do sandbox sem falha nova (só a ambiental conhecida de `test_ios_assets.mjs`).
+
+**Próximo passo:** Onda 3 — `38-04` (KB-01, tela Glossário).
 
 ## Posição anterior nesta fase (Fase 36, fechada)
 
