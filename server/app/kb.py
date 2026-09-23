@@ -65,6 +65,13 @@ def _normalizar(s) -> str:
     return s.lower().strip()
 
 
+def _titulo(edu: str, ope: Optional[str] = None) -> dict:
+    """Título curto de um verbete, nos dois modos. Substantivo neutro na
+    maioria dos casos — só forka quando o vocabulário do modo diverge
+    (skill didatica-boris: Estudo descreve condição, nunca ordem)."""
+    return {"educacional": edu, "operador": ope or edu}
+
+
 # =============================================================================
 # 1) Verbetes derivados de `conceitos.py` — REFERÊNCIA, não cópia (D4).
 # =============================================================================
@@ -132,6 +139,14 @@ _ESTADOS_TIMING = {
                                      "não perseguir preço", "perseguir preço")),
 }
 
+_TITULO_TIMING = {
+    "estado-sem-plano": _titulo("Sem plano"),
+    "estado-sem-dado": _titulo("Sem dado de timing"),
+    "estado-armado": _titulo("Plano armado"),
+    "estado-atingido": _titulo("Condição de estudo atingida", "Gatilho atingido"),
+    "estado-esticado": _titulo("Movimento esticado"),
+}
+
 
 def _de_timing(vid: str) -> dict:
     estado, termos = _ESTADOS_TIMING[vid]
@@ -167,6 +182,7 @@ def _x(v) -> str:
 _INDICADORES = [
     {
         "id": "ind-rsi",
+        "titulo": _titulo("RSI (IFR) — Índice de Força Relativa"),
         "termos": ("rsi", "ifr", "índice de força relativa", "rsi14", "sobrecomprado",
                    "sobrevendido"),
         "texto": {
@@ -189,6 +205,7 @@ _INDICADORES = [
     },
     {
         "id": "ind-macd",
+        "titulo": _titulo("MACD — convergência e divergência de médias"),
         "termos": ("macd", "linha macd", "sinal macd", "histograma macd",
                    "convergência e divergência de médias móveis"),
         "texto": {
@@ -211,6 +228,7 @@ _INDICADORES = [
     },
     {
         "id": "ind-atr",
+        "titulo": _titulo("ATR — amplitude média real"),
         "termos": ("atr", "atr14", "average true range", "amplitude média real",
                    "atr14pct"),
         "texto": {
@@ -232,6 +250,7 @@ _INDICADORES = [
     },
     {
         "id": "ind-adx",
+        "titulo": _titulo("ADX — força da tendência"),
         "termos": ("adx", "adx14", "índice direcional médio", "di+", "di-", "di plus",
                    "di minus", "força de tendência"),
         "texto": {
@@ -252,6 +271,7 @@ _INDICADORES = [
     },
     {
         "id": "ind-medias-rapidas",
+        "titulo": _titulo("Médias móveis rápidas (MME9 e MME21)"),
         "termos": ("ema9", "ema21", "mme9", "mme21", "média móvel exponencial",
                    "médias rápidas"),
         "texto": {
@@ -273,6 +293,7 @@ _INDICADORES = [
     },
     {
         "id": "ind-medias-lentas",
+        "titulo": _titulo("Médias móveis lentas (MMA50 e MMA200)"),
         "termos": ("sma50", "sma200", "mma50", "mma200", "média móvel simples",
                    "médias lentas"),
         "texto": {
@@ -292,6 +313,7 @@ _INDICADORES = [
     },
     {
         "id": "ind-vwap",
+        "titulo": _titulo("VWAP — preço médio ponderado por volume"),
         "termos": ("vwap", "preço médio ponderado por volume"),
         "texto": {
             "educacional": (
@@ -312,6 +334,7 @@ _INDICADORES = [
     },
     {
         "id": "ind-estocastico",
+        "titulo": _titulo("Estocástico"),
         "termos": ("estocástico", "estocastico", "%k", "%d", "stochastic", "stoch"),
         "texto": {
             "educacional": (
@@ -331,6 +354,7 @@ _INDICADORES = [
     },
     {
         "id": "ind-obv",
+        "titulo": _titulo("OBV — volume acumulado"),
         "termos": ("obv", "on balance volume", "volume acumulado", "obvslope21pct"),
         "texto": {
             "educacional": (
@@ -350,6 +374,7 @@ _INDICADORES = [
     },
     {
         "id": "ind-volume-relativo",
+        "titulo": _titulo("Volume relativo"),
         "termos": ("volume relativo", "volume vs média", "relativevolume"),
         "texto": {
             "educacional": (
@@ -375,6 +400,7 @@ _INDICADORES = [
         # "baleia" está nos termos de propósito: a pergunta cai aqui e recebe
         # a limitação do dado, em vez de a IA inventar uma narrativa de causa.
         "id": "ind-volume-anormal",
+        "titulo": _titulo("Volume anormal"),
         "termos": ("volume anormal", "volume fora do normal", "pico de volume",
                    "volume institucional", "baleia", "baleias", "carteira baleia",
                    "carteiras baleias", "whale", "volanormal", "volstate", "volratio20"),
@@ -408,6 +434,7 @@ _INDICADORES = [
     },
     {
         "id": "ind-volatilidade-historica",
+        "titulo": _titulo("Volatilidade histórica (HV)"),
         "termos": ("volatilidade histórica", "hv", "hv21", "hv63",
                    "desvio padrão dos retornos"),
         "texto": {
@@ -435,6 +462,7 @@ _INDICADORES = [
 _ESTRUTURA = [
     {
         "id": "estr-topo-fundo",
+        "titulo": _titulo("Topos e fundos"),
         "termos": ("topo", "fundo", "topos e fundos", "máxima local", "mínima local",
                    "swing high", "swing low"),
         "texto": {
@@ -456,6 +484,7 @@ _ESTRUTURA = [
     },
     {
         "id": "estr-suporte",
+        "titulo": _titulo("Suporte"),
         "termos": ("suporte", "suportes", "nearestsupport"),
         "texto": {
             "educacional": (
@@ -475,6 +504,7 @@ _ESTRUTURA = [
     },
     {
         "id": "estr-resistencia",
+        "titulo": _titulo("Resistência"),
         "termos": ("resistência", "resistencia", "resistências", "nearestresistance"),
         "texto": {
             "educacional": (
@@ -492,6 +522,7 @@ _ESTRUTURA = [
     },
     {
         "id": "estr-congestao",
+        "titulo": _titulo("Congestão (lateralização)"),
         "termos": ("congestão", "congestao", "lateralização", "consolidação"),
         "texto": {
             "educacional": (
@@ -511,6 +542,7 @@ _ESTRUTURA = [
     },
     {
         "id": "estr-rompimento",
+        "titulo": _titulo("Rompimento"),
         "termos": ("rompimento", "breakout"),
         "texto": {
             "educacional": (
@@ -529,6 +561,7 @@ _ESTRUTURA = [
     },
     {
         "id": "estr-reteste",
+        "titulo": _titulo("Reteste"),
         "termos": ("reteste", "retest"),
         "texto": {
             "educacional": (
@@ -548,6 +581,7 @@ _ESTRUTURA = [
     },
     {
         "id": "estr-falso-rompimento",
+        "titulo": _titulo("Falso rompimento"),
         "termos": ("falso rompimento", "fakeout", "rompimento falso"),
         "texto": {
             "educacional": (
@@ -566,6 +600,7 @@ _ESTRUTURA = [
     },
     {
         "id": "estr-gap",
+        "titulo": _titulo("Gap"),
         "termos": ("gap", "gap de alta", "gap de baixa", "abertura em gap"),
         "texto": {
             "educacional": (
@@ -585,6 +620,7 @@ _ESTRUTURA = [
     },
     {
         "id": "estr-pivo",
+        "titulo": _titulo("Pivô"),
         "termos": ("pivô", "pivo", "pivôs", "ponto de pivô"),
         "texto": {
             "educacional": (
@@ -610,6 +646,7 @@ _ESTRUTURA = [
 _FAMILIAS = [
     {
         "id": "familia-tendencia",
+        "titulo": _titulo("Família tendência"),
         "termos": ("família tendência", "tendencia", "viés estrutural"),
         "texto": {
             "educacional": (
@@ -627,6 +664,7 @@ _FAMILIAS = [
     },
     {
         "id": "familia-momentum",
+        "titulo": _titulo("Família momentum"),
         "termos": ("família momentum", "momentum"),
         "texto": {
             "educacional": (
@@ -644,6 +682,7 @@ _FAMILIAS = [
     },
     {
         "id": "familia-price-action",
+        "titulo": _titulo("Família price action"),
         "termos": ("família price action", "price action", "leitura de candles"),
         "texto": {
             "educacional": (
@@ -661,6 +700,7 @@ _FAMILIAS = [
     },
     {
         "id": "familia-volume",
+        "titulo": _titulo("Família volume"),
         "termos": ("família volume", "volume"),
         "texto": {
             "educacional": (
@@ -677,6 +717,7 @@ _FAMILIAS = [
     },
     {
         "id": "familia-volatilidade",
+        "titulo": _titulo("Família volatilidade"),
         "termos": ("família volatilidade", "volatilidade"),
         "texto": {
             "educacional": (
@@ -798,6 +839,7 @@ def _modelos_verbetes() -> list:
 _SETUPS = [
     {
         "id": "setup-9-1",
+        "titulo": _titulo("Setup 9.1 (virada da MME9)"),
         "termos": ("Setup 9.1", "setup 9.1", "9.1", "virada da mme9"),
         "texto": {
             "educacional": (
@@ -817,6 +859,7 @@ _SETUPS = [
     },
     {
         "id": "setup-9-2",
+        "titulo": _titulo("Setup 9.2 (correção de um candle)"),
         "termos": ("Setup 9.2", "setup 9.2", "9.2", "correção de 1 candle"),
         "texto": {
             "educacional": (
@@ -834,6 +877,7 @@ _SETUPS = [
     },
     {
         "id": "setup-9-3",
+        "titulo": _titulo("Setup 9.3 (retomada após correção)"),
         "termos": ("Setup 9.3", "setup 9.3", "9.3", "retomada após correção"),
         "texto": {
             "educacional": (
@@ -852,6 +896,7 @@ _SETUPS = [
     },
     {
         "id": "setup-ifr2",
+        "titulo": _titulo("IFR2"),
         "termos": ("IFR2", "ifr2", "rsi2", "rsi(2)", "larry connors", "reversão à média"),
         "texto": {
             "educacional": (
@@ -877,6 +922,7 @@ _SETUPS = [
     },
     {
         "id": "setup-pfr",
+        "titulo": _titulo("Setup PFR"),
         "termos": ("PFR", "pfr"),
         "texto": {
             "educacional": (
@@ -894,6 +940,7 @@ _SETUPS = [
     },
     {
         "id": "setup-123",
+        "titulo": _titulo("Setup 123"),
         "termos": ("123", "123 de fundo", "123 de topo", "um dois três"),
         "texto": {
             "educacional": (
@@ -911,6 +958,7 @@ _SETUPS = [
     },
     {
         "id": "setup-ponto-continuo",
+        "titulo": _titulo("Ponto Contínuo"),
         "termos": ("Ponto Contínuo", "ponto continuo", "dunnigan"),
         "texto": {
             "educacional": (
@@ -928,6 +976,7 @@ _SETUPS = [
     },
     {
         "id": "setup-inside-bar",
+        "titulo": _titulo("Inside Bar"),
         "termos": ("Inside Bar", "inside bar", "candle contido"),
         "texto": {
             "educacional": (
@@ -946,6 +995,7 @@ _SETUPS = [
     },
     {
         "id": "setup-9-4-larry-williams",
+        "titulo": _titulo("Máx/Mín de Larry Williams (9.4)"),
         "termos": ("Máx/Mín de Larry Williams — 9.4", "Máx/Mín de Larry Williams (9.4)",
                    "9.4", "larry williams", "máximas e mínimas de larry williams"),
         "texto": {
@@ -974,6 +1024,7 @@ _SETUPS = [
 _PLANO_RISCO_EXTRA = [
     {
         "id": "risco-rr",
+        "titulo": _titulo("Relação risco-retorno (R:R)"),
         "termos": ("r:r", "rr", "relação risco retorno", "risco retorno",
                    "risco:retorno"),
         "texto": {
@@ -993,6 +1044,7 @@ _PLANO_RISCO_EXTRA = [
     },
     {
         "id": "risco-dimensionamento",
+        "titulo": _titulo("Dimensionamento da posição"),
         "termos": ("dimensionamento", "tamanho da posição", "quantas ações",
                    "sizing"),
         "texto": {
@@ -1014,6 +1066,7 @@ _PLANO_RISCO_EXTRA = [
     },
     {
         "id": "risco-invalidacao",
+        "titulo": _titulo("Invalidação da tese"),
         "termos": ("invalidação", "invalidacao", "o que invalida a tese"),
         "texto": {
             "educacional": (
@@ -1040,6 +1093,7 @@ _PLANO_RISCO_EXTRA = [
 _FUNDAMENTOS_EXTRA = [
     {
         "id": "fund-pl",
+        "titulo": _titulo("P/L — preço sobre lucro"),
         "termos": ("p/l", "pl", "preço sobre lucro", "preço/lucro", "valuation"),
         "texto": {
             "educacional": (
@@ -1060,6 +1114,7 @@ _FUNDAMENTOS_EXTRA = [
     },
     {
         "id": "fund-roe",
+        "titulo": _titulo("ROE — retorno sobre patrimônio"),
         "termos": ("roe", "rentabilidade", "retorno sobre patrimônio",
                    "retorno sobre o patrimônio líquido"),
         "texto": {
@@ -1081,6 +1136,7 @@ _FUNDAMENTOS_EXTRA = [
     },
     {
         "id": "fund-divida-ebitda",
+        "titulo": _titulo("Dívida/EBITDA"),
         "termos": ("dívida/ebitda", "divida ebitda", "alavancagem", "endividamento"),
         "texto": {
             "educacional": (
@@ -1108,6 +1164,7 @@ _FUNDAMENTOS_EXTRA = [
 _MERCADO_B3 = [
     {
         "id": "mkt-ticker",
+        "titulo": _titulo("Ticker (código de negociação)"),
         "termos": ("ticker", "código de negociação", "código do ativo"),
         "texto": {
             "educacional": (
@@ -1125,6 +1182,7 @@ _MERCADO_B3 = [
     },
     {
         "id": "mkt-lote",
+        "titulo": _titulo("Lote padrão e fracionário"),
         "termos": ("lote", "lote padrão", "mercado fracionário"),
         "texto": {
             "educacional": (
@@ -1142,6 +1200,7 @@ _MERCADO_B3 = [
     },
     {
         "id": "mkt-pregao",
+        "titulo": _titulo("Pregão"),
         "termos": ("pregão", "pregao", "horário de negociação", "mercado aberto",
                    "mercado fechado"),
         "texto": {
@@ -1159,6 +1218,7 @@ _MERCADO_B3 = [
     },
     {
         "id": "mkt-liquidez",
+        "titulo": _titulo("Liquidez de um ativo"),
         "termos": ("liquidez", "baixa liquidez", "volume financeiro"),
         "texto": {
             "educacional": (
@@ -1177,6 +1237,7 @@ _MERCADO_B3 = [
     },
     {
         "id": "mkt-etf",
+        "titulo": _titulo("ETF (fundo de índice)"),
         "termos": ("etf", "fundo de índice"),
         "texto": {
             "educacional": (
@@ -1195,6 +1256,7 @@ _MERCADO_B3 = [
     },
     {
         "id": "mkt-opcao",
+        "titulo": _titulo("Opção"),
         "termos": ("opção", "opcao", "opções", "série", "strike", "vencimento",
                    "call", "put"),
         "texto": {
@@ -1217,6 +1279,7 @@ _MERCADO_B3 = [
     },
     {
         "id": "mkt-carteira-simulada",
+        "titulo": _titulo("Carteira simulada"),
         "termos": ("carteira simulada", "carteira", "dinheiro simulado", "posição",
                    "posições"),
         "texto": {
@@ -1236,6 +1299,7 @@ _MERCADO_B3 = [
     },
     {
         "id": "mkt-tipos-ordem",
+        "titulo": _titulo("Tipos de ordem"),
         "termos": ("tipos de ordem", "ordem limitada", "ordem a mercado",
                    "ordem stop", "como enviar uma ordem"),
         "texto": {
@@ -1263,6 +1327,7 @@ _MERCADO_B3 = [
     },
     {
         "id": "mkt-day-trade-swing",
+        "titulo": _titulo("Day trade e swing trade"),
         "termos": ("day trade", "swing trade", "diferença entre day trade e swing",
                    "operar no mesmo dia"),
         "texto": {
@@ -1284,6 +1349,7 @@ _MERCADO_B3 = [
     },
     {
         "id": "mkt-tributacao",
+        "titulo": _titulo("Tributação de ações"),
         "termos": ("tributação", "tributacao", "imposto de renda ações",
                    "imposto sobre ações", "darf", "ir sobre ações",
                    "isenção de imposto ações"),
@@ -1321,6 +1387,7 @@ _MERCADO_B3 = [
     },
     {
         "id": "mkt-proventos",
+        "titulo": _titulo("Proventos (dividendos e JCP)"),
         "termos": ("dividendo", "dividendos", "jcp", "juros sobre capital próprio",
                    "provento", "proventos"),
         "texto": {
@@ -1347,6 +1414,7 @@ _MERCADO_B3 = [
     },
     {
         "id": "mkt-liquidacao",
+        "titulo": _titulo("Liquidação da operação"),
         "termos": ("liquidação", "liquidacao", "d+2", "quando o dinheiro cai",
                    "prazo de liquidação"),
         "texto": {
@@ -1371,6 +1439,7 @@ _MERCADO_B3 = [
     },
     {
         "id": "mkt-termo-futuro",
+        "titulo": _titulo("Mercado a termo e futuro"),
         "termos": ("mercado a termo", "mercado futuro", "contrato futuro",
                    "termo x futuro"),
         "texto": {
@@ -1396,6 +1465,7 @@ _MERCADO_B3 = [
     },
     {
         "id": "mkt-ipo",
+        "titulo": _titulo("IPO (oferta pública inicial)"),
         "termos": ("ipo", "abertura de capital", "oferta pública inicial",
                    "estreia na bolsa"),
         "texto": {
@@ -1418,6 +1488,7 @@ _MERCADO_B3 = [
     },
     {
         "id": "mkt-indices",
+        "titulo": _titulo("Índices da bolsa (Ibovespa, IFIX)"),
         "termos": ("ibovespa", "ibov", "ifix", "índice da bolsa", "indice da bolsa",
                    "o que é o ibovespa"),
         "texto": {
@@ -1451,6 +1522,7 @@ _MERCADO_B3 = [
 _KPIS = [
     {
         "id": "kpi-direcao",
+        "titulo": _titulo("Direção (viés da leitura)"),
         "termos": ("direção", "direcao", "viés", "vies", "alta baixa lateral"),
         "texto": {
             "educacional": (
@@ -1468,6 +1540,7 @@ _KPIS = [
     },
     {
         "id": "kpi-conviccao",
+        "titulo": _titulo("Convicção"),
         "termos": ("convicção", "conviccao", "confiança", "nível de confiança"),
         "texto": {
             "educacional": (
@@ -1486,6 +1559,7 @@ _KPIS = [
     },
     {
         "id": "kpi-qualidade",
+        "titulo": _titulo("Qualidade da leitura"),
         "termos": ("qualidade", "qualidade da leitura", "qualidade da análise"),
         "texto": {
             "educacional": (
@@ -1504,6 +1578,7 @@ _KPIS = [
     },
     {
         "id": "kpi-recomendacao",
+        "titulo": _titulo("Recomendação (veredito de estudo)", "Recomendação (decisão de mesa)"),
         "termos": ("recomendação", "recomendacao", "decisão", "decisao", "veredito"),
         "texto": {
             "educacional": (
