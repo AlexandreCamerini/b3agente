@@ -20,6 +20,7 @@ const apiSrc = readFileSync(join(here, "..", "src", "api.js"), "utf8");
 const persistence = readFileSync(join(here, "..", "src", "persistence.js"), "utf8");
 const app = readFileSync(join(here, "..", "src", "App.jsx"), "utf8");
 const glossario = readFileSync(join(here, "..", "src", "glossario.js"), "utf8");
+const ent = readFileSync(join(here, "..", "src", "entendimento.jsx"), "utf8");
 
 let fails = 0;
 const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if (!cond) fails++; };
@@ -71,6 +72,38 @@ ok("falha do fetch cai em setKbCatalogo(null) (nunca lista inventada, princípio
    /setKbCatalogo\(null\)/.test(app));
 ok("resposta em forma inesperada também cai em null (catalogoKbValido(r) ? r : null)",
    /catalogoKbValido\(r\) \? r : null/.test(app));
+
+// ============================================================ Parte 2 (Task 2, estático)
+ok("ConceitoSheet: default fonte = \"conceito\" (call-sites existentes preservados)",
+   /fonte = "conceito"/.test(ent));
+ok("literal 'fonte = \"conceito\"' aparece exatamente 1x em entendimento.jsx",
+   (ent.match(/fonte = "conceito"/g) || []).length === 1);
+ok("ramo conceito continua chamando store.conceito(cid, { dados }) sem edição",
+   /store\.conceito\(cid, \{ dados \}\)/.test(ent));
+ok("ramo kb resolve por verbeteDoCatalogo(kbCatalogo, cid), sem fetch",
+   /verbeteDoCatalogo\(kbCatalogo, cid\)/.test(ent));
+ok("bloco conceito guardado por fonte !== \"kb\"",
+   /\{c && fonte !== "kb" && \(/.test(ent));
+ok("bloco kb guardado por fonte === \"kb\"",
+   /\{c && fonte === "kb" && \(/.test(ent));
+ok("subtítulo do verbete kb é o texto honesto sobre ser genérico",
+   /Verbete do glossário — explicação geral, sem números de nenhum ativo\./.test(ent));
+ok("literal do subtítulo kb aparece exatamente 1x", (ent.match(/Verbete do glossário — explicação geral, sem números de nenhum ativo\./g) || []).length === 1);
+
+// bloco kb não tem AssistenteBox nem Markdown — fatia entre o início do bloco
+// kb e o fechamento do componente (não há mais nada depois dele no arquivo).
+const iniBlocoKb = ent.indexOf('{c && fonte === "kb" && (');
+const blocoKb = iniBlocoKb === -1 ? "" : ent.slice(iniBlocoKb);
+ok("bloco kb encontrado para fatiamento", iniBlocoKb !== -1);
+ok("bloco kb NÃO renderiza AssistenteBox (verbete genérico não tem snapshot de ativo)",
+   !/AssistenteBox/.test(blocoKb));
+ok("bloco kb NÃO usa <Markdown> nem dangerouslySetInnerHTML (T-38-09, texto = nó React puro)",
+   !/<Markdown/.test(blocoKb) && !/dangerouslySetInnerHTML/.test(blocoKb));
+
+ok("mount global passa fonte={conceitoAberto.fonte || \"conceito\"}",
+   /fonte=\{conceitoAberto\.fonte \|\| "conceito"\}/.test(app));
+ok("mount global passa kbCatalogo={kbCatalogo}",
+   /kbCatalogo=\{kbCatalogo\}/.test(app));
 
 if (fails) { console.error(`\n${fails} falha(s)`); process.exit(1); }
 console.log("\ntodos os testes passaram");

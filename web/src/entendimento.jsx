@@ -22,6 +22,9 @@
 import { useState, useEffect } from "react";
 import { store } from "./persistence.js";
 import { Markdown } from "./markdown.jsx";
+// Fase 38 (38-03): ponte kb×conceito — helper puro que resolve um verbete do
+// catálogo da KB já em memória (sem fetch nenhum, ver ConceitoSheet abaixo).
+import { verbeteDoCatalogo } from "./glossario.js";
 
 const VARKEY = (k) => "--" + k.replace(/[A-Z]/g, (c) => "-" + c.toLowerCase());
 const TOKENS = ["textFaint", "textMuted", "textSecondary", "textPrimary", "borderSubtle",
@@ -174,17 +177,26 @@ export function AssistenteBox({ cid, dados, setor, tela }) {
   );
 }
 
-export function ConceitoSheet({ cid, dados, setor, onClose, onTrocar, didatica, voltar }) {
+export function ConceitoSheet({ cid, dados, setor, onClose, onTrocar, didatica, voltar, fonte = "conceito", kbCatalogo = null }) {
   const [c, setC] = useState(null);
   const [erro, setErro] = useState(false);
   useEffect(() => {
-    let alive = true;
     setC(null); setErro(false);
+    // Fase 38 (38-03): ramo kb resolve SÍNCRONO, do catálogo já em memória
+    // (kb.py via o catálogo de 38-01) — sem rede, sem `store.conceito`. O
+    // ramo conceito (fonte ausente ou "conceito") segue byte a byte como
+    // antes, nunca refazendo a chamada quando o catálogo kb chega depois.
+    if (fonte === "kb") {
+      const v = verbeteDoCatalogo(kbCatalogo, cid);
+      if (v) setC(v); else setErro(true);
+      return;
+    }
+    let alive = true;
     store.conceito(cid, { dados })
       .then((r) => { if (alive) setC(r); })
       .catch(() => { if (alive) setErro(true); });
     return () => { alive = false; };
-  }, [cid, dados]);
+  }, [cid, dados, fonte, fonte === "kb" ? kbCatalogo : null]);
   return (
     // zIndex 86: acima de TODOS os outros overlays (tour 75, sobre 80, auth 82,
     // ajuda 84, portão de abertura 85). Esta é a única folha que abre SOZINHA,
@@ -201,9 +213,13 @@ export function ConceitoSheet({ cid, dados, setor, onClose, onTrocar, didatica, 
           <button onClick={voltar} aria-label="Voltar ao conceito anterior"
             style={{ minHeight: "36px", padding: "0 12px 0 6px", marginBottom: "6px", borderRadius: "999px", border: "none", background: "transparent", color: T.textMuted, fontSize: "12px", fontWeight: 700 }}>‹ voltar</button>
         )}
-        {erro && <p style={{ margin: 0, fontSize: "13px", color: T.textMuted }}>Não consegui carregar a explicação agora. O card continua válido.</p>}
+        {/* Fase 38 (38-03): texto de erro próprio por fonte — do glossário
+            não há card ancorando o número, então "o card continua válido"
+            não se aplica. */}
+        {erro && fonte !== "kb" && <p style={{ margin: 0, fontSize: "13px", color: T.textMuted }}>Não consegui carregar a explicação agora. O card continua válido.</p>}
+        {erro && fonte === "kb" && <p style={{ margin: 0, fontSize: "13px", color: T.textMuted }}>Não consegui abrir este verbete agora.</p>}
         {!c && !erro && <div className="sk" style={{ height: "120px", width: "100%" }} />}
-        {c && (
+        {c && fonte !== "kb" && (
           <>
             <h2 style={{ margin: "0 0 4px", fontSize: "18px", fontWeight: 800, color: T.textPrimary }}>{c.titulo}</h2>
             <div style={{ fontSize: "10.5px", color: T.textFaint, marginBottom: "12px" }}>Explicação com os números deste ativo, agora.</div>
@@ -240,6 +256,33 @@ export function ConceitoSheet({ cid, dados, setor, onClose, onTrocar, didatica, 
                 ancorou a explicação. Fica atrás de um toque para o custo ser
                 sempre uma escolha, nunca um efeito de abrir a tela. */}
             {didatica && didatica.assistente && <AssistenteBox cid={cid} dados={dados} setor={setor} />}
+            <button onClick={onClose} style={{ width: "100%", minHeight: "44px", borderRadius: "11px", border: `1px solid ${T.accent}`, background: T.accentTint10, color: T.accent, fontWeight: 800, fontSize: "13px" }}>Entendi</button>
+          </>
+        )}
+        {/* Fase 38 (38-03): ramo GLOSSÁRIO (kb.py) — verbete genérico, sem
+            números de nenhum ativo. Por isso: sem AssistenteBox (não há
+            snapshot pra "pergunte sobre estes números" cobrar da IA; o chat
+            do Boris continua disponível em qualquer aba) e o "veja também"
+            resolve no catálogo kb, não em didatica.conceitos. */}
+        {c && fonte === "kb" && (
+          <>
+            <h2 style={{ margin: "0 0 4px", fontSize: "18px", fontWeight: 800, color: T.textPrimary }}>{c.titulo}</h2>
+            <div style={{ fontSize: "10.5px", color: T.textFaint, marginBottom: "12px" }}>Verbete do glossário — explicação geral, sem números de nenhum ativo.</div>
+            <p style={{ margin: "0 0 8px", fontSize: "13.5px", lineHeight: 1.6, color: T.textSecondary }}>{c.texto}</p>
+            {(c.veja || []).length > 0 && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "7px", margin: "2px 0 14px" }}>
+                {c.veja.map((vid) => {
+                  const alvo = verbeteDoCatalogo(kbCatalogo, vid);
+                  if (!alvo) return null;
+                  return (
+                    <button key={vid} onClick={() => onTrocar(vid)}
+                      style={{ fontSize: "11.5px", padding: "8px 12px", minHeight: "36px", borderRadius: "999px", border: `1px solid ${T.borderSubtle}`, background: T.bgBase, color: T.textSecondary, fontWeight: 700 }}>
+                      {alvo.titulo} →
+                    </button>
+                  );
+                })}
+              </div>
+            )}
             <button onClick={onClose} style={{ width: "100%", minHeight: "44px", borderRadius: "11px", border: `1px solid ${T.accent}`, background: T.accentTint10, color: T.accent, fontWeight: 800, fontSize: "13px" }}>Entendi</button>
           </>
         )}

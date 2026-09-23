@@ -9185,7 +9185,12 @@ export default function App() {
           // filtra o que serve a cada um, então o encadeamento segue ancorado
           // no mesmo ativo em vez de virar texto de manual.
           onTrocar={A.trocarConceito}
-          voltar={(conceitoAberto.trilha || []).length ? A.voltarConceito : null} />
+          voltar={(conceitoAberto.trilha || []).length ? A.voltarConceito : null}
+          // Fase 38 (38-03): discriminador explícito de fonte — default
+          // "conceito" preserva os 9 call-sites existentes byte a byte;
+          // "kb" (só via A.abrirVerbeteKb) resolve do catálogo já em memória.
+          fonte={conceitoAberto.fonte || "conceito"}
+          kbCatalogo={kbCatalogo} />
       )}
       {authOpen && <AuthModal ctx={ctx} onClose={() => setAuthOpen(false)} />}
       {stopAlvoFor && <StopAlvoModal ctx={ctx} />}
