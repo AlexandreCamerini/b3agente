@@ -127,6 +127,7 @@ Servidores locais subidos (api:8787, web:5174, `.claude/launch.json`), `/api/kb/
 
 - `git fetch`/`git push` imprimiram `fatal: failed to store: 100001` de forma consistente em toda operação de rede (fetch, push, push:main) — ruído do agente de credenciais local, não bloqueante: todas as operações de rede completaram com sucesso a despeito da mensagem (refs atualizadas corretamente, confirmado por `git log origin/main -1` == `git rev-parse HEAD` ao final). Não investigado a fundo por não bloquear nada.
 - O redeploy do Railway levou ~5,5min desta vez (precedente da Fase 35 registrava ~3-4min) e passou por um 502 transitório ("Application failed to respond") no meio da troca de container — comportamento esperado de um deploy em andamento, não um defeito; confirmado que o build novo assumiu logo em seguida.
+- `web/package-lock.json` chegou a esta sessão já modificado (`"version": "1.0.0"` → `"2.0.0"`, alinhando com `web/package.json`, que já tinha subido para `2.0.0` num commit anterior — `9d36a1c`, não relacionado a esta fase). Confirmado fora de escopo desta plan (nenhum arquivo da Fase 38 toca `package.json`/versionamento) e deixado INTOCADO/não commitado — nenhum `git add` tocou este arquivo em nenhum dos 3 commits desta plan. Fica como está para o Alex decidir separadamente.
 
 ## User Setup Required
 
