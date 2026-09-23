@@ -564,6 +564,17 @@ export const COPY = {
       `${ticker} sozinho responde por ${pct}% do seu patrimônio simulado. Diversificação reduz o quanto um único evento negativo pode derrubar a carteira inteira — vale estudar o conceito antes de aumentar ainda mais essa posição.`,
     concentracaoLink: "saiba mais",
 
+    // Fase 38 (38-04, KB-01): rótulos de interface da tela de Glossário
+    // (Perfil → Glossário) — são rótulo de tile/campo/estado, não voz de
+    // modo, por isso texto idêntico nos dois blocos (mesmo padrão de
+    // concentracaoLink acima).
+    glossarioSub: (n) => (n ? n + " termos" : "Termos") + " de indicadores, estruturas e mecânica da B3 — busque ou navegue por categoria",
+    glossarioBuscaPlaceholder: "Buscar um termo (ex.: RSI, stop, IPO...)",
+    glossarioBuscaRotulo: "Buscar no glossário",
+    glossarioLimpar: "Limpar busca",
+    glossarioVazio: (termo) => `Nenhum verbete encontrado para "${termo}".`,
+    glossarioErro: "Não consegui carregar o glossário agora. Toque para tentar de novo.",
+
     // Quick 260906-vf9 (C-09, REPORT-01): aviso de drawdown alto no card de
     // patrimônio (CapitalCurve), acima de LIMIAR_DRAWDOWN_ALERTA=15% em
     // App.jsx. Aviso educacional, não bloqueio — mesma disciplina do trio
@@ -1230,6 +1241,15 @@ export const COPY = {
     concentracaoCorpo: (ticker, pct) =>
       `${ticker} concentra ${pct}% da carteira. Acima disso, um único stop ruim carrega peso desproporcional no resultado — considere o tamanho antes do próximo aporte no papel.`,
     concentracaoLink: "saiba mais",
+
+    // Fase 38 (38-04, KB-01): chaves espelhadas do ramo estudo — rótulo de
+    // interface, não voz de modo (ver comentário no ramo estudo).
+    glossarioSub: (n) => (n ? n + " termos" : "Termos") + " de indicadores, estruturas e mecânica da B3 — busque ou navegue por categoria",
+    glossarioBuscaPlaceholder: "Buscar um termo (ex.: RSI, stop, IPO...)",
+    glossarioBuscaRotulo: "Buscar no glossário",
+    glossarioLimpar: "Limpar busca",
+    glossarioVazio: (termo) => `Nenhum verbete encontrado para "${termo}".`,
+    glossarioErro: "Não consegui carregar o glossário agora. Toque para tentar de novo.",
 
     // Quick 260906-vf9 (C-09, REPORT-01): mesmo aviso do ramo estudo, tom de
     // mesa — limiar LIMIAR_DRAWDOWN_ALERTA=15% em App.jsx. Chave espelhada

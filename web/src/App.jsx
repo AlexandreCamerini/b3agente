@@ -56,7 +56,9 @@ import { falarTexto, calarVoz, setVozConfig, listarVozes } from "./pet/vozBoris.
 import { AiNote, SUBLINHADO, SetorAlvo, ConceitoSheet } from "./entendimento.jsx";
 // Fase 38 (38-03): ponte kb×conceito — helper puro que valida o catálogo da
 // KB buscado abaixo (ConceitoSheet importa o outro helper, verbeteDoCatalogo).
-import { catalogoKbValido } from "./glossario.js";
+// Fase 38 (38-04, KB-01): filtrarVerbetes/agruparPorFamilia — filtros puros
+// da tela de Glossário (TelaGlossario, logo acima de PerfilHub).
+import { catalogoKbValido, filtrarVerbetes, agruparPorFamilia } from "./glossario.js";
 
 /* =============================================================================
    Boris+ — simulador EDUCACIONAL de paper trading da B3.
@@ -2665,6 +2667,125 @@ async function abrirAdminMobile(ctx) {
   }
 }
 
+// Fase 38 (38-04, KB-01): linha de verbete — MESMO componente local no
+// acordeão de famílias e na lista plana de resultados (38-UI-SPEC.md §2).
+// `meta` é o rótulo da família (mostrado na lista plana, onde não há seção
+// agrupando); no acordeão, a seção já diz a família, então `meta` vem null.
+function LinhaVerbeteGlossario({ v, meta, onClick }) {
+  return (
+    <button onClick={onClick} style={{ width: "100%", minHeight: "44px", padding: "12px 14px", borderRadius: "11px", border: `1px solid ${T.borderSubtle}`, background: T.bgCard, textAlign: "left", cursor: "pointer" }}>
+      <span style={{ display: "block", fontSize: "13.5px", fontWeight: 700, color: T.textPrimary }}>{v.titulo}</span>
+      {meta ? <span style={{ display: "block", fontSize: "11.5px", color: T.textMuted, marginTop: "2px" }}>{meta}</span> : null}
+    </button>
+  );
+}
+
+// Cabeçalho de família (tipografia Kicker do UI-SPEC) + linhas quando
+// expandida. Recolhida por padrão (D-01/D-06) — `aberta` alterna sem navegar.
+function GlossarioFamilia({ grupo, aberta, onToggle, onAbrirVerbete }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+      <button onClick={onToggle} aria-expanded={aberta} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", padding: "10px 2px", background: "transparent", border: "none", cursor: "pointer" }}>
+        <span style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: aberta ? T.accent : T.textSecondary }}>{grupo.rotulo} ({grupo.verbetes.length})</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden style={{ flex: "none", color: aberta ? T.accent : T.textFaint, transform: aberta ? "rotate(180deg)" : "none" }}><polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+      </button>
+      {aberta && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+          {grupo.verbetes.map((v) => <LinhaVerbeteGlossario key={v.id} v={v} meta={null} onClick={() => onAbrirVerbete(v.id)} />)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Fase 38 (38-04, KB-01): TELA DE GLOSSÁRIO — busca livre + navegação por
+// família na MESMA tela (D-01, 38-UI-SPEC.md §2). Filtro SÍNCRONO
+// client-side sobre o catálogo já carregado (ctx.kbCatalogo, buscado 1x no
+// boot/troca de modo pelo App raiz) — nunca round-trip por tecla (D-04).
+// Três estados mutuamente exclusivos por campo/contagem: query vazia →
+// acordeão de famílias; query com 1+ match → lista plana sem cap (D-03);
+// query sem match → mensagem ACIMA do acordeão, que continua visível e
+// interativo (D-05, nunca esconde a navegação por categoria).
+function TelaGlossario({ ctx }) {
+  const cat = ctx.kbCatalogo;
+  const [busca, setBusca] = useState("");
+  const [abertas, setAbertas] = useState(() => new Set());
+  const toggleFamilia = (fid) => setAbertas((prev) => {
+    const next = new Set(prev);
+    if (next.has(fid)) next.delete(fid); else next.add(fid);
+    return next;
+  });
+  const familiaRotulo = (fid) => {
+    const f = cat && Array.isArray(cat.familias) ? cat.familias.find((x) => x.id === fid) : null;
+    return f ? f.rotulo : "";
+  };
+  // useMemo é conveniência, não correção: a derivação é barata (no máx. ~83
+  // itens) e roda de qualquer forma a cada tecla — sem debounce, sem mínimo
+  // de caracteres (38-UI-SPEC.md, "Search input").
+  const resultados = useMemo(() => (cat ? filtrarVerbetes(cat.verbetes, busca) : []), [cat, busca]);
+  const grupos = useMemo(() => (cat ? agruparPorFamilia(cat.verbetes, cat.familias) : []), [cat]);
+  const buscaLimpa = busca.trim();
+  const temQuery = buscaLimpa.length > 0;
+
+  // undefined = fetch único em curso (skeleton existente, sem spinner novo) —
+  // aparece só ao montar a tela, nunca durante a digitação (busca é sobre o
+  // catálogo já em memória).
+  if (cat === undefined) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+        <div className="sk" style={{ height: "44px", width: "100%", borderRadius: "11px" }} />
+        <div className="sk" style={{ height: "44px", width: "100%", borderRadius: "11px" }} />
+        <div className="sk" style={{ height: "44px", width: "100%", borderRadius: "11px" }} />
+      </div>
+    );
+  }
+
+  // null = a busca falhou — erro com retry, NUNCA lista parcial ou inventada
+  // (princípio 4 do CLAUDE.md, T-38-16).
+  if (cat === null) {
+    return (
+      <button onClick={ctx.recarregarKb} style={{ width: "100%", minHeight: "44px", padding: "13px 14px", borderRadius: "11px", border: `1px solid ${T.borderSubtle}`, background: "transparent", color: T.textMuted, fontSize: "13px", textAlign: "left", cursor: "pointer" }}>
+        {ctx.cp.glossarioErro}
+      </button>
+    );
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+      <div style={{ position: "relative" }}>
+        <input type="search" value={busca} onChange={(e) => setBusca(e.target.value)}
+          placeholder={ctx.cp.glossarioBuscaPlaceholder} aria-label={ctx.cp.glossarioBuscaRotulo}
+          style={{ ...field, paddingRight: busca ? "36px" : undefined }} />
+        {busca ? (
+          <button type="button" onClick={() => setBusca("")} aria-label={ctx.cp.glossarioLimpar}
+            style={{ position: "absolute", right: "4px", top: "50%", transform: "translateY(-50%)", width: "30px", height: "30px", border: "none", background: "transparent", color: T.textMuted, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" /></svg>
+          </button>
+        ) : null}
+      </div>
+
+      {temQuery ? (
+        resultados.length > 0 ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            {resultados.map((v) => <LinhaVerbeteGlossario key={v.id} v={v} meta={familiaRotulo(v.familia)} onClick={() => ctx.A.abrirVerbeteKb(v.id)} />)}
+          </div>
+        ) : (
+          <>
+            <p role="status" style={{ margin: 0, fontSize: "13px", color: T.textMuted }}>{ctx.cp.glossarioVazio(buscaLimpa)}</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              {grupos.map((g) => <GlossarioFamilia key={g.id} grupo={g} aberta={abertas.has(g.id)} onToggle={() => toggleFamilia(g.id)} onAbrirVerbete={ctx.A.abrirVerbeteKb} />)}
+            </div>
+          </>
+        )
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+          {grupos.map((g) => <GlossarioFamilia key={g.id} grupo={g} aberta={abertas.has(g.id)} onToggle={() => toggleFamilia(g.id)} onAbrirVerbete={ctx.A.abrirVerbeteKb} />)}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PerfilHub({ ctx, onOpen }) {
   const { data } = ctx;
   const name = ((data.config && data.config.userName) || "").trim();
@@ -2759,6 +2880,16 @@ function PerfilHub({ ctx, onOpen }) {
       <div style={hubGroup}>Ajuda</div>
       <ProfileTile wide onClick={() => onOpen("ajuda")} title="Como funciona" sub="Guia rápido de cada tela + tour do app" icon={
         <svg width="19" height="19" viewBox="0 0 24 24" aria-hidden><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="1.8" /><path d="M9.5 9.2a2.6 2.6 0 0 1 5 .9c0 1.7-2.5 2-2.5 3.6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /><circle cx="12" cy="17" r="0.6" fill="currentColor" stroke="currentColor" strokeWidth="0.8" /></svg>
+      } />
+      {/* Fase 38 (38-04, KB-01): tile "Glossário" no grupo Ajuda, logo abaixo
+          de "Como funciona" — glossário não é IA (não entra em "IA e
+          desempenho"), e o grupo Ajuda já é o par temático certo (D-06 do
+          38-CONTEXT.md: mesmo padrão de tile+tela focada dos irmãos).
+          Subtítulo usa a CONTAGEM REAL do catálogo carregado, nunca um
+          literal "83" — com a didática desligada o backend serve menos
+          verbetes (38-01), e um número fixo aqui seria afirmação não medida. */}
+      <ProfileTile wide onClick={() => onOpen("glossario")} title="Glossário" sub={ctx.cp.glossarioSub(ctx.kbCatalogo && ctx.kbCatalogo.verbetes ? ctx.kbCatalogo.verbetes.length : 0)} icon={
+        <svg width="19" height="19" viewBox="0 0 24 24" aria-hidden><path d="M5 4.5c0-.8.7-1.5 1.5-1.5H12v18H6.5A1.5 1.5 0 0 1 5 19.5v-15Z" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" /><path d="M19 4.5c0-.8-.7-1.5-1.5-1.5H12v18h5.5a1.5 1.5 0 0 0 1.5-1.5v-15Z" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" /></svg>
       } />
 
       <div style={{ fontSize: "11.5px", color: T.textFaint, marginTop: "8px", lineHeight: 1.5 }}>
@@ -9132,6 +9263,8 @@ export default function App() {
                     ? (<><BackHeader title="Fonte de dados" onBack={() => setPerfilView("hub")} /><FonteDadosScreen ctx={ctx} /></>)
                   : perfilView === "logs"
                     ? (<><BackHeader title="Diagnóstico" onBack={() => setPerfilView("hub")} /><LogsDebugScreen ctx={ctx} /></>)
+                    : perfilView === "glossario"
+                      ? (<><BackHeader title="Glossário" onBack={() => setPerfilView("hub")} /><TelaGlossario ctx={ctx} /></>)
                     : perfilView === "ajuda"
                       ? (<><BackHeader title="Como funciona" onBack={() => setPerfilView("hub")} /><AjudaScreen ctx={ctx} /></>)
                       : <PerfilHub ctx={ctx} onOpen={setPerfilView} />)}

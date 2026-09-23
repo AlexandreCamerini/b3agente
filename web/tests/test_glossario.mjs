@@ -82,5 +82,41 @@ const totalAgrupado = grupos.reduce((n, g) => n + g.verbetes.length, 0);
 ok("agruparPorFamilia: verbete de família desconhecida não entra em grupo nenhum",
   totalAgrupado === V.length - 1);
 
+// ============================================================ Parte 2 (Task 2, estático)
+const app = readFileSync(join(here, "..", "src", "App.jsx"), "utf8");
+const copySrc = readFileSync(join(here, "..", "src", "copy.js"), "utf8");
+
+const teloStart = app.indexOf("function TelaGlossario({ ctx })");
+const hubStart = app.indexOf("function PerfilHub(");
+ok("TelaGlossario existe", teloStart > -1);
+ok("TelaGlossario vem ANTES de PerfilHub (fora da fatia do guardião de perfil)", teloStart > -1 && hubStart > -1 && teloStart < hubStart);
+
+ok("PerfilHub abre o tile Glossário: onOpen(\"glossario\") + title=\"Glossário\"",
+  app.includes('onOpen("glossario")') && app.includes('title="Glossário"'));
+ok("onOpen(\"glossario\") aparece exatamente 1x", (app.match(/onOpen\("glossario"\)/g) || []).length === 1);
+
+ok("roteamento: ramo perfilView === \"glossario\" monta TelaGlossario",
+  /perfilView === "glossario"[\s\S]{0,120}<TelaGlossario ctx=\{ctx\} \/>/.test(app));
+
+// A fatia começa no primeiro helper (LinhaVerbeteGlossario/GlossarioFamilia
+// vêm ANTES de TelaGlossario, mas são parte da mesma feature) até PerfilHub.
+const glossarioFeatStart = app.indexOf("function LinhaVerbeteGlossario(");
+const telaGlossarioFatia = app.slice(glossarioFeatStart > -1 ? glossarioFeatStart : teloStart, hubStart);
+ok("TelaGlossario usa filtrarVerbetes(", telaGlossarioFatia.includes("filtrarVerbetes("));
+ok("TelaGlossario usa agruparPorFamilia(", telaGlossarioFatia.includes("agruparPorFamilia("));
+ok("TelaGlossario abre o verbete via abrirVerbeteKb(", telaGlossarioFatia.includes("abrirVerbeteKb("));
+ok("cabeçalho de família usa aria-expanded", telaGlossarioFatia.includes("aria-expanded"));
+ok("estado de erro chama ctx.recarregarKb", telaGlossarioFatia.includes("ctx.recarregarKb"));
+
+ok("App.jsx importa filtrarVerbetes/agruparPorFamilia de ./glossario.js",
+  /import \{[^}]*filtrarVerbetes[^}]*agruparPorFamilia[^}]*\} from "\.\/glossario\.js"/.test(app));
+
+// As 6 chaves glossario* precisam estar nos DOIS blocos de copy.js (2 ocorrências cada).
+for (const chave of ["glossarioSub", "glossarioBuscaPlaceholder", "glossarioBuscaRotulo", "glossarioLimpar", "glossarioVazio", "glossarioErro"]) {
+  const n = (copySrc.match(new RegExp(chave + ":", "g")) || []).length;
+  ok(`copy.js: ${chave} presente nos dois blocos (2x)`, n === 2);
+}
+ok('copy.js: string exata "Nenhum verbete encontrado para" (D-05)', copySrc.includes("Nenhum verbete encontrado para"));
+
 if (fails) { console.error(`\n${fails} falha(s)`); process.exit(1); }
 console.log("\ntodos os testes passaram");
