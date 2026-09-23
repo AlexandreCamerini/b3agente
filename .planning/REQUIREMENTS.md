@@ -59,20 +59,18 @@ Reconhecido, mas fora desta milestone — decisão de escopo pendente do Alex.
 
 ## Traceability
 
-Preenchido na criação do roadmap.
-
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| KB-01 | TBD | Pending |
-| KB-02 | TBD | Pending |
-| ESTADO-01 | TBD | Pending |
-| TELAS-01 | TBD | Pending |
+| KB-01 | Phase 38 | Pending |
+| KB-02 | Phase 38 | Pending |
+| ESTADO-01 | Phase 39 | Pending |
+| TELAS-01 | Phase 40 | Pending |
 
 **Coverage:**
 - v1 requirements: 4 total
-- Mapped to phases: 0
-- Unmapped: 4 ⚠️ (roadmap ainda não criado)
+- Mapped to phases: 4
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-09-23*
-*Last updated: 2026-09-23 after initial definition*
+*Last updated: 2026-09-23 — roadmap criado, traceability preenchida (Phases 38-40)*

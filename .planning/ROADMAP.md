@@ -10,8 +10,23 @@
 - ✅ **v1.4 Opções v2** — Phases 15-19, 24-32 (shipped 2026-09-19) — [detalhes](milestones/v1.4-ROADMAP.md)
 - ✅ **v1.6 Simplificação da aba Opções** — Phases 33-34 (shipped 2026-09-20) — [detalhes](milestones/v1.6-ROADMAP.md)
 - ✅ **v1.7 Confiabilidade explicativa da aba Opções** — Phases 35-37 (shipped 2026-09-22) — [detalhes](milestones/v1.7-ROADMAP.md)
+- 🚧 **v1.8 Didática ampliada + continuidade da aba Opções** — Phases 38-40 (in progress)
 
 ## Phases
+
+<details open>
+<summary>🚧 v1.8 Didática ampliada + continuidade da aba Opções (Phases 38-40) — IN PROGRESS</summary>
+
+- [ ] Phase 38: KB Didática ampliada (0/? plans) — not started
+- [ ] Phase 39: Continuidade da aba Opções (0/? plans) — not started
+- [ ] Phase 40: Consolidação de registros de tela (0/? plans) — not started
+
+Escopo explicitamente fora desta milestone: B3 (execução a descoberto,
+decisão de escopo pendente do Alex), CAP-12/verificação visual da Fase 37
+(resolvem com distribuição TestFlight, não são fase), verbete de "drawdown"
+(fold-in oportunista, não fase dedicada). Ver `.planning/REQUIREMENTS.md`.
+
+</details>
 
 <details>
 <summary>✅ v1.0 Revisão Geral (Phase 1) — SHIPPED 2026-08-18</summary>
@@ -185,8 +200,78 @@ Full phase details: [milestones/v1.7-ROADMAP.md](milestones/v1.7-ROADMAP.md)
 | 35. Jornada Guiada do Workspace | 3/3 | Complete (checkpoint humano aprovado ao vivo) | 2026-09-21 |
 | 36. Motor de Payoff Genérico | 2/2 | Complete | 2026-09-21 |
 | 37. Gráfico de Payoff e Explicação Confiáveis | 5/5 | Complete (checkpoint com ressalva — ver STATE.md) | 2026-09-22 |
+| 38. KB Didática ampliada | 0/? | Not started | - |
+| 39. Continuidade da aba Opções | 0/? | Not started | - |
+| 40. Consolidação de registros de tela | 0/? | Not started | - |
 
 ## Phase Details
+
+### Phase 38: KB Didática ampliada
+
+**Goal**: Usuário consegue buscar qualquer um dos 83 verbetes da KB de
+mecânica B3 e encontrar um link "saiba mais" contextualizado nas telas que
+hoje não oferecem essa ponta de entrada — reforçando a camada educacional
+que é o core value do produto.
+**Depends on**: Nenhuma (primeira fase da milestone)
+**Requirements**: KB-01, KB-02
+**Success Criteria** (what must be TRUE):
+  1. Usuário digita um termo (busca livre, por família, ou os dois — mecanismo
+     decidido em discuss-phase) e encontra o verbete correspondente entre os
+     83 da KB de mecânica B3 (KB-01)
+  2. Usuário abre um verbete a partir do resultado da busca e lê a explicação
+     didática completa no mesmo componente usado hoje (`ConceitoSheet`)
+  3. Nas 4 abas que hoje não têm cobertura, usuário vê um link "saiba mais"
+     que abre o verbete relevante para o contexto daquela tela (KB-02)
+  4. `SetorAlvo`/`ConceitoSheet` vivem num módulo compartilhado fora de
+     `App.jsx`, e `OpcoesScreen.jsx` continua sem importar nada de `App.jsx`
+     (isolamento deliberado preservado, `OpcoesScreen.jsx:20-24`)
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 39: Continuidade da aba Opções
+
+**Goal**: Usuário troca da aba Opções para outra aba principal e volta sem
+perder onde estava — ticker selecionado, sub-aba ativa e filtros aplicados
+sobrevivem à navegação.
+**Depends on**: Nenhuma (independente de KB-01/KB-02 — sem arquivo
+compartilhado esperado com a Fase 38)
+**Requirements**: ESTADO-01
+**Success Criteria** (what must be TRUE):
+  1. Usuário seleciona um ticker na aba Opções, navega para outra aba
+     principal e, ao voltar, encontra o mesmo ticker selecionado
+  2. Usuário troca de sub-aba do workspace (Analisar/Comparar/Setups salvos),
+     navega para fora e volta, e a mesma sub-aba continua ativa
+  3. Filtros aplicados na aba Opções (ex.: vencimento/estrutura) permanecem
+     aplicados após a troca de aba
+  4. A continuidade de estado respeita o escopo do usuário logado — trocar de
+     conta ou deslogar nunca vaza o estado de uma conta para outra
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 40: Consolidação de registros de tela
+
+**Goal**: Um único registro de telas no front alimenta navegação, tour,
+ajuda e snapshot do assistente — fechando a dívida técnica de 5 registros
+paralelos (4 no front + `PET_TELAS` no backend) identificada e deferida na
+Fase 26 (v1.4).
+**Depends on**: Nenhuma (execução independente da Fase 38 — nenhum arquivo
+compartilhado esperado; sequenciada por último por ser a mais arriscada,
+tocando nav+tour+ajuda+assistente ao mesmo tempo — ver `26-CONTEXT.md`)
+**Requirements**: TELAS-01
+**Success Criteria** (what must be TRUE):
+  1. `BottomNav.defs`, `tourPassos`, `ajudaSecoes` e `petSnapshot` passam a
+     ler de um único registro central — não existem mais 4 listas paralelas
+     de tela no front
+  2. Navegação por abas, tour guiado, seção de ajuda e resposta do assistente
+     sobre a tela atual continuam funcionando sem regressão visível ao
+     usuário
+  3. Um teste de paridade compara o registro do front com `PET_TELAS` do
+     backend e falha se divergirem — mesmo padrão de `defaults.py`×
+     `catalog.js` (dois pontos testados, não um cruzando JS/Python)
+  4. Adicionar uma tela nova exige editar um único ponto do front (mais o
+     espelho no backend), não os 4 anteriores
+**Plans**: TBD
+**UI hint**: yes
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2/v1.3
 
@@ -267,4 +352,6 @@ Simplificação da aba Opções (Phases 33-34) shipped em 2026-09-20 — ver
 Confiabilidade explicativa da aba Opções (Phases 35-37) shipped em
 2026-09-22 — ver [milestones/v1.7-ROADMAP.md](milestones/v1.7-ROADMAP.md).
 
-Nenhum milestone aberto no momento — próximo passo é `/gsd-new-milestone`.
+Milestone v1.8 (Didática ampliada + continuidade da aba Opções) EM
+ANDAMENTO — Phases 38-40, roadmap criado em 2026-09-23. Próximo passo:
+`/gsd:plan-phase 38`.

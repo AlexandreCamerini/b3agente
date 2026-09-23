@@ -6,7 +6,7 @@ status: planning
 last_updated: "2026-09-23T03:57:38.119Z"
 last_activity: 2026-09-23
 progress:
-  total_phases: 0
+  total_phases: 3
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-20)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Milestone v1.7 arquivada (2026-09-22). Aguardando `/gsd-new-milestone` para o próximo escopo.
+**Current focus:** Milestone v1.8 (Didática ampliada + continuidade da aba Opções) — ROADMAP.md criado (Phases 38-40, 4/4 requirements mapeados). Próximo passo: `/gsd:plan-phase 38`.
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 38 (KB Didática ampliada) — não iniciada
 Plan: —
-Status: Defining requirements
-Last activity: 2026-09-23 — Milestone v1.8 started
+Status: ROADMAP.md criado (Phases 38-40: KB Didática ampliada, Continuidade da aba Opções, Consolidação de registros de tela). 4/4 requirements v1 mapeados, 0 orfãos. Aguardando `/gsd:plan-phase 38`.
+Last activity: 2026-09-23 — ROADMAP.md e traceability de REQUIREMENTS.md criados para o milestone v1.8
 
 ## Posição anterior nesta fase (Fase 36, fechada)
 
