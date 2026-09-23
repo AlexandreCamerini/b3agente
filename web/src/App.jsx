@@ -58,7 +58,7 @@ import { AiNote, SUBLINHADO, SetorAlvo, ConceitoSheet } from "./entendimento.jsx
 // KB buscado abaixo (ConceitoSheet importa o outro helper, verbeteDoCatalogo).
 // Fase 38 (38-04, KB-01): filtrarVerbetes/agruparPorFamilia — filtros puros
 // da tela de Glossário (TelaGlossario, logo acima de PerfilHub).
-import { catalogoKbValido, filtrarVerbetes, agruparPorFamilia } from "./glossario.js";
+import { catalogoKbValido, filtrarVerbetes, agruparPorFamilia, ANCORAS_KB, verbeteDoCatalogo } from "./glossario.js";
 
 /* =============================================================================
    Boris+ — simulador EDUCACIONAL de paper trading da B3.
@@ -2099,6 +2099,13 @@ function EvolucaoScreen({ ctx }) {
           {cp.resumoDia(((wlScan && wlScan.results) || []).filter((r) => (r.confluencia || 0) > 0).length,
             ((wlScan && wlScan.results) || []).filter((r) => r.plano && (r.plano.decisao === "COMPRAR" || r.plano.decisao === "VENDER")).length)}
         </p>
+        {/* Fase 38 (38-05, KB-02): link "saiba mais" fixo (D-07/D-08) — mesmo
+            portão do precedente de Portfólio (diversificacao, ~L4275): só
+            aparece com didática ligada E o verbete presente no catálogo já
+            carregado (sem link morto enquanto o catálogo carrega/falha). */}
+        {ctx.didatica && ctx.didatica.ligada && verbeteDoCatalogo(ctx.kbCatalogo, ANCORAS_KB.evolucao) && (
+          <button type="button" onClick={() => A.abrirVerbeteKb(ANCORAS_KB.evolucao)} style={{ background: "transparent", border: "none", padding: 0, marginTop: "6px", color: T.accent, fontWeight: 700, fontSize: "12px", textDecoration: "none" }}>{cp.saibaMais}</button>
+        )}
       </div>
 
       {/* qa/mock v2: HERO-CARROSSEL das oportunidades — os setups da watchlist
@@ -3833,6 +3840,13 @@ function MercadoScreen({ ctx }) {
         {cp.subtituloWatchlist}{quotesAt ? "  ·  cotações " + quotesAt : ""}
         <QuotaSeg quota={wlQuota} count={(data.watchlist || []).length} prefix="  ·  ativos: " />
       </p>
+      {/* Fase 38 (38-05, KB-02): link "saiba mais" fixo (D-07/D-08) — mesmo
+          portão do precedente de Portfólio (diversificacao, ~L4275). */}
+      {ctx.didatica && ctx.didatica.ligada && verbeteDoCatalogo(ctx.kbCatalogo, ANCORAS_KB.mercado) && (
+        <div style={{ marginBottom: "12px" }}>
+          <button type="button" onClick={() => A.abrirVerbeteKb(ANCORAS_KB.mercado)} style={{ background: "transparent", border: "none", padding: 0, marginTop: "6px", color: T.accent, fontWeight: 700, fontSize: "12px", textDecoration: "none" }}>{cp.saibaMais}</button>
+        </div>
+      )}
       {/* FASE 2 (2.3): filtro secundário por direção — a ordenação por
           oportunidade é permanente e não compete com ordenação manual. */}
       {data.watchlist.length > 1 && (
@@ -6707,6 +6721,13 @@ function RadarScreen({ ctx }) {
       )}
       {batch.error && <div style={{ margin: "0 0 10px", fontSize: "11.5px", color: T.negative }}>{batch.error}</div>}
       <p style={{ margin: "0 0 12px", color: T.textMuted, fontSize: "13px", maxWidth: "560px", lineHeight: 1.55 }}>{cp.subtituloRadar}</p>
+      {/* Fase 38 (38-05, KB-02): link "saiba mais" fixo (D-07/D-08) — mesmo
+          portão do precedente de Portfólio (diversificacao, ~L4275). */}
+      {ctx.didatica && ctx.didatica.ligada && verbeteDoCatalogo(ctx.kbCatalogo, ANCORAS_KB.radar) && (
+        <div style={{ marginBottom: "12px" }}>
+          <button type="button" onClick={() => ctx.A.abrirVerbeteKb(ANCORAS_KB.radar)} style={{ background: "transparent", border: "none", padding: 0, marginTop: "6px", color: T.accent, fontWeight: 700, fontSize: "12px", textDecoration: "none" }}>{cp.saibaMais}</button>
+        </div>
+      )}
       <input
         value={busca}
         onChange={(e) => setBusca(e.target.value)}

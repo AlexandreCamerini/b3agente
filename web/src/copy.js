@@ -575,6 +575,13 @@ export const COPY = {
     glossarioVazio: (termo) => `Nenhum verbete encontrado para "${termo}".`,
     glossarioErro: "Não consegui carregar o glossário agora. Toque para tentar de novo.",
 
+    // Fase 38 (38-05, KB-02): link "saiba mais" fixo por aba (Acompanhar/
+    // Radar/Watchlist/Opções, ver ANCORAS_KB em glossario.js). Rótulo
+    // genérico idêntico nos dois modos (mesmo padrão de concentracaoLink
+    // acima) — NÃO reusar concentracaoLink, que pertence ao alerta de
+    // concentração e fica intocado.
+    saibaMais: "saiba mais",
+
     // Quick 260906-vf9 (C-09, REPORT-01): aviso de drawdown alto no card de
     // patrimônio (CapitalCurve), acima de LIMIAR_DRAWDOWN_ALERTA=15% em
     // App.jsx. Aviso educacional, não bloqueio — mesma disciplina do trio
@@ -1250,6 +1257,10 @@ export const COPY = {
     glossarioLimpar: "Limpar busca",
     glossarioVazio: (termo) => `Nenhum verbete encontrado para "${termo}".`,
     glossarioErro: "Não consegui carregar o glossário agora. Toque para tentar de novo.",
+
+    // Fase 38 (38-05, KB-02): chave espelhada do ramo estudo — rótulo de
+    // interface, não voz de modo (ver comentário no ramo estudo).
+    saibaMais: "saiba mais",
 
     // Quick 260906-vf9 (C-09, REPORT-01): mesmo aviso do ramo estudo, tom de
     // mesa — limiar LIMIAR_DRAWDOWN_ALERTA=15% em App.jsx. Chave espelhada

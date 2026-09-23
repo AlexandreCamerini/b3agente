@@ -30,6 +30,22 @@ export function verbeteDoCatalogo(cat, vid) {
   return v;
 }
 
+// ============================================================ Fase 38 (38-05)
+// ANCORAS_KB — fonte única dos 4 `vid` do link "saiba mais" fixo por aba
+// (KB-02). D-07: cada aba abre SEMPRE o mesmo verbete, sem lógica por
+// contexto. D-08: os 4 ids abaixo são a "proposta" do 38-UI-SPEC.md,
+// aprovada pelo Alex via AskUserQuestion em 2026-09-23 (ver tabela no topo
+// de 38-05-SUMMARY.md, "Resolução de D-08") — nenhuma alternativa foi
+// escolhida. Chaves = ids de `tab` do App (evolucao/radar/mercado/opcoes).
+// `server/tests/test_kb_ancoras.py` reprova qualquer id abaixo que não
+// exista em `kb.py` (guardião cross-linguagem).
+export const ANCORAS_KB = Object.freeze({
+  evolucao: "mkt-carteira-simulada",
+  radar: "confluencia",
+  mercado: "ind-rsi",
+  opcoes: "mkt-opcao",
+});
+
 // ============================================================ Fase 38 (38-04)
 // Filtros puros da tela de Glossário (KB-01). Três decisões declaradas no
 // PLAN.md, não silenciosas:
