@@ -17,7 +17,7 @@
 <details open>
 <summary>🚧 v1.8 Didática ampliada + continuidade da aba Opções (Phases 38-40) — IN PROGRESS</summary>
 
-- [ ] Phase 38: KB Didática ampliada (0/? plans) — not started
+- [ ] Phase 38: KB Didática ampliada (0/6 plans) — planned
 - [ ] Phase 39: Continuidade da aba Opções (0/? plans) — not started
 - [ ] Phase 40: Consolidação de registros de tela (0/? plans) — not started
 
@@ -225,7 +225,13 @@ que é o core value do produto.
   4. `SetorAlvo`/`ConceitoSheet` vivem num módulo compartilhado fora de
      `App.jsx`, e `OpcoesScreen.jsx` continua sem importar nada de `App.jsx`
      (isolamento deliberado preservado, `OpcoesScreen.jsx:20-24`)
-**Plans**: TBD
+**Plans**: 6 plans em 5 ondas (01 ∥ 02, depois 03 → 04 → 05 → 06)
+- [ ] 38-01-PLAN.md — KB backend: `titulo` nos 83 verbetes (65 autorados + 18 derivados), `FAMILIAS` rotuladas, `GET /api/kb/catalogo`
+- [ ] 38-02-PLAN.md — extração pura de `SetorAlvo`/`ConceitoSheet`/`AssistenteBox`/`AiNote` para `web/src/entendimento.jsx` + 6 guardiões reapontados
+- [ ] 38-03-PLAN.md — ponte kb × conceito: `fonte` explícita na `ConceitoSheet`, `kbCatalogo` nos dois stores e no `ctx`, `A.abrirVerbeteKb`
+- [ ] 38-04-PLAN.md — KB-01: tela Glossário em Perfil (busca live + 9 famílias + vazio/erro honestos)
+- [ ] 38-05-PLAN.md — KB-02: checkpoint de decisão D-08 (vid por aba) + 4 "saiba mais" (Opções via módulo compartilhado)
+- [ ] 38-06-PLAN.md — verificação humana, publicação (front + backend) e fechamento dos docs à mão
 **UI hint**: yes
 
 ### Phase 39: Continuidade da aba Opções
