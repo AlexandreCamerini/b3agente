@@ -1,17 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: none
-milestone_name: Awaiting next milestone
-status: milestone_archived
-stopped_at: 'Milestone v1.7 (Confiabilidade explicativa da aba Opções) arquivada em 2026-09-22 — `.planning/milestones/v1.7-ROADMAP.md`/`v1.7-REQUIREMENTS.md` criados (14/14 requirements Done), `.planning/MILESTONES.md` ganhou a entrada v1.7. Achado real: `gsd-sdk query milestone.complete` corrompeu o STATE.md na primeira tentativa (sobrescreveu stopped_at/progress com texto e contagem de uma sessão antiga da Fase 27, e contou as fases standalone 9/14 como parte da v1.7, dando 60% em vez de 100%) — mesma classe de bug já documentada para os mutadores state.*; revertido via git checkout e refeito à mão. Guardrail expandido: também não confiar cegamente em milestone.complete sem diff. Falta: reorganizar ROADMAP.md (colapsar v1.7 pro resumo de uma linha), git rm REQUIREMENTS.md, evolução do PROJECT.md, retrospectiva, tag git.'
-last_updated: "2026-09-22T00:00:00.000Z"
-last_activity: "2026-09-22 — Fechamento da Fase 37 (ver Posição anterior abaixo) seguido do fechamento da milestone v1.7 inteira. Pre-close artifact audit: 54 itens em aberto (49 quick tasks de ago/set, pré-v1.7, referências órfãs do scanner; 5 todos já revisados e adiados 4x nesta sessão) — reconhecidos e registrados em Deferred Items abaixo, nenhum bloqueia a v1.7. Arquivamento: v1.7-ROADMAP.md/v1.7-REQUIREMENTS.md criados, MILESTONES.md atualizado. Corrupção do STATE.md pelo mutador `milestone.complete` detectada e revertida (ver stopped_at). Continuando o fechamento manualmente: reorganização do ROADMAP.md, remoção de REQUIREMENTS.md, evolução do PROJECT.md, retrospectiva, tag."
+milestone: v1.8
+milestone_name: Didática ampliada + continuidade da aba Opções
+status: planning
+last_updated: "2026-09-23T03:57:38.119Z"
+last_activity: 2026-09-23
 progress:
-  total_phases: 3
-  completed_phases: 3
-  total_plans: 10
-  completed_plans: 10
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -25,14 +24,10 @@ See: .planning/PROJECT.md (updated 2026-09-20)
 
 ## Current Position
 
-Phase: 37 (Gráfico de Payoff e Explicação Confiáveis) — **FECHADA (3/3 ondas, 5/5 planos), PUBLICADA `F10-20260922-01`**
-Plan: 37-01 ✓ | 37-02 ✓ | 37-03 ✓ | 37-04 ✓ | 37-05 ✓ (checkpoint humano aprovado com ressalva + publicação)
-Status: `/gsd-execute-phase 37` completo (2026-09-21/22), sem worktree (`workflow.use_worktrees=false`), executor sequencial por onda. Todos os pushes desta fase ficaram represados até o checkpoint do 37-05 aprovar — regra aplicada corretamente, nada foi a `origin` antes da aprovação.
-Last activity: 2026-09-22 — Fase 37 fechada. Onda 3 (`37-05`): Task 1 conectou `dominio`/`segmentos`/`valorHoje`/`ExplicacaoPayoff` em `SecaoAnalisar.jsx`/`SecaoComparar.jsx` (`CuradoriaEstruturas.jsx` confirmado intocado, D-09). Task 2 (checkpoint humano) — a verificação visual ao vivo planejada não foi possível: tentei instalar no iPhone do Alex buildando direto deste worktree (`--api-base` pro backend local, já que o script padrão só builda de `main`, sem a Fase 37 ainda), mas o backend local subiu sem `BRAPI_TOKEN`/`BOLSAI_API_KEY` — aba Opções não respondia nada. Sem credenciais à mão, o Alex aprovou com base em evidência automática (suíte 3x verde ao longo das ondas, `npx vite build` verde, `gsd-plan-checker` aprovado 2x no planejamento, revisão de código linha a linha repetida por mim) em vez de esperar — ressalva registrada explicitamente no SUMMARY e no comentário do `SERVER_BUILD_ID`; verificação visual em produção com dado real fica pendência recomendada, não bloqueante. Task 3: merge safety check → `bump.sh` → `publicar-web.sh` → histórico do `SERVER_BUILD_ID` reescrito à mão (F10-20260921-01/Fase 35 rebaixado a HISTORICO, texto preservado) → suíte pós-bump verde → push fast-forward em `v2/interacao-estrutural` E `origin/main` → `/api/health` confirmado em produção. **Verificado por mim de novo, independente, depois de tudo**: `curl https://boris.semente.dev/api/health` responde `F10-20260922-01`; `HEAD == origin/main == origin/v2/interacao-estrutural`; histórico do `SERVER_BUILD_ID` íntegro (checado por leitura direta); `REQUIREMENTS.md` sem corrupção (diff limpo, 8/8 Done); suíte canônica rodada por mim mais uma vez, fora do sandbox: **2973 pytest passed, 0 failed** + 156/156 `.mjs`. Commits da onda 3: `e62e231`/`181e750` (Task 1), `d25a2a8` (Task 3, publicação), `d711465` (summary final), `f989f1b` (REQUIREMENTS.md).
-
-**Fase 37 fechada.** 8/8 requisitos (CHART-01..05, EXPL-01..03) Done. Motor de payoff (Fase 36) e gráfico/explicação (Fase 37) agora conectados de ponta a ponta em produção, exceto `CuradoriaEstruturas.jsx` (por desenho, D-09).
-
-**Próximo passo:** `/gsd-complete-milestone` fecha v1.7 (3/3 fases completas) — ou o Alex decide um novo escopo primeiro. Pendência não-bloqueante registrada: verificação visual em produção com dado real (Alex, quando puder).
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-09-23 — Milestone v1.8 started
 
 ## Posição anterior nesta fase (Fase 36, fechada)
 
@@ -53,6 +48,7 @@ Last activity: 2026-09-21 — `35-03` fechou a fase: (1) checkpoint humano do ro
 **Onda 2 completa (35-02), resumo preservado:** os 3 CTAs da jornada (Ler no serviço de opções, Montar estrutura, Ver possibilidades) passaram do estilo neutro genérico a `BOTAO_PRIMARIO` (preenchimento sólido `T.accent` + texto `T.onAccent`, nunca `#fff` literal — reprovava AA em até 4 combinações tema×modo); marca `✓` neutra aparece nos dois re-clicáveis quando há resultado com conteúdo, sem nunca desabilitar o botão. Fold-in real achado pela própria varredura de tokens desta fase: `SecaoVigias.jsx` referenciava `T.bgPanel` fora do array `TOKENS` desde a Fase 33 — chip de vigia não selecionado renderizava sem fundo, em silêncio; corrigido. Guardião estendido para 70 asserções (24+46) com 4 provas negativas reais. **Achado de qualidade, não bug:** os helpers neutros `BOTAO` (em `SecaoComparar.jsx`) e `desabilitado` (em `SecaoAnalisar.jsx`/`SecaoComparar.jsx`) ficaram sem consumidor — cada arquivo tinha só 1 botão, promovido a `BOTAO_PRIMARIO`/`desabilitadoPrimario` por D-04; plano proíbe renomear/reescrever, então ficam declarados e mortos, candidatos a limpeza futura, não bloqueiam nada. Commits `b76f5d4`/`e3934fa`/`7825845`/`4c9a6c2`.
 
 **Pendências que sobrevivem ao fechamento da Fase 35, sem bloquear nada:**
+
 1. App iOS/TestFlight ainda não recebe esta entrega — bundle local, sem `server.url`; decisão do Alex quando quiser rodar `scripts/distribuir-iphone.sh --testflight` ou `--xcode`.
 2. Achado de ambiente (não do produto): `bash scripts/executar.sh` sozinho trava neste host (lsof/ps travados) — usar backend+Vite diretos como contorno até investigar a causa.
 3. Helpers `BOTAO`/`desabilitado` mortos em 2 arquivos (achado do 35-02) — candidatos a limpeza futura.
@@ -63,6 +59,7 @@ Last activity: 2026-09-21 — `35-03` fechou a fase: (1) checkpoint humano do ro
 **Próximo passo:** `/gsd-execute-phase 35` continua — Onda 2 (35-02, `BOTAO_PRIMARIO`/`T.onAccent` nos 3 CTAs).
 
 **Pendências herdadas do v1.6, ainda abertas (não bloqueiam o v1.7):**
+
 1. App iOS não recebeu a navegação nova — só chega num build de TestFlight, decisão do Alex.
 2. Backlog B2 (estado do workspace não sobrevive à troca de seção) — aberto por desenho (D-03 da Fase 34).
 3. 2 todos já executados como fold-in na Fase 33 ainda fisicamente em `.planning/todos/pending/` (bookkeeping).
@@ -199,9 +196,11 @@ serem prêmios iguais. Nota metodológica: o ramo foi exercitado com o código d
 produção, nunca com uma reimplementação do caminho.
 
 **Duas ressalvas ficaram abertas, com o Alex ciente ao aprovar:**
+
 1. *Item 8 do roteiro (multi-candidato) nunca foi visto rodando* — só renderiza
    com put isolada E collar endossados na mesma posição (MULTI-01, Fase 19), e
    o mock não produz isso. Dívida de verificação, não de código.
+
 2. *`deferred-items.md`* — três cópias de `v * (X || 0)` que renderizariam
    "R$ 0,00" no lugar de "—" se o campo viesse nulo. A terceira
    (`PropostaLastreada.jsx`, Fase 28) está fora do escopo do plano que achou o
@@ -486,10 +485,12 @@ confrontados sobre DADO REAL — até então a paridade só existia contra fixtu
 derivada do próprio `opcoes_payoff`, ou seja, consistência consigo mesmo.
 
 Duas ressalvas sobre o que isso significa, para ninguém ler a mais:
+
 - o gatilho de consolidação do **ADR-027, Decisão 3** pede "10 pregões seguidos
   de paridade viva verde **em staging**". Esta execução foi local, contra
   produção, num pregão. **Não conta como 1 de 10** — a contagem começa quando
   o smoke de staging (`publicar-staging.sh`) passar a rodar a paridade viva;
+
 - a primeira tentativa FALHOU e não era do serviço: era o defeito de ciclo de
   vida de event loop corrigido no 24-09 (abaixo).
 Progress: [█████████░] 97%
@@ -576,7 +577,9 @@ RED medido antes de cada correção: backend `21 failed, 2 passed` de 23, front
 `12 falha(s)` de 27. Um caso passava por **vacuidade** — o 404 de conta
 inexistente, porque o catch-all `_api_inexistente` também responde 404 — e foi
 endurecido para exigir o texto da rota. Suíte canônica **2565 passed, 5 skipped
+
 + 131 .mjs, exit 0** (baseline 2542/5 + 130; +23 e +1 são exatamente os novos);
+
 `cd web-admin && npx vite build` verde; a allowlist pública do ADR-013 **não
 cresceu** (a rota é gated).
 
@@ -877,12 +880,14 @@ Recent decisions affecting current work:
   ali mostraria `[object Object]`. Nas duas rotas de watchlist o texto continua
   chegando igual (a `message` do dict é a base que o `enrichErrorMessage` usa),
   e o número passa a viajar junto.
+
 - 25-06 (2026-09-12): **`usado` significa a MESMA coisa nas duas rotas de
   watchlist** — quantos ativos a conta tem HOJE, contra a letra do plano (que
   pedia o tamanho PEDIDO no PUT). O campo é lido por um componente
   compartilhado: um sentido por rota daria número certo numa tela e errado na
   outra. Conta grandfathered publica `usado: 15, limite: 10` — truncar no teto
   fabricaria número e esconderia o único caso em que os dois divergem.
+
 - 25-06 (2026-09-12): **plano é tile no grupo Conta do Perfil, nunca badge
   global.** A razão não é estética: plano muda raríssimo (hoje só por
   atribuição manual da administração), e um badge permanente para um dado quase
@@ -890,11 +895,13 @@ Recent decisions affecting current work:
   agressivo que o ADR-010 (decisão 4) proíbe. Pelo mesmo motivo não há CTA de
   upgrade em lugar nenhum: não existe loja/IAP, e o botão prometeria o que não
   se cumpre.
+
 - 25-06 (2026-09-12): **sem mapa id → nome de exibição de plano no front.** O
   app já mostra o id cru ao usuário ("do plano free") e duas vozes para a mesma
   coisa divergiriam; um mapa também seria uma segunda lista de planos, velha no
   dia em que existir um terceiro — mesmo raciocínio do guardião do portal
   (25-05).
+
 - 25-04 (2026-09-12): **a precedência de um limite é decidida pela ORIGEM do
   valor, não pelo valor existir.** `plan.limites_do_plano()` devolve algo para
   os cinco pontos SEMPRE — com `origem: "default"` quando nada foi
@@ -904,6 +911,7 @@ Recent decisions affecting current work:
   e aí o painel confirmaria uma configuração que não vale. Só `origem == kv`
   (a chave carrega o id do plano) ou `env` com `{PLANO}` no molde vencem o
   resolvedor global.
+
 - 25-04 (2026-09-12): **o `detail` do 402 continua sendo string.** O plano
   oferecia duas vias para o código estruturado (`detail.code` ou marca na
   exceção); a primeira foi descartada com medição — o app lê `e.detail` como
@@ -911,6 +919,7 @@ Recent decisions affecting current work:
   dict viraria `[object Object]` na tela. O carimbo viaja como atributo da
   exceção (`marcar_o_limite`, o padrão do `ATR_DEBITADO` que o próprio módulo
   já tinha) e some na serialização: o texto que chega ao usuário não muda.
+
 - 25-04 (2026-09-12): **D3 — o `owner` é consultado DEPOIS de o gate negar.**
   Resultado observável idêntico ao de perguntar antes, e o caminho feliz não
   paga uma consulta de papel por requisição de IA. Sem cache, porque o ADR-013
@@ -918,6 +927,7 @@ Recent decisions affecting current work:
   vale depois de revogado. Fail-closed: falha de leitura mantém a conta
   barrada; errar para o lado de barrar o dono é aborrecimento, errar para o
   outro libera o cap comercial da base inteira num banco intermitente.
+
 - 25-04 (2026-09-12): **`opcoes.criar_setup` NÃO migrou do RBAC para o plano
   (D2)** — escopo reduzido a pedido do Alex ("da forma mais segura e rápida"),
   registrado como pendência nomeada e não como esquecimento. Liberar por plano
@@ -1278,15 +1288,16 @@ e leva 422. Como a fase inteira já está commitada, a publicação natural é a
 fase toda de uma vez.
 
 Duas coisas dependem dessa publicação e não podem ser feitas antes:
+
 1. a **validação ao vivo** do 27-01 (Parte 1 do checkpoint) — ela exige as
    rotas novas respondendo em produção;
+
 2. **instalar no aparelho** com a aba nova funcionando — o app instalado fala
    com produção, então o front da Fase 27 sobre o backend de hoje acharia 404
    em `/api/options/vigias` e `/api/options/tecnico/{ticker}`.
 
 No encerramento da fase, remover o setup `abcdef12-teste-fase-27` do armazém
 do serviço (ele existe só para provar o caminho do pré-existente).
-
 
 **PUBLICADO (2026-09-13, carimbo `F10-20260913-01`, PR [#54](https://github.com/AlexandreCamerini/b3agente/pull/54), merge `29962bb`).**
 Fase 25 (planos comerciais) foi ao ar pela primeira vez, junto com a Fase

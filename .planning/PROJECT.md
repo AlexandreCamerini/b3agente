@@ -22,6 +22,29 @@ funciona — não decorou uma resposta, aprendeu o raciocínio — e só então 
 acesso a automações do Modo Operador. Se o storyline pedagógico não convencer,
 nada mais no produto importa.
 
+## Current Milestone: v1.8 Didática ampliada + continuidade da aba Opções
+
+**Goal:** aprofundar a camada educacional (busca e ancoragem de verbetes da
+KB nas abas que ainda não têm cobertura) e reduzir atrito/dívida técnica na
+aba Opções (estado preservado ao trocar de aba, registros paralelos de tela
+consolidados) — sem tocar em execução a descoberto (B3, fora de escopo até
+decisão de escopo do Alex).
+
+**Target features:**
+- Busca nos 83 verbetes da KB didática (C1, backlog Fase 26)
+- Ancoragem de verbete "saiba mais" nas 4 abas sem cobertura hoje (C2, backlog Fase 26)
+- Preservação de estado da aba Opções ao trocar de aba (B2, backlog Fase 26)
+- Consolidação dos 5 registros paralelos de tela do front (C3, backlog Fase 26)
+
+**Explicitamente fora desta milestone:** B3 (ligar aba Opções a rotas de
+execução a descoberto) — pesquisa concluída em Fase 26, mas decisão de
+escopo (posição a descoberto é feature de risco maior) segue pendente do
+Alex. CAP-12 e a verificação visual da Fase 37 não entram como fase —
+resolvem com a distribuição TestFlight retomada fora deste roadmap. Dívida
+de verificação ao vivo (multi-candidato Fase 19/32, entradaAuto, human-checks
+Fase 3, UAT v1.5) segue no backlog do PROJECT.md, não priorizada nesta
+milestone.
+
 ## Milestone v1.7 Confiabilidade explicativa da aba Opções — SHIPPED 2026-09-22
 
 **Goal:** corrigir a jornada de montar/analisar uma estrutura de opções
@@ -405,12 +428,10 @@ faltavam os números).
 
 ### Active
 
-- [ ] Backlog da Fase 26 (v1.4), nunca executado: B2 (preservar estado ao
-  trocar de aba, sem decisão de abordagem), B3 (ligar a aba Opções às rotas
-  de execução com flag opt-in a descoberto, pesquisa concluída/decisão de
-  escopo pendente), C1 (busca nos 83 verbetes da KB), C2 (ancorar verbete
-  nas quatro abas sem cobertura), C3 (consolidar os cinco registros
-  paralelos de tela do front) — ver `26-CONTEXT.md`
+- [ ] Backlog da Fase 26 (v1.4): B3 (ligar a aba Opções às rotas de execução
+  com flag opt-in a descoberto, pesquisa concluída/decisão de escopo
+  pendente) — ver `26-CONTEXT.md`. B2/C1/C2/C3 saíram daqui: viraram escopo
+  da milestone v1.8 acima.
 - [ ] Multi-candidato lado a lado (MULTI-02, Fase 19 → sub-aba Operar na
   Fase 32) nunca foi visto renderizando em navegador real com dado real —
   só sob provider mock, reconfirmado como dívida de verificação herdada até
@@ -598,8 +619,10 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-09-22 — Milestone v1.7 (Confiabilidade explicativa da
-aba Opções, Fases 35-37) fechado e arquivado (14/14 requirements,
-`F10-20260921-01`/`F10-20260922-01`). Nenhum milestone aberto no momento —
-próximo passo é `/gsd-new-milestone`. Ver `.planning/milestones/v1.7-ROADMAP.md`/
+*Last updated: 2026-09-23 — Milestone v1.8 (Didática ampliada + continuidade
+da aba Opções) iniciada, retomando backlog priorizado por valor: C1+C2
+(busca/ancoragem de verbetes da KB), B2 (estado preservado ao trocar de
+aba), C3 (consolidar registros paralelos de tela). B3 (execução a
+descoberto) segue fora, aguardando decisão de escopo. Próximo passo:
+`/gsd:plan-phase [N]`. Ver `.planning/milestones/v1.7-ROADMAP.md`/
 `v1.7-REQUIREMENTS.md` para o detalhe completo do v1.7.*
