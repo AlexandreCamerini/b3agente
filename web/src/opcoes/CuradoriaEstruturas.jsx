@@ -32,7 +32,7 @@ import PayoffChart from "./PayoffChart.jsx";
 import { estruturaParaPayoff } from "./estruturaParaPayoff.js";
 
 const VARKEY = (k) => "--" + k.replace(/[A-Z]/g, (c) => "-" + c.toLowerCase());
-const TOKENS = ["bgCard", "borderFaint", "borderSubtle", "textPrimary", "textSecondary", "textMuted", "textFaint", "accent", "positive", "warn"];
+const TOKENS = ["bgCard", "borderFaint", "borderSubtle", "textPrimary", "textSecondary", "textMuted", "textFaint", "accent", "positive", "warn", "onAccent"];
 const T = Object.fromEntries(TOKENS.map((k) => [k, `var(${VARKEY(k)})`]));
 
 // Espelho declarado de App.jsx:264/293-295 (Fase 32, 32-02).
@@ -40,6 +40,11 @@ const MONO = "ui-monospace,'SF Mono',Menlo,Consolas,monospace";
 const nf2 = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const price = (n) => (n == null || isNaN(n) ? "—" : nf2.format(n));
 const money = (n) => (n == null || isNaN(n) ? "—" : "R$ " + nf2.format(n));
+// Fase 39 (NAV-01, D-09): formatação de exibição de números já calculados
+// no backend (probOtm, premioAnualizado) — não é aritmética financeira nova
+// (princípio 5 do CLAUDE.md), só a régua pt-BR de 1 casa que o painel usa.
+const nf1 = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const pctFmt = (v) => (typeof v === "number" && isFinite(v) ? nf1.format(v * 100) + "%" : "—");
 
 // Espelho declarado de App.jsx:333-342 (Fase 32, 32-02) — padrão ÚNICO de
 // rolagem horizontal do app (Fase 22, SYS-01).
@@ -74,7 +79,7 @@ const ROTULO_TIPO_CURADORIA = {
   opcao_a_descoberto: "curadoriaTipoDescoberto",
 };
 
-export default function CuradoriaEstruturas({ top, meta, carregando, erro, concluido, narrativa, narrando, erroNarrativa, onNarrar, onRecarregar, cp, onAbrir, onExecutar, operador, palette }) {
+export default function CuradoriaEstruturas({ top, meta, carregando, erro, concluido, narrativa, narrando, erroNarrativa, onNarrar, onRecarregar, cp, onAbrir, onExecutar, operador, palette, infoBotao }) {
   // WR-01 (32-REVIEW.md, 2026-09-16, quick 260916-cod): mesmo defeito de
   // App.jsx/LinhaChamadaOpcoes, mesma fonte (`ctx.curadoria`) — na janela
   // antes da primeira busca terminar, `top: [], carregando: false,
@@ -151,12 +156,29 @@ export default function CuradoriaEstruturas({ top, meta, carregando, erro, concl
   // sort/reverse aqui); o nº 1 é simplesmente top[0].
   const payoffPrimeiro = top.length > 0 ? estruturaParaPayoff(top[0].estrutura, top[0].ticker) : null;
 
+  // Fase 39 (NAV-01, D-11): cascata de vazios — distingue "sem dado pra
+  // medir a chance OTM" de "não passou no piso" de "vazio genérico"
+  // (princípio 4 do CLAUDE.md: campo ausente nunca vira afirmação de uma
+  // medição que ninguém fez). Só deriva quando os campos são NÚMEROS de
+  // verdade — backend antigo/degradado sem esses campos cai no vazio
+  // genérico, nunca finge uma medição que não ocorreu.
+  const avaliados = meta && typeof meta.candidatosAvaliados === "number" ? meta.candidatosAvaliados : null;
+  const semProb = meta && typeof meta.semProbabilidade === "number" ? meta.semProbabilidade : null;
+  const piso = meta && typeof meta.pisoProbOtm === "number" ? meta.pisoProbOtm : null;
+  const vazioSemProb = avaliados !== null && avaliados > 0 && semProb === avaliados;
+  const vazioPiso = !vazioSemProb && avaliados !== null && avaliados > 0 && piso !== null;
+
   return (
     <div style={{ marginBottom: "14px" }}>
       {/* Cabeçalho FIXO nos três estados (itens/carregando/vazio) — mesmo
           precedente de OportunidadesOpcoes (NAV-03): a seção nunca
           desaparece em silêncio quando há posições. */}
-      <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em", color: T.textFaint, marginBottom: "4px" }}>{cp.curadoriaTitulo}</div>
+      {/* Fase 39 (NAV-01, D-13): slot do ⓘ contextual da aba — opcional,
+          `infoBotao || null` não muda nada para quem não passa a prop. */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", marginBottom: "4px" }}>
+        <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em", color: T.textFaint }}>{cp.curadoriaTitulo}</div>
+        {infoBotao || null}
+      </div>
       <div style={{ fontSize: "11.5px", color: T.textMuted, marginBottom: "8px", lineHeight: 1.4 }}>{cp.curadoriaSubtitulo}</div>
       {resumoVarredura && (
         <div style={{ fontSize: "10.5px", color: T.textFaint, marginBottom: "8px", lineHeight: 1.5 }}>
@@ -191,7 +213,10 @@ export default function CuradoriaEstruturas({ top, meta, carregando, erro, concl
                     nunca truncada/concatenada: cortar reescreveria a
                     afirmação do motor. */}
                 <div style={{ fontSize: "12.5px", fontWeight: 700, color: T.textPrimary, marginTop: "4px", whiteSpace: "normal" }}>{cand.manchete}</div>
-                <div style={{ fontSize: "10.5px", color: T.textFaint, marginTop: "6px" }}>{cp.curadoriaRazaoRotulo}: {cand.razao != null ? cand.razao.toFixed(2) : "—"}</div>
+                {/* Fase 39 (NAV-01, D-14): a posição no ranking substitui o
+                    score bruto ("Pontuação de curadoria: 0,02") — a única
+                    forma de comunicar ordem agora é o lugar na lista. */}
+                <div style={{ fontSize: "10.5px", color: T.textFaint, marginTop: "6px" }}>{cp.curadoriaPosicaoRotulo ? cp.curadoriaPosicaoRotulo(cand.posicaoNoRanking, top.length) : ""}</div>
                 <div style={{ fontSize: "10.5px", color: T.textFaint, marginTop: "2px" }}>{money(cand.premioTotal)} · {cand.diasParaVencimento}d · {cand.liquidez && cand.liquidez.faixa}</div>
               </button>
           ))}
@@ -209,6 +234,22 @@ export default function CuradoriaEstruturas({ top, meta, carregando, erro, concl
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", marginTop: "10px" }}>
             <span style={{ color: T.textSecondary }}>{cp.curadoriaPremioRotulo}</span>
             <b style={{ fontFamily: MONO, fontWeight: 800, color: T.textPrimary }}>{money(item.premioTotal)}</b>
+          </div>
+          {/* Fase 39 (NAV-01, D-08/D-09): as duas grandezas que explicam a
+              ordem nova — chance estimada de terminar OTM (com a fonte da
+              volatilidade) e o prêmio anualizado que ordena a lista.
+              Formatação de exibição só; os números já vêm calculados do
+              motor (princípio 5 do CLAUDE.md). */}
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", marginTop: "4px" }}>
+            <span style={{ color: T.textSecondary }}>{cp.curadoriaProbOtmRotulo}</span>
+            <b style={{ fontFamily: MONO, fontWeight: 800, color: T.textPrimary }}>
+              {pctFmt(item.probOtm)}
+              {item.volatilidadeFonte === "implicita" ? " · " + cp.curadoriaVolImplicita : item.volatilidadeFonte === "historica_21d" ? " · " + cp.curadoriaVolHistorica : ""}
+            </b>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", marginTop: "4px" }}>
+            <span style={{ color: T.textSecondary }}>{cp.curadoriaPremioAnualizadoRotulo}</span>
+            <b style={{ fontFamily: MONO, fontWeight: 800, color: T.textPrimary }}>{pctFmt(item.premioAnualizado)}</b>
           </div>
           {estAberto && (
             <>
@@ -265,7 +306,11 @@ export default function CuradoriaEstruturas({ top, meta, carregando, erro, concl
                   type="button"
                   onClick={handleExecutar}
                   disabled={executarTravado}
-                  style={{ marginTop: "10px", minHeight: "44px", width: "100%", padding: "10px", borderRadius: "10px", border: "none", background: T.accent, color: "#fff", fontWeight: 700, fontSize: "13px", opacity: executarTravado ? 0.55 : 1, cursor: executarTravado ? "default" : "pointer" }}
+                  // Fase 39 (NAV-01, correção obrigatória UI-SPEC/Dimension 3):
+                  // T.onAccent, nunca "#fff" literal — mesma razão medida na
+                  // Fase 35 (35-UI-SPEC.md): #fff reprova AA em Dark·Estudo
+                  // (2,90:1) e Dark·Operador (2,10:1).
+                  style={{ marginTop: "10px", minHeight: "44px", width: "100%", padding: "10px", borderRadius: "10px", border: "none", background: T.accent, color: T.onAccent, fontWeight: 700, fontSize: "13px", opacity: executarTravado ? 0.55 : 1, cursor: executarTravado ? "default" : "pointer" }}
                 >
                   {execAtual.busy ? cp.curadoriaExecutando : cp.curadoriaExecutarCta}
                 </button>
@@ -317,11 +362,32 @@ export default function CuradoriaEstruturas({ top, meta, carregando, erro, concl
           )}
         </div>
       )}
-      {/* ESTADO vazio (NAV-03) — sem CTA, nomeia o motivo. Exige `!erro` E
+      {/* Fase 39 (NAV-01, D-11): "não deu para medir" — a volatilidade dos
+          contratos varridos hoje não estava disponível, então a chance OTM
+          não pôde ser estimada. NUNCA confundir com "varreu e nenhum passou
+          no piso" (ramo seguinte) — afirmariam medições diferentes. */}
+      {top.length === 0 && !naoMedido && !erro && vazioSemProb && (
+        <div style={{ padding: "10px 11px", borderRadius: "9px", background: T.bgCard, border: `1px solid ${T.borderFaint}`, fontSize: "12px", color: T.textSecondary, lineHeight: 1.5 }}>
+          {cp.curadoriaVazioSemProb}
+        </div>
+      )}
+      {/* Fase 39 (NAV-01, D-08/D-11): "varreu e mediu, mas nenhum passou no
+          piso de segurança" — diferente de "zero candidatos varridos"
+          (ramo genérico abaixo). Nomeia o piso (Math.round(piso * 100)),
+          nunca um número hardcoded independente do backend. */}
+      {top.length === 0 && !naoMedido && !erro && vazioPiso && (
+        <div style={{ padding: "10px 11px", borderRadius: "9px", background: T.bgCard, border: `1px solid ${T.borderFaint}`, fontSize: "12px", color: T.textSecondary, lineHeight: 1.5 }}>
+          {cp.curadoriaVazioPiso(Math.round(piso * 100))}
+        </div>
+      )}
+      {/* ESTADO vazio genérico (NAV-03) — sem CTA, nomeia o motivo. Cobre
+          "zero candidatos varridos" e o caso de um backend antigo/degradado
+          sem os campos de meta necessários para diferenciar os dois ramos
+          acima (nunca finge uma medição que não ocorreu). Exige `!erro` E
           `concluido` (WR-01): nem a busca ter FALHADO, nem ela ainda NÃO
           ter terminado, são o mesmo resultado que "varri e não achei nada
-          elegível" (ramo acima). */}
-      {top.length === 0 && !naoMedido && !erro && (
+          elegível". */}
+      {top.length === 0 && !naoMedido && !erro && !vazioSemProb && !vazioPiso && (
         <div style={{ padding: "10px 11px", borderRadius: "9px", background: T.bgCard, border: `1px solid ${T.borderFaint}`, fontSize: "12px", color: T.textSecondary, lineHeight: 1.5 }}>
           {cp.curadoriaVazio}
         </div>
