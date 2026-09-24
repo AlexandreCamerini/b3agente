@@ -58,11 +58,14 @@ ok("o CONJUNTO de chaves linhaChamadaOpcoes* é idêntico nos dois modos",
   JSON.stringify(chavesPorPrefixo(e, "linhaChamadaOpcoes")) === JSON.stringify(chavesPorPrefixo(o, "linhaChamadaOpcoes")));
 
 // ---- (4) singular/plural de linhaChamadaOpcoesTexto ------------------------
+// Fase 39 (NAV-01, D-02/D-03): a contagem passou a ser da aba Recomendadas
+// (curadoria), não mais de "oportunidades" (a aba Oportunidades é outro
+// motor agora) — reversão deliberada, guardião atualizado com nota.
 for (const [modo, bloco] of [["estudo", e], ["operador", o]]) {
-  ok(`${modo}: linhaChamadaOpcoesTexto(1) contém "1 oportunidade" (singular)`,
-    bloco.linhaChamadaOpcoesTexto(1).includes("1 oportunidade"));
-  ok(`${modo}: linhaChamadaOpcoesTexto(3) contém "3 oportunidades" (plural)`,
-    bloco.linhaChamadaOpcoesTexto(3).includes("3 oportunidades"));
+  ok(`${modo}: linhaChamadaOpcoesTexto(1) contém "1 estrutura recomendada" (singular)`,
+    bloco.linhaChamadaOpcoesTexto(1).includes("1 estrutura recomendada"));
+  ok(`${modo}: linhaChamadaOpcoesTexto(3) contém "3 estruturas recomendadas" (plural)`,
+    bloco.linhaChamadaOpcoesTexto(3).includes("3 estruturas recomendadas"));
 }
 
 // ---- (5) o estado "zero" tem frase própria, não linhaChamadaOpcoesTexto(0) -

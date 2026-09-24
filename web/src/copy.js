@@ -136,6 +136,11 @@ export const COPY = {
     // poder dizer a idade do dado desde o primeiro frame. Declarar é a
     // correção honesta; esconder seria a outra.
     opcoesCustoFrescor: "Abrir esta aba consulta o frescor do dado no serviço: consome até 1 chamada da sua cota do dia, e nenhuma quando o frescor já está em cache. É a única consulta desta tela que sai sem você pedir — todas as outras saem de um botão que diz o preço.",
+    // Fase 39 (NAV-01, D-14): rótulo do ⓘ de bastidor da aba Montar — o
+    // parágrafo de opcoesCustoFrescor sai do fluxo fixo e vira conteúdo desse
+    // ⓘ (39-UI-SPEC.md); este rótulo é só o texto do botão que abre o
+    // conteúdo, não substitui o parágrafo em si.
+    opcoesCustoFrescorRotulo: "quanto esta aba consome da sua cota",
     // 24-12 (achado ao vivo 2026-09-11): o serviço dizia "em dia" — e pelo
     // SLA dele, com razão — sobre uma cotação de dois pregões atrás. A
     // distância é MEDIDA aqui, pelo calendário da B3, e vence o veredito
@@ -199,6 +204,16 @@ export const COPY = {
     // seria afirmar uma medição que não existe (princípio 4 do CLAUDE.md).
     opcoesVigiasSemEstado: "— estado do dia ainda não pedido. O que está acima é o cadastro do vigia: ele vem do próprio Boris+, é de graça e não diz nada sobre hoje. Saber se a condição foi atendida é medição do serviço de dados, e ela só sai quando você pede.",
     opcoesVigiasAtualizar: "Pedir o estado do dia",
+    // Fase 39 (NAV-01, D-07): título/fechar do sheet de Vigias (ícone+contador
+    // no cabeçalho da aba, badge abre um bottom sheet reusando o mesmo bloco
+    // "SEUS VIGIAS" de sempre) e o aria-label do próprio badge — navegação/
+    // rótulo de controle, idêntico nos dois modos (mesmo padrão de
+    // opcoesVoltarAoHub). Nunca afirma um número antes de medir (princípio 4
+    // do CLAUDE.md): sem `medido`, o badge mostra só o ícone.
+    opcoesVigiasSheetTitulo: "Seus vigias",
+    opcoesVigiasFechar: "Fechar",
+    opcoesVigiasAbrirSheet: (n) =>
+      n === 1 ? "1 vigia — abrir" : n > 1 ? n + " vigias — abrir" : "Vigias — abrir",
     // Vigia de ativo fora da carteira NÃO some da lista: ele existe e continua
     // sendo conferido. Escondê-lo repetiria o defeito que a fase fecha.
     opcoesVigiaForaDaCarteira: "Este vigia é de um ativo que não está na sua carteira agora. Ele continua existindo e continua sendo conferido pelo serviço — o que muda é que você não tem o papel para lastrear uma estrutura sobre ele.",
@@ -216,6 +231,9 @@ export const COPY = {
       (typeof travadas === "number" ? travadas : "—") +
       " ação(ões) já está(ão) travada(s) como lastro de uma call coberta aberta — volta(m) a ficar livre(s) quando a call for recomprada ou vencer.",
     opcoesLastroAjuda: "1 contrato = 100 ações. É o mesmo número que a Carteira mostra, saído da mesma conta — e nenhuma ordem sai desta tela.",
+    // Fase 39 (NAV-01, D-14): rótulo do ⓘ de bastidor da aba Montar para a
+    // mecânica de lastro — mesmo padrão de opcoesCustoFrescorRotulo acima.
+    opcoesLastroAjudaRotulo: "como o lastro é contado",
     // Travessão COM motivo: zero seria lido como "você não tem lastro", que é
     // afirmação diferente de "não sei quanto você tem" (princípio 4).
     opcoesLastroSemDado: "não deu para ler a quantidade desta posição, então o lastro não é afirmado aqui. Zero seria outra coisa: \"você não tem lastro\" é diferente de \"não sei quanto você tem\".",
@@ -280,6 +298,12 @@ export const COPY = {
     opcoesLoteAjuda: "1 contrato = 100 ações. O lote só serve para converter em reais os números que vêm por ação; a conta é feita no servidor.",
     opcoesMontarEstrutura: "Montar a estrutura",
     opcoesVerPossibilidades: "Comparar os vencimentos",
+    // Fase 39 (NAV-01, D-06): link que expande SecaoComparar INLINE dentro de
+    // Montar (nunca aba/sheet própria) — navegação, texto idêntico nos dois
+    // modos (mesmo padrão de opcoesVoltarAoHub/opcoesAbaMontar). Alterna
+    // conforme o estado de expansão (aria-expanded).
+    opcoesVerOutrosVencimentos: "Ver outros vencimentos",
+    opcoesOcultarOutrosVencimentos: "Ocultar outros vencimentos",
     // Fase 35 (35-01, D-06): marca neutra de resultado re-clicável — nunca
     // celebração, T.textMuted (par T.positive/T.negative é reservado para
     // direção financeira). Mesmo motivo de neutralidade de tom das duas
@@ -439,13 +463,29 @@ export const COPY = {
     opcoesAbaAnalisar: "Analisar",
     opcoesAbaComparar: "Comparar",
     opcoesAbaSetupsSalvos: "Setups salvos",
+    // Fase 39 (NAV-01, D-01): as 3 abas fixas de nível 1 que substituem
+    // `subaba`/`abaWorkspace` — navegação, idêntica nos dois modos (mesmo
+    // padrão de opcoesVoltarAoHub acima). `opcoesAbaAnalisar`/
+    // `opcoesAbaComparar`/`opcoesAbaSetupsSalvos` acima NÃO são deletadas
+    // (UI-SPEC, Copywriting Contract) — ficam retiradas de uso.
+    opcoesAbaOportunidades: "Oportunidades",
+    opcoesAbaRecomendadas: "Recomendadas",
+    opcoesAbaMontar: "Montar",
+    // Fase 39 (NAV-01, D-04): eyebrow interno da aba Montar e o link de
+    // "montar outra estrutura" quando já há um ativo escolhido — voz de
+    // professor, mais longa que a voz de mesa (ver ramo Operador).
+    opcoesMontarTitulo: "MONTAR UMA ESTRUTURA",
+    opcoesMontarNoAtivo: (t) => "Montar outra estrutura com " + t,
     // Fase 35 (35-01, D-01/D-08): rótulo do estágio 2 (o carril de pills) e
     // a linha de transição que aparece quando a leitura já foi feita. Nunca
     // numera Analisar/Comparar entre si (princípio 5 do CLAUDE.md) — o
     // Kicker nomeia o JOB do estágio, não uma posição de sequência.
     opcoesEscolhaTitulo: "O QUE FAZER",
     opcoesPasso2de2: "Passo 2 de 2",
-    opcoesLeituraConcluidaAjuda: "Leitura concluída — escolha Analisar ou Comparar.",
+    // Fase 39 (NAV-01, D-01/D-06): reescrita — a pill row Analisar/Comparar
+    // deixa de existir (D-01), "comparar" agora é o link "ver outros
+    // vencimentos" dentro de Montar (D-06).
+    opcoesLeituraConcluidaAjuda: "Leitura concluída — monte a estrutura abaixo. Para comparar vencimentos, use o link logo depois dela.",
 
     opcoesOperarIntro: "Aqui você vê a estrutura lastreada que o motor propõe para cada posição da sua carteira, com ganho máximo, perda máxima e pontos de empate em número. Nada é enviado a nenhuma corretora.",
     opcoesOperarEscolherPosicao: "Escolha uma posição da carteira para ver a estrutura lastreada que o motor propõe para ela.",
@@ -585,6 +625,10 @@ export const COPY = {
     // acima) — NÃO reusar concentracaoLink, que pertence ao alerta de
     // concentração e fica intocado.
     saibaMais: "saiba mais",
+    // Fase 39 (NAV-01, D-13): o ⓘ contextual por aba reusa `saibaMais` como
+    // texto visível, mas precisa de um aria-label composto — 3 botões iguais
+    // dizendo só "saiba mais" seriam indistinguíveis num leitor de tela.
+    opcoesSaibaMaisAria: (aba) => "O que é uma opção — " + aba,
 
     // Quick 260906-vf9 (C-09, REPORT-01): aviso de drawdown alto no card de
     // patrimônio (CapitalCurve), acima de LIMIAR_DRAWDOWN_ALERTA=15% em
@@ -708,11 +752,14 @@ export const COPY = {
     // personagem). `linhaChamadaOpcoesTexto`/`linhaChamadaOpcoesAria` são
     // FUNÇÕES (as outras chaves deste grupo são string). A contagem `n`
     // vem de `useCuradoria().top.length` — nunca uma segunda busca (D-03).
+    // Fase 39 (NAV-01, D-02/D-03): reescrito — a contagem é da aba
+    // Recomendadas (curadoria), e "oportunidades" passaria a nomear o OUTRO
+    // motor (a aba Oportunidades, D-02, com gate de liquidez).
     linhaChamadaOpcoesTexto: (n) => n === 1
-      ? "1 oportunidade de opções nas suas posições"
-      : `${n} oportunidades de opções nas suas posições`,
-    linhaChamadaOpcoesVazia: "Nenhuma oportunidade de opções agora",
-    linhaChamadaOpcoesCarregando: "Verificando oportunidades de opções…",
+      ? "1 estrutura recomendada nas suas posições"
+      : `${n} estruturas recomendadas nas suas posições`,
+    linhaChamadaOpcoesVazia: "Nenhuma estrutura recomendada agora",
+    linhaChamadaOpcoesCarregando: "Verificando estruturas recomendadas…",
     // Estado de ERRO de busca — distinto de "vazio" (que é um resultado
     // real, zero candidatos elegíveis). Mostrar "0" aqui seria inventar
     // valor (princípio 4 do CLAUDE.md); por isso a frase não cita número.
@@ -741,16 +788,48 @@ export const COPY = {
     // SINAL do prêmio (negativo = a estrutura custa para montar), não
     // promove estrutura nenhuma — é didática sobre o número que o motor já
     // calculou (princípio 5).
-    curadoriaTitulo: "AS 4 MELHORES OPORTUNIDADES DE OPÇÕES",
-    // Fase 32 (32-01, D-05): reescrito — nomeia explicitamente que a
-    // varredura inclui posições que a leitura técnica ainda NÃO confirma
-    // (é o que distingue o Bloco B do Bloco A/tira, agora vizinhos na
-    // mesma tela) e reforça que a ordem é do motor, não da IA.
-    curadoriaSubtitulo: "As 4 melhores por prêmio ÷ perda máxima, entre todas as posições e vencimentos varridos — inclusive as que a leitura técnica ainda não confirma. A ordem é do motor; não muda com a explicação da IA.",
+    // Fase 39 (NAV-01, D-01/D-08/D-09): reescrito — "AS 4 MELHORES
+    // OPORTUNIDADES DE OPÇÕES" colidia com o rótulo da aba vizinha
+    // "Oportunidades" (outro motor, SC#4) e "melhores" virava veredito. A
+    // posição no ranking passa a ser a leitura primária (D-14, ver
+    // curadoriaPosicaoRotulo abaixo).
+    curadoriaTitulo: "AS 4 PRIMEIRAS DO RANKING",
+    // Fase 39 (NAV-01, D-08/D-09): reescrito de novo — sucessora da
+    // frase-ponte da Fase 32 (32-01, D-05), agora DENTRO da aba (as duas
+    // viraram abas separadas, a frase-ponte física deixou de fazer sentido
+    // entre elas). Nomeia o piso de 60% de chance OTM e o critério de
+    // ordenação (prêmio anualizado, D-09), preservando as 3 funções da
+    // frase-ponte: nega hierarquia entre os dois motores, nomeia o
+    // critério, diz que a IA não reordena.
+    curadoriaSubtitulo: "Só entram aqui candidatos com pelo menos 60% de chance estimada (modelo Black-Scholes) de a opção terminar fora do dinheiro no vencimento, ordenados por prêmio anualizado. É um critério de ordenação entre outros possíveis — não uma promessa de resultado nem uma leitura mais certa que a aba Oportunidades. Varre todas as posições e vencimentos, inclusive o que a leitura técnica ainda não confirma. A ordem é do motor; não muda com a explicação da IA.",
     curadoriaCarregando: "Varrendo sua carteira em busca das melhores oportunidades…",
     // ESTADO (NAV-03), sem CTA — nomeia o motivo, mesmo precedente de
     // tiraOpcoesSemCobertura acima.
     curadoriaVazio: "Nenhuma estrutura elegível nos vencimentos varridos — por isso não há nada para ranquear agora.",
+    // Fase 39 (NAV-01, D-08/D-11): 4º estado (não 3) — distingue "varreu e
+    // nenhum passou no piso de 60% OTM" (este) de "zero candidatos varridos"
+    // (curadoriaVazio acima) e de "não deu para medir a probabilidade"
+    // (curadoriaVazioSemProb abaixo). Nunca dizer "não há oportunidade"
+    // quando na verdade "há candidatos, mas nenhum passou no piso de
+    // segurança" (princípio 4 do CLAUDE.md).
+    curadoriaVazioPiso: (pct) =>
+      `Nenhum candidato com pelo menos ${pct}% de chance estimada de terminar fora do dinheiro (OTM) no vencimento hoje. Isto não significa que não há oportunidade — significa que nenhum passou no piso mínimo desta lista.`,
+    // Fase 39 (NAV-01, D-08): quando a volatilidade dos contratos varridos
+    // não está disponível, a chance OTM não pode ser estimada — excluir o
+    // candidato é a resposta correta (nunca admitir por falta de dado,
+    // princípio 4 do CLAUDE.md), mas o motivo tem de ser NOMEADO, não
+    // confundido com "nenhum passou no piso" (que afirmaria uma medição que
+    // não ocorreu).
+    curadoriaVazioSemProb: "Não há dados suficientes para concluir: a volatilidade dos contratos varridos hoje não está disponível, então a chance de terminar fora do dinheiro não pôde ser estimada e nenhum candidato entrou na lista.",
+    // Fase 39 (NAV-01, D-14): posição no ranking substitui o score bruto
+    // (curadoriaRazaoRotulo, "pontuação de curadoria: 0.02") como a forma
+    // única de comunicar ordem — idêntica nos dois modos (é navegação, não
+    // voz de personagem).
+    curadoriaPosicaoRotulo: (pos, total) => pos + "ª de " + total,
+    curadoriaProbOtmRotulo: "Chance estimada de terminar fora do dinheiro (OTM)",
+    curadoriaPremioAnualizadoRotulo: "Prêmio anualizado (critério da ordem)",
+    curadoriaVolImplicita: "vol. implícita",
+    curadoriaVolHistorica: "vol. histórica de 21 pregões",
     // Fase 32 (32-01): correção de estado obrigatória (achado do UI-SPEC).
     // `useCuradoria().erro` já existia mas nunca era exibido — falha de
     // busca caía no ramo `top.length === 0 && !carregando`, que mostra
@@ -912,6 +991,9 @@ export const COPY = {
     // razão do ramo estudo: o gate de frescor precisa existir na abertura
     // (ADR-027, Decisão 8), então o que resta é dizer o preço dele.
     opcoesCustoFrescor: "Abrir a aba consulta o frescor no serviço: até 1 chamada da cota do dia, zero quando o frescor está em cache. É a única consulta desta tela que sai sem pedido — o resto sai de botão com o preço escrito.",
+    // Fase 39 (NAV-01, D-14): MESMA nota do ramo estudo — rótulo do ⓘ de
+    // bastidor da aba Montar, voz de mesa (curta).
+    opcoesCustoFrescorRotulo: "custo da aba",
     // 24-12 — MESMA medição, em voz de mesa. O rótulo do chip é o mesmo nos
     // dois modos de propósito: é contagem de pregão, não juízo — e "2 pregões
     // atrás" já é a frase mais curta que diz o fato.
@@ -956,6 +1038,12 @@ export const COPY = {
     opcoesVigiasVazio: "Nenhum vigia gravado nesta conta. Vigia é condição objetiva escrita antes do pregão e conferida uma vez por dia, sobre o fechamento. Sem condição escrita, não há o que conferir.",
     opcoesVigiasSemEstado: "— estado do dia ainda não pedido. Acima está só o cadastro, que é local e não custa cota. Estado é medição do serviço e sai sob pedido.",
     opcoesVigiasAtualizar: "Medir o estado do dia",
+    // Fase 39 (NAV-01, D-07): MESMAS chaves do ramo estudo — navegação/
+    // rótulo de controle, idêntico nos dois modos (ver comentário lá).
+    opcoesVigiasSheetTitulo: "Seus vigias",
+    opcoesVigiasFechar: "Fechar",
+    opcoesVigiasAbrirSheet: (n) =>
+      n === 1 ? "1 vigia — abrir" : n > 1 ? n + " vigias — abrir" : "Vigias — abrir",
     opcoesVigiaForaDaCarteira: "Ativo fora da carteira. O vigia segue existindo e segue sendo conferido; o que falta é o papel para lastrear estrutura sobre ele.",
     // Fase 27 (27-02, D4) — MESMAS chaves do ramo estudo, voz de mesa. Mesmo
     // vocabulário de `badgeTravada`/`avisoTravaNaVenda`.
@@ -966,6 +1054,9 @@ export const COPY = {
       (typeof travadas === "number" ? travadas : "—") +
       " ação(ões) travada(s) como lastro da call coberta aberta — liberam na recompra ou no vencimento.",
     opcoesLastroAjuda: "1 contrato = 100 ações. Mesmo número da Carteira, mesma conta; nenhuma ordem sai desta tela.",
+    // Fase 39 (NAV-01, D-14): MESMA nota do ramo estudo — rótulo do ⓘ de
+    // bastidor, voz de mesa (curta).
+    opcoesLastroAjudaRotulo: "regra do lastro",
     opcoesLastroSemDado: "quantidade desta posição ilegível, então o lastro não é afirmado. Zero diria \"sem lastro\", que é outra afirmação.",
     // Fase 27 (27-04, D1/D4) — a leitura técnica interna, voz de mesa: o
     // estado, a fonte e o custo, sem a aula. MESMAS chaves do ramo estudo.
@@ -1006,6 +1097,10 @@ export const COPY = {
     opcoesLoteAjuda: "1 contrato = 100 ações. Converte em reais os números que vêm por ação; a conta é do servidor.",
     opcoesMontarEstrutura: "Montar estrutura",
     opcoesVerPossibilidades: "Ver possibilidades",
+    // Fase 39 (NAV-01, D-06): MESMAS chaves do ramo estudo — navegação,
+    // idêntico nos dois modos (ver comentário lá).
+    opcoesVerOutrosVencimentos: "Ver outros vencimentos",
+    opcoesOcultarOutrosVencimentos: "Ocultar outros vencimentos",
     // Fase 35 (35-01) — MESMA nota do ramo estudo: marca neutra, T.textMuted,
     // valor idêntico nos dois modos (D-06).
     opcoesEstruturaMontada: "Estrutura montada",
@@ -1141,12 +1236,22 @@ export const COPY = {
     opcoesAbaAnalisar: "Analisar",
     opcoesAbaComparar: "Comparar",
     opcoesAbaSetupsSalvos: "Setups",
+    // Fase 39 (NAV-01, D-01): MESMAS chaves do ramo estudo — as 3 abas fixas
+    // de nível 1, navegação idêntica nos dois modos (ver comentário lá).
+    opcoesAbaOportunidades: "Oportunidades",
+    opcoesAbaRecomendadas: "Recomendadas",
+    opcoesAbaMontar: "Montar",
+    // Fase 39 (NAV-01, D-04): voz de mesa, mais curta que o ramo estudo.
+    opcoesMontarTitulo: "MONTAR ESTRUTURA",
+    opcoesMontarNoAtivo: (t) => "Montar com " + t,
     // Fase 35 (35-01) — MESMA nota do ramo estudo: rótulo do estágio 2 e
     // linha de transição, nunca numerando Analisar/Comparar entre si (D-01/
     // D-08, princípio 5 do CLAUDE.md).
     opcoesEscolhaTitulo: "O QUE FAZER",
     opcoesPasso2de2: "Passo 2 de 2",
-    opcoesLeituraConcluidaAjuda: "Leitura concluída — escolha Analisar ou Comparar.",
+    // Fase 39 (NAV-01, D-01/D-06): reescrita, mesma razão do ramo estudo —
+    // voz de mesa, curta.
+    opcoesLeituraConcluidaAjuda: "Leitura feita — monte abaixo; outros vencimentos no link depois.",
 
     opcoesOperarIntro: "Aqui está a estrutura lastreada que o motor propõe para cada posição da carteira, com ganho máximo, perda máxima e pontos de empate em número. Abrir e fechar acontece direto aqui — nenhuma ordem sai para corretora nenhuma.",
     opcoesOperarEscolherPosicao: "Escolha uma posição da carteira para ver a estrutura que a mesa propõe para ela.",
@@ -1267,6 +1372,9 @@ export const COPY = {
     // Fase 38 (38-05, KB-02): chave espelhada do ramo estudo — rótulo de
     // interface, não voz de modo (ver comentário no ramo estudo).
     saibaMais: "saiba mais",
+    // Fase 39 (NAV-01, D-13): MESMA chave do ramo estudo — aria-label
+    // composto do ⓘ contextual por aba, idêntico nos dois modos.
+    opcoesSaibaMaisAria: (aba) => "O que é uma opção — " + aba,
 
     // Quick 260906-vf9 (C-09, REPORT-01): mesmo aviso do ramo estudo, tom de
     // mesa — limiar LIMIAR_DRAWDOWN_ALERTA=15% em App.jsx. Chave espelhada
@@ -1368,11 +1476,13 @@ export const COPY = {
 
     // Fase 32 (32-01, D-01/D-02/D-03): mesma chave do ramo estudo (ver
     // comentário acima) — texto IDÊNTICO nos dois modos.
+    // Fase 39 (NAV-01, D-02/D-03): reescrito, mesmo motivo do ramo estudo
+    // (ver comentário lá) — a contagem é da aba Recomendadas.
     linhaChamadaOpcoesTexto: (n) => n === 1
-      ? "1 oportunidade de opções nas suas posições"
-      : `${n} oportunidades de opções nas suas posições`,
-    linhaChamadaOpcoesVazia: "Nenhuma oportunidade de opções agora",
-    linhaChamadaOpcoesCarregando: "Verificando oportunidades de opções…",
+      ? "1 estrutura recomendada nas suas posições"
+      : `${n} estruturas recomendadas nas suas posições`,
+    linhaChamadaOpcoesVazia: "Nenhuma estrutura recomendada agora",
+    linhaChamadaOpcoesCarregando: "Verificando estruturas recomendadas…",
     linhaChamadaOpcoesErro: "Não foi possível verificar agora — toque para ver na aba Opções",
     linhaChamadaOpcoesAria: (texto) => `${texto} — abrir aba Opções`,
 
@@ -1381,12 +1491,24 @@ export const COPY = {
     //
     // Fase 31 (Plano 04, D-04): mesma reescrita/extensão do ramo estudo
     // (ver comentário acima) — voz de mesa, curta.
-    curadoriaTitulo: "AS 4 MELHORES OPORTUNIDADES DE OPÇÕES",
-    // Fase 32 (32-01, D-05): reescrito, mesmo motivo do ramo estudo (ver
-    // comentário acima) — voz de mesa, curta.
-    curadoriaSubtitulo: "As 4 melhores por prêmio ÷ perda máxima, entre todas as posições e vencimentos varridos — inclusive as que a leitura técnica ainda não confirma. Ordem do motor; a IA não reordena.",
+    // Fase 39 (NAV-01, D-01/D-08/D-09): reescrito, mesmo motivo do ramo
+    // estudo (ver comentário lá) — voz de mesa, curta.
+    curadoriaTitulo: "AS 4 PRIMEIRAS DO RANKING",
+    // Fase 39 (NAV-01, D-08/D-09): reescrito de novo, mesmo motivo do ramo
+    // estudo (ver comentário lá) — voz de mesa.
+    curadoriaSubtitulo: "Candidatos com ≥ 60% de chance estimada (Black-Scholes) de terminar OTM, ordenados por prêmio anualizado — um critério entre outros, não promessa de resultado nem leitura mais certa que Oportunidades. Inclui o que a leitura técnica ainda não confirma. Ordem do motor; a IA não reordena.",
     curadoriaCarregando: "Varrendo a carteira…",
     curadoriaVazio: "Nenhuma estrutura elegível nos vencimentos varridos — sem nada para ranquear agora.",
+    // Fase 39 (NAV-01, D-08/D-11): mesmo motivo do ramo estudo (ver
+    // comentário lá) — voz de mesa.
+    curadoriaVazioPiso: (pct) =>
+      `Nenhum candidato com ≥ ${pct}% de chance estimada de terminar OTM hoje — nenhum passou no piso desta lista, o que não é o mesmo que não haver oportunidade.`,
+    curadoriaVazioSemProb: "Não há dados suficientes para concluir: sem volatilidade para estimar a chance OTM dos candidatos de hoje — lista vazia por falta de dado, não por reprovação.",
+    curadoriaPosicaoRotulo: (pos, total) => pos + "ª de " + total,
+    curadoriaProbOtmRotulo: "Prob. estimada OTM",
+    curadoriaPremioAnualizadoRotulo: "Prêmio anualizado",
+    curadoriaVolImplicita: "vol. implícita",
+    curadoriaVolHistorica: "vol. histórica de 21 pregões",
     // Fase 32 (32-01): mesma correção de estado do ramo estudo (ver
     // comentário acima) — texto IDÊNTICO nos dois modos.
     curadoriaErroBusca: "Não foi possível varrer sua carteira agora. Isto não significa que não há oportunidade — significa que a busca falhou. Toque para tentar de novo.",

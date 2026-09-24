@@ -235,10 +235,18 @@ const chavesFaltandoOuVazias = CHAVES_NOVAS.filter((k) => !COPY.estudo[k] || !CO
 ok("as 7 chaves novas existem em COPY.estudo e COPY.operador, nenhuma vazia"
    + (chavesFaltandoOuVazias.length ? " (faltando/vazia: " + chavesFaltandoOuVazias.join(", ") + ")" : ""),
    chavesFaltandoOuVazias.length === 0);
-const chavesDivergentes = CHAVES_NOVAS.filter((k) => COPY.estudo[k] !== COPY.operador[k]);
-ok("as 7 chaves novas têm valor IDÊNTICO nos dois modos (decisão do plano 35-01: metadado de progresso, categoria já neutra)"
+// Fase 39 (39-02-PLAN.md, NAV-01, D-01/D-06): reversão deliberada, não
+// apagamento — `opcoesLeituraConcluidaAjuda` ganhou voz por modo porque a
+// pill row Analisar/Comparar que justificava o tratamento neutro do plano
+// 35-01 deixou de existir (D-01 dissolve as duas abas; D-06 move "Comparar"
+// para um link dentro de Montar). As outras 6 chaves continuam idênticas.
+const CHAVES_AINDA_IDENTICAS = CHAVES_NOVAS.filter((k) => k !== "opcoesLeituraConcluidaAjuda");
+const chavesDivergentes = CHAVES_AINDA_IDENTICAS.filter((k) => COPY.estudo[k] !== COPY.operador[k]);
+ok("as 6 chaves restantes têm valor IDÊNTICO nos dois modos (decisão do plano 35-01: metadado de progresso, categoria já neutra)"
    + (chavesDivergentes.length ? " (divergentes: " + chavesDivergentes.join(", ") + ")" : ""),
    chavesDivergentes.length === 0);
+ok("opcoesLeituraConcluidaAjuda DIFERE entre Estudo e Operador (Fase 39, NAV-01: ganhou voz por modo, reversão deliberada de 35-01)",
+   COPY.estudo.opcoesLeituraConcluidaAjuda !== COPY.operador.opcoesLeituraConcluidaAjuda);
 
 // ---- 9) SecaoSetups.jsx intocada -------------------------------------------
 ok("SecaoSetups.jsx não ganhou nenhuma das 7 chaves novas de copy (JORN-03 é paridade estrutural pelo Kicker compartilhado, não tratamento novo dentro da seção)",
