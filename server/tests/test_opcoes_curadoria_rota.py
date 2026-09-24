@@ -16,6 +16,7 @@ import uuid
 import pytest
 from fastapi.testclient import TestClient
 
+import app.main as main_mod
 from app import candle_provider, db, options_provider, store
 from app.main import app, _conn
 
@@ -503,6 +504,173 @@ def test_sem_mcp_na_curadoria(cli):
         texto = "\n".join(linhas_sem_comentario)
         for marca in ("mcp_client", "options_mcp_api", "mcp.semente.dev"):
             assert marca not in texto, f"{marca!r} não pode aparecer na curadoria"
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Piso de probabilidade OTM (D-08) + hv21 lazy (Fase 39, Plano 02)
+# ─────────────────────────────────────────────────────────────────────────
+
+def _contrato_sem_iv(symbol, strike, price=1.5):
+    """Mesmo contrato de `_contrato`, mas com IV inutilizável (`None`) —
+    força o fallback lazy de `hv21`."""
+    c = _contrato(symbol, strike, price=price)
+    c["impliedVolatility"] = None
+    return c
+
+
+def _cadeia_sem_iv(underlying, n_strikes=1, expiration=None, expirations=None):
+    base = 30
+    calls = [_contrato_sem_iv(f"{underlying}C{base + i}", base + i) for i in range(n_strikes)]
+    exp = expiration or _EXP
+    exps = expirations if expirations is not None else [_EXP]
+    return {
+        "providerStatus": "ok", "underlyingPrice": _SPOT,
+        "expiration": exp, "expirations": exps,
+        "calls": calls, "puts": [], "source": "teste",
+    }
+
+
+def test_iv_valida_zero_chamadas_de_get_history(cli, monkeypatch):
+    uid, headers = _novo_escopo(cli, "20")
+    _liga_operador(uid)
+    store.buy(_conn, "PETR4", 200, 25.0, user_id=uid)
+    chains = {"PETR4": _cadeia("PETR4", n_strikes=1)}
+    _, fake = _contador(chains)
+    monkeypatch.setattr(options_provider, "get_options", fake)
+
+    chamadas_historico = {"n": 0}
+
+    async def _fake_history(t, *a, **k):
+        chamadas_historico["n"] += 1
+        return {"candles": []}
+    monkeypatch.setattr(candle_provider, "get_history", _fake_history)
+
+    r = cli.get("/api/options/curadoria", headers=headers)
+    assert r.status_code == 200, r.text
+    assert chamadas_historico["n"] == 0, "IV válida em todos os contratos: hv21 nunca deveria ser buscada"
+
+
+def test_iv_ausente_get_history_chamado_uma_vez_por_ticker_mesmo_com_dois_vencimentos(cli, monkeypatch):
+    uid, headers = _novo_escopo(cli, "21")
+    _liga_operador(uid)
+    store.buy(_conn, "PETR4", 200, 25.0, user_id=uid)
+    chains = {
+        "PETR4": {
+            None: _cadeia_sem_iv("PETR4", n_strikes=1, expiration=_EXP, expirations=[_EXP, _EXP2]),
+            _EXP2: _cadeia_sem_iv("PETR4", n_strikes=1, expiration=_EXP2, expirations=[_EXP, _EXP2]),
+        },
+    }
+    _, fake = _contador(chains)
+    monkeypatch.setattr(options_provider, "get_options", fake)
+
+    chamadas_historico = {"n": 0}
+
+    async def _fake_history(t, *a, **k):
+        chamadas_historico["n"] += 1
+        return {"candles": []}
+    monkeypatch.setattr(candle_provider, "get_history", _fake_history)
+    monkeypatch.setattr(main_mod, "historical_volatility", lambda closes, window=21: 0.3)
+
+    r = cli.get("/api/options/curadoria", headers=headers)
+    assert r.status_code == 200, r.text
+    assert chamadas_historico["n"] == 1, \
+        f"esperado 1 chamada de get_history por TICKER (memoizado na varredura), veio {chamadas_historico['n']}"
+
+
+def test_get_history_explode_sem_500_conta_em_sem_probabilidade(cli, monkeypatch):
+    uid, headers = _novo_escopo(cli, "22")
+    _liga_operador(uid)
+    store.buy(_conn, "PETR4", 200, 25.0, user_id=uid)
+    chains = {"PETR4": _cadeia_sem_iv("PETR4", n_strikes=1)}
+    _, fake = _contador(chains)
+    monkeypatch.setattr(options_provider, "get_options", fake)
+
+    async def _explode(t, *a, **k):
+        raise RuntimeError("candles fora do ar")
+    monkeypatch.setattr(candle_provider, "get_history", _explode)
+
+    r = cli.get("/api/options/curadoria", headers=headers)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["top"] == []
+    assert body["candidatosAvaliados"] > 0
+    assert body["semProbabilidade"] == body["candidatosAvaliados"]
+
+
+def test_candidato_abaixo_do_piso_nao_aparece_no_top_mas_e_contado(cli, monkeypatch):
+    # Strike praticamente no dinheiro tem probOtm baixo (~48%, calculado por
+    # Black-Scholes — não é número mágico, é o efeito esperado de um strike
+    # ATM); strike bem OTM passa longe do piso. Ambos vêm do MESMO motor
+    # `candidatos_da_posicao`, mistura real.
+    uid, headers = _novo_escopo(cli, "23")
+    _liga_operador(uid)
+    store.buy(_conn, "PETR4", 200, 25.0, user_id=uid)
+    chain = _cadeia("PETR4", n_strikes=0)
+    chain["calls"] = [
+        _contrato("PETR4C29", 29, price=2.0),   # quase ATM: probOtm abaixo do piso
+        _contrato("PETR4C60", 60, price=0.05),  # bem OTM: probOtm acima do piso
+    ]
+    chains = {"PETR4": chain}
+    _, fake = _contador(chains)
+    monkeypatch.setattr(options_provider, "get_options", fake)
+
+    r = cli.get("/api/options/curadoria", headers=headers)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["pisoProbOtm"] == 0.60
+    assert any(c["contractSymbol"] == "PETR4C60" for c in body["top"])
+    assert not any(c["contractSymbol"] == "PETR4C29" for c in body["top"])
+    assert body["reprovadosNoPiso"] >= 1
+
+
+def test_resposta_sempre_traz_as_tres_contagens_do_piso(cli, monkeypatch):
+    uid, headers = _novo_escopo(cli, "24")
+    _liga_operador(uid)
+    _, fake = _contador({})
+    monkeypatch.setattr(options_provider, "get_options", fake)
+
+    r = cli.get("/api/options/curadoria", headers=headers)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["pisoProbOtm"] == 0.60
+    assert body["admitidosNoPiso"] == 0
+    assert body["reprovadosNoPiso"] == 0
+    assert body["semProbabilidade"] == 0
+
+
+def test_fallback_do_except_tambem_traz_as_contagens_do_piso(monkeypatch):
+    async def _explode(scope, modo, permitir_a_descoberto=False):
+        raise RuntimeError("_curadoria_top fora do ar")
+    monkeypatch.setattr(main_mod, "_curadoria_top", _explode)
+
+    with TestClient(main_mod.app) as c:
+        email = f"curadoria-fallback-{uuid.uuid4().hex[:10]}@teste.com"
+        r = c.post("/api/auth/register", json={"email": email, "password": "senhaboa123"})
+        assert r.status_code == 200, r.text
+        headers = {"Authorization": "Bearer " + r.json()["token"]}
+        resp = c.get("/api/options/curadoria", headers=headers)
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["pisoProbOtm"] == 0.60
+    assert body["admitidosNoPiso"] == 0
+    assert body["reprovadosNoPiso"] == 0
+    assert body["semProbabilidade"] == 0
+
+
+def test_top_no_maximo_quatro_em_ordem_de_premio_anualizado(cli, monkeypatch):
+    uid, headers = _novo_escopo(cli, "25")
+    _liga_operador(uid)
+    store.buy(_conn, "PETR4", 200, 25.0, user_id=uid)
+    chains = {"PETR4": _cadeia("PETR4", n_strikes=6)}
+    _, fake = _contador(chains)
+    monkeypatch.setattr(options_provider, "get_options", fake)
+
+    r = cli.get("/api/options/curadoria", headers=headers)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert len(body["top"]) <= 4
+    anualizados = [c["premioAnualizado"] for c in body["top"]]
+    assert anualizados == sorted(anualizados, reverse=True)
 
 
 def _corpo_da_funcao(caminho_arquivo, nome_funcao):
