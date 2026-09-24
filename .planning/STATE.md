@@ -3,14 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.8
 milestone_name: Didática ampliada + continuidade da aba Opções
 status: executing
-last_updated: "2026-09-24T00:00:00.000Z"
-last_activity: 2026-09-24
+stopped_at: "Phase 39 PLANEJADA — `/gsd-plan-phase 39` completo em 2026-09-24, pronta para `/gsd-execute-phase 39`. Sequência: UI-SPEC aprovado (ver narrativa anterior, commits `8cd6179`→`3fb61f6`→`a8f56b8`) → `gsd-pattern-mapper` (`39-PATTERNS.md`, 12/12 analogs, commit `535a3d6`) → `gsd-planner` opus (6 planos/5 ondas, commit `70becbc`, também atualizou ROADMAP.md) → `gsd-plan-checker` 1ª rodada: ISSUES FOUND (0 bloqueios, 4 avisos — cobertura de requisitos OK, mas 2 avisos substantivos: checkpoint do 39-06 não nomeava explicitamente a reinterpretação de D-05 nem o desvio do UI-SPEC no rodapé de custo) → revisão (`gsd-planner`, commit `bdcffb4`: adiciona DR-1/DR-2 como perguntas nomeadas e bloqueantes no checkpoint do 39-06, mais 2 linhas em `39-PATTERNS.md`) → `gsd-plan-checker` 2ª rodada: VERIFICATION PASSED (0 bloqueios, 0 avisos novos) → gate de cobertura de decisões (`check.decision-coverage-plan`) achou D-02/D-03/D-04/D-12 sem citação literal em `must_haves.truths` (estavam implementados, só não citados pelo ID na estrutura que o gate escaneia) → corrigido à mão (commit `6de78b2`, 14/14 cobertos) → `roadmap.annotate-dependencies` já estava aplicado pelo planner (idempotente, sem mudança). STATE.md editado à mão (`state.planned-phase` do gsd-sdk não foi chamado, ver [[gsd-sdk-state-corrompe]])."
+last_updated: "2026-09-24T16:20:00.000Z"
+last_activity: 2026-09-24 -- Phase 39, Plan 01 (piso de probabilidade OTM + prêmio anualizado) executado e commitado
 progress:
-  total_phases: 4
+  total_phases: 2
   completed_phases: 1
   total_plans: 12
-  completed_plans: 6
-  percent: 25
+  completed_plans: 7
+  percent: 58
 ---
 
 # Project State
@@ -20,16 +21,52 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-20)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Milestone v1.8 (Didática ampliada + continuidade da aba Opções) — ROADMAP.md atualizado (Phases 38-41, 5/5 requirements mapeados). Fase 38 FECHADA e publicada em produção (`F10-20260923-01`). Quick `260923-ndy` (achado ao vivo do Alex: em Opções → Analisar, montar estrutura manual não tinha caminho de execução) fechada e PUBLICADA em produção como `F10-20260923-02` — as 3 tasks completas, nenhuma pendência. Testando em produção, o Alex reportou um segundo achado (card de venda coberta mostrando "perda máxima" sem contexto suficiente) que abriu uma discussão maior sobre metodologia de ranking de oportunidades (não travada em requirement ainda) e, via `/design-audit`, uma auditoria completa da navegação da aba Opções (2026-09-23) — resultado: nova **Fase 39 (NAV-01, Reestruturação de navegação)** inserida no ROADMAP ANTES da antiga Fase 39, que virou **Fase 40 (ESTADO-01)**; a antiga Fase 40 virou **Fase 41 (TELAS-01)**. Fase 39 PLANEJADA em 2026-09-24 (6 planos/5 ondas, `gsd-plan-checker` VERIFICATION PASSED), pronta pra executar. Próximo passo: `/gsd-execute-phase 39`.
+**Current focus:** Phase 39 — reestrutura-o-de-navega-o-da-aba-op-es
 
 ## Current Position
 
-Phase: 38 (KB Didática ampliada) — **FECHADA (6/6 plans)**, publicada em produção
-Plan: 38-01 ✓ | 38-02 ✓ | 38-03 ✓ | 38-04 ✓ | 38-05 ✓ | 38-06 ✓ (checkpoint humano aprovado ao vivo + publicação)
-Status: `/gsd-execute-phase 38` completo (2026-09-23), sem worktree (`workflow.use_worktrees=false`), executor sequencial por onda. Fase publicada em produção como `F10-20260923-01` (front+backend juntos, deploy Railway confirmado via `/api/health` e `/api/kb/catalogo`).
-Last activity: 2026-09-23 — `38-06` fechou a fase em duas partes: (1) verificação humana ao vivo do roteiro de 9 itens, rodada pelo orquestrador contra servidores locais (api:8787, web:5174), aprovada pelo Alex ("Aprovado, pode publicar") — ver `38-06-SUMMARY.md` para o registro item a item; achado positivo não previsto pelo risco declarado no 38-05: o FAB do Boris fica ESCONDIDO sob a folha local de Opções por z-index puro (overlay=86 > FAB=60, confirmado por `elementFromPoint`) — a tensão de duas vias de folha na mesma tela NÃO se materializou como defeito visual/funcional; achado cosmético menor, não-bloqueante: dois ícones "×" sobrepostos no campo de busca do Glossário em 375px (`input type="search"` nativo do WebKit/Chromium + "×" customizado do app — sugestão de fix: `type="text"` ou `-webkit-appearance: none`); (2) publicação — merge de `origin/main` (no-op, HEAD já continha os 28 commits), suíte canônica pré-bump confirmada na baseline (2964 pytest passed/27 falhas conhecidas de TLS-sandbox + 159/160 `.mjs`, só `test_ios_assets.mjs` ambiental), `bump.sh` (`F10-20260922-01`→`F10-20260923-01`), `publicar-web.sh` (achado de ambiente: `npm ci` deu `EPERM` de sandbox ao tentar apagar `node_modules/xmlbuilder/.vscode/launch.json` — contornado rodando só o passo de build fora do sandbox, nenhum código de produto tocado), comentário do `SERVER_BUILD_ID` reescrito à mão preservando o histórico completo como `HISTORICO`, push em `v2/interacao-estrutural` E fast-forward de `origin/main` confirmado (`HEAD == origin/main`), `/api/health`/`/api/kb/catalogo` confirmados em produção (83 verbetes, 9 famílias) após ~5,5min de redeploy do Railway (um 502 transitório durante a troca de container, esperado).
+Phase: 39 (reestrutura-o-de-navega-o-da-aba-op-es) — EXECUTING
+Plan: 2 of 6 (39-01 completo — 39-02 é o próximo)
+Status: Executing Phase 39
+Last activity: 2026-09-24 -- Plan 39-01 (piso de probabilidade OTM + prêmio anualizado na curadoria) executado e commitado, sequencial, sem worktree
+
+**Plan 39-01 completo (2026-09-24), backend puro — sequencial, sem worktree:**
+
+- 2 tasks, TDD RED→GREEN em cada uma. Commits: `310c93d` (test RED motor), `967ed6c`
+  (feat GREEN motor: `PISO_PROB_OTM=0.60`, `vol_do_contrato`/`prob_otm`/
+  `premio_anualizado`/`aplicar_piso` em `opcoes_curadoria.py`; rankear/exigir_ranking
+  passam a usar `premioAnualizado`; `TAXA_LIVRE_DE_RISCO_REFERENCIA` nomeada em
+  `options_quant.py`), `cad1ae7` (test RED rota), `c936d62` (feat GREEN rota:
+  `_hv21_do_ativo` lazy 1x/ticker em `main.py`, `aplicar_piso` aplicado ANTES de
+  `rankear` em `_curadoria_top`, meta com `pisoProbOtm`/`admitidosNoPiso`/
+  `reprovadosNoPiso`/`semProbabilidade` inclusive no fallback do except), `4e8d892`
+  (docs summary).
+- **Deviation nomeada (Rule 1):** `test_curadoria_collar_rota.py` (fora do
+  `files_modified` do plano, mas exercitado no `<verify>`) tinha fixture de collar
+  quase-ATM (strikes a R$1,00 do spot) escrita ANTES do piso D-08 existir — probOtm
+  combinado medido ~0.31, abaixo do piso 0.60, então o collar sumia do `top` e 9
+  testes que localizam-e-executam via essa rota quebravam. Corrigido alargando os
+  strikes da fixture (spot±1 → spot±3/±5), nunca relaxando `PISO_PROB_OTM` nem
+  monkeypatchando o piso. Documentado no SUMMARY do 39-01.
+- **Risco reconfirmado empiricamente** (já estava declarado como risco para o
+  checkpoint do 39-06, ver bloco NAV-01 abaixo): o piso de 60% OTM realmente quase
+  elimina put de proteção/collar perto do dinheiro — não é bug, é o efeito
+  matemático esperado de D-08 medido tanto no motor quanto na fixture de teste
+  acima.
+- Suíte fora do sandbox: 155/155 nos 5 arquivos de curadoria; varredura ampla
+  `-k "opcoes or options or curadoria"` 879 passed/1 skipped (1 falha pré-existente
+  de sandbox/rede em `test_options_provider_yahoo.py`, não relacionada); suíte
+  completa 3021 passed/5 skipped/3 xfailed/27 falhas conhecidas de sandbox (mesma
+  classe documentada em `[[worktree-test-setup]]`, nenhuma toca os arquivos deste
+  plano). `git diff --stat server/app/opcoes_lastreadas.py` vazio (D-12 confirmado).
+- Guardrail aplicado: mutadores de estado do gsd-sdk NÃO foram chamados — este
+  STATE.md foi editado à mão (decisão do Alex 2026-09-11, `[[gsd-sdk-state-corrompe]]`).
+
+**Próximo passo dentro da fase:** `/gsd-execute-phase 39` continua — Plan 39-02
+(onda 2), ver `.planning/phases/39-reestrutura-o-de-navega-o-da-aba-op-es/39-02-PLAN.md`.
 
 **Decisões de implementação que o próximo leitor não deve redescobrir (KB-01/KB-02):**
+
 - `ConceitoSheet` tem discriminador explícito `fonte: "conceito"|"kb"`, default `"conceito"` — sem fallback silencioso por 404 quando um `vid` não existe no catálogo errado.
 - Ação `A.abrirVerbeteKb(vid)` é SEPARADA de `A.abrirVerbete(...)` — não é um 3º parâmetro da função existente, porque `test_concentracao_carteira.mjs` trava a assinatura literal de `abrirVerbete`.
 - O lookup de "veja também" (chips dentro da folha kb) resolve por `fonte`: dentro de um verbete kb, "veja também" abre outro verbete kb; dentro de um verbete conceito (ancorado), "veja também" continua no universo de `conceitos.py`. As duas trilhas não se cruzam.
@@ -42,6 +79,7 @@ Last activity: 2026-09-23 — `38-06` fechou a fase em duas partes: (1) verifica
 - `OpcoesScreen.jsx` mantém ZERO import de `App.jsx` (isolamento ADR-027): o "saiba mais" desta aba monta uma instância LOCAL/própria de `ConceitoSheet` (importada só de `entendimento.jsx`/`glossario.js`), em vez de reusar o overlay global — por desenho, não por descuido (D-08, "ambos importam do módulo novo, nenhum importa do outro").
 
 **Pendências abertas, declaradas, não escondidas:**
+
 - **iOS/TestFlight**: RESOLVIDA nesta sessão, fora do fluxo GSD — orquestrador rodou `npx cap sync ios` (bundle `F10-20260923-01`, já com Glossário/KB-01/KB-02) e `scripts/ios-bump-build.sh` (build 26→27); manifesto de privacidade e `aps-environment=production` já estavam configurados de sessão anterior, nada a repetir. Alex fez o Archive/Distribute/Upload no Xcode e a liberação no App Store Connect (passos manuais, fora do que o orquestrador pode automatizar — GUI/credencial Apple). Verificação pós-install no aparelho (rodapé do Perfil mostrando o BUILD_ID novo, smoke test de push) fica a critério do Alex — checklist em `TESTFLIGHT.md` itens 22-23.
 - **Tensão das duas vias de folha em Opções** (chip de liquidez → overlay global; "saiba mais" → folha local): declarada no 38-05 como risco de FAB não se esconder — a verificação ao vivo do 38-06 mostrou que o risco NÃO SE MATERIALIZOU (z-index puro já resolve: overlay=86 > FAB=60). A duplicação estrutural (duas instâncias de `ConceitoSheet` na mesma tela) continua existindo por desenho (ADR-027), mas não é mais um risco funcional em aberto — só uma nota de arquitetura.
 - **Achado cosmético não-bloqueante**: dois ícones "×" sobrepostos no campo de busca do Glossário em viewport mobile (375px) — candidato a polish futuro, não registrado como todo formal.
@@ -50,6 +88,7 @@ Last activity: 2026-09-23 — `38-06` fechou a fase em duas partes: (1) verifica
 **Stopped at:** Phase 39 PLANEJADA — `/gsd-plan-phase 39` completo em 2026-09-24, pronta para `/gsd-execute-phase 39`. Sequência: UI-SPEC aprovado (ver narrativa anterior, commits `8cd6179`→`3fb61f6`→`a8f56b8`) → `gsd-pattern-mapper` (`39-PATTERNS.md`, 12/12 analogs, commit `535a3d6`) → `gsd-planner` opus (6 planos/5 ondas, commit `70becbc`, também atualizou ROADMAP.md) → `gsd-plan-checker` 1ª rodada: ISSUES FOUND (0 bloqueios, 4 avisos — cobertura de requisitos OK, mas 2 avisos substantivos: checkpoint do 39-06 não nomeava explicitamente a reinterpretação de D-05 nem o desvio do UI-SPEC no rodapé de custo) → revisão (`gsd-planner`, commit `bdcffb4`: adiciona DR-1/DR-2 como perguntas nomeadas e bloqueantes no checkpoint do 39-06, mais 2 linhas em `39-PATTERNS.md`) → `gsd-plan-checker` 2ª rodada: VERIFICATION PASSED (0 bloqueios, 0 avisos novos) → gate de cobertura de decisões (`check.decision-coverage-plan`) achou D-02/D-03/D-04/D-12 sem citação literal em `must_haves.truths` (estavam implementados, só não citados pelo ID na estrutura que o gate escaneia) → corrigido à mão (commit `6de78b2`, 14/14 cobertos) → `roadmap.annotate-dependencies` já estava aplicado pelo planner (idempotente, sem mudança). STATE.md editado à mão (`state.planned-phase` do gsd-sdk não foi chamado, ver [[gsd-sdk-state-corrompe]]).
 
 **Decisões que o próximo leitor não deve redescobrir (NAV-01):**
+
 - **Fork 1 (destino do card de Oportunidades) resolvido como "Leitura B'", DIVERGENTE da recomendação do UI-SPEC (Leitura A).** Motivo medido em código: `SubAbaOperar` é o único ponto do código que usa `PropostaLastreada`/`CandidatoOpcao`/`useAceiteLastreado` (motor `opcoes_lastreadas`); Recomendadas é alimentada por `opcoes_curadoria`, motor diferente; D-12 proíbe mexer em `opcoes_lastreadas.py` nesta fase. A execução com gate fica INTEIRA em Oportunidades (painel inline no card), não migra para Recomendadas como D-05 diz literalmente. Isso é uma reinterpretação de uma decisão TRAVADA do CONTEXT.md — por isso virou **DR-1**, pergunta nomeada e bloqueante no checkpoint humano do 39-06 (rejeição = abre plano de gap, reabre D-12 ou funde motores, decisão do Alex).
 - **DR-2**: `opcoesCustoFrescor` vai para um ⓘ no rodapé GLOBAL da tela (não no ⓘ da aba Montar, como o UI-SPEC literalmente pede) — porque `mcpStatus` dispara na montagem da tela inteira, independente da aba ativa; aviso só em Montar deixaria quem fica em Oportunidades/Recomendadas pagar sem ver o aviso (regressão da Fase 27-05). Também pergunta nomeada e bloqueante no checkpoint do 39-06.
 - Fork 2 (onde `SecaoSetups.jsx` mora dentro de "Montar") resolvido: seção sem gate, abaixo do link de Comparar, sem aba própria (D-01 proíbe 2ª camada) — sem divergência, não precisa de aprovação nomeada.
@@ -73,6 +112,7 @@ Status: `/gsd-plan-phase 38` completo (2026-09-23). Sequência: gate de UI-SPEC 
 **Risco declarado, não resolvido nesta fase da narrativa:** para cumprir D-08 ao pé da letra (isolamento `OpcoesScreen.jsx`↔`App.jsx`, "ambos importam do módulo novo"), o "saiba mais" de Opções monta uma cópia local da folha de conceito em vez de reusar a folha global já em produção — o botão flutuante do Boris provavelmente não se esconde sob essa folha local. Declarado no 38-05, **conferido e resolvido (risco não se materializou) no checkpoint humano do 38-06 — ver "Current Position" acima**.
 
 **Onda 1 completa (38-01, 38-02) — 2026-09-23, `/gsd-execute-phase 38` sem worktree, sequencial:**
+
 - `38-01` (backend, commits `66f7d1e`/`6f24e00`/`46a19ad`): 65 títulos autorados + 18 derivados, `FAMILIAS`, `catalogo_formatado()`, rota `GET /api/kb/catalogo`. 65 testes-alvo + suíte completa fora do sandbox: 2987 pytest, 0 falhas relevantes (27 falhas dentro do sandbox são artefato de rede/mocking pré-existente, nenhuma toca `kb.py`/`main.py`).
 - `38-02` (frontend, commits `bbab82e`/`5f47f18`/`4471a49`): `SetorAlvo`/`ConceitoSheet`/`AssistenteBox`/`AiNote` extraídos verbatim para `web/src/entendimento.jsx`; 6 guardiões reapontados + 1 novo (`test_entendimento_modulo.mjs`). **Defeito real achado e corrigido pela própria extração:** a asserção de `zIndex:86` em `test_conceito_ui.mjs` vinha passando silenciosamente contra o componente ERRADO (`PetSheet`, coincidência de zIndex) desde antes desta fase — reapontada pra testar `ConceitoSheet` de verdade. `npx vite build` limpo. Suíte fora do sandbox: 2987 pytest + 156/157 `.mjs` (só a falha ambiental conhecida, `test_ios_assets.mjs`).
 

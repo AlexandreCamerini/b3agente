@@ -202,7 +202,7 @@ Full phase details: [milestones/v1.7-ROADMAP.md](milestones/v1.7-ROADMAP.md)
 | 36. Motor de Payoff Genérico | 2/2 | Complete | 2026-09-21 |
 | 37. Gráfico de Payoff e Explicação Confiáveis | 5/5 | Complete (checkpoint com ressalva — ver STATE.md) | 2026-09-22 |
 | 38. KB Didática ampliada | 6/6 | Complete (publicado, checkpoint humano aprovado ao vivo) | 2026-09-23 |
-| 39. Continuidade da aba Opções | 0/? | Not started | - |
+| 39. Continuidade da aba Opções | 1/6 | In Progress|  |
 | 40. Consolidação de registros de tela | 0/? | Not started | - |
 
 ## Phase Details
@@ -263,7 +263,7 @@ definida primeiro).
      de curadoria) não aparece mais inline antes do conteúdo — fica atrás
      de um ⓘ ou é removido
 **Plans**: 6 plans (5 ondas)
-- [ ] 39-01-PLAN.md — backend: piso de 60% de probabilidade OTM (Black-Scholes) + ordem por prêmio anualizado na curadoria, meta do D-11, hv21 lazy (onda 1)
+- [x] 39-01-PLAN.md — backend: piso de 60% de probabilidade OTM (Black-Scholes) + ordem por prêmio anualizado na curadoria, meta do D-11, hv21 lazy (onda 1)
 - [ ] 39-02-PLAN.md — contratos: copy da fase nos dois modos, primitivos ⓘ/carimbo, VigiasSheet/VigiasBadge, deep-link Posições -> Recomendadas (onda 1)
 - [ ] 39-03-PLAN.md — CuradoriaEstruturas (D-11 3 vazios, D-14 "1ª de N", T.onAccent) + OportunidadesOpcoes (aria-expanded) (onda 2)
 - [ ] 39-04-PLAN.md — OpcoesScreen com 3 abas fixas, Vigias em sheet, Operar dissolvida em painel inline (Leitura B'), Montar com Comparar inline + guardião NAV-01 (onda 3)
