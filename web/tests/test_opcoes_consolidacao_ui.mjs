@@ -164,11 +164,16 @@ ok("LinhaChamadaOpcoes NÃO referencia `positions` (a contagem vem pronta de cur
 ok("LinhaChamadaOpcoes lê curadoria.top.length (fonte única, D-03)",
   fatiaLinha.includes("curadoria.top.length") || /\btop\s*=\s*\(curadoria/.test(fatiaLinha));
 
-// ---- (7) navegação sem deep-link (D-02) ------------------------------------
-ok("App.jsx passa onIr={ctx.goOpcoes} para LinhaChamadaOpcoes",
-  appSC.includes("onIr={ctx.goOpcoes}"));
-ok("ctx.goOpcoes é definido como navigate(\"opcoes\") em App.jsx (sem parâmetro de ticker/candidato)",
-  /goOpcoes:\s*\(\)\s*=>\s*navigate\("opcoes"\)/.test(appSC));
+// ---- (7) navegação para a aba Recomendadas (D-02) --------------------------
+// Fase 39 (NAV-01): a linha de chamada conta itens da CURADORIA (aba
+// Recomendadas) — reversão deliberada, guardião atualizado com nota, não
+// apagado: a linha passa a levar direto a essa aba. O parâmetro de
+// ctx.goOpcoes é id de ABA, nunca ticker/candidato — o invariante "sem
+// deep-link de ticker/candidato" continua.
+ok('App.jsx passa onIr={() => ctx.goOpcoes("recomendadas")} para LinhaChamadaOpcoes',
+  appSC.includes('onIr={() => ctx.goOpcoes("recomendadas")}'));
+ok('ctx.goOpcoes(aba) só usa o parâmetro para setOpcoesAbaInicial, guardado por typeof aba === "string", antes de navigate("opcoes") (sem parâmetro de ticker/candidato)',
+  /goOpcoes:\s*\(aba\)\s*=>\s*\{\s*if\s*\(typeof aba === "string"\)\s*setOpcoesAbaInicial\(aba\);\s*navigate\("opcoes"\);\s*\}/.test(appSC));
 
 // ---- (8) D-06: nada impede busca depois -------------------------------------
 // 2026-09-20, Fase 33 (33-02): o trecho "entre a frase-ponte e os vigias"

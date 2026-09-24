@@ -4300,7 +4300,7 @@ function CarteiraScreen({ ctx }) {
           logo abaixo já explica a ausência de posições, duas mensagens pra
           mesma ausência seria ruído (razão herdada da Fase 18). */}
       {data.positions.length > 0 && (
-        <LinhaChamadaOpcoes curadoria={ctx.curadoria} cp={cp} onIr={ctx.goOpcoes} />
+        <LinhaChamadaOpcoes curadoria={ctx.curadoria} cp={cp} onIr={() => ctx.goOpcoes("recomendadas")} />
       )}
 
       {data.positions.length === 0 && (
@@ -7669,6 +7669,10 @@ export default function App() {
   const [carteiraView, setCarteiraView] = useState("main"); // main | historico | agente
   const [perfilView, setPerfilView] = useState("hub");       // hub | plano | config | ia | notificacoes | eficiencia | logs
   const navigate = (t) => { setCarteiraView("main"); setPerfilView("hub"); setTab(t); };
+  // Fase 39 (NAV-01): pedido one-shot de aba inicial da tela Opções —
+  // consumido e limpo pelo OpcoesScreen no mount; não é persistência (isso é
+  // a Fase 40, ESTADO-01).
+  const [opcoesAbaInicial, setOpcoesAbaInicial] = useState(null);
   // Fase 32 (32-02), Decisão A: flag monotônica que autoriza o hook de
   // curadoria a buscar — liga ao visitar Posições (carteiraView main) ou
   // Opções, NUNCA desliga, NUNCA liga sozinha em boot. Guarda
@@ -8965,7 +8969,14 @@ export default function App() {
     // Fase 32 (32-02), D-03: PONTO ÚNICO de entrada na aba Opções a partir de
     // outra tela — mesma razão registrada em goAgente acima. `navigate` já
     // zera carteiraView/perfilView, então este destino chega sempre limpo.
-    goOpcoes: () => navigate("opcoes"),
+    // Fase 39 (NAV-01): `aba` é opcional — sem argumento, comportamento
+    // idêntico ao de hoje. Com string, grava em `opcoesAbaInicial` o pedido
+    // one-shot que o OpcoesScreen (Plano 04) consome no mount; a validação
+    // contra as 3 abas válidas é do próprio OpcoesScreen, que ignora valor
+    // desconhecido.
+    goOpcoes: (aba) => { if (typeof aba === "string") setOpcoesAbaInicial(aba); navigate("opcoes"); },
+    opcoesAbaInicial,
+    limparOpcoesAbaInicial: () => setOpcoesAbaInicial(null),
     // Fase 32 (32-02), Decisão A: fonte única do bloco cross-posição de
     // opções — CarteiraScreen e (Plano 32-03) OpcoesScreen leem o MESMO
     // objeto, nunca duas instâncias do hook.

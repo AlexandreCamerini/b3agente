@@ -41,6 +41,7 @@ const dirOpcoes = join(dirSrc, "opcoes");
 
 const uiOpcoes = readFileSync(join(dirOpcoes, "uiOpcoes.jsx"), "utf8");
 const vigiasSheet = readFileSync(join(dirOpcoes, "VigiasSheet.jsx"), "utf8");
+const app = readFileSync(join(dirSrc, "App.jsx"), "utf8");
 
 // Remove comentários de bloco e de linha antes de varrer — mesmo padrão de
 // test_opcoes_vigias_ui.mjs/test_opcoes_consolidacao_ui.mjs.
@@ -49,6 +50,7 @@ const semComentario = (s) => s
   .split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n");
 const uiOpcoesSC = semComentario(uiOpcoes);
 const vigiasSheetSC = semComentario(vigiasSheet);
+const appSC = semComentario(app);
 
 let fails = 0;
 const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if (!cond) fails++; };
@@ -152,6 +154,15 @@ ok("as " + TODAS_AS_CHAVES.length + " chaves novas da Task 1 existem em COPY.est
   TODAS_AS_CHAVES.every((k) => k in COPY.estudo));
 ok("as " + TODAS_AS_CHAVES.length + " chaves novas da Task 1 existem em COPY.operador",
   TODAS_AS_CHAVES.every((k) => k in COPY.operador));
+
+// ---- (11) ctx (App.jsx) expõe opcoesAbaInicial/limparOpcoesAbaInicial ------
+// (Task 3 deste plano — canal one-shot da linha de chamada de Posições).
+ok("App.jsx declara o estado opcoesAbaInicial (useState)",
+  /const \[opcoesAbaInicial, setOpcoesAbaInicial\] = useState\(null\);/.test(appSC));
+ok("ctx expõe opcoesAbaInicial",
+  /\bopcoesAbaInicial,/.test(appSC));
+ok("ctx expõe limparOpcoesAbaInicial",
+  /limparOpcoesAbaInicial:\s*\(\)\s*=>\s*setOpcoesAbaInicial\(null\)/.test(appSC));
 
 if (fails) { console.error(`\n${fails} falha(s)`); process.exit(1); }
 console.log("\ntodos os testes passaram");
