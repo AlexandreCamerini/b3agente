@@ -1,10 +1,11 @@
 ---
 phase: 39
 slug: reestrutura-o-de-navega-o-da-aba-op-es
-status: draft
+status: approved
 shadcn_initialized: false
 preset: none
 created: 2026-09-24
+reviewed_at: 2026-09-24
 ---
 
 # Phase 39 — UI Design Contract
@@ -618,14 +619,14 @@ mudança de escopo, é a mesma linha que já vai ser tocada para acrescentar
 
 ## Checker Sign-Off
 
-- [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS — foco visual primário declarado por aba, ver seção "Foco visual primário por aba (Dimension 2 — hierarquia)"
-- [ ] Dimension 3 Color: PASS — inclui a correção obrigatória `#fff`→`T.onAccent` em `CuradoriaEstruturas.jsx:268`
-- [ ] Dimension 4 Typography: PASS — tabela de tamanho consolidada em 4 papéis (≤4 tamanhos distintos), reuso verificado de `32-UI-SPEC.md`/`34-UI-SPEC.md`; exceção `developer-approved — matches existing pattern` (3 pesos) herdada de `32-UI-SPEC.md`, não reaberta
-- [ ] Dimension 5 Spacing: PASS — exceção `developer-approved — matches existing pattern` herdada de `32-UI-SPEC.md`/`34-UI-SPEC.md`
-- [ ] Dimension 6 Registry Safety: PASS
+- [x] Dimension 1 Copywriting: PASS — 1 flag não-bloqueante (estado de erro de Oportunidades, débito herdado de `32-UI-SPEC.md` Open Question #3, fora de escopo do NAV-01)
+- [x] Dimension 2 Visuals: PASS — foco visual primário declarado por aba, ver seção "Foco visual primário por aba (Dimension 2 — hierarquia)"
+- [x] Dimension 3 Color: PASS — inclui a correção obrigatória `#fff`→`T.onAccent` em `CuradoriaEstruturas.jsx:268`
+- [x] Dimension 4 Typography: PASS — tabela de tamanho consolidada em 4 papéis (≤4 tamanhos distintos), reuso verificado de `32-UI-SPEC.md`/`34-UI-SPEC.md`; exceção `developer-approved — matches existing pattern` (3 pesos) herdada de `32-UI-SPEC.md`, não reaberta
+- [x] Dimension 5 Spacing: PASS — exceção `developer-approved — matches existing pattern` herdada de `32-UI-SPEC.md`/`34-UI-SPEC.md`
+- [x] Dimension 6 Registry Safety: PASS
 
-**Approval:** pending
+**Approval:** approved (gsd-ui-checker, 2026-09-24, revision iteration 1/2 — ver 39-UI-SPEC.md histórico de commits `8cd6179`→`3fb61f6`)
 
 ---
 
