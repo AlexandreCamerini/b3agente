@@ -115,6 +115,12 @@
 //      App.jsx (a definição do hook + a única chamada, em App()) — trava
 //      "uma fonte, duas leituras" (D-03): duas instâncias divergiriam por
 //      timing, exatamente o que D-03 proíbe.
+//   28. (Fase 39, 39-03, NAV-01/D-11/D-14) cascata de 5 estados vazios
+//      (naoMedido < erro < vazioSemProb < vazioPiso < vazioGenérico), a
+//      posição no ranking (`cp.curadoriaPosicaoRotulo`) substitui o score
+//      bruto no card, o painel inline ganha probOtm/prêmio anualizado, o
+//      botão Executar usa `T.onAccent` (nunca `#fff`), e o eyebrow ganha o
+//      slot `infoBotao`. Ver bloco "(Fase 39, NAV-01)" no fim do arquivo.
 //
 // Padrão "static source inspection" da casa (mesmo de
 // test_carteira_opcoes_tira.mjs, test_opcoes_proposta_ui.mjs): readFileSync
@@ -558,9 +564,14 @@ ok("(Quick 260915-ndt) o rótulo mais próximo ANTES do money(item.premioTotal) 
 // ---- (24, Quick 260915-ndt) curadoriaRazaoRotulo aparece EXATAMENTE 1x —
 // a regressão que esta quick fecha (dois usos = rótulo da razão de volta
 // sobre um número que não é razão) -----------------------------------------
+// REVERSÃO DELIBERADA (2026-09-24, Fase 39/39-03, D-14): o score bruto
+// ("Pontuação de curadoria: 0.02") saiu do card por completo — a posição no
+// ranking (`cp.curadoriaPosicaoRotulo`) é a única forma de comunicar ordem
+// agora (ver bloco Fase 39 abaixo). A asserção "exatamente 1x" vira "0x";
+// mantida aqui com nota, não apagada (guardrail do CLAUDE.md).
 const ocorrenciasRazaoRotulo = (fatiaCuradoria.match(/curadoriaRazaoRotulo/g) || []).length;
-ok("(Quick 260915-ndt) cp.curadoriaRazaoRotulo aparece exatamente 1x em CuradoriaEstruturas (só no card, ao lado de item.razao)",
-  ocorrenciasRazaoRotulo === 1);
+ok("(Fase 39/D-14) cp.curadoriaRazaoRotulo NÃO aparece mais em CuradoriaEstruturas (score bruto removido do card)",
+  ocorrenciasRazaoRotulo === 0);
 
 // ---- (25, Quick 260915-ndt) rótulos DIFERENTES para números diferentes,
 // nos dois modos — rótulos iguais para números diferentes é o defeito ------
@@ -585,6 +596,116 @@ ok("(Fase 33/33-02) OpcoesScreen.jsx NÃO importa mais CuradoriaEstruturas (call
   !/from\s+"\.\/CuradoriaEstruturas\.jsx"/.test(telaOpcoes));
 ok("(Fase 33/33-02) SecaoDescobrir.jsx importa CuradoriaEstruturas de ./CuradoriaEstruturas.jsx",
   /from\s+"\.\/CuradoriaEstruturas\.jsx"/.test(secaoDescobrir));
+
+// =====================================================================
+// (Fase 39, 39-03, NAV-01) D-11 (5 estados) / D-14 (posição no ranking) /
+// T.onAccent / infoBotao / probOtm-premioAnualizado no painel inline.
+// RED escrito ANTES da implementação (task tdd="true") — as asserções
+// abaixo têm de FALHAR contra o CuradoriaEstruturas.jsx de antes desta
+// task; ficam verdes só depois do GREEN.
+// =====================================================================
+
+// ---- Paridade do piso: "60%" da copy é espelho declarado do backend -----
+// Mesmo padrão de CUSTO_DA_ACAO/_cap_check (test_opcoes_custo_declarado.mjs)
+// — o número da copy nunca é independente do que o motor exige (D-08).
+const opcoesCuradoriaPy = readFileSync(join(here, "..", "..", "server", "app", "opcoes_curadoria.py"), "utf8");
+const mPiso = opcoesCuradoriaPy.match(/PISO_PROB_OTM\s*=\s*0\.(\d+)/);
+ok("(Fase 39) PISO_PROB_OTM foi localizado em server/app/opcoes_curadoria.py",
+  !!mPiso);
+const pisoPct = mPiso ? String(Math.round(parseFloat("0." + mPiso[1]) * 100)) : null;
+ok("(Fase 39) curadoriaSubtitulo.estudo cita o mesmo piso do backend (" + pisoPct + "%)",
+  pisoPct !== null && COPY.estudo.curadoriaSubtitulo.includes(pisoPct + "%"));
+ok("(Fase 39) curadoriaSubtitulo.operador cita o mesmo piso do backend (" + pisoPct + "%)",
+  pisoPct !== null && COPY.operador.curadoriaSubtitulo.includes(pisoPct + "%"));
+
+// ---- Chaves função novas (NÃO entram em CHAVES, que exige string literal)
+const CHAVES_FUNCAO_FASE39 = ["curadoriaPosicaoRotulo", "curadoriaVazioPiso"];
+ok("(Fase 39) as chaves-função existem nos dois modos, como function",
+  CHAVES_FUNCAO_FASE39.every((k) => typeof COPY.estudo[k] === "function" && typeof COPY.operador[k] === "function"));
+
+// ---- Chaves string novas (D-08/D-11) — mesmas provas de PROIBIDAS/D-05
+// que CHAVES já recebe, aplicadas explicitamente às chaves novas + ao
+// retorno de curadoriaVazioPiso(60) (função, fora de CHAVES).
+const CHAVES_STRING_FASE39 = ["curadoriaVazioSemProb", "curadoriaProbOtmRotulo", "curadoriaPremioAnualizadoRotulo"];
+ok("(Fase 39) as chaves string novas existem nos dois modos, como string literal",
+  CHAVES_STRING_FASE39.every((k) => typeof COPY.estudo[k] === "string" && typeof COPY.operador[k] === "string"));
+function semPromessaValor(v) { const s = (v || "").toLowerCase(); return PROIBIDAS.every((p) => !s.includes(p)); }
+function semConviteAoFlagValor(v) { const s = (v || "").toLowerCase(); return PROIBIDAS_D05.every((p) => !s.includes(p)); }
+ok("(Fase 39) nenhuma chave string nova (Estudo) contém palavra de promessa/garantia",
+  CHAVES_STRING_FASE39.every((k) => semPromessaValor(COPY.estudo[k])));
+ok("(Fase 39) nenhuma chave string nova (Operador) contém palavra de promessa/garantia",
+  CHAVES_STRING_FASE39.every((k) => semPromessaValor(COPY.operador[k])));
+ok("(Fase 39) nenhuma chave string nova (Estudo) convida a ligar o flag de opção a descoberto",
+  CHAVES_STRING_FASE39.every((k) => semConviteAoFlagValor(COPY.estudo[k])));
+ok("(Fase 39) nenhuma chave string nova (Operador) convida a ligar o flag de opção a descoberto",
+  CHAVES_STRING_FASE39.every((k) => semConviteAoFlagValor(COPY.operador[k])));
+ok("(Fase 39) curadoriaVazioPiso(60) (Estudo) não contém palavra de promessa/garantia",
+  semPromessaValor(COPY.estudo.curadoriaVazioPiso(60)));
+ok("(Fase 39) curadoriaVazioPiso(60) (Operador) não contém palavra de promessa/garantia",
+  semPromessaValor(COPY.operador.curadoriaVazioPiso(60)));
+ok("(Fase 39) curadoriaVazioPiso(60) (Estudo) não convida a ligar o flag",
+  semConviteAoFlagValor(COPY.estudo.curadoriaVazioPiso(60)));
+ok("(Fase 39) curadoriaVazioPiso(60) (Operador) não convida a ligar o flag",
+  semConviteAoFlagValor(COPY.operador.curadoriaVazioPiso(60)));
+
+// ---- D-14: posição no ranking substitui o score bruto no card -----------
+ok("(Fase 39/D-14) CuradoriaEstruturas usa cp.curadoriaPosicaoRotulo(cand.posicaoNoRanking, top.length)",
+  /cp\.curadoriaPosicaoRotulo\(cand\.posicaoNoRanking,\s*top\.length\)/.test(fatiaCuradoria));
+ok("(Fase 39/D-14) CuradoriaEstruturas NÃO lê mais cand.razao/.toFixed( em lugar nenhum",
+  !/razao[^;]*\.toFixed\(/.test(fatiaCuradoria) && !fatiaCuradoria.includes("cand.razao"));
+
+// ---- Cor AA do botão Executar: T.onAccent, nunca #fff literal -----------
+ok("(Fase 39) o botão Executar usa color: T.onAccent",
+  /color:\s*T\.onAccent/.test(moduloSemComentario));
+ok('(Fase 39) "#fff" literal NÃO aparece no código do módulo (fora de comentário)',
+  !moduloSemComentario.includes('"#fff"'));
+ok('(Fase 39) "onAccent" está declarado no array TOKENS do módulo',
+  /TOKENS\s*=\s*\[[^\]]*"onAccent"/.test(modulo));
+
+// ---- slot infoBotao no eyebrow -------------------------------------------
+ok("(Fase 39) CuradoriaEstruturas aceita a prop infoBotao e a renderiza (ou null) ao lado do eyebrow",
+  /infoBotao/.test(modulo) && /\{infoBotao \|\| null\}/.test(fatiaCuradoria));
+
+// ---- painel inline: probOtm + fonte da volatilidade + prêmio anualizado -
+ok("(Fase 39) o painel inline mostra cp.curadoriaProbOtmRotulo com pctFmt(item.probOtm)",
+  /cp\.curadoriaProbOtmRotulo/.test(fatiaCuradoria) && /pctFmt\(item\.probOtm\)/.test(fatiaCuradoria));
+ok("(Fase 39) o painel inline mostra cp.curadoriaPremioAnualizadoRotulo com pctFmt(item.premioAnualizado)",
+  /cp\.curadoriaPremioAnualizadoRotulo/.test(fatiaCuradoria) && /pctFmt\(item\.premioAnualizado\)/.test(fatiaCuradoria));
+ok("(Fase 39) o painel cita a fonte da volatilidade (implícita/histórica de 21 pregões), condicionada a item.volatilidadeFonte",
+  /volatilidadeFonte\s*===\s*"implicita"/.test(fatiaCuradoria)
+  && /volatilidadeFonte\s*===\s*"historica_21d"/.test(fatiaCuradoria)
+  && /curadoriaVolImplicita/.test(fatiaCuradoria)
+  && /curadoriaVolHistorica/.test(fatiaCuradoria));
+ok('(Fase 39) pctFmt é null-safe (typeof v === "number" && isFinite(v)) — nunca 0 inventado (princípio 4)',
+  /pctFmt\s*=\s*\(v\)\s*=>\s*\(typeof v === "number" && isFinite\(v\)/.test(fatiaCuradoria));
+
+// ---- D-11: cascata de 5 estados, na ordem naoMedido < erro < vazioSemProb
+// < vazioPiso < vazioGenérico ----------------------------------------------
+const iNaoMedidoRamo39 = fatiaCuradoria.indexOf("top.length === 0 && naoMedido &&");
+const iErroRamo39 = fatiaCuradoria.indexOf("top.length === 0 && !naoMedido && erro &&");
+const iVazioSemProbRamo39 = fatiaCuradoria.indexOf("top.length === 0 && !naoMedido && !erro && vazioSemProb &&");
+const iVazioPisoRamo39 = fatiaCuradoria.indexOf("top.length === 0 && !naoMedido && !erro && vazioPiso &&");
+const iVazioGenericoRamo39 = fatiaCuradoria.indexOf("top.length === 0 && !naoMedido && !erro && !vazioSemProb && !vazioPiso &&");
+ok("(Fase 39/D-11) os 5 ramos vazios existem, na ordem naoMedido < erro < vazioSemProb < vazioPiso < vazioGenérico",
+  iNaoMedidoRamo39 > -1 && iErroRamo39 > iNaoMedidoRamo39 && iVazioSemProbRamo39 > iErroRamo39
+  && iVazioPisoRamo39 > iVazioSemProbRamo39 && iVazioGenericoRamo39 > iVazioPisoRamo39);
+ok("(Fase 39/D-11) o ramo vazioSemProb usa cp.curadoriaVazioSemProb",
+  iVazioSemProbRamo39 > -1 && iVazioPisoRamo39 > -1
+  && fatiaCuradoria.slice(iVazioSemProbRamo39, iVazioPisoRamo39).includes("cp.curadoriaVazioSemProb"));
+ok("(Fase 39/D-11) o ramo vazioPiso usa cp.curadoriaVazioPiso(Math.round(piso * 100))",
+  iVazioPisoRamo39 > -1 && iVazioGenericoRamo39 > -1
+  && /cp\.curadoriaVazioPiso\(Math\.round\(piso \* 100\)\)/.test(fatiaCuradoria.slice(iVazioPisoRamo39, iVazioGenericoRamo39)));
+ok("(Fase 39/D-11) o ramo genérico continua usando cp.curadoriaVazio (sem CTA, sem sufixo Piso/SemProb)",
+  iVazioGenericoRamo39 > -1 && /\{cp\.curadoriaVazio\}/.test(fatiaCuradoria.slice(iVazioGenericoRamo39)));
+ok("(Fase 39/D-11) avaliados/semProb/piso só são lidos de meta quando são NÚMEROS (typeof === \"number\"), campo ausente nunca vira medição inventada",
+  /typeof meta\.candidatosAvaliados === "number"/.test(fatiaCuradoria)
+  && /typeof meta\.semProbabilidade === "number"/.test(fatiaCuradoria)
+  && /typeof meta\.pisoProbOtm === "number"/.test(fatiaCuradoria));
+
+// ---- guardrail CVM / T-39-11: nenhum sort/reverse/comparação de
+// premioAnualizado no componente (a ordem nova também é do motor) ---------
+ok("(Fase 39/T-39-11) CuradoriaEstruturas NÃO compara item.premioAnualizado (nenhuma comparação a.premioAnualizado/b.premioAnualizado)",
+  !/[ab]\.premioAnualizado\s*[<>-]/.test(fatiaCuradoria));
 
 if (fails) { console.error(`\n${fails} falha(s)`); process.exit(1); }
 console.log("\ntodos os testes passaram");
