@@ -1,8 +1,8 @@
 # Phase 39: Reestruturação de navegação da aba Opções - Pattern Map
 
 **Mapped:** 2026-09-24
-**Files analyzed:** 12 (frontend 9, backend 3)
-**Analogs found:** 12 / 12 (all files being modified are their own best analog — this phase restructures existing components in place; the only genuinely new surface, `VigiasBadge`/`VigiasSheet`, has a direct analog in the existing `ConceitoSheet`/`saiba mais` pattern)
+**Files analyzed:** 14 (frontend 11, backend 3) — 12 no mapeamento original + 2 wrappers novos do Plano 39-04 (`AbaOportunidades.jsx`/`AbaRecomendadas.jsx`) acrescentados na revisão do checker
+**Analogs found:** 14 / 14 (all files being modified are their own best analog — this phase restructures existing components in place; the only genuinely new surface, `VigiasBadge`/`VigiasSheet`, has a direct analog in the existing `ConceitoSheet`/`saiba mais` pattern)
 
 ---
 
@@ -12,6 +12,8 @@
 |---|---|---|---|---|
 | `web/src/opcoes/OpcoesScreen.jsx` | controller/orchestrator (React, no import from `App.jsx`, ADR-027) | request-response (state → conditional render) | itself, prior fases (28/34) that introduced `subaba`/`abaWorkspace` | exact (same file, replacing its own pattern) |
 | `web/src/opcoes/OportunidadesOpcoes.jsx` | component (presentational, cross-position carousel) | CRUD-read / request-response | `CuradoriaEstruturas.jsx` (sibling cross-position block) | exact |
+| `web/src/opcoes/AbaOportunidades.jsx` (new, Plano 39-04) | component (thin tab wrapper: frescor stamp + cross-position carousel, no data hook) | request-response (props in → render; no fetch, no sort/filter) | `web/src/opcoes/SecaoDescobrir.jsx` (Fase 33) — the file it is partitioned out of: `chaveComparavel` + `frescorAgregadoOportunidades` (`SecaoDescobrir.jsx:59-113`) move VERBATIM, then `<CarimboFrescor>` + `<OportunidadesOpcoes>` | exact — same code, split by motor (motor COM gate); `SecaoDescobrir.jsx` is deleted after the split |
+| `web/src/opcoes/AbaRecomendadas.jsx` (new, Plano 39-04) | component (thin tab wrapper: frescor stamp + curadoria block with inline execution) | request-response (props in → render; `curadoria.top/meta` by reference, no reordering — REORG-07) | `web/src/opcoes/SecaoDescobrir.jsx` (Fase 33) — the `CuradoriaEstruturas` prop mapping (`SecaoDescobrir.jsx:152-168`) moves VERBATIM, plus `infoBotao` | exact — same code, split by motor (motor SEM gate); becomes the only mount point of `<CuradoriaEstruturas` in `web/src/opcoes/` |
 | `web/src/opcoes/CuradoriaEstruturas.jsx` | component (presentational + inline execution) | CRUD (read ranking, write execution) | itself — is the canonical execution-inline pattern D-05 says to reuse | exact |
 | `web/src/opcoes/SecaoAnalisar.jsx` | component (form + payoff + execute) | CRUD (write structure, execute) | `ExecutarProposta.jsx` (already embedded inside it) | exact — unchanged internally, only its mount point moves |
 | `web/src/opcoes/SecaoComparar.jsx` | component (read-only comparison, sub-action) | request-response (read) | `SecaoAnalisar.jsx` (shares `tese`/`lote` contract) | exact — unchanged props, only becomes inline/collapsible instead of a pill-routed screen |
