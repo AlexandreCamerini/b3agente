@@ -4,14 +4,14 @@ milestone: v1.8
 milestone_name: Didática ampliada + continuidade da aba Opções
 status: executing
 stopped_at: "Phase 39 PLANEJADA — `/gsd-plan-phase 39` completo em 2026-09-24, pronta para `/gsd-execute-phase 39`. Sequência: UI-SPEC aprovado (ver narrativa anterior, commits `8cd6179`→`3fb61f6`→`a8f56b8`) → `gsd-pattern-mapper` (`39-PATTERNS.md`, 12/12 analogs, commit `535a3d6`) → `gsd-planner` opus (6 planos/5 ondas, commit `70becbc`, também atualizou ROADMAP.md) → `gsd-plan-checker` 1ª rodada: ISSUES FOUND (0 bloqueios, 4 avisos — cobertura de requisitos OK, mas 2 avisos substantivos: checkpoint do 39-06 não nomeava explicitamente a reinterpretação de D-05 nem o desvio do UI-SPEC no rodapé de custo) → revisão (`gsd-planner`, commit `bdcffb4`: adiciona DR-1/DR-2 como perguntas nomeadas e bloqueantes no checkpoint do 39-06, mais 2 linhas em `39-PATTERNS.md`) → `gsd-plan-checker` 2ª rodada: VERIFICATION PASSED (0 bloqueios, 0 avisos novos) → gate de cobertura de decisões (`check.decision-coverage-plan`) achou D-02/D-03/D-04/D-12 sem citação literal em `must_haves.truths` (estavam implementados, só não citados pelo ID na estrutura que o gate escaneia) → corrigido à mão (commit `6de78b2`, 14/14 cobertos) → `roadmap.annotate-dependencies` já estava aplicado pelo planner (idempotente, sem mudança). STATE.md editado à mão (`state.planned-phase` do gsd-sdk não foi chamado, ver [[gsd-sdk-state-corrompe]])."
-last_updated: "2026-09-24T16:20:00.000Z"
-last_activity: 2026-09-24 -- Phase 39, Plan 01 (piso de probabilidade OTM + prêmio anualizado) executado e commitado
+last_updated: "2026-09-24T16:59:29.000Z"
+last_activity: 2026-09-24 -- Phase 39, Plan 02 (contratos de navegação — copy.js, primitivos, Vigias sheet, deep-link) executado e commitado
 progress:
   total_phases: 2
   completed_phases: 1
   total_plans: 12
-  completed_plans: 7
-  percent: 58
+  completed_plans: 8
+  percent: 67
 ---
 
 # Project State
@@ -26,9 +26,37 @@ See: .planning/PROJECT.md (updated 2026-09-20)
 ## Current Position
 
 Phase: 39 (reestrutura-o-de-navega-o-da-aba-op-es) — EXECUTING
-Plan: 2 of 6 (39-01 completo — 39-02 é o próximo)
+Plan: 3 of 6 (39-01 e 39-02 completos — 39-03 é o próximo)
 Status: Executing Phase 39
-Last activity: 2026-09-24 -- Plan 39-01 (piso de probabilidade OTM + prêmio anualizado na curadoria) executado e commitado, sequencial, sem worktree
+Last activity: 2026-09-24 -- Plan 39-02 (contratos de navegação: copy.js, primitivos uiOpcoes.jsx, VigiasSheet.jsx, deep-link one-shot em App.jsx) executado e commitado, sequencial, sem worktree
+
+**Plan 39-02 completo (2026-09-24), interface-first (frontend puro) — sequencial, sem worktree:**
+
+- 3 tasks, sem checkpoint. Commits: `663455e` (feat Task 1: copy.js — 26
+  chaves novas/reescritas da Fase 39 nos dois modos: 3 abas, Vigias sheet,
+  ⓘ contextual por aba, rótulos de bastidor D-14, piso/ordenação de
+  Recomendadas D-08/D-09/D-11), `1e1a5aa` (feat Task 2:
+  `CarimboFrescor`/`DetalheInfo`/`BotaoSaibaMais` em `uiOpcoes.jsx` +
+  `VigiasSheet.jsx` novo com `VigiasBadge`/`VigiasSheet`, guardião
+  `test_opcoes_nav_primitivos_ui.mjs` novo, 26 asserções), `077e0c3` (feat
+  Task 3: `ctx.goOpcoes(aba)` com parâmetro opcional +
+  `opcoesAbaInicial`/`limparOpcoesAbaInicial` em `App.jsx`, linha de
+  chamada de Posições passa a pedir a aba "recomendadas").
+- **Deviation nomeada (Rule 1):** a reescrita de `opcoesLeituraConcluidaAjuda`
+  (pedida pela própria Task 1, voz por modo) quebrou um guardião pré-
+  existente da Fase 35 (`test_opcoes_jornada_ui.mjs`) que travava a chave
+  como IDÊNTICA nos dois modos. Corrigido com nota datada — a chave foi
+  excluída da lista de "idênticas" e ganhou uma asserção positiva exigindo
+  que divirja, sem apagar nenhuma das outras 6 checagens.
+- Nenhum rewiring de tela nesta plano, por desenho: `OpcoesScreen.jsx`,
+  `SecaoDescobrir.jsx`, `CuradoriaEstruturas.jsx` continuam intocados — os
+  Planos 03/04 constroem contra os contratos criados aqui.
+- Suíte: `web/tests/*.mjs` completa (157 arquivos) sem falha, `npx vite
+  build` limpo (116 módulos); sanidade backend fora do escopo (nada tocado
+  em `server/`) confirmada com `-k "opcoes or curadoria"`: 640 passed/1
+  skipped/0 failed.
+- Guardrail aplicado: mutadores de estado do gsd-sdk NÃO foram chamados —
+  este STATE.md foi editado à mão (`[[gsd-sdk-state-corrompe]]`).
 
 **Plan 39-01 completo (2026-09-24), backend puro — sequencial, sem worktree:**
 
@@ -62,8 +90,8 @@ Last activity: 2026-09-24 -- Plan 39-01 (piso de probabilidade OTM + prêmio anu
 - Guardrail aplicado: mutadores de estado do gsd-sdk NÃO foram chamados — este
   STATE.md foi editado à mão (decisão do Alex 2026-09-11, `[[gsd-sdk-state-corrompe]]`).
 
-**Próximo passo dentro da fase:** `/gsd-execute-phase 39` continua — Plan 39-02
-(onda 2), ver `.planning/phases/39-reestrutura-o-de-navega-o-da-aba-op-es/39-02-PLAN.md`.
+**Próximo passo dentro da fase:** `/gsd-execute-phase 39` continua — Plan 39-03
+(onda seguinte), ver `.planning/phases/39-reestrutura-o-de-navega-o-da-aba-op-es/39-03-PLAN.md`.
 
 **Decisões de implementação que o próximo leitor não deve redescobrir (KB-01/KB-02):**
 
