@@ -61,11 +61,14 @@ ok("o CONJUNTO de chaves linhaChamadaOpcoes* é idêntico nos dois modos",
 // Fase 39 (NAV-01, D-02/D-03): a contagem passou a ser da aba Recomendadas
 // (curadoria), não mais de "oportunidades" (a aba Oportunidades é outro
 // motor agora) — reversão deliberada, guardião atualizado com nota.
+// Fase 39-06 (checkpoint humano, override de D-03): a aba e a copy ligada a
+// ela viraram "destacada(s)" — decisão do Alex ao vivo, ambiguidade
+// regulatória CVM de "recomendada/recomendação" ao lado do disclaimer.
 for (const [modo, bloco] of [["estudo", e], ["operador", o]]) {
-  ok(`${modo}: linhaChamadaOpcoesTexto(1) contém "1 estrutura recomendada" (singular)`,
-    bloco.linhaChamadaOpcoesTexto(1).includes("1 estrutura recomendada"));
-  ok(`${modo}: linhaChamadaOpcoesTexto(3) contém "3 estruturas recomendadas" (plural)`,
-    bloco.linhaChamadaOpcoesTexto(3).includes("3 estruturas recomendadas"));
+  ok(`${modo}: linhaChamadaOpcoesTexto(1) contém "1 estrutura destacada" (singular)`,
+    bloco.linhaChamadaOpcoesTexto(1).includes("1 estrutura destacada"));
+  ok(`${modo}: linhaChamadaOpcoesTexto(3) contém "3 estruturas destacadas" (plural)`,
+    bloco.linhaChamadaOpcoesTexto(3).includes("3 estruturas destacadas"));
 }
 
 // ---- (5) o estado "zero" tem frase própria, não linhaChamadaOpcoesTexto(0) -

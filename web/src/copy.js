@@ -469,7 +469,13 @@ export const COPY = {
     // `opcoesAbaComparar`/`opcoesAbaSetupsSalvos` acima NÃO são deletadas
     // (UI-SPEC, Copywriting Contract) — ficam retiradas de uso.
     opcoesAbaOportunidades: "Oportunidades",
-    opcoesAbaRecomendadas: "Recomendadas",
+    // Fase 39-06 (checkpoint humano, override deliberado de D-03): renomeada
+    // de "Recomendadas" para "Destacadas" — decisão do Alex ao vivo, por
+    // ambiguidade regulatória CVM do termo "recomendada/recomendação" ao
+    // lado do disclaimer "nada aqui é recomendação de compra/venda". A
+    // chave (`opcoesAbaRecomendadas`) e o id interno da aba (`"recomendadas"`
+    // em OpcoesScreen.jsx) NÃO mudam — só o texto visível.
+    opcoesAbaRecomendadas: "Destacadas",
     opcoesAbaMontar: "Montar",
     // Fase 39 (NAV-01, D-04): eyebrow interno da aba Montar e o link de
     // "montar outra estrutura" quando já há um ativo escolhido — voz de
@@ -755,11 +761,13 @@ export const COPY = {
     // Fase 39 (NAV-01, D-02/D-03): reescrito — a contagem é da aba
     // Recomendadas (curadoria), e "oportunidades" passaria a nomear o OUTRO
     // motor (a aba Oportunidades, D-02, com gate de liquidez).
+    // Fase 39-06 (override de D-03, decisão do Alex): "recomendada(s)" vira
+    // "destacada(s)" — mesmo motivo regulatório do rótulo da aba acima.
     linhaChamadaOpcoesTexto: (n) => n === 1
-      ? "1 estrutura recomendada nas suas posições"
-      : `${n} estruturas recomendadas nas suas posições`,
-    linhaChamadaOpcoesVazia: "Nenhuma estrutura recomendada agora",
-    linhaChamadaOpcoesCarregando: "Verificando estruturas recomendadas…",
+      ? "1 estrutura destacada nas suas posições"
+      : `${n} estruturas destacadas nas suas posições`,
+    linhaChamadaOpcoesVazia: "Nenhuma estrutura destacada agora",
+    linhaChamadaOpcoesCarregando: "Verificando estruturas destacadas…",
     // Estado de ERRO de busca — distinto de "vazio" (que é um resultado
     // real, zero candidatos elegíveis). Mostrar "0" aqui seria inventar
     // valor (princípio 4 do CLAUDE.md); por isso a frase não cita número.
@@ -1239,7 +1247,9 @@ export const COPY = {
     // Fase 39 (NAV-01, D-01): MESMAS chaves do ramo estudo — as 3 abas fixas
     // de nível 1, navegação idêntica nos dois modos (ver comentário lá).
     opcoesAbaOportunidades: "Oportunidades",
-    opcoesAbaRecomendadas: "Recomendadas",
+    // Fase 39-06: mesma renomeação do ramo estudo (ver comentário lá) —
+    // "Destacadas" nos dois modos.
+    opcoesAbaRecomendadas: "Destacadas",
     opcoesAbaMontar: "Montar",
     // Fase 39 (NAV-01, D-04): voz de mesa, mais curta que o ramo estudo.
     opcoesMontarTitulo: "MONTAR ESTRUTURA",
@@ -1478,11 +1488,12 @@ export const COPY = {
     // comentário acima) — texto IDÊNTICO nos dois modos.
     // Fase 39 (NAV-01, D-02/D-03): reescrito, mesmo motivo do ramo estudo
     // (ver comentário lá) — a contagem é da aba Recomendadas.
+    // Fase 39-06: mesma renomeação do ramo estudo (ver comentário lá).
     linhaChamadaOpcoesTexto: (n) => n === 1
-      ? "1 estrutura recomendada nas suas posições"
-      : `${n} estruturas recomendadas nas suas posições`,
-    linhaChamadaOpcoesVazia: "Nenhuma estrutura recomendada agora",
-    linhaChamadaOpcoesCarregando: "Verificando estruturas recomendadas…",
+      ? "1 estrutura destacada nas suas posições"
+      : `${n} estruturas destacadas nas suas posições`,
+    linhaChamadaOpcoesVazia: "Nenhuma estrutura destacada agora",
+    linhaChamadaOpcoesCarregando: "Verificando estruturas destacadas…",
     linhaChamadaOpcoesErro: "Não foi possível verificar agora — toque para ver na aba Opções",
     linhaChamadaOpcoesAria: (texto) => `${texto} — abrir aba Opções`,
 

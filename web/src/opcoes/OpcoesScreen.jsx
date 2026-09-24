@@ -640,7 +640,7 @@ export default function OpcoesScreen({ ctx }) {
     <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", margin: "10px 0 4px" }}>
       {[
         { id: "oportunidades", rotulo: cp.opcoesAbaOportunidades || "Oportunidades" },
-        { id: "recomendadas", rotulo: cp.opcoesAbaRecomendadas || "Recomendadas" },
+        { id: "recomendadas", rotulo: cp.opcoesAbaRecomendadas || "Destacadas" },
         { id: "montar", rotulo: cp.opcoesAbaMontar || "Montar" },
       ].map((a) => (
         <button
@@ -757,7 +757,7 @@ export default function OpcoesScreen({ ctx }) {
             operador={!!(ctx && ctx.operador)}
             palette={palette}
             cp={cp}
-            infoBotao={infoDaAba(cp.opcoesAbaRecomendadas || "Recomendadas")}
+            infoBotao={infoDaAba(cp.opcoesAbaRecomendadas || "Destacadas")}
           />
         </>
       ) : null}
