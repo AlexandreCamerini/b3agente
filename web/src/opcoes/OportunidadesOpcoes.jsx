@@ -54,7 +54,7 @@ const carouselItemStyle = (align = "start") => ({ scrollSnapAlign: align });
 // evitar. A manchete de cada item é `pr.manchete` renderizada VERBATIM
 // (guardrail CVM, CLAUDE.md): proibido compor frase nova a partir de
 // strike/contratos/optionType/premioTotal neste componente.
-export default function OportunidadesOpcoes({ propostas, carregando, positions, cp, onAbrir }) {
+export default function OportunidadesOpcoes({ propostas, carregando, positions, cp, onAbrir, abertoTicker, infoBotao }) {
   // item só existe quando o gate aprovou liquidez E veio proposta CONCRETA —
   // o ramo "sem proposta" de PropostaLastreada (r.proposta null) não vira
   // item de tira.
@@ -80,7 +80,12 @@ export default function OportunidadesOpcoes({ propostas, carregando, positions, 
   });
   return (
     <div style={{ marginBottom: "14px" }}>
-      <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em", color: T.textFaint, marginBottom: "4px" }}>{cp.tiraOpcoesTitulo}</div>
+      {/* Fase 39 (NAV-01, D-13): slot do ⓘ contextual da aba — opcional,
+          `infoBotao || null` não muda nada para quem não passa a prop. */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", marginBottom: "4px" }}>
+        <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em", color: T.textFaint }}>{cp.tiraOpcoesTitulo}</div>
+        {infoBotao || null}
+      </div>
       {/* Fase 32 (32-03, D-05): subtítulo NOMEIA o motor deste bloco (COM
           gate) — os dois blocos cross-carteira passam a conviver na mesma
           tela, então o eyebrow sozinho não basta mais para dizer qual é
@@ -101,6 +106,7 @@ export default function OportunidadesOpcoes({ propostas, carregando, positions, 
                 key={p.t}
                 type="button"
                 aria-label={p.t + " — " + cp.tiraOpcoesVerDetalhe}
+                aria-expanded={abertoTicker === p.t}
                 onClick={() => onAbrir(p.t)}
                 // teto de largura: mesma decisão do item de CandidatoOpcao (App.jsx,
                 // achado ao vivo 2026-09-07) — ver comentário completo lá.

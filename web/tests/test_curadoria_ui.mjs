@@ -135,6 +135,9 @@ const here = dirname(fileURLToPath(import.meta.url));
 const dirOpcoes = join(here, "..", "src", "opcoes");
 const app = readFileSync(join(here, "..", "src", "App.jsx"), "utf8");
 const modulo = readFileSync(join(here, "..", "src", "opcoes", "CuradoriaEstruturas.jsx"), "utf8");
+// Fase 39 (39-03, Task 2): OportunidadesOpcoes.jsx ganha aria-expanded +
+// infoBotao — irmã de CuradoriaEstruturas na mesma varredura de contrato.
+const moduloOO = readFileSync(join(here, "..", "src", "opcoes", "OportunidadesOpcoes.jsx"), "utf8");
 // Fase 32 (32-03): o call site (`<CuradoriaEstruturas`) mudou de tela —
 // precisa ler OpcoesScreen.jsx para as âncoras de USO abaixo. Declarado no
 // topo (não dentro de uma seção numerada) porque a seção (27) — física e
@@ -706,6 +709,14 @@ ok("(Fase 39/D-11) avaliados/semProb/piso só são lidos de meta quando são NÚ
 // premioAnualizado no componente (a ordem nova também é do motor) ---------
 ok("(Fase 39/T-39-11) CuradoriaEstruturas NÃO compara item.premioAnualizado (nenhuma comparação a.premioAnualizado/b.premioAnualizado)",
   !/[ab]\.premioAnualizado\s*[<>-]/.test(fatiaCuradoria));
+
+// ---- (Fase 39, 39-03, Task 2) OportunidadesOpcoes: aria-expanded + onAbrir
+// ainda intacto — painel inline do Plano 04 decide o toggle, este componente
+// só anuncia o estado.
+ok("(Fase 39) OportunidadesOpcoes usa aria-expanded={abertoTicker === p.t}",
+  moduloOO.includes("aria-expanded={abertoTicker === p.t}"));
+ok("(Fase 39) OportunidadesOpcoes ainda chama onAbrir(p.t) exatamente 1x (onClick não muda)",
+  (moduloOO.match(/onAbrir\(p\.t\)/g) || []).length === 1);
 
 if (fails) { console.error(`\n${fails} falha(s)`); process.exit(1); }
 console.log("\ntodos os testes passaram");
