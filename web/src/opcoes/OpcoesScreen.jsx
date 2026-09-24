@@ -16,8 +16,19 @@
  *   respondeu primeiro — mesmo achado ao vivo;
  * · o motivo de uma recusa do serviço vai VERBATIM, sem reescrita;
  * · vazio nunca é silêncio: todo estado vazio diz o porquê.
+ *
+ * Fase 39 (39-04, NAV-01) — reescrita da navegação: os dois estados
+ * ortogonais `subaba` (Setups × Operar, Fase 28) e `abaWorkspace` (Analisar/
+ * Comparar/Setups salvos, Fase 34) viram UM estado `abaOpcoes` com 3 valores
+ * fixos (Oportunidades/Recomendadas/Montar, D-01) — sempre os mesmos, com ou
+ * sem ticker escolhido. `hubTopo`/`workspaceTopo`/`subabas`/
+ * `workspacePillRow`/`SubAbaOperar`/`SecaoDescobrir.jsx`/`WorkspaceHeader.jsx`
+ * (Fases 28/33/34) são dissolvidos nesta fase — o histórico de CADA decisão
+ * que sobrevive à dissolução (ex.: reset de tese/vencimento/alvo/stop em
+ * `escolherTicker`, a ordem grátis-antes-do-pago) continua anotado nos
+ * blocos que restaram, não apagado.
  */
-import { useState } from "react";
+import { useState, useEffect } from "react";
 // Fase 27 (27-02): `finance.js` é módulo PURO — zero import de `App.jsx` —,
 // então o isolamento do ADR-027 continua intacto (o guardião proíbe importar
 // `App.jsx`, não `finance.js`). `qtyLivre` é a FONTE ÚNICA da subtração
@@ -36,15 +47,17 @@ import PayoffChart from "./PayoffChart.jsx";
 // Fase 28 (28-02): módulo terceiro do 28-01 — nenhum import de `App.jsx`
 // aqui (isolamento ADR-027 Decisão 3 intacto).
 // Fase 32 (32-04): `FonteDoDadoProposta` entra no import — o ramo
-// multi-candidato de `SubAbaOperar` passa a exibir o frescor do dado abaixo
-// do carrossel, mesmo padrão que `PropostaDaPosicao` tinha em App.jsx.
+// multi-candidato de `PropostaDoAtivo` (Fase 39: renomeado de `SubAbaOperar`)
+// passa a exibir o frescor do dado abaixo do carrossel, mesmo padrão que
+// `PropostaDaPosicao` tinha em App.jsx.
 import PropostaLastreada, { FonteDoDadoProposta, useAceiteLastreado } from "./PropostaLastreada.jsx";
 import { useOpcoesPropostas } from "./useOpcoesPropostas.js";
 // Fase 32 (32-04): `CandidatoOpcao` (o cartão de UM candidato) é reusado
 // verbatim — o ramo multi-candidato de `PropostaDaPosicao` (App.jsx) é
-// portado para dentro de `SubAbaOperar`, e `PropostaDaPosicao` morre em
-// App.jsx (ver 32-04-PLAN.md, decisão arquitetural B). Módulo terceiro,
-// nenhum import de App.jsx.
+// portado para dentro do painel inline de Oportunidades (ver 32-04-PLAN.md,
+// decisão arquitetural B; Fase 39 move o painel de "sub-aba Operar" para
+// `PropostaDoAtivo`, sem tocar o componente). Módulo terceiro, nenhum
+// import de App.jsx.
 import CandidatoOpcao from "./CandidatoOpcao.jsx";
 // Fase 33 (33-01): `Kicker`/`Aviso`/`ErroDoMcp`/`RecusaCobrada` migraram para
 // o módulo de primitivos compartilhados — uma implementação só de `ErroDoMcp`
@@ -57,34 +70,45 @@ import CandidatoOpcao from "./CandidatoOpcao.jsx";
 // em OpcoesScreen.jsx (o job 3, "O QUE DÁ PARA MONTAR") saiu na Fase 33-05
 // para SecaoAnalisar.jsx — o import daqui foi removido (SecaoAnalisar.jsx/
 // SecaoComparar.jsx importam `RazaoGanhoPerda` de `uiOpcoes.jsx` direto).
-import { Kicker, Aviso, ErroDoMcp, RecusaCobrada, Linha } from "./uiOpcoes.jsx";
+// Fase 39 (39-02/39-04): `DetalheInfo`/`BotaoSaibaMais` entram no import — o
+// bastidor (custo/cota, mecânica de lastro) vai atrás de ⓘ (D-14) e o "saiba
+// mais" fixo do topo vira ⓘ por aba (D-13).
+import { Kicker, Aviso, ErroDoMcp, RecusaCobrada, Linha, DetalheInfo, BotaoSaibaMais } from "./uiOpcoes.jsx";
 import SecaoVigias from "./SecaoVigias.jsx";
 // Fase 33 (33-05): `SecaoAnalisar` é o job 3 ("analisar um ticker
 // manualmente") — LEITURA DO ATIVO + O QUE DÁ PARA MONTAR, com o painel local
 // de cadeia/operáveis. Último dos 5 jobs extraídos; fecha D-03.
 import SecaoAnalisar from "./SecaoAnalisar.jsx";
-// Fase 33 (33-02): `SecaoDescobrir` é o job 1 ("descobrir oportunidades
-// cross-carteira") — frase-ponte + Bloco A (OportunidadesOpcoes) + Bloco B
-// (CuradoriaEstruturas) juntos, adjacentes (D-05). `OportunidadesOpcoes.jsx`/
-// `CuradoriaEstruturas.jsx` deixam de ser importados AQUI: quem os compõe
-// agora é o componente novo, não mais esta tela.
-import SecaoDescobrir from "./SecaoDescobrir.jsx";
+// Fase 39 (39-04, NAV-01, D-02/D-03): `SecaoDescobrir.jsx` (Fase 33-02, job 1
+// "descobrir oportunidades cross-carteira") é DISSOLVIDA — os dois blocos
+// cross-carteira que ali conviviam (Bloco A/Bloco B) viram abas fixas
+// próprias, `AbaOportunidades.jsx`/`AbaRecomendadas.jsx`, cada uma com o seu
+// carimbo de frescor. A frase-ponte `duasLeiturasIntro` sai de uso nesta
+// tela — a negação de hierarquia entre os dois motores passa a morar em
+// `curadoriaSubtitulo` (Plano 39-02), dentro da própria aba Recomendadas.
+import AbaOportunidades from "./AbaOportunidades.jsx";
+import AbaRecomendadas from "./AbaRecomendadas.jsx";
 // Fase 33 (33-03): `SecaoSetups` é o job 5 ("gerenciar/criar setups
 // salvos") — a listagem "SETUPS GRAVADOS" + a porta "CRIAR UM SETUP", que só
 // envolve o `CriarSetup.jsx` já existente (D-01, não renomeado). `CriarSetup`/
 // `BotaoDesativar`/`SetupChart` deixam de ser importados AQUI: quem os
 // envolve agora é o componente novo.
+// Fase 39 (39-04, fork 2 do <objective> de 39-04-PLAN.md): `SecaoSetups`
+// passa a viver DENTRO da aba Montar, abaixo do link "Ver outros
+// vencimentos" — não é mais uma pill própria ("Setups salvos"), porque D-01
+// proíbe segunda camada de abas.
 import SecaoSetups from "./SecaoSetups.jsx";
 // Fase 33 (33-04): `SecaoComparar` é o job 4 ("comparar os vencimentos") — a
 // caixa com custo declarado, alvo/stop e a cascata de possibilidades por
-// vencimento. Posição EXATA de hoje: entre o job 3 (Analisar, ainda aqui) e a
-// seção de setups gravados (job 5), abaixo.
+// vencimento. Fase 39 (D-06): vira link inline "Ver outros vencimentos"
+// dentro de Montar, sem aba própria — expande no MESMO container.
 import SecaoComparar from "./SecaoComparar.jsx";
-// Fase 34 (34-01/34-02): `WorkspaceHeader` é o header fixo do modo workspace
-// (D-05/NAV-03) — nome do ticker + botão "Voltar" ligado a `escolherTicker`
-// já existente (D-03: reset de tese/vencimento/alvo/stop sem segundo
-// caminho). Componente props-only, criado no 34-01.
-import WorkspaceHeader from "./WorkspaceHeader.jsx";
+// Fase 39 (39-02/39-04, D-07): `VigiasBadge`/`VigiasSheet` — "Vigias" sai do
+// hub (bloco fixo) e vira ícone+contador no cabeçalho, visível nas 3 abas,
+// abrindo um bottom sheet local com `SecaoVigias` dentro. `WorkspaceHeader`
+// (Fase 34-01, header fixo do modo workspace) DEIXA de ser importado: sem
+// hub/workspace, não há mais "voltar ao hub" — só trocar de aba.
+import { VigiasBadge, VigiasSheet } from "./VigiasSheet.jsx";
 // Fase 38 (38-05): módulo terceiro, nenhum import de App.jsx — isolamento
 // ADR-027 intacto. `ConceitoSheet` é a MESMA folha global que App.jsx monta,
 // mas instanciada aqui com estado LOCAL (D-08, KB-02) — o dado atravessa o
@@ -93,6 +117,8 @@ import { ConceitoSheet } from "../entendimento.jsx";
 // Fase 38 (38-05): ANCORAS_KB é a fonte única do vid fixo desta aba
 // (KB-02, D-07/D-08); `verbeteDoCatalogo` é o mesmo portão que App.jsx usa
 // para as outras 3 abas — sem link morto enquanto o catálogo carrega/falha.
+// Fase 39 (39-04, D-13): o mesmo `vid` (`ANCORAS_KB.opcoes`) alimenta agora o
+// ⓘ contextual de CADA uma das 3 abas, não mais um único link fixo no topo.
 import { ANCORAS_KB, verbeteDoCatalogo } from "../glossario.js";
 
 // Mesmos NOMES de variável CSS que `App.jsx` injeta em `:root` — padrão de
@@ -110,7 +136,7 @@ const T = Object.fromEntries(TOKENS.map((k) => [k, `var(${VARKEY(k)})`]));
 // horizontal, Fase 22 SYS-01) — mesmo padrão já usado em
 // OportunidadesOpcoes.jsx/CuradoriaEstruturas.jsx (Fase 32, 32-02): nunca
 // importar de App.jsx (ADR-027, isolamento de duas vias). Usado só pelo
-// container do ramo multi-candidato de `SubAbaOperar` — `CandidatoOpcao.jsx`
+// container do ramo multi-candidato de `PropostaDoAtivo` — `CandidatoOpcao.jsx`
 // já declara seu próprio `carouselItemStyle` local, então este arquivo não
 // precisa dele.
 const carouselTrackStyle = (extra) => ({
@@ -252,6 +278,11 @@ const CUSTO_DA_ACAO = {
 // um palpite de layout, e este é um espelho de regra do backend.
 const ACOES_POR_CONTRATO = 100;
 
+// Fase 39 (39-04, D-01): as 3 abas fixas de nível 1 — sempre as mesmas, com
+// ou sem ticker escolhido (SC#1). Substitui os dois estados ortogonais
+// `subaba` (Fase 28) e `abaWorkspace` (Fase 34).
+const ABAS_OPCOES = ["oportunidades", "recomendadas", "montar"];
+
 export default function OpcoesScreen({ ctx }) {
   const cp = (ctx && ctx.cp) || {};
   const store = ctx && ctx.store;
@@ -277,28 +308,37 @@ export default function OpcoesScreen({ ctx }) {
   // abriu a aba — exatamente o que o §3.3 proíbe ("custo de MCP só em clique
   // explícito, nunca ao abrir tela") e o que o guardião
   // `test_opcoes_analisar_ui.mjs` reprova.
-  //
-  // A aba não abre VAZIA; ela abre sem ATIVO ESCOLHIDO, que é outra coisa: a
-  // lista das posições e o bloco "Seus vigias" já estão na tela quando ela
-  // abre, os dois de custo zero. É o desenho aprovado (D4: a aba abre na
-  // lista, e entrar num ativo é um toque).
   const [ticker, setTicker] = useState("");
-  // Fase 28 (28-02) — a aba ganha duas sub-abas: "Setups" (esta tela, tal
-  // como a Fase 27 entregou) e "Operar" (proposta lastreada da posição
-  // escolhida). Nasce em "setups" porque é a tela que abre de graça hoje. O
-  // `ticker` acima é COMPARTILHADO entre as duas: quem escolheu um ativo
-  // para ler não deve reescolher para operar.
-  const [subaba, setSubaba] = useState("setups");
-  // Fase 34 (34-03) — estado de NAVEGAÇÃO local do workspace: qual dos três
-  // jobs (Analisar/Comparar/Setups salvos) está em foco agora. Ortogonal ao
-  // `subaba` acima (que decide Setups × Operar, Fase 28-02) — reusar aquele
-  // estado faria a aba interna do workspace mudar a sub-aba da tela inteira.
-  // Nasce em "analisar" porque é o job que a leitura paga entrega primeiro.
-  const [abaWorkspace, setAbaWorkspace] = useState("analisar");
-  // Fase 38 (38-05, KB-02): estado LOCAL da folha de conceito do "saiba
-  // mais" fixo desta aba — trilha própria (D-08), mesma semântica de
-  // A.trocarConceito/A.voltarConceito em App.jsx, sem tocar o overlay
-  // global (`conceitoAberto`) nem `A.abrirVerbete`.
+  // Fase 39 (39-04, D-01): estado único de navegação — substitui `subaba`
+  // (Fase 28-02) e `abaWorkspace` (Fase 34-03). Nasce na aba pedida por um
+  // deep-link one-shot (`ctx.opcoesAbaInicial`, Plano 39-02), validado contra
+  // a allowlist (T-39-14: valor fora dela nunca é aceito, sempre cai para
+  // "oportunidades"); sem pedido, nasce em "oportunidades" — é a lista de
+  // graça que a aba já abria antes desta fase.
+  const [abaOpcoes, setAbaOpcoes] = useState(() => (ctx && ABAS_OPCOES.includes(ctx.opcoesAbaInicial)) ? ctx.opcoesAbaInicial : "oportunidades");
+  // One-shot: o pedido do App.jsx só vale para o mount desta tela — limpa
+  // logo em seguida para que reabrir a aba (sem novo pedido) não force
+  // sempre a mesma aba (Plano 39-02, canal `ctx.goOpcoes(aba)`).
+  useEffect(() => {
+    if (ctx && ctx.opcoesAbaInicial && ctx.limparOpcoesAbaInicial) ctx.limparOpcoesAbaInicial();
+  }, []);
+  // Fase 39 (39-04, D-05): qual ticker do carrossel de Oportunidades está com
+  // o painel de proposta aberto — local, independente do `ticker` de Montar
+  // (a Leitura B' do <objective> de 39-04-PLAN.md: o painel reusa
+  // PropostaLastreada/CandidatoOpcao/useAceiteLastreado inline, sem trocar de
+  // aba nem de ticker "oficial").
+  const [oportunidadeAberta, setOportunidadeAberta] = useState(null);
+  // Fase 39 (39-02/39-04, D-07): sheet de Vigias — substitui o bloco fixo do
+  // hub. `vigiasAberto`/`verbeteAberto` nunca ficam abertos ao mesmo tempo
+  // (os dois são zIndex 86 — nunca empilhar).
+  const [vigiasAberto, setVigiasAberto] = useState(false);
+  // Fase 39 (39-04, D-06): "Ver outros vencimentos" — SecaoComparar expande
+  // INLINE dentro de Montar, sem aba própria.
+  const [compararAberto, setCompararAberto] = useState(false);
+  // Fase 38 (38-05, KB-02): estado LOCAL da folha de conceito do ⓘ desta
+  // aba — trilha própria (D-08), mesma semântica de A.trocarConceito/
+  // A.voltarConceito em App.jsx, sem tocar o overlay global (`conceitoAberto`)
+  // nem `A.abrirVerbete`.
   const [verbeteAberto, setVerbeteAberto] = useState(null); // {cid, trilha}
   const {
     status, leitura, grafico, abrirGrafico, fecharGrafico, abrirLeitura,
@@ -336,31 +376,33 @@ export default function OpcoesScreen({ ctx }) {
   // Trocar de ativo apaga a TESE e os preços: tese é juízo sobre AQUELE
   // ativo, e um alvo de 41,00 herdado de outro papel seria um cenário falso.
   // O lote fica — ele é da pessoa, não do ativo. `painel` (cadeia/operáveis)
-  // virou estado LOCAL de SecaoAnalisar.jsx na Fase 33 (33-05) — o
-  // componente não desmonta ao trocar de ticker (fica na mesma posição da
-  // árvore), então o reset agora é um `useEffect([ticker])` DENTRO dele
-  // (mesma garantia de antes: painel fecha ao trocar de ativo), em vez de
-  // `setPainel("")` aqui.
+  // é estado LOCAL de SecaoAnalisar.jsx (Fase 33-05) — o componente não
+  // desmonta ao trocar de ticker, então o reset é um `useEffect([ticker])`
+  // DENTRO dele. Fase 39 (39-04): trocar de ativo também fecha o painel de
+  // "Ver outros vencimentos" — ele é do ativo anterior.
   const escolherTicker = (t) => {
     setTicker(t === ticker ? "" : t);
     setTese(""); setVencimento(""); setAlvo(""); setStop("");
+    setCompararAberto(false);
   };
 
-  // Fase 27: o cartão do vigia NAVEGA; ele não alterna. `escolherTicker` é
-  // toggle — é o que o chip precisa, para poder desselecionar —, e reusá-lo
-  // cru aqui faria clicar no vigia do ativo JÁ ABERTO fechar o ativo, o
-  // oposto de "me leve até ele" (SC-1: não precisar lembrar em qual ativo
-  // criei o vigia).
-  const irParaVigia = (t) => { if (t && t !== ticker) escolherTicker(t); };
-
-  // Fase 32 (32-03): destino do "ver posição" de dentro do painel curado
-  // (Bloco B) e do "ver detalhe" da tira (Bloco A) — substitui o
-  // `abrirOpcoesDe`/`scrollIntoView` de CarteiraScreen, que dependia de um
-  // elemento `#posicao-<t>` que só existe naquela tela (Pitfall 4 do
-  // 32-RESEARCH.md). MESMA guarda de `irParaVigia` acima: `escolherTicker`
-  // é TOGGLE, e chamá-lo cru com o ticker já aberto DESSELECIONARIA o
-  // ativo — o oposto de "me leve até ele".
-  const irParaOperar = (t) => { if (t && t !== ticker) escolherTicker(t); setSubaba("operar"); };
+  // Fase 39 (39-04): destino ÚNICO de "levar a Montar com este ticker" — do
+  // card de Oportunidades (`onMontar` de `PropostaDoAtivo`), do "ver posição"
+  // da curadoria (`AbaRecomendadas`/`onAbrir`) e do vigia (`irParaVigia`
+  // abaixo). MESMA guarda de sempre: `escolherTicker` é TOGGLE, e chamá-lo
+  // cru com o ticker já aberto DESSELECIONARIA o ativo — o oposto de "me
+  // leve até ele".
+  const irParaMontar = (t) => { if (t && t !== ticker) escolherTicker(t); setAbaOpcoes("montar"); };
+  // Fase 27: o cartão do vigia NAVEGA — nome mantido (`irParaVigia`) porque o
+  // guardião de vigias trava a prop `onIr` de SecaoVigias apontando pra esta
+  // função. Fase 39 (39-04, D-07): fecha o sheet antes de ir, para não
+  // deixar o overlay aberto por cima do
+  // destino.
+  const irParaVigia = (t) => { setVigiasAberto(false); irParaMontar(t); };
+  // Fase 39 (39-04, D-05): alterna o painel inline do card tocado no
+  // carrossel de Oportunidades — tocar de novo fecha (mesmo padrão de
+  // `abertoId` em CuradoriaEstruturas.jsx).
+  const alternarOportunidade = (t) => setOportunidadeAberta((a) => (a === t ? null : t));
 
   // Fase 32 (32-03), Decisão A: fan-out gate+proposta por ticker sobre o
   // universo desta aba (a carteira) — mesma fonte que alimentava a tira em
@@ -495,66 +537,20 @@ export default function OpcoesScreen({ ctx }) {
           {cp.opcoesAtrasoAjuda}
         </div>
       ) : null}
-      {/* Fase 27 (27-05) — **A ÚNICA EXCEÇÃO AO CRITÉRIO 4, DITA NA TELA.**
-
-          `mcpStatus` sai no mount e reserva 1 chamada do cap; ela só vira
-          consumo quando a consulta precisa mesmo ir ao serviço (acerto de
-          cache não gasta — `options_mcp_api.py`, `status`). É a única chamada
-          desta aba que não nasce de um clique, e a exceção é PRÉ-EXISTENTE:
-          ela vem da F2, não desta fase.
-
-          Por que ela não vira botão: o cabeçalho precisa dizer a idade do dado
-          desde o primeiro frame (ADR-027, Decisão 8), e um gate de frescor que
-          só aparece depois de um clique não protege ninguém — a pessoa já
-          teria lido a tela inteira acreditando no dado. A correção honesta não
-          é esconder o custo, é declará-lo; e é isto aqui.
-
-          Sem condição de render: o custo existe mesmo quando o serviço não
-          respondeu (a reserva sai antes da resposta), então escondê-lo no
-          estado de erro seria calar justamente onde a pessoa vai reclamar do
-          contador. */}
-      <div style={{ marginTop: "8px", fontSize: "11.5px", color: T.textMuted, lineHeight: 1.5 }}>
-        {cp.opcoesCustoFrescor || ""}
-      </div>
     </div>
   );
 
-  // ------------------------------------------- Fase 27: SEUS VIGIAS (27-02) --
-  // O bloco que corrige o defeito da fase. Ele existe FORA de qualquer ticker:
-  // é isso que faz o vigia gravado aparecer ao abrir a aba, em vez de só
-  // aparecer com o ativo dele selecionado (27-CONTEXT, defeito 2).
-  //
-  // Duas fontes, dois custos, e a diferença é deliberada:
-  //  · `vigias` — o ÍNDICE local da conta. Custo ZERO, sai no mount. Traz o
-  //    cadastro (nome que a pessoa escreveu, ticker, data) e NENHUM estado;
-  //  · `vigiasVivos` — o estado do dia (`armed`/`streak`). Custo 2, só de
-  //    clique.
-  //
-  // ORDENAÇÃO (decisão do executor, 27-CONTEXT "Em aberto" item 1, herdada do
-  // protótipo aprovado pelo Alex): quem disparou primeiro — `armed` na frente,
-  // depois sequência, depois antiguidade, depois nome. A tela NÃO reimplementa
-  // essa régua: o backend do 27-01 já ordena a listagem por ela
-  // (`_ordem_dos_vigias`) e o índice já chega mais-recente-primeiro
-  // (`opcoes_vigias.listar`). Uma segunda implementação em JavaScript
-  // divergiria da primeira na correção seguinte, em silêncio, com as duas
-  // listas parecendo a mesma coisa na tela. Por isso aqui só se ESCOLHE a
-  // fonte: com estado medido, a lista do dia (superset, já ordenada); sem
-  // estado, o índice (já em antiguidade decrescente).
-  const listaDeVigias = (vigiasVivos.dados && Array.isArray(vigiasVivos.dados.vigias))
-    ? vigiasVivos.dados.vigias
-    : ((vigias.dados && Array.isArray(vigias.dados.vigias)) ? vigias.dados.vigias : []);
-  const temEstadoDosVigias = !!(vigiasVivos.dados && Array.isArray(vigiasVivos.dados.vigias));
-  const tickersEmCarteira = carteira.map((p) => p.t);
-  // Fase 27 (27-02): a posição do ativo escolhido, de onde sai o lastro. Pode
-  // não existir — clicar num vigia de ativo que saiu da carteira seleciona um
-  // ticker sem posição, e esse é um estado real a exibir, não um erro.
-  const posicaoSelecionada = ticker ? carteira.find((p) => p.t === ticker) : null;
-
-  // Fase 33 (33-01, 2026-09-19): o bloco virou componente próprio
-  // (`SecaoVigias.jsx`) — comportamento idêntico, zero funcionalidade nova
-  // (D-03 do 33-CONTEXT.md). `listaDeVigias`/`temEstadoDosVigias`/
-  // `tickersEmCarteira` continuam DERIVADOS aqui (a régua de ordenação é do
-  // backend) e descem por prop.
+  // Fase 39 (39-04, D-13): ⓘ contextual por aba — substitui o link "saiba
+  // mais" fixo do topo (removido do return, ver histórico logo abaixo).
+  // `abrirSaibaMais` é a MESMA condição de sempre (didática ligada + verbete
+  // no catálogo); abrir o ⓘ fecha o sheet de Vigias (os dois são zIndex 86 —
+  // nunca empilhar, mesma regra do botão de Vigias).
+  const abrirSaibaMais = (ctx && ctx.didatica && ctx.didatica.ligada && verbeteDoCatalogo(ctx.kbCatalogo, ANCORAS_KB.opcoes))
+    ? () => { setVigiasAberto(false); setVerbeteAberto({ cid: ANCORAS_KB.opcoes, trilha: [] }); }
+    : null;
+  const infoDaAba = (rotulo) => (
+    <BotaoSaibaMais onClick={abrirSaibaMais} ariaLabel={(cp.opcoesSaibaMaisAria || ((a) => a))(rotulo)} cp={cp} />
+  );
 
   // ------------------------ Fase 27 (27-05): A LEITURA DO SERVIÇO, SOB CLIQUE --
   //
@@ -562,20 +558,9 @@ export default function OpcoesScreen({ ctx }) {
   // ativo — inclusive tocando num cartão de "Seus vigias", que na tela parece
   // navegação — gastava 3 chamadas do cap sem nenhum controle dizer isso.
   //
-  // **Por que ele não mora dentro do bloco "LEITURA DO ATIVO" da cascata**, que
-  // é onde o plano o pedia: aquele bloco só é renderizado no ramo 4 (DADOS),
-  // que depende de `temLeitura` — ou seja, de a leitura JÁ ter voltado. Um
-  // convite para pedir a leitura que só aparece depois de a leitura existir
-  // seria inalcançável. Ele é irmão de `blocoVigias`: montado fora da cascata,
-  // renderizado logo abaixo do bloco técnico interno (grátis, 27-04), que é a
-  // ordem que a Emenda 2 do ADR-027 fixou — o que não custa vem primeiro.
-  //
-  // Some quando o serviço declarou um estado que o clique não resolve (os
-  // quatro códigos acionáveis: não configurado, cota, teto, indisponível). A
-  // cascata abaixo já diz o que fazer, e um botão que só pode falhar é pior que
-  // botão nenhum — mesma disciplina de `podeCriarSetup`. Erro SEM código
-  // (falha pontual da própria leitura) mantém o convite: ali repetir é
-  // legítimo, e sem ele a pessoa ficaria sem porta nenhuma.
+  // Fase 39 (39-04): renderizado dentro da aba Montar, gateado só por
+  // `podePedirLeitura` — o gate por pill "Setups"/"Setups salvos" da Fase 35
+  // desaparece junto com as pills.
   const servicoIndisponivel = !!(erro && CODIGOS_ACIONAVEIS.includes(erro.code));
   const podePedirLeitura = !!ticker && !leitura.dados && !leitura.carregando
     && !servicoIndisponivel;
@@ -623,76 +608,47 @@ export default function OpcoesScreen({ ctx }) {
     </div>
   );
 
-  // Fase 33 (33-02): o job 1 ("descobrir oportunidades cross-carteira") —
-  // frase-ponte + Bloco A + Bloco B — virou componente próprio
-  // (`SecaoDescobrir.jsx`). Comportamento idêntico ao que estava inline
-  // aqui até a Fase 32 (D-04/D-05/D-07), zero funcionalidade nova além do
-  // carimbo de frescor (D-04b, exceção explícita e aprovada). `curadoria`
-  // desce como o objeto `ctx.curadoria` INTEIRO — MESMA fonte que a linha
-  // de chamada em Posições (D-03: uma fonte, duas leituras), nunca uma
-  // segunda instância do hook que a busca.
-  const secaoDescobrir = (
-    <SecaoDescobrir
-      opcoesPorTicker={opcoesPorTicker}
-      opcoesPorTickerCarregando={opcoesPorTickerCarregando}
-      carteira={carteira}
-      curadoria={ctx && ctx.curadoria}
-      onAbrir={irParaOperar}
-      onExecutar={(cand, o) => ctx.A.executarCandidatoCurado(cand, o)}
-      onNarrar={() => ctx.curadoria.narrar(ctx.data && ctx.data.config)}
-      onRecarregar={ctx && ctx.curadoria && ctx.curadoria.recarregar}
-      operador={!!(ctx && ctx.operador)}
-      palette={palette}
-      cp={cp}
-    />
+  // Fase 27 (D2) — carteira vazia tem MOTIVO e CAMINHO. O destino é a
+  // CARTEIRA e não o Mercado por decisão explícita do Alex (27-CONTEXT, D2:
+  // "estado vazio com caminho para a carteira"), e a aba NÃO cai para a
+  // watchlist: lista de interesse não serve de lastro. Fase 39 (39-04):
+  // extraído para uma const ÚNICA — a mesma implementação aparece agora no
+  // topo de Oportunidades, no topo de Recomendadas e dentro da cascata de
+  // Montar (antes eram duas cópias literais, uma em cada sub-aba/modo).
+  const avisoCarteiraVazia = (
+    <Aviso>
+      {cp.opcoesCarteiraVazia || "Esta aba trabalha sobre os ativos que você tem em carteira."}
+      <button
+        onClick={() => { if (ctx && ctx.goCarteira) ctx.goCarteira(); }}
+        style={{ ...BOTAO, width: "100%", marginTop: "12px" }}
+      >
+        {cp.opcoesIrParaCarteira || "Ir para a Carteira"}
+      </button>
+    </Aviso>
   );
 
-  // Fase 28 (28-02) — o alternador de sub-aba. Mesma régua visual do
-  // `seletor` acima (D2/D3 do 28-CONTEXT: reusar, não inventar): mesmos
-  // tokens (`T.accent`/`T.accentTint10`/`T.bgPanel`/`T.borderSubtle`/
-  // `T.textSecondary`, já em TOKENS — nenhuma chave nova), mesma métrica
-  // (44px de alvo tátil, raio 11px, padding 8/14, peso 700, 13px), mesma
-  // afordância (`aria-pressed`, sem `role="tab"` — este app não usa ARIA de
-  // tab em lugar nenhum, ver BottomNav em App.jsx).
-  const subabas = (
-    <div style={{ display: "flex", gap: "8px", margin: "10px 0 4px" }}>
+  // Fase 39 (39-04, D-01): abaBar substitui `subabas` (Fase 28-02, Setups ×
+  // Operar) e `workspacePillRow` (Fase 34-03, Analisar/Comparar/Setups
+  // salvos) — cópia VERBATIM da régua visual que os dois já usavam (mesmos
+  // tokens, mesma métrica de 44px de alvo de toque, `aria-pressed`, sem
+  // `role="tab"`). `flexWrap: "wrap"` é NOVO aqui (Open Question 5 do
+  // 39-UI-SPEC.md): os 3 rótulos fixos somam ~333px contra ~339px úteis em
+  // 375px sem margem — wrap é a correção mínima para não vazar, e não muda
+  // nada quando os rótulos cabem. Fora de qualquer condicional de `ticker`
+  // (D-01: a barra é sempre a mesma, com ou sem ativo escolhido).
+  const abaBar = (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", margin: "10px 0 4px" }}>
       {[
-        { id: "setups", rotulo: cp.opcoesSubabaSetups || "Setups" },
-        { id: "operar", rotulo: cp.opcoesSubabaOperar || "Operar" },
-      ].map((s) => (
-        <button
-          key={s.id}
-          type="button"
-          onClick={() => setSubaba(s.id)}
-          aria-pressed={subaba === s.id}
-          style={{ minHeight: "44px", padding: "8px 14px", borderRadius: "11px", border: `1px solid ${subaba === s.id ? T.accent : T.borderSubtle}`, background: subaba === s.id ? T.accentTint10 : T.bgPanel, color: subaba === s.id ? T.accent : T.textSecondary, fontWeight: 700, fontSize: "13px" }}
-        >
-          {s.rotulo}
-        </button>
-      ))}
-    </div>
-  );
-
-  // Fase 34 (34-03) — pill row de 3 abas DENTRO do workspace (D-02): Analisar
-  // / Comparar / Setups salvos. Copia VERBATIM a régua visual de `subabas`
-  // acima (mesmos tokens, mesma métrica de alvo de toque), trocando só o
-  // array de abas e o estado que cada `onClick` grava. O `onClick` só grava a
-  // aba escolhida — nenhum disparador de leitura aqui: trocar de aba não
-  // pode pagar (NAV-05, §3.3 do ADR-027). Os três jobs compartilham a MESMA
-  // leitura pedida acima, fora deste gate (`workspaceTopo`/`podePedirLeitura`).
-  const workspacePillRow = (
-    <div style={{ display: "flex", gap: "8px", margin: "10px 0 4px" }}>
-      {[
-        { id: "analisar", rotulo: cp.opcoesAbaAnalisar || "Analisar" },
-        { id: "comparar", rotulo: cp.opcoesAbaComparar || "Comparar" },
-        { id: "setups", rotulo: cp.opcoesAbaSetupsSalvos || "Setups salvos" },
+        { id: "oportunidades", rotulo: cp.opcoesAbaOportunidades || "Oportunidades" },
+        { id: "recomendadas", rotulo: cp.opcoesAbaRecomendadas || "Recomendadas" },
+        { id: "montar", rotulo: cp.opcoesAbaMontar || "Montar" },
       ].map((a) => (
         <button
           key={a.id}
           type="button"
-          onClick={() => setAbaWorkspace(a.id)}
-          aria-pressed={abaWorkspace === a.id}
-          style={{ minHeight: "44px", padding: "8px 14px", borderRadius: "11px", border: `1px solid ${abaWorkspace === a.id ? T.accent : T.borderSubtle}`, background: abaWorkspace === a.id ? T.accentTint10 : T.bgPanel, color: abaWorkspace === a.id ? T.accent : T.textSecondary, fontWeight: 700, fontSize: "13px" }}
+          onClick={() => setAbaOpcoes(a.id)}
+          aria-pressed={abaOpcoes === a.id}
+          style={{ minHeight: "44px", padding: "8px 14px", borderRadius: "11px", border: `1px solid ${abaOpcoes === a.id ? T.accent : T.borderSubtle}`, background: abaOpcoes === a.id ? T.accentTint10 : T.bgPanel, color: abaOpcoes === a.id ? T.accent : T.textSecondary, fontWeight: 700, fontSize: "13px" }}
         >
           {a.rotulo}
         </button>
@@ -700,354 +656,364 @@ export default function OpcoesScreen({ ctx }) {
     </div>
   );
 
-  // Fase 34 (34-02): particiona por `ticker` o que fica ACIMA da cascata de
-  // estados do serviço — hub (sem ticker) × workspace (com ticker). Nenhum
-  // estado novo, nenhuma chamada nova: o ternário sobre `ticker`, logo
-  // abaixo no `return`, é a única leitura de estado acrescentada
-  // (34-CONTEXT.md, <objective>).
-  // Cabecalho e os ramos 1-2 da cascata (carregando/erro) NÃO entram aqui —
-  // continuam únicos, acima desta partição, porque nascem verdadeiros mesmo
-  // sem ticker (NAV-06, ver comentário no `return`).
+  // ------------------------------------------- Fase 27: SEUS VIGIAS (27-02) --
+  // Duas fontes, dois custos, e a diferença é deliberada:
+  //  · `vigias` — o ÍNDICE local da conta. Custo ZERO, sai no mount. Traz o
+  //    cadastro (nome que a pessoa escreveu, ticker, data) e NENHUM estado;
+  //  · `vigiasVivos` — o estado do dia (`armed`/`streak`). Custo 2, só de
+  //    clique.
   //
-  // D-04 (ordem fixa do hub): frase-ponte+Bloco A+Bloco B (já um componente
-  // só, SecaoDescobrir) → Meus vigias → seletor. Mesmas props de sempre,
-  // nenhuma acrescentada/removida.
-  const hubTopo = (
-    <>
-      {secaoDescobrir}
-      <SecaoVigias
-        vigias={vigias}
-        vigiasVivos={vigiasVivos}
-        atualizarVigias={atualizarVigias}
-        listaDeVigias={listaDeVigias}
-        temEstado={temEstadoDosVigias}
-        tickersEmCarteira={tickersEmCarteira}
-        ticker={ticker}
-        onIr={irParaVigia}
-        custos={CUSTO_DA_ACAO}
-        cp={cp}
-      />
-      {carteira.length > 0 ? seletor : null}
-    </>
-  );
-
-  // D-05/D-03: header fixo do workspace, ligado à MESMA `escolherTicker` que
-  // já reseta tese/vencimento/alvo/stop ao fechar o ticker — nenhum segundo
-  // caminho de reset (duas implementações do mesmo reset divergiriam na
-  // primeira manutenção feita só numa delas). Os dois `ticker ? ... : null`
-  // que existiam soltos no `return` (LastroDoAtivo/LeituraInterna) somem
-  // AQUI DENTRO porque a guarda subiu de nível: `workspaceTopo` só é
-  // escolhido quando `ticker` já é truthy.
-  const workspaceTopo = (
-    <>
-      <WorkspaceHeader ticker={ticker} onVoltar={() => escolherTicker(ticker)} cp={cp} />
-      <LastroDoAtivo pos={posicaoSelecionada} cp={cp} />
-      <LeituraInterna tecnico={tecnico} cp={cp} />
-      {/* Fase 35 (35-01, D-02) — bug corrigido: SecaoSetups.jsx NUNCA leu
-          `temLeitura` (confirmado por leitura direta do arquivo), então o
-          convite pago acima dela era portão sem porta — quem só quer ver/
-          criar um setup salvo era barrado por uma leitura que a própria
-          seção nunca usa. Usar desigualdade contra a pill "setups", NUNCA
-          uma terceira comparação de igualdade equivalente (o guardião da
-          Fase 34 trava exatamente 3 ocorrências desse padrão no arquivo). */}
-      {podePedirLeitura && abaWorkspace !== "setups" ? blocoLeituraDoServico : null}
-      {/* Fase 35 (35-01, D-06) — metadado de "leitura já feita" no MESMO
-          lugar onde o convite acima desaparece. Gate é `temLeitura` SOZINHO,
-          sem `abaWorkspace`: tudo que fica acima do carril (LastroDoAtivo,
-          LeituraInterna, este metadado) é contexto do TICKER, compartilhado
-          pelas três pills — D-02 remove da pill "Setups salvos" a AÇÃO paga,
-          não o contexto. Estender o gate de D-06 por simetria visual seria
-          ampliar uma decisão travada por conta própria (35-UI-SPEC.md,
-          discretion note). Borda conhecida, preservada de propósito: com
-          `leitura.dados` presente mas `behavior` ausente (`sem_candles`),
-          nem o convite nem este metadado aparecem — comportamento de HOJE;
-          inventar texto para esse estado afirmaria leitura que o motor não
-          endossou. */}
-      {temLeitura ? (
-        <div style={{ marginTop: "14px" }}>
-          <Kicker>{(cp.opcoesLeituraTitulo || "LEITURA DO ATIVO") + " · " + (cp.opcoesLeituraJaFeita || "leitura já feita")}</Kicker>
-        </div>
-      ) : null}
-      {/* Fase 35 (35-01, D-08) — rótulo do estágio 2, SEM gate (é o rótulo
-          que dá a JORN-03 paridade estrutural entre as três pills — aparece
-          igual não importa qual esteja ativa) — e a linha de transição
-          quando a leitura já existe. Analisar/Comparar nunca são numeradas
-          ENTRE SI (princípio 5 do CLAUDE.md): o Kicker nomeia o JOB do
-          estágio ("O QUE FAZER"), não uma posição de sequência. */}
-      <Kicker>{(cp.opcoesEscolhaTitulo || "O QUE FAZER") + " · " + (cp.opcoesPasso2de2 || "Passo 2 de 2")}</Kicker>
-      {temLeitura ? <div style={AJUDA}>{cp.opcoesLeituraConcluidaAjuda || "Leitura concluída — escolha Analisar ou Comparar."}</div> : null}
-      {/* Fase 34 (34-03): pill row de 3 abas, ÚLTIMO elemento acima da
-          cascata — lastro, leitura interna e convite pago são compartilhados
-          pelas três abas e pedidos uma vez aqui, fora do gate de aba abaixo
-          (ramo "4. DADOS"). É esta posição que faz NAV-05 estrutural. */}
-      {workspacePillRow}
-    </>
-  );
+  // ORDENAÇÃO (decisão do executor, 27-CONTEXT "Em aberto" item 1, herdada do
+  // protótipo aprovado pelo Alex): quem disparou primeiro — `armed` na frente,
+  // depois sequência, depois antiguidade, depois nome. A tela NÃO reimplementa
+  // essa régua: o backend do 27-01 já ordena a listagem por ela
+  // (`_ordem_dos_vigias`) e o índice já chega mais-recente-primeiro
+  // (`opcoes_vigias.listar`). Por isso aqui só se ESCOLHE a fonte: com
+  // estado medido, a lista do dia (superset, já ordenada); sem estado, o
+  // índice (já em antiguidade decrescente).
+  const listaDeVigias = (vigiasVivos.dados && Array.isArray(vigiasVivos.dados.vigias))
+    ? vigiasVivos.dados.vigias
+    : ((vigias.dados && Array.isArray(vigias.dados.vigias)) ? vigias.dados.vigias : []);
+  const temEstadoDosVigias = !!(vigiasVivos.dados && Array.isArray(vigiasVivos.dados.vigias));
+  const tickersEmCarteira = carteira.map((p) => p.t);
+  // Fase 27 (27-02): a posição do ativo escolhido, de onde sai o lastro. Pode
+  // não existir — clicar num vigia de ativo que saiu da carteira seleciona um
+  // ticker sem posição, e esse é um estado real a exibir, não um erro.
+  const posicaoSelecionada = ticker ? carteira.find((p) => p.t === ticker) : null;
 
   return (
     <section>
-      <h1 style={{ fontSize: "22px", fontWeight: 800, margin: "0 0 4px" }}>{cp.tituloOpcoes || "Opções"}</h1>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px" }}>
+        <h1 style={{ fontSize: "22px", fontWeight: 800, margin: "0 0 4px" }}>{cp.tituloOpcoes || "Opções"}</h1>
+        {/* Fase 39 (39-02/39-04, D-07, SC#2): badge com contador — visível
+            nas 3 abas, abre o sheet de Vigias. Fecha a folha de conceito
+            antes de abrir (os dois são zIndex 86 — nunca empilhar). */}
+        <VigiasBadge
+          n={listaDeVigias.length}
+          medido={!!(vigias.dados || vigiasVivos.dados)}
+          onAbrir={() => { setVerbeteAberto(null); setVigiasAberto(true); }}
+          cp={cp}
+        />
+      </div>
       <p style={{ fontSize: "13px", color: T.textSecondary, margin: "0 0 14px", lineHeight: 1.5 }}>
         {cp.subtituloOpcoes || ""}
       </p>
-      {/* Fase 38 (38-05, KB-02): link "saiba mais" fixo (D-07/D-08) — mesmo
-          portão/estilo do precedente de Portfólio em App.jsx (diversificacao,
-          ~L4275); aqui abre a folha LOCAL, não `A.abrirVerbeteKb`. */}
-      {ctx && ctx.didatica && ctx.didatica.ligada && verbeteDoCatalogo(ctx.kbCatalogo, ANCORAS_KB.opcoes) && (
-        <button type="button" onClick={() => setVerbeteAberto({ cid: ANCORAS_KB.opcoes, trilha: [] })} style={{ background: "transparent", border: "none", padding: 0, marginTop: "6px", color: T.accent, fontWeight: 700, fontSize: "12px", textDecoration: "none" }}>{cp.saibaMais || "saiba mais"}</button>
-      )}
-      {subabas}
+      {/* Fase 38 (38-05, KB-02): o link "saiba mais" fixo do topo (D-07/D-08)
+          é REMOVIDO nesta fase (Fase 39, D-13) — cada aba ganha seu próprio
+          ⓘ contextual (`infoDaAba`, acima), substituindo este único link
+          global. Histórico preservado: o portão era
+          `ctx.didatica.ligada && verbeteDoCatalogo(ctx.kbCatalogo, ANCORAS_KB.opcoes)`,
+          o mesmo que `abrirSaibaMais` usa agora. */}
+      {abaBar}
 
-      {subaba !== "setups" ? (
-        <SubAbaOperar
-          carteira={carteira}
-          ticker={ticker}
-          posicaoSelecionada={posicaoSelecionada}
-          tecnico={tecnico}
-          cp={cp}
-          ctx={ctx}
-          seletor={seletor}
-          opcoesPorTicker={opcoesPorTicker}
-          opcoesPorTickerCarregando={opcoesPorTickerCarregando}
-        />
-      ) : (
-      <>
-      {cabecalho}
-      {/* Fase 34 (34-02): o que ficava aqui como sequência plana (frase-
-          ponte/Bloco A/Bloco B, vigias, seletor, lastro, leitura interna,
-          convite pago) passa a ser escolhido por MODO — `hubTopo` (sem
-          ticker) ou `workspaceTopo` (com ticker), ambos definidos acima do
-          `return`. Nenhum bloco some, nenhum é duplicado: cada um migrou
-          para dentro do fragmento do seu modo, na MESMA ordem relativa de
-          antes (D-04 no hub; grátis-antes-do-pago no workspace). */}
-      {ticker ? workspaceTopo : hubTopo}
-
-      {/* ------------------------------------------------ 1. CARREGANDO --
-          Antes do vazio, sempre: vazio pintado durante a consulta afirma
-          "não há nada" sem ninguém ter medido. */}
-      {carregando ? (
-        <div style={{ marginTop: "14px" }}>
-          <Aviso>{cp.opcoesCarregando || "Consultando o serviço de opções…"}</Aviso>
-        </div>
-      ) : erro ? (
-        /* ------------------------------------------ 2. ERRO / DEGRADAÇÃO --
-           Escolhido pelo `code` do backend (ADR-027), nunca por raspagem da
-           mensagem. Cada código tem seu estado próprio — nenhum vira tela
-           em branco. */
-        <div style={{ marginTop: "14px" }}>
-          {erro.code === "mcp_nao_configurado" ? (
-            <Aviso>{cp.opcoesNaoConfigurado || "Serviço de opções não configurado."}</Aviso>
-          ) : erro.code === "mcp_cota" || erro.code === "mcp_teto_servico" ? (
-            <Aviso>
-              {(cp.opcoesCota || ((r) => "Cota esgotada." + (r ? " Reinicia às " + r + "." : "")))(
-                erro.detail && erro.detail.reinicia)}
-            </Aviso>
-          ) : erro.code === "mcp_indisponivel" ? (
-            <Aviso>{cp.opcoesIndisponivel || "Serviço de opções sem resposta agora."}</Aviso>
-          ) : (
-            /* Inclui `mcp_erro_de_tool`: a mensagem já vem multi-linha com
-               "Como corrigir:" / "Dica:" do enrichErrorMessage — vai CRUA,
-               em nó de texto (React escapa), com pre-wrap. A linha da cota
-               vem DEPOIS dela e só quando o backend disse que cobrou. */
-            <>
-              <Aviso tom="forte">{erro.message}</Aviso>
-              <RecusaCobrada erro={erro} cp={cp} />
-            </>
-          )}
-        </div>
-      ) : nadaParaMostrar ? (
-        /* ------------------------------------------ 3. VAZIO COM MOTIVO --
-           Vazio nunca é silêncio. */
-        <div style={{ marginTop: "14px", display: "grid", gap: "10px" }}>
-          {/* Fase 34 (34-02): o CONTEÚDO deste ramo passa a ser particionado
-              por modo — `nadaParaMostrar` (o GATILHO do ramo, acima) não
-              muda. Hub (`!ticker`) só pode ver os dois avisos que fazem
-              sentido sem ativo escolhido; workspace (`ticker`) só pode ver os
-              dois que dependem de uma leitura ticker-scoped — misturar os
-              dois seria afirmar sobre um ativo que a tela nunca consultou
-              (T-34-03, princípio 4 do CLAUDE.md). */}
-          {!ticker ? (
-            <>
-              {/* Fase 27 (D2) — carteira vazia tem MOTIVO e CAMINHO. O destino é a
-                  CARTEIRA e não o Mercado por decisão explícita do Alex
-                  (27-CONTEXT, D2: "estado vazio com caminho para a carteira"), e a
-                  aba NÃO cai para a watchlist: lista de interesse não serve de
-                  lastro. O ramo vem ANTES do `semTicker` porque sem posição nenhuma
-                  não há ativo a escolher — "escolha um ativo" seria pedir o
-                  impossível. */}
-              {carteira.length === 0 ? (
-                <Aviso>
-                  {cp.opcoesCarteiraVazia || "Esta aba trabalha sobre os ativos que você tem em carteira."}
-                  <button
-                    onClick={() => { if (ctx && ctx.goCarteira) ctx.goCarteira(); }}
-                    style={{ ...BOTAO, width: "100%", marginTop: "12px" }}
-                  >
-                    {cp.opcoesIrParaCarteira || "Ir para a Carteira"}
-                  </button>
-                </Aviso>
-              ) : semTicker ? (
-                <Aviso>{cp.opcoesEscolherAtivo || "Escolha um ativo para ver a leitura."}</Aviso>
-              ) : null}
-            </>
-          ) : (
-            <>
-              {semCandles ? (
-                <Aviso>
-                  O serviço não tem candles para este ativo, então não há leitura de
-                  comportamento para mostrar. Nada foi estimado no lugar.
-                </Aviso>
-              ) : null}
-              {/* Fase 27 (27-05) — o `l &&` é a correção que a saída da leitura do
-                  efeito tornou obrigatória. "Nenhum setup gravado para este ativo"
-                  é uma AFIRMAÇÃO sobre o armazém do serviço, e quem a mede é a
-                  própria leitura. Com a leitura virando clique, ela passa a não
-                  existir enquanto ninguém pedir — e sem esta guarda a tela diria
-                  "nenhum setup" sobre um ativo que ela nunca consultou, que é
-                  exatamente o princípio 4 do CLAUDE.md ao contrário (não inventar
-                  estado quando a fonte não respondeu). Sem leitura pedida, quem
-                  fala é o convite acima.
-
-                  2026-09-20 (Fase 33, 33-03) — este aviso NÃO é duplicata do
-                  aviso interno de SecaoSetups.jsx (mesma chave `cp.opcoesSemSetups`,
-                  de propósito): este aqui fala quando NENHUMA leitura foi pedida
-                  (ramo "3. VAZIO" da cascata); o de dentro da seção fala quando a
-                  leitura ACONTECEU e voltou sem setups (ramo "4. DADOS"). São
-                  medições diferentes, com a MESMA frase porque o resultado que a
-                  pessoa vê ("nenhum setup") é o mesmo nos dois casos — só o motivo
-                  muda. Não "limpar" um dos dois como redundante.
-
-                  Fase 34 (34-02): a guarda `!semTicker` some daqui — ela virou
-                  redundante quando este bloco só monta com `ticker` truthy
-                  (a guarda subiu de nível, para o `!ticker ? ... : ...` acima);
-                  não é afrouxamento, é o mesmo gate movido para fora. */}
-              {l && setups.length === 0 ? (
-                <Aviso>{cp.opcoesSemSetups || "Nenhum setup gravado para este ativo."}</Aviso>
-              ) : null}
-            </>
-          )}
-        </div>
-      ) : (
-        /* ------------------------------------------------------ 4. DADOS -- */
-        <div>
-          {/* Fase 33 (33-05, 2026-09-20): job 3 ("analisar um ticker
-              manualmente") extraído para SecaoAnalisar.jsx — último dos 5
-              jobs a sair. Posição EXATA de hoje: primeiro elemento do ramo
-              DADOS, renderizado antes do job 4 logo abaixo. `temLeitura`/
-              `semCandles` continuam decididos aqui (o orquestrador é dono do
-              estado compartilhado); a seção só recebe o resultado pronto.
-              Fase 34 (34-03): a partir de agora o bloco é gateado pela aba do
-              workspace ativa — mesmas props de sempre, nenhuma acrescentada/
-              removida; trocar de aba DESMONTA a seção anterior (ver SUMMARY
-              sobre o estado local `painel` que reseta, consistente com D-03,
-              sem custo novo — os dados pagos vivem no hook, no orquestrador). */}
-          {abaWorkspace === "analisar" ? (
-            <SecaoAnalisar
-              ticker={ticker}
-              temLeitura={temLeitura}
-              semCandles={semCandles}
-              behavior={behavior}
-              lacunas={l && l.lacunas}
-              pregao={pregao}
-              expirations={l && l.expirations}
-              tese={tese}
-              setTese={setTese}
-              temTese={temTese}
-              vencimento={vencimento}
-              setVencimento={setVencimento}
-              vencimentos={vencimentos}
-              lote={lote}
-              setLote={setLote}
-              loteOk={loteOk}
-              proposta={proposta}
-              montarProposta={montarProposta}
-              cadeia={cadeia}
-              operaveis={operaveis}
-              abrirCadeia={abrirCadeia}
-              abrirOperaveis={abrirOperaveis}
-              custos={CUSTO_DA_ACAO}
-              cp={cp}
-              palette={palette}
-              // Quick 260923-ndy (Task 2): fio de execução da estrutura
-              // montada manualmente — despacha pelo MESMO caminho do bloco
-              // de curadoria (`ctx.A.executarCandidatoCurado`), com
-              // `origem: "analisar"` para o track diferenciar as duas
-              // superfícies. Forma DIFERENTE da literal travada em
-              // test_opcoes_consolidacao_ui.mjs:197 — a contagem de 1
-              // daquele guardião continua valendo (é outro prop).
-              operador={!!(ctx && ctx.operador)}
-              onExecutarProposta={(cand, o) => ctx.A.executarCandidatoCurado(cand, { ...o, origem: "analisar" })}
-            />
-          ) : null}
-
-          {abaWorkspace === "comparar" && temLeitura ? (
-            /* Fase 33 (33-04): job 4 ("comparar os vencimentos"), extraído
-                para SecaoComparar.jsx. Posição EXATA de hoje — logo depois
-                do job 3 acima, dentro do MESMO ramo `temLeitura`
-                (comportamento idêntico: sem leitura não há de onde a tese
-                sair). `tese`/`lote` continuam o MESMO formulário do job 3
-                (Pitfall 6); `alvo`/`stop` ficam aqui no orquestrador para
-                não resetarem entre re-renders.
-                Fase 34 (34-03): `temLeitura` PERMANECE — sem leitura não há
-                de onde a tese sair — só combinado com o gate de aba; a MESMA
-                seção some ao trocar de aba OU sem leitura, o que já era
-                verdade antes desta fase para o segundo caso. */
-            <SecaoComparar
-              ticker={ticker}
-              tese={tese}
-              temTese={temTese}
-              lote={lote}
-              loteOk={loteOk}
-              alvo={alvo}
-              setAlvo={setAlvo}
-              stop={stop}
-              setStop={setStop}
-              vencimentos={vencimentos}
-              consultados={consultados}
-              chamadasPrevistas={chamadasPrevistas}
-              possibilidades={possibilidades}
-              verPossibilidades={verPossibilidades}
-              custos={CUSTO_DA_ACAO}
-              cp={cp}
-              palette={palette}
-            />
-          ) : null}
-
-          {/* Fase 33 (33-03): job 5 ("gerenciar/criar setups salvos"),
-              extraído para SecaoSetups.jsx. Posição EXATA de hoje — logo
-              depois do bloco "COMPARAR OS VENCIMENTOS" acima, dentro do ramo
-              "4. DADOS" da cascata. `naoAvaliado`/`setups`/`grafico` e os 4
-              callbacks continuam vindo do hook aqui no orquestrador; a
-              seção só recebe o que já foi derivado.
-              Fase 34 (34-03, D-01 amendment): `SecaoSetups` migra INTEIRA
-              (listagem + criação) para a 3ª aba do workspace — "Setups
-              salvos" — sem prop `modo`, sem mudança em SecaoSetups.jsx. */}
-          {abaWorkspace === "setups" ? (
-          <SecaoSetups
-            ticker={ticker}
-            setups={setups}
-            naoAvaliado={naoAvaliado}
-            grafico={grafico}
-            abrirGrafico={abrirGrafico}
-            fecharGrafico={fecharGrafico}
-            setupNovo={setupNovo}
-            compilarSetup={compilarSetup}
-            confirmarSetup={confirmarSetup}
-            desativarSetup={desativarSetup}
-            podeCriarSetup={podeCriarSetup}
-            custos={CUSTO_DA_ACAO}
+      {/* ============================================ ABA 1: OPORTUNIDADES ==
+          * Fase 39 (39-04, D-02): motor COM gate de liquidez — ex-Bloco A do
+          * componente job-to-be-done da Fase 33-02, hoje dissolvido nesta
+          * aba própria (ver o comentário do import, topo do arquivo). */}
+      {abaOpcoes === "oportunidades" ? (
+        <>
+          {carteira.length === 0 ? avisoCarteiraVazia : null}
+          <AbaOportunidades
+            opcoesPorTicker={opcoesPorTicker}
+            carregando={opcoesPorTickerCarregando}
+            carteira={carteira}
             cp={cp}
-            ctx={ctx}
-            palette={palette}
+            onAbrir={alternarOportunidade}
+            abertoTicker={oportunidadeAberta}
+            infoBotao={infoDaAba(cp.opcoesAbaOportunidades || "Oportunidades")}
           />
+          {/* Fase 39 (39-04, D-05, fork 1 — Leitura B' do <objective> de
+              39-04-PLAN.md): painel inline da proposta pronta do motor,
+              abaixo do carrossel — substitui a sub-aba "Operar" dissolvida.
+              Mesmo aceite/fechamento de sempre (useAceiteLastreado). */}
+          {oportunidadeAberta ? (
+            <PropostaDoAtivo
+              ticker={oportunidadeAberta}
+              posicao={carteira.find((p) => p.t === oportunidadeAberta) || null}
+              cp={cp}
+              ctx={ctx}
+              opcoesPorTicker={opcoesPorTicker}
+              opcoesPorTickerCarregando={opcoesPorTickerCarregando}
+              onMontar={() => irParaMontar(oportunidadeAberta)}
+            />
           ) : null}
-        </div>
-      )}
+        </>
+      ) : null}
 
+      {/* ============================================= ABA 2: RECOMENDADAS ==
+          * Fase 39 (39-04, D-03/D-05): motor SEM gate de liquidez — ex-Bloco
+          * B do mesmo componente da Fase 33-02, execução inline (a sub-aba
+          * "Operar" dissolvida não deixa buraco: Recomendadas já executava
+          * por dentro do próprio card, CuradoriaEstruturas.jsx). */}
+      {abaOpcoes === "recomendadas" ? (
+        <>
+          {carteira.length === 0 ? avisoCarteiraVazia : null}
+          <AbaRecomendadas
+            curadoria={ctx && ctx.curadoria}
+            onAbrir={irParaMontar}
+            onExecutar={(cand, o) => ctx.A.executarCandidatoCurado(cand, o)}
+            onNarrar={() => ctx.curadoria.narrar(ctx.data && ctx.data.config)}
+            onRecarregar={ctx && ctx.curadoria && ctx.curadoria.recarregar}
+            operador={!!(ctx && ctx.operador)}
+            palette={palette}
+            cp={cp}
+            infoBotao={infoDaAba(cp.opcoesAbaRecomendadas || "Recomendadas")}
+          />
+        </>
+      ) : null}
+
+      {/* ===================================================== ABA 3: MONTAR =
+          * Fase 39 (39-04, D-04): fusão do antigo hub-com-ticker (o topo do
+          * modo workspace, Fase 34-02) com o job 3 (Analisar, sempre
+          * presente) + o link inline de Comparar (D-06) + Setups salvos
+          * (fork 2 do objective de 39-04-PLAN.md). Sem o header/pill row
+          * fixos do modo workspace (Fase 34): não há mais "voltar ao hub",
+          * só trocar de aba pela `abaBar` acima. */}
+      {abaOpcoes === "montar" ? (
+        <>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <Kicker>{cp.opcoesMontarTitulo || "MONTAR UMA ESTRUTURA"}</Kicker>
+            {infoDaAba(cp.opcoesAbaMontar || "Montar")}
+          </div>
+          {carteira.length > 0 ? seletor : null}
+          {ticker ? (
+            <>
+              {cabecalho}
+              <LastroDoAtivo pos={posicaoSelecionada} cp={cp} />
+              <LeituraInterna tecnico={tecnico} cp={cp} />
+              {podePedirLeitura ? blocoLeituraDoServico : null}
+              {/* Fase 35 (35-01, D-06) — metadado de "leitura já feita" no
+                  MESMO lugar onde o convite acima desaparece. */}
+              {temLeitura ? (
+                <div style={{ marginTop: "14px" }}>
+                  <Kicker>{(cp.opcoesLeituraTitulo || "LEITURA DO ATIVO") + " · " + (cp.opcoesLeituraJaFeita || "leitura já feita")}</Kicker>
+                </div>
+              ) : null}
+              {/* Fase 35 (35-01, D-08) — rótulo do estágio 2, SEM gate (é o
+                  rótulo que dá a JORN-03 paridade estrutural). */}
+              <Kicker>{(cp.opcoesEscolhaTitulo || "O QUE FAZER") + " · " + (cp.opcoesPasso2de2 || "Passo 2 de 2")}</Kicker>
+              {temLeitura ? <div style={AJUDA}>{cp.opcoesLeituraConcluidaAjuda || "Leitura concluída — escolha Analisar ou Comparar."}</div> : null}
+            </>
+          ) : null}
+
+          {/* ------------------------------------------------ 1. CARREGANDO --
+              Antes do vazio, sempre: vazio pintado durante a consulta afirma
+              "não há nada" sem ninguém ter medido. */}
+          {carregando ? (
+            <div style={{ marginTop: "14px" }}>
+              <Aviso>{cp.opcoesCarregando || "Consultando o serviço de opções…"}</Aviso>
+            </div>
+          ) : erro ? (
+            /* ------------------------------------------ 2. ERRO / DEGRADAÇÃO --
+               Escolhido pelo `code` do backend (ADR-027), nunca por raspagem da
+               mensagem. Cada código tem seu estado próprio — nenhum vira tela
+               em branco. */
+            <div style={{ marginTop: "14px" }}>
+              {erro.code === "mcp_nao_configurado" ? (
+                <Aviso>{cp.opcoesNaoConfigurado || "Serviço de opções não configurado."}</Aviso>
+              ) : erro.code === "mcp_cota" || erro.code === "mcp_teto_servico" ? (
+                <Aviso>
+                  {(cp.opcoesCota || ((r) => "Cota esgotada." + (r ? " Reinicia às " + r + "." : "")))(
+                    erro.detail && erro.detail.reinicia)}
+                </Aviso>
+              ) : erro.code === "mcp_indisponivel" ? (
+                <Aviso>{cp.opcoesIndisponivel || "Serviço de opções sem resposta agora."}</Aviso>
+              ) : (
+                /* Inclui `mcp_erro_de_tool`: a mensagem já vem multi-linha com
+                   "Como corrigir:" / "Dica:" do enrichErrorMessage — vai CRUA,
+                   em nó de texto (React escapa), com pre-wrap. A linha da cota
+                   vem DEPOIS dela e só quando o backend disse que cobrou. */
+                <>
+                  <Aviso tom="forte">{erro.message}</Aviso>
+                  <RecusaCobrada erro={erro} cp={cp} />
+                </>
+              )}
+            </div>
+          ) : nadaParaMostrar ? (
+            /* ------------------------------------------ 3. VAZIO COM MOTIVO --
+               Vazio nunca é silêncio. */
+            <div style={{ marginTop: "14px", display: "grid", gap: "10px" }}>
+              {!ticker ? (
+                <>
+                  {carteira.length === 0 ? (
+                    avisoCarteiraVazia
+                  ) : semTicker ? (
+                    <Aviso>{cp.opcoesEscolherAtivo || "Escolha um ativo para ver a leitura."}</Aviso>
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  {semCandles ? (
+                    <Aviso>
+                      O serviço não tem candles para este ativo, então não há leitura de
+                      comportamento para mostrar. Nada foi estimado no lugar.
+                    </Aviso>
+                  ) : null}
+                  {/* Fase 27 (27-05) — o `l &&` é a correção que a saída da
+                      leitura do efeito tornou obrigatória: sem leitura
+                      pedida, quem fala é o convite acima. */}
+                  {l && setups.length === 0 ? (
+                    <Aviso>{cp.opcoesSemSetups || "Nenhum setup gravado para este ativo."}</Aviso>
+                  ) : null}
+                </>
+              )}
+            </div>
+          ) : (
+            /* ------------------------------------------------------ 4. DADOS --
+               Fase 39 (39-04): SecaoAnalisar sempre presente aqui (não há mais
+               pill "Analisar" — é a única leitura de ativo que a aba Montar
+               oferece). O link "Ver outros vencimentos" (D-06) e Setups salvos
+               (fork 2 do objective de 39-04-PLAN.md) vêm logo depois, sem gate
+               de aba. */
+            <div>
+              <SecaoAnalisar
+                ticker={ticker}
+                temLeitura={temLeitura}
+                semCandles={semCandles}
+                behavior={behavior}
+                lacunas={l && l.lacunas}
+                pregao={pregao}
+                expirations={l && l.expirations}
+                tese={tese}
+                setTese={setTese}
+                temTese={temTese}
+                vencimento={vencimento}
+                setVencimento={setVencimento}
+                vencimentos={vencimentos}
+                lote={lote}
+                setLote={setLote}
+                loteOk={loteOk}
+                proposta={proposta}
+                montarProposta={montarProposta}
+                cadeia={cadeia}
+                operaveis={operaveis}
+                abrirCadeia={abrirCadeia}
+                abrirOperaveis={abrirOperaveis}
+                custos={CUSTO_DA_ACAO}
+                cp={cp}
+                palette={palette}
+                // Quick 260923-ndy (Task 2): fio de execução da estrutura
+                // montada manualmente — despacha pelo MESMO caminho do bloco
+                // de curadoria (`ctx.A.executarCandidatoCurado`), com
+                // `origem: "analisar"` para o track diferenciar as duas
+                // superfícies. Forma DIFERENTE da literal travada em
+                // test_opcoes_consolidacao_ui.mjs:197 — a contagem de 1
+                // daquele guardião continua valendo (é outro prop).
+                operador={!!(ctx && ctx.operador)}
+                onExecutarProposta={(cand, o) => ctx.A.executarCandidatoCurado(cand, { ...o, origem: "analisar" })}
+              />
+
+              {/* Fase 39 (39-04, D-06): "Comparar" deixa de ser aba própria —
+                  vira link inline que expande SecaoComparar no MESMO
+                  container. Mesma condição de sempre (`temLeitura`: sem
+                  leitura não há de onde a tese sair). */}
+              {temLeitura ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setCompararAberto((v) => !v)}
+                    aria-expanded={compararAberto}
+                    style={{ marginTop: "14px", display: "block", background: "transparent", border: "none", padding: 0, color: T.accent, fontWeight: 700, fontSize: "12px", minHeight: "44px" }}
+                  >
+                    {compararAberto ? (cp.opcoesOcultarOutrosVencimentos || "Ocultar outros vencimentos") : (cp.opcoesVerOutrosVencimentos || "Ver outros vencimentos")}
+                  </button>
+                  {compararAberto ? (
+                    <SecaoComparar
+                      ticker={ticker}
+                      tese={tese}
+                      temTese={temTese}
+                      lote={lote}
+                      loteOk={loteOk}
+                      alvo={alvo}
+                      setAlvo={setAlvo}
+                      stop={stop}
+                      setStop={setStop}
+                      vencimentos={vencimentos}
+                      consultados={consultados}
+                      chamadasPrevistas={chamadasPrevistas}
+                      possibilidades={possibilidades}
+                      verPossibilidades={verPossibilidades}
+                      custos={CUSTO_DA_ACAO}
+                      cp={cp}
+                      palette={palette}
+                    />
+                  ) : null}
+                </>
+              ) : null}
+
+              {/* Fase 39 (39-04, fork 2 do <objective>): SecaoSetups (job 5,
+                  Fase 33-03) migra para dentro de Montar, abaixo do link de
+                  Comparar — mesma posição relativa de hoje (ramo "4. DADOS"),
+                  sem pill própria: D-03 do NAV-01 manda preservar o nome
+                  "Setups" só para este recurso, e ele deixa de colidir porque
+                  as pills "Setups"/"Setups salvos" desaparecem. */}
+              <SecaoSetups
+                ticker={ticker}
+                setups={setups}
+                naoAvaliado={naoAvaliado}
+                grafico={grafico}
+                abrirGrafico={abrirGrafico}
+                fecharGrafico={fecharGrafico}
+                setupNovo={setupNovo}
+                compilarSetup={compilarSetup}
+                confirmarSetup={confirmarSetup}
+                desativarSetup={desativarSetup}
+                podeCriarSetup={podeCriarSetup}
+                custos={CUSTO_DA_ACAO}
+                cp={cp}
+                ctx={ctx}
+                palette={palette}
+              />
+            </div>
+          )}
+        </>
+      ) : null}
+
+      {/* Fase 27 (27-05) — **A ÚNICA EXCEÇÃO AO CRITÉRIO 4, DITA NA TELA.**
+
+          `mcpStatus` sai no mount e reserva 1 chamada do cap; ela só vira
+          consumo quando a consulta precisa mesmo ir ao serviço (acerto de
+          cache não gasta — `options_mcp_api.py`, `status`). É a única chamada
+          desta aba que não nasce de um clique, e a exceção é PRÉ-EXISTENTE:
+          ela vem da F2, não desta fase.
+
+          Por que ela não vira botão: o cabeçalho precisa dizer a idade do dado
+          desde o primeiro frame (ADR-027, Decisão 8), e um gate de frescor que
+          só aparece depois de um clique não protege ninguém — a pessoa já
+          teria lido a tela inteira acreditando no dado. A correção honesta não
+          é esconder o custo, é declará-lo; e é isto aqui.
+
+          Fase 39 (39-04, D-14): sai do cabeçalho e vira um ⓘ (`DetalheInfo`)
+          no RODAPÉ global da tela, ao lado do disclaimer — não dentro de
+          Montar, porque `mcpStatus` continua saindo no mount da TELA
+          (qualquer aba); se a declaração do custo morasse só em Montar-com-
+          ticker, quem fica em Oportunidades pagaria sem nunca ver o aviso
+          (regressão da Fase 27-05). Sem condição de render: o custo existe
+          mesmo quando o serviço não respondeu. */}
       <p style={{ marginTop: "20px", fontSize: "11.5px", color: T.textMuted, lineHeight: 1.55 }}>
         {cp.opcoesDisclaimer || ""}
       </p>
-      </>
-      )}
+      <DetalheInfo rotulo={cp.opcoesCustoFrescorRotulo || "custo desta aba"}>
+        {cp.opcoesCustoFrescor || ""}
+      </DetalheInfo>
+
+      {/* Fase 39 (39-02/39-04, D-07): sheet de Vigias — SecaoVigias aparece
+          1x no arquivo, só aqui (era fixo no hub, Fase 33-01). */}
+      <VigiasSheet aberto={vigiasAberto} onFechar={() => setVigiasAberto(false)} cp={cp}>
+        <SecaoVigias
+          vigias={vigias}
+          vigiasVivos={vigiasVivos}
+          atualizarVigias={atualizarVigias}
+          listaDeVigias={listaDeVigias}
+          temEstado={temEstadoDosVigias}
+          tickersEmCarteira={tickersEmCarteira}
+          ticker={ticker}
+          onIr={irParaVigia}
+          custos={CUSTO_DA_ACAO}
+          cp={cp}
+        />
+      </VigiasSheet>
+
       {/* Fase 38 (38-05, KB-02): instância LOCAL da folha de conceito — a
           MESMA semântica de trilha de A.trocarConceito/A.voltarConceito
           (App.jsx), estado próprio. Tensão conhecida e declarada (não
@@ -1070,28 +1036,26 @@ export default function OpcoesScreen({ ctx }) {
   );
 }
 
-// -------------------------------------------------------- SUB-ABA OPERAR --
-// Fase 28 (28-02). Universo = CARTEIRA (Fase 27 D3), nunca watchlist; o
-// `seletor` é recebido POR PROP (o mesmo chip que "Setups" usa, não uma
-// segunda implementação) para que trocar de sub-aba nunca perca o ativo
-// escolhido — os dois ramos leem o MESMO `ticker` do componente pai.
+// -------------------------------------------------- PROPOSTA DO ATIVO --
+// Fase 28 (28-02). Fase 39 (39-04, D-05, fork 1 do <objective> de
+// 39-04-PLAN.md, "Leitura B'"): renomeia e enxuga `SubAbaOperar` — a sub-aba
+// "Operar" deixa de existir; este painel abre INLINE abaixo do carrossel de
+// Oportunidades quando um card é tocado (`oportunidadeAberta`, estado do
+// orquestrador), não mais numa sub-aba própria. Universo continua sendo a
+// CARTEIRA (Fase 27 D3): `ticker`/`posicao` chegam prontos por prop — não há
+// mais `seletor` nem ramo `!ticker` aqui (o card já garante um ticker
+// escolhido antes de este componente montar).
 //
-// Decisão de Fase 30 SUPERADA (Fase 32, 32-04, 2026-09-16): o parágrafo
-// abaixo dizia que o ramo multi-candidato NÃO seria replicado aqui — essa
-// lacuna foi fechada nesta fase. `PropostaDaPosicao` (App.jsx) morreu; o
-// ramo de N candidatos que só existia nela foi PORTADO para
-// este componente (ver 32-04-PLAN.md, decisão arquitetural B): quando a
-// proposta traz mais de um candidato, os N aparecem lado a lado via
-// `CandidatoOpcao` (reusado verbatim, não recriado), com o MESMO
-// `aceitarCandidato` de `useAceiteLastreado` para todos — sem regressão de
-// MULTI-02. Candidato único continua caindo em `PropostaLastreada`, como
-// sempre. O texto histórico abaixo (AtivoCard nunca teve seletor de N
-// candidatos) segue válido — só o "aqui" mudou de resposta.
-function SubAbaOperar({
-  carteira, ticker, posicaoSelecionada, tecnico, cp, ctx, seletor,
-  opcoesPorTicker, opcoesPorTickerCarregando,
+// Continua sendo o ÚNICO consumidor de `PropostaLastreada`/`CandidatoOpcao`/
+// `useAceiteLastreado` (Fase 32, 32-04, MULTI-02: quando a proposta traz mais
+// de um candidato, os N aparecem lado a lado via `CandidatoOpcao`, com o
+// MESMO `aceitarCandidato` para todos — sem regressão de MULTI-02). Sem
+// `store.mcp*`/`store.options*`: a fonte é `opcoesPorTicker`, o fan-out de
+// custo zero que o orquestrador já buscou para a carteira inteira
+// (`useOpcoesPropostas`).
+function PropostaDoAtivo({
+  ticker, posicao, cp, ctx, opcoesPorTicker, opcoesPorTickerCarregando, onMontar,
 }) {
-  const store = ctx && ctx.store;
   const A = ctx && ctx.A;
   // Fonte única de appMode (FIX-C21) — nunca redevirar de ctx.data.config.
   const operador = !!(ctx && ctx.operador);
@@ -1102,31 +1066,19 @@ function SubAbaOperar({
 
   // 2026-09-20, Fase 33 (33-05), fold-in D-04a
   // (`.planning/todos/pending/subaba-operar-fetch-redundante-gate-proposta.md`):
-  // o par gate→proposta NÃO sumiu, mudou de dono. Antes, esta função tinha
-  // dois `useEffect` chamando `store.optionsGate(ticker)`/
-  // `store.optionsProposta(ticker, true)` toda vez que o ticker mudava — a
-  // MESMA busca que `useOpcoesPropostas(store, carteira.map((p) => p.t))`
-  // (topo de OpcoesScreen.jsx) já faz para TODA a carteira, com a MESMA
-  // guarda (`gate && gate.liquida`) e o MESMO `multiperna: true`. O universo
-  // do fan-out é exatamente a carteira de onde este `ticker` é escolhido —
-  // ele está sempre coberto. A rota é interna e de custo ZERO (ADR-027
-  // §3.3); o que se ganha não é cota de MCP, é uma busca a menos e uma fonte
-  // só para os dois destinos da aba (Setups já lia o fan-out; Operar refazia
-  // a mesma pergunta).
+  // o par gate→proposta NÃO sumiu, mudou de dono. `opcoesPorTicker` já cobre
+  // a carteira inteira (`useOpcoesPropostas`, topo de OpcoesScreen.jsx) —
+  // rota interna e de custo ZERO (ADR-027 §3.3).
   const entrada = opcoesPorTicker[ticker] || null;
   const gate = entrada && entrada.gate;
   const prop = entrada && entrada.proposta;
   // "Ainda não varrido" é o estado correto quando o fan-out do topo ainda não
-  // respondeu para este ticker — NUNCA um fallback de fetch local (seria a
-  // segunda fonte que a regra 3 do guardião existe para impedir).
+  // respondeu para este ticker — NUNCA um fallback de fetch local.
   const carregandoGate = opcoesPorTickerCarregando && !entrada;
 
   // Fórmula de App.jsx (PropostaDaPosicao, aposentada — Fase 32/32-04): a
   // posição de opções já ABERTA que casa com o candidato principal da
-  // proposta, para o CTA virar "fechar" em vez de "abrir". Esta é agora a
-  // ÚNICA implementação (App.jsx tinha uma irmã idêntica dentro de
-  // PropostaDaPosicao; morreu junto com o componente para as duas nunca
-  // mais divergirem — ver 32-04-PLAN.md, "Duplicações resolvidas").
+  // proposta, para o CTA virar "fechar" em vez de "abrir".
   const myOptionPositions = ((ctx && ctx.data && ctx.data.optionPositions) || []).filter((p) => p.underlying === ticker);
   const posAberta = (prop && prop.proposta)
     ? myOptionPositions.find((p) => p.id === prop.proposta.contractSymbol) || null
@@ -1135,89 +1087,66 @@ function SubAbaOperar({
   // Fase 32 (32-04, MULTI-02 portado de PropostaDaPosicao/App.jsx): quando a
   // proposta traz mais de um candidato (ex.: venda coberta E put de proteção
   // sobre a MESMA posição), os dois aparecem lado a lado em vez de o motor
-  // escolher um só por trás das cenas. `candidatos` é SEMPRE array (default
-  // [] no servidor) — a mesma guarda `Array.isArray` de PropostaDaPosicao.
+  // escolher um só por trás das cenas.
   const candidatos = Array.isArray(prop && prop.candidatos) ? prop.candidatos : [];
   const multi = candidatos.length > 1;
 
   return (
-    <>
-      <p style={{ fontSize: "13px", color: T.textSecondary, margin: "0 0 14px", lineHeight: 1.5 }}>
-        {cp.opcoesOperarIntro || ""}
-      </p>
-      {carteira.length === 0 ? (
-        // Fase 27 D2 — carteira vazia tem MOTIVO e CAMINHO, e o destino é a
-        // Carteira, nunca a watchlist. Reuso verbatim do mesmo bloco da
-        // sub-aba Setups (chaves já existentes, nenhuma nova).
-        <Aviso>
-          {cp.opcoesCarteiraVazia || "Esta aba trabalha sobre os ativos que você tem em carteira."}
-          <button
-            onClick={() => { if (ctx && ctx.goCarteira) ctx.goCarteira(); }}
-            style={{ ...BOTAO, width: "100%", marginTop: "12px" }}
-          >
-            {cp.opcoesIrParaCarteira || "Ir para a Carteira"}
-          </button>
-        </Aviso>
-      ) : (
+    <div style={{ ...CAIXA, marginTop: "10px" }}>
+      <LastroDoAtivo pos={posicao} cp={cp} />
+      {carregandoGate ? (
+        <Aviso>{cp.opcoesCarregando || "Consultando o serviço de opções…"}</Aviso>
+      ) : !gate || !gate.liquida ? (
+        <Aviso>{(cp.opcoesOperarSemLiquidez || ((t) => "Sem liquidez confirmada para " + t + " agora."))(ticker)}</Aviso>
+      ) : multi ? (
         <>
-          {seletor}
-          {!ticker ? (
-            <Aviso>{cp.opcoesOperarEscolherPosicao || "Escolha uma posição para ver a proposta."}</Aviso>
-          ) : (
-            <>
-              <LastroDoAtivo pos={posicaoSelecionada} cp={cp} />
-              <LeituraInterna tecnico={tecnico} cp={cp} />
-              {carregandoGate ? (
-                <Aviso>{cp.opcoesCarregando || "Consultando o serviço de opções…"}</Aviso>
-              ) : !gate || !gate.liquida ? (
-                <Aviso>{(cp.opcoesOperarSemLiquidez || ((t) => "Sem liquidez confirmada para " + t + " agora."))(ticker)}</Aviso>
-              ) : multi ? (
-                <>
-                  {/* Fase 32 (32-04, MULTI-02 portado): dois (ou mais)
-                      candidatos disputam a MESMA decisão sobre a MESMA
-                      posição — largura fixa e igual entre eles (vem de
-                      dentro de CandidatoOpcao) porque um cartão maior que o
-                      outro passaria peso visual diferente para a mesma
-                      escolha (princípio 9 do CLAUDE.md, mesma razão já
-                      registrada em App.jsx quando este ramo vivia em
-                      PropostaDaPosicao). O aceite continua exclusivo por
-                      rodada: todos os candidatos usam o MESMO
-                      `aceitarCandidato` de `useAceiteLastreado` — não existe
-                      (nem é criado aqui) nenhuma trava nova na UI; a
-                      exclusividade é garantida pelo motor no backend. */}
-                  <div style={carouselTrackStyle({ marginTop: "11px", gap: "10px", scrollbarWidth: "none", paddingBottom: "2px" })}>
-                    {candidatos.map((c) => (
-                      <CandidatoOpcao
-                        key={c.tipo + "-" + (c.contractSymbol || "collar")}
-                        p={c}
-                        r={prop}
-                        cp={cp}
-                        operador={operador}
-                        busy={busy}
-                        onAceitar={aceitarCandidato}
-                        onVerbeteLiquidez={(dados) => { if (A && A.abrirVerbete) A.abrirVerbete("liquidez-opcao", dados); }}
-                      />
-                    ))}
-                  </div>
-                  <FonteDoDadoProposta r={prop} cp={cp} />
-                </>
-              ) : (
-                <PropostaLastreada
-                  r={prop}
-                  operador={operador}
-                  cp={cp}
-                  busy={busy}
-                  onAbrir={() => aceitarCandidato(prop && prop.proposta)}
-                  onFechar={() => fecharLastreada(prop)}
-                  posAberta={posAberta}
-                  onVerbeteLiquidez={(dados) => { if (A && A.abrirVerbete) A.abrirVerbete("liquidez-opcao", dados); }}
-                />
-              )}
-            </>
-          )}
+          {/* Fase 32 (32-04, MULTI-02 portado): dois (ou mais) candidatos
+              disputam a MESMA decisão sobre a MESMA posição — largura fixa e
+              igual entre eles (vem de dentro de CandidatoOpcao) porque um
+              cartão maior que o outro passaria peso visual diferente para a
+              mesma escolha (princípio 9 do CLAUDE.md). O aceite continua
+              exclusivo por rodada: todos os candidatos usam o MESMO
+              `aceitarCandidato` — a exclusividade é garantida pelo motor no
+              backend. */}
+          <div style={carouselTrackStyle({ marginTop: "11px", gap: "10px", scrollbarWidth: "none", paddingBottom: "2px" })}>
+            {candidatos.map((c) => (
+              <CandidatoOpcao
+                key={c.tipo + "-" + (c.contractSymbol || "collar")}
+                p={c}
+                r={prop}
+                cp={cp}
+                operador={operador}
+                busy={busy}
+                onAceitar={aceitarCandidato}
+                onVerbeteLiquidez={(dados) => { if (A && A.abrirVerbete) A.abrirVerbete("liquidez-opcao", dados); }}
+              />
+            ))}
+          </div>
+          <FonteDoDadoProposta r={prop} cp={cp} />
         </>
+      ) : (
+        <PropostaLastreada
+          r={prop}
+          operador={operador}
+          cp={cp}
+          busy={busy}
+          onAbrir={() => aceitarCandidato(prop && prop.proposta)}
+          onFechar={() => fecharLastreada(prop)}
+          posAberta={posAberta}
+          onVerbeteLiquidez={(dados) => { if (A && A.abrirVerbete) A.abrirVerbete("liquidez-opcao", dados); }}
+        />
       )}
-    </>
+      {/* Fase 39 (39-04): link secundário para o caminho alternativo — Montar
+          a estrutura à mão (Leitura A do 39-UI-SPEC.md, como opção
+          secundária). Mesmo estilo do "ver posição" de CuradoriaEstruturas. */}
+      <button
+        type="button"
+        onClick={onMontar}
+        style={{ marginTop: "10px", display: "block", background: "transparent", border: "none", padding: 0, color: T.accent, fontWeight: 700, fontSize: "11.5px", minHeight: "44px" }}
+      >
+        {(cp.opcoesMontarNoAtivo || ((t) => "Montar com " + t))(ticker)}
+      </button>
+    </div>
   );
 }
 
@@ -1258,7 +1187,11 @@ function LastroDoAtivo({ pos, cp }) {
           {(c.opcoesLastroTravado || ((t) => t + " travada(s)"))(travadas)}
         </div>
       ) : null}
-      <div style={AJUDA}>{c.opcoesLastroAjuda || ""}</div>
+      {/* Fase 39 (39-04, D-14): a mecânica de lastro vai atrás de ⓘ — era um
+          parágrafo fixo (`AJUDA`), agora um `DetalheInfo` colapsável. */}
+      <DetalheInfo rotulo={c.opcoesLastroAjudaRotulo || "como o lastro é contado"}>
+        {c.opcoesLastroAjuda || ""}
+      </DetalheInfo>
     </div>
   );
 }
