@@ -32,6 +32,11 @@
 // não sumiu: o ramo multi-candidato foi portado para `SubAbaOperar`
 // (web/src/opcoes/OpcoesScreen.jsx) — a seção A passa a isolar esse
 // componente de lá em vez de App.jsx.
+// ATUALIZADO 2026-09-24 (Fase 39, 39-04/39-05, NAV-01, D-05, fork 1 "Leitura
+// B'"): `SubAbaOperar` é renomeada/enxugada para `PropostaDoAtivo` — a
+// sub-aba "Operar" deixa de existir, o trilho vira um painel INLINE abaixo
+// do carrossel de Oportunidades. Mesmo componente, mesmo invariante (chama
+// `carouselTrackStyle(` no ramo multi-candidato), nome novo.
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
@@ -81,7 +86,7 @@ function isolarFuncaoDeOpcoesScreen(nome) {
   const fim = telaOpcoes.indexOf("\nfunction ", inicio + 10);
   return telaOpcoes.slice(inicio, fim > inicio ? fim : undefined);
 }
-const subAbaOperar = isolarFuncaoDeOpcoesScreen("SubAbaOperar");
+const subAbaOperar = isolarFuncaoDeOpcoesScreen("PropostaDoAtivo");
 const candidatoOpcao = moduloCandidatoOpcao;
 
 // TECH_MODELS não vive dentro de uma função nomeada própria — isolar pelo
@@ -177,7 +182,7 @@ ok("os 4 itens chamam `carouselItemStyle(` (limiar >= 4, definição não conta;
 
 ok("recorte de TECH_MODELS.map( chama `carouselTrackStyle(`", techModelsBloco.includes("carouselTrackStyle("));
 ok("função OportunidadesOpcoes chama `carouselTrackStyle(`", oportunidadesOpcoes.includes("carouselTrackStyle("));
-ok("(Fase 32/32-04) função SubAbaOperar (OpcoesScreen.jsx) chama `carouselTrackStyle(` no ramo multi-candidato (antigo 4º site, PropostaDaPosicao, App.jsx)",
+ok("(Fase 39) função PropostaDoAtivo (OpcoesScreen.jsx, ex-SubAbaOperar) chama `carouselTrackStyle(` no ramo multi-candidato (antigo 4º site, PropostaDaPosicao, App.jsx)",
   subAbaOperar.includes("carouselTrackStyle("));
 ok("função EvolucaoScreen (HERO-CARROSSEL) chama `carouselTrackStyle(`", evolucaoScreen.includes("carouselTrackStyle("));
 

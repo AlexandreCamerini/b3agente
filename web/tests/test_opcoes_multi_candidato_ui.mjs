@@ -1,5 +1,5 @@
 // Fase 19 (Plano 03, MULTI-02) — Guardião estático do ramo de N candidatos
-// na sub-aba Operar da aba Opções (`CandidatoOpcao` + `SubAbaOperar`).
+// na sub-aba Operar da aba Opções (`CandidatoOpcao` + `PropostaDoAtivo`).
 //
 // 2026-09-15, Fase 32 (32-02): `CandidatoOpcao` saiu de App.jsx para
 // web/src/opcoes/CandidatoOpcao.jsx (ADR-027 Emenda 3). A âncora de
@@ -7,10 +7,10 @@
 // USO (`<CandidatoOpcao`, dentro de PropostaDaPosicao) continuam em App.jsx.
 //
 // 2026-09-15, Fase 32 (32-04): `PropostaDaPosicao` deixou de existir; o ramo
-// multi-candidato que só vivia nela foi portado para `SubAbaOperar`
+// multi-candidato que só vivia nela foi portado para `PropostaDoAtivo`
 // (`OpcoesScreen.jsx`), e o acordeão de opções saiu de Posições
 // (D-01/D-04). Todas as asserções que liam a fatia de `PropostaDaPosicao`
-// em App.jsx passam a ler a fatia de `SubAbaOperar` em `OpcoesScreen.jsx`.
+// em App.jsx passam a ler a fatia de `PropostaDoAtivo` em `OpcoesScreen.jsx`.
 //
 // Este arquivo tranca a CLASSE de erros que um edito futuro poderia
 // reintroduzir, não a instância — cada bloco abaixo defende uma regra que o
@@ -43,6 +43,14 @@
 //   12. nenhuma composição de frase proibida no fonte inteiro (guardiões
 //       globais da Fase 14, repetidos aqui por precaução).
 //
+// 2026-09-24, Fase 39 (39-04/39-05, NAV-01, D-05, fork 1 "Leitura B'"): a
+// sub-aba "Operar" (pill própria) é DISSOLVIDA — `PropostaDoAtivo` (nome
+// novo, ex-`SubAbaOperar`, renomeada em 39-04) é hoje um painel INLINE que
+// abre abaixo do carrossel de Oportunidades quando um card é tocado, não
+// mais uma sub-aba própria. TODAS as asserções abaixo continuam válidas sob
+// o nome novo — nenhuma foi revertida, só re-ancorada (mesmo padrão de
+// `test_opcoes_subabas_ui.mjs`, reconciliado na mesma leva).
+//
 // Padrão "static source inspection" da casa (mesmo de
 // test_carteira_opcoes_tira.mjs, test_opcoes_collar_ui.mjs,
 // test_opcoes_proposta_ui.mjs): readFileSync de App.jsx + import de COPY,
@@ -62,7 +70,7 @@ const modulo = readFileSync(join(here, "..", "src", "opcoes", "PropostaLastreada
 // para web/src/opcoes/CandidatoOpcao.jsx (ADR-027 Emenda 3). A âncora de
 // DEFINIÇÃO passa a apontar para o módulo.
 const moduloCO = readFileSync(join(here, "..", "src", "opcoes", "CandidatoOpcao.jsx"), "utf8");
-// ATUALIZADO 2026-09-15 (Fase 32, 32-04): `SubAbaOperar`, o novo lar do ramo
+// ATUALIZADO 2026-09-15 (Fase 32, 32-04): `PropostaDoAtivo`, o novo lar do ramo
 // multi-candidato (antes `PropostaDaPosicao`, App.jsx), vive aqui.
 const telaOpcoes = readFileSync(join(here, "..", "src", "opcoes", "OpcoesScreen.jsx"), "utf8");
 
@@ -87,10 +95,10 @@ const telaOpcoesSemComentario = telaOpcoes.split("\n").filter((l) => !/^\s*\/\//
 // CandidatoOpcao` no diretório inteiro igual a 1).
 // ATUALIZADO 2026-09-16 (Fase 32, 32-04): `PropostaDaPosicao` (App.jsx) foi
 // REMOVIDA — o consumidor de `CandidatoOpcao` deixou de ser App.jsx e passou
-// a ser exclusivamente `SubAbaOperar`, em `OpcoesScreen.jsx`. A fatia que
+// a ser exclusivamente `PropostaDoAtivo`, em `OpcoesScreen.jsx`. A fatia que
 // este arquivo mede também muda de fonte: de App.jsx (slice entre
 // `PropostaDaPosicao`/`useCuradoria`) para OpcoesScreen.jsx (slice de
-// `SubAbaOperar`, o mesmo padrão de marcador que
+// `PropostaDoAtivo`, o mesmo padrão de marcador que
 // test_opcoes_subabas_ui.mjs já usa: do início do marcador até o próximo
 // `\nfunction `).
 ok("function PropostaDaPosicao NÃO existe mais em App.jsx (removida, Fase 32/32-04)",
@@ -107,13 +115,13 @@ ok("App.jsx NÃO define mais function CandidatoOpcao",
 ok("CandidatoOpcao.jsx NÃO importa App.jsx (seria ciclo)",
   !/from\s+"[^"]*App\.jsx"/.test(moduloCO));
 
-// A fatia de SubAbaOperar (novo lar do ramo multi-candidato) — do marcador
-// `function SubAbaOperar` até o próximo `\nfunction `, mesmo padrão de
+// A fatia de PropostaDoAtivo (novo lar do ramo multi-candidato) — do marcador
+// `function PropostaDoAtivo` até o próximo `\nfunction `, mesmo padrão de
 // isolamento de test_opcoes_subabas_ui.mjs.
-const iSAO = telaOpcoes.indexOf("function SubAbaOperar");
+const iSAO = telaOpcoes.indexOf("function PropostaDoAtivo");
 const iSAOFim = telaOpcoes.indexOf("\nfunction ", iSAO + 1);
 const fatiaSAOComComentario = iSAO > -1 ? telaOpcoes.slice(iSAO, iSAOFim > iSAO ? iSAOFim : undefined) : "";
-ok("(Fase 32/32-04) fatia de SubAbaOperar não é vazia (parse mudo — sem isto, as regras abaixo passariam por vacuidade)",
+ok("(Fase 32/32-04) fatia de PropostaDoAtivo não é vazia (parse mudo — sem isto, as regras abaixo passariam por vacuidade)",
   fatiaSAOComComentario.length > 300);
 const fatiaSAO = fatiaSAOComComentario.split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n");
 // A "fatia" de CandidatoOpcao agora É o módulo inteiro (sem comentários,
@@ -165,11 +173,11 @@ ok("CandidatoOpcao usa disabled={busy || degradado} no CTA",
 
 // ---- (8) Ramo multi só existe com mais de um candidato ---------------------
 // ATUALIZADO 2026-09-16 (Fase 32, 32-04): a fonte da regra muda de
-// `fatiaPDP` (PropostaDaPosicao, App.jsx) para `fatiaSAO` (SubAbaOperar,
+// `fatiaPDP` (PropostaDaPosicao, App.jsx) para `fatiaSAO` (PropostaDoAtivo,
 // OpcoesScreen.jsx) — a regra em si (MULTI-02) não muda.
-ok("SubAbaOperar deriva `multi` a partir de candidatos.length > 1",
+ok("PropostaDoAtivo deriva `multi` a partir de candidatos.length > 1",
   /candidatos\.length > 1/.test(fatiaSAO));
-ok("SubAbaOperar continua renderizando PropostaLastreada no ramo de candidato único",
+ok("PropostaDoAtivo continua renderizando PropostaLastreada no ramo de candidato único",
   /<PropostaLastreada/.test(fatiaSAO));
 
 // ---- (9) <PropostaLastreada — teto da Fase 28 era "no máximo 2 pontos de
@@ -179,7 +187,7 @@ ok("SubAbaOperar continua renderizando PropostaLastreada no ramo de candidato ú
 // AtivoCard/Watchlist — foi removido (28-CONTEXT D1).
 // ATUALIZADO 2026-09-16 (Fase 32, 32-04): o PRIMEIRO ponto de uso
 // (PropostaDaPosicao, App.jsx) também foi removido — resta 1 único ponto de
-// uso em todo web/src/**/*.jsx: OpcoesScreen.jsx (SubAbaOperar).
+// uso em todo web/src/**/*.jsx: OpcoesScreen.jsx (PropostaDoAtivo).
 function listarJsxRecursivo(dir) {
   const out = [];
   for (const nome of readdirSync(dir)) {
@@ -204,7 +212,7 @@ const opcoesScreenPath = join(here, "..", "src", "opcoes", "OpcoesScreen.jsx");
 ok("(Fase 32/32-04) <PropostaLastreada aparece 0x em App.jsx (PropostaDaPosicao removida)",
   (fonteSemComentario.match(/<PropostaLastreada/g) || []).length === 0,
   String((fonteSemComentario.match(/<PropostaLastreada/g) || []).length));
-ok("<PropostaLastreada aparece exatamente 1x em OpcoesScreen.jsx (SubAbaOperar)",
+ok("<PropostaLastreada aparece exatamente 1x em OpcoesScreen.jsx (PropostaDoAtivo)",
   (telaOpcoesSemComentario.match(/<PropostaLastreada/g) || []).length === 1,
   String((telaOpcoesSemComentario.match(/<PropostaLastreada/g) || []).length));
 const outrosComTag = contagemPorArquivo.filter((r) => r.caminho !== appJsxPath && r.caminho !== opcoesScreenPath);
@@ -228,7 +236,7 @@ ok("(Fase 32) function CandidatoOpcao existe em exatamente 1 arquivo de web/src/
 
 // ---- (10) Caminho de aceite único, compartilhado pelos candidatos ----------
 // ATUALIZADO 2026-09-16 (Fase 32, 32-04): a fonte muda de `fatiaPDP` para
-// `fatiaSAO` — SubAbaOperar usa `useAceiteLastreado({ A, cp, ticker })`
+// `fatiaSAO` — PropostaDoAtivo usa `useAceiteLastreado({ A, cp, ticker })`
 // (não `ticker: t`, porque o parâmetro já se chama `ticker` neste
 // componente — a garantia protegida (um handler, um hook, compartilhado por
 // todos os candidatos) é a mesma).
@@ -238,9 +246,9 @@ ok("CandidatoOpcao é renderizado com onAceitar={aceitarCandidato} (o MESMO hand
 // declarado LOCALMENTE em PropostaDaPosicao — agora vem do hook
 // `useAceiteLastreado`, importado do módulo. O invariante ("handler único,
 // compartilhado por todos os candidatos") passa a ser medido em três partes:
-// (a) SubAbaOperar consome o hook; (b) a implementação é única, no módulo;
+// (a) PropostaDoAtivo consome o hook; (b) a implementação é única, no módulo;
 // (c) App.jsx não voltou a ter uma implementação própria.
-ok("SubAbaOperar consome o hook useAceiteLastreado({ A, cp, ticker })",
+ok("PropostaDoAtivo consome o hook useAceiteLastreado({ A, cp, ticker })",
   /useAceiteLastreado\(\{ A, cp, ticker \}\)/.test(fatiaSAO));
 ok("o módulo declara `const aceitarCandidato = async (p) =>` exatamente 1× (implementação única)",
   (modulo.match(/const aceitarCandidato = async \(p\) => \{/g) || []).length === 1);

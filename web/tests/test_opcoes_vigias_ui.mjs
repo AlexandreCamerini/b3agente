@@ -72,16 +72,26 @@ const iRenderBloco = tela.indexOf("<SecaoVigias");
 const iRenderSeletor = tela.indexOf("carteira.length > 0 ? seletor");
 ok("<SecaoVigias é renderizado em OpcoesScreen.jsx", iRenderBloco >= 0);
 ok("o marcador do seletor existe em OpcoesScreen.jsx", iRenderSeletor >= 0);
-ok("o bloco de vigias é RENDERIZADO antes do seletor (D4: vigias antes da carteira)",
-   iRenderBloco >= 0 && iRenderSeletor >= 0 && iRenderSeletor > iRenderBloco);
-// Sem `ticker` no caminho: o componente é montado incondicionalmente, fora de
+// Fase 39 (39-04/39-05, NAV-01, D-07, 2026-09-24) — REVERSÃO (b): "vigias
+// antes da carteira" (D4 do 27-CONTEXT) media a posição de `<SecaoVigias`,
+// um BLOCO FIXO do hub. "Seus vigias" deixa de ser bloco fixo e vira
+// badge+sheet — `<SecaoVigias` hoje mora DENTRO do sheet (fecho do arquivo,
+// depois de `<VigiasSheet`), então sua posição textual deixou de garantir
+// visibilidade. Quem garante "nunca escondido, nunca atrás da dobra" agora é
+// `<VigiasBadge`, no cabeçalho — renderizado ANTES do seletor (e de
+// qualquer aba), a mesma garantia de fundo (D4), forma nova.
+const iRenderBadge = tela.indexOf("<VigiasBadge");
+ok("<VigiasBadge é renderizado em OpcoesScreen.jsx", iRenderBadge >= 0);
+ok("o badge de vigias é RENDERIZADO antes do seletor (D4/D-07: vigias nunca escondido, agora via badge sempre visível no cabeçalho)",
+   iRenderBadge >= 0 && iRenderSeletor >= 0 && iRenderSeletor > iRenderBadge);
+// Sem `ticker` no caminho: o badge é montado incondicionalmente, fora de
 // qualquer ativo — é essa independência que corrige o defeito 2 do
 // 27-CONTEXT. O `-1` silencioso é o modo como este guardião ficaria inerte
-// se `<SecaoVigias` não existisse: por isso a checagem `>= 0` roda ANTES de
+// se `<VigiasBadge` não existisse: por isso a checagem `>= 0` roda ANTES de
 // qualquer fatiamento, acima.
-const antesDoRender = iRenderBloco >= 0 ? tela.slice(Math.max(0, iRenderBloco - 40), iRenderBloco) : "";
-ok("o bloco é renderizado sem depender de haver ticker escolhido",
-   iRenderBloco >= 0 && !/[?&]\s*$/.test(antesDoRender));
+const antesDoRenderBadge = iRenderBadge >= 0 ? tela.slice(Math.max(0, iRenderBadge - 40), iRenderBadge) : "";
+ok("o badge é renderizado sem depender de haver ticker escolhido",
+   iRenderBadge >= 0 && !/[?&]\s*$/.test(antesDoRenderBadge));
 
 // ---- 2) custo zero ao abrir; custo 2 só no clique --------------------------
 const efeitos = hook.split("useEffect(").slice(1).map((t) => t.split("}, [")[0]);
@@ -257,8 +267,15 @@ ok("o motivo do backend (vigia sumido do armazém) vai VERBATIM",
 // ---- 6) clicar no cartão leva ao ativo do vigia (SC-1) ---------------------
 ok("o cartão navega para o ticker do vigia",
    /onIr\(v\.ticker\)/.test(cartao) && /onIr=\{irParaVigia\}/.test(tela));
-ok("navegar NÃO é alternar (clicar no vigia do ativo já aberto não o fecha)",
-   /const irParaVigia = \(t\) => \{ if \(t && t !== ticker\) escolherTicker\(t\); \};/.test(tela));
+// Fase 39 (39-04, D-07, 2026-09-24, re-ancorado a): `irParaVigia` fecha o
+// sheet e delega a `irParaMontar` (destino ÚNICO de "levar a Montar com este
+// ticker", também usado pelo card de Oportunidades e pela curadoria) — o
+// guarda de toggle (nunca desselecionar o ativo ao navegar até ele) agora
+// vive em `irParaMontar`, não mais inline em `irParaVigia`. MESMA garantia.
+ok("irParaVigia fecha o sheet e delega a irParaMontar(t) (destino único de navegação)",
+   /const irParaVigia = \(t\) => \{ setVigiasAberto\(false\); irParaMontar\(t\); \};/.test(tela));
+ok("navegar NÃO é alternar (irParaMontar não desseleciona o ativo já aberto)",
+   /const irParaMontar = \(t\) => \{ if \(t && t !== ticker\) escolherTicker\(t\); setAbaOpcoes\("montar"\); \};/.test(tela));
 ok("vigia de ativo fora da carteira NÃO some — ele ganha a explicação",
    /naCarteira \? null : \(/.test(cartao) && /opcoesVigiaForaDaCarteira/.test(cartao));
 

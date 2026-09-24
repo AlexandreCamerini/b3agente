@@ -162,7 +162,9 @@ ok("OportunidadesOpcoes referencia cp.tiraOpcoesCarregando",
 ok("o ramo de carregando é avaliado ANTES do ramo vazio (a tira não mente durante a busca)",
   fatiaOO.indexOf("cp.tiraOpcoesCarregando") < fatiaOO.indexOf("cp.tiraOpcoesSemCobertura"));
 
-// ---- (4, Fase 33/33-02) Tira migrou para SecaoDescobrir.jsx ----------------
+// ---- (4, Fase 33/33-02, re-ancorado 39-05) Tira migrou para AbaOportunidades.jsx
+// (SecaoDescobrir.jsx, seu lar intermediário na Fase 33-02, foi deletado
+// na Fase 39, 39-04/39-05) ---------------------------------------------------
 // O call site (`<OportunidadesOpcoes`) migrou de CarteiraScreen (App.jsx,
 // até a Fase 32) para o topo da sub-aba Setups de OpcoesScreen.jsx (Fase
 // 32-03) e agora, na Fase 33-02, para dentro de SecaoDescobrir.jsx (frase-
@@ -183,17 +185,22 @@ const totalOONaPasta = ocorrenciasOOPorArquivo.reduce((acc, e) => acc + e.n, 0);
 ok("(Fase 33/33-02) <OportunidadesOpcoes aparece exatamente 1x em toda a pasta web/src/opcoes/"
   + " (" + ocorrenciasOOPorArquivo.filter((e) => e.n > 0).map((e) => e.f + ":" + e.n).join(", ") + ")",
   totalOONaPasta === 1);
-ok("(Fase 33/33-02) <OportunidadesOpcoes aparece 0x em OpcoesScreen.jsx (call site migrou para SecaoDescobrir.jsx)",
+ok("(Fase 39) <OportunidadesOpcoes aparece 0x em OpcoesScreen.jsx (call site migrou para AbaOportunidades.jsx)",
   (telaOpcoesSemComentario.match(/<OportunidadesOpcoes/g) || []).length === 0);
 ok("(Fase 32/32-03) <OportunidadesOpcoes aparece 0x em App.jsx (call site saiu de CarteiraScreen)",
   (fonteSemComentario.match(/<OportunidadesOpcoes/g) || []).length === 0);
-// 2026-09-20, Fase 33 (33-02): o par de ordem {blocoOportunidades} →
-// <SecaoVigias vira <SecaoDescobrir → <SecaoVigias em OpcoesScreen.jsx (os
-// três marcadores antigos viraram um componente só).
-const iUsoSecaoDescobrirTela = telaOpcoesSemComentario.indexOf("<SecaoDescobrir");
-const iUsoVigiasTela = telaOpcoesSemComentario.indexOf("<SecaoVigias");
-ok("(Fase 33/33-02) <SecaoDescobrir é usado antes de <SecaoVigias em OpcoesScreen.jsx",
-  iUsoSecaoDescobrirTela > -1 && iUsoVigiasTela > iUsoSecaoDescobrirTela);
+// Fase 39 (39-04/39-05, NAV-01, 2026-09-24) — REVERSÃO (b): `SecaoDescobrir.jsx`
+// foi DELETADO — não há mais "<SecaoDescobrir antes de <SecaoVigias" para
+// medir (os dois não existem mais nessa forma: o motor cross-carteira virou
+// duas abas fixas, `<AbaOportunidades`/`<AbaRecomendadas`; "Seus vigias"
+// deixou de ser bloco fixo do hub e virou badge+sheet, D-07). Substituído
+// pela mesma checagem, com nota própria, de `test_opcoes_hub_workspace_ui.mjs`
+// (item 5b)/`test_curadoria_ui.mjs`: `<VigiasBadge` — o que hoje garante que
+// vigias nunca fica escondido — é renderizado ANTES do primeiro ramo de aba.
+const iUsoVigiasBadgeTela = telaOpcoesSemComentario.indexOf("<VigiasBadge");
+const iUsoRamoOportunidadesTela = telaOpcoesSemComentario.indexOf('abaOpcoes === "oportunidades" ? (');
+ok("(Fase 39) <VigiasBadge é usado antes do primeiro ramo de aba em OpcoesScreen.jsx (D-07: sempre visível, não escondido atrás de nenhuma aba)",
+  iUsoVigiasBadgeTela > -1 && iUsoRamoOportunidadesTela > -1 && iUsoVigiasBadgeTela < iUsoRamoOportunidadesTela);
 ok("(Fase 32/32-03) App.jsx contém <LinhaChamadaOpcoes exatamente 1x (D-01: substitui os dois blocos em Posições)",
   (fonteSemComentario.match(/<LinhaChamadaOpcoes/g) || []).length === 1);
 

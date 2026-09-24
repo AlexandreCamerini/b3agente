@@ -65,23 +65,46 @@ function blocoDoLink(src, marcador) {
 const blocoEvolucao = blocoDoLink(fatiaEvolucao, "ANCORAS_KB.evolucao) && (");
 const blocoMercado = blocoDoLink(fatiaMercado, "ANCORAS_KB.mercado) && (");
 const blocoRadar = blocoDoLink(fatiaRadar, "ANCORAS_KB.radar) && (");
-const blocoOpcoes = (() => {
-  const ini = opcoes.indexOf("ANCORAS_KB.opcoes) && (");
-  return ini === -1 ? "" : opcoes.slice(Math.max(0, ini - 300), ini + 600);
-})();
 
-for (const [nome, bloco] of [["EvolucaoScreen", blocoEvolucao], ["MercadoScreen", blocoMercado], ["RadarScreen", blocoRadar], ["OpcoesScreen", blocoOpcoes]]) {
+for (const [nome, bloco] of [["EvolucaoScreen", blocoEvolucao], ["MercadoScreen", blocoMercado], ["RadarScreen", blocoRadar]]) {
   ok(`${nome}: bloco do link foi localizado (>50 caracteres)`, bloco.length > 50);
   ok(`${nome}: link não usa abrirSetor`, !/abrirSetor/.test(bloco));
   ok(`${nome}: link não usa openConceito`, !/openConceito/.test(bloco));
   ok(`${nome}: link não usa A.abrirVerbete( antigo (só abrirVerbeteKb/estado local)`, !/A\.abrirVerbete\(/.test(bloco));
 }
 
-// ---- (f) estilo do link idêntico ao precedente nas 4 ocorrências ----------
-for (const [nome, bloco] of [["EvolucaoScreen", blocoEvolucao], ["MercadoScreen", blocoMercado], ["RadarScreen", blocoRadar], ["OpcoesScreen", blocoOpcoes]]) {
+// ---- (f) estilo do link idêntico ao precedente nas 3 ocorrências restantes
+// (EvolucaoScreen/MercadoScreen/RadarScreen — link fixo no topo, D-07/D-08
+// intocado por esta fase) --------------------------------------------------
+for (const [nome, bloco] of [["EvolucaoScreen", blocoEvolucao], ["MercadoScreen", blocoMercado], ["RadarScreen", blocoRadar]]) {
   ok(`${nome}: estilo do link usa color: T.accent, fontWeight: 700, fontSize: "12px"`,
     /color:\s*T\.accent/.test(bloco) && /fontWeight:\s*700/.test(bloco) && /fontSize:\s*"12px"/.test(bloco));
 }
+
+// ---- (e'/f', Fase 39, 39-04/39-05, NAV-01, D-13, 2026-09-24, REVERSÃO b) --
+// OpcoesScreen.jsx NÃO tem mais um "saiba mais" fixo no topo — o link vira
+// `infoDaAba(` por aba (ⓘ contextual), 3x (Oportunidades/Recomendadas/
+// Montar), cada um montando o mesmo `<BotaoSaibaMais` compartilhado
+// (uiOpcoes.jsx). O PORTÃO exigido continua o MESMO de sempre (didática
+// ligada + verbete no catálogo) — agora medido na definição de
+// `abrirSaibaMais`, não mais numa condição JSX inline `{cond && (<a>...)}`.
+const uiOpcoesModulo = readFileSync(join(here, "..", "src", "opcoes", "uiOpcoes.jsx"), "utf8");
+const iAbrirSaibaMaisDef = opcoes.indexOf("const abrirSaibaMais = (");
+const blocoAbrirSaibaMaisDef = iAbrirSaibaMaisDef >= 0 ? opcoes.slice(iAbrirSaibaMaisDef, iAbrirSaibaMaisDef + 400) : "";
+ok("OpcoesScreen: a definição de abrirSaibaMais foi localizada (>50 caracteres)",
+  blocoAbrirSaibaMaisDef.length > 50);
+ok("OpcoesScreen: abrirSaibaMais é guardado por ctx.didatica.ligada + verbeteDoCatalogo(ctx.kbCatalogo, ANCORAS_KB.opcoes) — MESMO portão de sempre",
+  /ctx\s*&&\s*ctx\.didatica\s*&&\s*ctx\.didatica\.ligada/.test(blocoAbrirSaibaMaisDef)
+  && /verbeteDoCatalogo\(ctx\.kbCatalogo,\s*ANCORAS_KB\.opcoes\)/.test(blocoAbrirSaibaMaisDef));
+ok("OpcoesScreen: link não usa abrirSetor", !/abrirSetor/.test(blocoAbrirSaibaMaisDef));
+ok("OpcoesScreen: link não usa openConceito", !/openConceito/.test(blocoAbrirSaibaMaisDef));
+ok("OpcoesScreen: link não usa A.abrirVerbete( antigo (só o estado local verbeteAberto)",
+  !/A\.abrirVerbete\(/.test(blocoAbrirSaibaMaisDef));
+ok("OpcoesScreen: infoDaAba( é chamado exatamente 3x (uma por aba — Oportunidades/Recomendadas/Montar, D-13)",
+  (opcoes.match(/infoDaAba\(/g) || []).length === 3);
+ok("uiOpcoes.jsx: BotaoSaibaMais usa color: T.accent, fontWeight: 700 (D-13 — mesmo tom do link antigo, ⓘ por aba em vez de link fixo)",
+  /export function BotaoSaibaMais/.test(uiOpcoesModulo)
+  && /color:\s*T\.accent/.test(uiOpcoesModulo) && /fontWeight:\s*700/.test(uiOpcoesModulo));
 
 // ---- (g) isolamento de OpcoesScreen.jsx (T-38-18) --------------------------
 ok("OpcoesScreen.jsx NÃO importa App.jsx", !/from\s+["'][^"']*App\.jsx["']/.test(opcoes));
