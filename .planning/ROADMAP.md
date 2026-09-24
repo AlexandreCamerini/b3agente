@@ -10,16 +10,17 @@
 - ✅ **v1.4 Opções v2** — Phases 15-19, 24-32 (shipped 2026-09-19) — [detalhes](milestones/v1.4-ROADMAP.md)
 - ✅ **v1.6 Simplificação da aba Opções** — Phases 33-34 (shipped 2026-09-20) — [detalhes](milestones/v1.6-ROADMAP.md)
 - ✅ **v1.7 Confiabilidade explicativa da aba Opções** — Phases 35-37 (shipped 2026-09-22) — [detalhes](milestones/v1.7-ROADMAP.md)
-- 🚧 **v1.8 Didática ampliada + continuidade da aba Opções** — Phases 38-40 (in progress)
+- 🚧 **v1.8 Didática ampliada + continuidade da aba Opções** — Phases 38-41 (in progress)
 
 ## Phases
 
 <details open>
-<summary>🚧 v1.8 Didática ampliada + continuidade da aba Opções (Phases 38-40) — IN PROGRESS</summary>
+<summary>🚧 v1.8 Didática ampliada + continuidade da aba Opções (Phases 38-41) — IN PROGRESS</summary>
 
 - [x] Phase 38: KB Didática ampliada (6/6 plans) — completed 2026-09-23
-- [ ] Phase 39: Continuidade da aba Opções (0/? plans) — not started
-- [ ] Phase 40: Consolidação de registros de tela (0/? plans) — not started
+- [ ] Phase 39: Reestruturação de navegação da aba Opções (0/? plans) — not started
+- [ ] Phase 40: Continuidade da aba Opções (0/? plans) — not started
+- [ ] Phase 41: Consolidação de registros de tela (0/? plans) — not started
 
 Escopo explicitamente fora desta milestone: B3 (execução a descoberto,
 decisão de escopo pendente do Alex), CAP-12/verificação visual da Fase 37
@@ -238,19 +239,45 @@ checkpoint humano do roteiro de 9 itens aprovado pelo Alex antes do push. Ver
 `38-06-SUMMARY.md` e "Current Position" em `STATE.md`.
 **UI hint**: yes
 
-### Phase 39: Continuidade da aba Opções
+### Phase 39: Reestruturação de navegação da aba Opções
+
+**Goal**: A aba Opções tem 3 abas fixas de nível 1 (Oportunidades,
+Recomendadas, Montar), substituindo as duas camadas ortogonais de
+navegação atuais (`subaba` + `abaWorkspace`) e as duas telas cujo
+propósito não é óbvio ("Operar", "saiba mais" genérico).
+**Depends on**: Nenhuma. **Bloqueia a Fase 40** (ESTADO-01 pressupõe a
+navegação atual como o estado a preservar — precisa da estrutura nova
+definida primeiro).
+**Requirements**: NAV-01
+**Success Criteria** (what must be TRUE):
+  1. A navegação de nível 1 da aba Opções tem exatamente 3 itens fixos —
+     Oportunidades, Recomendadas, Montar — sem segunda camada de abas
+     dependente de estado intermediário (ticker escolhido)
+  2. Vigias é acessível por um ícone/badge no cabeçalho (sheet), visível
+     independente de qual das 3 abas está ativa — não é mais aba própria
+  3. Não existe mais a sub-aba "Operar"; a ação de executar uma estrutura
+     proposta pelo motor aparece inline no card da aba Recomendadas
+  4. Nenhum rótulo de navegação é repetido com significado diferente na
+     mesma tela (resolve a colisão "Setups" × "Setups salvos")
+  5. Texto de bastidor (cache, cota do dia, mecânica de lastro, score bruto
+     de curadoria) não aparece mais inline antes do conteúdo — fica atrás
+     de um ⓘ ou é removido
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 40: Continuidade da aba Opções
 
 **Goal**: Usuário troca da aba Opções para outra aba principal e volta sem
-perder onde estava — ticker selecionado, sub-aba ativa e filtros aplicados
+perder onde estava — ticker selecionado, aba ativa e filtros aplicados
 sobrevivem à navegação.
-**Depends on**: Nenhuma (independente de KB-01/KB-02 — sem arquivo
-compartilhado esperado com a Fase 38)
+**Depends on**: Fase 39 (a navegação a preservar é a de 3 abas definida ali,
+não a estrutura `subaba`/`abaWorkspace` atual)
 **Requirements**: ESTADO-01
 **Success Criteria** (what must be TRUE):
   1. Usuário seleciona um ticker na aba Opções, navega para outra aba
      principal e, ao voltar, encontra o mesmo ticker selecionado
-  2. Usuário troca de sub-aba do workspace (Analisar/Comparar/Setups salvos),
-     navega para fora e volta, e a mesma sub-aba continua ativa
+  2. Usuário troca de aba (Oportunidades/Recomendadas/Montar), navega para
+     fora e volta, e a mesma aba continua ativa
   3. Filtros aplicados na aba Opções (ex.: vencimento/estrutura) permanecem
      aplicados após a troca de aba
   4. A continuidade de estado respeita o escopo do usuário logado — trocar de
@@ -258,7 +285,7 @@ compartilhado esperado com a Fase 38)
 **Plans**: TBD
 **UI hint**: yes
 
-### Phase 40: Consolidação de registros de tela
+### Phase 41: Consolidação de registros de tela
 
 **Goal**: Um único registro de telas no front alimenta navegação, tour,
 ajuda e snapshot do assistente — fechando a dívida técnica de 5 registros

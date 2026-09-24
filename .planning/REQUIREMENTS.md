@@ -21,12 +21,35 @@ de produto — não por ordem de descoberta.
   isolamento deliberado de `OpcoesScreen.jsx` — `OpcoesScreen.jsx:20-24` não
   importa nada de `App.jsx`)
 
+### Reestruturação de navegação
+
+- [ ] **NAV-01**: A aba Opções passa a ter 3 abas fixas de nível 1 —
+  Oportunidades, Recomendadas, Montar — substituindo as duas camadas
+  ortogonais de navegação atuais (`subaba` + `abaWorkspace`, `OpcoesScreen.jsx`).
+  Vigias deixa de ser sub-aba e vira ícone/badge no cabeçalho (sheet), sempre
+  acessível independente da aba ativa. A sub-aba "Operar" é dissolvida — a
+  ação de executar migra para dentro do card de oportunidade (aba
+  Recomendadas), inline, no padrão que `CuradoriaEstruturas.jsx` já usa. O
+  nome "Setups" é preservado para o recurso existente (condição salva em
+  português livre, `SecaoSetups.jsx`/`CriarSetup.jsx`); a aba nova usa
+  "Recomendadas" para evitar colisão de rótulo (achado do design-audit
+  2026-09-23). Origem: achado ao vivo do Alex ("não consigo montar uma
+  estrutura e efetivá-la", "não sei pra que serve a aba Operar") +
+  auditoria de design da aba Opções (2026-09-23) — não estava no backlog da
+  Fase 26; é achado novo, sequenciado ANTES de ESTADO-01 porque essa fase
+  pressupõe a estrutura de navegação atual como o estado a preservar.
+  Metodologia de ranking da aba Recomendadas (filtro por probabilidade +
+  ordenação por prêmio anualizado, discutido em sessão separada) e a faixa
+  de corte de probabilidade ficam para decisão em discuss-phase — não
+  travadas aqui.
+
 ### Continuidade UX
 
-- [ ] **ESTADO-01**: Estado da aba Opções (ticker selecionado, sub-aba
-  ativa, filtros) sobrevive à troca para outra aba principal e volta —
-  abordagem de implementação (memória local × persistência) a decidir em
-  discuss-phase
+- [ ] **ESTADO-01**: Estado da aba Opções (ticker selecionado, aba ativa,
+  filtros) sobrevive à troca para outra aba principal e volta — abordagem
+  de implementação (memória local × persistência) a decidir em
+  discuss-phase. Depende da navegação de NAV-01 já estar definida (a
+  navegação a preservar muda de forma com NAV-01).
 
 ### Consolidação técnica
 
@@ -63,12 +86,13 @@ Reconhecido, mas fora desta milestone — decisão de escopo pendente do Alex.
 |-------------|-------|--------|
 | KB-01 | Phase 38 | Done |
 | KB-02 | Phase 38 | Done |
-| ESTADO-01 | Phase 39 | Pending |
-| TELAS-01 | Phase 40 | Pending |
+| NAV-01 | Phase 39 | Pending |
+| ESTADO-01 | Phase 40 | Pending |
+| TELAS-01 | Phase 41 | Pending |
 
 **Coverage:**
-- v1 requirements: 4 total
-- Mapped to phases: 4
+- v1 requirements: 5 total
+- Mapped to phases: 5
 - Unmapped: 0 ✓
 
 ---
@@ -76,3 +100,7 @@ Reconhecido, mas fora desta milestone — decisão de escopo pendente do Alex.
 *Last updated: 2026-09-23 — Fase 38 fechada: KB-01/KB-02 Done, publicado em
 produção (`F10-20260923-01`), checkpoint humano do roteiro de 9 itens
 aprovado pelo Alex (38-06). Ver STATE.md/ROADMAP.md para o detalhe.*
+*Last updated: 2026-09-23 — NAV-01 adicionado (auditoria de design da aba
+Opções, achado ao vivo do Alex), inserido como Fase 39; ESTADO-01/TELAS-01
+renumeradas para Fase 40/41 (NAV-01 precisa fechar antes de ESTADO-01 porque
+muda a navegação que ESTADO-01 preservaria).*
