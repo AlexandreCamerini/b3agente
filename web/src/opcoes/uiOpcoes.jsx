@@ -26,8 +26,15 @@
  * `SecaoComparar.jsx`) renderizam a MESMA razão ganho/perda; duas cópias
  * divergiriam na primeira correção feita só numa delas.
  */
+import { useState } from "react";
+
 const VARKEY = (k) => "--" + k.replace(/[A-Z]/g, (c) => "-" + c.toLowerCase());
-const TOKENS = ["textMuted", "borderSubtle", "negative", "bgPanel", "textSecondary", "textPrimary", "borderFaint"];
+// Fase 39 (39-02, D-13/D-14): "accent" e "textFaint" entram no array — sem
+// isso T.accent/T.textFaint viram `undefined` calado (defeito real já pego
+// na Fase 35, ver SecaoVigias.jsx). "accent" é o ⓘ contextual por aba
+// (BotaoSaibaMais); "textFaint" é o CarimboFrescor (movido de
+// SecaoDescobrir.jsx, mesmo tom 10.5px que ele já usava lá).
+const TOKENS = ["textMuted", "borderSubtle", "negative", "bgPanel", "textSecondary", "textPrimary", "borderFaint", "accent", "textFaint"];
 const T = Object.fromEntries(TOKENS.map((k) => [k, `var(${VARKEY(k)})`]));
 
 const ehNum = (v) => typeof v === "number" && isFinite(v);
@@ -158,5 +165,73 @@ export function RecusaCobrada({ erro, cp }) {
       {(cp || {}).opcoesRecusaCobrada
         || "Esta tentativa consumiu uma chamada da sua cota do dia."}
     </div>
+  );
+}
+
+// -------------------------------------------------- Fase 39 (39-02) --
+// Primitivos da reestruturação de navegação (NAV-01): carimbo de frescor
+// (movido de SecaoDescobrir.jsx, D-04b da Fase 33 preservado), o ⓘ de
+// bastidor (D-14) e o ⓘ contextual por aba (D-13). Nenhum dos três importa
+// App.jsx (ADR-027) nem faz fetch — recebem tudo por prop.
+
+// Movido de SecaoDescobrir.jsx (Fase 33, D-04b) para cá na Fase 39 — os dois
+// blocos cross-carteira viram abas separadas (Oportunidades/Recomendadas) e
+// cada uma leva o seu próprio carimbo (todo carimbo-frescor-blocos-cross-
+// carteira, folded no 39-CONTEXT.md). Corpo VERBATIM de
+// SecaoDescobrir.jsx:118-127 — SecaoDescobrir.jsx continua com a cópia local
+// até o Plano 04 deletar o arquivo (D-02/D-03 do 39-CONTEXT.md).
+export function CarimboFrescor({ at, source, cp }) {
+  return (
+    <div style={{ fontSize: "10.5px", color: T.textFaint, margin: "0 0 6px", lineHeight: 1.4 }}>
+      {at
+        ? (cp.opcoesConsultadoEmRotulo || "Consultado") + ": " + at +
+          (source ? " · " + (cp.opcoesFonteRotulo || "Fonte") + ": " + source : "")
+        : (cp.opcoesFrescorNaoMedido || "frescor não medido")}
+    </div>
+  );
+}
+
+// D-14: o "ⓘ de bastidor" — texto que hoje aparece como parágrafo fixo
+// (mecânica de cache/cota, regra de lastro) e passa a ficar atrás de uma
+// disclosure. `color: T.textMuted` de propósito (NÃO accent — accent é
+// reservado ao ⓘ contextual das abas, `BotaoSaibaMais` abaixo, para que os
+// dois níveis de ⓘ não se confundam visualmente).
+export function DetalheInfo({ rotulo, children }) {
+  const [aberto, setAberto] = useState(false);
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setAberto((v) => !v)}
+        aria-expanded={aberto}
+        style={{ minHeight: "44px", background: "transparent", border: "none", padding: 0, color: T.textMuted, fontWeight: 700, fontSize: "11.5px", textAlign: "left" }}
+      >
+        {"ⓘ " + (rotulo || "")}
+      </button>
+      {aberto && (
+        <div style={{ fontSize: "11.5px", color: T.textMuted, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// D-13: o ⓘ contextual por aba — substitui o link "saiba mais" fixo do topo
+// global (hoje um por tela inteira, ANCORAS_KB.opcoes). `onClick` ausente
+// (didática desligada, ou verbete indisponível no catálogo) devolve `null`
+// em vez de um botão morto — mesmo portão que o "saiba mais" de hoje já usa.
+export function BotaoSaibaMais({ onClick, ariaLabel, cp }) {
+  if (!onClick) return null;
+  const c = cp || {};
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={ariaLabel}
+      style={{ minHeight: "44px", padding: "0 4px", background: "transparent", border: "none", color: T.accent, fontWeight: 700, fontSize: "13px" }}
+    >
+      {"ⓘ " + (c.saibaMais || "saiba mais")}
+    </button>
   );
 }
