@@ -23,7 +23,7 @@ de produto — não por ordem de descoberta.
 
 ### Reestruturação de navegação
 
-- [ ] **NAV-01**: A aba Opções passa a ter 3 abas fixas de nível 1 —
+- [x] **NAV-01**: A aba Opções passa a ter 3 abas fixas de nível 1 —
   Oportunidades, Recomendadas, Montar — substituindo as duas camadas
   ortogonais de navegação atuais (`subaba` + `abaWorkspace`, `OpcoesScreen.jsx`).
   Vigias deixa de ser sub-aba e vira ícone/badge no cabeçalho (sheet), sempre
@@ -86,7 +86,7 @@ Reconhecido, mas fora desta milestone — decisão de escopo pendente do Alex.
 |-------------|-------|--------|
 | KB-01 | Phase 38 | Done |
 | KB-02 | Phase 38 | Done |
-| NAV-01 | Phase 39 | Pending |
+| NAV-01 | Phase 39 | Complete |
 | ESTADO-01 | Phase 40 | Pending |
 | TELAS-01 | Phase 41 | Pending |
 

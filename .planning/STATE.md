@@ -4,14 +4,14 @@ milestone: v1.8
 milestone_name: Didática ampliada + continuidade da aba Opções
 status: executing
 stopped_at: "Phase 39 PLANEJADA — `/gsd-plan-phase 39` completo em 2026-09-24, pronta para `/gsd-execute-phase 39`. Sequência: UI-SPEC aprovado (ver narrativa anterior, commits `8cd6179`→`3fb61f6`→`a8f56b8`) → `gsd-pattern-mapper` (`39-PATTERNS.md`, 12/12 analogs, commit `535a3d6`) → `gsd-planner` opus (6 planos/5 ondas, commit `70becbc`, também atualizou ROADMAP.md) → `gsd-plan-checker` 1ª rodada: ISSUES FOUND (0 bloqueios, 4 avisos — cobertura de requisitos OK, mas 2 avisos substantivos: checkpoint do 39-06 não nomeava explicitamente a reinterpretação de D-05 nem o desvio do UI-SPEC no rodapé de custo) → revisão (`gsd-planner`, commit `bdcffb4`: adiciona DR-1/DR-2 como perguntas nomeadas e bloqueantes no checkpoint do 39-06, mais 2 linhas em `39-PATTERNS.md`) → `gsd-plan-checker` 2ª rodada: VERIFICATION PASSED (0 bloqueios, 0 avisos novos) → gate de cobertura de decisões (`check.decision-coverage-plan`) achou D-02/D-03/D-04/D-12 sem citação literal em `must_haves.truths` (estavam implementados, só não citados pelo ID na estrutura que o gate escaneia) → corrigido à mão (commit `6de78b2`, 14/14 cobertos) → `roadmap.annotate-dependencies` já estava aplicado pelo planner (idempotente, sem mudança). STATE.md editado à mão (`state.planned-phase` do gsd-sdk não foi chamado, ver [[gsd-sdk-state-corrompe]])."
-last_updated: "2026-09-24T17:36:15.000Z"
-last_activity: 2026-09-24 -- Phase 39, Plan 04 (reescrita da navegacao: 3 abas fixas, Vigias em sheet, Operar dissolvida) executado e commitado
+last_updated: "2026-09-24T18:15:00.000Z"
+last_activity: 2026-09-24 -- Phase 39, Plan 05 (reconciliacao dos 10 guardioes vermelhos deixados pelo Plano 39-04) executado e commitado
 progress:
   total_phases: 2
   completed_phases: 1
   total_plans: 12
-  completed_plans: 10
-  percent: 83
+  completed_plans: 11
+  percent: 92
 ---
 
 # Project State
@@ -26,9 +26,67 @@ See: .planning/PROJECT.md (updated 2026-09-20)
 ## Current Position
 
 Phase: 39 (reestrutura-o-de-navega-o-da-aba-op-es) — EXECUTING
-Plan: 5 of 6 (39-01, 39-02, 39-03 e 39-04 completos — 39-05 é o próximo)
+Plan: 6 of 6 (39-01 a 39-05 completos — 39-06, checkpoint humano bloqueante DR-1/DR-2, é o próximo e último)
 Status: Executing Phase 39
-Last activity: 2026-09-24 -- Plan 39-04 (OpcoesScreen.jsx reescrito: estado único abaOpcoes com 3 abas fixas, Vigias em badge+sheet, sub-aba Operar dissolvida em PropostaDoAtivo, bastidor atrás de ⓘ, guardião novo test_opcoes_nav_tres_abas_ui.mjs) executado e commitado, sequencial, sem worktree
+Last activity: 2026-09-24 -- Plan 39-05 (reconciliação dos 10 guardiões vermelhos deixados pelo Plano 39-04: PropostaDoAtivo ex-SubAbaOperar, split hub/workspace dissolvido, SecaoDescobrir.jsx deletado, Vigias em badge+sheet, "saiba mais" em ⓘ por aba) executado e commitado, sequencial, sem worktree
+
+**Plan 39-05 completo (2026-09-24), reconciliação de guardiões — sequencial, sem worktree:**
+
+- 2 tasks, sem checkpoint. Commits: `449482e` (test Task 1: 5 guardiões estruturais —
+  `test_opcoes_subabas_ui.mjs`/`test_opcoes_hub_workspace_ui.mjs`/
+  `test_opcoes_jornada_ui.mjs`/`test_opcoes_consolidacao_ui.mjs`/
+  `test_curadoria_ui.mjs`; 2 deles reescritos por completo — hub_workspace e
+  consolidacao — porque o componente que fatiavam (WorkspaceHeader.jsx/
+  SecaoDescobrir.jsx) foi deletado inteiro pela Fase 39-04), `914550d` (test
+  Task 2: 5 guardiões restantes — `test_carteira_opcoes_tira.mjs`/
+  `test_opcoes_multi_candidato_ui.mjs`/
+  `test_fase22_componentes_compartilhados.mjs`/`test_opcoes_vigias_ui.mjs`/
+  `test_kb_ancoras.mjs` — mais confirmação de que os outros 7 arquivos do
+  Task 2 já estavam verdes sem edição, e validação da suíte canônica completa).
+- **Regra aplicada em cada arquivo (repo_guardrail do 39-05-PLAN.md):**
+  classificar cada `ok(` vermelho em (a) âncora mudou/invariante vale —
+  renomear mantendo a mesma condição (a maioria: `SubAbaOperar`→
+  `PropostaDoAtivo`, `subabas`/`workspacePillRow`→`abaBar`), (b) invariante
+  revertido de propósito — reescrever com nota datada D-XX (frase-ponte
+  dissolvida em `curadoriaSubtitulo`, D-05 fork 3; "Seus vigias" de bloco
+  fixo do hub para `VigiasBadge`+`VigiasSheet`, D-07; gate por pill
+  dissolvido em `podePedirLeitura`/`compararAberto`, D-02/D-06; "saiba mais"
+  fixo do topo em `infoDaAba(` por aba, D-13), ou (c) defeito real — nenhum
+  encontrado nesta reconciliação (todas as 10 falhas eram forma esperada,
+  não regressão de comportamento, exatamente como o 39-04-SUMMARY previu).
+  Nenhum `ok(` removido sem substituto — contagem antes/depois por arquivo
+  no `39-05-SUMMARY.md` confirma cobertura líquida igual ou maior em todos
+  os 10 arquivos.
+- **2 deviations nomeadas (Rule 1):** falso positivo de `.manchete` em
+  comentário de proveniência de `AbaOportunidades.jsx` (mesma classe do
+  achado 4 do 39-04-SUMMARY, corrigido com `semComentario()`); uma tentativa
+  própria de estender NAV-05 em `test_opcoes_jornada_ui.mjs` reprovava por
+  prop wiring legítima (`compilarSetup`/`confirmarSetup` passados como props
+  para `SecaoSetups`, não disparo automático) — corrigida antes de commitar,
+  substituída por uma checagem de ordem mais estreita e correta.
+- **Achado de checklist, não bloqueio:** a suspeita de `subaba`/`setSubaba`
+  como estado morto em `OpcoesScreen.jsx` (linha ~312) não se confirmou —
+  é um COMENTÁRIO explicando a decisão de fusão em `abaOpcoes`, não código;
+  zero ocorrências de `subaba` fora de comentário no arquivo.
+- Suíte: `web/tests/*.mjs` completa (163 arquivos) 163/163 verde (inclusive
+  `test_ios_assets.mjs`, que passa neste worktree — `web/ios/` presente).
+  `bash scripts/executar.sh --testes` roda o pytest completo: 3021
+  passed/5 skipped/3 xfailed/27 failed — os 27 são a mesma classe de
+  artefato de sandbox já documentada (`PermissionError` em
+  `ssl.load_verify_locations`, chamadas de rede real em 9 arquivos de teste
+  não relacionados a esta fase), confirmados artefato rodando os mesmos 9
+  arquivos FORA do sandbox: 102 passed/1 skipped/0 failed. `npx vite build`
+  limpo (117 módulos). `git log --diff-filter=D --name-only
+  535a3d6..HEAD -- web/tests server/tests` vazio — nenhum teste deletado.
+- Guardrail aplicado: mutadores de estado do gsd-sdk NÃO foram chamados —
+  este STATE.md foi editado à mão (`[[gsd-sdk-state-corrompe]]`).
+
+**Próximo passo dentro da fase:** `/gsd-execute-phase 39` continua — Plan
+39-06 (checkpoint humano bloqueante, decisões nomeadas DR-1 e DR-2, publicação
+combinada 39 inteira), ver
+`.planning/phases/39-reestrutura-o-de-navega-o-da-aba-op-es/39-06-PLAN.md`.
+Guardrail do repositório: checkpoint bloqueante segura o push da FASE
+INTEIRA, não só da task, até aprovação (`[[checkpoint-bloqueante-nao-push-antes]]`).
 
 **Plan 39-04 completo (2026-09-24), reescrita da navegação (NAV-01) — sequencial, sem worktree:**
 

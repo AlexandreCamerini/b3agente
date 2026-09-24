@@ -202,7 +202,7 @@ Full phase details: [milestones/v1.7-ROADMAP.md](milestones/v1.7-ROADMAP.md)
 | 36. Motor de Payoff Genérico | 2/2 | Complete | 2026-09-21 |
 | 37. Gráfico de Payoff e Explicação Confiáveis | 5/5 | Complete (checkpoint com ressalva — ver STATE.md) | 2026-09-22 |
 | 38. KB Didática ampliada | 6/6 | Complete (publicado, checkpoint humano aprovado ao vivo) | 2026-09-23 |
-| 39. Continuidade da aba Opções | 4/6 | In Progress|  |
+| 39. Continuidade da aba Opções | 5/6 | In Progress|  |
 | 40. Consolidação de registros de tela | 0/? | Not started | - |
 
 ## Phase Details
@@ -267,7 +267,7 @@ definida primeiro).
 - [x] 39-02-PLAN.md — contratos: copy da fase nos dois modos, primitivos ⓘ/carimbo, VigiasSheet/VigiasBadge, deep-link Posições -> Recomendadas (onda 1)
 - [x] 39-03-PLAN.md — CuradoriaEstruturas (D-11 3 vazios, D-14 "1ª de N", T.onAccent) + OportunidadesOpcoes (aria-expanded) (onda 2)
 - [x] 39-04-PLAN.md — OpcoesScreen com 3 abas fixas, Vigias em sheet, Operar dissolvida em painel inline (Leitura B'), Montar com Comparar inline + guardião NAV-01 (onda 3)
-- [ ] 39-05-PLAN.md — reconciliação dos guardiões antigos (re-ancorar / reversão com nota) + suíte canônica (onda 4)
+- [x] 39-05-PLAN.md — reconciliação dos guardiões antigos (re-ancorar / reversão com nota) + suíte canônica (onda 4)
 - [ ] 39-06-PLAN.md — checkpoint humano ao vivo + publicação front+backend + docs/todos (onda 5)
 **UI hint**: yes
 
