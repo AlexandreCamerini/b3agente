@@ -95,7 +95,7 @@ verificada por grep em `web/src` e `web/tests` após a mudança:
 
 ## Task Commits
 
-1. **Deviation: renomeia aba Recomendadas para Destacadas (override D-03, decisão do Alex)** - pendente (ver commit abaixo, feito logo após este SUMMARY)
+1. **Deviation: renomeia aba Recomendadas para Destacadas (override D-03, decisão do Alex)** - `6a4e819` (feat)
 
 ## Files Created/Modified
 
@@ -134,6 +134,18 @@ None - no external service configuration required.
 - `bash scripts/executar.sh --testes` (sandbox desabilitado, para permitir rede real): backend
   `3048 passed, 5 skipped, 3 xfailed` (0 failed); suíte web `web/tests/*.mjs` — todos os
   arquivos `[OK]`, exit 0.
+- Conferidos explicitamente, um a um, os 9 arquivos de teste apontados como "conhecidos" no
+  escopo original desta rename (`test_opcoes_consolidacao_ui.mjs`,
+  `test_opcoes_hub_workspace_ui.mjs`, `test_curadoria_ui.mjs`, `test_opcoes_subabas_ui.mjs`,
+  `test_consolidacao_opcoes_copy.mjs`, `test_carteira_opcoes_tira.mjs`,
+  `test_opcoes_nav_primitivos_ui.mjs`, `test_opcoes_nav_tres_abas_ui.mjs`,
+  `test_kb_ancoras.mjs`) — só `test_consolidacao_opcoes_copy.mjs` tinha assertion sobre o
+  VALOR da copy (singular/plural de `linhaChamadaOpcoesTexto`) e foi atualizado; os outros 8
+  só referenciam nome de componente (`AbaRecomendadas`), id interno (`"recomendadas"`) ou
+  comentário de arquitetura, nada que precisasse mudar.
+- Grep final e específico por assertion de VALOR (não apenas menção) confirmando que nenhum
+  guardião trava o texto antigo como esperado: `grep -rn '=== "Recomendadas"\|\.includes("Recomendadas")\|"Recomendadas"' web/tests/*.mjs` devolveu zero ocorrências — nenhum teste
+  espera literalmente "Recomendadas" como valor, nem via `===` nem via `.includes`.
 - `cd web && npx vite build`: `✓ 117 modules transformed`, build limpo, sem erro de sintaxe.
 - Grep de confirmação pós-mudança em `web/src` e `web/tests`: toda ocorrência remanescente de
   "Recomendadas"/"recomendada(s)" é identificador interno ou comentário de arquitetura (ver
