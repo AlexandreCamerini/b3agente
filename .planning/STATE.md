@@ -4,14 +4,14 @@ milestone: v1.8
 milestone_name: Didática ampliada + continuidade da aba Opções
 status: executing
 stopped_at: "Phase 39 PLANEJADA — `/gsd-plan-phase 39` completo em 2026-09-24, pronta para `/gsd-execute-phase 39`. Sequência: UI-SPEC aprovado (ver narrativa anterior, commits `8cd6179`→`3fb61f6`→`a8f56b8`) → `gsd-pattern-mapper` (`39-PATTERNS.md`, 12/12 analogs, commit `535a3d6`) → `gsd-planner` opus (6 planos/5 ondas, commit `70becbc`, também atualizou ROADMAP.md) → `gsd-plan-checker` 1ª rodada: ISSUES FOUND (0 bloqueios, 4 avisos — cobertura de requisitos OK, mas 2 avisos substantivos: checkpoint do 39-06 não nomeava explicitamente a reinterpretação de D-05 nem o desvio do UI-SPEC no rodapé de custo) → revisão (`gsd-planner`, commit `bdcffb4`: adiciona DR-1/DR-2 como perguntas nomeadas e bloqueantes no checkpoint do 39-06, mais 2 linhas em `39-PATTERNS.md`) → `gsd-plan-checker` 2ª rodada: VERIFICATION PASSED (0 bloqueios, 0 avisos novos) → gate de cobertura de decisões (`check.decision-coverage-plan`) achou D-02/D-03/D-04/D-12 sem citação literal em `must_haves.truths` (estavam implementados, só não citados pelo ID na estrutura que o gate escaneia) → corrigido à mão (commit `6de78b2`, 14/14 cobertos) → `roadmap.annotate-dependencies` já estava aplicado pelo planner (idempotente, sem mudança). STATE.md editado à mão (`state.planned-phase` do gsd-sdk não foi chamado, ver [[gsd-sdk-state-corrompe]])."
-last_updated: "2026-09-24T16:59:29.000Z"
-last_activity: 2026-09-24 -- Phase 39, Plan 02 (contratos de navegação — copy.js, primitivos, Vigias sheet, deep-link) executado e commitado
+last_updated: "2026-09-24T17:11:15.000Z"
+last_activity: 2026-09-24 -- Phase 39, Plan 03 (Recomendadas com piso/posição/probOtm-premioAnualizado + Oportunidades com aria-expanded) executado e commitado
 progress:
   total_phases: 2
   completed_phases: 1
   total_plans: 12
-  completed_plans: 8
-  percent: 67
+  completed_plans: 9
+  percent: 75
 ---
 
 # Project State
@@ -26,9 +26,44 @@ See: .planning/PROJECT.md (updated 2026-09-20)
 ## Current Position
 
 Phase: 39 (reestrutura-o-de-navega-o-da-aba-op-es) — EXECUTING
-Plan: 3 of 6 (39-01 e 39-02 completos — 39-03 é o próximo)
+Plan: 4 of 6 (39-01, 39-02 e 39-03 completos — 39-04 é o próximo)
 Status: Executing Phase 39
-Last activity: 2026-09-24 -- Plan 39-02 (contratos de navegação: copy.js, primitivos uiOpcoes.jsx, VigiasSheet.jsx, deep-link one-shot em App.jsx) executado e commitado, sequencial, sem worktree
+Last activity: 2026-09-24 -- Plan 39-03 (CuradoriaEstruturas com D-11/D-14/onAccent/painel probOtm-prêmio anualizado + OportunidadesOpcoes com aria-expanded) executado e commitado, sequencial, sem worktree
+
+**Plan 39-03 completo (2026-09-24), rewiring de componentes cross-carteira — sequencial, sem worktree:**
+
+- 2 tasks. Task 1 com TDD RED→GREEN: `fb1b527` (test RED — 16 falhas
+  confirmadas, todas nas asserções novas dependentes da implementação ainda
+  não escrita), `f26b7a6` (feat GREEN: `CuradoriaEstruturas.jsx` ganha
+  cascata de 5 estados vazios D-11 (naoMedido < erro < vazioSemProb <
+  vazioPiso < vazioGenérico, derivados só quando `meta.*` são NÚMEROS de
+  verdade), D-14 (`cp.curadoriaPosicaoRotulo(cand.posicaoNoRanking,
+  top.length)` substitui o score bruto `curadoriaRazaoRotulo`/`cand.razao`
+  no card), painel inline com `cp.curadoriaProbOtmRotulo`/
+  `cp.curadoriaPremioAnualizadoRotulo` formatados por `pctFmt` null-safe,
+  `T.onAccent` no botão Executar (correção AA obrigatória, nunca `"#fff"`
+  literal), slot `infoBotao` no eyebrow). Task 2 sem tdd: `ec696f6` (feat:
+  `OportunidadesOpcoes.jsx` ganha `aria-expanded={abertoTicker === p.t}` +
+  slot `infoBotao`, ambas props opcionais, `onClick={() => onAbrir(p.t)}`
+  intocado).
+- **Deviation nomeada (Rule 1):** o guardião pré-existente
+  `test_curadoria_ui.mjs` (item 24, Quick 260915-ndt) travava
+  `curadoriaRazaoRotulo` em "exatamente 1x" — direto em conflito com D-14,
+  que remove essa linha do card por completo. Revertido com nota datada
+  (2026-09-24, Fase 39/D-14), passando a exigir 0 ocorrências — mesmo padrão
+  de reversão deliberada aplicado no 39-02 com `opcoesLeituraConcluidaAjuda`.
+- **Issue não-bloqueante documentado no SUMMARY:** a acceptance criteria do
+  Task 2 pedia `grep -c "tiraOpcoesSemSetup\|tiraOpcoesSemMercado\|
+  tiraOpcoesSemCobertura" == 3`, mas `grep -c` conta LINHAS (não
+  ocorrências) e as 3 chaves vivem na mesma linha ternária — o comando nunca
+  poderia bater 3 (confirmado: já era 2 antes desta task). Erro de redação
+  do plano, não regressão de código; o invariante substantivo (3 variantes
+  distintas, nenhuma sumiu) segue coberto por `test_carteira_opcoes_tira.mjs`.
+- Suíte: `web/tests/*.mjs` completa (157 arquivos) sem falha, `npx vite
+  build` limpo (116 módulos). Backend fora do escopo (nenhum arquivo
+  `server/app/*.py` tocado por este plano).
+- Guardrail aplicado: mutadores de estado do gsd-sdk NÃO foram chamados —
+  este STATE.md foi editado à mão (`[[gsd-sdk-state-corrompe]]`).
 
 **Plan 39-02 completo (2026-09-24), interface-first (frontend puro) — sequencial, sem worktree:**
 
@@ -90,8 +125,8 @@ Last activity: 2026-09-24 -- Plan 39-02 (contratos de navegação: copy.js, prim
 - Guardrail aplicado: mutadores de estado do gsd-sdk NÃO foram chamados — este
   STATE.md foi editado à mão (decisão do Alex 2026-09-11, `[[gsd-sdk-state-corrompe]]`).
 
-**Próximo passo dentro da fase:** `/gsd-execute-phase 39` continua — Plan 39-03
-(onda seguinte), ver `.planning/phases/39-reestrutura-o-de-navega-o-da-aba-op-es/39-03-PLAN.md`.
+**Próximo passo dentro da fase:** `/gsd-execute-phase 39` continua — Plan 39-04
+(onda seguinte), ver `.planning/phases/39-reestrutura-o-de-navega-o-da-aba-op-es/39-04-PLAN.md`.
 
 **Decisões de implementação que o próximo leitor não deve redescobrir (KB-01/KB-02):**
 
