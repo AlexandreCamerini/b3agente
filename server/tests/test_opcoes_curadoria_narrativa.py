@@ -63,7 +63,14 @@ def _item(symbol, razao, posicao, premio_unitario=1.5, ticker="PETR4", strike=30
         "diasParaVencimento": _EXP_DIAS, "contratos": 2, "qtyAcoes": 200,
         "premioUnitario": premio_unitario, "premioTotal": premio_unitario * 200,
         "liquidez": {"faixa": "negociavel"}, "estrutura": _estrutura(),
-        "razao": razao, "manchete": "manchete", "didatica": "didatica",
+        "razao": razao,
+        # Fase 39/D-08/D-09 (2026-09-24): `premioAnualizado` espelha `razao`
+        # (mesma monotonicidade que os testes de ordem desta fixture já
+        # exercitam) e `probOtm` fixo acima do piso — `exigir_ranking`
+        # (chamada dentro de `curadoria_narrativa.narrar`) exige os dois
+        # agora, reversão deliberada da métrica de admissão+ordem.
+        "premioAnualizado": razao, "probOtm": 0.65, "volatilidadeFonte": "implicita",
+        "manchete": "manchete", "didatica": "didatica",
         "precoObjeto": 29.0, "posicaoNoRanking": posicao,
     }
 

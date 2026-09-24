@@ -392,7 +392,14 @@ def _sintetico_por_tipo(tipo, posicao_no_ranking, razao=1.0, premio_unitario=1.0
         "liquidez": {"score": 60, "faixa": "NEGOCIÁVEL", "volume": 100, "spreadPct": 0.01, "aviso": None},
         "estrutura": {"ganho_maximo": 5.0, "perda_maxima": 2.0, "breakevens": [29.0],
                       "custo_liquido": 0, "fluxo": "credito"},
-        "razao": razao, "manchete": f"manchete {tipo}", "didatica": f"didatica {tipo}",
+        "razao": razao,
+        # Fase 39/D-09 (2026-09-24): `premioAnualizado` espelha `razao` só
+        # para PRESERVAR a monotonicidade que os testes de ordem desta
+        # fixture já exercitam (mesma sequência decrescente); `probOtm`
+        # fixo acima do piso (D-08) para não travar `exigir_ranking` em
+        # sintéticos que não passam por Black-Scholes de verdade.
+        "premioAnualizado": razao, "probOtm": 0.65, "volatilidadeFonte": "implicita",
+        "manchete": f"manchete {tipo}", "didatica": f"didatica {tipo}",
         "precoObjeto": _SPOT, "posicaoNoRanking": posicao_no_ranking,
         "idCandidato": f"{tipo}:PETR4:{_EXPIRATION_OK}:{contract_symbol}",
     }
@@ -567,7 +574,14 @@ def _candidato_sintetico(symbol, razao, premio_unitario=1.0):
         "liquidez": {"score": 60, "faixa": "NEGOCIÁVEL", "volume": 100, "spreadPct": 0.01, "aviso": None},
         "estrutura": {"ganho_maximo": 5.0, "perda_maxima": round(premio_unitario / razao, 4),
                       "breakevens": [29.0], "custo_liquido": 0, "fluxo": "credito"},
-        "razao": razao, "manchete": f"manchete {symbol}", "didatica": f"didatica {symbol}",
+        "razao": razao,
+        # Fase 39/D-09 (2026-09-24): `premioAnualizado` espelha `razao` —
+        # mesmo número que já gerava a ordem esperada nestes guardiões de
+        # `rankear`/`exigir_ranking`, para que os testes de ordem continuem
+        # significativos sem reescrever toda a fixture. `probOtm` fixo acima
+        # do piso (D-08).
+        "premioAnualizado": razao, "probOtm": 0.65,
+        "manchete": f"manchete {symbol}", "didatica": f"didatica {symbol}",
         "precoObjeto": _SPOT,
     }
 
@@ -635,6 +649,11 @@ def test_exigir_ranking_recusa_mais_de_topo_itens():
 
 
 def test_exigir_ranking_recusa_razao_crescente():
+    # NOTA Fase 39/D-09 (2026-09-24): o nome do teste ficou histórico —
+    # `exigir_ranking` valida `premioAnualizado` crescente agora, não mais
+    # `razao` (reversão deliberada). `_candidato_sintetico` espelha
+    # `premioAnualizado = razao`, então esta fixture continua provando o
+    # mesmo defeito estrutural (sequência crescente é inválida) sem reescrita.
     top = [
         {**_candidato_sintetico("A", razao=1.0), "posicaoNoRanking": 1},
         {**_candidato_sintetico("B", razao=2.0), "posicaoNoRanking": 2},
@@ -652,9 +671,15 @@ def test_exigir_ranking_recusa_posicao_fora_de_ordem():
         opcoes_curadoria.exigir_ranking(top)
 
 
-def test_exigir_ranking_recusa_item_sem_razao():
+def test_exigir_ranking_recusa_item_sem_premio_anualizado():
+    # ATUALIZADO Fase 39, Plano 01 (D-09, 2026-09-24): este guardião se
+    # chamava `..._recusa_item_sem_razao` — `exigir_ranking` não trava mais
+    # `razao` (o campo continua no dict, D-14, só não é mais validado aqui);
+    # o campo obrigatório da checagem estrutural passou a ser
+    # `premioAnualizado` (reversão deliberada, ver docstring de
+    # `exigir_ranking`).
     item = {**_candidato_sintetico("A", razao=1.0), "posicaoNoRanking": 1}
-    del item["razao"]
+    del item["premioAnualizado"]
     with pytest.raises(ValueError):
         opcoes_curadoria.exigir_ranking([item])
 
@@ -684,11 +709,16 @@ def test_narrativa_user_recusa_lista_fora_de_ordem_antes_de_montar_texto():
         opcoes_curadoria.narrativa_user(top, "operador")
 
 
-def test_narrativa_user_inclui_contractsymbol_razao_e_instrucao_de_nao_reordenar():
+def test_narrativa_user_inclui_contractsymbol_premio_anualizado_e_instrucao_de_nao_reordenar():
+    # ATUALIZADO Fase 39, Plano 01 (D-09, 2026-09-24): este guardião se
+    # chamava `..._contractsymbol_razao_e_instrucao...` e travava "razão
+    # {razao}" no texto da narração — reversão deliberada, `narrativa_user`
+    # agora imprime prêmio anualizado + probabilidade estimada (ver
+    # docstring de `rankear`/`narrativa_user`), nunca mais "razão".
     candidatos = [_candidato_sintetico(f"C{i}", razao=float(i)) for i in range(1, 5)]
     top = opcoes_curadoria.rankear(candidatos)
     texto = opcoes_curadoria.narrativa_user(top, "operador")
     for item in top:
         assert item["contractSymbol"] in texto
-        assert skill_ref.num_br(item["razao"]) in texto
+        assert skill_ref.num_br(item["premioAnualizado"] * 100) in texto
     assert "não reordene" in texto.lower() or "nao reordene" in texto.lower()

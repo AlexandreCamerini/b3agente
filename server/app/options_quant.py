@@ -9,6 +9,12 @@ from typing import Iterable, Optional
 
 TRADING_DAYS = 252
 
+# TAXA_LIVRE_DE_RISCO_REFERENCIA: referência fixa herdada da rota educacional
+# (options_api.py, literal 0.105 desde antes desta constante existir); troca
+# por Selic/CDI real é melhoria futura deferida no 39-CONTEXT.md — D-08 (Fase
+# 39) só exige que black_scholes() seja chamado com ALGUMA taxa nomeada.
+TAXA_LIVRE_DE_RISCO_REFERENCIA = 0.105
+
 
 def _norm_cdf(x: float) -> float:
     return 0.5 * (1.0 + math.erf(x / math.sqrt(2.0)))

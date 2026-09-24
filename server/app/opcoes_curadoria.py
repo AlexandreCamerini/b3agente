@@ -35,6 +35,21 @@ de LLM. `rankear()` é a única função que decide ordem; `exigir_ranking()`
 torna essa regra comportamento do código, não promessa de comentário — a
 camada de narração (`narrativa_user`) é estruturalmente incapaz de receber
 um pool não rankeado.
+
+Fase 39, Plano 01 (D-08/D-09/D-10/D-11) — REVERSÃO DELIBERADA da métrica de
+admissão+ordem, datada 2026-09-24: até aqui, TODO candidato enumerado por
+`candidatos_da_posicao` entrava no ranking, ordenado só por
+`razao = prêmio ÷ perda máxima` (Fase 30/31). A Fase 39 acrescenta um PISO de
+ADMISSÃO por probabilidade de terminar fora do dinheiro (`probOtm >= 0.60`,
+Black-Scholes, D-08) e troca a ORDEM dentro do piso para prêmio anualizado
+`(prêmio/spot) × (365/dias)` (D-09). A Fase 31/D-06 ("nunca filtrar por SINAL
+do prêmio") continua vigente — put de proteção/collar de débito continuam
+sendo ENUMERADOS com prêmio negativo; o piso desta fase é um critério
+DIFERENTE (probabilidade, não sinal), e como consequência NOMEADA (não bug),
+put de proteção e collar perto do dinheiro raramente atingem 60% de
+probabilidade OTM e por isso raramente aparecem na lista publicada. D-12:
+esta mudança fica inteira neste arquivo + o chamador em `main.py` — NUNCA em
+`opcoes_lastreadas.py` (motor de Oportunidades, sem ranking).
 """
 from __future__ import annotations
 
@@ -43,7 +58,13 @@ from typing import Any
 
 from . import opcoes_motor, skill_ref, store
 from .opcoes_lastreadas import _PRAZO_MAX_DIAS, _PRAZO_MIN_DIAS, _bloco_liquidez, _dias_ate
-from .options_quant import LIQUIDEZ_NEGOCIAVEL, liquidity_score
+from .options_quant import (
+    LIQUIDEZ_NEGOCIAVEL,
+    TAXA_LIVRE_DE_RISCO_REFERENCIA,
+    black_scholes,
+    liquidity_score,
+    years_to_expiration,
+)
 
 # TOPO: quantas estruturas a UI mostra ("as 4 melhores" — pedido original).
 TOPO = 4
@@ -75,6 +96,18 @@ VENCIMENTOS_POR_POSICAO = 2
 CONTRATOS_A_DESCOBERTO = 1
 # TIPOS: universo fechado de estruturas desta fase (Fase 31/D-04).
 TIPOS = ("call_coberta", "put_protecao", "collar", "opcao_a_descoberto")
+# PISO_PROB_OTM: Fase 39/D-08 — piso de ADMISSÃO (não de ordem, ver
+# `aplicar_piso` abaixo). Candidato com probOtm < 0.60 nunca aparece na lista
+# publicada; abaixo do piso não é "pior colocado", é ausente. Decisão de
+# produto travada no 39-CONTEXT.md, não parâmetro de ajuste fino.
+PISO_PROB_OTM = 0.60
+# VOL_MIN/VOL_MAX: faixa de volatilidade aceita como FRAÇÃO anualizada (ex.
+# 0.30 = 30%). Fora da faixa (inclusive negativo, zero, `bool` ou IV expressa
+# em percentual por engano, ex. 30.0) é tratado como "não utilizável" — NUNCA
+# reinterpretado como percentual. É a mesma classe de erro de 10x que
+# `web/src/opcoes/unidades.js` documenta do lado do front.
+VOL_MIN = 0.01
+VOL_MAX = 5.0
 
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -96,9 +129,17 @@ def premio_liquido_unitario(pernas_opcao: list[dict[str, Any]]) -> float:
 
     Prêmio NEGATIVO é resultado ESPERADO em put de proteção, em collar de
     débito e em opção a descoberto (compra a seco) — Fase 31/D-06 exige que
-    esses candidatos continuem no ranking, rankeados naturalmente mal pela
-    MESMA fórmula (prêmio ÷ perda máxima), nunca filtrados por prêmio
-    negativo.
+    esses candidatos continuem sendo ENUMERADOS, nunca filtrados por SINAL do
+    prêmio.
+
+    NOTA (Fase 39, D-08, 2026-09-24): a fórmula de ranking mudou (razão
+    prêmio÷perda máxima → piso de probabilidade OTM + prêmio anualizado, ver
+    `aplicar_piso`/`rankear`), mas D-06 continua valendo tal como escrito
+    acima — o filtro novo da Fase 39 é OUTRO critério (probabilidade,
+    Black-Scholes), não o sinal do prêmio. Consequência nomeada: put de
+    proteção/collar perto do dinheiro raramente atingem 60% de probabilidade
+    OTM e por isso raramente aparecem na lista publicada — não é o mesmo
+    filtro que D-06 proíbe, é um efeito colateral do piso novo.
     """
     return round(-opcoes_motor.avaliar(pernas_opcao)["custo_liquido"], 2)
 
@@ -157,6 +198,114 @@ def proximos_vencimentos(
 
 
 # ─────────────────────────────────────────────────────────────────────────
+# vol_do_contrato() / prob_otm() / premio_anualizado() / aplicar_piso() —
+# Fase 39, Plano 01 (D-08/D-09/D-10) — funções PURAS novas.
+# ─────────────────────────────────────────────────────────────────────────
+
+def vol_do_contrato(contrato: Any, hv21: float | None) -> tuple[float | None, str | None]:
+    """Volatilidade utilizável para Black-Scholes: IV do próprio contrato
+    quando ela está numa faixa plausível (`VOL_MIN..VOL_MAX`), senão a
+    volatilidade histórica de 21 pregões do ativo (`hv21`, calculada pelo
+    CHAMADOR — este módulo não lê candles, ver docstring do módulo).
+
+    Nunca inventa: `bool` é excluído explicitamente (subclasse de `int`,
+    mesmo guard de `spot`/`perda_maxima` neste arquivo), e IV fora da faixa
+    (None, 0, negativa, ou grande demais para ser fração — sintoma de IV
+    publicada em percentual, ex. 30.0 em vez de 0.30) NUNCA é reinterpretada,
+    só descartada em favor do fallback. Sem os dois, devolve `(None, None)` —
+    princípio 4 do CLAUDE.md: sem dado utilizável, sem número inventado.
+    """
+    iv = contrato.get("impliedVolatility") if isinstance(contrato, dict) else None
+    if isinstance(iv, (int, float)) and not isinstance(iv, bool) and VOL_MIN <= iv <= VOL_MAX:
+        return (float(iv), "implicita")
+    if isinstance(hv21, (int, float)) and not isinstance(hv21, bool) and VOL_MIN <= hv21 <= VOL_MAX:
+        return (float(hv21), "historica_21d")
+    return (None, None)
+
+
+def prob_otm(option_type: str, spot: float, strike: float, dias: float, vol: float | None) -> float | None:
+    """Probabilidade estimada (Black-Scholes) de a opção terminar FORA do
+    dinheiro no vencimento — `1 - prob_itm`. `vol` ausente ou `dias`
+    não-positivo devolve `None` (não pode ser calculado, não é 0%/100%
+    inventado). Taxa livre de risco é `TAXA_LIVRE_DE_RISCO_REFERENCIA`
+    (constante nomeada, ver options_quant.py — troca por Selic/CDI real é
+    melhoria futura deferida no 39-CONTEXT.md).
+    """
+    if vol is None:
+        return None
+    if not isinstance(dias, (int, float)) or isinstance(dias, bool) or dias <= 0:
+        return None
+    bs = black_scholes(option_type, spot, strike, years_to_expiration(dias),
+                        TAXA_LIVRE_DE_RISCO_REFERENCIA, vol, 0.0)
+    if bs is None:
+        return None
+    return round(1 - bs.prob_itm, 4)
+
+
+def premio_anualizado(premio_unitario: float, spot: float, dias: float) -> float | None:
+    """`(prêmio_unitario / spot) × (365 / dias)` — Fase 39/D-09, critério de
+    ORDEM dentro do piso de admissão. `spot`/`dias` não-positivos (ou não
+    numéricos/`bool`) devolvem `None`; `premio_unitario` pode ser negativo
+    (débito de put de proteção/collar/opção a descoberto, D-06) — o sinal
+    propaga normalmente, não é filtrado aqui.
+    """
+    if not isinstance(spot, (int, float)) or isinstance(spot, bool) or spot <= 0:
+        return None
+    if not isinstance(dias, (int, float)) or isinstance(dias, bool) or dias <= 0:
+        return None
+    return round((premio_unitario / spot) * (365 / dias), 6)
+
+
+def aplicar_piso(
+    candidatos: list[dict[str, Any]], *, piso: float = PISO_PROB_OTM
+) -> tuple[list[dict[str, Any]], dict[str, int]]:
+    """Piso de ADMISSÃO (Fase 39/D-08) — não é seleção de CONTRATO dentro da
+    cadeia. `candidatos_da_posicao` ENUMERA (nenhum filtro por piso lá
+    dentro); esta função decide quem é ADMITIDO na lista publicada, sobre o
+    pool inteiro, ANTES de `rankear`.
+
+    Distinção de escopo obrigatória (D-10): o ENG-01
+    (`opcoes_payoff.py:22-24`, "a régua do Boris é liquidez + strike
+    extremo") continua sendo quem escolhe QUAL contrato entra no pool — esta
+    função nunca decide isso, só filtra+conta o que já foi escolhido.
+    Probabilidade/delta NÃO seleciona contrato aqui, só admite ou reprova o
+    candidato já montado.
+
+    Devolve `(admitidos, contagem)` preservando a ORDEM de entrada (quem
+    ordena de verdade é `rankear`, chamado depois). `contagem` tem as 3
+    chaves do contrato de dado do D-11 (distinguir "nada varrido" de "varreu
+    e ninguém passou no piso" cabe ao CHAMADOR, que também sabe o tamanho do
+    pool pré-piso):
+
+    - `admitidosNoPiso`: `probOtm` numérico e `>= piso`.
+    - `reprovadosNoPiso`: `probOtm` numérico e `< piso`.
+    - `semProbabilidade`: `probOtm` ausente/`None` — sem volatilidade
+      utilizável (IV inválida E hv21 indisponível), NUNCA admitido com
+      probabilidade inventada (princípio 4 do CLAUDE.md).
+    """
+    admitidos: list[dict[str, Any]] = []
+    admitidos_n = 0
+    reprovados_n = 0
+    sem_probabilidade_n = 0
+    for c in candidatos:
+        p = c.get("probOtm")
+        if p is None:
+            sem_probabilidade_n += 1
+            continue
+        if p >= piso:
+            admitidos.append(c)
+            admitidos_n += 1
+        else:
+            reprovados_n += 1
+    contagem = {
+        "admitidosNoPiso": admitidos_n,
+        "reprovadosNoPiso": reprovados_n,
+        "semProbabilidade": sem_probabilidade_n,
+    }
+    return admitidos, contagem
+
+
+# ─────────────────────────────────────────────────────────────────────────
 # candidatos_da_posicao() — enumeração de strikes sobre uma cadeia em memória
 # ─────────────────────────────────────────────────────────────────────────
 
@@ -170,11 +319,21 @@ def candidatos_da_posicao(
     *,
     n: int = STRIKES_POR_POSICAO,
     permitir_a_descoberto: bool = False,
+    hv21: float | None = None,
 ) -> list[dict[str, Any]]:
     """Candidatos de curadoria para UMA posição, a partir de UMA cadeia (um
     único vencimento) já buscada em memória. Devolve SEMPRE lista — `[]` em
     toda porta fechada, nunca `None`, nunca exceção (mesma postura de
     `opcoes_motor.rastrear`/`opcoes_lastreadas.propor`).
+
+    `hv21` (Fase 39/D-08): volatilidade histórica de 21 pregões do ativo,
+    keyword-only, default `None` — nenhum chamador existente quebra. Esta
+    função continua PURA: `hv21` entra pronta por argumento, nunca é
+    calculada aqui (quem busca candles é o CHAMADOR, `main.py`). Usada por
+    `vol_do_contrato` como fallback quando a IV do contrato não é utilizável,
+    para computar `probOtm`/`volatilidadeFonte`/`premioAnualizado` em cada
+    candidato — esta função NÃO filtra pelo piso (`aplicar_piso` faz isso,
+    sobre o pool inteiro, no chamador).
 
     Fase 31/D-04 amplia o universo desta função de "só venda coberta"
     (Fase 30/D1) para as 4 estruturas do motor interno — venda coberta, put
@@ -273,6 +432,13 @@ def candidatos_da_posicao(
         premio_total = round(premio_unitario * qty_acoes, 2)
         razao = round(premio_unitario / perda_maxima, 6)
 
+        # Fase 39/D-08/D-09: probOtm (admissão) e premioAnualizado (ordem)
+        # calculados junto de `razao` — `razao` continua no dict (D-14: a UI
+        # só deixa de EXIBIR, o campo não morre).
+        vol, volatilidade_fonte = vol_do_contrato(contrato, hv21)
+        prob_otm_valor = prob_otm("call", spot, contrato.get("strike"), dias, vol)
+        premio_anualizado_valor = premio_anualizado(premio_unitario, spot, dias)
+
         liq = liquidity_score(contrato.get("volume"), contrato.get("openInterest"),
                                contrato.get("bid"), contrato.get("ask"))
         strike = contrato.get("strike")
@@ -302,6 +468,9 @@ def candidatos_da_posicao(
             "liquidez": _bloco_liquidez(contrato, liq, modo),
             "estrutura": estrutura,
             "razao": razao,
+            "probOtm": prob_otm_valor,
+            "volatilidadeFonte": volatilidade_fonte,
+            "premioAnualizado": premio_anualizado_valor,
             "manchete": manchete,
             "didatica": didatica,
             "precoObjeto": round(float(spot), 2),
@@ -343,6 +512,14 @@ def candidatos_da_posicao(
         premio_total = round(premio_unitario * qty_acoes, 2)
         razao = round(premio_unitario / perda_maxima, 6)
 
+        # Fase 39/D-08/D-09 (mesma nota da call_coberta acima): put OTM
+        # abaixo do spot tende a ter probOtm mais baixo que uma call
+        # equivalente acima do spot em mercado com skew — consequência
+        # NOMEADA no 39-CONTEXT.md, não corrigida aqui.
+        vol, volatilidade_fonte = vol_do_contrato(contrato_put, hv21)
+        prob_otm_valor = prob_otm("put", spot, contrato_put.get("strike"), dias, vol)
+        premio_anualizado_valor = premio_anualizado(premio_unitario, spot, dias)
+
         liq = liquidity_score(contrato_put.get("volume"), contrato_put.get("openInterest"),
                                contrato_put.get("bid"), contrato_put.get("ask"))
         strike = contrato_put.get("strike")
@@ -373,6 +550,9 @@ def candidatos_da_posicao(
             "liquidez": _bloco_liquidez(contrato_put, liq, modo),
             "estrutura": estrutura,
             "razao": razao,
+            "probOtm": prob_otm_valor,
+            "volatilidadeFonte": volatilidade_fonte,
+            "premioAnualizado": premio_anualizado_valor,
             "manchete": manchete,
             "didatica": didatica,
             "precoObjeto": round(float(spot), 2),
@@ -406,6 +586,31 @@ def candidatos_da_posicao(
 
         strike_call = contrato_call_collar.get("strike")
         strike_put = contrato_put.get("strike")
+
+        # Fase 39/D-08/D-09: eventos "call vira ITM" e "put vira ITM" são
+        # DISJUNTOS (strikePut <= spot < strikeCall — mesma régua de
+        # `_propor_collar`), então probOtm do collar é
+        # `1 - P(call ITM) - P(put ITM)`, clampado em [0,1] por segurança
+        # numérica. Volatilidade utilizável fica "historica_21d" se QUALQUER
+        # perna caiu no fallback; sem vol utilizável em QUALQUER perna,
+        # probOtm inteiro vira `None` (nunca probabilidade parcial
+        # inventada, princípio 4 do CLAUDE.md).
+        vol_call, fonte_call = vol_do_contrato(contrato_call_collar, hv21)
+        vol_put, fonte_put = vol_do_contrato(contrato_put, hv21)
+        if vol_call is None or vol_put is None:
+            prob_otm_collar, volatilidade_fonte_collar = None, None
+        else:
+            bs_call = black_scholes("call", spot, strike_call, years_to_expiration(dias),
+                                     TAXA_LIVRE_DE_RISCO_REFERENCIA, vol_call, 0.0)
+            bs_put = black_scholes("put", spot, strike_put, years_to_expiration(dias),
+                                    TAXA_LIVRE_DE_RISCO_REFERENCIA, vol_put, 0.0)
+            if bs_call is None or bs_put is None:
+                prob_otm_collar, volatilidade_fonte_collar = None, None
+            else:
+                prob_otm_collar = round(max(0.0, min(1.0, 1 - bs_call.prob_itm - bs_put.prob_itm)), 4)
+                volatilidade_fonte_collar = (
+                    "historica_21d" if "historica_21d" in (fonte_call, fonte_put) else "implicita")
+        premio_anualizado_valor = premio_anualizado(premio_unitario, spot, dias)
 
         liq_call = liquidity_score(contrato_call_collar.get("volume"), contrato_call_collar.get("openInterest"),
                                     contrato_call_collar.get("bid"), contrato_call_collar.get("ask"))
@@ -463,6 +668,9 @@ def candidatos_da_posicao(
             "liquidez": _bloco_liquidez(contrato_pior, pior, modo),
             "estrutura": estrutura,
             "razao": razao,
+            "probOtm": prob_otm_collar,
+            "volatilidadeFonte": volatilidade_fonte_collar,
+            "premioAnualizado": premio_anualizado_valor,
             "manchete": manchete,
             "didatica": didatica,
             "precoObjeto": round(float(spot), 2),
@@ -507,6 +715,14 @@ def candidatos_da_posicao(
             premio_total = round(premio_unitario * qty_acoes_naked, 2)
             razao = round(premio_unitario / perda_maxima, 6)
 
+            # Fase 39/D-08/D-09: mesma call OTM do ramo call_coberta —
+            # `probOtm` do lado comprador é o MESMO `prob_otm` (a
+            # probabilidade de a opção terminar OTM não depende de quem
+            # está comprado ou vendido nela).
+            vol, volatilidade_fonte = vol_do_contrato(contrato, hv21)
+            prob_otm_valor = prob_otm("call", spot, contrato.get("strike"), dias, vol)
+            premio_anualizado_valor = premio_anualizado(premio_unitario, spot, dias)
+
             liq = liquidity_score(contrato.get("volume"), contrato.get("openInterest"),
                                    contrato.get("bid"), contrato.get("ask"))
             strike = contrato.get("strike")
@@ -535,6 +751,9 @@ def candidatos_da_posicao(
                 "liquidez": _bloco_liquidez(contrato, liq, modo),
                 "estrutura": estrutura,
                 "razao": razao,
+                "probOtm": prob_otm_valor,
+                "volatilidadeFonte": volatilidade_fonte,
+                "premioAnualizado": premio_anualizado_valor,
                 "manchete": manchete,
                 "didatica": didatica,
                 "precoObjeto": round(float(spot), 2),
@@ -550,30 +769,41 @@ def candidatos_da_posicao(
 # ─────────────────────────────────────────────────────────────────────────
 
 def rankear(candidatos: list[dict[str, Any]], *, topo: int = TOPO) -> list[dict[str, Any]]:
-    """As `topo` melhores estruturas, por razão prêmio/perda máxima
-    decrescente, com desempate TOTAL e determinístico.
+    """As `topo` melhores estruturas, por prêmio anualizado decrescente, com
+    desempate TOTAL e determinístico.
 
-    Chave de ordenação (Fase 31, Plano 01, Task 3 — cresceu de 3 para 4
-    critérios): `(-razao, -premioUnitario, contractSymbol, idCandidato)`.
+    REVERSÃO DELIBERADA (Fase 39, D-09, 2026-09-24): até aqui (Fase 30/31), a
+    chave primária era `-razao` (prêmio ÷ perda máxima). A Fase 39 troca a
+    chave primária para `-premioAnualizado` (`(prêmio/spot) × (365/dias)`,
+    D-09) — o restante da chave (`-premioUnitario`, `contractSymbol`,
+    `idCandidato`) NÃO muda. `razao` continua no dict de cada candidato
+    (D-14: a UI só deixa de EXIBIR, o campo em si não morre).
+
+    Chave de ordenação, 4 critérios:
+    `(-premioAnualizado, -premioUnitario, contractSymbol, idCandidato)`.
     `contractSymbol` permanece como TERCEIRO critério de propósito — preserva
     byte a byte a ordem que os guardiões da Fase 30 já travaram.
     `idCandidato` entra como QUARTO critério só para desempatar o que antes
     não tinha como desempatar: o collar não tem `contractSymbol` único (Fase
-    31/D-04), então dois collars empatados em razão e prêmio ficariam ambos
-    com `contractSymbol=None` — sem um quarto critério TOTAL, a ordem entre
-    eles voltaria a depender da ordem de chegada. `premioUnitario`/
-    `idCandidato` lidos via `.get(...) or <default>` porque os guardiões
-    mínimos da Fase 30 (dicts sintéticos de teste) não carregam `idCandidato`
-    — nenhum campo novo virou obrigatório.
+    31/D-04), então dois collars empatados ficariam ambos com
+    `contractSymbol=None` — sem um quarto critério TOTAL, a ordem entre eles
+    voltaria a depender da ordem de chegada. `premioUnitario`/`idCandidato`
+    lidos via `.get(...) or <default>` porque os guardiões mínimos da Fase 30
+    (dicts sintéticos de teste) não carregam `idCandidato` — nenhum campo
+    novo virou obrigatório, exceto `premioAnualizado`, que É obrigatório
+    desde a Fase 39 (todo candidato que passa por `candidatos_da_posicao`
+    já sai com ele).
 
     Esta chave de ordenação é a ÚNICA fonte da ordem: sem peso configurável,
     sem entrada de usuário, sem qualquer campo vindo de LLM (D2 + princípio 5
     do CLAUDE.md). `rankear` não altera nenhum campo dos candidatos além de
     acrescentar `posicaoNoRanking` (1-based, cópia rasa — os dicts de entrada
-    não são mutados).
+    não são mutados). `rankear` NÃO aplica o piso de admissão (D-08) — isso é
+    `aplicar_piso`, chamada pelo CHAMADOR antes de `rankear` (D-10: admissão
+    e ordem são funções separadas, nenhuma delas seleciona CONTRATO).
     """
     ordenados = sorted(candidatos, key=lambda c: (
-        -c["razao"], -(c.get("premioUnitario") or 0.0),
+        -c["premioAnualizado"], -(c.get("premioUnitario") or 0.0),
         c.get("contractSymbol") or "", c.get("idCandidato") or "",
     ))
     cortados = ordenados[:topo]
@@ -581,36 +811,46 @@ def rankear(candidatos: list[dict[str, Any]], *, topo: int = TOPO) -> list[dict[
 
 
 def exigir_ranking(top: Any) -> None:
-    """Recusa qualquer coisa que não seja a saída de `rankear`.
+    """Recusa qualquer coisa que não seja a saída de `rankear` sobre um pool
+    já admitido por `aplicar_piso`.
 
     Esta função existe para que a etapa de IA seja INCAPAZ de receber um pool
-    não rankeado — o guardrail vira comportamento do código, não promessa de
-    comentário (30-CONTEXT, "guardrail não-negociável"). Levanta `ValueError`
-    nomeando o defeito quando: `top` não é lista; tem mais de `TOPO` itens;
-    algum item não é dict ou não tem `razao` numérica; `posicaoNoRanking` não
-    é exatamente `1..len(top)` na ordem; a sequência de `razao` não é
-    monotonicamente não-crescente.
+    não rankeado, ou um candidato abaixo do piso de admissão — o guardrail
+    vira comportamento do código, não promessa de comentário (30-CONTEXT,
+    "guardrail não-negociável"; Fase 39/D-08 estende a mesma disciplina para
+    o piso de probabilidade). Levanta `ValueError` nomeando o defeito quando:
+    `top` não é lista; tem mais de `TOPO` itens; algum item não é dict, não
+    tem `premioAnualizado` numérica, ou não tem `probOtm` numérica
+    `>= PISO_PROB_OTM`; `posicaoNoRanking` não é exatamente `1..len(top)` na
+    ordem; a sequência de `premioAnualizado` não é monotonicamente
+    não-crescente.
     """
     if not isinstance(top, list):
         raise ValueError(f"ranking precisa ser uma lista, veio {type(top).__name__}")
     if len(top) > TOPO:
         raise ValueError(f"ranking tem {len(top)} itens, máximo permitido é {TOPO}")
 
-    razao_anterior = None
+    premio_anualizado_anterior = None
     for i, item in enumerate(top, start=1):
         if not isinstance(item, dict):
             raise ValueError(f"item {i} do ranking não é dict")
-        razao = item.get("razao")
-        if not isinstance(razao, (int, float)) or isinstance(razao, bool):
-            raise ValueError(f"item {i} do ranking não tem razao numérica (veio {razao!r})")
+        premio_anual = item.get("premioAnualizado")
+        if not isinstance(premio_anual, (int, float)) or isinstance(premio_anual, bool):
+            raise ValueError(
+                f"item {i} do ranking não tem premioAnualizado numérico (veio {premio_anual!r})")
+        prob = item.get("probOtm")
+        if not isinstance(prob, (int, float)) or isinstance(prob, bool) or prob < PISO_PROB_OTM:
+            raise ValueError(
+                f"item {i} do ranking tem probOtm {prob!r} abaixo do piso {PISO_PROB_OTM} (D-08)")
         if item.get("posicaoNoRanking") != i:
             raise ValueError(
                 f"item {i} do ranking tem posicaoNoRanking={item.get('posicaoNoRanking')!r}, "
                 f"esperado {i} (ranking precisa vir na própria ordem, 1..N)")
-        if razao_anterior is not None and razao > razao_anterior:
+        if premio_anualizado_anterior is not None and premio_anual > premio_anualizado_anterior:
             raise ValueError(
-                f"ranking fora de ordem: item {i} tem razao {razao} maior que o anterior {razao_anterior}")
-        razao_anterior = razao
+                f"ranking fora de ordem: item {i} tem premioAnualizado {premio_anual} "
+                f"maior que o anterior {premio_anualizado_anterior}")
+        premio_anualizado_anterior = premio_anual
 
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -624,13 +864,25 @@ def narrativa_system(modo: str) -> str:
     de prompt em silêncio."""
     regras = "\n".join([
         "# Regras desta narração",
-        "A ordem das estruturas já foi decidida por um motor determinístico "
-        "(razão prêmio recebido / perda máxima), fora do seu alcance.",
+        # Fase 39, Plano 01 (D-08/D-09), 2026-09-24: substitui a linha
+        # antiga "razão prêmio recebido / perda máxima" — reversão
+        # deliberada da métrica, ver docstring de `rankear`/`aplicar_piso`.
+        "A lista já foi filtrada e ordenada por um motor determinístico: só "
+        "entram candidatos com pelo menos 60% de probabilidade ESTIMADA "
+        "(modelo Black-Scholes) de a opção terminar fora do dinheiro, na "
+        "ordem do prêmio anualizado.",
         "Descreva as estruturas NA ORDEM recebida.",
         "É PROIBIDO: reordenar as estruturas, sugerir outra ordem, "
         "acrescentar estrutura que não está na lista, inventar número que "
         "não está na lista, prometer lucro ou tratar o texto como "
         "recomendação de investimento.",
+        # Fase 39 (D-08), princípios 6/7 do CLAUDE.md: a probabilidade é
+        # ESTIMATIVA de modelo, nunca fato garantido; a IA explica, não
+        # reforça certeza que o dado não tem.
+        "É PROIBIDO apresentar a probabilidade estimada como certeza ou "
+        "como chance de lucro.",
+        "Quando a estimativa usar volatilidade histórica, diga isso "
+        "explicitamente.",
         # Fase 31, Plano 01, Task 3 (D-06): put de proteção, collar de
         # débito e opção a descoberto podem trazer prêmio líquido negativo
         # (débito) — isso é o usuário PAGANDO para montar a estrutura, não
@@ -686,14 +938,24 @@ def narrativa_user(top: list[dict[str, Any]], modo: str) -> str:
         # este caso.
         identificador = item.get("contractSymbol") or \
             f"call {item.get('strikeCall')} / put {item.get('strikePut')}"
+        # Fase 39, Plano 01 (D-08/D-09), 2026-09-24: substitui o trecho
+        # "razão {razao}" — `exigir_ranking` acima já garante `probOtm` e
+        # `premioAnualizado` numéricos, então o rótulo de fonte da
+        # volatilidade também está sempre presente aqui.
+        rotulo_vol = ("volatilidade histórica de 21 pregões do ativo"
+                      if item.get("volatilidadeFonte") == "historica_21d"
+                      else "volatilidade implícita do contrato")
         linhas.append(
             f"{item.get('posicaoNoRanking')}. [{rotulo}] {item.get('ticker')} "
             f"{identificador} — strike R$ {skill_ref.num_br(item.get('strike'))}, "
             f"{item.get('diasParaVencimento')} dias, prêmio líquido unitário "
             f"(positivo = recebido, negativo = pago) "
             f"R$ {skill_ref.num_br(item.get('premioUnitario'))}, prêmio total "
-            f"R$ {skill_ref.num_br(item.get('premioTotal'))}, razão "
-            f"{skill_ref.num_br(item.get('razao'))}, ganho máximo "
+            f"R$ {skill_ref.num_br(item.get('premioTotal'))}, prêmio anualizado "
+            f"{skill_ref.num_br(item.get('premioAnualizado') * 100)}%, "
+            f"probabilidade estimada de terminar fora do dinheiro "
+            f"{skill_ref.num_br(item.get('probOtm') * 100)}% ({rotulo_vol}), "
+            f"ganho máximo "
             f"R$ {skill_ref.num_br(estrutura.get('ganho_maximo'))}, perda máxima "
             f"R$ {skill_ref.num_br(estrutura.get('perda_maxima'))}, breakevens "
             f"{estrutura.get('breakevens')}, liquidez {liquidez.get('faixa')}."

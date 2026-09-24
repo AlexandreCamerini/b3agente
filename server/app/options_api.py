@@ -11,6 +11,7 @@ from .options_provider import get_options
 from .options_quant import (
     FAIXA_NEGOCIAVEL,
     FAIXA_SEM_MERCADO,
+    TAXA_LIVRE_DE_RISCO_REFERENCIA,
     black_scholes,
     breakeven,
     educational_score,
@@ -100,7 +101,7 @@ def _enrich_contract(c: dict, spot: float, expiration: str, hv21: Optional[float
         premium = (bid + ask) / 2 if bid > 0 and ask > 0 else 0
     days = _days_to(expiration)
     iv = c.get("impliedVolatility")
-    bs = black_scholes(kind, spot, strike, years_to_expiration(days), 0.105, float(iv or hv21 or 0), 0.0) if strike > 0 else None
+    bs = black_scholes(kind, spot, strike, years_to_expiration(days), TAXA_LIVRE_DE_RISCO_REFERENCIA, float(iv or hv21 or 0), 0.0) if strike > 0 else None
     liq = liquidity_score(c.get("volume"), c.get("openInterest"), c.get("bid"), c.get("ask"))
     prob_itm = bs.prob_itm if bs else None
     score = educational_score(None, liq, iv, hv21, days, prob_itm)
