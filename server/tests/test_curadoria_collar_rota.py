@@ -62,9 +62,19 @@ def _cadeia(underlying, provider_status="ok", spot=_SPOT, expiration=_EXP,
     abaixo do spot, as duas líquidas — o mínimo para
     `opcoes_curadoria.candidatos_da_posicao` gerar um candidato de collar
     (a fixture-irmã de `test_opcoes_curadoria_rota.py` usa `puts: []`, que
-    NUNCA gera collar)."""
-    cs = round(spot + 1, 2)
-    ps = round(spot - 1, 2)
+    NUNCA gera collar).
+
+    DEVIATION (Fase 39, Plano 01, 2026-09-24, Rule 1 — auto-fix): strikes
+    espaçados 3.0 do spot (antes: 1.0), não 1.0 — este arquivo é anterior ao
+    piso de probabilidade OTM (D-08) e sua geometria original (call
+    spot+1/put spot-1, ~30 dias) fica MUITO perto do dinheiro para o collar
+    passar em `probOtm >= 0.60` (`1 - P(call ITM) - P(put ITM)`, calculado
+    com os dois pernas próximas do spot fica ~0.31, medido). Widening é
+    correção de fixture pré-D-08, não fraqueamento do piso: `PISO_PROB_OTM`
+    continua 0.60, nada foi monkeypatchado. Ver SUMMARY do plano 39-01.
+    """
+    cs = round(spot + 3, 2)
+    ps = round(spot - 3, 2)
     calls = [_contrato(f"{underlying}C{cs}", cs, "call", price=call_price, expiration=expiration)]
     puts = [_contrato(f"{underlying}P{ps}", ps, "put", price=put_price, expiration=expiration)]
     return {
@@ -78,10 +88,15 @@ def _cadeia_2calls(underlying, spot=_SPOT):
     """Mesma cadeia de `_cadeia`, com uma SEGUNDA call (strike mais alto,
     mais distante do spot) que `rastrear(criterio="min")` NUNCA escolhe —
     dá um `contractSymbol` REAL da cadeia, mas DIFERENTE do proposto, para o
-    guardião de perna trocada."""
-    c1 = round(spot + 1, 2)
-    c2 = round(spot + 3, 2)
-    ps = round(spot - 1, 2)
+    guardião de perna trocada.
+
+    DEVIATION (Fase 39, Plano 01, 2026-09-24, Rule 1): mesmo motivo/ressalva
+    de `_cadeia` acima — strikes alargados para o collar re-derivado passar
+    no piso de probabilidade OTM (D-08).
+    """
+    c1 = round(spot + 3, 2)
+    c2 = round(spot + 5, 2)
+    ps = round(spot - 3, 2)
     calls = [_contrato(f"{underlying}C{c1}", c1, "call"), _contrato(f"{underlying}C{c2}", c2, "call")]
     puts = [_contrato(f"{underlying}P{ps}", ps, "put")]
     return {

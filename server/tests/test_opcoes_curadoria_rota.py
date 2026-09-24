@@ -607,8 +607,8 @@ def test_candidato_abaixo_do_piso_nao_aparece_no_top_mas_e_contado(cli, monkeypa
     store.buy(_conn, "PETR4", 200, 25.0, user_id=uid)
     chain = _cadeia("PETR4", n_strikes=0)
     chain["calls"] = [
-        _contrato("PETR4C29", 29, price=2.0),   # quase ATM: probOtm abaixo do piso
-        _contrato("PETR4C60", 60, price=0.05),  # bem OTM: probOtm acima do piso
+        _contrato("PETR4C29.5", 29.5, price=2.0),  # quase ATM (acima do spot 29.0): probOtm abaixo do piso
+        _contrato("PETR4C60", 60, price=0.05),      # bem OTM: probOtm acima do piso
     ]
     chains = {"PETR4": chain}
     _, fake = _contador(chains)
@@ -619,7 +619,7 @@ def test_candidato_abaixo_do_piso_nao_aparece_no_top_mas_e_contado(cli, monkeypa
     body = r.json()
     assert body["pisoProbOtm"] == 0.60
     assert any(c["contractSymbol"] == "PETR4C60" for c in body["top"])
-    assert not any(c["contractSymbol"] == "PETR4C29" for c in body["top"])
+    assert not any(c["contractSymbol"] == "PETR4C29.5" for c in body["top"])
     assert body["reprovadosNoPiso"] >= 1
 
 

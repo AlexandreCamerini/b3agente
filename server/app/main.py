@@ -6,7 +6,7 @@ O cliente iOS persiste no proprio aparelho e envia config/skill no corpo do
 import asyncio
 import hmac
 import os
-from typing import Optional
+from typing import Any, Optional
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -51,7 +51,7 @@ from . import opcoes_tecnico  # Fase 27 (D1): leitura técnica interna da aba (c
 from . import opcoes_lastreadas  # Fase 14 (Plano 03): motor de proposta lastreada (venda coberta/put)
 from . import opcoes_curadoria  # Fase 30 (Plano 01/02): motor puro + varredura cross-posição das 4 melhores
 from . import curadoria_narrativa  # Fase 30 (Plano 03): camada fina de LLM sobre o top já rankeado
-from .options_quant import FAIXA_DIFICIL, FAIXA_SEM_MERCADO, faixa_de_liquidez, liquidity_score  # quick 260908-ldg: gate de liquidez em três faixas
+from .options_quant import FAIXA_DIFICIL, FAIXA_SEM_MERCADO, faixa_de_liquidez, historical_volatility, liquidity_score  # quick 260908-ldg: gate de liquidez em três faixas; historical_volatility (Fase 39/D-08): fallback lazy de vol para o piso da curadoria
 from . import skill_ref  # Fase 14 (Plano 03): frase canônica da proposta lastreada por modo
 
 app = FastAPI(title="Boris+ API")
@@ -3284,6 +3284,29 @@ async def options_vigias(scope: Optional[str] = Depends(current_scope)):
 
 
 # ---- Fase 30 (Plano 02) / Fase 31 (Plano 02): curadoria das 4 melhores estruturas ----
+async def _hv21_do_ativo(t: str) -> Optional[float]:
+    """Fallback de volatilidade histórica de 21 pregões (Fase 39/D-08),
+    usado por `opcoes_curadoria.vol_do_contrato` quando a IV do contrato não
+    é utilizável. Custo: 1 chamada de candles por TICKER, só quando algum
+    candidato da varredura ficou sem probabilidade — `candle_provider.
+    get_history` (candle_provider.py:405) debita orçamento e NÃO tem cache,
+    por isso esta função só é chamada de forma lazy e memoizada por
+    varredura (ver `_curadoria_scan_posicao` abaixo), nunca incondicional.
+
+    Qualquer exceção (rede fora do ar, provedor sem dado) devolve `None` —
+    nunca 500, nunca vol inventada (princípio 4 do CLAUDE.md): sem hv21
+    utilizável, o candidato fica sem probabilidade (`semProbabilidade` no
+    D-11), nunca com número fabricado.
+    """
+    try:
+        hist = await candle_provider.get_history(t, rng="3mo", interval="1d")
+        candles = indicators.sanitize_candles(hist.get("candles"))
+        closes = [c.get("close") for c in candles if isinstance(c.get("close"), (int, float))]
+        return historical_volatility(closes, 21)
+    except Exception:
+        return None
+
+
 async def _curadoria_scan_posicao(t: str, posicao: dict, modo: str, hoje, *,
                                    permitir_a_descoberto: bool = False):
     """Varre UMA posição por até `opcoes_curadoria.VENCIMENTOS_POR_POSICAO`
@@ -3336,8 +3359,27 @@ async def _curadoria_scan_posicao(t: str, posicao: dict, modo: str, hoje, *,
         chains_por_expiration[exp_primaria] = chain
 
     vencs_varridos = [exp_primaria] if exp_primaria else []
-    candidatos = list(opcoes_curadoria.candidatos_da_posicao(
-        t, chain, spot, posicao, modo, hoje, permitir_a_descoberto=permitir_a_descoberto))
+
+    # Fase 39/D-08: hv21 é buscada no MÁXIMO uma vez por TICKER (memo local
+    # a esta varredura), só quando algum candidato ficou sem `probOtm` por
+    # falta de IV utilizável. `candidatos_da_posicao` é pura e a cadeia já
+    # está em memória — recalcular com `hv21` é aritmética, zero rede nova.
+    hv21_cache: dict[str, Any] = {"buscada": False, "valor": None}
+
+    async def _candidatos_com_hv21_lazy(chain_arg):
+        candidatos_local = opcoes_curadoria.candidatos_da_posicao(
+            t, chain_arg, spot, posicao, modo, hoje,
+            permitir_a_descoberto=permitir_a_descoberto, hv21=hv21_cache["valor"])
+        if not hv21_cache["buscada"] and any(c.get("probOtm") is None for c in candidatos_local):
+            hv21_cache["buscada"] = True
+            hv21_cache["valor"] = await _hv21_do_ativo(t)
+            if hv21_cache["valor"] is not None:
+                candidatos_local = opcoes_curadoria.candidatos_da_posicao(
+                    t, chain_arg, spot, posicao, modo, hoje,
+                    permitir_a_descoberto=permitir_a_descoberto, hv21=hv21_cache["valor"])
+        return candidatos_local
+
+    candidatos = list(await _candidatos_com_hv21_lazy(chain))
 
     # Vencimentos extras (Fase 31/D-01): até `VENCIMENTOS_POR_POSICAO - 1`
     # datas futuras além da já buscada acima. Cada extra é tratada
@@ -3359,9 +3401,7 @@ async def _curadoria_scan_posicao(t: str, posicao: dict, modo: str, hoje, *,
         exp_extra = chain_extra.get("expiration")
         if exp_extra:
             chains_por_expiration[exp_extra] = chain_extra
-        candidatos.extend(opcoes_curadoria.candidatos_da_posicao(
-            t, chain_extra, spot, posicao, modo, hoje,
-            permitir_a_descoberto=permitir_a_descoberto))
+        candidatos.extend(await _candidatos_com_hv21_lazy(chain_extra))
 
     return candidatos, chains_por_expiration, vencs_varridos, degradado_extra
 
@@ -3393,6 +3433,12 @@ async def _curadoria_top(scope: Optional[str], modo: str,
     só por lastro (comprado + lote livre), a curadoria não consulta plano
     técnico — isso também evita pagar candles por posição, coisa que a
     proposta única de hoje paga.
+
+    NOTA (Fase 39/D-08, 2026-09-24): a frase acima sobre "não busca candles"
+    ganha uma ressalva parcial — busca candles SÓ como fallback de
+    volatilidade (`_hv21_do_ativo`, via `_curadoria_scan_posicao`), 1x por
+    ticker, só quando falta IV utilizável em algum candidato. Reversão
+    PARCIAL deliberada: continua não buscando `technical_snapshot`/`setups`.
     """
     positions = store.get(_conn, "positions", user_id=scope) or []
     # Partição ANTES de qualquer rede: é ela que faz a promessa "até 2
@@ -3440,6 +3486,14 @@ async def _curadoria_top(scope: Optional[str], modo: str,
         if tipo in candidatos_por_tipo:
             candidatos_por_tipo[tipo] += 1
 
+    # Fase 39/D-08: piso de ADMISSÃO aplicado sobre o pool INTEIRO, ANTES de
+    # `rankear` — `candidatosAvaliados` continua sendo `len(pool)` (pré-piso,
+    # a evidência de que a varredura rodou); `contagem_piso` distingue "nada
+    # varrido" (`candidatosAvaliados == 0`) de "varreu e ninguém passou no
+    # piso" (`candidatosAvaliados > 0` e `admitidosNoPiso == 0`) — contrato
+    # de dado do D-11.
+    admitidos, contagem_piso = opcoes_curadoria.aplicar_piso(pool)
+
     meta = {
         "avaliadas": avaliadas,
         "ignoradas": ignoradas,
@@ -3449,8 +3503,10 @@ async def _curadoria_top(scope: Optional[str], modo: str,
         "vencimentosPorTicker": vencimentos_por_ticker,
         "tetoVencimentos": opcoes_curadoria.VENCIMENTOS_POR_POSICAO,
         "source": source,
+        "pisoProbOtm": opcoes_curadoria.PISO_PROB_OTM,
+        **contagem_piso,
     }
-    return opcoes_curadoria.rankear(pool), meta
+    return opcoes_curadoria.rankear(admitidos), meta
 
 
 @app.get("/api/options/curadoria")
@@ -3481,7 +3537,14 @@ async def options_curadoria(scope: Optional[str] = Depends(current_scope)):
                           "candidatosPorTipo": {t: 0 for t in opcoes_curadoria.TIPOS},
                           "vencimentosPorTicker": {},
                           "tetoVencimentos": opcoes_curadoria.VENCIMENTOS_POR_POSICAO,
-                          "source": None}
+                          "source": None,
+                          # Fase 39/D-11: as 3 contagens do piso precisam
+                          # existir SEMPRE, inclusive no fallback de última
+                          # instância — o front não pode receber uma forma
+                          # de resposta diferente só porque algo inesperado
+                          # quebrou.
+                          "pisoProbOtm": opcoes_curadoria.PISO_PROB_OTM,
+                          "admitidosNoPiso": 0, "reprovadosNoPiso": 0, "semProbabilidade": 0}
     return {
         "top": top, "modo": modo, "fonte": "deterministico", "at": now_str(),
         **meta,
