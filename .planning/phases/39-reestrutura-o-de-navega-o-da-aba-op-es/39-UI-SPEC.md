@@ -195,6 +195,33 @@ fecha o sheet E navega — `escolherTicker(t)` + `setAbaOpcoes("montar")`
 com este ticker" agora aponta para Montar, não mais para uma sub-aba
 "Operar" que deixou de existir).
 
+### Foco visual primário por aba (Dimension 2 — hierarquia)
+
+O que o olho encontra primeiro em cada uma das 3 abas, logo abaixo da
+`abaBar` (o eyebrow/⓵ interno de cada aba é comum às três, ver seção ⓘ
+abaixo — não é o ponto de maior contraste, é rótulo de contexto):
+
+- **Oportunidades:** o primeiro card do carrossel — a manchete colorida
+  por polaridade (`T.positive`/`T.negative`, guardrail CVM inalterado) é o
+  ponto de maior contraste visível ao abrir a aba. Coerente com D-02 ("o
+  que já está pronto pra operar agora"): o peso visual vai para o
+  resultado pronto, não para o enquadramento em torno dele.
+- **Recomendadas:** o card nº1 do ranking — eyebrow de posição
+  (`"1ª de N"`, D-14) seguido da manchete da estrutura. O olho lê a
+  POSIÇÃO antes do detalhe técnico: reforça D-14 (posição no ranking
+  substitui score bruto como leitura primária) e a função regulatória de
+  `curadoriaSubtitulo` (nenhuma estrutura é lida como veredito isolado,
+  ver seção própria abaixo).
+- **Montar:** sem `ticker`, o foco único é o seletor de ticker (chip row)
+  — nada mais compete por atenção, estado inicial deliberadamente
+  minimalista (`cp.opcoesEscolherAtivo`). Com `ticker` escolhido, o foco
+  desloca para `SecaoAnalisar` (tese/vencimento/lote → payoff →
+  `ExecutarProposta`) — é o job da aba ("o usuário monta sua própria
+  estrutura", texto verbatim do Alex, `39-CONTEXT.md` <specifics>);
+  `cabecalho`/`LastroDoAtivo`/`LeituraInterna`, embora renderizem ACIMA na
+  ordem de leitura, são contexto de apoio à decisão de montagem, não o
+  foco em si.
+
 ### As 3 abas — composição interna
 
 #### 1. "Oportunidades" (D-02) — `OportunidadesOpcoes.jsx`, motor COM gate
@@ -491,17 +518,20 @@ reusam padding/raio já citados acima, não inventam um terceiro.
 
 Nenhum tamanho/peso novo além dos já catalogados em `32-UI-SPEC.md`
 (exceção de 3 pesos — 400/700/800 — já aprovada,
-`developer-approved — matches existing pattern — 2026-09-15`):
+`developer-approved — matches existing pattern — 2026-09-15`, herdada,
+não reaberta aqui). **A tabela abaixo está consolidada nos MESMOS 4 papéis
+tipográficos que `32-UI-SPEC.md` §Typography já declarou** — não é uma
+exceção nova de tamanho, é reuso direto da role taxonomy já aprovada
+(verificada linha a linha contra `32-UI-SPEC.md:74-79` e
+`34-UI-SPEC.md:269-274` antes de escrever esta tabela, para não citar um
+precedente que não existe):
 
-| Role | Size | Weight | Uso |
-|------|------|--------|-----|
-| `<h1>Opções</h1>` | 22px | 800 | inalterado |
-| Eyebrow de seção (título de aba) | 10px | 800, letterSpacing 0.04em, uppercase | `tiraOpcoesTitulo`/`curadoriaTitulo`, agora também eyebrow interno de "Montar" |
-| Label de pill (`abaBar`) | 13px | 700 | 3 rótulos novos, mesma métrica de `subabas` |
-| `VigiasBadge` — contador | 12px–13px | 700 | número, quando > 0 |
-| ⓘ (glifo) | 13px | 400 (glifo, não texto customizado) | reuso do padrão "saiba mais"/ⓘ já citado |
-| Body de card (manchete) | 12.5px | 700 | inalterado, `CuradoriaEstruturas`/`OportunidadesOpcoes` |
-| Link secundário ("ver outros vencimentos") | 11.5px–12px | 700 | mesma métrica de "ver posição"/"saiba mais" (`CuradoriaEstruturas.jsx:278`) |
+| Role | Size | Weight | Uso nesta fase |
+|------|------|--------|-----------------|
+| Heading de tela | 22px | 800 | `<h1>Opções</h1>` — inalterado |
+| Eyebrow/label | 9px–10.5px | 800, `letterSpacing: 0.03em–0.04em`, uppercase | Eyebrow de seção (`tiraOpcoesTitulo`/`curadoriaTitulo`, agora também eyebrow interno de "Montar") — 10px, dentro do range já catalogado em `32-UI-SPEC.md:76` |
+| Body padrão | 12.5px–13px | 400–800 | Label de pill da `abaBar` (13px/700 — mesmo valor literal que `34-UI-SPEC.md:273` já cita para "Pill-row tab labels"; a role em `32-UI-SPEC.md:78` já lista "botões" como uso, pill é botão); `VigiasBadge` — contador (13px/700 quando > 0 — elemento NOVO desta fase, sem citação de produção pré-existente; fixado no mesmo valor do pill label vizinho por consistência de cabeçalho, não é mais um range solto); ⓘ glifo (13px/400); body de card/manchete (12.5px/700, `CuradoriaEstruturas`/`OportunidadesOpcoes`, mesmo uso "manchete do motor" de `32-UI-SPEC.md:78`) |
+| Body pequeno | 10.5px–12px | 400–700 | Link secundário "ver outros vencimentos" (11.5px–12px/700, mesma métrica de "ver posição"/"saiba mais", `CuradoriaEstruturas.jsx:278`) |
 
 Line-height: 1.4–1.6 em texto corrido (subtítulos, avisos), sem
 `line-height` declarado em labels curtas de uma linha — igual às fases
@@ -589,9 +619,9 @@ mudança de escopo, é a mesma linha que já vai ser tocada para acrescentar
 ## Checker Sign-Off
 
 - [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS
+- [ ] Dimension 2 Visuals: PASS — foco visual primário declarado por aba, ver seção "Foco visual primário por aba (Dimension 2 — hierarquia)"
 - [ ] Dimension 3 Color: PASS — inclui a correção obrigatória `#fff`→`T.onAccent` em `CuradoriaEstruturas.jsx:268`
-- [ ] Dimension 4 Typography: PASS — exceção `developer-approved — matches existing pattern` (3 pesos) herdada de `32-UI-SPEC.md`
+- [ ] Dimension 4 Typography: PASS — tabela de tamanho consolidada em 4 papéis (≤4 tamanhos distintos), reuso verificado de `32-UI-SPEC.md`/`34-UI-SPEC.md`; exceção `developer-approved — matches existing pattern` (3 pesos) herdada de `32-UI-SPEC.md`, não reaberta
 - [ ] Dimension 5 Spacing: PASS — exceção `developer-approved — matches existing pattern` herdada de `32-UI-SPEC.md`/`34-UI-SPEC.md`
 - [ ] Dimension 6 Registry Safety: PASS
 
@@ -633,3 +663,6 @@ mudança de escopo, é a mesma linha que já vai ser tocada para acrescentar
 
 *Phase: 39-Reestruturação de navegação da aba Opções*
 *UI-SPEC gerado: 2026-09-24*
+*Revisado: 2026-09-24 — fix de achados do checker (Dimension 4 blocking:
+tamanho consolidado em 4 papéis via reuso de `32-UI-SPEC.md`/
+`34-UI-SPEC.md`; Dimension 2 flag: foco visual primário por aba adicionado)*
