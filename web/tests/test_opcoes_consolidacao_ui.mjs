@@ -1,6 +1,7 @@
 // Fase 32 (32-03, 2026-09-15) — Guardião DEDICADO da consolidação das
 // operações de opções na aba Opções. Reprova a volta dos dois blocos
-// cross-carteira para Posições e a perda da frase-ponte obrigatória (D-05).
+// cross-carteira para Posições e a perda da frase-ponte obrigatória (D-05,
+// histórica — ver nota datada abaixo).
 //
 // Contexto: os blocos "Oportunidades de opções" (motor COM gate) e "as 4
 // melhores oportunidades de opções" (motor SEM gate) migraram de
@@ -8,50 +9,41 @@
 // (OpcoesScreen.jsx) — D-04/D-07. Posições ganhou uma linha de chamada
 // única, com contagem lida da MESMA fonte que alimenta a lista (D-03).
 //
-// Cada regra abaixo defende um requisito específico do 32-UI-SPEC.md/
-// 32-03-PLAN.md, por leitura estática de source (sem build, sem DOM):
+// 2026-09-24, Fase 39 (39-04/39-05, NAV-01) — RECONCILIAÇÃO. `SecaoDescobrir.jsx`
+// (Fase 33-02) foi DELETADO — os dois blocos cross-carteira que ali
+// conviviam NUMA MESMA TELA, separados pela frase-ponte, viram DUAS ABAS
+// FIXAS IRMÃS e mutuamente exclusivas (Oportunidades/Recomendadas, D-01/D-02),
+// cada uma com o próprio arquivo (`AbaOportunidades.jsx`/`AbaRecomendadas.jsx`)
+// e o próprio `CarimboFrescor` (D-04b da Fase 33 preservado, sem mudança).
+// Reversões (nota datada, nenhum `ok(` apagado sem substituto —
+// T-39-19/T-39-20 do 39-05-PLAN.md):
 //
-//  1. ordem no ramo `setups`: <SecaoDescobrir < <SecaoVigias em
-//     OpcoesScreen.jsx (Fase 33/33-02: fraseDuasLeituras/blocoOportunidades/
-//     blocoCuradoria saíram — os três viraram um componente só,
-//     SecaoDescobrir.jsx), e DENTRO de SecaoDescobrir.jsx a ordem interna
-//     duasLeiturasIntro < <OportunidadesOpcoes < <CuradoriaEstruturas
-//     (Fase 33/33-01 já tinha trocado {blocoVigias} por <SecaoVigias);
-//  2. a frase-ponte (D-05) é incondicional — nunca colapsável;
-//  3. App.jsx não contém <OportunidadesOpcoes nem <CuradoriaEstruturas;
-//  4. App.jsx contém <LinhaChamadaOpcoes exatamente 1x (D-01);
-//  5. LinhaChamadaOpcoes referencia os 4 estados e chama
-//     linhaChamadaOpcoesTexto( exatamente 1x (D-03, origem única da contagem);
-//  6. LinhaChamadaOpcoes não recalcula contagem (sem .filter(/.reduce(/positions);
-//  7. navegação (D-02): onIr resolve para ctx.goOpcoes, que é navigate("opcoes"),
-//     sem parâmetro de ticker/candidato (sem deep-link);
-//  8. D-06: nenhum sticky/fixed nem <input de busca entre a frase-ponte e os
-//     vigias (Fase 33/33-02: medido sobre SecaoDescobrir.jsx inteiro + o
-//     trecho de OpcoesScreen.jsx entre <SecaoDescobrir e <SecaoVigias);
-//  9. regressão do collar curado: onExecutar liga a ctx.A.executarCandidatoCurado
-//     exatamente 1x, somando OpcoesScreen.jsx + SecaoDescobrir.jsx (Fase
-//     33/33-02: o fio pode ficar em qualquer um dos dois, nunca nos dois);
-//     executarCandidato.js continua despachando optionsCuradoriaAbrirCollar
-//     para tipo === "collar"; nenhum store./api. dentro de
-//     CuradoriaEstruturas.jsx;
-//  10. estado de erro do Bloco B: CuradoriaEstruturas.jsx referencia
-//      cp.curadoriaErroBusca e o ramo de cp.curadoriaVazio exige !erro;
-//  11. Pitfall 4: nenhum arquivo de web/src/opcoes/ contém scrollIntoView
-//      nem a âncora "posicao-" (Fase 33/33-02: varredura de diretório,
-//      cobre SecaoDescobrir.jsx e qualquer seção nova automaticamente);
-//  12. identificador pendurado em App.jsx: opcoesPorTicker/opcoesCarregando/
-//      opcoesFor só podem ser USADOS se também DECLARADOS — a classe de
-//      defeito que este plano quase criou (ver 32-03-PLAN.md, achado do
-//      plan-checker) e que nem `vite build` nem os outros guardiões de
-//      string pegam.
-//  13. WR-01 (32-REVIEW.md, quick 260916-cod, 2026-09-16): nem
-//      LinhaChamadaOpcoes (App.jsx) nem CuradoriaEstruturas.jsx podem
-//      afirmar "vazio" antes de a primeira busca de useCuradoria terminar —
-//      os dois têm de tratar `!concluido` como "ainda carregando", na
-//      MESMA condição que já trata `carregando`, e ANTES do ramo de vazio.
-//      Fase 33 (33-02): OpcoesScreen.jsx passa `ctx.curadoria` INTEIRO para
-//      SecaoDescobrir.jsx, que é quem agora repassa `concluido` para
-//      CuradoriaEstruturas (mesma fonte, D-03).
+//  · Item 1 (ordem `<SecaoDescobrir` < `<SecaoVigias`, e DENTRO dele
+//    `duasLeiturasIntro` < `<OportunidadesOpcoes` < `<CuradoriaEstruturas`) —
+//    REVERTIDO: os dois motores não dividem mais tela nenhuma, então "ordem
+//    sequencial" deixa de fazer sentido — viram abas MUTUAMENTE EXCLUSIVAS.
+//    Substituído pela checagem de exclusividade (item 1 novo).
+//  · Item 2 (frase-ponte incondicional, D-05) — REVERTIDO: `duasLeiturasIntro`
+//    sai de uso (Plano 39-02); a negação de hierarquia passa a morar em
+//    `curadoriaSubtitulo` (checada com nota própria em
+//    `test_opcoes_hub_workspace_ui.mjs`, item 5a — não duplicada aqui).
+//    Substituído por uma prova negativa: nenhum dos dois arquivos novos
+//    referencia `duasLeiturasIntro` (item 2 novo).
+//  · Item 8 (D-06, nada entre a frase-ponte e os vigias) — re-ancorado: sem
+//    frase-ponte nem bloco fixo de vigias, a varredura de sticky/input passa
+//    a cobrir os dois arquivos novos inteiros (item 8 novo).
+//  · Item 9 (onExecutar somado OpcoesScreen.jsx + SecaoDescobrir.jsx) —
+//    re-ancorado (a), soma cai para 1 arquivo só: `SecaoDescobrir.jsx` não
+//    existe mais, então a contagem é só sobre `OpcoesScreen.jsx`.
+//  · Item 13 (fio de `concluido` via SecaoDescobrir.jsx) — re-ancorado (a):
+//    `OpcoesScreen.jsx` passa `curadoria={ctx && ctx.curadoria}` direto para
+//    `AbaRecomendadas.jsx`, que repassa a mesma expressão de sempre para
+//    `CuradoriaEstruturas`.
+//  · Item 14 (SecaoDescobrir.jsx sem .sort(/.reverse() — re-ancorado (a) para
+//    os dois arquivos novos, `AbaOportunidades.jsx`/`AbaRecomendadas.jsx`.
+//
+// Itens 3-7, 10-12, 15 não referenciam `SecaoDescobrir.jsx` e não mudam de
+// condição — re-executados sem alteração (a).
 //
 // Roda sem build: `node web/tests/test_opcoes_consolidacao_ui.mjs`.
 import { readFileSync, readdirSync } from "fs";
@@ -67,10 +59,10 @@ const app = readFileSync(join(dirSrc, "App.jsx"), "utf8");
 const tela = readFileSync(join(dirOpcoes, "OpcoesScreen.jsx"), "utf8");
 const curadoriaModulo = readFileSync(join(dirOpcoes, "CuradoriaEstruturas.jsx"), "utf8");
 const executarCandidato = readFileSync(join(dirOpcoes, "executarCandidato.js"), "utf8");
-// Fase 33 (33-02): a frase-ponte + Bloco A + Bloco B migraram para este
-// arquivo novo — várias regras abaixo passam a medir ELE, não mais
-// OpcoesScreen.jsx, para o que se moveu.
-const secaoDescobrirModulo = readFileSync(join(dirOpcoes, "SecaoDescobrir.jsx"), "utf8");
+// Fase 39 (39-04/39-05, 2026-09-24): `SecaoDescobrir.jsx` foi DELETADO — a
+// frase-ponte + Bloco A + Bloco B que viviam nele viram DUAS ABAS próprias.
+const abaOportunidadesModulo = readFileSync(join(dirOpcoes, "AbaOportunidades.jsx"), "utf8");
+const abaRecomendadasModulo = readFileSync(join(dirOpcoes, "AbaRecomendadas.jsx"), "utf8");
 
 // Remove comentários de bloco ({/* ... */} e /* ... */) ANTES de filtrar
 // linhas `//` — mesmo padrão de test_opcoes_subabas_ui.mjs. Sem isto, um
@@ -83,55 +75,42 @@ const semComentario = (s) => s
 const appSC = semComentario(app);
 const telaSC = semComentario(tela);
 const curadoriaSC = semComentario(curadoriaModulo);
-const secaoDescobrirSC = semComentario(secaoDescobrirModulo);
+const abaOportunidadesSC = semComentario(abaOportunidadesModulo);
+const abaRecomendadasSC = semComentario(abaRecomendadasModulo);
 
 let fails = 0;
 const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if (!cond) fails++; };
 
-// ---- (1) ordem no ramo setups ---------------------------------------------
-// 2026-09-20, Fase 33 (33-02): `{fraseDuasLeituras}`/`{blocoOportunidades}`/
-// `{blocoCuradoria}` saíram de OpcoesScreen.jsx — os três viraram
-// `<SecaoDescobrir` (componente único, SecaoDescobrir.jsx). A garantia de
-// ORDEM se divide em duas, nenhuma mais fraca que a original: (a) em
-// OpcoesScreen.jsx, `<SecaoDescobrir` vem antes de `<SecaoVigias`; (b)
-// DENTRO de SecaoDescobrir.jsx, a frase-ponte (duasLeiturasIntro) vem antes
-// do Bloco A (<OportunidadesOpcoes), que vem antes do Bloco B
-// (<CuradoriaEstruturas) — mesma sequência de sempre, só em arquivo próprio.
-const iSecaoDescobrirTela = telaSC.indexOf("<SecaoDescobrir");
-const iVigias = telaSC.indexOf("<SecaoVigias");
-ok("<SecaoDescobrir e <SecaoVigias foram localizados em OpcoesScreen.jsx",
-  iSecaoDescobrirTela > -1 && iVigias > -1);
-ok("ordem em OpcoesScreen.jsx: <SecaoDescobrir < <SecaoVigias",
-  iSecaoDescobrirTela > -1 && iVigias > -1 && iSecaoDescobrirTela < iVigias);
+// ---- (1) [reversão b] exclusividade mútua entre as duas abas cross-carteira
+// (substitui a ordem sequencial de antes — os dois motores não dividem mais
+// a mesma tela, D-01/D-02) ----------------------------------------------------
+const iRamoOportunidades = telaSC.indexOf('abaOpcoes === "oportunidades" ? (');
+const iRamoRecomendadas = telaSC.indexOf('abaOpcoes === "recomendadas" ? (');
+ok("os dois ramos abaOpcoes === \"oportunidades\"/\"recomendadas\" foram localizados em OpcoesScreen.jsx",
+  iRamoOportunidades > -1 && iRamoRecomendadas > -1);
+const fimRamoOportunidades = iRamoRecomendadas > iRamoOportunidades ? iRamoRecomendadas : telaSC.length;
+const corpoRamoOportunidades = telaSC.slice(iRamoOportunidades, fimRamoOportunidades);
+ok("o ramo \"oportunidades\" contém <AbaOportunidades e NÃO contém <AbaRecomendadas (abas mutuamente exclusivas)",
+  corpoRamoOportunidades.includes("<AbaOportunidades") && !corpoRamoOportunidades.includes("<AbaRecomendadas"));
+const iFimRamoRecomendadas = telaSC.indexOf('abaOpcoes === "montar" ? (', iRamoRecomendadas);
+const corpoRamoRecomendadas = (iFimRamoRecomendadas > iRamoRecomendadas)
+  ? telaSC.slice(iRamoRecomendadas, iFimRamoRecomendadas) : "";
+ok("o ramo \"recomendadas\" contém <AbaRecomendadas e NÃO contém <AbaOportunidades (abas mutuamente exclusivas)",
+  corpoRamoRecomendadas.length > 0
+  && corpoRamoRecomendadas.includes("<AbaRecomendadas") && !corpoRamoRecomendadas.includes("<AbaOportunidades"));
 
-const iFraseSD = secaoDescobrirSC.indexOf("duasLeiturasIntro");
-const iBlocoASD = secaoDescobrirSC.indexOf("<OportunidadesOpcoes");
-const iBlocoBSD = secaoDescobrirSC.indexOf("<CuradoriaEstruturas");
-ok("os 3 marcadores foram localizados em SecaoDescobrir.jsx",
-  iFraseSD > -1 && iBlocoASD > -1 && iBlocoBSD > -1);
-ok("ordem em SecaoDescobrir.jsx: duasLeiturasIntro < <OportunidadesOpcoes < <CuradoriaEstruturas",
-  iFraseSD > -1 && iFraseSD < iBlocoASD && iBlocoASD < iBlocoBSD);
-
-// ---- (2) frase-ponte incondicional (D-05) ---------------------------------
-// 2026-09-20, Fase 33 (33-02): a medição passa a ser em SecaoDescobrir.jsx
-// (onde a frase-ponte agora vive). A frase não pode estar dentro de uma
-// condição — ela é sempre montada e sempre no DOM. Verificação: nenhum
-// aria-expanded/onClick no trecho onde o parágrafo é montado, e o USO (a
-// linha com `{cp.duasLeiturasIntro}`) não está precedido de `&&` nem de `?`
-// na mesma linha (ternário/curto-circuito inline).
-const iDeclFrase = secaoDescobrirSC.indexOf("cp.duasLeiturasIntro");
-const iDeclBlocoA = secaoDescobrirSC.indexOf("<OportunidadesOpcoes");
-const trechoDeclFrase = (iDeclFrase > -1 && iDeclBlocoA > iDeclFrase) ? secaoDescobrirSC.slice(Math.max(0, iDeclFrase - 300), iDeclBlocoA) : "";
-ok("a montagem de cp.duasLeiturasIntro foi localizada em SecaoDescobrir.jsx", trechoDeclFrase.length > 0);
-ok("o trecho da frase-ponte NÃO tem aria-expanded (nunca colapsável)",
-  !trechoDeclFrase.includes("aria-expanded"));
-ok("o trecho da frase-ponte NÃO tem onClick (não é toggle)",
-  !trechoDeclFrase.includes("onClick"));
-const linhaUsoFrase = (secaoDescobrirSC.match(/^.*\{cp\.duasLeiturasIntro\}.*$/m) || [""])[0];
-ok("o USO de {cp.duasLeiturasIntro} na árvore não depende de carteira.length/ticker/subaba/carregando (mesma linha)",
-  linhaUsoFrase.length > 0
-  && !/carteira\.length|ticker\s*&&|ticker\s*\?|subaba\s*&&|subaba\s*\?|carregando\s*&&|carregando\s*\?/.test(linhaUsoFrase)
-  && linhaUsoFrase.trim() === "{cp.duasLeiturasIntro}"); // linha isolada, nenhuma condição envolvendo o marcador
+// ---- (2) [reversão b] frase-ponte dissolvida (D-05 histórico) --------------
+// A negação de hierarquia entre os dois motores passa a morar em
+// `curadoriaSubtitulo` — checado com nota própria em
+// `test_opcoes_hub_workspace_ui.mjs` (item 5a), não duplicado aqui. Esta
+// prova é NEGATIVA: nenhum dos dois arquivos novos pode ter ressuscitado a
+// frase-ponte por engano (voltaria a acoplar as duas abas).
+ok("AbaOportunidades.jsx NÃO referencia duasLeiturasIntro (frase-ponte dissolvida, D-05/39-02)",
+  !abaOportunidadesSC.includes("duasLeiturasIntro"));
+ok("AbaRecomendadas.jsx NÃO referencia duasLeiturasIntro (frase-ponte dissolvida, D-05/39-02)",
+  !abaRecomendadasSC.includes("duasLeiturasIntro"));
+ok("cada aba nova tem o próprio <CarimboFrescor (D-04b da Fase 33 preservado — carimbo por aba, não mais um só compartilhado)",
+  /<CarimboFrescor/.test(abaOportunidadesSC) && /<CarimboFrescor/.test(abaRecomendadasSC));
 
 // ---- (3) App.jsx não renderiza mais os dois blocos -------------------------
 ok("App.jsx NÃO contém <OportunidadesOpcoes",
@@ -175,33 +154,23 @@ ok('App.jsx passa onIr={() => ctx.goOpcoes("recomendadas")} para LinhaChamadaOpc
 ok('ctx.goOpcoes(aba) só usa o parâmetro para setOpcoesAbaInicial, guardado por typeof aba === "string", antes de navigate("opcoes") (sem parâmetro de ticker/candidato)',
   /goOpcoes:\s*\(aba\)\s*=>\s*\{\s*if\s*\(typeof aba === "string"\)\s*setOpcoesAbaInicial\(aba\);\s*navigate\("opcoes"\);\s*\}/.test(appSC));
 
-// ---- (8) D-06: nada impede busca depois -------------------------------------
-// 2026-09-20, Fase 33 (33-02): o trecho "entre a frase-ponte e os vigias"
-// agora atravessa DOIS arquivos — a frase-ponte + Bloco A + Bloco B moraram
-// em SecaoDescobrir.jsx inteiro, e o que falta entre ele e os vigias é o
-// trecho de OpcoesScreen.jsx entre `<SecaoDescobrir` e `<SecaoVigias`. A
-// intenção (nada se intromete entre a desambiguação e os vigias) é a MESMA;
-// só a fonte lida mudou de forma (um arquivo inteiro + um trecho, em vez de
-// um trecho só).
-const trechoAteVigiasTela = (iSecaoDescobrirTela > -1 && iVigias > iSecaoDescobrirTela)
-  ? telaSC.slice(iSecaoDescobrirTela, iVigias) : "";
-ok("trecho entre <SecaoDescobrir e <SecaoVigias em OpcoesScreen.jsx foi localizado",
-  trechoAteVigiasTela.length > 0);
-const trechoAteVigias = secaoDescobrirSC + "\n" + trechoAteVigiasTela;
-ok('nenhum position: "sticky"/"fixed" entre a frase-ponte e os vigias',
-  !/position:\s*["']?(sticky|fixed)/.test(trechoAteVigias));
-ok("nenhum <input de busca/filtro entre a frase-ponte e os vigias",
-  !/<input/.test(trechoAteVigias));
+// ---- (8) [re-ancorado] D-06: nada impede busca depois ----------------------
+// Fase 39 (39-05, 2026-09-24): sem frase-ponte nem bloco fixo de vigias para
+// medir "o trecho entre os dois", a varredura passa a cobrir os DOIS
+// arquivos novos inteiros — a intenção (nada se intromete no fluxo das duas
+// abas cross-carteira) é a mesma.
+const duasAbasFonte = abaOportunidadesSC + "\n" + abaRecomendadasSC;
+ok('nenhum position: "sticky"/"fixed" em AbaOportunidades.jsx/AbaRecomendadas.jsx',
+  !/position:\s*["']?(sticky|fixed)/.test(duasAbasFonte));
+ok("nenhum <input de busca/filtro em AbaOportunidades.jsx/AbaRecomendadas.jsx",
+  !/<input/.test(duasAbasFonte));
 
-// ---- (9) regressão do collar curado ----------------------------------------
-// 2026-09-20, Fase 33 (33-02): o fio pode ficar no orquestrador
-// (OpcoesScreen.jsx) e descer por prop, ou ir para a seção
-// (SecaoDescobrir.jsx) — o que não pode é existir nos DOIS ao mesmo tempo.
-// Soma das duas fontes, exigindo exatamente 1x no total.
+// ---- (9) [re-ancorado a] regressão do collar curado ------------------------
+// Fase 39 (39-05, 2026-09-24): `SecaoDescobrir.jsx` não existe mais — o fio
+// só pode estar em `OpcoesScreen.jsx` (não soma mais dois arquivos).
 const nOnExecutar =
-  (telaSC.match(/onExecutar=\{\(cand, o\) => ctx\.A\.executarCandidatoCurado\(cand, o\)\}/g) || []).length +
-  (secaoDescobrirSC.match(/onExecutar=\{\(cand, o\) => ctx\.A\.executarCandidatoCurado\(cand, o\)\}/g) || []).length;
-ok("onExecutar liga a ctx.A.executarCandidatoCurado exatamente 1x, somando OpcoesScreen.jsx + SecaoDescobrir.jsx",
+  (telaSC.match(/onExecutar=\{\(cand, o\) => ctx\.A\.executarCandidatoCurado\(cand, o\)\}/g) || []).length;
+ok("onExecutar liga a ctx.A.executarCandidatoCurado exatamente 1x em OpcoesScreen.jsx",
   nOnExecutar === 1);
 ok("executarCandidato.js continua despachando para tipo === \"collar\" (optionsCuradoriaAbrirCollar)",
   /if\s*\(tipo === "collar"\)/.test(executarCandidato) && executarCandidato.includes("optionsCuradoriaAbrirCollar"));
@@ -219,10 +188,9 @@ ok("o ramo que mostra cp.curadoriaVazio exige !erro (a tela não afirma \"nada e
   trechoAntesVazio.includes("!erro"));
 
 // ---- (11) Pitfall 4: sem scrollIntoView / âncora "posicao-" ----------------
-// 2026-09-20, Fase 33 (33-02): convertido para varredura de DIRETÓRIO (D-02
-// do 33-CONTEXT.md) — estende a proibição a SecaoDescobrir.jsx e a qualquer
-// arquivo novo das próximas 33-03/04/05 sem precisar lembrar de atualizar
-// esta lista de novo.
+// Varredura de DIRETÓRIO (D-02 do 33-CONTEXT.md) — estende a proibição a
+// qualquer arquivo da pasta, cobrindo AbaOportunidades.jsx/AbaRecomendadas.jsx
+// automaticamente, sem precisar atualizar esta lista.
 const arquivosOpcoesDirConsolidacao = readdirSync(dirOpcoes).filter((f) => f.endsWith(".jsx") || f.endsWith(".js"));
 ok("achou pelo menos 15 arquivos em web/src/opcoes/ (sanidade da varredura, Pitfall 4)",
   arquivosOpcoesDirConsolidacao.length >= 15);
@@ -265,8 +233,9 @@ for (const nome of ["opcoesPorTicker", "opcoesCarregando", "opcoesFor"]) {
      !r.usado || r.declarado);
 }
 
-// ---- (13) WR-01: nenhum dos dois consumidores afirma "vazio" antes de ------
-//           a primeira busca terminar (32-REVIEW.md, quick 260916-cod)
+// ---- (13) [re-ancorado a] WR-01: nenhum dos dois consumidores afirma ------
+//           "vazio" antes de a primeira busca terminar (32-REVIEW.md, quick
+//           260916-cod)
 const fatiaLinhaSC = semComentario(fatiaLinha);
 ok("LinhaChamadaOpcoes (App.jsx) trata `!concluido` como carregando, na MESMA condição que `carregando` (ramo `carregando || !concluido`)",
   /\bcarregando\s*\|\|\s*!concluido\b/.test(fatiaLinhaSC));
@@ -284,37 +253,35 @@ const iNaoMedidoUsoVazio = curadoriaSC.indexOf("top.length === 0 && !naoMedido &
 ok("o ramo de vazio de CuradoriaEstruturas.jsx exige o estado combinado (naoMedido) resolvido, não só `!carregando`",
   iNaoMedidoUsoCarregando > -1 && iNaoMedidoUsoVazio > -1);
 
-// 2026-09-20, Fase 33 (33-02): o fio de `concluido` passou a atravessar TRÊS
-// pontos — OpcoesScreen.jsx passa `ctx.curadoria` INTEIRO (não mais
-// `.concluido` avulso) para SecaoDescobrir.jsx, que é quem agora repassa
-// `concluido={!!(curadoria && curadoria.concluido)}` para CuradoriaEstruturas
-// (mesma fonte, D-03) — a garantia WR-01 não muda, só onde o fio é lido.
-ok("OpcoesScreen.jsx passa curadoria={ctx.curadoria} inteiro para SecaoDescobrir",
+// Fase 39 (39-04/39-05, 2026-09-24): o fio de `concluido` passou a atravessar
+// `AbaRecomendadas.jsx` em vez de `SecaoDescobrir.jsx` — `OpcoesScreen.jsx`
+// passa `ctx.curadoria` INTEIRO (não `.concluido` avulso) para
+// `AbaRecomendadas.jsx`, que repassa a mesma expressão de sempre
+// (`!!(curadoria && curadoria.concluido)`) para `CuradoriaEstruturas` — a
+// garantia WR-01 não muda, só onde o fio é lido.
+ok("OpcoesScreen.jsx passa curadoria={ctx && ctx.curadoria} inteiro para AbaRecomendadas",
   /curadoria=\{ctx\s*&&\s*ctx\.curadoria\}/.test(telaSC));
-ok("SecaoDescobrir.jsx repassa concluido={!!(curadoria && curadoria.concluido)} para CuradoriaEstruturas",
-  /concluido=\{!!\(curadoria\s*&&\s*curadoria\.concluido\)\}/.test(secaoDescobrirSC));
+ok("AbaRecomendadas.jsx repassa concluido={!!(curadoria && curadoria.concluido)} para CuradoriaEstruturas",
+  /concluido=\{!!\(curadoria\s*&&\s*curadoria\.concluido\)\}/.test(abaRecomendadasSC));
 
-// ---- (14) REORG-07 (Fase 33, 33-02): curadoria.top/curadoria.meta são
-// consumidos por REFERÊNCIA e por ÍNDICE em SecaoDescobrir.jsx — a seleção
-// é do motor determinístico (opcoes_curadoria.rankear), nunca do front.
-// Achado por INJEÇÃO REAL durante a escrita deste guardião (Task 4 do
-// 33-02-PLAN.md): nenhum guardião existente pegava um .sort( aplicado a
-// `curadoria.top` antes de repassar para <CuradoriaEstruturas — mesmo
-// precedente de CuradoriaEstruturas.jsx NÃO usar .sort(/.reverse( no
-// próprio corpo (test_curadoria_ui.mjs, seção 3), estendido ao wrapper
-// novo que também tem acesso à lista.
-ok("SecaoDescobrir.jsx NÃO usa .sort( no corpo",
-  !secaoDescobrirSC.includes(".sort("));
-ok("SecaoDescobrir.jsx NÃO usa .reverse( no corpo",
-  !secaoDescobrirSC.includes(".reverse("));
+// ---- (14) [re-ancorado a] REORG-07: curadoria.top/curadoria.meta são
+// consumidos por REFERÊNCIA e por ÍNDICE — a seleção é do motor
+// determinístico (opcoes_curadoria.rankear), nunca do front. Fase 39
+// (39-05, 2026-09-24): a checagem agora cobre os dois arquivos novos
+// (`AbaOportunidades.jsx` também tem acesso a `opcoesPorTicker`, o
+// equivalente de "lista com posição de exibição" do lado do gate).
+ok("AbaOportunidades.jsx NÃO usa .sort( no corpo",
+  !abaOportunidadesSC.includes(".sort("));
+ok("AbaOportunidades.jsx NÃO usa .reverse( no corpo",
+  !abaOportunidadesSC.includes(".reverse("));
+ok("AbaRecomendadas.jsx NÃO usa .sort( no corpo",
+  !abaRecomendadasSC.includes(".sort("));
+ok("AbaRecomendadas.jsx NÃO usa .reverse( no corpo",
+  !abaRecomendadasSC.includes(".reverse("));
 
-// ---- (15) princípios 3/4 do CLAUDE.md (Fase 33, 33-02): carimbo de frescor
-// derivado só do campo que a resposta já trouxe, NUNCA do relógio de quem
-// está com a tela aberta. Achado por INJEÇÃO REAL durante a escrita deste
-// guardião (Task 4 do 33-02-PLAN.md): nenhum guardião existente pegava
-// `new Date().toLocaleTimeString()`/`Date.now()` substituindo o `at` da
-// resposta em SecaoDescobrir.jsx — varredura de DIRETÓRIO (não só este
-// arquivo) para cobrir qualquer seção nova que venha a exibir carimbo.
+// ---- (15) princípios 3/4 do CLAUDE.md: carimbo de frescor derivado só do
+// campo que a resposta já trouxe, NUNCA do relógio de quem está com a tela
+// aberta — varredura de DIRETÓRIO, cobre os arquivos novos automaticamente.
 const comRelogioDoCliente = arquivosOpcoesDirConsolidacao.filter((f) => {
   const src = semComentario(readFileSync(join(dirOpcoes, f), "utf8"));
   return /Date\.now\(\)|new Date\(/.test(src);

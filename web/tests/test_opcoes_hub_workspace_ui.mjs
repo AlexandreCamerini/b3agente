@@ -1,93 +1,78 @@
 // Fase 34, plano 34-01 (2026-09-20) — guardião do split hub/workspace da
 // sub-aba "Setups" da aba Opções.
 //
-// Este arquivo nasce com só a metade "fundação" da fase (34-01): o
+// Este arquivo nasceu com só a metade "fundação" da fase (34-01): o
 // componente `WorkspaceHeader.jsx` e as 4 chaves de copy novas. O split de
-// `OpcoesScreen.jsx` em si (hub × workspace) entra nos planos 34-02/34-03,
-// que ACRESCENTAM asserções a ESTE MESMO arquivo — não criam um terceiro
-// guardião.
+// `OpcoesScreen.jsx` em si (hub × workspace) entrou nos planos 34-02/34-03,
+// que ACRESCENTARAM asserções a ESTE MESMO arquivo — não um terceiro
+// guardião. Histórico completo (itens originais 1-20, Fases 34-01/34-02/
+// 34-03) preservado em `git log -p` deste arquivo — não reescrito aqui.
 //
-// Cada item abaixo nomeia o defeito que ele reprova. Nenhum é decorativo:
+// 2026-09-24, Fase 39 (39-04/39-05, NAV-01) — RECONCILIAÇÃO. `WorkspaceHeader.jsx`
+// foi DELETADO (zero consumidor restante) e o split hub×workspace inteiro foi
+// dissolvido: os dois estados ortogonais `subaba` (Fase 28) e `abaWorkspace`
+// (Fase 34) viram UM estado `abaOpcoes` com 3 valores fixos
+// (Oportunidades/Recomendadas/Montar, D-01) — sempre os mesmos, com ou sem
+// ticker escolhido. Não há mais "hub" nem "workspace": há 3 abas fixas, e a
+// antiga sub-aba "Setups" (Fase 28/34) é hoje a aba "Montar".
 //
-//  1. **`WorkspaceHeader.jsx` sem export default** — o 34-02 importa o
-//     componente por nome; sem export correto, o import quebra em silêncio
-//     se o guardião não travar a forma exata.
-//  2. **`WorkspaceHeader.jsx` deixando de ser props-only** (hook, `ctx.`/
-//     `store.`, import de `App.jsx`) — o orquestrador é o único dono de
-//     estado compartilhado (REORG-03/04 da Fase 33); um componente de seção
-//     que passa a ler estado por conta própria quebra esse invariante em
-//     silêncio.
-//  3. **`WorkspaceHeader.jsx` renderizando `.manchete`** — o guardrail CVM
-//     (CLAUDE.md princípio 5) exige que só o motor determinístico decida a
-//     manchete; a allowlist `RENDERIZADORES_DE_MANCHETE` de
-//     `test_opcoes_subabas_ui.mjs` não muda nesta fase, e este componente não
-//     entra nela.
-//  4. **Botão de voltar perdendo o alvo de toque de 44px ou o rótulo de
-//     copy** — regressão silenciosa de acessibilidade/i18n.
-//  5. **`WorkspaceHeader.jsx` usando cor de destaque (accent)** — o botão é
-//     navegação, não a ação primária da tela (Color do UI-SPEC reserva
-//     accent só para a pill ativa).
-//  6. **Alguma das 4 chaves novas de copy faltando ou vazia num dos dois
-//     modos** — quebraria em produção só no modo que não foi aberto à mão.
-//  7. **`SecaoSetups.jsx` perdendo `cp.opcoesSetupsTitulo`/
-//     `cp.opcoesCriarTitulo`** — guarda contra o "não renomear" do UI-SPEC;
-//     a asserção nasce aqui porque é o 34-03 que mexe no arredor dela.
+// Reversões desta fase (nota datada, nenhum `ok(` apagado sem substituto —
+// T-39-19/T-39-20 do 39-05-PLAN.md):
 //
-// 2026-09-20, Fase 34 (34-02) — ACRESCENTA 6 asserções sobre o split em si
-// (`OpcoesScreen.jsx`), agora que ele existe:
+//  · Itens originais 1-5 (existência/forma de `WorkspaceHeader.jsx`: export
+//    default, props-only, sem manchete, botão de voltar 44px+copy, sem
+//    accent) — SEM SUBSTITUTO 1:1, porque o COMPONENTE em si desapareceu
+//    (D-01/D-04: não há mais "voltar ao hub", só trocar de aba pela
+//    `abaBar`). O invariante de FUNDO que sobrevive — um seletor de ativo
+//    sempre visível, com afordância de alvo tátil — é re-ancorado no item 1
+//    novo abaixo, sobre `seletor` (o mesmo widget de troca de ticker que já
+//    existia dentro da sub-aba "Setups", agora único caminho de troca/
+//    desseleção em Montar, D-04 do UI-SPEC).
+//  · Item original 11 (`<WorkspaceHeader recebe onVoltar={() =>
+//    escolherTicker(ticker)}`) — SEM SUBSTITUTO 1:1 pelo mesmo motivo; o
+//    invariante de fundo ("um único caminho de reset, sem via alternativa")
+//    é re-ancorado no item 2 novo abaixo, direto sobre `escolherTicker`.
+//  · Item original 13 (adjacência D-04/NAV-04: frase-ponte `duasLeiturasIntro`
+//    imediatamente seguida de `<SecaoVigias` dentro de `hubTopo`) — DUAS
+//    reversões distintas da lista fechada do `<repo_guardrail>` do
+//    39-05-PLAN.md: (a) a frase-ponte sai de uso (Plano 39-02) — a negação de
+//    hierarquia entre os dois motores de opções passa a morar em
+//    `curadoriaSubtitulo`, checado no item 5a novo; (b) "Seus vigias" deixa
+//    de ser bloco fixo do hub e vira badge+sheet (D-07), checado no item 5b
+//    novo.
+//  · Itens originais 14-20 (pill row do workspace — `workspacePillRow` —
+//    e o gate do ramo "4. DADOS" por ela): a pill row de 3 abas
+//    (Analisar/Comparar/Setups salvos) é re-ancorada como `abaBar`, a régua
+//    de NÍVEL 1 (Oportunidades/Recomendadas/Montar) — item 7 novo. O gate do
+//    ramo "4. DADOS" É REVERTIDO de propósito (D-06): Analisar e Setups
+//    salvos deixam de estar atrás de pill própria e passam a aparecer
+//    SEMPRE que há dados (item 10 novo); só Comparar continua atrás de um
+//    gate, agora `compararAberto` em vez de uma pill (item 9 novo).
+//  · Item original 16 (`abaWorkspace`/`subaba` não se confundindo) fica sem
+//    objeto: os dois estados foram fundidos num só (`abaOpcoes`), então a
+//    classe de defeito "dois estados vazando um no outro" deixa de existir
+//    por desenho — não há mais dois estados para confundir.
 //
-//  8. **Um aviso crítico (carregando/erro) ficando PRESO dentro de um ramo
-//     de modo** — os dois têm de continuar acima da partição por `ticker`
-//     dos ramos 3/4, senão um MCP fora do ar vira invisível num dos dois
-//     modos (NAV-06).
-//  9. **Ramo 1 ou 2 duplicado** (uma cópia por modo) — dobraria o aviso, ou
-//     pior, deixaria uma cópia desatualizada.
-//  10. **`seletor` vazando para dentro do workspace** — criaria um SEGUNDO
-//      caminho de volta ao hub, competindo com o botão do `WorkspaceHeader`
-//      (contradiz NAV-03).
-//  11. **`WorkspaceHeader` perdendo o `onVoltar` ligado a `escolherTicker`**
-//      — abriria espaço para um segundo caminho de reset, divergente do de
-//      D-03.
-//  12. **Um segundo caminho de volta ao hub** (histórico, breadcrumb,
-//      `setTicker("")` solto fora de `escolherTicker`) — o único botão de
-//      volta é a exigência literal de NAV-03.
-//  13. **A adjacência de D-04/NAV-04 quebrando** — a frase-ponte (dentro de
-//      `SecaoDescobrir`) tem de continuar imediatamente seguida por
-//      `SecaoVigias` no ramo do hub, sem gate condicional entre os dois.
-//
-// 2026-09-20, Fase 34 (34-03) — ACRESCENTA 7 asserções sobre a pill row de 3
-// abas do workspace (Analisar/Comparar/Setups salvos, D-02) e o gate do ramo
-// "4. DADOS" por ela (NAV-05, o núcleo desta fase):
-//
-//  14. **A pill row cobrando ao trocar de aba** — a fatia de
-//      `workspacePillRow` não pode conter nenhum disparador de chamada
-//      (`abrirLeitura`/`abrirCadeia`/`abrirOperaveis`/`montarProposta`/
-//      `verPossibilidades`/`atualizarVigias`/`compilarSetup`/
-//      `confirmarSetup`). É o vetor pelo qual trocar de aba passaria a cobrar
-//      3 chamadas por toque (§3.3 do ADR-027).
-//  15. **Um `useEffect` reagindo a `abaWorkspace`** — a porta pela qual o
-//      custo voltaria em silêncio (mesma classe de defeito que a Fase 27
-//      27-05 fechou para a troca de ticker).
-//  16. **`abaWorkspace` e `subaba` se confundindo** — `setSubaba` vazando
-//      para dentro da pill row do workspace, ou `setAbaWorkspace` vazando
-//      para dentro do alternador Setups×Operar, faria a aba interna do
-//      workspace mudar a sub-aba da tela (ou vice-versa).
-//  17. **Rótulo literal solto na pill row** — as 3 abas têm de usar chave de
-//      copy (`cp.opcoesAbaAnalisar`/`cp.opcoesAbaComparar`/
-//      `cp.opcoesAbaSetupsSalvos`), nunca uma string crua que quebraria a
-//      paridade estudo/operador em silêncio.
-//  18. **Pill sem alvo de toque ou sem afordância** — regressão de
-//      acessibilidade idêntica ao item 4 acima, agora na pill row nova.
-//  19. **O gate `temLeitura` de `SecaoComparar` sumindo** — sem leitura não
-//      há de onde a tese sair; o gate de aba não pode substituí-lo, só
-//      combinar com ele.
-//  20. **Os três jobs do ramo 4 deixando de ser mutuamente exclusivos** — um
-//      id órfão que nunca vira pill, ou uma pill sem destino no ramo 4,
-//      quebraria a exclusividade que faz a troca de aba trocar de CONTEÚDO
-//      em vez de acumular seções.
+// Itens re-ancorados sem mudança de condição (nenhuma reversão, só forma):
+//  · Itens originais 6/7 (paridade das 4 chaves de copy / SecaoSetups mantém
+//    `cp.opcoesSetupsTitulo`/`cp.opcoesCriarTitulo`) — item 6 novo confirma
+//    que as 4 chaves antigas NÃO foram apagadas (retiradas de uso, mas
+//    preservadas pelo Copywriting Contract do 39-UI-SPEC.md — comentário
+//    datado já presente em `copy.js`); item 3 novo reproduz o item 7
+//    original, intocado.
+//  · Itens originais 8/9 (avisos críticos carregando/erro não duplicados,
+//    acima da partição por ticker) — item 4 novo, mesma fatia técnica
+//    ({cabecalho}…cp.opcoesDisclaimer), agora dentro do ramo Montar (não há
+//    mais partição por modo dentro dela: D-04 do 39-04-SUMMARY.md diz que a
+//    cascata roda só dentro de Montar, nunca duplicada por hub/workspace).
+//  · Item original 12 (setTicker(...) só na forma toggle de `escolherTicker`,
+//    sem history/pushState/breadcrumb) — incorporado ao item 2 novo.
+//  · Item original 15 (nenhum `useEffect` reage ao estado de navegação) —
+//    item 8 novo, mesma checagem, dependência renomeada de `abaWorkspace`
+//    para `abaOpcoes`.
 //
 // Roda sem build: `node web/tests/test_opcoes_hub_workspace_ui.mjs`.
-import { readFileSync } from "fs";
+import { readFileSync, existsSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { COPY } from "../src/copy.js";
@@ -95,21 +80,17 @@ import { COPY } from "../src/copy.js";
 const here = dirname(fileURLToPath(import.meta.url));
 const dirOpcoes = join(here, "..", "src", "opcoes");
 
-const workspaceHeaderBruto = readFileSync(join(dirOpcoes, "WorkspaceHeader.jsx"), "utf8");
 const secaoSetupsBruto = readFileSync(join(dirOpcoes, "SecaoSetups.jsx"), "utf8");
 const opcoesScreenBruto = readFileSync(join(dirOpcoes, "OpcoesScreen.jsx"), "utf8");
 
-// Sem comentários: eles citam os mesmos termos ao explicar as decisões (o
-// próprio doc-comment de WorkspaceHeader.jsx menciona "hook"/"manchete" ao
-// explicar por que não os usa, e o de OpcoesScreen.jsx cita "seletor"/
-// "carregando"/"breadcrumb" para EXPLICAR as decisões desta mesma fase), e
-// contá-los faria o guardião se auto-invalidar (mesmo padrão de
-// test_opcoes_subabas_ui.mjs).
+// Sem comentários: o próprio doc-comment de OpcoesScreen.jsx cita
+// "abaWorkspace"/"subaba"/"WorkspaceHeader"/"hubTopo" ao EXPLICAR a
+// dissolução desta fase — contá-los faria o guardião se auto-invalidar
+// (mesmo padrão de test_opcoes_subabas_ui.mjs).
 const semComentario = (s) => s
   .replace(/\/\*[\s\S]*?\*\//g, "")
   .split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n");
 
-const workspaceHeader = semComentario(workspaceHeaderBruto);
 const opcoesScreen = semComentario(opcoesScreenBruto);
 
 let fails = 0;
@@ -117,207 +98,181 @@ const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if 
 
 // ---- 0) parse mudo: um arquivo vazio faria toda negativa abaixo passar de
 // graça, sem medir nada de verdade -------------------------------------------
-ok("WorkspaceHeader.jsx foi lido e tem corpo (>200 caracteres)",
-   workspaceHeaderBruto.length > 200);
+ok("OpcoesScreen.jsx foi lido e tem corpo (>200 caracteres)",
+   opcoesScreenBruto.length > 200);
+ok("WorkspaceHeader.jsx NÃO existe mais em web/src/opcoes/ (D-01/D-04: zero consumidor restante)",
+   !existsSync(join(dirOpcoes, "WorkspaceHeader.jsx")));
 
-// ---- 1) export default correto ----------------------------------------------
-ok("WorkspaceHeader.jsx exporta `export default function WorkspaceHeader`",
-   /export default function WorkspaceHeader/.test(workspaceHeaderBruto));
+// ---- 1) [re-ancora itens 1-5/10 originais, reversão b] o seletor de ativo é
+// o único widget de troca em Montar, sempre com afordância -------------------
+const iSeletorDef = opcoesScreen.indexOf("const seletor = (");
+const iFimSeletor = iSeletorDef >= 0 ? opcoesScreen.indexOf(");", iSeletorDef) : -1;
+const seletorSlice = (iSeletorDef >= 0 && iFimSeletor > iSeletorDef)
+  ? opcoesScreen.slice(iSeletorDef, iFimSeletor) : "";
+ok("a fatia de `seletor` (const seletor até o fechamento) foi localizada",
+   seletorSlice.length > 0);
+ok("`seletor` usa `aria-pressed` (afordância de estado, substitui o botão de voltar do WorkspaceHeader)",
+   /aria-pressed=/.test(seletorSlice));
+ok("`seletor` declara `minHeight: \"44px\"` (alvo tátil mínimo)",
+   /minHeight:\s*"44px"/.test(seletorSlice));
+ok("`seletor` é renderizado sem gate de `ticker` — só de `carteira.length > 0` (D-04: sempre visível em Montar)",
+   /carteira\.length > 0 \? seletor : null/.test(opcoesScreen));
 
-// ---- 2) props-only: zero hook, zero ctx./store., zero import de App.jsx ----
-ok("WorkspaceHeader.jsx não usa useState/useEffect/useMemo/useRef",
-   !/\buse(State|Effect|Memo|Ref)\b/.test(workspaceHeader));
-ok("WorkspaceHeader.jsx não lê `ctx.` nem `store.`",
-   !/\bctx\./.test(workspaceHeader) && !/\bstore\./.test(workspaceHeader));
-ok("WorkspaceHeader.jsx não importa App.jsx",
-   !/from\s+["'][^"']*App\.jsx["']/.test(workspaceHeaderBruto));
+// ---- 2) [re-ancora itens 11/12 originais, reversão b + a] escolherTicker é
+// o ÚNICO caminho de reset/troca — nenhum segundo caminho de navegação -------
+const iEscolherTickerDef = opcoesScreen.indexOf("const escolherTicker = (t) => {");
+const iFimEscolherTicker = iEscolherTickerDef >= 0 ? opcoesScreen.indexOf("};", iEscolherTickerDef) : -1;
+const escolherTickerSlice = (iEscolherTickerDef >= 0 && iFimEscolherTicker > iEscolherTickerDef)
+  ? opcoesScreen.slice(iEscolherTickerDef, iFimEscolherTicker) : "";
+ok("a fatia de `escolherTicker` foi localizada", escolherTickerSlice.length > 0);
+ok("`escolherTicker` faz o toggle de `ticker` (`setTicker(t === ticker ? \"\" : t)`)",
+   /setTicker\(t === ticker \? "" : t\)/.test(escolherTickerSlice));
+ok("`escolherTicker` também fecha `compararAberto` (D-06: trocar de ativo fecha o painel do ativo anterior)",
+   /setCompararAberto\(false\)/.test(escolherTickerSlice));
+const chamadasSetTicker = opcoesScreen.match(/setTicker\([^)]*\)/g) || [];
+ok("existe pelo menos uma chamada a setTicker (sanidade da asserção seguinte)",
+   chamadasSetTicker.length >= 1);
+ok("toda chamada a setTicker no arquivo é o toggle exato de escolherTicker (nenhum setTicker(\"\") solto — sem segundo caminho de reset)",
+   chamadasSetTicker.every((c) => c === 'setTicker(t === ticker ? "" : t)'));
+ok("nenhum history/pushState/breadcrumb em OpcoesScreen.jsx (sem histórico de navegação paralelo)",
+   !/\bhistory\b/i.test(opcoesScreen) && !/pushState/.test(opcoesScreen) && !/breadcrumb/i.test(opcoesScreen));
 
-// ---- 3) sem manchete (guardrail CVM) ----------------------------------------
-ok("WorkspaceHeader.jsx não renderiza `.manchete`",
-   !/\.manchete\b/.test(workspaceHeader));
-
-// ---- 4) botão de voltar: 44px + copy ----------------------------------------
-ok("WorkspaceHeader.jsx declara `minHeight: \"44px\"` no botão de voltar",
-   /minHeight:\s*"44px"/.test(workspaceHeader));
-ok("WorkspaceHeader.jsx usa `cp.opcoesVoltarAoHub`",
-   /cp\.opcoesVoltarAoHub/.test(workspaceHeader));
-
-// ---- 5) sem cor de destaque (accent é só da pill ativa) ---------------------
-ok("WorkspaceHeader.jsx não usa `T.accent`",
-   !/T\.accent/.test(workspaceHeader));
-
-// ---- 6) paridade de locale das 4 chaves novas -------------------------------
-const CHAVES_NOVAS = [
-  "opcoesVoltarAoHub", "opcoesAbaAnalisar", "opcoesAbaComparar", "opcoesAbaSetupsSalvos",
-];
-const chavesFaltando = CHAVES_NOVAS.filter(
-  (k) => !COPY.estudo[k] || !COPY.operador[k]);
-ok("as 4 chaves novas existem em COPY.estudo e COPY.operador, nenhuma vazia"
-   + (chavesFaltando.length ? " (faltando/vazia: " + chavesFaltando.join(", ") + ")" : ""),
-   chavesFaltando.length === 0);
-
-// ---- 7) SecaoSetups.jsx intocada (regressão do "não renomear" do UI-SPEC) --
+// ---- 3) [item 7 original, sem mudança] SecaoSetups.jsx intocada (regressão
+// do "não renomear" do UI-SPEC) -----------------------------------------------
 ok("SecaoSetups.jsx continua com `cp.opcoesSetupsTitulo`",
    /cp\.opcoesSetupsTitulo/.test(secaoSetupsBruto));
 ok("SecaoSetups.jsx continua com `cp.opcoesCriarTitulo`",
    /cp\.opcoesCriarTitulo/.test(secaoSetupsBruto));
 
-// ---- 8/9) split hub/workspace (34-02) ---------------------------------------
-// Escopo PRIMEIRO, marcadores DEPOIS: `SubAbaOperar` (a OUTRA sub-aba, fora
-// do escopo desta fase) tem o SEU PRÓPRIO `!ticker ? (`/`carregandoGate ? (`
-// — procurar os marcadores no ARQUIVO INTEIRO acharia o de `SubAbaOperar`
-// por acidente no dia em que o de "Setups" mudasse de forma, e o guardião
-// passaria verde sem medir nada (guardião inerte). Por isso a fatia da
-// sub-aba "Setups" (de {cabecalho} até {cp.opcoesDisclaimer}) é calculada
-// ANTES, e todo marcador abaixo é procurado DENTRO dela.
-const iInicioSubabaSetups = opcoesScreen.indexOf("{cabecalho}");
-const iFimSubabaSetups = opcoesScreen.indexOf("cp.opcoesDisclaimer");
-const subAbaSetupsCascata = (iInicioSubabaSetups >= 0 && iFimSubabaSetups > iInicioSubabaSetups)
-  ? opcoesScreen.slice(iInicioSubabaSetups, iFimSubabaSetups) : "";
-ok("a fatia da sub-aba Setups (cabecalho até disclaimer) foi localizada",
-   subAbaSetupsCascata.length > 0);
+// ---- 4) [itens 8/9 originais, re-ancorados sem mudança de condição] cascata
+// carregando/erro únicos e em ordem, agora dentro do ramo Montar -------------
+// Mesma técnica de fatiamento de sempre: de `{cabecalho}` (só existe dentro
+// de Montar) até `cp.opcoesDisclaimer` (primeiro marcador depois do fim de
+// TODAS as 3 abas — Oportunidades/Recomendadas não têm cascata própria desde
+// o Plano 39-04, D-04).
+const iInicioMontar = opcoesScreen.indexOf("{cabecalho}");
+const iFimMontar = opcoesScreen.indexOf("cp.opcoesDisclaimer");
+const montarSlice = (iInicioMontar >= 0 && iFimMontar > iInicioMontar)
+  ? opcoesScreen.slice(iInicioMontar, iFimMontar) : "";
+ok("a fatia da aba Montar ({cabecalho} até o disclaimer) foi localizada",
+   montarSlice.length > 0);
+const iCarregandoCascata = montarSlice.indexOf("carregando ? (");
+const iErroCascata = montarSlice.indexOf("erro ? (");
+const iVazioCascata = montarSlice.indexOf("nadaParaMostrar ? (");
+ok("os três marcadores da cascata (carregando/erro/vazio) foram localizados dentro da aba Montar",
+   iCarregandoCascata >= 0 && iErroCascata >= 0 && iVazioCascata >= 0);
+ok("carregando ? e erro ? (ramos 1-2) vêm ANTES de nadaParaMostrar ? (ramo 3) — prioridade de estado crítico preservada",
+   iCarregandoCascata >= 0 && iErroCascata >= 0 && iVazioCascata >= 0
+   && iCarregandoCascata < iVazioCascata && iErroCascata < iVazioCascata);
+ok("cp.opcoesCarregando aparece exatamente 1x dentro da aba Montar (ramo 1 não duplicado)",
+   (montarSlice.match(/cp\.opcoesCarregando\b/g) || []).length === 1);
+ok("cp.opcoesNaoConfigurado aparece exatamente 1x dentro da aba Montar (ramo 2 não duplicado)",
+   (montarSlice.match(/cp\.opcoesNaoConfigurado\b/g) || []).length === 1);
 
-// Ordem da cascata: carregando ? e erro ? (ramos 1-2, sempre acima) têm de
-// vir ANTES do `!ticker ?` que particiona o CONTEÚDO dos ramos 3/4 — é o
-// marcador ESPECÍFICO do particionamento por modo (o outro `ticker ?` da
-// mesma fatia, `ticker ? workspaceTopo : hubTopo`, decide qual TOPO
-// renderizar, não o conteúdo da cascata em si; por isso a busca é por
-// "!ticker ?", não por "ticker ?" — o primeiro `ticker ?` da fatia aparece
-// ANTES da cascata, de propósito, e pegaria a asserção na forma ingênua).
-const iCarregandoCascata = subAbaSetupsCascata.indexOf("carregando ? (");
-const iErroCascata = subAbaSetupsCascata.indexOf("erro ? (");
-const iTickerRamos34 = subAbaSetupsCascata.indexOf("!ticker ? (");
-ok("os três marcadores da cascata foram localizados dentro da sub-aba Setups",
-   iCarregandoCascata >= 0 && iErroCascata >= 0 && iTickerRamos34 >= 0);
-ok("carregando ? e erro ? (ramos 1-2) vêm ANTES do !ticker ? que particiona os ramos 3/4 (NAV-06)",
-   iCarregandoCascata >= 0 && iErroCascata >= 0 && iTickerRamos34 >= 0
-   && iCarregandoCascata < iTickerRamos34 && iErroCascata < iTickerRamos34);
-ok("cp.opcoesCarregando aparece exatamente 1x dentro da sub-aba Setups (ramo 1 não duplicado por modo)",
-   (subAbaSetupsCascata.match(/cp\.opcoesCarregando\b/g) || []).length === 1);
-ok("cp.opcoesNaoConfigurado aparece exatamente 1x dentro da sub-aba Setups (ramo 2 não duplicado por modo)",
-   (subAbaSetupsCascata.match(/cp\.opcoesNaoConfigurado\b/g) || []).length === 1);
+// ---- 5) [item 13 original, reversão b — DUAS decisões distintas] ------------
+// 5a) a frase-ponte `duasLeiturasIntro` sai de uso (Plano 39-02); a negação
+// de hierarquia entre Oportunidades e Recomendadas passa a morar em
+// `curadoriaSubtitulo`, nos dois modos (fork 3 do 39-02-PLAN.md).
+const subtituloEstudo = (COPY.estudo.curadoriaSubtitulo || "").toLowerCase();
+const subtituloOperador = (COPY.operador.curadoriaSubtitulo || "").toLowerCase();
+ok("COPY.estudo.curadoriaSubtitulo nega hierarquia (contém \"não\"/\"promessa\"/\"oportunidades\")"
+   + " — Fase 39 (39-02, D-05, fork 3, 2026-09-24): substitui a frase-ponte duasLeiturasIntro",
+   subtituloEstudo.includes("não") && subtituloEstudo.includes("promessa") && subtituloEstudo.includes("oportunidades"));
+ok("COPY.operador.curadoriaSubtitulo nega hierarquia (contém \"não\"/\"promessa\"/\"oportunidades\")"
+   + " — mesma nota datada acima",
+   subtituloOperador.includes("não") && subtituloOperador.includes("promessa") && subtituloOperador.includes("oportunidades"));
+// 5b) "Seus vigias" deixa de ser bloco fixo do hub — vira badge no
+// cabeçalho + sheet local (D-07). Fase 39 (39-02/39-04, 2026-09-24).
+const iVigiasBadge = opcoesScreen.indexOf("<VigiasBadge");
+const iVigiasSheet = opcoesScreen.indexOf("<VigiasSheet", iVigiasBadge >= 0 ? iVigiasBadge : 0);
+const iSecaoVigiasDentroSheet = iVigiasSheet >= 0 ? opcoesScreen.indexOf("<SecaoVigias", iVigiasSheet) : -1;
+ok("`<VigiasBadge` aparece no cabeçalho, ANTES de `<VigiasSheet`, que envolve `<SecaoVigias` (D-07: badge + sheet, não bloco fixo)",
+   iVigiasBadge >= 0 && iVigiasSheet > iVigiasBadge && iSecaoVigiasDentroSheet > iVigiasSheet);
+ok("`<VigiasBadge` é renderizado ANTES de `{abaBar}` — comum às 3 abas, não preso a um ramo (D-07, SC#2)",
+   iVigiasBadge >= 0 && iVigiasBadge < opcoesScreen.indexOf("{abaBar}"));
+ok("OpcoesScreen.jsx não importa mais WorkspaceHeader.jsx (import removido junto com o arquivo)",
+   !/from\s+["'][^"']*WorkspaceHeader\.jsx["']/.test(opcoesScreenBruto));
 
-// ---- 10) seletor só existe no hub, nunca dentro do workspace ---------------
-// Fatia do corpo de `workspaceTopo`: de `<WorkspaceHeader` até o primeiro
-// `);` seguinte (fecha o `const workspaceTopo = (...)`). O único outro uso
-// de "seletor" no arquivo é a prop `seletor={seletor}` de `SubAbaOperar`,
-// fora do ramo "setups" inteiro — por isso a checagem é por FATIA, não por
-// contagem total no arquivo.
-const iWorkspaceHeaderUso = opcoesScreen.indexOf("<WorkspaceHeader");
-const iFimWorkspaceTopo = iWorkspaceHeaderUso >= 0
-  ? opcoesScreen.indexOf(");", iWorkspaceHeaderUso) : -1;
-const corpoWorkspaceTopo = (iWorkspaceHeaderUso >= 0 && iFimWorkspaceTopo > iWorkspaceHeaderUso)
-  ? opcoesScreen.slice(iWorkspaceHeaderUso, iFimWorkspaceTopo) : "";
-ok("o corpo de workspaceTopo (de <WorkspaceHeader até o fechamento do const) foi localizado",
-   corpoWorkspaceTopo.length > 0);
-ok("`seletor` NÃO aparece dentro do corpo de workspaceTopo (NAV-03: um único caminho de volta)",
-   corpoWorkspaceTopo.length > 0 && !/seletor/.test(corpoWorkspaceTopo));
+// ---- 6) [itens 6 original, re-ancorado — reversão parcial] as 4 chaves
+// antigas de WorkspaceHeader/pill row NÃO foram apagadas — retiradas de uso
+// pelo Copywriting Contract do 39-UI-SPEC.md (decisão já registrada em
+// copy.js), continuam existindo e não-vazias nos dois modos. Apagá-las sem
+// uma decisão D-XX nova reabriria a pergunta que o 39-02 já fechou. --------
+const CHAVES_RETIRADAS_DE_USO = [
+  "opcoesVoltarAoHub", "opcoesAbaAnalisar", "opcoesAbaComparar", "opcoesAbaSetupsSalvos",
+];
+const chavesFaltando = CHAVES_RETIRADAS_DE_USO.filter(
+  (k) => !COPY.estudo[k] || !COPY.operador[k]);
+ok("as 4 chaves retiradas de uso (Fase 34) continuam existindo e não-vazias em COPY.estudo/operador"
+   + " (não apagadas sem decisão nova — Copywriting Contract, 39-UI-SPEC.md)"
+   + (chavesFaltando.length ? " (faltando/vazia: " + chavesFaltando.join(", ") + ")" : ""),
+   chavesFaltando.length === 0);
 
-// ---- 11) <WorkspaceHeader recebe onVoltar={() => escolherTicker(ticker)} --
-ok("<WorkspaceHeader recebe onVoltar={() => escolherTicker(ticker)} (D-03: sem segundo caminho de reset)",
-   /<WorkspaceHeader[\s\S]{0,200}onVoltar=\{\(\) => escolherTicker\(ticker\)\}/.test(opcoesScreen));
-
-// ---- 12) um único caminho de volta ao hub (NAV-03) -------------------------
-// Toda chamada a `setTicker(` no arquivo tem de ser a forma exata do toggle
-// de `escolherTicker` — um `setTicker("")` solto em outro lugar seria um
-// SEGUNDO caminho de reset/volta, divergente do de D-03.
-const chamadasSetTicker = opcoesScreen.match(/setTicker\([^)]*\)/g) || [];
-ok("existe pelo menos uma chamada a setTicker (sanidade da asserção seguinte)",
-   chamadasSetTicker.length >= 1);
-ok("toda chamada a setTicker é o toggle exato de escolherTicker (nenhum setTicker(\"\") solto)",
-   chamadasSetTicker.every((c) => c === 'setTicker(t === ticker ? "" : t)'));
-ok("nenhum history/pushState/breadcrumb em OpcoesScreen.jsx (NAV-03: sem histórico de navegação)",
-   !/\bhistory\b/i.test(opcoesScreen) && !/pushState/.test(opcoesScreen) && !/breadcrumb/i.test(opcoesScreen));
-
-// ---- 13) adjacência D-04/NAV-04 no ramo do hub -----------------------------
-const iHubTopoDef = opcoesScreen.indexOf("const hubTopo = (");
-const iSecaoDescobrirUsoHub = iHubTopoDef >= 0 ? opcoesScreen.indexOf("{secaoDescobrir}", iHubTopoDef) : -1;
-const iSecaoVigiasUsoHub = iHubTopoDef >= 0 ? opcoesScreen.indexOf("<SecaoVigias", iHubTopoDef) : -1;
-ok("{secaoDescobrir} e <SecaoVigias foram localizados dentro de hubTopo",
-   iSecaoDescobrirUsoHub >= 0 && iSecaoVigiasUsoHub >= 0);
-ok("{secaoDescobrir} vem ANTES de <SecaoVigias dentro de hubTopo (D-04)",
-   iSecaoDescobrirUsoHub >= 0 && iSecaoVigiasUsoHub >= 0 && iSecaoDescobrirUsoHub < iSecaoVigiasUsoHub);
-const trechoEntreDescobrirEVigiasHub = (iSecaoDescobrirUsoHub >= 0 && iSecaoVigiasUsoHub > iSecaoDescobrirUsoHub)
-  ? opcoesScreen.slice(iSecaoDescobrirUsoHub, iSecaoVigiasUsoHub) : "";
-ok("nenhum gate condicional (?/:) entre {secaoDescobrir} e <SecaoVigias dentro de hubTopo",
-   trechoEntreDescobrirEVigiasHub.length > 0
-   && !/\?/.test(trechoEntreDescobrirEVigiasHub) && !/&&/.test(trechoEntreDescobrirEVigiasHub));
-
-// ---- 14-20) pill row de 3 abas do workspace + gate do ramo 4 (34-03) -------
-// Fatia de `workspacePillRow`: de `const workspacePillRow` até o `);` que a
-// fecha — mesma técnica de fatiamento de `corpoWorkspaceTopo` acima.
-const iWorkspacePillRowDef = opcoesScreen.indexOf("const workspacePillRow = (");
-const iFimWorkspacePillRow = iWorkspacePillRowDef >= 0
-  ? opcoesScreen.indexOf(");", iWorkspacePillRowDef) : -1;
-const workspacePillRowSlice = (iWorkspacePillRowDef >= 0 && iFimWorkspacePillRow > iWorkspacePillRowDef)
-  ? opcoesScreen.slice(iWorkspacePillRowDef, iFimWorkspacePillRow) : "";
-ok("a fatia de workspacePillRow (const workspacePillRow até o fechamento) foi localizada",
-   workspacePillRowSlice.length > 0);
-
-// Fatia de `subabas` (o alternador Setups×Operar, Fase 28) — para a
-// asserção 16 de baixo, mesma técnica.
-const iSubabasDef = opcoesScreen.indexOf("const subabas = (");
-const iFimSubabas = iSubabasDef >= 0 ? opcoesScreen.indexOf(");", iSubabasDef) : -1;
-const subabasSlice = (iSubabasDef >= 0 && iFimSubabas > iSubabasDef)
-  ? opcoesScreen.slice(iSubabasDef, iFimSubabas) : "";
-ok("a fatia de subabas (const subabas até o fechamento) foi localizada",
-   subabasSlice.length > 0);
-
-// ---- 14) NAV-05, o núcleo: trocar de aba não pode pagar --------------------
+// ---- 7) [itens 14/17/18 originais, re-ancorados sem mudança de condição]
+// abaBar substitui workspacePillRow/subabas: 3 abas fixas de NÍVEL 1, sem
+// disparador pago, com afordância, fora de gate de ticker --------------------
+const iAbaBarDef = opcoesScreen.indexOf("const abaBar = (");
+const iFimAbaBar = iAbaBarDef >= 0 ? opcoesScreen.indexOf(");", iAbaBarDef) : -1;
+const abaBarSlice = (iAbaBarDef >= 0 && iFimAbaBar > iAbaBarDef)
+  ? opcoesScreen.slice(iAbaBarDef, iFimAbaBar) : "";
+ok("a fatia de `abaBar` (const abaBar até o fechamento) foi localizada",
+   abaBarSlice.length > 0);
 const DISPARADORES_PROIBIDOS = /abrirLeitura|abrirCadeia|abrirOperaveis|montarProposta|verPossibilidades|atualizarVigias|compilarSetup|confirmarSetup/;
-ok("workspacePillRow não contém nenhum disparador de leitura paga (NAV-05, §3.3 do ADR-027)",
-   workspacePillRowSlice.length > 0 && !DISPARADORES_PROIBIDOS.test(workspacePillRowSlice));
+ok("abaBar não contém nenhum disparador de leitura paga (NAV-05, §3.3 do ADR-027)",
+   abaBarSlice.length > 0 && !DISPARADORES_PROIBIDOS.test(abaBarSlice));
+const idsAbaBar = (abaBarSlice.match(/\{ id: "/g) || []).length;
+ok("abaBar declara exatamente 3 abas (D-01)", idsAbaBar === 3);
+const CHAVES_ABABAR = ["opcoesAbaOportunidades", "opcoesAbaRecomendadas", "opcoesAbaMontar"];
+ok("abaBar usa cp.opcoesAbaOportunidades, cp.opcoesAbaRecomendadas e cp.opcoesAbaMontar, uma vez cada",
+   CHAVES_ABABAR.every((k) => (abaBarSlice.match(new RegExp("cp\\." + k + "\\b", "g")) || []).length === 1));
+ok("abaBar declara minHeight: \"44px\"", /minHeight:\s*"44px"/.test(abaBarSlice));
+ok("abaBar declara aria-pressed", /aria-pressed/.test(abaBarSlice));
+ok("`{abaBar}` é renderizado ANTES de qualquer `abaOpcoes === ...`/`{ticker ? (` (D-01: fora de gate de ticker, sempre a mesma barra)",
+   opcoesScreen.indexOf("{abaBar}") >= 0
+   && opcoesScreen.indexOf("{abaBar}") < opcoesScreen.indexOf('abaOpcoes === "oportunidades" ? (')
+   && opcoesScreen.indexOf("{abaBar}") < opcoesScreen.indexOf("{ticker ? ("));
 
-// ---- 15) nenhum useEffect do arquivo depende de abaWorkspace ---------------
-// OpcoesScreen.jsx hoje não declara `useEffect` nenhum próprio (as duas
-// ocorrências da palavra no arquivo são comentário, filtradas por
-// `semComentario`) — a asserção cobre tanto o presente (vacuamente
-// verdadeira) quanto um `useEffect` novo que viesse a depender de
-// `abaWorkspace` no futuro.
+// ---- 8) [item 15 original, re-ancorado — dependência renomeada] nenhum
+// useEffect reage ao estado de navegação (NAV-05) -----------------------------
 const blocosDeEfeito = opcoesScreen.split("useEffect(").slice(1);
-const efeitoComAbaWorkspace = blocosDeEfeito.some((bloco) => {
+const efeitoComAbaOpcoes = blocosDeEfeito.some((bloco) => {
   const fimDeps = bloco.indexOf("])");
   const trecho = fimDeps >= 0 ? bloco.slice(0, fimDeps + 2) : bloco;
-  return /\babaWorkspace\b/.test(trecho);
+  return /\babaOpcoes\b/.test(trecho);
 });
-ok("nenhum useEffect do arquivo lista abaWorkspace nas dependências (NAV-05)",
-   !efeitoComAbaWorkspace);
+ok("nenhum useEffect do arquivo lista abaOpcoes nas dependências (NAV-05: trocar de aba nunca dispara chamada)",
+   !efeitoComAbaOpcoes);
 
-// ---- 16) abaWorkspace e subaba são estados distintos -----------------------
-ok("`setSubaba` NÃO aparece dentro da fatia de workspacePillRow",
-   workspacePillRowSlice.length > 0 && !/setSubaba/.test(workspacePillRowSlice));
-ok("`setAbaWorkspace` NÃO aparece dentro da fatia de subabas",
-   subabasSlice.length > 0 && !/setAbaWorkspace/.test(subabasSlice));
+// ---- 9) [itens 19/20 originais, reversão b — D-06] SecaoComparar atrás de
+// `compararAberto`, não mais de uma pill própria ------------------------------
+const iSecaoCompararUso = opcoesScreen.indexOf("<SecaoComparar");
+const iTemLeituraGate = opcoesScreen.lastIndexOf("temLeitura ? (", iSecaoCompararUso >= 0 ? iSecaoCompararUso : undefined);
+const iCompararAbertoGate = iTemLeituraGate >= 0
+  ? opcoesScreen.indexOf("compararAberto ? (", iTemLeituraGate) : -1;
+ok("<SecaoComparar continua condicionado a `temLeitura` (sem leitura não há de onde a tese sair)",
+   iSecaoCompararUso >= 0 && iTemLeituraGate >= 0 && iTemLeituraGate < iSecaoCompararUso
+   && iSecaoCompararUso - iTemLeituraGate < 800);
+ok("<SecaoComparar também é condicionado a `compararAberto` (D-06: link inline substitui a pill própria)",
+   iCompararAbertoGate >= 0 && iCompararAbertoGate < iSecaoCompararUso
+   && iSecaoCompararUso - iCompararAbertoGate < 400);
+ok("o link de Comparar usa `aria-expanded={compararAberto}` (afordância de disclosure, substitui a pill ativa)",
+   /aria-expanded=\{compararAberto\}/.test(opcoesScreen));
+ok("`compararAberto` nasce `false` (useState(false)) — o painel não abre sozinho ao entrar em Montar",
+   /const \[compararAberto, setCompararAberto\] = useState\(false\)/.test(opcoesScreen));
+ok("os dois rótulos do toggle (mostrar/ocultar) existem como chave de copy, nenhum literal solto",
+   /cp\.opcoesVerOutrosVencimentos/.test(opcoesScreen) && /cp\.opcoesOcultarOutrosVencimentos/.test(opcoesScreen));
 
-// ---- 17) as 3 abas usam chave de copy, nenhum rótulo literal solto ---------
-const idsPillRow = (workspacePillRowSlice.match(/\{ id: "/g) || []).length;
-ok("workspacePillRow declara exatamente 3 abas",
-   idsPillRow === 3);
-const CHAVES_PILL = ["opcoesAbaAnalisar", "opcoesAbaComparar", "opcoesAbaSetupsSalvos"];
-ok("workspacePillRow usa cp.opcoesAbaAnalisar, cp.opcoesAbaComparar e cp.opcoesAbaSetupsSalvos, uma vez cada",
-   CHAVES_PILL.every((k) => (workspacePillRowSlice.match(new RegExp("cp\\." + k + "\\b", "g")) || []).length === 1));
-
-// ---- 18) alvo de toque + afordância na pill row ----------------------------
-ok("workspacePillRow declara minHeight: \"44px\"",
-   /minHeight:\s*"44px"/.test(workspacePillRowSlice));
-ok("workspacePillRow declara aria-pressed",
-   /aria-pressed/.test(workspacePillRowSlice));
-
-// ---- 19) o gate temLeitura de SecaoComparar sobreviveu ---------------------
-const iCompararGate = opcoesScreen.indexOf('abaWorkspace === "comparar" && temLeitura ? (');
-const iSecaoCompararUsoGate = iCompararGate >= 0 ? opcoesScreen.indexOf("<SecaoComparar", iCompararGate) : -1;
-ok("o render de <SecaoComparar continua condicionado a temLeitura, combinado com o gate de aba",
-   iCompararGate >= 0 && iSecaoCompararUsoGate > iCompararGate
-   && iSecaoCompararUsoGate - iCompararGate < 800);
-
-// ---- 20) os três renders do ramo 4 são mutuamente exclusivos ---------------
-const comparacoesAbaWorkspace = opcoesScreen.match(/abaWorkspace === "(analisar|comparar|setups)"/g) || [];
-ok("existem exatamente 3 comparações abaWorkspace === \"...\" no arquivo (ramo 4 mutuamente exclusivo)",
-   comparacoesAbaWorkspace.length === 3);
-const idsComparados = new Set(comparacoesAbaWorkspace.map((s) => s.match(/"([^"]+)"/)[1]));
-ok("os três ids comparados são analisar, comparar e setups — nenhum órfão, nenhuma pill sem destino",
-   idsComparados.size === 3 && idsComparados.has("analisar")
-   && idsComparados.has("comparar") && idsComparados.has("setups"));
+// ---- 10) [itens 19/20 originais, reversão b — D-06, contrapartida] Analisar
+// e Setups salvos deixam de estar atrás de pill/gate — SEMPRE visíveis
+// quando a cascata chega no ramo "4. DADOS" -----------------------------------
+ok("não sobra nenhuma comparação `abaWorkspace === \"...\"` no arquivo (o gate por pill do ramo 4 foi dissolvido, D-06)",
+   !/abaWorkspace\s*===/.test(opcoesScreen));
+const iSecaoAnalisarUso = opcoesScreen.indexOf("<SecaoAnalisar");
+const iSecaoSetupsUso = opcoesScreen.indexOf("<SecaoSetups", iSecaoAnalisarUso >= 0 ? iSecaoAnalisarUso : 0);
+ok("<SecaoAnalisar e <SecaoSetups aparecem exatamente 1x cada no arquivo, sem pill/gate de aba própria",
+   (opcoesScreen.match(/<SecaoAnalisar/g) || []).length === 1
+   && (opcoesScreen.match(/<SecaoSetups/g) || []).length === 1
+   && iSecaoAnalisarUso >= 0 && iSecaoSetupsUso > iSecaoAnalisarUso);
 
 if (fails > 0) {
   console.log(`\n${fails} falha(s).`);

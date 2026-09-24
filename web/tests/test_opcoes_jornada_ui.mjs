@@ -95,8 +95,45 @@
 //     T.onAccent (a paridade das 3 pills é o Kicker compartilhado do plano
 //     35-01, não botão novo dentro delas).
 //
+// 2026-09-24, Fase 39 (39-04/39-05, NAV-01) — RECONCILIAÇÃO. `WorkspaceHeader.jsx`
+// foi DELETADO e `abaWorkspace`/`workspacePillRow` foram dissolvidos em UM
+// estado `abaOpcoes` de 3 valores fixos (D-01). Reversões desta fase (nota
+// datada, nenhum `ok(` apagado sem substituto — T-39-19/T-39-20 do
+// 39-05-PLAN.md):
+//
+//  · Bloco 1 (D-02, gate `abaWorkspace !== "setups"`) — REVERTIDO: a pill
+//    "Setups"/"Setups salvos" desaparece, então o convite de leitura paga não
+//    tem mais de que aba se esconder. Passa a exigir só `podePedirLeitura`
+//    (repo_guardrail do 39-05-PLAN.md, lista fechada de reversões).
+//  · Comparação `comparacoesAbaWorkspace` (3 ramos do antigo "4. DADOS") —
+//    dissolvida junto (já coberta, com nota própria, por
+//    `test_opcoes_hub_workspace_ui.mjs`, item 10 novo); removida daqui para
+//    não duplicar guardião.
+//  · Bloco 4 (D-08, rótulo do estágio 2 ANTES de `{workspacePillRow}`) —
+//    re-ancorado: o "carril que o rótulo nomeia" não é mais uma pill row, é a
+//    sequência SecaoAnalisar → link de Comparar → SecaoSetups dentro do ramo
+//    "4. DADOS" (D-06). Marcador novo: `<SecaoAnalisar` (primeiro conteúdo
+//    real do "o que fazer").
+//  · Bloco 6 (NAV-05, fatia do Kicker do estágio 2 até `{workspacePillRow}`)
+//    — mesmo re-ancoramento de marcador final (`<SecaoAnalisar`).
+//  · Bloco 7 (anti-inércia do guardião da Fase 34, fatia de `workspaceTopo`)
+//    — SEM OBJETO: `test_opcoes_hub_workspace_ui.mjs` não fatia mais
+//    `workspaceTopo`/`<WorkspaceHeader` (reescrito na mesma reconciliação,
+//    39-05) — não há mais fatia para proteger de truncamento. Removido, não
+//    substituído (a classe de defeito que ele evitava não tem mais onde
+//    acontecer: o componente que a fatia isolava não existe).
+//  · Bloco 18 (WorkspaceHeader.jsx sem BOTAO_PRIMARIO/accent) — SEM OBJETO
+//    pelo mesmo motivo (arquivo deletado); substituído por uma checagem de
+//    que o arquivo de fato não existe mais (mesma prova negativa, forma
+//    nova) — a exclusividade dos 3 arquivos com BOTAO_PRIMARIO já é travada
+//    pelo Bloco 11 (varredura de diretório inteira), então a ausência de
+//    WorkspaceHeader.jsx nessa lista já está coberta lá também.
+//
+// Blocos 0/2/3/5/8/9/10-17 não mudam de condição (nenhum referencia
+// `abaWorkspace`/`WorkspaceHeader`) — re-executados sem alteração.
+//
 // Roda sem build: `node web/tests/test_opcoes_jornada_ui.mjs`.
-import { readFileSync, readdirSync } from "fs";
+import { readFileSync, readdirSync, existsSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { COPY } from "../src/copy.js";
@@ -108,7 +145,9 @@ const opcoesScreenBruto = readFileSync(join(dirOpcoes, "OpcoesScreen.jsx"), "utf
 const secaoSetupsBruto = readFileSync(join(dirOpcoes, "SecaoSetups.jsx"), "utf8");
 const secaoAnalisarBruto = readFileSync(join(dirOpcoes, "SecaoAnalisar.jsx"), "utf8");
 const secaoCompararBruto = readFileSync(join(dirOpcoes, "SecaoComparar.jsx"), "utf8");
-const workspaceHeaderBruto = readFileSync(join(dirOpcoes, "WorkspaceHeader.jsx"), "utf8");
+// Fase 39 (39-05, 2026-09-24): `WorkspaceHeader.jsx` foi DELETADO — não se lê
+// mais o arquivo do disco (readFileSync quebraria com ENOENT). A prova
+// negativa que ele sustentava (bloco 18) vira `existsSync` abaixo.
 
 // Sem comentários: este plano ACRESCENTA comentários que citam `abaWorkspace`,
 // `temLeitura` e nomes de chave para EXPLICAR as decisões (D-01/D-02/D-06/
@@ -122,7 +161,6 @@ const opcoesScreen = semComentario(opcoesScreenBruto);
 const secaoAnalisar = semComentario(secaoAnalisarBruto);
 const secaoComparar = semComentario(secaoCompararBruto);
 const secaoSetups = semComentario(secaoSetupsBruto);
-const workspaceHeader = semComentario(workspaceHeaderBruto);
 
 let fails = 0;
 const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if (!cond) fails++; };
@@ -134,13 +172,16 @@ ok("OpcoesScreen.jsx foi lido e tem corpo (>200 caracteres)",
 ok("SecaoSetups.jsx foi lido e tem corpo (>200 caracteres)",
    secaoSetupsBruto.length > 200);
 
-// ---- 1) D-02: gate por pill -------------------------------------------------
-const ocorrenciasGateD02 = (opcoesScreen.match(/podePedirLeitura && abaWorkspace !== "setups"/g) || []).length;
-ok("existe exatamente 1 ocorrência de `podePedirLeitura && abaWorkspace !== \"setups\"` (D-02)",
-   ocorrenciasGateD02 === 1);
-const comparacoesAbaWorkspace = opcoesScreen.match(/abaWorkspace === "(analisar|comparar|setups)"/g) || [];
-ok("continuam existindo exatamente 3 comparações abaWorkspace === \"...\" no arquivo (o gate do ramo 4 da Fase 34 não ganhou um quarto ramo por acidente)",
-   comparacoesAbaWorkspace.length === 3);
+// ---- 1) [reversão b, Fase 39 D-02] gate por pill dissolvido -----------------
+// A pill "Setups"/"Setups salvos" desaparece (D-01) — o convite de leitura
+// paga não tem mais de que aba se esconder, então o gate composto vira só
+// `podePedirLeitura`. `abaWorkspace` não pode sobrar em lugar nenhum do
+// arquivo (a contagem das 3 comparações do antigo ramo 4 já é travada, com
+// nota própria, por `test_opcoes_hub_workspace_ui.mjs` — não duplicada aqui).
+ok("existe exatamente 1 ocorrência de `podePedirLeitura ? blocoLeituraDoServico : null` (D-02, gate dissolvido — Fase 39, 2026-09-24)",
+   (opcoesScreen.match(/podePedirLeitura \? blocoLeituraDoServico : null/g) || []).length === 1);
+ok("`abaWorkspace` não aparece em OpcoesScreen.jsx fora de comentário (Fase 39, D-01: estado dissolvido em abaOpcoes)",
+   !/\babaWorkspace\b/.test(opcoesScreen));
 
 // ---- 2) D-01: rótulo do estágio 1, dentro de blocoLeituraDoServico ---------
 const iBlocoLeituraInicio = opcoesScreen.indexOf("const blocoLeituraDoServico = (");
@@ -174,18 +215,23 @@ ok("D-06: o ramo de \"leitura já feita\" não celebra (sem emoji de festa, \"Pr
    blocoD06.length > 0 && !/🎉|✅|Pronto!|Parabéns/i.test(blocoD06));
 
 // ---- 4) D-08: rótulo do estágio 2 + transição, na ordem certa --------------
+// Fase 39 (39-05, 2026-09-24, re-ancorado): o "carril que o rótulo nomeia"
+// não é mais uma pill row (`{workspacePillRow}`, dissolvida) — é a sequência
+// SecaoAnalisar → link de Comparar → SecaoSetups dentro do ramo "4. DADOS"
+// (D-06). Marcador novo: `<SecaoAnalisar`, primeiro conteúdo real do "o que
+// fazer" depois do rótulo do estágio.
 const iEscolhaTitulo = opcoesScreen.indexOf("cp.opcoesEscolhaTitulo");
 const iPasso2de2 = opcoesScreen.indexOf("cp.opcoesPasso2de2");
-const iWorkspacePillRowUso = opcoesScreen.indexOf("{workspacePillRow}");
+const iSecaoAnalisarUsoJornada = opcoesScreen.indexOf("<SecaoAnalisar");
 ok("cp.opcoesEscolhaTitulo aparece exatamente 1x",
    (opcoesScreen.match(/cp\.opcoesEscolhaTitulo\b/g) || []).length === 1);
 ok("cp.opcoesPasso2de2 aparece exatamente 1x",
    (opcoesScreen.match(/cp\.opcoesPasso2de2\b/g) || []).length === 1);
-ok("{workspacePillRow} foi localizado (sanidade da ordem abaixo)",
-   iWorkspacePillRowUso >= 0);
-ok("D-08: cp.opcoesEscolhaTitulo e cp.opcoesPasso2de2 aparecem ANTES de {workspacePillRow} (o rótulo do estágio precede o carril que ele nomeia)",
-   iEscolhaTitulo >= 0 && iPasso2de2 >= 0 && iWorkspacePillRowUso >= 0
-   && iEscolhaTitulo < iWorkspacePillRowUso && iPasso2de2 < iWorkspacePillRowUso);
+ok("<SecaoAnalisar foi localizado (sanidade da ordem abaixo)",
+   iSecaoAnalisarUsoJornada >= 0);
+ok("D-08: cp.opcoesEscolhaTitulo e cp.opcoesPasso2de2 aparecem ANTES de <SecaoAnalisar (o rótulo do estágio precede o conteúdo que ele nomeia)",
+   iEscolhaTitulo >= 0 && iPasso2de2 >= 0 && iSecaoAnalisarUsoJornada >= 0
+   && iEscolhaTitulo < iSecaoAnalisarUsoJornada && iPasso2de2 < iSecaoAnalisarUsoJornada);
 ok("cp.opcoesLeituraConcluidaAjuda aparece exatamente 1x",
    (opcoesScreen.match(/cp\.opcoesLeituraConcluidaAjuda\b/g) || []).length === 1);
 ok("D-08: a linha de transição está dentro de um ternário sobre temLeitura e usa o estilo AJUDA já existente (nenhum estilo novo)",
@@ -205,30 +251,40 @@ ok("nenhum valor das 7 chaves novas de copy.js numera uma 3ª etapa",
    valoresDasChavesNovas.every((v) => typeof v === "string" && !FORMAS_PROIBIDAS.test(v)));
 
 // ---- 6) NAV-05: rótulo de progresso não pode virar disparador de chamada ---
+// Fase 39 (39-05, 2026-09-24, re-ancorado): marcador final vira
+// `<SecaoAnalisar` (mesmo motivo do bloco 4 acima).
 const DISPARADORES_PROIBIDOS = /abrirLeitura|abrirCadeia|abrirOperaveis|montarProposta|verPossibilidades|atualizarVigias|compilarSetup|confirmarSetup/;
 const iInicioEstagio2 = opcoesScreen.indexOf("<Kicker>{(cp.opcoesEscolhaTitulo");
-const trechoEstagio2AtePillRow = (iInicioEstagio2 >= 0 && iWorkspacePillRowUso > iInicioEstagio2)
-  ? opcoesScreen.slice(iInicioEstagio2, iWorkspacePillRowUso) : "";
-ok("a fatia do Kicker do estágio 2 até {workspacePillRow} foi localizada",
-   trechoEstagio2AtePillRow.length > 0);
-ok("NAV-05: a fatia do estágio 2 (Kicker até o carril) não contém nenhum disparador de chamada paga",
-   trechoEstagio2AtePillRow.length > 0 && !DISPARADORES_PROIBIDOS.test(trechoEstagio2AtePillRow));
+const trechoEstagio2AteAnalisar = (iInicioEstagio2 >= 0 && iSecaoAnalisarUsoJornada > iInicioEstagio2)
+  ? opcoesScreen.slice(iInicioEstagio2, iSecaoAnalisarUsoJornada) : "";
+ok("a fatia do Kicker do estágio 2 até <SecaoAnalisar foi localizada",
+   trechoEstagio2AteAnalisar.length > 0);
+ok("NAV-05: a fatia do estágio 2 (Kicker até o conteúdo) não contém nenhum disparador de chamada paga",
+   trechoEstagio2AteAnalisar.length > 0 && !DISPARADORES_PROIBIDOS.test(trechoEstagio2AteAnalisar));
+// Fase 39 (39-05, 2026-09-24, cobertura NOVA — compensa os 2 itens sem
+// objeto do bloco 7 removido): o "carril" que o rótulo do estágio 2 nomeia
+// hoje inclui SecaoAnalisar, o link/gate de Comparar E SecaoSetups (D-06) —
+// as duas checagens abaixo estendem a garantia de D-08/NAV-05 para além de
+// SecaoAnalisar, cobrindo o resto do que "Passo 2 de 2" efetivamente nomeia.
+const iSecaoSetupsUsoJornada = opcoesScreen.indexOf("<SecaoSetups");
+ok("D-08: cp.opcoesEscolhaTitulo e cp.opcoesPasso2de2 também vêm ANTES de <SecaoSetups (o carril nomeado inclui Setups salvos, não só Analisar)",
+   iEscolhaTitulo >= 0 && iPasso2de2 >= 0 && iSecaoSetupsUsoJornada >= 0
+   && iEscolhaTitulo < iSecaoSetupsUsoJornada && iPasso2de2 < iSecaoSetupsUsoJornada);
+const iSecaoCompararUsoJornada = opcoesScreen.indexOf("<SecaoComparar");
+ok("D-08: cp.opcoesEscolhaTitulo e cp.opcoesPasso2de2 também vêm ANTES de <SecaoComparar (o carril nomeado inclui o link de Comparar, D-06)",
+   iEscolhaTitulo >= 0 && iPasso2de2 >= 0 && iSecaoCompararUsoJornada >= 0
+   && iEscolhaTitulo < iSecaoCompararUsoJornada && iPasso2de2 < iSecaoCompararUsoJornada);
 
-// ---- 7) Anti-inércia do guardião da Fase 34 --------------------------------
-// Recalcula a MESMA fatia que test_opcoes_hub_workspace_ui.mjs usa
-// (`<WorkspaceHeader` até o PRIMEIRO `);`). Se uma edição futura introduzir
-// um `);` intermediário dentro de `workspaceTopo`, aquele guardião passaria
-// a medir uma fatia truncada SEM reprovar (asserção inerte) — esta asserção
-// reprova antes disso acontecer.
-const iWorkspaceHeaderUso = opcoesScreen.indexOf("<WorkspaceHeader");
-const iFimWorkspaceTopo = iWorkspaceHeaderUso >= 0
-  ? opcoesScreen.indexOf(");", iWorkspaceHeaderUso) : -1;
-const corpoWorkspaceTopo = (iWorkspaceHeaderUso >= 0 && iFimWorkspaceTopo > iWorkspaceHeaderUso)
-  ? opcoesScreen.slice(iWorkspaceHeaderUso, iFimWorkspaceTopo) : "";
-ok("o corpo de workspaceTopo (de <WorkspaceHeader até o primeiro `);`) foi localizado",
-   corpoWorkspaceTopo.length > 0);
-ok("anti-inércia (Fase 34): a fatia de workspaceTopo ainda contém {workspacePillRow} — nenhum `);` novo truncou a fatia que test_opcoes_hub_workspace_ui.mjs mede",
-   corpoWorkspaceTopo.length > 0 && corpoWorkspaceTopo.includes("{workspacePillRow}"));
+// ---- 7) [SEM OBJETO, Fase 39, 2026-09-24] Anti-inércia do guardião da Fase 34
+// era: recalcular a MESMA fatia que `test_opcoes_hub_workspace_ui.mjs` usava
+// (`<WorkspaceHeader` até o PRIMEIRO `);`), para que um `);` intermediário
+// não truncasse aquele guardião em silêncio. Essa fatia não existe mais —
+// `test_opcoes_hub_workspace_ui.mjs` foi reescrito na mesma reconciliação
+// (39-05) e não fatia mais `workspaceTopo`/`<WorkspaceHeader`. Removido, não
+// substituído: a classe de defeito (fatia truncada por `);` acidental) não
+// tem mais onde acontecer — o componente que a fatia isolava foi deletado.
+// (Duas checagens a menos aqui; compensadas pelas novas dos blocos 1/4/6/18
+// e pelas novas de `test_opcoes_hub_workspace_ui.mjs`.)
 
 // ---- 8) Paridade de copy: as 7 chaves, idênticas nos dois modos ------------
 const chavesFaltandoOuVazias = CHAVES_NOVAS.filter((k) => !COPY.estudo[k] || !COPY.operador[k]);
@@ -434,8 +490,13 @@ ok("MARCA_RESULTADO (Comparar): o gate contém .length e NÃO contém .erro nem 
 // ---- 18) JORN-03 parity, prova negativa estrutural -------------------------
 ok("SecaoSetups.jsx continua sem BOTAO_PRIMARIO/T.accent/T.onAccent (paridade é o Kicker compartilhado do 35-01, não botão novo aqui)",
    !/BOTAO_PRIMARIO/.test(secaoSetups) && !/T\.accent\b/.test(secaoSetups) && !/T\.onAccent\b/.test(secaoSetups));
-ok("WorkspaceHeader.jsx continua sem BOTAO_PRIMARIO/T.accent/T.onAccent",
-   !/BOTAO_PRIMARIO/.test(workspaceHeader) && !/T\.accent\b/.test(workspaceHeader) && !/T\.onAccent\b/.test(workspaceHeader));
+// Fase 39 (39-05, 2026-09-24, re-ancorado): WorkspaceHeader.jsx foi
+// DELETADO — a prova negativa vira "o arquivo não existe mais" em vez de
+// "o arquivo existe e não usa X". A exclusividade dos 3 arquivos com
+// BOTAO_PRIMARIO (nenhum quarto arquivo, incluindo um que não existe mais)
+// já é travada pela varredura de diretório inteira do Bloco 11 acima.
+ok("WorkspaceHeader.jsx NÃO existe mais em web/src/opcoes/ (D-01/D-04: zero consumidor restante)",
+   !existsSync(join(dirOpcoes, "WorkspaceHeader.jsx")));
 
 if (fails > 0) {
   console.log(`\n${fails} falha(s).`);

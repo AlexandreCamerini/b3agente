@@ -145,11 +145,17 @@ const moduloOO = readFileSync(join(here, "..", "src", "opcoes", "OportunidadesOp
 // inserção histórica fora de ordem — também precisa dele.
 const telaOpcoes = readFileSync(join(here, "..", "src", "opcoes", "OpcoesScreen.jsx"), "utf8");
 const telaOpcoesSemComentario = telaOpcoes.split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n");
-// Fase 33 (33-02): o call site (`<CuradoriaEstruturas`) mudou de tela de
-// NOVO — de OpcoesScreen.jsx para SecaoDescobrir.jsx (frase-ponte + Bloco A
-// + Bloco B viraram um componente só).
-const secaoDescobrir = readFileSync(join(dirOpcoes, "SecaoDescobrir.jsx"), "utf8");
-const secaoDescobrirSemComentario = secaoDescobrir
+// Fase 39 (39-04/39-05, NAV-01, 2026-09-24): o call site (`<CuradoriaEstruturas`)
+// mudou de tela DE NOVO — de `SecaoDescobrir.jsx` (Fase 33-02, DELETADO
+// nesta fase) para `AbaRecomendadas.jsx` (aba fixa própria, D-03/D-05). O
+// irmão `<OportunidadesOpcoes` também migrou, para `AbaOportunidades.jsx` —
+// os dois deixam de dividir arquivo (D-01: abas mutuamente exclusivas).
+const abaRecomendadas = readFileSync(join(dirOpcoes, "AbaRecomendadas.jsx"), "utf8");
+const abaRecomendadasSemComentario = abaRecomendadas
+  .replace(/\/\*[\s\S]*?\*\//g, "")
+  .split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n");
+const abaOportunidadesCuradoria = readFileSync(join(dirOpcoes, "AbaOportunidades.jsx"), "utf8");
+const abaOportunidadesCuradoriaSemComentario = abaOportunidadesCuradoria
   .replace(/\/\*[\s\S]*?\*\//g, "")
   .split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n");
 
@@ -304,14 +310,15 @@ ok("(Fase 32/32-03) CarteiraScreen NÃO desestrutura mais ctx.curadoria (consumi
   !/\}\s*=\s*ctx\.curadoria;/.test(fatiaCarteira));
 ok("(Fase 32/32-03) CarteiraScreen passa ctx.curadoria inteiro como prop para LinhaChamadaOpcoes",
   /curadoria=\{ctx\.curadoria\}/.test(fatiaCarteira));
-// Fase 33 (33-02): OpcoesScreen.jsx deixou de ler `.top`/`.meta` diretamente
-// — passa `ctx.curadoria` INTEIRO para SecaoDescobrir.jsx, que é quem lê
-// `.top`/`.meta` agora (segunda leitura da MESMA fonte, D-03 preservado,
-// nenhuma segunda instância do hook).
-ok("(Fase 33/33-02) OpcoesScreen.jsx passa curadoria={ctx.curadoria} inteiro para SecaoDescobrir",
+// Fase 39 (39-04/39-05, NAV-01, 2026-09-24, re-ancorado a): OpcoesScreen.jsx
+// continua sem ler `.top`/`.meta` diretamente — passa `ctx.curadoria`
+// INTEIRO para `AbaRecomendadas.jsx` (não mais `SecaoDescobrir.jsx`, que foi
+// deletado), que é quem lê `.top`/`.meta` agora (segunda leitura da MESMA
+// fonte, D-03 preservado, nenhuma segunda instância do hook).
+ok("(Fase 39) OpcoesScreen.jsx passa curadoria={ctx.curadoria} inteiro para AbaRecomendadas",
   /curadoria=\{ctx\s*&&\s*ctx\.curadoria\}/.test(telaOpcoesSemComentario));
-ok("(Fase 33/33-02) SecaoDescobrir.jsx lê curadoria.top/curadoria.meta — mesma fonte, segunda leitura",
-  /curadoria\.top/.test(secaoDescobrirSemComentario) && /curadoria\.meta/.test(secaoDescobrirSemComentario));
+ok("(Fase 39) AbaRecomendadas.jsx lê curadoria.top/curadoria.meta — mesma fonte, segunda leitura",
+  /curadoria\.top/.test(abaRecomendadasSemComentario) && /curadoria\.meta/.test(abaRecomendadasSemComentario));
 
 // ---- (5) itens vêm de `top`; narrativa.estruturas nunca em map( de render
 ok("CuradoriaEstruturas mapeia top.map( para renderizar os itens",
@@ -340,23 +347,37 @@ const totalCuradoriaNaPasta = ocorrenciasCuradoriaPorArquivo.reduce((acc, e) => 
 ok("(Fase 33/33-02) <CuradoriaEstruturas aparece exatamente 1x em toda a pasta web/src/opcoes/"
   + " (" + ocorrenciasCuradoriaPorArquivo.filter((e) => e.n > 0).map((e) => e.f + ":" + e.n).join(", ") + ")",
   totalCuradoriaNaPasta === 1);
-ok("(Fase 33/33-02) <CuradoriaEstruturas aparece 0x em OpcoesScreen.jsx (call site migrou para SecaoDescobrir.jsx)",
+ok("(Fase 39) <CuradoriaEstruturas aparece 0x em OpcoesScreen.jsx (call site migrou para AbaRecomendadas.jsx)",
   (telaOpcoesSemComentario.match(/<CuradoriaEstruturas/g) || []).length === 0);
 ok("(Fase 32/32-03) <CuradoriaEstruturas aparece 0x em App.jsx (call site saiu de CarteiraScreen)",
   (fonteSemComentario.match(/<CuradoriaEstruturas/g) || []).length === 0);
-const iTagCurSD = secaoDescobrirSemComentario.indexOf("<CuradoriaEstruturas");
-const iTagOOSD = secaoDescobrirSemComentario.indexOf("<OportunidadesOpcoes");
-ok("(Fase 33/33-02) <CuradoriaEstruturas aparece depois de <OportunidadesOpcoes (irmão, nesta ordem) em SecaoDescobrir.jsx",
-  iTagCurSD > iTagOOSD && iTagOOSD > -1);
-// A ordem exigida é a de MONTAGEM na árvore (Bloco A antes de Bloco B DENTRO
-// de SecaoDescobrir.jsx, e <SecaoDescobrir inteiro antes de <SecaoVigias em
-// OpcoesScreen.jsx) — não mais "dentro do mesmo bloco
-// data.positions.length > 0", que era a guarda de CarteiraScreen de antes
-// da Fase 32 e não existe mais neste destino.
-const iUsoSecaoDescobrir = telaOpcoesSemComentario.indexOf("<SecaoDescobrir");
-const iUsoBlocoVigias = telaOpcoesSemComentario.indexOf("<SecaoVigias");
-ok("(Fase 33/33-02) <SecaoDescobrir é usado antes de <SecaoVigias em OpcoesScreen.jsx",
-  iUsoSecaoDescobrir > -1 && iUsoBlocoVigias > iUsoSecaoDescobrir);
+// Fase 39 (39-04/39-05, NAV-01, 2026-09-24) — REVERSÃO (b): a ordem
+// sequencial "<CuradoriaEstruturas depois de <OportunidadesOpcoes, no MESMO
+// arquivo" deixa de valer — os dois motores não dividem mais tela nenhuma
+// (D-01 proíbe segunda camada de abas; Oportunidades/Recomendadas são abas
+// IRMÃS, mutuamente exclusivas). Substituído: cada um mora no PRÓPRIO
+// arquivo de aba, e cada arquivo tem o seu próprio `CarimboFrescor` (D-04b
+// da Fase 33 preservado — o carimbo NÃO é mais compartilhado entre os dois).
+ok("(Fase 39) <OportunidadesOpcoes mora em AbaOportunidades.jsx e NÃO em AbaRecomendadas.jsx (abas mutuamente exclusivas, D-01)",
+  abaOportunidadesCuradoriaSemComentario.includes("<OportunidadesOpcoes")
+  && !abaRecomendadasSemComentario.includes("<OportunidadesOpcoes"));
+ok("(Fase 39) <CuradoriaEstruturas mora em AbaRecomendadas.jsx e NÃO em AbaOportunidades.jsx (abas mutuamente exclusivas, D-01)",
+  abaRecomendadasSemComentario.includes("<CuradoriaEstruturas")
+  && !abaOportunidadesCuradoriaSemComentario.includes("<CuradoriaEstruturas"));
+ok("(Fase 39) cada arquivo de aba tem o próprio <CarimboFrescor (D-04b — não mais um só carimbo compartilhado)",
+  /<CarimboFrescor/.test(abaOportunidadesCuradoriaSemComentario) && /<CarimboFrescor/.test(abaRecomendadasSemComentario));
+// Fase 39 (39-04/39-05, NAV-01, 2026-09-24) — REVERSÃO (b): "<SecaoDescobrir
+// antes de <SecaoVigias" deixa de existir — `SecaoDescobrir.jsx` foi
+// deletado e "Seus vigias" deixou de ser bloco fixo do hub, virou badge no
+// cabeçalho + sheet (D-07). Substituído: `<VigiasBadge` (o que hoje garante
+// que vigias nunca fica escondido) é renderizado ANTES de qualquer ramo de
+// aba — comum às 3 abas, não preso a nenhuma delas (mesma checagem, com
+// nota própria, de `test_opcoes_hub_workspace_ui.mjs`, item 5b).
+const iVigiasBadgeCuradoria = telaOpcoesSemComentario.indexOf("<VigiasBadge");
+const iRamoOportunidadesCuradoria = telaOpcoesSemComentario.indexOf('abaOpcoes === "oportunidades" ? (');
+ok("(Fase 39) <VigiasBadge é renderizado ANTES do primeiro ramo de aba em OpcoesScreen.jsx (D-07: sempre visível, não escondido atrás de nenhuma aba)",
+  iVigiasBadgeCuradoria > -1 && iRamoOportunidadesCuradoria > -1
+  && iVigiasBadgeCuradoria < iRamoOportunidadesCuradoria);
 
 // ---- (7) Best-effort: toda chamada de rede do hook tem .catch( -----------
 // Mesmo algoritmo de test_carteira_opcoes_tira.mjs: caminha o encadeamento
@@ -593,12 +614,14 @@ ok("(Fase 32) CuradoriaEstruturas.jsx NÃO importa App.jsx",
   !/from\s+"[^"]*App\.jsx"/.test(modulo));
 ok("(Fase 32/32-03) App.jsx NÃO importa mais CuradoriaEstruturas (call site saiu para OpcoesScreen.jsx)",
   !/from\s+"\.\/opcoes\/CuradoriaEstruturas\.jsx"/.test(app));
-// Fase 33 (33-02): o import migrou DE NOVO — de OpcoesScreen.jsx para
-// SecaoDescobrir.jsx (quem agora compõe o componente).
-ok("(Fase 33/33-02) OpcoesScreen.jsx NÃO importa mais CuradoriaEstruturas (call site saiu para SecaoDescobrir.jsx)",
+// Fase 39 (39-04/39-05, NAV-01, 2026-09-24, re-ancorado a): o import migrou
+// DE NOVO — de SecaoDescobrir.jsx (deletado) para AbaRecomendadas.jsx.
+ok("(Fase 39) OpcoesScreen.jsx NÃO importa mais CuradoriaEstruturas (call site saiu para AbaRecomendadas.jsx)",
   !/from\s+"\.\/CuradoriaEstruturas\.jsx"/.test(telaOpcoes));
-ok("(Fase 33/33-02) SecaoDescobrir.jsx importa CuradoriaEstruturas de ./CuradoriaEstruturas.jsx",
-  /from\s+"\.\/CuradoriaEstruturas\.jsx"/.test(secaoDescobrir));
+ok("(Fase 39) AbaRecomendadas.jsx importa CuradoriaEstruturas de ./CuradoriaEstruturas.jsx",
+  /from\s+"\.\/CuradoriaEstruturas\.jsx"/.test(abaRecomendadas));
+ok("(Fase 39) AbaOportunidades.jsx importa OportunidadesOpcoes de ./OportunidadesOpcoes.jsx",
+  /from\s+"\.\/OportunidadesOpcoes\.jsx"/.test(abaOportunidadesCuradoria));
 
 // =====================================================================
 // (Fase 39, 39-03, NAV-01) D-11 (5 estados) / D-14 (posição no ranking) /

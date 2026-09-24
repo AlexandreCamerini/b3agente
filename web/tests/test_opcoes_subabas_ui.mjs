@@ -47,6 +47,18 @@
 // A regra 5 (manchete só via componente delegado) passa a aceitar
 // `CandidatoOpcao` como delegação legítima, ao lado de `PropostaLastreada`.
 //
+// 2026-09-24, Fase 39 (39-04/39-05, NAV-01, D-05, fork 1 "Leitura B'"): a
+// sub-aba "Operar" (pill própria) É DISSOLVIDA — `SubAbaOperar` é renomeada
+// e enxugada para `PropostaDoAtivo`, um painel INLINE que abre abaixo do
+// carrossel de Oportunidades quando um card é tocado, sem `seletor`/`!ticker`
+// próprios (o card já garante ticker escolhido). O alternador de sub-aba
+// ("Setups" × "Operar") também é dissolvido — vira `abaBar`, a régua de 3
+// abas fixas (Oportunidades/Recomendadas/Montar, D-01) — mesma geometria
+// visual (aria-pressed, 44px), mesma função de invariante (item 10 abaixo).
+// TODOS os invariantes de 1-9 e 11 continuam valendo integralmente sob o
+// nome novo — nenhum foi revertido, só re-ancorado (nenhuma linha de `ok(`
+// removida sem substituto, T-39-19/T-39-20 do 39-05-PLAN.md).
+//
 // Roda sem build: `node web/tests/test_opcoes_subabas_ui.mjs`.
 import { readFileSync, readdirSync } from "fs";
 import { fileURLToPath } from "url";
@@ -78,9 +90,11 @@ const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if 
 const tela = fontes["OpcoesScreen.jsx"];
 const propostaModulo = fontes["PropostaLastreada.jsx"];
 
-// ---- fatia de SubAbaOperar, por marcador de linha (mais estável que casar
-// chaves — mesmo padrão de test_fase22_componentes_compartilhados.mjs) ------
-const idxInicio = tela.indexOf("function SubAbaOperar");
+// ---- fatia de PropostaDoAtivo (Fase 39, 39-04, D-05: renomeia/enxuga
+// SubAbaOperar — sub-aba "Operar" dissolvida, painel inline do carrossel de
+// Oportunidades), por marcador de linha (mais estável que casar chaves —
+// mesmo padrão de test_fase22_componentes_compartilhados.mjs) --------------
+const idxInicio = tela.indexOf("function PropostaDoAtivo");
 let subAba = "";
 if (idxInicio >= 0) {
   const idxFim = tela.indexOf("\nfunction ", idxInicio + 1);
@@ -88,7 +102,7 @@ if (idxInicio >= 0) {
 }
 // Asserção de "parse mudo": um recorte vazio faria toda negativa abaixo
 // passar de graça, sem medir nada de verdade.
-ok("a fatia de `SubAbaOperar` foi localizada e tem corpo (>300 caracteres)",
+ok("a fatia de `PropostaDoAtivo` foi localizada e tem corpo (>300 caracteres)",
    idxInicio >= 0 && subAba.length > 300);
 
 // ---- 1) invariante de duas vias (Emenda 3 ao ADR-027) -----------------------
@@ -115,15 +129,15 @@ ok("nenhum arquivo de web/src/opcoes/ importa App.jsx"
    + (comImportDeApp.length ? " (violam: " + comImportDeApp.join(", ") + ")" : ""),
    comImportDeApp.length === 0);
 
-// ---- 2) custo zero de MCP em SubAbaOperar -----------------------------------
-ok("`SubAbaOperar` não chama nenhum método `store.mcp*` (ADR-027 §3.3)",
+// ---- 2) custo zero de MCP em PropostaDoAtivo -----------------------------------
+ok("`PropostaDoAtivo` não chama nenhum método `store.mcp*` (ADR-027 §3.3)",
    !/store\.mcp/.test(subAba));
 
 // ---- 3) sem busca duplicada de gate/proposta (varredura de diretório) ------
 // 2026-09-20, Fase 33 (33-05), fold-in D-04a
 // (`.planning/todos/pending/subaba-operar-fetch-redundante-gate-proposta.md`):
 // a contagem em `OpcoesScreen.jsx` cai de 1 para 0 porque a busca MIGROU DE
-// DONO, não porque desapareceu — `SubAbaOperar` passou a ler o fan-out que
+// DONO, não porque desapareceu — `PropostaDoAtivo` passou a ler o fan-out que
 // `useOpcoesPropostas(store, carteira.map((p) => p.t))` (topo do mesmo
 // arquivo) já paga para toda a carteira, em vez de refazer a mesma pergunta
 // por conta própria. A garantia "uma fonte só" fica MAIS FORTE, não mais
@@ -152,7 +166,7 @@ ok("`store.optionsProposta(` aparece 0× em OpcoesScreen.jsx (queda de 1→0: a 
 // 2026-09-20, Fase 33 (33-05), fold-in D-04a: a guarda "proposta só é pedida
 // quando gate.liquida" não desaparece — ela passa a ser medida em
 // `useOpcoesPropostas.js`, que JÁ a implementa (mesma rota, mesmo
-// `multiperna: true`), em vez de na fatia de `SubAbaOperar` (que não tem mais
+// `multiperna: true`), em vez de na fatia de `PropostaDoAtivo` (que não tem mais
 // chamada nenhuma para guardar). Forma diferente da guarda antiga (era um
 // `if (!(gate && gate.liquida)) return` dentro de um `useEffect`; o hook usa
 // `if (gate && gate.liquida) { store.optionsProposta(...) }` dentro do
@@ -163,58 +177,58 @@ const idxGuardaHook = hookPropostasFonte.indexOf("if (gate && gate.liquida)");
 const idxChamadaHook = hookPropostasFonte.indexOf("store.optionsProposta(", idxGuardaHook >= 0 ? idxGuardaHook : 0);
 ok("useOpcoesPropostas.js guarda `store.optionsProposta` com `if (gate && gate.liquida)` ANTES da chamada",
    idxGuardaHook >= 0 && idxChamadaHook > idxGuardaHook);
-// Contrapartida NOVA (trava o retorno do fetch redundante): `SubAbaOperar`
+// Contrapartida NOVA (trava o retorno do fetch redundante): `PropostaDoAtivo`
 // não pode ter voltado a buscar gate/proposta por conta própria — nenhuma
 // forma de `store.options`, nem gate nem proposta.
-ok("`SubAbaOperar` não contém `store.options` nenhum (gate/proposta vêm do fan-out por prop, não de fetch local)",
+ok("`PropostaDoAtivo` não contém `store.options` nenhum (gate/proposta vêm do fan-out por prop, não de fetch local)",
    !/store\.options/.test(subAba));
 
 // ---- 5) manchete só via PropostaLastreada OU CandidatoOpcao (guardrail CVM) -
-// ATUALIZADO 2026-09-16 (Fase 32, 32-04): `SubAbaOperar` ganhou o ramo
+// ATUALIZADO 2026-09-16 (Fase 32, 32-04): `PropostaDoAtivo` ganhou o ramo
 // multi-candidato (MULTI-02, portado de `PropostaDaPosicao`/App.jsx,
 // aposentada nesta fase). A guarda NEGATIVA (nenhuma manchete própria) segue
 // intacta e independente — só a checagem POSITIVA de delegação passa a
 // aceitar os dois componentes legítimos: `PropostaLastreada` (candidato
 // único) e `CandidatoOpcao` (N candidatos). O card continua sendo um
 // componente IMPORTADO em ambos os ramos, nunca reimplementado inline.
-ok("`SubAbaOperar` não renderiza `manchete` própria (delega a PropostaLastreada/CandidatoOpcao)",
+ok("`PropostaDoAtivo` não renderiza `manchete` própria (delega a PropostaLastreada/CandidatoOpcao)",
    !/\{[^}]*\bmanchete\b[^}]*\}/.test(subAba) && !/\.manchete/.test(subAba));
-ok("`SubAbaOperar` usa `<PropostaLastreada` (ramo de candidato único, não reimplementa o card)",
+ok("`PropostaDoAtivo` usa `<PropostaLastreada` (ramo de candidato único, não reimplementa o card)",
    /<PropostaLastreada/.test(subAba));
-ok("`SubAbaOperar` usa `<CandidatoOpcao` (ramo multi-candidato, não reimplementa o card)",
+ok("`PropostaDoAtivo` usa `<CandidatoOpcao` (ramo multi-candidato, não reimplementa o card)",
    /<CandidatoOpcao/.test(subAba));
 
 // ---- 6) caminho de aceite único (useAceiteLastreado) ------------------------
-ok("`SubAbaOperar` não declara `window.confirm` próprio",
+ok("`PropostaDoAtivo` não declara `window.confirm` próprio",
    !/window\.confirm/.test(subAba));
-ok("`SubAbaOperar` não chama `A.abrirLastreada(`/`A.abrirCollar(`/`A.fecharLastreada(` direto",
+ok("`PropostaDoAtivo` não chama `A.abrirLastreada(`/`A.abrirCollar(`/`A.fecharLastreada(` direto",
    !/A\.(abrirLastreada|abrirCollar|fecharLastreada)\(/.test(subAba));
-ok("`SubAbaOperar` usa o hook único `useAceiteLastreado(`",
+ok("`PropostaDoAtivo` usa o hook único `useAceiteLastreado(`",
    /useAceiteLastreado\(/.test(subAba));
 
 // ---- 7) fonte única de appMode -----------------------------------------------
-ok("`SubAbaOperar` deriva o modo só de `ctx.operador`",
+ok("`PropostaDoAtivo` deriva o modo só de `ctx.operador`",
    /ctx && ctx\.operador/.test(subAba) && !/appMode/.test(subAba) && !/data\.config/.test(subAba));
 
 // ---- 8) universo = carteira, nunca watchlist --------------------------------
-ok("`SubAbaOperar` não referencia `watchlist`",
+ok("`PropostaDoAtivo` não referencia `watchlist`",
    !/watchlist/i.test(subAba));
 
-// ---- 9) toda cp.X referenciada em SubAbaOperar existe nos DOIS ramos --------
+// ---- 9) toda cp.X referenciada em PropostaDoAtivo existe nos DOIS ramos --------
 const chavesCp = Array.from(new Set(
   Array.from(subAba.matchAll(/cp\.([A-Za-z0-9_]+)/g)).map((m) => m[1])
 ));
-ok("achou pelo menos uma chave `cp.X` em SubAbaOperar (sanidade da asserção seguinte)",
+ok("achou pelo menos uma chave `cp.X` em PropostaDoAtivo (sanidade da asserção seguinte)",
    chavesCp.length > 0);
 const chavesFaltando = chavesCp.filter((k) => !(k in COPY.estudo) || !(k in COPY.operador));
-ok("toda `cp.X` referenciada em SubAbaOperar existe em COPY.estudo e COPY.operador"
+ok("toda `cp.X` referenciada em PropostaDoAtivo existe em COPY.estudo e COPY.operador"
    + (chavesFaltando.length ? " (faltando: " + chavesFaltando.join(", ") + ")" : ""),
    chavesFaltando.length === 0);
 
 // ---- 10) alternador com aria-pressed e alvo tátil mínimo --------------------
-const idxSubabas = tela.indexOf("const subabas = (");
+const idxSubabas = tela.indexOf("const abaBar = (");
 const blocoSubabas = idxSubabas >= 0 ? tela.slice(idxSubabas, idxSubabas + 1200) : "";
-ok("o alternador de sub-aba existe (`const subabas = (`)", idxSubabas >= 0);
+ok("o alternador de aba existe (`const abaBar = (`)", idxSubabas >= 0);
 ok("o alternador usa `aria-pressed`", /aria-pressed=/.test(blocoSubabas));
 ok("o alternador usa `minHeight: \"44px\"` (alvo tátil mínimo)", /minHeight:\s*"44px"/.test(blocoSubabas));
 
@@ -228,15 +242,15 @@ for (const nome of ["cabecalho", "<SecaoVigias", "seletor", "LastroDoAtivo", "Le
 
 // ---- 12) REORG-06 (Fase 33, 33-02, 2026-09-20): guardrail CVM de manchete,
 // generalizado por varredura de DIRETÓRIO -------------------------------------
-// A regra 5 acima cobre só o texto de `SubAbaOperar` — escopo de VARIÁVEL
-// ÚNICA que bastava até a Fase 32, porque `SubAbaOperar` era o único lugar
+// A regra 5 acima cobre só o texto de `PropostaDoAtivo` — escopo de VARIÁVEL
+// ÚNICA que bastava até a Fase 32, porque `PropostaDoAtivo` era o único lugar
 // novo que renderizava candidato de opções. A Fase 33 cria seções job-to-be-
-// done (`Secao*.jsx`) fora de `SubAbaOperar` capazes de compor os mesmos
+// done (`Secao*.jsx`) fora de `PropostaDoAtivo` capazes de compor os mesmos
 // componentes que exibem `manchete` — a primeira é `SecaoDescobrir.jsx`
 // (33-02), que embute `OportunidadesOpcoes`/`CuradoriaEstruturas`. Um
 // arquivo novo que passasse a renderizar `candidato.manchete` diretamente
 // (sem delegar a um dos 4 renderizadores já cobertos) passaria calado pela
-// regra 5, que só lê `SubAbaOperar`. A allowlist abaixo é dos 4 arquivos que
+// regra 5, que só lê `PropostaDoAtivo`. A allowlist abaixo é dos 4 arquivos que
 // HOJE renderizam manchete verbatim (medido por grep em 2026-09-19/20):
 // `PropostaLastreada.jsx`, `CandidatoOpcao.jsx`, `CuradoriaEstruturas.jsx`,
 // `OportunidadesOpcoes.jsx`. Nenhuma outra `Secao*.jsx`/arquivo desta pasta
@@ -263,9 +277,16 @@ ok("cada arquivo da allowlist de manchete CONTÉM .manchete de fato (allowlist n
    semMancheteNaAllowlist.length === 0);
 // A regra em si: todo .jsx/.js de web/src/opcoes/ FORA da allowlist não pode
 // renderizar manchete — nem `{...manchete...}` (JSX) nem `.manchete` avulso.
+//
+// 2026-09-24 (Fase 39, 39-05, Rule 1): `src` passa por `semComentario()` antes
+// do regex — mesmo defeito de classe que o 39-04-SUMMARY.md já documentou no
+// guardião novo (`test_opcoes_nav_tres_abas_ui.mjs`, deviation 4): o header de
+// `AbaOportunidades.jsx` explica em prosa que o componente é "sem `.manchete`
+// próprio" — sem o filtro, o próprio texto explicativo derrubava a asserção
+// contra um componente que na verdade não renderiza manchete nenhuma.
 const comMancheteForaDaAllowlist = arquivosOpcoesDir.filter((f) => {
   if (RENDERIZADORES_DE_MANCHETE.includes(f)) return false;
-  const src = readFileSync(join(dirOpcoes, f), "utf8");
+  const src = semComentario(readFileSync(join(dirOpcoes, f), "utf8"));
   return /\{[^}]*\bmanchete\b[^}]*\}/.test(src) || /\.manchete\b/.test(src);
 });
 ok("nenhum arquivo de web/src/opcoes/ FORA da allowlist renderiza manchete (REORG-06)"
