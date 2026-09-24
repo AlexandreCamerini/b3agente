@@ -18,7 +18,7 @@
 <summary>🚧 v1.8 Didática ampliada + continuidade da aba Opções (Phases 38-41) — IN PROGRESS</summary>
 
 - [x] Phase 38: KB Didática ampliada (6/6 plans) — completed 2026-09-23
-- [ ] Phase 39: Reestruturação de navegação da aba Opções (0/? plans) — not started
+- [ ] Phase 39: Reestruturação de navegação da aba Opções (0/6 plans) — planned
 - [ ] Phase 40: Continuidade da aba Opções (0/? plans) — not started
 - [ ] Phase 41: Consolidação de registros de tela (0/? plans) — not started
 
@@ -262,7 +262,13 @@ definida primeiro).
   5. Texto de bastidor (cache, cota do dia, mecânica de lastro, score bruto
      de curadoria) não aparece mais inline antes do conteúdo — fica atrás
      de um ⓘ ou é removido
-**Plans**: TBD
+**Plans**: 6 plans (5 ondas)
+- [ ] 39-01-PLAN.md — backend: piso de 60% de probabilidade OTM (Black-Scholes) + ordem por prêmio anualizado na curadoria, meta do D-11, hv21 lazy (onda 1)
+- [ ] 39-02-PLAN.md — contratos: copy da fase nos dois modos, primitivos ⓘ/carimbo, VigiasSheet/VigiasBadge, deep-link Posições -> Recomendadas (onda 1)
+- [ ] 39-03-PLAN.md — CuradoriaEstruturas (D-11 3 vazios, D-14 "1ª de N", T.onAccent) + OportunidadesOpcoes (aria-expanded) (onda 2)
+- [ ] 39-04-PLAN.md — OpcoesScreen com 3 abas fixas, Vigias em sheet, Operar dissolvida em painel inline (Leitura B'), Montar com Comparar inline + guardião NAV-01 (onda 3)
+- [ ] 39-05-PLAN.md — reconciliação dos guardiões antigos (re-ancorar / reversão com nota) + suíte canônica (onda 4)
+- [ ] 39-06-PLAN.md — checkpoint humano ao vivo + publicação front+backend + docs/todos (onda 5)
 **UI hint**: yes
 
 ### Phase 40: Continuidade da aba Opções
