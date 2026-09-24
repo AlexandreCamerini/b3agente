@@ -4,14 +4,14 @@ milestone: v1.8
 milestone_name: Didática ampliada + continuidade da aba Opções
 status: executing
 stopped_at: "Phase 39 PLANEJADA — `/gsd-plan-phase 39` completo em 2026-09-24, pronta para `/gsd-execute-phase 39`. Sequência: UI-SPEC aprovado (ver narrativa anterior, commits `8cd6179`→`3fb61f6`→`a8f56b8`) → `gsd-pattern-mapper` (`39-PATTERNS.md`, 12/12 analogs, commit `535a3d6`) → `gsd-planner` opus (6 planos/5 ondas, commit `70becbc`, também atualizou ROADMAP.md) → `gsd-plan-checker` 1ª rodada: ISSUES FOUND (0 bloqueios, 4 avisos — cobertura de requisitos OK, mas 2 avisos substantivos: checkpoint do 39-06 não nomeava explicitamente a reinterpretação de D-05 nem o desvio do UI-SPEC no rodapé de custo) → revisão (`gsd-planner`, commit `bdcffb4`: adiciona DR-1/DR-2 como perguntas nomeadas e bloqueantes no checkpoint do 39-06, mais 2 linhas em `39-PATTERNS.md`) → `gsd-plan-checker` 2ª rodada: VERIFICATION PASSED (0 bloqueios, 0 avisos novos) → gate de cobertura de decisões (`check.decision-coverage-plan`) achou D-02/D-03/D-04/D-12 sem citação literal em `must_haves.truths` (estavam implementados, só não citados pelo ID na estrutura que o gate escaneia) → corrigido à mão (commit `6de78b2`, 14/14 cobertos) → `roadmap.annotate-dependencies` já estava aplicado pelo planner (idempotente, sem mudança). STATE.md editado à mão (`state.planned-phase` do gsd-sdk não foi chamado, ver [[gsd-sdk-state-corrompe]])."
-last_updated: "2026-09-24T17:11:15.000Z"
-last_activity: 2026-09-24 -- Phase 39, Plan 03 (Recomendadas com piso/posição/probOtm-premioAnualizado + Oportunidades com aria-expanded) executado e commitado
+last_updated: "2026-09-24T17:36:15.000Z"
+last_activity: 2026-09-24 -- Phase 39, Plan 04 (reescrita da navegacao: 3 abas fixas, Vigias em sheet, Operar dissolvida) executado e commitado
 progress:
   total_phases: 2
   completed_phases: 1
   total_plans: 12
-  completed_plans: 9
-  percent: 75
+  completed_plans: 10
+  percent: 83
 ---
 
 # Project State
@@ -26,9 +26,54 @@ See: .planning/PROJECT.md (updated 2026-09-20)
 ## Current Position
 
 Phase: 39 (reestrutura-o-de-navega-o-da-aba-op-es) — EXECUTING
-Plan: 4 of 6 (39-01, 39-02 e 39-03 completos — 39-04 é o próximo)
+Plan: 5 of 6 (39-01, 39-02, 39-03 e 39-04 completos — 39-05 é o próximo)
 Status: Executing Phase 39
-Last activity: 2026-09-24 -- Plan 39-03 (CuradoriaEstruturas com D-11/D-14/onAccent/painel probOtm-prêmio anualizado + OportunidadesOpcoes com aria-expanded) executado e commitado, sequencial, sem worktree
+Last activity: 2026-09-24 -- Plan 39-04 (OpcoesScreen.jsx reescrito: estado único abaOpcoes com 3 abas fixas, Vigias em badge+sheet, sub-aba Operar dissolvida em PropostaDoAtivo, bastidor atrás de ⓘ, guardião novo test_opcoes_nav_tres_abas_ui.mjs) executado e commitado, sequencial, sem worktree
+
+**Plan 39-04 completo (2026-09-24), reescrita da navegação (NAV-01) — sequencial, sem worktree:**
+
+- 3 tasks, sem checkpoint. Commits: `f7ab754` (feat Task 1: `AbaOportunidades.jsx`/
+  `AbaRecomendadas.jsx` novos, partição de `SecaoDescobrir.jsx` da Fase 33 em
+  duas abas independentes, cada uma com o próprio `CarimboFrescor`), `4b24d6c`
+  (feat Task 2: `OpcoesScreen.jsx` reescrito — `ABAS_OPCOES` fixo
+  `["oportunidades", "recomendadas", "montar"]` substitui `subaba`/
+  `abaWorkspace`; `abaBar` fora de gate de `ticker` (D-01); `VigiasBadge`+
+  `VigiasSheet` no cabeçalho envolvendo `SecaoVigias`, visível nas 3 abas
+  (D-07/SC#2); `SubAbaOperar` renomeado/enxugado para `PropostaDoAtivo`,
+  painel inline do card de Oportunidades tocado (Leitura B', fork 1,
+  SC#3); custo/lastro atrás de `DetalheInfo` (D-14); "saiba mais" fixo
+  removido, `infoDaAba(` 3x — uma por aba (D-13); "Ver outros vencimentos"
+  vira link inline expandindo `SecaoComparar` (D-06); `SecaoSetups` migra
+  para dentro de Montar (fork 2); `SecaoDescobrir.jsx`/`WorkspaceHeader.jsx`
+  deletados, zero consumidor restante), `7bba7b7` (test Task 3:
+  `test_opcoes_nav_tres_abas_ui.mjs` novo, 43 asserções, prova negativa
+  executada de verdade — reintroduzir `subaba` faz o guardião falhar
+  nomeando o item 2, revertido volta a passar).
+- **4 deviations nomeadas (Rule 1, todas correções mecânicas de sintaxe/
+  precisão de guardião, sem mudança de comportamento):** comentário JSX com
+  `*/}` órfão quebrando o build (esbuild "Unexpected }"); 3 blocos de
+  comentário multi-linha citando identificadores dissolvidos em linha de
+  continuação sem prefixo `*` (falso positivo na acceptance criteria de
+  "fora de comentário"); `grep -c "onIr={irParaVigia}"` contando 2 por causa
+  de uma menção em comentário; falso positivo do guardião novo em
+  `.manchete` dentro de um comentário de proveniência de `AbaOportunidades.jsx`
+  (corrigido rodando `semComentario()` antes de checar).
+- **10 guardiões antigos ficaram vermelhos por desenho** (esperado, declarado
+  no `<repo_guardrail>` do 39-04-PLAN.md): `test_carteira_opcoes_tira.mjs`,
+  `test_curadoria_ui.mjs`, `test_fase22_componentes_compartilhados.mjs`,
+  `test_kb_ancoras.mjs`, `test_opcoes_consolidacao_ui.mjs`,
+  `test_opcoes_hub_workspace_ui.mjs`, `test_opcoes_jornada_ui.mjs`,
+  `test_opcoes_multi_candidato_ui.mjs`, `test_opcoes_subabas_ui.mjs`,
+  `test_opcoes_vigias_ui.mjs` — todos testam FORMA de código (nome de
+  função, presença de arquivo, ordem de bloco fixo) que esta fase pede pra
+  mudar, nenhum aponta regressão de comportamento real. Lista com motivo de
+  1 linha cada em `39-04-SUMMARY.md` ("Guardiões vermelhos") — insumo direto
+  do Plano 39-05 (reconciliação), que os corrige ANTES de qualquer push.
+- Suíte: `web/tests/*.mjs` completa (163 arquivos): 153 verdes, 10 vermelhos
+  (os listados acima), `npx vite build` limpo (117 módulos). Backend fora do
+  escopo (nenhum arquivo `server/app/*.py` tocado por este plano).
+- Guardrail aplicado: mutadores de estado do gsd-sdk NÃO foram chamados —
+  este STATE.md foi editado à mão (`[[gsd-sdk-state-corrompe]]`).
 
 **Plan 39-03 completo (2026-09-24), rewiring de componentes cross-carteira — sequencial, sem worktree:**
 
@@ -125,8 +170,9 @@ Last activity: 2026-09-24 -- Plan 39-03 (CuradoriaEstruturas com D-11/D-14/onAcc
 - Guardrail aplicado: mutadores de estado do gsd-sdk NÃO foram chamados — este
   STATE.md foi editado à mão (decisão do Alex 2026-09-11, `[[gsd-sdk-state-corrompe]]`).
 
-**Próximo passo dentro da fase:** `/gsd-execute-phase 39` continua — Plan 39-04
-(onda seguinte), ver `.planning/phases/39-reestrutura-o-de-navega-o-da-aba-op-es/39-04-PLAN.md`.
+**Próximo passo dentro da fase:** `/gsd-execute-phase 39` continua — Plan 39-05
+(reconciliação dos 10 guardiões vermelhos, onda seguinte, ANTES de qualquer
+push), ver `.planning/phases/39-reestrutura-o-de-navega-o-da-aba-op-es/39-05-PLAN.md`.
 
 **Decisões de implementação que o próximo leitor não deve redescobrir (KB-01/KB-02):**
 
