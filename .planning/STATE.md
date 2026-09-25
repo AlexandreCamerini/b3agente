@@ -53,10 +53,11 @@ reaproveitado nas 4 telas — corrigir o componente compartilhado resolve a
 jornada inteira. Documento completo com plano de 3 fases (Crítico/
 Refinamento/Polish), critério de aceite e o que NÃO mexer (manchete
 determinística intocada): `qa/AUDITORIA-Jornada-Decisao-v1.md` (commit
-`cacdba7`). Não virou fase no
-ROADMAP ainda — v1.8 está travada em "aba Opções" (ver "Escopo
-explicitamente fora desta milestone" no ROADMAP.md); decisão de onde entra
-(encaixar na sequência atual, abrir v1.9, ou backlog) é do Alex.
+`cacdba7`). **Decisão do Alex (2026-09-25):** nova v1.9, registrada em
+`PROJECT.md` ("Next Milestone (queued)") — só entra na fila de execução
+depois que a v1.8 fechar (Fases 40/41); não encaixa na sequência atual.
+Requirements formais e roadmap ficam pra quando `/gsd-new-milestone` rodar
+de verdade, após o fechamento da v1.8.
 
 **Plan 39-06 completo (2026-09-24), checkpoint + publicação + fechamento de docs — sequencial, sem worktree:**
 

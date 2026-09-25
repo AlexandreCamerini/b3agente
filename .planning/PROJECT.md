@@ -45,6 +45,43 @@ de verificação ao vivo (multi-candidato Fase 19/32, entradaAuto, human-checks
 Fase 3, UAT v1.5) segue no backlog do PROJECT.md, não priorizada nesta
 milestone.
 
+## Next Milestone (queued): v1.9 Jornada de Decisão — NÃO INICIADA
+
+**Decisão do Alex (2026-09-25):** registrar como próxima milestone, mas só
+entra na fila de execução depois que a v1.8 fechar (Fases 40/41). Não
+encaixar na sequência atual da v1.8 — mantém o foco dela (aba Opções) sem
+diluir.
+
+**Goal:** corrigir a hierarquia visual do card único de ativo (`AtivoCard`,
+`App.jsx:3343`, reaproveitado em Acompanhar/Mesa/Monitoramento/Posições) —
+hoje os indicadores (confiança, regime, fundamento, elegibilidade
+estatística, veredito) competem por atenção com o mesmo peso visual, sem
+diferenciar o que é decisão do que é contexto/ressalva.
+
+**Origem:** achado ao vivo do Alex em TestFlight (card de decisão da Mesa,
+ativo UGPA3: "muita informação e de forma confusa, não sei se é pra vender
+ou comprar"). Auditoria via `/design-audit` confirmou 3 falhas concretas em
+código (não é impressão visual): (1) `HISTORICO_PILL_STYLE.inelegivel`
+(`App.jsx:6554`) usa o mesmo token `T.negative` de VENDER/prejuízo pra
+sinalizar "sem vantagem estatística medida" — colisão entre o eixo de
+direção de mercado e o eixo de confiabilidade estatística; (2) o tier de
+confluência aparece duas vezes no mesmo card, em dois desenhos visuais
+diferentes, sem link entre eles; (3) quatro receitas visuais distintas
+(`chip()`, `FundamentoChip`/`RegimeChip`, `HistoricoPill`, pill solto de
+confiança) pro mesmo conceito de "chip de sinal", sem contrato comum.
+
+**Não é regressão nova** — uma correção anterior (comentário "qa/49 v11" no
+código) já resolveu "vereditos concorrentes" nivelando tudo ao mesmo peso
+visual; o efeito colateral foi matar a hierarquia junto. Esta milestone é o
+próximo degrau dessa correção.
+
+**Documento completo:** `qa/AUDITORIA-Jornada-Decisao-v1.md` (achados,
+critério de aceite, e o que NÃO mexer — a manchete determinística permanece
+só do motor, `setups.py`/`kpi.py`). Plano de 3 fases proposto lá (Crítico/
+Refinamento/Polish) — requirements formais e roadmap ficam pra quando esta
+milestone abrir de verdade, via `/gsd-new-milestone`, depois que a v1.8
+fechar.
+
 ## Milestone v1.7 Confiabilidade explicativa da aba Opções — SHIPPED 2026-09-22
 
 **Goal:** corrigir a jornada de montar/analisar uma estrutura de opções
