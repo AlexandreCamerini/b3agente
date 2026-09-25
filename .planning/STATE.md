@@ -34,6 +34,30 @@ Last activity: 2026-09-24 -- Plan 39-06 fechado: checkpoint humano ao vivo
   conferida em produção, STATE/ROADMAP/REQUIREMENTS fechados à mão, 2 todos
   resolvidos movidos.
 
+**Achado novo, fora do escopo da v1.8 (não é aba Opções) — aguardando decisão
+de posicionamento no roadmap, mesmo padrão do item 8/08-05 (v1.1):**
+`/design-audit` da JORNADA DE DECISÃO (Acompanhar/Mesa/Monitoramento/Posições),
+disparado por achado ao vivo do Alex em TestFlight (card de decisão da Mesa,
+UGPA3: "muita informação, não sei se é pra vender ou comprar"). Achados
+confirmados em código, não impressão visual: (1) `HISTORICO_PILL_STYLE.inelegivel`
+(`App.jsx:6554`) usa o MESMO token `T.negative` de VENDER/prejuízo pra
+sinalizar "sem vantagem estatística medida" — dois eixos semânticos
+diferentes (direção de mercado × confiabilidade estatística) competindo pelo
+mesmo canal de cor; (2) o tier de confluência (`tierOf`) aparece DUAS vezes
+no mesmo card, em dois desenhos diferentes, sem link visual (`App.jsx:6871`
+pill "confiança X" vs. `App.jsx:6919` ConfluenceRing "X% · Forte"); (3) 4
+receitas visuais distintas pro mesmo conceito de "chip de sinal" (`chip()`,
+`FundamentoChip`/`RegimeChip`, `HistoricoPill`, pill solto de confiança) sem
+contrato visual comum. `AtivoCard` (`App.jsx:3343`) é o card único
+reaproveitado nas 4 telas — corrigir o componente compartilhado resolve a
+jornada inteira. Documento completo com plano de 3 fases (Crítico/
+Refinamento/Polish), critério de aceite e o que NÃO mexer (manchete
+determinística intocada): `qa/AUDITORIA-Jornada-Decisao-v1.md` (commit
+`cacdba7`). Não virou fase no
+ROADMAP ainda — v1.8 está travada em "aba Opções" (ver "Escopo
+explicitamente fora desta milestone" no ROADMAP.md); decisão de onde entra
+(encaixar na sequência atual, abrir v1.9, ou backlog) é do Alex.
+
 **Plan 39-06 completo (2026-09-24), checkpoint + publicação + fechamento de docs — sequencial, sem worktree:**
 
 - **Task 1 (checkpoint humano, bloqueante) — feita em sessão anterior, fora
