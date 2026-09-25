@@ -19,7 +19,7 @@
 
 - [x] Phase 38: KB Didática ampliada (6/6 plans) — completed 2026-09-23
 - [x] Phase 39: Reestruturação de navegação da aba Opções (6/6 plans) — completed 2026-09-24
-- [ ] Phase 40: Continuidade da aba Opções (0/? plans) — not started
+- [ ] Phase 40: Continuidade da aba Opções (0/2 plans) — planned
 - [ ] Phase 41: Consolidação de registros de tela (0/? plans) — not started
 
 Escopo explicitamente fora desta milestone: B3 (execução a descoberto,
@@ -290,7 +290,11 @@ não a estrutura `subaba`/`abaWorkspace` atual)
      lembrados; texto original pedia que os filtros sobrevivessem)
   4. A continuidade de estado respeita o escopo do usuário logado — trocar de
      conta ou deslogar nunca vaza o estado de uma conta para outra
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 40-01-PLAN.md — memória em sessão (ticker+aba) no App.jsx, precedência deep-link > memória > default, reset de escopo + key de remount (C2), guardião test_opcoes_continuidade_ui.mjs
+- [ ] 40-02-PLAN.md — verificação humana ao vivo (cenários A–G + DP-1), bump+publicação, fechamento à mão dos docs
 **UI hint**: yes
 
 ### Phase 41: Consolidação de registros de tela
