@@ -27,7 +27,11 @@ See: .planning/PROJECT.md (updated 2026-09-20)
 
 Phase: 40 (continuidade-da-aba-op-es) — CONTEXT.md capturado (2026-09-25),
   planos ainda não gerados.
-Plan: nenhum ainda — próximo passo é `/gsd-plan-phase 40`.
+Plan: nenhum ainda — próximo passo é `/gsd-plan-phase 40`. UI-SPEC
+  aprovado (6/6, `40-UI-SPEC.md`, 2026-09-25): zero UI nova travada como
+  critério verificável; cenário C2 reforçado (tela montada também volta ao
+  default na troca de escopo). SC#3 do ROADMAP e ESTADO-01 realinhados a
+  D-02 (filtros NÃO são lembrados).
 Status: ESTADO-01 com 5 decisões travadas em `40-CONTEXT.md` (D-01 estado em
   memória no App.jsx, sem tocar nos stores; D-02 só ticker+aba lembrados;
   D-03 deep-link sempre vence; D-04 sem expiração extra; D-05 restauração
