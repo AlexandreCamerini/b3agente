@@ -20,7 +20,7 @@
 - [x] Phase 38: KB Didática ampliada (6/6 plans) — completed 2026-09-23
 - [x] Phase 39: Reestruturação de navegação da aba Opções (6/6 plans) — completed 2026-09-24
 - [x] Phase 40: Continuidade da aba Opções (2/2 plans) — completed 2026-09-25
-- [ ] Phase 41: Consolidação de registros de tela (0/? plans) — not started
+- [ ] Phase 41: Consolidação de registros de tela (0/3 plans) — planned
 
 Escopo explicitamente fora desta milestone: B3 (execução a descoberto,
 decisão de escopo pendente do Alex), CAP-12/verificação visual da Fase 37
@@ -319,7 +319,21 @@ tocando nav+tour+ajuda+assistente ao mesmo tempo — ver `26-CONTEXT.md`)
      `catalog.js` (dois pontos testados, não um cruzando JS/Python)
   4. Adicionar uma tela nova exige editar um único ponto do front (mais o
      espelho no backend), não os 4 anteriores
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 41-01-PLAN.md — fixture pré-refactor + registro único web/src/telas.js (8 telas) + paridade com PET_TELAS nos dois pontos (mjs + pytest)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 41-02-PLAN.md — religa BottomNav/petTela/tourPassos/ajudaSecoes ao registro, switch do petSnapshot amarrado por teste, guardiões reconciliados, walkthrough de tela nova (SC#4) + achados
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 41-03-PLAN.md — checkpoint humano curto (D-05), publicação, fechamento dos docs à mão
+
 **UI hint**: yes
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2/v1.3
