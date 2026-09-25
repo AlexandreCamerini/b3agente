@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.8
 milestone_name: Didática ampliada + continuidade da aba Opções
 status: executing
-stopped_at: "Fase 39 FECHADA em 2026-09-24 (39-06, onda 5/5). Checkpoint humano ao vivo (roteiro de 10 itens + DR-1 + DR-2 nomeadas) aprovado pelo Alex, incluindo um override ao vivo não previsto pelo plano: rótulo da 3a aba trocado de \"Recomendadas\" para \"Destacadas\" (override de D-03, ambiguidade regulatoria CVM com o disclaimer \"nada aqui e recomendacao\" — documentado em `39-06-DEVIATION-recomendadas-destacadas-SUMMARY.md`, commits `6a4e819`/`183bf19`). Publicacao front+backend no mesmo push (`F10-20260924-01`) ja estava feita e no ar quando esta sessao de fechamento (39-06 Task 2/3) comecou — achada pronta, nao refeita (commit `3eb9087` \"Nova Aba Opcoes\" + `17d3f6a` docs HISTORICO, ambos de Alexandre Camerini, fora da nomenclatura GSD); esta sessao confirmou em producao (`/api/health` -> `F10-20260924-01`, `/api/options/curadoria` -> `pisoProbOtm: 0.6`) e reexecutou a suite canonica de forma independente (3048 passed/5 skipped/3 xfailed backend + 163/163 .mjs, exit 0, fora do sandbox). NAV-01 Done, ROADMAP/REQUIREMENTS fechados a mao, 2 todos resolvidos movidos com nota. Proximo passo: `/gsd-plan-phase 40` (Continuidade da aba Opcoes, ESTADO-01), quando o Alex decidir — nao iniciado nesta sessao. STATE.md editado a mao (mutadores `state.*` do gsd-sdk NAO chamados, ver [[gsd-sdk-state-corrompe]])."
-last_updated: "2026-09-24T23:35:00.000Z"
-last_activity: 2026-09-24 -- Phase 39, Plan 06 fechado (checkpoint humano DR-1/DR-2 aprovado ao vivo, publicacao front+backend em producao conferida, documentos de planejamento fechados a mao)
+stopped_at: "Fase 40 (Continuidade da aba Opcoes, ESTADO-01) CONTEXT.md capturado em 2026-09-25 via /gsd-discuss-phase 40 -- 5 decisoes: D-01 estado (ticker+aba ativa) levantado pro App.jsx em MEMORIA (mesmo padrao do opcoesAbaInicial da Fase 39-02), deliberadamente SEM tocar em deviceStore/serverStore (evita o guardrail de paridade por um ganho -- sobreviver a reload -- que o requirement nao pediu); D-02 so o minimo e lembrado (ticker+aba), sheet de Vigias/expansoes/filtros de Comparar sempre voltam default; D-03 o deep-link opcoesAbaInicial SEMPRE vence o estado lembrado; D-04 sem logica de expiracao extra (sessao inteira ja e o limite natural do mecanismo em memoria); D-05 restauracao SILENCIOSA, sem toast/salto visual. Pedido inicial ambiguo do Alex (\"rever UX/UI da aba Opcoes\") foi esclarecido por pergunta direta e restrito a D-05 -- uma revisao visual geral da aba Opcoes NAO entra nesta fase, fica deferida (mesmo tratamento da auditoria Jornada de Decisao/v1.9). Proximo passo: `/gsd-plan-phase 40` (planner ainda nao rodou). STATE.md editado a mao (mutadores `state.*` do gsd-sdk NAO chamados)."
+last_updated: "2026-09-25T00:00:00.000Z"
+last_activity: 2026-09-25 -- Fase 40 CONTEXT.md capturado via discuss-phase (5 decisoes ESTADO-01), aguardando /gsd-plan-phase 40
 progress:
   total_phases: 2
   completed_phases: 2
@@ -21,18 +21,22 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-20)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Phase 39 — reestrutura-o-de-navega-o-da-aba-op-es
+**Current focus:** Phase 40 — continuidade-da-aba-op-es (ESTADO-01), contexto capturado, planejamento pendente
 
 ## Current Position
 
-Phase: 39 (reestrutura-o-de-navega-o-da-aba-op-es) — **FECHADA (6/6 planos)**
-Plan: 39-06 fechou a fase (checkpoint humano + publicação + docs)
-Status: NAV-01 Done. Aguardando decisão do Alex para `/gsd-plan-phase 40`
-  (Continuidade da aba Opções, ESTADO-01) — não iniciado nesta sessão.
-Last activity: 2026-09-24 -- Plan 39-06 fechado: checkpoint humano ao vivo
-  aprovado (roteiro de 10 itens + DR-1/DR-2 nomeadas), publicação front+backend
-  conferida em produção, STATE/ROADMAP/REQUIREMENTS fechados à mão, 2 todos
-  resolvidos movidos.
+Phase: 40 (continuidade-da-aba-op-es) — CONTEXT.md capturado (2026-09-25),
+  planos ainda não gerados.
+Plan: nenhum ainda — próximo passo é `/gsd-plan-phase 40`.
+Status: ESTADO-01 com 5 decisões travadas em `40-CONTEXT.md` (D-01 estado em
+  memória no App.jsx, sem tocar nos stores; D-02 só ticker+aba lembrados;
+  D-03 deep-link sempre vence; D-04 sem expiração extra; D-05 restauração
+  silenciosa). Fase 39 (NAV-01) segue FECHADA (6/6 planos, publicada); Fase
+  41 (TELAS-01) segue não iniciada.
+Last activity: 2026-09-25 -- `/gsd-discuss-phase 40` completo: 5 áreas
+  discutidas (mecanismo de sobrevivência, escopo do que é lembrado,
+  interação com o deep-link, expiração da memória, comportamento
+  pós-restauração), CONTEXT.md e DISCUSSION-LOG.md commitados.
 
 **Achado novo, fora do escopo da v1.8 (não é aba Opções) — aguardando decisão
 de posicionamento no roadmap, mesmo padrão do item 8/08-05 (v1.1):**
