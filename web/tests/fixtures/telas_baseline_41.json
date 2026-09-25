@@ -1,0 +1,549 @@
+{
+  "_origem": {
+    "sha": "6dbf479b71e27dee040a3709adf3f7f6e55f3a0a",
+    "data": "2026-09-25",
+    "nota": "NÃO regenerar após a 41-02 (D-04) — este JSON é a verdade congelada do comportamento PRÉ-refactor.",
+    "appPath": "/Users/acamerini/dev/borisv2/web/src/App.jsx"
+  },
+  "barra": {
+    "estudo": [
+      [
+        "evolucao",
+        "Acompanhar"
+      ],
+      [
+        "radar",
+        "Radar"
+      ],
+      [
+        "mercado",
+        "Watchlist"
+      ],
+      [
+        "carteira",
+        "Portfólio"
+      ],
+      [
+        "opcoes",
+        "Opções"
+      ]
+    ],
+    "operador": [
+      [
+        "evolucao",
+        "Acompanhar"
+      ],
+      [
+        "radar",
+        "Mesa"
+      ],
+      [
+        "mercado",
+        "Monitoramento"
+      ],
+      [
+        "carteira",
+        "Posições"
+      ],
+      [
+        "opcoes",
+        "Opções"
+      ]
+    ],
+    "nulo": [
+      [
+        "evolucao",
+        "Acompanhar"
+      ],
+      [
+        "radar",
+        "Radar"
+      ],
+      [
+        "mercado",
+        "Watchlist"
+      ],
+      [
+        "carteira",
+        "Portfólio"
+      ],
+      [
+        "opcoes",
+        "Opções"
+      ]
+    ],
+    "vazio": [
+      [
+        "evolucao",
+        "Acompanhar"
+      ],
+      [
+        "radar",
+        "Radar"
+      ],
+      [
+        "mercado",
+        "Watchlist"
+      ],
+      [
+        "carteira",
+        "Portfólio"
+      ],
+      [
+        "opcoes",
+        "Opções"
+      ]
+    ]
+  },
+  "tour": {
+    "estudo": [
+      [
+        "Bem-vindo · você está em Acompanhar",
+        "Esta é a tela em que o app abre: o resumo do seu dia — as melhores oportunidades da sua Watchlist, a curva do patrimônio simulado e o próximo passo."
+      ],
+      [
+        "O que o Boris+ é — e o que não é",
+        "Um app para **estudar** o mercado da B3 com uma carteira simulada. Tudo aqui é educacional — nenhuma ordem real é enviada."
+      ],
+      [
+        "1 · Descubra no Radar de mercado",
+        "O Radar de mercado varre o mercado e mostra os ativos com setup, com confluência e leitura rápida."
+      ],
+      [
+        "2 · Acompanhe na Watchlist",
+        "Leve os melhores para a Watchlist e acompanhe de perto antes de agir."
+      ],
+      [
+        "3 · Simule no Portfólio",
+        "Simule compras e vendas no Portfólio — com stop, alvo e risco em R, sem dinheiro real."
+      ],
+      [
+        "4 · Estude estruturas em Opções",
+        "A aba Opções lê o comportamento de um ativo da sua lista e mostra as estruturas de opções que cabem nele — leitura de fim de pregão, sem ordem nenhuma."
+      ]
+    ],
+    "operador": [
+      [
+        "Bem-vindo · você está em Acompanhar",
+        "Esta é a tela em que o app abre: o resumo do seu dia — as melhores oportunidades da sua Monitoramento, a curva do patrimônio simulado e o próximo passo."
+      ],
+      [
+        "O que o Boris+ é — e o que não é",
+        "Um app para **estudar** o mercado da B3 com uma carteira simulada. Tudo aqui é educacional — nenhuma ordem real é enviada."
+      ],
+      [
+        "1 · Descubra no Mesa de oportunidades",
+        "O Mesa de oportunidades varre o mercado e mostra os ativos com setup, com confluência e leitura rápida."
+      ],
+      [
+        "2 · Acompanhe na Monitoramento",
+        "Leve os melhores para a Monitoramento e acompanhe de perto antes de agir."
+      ],
+      [
+        "3 · Simule no Posições",
+        "Simule compras e vendas no Posições — com stop, alvo e risco em R, sem dinheiro real."
+      ],
+      [
+        "4 · Estude estruturas em Opções",
+        "A aba Opções lê o comportamento de um ativo da sua lista e mostra as estruturas de opções que cabem nele — leitura de fim de pregão, sem ordem nenhuma."
+      ]
+    ]
+  },
+  "ajuda": {
+    "estudo,false": [
+      [
+        "O que é o Boris+",
+        [
+          "Um app educacional de análise técnica da B3. Ele varre o mercado, mostra oportunidades de estudo e deixa você simular uma carteira — tudo com dinheiro fictício.",
+          "Nada aqui é ordem real nem recomendação personalizada: nenhuma ordem é enviada à corretora. O objetivo é aprender a ler o mercado com disciplina."
+        ]
+      ],
+      [
+        "Os dois modos",
+        [
+          "O app tem dois modos, com a mesma base técnica e vozes diferentes. **Estudo** é um professor: explica o porquê de cada setup. **Operador** é uma mesa de operações: dá o plano objetivo (entrada, stop, alvo, risco).",
+          "Você troca em Perfil → Modo de trabalho. O modo muda a cor, os rótulos e o tom — mas a execução e o risco são sempre seus.",
+          "Você está no Modo Estudo agora."
+        ]
+      ],
+      [
+        "Acompanhar (início)",
+        [
+          "A tela inicial resume seu dia: melhores oportunidades da sua watchlist, a curva do patrimônio simulado, sua sequência de estudo e um lembrete do que fazer a seguir.",
+          "É o ponto de partida — dali você vai para o Radar de mercado."
+        ]
+      ],
+      [
+        "Radar de mercado",
+        [
+          "Varre o universo de ações e lista, por ativo: o veredito, a **confluência** (anel de 0–100% = quanto o ativo bate com um setup clássico), uma leitura rápida e o mini-gráfico de preço.",
+          "Em cada card você pode abrir o **Aprofundar com IA** (leitura da IA) ou levar para a **Watchlist**.",
+          "A confluência mede aderência ao padrão em dados passados — não é probabilidade de resultado."
+        ]
+      ],
+      [
+        "Watchlist",
+        [
+          "Seus ativos em estudo, ordenados por oportunidade. Cada linha tem um mini-gráfico e abre a análise completa.",
+          "Use para acompanhar de perto os ativos que te interessam antes de simular uma operação."
+        ]
+      ],
+      [
+        "Portfólio",
+        [
+          "Sua carteira **simulada**: patrimônio, resultado do dia e cada posição com a régua do plano (invalidação → gatilho → alvo).",
+          "Você simula compras e vendas, define stop e alvo, e acompanha o resultado em R — sem risco de dinheiro real."
+        ]
+      ],
+      [
+        "Opções",
+        [
+          "Estuda **opções** sobre um ativo por vez, escolhido na sua Watchlist: como o ativo vem se comportando, quais estruturas do catálogo fazem sentido, os vencimentos disponíveis e os setups já armados.",
+          "O dado vem de um serviço externo de opções e é uma **leitura de fim de pregão** — não é o preço de agora. O app não recalcula nada aqui: campo que o serviço não mandou aparece como travessão, nunca como zero.",
+          "Abrir a cadeia de um vencimento custa consultas ao serviço, e a tela diz **antes** quantas vão ser. Nenhuma ordem sai desta aba: é estudo da estrutura, do risco e do retorno possível."
+        ]
+      ],
+      [
+        "Operador IA",
+        [
+          "Um agente que acompanha as posições da carteira simulada e age pelas regras que você define (proteger stop, realizar no alvo). Com conta, roda no servidor 24×5, mesmo com o app fechado.",
+          "Você escolhe **Executar** (ele simula a saída no stop/alvo) ou **Apenas sinalizar** (só avisa), define regras e tetos, e o intervalo de reavaliação. Sempre sobre a carteira simulada.",
+          "Onde fica: abra o **Portfólio** e toque em **Abrir o Operador IA** no topo da tela."
+        ]
+      ],
+      [
+        "Fundamento (A/B/C)",
+        [
+          "Ao lado do sinal técnico, alguns ativos mostram um selo de **fundamento**: A (sólido), B (regular) ou C (fraco), por valuation, rentabilidade e solidez.",
+          "É um **filtro de qualidade**, nunca um gatilho de compra: a técnica manda no plano. Quando a decisão técnica é operável mas o fundamento é fraco (C), a confiança desce um degrau. Sem dado de fundamento, o app mostra “sem dado” — nunca inventa."
+        ]
+      ],
+      [
+        "Eficiência da IA",
+        [
+          "O app guarda cada análise com stop/alvo e, 10 pregões depois, confere se bateu o alvo, o stop ou expirou. Isso vira estatística: taxa de acerto, expectância (vantagem média em R), calibração da confiança e a curva de R acumulado.",
+          "Enquanto não há amostra suficiente, aparece “n insuficiente” ou “aguardando o prazo” — em vez de um número enganoso. É autoavaliação sobre o passado, não garantia de futuro."
+        ]
+      ],
+      [
+        "Avisos importantes",
+        [
+          "Tudo no Boris+ é **educacional e simulado**. Não é recomendação de investimento nem promessa de resultado. Operar no mercado real envolve risco de perda.",
+          "Use sempre stop, dimensione a posição e respeite seu plano de risco. As decisões e a execução são suas."
+        ]
+      ]
+    ],
+    "estudo,true": [
+      [
+        "O que é o Boris+",
+        [
+          "Um app educacional de análise técnica da B3. Ele varre o mercado, mostra oportunidades de estudo e deixa você simular uma carteira — tudo com dinheiro fictício.",
+          "Nada aqui é ordem real nem recomendação personalizada: nenhuma ordem é enviada à corretora. O objetivo é aprender a ler o mercado com disciplina."
+        ]
+      ],
+      [
+        "Os dois modos",
+        [
+          "O app tem dois modos, com a mesma base técnica e vozes diferentes. **Estudo** é um professor: explica o porquê de cada setup. **Operador** é uma mesa de operações: dá o plano objetivo (entrada, stop, alvo, risco).",
+          "Você troca em Perfil → Modo de trabalho. O modo muda a cor, os rótulos e o tom — mas a execução e o risco são sempre seus.",
+          "Você está no Modo Operador agora."
+        ]
+      ],
+      [
+        "Acompanhar (início)",
+        [
+          "A tela inicial resume seu dia: melhores oportunidades da sua watchlist, a curva do patrimônio simulado, sua sequência de estudo e um lembrete do que fazer a seguir.",
+          "É o ponto de partida — dali você vai para o Radar de mercado."
+        ]
+      ],
+      [
+        "Radar de mercado",
+        [
+          "Varre o universo de ações e lista, por ativo: o veredito, a **confluência** (anel de 0–100% = quanto o ativo bate com um setup clássico), uma leitura rápida e o mini-gráfico de preço.",
+          "Em cada card você pode abrir o **Aprofundar com IA** (leitura da IA) ou **monitorar** o ativo.",
+          "A confluência mede aderência ao padrão em dados passados — não é probabilidade de resultado."
+        ]
+      ],
+      [
+        "Watchlist",
+        [
+          "Seus ativos monitorados, ordenados por oportunidade. Cada linha tem um mini-gráfico e abre a análise completa.",
+          "Use para acompanhar de perto os ativos que te interessam antes de simular uma operação."
+        ]
+      ],
+      [
+        "Portfólio",
+        [
+          "Sua carteira **simulada**: patrimônio, resultado do dia e cada posição com a régua do plano (invalidação → gatilho → alvo).",
+          "Você simula compras e vendas, define stop e alvo, e acompanha o resultado em R — sem risco de dinheiro real."
+        ]
+      ],
+      [
+        "Opções",
+        [
+          "Estuda **opções** sobre um ativo por vez, escolhido na sua Watchlist: como o ativo vem se comportando, quais estruturas do catálogo fazem sentido, os vencimentos disponíveis e os setups já armados.",
+          "O dado vem de um serviço externo de opções e é uma **leitura de fim de pregão** — não é o preço de agora. O app não recalcula nada aqui: campo que o serviço não mandou aparece como travessão, nunca como zero.",
+          "Abrir a cadeia de um vencimento custa consultas ao serviço, e a tela diz **antes** quantas vão ser. Nenhuma ordem sai desta aba: é estudo da estrutura, do risco e do retorno possível."
+        ]
+      ],
+      [
+        "Operador IA",
+        [
+          "Um agente que acompanha as posições da carteira simulada e age pelas regras que você define (proteger stop, realizar no alvo). Com conta, roda no servidor 24×5, mesmo com o app fechado.",
+          "Você escolhe **Executar** (ele simula a saída no stop/alvo) ou **Apenas sinalizar** (só avisa), define regras e tetos, e o intervalo de reavaliação. Sempre sobre a carteira simulada.",
+          "Onde fica: abra o **Portfólio** e toque em **Abrir o Operador IA** no topo da tela."
+        ]
+      ],
+      [
+        "Fundamento (A/B/C)",
+        [
+          "Ao lado do sinal técnico, alguns ativos mostram um selo de **fundamento**: A (sólido), B (regular) ou C (fraco), por valuation, rentabilidade e solidez.",
+          "É um **filtro de qualidade**, nunca um gatilho de compra: a técnica manda no plano. Quando a decisão técnica é operável mas o fundamento é fraco (C), a confiança desce um degrau. Sem dado de fundamento, o app mostra “sem dado” — nunca inventa."
+        ]
+      ],
+      [
+        "Eficiência da IA",
+        [
+          "O app guarda cada análise com stop/alvo e, 10 pregões depois, confere se bateu o alvo, o stop ou expirou. Isso vira estatística: taxa de acerto, expectância (vantagem média em R), calibração da confiança e a curva de R acumulado.",
+          "Enquanto não há amostra suficiente, aparece “n insuficiente” ou “aguardando o prazo” — em vez de um número enganoso. É autoavaliação sobre o passado, não garantia de futuro."
+        ]
+      ],
+      [
+        "Avisos importantes",
+        [
+          "Tudo no Boris+ é **educacional e simulado**. Não é recomendação de investimento nem promessa de resultado. Operar no mercado real envolve risco de perda.",
+          "Use sempre stop, dimensione a posição e respeite seu plano de risco. As decisões e a execução são suas."
+        ]
+      ]
+    ],
+    "operador,false": [
+      [
+        "O que é o Boris+",
+        [
+          "Um app educacional de análise técnica da B3. Ele varre o mercado, mostra oportunidades de estudo e deixa você simular uma carteira — tudo com dinheiro fictício.",
+          "Nada aqui é ordem real nem recomendação personalizada: nenhuma ordem é enviada à corretora. O objetivo é aprender a ler o mercado com disciplina."
+        ]
+      ],
+      [
+        "Os dois modos",
+        [
+          "O app tem dois modos, com a mesma base técnica e vozes diferentes. **Estudo** é um professor: explica o porquê de cada setup. **Operador** é uma mesa de operações: dá o plano objetivo (entrada, stop, alvo, risco).",
+          "Você troca em Perfil → Modo de trabalho. O modo muda a cor, os rótulos e o tom — mas a execução e o risco são sempre seus.",
+          "Você está no Modo Estudo agora."
+        ]
+      ],
+      [
+        "Acompanhar (início)",
+        [
+          "A tela inicial resume seu dia: melhores oportunidades da sua watchlist, a curva do patrimônio simulado, sua sequência de estudo e um lembrete do que fazer a seguir.",
+          "É o ponto de partida — dali você vai para o Mesa de oportunidades."
+        ]
+      ],
+      [
+        "Mesa de oportunidades",
+        [
+          "Varre o universo de ações e lista, por ativo: o veredito, a **confluência** (anel de 0–100% = quanto o ativo bate com um setup clássico), uma leitura rápida e o mini-gráfico de preço.",
+          "Em cada card você pode abrir o **Plano da mesa (IA)** (leitura da IA) ou levar para a **Monitoramento**.",
+          "A confluência mede aderência ao padrão em dados passados — não é probabilidade de resultado."
+        ]
+      ],
+      [
+        "Monitoramento",
+        [
+          "Seus ativos em estudo, ordenados por oportunidade. Cada linha tem um mini-gráfico e abre a análise completa.",
+          "Use para acompanhar de perto os ativos que te interessam antes de simular uma operação."
+        ]
+      ],
+      [
+        "Posições",
+        [
+          "Sua carteira **simulada**: patrimônio, resultado do dia e cada posição com a régua do plano (invalidação → gatilho → alvo).",
+          "Você simula compras e vendas, define stop e alvo, e acompanha o resultado em R — sem risco de dinheiro real."
+        ]
+      ],
+      [
+        "Opções",
+        [
+          "Estuda **opções** sobre um ativo por vez, escolhido na sua Monitoramento: como o ativo vem se comportando, quais estruturas do catálogo fazem sentido, os vencimentos disponíveis e os setups já armados.",
+          "O dado vem de um serviço externo de opções e é uma **leitura de fim de pregão** — não é o preço de agora. O app não recalcula nada aqui: campo que o serviço não mandou aparece como travessão, nunca como zero.",
+          "Abrir a cadeia de um vencimento custa consultas ao serviço, e a tela diz **antes** quantas vão ser. Nenhuma ordem sai desta aba: é estudo da estrutura, do risco e do retorno possível."
+        ]
+      ],
+      [
+        "Operador IA",
+        [
+          "Um agente que acompanha as posições da carteira simulada e age pelas regras que você define (proteger stop, realizar no alvo). Com conta, roda no servidor 24×5, mesmo com o app fechado.",
+          "Você escolhe **Executar** (ele simula a saída no stop/alvo) ou **Apenas sinalizar** (só avisa), define regras e tetos, e o intervalo de reavaliação. Sempre sobre a carteira simulada.",
+          "Onde fica: abra o **Portfólio** e toque em **Abrir o Operador IA** no topo da tela."
+        ]
+      ],
+      [
+        "Fundamento (A/B/C)",
+        [
+          "Ao lado do sinal técnico, alguns ativos mostram um selo de **fundamento**: A (sólido), B (regular) ou C (fraco), por valuation, rentabilidade e solidez.",
+          "É um **filtro de qualidade**, nunca um gatilho de compra: a técnica manda no plano. Quando a decisão técnica é operável mas o fundamento é fraco (C), a confiança desce um degrau. Sem dado de fundamento, o app mostra “sem dado” — nunca inventa."
+        ]
+      ],
+      [
+        "Eficiência da IA",
+        [
+          "O app guarda cada análise com stop/alvo e, 10 pregões depois, confere se bateu o alvo, o stop ou expirou. Isso vira estatística: taxa de acerto, expectância (vantagem média em R), calibração da confiança e a curva de R acumulado.",
+          "Enquanto não há amostra suficiente, aparece “n insuficiente” ou “aguardando o prazo” — em vez de um número enganoso. É autoavaliação sobre o passado, não garantia de futuro."
+        ]
+      ],
+      [
+        "Avisos importantes",
+        [
+          "Tudo no Boris+ é **educacional e simulado**. Não é recomendação de investimento nem promessa de resultado. Operar no mercado real envolve risco de perda.",
+          "Use sempre stop, dimensione a posição e respeite seu plano de risco. As decisões e a execução são suas."
+        ]
+      ]
+    ],
+    "operador,true": [
+      [
+        "O que é o Boris+",
+        [
+          "Um app educacional de análise técnica da B3. Ele varre o mercado, mostra oportunidades de estudo e deixa você simular uma carteira — tudo com dinheiro fictício.",
+          "Nada aqui é ordem real nem recomendação personalizada: nenhuma ordem é enviada à corretora. O objetivo é aprender a ler o mercado com disciplina."
+        ]
+      ],
+      [
+        "Os dois modos",
+        [
+          "O app tem dois modos, com a mesma base técnica e vozes diferentes. **Estudo** é um professor: explica o porquê de cada setup. **Operador** é uma mesa de operações: dá o plano objetivo (entrada, stop, alvo, risco).",
+          "Você troca em Perfil → Modo de trabalho. O modo muda a cor, os rótulos e o tom — mas a execução e o risco são sempre seus.",
+          "Você está no Modo Operador agora."
+        ]
+      ],
+      [
+        "Acompanhar (início)",
+        [
+          "A tela inicial resume seu dia: melhores oportunidades da sua watchlist, a curva do patrimônio simulado, sua sequência de estudo e um lembrete do que fazer a seguir.",
+          "É o ponto de partida — dali você vai para o Mesa de oportunidades."
+        ]
+      ],
+      [
+        "Mesa de oportunidades",
+        [
+          "Varre o universo de ações e lista, por ativo: o veredito, a **confluência** (anel de 0–100% = quanto o ativo bate com um setup clássico), uma leitura rápida e o mini-gráfico de preço.",
+          "Em cada card você pode abrir o **Plano da mesa (IA)** (leitura da IA) ou **monitorar** o ativo.",
+          "A confluência mede aderência ao padrão em dados passados — não é probabilidade de resultado."
+        ]
+      ],
+      [
+        "Monitoramento",
+        [
+          "Seus ativos monitorados, ordenados por oportunidade. Cada linha tem um mini-gráfico e abre a análise completa.",
+          "Use para acompanhar de perto os ativos que te interessam antes de simular uma operação."
+        ]
+      ],
+      [
+        "Posições",
+        [
+          "Sua carteira **simulada**: patrimônio, resultado do dia e cada posição com a régua do plano (invalidação → gatilho → alvo).",
+          "Você simula compras e vendas, define stop e alvo, e acompanha o resultado em R — sem risco de dinheiro real."
+        ]
+      ],
+      [
+        "Opções",
+        [
+          "Estuda **opções** sobre um ativo por vez, escolhido na sua Monitoramento: como o ativo vem se comportando, quais estruturas do catálogo fazem sentido, os vencimentos disponíveis e os setups já armados.",
+          "O dado vem de um serviço externo de opções e é uma **leitura de fim de pregão** — não é o preço de agora. O app não recalcula nada aqui: campo que o serviço não mandou aparece como travessão, nunca como zero.",
+          "Abrir a cadeia de um vencimento custa consultas ao serviço, e a tela diz **antes** quantas vão ser. Nenhuma ordem sai desta aba: é estudo da estrutura, do risco e do retorno possível."
+        ]
+      ],
+      [
+        "Operador IA",
+        [
+          "Um agente que acompanha as posições da carteira simulada e age pelas regras que você define (proteger stop, realizar no alvo). Com conta, roda no servidor 24×5, mesmo com o app fechado.",
+          "Você escolhe **Executar** (ele simula a saída no stop/alvo) ou **Apenas sinalizar** (só avisa), define regras e tetos, e o intervalo de reavaliação. Sempre sobre a carteira simulada.",
+          "Onde fica: abra o **Portfólio** e toque em **Abrir o Operador IA** no topo da tela."
+        ]
+      ],
+      [
+        "Fundamento (A/B/C)",
+        [
+          "Ao lado do sinal técnico, alguns ativos mostram um selo de **fundamento**: A (sólido), B (regular) ou C (fraco), por valuation, rentabilidade e solidez.",
+          "É um **filtro de qualidade**, nunca um gatilho de compra: a técnica manda no plano. Quando a decisão técnica é operável mas o fundamento é fraco (C), a confiança desce um degrau. Sem dado de fundamento, o app mostra “sem dado” — nunca inventa."
+        ]
+      ],
+      [
+        "Eficiência da IA",
+        [
+          "O app guarda cada análise com stop/alvo e, 10 pregões depois, confere se bateu o alvo, o stop ou expirou. Isso vira estatística: taxa de acerto, expectância (vantagem média em R), calibração da confiança e a curva de R acumulado.",
+          "Enquanto não há amostra suficiente, aparece “n insuficiente” ou “aguardando o prazo” — em vez de um número enganoso. É autoavaliação sobre o passado, não garantia de futuro."
+        ]
+      ],
+      [
+        "Avisos importantes",
+        [
+          "Tudo no Boris+ é **educacional e simulado**. Não é recomendação de investimento nem promessa de resultado. Operar no mercado real envolve risco de perda.",
+          "Use sempre stop, dimensione a posição e respeite seu plano de risco. As decisões e a execução são suas."
+        ]
+      ]
+    ]
+  },
+  "petTela": {
+    "evolucao": {
+      "main": "evolucao",
+      "historico": "evolucao",
+      "agente": "evolucao",
+      "__undefined__": "evolucao",
+      "outra": "evolucao"
+    },
+    "radar": {
+      "main": "radar",
+      "historico": "radar",
+      "agente": "radar",
+      "__undefined__": "radar",
+      "outra": "radar"
+    },
+    "mercado": {
+      "main": "mercado",
+      "historico": "mercado",
+      "agente": "mercado",
+      "__undefined__": "mercado",
+      "outra": "mercado"
+    },
+    "carteira": {
+      "main": "carteira",
+      "historico": "historico",
+      "agente": "agente",
+      "__undefined__": "carteira",
+      "outra": "carteira"
+    },
+    "opcoes": {
+      "main": "opcoes",
+      "historico": "opcoes",
+      "agente": "opcoes",
+      "__undefined__": "opcoes",
+      "outra": "opcoes"
+    },
+    "perfil": {
+      "main": "perfil",
+      "historico": "perfil",
+      "agente": "perfil",
+      "__undefined__": "perfil",
+      "outra": "perfil"
+    },
+    "desconhecida": {
+      "main": "desconhecida",
+      "historico": "desconhecida",
+      "agente": "desconhecida",
+      "__undefined__": "desconhecida",
+      "outra": "desconhecida"
+    }
+  },
+  "switchPetSnapshot": {
+    "casos": [
+      "carteira",
+      "evolucao",
+      "radar",
+      "agente",
+      "historico",
+      "opcoes",
+      "perfil"
+    ],
+    "sha256": "fb660848d626217267b286dda647701c04929e6cbc9e5500854d0b96cdc7ea0b"
+  }
+}
