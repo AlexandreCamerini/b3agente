@@ -49,16 +49,23 @@ persistência entre reloads/restarts — ver D-01).
   lembrado, não depois.
 
 ### Expiração da memória
-- **D-04:** Nenhuma lógica de expiração adicional. Como o mecanismo (D-01)
-  é em memória no `App.jsx`, a sessão inteira já é o limite natural —
-  fechar o app ou recarregar a página já zera tudo sozinho. Não escrever
-  código de expiração/TTL.
-  - **Nota para o planner:** troca de conta/logout NO MEIO da mesma sessão
-    do app não foi discutida explicitamente como gatilho — o Alex aceitou
-    "vale a sessão inteira" como a resposta recomendada. Se o fluxo de
-    logout já limpa/reseta outro estado semelhante do `App.jsx` hoje,
-    replicar o mesmo tratamento aqui por consistência; se não limpa nada
-    parecido, não inventar tratamento novo só para este campo.
+- **D-04:** Nenhuma lógica de expiração por TEMPO (TTL/sessão). Como o
+  mecanismo (D-01) é em memória no `App.jsx`, fechar o app ou recarregar a
+  página já zera tudo sozinho — não escrever código de TTL.
+  - **Revisão pós-checagem do ROADMAP (2026-09-25):** o `ROADMAP.md` da
+    Fase 40 trava um Success Criteria #4 explícito e MANDATÓRIO — "a
+    continuidade de estado respeita o escopo do usuário logado — trocar
+    de conta ou deslogar nunca vaza o estado de uma conta para outra".
+    Isso NÃO é opcional/discricionário: existe mecanismo pronto pra isso,
+    `_resetScopeState()` (`App.jsx:8902-8906`), a "fonte única do reset de
+    estados derivados na TROCA de escopo (login/logout/exclusão) — evita
+    vazar análises/cotações entre contas" (comentário original, Fase 8/A3
+    — mesma classe de bug que esta fase precisa evitar). **O planner DEVE
+    incluir o novo estado lembrado (ticker + aba de Opções) na lista que
+    `_resetScopeState()` limpa**, chamada em `logout()` (`App.jsx:9064`,
+    via `ctx.logout`) e nos outros 2 call-sites de `_resetScopeState()`
+    (linhas 9032, 9041, 9052 — confirmar contexto de cada um antes de
+    assumir que login TAMBÉM deve limpar, não só logout/exclusão).
 
 ### Comportamento pós-restauração
 - **D-05:** Restauração é SILENCIOSA — sem toast, sem microtexto, sem
@@ -117,6 +124,10 @@ decisions above.
   passada via `ctx` para `OpcoesScreen` — o padrão para o novo campo de
   ticker/aba lembrados é literalmente copiar essa forma, não inventar
   mecanismo novo.
+- `_resetScopeState()` (`App.jsx:8902-8906`): fonte única de reset de
+  estado derivado na troca de escopo — o novo campo lembrado de Opções
+  (D-01/D-04) PRECISA entrar aqui para satisfazer o Success Criteria #4 do
+  ROADMAP (nunca vazar estado entre contas).
 
 ### Established Patterns
 - Paridade obrigatória entre `deviceStore`/`serverStore`
