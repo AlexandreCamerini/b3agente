@@ -71,8 +71,17 @@ ok("sanidade: a regex de watchlist pega o padrão quando ele existe",
 // Forma exata, e não `useState("")` genérico: a tela tem outros estados que
 // nascem vazios (tese, vencimento, alvo, stop, painel), e um assert genérico
 // continuaria verde com o ticker auto-selecionado.
-ok("o ticker nasce vazio — nada de inicializador que escolhe o primeiro ativo",
-   /const \[ticker, setTicker\] = useState\(""\);/.test(tela));
+// REVERSÃO DELIBERADA (2026-09-25, Fase 40, ESTADO-01): o inicializador
+// passou a ler `tickerInicialOpcoes(ctx.opcoesMemoria, carteira)` em vez de
+// `useState("")` cru. "Ticker nasce vazio" continua verdade na PRIMEIRA
+// visita da sessão (memória null); o que muda é restaurar a escolha
+// EXPLÍCITA do próprio usuário, feita nesta mesma sessão, e só se ela ainda
+// estiver na carteira — nunca o primeiro ativo por auto-seleção (ver
+// asserção de `carteira[0]` logo abaixo).
+ok("o ticker nasce de tickerInicialOpcoes(ctx.opcoesMemoria, carteira) — nada de auto-seleção do primeiro ativo",
+   /const \[ticker, setTicker\] = useState\(\(\) => tickerInicialOpcoes\(ctx && ctx\.opcoesMemoria, carteira\)\);/.test(tela));
+ok("memoriaOpcoes.js (lido do disco, sem comentários) não contém carteira[0] (nunca auto-seleciona)",
+   !/carteira\[0\]/.test(semComentario(ler("src", "opcoes", "memoriaOpcoes.js"))));
 // `setTicker` dentro de efeito = auto-seleção por outro caminho, e o custo é
 // o mesmo: `mcpLeitura` sai sozinha e debita 3 do cap.
 const efeitosDaTela = tela.split("useEffect(").slice(1).map((t) => t.split("}, [")[0]);

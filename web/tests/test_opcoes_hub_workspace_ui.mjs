@@ -234,13 +234,24 @@ ok("`{abaBar}` é renderizado ANTES de qualquer `abaOpcoes === ...`/`{ticker ? (
 
 // ---- 8) [item 15 original, re-ancorado — dependência renomeada] nenhum
 // useEffect reage ao estado de navegação (NAV-05) -----------------------------
+// REVERSÃO DELIBERADA (2026-09-25, Fase 40, ESTADO-01): passou a existir UM
+// useEffect com `abaOpcoes` nas deps — o write-back da memória em sessão
+// (`ctx.lembrarOpcoes(memoriaOpcoes(ticker, abaOpcoes))`, ver
+// OpcoesScreen.jsx e test_opcoes_continuidade_ui.mjs). A intenção original de
+// NAV-05 SEGUE de pé: trocar de aba não pode disparar CHAMADA nenhuma
+// (rota/serviço) — o write-back só grava um eco local em memória no
+// `App.jsx`, sem tocar `store.*`/rota nenhuma. A exceção é NOMEADA (só essa
+// linha exata passa); qualquer OUTRO useEffect com `abaOpcoes` nas deps
+// continua reprovado, preservando o guardião.
 const blocosDeEfeito = opcoesScreen.split("useEffect(").slice(1);
 const efeitoComAbaOpcoes = blocosDeEfeito.some((bloco) => {
   const fimDeps = bloco.indexOf("])");
   const trecho = fimDeps >= 0 ? bloco.slice(0, fimDeps + 2) : bloco;
-  return /\babaOpcoes\b/.test(trecho);
+  if (!/\babaOpcoes\b/.test(trecho)) return false;
+  const ehWriteBackDaMemoria = /ctx\.lembrarOpcoes\(memoriaOpcoes\(ticker, abaOpcoes\)\)/.test(trecho);
+  return !ehWriteBackDaMemoria;
 });
-ok("nenhum useEffect do arquivo lista abaOpcoes nas dependências (NAV-05: trocar de aba nunca dispara chamada)",
+ok("nenhum useEffect do arquivo lista abaOpcoes nas dependências e dispara CHAMADA (NAV-05) — exceto o write-back de memória (Fase 40, sem I/O)",
    !efeitoComAbaOpcoes);
 
 // ---- 9) [itens 19/20 originais, reversão b — D-06] SecaoComparar atrás de

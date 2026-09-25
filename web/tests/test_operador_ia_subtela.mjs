@@ -51,8 +51,14 @@ ok('zero ocorrências de ["agente", "Operador IA"]', conta(/\["agente", "Operado
 ok('zero ocorrências de tab === "agente"', conta(/tab === "agente"/g) === 0);
 
 // ---- 3) a tela nova entra pela barra ----------------------------------------
-ok('tab === "opcoes" renderiza <OpcoesScreen ctx={ctx} />',
-   /\{tab === "opcoes" && <OpcoesScreen ctx=\{ctx\} \/>\}/.test(app));
+// REVERSÃO DELIBERADA (2026-09-25, Fase 40, ESTADO-01): o render ganhou
+// `key={escopoOpcoes}` — mecanismo do cenário C2 (troca de escopo com Opções
+// já montada: login/register/oauth não trocam `tab`, então sem uma key que
+// muda em `_resetScopeState()` a instância antiga sobreviveria ao reset com
+// ticker/aba da conta anterior ainda visíveis). A tela continua entrando
+// pela barra do mesmo jeito — só passou a remontar na troca de escopo.
+ok('tab === "opcoes" renderiza <OpcoesScreen key={escopoOpcoes} ctx={ctx} />',
+   /\{tab === "opcoes" && <OpcoesScreen key=\{escopoOpcoes\} ctx=\{ctx\} \/>\}/.test(app));
 ok("OpcoesScreen é importado de ./opcoes/OpcoesScreen.jsx",
    /import OpcoesScreen from "\.\/opcoes\/OpcoesScreen\.jsx";/.test(bruto));
 

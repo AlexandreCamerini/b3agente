@@ -91,8 +91,14 @@ ok("OpcoesScreen.jsx foi lido e tem corpo (>1000 caracteres)",
 // ---- 1) ABAS_OPCOES, fallback de allowlist e one-shot -------------------
 ok("ABAS_OPCOES é exatamente [\"oportunidades\", \"recomendadas\", \"montar\"]",
    /const ABAS_OPCOES = \["oportunidades", "recomendadas", "montar"\];/.test(opcoesScreenBruto));
-ok("abaOpcoes nasce validado contra ABAS_OPCOES.includes(ctx.opcoesAbaInicial), senão \"oportunidades\"",
-   /useState\(\(\) => \(ctx && ABAS_OPCOES\.includes\(ctx\.opcoesAbaInicial\)\) \? ctx\.opcoesAbaInicial : "oportunidades"\)/.test(opcoesScreenBruto));
+// REVERSÃO DELIBERADA (2026-09-25, Fase 40, ESTADO-01): o inicializador
+// passou a chamar `abaInicialOpcoes(ABAS_OPCOES, ctx.opcoesAbaInicial,
+// ctx.opcoesMemoria)` em vez de inline `.includes`. A allowlist T-39-14
+// continua valendo — só que aplicada DENTRO da função pura
+// `web/src/opcoes/memoriaOpcoes.js`, coberta comportamentalmente por
+// `test_opcoes_continuidade_ui.mjs` (cenários de deep-link/aba inválida).
+ok("abaOpcoes nasce validado por abaInicialOpcoes(ABAS_OPCOES, ctx.opcoesAbaInicial, ctx.opcoesMemoria) (D-03, T-39-14)",
+   /useState\(\(\) => abaInicialOpcoes\(ABAS_OPCOES, ctx && ctx\.opcoesAbaInicial, ctx && ctx\.opcoesMemoria\)\)/.test(opcoesScreenBruto));
 ok("limparOpcoesAbaInicial é chamado dentro de um useEffect(..., [])",
    /useEffect\(\(\) => \{[\s\S]{0,200}limparOpcoesAbaInicial\(\)[\s\S]{0,80}\}, \[\]\);/.test(opcoesScreenBruto));
 

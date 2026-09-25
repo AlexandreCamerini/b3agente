@@ -29,6 +29,10 @@
  * blocos que restaram, não apagado.
  */
 import { useState, useEffect } from "react";
+// Fase 40 (ESTADO-01): módulo puro (sem React, sem I/O) com a precedência
+// deep-link > memória > default (D-03) e a validação do ticker lembrado
+// contra a carteira atual (P-2) — mesmo isolamento de `finance.js` abaixo.
+import { abaInicialOpcoes, tickerInicialOpcoes, memoriaOpcoes } from "./memoriaOpcoes.js";
 // Fase 27 (27-02): `finance.js` é módulo PURO — zero import de `App.jsx` —,
 // então o isolamento do ADR-027 continua intacto (o guardião proíbe importar
 // `App.jsx`, não `finance.js`). `qtyLivre` é a FONTE ÚNICA da subtração
@@ -301,27 +305,50 @@ export default function OpcoesScreen({ ctx }) {
   // segue sem decisão do Alex, e o desenho abaixo não impede uma busca depois
   // nem a inventa agora.
   const carteira = ((ctx && ctx.data && ctx.data.positions) || []).filter((p) => p && p.t);
-  // O ticker NASCE VAZIO — e isto é a decisão, não a omissão. Escolher um
-  // ativo dispara `mcpLeitura` pelo efeito de troca de ticker
-  // (`useOpcoesMcp.js`), e essa chamada custa **3** no cap do ADR-027.
-  // Auto-selecionar o primeiro da carteira cobraria 3 consultas de quem só
-  // abriu a aba — exatamente o que o §3.3 proíbe ("custo de MCP só em clique
-  // explícito, nunca ao abrir tela") e o que o guardião
-  // `test_opcoes_analisar_ui.mjs` reprova.
-  const [ticker, setTicker] = useState("");
+  // O ticker NASCE VAZIO na primeira visita — e isto é a decisão, não a
+  // omissão. Escolher um ativo dispara o efeito de troca de ticker
+  // (`useOpcoesMcp.js`); TEXTO DA ÉPOCA CORRIGIDO (Fase 40, 2026-09-25): a
+  // frase original dizia que esse efeito disparava `mcpLeitura` — não é mais
+  // verdade desde a 27-05, `useOpcoesMcp.js:245-247`: o efeito de `ticker`
+  // chama só `opcoesTecnico` (leitura técnica interna, `custoMcp: 0`);
+  // `mcpLeitura` (custo 3) é hoje só no clique explícito de `abrirLeitura`,
+  // `useOpcoesMcp.js:270-279`. Auto-selecionar o primeiro da carteira
+  // continuaria errado mesmo assim — seria decidir por quem só abriu a aba —,
+  // mas o motivo é UX, não mais o cap do ADR-027 sozinho.
+  // Fase 40 (ESTADO-01): dentro da MESMA sessão, o ticker que o usuário
+  // escolheu antes de sair da aba é restaurado — só se ainda estiver na
+  // carteira (P-2, cenário E: vendeu tudo → cai pro vazio de sempre).
+  // Restaurar dispara de novo só o `opcoesTecnico` grátis acima, nunca
+  // `mcpLeitura` — nenhum clique novo, nenhum custo novo.
+  const [ticker, setTicker] = useState(() => tickerInicialOpcoes(ctx && ctx.opcoesMemoria, carteira));
   // Fase 39 (39-04, D-01): estado único de navegação — substitui `subaba`
   // (Fase 28-02) e `abaWorkspace` (Fase 34-03). Nasce na aba pedida por um
   // deep-link one-shot (`ctx.opcoesAbaInicial`, Plano 39-02), validado contra
   // a allowlist (T-39-14: valor fora dela nunca é aceito, sempre cai para
   // "oportunidades"); sem pedido, nasce em "oportunidades" — é a lista de
   // graça que a aba já abria antes desta fase.
-  const [abaOpcoes, setAbaOpcoes] = useState(() => (ctx && ABAS_OPCOES.includes(ctx.opcoesAbaInicial)) ? ctx.opcoesAbaInicial : "oportunidades");
+  // Fase 40 (ESTADO-01, D-03): precedência resolvida no PRÓPRIO inicializador
+  // lazy (nunca por useEffect depois do primeiro paint, D-05/"sem salto") —
+  // deep-link SEMPRE vence a memória lembrada; sem deep-link, usa a aba
+  // lembrada da sessão; sem os dois, "oportunidades".
+  const [abaOpcoes, setAbaOpcoes] = useState(() => abaInicialOpcoes(ABAS_OPCOES, ctx && ctx.opcoesAbaInicial, ctx && ctx.opcoesMemoria));
   // One-shot: o pedido do App.jsx só vale para o mount desta tela — limpa
   // logo em seguida para que reabrir a aba (sem novo pedido) não force
   // sempre a mesma aba (Plano 39-02, canal `ctx.goOpcoes(aba)`).
   useEffect(() => {
     if (ctx && ctx.opcoesAbaInicial && ctx.limparOpcoesAbaInicial) ctx.limparOpcoesAbaInicial();
   }, []);
+  // Fase 40 (ESTADO-01): write-back CONTÍNUO — grava a memória no mount (com
+  // o estado efetivamente resolvido: cobre o cenário E, "memória regravada
+  // com ticker vazio", e o cenário B, "memória passa a ser a aba do
+  // deep-link") e a cada troca de ticker/aba (cenários F, G). SEM `return` de
+  // cleanup, de propósito: se escrevesse no unmount, a troca de escopo
+  // (`_resetScopeState()`) seria desfeita pela própria saída da instância da
+  // conta anterior — exatamente o vazamento que o cenário C do UI-SPEC
+  // proíbe.
+  useEffect(() => {
+    if (ctx && ctx.lembrarOpcoes) ctx.lembrarOpcoes(memoriaOpcoes(ticker, abaOpcoes));
+  }, [ticker, abaOpcoes]);
   // Fase 39 (39-04, D-05): qual ticker do carrossel de Oportunidades está com
   // o painel de proposta aberto — local, independente do `ticker` de Montar
   // (a Leitura B' do <objective> de 39-04-PLAN.md: o painel reusa

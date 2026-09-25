@@ -7671,8 +7671,16 @@ export default function App() {
   const navigate = (t) => { setCarteiraView("main"); setPerfilView("hub"); setTab(t); };
   // Fase 39 (NAV-01): pedido one-shot de aba inicial da tela Opções —
   // consumido e limpo pelo OpcoesScreen no mount; não é persistência (isso é
-  // a Fase 40, ESTADO-01).
+  // a Fase 40, ESTADO-01— que persiste em sessão via `opcoesMemoria` abaixo).
   const [opcoesAbaInicial, setOpcoesAbaInicial] = useState(null);
+  // Fase 40 (ESTADO-01, D-01): memória em sessão do ticker + aba ativa da
+  // tela Opções — sobrevive ao unmount/remount de OpcoesScreen (App.jsx,
+  // linha do render abaixo) mas NÃO entra em deviceStore/serverStore (evita
+  // o guardrail de paridade dos dois stores por um requirement que não pediu
+  // persistência entre reloads). `escopoOpcoes` é a key que remonta a tela
+  // na troca de escopo (login/logout/etc — cenário C2 do UI-SPEC).
+  const [opcoesMemoria, setOpcoesMemoria] = useState(null); // { ticker, aba } | null
+  const [escopoOpcoes, setEscopoOpcoes] = useState(0);
   // Fase 32 (32-02), Decisão A: flag monotônica que autoriza o hook de
   // curadoria a buscar — liga ao visitar Posições (carteiraView main) ou
   // Opções, NUNCA desliga, NUNCA liga sozinha em boot. Guarda
@@ -8903,6 +8911,15 @@ export default function App() {
     setAnalysis({}); setExpanded({}); setQuotes({}); setWlScan(null); setDestaque({ stage: "idle" });
     _proativoDono.t = null;   // conta nova recomeça elegível à via proativa
     notifRef.current = {};
+    // Fase 40 (ESTADO-01, D-04/SC#4): nenhum ticker/aba lembrado de uma
+    // conta pode aparecer para outra (cenário C). setOpcoesMemoria(null)
+    // limpa o valor lido pelo próximo mount; setEscopoOpcoes incrementa a
+    // key de <OpcoesScreen> para remontar a tela SE ela já estiver montada
+    // (cenário C2 — login/register/oauth não trocam `tab`, então a
+    // instância atual sobreviveria ao reset sem esta linha). Os 5
+    // call-sites (login/register/oauth/logout/deleteAccount) herdam de
+    // graça, por já chamarem _resetScopeState().
+    setOpcoesMemoria(null); setEscopoOpcoes((n) => n + 1);
   };
 
   // Sair da conta (ou excluí-la) volta para o PORTÃO DE LOGIN.
@@ -8977,6 +8994,14 @@ export default function App() {
     goOpcoes: (aba) => { if (typeof aba === "string") setOpcoesAbaInicial(aba); navigate("opcoes"); },
     opcoesAbaInicial,
     limparOpcoesAbaInicial: () => setOpcoesAbaInicial(null),
+    opcoesMemoria,
+    // Fase 40 (ESTADO-01): OpcoesScreen chama isto a cada mudança de
+    // ticker/abaOpcoes (useEffect([ticker, abaOpcoes]) sem cleanup) — grava
+    // { ticker, aba } em memória no pai que nunca desmonta. Espelha a forma
+    // de setOpcoesAbaInicial/limparOpcoesAbaInicial acima, mas é eco
+    // contínuo (grava a cada mudança), não consumo único (D-03: os dois
+    // slots ficam independentes).
+    lembrarOpcoes: (m) => setOpcoesMemoria(m),
     // Fase 32 (32-02), Decisão A: fonte única do bloco cross-posição de
     // opções — CarteiraScreen e (Plano 32-03) OpcoesScreen leem o MESMO
     // objeto, nunca duas instâncias do hook.
@@ -9276,7 +9301,7 @@ export default function App() {
           {tab === "evolucao" && <EvolucaoScreen ctx={ctx} />}
           {tab === "mercado" && <MercadoScreen ctx={ctx} />}
           {tab === "radar" && <RadarScreen ctx={ctx} />}
-          {tab === "opcoes" && <OpcoesScreen ctx={ctx} />}
+          {tab === "opcoes" && <OpcoesScreen key={escopoOpcoes} ctx={ctx} />}
           {tab === "carteira" && (carteiraView === "historico"
             ? (<><BackHeader title="Histórico de operações" onBack={() => setCarteiraView("main")} /><HistoricoScreen ctx={ctx} /></>)
             : carteiraView === "agente"
