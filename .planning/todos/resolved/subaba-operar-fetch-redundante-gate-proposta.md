@@ -2,7 +2,8 @@
 title: SubAbaOperar busca gate/proposta duas vezes quando o ticker já foi consultado no topo da aba Opções
 date: 2026-09-16
 priority: low
----
+resolved: 2026-09-20
+resolution: "Resolvido pelo fold-in D-04a do Plano 33-05 (Fase 33, 2026-09-20), ANTES da Fase 39 existir: SubAbaOperar passou a ler opcoesPorTicker[ticker] (o fan-out único de useOpcoesPropostas, já calculado no topo de OpcoesScreen.jsx) em vez de rodar os dois useEffect próprios — a busca duplicada de store.optionsGate/store.optionsProposta caiu de 1 para 0 nesse componente, com nota datada no próprio código (OpcoesScreen.jsx, comentário citando este arquivo). A Fase 39 (39-04, D-01) renomeou SubAbaOperar para PropostaDoAtivo e moveu o painel para dentro do card de Oportunidades (Leitura B', DR-1 aprovada pelo Alex no 39-06) sem tocar essa fonte de dado — confirmado por leitura direta de PropostaDoAtivo em web/src/opcoes/OpcoesScreen.jsx: `const entrada = opcoesPorTicker[ticker] || null;`. Movido para resolved/ só agora, no fechamento da Fase 39 (39-06), porque é quando o registro do TODO foi auditado — a correção em si já estava em produção há mais de uma fase."
 
 # Fetch redundante de gate/proposta em SubAbaOperar
 

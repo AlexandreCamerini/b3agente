@@ -18,7 +18,7 @@
 <summary>🚧 v1.8 Didática ampliada + continuidade da aba Opções (Phases 38-41) — IN PROGRESS</summary>
 
 - [x] Phase 38: KB Didática ampliada (6/6 plans) — completed 2026-09-23
-- [ ] Phase 39: Reestruturação de navegação da aba Opções (2/6 plans) — in progress
+- [x] Phase 39: Reestruturação de navegação da aba Opções (6/6 plans) — completed 2026-09-24
 - [ ] Phase 40: Continuidade da aba Opções (0/? plans) — not started
 - [ ] Phase 41: Consolidação de registros de tela (0/? plans) — not started
 
@@ -268,7 +268,7 @@ definida primeiro).
 - [x] 39-03-PLAN.md — CuradoriaEstruturas (D-11 3 vazios, D-14 "1ª de N", T.onAccent) + OportunidadesOpcoes (aria-expanded) (onda 2)
 - [x] 39-04-PLAN.md — OpcoesScreen com 3 abas fixas, Vigias em sheet, Operar dissolvida em painel inline (Leitura B'), Montar com Comparar inline + guardião NAV-01 (onda 3)
 - [x] 39-05-PLAN.md — reconciliação dos guardiões antigos (re-ancorar / reversão com nota) + suíte canônica (onda 4)
-- [ ] 39-06-PLAN.md — checkpoint humano ao vivo + publicação front+backend + docs/todos (onda 5)
+- [x] 39-06-PLAN.md — checkpoint humano ao vivo + publicação front+backend + docs/todos (onda 5)
 **UI hint**: yes
 
 ### Phase 40: Continuidade da aba Opções

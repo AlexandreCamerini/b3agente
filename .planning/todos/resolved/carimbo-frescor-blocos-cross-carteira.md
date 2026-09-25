@@ -2,7 +2,8 @@
 title: Carimbo de frescor nos blocos cross-carteira da aba Opções (princípio 3)
 date: 2026-09-15
 priority: medium
----
+resolved: 2026-09-24
+resolution: "Resolvido pela Fase 39 (39-04, D-01): as duas abas cross-carteira que sucedem OportunidadesOpcoes/CuradoriaEstruturas — AbaOportunidades.jsx e AbaRecomendadas.jsx — cada uma renderiza o próprio <CarimboFrescor at=.../source=... cp={cp} /> (uiOpcoes.jsx), com o horário e a fonte do dado. Confirmado por grep: as duas chamadas existem, uma por arquivo. O princípio 3 do CLAUDE.md (fonte + horário da última atualização visíveis) passa a valer também para esses dois blocos, não só para a leitura técnica por ticker."
 
 # Os dois blocos cross-carteira não dizem de quando é o dado
 

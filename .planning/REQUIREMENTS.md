@@ -86,7 +86,7 @@ Reconhecido, mas fora desta milestone — decisão de escopo pendente do Alex.
 |-------------|-------|--------|
 | KB-01 | Phase 38 | Done |
 | KB-02 | Phase 38 | Done |
-| NAV-01 | Phase 39 | Complete |
+| NAV-01 | Phase 39 | Done |
 | ESTADO-01 | Phase 40 | Pending |
 | TELAS-01 | Phase 41 | Pending |
 
@@ -104,3 +104,8 @@ aprovado pelo Alex (38-06). Ver STATE.md/ROADMAP.md para o detalhe.*
 Opções, achado ao vivo do Alex), inserido como Fase 39; ESTADO-01/TELAS-01
 renumeradas para Fase 40/41 (NAV-01 precisa fechar antes de ESTADO-01 porque
 muda a navegação que ESTADO-01 preservaria).*
+*Last updated: 2026-09-24 — Fase 39 fechada, requirement NAV-01 concluído,
+publicado em produção (`F10-20260924-01`), checkpoint humano do roteiro de 10
+itens + DR-1/DR-2 nomeadas aprovado pelo Alex (39-06), incluindo override ao
+vivo de D-03 (rótulo "Recomendadas" → "Destacadas", ambiguidade regulatória
+CVM). Ver STATE.md/ROADMAP.md para o detalhe.*

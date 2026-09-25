@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.8
 milestone_name: Didática ampliada + continuidade da aba Opções
 status: executing
-stopped_at: "Phase 39 PLANEJADA — `/gsd-plan-phase 39` completo em 2026-09-24, pronta para `/gsd-execute-phase 39`. Sequência: UI-SPEC aprovado (ver narrativa anterior, commits `8cd6179`→`3fb61f6`→`a8f56b8`) → `gsd-pattern-mapper` (`39-PATTERNS.md`, 12/12 analogs, commit `535a3d6`) → `gsd-planner` opus (6 planos/5 ondas, commit `70becbc`, também atualizou ROADMAP.md) → `gsd-plan-checker` 1ª rodada: ISSUES FOUND (0 bloqueios, 4 avisos — cobertura de requisitos OK, mas 2 avisos substantivos: checkpoint do 39-06 não nomeava explicitamente a reinterpretação de D-05 nem o desvio do UI-SPEC no rodapé de custo) → revisão (`gsd-planner`, commit `bdcffb4`: adiciona DR-1/DR-2 como perguntas nomeadas e bloqueantes no checkpoint do 39-06, mais 2 linhas em `39-PATTERNS.md`) → `gsd-plan-checker` 2ª rodada: VERIFICATION PASSED (0 bloqueios, 0 avisos novos) → gate de cobertura de decisões (`check.decision-coverage-plan`) achou D-02/D-03/D-04/D-12 sem citação literal em `must_haves.truths` (estavam implementados, só não citados pelo ID na estrutura que o gate escaneia) → corrigido à mão (commit `6de78b2`, 14/14 cobertos) → `roadmap.annotate-dependencies` já estava aplicado pelo planner (idempotente, sem mudança). STATE.md editado à mão (`state.planned-phase` do gsd-sdk não foi chamado, ver [[gsd-sdk-state-corrompe]])."
-last_updated: "2026-09-24T18:15:00.000Z"
-last_activity: 2026-09-24 -- Phase 39, Plan 05 (reconciliacao dos 10 guardioes vermelhos deixados pelo Plano 39-04) executado e commitado
+stopped_at: "Fase 39 FECHADA em 2026-09-24 (39-06, onda 5/5). Checkpoint humano ao vivo (roteiro de 10 itens + DR-1 + DR-2 nomeadas) aprovado pelo Alex, incluindo um override ao vivo não previsto pelo plano: rótulo da 3a aba trocado de \"Recomendadas\" para \"Destacadas\" (override de D-03, ambiguidade regulatoria CVM com o disclaimer \"nada aqui e recomendacao\" — documentado em `39-06-DEVIATION-recomendadas-destacadas-SUMMARY.md`, commits `6a4e819`/`183bf19`). Publicacao front+backend no mesmo push (`F10-20260924-01`) ja estava feita e no ar quando esta sessao de fechamento (39-06 Task 2/3) comecou — achada pronta, nao refeita (commit `3eb9087` \"Nova Aba Opcoes\" + `17d3f6a` docs HISTORICO, ambos de Alexandre Camerini, fora da nomenclatura GSD); esta sessao confirmou em producao (`/api/health` -> `F10-20260924-01`, `/api/options/curadoria` -> `pisoProbOtm: 0.6`) e reexecutou a suite canonica de forma independente (3048 passed/5 skipped/3 xfailed backend + 163/163 .mjs, exit 0, fora do sandbox). NAV-01 Done, ROADMAP/REQUIREMENTS fechados a mao, 2 todos resolvidos movidos com nota. Proximo passo: `/gsd-plan-phase 40` (Continuidade da aba Opcoes, ESTADO-01), quando o Alex decidir — nao iniciado nesta sessao. STATE.md editado a mao (mutadores `state.*` do gsd-sdk NAO chamados, ver [[gsd-sdk-state-corrompe]])."
+last_updated: "2026-09-24T23:35:00.000Z"
+last_activity: 2026-09-24 -- Phase 39, Plan 06 fechado (checkpoint humano DR-1/DR-2 aprovado ao vivo, publicacao front+backend em producao conferida, documentos de planejamento fechados a mao)
 progress:
   total_phases: 2
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 12
-  completed_plans: 11
-  percent: 92
+  completed_plans: 12
+  percent: 100
 ---
 
 # Project State
@@ -25,7 +25,92 @@ See: .planning/PROJECT.md (updated 2026-09-20)
 
 ## Current Position
 
-Phase: 39 (reestrutura-o-de-navega-o-da-aba-op-es) — EXECUTING
+Phase: 39 (reestrutura-o-de-navega-o-da-aba-op-es) — **FECHADA (6/6 planos)**
+Plan: 39-06 fechou a fase (checkpoint humano + publicação + docs)
+Status: NAV-01 Done. Aguardando decisão do Alex para `/gsd-plan-phase 40`
+  (Continuidade da aba Opções, ESTADO-01) — não iniciado nesta sessão.
+Last activity: 2026-09-24 -- Plan 39-06 fechado: checkpoint humano ao vivo
+  aprovado (roteiro de 10 itens + DR-1/DR-2 nomeadas), publicação front+backend
+  conferida em produção, STATE/ROADMAP/REQUIREMENTS fechados à mão, 2 todos
+  resolvidos movidos.
+
+**Plan 39-06 completo (2026-09-24), checkpoint + publicação + fechamento de docs — sequencial, sem worktree:**
+
+- **Task 1 (checkpoint humano, bloqueante) — feita em sessão anterior, fora
+  desta execução:** o Alex aprovou ao vivo o roteiro de 10 itens + DR-1
+  (D-05 reinterpretado: execução com gate mora inteira em Oportunidades, não
+  em Recomendadas — `opcoes_lastreadas`/`opcoes_curadoria` são motores
+  diferentes, D-12 proíbe mexer em `opcoes_lastreadas.py` nesta fase) + DR-2
+  (custo do frescor no ⓘ do rodapé GLOBAL, não no ⓘ de Montar como o
+  UI-SPEC pedia — `mcpStatus` dispara no mount da tela inteira). **Mudança
+  pedida ao vivo, fora do roteiro do plano:** renomear a 3ª aba de
+  "Recomendadas" para "Destacadas" — override deliberado de D-03
+  (CONTEXT.md), por ambiguidade regulatória CVM entre o rótulo
+  "Recomendadas" e o disclaimer "nada aqui é recomendação". Implementado
+  como deviation atômico ANTES da publicação (commits `6a4e819`/`183bf19`,
+  registro completo em
+  `39-06-DEVIATION-recomendadas-destacadas-SUMMARY.md`): só texto visível
+  mudou (`copy.js` `opcoesAbaRecomendadas` + grupo `linhaChamadaOpcoes*`),
+  identificadores internos (`id: "recomendadas"`, `AbaRecomendadas.jsx`)
+  preservados de propósito.
+  - **Riscos (a)(b)(c) do roteiro, respostas do Alex:** (a) nome trocado
+    para "Destacadas" — resolve a colisão regulatória citada acima; (b)
+    ciente, sem mudança agora — o piso de 60% OTM (D-08) quase elimina put
+    de proteção/collar perto do dinheiro da lista de Destacadas, efeito
+    matemático esperado, não bug; (c) "mostrar 3 e deixar escolher mais"
+    fica pra depois, não vira requisito nesta fase (candidato a fase
+    futura, se o Alex quiser).
+- **Task 2 (publicar front+backend, conferir em produção):** ao iniciar
+  esta sessão de fechamento, a publicação JÁ ESTAVA FEITA E NO AR — achada
+  pronta, não refeita. `web/src/version.js` já carimbado
+  `F10-20260924-01` (commit `3eb9087`, "Nova Aba Opções", autor Alexandre
+  Camerini, fora da nomenclatura de commit do GSD — bump+`publicar-web.sh`
+  rodados diretamente por ele), comentário `SERVER_BUILD_ID` em
+  `server/app/main.py` já com o HISTORICO completo da Fase 39 (commit
+  `17d3f6a`), `HEAD == origin/main` confirmado (`17d3f6a`) — nenhum push
+  pendente. Esta sessão: (1) `git fetch origin` — falhou dentro do sandbox
+  padrão (`fatal: failed to store: 100001`, credential helper/Keychain
+  bloqueado pelo Seatbelt), confirmado sandbox-caused rodando o mesmo
+  fetch com sandbox desabilitado (sucesso, exit 0) — nenhum código de
+  produto tocado por causa disso; (2) suíte canônica reexecutada de forma
+  independente (fora do sandbox, para rede/TLS real):
+  `bash scripts/executar.sh --testes` → **3048 passed/5 skipped/3
+  xfailed/0 failed** (backend) + **163/163 `.mjs`** (web), exit 0 — igual
+  ao número já citado no HISTORICO do `main.py`, agora confirmado por
+  execução própria desta sessão, não só por leitura do comentário; (3)
+  produção conferida: `curl https://boris.semente.dev/api/health` →
+  `{"ok":true,"build":"F10-20260924-01"}`; `curl
+  https://boris.semente.dev/api/options/curadoria` → `pisoProbOtm: 0.6`
+  presente (escopo anônimo, carteira vazia — a chave é o que importa,
+  como o plano previa).
+- **Task 3 (fechar docs à mão):** `REQUIREMENTS.md` (NAV-01 Done na tabela
+  de rastreio, já estava `[x]` no corpo), `ROADMAP.md` (Fase 39 `[x]`
+  6/6 plans, `39-06-PLAN.md` marcado), `STATE.md` (este bloco). Os 2 todos
+  resolvidos movidos para `.planning/todos/resolved/` com nota de
+  resolução no frontmatter (padrão do repo — `resolved`/`resolution`, não
+  uma seção nova no corpo): `subaba-operar-fetch-redundante-gate-proposta.md`
+  já tinha sido resolvido pelo fold-in D-04a do Plano 33-05 (Fase 33,
+  2026-09-20) — `PropostaDoAtivo` (ex-`SubAbaOperar`) lê
+  `opcoesPorTicker[ticker]` do fan-out único, confirmado por leitura direta
+  do código atual; `carimbo-frescor-blocos-cross-carteira.md` resolvido
+  pela própria Fase 39 (39-04) — `AbaOportunidades.jsx`/`AbaRecomendadas.jsx`
+  cada uma renderiza o próprio `<CarimboFrescor>`.
+- **Pendência não resolvida aqui, declarada:** app iOS carrega bundle
+  local — a navegação nova (3 abas, Destacadas, painel inline em
+  Oportunidades) só chega ao iPhone num build novo de TestFlight. O
+  backend (piso de 60% OTM) já vale para o bundle antigo, que continua
+  funcionando e ainda mostra "Pontuação de curadoria" (`razao` mantido no
+  dict por compatibilidade), mas recebendo a lista já filtrada/ordenada
+  pela regra nova.
+- `qa/AUDITORIA-Jornada-Decisao-v1.md` (untracked) e
+  `web/package-lock.json` (drift de versão pré-existente) ficaram
+  intocados por esta sessão — nenhum dos dois pertence ao escopo do 39-06.
+- Guardrail aplicado: mutadores de estado do gsd-sdk NÃO foram chamados —
+  este STATE.md foi editado à mão (`[[gsd-sdk-state-corrompe]]`).
+
+## Posição anterior nesta fase (Fase 39, fechada — narrativa de planejamento e execução dos Planos 39-01 a 39-05)
+
+Phase: 39 (reestrutura-o-de-navega-o-da-aba-op-es) — EXECUTING — histórico, superado pela entrada acima
 Plan: 6 of 6 (39-01 a 39-05 completos — 39-06, checkpoint humano bloqueante DR-1/DR-2, é o próximo e último)
 Status: Executing Phase 39
 Last activity: 2026-09-24 -- Plan 39-05 (reconciliação dos 10 guardiões vermelhos deixados pelo Plano 39-04: PropostaDoAtivo ex-SubAbaOperar, split hub/workspace dissolvido, SecaoDescobrir.jsx deletado, Vigias em badge+sheet, "saiba mais" em ⓘ por aba) executado e commitado, sequencial, sem worktree
