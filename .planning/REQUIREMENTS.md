@@ -45,11 +45,14 @@ de produto — não por ordem de descoberta.
 
 ### Continuidade UX
 
-- [ ] **ESTADO-01**: Estado da aba Opções (ticker selecionado, aba ativa,
-  filtros) sobrevive à troca para outra aba principal e volta — abordagem
+- [ ] **ESTADO-01**: Estado da aba Opções (ticker selecionado, aba ativa)
+  sobrevive à troca para outra aba principal e volta — abordagem
   de implementação (memória local × persistência) a decidir em
   discuss-phase. Depende da navegação de NAV-01 já estar definida (a
-  navegação a preservar muda de forma com NAV-01).
+  navegação a preservar muda de forma com NAV-01). *Revisado 2026-09-25
+  (discuss-phase, `40-CONTEXT.md`): decidido estado em memória no
+  `App.jsx` (D-01); filtros internos NÃO são lembrados e voltam ao default
+  (D-02) — o texto original incluía "filtros".*
 
 ### Consolidação técnica
 

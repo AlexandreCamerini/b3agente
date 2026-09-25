@@ -274,18 +274,20 @@ definida primeiro).
 ### Phase 40: Continuidade da aba Opções
 
 **Goal**: Usuário troca da aba Opções para outra aba principal e volta sem
-perder onde estava — ticker selecionado, aba ativa e filtros aplicados
-sobrevivem à navegação.
+perder onde estava — ticker selecionado e aba ativa sobrevivem à navegação
+(filtros internos voltam ao default por decisão D-02, `40-CONTEXT.md`).
 **Depends on**: Fase 39 (a navegação a preservar é a de 3 abas definida ali,
 não a estrutura `subaba`/`abaWorkspace` atual)
 **Requirements**: ESTADO-01
 **Success Criteria** (what must be TRUE):
   1. Usuário seleciona um ticker na aba Opções, navega para outra aba
      principal e, ao voltar, encontra o mesmo ticker selecionado
-  2. Usuário troca de aba (Oportunidades/Recomendadas/Montar), navega para
+  2. Usuário troca de aba (Oportunidades/Destacadas/Montar), navega para
      fora e volta, e a mesma aba continua ativa
-  3. Filtros aplicados na aba Opções (ex.: vencimento/estrutura) permanecem
-     aplicados após a troca de aba
+  3. Filtros e expansões internas (vencimento em Comparar, sheet de Vigias,
+     "ver mais") voltam ao default após a troca de aba — revisado em
+     2026-09-25 (D-02, decisão do Alex no discuss-phase: só ticker + aba são
+     lembrados; texto original pedia que os filtros sobrevivessem)
   4. A continuidade de estado respeita o escopo do usuário logado — trocar de
      conta ou deslogar nunca vaza o estado de uma conta para outra
 **Plans**: TBD
