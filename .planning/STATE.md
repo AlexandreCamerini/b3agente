@@ -5,7 +5,7 @@ milestone_name: Didática ampliada + continuidade da aba Opções
 status: executing
 stopped_at: "Fase 40 (ESTADO-01) FECHADA em 2026-09-25 -- Plano 40-02 executado: checkpoint humano ao vivo aprovado pelo Alex (roteiro de 10 itens do 40-UI-SPEC + DP-1 respondida por nome -- deep-link de Posicoes mantem o ticker lembrado, sem plano de gap); publicacao em producao F10-20260925-01 (bump.sh + publicar-web.sh, commit 7a74132, push direto v2/interacao-estrutural->main, origin/main==HEAD confirmado); /api/health de producao conferido mostrando o carimbo novo (6 tentativas, ~100s de redeploy). Suite canonica fora do sandbox: 3048 pytest passed/5 skipped/3 xfailed/0 failed (identico ao baseline do 40-01), 1 falha .mjs ambiental conhecida (test_ios_assets.mjs, web/ios/ gitignored). Docs fechados a mao: REQUIREMENTS.md (ESTADO-01 Done), ROADMAP.md (Fase 40 2/2), STATE.md (este bloco). Proximo passo: Fase 41 (TELAS-01), ainda nao planejada. STATE.md editado a mao (mutadores `state.*` do gsd-sdk NAO chamados)."
 last_updated: "2026-09-25T18:40:00.000Z"
-last_activity: 2026-09-25 -- Plano 40-02 (checkpoint humano + publicacao + fechamento de docs) executado e commitado, sequencial, sem worktree; Fase 40 fechada; Fase 41 (TELAS-01) nao iniciada
+last_activity: 2026-09-25 -- Fase 41 (TELAS-01) CONTEXT.md capturado via discuss-phase (5 decisoes); Fase 40 fechada e publicada
 progress:
   total_phases: 3
   completed_phases: 3
@@ -21,7 +21,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-20)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Fase 40 FECHADA (ESTADO-01, publicada em F10-20260925-01); próximo passo é Fase 41 (TELAS-01), ainda não planejada
+**Current focus:** Fase 41 (TELAS-01) — CONTEXT.md capturado em 2026-09-25 (`41-CONTEXT.md`: registro com as 8 telas do assistente, paridade 8×8 com PET_TELAS; textos de tour/ajuda ficam nas funções; refactor puro, zero mudança visível; checkpoint humano curto antes de publicar). Próximo passo: `/gsd-plan-phase 41` (UI-SPEC provavelmente exigido pelo gate de UI). Fase 40 FECHADA (ESTADO-01, publicada em F10-20260925-01).
 
 ## Current Position
 
