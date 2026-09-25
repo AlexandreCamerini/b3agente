@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.8
 milestone_name: Didática ampliada + continuidade da aba Opções
 status: executing
-stopped_at: "Fase 40, Plano 40-01 (ESTADO-01) EXECUTADO em 2026-09-25 -- memoria em sessao do ticker+aba ativa da aba Opcoes implementada: web/src/opcoes/memoriaOpcoes.js (modulo puro, 3 funcoes) + fiacao em App.jsx (opcoesMemoria/escopoOpcoes, ctx.lembrarOpcoes, _resetScopeState limpa e remonta)/OpcoesScreen.jsx (inicializadores lazy sem flash, write-back sem cleanup). Guardiao novo test_opcoes_continuidade_ui.mjs (48 asserções) + 4 guardioes antigos reconciliados com nota datada (3 previstos no plano + test_opcoes_hub_workspace_ui.mjs/NAV-05, achado durante a execucao). Prova negativa das 3 mitigacoes criticas confirmada. Suite canonica fora do sandbox: pytest 3048 passed/5 skipped/3 xfailed, web 163/164 (unica falha test_ios_assets.mjs, artefato ambiental conhecido). git diff de copy.js/persistence.js vazio. Commits: 22a249b (test), f192eb2 (feat). Proximo passo: Plano 40-02 (checkpoint humano com item DP-1 nomeado + publicacao). STATE.md editado a mao (mutadores `state.*` do gsd-sdk NAO chamados)."
-last_updated: "2026-09-25T17:25:00.000Z"
-last_activity: 2026-09-25 -- Plano 40-01 (ESTADO-01) executado e commitado, sequencial, sem worktree; aguardando /gsd-execute-phase 40 (Plano 40-02, checkpoint humano)
+stopped_at: "Fase 40 (ESTADO-01) FECHADA em 2026-09-25 -- Plano 40-02 executado: checkpoint humano ao vivo aprovado pelo Alex (roteiro de 10 itens do 40-UI-SPEC + DP-1 respondida por nome -- deep-link de Posicoes mantem o ticker lembrado, sem plano de gap); publicacao em producao F10-20260925-01 (bump.sh + publicar-web.sh, commit 7a74132, push direto v2/interacao-estrutural->main, origin/main==HEAD confirmado); /api/health de producao conferido mostrando o carimbo novo (6 tentativas, ~100s de redeploy). Suite canonica fora do sandbox: 3048 pytest passed/5 skipped/3 xfailed/0 failed (identico ao baseline do 40-01), 1 falha .mjs ambiental conhecida (test_ios_assets.mjs, web/ios/ gitignored). Docs fechados a mao: REQUIREMENTS.md (ESTADO-01 Done), ROADMAP.md (Fase 40 2/2), STATE.md (este bloco). Proximo passo: Fase 41 (TELAS-01), ainda nao planejada. STATE.md editado a mao (mutadores `state.*` do gsd-sdk NAO chamados)."
+last_updated: "2026-09-25T18:40:00.000Z"
+last_activity: 2026-09-25 -- Plano 40-02 (checkpoint humano + publicacao + fechamento de docs) executado e commitado, sequencial, sem worktree; Fase 40 fechada; Fase 41 (TELAS-01) nao iniciada
 progress:
   total_phases: 3
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 14
-  completed_plans: 13
-  percent: 93
+  completed_plans: 14
+  percent: 100
 ---
 
 # Project State
@@ -21,9 +21,72 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-20)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Phase 40 — continuidade-da-aba-op-es (ESTADO-01), Plano 40-01 executado, Plano 40-02 (checkpoint humano + publicação) pendente
+**Current focus:** Fase 40 FECHADA (ESTADO-01, publicada em F10-20260925-01); próximo passo é Fase 41 (TELAS-01), ainda não planejada
 
 ## Current Position
+
+Phase: 40 (continuidade-da-aba-op-es) — FECHADA (2026-09-25), 2/2 planos
+  completos, publicada em produção. Fase 41 (TELAS-01) segue não iniciada.
+Plan: 2 of 2 completos (40-01: memória em sessão + reset de escopo + key de
+  remount + guardião; 40-02: checkpoint humano ao vivo + DP-1 + publicação +
+  fechamento de docs). Próximo passo: planejar a Fase 41 (`/gsd-plan-phase 41`).
+Status: ESTADO-01 Done — módulo puro `memoriaOpcoes.js` + fiação em
+  App.jsx/OpcoesScreen.jsx, guardião novo (48 asserções) + 4 guardiões
+  antigos reconciliados (3 previstos + `test_opcoes_hub_workspace_ui.mjs`/
+  NAV-05, achado durante a execução da 40-01), prova negativa das 3
+  mitigações críticas confirmada. Checkpoint humano do Alex aprovado AO VIVO
+  em 2026-09-25 (roteiro de 10 itens do 40-UI-SPEC: A, A2, B, B2, C, D, E, F,
+  G + Modo Estudo) — **DP-1 aprovada por nome**: "Quando você toca a linha
+  de estruturas em Posições, Opções abre em Destacadas mas mantém o ativo
+  que você tinha escolhido em Montar" → aprovado, sem plano de gap (o
+  deep-link de Posições vence só na ABA; o ticker lembrado permanece).
+  Publicado em produção `F10-20260925-01` (commit `7a74132`, push direto
+  `v2/interacao-estrutural`→`main`, fast-forward confirmado,
+  `origin/main == HEAD`); `/api/health` conferido mostrando o carimbo novo
+  após ~100s de redeploy. Suíte canônica fora do sandbox: 3048 pytest
+  passed/5 skipped/3 xfailed/0 failed (idêntico ao baseline do 40-01), 1
+  falha `.mjs` ambiental conhecida (`test_ios_assets.mjs`, `web/ios/`
+  gitignored). ESTADO-01 marcado Done em REQUIREMENTS.md; Fase 40 fechada
+  (2/2) em ROADMAP.md. Fase 39 (NAV-01) segue FECHADA (6/6 planos,
+  publicada).
+Last activity: 2026-09-25 -- Plano 40-02 executado: Task 1 (checkpoint
+  humano, já feita em sessão anterior — aprovado + DP-1 nomeada) → Task 2
+  (fetch/merge sem divergência, suíte canônica, bump.sh F10-20260925-01,
+  publicar-web.sh, comentário SERVER_BUILD_ID novo com HISTORICO
+  preservado, commit `7a74132`, push, produção conferida) → Task 3 (docs
+  fechados à mão: REQUIREMENTS.md/ROADMAP.md/STATE.md). Ver
+  `40-02-SUMMARY.md`.
+
+**Decisões desta fase que o próximo leitor não deve redescobrir (ESTADO-01):**
+
+- `opcoesMemoria` vive só em memória React de `App.jsx` (D-01) — nunca em
+  `deviceStore`/`serverStore`/`localStorage`; não aciona o guardrail de
+  paridade obrigatória dos dois stores porque o requirement não pediu
+  persistência entre reloads (D-01 do `40-CONTEXT.md`).
+- `ctx.lembrarOpcoes` é eco contínuo (grava a cada mudança de
+  ticker/aba); `ctx.opcoesAbaInicial` (Fase 39) continua one-shot,
+  independente — os dois mecanismos coexistem sem se pisar.
+- Write-back via `useEffect([ticker, abaOpcoes])` SEM cleanup — nunca grava
+  no unmount, para o `_resetScopeState()` não ser desfeito pelo desmonte da
+  instância da conta anterior (cenário C, troca de conta).
+- Isolamento por escopo: `key={escopoOpcoes}` incrementada dentro de
+  `_resetScopeState()` força remount de `OpcoesScreen` em qualquer troca de
+  conta/logout, mesmo nos call-sites que não trocam `tab`.
+- Default normaliza para `null` (nunca `""`/`undefined`) — `memoriaOpcoes.js`
+  é módulo puro, testado sem DOM/mocks.
+- DP-1 (P-1 do UI-SPEC): deep-link de Posições sobrescreve SÓ a aba;
+  o ticker lembrado permanece e reaparece ao voltar para "Montar". Aprovada
+  pelo Alex por nome em 2026-09-25 — não há plano de gap.
+- Pendência declarada, não resolvida nesta fase: app iOS carrega bundle
+  local — a continuidade da aba Opções só chega ao iPhone num build novo de
+  TestFlight; nenhum backend mudou nesta fase, o bundle antigo continua
+  funcionando sem a memória de sessão.
+- Limitação pré-existente registrada no `40-01-SUMMARY.md`, não desta fase:
+  no nativo, entre `_resetScopeState()` e `await loadState()`, a carteira da
+  conta anterior pode aparecer por um instante — comportamento de TODAS as
+  telas que leem `ctx.data`, não da memória desta fase.
+
+## Posição anterior nesta fase (Fase 40, Plano 40-01 — histórico, superado pela entrada acima)
 
 Phase: 40 (continuidade-da-aba-op-es) — Plano 40-01 EXECUTADO (2026-09-25),
   Plano 40-02 (checkpoint humano + publicação) pendente.

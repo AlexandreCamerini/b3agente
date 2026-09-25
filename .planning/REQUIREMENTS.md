@@ -45,14 +45,17 @@ de produto — não por ordem de descoberta.
 
 ### Continuidade UX
 
-- [ ] **ESTADO-01**: Estado da aba Opções (ticker selecionado, aba ativa)
+- [x] **ESTADO-01**: Estado da aba Opções (ticker selecionado, aba ativa)
   sobrevive à troca para outra aba principal e volta — abordagem
   de implementação (memória local × persistência) a decidir em
   discuss-phase. Depende da navegação de NAV-01 já estar definida (a
   navegação a preservar muda de forma com NAV-01). *Revisado 2026-09-25
   (discuss-phase, `40-CONTEXT.md`): decidido estado em memória no
   `App.jsx` (D-01); filtros internos NÃO são lembrados e voltam ao default
-  (D-02) — o texto original incluía "filtros".*
+  (D-02) — o texto original incluía "filtros".* **Done em 2026-09-25**
+  (Fase 40, `F10-20260925-01`): memória em sessão de ticker+aba via
+  `opcoesMemoria`/`escopoOpcoes` em App.jsx; deep-link de Posições vence só
+  na aba e mantém o ticker (DP-1, aprovada pelo Alex ao vivo em 2026-09-25).
 
 ### Consolidação técnica
 
@@ -90,7 +93,7 @@ Reconhecido, mas fora desta milestone — decisão de escopo pendente do Alex.
 | KB-01 | Phase 38 | Done |
 | KB-02 | Phase 38 | Done |
 | NAV-01 | Phase 39 | Done |
-| ESTADO-01 | Phase 40 | Pending |
+| ESTADO-01 | Phase 40 | Done |
 | TELAS-01 | Phase 41 | Pending |
 
 **Coverage:**
@@ -100,9 +103,10 @@ Reconhecido, mas fora desta milestone — decisão de escopo pendente do Alex.
 
 ---
 *Requirements defined: 2026-09-23*
-*Last updated: 2026-09-23 — Fase 38 fechada: KB-01/KB-02 Done, publicado em
-produção (`F10-20260923-01`), checkpoint humano do roteiro de 9 itens
-aprovado pelo Alex (38-06). Ver STATE.md/ROADMAP.md para o detalhe.*
+*Last updated: 2026-09-25 — Fase 40 fechada: ESTADO-01 Done, publicado em
+produção (`F10-20260925-01`), checkpoint humano do roteiro de 10 itens +
+DP-1 (deep-link mantém o ticker lembrado) aprovado pelo Alex ao vivo em
+2026-09-25. Ver STATE.md/ROADMAP.md para o detalhe.*
 *Last updated: 2026-09-23 — NAV-01 adicionado (auditoria de design da aba
 Opções, achado ao vivo do Alex), inserido como Fase 39; ESTADO-01/TELAS-01
 renumeradas para Fase 40/41 (NAV-01 precisa fechar antes de ESTADO-01 porque
