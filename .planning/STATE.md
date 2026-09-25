@@ -5,7 +5,7 @@ milestone_name: Didática ampliada + continuidade da aba Opções
 status: executing
 stopped_at: "Fase 40 (Continuidade da aba Opcoes, ESTADO-01) CONTEXT.md capturado em 2026-09-25 via /gsd-discuss-phase 40 -- 5 decisoes: D-01 estado (ticker+aba ativa) levantado pro App.jsx em MEMORIA (mesmo padrao do opcoesAbaInicial da Fase 39-02), deliberadamente SEM tocar em deviceStore/serverStore (evita o guardrail de paridade por um ganho -- sobreviver a reload -- que o requirement nao pediu); D-02 so o minimo e lembrado (ticker+aba), sheet de Vigias/expansoes/filtros de Comparar sempre voltam default; D-03 o deep-link opcoesAbaInicial SEMPRE vence o estado lembrado; D-04 sem logica de expiracao extra (sessao inteira ja e o limite natural do mecanismo em memoria); D-05 restauracao SILENCIOSA, sem toast/salto visual. Pedido inicial ambiguo do Alex (\"rever UX/UI da aba Opcoes\") foi esclarecido por pergunta direta e restrito a D-05 -- uma revisao visual geral da aba Opcoes NAO entra nesta fase, fica deferida (mesmo tratamento da auditoria Jornada de Decisao/v1.9). Proximo passo: `/gsd-plan-phase 40` (planner ainda nao rodou). STATE.md editado a mao (mutadores `state.*` do gsd-sdk NAO chamados)."
 last_updated: "2026-09-25T00:00:00.000Z"
-last_activity: 2026-09-25 -- Fase 40 CONTEXT.md capturado via discuss-phase (5 decisoes ESTADO-01), aguardando /gsd-plan-phase 40
+last_activity: 2026-09-25 -- Fase 40 planejada (2 planos/2 ondas, plan-checker PASSED), aguardando /gsd-execute-phase 40
 progress:
   total_phases: 2
   completed_phases: 2
@@ -27,7 +27,11 @@ See: .planning/PROJECT.md (updated 2026-09-20)
 
 Phase: 40 (continuidade-da-aba-op-es) — CONTEXT.md capturado (2026-09-25),
   planos ainda não gerados.
-Plan: nenhum ainda — próximo passo é `/gsd-plan-phase 40`. UI-SPEC
+Plan: PLANEJADA em 2026-09-25 — 2 planos/2 ondas (40-01 autônomo:
+  memória em sessão + reset de escopo + key de remount + guardião; 40-02
+  checkpoint humano com DP-1 nomeada + publicação + docs). gsd-plan-checker
+  VERIFICATION PASSED na 1ª iteração; decisões 5/5 cobertas. Próximo passo:
+  `/gsd-execute-phase 40`. UI-SPEC
   aprovado (6/6, `40-UI-SPEC.md`, 2026-09-25): zero UI nova travada como
   critério verificável; cenário C2 reforçado (tela montada também volta ao
   default na troca de escopo). SC#3 do ROADMAP e ESTADO-01 realinhados a
