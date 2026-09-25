@@ -293,7 +293,7 @@ não a estrutura `subaba`/`abaWorkspace` atual)
 **Plans**: 2 plans
 
 Plans:
-- [ ] 40-01-PLAN.md — memória em sessão (ticker+aba) no App.jsx, precedência deep-link > memória > default, reset de escopo + key de remount (C2), guardião test_opcoes_continuidade_ui.mjs
+- [x] 40-01-PLAN.md — memória em sessão (ticker+aba) no App.jsx, precedência deep-link > memória > default, reset de escopo + key de remount (C2), guardião test_opcoes_continuidade_ui.mjs
 - [ ] 40-02-PLAN.md — verificação humana ao vivo (cenários A–G + DP-1), bump+publicação, fechamento à mão dos docs
 **UI hint**: yes
 

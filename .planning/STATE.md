@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.8
 milestone_name: Didática ampliada + continuidade da aba Opções
 status: executing
-stopped_at: "Fase 40 (Continuidade da aba Opcoes, ESTADO-01) CONTEXT.md capturado em 2026-09-25 via /gsd-discuss-phase 40 -- 5 decisoes: D-01 estado (ticker+aba ativa) levantado pro App.jsx em MEMORIA (mesmo padrao do opcoesAbaInicial da Fase 39-02), deliberadamente SEM tocar em deviceStore/serverStore (evita o guardrail de paridade por um ganho -- sobreviver a reload -- que o requirement nao pediu); D-02 so o minimo e lembrado (ticker+aba), sheet de Vigias/expansoes/filtros de Comparar sempre voltam default; D-03 o deep-link opcoesAbaInicial SEMPRE vence o estado lembrado; D-04 sem logica de expiracao extra (sessao inteira ja e o limite natural do mecanismo em memoria); D-05 restauracao SILENCIOSA, sem toast/salto visual. Pedido inicial ambiguo do Alex (\"rever UX/UI da aba Opcoes\") foi esclarecido por pergunta direta e restrito a D-05 -- uma revisao visual geral da aba Opcoes NAO entra nesta fase, fica deferida (mesmo tratamento da auditoria Jornada de Decisao/v1.9). Proximo passo: `/gsd-plan-phase 40` (planner ainda nao rodou). STATE.md editado a mao (mutadores `state.*` do gsd-sdk NAO chamados)."
-last_updated: "2026-09-25T00:00:00.000Z"
-last_activity: 2026-09-25 -- Fase 40 planejada (2 planos/2 ondas, plan-checker PASSED), aguardando /gsd-execute-phase 40
+stopped_at: "Fase 40, Plano 40-01 (ESTADO-01) EXECUTADO em 2026-09-25 -- memoria em sessao do ticker+aba ativa da aba Opcoes implementada: web/src/opcoes/memoriaOpcoes.js (modulo puro, 3 funcoes) + fiacao em App.jsx (opcoesMemoria/escopoOpcoes, ctx.lembrarOpcoes, _resetScopeState limpa e remonta)/OpcoesScreen.jsx (inicializadores lazy sem flash, write-back sem cleanup). Guardiao novo test_opcoes_continuidade_ui.mjs (48 asserções) + 4 guardioes antigos reconciliados com nota datada (3 previstos no plano + test_opcoes_hub_workspace_ui.mjs/NAV-05, achado durante a execucao). Prova negativa das 3 mitigacoes criticas confirmada. Suite canonica fora do sandbox: pytest 3048 passed/5 skipped/3 xfailed, web 163/164 (unica falha test_ios_assets.mjs, artefato ambiental conhecido). git diff de copy.js/persistence.js vazio. Commits: 22a249b (test), f192eb2 (feat). Proximo passo: Plano 40-02 (checkpoint humano com item DP-1 nomeado + publicacao). STATE.md editado a mao (mutadores `state.*` do gsd-sdk NAO chamados)."
+last_updated: "2026-09-25T17:25:00.000Z"
+last_activity: 2026-09-25 -- Plano 40-01 (ESTADO-01) executado e commitado, sequencial, sem worktree; aguardando /gsd-execute-phase 40 (Plano 40-02, checkpoint humano)
 progress:
-  total_phases: 2
+  total_phases: 3
   completed_phases: 2
-  total_plans: 12
-  completed_plans: 12
-  percent: 100
+  total_plans: 14
+  completed_plans: 13
+  percent: 93
 ---
 
 # Project State
@@ -21,30 +21,28 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-20)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Phase 40 — continuidade-da-aba-op-es (ESTADO-01), contexto capturado, planejamento pendente
+**Current focus:** Phase 40 — continuidade-da-aba-op-es (ESTADO-01), Plano 40-01 executado, Plano 40-02 (checkpoint humano + publicação) pendente
 
 ## Current Position
 
-Phase: 40 (continuidade-da-aba-op-es) — CONTEXT.md capturado (2026-09-25),
-  planos ainda não gerados.
-Plan: PLANEJADA em 2026-09-25 — 2 planos/2 ondas (40-01 autônomo:
-  memória em sessão + reset de escopo + key de remount + guardião; 40-02
-  checkpoint humano com DP-1 nomeada + publicação + docs). gsd-plan-checker
-  VERIFICATION PASSED na 1ª iteração; decisões 5/5 cobertas. Próximo passo:
-  `/gsd-execute-phase 40`. UI-SPEC
-  aprovado (6/6, `40-UI-SPEC.md`, 2026-09-25): zero UI nova travada como
-  critério verificável; cenário C2 reforçado (tela montada também volta ao
-  default na troca de escopo). SC#3 do ROADMAP e ESTADO-01 realinhados a
-  D-02 (filtros NÃO são lembrados).
-Status: ESTADO-01 com 5 decisões travadas em `40-CONTEXT.md` (D-01 estado em
-  memória no App.jsx, sem tocar nos stores; D-02 só ticker+aba lembrados;
-  D-03 deep-link sempre vence; D-04 sem expiração extra; D-05 restauração
-  silenciosa). Fase 39 (NAV-01) segue FECHADA (6/6 planos, publicada); Fase
-  41 (TELAS-01) segue não iniciada.
-Last activity: 2026-09-25 -- `/gsd-discuss-phase 40` completo: 5 áreas
-  discutidas (mecanismo de sobrevivência, escopo do que é lembrado,
-  interação com o deep-link, expiração da memória, comportamento
-  pós-restauração), CONTEXT.md e DISCUSSION-LOG.md commitados.
+Phase: 40 (continuidade-da-aba-op-es) — Plano 40-01 EXECUTADO (2026-09-25),
+  Plano 40-02 (checkpoint humano + publicação) pendente.
+Plan: 1 of 2 completo (40-01 autônomo: memória em sessão + reset de escopo +
+  key de remount + guardião — feito; 40-02 checkpoint humano com DP-1
+  nomeada + publicação + docs — pendente). Próximo passo:
+  `/gsd-execute-phase 40` continua no Plano 40-02.
+Status: ESTADO-01 implementado — módulo puro `memoriaOpcoes.js` +
+  fiação em App.jsx/OpcoesScreen.jsx, guardião novo (48 asserções) + 4
+  guardiões antigos reconciliados (3 previstos + `test_opcoes_hub_workspace_ui.mjs`/
+  NAV-05, achado durante a execução), prova negativa das 3 mitigações
+  críticas confirmada, suíte canônica sem regressão, zero diff em
+  copy.js/persistence.js. Fase 39 (NAV-01) segue FECHADA (6/6 planos,
+  publicada); Fase 41 (TELAS-01) segue não iniciada.
+Last activity: 2026-09-25 -- Plano 40-01 executado: `web/src/opcoes/memoriaOpcoes.js`
+  (módulo puro) + guardião `test_opcoes_continuidade_ui.mjs` (Task 1, RED
+  parcial esperado) → fiação completa em App.jsx/OpcoesScreen.jsx + 4
+  guardiões reconciliados + prova negativa + build/suíte verdes (Task 2).
+  Ver `40-01-SUMMARY.md`.
 
 **Achado novo, fora do escopo da v1.8 (não é aba Opções) — aguardando decisão
 de posicionamento no roadmap, mesmo padrão do item 8/08-05 (v1.1):**
