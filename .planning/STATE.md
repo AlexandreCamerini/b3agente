@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.8
 milestone_name: Didática ampliada + continuidade da aba Opções
 status: executing
-stopped_at: "Fase 40 (ESTADO-01) FECHADA em 2026-09-25 -- Plano 40-02 executado: checkpoint humano ao vivo aprovado pelo Alex (roteiro de 10 itens do 40-UI-SPEC + DP-1 respondida por nome -- deep-link de Posicoes mantem o ticker lembrado, sem plano de gap); publicacao em producao F10-20260925-01 (bump.sh + publicar-web.sh, commit 7a74132, push direto v2/interacao-estrutural->main, origin/main==HEAD confirmado); /api/health de producao conferido mostrando o carimbo novo (6 tentativas, ~100s de redeploy). Suite canonica fora do sandbox: 3048 pytest passed/5 skipped/3 xfailed/0 failed (identico ao baseline do 40-01), 1 falha .mjs ambiental conhecida (test_ios_assets.mjs, web/ios/ gitignored). Docs fechados a mao: REQUIREMENTS.md (ESTADO-01 Done), ROADMAP.md (Fase 40 2/2), STATE.md (este bloco). Proximo passo: Fase 41 (TELAS-01), ainda nao planejada. STATE.md editado a mao (mutadores `state.*` do gsd-sdk NAO chamados)."
-last_updated: "2026-09-25T18:40:00.000Z"
-last_activity: 2026-09-25 -- Fase 41 (TELAS-01) planejada (3 planos/3 ondas, plan-checker 0 blockers), aguardando /gsd-execute-phase 41
+stopped_at: "Fase 41 (TELAS-01), Plano 41-01 EXECUTADO em 2026-09-25 -- fixture pre-refactor congelado (web/tests/fixtures/telas_baseline_41.json, gerado do App.jsx em HEAD 6dbf479, sem editar o arquivo) + registro unico web/src/telas.js (8 telas, D-01, TDD RED/GREEN) + paridade travada nos dois pontos testados (web/tests/test_telas_registro.mjs, server/tests/test_telas_paridade.py) contra conceitos.PET_TELAS. Prova negativa feita nos dois lados (renomear \"perfil\", ver a paridade reprovar nomeando a causa, reverter) -- registrada no 41-01-SUMMARY.md. Suite canonica fora do sandbox: 3050 pytest passed/5 skipped/3 xfailed (+2 exatos vs baseline 40-02, zero regressao), 165 .mjs OK/0 falha (test_ios_assets.mjs passou neste worktree, sem regressao). npx vite build ok. git diff de App.jsx/copy.js/conceitos.py/main.py/docs/AJUDA.md vazio (D-04 confirmado -- nenhum arquivo de produto tocado; telas.js nasce sem consumidor). Commits: b80587b (fixture), b5ca27b (test RED), 15e01ad (registro GREEN), b097351 (paridade pytest). Proximo passo: Plano 41-02 (religa os 4 consumidores ao registro, walkthrough SC#4). STATE.md editado a mao (mutadores `state.*` do gsd-sdk NAO chamados)."
+last_updated: "2026-09-25T19:20:00.000Z"
+last_activity: 2026-09-25 -- Fase 41 Plano 41-01 executado (4 commits, SUMMARY criado, self-check PASSED); aguardando /gsd-execute-phase 41 continuar com o Plano 41-02
 progress:
-  total_phases: 3
+  total_phases: 4
   completed_phases: 3
-  total_plans: 14
-  completed_plans: 14
-  percent: 100
+  total_plans: 17
+  completed_plans: 15
+  percent: 88
 ---
 
 # Project State
@@ -21,15 +21,37 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-20)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Fase 41 (TELAS-01) — CONTEXT.md capturado em 2026-09-25 (`41-CONTEXT.md`: registro com as 8 telas do assistente, paridade 8×8 com PET_TELAS; textos de tour/ajuda ficam nas funções; refactor puro, zero mudança visível; checkpoint humano curto antes de publicar). PLANEJADA em 2026-09-25 (`--skip-ui`, escolha do Alex — D-04 trava zero mudança visível): 3 planos/3 ondas (41-01 fixture pré-refactor + registro `web/src/telas.js` + paridade 8×8 com PET_TELAS; 41-02 religa os 4 consumidores + guardiões reconciliados + walkthrough SC#4; 41-03 checkpoint humano curto + publicação + docs). gsd-plan-checker: 0 blockers, 1 warning (SC#4 reinterpretado sem sign-off) corrigido à mão no 41-03 (frase nomeada no checkpoint). Próximo passo: `/gsd-execute-phase 41`. Fase 40 FECHADA (ESTADO-01, publicada em F10-20260925-01).
+**Current focus:** Fase 41 (TELAS-01) — CONTEXT.md capturado em 2026-09-25 (`41-CONTEXT.md`: registro com as 8 telas do assistente, paridade 8×8 com PET_TELAS; textos de tour/ajuda ficam nas funções; refactor puro, zero mudança visível; checkpoint humano curto antes de publicar). PLANEJADA em 2026-09-25 (`--skip-ui`, escolha do Alex — D-04 trava zero mudança visível): 3 planos/3 ondas (41-01 fixture pré-refactor + registro `web/src/telas.js` + paridade 8×8 com PET_TELAS; 41-02 religa os 4 consumidores + guardiões reconciliados + walkthrough SC#4; 41-03 checkpoint humano curto + publicação + docs). gsd-plan-checker: 0 blockers, 1 warning (SC#4 reinterpretado sem sign-off) corrigido à mão no 41-03 (frase nomeada no checkpoint). **41-01 EXECUTADO em 2026-09-25** (ver abaixo). Próximo passo: continuar `/gsd-execute-phase 41` com o Plano 41-02.
 
 ## Current Position
 
-Phase: 40 (continuidade-da-aba-op-es) — FECHADA (2026-09-25), 2/2 planos
-  completos, publicada em produção. Fase 41 (TELAS-01) segue não iniciada.
-Plan: 2 of 2 completos (40-01: memória em sessão + reset de escopo + key de
-  remount + guardião; 40-02: checkpoint humano ao vivo + DP-1 + publicação +
-  fechamento de docs). Próximo passo: planejar a Fase 41 (`/gsd-plan-phase 41`).
+Phase: 41 (consolida-o-de-registros-de-tela) — EXECUTANDO (2026-09-25), 1/3
+  planos completos. Fase 40 segue FECHADA (2/2, publicada em produção).
+Plan: 1 of 3 completo (41-01: fixture pré-refactor + registro único
+  `web/src/telas.js` + paridade nos dois pontos testados, ver
+  `41-01-SUMMARY.md`). Próximo passo: Plano 41-02 (religa BottomNav/petTela/
+  tourPassos/ajudaSecoes ao registro, guardiões reconciliados, walkthrough
+  SC#4).
+Status: TELAS-01 em andamento (1/3) — fixture congelado do comportamento
+  atual (barra 5 abas, tour 6 passos, ajuda 11 seções ×4, switch do
+  petSnapshot com 7 casos sem "mercado") + registro `web/src/telas.js` (8
+  telas, D-01) que reproduz esse fixture byte a byte, com paridade travada
+  em `web/tests/test_telas_registro.mjs` + `server/tests/test_telas_paridade.py`
+  contra `conceitos.PET_TELAS`. Prova negativa nos dois lados confirmada
+  (renomear "perfil" reprova nomeando a causa; reverte e volta a verde).
+  Nenhum arquivo de produto tocado (App.jsx/copy.js/conceitos.py/main.py/
+  docs/AJUDA.md intactos — D-04). Suíte canônica fora do sandbox: 3050
+  pytest passed/5 skipped/3 xfailed (+2 vs baseline do 40-02, zero
+  regressão), 165 `.mjs` OK/0 falha. `npx vite build` ok.
+Last activity: 2026-09-25 -- Plano 41-01 executado (4 tasks/4 commits:
+  fixture, guardião RED, registro GREEN, paridade pytest); SUMMARY criado,
+  self-check PASSED, ROADMAP.md (41-01 marcado `[x]`, fase "executing")
+  e STATE.md atualizados à mão. Ver `41-01-SUMMARY.md`.
+
+---
+
+### Histórico — Fase 40 (fechada)
+
 Status: ESTADO-01 Done — módulo puro `memoriaOpcoes.js` + fiação em
   App.jsx/OpcoesScreen.jsx, guardião novo (48 asserções) + 4 guardiões
   antigos reconciliados (3 previstos + `test_opcoes_hub_workspace_ui.mjs`/
