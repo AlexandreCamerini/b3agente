@@ -20,7 +20,7 @@
 - [x] Phase 38: KB Didática ampliada (6/6 plans) — completed 2026-09-23
 - [x] Phase 39: Reestruturação de navegação da aba Opções (6/6 plans) — completed 2026-09-24
 - [x] Phase 40: Continuidade da aba Opções (2/2 plans) — completed 2026-09-25
-- [ ] Phase 41: Consolidação de registros de tela (1/3 plans) — executing
+- [ ] Phase 41: Consolidação de registros de tela (2/3 plans) — executing
 
 Escopo explicitamente fora desta milestone: B3 (execução a descoberto,
 decisão de escopo pendente do Alex), CAP-12/verificação visual da Fase 37
@@ -328,7 +328,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 41-02-PLAN.md — religa BottomNav/petTela/tourPassos/ajudaSecoes ao registro, switch do petSnapshot amarrado por teste, guardiões reconciliados, walkthrough de tela nova (SC#4) + achados
+- [x] 41-02-PLAN.md — religa BottomNav/petTela/tourPassos/ajudaSecoes ao registro, switch do petSnapshot amarrado por teste, guardiões reconciliados, walkthrough de tela nova (SC#4) + achados
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
