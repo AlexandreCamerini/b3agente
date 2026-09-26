@@ -33,6 +33,51 @@
 // (gerado do App.jsx ANTES desta consolidação). Qualquer inconsistência
 // encontrada (ex. `historico`/`perfil` sem seção de ajuda, `agente` sem
 // passo de tour) é um ACHADO REGISTRADO, não corrigido nesta fase.
+//
+// ------------------------------------------- Como adicionar uma tela nova
+//
+// Depois da 41-02 (religação completa dos 4 consumidores), o procedimento
+// REAL é este — conferido contra o código religado, não uma versão
+// aspiracional de "uma linha e pronto" (SC#4 é "a LISTA mora num ponto só e
+// o resto é exigido por teste", não "zero trabalho"):
+//
+//  1. Uma entrada nova em `TELAS` (acima) — o ÚNICO ponto da LISTA no
+//     front. Campos sempre presentes, `null` quando não se aplica (nunca
+//     omitidos — os testes de paridade casam por forma estável).
+//  2. Espelho em `server/app/conceitos.py:PET_TELAS` (backend) — a paridade
+//     8-com-8 reprova NOS DOIS LADOS se faltar
+//     (`web/tests/test_telas_registro.mjs` PARTE A,
+//     `server/tests/test_telas_paridade.py`).
+//  3. Conteúdo que DEPENDE da natureza da tela — cada um só é exigido
+//     quando o campo correspondente pede, e cada um tem teste próprio que
+//     reprova sem ele:
+//       · `snapshot: "switch"` → precisa de um `case "<id>":` no switch de
+//         `petSnapshot` (App.jsx) — sem ele, PARTE E de
+//         `test_telas_registro.mjs` reprova (D-03). `snapshot: "petSheet"`
+//         (só "mercado", por desenho da F4) dispensa o case.
+//       · `tour` não-nulo → precisa de uma entrada em `porTela` dentro de
+//         `tourPassos(cp)` (App.jsx) — sem ela, `telasDoTour().map((id) =>
+//         porTela[id])` produz `undefined` na posição e a PARTE C
+//         (equivalência com o fixture) reprova.
+//       · `ajuda: true` → precisa de uma entrada em `porTela` dentro de
+//         `ajudaSecoes(cp, operador)` (App.jsx) — mesma consequência
+//         (`undefined` no array, PARTE C reprova).
+//       · `barra` não-nulo → precisa de um path em `NavIcon.paths`
+//         (App.jsx) — sem ele, o ícone da aba não renderiza (nenhum teste
+//         estático trava isso hoje; é inspeção visual, achado registrado
+//         abaixo).
+//       · `rotuloCp` não-nulo → precisa da chave em `copy.js` nos DOIS
+//         modos (Estudo/Operador) — guardrail do repositório (CLAUDE.md),
+//         não teste local deste registro.
+//     Além dos testes automáticos: o COMPONENTE da tela e o ramo de render
+//     em `App.jsx` (`tab === "<id>" && <TelaScreen ... />`), e um ramo de
+//     resumo em `server/app/main.py` (`_pet_resumo_<id>` + `elif aba ==
+//     "<id>":`) se a tela precisar de resumo próprio para `/api/pet/resumo`
+//     — nenhum dos dois tem teste estrutural genérico hoje (só os testes
+//     específicos de cada feature, caso existam).
+//
+// Walkthrough de uma tela hipotética + contagem de arquivos: ver
+// "Plano 41-02" no `41-02-SUMMARY.md`.
 
 export const TELAS = Object.freeze([
   Object.freeze({
