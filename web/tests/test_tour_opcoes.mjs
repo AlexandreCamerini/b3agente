@@ -30,6 +30,12 @@ import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { COPY } from "../src/copy.js";
+// REVERSÃO DELIBERADA (2026-09-25, Fase 41, TELAS-01): tourPassos/
+// ajudaSecoes passaram a iterar os ids do registro único
+// (telasDoTour()/telasDaAjuda()) — o `eval` abaixo roda no escopo deste
+// módulo, então precisa desses dois nomes importados para resolver as
+// chamadas internas das funções extraídas. Nenhuma asserção mudou.
+import { telasDoTour, telasDaAjuda } from "../src/telas.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const app = readFileSync(join(here, "..", "src", "App.jsx"), "utf8");

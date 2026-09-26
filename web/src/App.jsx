@@ -2494,10 +2494,53 @@ const hubGrid = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }
 // qa/38 (Help): conteúdo do guia — mode-aware (usa os rótulos de tela de cp,
 // que já mudam entre Estudo/Operador) e honesto sobre "tudo simulado". Uma
 // fonte só, reusada pela tela de Ajuda, pelo tour e pelo doc externo (AJUDA.md).
+// Fase 41 (TELAS-01, 2026-09-25): as 6 seções por tela saíram do array fixo
+// para o objeto local `porTela` (abaixo), indexado por id e iterado na ordem
+// que o registro único `web/src/telas.js` declara (`telasDaAjuda()`).
+// `historico`/`perfil` não têm seção própria — achado registrado, D-04, não
+// corrigido nesta fase. As 2 seções institucionais do topo e as 3 do fim
+// continuam literais aqui. Textos idênticos byte a byte.
 function ajudaSecoes(cp, operador) {
   const tRadar = cp.tituloRadar, tWl = cp.tituloWatchlist, tPort = cp.tituloPortfolio;
   const tOpc = cp.tituloOpcoes || "Opções";
   const aprofundar = cp.btnAprofundar; // "Aprofundar com IA" / "Plano da mesa (IA)"
+  const porTela = {
+    evolucao: ["Acompanhar (início)", [
+      "A tela inicial resume seu dia: melhores oportunidades da sua watchlist, a curva do patrimônio simulado, sua sequência de estudo e um lembrete do que fazer a seguir.",
+      "É o ponto de partida — dali você vai para o " + tRadar + ".",
+    ]],
+    radar: [tRadar, [
+      "Varre o universo de ações e lista, por ativo: o veredito, a **confluência** (anel de 0–100% = quanto o ativo bate com um setup clássico), uma leitura rápida e o mini-gráfico de preço.",
+      "Em cada card você pode " + (operador ? "abrir o **" + aprofundar + "** (leitura da IA) ou **monitorar** o ativo." : "abrir o **" + aprofundar + "** (leitura da IA) ou levar para a **" + tWl + "**."),
+      "A confluência mede aderência ao padrão em dados passados — não é probabilidade de resultado.",
+    ]],
+    mercado: [tWl, [
+      "Seus ativos " + (operador ? "monitorados" : "em estudo") + ", ordenados por oportunidade. Cada linha tem um mini-gráfico e abre a análise completa.",
+      "Use para acompanhar de perto os ativos que te interessam antes de simular uma operação.",
+    ]],
+    carteira: [tPort, [
+      "Sua carteira **simulada**: patrimônio, resultado do dia e cada posição com a régua do plano (invalidação → gatilho → alvo).",
+      "Você simula compras e vendas, define stop e alvo, e acompanha o resultado em R — sem risco de dinheiro real.",
+    ]],
+    // 2026-09-12 (Fase 26, achado A4): a aba Opções existe na barra desde a
+    // Fase 24 e a Ajuda nunca a descreveu — a pessoa tocava o 5º ícone sem
+    // nenhuma explicação do que aquilo é, de onde vem o dado e por que ele é
+    // de fim de pregão. Mantido no mesmo formato título/parágrafos das outras,
+    // e ESPELHADO em `docs/AJUDA.md` (a regra do topo daquele arquivo).
+    opcoes: [tOpc, [
+      "Estuda **opções** sobre um ativo por vez, escolhido na sua " + tWl + ": como o ativo vem se comportando, quais estruturas do catálogo fazem sentido, os vencimentos disponíveis e os setups já armados.",
+      "O dado vem de um serviço externo de opções e é uma **leitura de fim de pregão** — não é o preço de agora. O app não recalcula nada aqui: campo que o serviço não mandou aparece como travessão, nunca como zero.",
+      "Abrir a cadeia de um vencimento custa consultas ao serviço, e a tela diz **antes** quantas vão ser. Nenhuma ordem sai desta aba: é estudo da estrutura, do risco e do retorno possível.",
+    ]],
+    // 2026-09-10 (aba-opcoes F2): "Operador IA" saiu da barra inferior; a
+    // linha "Onde fica" existe porque, sem ela, o guia descreveria uma tela
+    // que o usuário não acha mais na navegação principal.
+    agente: ["Operador IA", [
+      "Um agente que acompanha as posições da carteira simulada e age pelas regras que você define (proteger stop, realizar no alvo). Com conta, roda no servidor 24×5, mesmo com o app fechado.",
+      "Você escolhe **Executar** (ele simula a saída no stop/alvo) ou **Apenas sinalizar** (só avisa), define regras e tetos, e o intervalo de reavaliação. Sempre sobre a carteira simulada.",
+      "Onde fica: abra o **Portfólio** e toque em **Abrir o Operador IA** no topo da tela.",
+    ]],
+  };
   return [
     ["O que é o Boris+", [
       "Um app educacional de análise técnica da B3. Ele varre o mercado, mostra oportunidades de estudo e deixa você simular uma carteira — tudo com dinheiro fictício.",
@@ -2508,40 +2551,7 @@ function ajudaSecoes(cp, operador) {
       "Você troca em Perfil → Modo de trabalho. O modo muda a cor, os rótulos e o tom — mas a execução e o risco são sempre seus.",
       operador ? "Você está no Modo Operador agora." : "Você está no Modo Estudo agora.",
     ]],
-    ["Acompanhar (início)", [
-      "A tela inicial resume seu dia: melhores oportunidades da sua watchlist, a curva do patrimônio simulado, sua sequência de estudo e um lembrete do que fazer a seguir.",
-      "É o ponto de partida — dali você vai para o " + tRadar + ".",
-    ]],
-    [tRadar, [
-      "Varre o universo de ações e lista, por ativo: o veredito, a **confluência** (anel de 0–100% = quanto o ativo bate com um setup clássico), uma leitura rápida e o mini-gráfico de preço.",
-      "Em cada card você pode " + (operador ? "abrir o **" + aprofundar + "** (leitura da IA) ou **monitorar** o ativo." : "abrir o **" + aprofundar + "** (leitura da IA) ou levar para a **" + tWl + "**."),
-      "A confluência mede aderência ao padrão em dados passados — não é probabilidade de resultado.",
-    ]],
-    [tWl, [
-      "Seus ativos " + (operador ? "monitorados" : "em estudo") + ", ordenados por oportunidade. Cada linha tem um mini-gráfico e abre a análise completa.",
-      "Use para acompanhar de perto os ativos que te interessam antes de simular uma operação.",
-    ]],
-    [tPort, [
-      "Sua carteira **simulada**: patrimônio, resultado do dia e cada posição com a régua do plano (invalidação → gatilho → alvo).",
-      "Você simula compras e vendas, define stop e alvo, e acompanha o resultado em R — sem risco de dinheiro real.",
-    ]],
-    // 2026-09-12 (Fase 26, achado A4): a aba Opções existe na barra desde a
-    // Fase 24 e a Ajuda nunca a descreveu — a pessoa tocava o 5º ícone sem
-    // nenhuma explicação do que aquilo é, de onde vem o dado e por que ele é
-    // de fim de pregão. Mantido no mesmo formato título/parágrafos das outras,
-    // e ESPELHADO em `docs/AJUDA.md` (a regra do topo daquele arquivo).
-    [tOpc, [
-      "Estuda **opções** sobre um ativo por vez, escolhido na sua " + tWl + ": como o ativo vem se comportando, quais estruturas do catálogo fazem sentido, os vencimentos disponíveis e os setups já armados.",
-      "O dado vem de um serviço externo de opções e é uma **leitura de fim de pregão** — não é o preço de agora. O app não recalcula nada aqui: campo que o serviço não mandou aparece como travessão, nunca como zero.",
-      "Abrir a cadeia de um vencimento custa consultas ao serviço, e a tela diz **antes** quantas vão ser. Nenhuma ordem sai desta aba: é estudo da estrutura, do risco e do retorno possível.",
-    ]],
-    ["Operador IA", [
-      "Um agente que acompanha as posições da carteira simulada e age pelas regras que você define (proteger stop, realizar no alvo). Com conta, roda no servidor 24×5, mesmo com o app fechado.",
-      "Você escolhe **Executar** (ele simula a saída no stop/alvo) ou **Apenas sinalizar** (só avisa), define regras e tetos, e o intervalo de reavaliação. Sempre sobre a carteira simulada.",
-      // 2026-09-10 (aba-opcoes F2): ele saiu da barra inferior; sem esta
-      // linha o tour descreveria uma tela que o usuário não acha mais.
-      "Onde fica: abra o **Portfólio** e toque em **Abrir o Operador IA** no topo da tela.",
-    ]],
+    ...telasDaAjuda().map((id) => porTela[id]),
     ["Fundamento (A/B/C)", [
       "Ao lado do sinal técnico, alguns ativos mostram um selo de **fundamento**: A (sólido), B (regular) ou C (fraco), por valuation, rentabilidade e solidez.",
       "É um **filtro de qualidade**, nunca um gatilho de compra: a técnica manda no plano. Quando a decisão técnica é operável mas o fundamento é fraco (C), a confiança desce um degrau. Sem dado de fundamento, o app mostra “sem dado” — nunca inventa.",
@@ -2571,14 +2581,24 @@ function ajudaSecoes(cp, operador) {
 //    O TEXTO do corpo não mudou: é a mesma frase de mission+disclaimer.
 //  · A ABA OPÇÕES entrou como 4º passo do funil. Ela é o 5º item da barra
 //    desde a Fase 24 e o tour nunca a apresentou.
+//
+// Fase 41 (TELAS-01, 2026-09-25): os 4 passos de tela (radar/mercado/
+// carteira/opcoes) saíram do array fixo para o objeto local `porTela`,
+// indexado por id e iterado na ordem que o registro único
+// `web/src/telas.js` declara (`telasDoTour()`). Os 2 passos de introdução
+// (que não são tela) continuam literais no topo. Textos idênticos byte a
+// byte — só o LUGAR de cada par [título, corpo] mudou dentro desta função.
 function tourPassos(cp) {
+  const porTela = {
+    radar: ["1 · Descubra no " + cp.tituloRadar, "O " + cp.tituloRadar + " varre o mercado e mostra os ativos com setup, com confluência e leitura rápida."],
+    mercado: ["2 · Acompanhe na " + cp.tituloWatchlist, "Leve os melhores para a " + cp.tituloWatchlist + " e acompanhe de perto antes de agir."],
+    carteira: ["3 · Simule no " + cp.tituloPortfolio, "Simule compras e vendas no " + cp.tituloPortfolio + " — com stop, alvo e risco em R, sem dinheiro real."],
+    opcoes: ["4 · Estude estruturas em " + (cp.tituloOpcoes || "Opções"), "A aba " + (cp.tituloOpcoes || "Opções") + " lê o comportamento de um ativo da sua lista e mostra as estruturas de opções que cabem nele — leitura de fim de pregão, sem ordem nenhuma."],
+  };
   return [
     ["Bem-vindo · você está em Acompanhar", "Esta é a tela em que o app abre: o resumo do seu dia — as melhores oportunidades da sua " + cp.tituloWatchlist + ", a curva do patrimônio simulado e o próximo passo."],
     ["O que o Boris+ é — e o que não é", "Um app para **estudar** o mercado da B3 com uma carteira simulada. Tudo aqui é educacional — nenhuma ordem real é enviada."],
-    ["1 · Descubra no " + cp.tituloRadar, "O " + cp.tituloRadar + " varre o mercado e mostra os ativos com setup, com confluência e leitura rápida."],
-    ["2 · Acompanhe na " + cp.tituloWatchlist, "Leve os melhores para a " + cp.tituloWatchlist + " e acompanhe de perto antes de agir."],
-    ["3 · Simule no " + cp.tituloPortfolio, "Simule compras e vendas no " + cp.tituloPortfolio + " — com stop, alvo e risco em R, sem dinheiro real."],
-    ["4 · Estude estruturas em " + (cp.tituloOpcoes || "Opções"), "A aba " + (cp.tituloOpcoes || "Opções") + " lê o comportamento de um ativo da sua lista e mostra as estruturas de opções que cabem nele — leitura de fim de pregão, sem ordem nenhuma."],
+    ...telasDoTour().map((id) => porTela[id]),
   ];
 }
 
@@ -9144,6 +9164,13 @@ export default function App() {
   // (D6 do plano): nada de raspar tela, nada de conta nova. "mercado" segue
   // FORA daqui de propósito — o formato dele já existe e não muda (vem de
   // `r.itens`, dentro do próprio PetSheet, depois que /api/pet/resumo responde).
+  // Fase 41 (TELAS-01, 2026-09-25, D-03): o switch abaixo NÃO foi editado —
+  // dados de runtime não viram registro estático. Os `case "<id>":` deste
+  // switch são amarrados às entradas `snapshot: "switch"` de
+  // web/src/telas.js por web/tests/test_telas_registro.mjs (PARTE E,
+  // 41-02) — case novo sem entrada no registro, ou entrada sem case,
+  // reprova em teste. "mercado" é `snapshot: "petSheet"` no registro (a
+  // única tela sem case aqui, de propósito, ver comentário acima).
   const petSnapshot = useMemo(() => {
     if (!data) return {};
     switch (petTela) {
