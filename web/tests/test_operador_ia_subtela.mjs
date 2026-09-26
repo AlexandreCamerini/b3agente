@@ -18,6 +18,7 @@ import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { COPY } from "../src/copy.js";
+import { TELAS, defsDaBarra, telaDoAssistente } from "../src/telas.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const bruto = readFileSync(join(here, "..", "src", "App.jsx"), "utf8");
@@ -36,15 +37,21 @@ const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if 
 const conta = (re) => (app.match(re) || []).length;
 
 // ---- 1) a barra inferior -----------------------------------------------------
-const defs = app.match(/const defs = \[[\s\S]*?\]\];/);
-ok("bloco `defs` do BottomNav encontrado", !!defs);
-const defsTxt = defs ? defs[0] : "";
-ok("defs tem 5 itens", (defsTxt.match(/\["/g) || []).length === 5);
-ok('o 5º item é ["opcoes", (cp && cp.tabOpcoes)',
-   /\["opcoes", \(cp && cp\.tabOpcoes\)/.test(defsTxt));
-ok("as linhas de mercado e radar continuam intactas (test_copy_theme)",
-   defsTxt.includes('["mercado", (cp && cp.tituloWatchlist)')
-   && defsTxt.includes('["radar", (cp && cp.tabRadar)'));
+// REVERSÃO DELIBERADA (2026-09-25, Fase 41, TELAS-01): `defs` deixou de ser
+// um array literal em App.jsx — BottomNav agora lê `defsDaBarra(cp)` do
+// registro único `web/src/telas.js`. A asserção trocou de regex-sobre-texto
+// para comportamento: mesma cobertura (5 itens, opções em 5º, rótulo de
+// mercado/radar vindo do campo certo do registro), agora contra a fonte que
+// o componente realmente chama.
+ok("BottomNav usa defsDaBarra(cp) em App.jsx", /const defs = defsDaBarra\(cp\);/.test(app));
+const defsEstudo = defsDaBarra(COPY.estudo);
+ok("defsDaBarra(COPY.estudo) tem 5 itens", defsEstudo.length === 5, "achou " + defsEstudo.length);
+ok('o 5º item é ["opcoes", COPY.estudo.tabOpcoes]',
+   defsEstudo[4][0] === "opcoes" && defsEstudo[4][1] === COPY.estudo.tabOpcoes);
+ok("a entrada radar do registro declara rotuloCp 'tabRadar'",
+   TELAS.find((t) => t.id === "radar").rotuloCp === "tabRadar");
+ok("a entrada mercado do registro declara rotuloCp 'tituloWatchlist'",
+   TELAS.find((t) => t.id === "mercado").rotuloCp === "tituloWatchlist");
 
 // ---- 2) nada do arranjo antigo sobrou ---------------------------------------
 ok('zero ocorrências de ["agente", "Operador IA"]', conta(/\["agente", "Operador IA"\]/g) === 0);
@@ -95,8 +102,16 @@ const navIcon = bruto.match(/const paths = \{[\s\S]*?\n  \};/);
 ok("NavIcon.paths encontrado", !!navIcon);
 ok("NavIcon.paths mantém os ids `opcoes` E `agente`",
    !!navIcon && /\bopcoes:/.test(navIcon[0]) && /\bagente:/.test(navIcon[0]));
-ok("petTela cobre historico, agente e o default carteira",
-   /const petTela = tab === "carteira" \? \(carteiraView === "historico" \? "historico" : carteiraView === "agente" \? "agente" : "carteira"\) : tab;/.test(app));
+// REVERSÃO DELIBERADA (2026-09-25, Fase 41, TELAS-01): a ternária inline
+// virou telaDoAssistente(tab, carteiraView), lida do registro único — a
+// asserção trocou de regex-sobre-texto por tabela-verdade executando a
+// função de verdade, mesma cobertura (historico/agente/carteira).
+ok("petTela usa telaDoAssistente(tab, carteiraView) em App.jsx",
+   /const petTela = telaDoAssistente\(tab, carteiraView\);/.test(app));
+ok("telaDoAssistente cobre historico, agente e o default carteira",
+   telaDoAssistente("carteira", "historico") === "historico"
+   && telaDoAssistente("carteira", "agente") === "agente"
+   && telaDoAssistente("carteira", "main") === "carteira");
 ok('o case "agente" do petSnapshot continua existindo', /case "agente":/.test(app));
 
 // ---- 8) copy nos dois modos --------------------------------------------------

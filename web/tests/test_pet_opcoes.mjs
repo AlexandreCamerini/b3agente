@@ -27,6 +27,8 @@
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
+import { COPY } from "../src/copy.js";
+import { defsDaBarra } from "../src/telas.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const app = readFileSync(join(here, "..", "src", "App.jsx"), "utf8");
@@ -39,13 +41,18 @@ const ok = (name, cond, extra) => {
   if (!cond) fails++;
 };
 
-// ------------------------------------------------- as abas, DERIVADAS da barra
-// `const defs = [["evolucao", "Acompanhar"], ["radar", …], …]`
-const defsBloco = app.match(/const defs = \[\[([\s\S]*?)\]\];/);
-ok("BottomNav.defs foi encontrado em App.jsx (a fonte derivada deste guardião)", !!defsBloco);
-const abasDaBarra = defsBloco
-  ? [...("[[" + defsBloco[1] + "]]").matchAll(/\["([a-z]+)",/g)].map((m) => m[1])
-  : [];
+// ------------------------------------------------- as abas, DERIVADAS do registro
+// REVERSÃO DELIBERADA (2026-09-25, Fase 41, TELAS-01): a lista literal
+// `const defs = [["evolucao", "Acompanhar"], ["radar", …], …]` saiu do
+// App.jsx para o registro único `web/src/telas.js` (consolidação C3 da Fase
+// 26 chegou). A asserção deixou de casar regex sobre o array embutido e
+// passou a chamar `defsDaBarra` (a mesma função que o BottomNav agora
+// chama) — cobertura igual: ainda cruza a mesma lista de abas contra
+// PET_TELAS/switch abaixo. O guardião central da consolidação é
+// `web/tests/test_telas_registro.mjs`; este arquivo permanece como
+// verificação dedicada da aba Opções (histórico do achado A1).
+ok("BottomNav usa defsDaBarra(cp) em App.jsx", /const defs = defsDaBarra\(cp\);/.test(app));
+const abasDaBarra = defsDaBarra(COPY.estudo).map(([id]) => id);
 ok("BottomNav.defs tem as 5 abas da barra", abasDaBarra.length === 5, "achou: " + abasDaBarra.join(", "));
 ok('"opcoes" está na barra inferior (a aba da Fase 24)', abasDaBarra.includes("opcoes"));
 

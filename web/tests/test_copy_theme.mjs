@@ -14,6 +14,7 @@ import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { COPY, copyFor } from "../src/copy.js";
+import { defsDaBarra } from "../src/telas.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const app = readFileSync(join(here, "..", "src", "App.jsx"), "utf8");
@@ -45,14 +46,27 @@ for (const [nome, usado, proibido] of [
 }
 ok("saudação + resumo do dia na voz do modo", app.includes("cp.saudacao(") && app.includes("cp.resumoDia("));
 ok("toasts de compra/venda na voz do modo", app.includes("cp.toastCompra(") && app.includes("cp.toastVenda("));
-ok("nav fala a língua do modo", app.includes('["mercado", (cp && cp.tituloWatchlist)'));
+// REVERSÃO DELIBERADA (2026-09-25, Fase 41, TELAS-01): BottomNav.defs virou
+// defsDaBarra(cp) (registro web/src/telas.js) — a asserção trocou de
+// texto-literal por comportamento: rótulo de mercado batendo com
+// COPY.<modo>.tituloWatchlist nos dois modos, mesma cobertura de antes.
+ok("BottomNav usa defsDaBarra(cp) em App.jsx", app.includes("const defs = defsDaBarra(cp);"));
+const rotuloMercado = (cp) => defsDaBarra(cp).find(([id]) => id === "mercado")[1];
+ok("nav fala a língua do modo (mercado)",
+   rotuloMercado(COPY.estudo) === COPY.estudo.tituloWatchlist
+   && rotuloMercado(COPY.operador) === COPY.operador.tituloWatchlist);
 
 // ---- qa/34: fraseologia nas superfícies secundárias ---------------------------
 // Auditoria (item B, resto): trechos hardcodados na voz de Estudo vazavam para
 // o Operador; 3 chaves diferenciadas existiam no dicionário mas nunca chegavam
 // à tela (órfãs). Cada assert tranca um dos gaps corrigidos.
+// REVERSÃO DELIBERADA (2026-09-25, Fase 41, TELAS-01): mesma migração do
+// bloco "nav fala a língua do modo" acima, aplicada ao rótulo do radar.
+const rotuloRadar = (cp) => defsDaBarra(cp).find(([id]) => id === "radar")[1];
 ok("qa/34: aba do Radar fala a língua do modo (Radar × Mesa)",
-  app.includes('["radar", (cp && cp.tabRadar)') && COPY.estudo.tabRadar !== COPY.operador.tabRadar);
+  rotuloRadar(COPY.estudo) === COPY.estudo.tabRadar
+  && rotuloRadar(COPY.operador) === COPY.operador.tabRadar
+  && COPY.estudo.tabRadar !== COPY.operador.tabRadar);
 ok("qa/34: onboarding da home na voz do modo",
   app.includes("cp.welcomeTitulo") && app.includes("cp.welcomeCorpo") && app.includes("cp.welcomeCta")
   && !app.includes("Bem-vindo ao seu simulador"));

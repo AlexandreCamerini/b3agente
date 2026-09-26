@@ -9,6 +9,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { DISCLAIMERS } from "../src/disclaimers.js";
+import { TELAS, defsDaBarra } from "../src/telas.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const src = (f) => readFileSync(join(here, "..", "src", f), "utf8");
@@ -41,7 +42,15 @@ const appSrc = src("App.jsx");
 // Rodada final (autorizada): rótulo definitivo "Radar" (id preservado).
 // qa/34: o rótulo da aba agora fala a língua do modo — cp.tabRadar
 // ("Radar" no Estudo × "Mesa" no Operador), com fallback "Radar".
-ok("aba radar na navegação (cp.tabRadar, fallback Radar)", /\[\s*"radar",\s*\(cp && cp\.tabRadar\) \|\| "Radar"\s*\]/.test(appSrc));
+// REVERSÃO DELIBERADA (2026-09-25, Fase 41, TELAS-01): o literal
+// `["radar", (cp && cp.tabRadar) || "Radar"]` saiu do App.jsx para o
+// registro único `web/src/telas.js` — mesma cobertura (rótulo do modo com
+// fallback "Radar"), verificada contra a fonte nova.
+const entradaRadar = TELAS.find((t) => t.id === "radar");
+ok("a entrada radar do registro declara rotuloCp 'tabRadar' e rotuloPadrao 'Radar'",
+   entradaRadar.rotuloCp === "tabRadar" && entradaRadar.rotuloPadrao === "Radar");
+ok("defsDaBarra(null) devolve 'Radar' para radar (fallback sem cp)",
+   defsDaBarra(null).find(([id]) => id === "radar")[1] === "Radar");
 ok("ícone radar no NavIcon", /radar:\s*<>/.test(appSrc));
 ok("RadarScreen definida", appSrc.includes("function RadarScreen"));
 ok("RadarScreen renderizada na aba", /tab === "radar" && <RadarScreen/.test(appSrc));

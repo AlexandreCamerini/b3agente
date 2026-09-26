@@ -27,6 +27,7 @@
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
+import { idsDasTelas, telaDoAssistente } from "../src/telas.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const app = readFileSync(join(here, "..", "src", "App.jsx"), "utf8");
@@ -165,6 +166,11 @@ ok("a LLM continua opt-in atrás da didática grátis (BorisChat, não chamada d
 // repetição — é para isso que existe o `test_pet_opcoes.mjs`, que DERIVA a
 // lista do `BottomNav` em vez de repeti-la.
 const ABAS_PET = ["mercado", "carteira", "evolucao", "radar", "agente", "historico", "perfil", "opcoes"];
+// REVERSÃO DELIBERADA (2026-09-25, Fase 41, TELAS-01/D-01): o conjunto de
+// telas do assistente agora tem fonte única em web/src/telas.js — ABAS_PET
+// (escrita à mão) precisa continuar sendo exatamente esse conjunto.
+ok("new Set(ABAS_PET) é igual ao conjunto de idsDasTelas() (D-01)",
+   JSON.stringify([...new Set(ABAS_PET)].sort()) === JSON.stringify([...new Set(idsDasTelas())].sort()));
 // 2026-09-10 (aba-opcoes F2, quick 260910-biz) — asserção ATUALIZADA, não
 // relaxada. O que mudou: o "Operador IA" saiu da barra inferior (que passou a
 // ter "Opções" no 5º lugar) e virou SUB-TELA do Portfólio, pelo mesmo
@@ -174,8 +180,15 @@ const ABAS_PET = ["mercado", "carteira", "evolucao", "radar", "agente", "histori
 // regex nova é tão exata quanto a antiga — continua travando a expressão
 // inteira, agora com os três casos. `ABAS_PET` (abaixo) fica intacta: a aba
 // "agente" continua existindo para o pet, só que via `carteiraView`.
-ok("PetFab/PetSheet recebem a aba ativa calculada de tab+carteiraView (petTela)",
-   /const petTela = tab === "carteira" \? \(carteiraView === "historico" \? "historico" : carteiraView === "agente" \? "agente" : "carteira"\) : tab;/.test(app));
+// REVERSÃO DELIBERADA (2026-09-25, Fase 41, TELAS-01): a ternária inline
+// virou telaDoAssistente(tab, carteiraView), lida do registro único — mesma
+// tabela-verdade (historico/agente/carteira), agora executada de verdade.
+ok("PetFab/PetSheet recebem a aba ativa calculada de telaDoAssistente(tab, carteiraView)",
+   /const petTela = telaDoAssistente\(tab, carteiraView\);/.test(app));
+ok("telaDoAssistente cobre historico, agente e o default carteira",
+   telaDoAssistente("carteira", "historico") === "historico"
+   && telaDoAssistente("carteira", "agente") === "agente"
+   && telaDoAssistente("carteira", "main") === "carteira");
 ok("PetSheet é chamado com a tela ativa e o snapshot por tela",
    /<PetSheet didatica=\{didatica\} tela=\{petTela\} snapshot=\{petSnapshot\}/.test(app));
 for (const aba of ABAS_PET) {

@@ -7,6 +7,10 @@ import { createChart, ColorType, CrosshairMode, LineStyle } from "lightweight-ch
 import { sampleTechnicals } from "./demo.js";
 import { DISCLAIMERS, TERMO_OPERADOR_VERSAO, TERMO_DESCOBERTO_VERSAO } from "./disclaimers.js";
 import { copyFor, historicoTxt, entradaAutoTxt } from "./copy.js";
+// Fase 41 (TELAS-01): registro único das 8 telas que o assistente conhece —
+// BottomNav/petTela leem daqui nesta plano (41-02); tourPassos/ajudaSecoes
+// passam a iterar os ids do registro na 41-02/Task 2.
+import { defsDaBarra, telasDoTour, telasDaAjuda, telaDoAssistente } from "./telas.js";
 import { Markdown, MdInline } from "./markdown.jsx";
 import { extentOf, linePath, lastVal } from "./chartutil.js";
 import OpcoesScreen from "./opcoes/OpcoesScreen.jsx";
@@ -1032,10 +1036,11 @@ function BottomNav({ tab, setTab, cp }) {
   // Operador IA não sumiu — virou sub-tela do Portfólio (mesmo mecanismo que
   // "Histórico" já usava), acessível pela linha no topo dele e por
   // `goAgente()`. O ícone `agente` continua em `NavIcon.paths`.
-  const defs = [["evolucao", "Acompanhar"], ["radar", (cp && cp.tabRadar) || "Radar"],
-    ["mercado", (cp && cp.tituloWatchlist) || "Watchlist"],
-    ["carteira", (cp && cp.tituloPortfolio) || "Portfólio"],
-    ["opcoes", (cp && cp.tabOpcoes) || "Opções"]];
+  // Fase 41 (TELAS-01, 2026-09-25): a lista de abas, a ordem e o fallback
+  // literal de cada rótulo moram em web/src/telas.js (registro único,
+  // consolidação do achado C3/Fase 26). O TEXTO por modo continua em
+  // copy.js via rotuloCp (D-02) — nada mudou visível aqui, só a fonte.
+  const defs = defsDaBarra(cp);
   return (
     <nav style={{ flex: "none", background: T.bgPanel, borderTop: `1px solid ${T.borderSubtle}`, paddingBottom: "env(safe-area-inset-bottom)" }}>
       <div style={{ display: "flex", maxWidth: CONTENT_MAX_WIDTH, margin: "0 auto", padding: "5px 6px" }}>
@@ -9129,7 +9134,11 @@ export default function App() {
   // 2026-09-10 (aba-opcoes F2): "agente" entrou como TERCEIRA sub-tela da
   // Carteira, porque o Operador IA saiu da barra inferior. O pet continua
   // explicando a tela "agente" com o mesmo snapshot de antes.
-  const petTela = tab === "carteira" ? (carteiraView === "historico" ? "historico" : carteiraView === "agente" ? "agente" : "carteira") : tab;
+  // Fase 41 (TELAS-01, 2026-09-25): a ternária virou telaDoAssistente(),
+  // lida do registro único web/src/telas.js — as sub-telas de carteira
+  // (agente/historico) são declaradas lá via subtelaDe/carteiraView, em vez
+  // de repetidas aqui. Mesmo resultado para as mesmas combinações.
+  const petTela = telaDoAssistente(tab, carteiraView);
 
   // O snapshot por tela é o MESMO view-model que a tela já usa para renderizar
   // (D6 do plano): nada de raspar tela, nada de conta nova. "mercado" segue
