@@ -59,11 +59,16 @@ de produto — não por ordem de descoberta.
 
 ### Consolidação técnica
 
-- [ ] **TELAS-01**: Registro único de telas no front (label, snapshot,
+- [x] **TELAS-01**: Registro único de telas no front (label, snapshot,
   passo de tour, seção de ajuda), do qual `BottomNav.defs`, `tourPassos`,
   `ajudaSecoes` e `petSnapshot` passam a ler — paridade seguindo o MESMO
   padrão de `defaults.py`×`catalog.js`: dois pontos testados (registro do
-  front × `PET_TELAS` do backend), não um cruzando JS/Python
+  front × `PET_TELAS` do backend), não um cruzando JS/Python. **Done em
+  2026-09-25** (Fase 41, `F10-20260925-02`): registro `web/src/telas.js`
+  com as 8 telas do assistente, paridade testada em dois pontos
+  (`test_telas_registro.mjs` + `server/tests/test_telas_paridade.py`),
+  zero mudança visível confirmada ao vivo pelo Alex (checkpoint aprovado:
+  "aprovado, ciente dos achados, SC#4 ok").
 
 ## v2 Requirements
 
@@ -94,7 +99,7 @@ Reconhecido, mas fora desta milestone — decisão de escopo pendente do Alex.
 | KB-02 | Phase 38 | Done |
 | NAV-01 | Phase 39 | Done |
 | ESTADO-01 | Phase 40 | Done |
-| TELAS-01 | Phase 41 | Pending |
+| TELAS-01 | Phase 41 | Done |
 
 **Coverage:**
 - v1 requirements: 5 total
@@ -103,6 +108,14 @@ Reconhecido, mas fora desta milestone — decisão de escopo pendente do Alex.
 
 ---
 *Requirements defined: 2026-09-23*
+*Last updated: 2026-09-25 — Fase 41 fechada: TELAS-01 Done, publicado em
+produção (`F10-20260925-02`), checkpoint humano do roteiro de 6 itens +
+ciência nomeada dos achados (D-04) + aceite nomeado da leitura do SC#4
+(D-02) aprovados pelo Alex ao vivo em 2026-09-25 ("aprovado, ciente dos
+achados, SC#4 ok"). Todas as 5 requirements da milestone v1.8 concluídas
+(KB-01/KB-02/NAV-01/ESTADO-01/TELAS-01); fechamento do milestone é decisão
+pendente do Alex (`/gsd-complete-milestone`). Ver STATE.md/ROADMAP.md para
+o detalhe.*
 *Last updated: 2026-09-25 — Fase 40 fechada: ESTADO-01 Done, publicado em
 produção (`F10-20260925-01`), checkpoint humano do roteiro de 10 itens +
 DP-1 (deep-link mantém o ticker lembrado) aprovado pelo Alex ao vivo em

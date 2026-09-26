@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.8
 milestone_name: Didática ampliada + continuidade da aba Opções
 status: executing
-stopped_at: "Fase 41 (TELAS-01), Plano 41-02 EXECUTADO em 2026-09-25 -- BottomNav/petTela/tourPassos/ajudaSecoes religados a web/src/telas.js (SC#1, zero lista paralela restante); tourPassos/ajudaSecoes seguiram TDD RED (2 falhas nomeadas, PARTE D) -> GREEN (textos movidos para porTela, iterados por telasDoTour()/telasDaAjuda(), byte a byte iguais ao fixture, PARTE C); switch de petSnapshot intocado, amarrado ao registro por sha256 (PARTE E, D-03). 6 guardioes reconciliados com nota datada (5 previstos + test_fase22_componentes_compartilhados.mjs, achado na suite canonica -- contava \"radar:\" no App.jsx inteiro, quebrou com porTela.radar legitimo). Prova negativa dupla executada e revertida: case \"fantasma\" reprova PARTE E; caractere trocado num titulo do tour reprova PARTE C. Cabecalho \"Como adicionar uma tela\" em telas.js + walkthrough SC#4 real (tela hipotetica \"estudos\": 16 asercoes JS + 1 pytest reprovando nomeando a causa, revertido, git status limpo) -- ver 41-02-SUMMARY.md. Suite canonica fora do sandbox: 3050 pytest passed/5 skipped/3 xfailed (identico ao baseline 41-01, zero regressao), 165 .mjs OK/0 falha. npx vite build ok. git diff 1d4f54a -- copy.js/AJUDA.md/server/app/ vazio (D-04 confirmado desde a captura de contexto da fase). Commits: 73f50a2 (Task 1), 8495470 (Task 2 RED), 3f5785c (Task 2 GREEN), 3e9ea9f (Task 3), b633238 (fix guardiao Fase 22). Proximo passo: Plano 41-03 (checkpoint humano curto D-05, publicacao, fechamento dos docs). STATE.md editado a mao (mutadores `state.*` do gsd-sdk NAO chamados)."
-last_updated: "2026-09-26T00:41:00.000Z"
-last_activity: 2026-09-25 -- Fase 41 Plano 41-02 executado (5 commits, SUMMARY criado, self-check PASSED); aguardando /gsd-execute-phase 41 continuar com o Plano 41-03 (checkpoint humano bloqueante)
+stopped_at: "Fase 41 (TELAS-01) FECHADA em 2026-09-25 -- Plano 41-03 executado: checkpoint humano curto ao vivo aprovado pelo Alex (roteiro de 6 itens: 5 abas nos dois modos, tour de 6 passos, 11 secoes de Ajuda, assistente em 3 telas incluindo subtela; ciencia nomeada dos 6 achados de inconsistencia registrados no 41-02-SUMMARY, NAO corrigidos por decisao -- respondeu \"aprovado, ciente dos achados, SC#4 ok\"; aceite nomeado da leitura do SC#4 -- registro centraliza a LISTA de telas, o CONTEUDO/textos/icone/snapshot continuam nos seus lugares por D-02, nao virou \"1 arquivo por tela nova\"); publicacao em producao F10-20260925-02 (bump.sh + publicar-web.sh, commit 7cbd8fe, push direto v2/interacao-estrutural->main, origin/main==HEAD confirmado); /api/health de producao conferido mostrando o carimbo novo (4 tentativas, ~70s de redeploy). Suite canonica fora do sandbox: 3050 pytest passed/5 skipped/3 xfailed/0 failed (identico ao baseline 41-01/41-02, zero regressao), 165/165 .mjs OK. Docs fechados a mao: REQUIREMENTS.md (TELAS-01 Done), ROADMAP.md (Fase 41 3/3), STATE.md (este bloco). Todas as 5 requirements da milestone v1.8 concluidas (KB-01/KB-02/NAV-01/ESTADO-01/TELAS-01) -- as 4 fases da milestone (38/39/40/41) estao fechadas; fechamento formal do milestone v1.8 e decisao pendente do Alex (`/gsd-complete-milestone`), NAO feito aqui por instrucao explicita do 41-03-PLAN.md. STATE.md editado a mao (mutadores `state.*` do gsd-sdk NAO chamados)."
+last_updated: "2026-09-25T22:15:00.000Z"
+last_activity: 2026-09-25 -- Plano 41-03 (checkpoint humano + publicacao + fechamento de docs) executado e commitado, sequencial, sem worktree; Fase 41 fechada; milestone v1.8 com as 4 fases completas, fechamento formal pendente de decisao do Alex
 progress:
   total_phases: 4
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 17
-  completed_plans: 16
-  percent: 94
+  completed_plans: 17
+  percent: 100
 ---
 
 # Project State
@@ -21,9 +21,89 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-20)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Fase 41 (TELAS-01) — CONTEXT.md capturado em 2026-09-25 (`41-CONTEXT.md`: registro com as 8 telas do assistente, paridade 8×8 com PET_TELAS; textos de tour/ajuda ficam nas funções; refactor puro, zero mudança visível; checkpoint humano curto antes de publicar). PLANEJADA em 2026-09-25 (`--skip-ui`, escolha do Alex — D-04 trava zero mudança visível): 3 planos/3 ondas (41-01 fixture pré-refactor + registro `web/src/telas.js` + paridade 8×8 com PET_TELAS; 41-02 religa os 4 consumidores + guardiões reconciliados + walkthrough SC#4; 41-03 checkpoint humano curto + publicação + docs). gsd-plan-checker: 0 blockers, 1 warning (SC#4 reinterpretado sem sign-off) corrigido à mão no 41-03 (frase nomeada no checkpoint). **41-01 e 41-02 EXECUTADOS em 2026-09-25** (ver abaixo). Próximo passo: continuar `/gsd-execute-phase 41` com o Plano 41-03 (checkpoint humano bloqueante).
+**Current focus:** Fase 41 FECHADA (TELAS-01, publicada em `F10-20260925-02`); as 4 fases da milestone v1.8 (38/39/40/41) estão completas — próximo passo é decisão do Alex sobre fechar o milestone (`/gsd-complete-milestone`) ou abrir a v1.9 já registrada em `PROJECT.md` (auditoria da Jornada de Decisão).
 
 ## Current Position
+
+Phase: 41 (consolida-o-de-registros-de-tela) — FECHADA (2026-09-25), 3/3
+  planos completos, publicada em produção. Fase 40 segue FECHADA (2/2,
+  publicada em produção). Milestone v1.8 com as 4 fases (38/39/40/41)
+  completas.
+Plan: 3 of 3 completos (41-01: fixture + registro; 41-02: religação dos 4
+  consumidores + guardiões reconciliados + walkthrough SC#4; 41-03:
+  checkpoint humano curto + publicação + fechamento de docs). Próximo passo:
+  decisão do Alex sobre fechar o milestone v1.8 (`/gsd-complete-milestone`).
+Status: TELAS-01 Done — `BottomNav.defs`→`defsDaBarra(cp)`,
+  `petTela`→`telaDoAssistente(tab, carteiraView)`, `tourPassos`/`ajudaSecoes`
+  iteram `telasDoTour()`/`telasDaAjuda()` (SC#1: zero lista paralela
+  restante); equivalência byte a byte com o fixture pré-refactor confirmada
+  (PARTE C); switch de `petSnapshot` intocado, amarrado ao registro por
+  sha256 (PARTE E, D-03); 6 guardiões reconciliados com nota datada (5
+  previstos + 1 achado na suíte canônica,
+  `test_fase22_componentes_compartilhados.mjs`). SC#4 demonstrado por
+  walkthrough real (tela hipotética "estudos": 16 asserções JS + 1 pytest
+  reprovando nomeando a causa, revertido). Checkpoint humano do Alex
+  aprovado AO VIVO em 2026-09-25 (roteiro de 6 itens: 5 abas nos dois modos,
+  tour de 6 passos, 11 seções de Ajuda, assistente em 3 telas incluindo
+  subtela, repetido em Estudo e Operador) — resposta verbatim: **"aprovado,
+  ciente dos achados, SC#4 ok"**, confirmando por nome (1) ciência dos 6
+  achados de inconsistência do `41-02-SUMMARY.md` (NÃO corrigidos, decisão
+  deliberada) e (2) aceite da leitura do SC#4 (registro centraliza a LISTA
+  de telas; conteúdo — textos/ícone/snapshot — continua nos seus próprios
+  lugares, D-02; nunca virou "1 arquivo por tela nova"). Publicado em
+  produção `F10-20260925-02` (commit `7cbd8fe`, push direto
+  `v2/interacao-estrutural`→`main`, fast-forward confirmado,
+  `origin/main == HEAD`); `/api/health` conferido mostrando o carimbo novo
+  após ~70s de redeploy (4 tentativas). Suíte canônica fora do sandbox: 3050
+  pytest passed/5 skipped/3 xfailed/0 failed (idêntico ao baseline
+  41-01/41-02, zero regressão), 165/165 `.mjs` OK. `npx vite build` limpo.
+  TELAS-01 marcado Done em REQUIREMENTS.md; Fase 41 fechada (3/3) em
+  ROADMAP.md.
+Last activity: 2026-09-25 -- Plano 41-03 executado: Task 1 (checkpoint
+  humano, aprovado ao vivo pelo Alex fora desta sessão de execução — ver
+  acima) → Task 2 (fetch/merge sem divergência, suíte canônica, bump.sh
+  F10-20260925-02, publicar-web.sh, comentário SERVER_BUILD_ID novo com
+  HISTORICO preservado, commit `7cbd8fe`, push, produção conferida) → Task 3
+  (docs fechados à mão: REQUIREMENTS.md/ROADMAP.md/STATE.md). Ver
+  `41-03-SUMMARY.md`.
+
+**Decisões desta fase que o próximo leitor não deve redescobrir (TELAS-01):**
+
+- Registro único `web/src/telas.js` com as 8 telas do assistente centraliza
+  a LISTA de onde cada tela aparece (barra, tour, ajuda, snapshot) — D-01;
+  paridade com `conceitos.PET_TELAS` testada em dois pontos independentes
+  (`test_telas_registro.mjs` + `server/tests/test_telas_paridade.py`),
+  mesmo padrão de `defaults.py`×`catalog.js`.
+- Textos de tour/ajuda ficam FORA do registro, num objeto local `porTela`
+  dentro de cada função consumidora — D-02. O registro centraliza a LISTA,
+  não o conteúdo; isso é a leitura do SC#4 aceita pelo Alex por nome.
+- Switch de `petSnapshot` não foi editado — amarrado ao registro por sha256
+  de bloco de código (mesma técnica do gerador do fixture), não por
+  inspeção manual — D-03.
+- `web/tests/fixtures/telas_baseline_41.json` é verdade congelada PRÉ-
+  refactor e NÃO se regenera — é a prova de equivalência byte a byte usada
+  pela PARTE C do guardião.
+- Cabeçalho "Como adicionar uma tela" em `web/src/telas.js` documenta o
+  procedimento real pós-religação, incluindo a lacuna conhecida e não
+  corrigida do `NavIcon.paths` (achado 6).
+- 6 achados de inconsistência registrados no `41-02-SUMMARY.md`, NÃO
+  corrigidos nesta fase por decisão deliberada (refactor sem mudança
+  visível), com ciência nomeada do Alex em 2026-09-25: `ajudaSecoes` com 11
+  seções (só 6 mapeiam 1:1 com tela, `historico`/`perfil` sem seção
+  própria); `tourPassos` cobre só 4 das 8 telas; rótulo do Radar diverge
+  entre barra ("Radar"/"Mesa") e tour/ajuda ("Radar de mercado"/"Mesa de
+  oportunidades"); "Operador IA" literal na Ajuda (não lê `cp`); "Acompanhar"
+  literal sem chave de `copy.js`; `NavIcon.paths` sem teste estrutural.
+- Pendência declarada, não resolvida nesta fase: app iOS carrega bundle
+  local — o registro só chega ao iPhone num build novo de TestFlight; como
+  nada visível nem de contrato mudou, o bundle antigo segue idêntico para o
+  usuário.
+- Milestone v1.8: as 5 requirements (KB-01/KB-02/NAV-01/ESTADO-01/TELAS-01)
+  e as 4 fases (38/39/40/41) estão completas. Fechamento formal do
+  milestone é decisão pendente do Alex (`/gsd-complete-milestone`) — não
+  feito nesta sessão por instrução explícita do `41-03-PLAN.md`.
+
+## Posição anterior nesta fase (Fase 41, Plano 41-02 — histórico, superado pela entrada acima)
 
 Phase: 41 (consolida-o-de-registros-de-tela) — EXECUTANDO (2026-09-25), 2/3
   planos completos. Fase 40 segue FECHADA (2/2, publicada em produção).

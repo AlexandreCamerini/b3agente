@@ -20,7 +20,7 @@
 - [x] Phase 38: KB Didática ampliada (6/6 plans) — completed 2026-09-23
 - [x] Phase 39: Reestruturação de navegação da aba Opções (6/6 plans) — completed 2026-09-24
 - [x] Phase 40: Continuidade da aba Opções (2/2 plans) — completed 2026-09-25
-- [ ] Phase 41: Consolidação de registros de tela (2/3 plans) — executing
+- [x] Phase 41: Consolidação de registros de tela (3/3 plans) — completed 2026-09-25
 
 Escopo explicitamente fora desta milestone: B3 (execução a descoberto,
 decisão de escopo pendente do Alex), CAP-12/verificação visual da Fase 37
@@ -332,7 +332,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 41-03-PLAN.md — checkpoint humano curto (D-05), publicação, fechamento dos docs à mão
+- [x] 41-03-PLAN.md — checkpoint humano curto (D-05, aprovado ao vivo pelo Alex em 2026-09-25 com ciência nomeada dos achados e aceite do SC#4), publicação em produção (`F10-20260925-02`), fechamento dos docs à mão
 
 **UI hint**: yes
 
