@@ -22,10 +22,22 @@
 //           prova que as funções do registro reproduzem byte a byte o
 //           comportamento atual das 4 listas (D-04: refactor puro).
 //
+// Plano 41-02, Task 2 — PARTES C (cont.), D e E acrescentadas:
+// PARTE C (cont.) — tourPassos/ajudaSecoes EXTRAÍDAS do App.jsx atual
+//           (religado) deepEqual o fixture pré-refactor, nas 2 e 4
+//           combinações de modo — prova que mover os textos de tela para
+//           `porTela` não mudou nada visível.
+// PARTE D — fiação (SC#1): nenhuma lista paralela sobrou em App.jsx; os 4
+//           consumidores chamam as funções do registro.
+// PARTE E — D-03: o conjunto de `case "<id>":` do switch de petSnapshot é
+//           igual a `idsComSnapshotNoSwitch()`; o sha256 do bloco do switch
+//           bate com o do fixture (switch intocado).
+//
 // Roda sem build e sem servidor: `node web/tests/test_telas_registro.mjs`.
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
+import { createHash } from "crypto";
 import { COPY } from "../src/copy.js";
 import {
   TELAS,
@@ -146,6 +158,104 @@ ok(
     " | baseline-só=" + snapBaseline.filter((i) => !snapRegistro.includes(i)).join(",")
 );
 ok('"mercado" é a única tela com snapshot "petSheet" (fora do switch, de propósito)', !snapRegistro.includes("mercado"));
+
+// ============================================================= PARTE C (cont.)
+// tourPassos(COPY.<modo>)/ajudaSecoes(COPY.<modo>, op) EXTRAÍDAS do App.jsx
+// ATUAL (religado pela 41-02) deepEqual o fixture pré-refactor — prova que
+// mover os 4/6 textos de tela para `porTela` (D-02) não mudou nada visível.
+//
+// Técnica de extração copiada de `web/tests/test_tour_opcoes.mjs:48-57`
+// (contagem de chaves + eval, não regex de contagem — regex daria falso
+// verde na primeira reorganização do array/objeto). O `eval` roda no escopo
+// deste módulo, que já importou `telasDoTour`/`telasDaAjuda` no topo — as
+// duas funções extraídas chamam esses nomes internamente depois da GREEN
+// desta task, e o `eval` precisa resolvê-los sem erro de referência.
+function extrair(nome, fonte) {
+  const i = fonte.indexOf("function " + nome + "(");
+  if (i < 0) return null;
+  let nivel = 0, dentro = false;
+  for (let k = i; k < fonte.length; k++) {
+    if (fonte[k] === "{") { nivel++; dentro = true; }
+    else if (fonte[k] === "}") { nivel--; if (dentro && nivel === 0) return fonte.slice(i, k + 1); }
+  }
+  return null;
+}
+
+const appSrc = readFileSync(join(here, "..", "src", "App.jsx"), "utf8");
+const fonteTour = extrair("tourPassos", appSrc);
+const fonteAjuda = extrair("ajudaSecoes", appSrc);
+ok("tourPassos foi encontrada em App.jsx", !!fonteTour);
+ok("ajudaSecoes foi encontrada em App.jsx", !!fonteAjuda);
+const tourPassosAtual = fonteTour ? eval("(" + fonteTour + ")") : null; // eslint-disable-line no-eval
+const ajudaSecoesAtual = fonteAjuda ? eval("(" + fonteAjuda + ")") : null; // eslint-disable-line no-eval
+
+for (const [chave, cp] of [["estudo", COPY.estudo], ["operador", COPY.operador]]) {
+  const passos = tourPassosAtual ? tourPassosAtual(cp) : null;
+  ok(
+    `tourPassos(${chave}) extraída do App.jsx reproduz o baseline pré-refactor byte a byte`,
+    deepEqual(passos, baseline.tour[chave]),
+    "os textos do tour mudaram ao entrar em porTela → viola D-04. esperado=" +
+      JSON.stringify(baseline.tour[chave]) + " obtido=" + JSON.stringify(passos)
+  );
+}
+for (const [chaveModo, cp] of [["estudo", COPY.estudo], ["operador", COPY.operador]]) {
+  for (const operador of [false, true]) {
+    const chave = chaveModo + "," + operador;
+    const secoes = ajudaSecoesAtual ? ajudaSecoesAtual(cp, operador) : null;
+    ok(
+      `ajudaSecoes(${chave}) extraída do App.jsx reproduz o baseline pré-refactor byte a byte`,
+      deepEqual(secoes, baseline.ajuda[chave]),
+      "os textos da ajuda mudaram ao entrar em porTela → viola D-04. esperado=" +
+        JSON.stringify(baseline.ajuda[chave]) + " obtido=" + JSON.stringify(secoes)
+    );
+  }
+}
+
+// ============================================================= PARTE D
+// fiação (SC#1): nenhuma lista paralela de tela sobrou em App.jsx
+ok('App.jsx não contém mais o literal "const defs = [["', !/const defs = \[\[/.test(appSrc));
+ok(
+  "App.jsx não contém mais a ternária antiga de petTela",
+  !/carteiraView === "historico" \? "historico" : carteiraView === "agente" \? "agente" : "carteira"/.test(appSrc)
+);
+ok("BottomNav chama defsDaBarra(cp)", /const defs = defsDaBarra\(cp\);/.test(appSrc));
+ok("tourPassos chama telasDoTour()", /telasDoTour\(\)/.test(appSrc));
+ok("ajudaSecoes chama telasDaAjuda()", /telasDaAjuda\(\)/.test(appSrc));
+ok("petTela usa telaDoAssistente(tab, carteiraView)", /const petTela = telaDoAssistente\(tab, carteiraView\);/.test(appSrc));
+
+// ============================================================= PARTE E
+// D-03: o switch de petSnapshot está amarrado ao registro por teste — o
+// mesmo marcador de início/fim do gerador do fixture (Task 1, 41-01).
+const inicioMarcador = "switch (petTela) {";
+const fimMarcador = "}, [petTela, data, quotes, wlScan]);";
+const iInicio = appSrc.indexOf(inicioMarcador);
+const iFim = appSrc.indexOf(fimMarcador, iInicio);
+ok("o bloco do switch de petSnapshot foi encontrado em App.jsx", iInicio >= 0 && iFim >= 0);
+const blocoSwitch = iInicio >= 0 && iFim >= 0 ? appSrc.slice(iInicio, iFim + fimMarcador.length) : "";
+const casosNoSwitch = [...blocoSwitch.matchAll(/case "([a-z]+)":/g)].map((m) => m[1]);
+const idsSwitchRegistro = idsComSnapshotNoSwitch();
+ok(
+  "o conjunto de case do switch é IGUAL a idsComSnapshotNoSwitch() (D-03)",
+  deepEqual([...casosNoSwitch].sort(), [...idsSwitchRegistro].sort()),
+  "diferença: switch-só=" + casosNoSwitch.filter((c) => !idsSwitchRegistro.includes(c)).join(",") +
+    " | registro-só=" + idsSwitchRegistro.filter((c) => !casosNoSwitch.includes(c)).join(",")
+);
+for (const c of casosNoSwitch) {
+  ok(`o case "${c}" do switch é um id do registro`,
+     idsDasTelas().includes(c),
+     "case sem entrada no registro → tela que o assistente explica sem ser tela registrada");
+}
+for (const id of idsSwitchRegistro) {
+  ok(`a entrada "${id}" (snapshot:"switch") tem case no switch`,
+     casosNoSwitch.includes(id),
+     "entrada snapshot:'switch' sem case → cai no default: return {} e o Boris fala sem dado (achado A1 da Fase 26)");
+}
+const sha256Switch = createHash("sha256").update(blocoSwitch, "utf8").digest("hex");
+ok(
+  "o sha256 do bloco do switch é igual ao do fixture (switch intocado, D-03)",
+  sha256Switch === baseline.switchPetSnapshot.sha256,
+  "esperado=" + baseline.switchPetSnapshot.sha256 + " obtido=" + sha256Switch
+);
 
 if (fails) { console.error(`\n${fails} falha(s)`); process.exit(1); }
 console.log("\ntodos os testes passaram");
