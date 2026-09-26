@@ -339,9 +339,16 @@ ok("`Varredura automática de hoje` sobrevive", app.includes("Varredura automát
 // C5. O 📡 virou reuso, não geometria nova.
 const radarScreenBloco = isolarFuncao("RadarScreen");
 ok('recorte de RadarScreen contém `<NavIcon id="radar"`', radarScreenBloco.includes('<NavIcon id="radar"'));
+// REVERSÃO DELIBERADA (2026-09-25, Fase 41, TELAS-01): a asserção contava
+// `radar:` em `app` inteiro, assumindo que só o mapa `paths` do NavIcon
+// tinha essa chave. A 41-02 introduziu `porTela` (objetos locais dentro de
+// `tourPassos`/`ajudaSecoes`, App.jsx) com a MESMA chave `radar:` — legítima
+// (mapeia id de tela → conteúdo), não uma duplicata do ícone. A asserção
+// restringe a busca a `navIconBloco` (já isolado acima), mesma cobertura
+// (nenhuma entrada `radar:` duplicada DENTRO do mapa de ícones).
 ok(
-  "mapa `paths` continua com exatamente uma entrada `radar:`",
-  (app.match(/^\s*radar:/gm) || []).length === 1
+  "mapa `paths` do NavIcon continua com exatamente uma entrada `radar:`",
+  (navIconBloco.match(/^\s*radar:/gm) || []).length === 1
 );
 
 // C6. `function TierDot` existe e seu corpo contém <circle>, fill e aria-hidden.
