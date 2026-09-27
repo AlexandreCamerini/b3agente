@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.9
 milestone_name: Jornada de Decisão
-status: planning
-stopped_at: 'Phase 42 UI-SPEC approved (42-UI-SPEC.md, 6/6). Próximo: /gsd-plan-phase 42.'
+status: ready_to_execute
+stopped_at: 'Phase 42 planejada (6 planos, 5 ondas; checker passou na iteração 2). Próximo: /gsd-execute-phase 42.'
 last_updated: "2026-09-26T00:00:00.000Z"
-last_activity: 2026-09-26 -- Phase 42 discuss-phase concluída
+last_activity: 2026-09-26 -- Phase 42 plan-phase concluída
 progress:
   total_phases: 2
   completed_phases: 0
-  total_plans: 0
+  total_plans: 6
   completed_plans: 0
   percent: 0
 ---
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-09-26)
 ## Current Position
 
 Milestone: v1.9 Jornada de Decisão (aberta 2026-09-26).
-Phase: 42 (context gathered)
-Plan: —
-Status: Ready to plan (UI-SPEC approved)
-Resume file: .planning/phases/42-cr-tico-cor-chip-nico-e-ordem-de-leitura/42-UI-SPEC.md
-Last activity: 2026-09-26 — Phase 42 context gathered (storyline de alinhamento, T.warn, anel na manchete, chips da IA fora do card)
+Phase: 42 (planned)
+Plan: 0 de 6 (ondas: 01+02 → 03 → 04 → 05 → 06 checkpoint humano)
+Status: Ready to execute
+Resume file: .planning/phases/42-cr-tico-cor-chip-nico-e-ordem-de-leitura/42-01-PLAN.md
+Last activity: 2026-09-26 — Phase 42 planejada: 6 planos, checker PASSED (iteração 2 — 42-06 passou a corrigir no texto do ROADMAP os SC#1/SC#4: 4 combinações tema×modo e 2 contextos do AtivoCard)
 Produção: `F10-20260925-02`.
 Pendências fora de milestone: build iOS 28 preparado (cap sync + bump),
   Archive/Upload no Xcode é ação do Alex (`TESTFLIGHT.md`); verificação

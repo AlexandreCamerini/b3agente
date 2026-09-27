@@ -228,7 +228,25 @@ Full phase details: [milestones/v1.8-ROADMAP.md](milestones/v1.8-ROADMAP.md)
   3. Existe um único componente `SinalChip` com dois pesos fixos (`primario`/`contexto`) substituindo `chip()`, `FundamentoChip`, `RegimeChip` e o pill de confiança — zero receita nova de pill fora dele (verificável por grep), cada instância expõe `aria-label` descritivo
   4. O usuário lê o card na ordem manchete → plano operacional → uma linha de contexto agrupado (regime+fundamento) → elegibilidade estatística, nos 4 contextos do `AtivoCard` (Acompanhar/Mesa/Posições/home) e no cabeçalho do Radar
   5. Nenhum teste de `setups.py`/`kpi.py`/`signal_ledger.py` muda; suíte canônica (`bash scripts/executar.sh --testes`) e `npx vite build` verdes; publicação via `scripts/bump.sh` + `publicar-web.sh` com carimbo próprio; checkpoint humano ao vivo do Alex olhando o card de UGPA3 (ou equivalente) confirma em <3s o veredito e o que é contexto
-**Plans**: TBD
+**Plans**: 6 plans
+
+Plans:
+**Wave 1**
+- [ ] 42-01-PLAN.md — funções puras de apresentação do sinal (`web/src/sinal.js`: lado, alinhamento, rótulo do anel, aria) + bloco `sinal` em `copy.js`
+- [ ] 42-02-PLAN.md — COR-01: token `warnTint10`, inelegível em âmbar/elegível neutro com ✓, arco do anel em `TIER_FILL`, guardião de contraste AA nas 4 combinações
+
+**Wave 2** *(depende de 42-01 e 42-02)*
+- [ ] 42-03-PLAN.md — `SinalChip` (primario/contexto), `HistoricoPill` via SinalChip, `LinhaContexto` e `PlanoOperacionalBloco` definidos + guardião do contrato
+
+**Wave 3**
+- [ ] 42-04-PLAN.md — `AtivoCard` na ordem de leitura (manchete+anel → timing → plano → contexto → elegibilidade), chips da IA fora do card (D-02)
+
+**Wave 4**
+- [ ] 42-05-PLAN.md — Radar alimenta o card (subconjunto explícito ampliado), children só com a cauda, receitas antigas removidas, guardiões reconciliados
+
+**Wave 5** *(checkpoint humano)*
+- [ ] 42-06-PLAN.md — verificação ao vivo (UGPA3 < 3 s + DP-1..DP-4), publicação com carimbo próprio, fechamento dos documentos
+
 **UI hint**: yes
 
 ### Phase 43: Refinamento — copy por modo, KpiBlock e ritmo
