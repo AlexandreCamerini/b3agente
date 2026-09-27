@@ -124,6 +124,11 @@ painel mostra hoje — nada muda até o dono rodar `railway config plan` e
 travas (branch é compartilhada: o `plan` tem de mostrar zero mudança em
 `source`) e o momento certo de apagar o `railway.json`.
 
+Aplicado em `staging` e em `production` em 2026-09-27 (só os seis campos de
+`deploy`, zero mudança em fonte, volume e domínios). O `railway.json` ainda
+não foi removido de propósito: ele é quem faz o build usar Nixpacks (o painel
+diz Railpack). Removê-lo troca o builder — testar em staging primeiro.
+
 ## Build mais enxuto (opcional)
 
 O `requirements.txt` inclui o `pytest` (para testes locais). Em produção isso só
