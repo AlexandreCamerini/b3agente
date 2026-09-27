@@ -115,7 +115,7 @@ logs de build:
 | | `railway.json` declara | staging na prática |
 |---|---|---|
 | Builder | `NIXPACKS` | **Railpack 0.39.0** |
-| `preDeployCommand` | backup do banco | **não roda** |
+| backup no início do `startCommand` | roda antes do uvicorn | **não roda** |
 | Python | — | ~~3.13.15~~ → **3.12.x** (resolvido, ver abaixo) |
 
 Provável causa: `railway up` procura o arquivo de config na raiz do upload, e
@@ -126,8 +126,8 @@ acha o `requirements.txt` certo), mas não à descoberta da config.
 comportamento de API.
 
 **Staging NÃO serve para:** validar nada que dependa do builder ou do
-processo de deploy em si (incluindo o `preDeployCommand`). Se o bug só
-aparece em produção, essa diferença é a primeira suspeita.
+processo de deploy em si (incluindo o backup no início do `startCommand`). Se
+o bug só aparece em produção, essa diferença é a primeira suspeita.
 
 Prova de que o backup não roda: o volume de staging tem `b3.db` mas **não tem
 `/data/backups/`**. Verifique com
@@ -323,9 +323,11 @@ estado NOVO, inútil para voltar atrás. Guardião mutation-tested em
 Mora em `server/app/` e não em `scripts/` porque `rootDirectory=/server`:
 `scripts/` **não existe dentro do container**.
 
-Está ligado como `preDeployCommand` no `server/railway.json` — funciona em
-deploy por git (produção), **não** em `railway up` (staging, ver acima).
-Localmente: `bash scripts/backup-db.sh`.
+Está ligado no início do `startCommand` (`server/railway.json` e
+`.railway/railway.ts`), não como `preDeployCommand` — o pré-deploy do Railway
+roda em container separado e não monta volume (doc oficial), então nunca
+protegeria o banco real. Funciona em deploy por git (produção), **não** em
+`railway up` (staging, ver acima). Localmente: `bash scripts/backup-db.sh`.
 
 ---
 

@@ -16,10 +16,12 @@
 //   ambientes segundo a API (STAGING.md descreve um banco por ambiente —
 //   conferir no primeiro `plan`; se o plan propuser criar ou destruir volume,
 //   pare).
-// - start, preDeploy (backup antes do deploy), healthcheck `/api/health`
-//   (120 s) e restart ON_FAILURE ×3 vêm do railway.json e ficam explícitos
-//   aqui. `preDeployTimeoutSeconds: 300` não tem campo no DSL documentado;
-//   o valor da plataforma vale — conferir no `plan`.
+// - start, healthcheck `/api/health` (120 s) e restart ON_FAILURE ×3 vêm do
+//   railway.json e ficam explícitos aqui. O backup roda no INÍCIO do `start`
+//   (não como `preDeploy`): o pré-deploy do Railway executa num container
+//   separado, sem o volume montado (doc oficial), então nunca protegeria o
+//   banco de verdade. A semântica de saída do backup está documentada em
+//   `server/app/backup.py`.
 // - domínios custom só em production: boris.semente.dev e bolsia.semente.dev
 //   (o segundo é legado do nome bolsIA, mas está ativo). Os domínios gerados
 //   `*.up.railway.app` não entram no IaC por regra da plataforma.
@@ -46,8 +48,9 @@ export default defineRailway((ctx) => {
       rootDirectory: "/server",
       checkSuites: false,
     }),
-    start: "uvicorn app.main:app --host 0.0.0.0 --port $PORT",
-    preDeploy: "python -m app.backup --pre-deploy || python3 -m app.backup --pre-deploy",
+    // `python || python3`: mesmo fallback que o pré-deploy antigo tinha. Se o
+    // backup falhar com o banco presente, os dois saem 1 e o `&&` segura o uvicorn.
+    start: "(python -m app.backup --pre-start || python3 -m app.backup --pre-start) && uvicorn app.main:app --host 0.0.0.0 --port $PORT",
     healthcheck: "/api/health",
     healthcheckTimeout: 120,
     deploy: { restartPolicyType: "ON_FAILURE", restartPolicyMaxRetries: 3 },
