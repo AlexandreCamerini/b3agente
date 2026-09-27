@@ -203,3 +203,60 @@ def test_historico_educacional_sem_verbo_de_ordem():
         for v in d.values():
             for p in proibidos:
                 assert p not in v, f"verbo de ordem '{p}' vazou para {v!r}"
+
+
+# --- Fase 43 (HIER-03) — reconciliação sinal técnico × histórico medido -----
+
+def test_reconciliacao_chaves_espelhadas_nos_dois_modos():
+    esperado = {"elegivel", "inelegivel", "insuficiente", "nunca_medido", "aposentado"}
+    assert set(skill_ref.RECONCILIACAO_ELEGIBILIDADE["operador"]) == esperado
+    assert set(skill_ref.RECONCILIACAO_ELEGIBILIDADE["educacional"]) == esperado
+
+
+def test_reconciliacao_txt_operador_interpola_n_janela_expr():
+    t = skill_ref.reconciliacao_elegibilidade_txt("operador", "inelegivel", n=123, janela="2024", exp_r=0.005)
+    assert t == "Critérios ok · sem vantagem medida (n=123, 2024, +0,005R)"
+
+
+def test_reconciliacao_txt_expr_negativo_usa_sinal_de_menos():
+    t = skill_ref.reconciliacao_elegibilidade_txt("operador", "elegivel", n=80, janela="2025", exp_r=-0.099)
+    assert t.endswith("−0,099R)")
+    assert "-0,099R" not in t
+
+
+def test_reconciliacao_txt_educacional_sem_expr():
+    t = skill_ref.reconciliacao_elegibilidade_txt("educacional", "inelegivel", n=123, janela="2024", exp_r=0.005)
+    assert t == "O padrão bateu os critérios, mas em 123 ocorrências na janela 2024 não houve vantagem medida."
+    assert "R)" not in t
+
+
+def test_reconciliacao_txt_ausente_vira_interrogacao_nunca_zero():
+    t = skill_ref.reconciliacao_elegibilidade_txt("operador", "inelegivel", n=None, janela="2024", exp_r=0.005)
+    assert "n=?" in t and "n=0" not in t
+    t2 = skill_ref.reconciliacao_elegibilidade_txt("operador", "elegivel", n=80, janela="2025", exp_r=None)
+    assert t2.endswith(", ?)")
+    t3 = skill_ref.reconciliacao_elegibilidade_txt("operador", "elegivel", n=80, janela="2025", exp_r=0.0)
+    assert "+0,000R" in t3
+
+
+def test_reconciliacao_txt_fallback_modo_e_estado():
+    assert skill_ref.reconciliacao_elegibilidade_txt("banana", "inelegivel", n=1, janela="x", exp_r=0.0) == \
+        skill_ref.reconciliacao_elegibilidade_txt("educacional", "inelegivel", n=1, janela="x", exp_r=0.0)
+    esperado_nunca_medido_operador = skill_ref.reconciliacao_elegibilidade_txt("operador", "nunca_medido")
+    assert skill_ref.reconciliacao_elegibilidade_txt("operador", "xpto") == esperado_nunca_medido_operador
+    assert skill_ref.reconciliacao_elegibilidade_txt("operador", None) == esperado_nunca_medido_operador
+
+
+def test_reconciliacao_sem_verbo_de_ordem_nem_promessa():
+    proibidos = ("COMPRAR", "VENDER", "COMPRE", "VENDA", "registrar entrada", "registrar saída")
+    for modo, d in skill_ref.RECONCILIACAO_ELEGIBILIDADE.items():
+        for v in d.values():
+            assert "lucro" not in v.lower()
+            assert "garant" not in v.lower()
+            if modo == "educacional":
+                for p in proibidos:
+                    assert p not in v, f"verbo de ordem '{p}' vazou para {v!r}"
+
+
+def test_reconciliacao_por_que_importa_fixa():
+    assert skill_ref.RECONCILIACAO_POR_QUE_IMPORTA == "sinal técnico e histórico medido são coisas diferentes"
