@@ -114,5 +114,115 @@ for (const modo of ["estudo", "operador"]) {
     aria("qualidade", "Boa") === "Qualidade da leitura da IA: Boa");
 }
 
+// ---------------------------------------------------------------------------
+// Parte B — fiação no App.jsx (43-04, D-07/D-09/D-10/D-11/D-12)
+//
+// A Parte A (acima) só cobre o helper puro de copy.js. Esta parte lê App.jsx
+// como TEXTO (sem build, sem DOM) — mesmo padrão de test_sinal_chip_ui.mjs/
+// test_historico_ui.mjs — para confirmar que HistoricoPill/AtivoCard de fato
+// consomem reconciliacaoTxt/reconciliacaoPorQueImporta, e que nenhuma string
+// da frase é literal no componente (SC#1).
+// ---------------------------------------------------------------------------
+
+const appSrc = readFileSync(join(here, "..", "src", "App.jsx"), "utf8");
+
+function functionBody(name) {
+  const re = new RegExp(`function ${name}\\([^)]*\\)\\s*\\{`);
+  const m = re.exec(appSrc);
+  if (!m) return null;
+  let depth = 0, i = m.index + m[0].length - 1;
+  for (; i < appSrc.length; i++) {
+    if (appSrc[i] === "{") depth++;
+    else if (appSrc[i] === "}") { depth--; if (depth === 0) { i++; break; } }
+  }
+  return appSrc.slice(m.index, i);
+}
+function semComentarios(body) {
+  return (body || "").split("\n").filter((l) => !/^\s*\/\//.test(l.trim())).join("\n");
+}
+
+// ---- import ----------------------------------------------------------------
+ok("App.jsx importa reconciliacaoTxt e reconciliacaoPorQueImporta de \"./copy.js\"",
+  /import \{[^}]*reconciliacaoTxt[^}]*reconciliacaoPorQueImporta[^}]*\}\s*from\s*"\.\/copy\.js"/.test(appSrc)
+  || /import \{[^}]*reconciliacaoPorQueImporta[^}]*reconciliacaoTxt[^}]*\}\s*from\s*"\.\/copy\.js"/.test(appSrc));
+
+// ---- corpo de HistoricoPill --------------------------------------------------
+const corpoHistoricoPill = functionBody("HistoricoPill") || "";
+ok("corpo de HistoricoPill encontrado (não vazio)", corpoHistoricoPill.length > 200);
+
+ok("assinatura de HistoricoPill inclui microtexto, A, didatica, dados",
+  /function HistoricoPill\(\{[^}]*microtexto[^}]*A[^}]*didatica[^}]*dados[^}]*\}\)/.test(appSrc));
+
+const semComentariosHistoricoPill = semComentarios(corpoHistoricoPill);
+
+ok('corpo de HistoricoPill contém reconciliacaoTxt(modoJS, estado, { n: nJanela, janela: janelaRef, expR: expRJanela })',
+  semComentariosHistoricoPill.includes("reconciliacaoTxt(modoJS, estado, { n: nJanela, janela: janelaRef, expR: expRJanela })"));
+
+ok('gate "!microtexto && !compacto &&" no bloco de números',
+  semComentariosHistoricoPill.includes("!microtexto && !compacto &&"));
+
+ok('gate "!operador &&" antes de setorId="analise"', (() => {
+  const idxOperadorGate = semComentariosHistoricoPill.indexOf("!operador &&");
+  const idxSetorAnalise = semComentariosHistoricoPill.indexOf('setorId="analise"');
+  return idxOperadorGate > 0 && idxSetorAnalise > idxOperadorGate;
+})());
+
+ok("{reconciliacaoPorQueImporta} dentro do SetorAlvo (corpo de HistoricoPill)",
+  semComentariosHistoricoPill.includes("{reconciliacaoPorQueImporta}"));
+
+ok("SUBLINHADO usado no corpo de HistoricoPill",
+  semComentariosHistoricoPill.includes("SUBLINHADO"));
+
+ok("ariaLabel ainda vem de historicoTxt( no corpo de HistoricoPill",
+  /ariaLabel\s*=\s*historicoTxt\(/.test(semComentariosHistoricoPill));
+
+ok('o "⏱" continua depois do trecho da frase (índice de ⏱ > índice de reconciliacaoTxt)', (() => {
+  const idxFato = corpoHistoricoPill.indexOf("reconciliacaoTxt(modoJS, estado,");
+  const idxRelogio = corpoHistoricoPill.indexOf("⏱");
+  return idxFato > 0 && idxRelogio > idxFato;
+})());
+
+// ---- call sites de HistoricoPill --------------------------------------------
+const callSitesComMicrotexto = (appSrc.match(/<HistoricoPill[^>]*\bmicrotexto\b[^>]*\/>/g) || []);
+ok("exatamente 1 call site de <HistoricoPill contém microtexto",
+  callSitesComMicrotexto.length === 1, `encontrados: ${callSitesComMicrotexto.length}`);
+
+ok("o call site com microtexto está no corpo de AtivoCard, com A={A} didatica={didatica} dados={dadosDoCard}", (() => {
+  if (callSitesComMicrotexto.length !== 1) return false;
+  const call = callSitesComMicrotexto[0];
+  const corpoAtivoCard = functionBody("AtivoCard") || "";
+  return corpoAtivoCard.includes(call)
+    && call.includes("A={A}") && call.includes("didatica={didatica}") && call.includes("dados={dadosDoCard}");
+})());
+
+ok('call site `<HistoricoPill historico={s.historico}` NÃO contém microtexto', (() => {
+  const re = /<HistoricoPill historico=\{s\.historico\}[^>]*\/>/;
+  const m = re.exec(appSrc);
+  return !!m && !m[0].includes("microtexto");
+})());
+
+// ---- nenhuma string literal da frase no componente (SC#1) -------------------
+ok('App.jsx não contém literalmente o texto de reconciliacaoPorQueImporta',
+  !appSrc.includes("sinal técnico e histórico medido são coisas diferentes"));
+ok('App.jsx não contém literalmente "Critérios ok"', !appSrc.includes("Critérios ok"));
+ok('App.jsx não contém literalmente "O padrão bateu os critérios"', !appSrc.includes("O padrão bateu os critérios"));
+
+// ---- cor do span da frase — nunca T.positive/T.negative/T.warn/T.accent ----
+ok('span da frase de microtexto não usa T.positive/T.negative/T.warn/T.accent (cor em T.textSecondary)', (() => {
+  // recorte: do início de "{microtexto && fato && (" até o fechamento do bloco
+  // condicional correspondente, dentro do corpo de HistoricoPill.
+  const idxInicio = corpoHistoricoPill.indexOf("{microtexto && fato && (");
+  if (idxInicio < 0) return false;
+  let depth = 0, i = idxInicio, achouAbertura = false;
+  for (; i < corpoHistoricoPill.length; i++) {
+    const c = corpoHistoricoPill[i];
+    if (c === "(") { depth++; achouAbertura = true; }
+    else if (c === ")") { depth--; if (achouAbertura && depth === 0) { i++; break; } }
+  }
+  const bloco = corpoHistoricoPill.slice(idxInicio, i);
+  return bloco.includes("T.textSecondary")
+    && !/T\.(positive|negative|warn|accent)\b/.test(bloco);
+})());
+
 if (fails) { console.error(`\n${fails} falha(s)`); process.exit(1); }
 console.log("\ntodos os testes passaram");
