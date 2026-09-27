@@ -6,7 +6,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { COPY, reconciliacaoTxt, reconciliacaoPorQueImporta } from "../src/copy.js";
+import { COPY, copyFor, reconciliacaoTxt, reconciliacaoPorQueImporta } from "../src/copy.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -33,15 +33,47 @@ ok('reconciliacaoTxt("estudo","inelegivel",...) frase educacional sem expR',
   ok("expR negativo usa U+2212, não hífen", neg.includes("−0,099R") && !neg.includes("-0,099R"), neg);
 }
 
+// REVERSÃO DELIBERADA (2026-09-27, Fase 43, DP-3): ausência cai para
+// nunca_medido, nunca "?" nem "0".
 {
   const semN = reconciliacaoTxt("operador", "inelegivel", { n: null, janela: "2024", expR: 0.005 });
-  ok('n null vira "n=?" (nunca "n=0")', semN.includes("n=?") && !semN.includes("n=0"), semN);
+  ok("n null cai em nunca_medido do modo",
+    semN === copyFor("operador").reconciliacaoElegibilidade.nunca_medido, semN);
 
   const semExpR = reconciliacaoTxt("operador", "elegivel", { n: 80, janela: "2025", expR: null });
-  ok('expR null termina em ", ?)"', semExpR.endsWith(", ?)"), semExpR);
+  ok("expR null cai em nunca_medido do modo",
+    semExpR === copyFor("operador").reconciliacaoElegibilidade.nunca_medido, semExpR);
+
+  const semExpRInelegivel = reconciliacaoTxt("operador", "inelegivel", { n: 80, janela: "2025", expR: null });
+  ok("expR null (inelegivel) cai em nunca_medido do modo",
+    semExpRInelegivel === copyFor("operador").reconciliacaoElegibilidade.nunca_medido, semExpRInelegivel);
+
+  const semJanela = reconciliacaoTxt("estudo", "inelegivel", { n: 80, janela: "", expR: 0.005 });
+  ok("janela vazia no estudo cai em nunca_medido do modo",
+    semJanela === copyFor("estudo").reconciliacaoElegibilidade.nunca_medido, semJanela);
+
+  const nZero = reconciliacaoTxt("operador", "insuficiente", { n: 0, janela: "2025" });
+  ok('n=0 é valor presente — continua "n=0" (não cai)', nZero.includes("n=0"), nZero);
 
   const expRZero = reconciliacaoTxt("operador", "elegivel", { n: 80, janela: "2025", expR: 0 });
   ok('expR 0 (número real) vira "+0,000R"', expRZero.includes("+0,000R"), expRZero);
+
+  // varredura modo × estado × combinações de ausência — nunca "?" no retorno
+  const combosAusencia = [
+    { n: null, janela: "2024", expR: 0.005 },
+    { n: 80, janela: "", expR: 0.005 },
+    { n: 80, janela: "2024", expR: null },
+    { n: null, janela: "", expR: null },
+    { n: 0, janela: "2025", expR: 0 },
+  ];
+  for (const modo of ["estudo", "operador"]) {
+    for (const estado of Object.keys(copyFor(modo).reconciliacaoElegibilidade)) {
+      for (const vals of combosAusencia) {
+        const t = reconciliacaoTxt(modo, estado, vals);
+        ok(`reconciliacaoTxt(${modo},${estado},${JSON.stringify(vals)}) sem "?"`, !t.includes("?"), t);
+      }
+    }
+  }
 }
 
 ok('modo "xyz" cai no fallback "estudo"',

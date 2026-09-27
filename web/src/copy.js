@@ -1646,16 +1646,29 @@ export function historicoTxt(mode, estado, vals) {
 // Espelho de skill_ref.reconciliacao_elegibilidade_txt (Fase 43, HIER-03) —
 // só o FATO. A cláusula "por que importa" é exportada separada (constante
 // fixa, sem interpolação), espelho de RECONCILIACAO_POR_QUE_IMPORTA.
+//
+// REVERSÃO DELIBERADA (2026-09-27, Fase 43, DP-3, checkpoint 43-05): a
+// ausência de um dado que a frase do `estado` exige não vira mais "?" —
+// espelho exato da queda em skill_ref.reconciliacao_elegibilidade_txt.
+// `n == null` (nunca "0"), `!janela` e `typeof expR !== "number"` são
+// ausência; se a frase contém o placeholder correspondente e ele falta,
+// devolve nunca_medido do modo, sem interpolação. `n = 0` é valor
+// presente (não cai).
 export function reconciliacaoTxt(mode, estado, vals) {
   const d = copyFor(mode).reconciliacaoElegibilidade;
   const frase = d[estado] || d.nunca_medido;
   const n = vals && vals.n;
+  const janela = vals && vals.janela;
   const expR = vals && typeof vals.expR === "number" ? vals.expR : null;
+  const faltaN = frase.includes("{n}") && n == null;
+  const faltaJanela = frase.includes("{janela}") && !janela;
+  const faltaExpR = frase.includes("{expR}") && expR == null;
+  if (faltaN || faltaJanela || faltaExpR) return d.nunca_medido;
   const expTxt = expR == null ? "" : (expR >= 0 ? "+" : "−") + Math.abs(expR).toFixed(3).replace(".", ",") + "R";
   return frase
-    .replace("{n}", n != null ? String(n) : "?")
-    .replace("{janela}", (vals && vals.janela) || "?")
-    .replace("{expR}", expTxt || "?");
+    .replace("{n}", n != null ? String(n) : "")
+    .replace("{janela}", janela || "")
+    .replace("{expR}", expTxt);
 }
 
 // Fixa, sem interpolação, só Estudo (D-11/D-12) — HistoricoPill anexa isto
