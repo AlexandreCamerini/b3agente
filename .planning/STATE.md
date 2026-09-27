@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.9
 milestone_name: Jornada de Decisão
-status: phase_complete
-stopped_at: 'Phase 43 planejada (5 planos, 4 ondas; checker 0 blockers). Próximo: /gsd-execute-phase 43.'
+status: executing
+stopped_at: 'Phase 43 em execução: onda 1 (43-01, 43-02) iniciada.'
 last_updated: "2026-09-27T15:00:00.000Z"
-last_activity: 2026-09-27 -- Phase 43 plan-phase concluída
+last_activity: 2026-09-27 -- Phase 43 execução iniciada
 progress:
   total_phases: 2
   completed_phases: 1
