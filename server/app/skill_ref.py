@@ -442,6 +442,55 @@ def entrada_auto_txt(modo: str, estado: str, setup: str = "", janela_ref: str = 
     return frase.replace("{setup}", setup or "?").replace("{janelaRef}", janela_ref or "?")
 
 
+# --- Reconciliação sinal técnico × histórico medido (HIER-03) --------------
+# O padrão bateu os critérios (sinal técnico, setups.py) e o histórico medido
+# (signal_ledger, ADR-017 Bloco 1) são DUAS perguntas diferentes — este
+# vocabulário é a frase que conecta as duas sem fundi-las num veredito só
+# (guardrail ADR-017: decisão × elegibilidade nunca em síntese). `n`/`janela`
+# nunca são omitidos nem inventados (D-08); Estudo explica o "por que
+# importa" (duas orações), Operador é fato curto com os três números.
+RECONCILIACAO_ELEGIBILIDADE = {
+    "operador": {
+        "elegivel": "Critérios ok · vantagem medida (n={n}, {janela}, {expR})",
+        "inelegivel": "Critérios ok · sem vantagem medida (n={n}, {janela}, {expR})",
+        "insuficiente": "Critérios ok · amostra insuficiente (n={n} — pouco para medir)",
+        "nunca_medido": "Critérios ok · sem histórico medido",
+        "aposentado": "Padrão identificado · sem vantagem medida em 15 anos (ADR-016)",
+    },
+    "educacional": {
+        "elegivel": "O padrão bateu os critérios, e em {n} ocorrências na janela {janela} houve vantagem medida.",
+        "inelegivel": "O padrão bateu os critérios, mas em {n} ocorrências na janela {janela} não houve vantagem medida.",
+        "insuficiente": "O padrão bateu os critérios; só {n} ocorrências — pouco para medir.",
+        "nunca_medido": "O padrão bateu os critérios; ainda sem histórico medido.",
+        "aposentado": "Padrão identificado; sem vantagem medida em 15 anos (ADR-016).",
+    },
+}
+
+# Cláusula "por que importa" (D-11): só o Modo Estudo a exibe, e é TOCÁVEL
+# no front (abre setorId="analise" → conceito "confluencia", existente —
+# nenhum conceito novo). String FIXA, sem interpolação — por isso não é uma
+# função, é o mesmo padrão de `PRINCIPIOS`/frase única do módulo. O front
+# nunca compõe esta frase a partir de outra coisa; ela vem pronta de aqui,
+# como QUALQUER texto desta camada (regra da casa, didatica-boris/SKILL.md).
+RECONCILIACAO_POR_QUE_IMPORTA = "sinal técnico e histórico medido são coisas diferentes"
+
+
+def reconciliacao_elegibilidade_txt(modo: str, estado: str, n=None, janela: str = "", exp_r=None) -> str:
+    """Frase de reconciliação por modo/estado — só o FATO (sem a cláusula
+    "por que importa", que o front busca separado, ver
+    RECONCILIACAO_POR_QUE_IMPORTA, e só anexa no Estudo). `n` nunca vira 0
+    quando é None — cai no placeholder "?" como o resto da casa
+    (historico_txt)."""
+    d = RECONCILIACAO_ELEGIBILIDADE.get(modo if modo in RECONCILIACAO_ELEGIBILIDADE else "educacional",
+                                         RECONCILIACAO_ELEGIBILIDADE["educacional"])
+    frase = d.get(estado) or d["nunca_medido"]
+    exp_txt = "" if exp_r is None else (("+" if exp_r >= 0 else "−") + f"{abs(exp_r):.3f}".replace(".", ",") + "R")
+    return (frase
+            .replace("{n}", str(n) if n is not None else "?")
+            .replace("{janela}", janela or "?")
+            .replace("{expR}", exp_txt or "?"))
+
+
 def decisoes_txt(modo: str) -> str:
     """Enum de decisão do modo, como string 'A | B | C' para o contrato."""
     v = vocab.get(modo, vocab["educacional"])
