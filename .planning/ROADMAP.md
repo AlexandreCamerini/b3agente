@@ -214,7 +214,7 @@ Full phase details: [milestones/v1.8-ROADMAP.md](milestones/v1.8-ROADMAP.md)
 | 40. Continuidade da aba Opções | 2/2 | Complete (publicado `F10-20260925-01`, checkpoint humano aprovado ao vivo, DP-1) | 2026-09-25 |
 | 41. Consolidação de registros de tela | 3/3 | Complete (publicado `F10-20260925-02`, checkpoint humano aprovado ao vivo, achados D-04 não corrigidos) | 2026-09-25 |
 | 42. Crítico — cor, chip único e ordem de leitura | 6/6 | Complete (publicado `F10-20260927-01`, checkpoint humano aprovado ao vivo, DP-1..DP-4) | 2026-09-27 |
-| 43. Refinamento — copy por modo, KpiBlock e ritmo | v1.9 | In progress (3/5) | - |
+| 43. Refinamento — copy por modo, KpiBlock e ritmo | v1.9 | In progress (4/5) | - |
 
 ## Phase Details
 
@@ -272,7 +272,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 43-04-PLAN.md — HIER-03: microtexto de reconciliação por modo na linha de elegibilidade do AtivoCard (HistoricoPill microtexto)
+- [x] 43-04-PLAN.md — HIER-03: microtexto de reconciliação por modo na linha de elegibilidade do AtivoCard (HistoricoPill microtexto)
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
