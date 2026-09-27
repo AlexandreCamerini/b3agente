@@ -597,6 +597,22 @@ export const COPY = {
       nunca_medido: "SEM HISTÓRICO MEDIDO",
       aposentado: "APOSENTADO (ADR-016)",
     },
+    // Fase 42 (D-01/D-07/D-09/D-15): fatos do motor, idênticos nos dois
+    // modos — microtexto por modo é HIER-03 (Fase 43).
+    sinal: {
+      alinhamento: { a_favor: "a favor da tendência", contra: "contra a tendência" },
+      anelLado: { alta: "padrão de compra", baixa: "padrão de venda" },
+      fundamentoNaoDirecao: "fundamento indica qualidade da empresa, não direção",
+      degradadoSufixo: "·SMA50",
+      degradadoAria: "base degradada SMA50",
+      ariaRegime: (valor, alinhamentoTxt, degradado) =>
+        "Regime: " + String(valor).toLowerCase() +
+        (degradado ? " (base degradada SMA50)" : "") +
+        (alinhamentoTxt ? ", " + alinhamentoTxt : ""),
+      ariaFundamento: (score) => "Fundamento: qualidade " + score + " (não indica direção)",
+      ariaAnel: (texto) => "Confluência " + texto,
+      ariaManchete: (kicker, decisao) => kicker + ": " + decisao,
+    },
     entradaAuto: {
       regra: "No Modo Operador, a entrada automática só executa em setup com vantagem estatística medida na janela anterior — sem vantagem medida, ele sinaliza e não executa.",
       contraste: "Sem filtro: −0,099R por sinal (todos os setups, 15 anos) · Com filtro (setups elegíveis na janela anterior): +0,005R — estatisticamente um empate, não lucro.",
@@ -1354,6 +1370,22 @@ export const COPY = {
       insuficiente: "AMOSTRA INSUFICIENTE (n<40)",
       nunca_medido: "SEM HISTÓRICO MEDIDO",
       aposentado: "APOSENTADO (ADR-016)",
+    },
+    // Fase 42 (D-01/D-07/D-09/D-15): fatos do motor, idênticos nos dois
+    // modos — microtexto por modo é HIER-03 (Fase 43).
+    sinal: {
+      alinhamento: { a_favor: "a favor da tendência", contra: "contra a tendência" },
+      anelLado: { alta: "padrão de compra", baixa: "padrão de venda" },
+      fundamentoNaoDirecao: "fundamento indica qualidade da empresa, não direção",
+      degradadoSufixo: "·SMA50",
+      degradadoAria: "base degradada SMA50",
+      ariaRegime: (valor, alinhamentoTxt, degradado) =>
+        "Regime: " + String(valor).toLowerCase() +
+        (degradado ? " (base degradada SMA50)" : "") +
+        (alinhamentoTxt ? ", " + alinhamentoTxt : ""),
+      ariaFundamento: (score) => "Fundamento: qualidade " + score + " (não indica direção)",
+      ariaAnel: (texto) => "Confluência " + texto,
+      ariaManchete: (kicker, decisao) => kicker + ": " + decisao,
     },
     entradaAuto: {
       regra: "Entrada automática só executa em setup com vantagem estatística medida na janela anterior — sem vantagem medida, o Operador sinaliza e não executa.",
