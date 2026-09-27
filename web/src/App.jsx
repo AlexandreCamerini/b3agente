@@ -4119,7 +4119,6 @@ function MercadoScreen({ ctx }) {
           const diasPos = pos ? daysSince(openedAt(data.history, t, pos)) : null;
           const patrimonio = (data.cash || 0) + (data.positions || []).reduce((s, pp) => s + pp.qty * (((quotes[pp.t] || {}).price) || pp.avg || 0), 0);
           const pctCapPos = pos && patrimonio > 0 && cur != null ? (pos.qty * cur / patrimonio) * 100 : null;
-          const kp = an.kpis || {};
           const fscore = an.fundamento && an.fundamento.score;
           // manchete única: decisão do plano (scan) e, sem scan, a recomendação da IA
           // UMA FONTE PARA A MANCHETE. Antes, sem plano determinístico, a
@@ -4133,10 +4132,7 @@ function MercadoScreen({ ctx }) {
           // em outro, ela é leitura de outro momento e precisa dizer isso.
           const anVencida = !!(an.snapshotId && sc && sc.snapshotId && an.snapshotId !== sc.snapshotId);
           const [decColor, decBg] = REC_STYLE[decM] || [vColor, vBg];
-          const chip = (label, value, col) => (
-            <span style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "999px", background: T.bgBase, color: T.textSecondary, fontWeight: 700 }}>{label} <b style={{ fontWeight: 800, color: col || T.textPrimary }}>{value}</b></span>
-          );
-          return <AtivoCard key={t} vm={{ t, q, an, name, chColor, sc, pos, cur, pnl, pnlPct, rrPos, diasPos, pctCapPos, kp, fscore, decM, decColor, decBg, anVencida, os, buyMeta, operador, quotesLoading, expanded: !!expanded[t], opsOpen: !!opsOpen[t], opsSpark: sparks[t], onToggleOps: () => toggleOps(t), A, cp, data, didatica: ctx.didatica, overlayLivre: ctx.overlayLivre, isNovo: isNovo(t) }} contexto="watchlist" />;
+          return <AtivoCard key={t} vm={{ t, q, an, name, chColor, sc, pos, cur, pnl, pnlPct, rrPos, diasPos, pctCapPos, fscore, decM, decColor, decBg, anVencida, os, buyMeta, operador, quotesLoading, expanded: !!expanded[t], opsOpen: !!opsOpen[t], opsSpark: sparks[t], onToggleOps: () => toggleOps(t), A, cp, data, didatica: ctx.didatica, overlayLivre: ctx.overlayLivre, isNovo: isNovo(t) }} contexto="watchlist" />;
         })}
       </div>
     </div>

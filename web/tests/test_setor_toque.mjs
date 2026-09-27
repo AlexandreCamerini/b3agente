@@ -63,9 +63,13 @@ for (const [onde, padrao] of [
   ["caption da régua", /caption=\{<span style=\{SUBLINHADO\}>POSIÇÃO NO RISCO<\/span>\}/],
   ["R:R", /<span style=\{SUBLINHADO\}>R:R<\/span>/],
 ]) ok(`sublinhado no termo-âncora: ${onde}`, padrao.test(app));
-ok("confluência e fundamento pedem o sublinhado no chip",
-   /chip\("confluência", \(sc\.confluencia \|\| 0\) \+ "%", T\.accent, true\)/.test(app)
-   && /chip\("fundamento", fscore, T\[SCORE_COLOR\[fscore\]\] \|\| T\.textPrimary, true\)/.test(app));
+// REVERSÃO DELIBERADA (2026-09-26, Fase 42, D-08): o setor analise passou a
+// envolver o anel/rótulo na manchete; o sublinhado continua um por setor, no
+// termo-âncora.
+ok("confluência e fundamento pedem o sublinhado",
+   /<span style=\{SUBLINHADO\}>\{ring\.cabeca\}<\/span>/.test(app)
+   && /setorId="analise"/.test(app) && /envolverAnel=/.test(app)
+   && /label="FUNDAMENTO" value=\{score\} explicavel/.test(app));
 
 // ------------------------------------------------ seleção de texto e rolagem
 ok("userSelect none nos setores (o defeito da v1 não volta)",

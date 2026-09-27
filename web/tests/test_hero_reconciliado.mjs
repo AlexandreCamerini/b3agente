@@ -13,6 +13,19 @@ const app = readFileSync(join(here, "..", "src", "App.jsx"), "utf8");
 let fails = 0;
 const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if (!cond) fails++; };
 
+function functionBody(name) {
+  const re = new RegExp(`function ${name}\\([^)]*\\)\\s*\\{`);
+  const m = re.exec(app);
+  if (!m) return null;
+  let depth = 0, i = m.index + m[0].length - 1;
+  for (; i < app.length; i++) {
+    if (app[i] === "{") depth++;
+    else if (app[i] === "}") { depth--; if (depth === 0) { i++; break; } }
+  }
+  return app.slice(m.index, i);
+}
+const sinalChip = functionBody("SinalChip") || "";
+
 // manchete única
 // REVERSÃO DELIBERADA (2026-08-09). Este guardião travava
 // `decM = rotuloDec || (kp.recomendacao …)` — a manchete caía na recomendação
@@ -24,12 +37,20 @@ const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if 
 // guardrail regulatório pede). Sem plano, a ausência é DITA.
 ok("manchete única: decM vem SÓ do motor determinístico", /const decM = rotuloDec \|\| null;/.test(app));
 ok("sem plano, a ausência é dita e não preenchida pela IA", /Sem leitura do motor para este ativo agora/.test(app));
-ok("manchete rotula DECISÃO DA MESA (operador) e mostra decM", /"DECISÃO DA MESA"/.test(app) && /fontWeight: 800[^}]*\}\}>\{decM\}</.test(app));
+ok("manchete rotula DECISÃO DA MESA (operador) e mostra decM (agora via SinalChip peso=primario)",
+  /<SinalChip peso="primario" decision=\{decM\}/.test(app)
+  && sinalChip.includes("fontWeight: 800")
+  && /\{decision\}/.test(sinalChip));
 
-// confluência/fundamento como chips (insumos), não vereditos
-ok("confluência é chip de análise", /chip\("confluência"/.test(app));
-ok("fundamento é chip de análise", /chip\("fundamento"/.test(app));
-ok("direção/convicção/qualidade em chips", /chip\("direção"/.test(app) && /chip\("convicção"/.test(app) && /chip\("qualidade"/.test(app));
+// REVERSÃO DELIBERADA (2026-09-26, Fase 42, HIER-01/CHIP-01/D-02): manchete
+// virou SinalChip primario; confluência saiu dos chips para o anel; chips da
+// IA saíram do card (a IA explica no detalhe técnico, não disputa a manchete).
+ok("confluência vira anel na manchete (ring={anel} no AtivoCard + rotuloAnel( no AtivoCard)",
+  /ring=\{anel\}/.test(app) && /rotuloAnel\(/.test(app));
+ok("fundamento é chip de contexto (label=\"FUNDAMENTO\" em LinhaContexto)",
+  functionBody("LinhaContexto").includes('label="FUNDAMENTO"'));
+ok("prova negativa D-02: corpo do AtivoCard sem kp. (chips da IA saíram do card)",
+  !/kp\./.test(functionBody("AtivoCard")));
 
 // não pode mais existir o veredito concorrente antigo (pill tier+decisão + KpiBlock no card)
 ok("removida a pill antiga tier+confluência ao lado da decisão", !/\{tierDot\} \{tierLabel\}\{sc \? " · "/.test(app));

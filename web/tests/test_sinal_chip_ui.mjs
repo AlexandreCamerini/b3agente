@@ -115,5 +115,33 @@ ok("PlanoOperacionalBloco declara \"PLANO DO SETUP (didático)\" (régua do Estu
     ramoOperador != null && !ramoOperador.includes("<PlanRuler"));
 }
 
+// ---------------------------------------------------------------------------
+// Parte C — ordem e fiação no AtivoCard (42-04). HIER-02: a mesma sequência
+// vale para watchlist e radar porque é UM render.
+// ---------------------------------------------------------------------------
+
+const ativoCard = functionBody("AtivoCard") || "";
+{
+  const idxPos = ativoCard.indexOf("{pos && (");
+  const idxSinal = ativoCard.indexOf('<SinalChip peso="primario"');
+  const idxTiming = ativoCard.indexOf("<TimingBadge");
+  const idxPlano = ativoCard.indexOf("<PlanoOperacionalBloco");
+  const idxContexto = ativoCard.indexOf("<LinhaContexto");
+  const idxHistorico = ativoCard.indexOf("<HistoricoPill");
+  const idxAnVencida = ativoCard.indexOf("{anVencida &&");
+  ok("AtivoCard: ordem de leitura estritamente crescente (pos < manchete < timing < plano < contexto < elegibilidade < anVencida)",
+    idxPos >= 0 && idxSinal > idxPos && idxTiming > idxSinal && idxPlano > idxTiming
+    && idxContexto > idxPlano && idxHistorico > idxContexto && idxAnVencida > idxHistorico);
+}
+ok("AtivoCard usa alinhamentoDoMotor({ decisao: decM (D-01)", ativoCard.includes("alinhamentoDoMotor({ decisao: decM"));
+ok("AtivoCard usa ladoDoMotor({ setup: s0Card, plano: sc.plano }) (D-09, lado nunca inferido do nome)",
+  ativoCard.includes("ladoDoMotor({ setup: s0Card, plano: sc.plano })"));
+ok("AtivoCard usa tierOf(sc.confluencia)[1] (rótulo do tier travado por teste)",
+  ativoCard.includes("tierOf(sc.confluencia)[1]"));
+ok("AtivoCard não contém kp. (D-02: chips da IA saíram do card)", !ativoCard.includes("kp."));
+ok("AtivoCard não contém DIR_STYLE (herdado do chip de direção da IA, removido)", !ativoCard.includes("DIR_STYLE"));
+ok("AtivoCard garante alvo de toque 44x44 no anel (acessibilidade)",
+  ativoCard.includes("minWidth: 44") && ativoCard.includes("minHeight: 44"));
+
 console.log(fails === 0 ? "\nTUDO OK" : `\n${fails} FALHA(S)`);
 process.exit(fails === 0 ? 0 : 1);
