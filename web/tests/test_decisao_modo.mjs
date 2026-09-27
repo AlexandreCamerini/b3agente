@@ -37,6 +37,10 @@ ok("MercadoScreen define operador", /const operador = ctx\.operador;/.test(mer))
 
 // qa/40: o KpiBlock (análise expandida no Monitoramento) troca o rótulo
 // "PLANO EDUCACIONAL" por "DECISÃO DA MESA" no operador — e recebe a flag.
+// REVERSÃO DELIBERADA (2026-09-27, Fase 43, CHIP-03): o KpiBlock foi apagado
+// (código morto desde qa/49). A garantia do rótulo por modo sobrevive: o
+// regex casa o kicker da manchete (SinalChip peso="primario" no AtivoCard),
+// que é hoje o ÚNICO lugar com esse rótulo.
 ok("KpiBlock é mode-aware (rótulo por modo)",
   /operador \? "DECISÃO DA MESA" : "PLANO EDUCACIONAL"/.test(app));
 // qa/49 (v11): o KpiBlock saiu do card do ativo — a decisão virou a MANCHETE
@@ -53,10 +57,15 @@ ok("watchlist: decisão é a manchete única decM (mode-aware, só do motor)",
 // qa/40: o VALOR da decisão no KpiBlock também é mapeado no render (cache antigo
 // de estudo → mesa), não só o rótulo. Reporte do Alex: "no DECISÃO DA MESA
 // está estudar baixa".
-ok("recDoModo mapeia estudo→mesa no render", /recDoModo = \(rec, operador\) =>/.test(app)
-  && /REC_PRO_MAP = \{/.test(app) && /"Estudar baixa": "VENDER"/.test(app));
-ok("KpiBlock exibe rec mapeado (não kpis.recomendacao cru)",
-  /const rec = recDoModo\(kpis\.recomendacao, operador\)/.test(app) && /fontSize: "14px", color: recColor \}\}>\{rec\}</.test(app));
+// REVERSÃO DELIBERADA (2026-09-27, Fase 43, CHIP-03/D-03/D-05): recDoModo/
+// REC_PRO_MAP existiam só para o KpiBlock exibir kpis.recomendacao no
+// vocabulário da mesa; com o KpiBlock apagado ficaram órfãos e saíram. A
+// recomendação da IA não é exibida como decisão em lugar nenhum (manchete só
+// do motor) — a garantia agora é a ausência.
+ok("recDoModo/REC_PRO_MAP apagados (órfãos do KpiBlock, D-05)",
+  !/recDoModo/.test(app) && !/REC_PRO_MAP/.test(app));
+ok("nenhuma tela exibe kpis.recomendacao como valor de decisão (D-03)",
+  !/const rec = recDoModo\(kpis\.recomendacao/.test(app) && !/<KpiBlock/.test(app));
 
 console.log(fails ? `\n${fails} falha(s)` : "\ntodos os testes passaram");
 process.exit(fails ? 1 : 0);

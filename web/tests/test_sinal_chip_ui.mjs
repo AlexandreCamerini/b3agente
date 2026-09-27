@@ -181,9 +181,16 @@ ok('nenhum `borderRadius: "999px"` remanescente da pill de confiança apagada (�
 
 // SinalChip peso="contexto" tem exatamente os 4 call sites reais esperados:
 // LinhaContexto (regime + fundamento, 2×), HistoricoPill (1×), FundamentoTabela (1×).
+// REVERSÃO DELIBERADA (2026-09-27, Fase 43, CHIP-03/D-01): +3 call sites em
+// AnalysisView (direção/convicção/qualidade da IA, neutros, fora do card).
 const callSitesContexto = (srcSemComentarios.match(/<SinalChip peso="contexto"/g) || []).length;
-ok('`<SinalChip peso="contexto"` tem exatamente 4 call sites (LinhaContexto 2× + HistoricoPill 1× + FundamentoTabela 1×)',
-  callSitesContexto === 4);
+ok('`<SinalChip peso="contexto"` tem exatamente 7 call sites (LinhaContexto 2× + HistoricoPill 1× + FundamentoTabela 1× + AnalysisView 3×)',
+  callSitesContexto === 7);
+const iAnalysisViewParaD = src.indexOf("function AnalysisView(");
+const iAnalysisViewEndParaD = src.indexOf("\nfunction hasAnalysis(", iAnalysisViewParaD);
+const avParaD = iAnalysisViewParaD >= 0 && iAnalysisViewEndParaD > iAnalysisViewParaD ? src.slice(iAnalysisViewParaD, iAnalysisViewEndParaD) : "";
+ok('AnalysisView usa `<SinalChip peso="contexto"` 3 vezes',
+  (semComentarios(avParaD).match(/<SinalChip peso="contexto"/g) || []).length === 3);
 const lcParaD = functionBody("LinhaContexto") || "";
 ok('LinhaContexto usa `<SinalChip peso="contexto"` 2 vezes (regime + fundamento)',
   (lcParaD.match(/<SinalChip peso="contexto"/g) || []).length === 2);
