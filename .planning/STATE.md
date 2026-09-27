@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: none
-milestone_name: Awaiting next milestone
-status: milestone_archived
-stopped_at: 'Milestone v1.8 (Didática ampliada + continuidade da aba Opções, Fases 38-41) arquivada em 2026-09-26 — .planning/milestones/v1.8-ROADMAP.md/v1.8-REQUIREMENTS.md criados (5/5 requirements Done), MILESTONES.md com a entrada v1.8, ROADMAP.md colapsado, PROJECT.md com revisão de evolução, REQUIREMENTS.md removido, tag v1.8. Fechamento feito à mão (milestone.complete e mutadores state.* do gsd-sdk NÃO chamados, precedente da v1.7). Antes do fechamento: worktree borisv2 reparado (git worktree repair) — o repo principal foi renomeado de bolsia/ para bolsia=boris antigo/ e o link .git tinha ficado órfão. Próximo: /gsd-new-milestone para a v1.9 Jornada de Decisão.'
+milestone: v1.9
+milestone_name: Jornada de Decisão
+status: planning
+stopped_at: 'Milestone v1.9 (Jornada de Decisão) aberta em 2026-09-26 — PROJECT.md atualizado, fases 38-41 da v1.8 arquivadas em .planning/milestones/v1.8-phases/. Próximo: REQUIREMENTS.md e ROADMAP.md (numeração a partir da Fase 42).'
 last_updated: "2026-09-26T00:00:00.000Z"
-last_activity: 2026-09-26 -- Completed quick task 260926-uhl: pin social-login ^8.3.34 (cherry-pick ac20a9c) + borisv2 registrado como repositório independente
+last_activity: 2026-09-26 -- Milestone v1.9 Jornada de Decisão iniciada
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 17
-  completed_plans: 17
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -21,33 +21,24 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-26)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Milestone v1.8 arquivada (2026-09-26). Aguardando `/gsd-new-milestone` — próxima na fila é a v1.9 Jornada de Decisão (`PROJECT.md` §"Next Milestone (queued)").
+**Current focus:** Milestone v1.9 Jornada de Decisão — hierarquia visual do `AtivoCard` (`PROJECT.md` §"Current Milestone").
 
 ## Current Position
 
-Milestone: nenhum aberto. v1.8 (Didática ampliada + continuidade da aba
-  Opções, Fases 38-41, 17 planos, 5/5 requirements) shipped em 2026-09-25 e
-  arquivada em 2026-09-26 — ver `.planning/milestones/v1.8-ROADMAP.md` e
-  `.planning/MILESTONES.md`.
-Status: milestone_archived. Produção em `F10-20260925-02`.
+Milestone: v1.9 Jornada de Decisão (aberta 2026-09-26).
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-09-26 — Milestone v1.9 started
+Produção: `F10-20260925-02`.
 Pendências fora de milestone: build iOS 28 preparado (cap sync + bump),
   Archive/Upload no Xcode é ação do Alex (`TESTFLIGHT.md`); verificação
   visual da Fase 37 com dado real; 6 achados D-04 da Fase 41 (fold-in
   oportunista).
-Ambiente: em 2026-09-26 borisv2 virou repositório independente — `.git`
-  próprio criado via `git clone --mirror --no-hardlinks` do repo antigo (sem
-  `alternates`, `core.bare=false`), `origin` = `https://github.com/AlexandreCamerini/b3agente.git`;
-  removido da lista de worktrees da pasta antiga
-  (`/Users/acamerini/dev/bolsia=boris antigo/b3-agente`, metadata deletada +
-  `git worktree prune`, que também limpou a entrada órfã stale
-  `zen-nightingale-492c64`). Dados local-only do repo antigo preservados em
-  `origin/arquivo/main-bolsia-antigo` (`a7358e4`, inclui `ac20a9c`; o commit
-  docs da quick task `260923-fst` nesse branch NÃO foi trazido — conflita com
-  o STATE.md atual) e `origin/arquivo/stash-pre-gateway` (`0f7f79b`). A pasta
-  antiga agora pode ser arquivada/apagada sem afetar borisv2 — só vale o Alex
-  checar antes `web/.env-local` e `.claude/skills/swiftui-pro` (untracked na
-  pasta antiga, não ler `.env`).
-Next: `/gsd-new-milestone` (v1.9 Jornada de Decisão).
+Ambiente: desde 2026-09-26 borisv2 é repositório independente (`origin` =
+  `https://github.com/AlexandreCamerini/b3agente.git`); dados local-only do
+  repo antigo preservados em `origin/arquivo/main-bolsia-antigo` e
+  `origin/arquivo/stash-pre-gateway`. Detalhe no commit `86ab76a`.
 
 ## Posição anterior (Fase 41, Plano 41-03 — fechamento da última fase da v1.8, histórico)
 

@@ -22,7 +22,35 @@ funciona — não decorou uma resposta, aprendeu o raciocínio — e só então 
 acesso a automações do Modo Operador. Se o storyline pedagógico não convencer,
 nada mais no produto importa.
 
-## Next Milestone (queued): v1.9 Jornada de Decisão — NÃO INICIADA
+## Current Milestone: v1.9 Jornada de Decisão
+
+**Aberta em 2026-09-26** via `/gsd-new-milestone`. Fases continuam a
+numeração: começa na Fase 42.
+
+**Goal:** devolver hierarquia visual ao card único de ativo (`AtivoCard` e
+o cabeçalho do Radar que o reaproveita) — o usuário distingue em menos de 3
+segundos o que é decisão, o que é contexto e o que é ressalva de
+confiabilidade — sem tocar na manchete determinística nem na separação
+decisão × elegibilidade estatística (ADR-017).
+
+**Target features:**
+- Canal de cor próprio para "confiabilidade estatística" (token novo nas 8
+  combinações tema×modo), tirando `inelegivel` do vermelho de VENDER/prejuízo
+- Tier de confluência mostrado uma única vez por card, com o
+  `ConfluenceRing` perto da manchete (decisão do Alex, 2026-09-26)
+- Componente `SinalChip` único com dois pesos fixos (primário/contexto),
+  substituindo as 4 receitas de chip atuais, incluindo o `KpiBlock`
+- Ordem de leitura manchete → plano → contexto agrupado → elegibilidade
+  com microtexto de reconciliação por modo (via `skill_ref.py`/`copy.js`)
+- Espaçamento dos blocos do card na escala 4/8pt
+
+**Escopo decidido (2026-09-26):** Fases 1+2 da auditoria
+(Crítico + Refinamento). A Fase 3 (Polish) não vira fase própria —
+`aria-label` e contraste AA do token novo entram como critério de aceite
+das fases; motion do `ConfluenceRing` fica fora. Research de domínio
+pulada (a auditoria já é o levantamento).
+
+### Contexto herdado da fila (registro de 2026-09-25)
 
 **Decisão do Alex (2026-09-25):** registrar como próxima milestone, mas só
 entra na fila de execução depois que a v1.8 fechar (Fases 40/41). Não
@@ -486,9 +514,8 @@ faltavam os números).
   com flag opt-in a descoberto, pesquisa concluída/decisão de escopo
   pendente) — ver `26-CONTEXT.md`. B2/C1/C2/C3 foram entregues na v1.8
   (Fases 38/40/41).
-- [ ] v1.9 Jornada de Decisão — hierarquia visual do `AtivoCard` (ver "Next
-  Milestone (queued)" acima e `qa/AUDITORIA-Jornada-Decisao-v1.md`); abre
-  via `/gsd-new-milestone`
+- [ ] v1.9 Jornada de Decisão (milestone corrente) — hierarquia visual do
+  `AtivoCard`; requirements formais em `.planning/REQUIREMENTS.md`
 - [ ] 6 achados de inconsistência de navegação registrados na Fase 41 (D-04,
   `41-02-SUMMARY.md`), aprovados pelo Alex como "não corrigir agora":
   histórico/perfil sem seção de Ajuda; tour não visita agente/histórico/
@@ -688,9 +715,6 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-09-26 — Milestone v1.8 (Didática ampliada + continuidade
-da aba Opções, Fases 38-41) fechada e arquivada (5/5 requirements,
-`F10-20260923-01`→`F10-20260925-02`). Nenhum milestone aberto — próximo na
-fila é a v1.9 Jornada de Decisão, via `/gsd-new-milestone`. Ver
-`.planning/milestones/v1.8-ROADMAP.md`/`v1.8-REQUIREMENTS.md` para o detalhe
-completo do v1.8.*
+*Last updated: 2026-09-26 — Milestone v1.9 Jornada de Decisão aberta
+(Fases 1+2 da `qa/AUDITORIA-Jornada-Decisao-v1.md`, numeração a partir da
+Fase 42). v1.8 arquivada em `.planning/milestones/v1.8-ROADMAP.md`.*
