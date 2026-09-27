@@ -55,12 +55,18 @@ ok("corpo de SinalChip lê o estado de elegibilidade via HISTORICO_PILL_STYLE[es
   sinalChip.includes("HISTORICO_PILL_STYLE[estado]"));
 ok("corpo de SinalChip (sem comentários) não usa T.positive/T.negative/T.accent — cor só via REC_STYLE/HISTORICO_PILL_STYLE",
   !/T\.positive|T\.negative|T\.accent/.test(sinalChipSemComentario));
-ok("corpo de SinalChip embute o ConfluenceRing em size={36} (D-08)", sinalChip.includes("size={36}"));
+// REVERSÃO DELIBERADA (2026-09-27, Fase 43, RITMO-01): o contrato (anel
+// 36px; chip 4px 8px) é o mesmo, só passou a ser expresso pela escala
+// nomeada SP/SP_OPTICO_ANEL — px solto no card é falha do test_ritmo_sp.mjs.
+ok("corpo de SinalChip embute o ConfluenceRing em size={SP_OPTICO_ANEL} (D-08) (via SP)", sinalChip.includes("size={SP_OPTICO_ANEL}"));
 ok("peso=\"primario\" usa role=\"group\" na manchete (uma leitura só)", sinalChip.includes('role="group"'));
 ok("peso=\"contexto\" expõe role=\"img\" aria-label={ariaLabel} (D-15/CHIP-02)",
   /role="img" aria-label=\{ariaLabel\}/.test(sinalChip));
 ok("corpo de SinalChip marca glifos decorativos com aria-hidden=\"true\"", sinalChip.includes('aria-hidden="true"'));
-ok("peso=\"contexto\" usa padding \"4px 8px\" (contrato do UI-SPEC)", sinalChip.includes('padding: "4px 8px"'));
+// REVERSÃO DELIBERADA (2026-09-27, Fase 43, RITMO-01): o contrato (anel
+// 36px; chip 4px 8px) é o mesmo, só passou a ser expresso pela escala
+// nomeada SP/SP_OPTICO_ANEL — px solto no card é falha do test_ritmo_sp.mjs.
+ok("peso=\"contexto\" usa padding `${SP[1]}px ${SP[2]}px` (contrato do UI-SPEC) (via SP)", sinalChip.includes("padding: `${SP[1]}px ${SP[2]}px`"));
 ok("peso=\"contexto\" usa borderRadius \"7px\" (contrato do UI-SPEC)", sinalChip.includes('borderRadius: "7px"'));
 
 ok("ConfluenceRing aceita prop ariaLabel", /function ConfluenceRing\(\{[^}]*ariaLabel[^}]*\}/.test(src));

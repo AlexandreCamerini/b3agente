@@ -1308,6 +1308,20 @@ const REC_STYLE = {
   "Reduzir exposição": [ORANGE, "rgba(251,146,60,0.12)"],
   Vender: [T.negative, T.negativeTint10],
 };
+
+// RITMO-01 (Fase 43): escala 4/8pt do qa/AUDITORIA-Design-System-v1.md §3.2.
+// Card inteiro (D-14): usa SP em vez de string solta. Regra de arredondamento
+// (D-15/D-16): cada valor herdado vira o degrau MAIS PRÓXIMO; empate (diff
+// igual para os dois lados) arredonda para CIMA (não aperta o layout
+// existente). Exceção só como constante nomeada, comentada, na lista fechada
+// abaixo — o guardião (test_ritmo_sp.mjs) aceita só essas.
+const SP = { 1: 4, 2: 8, 3: 12, 4: 16, 5: 20, 6: 24, 8: 32 };
+// Exceções ópticas — herdado do 42-UI-SPEC.md, developer-approved 2026-09-26;
+// lista fechada D-16 — nova exceção exige discuss-phase.
+const SP_OPTICO_CHIP_PRIMARIO = { v: 9, h: 11 };
+// Exceções ópticas — herdado do 42-UI-SPEC.md, developer-approved 2026-09-26;
+// lista fechada D-16 — nova exceção exige discuss-phase.
+const SP_OPTICO_ANEL = 36;
 const TECH_MODELS = [
   ["completo", "Completo", "Visão geral para estudo"],
   ["tendencia", "Tendência", "Médias e estrutura"],
@@ -1390,8 +1404,8 @@ function SinalChip({ peso, label, value, sufixo, ariaLabel, estado, explicavel, 
     const envolver = envolverAnel || ((no) => no);
     return (
       <div role="group" aria-label={ariaManchete(kicker + (sufixo || ""), decision, modo)}
-        style={{ marginTop: "11px", background: fundo, borderRadius: "9px", padding: "9px 11px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px" }}>
+        style={{ marginTop: SP[3], background: fundo, borderRadius: "9px", padding: `${SP_OPTICO_CHIP_PRIMARIO.v}px ${SP_OPTICO_CHIP_PRIMARIO.h}px` }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: SP[2] }}>
           {/* aria-hidden: o grupo acima já lê kicker+decisão por completo —
               duplicar aqui seria uma segunda fonte da mesma informação. */}
           <div aria-hidden="true" style={{ minWidth: 0 }}>
@@ -1399,7 +1413,7 @@ function SinalChip({ peso, label, value, sufixo, ariaLabel, estado, explicavel, 
             <div style={{ fontSize: "17px", fontWeight: 800, color: cor }}>{decision}</div>
           </div>
           {ring && envolver(
-            <ConfluenceRing conf={ring.pct} size={36} ariaLabel={copyFor(modo).sinal.ariaAnel(ring.texto)} />,
+            <ConfluenceRing conf={ring.pct} size={SP_OPTICO_ANEL} ariaLabel={copyFor(modo).sinal.ariaAnel(ring.texto)} />,
             "anel"
           )}
         </div>
@@ -1408,7 +1422,7 @@ function SinalChip({ peso, label, value, sufixo, ariaLabel, estado, explicavel, 
           // pronto de `rotuloAnel` (sinal.js, 42-01). O `role="img"` do
           // ConfluenceRing acima já leva a MESMA string por aria-label; este
           // bloco é aria-hidden para não duplicar a leitura.
-          <div aria-hidden="true" style={{ marginTop: "4px", fontSize: "12px", fontWeight: 700, lineHeight: 1.3, color: T.textSecondary, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+          <div aria-hidden="true" style={{ marginTop: SP[1], fontSize: "12px", fontWeight: 700, lineHeight: 1.3, color: T.textSecondary, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
             <span style={SUBLINHADO}>{ring.cabeca}</span> — {ring.ladoTxt ? ring.ladoTxt + ": " : ""}{ring.setup}
           </div>,
           "rotulo"
@@ -1424,7 +1438,7 @@ function SinalChip({ peso, label, value, sufixo, ariaLabel, estado, explicavel, 
     : estado === "aposentado" ? "1px dashed " + T.borderDashed
     : "none";
   const style = {
-    display: "inline-flex", alignItems: "center", gap: "4px", padding: "4px 8px", borderRadius: "7px",
+    display: "inline-flex", alignItems: "center", gap: SP[1], padding: `${SP[1]}px ${SP[2]}px`, borderRadius: "7px",
     fontSize: "11px", fontWeight: 700, lineHeight: 1.3, border,
     background: est ? est[1] : "transparent",
     color: est ? est[0] : T.textFaint,
@@ -1455,7 +1469,7 @@ function LinhaContexto({ regime, fundamento, alinhamento, operador, A, didatica,
   const score = fundamento && fundamento.score;
   if (!rr && !score) return null;
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "8px", marginTop: "11px" }}>
+    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: SP[2], marginTop: SP[3] }}>
       {rr && (
         <SinalChip peso="contexto" label="REGIME" value={rr}
           sufixo={regime.confiavel === false ? cp.degradadoSufixo : null}
@@ -1470,7 +1484,12 @@ function LinhaContexto({ regime, fundamento, alinhamento, operador, A, didatica,
         </span>
       )}
       {score && (
-        <SetorAlvo setorId="fundamento" rotulo="o fundamento" A={A} didatica={didatica} dados={dados} style={{ display: "inline-flex" }}>
+        // D-18 (Fase 43): área de toque ≥44px por padding compensado com
+        // margem negativa simétrica — o chip visual e os vizinhos não se
+        // movem (padding aumenta a caixa de TOQUE; margin negativa igual e
+        // de sinal oposto cancela o efeito na caixa de LAYOUT).
+        <SetorAlvo setorId="fundamento" rotulo="o fundamento" A={A} didatica={didatica} dados={dados}
+          style={{ display: "inline-flex", padding: `${SP[3]}px ${SP[2]}px`, margin: `-${SP[3]}px -${SP[2]}px` }}>
           <SinalChip peso="contexto" label="FUNDAMENTO" value={score} explicavel ariaLabel={ariaFundamento(score, modo)} />
         </SetorAlvo>
       )}
@@ -1505,31 +1524,31 @@ function PlanoOperacionalBloco({ operador, plano, motivo, setup, close, config }
   return (
     <div>
       {temCaixa && (
-        <div style={{ marginTop: "10px", padding: "11px 12px", borderRadius: "10px", background: T.bgBase, border: `1px solid ${T.borderFaint}` }}>
+        <div style={{ marginTop: SP[3], padding: `${SP[3]}px ${SP[3]}px`, borderRadius: "10px", background: T.bgBase, border: `1px solid ${T.borderFaint}` }}>
           {[
             ["Entrada (" + (plano.tipo || "") + ")", "R$ " + price(plano.entrada), T.textSecondary],
             ["Stop (invalidação do setup)", "R$ " + price(plano.stop), T.negative],
             ["Alvo 1 (parcial, 1R) / Alvo final", price(plano.alvo1) + " / " + price(plano.alvo2), T.positive],
             ["Risco:retorno (alvo final)", (plano.rr2 != null ? plano.rr2.toFixed(1).replace(".", ",") : "—") + " : 1", T.textSecondary],
           ].map(([k, v, cor], i2) => (
-            <div key={i2} style={{ display: "flex", justifyContent: "space-between", gap: "8px", fontSize: "11.5px", padding: "3px 0", color: T.textMuted }}>
+            <div key={i2} style={{ display: "flex", justifyContent: "space-between", gap: SP[2], fontSize: "11.5px", padding: `${SP[1]}px 0`, color: T.textMuted }}>
               <span>{k}</span><b style={{ fontFamily: MONO, color: cor }}>{v}</b>
             </div>
           ))}
           {siz && (
-            <div style={{ display: "flex", justifyContent: "space-between", gap: "8px", fontSize: "11.5px", padding: "3px 0", color: T.textMuted, borderTop: `1px dashed ${T.borderFaint}`, marginTop: "4px", paddingTop: "7px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: SP[2], fontSize: "11.5px", padding: `${SP[1]}px 0`, color: T.textMuted, borderTop: `1px dashed ${T.borderFaint}`, marginTop: SP[1], paddingTop: SP[2] }}>
               <span>Posição p/ risco de {siz.pct}%{typeof cRisco.capital === "number" ? "" : " (capital simulado — defina o real na Config)"}</span>
               <b style={{ fontFamily: MONO, color: T.textSecondary }}>{siz.qtd > 0 ? siz.qtd + " ações ≈ R$ " + price(siz.valorAprox) : "—"}</b>
             </div>
           )}
-          {siz && siz.aviso && <div style={{ fontSize: "10.5px", color: T.negative, marginTop: "5px", lineHeight: 1.4 }}>{siz.aviso}</div>}
+          {siz && siz.aviso && <div style={{ fontSize: "10.5px", color: T.negative, marginTop: SP[1], lineHeight: 1.4 }}>{siz.aviso}</div>}
         </div>
       )}
       {temMotivoOperador && (
-        <div style={{ marginTop: "9px", fontSize: "11.5px", color: T.textMuted, lineHeight: 1.5 }}>{plano.motivo}</div>
+        <div style={{ marginTop: SP[2], fontSize: "11.5px", color: T.textMuted, lineHeight: 1.5 }}>{plano.motivo}</div>
       )}
       {!operador && motivo && (
-        <div style={{ marginTop: "9px", fontSize: "11.5px", color: T.textMuted, lineHeight: 1.5 }}>{motivo}</div>
+        <div style={{ marginTop: SP[2], fontSize: "11.5px", color: T.textMuted, lineHeight: 1.5 }}>{motivo}</div>
       )}
       {!operador && temRegua && (
         <PlanRuler
@@ -3355,7 +3374,7 @@ function TimingBadge({ t, operador, didatica, vistos, proativo, A, dadosDoCard, 
     // alcançável, com a leitura de mercado fechado que o backend já serve.
     <SetorAlvo setorId="timing" dados={dados} rotulo={"o " + nivel} A={A} didatica={didatica}
       ativo={didaticaOk}
-      style={{ marginTop: "9px", padding: "8px 11px", borderRadius: "9px", background: bg, border: `1px solid ${T.borderFaint}` }}>
+      style={{ marginTop: SP[2], padding: "8px 11px", borderRadius: "9px", background: bg, border: `1px solid ${T.borderFaint}` }}>
       <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
         {/* termo-âncora do setor: o sublinhado pontilhado É a indicação */}
         <span style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.05em", color: cor, ...(didaticaOk ? SUBLINHADO : {}) }}>{operador ? rotOp : rotEdu}</span>
@@ -3733,9 +3752,14 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
                 /* Ausência DITA. Antes este espaço era preenchido com a
                    recomendação da IA, criando uma segunda fonte para a mesma
                    manchete — e a contradição entre telas que isso gera. */
-                <div style={{ marginTop: "11px", background: T.bgBase, borderRadius: "9px", padding: "9px 11px", border: `1px solid ${T.borderFaint}` }}>
+                <div style={{ marginTop: SP[3], background: T.bgBase, borderRadius: "9px", padding: `${SP_OPTICO_CHIP_PRIMARIO.v}px ${SP_OPTICO_CHIP_PRIMARIO.h}px`, border: `1px solid ${T.borderFaint}` }}>
                   <div style={{ fontSize: "10px", letterSpacing: "0.04em", color: T.textFaint }}>{operador ? "DECISÃO DA MESA" : "PLANO EDUCACIONAL"}</div>
-                  <div style={{ fontSize: "12.5px", color: T.textMuted, marginTop: "2px" }}>Sem leitura do motor para este ativo agora — toque em ↻ reordenar para varrer de novo.</div>
+                  {/* Claude's Discretion (43-02-PLAN.md Task 2.3): ponto fora da
+                      tabela do UI-SPEC, mesma caixa visual da manchete no estado
+                      sem decisão — mesmo padding óptico, marginTop no degrau mais
+                      próximo (empate 8/12 → SP[3]), marginTop interno 2px→SP[1]
+                      (empate 0/4 → arredonda p/ cima). */}
+                  <div style={{ fontSize: "12.5px", color: T.textMuted, marginTop: SP[1] }}>Sem leitura do motor para este ativo agora — toque em ↻ reordenar para varrer de novo.</div>
                 </div>
               )}
 
@@ -3769,7 +3793,7 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
                   contexto — Fase 42 D-03/D-04; decisão × elegibilidade seguem
                   separadas. */}
               {sc && sc.melhorSetup && (
-                <div style={{ marginTop: "8px" }}>
+                <div style={{ marginTop: SP[2] }}>
                   <HistoricoPill historico={sc.setupHistorico} elegivel={sc.setupElegivel} operador={operador} />
                 </div>
               )}
@@ -6774,7 +6798,7 @@ function HistoricoPill({ historico, elegivel, aposentado, operador, hojeYmd, com
   const nJanela = historico && typeof historico.nJanela === "number" ? historico.nJanela : null;
   const janelaRef = historico && historico.janelaRef ? historico.janelaRef : null;
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+    <span style={{ display: "inline-flex", alignItems: "center", gap: SP[2], flexWrap: "wrap" }}>
       {/* Fase 42 (CHIP-01): o pill deixa de ter receita própria de
           borda/fundo/cor — é um SinalChip peso="contexto" com `estado`.
           Contrato de cor/borda/aria idêntico ao de antes, só mudou de casa
