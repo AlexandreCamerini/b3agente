@@ -125,6 +125,7 @@ const PALETTE = {
     shadowFab: "rgba(0,0,0,0.45)", // Fase 22 (SYS-03): o valor que estava hardcoded no PetFab desde 2026-08-08 — o tema escuro não muda de aparência, só de origem.
     chartGrid: "rgba(255,255,255,0.04)", chartBorder: "rgba(255,255,255,0.08)", chartAxis: "#6f7797", lineSubtle: "rgba(255,255,255,0.18)", onAccent: "#04231f",
     warn: "#fbbf24", // qa/34: âmbar de aviso (diário/logs) — antes hex solto fora do token system
+    warnTint10: "rgba(251,191,36,0.10)", // Fase 42 (COR-01/D-03): tint do estado inelegível — 7,98:1 (estudo) / 8,64:1 (Operador), ver 42-UI-SPEC.md
   },
   light: {
     // Neutros literais de v2. Antes o painel e o card eram os dois #ffffff —
@@ -160,6 +161,7 @@ const PALETTE = {
     shadowFab: "rgba(15,20,28,0.22)", // Fase 22 (SYS-03): mais leve que o scrim claro (0.45). Um halo preto forte sobre o bgBase quase branco lê como borrão, não como separação; o scrim é calibrado para overlay de tela cheia, não para drop-shadow de 54px. Valor de PARTIDA — a calibragem final é a checagem visual do plano 22-04.
     chartGrid: "rgba(0,0,0,0.05)", chartBorder: "rgba(0,0,0,0.10)", chartAxis: "#8a90a0", lineSubtle: "rgba(0,0,0,0.16)", onAccent: "#ffffff",
     warn: "#a16207", // qa/34: âmbar de aviso legível sobre fundo claro
+    warnTint10: "rgba(161,98,7,0.04)", // Fase 42 (COR-01/D-03): alpha 4% — 4,68:1 nas 2 combinações (mesmo bgCard #ffffff); alternativa 3,6% = 4,70:1 registrada como DP-1 do checkpoint 42-06
   },
 };
 const VARKEY = (k) => "--" + k.replace(/[A-Z]/g, (c) => "-" + c.toLowerCase());
@@ -6575,8 +6577,9 @@ function ConfluenceRing({ conf, size = 54, label = true }) {
 // na linha de chips, nunca antes do ConfluenceRing. Contrato de cor é o
 // UI-SPEC aprovado — não escolha do implementador.
 const HISTORICO_PILL_STYLE = {
-  elegivel: [T.positive, T.positiveTint10],
-  inelegivel: [T.negative, T.negativeTint10], // MESMO peso visual do positivo — nunca dim
+  elegivel: [T.textPrimary, "transparent"],
+  // Fase 42 (COR-01/D-03/D-04): REVISÃO DELIBERADA do contrato do 08-UI-SPEC (v1.1) — inelegível sai do vermelho de VENDER/prejuízo para o âmbar de honestidade de dado; elegível vira neutro + ✓ (sem verde). Má notícia continua com cor, nunca dim.
+  inelegivel: [T.warn, T.warnTint10],
   insuficiente: [T.textFaint, T.bgBase],
   nunca_medido: [T.textFaint, T.bgBase],
   aposentado: [T.textMuted, T.bgCard], // único estado com borda tracejada, ver pillStyle abaixo
@@ -6609,12 +6612,13 @@ function HistoricoPill({ historico, elegivel, aposentado, operador, hojeYmd, com
   // Modificador de desatualização (ADR-017 Decisão 2): degrada só o carimbo
   // de tempo abaixo — o pill em si NUNCA muda de cor por causa da idade.
   if (estado === "aposentado") pillStyle.border = "1px dashed " + T.borderDashed;
+  if (estado === "elegivel") pillStyle.border = "1px solid " + T.borderSubtle;
   const expRJanela = historico && typeof historico.expRJanela === "number" ? historico.expRJanela : null;
   const nJanela = historico && typeof historico.nJanela === "number" ? historico.nJanela : null;
   const janelaRef = historico && historico.janelaRef ? historico.janelaRef : null;
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
-      <span role="img" aria-label={ariaLabel} style={pillStyle}>{rotulo}</span>
+      <span role="img" aria-label={ariaLabel} style={pillStyle}>{estado === "elegivel" && <span aria-hidden="true">✓ </span>}{rotulo}</span>
       {/* números da janela: null NUNCA vira 0 — a métrica ausente simplesmente
           não é desenhada (regra de casa: null, nunca 0.0). */}
       {!compacto && (expRJanela != null || nJanela != null || janelaRef) && (

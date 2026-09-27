@@ -50,14 +50,30 @@ ok("<HistoricoPill.../> wireado no Radar, alimentado por r.setupHistorico/r.setu
 ok("HistoricoPill entra DEPOIS do texto de melhorSetup (sinal secundário, nunca antes)",
   idxHistoricoPillRadar > idxMelhorSetupRadar);
 
-// ---- 3) mapa de estilo: elegivel/inelegivel usam positive/negative,
-//         nenhum dos dois usa T.accent -----------------------------------
-ok("elegivel mapeia para [T.positive, T.positiveTint10]",
-  /elegivel:\s*\[T\.positive,\s*T\.positiveTint10\]/.test(recorte));
-ok("inelegivel mapeia para [T.negative, T.negativeTint10] (MESMO peso visual do positivo)",
-  /inelegivel:\s*\[T\.negative,\s*T\.negativeTint10\]/.test(recorte));
+// ---- 3) mapa de estilo: REVERSÃO DELIBERADA (2026-09-26, Fase 42,
+//         COR-01/D-03/D-04): o contrato positive/negative do 08-UI-SPEC foi
+//         substituído; a garantia "elegibilidade é fato, não cor de marca"
+//         (sem T.accent) permanece. inelegível vira âmbar de honestidade de
+//         dado (T.warn/T.warnTint10, fora do canal de VENDER/prejuízo);
+//         elegível vira neutro forte, sem verde. ---------------------------
+ok("elegivel mapeia para [T.textPrimary, \"transparent\"] (neutro, sem verde)",
+  /elegivel:\s*\[T\.textPrimary,\s*"transparent"\]/.test(recorte));
+ok("inelegivel mapeia para [T.warn, T.warnTint10] (âmbar de honestidade de dado, fora do canal de VENDER/prejuízo)",
+  /inelegivel:\s*\[T\.warn,\s*T\.warnTint10\]/.test(recorte));
 ok("HistoricoPill nunca usa T.accent (elegibilidade é fato, não cor de marca/modo)",
   !recorte.includes("T.accent"));
+// SC#1 do ROADMAP: HISTORICO_PILL_STYLE (só o objeto, até o primeiro `};`)
+// não referencia T.positive nem T.negative.
+const iniObjStyle = recorte.indexOf("const HISTORICO_PILL_STYLE");
+const fimObjStyle = recorte.indexOf("};", iniObjStyle);
+const objStyle = (iniObjStyle >= 0 && fimObjStyle > iniObjStyle) ? recorte.slice(iniObjStyle, fimObjStyle + 2) : "";
+ok("recorte do objeto HISTORICO_PILL_STYLE não veio vazio", objStyle.length > 50);
+ok("HISTORICO_PILL_STYLE não referencia T.positive nem T.negative (ROADMAP SC#1)",
+  !objStyle.includes("T.positive") && !objStyle.includes("T.negative"));
+// glifo ✓ decorativo no ramo elegivel, aria-hidden (o texto acessível segue
+// vindo de historicoTxt/ariaLabel, nunca do glifo).
+ok("ramo elegivel renderiza glifo ✓ decorativo com aria-hidden",
+  /estado === "elegivel" && <span aria-hidden="true">✓ <\/span>/.test(recorte));
 
 // ---- 4) insuficiente e nunca_medido usam o par neutro, NUNCA T.negative --
 ok("insuficiente mapeia para o par neutro [T.textFaint, T.bgBase]",
