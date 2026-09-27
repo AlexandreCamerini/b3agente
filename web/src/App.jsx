@@ -1102,9 +1102,9 @@ function tierOf(conf) {
 // tierOf evita desde a 2.3. Decoração pura: o rótulo textual ("Forte"...)
 // renderiza sempre ao lado, por isso aria-hidden.
 const TIER_FILL = { forte: "#22c55e", moderada: "#f59e0b", neutra: "#9ca3af", fraca: "#ef4444" };
-function TierDot({ tier }) {
-  return <svg width="9" height="9" viewBox="0 0 10 10" aria-hidden style={{ verticalAlign: "-0.02em", flexShrink: 0 }}><circle cx="5" cy="5" r="4.5" fill={TIER_FILL[tier] || TIER_FILL.neutra} /></svg>;
-}
+// Fase 42 (D-08): TierDot apagado — único call site era o rodapé do Radar,
+// removido; o tier agora é carregado pela cor do arco do ConfluenceRing,
+// mesma fonte TIER_FILL, sem receita paralela.
 
 // 2.3 (a): resumo das operações simuladas de UM ativo — "N ops · ±X% acum."
 // (% = PnL realizado sobre o custo total comprado; fonte única: history).
@@ -1445,6 +1445,9 @@ function SinalChip({ peso, label, value, sufixo, ariaLabel, estado, explicavel, 
 // + aviso "não indica direção". Regime indefinido e fundamento sem score
 // nunca viram chip (D-16); o componente NÃO calcula alinhamento — recebe
 // pronto (`alinhamentoDoMotor`, chamado pelo AtivoCard/Radar no 42-04).
+// Fase 42 (D-06, herdeira de FundamentoChip qa/36 e RegimeChip ADR-009):
+// mesmas guardas — indefinido/sem score não vira chip, ·SMA50 declarado —
+// sem cor de direção.
 function LinhaContexto({ regime, fundamento, alinhamento, operador, A, didatica, dados }) {
   const modo = operador ? "operador" : "estudo";
   const cp = copyFor(modo).sinal;
@@ -1545,39 +1548,10 @@ function PlanoOperacionalBloco({ operador, plano, motivo, setup, close, config }
   );
 }
 
-const SCORE_COLOR = { A: "positive", B: "accent", C: "negative" };
-function FundamentoChip({ f }) {
-  if (!f || !f.score) return null;
-  const c = T[SCORE_COLOR[f.score] || "textFaint"];
-  return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", padding: "4px 9px", borderRadius: "7px", fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em", border: `1px solid ${c}`, color: c }}>
-      FUNDAMENTO <b style={{ fontFamily: MONO, fontSize: "11px" }}>{f.score}</b>
-    </span>
-  );
-}
-// ADR-009 (Refactor A): o Radar passou a ordenar por regime+momentum relativo
-// em vez de só confluência — sem indicador, a ordem nova parece arbitrária.
-// Mesmo padrão visual do FundamentoChip (chip determinístico, motor puro:
-// regime.classificar). "indefinido" não aparece — sem média nem ADX não há
-// leitura, mesma postura de FundamentoChip sem score. Base degradada (SMA50,
-// sem janela de 200 candles) se declara no próprio chip — CLAUDE.md exige
-// avisar quando o dado é insuficiente, nunca estimar em silêncio.
-const REGIME_STYLE = {
-  tendencia_alta: ["positive", "ALTA"],
-  tendencia_baixa: ["negative", "BAIXA"],
-  lateral: ["textMuted", "LATERAL"],
-};
-function RegimeChip({ regime }) {
-  if (!regime || !regime.regime || regime.regime === "indefinido") return null;
-  const [corKey, label] = REGIME_STYLE[regime.regime] || ["textFaint", regime.regime.toUpperCase()];
-  const c = T[corKey];
-  return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", padding: "4px 9px", borderRadius: "7px", fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em", border: `1px solid ${c}`, color: c }}>
-      REGIME <b style={{ fontFamily: MONO, fontSize: "11px" }}>{label}</b>
-      {regime.confiavel === false && <span style={{ fontWeight: 400, opacity: 0.75 }}>·SMA50</span>}
-    </span>
-  );
-}
+// Fase 42 (D-06/D-14, CHIP-01): FundamentoChip/SCORE_COLOR e RegimeChip/
+// REGIME_STYLE apagados — SinalChip peso="contexto" (via LinhaContexto e
+// FundamentoTabela abaixo) é a única receita de chip de sinal que resta;
+// zero cor semântica (T.positive/negative) dirigindo REGIME/FUNDAMENTO.
 // fração → percentual pt-BR (0.244 → "24,4%"); null/NaN → null (vira "sem dado")
 const fracPct = (v) => (v == null || isNaN(v) ? null : (v * 100).toFixed(1).replace(".", ",") + "%");
 const num1 = (v) => (v == null || isNaN(v) ? null : Number(v).toFixed(1).replace(".", ","));
@@ -1596,7 +1570,10 @@ function FundamentoTabela({ f }) {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", marginBottom: "6px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           <span style={{ fontSize: "11px", fontWeight: 800, letterSpacing: "0.05em", color: T.textSecondary }}>FUNDAMENTO</span>
-          <FundamentoChip f={f} />
+          {/* Fase 42 (CHIP-01): FundamentoChip apagado — SinalChip peso="contexto"
+              é a receita única de chip de sinal; copy.sinal é idêntico nos
+              dois modos (42-01), então o modo aqui não muda o texto. */}
+          {f.score && <SinalChip peso="contexto" label="FUNDAMENTO" value={f.score} ariaLabel={ariaFundamento(f.score, "estudo")} />}
         </div>
         <span style={{ fontSize: "10px", color: T.textFaint }}>{f.referencia ? "ref. " + f.referencia : ""}{f.fonte ? " · " + f.fonte : ""}</span>
       </div>
@@ -7033,30 +7010,10 @@ function RadarScreen({ ctx }) {
           // FASE 3 (mock v2): posição no portfólio + presença na watchlist + plano do setup
           const posR = (data.positions || []).find((p) => p.t === r.ticker);
           const naWl = (data.watchlist || []).includes(r.ticker);
-          // ADR-017 Decisão 1: `s0` é o setup OPERÁVEL (nunca aposentado) —
-          // `setupOperavel` casa por nome contra `r.melhorSetup`, mesma regra
-          // do backend (setups.py:725). Sem operável, `s0` é `null` e a régua
-          // (guardada por `s0 && s0.gatilho != null && ...` abaixo) simplesmente
-          // não renderiza — estado vazio já coerente.
-          const s0 = setupOperavel(r.setups, r.melhorSetup);
           // FASE 7 (F7.1) — Modo Operador: decisão direta + plano do servidor.
           // O plano vem SEMPRE no payload (determinístico, do setups.py); a UI
           // só o exibe neste modo — o Estudo permanece intocado.
           const operador = ctx.operador; // FIX-C21: lê a fonte única
-          const plano = operador ? r.plano : null;
-          const opStyle = plano ? ({
-            "COMPRAR": [T.positive, "rgba(52,211,153,.15)", "▲ "],
-            "VENDER": [T.negative, "rgba(248,113,113,.15)", "▼ "],
-            "AGUARDAR CONFIRMAÇÃO": [T.accent, T.accentTint, "◔ "],
-          }[plano.decisao] || [T.textFaint, T.bgBase, "✕ "]) : null;
-          const cRisco = (data.config && data.config.risco) || {};
-          const capitalOp = typeof cRisco.capital === "number" ? cRisco.capital : (data.config && data.config.initialBudget) || null;
-          const siz = plano ? sizingPlano(plano, capitalOp, cRisco.pctPorTrade || 1) : null;
-          // qa/34 (P3): leitura inicial rápida — tier de confiança + critérios
-          // atendidos do melhor setup, ambos derivados do payload já existente.
-          const tierLabel = tierOf(r.confluencia)[1];
-          const critTot = s0 ? (s0.criterios || []).length : 0;
-          const critOk = s0 ? (s0.criterios || []).filter((c) => c.ok).length : 0;
           // qa/49 (v11, incremento 2): o Radar usa o CARD ÚNICO no cabeçalho
           // (identidade + preço + manchete). O corpo rico do Radar (plano,
           // confluence ring, aprofundar, critérios) segue como children.
@@ -7068,87 +7025,19 @@ function RadarScreen({ ctx }) {
           const precoR = temCotacao ? qViva.price : r.close;
           const pnlR = posR && precoR != null ? (precoR - posR.avg) * posR.qty : null;
           const pnlPctR = posR && precoR != null && posR.avg > 0 ? (precoR / posR.avg - 1) * 100 : null;
-          // ADR-017 Bloco 3: `sc` do Radar continua um SUBCONJUNTO explícito de
-          // `r` (não `r` inteiro) — o AtivoCard do Radar renderiza um
-          // cabeçalho enxuto, e passar o resultado inteiro reintroduziria no
-          // card campos que o Radar decidiu não mostrar. setupHistorico/
-          // setupElegivel entram porque o HistoricoPill (chip abaixo) precisa
-          // deles no mesmo formato que a Watchlist já consome via `sc`.
-          const radarVm = { t: r.ticker, name: nameR, q: qR, chColor, sc: { spark: r.spark, confluencia: r.confluencia, melhorSetup: r.melhorSetup, setupHistorico: r.setupHistorico, setupElegivel: r.setupElegivel }, pos: posR, cur: precoR, pnl: pnlR, pnlPct: pnlPctR, kp: {}, fscore: r.fundamento && r.fundamento.score, decM: decMr, decColor: decColorR, decBg: decBgR, quotesLoading: false, operador, A: ctx.A, cp, data: ctx.data, didatica: ctx.didatica, overlayLivre: ctx.overlayLivre, isNovo: isNovo(r.ticker) };
+          // Fase 42 (HIER-02/D-09/D-01): o card passou a narrar plano,
+          // contexto (regime+alinhamento+fundamento) e o lado do padrão — os
+          // campos entram um a um, ainda SUBCONJUNTO explícito; `r` inteiro
+          // continua proibido (reintroduziria no card campos que o Radar
+          // decidiu não mostrar).
+          const radarVm = { t: r.ticker, name: nameR, q: qR, chColor, sc: { spark: r.spark, confluencia: r.confluencia, melhorSetup: r.melhorSetup, setupHistorico: r.setupHistorico, setupElegivel: r.setupElegivel, close: r.close, plano: r.plano, setups: r.setups, regime: r.regime, gatilhoAlinhado: r.gatilhoAlinhado, fundamento: r.fundamento }, pos: posR, cur: precoR, pnl: pnlR, pnlPct: pnlPctR, fscore: r.fundamento && r.fundamento.score, decM: decMr, decColor: decColorR, decBg: decBgR, quotesLoading: false, operador, A: ctx.A, cp, data: ctx.data, didatica: ctx.didatica, overlayLivre: ctx.overlayLivre, isNovo: isNovo(r.ticker) };
           return (
             <AtivoCard key={r.ticker} vm={radarVm} contexto="radar">
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", marginTop: "11px" }}>
-                {/* qa/49: a decisão vem da MANCHETE do AtivoCard; aqui fica a confiança/fundamento/setup */}
-                {/* qa/34 (P3): pill de confiança (tierOf) ao lado da decisão, como no
-                    mock modo-operador.html ("confiança MODERADA"). */}
-                <span style={{ padding: "4px 9px", borderRadius: "999px", border: `1px solid ${T.borderSubtle}`, color: T.textMuted, fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em" }}>confiança {tierLabel.toUpperCase()}</span>
-                {/* qa/36 (F10.2): chip de score de fundamento (filtro de qualidade)
-                    — do cache do servidor; ausente = ticker sem cobertura. */}
-                <FundamentoChip f={r.fundamento} />
-                {/* ADR-009 (Refactor A): regime é o eixo novo de ordenação do
-                    Radar — o chip torna visível por que a ordem mudou. */}
-                <RegimeChip regime={r.regime} />
-                {r.melhorSetup && <span style={{ fontSize: "11.5px", color: T.textMuted }}>{r.melhorSetup}{critTot > 0 ? ` · ${critOk}/${critTot} critérios` : ""}{r.gatilhoAlinhado ? " · alinhado ao regime" : ""}</span>}
-                {/* ADR-017 Bloco 3: mesma regra de secundariedade da Watchlist —
-                    entra depois do texto de melhorSetup, nunca antes da
-                    confluência/ConfluenceRing. */}
-                {r.melhorSetup && (
-                  <HistoricoPill historico={r.setupHistorico} elegivel={r.setupElegivel} operador={operador} />
-                )}
-              </div>
-              {/* qa/34 (P1): leitura inicial rápida no Modo Estudo — o `motivo`
-                  determinístico do plano (setups.py) sempre veio no payload, mas
-                  só era exibido no Operador. Zero custo de LLM. */}
-              {!operador && r.plano && r.plano.motivo && (
-                <div style={{ marginTop: "9px", fontSize: "11.5px", color: T.textMuted, lineHeight: 1.5 }}>{r.plano.motivo}</div>
-              )}
-              {/* FASE 7 (F7.1): plano operacional — só no Modo Operador */}
-              {plano && (plano.decisao === "COMPRAR" || plano.decisao === "VENDER") && (
-                <div style={{ marginTop: "10px", padding: "11px 12px", borderRadius: "10px", background: T.bgBase, border: `1px solid ${T.borderFaint}` }}>
-                  {[
-                    ["Entrada (" + (plano.tipo || "") + ")", "R$ " + price(plano.entrada), T.textSecondary],
-                    ["Stop (invalidação do setup)", "R$ " + price(plano.stop), T.negative],
-                    ["Alvo 1 (parcial, 1R) / Alvo final", price(plano.alvo1) + " / " + price(plano.alvo2), T.positive],
-                    ["Risco:retorno (alvo final)", (plano.rr2 != null ? plano.rr2.toFixed(1).replace(".", ",") : "—") + " : 1", T.textSecondary],
-                  ].map(([k, v, cor], i2) => (
-                    <div key={i2} style={{ display: "flex", justifyContent: "space-between", gap: "8px", fontSize: "11.5px", padding: "3px 0", color: T.textMuted }}>
-                      <span>{k}</span><b style={{ fontFamily: MONO, color: cor }}>{v}</b>
-                    </div>
-                  ))}
-                  {siz && (
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: "8px", fontSize: "11.5px", padding: "3px 0", color: T.textMuted, borderTop: `1px dashed ${T.borderFaint}`, marginTop: "4px", paddingTop: "7px" }}>
-                      <span>Posição p/ risco de {siz.pct}%{typeof cRisco.capital === "number" ? "" : " (capital simulado — defina o real na Config)"}</span>
-                      <b style={{ fontFamily: MONO, color: T.textSecondary }}>{siz.qtd > 0 ? siz.qtd + " ações ≈ R$ " + price(siz.valorAprox) : "—"}</b>
-                    </div>
-                  )}
-                  {siz && siz.aviso && <div style={{ fontSize: "10.5px", color: T.negative, marginTop: "5px", lineHeight: 1.4 }}>{siz.aviso}</div>}
-                </div>
-              )}
-              {plano && plano.decisao !== "COMPRAR" && plano.decisao !== "VENDER" && plano.motivo && (
-                <div style={{ marginTop: "9px", fontSize: "11.5px", color: T.textMuted, lineHeight: 1.5 }}>{plano.motivo}</div>
-              )}
-              {/* qa/mock v2: anel de confluência no lugar da barra plana. */}
-              <div style={{ marginTop: "12px", display: "flex", alignItems: "center", gap: "13px" }}>
-                <ConfluenceRing conf={r.confluencia} size={54} />
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: "10.5px", color: T.textFaint, letterSpacing: "0.05em", fontWeight: 700 }}>CONFLUÊNCIA DO SETUP</div>
-                  <div style={{ fontSize: "12px", color: T.textMuted, marginTop: "3px", lineHeight: 1.4 }}><TierDot tier={tierOf(r.confluencia)[0]} /> {tierOf(r.confluencia)[1]} · aderência ao padrão de estudo</div>
-                </div>
-              </div>
-              {/* FASE 3 (mock v2): régua do PLANO — invalidação → gatilho → alvo, com o preço "agora" */}
-              {s0 && s0.gatilho != null && s0.invalidacao != null && s0.alvoSugerido != null && (
-                <PlanRuler
-                  caption="PLANO DO SETUP (didático)"
-                  marks={[{ v: s0.invalidacao, color: T.negative }, { v: s0.gatilho, color: T.accent }, { v: s0.alvoSugerido, color: T.positive }]}
-                  cur={r.close}
-                  curLabel={r.close != null ? "agora " + price(r.close) : null}
-                  legend={[
-                    { k: "INVALIDAÇÃO", v: s0.invalidacao, color: T.negative },
-                    { k: "GATILHO", kColor: T.accent, v: s0.gatilho },
-                    { k: "ALVO 2:1", v: s0.alvoSugerido, color: T.positive },
-                  ]}
-                />
-              )}
+              {/* Fase 42 (HIER-01/HIER-02): manchete+anel, timing, plano,
+                  contexto e elegibilidade são renderizados pelo AtivoCard
+                  (mesma ordem da Watchlist); aqui fica só a cauda do Radar.
+                  "x/y critérios" saiu do cabeçalho (D-09) — os critérios
+                  seguem em "+ Ver critérios do setup". */}
               {/* FASE 2 (2.1): jornada — aprofundar (N1) ou avaliar por completo (N2) */}
               <div style={{ display: "flex", gap: "8px", marginTop: "12px" }}>
                 <button onClick={() => runDeep(r.ticker)} style={{ flex: 1, minHeight: "38px", padding: "8px", borderRadius: "10px", border: `1px solid ${T.accent}`, background: (deep[r.ticker] && deep[r.ticker].res) ? T.accent : T.accentTint10, color: (deep[r.ticker] && deep[r.ticker].res) ? T.onAccent : T.accent, fontWeight: 700, fontSize: "12px" }}>
