@@ -258,7 +258,25 @@ Plans:
   2. `KpiBlock`/`KpiCell` (detalhe técnico aberto via gráfico de velas) mostra direção/convicção/qualidade com `SinalChip` peso `contexto`, substituindo a grade de caixas cinzas
   3. Os blocos do card (manchete → plano → contexto → elegibilidade) usam espaçamento da escala 4/8pt via constantes nomeadas, sem valores soltos tipo `"11px"`/`"9px"`
   4. Nenhum teste de `setups.py`/`kpi.py`/`signal_ledger.py` muda; suíte canônica e `npx vite build` verdes; publicação via `scripts/bump.sh` + `publicar-web.sh`; checkpoint humano ao vivo do Alex confirma em <3s veredito × contexto com a copy por modo visível
-**Plans**: TBD
+**Plans**: 5 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 43-01-PLAN.md — Vocabulário: RECONCILIACAO_ELEGIBILIDADE/reconciliacao_elegibilidade_txt (skill_ref.py) ↔ reconciliacaoTxt/reconciliacaoPorQueImporta + rótulos da Leitura da IA (copy.js), guardiões
+- [ ] 43-02-PLAN.md — RITMO-01: constante SP (4/8pt) + exceções ópticas nomeadas, migração do card, área de toque do fundamento (D-18), guardião test_ritmo_sp
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 43-03-PLAN.md — CHIP-03 corrigido: KpiBlock/KpiCell e órfãos apagados, Leitura da IA com 3 SinalChip neutros em AnalysisView, FUNDAMENTO único (D-17)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 43-04-PLAN.md — HIER-03: microtexto de reconciliação por modo na linha de elegibilidade do AtivoCard (HistoricoPill microtexto)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 43-05-PLAN.md — Checkpoint humano (SC#4 + DP-1..DP-3), publicação pelo Alex (bump/publicar-web), fechamento à mão com correção D-06
 **UI hint**: yes
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2/v1.3
