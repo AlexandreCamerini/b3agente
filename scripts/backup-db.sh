@@ -4,9 +4,10 @@
 # 2026-09-07: a IMPLEMENTAÇÃO saiu daqui e virou `server/app/backup.py`; este
 # script agora é só o ponto de entrada local. Motivo: o `rootDirectory` do
 # Railway é `/server`, então `scripts/` não existe dentro do container e um
-# `preDeployCommand` apontando para cá falharia — justamente no deploy em que
-# o backup mais importa. Com o código dentro de `server/app/`, o mesmo caminho
-# serve o pre-deploy do Railway e o uso local, sem duas cópias para divergir.
+# comando apontando para cá falharia — justamente no deploy em que o backup
+# mais importa. Com o código dentro de `server/app/`, o mesmo caminho serve o
+# início do startCommand no Railway e o uso local, sem duas cópias para
+# divergir.
 #
 # O comportamento local não mudou: mesmo backup online consistente (checkpoint
 # do WAL + API `.backup()` do SQLite), mesmo destino padrão (`server/backups`),

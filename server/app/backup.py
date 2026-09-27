@@ -3,10 +3,21 @@
 POR QUE ESTE MÓDULO EXISTE DENTRO DE `server/app/` (e não em `scripts/`):
 o `rootDirectory` do Railway é `/server` (ver `server/railway.json` e o
 cabeçalho de `scripts/publicar-web.sh`), então `scripts/` NÃO existe dentro
-do container. Um `preDeployCommand` apontando para `scripts/backup-db.sh`
-falharia com "arquivo não encontrado" — e, pior, falharia justamente no
-deploy em que o backup mais importava. Aqui dentro, o mesmo código serve o
-pre-deploy do Railway e o uso local (`scripts/backup-db.sh` delega para cá).
+do container. Um comando apontando para `scripts/backup-db.sh` falharia com
+"arquivo não encontrado" — e, pior, falharia justamente no deploy em que o
+backup mais importava. Aqui dentro, o mesmo código serve o início do
+`startCommand` no Railway e o uso local (`scripts/backup-db.sh` delega para
+cá).
+
+POR QUE NÃO É UM `preDeployCommand` (2026-09-27): a doc oficial do Railway
+(docs.railway.com/deployments/pre-deploy-command) é explícita — "Pre-deploy
+commands execute in a separate container from your application. Changes to
+the filesystem are not persisted and volumes are not mounted." O volume
+`/data` só existe no container da APLICAÇÃO. Medido em produção e staging:
+desde 2026-09-13 todo `preDeployCommand` imprimia
+`[backup] banco ainda não existe em /data/b3.db — nada a fazer.` e saía 0 —
+nenhum backup real jamais rodou. O ponto de entrada correto é o INÍCIO do
+`startCommand`, antes do uvicorn, no mesmo container que monta o volume.
 
 NUNCA usa `db.connect()`: aquele caminho chama `init_db()`, que roda as
 migrações (`ALTER TABLE ... ADD COLUMN`, `_migrate_identities_from_users`).
@@ -16,16 +27,21 @@ rede de segurança para voltar à versão anterior. Aqui a conexão é crua
 
 Uso:
     python -m app.backup                 # backup para <dir do banco>/backups
-    python -m app.backup --pre-deploy    # idem, com semântica de deploy (ver abaixo)
+    python -m app.backup --pre-start     # idem, com semântica de deploy (ver abaixo)
+    python -m app.backup --pre-deploy    # alias de --pre-start (compatibilidade)
     python -m app.backup --out /outro/dir --keep 30
 
-Semântica de saída no modo `--pre-deploy` (é o que o Railway lê):
+Semântica de saída no modo `--pre-start` (é o que o `startCommand` do Railway
+invoca, antes do uvicorn):
   • banco INEXISTENTE  -> código 0. Primeiro deploy de um environment novo não
     tem o que proteger; travar o deploy aqui seria impedir o ambiente de
     nascer.
   • backup OK          -> código 0.
-  • banco existe e o backup FALHOU -> código 1, deploy travado. É exatamente o
-    caso em que subir a versão nova sem rede é a decisão errada.
+  • banco existe e o backup FALHOU -> código 1, e o `&&` do `startCommand`
+    impede o uvicorn de subir. Com o healthcheck `/api/health` configurado, o
+    Railway não troca o container antigo pelo novo quando o novo não passa no
+    health — é o "falhar alto" desejado, sem precisar de um container
+    separado para isso.
 """
 from __future__ import annotations
 
@@ -115,8 +131,9 @@ def fazer_backup(db_path: Optional[str] = None, out_dir: Optional[str] = None,
 
 def main(argv: Optional[list] = None) -> int:
     p = argparse.ArgumentParser(description="Backup do banco SQLite do Boris+.")
-    p.add_argument("--pre-deploy", action="store_true",
-                   help="modo Railway: banco ausente não é erro (ver docstring)")
+    p.add_argument("--pre-start", "--pre-deploy", action="store_true", dest="modo_start",
+                   help="modo Railway (início do startCommand): banco ausente não é "
+                        "erro (ver docstring). `--pre-deploy` é alias de compatibilidade.")
     p.add_argument("--db", default=None, help="caminho do banco (default: B3_DB_PATH)")
     p.add_argument("--out", default=None, help="pasta de destino (default: <dir do banco>/backups)")
     p.add_argument("--keep", type=int, default=None, help=f"quantos manter (default: {KEEP_PADRAO})")
@@ -126,10 +143,11 @@ def main(argv: Optional[list] = None) -> int:
         destino = fazer_backup(a.db, a.out, a.keep)
     except Exception as e:  # noqa: BLE001 — a mensagem É o produto aqui
         print(f"[backup] FALHOU: {type(e).__name__}: {e}", file=sys.stderr)
-        if a.pre_deploy:
+        if a.modo_start:
             print("[backup] deploy TRAVADO de propósito: o banco existe mas não foi "
                   "possível protegê-lo. Suba sem rede só se essa for uma decisão "
-                  "consciente (remova o preDeployCommand em server/railway.json).",
+                  "consciente (remova o trecho `(python -m app.backup --pre-start || ...) &&` do "
+                  "startCommand em server/railway.json e .railway/railway.ts).",
                   file=sys.stderr)
         return 1
 
