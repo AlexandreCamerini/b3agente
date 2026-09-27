@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.9
 milestone_name: Jornada de Decisão
 status: phase_complete
-stopped_at: 'Phase 42 fechada e publicada (F10-20260927-01). Próximo: /gsd-discuss-phase 43 (ou plan-phase 43).'
+stopped_at: 'Phase 43 context gathered (43-CONTEXT.md). Próximo: /gsd-ui-phase 43 ou /gsd-plan-phase 43.'
 last_updated: "2026-09-27T15:00:00.000Z"
-last_activity: 2026-09-27 -- Phase 42 fechada (6/6), publicada F10-20260927-01
+last_activity: 2026-09-27 -- Phase 43 discuss-phase concluída (18 decisões; premissa da CHIP-03 corrigida)
 progress:
   total_phases: 2
   completed_phases: 1
@@ -30,7 +30,8 @@ Phase: 42 (cr-tico-cor-chip-nico-e-ordem-de-leitura) — FECHADA (2026-09-27),
   6/6 planos, publicada em produção (`F10-20260927-01`). Fase 43 não iniciada.
 Plan: 6 de 6 completos (42-01..42-05 em execução autônoma agendada, 01:30,
   autorizada pelo Alex; 42-06 checkpoint humano + publicação + docs).
-Status: Phase complete — próximo passo: `/gsd-discuss-phase 43`.
+Status: Phase 43 context gathered — próximo passo: `/gsd-ui-phase 43` (UI hint) ou `/gsd-plan-phase 43`.
+Resume file: .planning/phases/43-refinamento-copy-por-modo-kpiblock-e-ritmo/43-CONTEXT.md
 Last activity: 2026-09-27 — checkpoint humano aprovado ao vivo ("aprovado,
   DP-1 mantém 4%, DP-2 a DP-4 aprovadas"); bump + publicar-web rodados pelo
   Alex (o classificador do modo automático bloqueou o deploy pelo agente).
