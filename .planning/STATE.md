@@ -7,7 +7,7 @@ stopped_at: 'Milestone v1.9 (Jornada de Decisão) aberta em 2026-09-26 — PROJE
 last_updated: "2026-09-26T00:00:00.000Z"
 last_activity: 2026-09-26 -- Milestone v1.9 Jornada de Decisão iniciada
 progress:
-  total_phases: 0
+  total_phases: 2
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-09-26)
 ## Current Position
 
 Milestone: v1.9 Jornada de Decisão (aberta 2026-09-26).
-Phase: Not started (defining requirements)
+Phase: 42 (not started)
 Plan: —
-Status: Defining requirements
+Status: Ready to discuss/plan
 Last activity: 2026-09-26 — Milestone v1.9 started
 Produção: `F10-20260925-02`.
 Pendências fora de milestone: build iOS 28 preparado (cap sync + bump),

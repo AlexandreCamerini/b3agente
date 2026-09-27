@@ -11,6 +11,7 @@
 - ✅ **v1.6 Simplificação da aba Opções** — Phases 33-34 (shipped 2026-09-20) — [detalhes](milestones/v1.6-ROADMAP.md)
 - ✅ **v1.7 Confiabilidade explicativa da aba Opções** — Phases 35-37 (shipped 2026-09-22) — [detalhes](milestones/v1.7-ROADMAP.md)
 - ✅ **v1.8 Didática ampliada + continuidade da aba Opções** — Phases 38-41 (shipped 2026-09-25) — [detalhes](milestones/v1.8-ROADMAP.md)
+- 🔵 **v1.9 Jornada de Decisão** — Phases 42-43 (em andamento, aberta 2026-09-26)
 
 ## Phases
 
@@ -161,6 +162,11 @@ Full phase details: [milestones/v1.8-ROADMAP.md](milestones/v1.8-ROADMAP.md)
 
 </details>
 
+### v1.9 Jornada de Decisão (Phases 42-43) — EM ANDAMENTO
+
+- [ ] **Phase 42: Crítico — cor, chip único e ordem de leitura** - Token de confiabilidade separado do eixo direção/P&L, `ConfluenceRing` único perto da manchete, `SinalChip` com aria-label substituindo as 4 receitas de chip
+- [ ] **Phase 43: Refinamento — copy por modo, KpiBlock e ritmo** - Microtexto de reconciliação por modo via `skill_ref.py`/`copy.js`, `KpiBlock` migrado para `SinalChip`, espaçamento na escala 4/8pt
+
 ## Progress
 
 | Phase | Milestone | Status | Completed |
@@ -207,8 +213,35 @@ Full phase details: [milestones/v1.8-ROADMAP.md](milestones/v1.8-ROADMAP.md)
 | 39. Reestruturação de navegação da aba Opções | 6/6 | Complete (publicado `F10-20260924-01`, checkpoint humano aprovado ao vivo, override D-03 → "Destacadas") | 2026-09-24 |
 | 40. Continuidade da aba Opções | 2/2 | Complete (publicado `F10-20260925-01`, checkpoint humano aprovado ao vivo, DP-1) | 2026-09-25 |
 | 41. Consolidação de registros de tela | 3/3 | Complete (publicado `F10-20260925-02`, checkpoint humano aprovado ao vivo, achados D-04 não corrigidos) | 2026-09-25 |
+| 42. Crítico — cor, chip único e ordem de leitura | v1.9 | Not started | - |
+| 43. Refinamento — copy por modo, KpiBlock e ritmo | v1.9 | Not started | - |
 
 ## Phase Details
+
+### Phase 42: Crítico — cor, chip único e ordem de leitura
+**Goal**: O usuário distingue em menos de 3 segundos o que é decisão, o que é contexto e o que é ressalva de confiabilidade estatística no card único de ativo (`AtivoCard`) e no cabeçalho do Radar — sem tocar na manchete determinística nem fundir decisão × elegibilidade (ADR-017).
+**Depends on**: Nada (primeira fase da milestone v1.9; parte do código herdado das milestones v1.5/v1.6)
+**Requirements**: COR-01, HIER-01, HIER-02, CHIP-01, CHIP-02
+**Success Criteria** (o que precisa ser TRUE):
+  1. `HISTORICO_PILL_STYLE` não referencia `T.negative`/`T.positive` diretamente (grep guardião) — o estado "sem vantagem estatística medida" tem canal de cor próprio, presente nas 8 combinações tema×modo e passando contraste AA
+  2. O tier de confluência aparece uma única vez por card, como `ConfluenceRing` perto da manchete — o pill solto "confiança X" e a repetição do rodapé deixam de existir
+  3. Existe um único componente `SinalChip` com dois pesos fixos (`primario`/`contexto`) substituindo `chip()`, `FundamentoChip`, `RegimeChip` e o pill de confiança — zero receita nova de pill fora dele (verificável por grep), cada instância expõe `aria-label` descritivo
+  4. O usuário lê o card na ordem manchete → plano operacional → uma linha de contexto agrupado (regime+fundamento) → elegibilidade estatística, nos 4 contextos do `AtivoCard` (Acompanhar/Mesa/Posições/home) e no cabeçalho do Radar
+  5. Nenhum teste de `setups.py`/`kpi.py`/`signal_ledger.py` muda; suíte canônica (`bash scripts/executar.sh --testes`) e `npx vite build` verdes; publicação via `scripts/bump.sh` + `publicar-web.sh` com carimbo próprio; checkpoint humano ao vivo do Alex olhando o card de UGPA3 (ou equivalente) confirma em <3s o veredito e o que é contexto
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 43: Refinamento — copy por modo, KpiBlock e ritmo
+**Goal**: A reconciliação entre "o padrão bateu os critérios" e "o histórico mostra vantagem/sem vantagem" fica legível por modo (Estudo explicativo, Operador direto), a tela de detalhe técnico usa o mesmo componente de chip do resto do card, e o espaçamento dos blocos segue uma escala consistente — sem abrir escopo novo de decisão/elegibilidade.
+**Depends on**: Phase 42 (usa `SinalChip` e a ordem de leitura já estabelecidos)
+**Requirements**: HIER-03, CHIP-03, RITMO-01
+**Success Criteria** (o que precisa ser TRUE):
+  1. O usuário vê, junto à elegibilidade, um microtexto de reconciliação com versão por modo (Estudo/Operador), vindo do par `server/app/skill_ref.py` ↔ `web/src/copy.js` — nenhuma string solta no componente, números vindos do `signal_ledger`
+  2. `KpiBlock`/`KpiCell` (detalhe técnico aberto via gráfico de velas) mostra direção/convicção/qualidade com `SinalChip` peso `contexto`, substituindo a grade de caixas cinzas
+  3. Os blocos do card (manchete → plano → contexto → elegibilidade) usam espaçamento da escala 4/8pt via constantes nomeadas, sem valores soltos tipo `"11px"`/`"9px"`
+  4. Nenhum teste de `setups.py`/`kpi.py`/`signal_ledger.py` muda; suíte canônica e `npx vite build` verdes; publicação via `scripts/bump.sh` + `publicar-web.sh`; checkpoint humano ao vivo do Alex confirma em <3s veredito × contexto com a copy por modo visível
+**Plans**: TBD
+**UI hint**: yes
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2/v1.3
 
@@ -292,6 +325,9 @@ Confiabilidade explicativa da aba Opções (Phases 35-37) shipped em
 v1.8 Didática ampliada + continuidade da aba Opções (Phases 38-41) shipped
 em 2026-09-25 — ver [milestones/v1.8-ROADMAP.md](milestones/v1.8-ROADMAP.md).
 
-Nenhum milestone aberto. Próximo na fila: v1.9 Jornada de Decisão (registrada
-em `PROJECT.md`, origem `qa/AUDITORIA-Jornada-Decisao-v1.md`) — abre via
-`/gsd-new-milestone`.
+Milestone v1.9 Jornada de Decisão aberta em 2026-09-26 (Phases 42-43,
+numeração seguindo direto da Fase 41 da v1.8) — requirements formais em
+`.planning/REQUIREMENTS.md`, origem `qa/AUDITORIA-Jornada-Decisao-v1.md`.
+Escopo: Fases 1+2 da auditoria (Crítico + Refinamento); Fase 3 (Polish) não
+vira fase própria — `aria-label` e contraste AA entram como critério de
+aceite da Fase 42, motion do `ConfluenceRing` fica fora.

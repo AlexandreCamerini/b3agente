@@ -100,14 +100,14 @@ a auditoria cita linhas ~25 menores (drift).
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| COR-01 | — | Pending |
-| HIER-01 | — | Pending |
-| HIER-02 | — | Pending |
-| HIER-03 | — | Pending |
-| CHIP-01 | — | Pending |
-| CHIP-02 | — | Pending |
-| CHIP-03 | — | Pending |
-| RITMO-01 | — | Pending |
+| COR-01 | Phase 42 | Pending |
+| HIER-01 | Phase 42 | Pending |
+| HIER-02 | Phase 42 | Pending |
+| HIER-03 | Phase 43 | Pending |
+| CHIP-01 | Phase 42 | Pending |
+| CHIP-02 | Phase 42 | Pending |
+| CHIP-03 | Phase 43 | Pending |
+| RITMO-01 | Phase 43 | Pending |
 
 ---
 *Requirements defined: 2026-09-26*
