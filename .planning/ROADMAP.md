@@ -214,7 +214,7 @@ Full phase details: [milestones/v1.8-ROADMAP.md](milestones/v1.8-ROADMAP.md)
 | 40. Continuidade da aba Opções | 2/2 | Complete (publicado `F10-20260925-01`, checkpoint humano aprovado ao vivo, DP-1) | 2026-09-25 |
 | 41. Consolidação de registros de tela | 3/3 | Complete (publicado `F10-20260925-02`, checkpoint humano aprovado ao vivo, achados D-04 não corrigidos) | 2026-09-25 |
 | 42. Crítico — cor, chip único e ordem de leitura | 6/6 | Complete (publicado `F10-20260927-01`, checkpoint humano aprovado ao vivo, DP-1..DP-4) | 2026-09-27 |
-| 43. Refinamento — copy por modo, KpiBlock e ritmo | v1.9 | In progress (4/5) | - |
+| 43. Refinamento — copy por modo, KpiBlock e ritmo | v1.9 | In progress (5/6) | - |
 
 ## Phase Details
 
@@ -276,6 +276,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
+- [x] 43-06-PLAN.md — gap DP-3: microtexto cai para "sem histórico medido" em vez de "?" (skill_ref ↔ copy)
 - [ ] 43-05-PLAN.md — Checkpoint humano (SC#4 + DP-1..DP-3), publicação pelo Alex (bump/publicar-web), fechamento à mão com correção D-06
 **UI hint**: yes
 

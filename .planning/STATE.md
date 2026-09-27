@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.9
 milestone_name: Jornada de Decisão
 status: executing
-stopped_at: 'Phase 43 em execução: ondas 1-3 (43-01..43-04) completas; 43-05 no checkpoint humano.'
+stopped_at: 'Phase 43 em execução: 43-01..43-04 + gap 43-06 completos; checkpoint 43-05 aprovado; publicação BLOQUEADA — merge de origin/main conflita em infra (railway.json), aguardando decisão do Alex.'
 last_updated: "2026-09-27T15:00:00.000Z"
-last_activity: 2026-09-27 -- Phase 43 ondas 1-3 executadas (43-01..43-04); 43-05 aguardando checkpoint humano
+last_activity: 2026-09-27 -- Phase 43: gap 43-06 executado; publicação aguarda decisão de infra
 progress:
   total_phases: 2
   completed_phases: 1
-  total_plans: 11
-  completed_plans: 10
+  total_plans: 12
+  completed_plans: 11
   percent: 50
 ---
 
