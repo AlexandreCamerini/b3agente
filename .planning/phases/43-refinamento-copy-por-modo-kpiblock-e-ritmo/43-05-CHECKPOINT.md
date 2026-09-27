@@ -19,3 +19,12 @@ Data: 2026-09-27. Planos 43-01..43-04 completos e commitados localmente em `v2/i
 
 ## Roteiro e DPs
 Texto exato em `43-05-PLAN.md`, Task 1. Resposta esperada: "aprovado" com DP-1, DP-2 e DP-3 respondidas por nome.
+
+## Resposta do Alex (2026-09-27)
+
+"aprovado" com o roteiro ao vivo; as DPs foram respondidas pelo nome (AskUserQuestion):
+- **DP-1**: aprova (caixa "Sem leitura do motor" na escala SP).
+- **DP-2**: aprova (Leitura da IA só na análise da Watchlist; Radar "Aprofundar com IA" sem a linha).
+- **DP-3**: **alternativa**. Com histórico incompleto, a frase cai para "ainda sem histórico medido" em vez de mostrar "?".
+
+Como manda a Task 2 do 43-05, a DP-3 alternativa **bloqueia a publicação** até o plano de gap `43-06-PLAN.md` (queda para `nunca_medido` em `skill_ref.py` ↔ `copy.js` + guardiões) ser executado. Depois dele, o 43-05 retoma na Task 2 (bump/publicar pelo Alex).
