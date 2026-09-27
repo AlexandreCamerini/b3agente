@@ -63,6 +63,10 @@ import { AiNote, SUBLINHADO, SetorAlvo, ConceitoSheet } from "./entendimento.jsx
 // Fase 38 (38-04, KB-01): filtrarVerbetes/agruparPorFamilia — filtros puros
 // da tela de Glossário (TelaGlossario, logo acima de PerfilHub).
 import { catalogoKbValido, filtrarVerbetes, agruparPorFamilia, ANCORAS_KB, verbeteDoCatalogo } from "./glossario.js";
+// Fase 42 (CHIP-01/CHIP-02, HIER-01/HIER-02): camada pura de apresentação do
+// sinal (web/src/sinal.js, 42-01) — consumida por SinalChip/LinhaContexto
+// (42-03+); nenhuma inferência de lado/alinhamento acontece aqui.
+import { regimeRotulo, ariaRegime, ariaFundamento, ariaManchete } from "./sinal.js";
 
 /* =============================================================================
    Boris+ — simulador EDUCACIONAL de paper trading da B3.
@@ -1370,6 +1374,71 @@ function KpiBlock({ kpis, operador }) {
 // "mydata" | "brapi" | "yahoo"; qualquer outro valor (fonte nova, futuro)
 // aparece como veio, sem mascarar.
 const FONTE_LABEL = (source) => (source === "mydata" ? "MyData" : source === "brapi" ? "brapi" : source === "yahoo" ? "Yahoo" : source);
+
+// Fase 42 (CHIP-01/CHIP-02; D-08, D-14, D-15): componente ÚNICO de sinal do
+// card. Dois pesos, visual fixo por peso, SEM prop de cor. primario = só a
+// manchete (cor via REC_STYLE, decisão do motor); contexto = todo o resto
+// (neutro; a única exceção é o ESTADO de elegibilidade). Nenhum parâmetro
+// chamado color/cor/col/background/bg — a cor nunca entra por chamada.
+function SinalChip({ peso, label, value, sufixo, ariaLabel, estado, explicavel, decision, kicker, ring, envolverAnel, operador }) {
+  if (peso === "primario") {
+    // Guardrail "manchete só do motor": o componente RESOLVE a cor
+    // internamente a partir da decisão já calculada (decM/decisaoDoModo) —
+    // nunca recebe [cor,fundo] prontos por prop livre (D-14).
+    const [cor, fundo] = REC_STYLE[decision] || [T.textMuted, T.bgBase];
+    const modo = operador ? "operador" : "estudo";
+    const envolver = envolverAnel || ((no) => no);
+    return (
+      <div role="group" aria-label={ariaManchete(kicker + (sufixo || ""), decision, modo)}
+        style={{ marginTop: "11px", background: fundo, borderRadius: "9px", padding: "9px 11px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px" }}>
+          {/* aria-hidden: o grupo acima já lê kicker+decisão por completo —
+              duplicar aqui seria uma segunda fonte da mesma informação. */}
+          <div aria-hidden="true" style={{ minWidth: 0 }}>
+            <div style={{ fontSize: "10px", letterSpacing: "0.04em", color: cor }}>{kicker}{sufixo || ""}</div>
+            <div style={{ fontSize: "17px", fontWeight: 800, color: cor }}>{decision}</div>
+          </div>
+          {ring && envolver(
+            <ConfluenceRing conf={ring.pct} size={36} ariaLabel={copyFor(modo).sinal.ariaAnel(ring.texto)} />,
+            "anel"
+          )}
+        </div>
+        {ring && envolver(
+          // Texto visível do rótulo do anel: NUNCA recomposto aqui — vem
+          // pronto de `rotuloAnel` (sinal.js, 42-01). O `role="img"` do
+          // ConfluenceRing acima já leva a MESMA string por aria-label; este
+          // bloco é aria-hidden para não duplicar a leitura.
+          <div aria-hidden="true" style={{ marginTop: "4px", fontSize: "12px", fontWeight: 700, lineHeight: 1.3, color: T.textSecondary, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+            <span style={SUBLINHADO}>{ring.cabeca}</span> — {ring.ladoTxt ? ring.ladoTxt + ": " : ""}{ring.setup}
+          </div>,
+          "rotulo"
+        )}
+      </div>
+    );
+  }
+  // peso === "contexto": null nunca vira 0/vazio (D-16) — sem value, sem chip.
+  if (value == null || value === "") return null;
+  const est = estado ? (HISTORICO_PILL_STYLE[estado] || HISTORICO_PILL_STYLE.nunca_medido) : null;
+  const border = !est ? "1px solid " + T.borderSubtle
+    : estado === "elegivel" ? "1px solid " + T.borderSubtle
+    : estado === "aposentado" ? "1px dashed " + T.borderDashed
+    : "none";
+  const style = {
+    display: "inline-flex", alignItems: "center", gap: "4px", padding: "4px 8px", borderRadius: "7px",
+    fontSize: "11px", fontWeight: 700, lineHeight: 1.3, border,
+    background: est ? est[1] : "transparent",
+    color: est ? est[0] : T.textFaint,
+  };
+  return (
+    <span role="img" aria-label={ariaLabel} style={style}>
+      {estado === "elegivel" && <span aria-hidden="true">✓ </span>}
+      {label && <span style={explicavel ? SUBLINHADO : undefined}>{label}</span>}
+      {label ? " " : ""}
+      <b style={{ fontWeight: 700, color: est ? est[0] : T.textPrimary }}>{value}</b>
+      {sufixo && <span style={{ fontWeight: 400, opacity: 0.75 }}>{sufixo}</span>}
+    </span>
+  );
+}
 
 const SCORE_COLOR = { A: "positive", B: "accent", C: "negative" };
 function FundamentoChip({ f }) {
@@ -6552,7 +6621,7 @@ function Sparkline({ data, width = 84, height = 22 }) {
 // qa/mock v2: ANEL de confluência — substitui a barra plana. Cor por tier
 // (forte/moderada/fraca), % no centro. Usa usePalette() (hex resolvido, já com
 // override do Modo Operador) — var(--x) não resolve em atributo SVG neste WebKit.
-function ConfluenceRing({ conf, size = 54, label = true }) {
+function ConfluenceRing({ conf, size = 54, label = true, ariaLabel }) {
   const P = usePalette();
   const c = Math.max(0, Math.min(100, Number(conf) || 0));
   const cx = size / 2;
@@ -6563,8 +6632,13 @@ function ConfluenceRing({ conf, size = 54, label = true }) {
   // COMPRAR ao lado de uma manchete VENDER lia como boa notícia. Tier é outro
   // eixo semântico (ver comentário de tierOf).
   const col = TIER_FILL[tierOf(c)[0]] || TIER_FILL.neutra;
+  // Fase 42 (42-03, D-09): prop opcional `ariaLabel` — o SinalChip primario
+  // passa o rótulo completo (%·tier·lado·setup, `rotuloAnel`/sinal.js) sem
+  // recompor a string aqui; default preservado para o carrossel da home
+  // (App.jsx ≈2133, fora do escopo desta fase) e qualquer outro chamador sem
+  // rótulo textual ao lado.
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ flex: "none" }} role="img" aria-label={`Confluência ${c}%`}>
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ flex: "none" }} role="img" aria-label={ariaLabel || `Confluência ${c}%`}>
       <circle cx={cx} cy={cx} r={r} fill="none" stroke={P.borderFaint} strokeWidth="4" />
       <circle cx={cx} cy={cx} r={r} fill="none" stroke={col} strokeWidth="4" strokeLinecap="round"
         strokeDasharray={C.toFixed(1)} strokeDashoffset={off.toFixed(1)} transform={`rotate(-90 ${cx} ${cx})`} />
@@ -6595,7 +6669,6 @@ function HistoricoPill({ historico, elegivel, aposentado, operador, hojeYmd, com
   // ÚNICA fonte do estado; não há ramo de reconciliação para uma divergência
   // que o backend não produz.
   const estado = historicoEstado(historico, aposentado);
-  const [cor, fundo] = HISTORICO_PILL_STYLE[estado] || HISTORICO_PILL_STYLE.nunca_medido;
   const modoJS = operador ? "operador" : "estudo";
   const cp = copyFor(modoJS);
   const rotulo = cp.historicoRotulo[estado];
@@ -6611,17 +6684,16 @@ function HistoricoPill({ historico, elegivel, aposentado, operador, hojeYmd, com
   const velho = historicoDesatualizado(historico, hoje);
   let ariaLabel = historicoTxt(modoJS, estado, { janela: historico && historico.janelaRef, medidoAte: refYmd });
   if (velho) ariaLabel += " " + historicoTxt(modoJS, "desatualizado", { medidoAte: refYmd });
-  const pillStyle = { fontSize: "11px", fontWeight: 700, padding: "4px 10px", borderRadius: "999px", lineHeight: 1.2, background: fundo, color: cor };
-  // Modificador de desatualização (ADR-017 Decisão 2): degrada só o carimbo
-  // de tempo abaixo — o pill em si NUNCA muda de cor por causa da idade.
-  if (estado === "aposentado") pillStyle.border = "1px dashed " + T.borderDashed;
-  if (estado === "elegivel") pillStyle.border = "1px solid " + T.borderSubtle;
   const expRJanela = historico && typeof historico.expRJanela === "number" ? historico.expRJanela : null;
   const nJanela = historico && typeof historico.nJanela === "number" ? historico.nJanela : null;
   const janelaRef = historico && historico.janelaRef ? historico.janelaRef : null;
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
-      <span role="img" aria-label={ariaLabel} style={pillStyle}>{estado === "elegivel" && <span aria-hidden="true">✓ </span>}{rotulo}</span>
+      {/* Fase 42 (CHIP-01): o pill deixa de ter receita própria de
+          borda/fundo/cor — é um SinalChip peso="contexto" com `estado`.
+          Contrato de cor/borda/aria idêntico ao de antes, só mudou de casa
+          (ban-list COR-01/D-04 continua valendo, agora dentro de SinalChip). */}
+      <SinalChip peso="contexto" estado={estado} value={rotulo} ariaLabel={ariaLabel} />
       {/* números da janela: null NUNCA vira 0 — a métrica ausente simplesmente
           não é desenhada (regra de casa: null, nunca 0.0). */}
       {!compacto && (expRJanela != null || nJanela != null || janelaRef) && (
