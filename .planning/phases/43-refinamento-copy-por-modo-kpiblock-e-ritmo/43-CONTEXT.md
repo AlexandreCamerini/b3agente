@@ -126,6 +126,7 @@ Não entrega: tokens `--sp-*` globais nem migração de outras telas para `SP`, 
 - Motion no `ConfluenceRing` ao trocar de tier (Future Requirements da v1.9).
 - Motor: decisão contra o regime (herdado da 42, fora da v1.9 por invariante).
 - Chips da IA no detalhe de candles (alternativa rejeitada na D-01).
+- **Lacuna da camada educacional (achado do ui-phase, 2026-09-27):** nem `conceitos.py` nem a KB (`kb.py`) têm verbete de vantagem estatística / expectativa matemática / taxa de acerto × rentabilidade — temas que o CLAUDE.md lista como obrigatórios na camada educacional. A D-11 reusa `confluencia` como o mais próximo; um verbete dedicado é candidato a fase futura.
 
 ### Reviewed Todos (not folded)
 - `revisao-arquitetura-mcp-ecossistema-b3.md`, `medir-rate-limit-mydata.md` — casados por palavra-chave pelo SDK, sem relação com apresentação do card.
