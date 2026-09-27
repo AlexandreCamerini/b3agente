@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.9
 milestone_name: Jornada de Decisão
 status: executing
-stopped_at: 'Phase 43 em execução: onda 1 (43-01, 43-02) completa; próximo 43-03.'
+stopped_at: 'Phase 43 em execução: ondas 1-2 (43-01..43-03) completas; próximo 43-04.'
 last_updated: "2026-09-27T15:00:00.000Z"
-last_activity: 2026-09-27 -- Phase 43 onda 1 executada (43-01, 43-02); suíte 3060 pytest + 170 .mjs
+last_activity: 2026-09-27 -- Phase 43 ondas 1-2 executadas (43-01..43-03)
 progress:
   total_phases: 2
   completed_phases: 1
   total_plans: 11
-  completed_plans: 8
+  completed_plans: 9
   percent: 50
 ---
 
@@ -31,7 +31,7 @@ Phase: 42 (cr-tico-cor-chip-nico-e-ordem-de-leitura) — FECHADA (2026-09-27),
 Plan: 6 de 6 completos (42-01..42-05 em execução autônoma agendada, 01:30,
   autorizada pelo Alex; 42-06 checkpoint humano + publicação + docs).
 Status: Phase 43 planejada — 5 planos (ondas: 01+02 → 03 → 04 → 05 checkpoint humano). Próximo passo: `/gsd-execute-phase 43`.
-Resume file: .planning/phases/43-refinamento-copy-por-modo-kpiblock-e-ritmo/43-03-PLAN.md
+Resume file: .planning/phases/43-refinamento-copy-por-modo-kpiblock-e-ritmo/43-04-PLAN.md
 Last activity: 2026-09-27 — checkpoint humano aprovado ao vivo ("aprovado,
   DP-1 mantém 4%, DP-2 a DP-4 aprovadas"); bump + publicar-web rodados pelo
   Alex (o classificador do modo automático bloqueou o deploy pelo agente).
