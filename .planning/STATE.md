@@ -1,11 +1,11 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.8
-milestone_name: Didática ampliada + continuidade da aba Opções
-status: executing
-stopped_at: "Fase 41 (TELAS-01) FECHADA em 2026-09-25 -- Plano 41-03 executado: checkpoint humano curto ao vivo aprovado pelo Alex (roteiro de 6 itens: 5 abas nos dois modos, tour de 6 passos, 11 secoes de Ajuda, assistente em 3 telas incluindo subtela; ciencia nomeada dos 6 achados de inconsistencia registrados no 41-02-SUMMARY, NAO corrigidos por decisao -- respondeu \"aprovado, ciente dos achados, SC#4 ok\"; aceite nomeado da leitura do SC#4 -- registro centraliza a LISTA de telas, o CONTEUDO/textos/icone/snapshot continuam nos seus lugares por D-02, nao virou \"1 arquivo por tela nova\"); publicacao em producao F10-20260925-02 (bump.sh + publicar-web.sh, commit 7cbd8fe, push direto v2/interacao-estrutural->main, origin/main==HEAD confirmado); /api/health de producao conferido mostrando o carimbo novo (4 tentativas, ~70s de redeploy). Suite canonica fora do sandbox: 3050 pytest passed/5 skipped/3 xfailed/0 failed (identico ao baseline 41-01/41-02, zero regressao), 165/165 .mjs OK. Docs fechados a mao: REQUIREMENTS.md (TELAS-01 Done), ROADMAP.md (Fase 41 3/3), STATE.md (este bloco). Todas as 5 requirements da milestone v1.8 concluidas (KB-01/KB-02/NAV-01/ESTADO-01/TELAS-01) -- as 4 fases da milestone (38/39/40/41) estao fechadas; fechamento formal do milestone v1.8 e decisao pendente do Alex (`/gsd-complete-milestone`), NAO feito aqui por instrucao explicita do 41-03-PLAN.md. STATE.md editado a mao (mutadores `state.*` do gsd-sdk NAO chamados)."
-last_updated: "2026-09-25T22:15:00.000Z"
-last_activity: 2026-09-25 -- Plano 41-03 (checkpoint humano + publicacao + fechamento de docs) executado e commitado, sequencial, sem worktree; Fase 41 fechada; milestone v1.8 com as 4 fases completas, fechamento formal pendente de decisao do Alex
+milestone: none
+milestone_name: Awaiting next milestone
+status: milestone_archived
+stopped_at: 'Milestone v1.8 (Didática ampliada + continuidade da aba Opções, Fases 38-41) arquivada em 2026-09-26 — .planning/milestones/v1.8-ROADMAP.md/v1.8-REQUIREMENTS.md criados (5/5 requirements Done), MILESTONES.md com a entrada v1.8, ROADMAP.md colapsado, PROJECT.md com revisão de evolução, REQUIREMENTS.md removido, tag v1.8. Fechamento feito à mão (milestone.complete e mutadores state.* do gsd-sdk NÃO chamados, precedente da v1.7). Antes do fechamento: worktree borisv2 reparado (git worktree repair) — o repo principal foi renomeado de bolsia/ para bolsia=boris antigo/ e o link .git tinha ficado órfão. Próximo: /gsd-new-milestone para a v1.9 Jornada de Decisão.'
+last_updated: "2026-09-26T00:00:00.000Z"
+last_activity: 2026-09-26 -- Milestone v1.8 fechada e arquivada à mão (archive, MILESTONES, ROADMAP colapsado, PROJECT evoluído, retrospectiva, git rm REQUIREMENTS.md, tag v1.8)
 progress:
   total_phases: 4
   completed_phases: 4
@@ -18,12 +18,29 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-09-20)
+See: .planning/PROJECT.md (updated 2026-09-26)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Fase 41 FECHADA (TELAS-01, publicada em `F10-20260925-02`); as 4 fases da milestone v1.8 (38/39/40/41) estão completas — próximo passo é decisão do Alex sobre fechar o milestone (`/gsd-complete-milestone`) ou abrir a v1.9 já registrada em `PROJECT.md` (auditoria da Jornada de Decisão).
+**Current focus:** Milestone v1.8 arquivada (2026-09-26). Aguardando `/gsd-new-milestone` — próxima na fila é a v1.9 Jornada de Decisão (`PROJECT.md` §"Next Milestone (queued)").
 
 ## Current Position
+
+Milestone: nenhum aberto. v1.8 (Didática ampliada + continuidade da aba
+  Opções, Fases 38-41, 17 planos, 5/5 requirements) shipped em 2026-09-25 e
+  arquivada em 2026-09-26 — ver `.planning/milestones/v1.8-ROADMAP.md` e
+  `.planning/MILESTONES.md`.
+Status: milestone_archived. Produção em `F10-20260925-02`.
+Pendências fora de milestone: build iOS 28 preparado (cap sync + bump),
+  Archive/Upload no Xcode é ação do Alex (`TESTFLIGHT.md`); verificação
+  visual da Fase 37 com dado real; 6 achados D-04 da Fase 41 (fold-in
+  oportunista).
+Ambiente: o repo principal foi renomeado para `/Users/acamerini/dev/bolsia=boris antigo/b3-agente`;
+  o worktree `borisv2` foi reparado com `git worktree repair` em 2026-09-26.
+  Arquivar/apagar essa pasta quebra o borisv2 — converter em clone
+  independente antes.
+Next: `/gsd-new-milestone` (v1.9 Jornada de Decisão).
+
+## Posição anterior (Fase 41, Plano 41-03 — fechamento da última fase da v1.8, histórico)
 
 Phase: 41 (consolida-o-de-registros-de-tela) — FECHADA (2026-09-25), 3/3
   planos completos, publicada em produção. Fase 40 segue FECHADA (2/2,
@@ -1907,3 +1924,17 @@ confirmação visual com dado real de mercado — bloqueada pela ausência de
 instalar no iPhone do Alex. Recomendado: dar uma olhada no gráfico/
 explicação em produção (`https://boris.semente.dev`) quando conveniente.
 Não bloqueia nada — só registrado para não se perder.
+
+## Deferred Items (fechamento da v1.8, 2026-09-26)
+
+Itens reconhecidos e adiados no fechamento da milestone v1.8, via
+`gsd-sdk query audit-open` (53 itens) — nenhum é gap da v1.8; decisão
+"reconhecer e fechar" (config `mode: yolo`).
+
+| Categoria | Item | Status |
+|---|---|---|
+| quick_task | 50 tarefas datadas 2026-08-20 em diante (todas anteriores à v1.8) | missing — falso positivo do scanner: as pastas têm `*-SUMMARY.md` (ex.: `260823-vu4`), o parser não lê status delas |
+| todo | `medir-rate-limit-mydata.md` | pending (medium), já adiado desde a Fase 9 |
+| todo | `opcoes-v2-confirmar-hub-mydata-e-acesso-b-mcp.md` | pending (medium), depende de aprovação de serviço externo |
+| todo | `revisao-arquitetura-mcp-ecossistema-b3.md` | pending (high), decisão do Alex de tratar à parte do roadmap |
+| achados D-04 (Fase 41) | 6 inconsistências de navegação/copy, `41-02-SUMMARY.md` | aprovados pelo Alex como "não corrigir agora" — fold-in oportunista |

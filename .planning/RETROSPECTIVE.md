@@ -594,6 +594,87 @@
 
 ---
 
+## Milestone: v1.8 — Didática ampliada + continuidade da aba Opções
+
+**Shipped:** 2026-09-25 (arquivada 2026-09-26)
+**Phases:** 4 (38-41) | **Plans:** 17 | **Sessions:** 2+ (com `/handoff` entre a execução e o fechamento)
+
+### What Was Built
+- Fase 38 (KB-01/KB-02): `GET /api/kb/catalogo` com os 83 verbetes titulados
+  e 9 famílias; tela Perfil → Glossário com busca live; "saiba mais" em
+  Acompanhar/Radar/Watchlist/Opções com `ANCORAS_KB` como fonte única;
+  `SetorAlvo`/`ConceitoSheet` extraídos para `web/src/entendimento.jsx`
+  preservando o isolamento ADR-027 de `OpcoesScreen.jsx`.
+- Fase 39 (NAV-01): aba Opções com 3 abas fixas sobre um estado único
+  `abaOpcoes`, Vigias em sheet, "Operar" dissolvida em painel inline,
+  curadoria por piso de probabilidade OTM ≥ 60% + prêmio anualizado,
+  rótulo "Destacadas" (override ao vivo de D-03, CVM).
+- Fase 40 (ESTADO-01): ticker + aba de Opções em memória de sessão no
+  `App.jsx`, precedência deep-link > memória > default, reset por escopo.
+- Fase 41 (TELAS-01): registro único `web/src/telas.js` (8 telas) com
+  paridade nos dois lados contra `PET_TELAS`, refactor provado contra
+  fixture congelada.
+
+### What Worked
+- **Checkpoint humano ao vivo em todas as 4 fases, antes do push** — nenhuma
+  fase foi publicada com ressalva (contraste com a v1.7); o checkpoint da
+  Fase 39 inclusive mudou o produto (override "Recomendadas" → "Destacadas"),
+  mostrando que ele serve para decidir, não só para carimbar.
+- **Perguntas de decisão NOMEADAS no roteiro do checkpoint** (DR-1/DR-2 na
+  39, DP-1 na 40, leitura do SC#4 e ciência dos achados D-04 na 41) — o Alex
+  respondeu por nome, e a resposta ficou verbatim nos SUMMARYs.
+- **Fixture congelada do comportamento pré-refactor** (Fase 41) como prova
+  de "zero mudança visível" — mais forte que suíte verde, e barata.
+- **Achados de inconsistência registrados em vez de corrigidos no meio do
+  refactor** (D-04) — o escopo da fase ficou puro e o backlog ganhou uma
+  lista concreta.
+
+### What Was Inefficient
+- **NAV-01 entrou no meio da milestone** (achado ao vivo + auditoria de
+  design em 2026-09-23), renumerando ESTADO-01/TELAS-01 para 40/41 — correto
+  em mérito, mas deixou a tabela de Progress do `ROADMAP.md` com linhas
+  desatualizadas ("39 In Progress", "40 Consolidação… Not started") até o
+  fechamento.
+- **Worktree órfão ao abrir a sessão de fechamento** — o repo principal foi
+  renomeado (`bolsia/` → `bolsia=boris antigo/`) e todo comando git do
+  borisv2 falhava com `not a git repository`; custou uma rodada de
+  diagnóstico até o `git worktree repair`.
+- **Build iOS atrasado 5 releases** antes de ser preparado (build 28) — a
+  distribuição TestFlight continua sendo um passo manual fora do fluxo de
+  publicação web.
+
+### Patterns Established
+- **Estado de conveniência de sessão fica fora dos stores** — evita o
+  custo do guardrail de paridade `deviceStore`↔`serverStore` quando
+  persistência não é requisito.
+- **Registro único front × espelho backend testado nos dois pontos**
+  (`telas.js`×`PET_TELAS`) — mesmo padrão de `defaults.py`×`catalog.js`,
+  agora aplicado a telas.
+- **Fechamento de milestone 100% manual** neste repo — segunda milestone
+  seguida sem `milestone.complete`.
+
+### Key Lessons
+1. Um critério de sucesso ambicioso ("editar um único ponto") pode ter uma
+   leitura honesta mais estreita (a LISTA centralizada, o conteúdo no lugar)
+   — propor essa leitura ao dono no checkpoint é melhor que forçar a leitura
+   literal ou declarar sucesso silenciosamente.
+2. Worktree depende do caminho absoluto do repo principal; renomear ou
+   arquivar a pasta "antiga" quebra (ou destrói) o worktree "novo". Antes de
+   tratar um repo como descartável, confirme que nenhum worktree vive dele.
+3. Rótulo de UI em produto financeiro educacional é decisão regulatória, não
+   só de copy ("Recomendadas" soa como recomendação de investimento).
+
+### Cost Observations
+- Model mix: não medido nesta milestone (sem registro por fase nos
+  SUMMARYs).
+- Sessões: execução das 4 fases numa sessão longa, fechamento numa sessão
+  nova via `/handoff`.
+- Notável: 4 publicações em produção em 3 dias, todas precedidas de
+  checkpoint humano ao vivo — cadência de publicação por fase, não por
+  milestone.
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -606,6 +687,7 @@
 | v1.3 | 2 (com `/handoff`) | 2 (12, 13) | Primeira milestone com consulta direta a design specialists de nicho (navigation/typography) fora do pipeline GSD nativo; code review pós-fase pegou 1 Critical real que nenhum teste de ordem de chamada capturava (contagem servidor×dispositivo num gate fail-closed local-first); checkpoint humano ao vivo conduzido pelo orquestrador no chat, não delegado a subagente; divergência de `main` local vs remoto (trabalho concorrente de outra sessão) descoberta e reconciliada sem conflito antes do fechamento |
 | v1.5 | 1 (autônoma, sem handoff) | 4 (20-23) | Primeira milestone autorizada a evoluir "até o final sem necessidade de autorização" (autonomia mais ampla que o contrato com hard-stops nomeados da v1.2); conviveu no mesmo branch/`App.jsx` com o v1.4 ainda bloqueado em checkpoint humano, sem tocá-lo (invariante técnico: só `web/src/`); pendência humana de 3 fases diferentes consolidada num único `20-HUMAN-UAT.md`; fechamento de milestone precisou de desvio do workflow padrão porque `REQUIREMENTS.md` continha dois milestones ao mesmo tempo (v1.5 fechando, v1.4 aberto) — arquivado só o trecho do v1.5, nunca `git rm` no arquivo inteiro |
 | v1.7 | 1 (contínua, com 1 `/handoff` no meio) | 3 (35-37) | Primeira milestone com checkpoint humano aprovado explicitamente COM RESSALVA (evidência automática, não visual) por indisponibilidade de infraestrutura de teste, não por escolha; primeira vez que um mutador do `gsd-sdk` fora da lista nomeada original (`milestone.complete`) corrompeu STATE.md, generalizando o guardrail de "não confiar sem diff" pra além dos 4 verbos `state.*` originais; planner trocou de modelo (Opus→Sonnet) NO MEIO de uma etapa por indisponibilidade de capacidade, não por custo |
+| v1.8 | 2+ (com `/handoff` antes do fechamento) | 4 (38-41) | Primeira milestone com checkpoint humano ao vivo aprovado SEM ressalva em todas as fases e publicação por fase (4 carimbos em 3 dias); requirement novo (NAV-01) inserido no meio da milestone com renumeração das fases seguintes; fechamento precisou reparar um worktree órfão (repo principal renomeado) antes de qualquer comando git |
 
 ### Cumulative Quality
 
@@ -617,6 +699,7 @@
 | v1.3 | 1742 backend (pytest) + suíte web completa (.mjs), ambas verdes no fechamento — crescimento de ~68 testes backend | não medido numericamente (sem pytest-cov) | 0 (nenhuma dependência nova) |
 | v1.5 | 2022 backend (pytest, 2021 passed/1 skipped) + 118 web (.mjs), ambas verdes no fechamento — milestone front-end-only, crescimento de teste concentrado em `web/tests/*.mjs` (novos guardiões `test_fase20_fundacao_visual.mjs`, `test_fase22_*`, `test_fase23_motion.mjs`) | não medido numericamente (sem pytest-cov) | 0 (nenhuma dependência nova — `BorisFlat.jsx` é SVG inline, zero lib de ilustração) |
 | v1.7 | 2973 backend (pytest, 5 skipped/3 xfailed) + 156 web (.mjs), ambas verdes no fechamento — crescimento de ~30 testes backend (Fase 36 casos-limite + Fase 37 adaptador/valor_hoje) e ~2 web (`test_payoff_responsivo.mjs`/`test_explicacao_payoff.mjs`) | não medido numericamente (sem pytest-cov) | 0 (nenhuma dependência nova — `ExplicacaoPayoff.jsx` é componente puro, zero lib nova) |
+| v1.8 | 3050 backend (pytest, 5 skipped/3 xfailed) + 165 web (.mjs), ambas verdes no fechamento — crescimento de ~77 testes backend (catálogo KB, curadoria por probabilidade, paridade de telas) e ~9 web (guardiões NAV-01, continuidade, registro de telas) | não medido numericamente (sem pytest-cov) | 0 (nenhuma dependência nova — `telas.js`/`entendimento.jsx` são módulos puros do próprio repo) |
 
 ### Top Lessons (Verified Across Milestones)
 
@@ -630,3 +713,4 @@
 8. Quando o `REQUIREMENTS.md` do repo contém mais de um milestone simultaneamente (um fechando, outro ainda em execução), o fechamento de milestone precisa arquivar só a seção do milestone que fechou — nunca assumir "um arquivo = um milestone" do workflow padrão e apagar o arquivo inteiro (v1.5, convivendo com v1.4 ainda aberto).
 9. Desconfiança de mutador do `gsd-sdk` que escreve em STATE.md/ROADMAP.md não se limita aos verbos já flagrados — `milestone.complete` corrompeu o arquivo na v1.7 do mesmo jeito que os 4 verbos `state.*` originais (texto/contagem de sessão errada sobrescrevendo o estado atual). Regra prática: SEMPRE `git diff` depois de qualquer mutador desses antes de confiar, não só os nomeados numa lista fixa.
 10. Erro 500 (transiente) e erro 529 (capacidade esgotada) do provedor de modelo pedem respostas diferentes — retry vale pro primeiro, trocar de modelo mais cedo vale pro segundo quando ele se repete (v1.7, planner da Fase 37).
+11. Worktree git depende do caminho absoluto do repo principal — renomear a pasta do repo "antigo" deixa o worktree órfão (`not a git repository`); `git worktree repair <caminho>` rodado no repo principal reconecta, mas arquivar/apagar a pasta destrói o worktree (v1.8, fechamento).

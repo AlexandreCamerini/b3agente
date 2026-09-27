@@ -1,5 +1,48 @@
 # Milestones
 
+## v1.8 Didática ampliada + continuidade da aba Opções (Shipped: 2026-09-25)
+
+**Phases completed:** 4 phases (38-41), 17 plans, 43 tasks. Git range
+`e65a9af`→`c769c51`, 2026-09-23 00:57 → 2026-09-25 22:08 (~3 dias), 111
+commits; 73 arquivos de código/teste alterados (+7453/-1820), fora
+`.planning/` e bundles publicados. 5/5 requirements Done (KB-01, KB-02,
+NAV-01, ESTADO-01, TELAS-01).
+
+**Key accomplishments:**
+
+- Os 83 verbetes da KB de mecânica B3, que antes não tinham nenhum
+  consumidor de UI, ganharam porta de entrada: tela Perfil → Glossário com
+  busca live client-side e 9 famílias, alimentada por `GET /api/kb/catalogo`
+  (uma chamada, zero custo de LLM) — KB-01, Fase 38.
+- Link "saiba mais" fixo em Acompanhar/Radar/Watchlist/Opções com
+  `ANCORAS_KB` como fonte única, e `SetorAlvo`/`ConceitoSheet` extraídos de
+  `App.jsx` para `web/src/entendimento.jsx` sem quebrar o isolamento
+  ADR-027 de `OpcoesScreen.jsx` — KB-02, Fase 38 (`F10-20260923-01`).
+- Aba Opções reestruturada em 3 abas fixas (Oportunidades, Destacadas,
+  Montar) sobre um estado único `abaOpcoes`; Vigias virou badge+sheet, a
+  sub-aba "Operar" foi dissolvida em painel inline, e bastidor de custo/
+  lastro foi para trás de ⓘ. A curadoria trocou "prêmio ÷ perda máxima" por
+  piso de probabilidade OTM ≥ 60% (Black-Scholes) + ordem por prêmio
+  anualizado. Rótulo "Recomendadas" → "Destacadas" por override ao vivo do
+  Alex (ambiguidade regulatória CVM) — NAV-01, Fase 39 (`F10-20260924-01`).
+- Ticker e aba ativa de Opções sobrevivem à troca de aba principal via
+  memória em sessão no `App.jsx` (nunca nos stores, fora do guardrail de
+  paridade), precedência deep-link > memória > default e isolamento total
+  por conta — ESTADO-01, Fase 40 (`F10-20260925-01`).
+- Registro único `web/src/telas.js` (8 telas) alimentando barra, tour, ajuda
+  e assistente, com paridade testada nos dois lados contra
+  `conceitos.PET_TELAS`; refactor provado sem mudança visível contra fixture
+  congelada do comportamento anterior — TELAS-01, Fase 41
+  (`F10-20260925-02`).
+
+**Known deferred items at close:** 53 itens do audit de artefatos, todos
+anteriores à v1.8 (ver STATE.md Deferred Items). 6 achados de
+inconsistência da Fase 41 (D-04) registrados e deliberadamente não
+corrigidos (`41-02-SUMMARY.md`). Build iOS 28 preparado (`cap sync` +
+bump), Archive/Upload pendente do Alex.
+
+---
+
 ## v1.7 Confiabilidade explicativa da aba Opções (Shipped: 2026-09-22)
 
 **Phases completed:** 3 phases, 10 plans, 23 tasks

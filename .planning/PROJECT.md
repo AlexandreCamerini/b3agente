@@ -22,35 +22,13 @@ funciona — não decorou uma resposta, aprendeu o raciocínio — e só então 
 acesso a automações do Modo Operador. Se o storyline pedagógico não convencer,
 nada mais no produto importa.
 
-## Current Milestone: v1.8 Didática ampliada + continuidade da aba Opções
-
-**Goal:** aprofundar a camada educacional (busca e ancoragem de verbetes da
-KB nas abas que ainda não têm cobertura) e reduzir atrito/dívida técnica na
-aba Opções (estado preservado ao trocar de aba, registros paralelos de tela
-consolidados) — sem tocar em execução a descoberto (B3, fora de escopo até
-decisão de escopo do Alex).
-
-**Target features:**
-- Busca nos 83 verbetes da KB didática (C1, backlog Fase 26)
-- Ancoragem de verbete "saiba mais" nas 4 abas sem cobertura hoje (C2, backlog Fase 26)
-- Preservação de estado da aba Opções ao trocar de aba (B2, backlog Fase 26)
-- Consolidação dos 5 registros paralelos de tela do front (C3, backlog Fase 26)
-
-**Explicitamente fora desta milestone:** B3 (ligar aba Opções a rotas de
-execução a descoberto) — pesquisa concluída em Fase 26, mas decisão de
-escopo (posição a descoberto é feature de risco maior) segue pendente do
-Alex. CAP-12 e a verificação visual da Fase 37 não entram como fase —
-resolvem com a distribuição TestFlight retomada fora deste roadmap. Dívida
-de verificação ao vivo (multi-candidato Fase 19/32, entradaAuto, human-checks
-Fase 3, UAT v1.5) segue no backlog do PROJECT.md, não priorizada nesta
-milestone.
-
 ## Next Milestone (queued): v1.9 Jornada de Decisão — NÃO INICIADA
 
 **Decisão do Alex (2026-09-25):** registrar como próxima milestone, mas só
 entra na fila de execução depois que a v1.8 fechar (Fases 40/41). Não
 encaixar na sequência atual da v1.8 — mantém o foco dela (aba Opções) sem
-diluir.
+diluir. **v1.8 fechada em 2026-09-26 — a v1.9 está desbloqueada e abre via
+`/gsd-new-milestone`.**
 
 **Goal:** corrigir a hierarquia visual do card único de ativo (`AtivoCard`,
 `App.jsx:3343`, reaproveitado em Acompanhar/Mesa/Monitoramento/Posições) —
@@ -81,6 +59,35 @@ só do motor, `setups.py`/`kpi.py`). Plano de 3 fases proposto lá (Crítico/
 Refinamento/Polish) — requirements formais e roadmap ficam pra quando esta
 milestone abrir de verdade, via `/gsd-new-milestone`, depois que a v1.8
 fechar.
+
+## Milestone v1.8 Didática ampliada + continuidade da aba Opções — SHIPPED 2026-09-25
+
+**Goal:** aprofundar a camada educacional (busca e ancoragem de verbetes da
+KB nas abas que ainda não têm cobertura) e reduzir atrito/dívida técnica na
+aba Opções (estado preservado ao trocar de aba, registros paralelos de tela
+consolidados) — sem tocar em execução a descoberto (B3, fora de escopo até
+decisão de escopo do Alex).
+
+**Entregue:** 4 fases (38-41), 17 plans, 5/5 requirements Done. Glossário
+com busca nos 83 verbetes da KB e "saiba mais" nas 4 abas sem cobertura
+(Fase 38); aba Opções reestruturada em 3 abas fixas — Oportunidades,
+Destacadas, Montar — com Vigias em sheet, "Operar" dissolvida e curadoria
+por piso de probabilidade OTM + prêmio anualizado (Fase 39, NAV-01 — achado
+novo, não estava no backlog da Fase 26); ticker e aba de Opções preservados
+ao trocar de aba principal, em memória e isolados por conta (Fase 40);
+registro único de telas `web/src/telas.js` com paridade contra `PET_TELAS`
+(Fase 41). Publicado em `F10-20260923-01`, `F10-20260924-01`,
+`F10-20260925-01` e `F10-20260925-02`, todas as fases com checkpoint humano
+aprovado ao vivo. Arquivada em 2026-09-26.
+
+**Explicitamente fora desta milestone:** B3 (ligar aba Opções a rotas de
+execução a descoberto) — pesquisa concluída em Fase 26, mas decisão de
+escopo (posição a descoberto é feature de risco maior) segue pendente do
+Alex. CAP-12 e a verificação visual da Fase 37 não entram como fase —
+resolvem com a distribuição TestFlight retomada fora deste roadmap. Dívida
+de verificação ao vivo (multi-candidato Fase 19/32, entradaAuto, human-checks
+Fase 3, UAT v1.5) segue no backlog do PROJECT.md, não priorizada nesta
+milestone.
 
 ## Milestone v1.7 Confiabilidade explicativa da aba Opções — SHIPPED 2026-09-22
 
@@ -462,13 +469,32 @@ faltavam os números).
   `.planning/milestones/v1.7-ROADMAP.md`. Pendência não-bloqueante:
   verificação visual em produção com dado real (checkpoint fechou com
   evidência automática, sem confirmação visual — ver STATE.md).
+- ✓ Didática ampliada + continuidade da aba Opções — v1.8 (Fases 38-41):
+  Glossário com busca nos 83 verbetes da KB (KB-01) e "saiba mais" nas 4
+  abas sem cobertura (KB-02, Fase 38); 3 abas fixas na aba Opções com
+  curadoria por piso de probabilidade (NAV-01, Fase 39); ticker e aba de
+  Opções preservados entre trocas de aba principal (ESTADO-01, Fase 40);
+  registro único de telas com paridade front×backend (TELAS-01, Fase 41).
+  5/5 requirements v1 Done — ver `.planning/milestones/v1.8-ROADMAP.md`.
+- ✓ CAP-12 (bypass do cap de watchlist no iOS) passou a valer nos aparelhos
+  com a distribuição do build 27 via TestFlight (2026-09-23, Archive/Upload
+  feito pelo Alex).
 
 ### Active
 
 - [ ] Backlog da Fase 26 (v1.4): B3 (ligar a aba Opções às rotas de execução
   com flag opt-in a descoberto, pesquisa concluída/decisão de escopo
-  pendente) — ver `26-CONTEXT.md`. B2/C1/C2/C3 saíram daqui: viraram escopo
-  da milestone v1.8 acima.
+  pendente) — ver `26-CONTEXT.md`. B2/C1/C2/C3 foram entregues na v1.8
+  (Fases 38/40/41).
+- [ ] v1.9 Jornada de Decisão — hierarquia visual do `AtivoCard` (ver "Next
+  Milestone (queued)" acima e `qa/AUDITORIA-Jornada-Decisao-v1.md`); abre
+  via `/gsd-new-milestone`
+- [ ] 6 achados de inconsistência de navegação registrados na Fase 41 (D-04,
+  `41-02-SUMMARY.md`), aprovados pelo Alex como "não corrigir agora":
+  histórico/perfil sem seção de Ajuda; tour não visita agente/histórico/
+  perfil; barra diz "Mesa" e tour/ajuda dizem "Mesa de oportunidades";
+  "Operador IA" literal na Ajuda; "Acompanhar" sem chave de copy.
+  Candidatos a fold-in oportunista, não fase dedicada
 - [ ] Multi-candidato lado a lado (MULTI-02, Fase 19 → sub-aba Operar na
   Fase 32) nunca foi visto renderizando em navegador real com dado real —
   só sob provider mock, reconfirmado como dívida de verificação herdada até
@@ -503,14 +529,11 @@ faltavam os números).
   comportamento real de `prefers-reduced-motion` (2 casos), pulso de
   sucesso de ordem com mercado aberto, 2 dos 4 trilhos SYS-01 sem proposta
   de opção ativa durante a verificação
-- [ ] CAP-12 (bypass do cap de watchlist no iOS) está fechado em código e
-  testado desde a Fase 13, mas só passa a valer nos aparelhos que já têm o
-  app instalado depois de um build novo distribuído via TestFlight — ação
-  sua (`scripts/ios-bump-build.sh` → `scripts/ios-testflight.sh` →
-  archive/upload no Xcode, ver `TESTFLIGHT.md`). Você também sinalizou
-  interesse em liberar pra testers externos (amigos) antes de qualquer
-  submissão à App Store pública — passos documentados em `TESTFLIGHT.md`
-  §6 (grupo externo, Beta App Review, Public Link)
+- [ ] Build iOS 28 preparado (`npx cap sync ios` + `scripts/ios-bump-build.sh`,
+  2026-09-25/26) com as Fases 38-41 — falta Archive/Upload no Xcode (ação
+  do Alex, ver `TESTFLIGHT.md`). Verificação visual da Fase 37 com dado real
+  segue pendente. Interesse em liberar para testers externos antes da App
+  Store pública: passos em `TESTFLIGHT.md` §6
 
 ### Out of Scope
 
@@ -585,6 +608,10 @@ faltavam os números).
   Complete, com ressalvas de verificação humana carregadas explicitamente
   — ver `.planning/milestones/v1.4-ROADMAP.md` e
   `.planning/milestones/v1.4-REQUIREMENTS.md`.
+- **v1.8 entregou**: Fases 38-41 (Glossário da KB + "saiba mais", 3 abas
+  fixas na aba Opções, continuidade de estado, registro único de telas). 4
+  fases, 17 planos, 111 commits, ~3 dias (2026-09-23 a 2026-09-25). Suíte
+  no fechamento: 3050 pytest passed/5 skipped/3 xfailed + 165/165 `.mjs`.
 - Suíte canônica de teste: `bash scripts/executar.sh --testes` (pytest +
   web/tests/*.mjs); `scripts/test.sh` sozinho é meia baseline. Desde a Fase
   5 (FIX-C24), o próprio `executar.sh` resolve `web/node_modules` ausente
@@ -637,6 +664,11 @@ faltavam os números).
 | Fallback pontual pro Sonnet quando o planner (Opus) da Fase 37 falhou 4x seguidas (500→529, capacidade esgotada) | Autorizado explicitamente pelo Alex após o sinal mudar de erro transiente pra overload real; mesmo prompt/contexto, só o modelo trocou | ✓ Good — 5 planos de qualidade equivalente, checker aprovou (1 ciclo de revisão, motivo não relacionado ao modelo) |
 | Checkpoint humano da Fase 37 aprovado com evidência automática, não visual, quando a verificação ao vivo esbarrou em credenciais ausentes no backend local | O Alex escolheu explicitamente não esperar; ressalva registrada com precisão no SUMMARY, no comentário do `SERVER_BUILD_ID` e aqui — nunca apresentada como se tivesse sido uma confirmação visual real | ⚠️ Revisit — pendência não-bloqueante de verificação visual em produção, recomendada mas não forçada |
 | `gsd-sdk query milestone.complete` não é confiável sem diff — corrompeu STATE.md na primeira tentativa (fechamento da v1.7) | Mesma classe de bug já documentada para os mutadores `state.*` (texto/contagem de sessão antiga sobrescrevendo o atual), mas num verbo NÃO listado no guardrail original — `progress.percent` caiu de 100% pra 60% contando fases standalone (9, 14) como parte da milestone | ✓ Good, causa raiz contida — revertido via `git checkout`, refeito à mão; guardrail expandido na prática para "qualquer mutador de STATE.md do gsd-sdk", não só os 4 nomeados originalmente |
+| Fase 39: rótulo "Recomendadas" → "Destacadas", override ao vivo de uma decisão travada (D-03) no checkpoint | "Recomendada" soa como recomendação de investimento — ambiguidade regulatória CVM num produto que por princípio não recomenda | ✓ Good — trocado nos dois modos antes de publicar, registrado como DEVIATION com a decisão original preservada |
+| Fase 40: estado da aba Opções em memória no `App.jsx`, nunca em `deviceStore`/`serverStore` | Persistir obrigaria a paridade dos dois stores por um estado de conveniência de sessão; memória resolve o critério e o reset por escopo fecha o vazamento entre contas | ✓ Good — zero campo novo nos stores; deep-link de Posições vence a memória (DP-1, aprovada pelo Alex por nome) |
+| Fase 41: provar um refactor "zero mudança visível" contra uma fixture congelada do comportamento anterior | Refactor que toca barra+tour+ajuda+assistente ao mesmo tempo; "suíte verde" não prova equivalência de saída | ✓ Good — equivalência byte a byte confirmada; o Alex aceitou por nome a leitura honesta do SC#4 (a LISTA de telas centralizada, o conteúdo nos seus lugares) |
+| Fechamento da v1.8 feito à mão, sem `milestone.complete` | Precedente da v1.7 (o verbo corrompeu STATE.md) | ✓ Good — archive/MILESTONES/ROADMAP/STATE editados à mão e conferidos por diff |
+| Worktree `borisv2` ficou órfão quando a pasta do repo principal foi renomeada (`bolsia/` → `bolsia=boris antigo/`) | O `.git` do worktree aponta por caminho absoluto para `.git/worktrees/` do repo principal; renomear a pasta quebra o link silenciosamente | ⚠️ Revisit — reparado com `git worktree repair` em 2026-09-26; se a pasta "antigo" for arquivada/apagada, o borisv2 perde o repositório — converter em clone independente antes disso |
 
 ## Evolution
 
@@ -656,10 +688,9 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-09-23 — Milestone v1.8 (Didática ampliada + continuidade
-da aba Opções) iniciada, retomando backlog priorizado por valor: C1+C2
-(busca/ancoragem de verbetes da KB), B2 (estado preservado ao trocar de
-aba), C3 (consolidar registros paralelos de tela). B3 (execução a
-descoberto) segue fora, aguardando decisão de escopo. Próximo passo:
-`/gsd:plan-phase [N]`. Ver `.planning/milestones/v1.7-ROADMAP.md`/
-`v1.7-REQUIREMENTS.md` para o detalhe completo do v1.7.*
+*Last updated: 2026-09-26 — Milestone v1.8 (Didática ampliada + continuidade
+da aba Opções, Fases 38-41) fechada e arquivada (5/5 requirements,
+`F10-20260923-01`→`F10-20260925-02`). Nenhum milestone aberto — próximo na
+fila é a v1.9 Jornada de Decisão, via `/gsd-new-milestone`. Ver
+`.planning/milestones/v1.8-ROADMAP.md`/`v1.8-REQUIREMENTS.md` para o detalhe
+completo do v1.8.*
