@@ -6559,7 +6559,10 @@ function ConfluenceRing({ conf, size = 54, label = true }) {
   const r = cx - 4;
   const C = 2 * Math.PI * r;
   const off = C * (1 - c / 100);
-  const col = c >= 75 ? P.positive : c >= 50 ? P.accent : P.textFaint;
+  // Fase 42 (D-05): arco na paleta de tier (mesma fonte do TierDot) — verde de
+  // COMPRAR ao lado de uma manchete VENDER lia como boa notícia. Tier é outro
+  // eixo semântico (ver comentário de tierOf).
+  const col = TIER_FILL[tierOf(c)[0]] || TIER_FILL.neutra;
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ flex: "none" }} role="img" aria-label={`Confluência ${c}%`}>
       <circle cx={cx} cy={cx} r={r} fill="none" stroke={P.borderFaint} strokeWidth="4" />
