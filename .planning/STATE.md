@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.9
 milestone_name: Jornada de Decisão
 status: planning
-stopped_at: 'Phase 42 context gathered (42-CONTEXT.md, 16 decisões D-01..D-16). Próximo: /gsd-plan-phase 42.'
+stopped_at: 'Phase 42 UI-SPEC approved (42-UI-SPEC.md, 6/6). Próximo: /gsd-plan-phase 42.'
 last_updated: "2026-09-26T00:00:00.000Z"
 last_activity: 2026-09-26 -- Phase 42 discuss-phase concluída
 progress:
@@ -28,8 +28,8 @@ See: .planning/PROJECT.md (updated 2026-09-26)
 Milestone: v1.9 Jornada de Decisão (aberta 2026-09-26).
 Phase: 42 (context gathered)
 Plan: —
-Status: Ready to plan
-Resume file: .planning/phases/42-cr-tico-cor-chip-nico-e-ordem-de-leitura/42-CONTEXT.md
+Status: Ready to plan (UI-SPEC approved)
+Resume file: .planning/phases/42-cr-tico-cor-chip-nico-e-ordem-de-leitura/42-UI-SPEC.md
 Last activity: 2026-09-26 — Phase 42 context gathered (storyline de alinhamento, T.warn, anel na manchete, chips da IA fora do card)
 Produção: `F10-20260925-02`.
 Pendências fora de milestone: build iOS 28 preparado (cap sync + bump),
