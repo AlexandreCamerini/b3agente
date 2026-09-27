@@ -15,7 +15,7 @@ O que estes testes protegem, e por que cada um existe:
 3. Banco presente + backup falho TEM que travar o deploy. É exatamente o caso
    em que subir sem rede de segurança é a decisão errada.
 
-4. A FIAÇÃO em `server/railway.json` e `.railway/railway.ts` — sem ela o
+4. A FIAÇÃO em `.railway/railway.ts` (o `server/railway.json` foi removido em 2026-09-27) — sem ela o
    módulo é código morto e ninguém percebe até precisar de um backup que
    nunca foi feito.
 
@@ -157,21 +157,16 @@ def test_destino_padrao_fica_no_mesmo_volume_do_banco():
     assert backup_mod.diretorio_padrao("/data/b3_agente.db") == "/data/backups"
 
 
-def test_railway_json_liga_o_backup_no_start():
-    """Guardião de FIAÇÃO: sem isto o módulo vira código morto e o backup
-    nunca roda em produção — falha que só aparece quando já é tarde.
-
-    Reversão deliberada (2026-09-27): não pode mais estar em
-    `preDeployCommand` — o pré-deploy do Railway roda em container separado e
-    não monta volume (doc oficial), então nunca protegeria o banco real."""
-    cfg = json.loads((SERVER_DIR / "railway.json").read_text())
-    cmd = cfg["deploy"]["startCommand"]
-    assert cmd.startswith("python -m app.backup --pre-start || python3 -m app.backup --pre-start && uvicorn"), (
-        "o backup precisa rodar ANTES do uvicorn, no início do startCommand")
-    assert "uvicorn app.main:app" in cmd
-    assert "preDeployCommand" not in cfg["deploy"], (
-        "o pré-deploy do Railway não monta volume — backup ligado ali é "
-        "código morto que nunca protege o banco real")
+def test_railway_json_nao_existe_mais():
+    """Guardião de FIAÇÃO (2026-09-27): `server/railway.json` (Config as Code,
+    que o Railway deixa de ler em 2026-12-01) foi removido depois de a
+    configuração migrar para `.railway/railway.ts` e ser aplicada em staging e
+    produção. Se o arquivo voltar, passa a existir uma segunda fonte de
+    verdade para o startCommand — e o Railway bloqueia o `plan` de IaC para
+    serviços com railway.json. A fiação do backup vive no teste do TS abaixo."""
+    assert not (SERVER_DIR / "railway.json").exists(), (
+        "server/railway.json voltou: a configuração de deploy mora em "
+        ".railway/railway.ts (IaC); duas fontes de verdade quebram o plan/apply")
 
 
 def test_railway_ts_liga_o_backup_no_start():

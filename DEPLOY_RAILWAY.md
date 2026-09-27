@@ -18,8 +18,8 @@ funciona de qualquer rede — não precisa mais estar na mesma Wi‑Fi do Mac.
    escolha o repositório.
 3. Abra o serviço criado → **Settings**:
    - **Root Directory**: `server`
-     (essencial — é onde estão o `requirements.txt`, `app/` e o `railway.json`).
-   - O **Start Command** já vem do `railway.json`
+     (essencial — é onde estão o `requirements.txt` e `app/`).
+   - O **Start Command** vem de `.railway/railway.ts`, aplicado por `railway config apply` (o `railway.json` foi removido em 2026-09-27)
      (`uvicorn app.main:app --host 0.0.0.0 --port $PORT`). Não precisa mexer.
 4. **Settings → Networking → Generate Domain** para criar a URL pública
    (algo como `https://boris.semente.dev`).
@@ -116,8 +116,9 @@ Em **Settings → Variables** do serviço:
 
 ## Configuração como código: `.railway/railway.ts` (desde 2026-09-27)
 
-O `server/railway.json` é Config as Code, formato que o Railway deixa de ler
-em **2026-12-01**. O substituto está em `.railway/railway.ts` na raiz do repo
+O `server/railway.json` era Config as Code, formato que o Railway deixa de ler
+em **2026-12-01**; foi removido em 2026-09-27, depois de o IaC ser aplicado em
+staging e produção e do build Railpack passar no health. O substituto está em `.railway/railway.ts` na raiz do repo
 (um arquivo, dois ambientes via `ctx.environment`). Ele declara o que o
 painel mostra hoje — nada muda até o dono rodar `railway config plan` e
 `apply`, ambiente `staging` primeiro. O cabeçalho do arquivo traz a ordem, as
