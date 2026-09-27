@@ -230,13 +230,46 @@ def test_reconciliacao_txt_educacional_sem_expr():
     assert "R)" not in t
 
 
-def test_reconciliacao_txt_ausente_vira_interrogacao_nunca_zero():
+# REVERSÃO DELIBERADA (2026-09-27, Fase 43, DP-3): ausência não vira mais "?"
+# no microtexto — cai para nunca_medido (resposta do Alex no checkpoint 43-05).
+def test_reconciliacao_txt_ausente_cai_para_nunca_medido_nunca_zero():
     t = skill_ref.reconciliacao_elegibilidade_txt("operador", "inelegivel", n=None, janela="2024", exp_r=0.005)
-    assert "n=?" in t and "n=0" not in t
+    assert t == skill_ref.RECONCILIACAO_ELEGIBILIDADE["operador"]["nunca_medido"]
+    assert "?" not in t
+
     t2 = skill_ref.reconciliacao_elegibilidade_txt("operador", "elegivel", n=80, janela="2025", exp_r=None)
-    assert t2.endswith(", ?)")
-    t3 = skill_ref.reconciliacao_elegibilidade_txt("operador", "elegivel", n=80, janela="2025", exp_r=0.0)
-    assert "+0,000R" in t3
+    assert t2 == skill_ref.RECONCILIACAO_ELEGIBILIDADE["operador"]["nunca_medido"]
+    assert "?" not in t2
+
+    t3 = skill_ref.reconciliacao_elegibilidade_txt("educacional", "inelegivel", n=1, janela="", exp_r=0.0)
+    assert t3 == skill_ref.RECONCILIACAO_ELEGIBILIDADE["educacional"]["nunca_medido"]
+
+    t4 = skill_ref.reconciliacao_elegibilidade_txt("operador", "insuficiente", n=None, janela="2024")
+    assert t4 == skill_ref.RECONCILIACAO_ELEGIBILIDADE["operador"]["nunca_medido"]
+
+    # exp_r = 0.0 é valor presente (não cai)
+    t5 = skill_ref.reconciliacao_elegibilidade_txt("operador", "elegivel", n=80, janela="2025", exp_r=0.0)
+    assert "+0,000R" in t5
+
+
+def test_reconciliacao_txt_n_zero_e_valor_presente():
+    t = skill_ref.reconciliacao_elegibilidade_txt("operador", "insuficiente", n=0, janela="2025")
+    assert t == "Critérios ok · amostra insuficiente (n=0 — pouco para medir)"
+
+
+def test_reconciliacao_txt_nenhum_retorno_contem_interrogacao():
+    valores_ausentes = [
+        {"n": None, "janela": "2024", "exp_r": 0.005},
+        {"n": 80, "janela": "", "exp_r": 0.005},
+        {"n": 80, "janela": "2024", "exp_r": None},
+        {"n": None, "janela": "", "exp_r": None},
+        {"n": 0, "janela": "2025", "exp_r": 0.0},
+    ]
+    for modo in ("operador", "educacional"):
+        for estado in skill_ref.RECONCILIACAO_ELEGIBILIDADE[modo]:
+            for vals in valores_ausentes:
+                t = skill_ref.reconciliacao_elegibilidade_txt(modo, estado, **vals)
+                assert "?" not in t, f"{modo}/{estado}/{vals} -> {t!r}"
 
 
 def test_reconciliacao_txt_fallback_modo_e_estado():

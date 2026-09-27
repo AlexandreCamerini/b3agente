@@ -478,17 +478,28 @@ RECONCILIACAO_POR_QUE_IMPORTA = "sinal técnico e histórico medido são coisas 
 def reconciliacao_elegibilidade_txt(modo: str, estado: str, n=None, janela: str = "", exp_r=None) -> str:
     """Frase de reconciliação por modo/estado — só o FATO (sem a cláusula
     "por que importa", que o front busca separado, ver
-    RECONCILIACAO_POR_QUE_IMPORTA, e só anexa no Estudo). `n` nunca vira 0
-    quando é None — cai no placeholder "?" como o resto da casa
-    (historico_txt)."""
+    RECONCILIACAO_POR_QUE_IMPORTA, e só anexa no Estudo).
+
+    REVERSÃO DELIBERADA (2026-09-27, Fase 43, DP-3, checkpoint 43-05): a
+    ausência de um dado que a frase do `estado` exige não vira mais o
+    placeholder "?" — a frase inspeciona os placeholders que contém
+    (`{n}`, `{janela}`, `{expR}`) e, se QUALQUER um deles não tem valor
+    (n é None; janela vazia/None; exp_r é None), a função devolve a frase
+    `nunca_medido` do mesmo modo, sem interpolação. `n = 0` é valor
+    presente (não cai)."""
     d = RECONCILIACAO_ELEGIBILIDADE.get(modo if modo in RECONCILIACAO_ELEGIBILIDADE else "educacional",
                                          RECONCILIACAO_ELEGIBILIDADE["educacional"])
     frase = d.get(estado) or d["nunca_medido"]
+    falta_n = "{n}" in frase and n is None
+    falta_janela = "{janela}" in frase and not janela
+    falta_expr = "{expR}" in frase and exp_r is None
+    if falta_n or falta_janela or falta_expr:
+        return d["nunca_medido"]
     exp_txt = "" if exp_r is None else (("+" if exp_r >= 0 else "−") + f"{abs(exp_r):.3f}".replace(".", ",") + "R")
     return (frase
-            .replace("{n}", str(n) if n is not None else "?")
-            .replace("{janela}", janela or "?")
-            .replace("{expR}", exp_txt or "?"))
+            .replace("{n}", str(n) if n is not None else "")
+            .replace("{janela}", janela or "")
+            .replace("{expR}", exp_txt))
 
 
 def decisoes_txt(modo: str) -> str:
