@@ -164,7 +164,7 @@ Full phase details: [milestones/v1.8-ROADMAP.md](milestones/v1.8-ROADMAP.md)
 
 ### v1.9 Jornada de Decisão (Phases 42-43) — EM ANDAMENTO
 
-- [ ] **Phase 42: Crítico — cor, chip único e ordem de leitura** - Token de confiabilidade separado do eixo direção/P&L, `ConfluenceRing` único perto da manchete, `SinalChip` com aria-label substituindo as 4 receitas de chip
+- [x] **Phase 42: Crítico — cor, chip único e ordem de leitura** (2026-09-27, publicado `F10-20260927-01`) - Token de confiabilidade separado do eixo direção/P&L, `ConfluenceRing` único perto da manchete, `SinalChip` com aria-label substituindo as 4 receitas de chip
 - [ ] **Phase 43: Refinamento — copy por modo, KpiBlock e ritmo** - Microtexto de reconciliação por modo via `skill_ref.py`/`copy.js`, `KpiBlock` migrado para `SinalChip`, espaçamento na escala 4/8pt
 
 ## Progress
@@ -213,7 +213,7 @@ Full phase details: [milestones/v1.8-ROADMAP.md](milestones/v1.8-ROADMAP.md)
 | 39. Reestruturação de navegação da aba Opções | 6/6 | Complete (publicado `F10-20260924-01`, checkpoint humano aprovado ao vivo, override D-03 → "Destacadas") | 2026-09-24 |
 | 40. Continuidade da aba Opções | 2/2 | Complete (publicado `F10-20260925-01`, checkpoint humano aprovado ao vivo, DP-1) | 2026-09-25 |
 | 41. Consolidação de registros de tela | 3/3 | Complete (publicado `F10-20260925-02`, checkpoint humano aprovado ao vivo, achados D-04 não corrigidos) | 2026-09-25 |
-| 42. Crítico — cor, chip único e ordem de leitura | v1.9 | In progress (5/6) | - |
+| 42. Crítico — cor, chip único e ordem de leitura | 6/6 | Complete (publicado `F10-20260927-01`, checkpoint humano aprovado ao vivo, DP-1..DP-4) | 2026-09-27 |
 | 43. Refinamento — copy por modo, KpiBlock e ritmo | v1.9 | Not started | - |
 
 ## Phase Details
@@ -223,10 +223,10 @@ Full phase details: [milestones/v1.8-ROADMAP.md](milestones/v1.8-ROADMAP.md)
 **Depends on**: Nada (primeira fase da milestone v1.9; parte do código herdado das milestones v1.5/v1.6)
 **Requirements**: COR-01, HIER-01, HIER-02, CHIP-01, CHIP-02
 **Success Criteria** (o que precisa ser TRUE):
-  1. `HISTORICO_PILL_STYLE` não referencia `T.negative`/`T.positive` diretamente (grep guardião) — o estado "sem vantagem estatística medida" tem canal de cor próprio, presente nas 8 combinações tema×modo e passando contraste AA
+  1. `HISTORICO_PILL_STYLE` não referencia `T.negative`/`T.positive` diretamente (grep guardião) — o estado "sem vantagem estatística medida" tem canal de cor próprio, presente nas 4 combinações tema×modo (2 temas × 2 modos — correção factual, ver 42-CONTEXT.md) e passando contraste AA
   2. O tier de confluência aparece uma única vez por card, como `ConfluenceRing` perto da manchete — o pill solto "confiança X" e a repetição do rodapé deixam de existir
   3. Existe um único componente `SinalChip` com dois pesos fixos (`primario`/`contexto`) substituindo `chip()`, `FundamentoChip`, `RegimeChip` e o pill de confiança — zero receita nova de pill fora dele (verificável por grep), cada instância expõe `aria-label` descritivo
-  4. O usuário lê o card na ordem manchete → plano operacional → uma linha de contexto agrupado (regime+fundamento) → elegibilidade estatística, nos 4 contextos do `AtivoCard` (Acompanhar/Mesa/Posições/home) e no cabeçalho do Radar
+  4. O usuário lê o card na ordem manchete → plano operacional → uma linha de contexto agrupado (regime+fundamento) → elegibilidade estatística, nos 2 contextos em que o `AtivoCard` é renderizado hoje (Watchlist e Radar); Posições e home não renderizam `AtivoCard` — correção factual, ver 42-CONTEXT.md
   5. Nenhum teste de `setups.py`/`kpi.py`/`signal_ledger.py` muda; suíte canônica (`bash scripts/executar.sh --testes`) e `npx vite build` verdes; publicação via `scripts/bump.sh` + `publicar-web.sh` com carimbo próprio; checkpoint humano ao vivo do Alex olhando o card de UGPA3 (ou equivalente) confirma em <3s o veredito e o que é contexto
 **Plans**: 6 plans
 
@@ -245,7 +245,7 @@ Plans:
 - [x] 42-05-PLAN.md — Radar alimenta o card (subconjunto explícito ampliado), children só com a cauda, receitas antigas removidas, guardiões reconciliados
 
 **Wave 5** *(checkpoint humano)*
-- [ ] 42-06-PLAN.md — verificação ao vivo (UGPA3 < 3 s + DP-1..DP-4), publicação com carimbo próprio, fechamento dos documentos
+- [x] 42-06-PLAN.md — verificação ao vivo (UGPA3 < 3 s + DP-1..DP-4), publicação com carimbo próprio, fechamento dos documentos
 
 **UI hint**: yes
 

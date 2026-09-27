@@ -16,7 +16,7 @@ a auditoria cita linhas ~25 menores (drift).
 
 ### Cor semântica
 
-- [ ] **COR-01**: Usuário vê o estado "sem vantagem estatística medida"
+- [x] **COR-01**: Usuário vê o estado "sem vantagem estatística medida"
   (`HISTORICO_PILL_STYLE.inelegivel`, `App.jsx:6577`) num canal de cor que
   não é o de VENDER/Baixa/prejuízo — `HISTORICO_PILL_STYLE` deixa de
   referenciar `T.negative`/`T.positive` diretamente. Candidato de token:
@@ -24,18 +24,24 @@ a auditoria cita linhas ~25 menores (drift).
   de "confiabilidade" — decidido em discuss-phase. Qualquer que seja, existe
   nas 8 combinações tema×modo e passa contraste AA (texto sobre o tint) em
   todas.
+  *Nota (2026-09-27, Fase 42): correção factual — são 4 combinações
+  (2 temas × 2 modos), ver 42-CONTEXT.md; texto original preservado acima.
+  Entregue: `T.warn` sobre token novo `T.warnTint10`, 4,68–8,64:1.*
 
 ### Hierarquia do card
 
-- [ ] **HIER-01**: Usuário vê o tier de confluência uma única vez por card,
+- [x] **HIER-01**: Usuário vê o tier de confluência uma única vez por card,
   como `ConfluenceRing` posicionado junto da manchete de decisão; o pill
   solto "confiança X" (`App.jsx:6896`) e a repetição do rodapé
   (`App.jsx:6944-6947`) deixam de existir. Decisão do Alex, 2026-09-26.
-- [ ] **HIER-02**: Usuário lê o card na ordem manchete → plano operacional
+- [x] **HIER-02**: Usuário lê o card na ordem manchete → plano operacional
   (entrada/stop/alvo, quando existir) → uma linha de contexto agrupado
   (regime + fundamento, peso "contexto") → elegibilidade estatística. Vale
   nos 4 contextos do `AtivoCard` (watchlist/Acompanhar, radar/Mesa,
   posições, home) e no cabeçalho do Radar.
+  *Nota (2026-09-27, Fase 42): correção factual — o `AtivoCard` é renderizado
+  hoje em 2 contextos (Watchlist e Radar); Posições e home não o renderizam
+  (ver 42-CONTEXT.md). Texto original preservado acima.*
 - [ ] **HIER-03**: Usuário vê, junto à elegibilidade, um microtexto de
   reconciliação entre "o padrão bateu os critérios" e "o histórico de {n}
   ocorrências mostra {vantagem medida | sem vantagem medida | nunca
@@ -46,13 +52,13 @@ a auditoria cita linhas ~25 menores (drift).
 
 ### Componente de sinal
 
-- [ ] **CHIP-01**: Existe um único componente `SinalChip` com dois pesos
+- [x] **CHIP-01**: Existe um único componente `SinalChip` com dois pesos
   fixos por contrato — `primario` (só a decisão) e `contexto` (todo o
   resto) — cujo visual não é escolhido por chamada; substitui o `chip()`
   interno do `AtivoCard`, `FundamentoChip`, `RegimeChip`
   (`App.jsx:1373-1399`) e o pill de confiança. Zero receita nova de pill
   fora dele (verificável por grep/guardião).
-- [ ] **CHIP-02**: Todo `SinalChip` expõe `aria-label` descritivo, no padrão
+- [x] **CHIP-02**: Todo `SinalChip` expõe `aria-label` descritivo, no padrão
   já usado por `HistoricoPill` (hoje `chip()`/`FundamentoChip`/`RegimeChip`
   só têm texto visual).
 - [ ] **CHIP-03**: A tela de detalhe técnico (`KpiBlock`/`KpiCell`,
@@ -100,14 +106,15 @@ a auditoria cita linhas ~25 menores (drift).
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| COR-01 | Phase 42 | Pending |
-| HIER-01 | Phase 42 | Pending |
-| HIER-02 | Phase 42 | Pending |
+| COR-01 | Phase 42 | Done |
+| HIER-01 | Phase 42 | Done |
+| HIER-02 | Phase 42 | Done |
 | HIER-03 | Phase 43 | Pending |
-| CHIP-01 | Phase 42 | Pending |
-| CHIP-02 | Phase 42 | Pending |
+| CHIP-01 | Phase 42 | Done |
+| CHIP-02 | Phase 42 | Done |
 | CHIP-03 | Phase 43 | Pending |
 | RITMO-01 | Phase 43 | Pending |
 
 ---
 *Requirements defined: 2026-09-26*
+*Last updated: 2026-09-27 — Fase 42 fechada: COR-01, HIER-01, HIER-02, CHIP-01, CHIP-02 Done, publicado `F10-20260927-01`. Checkpoint do Alex: DP-1 mantém alpha 4% (tema claro, 4,68:1), DP-2 (alinhamento só em regime de tendência), DP-3 (x/y critérios fora do cabeçalho do Radar) e DP-4 (Watchlist com regime+plano, selo de elegibilidade em chip 7px) aprovadas.*

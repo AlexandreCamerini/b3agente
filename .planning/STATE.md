@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.9
 milestone_name: Jornada de Decisão
-status: executing
-stopped_at: 'Phase 42 em execução autônoma (agendada 01:30): ondas 1-4 (42-01..42-05) completas; parada no checkpoint humano do 42-06 (DP-1..DP-4 + publicação aguardam o Alex).'
-last_updated: "2026-09-27T04:00:00.000Z"
-last_activity: 2026-09-27 -- Phase 42 ondas 1-4 executadas (42-01..42-05); 42-06 aguardando checkpoint humano
+status: phase_complete
+stopped_at: 'Phase 42 fechada e publicada (F10-20260927-01). Próximo: /gsd-discuss-phase 43 (ou plan-phase 43).'
+last_updated: "2026-09-27T15:00:00.000Z"
+last_activity: 2026-09-27 -- Phase 42 fechada (6/6), publicada F10-20260927-01
 progress:
   total_phases: 2
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 6
-  completed_plans: 5
-  percent: 83
+  completed_plans: 6
+  percent: 50
 ---
 
 # Project State
@@ -24,6 +24,51 @@ See: .planning/PROJECT.md (updated 2026-09-26)
 **Current focus:** Milestone v1.9 Jornada de Decisão — hierarquia visual do `AtivoCard` (`PROJECT.md` §"Current Milestone").
 
 ## Current Position
+
+Milestone: v1.9 Jornada de Decisão (aberta 2026-09-26).
+Phase: 42 (cr-tico-cor-chip-nico-e-ordem-de-leitura) — FECHADA (2026-09-27),
+  6/6 planos, publicada em produção (`F10-20260927-01`). Fase 43 não iniciada.
+Plan: 6 de 6 completos (42-01..42-05 em execução autônoma agendada, 01:30,
+  autorizada pelo Alex; 42-06 checkpoint humano + publicação + docs).
+Status: Phase complete — próximo passo: `/gsd-discuss-phase 43`.
+Last activity: 2026-09-27 — checkpoint humano aprovado ao vivo ("aprovado,
+  DP-1 mantém 4%, DP-2 a DP-4 aprovadas"); bump + publicar-web rodados pelo
+  Alex (o classificador do modo automático bloqueou o deploy pelo agente).
+Produção: `F10-20260927-01`.
+Entregue (COR-01, HIER-01, HIER-02, CHIP-01, CHIP-02 Done):
+  - Inelegível em `T.warn` sobre token novo `T.warnTint10` (light 4% — DP-1),
+    elegível neutro com ✓, arco do anel em `TIER_FILL`; AA nas 4 combinações.
+  - Card único (`AtivoCard`, Watchlist + Radar) na ordem manchete+anel 36px →
+    TimingBadge → plano por modo → linha de contexto → elegibilidade.
+  - Chips da IA fora do card (D-02); manchete só do motor.
+O que o próximo leitor não deve redescobrir:
+  - `SinalChip` é o componente único de chip (pesos `primario`/`contexto`,
+    sem prop de cor livre); a Fase 43 migra `KpiBlock` para ele (CHIP-03).
+  - Funções puras de apresentação em `web/src/sinal.js` (lado só de
+    `setup.lado`/`plano.lado`, nunca do nome do setup; rótulo do anel; aria).
+  - `copy.sinal` é idêntico nos dois modos — quem diferencia por modo é a
+    HIER-03 (Fase 43).
+  - Marca "a favor / contra a tendência" só em regime de tendência (DP-2).
+  - `radarVm.sc` foi ampliado campo a campo (close/plano/setups/regime/
+    gatilhoAlinhado/fundamento), sem API nova; `TierDot`, `FundamentoChip`,
+    `RegimeChip`, `SCORE_COLOR`, `REGIME_STYLE` apagados.
+  - Carrossel de alertas da home fora do escopo (pill própria + anel 52px).
+Pendências declaradas:
+  - Build iOS/TestFlight: o card novo só chega ao iPhone num build novo.
+  - "FUNDAMENTO" duplicado na `FundamentoTabela` (cabeçalho + rótulo do
+    SinalChip) — sem decisão do Alex.
+  - Alvo de toque do chip de fundamento < 44px (herdado, UI-SPEC).
+  - Carrossel da home com composição própria.
+Pendências fora de milestone: build iOS 28 preparado (cap sync + bump),
+  Archive/Upload no Xcode é ação do Alex (`TESTFLIGHT.md`); verificação
+  visual da Fase 37 com dado real; 6 achados D-04 da Fase 41 (fold-in
+  oportunista).
+Ambiente: desde 2026-09-26 borisv2 é repositório independente (`origin` =
+  `https://github.com/AlexandreCamerini/b3agente.git`). Commit `073ac8a`
+  (IaC `.railway/railway.ts`, do Alex) entrou nesta mesma branch.
+
+## Posição anterior (Fase 42, planejamento + execução autônoma — histórico)
+
 
 Milestone: v1.9 Jornada de Decisão (aberta 2026-09-26).
 Phase: 42 (executing)
