@@ -166,7 +166,7 @@ def test_railway_json_liga_o_backup_no_start():
     não monta volume (doc oficial), então nunca protegeria o banco real."""
     cfg = json.loads((SERVER_DIR / "railway.json").read_text())
     cmd = cfg["deploy"]["startCommand"]
-    assert cmd.startswith("(python -m app.backup --pre-start || python3 -m app.backup --pre-start) &&"), (
+    assert cmd.startswith("python -m app.backup --pre-start || python3 -m app.backup --pre-start && uvicorn"), (
         "o backup precisa rodar ANTES do uvicorn, no início do startCommand")
     assert "uvicorn app.main:app" in cmd
     assert "preDeployCommand" not in cfg["deploy"], (
@@ -179,7 +179,7 @@ def test_railway_ts_liga_o_backup_no_start():
     que substitui `server/railway.json` — mesma nota da reversão de
     2026-09-27 acima."""
     texto = (SERVER_DIR.parent / ".railway" / "railway.ts").read_text()
-    assert 'start: "(python -m app.backup --pre-start || python3 -m app.backup --pre-start) && uvicorn app.main:app' in texto, (
+    assert 'start: "python -m app.backup --pre-start || python3 -m app.backup --pre-start && uvicorn app.main:app' in texto, (
         "o backup precisa rodar ANTES do uvicorn, no início do `start`")
     assert "preDeploy:" not in texto, (
         "o pré-deploy do Railway não monta volume — backup ligado ali é "

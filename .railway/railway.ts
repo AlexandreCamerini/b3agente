@@ -53,9 +53,12 @@ export default defineRailway((ctx) => {
       rootDirectory: "/server",
       checkSuites: false,
     }),
-    // `python || python3`: mesmo fallback que o pré-deploy antigo tinha. Se o
-    // backup falhar com o banco presente, os dois saem 1 e o `&&` segura o uvicorn.
-    start: "(python -m app.backup --pre-start || python3 -m app.backup --pre-start) && uvicorn app.main:app --host 0.0.0.0 --port $PORT",
+    // `a || b && c` é, em POSIX sh, `((a || b) && c)`: `||` e `&&` têm a mesma
+    // precedência e associam à esquerda. Sem parênteses de propósito — o parser
+    // de startCommand do Railway rejeita `( ... )` ("Failed to parse start
+    // command", deploy 03a3a97a, 2026-09-27). Se o backup falhar com o banco
+    // presente, python e python3 saem 1 e o `&&` segura o uvicorn.
+    start: "python -m app.backup --pre-start || python3 -m app.backup --pre-start && uvicorn app.main:app --host 0.0.0.0 --port $PORT",
     healthcheck: "/api/health",
     healthcheckTimeout: 120,
     deploy: { restartPolicyType: "ON_FAILURE", restartPolicyMaxRetries: 3 },
