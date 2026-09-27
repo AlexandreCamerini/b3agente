@@ -146,7 +146,7 @@ def main(argv: Optional[list] = None) -> int:
         if a.modo_start:
             print("[backup] deploy TRAVADO de propósito: o banco existe mas não foi "
                   "possível protegê-lo. Suba sem rede só se essa for uma decisão "
-                  "consciente (remova o trecho `(python -m app.backup --pre-start || ...) &&` do "
+                  "consciente (remova o trecho `python -m app.backup --pre-start || python3 ... &&` do "
                   "startCommand em server/railway.json e .railway/railway.ts).",
                   file=sys.stderr)
         return 1
