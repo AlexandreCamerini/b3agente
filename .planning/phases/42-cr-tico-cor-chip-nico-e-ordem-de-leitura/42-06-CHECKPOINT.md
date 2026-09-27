@@ -28,6 +28,17 @@ Não existe `42-06-SUMMARY.md` de propósito: o índice do GSD trata SUMMARY com
 Não subi backend + Vite locais para o roteiro: ninguém estaria olhando às 2h.
 Para rodar o roteiro: `bash scripts/executar.sh`, viewport 375px.
 
+## Resposta do Alex (2026-09-27)
+
+"aprovado, DP-1 mantém 4%, DP-2 a DP-4 aprovadas", dada depois do roteiro ao vivo no app local (Vite :5174 + API :8787, viewport 375px).
+
+- DP-1: mantém 4% (`warnTint10` light = `rgba(161,98,7,0.04)`, 4,68:1). Sem mudança de código.
+- DP-2, DP-3, DP-4: aprovadas.
+- "FUNDAMENTO" duplicado na `FundamentoTabela`: sem resposta. Fica como pendência declarada e não bloqueia.
+
+Task 1 concluída. `git fetch` mostrou `origin/main` já contida na branch, então não houve merge.
+Task 2 (bump + publicar + push): **bloqueada** pelo classificador de permissão do modo automático ("Production Deploy"). Precisa ser rodada pelo Alex ou liberada por ele.
+
 ## Verificação independente (gsd-verifier, 42-01..05)
 
 `42-VERIFICATION.md`: **passed** no escopo 42-01..05, sem gap. COR-01, HIER-01, HIER-02, CHIP-01 e CHIP-02 verificados no código. Guardrail CVM, canal de cor, motor e paridade sem violação. 13 guardiões com nota de reversão, nenhum apagado, +410 asserções líquidas.
