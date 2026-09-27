@@ -597,6 +597,16 @@ export const COPY = {
       nunca_medido: "SEM HISTÓRICO MEDIDO",
       aposentado: "APOSENTADO (ADR-016)",
     },
+    // Fase 43 (HIER-03): espelho byte a byte de
+    // skill_ref.RECONCILIACAO_ELEGIBILIDADE (modo "educacional") — placeholders
+    // literais, interpolação é do helper reconciliacaoTxt.
+    reconciliacaoElegibilidade: {
+      elegivel: "O padrão bateu os critérios, e em {n} ocorrências na janela {janela} houve vantagem medida.",
+      inelegivel: "O padrão bateu os critérios, mas em {n} ocorrências na janela {janela} não houve vantagem medida.",
+      insuficiente: "O padrão bateu os critérios; só {n} ocorrências — pouco para medir.",
+      nunca_medido: "O padrão bateu os critérios; ainda sem histórico medido.",
+      aposentado: "Padrão identificado; sem vantagem medida em 15 anos (ADR-016).",
+    },
     // Fase 42 (D-01/D-07/D-09/D-15): fatos do motor, idênticos nos dois
     // modos — microtexto por modo é HIER-03 (Fase 43).
     sinal: {
@@ -612,6 +622,15 @@ export const COPY = {
       ariaFundamento: (score) => "Fundamento: qualidade " + score + " (não indica direção)",
       ariaAnel: (texto) => "Confluência " + texto,
       ariaManchete: (kicker, decisao) => kicker + ": " + decisao,
+      // Fase 43 (CHIP-03, D-02): rótulos da Leitura da IA — fatos de seção,
+      // idênticos nos dois modos; recomendação da IA NÃO tem rótulo aqui (D-03).
+      leituraIa: {
+        rotulo: "LEITURA DA IA",
+        campos: { direcao: "DIREÇÃO", conviccao: "CONVICÇÃO", qualidade: "QUALIDADE" },
+        aria: (chave, valor) =>
+          ({ direcao: "Direção", conviccao: "Convicção", qualidade: "Qualidade" })[chave] +
+          " da leitura da IA: " + valor,
+      },
     },
     entradaAuto: {
       regra: "No Modo Operador, a entrada automática só executa em setup com vantagem estatística medida na janela anterior — sem vantagem medida, ele sinaliza e não executa.",
@@ -1371,6 +1390,16 @@ export const COPY = {
       nunca_medido: "SEM HISTÓRICO MEDIDO",
       aposentado: "APOSENTADO (ADR-016)",
     },
+    // Fase 43 (HIER-03): espelho byte a byte de
+    // skill_ref.RECONCILIACAO_ELEGIBILIDADE (modo "operador") — placeholders
+    // literais, interpolação é do helper reconciliacaoTxt.
+    reconciliacaoElegibilidade: {
+      elegivel: "Critérios ok · vantagem medida (n={n}, {janela}, {expR})",
+      inelegivel: "Critérios ok · sem vantagem medida (n={n}, {janela}, {expR})",
+      insuficiente: "Critérios ok · amostra insuficiente (n={n} — pouco para medir)",
+      nunca_medido: "Critérios ok · sem histórico medido",
+      aposentado: "Padrão identificado · sem vantagem medida em 15 anos (ADR-016)",
+    },
     // Fase 42 (D-01/D-07/D-09/D-15): fatos do motor, idênticos nos dois
     // modos — microtexto por modo é HIER-03 (Fase 43).
     sinal: {
@@ -1386,6 +1415,15 @@ export const COPY = {
       ariaFundamento: (score) => "Fundamento: qualidade " + score + " (não indica direção)",
       ariaAnel: (texto) => "Confluência " + texto,
       ariaManchete: (kicker, decisao) => kicker + ": " + decisao,
+      // Fase 43 (CHIP-03, D-02): rótulos da Leitura da IA — fatos de seção,
+      // idênticos nos dois modos; recomendação da IA NÃO tem rótulo aqui (D-03).
+      leituraIa: {
+        rotulo: "LEITURA DA IA",
+        campos: { direcao: "DIREÇÃO", conviccao: "CONVICÇÃO", qualidade: "QUALIDADE" },
+        aria: (chave, valor) =>
+          ({ direcao: "Direção", conviccao: "Convicção", qualidade: "Qualidade" })[chave] +
+          " da leitura da IA: " + valor,
+      },
     },
     entradaAuto: {
       regra: "Entrada automática só executa em setup com vantagem estatística medida na janela anterior — sem vantagem medida, o Operador sinaliza e não executa.",
@@ -1604,6 +1642,25 @@ export function historicoTxt(mode, estado, vals) {
     .replace("{janela}", (vals && vals.janela) || "?")
     .replace("{medidoAte}", (vals && vals.medidoAte) || "?");
 }
+
+// Espelho de skill_ref.reconciliacao_elegibilidade_txt (Fase 43, HIER-03) —
+// só o FATO. A cláusula "por que importa" é exportada separada (constante
+// fixa, sem interpolação), espelho de RECONCILIACAO_POR_QUE_IMPORTA.
+export function reconciliacaoTxt(mode, estado, vals) {
+  const d = copyFor(mode).reconciliacaoElegibilidade;
+  const frase = d[estado] || d.nunca_medido;
+  const n = vals && vals.n;
+  const expR = vals && typeof vals.expR === "number" ? vals.expR : null;
+  const expTxt = expR == null ? "" : (expR >= 0 ? "+" : "−") + Math.abs(expR).toFixed(3).replace(".", ",") + "R";
+  return frase
+    .replace("{n}", n != null ? String(n) : "?")
+    .replace("{janela}", (vals && vals.janela) || "?")
+    .replace("{expR}", expTxt || "?");
+}
+
+// Fixa, sem interpolação, só Estudo (D-11/D-12) — HistoricoPill anexa isto
+// como cláusula TOCÁVEL, nunca a compõe/parafraseia.
+export const reconciliacaoPorQueImporta = "sinal técnico e histórico medido são coisas diferentes";
 
 // Espelho de `skill_ref.entrada_auto_txt`: falha FECHADA — só `estado ===
 // "disponivel"` libera a frase positiva; qualquer outro valor cai em
