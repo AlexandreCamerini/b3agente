@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.9
 milestone_name: Jornada de Decisão
 status: executing
-stopped_at: 'Phase 42 em execução autônoma (agendada 01:30): ondas 1-2 (42-01..42-03) completas; próximo 42-04.'
+stopped_at: 'Phase 42 em execução autônoma (agendada 01:30): ondas 1-3 (42-01..42-04) completas; próximo 42-05.'
 last_updated: "2026-09-27T04:00:00.000Z"
-last_activity: 2026-09-27 -- Phase 42 ondas 1-2 executadas (42-01..42-03)
+last_activity: 2026-09-27 -- Phase 42 ondas 1-3 executadas (42-01..42-04)
 progress:
   total_phases: 2
   completed_phases: 0
   total_plans: 6
-  completed_plans: 3
-  percent: 50
+  completed_plans: 4
+  percent: 67
 ---
 
 # Project State
@@ -27,9 +27,9 @@ See: .planning/PROJECT.md (updated 2026-09-26)
 
 Milestone: v1.9 Jornada de Decisão (aberta 2026-09-26).
 Phase: 42 (executing)
-Plan: 3 de 6 (ondas: 01+02 → 03 → 04 → 05 → 06 checkpoint humano)
+Plan: 4 de 6 (ondas: 01+02 → 03 → 04 → 05 → 06 checkpoint humano)
 Status: Executing (autônomo, autorizado pelo Alex em 2026-09-26 23:59)
-Resume file: .planning/phases/42-cr-tico-cor-chip-nico-e-ordem-de-leitura/42-04-PLAN.md
+Resume file: .planning/phases/42-cr-tico-cor-chip-nico-e-ordem-de-leitura/42-05-PLAN.md
 Last activity: 2026-09-26 — Phase 42 planejada: 6 planos, checker PASSED (iteração 2 — 42-06 passou a corrigir no texto do ROADMAP os SC#1/SC#4: 4 combinações tema×modo e 2 contextos do AtivoCard)
 Produção: `F10-20260925-02`.
 Pendências fora de milestone: build iOS 28 preparado (cap sync + bump),
