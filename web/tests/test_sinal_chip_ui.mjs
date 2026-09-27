@@ -69,5 +69,51 @@ ok("ConfluenceRing aceita prop ariaLabel", /function ConfluenceRing\(\{[^}]*aria
 ok("HistoricoPill renderiza <SinalChip peso=\"contexto\" estado={estado}> (CHIP-01, zero pill paralelo)",
   src.includes('<SinalChip peso="contexto" estado={estado}'));
 
+// ---------------------------------------------------------------------------
+// Parte B — LinhaContexto e PlanoOperacionalBloco (Task 2, definição; a
+// fiação no AtivoCard/Radar é do 42-04 — estes componentes ainda não têm
+// call site real, só o contrato).
+// ---------------------------------------------------------------------------
+
+ok("function LinhaContexto( existe em App.jsx", /^function LinhaContexto\(/m.test(src));
+ok("function PlanoOperacionalBloco( existe em App.jsx", /^function PlanoOperacionalBloco\(/m.test(src));
+
+const linhaContexto = functionBody("LinhaContexto") || "";
+const linhaContextoSemComentario = semComentarios(linhaContexto);
+ok("corpo de LinhaContexto encontrado (não vazio)", linhaContexto.length > 200);
+ok("corpo de LinhaContexto (sem comentários) não usa T.positive/T.negative/T.warn/T.accent (D-05/D-06/D-07)",
+  !/T\.positive|T\.negative|T\.warn|T\.accent/.test(linhaContextoSemComentario));
+{
+  const idxRegime = linhaContexto.indexOf('label="REGIME"');
+  const idxAlinhamento = linhaContexto.indexOf("cp.alinhamento[");
+  const idxFundamentoSetor = linhaContexto.indexOf('setorId="fundamento"');
+  const idxFundamentoNaoDirecao = linhaContexto.indexOf("cp.fundamentoNaoDirecao");
+  ok("LinhaContexto: ordem de leitura REGIME < marca de alinhamento < setor fundamento < disclaimer de não-direção",
+    idxRegime >= 0 && idxAlinhamento > idxRegime && idxFundamentoSetor > idxAlinhamento && idxFundamentoNaoDirecao > idxFundamentoSetor);
+}
+ok("LinhaContexto usa regimeRotulo(regime) (fonte única do rótulo, sinal.js)", linhaContexto.includes("regimeRotulo(regime)"));
+ok("LinhaContexto declara a base degradada do regime (·SMA50, D-16)", linhaContexto.includes("regime.confiavel === false"));
+ok("LinhaContexto renderiza os glifos ↗/↘ dentro de elemento aria-hidden (marca de alinhamento neutra)",
+  /aria-hidden="true"[^>]*>[\s\S]{0,80}↗/.test(linhaContexto) && linhaContexto.includes("↘"));
+
+const planoBloco = functionBody("PlanoOperacionalBloco") || "";
+ok("corpo de PlanoOperacionalBloco encontrado (não vazio)", planoBloco.length > 200);
+ok("PlanoOperacionalBloco usa sizingPlano( (mesmo motor de sizing do Radar)", planoBloco.includes("sizingPlano("));
+ok("PlanoOperacionalBloco: gate literal `!operador && motivo &&` (motivo determinístico do Estudo)",
+  planoBloco.includes("!operador && motivo &&"));
+ok("PlanoOperacionalBloco declara \"PLANO DO SETUP (didático)\" (régua do Estudo)",
+  planoBloco.includes("PLANO DO SETUP (didático)"));
+{
+  // O ramo Operador é o trecho entre o primeiro teste de `operador` (a caixa)
+  // e o início do ramo Estudo (`!operador && motivo &&`) — não pode conter
+  // <PlanRuler (D-12: a régua sai do Operador).
+  const idxOperador = planoBloco.indexOf("temCaixa &&");
+  const idxEstudo = planoBloco.indexOf("!operador && motivo &&");
+  const ramoOperador = (idxOperador >= 0 && idxEstudo > idxOperador) ? planoBloco.slice(idxOperador, idxEstudo) : null;
+  ok("ramo Operador de PlanoOperacionalBloco isolado para a asserção de ausência de régua", !!ramoOperador);
+  ok("ramo Operador de PlanoOperacionalBloco NÃO contém <PlanRuler (D-12: régua sai do Operador)",
+    ramoOperador != null && !ramoOperador.includes("<PlanRuler"));
+}
+
 console.log(fails === 0 ? "\nTUDO OK" : `\n${fails} FALHA(S)`);
 process.exit(fails === 0 ? 0 : 1);

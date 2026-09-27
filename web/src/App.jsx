@@ -1440,6 +1440,111 @@ function SinalChip({ peso, label, value, sufixo, ariaLabel, estado, explicavel, 
   );
 }
 
+// Fase 42 (HIER-02, D-01/D-06/D-07/D-16): linha de contexto do card — regime +
+// marca de alinhamento (neutra, glifo ↗/↘, nunca cor de direção) + fundamento
+// + aviso "não indica direção". Regime indefinido e fundamento sem score
+// nunca viram chip (D-16); o componente NÃO calcula alinhamento — recebe
+// pronto (`alinhamentoDoMotor`, chamado pelo AtivoCard/Radar no 42-04).
+function LinhaContexto({ regime, fundamento, alinhamento, operador, A, didatica, dados }) {
+  const modo = operador ? "operador" : "estudo";
+  const cp = copyFor(modo).sinal;
+  const rr = regimeRotulo(regime);
+  const score = fundamento && fundamento.score;
+  if (!rr && !score) return null;
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "8px", marginTop: "11px" }}>
+      {rr && (
+        <SinalChip peso="contexto" label="REGIME" value={rr}
+          sufixo={regime.confiavel === false ? cp.degradadoSufixo : null}
+          ariaLabel={ariaRegime(regime, alinhamento, modo)} />
+      )}
+      {rr && alinhamento && (
+        // aria-hidden: a mesma informação já está no aria-label do chip de
+        // regime acima (D-15) — repetir aqui seria segunda fonte da mesma
+        // leitura.
+        <span aria-hidden="true" style={{ fontSize: "12px", fontWeight: 400, lineHeight: 1.4, color: T.textSecondary }}>
+          {alinhamento === "a_favor" ? "↗" : "↘"} {cp.alinhamento[alinhamento]}
+        </span>
+      )}
+      {score && (
+        <SetorAlvo setorId="fundamento" rotulo="o fundamento" A={A} didatica={didatica} dados={dados} style={{ display: "inline-flex" }}>
+          <SinalChip peso="contexto" label="FUNDAMENTO" value={score} explicavel ariaLabel={ariaFundamento(score, modo)} />
+        </SetorAlvo>
+      )}
+      {score && (
+        // idem: o disclaimer já entra no aria-label do chip de fundamento
+        // (ariaFundamento: "... não indica direção") — visível para quem lê
+        // com os olhos, aria-hidden para não duplicar no leitor de tela.
+        <span aria-hidden="true" style={{ fontSize: "12px", fontWeight: 400, lineHeight: 1.4, color: T.textSecondary }}>{cp.fundamentoNaoDirecao}</span>
+      )}
+    </div>
+  );
+}
+
+// Fase 42 (HIER-02, D-12): plano operacional por modo, UM bloco só. Operador
+// = caixa entrada/stop/alvo/R:R/sizing SEM régua (a régua sai do Operador —
+// hoje o Radar mostrava caixa + régua duplicadas); Estudo = `motivo`
+// determinístico + PlanRuler didática. TRANSPORTADO (mesmo texto, mesmas
+// cores de nível de preço, mesmo `sizingPlano`) do bloco do Radar
+// (App.jsx ~6910-6969, pré-Fase 42) — nenhuma tela muda ainda; a fiação no
+// AtivoCard/Radar é do 42-04. Cores T.negative/T.positive aqui são NÍVEL DE
+// PREÇO (permitido por D-05), não chip de contexto.
+function PlanoOperacionalBloco({ operador, plano, motivo, setup, close, config }) {
+  const cRisco = (config && config.risco) || {};
+  const capitalOp = typeof cRisco.capital === "number" ? cRisco.capital : (config && config.initialBudget) || null;
+  const siz = plano ? sizingPlano(plano, capitalOp, cRisco.pctPorTrade || 1) : null;
+  const temCaixa = !!(operador && plano && (plano.decisao === "COMPRAR" || plano.decisao === "VENDER"));
+  const temMotivoOperador = !!(operador && !temCaixa && plano && plano.motivo);
+  const temRegua = !!(setup && setup.gatilho != null && setup.invalidacao != null && setup.alvoSugerido != null);
+  const temMotivoEstudo = !operador && !!motivo;
+  const temReguaEstudo = !operador && temRegua;
+  if (!temCaixa && !temMotivoOperador && !temMotivoEstudo && !temReguaEstudo) return null;
+  return (
+    <div>
+      {temCaixa && (
+        <div style={{ marginTop: "10px", padding: "11px 12px", borderRadius: "10px", background: T.bgBase, border: `1px solid ${T.borderFaint}` }}>
+          {[
+            ["Entrada (" + (plano.tipo || "") + ")", "R$ " + price(plano.entrada), T.textSecondary],
+            ["Stop (invalidação do setup)", "R$ " + price(plano.stop), T.negative],
+            ["Alvo 1 (parcial, 1R) / Alvo final", price(plano.alvo1) + " / " + price(plano.alvo2), T.positive],
+            ["Risco:retorno (alvo final)", (plano.rr2 != null ? plano.rr2.toFixed(1).replace(".", ",") : "—") + " : 1", T.textSecondary],
+          ].map(([k, v, cor], i2) => (
+            <div key={i2} style={{ display: "flex", justifyContent: "space-between", gap: "8px", fontSize: "11.5px", padding: "3px 0", color: T.textMuted }}>
+              <span>{k}</span><b style={{ fontFamily: MONO, color: cor }}>{v}</b>
+            </div>
+          ))}
+          {siz && (
+            <div style={{ display: "flex", justifyContent: "space-between", gap: "8px", fontSize: "11.5px", padding: "3px 0", color: T.textMuted, borderTop: `1px dashed ${T.borderFaint}`, marginTop: "4px", paddingTop: "7px" }}>
+              <span>Posição p/ risco de {siz.pct}%{typeof cRisco.capital === "number" ? "" : " (capital simulado — defina o real na Config)"}</span>
+              <b style={{ fontFamily: MONO, color: T.textSecondary }}>{siz.qtd > 0 ? siz.qtd + " ações ≈ R$ " + price(siz.valorAprox) : "—"}</b>
+            </div>
+          )}
+          {siz && siz.aviso && <div style={{ fontSize: "10.5px", color: T.negative, marginTop: "5px", lineHeight: 1.4 }}>{siz.aviso}</div>}
+        </div>
+      )}
+      {temMotivoOperador && (
+        <div style={{ marginTop: "9px", fontSize: "11.5px", color: T.textMuted, lineHeight: 1.5 }}>{plano.motivo}</div>
+      )}
+      {!operador && motivo && (
+        <div style={{ marginTop: "9px", fontSize: "11.5px", color: T.textMuted, lineHeight: 1.5 }}>{motivo}</div>
+      )}
+      {!operador && temRegua && (
+        <PlanRuler
+          caption="PLANO DO SETUP (didático)"
+          marks={[{ v: setup.invalidacao, color: T.negative }, { v: setup.gatilho, color: T.accent }, { v: setup.alvoSugerido, color: T.positive }]}
+          cur={close}
+          curLabel={close != null ? "agora " + price(close) : null}
+          legend={[
+            { k: "INVALIDAÇÃO", v: setup.invalidacao, color: T.negative },
+            { k: "GATILHO", kColor: T.accent, v: setup.gatilho },
+            { k: "ALVO 2:1", v: setup.alvoSugerido, color: T.positive },
+          ]}
+        />
+      )}
+    </div>
+  );
+}
+
 const SCORE_COLOR = { A: "positive", B: "accent", C: "negative" };
 function FundamentoChip({ f }) {
   if (!f || !f.score) return null;
