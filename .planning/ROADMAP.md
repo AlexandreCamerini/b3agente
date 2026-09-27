@@ -213,7 +213,7 @@ Full phase details: [milestones/v1.8-ROADMAP.md](milestones/v1.8-ROADMAP.md)
 | 39. Reestruturação de navegação da aba Opções | 6/6 | Complete (publicado `F10-20260924-01`, checkpoint humano aprovado ao vivo, override D-03 → "Destacadas") | 2026-09-24 |
 | 40. Continuidade da aba Opções | 2/2 | Complete (publicado `F10-20260925-01`, checkpoint humano aprovado ao vivo, DP-1) | 2026-09-25 |
 | 41. Consolidação de registros de tela | 3/3 | Complete (publicado `F10-20260925-02`, checkpoint humano aprovado ao vivo, achados D-04 não corrigidos) | 2026-09-25 |
-| 42. Crítico — cor, chip único e ordem de leitura | v1.9 | In progress (2/6) | - |
+| 42. Crítico — cor, chip único e ordem de leitura | v1.9 | In progress (3/6) | - |
 | 43. Refinamento — copy por modo, KpiBlock e ritmo | v1.9 | Not started | - |
 
 ## Phase Details
@@ -236,7 +236,7 @@ Plans:
 - [x] 42-02-PLAN.md — COR-01: token `warnTint10`, inelegível em âmbar/elegível neutro com ✓, arco do anel em `TIER_FILL`, guardião de contraste AA nas 4 combinações
 
 **Wave 2** *(depende de 42-01 e 42-02)*
-- [ ] 42-03-PLAN.md — `SinalChip` (primario/contexto), `HistoricoPill` via SinalChip, `LinhaContexto` e `PlanoOperacionalBloco` definidos + guardião do contrato
+- [x] 42-03-PLAN.md — `SinalChip` (primario/contexto), `HistoricoPill` via SinalChip, `LinhaContexto` e `PlanoOperacionalBloco` definidos + guardião do contrato
 
 **Wave 3**
 - [ ] 42-04-PLAN.md — `AtivoCard` na ordem de leitura (manchete+anel → timing → plano → contexto → elegibilidade), chips da IA fora do card (D-02)
