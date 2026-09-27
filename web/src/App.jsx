@@ -6,7 +6,7 @@ import { testServer, describeRuntimeConfig, getApiBase, PROD_BASE } from "./api.
 import { createChart, ColorType, CrosshairMode, LineStyle } from "lightweight-charts";
 import { sampleTechnicals } from "./demo.js";
 import { DISCLAIMERS, TERMO_OPERADOR_VERSAO, TERMO_DESCOBERTO_VERSAO } from "./disclaimers.js";
-import { copyFor, historicoTxt, entradaAutoTxt } from "./copy.js";
+import { copyFor, historicoTxt, entradaAutoTxt, reconciliacaoTxt, reconciliacaoPorQueImporta } from "./copy.js";
 // Fase 41 (TELAS-01): registro único das 8 telas que o assistente conhece —
 // BottomNav/petTela leem daqui nesta plano (41-02); tourPassos/ajudaSecoes
 // passam a iterar os ids do registro na 41-02/Task 2.
@@ -3769,7 +3769,7 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
                   separadas. */}
               {sc && sc.melhorSetup && (
                 <div style={{ marginTop: SP[2] }}>
-                  <HistoricoPill historico={sc.setupHistorico} elegivel={sc.setupElegivel} operador={operador} />
+                  <HistoricoPill historico={sc.setupHistorico} elegivel={sc.setupElegivel} operador={operador} microtexto A={A} didatica={didatica} dados={dadosDoCard} />
                 </div>
               )}
 
@@ -6750,7 +6750,12 @@ const HISTORICO_PILL_STYLE = {
   nunca_medido: [T.textFaint, T.bgBase],
   aposentado: [T.textMuted, T.bgCard], // único estado com borda tracejada, ver pillStyle abaixo
 };
-function HistoricoPill({ historico, elegivel, aposentado, operador, hojeYmd, compacto }) {
+// Fase 43 (HIER-03, D-07/D-09): três formas mutuamente exclusivas além do
+// chip — números crus (default, listas por setup onde se compara lado a
+// lado), compacto (só chip) e microtexto (frase por modo, só a linha de
+// elegibilidade do AtivoCard). expR sai da linha no Estudo mas segue no
+// aria-label (historicoTxt).
+function HistoricoPill({ historico, elegivel, aposentado, operador, hojeYmd, compacto, microtexto, A, didatica, dados }) {
   // `elegivel` existe só por paridade defensiva com o par que
   // `regime._elegibilidade` devolve (server/app/regime.py:231-253): as três
   // saídas possíveis são (None,None), (historico,None) e (historico,bool(...))
@@ -6776,16 +6781,39 @@ function HistoricoPill({ historico, elegivel, aposentado, operador, hojeYmd, com
   const expRJanela = historico && typeof historico.expRJanela === "number" ? historico.expRJanela : null;
   const nJanela = historico && typeof historico.nJanela === "number" ? historico.nJanela : null;
   const janelaRef = historico && historico.janelaRef ? historico.janelaRef : null;
+  // reconciliacaoTxt devolve SÓ o fato (D-08) — a cláusula "por que importa"
+  // é uma string SEPARADA (reconciliacaoPorQueImporta), nunca concatenada
+  // no backend/copy.js: o front precisa da fronteira entre as duas para
+  // tornar só a segunda tocável (D-11). Compor a fronteira aqui (split de
+  // string) violaria "o front não compõe vocabulário" (didatica-boris) —
+  // por isso são DUAS strings prontas, não uma cortada.
+  const fato = microtexto
+    ? reconciliacaoTxt(modoJS, estado, { n: nJanela, janela: janelaRef, expR: expRJanela })
+    : null;
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: SP[2], flexWrap: "wrap" }}>
+    <span style={{ display: "inline-flex", alignItems: microtexto ? "flex-start" : "center", gap: SP[2], flexWrap: "wrap" }}>
       {/* Fase 42 (CHIP-01): o pill deixa de ter receita própria de
           borda/fundo/cor — é um SinalChip peso="contexto" com `estado`.
           Contrato de cor/borda/aria idêntico ao de antes, só mudou de casa
           (ban-list COR-01/D-04 continua valendo, agora dentro de SinalChip). */}
       <SinalChip peso="contexto" estado={estado} value={rotulo} ariaLabel={ariaLabel} />
+      {microtexto && fato && (
+        <span style={{ fontSize: "12px", fontWeight: 400, lineHeight: 1.4, color: T.textSecondary, flex: "1 1 auto", minWidth: "0" }}>
+          {fato}
+          {/* D-12: Operador não recebe a cláusula — fato curto basta */}
+          {!operador && (
+            <>
+              {" — "}
+              <SetorAlvo setorId="analise" rotulo="a confluência" A={A} didatica={didatica} dados={dados} style={{ display: "inline" }}>
+                <span style={SUBLINHADO}>{reconciliacaoPorQueImporta}</span>
+              </SetorAlvo>
+            </>
+          )}
+        </span>
+      )}
       {/* números da janela: null NUNCA vira 0 — a métrica ausente simplesmente
           não é desenhada (regra de casa: null, nunca 0.0). */}
-      {!compacto && (expRJanela != null || nJanela != null || janelaRef) && (
+      {!microtexto && !compacto && (expRJanela != null || nJanela != null || janelaRef) && (
         <span style={{ fontSize: "11px", fontFamily: MONO, fontWeight: 800, color: T.textSecondary }}>
           {expRJanela != null ? (expRJanela >= 0 ? "+" : "−") + Math.abs(expRJanela).toFixed(3).replace(".", ",") + "R" : ""}
           {nJanela != null ? " n=" + nJanela : ""}
