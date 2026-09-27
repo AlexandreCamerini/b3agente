@@ -66,7 +66,7 @@ import { catalogoKbValido, filtrarVerbetes, agruparPorFamilia, ANCORAS_KB, verbe
 // Fase 42 (CHIP-01/CHIP-02, HIER-01/HIER-02): camada pura de apresentação do
 // sinal (web/src/sinal.js, 42-01) — consumida por SinalChip/LinhaContexto
 // (42-03+); nenhuma inferência de lado/alinhamento acontece aqui.
-import { regimeRotulo, ariaRegime, ariaFundamento, ariaManchete } from "./sinal.js";
+import { regimeRotulo, ariaRegime, ariaFundamento, ariaManchete, rotuloAnel, ladoDoMotor, alinhamentoDoMotor } from "./sinal.js";
 
 /* =============================================================================
    Boris+ — simulador EDUCACIONAL de paper trading da B3.
@@ -3542,12 +3542,19 @@ function OpcoesCamada({ t, cur, open, onToggle, chain, chainLoading, opContract,
 // (vm) + contexto; o núcleo (identidade, manchete única, chips de análise) é
 // idêntico em todo o sistema. Extraído do card da watchlist.
 function AtivoCard({ vm, contexto = "watchlist", children }) {
-  const { t, q, an, name, chColor, sc, pos, cur, pnl, pnlPct, rrPos, diasPos, pctCapPos, kp, fscore, decM, decColor, decBg, anVencida, os, buyMeta, operador, quotesLoading, expanded, opsOpen, opsSpark, onToggleOps, A, cp, data, didatica, overlayLivre, isNovo } = vm;
-  const chip = (label, value, col, explicavel) => (
-    // `explicavel` põe o pontilhado no RÓTULO do chip — a indicação da camada
-    // de entendimento (toque abre o conceito; o setor envolve o chip).
-    <span style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "999px", background: T.bgBase, color: T.textSecondary, fontWeight: 700 }}><span style={explicavel ? SUBLINHADO : undefined}>{label}</span> <b style={{ fontWeight: 800, color: col || T.textPrimary }}>{value}</b></span>
-  );
+  const { t, q, an, name, chColor, sc, pos, cur, pnl, pnlPct, rrPos, diasPos, pctCapPos, fscore, decM, decColor, decBg, anVencida, os, buyMeta, operador, quotesLoading, expanded, opsOpen, opsSpark, onToggleOps, A, cp, data, didatica, overlayLivre, isNovo } = vm;
+
+  // Fase 42 (D-01/D-09/D-10): tudo lido do payload do motor via sc; nada
+  // recalculado no front. `s0Card` é o setup OPERÁVEL (o mesmo que o anel
+  // descreve); `anel`/`alinhamento` seguem null sem dado suficiente — nunca
+  // inventados. `fundamentoCard` prioriza o overlay determinístico do scan
+  // (`sc.fundamento`) e cai para o `fundamento` da análise (`fscore`) só na
+  // ausência dele — ambos vêm de `fundamentals`, nunca da IA.
+  const modoCard = operador ? "operador" : "estudo";
+  const s0Card = sc ? setupOperavel(sc.setups, sc.melhorSetup) : null;
+  const anel = sc ? rotuloAnel({ conf: sc.confluencia, tierLabel: tierOf(sc.confluencia)[1], lado: ladoDoMotor({ setup: s0Card, plano: sc.plano }), setup: sc.melhorSetup }, modoCard) : null;
+  const alinhamento = sc ? alinhamentoDoMotor({ decisao: decM, regime: sc.regime, gatilhoAlinhado: sc.gatilhoAlinhado }) : null;
+  const fundamentoCard = (sc && sc.fundamento && sc.fundamento.score) ? sc.fundamento : (fscore ? { score: fscore } : null);
 
   // v2 (ADR-003/004/005) — camada de opções: self-contained no AtivoCard (o
   // mesmo card serve Watchlist e Radar; nenhuma das duas telas precisa de
@@ -3621,7 +3628,7 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
     stop: pos ? pos.stop : null, alvo: pos ? pos.alvo : null,
     riscoPorAcao: riscoDaPosicao, rr: rrPos,
     confluencia: sc ? sc.confluencia : null, melhorSetup: sc ? sc.melhorSetup : null,
-    fundamento: fscore || null,
+    fundamento: fundamentoCard ? fundamentoCard.score : null,
     ...(dadosTiming || {}),   // entrada/stop/estado do plano prevalecem
   };
   const myOptionPositions = ((data && data.optionPositions) || []).filter((p) => p.underlying === t);
@@ -3657,7 +3664,6 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
                 <div style={{ padding: "9px 10px", borderRadius: "9px", background: T.bgBase, border: `1px solid ${T.borderFaint}` }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontSize: "12px", flexWrap: "wrap", gap: "6px" }}>
                     <span><b style={{ fontFamily: MONO, fontSize: "13px" }}>{t}</b> {q.error ? "—" : "R$ " + price(q.price)} {!q.error && <span style={{ color: T.textFaint }}>({pct(q.change)})</span>}</span>
-                    {(kp.direcao || kp.conviccao) && <span style={{ color: T.textSecondary, fontWeight: 700, fontSize: "11px" }}>{[kp.direcao, kp.conviccao].filter(Boolean).join(" · ")}</span>}
                   </div>
                   <div style={{ marginTop: "6px", fontSize: "10.5px", color: T.textMuted, display: "flex", gap: "10px", flexWrap: "wrap", fontFamily: MONO }}>
                     {pos && pos.stop != null && <span>stop <b style={{ color: T.textSecondary }}>{price(pos.stop)}</b></span>}
@@ -3730,12 +3736,22 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
               )}
 
               {/* qa/49 (v11): MANCHETE ÚNICA — decisão da mesa (o veredito do plano,
-                  já conciliado por decisaoDoModo). Antes competia com o tier/COMPRAR. */}
+                  já conciliado por decisaoDoModo). Antes competia com o tier/COMPRAR.
+                  Fase 42 (HIER-01/D-08): o tier aparece UMA vez, no anel dentro da
+                  manchete — a linha de chips antiga (confluência/fundamento/melhorSetup)
+                  saiu de aqui para a linha de contexto (HIER-02, abaixo do plano). */}
               {decM ? (
-                <div style={{ marginTop: "11px", background: decBg, borderRadius: "9px", padding: "9px 11px" }}>
-                  <div style={{ fontSize: "10px", letterSpacing: "0.04em", color: decColor }}>{operador ? "DECISÃO DA MESA" : "PLANO EDUCACIONAL"}{pos ? " · você está comprado" : ""}</div>
-                  <div style={{ fontSize: "17px", fontWeight: 800, color: decColor }}>{decM}</div>
-                </div>
+                <SinalChip peso="primario" decision={decM}
+                  kicker={operador ? "DECISÃO DA MESA" : "PLANO EDUCACIONAL"}
+                  sufixo={pos ? " · você está comprado" : ""}
+                  ring={anel} operador={operador}
+                  envolverAnel={(no, papel) => (
+                    <SetorAlvo setorId="analise" rotulo="a confluência" A={A} didatica={didatica}
+                      dados={dadosDoCard} ativo={!!anel}
+                      style={papel === "anel" ? { minWidth: 44, minHeight: 44, display: "flex", alignItems: "center", justifyContent: "center" } : undefined}>
+                      {no}
+                    </SetorAlvo>
+                  )} />
               ) : contexto !== "radar" && (
                 /* Ausência DITA. Antes este espaço era preenchido com a
                    recomendação da IA, criando uma segunda fonte para a mesma
@@ -3743,17 +3759,6 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
                 <div style={{ marginTop: "11px", background: T.bgBase, borderRadius: "9px", padding: "9px 11px", border: `1px solid ${T.borderFaint}` }}>
                   <div style={{ fontSize: "10px", letterSpacing: "0.04em", color: T.textFaint }}>{operador ? "DECISÃO DA MESA" : "PLANO EDUCACIONAL"}</div>
                   <div style={{ fontSize: "12.5px", color: T.textMuted, marginTop: "2px" }}>Sem leitura do motor para este ativo agora — toque em ↻ reordenar para varrer de novo.</div>
-                </div>
-              )}
-
-              {/* A análise da IA saiu de um snapshot anterior ao que o card
-                  está exibindo. Marcar em vez de esconder: sumir com ela seria
-                  o mesmo silêncio que deixava leitura velha passar por atual. */}
-              {anVencida && (
-                <div style={{ marginTop: "9px", padding: "7px 10px", borderRadius: "8px", background: T.bgBase, border: `1px dashed ${T.borderSubtle}` }}>
-                  <span style={{ fontSize: "11px", color: T.textMuted }}>
-                    ⏳ A leitura da IA abaixo é de outro momento do mercado{an.snapshotAt ? ` (${an.snapshotAt})` : ""} — reanalise para atualizar.
-                  </span>
                 </div>
               )}
 
@@ -3769,35 +3774,38 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
                 proativo={contexto !== "radar" && overlayLivre}
                 vistos={(data && data.config && data.config.conceitosVistos) || []} />
 
-              {/* qa/49 (v11): ANÁLISE — indicadores unificados em chips (mesmo peso);
-                  confluência e fundamento deixam de ser vereditos concorrentes. */}
-              {contexto !== "radar" && (kp.direcao || (sc && sc.confluencia != null) || fscore || (sc && sc.melhorSetup)) && (
-                // Setor ANALISE: segurar a linha de chips abre a confluência
-                // (e a cadeia "veja também" leva ao fundamento). O chip do
-                // fundamento é o setor mais interno: o dedo NELE explica o
-                // fundamento direto, sem passar pela cadeia.
-                <SetorAlvo setorId="analise" rotulo="a confluência" A={A} didatica={didatica}
-                  dados={dadosDoCard} ativo={!!(sc && sc.confluencia != null)}
-                  style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "11px" }}>
-                  {kp.direcao && chip("direção", kp.direcao, (DIR_STYLE[kp.direcao] || [T.textPrimary])[0])}
-                  {kp.conviccao && chip("convicção", kp.conviccao)}
-                  {kp.qualidade && chip("qualidade", kp.qualidade)}
-                  {sc && sc.confluencia != null && chip("confluência", (sc.confluencia || 0) + "%", T.accent, true)}
-                  {fscore && (
-                    <SetorAlvo setorId="fundamento" rotulo="o fundamento" A={A} didatica={didatica}
-                      dados={dadosDoCard} style={{ display: "inline-flex" }}>
-                      {chip("fundamento", fscore, T[SCORE_COLOR[fscore]] || T.textPrimary, true)}
-                    </SetorAlvo>
-                  )}
-                  {sc && sc.melhorSetup && <span style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "999px", background: T.bgBase, color: T.textMuted }}>{sc.melhorSetup}</span>}
-                  {/* ADR-017 Bloco 3: elegibilidade medida do melhor setup — só
-                      quando há melhor setup a qualificar (sem ele, o pill seria
-                      ruído, não estado). Sinal SECUNDÁRIO: entra depois do
-                      chip de melhorSetup, nunca antes da confluência/ConfluenceRing. */}
-                  {sc && sc.melhorSetup && (
-                    <HistoricoPill historico={sc.setupHistorico} elegivel={sc.setupElegivel} operador={operador} />
-                  )}
-                </SetorAlvo>
+              {/* Fase 42 (HIER-02, D-12): plano por modo, um bloco só — nos DOIS
+                  contextos (a mesma sequência vale para watchlist e radar
+                  porque é UM render, HIER-02). */}
+              <PlanoOperacionalBloco operador={operador} plano={operador && sc ? sc.plano : null}
+                motivo={sc && sc.plano ? sc.plano.motivo : null} setup={s0Card}
+                close={sc ? sc.close : null} config={data && data.config} />
+
+              {/* Fase 42 (HIER-02, D-01/D-06/D-07): regime + marca de alinhamento
+                  (neutra) + fundamento (qualidade, nunca direção) — insumos de
+                  contexto, nunca vereditos concorrentes com a manchete. */}
+              <LinhaContexto regime={sc ? sc.regime : null} fundamento={fundamentoCard}
+                alinhamento={alinhamento} operador={operador} A={A} didatica={didatica} dados={dadosDoCard} />
+
+              {/* ADR-017 Bloco 3: elegibilidade medida do melhor setup — sinal
+                  SECUNDÁRIO: última linha antes da cauda, fora da linha de
+                  contexto — Fase 42 D-03/D-04; decisão × elegibilidade seguem
+                  separadas. */}
+              {sc && sc.melhorSetup && (
+                <div style={{ marginTop: "8px" }}>
+                  <HistoricoPill historico={sc.setupHistorico} elegivel={sc.setupElegivel} operador={operador} />
+                </div>
+              )}
+
+              {/* A análise da IA saiu de um snapshot anterior ao que o card
+                  está exibindo. Marcar em vez de esconder: sumir com ela seria
+                  o mesmo silêncio que deixava leitura velha passar por atual. */}
+              {anVencida && (
+                <div style={{ marginTop: "9px", padding: "7px 10px", borderRadius: "8px", background: T.bgBase, border: `1px dashed ${T.borderSubtle}` }}>
+                  <span style={{ fontSize: "11px", color: T.textMuted }}>
+                    ⏳ A leitura da IA abaixo é de outro momento do mercado{an.snapshotAt ? ` (${an.snapshotAt})` : ""} — reanalise para atualizar.
+                  </span>
+                </div>
               )}
               </>)}
 
