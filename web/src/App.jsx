@@ -1066,18 +1066,13 @@ function BottomNav({ tab, setTab, cp }) {
 }
 
 /* ------------------------------- Screens --------------------------------- */
-/* ---- KPIs executivos vindos da análise da IA ---- */
+// Fase 43 (CHIP-03, D-01/D-05, 2026-09-27): o bloco de KPIs da IA (grade de
+// caixas e seus mapas de cor de direção/escala) era código morto desde qa/49
+// e foi apagado junto com o mapa estudo→mesa que só ele usava. Direção/
+// convicção/qualidade da IA agora aparecem em AnalysisView como SinalChip
+// contexto neutro.
 const TEAL = "#2dd4bf";
 const ORANGE = "#fb923c";
-const DIR_STYLE = {
-  Alta: [T.positive, "▲"],
-  Baixa: [T.negative, "▼"],
-  Lateral: [T.accent, "→"],
-};
-const SCALE_STYLE = {
-  "Muito Alto": T.positive, Alto: T.positive, Médio: T.accent, Baixo: T.negative,
-  Excelente: T.positive, Boa: T.positive, Regular: T.accent, Ruim: T.negative,
-};
 // ============================================================================
 // FASE 2 — helpers do funil (puros; fonte: history dos stores + scan do STU)
 // ============================================================================
@@ -1278,17 +1273,6 @@ function comprasDaPosicao(history, t) {
 const decisaoDoModo = (item, operador) =>
   (operador && item && item.plano && item.plano.decisao) ? item.plano.decisao : (item || {}).veredito;
 
-// qa/40: mapa de decisão educacional → mesa, aplicado NO RENDER. O servidor já
-// devolve o vocabulário certo para análises NOVAS (analyze_structured/analyze),
-// mas análises ANTIGAS em cache guardam "Estudar alta/baixa" — mapear aqui
-// garante que a mesa nunca exiba a voz de estudo, seja qual for a idade do dado.
-const REC_PRO_MAP = {
-  "Estudar alta": "COMPRAR", "Estudar baixa": "VENDER",
-  "Aguardar": "AGUARDAR CONFIRMAÇÃO", "Monitorar": "AGUARDAR CONFIRMAÇÃO",
-  "Não operar": "NÃO OPERAR",
-};
-const recDoModo = (rec, operador) => (operador && REC_PRO_MAP[rec]) ? REC_PRO_MAP[rec] : rec;
-
 const REC_STYLE = {
   "Estudar alta": [T.positive, T.positiveTint10],
   "Estudar baixa": [T.negative, T.negativeTint10],
@@ -1337,48 +1321,6 @@ const TECH_MODELS = [
   // "não há opções para este ativo". Devolver = reinserir esta linha:
   //   ["opcoes", "Opções", "Ativo objeto + yfinance"],
 ];
-
-function KpiCell({ label, value, color, prefix }) {
-  return (
-    <div style={{ ...card, borderRadius: "9px", padding: "8px 9px", background: T.bgBase }}>
-      <div style={{ fontSize: "9px", color: T.textFaint, letterSpacing: "0.05em" }}>{label}</div>
-      <div style={{ fontSize: "13px", fontWeight: 700, color: color || T.textSecondary, marginTop: "2px" }}>
-        {value ? (prefix ? prefix + " " : "") + value : "—"}
-      </div>
-    </div>
-  );
-}
-
-function KpiBlock({ kpis, operador }) {
-  // qa/40: a decisão exibida segue o MODO (mapeia cache antigo de estudo→mesa).
-  const rec = recDoModo(kpis.recomendacao, operador);
-  const [recColor, recBg] = REC_STYLE[rec] || [T.textMuted, T.bgBase];
-  const [dirColor, dirArrow] = DIR_STYLE[kpis.direcao] || [T.textMuted, ""];
-  return (
-    <div style={{ marginTop: "12px", display: "grid", gap: "8px" }}>
-      {kpis.recomendacao && (
-        <div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", padding: "10px 12px", borderRadius: "9px", background: recBg, border: `1px solid ${recColor}` }}>
-            {/* qa/40: rótulo e rodapé por MODO — na mesa "PLANO EDUCACIONAL" não
-                cabe; a decisão é da mesa, a execução é do usuário. */}
-            <span style={{ fontSize: "10px", letterSpacing: "0.06em", color: T.textFaint }}>{operador ? "DECISÃO DA MESA" : "PLANO EDUCACIONAL"}</span>
-            <span style={{ fontWeight: 800, fontSize: "14px", color: recColor }}>{rec}</span>
-          </div>
-          <div style={{ fontSize: "10px", color: T.textFaint, marginTop: "6px", lineHeight: 1.5 }}>
-            {operador
-              ? "Decisão da mesa sobre dados passados — a execução e o risco são seus, na sua corretora. Não é ordem nem recomendação personalizada."
-              : "Sinal gerado para fins educacionais — não é recomendação de compra ou venda."}
-          </div>
-        </div>
-      )}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "8px" }}>
-        <KpiCell label="DIREÇÃO" value={kpis.direcao} color={dirColor} prefix={dirArrow} />
-        <KpiCell label="CONVICÇÃO" value={kpis.conviccao} color={SCALE_STYLE[kpis.conviccao]} />
-        <KpiCell label="QUALIDADE" value={kpis.qualidade} color={SCALE_STYLE[kpis.qualidade]} />
-      </div>
-    </div>
-  );
-}
 
 // qa/36 (F10.2): FUNDAMENTO — chip de score A/B/C (filtro de qualidade, nunca
 // gatilho) e tabela de métricas. Cor por score; "sem dado" explícito, nunca
@@ -1592,7 +1534,9 @@ function FundamentoTabela({ f }) {
           {/* Fase 42 (CHIP-01): FundamentoChip apagado — SinalChip peso="contexto"
               é a receita única de chip de sinal; copy.sinal é idêntico nos
               dois modos (42-01), então o modo aqui não muda o texto. */}
-          {f.score && <SinalChip peso="contexto" label="FUNDAMENTO" value={f.score} ariaLabel={ariaFundamento(f.score, "estudo")} />}
+          {/* D-17 (Fase 43): rótulo do chip saiu — o cabeçalho já diz
+              FUNDAMENTO; aria-label segue descritivo. */}
+          {f.score && <SinalChip peso="contexto" value={f.score} ariaLabel={ariaFundamento(f.score, "estudo")} />}
         </div>
         <span style={{ fontSize: "10px", color: T.textFaint }}>{f.referencia ? "ref. " + f.referencia : ""}{f.fonte ? " · " + f.fonte : ""}</span>
       </div>
@@ -1632,8 +1576,9 @@ function LabeledList({ title, items, icon, color }) {
 
 
 // Análise formatada da IA, renderizada NO card (progressive disclosure).
-function AnalysisView({ an }) {
+function AnalysisView({ an, operador }) {
   if (!an) return null;
+  const leituraIa = copyFor(operador ? "operador" : "estudo").sinal.leituraIa;
   // Erro real de rede/cliente ainda precisa aparecer — mas deixou de ser o
   // caminho normal do usuário sem chave BYOK/cota: esse agora chega como 200
   // com an.fonte === "deterministico" (FIX-C01, Plano 04-05).
@@ -1669,6 +1614,36 @@ function AnalysisView({ an }) {
       {semDados
         ? <div style={{ color: T.textMuted, fontSize: "13px" }}>Não há dados suficientes para concluir.</div>
         : (body ? <Markdown text={body} /> : <div style={{ color: T.textMuted, fontSize: "13px" }}>A análise foi gerada, mas não veio texto legível. Tente reanalisar.</div>)}
+      {/* CHIP-03 (Fase 43, D-01..D-05): direção/convicção/qualidade da IA
+          voltam a aparecer aqui — 3 SinalChip contexto neutros (sem cor de
+          mercado, sem prop estado). kpis.recomendacao NUNCA vira chip (D-03,
+          guardrail CVM: manchete só do motor). Sem kpis, a linha inteira é
+          omitida — nunca placeholder, nunca "—" inventado (D-04). */}
+      {an.kpis && (an.kpis.direcao || an.kpis.conviccao || an.kpis.qualidade) && (
+        <div style={{ marginTop: SP[4] }}>
+          <div style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.05em", color: T.textFaint, marginBottom: SP[1] }}>
+            {leituraIa.rotulo}
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: SP[2] }}>
+            {an.kpis.direcao && (
+              <>
+                {an.kpis.direcao === "Alta" && <span aria-hidden="true" style={{ fontSize: "12px", color: T.textSecondary }}>↗</span>}
+                {an.kpis.direcao === "Baixa" && <span aria-hidden="true" style={{ fontSize: "12px", color: T.textSecondary }}>↘</span>}
+                <SinalChip peso="contexto" label={leituraIa.campos.direcao} value={an.kpis.direcao}
+                  ariaLabel={leituraIa.aria("direcao", an.kpis.direcao)} />
+              </>
+            )}
+            {an.kpis.conviccao && (
+              <SinalChip peso="contexto" label={leituraIa.campos.conviccao} value={an.kpis.conviccao}
+                ariaLabel={leituraIa.aria("conviccao", an.kpis.conviccao)} />
+            )}
+            {an.kpis.qualidade && (
+              <SinalChip peso="contexto" label={leituraIa.campos.qualidade} value={an.kpis.qualidade}
+                ariaLabel={leituraIa.aria("qualidade", an.kpis.qualidade)} />
+            )}
+          </div>
+        </div>
+      )}
       {Array.isArray(d.fatos) && d.fatos.length > 0 && (
         <div style={{ marginTop: "14px", padding: "13px 14px", borderRadius: "11px", background: T.bgBase, border: `1px solid ${T.borderSubtle}` }}>
           <div style={{ display: "flex", alignItems: "center", gap: "7px", marginBottom: "8px" }}>
@@ -3947,7 +3922,11 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
               })()}
 
               {/* qa/49 (v11): KpiBlock removido — decisão virou manchete única e
-                  direção/convicção/qualidade viraram chips no setor Análise. */}
+                  direção/convicção/qualidade viraram chips no setor Análise.
+                  Correção (2026-09-27, Fase 43, D-01): os chips NÃO foram
+                  para o setor Análise — sumiram de todas as telas na Fase
+                  42. Voltaram em AnalysisView (linha Leitura da IA), nunca
+                  neste card. */}
               {an.loading && (
                 <div style={{ marginTop: "12px" }}>
                   <SweepGauge compact label={"Analisando " + t} steps={["consultando histórico", "calculando indicadores", "IA lendo as 5 famílias"]} />
@@ -3961,7 +3940,7 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
               )}
               {expanded && hasAnalysis(an) && (
                 <div style={{ marginTop: "11px", paddingTop: "12px", borderTop: `1px solid ${T.borderSubtle}` }}>
-                  <AnalysisView an={an} />
+                  <AnalysisView an={an} operador={operador} />
                 </div>
               )}
               {/* FASE 3 (mock v2): ações secundárias viram LINHA DE LINKS —

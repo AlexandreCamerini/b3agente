@@ -6,8 +6,8 @@ import { copyFor } from "./copy.js";
 
 // Decisões com lado (compra/venda) — só elas admitem marca de alinhamento e
 // cláusula "padrão de X" no rótulo do anel. Vocabulário: Operador (COMPRAR/
-// VENDER) e Estudo (Estudar alta/Estudar baixa) — ver decisaoDoModo/REC_PRO_MAP,
-// App.jsx:1272-1285.
+// VENDER) e Estudo (Estudar alta/Estudar baixa) — ver decisaoDoModo em
+// App.jsx (o mapa estudo→mesa do antigo bloco de KPIs saiu na Fase 43).
 export const DECISOES_DIRECIONAIS = ["COMPRAR", "VENDER", "Estudar alta", "Estudar baixa"];
 export function decisaoDirecional(decisao) {
   return DECISOES_DIRECIONAIS.includes(decisao);
