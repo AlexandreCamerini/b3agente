@@ -213,7 +213,7 @@ Full phase details: [milestones/v1.8-ROADMAP.md](milestones/v1.8-ROADMAP.md)
 | 39. Reestruturação de navegação da aba Opções | 6/6 | Complete (publicado `F10-20260924-01`, checkpoint humano aprovado ao vivo, override D-03 → "Destacadas") | 2026-09-24 |
 | 40. Continuidade da aba Opções | 2/2 | Complete (publicado `F10-20260925-01`, checkpoint humano aprovado ao vivo, DP-1) | 2026-09-25 |
 | 41. Consolidação de registros de tela | 3/3 | Complete (publicado `F10-20260925-02`, checkpoint humano aprovado ao vivo, achados D-04 não corrigidos) | 2026-09-25 |
-| 42. Crítico — cor, chip único e ordem de leitura | v1.9 | In progress (4/6) | - |
+| 42. Crítico — cor, chip único e ordem de leitura | v1.9 | In progress (5/6) | - |
 | 43. Refinamento — copy por modo, KpiBlock e ritmo | v1.9 | Not started | - |
 
 ## Phase Details
@@ -242,7 +242,7 @@ Plans:
 - [x] 42-04-PLAN.md — `AtivoCard` na ordem de leitura (manchete+anel → timing → plano → contexto → elegibilidade), chips da IA fora do card (D-02)
 
 **Wave 4**
-- [ ] 42-05-PLAN.md — Radar alimenta o card (subconjunto explícito ampliado), children só com a cauda, receitas antigas removidas, guardiões reconciliados
+- [x] 42-05-PLAN.md — Radar alimenta o card (subconjunto explícito ampliado), children só com a cauda, receitas antigas removidas, guardiões reconciliados
 
 **Wave 5** *(checkpoint humano)*
 - [ ] 42-06-PLAN.md — verificação ao vivo (UGPA3 < 3 s + DP-1..DP-4), publicação com carimbo próprio, fechamento dos documentos
