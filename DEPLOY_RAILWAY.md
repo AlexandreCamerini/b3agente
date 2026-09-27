@@ -114,6 +114,16 @@ Em **Settings → Variables** do serviço:
 
 ---
 
+## Configuração como código: `.railway/railway.ts` (desde 2026-09-27)
+
+O `server/railway.json` é Config as Code, formato que o Railway deixa de ler
+em **2026-12-01**. O substituto está em `.railway/railway.ts` na raiz do repo
+(um arquivo, dois ambientes via `ctx.environment`). Ele declara o que o
+painel mostra hoje — nada muda até o dono rodar `railway config plan` e
+`apply`, ambiente `staging` primeiro. O cabeçalho do arquivo traz a ordem, as
+travas (branch é compartilhada: o `plan` tem de mostrar zero mudança em
+`source`) e o momento certo de apagar o `railway.json`.
+
 ## Build mais enxuto (opcional)
 
 O `requirements.txt` inclui o `pytest` (para testes locais). Em produção isso só
