@@ -351,21 +351,20 @@ ok(
   (navIconBloco.match(/^\s*radar:/gm) || []).length === 1
 );
 
-// C6. `function TierDot` existe e seu corpo contém <circle>, fill e aria-hidden.
+// REVERSÃO DELIBERADA (2026-09-26, Fase 42, D-08): `TierDot` apagado — seu
+// único call site era o rodapé do Radar, removido nesta fase; o tier agora é
+// carregado pela COR DO ARCO do `ConfluenceRing`, mesma fonte `TIER_FILL`
+// (não uma paleta nova). A GARANTIA original ("fonte única de cor de tier,
+// nunca reusa T.positive/T.negative/T.warn") sobrevive — C6 agora prova a
+// fonte única pelo lado do `ConfluenceRing`, C8 combina os dois recortes.
+// C6. `TierDot` não existe mais; `ConfluenceRing` lê a cor do arco de
+// `TIER_FILL[tierOf(...)]` — mesma fonte, sem receita paralela.
 const idxTierDot = app.indexOf("function TierDot");
-ok("existe `function TierDot`", idxTierDot >= 0);
-let tierDotBloco = "";
-if (idxTierDot >= 0) {
-  const fimTierDot = app.indexOf("\n}", idxTierDot);
-  tierDotBloco = app.slice(idxTierDot, fimTierDot > idxTierDot ? fimTierDot + 2 : idxTierDot + 400);
-  ok("`TierDot` contém `<circle`", tierDotBloco.includes("<circle"));
-  ok("`TierDot` contém `fill`", tierDotBloco.includes("fill"));
-  ok("`TierDot` contém `aria-hidden`", tierDotBloco.includes("aria-hidden"));
-} else {
-  ok("`TierDot` contém `<circle`", false);
-  ok("`TierDot` contém `fill`", false);
-  ok("`TierDot` contém `aria-hidden`", false);
-}
+ok("`TierDot` foi apagado (D-08, sem call site após o anel absorver o tier)", idxTierDot === -1);
+const idxConfluenceRing = app.indexOf("function ConfluenceRing");
+const confluenceRingBloco = idxConfluenceRing >= 0 ? app.slice(idxConfluenceRing, app.indexOf("\n}", idxConfluenceRing) + 2) : "";
+ok("existe `function ConfluenceRing`", idxConfluenceRing >= 0);
+ok("`ConfluenceRing` lê a cor do arco de `TIER_FILL[tierOf(`", /TIER_FILL\[tierOf\(/.test(confluenceRingBloco));
 
 // C7. Mapa de cor de tier com os quatro literais aprovados, isolado pelo
 // recorte de `const TIER_FILL` (da declaração até o `};`). Atenção: #22c55e e
@@ -387,10 +386,11 @@ if (idxTierFill >= 0) {
   }
 }
 
-// C8. Separação semântica preservada: nem TierDot nem TIER_FILL citam
-// T.positive/T.negative/T.warn — verde/vermelho seguem reservados a sinal de
-// mercado (ver o comentário de tierOf); o tier é outro eixo.
-const recorteTierCombinado = tierFillBloco + tierDotBloco;
+// C8. Separação semântica preservada: nem ConfluenceRing (que absorveu o
+// tier do TierDot, D-08) nem TIER_FILL citam T.positive/T.negative/T.warn —
+// verde/vermelho seguem reservados a sinal de mercado (ver o comentário de
+// tierOf); o tier é outro eixo.
+const recorteTierCombinado = tierFillBloco + confluenceRingBloco;
 ok(
   "verde/vermelho seguem reservados a sinal de mercado — ver o comentário de tierOf; o tier é outro eixo",
   !recorteTierCombinado.includes("T.positive") && !recorteTierCombinado.includes("T.negative") && !recorteTierCombinado.includes("T.warn")
@@ -409,16 +409,21 @@ ok('`tierOf` continua com o rótulo `"Moderada"`', tierOfBloco.includes('"Modera
 ok('`tierOf` continua com o rótulo `"Neutra"`', tierOfBloco.includes('"Neutra"'));
 ok('`tierOf` continua com o rótulo `"Fraca"`', tierOfBloco.includes('"Fraca"'));
 
-// C10. Compatibilidade com test_radar_leitura_rapida.mjs — comentado aqui de
-// propósito, para o próximo agente perceber a dependência ANTES de mexer no
-// formato da tupla.
+// REVERSÃO DELIBERADA (2026-09-26, Fase 42, HIER-01/D-08/D-09): as duas
+// âncoras antigas (`tierLabel = tierOf(r.confluencia)` e o pill solto
+// "confiança {tierLabel") viraram `tierOf(sc.confluencia)[1]` dentro do
+// AtivoCard (rótulo do anel) — compatibilidade com
+// test_radar_leitura_rapida.mjs/test_radar_regime_chip.mjs, comentada aqui
+// de propósito para o próximo agente perceber a dependência ANTES de mexer
+// no formato da tupla.
+// C10. Compatibilidade com test_radar_leitura_rapida.mjs.
 ok(
-  "compatibilidade com test_radar_leitura_rapida.mjs: `tierLabel = tierOf(r.confluencia)` casa",
-  /tierLabel\s*=\s*tierOf\(r\.confluencia\)/.test(app)
+  "compatibilidade com test_radar_leitura_rapida.mjs: `tierOf(sc.confluencia)[1]` casa (rótulo do anel, AtivoCard)",
+  /tierOf\(sc\.confluencia\)\[1\]/.test(app)
 );
 ok(
-  "compatibilidade com test_radar_leitura_rapida.mjs: `confiança {tierLabel` casa",
-  /confiança \{tierLabel/.test(app)
+  "compatibilidade com test_radar_leitura_rapida.mjs: pill solta \"confiança {tierLabel\" NÃO existe mais (HIER-01, tier uma vez por card)",
+  !/confiança \{tierLabel/.test(app)
 );
 
 // C11. tierOf mantém os quatro limiares literais.
@@ -427,13 +432,27 @@ ok("`tierOf` mantém o limiar `>= 50`", tierOfBloco.includes(">= 50"));
 ok("`tierOf` mantém o limiar `> 0`", tierOfBloco.includes("> 0"));
 ok("`tierOf` mantém o `return` final", /return \[/.test(tierOfBloco));
 
-// C12. <TierDot tier= aparece na renderização do Radar; índice [0] não é mais
-// renderizado como texto cru (filho direto de JSX, precedido por `>`) em
-// lugar nenhum. NOTA: o regex isola o caso "texto cru" por estar precedido de
-// `>` — sem essa âncora, o padrão bateria também em `tier={tierOf(...)[0]}`,
-// que é exatamente o uso correto que este plano introduz (bug encontrado e
-// corrigido nesta mesma task, antes de qualquer commit incorreto).
-ok("`<TierDot tier=` aparece na renderização do Radar", app.includes("<TierDot tier="));
+// REVERSÃO DELIBERADA (2026-09-26, Fase 42, HIER-01/D-08): `<TierDot tier=`
+// saiu de App.jsx com o resto do rodapé do Radar — a GARANTIA "tier aparece
+// uma vez por card" agora se prova contando `<ConfluenceRing` (o tier chega
+// pela cor do arco, não mais por um dot ao lado do texto).
+// C12. Tier aparece uma vez por card: `<ConfluenceRing` no corpo de
+// SinalChip (a manchete, D-08) e zero vezes dentro do bloco do Radar
+// (`<AtivoCard key={r.ticker}` ... `</AtivoCard>`) — o Radar não monta mais
+// seu próprio anel no rodapé. Índice [0] de `tierOf` continua não sendo
+// renderizado como texto cru em lugar nenhum.
+ok("`<TierDot tier=` não existe mais em App.jsx (apagado, D-08)", !app.includes("<TierDot tier="));
+const idxSinalChip = app.indexOf("function SinalChip(");
+const sinalChipBloco = idxSinalChip >= 0 ? app.slice(idxSinalChip, app.indexOf("\nfunction ", idxSinalChip + 20)) : "";
+ok(
+  "`<ConfluenceRing` aparece 1 vez no corpo de `SinalChip` (a manchete, D-08)",
+  (sinalChipBloco.match(/<ConfluenceRing/g) || []).length === 1
+);
+const radarAtivoCardBloco = app.slice(app.indexOf("<AtivoCard key={r.ticker}"), app.indexOf("</AtivoCard>", app.indexOf("<AtivoCard key={r.ticker}")));
+ok(
+  "`<ConfluenceRing` NÃO aparece dentro do bloco do Radar (`<AtivoCard key={r.ticker}` ... `</AtivoCard>`) — o Radar não monta mais o próprio anel",
+  !radarAtivoCardBloco.includes("<ConfluenceRing")
+);
 ok(
   "o índice [0] de `tierOf` não é mais renderizado como texto cru",
   !/>\{tierOf\([^)]*\)\[0\]\}/.test(app)

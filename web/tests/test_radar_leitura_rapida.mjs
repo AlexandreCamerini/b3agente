@@ -40,25 +40,41 @@ const radar = functionBody("RadarScreen");
 ok("RadarScreen: função localizada em App.jsx", !!radar);
 
 if (radar) {
-  // P1 — leitura em prosa no Estudo: o motivo do plano não pode mais ser
-  // exclusivo do Operador. Gate esperado: `!operador && r.plano && r.plano.motivo`.
-  ok("P1: motivo do plano exibido também no Estudo (gate !operador)",
-    /\{!operador\s*&&\s*r\.plano\s*&&\s*r\.plano\.motivo\s*&&/.test(radar));
+  // REVERSÃO DELIBERADA (2026-09-26, Fase 42, HIER-01/HIER-02/D-08/D-09):
+  // P1 — o motivo do plano no Estudo e o plano operacional completo não são
+  // mais gated dentro de RadarScreen: ambos migraram para o AtivoCard/
+  // PlanoOperacionalBloco, o mesmo componente da Watchlist (HIER-02). A
+  // GARANTIA original sobrevive: motivo aparece no Estudo, plano completo
+  // segue exclusivo do Operador — só a localização mudou.
+  const av = src.slice(src.indexOf("function PlanoOperacionalBloco("), src.indexOf("function AtivoCard("));
+  ok("P1: motivo do plano exibido também no Estudo (gate !operador && motivo &&, dentro de PlanoOperacionalBloco)",
+    /!operador\s*&&\s*motivo\s*&&/.test(av));
+  ok("P1: AtivoCard passa motivo={sc && sc.plano ? sc.plano.motivo : null} (subconjunto explícito de sc)",
+    /motivo=\{sc && sc\.plano \? sc\.plano\.motivo : null\}/.test(src));
   // O plano OPERACIONAL completo (entrada/stop/alvo/sizing) continua gated ao
   // Operador — a leitura do Estudo é só a prosa, não o painel de execução.
-  ok("P1: plano operacional segue exclusivo do Operador (operador ? r.plano : null)",
-    /operador\s*\?\s*r\.plano\s*:\s*null/.test(radar));
+  ok("P1: plano operacional segue exclusivo do Operador (plano={operador && sc ? sc.plano : null})",
+    /plano=\{operador && sc \? sc\.plano : null\}/.test(src));
+  ok("P1: radarVm.sc leva plano: r.plano (subconjunto explícito, ADR-017 Bloco 3)",
+    /sc: \{[^}]*plano: r\.plano/.test(radar));
 
   // P3a — sparkline com o `spark` do payload. qa/49 (v11): o Radar passa
   // `r.spark` ao CARD ÚNICO (radarVm.sc.spark) e o AtivoCard o renderiza.
   ok("P3a: Radar alimenta o card único com r.spark (→ Sparkline no AtivoCard)",
     /sc: \{ spark: r\.spark/.test(radar) && /<Sparkline data=\{sc\.spark\}/.test(src));
 
-  // P3b — pill de confiança derivada de tierOf + contagem de critérios.
-  ok("P3b: pill de confiança usa tierOf(r.confluencia)",
-    /tierLabel\s*=\s*tierOf\(r\.confluencia\)/.test(radar) && /confiança \{tierLabel/.test(radar));
-  ok("P3b: contagem de critérios atendidos (critOk/critTot) no card",
-    /critOk\s*=/.test(radar) && /critOk\}\/\$\{critTot\}/.test(radar));
+  // REVERSÃO DELIBERADA (2026-09-26, Fase 42, HIER-01/D-08/D-09): a pill
+  // "confiança {tierLabel}" solta e a contagem "x/y critérios" do cabeçalho
+  // do Radar saem — o tier + o lado + o setup passam a viver no rótulo do
+  // anel de confluência, uma vez só, dentro do SinalChip peso="primario"
+  // (mesmo anel da Watchlist). Prova negativa dupla (HIER-01: nunca duas
+  // vezes o tier no mesmo card).
+  ok("P3b: tier + lado + setup no rótulo do anel (AtivoCard, tierOf(sc.confluencia)[1] + rotuloAnel)",
+    /tierOf\(sc\.confluencia\)\[1\]/.test(src) && /rotuloAnel\(/.test(src));
+  ok("P3b: RadarScreen NÃO contém mais a pill solta \"confiança {tierLabel\" (HIER-01, tier uma vez por card)",
+    !/confiança \{tierLabel/.test(radar));
+  ok("P3b: RadarScreen NÃO contém mais a contagem \"x/y critérios\" no cabeçalho (D-09, absorvida pelo anel)",
+    !/critOk/.test(radar));
 }
 
 // Fonte do dado: o scanner do servidor precisa continuar emitindo `spark` —

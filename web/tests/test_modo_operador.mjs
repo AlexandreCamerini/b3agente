@@ -57,7 +57,12 @@ ok("versão do termo é fonte única (disclaimers.js)", disc.includes('TERMO_OPE
 // FIX-C21 (2026-08-23): o Radar deixou de recomputar de data.config.appMode
 // e passou a ler `ctx.operador` (fonte única) — assert atualizado, a
 // garantia (plano só existe no modo operador) é a mesma.
-ok("plano só no modo operador", app.includes("const operador = ctx.operador;") && app.includes("const plano = operador ? r.plano : null;"));
+// REVERSÃO DELIBERADA (2026-09-26, Fase 42, HIER-02/D-12): a variável local
+// `const plano = operador ? r.plano : null;` do map do Radar saiu — o gate
+// "plano só no modo operador" agora mora no PROP que o AtivoCard recebe
+// (`plano={operador && sc ? sc.plano : null}`, mesmo componente da
+// Watchlist). A GARANTIA original sobrevive, só a localização mudou.
+ok("plano só no modo operador", app.includes("const operador = ctx.operador;") && app.includes("plano={operador && sc ? sc.plano : null}"));
 ok("decisões coloridas (COMPRAR/VENDER/AGUARDAR)", app.includes('"COMPRAR": [T.positive') && app.includes('"VENDER": [T.negative') && app.includes('"AGUARDAR CONFIRMAÇÃO": [T.accent'));
 // qa/49 (v11): o Radar passou a usar o card único; a decisão vai por
 // decisaoDoModo(r, operador) → `decMr` → manchete do AtivoCard (no ESTUDO o

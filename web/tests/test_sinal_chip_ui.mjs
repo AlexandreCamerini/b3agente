@@ -143,5 +143,50 @@ ok("AtivoCard não contém DIR_STYLE (herdado do chip de direção da IA, removi
 ok("AtivoCard garante alvo de toque 44x44 no anel (acessibilidade)",
   ativoCard.includes("minWidth: 44") && ativoCard.includes("minHeight: 44"));
 
+// ---------------------------------------------------------------------------
+// Parte D — receita única e tier único por card (42-05, CHIP-01/HIER-01).
+// Fecha a migração: nenhuma receita de chip paralela sobrevive em App.jsx, e
+// o tier de confluência aparece uma única vez por card.
+// ---------------------------------------------------------------------------
+
+const srcSemComentarios = semComentarios(src);
+
+ok("nenhum `function FundamentoChip|RegimeChip|TierDot` sobrevive em App.jsx (CHIP-01)",
+  !/function (FundamentoChip|RegimeChip|TierDot)\(/.test(src));
+ok("nenhum `const chip =` sobrevive em App.jsx (receita interna do AtivoCard/Watchlist apagada)",
+  !/const chip =/.test(src));
+ok("nenhum `confiança {` sobrevive em App.jsx (pill solta do Radar apagada, HIER-01)",
+  !srcSemComentarios.includes("confiança {"));
+
+// <ConfluenceRing fora de comentários aparece exatamente 2 vezes: dentro do
+// corpo de SinalChip (a manchete, D-08) e no carrossel de alertas da home
+// (App.jsx ≈2286, composição própria fora do AtivoCard — Out of Scope desta
+// fase, registrado em 42-CONTEXT.md).
+ok('`<ConfluenceRing` fora de comentários aparece exatamente 2 vezes em App.jsx (SinalChip + carrossel da home, fora de escopo)',
+  (srcSemComentarios.match(/<ConfluenceRing/g) || []).length === 2);
+
+// Nenhum `borderRadius: "999px"` (pill redonda legada) dentro do bloco do
+// Radar — a cauda (per-setup, condições detectadas) usa a mesma forma legada
+// em OUTRO contexto (badges de condição, não chip de sinal); a asserção aqui
+// é específica ao contrato de SinalChip/receita antiga de pill de confiança,
+// não uma varredura ampla do bloco inteiro.
+ok('nenhum `borderRadius: "999px"` remanescente da pill de confiança apagada (âncora específica, HIER-01)',
+  !src.includes('borderRadius: "999px", border: `1px solid ${T.borderSubtle}`, color: T.textMuted, fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em" }}>confiança'));
+
+// SinalChip peso="contexto" tem exatamente os 4 call sites reais esperados:
+// LinhaContexto (regime + fundamento, 2×), HistoricoPill (1×), FundamentoTabela (1×).
+const callSitesContexto = (srcSemComentarios.match(/<SinalChip peso="contexto"/g) || []).length;
+ok('`<SinalChip peso="contexto"` tem exatamente 4 call sites (LinhaContexto 2× + HistoricoPill 1× + FundamentoTabela 1×)',
+  callSitesContexto === 4);
+const lcParaD = functionBody("LinhaContexto") || "";
+ok('LinhaContexto usa `<SinalChip peso="contexto"` 2 vezes (regime + fundamento)',
+  (lcParaD.match(/<SinalChip peso="contexto"/g) || []).length === 2);
+const ftParaD = functionBody("FundamentoTabela") || "";
+ok('FundamentoTabela usa `<SinalChip peso="contexto"` 1 vez (migrado de FundamentoChip, CHIP-01)',
+  (ftParaD.match(/<SinalChip peso="contexto"/g) || []).length === 1);
+const hpParaD = functionBody("HistoricoPill") || "";
+ok('HistoricoPill usa `<SinalChip peso="contexto"` 1 vez (zero receita de pill paralela)',
+  (hpParaD.match(/<SinalChip peso="contexto"/g) || []).length === 1);
+
 console.log(fails === 0 ? "\nTUDO OK" : `\n${fails} FALHA(S)`);
 process.exit(fails === 0 ? 0 : 1);

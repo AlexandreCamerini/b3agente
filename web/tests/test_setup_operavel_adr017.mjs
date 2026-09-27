@@ -118,7 +118,13 @@ const linhasSemComentario = app.split("\n").filter((l) => !l.trim().startsWith("
 ok("App.jsx NÃO contém mais (sc.setups || [])[0]", !linhasSemComentario.includes("(sc.setups || [])[0]"));
 ok("App.jsx NÃO contém mais (r.setups || [])[0]", !linhasSemComentario.includes("(r.setups || [])[0]"));
 ok("App.jsx contém metaDeEntrada(sc)", linhasSemComentario.includes("metaDeEntrada(sc)"));
-ok("App.jsx contém setupOperavel(r.setups, r.melhorSetup)", linhasSemComentario.includes("setupOperavel(r.setups, r.melhorSetup)"));
+// REVERSÃO DELIBERADA (2026-09-26, Fase 42, HIER-01/HIER-02): `const s0 =
+// setupOperavel(r.setups, r.melhorSetup);` (variável local do map do Radar)
+// saiu — a régua/plano do Radar migrou para o AtivoCard, que já chama
+// `setupOperavel(sc.setups, sc.melhorSetup)` (mesmo motor, subconjunto
+// explícito de sc em vez de `r` direto). A GARANTIA original (setup
+// operável nunca inferido do nome, sempre via setupOperavel) sobrevive.
+ok("App.jsx contém setupOperavel(sc.setups, sc.melhorSetup)", linhasSemComentario.includes("setupOperavel(sc.setups, sc.melhorSetup)"));
 
 const linhaImport = app.split("\n").find((l) => l.includes("from \"./finance.js\""));
 ok("setupOperavel e metaDeEntrada são importados de ./finance.js",

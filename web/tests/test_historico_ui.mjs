@@ -62,14 +62,30 @@ ok("sc do radarVm carrega setupElegivel: r.setupElegivel", trechoRadarVm.include
 ok("setupHistorico/setupElegivel estão dentro do objeto `sc:` (não soltos no vm)",
   /sc:\s*\{[^}]*setupHistorico:\s*r\.setupHistorico[^}]*setupElegivel:\s*r\.setupElegivel[^}]*\}/.test(trechoRadarVm));
 
-// ---- 2) linha de chips do Radar renderiza <HistoricoPill DEPOIS do texto
-//         de melhorSetup ------------------------------------------------
-const idxMelhorSetupRadar = appSrc.indexOf('{r.melhorSetup && <span style={{ fontSize: "11.5px", color: T.textMuted }}>{r.melhorSetup}');
-const idxHistoricoPillRadar = appSrc.indexOf("<HistoricoPill historico={r.setupHistorico}");
-ok("chip de melhorSetup do Radar encontrado", idxMelhorSetupRadar > 0);
-ok("<HistoricoPill.../> wireado no Radar, alimentado por r.setupHistorico/r.setupElegivel", idxHistoricoPillRadar > 0);
-ok("HistoricoPill entra DEPOIS do texto de melhorSetup (sinal secundário, nunca antes)",
-  idxHistoricoPillRadar > idxMelhorSetupRadar);
+// ---- 2) REVERSÃO DELIBERADA (2026-09-26, Fase 42, HIER-01/HIER-02): o
+//         Radar não monta mais a própria linha de chips + HistoricoPill —
+//         o AtivoCard (mesmo componente da Watchlist) é quem renderiza o
+//         HistoricoPill, depois da linha de contexto (LinhaContexto). A
+//         GARANTIA original ("elegibilidade é sinal SECUNDÁRIO, nunca antes
+//         do que a precede") sobrevive — a âncora que precede mudou de
+//         "texto de melhorSetup" para "LinhaContexto" (regime+fundamento),
+//         porque HIER-02 moveu a elegibilidade para depois da linha de
+//         contexto no card único.
+// Nota: a lista de critérios do setup (cauda, "+ Ver critérios do setup")
+// mantém o PRÓPRIO <HistoricoPill historico={s.historico} .../> por setup —
+// marcador intocado de test_historico_setup_card_ui.mjs. A prova aqui é
+// específica: a forma ANTIGA do pill de nível-ticker (`historico={r.setupHistorico}`,
+// lido direto de `r`, fora do AtivoCard) não existe mais — o card único lê
+// de `sc.setupHistorico`, nunca de `r` direto.
+ok("`<HistoricoPill historico={r.setupHistorico}` (forma antiga, fora do AtivoCard) não existe mais",
+  !appSrc.includes("<HistoricoPill historico={r.setupHistorico}"));
+const ativoCardCorpo = functionBody("AtivoCard") || "";
+const idxLinhaContextoCard = ativoCardCorpo.indexOf("<LinhaContexto");
+const idxHistoricoPillCard = ativoCardCorpo.indexOf("<HistoricoPill historico={sc.setupHistorico}");
+ok("`<LinhaContexto` aparece no corpo de AtivoCard", idxLinhaContextoCard > 0);
+ok("`<HistoricoPill historico={sc.setupHistorico}` wireado no corpo de AtivoCard", idxHistoricoPillCard > 0);
+ok("HistoricoPill entra DEPOIS de LinhaContexto (sinal secundário, nunca antes da confluência/contexto, HIER-02)",
+  idxHistoricoPillCard > idxLinhaContextoCard);
 
 // ---- 3) mapa de estilo: REVERSÃO DELIBERADA (2026-09-26, Fase 42,
 //         COR-01/D-03/D-04): o contrato positive/negative do 08-UI-SPEC foi

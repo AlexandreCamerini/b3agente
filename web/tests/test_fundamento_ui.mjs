@@ -13,12 +13,23 @@ const app = readFileSync(join(here, "..", "src", "App.jsx"), "utf8");
 let fails = 0;
 const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if (!cond) fails++; };
 
-// 1) componentes de fundamento existem.
-ok("FundamentoChip (score A/B/C) definido", /function FundamentoChip\(/.test(app));
+// REVERSÃO DELIBERADA (2026-09-26, Fase 42, CHIP-01): FundamentoChip apagado
+// — SinalChip peso="contexto" (via LinhaContexto) é a receita única de chip
+// de sinal; a GARANTIA original ("chip de fundamento com score A/B/C, sem
+// score não renderiza") é preservada, só a implementação mudou.
+// 1) componente de contexto que renderiza o fundamento existe.
+ok("LinhaContexto (SinalChip label=\"FUNDAMENTO\") definida", /function LinhaContexto\(/.test(app));
 ok("FundamentoTabela (métricas) definida", /function FundamentoTabela\(/.test(app));
 
-// 2) chip no CARD do Radar (ao lado da pill de confiança), lendo r.fundamento.
-ok("chip de fundamento no card do Radar", /<FundamentoChip f=\{r\.fundamento\} \/>/.test(app));
+// REVERSÃO DELIBERADA (2026-09-26, Fase 42, HIER-02): o fundamento no Radar
+// não é mais um chip solto na linha antiga — chega via radarVm.sc.fundamento
+// e o AtivoCard passa fundamentoCard para LinhaContexto (mesmo componente da
+// Watchlist, mesma ordem de leitura).
+// 2) fundamento no CARD do Radar: subconjunto explícito de `sc` + fiação do AtivoCard.
+ok("radarVm.sc leva fundamento: r.fundamento (subconjunto explícito, ADR-017 Bloco 3)",
+  /sc: \{[^}]*fundamento: r\.fundamento/.test(app));
+ok("AtivoCard passa fundamento={fundamentoCard} para LinhaContexto",
+  /<LinhaContexto regime=\{sc \? sc\.regime : null\} fundamento=\{fundamentoCard\}/.test(app));
 
 // 3) seção Fundamento + nota de rebaixamento no N2 (AnalysisView).
 const av = app.slice(app.indexOf("function AnalysisView("), app.indexOf("function hasAnalysis("));
@@ -35,9 +46,16 @@ ok("estado carrega fundamento/confiancaFinal/rebaixado (2 pontos de montagem)",
   (app.match(/fundamento: [ar]\.fundamento \|\| null/g) || []).length >= 2
   && (app.match(/rebaixadoPorFundamento: !![ar]\.rebaixadoPorFundamento/g) || []).length >= 2);
 
-// 6) score sem cobertura NÃO inventa: chip retorna null sem score.
-ok("FundamentoChip não renderiza sem score (ticker sem cobertura)",
-  /if \(!f \|\| !f\.score\) return null;/.test(app));
+// REVERSÃO DELIBERADA (2026-09-26, Fase 42, D-16): a GARANTIA "sem cobertura
+// não inventa chip" sobrevive — agora expressa como guarda `score &&` em
+// LinhaContexto e `f.score &&` em FundamentoTabela (D-16 preservado).
+// 6) score sem cobertura NÃO inventa: nenhum dos dois lugares renderiza sem score.
+const lc = app.slice(app.indexOf("function LinhaContexto("), app.indexOf("function PlanoOperacionalBloco("));
+ok("LinhaContexto só renderiza o chip de fundamento com score && (sem cobertura, sem chip)",
+  /\{score && \(/.test(lc));
+const ftBody = app.slice(app.indexOf("function FundamentoTabela("), app.indexOf("function LabeledList("));
+ok("FundamentoTabela só renderiza o chip de fundamento com f.score && (mesma guarda, sem receita paralela)",
+  /\{f\.score && <SinalChip peso="contexto"/.test(ftBody));
 
 console.log(fails ? `\n${fails} falha(s)` : "\ntodos os testes passaram");
 process.exit(fails ? 1 : 0);

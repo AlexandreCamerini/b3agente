@@ -63,7 +63,16 @@ ok("varre via store.scan (não bate na api direto)", /store\.scan\(/.test(appSrc
 const radarChunk = appSrc.slice(appSrc.indexOf("function RadarScreen"), appSrc.indexOf("function ConfigScreen"));
 ok("trecho da RadarScreen localizado", radarChunk.length > 500);
 ok("RadarScreen sem linguagem imperativa", !IMPERATIVE.test(radarChunk));
-ok("confluência rotulada na tela", /CONFLU/.test(radarChunk));
+// REVERSÃO DELIBERADA (2026-09-26, Fase 42, HIER-01/D-08): o rótulo
+// "CONFLUÊNCIA DO SETUP" do rodapé do anel saiu do Radar — o anel (com o
+// rótulo completo %·tier·lado·setup) migrou para dentro do AtivoCard/
+// SinalChip peso="primario" (função separada de RadarScreen). A GARANTIA
+// original — o conceito de confluência continua nomeado na tela do Radar —
+// sobrevive via a barra de progresso da varredura ("rankeando por
+// confluência") e o valor por setup na cauda de critérios; daí a busca
+// case-insensitive em vez da âncora textual exata que saiu.
+ok("confluência rotulada na tela (SweepGauge/critérios do setup, mesmo sem o rodapé apagado)",
+  /conflu/i.test(radarChunk));
 ok("veredito educacional renderizado", /r\.veredito/.test(radarChunk));
 // qa/34: o título e o corpo da seção vêm da fraseologia do modo
 // (comoAnalisaTitulo/comoAnalisaCorpo) — antes "COMO O RADAR ANALISA" era
