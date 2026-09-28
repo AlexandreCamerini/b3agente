@@ -13,8 +13,10 @@ def _db():
 
 
 def test_custo_por_modelo_e_fallback():
-    # sonnet: (3+15) USD/Mi * 1Mi in + 1Mi out * câmbio
-    esperado = round((3.0 + 15.0) * A.USD_BRL, 4)
+    # guardião atualizado em 2026-09-27: preço de lista público mudou (Sonnet 5
+    # = 2/10 USD/Mi, não mais 3/15 da geração 4.x); deriva da tabela em vez de
+    # fixar o valor antigo, para não voltar a divergir sozinho.
+    esperado = round(sum(A._preco_usd_por_mi("claude-sonnet-5")) * A.USD_BRL, 4)
     assert A.custo_estimado("claude-sonnet-5", 1_000_000, 1_000_000) == esperado
     # opus é mais caro que sonnet
     assert A.custo_estimado("claude-opus-5", 1000, 1000) > A.custo_estimado("claude-sonnet-5", 1000, 1000)
@@ -22,6 +24,17 @@ def test_custo_por_modelo_e_fallback():
     assert A.custo_estimado("modelo-x", 1_000_000, 0) == round(A._FALLBACK_USD_POR_MI[0] * A.USD_BRL, 4)
     # sem tokens = sem custo
     assert A.custo_estimado("claude-sonnet-5", 0, 0) == 0.0
+
+
+def test_preco_por_prefixo_ordem_mais_especifico_primeiro():
+    """Ids legados (4.x) e atuais compartilham prefixo — a ordem da tabela
+    decide qual preço vence. Guardião da atualização de 2026-09-27."""
+    assert A._preco_usd_por_mi("claude-opus-4-1") == (15.0, 75.0)
+    assert A._preco_usd_por_mi("claude-opus-5") == (5.0, 25.0)
+    assert A._preco_usd_por_mi("claude-sonnet-4-6") == (3.0, 15.0)
+    assert A._preco_usd_por_mi("claude-sonnet-5") == (2.0, 10.0)
+    assert A._preco_usd_por_mi("claude-haiku-4-5") == (1.0, 5.0)
+    assert A._preco_usd_por_mi("claude-fable-5-1") == (10.0, 50.0)
 
 
 def test_registrar_acumula_e_capa_historico():

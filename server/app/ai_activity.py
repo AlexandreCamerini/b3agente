@@ -30,11 +30,23 @@ USD_BRL = 5.40
 # Preço LIST público por 1 MILHÃO de tokens (USD), (entrada, saída). ESTIMATIVA
 # — muda com o tempo; centralizado para atualizar num lugar só. Match por
 # prefixo do id do modelo (o mais específico primeiro).
+#
+# Linhas Claude atualizadas em 2026-09-27, referência = preço de lista público
+# (cache 2026-06-24 da skill `claude-api`). A tabela anterior usava preços de
+# geração 4.x (Opus 15/75, Sonnet 3/15, Haiku 0,80/4,0 já corretos p/ Haiku
+# 3.5, `claude-fable` a 1/5) para os ids atuais do catálogo
+# (`claude-haiku-4-5`, `claude-sonnet-5`, `claude-opus-5` —
+# ver `model_catalog.py`), superestimando `custo_estimado` em ~3x. Os ids
+# antigos (`claude-opus-4-1`, `claude-sonnet-4-6`) ficam mantidos para quem
+# ainda registrar uso com esses ids.
 PRECOS_USD_POR_MI = [
-    ("claude-opus", (15.0, 75.0)),
-    ("claude-sonnet", (3.0, 15.0)),
-    ("claude-haiku", (0.80, 4.0)),
-    ("claude-fable", (1.0, 5.0)),      # tier rápido — estimativa
+    ("claude-opus-4-1", (15.0, 75.0)),   # Opus 4.x (legado)
+    ("claude-opus", (5.0, 25.0)),        # Opus 5 / 4.6-4.8
+    ("claude-sonnet-4-6", (3.0, 15.0)),  # Sonnet 4.6 (legado)
+    ("claude-sonnet", (2.0, 10.0)),      # Sonnet 5
+    ("claude-haiku-4-5", (1.0, 5.0)),    # Haiku 4.5
+    ("claude-haiku", (0.80, 4.0)),       # Haiku 3.5 (legado)
+    ("claude-fable", (10.0, 50.0)),      # tier acima do Opus — não é "rápido"
     ("gpt-4o-mini", (0.15, 0.60)),
     ("gpt-4o", (2.5, 10.0)),
     ("gpt-5", (2.5, 10.0)),
@@ -45,7 +57,7 @@ PRECOS_USD_POR_MI = [
     ("gemini-2", (1.25, 5.0)),
     ("gemini", (1.25, 5.0)),
 ]
-_FALLBACK_USD_POR_MI = (3.0, 15.0)   # referência (sonnet-like) p/ modelo desconhecido
+_FALLBACK_USD_POR_MI = (2.0, 10.0)   # referência (sonnet-5-like) p/ modelo desconhecido
 
 
 def _preco_usd_por_mi(model: str):
