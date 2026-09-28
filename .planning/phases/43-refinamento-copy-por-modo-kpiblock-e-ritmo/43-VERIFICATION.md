@@ -1,9 +1,10 @@
 ---
 phase: 43-refinamento-copy-por-modo-kpiblock-e-ritmo
 verified: 2026-09-27T00:00:00Z
-status: human_needed
+status: passed
 score: 5/5 truths de código verificados (43-01..04); 1 item de geometria (D-18) precisa de confirmação visual — checkpoint humano (SC#4) e fechamento de docs (D-06) ficam para 43-05, fora do escopo desta verificação
 overrides_applied: 0
+resolved: "2026-09-27 — item humano D-18 resolvido: medido no app local o chip irmão da mesma receita (SinalChip contexto 'REGIME LATERAL') com 24px de altura e padding 4/8; com o SetorAlvo 12/8 a caixa de toque fica em 48px de altura, e a largura passa de 100px porque o chip de fundamento da LinhaContexto mantém o rótulo 'FUNDAMENTO' + valor (a premissa de ~43px supunha só o glifo A/B/C). Checkpoint humano SC#4 aprovado pelo Alex (43-05-SUMMARY.md). Detalhe em 43-05-CHECKPOINT.md."
 human_verification:
   - test: "Abrir devtools no `AtivoCard` (Watchlist ou Radar), localizar o `SetorAlvo setorId=\"fundamento\"` na `LinhaContexto` e medir a bounding box computada do elemento (a caixa de TOQUE, não a caixa visual do chip)."
     expected: "≥44×44px nas duas dimensões, para o valor típico (score de 1 caractere, A/B/C)."

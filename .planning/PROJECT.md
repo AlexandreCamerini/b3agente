@@ -22,10 +22,16 @@ funciona — não decorou uma resposta, aprendeu o raciocínio — e só então 
 acesso a automações do Modo Operador. Se o storyline pedagógico não convencer,
 nada mais no produto importa.
 
-## Current Milestone: v1.9 Jornada de Decisão
+## Next Milestone (queued): a definir
 
-**Aberta em 2026-09-26** via `/gsd-new-milestone`. Fases continuam a
-numeração: começa na Fase 42.
+**Nenhum milestone aberto.** v1.9 Jornada de Decisão fechada e arquivada em
+2026-09-27. Próximo passo: `/gsd-new-milestone` — sem candidata registrada
+ainda; ver Active abaixo para o backlog priorizável (build iOS/TestFlight,
+KB sem verbete de vantagem estatística/expectativa matemática, "amostra
+insuficiente" sem janela/n, motion do `ConfluenceRing`, tokens `--sp-*`
+globais, decisão contra o regime).
+
+## Milestone v1.9 Jornada de Decisão — SHIPPED 2026-09-27
 
 **Goal:** devolver hierarquia visual ao card único de ativo (`AtivoCard` e
 o cabeçalho do Radar que o reaproveita) — o usuário distingue em menos de 3
@@ -33,60 +39,39 @@ segundos o que é decisão, o que é contexto e o que é ressalva de
 confiabilidade — sem tocar na manchete determinística nem na separação
 decisão × elegibilidade estatística (ADR-017).
 
-**Target features:**
-- Canal de cor próprio para "confiabilidade estatística" (token novo nas 8
-  combinações tema×modo), tirando `inelegivel` do vermelho de VENDER/prejuízo
-- Tier de confluência mostrado uma única vez por card, com o
-  `ConfluenceRing` perto da manchete (decisão do Alex, 2026-09-26)
-- Componente `SinalChip` único com dois pesos fixos (primário/contexto),
-  substituindo as 4 receitas de chip atuais, incluindo o `KpiBlock`
-- Ordem de leitura manchete → plano → contexto agrupado → elegibilidade
-  com microtexto de reconciliação por modo (via `skill_ref.py`/`copy.js`)
-- Espaçamento dos blocos do card na escala 4/8pt
-
-**Escopo decidido (2026-09-26):** Fases 1+2 da auditoria
-(Crítico + Refinamento). A Fase 3 (Polish) não vira fase própria —
-`aria-label` e contraste AA do token novo entram como critério de aceite
-das fases; motion do `ConfluenceRing` fica fora. Research de domínio
-pulada (a auditoria já é o levantamento).
-
-### Contexto herdado da fila (registro de 2026-09-25)
-
-**Decisão do Alex (2026-09-25):** registrar como próxima milestone, mas só
-entra na fila de execução depois que a v1.8 fechar (Fases 40/41). Não
-encaixar na sequência atual da v1.8 — mantém o foco dela (aba Opções) sem
-diluir. **v1.8 fechada em 2026-09-26 — a v1.9 está desbloqueada e abre via
-`/gsd-new-milestone`.**
-
-**Goal:** corrigir a hierarquia visual do card único de ativo (`AtivoCard`,
-`App.jsx:3343`, reaproveitado em Acompanhar/Mesa/Monitoramento/Posições) —
-hoje os indicadores (confiança, regime, fundamento, elegibilidade
-estatística, veredito) competem por atenção com o mesmo peso visual, sem
-diferenciar o que é decisão do que é contexto/ressalva.
-
 **Origem:** achado ao vivo do Alex em TestFlight (card de decisão da Mesa,
 ativo UGPA3: "muita informação e de forma confusa, não sei se é pra vender
-ou comprar"). Auditoria via `/design-audit` confirmou 3 falhas concretas em
-código (não é impressão visual): (1) `HISTORICO_PILL_STYLE.inelegivel`
-(`App.jsx:6554`) usa o mesmo token `T.negative` de VENDER/prejuízo pra
-sinalizar "sem vantagem estatística medida" — colisão entre o eixo de
-direção de mercado e o eixo de confiabilidade estatística; (2) o tier de
-confluência aparece duas vezes no mesmo card, em dois desenhos visuais
-diferentes, sem link entre eles; (3) quatro receitas visuais distintas
-(`chip()`, `FundamentoChip`/`RegimeChip`, `HistoricoPill`, pill solto de
-confiança) pro mesmo conceito de "chip de sinal", sem contrato comum.
+ou comprar"). Auditoria via `/design-audit` (`qa/AUDITORIA-Jornada-Decisao-
+v1.md`) confirmou 3 falhas concretas em código: `HISTORICO_PILL_STYLE.
+inelegivel` colidindo com o token de VENDER/prejuízo; tier de confluência
+duplicado no mesmo card; quatro receitas visuais distintas pro mesmo
+conceito de "chip de sinal", sem contrato comum.
 
-**Não é regressão nova** — uma correção anterior (comentário "qa/49 v11" no
-código) já resolveu "vereditos concorrentes" nivelando tudo ao mesmo peso
-visual; o efeito colateral foi matar a hierarquia junto. Esta milestone é o
-próximo degrau dessa correção.
+**Entregue:** 2 fases (42-43), 12 plans (6+6, incl. gap 43-06), 8/8
+requirements Done (COR-01, HIER-01, HIER-02, HIER-03, CHIP-01, CHIP-02,
+CHIP-03, RITMO-01). Token `T.warnTint10` isola o canal de "sem vantagem
+estatística medida" do vermelho de VENDER (Fase 42, COR-01); `ConfluenceRing`
+único perto da manchete substitui o pill de confiança duplicado (HIER-01/
+HIER-02); componente `SinalChip` (pesos `primario`/`contexto`, `aria-label`
+obrigatório) substitui `chip()`/`FundamentoChip`/`RegimeChip`/pill de
+confiança (CHIP-01/CHIP-02). Microtexto de reconciliação por modo via
+`skill_ref.py`↔`copy.js`, número do `signal_ledger`, caindo para "sem
+histórico medido" (nunca "?") quando falta dado (Fase 43, HIER-03— gap
+43-06, decisão do Alex). `KpiBlock`/`KpiCell` (código morto desde a qa/49 —
+achado que corrigiu a premissa original de CHIP-03) apagados; leitura da
+IA virou 3 `SinalChip` neutros na `AnalysisView` (CHIP-03). Espaçamento do
+card na escala 4/8pt via constante `SP` (RITMO-01). Publicado em dois
+carimbos: `F10-20260927-01` (Fase 42) e `F10-20260927-03` (Fase 43, o bump
+`-02` nunca foi ao ar). Ambas as fases fecharam com checkpoint humano
+aprovado ao vivo pelo Alex, sem ressalva de produto. Detalhe completo:
+`.planning/milestones/v1.9-ROADMAP.md` e `v1.9-REQUIREMENTS.md`.
 
-**Documento completo:** `qa/AUDITORIA-Jornada-Decisao-v1.md` (achados,
-critério de aceite, e o que NÃO mexer — a manchete determinística permanece
-só do motor, `setups.py`/`kpi.py`). Plano de 3 fases proposto lá (Crítico/
-Refinamento/Polish) — requirements formais e roadmap ficam pra quando esta
-milestone abrir de verdade, via `/gsd-new-milestone`, depois que a v1.8
-fechar.
+**Fora de escopo desta milestone (decidido 2026-09-26, mantido no
+fechamento):** motion do `ConfluenceRing` ao trocar de tier (Fase 3 da
+auditoria — Polish); tokens `--sp-*` globais no app inteiro (RITMO-01
+cobriu só o card); qualquer mudança na lógica de decisão/elegibilidade/
+regime (motor determinístico); fusão de decisão e elegibilidade num
+indicador-síntese (contraria ADR-017).
 
 ## Milestone v1.8 Didática ampliada + continuidade da aba Opções — SHIPPED 2026-09-25
 
@@ -507,6 +492,16 @@ faltavam os números).
 - ✓ CAP-12 (bypass do cap de watchlist no iOS) passou a valer nos aparelhos
   com a distribuição do build 27 via TestFlight (2026-09-23, Archive/Upload
   feito pelo Alex).
+- ✓ Jornada de Decisão — v1.9 (Fases 42-43): hierarquia visual do card único
+  de ativo (`AtivoCard`) e do cabeçalho do Radar. Token de confiabilidade
+  separado do eixo direção/P&L (COR-01); `ConfluenceRing` único perto da
+  manchete (HIER-01/HIER-02); componente `SinalChip` único com `aria-label`
+  obrigatório substituindo as 4 receitas de chip (CHIP-01/CHIP-02); microtexto
+  de reconciliação por modo via `skill_ref.py`↔`copy.js` caindo para "sem
+  histórico medido" (HIER-03); `KpiBlock`/`KpiCell` código morto apagados,
+  leitura da IA em `SinalChip` neutro (CHIP-03, premissa corrigida por
+  achado); espaçamento do card na escala 4/8pt (RITMO-01). 8/8 requirements
+  v1 Done — ver `.planning/milestones/v1.9-ROADMAP.md`.
 
 ### Active
 
@@ -514,8 +509,21 @@ faltavam os números).
   com flag opt-in a descoberto, pesquisa concluída/decisão de escopo
   pendente) — ver `26-CONTEXT.md`. B2/C1/C2/C3 foram entregues na v1.8
   (Fases 38/40/41).
-- [ ] v1.9 Jornada de Decisão (milestone corrente) — hierarquia visual do
-  `AtivoCard`; requirements formais em `.planning/REQUIREMENTS.md`
+- [ ] Próxima milestone a definir — abre via `/gsd-new-milestone`; sem
+  candidata registrada, ver "Next Milestone (queued)" acima
+- [ ] Build iOS/TestFlight (Xcode → Archive/Upload) com as Fases 42-43 —
+  ação do Alex, ver `TESTFLIGHT.md`
+- [ ] KB sem verbete de vantagem estatística / expectativa matemática /
+  taxa de acerto × rentabilidade — temas obrigatórios do CLAUDE.md (camada
+  educacional), observado no fechamento da v1.9, sem fase própria ainda
+- [ ] "amostra insuficiente (n=0 …)" no Operador não cita janela nem n
+  total — observação do checkpoint da Fase 43, sem decisão de correção
+- [ ] Motion do `ConfluenceRing` ao trocar de tier (Fase 3 da auditoria
+  Jornada de Decisão — Polish), deferido por decisão de escopo 2026-09-26
+- [ ] Tokens `--sp-*` globais no app inteiro (RITMO-01 da v1.9 cobriu só o
+  card único de ativo)
+- [ ] Decisão contra o regime (motor determinístico) — observação levantada
+  durante a v1.9, sem investigação/fase própria ainda
 - [ ] 6 achados de inconsistência de navegação registrados na Fase 41 (D-04,
   `41-02-SUMMARY.md`), aprovados pelo Alex como "não corrigir agora":
   histórico/perfil sem seção de Ajuda; tour não visita agente/histórico/
@@ -639,6 +647,11 @@ faltavam os números).
   fixas na aba Opções, continuidade de estado, registro único de telas). 4
   fases, 17 planos, 111 commits, ~3 dias (2026-09-23 a 2026-09-25). Suíte
   no fechamento: 3050 pytest passed/5 skipped/3 xfailed + 165/165 `.mjs`.
+- **v1.9 entregou**: Fases 42-43 (hierarquia visual do `AtivoCard` — cor
+  semântica, `ConfluenceRing` único, `SinalChip` único, reconciliação por
+  modo, ritmo 4/8pt). 2 fases, 12 planos, 66 commits, ~1 dia (2026-09-26 a
+  2026-09-27). Suíte no fechamento: 3062 pytest passed/5 skipped/3
+  xfailed + 171/171 `.mjs`. Publicado em `F10-20260927-01`/`F10-20260927-03`.
 - Suíte canônica de teste: `bash scripts/executar.sh --testes` (pytest +
   web/tests/*.mjs); `scripts/test.sh` sozinho é meia baseline. Desde a Fase
   5 (FIX-C24), o próprio `executar.sh` resolve `web/node_modules` ausente
@@ -696,6 +709,11 @@ faltavam os números).
 | Fase 41: provar um refactor "zero mudança visível" contra uma fixture congelada do comportamento anterior | Refactor que toca barra+tour+ajuda+assistente ao mesmo tempo; "suíte verde" não prova equivalência de saída | ✓ Good — equivalência byte a byte confirmada; o Alex aceitou por nome a leitura honesta do SC#4 (a LISTA de telas centralizada, o conteúdo nos seus lugares) |
 | Fechamento da v1.8 feito à mão, sem `milestone.complete` | Precedente da v1.7 (o verbo corrompeu STATE.md) | ✓ Good — archive/MILESTONES/ROADMAP/STATE editados à mão e conferidos por diff |
 | Worktree `borisv2` ficou órfão quando a pasta do repo principal foi renomeada (`bolsia/` → `bolsia=boris antigo/`) | O `.git` do worktree aponta por caminho absoluto para `.git/worktrees/` do repo principal; renomear a pasta quebra o link silenciosamente | ✓ Good — risco eliminado em 2026-09-26: borisv2 convertido em repositório independente (clone --mirror, origin próprio, dados antigos preservados em origin/arquivo/*); pasta antiga pode ser arquivada/apagada sem quebrar este repo |
+| Fase 42/43 executadas em modo autônomo agendado (01:30), decisões registradas para checkpoint ao vivo depois | Alex autorizou execução noturna; classificador de permissão do modo automático bloqueia `bump.sh`/`publicar-web.sh`/curl à produção — publicação e conferência de `/api/health` ficam sempre com o Alex | ✓ Good — nenhuma publicação nem verificação de produção feita pelo agente sem essas ações passarem pelo Alex, nas duas fases |
+| CHIP-03 (v1.9) corrigido em execução: premissa original ("grade de caixas cinzas" em `KpiBlock`) era factualmente errada — código morto desde a qa/49, nenhuma tela renderizava | Achado do CONTEXT da Fase 43 (D-01/D-06), verificado por grep antes de aceitar a correção | ✓ Good — KpiBlock apagado, entrega redirecionada pra `AnalysisView`/`SinalChip` neutro, sem perda de escopo real (não havia tela pra corrigir) |
+| Fase 43: reversão da regra "?" para "sem histórico medido" no microtexto de reconciliação (gap 43-06), por decisão do Alex na DP-3 do checkpoint | Dado ausente mostrando "?" violava o princípio de transparência do CLAUDE.md (nunca escondido, mas também nunca ambíguo); guardiões antigos da regra "?" preservados com nota de reversão datada, não apagados | ✓ Good — bloqueou a publicação até o gap ser executado e verificado (3062 pytest); `n=0` continua distinto de ausência real |
+| Merge de `origin/main` na publicação da Fase 43 removeu `server/railway.json` (infra migrada para `.railway/railway.ts`, trabalho concorrente de outra sessão) | Divergência descoberta no `git fetch` da publicação; pergunta levada ao Alex em vez de decidir sozinho qual versão vale | ✓ Good — decisão do Alex ("vale o origin/main"), merge sem regressão (motor intocado, suíte verde) |
+| Fechamento da v1.9 feito à mão, sem `milestone.complete` nem mutadores `state.*` do gsd-sdk | Precedente da v1.7/v1.8 (os verbos corromperam STATE.md antes) | ✓ Good — archive/MILESTONES/ROADMAP/PROJECT/STATE editados à mão e conferidos por diff |
 
 ## Evolution
 
@@ -715,6 +733,8 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-09-26 — Milestone v1.9 Jornada de Decisão aberta
-(Fases 1+2 da `qa/AUDITORIA-Jornada-Decisao-v1.md`, numeração a partir da
-Fase 42). v1.8 arquivada em `.planning/milestones/v1.8-ROADMAP.md`.*
+*Last updated: 2026-09-27 after v1.9 milestone — Jornada de Decisão (Fases
+42-43) fechada e arquivada, 8/8 requirements Done (`F10-20260927-01`→
+`F10-20260927-03`). Nenhum milestone aberto — próxima milestone a definir,
+via `/gsd-new-milestone`. Ver `.planning/milestones/v1.9-ROADMAP.md`/
+`v1.9-REQUIREMENTS.md` para o detalhe completo do v1.9.*

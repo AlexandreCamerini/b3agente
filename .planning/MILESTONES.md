@@ -1,5 +1,53 @@
 # Milestones
 
+## v1.9 Jornada de Decisão (Shipped: 2026-09-27)
+
+**Phases completed:** 2 phases (42-43), 12 plans, 26 tasks. Git range
+`08940b1`→`511bf15`, 2026-09-26 22:37 → 2026-09-27 21:39 (~1 dia), 66
+commits; 32 arquivos de código/teste alterados (+2311/-435), fora
+`.planning/` e bundles publicados. 8/8 requirements Done (COR-01, HIER-01,
+HIER-02, HIER-03, CHIP-01, CHIP-02, CHIP-03, RITMO-01).
+
+**Key accomplishments:**
+
+- Token de confiabilidade separado do eixo direção/P&L: `HISTORICO_PILL_STYLE`
+  deixou de referenciar `T.negative`/`T.positive` — estado "sem vantagem
+  estatística medida" ganhou canal próprio (`T.warn` sobre token novo
+  `T.warnTint10`, 4,68–8,64:1 nas 4 combinações tema×modo) — COR-01, Fase 42.
+- `ConfluenceRing` único perto da manchete substitui o pill solto "confiança
+  X" e a repetição do rodapé; card lido na ordem manchete → plano → contexto
+  agrupado (regime+fundamento) → elegibilidade, nos 2 contextos reais do
+  `AtivoCard` (Watchlist e Radar) — HIER-01/HIER-02, Fase 42.
+- Componente único `SinalChip` (pesos `primario`/`contexto`, `aria-label`
+  descritivo obrigatório) substitui `chip()`, `FundamentoChip`, `RegimeChip`
+  e o pill de confiança — zero receita nova de pill fora dele — CHIP-01/
+  CHIP-02, Fase 42 (`F10-20260927-01`).
+- Microtexto de reconciliação por modo ("o padrão bateu os critérios" ×
+  "o histórico mostra...") via par `skill_ref.py`↔`copy.js`, números do
+  `signal_ledger`; dado ausente cai para "sem histórico medido" (nunca "?"
+  nem 0 fantasma, `n=0` continua valor real) — HIER-03, Fase 43 (gap 43-06,
+  decisão do Alex na DP-3 do checkpoint).
+- `KpiBlock`/`KpiCell` (código morto desde a qa/49 — achado que corrigiu a
+  premissa original de CHIP-03) apagados; leitura da IA (direção/convicção/
+  qualidade) virou 3 `SinalChip` neutros peso `contexto` na `AnalysisView`
+  (Watchlist), sem recomendação da IA — CHIP-03, Fase 43.
+- Espaçamento do card na escala 4/8pt via constante nomeada `SP` + 2
+  exceções ópticas nomeadas, substituindo valores soltos tipo `"11px"`/
+  `"9px"` — RITMO-01, Fase 43 (`F10-20260927-03`, o bump `-02` nunca foi ao
+  ar).
+
+**Known deferred items at close:** 54 itens do audit de artefatos (51 quick
+tasks + 3 todos pendentes), todos anteriores à v1.9 (ver STATE.md Deferred
+Items). Motion do `ConfluenceRing` ao trocar de tier e tokens `--sp-*`
+globais deferidos por decisão de escopo original (2026-09-26). Build iOS/
+TestFlight (Xcode → Archive/Upload) e KB sem verbete de vantagem estatística/
+expectativa matemática/taxa de acerto × rentabilidade (tema obrigatório do
+CLAUDE.md) pendentes, ação do Alex/fase futura. Merge de `origin/main` na
+publicação da Fase 43 removeu `server/railway.json` (decisão do Alex: vale
+o `origin/main`, `.railway/railway.ts` é a fonte).
+
+---
+
 ## v1.8 Didática ampliada + continuidade da aba Opções (Shipped: 2026-09-25)
 
 **Phases completed:** 4 phases (38-41), 17 plans, 43 tasks. Git range

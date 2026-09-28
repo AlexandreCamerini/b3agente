@@ -1,11 +1,11 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.9
-milestone_name: Jornada de Decisão
-status: phase_complete
-stopped_at: 'Phase 43 fechada e publicada (F10-20260927-03). Milestone v1.9 com as 2 fases completas — próximo: decisão do Alex sobre /gsd-complete-milestone.'
-last_updated: "2026-09-28T00:30:00.000Z"
-last_activity: 2026-09-27 -- Phase 43 fechada (6/6), publicada F10-20260927-03
+milestone: none
+milestone_name: Awaiting next milestone
+status: milestone_archived
+stopped_at: 'Milestone v1.9 (Jornada de Decisão, Fases 42-43) fechada e arquivada em 2026-09-27 (8/8 requirements Done; tag v1.9). Fechamento à mão, sem milestone.complete nem mutadores state.*. Próximo: /gsd-new-milestone.'
+last_updated: "2026-09-28T01:00:00.000Z"
+last_activity: 2026-09-27 -- Milestone v1.9 fechada e arquivada à mão (archive ROADMAP/REQUIREMENTS, MILESTONES, ROADMAP colapsado, PROJECT evoluído, retrospectiva; REQUIREMENTS.md removido para a próxima milestone)
 progress:
   total_phases: 2
   completed_phases: 2
@@ -18,12 +18,26 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-09-26)
+See: .planning/PROJECT.md (updated 2026-09-27)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Milestone v1.9 Jornada de Decisão — hierarquia visual do `AtivoCard` (`PROJECT.md` §"Current Milestone").
+**Current focus:** Milestone v1.9 arquivada (2026-09-27). Nenhum milestone aberto — aguardando `/gsd-new-milestone` (`PROJECT.md` §"Next Milestone (queued)").
 
 ## Current Position
+
+Milestone: nenhum aberto. v1.9 (Jornada de Decisão, Fases 42-43, 12 planos,
+  8/8 requirements) shipped em 2026-09-27 e arquivada no mesmo dia — ver
+  `.planning/milestones/v1.9-ROADMAP.md` e `.planning/MILESTONES.md`.
+Status: milestone_archived. Produção em `F10-20260927-03`.
+Pendências fora de milestone: build iOS/TestFlight (Xcode → Archive/Upload,
+  ação do Alex); KB sem verbete de vantagem estatística/expectativa
+  matemática/taxa de acerto × rentabilidade (tema obrigatório do CLAUDE.md);
+  "amostra insuficiente (n=0 …)" no Operador sem janela/n total; tokens
+  `--sp-*` globais; motion do `ConfluenceRing`; decisão contra o regime
+  (motor) — ver "Deferred Items" abaixo e `PROJECT.md` §Active.
+Next: `/gsd-new-milestone` (sem candidata registrada ainda).
+
+## Posição anterior (Fase 43, Plano 43-05 — fechamento da última fase da v1.9, histórico)
 
 Milestone: v1.9 Jornada de Decisão (aberta 2026-09-26) — as 2 fases (42, 43)
   completas e publicadas. Próximo: decisão do Alex sobre fechar o milestone
@@ -2022,3 +2036,31 @@ Itens reconhecidos e adiados no fechamento da milestone v1.8, via
 | todo | `opcoes-v2-confirmar-hub-mydata-e-acesso-b-mcp.md` | pending (medium), depende de aprovação de serviço externo |
 | todo | `revisao-arquitetura-mcp-ecossistema-b3.md` | pending (high), decisão do Alex de tratar à parte do roadmap |
 | achados D-04 (Fase 41) | 6 inconsistências de navegação/copy, `41-02-SUMMARY.md` | aprovados pelo Alex como "não corrigir agora" — fold-in oportunista |
+
+## Deferred Items (fechamento da v1.9, 2026-09-27)
+
+Itens reconhecidos e adiados no fechamento da milestone v1.9 — mesmo
+mecanismo de scanner das v1.7/v1.8 (referências órfãs de quick tasks, não
+gap desta milestone), contados diretamente em `.planning/quick/` e
+`.planning/todos/pending/` nesta sessão: 51 diretórios de quick task (todos
+com `*-SUMMARY.md`, o mais recente datado 2026-09-26, ainda anterior à
+abertura da v1.9) + 3 todos pendentes. Total: 54.
+
+| Categoria | Item | Status |
+|---|---|---|
+| quick_task | 51 tarefas datadas 2026-08-20 a 2026-09-26 (todas anteriores ou concorrentes à abertura da v1.9, nenhuma das Fases 42/43) | missing — mesmo falso positivo do scanner das v1.7/v1.8: as pastas têm `*-SUMMARY.md`, o parser não lê status delas |
+| todo | `medir-rate-limit-mydata.md` | pending (medium), já adiado desde a Fase 9 |
+| todo | `opcoes-v2-confirmar-hub-mydata-e-acesso-b-mcp.md` | pending (medium), depende de aprovação de serviço externo |
+| todo | `revisao-arquitetura-mcp-ecossistema-b3.md` | pending (high), decisão do Alex de tratar à parte do roadmap |
+
+**Known deferred items at close: 54**
+
+Itens específicos da v1.9 (não fold-in do scanner, ver também `PROJECT.md`
+§Active): build iOS/TestFlight das Fases 42-43 pendente do Alex; KB sem
+verbete de vantagem estatística/expectativa matemática/taxa de acerto ×
+rentabilidade (tema obrigatório do CLAUDE.md); "amostra insuficiente
+(n=0 …)" no Operador sem janela/n total (observação do checkpoint da Fase
+43, sem decisão); motion do `ConfluenceRing` e tokens `--sp-*` globais
+(Fase 3 da auditoria — Polish, deferido por decisão de escopo 2026-09-26,
+nunca reaberto); decisão contra o regime (motor) — observação sem
+investigação própria ainda.

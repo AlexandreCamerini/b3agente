@@ -675,6 +675,107 @@
 
 ---
 
+## Milestone: v1.9 — Jornada de Decisão
+
+**Shipped:** 2026-09-27 (arquivada 2026-09-27)
+**Phases:** 2 (42-43) | **Plans:** 12 (6+6, incl. gap 43-06) | **Sessions:** 1+ (execução autônoma agendada + checkpoints ao vivo + fechamento)
+
+### What Was Built
+- Fase 42 (COR-01/HIER-01/HIER-02/CHIP-01/CHIP-02): token `T.warnTint10`
+  isola "sem vantagem estatística medida" do vermelho de VENDER;
+  `ConfluenceRing` único perto da manchete substitui o pill de confiança
+  duplicado; componente `SinalChip` (pesos `primario`/`contexto`,
+  `aria-label` obrigatório) substitui `chip()`/`FundamentoChip`/
+  `RegimeChip`/pill de confiança; `AtivoCard` na ordem manchete+anel →
+  timing → plano → contexto → elegibilidade, nos 2 contextos reais
+  (Watchlist e Radar).
+- Fase 43 (HIER-03/CHIP-03/RITMO-01): microtexto de reconciliação por modo
+  via `skill_ref.py`↔`copy.js`, número do `signal_ledger`, caindo para "sem
+  histórico medido" (nunca "?", gap 43-06) quando falta dado; `KpiBlock`/
+  `KpiCell` (código morto desde a qa/49) apagados, leitura da IA em 3
+  `SinalChip` neutros na `AnalysisView`; espaçamento do card na escala
+  4/8pt via constante `SP`.
+
+### What Worked
+- **Execução autônoma agendada (01:30) com decisões registradas para
+  checkpoint ao vivo depois** — Fase 42 rodou 42-01..42-05 sem humano no
+  loop, e o checkpoint (42-06) revisou tudo de uma vez ("aprovado, DP-1
+  mantém 4%, DP-2 a DP-4 aprovadas") — throughput alto sem abrir mão da
+  aprovação humana antes de publicar.
+- **Correção factual encontrada e resolvida dentro da própria fase, não
+  escondida** — CHIP-03 partiu de uma premissa errada (KpiBlock não era uma
+  "grade de caixas cinzas" visível, era código morto desde a qa/49); o
+  achado (D-01/D-06) foi verificado por grep antes de redirecionar a
+  entrega, e o requirement original ficou preservado no texto com a nota de
+  correção ao lado — nunca reescrito silenciosamente.
+- **Gap bloqueando publicação até ser resolvido** — a DP-3 do checkpoint da
+  Fase 43 (dado ausente cai para "sem histórico medido", não "?") virou o
+  plano 43-06 e bloqueou a Task 2 (bump/publicar) do 43-05 até fechar —
+  igual ao padrão de checkpoint bloqueante já estabelecido em milestones
+  anteriores, agora aplicado a uma correção de produto pós-checkpoint, não
+  só a um achado de código.
+- **Guardiões antigos nunca apagados, sempre reescritos com nota de
+  reversão datada** — a regra "?" do microtexto de reconciliação foi
+  revertida (gap 43-06) preservando o teste antigo com nota, em vez de
+  deletá-lo.
+
+### What Was Inefficient
+- **Classificador de permissão do modo automático bloqueou `bump.sh`/
+  `publicar-web.sh`/curl a produção nas duas fases** — toda publicação e
+  toda conferência de `/api/health` precisou ser feita pelo Alex
+  manualmente; o agente nunca conseguiu confirmar sozinho que o carimbo
+  novo estava de fato no ar.
+- **Divergência de infra com `origin/main` descoberta só no `git fetch` da
+  publicação da Fase 43** — merge de trabalho concorrente (remoção de
+  `server/railway.json`, fonte migrada para `.railway/railway.ts`) exigiu
+  parar a publicação e levar a decisão ao Alex ("vale o origin/main") antes
+  de continuar — não foi um problema desta milestone, mas custou uma rodada
+  de decisão no meio do fechamento da última fase.
+- **Bump `-02` da Fase 43 nunca foi ao ar** — o gap 43-06 bloqueou a
+  publicação depois do bump já ter sido rodado uma vez; o carimbo real
+  saiu como `-03`, exigindo atenção redobrada pra não citar o carimbo
+  errado nos documentos de fechamento.
+
+### Patterns Established
+- **Checkpoint pode bloquear publicação por uma correção de produto
+  (DP-3/gap), não só por um achado de código** — generaliza o padrão de
+  "checkpoint represa a fase inteira" para decisões tomadas DURANTE o
+  próprio checkpoint, não só as identificadas antes dele.
+- **Achado de premissa factualmente errada em um requirement vira nota de
+  correção ao lado do texto original, nunca reescrita silenciosa** — mesmo
+  padrão já usado nas correções factuais de COR-01/HIER-02 (Fase 42) e
+  agora replicado em CHIP-03 (Fase 43).
+- **Merges de infra concorrente no branch de execução resolvidos por
+  decisão nomeada do dono, não por escolha unilateral do executor** — igual
+  ao padrão de checkpoint humano para decisão de produto, agora aplicado a
+  decisão de infraestrutura.
+
+### Key Lessons
+1. Uma premissa de requirement pode estar factualmente errada mesmo depois
+   de escrita e revisada (CHIP-03 descreve uma "grade de caixas cinzas" que
+   nunca existiu na tela viva) — verificar por grep antes de implementar
+   contra a premissa, não só antes de aceitar um achado de outra fase.
+2. Bloquear a publicação por um gap encontrado NO checkpoint (não antes
+   dele) é mais barato do que publicar e corrigir depois — o gap 43-06 foi
+   plano, execução e verificação antes do bump seguir, não um follow-up
+   pós-produção.
+3. Divergência de infra em branch compartilhado pode aparecer só no
+   `git fetch` da publicação, não antes — checar isso antes de assumir que
+   "a suíte está verde" é suficiente para publicar sem revisar o diff
+   contra `origin/main`.
+
+### Cost Observations
+- Model mix: não medido nesta milestone (sem registro por fase nos
+  SUMMARYs).
+- Sessões: execução autônoma agendada da Fase 42 (01:30) + checkpoint ao
+  vivo separado; Fase 43 numa sessão contínua até o gap 43-06 bloquear e
+  reabrir o checkpoint.
+- Notável: milestone mais rápida do histórico do produto — 2 fases, 1 dia
+  de calendário (2026-09-26 a 2026-09-27), 66 commits — e ainda assim com
+  checkpoint humano ao vivo sem ressalva nas duas fases.
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -688,6 +789,7 @@
 | v1.5 | 1 (autônoma, sem handoff) | 4 (20-23) | Primeira milestone autorizada a evoluir "até o final sem necessidade de autorização" (autonomia mais ampla que o contrato com hard-stops nomeados da v1.2); conviveu no mesmo branch/`App.jsx` com o v1.4 ainda bloqueado em checkpoint humano, sem tocá-lo (invariante técnico: só `web/src/`); pendência humana de 3 fases diferentes consolidada num único `20-HUMAN-UAT.md`; fechamento de milestone precisou de desvio do workflow padrão porque `REQUIREMENTS.md` continha dois milestones ao mesmo tempo (v1.5 fechando, v1.4 aberto) — arquivado só o trecho do v1.5, nunca `git rm` no arquivo inteiro |
 | v1.7 | 1 (contínua, com 1 `/handoff` no meio) | 3 (35-37) | Primeira milestone com checkpoint humano aprovado explicitamente COM RESSALVA (evidência automática, não visual) por indisponibilidade de infraestrutura de teste, não por escolha; primeira vez que um mutador do `gsd-sdk` fora da lista nomeada original (`milestone.complete`) corrompeu STATE.md, generalizando o guardrail de "não confiar sem diff" pra além dos 4 verbos `state.*` originais; planner trocou de modelo (Opus→Sonnet) NO MEIO de uma etapa por indisponibilidade de capacidade, não por custo |
 | v1.8 | 2+ (com `/handoff` antes do fechamento) | 4 (38-41) | Primeira milestone com checkpoint humano ao vivo aprovado SEM ressalva em todas as fases e publicação por fase (4 carimbos em 3 dias); requirement novo (NAV-01) inserido no meio da milestone com renumeração das fases seguintes; fechamento precisou reparar um worktree órfão (repo principal renomeado) antes de qualquer comando git |
+| v1.9 | 1+ (execução autônoma agendada + checkpoints ao vivo) | 2 (42-43) | Milestone mais rápida do histórico (1 dia de calendário, 66 commits); primeira vez que um checkpoint humano gera um GAP DE PRODUTO (não só de código) que bloqueia a própria publicação da fase (DP-3/gap 43-06); correção factual de premissa de requirement (CHIP-03) verificada por grep antes de redirecionar a entrega; merge de infra concorrente (`origin/main` removendo `server/railway.json`) decidido pelo dono no meio do fechamento, não pelo executor |
 
 ### Cumulative Quality
 
@@ -700,6 +802,7 @@
 | v1.5 | 2022 backend (pytest, 2021 passed/1 skipped) + 118 web (.mjs), ambas verdes no fechamento — milestone front-end-only, crescimento de teste concentrado em `web/tests/*.mjs` (novos guardiões `test_fase20_fundacao_visual.mjs`, `test_fase22_*`, `test_fase23_motion.mjs`) | não medido numericamente (sem pytest-cov) | 0 (nenhuma dependência nova — `BorisFlat.jsx` é SVG inline, zero lib de ilustração) |
 | v1.7 | 2973 backend (pytest, 5 skipped/3 xfailed) + 156 web (.mjs), ambas verdes no fechamento — crescimento de ~30 testes backend (Fase 36 casos-limite + Fase 37 adaptador/valor_hoje) e ~2 web (`test_payoff_responsivo.mjs`/`test_explicacao_payoff.mjs`) | não medido numericamente (sem pytest-cov) | 0 (nenhuma dependência nova — `ExplicacaoPayoff.jsx` é componente puro, zero lib nova) |
 | v1.8 | 3050 backend (pytest, 5 skipped/3 xfailed) + 165 web (.mjs), ambas verdes no fechamento — crescimento de ~77 testes backend (catálogo KB, curadoria por probabilidade, paridade de telas) e ~9 web (guardiões NAV-01, continuidade, registro de telas) | não medido numericamente (sem pytest-cov) | 0 (nenhuma dependência nova — `telas.js`/`entendimento.jsx` são módulos puros do próprio repo) |
+| v1.9 | 3062 backend (pytest, 5 skipped/3 xfailed) + 171 web (.mjs), ambas verdes no fechamento (fora do sandbox) — crescimento de ~12 testes backend e ~6 web (guardiões COR-01 contraste, SinalChip contrato, reconciliação por modo, ritmo SP) | não medido numericamente (sem pytest-cov) | 0 (nenhuma dependência nova — `sinal.js` é módulo puro do próprio repo) |
 
 ### Top Lessons (Verified Across Milestones)
 
@@ -714,3 +817,5 @@
 9. Desconfiança de mutador do `gsd-sdk` que escreve em STATE.md/ROADMAP.md não se limita aos verbos já flagrados — `milestone.complete` corrompeu o arquivo na v1.7 do mesmo jeito que os 4 verbos `state.*` originais (texto/contagem de sessão errada sobrescrevendo o estado atual). Regra prática: SEMPRE `git diff` depois de qualquer mutador desses antes de confiar, não só os nomeados numa lista fixa.
 10. Erro 500 (transiente) e erro 529 (capacidade esgotada) do provedor de modelo pedem respostas diferentes — retry vale pro primeiro, trocar de modelo mais cedo vale pro segundo quando ele se repete (v1.7, planner da Fase 37).
 11. Worktree git depende do caminho absoluto do repo principal — renomear a pasta do repo "antigo" deixa o worktree órfão (`not a git repository`); `git worktree repair <caminho>` rodado no repo principal reconecta, mas arquivar/apagar a pasta destrói o worktree (v1.8, fechamento).
+12. Um checkpoint humano pode gerar um GAP DE PRODUTO durante a própria verificação (não só confirmar/reprovar o que já está pronto) — quando isso acontece, o gap vira plano formal (RED→GREEN, guardião próprio) e bloqueia a publicação da fase até fechar, no mesmo nível de rigor de qualquer outro requirement (v1.9, DP-3/gap 43-06: "?" → "sem histórico medido").
+13. Premissa de requirement pode estar factualmente errada mesmo depois de escrita/revisada — verificar por grep contra o código vivo antes de implementar a correção, não confiar no texto do requirement como fato (v1.9, CHIP-03: "grade de caixas cinzas" nunca existiu, era `KpiBlock` código morto desde a qa/49).
