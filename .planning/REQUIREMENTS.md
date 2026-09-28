@@ -42,7 +42,7 @@ a auditoria cita linhas ~25 menores (drift).
   *Nota (2026-09-27, Fase 42): correção factual — o `AtivoCard` é renderizado
   hoje em 2 contextos (Watchlist e Radar); Posições e home não o renderizam
   (ver 42-CONTEXT.md). Texto original preservado acima.*
-- [ ] **HIER-03**: Usuário vê, junto à elegibilidade, um microtexto de
+- [x] **HIER-03**: Usuário vê, junto à elegibilidade, um microtexto de
   reconciliação entre "o padrão bateu os critérios" e "o histórico de {n}
   ocorrências mostra {vantagem medida | sem vantagem medida | nunca
   medido}", em vez de dois pills soltos para conciliar sozinho. Texto com
@@ -61,14 +61,20 @@ a auditoria cita linhas ~25 menores (drift).
 - [x] **CHIP-02**: Todo `SinalChip` expõe `aria-label` descritivo, no padrão
   já usado por `HistoricoPill` (hoje `chip()`/`FundamentoChip`/`RegimeChip`
   só têm texto visual).
-- [ ] **CHIP-03**: A tela de detalhe técnico (`KpiBlock`/`KpiCell`,
+- [x] **CHIP-03**: A tela de detalhe técnico (`KpiBlock`/`KpiCell`,
   `App.jsx:1321-1356`, aberta via gráfico de velas) passa a mostrar
   direção/convicção/qualidade com o mesmo `SinalChip` peso `contexto`, em
   vez da grade de caixas cinzas.
+  *Nota (2026-09-27, Fase 43, D-06): correção factual — `KpiBlock`/`KpiCell`
+  eram código morto desde a qa/49 (nenhuma tela os renderizava; não havia
+  "grade de caixas cinzas" no detalhe de candles). Entregue: KpiBlock apagado;
+  direção/convicção/qualidade da IA como 3 `SinalChip` contexto neutros na
+  linha "LEITURA DA IA" da `AnalysisView` (Watchlist), sem a recomendação da
+  IA. Texto original preservado acima.*
 
 ### Ritmo visual
 
-- [ ] **RITMO-01**: Os blocos do card (manchete → plano → contexto →
+- [x] **RITMO-01**: Os blocos do card (manchete → plano → contexto →
   elegibilidade) usam espaçamento da escala 4/8pt
   (`qa/AUDITORIA-Design-System-v1.md §3.2`) via constantes nomeadas, sem
   valores soltos tipo `"11px"`/`"9px"` entre blocos.
@@ -109,12 +115,13 @@ a auditoria cita linhas ~25 menores (drift).
 | COR-01 | Phase 42 | Done |
 | HIER-01 | Phase 42 | Done |
 | HIER-02 | Phase 42 | Done |
-| HIER-03 | Phase 43 | Pending |
+| HIER-03 | Phase 43 | Done |
 | CHIP-01 | Phase 42 | Done |
 | CHIP-02 | Phase 42 | Done |
-| CHIP-03 | Phase 43 | Pending |
-| RITMO-01 | Phase 43 | Pending |
+| CHIP-03 | Phase 43 | Done |
+| RITMO-01 | Phase 43 | Done |
 
 ---
 *Requirements defined: 2026-09-26*
 *Last updated: 2026-09-27 — Fase 42 fechada: COR-01, HIER-01, HIER-02, CHIP-01, CHIP-02 Done, publicado `F10-20260927-01`. Checkpoint do Alex: DP-1 mantém alpha 4% (tema claro, 4,68:1), DP-2 (alinhamento só em regime de tendência), DP-3 (x/y critérios fora do cabeçalho do Radar) e DP-4 (Watchlist com regime+plano, selo de elegibilidade em chip 7px) aprovadas.*
+*Last updated: 2026-09-27 — Fase 43 fechada: HIER-03, CHIP-03, RITMO-01 Done, publicado `F10-20260927-03`. Checkpoint do Alex: DP-1 (caixa "Sem leitura do motor" na escala SP) e DP-2 (Leitura da IA só na Watchlist) aprovadas; DP-3 alternativa (dado ausente cai para "sem histórico medido", gap 43-06). CHIP-03 com premissa corrigida (D-06). Todos os requisitos da v1.9 Done.*

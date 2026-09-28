@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.9
 milestone_name: Jornada de Decisão
-status: executing
-stopped_at: 'Phase 43 em execução: 43-01..43-04 + gap 43-06 completos; checkpoint 43-05 aprovado; publicação BLOQUEADA — merge de origin/main conflita em infra (railway.json), aguardando decisão do Alex.'
-last_updated: "2026-09-27T15:00:00.000Z"
-last_activity: 2026-09-27 -- Phase 43: gap 43-06 executado; publicação aguarda decisão de infra
+status: phase_complete
+stopped_at: 'Phase 43 fechada e publicada (F10-20260927-03). Milestone v1.9 com as 2 fases completas — próximo: decisão do Alex sobre /gsd-complete-milestone.'
+last_updated: "2026-09-28T00:30:00.000Z"
+last_activity: 2026-09-27 -- Phase 43 fechada (6/6), publicada F10-20260927-03
 progress:
   total_phases: 2
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 12
-  completed_plans: 11
-  percent: 50
+  completed_plans: 12
+  percent: 100
 ---
 
 # Project State
@@ -24,6 +24,42 @@ See: .planning/PROJECT.md (updated 2026-09-26)
 **Current focus:** Milestone v1.9 Jornada de Decisão — hierarquia visual do `AtivoCard` (`PROJECT.md` §"Current Milestone").
 
 ## Current Position
+
+Milestone: v1.9 Jornada de Decisão (aberta 2026-09-26) — as 2 fases (42, 43)
+  completas e publicadas. Próximo: decisão do Alex sobre fechar o milestone
+  (`/gsd-complete-milestone`).
+Phase: 43 (refinamento-copy-por-modo-kpiblock-e-ritmo) — FECHADA (2026-09-27),
+  6/6 planos (43-01..43-05 + gap 43-06), publicada (`F10-20260927-03`, via
+  `entregar.sh` do Alex; o bump `-02` nunca foi ao ar).
+Status: Phase complete.
+Produção: `F10-20260927-03` (conferir `/api/health` — o agente não consegue,
+  o classificador bloqueia curl à produção).
+Entregue (HIER-03, CHIP-03, RITMO-01 Done):
+  - Microtexto de reconciliação por modo na linha de elegibilidade do
+    AtivoCard (`RECONCILIACAO_ELEGIBILIDADE` ↔ `reconciliacaoTxt`); Estudo com
+    cláusula tocável (abre confluência), Operador curto com n/janela/expR.
+  - DP-3 (Alex): dado exigido ausente cai para "sem histórico medido", nunca
+    "?" nem 0 (gap 43-06); `n=0` real continua 0.
+  - CHIP-03 corrigido: KpiBlock era código morto (qa/49) — apagado; leitura
+    da IA volta como 3 SinalChip neutros na AnalysisView, sem recomendação.
+  - Constante `SP` (4/8pt) no card inteiro + 2 exceções ópticas nomeadas;
+    guardião `test_ritmo_sp`.
+O que o próximo leitor não deve redescobrir:
+  - Radar "Aprofundar com IA" não tem kpis (scan_deep) — sem linha da IA (DP-2).
+  - `SP` existe só no card; tokens `--sp-*` globais seguem deferidos.
+  - Infra: merge de `origin/main` levou a remoção de `server/railway.json`
+    (`.railway/railway.ts` é a fonte; decisão do Alex, "vale o origin/main").
+Pendências declaradas:
+  - Build iOS/TestFlight (bundle já sincronizado pelo `entregar.sh`; falta
+    Xcode → Archive/Upload, ação do Alex).
+  - KB sem verbete de vantagem estatística / expectativa matemática / taxa de
+    acerto × rentabilidade (temas obrigatórios do CLAUDE.md) — candidato a
+    fase futura.
+  - "amostra insuficiente (n=0 …)" no Operador não cita janela nem n total —
+    observado no checkpoint, sem decisão.
+
+## Posição anterior (Fase 43, planejamento e execução — histórico)
+
 
 Milestone: v1.9 Jornada de Decisão (aberta 2026-09-26).
 Phase: 42 (cr-tico-cor-chip-nico-e-ordem-de-leitura) — FECHADA (2026-09-27),

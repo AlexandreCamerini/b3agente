@@ -165,7 +165,7 @@ Full phase details: [milestones/v1.8-ROADMAP.md](milestones/v1.8-ROADMAP.md)
 ### v1.9 Jornada de Decisão (Phases 42-43) — EM ANDAMENTO
 
 - [x] **Phase 42: Crítico — cor, chip único e ordem de leitura** (2026-09-27, publicado `F10-20260927-01`) - Token de confiabilidade separado do eixo direção/P&L, `ConfluenceRing` único perto da manchete, `SinalChip` com aria-label substituindo as 4 receitas de chip
-- [ ] **Phase 43: Refinamento — copy por modo, KpiBlock e ritmo** - Microtexto de reconciliação por modo via `skill_ref.py`/`copy.js`, `KpiBlock` migrado para `SinalChip`, espaçamento na escala 4/8pt
+- [x] **Phase 43: Refinamento — copy por modo, KpiBlock e ritmo** (2026-09-27, publicado `F10-20260927-03`) - Microtexto de reconciliação por modo via `skill_ref.py`/`copy.js`, `KpiBlock` migrado para `SinalChip`, espaçamento na escala 4/8pt
 
 ## Progress
 
@@ -214,7 +214,7 @@ Full phase details: [milestones/v1.8-ROADMAP.md](milestones/v1.8-ROADMAP.md)
 | 40. Continuidade da aba Opções | 2/2 | Complete (publicado `F10-20260925-01`, checkpoint humano aprovado ao vivo, DP-1) | 2026-09-25 |
 | 41. Consolidação de registros de tela | 3/3 | Complete (publicado `F10-20260925-02`, checkpoint humano aprovado ao vivo, achados D-04 não corrigidos) | 2026-09-25 |
 | 42. Crítico — cor, chip único e ordem de leitura | 6/6 | Complete (publicado `F10-20260927-01`, checkpoint humano aprovado ao vivo, DP-1..DP-4) | 2026-09-27 |
-| 43. Refinamento — copy por modo, KpiBlock e ritmo | v1.9 | In progress (5/6) | - |
+| 43. Refinamento — copy por modo, KpiBlock e ritmo | 6/6 | Complete (publicado `F10-20260927-03`, checkpoint humano aprovado ao vivo, DP-1..DP-3, gap 43-06) | 2026-09-27 |
 
 ## Phase Details
 
@@ -255,10 +255,10 @@ Plans:
 **Requirements**: HIER-03, CHIP-03, RITMO-01
 **Success Criteria** (o que precisa ser TRUE):
   1. O usuário vê, junto à elegibilidade, um microtexto de reconciliação com versão por modo (Estudo/Operador), vindo do par `server/app/skill_ref.py` ↔ `web/src/copy.js` — nenhuma string solta no componente, números vindos do `signal_ledger`
-  2. `KpiBlock`/`KpiCell` (detalhe técnico aberto via gráfico de velas) mostra direção/convicção/qualidade com `SinalChip` peso `contexto`, substituindo a grade de caixas cinzas
+  2. A leitura da IA (direção/convicção/qualidade) aparece com `SinalChip` peso `contexto` neutro na `AnalysisView` (Watchlist), sem a recomendação da IA; `KpiBlock`/`KpiCell`, código morto desde a qa/49, são apagados — correção factual, ver 43-CONTEXT.md D-01/D-06
   3. Os blocos do card (manchete → plano → contexto → elegibilidade) usam espaçamento da escala 4/8pt via constantes nomeadas, sem valores soltos tipo `"11px"`/`"9px"`
   4. Nenhum teste de `setups.py`/`kpi.py`/`signal_ledger.py` muda; suíte canônica e `npx vite build` verdes; publicação via `scripts/bump.sh` + `publicar-web.sh`; checkpoint humano ao vivo do Alex confirma em <3s veredito × contexto com a copy por modo visível
-**Plans**: 5 plans
+**Plans**: 6 plans
 
 Plans:
 **Wave 1**
@@ -277,7 +277,7 @@ Plans:
 **Wave 4** *(blocked on Wave 3 completion)*
 
 - [x] 43-06-PLAN.md — gap DP-3: microtexto cai para "sem histórico medido" em vez de "?" (skill_ref ↔ copy)
-- [ ] 43-05-PLAN.md — Checkpoint humano (SC#4 + DP-1..DP-3), publicação pelo Alex (bump/publicar-web), fechamento à mão com correção D-06
+- [x] 43-05-PLAN.md — Checkpoint humano (SC#4 + DP-1..DP-3), publicação pelo Alex (bump/publicar-web), fechamento à mão com correção D-06
 **UI hint**: yes
 
 ### Phase 9: Centralização de dados de mercado (mydata_client.py) — standalone, fora de v1.0/v1.1/v1.2/v1.3
