@@ -112,7 +112,7 @@ Decisão consciente de 2026-09-07 (opção "c" — aceitar e documentar):
 `railway up` **ignora o `server/railway.json`**. Consequências medidas nos
 logs de build:
 
-| | `railway.json` declara | staging na prática |
+| | `.railway/railway.ts` declara (o `railway.json` foi removido em 2026-09-27) | staging na prática |
 |---|---|---|
 | Builder | `NIXPACKS` | **Railpack 0.39.0** |
 | backup no início do `startCommand` | roda antes do uvicorn | **não roda** |
@@ -133,7 +133,7 @@ Prova de que o backup não roda: o volume de staging tem `b3.db` mas **não tem
 `/data/backups/`**. Verifique com
 `railway volume files --volume b3agente-volume list /`.
 
-Pendência registrada, não resolvida: mover `railway.json` para a raiz do repo
+Pendência resolvida em 2026-09-27 pela IaC (`.railway/railway.ts` na raiz do repo, `railway.json` removido); texto original: mover `railway.json` para a raiz do repo
 (resolveria builder e backup de uma vez, mas mexe na config que produção usa
 — exige janela dedicada e produção sob observação).
 

@@ -3,14 +3,9 @@
 // deprecado; a plataforma para de ler em 2026-12-01).
 //
 // Declarado = observado em 2026-09-27 (describe-service nos dois ambientes):
-// - builder: o painel diz RAILPACK, mas o build EFETIVO é Nixpacks (banner
-//   "Nixpacks v1.41.0" no log do deploy 1d4d9319, 2026-09-27) porque o
-//   `server/railway.json` declara NIXPACKS e Config as Code sobrepõe o
-//   painel enquanto a plataforma o lê. Ao remover o railway.json o build
-//   passa a Railpack (python 3.12 vs. a versão que o Railpack escolher) —
-//   VALIDAR NO STAGING (remover o JSON só na cópia local e `railway up`
-//   para staging) antes de remover em produção. O DSL documentado não tem
-//   campo de builder; se o `plan` mostrar `build.builder`, ele vem do pull.
+// - builder RAILPACK sem Dockerfile. O `NIXPACKS` do railway.json é vestigial:
+//   o log de build de 2026-09-27 mostra o provider Python do Railpack
+//   (`python -m venv /opt/venv && pip install -r requirements.txt`).
 // - fonte GitHub `AlexandreCamerini/b3agente`, rootDirectory `/server`,
 //   branch `main` em production e `staging` em staging. ATENÇÃO (STAGING.md):
 //   mudar branch por CLI já vazou para produção duas vezes em 2026-09-07.
