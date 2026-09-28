@@ -1,5 +1,5 @@
 {
-  "model_profile": "balanced",
+  "model_profile": "adaptive",
   "commit_docs": true,
   "parallelization": true,
   "search_gitignored": false,
@@ -68,5 +68,21 @@
   "resolve_model_ids": "auto",
   "runtime": "claude",
   "mode": "yolo",
-  "granularity": "coarse"
+  "granularity": "coarse",
+  "model_overrides": {
+    "gsd-planner": "opus",
+    "gsd-debugger": "opus",
+    "gsd-roadmapper": "opus",
+    "gsd-executor": "sonnet",
+    "gsd-code-fixer": "sonnet",
+    "gsd-verifier": "sonnet",
+    "gsd-ui-researcher": "sonnet",
+    "gsd-plan-checker": "haiku",
+    "gsd-ui-checker": "haiku",
+    "gsd-pattern-mapper": "haiku",
+    "gsd-codebase-mapper": "haiku",
+    "gsd-integration-checker": "haiku",
+    "gsd-doc-writer": "haiku",
+    "gsd-doc-verifier": "haiku"
+  }
 }

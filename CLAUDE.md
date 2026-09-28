@@ -427,6 +427,37 @@ verbos de LEITURA do SDK (`init.*`, `phase-plan-index`, `config-get`, …)
 seguem confiáveis e continuam em uso.
 <!-- GSD:workflow-end -->
 
+## Estratégia de execução — custo × desempenho (decisão do Alex, 2026-09-28)
+
+Modelo por papel vem de `.planning/config.json` (`model_profile: adaptive` +
+`model_overrides`): **Opus** orquestra e decide (sessão principal, planner,
+debugger, roadmapper); **Sonnet** constrói e verifica objetivo (executor,
+code-fixer, verifier, ui-researcher); **Haiku** checa estrutura e extrai
+(plan-checker, ui-checker, pattern-mapper, codebase-mapper, doc-writer). Não
+subir executor para Opus sem evidência de retrabalho; não descer executor para
+Haiku (App.jsx ~164k tokens + guardrails → retrabalho custa mais que o tier).
+
+Regras do orquestrador ao disparar subagentes (o custo fixo por agente era
+~130k tokens antes de tocar código):
+1. `files_to_read` do executor = PLAN + CONTEXT + UI-SPEC/PATTERNS da fase +
+   CLAUDE.md + skill pertinente. **Não** passar `STATE.md`, `PROJECT.md` nem
+   SUMMARYs de outras ondas (salvo dependência declarada no PLAN);
+   `checkpoints.md` só em plano `autonomous: false`.
+2. `App.jsx` nunca é lido inteiro: Grep + Read com offset/limit.
+3. Executor roda só os guardiões que o plano toca (+ `test_skill_ref.py` se
+   mexer em `skill_ref.py`) e `npx vite build` se tocou `web/src`. **Não** roda
+   o loop completo de `web/tests/*.mjs` nem `cap copy ios`.
+4. A suíte canônica (`bash scripts/executar.sh --testes`, fora do sandbox)
+   roda UMA vez por onda, pelo orquestrador (Bash direto, sem subagente), e
+   no fechamento; `npx cap copy ios` só antes dela.
+5. Verificação sem sobreposição: plan-checker (Haiku) no plano, verifier
+   (Sonnet) uma vez por fase. O orquestrador não relê o código que o verifier
+   já atestou; só age sobre gaps apontados.
+6. Uma sessão por comando GSD (`/clear` entre discuss → ui → plan → execute):
+   o orquestrador Opus paga o contexto acumulado em todo turno.
+7. `STATE.md` fica enxuto (posição atual + itens deferidos); histórico migra
+   verbatim para `.planning/STATE-HISTORY.md` no fechamento de milestone.
+
 <!-- GSD:profile-start -->
 ## Developer Profile
 
