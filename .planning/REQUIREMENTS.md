@@ -20,20 +20,20 @@ Todo cálculo é do motor determinístico (princípio 5); nada estimado.
 
 ### Motor — estrutura por ativo (Fase 44)
 
-- [ ] **ESTR-01**: O motor devolve, por ativo, TODAS as pernas de opção
+- [x] **ESTR-01**: O motor devolve, por ativo, TODAS as pernas de opção
   abertas (tipo, strike, vencimento, quantidade, lado), não só a primeira;
   a estrutura é classificada (call coberta / put de proteção / collar).
-- [ ] **ESTR-02**: O resultado da estrutura (P&L das ações + prêmio das pernas
+- [x] **ESTR-02**: O resultado da estrutura (P&L das ações + prêmio das pernas
   marcado a mercado) é calculado pelo motor; prêmio sem cotação →
   `null` (nunca 0, nunca estimado) e o resultado sinaliza "incompleto".
-- [ ] **ESTR-03**: O motor calcula a faixa no vencimento (piso/teto e
+- [x] **ESTR-03**: O motor calcula a faixa no vencimento (piso/teto e
   perda/ganho máximos pelos strikes); `null` quando não determinável.
-- [ ] **ESTR-04**: O motor classifica o estado da estrutura: vigente / ≤5 dias
+- [x] **ESTR-04**: O motor classifica o estado da estrutura: vigente / ≤5 dias
   / exercício provável / prêmio indisponível / vencida.
-- [ ] **ESTR-05**: O gate de liquidez barra só propostas NOVAS; estrutura já
+- [x] **ESTR-05**: O gate de liquidez barra só propostas NOVAS; estrutura já
   aberta reprovada no gate vira `aberta_sem_proposta`; encerramento com prêmio
   indisponível fica bloqueado com motivo.
-- [ ] **ESTR-06**: As frases de motivo (cada motivo distinto, sem colapsar
+- [x] **ESTR-06**: As frases de motivo (cada motivo distinto, sem colapsar
   `sem_contrato_liquido`/`sem_vencimento_elegivel` em `sem_setup`) e de
   piso/teto/stop vêm de `skill_ref.py`, espelhadas em `copy.js` com paridade
   travada por teste.
@@ -82,6 +82,6 @@ Todo cálculo é do motor determinístico (princípio 5); nada estimado.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ESTR-01..06 | 44 | Pending |
+| ESTR-01..06 | 44 | Complete |
 | CARD-01..06 | 45 | Pending |
 | DIDA-01..02 | 46 | Pending |

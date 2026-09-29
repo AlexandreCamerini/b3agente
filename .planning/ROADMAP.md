@@ -319,7 +319,7 @@ v1.9 Jornada de Decisão (Phases 42-43) shipped em 2026-09-27 — ver
 
 Requirements: `.planning/REQUIREMENTS.md`. Mock: https://claude.ai/artifact/JEpy5VmkoddNTHyVYnYWZc
 
-- [ ] Phase 44: Motor — estrutura por ativo (ESTR-01..06)
+- [x] Phase 44: Motor — estrutura por ativo (ESTR-01..06)
 - [ ] Phase 45: Card de posição estruturada (CARD-01..06)
 - [ ] Phase 46: Didática — expectativa matemática × taxa de acerto (DIDA-01..02)
 
