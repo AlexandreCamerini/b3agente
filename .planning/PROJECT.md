@@ -30,7 +30,9 @@ motor determinístico, sem aviso falso de "sem stop".
 
 **Target features:**
 - Motor: todas as pernas por ativo, resultado, faixa, estado, gate só em
-  proposta nova, motivos em `skill_ref.py` (Fase 44)
+  proposta nova, motivos em `skill_ref.py` (Fase 44 — **concluída e
+  verificada 2026-09-29**: `estrutura_posicao.ler_estrutura` + chave aditiva
+  `estrutura` em `GET /api/options/proposta/{ticker}`; ESTR-01..06 Done)
 - Card `CardPosicaoEstruturada` conforme mock aprovado (Fase 45)
 - Verbete KB expectativa matemática × taxa de acerto (Fase 46)
 
@@ -743,3 +745,4 @@ This document evolves at phase transitions and milestone boundaries.
 `F10-20260927-03`). Nenhum milestone aberto — próxima milestone a definir,
 via `/gsd-new-milestone`. Ver `.planning/milestones/v1.9-ROADMAP.md`/
 `v1.9-REQUIREMENTS.md` para o detalhe completo do v1.9.*
+*Atualizado 2026-09-29: Fase 44 (motor de estrutura por ativo) concluída — v2.0 em andamento (Fases 45-46 pendentes).*
