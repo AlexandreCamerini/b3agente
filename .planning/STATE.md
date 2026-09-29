@@ -37,6 +37,14 @@ Pendências fora de milestone: build iOS/TestFlight (Xcode → Archive/Upload,
   (motor) — ver "Deferred Items" abaixo e `PROJECT.md` §Active.
 Next: `/gsd-new-milestone` (sem candidata registrada ainda).
 
+## Quick Tasks Completed
+
+Tabela anterior (até 2026-09-16) em `.planning/STATE-HISTORY.md` §"Quick Tasks Completed".
+
+| # | Description | Date | Commit | Status | Directory |
+|---|-------------|------|--------|--------|-----------|
+| 260928-u0h | Aba Opções → Oportunidades: estrutura já aberta (proposta de encerramento, que não consulta a leitura técnica) sai do bloco "confirmadas pela leitura técnica" para a seção própria "Suas estruturas abertas"; cada posição que não vira proposta passa a mostrar o motivo (sem liquidez / sem mercado / leitura em COMPRAR / sem lastro / sem vencimento / sem contrato líquido / caixa / degradado / desconhecido → "Não há dados suficientes para concluir."). Módulo puro `classificarOportunidades.js`, frases por modo em `copy.js`, guardião novo `test_opcoes_abertas_e_motivos.mjs`, `test_carteira_opcoes_tira.mjs` reconciliado com nota. Gate da suíte pegou "trava protetora" (âncora CVM proibida no front) numa frase nova — corrigido (`fcf3cc98`). Suíte canônica 3063 pytest + 172/172 `.mjs`. Motor e `useOpcoesPropostas.js` intocados. Limitação: estrutura aberta em ativo com gate reprovado aparece como `aberta_sem_proposta`; frases de motivo em `copy.js` e não em `skill_ref` (o `motivoTexto` do backend colapsa 3 motivos na frase de sem_setup). Não publicado | 2026-09-28 | 51d32566, 77fdd628, fcf3cc98 | Verified | [260928-u0h](./quick/260928-u0h-separar-encerramento-e-motivo-por-posica/) |
+
 ## Histórico
 
 Posições anteriores (Fases 24–43), métricas, contexto acumulado de decisões e
