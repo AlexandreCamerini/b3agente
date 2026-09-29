@@ -13,7 +13,20 @@ created: 2026-09-29
 
 ## Premissas e ressalvas (ler primeiro)
 
-1. **O mock NÃO foi lido.** O link do canvas Design devolveu 403 ao WebFetch e a ferramenta Artifact não existe nesta sessão; não há cópia local (`grep CardEstrutura` só acha o CONTEXT). Ordem dos blocos, tratamento visual dos estados e formato da régua abaixo estão marcados **[derivado do CONTEXT D-01..D-11 + código, conferir com o mock]**. Se o mock divergir em hierarquia, o mock vence em layout; tokens, contraste e copy continuam por este spec.
+1. **Mock conferido pelo orquestrador (2026-09-29)** — o pesquisador não conseguiu lê-lo (403); o orquestrador leu `CardEstrutura.dc.html` e `Atual.dc.html` do canvas aprovado. Regra: **o mock vence em layout/hierarquia; tokens, contraste e copy seguem este spec.** Onde a seção "Layout do card" (marcada "conferir com o mock") divergir da tabela abaixo, vale a tabela. Estados e copy do mock (`vencida` com "Resultado final"/"viraram pó", "Ver em Opções", sufixo "(ação a zero)") NÃO valem: D-06 removeu "Ver em Opções" e o padrão conservador de vencida foi aprovado.
+
+   | # | Mock | Este spec (rascunho) | Resolução |
+   |---|------|----------------------|-----------|
+   | M1 | Resultado é **bloco próprio** abaixo do banner: kicker (10/800, caixa alta) + total 24 MONO + linha `ações … · opções …` 12 MONO | Total 16/700 à direita do header | **Mock vence**: bloco próprio; tamanho 24 é exceção de tipografia a aprovar no plano (herdado do mock; o checker contou 4 tamanhos sem ele) |
+   | M2 | Ordem: header → chips → banner → resultado → faixa → **limites (Piso/Teto/Stop + definir stop e alvo)** → pernas + fonte → ações | pernas antes de limites | **Mock vence**: limites antes de pernas |
+   | M3 | Kicker do resultado muda: `RESULTADO DA ESTRUTURA`; `SÓ AS AÇÕES — PRÊMIOS INDISPONÍVEIS` (degradado) | não previsto | Adotar; texto vem do motor/`copy`, sem "resultado final" na vencida |
+   | M4 | "Registrar saída…" desabilitado + frase ao lado (`0/1000 livres (lastro da call)`; put: "sem lastro") | só botão herdado | Adotar a frase como texto neutro descritivo, com `aria-describedby`; números vêm de `qtyTravada`/qty (nunca calculados por IA) |
+   | M5 | Piso/Teto/Stop em 3 linhas rotuladas em caixa `bgBase`; "Sem piso"/"Sem teto" quando aberto | limites só stop/alvo | Adotar as 3 linhas (texto do motor: `faixa.textos`); valores coloridos seguem fora da caixa (contraste) |
+   | M6 | Régua fina 2px + traço/rótulo por marcador; "← sem piso"/"sem teto →" nas pontas | trilho 8px + losango/disco + legenda | Manter a forma do mock (traços + rótulos) **com** forma distinta por marcador; trilho neutro (COR-01) |
+   | M7 | Estado `vencida`: link `Ver no histórico de operações →` | omitido | Adotar (navegação, alvo 44px); sem "resultado final" |
+   | M8 | Chip estudo `ESTUDO · COLLAR` / operador `ESTRUTURA · COLLAR` | chip de estrutura por modo | Igual — sem divergência |
+
+   O planner trata M1–M7 como parte do contrato; conflito residual entre este quadro e "Layout do card" se resolve por este quadro.
 2. **CONTEXT D-05 aponta para um lugar que não existe.** "Opções > Operar" foi dissolvida na Fase 39. `ABAS_OPCOES = ["oportunidades","recomendadas","montar"]` (rótulos "Oportunidades", "Destacadas", "Montar"). O fluxo de fechar (`PropostaDoAtivo` -> `fecharLastreada`) só renderiza dentro de **Oportunidades**, quando `oportunidadeAberta` (estado local de `OpcoesScreen`) == ticker. Ver §Navegação do Encerrar: exige um one-shot novo.
 3. Sem shadcn/Tailwind: React hand-rolled, estilo inline com tokens `T.*` (CSS vars) e escala `SP`. `Tool: none`; gate de registry não se aplica.
 
@@ -252,7 +265,7 @@ Sem ordem nova, sem rota nova, sem fill parcial, sem estrutura além das 3, sem 
 ## Perguntas em aberto (assumi o padrão indicado; nenhuma bloqueia)
 
 1. Mexer na manchete `collar` de `skill_ref.py:623/670` (texto regulado, guardrail CVM)? Padrão assumido: **não**; a exigência "âncora ausente" vale para todo texto visível **do card**. Se sim, exige texto aprovado pelo Alex.
-2. Mock não lido (403): conferir ordem dos blocos, forma dos marcadores da régua e posição do botão Encerrar contra o canvas antes do `plan-phase`.
+2. ~~Mock não lido~~ — conferido pelo orquestrador; divergências M1–M7 em §Premissas. Pendente do Alex só: aceitar o tamanho 24 do total (M1).
 3. Princípio 3: `estrutura` não traz flag de atraso/tempo real nem horário do dado. O card mostra só a hora da leitura. Quer campo aditivo no motor (quick/fase própria) ou aceita o gap?
 4. O destino do "Encerrar" só oferece fechar a **perna com lastro** (`pos_op_aberta`). Put isolada e 2ª perna do collar podem não ter caminho de encerramento em Oportunidades. Verificar `A.fecharLastreada`/rota com `contractSymbol` de put antes de prometer o fluxo na copy do Estudo.
 5. `↻ Atualizar` incluído por padrão (D-04 deixou opcional): só por toque, 1 chamada por ticker, sem polling. Remover se a cota brapi preocupar.
@@ -271,11 +284,11 @@ Sem ordem nova, sem rota nova, sem fill parcial, sem estrutura além das 3, sem 
 
 ## Checker Sign-Off
 
-- [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS
-- [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
-- [ ] Dimension 6 Registry Safety: PASS
+- [x] Dimension 1 Copywriting: PASS
+- [x] Dimension 2 Visuals: PASS
+- [x] Dimension 3 Color: PASS
+- [x] Dimension 4 Typography: PASS
+- [x] Dimension 5 Spacing: PASS
+- [x] Dimension 6 Registry Safety: PASS
 
-**Approval:** pending
+**Approval:** APPROVED (gsd-ui-checker, 2026-09-29; 6/6). Ressalva: M1–M7 (conferência com o mock) adicionados após a aprovação, por orquestrador — plan-checker deve verificá-los.
