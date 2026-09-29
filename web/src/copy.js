@@ -768,12 +768,35 @@ export const COPY = {
     tiraOpcoesSubtitulo: "Só aparecem aqui as posições em que a leitura técnica do próprio ativo confirma a estrutura agora — o mesmo motor que decide o gatilho do Radar.",
     tiraOpcoesVerDetalhe: "ver detalhe",
     tiraOpcoesCarregando: "Procurando estruturas possíveis nas suas posições…",
+    // Quick 260928-u0h (2026-09-28): tiraOpcoesSemCobertura/SemSetup/SemMercado sem consumidor em
+    // componente desde esta quick — mantidas (guardiões de paridade as travam); remoção é decisão separada.
     tiraOpcoesSemCobertura: "Nenhuma das suas posições tem opção com liquidez suficiente hoje — sem contrato líquido, não dá para estudar uma estrutura sobre ela.",
     tiraOpcoesSemSetup: "Suas posições têm opção líquida, mas a leitura técnica não indica nenhuma estrutura agora. A cadeia completa continua disponível em cada ativo.",
     // Quick 260908-ldg (D-07): terceiro caso do estado vazio — a diferença
     // para `tiraOpcoesSemCobertura` é NOMEAR a faixa, em vez de "sem
     // liquidez suficiente" genérico. Voz de professor: descreve a condição.
     tiraOpcoesSemMercado: "As opções das suas posições estão hoje na faixa SEM MERCADO — negociaram tão pouco que o preço da tela não seria o preço real de uma ordem. Por isso nenhuma estrutura é estudada sobre elas agora.",
+    // Quick 260928-u0h (2026-09-28): encerramento não passa pela leitura técnica (main.py, ramo
+    // `pos_op_aberta` -> proposta_fechar), por isso ganha seção própria. As frases de motivo moram
+    // AQUI e não em skill_ref porque `motivoTexto` do backend colapsa sem_contrato_liquido e
+    // sem_vencimento_elegivel na frase de sem_setup (falsa para eles).
+    tiraOpcoesAbertasTitulo: "SUAS ESTRUTURAS ABERTAS",
+    tiraOpcoesAbertasSubtitulo: "Estruturas que você já montou sobre suas ações. A proposta aqui é de encerramento do mesmo contrato — ela não passa pela leitura técnica, só pela cotação atual da opção.",
+    tiraOpcoesNenhumaNova: "Nenhuma estrutura nova confirmada pela leitura técnica agora.",
+    tiraOpcoesMotivosTitulo: "POR QUE AS OUTRAS POSIÇÕES NÃO APARECEM",
+    tiraOpcoesMotivo: {
+      sem_setup: "A leitura técnica deste ativo não pede venda coberta nem put de proteção agora — em alta, a venda da call travaria o movimento lido e a put pagaria uma proteção que a leitura não pede; sem leitura conclusiva, nada é proposto.",
+      sem_lastro: "Não há um lote livre de 100 ações deste ativo na carteira — venda coberta e put de proteção precisam de pelo menos 100 ações que ainda não estejam comprometidas com outra estrutura.",
+      sem_vencimento_elegivel: "Nenhum vencimento de opção deste ativo cai hoje na janela de prazo que o simulador estuda. Sem vencimento elegível, nenhuma estrutura é montada.",
+      sem_contrato_liquido: "Existe cadeia de opções, mas nenhum contrato no strike e no vencimento que a estrutura pede negocia o bastante para ter um preço confiável.",
+      caixa_insuficiente: "O dinheiro virtual disponível não cobre o prêmio da put de proteção, e a trava protetora também não coube no caixa. Nenhuma estrutura é estudada sem caixa para pagá-la.",
+      degradado: "A cotação de opções deste ativo veio degradada ou incompleta. Sem dado confiável, nenhuma estrutura é estudada — nada é estimado no lugar.",
+      sem_mercado: "As opções deste ativo estão na faixa SEM MERCADO — negociaram tão pouco que o preço da tela não seria o preço real de uma ordem.",
+      sem_liquidez: "As opções deste ativo não têm liquidez suficiente hoje para sustentar o estudo de uma estrutura.",
+      indisponivel: "Não foi possível consultar as opções deste ativo agora. Nada é mostrado no lugar do dado que faltou.",
+      aberta_sem_proposta: "Há uma estrutura aberta neste ativo, mas a proposta de encerramento não pôde ser montada agora (opção sem liquidez ou cotação indisponível). A posição continua aberta na sua carteira.",
+      desconhecido: "Nenhuma estrutura para este ativo agora, e o motivo não veio identificado. Não há dados suficientes para concluir.",
+    },
     linhaPropostaNaPosicao: "Estrutura de opções possível nesta posição",
 
     // Fase 32 (32-01, D-05): frase-ponte entre os dois motores cross-
@@ -1542,11 +1565,34 @@ export const COPY = {
     tiraOpcoesSubtitulo: "Só entram aqui posições cuja leitura técnica confirma a estrutura agora — mesmo motor do gatilho do Radar.",
     tiraOpcoesVerDetalhe: "ver detalhe",
     tiraOpcoesCarregando: "Varrendo suas posições…",
+    // Quick 260928-u0h (2026-09-28): tiraOpcoesSemCobertura/SemSetup/SemMercado sem consumidor em
+    // componente desde esta quick — mantidas (guardiões de paridade as travam); remoção é decisão separada.
     tiraOpcoesSemCobertura: "Nenhuma posição com opção líquida hoje — sem contrato líquido, não há estrutura para montar.",
     tiraOpcoesSemSetup: "Cobertura líquida existe, mas a leitura técnica não indica venda coberta, put de proteção nem collar agora. A cadeia completa continua disponível em cada ativo.",
     // Quick 260908-ldg (D-07): mesma distinção do ramo estudo (ver
     // comentário acima). Voz de mesa, sem verbo de ordem.
     tiraOpcoesSemMercado: "As opções das suas posições estão hoje na faixa SEM MERCADO — negociaram tão pouco que o preço da tela não é um preço real de execução. Nenhuma estrutura é montada sobre elas agora.",
+    // Quick 260928-u0h (2026-09-28): encerramento não passa pela leitura técnica (main.py, ramo
+    // `pos_op_aberta` -> proposta_fechar), por isso ganha seção própria. As frases de motivo moram
+    // AQUI e não em skill_ref porque `motivoTexto` do backend colapsa sem_contrato_liquido e
+    // sem_vencimento_elegivel na frase de sem_setup (falsa para eles).
+    tiraOpcoesAbertasTitulo: "ESTRUTURAS ABERTAS · ENCERRAMENTO",
+    tiraOpcoesAbertasSubtitulo: "Encerramento do contrato já aberto — não depende da leitura técnica, só da cotação atual da opção.",
+    tiraOpcoesNenhumaNova: "Nenhuma estrutura nova confirmada agora.",
+    tiraOpcoesMotivosTitulo: "SEM ESTRUTURA AGORA",
+    tiraOpcoesMotivo: {
+      sem_setup: "Leitura técnica sem sinal para venda coberta ou put de proteção — em alta a call trava o movimento; sem leitura, sem proposta.",
+      sem_lastro: "Sem lote livre de 100 ações para lastrear a estrutura.",
+      sem_vencimento_elegivel: "Nenhum vencimento dentro da janela de prazo operada.",
+      sem_contrato_liquido: "Sem contrato líquido no strike/vencimento da estrutura.",
+      caixa_insuficiente: "Caixa insuficiente para o prêmio da put; trava protetora também não fecha.",
+      degradado: "Cotação de opções degradada — estrutura suspensa até o dado normalizar.",
+      sem_mercado: "Opções na faixa SEM MERCADO — preço de tela não é preço de execução.",
+      sem_liquidez: "Opções sem liquidez suficiente hoje.",
+      indisponivel: "Consulta de opções indisponível agora — sem dado, sem estrutura.",
+      aberta_sem_proposta: "Estrutura aberta, encerramento sem proposta agora (opção ilíquida ou cotação indisponível). Posição segue aberta.",
+      desconhecido: "Sem estrutura agora; motivo não identificado. Não há dados suficientes para concluir.",
+    },
     linhaPropostaNaPosicao: "Estrutura de opções disponível nesta posição",
 
     // Fase 32 (32-01, D-05): mesma chave do ramo estudo (ver comentário
