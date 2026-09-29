@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: none
-milestone_name: Awaiting next milestone
-status: milestone_archived
-stopped_at: 'Milestone v1.9 (Jornada de Decisão, Fases 42-43) fechada e arquivada em 2026-09-27 (8/8 requirements Done; tag v1.9). Fechamento à mão, sem milestone.complete nem mutadores state.*. Próximo: /gsd-new-milestone.'
-last_updated: "2026-09-28T01:00:00.000Z"
-last_activity: 2026-09-27 -- Milestone v1.9 fechada e arquivada à mão (archive ROADMAP/REQUIREMENTS, MILESTONES, ROADMAP colapsado, PROJECT evoluído, retrospectiva; REQUIREMENTS.md removido para a próxima milestone)
+milestone: v2.0
+milestone_name: Estruturas de opções na carteira
+status: planning
+stopped_at: 'Milestone v2.0 aberta em 2026-09-29 (Fases 44-46, 14 requirements). Próximo: /gsd-discuss-phase 44 (uma sessão por comando; economia de modelo).'
+last_updated: "2026-09-29T00:00:00.000Z"
+last_activity: 2026-09-29 -- Milestone v2.0 aberta (REQUIREMENTS, ROADMAP Fases 44-46, PROJECT); fases da v1.9 movidas para milestones/v1.9-phases
 progress:
-  total_phases: 2
-  completed_phases: 2
-  total_plans: 12
-  completed_plans: 12
-  percent: 100
+  total_phases: 3
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -21,21 +21,20 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-27)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Milestone v1.9 arquivada (2026-09-27). Nenhum milestone aberto — aguardando `/gsd-new-milestone` (`PROJECT.md` §"Next Milestone (queued)").
+**Current focus:** Milestone v2.0 Estruturas de opções na carteira (Fases 44-46) — ver `.planning/ROADMAP.md`.
 
 ## Current Position
 
-Milestone: nenhum aberto. v1.9 (Jornada de Decisão, Fases 42-43, 12 planos,
-  8/8 requirements) shipped em 2026-09-27 e arquivada no mesmo dia — ver
-  `.planning/milestones/v1.9-ROADMAP.md` e `.planning/MILESTONES.md`.
-Status: milestone_archived. Produção em `F10-20260927-03`.
-Pendências fora de milestone: build iOS/TestFlight (Xcode → Archive/Upload,
-  ação do Alex); KB sem verbete de vantagem estatística/expectativa
-  matemática/taxa de acerto × rentabilidade (tema obrigatório do CLAUDE.md);
-  "amostra insuficiente (n=0 …)" no Operador sem janela/n total; tokens
-  `--sp-*` globais; motion do `ConfluenceRing`; decisão contra o regime
-  (motor) — ver "Deferred Items" abaixo e `PROJECT.md` §Active.
-Next: `/gsd-new-milestone` (sem candidata registrada ainda).
+Milestone: v2.0 Estruturas de opções na carteira (Fases 44-46).
+Phase: 44 — Motor: estrutura por ativo (não iniciada).
+Status: planning. Requirements em `.planning/REQUIREMENTS.md`.
+Decisões do Alex (2026-09-29): régua de faixa mantida; pernas sempre visíveis;
+  texto do Estudo completo; escopo motor + front aprovado. Instrução
+  principal: economizar modelo (CLAUDE.md §Estratégia de execução).
+Pendências fora de milestone: build iOS/TestFlight (ação do Alex); quick task
+  avulsa (textos de vazio sem consumidor + "amostra insuficiente" com janela
+  e n); quick 260928-u0h e entrega ainda sem push (confirmar com o Alex).
+Next: `/clear` e `/gsd-discuss-phase 44`.
 
 ## Quick Tasks Completed
 

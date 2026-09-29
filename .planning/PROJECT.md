@@ -22,14 +22,20 @@ funciona — não decorou uma resposta, aprendeu o raciocínio — e só então 
 acesso a automações do Modo Operador. Se o storyline pedagógico não convencer,
 nada mais no produto importa.
 
-## Next Milestone (queued): a definir
+## Current Milestone: v2.0 Estruturas de opções na carteira
 
-**Nenhum milestone aberto.** v1.9 Jornada de Decisão fechada e arquivada em
-2026-09-27. Próximo passo: `/gsd-new-milestone` — sem candidata registrada
-ainda; ver Active abaixo para o backlog priorizável (build iOS/TestFlight,
-KB sem verbete de vantagem estatística/expectativa matemática, "amostra
-insuficiente" sem janela/n, motion do `ConfluenceRing`, tokens `--sp-*`
-globais, decisão contra o regime).
+**Goal:** o card de Posições mostra a estrutura de opções inteira (ações +
+todas as pernas) com resultado, faixa no vencimento e estado, calculados pelo
+motor determinístico, sem aviso falso de "sem stop".
+
+**Target features:**
+- Motor: todas as pernas por ativo, resultado, faixa, estado, gate só em
+  proposta nova, motivos em `skill_ref.py` (Fase 44)
+- Card `CardPosicaoEstruturada` conforme mock aprovado (Fase 45)
+- Verbete KB expectativa matemática × taxa de acerto (Fase 46)
+
+**Origem:** print do Alex (UGPA3) — ver `REQUIREMENTS.md`. Requirements em
+`.planning/REQUIREMENTS.md`, roadmap Fases 44-46.
 
 ## Milestone v1.9 Jornada de Decisão — SHIPPED 2026-09-27
 
@@ -509,11 +515,10 @@ faltavam os números).
   com flag opt-in a descoberto, pesquisa concluída/decisão de escopo
   pendente) — ver `26-CONTEXT.md`. B2/C1/C2/C3 foram entregues na v1.8
   (Fases 38/40/41).
-- [ ] Próxima milestone a definir — abre via `/gsd-new-milestone`; sem
-  candidata registrada, ver "Next Milestone (queued)" acima
+- [ ] Milestone v2.0 em andamento (Fases 44-46) — ver "Current Milestone" acima
 - [ ] Build iOS/TestFlight (Xcode → Archive/Upload) com as Fases 42-43 —
   ação do Alex, ver `TESTFLIGHT.md`
-- [ ] KB sem verbete de vantagem estatística / expectativa matemática /
+- [ ] (v2.0, Fase 46) KB sem verbete de vantagem estatística / expectativa matemática /
   taxa de acerto × rentabilidade — temas obrigatórios do CLAUDE.md (camada
   educacional), observado no fechamento da v1.9, sem fase própria ainda
 - [ ] "amostra insuficiente (n=0 …)" no Operador não cita janela nem n
