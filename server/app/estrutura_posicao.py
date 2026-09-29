@@ -115,6 +115,10 @@ def _classificar(pernas: list) -> Optional[str]:
     return None
 
 
+def _sem_dados(p: dict) -> bool:
+    return p["lado"] is None or p["premioEntrada"] is None or p["quantidade"] is None
+
+
 def _resultado_perna(p: dict) -> Optional[float]:
     atual, entrada, qtd = p["premioAtual"], p["premioEntrada"], p["quantidade"]
     if atual is None or entrada is None or qtd is None:
@@ -130,6 +134,16 @@ def _data(v: Any) -> Optional[_dt.date]:
         return _dt.date.fromisoformat(v[:10])
     except ValueError:
         return None
+
+
+def _venc_norm(v: Any) -> Any:
+    d = _data(v)
+    return d if d else v
+
+
+def _venc_iso(v: Any) -> Any:
+    d = _data(v)
+    return d.isoformat() if d else v
 
 
 def _br(d: _dt.date) -> str:
@@ -158,11 +172,13 @@ def _faixa(pernas, acoes, nome, underlying, modo):
     if q_call > s:
         txt = t("faixa_perna_sem_lastro", quantidade=skill_ref.num_br_inteiro(q_call - s))
         return None, "perna_vendida_sem_lastro", txt, True, txt
-    divergem = {p["vencimento"] for p in pernas if p["vencimento"] is not None}
+    # WR-06: "2026-10-16" e "2026-10-16T00:00:00" são o mesmo dia — compara
+    # pela data parseada (dado não parseável segue opaco, comparado cru).
+    divergem = {_venc_norm(p["vencimento"]) for p in pernas if p["vencimento"] is not None}
     if len(divergem) > 1:
-        datas = [_data(v) for v in sorted(divergem, key=str)]
+        ordem = sorted(divergem, key=str)
         txt = t("faixa_vencimentos_diferentes", vencimentos=" e ".join(
-            _br(d) if d else str(v) for d, v in zip(datas, sorted(divergem, key=str))))
+            _br(v) if isinstance(v, _dt.date) else str(v) for v in ordem))
         return None, "vencimentos_diferentes", txt, False, None
     pm = acoes["precoMedio"]
     if pm is None or any(p["strike"] is None or p["quantidade"] is None
@@ -177,7 +193,7 @@ def _faixa(pernas, acoes, nome, underlying, modo):
     for p in pernas:
         entrada.append({
             "tipo": p["tipo"], "lado": p["lado"], "strike": p["strike"],
-            "premio": p["premioEntrada"], "vencimento": p["vencimento"],
+            "premio": p["premioEntrada"], "vencimento": _venc_iso(p["vencimento"]),
             "quantidade": p["quantidade"] * (escala if p["tipo"] == _PUT else 1.0),
             "contrato": p["id"]})
     try:
@@ -224,6 +240,10 @@ def _encerrar_perna(p: dict, modo: str) -> dict:
         return {"permitido": False, "motivo": "vencida",
                 "texto": skill_ref.estrutura_posicao_txt(
                     modo, "encerrar_vencida", vencimento=_br(_data(p["vencimento"])))}
+    if p["lado"] is None:
+        return {"permitido": False, "motivo": "dados_invalidos",
+                "texto": skill_ref.estrutura_posicao_txt(
+                    modo, "resultado_dados_invalidos", pernas=str(p["id"]))}
     if p["premioAtual"] is None or not p["lastOk"]:
         return {"permitido": False, "motivo": "premio_indisponivel",
                 "texto": skill_ref.estrutura_posicao_txt(
@@ -233,7 +253,12 @@ def _encerrar_perna(p: dict, modo: str) -> dict:
 
 def _estado(pernas: list, spot: Optional[float], hoje, modo: str) -> dict:
     """ESTR-04 — precedência vencida > premio_indisponivel > exercicio_provavel
-    > ate_5_dias > vigente. Referência = menor vencimento parseável."""
+    > ate_5_dias > vigente. Referência = menor vencimento parseável.
+
+    Decisão (WR-06, Fase 44): UMA perna vencida marca a estrutura inteira como
+    `vencida` (conservador — a leitura agregada nunca finge vigência) e bloqueia
+    o `encerrar` da estrutura; o `encerrar` de cada perna continua individual,
+    então as pernas ainda vigentes seguem encerráveis pela lista `pernas`."""
     t = lambda k, **d: skill_ref.estrutura_posicao_txt(modo, k, **d)  # noqa: E731
     datas = [d for d in (_data(p["vencimento"]) for p in pernas) if d]
     ref = min(datas) if datas else None
@@ -246,7 +271,8 @@ def _estado(pernas: list, spot: Optional[float], hoje, modo: str) -> dict:
 
     if dias is not None and dias < 0:
         return out("vencida", t("estado_vencida", vencimento=ref_txt))
-    sem_premio = [str(p["id"]) for p in pernas if p["premioAtual"] is None]
+    sem_premio = [str(p["id"]) for p in pernas
+                  if p["premioAtual"] is None and p["lado"] is not None]
     if sem_premio:
         return out("premio_indisponivel", t("estado_premio_indisponivel", pernas=", ".join(sem_premio)))
     if spot is not None:
@@ -304,10 +330,13 @@ def ler_estrutura(option_positions, underlying, posicao, spot, contratos_por_id,
                  "resultado": res_acoes}
 
     # --- resultado total (D-05) ---
-    sem_cotacao = [p["id"] for p in pernas if p["resultado"] is None]
+    # WR-05: resultado None tem duas causas distintas — sem cotação (premioAtual
+    # None) ou dado da própria perna inválido (lado, quantidade, prêmio de entrada).
+    sem_dados = [p["id"] for p in pernas if _sem_dados(p)]
+    sem_cotacao = [p["id"] for p in pernas if p["resultado"] is None and not _sem_dados(p)]
     cotadas = [p["resultado"] for p in pernas if p["resultado"] is not None]
     acao_falta = acoes is not None and acoes["resultado"] is None
-    incompleto = bool(sem_cotacao) or acao_falta
+    incompleto = bool(sem_cotacao) or bool(sem_dados) or acao_falta
     total, texto = None, None
     if not incompleto:
         total = round(sum(cotadas) + (acoes["resultado"] if acoes else 0.0), 2)
@@ -316,6 +345,9 @@ def ler_estrutura(option_positions, underlying, posicao, spot, contratos_por_id,
         if sem_cotacao:
             partes.append(skill_ref.estrutura_posicao_txt(
                 modo, "resultado_incompleto", pernas=", ".join(str(i) for i in sem_cotacao)))
+        if sem_dados:
+            partes.append(skill_ref.estrutura_posicao_txt(
+                modo, "resultado_dados_invalidos", pernas=", ".join(str(i) for i in sem_dados)))
         if acao_falta:
             partes.append(skill_ref.estrutura_posicao_txt(modo, "acao_sem_cotacao"))
         texto = " ".join(t for t in partes if t)
@@ -325,6 +357,7 @@ def ler_estrutura(option_positions, underlying, posicao, spot, contratos_por_id,
         "pernasCotadas": round(sum(cotadas), 2) if cotadas else None,
         "incompleto": incompleto,
         "pernasSemCotacao": sem_cotacao,
+        "pernasSemDados": sem_dados,
         "texto": texto,
     }
 
@@ -360,8 +393,13 @@ def ler_estrutura(option_positions, underlying, posicao, spot, contratos_por_id,
                "texto": skill_ref.estrutura_posicao_txt(
                    modo, "encerrar_vencida", vencimento=estado["vencimentoTexto"])}
     else:
+        invalidas = [str(p["id"]) for p in pernas if p["lado"] is None]
         faltam = [str(p["id"]) for p in pernas if p["premioAtual"] is None or not p["lastOk"]]
-        if faltam:
+        if invalidas:
+            enc = {"permitido": False, "motivo": "dados_invalidos",
+                   "texto": skill_ref.estrutura_posicao_txt(
+                       modo, "resultado_dados_invalidos", pernas=", ".join(invalidas))}
+        elif faltam:
             enc = {"permitido": False, "motivo": "premio_indisponivel",
                    "texto": skill_ref.estrutura_posicao_txt(
                        modo, "encerrar_premio_indisponivel", pernas=", ".join(faltam))}

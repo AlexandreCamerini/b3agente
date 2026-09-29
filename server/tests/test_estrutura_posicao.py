@@ -251,6 +251,44 @@ def test_wr04_side_normaliza_caixa_e_espaco():
     assert r["resultado"]["incompleto"] is False
 
 
+def test_wr05_dado_proprio_invalido_nao_vira_falta_de_cotacao():
+    # cotação presente, mas prêmio de entrada ausente: causa é o dado, não a cotação.
+    call = _call()
+    call["avg"] = None
+    r = _ler(ops=[call, _put()])
+    res = r["resultado"]
+    assert res["incompleto"] is True and res["total"] is None
+    assert res["pernasSemCotacao"] == [] and res["pernasSemDados"] == [CALL_ID]
+    assert _txt("resultado_dados_invalidos", pernas=CALL_ID) in res["texto"]
+    assert "falta cotação" not in res["texto"]
+
+
+def test_wr05_cotacao_ausente_continua_sendo_falta_de_cotacao():
+    ch = _cadeia()
+    ch[PUT_ID]["bid"] = ch[PUT_ID]["ask"] = ch[PUT_ID]["lastPrice"] = None
+    res = _ler(contratos=ch)["resultado"]
+    assert res["pernasSemCotacao"] == [PUT_ID] and res["pernasSemDados"] == []
+    assert _txt("resultado_incompleto", pernas=PUT_ID) in res["texto"]
+
+
+def test_wr06_mesmo_dia_em_formatos_diferentes_nao_diverge():
+    call, put = _call(), _put()
+    put["expiration"] = V.isoformat() + "T00:00:00"
+    r = _ler(ops=[call, put])
+    assert r["motivoFaixa"] is None and r["faixa"] is not None
+    assert r["nome"] == "collar"
+
+
+def test_wr06_perna_vencida_marca_estrutura_vencida_mas_perna_vigente_segue_encerravel():
+    # Decisão documentada em _estado: qualquer perna vencida => estrutura vencida
+    # e encerrar da estrutura bloqueado; o encerrar por perna segue individual.
+    r = _ler(ops=[_call(), _put(venc=HOJE - dt.timedelta(days=1))])
+    assert r["estado"] == "vencida"
+    assert r["encerrar"]["permitido"] is False and r["encerrar"]["motivo"] == "vencida"
+    assert _perna(r, PUT_ID)["encerrar"]["motivo"] == "vencida"
+    assert _perna(r, CALL_ID)["encerrar"]["permitido"] is True
+
+
 def test_fora_da_biblioteca_sem_faixa():
     r = _ler(ops=[_call(side=None)])
     assert r["faixa"] is None and r["motivoFaixa"] == "fora_da_biblioteca"

@@ -58,7 +58,7 @@ const CHAVES_ESTRUTURA = [
   "faixa_teto_parcial", "faixa_piso_sem_perda",
   "faixa_vencimentos_diferentes", "faixa_perna_sem_lastro", "faixa_sem_acoes",
   "faixa_dados_insuficientes", "descoberta_put", "stop_protegida", "resultado_incompleto",
-  "acao_sem_cotacao", "encerrar_premio_indisponivel", "encerrar_vencida", "origem_last",
+  "acao_sem_cotacao", "resultado_dados_invalidos", "encerrar_premio_indisponivel", "encerrar_vencida", "origem_last",
 ];
 const CHAVES_MOTIVO = [
   "sem_lastro", "sem_setup", "degradado", "caixa_insuficiente", "sem_contrato_liquido",

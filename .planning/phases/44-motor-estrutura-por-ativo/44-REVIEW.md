@@ -54,13 +54,13 @@ Motor puro bem isolado (sem rede/relogio), rota com try/except proprio, chave ad
 **Issue:** `"venda" if op.get("side") == "vendida" else "compra"`. Qualquer valor inesperado ("short", "Vendida", "sell") vira perna comprada: call vendida lida como call comprada muda nome (`None`), resultado (sinal invertido em `_resultado_perna`) e marcação (bid em vez de ask). Sem sinal de erro.
 **Fix:** normalizar (`str(...).strip().lower()`); para valor não vazio e fora de {"vendida","comprada"}, marcar `lado=None`, resultado None e `incompleto` True (nunca adivinhar sinal).
 
-### WR-05: Motivo de "incompleto" atribuído sempre a falta de cotação
+### WR-05 [CORRIGIDO]: Motivo de "incompleto" atribuído sempre a falta de cotação
 
 **File:** `server/app/estrutura_posicao.py:105-110, 281-292`
 **Issue:** `resultado` da perna é None também quando `premioEntrada` (`avg`) ou `quantidade` é inválido; `resultado_incompleto` diz "falta cotação de X" mesmo com cotação presente. Além disso `pernasSemCotacao` mistura os dois motivos, e `estado` só vira `premio_indisponivel` pela cotação: estados divergem.
 **Fix:** separar `sem_cotacao` (premioAtual None) de `sem_entrada` (entrada/qtd inválida) com frase própria, ou renomear o campo e texto para "sem dados".
 
-### WR-06: Comparação de vencimento por string crua
+### WR-06 [CORRIGIDO]: Comparação de vencimento por string crua
 
 **File:** `server/app/estrutura_posicao.py:148-153`
 **Issue:** `divergem` compara `p["vencimento"]` cru; "2026-10-16" e "2026-10-16T00:00:00" contam como vencimentos diferentes e derrubam a faixa (falso "vencimentos diferentes"). O payoff já tem a mesma regra (dado opaco), mas aqui a normalização `_data` já existe. Também: `estado` usa o menor vencimento, então uma perna vencida marca a estrutura inteira como `vencida` e bloqueia `encerrar` de pernas ainda vigentes (`estrutura_posicao.py:332`).
