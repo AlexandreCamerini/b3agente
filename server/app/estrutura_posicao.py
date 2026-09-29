@@ -17,13 +17,27 @@ Decisões (44-CONTEXT):
   "last" explícita; nenhum → None. Nunca mid, nunca estimado.
 - D-05: com perna (ou ação) sem cotação o total é None e `incompleto` True;
   as partes conhecidas aparecem separadas. Nunca 0 no lugar de desconhecido.
+- D-08: vencimentos divergentes → sem faixa (o payoff recusa aproximar), todas
+  as pernas listadas, estado pelo vencimento mais próximo.
+- D-09: faixa só na parte coberta (`qtdBase`); call vendida acima das ações →
+  sem faixa (perda ilimitada); put excedente → `descoberta`.
+- ESTR-04 (discrição documentada): dias em CORRIDOS, mesma convenção de
+  `opcoes_lastreadas._dias_ate`. "Exercício provável" = dentro do dinheiro
+  por qualquer valor, estrito (CALL spot > strike, PUT spot < strike), porque
+  a B3 exerce automaticamente a opção ITM no vencimento — leitura "se
+  vencesse hoje". Precedência: vencida > premio_indisponivel >
+  exercicio_provavel > ate_5_dias > vigente.
+- D-07/ESTR-05: `abertaSemProposta` é eixo SEPARADO do estado — a estrutura
+  nunca some. `encerrar` exige `lastPrice` numérico > 0 porque é o preço que
+  `options_lastreada_fechar` (main.py) executa; permitir um encerramento que
+  a rota recusaria seria afirmar algo falso.
 """
 from __future__ import annotations
 
 import datetime as _dt
 from typing import Any, Optional
 
-from . import skill_ref
+from . import options_quant, opcoes_payoff, skill_ref
 
 _CALL, _PUT = "CALL", "PUT"
 
@@ -96,6 +110,135 @@ def _resultado_perna(p: dict) -> Optional[float]:
     return round(dif * qtd, 2)
 
 
+def _data(v: Any) -> Optional[_dt.date]:
+    if not isinstance(v, str):
+        return None
+    try:
+        return _dt.date.fromisoformat(v[:10])
+    except ValueError:
+        return None
+
+
+def _br(d: _dt.date) -> str:
+    return d.strftime("%d/%m/%Y")
+
+
+def _liquidez(contrato: Optional[dict]) -> Optional[dict]:
+    if not isinstance(contrato, dict):
+        return None
+    sc = options_quant.liquidity_score(
+        _num(contrato.get("volume")), _num(contrato.get("openInterest")),
+        _num(contrato.get("bid")), _num(contrato.get("ask")))["score"]
+    return {"score": sc, "faixa": options_quant.faixa_de_liquidez(sc)}
+
+
+def _faixa(pernas, acoes, nome, underlying, modo):
+    """(faixa|None, motivo|None, motivoTexto|None, descoberta, descobertaTexto)."""
+    t = lambda k, **d: skill_ref.estrutura_posicao_txt(modo, k, **d)  # noqa: E731
+    if nome is None:
+        return None, "fora_da_biblioteca", t("nome_fora_da_biblioteca"), False, None
+    if acoes is None:
+        return None, "sem_acoes", t("faixa_sem_acoes", ticker=underlying), False, None
+    s = acoes["quantidade"]
+    q_call = sum(p["quantidade"] or 0 for p in pernas if p["tipo"] == _CALL)
+    q_put = sum(p["quantidade"] or 0 for p in pernas if p["tipo"] == _PUT)
+    if q_call > s:
+        txt = t("faixa_perna_sem_lastro", quantidade=skill_ref.num_br_inteiro(q_call - s))
+        return None, "perna_vendida_sem_lastro", txt, True, txt
+    divergem = {p["vencimento"] for p in pernas if p["vencimento"] is not None}
+    if len(divergem) > 1:
+        datas = [_data(v) for v in sorted(divergem, key=str)]
+        txt = t("faixa_vencimentos_diferentes", vencimentos=" e ".join(
+            _br(d) if d else str(v) for d, v in zip(datas, sorted(divergem, key=str))))
+        return None, "vencimentos_diferentes", txt, False, None
+    pm = acoes["precoMedio"]
+    if pm is None or any(p["strike"] is None or p["quantidade"] is None
+                         or p["premioEntrada"] is None for p in pernas):
+        return None, "dados_insuficientes", t("faixa_dados_insuficientes"), False, None
+    base = min(s, max(q_call, q_put))
+    escala = s / q_put if q_put > s else 1.0
+    descoberta = q_put > s
+    desc_txt = t("descoberta_put", quantidade=skill_ref.num_br_inteiro(q_put - s),
+                 qtdBase=skill_ref.num_br_inteiro(base)) if descoberta else None
+    entrada = [{"tipo": "ACAO", "lado": "compra", "strike": 0, "premio": pm, "quantidade": base}]
+    for p in pernas:
+        entrada.append({
+            "tipo": p["tipo"], "lado": p["lado"], "strike": p["strike"],
+            "premio": p["premioEntrada"], "vencimento": p["vencimento"],
+            "quantidade": p["quantidade"] * (escala if p["tipo"] == _PUT else 1.0),
+            "contrato": p["id"]})
+    try:
+        perfil = opcoes_payoff.perfil_da_estrutura(entrada)
+    except ValueError:
+        return None, "dados_insuficientes", t("faixa_dados_insuficientes"), descoberta, desc_txt
+    puts = [p["strike"] for p in pernas if p["tipo"] == _PUT and p["lado"] == "compra"]
+    calls = [p["strike"] for p in pernas if p["tipo"] == _CALL and p["lado"] == "venda"]
+    piso, teto = (max(puts) if puts else None), (min(calls) if calls else None)
+    perda, ganho = _r2(perfil["perda_maxima"]), _r2(perfil["ganho_maximo"])
+    qtd = skill_ref.num_br_inteiro(base)
+    textos = []
+    if piso is not None and perda is not None:
+        textos.append(t("faixa_piso", piso=skill_ref.num_br(piso),
+                        perdaMaxima=skill_ref.num_br(perda), qtd=qtd))
+    elif perda is not None:
+        textos.append(t("faixa_sem_piso", perdaMaxima=skill_ref.num_br(perda)))
+    if teto is not None and ganho is not None:
+        textos.append(t("faixa_teto", teto=skill_ref.num_br(teto),
+                        ganhoMaximo=skill_ref.num_br(ganho), qtd=qtd))
+    else:
+        textos.append(t("faixa_sem_teto"))
+    faixa = {"piso": piso, "teto": teto, "perdaMaxima": perda, "ganhoMaximo": ganho,
+             "breakevens": [round(b, 2) for b in perfil["breakevens"]],
+             "qtdBase": base, "textos": textos}
+    return faixa, None, None, descoberta, desc_txt
+
+
+def _encerrar_perna(p: dict, modo: str) -> dict:
+    if p["dias"] is not None and p["dias"] < 0:
+        return {"permitido": False, "motivo": "vencida",
+                "texto": skill_ref.estrutura_posicao_txt(
+                    modo, "encerrar_vencida", vencimento=_br(_data(p["vencimento"])))}
+    if p["premioAtual"] is None or not p["lastOk"]:
+        return {"permitido": False, "motivo": "premio_indisponivel",
+                "texto": skill_ref.estrutura_posicao_txt(
+                    modo, "encerrar_premio_indisponivel", pernas=str(p["id"]))}
+    return {"permitido": True, "motivo": None, "texto": None}
+
+
+def _estado(pernas: list, spot: Optional[float], hoje, modo: str) -> dict:
+    """ESTR-04 — precedência vencida > premio_indisponivel > exercicio_provavel
+    > ate_5_dias > vigente. Referência = menor vencimento parseável."""
+    t = lambda k, **d: skill_ref.estrutura_posicao_txt(modo, k, **d)  # noqa: E731
+    datas = [d for d in (_data(p["vencimento"]) for p in pernas) if d]
+    ref = min(datas) if datas else None
+    dias = (ref - hoje).days if ref else None
+    ref_txt = _br(ref) if ref else None
+
+    def out(estado, texto):
+        return {"estado": estado, "texto": texto, "referencia": ref.isoformat() if ref else None,
+                "dias": dias, "vencimentoTexto": ref_txt}
+
+    if dias is not None and dias < 0:
+        return out("vencida", t("estado_vencida", vencimento=ref_txt))
+    sem_premio = [str(p["id"]) for p in pernas if p["premioAtual"] is None]
+    if sem_premio:
+        return out("premio_indisponivel", t("estado_premio_indisponivel", pernas=", ".join(sem_premio)))
+    if spot is not None:
+        for p in pernas:
+            if p["strike"] is None or (p["dias"] is not None and p["dias"] < 0):
+                continue
+            itm = spot > p["strike"] if p["tipo"] == _CALL else spot < p["strike"]
+            if itm:
+                return out("exercicio_provavel", t(
+                    "estado_exercicio_provavel",
+                    strike=skill_ref.num_br(p["strike"]), spot=skill_ref.num_br(spot)))
+    if dias is None:
+        return out("vigente", t("estado_vigente_sem_data"))
+    if dias <= 5:
+        return out("ate_5_dias", t("estado_perto_vencimento", dias=dias, vencimento=ref_txt))
+    return out("vigente", t("estado_vigente", dias=dias, vencimento=ref_txt))
+
+
 def ler_estrutura(option_positions, underlying, posicao, spot, contratos_por_id,
                   hoje, modo, motivo_sem_proposta=None) -> Optional[dict]:
     """Leitura determinística da estrutura aberta de `underlying`.
@@ -116,6 +259,11 @@ def ler_estrutura(option_positions, underlying, posicao, spot, contratos_por_id,
         p["premioAtual"], p["origemPremio"], p["origemTexto"] = _marcar(
             p, contratos.get(p["id"]), modo)
         p["resultado"] = _resultado_perna(p)
+        ct = contratos.get(p["id"])
+        p["liquidez"] = _liquidez(ct)
+        p["lastOk"] = isinstance(ct, dict) and _num(ct.get("lastPrice")) is not None
+        d = _data(p["vencimento"])
+        p["dias"] = (d - hoje).days if d else None
         pernas.append(p)
 
     nome = _classificar(pernas)
@@ -159,9 +307,42 @@ def ler_estrutura(option_positions, underlying, posicao, spot, contratos_por_id,
         "vencimento": p["vencimento"], "quantidade": p["quantidade"],
         "premioEntrada": _r2(p["premioEntrada"]), "premioAtual": _r2(p["premioAtual"]),
         "origemPremio": p["origemPremio"], "origemTexto": p["origemTexto"],
-        "resultado": p["resultado"],
+        "resultado": p["resultado"], "diasParaVencimento": p["dias"],
+        "liquidez": p["liquidez"], "encerrar": _encerrar_perna(p, modo),
     } for p in pernas]
 
+    faixa, motivo_faixa, motivo_faixa_txt, descoberta, descoberta_txt = _faixa(
+        pernas, acoes, nome, underlying, modo)
+    estado = _estado(pernas, spot, hoje, modo)
+
+    # --- eixo aberta_sem_proposta (D-07) ---
+    motivo_sp = None
+    if any(p["liquidez"] and p["liquidez"]["faixa"] == options_quant.FAIXA_SEM_MERCADO
+           for p in pernas):
+        motivo_sp = "sem_mercado"
+    elif motivo_sem_proposta:
+        motivo_sp = motivo_sem_proposta
+    motivo_sp_txt = None
+    if motivo_sp:
+        motivo_sp_txt = skill_ref.estrutura_posicao_txt(
+            modo, "aberta_sem_proposta",
+            motivo=skill_ref.opcoes_lastreadas_txt(modo, motivo_sp, ticker=underlying))
+
+    # --- encerrar da estrutura ---
+    if estado["estado"] == "vencida":
+        enc = {"permitido": False, "motivo": "vencida",
+               "texto": skill_ref.estrutura_posicao_txt(
+                   modo, "encerrar_vencida", vencimento=estado["vencimentoTexto"])}
+    else:
+        faltam = [str(p["id"]) for p in pernas if p["premioAtual"] is None or not p["lastOk"]]
+        if faltam:
+            enc = {"permitido": False, "motivo": "premio_indisponivel",
+                   "texto": skill_ref.estrutura_posicao_txt(
+                       modo, "encerrar_premio_indisponivel", pernas=", ".join(faltam))}
+        else:
+            enc = {"permitido": True, "motivo": None, "texto": None}
+
+    piso = faixa["piso"] if faixa else None
     return {
         "underlying": underlying,
         "nome": nome,
@@ -170,5 +351,20 @@ def ler_estrutura(option_positions, underlying, posicao, spot, contratos_por_id,
         "pernas": saida_pernas,
         "acoes": acoes,
         "resultado": resultado,
+        "faixa": faixa,
+        "motivoFaixa": motivo_faixa,
+        "motivoFaixaTexto": motivo_faixa_txt,
+        "descoberta": descoberta,
+        "descobertaTexto": descoberta_txt,
+        "estado": estado["estado"],
+        "estadoTexto": estado["texto"],
+        "vencimentoReferencia": estado["referencia"],
+        "diasParaVencimento": estado["dias"],
+        "abertaSemProposta": motivo_sp is not None,
+        "motivoSemProposta": motivo_sp,
+        "motivoSemPropostaTexto": motivo_sp_txt,
+        "encerrar": enc,
+        "stopTexto": (skill_ref.estrutura_posicao_txt(
+            modo, "stop_protegida", piso=skill_ref.num_br(piso)) if piso is not None else None),
         "incompleto": incompleto,
     }
