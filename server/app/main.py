@@ -16,6 +16,7 @@ from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Red
 from fastapi.staticfiles import StaticFiles
 
 from . import db, defaults, indicators, llm, pending_orders, plan, setups, store, technical_models, tickers, yahoo
+from . import estrutura_posicao  # Fase 44: leitura de estrutura por ativo (motor puro)
 from . import candles as candles_mod  # Objetivo 4: período de candles configurável
 from . import brapi_budget  # ADR-008: orçamento de requisições da brapi (Fase 2)
 from . import candle_cache  # Objetivo 5: cache de candles (delta + revalida último)
@@ -3235,6 +3236,46 @@ async def options_proposta(ticker: str, multiperna: bool = False, scope: Optiona
     motivo = resultado["motivo"]
     motivo_texto = skill_ref.opcoes_lastreadas_txt(modo, motivo, ticker=t)
     put_sem_lastro_ids = opcoes_lastreadas.put_sem_lastro(option_positions, positions)
+    # Fase 44 (D-01/D-03/D-07/D-08): a ESTRUTURA não sai do `next(...)` de
+    # `pos_op_aberta` (que serve só à proposta legada de fechamento) — sai de
+    # TODAS as pernas do underlying. Try/except PRÓPRIO: falha aqui nunca
+    # degrada a proposta nem vira 500.
+    estrutura = None
+    try:
+        pernas_ativo = [p for p in option_positions
+                        if isinstance(p, dict) and p.get("underlying") == t]
+        if pernas_ativo:
+            vencimentos = []
+            for p in pernas_ativo:
+                v = p.get("expiration")
+                if v and v not in vencimentos:
+                    vencimentos.append(v)
+            contratos_por_id, spot_est = {}, None
+            for venc in vencimentos:
+                try:
+                    ch = await options_provider.get_options(t, venc)
+                except Exception:
+                    continue  # só as pernas deste vencimento ficam sem cotação
+                if not isinstance(ch, dict) or ch.get("providerStatus") != "ok":
+                    continue
+                for c in (ch.get("calls") or []) + (ch.get("puts") or []):
+                    if isinstance(c, dict) and c.get("contractSymbol"):
+                        contratos_por_id[c["contractSymbol"]] = c
+                if spot_est is None:
+                    spot_est = _spot_from_chain_or_quote(ch, None)
+            if spot_est is None:
+                try:
+                    spot_est = _spot_from_chain_or_quote({}, await candle_provider.get_quote(t))
+                except Exception:
+                    spot_est = None
+            motivo_sp = (resultado["motivo"]
+                         if (pos_op_aberta and resultado.get("proposta") is None) else None)
+            estrutura = estrutura_posicao.ler_estrutura(
+                option_positions, t, posicao, spot_est, contratos_por_id,
+                _hoje_brt(), modo, motivo_sem_proposta=motivo_sp)
+    except Exception as e:
+        estrutura = None
+        obslog.log("err", f"options_proposta estrutura {t}: {type(e).__name__}: {e}", level="warn")
     return {
         "ticker": t, "providerStatus": provider_status, "modo": modo,
         "proposta": resultado["proposta"], "motivo": motivo, "motivoTexto": motivo_texto,
@@ -3251,6 +3292,9 @@ async def options_proposta(ticker: str, multiperna: bool = False, scope: Optiona
         # cobre os ramos de fechamento e de degradação — não mascara falha de
         # dado de mercado (essa já vira `motivo="degradado"` antes daqui).
         "candidatos": resultado.get("candidatos", []),
+        # Fase 44, D-01: chave ADITIVA (cliente antigo ignora). O iOS logado
+        # lê pela mesma rota (D-02); None = sem opção aberta no ativo.
+        "estrutura": estrutura,
     }
 
 
