@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Estruturas de opções na carteira
 status: phase_44_complete
-stopped_at: 'Fase 44 executada e verificada em 2026-09-29 (3/3 planos, VERIFICATION passed, suíte canônica verde). Próximo: Fase 45 (discuss/plan em sessão nova).'
+stopped_at: 'Fase 45 discutida em 2026-09-29 (45-CONTEXT.md, 11 decisões). Próximo: /gsd-ui-phase 45 (UI-SPEC a partir do mock) e /gsd-plan-phase 45, sessões novas.'
 last_updated: "2026-09-29T00:00:00.000Z"
 last_activity: 2026-09-29 -- Milestone v2.0 aberta (REQUIREMENTS, ROADMAP Fases 44-46, PROJECT); fases da v1.9 movidas para milestones/v1.9-phases
 progress:
@@ -27,14 +27,14 @@ See: .planning/PROJECT.md (updated 2026-09-27)
 
 Milestone: v2.0 Estruturas de opções na carteira (Fases 44-46).
 Phase: 44 — Motor: estrutura por ativo (COMPLETA: 44-01 vocabulário → 44-02 motor puro → 44-03 rota aditiva; verificada).
-Status: phase_44_complete. Requirements em `.planning/REQUIREMENTS.md`.
+Status: phase_45_context_ready (Fase 44 completa). Requirements em `.planning/REQUIREMENTS.md`.
 Decisões do Alex (2026-09-29): régua de faixa mantida; pernas sempre visíveis;
   texto do Estudo completo; escopo motor + front aprovado. Instrução
   principal: economizar modelo (CLAUDE.md §Estratégia de execução).
 Pendências fora de milestone: build iOS/TestFlight (ação do Alex); quick task
   avulsa (textos de vazio sem consumidor + "amostra insuficiente" com janela
   e n); quick 260928-u0h e entrega ainda sem push (confirmar com o Alex).
-Next: `/clear` e iniciar a Fase 45 (`/gsd-discuss-phase 45`). Atenção Fase 45: reconciliar `tiraOpcoesMotivo`/collar ('trava protetora') deixados intocados no 44-01.
+Next: `/clear` e `/gsd-ui-phase 45`, depois `/gsd-plan-phase 45`. Planner: ajustar CARD-06 na REQUIREMENTS (D-11) e reconciliar `tiraOpcoesMotivo`/collar do 44-01.
 
 ## Quick Tasks Completed
 
