@@ -293,3 +293,53 @@ def test_reconciliacao_sem_verbo_de_ordem_nem_promessa():
 
 def test_reconciliacao_por_que_importa_fixa():
     assert skill_ref.RECONCILIACAO_POR_QUE_IMPORTA == "sinal técnico e histórico medido são coisas diferentes"
+
+
+# --- Fase 44 (ESTR-06): ESTRUTURA_POSICAO -----------------------------------
+import re as _re
+
+_CHAVES_ESTRUTURA = {
+    "nome_call_coberta", "nome_put_protecao", "nome_collar", "nome_fora_da_biblioteca",
+    "estado_vigente", "estado_vigente_sem_data", "estado_perto_vencimento",
+    "estado_exercicio_provavel", "estado_premio_indisponivel", "estado_vencida",
+    "aberta_sem_proposta", "faixa_piso", "faixa_teto", "faixa_sem_piso", "faixa_sem_teto",
+    "faixa_vencimentos_diferentes", "faixa_perna_sem_lastro", "faixa_sem_acoes",
+    "faixa_dados_insuficientes", "descoberta_put", "stop_protegida", "resultado_incompleto",
+    "acao_sem_cotacao", "encerrar_premio_indisponivel", "encerrar_vencida", "origem_last",
+}
+
+
+def test_estrutura_posicao_chaves_espelhadas_e_exatas():
+    op = set(skill_ref.ESTRUTURA_POSICAO["operador"])
+    ed = set(skill_ref.ESTRUTURA_POSICAO["educacional"])
+    assert op == ed == _CHAVES_ESTRUTURA
+    assert len(_CHAVES_ESTRUTURA) == 26
+
+
+def test_estrutura_posicao_txt_estudo_degrada_para_educacional_sem_marcador_solto():
+    a = skill_ref.estrutura_posicao_txt("estudo", "estado_vencida", vencimento="17/10/2026")
+    b = skill_ref.estrutura_posicao_txt("educacional", "estado_vencida", vencimento="17/10/2026")
+    assert a == b and "{" not in a and "17/10/2026" in a
+
+
+def test_estrutura_posicao_txt_chave_desconhecida_falha_fechada():
+    assert skill_ref.estrutura_posicao_txt("operador", "chave_inexistente") is None
+
+
+def test_estrutura_posicao_interpolacao_com_todos_os_marcadores():
+    for modo, d in skill_ref.ESTRUTURA_POSICAO.items():
+        for chave, frase in d.items():
+            marcadores = _re.findall(r"\{([a-zA-Z]+)\}", frase)
+            out = skill_ref.estrutura_posicao_txt(modo, chave, **{m: "9" for m in marcadores})
+            assert "{" not in out and "}" not in out, (modo, chave)
+
+
+def test_estrutura_posicao_sem_ancoras_proibidas_e_sem_verbo_de_ordem_no_estudo():
+    todas = " ".join(v for m in skill_ref.ESTRUTURA_POSICAO.values() for v in m.values())
+    novas = " ".join(skill_ref.OPCOES_LASTREADAS[m][k] for m in ("operador", "educacional")
+                     for k in ("sem_contrato_liquido", "sem_vencimento_elegivel", "premio_indisponivel",
+                               "contrato_fora_da_cadeia", "sem_mercado"))
+    for texto in (todas, novas):
+        assert not _re.search(r"trava protetora|abate o custo", texto, _re.I)
+    edu = " ".join(skill_ref.ESTRUTURA_POSICAO["educacional"].values())
+    assert not _re.search(r"\bcomprar\b|\bvender\b", edu, _re.I)
