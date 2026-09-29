@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Estruturas de opções na carteira
-status: ready_to_execute
-stopped_at: 'Fase 44 planejada em 2026-09-29 (3 planos, 3 ondas; plan-checker passou). Próximo: /gsd-execute-phase 44 (sessão nova).'
+status: phase_44_complete
+stopped_at: 'Fase 44 executada e verificada em 2026-09-29 (3/3 planos, VERIFICATION passed, suíte canônica verde). Próximo: Fase 45 (discuss/plan em sessão nova).'
 last_updated: "2026-09-29T00:00:00.000Z"
 last_activity: 2026-09-29 -- Milestone v2.0 aberta (REQUIREMENTS, ROADMAP Fases 44-46, PROJECT); fases da v1.9 movidas para milestones/v1.9-phases
 progress:
   total_phases: 3
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 3
-  completed_plans: 0
-  percent: 0
+  completed_plans: 3
+  percent: 33
 ---
 
 # Project State
@@ -26,15 +26,15 @@ See: .planning/PROJECT.md (updated 2026-09-27)
 ## Current Position
 
 Milestone: v2.0 Estruturas de opções na carteira (Fases 44-46).
-Phase: 44 — Motor: estrutura por ativo (planejada: 44-01 vocabulário → 44-02 motor puro → 44-03 rota aditiva).
-Status: ready_to_execute. Requirements em `.planning/REQUIREMENTS.md`.
+Phase: 44 — Motor: estrutura por ativo (COMPLETA: 44-01 vocabulário → 44-02 motor puro → 44-03 rota aditiva; verificada).
+Status: phase_44_complete. Requirements em `.planning/REQUIREMENTS.md`.
 Decisões do Alex (2026-09-29): régua de faixa mantida; pernas sempre visíveis;
   texto do Estudo completo; escopo motor + front aprovado. Instrução
   principal: economizar modelo (CLAUDE.md §Estratégia de execução).
 Pendências fora de milestone: build iOS/TestFlight (ação do Alex); quick task
   avulsa (textos de vazio sem consumidor + "amostra insuficiente" com janela
   e n); quick 260928-u0h e entrega ainda sem push (confirmar com o Alex).
-Next: `/clear` e `/gsd-execute-phase 44`.
+Next: `/clear` e iniciar a Fase 45 (`/gsd-discuss-phase 45`). Atenção Fase 45: reconciliar `tiraOpcoesMotivo`/collar ('trava protetora') deixados intocados no 44-01.
 
 ## Quick Tasks Completed
 
