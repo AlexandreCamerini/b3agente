@@ -63,11 +63,24 @@ def _r2(v: Optional[float]) -> Optional[float]:
 
 
 def _perna(op: dict) -> dict:
-    """Normaliza uma `optionPosition`. `side` ausente = comprada (modelo antigo)."""
+    """Normaliza uma `optionPosition`. `side` ausente = comprada (modelo antigo).
+
+    WR-04 (review Fase 44): `side` presente mas fora de {vendida, comprada}
+    ("short", "sell"...) vira `lado=None` — o sinal não é adivinhado. Sem lado
+    não há marcação, o resultado da perna é None e a estrutura sai incompleta.
+    """
+    bruto = op.get("side")
+    lado_txt = str(bruto).strip().lower() if bruto is not None else ""
+    if lado_txt == "vendida":
+        lado = "venda"
+    elif lado_txt in ("", "comprada"):
+        lado = "compra"
+    else:
+        lado = None
     return {
         "id": op.get("id"),
         "tipo": str(op.get("optionType") or "").upper(),
-        "lado": "venda" if op.get("side") == "vendida" else "compra",
+        "lado": lado,
         "strike": _num(op.get("strike")),
         "vencimento": op.get("expiration"),
         "quantidade": _num(op.get("qty")),
@@ -77,7 +90,7 @@ def _perna(op: dict) -> dict:
 
 def _marcar(perna: dict, contrato: Optional[dict], modo: str) -> tuple:
     """(premioAtual, origem, origemTexto) — D-04."""
-    if not isinstance(contrato, dict):
+    if not isinstance(contrato, dict) or perna["lado"] is None:
         return None, None, None
     principal, origem = ((contrato.get("ask"), "ask") if perna["lado"] == "venda"
                          else (contrato.get("bid"), "bid"))

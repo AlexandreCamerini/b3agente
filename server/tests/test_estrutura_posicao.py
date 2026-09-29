@@ -235,6 +235,22 @@ def test_wr02_sem_call_continua_sem_teto():
     assert _txt("faixa_sem_teto") in _ler(ops=[_put()])["faixa"]["textos"]
 
 
+def test_wr04_side_desconhecido_nao_vira_compra():
+    for lixo in ("short", "sell", "vendido"):
+        r = _ler(ops=[_call(side=lixo), _put()])
+        call = _perna(r, CALL_ID)
+        assert call["premioAtual"] is None and call["resultado"] is None
+        assert r["resultado"]["incompleto"] is True and r["resultado"]["total"] is None
+        assert r["nome"] is None  # não classifica como call coberta/collar
+        assert r["encerrar"]["permitido"] is False
+
+
+def test_wr04_side_normaliza_caixa_e_espaco():
+    r = _ler(ops=[_call(side=" Vendida "), _put(side="COMPRADA")])
+    assert r["nome"] == "collar"
+    assert r["resultado"]["incompleto"] is False
+
+
 def test_fora_da_biblioteca_sem_faixa():
     r = _ler(ops=[_call(side=None)])
     assert r["faixa"] is None and r["motivoFaixa"] == "fora_da_biblioteca"

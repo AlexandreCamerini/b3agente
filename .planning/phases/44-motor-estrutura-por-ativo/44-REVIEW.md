@@ -48,7 +48,7 @@ Motor puro bem isolado (sem rede/relogio), rota com try/except proprio, chave ad
 **Issue:** `descoberta = q_put > s` só é calculada depois dos returns de `vencimentos_diferentes` e `dados_insuficientes` (o 1º devolve `False, None`; o 2º também). Put excedente sem ações correspondentes some do payload nesses casos, contradição com D-09 ("put excedente → descoberta"). O caminho `ValueError` já devolve descoberta, então o contrato é inconsistente.
 **Fix:** calcular `descoberta`/`desc_txt` logo após o teste `q_call > s` e devolvê-los em todos os retornos seguintes.
 
-### WR-04: `side` desconhecido vira "compra" silenciosamente
+### WR-04 [CORRIGIDO]: `side` desconhecido vira "compra" silenciosamente
 
 **File:** `server/app/estrutura_posicao.py:70`
 **Issue:** `"venda" if op.get("side") == "vendida" else "compra"`. Qualquer valor inesperado ("short", "Vendida", "sell") vira perna comprada: call vendida lida como call comprada muda nome (`None`), resultado (sinal invertido em `_resultado_perna`) e marcação (bid em vez de ask). Sem sinal de erro.
