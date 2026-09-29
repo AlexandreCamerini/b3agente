@@ -42,7 +42,7 @@ Motor puro bem isolado (sem rede/relogio), rota com try/except proprio, chave ad
 **Issue:** O `else` cobre dois casos: sem call (correto) e `teto is not None and ganho is None` (call cobre menos que a base; ganho ilimitado no trecho descoberto). No 2º caso, educacional diz "a put de proteção não limita o ganho" - texto errado para um collar/call parcial e omite a call que existe. Análogo em `perda is None` com piso: nenhum texto de piso é emitido, silenciosamente.
 **Fix:** ramificar `teto is None` (sem_teto) vs `ganho is None` (nova chave "teto parcial/ganho não limitado no trecho sem call", nos dois modos + espelho); emitir texto quando `piso` existe e `perda is None`.
 
-### WR-03: `descoberta` (put excedente) perdida nos retornos antecipados
+### WR-03 [CORRIGIDO]: `descoberta` (put excedente) perdida nos retornos antecipados
 
 **File:** `server/app/estrutura_posicao.py:148-157`
 **Issue:** `descoberta = q_put > s` só é calculada depois dos returns de `vencimentos_diferentes` e `dados_insuficientes` (o 1º devolve `False, None`; o 2º também). Put excedente sem ações correspondentes some do payload nesses casos, contradição com D-09 ("put excedente → descoberta"). O caminho `ValueError` já devolve descoberta, então o contrato é inconsistente.

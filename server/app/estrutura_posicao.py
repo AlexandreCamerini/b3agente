@@ -172,6 +172,13 @@ def _faixa(pernas, acoes, nome, underlying, modo):
     if q_call > s:
         txt = t("faixa_perna_sem_lastro", quantidade=skill_ref.num_br_inteiro(q_call - s))
         return None, "perna_vendida_sem_lastro", txt, True, txt
+    # WR-03: `descoberta` (put excedente) é fato das quantidades, independe de
+    # vencimento/dados de preço — calculada antes e devolvida em todo retorno.
+    base = min(s, max(q_call, q_put))
+    escala = s / q_put if q_put > s else 1.0
+    descoberta = q_put > s
+    desc_txt = t("descoberta_put", quantidade=skill_ref.num_br_inteiro(q_put - s),
+                 qtdBase=skill_ref.num_br_inteiro(base)) if descoberta else None
     # WR-06: "2026-10-16" e "2026-10-16T00:00:00" são o mesmo dia — compara
     # pela data parseada (dado não parseável segue opaco, comparado cru).
     divergem = {_venc_norm(p["vencimento"]) for p in pernas if p["vencimento"] is not None}
@@ -179,16 +186,11 @@ def _faixa(pernas, acoes, nome, underlying, modo):
         ordem = sorted(divergem, key=str)
         txt = t("faixa_vencimentos_diferentes", vencimentos=" e ".join(
             _br(v) if isinstance(v, _dt.date) else str(v) for v in ordem))
-        return None, "vencimentos_diferentes", txt, False, None
+        return None, "vencimentos_diferentes", txt, descoberta, desc_txt
     pm = acoes["precoMedio"]
     if pm is None or any(p["strike"] is None or p["quantidade"] is None
                          or p["premioEntrada"] is None for p in pernas):
-        return None, "dados_insuficientes", t("faixa_dados_insuficientes"), False, None
-    base = min(s, max(q_call, q_put))
-    escala = s / q_put if q_put > s else 1.0
-    descoberta = q_put > s
-    desc_txt = t("descoberta_put", quantidade=skill_ref.num_br_inteiro(q_put - s),
-                 qtdBase=skill_ref.num_br_inteiro(base)) if descoberta else None
+        return None, "dados_insuficientes", t("faixa_dados_insuficientes"), descoberta, desc_txt
     entrada = [{"tipo": "ACAO", "lado": "compra", "strike": 0, "premio": pm, "quantidade": base}]
     for p in pernas:
         entrada.append({

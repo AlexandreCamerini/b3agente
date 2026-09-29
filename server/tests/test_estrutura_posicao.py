@@ -289,6 +289,21 @@ def test_wr06_perna_vencida_marca_estrutura_vencida_mas_perna_vigente_segue_ence
     assert _perna(r, CALL_ID)["encerrar"]["permitido"] is True
 
 
+def test_wr03_descoberta_sobrevive_aos_retornos_antecipados():
+    # put 1500 sobre 1000 ações = 500 descobertas, em todos os caminhos sem faixa.
+    put_exc = _put(qty=1500)
+    r = _ler(ops=[_call(), put_exc])  # caminho com faixa (referência)
+    assert r["descoberta"] is True and r["descobertaTexto"]
+    r2 = _ler(ops=[_call(venc=V + dt.timedelta(days=30)), put_exc])  # vencimentos diferentes
+    assert r2["motivoFaixa"] == "vencimentos_diferentes"
+    assert r2["descoberta"] is True and r2["descobertaTexto"] == r["descobertaTexto"]
+    call = _call()
+    call["avg"] = None  # dados insuficientes
+    r3 = _ler(ops=[call, put_exc])
+    assert r3["motivoFaixa"] == "dados_insuficientes"
+    assert r3["descoberta"] is True and r3["descobertaTexto"] == r["descobertaTexto"]
+
+
 def test_fora_da_biblioteca_sem_faixa():
     r = _ler(ops=[_call(side=None)])
     assert r["faixa"] is None and r["motivoFaixa"] == "fora_da_biblioteca"
