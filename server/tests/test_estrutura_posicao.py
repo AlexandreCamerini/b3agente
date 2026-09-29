@@ -205,6 +205,36 @@ def test_faixa_put_protecao_sem_teto():
     assert _txt("faixa_sem_teto") in f["textos"]
 
 
+def test_wr01_put_menor_que_a_call_nao_afirma_protecao_total():
+    # 300 ações, call 300, put 100: a put cobre 100 — nunca "as 300".
+    r = _ler(ops=[_call(qty=300), _put(qty=100)], posicao=_acao(qty=300))
+    f = r["faixa"]
+    assert f["qtdPut"] == 100
+    piso_txt = f["textos"][0]
+    assert "100 ações" in piso_txt and "300 ações" not in piso_txt
+    assert r["stopTexto"] is None  # put não cobre todas as ações
+
+
+def test_wr01_stop_so_quando_a_put_cobre_todas_as_acoes():
+    assert _ler()["stopTexto"] is not None
+    # put 500 de 1000 ações: proteção parcial, sem stopTexto
+    assert _ler(ops=[_put(qty=500)])["stopTexto"] is None
+
+
+def test_wr02_call_parcial_nao_diz_que_a_put_nao_limita_o_ganho():
+    # 1000 ações, put 1000, call 300: ganho do trecho sem call é ilimitado.
+    r = _ler(ops=[_call(qty=300), _put(qty=1000)])
+    f = r["faixa"]
+    assert f["teto"] == 42.0 and f["ganhoMaximo"] is None
+    assert _txt("faixa_sem_teto") not in f["textos"]
+    assert _txt("faixa_teto_parcial", teto=skill_ref.num_br(42.0), qtd="300",
+                qtdBase="1.000") in f["textos"]
+
+
+def test_wr02_sem_call_continua_sem_teto():
+    assert _txt("faixa_sem_teto") in _ler(ops=[_put()])["faixa"]["textos"]
+
+
 def test_fora_da_biblioteca_sem_faixa():
     r = _ler(ops=[_call(side=None)])
     assert r["faixa"] is None and r["motivoFaixa"] == "fora_da_biblioteca"

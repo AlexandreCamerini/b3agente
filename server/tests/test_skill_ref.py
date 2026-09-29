@@ -303,6 +303,7 @@ _CHAVES_ESTRUTURA = {
     "estado_vigente", "estado_vigente_sem_data", "estado_perto_vencimento",
     "estado_exercicio_provavel", "estado_premio_indisponivel", "estado_vencida",
     "aberta_sem_proposta", "faixa_piso", "faixa_teto", "faixa_sem_piso", "faixa_sem_teto",
+    "faixa_teto_parcial", "faixa_piso_sem_perda",
     "faixa_vencimentos_diferentes", "faixa_perna_sem_lastro", "faixa_sem_acoes",
     "faixa_dados_insuficientes", "descoberta_put", "stop_protegida", "resultado_incompleto",
     "acao_sem_cotacao", "encerrar_premio_indisponivel", "encerrar_vencida", "origem_last",
@@ -313,7 +314,8 @@ def test_estrutura_posicao_chaves_espelhadas_e_exatas():
     op = set(skill_ref.ESTRUTURA_POSICAO["operador"])
     ed = set(skill_ref.ESTRUTURA_POSICAO["educacional"])
     assert op == ed == _CHAVES_ESTRUTURA
-    assert len(_CHAVES_ESTRUTURA) == 26
+    # Reversão deliberada (correção WR-01/WR-02, Fase 44): 26 -> 28 chaves.
+    assert len(_CHAVES_ESTRUTURA) == 28
 
 
 def test_estrutura_posicao_txt_estudo_degrada_para_educacional_sem_marcador_solto():

@@ -175,21 +175,34 @@ def _faixa(pernas, acoes, nome, underlying, modo):
     calls = [p["strike"] for p in pernas if p["tipo"] == _CALL and p["lado"] == "venda"]
     piso, teto = (max(puts) if puts else None), (min(calls) if calls else None)
     perda, ganho = _r2(perfil["perda_maxima"]), _r2(perfil["ganho_maximo"])
-    qtd = skill_ref.num_br_inteiro(base)
+    # WR-01/WR-02 (review Fase 44): a quantidade citada em cada texto é a que a
+    # PRÓPRIA perna cobre (nunca a base inteira) e cada caso indeterminável tem
+    # frase própria — proteção/limite só é afirmado onde existe de fato.
+    qtd_put = min(q_put, s)
+    qtd_call = min(q_call, s)
     textos = []
     if piso is not None and perda is not None:
         textos.append(t("faixa_piso", piso=skill_ref.num_br(piso),
-                        perdaMaxima=skill_ref.num_br(perda), qtd=qtd))
+                        perdaMaxima=skill_ref.num_br(perda),
+                        qtd=skill_ref.num_br_inteiro(qtd_put)))
+    elif piso is not None:
+        textos.append(t("faixa_piso_sem_perda", piso=skill_ref.num_br(piso),
+                        qtd=skill_ref.num_br_inteiro(qtd_put)))
     elif perda is not None:
         textos.append(t("faixa_sem_piso", perdaMaxima=skill_ref.num_br(perda)))
-    if teto is not None and ganho is not None:
-        textos.append(t("faixa_teto", teto=skill_ref.num_br(teto),
-                        ganhoMaximo=skill_ref.num_br(ganho), qtd=qtd))
-    else:
+    if teto is None:
         textos.append(t("faixa_sem_teto"))
+    elif ganho is not None:
+        textos.append(t("faixa_teto", teto=skill_ref.num_br(teto),
+                        ganhoMaximo=skill_ref.num_br(ganho),
+                        qtd=skill_ref.num_br_inteiro(qtd_call)))
+    else:
+        textos.append(t("faixa_teto_parcial", teto=skill_ref.num_br(teto),
+                        qtd=skill_ref.num_br_inteiro(qtd_call),
+                        qtdBase=skill_ref.num_br_inteiro(base)))
     faixa = {"piso": piso, "teto": teto, "perdaMaxima": perda, "ganhoMaximo": ganho,
              "breakevens": [round(b, 2) for b in perfil["breakevens"]],
-             "qtdBase": base, "textos": textos}
+             "qtdBase": base, "qtdPut": qtd_put, "textos": textos}
     return faixa, None, None, descoberta, desc_txt
 
 
@@ -365,6 +378,7 @@ def ler_estrutura(option_positions, underlying, posicao, spot, contratos_por_id,
         "motivoSemPropostaTexto": motivo_sp_txt,
         "encerrar": enc,
         "stopTexto": (skill_ref.estrutura_posicao_txt(
-            modo, "stop_protegida", piso=skill_ref.num_br(piso)) if piso is not None else None),
+            modo, "stop_protegida", piso=skill_ref.num_br(piso))
+            if piso is not None and acoes and faixa["qtdPut"] >= acoes["quantidade"] else None),
         "incompleto": incompleto,
     }

@@ -30,13 +30,13 @@ Motor puro bem isolado (sem rede/relogio), rota com try/except proprio, chave ad
 
 ## Warnings
 
-### WR-01: Texto de piso/stop afirma protecao da quantidade-base inteira mesmo com put menor
+### WR-01 [CORRIGIDO]: Texto de piso/stop afirma protecao da quantidade-base inteira mesmo com put menor
 
 **File:** `server/app/estrutura_posicao.py:158-182, 367-368`
 **Issue:** `base = min(s, max(q_call, q_put))`. Em collar com call cobrindo mais que a put (ex.: 300 ações, call 300, put 100), `base=300` e `faixa_piso` diz "a put protege as 300 ações" (`qtd=base`), enquanto a put cobre 100. `stopTexto` ("limita a perda desta posição") também é emitido sempre que `piso` existe, sem checar cobertura. É afirmação de proteção falsa (princípios 5/6 de CLAUDE.md).
 **Fix:** calcular `q_put_efetiva = min(q_put, base)`; usar essa quantidade em `faixa_piso`; emitir `stopTexto` só se `q_put >= s` (ou texto próprio de proteção parcial, com "Não há dados suficientes" se preciso).
 
-### WR-02: `faixa_sem_teto` emitido quando existe call vendida mas `ganho_maximo` é None
+### WR-02 [CORRIGIDO]: `faixa_sem_teto` emitido quando existe call vendida mas `ganho_maximo` é None
 
 **File:** `server/app/estrutura_posicao.py:185-189`
 **Issue:** O `else` cobre dois casos: sem call (correto) e `teto is not None and ganho is None` (call cobre menos que a base; ganho ilimitado no trecho descoberto). No 2º caso, educacional diz "a put de proteção não limita o ganho" - texto errado para um collar/call parcial e omite a call que existe. Análogo em `perda is None` com piso: nenhum texto de piso é emitido, silenciosamente.
