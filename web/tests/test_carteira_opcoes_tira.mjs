@@ -151,16 +151,24 @@ ok("a linha que renderiza a manchete não usa T.accent",
   linhaMancheteOO.length > 0 && !linhaMancheteOO.includes("T.accent"));
 
 // ---- (3) Estado vazio de NAV-03 presente e explícito ----------------------
-ok("OportunidadesOpcoes referencia cp.tiraOpcoesSemCobertura",
-  fatiaOO.includes("cp.tiraOpcoesSemCobertura"));
-ok("OportunidadesOpcoes referencia cp.tiraOpcoesSemSetup",
-  fatiaOO.includes("cp.tiraOpcoesSemSetup"));
-ok("OportunidadesOpcoes referencia cp.tiraOpcoesSemMercado (quick 260908-ldg, D-07)",
-  fatiaOO.includes("cp.tiraOpcoesSemMercado"));
+// REVERSÃO DELIBERADA (2026-09-28, quick 260928-u0h): o estado vazio agregado
+// virou lista de motivo por posição (`cp.tiraOpcoesMotivo`) + `cp.tiraOpcoesNenhumaNova`;
+// as três frases agregadas dizem o mesmo que a lista e sairiam duplicadas. As
+// chaves seguem em copy.js (seção 1 deste arquivo).
+ok("OportunidadesOpcoes NÃO referencia cp.tiraOpcoesSemCobertura (REVERSÃO 260928-u0h)",
+  !fatiaOO.includes("cp.tiraOpcoesSemCobertura"));
+ok("OportunidadesOpcoes NÃO referencia cp.tiraOpcoesSemSetup (REVERSÃO 260928-u0h)",
+  !fatiaOO.includes("cp.tiraOpcoesSemSetup"));
+ok("OportunidadesOpcoes NÃO referencia cp.tiraOpcoesSemMercado (REVERSÃO 260928-u0h)",
+  !fatiaOO.includes("cp.tiraOpcoesSemMercado"));
+ok("OportunidadesOpcoes referencia cp.tiraOpcoesNenhumaNova (260928-u0h)",
+  fatiaOO.includes("cp.tiraOpcoesNenhumaNova"));
+ok("OportunidadesOpcoes referencia cp.tiraOpcoesMotivo (260928-u0h)",
+  fatiaOO.includes("cp.tiraOpcoesMotivo"));
 ok("OportunidadesOpcoes referencia cp.tiraOpcoesCarregando",
   fatiaOO.includes("cp.tiraOpcoesCarregando"));
 ok("o ramo de carregando é avaliado ANTES do ramo vazio (a tira não mente durante a busca)",
-  fatiaOO.indexOf("cp.tiraOpcoesCarregando") < fatiaOO.indexOf("cp.tiraOpcoesSemCobertura"));
+  fatiaOO.indexOf("cp.tiraOpcoesCarregando") < fatiaOO.indexOf("cp.tiraOpcoesNenhumaNova"));
 
 // ---- (4, Fase 33/33-02, re-ancorado 39-05) Tira migrou para AbaOportunidades.jsx
 // (SecaoDescobrir.jsx, seu lar intermediário na Fase 33-02, foi deletado

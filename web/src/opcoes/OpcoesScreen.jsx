@@ -744,6 +744,9 @@ export default function OpcoesScreen({ ctx }) {
             opcoesPorTicker={opcoesPorTicker}
             carregando={opcoesPorTickerCarregando}
             carteira={carteira}
+            // quick 260928-u0h: mesmo predicado de `pos_op_aberta` (servidor) e mesma
+            // fonte de `PropostaDoAtivo` — separa encerramento de oportunidade nova.
+            optionPositions={(ctx && ctx.data && ctx.data.optionPositions) || []}
             cp={cp}
             onAbrir={alternarOportunidade}
             abertoTicker={oportunidadeAberta}

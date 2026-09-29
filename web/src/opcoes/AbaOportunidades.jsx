@@ -70,7 +70,7 @@ function frescorAgregadoOportunidades(opcoesPorTicker) {
 }
 
 export default function AbaOportunidades({
-  opcoesPorTicker, carregando, carteira, cp, onAbrir, abertoTicker, infoBotao,
+  opcoesPorTicker, carregando, carteira, optionPositions, cp, onAbrir, abertoTicker, infoBotao,
 }) {
   const frescor = frescorAgregadoOportunidades(opcoesPorTicker);
   return (
@@ -80,6 +80,7 @@ export default function AbaOportunidades({
         propostas={opcoesPorTicker}
         carregando={carregando}
         positions={carteira}
+        optionPositions={optionPositions}
         cp={cp}
         onAbrir={onAbrir}
         abertoTicker={abertoTicker}
