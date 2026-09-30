@@ -148,6 +148,24 @@ Se `bloqueado` sem `texto`, exiba uma frase fallback (chave nova em `ESTRUTURA_C
 **File:** `web/src/App.jsx:9537`, `estruturaCard.js:24`
 **Issue:** (a) `setOpcoesMemoria({ticker, aba:"oportunidades"})` substitui a escolha anterior de ticker do usuário em Montar sem aviso; efeito colateral aceitável, mas não documentado no UI-SPEC. Nenhum foco é levado ao painel aberto ao chegar em Opções (a11y). (b) `operador` na `assinaturaEstrutura` só dispara refetch redundante nos ~700 ms antes do `window.location.reload()` (`App.jsx:2482`), consumindo uma chamada de brapi por ativo sem uso. Se o reload for removido no futuro, ela passa a ser necessária, então mantenha, mas registre o motivo. Além disso, `useEstruturasPosicao` refaz a leitura a cada remontagem da Carteira (sem cache entre montagens): custo de brapi aceito no comentário `4366`, listado aqui apenas como lembrete do orçamento de 15k/mês.
 
+
+## Correções aplicadas
+
+Aplicadas em 2026-09-30 (iteração 1), um commit por WR, na branch v2/interacao-estrutural.
+
+- WR-01 (`7419dff3`): o item da fila confere vivo + assinatura vigente quando chega a vez e, se superado, abandona sem chamar a API (a leitura que o superou é dona do estado, então `emVoo` não fica órfão). A lógica saiu do hook para `criarFilaLeituras` em `estruturaCard.js`, com teste comportamental (IN-01 parcialmente endereçado; o hook em si segue com guardião estático).
+- WR-02 (`01b63258`): UMA fila por instância do hook (`filaRef`), usada pelo efeito e por `atualizar` (teto de 3 global). `cancelar()` no cleanup de desmontagem e na troca de `escopoSeq`; `vale()` também confere a época (`corteRef`) capturada ao enfileirar. Cleanup zera `pedidasRef` para o efeito repedir tudo se o hook remontar (StrictMode).
+- WR-03 (`70d58f5f`): `×qtd` omitido com quantidade null; tipo vazio sem espaço inicial (`.trim()`); prêmio de entrada null vira `prêmio —` ou `prêmio atual R$ x`, sem seta. Chaves neutras `semPremioPerna` e `estruturaPremioSoAtual` só em copy.js.
+- WR-04 (`9dfaf2e2`): `disabled` nativo trocado por `aria-disabled` + `onClick` que não navega (botão segue focável); motivo do motor com fallback neutro `encerrarSemMotivo` (só em copy.js, sem par em skill_ref.py); `aria-describedby` só quando o id existe.
+- WR-05 (`9da8a7cf`): `valorRR`/`mostraRR(p, cur)` em `estruturaCard.js`; R:R só com fórmula finita e positiva, nos DOIS cards. Card legado não mostra mais `R:R atual —`. Continua exceção deliberada ao D-02. Guardião W-001 atualizado com nota de reversão (sem `cur`, `mostraRR(p)` mantém o gate antigo).
+- WR-06 (`a4a4d52a`): `nomeTexto` nulo cai no chip `ESTRUTURA · OPÇÕES` (mesmo tratamento de fora_da_biblioteca) e o aria-label da régua usa `estruturaGrupoAria` como fallback.
+
+Guardiões alterados por reversão deliberada (com nota "Fase 45 (code review)"): `hook usa executarComTeto(..., 3)` virou `criarFilaLeituras(3)` via `filaRef` (WR-01/02); `R:R atual sob mostraRR(p) &&` e `const rr = mostraRR(p)` passaram a `mostraRR(p, cur)`/`valorRR(p, cur)` (WR-05).
+
+### Dívida deixada (INFO não corrigidos)
+
+IN-02 (chip "vence dd/mm · — dia(s)"), IN-03 (callout de estado vazio), IN-04 (controles redundantes de stop/alvo e rodapé < 44px), IN-05 (anel `:focus-visible`), IN-06 (falha em Atualizar descarta a última leitura boa), IN-07 (`goOpcoes` sobrescreve ticker lembrado; `operador` na assinatura). IN-01 fica parcial: a fila tem teste comportamental, mas o hook (`useEstruturasPosicao`) ainda só tem guardião por regex, sem teste com respostas fora de ordem.
+
 ---
 
 _Reviewed: 2026-09-30_
