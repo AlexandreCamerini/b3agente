@@ -320,7 +320,7 @@ v1.9 Jornada de Decisão (Phases 42-43) shipped em 2026-09-27 — ver
 Requirements: `.planning/REQUIREMENTS.md`. Mock: https://claude.ai/artifact/JEpy5VmkoddNTHyVYnYWZc
 
 - [x] Phase 44: Motor — estrutura por ativo (ESTR-01..06)
-- [ ] Phase 45: Card de posição estruturada (CARD-01..06)
+- [x] Phase 45: Card de posição estruturada (CARD-01..06) — concluída em código 2026-09-30; validação em aparelho pendente (backend da Fase 44 ainda não em produção)
 - [ ] Phase 46: Didática — expectativa matemática × taxa de acerto (DIDA-01..02)
 
 ### Phase 44: Motor — estrutura por ativo
@@ -346,11 +346,11 @@ Requirements: `.planning/REQUIREMENTS.md`. Mock: https://claude.ai/artifact/JEpy
 **Plans:** 5 plans (4 ondas; App.jsx serializa as ondas 2-3)
 
 Plans:
-- [ ] 45-01-PLAN.md — vocabulário ESTRUTURA_CARD (skill_ref.py↔copy.js), "collar" no lugar de "trava protetora", nota D-11 em CARD-06 (onda 1)
-- [ ] 45-02-PLAN.md — lógica pura do card (estruturaCard.js) + one-shot goOpcoes("oportunidades", {abrirTicker}) + verificação do destino do Encerrar (onda 1)
-- [ ] 45-03-PLAN.md — busca da estrutura, estados carregando/falha e CardPosicaoEstruturada (chips, resultado, estado, pernas, fonte, Encerrar) (onda 2)
-- [ ] 45-04-PLAN.md — régua de faixa, limites/contexto sem aviso falso, TravaPill em contorno, guardiões AA/SP (onda 3)
-- [ ] 45-05-PLAN.md — verificação final + checkpoint humano (4 combinações, M1, P4) (onda 4)
+- [x] 45-01-PLAN.md — vocabulário ESTRUTURA_CARD (skill_ref.py↔copy.js), "collar" no lugar de "trava protetora", nota D-11 em CARD-06 (onda 1)
+- [x] 45-02-PLAN.md — lógica pura do card (estruturaCard.js) + one-shot goOpcoes("oportunidades", {abrirTicker}) + verificação do destino do Encerrar (onda 1)
+- [x] 45-03-PLAN.md — busca da estrutura, estados carregando/falha e CardPosicaoEstruturada (chips, resultado, estado, pernas, fonte, Encerrar) (onda 2)
+- [x] 45-04-PLAN.md — régua de faixa, limites/contexto sem aviso falso, TravaPill em contorno, guardiões AA/SP (onda 3)
+- [x] 45-05-PLAN.md — verificação final + checkpoint humano (4 combinações, M1, P4) (onda 4)
 
 ### Phase 46: Didática — expectativa matemática × taxa de acerto
 **Goal:** o tema obrigatório do CLAUDE.md ganha verbete e o microtexto passa a abri-lo.

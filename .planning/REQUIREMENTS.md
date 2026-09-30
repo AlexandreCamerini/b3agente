@@ -40,16 +40,16 @@ Todo cálculo é do motor determinístico (princípio 5); nada estimado.
 
 ### Card de posição estruturada (Fase 45)
 
-- [ ] **CARD-01**: O card de Posições mostra a estrutura (nome + resultado
+- [x] **CARD-01**: O card de Posições mostra a estrutura (nome + resultado
   total ações+prêmio), não só o P&L das ações.
-- [ ] **CARD-02**: O card mostra a régua "faixa no vencimento" (piso, teto,
+- [x] **CARD-02**: O card mostra a régua "faixa no vencimento" (piso, teto,
   preço atual, PM).
-- [ ] **CARD-03**: O card lista todas as pernas do ativo, sempre visível.
-- [ ] **CARD-04**: Os 5 estados de ESTR-04 têm tratamento visual próprio;
+- [x] **CARD-03**: O card lista todas as pernas do ativo, sempre visível.
+- [x] **CARD-04**: Os 5 estados de ESTR-04 têm tratamento visual próprio;
   "Encerrar" fica bloqueado com o motivo quando o prêmio está indisponível.
-- [ ] **CARD-05**: Estrutura com proteção não exibe o aviso falso "Posição sem
+- [x] **CARD-05**: Estrutura com proteção não exibe o aviso falso "Posição sem
   stop definido" nem `R:R —`; piso/teto aparecem no lugar, em texto do motor.
-- [ ] **CARD-06**: `badgeTravada` cobre collar e put de proteção; textos por
+- [x] **CARD-06**: `badgeTravada` cobre collar e put de proteção; textos por
   modo (Estudo completo, Operador direto); verde/vermelho só em
   manchete/preço/P&L (COR-01), escala `SP`, contraste AA nas 4 combinações
   tema×modo, `aria-label` nos elementos novos; âncora proibida "trava
@@ -84,5 +84,5 @@ Todo cálculo é do motor determinístico (princípio 5); nada estimado.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | ESTR-01..06 | 44 | Complete |
-| CARD-01..06 | 45 | Pending |
+| CARD-01..06 | 45 | Complete (código verificado; validação em aparelho com backend da Fase 44 em produção pendente — ver 45-VERIFICATION.md) |
 | DIDA-01..02 | 46 | Pending |
