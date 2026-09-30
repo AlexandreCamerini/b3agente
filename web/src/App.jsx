@@ -4515,8 +4515,8 @@ function ReguaFaixa({ e, p, cp }) {
 function CardPosicaoEstruturada({ p, leitura, cp, operador, ctx, data, total, onAtualizar, onEditarStopAlvo }) {
   const e = leitura.estrutura;
   const modo = operador ? "operador" : "estudo";
-  const corDe = (v) => (v == null ? T.textMuted : v >= 0 ? T.positive : T.negative);
-  const numDe = (v) => (v == null ? "—" : moneySigned(v));
+  const corDe = (v) => (v == null || sinalResultado(v) === "zero" ? T.textMuted : v > 0 ? T.positive : T.negative);
+  const numDe = (v) => (v == null ? "—" : sinalResultado(v) === "zero" ? "R$ " + nf2.format(0) : moneySigned(v));
   const vc = chipVencimento(e);
   const pill = tipoPillTravada(e, p.qtyTravada);
   const tom = tomDoEstado(e.estado);
@@ -4566,7 +4566,7 @@ function CardPosicaoEstruturada({ p, leitura, cp, operador, ctx, data, total, on
         {r && r.total != null ? (
           <>
             <div style={kickerEst}>{cp.estruturaResultadoRotulo}</div>
-            <div style={{ fontFamily: MONO, fontWeight: 700, fontSize: TAM_TOTAL_ESTRUTURA + "px", color: corDe(r.total), lineHeight: 1.2 }}>{moneySigned(r.total)}</div>
+            <div style={{ fontFamily: MONO, fontWeight: 700, fontSize: TAM_TOTAL_ESTRUTURA + "px", color: corDe(r.total), lineHeight: 1.2 }}>{numDe(r.total)}</div>
             <div style={{ fontFamily: MONO, fontSize: "11.5px", color: T.textMuted, marginTop: `${SP[1]}px` }}>
               {cp.estruturaAcoesRotulo} <span style={{ color: corDe(r.acoes) }}>{numDe(r.acoes)}</span> · {cp.estruturaOpcoesRotulo} <span style={{ color: corDe(r.pernasCotadas) }}>{numDe(r.pernasCotadas)}</span>
             </div>

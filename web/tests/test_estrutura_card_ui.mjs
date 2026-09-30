@@ -153,6 +153,15 @@ ok("botões definir stop/alvo nunca desabilitados", !/onEditarStopAlvo[^\n]*disa
   ok("% do capital do card novo usa vírgula", /pctCap\.toFixed\(1\)\.replace\("\.", ","\)/.test(card) && !/\{pctCap\.toFixed\(1\)\}%/.test(card));
 }
 
+// --- pós-teste local (correção 5): zero exato neutro, sem sinal ------------
+// numDe/corDe do card novo tratam zero à parte; moneySigned global intocado.
+{
+  const card = limpo(functionBody("CardPosicaoEstruturada"));
+  ok("numDe/corDe usam sinalResultado (zero neutro)", /const corDe[^\n]*sinalResultado\(v\) === "zero"[^\n]*T\.textMuted/.test(card) && /const numDe[^\n]*sinalResultado\(v\) === "zero"/.test(card));
+  ok("total do resultado passa por numDe (não moneySigned direto)", /numDe\(r\.total\)/.test(card) && !/moneySigned\(r\.total\)/.test(card));
+  ok("moneySigned global mantém '+R$ ' para n >= 0", /const moneySigned = \(n\) => .*"\+R\$ "/.test(src));
+}
+
 // --- ctx --------------------------------------------------------------------
 ok("ctx.escopoSeq = escopoOpcoes", /escopoSeq: escopoOpcoes/.test(src));
 const gh = /goHistoricoOperacoes:\s*\(\)\s*=>\s*\{([^}]*)\}/.exec(src);
