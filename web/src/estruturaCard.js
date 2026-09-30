@@ -45,8 +45,21 @@ export function mostraAvisoSemStop(p, modoLeitura, estrutura) {
 }
 
 // R:R nunca renderiza "—": só existe com stop E alvo.
-export function mostraRR(p) {
-  return !!p && p.stop != null && p.alvo != null;
+// Fase 45 (code review WR-05): quando o preço atual é informado, o R:R só
+// aparece se a fórmula produz número finito e positivo (preço acima do stop e
+// abaixo do alvo). Continua sendo a exceção deliberada ao D-02 (o gate de
+// stop/alvo é o mesmo nos dois cards). Sem `cur` (undefined) vale só o gate
+// antigo de stop/alvo, para os chamadores que não conhecem o preço.
+export function valorRR(p, cur) {
+  if (!p || p.stop == null || p.alvo == null) return null;
+  if (typeof cur !== "number" || !isFinite(cur) || cur <= p.stop) return null;
+  const rr = (p.alvo - cur) / (cur - p.stop);
+  return isFinite(rr) && rr > 0 ? rr : null;
+}
+
+export function mostraRR(p, cur) {
+  if (cur === undefined) return !!p && p.stop != null && p.alvo != null;
+  return valorRR(p, cur) != null;
 }
 
 // D-11: pill "travada" só com qtyTravada > 0; collar usa a variante própria.
@@ -130,4 +143,42 @@ export function executarComTeto(thunks, limite) {
   }
   const n = Math.max(1, Math.min(limite || 1, lista.length));
   return Promise.all(Array.from({ length: n }, trabalhador)).then(() => resultados);
+}
+
+// Fase 45 (code review WR-01/WR-02): fila ÚNICA com teto de concorrência para
+// as leituras de estrutura (cada chamada consome cota da brapi). Diferente de
+// `executarComTeto`, cada item traz `vale()`, conferido só quando chega a vez
+// de rodar: se a leitura já não é a vigente (desmontou, trocou de escopo,
+// assinatura mudou) o item é abandonado SEM chamar a API. `cancelar()` abandona
+// tudo que ainda está pendente (o que já está em voo termina e é descartado
+// pelo próprio guard da resposta). Resolve sempre, nunca rejeita:
+// { abandonada: true } | { ok, valor } | { ok: false, erro }.
+export function criarFilaLeituras(limite) {
+  const teto = Math.max(1, limite || 1);
+  const pendentes = [];
+  let ativos = 0;
+  function andar() {
+    while (ativos < teto && pendentes.length) {
+      const item = pendentes.shift();
+      let vigente = false;
+      try { vigente = !!item.vale(); } catch { vigente = false; }
+      if (!vigente) { item.resolver({ abandonada: true }); continue; }
+      ativos++;
+      let prom;
+      try { prom = Promise.resolve(item.rodar()); } catch (erro) { prom = Promise.reject(erro); }
+      prom.then(
+        (valor) => item.resolver({ ok: true, valor }),
+        (erro) => item.resolver({ ok: false, erro })
+      ).then(() => { ativos--; andar(); });
+    }
+  }
+  return {
+    enfileirar(rodar, vale) {
+      return new Promise((resolver) => { pendentes.push({ rodar, vale, resolver }); andar(); });
+    },
+    cancelar() {
+      pendentes.splice(0).forEach((item) => item.resolver({ abandonada: true }));
+    },
+    estado() { return { ativos, pendentes: pendentes.length }; },
+  };
 }

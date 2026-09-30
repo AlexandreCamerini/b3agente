@@ -50,6 +50,14 @@ ok("aviso: com stop nunca", ["atual", "carregando", "falha", "estruturada"].ever
 ok("RR com stop e alvo", E.mostraRR({ stop: 1, alvo: 2 }) === true);
 ok("RR sem stop", E.mostraRR({ stop: null, alvo: 2 }) === false);
 ok("RR sem alvo", E.mostraRR({ stop: 1, alvo: null }) === false);
+// Fase 45 (code review WR-05): com o preço, R:R só se a fórmula dá número finito e positivo.
+ok("RR sem cur mantém o gate antigo", E.mostraRR({ stop: 10, alvo: 20 }) === true);
+ok("RR com cur entre stop e alvo", E.mostraRR({ stop: 10, alvo: 20 }, 12) === true && E.valorRR({ stop: 10, alvo: 20 }, 15) === 1);
+ok("RR: preço abaixo do stop não renderiza", E.mostraRR({ stop: 10, alvo: 20 }, 9) === false && E.valorRR({ stop: 10, alvo: 20 }, 9) === null);
+ok("RR: preço no stop (divisão por zero) não renderiza", E.mostraRR({ stop: 10, alvo: 20 }, 10) === false);
+ok("RR: preço no/acima do alvo (<= 0) não renderiza", E.mostraRR({ stop: 10, alvo: 20 }, 20) === false && E.mostraRR({ stop: 10, alvo: 20 }, 25) === false);
+ok("RR: cur null/NaN/Infinity não renderiza", E.mostraRR({ stop: 10, alvo: 20 }, null) === false && E.mostraRR({ stop: 10, alvo: 20 }, NaN) === false && E.mostraRR({ stop: 10, alvo: 20 }, Infinity) === false);
+ok("RR: sem stop ou sem alvo não renderiza mesmo com cur", E.mostraRR({ stop: null, alvo: 20 }, 15) === false && E.mostraRR({ stop: 10, alvo: null }, 15) === false && E.valorRR(null, 15) === null);
 
 // tipoPillTravada
 ok("pill collar", E.tipoPillTravada({ nome: "collar" }, 1000) === "collar");
@@ -105,12 +113,102 @@ ok("tom desconhecido", E.tomDoEstado("xyz") === "linha");
   ok("teto: lista vazia", eq(await E.executarComTeto([], 3), []));
 }
 
+// Fase 45 (code review WR-01/WR-02): fila única com abandono — comportamento real.
+{
+  const espera = () => new Promise((r) => setImmediate(r));
+  // WR-01: vale() é conferido quando chega a vez, não ao enfileirar.
+  {
+    const fila = E.criarFilaLeituras(1);
+    let vigente = true, chamadas = [];
+    let solta;
+    const p1 = fila.enfileirar(() => new Promise((res) => { chamadas.push("a"); solta = res; }), () => true);
+    const p2 = fila.enfileirar(() => { chamadas.push("b"); return 1; }, () => vigente);
+    vigente = false; // a assinatura mudou com "b" ainda na fila
+    solta(0);
+    const [r1, r2] = await Promise.all([p1, p2]);
+    ok("fila WR-01: item superado na fila não chama a API", eq(chamadas, ["a"]) && r2.abandonada === true && r1.ok === true);
+    ok("fila WR-01: vaga liberada após abandono", eq(fila.estado(), { ativos: 0, pendentes: 0 }));
+  }
+  // WR-01: item vigente na vez roda normalmente.
+  {
+    const fila = E.criarFilaLeituras(2);
+    const r = await fila.enfileirar(() => "x", () => true);
+    ok("fila: item vigente roda e devolve valor", r.ok === true && r.valor === "x");
+  }
+  // WR-02: teto global entre enfileiramentos separados (pico <= 3).
+  {
+    const fila = E.criarFilaLeituras(3);
+    let emVoo = 0, pico = 0;
+    const mk = () => () => new Promise((res) => { emVoo++; pico = Math.max(pico, emVoo); setImmediate(() => { emVoo--; res(); }); });
+    const todos = [];
+    for (let i = 0; i < 5; i++) todos.push(fila.enfileirar(mk(), () => true));
+    await espera();
+    for (let i = 0; i < 4; i++) todos.push(fila.enfileirar(mk(), () => true));
+    await Promise.all(todos);
+    ok("fila WR-02: teto de 3 vale entre lotes na mesma fila", pico === 3, "pico=" + pico);
+  }
+  // WR-02: cancelar abandona os pendentes sem chamar a API; o em voo termina.
+  {
+    const fila = E.criarFilaLeituras(1);
+    let chamadas = 0, solta;
+    const p1 = fila.enfileirar(() => new Promise((res) => { chamadas++; solta = res; }), () => true);
+    const p2 = fila.enfileirar(() => { chamadas++; }, () => true);
+    const p3 = fila.enfileirar(() => { chamadas++; }, () => true);
+    fila.cancelar();
+    solta("fim");
+    const [r1, r2, r3] = await Promise.all([p1, p2, p3]);
+    ok("fila WR-02: cancelar não dispara pendentes", chamadas === 1 && r2.abandonada && r3.abandonada && r1.valor === "fim");
+    const r4 = await fila.enfileirar(() => "depois", () => true);
+    ok("fila WR-02: continua utilizável após cancelar", r4.ok === true && r4.valor === "depois");
+  }
+  // Rejeição e throw síncrono não travam a fila.
+  {
+    const fila = E.criarFilaLeituras(1);
+    const a = await fila.enfileirar(() => Promise.reject(new Error("boom")), () => true);
+    const b = await fila.enfileirar(() => { throw new Error("sync"); }, () => true);
+    const c = await fila.enfileirar(() => 7, () => true);
+    await espera();
+    ok("fila: rejeição/throw não travam", a.ok === false && b.ok === false && c.valor === 7 && fila.estado().ativos === 0);
+  }
+}
+
 // Pós-teste local 45: kicker "só as ações" só com o número das ações presente;
 // zero exato é neutro.
 ok("kicker so-acoes: acoes numérico", E.kickerResultadoSoAcoes({ total: null, acoes: -9500 }) === true);
 ok("kicker so-acoes: acoes null -> neutro", E.kickerResultadoSoAcoes({ total: null, acoes: null }) === false);
 ok("kicker so-acoes: sem resultado -> neutro", E.kickerResultadoSoAcoes(null) === false);
 ok("sinalResultado: zero/pos/neg/null", E.sinalResultado(0) === "zero" && E.sinalResultado(1) === "pos" && E.sinalResultado(-1) === "neg" && E.sinalResultado(null) === null);
+
+// Fase 45 (code review WR-03): chaves neutras existem nos dois modos e nunca geram "null"/"undefined".
+{
+  const { copyFor } = await import("../src/copy.js");
+  for (const modo of ["educacional", "operador"]) {
+    const cp = copyFor(modo);
+    const textos = [cp.semPremioPerna, cp.estruturaPremioSoAtual("1,20"), cp.estruturaPernaLinha("", "vendida", "20,00", "20/10").trim()];
+    ok("copy WR-03 (" + modo + "): chaves neutras presentes", textos.every((t) => typeof t === "string" && t.length > 0));
+    ok("copy WR-03 (" + modo + "): sem null/undefined/NaN, sem espaço inicial", textos.every((t) => !/null|undefined|NaN/.test(t)) && !/^\s/.test(textos[2]));
+    ok("copy WR-03 (" + modo + "): prêmio só-atual sem seta", !/→/.test(textos[1]) && !/→/.test(textos[0]));
+  }
+}
+
+// Fase 45 (code review WR-04): motivo neutro do Encerrar nos dois modos.
+{
+  const { copyFor } = await import("../src/copy.js");
+  for (const modo of ["educacional", "operador"]) {
+    const t = copyFor(modo).encerrarSemMotivo;
+    ok("copy WR-04 (" + modo + "): encerrarSemMotivo presente e sem null/undefined/NaN", typeof t === "string" && t.length > 0 && !/null|undefined|NaN/.test(t));
+  }
+}
+
+// Fase 45 (code review WR-06): o aria-label da régua com o fallback não carrega "null".
+{
+  const { copyFor } = await import("../src/copy.js");
+  for (const modo of ["educacional", "operador"]) {
+    const cp = copyFor(modo);
+    const aria = cp.estruturaFaixaAria(null || cp.estruturaGrupoAria, "", "—", "—");
+    ok("copy WR-06 (" + modo + "): aria da régua com fallback sem null/undefined/NaN", !/null|undefined|NaN/.test(aria) && aria.startsWith(cp.estruturaGrupoAria));
+  }
+}
 
 // pureza estática
 const src = readFileSync(fileURLToPath(new URL("../src/estruturaCard.js", import.meta.url)), "utf8");

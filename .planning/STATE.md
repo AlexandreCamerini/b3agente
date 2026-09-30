@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Estruturas de opções na carteira
-status: phase_45_wave_3_done
-stopped_at: 'Fase 45 onda 3 concluída (45-04; suíte canônica verde). Aguardando checkpoint humano 45-05 (M1 24px, P4 TravaPill contorno, M7, estados).'
-last_updated: "2026-09-29T00:00:00.000Z"
-last_activity: 2026-09-29 -- Milestone v2.0 aberta (REQUIREMENTS, ROADMAP Fases 44-46, PROJECT); fases da v1.9 movidas para milestones/v1.9-phases
+status: phase_45_complete
+stopped_at: 'Fase 45 concluída em código (2026-09-30): 5 planos, verificação human_needed sem gaps, code review 0 críticos com WR-01..06 corrigidos, suíte canônica verde (pytest 3136 passed). Pendente: validação em aparelho com backend da Fase 44 em produção; promoção v2 → main e deploy manual (decisão do Alex, nada enviado). Próximo: /gsd-discuss-phase 46 (Didática).'
+last_updated: "2026-09-30T00:00:00.000Z"
+last_activity: 2026-09-30 -- Fase 45 concluída em código (Card de posição estruturada); aguardando promoção/deploy para validar em aparelho
 progress:
   total_phases: 3
-  completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
-  percent: 33
+  completed_phases: 2
+  total_plans: 8
+  completed_plans: 8
+  percent: 67
 ---
 
 # Project State
@@ -26,15 +26,15 @@ See: .planning/PROJECT.md (updated 2026-09-27)
 ## Current Position
 
 Milestone: v2.0 Estruturas de opções na carteira (Fases 44-46).
-Phase: 44 — Motor: estrutura por ativo (COMPLETA: 44-01 vocabulário → 44-02 motor puro → 44-03 rota aditiva; verificada).
-Status: phase_45_wave_3_done (4/5 planos; 45-05 = checkpoint humano) (Fase 44 completa). Requirements em `.planning/REQUIREMENTS.md`.
+Phase: 45 — Card de posição estruturada (COMPLETA em código: 45-01 vocabulário → 45-02 lógica pura + one-shot → 45-03 hook e card → 45-04 régua e limites → 45-05 verificação e checkpoint; 44 também completa).
+Status: phase_45_complete (validação em aparelho pendente). Requirements em `.planning/REQUIREMENTS.md`.
 Decisões do Alex (2026-09-29): régua de faixa mantida; pernas sempre visíveis;
   texto do Estudo completo; escopo motor + front aprovado. Instrução
   principal: economizar modelo (CLAUDE.md §Estratégia de execução).
 Pendências fora de milestone: build iOS/TestFlight (ação do Alex); quick task
   avulsa (textos de vazio sem consumidor + "amostra insuficiente" com janela
   e n); quick 260928-u0h e entrega ainda sem push (confirmar com o Alex).
-Next: `/clear` e `/gsd-execute-phase 45`. Orquestrador roda `cd web && npx cap copy ios` + `bash scripts/executar.sh --testes` (fora do sandbox) 1x por onda. Checkpoint humano 45-05: M1 (24px), P4 (TravaPill contorno opt-in), exceção mostraRR no card legado.
+Next: Fase 46 (Didática, DIDA-01..02): `/clear` e `/gsd-discuss-phase 46`. Antes, decisão do Alex: promover `v2/interacao-estrutural` → `main` e deploy manual do backend (produção ainda `F10-20260927-03`, sem a rota `estrutura`); o merge local `ae3d11b4` em `main` não foi enviado e não contém as correções pós-teste/review. Dívida da 45: IN-02..07 do 45-REVIEW.md, TravaPill legado (AA 4,18 no claro), ask × último negócio, Encerrar só recompra a call.
 
 ## Quick Tasks Completed
 
