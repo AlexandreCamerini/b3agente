@@ -69,7 +69,9 @@ ok("hook (code review WR-02): uma só fila por instância (criarFilaLeituras 1x)
 }
 
 // --- W-001: R:R do card atual -----------------------------------------------
-ok("card atual: R:R atual sob mostraRR(p) &&", /mostraRR\(p\) && \(<span>R:R atual/.test(src));
+// Fase 45 (code review WR-05): reversão deliberada — o gate agora recebe o preço
+// (mostraRR(p, cur)) e o legado não renderiza mais "R:R atual —".
+ok("card atual: R:R atual sob mostraRR(p, cur) &&, sem '—'", /mostraRR\(p, cur\) && \(<span>R:R atual/.test(src) && !/rr == null \? "—" : rr\.toFixed/.test(src) && /const rr = valorRR\(p, cur\);/.test(src));
 
 // --- CarteiraScreen ---------------------------------------------------------
 const cart = limpo(functionBody("CarteiraScreen"));
@@ -121,7 +123,7 @@ for (const [nome, corpo] of [["CardPosicaoEstruturada", cardE], ["ReguaFaixa", r
 }
 ok("ReguaFaixa: role=img e cp.estruturaFaixaAria", reguaE.length > 0 && /role="img"/.test(reguaE) && /cp\.estruturaFaixaAria\(/.test(reguaE));
 ok("ReguaFaixa usa dominioRegua/posRegua", /dominioRegua\(/.test(reguaE) && /posRegua\(/.test(reguaE));
-ok("R:R no card só sob mostraRR(", /mostraRR\(/.test(cardE) && (cardE.match(/R:R/g) || []).length === 1 && /const rr = mostraRR\(p\)/.test(cardE));
+ok("R:R no card só sob mostraRR(", /mostraRR\(/.test(cardE) && (cardE.match(/R:R/g) || []).length === 1 && /const rr = valorRR\(p, cur\)/.test(cardE) && /mostraRR\(p, cur\) && <span>R:R atual/.test(cardE));  // Fase 45 (code review WR-05): assinatura com preço
 ok('aviso sem stop via mostraAvisoSemStop(p, "estruturada", e)', /mostraAvisoSemStop\(p, "estruturada", e\)/.test(cardE) && !/Posição sem stop definido/.test(cardE));
 ok("botões definir stop/alvo nunca desabilitados", !/onEditarStopAlvo[^\n]*disabled/.test(cardE));
 {

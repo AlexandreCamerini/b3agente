@@ -50,6 +50,14 @@ ok("aviso: com stop nunca", ["atual", "carregando", "falha", "estruturada"].ever
 ok("RR com stop e alvo", E.mostraRR({ stop: 1, alvo: 2 }) === true);
 ok("RR sem stop", E.mostraRR({ stop: null, alvo: 2 }) === false);
 ok("RR sem alvo", E.mostraRR({ stop: 1, alvo: null }) === false);
+// Fase 45 (code review WR-05): com o preço, R:R só se a fórmula dá número finito e positivo.
+ok("RR sem cur mantém o gate antigo", E.mostraRR({ stop: 10, alvo: 20 }) === true);
+ok("RR com cur entre stop e alvo", E.mostraRR({ stop: 10, alvo: 20 }, 12) === true && E.valorRR({ stop: 10, alvo: 20 }, 15) === 1);
+ok("RR: preço abaixo do stop não renderiza", E.mostraRR({ stop: 10, alvo: 20 }, 9) === false && E.valorRR({ stop: 10, alvo: 20 }, 9) === null);
+ok("RR: preço no stop (divisão por zero) não renderiza", E.mostraRR({ stop: 10, alvo: 20 }, 10) === false);
+ok("RR: preço no/acima do alvo (<= 0) não renderiza", E.mostraRR({ stop: 10, alvo: 20 }, 20) === false && E.mostraRR({ stop: 10, alvo: 20 }, 25) === false);
+ok("RR: cur null/NaN/Infinity não renderiza", E.mostraRR({ stop: 10, alvo: 20 }, null) === false && E.mostraRR({ stop: 10, alvo: 20 }, NaN) === false && E.mostraRR({ stop: 10, alvo: 20 }, Infinity) === false);
+ok("RR: sem stop ou sem alvo não renderiza mesmo com cur", E.mostraRR({ stop: null, alvo: 20 }, 15) === false && E.mostraRR({ stop: 10, alvo: null }, 15) === false && E.valorRR(null, 15) === null);
 
 // tipoPillTravada
 ok("pill collar", E.tipoPillTravada({ nome: "collar" }, 1000) === "collar");

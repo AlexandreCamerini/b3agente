@@ -7,7 +7,7 @@ import { createChart, ColorType, CrosshairMode, LineStyle } from "lightweight-ch
 import { sampleTechnicals } from "./demo.js";
 import { DISCLAIMERS, TERMO_OPERADOR_VERSAO, TERMO_DESCOBERTO_VERSAO } from "./disclaimers.js";
 import { copyFor, historicoTxt, entradaAutoTxt, reconciliacaoTxt, reconciliacaoPorQueImporta, estruturaCardTxt } from "./copy.js";
-import { tickersComPernas, assinaturaEstrutura, estadoLeitura, mostraAvisoSemStop, mostraRR, criarFilaLeituras, tipoPillTravada, chipVencimento, ddmmDeIso, tomDoEstado, dominioRegua, posRegua, sinalResultado, kickerResultadoSoAcoes } from "./estruturaCard.js";
+import { tickersComPernas, assinaturaEstrutura, estadoLeitura, mostraAvisoSemStop, mostraRR, valorRR, criarFilaLeituras, tipoPillTravada, chipVencimento, ddmmDeIso, tomDoEstado, dominioRegua, posRegua, sinalResultado, kickerResultadoSoAcoes } from "./estruturaCard.js";
 // Fase 41 (TELAS-01): registro único das 8 telas que o assistente conhece —
 // BottomNav/petTela leem daqui nesta plano (41-02); tourPassos/ajudaSecoes
 // passam a iterar os ids do registro na 41-02/Task 2.
@@ -4652,7 +4652,7 @@ function CardPosicaoEstruturada({ p, leitura, cp, operador, ctx, data, total, on
         const dias = daysSince(openedAt(data.history, p.t, p));
         const cur = e.acoes ? e.acoes.preco : null;
         const pctCap = cur != null && total > 0 ? (p.qty * cur / total) * 100 : null;
-        const rr = mostraRR(p) && cur != null && cur > p.stop ? (p.alvo - cur) / (cur - p.stop) : null;
+        const rr = valorRR(p, cur);
         const se = p.setupEntrada;
         let gatStatus = null;
         if (se && se.invalidacao != null && cur != null) {
@@ -4663,7 +4663,7 @@ function CardPosicaoEstruturada({ p, leitura, cp, operador, ctx, data, total, on
           <div style={{ display: "flex", flexDirection: "column", gap: `${SP[1]}px` }}>
             <div style={{ display: "flex", gap: `${SP[3]}px`, flexWrap: "wrap", fontSize: "11.5px", color: T.textMuted }}>
               <span>{dias == null ? "—" : dias === 0 ? "aberta hoje" : dias + " dia" + (dias > 1 ? "s" : "") + " em operação"}</span>
-              {rr != null && <span>R:R atual <b style={{ fontFamily: MONO, color: T.textSecondary }}>{rr.toFixed(2)}</b></span>}
+              {mostraRR(p, cur) && <span>R:R atual <b style={{ fontFamily: MONO, color: T.textSecondary }}>{rr.toFixed(2)}</b></span>}
               {pctCap != null && <span><b style={{ fontFamily: MONO, color: T.textSecondary }}>{pctCap.toFixed(1).replace(".", ",")}%</b> do capital</span>}
             </div>
             {se && (
@@ -4971,7 +4971,7 @@ function CarteiraScreen({ ctx }) {
               {/* FASE 2 (2.4): tudo que a decisão de stop/alvo/venda exige, num só lugar */}
               {(() => {
                 const dias = daysSince(openedAt(data.history, p.t, p));
-                const rr = (p.stop != null && p.alvo != null && cur > p.stop) ? (p.alvo - cur) / (cur - p.stop) : null;
+                const rr = valorRR(p, cur);
                 const pctCap = total > 0 ? (p.qty * cur / total) * 100 : 0;
                 const se = p.setupEntrada;
                 let gatStatus = null;
@@ -4983,7 +4983,7 @@ function CarteiraScreen({ ctx }) {
                   <div style={{ marginTop: "10px", padding: "9px 11px", borderRadius: "10px", background: T.bgBase, border: `1px solid ${T.borderFaint}` }}>
                     <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", fontSize: "11px", color: T.textMuted }}>
                       <span>{dias == null ? "—" : dias === 0 ? "aberta hoje" : dias + " dia" + (dias > 1 ? "s" : "") + " em operação"}</span>
-                      {mostraRR(p) && (<span>R:R atual <b style={{ fontFamily: MONO, color: rr == null ? T.textFaint : rr >= 1.5 ? T.textSecondary : T.negative }}>{rr == null ? "—" : rr.toFixed(2)}</b></span>)}
+                      {mostraRR(p, cur) && (<span>R:R atual <b style={{ fontFamily: MONO, color: rr >= 1.5 ? T.textSecondary : T.negative }}>{rr.toFixed(2)}</b></span>)}
                       <span><b style={{ fontFamily: MONO, color: T.textSecondary }}>{pctCap.toFixed(1)}%</b> do capital</span>
                     </div>
                     {se && (

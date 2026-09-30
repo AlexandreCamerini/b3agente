@@ -45,8 +45,21 @@ export function mostraAvisoSemStop(p, modoLeitura, estrutura) {
 }
 
 // R:R nunca renderiza "—": só existe com stop E alvo.
-export function mostraRR(p) {
-  return !!p && p.stop != null && p.alvo != null;
+// Fase 45 (code review WR-05): quando o preço atual é informado, o R:R só
+// aparece se a fórmula produz número finito e positivo (preço acima do stop e
+// abaixo do alvo). Continua sendo a exceção deliberada ao D-02 (o gate de
+// stop/alvo é o mesmo nos dois cards). Sem `cur` (undefined) vale só o gate
+// antigo de stop/alvo, para os chamadores que não conhecem o preço.
+export function valorRR(p, cur) {
+  if (!p || p.stop == null || p.alvo == null) return null;
+  if (typeof cur !== "number" || !isFinite(cur) || cur <= p.stop) return null;
+  const rr = (p.alvo - cur) / (cur - p.stop);
+  return isFinite(rr) && rr > 0 ? rr : null;
+}
+
+export function mostraRR(p, cur) {
+  if (cur === undefined) return !!p && p.stop != null && p.alvo != null;
+  return valorRR(p, cur) != null;
 }
 
 // D-11: pill "travada" só com qtyTravada > 0; collar usa a variante própria.
