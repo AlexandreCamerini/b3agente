@@ -131,3 +131,41 @@ export function executarComTeto(thunks, limite) {
   const n = Math.max(1, Math.min(limite || 1, lista.length));
   return Promise.all(Array.from({ length: n }, trabalhador)).then(() => resultados);
 }
+
+// Fase 45 (code review WR-01/WR-02): fila ÚNICA com teto de concorrência para
+// as leituras de estrutura (cada chamada consome cota da brapi). Diferente de
+// `executarComTeto`, cada item traz `vale()`, conferido só quando chega a vez
+// de rodar: se a leitura já não é a vigente (desmontou, trocou de escopo,
+// assinatura mudou) o item é abandonado SEM chamar a API. `cancelar()` abandona
+// tudo que ainda está pendente (o que já está em voo termina e é descartado
+// pelo próprio guard da resposta). Resolve sempre, nunca rejeita:
+// { abandonada: true } | { ok, valor } | { ok: false, erro }.
+export function criarFilaLeituras(limite) {
+  const teto = Math.max(1, limite || 1);
+  const pendentes = [];
+  let ativos = 0;
+  function andar() {
+    while (ativos < teto && pendentes.length) {
+      const item = pendentes.shift();
+      let vigente = false;
+      try { vigente = !!item.vale(); } catch { vigente = false; }
+      if (!vigente) { item.resolver({ abandonada: true }); continue; }
+      ativos++;
+      let prom;
+      try { prom = Promise.resolve(item.rodar()); } catch (erro) { prom = Promise.reject(erro); }
+      prom.then(
+        (valor) => item.resolver({ ok: true, valor }),
+        (erro) => item.resolver({ ok: false, erro })
+      ).then(() => { ativos--; andar(); });
+    }
+  }
+  return {
+    enfileirar(rodar, vale) {
+      return new Promise((resolver) => { pendentes.push({ rodar, vale, resolver }); andar(); });
+    },
+    cancelar() {
+      pendentes.splice(0).forEach((item) => item.resolver({ abandonada: true }));
+    },
+    estado() { return { ativos, pendentes: pendentes.length }; },
+  };
+}

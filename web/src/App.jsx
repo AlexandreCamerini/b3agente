@@ -7,7 +7,7 @@ import { createChart, ColorType, CrosshairMode, LineStyle } from "lightweight-ch
 import { sampleTechnicals } from "./demo.js";
 import { DISCLAIMERS, TERMO_OPERADOR_VERSAO, TERMO_DESCOBERTO_VERSAO } from "./disclaimers.js";
 import { copyFor, historicoTxt, entradaAutoTxt, reconciliacaoTxt, reconciliacaoPorQueImporta, estruturaCardTxt } from "./copy.js";
-import { tickersComPernas, assinaturaEstrutura, estadoLeitura, mostraAvisoSemStop, mostraRR, tipoPillTravada, chipVencimento, ddmmDeIso, tomDoEstado, executarComTeto, dominioRegua, posRegua, sinalResultado, kickerResultadoSoAcoes } from "./estruturaCard.js";
+import { tickersComPernas, assinaturaEstrutura, estadoLeitura, mostraAvisoSemStop, mostraRR, criarFilaLeituras, tipoPillTravada, chipVencimento, ddmmDeIso, tomDoEstado, dominioRegua, posRegua, sinalResultado, kickerResultadoSoAcoes } from "./estruturaCard.js";
 // Fase 41 (TELAS-01): registro único das 8 telas que o assistente conhece —
 // BottomNav/petTela leem daqui nesta plano (41-02); tourPassos/ajudaSecoes
 // passam a iterar os ids do registro na 41-02/Task 2.
@@ -4378,11 +4378,20 @@ function useEstruturasPosicao(data, operador, escopoSeq) {
   const ultimoRef = useRef({});
   const corteRef = useRef(0);
   const vivoRef = useRef(true);
+  // WR-01 (code review): fila com teto de 3 cujo item só roda se a leitura
+  // ainda for a vigente quando chega a vez (abandona sem chamar a API).
+  const filaRef = useRef(null);
+  if (!filaRef.current) filaRef.current = criarFilaLeituras(3);
   const tickers = tickersComPernas(data.positions, data.optionPositions);
   const sigs = tickers.map((t) => assinaturaEstrutura(t, data.positions, data.optionPositions, operador));
   const chave = sigs.join(";");
 
   useEffect(() => { vivoRef.current = true; return () => { vivoRef.current = false; }; }, []);
+
+  // Só roda quando chega a vez se o hook está vivo e a assinatura pedida ainda
+  // é a do ticker. Quem abandona nunca deixa "carregando" órfão: a leitura que
+  // a superou (ou a limpeza do ticker/escopo) é a dona do estado.
+  const valeLer = (t, assinatura) => () => vivoRef.current && pedidasRef.current[t] === assinatura;
 
   const lerEstrutura = (t, assinatura) => {
     const meu = ++seqRef.current;
@@ -4408,7 +4417,7 @@ function useEstruturasPosicao(data, operador, escopoSeq) {
       if (pedidasRef.current[t] === sigs[i]) return;
       pedidasRef.current[t] = sigs[i];
       const sig = sigs[i];
-      thunks.push(() => lerEstrutura(t, sig));
+      thunks.push([() => lerEstrutura(t, sig), valeLer(t, sig)]);
     });
     setLeituras((prev) => {
       const prox = {};
@@ -4419,7 +4428,7 @@ function useEstruturasPosicao(data, operador, escopoSeq) {
       return prox;
     });
     Object.keys(pedidasRef.current).forEach((t) => { if (!tickers.includes(t)) delete pedidasRef.current[t]; });
-    if (thunks.length) executarComTeto(thunks, 3);
+    thunks.forEach(([rodar, vale]) => filaRef.current.enfileirar(rodar, vale));
   }, [chave, escopoSeq]);
 
   const atualizar = (t) => {
@@ -4430,7 +4439,7 @@ function useEstruturasPosicao(data, operador, escopoSeq) {
       const l = prev[t] || {};
       return { ...prev, [t]: { ...l, status: !l.status || l.status === "falha" ? "carregando" : l.status, emVoo: true } };
     });
-    executarComTeto([() => lerEstrutura(t, sig)], 3);
+    filaRef.current.enfileirar(() => lerEstrutura(t, sig), valeLer(t, sig));
   };
 
   return { leituras, atualizar };

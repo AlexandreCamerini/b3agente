@@ -35,7 +35,11 @@ const limpo = (b) => semComentarios(semComentariosJsx(b));
 const hook = limpo(functionBody("useEstruturasPosicao"));
 ok("hook existe", hook.length > 0);
 ok("hook chama store.optionsProposta(t, true)", /store\.optionsProposta\(t, true\)/.test(hook));
-ok("hook usa executarComTeto(..., 3)", /executarComTeto\(/.test(hook) && /,\s*3\)/.test(hook));
+// Fase 45 (code review WR-01/WR-02): reversão deliberada — o pool efêmero
+// `executarComTeto(..., 3)` deu lugar a UMA fila por instância do hook.
+ok("hook usa fila única criarFilaLeituras(3) via filaRef", /filaRef\s*=\s*useRef\(null\)/.test(hook) && /criarFilaLeituras\(3\)/.test(hook) && !/executarComTeto\(/.test(hook));
+ok("hook (code review WR-01): thunk só roda se vale() — vivo e assinatura vigente", /valeLer\s*=/.test(hook) && /vivoRef\.current/.test(hook) && /pedidasRef\.current\[t\]\s*===\s*assinatura/.test(hook));
+ok("hook (code review WR-01): efeito e atualizar enfileiram na mesma filaRef com vale", (hook.match(/filaRef\.current\.enfileirar\(/g) || []).length === 2);
 ok("hook não tem polling (setInterval/setTimeout)", !/setInterval|setTimeout/.test(hook));
 ok("hook: seqRef é useRef(0)", /seqRef\s*=\s*useRef\(0\)/.test(hook));
 ok("hook: seqRef nunca zerado", !/seqRef\.current\s*=\s*(0|\{\})/.test(hook) && !/seqRef\.current\s*=\s*(0|\{\})/.test(src));
