@@ -70,7 +70,8 @@ ok("pesos só 400/700", !/fontWeight:\s*(600|800)/.test(cardE));
 ok("fontSize sempre string px (ou TAM_TOTAL_ESTRUTURA + px)", (cardE.match(/fontSize:\s*[^,}]+/g) || []).every((f) => /fontSize:\s*("(10\.5|11\.5|13|16)px"|TAM_TOTAL_ESTRUTURA \+ "px")/.test(f)));
 ok("caixas bgBase levam background como primeira chave", !/backgroundColor/.test(cardE));
 ok("TAM_TOTAL_ESTRUTURA = 24", /^const TAM_TOTAL_ESTRUTURA = 24;/m.test(src));
-ok("âncora do 45-04 presente", /45-04: régua de faixa \+ bloco de limites \(M2\)/.test(src));
+// Reversão deliberada (45-04): a âncora de 45-03 foi consumida; agora exige a régua no lugar.
+ok("âncora do 45-04 consumida e ReguaFaixa renderizada", !/45-04: régua de faixa \+ bloco de limites/.test(src) && /<ReguaFaixa e=\{e\} p=\{p\} cp=\{cp\} \/>/.test(cardE));
 
 // --- ctx --------------------------------------------------------------------
 ok("ctx.escopoSeq = escopoOpcoes", /escopoSeq: escopoOpcoes/.test(src));

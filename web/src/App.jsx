@@ -7,7 +7,7 @@ import { createChart, ColorType, CrosshairMode, LineStyle } from "lightweight-ch
 import { sampleTechnicals } from "./demo.js";
 import { DISCLAIMERS, TERMO_OPERADOR_VERSAO, TERMO_DESCOBERTO_VERSAO } from "./disclaimers.js";
 import { copyFor, historicoTxt, entradaAutoTxt, reconciliacaoTxt, reconciliacaoPorQueImporta, estruturaCardTxt } from "./copy.js";
-import { tickersComPernas, assinaturaEstrutura, estadoLeitura, mostraAvisoSemStop, mostraRR, tipoPillTravada, chipVencimento, ddmmDeIso, tomDoEstado, executarComTeto } from "./estruturaCard.js";
+import { tickersComPernas, assinaturaEstrutura, estadoLeitura, mostraAvisoSemStop, mostraRR, tipoPillTravada, chipVencimento, ddmmDeIso, tomDoEstado, executarComTeto, dominioRegua, posRegua } from "./estruturaCard.js";
 // Fase 41 (TELAS-01): registro único das 8 telas que o assistente conhece —
 // BottomNav/petTela leem daqui nesta plano (41-02); tourPassos/ajudaSecoes
 // passam a iterar os ids do registro na 41-02/Task 2.
@@ -1215,9 +1215,16 @@ function PosPill({ qty }) {
 // Fase 14 (Plano 07): trava de lastro visível — mesma forma de PosPill acima,
 // cor T.negative (comunica restrição, não posição neutra). Texto vem de
 // cp.badgeTravada(qty) — nunca hardcodado (guardião didatica-boris/copy.js).
-function TravaPill({ qty, cp, texto }) {
+// Fase 45 (premissa P4, UI-SPEC §Color): contorno opt-in só no card estruturado —
+// negative sobre negativeTint10 mede 4.18 no claro (reprova AA), contorno mede >= 4.79.
+// Dívida AA conhecida do legado (AtivoCard/card atual); estender é pergunta do
+// checkpoint 45-05 para follow-up.
+function TravaPill({ qty, cp, texto, contorno = false }) {
   if (!qty) return null;
-  return <span style={{ padding: "3px 9px", borderRadius: "999px", background: T.negativeTint10, color: T.negative, fontSize: "10.5px", fontWeight: 800, whiteSpace: "nowrap" }}>{texto || cp.badgeTravada(qty)}</span>;
+  const estilo = contorno
+    ? { padding: "3px 9px", borderRadius: "999px", background: "transparent", border: `1px solid ${T.negative}`, color: T.negative, fontSize: "10.5px", fontWeight: 700, whiteSpace: "nowrap" }
+    : { padding: "3px 9px", borderRadius: "999px", background: T.negativeTint10, color: T.negative, fontSize: "10.5px", fontWeight: 800, whiteSpace: "nowrap" };
+  return <span style={estilo}>{texto || cp.badgeTravada(qty)}</span>;
 }
 
 // Fase 14 (Plano 07, T-14-27): liquidação forçada por vencimento — estado do
@@ -4429,11 +4436,83 @@ function useEstruturasPosicao(data, operador, escopoSeq) {
   return { leituras, atualizar };
 }
 
+// Fase 45 (CARD-02, D-07/D-10, UI-SPEC M6): régua "faixa no vencimento".
+// Piso/teto/PM/hoje vêm só do motor (`e.faixa`, `e.acoes`); stop/alvo do
+// próprio plano da posição (`p.stop`/`p.alvo`). Ponta aberta = null, nunca 0.
+// Forma distinta por marcador (nunca só cor); sem gradiente, sem animação.
+function ReguaFaixa({ e, p, cp }) {
+  const kicker = { fontSize: "10.5px", fontWeight: 700, color: T.textFaint, letterSpacing: "0.06em" };
+  if (!e.faixa) {
+    return e.motivoFaixaTexto ? <div style={{ fontSize: "11.5px", color: T.textMuted, lineHeight: 1.5 }}>{e.motivoFaixaTexto}</div> : null;
+  }
+  const piso = e.faixa.piso;
+  const teto = e.faixa.teto;
+  const pm = e.acoes ? e.acoes.precoMedio : null;
+  const hoje = e.acoes ? e.acoes.preco : null;
+  const stop = p.stop;
+  const alvo = p.alvo;
+  const dom = dominioRegua([piso, teto, pm, hoje, stop, alvo]);
+  const L = cp.estruturaLegenda;
+  const rot = { fontSize: "10.5px", fontWeight: 700, color: T.textMuted };
+  const val = { fontFamily: MONO, fontSize: "10.5px", color: T.textSecondary };
+  const item = (k, v, vazio) => (
+    <div style={{ display: "flex", flexDirection: "column", gap: `${SP[1]}px` }}>
+      <span style={rot}>{k}</span>
+      <span style={val}>{v == null ? vazio : price(v)}</span>
+    </div>
+  );
+  const tem = (v) => v != null && dom != null;
+  const traco = (v, cor) => (
+    <div aria-hidden style={{ position: "absolute", top: "-7px", width: "2px", height: "16px", transform: "translateX(-50%)", left: posRegua(v, dom) + "%", background: cor }} />
+  );
+  return (
+    <div>
+      <div style={kicker}>{cp.estruturaFaixaTitulo}</div>
+      {dom && (
+        <div
+          role="img"
+          aria-label={cp.estruturaFaixaAria(e.nomeTexto, (e.faixa.textos || []).join(" "), hoje == null ? "—" : price(hoje), pm == null ? "—" : price(pm))}
+          style={{ position: "relative", marginTop: `${SP[6]}px`, height: "2px", borderRadius: "999px", background: T.knob }}
+        >
+          <div aria-hidden style={{ position: "absolute", top: 0, height: "2px", background: T.borderDashed, left: (piso == null ? 0 : posRegua(piso, dom)) + "%", right: (teto == null ? 0 : 100 - posRegua(teto, dom)) + "%" }} />
+          {tem(piso) && traco(piso, T.textSecondary)}
+          {tem(teto) && traco(teto, T.textSecondary)}
+          {tem(stop) && traco(stop, T.negative)}
+          {tem(alvo) && traco(alvo, T.positive)}
+          {tem(pm) && (
+            <div aria-hidden style={{ position: "absolute", top: "-12px", width: "10px", height: "10px", boxSizing: "border-box", border: `1.5px solid ${T.textSecondary}`, background: "transparent", transform: "translateX(-50%) rotate(45deg)", left: posRegua(pm, dom) + "%" }} />
+          )}
+          {tem(hoje) && (
+            <>
+              <div aria-hidden style={{ position: "absolute", top: `-${SP[6]}px`, transform: "translateX(-50%)", left: posRegua(hoje, dom) + "%", fontFamily: MONO, fontSize: "10.5px", color: T.textSecondary, whiteSpace: "nowrap" }}>
+                {L.hoje.toLowerCase()} R$ {price(hoje)}
+              </div>
+              <div aria-hidden style={{ position: "absolute", top: "50%", width: "16px", height: "16px", borderRadius: "50%", boxSizing: "border-box", transform: "translate(-50%,-50%)", left: posRegua(hoje, dom) + "%", background: T.textPrimary, border: `2px solid ${T.bgCard}` }} />
+            </>
+          )}
+        </div>
+      )}
+      {dom && (piso == null || teto == null) && (
+        <div style={{ display: "flex", justifyContent: "space-between", gap: `${SP[2]}px`, marginTop: `${SP[3]}px`, fontSize: "10.5px", color: T.textMuted }}>
+          <span>{piso == null ? "← " + cp.semPiso : ""}</span>
+          <span>{teto == null ? cp.semTeto + " →" : ""}</span>
+        </div>
+      )}
+      <div style={{ display: "flex", justifyContent: "space-between", gap: `${SP[2]}px`, marginTop: `${SP[3]}px` }}>
+        {item(L.piso, piso, cp.semPiso)}
+        {item(L.pm, pm, "—")}
+        {item(L.hoje, hoje, "—")}
+        {item(L.teto, teto, cp.semTeto)}
+      </div>
+    </div>
+  );
+}
+
 // Fase 45 (CARD-01/03/04/05/06): card da posição com estrutura de opções.
 // Todo número e frase de motor vem de `estrutura` (P9: nunca somar/derivar no
 // cliente); texto do motor entra só como filho de texto JSX. Não executa
 // ordem: Encerrar apenas navega para Opções > Oportunidades no ticker.
-function CardPosicaoEstruturada({ p, leitura, cp, operador, ctx, data, onAtualizar }) {
+function CardPosicaoEstruturada({ p, leitura, cp, operador, ctx, data, total, onAtualizar, onEditarStopAlvo }) {
   const e = leitura.estrutura;
   const modo = operador ? "operador" : "estudo";
   const corDe = (v) => (v == null ? T.textMuted : v >= 0 ? T.positive : T.negative);
@@ -4463,8 +4542,8 @@ function CardPosicaoEstruturada({ p, leitura, cp, operador, ctx, data, onAtualiz
           ) : (
             <span style={{ background: T.bgBase, border: `1px solid ${T.borderSubtle}`, color: T.textMuted, padding: `${SP[1]}px ${SP[2]}px`, borderRadius: "999px", fontSize: "10.5px", fontWeight: 700, whiteSpace: "nowrap" }}>{textoVence}</span>
           ))}
-          {pill === "collar" && <TravaPill qty={p.qtyTravada} cp={cp} texto={estruturaCardTxt(modo, "badge_travada_collar", { qty: p.qtyTravada })} />}
-          {pill === "padrao" && <TravaPill qty={p.qtyTravada} cp={cp} />}
+          {pill === "collar" && <TravaPill qty={p.qtyTravada} cp={cp} contorno texto={estruturaCardTxt(modo, "badge_travada_collar", { qty: p.qtyTravada })} />}
+          {pill === "padrao" && <TravaPill qty={p.qtyTravada} cp={cp} contorno />}
         </div>
         {e.nome == null && e.nomeTexto && <div style={{ marginTop: `${SP[2]}px`, fontSize: "11.5px", color: T.textSecondary }}>{e.nomeTexto}</div>}
       </div>
@@ -4501,7 +4580,90 @@ function CardPosicaoEstruturada({ p, leitura, cp, operador, ctx, data, onAtualiz
         )}
       </div>
 
-      {/* 45-04: régua de faixa + bloco de limites (M2) */}
+      <ReguaFaixa e={e} p={p} cp={cp} />
+
+      <div style={{ background: T.bgBase, border: `1px solid ${T.borderFaint}`, borderRadius: "10px", padding: `${SP[2]}px ${SP[3]}px`, display: "flex", flexDirection: "column", gap: `${SP[1]}px` }}>
+        {e.faixa && (
+          <>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: `${SP[2]}px`, alignItems: "baseline" }}>
+              <span style={{ fontSize: "10.5px", fontWeight: 700, color: T.textMuted }}>{cp.estruturaLegenda.piso}</span>
+              <span style={{ fontFamily: MONO, fontSize: "13px", color: T.textSecondary }}>{e.faixa.piso == null ? cp.semPiso : "R$ " + price(e.faixa.piso)}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: `${SP[2]}px`, alignItems: "baseline" }}>
+              <span style={{ fontSize: "10.5px", fontWeight: 700, color: T.textMuted }}>{cp.estruturaLegenda.teto}</span>
+              <span style={{ fontFamily: MONO, fontSize: "13px", color: T.textSecondary }}>{e.faixa.teto == null ? cp.semTeto : "R$ " + price(e.faixa.teto)}</span>
+            </div>
+          </>
+        )}
+        {e.stopTexto != null && p.stop == null && (
+          <div style={{ display: "flex", justifyContent: "space-between", gap: `${SP[2]}px`, alignItems: "baseline" }}>
+            <span style={{ fontSize: "10.5px", fontWeight: 700, color: T.textMuted }}>{cp.estruturaLegenda.stop}</span>
+            <span style={{ fontSize: "11.5px", color: T.textSecondary, textAlign: "right" }}>{e.stopTexto}</span>
+          </div>
+        )}
+        {(e.faixa && e.faixa.textos ? e.faixa.textos : []).map((t, i) => (
+          <div key={i} style={{ fontSize: "11.5px", color: T.textSecondary, lineHeight: 1.5 }}>{t}</div>
+        ))}
+        {e.descobertaTexto && <div style={{ fontSize: "11.5px", color: T.textSecondary, lineHeight: 1.5 }}>{e.descobertaTexto}</div>}
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: `${SP[1]}px` }}>
+        <div style={{ display: "flex", gap: `${SP[3]}px`, flexWrap: "wrap", alignItems: "baseline" }}>
+          <span style={{ fontSize: "10.5px", fontWeight: 700, color: T.textMuted }}>{cp.estruturaLegenda.stop}</span>
+          {p.stop != null ? (
+            <span style={{ fontFamily: MONO, fontSize: "13px", color: T.negative }}>R$ {price(p.stop)}</span>
+          ) : e.stopTexto != null ? null : (
+            <button type="button" onClick={onEditarStopAlvo} style={{ background: "transparent", border: "none", padding: 0, minHeight: "44px", color: T.accent, fontSize: "11.5px", fontWeight: 700 }}>definir ▸</button>
+          )}
+          <span style={{ fontSize: "10.5px", fontWeight: 700, color: T.textMuted }}>{cp.estruturaLegenda.alvo}</span>
+          {p.alvo != null ? (
+            <span style={{ fontFamily: MONO, fontSize: "13px", color: T.positive }}>R$ {price(p.alvo)}</span>
+          ) : (
+            <button type="button" onClick={onEditarStopAlvo} style={{ background: "transparent", border: "none", padding: 0, minHeight: "44px", color: T.accent, fontSize: "11.5px", fontWeight: 700 }}>definir ▸</button>
+          )}
+        </div>
+        {(p.stop == null || p.alvo == null) && (
+          <button type="button" onClick={onEditarStopAlvo} style={{ background: "transparent", border: "none", padding: 0, minHeight: "44px", textAlign: "left", color: T.accent, fontSize: "11.5px", fontWeight: 700 }}>
+            ✎ {p.stop == null && p.alvo == null ? "definir stop e alvo" : p.stop == null ? "definir stop" : "definir alvo"}
+          </button>
+        )}
+      </div>
+
+      {(() => {
+        const dias = daysSince(openedAt(data.history, p.t, p));
+        const cur = e.acoes ? e.acoes.preco : null;
+        const pctCap = cur != null && total > 0 ? (p.qty * cur / total) * 100 : null;
+        const rr = mostraRR(p) && cur != null && cur > p.stop ? (p.alvo - cur) / (cur - p.stop) : null;
+        const se = p.setupEntrada;
+        let gatStatus = null;
+        if (se && se.invalidacao != null && cur != null) {
+          const inval = se.lado === "baixa" ? cur > se.invalidacao : cur < se.invalidacao;
+          gatStatus = inval ? ["invalidado", T.negative] : ["válido", T.positive];
+        }
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: `${SP[1]}px` }}>
+            <div style={{ display: "flex", gap: `${SP[3]}px`, flexWrap: "wrap", fontSize: "11.5px", color: T.textMuted }}>
+              <span>{dias == null ? "—" : dias === 0 ? "aberta hoje" : dias + " dia" + (dias > 1 ? "s" : "") + " em operação"}</span>
+              {rr != null && <span>R:R atual <b style={{ fontFamily: MONO, color: T.textSecondary }}>{rr.toFixed(2)}</b></span>}
+              {pctCap != null && <span><b style={{ fontFamily: MONO, color: T.textSecondary }}>{pctCap.toFixed(1)}%</b> do capital</span>}
+            </div>
+            {se && (
+              <div style={{ fontSize: "11.5px", color: T.textMuted }}>
+                Entrada pelo setup <b style={{ color: T.textSecondary }}>{se.setup || "—"}</b>
+                {se.gatilho != null && <span> · gatilho R$ {price(se.gatilho)}</span>}
+                {gatStatus && <span> · <b style={{ color: gatStatus[1] }}>{gatStatus[0]}</b></span>}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {mostraAvisoSemStop(p, "estruturada", e) && (
+        <div style={{ display: "flex", gap: `${SP[2]}px`, alignItems: "flex-start" }}>
+          <span aria-hidden style={{ color: T.textSecondary, fontSize: "11.5px", lineHeight: 1.5 }}>⚠</span>
+          <span style={{ fontSize: "11.5px", fontWeight: 700, color: T.textSecondary, lineHeight: 1.5 }}>{estruturaCardTxt(modo, "aviso_sem_stop")}</span>
+        </div>
+      )}
 
       <div>
         <div style={kickerEst}>{cp.estruturaPernasTitulo}</div>
@@ -4746,7 +4908,7 @@ function CarteiraScreen({ ctx }) {
             // não é desta fase.
             <div key={p.t} id={"posicao-" + p.t} style={{ ...card, padding: modoLeitura === "estruturada" ? `${SP[4]}px` : "14px 15px" }}>
               {modoLeitura === "estruturada" ? (
-                <CardPosicaoEstruturada p={p} leitura={leitura} cp={cp} operador={operador} ctx={ctx} data={data} onAtualizar={() => atualizarEstrutura(p.t)} />
+                <CardPosicaoEstruturada p={p} leitura={leitura} cp={cp} operador={operador} ctx={ctx} data={data} total={total} onAtualizar={() => atualizarEstrutura(p.t)} onEditarStopAlvo={() => setEditFor(editFor === p.t ? null : p.t)} />
               ) : (<>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "10px", flexWrap: "wrap" }}>
                 <div>
