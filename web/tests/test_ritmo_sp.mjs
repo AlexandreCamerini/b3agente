@@ -128,6 +128,10 @@ const sinalChip = functionBody("SinalChip") || "";
 const linhaContexto = functionBody("LinhaContexto") || "";
 const planoBloco = functionBody("PlanoOperacionalBloco") || "";
 const historicoPill = functionBody("HistoricoPill") || "";
+// Fase 45 (UI-SPEC §Copywriting — guardiões): extensão, não reversão.
+const cardEstr = functionBody("CardPosicaoEstruturada") || "";
+const reguaFaixa = functionBody("ReguaFaixa") || "";
+ok("recortes CardPosicaoEstruturada/ReguaFaixa não são vazios", cardEstr.length > 500 && reguaFaixa.length > 500);
 
 const idxManchete = src.indexOf("{/* qa/49 (v11): MANCHETE ÚNICA");
 const idxAnVencida = src.indexOf("{anVencida && (");
@@ -142,6 +146,8 @@ for (const [nome, corpo] of [
   ["LinhaContexto", linhaContexto],
   ["PlanoOperacionalBloco", planoBloco],
   ["HistoricoPill", historicoPill],
+  ["CardPosicaoEstruturada", cardEstr],
+  ["ReguaFaixa", reguaFaixa],
   ["AtivoCard (recorte manchete→elegibilidade)", recorteAtivoCard],
 ]) {
   const achadas = violacoes(limpo(corpo));

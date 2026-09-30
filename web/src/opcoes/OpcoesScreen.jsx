@@ -32,7 +32,7 @@ import { useState, useEffect } from "react";
 // Fase 40 (ESTADO-01): módulo puro (sem React, sem I/O) com a precedência
 // deep-link > memória > default (D-03) e a validação do ticker lembrado
 // contra a carteira atual (P-2) — mesmo isolamento de `finance.js` abaixo.
-import { abaInicialOpcoes, tickerInicialOpcoes, memoriaOpcoes } from "./memoriaOpcoes.js";
+import { abaInicialOpcoes, tickerInicialOpcoes, memoriaOpcoes, abrirTickerOpcoes } from "./memoriaOpcoes.js";
 // Fase 27 (27-02): `finance.js` é módulo PURO — zero import de `App.jsx` —,
 // então o isolamento do ADR-027 continua intacto (o guardião proíbe importar
 // `App.jsx`, não `finance.js`). `qtyLivre` é a FONTE ÚNICA da subtração
@@ -338,6 +338,10 @@ export default function OpcoesScreen({ ctx }) {
   useEffect(() => {
     if (ctx && ctx.opcoesAbaInicial && ctx.limparOpcoesAbaInicial) ctx.limparOpcoesAbaInicial();
   }, []);
+  // Fase 45 (D-05): one-shot próprio do ticker de "Encerrar estrutura…".
+  useEffect(() => {
+    if (ctx && ctx.opcoesAbrirTicker && ctx.limparOpcoesAbrirTicker) ctx.limparOpcoesAbrirTicker();
+  }, []);
   // Fase 40 (ESTADO-01): write-back CONTÍNUO — grava a memória no mount (com
   // o estado efetivamente resolvido: cobre o cenário E, "memória regravada
   // com ticker vazio", e o cenário B, "memória passa a ser a aba do
@@ -354,7 +358,9 @@ export default function OpcoesScreen({ ctx }) {
   // (a Leitura B' do <objective> de 39-04-PLAN.md: o painel reusa
   // PropostaLastreada/CandidatoOpcao/useAceiteLastreado inline, sem trocar de
   // aba nem de ticker "oficial").
-  const [oportunidadeAberta, setOportunidadeAberta] = useState(null);
+  // Fase 45 (D-05): inicializador lazy (sem useEffect pós-paint) — abre o painel
+  // do ticker pedido por "Encerrar estrutura…" só se ele estiver na carteira.
+  const [oportunidadeAberta, setOportunidadeAberta] = useState(() => abrirTickerOpcoes(ctx && ctx.opcoesAbrirTicker, carteira));
   // Fase 39 (39-02/39-04, D-07): sheet de Vigias — substitui o bloco fixo do
   // hub. `vigiasAberto`/`verbeteAberto` nunca ficam abertos ao mesmo tempo
   // (os dois são zIndex 86 — nunca empilhar).
@@ -744,6 +750,9 @@ export default function OpcoesScreen({ ctx }) {
             opcoesPorTicker={opcoesPorTicker}
             carregando={opcoesPorTickerCarregando}
             carteira={carteira}
+            // quick 260928-u0h: mesmo predicado de `pos_op_aberta` (servidor) e mesma
+            // fonte de `PropostaDoAtivo` — separa encerramento de oportunidade nova.
+            optionPositions={(ctx && ctx.data && ctx.data.optionPositions) || []}
             cp={cp}
             onAbrir={alternarOportunidade}
             abertoTicker={oportunidadeAberta}

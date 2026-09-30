@@ -725,8 +725,9 @@ export const COPY = {
     // vez da frase-âncora da manchete do motor (guardrail CVM,
     // test_opcoes_collar_vocab.py::test_nenhum_arquivo_front_compoe_manchete_do_collar
     // — mesma colisão já documentada pelos Planos 17-01/17-03).
-    eyebrowPropostaCollar: "ESTUDO · TRAVA PROTETORA",
-    collarPernasLinha: (n, ticker, strikeCall, strikePut) => `${n}× TRAVA ${ticker} · call ${strikeCall} / put ${strikePut}`,
+    // Reversão deliberada (Fase 45, D-11/discretion "usar collar"): a âncora legada do vocabulário de collar (Fase 8) saiu da voz visível.
+    eyebrowPropostaCollar: "ESTUDO · COLLAR",
+    collarPernasLinha: (n, ticker, strikeCall, strikePut) => `${n}× COLLAR ${ticker} · call ${strikeCall} / put ${strikePut}`,
     ctaCollarDebito: () => "Ver como este collar funcionaria",
     ctaCollarCredito: () => "Ver como este collar funcionaria",
     confirmAbrirCollar: () => "", // ramo estudo nunca chama window.confirm — chave existe só pela paridade
@@ -737,6 +738,37 @@ export const COPY = {
     // (guardião test_copy_theme.mjs testa substring, não palavra inteira).
     badgeTravada: (qty) => `${qty} travada(s) · lastro da call coberta`,
     avisoTravaNaVenda: (qty) => `${qty} ação(ões) está(ão) travada(s) como lastro de uma call coberta — volta(m) a ficar disponível(is) quando a call for recomprada ou vencer.`,
+
+    // Fase 45 — rótulos neutros do card estruturado; guardião de igualdade Estudo=Operador
+    // (test_estrutura_card_espelho.mjs). Idênticos nos dois modos de propósito.
+    estruturaResultadoRotulo: "RESULTADO DA ESTRUTURA",
+    estruturaResultadoSoAcoesRotulo: "SÓ AS AÇÕES — PRÊMIOS INDISPONÍVEIS",
+    estruturaAcoesRotulo: "Ações",
+    estruturaOpcoesRotulo: "Opções",
+    estruturaFaixaTitulo: "FAIXA NO VENCIMENTO",
+    estruturaPernasTitulo: "PERNAS",
+    estruturaLegenda: { piso: "PISO", pm: "PM", hoje: "HOJE", teto: "TETO", stop: "STOP", alvo: "ALVO" },
+    semPiso: "sem piso",
+    semTeto: "sem teto",
+    ladoVendida: "vendida",
+    ladoComprada: "comprada",
+    semCotacaoPerna: "sem cotação",
+    chipVence: (ddmm, dias) => `vence ${ddmm} · ${dias} dia(s)`,
+    chipVenceHoje: "vence hoje",
+    chipVencida: (ddmm) => `vencida em ${ddmm}`,
+    btnEncerrarEstrutura: "Encerrar estrutura…",
+    btnAtualizarEstrutura: "Atualizar",
+    fonteEstruturaLinha: (fonte, quando) => `Opções lidas de ${fonte} em ${quando}`,
+    fonteEstruturaSemDado: "Fonte das opções não declarada.",
+    estruturaFaixaAria: (nome, textos, hoje, pm) => `${nome}. ${textos} Hoje R$ ${hoje}. Preço médio R$ ${pm}.`,
+    encerrarAria: (t) => `Encerrar estrutura de ${t}: abre a aba Opções em ${t}`,
+    estruturaGrupoAria: "Estrutura de opções",
+    estruturaPernaLinha: (tipo, lado, strike, ddmm) => `${tipo} ${lado} · strike ${strike} · vence ${ddmm}`,
+    estruturaPremioLinha: (entrada, atual) => `prêmio R$ ${entrada} → R$ ${atual}`,
+    estruturaQtdPerna: (q) => `×${q}`,
+    estruturaLivresLinha: (livres, qty) => `${livres}/${qty} livres (lastro da call)`,
+    estruturaSaidaSemLastro: "sem lastro",
+    estruturaVerHistorico: "Ver no histórico de operações →",
 
     // Fase 14 (Plano 07, T-14-27/T-14-28): liquidação forçada por vencimento
     // (estado do sistema, texto verbatim do UI-SPEC) e ressalva de marcação
@@ -768,12 +800,89 @@ export const COPY = {
     tiraOpcoesSubtitulo: "Só aparecem aqui as posições em que a leitura técnica do próprio ativo confirma a estrutura agora — o mesmo motor que decide o gatilho do Radar.",
     tiraOpcoesVerDetalhe: "ver detalhe",
     tiraOpcoesCarregando: "Procurando estruturas possíveis nas suas posições…",
+    // Quick 260928-u0h (2026-09-28): tiraOpcoesSemCobertura/SemSetup/SemMercado sem consumidor em
+    // componente desde esta quick — mantidas (guardiões de paridade as travam); remoção é decisão separada.
     tiraOpcoesSemCobertura: "Nenhuma das suas posições tem opção com liquidez suficiente hoje — sem contrato líquido, não dá para estudar uma estrutura sobre ela.",
     tiraOpcoesSemSetup: "Suas posições têm opção líquida, mas a leitura técnica não indica nenhuma estrutura agora. A cadeia completa continua disponível em cada ativo.",
     // Quick 260908-ldg (D-07): terceiro caso do estado vazio — a diferença
     // para `tiraOpcoesSemCobertura` é NOMEAR a faixa, em vez de "sem
     // liquidez suficiente" genérico. Voz de professor: descreve a condição.
     tiraOpcoesSemMercado: "As opções das suas posições estão hoje na faixa SEM MERCADO — negociaram tão pouco que o preço da tela não seria o preço real de uma ordem. Por isso nenhuma estrutura é estudada sobre elas agora.",
+    // Quick 260928-u0h (2026-09-28): encerramento não passa pela leitura técnica (main.py, ramo
+    // `pos_op_aberta` -> proposta_fechar), por isso ganha seção própria. As frases de motivo moram
+    // AQUI e não em skill_ref porque `motivoTexto` do backend colapsa sem_contrato_liquido e
+    // sem_vencimento_elegivel na frase de sem_setup (falsa para eles).
+    tiraOpcoesAbertasTitulo: "SUAS ESTRUTURAS ABERTAS",
+    tiraOpcoesAbertasSubtitulo: "Estruturas que você já montou sobre suas ações. A proposta aqui é de encerramento do mesmo contrato — ela não passa pela leitura técnica, só pela cotação atual da opção.",
+    tiraOpcoesNenhumaNova: "Nenhuma estrutura nova confirmada pela leitura técnica agora.",
+    tiraOpcoesMotivosTitulo: "POR QUE AS OUTRAS POSIÇÕES NÃO APARECEM",
+    tiraOpcoesMotivo: {
+      sem_setup: "A leitura técnica deste ativo não pede venda coberta nem put de proteção agora — em alta, a venda da call travaria o movimento lido e a put pagaria uma proteção que a leitura não pede; sem leitura conclusiva, nada é proposto.",
+      sem_lastro: "Não há um lote livre de 100 ações deste ativo na carteira — venda coberta e put de proteção precisam de pelo menos 100 ações que ainda não estejam comprometidas com outra estrutura.",
+      sem_vencimento_elegivel: "Nenhum vencimento de opção deste ativo cai hoje na janela de prazo que o simulador estuda. Sem vencimento elegível, nenhuma estrutura é montada.",
+      sem_contrato_liquido: "Existe cadeia de opções, mas nenhum contrato no strike e no vencimento que a estrutura pede negocia o bastante para ter um preço confiável.",
+      caixa_insuficiente: "O dinheiro virtual disponível não cobre o prêmio da put de proteção, e o collar também não coube no caixa. Nenhuma estrutura é estudada sem caixa para pagá-la.",
+      degradado: "A cotação de opções deste ativo veio degradada ou incompleta. Sem dado confiável, nenhuma estrutura é estudada — nada é estimado no lugar.",
+      sem_mercado: "As opções deste ativo estão na faixa SEM MERCADO — negociaram tão pouco que o preço da tela não seria o preço real de uma ordem.",
+      sem_liquidez: "As opções deste ativo não têm liquidez suficiente hoje para sustentar o estudo de uma estrutura.",
+      indisponivel: "Não foi possível consultar as opções deste ativo agora. Nada é mostrado no lugar do dado que faltou.",
+      aberta_sem_proposta: "Há uma estrutura aberta neste ativo, mas a proposta de encerramento não pôde ser montada agora (opção sem liquidez ou cotação indisponível). A posição continua aberta na sua carteira.",
+      desconhecido: "Nenhuma estrutura para este ativo agora, e o motivo não veio identificado. Não há dados suficientes para concluir.",
+    },
+    // Fase 44 (ESTR-06): espelho byte a byte de skill_ref.ESTRUTURA_POSICAO / OPCOES_LASTREADAS —
+    // guardião web/tests/test_estrutura_espelho.mjs; texto novo nasce no .py primeiro.
+    estruturaPosicao: {
+      nome_call_coberta: "call coberta",
+      nome_put_protecao: "put de proteção",
+      nome_collar: "collar",
+      nome_fora_da_biblioteca: "Estrutura fora das três que o simulador lê (call coberta, put de proteção e collar). As pernas aparecem abaixo, sem faixa calculada.",
+      estado_vigente: "Estrutura vigente: faltam {dias} dia(s) para o vencimento de {vencimento}.",
+      estado_vigente_sem_data: "Vencimento não informado para esta estrutura. Não há dados suficientes para concluir o prazo.",
+      estado_perto_vencimento: "Faltam {dias} dia(s) para o vencimento de {vencimento}. Perto do vencimento o prêmio muda rápido, e a estrutura pede uma decisão: encerrar ou deixar vencer.",
+      estado_exercicio_provavel: "A opção de strike R$ {strike} está dentro do dinheiro com a ação a R$ {spot}. Se o vencimento fosse hoje, ela seria exercida.",
+      estado_premio_indisponivel: "Sem cotação para {pernas} agora. O resultado total não é calculado e nada é estimado no lugar.",
+      estado_vencida: "O vencimento de {vencimento} já passou. Esta estrutura não está mais vigente.",
+      aberta_sem_proposta: "A estrutura continua aberta na sua carteira, mas o encerramento não pode ser proposto agora. {motivo}",
+      faixa_piso: "Piso no vencimento: abaixo de R$ {piso}, a put protege as {qtd} ações — a perda máxima fica em R$ {perdaMaxima}.",
+      faixa_teto: "Teto no vencimento: acima de R$ {teto}, a call vendida limita o ganho das {qtd} ações a R$ {ganhoMaximo}.",
+      faixa_sem_piso: "Sem piso: a call coberta não protege contra queda. Se a ação fosse a zero, a perda seria de R$ {perdaMaxima}.",
+      faixa_sem_teto: "Sem teto: a put de proteção não limita o ganho das ações se o preço subir.",
+      faixa_teto_parcial: "Teto parcial: a call vendida (strike R$ {teto}) limita o ganho de {qtd} das {qtdBase} ações. O ganho das demais não tem limite se o preço subir.",
+      faixa_piso_sem_perda: "Piso no vencimento: abaixo de R$ {piso}, a put protege {qtd} ações. Não há dados suficientes para concluir a perda máxima.",
+      faixa_vencimentos_diferentes: "As pernas vencem em datas diferentes ({vencimentos}). Sem uma data comum, a faixa no vencimento não pode ser calculada — nada é aproximado.",
+      faixa_perna_sem_lastro: "Há {quantidade} call(s) vendida(s) sem ações para cobrir. Nesse trecho a perda não tem limite, por isso a faixa não é calculada.",
+      faixa_sem_acoes: "Não há ações de {ticker} na carteira: as pernas aparecem abaixo, mas não há faixa de estrutura a calcular.",
+      faixa_dados_insuficientes: "Não há dados suficientes para concluir a faixa no vencimento.",
+      descoberta_put: "{quantidade} put(s) protegem mais ações do que você tem. A faixa considera só a parte coberta ({qtdBase} ações).",
+      stop_protegida: "A put de strike R$ {piso} limita a perda desta posição no vencimento — o limite vem dela, não de um stop de preço.",
+      resultado_incompleto: "Resultado total indisponível: falta cotação de {pernas}. Aparecem separados só o resultado das ações e o das pernas cotadas.",
+      acao_sem_cotacao: "Sem cotação da ação agora: o resultado das ações e o total não são calculados.",
+      resultado_dados_invalidos: "Resultado total indisponível: os dados de {pernas} estão incompletos ou inválidos (lado, quantidade ou prêmio de entrada). Nada é estimado no lugar.",
+      encerrar_premio_indisponivel: "Encerrar fica bloqueado: sem prêmio cotado para {pernas}, não há preço para o simulador usar.",
+      encerrar_vencida: "Encerrar não se aplica: o vencimento de {vencimento} já passou.",
+      origem_last: "Prêmio de {perna} pelo último negócio: não há oferta no lado que fecha a posição.",
+    },
+    opcoesLastreadasMotivo: {
+      sem_lastro: "Sem posição em {ticker} na carteira — venda coberta e put de proteção exigem uma posição real do ativo-lastro.",
+      sem_setup: "A leitura técnica de {ticker} não indica venda coberta nem put de proteção agora. A cadeia completa continua disponível abaixo.",
+      degradado: "Proposta indisponível — cotação de opções degradada.",
+      caixa_insuficiente: "Caixa insuficiente para o prêmio desta put de proteção.",
+      sem_contrato_liquido: "Existe cadeia de opções de {ticker}, mas nenhum contrato no strike e no vencimento que a estrutura pede negocia o bastante para ter um preço confiável.",
+      sem_vencimento_elegivel: "Nenhum vencimento de opção de {ticker} cai hoje na janela de prazo que o simulador estuda — sem vencimento elegível, nenhuma estrutura nova é montada.",
+      premio_indisponivel: "Sem prêmio cotado para a opção aberta de {ticker} agora — o encerramento não é proposto sem preço, e nada é estimado no lugar.",
+      contrato_fora_da_cadeia: "O contrato aberto de {ticker} não veio na cadeia de opções consultada agora — sem ele, o encerramento não é proposto.",
+      sem_mercado: "As opções abertas de {ticker} estão na faixa SEM MERCADO — o preço da tela não seria o preço real de uma ordem.",
+    },
+    // Fase 45 (CARD-01/04/05/06): espelho byte a byte de skill_ref.ESTRUTURA_CARD.
+    // Texto novo nasce no .py primeiro; guardião test_estrutura_card_espelho.mjs.
+    estruturaCard: {
+      chip_estrutura: "ESTUDO · {nome}",
+      chip_estrutura_generica: "ESTUDO · OPÇÕES",
+      lendo: "Lendo a estrutura de opções desta posição…",
+      indisponivel: "Não foi possível ler a estrutura de opções agora. As pernas abertas continuam na sua carteira, e nenhum valor é estimado no lugar.",
+      badge_travada_collar: "{qty} travada(s) · lastro da call do collar",
+      aviso_sem_stop: "Esta posição não tem stop definido. Defina em Editar stop/alvo ou peça a sugestão da IA.",
+    },
     linhaPropostaNaPosicao: "Estrutura de opções possível nesta posição",
 
     // Fase 32 (32-01, D-05): frase-ponte entre os dois motores cross-
@@ -1513,16 +1622,48 @@ export const COPY = {
     // frase. `confirmAbrirCollar` declara a trava, a quantidade e o "as duas
     // pernas juntas ou nenhuma" — mesma razão que já obriga confirmação na
     // venda coberta (T-14-24), aplicada à estrutura de 2 pernas.
-    eyebrowPropostaCollar: "PROPOSTA · TRAVA PROTETORA",
-    collarPernasLinha: (n, ticker, strikeCall, strikePut) => `${n}× TRAVA ${ticker} · call ${strikeCall} / put ${strikePut}`,
-    ctaCollarDebito: (n, ticker, sc, sp, valor) => `Montar ${n}× trava ${ticker} · call ${sc} / put ${sp} — custa R$ ${valor}`,
-    ctaCollarCredito: (n, ticker, sc, sp, valor) => `Montar ${n}× trava ${ticker} · call ${sc} / put ${sp} — recebe R$ ${valor}`,
-    confirmAbrirCollar: (n, ticker, qty) => `Montar ${n} trava(s) protetora(s) de ${ticker} trava ${qty} ação(ões) do seu lote-lastro (perna da call) até você encerrar a estrutura ou ela vencer. As duas pernas são abertas juntas — ou nenhuma. Continuar?`,
+    // Reversão deliberada (Fase 45, D-11/discretion "usar collar"): a âncora legada do vocabulário de collar (Fase 8) saiu das 5 chaves de collar do Operador.
+    eyebrowPropostaCollar: "PROPOSTA · COLLAR",
+    collarPernasLinha: (n, ticker, strikeCall, strikePut) => `${n}× COLLAR ${ticker} · call ${strikeCall} / put ${strikePut}`,
+    ctaCollarDebito: (n, ticker, sc, sp, valor) => `Montar ${n}× collar ${ticker} · call ${sc} / put ${sp} — custa R$ ${valor}`,
+    ctaCollarCredito: (n, ticker, sc, sp, valor) => `Montar ${n}× collar ${ticker} · call ${sc} / put ${sp} — recebe R$ ${valor}`,
+    confirmAbrirCollar: (n, ticker, qty) => `Montar ${n} collar(s) de ${ticker} — trava ${qty} ação(ões) do seu lote-lastro (perna da call) até você encerrar a estrutura ou ela vencer. As duas pernas são abertas juntas — ou nenhuma. Continuar?`,
 
     // Fase 14 (Plano 07): mesma chave do ramo estudo (ver comentário acima).
     // Registro de mesa — vocabulário de ordem liberado aqui.
     badgeTravada: (qty) => `${qty} travada(s) · lastro de CALL`,
     avisoTravaNaVenda: (qty) => `${qty} ação(ões) travada(s) como lastro da call coberta — liberam quando você recomprar a call ou ela vencer.`,
+
+    // Fase 45 — rótulos neutros do card estruturado; guardião de igualdade Estudo=Operador
+    // (test_estrutura_card_espelho.mjs). Idênticos nos dois modos de propósito.
+    estruturaResultadoRotulo: "RESULTADO DA ESTRUTURA",
+    estruturaResultadoSoAcoesRotulo: "SÓ AS AÇÕES — PRÊMIOS INDISPONÍVEIS",
+    estruturaAcoesRotulo: "Ações",
+    estruturaOpcoesRotulo: "Opções",
+    estruturaFaixaTitulo: "FAIXA NO VENCIMENTO",
+    estruturaPernasTitulo: "PERNAS",
+    estruturaLegenda: { piso: "PISO", pm: "PM", hoje: "HOJE", teto: "TETO", stop: "STOP", alvo: "ALVO" },
+    semPiso: "sem piso",
+    semTeto: "sem teto",
+    ladoVendida: "vendida",
+    ladoComprada: "comprada",
+    semCotacaoPerna: "sem cotação",
+    chipVence: (ddmm, dias) => `vence ${ddmm} · ${dias} dia(s)`,
+    chipVenceHoje: "vence hoje",
+    chipVencida: (ddmm) => `vencida em ${ddmm}`,
+    btnEncerrarEstrutura: "Encerrar estrutura…",
+    btnAtualizarEstrutura: "Atualizar",
+    fonteEstruturaLinha: (fonte, quando) => `Opções lidas de ${fonte} em ${quando}`,
+    fonteEstruturaSemDado: "Fonte das opções não declarada.",
+    estruturaFaixaAria: (nome, textos, hoje, pm) => `${nome}. ${textos} Hoje R$ ${hoje}. Preço médio R$ ${pm}.`,
+    encerrarAria: (t) => `Encerrar estrutura de ${t}: abre a aba Opções em ${t}`,
+    estruturaGrupoAria: "Estrutura de opções",
+    estruturaPernaLinha: (tipo, lado, strike, ddmm) => `${tipo} ${lado} · strike ${strike} · vence ${ddmm}`,
+    estruturaPremioLinha: (entrada, atual) => `prêmio R$ ${entrada} → R$ ${atual}`,
+    estruturaQtdPerna: (q) => `×${q}`,
+    estruturaLivresLinha: (livres, qty) => `${livres}/${qty} livres (lastro da call)`,
+    estruturaSaidaSemLastro: "sem lastro",
+    estruturaVerHistorico: "Ver no histórico de operações →",
 
     // Fase 14 (Plano 07): mesma chave do ramo estudo (ver comentário acima) —
     // texto idêntico, system notice sem voz de modo.
@@ -1542,11 +1683,88 @@ export const COPY = {
     tiraOpcoesSubtitulo: "Só entram aqui posições cuja leitura técnica confirma a estrutura agora — mesmo motor do gatilho do Radar.",
     tiraOpcoesVerDetalhe: "ver detalhe",
     tiraOpcoesCarregando: "Varrendo suas posições…",
+    // Quick 260928-u0h (2026-09-28): tiraOpcoesSemCobertura/SemSetup/SemMercado sem consumidor em
+    // componente desde esta quick — mantidas (guardiões de paridade as travam); remoção é decisão separada.
     tiraOpcoesSemCobertura: "Nenhuma posição com opção líquida hoje — sem contrato líquido, não há estrutura para montar.",
     tiraOpcoesSemSetup: "Cobertura líquida existe, mas a leitura técnica não indica venda coberta, put de proteção nem collar agora. A cadeia completa continua disponível em cada ativo.",
     // Quick 260908-ldg (D-07): mesma distinção do ramo estudo (ver
     // comentário acima). Voz de mesa, sem verbo de ordem.
     tiraOpcoesSemMercado: "As opções das suas posições estão hoje na faixa SEM MERCADO — negociaram tão pouco que o preço da tela não é um preço real de execução. Nenhuma estrutura é montada sobre elas agora.",
+    // Quick 260928-u0h (2026-09-28): encerramento não passa pela leitura técnica (main.py, ramo
+    // `pos_op_aberta` -> proposta_fechar), por isso ganha seção própria. As frases de motivo moram
+    // AQUI e não em skill_ref porque `motivoTexto` do backend colapsa sem_contrato_liquido e
+    // sem_vencimento_elegivel na frase de sem_setup (falsa para eles).
+    tiraOpcoesAbertasTitulo: "ESTRUTURAS ABERTAS · ENCERRAMENTO",
+    tiraOpcoesAbertasSubtitulo: "Encerramento do contrato já aberto — não depende da leitura técnica, só da cotação atual da opção.",
+    tiraOpcoesNenhumaNova: "Nenhuma estrutura nova confirmada agora.",
+    tiraOpcoesMotivosTitulo: "SEM ESTRUTURA AGORA",
+    tiraOpcoesMotivo: {
+      sem_setup: "Leitura técnica sem sinal para venda coberta ou put de proteção — em alta a call trava o movimento; sem leitura, sem proposta.",
+      sem_lastro: "Sem lote livre de 100 ações para lastrear a estrutura.",
+      sem_vencimento_elegivel: "Nenhum vencimento dentro da janela de prazo operada.",
+      sem_contrato_liquido: "Sem contrato líquido no strike/vencimento da estrutura.",
+      caixa_insuficiente: "Caixa insuficiente para o prêmio da put; collar também não fecha.",
+      degradado: "Cotação de opções degradada — estrutura suspensa até o dado normalizar.",
+      sem_mercado: "Opções na faixa SEM MERCADO — preço de tela não é preço de execução.",
+      sem_liquidez: "Opções sem liquidez suficiente hoje.",
+      indisponivel: "Consulta de opções indisponível agora — sem dado, sem estrutura.",
+      aberta_sem_proposta: "Estrutura aberta, encerramento sem proposta agora (opção ilíquida ou cotação indisponível). Posição segue aberta.",
+      desconhecido: "Sem estrutura agora; motivo não identificado. Não há dados suficientes para concluir.",
+    },
+    // Fase 44 (ESTR-06): espelho byte a byte de skill_ref.ESTRUTURA_POSICAO / OPCOES_LASTREADAS —
+    // guardião web/tests/test_estrutura_espelho.mjs; texto novo nasce no .py primeiro.
+    estruturaPosicao: {
+      nome_call_coberta: "call coberta",
+      nome_put_protecao: "put de proteção",
+      nome_collar: "collar",
+      nome_fora_da_biblioteca: "Fora da biblioteca (call coberta, put de proteção, collar) — pernas listadas, sem faixa.",
+      estado_vigente: "Vigente · vence {vencimento} ({dias} dia(s)).",
+      estado_vigente_sem_data: "Vencimento não informado — prazo indeterminado.",
+      estado_perto_vencimento: "Vence em {dias} dia(s) ({vencimento}) — decidir: encerrar ou deixar vencer.",
+      estado_exercicio_provavel: "Exercício provável: strike R$ {strike} dentro do dinheiro (ação a R$ {spot}).",
+      estado_premio_indisponivel: "Prêmio indisponível: {pernas}. Resultado total suspenso.",
+      estado_vencida: "Vencida em {vencimento}.",
+      aberta_sem_proposta: "Aberta, sem proposta de encerramento. {motivo}",
+      faixa_piso: "Piso R$ {piso} · perda máx. R$ {perdaMaxima}.",
+      faixa_teto: "Teto R$ {teto} · ganho máx. R$ {ganhoMaximo}.",
+      faixa_sem_piso: "Sem piso · perda máx. R$ {perdaMaxima} (ação a zero).",
+      faixa_sem_teto: "Sem teto · ganho não limitado pela estrutura.",
+      faixa_teto_parcial: "Teto R$ {teto} só em {qtd} de {qtdBase} ações · ganho do restante não limitado.",
+      faixa_piso_sem_perda: "Piso R$ {piso} em {qtd} ações · perda máx. não calculável.",
+      faixa_vencimentos_diferentes: "Vencimentos diferentes ({vencimentos}) — faixa não calculada.",
+      faixa_perna_sem_lastro: "Call vendida sem lastro em {quantidade} — perda ilimitada, faixa não calculada.",
+      faixa_sem_acoes: "Sem ações de {ticker} — faixa não calculada.",
+      faixa_dados_insuficientes: "Faixa indisponível — dados insuficientes.",
+      descoberta_put: "Put excedente em {quantidade} — faixa na parte coberta ({qtdBase}).",
+      stop_protegida: "Proteção pela put R$ {piso} no vencimento.",
+      resultado_incompleto: "Resultado total indisponível — sem cotação: {pernas}.",
+      acao_sem_cotacao: "Ação sem cotação — resultado suspenso.",
+      resultado_dados_invalidos: "Resultado total indisponível — dados inválidos: {pernas}.",
+      encerrar_premio_indisponivel: "Encerrar bloqueado — sem prêmio: {pernas}.",
+      encerrar_vencida: "Encerrar indisponível — vencida em {vencimento}.",
+      origem_last: "{perna}: prêmio pelo último negócio (sem oferta).",
+    },
+    opcoesLastreadasMotivo: {
+      sem_lastro: "Sem posição em {ticker} na carteira — venda coberta e put de proteção exigem uma posição real do ativo-lastro.",
+      sem_setup: "A leitura técnica de {ticker} não indica venda coberta nem put de proteção agora. A cadeia completa continua disponível abaixo.",
+      degradado: "Proposta indisponível — cotação de opções degradada.",
+      caixa_insuficiente: "Caixa insuficiente para o prêmio desta put de proteção.",
+      sem_contrato_liquido: "Existe cadeia de opções de {ticker}, mas nenhum contrato no strike e no vencimento que a estrutura pede negocia o bastante para ter um preço confiável.",
+      sem_vencimento_elegivel: "Nenhum vencimento de opção de {ticker} cai hoje na janela de prazo que o simulador estuda — sem vencimento elegível, nenhuma estrutura nova é montada.",
+      premio_indisponivel: "Sem prêmio cotado para a opção aberta de {ticker} agora — o encerramento não é proposto sem preço, e nada é estimado no lugar.",
+      contrato_fora_da_cadeia: "O contrato aberto de {ticker} não veio na cadeia de opções consultada agora — sem ele, o encerramento não é proposto.",
+      sem_mercado: "As opções abertas de {ticker} estão na faixa SEM MERCADO — o preço da tela não seria o preço real de uma ordem.",
+    },
+    // Fase 45 (CARD-01/04/05/06): espelho byte a byte de skill_ref.ESTRUTURA_CARD.
+    // Texto novo nasce no .py primeiro; guardião test_estrutura_card_espelho.mjs.
+    estruturaCard: {
+      chip_estrutura: "ESTRUTURA · {nome}",
+      chip_estrutura_generica: "ESTRUTURA · OPÇÕES",
+      lendo: "Lendo a estrutura de opções…",
+      indisponivel: "Estrutura indisponível agora. Pernas abertas seguem na carteira — nada estimado.",
+      badge_travada_collar: "{qty} travada(s) · lastro da CALL do collar",
+      aviso_sem_stop: "Posição sem stop definido — defina em Editar stop/alvo ou peça a sugestão da IA.",
+    },
     linhaPropostaNaPosicao: "Estrutura de opções disponível nesta posição",
 
     // Fase 32 (32-01, D-05): mesma chave do ramo estudo (ver comentário
@@ -1630,6 +1848,18 @@ export const COPY = {
 // Acesso seguro: modo desconhecido cai no Estudo (padrão do app).
 export function copyFor(mode) {
   return COPY[mode === "operador" ? "operador" : "estudo"];
+}
+
+// Espelho de `skill_ref.estrutura_card_txt` (Fase 45): resolve o modo como
+// `copyFor`; chave ausente devolve null (falha fechada); interpola `{k}` de
+// `vals` por String(v). Sem `vals`, devolve a frase crua.
+export function estruturaCardTxt(mode, chave, vals) {
+  const frase = copyFor(mode).estruturaCard[chave];
+  if (frase == null) return null;
+  if (!vals) return frase;
+  let out = frase;
+  for (const [k, v] of Object.entries(vals)) out = out.split("{" + k + "}").join(String(v));
+  return out;
 }
 
 // Espelho de `skill_ref.historico_txt` (Fase 8, ADR-017 Bloco 3): resolve o

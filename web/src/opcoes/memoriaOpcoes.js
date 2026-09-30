@@ -33,3 +33,12 @@ export function memoriaOpcoes(ticker, aba) {
   if (ticker === "" && aba === "oportunidades") return null;
   return { ticker, aba };
 }
+
+// Fase 45 D-05 / UI-SPEC §Navegação — ticker one-shot do botão "Encerrar
+// estrutura…". T-45-04: só é aceito se estiver na carteira atual; qualquer
+// outro valor (vazio, não-string, fora da carteira) vira null, sem painel.
+export function abrirTickerOpcoes(ticker, carteira) {
+  if (typeof ticker !== "string" || ticker === "") return null;
+  if (!Array.isArray(carteira)) return null;
+  return carteira.some((p) => p && p.t === ticker) ? ticker : null;
+}

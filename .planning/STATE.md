@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: none
-milestone_name: Awaiting next milestone
-status: milestone_archived
-stopped_at: 'Milestone v1.9 (Jornada de Decisão, Fases 42-43) fechada e arquivada em 2026-09-27 (8/8 requirements Done; tag v1.9). Fechamento à mão, sem milestone.complete nem mutadores state.*. Próximo: /gsd-new-milestone.'
-last_updated: "2026-09-28T01:00:00.000Z"
-last_activity: 2026-09-27 -- Milestone v1.9 fechada e arquivada à mão (archive ROADMAP/REQUIREMENTS, MILESTONES, ROADMAP colapsado, PROJECT evoluído, retrospectiva; REQUIREMENTS.md removido para a próxima milestone)
+milestone: v2.0
+milestone_name: Estruturas de opções na carteira
+status: phase_45_wave_3_done
+stopped_at: 'Fase 45 onda 3 concluída (45-04; suíte canônica verde). Aguardando checkpoint humano 45-05 (M1 24px, P4 TravaPill contorno, M7, estados).'
+last_updated: "2026-09-29T00:00:00.000Z"
+last_activity: 2026-09-29 -- Milestone v2.0 aberta (REQUIREMENTS, ROADMAP Fases 44-46, PROJECT); fases da v1.9 movidas para milestones/v1.9-phases
 progress:
-  total_phases: 2
-  completed_phases: 2
-  total_plans: 12
-  completed_plans: 12
-  percent: 100
+  total_phases: 3
+  completed_phases: 1
+  total_plans: 3
+  completed_plans: 3
+  percent: 33
 ---
 
 # Project State
@@ -21,21 +21,28 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-27)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Milestone v1.9 arquivada (2026-09-27). Nenhum milestone aberto — aguardando `/gsd-new-milestone` (`PROJECT.md` §"Next Milestone (queued)").
+**Current focus:** Milestone v2.0 Estruturas de opções na carteira (Fases 44-46) — ver `.planning/ROADMAP.md`.
 
 ## Current Position
 
-Milestone: nenhum aberto. v1.9 (Jornada de Decisão, Fases 42-43, 12 planos,
-  8/8 requirements) shipped em 2026-09-27 e arquivada no mesmo dia — ver
-  `.planning/milestones/v1.9-ROADMAP.md` e `.planning/MILESTONES.md`.
-Status: milestone_archived. Produção em `F10-20260927-03`.
-Pendências fora de milestone: build iOS/TestFlight (Xcode → Archive/Upload,
-  ação do Alex); KB sem verbete de vantagem estatística/expectativa
-  matemática/taxa de acerto × rentabilidade (tema obrigatório do CLAUDE.md);
-  "amostra insuficiente (n=0 …)" no Operador sem janela/n total; tokens
-  `--sp-*` globais; motion do `ConfluenceRing`; decisão contra o regime
-  (motor) — ver "Deferred Items" abaixo e `PROJECT.md` §Active.
-Next: `/gsd-new-milestone` (sem candidata registrada ainda).
+Milestone: v2.0 Estruturas de opções na carteira (Fases 44-46).
+Phase: 44 — Motor: estrutura por ativo (COMPLETA: 44-01 vocabulário → 44-02 motor puro → 44-03 rota aditiva; verificada).
+Status: phase_45_wave_3_done (4/5 planos; 45-05 = checkpoint humano) (Fase 44 completa). Requirements em `.planning/REQUIREMENTS.md`.
+Decisões do Alex (2026-09-29): régua de faixa mantida; pernas sempre visíveis;
+  texto do Estudo completo; escopo motor + front aprovado. Instrução
+  principal: economizar modelo (CLAUDE.md §Estratégia de execução).
+Pendências fora de milestone: build iOS/TestFlight (ação do Alex); quick task
+  avulsa (textos de vazio sem consumidor + "amostra insuficiente" com janela
+  e n); quick 260928-u0h e entrega ainda sem push (confirmar com o Alex).
+Next: `/clear` e `/gsd-execute-phase 45`. Orquestrador roda `cd web && npx cap copy ios` + `bash scripts/executar.sh --testes` (fora do sandbox) 1x por onda. Checkpoint humano 45-05: M1 (24px), P4 (TravaPill contorno opt-in), exceção mostraRR no card legado.
+
+## Quick Tasks Completed
+
+Tabela anterior (até 2026-09-16) em `.planning/STATE-HISTORY.md` §"Quick Tasks Completed".
+
+| # | Description | Date | Commit | Status | Directory |
+|---|-------------|------|--------|--------|-----------|
+| 260928-u0h | Aba Opções → Oportunidades: estrutura já aberta (proposta de encerramento, que não consulta a leitura técnica) sai do bloco "confirmadas pela leitura técnica" para a seção própria "Suas estruturas abertas"; cada posição que não vira proposta passa a mostrar o motivo (sem liquidez / sem mercado / leitura em COMPRAR / sem lastro / sem vencimento / sem contrato líquido / caixa / degradado / desconhecido → "Não há dados suficientes para concluir."). Módulo puro `classificarOportunidades.js`, frases por modo em `copy.js`, guardião novo `test_opcoes_abertas_e_motivos.mjs`, `test_carteira_opcoes_tira.mjs` reconciliado com nota. Gate da suíte pegou "trava protetora" (âncora CVM proibida no front) numa frase nova — corrigido (`fcf3cc98`). Suíte canônica 3063 pytest + 172/172 `.mjs`. Motor e `useOpcoesPropostas.js` intocados. Limitação: estrutura aberta em ativo com gate reprovado aparece como `aberta_sem_proposta`; frases de motivo em `copy.js` e não em `skill_ref` (o `motivoTexto` do backend colapsa 3 motivos na frase de sem_setup). Não publicado | 2026-09-28 | 51d32566, 77fdd628, fcf3cc98 | Verified | [260928-u0h](./quick/260928-u0h-separar-encerramento-e-motivo-por-posica/) |
 
 ## Histórico
 

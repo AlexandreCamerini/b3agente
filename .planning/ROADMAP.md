@@ -12,6 +12,7 @@
 - ✅ **v1.7 Confiabilidade explicativa da aba Opções** — Phases 35-37 (shipped 2026-09-22) — [detalhes](milestones/v1.7-ROADMAP.md)
 - ✅ **v1.8 Didática ampliada + continuidade da aba Opções** — Phases 38-41 (shipped 2026-09-25) — [detalhes](milestones/v1.8-ROADMAP.md)
 - ✅ **v1.9 Jornada de Decisão** — Phases 42-43 (shipped 2026-09-27) — [detalhes](milestones/v1.9-ROADMAP.md)
+- 🚧 **v2.0 Estruturas de opções na carteira** — Phases 44-46 (iniciada 2026-09-29)
 
 ## Phases
 
@@ -314,4 +315,47 @@ em 2026-09-25 — ver [milestones/v1.8-ROADMAP.md](milestones/v1.8-ROADMAP.md).
 v1.9 Jornada de Decisão (Phases 42-43) shipped em 2026-09-27 — ver
 [milestones/v1.9-ROADMAP.md](milestones/v1.9-ROADMAP.md).
 
-Nenhum milestone aberto. Próximo passo: `/gsd-new-milestone`.
+## v2.0 Estruturas de opções na carteira (Phases 44-46) — EM ANDAMENTO
+
+Requirements: `.planning/REQUIREMENTS.md`. Mock: https://claude.ai/artifact/JEpy5VmkoddNTHyVYnYWZc
+
+- [x] Phase 44: Motor — estrutura por ativo (ESTR-01..06)
+- [ ] Phase 45: Card de posição estruturada (CARD-01..06)
+- [ ] Phase 46: Didática — expectativa matemática × taxa de acerto (DIDA-01..02)
+
+### Phase 44: Motor — estrutura por ativo
+**Goal:** o backend entrega, por ativo, todas as pernas e a leitura determinística da estrutura (resultado, faixa, estado, motivos), sem estimar nada.
+**Requirements:** ESTR-01, ESTR-02, ESTR-03, ESTR-04, ESTR-05, ESTR-06
+**Success criteria:**
+1. Ativo com put + call abertas retorna as 2 pernas e classifica como collar (hoje só a primeira).
+2. Resultado = P&L das ações + prêmio marcado a mercado; prêmio sem cotação devolve `null` e "incompleto", nunca 0.
+3. Faixa no vencimento (piso/teto, perda/ganho máx.) bate com a conta pelos strikes em teste unitário; `null` quando indeterminável.
+4. Estrutura aberta com gate de liquidez reprovado vira `aberta_sem_proposta` e não some; motivos distintos, frases só de `skill_ref.py` com paridade em `copy.js`.
+**Modelo:** Sonnet executa/verifica; Opus só orquestra e planeja.
+
+### Phase 45: Card de posição estruturada
+**Goal:** o card de Posições mostra a estrutura inteira, com estados claros, sem aviso falso.
+**Requirements:** CARD-01, CARD-02, CARD-03, CARD-04, CARD-05, CARD-06
+**Depends on:** Phase 44
+**Success criteria:**
+1. UGPA3 (ações + put + call) mostra "collar", resultado total, régua de faixa e as 2 pernas visíveis.
+2. Nenhum "sem stop" nem `R:R —` para estrutura protegida; piso/teto em texto do motor.
+3. Os 5 estados renderizam; "Encerrar" bloqueado com motivo quando o prêmio está indisponível.
+4. Estudo e Operador × claro/escuro passam contraste AA; `vite build` e guardiões verdes.
+**UI hint:** yes (UI-SPEC a partir do mock)
+**Plans:** 5 plans (4 ondas; App.jsx serializa as ondas 2-3)
+
+Plans:
+- [ ] 45-01-PLAN.md — vocabulário ESTRUTURA_CARD (skill_ref.py↔copy.js), "collar" no lugar de "trava protetora", nota D-11 em CARD-06 (onda 1)
+- [ ] 45-02-PLAN.md — lógica pura do card (estruturaCard.js) + one-shot goOpcoes("oportunidades", {abrirTicker}) + verificação do destino do Encerrar (onda 1)
+- [ ] 45-03-PLAN.md — busca da estrutura, estados carregando/falha e CardPosicaoEstruturada (chips, resultado, estado, pernas, fonte, Encerrar) (onda 2)
+- [ ] 45-04-PLAN.md — régua de faixa, limites/contexto sem aviso falso, TravaPill em contorno, guardiões AA/SP (onda 3)
+- [ ] 45-05-PLAN.md — verificação final + checkpoint humano (4 combinações, M1, P4) (onda 4)
+
+### Phase 46: Didática — expectativa matemática × taxa de acerto
+**Goal:** o tema obrigatório do CLAUDE.md ganha verbete e o microtexto passa a abri-lo.
+**Requirements:** DIDA-01, DIDA-02
+**Success criteria:**
+1. Verbete determinístico na KB, sem promessa de rentabilidade.
+2. A cláusula tocável do microtexto abre o verbete (não `confluencia`); paridade `skill_ref.py`↔`copy.js` verde.
+**Modelo:** Sonnet.

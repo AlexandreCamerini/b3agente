@@ -423,10 +423,13 @@ def proposta_fechar(pos_opcao, chain, modo, hoje):
     `main.py`).
 
     Devolve `{"proposta": <dict|None>, "motivo": <str>}` no MESMO shape de
-    `propor()` — sucesso tem `motivo` == `tipo`; qualquer ausência
-    (cadeia degradada, contrato sumiu da cadeia, sem prêmio válido) sempre
-    `"degradado"` (CLAUDE.md princípio 4: nunca inventar prêmio, mesmo já
-    sabendo qual é o contrato). Isso segue verdade após 2026-09-07 (quick
+    `propor()` — sucesso tem `motivo` == `tipo`. Fase 44 (D-07): a ausência
+    deixou de colapsar em `"degradado"` — cadeia não-ok, posição inválida e
+    lote < 1 contrato seguem `"degradado"`; contrato ausente da cadeia é
+    `"contrato_fora_da_cadeia"`; prêmio não numérico/<=0/bool é
+    `"premio_indisponivel"` (frases em `skill_ref.OPCOES_LASTREADAS`;
+    CLAUDE.md princípio 4: nunca inventar prêmio, mesmo já sabendo qual é o
+    contrato). O texto do sucesso segue como após 2026-09-07 (quick
     260907-x69): `manchete`/`didatica` agora nascem de `fechar_<tipo>` em
     `skill_ref.OPCOES_LASTREADAS` — frase de FECHAMENTO, distinta da frase de
     abertura que `propor()` usa — enquanto `tipo`/`motivo` continuam
@@ -443,11 +446,11 @@ def proposta_fechar(pos_opcao, chain, modo, hoje):
         None,
     )
     if not contrato:
-        return {"proposta": None, "motivo": "degradado"}
+        return {"proposta": None, "motivo": "contrato_fora_da_cadeia"}
 
     premio = contrato.get("lastPrice")
-    if not isinstance(premio, (int, float)) or premio <= 0:
-        return {"proposta": None, "motivo": "degradado"}
+    if isinstance(premio, bool) or not isinstance(premio, (int, float)) or premio <= 0:
+        return {"proposta": None, "motivo": "premio_indisponivel"}
 
     qty_total = int(pos_opcao.get("qty") or 0)
     contratos = qty_total // 100

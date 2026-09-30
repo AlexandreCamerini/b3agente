@@ -32,6 +32,9 @@ FONTES = {
     # chegam ao usuário SEM passar por LLM nenhuma — as frases canônicas de
     # timing e, agora, o catálogo de conceitos. Texto determinístico é o que
     # mais precisa desta varredura: ninguém o revisa em runtime.
+    # Fase 44 (ESTR-06): frases da leitura de estrutura por ativo.
+    "skill_ref.ESTRUTURA_POSICAO": "\n".join(
+        f for m in skill_ref.ESTRUTURA_POSICAO.values() for f in m.values()),
     "skill_ref.TIMING": "\n".join(f for m in skill_ref.TIMING.values() for f in m.values()),
     # Parágrafo condicional é `(estados, texto)` — a varredura pega o texto dos
     # dois formatos, senão o texto de um estado inteiro escaparia do guardião.

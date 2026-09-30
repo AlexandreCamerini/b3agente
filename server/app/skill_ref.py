@@ -636,6 +636,16 @@ OPCOES_LASTREADAS = {
         "sem_setup": "A leitura técnica de {ticker} não indica venda coberta nem put de proteção agora. A cadeia completa continua disponível abaixo.",
         "degradado": "Proposta indisponível — cotação de opções degradada.",
         "caixa_insuficiente": "Caixa insuficiente para o prêmio desta put de proteção.",
+        # Fase 44, D-06/D-07: sem_contrato_liquido e sem_vencimento_elegivel
+        # deixaram de ser alias de sem_setup (a frase de sem_setup fala de
+        # leitura técnica e era falsa para eles); premio_indisponivel,
+        # contrato_fora_da_cadeia e sem_mercado são os motivos distinguíveis
+        # do encerramento. Fato, não oferta: texto idêntico nos dois modos.
+        "sem_contrato_liquido": "Existe cadeia de opções de {ticker}, mas nenhum contrato no strike e no vencimento que a estrutura pede negocia o bastante para ter um preço confiável.",
+        "sem_vencimento_elegivel": "Nenhum vencimento de opção de {ticker} cai hoje na janela de prazo que o simulador estuda — sem vencimento elegível, nenhuma estrutura nova é montada.",
+        "premio_indisponivel": "Sem prêmio cotado para a opção aberta de {ticker} agora — o encerramento não é proposto sem preço, e nada é estimado no lugar.",
+        "contrato_fora_da_cadeia": "O contrato aberto de {ticker} não veio na cadeia de opções consultada agora — sem ele, o encerramento não é proposto.",
+        "sem_mercado": "As opções abertas de {ticker} estão na faixa SEM MERCADO — o preço da tela não seria o preço real de uma ordem.",
         "liquidacao_forcada": "Esta call de {ticker} venceu dentro do dinheiro e não foi fechada a tempo — liquidada em dinheiro pelo valor intrínseco (R$ {valor}). Sua posição em ações não foi alterada.",
         # Quick 260908-ldg (2026-09-08): consentimento de liquidez DIFÍCIL
         # (30-54). O SERVIDOR exige `aceitaLiquidezDificil: true` no corpo
@@ -666,6 +676,16 @@ OPCOES_LASTREADAS = {
         "sem_setup": "A leitura técnica de {ticker} não indica venda coberta nem put de proteção agora. A cadeia completa continua disponível abaixo.",
         "degradado": "Proposta indisponível — cotação de opções degradada.",
         "caixa_insuficiente": "Caixa insuficiente para o prêmio desta put de proteção.",
+        # Fase 44, D-06/D-07: sem_contrato_liquido e sem_vencimento_elegivel
+        # deixaram de ser alias de sem_setup (a frase de sem_setup fala de
+        # leitura técnica e era falsa para eles); premio_indisponivel,
+        # contrato_fora_da_cadeia e sem_mercado são os motivos distinguíveis
+        # do encerramento. Fato, não oferta: texto idêntico nos dois modos.
+        "sem_contrato_liquido": "Existe cadeia de opções de {ticker}, mas nenhum contrato no strike e no vencimento que a estrutura pede negocia o bastante para ter um preço confiável.",
+        "sem_vencimento_elegivel": "Nenhum vencimento de opção de {ticker} cai hoje na janela de prazo que o simulador estuda — sem vencimento elegível, nenhuma estrutura nova é montada.",
+        "premio_indisponivel": "Sem prêmio cotado para a opção aberta de {ticker} agora — o encerramento não é proposto sem preço, e nada é estimado no lugar.",
+        "contrato_fora_da_cadeia": "O contrato aberto de {ticker} não veio na cadeia de opções consultada agora — sem ele, o encerramento não é proposto.",
+        "sem_mercado": "As opções abertas de {ticker} estão na faixa SEM MERCADO — o preço da tela não seria o preço real de uma ordem.",
         "liquidacao_forcada": "Esta call de {ticker} venceu dentro do dinheiro e não foi fechada a tempo — liquidada em dinheiro pelo valor intrínseco (R$ {valor}). Sua posição em ações não foi alterada.",
         # Quick 260908-ldg (2026-09-08): mesma condição do registro operador,
         # sem verbo de ordem nem "Continuar?" — descreve a condição, como o
@@ -693,7 +713,12 @@ LIQUIDEZ_FRAGMENTOS = {
 # hoje pelo motor (mantido pela paridade nomeada no 14-UI-SPEC.md). Alias
 # aqui, não 3 entradas idênticas no dict acima — uma fonte de texto, várias
 # chaves de motivo apontando pra ela.
-_OPCOES_LASTREADAS_ALIASES_SEM_SETUP = ("tendencia_de_alta", "sem_contrato_liquido", "sem_vencimento_elegivel")
+#
+# Fase 44 (D-06) — REVERSÃO DELIBERADA: `sem_contrato_liquido` e
+# `sem_vencimento_elegivel` saíram desta tupla e ganharam frase própria acima;
+# colapsá-los em `sem_setup` afirmava "a leitura técnica não indica" quando o
+# motivo real era liquidez/prazo. Só `tendencia_de_alta` segue alias.
+_OPCOES_LASTREADAS_ALIASES_SEM_SETUP = ("tendencia_de_alta",)
 
 
 def opcoes_lastreadas_txt(modo: str, chave: str, **dados) -> str:
@@ -705,6 +730,135 @@ def opcoes_lastreadas_txt(modo: str, chave: str, **dados) -> str:
     d = OPCOES_LASTREADAS.get(modo if modo in OPCOES_LASTREADAS else "educacional", OPCOES_LASTREADAS["educacional"])
     chave_canonica = "sem_setup" if chave in _OPCOES_LASTREADAS_ALIASES_SEM_SETUP else chave
     frase = d.get(chave_canonica) or d["sem_setup"]
+    for k, v in dados.items():
+        frase = frase.replace("{" + str(k) + "}", str(v))
+    return frase
+
+# --- Estrutura por ativo (Fase 44, ESTR-06) ----------------------------------
+# Fonte única das frases da leitura de estrutura por ativo (nome, estado,
+# faixa piso/teto, stop, incompleto, descoberta, encerrar bloqueado, origem
+# last). Espelhada byte a byte em `web/src/copy.js` (`estruturaPosicao`),
+# guardião `web/tests/test_estrutura_espelho.mjs`. O Estudo descreve CONDIÇÃO
+# (sem verbo de ordem); o Operador fala como mesa. Âncoras proibidas:
+# "trava protetora" e "abate o custo". A Fase 45 decidiu NÃO tocar a manchete
+# `collar` de OPCOES_LASTREADAS (texto regulado, guardrail CVM, premissa P1) e
+# trocou a âncora só nas chaves visíveis do copy.js.
+# Formato rígido p/ o guardião JS: um par por linha, sem aspas internas.
+ESTRUTURA_POSICAO = {
+    "operador": {
+        "nome_call_coberta": "call coberta",
+        "nome_put_protecao": "put de proteção",
+        "nome_collar": "collar",
+        "nome_fora_da_biblioteca": "Fora da biblioteca (call coberta, put de proteção, collar) — pernas listadas, sem faixa.",
+        "estado_vigente": "Vigente · vence {vencimento} ({dias} dia(s)).",
+        "estado_vigente_sem_data": "Vencimento não informado — prazo indeterminado.",
+        "estado_perto_vencimento": "Vence em {dias} dia(s) ({vencimento}) — decidir: encerrar ou deixar vencer.",
+        "estado_exercicio_provavel": "Exercício provável: strike R$ {strike} dentro do dinheiro (ação a R$ {spot}).",
+        "estado_premio_indisponivel": "Prêmio indisponível: {pernas}. Resultado total suspenso.",
+        "estado_vencida": "Vencida em {vencimento}.",
+        "aberta_sem_proposta": "Aberta, sem proposta de encerramento. {motivo}",
+        "faixa_piso": "Piso R$ {piso} · perda máx. R$ {perdaMaxima}.",
+        "faixa_teto": "Teto R$ {teto} · ganho máx. R$ {ganhoMaximo}.",
+        "faixa_sem_piso": "Sem piso · perda máx. R$ {perdaMaxima} (ação a zero).",
+        "faixa_sem_teto": "Sem teto · ganho não limitado pela estrutura.",
+        "faixa_teto_parcial": "Teto R$ {teto} só em {qtd} de {qtdBase} ações · ganho do restante não limitado.",
+        "faixa_piso_sem_perda": "Piso R$ {piso} em {qtd} ações · perda máx. não calculável.",
+        "faixa_vencimentos_diferentes": "Vencimentos diferentes ({vencimentos}) — faixa não calculada.",
+        "faixa_perna_sem_lastro": "Call vendida sem lastro em {quantidade} — perda ilimitada, faixa não calculada.",
+        "faixa_sem_acoes": "Sem ações de {ticker} — faixa não calculada.",
+        "faixa_dados_insuficientes": "Faixa indisponível — dados insuficientes.",
+        "descoberta_put": "Put excedente em {quantidade} — faixa na parte coberta ({qtdBase}).",
+        "stop_protegida": "Proteção pela put R$ {piso} no vencimento.",
+        "resultado_incompleto": "Resultado total indisponível — sem cotação: {pernas}.",
+        "acao_sem_cotacao": "Ação sem cotação — resultado suspenso.",
+        "resultado_dados_invalidos": "Resultado total indisponível — dados inválidos: {pernas}.",
+        "encerrar_premio_indisponivel": "Encerrar bloqueado — sem prêmio: {pernas}.",
+        "encerrar_vencida": "Encerrar indisponível — vencida em {vencimento}.",
+        "origem_last": "{perna}: prêmio pelo último negócio (sem oferta).",
+    },
+    "educacional": {
+        "nome_call_coberta": "call coberta",
+        "nome_put_protecao": "put de proteção",
+        "nome_collar": "collar",
+        "nome_fora_da_biblioteca": "Estrutura fora das três que o simulador lê (call coberta, put de proteção e collar). As pernas aparecem abaixo, sem faixa calculada.",
+        "estado_vigente": "Estrutura vigente: faltam {dias} dia(s) para o vencimento de {vencimento}.",
+        "estado_vigente_sem_data": "Vencimento não informado para esta estrutura. Não há dados suficientes para concluir o prazo.",
+        "estado_perto_vencimento": "Faltam {dias} dia(s) para o vencimento de {vencimento}. Perto do vencimento o prêmio muda rápido, e a estrutura pede uma decisão: encerrar ou deixar vencer.",
+        "estado_exercicio_provavel": "A opção de strike R$ {strike} está dentro do dinheiro com a ação a R$ {spot}. Se o vencimento fosse hoje, ela seria exercida.",
+        "estado_premio_indisponivel": "Sem cotação para {pernas} agora. O resultado total não é calculado e nada é estimado no lugar.",
+        "estado_vencida": "O vencimento de {vencimento} já passou. Esta estrutura não está mais vigente.",
+        "aberta_sem_proposta": "A estrutura continua aberta na sua carteira, mas o encerramento não pode ser proposto agora. {motivo}",
+        "faixa_piso": "Piso no vencimento: abaixo de R$ {piso}, a put protege as {qtd} ações — a perda máxima fica em R$ {perdaMaxima}.",
+        "faixa_teto": "Teto no vencimento: acima de R$ {teto}, a call vendida limita o ganho das {qtd} ações a R$ {ganhoMaximo}.",
+        "faixa_sem_piso": "Sem piso: a call coberta não protege contra queda. Se a ação fosse a zero, a perda seria de R$ {perdaMaxima}.",
+        "faixa_sem_teto": "Sem teto: a put de proteção não limita o ganho das ações se o preço subir.",
+        "faixa_teto_parcial": "Teto parcial: a call vendida (strike R$ {teto}) limita o ganho de {qtd} das {qtdBase} ações. O ganho das demais não tem limite se o preço subir.",
+        "faixa_piso_sem_perda": "Piso no vencimento: abaixo de R$ {piso}, a put protege {qtd} ações. Não há dados suficientes para concluir a perda máxima.",
+        "faixa_vencimentos_diferentes": "As pernas vencem em datas diferentes ({vencimentos}). Sem uma data comum, a faixa no vencimento não pode ser calculada — nada é aproximado.",
+        "faixa_perna_sem_lastro": "Há {quantidade} call(s) vendida(s) sem ações para cobrir. Nesse trecho a perda não tem limite, por isso a faixa não é calculada.",
+        "faixa_sem_acoes": "Não há ações de {ticker} na carteira: as pernas aparecem abaixo, mas não há faixa de estrutura a calcular.",
+        "faixa_dados_insuficientes": "Não há dados suficientes para concluir a faixa no vencimento.",
+        "descoberta_put": "{quantidade} put(s) protegem mais ações do que você tem. A faixa considera só a parte coberta ({qtdBase} ações).",
+        "stop_protegida": "A put de strike R$ {piso} limita a perda desta posição no vencimento — o limite vem dela, não de um stop de preço.",
+        "resultado_incompleto": "Resultado total indisponível: falta cotação de {pernas}. Aparecem separados só o resultado das ações e o das pernas cotadas.",
+        "acao_sem_cotacao": "Sem cotação da ação agora: o resultado das ações e o total não são calculados.",
+        "resultado_dados_invalidos": "Resultado total indisponível: os dados de {pernas} estão incompletos ou inválidos (lado, quantidade ou prêmio de entrada). Nada é estimado no lugar.",
+        "encerrar_premio_indisponivel": "Encerrar fica bloqueado: sem prêmio cotado para {pernas}, não há preço para o simulador usar.",
+        "encerrar_vencida": "Encerrar não se aplica: o vencimento de {vencimento} já passou.",
+        "origem_last": "Prêmio de {perna} pelo último negócio: não há oferta no lado que fecha a posição.",
+    },
+}
+
+
+def estrutura_posicao_txt(modo: str, chave: str, **dados):
+    """Frase canônica da leitura de estrutura por ativo. Modo fora de
+    `ESTRUTURA_POSICAO` (inclui "estudo") degrada para `educacional`; chave
+    desconhecida devolve `None` (falha fechada — nunca uma frase errada no
+    lugar). Interpolação por `str.replace`, igual a `opcoes_lastreadas_txt`."""
+    d = ESTRUTURA_POSICAO.get(modo if modo in ESTRUTURA_POSICAO else "educacional")
+    frase = d.get(chave)
+    if frase is None:
+        return None
+    for k, v in dados.items():
+        frase = frase.replace("{" + str(k) + "}", str(v))
+    return frase
+
+
+# --- Card de posição estruturada (Fase 45, CARD-01/04/05/06, D-03/D-11) ------
+# Frases de voz do card estruturado. Dict SEPARADO de ESTRUTURA_POSICAO para não
+# quebrar o guardião de conjunto exato de chaves da Fase 44 (P8). Espelhado byte
+# a byte em `COPY[modo].estruturaCard` (web/src/copy.js); guardião
+# `web/tests/test_estrutura_card_espelho.mjs`. Âncoras proibidas: "trava
+# protetora" e "abate o custo" (o collar se chama "collar").
+# Formato rígido p/ o guardião JS: um par por linha, sem aspas internas.
+ESTRUTURA_CARD = {
+    "operador": {
+        "chip_estrutura": "ESTRUTURA · {nome}",
+        "chip_estrutura_generica": "ESTRUTURA · OPÇÕES",
+        "lendo": "Lendo a estrutura de opções…",
+        "indisponivel": "Estrutura indisponível agora. Pernas abertas seguem na carteira — nada estimado.",
+        "badge_travada_collar": "{qty} travada(s) · lastro da CALL do collar",
+        "aviso_sem_stop": "Posição sem stop definido — defina em Editar stop/alvo ou peça a sugestão da IA.",
+    },
+    "educacional": {
+        "chip_estrutura": "ESTUDO · {nome}",
+        "chip_estrutura_generica": "ESTUDO · OPÇÕES",
+        "lendo": "Lendo a estrutura de opções desta posição…",
+        "indisponivel": "Não foi possível ler a estrutura de opções agora. As pernas abertas continuam na sua carteira, e nenhum valor é estimado no lugar.",
+        "badge_travada_collar": "{qty} travada(s) · lastro da call do collar",
+        "aviso_sem_stop": "Esta posição não tem stop definido. Defina em Editar stop/alvo ou peça a sugestão da IA.",
+    },
+}
+
+
+def estrutura_card_txt(modo: str, chave: str, **dados):
+    """Frase canônica do card estruturado. Modo fora de `ESTRUTURA_CARD`
+    (inclui "estudo") degrada para `educacional`; chave desconhecida devolve
+    `None`. Interpolação por `str.replace`."""
+    d = ESTRUTURA_CARD.get(modo if modo in ESTRUTURA_CARD else "educacional")
+    frase = d.get(chave)
+    if frase is None:
+        return None
     for k, v in dados.items():
         frase = frase.replace("{" + str(k) + "}", str(v))
     return frase

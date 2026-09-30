@@ -48,9 +48,26 @@ def test_vocab_txt_interpolacao_completa_nao_deixa_marcador_solto():
 
 
 def test_vocab_txt_aliases_sem_setup_caem_na_mesma_frase():
+    # Reversão deliberada Fase 44 (D-06): sem_contrato_liquido e
+    # sem_vencimento_elegivel ganharam frase própria e saíram desta lista.
     base = skill_ref.opcoes_lastreadas_txt("operador", "sem_setup", ticker="PETR4")
-    for alias in ("tendencia_de_alta", "sem_contrato_liquido", "sem_vencimento_elegivel"):
+    for alias in ("tendencia_de_alta",):
         assert skill_ref.opcoes_lastreadas_txt("operador", alias, ticker="PETR4") == base
+
+
+def test_vocab_sem_contrato_liquido_e_sem_vencimento_elegivel_tem_frase_propria():
+    for modo in ("operador", "educacional"):
+        base = skill_ref.opcoes_lastreadas_txt(modo, "sem_setup", ticker="PETR4")
+        for chave in ("sem_contrato_liquido", "sem_vencimento_elegivel"):
+            frase = skill_ref.opcoes_lastreadas_txt(modo, chave, ticker="PETR4")
+            assert frase != base and "PETR4" in frase and "{" not in frase
+
+
+def test_vocab_motivos_novos_da_fase_44_identicos_nos_dois_modos():
+    novas = ("sem_contrato_liquido", "sem_vencimento_elegivel", "premio_indisponivel",
+             "contrato_fora_da_cadeia", "sem_mercado")
+    for chave in novas:
+        assert skill_ref.OPCOES_LASTREADAS["operador"][chave] == skill_ref.OPCOES_LASTREADAS["educacional"][chave]
 
 
 def test_num_br_formata_pt_br_sem_locale():
@@ -350,18 +367,21 @@ def test_proposta_fechar_cadeia_degradada_devolve_motivo_degradado():
     assert r == {"proposta": None, "motivo": "degradado"}
 
 
-def test_proposta_fechar_contrato_sumiu_da_cadeia_devolve_motivo_degradado():
+def test_proposta_fechar_contrato_sumiu_da_cadeia_devolve_motivo_contrato_fora_da_cadeia():
     """Contrato aberto (PETR4F32) não está mais na cadeia atual (só PETR4F99
-    sobrou) — nunca inventa prêmio a partir de outro contrato."""
+    sobrou) — nunca inventa prêmio a partir de outro contrato.
+    Reversão deliberada Fase 44 (D-07): antes colapsava em degradado."""
     outra_cadeia = _cadeia(calls=[_contrato(99.0, "PETR4F99", "call")])
     r = opcoes_lastreadas.proposta_fechar(_pos_opcao(id="PETR4F32"), outra_cadeia, "operador", _HOJE)
-    assert r == {"proposta": None, "motivo": "degradado"}
+    assert r == {"proposta": None, "motivo": "contrato_fora_da_cadeia"}
 
 
-def test_proposta_fechar_sem_last_price_valido_devolve_motivo_degradado():
-    cadeia = _cadeia(calls=[{**_contrato(32.0, "PETR4F32", "call"), "lastPrice": None}])
-    r = opcoes_lastreadas.proposta_fechar(_pos_opcao(id="PETR4F32"), cadeia, "operador", _HOJE)
-    assert r == {"proposta": None, "motivo": "degradado"}
+def test_proposta_fechar_sem_last_price_valido_devolve_motivo_premio_indisponivel():
+    """Reversão deliberada Fase 44 (D-07): antes colapsava em degradado."""
+    for ruim in (None, 0, -1.0, True):
+        cadeia = _cadeia(calls=[{**_contrato(32.0, "PETR4F32", "call"), "lastPrice": ruim}])
+        r = opcoes_lastreadas.proposta_fechar(_pos_opcao(id="PETR4F32"), cadeia, "operador", _HOJE)
+        assert r == {"proposta": None, "motivo": "premio_indisponivel"}, ruim
 
 
 def test_proposta_fechar_call_coberta_devolve_mesmo_contrato_com_premio_atual():
