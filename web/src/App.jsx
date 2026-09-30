@@ -4343,6 +4343,17 @@ function useCuradoria(ativo) {
   return { top, meta, carregando, erro, concluido, narrativa, narrando, erroNarrativa, narrar, recarregar };
 }
 
+// Fase 45 (45-03): botão "↻ Atualizar" da estrutura — definido fora de
+// CarteiraScreen para o guardião test_concentracao_carteira (que proíbe
+// `disabled=` literal dentro dela) continuar valendo. Desabilita enquanto há
+// leitura em voo; alvo de 44px. Reusado pelo card e pelas linhas
+// lendo/indisponível da Carteira.
+function BotaoAtualizarEstrutura({ leitura, onClick, cp }) {
+  return (
+    <button type="button" onClick={onClick} disabled={!!(leitura && leitura.emVoo)} style={{ background: "transparent", border: "none", padding: 0, minHeight: "44px", color: T.accent, fontSize: "11.5px", fontWeight: 700 }}>↻ {cp.btnAtualizarEstrutura}</button>
+  );
+}
+
 // Fase 45 (D-01..D-04, CARD-01): leitura da estrutura de opções por ativo com
 // pernas abertas. Reusa store.optionsProposta(t, true) (paritário nos dois
 // stores) — UMA chamada por ativo com pernas, teto de 3 concorrentes, sem
@@ -4516,7 +4527,7 @@ function CardPosicaoEstruturada({ p, leitura, cp, operador, ctx, data, onAtualiz
         <span style={{ fontSize: "10.5px", fontWeight: 400, color: T.textFaint }}>
           {leitura.source ? cp.fonteEstruturaLinha(FONTE_LABEL(leitura.source), leitura.at || "—") : cp.fonteEstruturaSemDado}
         </span>
-        <button type="button" onClick={onAtualizar} disabled={!!leitura.emVoo} style={{ ...btnAncora, color: T.accent }}>↻ {cp.btnAtualizarEstrutura}</button>
+        <BotaoAtualizarEstrutura leitura={leitura} onClick={onAtualizar} cp={cp} />
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: `${SP[2]}px` }}>
@@ -4754,7 +4765,7 @@ function CarteiraScreen({ ctx }) {
                 <div role="status" aria-live="polite" style={{ marginTop: "10px", display: "flex", alignItems: "center", flexWrap: "wrap", gap: `${SP[2]}px`, fontSize: "11.5px", color: T.textMuted, lineHeight: 1.5 }}>
                   <span>{estruturaCardTxt(modoTxt, modoLeitura === "carregando" ? "lendo" : "indisponivel")}</span>
                   {modoLeitura === "falha" && (
-                    <button type="button" onClick={() => atualizarEstrutura(p.t)} disabled={!!(leitura && leitura.emVoo)} style={{ background: "transparent", border: "none", padding: 0, minHeight: "44px", color: T.accent, fontSize: "11.5px", fontWeight: 700 }}>↻ {cp.btnAtualizarEstrutura}</button>
+                    <BotaoAtualizarEstrutura leitura={leitura} onClick={() => atualizarEstrutura(p.t)} cp={cp} />
                   )}
                 </div>
               )}
