@@ -740,7 +740,9 @@ def opcoes_lastreadas_txt(modo: str, chave: str, **dados) -> str:
 # last). Espelhada byte a byte em `web/src/copy.js` (`estruturaPosicao`),
 # guardião `web/tests/test_estrutura_espelho.mjs`. O Estudo descreve CONDIÇÃO
 # (sem verbo de ordem); o Operador fala como mesa. Âncoras proibidas:
-# "trava protetora" e "abate o custo" (a troca no `collar` acima é da Fase 45).
+# "trava protetora" e "abate o custo". A Fase 45 decidiu NÃO tocar a manchete
+# `collar` de OPCOES_LASTREADAS (texto regulado, guardrail CVM, premissa P1) e
+# trocou a âncora só nas chaves visíveis do copy.js.
 # Formato rígido p/ o guardião JS: um par por linha, sem aspas internas.
 ESTRUTURA_POSICAO = {
     "operador": {
@@ -814,6 +816,46 @@ def estrutura_posicao_txt(modo: str, chave: str, **dados):
     desconhecida devolve `None` (falha fechada — nunca uma frase errada no
     lugar). Interpolação por `str.replace`, igual a `opcoes_lastreadas_txt`."""
     d = ESTRUTURA_POSICAO.get(modo if modo in ESTRUTURA_POSICAO else "educacional")
+    frase = d.get(chave)
+    if frase is None:
+        return None
+    for k, v in dados.items():
+        frase = frase.replace("{" + str(k) + "}", str(v))
+    return frase
+
+
+# --- Card de posição estruturada (Fase 45, CARD-01/04/05/06, D-03/D-11) ------
+# Frases de voz do card estruturado. Dict SEPARADO de ESTRUTURA_POSICAO para não
+# quebrar o guardião de conjunto exato de chaves da Fase 44 (P8). Espelhado byte
+# a byte em `COPY[modo].estruturaCard` (web/src/copy.js); guardião
+# `web/tests/test_estrutura_card_espelho.mjs`. Âncoras proibidas: "trava
+# protetora" e "abate o custo" (o collar se chama "collar").
+# Formato rígido p/ o guardião JS: um par por linha, sem aspas internas.
+ESTRUTURA_CARD = {
+    "operador": {
+        "chip_estrutura": "ESTRUTURA · {nome}",
+        "chip_estrutura_generica": "ESTRUTURA · OPÇÕES",
+        "lendo": "Lendo a estrutura de opções…",
+        "indisponivel": "Estrutura indisponível agora. Pernas abertas seguem na carteira — nada estimado.",
+        "badge_travada_collar": "{qty} travada(s) · lastro da CALL do collar",
+        "aviso_sem_stop": "Posição sem stop definido — defina em Editar stop/alvo ou peça a sugestão da IA.",
+    },
+    "educacional": {
+        "chip_estrutura": "ESTUDO · {nome}",
+        "chip_estrutura_generica": "ESTUDO · OPÇÕES",
+        "lendo": "Lendo a estrutura de opções desta posição…",
+        "indisponivel": "Não foi possível ler a estrutura de opções agora. As pernas abertas continuam na sua carteira, e nenhum valor é estimado no lugar.",
+        "badge_travada_collar": "{qty} travada(s) · lastro da call do collar",
+        "aviso_sem_stop": "Esta posição não tem stop definido. Defina em Editar stop/alvo ou peça a sugestão da IA.",
+    },
+}
+
+
+def estrutura_card_txt(modo: str, chave: str, **dados):
+    """Frase canônica do card estruturado. Modo fora de `ESTRUTURA_CARD`
+    (inclui "estudo") degrada para `educacional`; chave desconhecida devolve
+    `None`. Interpolação por `str.replace`."""
+    d = ESTRUTURA_CARD.get(modo if modo in ESTRUTURA_CARD else "educacional")
     frase = d.get(chave)
     if frase is None:
         return None

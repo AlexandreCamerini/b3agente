@@ -54,6 +54,7 @@ Todo cálculo é do motor determinístico (princípio 5); nada estimado.
   manchete/preço/P&L (COR-01), escala `SP`, contraste AA nas 4 combinações
   tema×modo, `aria-label` nos elementos novos; âncora proibida "trava
   protetora"/"abate o custo" ausente (usar "collar").
+  > Reversão deliberada (Fase 45, D-11, 2026-09-29): put de proteção NÃO trava ações (put comprada não soma em qtyTravada), então a pill vermelha `badgeTravada` aparece só onde há call vendida; no collar usa `badge_travada_collar`. A put de proteção é coberta pelo chip neutro de estrutura.
 
 ### Didática (Fase 46)
 
