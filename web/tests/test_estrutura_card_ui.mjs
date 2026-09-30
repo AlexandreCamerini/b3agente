@@ -146,6 +146,13 @@ ok("botões definir stop/alvo nunca desabilitados", !/onEditarStopAlvo[^\n]*disa
     /cp\.estruturaVerHistorico[\s\S]{0,10}/.test(card) && /flexBasis: "100%", textAlign: "left", margin: `-\$\{SP\[3\]\}px 0`/.test(card));
 }
 
+// --- pós-teste local (correção 4): % do capital com vírgula pt-BR ----------
+// O card LEGADO mantém o ponto decimal (fora de escopo desta correção).
+{
+  const card = limpo(functionBody("CardPosicaoEstruturada"));
+  ok("% do capital do card novo usa vírgula", /pctCap\.toFixed\(1\)\.replace\("\.", ","\)/.test(card) && !/\{pctCap\.toFixed\(1\)\}%/.test(card));
+}
+
 // --- ctx --------------------------------------------------------------------
 ok("ctx.escopoSeq = escopoOpcoes", /escopoSeq: escopoOpcoes/.test(src));
 const gh = /goHistoricoOperacoes:\s*\(\)\s*=>\s*\{([^}]*)\}/.exec(src);

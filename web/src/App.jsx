@@ -4645,7 +4645,7 @@ function CardPosicaoEstruturada({ p, leitura, cp, operador, ctx, data, total, on
             <div style={{ display: "flex", gap: `${SP[3]}px`, flexWrap: "wrap", fontSize: "11.5px", color: T.textMuted }}>
               <span>{dias == null ? "—" : dias === 0 ? "aberta hoje" : dias + " dia" + (dias > 1 ? "s" : "") + " em operação"}</span>
               {rr != null && <span>R:R atual <b style={{ fontFamily: MONO, color: T.textSecondary }}>{rr.toFixed(2)}</b></span>}
-              {pctCap != null && <span><b style={{ fontFamily: MONO, color: T.textSecondary }}>{pctCap.toFixed(1)}%</b> do capital</span>}
+              {pctCap != null && <span><b style={{ fontFamily: MONO, color: T.textSecondary }}>{pctCap.toFixed(1).replace(".", ",")}%</b> do capital</span>}
             </div>
             {se && (
               <div style={{ fontSize: "11.5px", color: T.textMuted }}>
