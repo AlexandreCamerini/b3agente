@@ -275,6 +275,8 @@ ok("api.js monta ?multiperna=1 quando o parâmetro é passado",
   ].join(" | ");
   ok("chaves novas do collar não contêm \"abate o custo\" (manchete do motor)", !valoresTeste.includes("abate o custo"));
   ok("chaves novas do collar não contêm \"Se você tivesse\" (didática do motor)", !valoresTeste.includes("Se você tivesse"));
+  // Reversão deliberada Fase 45 (D-11/discretion): a âncora 'trava protetora' saiu das chaves visíveis; o guardião antigo só passava por acidente (case-sensitive, '(s)')
+  ok("chaves do collar não contêm \"trava protetora\" (nem \"trava(s) protetora(s)\")", !/trava(\(s\))? protetora/i.test(valoresTeste));
 })();
 
 if (fails) { console.error(`\n${fails} falha(s)`); process.exit(1); }

@@ -725,8 +725,9 @@ export const COPY = {
     // vez da frase-âncora da manchete do motor (guardrail CVM,
     // test_opcoes_collar_vocab.py::test_nenhum_arquivo_front_compoe_manchete_do_collar
     // — mesma colisão já documentada pelos Planos 17-01/17-03).
-    eyebrowPropostaCollar: "ESTUDO · TRAVA PROTETORA",
-    collarPernasLinha: (n, ticker, strikeCall, strikePut) => `${n}× TRAVA ${ticker} · call ${strikeCall} / put ${strikePut}`,
+    // Reversão deliberada (Fase 45, D-11/discretion "usar collar"): a âncora "trava protetora" saiu da voz visível.
+    eyebrowPropostaCollar: "ESTUDO · COLLAR",
+    collarPernasLinha: (n, ticker, strikeCall, strikePut) => `${n}× COLLAR ${ticker} · call ${strikeCall} / put ${strikePut}`,
     ctaCollarDebito: () => "Ver como este collar funcionaria",
     ctaCollarCredito: () => "Ver como este collar funcionaria",
     confirmAbrirCollar: () => "", // ramo estudo nunca chama window.confirm — chave existe só pela paridade
@@ -737,6 +738,37 @@ export const COPY = {
     // (guardião test_copy_theme.mjs testa substring, não palavra inteira).
     badgeTravada: (qty) => `${qty} travada(s) · lastro da call coberta`,
     avisoTravaNaVenda: (qty) => `${qty} ação(ões) está(ão) travada(s) como lastro de uma call coberta — volta(m) a ficar disponível(is) quando a call for recomprada ou vencer.`,
+
+    // Fase 45 — rótulos neutros do card estruturado; guardião de igualdade Estudo=Operador
+    // (test_estrutura_card_espelho.mjs). Idênticos nos dois modos de propósito.
+    estruturaResultadoRotulo: "RESULTADO DA ESTRUTURA",
+    estruturaResultadoSoAcoesRotulo: "SÓ AS AÇÕES — PRÊMIOS INDISPONÍVEIS",
+    estruturaAcoesRotulo: "Ações",
+    estruturaOpcoesRotulo: "Opções",
+    estruturaFaixaTitulo: "FAIXA NO VENCIMENTO",
+    estruturaPernasTitulo: "PERNAS",
+    estruturaLegenda: { piso: "PISO", pm: "PM", hoje: "HOJE", teto: "TETO", stop: "STOP", alvo: "ALVO" },
+    semPiso: "sem piso",
+    semTeto: "sem teto",
+    ladoVendida: "vendida",
+    ladoComprada: "comprada",
+    semCotacaoPerna: "sem cotação",
+    chipVence: (ddmm, dias) => `vence ${ddmm} · ${dias} dia(s)`,
+    chipVenceHoje: "vence hoje",
+    chipVencida: (ddmm) => `vencida em ${ddmm}`,
+    btnEncerrarEstrutura: "Encerrar estrutura…",
+    btnAtualizarEstrutura: "Atualizar",
+    fonteEstruturaLinha: (fonte, quando) => `Opções lidas de ${fonte} em ${quando}`,
+    fonteEstruturaSemDado: "Fonte das opções não declarada.",
+    estruturaFaixaAria: (nome, textos, hoje, pm) => `${nome}. ${textos} Hoje R$ ${hoje}. Preço médio R$ ${pm}.`,
+    encerrarAria: (t) => `Encerrar estrutura de ${t}: abre a aba Opções em ${t}`,
+    estruturaGrupoAria: "Estrutura de opções",
+    estruturaPernaLinha: (tipo, lado, strike, ddmm) => `${tipo} ${lado} · strike ${strike} · vence ${ddmm}`,
+    estruturaPremioLinha: (entrada, atual) => `prêmio R$ ${entrada} → R$ ${atual}`,
+    estruturaQtdPerna: (q) => `×${q}`,
+    estruturaLivresLinha: (livres, qty) => `${livres}/${qty} livres (lastro da call)`,
+    estruturaSaidaSemLastro: "sem lastro",
+    estruturaVerHistorico: "Ver no histórico de operações →",
 
     // Fase 14 (Plano 07, T-14-27/T-14-28): liquidação forçada por vencimento
     // (estado do sistema, texto verbatim do UI-SPEC) e ressalva de marcação
@@ -840,6 +872,16 @@ export const COPY = {
       premio_indisponivel: "Sem prêmio cotado para a opção aberta de {ticker} agora — o encerramento não é proposto sem preço, e nada é estimado no lugar.",
       contrato_fora_da_cadeia: "O contrato aberto de {ticker} não veio na cadeia de opções consultada agora — sem ele, o encerramento não é proposto.",
       sem_mercado: "As opções abertas de {ticker} estão na faixa SEM MERCADO — o preço da tela não seria o preço real de uma ordem.",
+    },
+    // Fase 45 (CARD-01/04/05/06): espelho byte a byte de skill_ref.ESTRUTURA_CARD.
+    // Texto novo nasce no .py primeiro; guardião test_estrutura_card_espelho.mjs.
+    estruturaCard: {
+      chip_estrutura: "ESTUDO · {nome}",
+      chip_estrutura_generica: "ESTUDO · OPÇÕES",
+      lendo: "Lendo a estrutura de opções desta posição…",
+      indisponivel: "Não foi possível ler a estrutura de opções agora. As pernas abertas continuam na sua carteira, e nenhum valor é estimado no lugar.",
+      badge_travada_collar: "{qty} travada(s) · lastro da call do collar",
+      aviso_sem_stop: "Esta posição não tem stop definido. Defina em Editar stop/alvo ou peça a sugestão da IA.",
     },
     linhaPropostaNaPosicao: "Estrutura de opções possível nesta posição",
 
@@ -1580,16 +1622,48 @@ export const COPY = {
     // frase. `confirmAbrirCollar` declara a trava, a quantidade e o "as duas
     // pernas juntas ou nenhuma" — mesma razão que já obriga confirmação na
     // venda coberta (T-14-24), aplicada à estrutura de 2 pernas.
-    eyebrowPropostaCollar: "PROPOSTA · TRAVA PROTETORA",
-    collarPernasLinha: (n, ticker, strikeCall, strikePut) => `${n}× TRAVA ${ticker} · call ${strikeCall} / put ${strikePut}`,
-    ctaCollarDebito: (n, ticker, sc, sp, valor) => `Montar ${n}× trava ${ticker} · call ${sc} / put ${sp} — custa R$ ${valor}`,
-    ctaCollarCredito: (n, ticker, sc, sp, valor) => `Montar ${n}× trava ${ticker} · call ${sc} / put ${sp} — recebe R$ ${valor}`,
-    confirmAbrirCollar: (n, ticker, qty) => `Montar ${n} trava(s) protetora(s) de ${ticker} trava ${qty} ação(ões) do seu lote-lastro (perna da call) até você encerrar a estrutura ou ela vencer. As duas pernas são abertas juntas — ou nenhuma. Continuar?`,
+    // Reversão deliberada (Fase 45, D-11/discretion "usar collar"): a âncora "trava protetora" saiu das 5 chaves de collar do Operador.
+    eyebrowPropostaCollar: "PROPOSTA · COLLAR",
+    collarPernasLinha: (n, ticker, strikeCall, strikePut) => `${n}× COLLAR ${ticker} · call ${strikeCall} / put ${strikePut}`,
+    ctaCollarDebito: (n, ticker, sc, sp, valor) => `Montar ${n}× collar ${ticker} · call ${sc} / put ${sp} — custa R$ ${valor}`,
+    ctaCollarCredito: (n, ticker, sc, sp, valor) => `Montar ${n}× collar ${ticker} · call ${sc} / put ${sp} — recebe R$ ${valor}`,
+    confirmAbrirCollar: (n, ticker, qty) => `Montar ${n} collar(s) de ${ticker} — trava ${qty} ação(ões) do seu lote-lastro (perna da call) até você encerrar a estrutura ou ela vencer. As duas pernas são abertas juntas — ou nenhuma. Continuar?`,
 
     // Fase 14 (Plano 07): mesma chave do ramo estudo (ver comentário acima).
     // Registro de mesa — vocabulário de ordem liberado aqui.
     badgeTravada: (qty) => `${qty} travada(s) · lastro de CALL`,
     avisoTravaNaVenda: (qty) => `${qty} ação(ões) travada(s) como lastro da call coberta — liberam quando você recomprar a call ou ela vencer.`,
+
+    // Fase 45 — rótulos neutros do card estruturado; guardião de igualdade Estudo=Operador
+    // (test_estrutura_card_espelho.mjs). Idênticos nos dois modos de propósito.
+    estruturaResultadoRotulo: "RESULTADO DA ESTRUTURA",
+    estruturaResultadoSoAcoesRotulo: "SÓ AS AÇÕES — PRÊMIOS INDISPONÍVEIS",
+    estruturaAcoesRotulo: "Ações",
+    estruturaOpcoesRotulo: "Opções",
+    estruturaFaixaTitulo: "FAIXA NO VENCIMENTO",
+    estruturaPernasTitulo: "PERNAS",
+    estruturaLegenda: { piso: "PISO", pm: "PM", hoje: "HOJE", teto: "TETO", stop: "STOP", alvo: "ALVO" },
+    semPiso: "sem piso",
+    semTeto: "sem teto",
+    ladoVendida: "vendida",
+    ladoComprada: "comprada",
+    semCotacaoPerna: "sem cotação",
+    chipVence: (ddmm, dias) => `vence ${ddmm} · ${dias} dia(s)`,
+    chipVenceHoje: "vence hoje",
+    chipVencida: (ddmm) => `vencida em ${ddmm}`,
+    btnEncerrarEstrutura: "Encerrar estrutura…",
+    btnAtualizarEstrutura: "Atualizar",
+    fonteEstruturaLinha: (fonte, quando) => `Opções lidas de ${fonte} em ${quando}`,
+    fonteEstruturaSemDado: "Fonte das opções não declarada.",
+    estruturaFaixaAria: (nome, textos, hoje, pm) => `${nome}. ${textos} Hoje R$ ${hoje}. Preço médio R$ ${pm}.`,
+    encerrarAria: (t) => `Encerrar estrutura de ${t}: abre a aba Opções em ${t}`,
+    estruturaGrupoAria: "Estrutura de opções",
+    estruturaPernaLinha: (tipo, lado, strike, ddmm) => `${tipo} ${lado} · strike ${strike} · vence ${ddmm}`,
+    estruturaPremioLinha: (entrada, atual) => `prêmio R$ ${entrada} → R$ ${atual}`,
+    estruturaQtdPerna: (q) => `×${q}`,
+    estruturaLivresLinha: (livres, qty) => `${livres}/${qty} livres (lastro da call)`,
+    estruturaSaidaSemLastro: "sem lastro",
+    estruturaVerHistorico: "Ver no histórico de operações →",
 
     // Fase 14 (Plano 07): mesma chave do ramo estudo (ver comentário acima) —
     // texto idêntico, system notice sem voz de modo.
@@ -1681,6 +1755,16 @@ export const COPY = {
       contrato_fora_da_cadeia: "O contrato aberto de {ticker} não veio na cadeia de opções consultada agora — sem ele, o encerramento não é proposto.",
       sem_mercado: "As opções abertas de {ticker} estão na faixa SEM MERCADO — o preço da tela não seria o preço real de uma ordem.",
     },
+    // Fase 45 (CARD-01/04/05/06): espelho byte a byte de skill_ref.ESTRUTURA_CARD.
+    // Texto novo nasce no .py primeiro; guardião test_estrutura_card_espelho.mjs.
+    estruturaCard: {
+      chip_estrutura: "ESTRUTURA · {nome}",
+      chip_estrutura_generica: "ESTRUTURA · OPÇÕES",
+      lendo: "Lendo a estrutura de opções…",
+      indisponivel: "Estrutura indisponível agora. Pernas abertas seguem na carteira — nada estimado.",
+      badge_travada_collar: "{qty} travada(s) · lastro da CALL do collar",
+      aviso_sem_stop: "Posição sem stop definido — defina em Editar stop/alvo ou peça a sugestão da IA.",
+    },
     linhaPropostaNaPosicao: "Estrutura de opções disponível nesta posição",
 
     // Fase 32 (32-01, D-05): mesma chave do ramo estudo (ver comentário
@@ -1764,6 +1848,18 @@ export const COPY = {
 // Acesso seguro: modo desconhecido cai no Estudo (padrão do app).
 export function copyFor(mode) {
   return COPY[mode === "operador" ? "operador" : "estudo"];
+}
+
+// Espelho de `skill_ref.estrutura_card_txt` (Fase 45): resolve o modo como
+// `copyFor`; chave ausente devolve null (falha fechada); interpola `{k}` de
+// `vals` por String(v). Sem `vals`, devolve a frase crua.
+export function estruturaCardTxt(mode, chave, vals) {
+  const frase = copyFor(mode).estruturaCard[chave];
+  if (frase == null) return null;
+  if (!vals) return frase;
+  let out = frase;
+  for (const [k, v] of Object.entries(vals)) out = out.split("{" + k + "}").join(String(v));
+  return out;
 }
 
 // Espelho de `skill_ref.historico_txt` (Fase 8, ADR-017 Bloco 3): resolve o
