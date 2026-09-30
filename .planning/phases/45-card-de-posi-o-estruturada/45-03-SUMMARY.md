@@ -59,3 +59,13 @@ Nenhum. A ancora `45-04: régua de faixa + bloco de limites (M2)` e ponto de ins
 ## Self-Check: PASSED
 
 Arquivos: test_estrutura_card_ui.mjs e App.jsx presentes; commits fb372fa4 e d3542aaf no git log. STATE.md e ROADMAP.md intocados.
+
+## Correções pós-onda
+
+Três guardiões web quebraram com o 45-03; corrigidos sem mudar comportamento.
+
+1. `test_opcoes_consolidacao_ui` (`fd90d67d`): `useEstruturasPosicao` e `CardPosicaoEstruturada` estavam na fatia `LinhaChamadaOpcoes..CarteiraScreen` e tocavam `positions`. Movidas para antes de `LinhaChamadaOpcoes` (movimento puro, conteúdo intacto).
+2. `test_concentracao_carteira` (`5cd869b6`): o `disabled=` do botão `↻ Atualizar` estava dentro de `CarteiraScreen`. Extraído para `BotaoAtualizarEstrutura({ leitura, onClick, cp })` fora dela (mesmo estilo, 44px, mesma semântica), reusado também por `CardPosicaoEstruturada`.
+3. `test_carteira_opcoes_tira` (`62d94b89`): guardião atualizado com nota de reversão deliberada — `store.optionsProposta(` em App.jsx agora é 2x (AtivoCard + hook `useEstruturasPosicao`). `optionsGate(` segue 1x. Nenhuma asserção removida.
+
+Verificação: os 11 guardiões web relevantes, `npx vite build` e `test_opcoes_collar_vocab.py` com exit 0.
