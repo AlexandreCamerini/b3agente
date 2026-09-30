@@ -91,6 +91,19 @@ export function posRegua(v, dominio) {
   return Math.min(92, Math.max(8, pos));
 }
 
+// Sinal de um resultado monetário: zero exato é neutro (sem "+", sem verde);
+// null = indisponível. Só decide a apresentação, não calcula nada.
+export function sinalResultado(v) {
+  if (typeof v !== "number" || !isFinite(v)) return null;
+  return v === 0 ? "zero" : v > 0 ? "pos" : "neg";
+}
+
+// Kicker do resultado: "só as ações" só quando o número das ações existe;
+// com ações também indisponíveis o rótulo não pode prometer um número ausente.
+export function kickerResultadoSoAcoes(resultado) {
+  return !!resultado && typeof resultado.acoes === "number" && isFinite(resultado.acoes);
+}
+
 // Tom visual do bloco de estado (COR-01: só o âmbar de atenção destoa).
 export function tomDoEstado(estado) {
   if (estado === "ate_5_dias" || estado === "exercicio_provavel") return "atencao";

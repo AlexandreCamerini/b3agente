@@ -7,7 +7,7 @@ import { createChart, ColorType, CrosshairMode, LineStyle } from "lightweight-ch
 import { sampleTechnicals } from "./demo.js";
 import { DISCLAIMERS, TERMO_OPERADOR_VERSAO, TERMO_DESCOBERTO_VERSAO } from "./disclaimers.js";
 import { copyFor, historicoTxt, entradaAutoTxt, reconciliacaoTxt, reconciliacaoPorQueImporta, estruturaCardTxt } from "./copy.js";
-import { tickersComPernas, assinaturaEstrutura, estadoLeitura, mostraAvisoSemStop, mostraRR, tipoPillTravada, chipVencimento, ddmmDeIso, tomDoEstado, executarComTeto, dominioRegua, posRegua } from "./estruturaCard.js";
+import { tickersComPernas, assinaturaEstrutura, estadoLeitura, mostraAvisoSemStop, mostraRR, tipoPillTravada, chipVencimento, ddmmDeIso, tomDoEstado, executarComTeto, dominioRegua, posRegua, sinalResultado, kickerResultadoSoAcoes } from "./estruturaCard.js";
 // Fase 41 (TELAS-01): registro único das 8 telas que o assistente conhece —
 // BottomNav/petTela leem daqui nesta plano (41-02); tourPassos/ajudaSecoes
 // passam a iterar os ids do registro na 41-02/Task 2.
@@ -4573,7 +4573,7 @@ function CardPosicaoEstruturada({ p, leitura, cp, operador, ctx, data, total, on
           </>
         ) : (
           <>
-            <div style={kickerEst}>{cp.estruturaResultadoSoAcoesRotulo}</div>
+            <div style={kickerEst}>{kickerResultadoSoAcoes(r) ? cp.estruturaResultadoSoAcoesRotulo : cp.estruturaResultadoRotulo}</div>
             <div style={{ fontFamily: MONO, fontWeight: 700, fontSize: TAM_TOTAL_ESTRUTURA + "px", color: corDe(r ? r.acoes : null), lineHeight: 1.2 }}>{numDe(r ? r.acoes : null)}</div>
             {r && r.texto && <div style={{ fontSize: "11.5px", color: T.textSecondary, lineHeight: 1.5, marginTop: `${SP[1]}px` }}>{r.texto}</div>}
           </>

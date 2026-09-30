@@ -105,6 +105,13 @@ ok("tom desconhecido", E.tomDoEstado("xyz") === "linha");
   ok("teto: lista vazia", eq(await E.executarComTeto([], 3), []));
 }
 
+// Pós-teste local 45: kicker "só as ações" só com o número das ações presente;
+// zero exato é neutro.
+ok("kicker so-acoes: acoes numérico", E.kickerResultadoSoAcoes({ total: null, acoes: -9500 }) === true);
+ok("kicker so-acoes: acoes null -> neutro", E.kickerResultadoSoAcoes({ total: null, acoes: null }) === false);
+ok("kicker so-acoes: sem resultado -> neutro", E.kickerResultadoSoAcoes(null) === false);
+ok("sinalResultado: zero/pos/neg/null", E.sinalResultado(0) === "zero" && E.sinalResultado(1) === "pos" && E.sinalResultado(-1) === "neg" && E.sinalResultado(null) === null);
+
 // pureza estática
 const src = readFileSync(fileURLToPath(new URL("../src/estruturaCard.js", import.meta.url)), "utf8");
 const codigo = src.split("\n").filter((l) => !l.trim().startsWith("//")).join("\n");

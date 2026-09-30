@@ -123,6 +123,13 @@ ok("botões definir stop/alvo nunca desabilitados", !/onEditarStopAlvo[^\n]*disa
   ok("nenhuma caixa bgBase contém T.positive/T.negative/T.accent", viol === 0);
 }
 
+// --- pós-teste local (correção 1): kicker neutro sem número das ações ------
+{
+  const card = limpo(functionBody("CardPosicaoEstruturada"));
+  ok("kicker so-acoes condicionado a kickerResultadoSoAcoes(r), senão RESULTADO DA ESTRUTURA",
+    /kickerResultadoSoAcoes\(r\)\s*\?\s*cp\.estruturaResultadoSoAcoesRotulo\s*:\s*cp\.estruturaResultadoRotulo/.test(card));
+}
+
 // --- ctx --------------------------------------------------------------------
 ok("ctx.escopoSeq = escopoOpcoes", /escopoSeq: escopoOpcoes/.test(src));
 const gh = /goHistoricoOperacoes:\s*\(\)\s*=>\s*\{([^}]*)\}/.exec(src);
