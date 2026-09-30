@@ -6,7 +6,8 @@ import { testServer, describeRuntimeConfig, getApiBase, PROD_BASE } from "./api.
 import { createChart, ColorType, CrosshairMode, LineStyle } from "lightweight-charts";
 import { sampleTechnicals } from "./demo.js";
 import { DISCLAIMERS, TERMO_OPERADOR_VERSAO, TERMO_DESCOBERTO_VERSAO } from "./disclaimers.js";
-import { copyFor, historicoTxt, entradaAutoTxt, reconciliacaoTxt, reconciliacaoPorQueImporta } from "./copy.js";
+import { copyFor, historicoTxt, entradaAutoTxt, reconciliacaoTxt, reconciliacaoPorQueImporta, estruturaCardTxt } from "./copy.js";
+import { tickersComPernas, assinaturaEstrutura, estadoLeitura, mostraAvisoSemStop, mostraRR, tipoPillTravada, chipVencimento, ddmmDeIso, tomDoEstado, executarComTeto } from "./estruturaCard.js";
 // Fase 41 (TELAS-01): registro único das 8 telas que o assistente conhece —
 // BottomNav/petTela leem daqui nesta plano (41-02); tourPassos/ajudaSecoes
 // passam a iterar os ids do registro na 41-02/Task 2.
@@ -1214,9 +1215,9 @@ function PosPill({ qty }) {
 // Fase 14 (Plano 07): trava de lastro visível — mesma forma de PosPill acima,
 // cor T.negative (comunica restrição, não posição neutra). Texto vem de
 // cp.badgeTravada(qty) — nunca hardcodado (guardião didatica-boris/copy.js).
-function TravaPill({ qty, cp }) {
+function TravaPill({ qty, cp, texto }) {
   if (!qty) return null;
-  return <span style={{ padding: "3px 9px", borderRadius: "999px", background: T.negativeTint10, color: T.negative, fontSize: "10.5px", fontWeight: 800, whiteSpace: "nowrap" }}>{cp.badgeTravada(qty)}</span>;
+  return <span style={{ padding: "3px 9px", borderRadius: "999px", background: T.negativeTint10, color: T.negative, fontSize: "10.5px", fontWeight: 800, whiteSpace: "nowrap" }}>{texto || cp.badgeTravada(qty)}</span>;
 }
 
 // Fase 14 (Plano 07, T-14-27): liquidação forçada por vencimento — estado do
@@ -1300,6 +1301,10 @@ const REC_STYLE = {
 // existente). Exceção só como constante nomeada, comentada, na lista fechada
 // abaixo — o guardião (test_ritmo_sp.mjs) aceita só essas.
 const SP = { 1: 4, 2: 8, 3: 12, 4: 16, 5: 20, 6: 24, 8: 32 };
+// Fase 45 M1 — total do resultado em 24px herdado do mock; exceção de tipografia —
+// premissa P6 do orquestrador, reversível, confirmada ou revertida no checkpoint 45-05.
+// Se reprovada, trocar para 16 aqui — ponto único.
+const TAM_TOTAL_ESTRUTURA = 24;
 // Exceções ópticas — herdado do 42-UI-SPEC.md, developer-approved 2026-09-26;
 // lista fechada D-16 — nova exceção exige discuss-phase.
 const SP_OPTICO_CHIP_PRIMARIO = { v: 9, h: 11 };
@@ -4394,6 +4399,214 @@ function LinhaChamadaOpcoes({ curadoria, cp, onIr }) {
   );
 }
 
+// Fase 45 (D-01..D-04, CARD-01): leitura da estrutura de opções por ativo com
+// pernas abertas. Reusa store.optionsProposta(t, true) (paritário nos dois
+// stores) — UMA chamada por ativo com pernas, teto de 3 concorrentes, sem
+// polling e sem acoplar ao refresh de cotação (custo brapi aceito: a rota
+// também calcula candidatos/proposta). Recarrega por assinatura (buy/sell/
+// fechar/troca de modo) ou toque em Atualizar. Token `seqRef` é MONOTÔNICO
+// GLOBAL e nunca zera: um contador reiniciado poderia reemitir o token de uma
+// resposta atrasada da conta anterior e aceitá-la (T-45-09).
+function useEstruturasPosicao(data, operador, escopoSeq) {
+  const [leituras, setLeituras] = useState({});
+  const leiturasRef = useRef({});
+  leiturasRef.current = leituras;
+  const pedidasRef = useRef({});
+  const seqRef = useRef(0);
+  const ultimoRef = useRef({});
+  const corteRef = useRef(0);
+  const vivoRef = useRef(true);
+  const tickers = tickersComPernas(data.positions, data.optionPositions);
+  const sigs = tickers.map((t) => assinaturaEstrutura(t, data.positions, data.optionPositions, operador));
+  const chave = sigs.join(";");
+
+  useEffect(() => { vivoRef.current = true; return () => { vivoRef.current = false; }; }, []);
+
+  const lerEstrutura = (t, assinatura) => {
+    const meu = ++seqRef.current;
+    ultimoRef.current[t] = meu;
+    const aceita = () => vivoRef.current && meu === ultimoRef.current[t] && meu > corteRef.current && pedidasRef.current[t] === assinatura;
+    return store.optionsProposta(t, true).then(
+      (r) => { if (aceita()) setLeituras((prev) => ({ ...prev, [t]: { status: "ok", estrutura: (r && r.estrutura) || null, source: r && r.source, at: r && r.at, assinatura, emVoo: false } })); },
+      () => { if (aceita()) setLeituras((prev) => ({ ...prev, [t]: { status: "falha", assinatura, emVoo: false } })); }
+    );
+  };
+
+  // Troca de conta/escopo: limpa as leituras e invalida o que estiver em voo
+  // por incremento do token (nunca por reinício).
+  useEffect(() => {
+    setLeituras({});
+    pedidasRef.current = {};
+    corteRef.current = ++seqRef.current;
+  }, [escopoSeq]);
+
+  useEffect(() => {
+    const thunks = [];
+    tickers.forEach((t, i) => {
+      if (pedidasRef.current[t] === sigs[i]) return;
+      pedidasRef.current[t] = sigs[i];
+      const sig = sigs[i];
+      thunks.push(() => lerEstrutura(t, sig));
+    });
+    setLeituras((prev) => {
+      const prox = {};
+      tickers.forEach((t, i) => {
+        if (pedidasRef.current[t] === sigs[i] && prev[t] && prev[t].assinatura === sigs[i]) prox[t] = prev[t];
+        else prox[t] = { status: "carregando", assinatura: sigs[i], emVoo: true };
+      });
+      return prox;
+    });
+    Object.keys(pedidasRef.current).forEach((t) => { if (!tickers.includes(t)) delete pedidasRef.current[t]; });
+    if (thunks.length) executarComTeto(thunks, 3);
+  }, [chave, escopoSeq]);
+
+  const atualizar = (t) => {
+    const atual = leiturasRef.current[t];
+    const sig = pedidasRef.current[t];
+    if (!sig || (atual && atual.emVoo)) return;
+    setLeituras((prev) => {
+      const l = prev[t] || {};
+      return { ...prev, [t]: { ...l, status: !l.status || l.status === "falha" ? "carregando" : l.status, emVoo: true } };
+    });
+    executarComTeto([() => lerEstrutura(t, sig)], 3);
+  };
+
+  return { leituras, atualizar };
+}
+
+// Fase 45 (CARD-01/03/04/05/06): card da posição com estrutura de opções.
+// Todo número e frase de motor vem de `estrutura` (P9: nunca somar/derivar no
+// cliente); texto do motor entra só como filho de texto JSX. Não executa
+// ordem: Encerrar apenas navega para Opções > Oportunidades no ticker.
+function CardPosicaoEstruturada({ p, leitura, cp, operador, ctx, data, onAtualizar }) {
+  const e = leitura.estrutura;
+  const modo = operador ? "operador" : "estudo";
+  const corDe = (v) => (v == null ? T.textMuted : v >= 0 ? T.positive : T.negative);
+  const numDe = (v) => (v == null ? "—" : moneySigned(v));
+  const vc = chipVencimento(e);
+  const pill = tipoPillTravada(e, p.qtyTravada);
+  const tom = tomDoEstado(e.estado);
+  const r = e.resultado || null;
+  const bloqueado = !(e.encerrar && e.encerrar.permitido);
+  const textoVence = vc ? (vc.tipo === "hoje" ? cp.chipVenceHoje : vc.tipo === "vencida" ? cp.chipVencida(vc.ddmm) : cp.chipVence(vc.ddmm, vc.dias == null ? "—" : vc.dias)) : null;
+  const kickerEst = { fontSize: "10.5px", fontWeight: 700, color: T.textFaint, letterSpacing: "0.06em" };
+  const calloutBorda = tom === "atencao" ? T.warn : tom === "info" ? T.borderDashed : T.textMuted;
+  const btnAncora = { background: "transparent", border: "none", padding: 0, minHeight: "44px", fontSize: "11.5px", fontWeight: 700 };
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: `${SP[3]}px` }}>
+      <div>
+        <div style={{ display: "flex", alignItems: "baseline", gap: `${SP[2]}px`, flexWrap: "wrap" }}>
+          <span style={{ fontFamily: MONO, fontWeight: 700, fontSize: "16px" }}>{p.t}</span>
+          <span style={{ fontSize: "11.5px", color: T.textMuted }}>{p.qty} cotas · PM R$ {price(p.avg)}</span>
+        </div>
+        <div role="group" aria-label={cp.estruturaGrupoAria} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: `${SP[2]}px`, marginTop: `${SP[2]}px` }}>
+          <span style={{ background: T.bgBase, border: `1px solid ${T.borderSubtle}`, color: T.textMuted, padding: `${SP[1]}px ${SP[2]}px`, borderRadius: "999px", fontSize: "10.5px", fontWeight: 700, whiteSpace: "nowrap" }}>
+            {e.nome ? estruturaCardTxt(modo, "chip_estrutura", { nome: String(e.nomeTexto || "").toUpperCase() }) : estruturaCardTxt(modo, "chip_estrutura_generica")}
+          </span>
+          {vc && (vc.ambar ? (
+            <span style={{ background: T.warnTint10, border: `1px solid ${T.warn}`, color: T.warn, padding: `${SP[1]}px ${SP[2]}px`, borderRadius: "999px", fontSize: "10.5px", fontWeight: 700, whiteSpace: "nowrap" }}>{textoVence}</span>
+          ) : (
+            <span style={{ background: T.bgBase, border: `1px solid ${T.borderSubtle}`, color: T.textMuted, padding: `${SP[1]}px ${SP[2]}px`, borderRadius: "999px", fontSize: "10.5px", fontWeight: 700, whiteSpace: "nowrap" }}>{textoVence}</span>
+          ))}
+          {pill === "collar" && <TravaPill qty={p.qtyTravada} cp={cp} texto={estruturaCardTxt(modo, "badge_travada_collar", { qty: p.qtyTravada })} />}
+          {pill === "padrao" && <TravaPill qty={p.qtyTravada} cp={cp} />}
+        </div>
+        {e.nome == null && e.nomeTexto && <div style={{ marginTop: `${SP[2]}px`, fontSize: "11.5px", color: T.textSecondary }}>{e.nomeTexto}</div>}
+      </div>
+
+      <AvisoLiquidacao evento={eventoLiquidacaoRecente(data.history, p.t)} cp={cp} />
+
+      {tom === "linha" ? (
+        e.estadoTexto ? <div style={{ fontSize: "11.5px", color: T.textMuted, lineHeight: 1.5 }}>{e.estadoTexto}</div> : null
+      ) : (
+        <div style={{ background: T.bgBase, border: `1px solid ${calloutBorda}`, borderRadius: "9px", padding: `${SP[2]}px ${SP[3]}px`, display: "flex", gap: `${SP[2]}px`, alignItems: "flex-start", flexWrap: "wrap" }}>
+          <span aria-hidden style={{ color: T.textSecondary, fontSize: "11.5px", lineHeight: 1.5 }}>{tom === "info" ? "ⓘ" : "⚠"}</span>
+          <span style={{ flex: 1, minWidth: 0, fontSize: "11.5px", color: T.textSecondary, lineHeight: 1.5 }}>{e.estadoTexto}</span>
+          {tom === "encerrada" && (
+            <button type="button" onClick={ctx.goHistoricoOperacoes} style={{ ...btnAncora, color: T.textSecondary, textDecoration: "underline", flexBasis: "100%", textAlign: "left" }}>{cp.estruturaVerHistorico}</button>
+          )}
+        </div>
+      )}
+
+      <div>
+        {r && r.total != null ? (
+          <>
+            <div style={kickerEst}>{cp.estruturaResultadoRotulo}</div>
+            <div style={{ fontFamily: MONO, fontWeight: 700, fontSize: TAM_TOTAL_ESTRUTURA + "px", color: corDe(r.total), lineHeight: 1.2 }}>{moneySigned(r.total)}</div>
+            <div style={{ fontFamily: MONO, fontSize: "11.5px", color: T.textMuted, marginTop: `${SP[1]}px` }}>
+              {cp.estruturaAcoesRotulo} <span style={{ color: corDe(r.acoes) }}>{numDe(r.acoes)}</span> · {cp.estruturaOpcoesRotulo} <span style={{ color: corDe(r.pernasCotadas) }}>{numDe(r.pernasCotadas)}</span>
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={kickerEst}>{cp.estruturaResultadoSoAcoesRotulo}</div>
+            <div style={{ fontFamily: MONO, fontWeight: 700, fontSize: TAM_TOTAL_ESTRUTURA + "px", color: corDe(r ? r.acoes : null), lineHeight: 1.2 }}>{numDe(r ? r.acoes : null)}</div>
+            {r && r.texto && <div style={{ fontSize: "11.5px", color: T.textSecondary, lineHeight: 1.5, marginTop: `${SP[1]}px` }}>{r.texto}</div>}
+          </>
+        )}
+      </div>
+
+      {/* 45-04: régua de faixa + bloco de limites (M2) */}
+
+      <div>
+        <div style={kickerEst}>{cp.estruturaPernasTitulo}</div>
+        <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+          {(e.pernas || []).map((perna, i) => (
+            <li key={i} style={{ paddingTop: `${SP[2]}px`, display: "flex", justifyContent: "space-between", gap: `${SP[2]}px`, alignItems: "flex-start" }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontFamily: MONO, fontSize: "13px", color: T.textPrimary }}>
+                  {cp.estruturaPernaLinha(perna.tipo, perna.lado === "venda" ? cp.ladoVendida : perna.lado === "compra" ? cp.ladoComprada : "—", price(perna.strike), ddmmDeIso(perna.vencimento) || String(perna.vencimento || "—"))} {cp.estruturaQtdPerna(perna.quantidade)}
+                </div>
+                <div style={{ fontSize: "11.5px", color: T.textSecondary, lineHeight: 1.5 }}>
+                  {cp.estruturaPremioLinha(price(perna.premioEntrada), perna.premioAtual == null ? "—" : price(perna.premioAtual))}{perna.premioAtual == null ? ` · ${cp.semCotacaoPerna}` : ""}
+                </div>
+                {perna.origemTexto && <div style={{ fontSize: "10.5px", color: T.textMuted }}>{perna.origemTexto}</div>}
+              </div>
+              <span style={{ fontFamily: MONO, fontSize: "13px", color: corDe(perna.resultado), whiteSpace: "nowrap" }}>{numDe(perna.resultado)}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: `${SP[2]}px` }}>
+        <span style={{ fontSize: "10.5px", fontWeight: 400, color: T.textFaint }}>
+          {leitura.source ? cp.fonteEstruturaLinha(FONTE_LABEL(leitura.source), leitura.at || "—") : cp.fonteEstruturaSemDado}
+        </span>
+        <button type="button" onClick={onAtualizar} disabled={!!leitura.emVoo} style={{ ...btnAncora, color: T.accent }}>↻ {cp.btnAtualizarEstrutura}</button>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: `${SP[2]}px` }}>
+        <button
+          type="button"
+          onClick={() => ctx.goOpcoes("oportunidades", { abrirTicker: p.t })}
+          disabled={bloqueado}
+          aria-disabled={bloqueado}
+          aria-describedby={bloqueado ? "encerrar-motivo-" + p.t : undefined}
+          aria-label={cp.encerrarAria(p.t)}
+          style={{ width: "100%", minHeight: "44px", borderRadius: "10px", border: `1px solid ${T.borderSubtle}`, background: "transparent", color: bloqueado ? T.textMuted : T.textPrimary, fontSize: "13px", fontWeight: 700 }}
+        >
+          {cp.btnEncerrarEstrutura}
+        </button>
+        {bloqueado && e.encerrar && e.encerrar.texto && <div id={"encerrar-motivo-" + p.t} style={{ fontSize: "11.5px", color: T.textMuted, lineHeight: 1.5 }}>{e.encerrar.texto}</div>}
+        {e.abertaSemProposta && e.motivoSemPropostaTexto && <div style={{ fontSize: "11.5px", color: T.textMuted, lineHeight: 1.5 }}>{e.motivoSemPropostaTexto}</div>}
+        <div style={{ display: "flex", gap: `${SP[2]}px` }}>
+          <button type="button" onClick={() => ctx.openStopAlvo(p.t)} aria-label={"Sugerir stop e alvo de " + p.t + " com IA"} style={{ flex: 1, minHeight: "44px", borderRadius: "10px", border: `1px solid ${T.accent}`, background: T.accentTint10, color: T.accent, fontWeight: 700, fontSize: "11.5px", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: `${SP[2]}px` }}>
+            <NavIcon id="evolucao" size={14} color="currentColor" /> Stop/alvo (IA)
+          </button>
+          <button type="button" onClick={() => ctx.A.openSell(p.t)} disabled={qtyLivre(p) === 0} aria-describedby={p.qtyTravada > 0 || e.nome === "put_protecao" ? "saida-lastro-" + p.t : undefined} style={{ flex: 1, minHeight: "44px", borderRadius: "10px", border: `1px solid ${T.negative}`, background: T.negativeTint10, color: T.negative, fontWeight: 700, fontSize: "11.5px" }}>
+            {cp.btnVender}…
+          </button>
+        </div>
+        {(p.qtyTravada > 0 || e.nome === "put_protecao") && (
+          <div id={"saida-lastro-" + p.t} style={{ fontSize: "10.5px", color: T.textMuted }}>
+            {p.qtyTravada > 0 ? cp.estruturaLivresLinha(qtyLivre(p), p.qty) : cp.estruturaSaidaSemLastro}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function CarteiraScreen({ ctx }) {
   // FASE 2 (2.5): qual posição está com o histórico de análises aberto
   const [histFor, setHistFor] = useState(null);
@@ -4401,6 +4614,9 @@ function CarteiraScreen({ ctx }) {
   const [editFor, setEditFor] = useState(null);
   const [comprasOpen, setComprasOpen] = useState({});
   const { data, quotes, analysis, A, goMercado, cp, operador } = ctx;   // FASE 8B (B1)
+  // Fase 45 (D-01..D-04): leitura da estrutura só para ativos com pernas abertas.
+  const { leituras, atualizar: atualizarEstrutura } = useEstruturasPosicao(data, operador, ctx.escopoSeq);
+  const comPernas = new Set(tickersComPernas(data.positions, data.optionPositions));
   useEffect(() => { track("portfolio_view"); }, []);   // qa/47 (Fase 2)
   // Fase 32 (32-04): o estado de "qual posição tem o detalhe de opções
   // aberto" (Fase 18, NAV-02) e a chamada do hook de fan-out gate→proposta
@@ -4505,6 +4721,9 @@ function CarteiraScreen({ ctx }) {
           const pnlPct = avg > 0 ? (cur / avg - 1) * 100 : 0;
           const color = pnl >= 0 ? T.positive : T.negative;
           const cell = (label, value, c) => (<div><div style={kicker}>{label}</div><div style={{ fontFamily: MONO, fontSize: "13px", color: c }}>{value}</div></div>);
+          const leitura = leituras[p.t];
+          const modoLeitura = estadoLeitura(comPernas.has(p.t), leitura);
+          const modoTxt = operador ? "operador" : "estudo";
           return (
             // id: âncora de scroll — mesmo mecanismo já em produção pro deep
             // link do push (App.jsx:7446-7449, "ativo-"+t). Fase 32 (32-04):
@@ -4514,7 +4733,10 @@ function CarteiraScreen({ ctx }) {
             // mais `scrollIntoView`. A âncora FICA: é o mesmo mecanismo do
             // deep link de push acima, e removê-la quebraria um caminho que
             // não é desta fase.
-            <div key={p.t} id={"posicao-" + p.t} style={{ ...card, padding: "14px 15px" }}>
+            <div key={p.t} id={"posicao-" + p.t} style={{ ...card, padding: modoLeitura === "estruturada" ? `${SP[4]}px` : "14px 15px" }}>
+              {modoLeitura === "estruturada" ? (
+                <CardPosicaoEstruturada p={p} leitura={leitura} cp={cp} operador={operador} ctx={ctx} data={data} onAtualizar={() => atualizarEstrutura(p.t)} />
+              ) : (<>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "10px", flexWrap: "wrap" }}>
                 <div>
                   <div style={{ display: "flex", alignItems: "baseline", gap: "8px", flexWrap: "wrap" }}>
@@ -4528,6 +4750,14 @@ function CarteiraScreen({ ctx }) {
                   <div style={{ fontSize: "12px", color }}>{pct(pnlPct)}</div>
                 </div>
               </div>
+              {(modoLeitura === "carregando" || modoLeitura === "falha") && (
+                <div role="status" aria-live="polite" style={{ marginTop: "10px", display: "flex", alignItems: "center", flexWrap: "wrap", gap: `${SP[2]}px`, fontSize: "11.5px", color: T.textMuted, lineHeight: 1.5 }}>
+                  <span>{estruturaCardTxt(modoTxt, modoLeitura === "carregando" ? "lendo" : "indisponivel")}</span>
+                  {modoLeitura === "falha" && (
+                    <button type="button" onClick={() => atualizarEstrutura(p.t)} disabled={!!(leitura && leitura.emVoo)} style={{ background: "transparent", border: "none", padding: 0, minHeight: "44px", color: T.accent, fontSize: "11.5px", fontWeight: 700 }}>↻ {cp.btnAtualizarEstrutura}</button>
+                  )}
+                </div>
+              )}
               <AvisoLiquidacao evento={eventoLiquidacaoRecente(data.history, p.t)} cp={cp} />
               {/* FASE 3 (mock v2): a régua POSIÇÃO NO RISCO substitui as 4 células —
                   onde o preço está entre stop e alvo, à primeira vista. */}
@@ -4562,7 +4792,7 @@ function CarteiraScreen({ ctx }) {
                   <div style={{ marginTop: "10px", padding: "9px 11px", borderRadius: "10px", background: T.bgBase, border: `1px solid ${T.borderFaint}` }}>
                     <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", fontSize: "11px", color: T.textMuted }}>
                       <span>{dias == null ? "—" : dias === 0 ? "aberta hoje" : dias + " dia" + (dias > 1 ? "s" : "") + " em operação"}</span>
-                      <span>R:R atual <b style={{ fontFamily: MONO, color: rr == null ? T.textFaint : rr >= 1.5 ? T.textSecondary : T.negative }}>{rr == null ? "—" : rr.toFixed(2)}</b></span>
+                      {mostraRR(p) && (<span>R:R atual <b style={{ fontFamily: MONO, color: rr == null ? T.textFaint : rr >= 1.5 ? T.textSecondary : T.negative }}>{rr == null ? "—" : rr.toFixed(2)}</b></span>)}
                       <span><b style={{ fontFamily: MONO, color: T.textSecondary }}>{pctCap.toFixed(1)}%</b> do capital</span>
                     </div>
                     {se && (
@@ -4572,7 +4802,7 @@ function CarteiraScreen({ ctx }) {
                         {gatStatus && <span> · <b style={{ color: gatStatus[1] }}>{gatStatus[0]}</b></span>}
                       </div>
                     )}
-                    {p.stop == null && <div style={{ marginTop: "6px", fontSize: "11px", fontWeight: 700, color: T.negative }}>⚠ Posição sem stop definido — defina pela régua acima ou peça a sugestão da IA.</div>}
+                    {mostraAvisoSemStop(p, modoLeitura, null) && <div style={{ marginTop: "6px", fontSize: "11px", fontWeight: 700, color: T.negative }}>⚠ Posição sem stop definido — defina pela régua acima ou peça a sugestão da IA.</div>}
                   </div>
                 );
               })()}
@@ -4614,6 +4844,7 @@ function CarteiraScreen({ ctx }) {
                   {cp.btnVender}…
                 </button>
               </div>
+              </>)}
               <div style={{ display: "flex", gap: "14px", alignItems: "center", marginTop: "10px", paddingTop: "9px", borderTop: `1px solid ${T.borderFaint}` }}>
                 <button onClick={() => setEditFor(editFor === p.t ? null : p.t)} style={{ background: "transparent", border: "none", padding: "5px 0", color: editFor === p.t ? T.accent : T.textMuted, fontSize: "11.5px", fontWeight: 800 }}>✎ Editar stop/alvo</button>
                 <button onClick={() => ctx.openAvaliar(p.t)} style={{ background: "transparent", border: "none", padding: "5px 0", color: T.textMuted, fontSize: "11.5px", fontWeight: 700 }}>Reanalisar</button>
@@ -9119,6 +9350,10 @@ export default function App() {
     // setters do `goAgente` acima, pela mesma razão: ponto único de entrada,
     // em vez de replicar a navegação em cada chamador.
     goCarteira: () => { setPerfilView("hub"); setTab("carteira"); setCarteiraView("main"); },
+    // Fase 45 (M7): destino do link "Ver no histórico de operações" do card de estrutura vencida.
+    goHistoricoOperacoes: () => { setPerfilView("hub"); setTab("carteira"); setCarteiraView("historico"); },
+    // Fase 45 (M7): troca de conta/escopo limpa o mapa de estruturas do card de Posições.
+    escopoSeq: escopoOpcoes,
     // Fase 32 (32-02), D-03: PONTO ÚNICO de entrada na aba Opções a partir de
     // outra tela — mesma razão registrada em goAgente acima. `navigate` já
     // zera carteiraView/perfilView, então este destino chega sempre limpo.
