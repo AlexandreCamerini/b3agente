@@ -136,5 +136,11 @@ for (const f of new Set(frasesJs)) {
   ok(`App.jsx não hardcoda "${f.slice(0, 40)}…"`, !app.includes(f));
 }
 
+// Reversão deliberada Fase 45 (decisão do Alex): o botão só navega para Opções
+// (onde só a call é recomprada); nenhuma copy pode prometer encerrar a estrutura.
+ok("botão de encerramento só promete navegar (não 'Encerrar estrutura')",
+   /^Ver encerramento/.test(E.btnEncerrarEstrutura) && !/encerrar estrutura/i.test(E.btnEncerrarEstrutura) &&
+   /^Ver encerramento de PETR4/.test(E.encerrarAria("PETR4")) && !/encerrar estrutura/i.test(E.encerrarAria("PETR4")));
+
 if (fails) { console.error(`\n${fails} falha(s)`); process.exit(1); }
 console.log("\ntodos os testes passaram");
