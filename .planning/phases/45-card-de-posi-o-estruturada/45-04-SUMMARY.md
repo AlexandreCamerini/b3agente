@@ -73,3 +73,30 @@ Guardiões: novas asserções em `test_estrutura_card_ui.mjs` (1–5) e `test_es
 Verificado (exit 0): test_estrutura_card_ui/logica/contraste/espelho, test_ritmo_sp, test_carteira_lastro_ui, test_opcoes_consolidacao_ui, test_concentracao_carteira, test_carteira_opcoes_tira, test_hero_reconciliado, test_setor_toque, test_opcoes_continuidade_ui, test_opcoes_abrir_ticker, test_cor_confiabilidade, `npx vite build`, pytest `test_opcoes_collar_vocab.py` (11 passed). `skill_ref.py` não foi tocado. Não verificado visualmente após as correções (sem novo teste no navegador).
 
 Pendentes de decisão do Alex (não mexidos): STOP duplicado no card, semântica do botão Encerrar, ask × último negócio.
+
+## Investigação: ask × último negócio
+
+Sintoma (teste local): o card marcou a call vendida por R$ 0,70 (perda −R$ 250 sobre entrada R$ 0,45 × 1000) e o destino (PropostaDoAtivo em Opções) propôs recomprar a R$ 0,65 (R$ 650).
+
+Fontes:
+- Card: `server/app/estrutura_posicao.py:92-105` (`_marcar`) — perna vendida marcada pelo `ask` (R$ 0,70), comprada pelo `bid`; só cai no `lastPrice` (com `origem_last` explícita) se o lado do book faltar. Resultado da perna em `_resultado_perna` (linha ~123) usa esse `premioAtual`.
+- Destino: `server/app/main.py:3207` chama `opcoes_lastreadas.proposta_fechar`, que lê `contrato.get("lastPrice")` em `server/app/opcoes_lastreadas.py:451` e calcula `premio_total = round(premio * qty_acoes, 2)` (R$ 0,65 × 1000 = R$ 650). O front (`PropostaLastreada.jsx:151,268`) só exibe `p.premioTotal` — não recalcula.
+- Execução: `POST /api/options/lastreada/fechar` (`server/app/main.py:4160`) também executa a `lastPrice`. Por isso `estrutura_posicao.py:318` (`lastOk`) e o cabeçalho do módulo (linhas 31-33) exigem `lastPrice` numérico para liberar `encerrar`.
+
+Deliberado? Sim nos dois lados, mas por decisões diferentes: D-04 da Fase 45 escolheu ask/bid para a MARCAÇÃO (custo real de sair, conservador, nunca mid); a proposta/execução de fechamento é anterior (Fases 30-44) e sempre usou o último negócio, que é o preço que o simulador de fato executa. A divergência é a diferença ask − last (R$ 0,05/ação = R$ 50); o card mostra "quanto custaria sair pelo book", o destino/execução "o que o simulador cobra". Não é bug de cálculo, é dois preços de referência sem rótulo explicando.
+
+Menor alteração que alinharia (NÃO implementada):
+1. Alinhar a marcação ao executado: `_marcar` usar `lastPrice` como principal para a perna vendida (ask só como informação). Camada backend, Fase 45 (D-04 muda; guardiões `test_estrutura_posicao.py` de origem ask/bid e textos `origem_last` a reverter deliberadamente). Risco ao guardrail: baixo (continua motor determinístico, sem IA), mas perde o conservadorismo do ask e passa a valer last possivelmente velho/sem liquidez.
+2. Alternativa: alinhar a execução ao ask (`opcoes_lastreadas.py:451` e `main.py:4160`). Mexe no motor de ordens e nas Fases 30-44, maior risco; não recomendado.
+3. Só rótulo (segura e dentro do spec, proposta, não implementada): já existe `origemTexto`/kicker por perna; adicionar ao card uma nota curta tipo "marcada pelo preço de recompra no book (ask); o simulador fecha pelo último negócio", como chave nova no par `skill_ref.ESTRUTURA_CARD` ↔ `copy.js estruturaCard` (paridade byte a byte, vocabulário por modo), sem tocar em números.
+
+## Decisões do Alex (checkpoint 45-05)
+
+- M1: aprovado (24px).
+- M7: aprovado.
+- P4: não — sem follow-up no AtivoCard.
+- Encerrar: renomeado para "Ver encerramento em Opções…" (aria "Ver encerramento de {ticker}: abre a aba Opções em {ticker}"); copy neutra em `copy.js` nos dois modos, sem promessa de fechar as duas pernas; guardião de espelho atualizado; estado bloqueado/`encerrar.texto` do motor intocado. Commit ab840193.
+- STOP: deduplicado — a linha STOP/ALVO é o único rótulo; `stopTexto` virou nota abaixo dela; "definir ▸" do stop sempre disponível quando sem stop. Commit 159ed8a9.
+- Números (ask × último negócio): investigado (seção acima), nada alterado.
+
+Verificado (exit 0): 17 guardiões node (estrutura_card_ui/logica/contraste/espelho, ritmo_sp, carteira_lastro_ui, opcoes_consolidacao_ui, concentracao_carteira, carteira_opcoes_tira, hero_reconciliado, setor_toque, opcoes_continuidade_ui, opcoes_abrir_ticker, cor_confiabilidade, vocabulario_opcoes, opcoes_collar_ui, api_parity), `npx vite build`, pytest test_opcoes_collar_vocab + test_estrutura_card_vocab + test_skill_ref (56 passed).
