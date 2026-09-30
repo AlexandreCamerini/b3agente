@@ -137,6 +137,15 @@ ok("botões definir stop/alvo nunca desabilitados", !/onEditarStopAlvo[^\n]*disa
     /posRegua\(hoje, dom\) < 30 \? \{ left: 0 \}/.test(regua) && /posRegua\(hoje, dom\) > 70 \? \{ right: 0 \}/.test(regua));
 }
 
+// --- pós-teste local (correção 3): link do callout vencida sem linha em branco ---
+// O alvo de toque de 44px é mantido; a folga vertical do texto centralizado é
+// absorvida por margem negativa SP[3], então o vão visível segue SP[2] (gap).
+{
+  const card = limpo(functionBody("CardPosicaoEstruturada"));
+  ok("link Ver histórico compensa o minHeight 44 com margin -SP[3]",
+    /cp\.estruturaVerHistorico[\s\S]{0,10}/.test(card) && /flexBasis: "100%", textAlign: "left", margin: `-\$\{SP\[3\]\}px 0`/.test(card));
+}
+
 // --- ctx --------------------------------------------------------------------
 ok("ctx.escopoSeq = escopoOpcoes", /escopoSeq: escopoOpcoes/.test(src));
 const gh = /goHistoricoOperacoes:\s*\(\)\s*=>\s*\{([^}]*)\}/.exec(src);

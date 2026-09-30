@@ -4557,7 +4557,7 @@ function CardPosicaoEstruturada({ p, leitura, cp, operador, ctx, data, total, on
           <span aria-hidden style={{ color: T.textSecondary, fontSize: "11.5px", lineHeight: 1.5 }}>{tom === "info" ? "ⓘ" : "⚠"}</span>
           <span style={{ flex: 1, minWidth: 0, fontSize: "11.5px", color: T.textSecondary, lineHeight: 1.5 }}>{e.estadoTexto}</span>
           {tom === "encerrada" && (
-            <button type="button" onClick={ctx.goHistoricoOperacoes} style={{ ...btnAncora, color: T.textSecondary, textDecoration: "underline", flexBasis: "100%", textAlign: "left" }}>{cp.estruturaVerHistorico}</button>
+            <button type="button" onClick={ctx.goHistoricoOperacoes} style={{ ...btnAncora, color: T.textSecondary, textDecoration: "underline", flexBasis: "100%", textAlign: "left", margin: `-${SP[3]}px 0` }}>{cp.estruturaVerHistorico}</button>
           )}
         </div>
       )}
