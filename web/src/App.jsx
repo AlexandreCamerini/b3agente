@@ -4542,6 +4542,8 @@ function CardPosicaoEstruturada({ p, leitura, cp, operador, ctx, data, total, on
   const tom = tomDoEstado(e.estado);
   const r = e.resultado || null;
   const bloqueado = !(e.encerrar && e.encerrar.permitido);
+  // WR-04: bloqueado sempre tem motivo visível (texto do motor ou fallback neutro).
+  const motivoEncerrar = bloqueado ? ((e.encerrar && e.encerrar.texto) || cp.encerrarSemMotivo) : null;
   const textoVence = vc ? (vc.tipo === "hoje" ? cp.chipVenceHoje : vc.tipo === "vencida" ? cp.chipVencida(vc.ddmm) : cp.chipVence(vc.ddmm, vc.dias == null ? "—" : vc.dias)) : null;
   const kickerEst = { fontSize: "10.5px", fontWeight: 700, color: T.textFaint, letterSpacing: "0.06em" };
   const calloutBorda = tom === "atencao" ? T.warn : tom === "info" ? T.borderDashed : T.textMuted;
@@ -4712,16 +4714,15 @@ function CardPosicaoEstruturada({ p, leitura, cp, operador, ctx, data, total, on
       <div style={{ display: "flex", flexDirection: "column", gap: `${SP[2]}px` }}>
         <button
           type="button"
-          onClick={() => ctx.goOpcoes("oportunidades", { abrirTicker: p.t })}
-          disabled={bloqueado}
+          onClick={bloqueado ? undefined : () => ctx.goOpcoes("oportunidades", { abrirTicker: p.t })}
           aria-disabled={bloqueado}
-          aria-describedby={bloqueado ? "encerrar-motivo-" + p.t : undefined}
+          aria-describedby={motivoEncerrar ? "encerrar-motivo-" + p.t : undefined}
           aria-label={cp.encerrarAria(p.t)}
           style={{ width: "100%", minHeight: "44px", borderRadius: "10px", border: `1px solid ${T.borderSubtle}`, background: "transparent", color: bloqueado ? T.textMuted : T.textPrimary, fontSize: "13px", fontWeight: 700 }}
         >
           {cp.btnEncerrarEstrutura}
         </button>
-        {bloqueado && e.encerrar && e.encerrar.texto && <div id={"encerrar-motivo-" + p.t} style={{ fontSize: "11.5px", color: T.textMuted, lineHeight: 1.5 }}>{e.encerrar.texto}</div>}
+        {motivoEncerrar && <div id={"encerrar-motivo-" + p.t} style={{ fontSize: "11.5px", color: T.textMuted, lineHeight: 1.5 }}>{motivoEncerrar}</div>}
         {e.abertaSemProposta && e.motivoSemPropostaTexto && <div style={{ fontSize: "11.5px", color: T.textMuted, lineHeight: 1.5 }}>{e.motivoSemPropostaTexto}</div>}
         <div style={{ display: "flex", gap: `${SP[2]}px` }}>
           <button type="button" onClick={() => ctx.openStopAlvo(p.t)} aria-label={"Sugerir stop e alvo de " + p.t + " com IA"} style={{ flex: 1, minHeight: "44px", borderRadius: "10px", border: `1px solid ${T.accent}`, background: T.accentTint10, color: T.accent, fontWeight: 700, fontSize: "11.5px", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: `${SP[2]}px` }}>

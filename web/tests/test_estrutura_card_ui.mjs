@@ -61,6 +61,13 @@ ok("hook (code review WR-02): uma só fila por instância (criarFilaLeituras 1x)
   ok("perna (code review WR-03): prêmio de entrada null sem seta nem R$ solto", /perna\.premioEntrada == null \?/.test(c) && /cp\.semPremioPerna/.test(c) && /cp\.estruturaPremioSoAtual\(/.test(c));
 }
 
+// Fase 45 (code review WR-04): Encerrar bloqueado sempre tem motivo e continua focável.
+{
+  const c = limpo(functionBody("CardPosicaoEstruturada"));
+  ok("encerrar (code review WR-04): sem disabled nativo, com aria-disabled e onClick que não navega", !/(?<!aria-)disabled=\{bloqueado\}/.test(c) && /aria-disabled=\{bloqueado\}/.test(c) && /onClick=\{bloqueado \? undefined :/.test(c));
+  ok("encerrar (code review WR-04): motivo com fallback neutro e describedby só com id renderizado", /motivoEncerrar = bloqueado \? \(\(e\.encerrar && e\.encerrar\.texto\) \|\| cp\.encerrarSemMotivo\)/.test(c) && /aria-describedby=\{motivoEncerrar \? "encerrar-motivo-" \+ p\.t : undefined\}/.test(c) && /\{motivoEncerrar && <div id=\{"encerrar-motivo-" \+ p\.t\}/.test(c));
+}
+
 // --- W-001: R:R do card atual -----------------------------------------------
 ok("card atual: R:R atual sob mostraRR(p) &&", /mostraRR\(p\) && \(<span>R:R atual/.test(src));
 

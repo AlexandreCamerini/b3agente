@@ -763,6 +763,8 @@ export const COPY = {
     fonteEstruturaSemDado: "Fonte das opções não declarada.",
     estruturaFaixaAria: (nome, textos, hoje, pm) => `${nome}. ${textos} Hoje R$ ${hoje}. Preço médio R$ ${pm}.`,
     encerrarAria: (t) => `Ver encerramento de ${t}: abre a aba Opções em ${t}`,
+    // Fase 45 (code review WR-04): motivo neutro quando o motor não trouxe o texto do bloqueio.
+    encerrarSemMotivo: "Encerramento indisponível: não há dados suficientes para concluir.",
     estruturaGrupoAria: "Estrutura de opções",
     estruturaPernaLinha: (tipo, lado, strike, ddmm) => `${tipo} ${lado} · strike ${strike} · vence ${ddmm}`,
     estruturaPremioLinha: (entrada, atual) => `prêmio R$ ${entrada} → R$ ${atual}`,
@@ -1662,6 +1664,8 @@ export const COPY = {
     fonteEstruturaSemDado: "Fonte das opções não declarada.",
     estruturaFaixaAria: (nome, textos, hoje, pm) => `${nome}. ${textos} Hoje R$ ${hoje}. Preço médio R$ ${pm}.`,
     encerrarAria: (t) => `Ver encerramento de ${t}: abre a aba Opções em ${t}`,
+    // Fase 45 (code review WR-04): motivo neutro quando o motor não trouxe o texto do bloqueio.
+    encerrarSemMotivo: "Encerramento indisponível: não há dados suficientes para concluir.",
     estruturaGrupoAria: "Estrutura de opções",
     estruturaPernaLinha: (tipo, lado, strike, ddmm) => `${tipo} ${lado} · strike ${strike} · vence ${ddmm}`,
     estruturaPremioLinha: (entrada, atual) => `prêmio R$ ${entrada} → R$ ${atual}`,

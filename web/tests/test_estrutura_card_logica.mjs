@@ -183,6 +183,15 @@ ok("sinalResultado: zero/pos/neg/null", E.sinalResultado(0) === "zero" && E.sina
   }
 }
 
+// Fase 45 (code review WR-04): motivo neutro do Encerrar nos dois modos.
+{
+  const { copyFor } = await import("../src/copy.js");
+  for (const modo of ["educacional", "operador"]) {
+    const t = copyFor(modo).encerrarSemMotivo;
+    ok("copy WR-04 (" + modo + "): encerrarSemMotivo presente e sem null/undefined/NaN", typeof t === "string" && t.length > 0 && !/null|undefined|NaN/.test(t));
+  }
+}
+
 // pureza estática
 const src = readFileSync(fileURLToPath(new URL("../src/estruturaCard.js", import.meta.url)), "utf8");
 const codigo = src.split("\n").filter((l) => !l.trim().startsWith("//")).join("\n");
