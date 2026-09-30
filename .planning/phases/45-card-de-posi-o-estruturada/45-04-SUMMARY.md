@@ -57,3 +57,19 @@ Nenhum.
 ## Self-Check: PASSED
 
 Arquivos presentes; commits 0072b619 e 2606cce0 no git log; STATE.md e ROADMAP.md intocados.
+
+## Correções pós-teste local
+
+Teste local com UGPA3 (banco temporário) achou 5 defeitos no `CardPosicaoEstruturada`; um commit `fix(45): …` por correção.
+
+1. Kicker "SÓ AS AÇÕES — PRÊMIOS INDISPONÍVEIS" só aparece quando o resultado das ações é numérico (`kickerResultadoSoAcoes` em `estruturaCard.js`); sem ele usa `RESULTADO DA ESTRUTURA` (chave já existente, sem mexer no par skill_ref.py↔copy.js).
+2. Rótulo "hoje R$ x" da régua: encosta em `left: 0` se a posição < 30% e em `right: 0` se > 70%; centralizado no meio. `posRegua` não mudou.
+3. Callout `vencida`: o link mantém o alvo de toque de 44px, mas com `margin: -SP[3] 0` para absorver a folga do texto centralizado; o vão visível segue o gap SP[2].
+4. `% do capital` do card novo com vírgula (`15,0%`). O card LEGADO tem o mesmo ponto decimal (`toFixed(1)` sem replace) — fora de escopo, não alterado.
+5. Zero exato neutro (`R$ 0,00`, `textMuted`, sem sinal) nas pernas, nas ações e no total via `sinalResultado`; `moneySigned` global intocado.
+
+Guardiões: novas asserções em `test_estrutura_card_ui.mjs` (1–5) e `test_estrutura_card_logica.mjs` (1, 5), sem remover as existentes.
+
+Verificado (exit 0): test_estrutura_card_ui/logica/contraste/espelho, test_ritmo_sp, test_carteira_lastro_ui, test_opcoes_consolidacao_ui, test_concentracao_carteira, test_carteira_opcoes_tira, test_hero_reconciliado, test_setor_toque, test_opcoes_continuidade_ui, test_opcoes_abrir_ticker, test_cor_confiabilidade, `npx vite build`, pytest `test_opcoes_collar_vocab.py` (11 passed). `skill_ref.py` não foi tocado. Não verificado visualmente após as correções (sem novo teste no navegador).
+
+Pendentes de decisão do Alex (não mexidos): STOP duplicado no card, semântica do botão Encerrar, ask × último negócio.
