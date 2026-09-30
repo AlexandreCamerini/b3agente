@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Estruturas de opções na carteira
-status: phase_45_wave_2_done
-stopped_at: 'Fase 45 onda 2 concluída (45-03; suíte canônica verde após correção de 3 guardiões). Próximo: onda 3 (45-04), depois 45-05 (checkpoint humano).'
+status: phase_45_wave_3_done
+stopped_at: 'Fase 45 onda 3 concluída (45-04; suíte canônica verde). Aguardando checkpoint humano 45-05 (M1 24px, P4 TravaPill contorno, M7, estados).'
 last_updated: "2026-09-29T00:00:00.000Z"
 last_activity: 2026-09-29 -- Milestone v2.0 aberta (REQUIREMENTS, ROADMAP Fases 44-46, PROJECT); fases da v1.9 movidas para milestones/v1.9-phases
 progress:
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-09-27)
 
 Milestone: v2.0 Estruturas de opções na carteira (Fases 44-46).
 Phase: 44 — Motor: estrutura por ativo (COMPLETA: 44-01 vocabulário → 44-02 motor puro → 44-03 rota aditiva; verificada).
-Status: phase_45_wave_2_done (3/5 planos) (Fase 44 completa). Requirements em `.planning/REQUIREMENTS.md`.
+Status: phase_45_wave_3_done (4/5 planos; 45-05 = checkpoint humano) (Fase 44 completa). Requirements em `.planning/REQUIREMENTS.md`.
 Decisões do Alex (2026-09-29): régua de faixa mantida; pernas sempre visíveis;
   texto do Estudo completo; escopo motor + front aprovado. Instrução
   principal: economizar modelo (CLAUDE.md §Estratégia de execução).
