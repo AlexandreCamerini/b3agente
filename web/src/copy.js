@@ -725,7 +725,7 @@ export const COPY = {
     // vez da frase-âncora da manchete do motor (guardrail CVM,
     // test_opcoes_collar_vocab.py::test_nenhum_arquivo_front_compoe_manchete_do_collar
     // — mesma colisão já documentada pelos Planos 17-01/17-03).
-    // Reversão deliberada (Fase 45, D-11/discretion "usar collar"): a âncora "trava protetora" saiu da voz visível.
+    // Reversão deliberada (Fase 45, D-11/discretion "usar collar"): a âncora legada do vocabulário de collar (Fase 8) saiu da voz visível.
     eyebrowPropostaCollar: "ESTUDO · COLLAR",
     collarPernasLinha: (n, ticker, strikeCall, strikePut) => `${n}× COLLAR ${ticker} · call ${strikeCall} / put ${strikePut}`,
     ctaCollarDebito: () => "Ver como este collar funcionaria",
@@ -1622,7 +1622,7 @@ export const COPY = {
     // frase. `confirmAbrirCollar` declara a trava, a quantidade e o "as duas
     // pernas juntas ou nenhuma" — mesma razão que já obriga confirmação na
     // venda coberta (T-14-24), aplicada à estrutura de 2 pernas.
-    // Reversão deliberada (Fase 45, D-11/discretion "usar collar"): a âncora "trava protetora" saiu das 5 chaves de collar do Operador.
+    // Reversão deliberada (Fase 45, D-11/discretion "usar collar"): a âncora legada do vocabulário de collar (Fase 8) saiu das 5 chaves de collar do Operador.
     eyebrowPropostaCollar: "PROPOSTA · COLLAR",
     collarPernasLinha: (n, ticker, strikeCall, strikePut) => `${n}× COLLAR ${ticker} · call ${strikeCall} / put ${strikePut}`,
     ctaCollarDebito: (n, ticker, sc, sp, valor) => `Montar ${n}× collar ${ticker} · call ${sc} / put ${sp} — custa R$ ${valor}`,
