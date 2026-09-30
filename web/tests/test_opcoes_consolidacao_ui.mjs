@@ -151,8 +151,9 @@ ok("LinhaChamadaOpcoes lê curadoria.top.length (fonte única, D-03)",
 // deep-link de ticker/candidato" continua.
 ok('App.jsx passa onIr={() => ctx.goOpcoes("recomendadas")} para LinhaChamadaOpcoes',
   appSC.includes('onIr={() => ctx.goOpcoes("recomendadas")}'));
-ok('ctx.goOpcoes(aba) só usa o parâmetro para setOpcoesAbaInicial, guardado por typeof aba === "string", antes de navigate("opcoes") (sem parâmetro de ticker/candidato)',
-  /goOpcoes:\s*\(aba\)\s*=>\s*\{\s*if\s*\(typeof aba === "string"\)\s*setOpcoesAbaInicial\(aba\);\s*navigate\("opcoes"\);\s*\}/.test(appSC));
+// Reversão deliberada Fase 45 (D-05, UI-SPEC §Navegação): goOpcoes passa a aceitar { abrirTicker } one-shot; o 1º argumento continua sendo id de ABA e o ticker é validado contra a carteira no destino (abrirTickerOpcoes)
+ok('ctx.goOpcoes(aba, opts) usa aba só para setOpcoesAbaInicial (typeof aba === "string") e opts.abrirTicker só como string não-vazia, antes de navigate("opcoes")',
+  /goOpcoes:\s*\(aba,\s*opts\)\s*=>\s*\{\s*if\s*\(typeof aba === "string"\)\s*setOpcoesAbaInicial\(aba\);\s*if\s*\(opts && typeof opts\.abrirTicker === "string" && opts\.abrirTicker\)\s*\{\s*setOpcoesMemoria\(\{[^}]*\}\);\s*setOpcoesAbrirTicker\(opts\.abrirTicker\);\s*\}\s*navigate\("opcoes"\);\s*\}/.test(appSC));
 
 // ---- (8) [re-ancorado] D-06: nada impede busca depois ----------------------
 // Fase 39 (39-05, 2026-09-24): sem frase-ponte nem bloco fixo de vigias para

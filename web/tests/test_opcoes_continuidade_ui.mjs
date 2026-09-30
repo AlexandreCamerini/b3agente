@@ -155,8 +155,9 @@ ok("memoriaOpcoes.js não contém localStorage/sessionStorage (fora de comentár
    !/localStorage|sessionStorage/.test(semComentario(memoriaOpcoesBruto)));
 
 // ---- B6) OpcoesScreen importa as três funções puras ------------------------
-ok('OpcoesScreen importa { abaInicialOpcoes, tickerInicialOpcoes, memoriaOpcoes } de "./memoriaOpcoes.js"',
-   /import\s*\{\s*abaInicialOpcoes,\s*tickerInicialOpcoes,\s*memoriaOpcoes\s*\}\s*from\s*["']\.\/memoriaOpcoes\.js["']/.test(opcoesScreenBruto));
+// Reversão deliberada Fase 45 (D-05): o import ganha abrirTickerOpcoes (one-shot do "Encerrar estrutura…"); as três funções originais continuam exigidas.
+ok('OpcoesScreen importa { abaInicialOpcoes, tickerInicialOpcoes, memoriaOpcoes, abrirTickerOpcoes } de "./memoriaOpcoes.js"',
+   /import\s*\{\s*abaInicialOpcoes,\s*tickerInicialOpcoes,\s*memoriaOpcoes,\s*abrirTickerOpcoes\s*\}\s*from\s*["']\.\/memoriaOpcoes\.js["']/.test(opcoesScreenBruto));
 
 // ---- B7) inicializador lazy do ticker --------------------------------------
 const reTicker = /const \[ticker, setTicker\] = useState\(\(\) => tickerInicialOpcoes\(ctx && ctx\.opcoesMemoria, carteira\)\);/;

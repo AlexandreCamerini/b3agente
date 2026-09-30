@@ -7806,6 +7806,9 @@ export default function App() {
   // consumido e limpo pelo OpcoesScreen no mount; não é persistência (isso é
   // a Fase 40, ESTADO-01— que persiste em sessão via `opcoesMemoria` abaixo).
   const [opcoesAbaInicial, setOpcoesAbaInicial] = useState(null);
+  // Fase 45 (D-05): ticker one-shot para abrir o painel de Oportunidades já
+  // em t (botão "Encerrar estrutura…" do card). Validado contra a carteira no destino.
+  const [opcoesAbrirTicker, setOpcoesAbrirTicker] = useState(null);
   // Fase 40 (ESTADO-01, D-01): memória em sessão do ticker + aba ativa da
   // tela Opções — sobrevive ao unmount/remount de OpcoesScreen (App.jsx,
   // linha do render abaixo) mas NÃO entra em deviceStore/serverStore (evita
@@ -9052,7 +9055,7 @@ export default function App() {
     // instância atual sobreviveria ao reset sem esta linha). Os 5
     // call-sites (login/register/oauth/logout/deleteAccount) herdam de
     // graça, por já chamarem _resetScopeState().
-    setOpcoesMemoria(null); setEscopoOpcoes((n) => n + 1);
+    setOpcoesMemoria(null); setOpcoesAbrirTicker(null); setEscopoOpcoes((n) => n + 1);
   };
 
   // Sair da conta (ou excluí-la) volta para o PORTÃO DE LOGIN.
@@ -9124,9 +9127,13 @@ export default function App() {
     // one-shot que o OpcoesScreen (Plano 04) consome no mount; a validação
     // contra as 3 abas válidas é do próprio OpcoesScreen, que ignora valor
     // desconhecido.
-    goOpcoes: (aba) => { if (typeof aba === "string") setOpcoesAbaInicial(aba); navigate("opcoes"); },
+    // Fase 45 (D-05): 2º argumento opcional `{ abrirTicker }` — one-shot que abre
+    // Oportunidades com o painel do ticker já aberto (UI-SPEC §Navegação).
+    goOpcoes: (aba, opts) => { if (typeof aba === "string") setOpcoesAbaInicial(aba); if (opts && typeof opts.abrirTicker === "string" && opts.abrirTicker) { setOpcoesMemoria({ ticker: opts.abrirTicker, aba: "oportunidades" }); setOpcoesAbrirTicker(opts.abrirTicker); } navigate("opcoes"); },
     opcoesAbaInicial,
     limparOpcoesAbaInicial: () => setOpcoesAbaInicial(null),
+    opcoesAbrirTicker,
+    limparOpcoesAbrirTicker: () => setOpcoesAbrirTicker(null),
     opcoesMemoria,
     // Fase 40 (ESTADO-01): OpcoesScreen chama isto a cada mudança de
     // ticker/abaOpcoes (useEffect([ticker, abaOpcoes]) sem cleanup) — grava
