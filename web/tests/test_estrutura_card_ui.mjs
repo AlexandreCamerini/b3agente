@@ -130,6 +130,13 @@ ok("botões definir stop/alvo nunca desabilitados", !/onEditarStopAlvo[^\n]*disa
     /kickerResultadoSoAcoes\(r\)\s*\?\s*cp\.estruturaResultadoSoAcoesRotulo\s*:\s*cp\.estruturaResultadoRotulo/.test(card));
 }
 
+// --- pós-teste local (correção 2): rótulo "hoje" não vaza do card ----------
+{
+  const regua = limpo(functionBody("ReguaFaixa"));
+  ok("rótulo hoje da régua encosta à esquerda/direita nas pontas (sem translate -50% fixo)",
+    /posRegua\(hoje, dom\) < 30 \? \{ left: 0 \}/.test(regua) && /posRegua\(hoje, dom\) > 70 \? \{ right: 0 \}/.test(regua));
+}
+
 // --- ctx --------------------------------------------------------------------
 ok("ctx.escopoSeq = escopoOpcoes", /escopoSeq: escopoOpcoes/.test(src));
 const gh = /goHistoricoOperacoes:\s*\(\)\s*=>\s*\{([^}]*)\}/.exec(src);

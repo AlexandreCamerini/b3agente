@@ -4484,7 +4484,7 @@ function ReguaFaixa({ e, p, cp }) {
           )}
           {tem(hoje) && (
             <>
-              <div aria-hidden style={{ position: "absolute", top: `-${SP[6]}px`, transform: "translateX(-50%)", left: posRegua(hoje, dom) + "%", fontFamily: MONO, fontSize: "10.5px", color: T.textSecondary, whiteSpace: "nowrap" }}>
+              <div aria-hidden style={{ position: "absolute", top: `-${SP[6]}px`, ...(posRegua(hoje, dom) < 30 ? { left: 0 } : posRegua(hoje, dom) > 70 ? { right: 0 } : { transform: "translateX(-50%)", left: posRegua(hoje, dom) + "%" }), fontFamily: MONO, fontSize: "10.5px", color: T.textSecondary, whiteSpace: "nowrap" }}>
                 {L.hoje.toLowerCase()} R$ {price(hoje)}
               </div>
               <div aria-hidden style={{ position: "absolute", top: "50%", width: "16px", height: "16px", borderRadius: "50%", boxSizing: "border-box", transform: "translate(-50%,-50%)", left: posRegua(hoje, dom) + "%", background: T.textPrimary, border: `2px solid ${T.bgCard}` }} />
