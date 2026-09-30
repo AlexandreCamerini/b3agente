@@ -4386,12 +4386,22 @@ function useEstruturasPosicao(data, operador, escopoSeq) {
   const sigs = tickers.map((t) => assinaturaEstrutura(t, data.positions, data.optionPositions, operador));
   const chave = sigs.join(";");
 
-  useEffect(() => { vivoRef.current = true; return () => { vivoRef.current = false; }; }, []);
+  // WR-02: ao desmontar, o que ainda está pendente é abandonado; `pedidasRef`
+  // zerado faz o efeito de recarga repedir tudo se o hook remontar (StrictMode).
+  useEffect(() => {
+    vivoRef.current = true;
+    return () => { vivoRef.current = false; filaRef.current.cancelar(); pedidasRef.current = {}; };
+  }, []);
 
   // Só roda quando chega a vez se o hook está vivo e a assinatura pedida ainda
   // é a do ticker. Quem abandona nunca deixa "carregando" órfão: a leitura que
   // a superou (ou a limpeza do ticker/escopo) é a dona do estado.
-  const valeLer = (t, assinatura) => () => vivoRef.current && pedidasRef.current[t] === assinatura;
+  // WR-02: a época (corteRef) também precisa bater — na troca de escopo a mesma
+  // assinatura volta a ser pedida com token novo, e o item antigo não pode rodar.
+  const valeLer = (t, assinatura) => {
+    const epoca = corteRef.current;
+    return () => vivoRef.current && corteRef.current === epoca && pedidasRef.current[t] === assinatura;
+  };
 
   const lerEstrutura = (t, assinatura) => {
     const meu = ++seqRef.current;
@@ -4408,6 +4418,7 @@ function useEstruturasPosicao(data, operador, escopoSeq) {
   useEffect(() => {
     setLeituras({});
     pedidasRef.current = {};
+    filaRef.current.cancelar();
     corteRef.current = ++seqRef.current;
   }, [escopoSeq]);
 

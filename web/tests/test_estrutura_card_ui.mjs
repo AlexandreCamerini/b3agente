@@ -47,6 +47,12 @@ ok("hook: troca de escopo invalida por incremento", /corteRef\.current\s*=\s*\+\
 ok("hook: resposta só aceita se meu > corteRef e meu === ultimoRef", /meu === ultimoRef\.current\[t\]/.test(hook) && /meu > corteRef\.current/.test(hook));
 ok("hook: efeito de troca de escopo depende de escopoSeq", /\[escopoSeq\]\)/.test(hook));
 
+// Fase 45 (code review WR-02): cancelamento e época na fila única.
+ok("hook (code review WR-02): desmontar cancela a fila pendente", /vivoRef\.current = false;\s*filaRef\.current\.cancelar\(\)/.test(hook));
+ok("hook (code review WR-02): troca de escopo cancela a fila antes de avançar o corte", /filaRef\.current\.cancelar\(\);\s*corteRef\.current\s*=\s*\+\+seqRef\.current/.test(hook));
+ok("hook (code review WR-02): vale() confere a época (corteRef) capturada ao enfileirar", /const epoca = corteRef\.current/.test(hook) && /corteRef\.current === epoca/.test(hook));
+ok("hook (code review WR-02): uma só fila por instância (criarFilaLeituras 1x)", (hook.match(/criarFilaLeituras\(/g) || []).length === 1);
+
 // --- W-001: R:R do card atual -----------------------------------------------
 ok("card atual: R:R atual sob mostraRR(p) &&", /mostraRR\(p\) && \(<span>R:R atual/.test(src));
 
