@@ -200,6 +200,16 @@ ok("sinalResultado: zero/pos/neg/null", E.sinalResultado(0) === "zero" && E.sina
   }
 }
 
+// Fase 45 (code review WR-06): o aria-label da régua com o fallback não carrega "null".
+{
+  const { copyFor } = await import("../src/copy.js");
+  for (const modo of ["educacional", "operador"]) {
+    const cp = copyFor(modo);
+    const aria = cp.estruturaFaixaAria(null || cp.estruturaGrupoAria, "", "—", "—");
+    ok("copy WR-06 (" + modo + "): aria da régua com fallback sem null/undefined/NaN", !/null|undefined|NaN/.test(aria) && aria.startsWith(cp.estruturaGrupoAria));
+  }
+}
+
 // pureza estática
 const src = readFileSync(fileURLToPath(new URL("../src/estruturaCard.js", import.meta.url)), "utf8");
 const codigo = src.split("\n").filter((l) => !l.trim().startsWith("//")).join("\n");

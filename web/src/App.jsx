@@ -4491,7 +4491,7 @@ function ReguaFaixa({ e, p, cp }) {
       {dom && (
         <div
           role="img"
-          aria-label={cp.estruturaFaixaAria(e.nomeTexto, (e.faixa.textos || []).join(" "), hoje == null ? "—" : price(hoje), pm == null ? "—" : price(pm))}
+          aria-label={cp.estruturaFaixaAria(e.nomeTexto || cp.estruturaGrupoAria, (e.faixa.textos || []).join(" "), hoje == null ? "—" : price(hoje), pm == null ? "—" : price(pm))}
           style={{ position: "relative", marginTop: `${SP[6]}px`, height: "2px", borderRadius: "999px", background: T.knob }}
         >
           <div aria-hidden style={{ position: "absolute", top: 0, height: "2px", background: T.borderDashed, left: (piso == null ? 0 : posRegua(piso, dom)) + "%", right: (teto == null ? 0 : 100 - posRegua(teto, dom)) + "%" }} />
@@ -4557,7 +4557,7 @@ function CardPosicaoEstruturada({ p, leitura, cp, operador, ctx, data, total, on
         </div>
         <div role="group" aria-label={cp.estruturaGrupoAria} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: `${SP[2]}px`, marginTop: `${SP[2]}px` }}>
           <span style={{ background: T.bgBase, border: `1px solid ${T.borderSubtle}`, color: T.textMuted, padding: `${SP[1]}px ${SP[2]}px`, borderRadius: "999px", fontSize: "10.5px", fontWeight: 700, whiteSpace: "nowrap" }}>
-            {e.nome ? estruturaCardTxt(modo, "chip_estrutura", { nome: String(e.nomeTexto || "").toUpperCase() }) : estruturaCardTxt(modo, "chip_estrutura_generica")}
+            {e.nome && e.nomeTexto ? estruturaCardTxt(modo, "chip_estrutura", { nome: String(e.nomeTexto).toUpperCase() }) : estruturaCardTxt(modo, "chip_estrutura_generica")}
           </span>
           {vc && (vc.ambar ? (
             <span style={{ background: T.warnTint10, border: `1px solid ${T.warn}`, color: T.warn, padding: `${SP[1]}px ${SP[2]}px`, borderRadius: "999px", fontSize: "10.5px", fontWeight: 700, whiteSpace: "nowrap" }}>{textoVence}</span>

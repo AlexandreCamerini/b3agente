@@ -68,6 +68,14 @@ ok("hook (code review WR-02): uma só fila por instância (criarFilaLeituras 1x)
   ok("encerrar (code review WR-04): motivo com fallback neutro e describedby só com id renderizado", /motivoEncerrar = bloqueado \? \(\(e\.encerrar && e\.encerrar\.texto\) \|\| cp\.encerrarSemMotivo\)/.test(c) && /aria-describedby=\{motivoEncerrar \? "encerrar-motivo-" \+ p\.t : undefined\}/.test(c) && /\{motivoEncerrar && <div id=\{"encerrar-motivo-" \+ p\.t\}/.test(c));
 }
 
+// Fase 45 (code review WR-06): nomeTexto nulo nunca vira "null"/chip sem nome.
+{
+  const c = limpo(functionBody("CardPosicaoEstruturada"));
+  const r = limpo(functionBody("ReguaFaixa"));
+  ok("chip (code review WR-06): nome sem nomeTexto cai no chip genérico", /e\.nome && e\.nomeTexto \? estruturaCardTxt\(modo, "chip_estrutura"/.test(c) && /estruturaCardTxt\(modo, "chip_estrutura_generica"\)/.test(c));
+  ok("régua (code review WR-06): aria-label com fallback quando nomeTexto é nulo", /cp\.estruturaFaixaAria\(e\.nomeTexto \|\| cp\.estruturaGrupoAria,/.test(r));
+}
+
 // --- W-001: R:R do card atual -----------------------------------------------
 // Fase 45 (code review WR-05): reversão deliberada — o gate agora recebe o preço
 // (mostraRR(p, cur)) e o legado não renderiza mais "R:R atual —".
