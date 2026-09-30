@@ -4595,12 +4595,6 @@ function CardPosicaoEstruturada({ p, leitura, cp, operador, ctx, data, total, on
             </div>
           </>
         )}
-        {e.stopTexto != null && p.stop == null && (
-          <div style={{ display: "flex", justifyContent: "space-between", gap: `${SP[2]}px`, alignItems: "baseline" }}>
-            <span style={{ fontSize: "10.5px", fontWeight: 700, color: T.textMuted }}>{cp.estruturaLegenda.stop}</span>
-            <span style={{ fontSize: "11.5px", color: T.textSecondary, textAlign: "right" }}>{e.stopTexto}</span>
-          </div>
-        )}
         {(e.faixa && e.faixa.textos ? e.faixa.textos : []).map((t, i) => (
           <div key={i} style={{ fontSize: "11.5px", color: T.textSecondary, lineHeight: 1.5 }}>{t}</div>
         ))}
@@ -4612,7 +4606,7 @@ function CardPosicaoEstruturada({ p, leitura, cp, operador, ctx, data, total, on
           <span style={{ fontSize: "10.5px", fontWeight: 700, color: T.textMuted }}>{cp.estruturaLegenda.stop}</span>
           {p.stop != null ? (
             <span style={{ fontFamily: MONO, fontSize: "13px", color: T.negative }}>R$ {price(p.stop)}</span>
-          ) : e.stopTexto != null ? null : (
+          ) : (
             <button type="button" onClick={onEditarStopAlvo} style={{ background: "transparent", border: "none", padding: 0, minHeight: "44px", color: T.accent, fontSize: "11.5px", fontWeight: 700 }}>definir ▸</button>
           )}
           <span style={{ fontSize: "10.5px", fontWeight: 700, color: T.textMuted }}>{cp.estruturaLegenda.alvo}</span>
@@ -4622,6 +4616,9 @@ function CardPosicaoEstruturada({ p, leitura, cp, operador, ctx, data, total, on
             <button type="button" onClick={onEditarStopAlvo} style={{ background: "transparent", border: "none", padding: 0, minHeight: "44px", color: T.accent, fontSize: "11.5px", fontWeight: 700 }}>definir ▸</button>
           )}
         </div>
+        {e.stopTexto != null && p.stop == null && (
+          <div style={{ fontSize: "11.5px", color: T.textSecondary, lineHeight: 1.5 }}>{e.stopTexto}</div>
+        )}
         {(p.stop == null || p.alvo == null) && (
           <button type="button" onClick={onEditarStopAlvo} style={{ background: "transparent", border: "none", padding: 0, minHeight: "44px", textAlign: "left", color: T.accent, fontSize: "11.5px", fontWeight: 700 }}>
             ✎ {p.stop == null && p.alvo == null ? "definir stop e alvo" : p.stop == null ? "definir stop" : "definir alvo"}
