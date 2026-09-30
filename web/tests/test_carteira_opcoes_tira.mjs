@@ -283,8 +283,11 @@ ok("o encadeamento de store.optionsProposta( contém .catch(", rProp.temCatch);
 // import da MESMA função, nunca uma reimplementação.
 ok("(Fase 32/32-03) store.optionsGate( aparece exatamente 1x em App.jsx (só AtivoCard — a busca do hook saiu daqui)",
   (fonteSemComentario.match(/store\.optionsGate\(/g) || []).length === 1);
-ok("(Fase 32/32-03) store.optionsProposta( aparece exatamente 1x em App.jsx (só AtivoCard)",
-  (fonteSemComentario.match(/store\.optionsProposta\(/g) || []).length === 1);
+// Reversão deliberada Fase 45 (45-03): o hook useEstruturasPosicao é a segunda
+// chamada legítima de store.optionsProposta( em App.jsx (AtivoCard + hook da
+// estrutura por posição). store.optionsGate( segue 1x (só AtivoCard).
+ok("(Fase 32/32-03; Fase 45/45-03) store.optionsProposta( aparece exatamente 2x em App.jsx (AtivoCard + hook useEstruturasPosicao)",
+  (fonteSemComentario.match(/store\.optionsProposta\(/g) || []).length === 2);
 ok("(Fase 32/32-03) store.optionsGate( aparece exatamente 1x em useOpcoesPropostas.js (não uma 3ª busca duplicada)",
   (moduloUOPSemComentario.match(/store\.optionsGate\(/g) || []).length === 1);
 ok("(Fase 32/32-03) store.optionsProposta( aparece exatamente 1x em useOpcoesPropostas.js",
