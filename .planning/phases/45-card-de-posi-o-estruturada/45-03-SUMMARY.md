@@ -30,7 +30,7 @@ Hook `useEstruturasPosicao` (uma chamada `store.optionsProposta(t, true)` por at
 | Task | Commit | Resultado |
 |------|--------|-----------|
 | 1+2 componente, hook, branching, ctx | fb372fa4 | vite build ok |
-| 2 guardiao test_estrutura_card_ui.mjs | d3542aaf | 41 asserts ok |
+| 2 guardiao test_estrutura_card_ui.mjs | d3542aaf | 34 asserts ok |
 
 ## Exceção deliberada ao D-02
 
