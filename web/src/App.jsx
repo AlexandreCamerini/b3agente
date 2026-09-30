@@ -4343,62 +4343,6 @@ function useCuradoria(ativo) {
   return { top, meta, carregando, erro, concluido, narrativa, narrando, erroNarrativa, narrar, recarregar };
 }
 
-// Fase 32 (32-03, D-01/D-02/D-03): substitui os dois blocos que a tela de
-// Posições tinha (OportunidadesOpcoes/CuradoriaEstruturas, que migraram
-// para o topo da sub-aba Setups da aba Opções) por UMA linha de chamada
-// discreta. Estilo derivado do toggle de PropostaDaPosicao (App.jsx, mesmo
-// padrão de `padding: "9px 2px"`/`minHeight: "44px"`), mas sem a seta
-// ▴/▾ — esta linha NAVEGA, não expande.
-//
-// A contagem vem EXCLUSIVAMENTE de `curadoria.top.length`, o MESMO objeto
-// que alimenta a lista na aba Opções (D-03) — nenhuma segunda instância do
-// hook, nenhum recálculo local. `top` tem teto 4 por desenho do motor
-// (`opcoes_curadoria` devolve no máximo "as 4 melhores"): a linha diz
-// quantas aparecem na lista, nunca "o total elegível da carteira".
-function LinhaChamadaOpcoes({ curadoria, cp, onIr }) {
-  const top = (curadoria && curadoria.top) || [];
-  const carregando = !!(curadoria && curadoria.carregando);
-  const erro = !!(curadoria && curadoria.erro);
-  // WR-01 (32-REVIEW.md, 2026-09-16): `curadoria` pode existir com
-  // `top: [], carregando: false, erro: false` ANTES de a primeira busca
-  // sequer começar (janela entre `curadoriaAtiva` ligar e o efeito de
-  // `useCuradoria` rodar) — inclusive `curadoria` pode ser `undefined` na
-  // primeira chamada. `!concluido` trata os dois casos como "ainda não
-  // medi", nunca como "medi e não achei nada".
-  const concluido = !!(curadoria && curadoria.concluido);
-
-  // Precedência: erro > carregando/não-medido > vazio > n≥1. Erro NUNCA
-  // mostra contagem (mostrar "0" quando a busca falhou seria inventar
-  // valor — princípio 4 do CLAUDE.md). Carregando não mostra o ícone ⚡ —
-  // não promete resultado antes de saber. Vazio continua visível e
-  // clicável (princípio 9: nunca some).
-  let texto, corTexto, corIcone, peso, mostrarIcone = true;
-  if (erro) {
-    texto = cp.linhaChamadaOpcoesErro; corTexto = T.warn; corIcone = T.warn; peso = 700;
-  } else if (carregando || !concluido) {
-    texto = cp.linhaChamadaOpcoesCarregando; corTexto = T.textFaint; corIcone = T.textFaint; peso = 700; mostrarIcone = false;
-  } else if (top.length === 0) {
-    texto = cp.linhaChamadaOpcoesVazia; corTexto = T.textFaint; corIcone = T.textFaint; peso = 400;
-  } else {
-    texto = cp.linhaChamadaOpcoesTexto(top.length); corTexto = T.textPrimary; corIcone = T.accent; peso = 700;
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={onIr}
-      aria-label={cp.linhaChamadaOpcoesAria(texto)}
-      style={{ display: "flex", width: "100%", alignItems: "center", justifyContent: "space-between", minHeight: "44px", padding: "9px 2px", background: "transparent", border: "none", borderBottom: `1px solid ${T.borderFaint}`, cursor: "pointer" }}
-    >
-      <span style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", fontWeight: peso, color: corTexto }}>
-        {mostrarIcone && <span style={{ color: corIcone }}>⚡</span>}
-        {texto}
-      </span>
-      <span style={{ color: T.textFaint }}>→</span>
-    </button>
-  );
-}
-
 // Fase 45 (D-01..D-04, CARD-01): leitura da estrutura de opções por ativo com
 // pernas abertas. Reusa store.optionsProposta(t, true) (paritário nos dois
 // stores) — UMA chamada por ativo com pernas, teto de 3 concorrentes, sem
@@ -4604,6 +4548,62 @@ function CardPosicaoEstruturada({ p, leitura, cp, operador, ctx, data, onAtualiz
         )}
       </div>
     </div>
+  );
+}
+
+// Fase 32 (32-03, D-01/D-02/D-03): substitui os dois blocos que a tela de
+// Posições tinha (OportunidadesOpcoes/CuradoriaEstruturas, que migraram
+// para o topo da sub-aba Setups da aba Opções) por UMA linha de chamada
+// discreta. Estilo derivado do toggle de PropostaDaPosicao (App.jsx, mesmo
+// padrão de `padding: "9px 2px"`/`minHeight: "44px"`), mas sem a seta
+// ▴/▾ — esta linha NAVEGA, não expande.
+//
+// A contagem vem EXCLUSIVAMENTE de `curadoria.top.length`, o MESMO objeto
+// que alimenta a lista na aba Opções (D-03) — nenhuma segunda instância do
+// hook, nenhum recálculo local. `top` tem teto 4 por desenho do motor
+// (`opcoes_curadoria` devolve no máximo "as 4 melhores"): a linha diz
+// quantas aparecem na lista, nunca "o total elegível da carteira".
+function LinhaChamadaOpcoes({ curadoria, cp, onIr }) {
+  const top = (curadoria && curadoria.top) || [];
+  const carregando = !!(curadoria && curadoria.carregando);
+  const erro = !!(curadoria && curadoria.erro);
+  // WR-01 (32-REVIEW.md, 2026-09-16): `curadoria` pode existir com
+  // `top: [], carregando: false, erro: false` ANTES de a primeira busca
+  // sequer começar (janela entre `curadoriaAtiva` ligar e o efeito de
+  // `useCuradoria` rodar) — inclusive `curadoria` pode ser `undefined` na
+  // primeira chamada. `!concluido` trata os dois casos como "ainda não
+  // medi", nunca como "medi e não achei nada".
+  const concluido = !!(curadoria && curadoria.concluido);
+
+  // Precedência: erro > carregando/não-medido > vazio > n≥1. Erro NUNCA
+  // mostra contagem (mostrar "0" quando a busca falhou seria inventar
+  // valor — princípio 4 do CLAUDE.md). Carregando não mostra o ícone ⚡ —
+  // não promete resultado antes de saber. Vazio continua visível e
+  // clicável (princípio 9: nunca some).
+  let texto, corTexto, corIcone, peso, mostrarIcone = true;
+  if (erro) {
+    texto = cp.linhaChamadaOpcoesErro; corTexto = T.warn; corIcone = T.warn; peso = 700;
+  } else if (carregando || !concluido) {
+    texto = cp.linhaChamadaOpcoesCarregando; corTexto = T.textFaint; corIcone = T.textFaint; peso = 700; mostrarIcone = false;
+  } else if (top.length === 0) {
+    texto = cp.linhaChamadaOpcoesVazia; corTexto = T.textFaint; corIcone = T.textFaint; peso = 400;
+  } else {
+    texto = cp.linhaChamadaOpcoesTexto(top.length); corTexto = T.textPrimary; corIcone = T.accent; peso = 700;
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onIr}
+      aria-label={cp.linhaChamadaOpcoesAria(texto)}
+      style={{ display: "flex", width: "100%", alignItems: "center", justifyContent: "space-between", minHeight: "44px", padding: "9px 2px", background: "transparent", border: "none", borderBottom: `1px solid ${T.borderFaint}`, cursor: "pointer" }}
+    >
+      <span style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", fontWeight: peso, color: corTexto }}>
+        {mostrarIcone && <span style={{ color: corIcone }}>⚡</span>}
+        {texto}
+      </span>
+      <span style={{ color: T.textFaint }}>→</span>
+    </button>
   );
 }
 
