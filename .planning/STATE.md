@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Estruturas de opções na carteira
-status: phase_45_ui_spec_ready
-stopped_at: 'Fase 45 UI-SPEC aprovado em 2026-09-29 (45-UI-SPEC.md; mock conferido, divergências M1-M7). Próximo: /gsd-plan-phase 45, sessão nova.'
+status: phase_45_planned
+stopped_at: 'Fase 45 planejada em 2026-09-29: 5 planos, 4 ondas (45-01..05), plan-checker VERIFICATION PASSED na 3a passada. Próximo: /gsd-execute-phase 45, sessão nova.'
 last_updated: "2026-09-29T00:00:00.000Z"
 last_activity: 2026-09-29 -- Milestone v2.0 aberta (REQUIREMENTS, ROADMAP Fases 44-46, PROJECT); fases da v1.9 movidas para milestones/v1.9-phases
 progress:
@@ -27,14 +27,14 @@ See: .planning/PROJECT.md (updated 2026-09-27)
 
 Milestone: v2.0 Estruturas de opções na carteira (Fases 44-46).
 Phase: 44 — Motor: estrutura por ativo (COMPLETA: 44-01 vocabulário → 44-02 motor puro → 44-03 rota aditiva; verificada).
-Status: phase_45_ui_spec_ready (Fase 44 completa). Requirements em `.planning/REQUIREMENTS.md`.
+Status: phase_45_planned (Fase 44 completa). Requirements em `.planning/REQUIREMENTS.md`.
 Decisões do Alex (2026-09-29): régua de faixa mantida; pernas sempre visíveis;
   texto do Estudo completo; escopo motor + front aprovado. Instrução
   principal: economizar modelo (CLAUDE.md §Estratégia de execução).
 Pendências fora de milestone: build iOS/TestFlight (ação do Alex); quick task
   avulsa (textos de vazio sem consumidor + "amostra insuficiente" com janela
   e n); quick 260928-u0h e entrega ainda sem push (confirmar com o Alex).
-Next: `/clear` e `/gsd-plan-phase 45`. Planner: ajustar CARD-06 na REQUIREMENTS (D-11), reconciliar `tiraOpcoesMotivo`/collar, aplicar M1-M7 do UI-SPEC e o one-shot `goOpcoes` (D-05 aponta para aba dissolvida).
+Next: `/clear` e `/gsd-execute-phase 45`. Orquestrador roda `cd web && npx cap copy ios` + `bash scripts/executar.sh --testes` (fora do sandbox) 1x por onda. Checkpoint humano 45-05: M1 (24px), P4 (TravaPill contorno opt-in), exceção mostraRR no card legado.
 
 ## Quick Tasks Completed
 
