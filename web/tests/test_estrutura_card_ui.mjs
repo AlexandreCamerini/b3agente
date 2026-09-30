@@ -53,6 +53,14 @@ ok("hook (code review WR-02): troca de escopo cancela a fila antes de avançar o
 ok("hook (code review WR-02): vale() confere a época (corteRef) capturada ao enfileirar", /const epoca = corteRef\.current/.test(hook) && /corteRef\.current === epoca/.test(hook));
 ok("hook (code review WR-02): uma só fila por instância (criarFilaLeituras 1x)", (hook.match(/criarFilaLeituras\(/g) || []).length === 1);
 
+// Fase 45 (code review WR-03): campo parcial do motor nunca vira "null" na perna.
+{
+  const c = limpo(functionBody("CardPosicaoEstruturada"));
+  ok("perna (code review WR-03): quantidade só renderiza quando != null", /perna\.quantidade != null \? " " \+ cp\.estruturaQtdPerna\(perna\.quantidade\) : ""/.test(c) && !/\} \{cp\.estruturaQtdPerna/.test(c));
+  ok("perna (code review WR-03): tipo vazio com fallback e trim", /estruturaPernaLinha\(perna\.tipo \|\| ""/.test(c) && /\)\.trim\(\)/.test(c));
+  ok("perna (code review WR-03): prêmio de entrada null sem seta nem R$ solto", /perna\.premioEntrada == null \?/.test(c) && /cp\.semPremioPerna/.test(c) && /cp\.estruturaPremioSoAtual\(/.test(c));
+}
+
 // --- W-001: R:R do card atual -----------------------------------------------
 ok("card atual: R:R atual sob mostraRR(p) &&", /mostraRR\(p\) && \(<span>R:R atual/.test(src));
 

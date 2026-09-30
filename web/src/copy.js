@@ -767,6 +767,9 @@ export const COPY = {
     estruturaPernaLinha: (tipo, lado, strike, ddmm) => `${tipo} ${lado} · strike ${strike} · vence ${ddmm}`,
     estruturaPremioLinha: (entrada, atual) => `prêmio R$ ${entrada} → R$ ${atual}`,
     estruturaQtdPerna: (q) => `×${q}`,
+    // Fase 45 (code review WR-03): fallbacks neutros para campo parcial do motor.
+    semPremioPerna: "prêmio —",
+    estruturaPremioSoAtual: (atual) => `prêmio atual R$ ${atual}`,
     estruturaLivresLinha: (livres, qty) => `${livres}/${qty} livres (lastro da call)`,
     estruturaSaidaSemLastro: "sem lastro",
     estruturaVerHistorico: "Ver no histórico de operações →",
@@ -1663,6 +1666,9 @@ export const COPY = {
     estruturaPernaLinha: (tipo, lado, strike, ddmm) => `${tipo} ${lado} · strike ${strike} · vence ${ddmm}`,
     estruturaPremioLinha: (entrada, atual) => `prêmio R$ ${entrada} → R$ ${atual}`,
     estruturaQtdPerna: (q) => `×${q}`,
+    // Fase 45 (code review WR-03): fallbacks neutros para campo parcial do motor.
+    semPremioPerna: "prêmio —",
+    estruturaPremioSoAtual: (atual) => `prêmio atual R$ ${atual}`,
     estruturaLivresLinha: (livres, qty) => `${livres}/${qty} livres (lastro da call)`,
     estruturaSaidaSemLastro: "sem lastro",
     estruturaVerHistorico: "Ver no histórico de operações →",

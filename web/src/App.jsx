@@ -4689,10 +4689,10 @@ function CardPosicaoEstruturada({ p, leitura, cp, operador, ctx, data, total, on
             <li key={i} style={{ paddingTop: `${SP[2]}px`, display: "flex", justifyContent: "space-between", gap: `${SP[2]}px`, alignItems: "flex-start" }}>
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontFamily: MONO, fontSize: "13px", color: T.textPrimary }}>
-                  {cp.estruturaPernaLinha(perna.tipo, perna.lado === "venda" ? cp.ladoVendida : perna.lado === "compra" ? cp.ladoComprada : "—", price(perna.strike), ddmmDeIso(perna.vencimento) || String(perna.vencimento || "—"))} {cp.estruturaQtdPerna(perna.quantidade)}
+                  {cp.estruturaPernaLinha(perna.tipo || "", perna.lado === "venda" ? cp.ladoVendida : perna.lado === "compra" ? cp.ladoComprada : "—", price(perna.strike), ddmmDeIso(perna.vencimento) || String(perna.vencimento || "—")).trim()}{perna.quantidade != null ? " " + cp.estruturaQtdPerna(perna.quantidade) : ""}
                 </div>
                 <div style={{ fontSize: "11.5px", color: T.textSecondary, lineHeight: 1.5 }}>
-                  {cp.estruturaPremioLinha(price(perna.premioEntrada), perna.premioAtual == null ? "—" : price(perna.premioAtual))}{perna.premioAtual == null ? ` · ${cp.semCotacaoPerna}` : ""}
+                  {perna.premioEntrada == null ? (perna.premioAtual == null ? cp.semPremioPerna : cp.estruturaPremioSoAtual(price(perna.premioAtual))) : cp.estruturaPremioLinha(price(perna.premioEntrada), perna.premioAtual == null ? "—" : price(perna.premioAtual))}{perna.premioAtual == null ? ` · ${cp.semCotacaoPerna}` : ""}
                 </div>
                 {perna.origemTexto && <div style={{ fontSize: "10.5px", color: T.textMuted }}>{perna.origemTexto}</div>}
               </div>

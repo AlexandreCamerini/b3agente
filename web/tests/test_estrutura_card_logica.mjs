@@ -171,6 +171,18 @@ ok("kicker so-acoes: acoes null -> neutro", E.kickerResultadoSoAcoes({ total: nu
 ok("kicker so-acoes: sem resultado -> neutro", E.kickerResultadoSoAcoes(null) === false);
 ok("sinalResultado: zero/pos/neg/null", E.sinalResultado(0) === "zero" && E.sinalResultado(1) === "pos" && E.sinalResultado(-1) === "neg" && E.sinalResultado(null) === null);
 
+// Fase 45 (code review WR-03): chaves neutras existem nos dois modos e nunca geram "null"/"undefined".
+{
+  const { copyFor } = await import("../src/copy.js");
+  for (const modo of ["educacional", "operador"]) {
+    const cp = copyFor(modo);
+    const textos = [cp.semPremioPerna, cp.estruturaPremioSoAtual("1,20"), cp.estruturaPernaLinha("", "vendida", "20,00", "20/10").trim()];
+    ok("copy WR-03 (" + modo + "): chaves neutras presentes", textos.every((t) => typeof t === "string" && t.length > 0));
+    ok("copy WR-03 (" + modo + "): sem null/undefined/NaN, sem espaço inicial", textos.every((t) => !/null|undefined|NaN/.test(t)) && !/^\s/.test(textos[2]));
+    ok("copy WR-03 (" + modo + "): prêmio só-atual sem seta", !/→/.test(textos[1]) && !/→/.test(textos[0]));
+  }
+}
+
 // pureza estática
 const src = readFileSync(fileURLToPath(new URL("../src/estruturaCard.js", import.meta.url)), "utf8");
 const codigo = src.split("\n").filter((l) => !l.trim().startsWith("//")).join("\n");
