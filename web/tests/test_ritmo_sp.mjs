@@ -141,7 +141,16 @@ const recorteAtivoCard = (idxManchete >= 0 && idxAnVencida > idxManchete)
   ? src.slice(idxManchete, idxAnVencida) : "";
 ok("recorte do AtivoCard não é vazio (recorte vazio é falha, nunca pass silencioso)", recorteAtivoCard.length > 500);
 
+// Fase 46 (46-08, 2026-10-01, D-14/D-17): componentes do card v6 entram na
+// varredura (extensão, nada removido). Exceções nomeadas da UI-SPEC já cabem
+// no detector (padding "0" / `0 ${SP[1]}px`); px solto continua reprovado.
+const componentesV6 = ["ReguaPlano", "FaixaVencimento", "LinhaEstadoV6", "CartaoPosicao", "SeletorFace",
+  "AreaFlip", "FaceAcao", "BlocoBorisIA", "SimuladorEstudo", "TermosTocaveis", "PayoffOperador", "GradeConta"]
+  .map((n) => [n, functionBody(n) || ""]);
+for (const [n, corpo] of componentesV6) ok(`recorte ${n} (card v6) não é vazio`, corpo.length > 200);
+
 for (const [nome, corpo] of [
+  ...componentesV6,
   ["SinalChip", sinalChip],
   ["LinhaContexto", linhaContexto],
   ["PlanoOperacionalBloco", planoBloco],
@@ -150,7 +159,13 @@ for (const [nome, corpo] of [
   ["ReguaFaixa", reguaFaixa],
   ["AtivoCard (recorte manchete→elegibilidade)", recorteAtivoCard],
 ]) {
-  const achadas = violacoes(limpo(corpo));
+  // Fase 46 (46-08, 2026-10-01): exceções NOMEADAS da UI-SPEC, por componente
+  // (lista fechada; qualquer outro px solto segue reprovado).
+  const excecoesV6 = {
+    TermosTocaveis: [{ prop: "padding", valor: '"0 2px"' }], // termo inline (UI-SPEC exceção c)
+    GradeConta: [{ prop: "gap", valor: '"1px"' }],           // separador 1px T.borderSubtle (S5)
+  }[nome] || [];
+  const achadas = violacoes(limpo(corpo)).filter((a) => !excecoesV6.some((x) => x.prop === a.prop && x.valor === a.valor));
   if (achadas.length > 0) {
     for (const a of achadas) console.log(`  violação em ${nome}: ${a.prop}: ${a.valor}`);
   }
