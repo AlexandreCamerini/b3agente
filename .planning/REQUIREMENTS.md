@@ -56,6 +56,28 @@ Todo cálculo é do motor determinístico (princípio 5); nada estimado.
   protetora"/"abate o custo" ausente (usar "collar").
   > Reversão deliberada (Fase 45, D-11, 2026-09-29): put de proteção NÃO trava ações (put comprada não soma em qtyTravada), então a pill vermelha `badgeTravada` aparece só onde há call vendida; no collar usa `badge_travada_collar`. A put de proteção é coberta pelo chip neutro de estrutura.
 
+### Carteira v6 (Fase 46)
+
+IDs propostos na 46-UI-SPEC (Pergunta 6) e fixados no plan-phase de 2026-09-30.
+
+- [ ] **CART6-01**: O card de posição fechado tem um visual e um estado, igual
+  nos dois modos: régua stop←agora→alvo (ação com plano) ou faixa piso·◆BE·teto
+  (composta com BE do backend), estado principal por prioridade (D-13/D-14).
+- [ ] **CART6-02**: O card aberto tem seletor Ação | Opções (n) e flip 3D só
+  nessa área (170+170 ms; `prefers-reduced-motion` troca sem animação).
+- [ ] **CART6-03**: Estudo mostra o simulador "e se?" (grade de preços do
+  backend, zona por ponto) e termos tocáveis (definição da KB + "No seu caso"
+  do backend) e "Bóris explica" determinístico.
+- [ ] **CART6-04**: Operador mostra o payoff no vencimento (curva do backend,
+  sem texto no desenho) e a grade 3×2 com a conta de cada célula.
+- [ ] **CART6-05**: O backend entrega, de forma aditiva, cenários/simulador/
+  grade/leitura do plano/didática; UGPA3 e CXSE3 viram pytest do backend
+  (sem `optionsCalc` no cliente).
+- [ ] **CART6-06**: A KB ganha os verbetes lastro, call coberta, teto, piso,
+  equilíbrio e preço médio, sem promessa de rentabilidade.
+- [ ] **CART6-07**: Todo texto novo nasce em `skill_ref.py` com espelho byte a
+  byte em `copy.js`; guardiões da Fase 45 contraditos são atualizados com nota.
+
 ### Didática (Fase 47)
 
 - [ ] **DIDA-01**: A KB ganha verbete "expectativa matemática × taxa de acerto
@@ -85,4 +107,5 @@ Todo cálculo é do motor determinístico (princípio 5); nada estimado.
 |-------------|-------|--------|
 | ESTR-01..06 | 44 | Complete |
 | CARD-01..06 | 45 | Complete (código verificado; validação em aparelho com backend da Fase 44 em produção pendente — ver 45-VERIFICATION.md) |
+| CART6-01..07 | 46 | Pending |
 | DIDA-01..02 | 47 | Pending |

@@ -321,7 +321,7 @@ Requirements: `.planning/REQUIREMENTS.md`. Mock: https://claude.ai/artifact/JEpy
 
 - [x] Phase 44: Motor — estrutura por ativo (ESTR-01..06)
 - [x] Phase 45: Card de posição estruturada (CARD-01..06) — concluída em código 2026-09-30; validação em aparelho pendente (backend da Fase 44 ainda não em produção)
-- [ ] Phase 46: Carteira v6 — card de posição com modos Estudo e Operador (requisitos a definir no discuss)
+- [ ] Phase 46: Carteira v6 — card de posição com modos Estudo e Operador (CART6-01..07)
 - [ ] Phase 47: Didática — expectativa matemática × taxa de acerto (DIDA-01..02)
 
 ### Phase 44: Motor — estrutura por ativo
@@ -355,14 +355,21 @@ Plans:
 
 ### Phase 46: Carteira v6 — card de posição com modos Estudo e Operador
 **Goal:** o card de posição da Carteira segue o protótipo aprovado v6 — um visual e um estado no card fechado, flip Ação/Opções no aberto, e camada didática por modo (Estudo: simulador "e se?" e termos tocáveis; Operador: payoff e grade com a conta) — com todo cálculo no backend.
-**Requirements:** TBD (definidos no discuss/plan)
+**Requirements:** CART6-01, CART6-02, CART6-03, CART6-04, CART6-05, CART6-06, CART6-07
 **Depends on:** Phase 45
 **Prototype:** `~/Downloads/Carteira Boris+ v6 (standalone).html`
 **Decisão (Alex, 2026-09-30):** todo cálculo é do backend; o front só lê e posiciona (sem `optionsCalc` no cliente). Simulador usa grade de preços devolvida pelo backend.
-**Plans:** 0 plans
+**Plans:** 8 plans (7 ondas; App.jsx serializa as ondas 4-7)
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 46 to break down)
+- [ ] 46-01-PLAN.md — vocabulário v6 (CARTAO_POSICAO/CARTAO_DIDATICA skill_ref↔copy.js) + 6 verbetes KB (onda 1)
+- [ ] 46-02-PLAN.md — helpers puros do card (prioridade de estado, âncora/anti-colisão, flip reduzido, grade por índice) (onda 1)
+- [ ] 46-03-PLAN.md — motor puro cartao_posicao.py: leitura do plano, cenários/simulador/grade com conta, didática (onda 2)
+- [ ] 46-04-PLAN.md — fiação: estrutura.cenarios/didatica aditivos + POST /api/carteira/leitura + stores; pytest UGPA3/CXSE3/ITSA4 (onda 3)
+- [ ] 46-05-PLAN.md — card fechado v6 para toda posição (régua/faixa, um estado, Bóris explica, rodapé) (onda 4)
+- [ ] 46-06-PLAN.md — card aberto: seletor Ação|Opções, flip, faces, bloco BÓRIS IA e saída (onda 5)
+- [ ] 46-07-PLAN.md — camadas: Estudo (simulador + termos) e Operador (payoff SVG + grade com conta) (onda 6)
+- [ ] 46-08-PLAN.md — guardiões transversais (contraste/SP/higiene) + checkpoint do Alex (onda 7)
 
 ### Phase 47: Didática — expectativa matemática × taxa de acerto
 **Goal:** o tema obrigatório do CLAUDE.md ganha verbete e o microtexto passa a abri-lo.
