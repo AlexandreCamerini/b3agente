@@ -133,5 +133,34 @@ ok("sanidade: a regex de aritmética financeira pega uma conta inventada (net_co
 ok("sanidade: a regex de aritmética financeira pega a mesma conta com o operador antes (100 * custo_liquido)",
   ARITMETICA_FINANCEIRA.test("const x = 100 * estrutura.custo_liquido;"));
 
+// ---- (6) Fase 46 (D-02/D-04, 2026-09-30) — camadas do card v6 -------------
+// SimuladorEstudo e GradeConta também só exibem/escolhem índice: zero aritmética
+// sobre resultado|preco|valor|be|k (mesma proibição, mesma regex do adaptador).
+// Nota Fase 46 (46-07, 2026-10-01): nomes `be`/`k`/`valor` entram com fronteira de palavra.
+{
+  const appSrc = readFileSync(join(here, "..", "src", "App.jsx"), "utf8");
+  const corpo = (nome) => {
+    const m = new RegExp(`function ${nome}\\([^)]*\\)\\s*\\{`).exec(appSrc);
+    if (!m) return "";
+    let depth = 0, i = m.index + m[0].length - 1;
+    for (; i < appSrc.length; i++) {
+      if (appSrc[i] === "{") depth++;
+      else if (appSrc[i] === "}") { depth--; if (depth === 0) { i++; break; } }
+    }
+    return appSrc.slice(m.index, i).split("\n").filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)).join("\n");
+  };
+  const NOMES = ["resultado", "preco", "valor", "be", "k"];
+  const ARIT46 = new RegExp(
+    `\\b(${NOMES.join("|")})\\b\\s*[*/+-]\\s*[\\w.]` +
+    `|[\\w.]\\s*[*/+-]\\s*(?:\\w+\\.)?\\b(${NOMES.join("|")})\\b`
+  );
+  for (const nome of ["SimuladorEstudo", "GradeConta"]) {
+    const c = corpo(nome);
+    ok(`${nome} existe no App.jsx`, c.length > 0);
+    ok(`${nome}: nenhuma aritmética sobre resultado|preco|valor|be|k`, !ARIT46.test(c));
+  }
+  ok("sanidade: a regex da Fase 46 pega ponto.preco * 2", ARIT46.test("const x = ponto.preco * 2;"));
+}
+
 if (fails) { console.error(`\n${fails} falha(s)`); process.exit(1); }
 console.log("\ntodos os testes passaram");
