@@ -275,6 +275,7 @@ function serverStore() {
     // outbox (mesma decisão de buy/sell/cancelPendingOrder: reaplicar de fila
     // offline devolveria caixa duas vezes).
     optionsProposta: (t, multiperna) => api.optionsProposta(t, multiperna),
+    carteiraLeitura: (body) => api.carteiraLeitura(body),
     // Fase 30 (Plano 04): ranking determinístico (custo zero) e narração de
     // IA (cota de /api/analyze) da curadoria de venda coberta — delegação
     // PURA, dado de mercado + IA não se duplicam no aparelho.
@@ -1340,6 +1341,12 @@ function deviceStore() {
     async optionsProposta(t, multiperna) {
       ensure();
       return api.optionsProposta(t, multiperna);
+    },
+    // Fase 46: leitura determinística é do backend; o aparelho não duplica
+    // cálculo (mesma regra de optionsProposta).
+    async carteiraLeitura(body) {
+      ensure();
+      return api.carteiraLeitura(body);
     },
     // Fase 30 (Plano 04): mesma razão do optionsProposta acima — ranking e
     // narração são dado de mercado + IA, nunca se duplicam/cacheiam no

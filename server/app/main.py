@@ -16,6 +16,7 @@ from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Red
 from fastapi.staticfiles import StaticFiles
 
 from . import db, defaults, indicators, llm, pending_orders, plan, setups, store, technical_models, tickers, yahoo
+from . import cartao_posicao  # Fase 46: card v6 (motor puro)
 from . import estrutura_posicao  # Fase 44: leitura de estrutura por ativo (motor puro)
 from . import candles as candles_mod  # Objetivo 4: período de candles configurável
 from . import brapi_budget  # ADR-008: orçamento de requisições da brapi (Fase 2)
@@ -4329,6 +4330,55 @@ async def post_conceito(cid: str, body: dict = Body(default={}),
     if c is None:
         raise HTTPException(404, "Conceito não existe no catálogo.")
     return {"ligada": True, **c}
+
+
+_LEITURA_MAX_POSICOES = 60
+_LEITURA_MAX_COMPRAS = 200
+
+
+@app.post("/api/carteira/leitura")
+async def post_carteira_leitura(body: dict = Body(default={}),
+                                scope: Optional[str] = Depends(current_scope)):
+    """Leitura do plano de cada posição de ação (Fase 46, D-03/D-11/D-14).
+
+    Rota PURA, sem efeito e sem provedor de mercado: o preço vem da cotação
+    que a tela já mostra (`/api/quotes`); o resultado é só exibição do próprio
+    usuário (nada é persistido, nenhuma ordem). Toda aritmética e frase saem
+    do motor `cartao_posicao`; o cliente não calcula nada."""
+    b = body if isinstance(body, dict) else {}
+    posicoes = b.get("posicoes")
+    if posicoes is None:
+        posicoes = []
+    if not isinstance(posicoes, list):
+        raise HTTPException(400, "Formato de posições inválido.")
+    if len(posicoes) > _LEITURA_MAX_POSICOES:
+        raise HTTPException(400, "Carteira grande demais para uma leitura só.")
+    cfg = store.get(_conn, "config", user_id=scope) or {}
+    pedido = b.get("modo") or cfg.get("appMode")
+    modo = "operador" if pedido == "operador" else "educacional"
+    leituras: dict = {}
+    for item in posicoes:
+        if not isinstance(item, dict):
+            continue
+        t = _normalize_ticker(str(item.get("t") or ""))
+        if len(t) < 4:
+            continue
+        try:
+            pos = {"t": t, "qty": item.get("qty"), "avg": item.get("avg"),
+                   "stop": item.get("stop"), "alvo": item.get("alvo")}
+            se = item.get("setupEntrada")
+            if isinstance(se, dict) and ("invalidacao" in se or "lado" in se):
+                pos["setupEntrada"] = {"invalidacao": se.get("invalidacao"),
+                                       "lado": se.get("lado")}
+            compras_brutas = item.get("compras")
+            compras = [{"qty": c.get("qty"), "price": c.get("price")}
+                       for c in (compras_brutas[:_LEITURA_MAX_COMPRAS]
+                                 if isinstance(compras_brutas, list) else [])
+                       if isinstance(c, dict)]
+            leituras[t] = cartao_posicao.leitura_plano(pos, item.get("preco"), compras, modo)
+        except Exception as e:
+            obslog.log("err", f"carteira_leitura {t}: {type(e).__name__}: {e}", level="warn")
+    return {"modo": modo, "leituras": leituras}
 
 
 # O PET — resumo determinístico da tela, para o mascote falar/exibir.

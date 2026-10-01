@@ -325,6 +325,8 @@ export const api = {
   // sem ele, a URL é byte a byte a de hoje (o backend trata ausência e
   // `multiperna=0` como o mesmo caminho single-leg).
   optionsProposta: (t, multiperna) => req("GET", "/api/options/proposta/" + encodeURIComponent(t) + (multiperna ? "?multiperna=1" : ""), undefined, 30000),
+  // Fase 46: leitura do plano do card (rota pura, custo zero de mercado).
+  carteiraLeitura: (body) => req("POST", "/api/carteira/leitura", body || {}, 15000),
   optionsAbrirLastreada: (body) => req("POST", "/api/options/lastreada/abrir", body),
   // Rota SEPARADA de propósito (Plano 17-03/ADR-026): `/abrir` continua com a
   // trava de servidor do Plano 16-04 (recusa qualquer corpo multiperna) e
