@@ -99,5 +99,12 @@ ok("CarteiraScreen renderiza <CartaoPosicao", /<CartaoPosicao/.test(tela));
 ok("CarteiraScreen mantém âncora posicao-<t>", /id=\{"posicao-" \+ p\.t\}/.test(tela));
 ok("CarteiraScreen sem disabled= novo", !/\bdisabled=/.test(tela));
 
+// 46-UAT (2026-10-01, G-06): rótulos da faixa ancorados ao marcador + legenda "hoje".
+ok("46-UAT G-06: faixa ancora rótulos (rotulosSemColisao + ancoraRotulo)", /rotulosSemColisao\(/.test(faixa) && /ancoraRotulo\(/.test(faixa));
+ok("46-UAT G-06: faixa usa faixa_rot_be, faixa_rot_teto e faixa_leg_hoje", /"faixa_rot_be"/.test(faixa) && /"faixa_rot_teto"/.test(faixa) && /"faixa_leg_hoje"/.test(faixa));
+ok("46-UAT G-06: sem grid de 3 colunas, sem markPrice, sem \"R$ \" cru", !/repeat\(3, minmax\(0,1fr\)\)/.test(faixa) && !/markPrice/.test(faixa) && !/"R\$ "/.test(faixa));
+ok("46-UAT G-06: hoje vem de leitura.preco e CartaoPosicao passa leitura={leituraPlano}", /leitura\.preco/.test(faixa) && /<FaixaVencimento[^>]*leitura=\{leituraPlano\}/.test(cartao));
+ok("46-UAT G-06: valores da faixa via rsNbsp", /rsNbsp\(/.test(faixa));
+
 console.log(fails ? `\n${fails} falha(s)` : "\nOK");
 process.exit(fails ? 1 : 0);
