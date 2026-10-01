@@ -7,7 +7,7 @@ import { createChart, ColorType, CrosshairMode, LineStyle } from "lightweight-ch
 import { sampleTechnicals } from "./demo.js";
 import { DISCLAIMERS, TERMO_OPERADOR_VERSAO, TERMO_DESCOBERTO_VERSAO } from "./disclaimers.js";
 import { copyFor, historicoTxt, entradaAutoTxt, reconciliacaoTxt, reconciliacaoPorQueImporta, estruturaCardTxt, cartaoPosicaoTxt, cartaoDidaticaTxt } from "./copy.js";
-import { tickersComPernas, assinaturaEstrutura, estadoLeitura, mostraAvisoSemStop, mostraRR, valorRR, criarFilaLeituras, tipoPillTravada, chipVencimento, ddmmDeIso, tomDoEstado, dominioRegua, posRegua, sinalResultado, kickerResultadoSoAcoes, ancoraRotulo, estadoPrincipalV6, flipDuracaoMs, prefereMovimentoReduzido, faceInicial, pontoDoIndice, indiceNomeado, zonaVisual, rotulosSemColisao, colunasDaGrade } from "./estruturaCard.js";
+import { tickersComPernas, assinaturaEstrutura, estadoLeitura, mostraAvisoSemStop, mostraRR, valorRR, criarFilaLeituras, tipoPillTravada, chipVencimento, ddmmDeIso, tomDoEstado, dominioRegua, posRegua, sinalResultado, kickerResultadoSoAcoes, ancoraRotulo, estadoPrincipalV6, linhasResultadoV6, chipsMetaV6, rsSinalNbsp, fonteValorCabecalho, pctCapitalTexto, flipDuracaoMs, prefereMovimentoReduzido, faceInicial, pontoDoIndice, indiceNomeado, zonaVisual, rotulosSemColisao, colunasDaGrade } from "./estruturaCard.js";
 import { varsCartaoV6, ALFA_ZONA_V6, ALFA_ZONA_MEIO_V6 } from "./cartaoV6Cores.js"; // 2026-10-01: cores do design v6 ESCOPADAS ao card (CSS vars no wrapper); não toca T/PALETTE
 // Fase 41 (TELAS-01): registro único das 8 telas que o assistente conhece —
 // BottomNav/petTela leem daqui nesta plano (41-02); tourPassos/ajudaSecoes
@@ -4708,7 +4708,8 @@ function CardPosicaoEstruturada({ p, leitura, cp, operador, ctx, data, onAtualiz
 // aqui só se mapeia valor -> posição na régua e se escolhe o glifo (D-01,
 // princípio 5). Estilo só com tokens T.*, SP e fontes; tipografia 20/14/12.
 // ---------------------------------------------------------------------------
-const TIPO_CARD = { titulo: "20px", corpo: "14px", rotulo: "12px" };
+// 46-UAT (2026-10-01, G-01/G-04/G-05): valor do cabeçalho 21px, legenda 11px, chip 11.5px.
+const TIPO_CARD = { titulo: "20px", corpo: "14px", rotulo: "12px", valor: "21px", legenda: "11px", chip: "11.5px" };
 
 function ReguaPlano({ p, leitura, cp, modo }) {
   if (p.stop == null || p.alvo == null) return null;
@@ -4802,24 +4803,63 @@ function FaixaVencimento({ e, cp, modo }) {
   );
 }
 
-function LinhaEstadoV6({ p, e, leitura, modo }) {
-  const { principal, extras } = estadoPrincipalV6({ p, estrutura: e, leituraPlano: leitura });
-  const corTom = { atencao: T.warn, info: T.borderDashed, encerrada: T.textMuted, neutro: T.borderSubtle };
-  const caixa = (l, i) => {
-    const txt = l.chave === "motor" ? (l.vals && l.vals.texto) : cartaoPosicaoTxt(modo, l.chave, l.vals);
-    if (!txt) return null;
-    return (
-      <div key={l.chave + i} style={{ background: T.bgBase, border: `1px solid ${corTom[l.tom] || T.borderSubtle}`, borderRadius: "10px", padding: `${SP[2]}px ${SP[3]}px`, display: "flex", gap: `${SP[2]}px`, alignItems: "flex-start" }}>
-        <span aria-hidden style={{ color: T.textSecondary, fontSize: TIPO_CARD.corpo, lineHeight: 1.5 }}>{l.glifo}</span>
-        <span style={{ flex: 1, minWidth: 0, fontSize: TIPO_CARD.corpo, fontWeight: 400, color: T.textSecondary, lineHeight: 1.5 }}>{txt}</span>
-      </div>
-    );
-  };
-  if (!principal && extras.length === 0) return null;
+// 46-UAT (2026-10-01, G-03): cadeado 16 px do estado "ações travadas".
+function IconeCadeado() {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: `${SP[2]}px` }}>
-      {principal && caixa(principal, 0)}
-      {extras.map((l, i) => caixa(l, i + 1))}
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flex: "0 0 auto" }}>
+      <rect x="4" y="11" width="16" height="10" rx="2" />
+      <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+    </svg>
+  );
+}
+
+// 46-UAT (2026-10-01, G-03): UM estado por card; extras é sempre [] e é ignorado.
+function LinhaEstadoV6({ p, e, leitura, modo }) {
+  const { principal } = estadoPrincipalV6({ p, estrutura: e, leituraPlano: leitura });
+  if (!principal) return null;
+  const corTom = { atencao: T.warn, info: T.borderDashed, encerrada: T.textMuted, neutro: T.borderSubtle };
+  const txt = principal.chave === "motor" ? (principal.vals && principal.vals.texto) : cartaoPosicaoTxt(modo, principal.chave, principal.vals);
+  if (!txt) return null;
+  const info = principal.tom === "info";
+  return (
+    <div style={{ background: info ? "var(--cv-info-bg)" : T.bgBase, border: `1px solid ${corTom[principal.tom] || T.borderSubtle}`, borderRadius: "10px", padding: `${SP[2]}px ${SP[3]}px`, display: "flex", gap: `${SP[2]}px`, alignItems: "flex-start" }}>
+      <span aria-hidden style={{ color: info ? "var(--cv-info-texto)" : T.textSecondary, fontSize: TIPO_CARD.corpo, lineHeight: 1.5, display: "inline-flex" }}>{principal.glifo === "cadeado" ? <IconeCadeado /> : principal.glifo}</span>
+      <span style={{ flex: 1, minWidth: 0, fontSize: TIPO_CARD.corpo, fontWeight: 400, color: info ? "var(--cv-info-texto)" : T.textSecondary, lineHeight: 1.5 }}>{txt}</span>
+    </div>
+  );
+}
+
+// 46-UAT (2026-10-01, G-04): meta como fileira de chips pill que quebram sozinhos.
+function ChipsMetaV6({ p, e, vc, modo, textoVence }) {
+  const itens = chipsMetaV6({ p, estrutura: e, vc });
+  const chip = { borderRadius: "999px", background: T.bgBase, color: T.textSecondary, fontSize: TIPO_CARD.chip, padding: `${SP[1]}px ${SP[2]}px`, whiteSpace: "nowrap" };
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: `${SP[2]}px` }}>
+      {itens.map((it, i) => <span key={(it.chave || "txt") + i} style={chip}>{it.texto || cartaoPosicaoTxt(modo, it.chave, it.vals)}</span>)}
+      {vc && vc.ambar && (
+        <span style={{ background: T.warnTint10, border: `1px solid ${T.warn}`, color: T.warn, padding: `${SP[1]}px ${SP[2]}px`, borderRadius: "999px", fontSize: TIPO_CARD.rotulo, fontWeight: 700, whiteSpace: "nowrap" }}>{textoVence}</span>
+      )}
+    </div>
+  );
+}
+
+// 46-UAT (2026-10-01, G-02): linhas rótulo (sans) / valor (mono, nowrap) com hairline.
+function LinhasResultadoV6({ linhas, modo }) {
+  const corSinal = (v) => { const s = sinalResultado(v); return s === "pos" ? T.positive : s === "neg" ? T.negative : T.textMuted; };
+  return (
+    <div style={{ marginTop: `${SP[3]}px` }}>
+      {linhas.map((l, i) => (
+        <div key={l.chave + i} style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: `${SP[3]}px`, padding: `${SP[2]}px 0`, borderTop: l.total ? `1px solid ${T.borderDashed}` : `1px solid ${T.borderFaint}` }}>
+          <span style={{ flex: "1 1 auto", minWidth: 0, overflowWrap: "anywhere", fontSize: TIPO_CARD.rotulo, fontWeight: l.total ? 700 : 400, color: T.textSecondary }}>{cartaoPosicaoTxt(modo, l.chave, l.vals)}</span>
+          {l.motivo ? (
+            <span style={{ flex: "0 0 auto", whiteSpace: "nowrap", fontFamily: MONO, fontVariantNumeric: "tabular-nums", fontSize: TIPO_CARD.rotulo, color: "var(--cv-pendente-texto)" }}>{cartaoPosicaoTxt(modo, l.motivo)}</span>
+          ) : (
+            <span style={{ flex: "0 0 auto", whiteSpace: "nowrap", fontFamily: MONO, fontVariantNumeric: "tabular-nums", fontSize: l.total ? TIPO_CARD.corpo : TIPO_CARD.rotulo, fontWeight: l.total ? 700 : 400, color: l.tipo === "pct" ? T.textPrimary : corSinal(l.valor) }}>
+              {l.tipo === "pct" ? pctCapitalTexto(l.valor) : rsSinalNbsp(l.valor)}
+            </span>
+          )}
+        </div>
+      ))}
     </div>
   );
 }
@@ -4833,14 +4873,12 @@ function CartaoPosicao({ p, nomeEmpresa, modoLeitura, leituraEstrutura, leituraP
   const modo = operador ? "operador" : "estudo";
   const e = modoLeitura === "estruturada" && leituraEstrutura ? leituraEstrutura.estrutura : null;
   const corDe = (v) => (v == null || sinalResultado(v) === "zero" ? T.textMuted : v > 0 ? T.positive : T.negative);
-  const numDe = (v, vazio) => (v == null ? vazio : sinalResultado(v) === "zero" ? "R$ " + nf2.format(0) : moneySigned(v));
   const vc = e ? chipVencimento(e) : null;
   const textoVence = vc ? (vc.tipo === "hoje" ? cp.chipVenceHoje : vc.tipo === "vencida" ? cp.chipVencida(vc.ddmm) : cp.chipVence(vc.ddmm, vc.dias == null ? "—" : vc.dias)) : null;
-  const r = e ? e.resultado : null;
   const rotulo = { fontSize: TIPO_CARD.rotulo, fontWeight: 400, color: T.textSecondary };
-  const metaVence = vc && !vc.ambar ? " · " + (vc.tipo === "vence" ? "vence " + vc.ddmm + (vc.dias == null ? "" : " (" + vc.dias + "d)") : textoVence) : "";
-  const meta = p.qty + " ações · PM R$ " + price(p.avg)
-    + (e ? " · " + (e.nomeTexto || "estratégia não classificada") + metaVence : "");
+  // 46-UAT (2026-10-01, G-01/G-02): número do cabeçalho e da linha Estrutura vêm do mesmo helper.
+  const pctCap = pctDoCapital(p.qty, leituraPlano ? leituraPlano.preco : null, total);
+  const res = linhasResultadoV6({ estrutura: e, leituraPlano, pctCapital: e ? null : pctCap });
   const explica = e ? (e.didatica && e.didatica.borisExplica) : (leituraPlano && leituraPlano.didatica ? leituraPlano.didatica.borisExplica : null);
   const idCorpo = "cartao-corpo-" + p.t;
   const nPernas = e ? (e.pernas || []).length : 0;
@@ -4848,39 +4886,28 @@ function CartaoPosicao({ p, nomeEmpresa, modoLeitura, leituraEstrutura, leituraP
   const faceAcao = (
     <FaceAcao p={p} leitura={leituraPlano} data={data} total={total} modo={modo} comprasAberto={comprasAberto} onCompras={() => setComprasAberto((v) => !v)} onEditarPlano={onEditar} mostrarPlano={nPernas > 0 && p.stop != null && p.alvo != null} simples={nPernas === 0} />
   );
-  let resNode;
-  if (e) {
-    resNode = r && r.total != null
-      ? <span style={{ color: corDe(r.total) }}>{numDe(r.total, "—")}</span>
-      : <span style={{ color: T.textMuted }}>Parcial</span>;
-  } else {
-    resNode = <span style={{ color: corDe(leituraPlano ? leituraPlano.resultado : null) }}>{numDe(leituraPlano ? leituraPlano.resultado : null, "—")}</span>;
-  }
+  const txtValor = rsSinalNbsp(res.cabecalho.valor);
+  const corValor = res.cabecalho.valor == null ? T.textMuted : sinalResultado(res.cabecalho.valor) === "pos" ? T.positive : sinalResultado(res.cabecalho.valor) === "neg" ? T.negative : T.textMuted;
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: `${SP[3]}px`, flexWrap: "wrap" }}>
-        <div style={{ minWidth: 0 }}>
+      <div style={{ display: "flex", flexWrap: "nowrap", justifyContent: "space-between", alignItems: "flex-start", gap: `${SP[3]}px` }}>
+        <div style={{ minWidth: 0, flex: "1 1 auto" }}>
           <div style={{ fontFamily: MONO, fontWeight: 700, fontSize: TIPO_CARD.titulo, lineHeight: 1.2 }}>{p.t}</div>
-          {nomeEmpresa && <div style={rotulo}>{nomeEmpresa}</div>}
+          {nomeEmpresa && <div style={{ ...rotulo, overflowWrap: "anywhere" }}>{nomeEmpresa}</div>}
         </div>
-        <div style={{ textAlign: "right", fontFamily: MONO, fontVariantNumeric: "tabular-nums" }}>
-          <div style={{ fontSize: TIPO_CARD.titulo, fontWeight: 700, lineHeight: 1.2 }}>{resNode}</div>
-          {e && r && (
-            <div style={{ ...rotulo, fontFamily: MONO }}>
-              {cp.estruturaAcoesRotulo} {numDe(r.acoes, "indisp.")} · {cp.estruturaOpcoesRotulo} {numDe(r.pernasCotadas, "indisp.")}
-            </div>
-          )}
-          {!e && leituraPlano && leituraPlano.variacaoPct != null && (
-            <div style={{ ...rotulo, fontFamily: MONO, color: corDe(leituraPlano.resultado) }}>{pct(leituraPlano.variacaoPct)}</div>
-          )}
+        <div style={{ flex: "0 0 auto", whiteSpace: "nowrap", textAlign: "right" }}>
+          <div style={{ fontFamily: MONO, fontVariantNumeric: "tabular-nums", fontWeight: 700, fontSize: fonteValorCabecalho(txtValor), letterSpacing: "-0.3px", lineHeight: 1.2, color: corValor }}>{txtValor}</div>
+          {res.cabecalho.suspenso ? (
+            <span style={{ display: "inline-block", marginTop: `${SP[1]}px`, background: "var(--cv-pendente-bg)", color: "var(--cv-pendente-texto)", borderRadius: "999px", fontSize: TIPO_CARD.chip, padding: `${SP[1]}px ${SP[2]}px`, whiteSpace: "nowrap" }}>{cartaoPosicaoTxt(modo, "chip_total_suspenso")}</span>
+          ) : res.cabecalho.legenda ? (
+            <div style={{ fontSize: TIPO_CARD.legenda, color: T.textSecondary, whiteSpace: "nowrap" }}>{cartaoPosicaoTxt(modo, res.cabecalho.legenda, res.cabecalho.legenda === "legenda_resultado_variacao" ? { pct: pct(res.cabecalho.vals.pct) } : res.cabecalho.vals)}</div>
+          ) : null}
         </div>
       </div>
-      <div style={{ ...rotulo, marginTop: `${SP[1]}px` }}>{meta}</div>
-      {vc && vc.ambar && (
-        <div style={{ marginTop: `${SP[2]}px` }}>
-          <span style={{ background: T.warnTint10, border: `1px solid ${T.warn}`, color: T.warn, padding: `${SP[1]}px ${SP[2]}px`, borderRadius: "999px", fontSize: TIPO_CARD.rotulo, fontWeight: 700, whiteSpace: "nowrap" }}>{textoVence}</span>
-        </div>
-      )}
+      <LinhasResultadoV6 linhas={res.linhas} modo={modo} />
+      <div style={{ marginTop: `${SP[3]}px` }}>
+        <ChipsMetaV6 p={p} e={e} vc={vc} modo={modo} textoVence={textoVence} />
+      </div>
       {(modoLeitura === "carregando" || modoLeitura === "falha") && (
         <div role="status" aria-live="polite" style={{ marginTop: `${SP[3]}px`, display: "flex", alignItems: "center", flexWrap: "wrap", gap: `${SP[2]}px`, ...rotulo }}>
           <span>{estruturaCardTxt(modo, modoLeitura === "carregando" ? "lendo" : "indisponivel")}</span>
