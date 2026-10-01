@@ -1,6 +1,7 @@
 // Fase 45 (plano 45-04, UI-SPEC §Contraste AA) — 7 pares de texto do card de
 // Posição estruturada x 4 combinações tema x modo. Helpers copiados de
 // test_cor_confiabilidade.mjs. Roda sem build.
+// Fase 46 (D-17, UI-SPEC Contraste, 2026-09-30): pares do card v6 (46-08).
 // Informativo (não assertado): dívida AA do legado, negative sobre negativeTint10.
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -95,8 +96,13 @@ for (const cores of Object.values(combos)) {
 }
 ok("BRAND resolvido para positive/negative do escuro", !!combos["dark · estudo"].positive && !!combos["dark · estudo"].negative);
 
-const bg = (cores, chave) => (chave === "bgCard" ? cores.bgCard : cores.bgBase);
+const bg = (cores, chave) => (chave === "bgCard" ? cores.bgCard : chave === "accent" ? cores.accent : cores.bgBase);
 const pares = [
+  // Fase 46 (46-08): texto do card v6 (>= 4,5)
+  ["onAccent", "accent"],
+  ["textPrimary", "bgBase"],
+  ["textSecondary", "bgBase"],
+  ["accent", "bgCard"],
   ["textSecondary", "bgCard"],
   ["textMuted", "bgCard"],
   ["textMuted", "bgBase"],
@@ -125,6 +131,34 @@ for (const [nome, cores] of Object.entries(combos)) {
   if (tintN && cores.negative) {
     const rl = contrast(luminanceRGB(hexToRgb(cores.negative)), luminanceRGB(blend(tintN, cores.bgCard)));
     console.log(`info ${nome}: negative/negativeTint10@bgCard (legado) = ${rl.toFixed(2)}`);
+  }
+}
+
+// ---- Fase 46 (46-08): pares GRÁFICOS / borda (>= 3,0), D-17 ------------------
+// positive/negative compostos sobre bgBase (mix alfa). A UI-SPEC previa 0,5; a
+// medição reprovou (2,0-2,5:1 no claro e negative no escuro) e, pela regra
+// "se reprovar, subir opacidade", FaixaVencimento/SimuladorEstudo usam 0,75
+// (mínimo medido: positive 0,75 / negative 0,70 no claro). Nota: Fase 46 (46-08, 2026-10-01).
+const ALFA_ZONA = 0.75;
+const nOp = (re) => (appSrc.match(re) || []).length;
+ok("App.jsx: segmentos de zona (Faixa + Simulador) usam opacidade 0.75 (segmento médio positivo é 0.5 por desenho)",
+  nOp(/T\.negative, 0\.75\)/g) >= 2 && nOp(/T\.positive, 0\.75\)/g) >= 2 && nOp(/seg\([^)]*T\.negative, 0\.5\)/g) === 0);
+function mixSobre(fgHex, a, bgHex) {
+  const [fr, fg2, fb] = hexToRgb(fgHex), [br, bg2, bb] = hexToRgb(bgHex);
+  return [fr * a + br * (1 - a), fg2 * a + bg2 * (1 - a), fb * a + bb * (1 - a)];
+}
+for (const [nome, cores] of Object.entries(combos)) {
+  const lumBase = luminanceRGB(hexToRgb(cores.bgBase));
+  const graf = [
+    ["warn/bgBase", luminanceRGB(hexToRgb(cores.warn))],
+    ["negative/bgBase (borda)", luminanceRGB(hexToRgb(cores.negative))],
+    [`positive@${ALFA_ZONA}/bgBase`, luminanceRGB(mixSobre(cores.positive, ALFA_ZONA, cores.bgBase))],
+    [`negative@${ALFA_ZONA}/bgBase`, luminanceRGB(mixSobre(cores.negative, ALFA_ZONA, cores.bgBase))],
+    ["accent/bgBase (linha hoje)", luminanceRGB(hexToRgb(cores.accent))],
+  ];
+  for (const [rot, lum] of graf) {
+    const r = contrast(lum, lumBase);
+    ok(`${nome}: ${rot} = ${r.toFixed(2)} >= 3.0`, r >= 3.0);
   }
 }
 

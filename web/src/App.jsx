@@ -4840,9 +4840,9 @@ function FaixaVencimento({ e, cp, modo }) {
       {xBe != null && (
         <div role="img" aria-label={c.faixaAria} style={{ position: "relative", marginTop: `${SP[4]}px`, height: "6px", borderRadius: "999px", background: T.knob }}>
           <div aria-hidden style={{ position: "absolute", inset: 0, borderRadius: "999px", overflow: "hidden" }}>
-            {seg(0, xBe, T.negative, 0.5)}
-            {xK != null ? seg(xBe, xK, T.positive, 0.35) : seg(xBe, 100, T.positive, 0.35)}
-            {xK != null && seg(xK, 100, T.positive, 0.5)}
+            {seg(0, xBe, T.negative, 0.75)}
+            {xK != null ? seg(xBe, xK, T.positive, 0.5) : seg(xBe, 100, T.positive, 0.5)}
+            {xK != null && seg(xK, 100, T.positive, 0.75)}
           </div>
           <div aria-hidden style={{ position: "absolute", top: "50%", left: xBe + "%", width: "10px", height: "10px", boxSizing: "border-box", background: T.textPrimary, transform: "translate(-50%,-50%) rotate(45deg)" }} />
           {xK != null && <div aria-hidden style={{ position: "absolute", top: "-6px", left: xK + "%", width: "3px", height: "18px", transform: "translateX(-50%)", background: T.positive }} />}
@@ -5299,9 +5299,9 @@ function SimuladorEstudo({ e, ticker, modo }) {
         ))}
         <div style={{ position: "absolute", left: 0, right: 0, top: "28px", height: "10px", borderRadius: "999px", background: T.knob }}>
           <div aria-hidden style={{ position: "absolute", inset: 0, borderRadius: "999px", overflow: "hidden" }}>
-            {xBe != null && seg(0, xBe, T.negative, 0.5)}
-            {xBe != null && (xK != null ? seg(xBe, xK, T.positive, 0.35) : seg(xBe, 100, T.positive, 0.35))}
-            {xK != null && seg(xK, 100, T.positive, 0.5)}
+            {xBe != null && seg(0, xBe, T.negative, 0.75)}
+            {xBe != null && (xK != null ? seg(xBe, xK, T.positive, 0.5) : seg(xBe, 100, T.positive, 0.5))}
+            {xK != null && seg(xK, 100, T.positive, 0.75)}
           </div>
           {xHoje != null && <div aria-hidden style={{ position: "absolute", top: "-4px", left: xHoje + "%", width: "2px", height: "18px", transform: "translateX(-50%)", background: T.textPrimary }} />}
           <div aria-hidden style={{ position: "absolute", top: "50%", left: posRegua(ponto.preco, dom) + "%", width: "18px", height: "18px", borderRadius: "50%", boxSizing: "border-box", transform: "translate(-50%,-50%)", background: T.accent, border: `3px solid ${T.bgCard}` }} />
