@@ -1291,6 +1291,123 @@ _MERCADO_B3 = [
         },
         "veja": ["modelo-opcoes"],
     },
+    # Fase 46 (D-10, 2026-09-30): verbetes dos termos tocáveis do card v6.
+    # Conteúdo genérico e determinístico; os números do caso vêm do backend.
+    {
+        "id": "opc-lastro",
+        "titulo": _titulo("Lastro"),
+        "termos": ("lastro", "ações travadas"),
+        "texto": {
+            "educacional": (
+                "Lastro são as ações que ficam reservadas para cobrir uma call vendida. "
+                "Enquanto a call está aberta, essas ações ficam travadas: não estão "
+                "livres para sair da posição. Para liberar o lastro, a call precisa ser "
+                "encerrada ou chegar ao vencimento. No simulador, tudo isso acontece "
+                "com dinheiro virtual."
+            ),
+            "operador": (
+                "Lastro: ações reservadas para cobrir a call vendida. Ficam travadas "
+                "enquanto a call estiver aberta; libera ao encerrar a call ou no "
+                "vencimento."
+            ),
+        },
+        "veja": ["opc-call-coberta", "mkt-opcao"],
+    },
+    {
+        "id": "opc-call-coberta",
+        "titulo": _titulo("Call coberta"),
+        "termos": ("call coberta", "venda coberta"),
+        "texto": {
+            "educacional": (
+                "Call coberta é ter as ações e aceitar entregá-las ao preço do strike "
+                "até o vencimento, em troca de um prêmio recebido na hora. O resultado "
+                "no vencimento fica limitado ao teto (o strike); a queda da ação "
+                "continua do lado de quem tem as ações, amortecida só pelo prêmio. É "
+                "uma estrutura que troca parte do potencial de alta por esse prêmio, "
+                "sem prometer ganho."
+            ),
+            "operador": (
+                "Call coberta: ações + call vendida no strike K, com prêmio recebido. "
+                "Resultado limitado ao teto (K); queda segue com a ação, amortecida "
+                "pelo prêmio."
+            ),
+        },
+        "veja": ["opc-lastro", "opc-teto", "opc-equilibrio"],
+    },
+    {
+        "id": "opc-teto",
+        "titulo": _titulo("Teto"),
+        "termos": ("teto",),
+        "texto": {
+            "educacional": (
+                "Teto é o preço da ação acima do qual o resultado da estrutura no "
+                "vencimento deixa de crescer. Numa call coberta, é o strike da call: "
+                "acima dele, as ações seriam entregues e o resultado fica limitado ao "
+                "que a estrutura já acumulava até aquele ponto, mais o prêmio. Não é "
+                "uma previsão de preço: é o limite da própria estrutura."
+            ),
+            "operador": (
+                "Teto: preço acima do qual o resultado no vencimento deixa de crescer. "
+                "Na call coberta, o strike K."
+            ),
+        },
+        "veja": ["opc-call-coberta", "opc-piso"],
+    },
+    {
+        "id": "opc-piso",
+        "titulo": _titulo("Piso"),
+        "termos": ("piso",),
+        "texto": {
+            "educacional": (
+                "Piso é o preço da ação abaixo do qual a perda da estrutura no "
+                "vencimento deixa de crescer. Quem dá esse limite é uma put comprada: "
+                "abaixo do strike dela, a perda fica travada. A call coberta sozinha "
+                "não tem piso, e por isso o app mostra 'sem piso' nesse caso."
+            ),
+            "operador": (
+                "Piso: preço abaixo do qual a perda no vencimento deixa de crescer "
+                "(put comprada). Call coberta não tem piso."
+            ),
+        },
+        "veja": ["opc-teto", "mkt-opcao"],
+    },
+    {
+        "id": "opc-equilibrio",
+        "titulo": _titulo("Equilíbrio (BE)"),
+        "termos": ("equilíbrio", "equilibrio", "breakeven", "break-even", "be"),
+        "texto": {
+            "educacional": (
+                "Equilíbrio (em inglês, break-even ou BE) é o preço da ação no "
+                "vencimento em que o resultado da estrutura é zero. Abaixo dele há "
+                "prejuízo; acima, ganho (até o teto, se houver). Numa call coberta, "
+                "equivale ao preço médio menos o prêmio recebido por ação. Não inclui "
+                "custos."
+            ),
+            "operador": (
+                "Equilíbrio (BE): preço no vencimento com resultado zero. Abaixo, "
+                "prejuízo; acima, ganho até o teto. Call coberta: PM − prêmio."
+            ),
+        },
+        "veja": ["opc-teto", "opc-piso"],
+    },
+    {
+        "id": "mkt-preco-medio",
+        "titulo": _titulo("Preço médio"),
+        "termos": ("preço médio", "preco medio", "pm"),
+        "texto": {
+            "educacional": (
+                "Preço médio (PM) é a média ponderada do que foi pago pelas ações: o "
+                "total pago dividido pela quantidade. Uma venda parcial reduz a "
+                "quantidade, mas não muda o PM das ações que ficaram. É a base para "
+                "medir lucro ou prejuízo da posição nesta carteira simulada."
+            ),
+            "operador": (
+                "Preço médio (PM): total pago ÷ quantidade (média ponderada). Venda "
+                "parcial reduz a quantidade, não o PM."
+            ),
+        },
+        "veja": ["mkt-carteira-simulada"],
+    },
     {
         "id": "mkt-carteira-simulada",
         "titulo": _titulo("Carteira simulada"),

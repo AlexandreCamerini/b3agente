@@ -54,7 +54,8 @@ def test_catalogo_sem_auth_devolve_83_verbetes_e_9_familias(cli):
     body = r.json()
     assert set(body.keys()) == {"modo", "familias", "verbetes"}
     assert body["modo"] == "educacional"
-    assert len(body["verbetes"]) == 83
+    # Fase 46 (D-10, 2026-09-30): +6 verbetes dos termos tocáveis da Carteira v6 (83 -> 89).
+    assert len(body["verbetes"]) == 89
     assert len(body["familias"]) == 9
     assert body["familias"] == [{"id": fid, "rotulo": rotulo} for fid, rotulo in kb.FAMILIAS]
 
@@ -99,7 +100,8 @@ def test_didatica_desligada_exclui_verbetes_derivados_de_conceitos(cli, monkeypa
     r = cli.get("/api/kb/catalogo")
     assert r.status_code == 200
     body = r.json()
-    assert len(body["verbetes"]) == 74
+    # Fase 46 (D-10, 2026-09-30): +6 verbetes dos termos tocáveis da Carteira v6 (74 -> 80).
+    assert len(body["verbetes"]) == 80
     ids = {v["id"] for v in body["verbetes"]}
     conceito_ids = set(kb._FAMILIA_DO_CONCEITO.keys())
     assert conceito_ids.isdisjoint(ids), \
