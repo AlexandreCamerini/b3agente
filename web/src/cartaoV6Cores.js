@@ -102,5 +102,11 @@ export function varsCartaoV6(tema, modo) {
   const out = {};
   for (const k of CHAVES_VAR) out[VARKEY(k)] = c[k];
   out["--cv-zona-meio"] = c.zonaMeio;
+  // 46-UAT (2026-10-01): chip 'total suspenso' e motivos em âmbar (pendente);
+  // linha de cadeado (info, borda borderDashed).
+  out["--cv-pendente-bg"] = c.status.pendente.bg;
+  out["--cv-pendente-texto"] = c.status.pendente.texto;
+  out["--cv-info-bg"] = c.status.info.bg;
+  out["--cv-info-texto"] = c.status.info.texto;
   return out;
 }

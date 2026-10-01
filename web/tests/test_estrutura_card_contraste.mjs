@@ -134,6 +134,11 @@ const paresTexto = [
   ["status info texto/bg", (c) => c.status.info.texto, "#info"],
   ["status ok texto/bg", (c) => c.status.ok.texto, "#ok"],
   ["status pendente texto/bg", (c) => c.status.pendente.texto, "#pendente"],
+  // 46-UAT (2026-10-01, G-01..G-03): motivo âmbar sobre a superfície do card; chip da
+  // meta (textSecondary/bgBase, já medido acima); linhas Ações usam positive/negative
+  // sobre bgCard (já medidos acima).
+  ["status pendente texto/bgCard", (c) => c.status.pendente.texto, "bgCard"],
+  ["status info texto/bgCard", (c) => c.status.info.texto, "bgCard"],
   ["zona1 texto/bgBase", (c) => c.zonas[1].texto, "bgBase"],
   ["zona2 texto/bgBase", (c) => c.zonas[2].texto, "bgBase"],
   ["zona3 texto/bgBase", (c) => c.zonas[3].texto, "bgBase"],
@@ -182,6 +187,11 @@ for (const [nome, c] of Object.entries(cartao)) {
 const v = varsCartaoV6("dark", "estudo");
 ok("varsCartaoV6 emite --bg-card/--accent/--cv-zona-meio", v["--bg-card"] === "#111b29" && v["--accent"] === "#55cfbe" && v["--cv-zona-meio"] === "#9fd9c6");
 ok("escuro estudo/operador = paleta literal do design v6", coresCartaoV6("dark", "operador").accent === "#e4be60" && coresCartaoV6("dark", "operador").onAccent === "#231a04" && coresCartaoV6("dark", "estudo").textPrimary === "#edf2fa");
+
+// 46-UAT (2026-10-01, G-01..G-03): vars dos estados pendente/info chegam ao card.
+// A borda #465d7b do cadeado é decorativa (o texto carrega a informação): não é
+// medida como gráfico >= 3.0.
+ok("varsCartaoV6 emite vars pendente/info do escuro", v["--cv-pendente-bg"] === "#2d2618" && v["--cv-pendente-texto"] === "#ffe3a0" && v["--cv-info-bg"] === "#16233a" && v["--cv-info-texto"] === "#d6deeb");
 
 if (fails) { console.log(`\n${fails} falha(s)`); process.exit(1); }
 console.log("\nOK");
