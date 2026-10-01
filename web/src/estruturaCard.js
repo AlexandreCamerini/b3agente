@@ -1,3 +1,5 @@
+import { qtyLivre } from "./finance.js";
+
 // Fase 45 (CARD-01..06) — decisão de exibição do card de Posição estruturada.
 // Módulo puro: sem React, sem I/O, sem store. Decide O QUE mostrar, nunca
 // calcula P&L — todo número vem de `estrutura` do motor determinístico
@@ -123,6 +125,139 @@ export function tomDoEstado(estado) {
   if (estado === "premio_indisponivel") return "info";
   if (estado === "vencida") return "encerrada";
   return "linha";
+}
+
+// ---------------------------------------------------------------------------
+// Fase 46 (Carteira v6) — helpers puros do card v6. Só decidem apresentação:
+// devolvem chaves de CARTAO_POSICAO + vals (a UI resolve o texto) e nunca
+// fazem aritmética sobre campo financeiro (D-01/D-04, princípio 5).
+// ---------------------------------------------------------------------------
+
+// UI-SPEC "régua/trilho": rótulo nas pontas ancora para dentro (não vaza do
+// card a partir de 320 px); no miolo fica centrado. x em % (0-100).
+export function ancoraRotulo(x) {
+  if (typeof x !== "number" || !isFinite(x)) return "centro";
+  if (x < 22) return "inicio";
+  if (x > 78) return "fim";
+  return "centro";
+}
+
+const DIST_MIN_ROTULO = 30;
+
+// D-17: anti-colisão determinística. Cada item vai para a MENOR linha em que
+// fica a >= 30 (%) de todo item já posto nela. Mesma ordem; x inválido omitido.
+export function rotulosSemColisao(itens) {
+  const postos = [];
+  const saida = [];
+  for (const it of Array.isArray(itens) ? itens : []) {
+    if (!it || typeof it.x !== "number" || !isFinite(it.x)) continue;
+    let linha = 0;
+    while (postos.some((q) => q.linha === linha && Math.abs(q.x - it.x) < DIST_MIN_ROTULO)) linha++;
+    postos.push({ x: it.x, linha });
+    saida.push({ ...it, linha });
+  }
+  return saida;
+}
+
+// D-17 / UI-SPEC "Flip 3D": 170 ms de saída + 170 ms de entrada; com movimento
+// reduzido a troca é imediata (0 ms, sem timer).
+export function flipDuracaoMs(reduzido) {
+  return reduzido ? { saida: 0, entrada: 0, total: 0 } : { saida: 170, entrada: 170, total: 340 };
+}
+
+// UI-SPEC "Flip 3D": lê a preferência NA HORA do clique (não a constante
+// de movimento do App.jsx, lida uma só vez no carregamento).
+export function prefereMovimentoReduzido(win) {
+  try {
+    if (!win || typeof win.matchMedia !== "function") return false;
+    const m = win.matchMedia("(prefers-reduced-motion: reduce)");
+    return !!(m && m.matches);
+  } catch {
+    return false;
+  }
+}
+
+// Face aberta por padrão: com pernas de opção abre em Opções, senão em Ação.
+export function faceInicial(nPernas) {
+  return nPernas > 0 ? "opcoes" : "acao";
+}
+
+// D-13 (+ ajuste UI-SPEC, Pergunta 1): UM estado principal por prioridade —
+// risco do motor > ações travadas > sem plano/incompleto > fora do plano >
+// dentro do plano (só sem opções) — e o resto como linhas extras. Fora/dentro
+// do plano vem do enum `posicaoNoPlano` do backend (D-06): nunca compara preço
+// com stop/alvo aqui.
+export function estadoPrincipalV6({ p, estrutura, leituraPlano } = {}) {
+  const linha = (chave, vals, tom, glifo) => ({ chave, vals, tom, glifo });
+  const extras = [];
+  let principal = null;
+  const est = estrutura && estrutura.estado;
+  const texto = estrutura ? estrutura.estadoTexto : undefined;
+
+  if (est === "vencida") principal = linha("motor", { texto }, "encerrada", "ⓘ");
+  else if (est === "exercicio_provavel") principal = linha("motor", { texto }, "atencao", "⚠");
+  else if (p) {
+    const qty = Number(p.qty) || 0;
+    const travada = Number(p.qtyTravada) || 0;
+    const livre = qtyLivre(p);
+    if (travada > 0 && livre === 0) principal = linha("estado_travadas_todas", {}, "info", "ⓘ");
+    else if (travada > 0 && livre > 0 && livre < qty) {
+      principal = linha("estado_travadas_parcial", { n: travada, m: qty, k: livre }, "info", "ⓘ");
+    } else if (p.stop == null && p.alvo == null) principal = linha("estado_sem_plano", {}, "atencao", "⚠");
+    else if (p.alvo == null) principal = linha("estado_falta_alvo", {}, "atencao", "⚠");
+    else if (p.stop == null) principal = linha("estado_falta_stop", {}, "atencao", "⚠");
+    else {
+      const pos = leituraPlano ? leituraPlano.posicaoNoPlano : null;
+      if (pos === "abaixo_stop") principal = linha("estado_abaixo_stop", {}, "atencao", "⚠");
+      else if (pos === "acima_alvo") principal = linha("estado_acima_alvo", {}, "atencao", "⚠");
+      else if (pos === "dentro" && !estrutura) principal = linha("estado_dentro", {}, "neutro", "✓");
+    }
+  }
+
+  if (estrutura && estrutura.resultado && estrutura.resultado.incompleto) {
+    extras.push(linha("extra_resultado_parcial", {}, "info", "ⓘ"));
+  }
+  if (!estrutura && leituraPlano && leituraPlano.preco == null) {
+    extras.push(linha("extra_cotacao_indisponivel", {}, "info", "ⓘ"));
+  }
+  if (est === "premio_indisponivel") extras.push(linha("motor", { texto }, "info", "ⓘ"));
+  return { principal, extras };
+}
+
+// D-04: o slider lê o ponto da grade do backend por ÍNDICE (clamp), sem
+// aritmética sobre preço/resultado. Índice não inteiro arredonda (só o índice).
+export function pontoDoIndice(simulador, i) {
+  const pontos = simulador && Array.isArray(simulador.pontos) ? simulador.pontos : null;
+  if (!pontos || !pontos.length || typeof i !== "number" || !isFinite(i)) return null;
+  const k = Math.min(pontos.length - 1, Math.max(0, Math.round(i)));
+  return pontos[k] || null;
+}
+
+// D-04: índice (na grade) de um ponto nomeado (hoje/equilibrio/teto/alta_forte);
+// null quando ausente, null no backend ou fora da grade.
+export function indiceNomeado(simulador, nome) {
+  const pontos = simulador && Array.isArray(simulador.pontos) ? simulador.pontos : null;
+  const nomeados = simulador && simulador.nomeados;
+  if (!pontos || !nomeados) return null;
+  const v = nomeados[nome];
+  return Number.isInteger(v) && v >= 0 && v < pontos.length ? v : null;
+}
+
+// D-06 / UI-SPEC "Simulador": zona (rótulo do backend) -> borda + glifo (a cor
+// nunca é o único canal). Zona desconhecida cai no neutro.
+export function zonaVisual(zona) {
+  if (zona === "perda_travada" || zona === "prejuizo") return { borda: "negative", glifo: "▾" };
+  if (zona === "ganho") return { borda: "borderDashed", glifo: "▬" };
+  if (zona === "ganho_travado") return { borda: "positive", glifo: "▴" };
+  return { borda: "borderSubtle", glifo: "ⓘ" };
+}
+
+// UI-SPEC "Grade 3x2": 3 colunas, mas 2 abaixo de 340 px úteis ou com texto
+// >= 130 %. Entrada inválida -> 2 (layout mais seguro).
+export function colunasDaGrade(larguraUtilPx, escalaTexto) {
+  if (typeof larguraUtilPx !== "number" || !isFinite(larguraUtilPx)) return 2;
+  if (typeof escalaTexto !== "number" || !isFinite(escalaTexto)) return 2;
+  return larguraUtilPx < 340 || escalaTexto >= 1.3 ? 2 : 3;
 }
 
 // Pool simples com teto de concorrência (cada chamada consome cota do
