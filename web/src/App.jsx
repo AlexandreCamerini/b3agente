@@ -8,6 +8,7 @@ import { sampleTechnicals } from "./demo.js";
 import { DISCLAIMERS, TERMO_OPERADOR_VERSAO, TERMO_DESCOBERTO_VERSAO } from "./disclaimers.js";
 import { copyFor, historicoTxt, entradaAutoTxt, reconciliacaoTxt, reconciliacaoPorQueImporta, estruturaCardTxt, cartaoPosicaoTxt, cartaoDidaticaTxt } from "./copy.js";
 import { tickersComPernas, assinaturaEstrutura, estadoLeitura, mostraAvisoSemStop, mostraRR, valorRR, criarFilaLeituras, tipoPillTravada, chipVencimento, ddmmDeIso, tomDoEstado, dominioRegua, posRegua, sinalResultado, kickerResultadoSoAcoes, ancoraRotulo, estadoPrincipalV6, flipDuracaoMs, prefereMovimentoReduzido, faceInicial, pontoDoIndice, indiceNomeado, zonaVisual, rotulosSemColisao, colunasDaGrade } from "./estruturaCard.js";
+import { varsCartaoV6, ALFA_ZONA_V6, ALFA_ZONA_MEIO_V6 } from "./cartaoV6Cores.js"; // 2026-10-01: cores do design v6 ESCOPADAS ao card (CSS vars no wrapper); não toca T/PALETTE
 // Fase 41 (TELAS-01): registro único das 8 telas que o assistente conhece —
 // BottomNav/petTela leem daqui nesta plano (41-02); tourPassos/ajudaSecoes
 // passam a iterar os ids do registro na 41-02/Task 2.
@@ -4781,9 +4782,9 @@ function FaixaVencimento({ e, cp, modo }) {
       {xBe != null && (
         <div role="img" aria-label={c.faixaAria} style={{ position: "relative", marginTop: `${SP[4]}px`, height: "6px", borderRadius: "999px", background: T.knob }}>
           <div aria-hidden style={{ position: "absolute", inset: 0, borderRadius: "999px", overflow: "hidden" }}>
-            {seg(0, xBe, T.negative, 0.75)}
-            {xK != null ? seg(xBe, xK, T.positive, 0.5) : seg(xBe, 100, T.positive, 0.5)}
-            {xK != null && seg(xK, 100, T.positive, 0.75)}
+            {seg(0, xBe, T.negative, ALFA_ZONA_V6)}
+            {xK != null ? seg(xBe, xK, "var(--cv-zona-meio)", ALFA_ZONA_MEIO_V6) : seg(xBe, 100, "var(--cv-zona-meio)", ALFA_ZONA_MEIO_V6)}
+            {xK != null && seg(xK, 100, T.positive, ALFA_ZONA_V6)}
           </div>
           <div aria-hidden style={{ position: "absolute", top: "50%", left: xBe + "%", width: "10px", height: "10px", boxSizing: "border-box", background: T.textPrimary, transform: "translate(-50%,-50%) rotate(45deg)" }} />
           {xK != null && <div aria-hidden style={{ position: "absolute", top: "-6px", left: xK + "%", width: "3px", height: "18px", transform: "translateX(-50%)", background: T.positive }} />}
@@ -5240,9 +5241,9 @@ function SimuladorEstudo({ e, ticker, modo }) {
         ))}
         <div style={{ position: "absolute", left: 0, right: 0, top: "28px", height: "10px", borderRadius: "999px", background: T.knob }}>
           <div aria-hidden style={{ position: "absolute", inset: 0, borderRadius: "999px", overflow: "hidden" }}>
-            {xBe != null && seg(0, xBe, T.negative, 0.75)}
-            {xBe != null && (xK != null ? seg(xBe, xK, T.positive, 0.5) : seg(xBe, 100, T.positive, 0.5))}
-            {xK != null && seg(xK, 100, T.positive, 0.75)}
+            {xBe != null && seg(0, xBe, T.negative, ALFA_ZONA_V6)}
+            {xBe != null && (xK != null ? seg(xBe, xK, "var(--cv-zona-meio)", ALFA_ZONA_MEIO_V6) : seg(xBe, 100, "var(--cv-zona-meio)", ALFA_ZONA_MEIO_V6))}
+            {xK != null && seg(xK, 100, T.positive, ALFA_ZONA_V6)}
           </div>
           {xHoje != null && <div aria-hidden style={{ position: "absolute", top: "-4px", left: xHoje + "%", width: "2px", height: "18px", transform: "translateX(-50%)", background: T.textPrimary }} />}
           <div aria-hidden style={{ position: "absolute", top: "50%", left: posRegua(ponto.preco, dom) + "%", width: "18px", height: "18px", borderRadius: "50%", boxSizing: "border-box", transform: "translate(-50%,-50%)", background: T.accent, border: `3px solid ${T.bgCard}` }} />
@@ -5487,6 +5488,7 @@ function CarteiraScreen({ ctx }) {
   // FASE 3 (mock v2): edição de stop/alvo sob demanda + compras da posição
   const [editFor, setEditFor] = useState(null);
   const { data, quotes, analysis, A, goMercado, cp, operador } = ctx;   // FASE 8B (B1)
+  const themeKey = useThemeKey();
   // Fase 45 (D-01..D-04): leitura da estrutura só para ativos com pernas abertas.
   const { leituras, atualizar: atualizarEstrutura } = useEstruturasPosicao(data, operador, ctx.escopoSeq);
   // Fase 46 (CART6-01): leitura do plano de todas as posições, em lote.
@@ -5601,7 +5603,7 @@ function CarteiraScreen({ ctx }) {
             // mais `scrollIntoView`. A âncora FICA: é o mesmo mecanismo do
             // deep link de push acima, e removê-la quebraria um caminho que
             // não é desta fase.
-            <div key={p.t} id={"posicao-" + p.t} style={{ ...card, padding: `${SP[4]}px` }}>
+            <div key={p.t} id={"posicao-" + p.t} style={{ ...card, ...varsCartaoV6(themeKey, operador ? "operador" : "estudo"), padding: `${SP[4]}px` }}>
               {/* Fase 46 (CART6-01/02, D-13/D-14): card v6 para TODA posição; aberto,
                   o corpo (faces Ação | Opções + Bóris IA) vive em CartaoPosicao. */}
               <CartaoPosicao p={p} nomeEmpresa={q && typeof q.name === "string" && q.name ? q.name : null} modoLeitura={modoLeitura} leituraEstrutura={leitura} leituraPlano={plano.leituras[p.t]} cp={cp} operador={operador} ctx={ctx} data={data} total={total} onAtualizar={() => atualizarEstrutura(p.t)} histAberto={histFor === p.t} onHist={() => setHistFor(histFor === p.t ? null : p.t)} editAberto={editFor === p.t} onEditar={() => setEditFor(editFor === p.t ? null : p.t)} />
