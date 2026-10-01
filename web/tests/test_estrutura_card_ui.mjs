@@ -72,20 +72,29 @@ ok("hook (code review WR-02): uma só fila por instância (criarFilaLeituras 1x)
 {
   const c = limpo(functionBody("CardPosicaoEstruturada"));
   const r = limpo(functionBody("ReguaFaixa"));
-  ok("chip (code review WR-06): nome sem nomeTexto cai no chip genérico", /e\.nome && e\.nomeTexto \? estruturaCardTxt\(modo, "chip_estrutura"/.test(c) && /estruturaCardTxt\(modo, "chip_estrutura_generica"\)/.test(c));
+  // Fase 46 (D-15, 2026-09-30): o chip de estratégia subiu para a linha de meta do card fechado
+  // (CartaoPosicao); mesma regra: sem nomeTexto cai no texto genérico, nunca "null".
+  const cf = limpo(functionBody("CartaoPosicao"));
+  ok("chip (code review WR-06): nome sem nomeTexto cai no genérico (agora na meta de CartaoPosicao)", /e\.nomeTexto \|\| "estratégia não classificada"/.test(cf) && !/e\.nome && e\.nomeTexto/.test(c));
   ok("régua (code review WR-06): aria-label com fallback quando nomeTexto é nulo", /cp\.estruturaFaixaAria\(e\.nomeTexto \|\| cp\.estruturaGrupoAria,/.test(r));
 }
 
 // --- W-001: R:R do card atual -----------------------------------------------
 // Fase 45 (code review WR-05): reversão deliberada — o gate agora recebe o preço
 // (mostraRR(p, cur)) e o legado não renderiza mais "R:R atual —".
-ok("card atual: R:R atual sob mostraRR(p, cur) &&, sem '—'", /mostraRR\(p, cur\) && \(<span>R:R atual/.test(src) && !/rr == null \? "—" : rr\.toFixed/.test(src) && /const rr = valorRR\(p, cur\);/.test(src));
+// Fase 46 (D-15, 2026-09-30): o R:R vem pronto do backend (leitura.rr) na FaceAcao; só aparece quando != null, nunca "—".
+ok("R:R atual na FaceAcao: só com leitura.rr != null, sem '—' (substitui o gate mostraRR do card legado)", /L\.rr != null && linha\("rr"/.test(limpo(functionBody("FaceAcao"))) && !/rr == null \? "—" : rr\.toFixed/.test(src));
 
 // --- CarteiraScreen ---------------------------------------------------------
 const cart = limpo(functionBody("CarteiraScreen"));
 ok("CarteiraScreen usa estadoLeitura", /estadoLeitura\(/.test(cart));
-ok("CardPosicaoEstruturada só em estruturada", /modoLeitura === "estruturada" \? \(\s*<CardPosicaoEstruturada/.test(cart));
-ok("aviso 'sem stop' do card atual guardado por mostraAvisoSemStop(", /mostraAvisoSemStop\([^)]*\) && <div[^>]*>⚠ Posição sem stop definido/.test(cart));
+// Fase 46 (D-15, 2026-09-30): CardPosicaoEstruturada agora é a face Opções montada por CartaoPosicao, só com
+// leitura estruturada (e = null fora dela) e com pernas (nPernas > 0).
+const cartaoFace = limpo(functionBody("CartaoPosicao"));
+ok("CardPosicaoEstruturada só em estruturada (face Opções de CartaoPosicao)", /const e = modoLeitura === "estruturada" && leituraEstrutura \?/.test(cartaoFace) && /nPernas > 0 \?/.test(cartaoFace) && /<CardPosicaoEstruturada/.test(cartaoFace) && !/<CardPosicaoEstruturada/.test(cart));
+// Fase 46 (D-15, 2026-09-30): o aviso "Posição sem stop definido" virou a linha de estado do card fechado
+// (estado_sem_plano / estado_falta_stop, vindos de estadoPrincipalV6); o front não o recompõe.
+ok("aviso 'sem stop' agora é estado do backend (estado_sem_plano via estadoPrincipalV6), sem texto fixo no front", /estado_sem_plano/.test(readFileSync(join(here, "..", "src", "estruturaCard.js"), "utf8")) && !/Posição sem stop definido/.test(src));
 // Fase 46 (D-15, 2026-09-30): a linha role=status (lendo/indisponivel) saiu do
 // ramo simples de CarteiraScreen e foi para o card fechado v6 (CartaoPosicao),
 // que a mostra para toda posição com pernas; mesma asserção, novo endereço.
@@ -93,7 +102,8 @@ const cartao46 = limpo(functionBody("CartaoPosicao"));
 ok("linha role=status 'lendo' (agora em CartaoPosicao)", /role="status"/.test(cartao46) && /"lendo"/.test(cartao46));
 ok("linha role=status 'indisponivel' (agora em CartaoPosicao)", /"indisponivel"/.test(cartao46));
 ok("CarteiraScreen renderiza CartaoPosicao (Fase 46)", /<CartaoPosicao/.test(cart));
-ok("PlanRuler 'POSIÇÃO NO RISCO' segue no card atual", /caption="POSIÇÃO NO RISCO"/.test(cart));
+// Fase 46 (D-15, 2026-09-30): a régua legada "POSIÇÃO NO RISCO" saiu de CarteiraScreen; a régua stop/alvo é ReguaPlano no card fechado.
+ok("régua stop/alvo da Carteira é ReguaPlano (fechado v6); PlanRuler legado fora de CarteiraScreen", /<ReguaPlano /.test(cartaoFace) && !/POSIÇÃO NO RISCO/.test(cart));
 
 // --- CardPosicaoEstruturada -------------------------------------------------
 const cardE = limpo(functionBody("CardPosicaoEstruturada"));
@@ -102,16 +112,21 @@ ok("D-09: sem 'Compras desta posição'", !/Compras desta posição/.test(cardE)
 ok("D-07: sem PlanRuler", !/PlanRuler/.test(cardE));
 ok("Encerrar navega via goOpcoes(oportunidades, abrirTicker)", /goOpcoes\("oportunidades", \{ abrirTicker: p\.t \}\)/.test(cardE));
 ok("aria-describedby presente", /aria-describedby/.test(cardE));
-ok('role="group" presente', /role="group"/.test(cardE));
+// Fase 46 (D-15, 2026-09-30): o grupo de chips (role=group) subiu para o card fechado; o grupo desta face é o SeletorFace.
+ok('role="group" presente (SeletorFace aria-pressed)', /role="group"/.test(limpo(functionBody("SeletorFace"))) && /aria-pressed=\{sel\}/.test(limpo(functionBody("SeletorFace"))));
 ok("não executa nada (store./buy/sell/fecharLastreada)", !/store\./.test(cardE) && !/\.buy\(/.test(cardE) && !/\.sell\(/.test(cardE) && !/fecharLastreada/.test(cardE));
 ok("sem dangerouslySetInnerHTML", !/dangerouslySetInnerHTML/.test(cardE));
 ok("sem hex literal", !/#[0-9a-fA-F]{3,6}\b/.test(cardE));
 ok("pesos só 400/700", !/fontWeight:\s*(600|800)/.test(cardE));
-ok("fontSize sempre string px (ou TAM_TOTAL_ESTRUTURA + px)", (cardE.match(/fontSize:\s*[^,}]+/g) || []).every((f) => /fontSize:\s*("(10\.5|11\.5|13|16)px"|TAM_TOTAL_ESTRUTURA \+ "px")/.test(f)));
+// Fase 46 (D-15, 2026-09-30): a face Opções adota a tipografia v6 (TIPO_CARD 20/14/12); TAM_TOTAL_ESTRUTURA saiu do card.
+ok("fontSize só TIPO_CARD.* (tipografia v6)", (cardE.match(/fontSize:\s*[^,}]+/g) || []).every((f) => /fontSize:\s*TIPO_CARD\.(titulo|corpo|rotulo)/.test(f)));
 ok("caixas bgBase levam background como primeira chave", !/backgroundColor/.test(cardE));
 ok("TAM_TOTAL_ESTRUTURA = 24", /^const TAM_TOTAL_ESTRUTURA = 24;/m.test(src));
 // Reversão deliberada (45-04): a âncora de 45-03 foi consumida; agora exige a régua no lugar.
-ok("âncora do 45-04 consumida e ReguaFaixa renderizada", !/45-04: régua de faixa \+ bloco de limites/.test(src) && /<ReguaFaixa e=\{e\} p=\{p\} cp=\{cp\} \/>/.test(cardE));
+// Fase 46 (D-15, 2026-09-30): a faixa no vencimento é desenhada por FaixaVencimento no card fechado (46-05); a
+// ReguaFaixa da 45 permanece definida (guardiões de régua/ritmo a medem) mas não é mais
+// renderizada na face Opções — candidata a remoção quando o ritmo SP deixar de citá-la.
+ok("âncora do 45-04 consumida; ReguaFaixa segue definida e a faixa v6 é FaixaVencimento", !/45-04: régua de faixa \+ bloco de limites/.test(src) && !!functionBody("ReguaFaixa") && /<FaixaVencimento /.test(limpo(functionBody("CartaoPosicao"))));
 
 // --- 45-04: TravaPill opt-in, régua, tipografia, cor fora de bgBase ---------
 const trava = functionBody("TravaPill") || "";
@@ -123,11 +138,14 @@ ok("TravaPill contorno: transparent + border negative + 700", /background: "tran
   const chamadas = [...src.matchAll(/<TravaPill\b[^>]*>/g)];
   const dentro = chamadas.filter((m) => cardE.includes(m[0]));
   const fora = chamadas.filter((m) => !cardE.includes(m[0]));
-  ok("todo <TravaPill dentro do card estruturado tem contorno (>= 2)", dentro.length >= 2 && dentro.every((m) => /\bcontorno\b/.test(m[0])));
+  // Fase 46 (D-15, 2026-09-30): os badges de trava saíram da face Opções (estado_travadas_* no card fechado);
+  // se algum voltar, mantém o contorno.
+  ok("todo <TravaPill dentro do card estruturado tem contorno (se houver)", dentro.every((m) => /\bcontorno\b/.test(m[0])));
   ok("nenhum <TravaPill fora do card estruturado tem contorno", fora.length >= 1 && fora.every((m) => !/\bcontorno\b/.test(m[0])));
 }
 for (const [nome, corpo] of [["CardPosicaoEstruturada", cardE], ["ReguaFaixa", reguaE]]) {
-  ok(`${nome}: fontSize sempre string px permitida`, (corpo.match(/fontSize:\s*[^,}]+/g) || []).every((f) => /fontSize:\s*("(10\.5|11\.5|13|16)px"|TAM_TOTAL_ESTRUTURA \+ "px")/.test(f)) && !/fontSize:\s*\d/.test(corpo));
+  // Fase 46 (D-15, 2026-09-30): CardPosicaoEstruturada usa TIPO_CARD.*; ReguaFaixa (legada) mantém px literais.
+  ok(`${nome}: fontSize sempre string px permitida`, (corpo.match(/fontSize:\s*[^,}]+/g) || []).every((f) => /fontSize:\s*("(10\.5|11\.5|13|16)px"|TAM_TOTAL_ESTRUTURA \+ "px"|TIPO_CARD\.(titulo|corpo|rotulo))/.test(f)) && !/fontSize:\s*\d/.test(corpo));
   ok(`${nome}: sem fontWeight 600/800`, !/fontWeight:\s*(600|800)/.test(corpo));
   ok(`${nome}: sem hex literal`, !/#[0-9a-fA-F]{3,6}\b/.test(corpo));
   ok(`${nome}: sem linear-gradient`, !/linear-gradient/.test(corpo));
@@ -136,8 +154,10 @@ for (const [nome, corpo] of [["CardPosicaoEstruturada", cardE], ["ReguaFaixa", r
 }
 ok("ReguaFaixa: role=img e cp.estruturaFaixaAria", reguaE.length > 0 && /role="img"/.test(reguaE) && /cp\.estruturaFaixaAria\(/.test(reguaE));
 ok("ReguaFaixa usa dominioRegua/posRegua", /dominioRegua\(/.test(reguaE) && /posRegua\(/.test(reguaE));
-ok("R:R no card só sob mostraRR(", /mostraRR\(/.test(cardE) && (cardE.match(/R:R/g) || []).length === 1 && /const rr = valorRR\(p, cur\)/.test(cardE) && /mostraRR\(p, cur\) && <span>R:R atual/.test(cardE));  // Fase 45 (code review WR-05): assinatura com preço
-ok('aviso sem stop via mostraAvisoSemStop(p, "estruturada", e)', /mostraAvisoSemStop\(p, "estruturada", e\)/.test(cardE) && !/Posição sem stop definido/.test(cardE));
+// Fase 46 (D-15, 2026-09-30): R:R e aviso sem stop saíram da face Opções: R:R é leitura.rr do backend na FaceAcao
+// (nunca recalculado no front) e o aviso é o estado do card fechado.
+ok("R:R fora da face Opções; no front não há valorRR/mostraRR em FaceAcao", !/R:R/.test(cardE) && !/valorRR\(|mostraRR\(/.test(limpo(functionBody("FaceAcao"))));
+ok('sem texto fixo "Posição sem stop definido" na face Opções', !/Posição sem stop definido/.test(cardE));
 ok("botões definir stop/alvo nunca desabilitados", !/onEditarStopAlvo[^\n]*disabled/.test(cardE));
 {
   const re = /style=\{\{\s*background: T\.bgBase[,\s}]/g;
@@ -166,8 +186,10 @@ ok("botões definir stop/alvo nunca desabilitados", !/onEditarStopAlvo[^\n]*disa
 // --- pós-teste local (correção 1): kicker neutro sem número das ações ------
 {
   const card = limpo(functionBody("CardPosicaoEstruturada"));
-  ok("kicker so-acoes condicionado a kickerResultadoSoAcoes(r), senão RESULTADO DA ESTRUTURA",
-    /kickerResultadoSoAcoes\(r\)\s*\?\s*cp\.estruturaResultadoSoAcoesRotulo\s*:\s*cp\.estruturaResultadoRotulo/.test(card));
+  // Fase 46 (D-15, 2026-09-30): o resultado total subiu para o card fechado: sem total do motor mostra "Parcial"
+  // (nunca soma parcial como se fosse total).
+  const cf = limpo(functionBody("CartaoPosicao"));
+  ok("resultado total do card fechado: r.total != null senão 'Parcial'", /r && r\.total != null/.test(cf) && /Parcial/.test(cf) && !/<ReguaFaixa/.test(card));
 }
 
 // --- pós-teste local (correção 2): rótulo "hoje" não vaza do card ----------
@@ -182,15 +204,19 @@ ok("botões definir stop/alvo nunca desabilitados", !/onEditarStopAlvo[^\n]*disa
 // absorvida por margem negativa SP[3], então o vão visível segue SP[2] (gap).
 {
   const card = limpo(functionBody("CardPosicaoEstruturada"));
-  ok("link Ver histórico compensa o minHeight 44 com margin -SP[3]",
-    /cp\.estruturaVerHistorico[\s\S]{0,10}/.test(card) && /flexBasis: "100%", textAlign: "left", margin: `-\$\{SP\[3\]\}px 0`/.test(card));
+  // Fase 46 (D-15, 2026-09-30): o link saiu do callout (que subiu ao card fechado) e vive na face Opções como
+  // botão próprio de 44 px, sem caixa — não há mais folga a compensar.
+  ok("link Ver histórico (estado encerrada) na face Opções, alvo 44 px, ctx.goHistoricoOperacoes",
+    /tomDoEstado\(e\.estado\) === "encerrada"/.test(card) && /onClick=\{ctx\.goHistoricoOperacoes\}/.test(card) && /cp\.estruturaVerHistorico/.test(card) && /minHeight: 44, textAlign: "left"/.test(card));
 }
 
 // --- pós-teste local (correção 4): % do capital com vírgula pt-BR ----------
 // O card LEGADO mantém o ponto decimal (fora de escopo desta correção).
 {
   const card = limpo(functionBody("CardPosicaoEstruturada"));
-  ok("% do capital do card novo usa vírgula", /pctCap\.toFixed\(1\)\.replace\("\.", ","\)/.test(card) && !/\{pctCap\.toFixed\(1\)\}%/.test(card));
+  // Fase 46 (D-15, 2026-09-30): o "% do capital" vive na FaceAcao (helper pctDoCapital); mesma regra da vírgula.
+  const fa = limpo(functionBody("FaceAcao"));
+  ok("% do capital (FaceAcao) usa vírgula", /pctCap\.toFixed\(1\)\.replace\("\.", ","\)/.test(fa) && !/\{pctCap\.toFixed\(1\)\}%/.test(fa));
 }
 
 // --- pós-teste local (correção 5): zero exato neutro, sem sinal ------------
@@ -198,7 +224,9 @@ ok("botões definir stop/alvo nunca desabilitados", !/onEditarStopAlvo[^\n]*disa
 {
   const card = limpo(functionBody("CardPosicaoEstruturada"));
   ok("numDe/corDe usam sinalResultado (zero neutro)", /const corDe[^\n]*sinalResultado\(v\) === "zero"[^\n]*T\.textMuted/.test(card) && /const numDe[^\n]*sinalResultado\(v\) === "zero"/.test(card));
-  ok("total do resultado passa por numDe (não moneySigned direto)", /numDe\(r\.total\)/.test(card) && !/moneySigned\(r\.total\)/.test(card));
+  // Fase 46 (D-15, 2026-09-30): o total do resultado é desenhado em CartaoPosicao (numDe local).
+  const cf2 = limpo(functionBody("CartaoPosicao"));
+  ok("total do resultado passa por numDe (não moneySigned direto)", /numDe\(r\.total, "—"\)/.test(cf2) && !/moneySigned\(r\.total\)/.test(cf2));
   ok("moneySigned global mantém '+R$ ' para n >= 0", /const moneySigned = \(n\) => .*"\+R\$ "/.test(src));
 }
 

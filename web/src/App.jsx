@@ -7,7 +7,7 @@ import { createChart, ColorType, CrosshairMode, LineStyle } from "lightweight-ch
 import { sampleTechnicals } from "./demo.js";
 import { DISCLAIMERS, TERMO_OPERADOR_VERSAO, TERMO_DESCOBERTO_VERSAO } from "./disclaimers.js";
 import { copyFor, historicoTxt, entradaAutoTxt, reconciliacaoTxt, reconciliacaoPorQueImporta, estruturaCardTxt, cartaoPosicaoTxt, cartaoDidaticaTxt } from "./copy.js";
-import { tickersComPernas, assinaturaEstrutura, estadoLeitura, mostraAvisoSemStop, mostraRR, valorRR, criarFilaLeituras, tipoPillTravada, chipVencimento, ddmmDeIso, tomDoEstado, dominioRegua, posRegua, sinalResultado, kickerResultadoSoAcoes, ancoraRotulo, estadoPrincipalV6 } from "./estruturaCard.js";
+import { tickersComPernas, assinaturaEstrutura, estadoLeitura, mostraAvisoSemStop, mostraRR, valorRR, criarFilaLeituras, tipoPillTravada, chipVencimento, ddmmDeIso, tomDoEstado, dominioRegua, posRegua, sinalResultado, kickerResultadoSoAcoes, ancoraRotulo, estadoPrincipalV6, flipDuracaoMs, prefereMovimentoReduzido, faceInicial } from "./estruturaCard.js";
 // Fase 41 (TELAS-01): registro único das 8 telas que o assistente conhece —
 // BottomNav/petTela leem daqui nesta plano (41-02); tourPassos/ajudaSecoes
 // passam a iterar os ids do registro na 41-02/Task 2.
@@ -1182,6 +1182,13 @@ function daysSince(str) {
   return Math.max(0, Math.floor((Date.now() - d.getTime()) / 86400000));
 }
 
+// 46-06: % do capital que a posição ocupa (qty × preço ÷ patrimônio). Aritmética
+// de exibição idêntica à do card anterior; sem preço ou sem patrimônio -> null.
+function pctDoCapital(qty, preco, total) {
+  if (preco == null || !(total > 0)) return null;
+  return (qty * preco / total) * 100;
+}
+
 // 2.4: fallback de data de abertura para posições antigas (sem abertaEm):
 // a COMPRA mais antiga registrada no histórico do ativo.
 function openedAt(history, t, pos) {
@@ -1313,6 +1320,12 @@ function AvisoLiquidacao({ evento, cp }) {
       <span style={{ fontSize: "11.5px", color: T.textSecondary, lineHeight: 1.5 }}>{texto}</span>
     </div>
   );
+}
+
+// 46-06: valor de exibição de uma compra (qty × preço) — mesma conta que o
+// card anterior fazia inline.
+function totalDaCompra(h) {
+  return (h.qty || 0) * (h.price || 0);
 }
 
 // FASE 3 (Portfólio): compras que formaram a POSIÇÃO ATUAL — reinicia a lista
@@ -4418,9 +4431,9 @@ function useCuradoria(ativo) {
 // `disabled=` literal dentro dela) continuar valendo. Desabilita enquanto há
 // leitura em voo; alvo de 44px. Reusado pelo card e pelas linhas
 // lendo/indisponível da Carteira.
-function BotaoAtualizarEstrutura({ leitura, onClick, cp }) {
+function BotaoAtualizarEstrutura({ leitura, onClick, cp, rotulo }) {
   return (
-    <button type="button" onClick={onClick} disabled={!!(leitura && leitura.emVoo)} style={{ background: "transparent", border: "none", padding: 0, minHeight: "44px", color: T.accent, fontSize: "11.5px", fontWeight: 700 }}>↻ {cp.btnAtualizarEstrutura}</button>
+    <button type="button" onClick={onClick} disabled={!!(leitura && leitura.emVoo)} style={{ background: "transparent", border: "none", padding: 0, minHeight: 44, color: T.accent, fontSize: "14px", fontWeight: 700 }}>{rotulo || "↻ " + cp.btnAtualizarEstrutura}</button>
   );
 }
 
@@ -4650,155 +4663,36 @@ function ReguaFaixa({ e, p, cp }) {
 // Todo número e frase de motor vem de `estrutura` (P9: nunca somar/derivar no
 // cliente); texto do motor entra só como filho de texto JSX. Não executa
 // ordem: Encerrar apenas navega para Opções > Oportunidades no ticker.
-function CardPosicaoEstruturada({ p, leitura, cp, operador, ctx, data, total, onAtualizar, onEditarStopAlvo }) {
+// Fase 46 (46-06, D-13/D-16): conteúdo da face OPÇÕES do card aberto v6. Mantém o
+// NOME (guardiões da Fase 45 o referenciam). Cabeçalho, chips, estado, resultado
+// total, régua, stop/alvo, fatos e botões Stop/alvo (IA)/Vender subiram para o
+// card fechado (46-05) e para FaceAcao/BlocoBorisIA; aqui ficam pernas, textos da
+// faixa, área de cenário, fonte e o Encerrar com os bloqueios da 45.
+function CardPosicaoEstruturada({ p, leitura, cp, operador, ctx, data, onAtualizar }) {
   const e = leitura.estrutura;
   const modo = operador ? "operador" : "estudo";
   const corDe = (v) => (v == null || sinalResultado(v) === "zero" ? T.textMuted : v > 0 ? T.positive : T.negative);
   const numDe = (v) => (v == null ? "—" : sinalResultado(v) === "zero" ? "R$ " + nf2.format(0) : moneySigned(v));
-  const vc = chipVencimento(e);
-  const pill = tipoPillTravada(e, p.qtyTravada);
-  const tom = tomDoEstado(e.estado);
-  const r = e.resultado || null;
   const bloqueado = !(e.encerrar && e.encerrar.permitido);
   // WR-04: bloqueado sempre tem motivo visível (texto do motor ou fallback neutro).
   const motivoEncerrar = bloqueado ? ((e.encerrar && e.encerrar.texto) || cp.encerrarSemMotivo) : null;
-  const textoVence = vc ? (vc.tipo === "hoje" ? cp.chipVenceHoje : vc.tipo === "vencida" ? cp.chipVencida(vc.ddmm) : cp.chipVence(vc.ddmm, vc.dias == null ? "—" : vc.dias)) : null;
-  const kickerEst = { fontSize: "10.5px", fontWeight: 700, color: T.textFaint, letterSpacing: "0.06em" };
-  const calloutBorda = tom === "atencao" ? T.warn : tom === "info" ? T.borderDashed : T.textMuted;
-  const btnAncora = { background: "transparent", border: "none", padding: 0, minHeight: "44px", fontSize: "11.5px", fontWeight: 700 };
+  const kickerEst = { fontSize: TIPO_CARD.rotulo, fontWeight: 700, color: T.textSecondary, letterSpacing: "0.06em" };
+  const txt = { fontSize: TIPO_CARD.rotulo, fontWeight: 400, color: T.textSecondary, lineHeight: 1.5 };
+  const textosFaixa = e.faixa && e.faixa.textos ? e.faixa.textos : [];
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: `${SP[3]}px` }}>
-      <div>
-        <div style={{ display: "flex", alignItems: "baseline", gap: `${SP[2]}px`, flexWrap: "wrap" }}>
-          <span style={{ fontFamily: MONO, fontWeight: 700, fontSize: "16px" }}>{p.t}</span>
-          <span style={{ fontSize: "11.5px", color: T.textMuted }}>{p.qty} cotas · PM R$ {price(p.avg)}</span>
-        </div>
-        <div role="group" aria-label={cp.estruturaGrupoAria} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: `${SP[2]}px`, marginTop: `${SP[2]}px` }}>
-          <span style={{ background: T.bgBase, border: `1px solid ${T.borderSubtle}`, color: T.textMuted, padding: `${SP[1]}px ${SP[2]}px`, borderRadius: "999px", fontSize: "10.5px", fontWeight: 700, whiteSpace: "nowrap" }}>
-            {e.nome && e.nomeTexto ? estruturaCardTxt(modo, "chip_estrutura", { nome: String(e.nomeTexto).toUpperCase() }) : estruturaCardTxt(modo, "chip_estrutura_generica")}
-          </span>
-          {vc && (vc.ambar ? (
-            <span style={{ background: T.warnTint10, border: `1px solid ${T.warn}`, color: T.warn, padding: `${SP[1]}px ${SP[2]}px`, borderRadius: "999px", fontSize: "10.5px", fontWeight: 700, whiteSpace: "nowrap" }}>{textoVence}</span>
-          ) : (
-            <span style={{ background: T.bgBase, border: `1px solid ${T.borderSubtle}`, color: T.textMuted, padding: `${SP[1]}px ${SP[2]}px`, borderRadius: "999px", fontSize: "10.5px", fontWeight: 700, whiteSpace: "nowrap" }}>{textoVence}</span>
-          ))}
-          {pill === "collar" && <TravaPill qty={p.qtyTravada} cp={cp} contorno texto={estruturaCardTxt(modo, "badge_travada_collar", { qty: p.qtyTravada })} />}
-          {pill === "padrao" && <TravaPill qty={p.qtyTravada} cp={cp} contorno />}
-        </div>
-        {e.nome == null && e.nomeTexto && <div style={{ marginTop: `${SP[2]}px`, fontSize: "11.5px", color: T.textSecondary }}>{e.nomeTexto}</div>}
-      </div>
-
       <AvisoLiquidacao evento={eventoLiquidacaoRecente(data.history, p.t)} cp={cp} />
 
-      {tom === "linha" ? (
-        e.estadoTexto ? <div style={{ fontSize: "11.5px", color: T.textMuted, lineHeight: 1.5 }}>{e.estadoTexto}</div> : null
-      ) : (
-        <div style={{ background: T.bgBase, border: `1px solid ${calloutBorda}`, borderRadius: "9px", padding: `${SP[2]}px ${SP[3]}px`, display: "flex", gap: `${SP[2]}px`, alignItems: "flex-start", flexWrap: "wrap" }}>
-          <span aria-hidden style={{ color: T.textSecondary, fontSize: "11.5px", lineHeight: 1.5 }}>{tom === "info" ? "ⓘ" : "⚠"}</span>
-          <span style={{ flex: 1, minWidth: 0, fontSize: "11.5px", color: T.textSecondary, lineHeight: 1.5 }}>{e.estadoTexto}</span>
-          {tom === "encerrada" && (
-            <button type="button" onClick={ctx.goHistoricoOperacoes} style={{ ...btnAncora, color: T.textSecondary, textDecoration: "underline", flexBasis: "100%", textAlign: "left", margin: `-${SP[3]}px 0` }}>{cp.estruturaVerHistorico}</button>
-          )}
-        </div>
+      {tomDoEstado(e.estado) === "encerrada" && (
+        <button type="button" onClick={ctx.goHistoricoOperacoes} style={{ background: "transparent", border: "none", padding: 0, minHeight: 44, textAlign: "left", color: T.textSecondary, textDecoration: "underline", fontSize: TIPO_CARD.corpo, fontWeight: 700 }}>{cp.estruturaVerHistorico}</button>
       )}
 
-      <div>
-        {r && r.total != null ? (
-          <>
-            <div style={kickerEst}>{cp.estruturaResultadoRotulo}</div>
-            <div style={{ fontFamily: MONO, fontWeight: 700, fontSize: TAM_TOTAL_ESTRUTURA + "px", color: corDe(r.total), lineHeight: 1.2 }}>{numDe(r.total)}</div>
-            <div style={{ fontFamily: MONO, fontSize: "11.5px", color: T.textMuted, marginTop: `${SP[1]}px` }}>
-              {cp.estruturaAcoesRotulo} <span style={{ color: corDe(r.acoes) }}>{numDe(r.acoes)}</span> · {cp.estruturaOpcoesRotulo} <span style={{ color: corDe(r.pernasCotadas) }}>{numDe(r.pernasCotadas)}</span>
-            </div>
-          </>
-        ) : (
-          <>
-            <div style={kickerEst}>{kickerResultadoSoAcoes(r) ? cp.estruturaResultadoSoAcoesRotulo : cp.estruturaResultadoRotulo}</div>
-            <div style={{ fontFamily: MONO, fontWeight: 700, fontSize: TAM_TOTAL_ESTRUTURA + "px", color: corDe(r ? r.acoes : null), lineHeight: 1.2 }}>{numDe(r ? r.acoes : null)}</div>
-            {r && r.texto && <div style={{ fontSize: "11.5px", color: T.textSecondary, lineHeight: 1.5, marginTop: `${SP[1]}px` }}>{r.texto}</div>}
-          </>
-        )}
-      </div>
-
-      <ReguaFaixa e={e} p={p} cp={cp} />
-
-      <div style={{ background: T.bgBase, border: `1px solid ${T.borderFaint}`, borderRadius: "10px", padding: `${SP[2]}px ${SP[3]}px`, display: "flex", flexDirection: "column", gap: `${SP[1]}px` }}>
-        {e.faixa && (
-          <>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: `${SP[2]}px`, alignItems: "baseline" }}>
-              <span style={{ fontSize: "10.5px", fontWeight: 700, color: T.textMuted }}>{cp.estruturaLegenda.piso}</span>
-              <span style={{ fontFamily: MONO, fontSize: "13px", color: T.textSecondary }}>{e.faixa.piso == null ? cp.semPiso : "R$ " + price(e.faixa.piso)}</span>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: `${SP[2]}px`, alignItems: "baseline" }}>
-              <span style={{ fontSize: "10.5px", fontWeight: 700, color: T.textMuted }}>{cp.estruturaLegenda.teto}</span>
-              <span style={{ fontFamily: MONO, fontSize: "13px", color: T.textSecondary }}>{e.faixa.teto == null ? cp.semTeto : "R$ " + price(e.faixa.teto)}</span>
-            </div>
-          </>
-        )}
-        {(e.faixa && e.faixa.textos ? e.faixa.textos : []).map((t, i) => (
-          <div key={i} style={{ fontSize: "11.5px", color: T.textSecondary, lineHeight: 1.5 }}>{t}</div>
-        ))}
-        {e.descobertaTexto && <div style={{ fontSize: "11.5px", color: T.textSecondary, lineHeight: 1.5 }}>{e.descobertaTexto}</div>}
-      </div>
-
-      <div style={{ display: "flex", flexDirection: "column", gap: `${SP[1]}px` }}>
-        <div style={{ display: "flex", gap: `${SP[3]}px`, flexWrap: "wrap", alignItems: "baseline" }}>
-          <span style={{ fontSize: "10.5px", fontWeight: 700, color: T.textMuted }}>{cp.estruturaLegenda.stop}</span>
-          {p.stop != null ? (
-            <span style={{ fontFamily: MONO, fontSize: "13px", color: T.negative }}>R$ {price(p.stop)}</span>
-          ) : (
-            <button type="button" onClick={onEditarStopAlvo} style={{ background: "transparent", border: "none", padding: 0, minHeight: "44px", color: T.accent, fontSize: "11.5px", fontWeight: 700 }}>definir ▸</button>
-          )}
-          <span style={{ fontSize: "10.5px", fontWeight: 700, color: T.textMuted }}>{cp.estruturaLegenda.alvo}</span>
-          {p.alvo != null ? (
-            <span style={{ fontFamily: MONO, fontSize: "13px", color: T.positive }}>R$ {price(p.alvo)}</span>
-          ) : (
-            <button type="button" onClick={onEditarStopAlvo} style={{ background: "transparent", border: "none", padding: 0, minHeight: "44px", color: T.accent, fontSize: "11.5px", fontWeight: 700 }}>definir ▸</button>
-          )}
-        </div>
-        {e.stopTexto != null && p.stop == null && (
-          <div style={{ fontSize: "11.5px", color: T.textSecondary, lineHeight: 1.5 }}>{e.stopTexto}</div>
-        )}
-        {(p.stop == null || p.alvo == null) && (
-          <button type="button" onClick={onEditarStopAlvo} style={{ background: "transparent", border: "none", padding: 0, minHeight: "44px", textAlign: "left", color: T.accent, fontSize: "11.5px", fontWeight: 700 }}>
-            ✎ {p.stop == null && p.alvo == null ? "definir stop e alvo" : p.stop == null ? "definir stop" : "definir alvo"}
-          </button>
-        )}
-      </div>
-
-      {(() => {
-        const dias = daysSince(openedAt(data.history, p.t, p));
-        const cur = e.acoes ? e.acoes.preco : null;
-        const pctCap = cur != null && total > 0 ? (p.qty * cur / total) * 100 : null;
-        const rr = valorRR(p, cur);
-        const se = p.setupEntrada;
-        let gatStatus = null;
-        if (se && se.invalidacao != null && cur != null) {
-          const inval = se.lado === "baixa" ? cur > se.invalidacao : cur < se.invalidacao;
-          gatStatus = inval ? ["invalidado", T.negative] : ["válido", T.positive];
-        }
-        return (
-          <div style={{ display: "flex", flexDirection: "column", gap: `${SP[1]}px` }}>
-            <div style={{ display: "flex", gap: `${SP[3]}px`, flexWrap: "wrap", fontSize: "11.5px", color: T.textMuted }}>
-              <span>{dias == null ? "—" : dias === 0 ? "aberta hoje" : dias + " dia" + (dias > 1 ? "s" : "") + " em operação"}</span>
-              {mostraRR(p, cur) && <span>R:R atual <b style={{ fontFamily: MONO, color: T.textSecondary }}>{rr.toFixed(2)}</b></span>}
-              {pctCap != null && <span><b style={{ fontFamily: MONO, color: T.textSecondary }}>{pctCap.toFixed(1).replace(".", ",")}%</b> do capital</span>}
-            </div>
-            {se && (
-              <div style={{ fontSize: "11.5px", color: T.textMuted }}>
-                Entrada pelo setup <b style={{ color: T.textSecondary }}>{se.setup || "—"}</b>
-                {se.gatilho != null && <span> · gatilho R$ {price(se.gatilho)}</span>}
-                {gatStatus && <span> · <b style={{ color: gatStatus[1] }}>{gatStatus[0]}</b></span>}
-              </div>
-            )}
-          </div>
-        );
-      })()}
-
-      {mostraAvisoSemStop(p, "estruturada", e) && (
-        <div style={{ display: "flex", gap: `${SP[2]}px`, alignItems: "flex-start" }}>
-          <span aria-hidden style={{ color: T.textSecondary, fontSize: "11.5px", lineHeight: 1.5 }}>⚠</span>
-          <span style={{ fontSize: "11.5px", fontWeight: 700, color: T.textSecondary, lineHeight: 1.5 }}>{estruturaCardTxt(modo, "aviso_sem_stop")}</span>
+      {(textosFaixa.length > 0 || e.descobertaTexto) && (
+        <div style={{ background: T.bgBase, border: `1px solid ${T.borderFaint}`, borderRadius: "10px", padding: `${SP[2]}px ${SP[3]}px`, display: "flex", flexDirection: "column", gap: `${SP[1]}px` }}>
+          {textosFaixa.map((t, i) => (
+            <div key={i} style={txt}>{t}</div>
+          ))}
+          {e.descobertaTexto && <div style={txt}>{e.descobertaTexto}</div>}
         </div>
       )}
 
@@ -4808,25 +4702,35 @@ function CardPosicaoEstruturada({ p, leitura, cp, operador, ctx, data, total, on
           {(e.pernas || []).map((perna, i) => (
             <li key={i} style={{ paddingTop: `${SP[2]}px`, display: "flex", justifyContent: "space-between", gap: `${SP[2]}px`, alignItems: "flex-start" }}>
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontFamily: MONO, fontSize: "13px", color: T.textPrimary }}>
+                <div style={{ fontFamily: MONO, fontSize: TIPO_CARD.corpo, fontWeight: 400, color: T.textPrimary, fontVariantNumeric: "tabular-nums" }}>
                   {cp.estruturaPernaLinha(perna.tipo || "", perna.lado === "venda" ? cp.ladoVendida : perna.lado === "compra" ? cp.ladoComprada : "—", price(perna.strike), ddmmDeIso(perna.vencimento) || String(perna.vencimento || "—")).trim()}{perna.quantidade != null ? " " + cp.estruturaQtdPerna(perna.quantidade) : ""}
                 </div>
-                <div style={{ fontSize: "11.5px", color: T.textSecondary, lineHeight: 1.5 }}>
+                <div style={{ ...txt, fontVariantNumeric: "tabular-nums" }}>
                   {perna.premioEntrada == null ? (perna.premioAtual == null ? cp.semPremioPerna : cp.estruturaPremioSoAtual(price(perna.premioAtual))) : cp.estruturaPremioLinha(price(perna.premioEntrada), perna.premioAtual == null ? "—" : price(perna.premioAtual))}{perna.premioAtual == null ? ` · ${cp.semCotacaoPerna}` : ""}
                 </div>
-                {perna.origemTexto && <div style={{ fontSize: "10.5px", color: T.textMuted }}>{perna.origemTexto}</div>}
+                {perna.origemTexto && <div style={txt}>{perna.origemTexto}</div>}
               </div>
-              <span style={{ fontFamily: MONO, fontSize: "13px", color: corDe(perna.resultado), whiteSpace: "nowrap" }}>{numDe(perna.resultado)}</span>
+              <span style={{ fontFamily: MONO, fontSize: TIPO_CARD.corpo, fontWeight: 700, color: corDe(perna.resultado), whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>{numDe(perna.resultado)}</span>
             </li>
           ))}
         </ul>
       </div>
 
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: `${SP[2]}px` }}>
-        <span style={{ fontSize: "10.5px", fontWeight: 400, color: T.textFaint }}>
-          {leitura.source ? cp.fonteEstruturaLinha(FONTE_LABEL(leitura.source), leitura.at || "—") : cp.fonteEstruturaSemDado}
+      {/* Área de cenário: 46-07 monta aqui o simulador/payoff; sem `cenarios` do
+          backend nada é inventado (princípio 4). */}
+      {!e.cenarios ? (
+        <div style={{ border: `1px dashed ${T.borderDashed}`, borderRadius: "10px", padding: `${SP[3]}px`, ...txt }}>
+          {cartaoPosicaoTxt(modo, "sem_cenario")}
+        </div>
+      ) : (
+        <div data-area-cenario="" />
+      )}
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: `${SP[2]}px`, flexWrap: "wrap" }}>
+        <span style={txt}>
+          {leitura.source ? cp.fonteEstruturaLinha(FONTE_LABEL(leitura.source), leitura.at || "—") : cartaoPosicaoTxt(modo, "origem_nao_informada")}
         </span>
-        <BotaoAtualizarEstrutura leitura={leitura} onClick={onAtualizar} cp={cp} />
+        <BotaoAtualizarEstrutura leitura={leitura} onClick={onAtualizar} cp={cp} rotulo={cartaoPosicaoTxt(modo, "atualizar")} />
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: `${SP[2]}px` }}>
@@ -4836,25 +4740,12 @@ function CardPosicaoEstruturada({ p, leitura, cp, operador, ctx, data, total, on
           aria-disabled={bloqueado}
           aria-describedby={motivoEncerrar ? "encerrar-motivo-" + p.t : undefined}
           aria-label={cp.encerrarAria(p.t)}
-          style={{ width: "100%", minHeight: "44px", borderRadius: "10px", border: `1px solid ${T.borderSubtle}`, background: "transparent", color: bloqueado ? T.textMuted : T.textPrimary, fontSize: "13px", fontWeight: 700 }}
+          style={{ width: "100%", minHeight: 44, borderRadius: "10px", border: `1px solid ${T.borderSubtle}`, background: "transparent", color: bloqueado ? T.textSecondary : T.textPrimary, fontSize: TIPO_CARD.corpo, fontWeight: 700 }}
         >
-          {cp.btnEncerrarEstrutura}
+          {cartaoPosicaoTxt(modo, "encerrar")}
         </button>
-        {motivoEncerrar && <div id={"encerrar-motivo-" + p.t} style={{ fontSize: "11.5px", color: T.textMuted, lineHeight: 1.5 }}>{motivoEncerrar}</div>}
-        {e.abertaSemProposta && e.motivoSemPropostaTexto && <div style={{ fontSize: "11.5px", color: T.textMuted, lineHeight: 1.5 }}>{e.motivoSemPropostaTexto}</div>}
-        <div style={{ display: "flex", gap: `${SP[2]}px` }}>
-          <button type="button" onClick={() => ctx.openStopAlvo(p.t)} aria-label={"Sugerir stop e alvo de " + p.t + " com IA"} style={{ flex: 1, minHeight: "44px", borderRadius: "10px", border: `1px solid ${T.accent}`, background: T.accentTint10, color: T.accent, fontWeight: 700, fontSize: "11.5px", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: `${SP[2]}px` }}>
-            <NavIcon id="evolucao" size={14} color="currentColor" /> Stop/alvo (IA)
-          </button>
-          <button type="button" onClick={() => ctx.A.openSell(p.t)} disabled={qtyLivre(p) === 0} aria-describedby={p.qtyTravada > 0 || e.nome === "put_protecao" ? "saida-lastro-" + p.t : undefined} style={{ flex: 1, minHeight: "44px", borderRadius: "10px", border: `1px solid ${T.negative}`, background: T.negativeTint10, color: T.negative, fontWeight: 700, fontSize: "11.5px" }}>
-            {cp.btnVender}…
-          </button>
-        </div>
-        {(p.qtyTravada > 0 || e.nome === "put_protecao") && (
-          <div id={"saida-lastro-" + p.t} style={{ fontSize: "10.5px", color: T.textMuted }}>
-            {p.qtyTravada > 0 ? cp.estruturaLivresLinha(qtyLivre(p), p.qty) : cp.estruturaSaidaSemLastro}
-          </div>
-        )}
+        {motivoEncerrar && <div id={"encerrar-motivo-" + p.t} style={txt}>{motivoEncerrar}</div>}
+        {e.abertaSemProposta && e.motivoSemPropostaTexto && <div style={txt}>{e.motivoSemPropostaTexto}</div>}
       </div>
     </div>
   );
@@ -4983,8 +4874,12 @@ function LinhaEstadoV6({ p, e, leitura, modo }) {
   );
 }
 
-function CartaoPosicao({ p, nomeEmpresa, modoLeitura, leituraEstrutura, leituraPlano, cp, operador, onAtualizar, children }) {
+function CartaoPosicao({ p, nomeEmpresa, modoLeitura, leituraEstrutura, leituraPlano, cp, operador, ctx, data, total, onAtualizar, histAberto, onHist, editAberto, onEditar }) {
   const [aberto, setAberto] = useState(false);
+  // 46-06 (D-17): face e expansor de compras locais por posição; sobrevivem a
+  // fechar/abrir na sessão (não persistidos). null = ainda sem escolha do usuário.
+  const [faceEscolhida, setFaceEscolhida] = useState(null);
+  const [comprasAberto, setComprasAberto] = useState(false);
   const modo = operador ? "operador" : "estudo";
   const e = modoLeitura === "estruturada" && leituraEstrutura ? leituraEstrutura.estrutura : null;
   const corDe = (v) => (v == null || sinalResultado(v) === "zero" ? T.textMuted : v > 0 ? T.positive : T.negative);
@@ -4998,6 +4893,11 @@ function CartaoPosicao({ p, nomeEmpresa, modoLeitura, leituraEstrutura, leituraP
     + (e ? " · " + (e.nomeTexto || "estratégia não classificada") + metaVence : "");
   const explica = e ? (e.didatica && e.didatica.borisExplica) : (leituraPlano && leituraPlano.didatica ? leituraPlano.didatica.borisExplica : null);
   const idCorpo = "cartao-corpo-" + p.t;
+  const nPernas = e ? (e.pernas || []).length : 0;
+  const face = faceEscolhida || faceInicial(nPernas);
+  const faceAcao = (
+    <FaceAcao p={p} leitura={leituraPlano} data={data} total={total} modo={modo} comprasAberto={comprasAberto} onCompras={() => setComprasAberto((v) => !v)} onEditarPlano={onEditar} mostrarPlano={nPernas > 0 && p.stop != null && p.alvo != null} simples={nPernas === 0} />
+  );
   let resNode;
   if (e) {
     resNode = r && r.total != null
@@ -5057,7 +4957,267 @@ function CartaoPosicao({ p, nomeEmpresa, modoLeitura, leituraEstrutura, leituraP
       >
         {cartaoPosicaoTxt(modo, aberto ? "rodape_fechar" : "rodape_abrir")}
       </button>
-      <div id={idCorpo} hidden={!aberto}>{aberto ? children : null}</div>
+      <div id={idCorpo} hidden={!aberto}>
+        {aberto && (
+          <div style={{ display: "flex", flexDirection: "column", gap: `${SP[3]}px`, marginTop: `${SP[3]}px` }}>
+            {nPernas > 0 ? (
+              <>
+                <SeletorFace ticker={p.t} face={face} nPernas={nPernas} onTrocar={setFaceEscolhida} modo={modo} />
+                <AreaFlip face={face} render={(f) => (f === "opcoes"
+                  ? <CardPosicaoEstruturada p={p} leitura={leituraEstrutura} cp={cp} operador={operador} ctx={ctx} data={data} onAtualizar={onAtualizar} />
+                  : faceAcao)} />
+              </>
+            ) : faceAcao}
+            <BlocoBorisIA p={p} data={data} modo={modo} ctx={ctx} histAberto={histAberto} onHist={onHist} />
+            {histAberto && <HistoricoAnalises p={p} data={data} />}
+            {editAberto && <EditorStopAlvo p={p} ctx={ctx} />}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Fase 46 (46-06, CART6-02): card ABERTO v6 — seletor de face, flip 3D, face
+// Ação, bloco BÓRIS IA. Números, estados e ações idênticos nos dois modos; o
+// modo muda só cor, rótulos e camada didática (D-13). Todo valor/frase vem do
+// backend (leituraPlano/estrutura); aqui só se formata e se dispara handlers
+// herdados (nenhum fluxo novo de ordem). Só T.*, SP e tipografia 20/14/12.
+// ---------------------------------------------------------------------------
+function SeletorFace({ ticker, face, nPernas, onTrocar, modo }) {
+  const btn = (id, rotulo) => {
+    const sel = face === id;
+    return (
+      <button
+        key={id}
+        type="button"
+        aria-pressed={sel}
+        onClick={() => onTrocar(id)}
+        style={{ minHeight: 44, borderRadius: "9px", background: sel ? T.accentTint10 : "transparent", border: sel ? `1px solid ${T.accent}` : "1px solid transparent", color: sel ? T.textPrimary : T.textSecondary, fontSize: TIPO_CARD.corpo, fontWeight: 700 }}
+      >
+        {rotulo}
+      </button>
+    );
+  };
+  return (
+    <div role="group" aria-label={cartaoPosicaoTxt(modo, "face_grupo_aria", { ticker })} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: `${SP[1]}px`, padding: `${SP[1]}px`, border: `1px solid ${T.borderSubtle}`, borderRadius: "11px", background: T.bgBase }}>
+      {btn("acao", cartaoPosicaoTxt(modo, "face_acao"))}
+      {btn("opcoes", cartaoPosicaoTxt(modo, "face_opcoes", { n: nPernas }))}
+    </div>
+  );
+}
+
+// Flip 3D só da área abaixo do seletor. A preferência de movimento é lida NA HORA
+// da troca (D-17): reduzido = troca imediata e sem timer. Só a face exibida é
+// montada. Durante a animação `busy` trava; o último alvo vence ao terminar.
+function AreaFlip({ face, render }) {
+  const [est, setEst] = useState({ exibida: face, fase: "repouso", d: 0 });
+  const alvoRef = useRef(face);
+  const exibidaRef = useRef(face);
+  const busyRef = useRef(false);
+  const timersRef = useRef([]);
+  const ir = () => {
+    const alvo = alvoRef.current;
+    if (alvo === exibidaRef.current) return;
+    const d = flipDuracaoMs(prefereMovimentoReduzido(window));
+    if (d.total === 0) {
+      exibidaRef.current = alvo;
+      setEst({ exibida: alvo, fase: "repouso", d: 0 });
+      return;
+    }
+    busyRef.current = true;
+    setEst((s) => ({ ...s, fase: "saida", d: d.saida }));
+    timersRef.current.push(setTimeout(() => {
+      exibidaRef.current = alvoRef.current;
+      setEst({ exibida: alvoRef.current, fase: "entrada", d: d.entrada });
+      timersRef.current.push(setTimeout(() => {
+        busyRef.current = false;
+        setEst((s) => ({ ...s, fase: "repouso" }));
+        ir();
+      }, d.entrada));
+    }, d.saida));
+  };
+  useEffect(() => {
+    alvoRef.current = face;
+    if (!busyRef.current) ir();
+  }, [face]);
+  useEffect(() => () => { timersRef.current.forEach(clearTimeout); }, []);
+  const anim = est.fase === "saida" ? `borisFlipOut ${est.d}ms ease-in forwards` : est.fase === "entrada" ? `borisFlipIn ${est.d}ms ease-out forwards` : "none";
+  return (
+    <div style={{ perspective: "1100px" }} aria-live="polite" aria-busy={est.fase !== "repouso"}>
+      <style>{"@keyframes borisFlipOut{from{transform:rotateY(0deg)}to{transform:rotateY(90deg)}}@keyframes borisFlipIn{from{transform:rotateY(-90deg)}to{transform:rotateY(0deg)}}"}</style>
+      <div style={{ animation: anim, backfaceVisibility: "hidden" }}>{render(est.exibida)}</div>
+    </div>
+  );
+}
+
+function FaceAcao({ p, leitura, data, total, modo, comprasAberto, onCompras, onEditarPlano, mostrarPlano, simples }) {
+  const L = leitura || {};
+  const rotulo = { fontSize: TIPO_CARD.rotulo, fontWeight: 400, color: T.textSecondary };
+  const valor = { fontFamily: MONO, fontSize: TIPO_CARD.corpo, fontWeight: 700, color: T.textPrimary, fontVariantNumeric: "tabular-nums" };
+  const linha = (k, rot, val) => (
+    <div key={k} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: `${SP[2]}px`, minHeight: 44, borderTop: `1px solid ${T.borderSubtle}` }}>
+      <span style={rotulo}>{rot}</span>
+      {val}
+    </div>
+  );
+  const btnDefinir = (
+    <button type="button" onClick={onEditarPlano} style={{ background: "transparent", border: "none", minHeight: 44, padding: 0, color: T.accent, fontSize: TIPO_CARD.corpo, fontWeight: 700 }}>
+      {cartaoPosicaoTxt(modo, "falta_definir")}
+    </button>
+  );
+  const dias = daysSince(openedAt(data.history, p.t, p));
+  const pctCap = pctDoCapital(p.qty, L.preco, total);
+  const se = p.setupEntrada;
+  const gat = L.gatilhoStatus === "valido" ? ["gatilho_valido", T.positive] : L.gatilhoStatus === "invalidado" ? ["gatilho_invalidado", T.negative] : null;
+  const cps = comprasDaPosicao(data.history, p.t);
+  const idCompras = "compras-" + p.t;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: `${SP[3]}px` }}>
+      {mostrarPlano ? (
+        <div style={{ background: T.bgBase, border: `1px solid ${T.borderSubtle}`, borderRadius: "10px", padding: `${SP[2]}px ${SP[3]}px`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: `${SP[2]}px`, flexWrap: "wrap" }}>
+          <span style={{ fontSize: TIPO_CARD.rotulo, fontWeight: 700, color: T.textSecondary }}>{cartaoPosicaoTxt(modo, "plano_titulo")}</span>
+          <button type="button" onClick={onEditarPlano} style={{ background: "transparent", border: "none", minHeight: 44, padding: 0, color: T.textPrimary, fontSize: TIPO_CARD.corpo, fontWeight: 700 }}>{cartaoPosicaoTxt(modo, "editar_plano")}</button>
+        </div>
+      ) : (p.stop != null && p.alvo != null) ? (
+        <button type="button" onClick={onEditarPlano} style={{ background: "transparent", border: `1px solid ${T.borderSubtle}`, borderRadius: "10px", minHeight: 44, color: T.textPrimary, fontSize: TIPO_CARD.corpo, fontWeight: 700 }}>{cartaoPosicaoTxt(modo, "editar_plano")}</button>
+      ) : null}
+
+      <div>
+        {L.rr != null && linha("rr", cartaoPosicaoTxt(modo, "rr_atual"), <span style={valor}>{nf2.format(L.rr)}</span>)}
+        {linha("stop", "Stop", p.stop != null ? <span style={{ ...valor, color: T.negative }}>R$ {price(p.stop)}</span> : btnDefinir)}
+        {linha("alvo", "Alvo", p.alvo != null ? <span style={{ ...valor, color: T.positive }}>R$ {price(p.alvo)}</span> : btnDefinir)}
+        {linha("dias", cartaoPosicaoTxt(modo, "em_operacao"), <span style={valor}>{dias == null ? "—" : dias === 0 ? "hoje" : dias + (dias > 1 ? " dias" : " dia")}</span>)}
+        {pctCap != null && linha("cap", cartaoPosicaoTxt(modo, "do_capital"), <span style={valor}>{pctCap.toFixed(1).replace(".", ",")}%</span>)}
+        {simples && L.preco != null && linha("cot", cartaoPosicaoTxt(modo, "cotacao_atual"), <span style={valor}>R$ {price(L.preco)}</span>)}
+        {se && linha("setup", cartaoPosicaoTxt(modo, "setup_entrada"), (
+          <span style={{ ...valor, fontWeight: 400, textAlign: "right" }}>
+            <b style={{ fontWeight: 700 }}>{se.setup || "—"}</b>
+            {se.gatilho != null && <span> · R$ {price(se.gatilho)}</span>}
+            {gat && <span> · <b style={{ fontWeight: 700, color: gat[1] }}>{cartaoPosicaoTxt(modo, gat[0])}</b></span>}
+          </span>
+        ))}
+      </div>
+
+      <div style={{ borderTop: `1px solid ${T.borderSubtle}` }}>
+        {cps.length > 0 ? (
+          <>
+            <button type="button" onClick={onCompras} aria-expanded={comprasAberto} aria-controls={idCompras} style={{ display: "flex", width: "100%", justifyContent: "space-between", alignItems: "center", minHeight: 44, background: "transparent", border: "none", padding: 0, color: T.textPrimary, fontSize: TIPO_CARD.corpo, fontWeight: 700 }}>
+              <span>{cartaoPosicaoTxt(modo, "compras_titulo", { n: cps.length })}</span>
+              <span style={{ color: T.accent }}>{cartaoPosicaoTxt(modo, comprasAberto ? "ocultar" : "ver")}</span>
+            </button>
+            <div id={idCompras} hidden={!comprasAberto}>
+              {comprasAberto && (
+                <>
+                  {cps.map((h, i) => (
+                    <div key={i} style={{ display: "flex", gap: `${SP[2]}px`, minHeight: 44, alignItems: "center", borderTop: `1px solid ${T.borderSubtle}`, fontFamily: MONO, fontSize: TIPO_CARD.rotulo, fontWeight: 400, color: T.textSecondary, fontVariantNumeric: "tabular-nums" }}>
+                      <span style={{ flex: 1.2 }}>{String(h.date || "").slice(0, 10)}</span>
+                      <span style={{ flex: 1.6 }}>▲ {h.qty} × R$ {price(h.price)}</span>
+                      <span style={{ flex: 1, textAlign: "right" }}>{money(totalDaCompra(h))}</span>
+                    </div>
+                  ))}
+                  {L.notaPm && <div style={{ ...rotulo, lineHeight: 1.5, paddingTop: `${SP[2]}px` }}>{L.notaPm}</div>}
+                </>
+              )}
+            </div>
+          </>
+        ) : (
+          <div style={{ paddingTop: `${SP[2]}px` }}>
+            <div style={{ fontSize: TIPO_CARD.corpo, fontWeight: 700, color: T.textPrimary }}>{cartaoPosicaoTxt(modo, "compras_indisponivel")}</div>
+            <div style={{ ...rotulo, lineHeight: 1.5 }}>{cartaoPosicaoTxt(modo, "compras_sem_detalhe")}</div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Bloco BÓRIS IA (nos dois modos): plano por IA SEMPRE habilitado (stop/alvo
+// nunca são vetados, guardrail), Reanalisar, Histórico e a saída. A saída com 0
+// ações livres usa aria-disabled + motivo visível; o backend (store.sell) segue
+// recusando lastro (tudo-ou-nada intacto, T-46-18).
+function BlocoBorisIA({ p, data, modo, ctx, histAberto, onHist }) {
+  const nHist = ((data.analysisLog || {})[p.t] || []).length;
+  const chavePlano = p.stop == null && p.alvo == null ? "plano_ia_definir" : p.stop == null || p.alvo == null ? "plano_ia_completar" : "plano_ia_ajustar";
+  const semLivres = qtyLivre(p) === 0;
+  const idMotivo = "saida-motivo-" + p.t;
+  return (
+    <div style={{ border: `1px solid ${T.borderSubtle}`, borderRadius: "10px", padding: `${SP[3]}px`, display: "flex", flexDirection: "column", gap: `${SP[3]}px` }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: `${SP[2]}px`, flexWrap: "wrap" }}>
+        <span style={{ fontSize: TIPO_CARD.rotulo, fontWeight: 700, color: T.accent, letterSpacing: "0.06em" }}>{cartaoPosicaoTxt(modo, "kicker_ia")}</span>
+        <button type="button" onClick={onHist} aria-expanded={histAberto} style={{ background: "transparent", border: "none", minHeight: 44, padding: 0, color: T.textPrimary, fontSize: TIPO_CARD.corpo, fontWeight: 700, textDecoration: "underline" }}>
+          {cartaoPosicaoTxt(modo, "historico", { n: nHist })}
+        </button>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: `${SP[2]}px` }}>
+        <button type="button" onClick={() => ctx.openStopAlvo(p.t)} style={{ minHeight: 44, borderRadius: "10px", border: `1px solid ${T.accent}`, background: T.accent, color: T.onAccent, fontSize: TIPO_CARD.corpo, fontWeight: 700 }}>
+          {cartaoPosicaoTxt(modo, chavePlano)}
+        </button>
+        <button type="button" onClick={() => ctx.openAvaliar(p.t)} style={{ minHeight: 44, borderRadius: "10px", border: `1px solid ${T.borderSubtle}`, background: "transparent", color: T.textPrimary, fontSize: TIPO_CARD.corpo, fontWeight: 700 }}>
+          {cartaoPosicaoTxt(modo, "reanalisar")}
+        </button>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: `${SP[2]}px` }}>
+        <button
+          type="button"
+          onClick={semLivres ? undefined : () => ctx.A.openSell(p.t)}
+          aria-disabled={semLivres ? "true" : undefined}
+          aria-describedby={semLivres ? idMotivo : undefined}
+          style={{ width: "100%", minHeight: 44, borderRadius: "10px", border: `1px solid ${semLivres ? T.borderSubtle : T.negative}`, background: semLivres ? "transparent" : T.negativeTint10, color: semLivres ? T.textSecondary : T.negative, fontSize: TIPO_CARD.corpo, fontWeight: 700 }}
+        >
+          {cartaoPosicaoTxt(modo, semLivres ? "saida_sem_livres" : "saida")}
+        </button>
+        {semLivres && <div id={idMotivo} style={{ fontSize: TIPO_CARD.rotulo, fontWeight: 400, color: T.textSecondary, lineHeight: 1.5 }}>{cartaoPosicaoTxt(modo, "saida_motivo_lastro")}</div>}
+      </div>
+    </div>
+  );
+}
+
+function HistoricoAnalises({ p, data }) {
+  const log = ((data.analysisLog || {})[p.t]) || [];
+  const txt = { fontSize: TIPO_CARD.rotulo, fontWeight: 400, lineHeight: 1.5 };
+  return (
+    <div style={{ padding: `${SP[3]}px`, borderRadius: "10px", background: T.bgBase, border: `1px solid ${T.borderFaint}` }}>
+      {log.length === 0 && (
+        <div style={{ ...txt, color: T.textSecondary }}>Sem registros ainda — cada análise e cada stop/alvo aplicados ficam guardados aqui, para você comparar o que a IA leu com o que aconteceu.</div>
+      )}
+      {log.slice().reverse().map((e, i) => (
+        <div key={i} style={{ padding: `${SP[2]}px 0`, borderTop: i ? `1px solid ${T.borderFaint}` : "none", ...txt }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: `${SP[2]}px` }}>
+            <b style={{ fontWeight: 700, color: T.textPrimary }}>{e.tipo || "análise"}{e.modelo ? " · " + e.modelo : ""}</b>
+            <span style={{ color: T.textSecondary, fontFamily: MONO }}>{e.at || ""}</span>
+          </div>
+          <div style={{ color: T.textSecondary, marginTop: `${SP[1]}px` }}>
+            {e.resumo ? e.resumo + " · " : ""}{e.preco != null ? "preço R$ " + price(e.preco) : ""}{e.stop != null ? " · stop R$ " + price(e.stop) : ""}{e.alvo != null ? " · alvo R$ " + price(e.alvo) : ""}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Edição manual de stop/alvo (herdada): sair do campo VAZIO não apaga — um blur
+// sem querer (troca de app, notificação) não pode zerar a proteção da posição.
+// Limpar de propósito é a ação explícita ✕.
+function EditorStopAlvo({ p, ctx }) {
+  const A = ctx.A;
+  const campo = (chave, rotulo, valor, set) => (
+    <div style={{ display: "flex", alignItems: "center", gap: `${SP[1]}px` }}>
+      <input key={chave + "-" + p.t + "-" + (valor ?? "vazio")} type="number" step="0.01" placeholder={chave} aria-label={rotulo + " de " + p.t} defaultValue={valor ?? ""}
+        onBlur={(ev) => { const v = ev.target.value; if (v.trim() !== "") set(p.t, v); }}
+        style={{ ...field, width: "104px", minHeight: 44, fontFamily: MONO, fontSize: TIPO_CARD.corpo }} />
+      {valor != null && (
+        <button type="button" onClick={() => set(p.t, "")} aria-label={"Limpar " + chave + " de " + p.t}
+          style={{ minWidth: 44, minHeight: 44, borderRadius: "7px", border: `1px solid ${T.borderSubtle}`, background: "transparent", color: T.textSecondary, fontSize: TIPO_CARD.corpo }}>✕</button>
+      )}
+    </div>
+  );
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: `${SP[2]}px`, flexWrap: "wrap", padding: `${SP[3]}px`, borderRadius: "10px", background: T.bgBase, border: `1px solid ${T.borderFaint}` }}>
+      {campo("stop", "Stop", p.stop, A.setStop)}
+      {campo("alvo", "Alvo", p.alvo, A.setAlvo)}
+      <div style={{ fontSize: TIPO_CARD.rotulo, fontWeight: 400, color: T.textSecondary, flex: 1, minWidth: "140px", lineHeight: 1.4 }}>Sai do campo para salvar — deixar vazio não apaga; use ✕ para limpar.</div>
     </div>
   );
 }
@@ -5123,7 +5283,6 @@ function CarteiraScreen({ ctx }) {
   const [histFor, setHistFor] = useState(null);
   // FASE 3 (mock v2): edição de stop/alvo sob demanda + compras da posição
   const [editFor, setEditFor] = useState(null);
-  const [comprasOpen, setComprasOpen] = useState({});
   const { data, quotes, analysis, A, goMercado, cp, operador } = ctx;   // FASE 8B (B1)
   // Fase 45 (D-01..D-04): leitura da estrutura só para ativos com pernas abertas.
   const { leituras, atualizar: atualizarEstrutura } = useEstruturasPosicao(data, operador, ctx.escopoSeq);
@@ -5228,7 +5387,6 @@ function CarteiraScreen({ ctx }) {
       <div style={{ display: "flex", flexDirection: "column", gap: "11px" }}>
         {data.positions.map((p) => {
           const q = byQ(p.t);
-          const cur = markPrice(q, p);
           const leitura = leituras[p.t];
           const modoLeitura = estadoLeitura(comPernas.has(p.t), leitura);
           return (
@@ -5241,158 +5399,9 @@ function CarteiraScreen({ ctx }) {
             // deep link de push acima, e removê-la quebraria um caminho que
             // não é desta fase.
             <div key={p.t} id={"posicao-" + p.t} style={{ ...card, padding: `${SP[4]}px` }}>
-              {/* Fase 46 (CART6-01, D-13/D-14): card fechado v6 para TODA posição;
-                  aberto, o corpo é o detalhe da Fase 45/anterior (46-06 o
-                  reorganiza em faces Ação | Opções). */}
-              <CartaoPosicao p={p} nomeEmpresa={q && typeof q.name === "string" && q.name ? q.name : null} modoLeitura={modoLeitura} leituraEstrutura={leitura} leituraPlano={plano.leituras[p.t]} cp={cp} operador={operador} onAtualizar={() => atualizarEstrutura(p.t)}>
-              {modoLeitura === "estruturada" ? (
-                <CardPosicaoEstruturada p={p} leitura={leitura} cp={cp} operador={operador} ctx={ctx} data={data} total={total} onAtualizar={() => atualizarEstrutura(p.t)} onEditarStopAlvo={() => setEditFor(editFor === p.t ? null : p.t)} />
-              ) : (<>
-              <AvisoLiquidacao evento={eventoLiquidacaoRecente(data.history, p.t)} cp={cp} />
-              {/* FASE 3 (mock v2): a régua POSIÇÃO NO RISCO substitui as 4 células —
-                  onde o preço está entre stop e alvo, à primeira vista. */}
-              <PlanRuler
-                caption="POSIÇÃO NO RISCO"
-                marks={[p.stop != null && { v: p.stop, color: T.negative }, p.alvo != null && { v: p.alvo, color: T.positive }].filter(Boolean)}
-                cur={cur}
-                curLabel={"agora " + price(cur)}
-                legend={[
-                  { k: "STOP", v: p.stop, color: T.negative, cta: "definir ▸", sub: p.stop != null && cur > 0 ? "−" + Math.abs(((cur - p.stop) / cur) * 100).toFixed(1) + "%" : null },
-                  { k: "P. MÉDIO", v: p.avg },
-                  { k: "ALVO", v: p.alvo, color: T.positive, cta: "definir ▸", sub: p.alvo != null && cur > 0 ? "+" + Math.abs(((p.alvo - cur) / cur) * 100).toFixed(1) + "%" : null },
-                ]}
-              />
-              {(p.stop == null || p.alvo == null) && (
-                <button onClick={() => setEditFor(editFor === p.t ? null : p.t)} style={{ marginTop: "7px", background: "transparent", border: "none", padding: 0, color: T.accent, fontSize: "11px", fontWeight: 800 }}>
-                  ✎ {p.stop == null && p.alvo == null ? "definir stop e alvo" : p.stop == null ? "definir stop" : "definir alvo"}
-                </button>
-              )}
-              {/* FASE 2 (2.4): tudo que a decisão de stop/alvo/venda exige, num só lugar */}
-              {(() => {
-                const dias = daysSince(openedAt(data.history, p.t, p));
-                const rr = valorRR(p, cur);
-                const pctCap = total > 0 ? (p.qty * cur / total) * 100 : 0;
-                const se = p.setupEntrada;
-                let gatStatus = null;
-                if (se && se.invalidacao != null) {
-                  const inval = se.lado === "baixa" ? cur > se.invalidacao : cur < se.invalidacao;
-                  gatStatus = inval ? ["invalidado", T.negative] : ["válido", T.positive];
-                }
-                return (
-                  <div style={{ marginTop: "10px", padding: "9px 11px", borderRadius: "10px", background: T.bgBase, border: `1px solid ${T.borderFaint}` }}>
-                    <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", fontSize: "11px", color: T.textMuted }}>
-                      <span>{dias == null ? "—" : dias === 0 ? "aberta hoje" : dias + " dia" + (dias > 1 ? "s" : "") + " em operação"}</span>
-                      {mostraRR(p, cur) && (<span>R:R atual <b style={{ fontFamily: MONO, color: rr >= 1.5 ? T.textSecondary : T.negative }}>{rr.toFixed(2)}</b></span>)}
-                      <span><b style={{ fontFamily: MONO, color: T.textSecondary }}>{pctCap.toFixed(1)}%</b> do capital</span>
-                    </div>
-                    {se && (
-                      <div style={{ marginTop: "6px", fontSize: "11px", color: T.textMuted }}>
-                        Entrada pelo setup <b style={{ color: T.textSecondary }}>{se.setup || "—"}</b>
-                        {se.gatilho != null && <span> · gatilho R$ {price(se.gatilho)}</span>}
-                        {gatStatus && <span> · <b style={{ color: gatStatus[1] }}>{gatStatus[0]}</b></span>}
-                      </div>
-                    )}
-                    {mostraAvisoSemStop(p, modoLeitura, null) && <div style={{ marginTop: "6px", fontSize: "11px", fontWeight: 700, color: T.negative }}>⚠ Posição sem stop definido — defina pela régua acima ou peça a sugestão da IA.</div>}
-                  </div>
-                );
-              })()}
-              {/* FASE 3 (aprovado): compras que formaram a posição + memória do PM */}
-              {(() => {
-                const cps = comprasDaPosicao(data.history, p.t);
-                if (!cps.length) return null;
-                const aberto = !!comprasOpen[p.t];
-                const totV = cps.reduce((sum, h) => sum + (h.qty || 0) * (h.price || 0), 0);
-                const totQ = cps.reduce((sum, h) => sum + (h.qty || 0), 0);
-                return (
-                  <div style={{ marginTop: "9px", borderRadius: "10px", background: T.bgBase, border: `1px solid ${T.borderFaint}`, overflow: "hidden" }}>
-                    <button onClick={() => setComprasOpen((x) => ({ ...x, [p.t]: !aberto }))} aria-expanded={aberto} style={{ display: "flex", width: "100%", alignItems: "center", justifyContent: "space-between", padding: "8px 10px", background: "transparent", border: "none", color: T.textMuted, fontSize: "11.5px", fontWeight: 700 }}>
-                      <span>Compras desta posição ({cps.length})</span><span style={{ color: T.textFaint }}>{aberto ? "▴" : "▾"}</span>
-                    </button>
-                    {aberto && (
-                      <>
-                        {cps.map((h, i) => (
-                          <div key={i} style={{ display: "flex", gap: "8px", padding: "6px 10px", borderTop: `1px solid ${T.borderFaint}`, fontFamily: MONO, fontSize: "11px", color: T.textSecondary }}>
-                            <span style={{ flex: 1.3, color: T.textFaint }}>{String(h.date || "").slice(0, 10)}</span>
-                            <span style={{ flex: 1.6 }}>▲ {h.qty} × R$ {price(h.price)}</span>
-                            <span style={{ flex: 1, textAlign: "right" }}>{money((h.qty || 0) * (h.price || 0))}</span>
-                          </div>
-                        ))}
-                        <div style={{ padding: "7px 10px", borderTop: `1px solid ${T.borderFaint}`, fontSize: "10.5px", color: T.textFaint }}>
-                          Preço médio <b style={{ fontFamily: MONO, color: T.textSecondary }}>R$ {price(p.avg)}</b> = {money(totV)} ÷ {totQ} cotas (média ponderada das compras{p.qty !== totQ ? "; vendas parciais reduzem a quantidade, não o PM" : ""})
-                        </div>
-                      </>
-                    )}
-                  </div>
-                );
-              })()}
-              {/* FASE 3 (mock v2): duas ações-bloco — o resto vira linha de links */}
-              <div style={{ display: "flex", gap: "8px", marginTop: "12px" }}>
-                <button onClick={() => ctx.openStopAlvo(p.t)} aria-label={"Sugerir stop e alvo de " + p.t + " com IA"} style={{ flex: 1, minHeight: "42px", padding: "9px", borderRadius: "10px", border: `1px solid ${T.accent}`, background: T.accentTint10, color: T.accent, fontWeight: 800, fontSize: "12.5px", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
-                  <NavIcon id="evolucao" size={14} color="currentColor" /> Stop/alvo (IA)
-                </button>
-                <button onClick={() => ctx.A.openSell(p.t)} style={{ flex: 1, minHeight: "42px", padding: "9px", borderRadius: "10px", border: `1px solid ${T.negative}`, background: T.negativeTint10, color: T.negative, fontWeight: 800, fontSize: "12.5px" }}>
-                  {cp.btnVender}…
-                </button>
-              </div>
-              </>)}
-              <div style={{ display: "flex", gap: "14px", alignItems: "center", marginTop: "10px", paddingTop: "9px", borderTop: `1px solid ${T.borderFaint}` }}>
-                <button onClick={() => setEditFor(editFor === p.t ? null : p.t)} style={{ background: "transparent", border: "none", padding: "5px 0", color: editFor === p.t ? T.accent : T.textMuted, fontSize: "11.5px", fontWeight: 800 }}>✎ Editar stop/alvo</button>
-                <button onClick={() => ctx.openAvaliar(p.t)} style={{ background: "transparent", border: "none", padding: "5px 0", color: T.textMuted, fontSize: "11.5px", fontWeight: 700 }}>Reanalisar</button>
-                <button onClick={() => setHistFor(histFor === p.t ? null : p.t)} style={{ background: "transparent", border: "none", padding: "5px 0", color: histFor === p.t ? T.accent : T.textMuted, fontSize: "11.5px", fontWeight: 700, marginLeft: "auto" }}>
-                  Histórico de análises ({((data.analysisLog || {})[p.t] || []).length})
-                </button>
-              </div>
-              {/* Fase 32 (32-04): o card de proposta que morava aqui
-                  (o detalhe de opções por posição da Fase 18, NAV-02) foi
-                  removido — a proposta da posição selecionada agora vive na sub-aba
-                  Operar da aba Opções (D-04). Quem procura o detalhe de
-                  opções por posição encontra a linha de chamada única no
-                  topo desta tela (`LinhaChamadaOpcoes`, D-01, Plano 32-03). */}
-              {histFor === p.t && (
-                <div style={{ marginTop: "9px", padding: "10px 11px", borderRadius: "10px", background: T.bgBase, border: `1px solid ${T.borderFaint}` }}>
-                  {(((data.analysisLog || {})[p.t]) || []).length === 0 && (
-                    <div style={{ fontSize: "11.5px", color: T.textFaint, lineHeight: 1.5 }}>Sem registros ainda — cada análise e cada stop/alvo aplicados ficam guardados aqui, para você comparar o que a IA leu com o que aconteceu.</div>
-                  )}
-                  {(((data.analysisLog || {})[p.t]) || []).slice().reverse().map((e, i) => (
-                    <div key={i} style={{ padding: "7px 0", borderTop: i ? `1px solid ${T.borderFaint}` : "none", fontSize: "11.5px", lineHeight: 1.5 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", gap: "8px" }}>
-                        <b style={{ color: T.textSecondary }}>{e.tipo || "análise"}{e.modelo ? " · " + e.modelo : ""}</b>
-                        <span style={{ color: T.textFaint, fontFamily: MONO }}>{e.at || ""}</span>
-                      </div>
-                      <div style={{ color: T.textMuted, marginTop: "2px" }}>
-                        {e.resumo ? e.resumo + " · " : ""}{e.preco != null ? "preço R$ " + price(e.preco) : ""}{e.stop != null ? " · stop R$ " + price(e.stop) : ""}{e.alvo != null ? " · alvo R$ " + price(e.alvo) : ""}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {editFor === p.t && (
-                <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "10px", flexWrap: "wrap", padding: "10px 11px", borderRadius: "10px", background: T.bgBase, border: `1px solid ${T.borderFaint}` }}>
-                  {/* Sair do campo VAZIO não apaga mais — um blur sem querer (troca de
-                      app, notificação, interrupção) não pode zerar a proteção da posição.
-                      Limpar de propósito agora é uma ação explícita: o botão ✕. */}
-                  <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                    <input key={"stop-" + p.t + "-" + (p.stop ?? "vazio")} type="number" step="0.01" placeholder="stop" aria-label={"Stop de " + p.t} defaultValue={p.stop ?? ""}
-                      onBlur={(e) => { const v = e.target.value; if (v.trim() !== "") A.setStop(p.t, v); }}
-                      style={{ ...field, width: "92px", fontFamily: MONO, padding: "7px 9px" }} />
-                    {p.stop != null && (
-                      <button type="button" onClick={() => A.setStop(p.t, "")} aria-label={"Limpar stop de " + p.t}
-                        style={{ minWidth: "26px", minHeight: "26px", borderRadius: "7px", border: `1px solid ${T.borderFaint}`, background: "transparent", color: T.textFaint, fontSize: "12px" }}>✕</button>
-                    )}
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                    <input key={"alvo-" + p.t + "-" + (p.alvo ?? "vazio")} type="number" step="0.01" placeholder="alvo" aria-label={"Alvo de " + p.t} defaultValue={p.alvo ?? ""}
-                      onBlur={(e) => { const v = e.target.value; if (v.trim() !== "") A.setAlvo(p.t, v); }}
-                      style={{ ...field, width: "92px", fontFamily: MONO, padding: "7px 9px" }} />
-                    {p.alvo != null && (
-                      <button type="button" onClick={() => A.setAlvo(p.t, "")} aria-label={"Limpar alvo de " + p.t}
-                        style={{ minWidth: "26px", minHeight: "26px", borderRadius: "7px", border: `1px solid ${T.borderFaint}`, background: "transparent", color: T.textFaint, fontSize: "12px" }}>✕</button>
-                    )}
-                  </div>
-                  <div style={{ fontSize: "11px", color: T.textFaint, flex: 1, minWidth: "140px", lineHeight: 1.4 }}>Sai do campo para salvar — deixar vazio não apaga; use ✕ para limpar. A régua acima reflete na hora. MV <span style={{ fontFamily: MONO, color: T.textPrimary, fontWeight: 600 }}>{money(p.qty * cur)}</span></div>
-                </div>
-              )}
-              </CartaoPosicao>
+              {/* Fase 46 (CART6-01/02, D-13/D-14): card v6 para TODA posição; aberto,
+                  o corpo (faces Ação | Opções + Bóris IA) vive em CartaoPosicao. */}
+              <CartaoPosicao p={p} nomeEmpresa={q && typeof q.name === "string" && q.name ? q.name : null} modoLeitura={modoLeitura} leituraEstrutura={leitura} leituraPlano={plano.leituras[p.t]} cp={cp} operador={operador} ctx={ctx} data={data} total={total} onAtualizar={() => atualizarEstrutura(p.t)} histAberto={histFor === p.t} onHist={() => setHistFor(histFor === p.t ? null : p.t)} editAberto={editFor === p.t} onEditar={() => setEditFor(editFor === p.t ? null : p.t)} />
             </div>
           );
         })}
@@ -8454,6 +8463,7 @@ function SellModal({ ctx }) {
             <div style={{ fontSize: "16px", fontWeight: 600 }}>R$ {price(cur)}</div>
           </div>
         </div>
+        <div style={{ marginTop: "10px", fontSize: "12px", fontWeight: 400, color: T.textSecondary, lineHeight: 1.5 }}>{cartaoPosicaoTxt(ctx.operador ? "operador" : "estudo", "apoio_saida")}</div>
         <div style={{ marginTop: "18px" }}>
           <div style={{ fontSize: "12px", color: T.textMuted, marginBottom: "8px" }}>Quantidade a vender (lotes de 100)</div>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>

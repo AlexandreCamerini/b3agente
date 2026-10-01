@@ -23,7 +23,12 @@ const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if 
 // ---- (1) TravaPill: definida uma vez, RENDERIZADA em duas superfícies ------
 ok("function TravaPill definida uma única vez", (app.match(/function TravaPill\(/g) || []).length === 1);
 const usosTravaPill = (app.match(/<TravaPill /g) || []).length;
-ok("TravaPill renderizada em duas ou mais superfícies (badge x2)", usosTravaPill >= 2);
+// Fase 46 (D-15, 2026-09-30): o badge de TravaPill que vivia em CardPosicaoEstruturada
+// saiu — o card fechado v6 diz o travamento pela linha de estado (estado_travadas_*)
+// e o bloco BÓRIS IA pelo motivo da saída. Resta a superfície do Portfólio antigo
+// (>= 1); a informação de lastro agora também exige a linha de estado e o motivo.
+ok("TravaPill renderizada em ao menos uma superfície; lastro também dito por estado_travadas e saida_motivo_lastro (Fase 46)",
+  usosTravaPill >= 1 && /estado_travadas/.test(readFileSync(join(here, "..", "src", "estruturaCard.js"), "utf8")) && app.includes('"saida_motivo_lastro"'));
 
 // ---- (2) FONTE ÚNICA de qtyLivre: App.jsx IMPORTA, nunca reimplementa -----
 ok("App.jsx IMPORTA qtyLivre de ./finance.js (linha de import, não identificador solto)",
@@ -68,8 +73,13 @@ ok("nenhum botão de stop/alvo é desabilitado por qtyTravada (asserção negati
 // escopo de SYS-02, ver 22-UI-SPEC.md Out-of-scope symbols. O que este
 // guardião protege continua sendo o guardrail de produto: stop/alvo NUNCA é
 // vetado, então os dois botões existem e não têm `disabled`.
-ok("os botões de Stop/alvo (IA) e Editar stop/alvo continuam sem `disabled`",
-  app.includes("Stop/alvo (IA)") && app.includes("✎ Editar stop/alvo"));
+// Fase 46 (D-15, 2026-09-30): "Stop/alvo (IA)" virou o botão de plano do
+// BlocoBorisIA (plano_ia_*, ctx.openStopAlvo) e "Editar stop/alvo" a chave
+// editar_plano da FaceAcao; a asserção segue a mesma: existem e não têm `disabled`
+// nem aria-disabled (stop/alvo nunca vetados).
+ok("os botões de plano IA e Editar stop/alvo continuam sem `disabled`",
+  app.includes("ctx.openStopAlvo(p.t)") && app.includes('"editar_plano"') && app.includes('"plano_ia_definir"')
+  && !/openStopAlvo\(p\.t\)\}[^>]*(aria-)?disabled/.test(app));
 
 // ---- (6) Patrimônio: TODAS as chamadas de portfolioMetrics passam optionPositions
 const chamadas = (app.match(/portfolioMetrics\([^)]*\)/g) || []);
