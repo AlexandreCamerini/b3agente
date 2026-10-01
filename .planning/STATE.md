@@ -5,7 +5,7 @@ milestone_name: Estruturas de opções na carteira
 status: phase_46_executing
 stopped_at: 'Fase 45 concluída em código (2026-09-30): 5 planos, verificação human_needed sem gaps, code review 0 críticos com WR-01..06 corrigidos, suíte canônica verde (pytest 3136 passed). Pendente: validação em aparelho com backend da Fase 44 em produção; promoção v2 → main e deploy manual (decisão do Alex, nada enviado). Próximo: /gsd-discuss-phase 46 (Didática).'
 last_updated: "2026-09-30T00:00:00.000Z"
-last_activity: 2026-10-01 -- Fase 46 em execução — ondas 1-5/7 concluídas (46-01..06; 6/8 planos); 4 guardiões reconciliados pós-46-06; próxima onda 6 (46-07)
+last_activity: 2026-10-01 -- Fase 46 em execução — ondas 1-6/7 concluídas (46-01..07; 7/8 planos), suíte canônica verde; próxima onda 7 (46-08)
 progress:
   total_phases: 3
   completed_phases: 2
