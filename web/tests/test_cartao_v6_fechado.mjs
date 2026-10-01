@@ -28,14 +28,17 @@ const estado = semCom(functionBody("LinhaEstadoV6"));
 const cartao = semCom(functionBody("CartaoPosicao"));
 const hook = semCom(functionBody("useLeiturasPlano"));
 const tela = semCom(functionBody("CarteiraScreen"));
-const novos = [regua, faixa, estado, cartao, hook].join("\n");
+const linhasRes = semCom(functionBody("LinhasResultadoV6"));
+const chipsMeta = semCom(functionBody("ChipsMetaV6"));
+const cadeado = semCom(functionBody("IconeCadeado"));
+const novos = [regua, faixa, estado, cartao, hook, linhasRes, chipsMeta, cadeado].join("\n");
 
 // --- existência e ordem (D-14: antes de LinhaChamadaOpcoes) -----------------
 const idx = (n) => src.indexOf(`function ${n}(`);
-for (const n of ["useLeiturasPlano", "ReguaPlano", "FaixaVencimento", "LinhaEstadoV6", "CartaoPosicao"]) {
+for (const n of ["useLeiturasPlano", "ReguaPlano", "FaixaVencimento", "LinhaEstadoV6", "CartaoPosicao", "LinhasResultadoV6", "ChipsMetaV6", "IconeCadeado"]) {
   ok(`${n} existe`, idx(n) > 0);
 }
-for (const n of ["ReguaPlano", "FaixaVencimento", "LinhaEstadoV6", "CartaoPosicao"]) {
+for (const n of ["ReguaPlano", "FaixaVencimento", "LinhaEstadoV6", "CartaoPosicao", "LinhasResultadoV6", "ChipsMetaV6", "IconeCadeado"]) {
   ok(`${n} fica antes de LinhaChamadaOpcoes`, idx(n) > 0 && idx(n) < idx("LinhaChamadaOpcoes"));
 }
 
@@ -69,6 +72,24 @@ ok("sem dangerouslySetInnerHTML na fatia nova", !/dangerouslySetInnerHTML/.test(
 ok("sem toFixed/Math.round em campo financeiro nos componentes", !/\.toFixed\(|Math\.round\(/.test([regua, faixa, estado, cartao].join("\n")));
 const aritmetica = /\b(preco|resultado|be|stop|alvo|avg|distStopPct|distAlvoPct)\s*[-+*/]\s*[\w(]/;
 ok("sem aritmética (+ - * /) sobre campo financeiro", !aritmetica.test([regua, faixa, estado, cartao, hook].join("\n").replace(/"[^"\n]*"/g, '""')));
+
+// --- 46-UAT (2026-10-01, G-01..G-05): cabeçalho que nunca quebra, linhas rótulo/valor, um estado ---
+const cab = cartao.slice(cartao.indexOf("const txtValor"), cartao.indexOf("<LinhasResultadoV6"));
+ok("G-05 coluna do resultado flex 0 0 auto + nowrap", /flex: "0 0 auto", whiteSpace: "nowrap"/.test(cab));
+ok("G-05 coluna do ticker minWidth 0 + flex 1 1 auto", /minWidth: 0, flex: "1 1 auto"/.test(cab));
+ok("G-05 nome com overflowWrap anywhere", /overflowWrap: "anywhere"/.test(cab));
+ok("G-05 cabeçalho flexWrap nowrap", /flexWrap: "nowrap"/.test(cab));
+ok("G-05 valor com fonteValorCabecalho e letterSpacing -0.3px", /fonteValorCabecalho\(/.test(cab) && /letterSpacing: "-0\.3px"/.test(cab));
+ok("G-02 valores das linhas nowrap + flex 0 0 auto", (linhasRes.match(/flex: "0 0 auto", whiteSpace: "nowrap"/g) || []).length >= 2);
+ok("G-05 sem 'R$ ' (espaço comum) nem money(/moneySigned( em CartaoPosicao e LinhasResultadoV6", !/R\$ /.test(cartao + linhasRes) && !/\bmoney(Signed)?\(/.test(cartao + linhasRes));
+ok("G-01 sem 'Parcial' nem 'indisp.' no cartão", !/Parcial|indisp\./.test(cartao));
+ok("G-03 LinhaEstadoV6 não mapeia extras", !/extras\.map/.test(estado));
+ok("G-04 chips pill 999px com flexWrap wrap", /borderRadius: "999px"/.test(chipsMeta) && /flexWrap: "wrap"/.test(chipsMeta));
+{
+  const { rsSinalNbsp, fonteValorCabecalho } = await import("../src/estruturaCard.js");
+  const t = rsSinalNbsp(-1234567.89);
+  ok("G-05 pior caso: sem espaço comum, com NBSP (u00A0) e fonte 14px", !/ /.test(t) && t.includes("\u00A0") && fonteValorCabecalho(t) === "14px");
+}
 
 // --- fiação ----------------------------------------------------------------
 ok("hook chama store.carteiraLeitura uma vez", (src.match(/store\.carteiraLeitura/g) || []).length === 1);

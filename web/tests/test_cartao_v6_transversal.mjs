@@ -47,10 +47,13 @@ ok("zero markPrice( e optionsCalc (números de opções vêm do backend, D-02)",
 // ---- tipografia -------------------------------------------------------------
 {
   const pesos = [...alvo.matchAll(/fontWeight:\s*([^,}]+)/g)].map((m) => m[1].trim());
-  const ruins = pesos.filter((p) => p !== "400" && p !== "700");
+  // 46-UAT (2026-10-01, G-02): a linha Estrutura usa o ternário `l.total ? 700 : 400` (só 400/700, mesma escala).
+  const ruins = pesos.filter((p) => p !== "400" && p !== "700" && p !== "l.total ? 700 : 400");
   ok(`fontWeight só 400/700 (${pesos.length} usos)`, pesos.length > 0 && ruins.length === 0);
   const tam = [...alvo.matchAll(/fontSize:\s*([^,}]+)/g)].map((m) => m[1].trim());
-  const okTam = (t) => /^TIPO_CARD\.(titulo|corpo|rotulo)$/.test(t) || ["12", "14", "20", '"12px"', '"14px"', '"20px"'].includes(t);
+  // 46-UAT G-01/G-04/G-05: 21/11/11.5 px (TIPO_CARD.valor|legenda|chip), redução determinística do valor
+  // (fonteValorCabecalho) e o ternário corpo/rótulo da linha Estrutura, aprovados pelo Alex.
+  const okTam = (t) => /^TIPO_CARD\.(titulo|corpo|rotulo|valor|legenda|chip)$/.test(t) || t === "fonteValorCabecalho(txtValor)" || t === "l.total ? TIPO_CARD.corpo : TIPO_CARD.rotulo" || ["12", "14", "20", '"12px"', '"14px"', '"20px"'].includes(t);
   const ruinsT = tam.filter((t) => !okTam(t));
   if (ruinsT.length) console.log("  fontSize fora da escala:", ruinsT.join(" | "));
   ok(`fontSize só 12/14/20 (${tam.length} usos)`, tam.length > 0 && ruinsT.length === 0);

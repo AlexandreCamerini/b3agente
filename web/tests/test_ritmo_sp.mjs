@@ -144,7 +144,8 @@ ok("recorte do AtivoCard não é vazio (recorte vazio é falha, nunca pass silen
 // Fase 46 (46-08, 2026-10-01, D-14/D-17): componentes do card v6 entram na
 // varredura (extensão, nada removido). Exceções nomeadas da UI-SPEC já cabem
 // no detector (padding "0" / `0 ${SP[1]}px`); px solto continua reprovado.
-const componentesV6 = ["ReguaPlano", "FaixaVencimento", "LinhaEstadoV6", "CartaoPosicao", "SeletorFace",
+// 46-UAT (2026-10-01): + LinhasResultadoV6, ChipsMetaV6 (IconeCadeado fica fora: corpo < 200 caracteres).
+const componentesV6 = ["ReguaPlano", "FaixaVencimento", "LinhaEstadoV6", "CartaoPosicao", "LinhasResultadoV6", "ChipsMetaV6", "SeletorFace",
   "AreaFlip", "FaceAcao", "BlocoBorisIA", "SimuladorEstudo", "TermosTocaveis", "PayoffOperador", "GradeConta"]
   .map((n) => [n, functionBody(n) || ""]);
 for (const [n, corpo] of componentesV6) ok(`recorte ${n} (card v6) não é vazio`, corpo.length > 200);

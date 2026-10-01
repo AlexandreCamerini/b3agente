@@ -75,7 +75,10 @@ ok("hook (code review WR-02): uma só fila por instância (criarFilaLeituras 1x)
   // Fase 46 (D-15, 2026-09-30): o chip de estratégia subiu para a linha de meta do card fechado
   // (CartaoPosicao); mesma regra: sem nomeTexto cai no texto genérico, nunca "null".
   const cf = limpo(functionBody("CartaoPosicao"));
-  ok("chip (code review WR-06): nome sem nomeTexto cai no genérico (agora na meta de CartaoPosicao)", /e\.nomeTexto \|\| "estratégia não classificada"/.test(cf) && !/e\.nome && e\.nomeTexto/.test(c));
+  // 46-UAT (2026-10-01, G-04): a meta virou chips; chipsMetaV6 (estruturaCard.js) cai em chip_estrategia_generica
+  // sem nomeTexto e CartaoPosicao monta <ChipsMetaV6 (nunca "null").
+  const ecSrc = readFileSync(new URL("../src/estruturaCard.js", import.meta.url), "utf8");
+  ok("chip (code review WR-06): nome sem nomeTexto cai no genérico (agora na meta de CartaoPosicao)", /chip_estrategia_generica/.test(ecSrc) && /<ChipsMetaV6/.test(cf) && !/e\.nome && e\.nomeTexto/.test(c));
   ok("régua (code review WR-06): aria-label com fallback quando nomeTexto é nulo", /cp\.estruturaFaixaAria\(e\.nomeTexto \|\| cp\.estruturaGrupoAria,/.test(r));
 }
 
@@ -189,7 +192,10 @@ ok("botões definir stop/alvo nunca desabilitados", !/onEditarStopAlvo[^\n]*disa
   // Fase 46 (D-15, 2026-09-30): o resultado total subiu para o card fechado: sem total do motor mostra "Parcial"
   // (nunca soma parcial como se fosse total).
   const cf = limpo(functionBody("CartaoPosicao"));
-  ok("resultado total do card fechado: r.total != null senão 'Parcial'", /r && r\.total != null/.test(cf) && /Parcial/.test(cf) && !/<ReguaFaixa/.test(card));
+  // 46-UAT (2026-10-01, G-01): sem total o card mostra "—" + chip "total suspenso" (res.cabecalho.suspenso),
+  // nunca soma parcial nem a palavra "Parcial"; linhasResultadoV6 lê resultado.total.
+  const ecSrc2 = readFileSync(new URL("../src/estruturaCard.js", import.meta.url), "utf8");
+  ok("resultado total do card fechado: r.total != null senão 'Parcial'", /res\.cabecalho\.suspenso/.test(cf) && /"chip_total_suspenso"/.test(cf) && !/Parcial/.test(cf) && /numOk\(r\.total\)/.test(ecSrc2) && !/<ReguaFaixa/.test(card));
 }
 
 // --- pós-teste local (correção 2): rótulo "hoje" não vaza do card ----------
@@ -226,7 +232,8 @@ ok("botões definir stop/alvo nunca desabilitados", !/onEditarStopAlvo[^\n]*disa
   ok("numDe/corDe usam sinalResultado (zero neutro)", /const corDe[^\n]*sinalResultado\(v\) === "zero"[^\n]*T\.textMuted/.test(card) && /const numDe[^\n]*sinalResultado\(v\) === "zero"/.test(card));
   // Fase 46 (D-15, 2026-09-30): o total do resultado é desenhado em CartaoPosicao (numDe local).
   const cf2 = limpo(functionBody("CartaoPosicao"));
-  ok("total do resultado passa por numDe (não moneySigned direto)", /numDe\(r\.total, "—"\)/.test(cf2) && !/moneySigned\(r\.total\)/.test(cf2));
+  // 46-UAT (2026-10-01, G-05): o total passa por rsSinalNbsp (zero neutro, NBSP), nunca moneySigned/money.
+  ok("total do resultado passa por numDe (não moneySigned direto)", /rsSinalNbsp\(/.test(cf2) && !/moneySigned\(/.test(cf2));
   ok("moneySigned global mantém '+R$ ' para n >= 0", /const moneySigned = \(n\) => .*"\+R\$ "/.test(src));
 }
 
