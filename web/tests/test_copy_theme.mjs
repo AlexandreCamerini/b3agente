@@ -188,7 +188,10 @@ ok("R2: defaults da skill de mesa nos dois lados",
 // Fase 3 (rebranding Boris+): valores retunados pra família da marca — ver
 // comentário de MODE_OPERADOR em App.jsx.
 // (v2: o vermelho/rosa da marca também virou constante — BRAND.red.)
-ok("R3: card do Operador (#141926) e negativo (vermelho da marca)", app.includes('bgCard: "#141926"') && /negative: (BRAND\.red|"#f26d6d")/.test(app));
+// 2026-10-01, opção C de identidade de modo: o bgCard do Operador escuro
+// passou de #141926 (frio) para #1e1a12 (matiz âmbar, aprovado pelo Alex no
+// protótipo Modos.dc.html); a asserção foi atualizada, não removida.
+ok("R3: card do Operador (#1e1a12) e negativo (vermelho da marca)", app.includes('bgCard: "#1e1a12"') && /negative: (BRAND\.red|"#f26d6d")/.test(app));
 // FIX-C16 (REPORT-01, Fase 4): textFaint do Operador escuro subiu de
 // luminosidade — o hex antigo reprovava AA (3,20-3,56:1); ver
 // test_brand_book_v2_tokens.mjs seção 5 para a auditoria completa.

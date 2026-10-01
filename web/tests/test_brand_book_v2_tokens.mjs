@@ -98,10 +98,16 @@ ok("BRAND.red (venda) é #f26d6d", BRAND.red === "#f26d6d");
 // contra o bgBase que a auditoria original mediu). C-16 os substitui pelo
 // mesmo tom com luminosidade ajustada, mesma metodologia que a seção 3 deste
 // arquivo já usa para justificar o dourado claro #8a6c1c.
+// 2026-10-01, opção C: neutros com matiz por modo; v2 literal substituído por
+// decisão do Alex (protótipo Modos.dc.html). Estudo escuro/claro passam a azul
+// (#0c1424/#111a2f/#15203a/#26345a e #eaf1fc/#f3f7fd/#ffffff/#cfdbf0); textFaint
+// escuro #7f86a2 -> #8189a5 (4,49:1 sobre o novo card reprovava). Valores
+// antigos: dark #10121a/#161927/#1b1f2e/#2c3245, light #f7f8fc/#eef0f7/#ffffff/
+// #e2e5f0. Guardião completo dos 4 esquemas: test_contraste_tokens.mjs.
 const NEUTROS = {
-  dark: { bgBase: "#10121a", bgPanel: "#161927", bgCard: "#1b1f2e", borderSubtle: "#2c3245",
-          textPrimary: "#eef1f8", textMuted: "#9aa3bd", textFaint: "#7f86a2" },
-  light: { bgBase: "#f7f8fc", bgPanel: "#eef0f7", bgCard: "#ffffff", borderSubtle: "#e2e5f0",
+  dark: { bgBase: "#0c1424", bgPanel: "#111a2f", bgCard: "#15203a", borderSubtle: "#26345a",
+          textPrimary: "#eef1f8", textMuted: "#9aa3bd", textFaint: "#8189a5" },
+  light: { bgBase: "#eaf1fc", bgPanel: "#f3f7fd", bgCard: "#ffffff", borderSubtle: "#cfdbf0",
            textPrimary: "#10121a", textMuted: "#5b6178", textFaint: "#666c85" },
 };
 for (const tema of ["dark", "light"]) {
@@ -117,9 +123,12 @@ for (const tema of ["dark", "light"]) {
 // 4,03:1 e reprovava AA; #8a6c1c é o mesmo tom um degrau mais escuro) — a
 // checagem de contraste da seção 5 é quem justifica e defende esse desvio.
 ok("acento do Estudo no escuro é o azul-esverdeado #2fa8a0", estudo.dark.accent === "#2fa8a0");
-ok("acento do Estudo no claro é o azul-esverdeado #1f7d76", estudo.light.accent === "#1f7d76");
+// 2026-10-01, opção C: acentos claros um degrau mais escuros para as novas
+// bases (accent sobre accentTint10 mediria 4,33:1/4,36:1 com os hex antigos
+// #1f7d76/#8a6c1c): Estudo #1c746d, Operador #7f6318 — mesma matiz.
+ok("acento do Estudo no claro é o azul-esverdeado #1c746d", estudo.light.accent === "#1c746d");
 ok("acento do Operador no escuro é o dourado #d4af37", operador.dark.accent === "#d4af37");
-ok("acento do Operador no claro é o dourado #8a6c1c", operador.light.accent === "#8a6c1c");
+ok("acento do Operador no claro é o dourado #7f6318", operador.light.accent === "#7f6318");
 ok("Estudo e Operador têm acentos DIFERENTES no escuro", estudo.dark.accent !== operador.dark.accent);
 ok("Estudo e Operador têm acentos DIFERENTES no claro", estudo.light.accent !== operador.light.accent);
 ok("o âmbar da marca NÃO é acento de nenhum modo (v2 reserva pra marca)",
