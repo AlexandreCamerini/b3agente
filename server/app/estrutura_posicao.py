@@ -31,13 +31,16 @@ Decisões (44-CONTEXT):
   nunca some. `encerrar` exige `lastPrice` numérico > 0 porque é o preço que
   `options_lastreada_fechar` (main.py) executa; permitir um encerramento que
   a rota recusaria seria afirmar algo falso.
+- Fase 46 (D-01/D-04): `ler_estrutura` ganha as chaves ADITIVAS `cenarios` e
+  `didatica` (motor puro `cartao_posicao`, sobre a MESMA `entrada` do payoff);
+  nenhuma chave anterior muda. Falha no cálculo → ambas None.
 """
 from __future__ import annotations
 
 import datetime as _dt
 from typing import Any, Optional
 
-from . import options_quant, opcoes_payoff, skill_ref
+from . import cartao_posicao, options_quant, opcoes_payoff, skill_ref
 
 _CALL, _PUT = "CALL", "PUT"
 
@@ -160,18 +163,18 @@ def _liquidez(contrato: Optional[dict]) -> Optional[dict]:
 
 
 def _faixa(pernas, acoes, nome, underlying, modo):
-    """(faixa|None, motivo|None, motivoTexto|None, descoberta, descobertaTexto)."""
+    """(faixa|None, motivo|None, motivoTexto|None, descoberta, descobertaTexto, entrada|None)."""
     t = lambda k, **d: skill_ref.estrutura_posicao_txt(modo, k, **d)  # noqa: E731
     if nome is None:
-        return None, "fora_da_biblioteca", t("nome_fora_da_biblioteca"), False, None
+        return None, "fora_da_biblioteca", t("nome_fora_da_biblioteca"), False, None, None
     if acoes is None:
-        return None, "sem_acoes", t("faixa_sem_acoes", ticker=underlying), False, None
+        return None, "sem_acoes", t("faixa_sem_acoes", ticker=underlying), False, None, None
     s = acoes["quantidade"]
     q_call = sum(p["quantidade"] or 0 for p in pernas if p["tipo"] == _CALL)
     q_put = sum(p["quantidade"] or 0 for p in pernas if p["tipo"] == _PUT)
     if q_call > s:
         txt = t("faixa_perna_sem_lastro", quantidade=skill_ref.num_br_inteiro(q_call - s))
-        return None, "perna_vendida_sem_lastro", txt, True, txt
+        return None, "perna_vendida_sem_lastro", txt, True, txt, None
     # WR-03: `descoberta` (put excedente) é fato das quantidades, independe de
     # vencimento/dados de preço — calculada antes e devolvida em todo retorno.
     base = min(s, max(q_call, q_put))
@@ -186,11 +189,11 @@ def _faixa(pernas, acoes, nome, underlying, modo):
         ordem = sorted(divergem, key=str)
         txt = t("faixa_vencimentos_diferentes", vencimentos=" e ".join(
             _br(v) if isinstance(v, _dt.date) else str(v) for v in ordem))
-        return None, "vencimentos_diferentes", txt, descoberta, desc_txt
+        return None, "vencimentos_diferentes", txt, descoberta, desc_txt, None
     pm = acoes["precoMedio"]
     if pm is None or any(p["strike"] is None or p["quantidade"] is None
                          or p["premioEntrada"] is None for p in pernas):
-        return None, "dados_insuficientes", t("faixa_dados_insuficientes"), descoberta, desc_txt
+        return None, "dados_insuficientes", t("faixa_dados_insuficientes"), descoberta, desc_txt, None
     entrada = [{"tipo": "ACAO", "lado": "compra", "strike": 0, "premio": pm, "quantidade": base}]
     for p in pernas:
         entrada.append({
@@ -201,7 +204,7 @@ def _faixa(pernas, acoes, nome, underlying, modo):
     try:
         perfil = opcoes_payoff.perfil_da_estrutura(entrada)
     except ValueError:
-        return None, "dados_insuficientes", t("faixa_dados_insuficientes"), descoberta, desc_txt
+        return None, "dados_insuficientes", t("faixa_dados_insuficientes"), descoberta, desc_txt, None
     puts = [p["strike"] for p in pernas if p["tipo"] == _PUT and p["lado"] == "compra"]
     calls = [p["strike"] for p in pernas if p["tipo"] == _CALL and p["lado"] == "venda"]
     piso, teto = (max(puts) if puts else None), (min(calls) if calls else None)
@@ -234,7 +237,7 @@ def _faixa(pernas, acoes, nome, underlying, modo):
     faixa = {"piso": piso, "teto": teto, "perdaMaxima": perda, "ganhoMaximo": ganho,
              "breakevens": [round(b, 2) for b in perfil["breakevens"]],
              "qtdBase": base, "qtdPut": qtd_put, "textos": textos}
-    return faixa, None, None, descoberta, desc_txt
+    return faixa, None, None, descoberta, desc_txt, entrada
 
 
 def _encerrar_perna(p: dict, modo: str) -> dict:
@@ -372,9 +375,21 @@ def ler_estrutura(option_positions, underlying, posicao, spot, contratos_por_id,
         "liquidez": p["liquidez"], "encerrar": _encerrar_perna(p, modo),
     } for p in pernas]
 
-    faixa, motivo_faixa, motivo_faixa_txt, descoberta, descoberta_txt = _faixa(
+    faixa, motivo_faixa, motivo_faixa_txt, descoberta, descoberta_txt, entrada_payoff = _faixa(
         pernas, acoes, nome, underlying, modo)
     estado = _estado(pernas, spot, hoje, modo)
+
+    # Fase 46, D-01: cenários/didática do card v6. Falha aqui nunca derruba a
+    # estrutura (princípio 4) — cai para None e o resto do payload segue igual.
+    # `modo` chega como "estudo"/"operador"; o motor do card fala "educacional".
+    try:
+        modo_card = "operador" if modo == "operador" else "educacional"
+        cenarios = cartao_posicao.cenarios_da_estrutura(
+            entrada_payoff, faixa, nome, spot, estado["referencia"], underlying, modo_card)
+        didatica = cartao_posicao.didatica_estrutura(
+            nome, faixa, entrada_payoff, cenarios, acoes, saida_pernas, underlying, modo_card)
+    except Exception:
+        cenarios = didatica = None
 
     # --- eixo aberta_sem_proposta (D-07) ---
     motivo_sp = None
@@ -434,4 +449,7 @@ def ler_estrutura(option_positions, underlying, posicao, spot, contratos_por_id,
             modo, "stop_protegida", piso=skill_ref.num_br(piso))
             if piso is not None and acoes and faixa["qtdPut"] >= acoes["quantidade"] else None),
         "incompleto": incompleto,
+        # Fase 46, contrato aditivo
+        "cenarios": cenarios,
+        "didatica": didatica,
     }
