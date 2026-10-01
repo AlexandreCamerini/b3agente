@@ -56,7 +56,7 @@ Todo cálculo é do motor determinístico (princípio 5); nada estimado.
   protetora"/"abate o custo" ausente (usar "collar").
   > Reversão deliberada (Fase 45, D-11, 2026-09-29): put de proteção NÃO trava ações (put comprada não soma em qtyTravada), então a pill vermelha `badgeTravada` aparece só onde há call vendida; no collar usa `badge_travada_collar`. A put de proteção é coberta pelo chip neutro de estrutura.
 
-### Didática (Fase 46)
+### Didática (Fase 47)
 
 - [ ] **DIDA-01**: A KB ganha verbete "expectativa matemática × taxa de acerto
   (vantagem estatística)" em `kb.py`/`conceitos.py`, sem promessa de
@@ -85,4 +85,4 @@ Todo cálculo é do motor determinístico (princípio 5); nada estimado.
 |-------------|-------|--------|
 | ESTR-01..06 | 44 | Complete |
 | CARD-01..06 | 45 | Complete (código verificado; validação em aparelho com backend da Fase 44 em produção pendente — ver 45-VERIFICATION.md) |
-| DIDA-01..02 | 46 | Pending |
+| DIDA-01..02 | 47 | Pending |

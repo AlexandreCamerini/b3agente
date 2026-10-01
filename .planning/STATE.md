@@ -34,7 +34,7 @@ Decisões do Alex (2026-09-29): régua de faixa mantida; pernas sempre visíveis
 Pendências fora de milestone: build iOS/TestFlight (ação do Alex); quick task
   avulsa (textos de vazio sem consumidor + "amostra insuficiente" com janela
   e n); quick 260928-u0h e entrega ainda sem push (confirmar com o Alex).
-Next: Fase 46 (Didática, DIDA-01..02): `/clear` e `/gsd-discuss-phase 46`. Antes, decisão do Alex: promover `v2/interacao-estrutural` → `main` e deploy manual do backend (produção ainda `F10-20260927-03`, sem a rota `estrutura`); o merge local `ae3d11b4` em `main` não foi enviado e não contém as correções pós-teste/review. Dívida da 45: IN-02..07 do 45-REVIEW.md, TravaPill legado (AA 4,18 no claro), ask × último negócio, Encerrar só recompra a call.
+Next (2026-09-30): Fase 46 (Carteira v6 — card com modos Estudo/Operador, todo cálculo no backend; protótipo: ver ROADMAP, Fase 46) entra antes da Didática, que foi renumerada para Fase 47 (DIDA-01..02). 45 promovida e validada pelo Alex. Dívida da 45: IN-02..07 do 45-REVIEW.md, TravaPill legado (AA 4,18 no claro), ask × último negócio, Encerrar só recompra a call.
 
 ## Quick Tasks Completed
 

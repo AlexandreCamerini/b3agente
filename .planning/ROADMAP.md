@@ -12,7 +12,7 @@
 - ✅ **v1.7 Confiabilidade explicativa da aba Opções** — Phases 35-37 (shipped 2026-09-22) — [detalhes](milestones/v1.7-ROADMAP.md)
 - ✅ **v1.8 Didática ampliada + continuidade da aba Opções** — Phases 38-41 (shipped 2026-09-25) — [detalhes](milestones/v1.8-ROADMAP.md)
 - ✅ **v1.9 Jornada de Decisão** — Phases 42-43 (shipped 2026-09-27) — [detalhes](milestones/v1.9-ROADMAP.md)
-- 🚧 **v2.0 Estruturas de opções na carteira** — Phases 44-46 (iniciada 2026-09-29)
+- 🚧 **v2.0 Estruturas de opções na carteira** — Phases 44-47 (iniciada 2026-09-29)
 
 ## Phases
 
@@ -315,13 +315,14 @@ em 2026-09-25 — ver [milestones/v1.8-ROADMAP.md](milestones/v1.8-ROADMAP.md).
 v1.9 Jornada de Decisão (Phases 42-43) shipped em 2026-09-27 — ver
 [milestones/v1.9-ROADMAP.md](milestones/v1.9-ROADMAP.md).
 
-## v2.0 Estruturas de opções na carteira (Phases 44-46) — EM ANDAMENTO
+## v2.0 Estruturas de opções na carteira (Phases 44-47) — EM ANDAMENTO
 
 Requirements: `.planning/REQUIREMENTS.md`. Mock: https://claude.ai/artifact/JEpy5VmkoddNTHyVYnYWZc
 
 - [x] Phase 44: Motor — estrutura por ativo (ESTR-01..06)
 - [x] Phase 45: Card de posição estruturada (CARD-01..06) — concluída em código 2026-09-30; validação em aparelho pendente (backend da Fase 44 ainda não em produção)
-- [ ] Phase 46: Didática — expectativa matemática × taxa de acerto (DIDA-01..02)
+- [ ] Phase 46: Carteira v6 — card de posição com modos Estudo e Operador (requisitos a definir no discuss)
+- [ ] Phase 47: Didática — expectativa matemática × taxa de acerto (DIDA-01..02)
 
 ### Phase 44: Motor — estrutura por ativo
 **Goal:** o backend entrega, por ativo, todas as pernas e a leitura determinística da estrutura (resultado, faixa, estado, motivos), sem estimar nada.
@@ -352,7 +353,18 @@ Plans:
 - [x] 45-04-PLAN.md — régua de faixa, limites/contexto sem aviso falso, TravaPill em contorno, guardiões AA/SP (onda 3)
 - [x] 45-05-PLAN.md — verificação final + checkpoint humano (4 combinações, M1, P4) (onda 4)
 
-### Phase 46: Didática — expectativa matemática × taxa de acerto
+### Phase 46: Carteira v6 — card de posição com modos Estudo e Operador
+**Goal:** o card de posição da Carteira segue o protótipo aprovado v6 — um visual e um estado no card fechado, flip Ação/Opções no aberto, e camada didática por modo (Estudo: simulador "e se?" e termos tocáveis; Operador: payoff e grade com a conta) — com todo cálculo no backend.
+**Requirements:** TBD (definidos no discuss/plan)
+**Depends on:** Phase 45
+**Prototype:** `~/Downloads/Carteira Boris+ v6 (standalone).html`
+**Decisão (Alex, 2026-09-30):** todo cálculo é do backend; o front só lê e posiciona (sem `optionsCalc` no cliente). Simulador usa grade de preços devolvida pelo backend.
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 46 to break down)
+
+### Phase 47: Didática — expectativa matemática × taxa de acerto
 **Goal:** o tema obrigatório do CLAUDE.md ganha verbete e o microtexto passa a abri-lo.
 **Requirements:** DIDA-01, DIDA-02
 **Success criteria:**

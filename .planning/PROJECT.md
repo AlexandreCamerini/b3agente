@@ -34,7 +34,7 @@ motor determinístico, sem aviso falso de "sem stop".
   verificada 2026-09-29**: `estrutura_posicao.ler_estrutura` + chave aditiva
   `estrutura` em `GET /api/options/proposta/{ticker}`; ESTR-01..06 Done)
 - Card `CardPosicaoEstruturada` conforme mock aprovado (Fase 45)
-- Verbete KB expectativa matemática × taxa de acerto (Fase 46)
+- Verbete KB expectativa matemática × taxa de acerto (Fase 47)
 
 **Origem:** print do Alex (UGPA3) — ver `REQUIREMENTS.md`. Requirements em
 `.planning/REQUIREMENTS.md`, roadmap Fases 44-46.
@@ -520,7 +520,7 @@ faltavam os números).
 - [ ] Milestone v2.0 em andamento (Fases 44-46) — ver "Current Milestone" acima
 - [ ] Build iOS/TestFlight (Xcode → Archive/Upload) com as Fases 42-43 —
   ação do Alex, ver `TESTFLIGHT.md`
-- [ ] (v2.0, Fase 46) KB sem verbete de vantagem estatística / expectativa matemática /
+- [ ] (v2.0, Fase 47) KB sem verbete de vantagem estatística / expectativa matemática /
   taxa de acerto × rentabilidade — temas obrigatórios do CLAUDE.md (camada
   educacional), observado no fechamento da v1.9, sem fase própria ainda
 - [ ] "amostra insuficiente (n=0 …)" no Operador não cita janela nem n
