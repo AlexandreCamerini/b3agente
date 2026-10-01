@@ -7,7 +7,7 @@ import { createChart, ColorType, CrosshairMode, LineStyle } from "lightweight-ch
 import { sampleTechnicals } from "./demo.js";
 import { DISCLAIMERS, TERMO_OPERADOR_VERSAO, TERMO_DESCOBERTO_VERSAO } from "./disclaimers.js";
 import { copyFor, historicoTxt, entradaAutoTxt, reconciliacaoTxt, reconciliacaoPorQueImporta, estruturaCardTxt, cartaoPosicaoTxt, cartaoDidaticaTxt } from "./copy.js";
-import { tickersComPernas, assinaturaEstrutura, estadoLeitura, mostraAvisoSemStop, mostraRR, valorRR, criarFilaLeituras, tipoPillTravada, chipVencimento, ddmmDeIso, tomDoEstado, dominioRegua, posRegua, sinalResultado, kickerResultadoSoAcoes, ancoraRotulo, estadoPrincipalV6, linhasResultadoV6, chipsMetaV6, rsSinalNbsp, fonteValorCabecalho, pctCapitalTexto, flipDuracaoMs, prefereMovimentoReduzido, faceInicial, pontoDoIndice, indiceNomeado, zonaVisual, rotulosSemColisao, colunasDaGrade } from "./estruturaCard.js";
+import { tickersComPernas, assinaturaEstrutura, estadoLeitura, mostraAvisoSemStop, mostraRR, valorRR, criarFilaLeituras, tipoPillTravada, chipVencimento, ddmmDeIso, tomDoEstado, dominioRegua, posRegua, sinalResultado, kickerResultadoSoAcoes, ancoraRotulo, estadoPrincipalV6, linhasResultadoV6, chipsMetaV6, rsSinalNbsp, fonteValorCabecalho, pctCapitalTexto, flipDuracaoMs, prefereMovimentoReduzido, faceInicial, pontoDoIndice, indiceNomeado, zonaVisual, rotulosSemColisao, colunasDaGrade, rsNbsp } from "./estruturaCard.js";
 import { varsCartaoV6, ALFA_ZONA_V6, ALFA_ZONA_MEIO_V6 } from "./cartaoV6Cores.js"; // 2026-10-01: cores do design v6 ESCOPADAS ao card (CSS vars no wrapper); não toca T/PALETTE
 // Fase 41 (TELAS-01): registro único das 8 telas que o assistente conhece —
 // BottomNav/petTela leem daqui nesta plano (41-02); tourPassos/ajudaSecoes
@@ -4754,51 +4754,62 @@ function ReguaPlano({ p, leitura, cp, modo }) {
   );
 }
 
-function FaixaVencimento({ e, cp, modo }) {
+function FaixaVencimento({ e, leitura, cp, modo }) {
   const c = e.cenarios;
   const rotulo = { fontSize: TIPO_CARD.rotulo, fontWeight: 400, color: T.textSecondary };
   if (!c) {
     return <div style={rotulo}>{cartaoPosicaoTxt(modo, "aguardando_calculo")}</div>;
   }
-  const dom = dominioRegua([c.piso, c.be, c.k, c.hoje]);
+  // 46-UAT (2026-10-01, G-06): "hoje" vem da cotação ecoada por leitura_plano (nunca da marcação).
+  const hoje = leitura && leitura.preco != null ? leitura.preco : null;
+  const dom = dominioRegua([c.piso, c.be, c.k, hoje]);
   const xBe = dom && c.be != null ? posRegua(c.be, dom) : null;
   const xK = dom && c.k != null ? posRegua(c.k, dom) : null;
+  const xHoje = dom && hoje != null ? posRegua(hoje, dom) : null;
   const seg = (de, ate, cor, op) => (
     <div aria-hidden style={{ position: "absolute", top: 0, bottom: 0, left: de + "%", right: (100 - ate) + "%", background: cor, opacity: op }} />
   );
-  const valor = (v, vazioChave) => (
-    <span style={{ fontFamily: MONO, fontSize: TIPO_CARD.corpo, fontWeight: 700, color: T.textPrimary, fontVariantNumeric: "tabular-nums" }}>
-      {v == null ? cartaoPosicaoTxt(modo, vazioChave) : "R$ " + price(v)}
-    </span>
-  );
-  const col = (rot, node) => (
-    <div style={{ display: "flex", flexDirection: "column", gap: `${SP[1]}px`, minWidth: 0 }}>
-      <span style={rotulo}>{rot}</span>
-      {node}
-    </div>
-  );
+  // 46-UAT (2026-10-01, G-06): rótulos ancorados ao x do marcador (mesmo padrão do SimuladorEstudo).
+  const itensRot = rotulosSemColisao([
+    ...(xBe != null ? [{ x: xBe, txt: cartaoPosicaoTxt(modo, "faixa_rot_be", { v: rsNbsp(c.be) }), be: true }] : []),
+    ...(xK != null ? [{ x: xK, txt: cartaoPosicaoTxt(modo, "faixa_rot_teto", { v: rsNbsp(c.k) }), be: false }] : []),
+  ]);
+  const nLinhas = itensRot.reduce((m, it) => Math.max(m, it.linha + 1), 0);
+  const posRot = (it) => {
+    const a = ancoraRotulo(it.x);
+    return a === "inicio" ? { left: 0 } : a === "fim" ? { right: 0 } : { left: it.x + "%", transform: "translateX(-50%)" };
+  };
+  const rotMono = { position: "absolute", top: 0, fontFamily: MONO, fontSize: TIPO_CARD.rotulo, fontWeight: 400, color: T.textSecondary, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" };
+  const notas = (c.piso == null ? " · " + cartaoPosicaoTxt(modo, "sem_piso") : "") + (c.k == null ? " · " + cartaoPosicaoTxt(modo, "sem_teto") : "");
   return (
     <div>
       <div style={rotulo}>{cartaoPosicaoTxt(modo, "faixa_titulo", { ddmm: c.vencimentoTexto == null ? "—" : c.vencimentoTexto })}</div>
       {xBe != null && (
-        <div role="img" aria-label={c.faixaAria} style={{ position: "relative", marginTop: `${SP[4]}px`, height: "6px", borderRadius: "999px", background: T.knob }}>
-          <div aria-hidden style={{ position: "absolute", inset: 0, borderRadius: "999px", overflow: "hidden" }}>
-            {seg(0, xBe, T.negative, ALFA_ZONA_V6)}
-            {xK != null ? seg(xBe, xK, "var(--cv-zona-meio)", ALFA_ZONA_MEIO_V6) : seg(xBe, 100, "var(--cv-zona-meio)", ALFA_ZONA_MEIO_V6)}
-            {xK != null && seg(xK, 100, T.positive, ALFA_ZONA_V6)}
+        <>
+          <div role="img" aria-label={c.faixaAria} style={{ position: "relative", marginTop: `${SP[4]}px`, height: "6px", borderRadius: "999px", background: T.knob }}>
+            <div aria-hidden style={{ position: "absolute", inset: 0, borderRadius: "999px", overflow: "hidden" }}>
+              {seg(0, xBe, T.negative, ALFA_ZONA_V6)}
+              {xK != null ? seg(xBe, xK, "var(--cv-zona-meio)", ALFA_ZONA_MEIO_V6) : seg(xBe, 100, "var(--cv-zona-meio)", ALFA_ZONA_MEIO_V6)}
+              {xK != null && seg(xK, 100, T.positive, ALFA_ZONA_V6)}
+            </div>
+            <div aria-hidden style={{ position: "absolute", top: "50%", left: xBe + "%", width: "10px", height: "10px", boxSizing: "border-box", background: T.textPrimary, transform: "translate(-50%,-50%) rotate(45deg)" }} />
+            {xK != null && <div aria-hidden style={{ position: "absolute", top: "-6px", left: xK + "%", width: "3px", height: "18px", transform: "translateX(-50%)", background: T.positive }} />}
+            {xHoje != null && (
+              <div aria-hidden style={{ position: "absolute", top: "50%", left: xHoje + "%", width: "16px", height: "16px", borderRadius: "50%", boxSizing: "border-box", transform: "translate(-50%,-50%)", background: T.accent, border: `2px solid ${T.bgCard}` }} />
+            )}
           </div>
-          <div aria-hidden style={{ position: "absolute", top: "50%", left: xBe + "%", width: "10px", height: "10px", boxSizing: "border-box", background: T.textPrimary, transform: "translate(-50%,-50%) rotate(45deg)" }} />
-          {xK != null && <div aria-hidden style={{ position: "absolute", top: "-6px", left: xK + "%", width: "3px", height: "18px", transform: "translateX(-50%)", background: T.positive }} />}
-          {c.hoje != null && (
-            <div aria-hidden style={{ position: "absolute", top: "50%", left: posRegua(c.hoje, dom) + "%", width: "16px", height: "16px", borderRadius: "50%", boxSizing: "border-box", transform: "translate(-50%,-50%)", background: T.accent, border: `2px solid ${T.bgCard}` }} />
-          )}
-        </div>
+          {Array.from({ length: nLinhas }, (_, ln) => (
+            <div key={ln} aria-hidden style={{ position: "relative", height: "1.6em", fontSize: TIPO_CARD.rotulo, marginTop: `${SP[1]}px` }}>
+              {itensRot.filter((it) => it.linha === ln).map((it) => (
+                <span key={it.txt} style={{ ...rotMono, ...posRot(it), ...(it.be ? { color: T.textPrimary, fontWeight: 700 } : null) }}>{it.txt}</span>
+              ))}
+            </div>
+          ))}
+          <div style={{ ...rotulo, display: "flex", flexWrap: "wrap", gap: `${SP[2]}px`, marginTop: `${SP[2]}px` }}>
+            <span>{cartaoPosicaoTxt(modo, "faixa_leg_hoje", { v: hoje == null ? "—" : rsNbsp(hoje) }) + notas}</span>
+          </div>
+        </>
       )}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0,1fr))", gap: `${SP[2]}px`, marginTop: `${SP[3]}px` }}>
-        {col(cartaoPosicaoTxt(modo, "piso"), valor(c.piso, "sem_piso"))}
-        {col(cartaoPosicaoTxt(modo, "equilibrio_rotulo"), valor(c.be, "aguardando_calculo"))}
-        {col(cartaoPosicaoTxt(modo, "teto"), valor(c.k, "sem_teto"))}
-      </div>
     </div>
   );
 }
@@ -4915,7 +4926,7 @@ function CartaoPosicao({ p, nomeEmpresa, modoLeitura, leituraEstrutura, leituraP
         </div>
       )}
       <div style={{ marginTop: `${SP[3]}px` }}>
-        {e ? <FaixaVencimento e={e} cp={cp} modo={modo} /> : <ReguaPlano p={p} leitura={leituraPlano} cp={cp} modo={modo} />}
+        {e ? <FaixaVencimento e={e} leitura={leituraPlano} cp={cp} modo={modo} /> : <ReguaPlano p={p} leitura={leituraPlano} cp={cp} modo={modo} />}
       </div>
       <div style={{ marginTop: `${SP[3]}px` }}>
         <LinhaEstadoV6 p={p} e={e} leitura={leituraPlano} modo={modo} />
