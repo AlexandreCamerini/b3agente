@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Estruturas de opções na carteira
-status: phase_46_executing
+status: phase_46_gaps_planned
 stopped_at: 'Fase 45 concluída em código (2026-09-30): 5 planos, verificação human_needed sem gaps, code review 0 críticos com WR-01..06 corrigidos, suíte canônica verde (pytest 3136 passed). Pendente: validação em aparelho com backend da Fase 44 em produção; promoção v2 → main e deploy manual (decisão do Alex, nada enviado). Próximo: /gsd-discuss-phase 46 (Didática).'
 last_updated: "2026-09-30T00:00:00.000Z"
-last_activity: 2026-10-01 -- Fase 46 em execução — onda 7/7: 46-08 tarefa 1 feita (guardiões transversais), cores da quick 261001-0or revertidas (deddf454, d8ab3b92) e paleta do design v6 reaplicada só no card (fe6dba75, 2c78e563, `cartaoV6Cores.js`); suíte verde; AGUARDANDO checkpoint humano do Alex (4 combinações tema×modo, repetir após as cores novas); depois verificação, code review e fechamento da fase
+last_activity: 2026-10-01 -- Fase 46 em execução — onda 7/7: 46-08 tarefa 1 feita (guardiões transversais), cores da quick 261001-0or revertidas (deddf454, d8ab3b92) e paleta do design v6 reaplicada só no card (fe6dba75, 2c78e563, `cartaoV6Cores.js`); suíte verde; plano de correção 46-09..46-12 (gap closure do UAT no iPhone: G-01..G-06, card fechado) criado e aprovado pelo plan-checker; próximo /gsd-execute-phase 46 --gaps-only; checkpoint humano do 46-08 será repetido no 46-12; depois verificação, code review e fechamento da fase
 progress:
   total_phases: 3
   completed_phases: 2
