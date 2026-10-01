@@ -276,7 +276,9 @@ ok('rótulo "chave configurada" sobreviveu à troca do emoji', app.includes("cha
 ok('rótulo "Reanalisar" sobreviveu à troca do emoji', app.includes("Reanalisar"));
 ok('a chave de copy `cp.btnAnalise` segue consumida', app.includes("cp.btnAnalise"));
 ok('recorte de AtivoCard contém o fallback de sparkline com `id="evolucao"`', ativoCard.includes('id="evolucao"'));
-ok('recorte de CarteiraScreen contém o botão de Stop/alvo com `id="evolucao"`', carteiraScreen.includes('id="evolucao"'));
+// Fase 46 (46-06, 2026-10-01): o botão de Stop/alvo (IA) saiu de CarteiraScreen para
+// BlocoBorisIA (card aberto v6); o ícone SVG `evolucao` foi mantido lá.
+ok('recorte de BlocoBorisIA contém o botão de Stop/alvo com `id="evolucao"`', isolarFuncao("BlocoBorisIA").includes('id="evolucao"'));
 
 // --- B10. <option> limpo: texto puro, sem emoji (nomeado à parte de B6, para --
 // --- a mensagem de falha apontar o site certo) ------------------------------

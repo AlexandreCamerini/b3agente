@@ -60,7 +60,12 @@ ok("KpiBlock não é mais renderizado no card do ativo", !/an\.kpis && <KpiBlock
 // A caption aceita string OU nó (a camada de entendimento sublinha o termo
 // no card único) — o contrato aqui é a RÉGUA reusada, não a forma da prop.
 const reguas = (app.match(/caption=\{?(<span style=\{SUBLINHADO\}>)?"?POSIÇÃO NO RISCO/g) || []).length;
-ok("régua POSIÇÃO NO RISCO reusada também no hero (≥2 usos)", reguas >= 2);
+// Fase 46 (46-06, 2026-10-01): o card de posição v6 trocou a régua legendada
+// "POSIÇÃO NO RISCO" (PlanRuler) pela ReguaPlano (stop/alvo/agora, aria próprio).
+// Os dois usos de antes (hero + card de posição) seguem: a PlanRuler no hero
+// (≥1 com a caption) e a ReguaPlano montada no card (CartaoPosicao).
+const usoCardPosicao = (app.match(/<ReguaPlano p=\{p\}/g) || []).length;
+ok("régua POSIÇÃO NO RISCO reusada também no hero (hero PlanRuler ≥1 + card ReguaPlano ≥1 = ≥2 usos)", reguas >= 1 && usoCardPosicao >= 1 && reguas + usoCardPosicao >= 2);
 ok("acesso ao candlestick por botão (velas → openTech, com guarda)", /onClick=\{\(\) => A\.openTech && A\.openTech\(t\)\}[\s\S]{0,240}Abrir gráfico de velas/.test(app));
 
 // qa/49 (v11, incremento 1): card único <AtivoCard> — a watchlist renderiza

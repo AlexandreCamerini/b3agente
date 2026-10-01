@@ -5151,8 +5151,8 @@ function BlocoBorisIA({ p, data, modo, ctx, histAberto, onHist }) {
         </button>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: `${SP[2]}px` }}>
-        <button type="button" onClick={() => ctx.openStopAlvo(p.t)} style={{ minHeight: 44, borderRadius: "10px", border: `1px solid ${T.accent}`, background: T.accent, color: T.onAccent, fontSize: TIPO_CARD.corpo, fontWeight: 700 }}>
-          {cartaoPosicaoTxt(modo, chavePlano)}
+        <button type="button" onClick={() => ctx.openStopAlvo(p.t)} style={{ minHeight: 44, borderRadius: "10px", border: `1px solid ${T.accent}`, background: T.accent, color: T.onAccent, fontSize: TIPO_CARD.corpo, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: `${SP[1]}px` }}>
+          <NavIcon id="evolucao" size={14} color="currentColor" /> {cartaoPosicaoTxt(modo, chavePlano)}
         </button>
         <button type="button" onClick={() => ctx.openAvaliar(p.t)} style={{ minHeight: 44, borderRadius: "10px", border: `1px solid ${T.borderSubtle}`, background: "transparent", color: T.textPrimary, fontSize: TIPO_CARD.corpo, fontWeight: 700 }}>
           {cartaoPosicaoTxt(modo, "reanalisar")}

@@ -39,7 +39,10 @@ for (const [nome, usado, proibido] of [
   ["título da Watchlist", "cp.tituloWatchlist", ">Watchlist</h1>"],
   ["título do Portfólio", "cp.tituloPortfolio", ">Portfólio</h1>"],
   ["botão comprar", "cp.btnComprar", ">Simular compra"],
-  ["botão vender", "cp.btnVender", ">Simular venda"],
+  // Fase 46 (46-06, 2026-10-01): o botão de saída da posição saiu de CarteiraScreen
+// (cp.btnVender) para BlocoBorisIA, que lê o MESMO texto de copy.js via
+// cartaoPosicaoTxt(modo, "saida"|"saida_sem_livres") ("Simular venda"/"Registrar saída").
+["botão vender", 'cartaoPosicaoTxt(modo, semLivres ? "saida_sem_livres" : "saida")', ">Simular venda"],
   ["botão aprofundar", "cp.btnAprofundar", ': "Aprofundar com IA"}'],
   ["empty da watchlist", "cp.vazioWatchlist", ">Sua watchlist está vazia<"],
   ["empty do portfólio", "cp.vazioPortfolio", ">Você ainda não tem posições."],
