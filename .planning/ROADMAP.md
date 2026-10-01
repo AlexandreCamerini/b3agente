@@ -359,7 +359,7 @@ Plans:
 **Depends on:** Phase 45
 **Prototype:** `~/Downloads/Carteira Boris+ v6 (standalone).html`
 **Decisão (Alex, 2026-09-30):** todo cálculo é do backend; o front só lê e posiciona (sem `optionsCalc` no cliente). Simulador usa grade de preços devolvida pelo backend.
-**Plans:** 8 plans (7 ondas; App.jsx serializa as ondas 4-7)
+**Plans:** 12 plans (7 ondas + 3 ondas de gap closure do 46-UAT; App.jsx serializa as ondas 4-7 e 46-11 → 46-12)
 
 Plans:
 - [ ] 46-01-PLAN.md — vocabulário v6 (CARTAO_POSICAO/CARTAO_DIDATICA skill_ref↔copy.js) + 6 verbetes KB (onda 1)
@@ -370,6 +370,10 @@ Plans:
 - [ ] 46-06-PLAN.md — card aberto: seletor Ação|Opções, flip, faces, bloco BÓRIS IA e saída (onda 5)
 - [ ] 46-07-PLAN.md — camadas: Estudo (simulador + termos) e Operador (payoff SVG + grade com conta) (onda 6)
 - [ ] 46-08-PLAN.md — guardiões transversais (contraste/SP/higiene) + checkpoint do Alex (onda 7)
+- [ ] 46-09-PLAN.md — gap G-01..G-06: chaves novas do card fechado (skill_ref↔copy.js) + texto do cadeado (gap onda 1)
+- [ ] 46-10-PLAN.md — gap G-01..G-05: helpers puros (um estado, linhas rótulo/valor, chips, NBSP, fonte do valor) + CSS vars pendente/info e contraste (gap onda 1)
+- [ ] 46-11-PLAN.md — gap G-01..G-05: cabeçalho, linhas Ações/Opções/Estrutura, chips e um estado em CartaoPosicao + guardiões reancorados (gap onda 2)
+- [ ] 46-12-PLAN.md — gap G-06: faixa com rótulos ancorados e "● hoje" + checkpoint do Alex no iPhone (gap onda 3)
 
 ### Phase 47: Didática — expectativa matemática × taxa de acerto
 **Goal:** o tema obrigatório do CLAUDE.md ganha verbete e o microtexto passa a abri-lo.
