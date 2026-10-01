@@ -21,9 +21,6 @@ export const COPY = {
     // (qa/34: `marcaSufixo` removida — era chave órfã; a identidade do modo no
     //  topo vem da LINHA DE MODO (chipModo + dot), não de sufixo no wordmark.)
     chipModo: "MODO ESTUDO", // qa/mock v2: badge simétrico — os DOIS modos têm chip (antes só Operador)
-    // 2026-10-01, opção C: faixa de modo; texto exclusivo do front, sem par em skill_ref.py (grep confirmou que chipModo também não tem)
-    faixaModoTitulo: "ESTUDO",
-    faixaModoSub: "a IA orienta, você decide",
 
     // saudação/tratamento (Acompanhar)
     saudacao: (nome) => (nome ? `Vamos estudar o mercado hoje, ${nome}?` : "Vamos estudar o mercado hoje?"),
@@ -1199,9 +1196,6 @@ export const COPY = {
   operador: {
     // identidade
     chipModo: "MODO OPERADOR",
-    // 2026-10-01, opção C: faixa de modo; texto exclusivo do front, sem par em skill_ref.py (grep confirmou que chipModo também não tem)
-    faixaModoTitulo: "OPERADOR",
-    faixaModoSub: "execução simulada",
 
     // saudação/tratamento (Acompanhar) — tom de mesa
     saudacao: (nome) => (nome ? `Mesa aberta, ${nome}.` : "Mesa aberta."),

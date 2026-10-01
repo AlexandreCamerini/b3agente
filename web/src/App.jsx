@@ -939,25 +939,6 @@ function WelcomeAuthScreen({ ctx, onAuthed }) {
   );
 }
 
-// 2026-10-01, opção C de identidade de modo: faixa persistente no topo do shell
-// pós-login, na cor do acento do modo (ESTUDO / OPERADOR). Item de FLUXO do
-// shell flex column (sem position nem zIndex): o <main> (flex 1) perde a altura
-// dela sozinho e BottomSheet (fixed, 1000) e demais overlays (50-86) ficam por
-// cima. O shell já aplica paddingTop env(safe-area-inset-top); a margem
-// negativa puxa só o fundo para dentro desse inset, então a cor se estende sob
-// o status bar e a faixa tem 44px exatos abaixo dele (no web, env() = 0).
-// Contraste onAccent sobre accent medido em test_contraste_tokens.mjs; por isso
-// o subtítulo não reduz opacity.
-function FaixaModo({ titulo, sub }) {
-  return (
-    <div role="note" aria-label={"Modo " + titulo + ": " + sub}
-      style={{ flex: "none", display: "flex", alignItems: "center", gap: "10px", boxSizing: "border-box", padding: "env(safe-area-inset-top) 18px 0", minHeight: "calc(44px + env(safe-area-inset-top))", marginTop: "calc(-1 * env(safe-area-inset-top))", background: T.accent, color: T.onAccent, fontFamily: SANS }}>
-      <span style={{ fontSize: "12px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" }}>{titulo}</span>
-      <span style={{ fontSize: "11.5px", fontWeight: 500 }}>{sub}</span>
-    </div>
-  );
-}
-
 function Ticker({ items, live }) {
   const loop = items.concat(items.map((x) => ({ ...x, _: 1 })));
   return (
@@ -10433,10 +10414,9 @@ export default function App() {
     <ThemeCtx.Provider value={{ key: themeKey, mode: appMode }}>
     <div {...shell}>
       <GlobalStyle />
-      {/* 2026-10-01, opção C de identidade de modo: a faixa de 44px substituiu o
-          friso de 3px do qa/mock v2 (era o mesmo sinal, mais fraco); o chipModo
-          do Topbar continua. Item de fluxo do shell flex: nada fica coberto. */}
-      <FaixaModo titulo={cp.faixaModoTitulo} sub={cp.faixaModoSub} />
+      {/* qa/mock v2: FRISO de modo — barra fina no topo na cor do modo (sinal
+          redundante de identidade, além do acento + linha de modo no Topbar). */}
+      <div aria-hidden style={{ height: "3px", flex: "none", background: `linear-gradient(90deg, ${T.accent}, ${T.accentSoft})` }} />
       <Ticker items={tickerItems} live={Object.keys(quotes).length > 0} />
       <Topbar patr={patr} dia={dia} caixa={data.cash} name={firstName} modeChip={cp.chipModo} mercado={mercado} cp={cp} onProfile={() => { setPerfilView("hub"); setTab("perfil"); }} />
 
