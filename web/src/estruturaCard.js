@@ -189,7 +189,7 @@ export function faceInicial(nPernas) {
 // com stop/alvo aqui.
 export function estadoPrincipalV6({ p, estrutura, leituraPlano } = {}) {
   const linha = (chave, vals, tom, glifo) => ({ chave, vals, tom, glifo });
-  const extras = [];
+  const extras = []; // contrato preservado: sempre vazio
   let principal = null;
   const est = estrutura && estrutura.estado;
   const texto = estrutura ? estrutura.estadoTexto : undefined;
@@ -200,9 +200,9 @@ export function estadoPrincipalV6({ p, estrutura, leituraPlano } = {}) {
     const qty = Number(p.qty) || 0;
     const travada = Number(p.qtyTravada) || 0;
     const livre = qtyLivre(p);
-    if (travada > 0 && livre === 0) principal = linha("estado_travadas_todas", {}, "info", "ⓘ");
+    if (travada > 0 && livre === 0) principal = linha("estado_travadas_todas", {}, "info", "cadeado");
     else if (travada > 0 && livre > 0 && livre < qty) {
-      principal = linha("estado_travadas_parcial", { n: travada, m: qty, k: livre }, "info", "ⓘ");
+      principal = linha("estado_travadas_parcial", { n: travada, m: qty, k: livre }, "info", "cadeado");
     } else if (p.stop == null && p.alvo == null) principal = linha("estado_sem_plano", {}, "atencao", "⚠");
     else if (p.alvo == null) principal = linha("estado_falta_alvo", {}, "atencao", "⚠");
     else if (p.stop == null) principal = linha("estado_falta_stop", {}, "atencao", "⚠");
@@ -214,13 +214,13 @@ export function estadoPrincipalV6({ p, estrutura, leituraPlano } = {}) {
     }
   }
 
-  if (estrutura && estrutura.resultado && estrutura.resultado.incompleto) {
-    extras.push(linha("extra_resultado_parcial", {}, "info", "ⓘ"));
+  // 46-UAT (2026-10-01, G-03): UMA linha de estado só. Resultado parcial e prêmio
+  // indisponível saíram daqui — a informação vive no motivo da linha
+  // 'Opções · contrato' (linhasResultadoV6). Cotação indisponível só vira o
+  // estado quando nenhum outro estado ocupa a linha.
+  if (!principal && !estrutura && leituraPlano && leituraPlano.preco == null) {
+    principal = linha("extra_cotacao_indisponivel", {}, "info", "ⓘ");
   }
-  if (!estrutura && leituraPlano && leituraPlano.preco == null) {
-    extras.push(linha("extra_cotacao_indisponivel", {}, "info", "ⓘ"));
-  }
-  if (est === "premio_indisponivel") extras.push(linha("motor", { texto }, "info", "ⓘ"));
   return { principal, extras };
 }
 
@@ -316,4 +316,110 @@ export function criarFilaLeituras(limite) {
     },
     estado() { return { ativos, pendentes: pendentes.length }; },
   };
+}
+
+// ---------------------------------------------------------------------------
+// 46-UAT (2026-10-01, G-01..G-05): card fechado rótulo/valor — helpers puros;
+// decidem chave/valor, nunca fazem aritmética sobre campo financeiro (D-01,
+// princípio 5). Todo número vem do backend; null vira motivo, nunca 0.
+// ---------------------------------------------------------------------------
+
+const NBSP = "\u00a0";
+// signDisplay "never": o sinal é decidido por sinalResultado, sem Math.abs.
+const FMT2 = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2, signDisplay: "never" });
+const FMT1 = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1, signDisplay: "never" });
+const numOk = (v) => typeof v === "number" && isFinite(v);
+
+// "R$" + NBSP + número (G-05: o NBSP impede a quebra entre o símbolo e o valor).
+export function rsNbsp(v) {
+  return numOk(v) ? "R$" + NBSP + FMT2.format(v) : "—";
+}
+
+// Com sinal (U+2212 para negativo); zero exato é neutro, sem sinal.
+export function rsSinalNbsp(v) {
+  const s = sinalResultado(v);
+  if (s === null) return "—";
+  const prefixo = s === "pos" ? "+" : s === "neg" ? "\u2212" : "";
+  return prefixo + "R$" + NBSP + FMT2.format(v);
+}
+
+// "4,2%" ou null.
+export function pctCapitalTexto(v) {
+  return numOk(v) ? FMT1.format(v) + "%" : null;
+}
+
+// Largura útil do valor do cabeçalho no pior caso: viewport 320 − 2×16 (tela)
+// − 2×16 (card, SP[4]) − ~78 (ticker "UGPA3" a 20 px × 1.3) = 178 px.
+// Mono ≈ 0.6 em por caractere; texto a 130 %.
+export const LARGURA_VALOR_PIOR_CASO_PX = 178;
+
+// G-05: reduz a fonte conforme o comprimento do texto, nunca quebra linha.
+export function fonteValorCabecalho(texto) {
+  const n = String(texto == null ? "" : texto).length;
+  if (n <= 10) return "21px";
+  if (n <= 12) return "18px";
+  if (n <= 14) return "16px";
+  return "14px";
+}
+
+// G-01/G-02: linhas Ações / Opções · contrato / Estrutura (ou Ações / Do capital)
+// e o valor do cabeçalho — com estrutura, a MESMA referência da linha Estrutura.
+export function linhasResultadoV6({ estrutura, leituraPlano, pctCapital } = {}) {
+  const linha = (chave, vals, valor, tipo, motivo, total) => ({ chave, vals, valor, tipo, motivo, total: !!total });
+  if (estrutura && estrutura.resultado) {
+    const r = estrutura.resultado;
+    const semDados = Array.isArray(r.pernasSemDados) ? r.pernasSemDados : [];
+    const semCotacao = Array.isArray(r.pernasSemCotacao) ? r.pernasSemCotacao : [];
+    const total = numOk(r.total) ? r.total : null;
+    const acoes = numOk(r.acoes) ? r.acoes : null;
+    const out = [linha("linha_acoes", {}, acoes, "dinheiro", acoes === null ? "motivo_cotacao_indisponivel" : null, false)];
+    for (const perna of Array.isArray(estrutura.pernas) ? estrutura.pernas : []) {
+      const v = numOk(perna.resultado) ? perna.resultado : null;
+      let motivo = null;
+      if (v === null) motivo = semDados.includes(perna.id) ? "motivo_dados_incompletos" : "motivo_premio_indisponivel";
+      out.push(linha("linha_opcoes", { contrato: perna.id != null ? String(perna.id) : "—" }, v, "dinheiro", motivo, false));
+    }
+    let motivoTotal = null;
+    if (total === null) {
+      if (semCotacao.length) motivoTotal = "motivo_aguardando_premio";
+      else if (semDados.length) motivoTotal = "motivo_dados_incompletos";
+      else motivoTotal = "motivo_aguardando_cotacao";
+    }
+    out.push(linha("linha_estrutura", {}, total, "dinheiro", motivoTotal, true));
+    return {
+      cabecalho: { valor: total, legenda: total === null ? null : "legenda_resultado_estrutura", vals: {}, suspenso: total === null },
+      linhas: out,
+    };
+  }
+  const res = leituraPlano && numOk(leituraPlano.resultado) ? leituraPlano.resultado : null;
+  const out = [linha("linha_acoes", {}, res, "dinheiro", res === null ? "motivo_cotacao_indisponivel" : null, false)];
+  if (numOk(pctCapital)) out.push(linha("do_capital", {}, pctCapital, "pct", null, false));
+  const varPct = leituraPlano && numOk(leituraPlano.variacaoPct) ? leituraPlano.variacaoPct : null;
+  return {
+    cabecalho: {
+      valor: res,
+      legenda: res === null || varPct === null ? null : "legenda_resultado_variacao",
+      vals: varPct === null ? {} : { pct: varPct },
+      suspenso: res === null,
+    },
+    linhas: out,
+  };
+}
+
+// G-04: chips da meta como LISTA de chaves — nunca frase corrida.
+export function chipsMetaV6({ p, estrutura, vc } = {}) {
+  const chips = [];
+  if (!p) return chips;
+  const preco2 = (v) => (numOk(v) ? FMT2.format(v) : "—");
+  chips.push({ chave: "chip_acoes_pm", vals: { qty: String(p.qty), pm: preco2(p.avg) } });
+  if (estrutura) {
+    const nome = typeof estrutura.nomeTexto === "string" ? estrutura.nomeTexto.trim() : "";
+    chips.push(nome ? { texto: nome.charAt(0).toUpperCase() + nome.slice(1) } : { chave: "chip_estrategia_generica" });
+    if (vc && vc.tipo === "vence" && !vc.ambar) {
+      chips.push({ chave: "chip_vence", vals: { ddmm: vc.ddmm, dias: numOk(vc.dias) ? String(vc.dias) : "—" } });
+    }
+  } else if (p.stop != null || p.alvo != null) {
+    chips.push({ chave: "chip_plano", vals: { stop: preco2(p.stop), alvo: preco2(p.alvo) } });
+  }
+  return chips;
 }
