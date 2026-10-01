@@ -96,71 +96,92 @@ for (const cores of Object.values(combos)) {
 }
 ok("BRAND resolvido para positive/negative do escuro", !!combos["dark · estudo"].positive && !!combos["dark · estudo"].negative);
 
-const bg = (cores, chave) => (chave === "bgCard" ? cores.bgCard : chave === "accent" ? cores.accent : cores.bgBase);
-const pares = [
-  // Fase 46 (46-08): texto do card v6 (>= 4,5)
-  ["onAccent", "accent"],
-  ["textPrimary", "bgBase"],
-  ["textSecondary", "bgBase"],
-  ["accent", "bgCard"],
-  ["textSecondary", "bgCard"],
-  ["textMuted", "bgCard"],
-  ["textMuted", "bgBase"],
-  ["textFaint", "bgCard"],
-  ["warn", "warnTint10@bgCard"],
-  ["positive", "bgCard"],
-  ["negative", "bgCard"],
+// 2026-10-01 (revert 261001-0or + design v6): o card v6 NÃO lê mais os neutros
+// globais (PALETTE/MODE_OPERADOR) — lê as cores escopadas de
+// src/cartaoV6Cores.js (escuro = paleta literal do design v6; claro = derivado),
+// aplicadas como CSS vars no wrapper do card. As asserções abaixo medem essas
+// cores nas 4 combinações. As asserções originais (7 pares da 45 + gráficos da
+// 46-08) seguem, agora sobre as cores efetivas do card; a dívida legada do
+// PALETTE global (revertida pelo Alex) deixa de ser medida aqui.
+import { coresCartaoV6, ALFA_ZONA_V6, ALFA_ZONA_MEIO_V6, varsCartaoV6 } from "../src/cartaoV6Cores.js";
+ok("App.jsx aplica varsCartaoV6 no wrapper do card (escopo; sem tocar T global)", /\.\.\.varsCartaoV6\(themeKey, operador \? "operador" : "estudo"\)/.test(appSrc));
+
+const COMBOS = [["dark", "estudo"], ["dark", "operador"], ["light", "estudo"], ["light", "operador"]];
+const cartao = {};
+for (const [t, m] of COMBOS) cartao[`${t} · ${m}`] = coresCartaoV6(t, m);
+
+const bgOf = (c, k) => ({ bgCard: c.bgCard, bgBase: c.bgBase, knob: c.knob, accent: c.accent, accSurf: c.accentTint10, warnTint: c.warnTint10 }[k]);
+// [rotulo, fg(cores)->hex, fundo, mínimo]
+const T45 = 4.5;
+const paresTexto = [
+  ["textPrimary/bgCard", (c) => c.textPrimary, "bgCard"],
+  ["textPrimary/bgBase", (c) => c.textPrimary, "bgBase"],
+  ["textSecondary/bgCard", (c) => c.textSecondary, "bgCard"],
+  ["textSecondary/bgBase", (c) => c.textSecondary, "bgBase"],
+  ["textMuted/bgCard", (c) => c.textMuted, "bgCard"],
+  ["textMuted/bgBase", (c) => c.textMuted, "bgBase"],
+  ["accent/bgCard", (c) => c.accent, "bgCard"],
+  ["accent/bgBase", (c) => c.accent, "bgBase"],
+  ["accent/accSurf", (c) => c.accent, "accSurf"],
+  ["textPrimary/accSurf", (c) => c.textPrimary, "accSurf"],
+  ["onAccent(accInk)/accent", (c) => c.onAccent, "accent"],
+  ["positive/bgCard", (c) => c.positive, "bgCard"],
+  ["positive/bgBase", (c) => c.positive, "bgBase"],
+  ["negative/bgCard", (c) => c.negative, "bgCard"],
+  ["negative/bgBase", (c) => c.negative, "bgBase"],
+  ["warn/warnTint(bg status)", (c) => c.warn, "warnTint"],
+  ["warn/bgCard", (c) => c.warn, "bgCard"],
+  ["status info texto/bg", (c) => c.status.info.texto, "#info"],
+  ["status ok texto/bg", (c) => c.status.ok.texto, "#ok"],
+  ["status pendente texto/bg", (c) => c.status.pendente.texto, "#pendente"],
+  ["zona1 texto/bgBase", (c) => c.zonas[1].texto, "bgBase"],
+  ["zona2 texto/bgBase", (c) => c.zonas[2].texto, "bgBase"],
+  ["zona3 texto/bgBase", (c) => c.zonas[3].texto, "bgBase"],
 ];
-for (const [nome, cores] of Object.entries(combos)) {
-  const tema = nome.startsWith("dark") ? "dark" : "light";
-  for (const [fg, fundo] of pares) {
-    const fgHex = cores[fg];
-    let lumBg;
-    if (fundo.includes("@")) {
-      const tint = cores.warnTint10 || estudo[tema].warnTint10;
-      lumBg = luminanceRGB(blend(tint, cores.bgCard));
-    } else {
-      lumBg = luminanceRGB(hexToRgb(bg(cores, fundo)));
-    }
-    const ok1 = !!fgHex && /^#/.test(fgHex);
-    const r = ok1 ? contrast(luminanceRGB(hexToRgb(fgHex)), lumBg) : 0;
-    ok(`${nome}: ${fg}/${fundo} = ${r.toFixed(2)} >= 4.5`, r >= 4.5);
-  }
-  // informativo: legado
-  const tintN = cores.negativeTint10 || estudo[tema].negativeTint10;
-  if (tintN && cores.negative) {
-    const rl = contrast(luminanceRGB(hexToRgb(cores.negative)), luminanceRGB(blend(tintN, cores.bgCard)));
-    console.log(`info ${nome}: negative/negativeTint10@bgCard (legado) = ${rl.toFixed(2)}`);
+for (const [nome, c] of Object.entries(cartao)) {
+  for (const [rot, fgFn, fundo, ] of paresTexto) {
+    const bgHex = fundo.startsWith("#") ? c.status[fundo.slice(1)].bg : bgOf(c, fundo);
+    const r = contrast(luminanceRGB(hexToRgb(fgFn(c))), luminanceRGB(hexToRgb(bgHex)));
+    ok(`${nome}: ${rot} = ${r.toFixed(2)} >= 4.5`, r >= T45);
   }
 }
 
-// ---- Fase 46 (46-08): pares GRÁFICOS / borda (>= 3,0), D-17 ------------------
-// positive/negative compostos sobre bgBase (mix alfa). A UI-SPEC previa 0,5; a
-// medição reprovou (2,0-2,5:1 no claro e negative no escuro) e, pela regra
-// "se reprovar, subir opacidade", FaixaVencimento/SimuladorEstudo usam 0,75
-// (mínimo medido: positive 0,75 / negative 0,70 no claro). Nota: Fase 46 (46-08, 2026-10-01).
-const ALFA_ZONA = 0.75;
-const nOp = (re) => (appSrc.match(re) || []).length;
-ok("App.jsx: segmentos de zona (Faixa + Simulador) usam opacidade 0.75 (segmento médio positivo é 0.5 por desenho)",
-  nOp(/T\.negative, 0\.75\)/g) >= 2 && nOp(/T\.positive, 0\.75\)/g) >= 2 && nOp(/seg\([^)]*T\.negative, 0\.5\)/g) === 0);
+// ---- pares GRÁFICOS / borda (>= 3,0), D-17 -----------------------------------
+// positive/negative compostos sobre a trilha (knob) e sobre bgBase (mix alfa).
+// A UI-SPEC previa 0,5; a medição da 46-08 reprovou e subiu para 0,75 nos
+// segmentos extremos. O segmento do meio (lucro cresce) é mais claro por desenho
+// (gradação) e usa ALFA_ZONA_MEIO_V6. Os valores vêm de cartaoV6Cores.js e o
+// App.jsx tem de usar essas MESMAS constantes (travado abaixo).
+const nUsos = (re) => (appSrc.match(re) || []).length;
+ok("App.jsx: segmentos extremos (Faixa + Simulador) usam ALFA_ZONA_V6", nUsos(/T\.negative, ALFA_ZONA_V6\)/g) >= 2 && nUsos(/T\.positive, ALFA_ZONA_V6\)/g) >= 2);
+ok("App.jsx: segmento do meio usa a cor de ponto da zona 2 com ALFA_ZONA_MEIO_V6", nUsos(/"var\(--cv-zona-meio\)", ALFA_ZONA_MEIO_V6\)/g) >= 2);
+ok("ALFA_ZONA_V6 = 0.75 (>= 0.75 medido) e meio < extremos (gradação)", ALFA_ZONA_V6 >= 0.75 && ALFA_ZONA_MEIO_V6 < ALFA_ZONA_V6);
 function mixSobre(fgHex, a, bgHex) {
   const [fr, fg2, fb] = hexToRgb(fgHex), [br, bg2, bb] = hexToRgb(bgHex);
   return [fr * a + br * (1 - a), fg2 * a + bg2 * (1 - a), fb * a + bb * (1 - a)];
 }
-for (const [nome, cores] of Object.entries(combos)) {
-  const lumBase = luminanceRGB(hexToRgb(cores.bgBase));
-  const graf = [
-    ["warn/bgBase", luminanceRGB(hexToRgb(cores.warn))],
-    ["negative/bgBase (borda)", luminanceRGB(hexToRgb(cores.negative))],
-    [`positive@${ALFA_ZONA}/bgBase`, luminanceRGB(mixSobre(cores.positive, ALFA_ZONA, cores.bgBase))],
-    [`negative@${ALFA_ZONA}/bgBase`, luminanceRGB(mixSobre(cores.negative, ALFA_ZONA, cores.bgBase))],
-    ["accent/bgBase (linha hoje)", luminanceRGB(hexToRgb(cores.accent))],
-  ];
-  for (const [rot, lum] of graf) {
-    const r = contrast(lum, lumBase);
+for (const [nome, c] of Object.entries(cartao)) {
+  const graf = [];
+  for (const [fundoNome, fundoHex] of [["bgBase", c.bgBase], ["knob", c.knob], ["bgCard", c.bgCard]]) {
+    const lumF = luminanceRGB(hexToRgb(fundoHex));
+    graf.push([`warn/${fundoNome}`, luminanceRGB(hexToRgb(c.warn)), lumF]);
+    graf.push([`negative/${fundoNome} (borda)`, luminanceRGB(hexToRgb(c.negative)), lumF]);
+    graf.push([`positive@${ALFA_ZONA_V6}/${fundoNome}`, luminanceRGB(mixSobre(c.positive, ALFA_ZONA_V6, fundoHex)), lumF]);
+    graf.push([`negative@${ALFA_ZONA_V6}/${fundoNome}`, luminanceRGB(mixSobre(c.negative, ALFA_ZONA_V6, fundoHex)), lumF]);
+    graf.push([`zona-meio@${ALFA_ZONA_MEIO_V6}/${fundoNome}`, luminanceRGB(mixSobre(c.zonaMeio, ALFA_ZONA_MEIO_V6, fundoHex)), lumF]);
+    graf.push([`accent/${fundoNome} (linha hoje)`, luminanceRGB(hexToRgb(c.accent)), lumF]);
+    graf.push([`textPrimary/${fundoNome} (marcas)`, luminanceRGB(hexToRgb(c.textPrimary)), lumF]);
+  }
+  for (const [rot, lumFg, lumF] of graf) {
+    const r = contrast(lumFg, lumF);
     ok(`${nome}: ${rot} = ${r.toFixed(2)} >= 3.0`, r >= 3.0);
   }
 }
+
+// vars do wrapper cobrem as chaves lidas pelo card
+const v = varsCartaoV6("dark", "estudo");
+ok("varsCartaoV6 emite --bg-card/--accent/--cv-zona-meio", v["--bg-card"] === "#111b29" && v["--accent"] === "#55cfbe" && v["--cv-zona-meio"] === "#9fd9c6");
+ok("escuro estudo/operador = paleta literal do design v6", coresCartaoV6("dark", "operador").accent === "#e4be60" && coresCartaoV6("dark", "operador").onAccent === "#231a04" && coresCartaoV6("dark", "estudo").textPrimary === "#edf2fa");
 
 if (fails) { console.log(`\n${fails} falha(s)`); process.exit(1); }
 console.log("\nOK");
