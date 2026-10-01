@@ -115,7 +115,9 @@ ok("telaDoAssistente cobre historico, agente e o default carteira",
 ok('o case "agente" do petSnapshot continua existindo', /case "agente":/.test(app));
 
 // ---- 8) copy nos dois modos --------------------------------------------------
-const e = Object.keys(COPY.estudo).sort(), o = Object.keys(COPY.operador).sort();
+// 2026-10-01 (46-01, D-11/D-12): `cartaoDidatica` é só Estudo por desenho — fica fora da simetria de chaves.
+const _SO_ESTUDO = new Set(["cartaoDidatica"]);
+const e = Object.keys(COPY.estudo).filter((k) => !_SO_ESTUDO.has(k)).sort(), o = Object.keys(COPY.operador).sort();
 ok("chaves espelhadas nos dois modos", JSON.stringify(e) === JSON.stringify(o));
 for (const k of ["tabOpcoes", "tituloOperadorIA", "linkOperadorIA"]) {
   ok(`COPY tem ${k} nos dois modos`, !!COPY.estudo[k] && !!COPY.operador[k]);

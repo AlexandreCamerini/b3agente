@@ -25,7 +25,9 @@ let fails = 0;
 const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if (!cond) fails++; };
 
 // ---- 1) copy.js íntegro -----------------------------------------------------
-const e = Object.keys(COPY.estudo).sort(), o = Object.keys(COPY.operador).sort();
+// 2026-10-01 (46-01, D-11/D-12): `cartaoDidatica` é só Estudo por desenho — fica fora da simetria de chaves.
+const _SO_ESTUDO = new Set(["cartaoDidatica"]);
+const e = Object.keys(COPY.estudo).filter((k) => !_SO_ESTUDO.has(k)).sort(), o = Object.keys(COPY.operador).sort();
 ok("chaves espelhadas nos dois modos (" + e.length + ")", JSON.stringify(e) === JSON.stringify(o));
 const estTxt = JSON.stringify(Object.values(COPY.estudo).map((v) => (typeof v === "function" ? v("X", "Y", "Z") + v(null, 0, 0) : v)));
 ok("ramo ESTUDO sem vocabulário de ordem", !/registrar entrada|registrar saída|execute a saída|COMPRAR|VENDER/i.test(estTxt.replace(/Simular compra|Simular venda|venda simulada|compra simulada/gi, "")));
