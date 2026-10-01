@@ -72,6 +72,12 @@ const NEUTRAS = [
   "sim_aria", "sim_valuetext", "payoff_sem_custos", "zona_rotulo_perda_travada",
   "zona_rotulo_prejuizo", "zona_rotulo_ganho", "zona_rotulo_ganho_travado", "saida_motivo_lastro",
   "rodape_fechar",
+  // 46-UAT (2026-10-01, G-01..G-06): chaves do card fechado rótulo/valor
+  "legenda_resultado", "legenda_resultado_variacao", "legenda_resultado_estrutura", "chip_total_suspenso",
+  "linha_acoes", "linha_opcoes", "linha_estrutura", "motivo_premio_indisponivel",
+  "motivo_dados_incompletos", "motivo_aguardando_premio", "motivo_aguardando_cotacao", "motivo_cotacao_indisponivel",
+  "chip_acoes_pm", "chip_vence", "chip_plano", "chip_estrategia_generica",
+  "faixa_rot_teto", "faixa_leg_hoje",
 ];
 
 // --- (1) CARTAO_POSICAO <-> COPY[modo].cartaoPosicao
@@ -141,6 +147,15 @@ ok("cartaoPosicaoTxt chave desconhecida -> null", cartaoPosicaoTxt("operador", "
 ok("cartaoDidaticaTxt chave desconhecida -> null", cartaoDidaticaTxt("nao_existe") === null);
 ok("cartaoDidaticaTxt interpola", cartaoDidaticaTxt("caso_sem_piso", { perdaMaxima: "38.010,00" }) ===
    "Sem piso: se a ação fosse a zero, a perda seria de R$ 38.010,00.");
+
+// --- (4b) 46-UAT (2026-10-01): card fechado rótulo/valor
+ok("linha_opcoes interpola contrato", cartaoPosicaoTxt("estudo", "linha_opcoes", { contrato: "UGPAK422" }) === "Opções · UGPAK422");
+ok("chip_acoes_pm interpola", cartaoPosicaoTxt("operador", "chip_acoes_pm", { qty: "1000", pm: "39,50" }) === "1000 ações · PM 39,50");
+ok("faixa_rot_be estudo começa com '◆ equilíbrio'", cartaoPosicaoTxt("estudo", "faixa_rot_be", { v: "R$ 38,01" }).startsWith("◆ equilíbrio"));
+ok("faixa_rot_be operador começa com '◆ BE'", cartaoPosicaoTxt("operador", "faixa_rot_be", { v: "R$ 38,01" }).startsWith("◆ BE"));
+ok('linha_estrutura = "Estrutura" nos dois modos', E.linha_estrutura === "Estrutura" && O.linha_estrutura === "Estrutura");
+ok("estado_travadas_todas (G-03) nos dois modos",
+   E.estado_travadas_todas === "Ações travadas pela call · saída após encerrar" && O.estado_travadas_todas === E.estado_travadas_todas);
 
 // --- (5) rótulo de encerrar (S13): v6 evolui o da Fase 45
 ok("encerrar = 'Encerrar opção em Opções' nos dois modos", E.encerrar === "Encerrar opção em Opções" && O.encerrar === E.encerrar);

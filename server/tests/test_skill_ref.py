@@ -355,6 +355,12 @@ _V6_NEUTRAS = (
     "estado_travadas_todas", "estado_travadas_parcial", "encerrar", "atualizar",
     "sem_cenario", "conta_sem_formula", "aguardando_calculo", "piso", "teto",
     "equilibrio_rotulo", "chip_alta_forte", "cel_be", "cel_lastro", "rodape_fechar",
+    # 46-UAT 2026-10-01 (G-01..G-06): chaves do card fechado rótulo/valor
+    "legenda_resultado", "legenda_resultado_variacao", "legenda_resultado_estrutura", "chip_total_suspenso",
+    "linha_acoes", "linha_opcoes", "linha_estrutura", "motivo_premio_indisponivel",
+    "motivo_dados_incompletos", "motivo_aguardando_premio", "motivo_aguardando_cotacao", "motivo_cotacao_indisponivel",
+    "chip_acoes_pm", "chip_vence", "chip_plano", "chip_estrategia_generica",
+    "faixa_rot_teto", "faixa_leg_hoje",
 )
 _V6_PROIBIDO = r"\bcomprar\b|\bvender\b|trava protetora|abate o custo|\bgarante|\bcerto\b|\bsempre\b"
 
@@ -407,3 +413,25 @@ def test_cartao_didatica_so_educacional_e_marcadores_resolvem():
     assert sr.cartao_didatica_txt("caso_sem_piso", perdaMaxima="38.010,00") == (
         "Sem piso: se a ação fosse a zero, a perda seria de R$ 38.010,00."
     )
+
+
+def test_cartao_posicao_uat_card_fechado():
+    """46-UAT 2026-10-01: textos do card fechado rótulo/valor (G-01..G-06)."""
+    import re
+    from app import skill_ref as sr
+    for modo in ("educacional", "operador"):
+        t = lambda k, **kw: sr.cartao_posicao_txt(modo, k, **kw)
+        assert t("linha_estrutura") == "Estrutura"
+        assert t("chip_total_suspenso") == "total suspenso"
+        assert t("motivo_premio_indisponivel") == "prêmio indisponível"
+        assert t("motivo_aguardando_premio") == "aguardando prêmio"
+        assert t("estado_travadas_todas") == "Ações travadas pela call · saída após encerrar"
+        assert t("linha_opcoes", contrato="UGPAK422") == "Opções · UGPAK422"
+        assert t("chip_vence", ddmm="19/11", dias="49") == "vence 19/11 · 49d"
+    assert sr.cartao_posicao_txt("operador", "faixa_rot_be", v="X").startswith("◆ BE")
+    assert sr.cartao_posicao_txt("educacional", "faixa_rot_be", v="X").startswith("◆ equilíbrio")
+    rx = re.compile(_V6_PROIBIDO, re.I)
+    for modo in ("educacional", "operador"):
+        for k in _V6_NEUTRAS[-18:]:
+            assert not rx.search(sr.CARTAO_POSICAO[modo][k]), (modo, k)
+        assert not rx.search(sr.CARTAO_POSICAO[modo]["faixa_rot_be"])
