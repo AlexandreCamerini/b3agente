@@ -7,7 +7,7 @@ import { createChart, ColorType, CrosshairMode, LineStyle } from "lightweight-ch
 import { sampleTechnicals } from "./demo.js";
 import { DISCLAIMERS, TERMO_OPERADOR_VERSAO, TERMO_DESCOBERTO_VERSAO } from "./disclaimers.js";
 import { copyFor, historicoTxt, entradaAutoTxt, reconciliacaoTxt, reconciliacaoPorQueImporta, estruturaCardTxt, cartaoPosicaoTxt, cartaoDidaticaTxt } from "./copy.js";
-import { tickersComPernas, assinaturaEstrutura, estadoLeitura, mostraAvisoSemStop, mostraRR, valorRR, criarFilaLeituras, tipoPillTravada, chipVencimento, ddmmDeIso, tomDoEstado, dominioRegua, posRegua, sinalResultado, kickerResultadoSoAcoes, ancoraRotulo, estadoPrincipalV6, flipDuracaoMs, prefereMovimentoReduzido, faceInicial } from "./estruturaCard.js";
+import { tickersComPernas, assinaturaEstrutura, estadoLeitura, mostraAvisoSemStop, mostraRR, valorRR, criarFilaLeituras, tipoPillTravada, chipVencimento, ddmmDeIso, tomDoEstado, dominioRegua, posRegua, sinalResultado, kickerResultadoSoAcoes, ancoraRotulo, estadoPrincipalV6, flipDuracaoMs, prefereMovimentoReduzido, faceInicial, pontoDoIndice, indiceNomeado, zonaVisual, rotulosSemColisao, colunasDaGrade } from "./estruturaCard.js";
 // Fase 41 (TELAS-01): registro único das 8 telas que o assistente conhece —
 // BottomNav/petTela leem daqui nesta plano (41-02); tourPassos/ajudaSecoes
 // passam a iterar os ids do registro na 41-02/Task 2.
@@ -4723,7 +4723,15 @@ function CardPosicaoEstruturada({ p, leitura, cp, operador, ctx, data, onAtualiz
           {cartaoPosicaoTxt(modo, "sem_cenario")}
         </div>
       ) : (
-        <div data-area-cenario="" />
+        <div data-area-cenario="">
+          {!operador && e.cenarios.simulador && <SimuladorEstudo e={e} ticker={p.t} modo={modo} />}
+          {operador && e.cenarios.payoff && (
+            <div style={{ display: "flex", flexDirection: "column", gap: `${SP[3]}px` }}>
+              <PayoffOperador e={e} modo={modo} />
+              <GradeConta e={e} modo={modo} />
+            </div>
+          )}
+        </div>
       )}
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: `${SP[2]}px`, flexWrap: "wrap" }}>
@@ -4968,6 +4976,7 @@ function CartaoPosicao({ p, nomeEmpresa, modoLeitura, leituraEstrutura, leituraP
                   : faceAcao)} />
               </>
             ) : faceAcao}
+            {!operador && <TermosTocaveis didatica={e ? e.didatica : (leituraPlano ? leituraPlano.didatica : null)} ctx={ctx} />}
             <BlocoBorisIA p={p} data={data} modo={modo} ctx={ctx} histAberto={histAberto} onHist={onHist} />
             {histAberto && <HistoricoAnalises p={p} data={data} />}
             {editAberto && <EditorStopAlvo p={p} ctx={ctx} />}
@@ -5218,6 +5227,259 @@ function EditorStopAlvo({ p, ctx }) {
       {campo("stop", "Stop", p.stop, A.setStop)}
       {campo("alvo", "Alvo", p.alvo, A.setAlvo)}
       <div style={{ fontSize: TIPO_CARD.rotulo, fontWeight: 400, color: T.textSecondary, flex: 1, minWidth: "140px", lineHeight: 1.4 }}>Sai do campo para salvar — deixar vazio não apaga; use ✕ para limpar.</div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Fase 46 (46-07, CART6-03/04): camadas por modo dentro do card aberto.
+// Estudo = simulador "e se?" (SimuladorEstudo) + termos tocáveis (TermosTocaveis).
+// Operador = payoff no vencimento (PayoffOperador) + grade 3x2 com a conta
+// (GradeConta). TODO número, zona, conta e definição vem do backend
+// (`estrutura.cenarios` / `didatica`) ou da KB; aqui só se escolhe o ÍNDICE do
+// ponto e se mapeia valor -> posição na tela (princípio 5, D-04/D-06/D-08).
+// Sem `cenarios` nada é desenhado (princípio 4, D-16).
+// ---------------------------------------------------------------------------
+function SimuladorEstudo({ e, ticker, modo }) {
+  const c = e && e.cenarios;
+  const sim = c ? c.simulador : null;
+  const [idx, setIdx] = useState(() => {
+    const h = indiceNomeado(sim, "hoje");
+    if (h != null) return h;
+    const q = indiceNomeado(sim, "equilibrio");
+    return q != null ? q : 0;
+  });
+  const ponto = pontoDoIndice(sim, idx);
+  if (!sim || !ponto) return null;
+  const rotuloTxt = { fontSize: TIPO_CARD.rotulo, fontWeight: 400, color: T.textSecondary };
+  const zona = (sim.zonas && sim.zonas[ponto.zona]) || null;
+  const zv = zonaVisual(ponto.zona);
+  const corRes = sinalResultado(ponto.resultado) === "zero" ? T.textMuted : sinalResultado(ponto.resultado) === "pos" ? T.positive : T.negative;
+  const dom = { min: sim.min, max: sim.max };
+  const xBe = c.be != null ? posRegua(c.be, dom) : null;
+  const xK = c.k != null ? posRegua(c.k, dom) : null;
+  const xHoje = c.hoje != null ? posRegua(c.hoje, dom) : null;
+  const seg = (de, ate, cor, op) => (
+    <div aria-hidden style={{ position: "absolute", top: 0, bottom: 0, left: de + "%", right: (100 - ate) + "%", background: cor, opacity: op }} />
+  );
+  const acima = rotulosSemColisao(xBe != null ? [{ x: xBe, txt: "◆ equilíbrio " + price(c.be) }] : []);
+  const abaixo = rotulosSemColisao([
+    ...(xK != null ? [{ x: xK, txt: "teto " + price(c.k) }] : []),
+    ...(xHoje != null ? [{ x: xHoje, txt: "hoje " + price(c.hoje) + " │" }] : []),
+  ]);
+  const posRot = (it) => {
+    const a = ancoraRotulo(it.x);
+    return a === "inicio" ? { left: 0 } : a === "fim" ? { right: 0 } : { left: it.x + "%", transform: "translateX(-50%)" };
+  };
+  const rotMono = { position: "absolute", fontFamily: MONO, fontSize: TIPO_CARD.rotulo, fontWeight: 400, color: T.textSecondary, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" };
+  const chips = ["hoje", "equilibrio", "teto", "alta_forte"]
+    .map((nome) => ({ nome, i: indiceNomeado(sim, nome) }))
+    .filter((x) => x.i != null);
+  return (
+    <div style={{ background: T.bgCard, border: `1px solid ${T.borderSubtle}`, borderRadius: "10px", padding: `${SP[3]}px`, display: "flex", flexDirection: "column", gap: `${SP[3]}px` }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: `${SP[2]}px`, flexWrap: "wrap" }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={rotuloTxt}>{cartaoPosicaoTxt(modo, "sim_lead", { ddmm: c.vencimentoTexto == null ? "—" : c.vencimentoTexto, ticker })}</div>
+          <div style={{ fontFamily: MONO, fontSize: TIPO_CARD.titulo, fontWeight: 700, color: T.textPrimary, fontVariantNumeric: "tabular-nums" }}>{money(ponto.preco)}</div>
+        </div>
+        <div style={{ textAlign: "right" }}>
+          <div style={rotuloTxt}>{cartaoPosicaoTxt(modo, "sim_resultado")}</div>
+          <div style={{ fontFamily: MONO, fontSize: TIPO_CARD.titulo, fontWeight: 700, color: corRes, fontVariantNumeric: "tabular-nums" }}>{moneySigned(ponto.resultado)}</div>
+        </div>
+      </div>
+      {zona && zona.texto && (
+        <div role="status" style={{ background: T.bgBase, border: `1px solid ${T[zv.borda]}`, borderRadius: "10px", padding: `${SP[2]}px ${SP[3]}px`, display: "flex", gap: `${SP[2]}px`, alignItems: "flex-start" }}>
+          <span aria-hidden style={{ color: T.textSecondary, fontSize: TIPO_CARD.corpo, lineHeight: 1.5 }}>{zv.glifo}</span>
+          <span style={{ flex: 1, minWidth: 0, fontSize: TIPO_CARD.corpo, fontWeight: 400, color: T.textPrimary, lineHeight: 1.5 }}>{zona.texto}</span>
+        </div>
+      )}
+      <div style={{ position: "relative", height: "70px" }}>
+        {acima.map((it, i) => (
+          <div key={"a" + i} aria-hidden style={{ ...rotMono, top: (it.linha * 16) + "px", ...posRot(it) }}>{it.txt}</div>
+        ))}
+        <div style={{ position: "absolute", left: 0, right: 0, top: "28px", height: "10px", borderRadius: "999px", background: T.knob }}>
+          <div aria-hidden style={{ position: "absolute", inset: 0, borderRadius: "999px", overflow: "hidden" }}>
+            {xBe != null && seg(0, xBe, T.negative, 0.5)}
+            {xBe != null && (xK != null ? seg(xBe, xK, T.positive, 0.35) : seg(xBe, 100, T.positive, 0.35))}
+            {xK != null && seg(xK, 100, T.positive, 0.5)}
+          </div>
+          {xHoje != null && <div aria-hidden style={{ position: "absolute", top: "-4px", left: xHoje + "%", width: "2px", height: "18px", transform: "translateX(-50%)", background: T.textPrimary }} />}
+          <div aria-hidden style={{ position: "absolute", top: "50%", left: posRegua(ponto.preco, dom) + "%", width: "18px", height: "18px", borderRadius: "50%", boxSizing: "border-box", transform: "translate(-50%,-50%)", background: T.accent, border: `3px solid ${T.bgCard}` }} />
+        </div>
+        {abaixo.map((it, i) => (
+          <div key={"b" + i} aria-hidden style={{ ...rotMono, top: (44 + it.linha * 16) + "px", ...posRot(it) }}>{it.txt}</div>
+        ))}
+      </div>
+      <input
+        type="range"
+        min={0}
+        max={sim.pontos.length - 1}
+        step={1}
+        value={idx}
+        onChange={(ev) => setIdx(Number(ev.target.value))}
+        aria-label={cartaoPosicaoTxt(modo, "sim_aria", { ticker })}
+        aria-valuetext={cartaoPosicaoTxt(modo, "sim_valuetext", { preco: price(ponto.preco), resultado: moneySigned(ponto.resultado), zona: zona && zona.rotulo ? zona.rotulo : "—" })}
+        style={{ width: "100%", height: "44px", accentColor: T.accent, margin: 0 }}
+      />
+      {chips.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: `${SP[2]}px` }}>
+          {chips.map((x) => {
+            const sel = x.i === idx;
+            return (
+              <button key={x.nome} type="button" aria-pressed={sel} onClick={() => setIdx(x.i)}
+                style={{ minHeight: 44, padding: `0 ${SP[3]}px`, borderRadius: "999px", background: sel ? T.accentTint10 : "transparent", border: `1px solid ${sel ? T.accent : T.borderSubtle}`, color: sel ? T.textPrimary : T.textSecondary, fontSize: TIPO_CARD.corpo, fontWeight: 700 }}>
+                {cartaoPosicaoTxt(modo, "chip_" + x.nome)}
+              </button>
+            );
+          })}
+        </div>
+      )}
+      <div style={rotuloTxt}>{cartaoPosicaoTxt(modo, "sim_metodo")}</div>
+    </div>
+  );
+}
+
+function TermosTocaveis({ didatica, ctx }) {
+  const [aberto, setAberto] = useState(null);
+  const refs = useRef({});
+  const segs = didatica && Array.isArray(didatica.paragrafo) ? didatica.paragrafo : null;
+  if (!segs || segs.length === 0) return null;
+  const emAberto = aberto != null ? segs[aberto] : null;
+  const verbete = emAberto && emAberto.termo ? verbeteDoCatalogo(ctx.kbCatalogo, emAberto.kb) : null;
+  const fechar = () => {
+    const i = aberto;
+    setAberto(null);
+    setTimeout(() => { const el = refs.current[i]; if (el && el.focus) el.focus(); }, 0);
+  };
+  return (
+    <div style={{ border: `1px solid ${T.borderSubtle}`, borderRadius: "10px", padding: `${SP[3]}px`, display: "flex", flexDirection: "column", gap: `${SP[2]}px` }}>
+      <div style={{ fontSize: TIPO_CARD.rotulo, fontWeight: 700, color: T.accent, letterSpacing: "0.06em" }}>{cartaoDidaticaTxt("kicker_termos")}</div>
+      <div style={{ fontSize: TIPO_CARD.corpo, fontWeight: 400, color: T.textSecondary, lineHeight: 2 }}>
+        {segs.map((seg, i) => {
+          if (!seg) return null;
+          if (!seg.termo) return <span key={i}>{seg.texto}</span>;
+          if (!verbeteDoCatalogo(ctx.kbCatalogo, seg.kb)) return <span key={i}>{seg.rotulo}</span>;
+          return (
+            <button key={i} type="button" ref={(el) => { refs.current[i] = el; }} aria-expanded={aberto === i}
+              onClick={() => setAberto(aberto === i ? null : i)}
+              style={{ display: "inline", minHeight: 28, padding: "0 2px", background: "transparent", border: "none", color: T.textPrimary, fontSize: TIPO_CARD.corpo, fontWeight: 700, textDecoration: "underline dotted", textDecorationColor: T.accent, textUnderlineOffset: "3px" }}>
+              {seg.rotulo}
+            </button>
+          );
+        })}
+      </div>
+      {verbete && (
+        <div role="status" style={{ border: `1px solid ${T.accent}`, borderRadius: "10px", padding: `${SP[3]}px`, display: "flex", flexDirection: "column", gap: `${SP[2]}px` }}>
+          <div style={{ fontSize: TIPO_CARD.corpo, fontWeight: 700, color: T.textPrimary }}>{verbete.titulo}</div>
+          <div style={{ fontSize: TIPO_CARD.corpo, fontWeight: 400, color: T.textSecondary, lineHeight: 1.5 }}>{verbete.texto}</div>
+          <div style={{ borderTop: `1px solid ${T.borderSubtle}`, paddingTop: `${SP[2]}px`, fontSize: TIPO_CARD.corpo, fontWeight: 400, color: T.textSecondary, lineHeight: 1.5 }}>
+            <b style={{ fontWeight: 700, color: T.textPrimary }}>{cartaoDidaticaTxt("no_seu_caso")}</b> {emAberto.noSeuCaso ? emAberto.noSeuCaso : cartaoPosicaoTxt("estudo", "aguardando_calculo")}
+          </div>
+          <button type="button" onClick={fechar} style={{ minHeight: 44, borderRadius: "10px", border: `1px solid ${T.accent}`, background: "transparent", color: T.accent, fontSize: TIPO_CARD.corpo, fontWeight: 700 }}>{cartaoDidaticaTxt("entendi")}</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PayoffOperador({ e, modo }) {
+  const c = e && e.cenarios;
+  const pf = c ? c.payoff : null;
+  if (!pf || !Array.isArray(pf.pontos) || pf.pontos.length < 2) return null;
+  // Único cálculo permitido: LAYOUT (valor -> % do desenho). Nunca altera nem
+  // deriva um número financeiro exibido.
+  const xDoGrafico = (v) => Math.min(100, Math.max(0, ((v - pf.xMin) / ((pf.xMax - pf.xMin) || 1)) * 100));
+  const yDoGrafico = (v) => 100 - (10 + ((v - pf.yMin) / ((pf.yMax - pf.yMin) || 1)) * 80);
+  const rotuloTxt = { fontSize: TIPO_CARD.rotulo, fontWeight: 400, color: T.textSecondary };
+  const xBe = c.be != null ? xDoGrafico(c.be) : null;
+  const xK = c.k != null ? xDoGrafico(c.k) : null;
+  const xHoje = c.hoje != null ? xDoGrafico(c.hoje) : null;
+  const yZero = yDoGrafico(0);
+  const linhaV = (x, cor) => (
+    <line x1={x} x2={x} y1={0} y2={100} stroke={cor} strokeWidth={2} strokeDasharray="4 3" vectorEffect="non-scaling-stroke" />
+  );
+  return (
+    <div style={{ background: T.bgCard, border: `1px solid ${T.borderSubtle}`, borderRadius: "10px", padding: `${SP[3]}px`, display: "flex", flexDirection: "column", gap: `${SP[2]}px` }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: `${SP[2]}px`, flexWrap: "wrap" }}>
+        <span style={{ fontSize: TIPO_CARD.corpo, fontWeight: 700, color: T.textPrimary }}>{cartaoPosicaoTxt(modo, "payoff_titulo", { ddmm: c.vencimentoTexto == null ? "—" : c.vencimentoTexto })}</span>
+        <span style={rotuloTxt}>{cartaoPosicaoTxt(modo, "payoff_sem_custos")}</span>
+      </div>
+      <div style={{ position: "relative", height: "140px" }}>
+        <svg role="img" aria-label={pf.aria} viewBox="0 0 100 100" preserveAspectRatio="none" style={{ display: "block", width: "100%", height: "140px", background: T.bgBase, border: `1px solid ${T.borderSubtle}`, borderRadius: "10px", boxSizing: "border-box" }}>
+          {xBe != null && <rect x={0} y={0} width={xBe} height={100} fill={T.negative} opacity={0.12} />}
+          {xBe != null && <rect x={xBe} y={0} width={100 - xBe} height={100} fill={T.positive} opacity={0.1} />}
+          <line x1={0} x2={100} y1={yZero} y2={yZero} stroke={T.textMuted} strokeWidth={1} vectorEffect="non-scaling-stroke" />
+          {xK != null && linhaV(xK, T.positive)}
+          {xHoje != null && linhaV(xHoje, T.accent)}
+          <polyline fill="none" stroke={T.textPrimary} strokeWidth={2.5} vectorEffect="non-scaling-stroke" strokeLinejoin="round"
+            points={pf.pontos.map((q) => xDoGrafico(q.preco).toFixed(2) + "," + yDoGrafico(q.resultado).toFixed(2)).join(" ")} />
+        </svg>
+        {xBe != null && (
+          <div aria-hidden style={{ position: "absolute", left: xBe + "%", top: yZero + "%", width: "10px", height: "10px", boxSizing: "border-box", background: T.textPrimary, transform: "translate(-50%,-50%) rotate(45deg)" }} />
+        )}
+      </div>
+      <div style={{ ...rotuloTxt, display: "flex", flexWrap: "wrap", gap: `${SP[1]}px ${SP[3]}px`, fontFamily: MONO, fontVariantNumeric: "tabular-nums" }}>
+        {c.hoje != null && <span>{cartaoPosicaoTxt(modo, "leg_hoje", { v: price(c.hoje) })}</span>}
+        {c.be != null && <span>{cartaoPosicaoTxt(modo, "leg_be", { v: price(c.be) })}</span>}
+        {c.k != null && <span>{cartaoPosicaoTxt(modo, "leg_k", { v: price(c.k) })}</span>}
+        <span>{cartaoPosicaoTxt(modo, "leg_eixo", { lo: price(pf.xMin), hi: price(pf.xMax) })}</span>
+      </div>
+    </div>
+  );
+}
+
+function GradeConta({ e, modo }) {
+  const [aberta, setAberta] = useState(null);
+  const [cols, setCols] = useState(2);
+  const boxRef = useRef(null);
+  useEffect(() => {
+    const el = boxRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return undefined;
+    const medir = () => {
+      const escala = parseFloat(getComputedStyle(document.documentElement).fontSize) / 16;
+      setCols(colunasDaGrade(el.clientWidth, escala));
+    };
+    medir();
+    const ro = new ResizeObserver(medir);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const g = e && e.cenarios ? e.cenarios.grade : null;
+  if (!Array.isArray(g) || g.length === 0) return null;
+  const fmt = (cel) => {
+    if (cel.valor == null) return "—";
+    if (cel.formato === "preco") return price(cel.valor);
+    if (cel.formato === "pct") return pct(cel.valor);
+    if (cel.formato === "moeda_sinal") return moneySigned(cel.valor);
+    if (cel.formato === "qtd") return Number(cel.valor).toLocaleString("pt-BR");
+    return String(cel.valor);
+  };
+  const corDe = (cel) => (cel.chave === "ganho_max" ? T.positive : cel.chave === "perda_max" ? T.negative : T.textPrimary);
+  const sel = aberta != null ? g.find((x) => x && x.chave === aberta) : null;
+  return (
+    <div ref={boxRef} style={{ display: "flex", flexDirection: "column", gap: `${SP[2]}px` }}>
+      <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, minmax(0,1fr))`, gap: "1px", background: T.borderSubtle, border: `1px solid ${T.borderSubtle}`, borderRadius: "10px", overflow: "hidden" }}>
+        {g.map((cel) => (
+          <button key={cel.chave} type="button" aria-expanded={aberta === cel.chave}
+            onClick={() => setAberta(aberta === cel.chave ? null : cel.chave)}
+            style={{ minHeight: 48, padding: `${SP[2]}px ${SP[3]}px`, background: T.bgCard, border: "none", textAlign: "left", display: "flex", flexDirection: "column", gap: `${SP[1]}px`, overflowWrap: "anywhere" }}>
+            <span style={{ fontSize: TIPO_CARD.rotulo, fontWeight: 400, color: T.textSecondary, textDecoration: "underline dotted", textDecorationColor: T.accent, textUnderlineOffset: "3px" }}>{cel.rotulo}</span>
+            <span style={{ fontFamily: MONO, fontSize: TIPO_CARD.corpo, fontWeight: 700, color: corDe(cel), fontVariantNumeric: "tabular-nums" }}>{fmt(cel)}</span>
+          </button>
+        ))}
+      </div>
+      {sel && (
+        <div role="status" style={{ background: T.bgBase, border: `1px solid ${T.accent}`, borderRadius: "10px", padding: `${SP[2]}px ${SP[3]}px`, display: "flex", flexDirection: "column", gap: `${SP[1]}px` }}>
+          {sel.conta ? (
+            <>
+              <span style={{ fontSize: TIPO_CARD.rotulo, fontWeight: 400, color: T.textSecondary }}>{sel.conta.formula}</span>
+              <span style={{ fontFamily: MONO, fontSize: TIPO_CARD.corpo, fontWeight: 700, color: T.textPrimary, fontVariantNumeric: "tabular-nums", overflowWrap: "anywhere" }}>{sel.conta.numeros}</span>
+            </>
+          ) : (
+            <span style={{ fontSize: TIPO_CARD.rotulo, fontWeight: 400, color: T.textSecondary }}>{cartaoPosicaoTxt(modo, "conta_sem_formula")}</span>
+          )}
+        </div>
+      )}
     </div>
   );
 }
