@@ -346,3 +346,64 @@ def test_estrutura_posicao_sem_ancoras_proibidas_e_sem_verbo_de_ordem_no_estudo(
         assert not _re.search(r"trava protetora|abate o custo", texto, _re.I)
     edu = " ".join(skill_ref.ESTRUTURA_POSICAO["educacional"].values())
     assert not _re.search(r"\bcomprar\b|\bvender\b", edu, _re.I)
+
+
+# --- Card de posição v6 (Fase 46, CART6-06/07) --------------------------------
+# Neutras (UI-SPEC "Neutras"): texto idêntico nos dois modos.
+_V6_NEUTRAS = (
+    "face_acao", "face_opcoes", "plano_titulo", "compras_titulo", "estado_sem_plano",
+    "estado_travadas_todas", "estado_travadas_parcial", "encerrar", "atualizar",
+    "sem_cenario", "conta_sem_formula", "aguardando_calculo", "piso", "teto",
+    "equilibrio_rotulo", "chip_alta_forte", "cel_be", "cel_lastro", "rodape_fechar",
+)
+_V6_PROIBIDO = r"\bcomprar\b|\bvender\b|trava protetora|abate o custo|\bgarante|\bcerto\b|\bsempre\b"
+
+
+def test_cartao_posicao_rotulos_por_modo():
+    from app import skill_ref as sr
+    assert sr.cartao_posicao_txt("operador", "rodape_abrir") == "Detalhes e ações ▾"
+    assert sr.cartao_posicao_txt("educacional", "rodape_abrir") == "Ver detalhes e aprender ▾"
+    assert sr.cartao_posicao_txt("estudo", "saida") == "Simular venda"
+    assert sr.cartao_posicao_txt("operador", "saida") == "Registrar saída"
+    assert sr.cartao_posicao_txt("operador", "encerrar") == "Encerrar opção em Opções"
+
+
+def test_cartao_posicao_interpola_e_falha_fechado():
+    from app import skill_ref as sr
+    assert (
+        sr.cartao_posicao_txt("educacional", "estado_travadas_parcial", n="600", m="1.000", k="400")
+        == "600 de 1.000 ações travadas · 400 livres"
+    )
+    assert sr.cartao_posicao_txt("operador", "nao_existe") is None
+    assert sr.cartao_didatica_txt("chave_inexistente") is None
+
+
+def test_cartao_posicao_mesmas_chaves_e_neutras_iguais():
+    from app import skill_ref as sr
+    op, ed = sr.CARTAO_POSICAO["operador"], sr.CARTAO_POSICAO["educacional"]
+    assert set(op) == set(ed)
+    for k in _V6_NEUTRAS:
+        assert op[k] == ed[k], k
+
+
+def test_cartao_estudo_sem_vocabulario_proibido():
+    import re
+    from app import skill_ref as sr
+    rx = re.compile(_V6_PROIBIDO, re.I)
+    for d in (sr.CARTAO_POSICAO["educacional"], sr.CARTAO_DIDATICA["educacional"]):
+        for k, v in d.items():
+            assert not rx.search(v), (k, v)
+
+
+def test_cartao_didatica_so_educacional_e_marcadores_resolvem():
+    import re
+    from app import skill_ref as sr
+    assert set(sr.CARTAO_DIDATICA) == {"educacional"}
+    d = sr.CARTAO_DIDATICA["educacional"]
+    for k, v in d.items():
+        if k.startswith("paragrafo_"):
+            for m in re.findall(r"\[\[([a-z_]+)\]\]", v):
+                assert f"termo_{m}" in d, (k, m)
+    assert sr.cartao_didatica_txt("caso_sem_piso", perdaMaxima="38.010,00") == (
+        "Sem piso: se a ação fosse a zero, a perda seria de R$ 38.010,00."
+    )

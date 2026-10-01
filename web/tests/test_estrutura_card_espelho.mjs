@@ -138,8 +138,13 @@ for (const f of new Set(frasesJs)) {
 
 // Reversão deliberada Fase 45 (decisão do Alex): o botão só navega para Opções
 // (onde só a call é recomprada); nenhuma copy pode prometer encerrar a estrutura.
+// Fase 46 (D-15, UI-SPEC S13, 2026-09-30): rótulo do protótipo v6. O botão passa
+// de "Ver encerramento em Opções…" para "Encerrar opção em Opções"; a premissa
+// segue (só navega para Opções, onde só a call é recomprada), então a asserção
+// foi reescrita — não apagada: o rótulo começa com "Encerrar opção" e continua
+// sem prometer "encerrar estrutura". `encerrarAria` não mudou.
 ok("botão de encerramento só promete navegar (não 'Encerrar estrutura')",
-   /^Ver encerramento/.test(E.btnEncerrarEstrutura) && !/encerrar estrutura/i.test(E.btnEncerrarEstrutura) &&
+   E.btnEncerrarEstrutura === "Encerrar opção em Opções" && !/encerrar estrutura/i.test(E.btnEncerrarEstrutura) &&
    /^Ver encerramento de PETR4/.test(E.encerrarAria("PETR4")) && !/encerrar estrutura/i.test(E.encerrarAria("PETR4")));
 
 if (fails) { console.error(`\n${fails} falha(s)`); process.exit(1); }
