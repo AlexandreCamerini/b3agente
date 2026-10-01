@@ -63,10 +63,7 @@ ok("qa/34: candles do PriceChart pela paleta do modo (sem #22c55e fixo)",
 // (b) o âmbar de aviso (#fbbf24, diário/logs) virou token `warn` do PALETTE —
 //     nenhuma ocorrência solta fora da definição do token.
 ok("qa/34: token warn definido nos dois temas",
-  /warn:\s*"#fbbf24"/.test(src) && /warn:\s*"#9a5b06"/.test(src));
-// 2026-10-01, opção C de identidade de modo: warn claro #a16207 -> #9a5b06
-// (4,33:1 e 4,29:1 sobre as novas bases azul/âmbar reprovavam AA; o novo mede
-// 4,73:1 no pior caso). Ver test_contraste_tokens.mjs.
+  /warn:\s*"#fbbf24"/.test(src) && /warn:\s*"#a16207"/.test(src));
 ok("qa/34: nenhum #fbbf24 solto fora do PALETTE",
   (src.match(/#fbbf24/gi) || []).length === 1);
 // (c) critério de aceite da auditoria: ZERO hex azul inline fora do

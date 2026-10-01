@@ -109,29 +109,20 @@ const BRAND = {
 // eles são acento.
 const PALETTE = {
   // Base = modo ESTUDO. O Operador entra como override em MODE_OPERADOR.
-  // Neutros de v2 (bloco "Design tokens": --bg/--bg-2/--panel/--line/--ink/
-  // --muted/--muted-2) foram a base até 2026-10-01; a opção C de identidade de
-  // modo substituiu os de fundo/card/borda por neutros com matiz AZUL (aprovados
-  // pelo Alex), ver comentários por esquema abaixo. Texto segue os de v2/C-16.
+  // Neutros do dark e do light vêm literais do bloco "Design tokens" de v2:
+  // --bg/--bg-2/--panel/--line/--ink/--muted/--muted-2. O light era a
+  // pendência aberta da Fase 3 ("Brand Book só especifica dark") — v2 fecha.
   dark: {
-    // 2026-10-01, opção C de identidade de modo: neutros do Estudo escuro
-    // ganham matiz AZUL (antes #10121a/#161927/#1b1f2e/#2c3245/#20242f,
-    // grafite quase neutro). Aprovados pelo Alex no protótipo Modos.dc.html:
-    // base #0c1424, card #15203a, borda #26345a, borda fraca #1c2845; painel,
-    // toast, tracejada e knob derivados na mesma matiz.
-    bgBase: "#0c1424", bgPanel: "#111a2f", bgCard: "#15203a", bgToast: "#15203a",
-    borderSubtle: "#26345a", borderFaint: "#1c2845", borderDashed: "#34446c", borderToast: "#34446c",
+    bgBase: "#10121a", bgPanel: "#161927", bgCard: "#1b1f2e", bgToast: "#1b1f2e",
+    borderSubtle: "#2c3245", borderFaint: "#20242f", borderDashed: "#3a4258", borderToast: "#3a4258",
     textPrimary: "#eef1f8", textSecondary: "#c9d1e6", textMuted: "#9aa3bd", textDim: "#8890a8",
     // FIX-C16 (REPORT-01): o hex antigo media 4,24:1 contra bgBase — pior
     // contra bgCard (3,71:1), abaixo do mínimo AA 4.5:1. Este é o mesmo tom
     // com luminosidade ajustada (mesma metodologia do acento, ver comentário
     // acima em BRAND/PALETTE): 5,19:1/4,85:1/4,55:1 (pior caso bgCard).
-    // 2026-10-01, opção C: com o bgCard azulado #15203a o #7f86a2 media
-    // 4,49:1 (reprova). #8189a5, mesma matiz, um passo mais claro: 5,31:1
-    // (bgBase) / 4,99:1 (bgPanel) / 4,66:1 (pior caso, bgCard).
-    textFaint: "#8189a5", textBright: "#f6f8fc",
+    textFaint: "#7f86a2", textBright: "#f6f8fc",
     accent: "#2fa8a0", accentSoft: "#5cc4bd", positive: BRAND.green, negative: BRAND.red,
-    knob: "#1c2845", navDotIdle: "#26345a", confirmOkText: "#04251a",
+    knob: "#20242f", navDotIdle: "#2c3245", confirmOkText: "#04251a",
     accentTint: "rgba(47,168,160,0.14)", accentTintHi: "rgba(47,168,160,0.26)", accentTint10: "rgba(47,168,160,0.10)",
     positiveTint: "rgba(52,211,153,0.12)", positiveTint10: "rgba(52,211,153,0.10)",
     negativeTint: "rgba(242,109,109,0.12)", negativeTint10: "rgba(242,109,109,0.10)",
@@ -142,20 +133,11 @@ const PALETTE = {
     warnTint10: "rgba(251,191,36,0.10)", // Fase 42 (COR-01/D-03): tint do estado inelegível — 7,98:1 (estudo) / 8,64:1 (Operador), ver 42-UI-SPEC.md
   },
   light: {
-    // Histórico: antes de v2 o painel e o card eram os dois #ffffff; v2
-    // separou --bg-2 de --panel. Desde 2026-10-01 (opção C) o painel fica
-    // ENTRE base e card, ver abaixo.
-    // 2026-10-01, opção C de identidade de modo: neutros do Estudo claro com
-    // matiz AZUL (antes #f7f8fc/#eef0f7/#ffffff/#e2e5f0/#edeff5). Aprovados:
-    // base #eaf1fc, card #ffffff, borda #cfdbf0, borda fraca #dde7f6.
-    // DECISÃO: o painel deixa de ser um degrau MAIS ESCURO que a base e passa
-    // a ficar ENTRE base e card (#f3f7fd). Um painel abaixo de #eaf1fc
-    // derrubaria positive #197a56 para 4,34:1 e o accent para 4,56:1, e esses
-    // hex são aprovados; com o painel entre os dois, o pior caso de todo token
-    // passa a ser o bgBase. bgToast azul-escuro, tracejada/knob/navDot na
-    // mesma matiz.
-    bgBase: "#eaf1fc", bgPanel: "#f3f7fd", bgCard: "#ffffff", bgToast: "#1a2438",
-    borderSubtle: "#cfdbf0", borderFaint: "#dde7f6", borderDashed: "#b9c9e6", borderToast: "#34425e",
+    // Neutros literais de v2. Antes o painel e o card eram os dois #ffffff —
+    // v2 separa --bg-2 (#eef0f7) de --panel (#ffffff), então o painel volta a
+    // ter um degrau de profundidade sobre o card, como no dark.
+    bgBase: "#f7f8fc", bgPanel: "#eef0f7", bgCard: "#ffffff", bgToast: "#222936",
+    borderSubtle: "#e2e5f0", borderFaint: "#edeff5", borderDashed: "#d3d8e6", borderToast: "#39414f",
     // 2026-09-06: achado COLATERAL da Fase 4 (FIX-C16), fora do escopo do
     // C-16 original — aquele fix corrigiu textFaint nesta mesma paleta mas
     // não tocou textDim, que seguiu reprovando AA por todo o v1.1 e o v1.5.
@@ -175,24 +157,15 @@ const PALETTE = {
     // TEXTO em 72 lugares (valores de P&L), não só badge. Estes são os tons
     // mais próximos da marca que passam AA — mesma matiz, luminosidade menor.
     // Ver o bloco "sinal universal" no relatório da entrega.
-    // 2026-10-01, opção C: sobre a base azulada #eaf1fc os tons antigos
-    // (accent #1f7d76, positive #1c825d, negative #c6464c) caem perto do
-    // limite AA; um degrau mais escuro, mesma matiz: accent #1c746d,
-    // positive #197a56, negative #b83a41 (aprovados pelo Alex). Tints
-    // recalculados com o mesmo RGB novo e os mesmos alphas.
-    accent: "#1c746d", accentSoft: "#166861", positive: "#197a56", negative: "#b83a41",
-    knob: "#d5e0f2", navDotIdle: "#b9c9e6", confirmOkText: "#ffffff",
-    accentTint: "rgba(28,116,109,0.12)", accentTintHi: "rgba(28,116,109,0.20)", accentTint10: "rgba(28,116,109,0.10)",
-    positiveTint: "rgba(25,122,86,0.12)", positiveTint10: "rgba(25,122,86,0.10)",
-    negativeTint: "rgba(184,58,65,0.12)", negativeTint10: "rgba(184,58,65,0.10)",
+    accent: "#1f7d76", accentSoft: "#166861", positive: "#1c825d", negative: "#c6464c",
+    knob: "#dfe3ee", navDotIdle: "#c4cad8", confirmOkText: "#ffffff",
+    accentTint: "rgba(31,125,118,0.12)", accentTintHi: "rgba(31,125,118,0.20)", accentTint10: "rgba(31,125,118,0.10)",
+    positiveTint: "rgba(28,130,93,0.12)", positiveTint10: "rgba(28,130,93,0.10)",
+    negativeTint: "rgba(198,70,76,0.12)", negativeTint10: "rgba(198,70,76,0.10)",
     scrim: "rgba(15,20,28,0.45)",
     shadowFab: "rgba(15,20,28,0.22)", // Fase 22 (SYS-03): mais leve que o scrim claro (0.45). Um halo preto forte sobre o bgBase quase branco lê como borrão, não como separação; o scrim é calibrado para overlay de tela cheia, não para drop-shadow de 54px. Valor de PARTIDA — a calibragem final é a checagem visual do plano 22-04.
     chartGrid: "rgba(0,0,0,0.05)", chartBorder: "rgba(0,0,0,0.10)", chartAxis: "#8a90a0", lineSubtle: "rgba(0,0,0,0.16)", onAccent: "#ffffff",
-    // 2026-10-01, opção C: #a16207 media 4,33:1 sobre a base azulada #eaf1fc
-    // e 4,29:1 sobre a base âmbar #f5efe0 (reprova). #9a5b06, mesma matiz, um
-    // degrau mais escuro: 4,77:1 / 4,73:1 (pior caso, bgBase); serve aos dois
-    // modos sem override.
-    warn: "#9a5b06", // qa/34: âmbar de aviso legível sobre fundo claro
+    warn: "#a16207", // qa/34: âmbar de aviso legível sobre fundo claro
     warnTint10: "rgba(161,98,7,0.04)", // Fase 42 (COR-01/D-03): alpha 4% — 4,68:1 nas 2 combinações (mesmo bgCard #ffffff); alternativa 3,6% = 4,70:1 registrada como DP-1 do checkpoint 42-06
   },
 };
@@ -213,16 +186,11 @@ const MODE_OPERADOR = {
   // direta: dourado = mesa/dinheiro no Operador, azul-esverdeado = estudo.
   // Além de separar melhor os dois modos (matizes opostas, não dois tons da
   // mesma família), tira do verde o papel duplo de acento E sinal de compra.
-  // A diferenciação de leiaute continua, e desde 2026-10-01 (opção C de
-  // identidade de modo) os neutros têm matiz própria por modo: AZUL no Estudo,
-  // ÂMBAR no Operador (antes o Operador era "mais frio" que o Estudo).
+  // A diferenciação de leiaute continua: fundo/cartão/borda seguem mais frios
+  // que os do Estudo.
   dark: {
-    // 2026-10-01, opção C de identidade de modo: neutros do Operador escuro
-    // com matiz ÂMBAR (antes frios: #0a0c12/#10131c/#141926/#242c40/#1a2030).
-    // Aprovados: base #12100b, card #1e1a12, borda #3a3322, borda fraca
-    // #2a2418; painel/tracejada/toast derivados na mesma matiz.
-    bgBase: "#12100b", bgPanel: "#18150e", bgCard: "#1e1a12", bgToast: "#1e1a12",
-    borderSubtle: "#3a3322", borderFaint: "#2a2418", borderDashed: "#4a412c", borderToast: "#4a412c",
+    bgBase: "#0a0c12", bgPanel: "#10131c", bgCard: "#141926", bgToast: "#141926",
+    borderSubtle: "#242c40", borderFaint: "#1a2030", borderDashed: "#323c54", borderToast: "#323c54",
     // FIX-C16 (REPORT-01): mesma chave/mesmo call site do Estudo, override
     // do Modo Operador — o hex antigo media 3,20-3,56:1 (pior que o par do
     // Estudo), abaixo de AA. Este passa: 4,564:1 pior caso (bgCard).
@@ -232,7 +200,7 @@ const MODE_OPERADOR = {
     accentTint: "rgba(212,175,55,0.14)", accentTintHi: "rgba(212,175,55,0.26)", accentTint10: "rgba(212,175,55,0.10)",
     positiveTint: "rgba(52,211,153,0.13)", positiveTint10: "rgba(52,211,153,0.10)",
     negativeTint: "rgba(242,109,109,0.13)", negativeTint10: "rgba(242,109,109,0.10)",
-    onAccent: "#241b06", knob: "#2a2418", navDotIdle: "#3a3322", chartAxis: "#7d7562",
+    onAccent: "#241b06", knob: "#1a2030", navDotIdle: "#242c40", chartAxis: "#5b6890",
   },
   light: {
     // qa/32: faltavam bgBase/bgPanel/borders/text — o override em LIGHT só
@@ -241,13 +209,8 @@ const MODE_OPERADOR = {
     // relativa do dark (base levemente mais fria/grafite que o Estudo).
     // Base neutra do Operador no claro: mesma lógica relativa do dark (um
     // degrau mais frio/grafite que o Estudo), agora derivada dos neutros de v2.
-    // 2026-10-01, opção C: neutros do Operador claro com matiz ÂMBAR (antes
-    // verde-acinzentado #f2f6f4/#e9efec/#ffffff/#dce5e1). Aprovados: base
-    // #f5efe0, card #fffcf4, borda #e3d8b8, borda fraca #ede4c8. Painel ENTRE
-    // base e card (mesma decisão do Estudo claro, ver PALETTE.light); toast
-    // âmbar-escuro no lugar do verde.
-    bgBase: "#f5efe0", bgPanel: "#faf6eb", bgCard: "#fffcf4", bgToast: "#241f14",
-    borderSubtle: "#e3d8b8", borderFaint: "#ede4c8", borderDashed: "#d4c59c", borderToast: "#4a412c",
+    bgBase: "#f2f6f4", bgPanel: "#e9efec", bgCard: "#ffffff", bgToast: "#16211c",
+    borderSubtle: "#dce5e1", borderFaint: "#e8efec", borderDashed: "#c8d6d0", borderToast: "#24483a",
     // FIX-C16 (REPORT-01): mesma chave/mesmo call site do Estudo, override
     // do Modo Operador — o hex antigo media 3,11-3,62:1, abaixo de AA. Este
     // passa: 4,566:1 pior caso (bgPanel).
@@ -260,15 +223,12 @@ const MODE_OPERADOR = {
     // único dos quatro acentos que precisou de ajuste — os outros três entraram
     // exatamente como vieram. Mesmo critério aplicado ao positive/negative do
     // tema claro, e medido por test_brand_book_v2_tokens.mjs.
-    // 2026-10-01, opção C: dourado do claro um degrau mais escuro para a base
-    // âmbar #f5efe0 (accent #8a6c1c -> #7f6318, aprovado); positive/negative
-    // iguais aos do Estudo claro.
-    accent: "#7f6318", accentSoft: "#7d621a",
-    positive: "#197a56", negative: "#b83a41",
-    accentTint: "rgba(127,99,24,0.12)", accentTintHi: "rgba(127,99,24,0.20)", accentTint10: "rgba(127,99,24,0.10)",
-    positiveTint: "rgba(25,122,86,0.12)", positiveTint10: "rgba(25,122,86,0.10)",
-    negativeTint: "rgba(184,58,65,0.12)", negativeTint10: "rgba(184,58,65,0.10)",
-    onAccent: "#ffffff", knob: "#e3d8b8", navDotIdle: "#d4c59c", chartAxis: "#8a7f66",
+    accent: "#8a6c1c", accentSoft: "#7d621a",
+    positive: "#1c825d", negative: "#c6464c",
+    accentTint: "rgba(138,108,28,0.12)", accentTintHi: "rgba(138,108,28,0.20)", accentTint10: "rgba(138,108,28,0.10)",
+    positiveTint: "rgba(28,130,93,0.12)", positiveTint10: "rgba(28,130,93,0.10)",
+    negativeTint: "rgba(198,70,76,0.12)", negativeTint10: "rgba(198,70,76,0.10)",
+    onAccent: "#ffffff", knob: "#dce5e1", navDotIdle: "#c8d6d0", chartAxis: "#7a8b85",
   },
 };
 const modeVarBlock = (name) => Object.entries(MODE_OPERADOR[name]).map(([k, v]) => `${VARKEY(k)}:${v}`).join(";");
