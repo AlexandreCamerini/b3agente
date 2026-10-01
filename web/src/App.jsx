@@ -3593,6 +3593,10 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
   // (`sc.fundamento`) e cai para o `fundamento` da análise (`fscore`) só na
   // ausência dele — ambos vêm de `fundamentals`, nunca da IA.
   const modoCard = operador ? "operador" : "estudo";
+  // 2026-10-01, opção C de identidade de modo: o card da WATCHLIST (Mercado)
+  // leva borda superior de 3px e o CTA neutro preenchido no acento do modo. O
+  // Radar compartilha este AtivoCard e fica fora por escopo.
+  const ehWatchlist = contexto === "watchlist";
   const s0Card = sc ? setupOperavel(sc.setups, sc.melhorSetup) : null;
   const anel = sc ? rotuloAnel({ conf: sc.confluencia, tierLabel: tierOf(sc.confluencia)[1], lado: ladoDoMotor({ setup: s0Card, plano: sc.plano }), setup: sc.melhorSetup }, modoCard) : null;
   const alinhamento = sc ? alinhamentoDoMotor({ decisao: decM, regime: sc.regime, gatilhoAlinhado: sc.gatilhoAlinhado }) : null;
@@ -3699,7 +3703,7 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
             // Fase 23 (MOTION-01): entrada só para ticker inédito NESTA montagem da
             // lista — a classe some no render seguinte, e o estado final do keyframe é
             // igual ao estilo natural, então truncar no meio nunca deixa card quebrado.
-            <div key={t} id={"ativo-" + t} className={isNovo ? "card-enter" : undefined} style={{ ...card, padding: "14px 15px" }}>
+            <div key={t} id={"ativo-" + t} className={isNovo ? "card-enter" : undefined} style={{ ...card, padding: "14px 15px", ...(ehWatchlist ? { borderTop: `3px solid ${T.accent}` } : null) }}>
               {opOpen ? (
                 // ESPINHA: o que sustenta a checagem "opção respeita a leitura do
                 // ativo" (Princípio 5/9) continua CONFERÍVEL — números, não um selo.
@@ -4007,7 +4011,7 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
               {/* FASE 3 (mock v2): sem análise ainda → CTA neutro de compra (o
                   contextual pós-análise já existe acima, no bloco C1) */}
               {!hasAnalysis(an) && !an.loading && (
-                <button onClick={() => A.openBuy(t, undefined, buyMeta)} disabled={q.error || q.price == null} style={{ marginTop: "12px", width: "100%", minHeight: "44px", padding: "10px", borderRadius: "10px", border: `1px solid ${T.borderSubtle}`, background: T.bgBase, color: T.textSecondary, fontWeight: 700, fontSize: "13px" }}>{cp.btnComprar}…</button>
+                <button onClick={() => A.openBuy(t, undefined, buyMeta)} disabled={q.error || q.price == null} style={{ marginTop: "12px", width: "100%", minHeight: "44px", padding: "10px", borderRadius: "10px", ...(ehWatchlist ? { border: `1px solid ${T.accent}`, background: T.accent, color: T.onAccent, fontWeight: 800, opacity: (q.error || q.price == null) ? 0.6 : 1 } : { border: `1px solid ${T.borderSubtle}`, background: T.bgBase, color: T.textSecondary, fontWeight: 700 }), fontSize: "13px" }}>{cp.btnComprar}…</button>
               )}
               {expanded && hasAnalysis(an) && (
                 <div style={{ marginTop: "11px", paddingTop: "12px", borderTop: `1px solid ${T.borderSubtle}` }}>
