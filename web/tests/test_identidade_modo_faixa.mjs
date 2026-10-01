@@ -51,5 +51,21 @@ ok("<FaixaModo só aparece uma vez em todo o App.jsx (fora dos early returns)", 
 ok("friso de 3px (linear-gradient accent/accentSoft) removido do return principal",
   !principal.includes("linear-gradient(90deg, ${T.accent}, ${T.accentSoft})"));
 
+// ---- 4) card da watchlist --------------------------------------------------
+const ai = app.indexOf("function AtivoCard");
+const af = ai < 0 ? -1 : app.indexOf("\nfunction ", ai + 1);
+const ativo = ai < 0 ? "" : app.slice(ai, af < 0 ? undefined : af);
+ok("AtivoCard localizado", ativo.length > 0);
+ok("AtivoCard: borderTop 3px solid T.accent", ativo.includes("3px solid ${T.accent}"));
+ok('AtivoCard: destaque condicionado a contexto === "watchlist"', ativo.includes('contexto === "watchlist"'));
+const ci = ativo.indexOf("disabled={q.error || q.price == null}");
+const cf = ci < 0 ? -1 : ativo.indexOf("</button>", ci);
+const cta = ci < 0 ? "" : ativo.slice(ci, cf);
+ok("CTA neutro localizado (btnComprar…)", cta.includes("cp.btnComprar"));
+ok("CTA neutro: usa T.onAccent e T.accent", cta.includes("T.onAccent") && cta.includes("T.accent"));
+ok("CTA neutro: estado desabilitado visível (opacity 0.6)", /opacity:[^,}]*0\.6/.test(cta));
+ok("const card global intacto",
+  app.includes('const card = { background: T.bgCard, border: `1px solid ${T.borderSubtle}`, borderRadius: "12px" };'));
+
 console.log(fails ? `\n${fails} verificação(ões) falharam` : "\ntodas as verificações passaram");
 process.exit(fails ? 1 : 0);
