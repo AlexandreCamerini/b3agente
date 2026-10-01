@@ -6,8 +6,8 @@ import { testServer, describeRuntimeConfig, getApiBase, PROD_BASE } from "./api.
 import { createChart, ColorType, CrosshairMode, LineStyle } from "lightweight-charts";
 import { sampleTechnicals } from "./demo.js";
 import { DISCLAIMERS, TERMO_OPERADOR_VERSAO, TERMO_DESCOBERTO_VERSAO } from "./disclaimers.js";
-import { copyFor, historicoTxt, entradaAutoTxt, reconciliacaoTxt, reconciliacaoPorQueImporta, estruturaCardTxt } from "./copy.js";
-import { tickersComPernas, assinaturaEstrutura, estadoLeitura, mostraAvisoSemStop, mostraRR, valorRR, criarFilaLeituras, tipoPillTravada, chipVencimento, ddmmDeIso, tomDoEstado, dominioRegua, posRegua, sinalResultado, kickerResultadoSoAcoes } from "./estruturaCard.js";
+import { copyFor, historicoTxt, entradaAutoTxt, reconciliacaoTxt, reconciliacaoPorQueImporta, estruturaCardTxt, cartaoPosicaoTxt, cartaoDidaticaTxt } from "./copy.js";
+import { tickersComPernas, assinaturaEstrutura, estadoLeitura, mostraAvisoSemStop, mostraRR, valorRR, criarFilaLeituras, tipoPillTravada, chipVencimento, ddmmDeIso, tomDoEstado, dominioRegua, posRegua, sinalResultado, kickerResultadoSoAcoes, ancoraRotulo, estadoPrincipalV6 } from "./estruturaCard.js";
 // Fase 41 (TELAS-01): registro único das 8 telas que o assistente conhece —
 // BottomNav/petTela leem daqui nesta plano (41-02); tourPassos/ajudaSecoes
 // passam a iterar os ids do registro na 41-02/Task 2.
@@ -4519,6 +4519,61 @@ function useEstruturasPosicao(data, operador, escopoSeq) {
   return { leituras, atualizar };
 }
 
+// Fase 46 (CART6-01, D-01/D-03): leitura do plano de TODAS as posições numa
+// chamada em lote (POST /api/carteira/leitura). Preço = cotação crua
+// `quotes[t].price` só se número > 0, nunca o preço de marcação (que cai no PM
+// sem cotação e inventaria um "agora"; S10). Recarrega só quando a assinatura
+// muda (sem polling). Token `seqRef` monotônico e nunca zerado + `corteRef` por
+// escopo: resposta de outra conta/época é descartada (T-46-15, mesmo padrão
+// do hook de estruturas). Falha mantém as leituras anteriores e marca "falha".
+function useLeiturasPlano(data, quotes, operador, escopoSeq) {
+  const [estado, setEstado] = useState({ status: "carregando", leituras: {} });
+  const seqRef = useRef(0);
+  const corteRef = useRef(0);
+  const vivoRef = useRef(true);
+  const ultimaRef = useRef(null);
+  const modo = operador ? "operador" : "estudo";
+  const posicoes = (data.positions || []).map((p) => {
+    const q = (quotes && quotes[p.t]) || null;
+    const preco = q && typeof q.price === "number" && q.price > 0 ? q.price : null;
+    return {
+      t: p.t, qty: p.qty, avg: p.avg, stop: p.stop, alvo: p.alvo,
+      qtyTravada: p.qtyTravada, setupEntrada: p.setupEntrada || null, preco,
+      compras: comprasDaPosicao(data.history, p.t).map((h) => ({ qty: h.qty, price: h.price })),
+    };
+  });
+  const assinatura = JSON.stringify([modo, posicoes.map((x) => ({ ...x, preco: x.preco == null ? null : nf2.format(x.preco) }))]);
+
+  useEffect(() => {
+    vivoRef.current = true;
+    return () => { vivoRef.current = false; };
+  }, []);
+
+  // Troca de conta/escopo: limpa e invalida o que estiver em voo (incremento,
+  // nunca reinício). Declarado ANTES do efeito de leitura: na mesma passada o
+  // `ultimaRef` zerado faz a leitura ser repedida para o novo escopo.
+  useEffect(() => {
+    setEstado({ status: "carregando", leituras: {} });
+    ultimaRef.current = null;
+    corteRef.current = ++seqRef.current;
+  }, [escopoSeq]);
+
+  useEffect(() => {
+    if (ultimaRef.current === assinatura) return;
+    ultimaRef.current = assinatura;
+    if (posicoes.length === 0) { setEstado({ status: "ok", leituras: {} }); return; }
+    const meu = ++seqRef.current;
+    const aceita = () => vivoRef.current && meu === seqRef.current && meu > corteRef.current;
+    setEstado((prev) => ({ ...prev, status: "carregando" }));
+    store.carteiraLeitura({ modo, posicoes }).then(
+      (r) => { if (aceita()) setEstado({ status: "ok", leituras: (r && r.leituras) || {} }); },
+      () => { if (aceita()) setEstado((prev) => ({ ...prev, status: "falha" })); }
+    );
+  }, [assinatura, escopoSeq]);
+
+  return estado;
+}
+
 // Fase 45 (CARD-02, D-07/D-10, UI-SPEC M6): régua "faixa no vencimento".
 // Piso/teto/PM/hoje vêm só do motor (`e.faixa`, `e.acoes`); stop/alvo do
 // próprio plano da posição (`p.stop`/`p.alvo`). Ponta aberta = null, nunca 0.
@@ -4805,6 +4860,208 @@ function CardPosicaoEstruturada({ p, leitura, cp, operador, ctx, data, total, on
   );
 }
 
+// ---------------------------------------------------------------------------
+// Fase 46 (CART6-01): card FECHADO v6. Uma anatomia para os dois modos; o modo
+// só muda cor de destaque (tokens), rótulo do rodapé e a linha "Bóris explica"
+// (D-13). Todo número e frase vêm do backend (leitura do plano / estrutura);
+// aqui só se mapeia valor -> posição na régua e se escolhe o glifo (D-01,
+// princípio 5). Estilo só com tokens T.*, SP e fontes; tipografia 20/14/12.
+// ---------------------------------------------------------------------------
+const TIPO_CARD = { titulo: "20px", corpo: "14px", rotulo: "12px" };
+
+function ReguaPlano({ p, leitura, cp, modo }) {
+  if (p.stop == null || p.alvo == null) return null;
+  const dom = dominioRegua([p.stop, p.alvo]);
+  if (!dom) return null;
+  const preco = leitura && leitura.preco != null ? leitura.preco : null;
+  const xAgora = preco != null ? posRegua(preco, dom) : null;
+  const ancora = ancoraRotulo(xAgora);
+  const posRotulo = ancora === "inicio" ? { left: 0 } : ancora === "fim" ? { right: 0 } : { left: xAgora + "%", transform: "translateX(-50%)" };
+  const traco = (v, cor, larg) => (
+    <div aria-hidden style={{ position: "absolute", top: "-4px", width: larg + "px", height: "16px", transform: "translateX(-50%)", left: posRegua(v, dom) + "%", background: cor }} />
+  );
+  const L = cp.estruturaLegenda;
+  const dist = (v) => (v == null ? null : <span style={{ fontFamily: MONO, fontSize: TIPO_CARD.rotulo, fontWeight: 400, color: T.textSecondary, fontVariantNumeric: "tabular-nums" }}> {pct(v)}</span>);
+  const rotuloLeg = { fontSize: TIPO_CARD.rotulo, fontWeight: 400, color: T.textSecondary };
+  const ariaFallback = cartaoPosicaoTxt(modo, "regua_aria", {
+    ticker: p.t, stop: price(p.stop), alvo: price(p.alvo), pm: p.avg == null ? "—" : price(p.avg),
+    agora: preco == null ? "—" : "R$ " + price(preco),
+  });
+  return (
+    <div>
+      <div
+        role="img"
+        aria-label={(leitura && leitura.reguaAria) || ariaFallback}
+        style={{ position: "relative", marginTop: `${SP[6]}px`, height: "8px", borderRadius: "999px", background: T.knob }}
+      >
+        <div aria-hidden style={{ position: "absolute", top: `-${SP[6]}px`, ...posRotulo, fontFamily: MONO, fontSize: TIPO_CARD.rotulo, fontWeight: 400, color: T.textSecondary, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
+          {preco != null ? cartaoPosicaoTxt(modo, "agora") + " " + price(preco) : cartaoPosicaoTxt(modo, "agora") + " —"}
+        </div>
+        {traco(p.stop, T.negative, 3)}
+        {traco(p.alvo, T.positive, 3)}
+        {p.avg != null && traco(p.avg, T.textSecondary, 2)}
+        {xAgora != null && (
+          <div aria-hidden style={{ position: "absolute", top: "50%", left: xAgora + "%", width: "16px", height: "16px", borderRadius: "50%", boxSizing: "border-box", transform: "translate(-50%,-50%)", background: T.textPrimary, border: `2px solid ${T.bgCard}` }} />
+        )}
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: `${SP[2]}px`, marginTop: `${SP[3]}px`, flexWrap: "wrap" }}>
+        <span style={rotuloLeg}>{L.stop} <b style={{ fontFamily: MONO, fontWeight: 700, color: T.negative, fontSize: TIPO_CARD.corpo, fontVariantNumeric: "tabular-nums" }}>{price(p.stop)}</b>{dist(leitura ? leitura.distStopPct : null)}</span>
+        <span style={rotuloLeg}>{L.alvo} <b style={{ fontFamily: MONO, fontWeight: 700, color: T.positive, fontSize: TIPO_CARD.corpo, fontVariantNumeric: "tabular-nums" }}>{price(p.alvo)}</b>{dist(leitura ? leitura.distAlvoPct : null)}</span>
+      </div>
+    </div>
+  );
+}
+
+function FaixaVencimento({ e, cp, modo }) {
+  const c = e.cenarios;
+  const rotulo = { fontSize: TIPO_CARD.rotulo, fontWeight: 400, color: T.textSecondary };
+  if (!c) {
+    return <div style={rotulo}>{cartaoPosicaoTxt(modo, "aguardando_calculo")}</div>;
+  }
+  const dom = dominioRegua([c.piso, c.be, c.k, c.hoje]);
+  const xBe = dom && c.be != null ? posRegua(c.be, dom) : null;
+  const xK = dom && c.k != null ? posRegua(c.k, dom) : null;
+  const seg = (de, ate, cor, op) => (
+    <div aria-hidden style={{ position: "absolute", top: 0, bottom: 0, left: de + "%", right: (100 - ate) + "%", background: cor, opacity: op }} />
+  );
+  const valor = (v, vazioChave) => (
+    <span style={{ fontFamily: MONO, fontSize: TIPO_CARD.corpo, fontWeight: 700, color: T.textPrimary, fontVariantNumeric: "tabular-nums" }}>
+      {v == null ? cartaoPosicaoTxt(modo, vazioChave) : "R$ " + price(v)}
+    </span>
+  );
+  const col = (rot, node) => (
+    <div style={{ display: "flex", flexDirection: "column", gap: `${SP[1]}px`, minWidth: 0 }}>
+      <span style={rotulo}>{rot}</span>
+      {node}
+    </div>
+  );
+  return (
+    <div>
+      <div style={rotulo}>{cartaoPosicaoTxt(modo, "faixa_titulo", { ddmm: c.vencimentoTexto == null ? "—" : c.vencimentoTexto })}</div>
+      {xBe != null && (
+        <div role="img" aria-label={c.faixaAria} style={{ position: "relative", marginTop: `${SP[4]}px`, height: "6px", borderRadius: "999px", background: T.knob }}>
+          <div aria-hidden style={{ position: "absolute", inset: 0, borderRadius: "999px", overflow: "hidden" }}>
+            {seg(0, xBe, T.negative, 0.5)}
+            {xK != null ? seg(xBe, xK, T.positive, 0.35) : seg(xBe, 100, T.positive, 0.35)}
+            {xK != null && seg(xK, 100, T.positive, 0.5)}
+          </div>
+          <div aria-hidden style={{ position: "absolute", top: "50%", left: xBe + "%", width: "10px", height: "10px", boxSizing: "border-box", background: T.textPrimary, transform: "translate(-50%,-50%) rotate(45deg)" }} />
+          {xK != null && <div aria-hidden style={{ position: "absolute", top: "-6px", left: xK + "%", width: "3px", height: "18px", transform: "translateX(-50%)", background: T.positive }} />}
+          {c.hoje != null && (
+            <div aria-hidden style={{ position: "absolute", top: "50%", left: posRegua(c.hoje, dom) + "%", width: "16px", height: "16px", borderRadius: "50%", boxSizing: "border-box", transform: "translate(-50%,-50%)", background: T.accent, border: `2px solid ${T.bgCard}` }} />
+          )}
+        </div>
+      )}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0,1fr))", gap: `${SP[2]}px`, marginTop: `${SP[3]}px` }}>
+        {col(cartaoPosicaoTxt(modo, "piso"), valor(c.piso, "sem_piso"))}
+        {col(cartaoPosicaoTxt(modo, "equilibrio_rotulo"), valor(c.be, "aguardando_calculo"))}
+        {col(cartaoPosicaoTxt(modo, "teto"), valor(c.k, "sem_teto"))}
+      </div>
+    </div>
+  );
+}
+
+function LinhaEstadoV6({ p, e, leitura, modo }) {
+  const { principal, extras } = estadoPrincipalV6({ p, estrutura: e, leituraPlano: leitura });
+  const corTom = { atencao: T.warn, info: T.borderDashed, encerrada: T.textMuted, neutro: T.borderSubtle };
+  const caixa = (l, i) => {
+    const txt = l.chave === "motor" ? (l.vals && l.vals.texto) : cartaoPosicaoTxt(modo, l.chave, l.vals);
+    if (!txt) return null;
+    return (
+      <div key={l.chave + i} style={{ background: T.bgBase, border: `1px solid ${corTom[l.tom] || T.borderSubtle}`, borderRadius: "10px", padding: `${SP[2]}px ${SP[3]}px`, display: "flex", gap: `${SP[2]}px`, alignItems: "flex-start" }}>
+        <span aria-hidden style={{ color: T.textSecondary, fontSize: TIPO_CARD.corpo, lineHeight: 1.5 }}>{l.glifo}</span>
+        <span style={{ flex: 1, minWidth: 0, fontSize: TIPO_CARD.corpo, fontWeight: 400, color: T.textSecondary, lineHeight: 1.5 }}>{txt}</span>
+      </div>
+    );
+  };
+  if (!principal && extras.length === 0) return null;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: `${SP[2]}px` }}>
+      {principal && caixa(principal, 0)}
+      {extras.map((l, i) => caixa(l, i + 1))}
+    </div>
+  );
+}
+
+function CartaoPosicao({ p, nomeEmpresa, modoLeitura, leituraEstrutura, leituraPlano, cp, operador, onAtualizar, children }) {
+  const [aberto, setAberto] = useState(false);
+  const modo = operador ? "operador" : "estudo";
+  const e = modoLeitura === "estruturada" && leituraEstrutura ? leituraEstrutura.estrutura : null;
+  const corDe = (v) => (v == null || sinalResultado(v) === "zero" ? T.textMuted : v > 0 ? T.positive : T.negative);
+  const numDe = (v, vazio) => (v == null ? vazio : sinalResultado(v) === "zero" ? "R$ " + nf2.format(0) : moneySigned(v));
+  const vc = e ? chipVencimento(e) : null;
+  const textoVence = vc ? (vc.tipo === "hoje" ? cp.chipVenceHoje : vc.tipo === "vencida" ? cp.chipVencida(vc.ddmm) : cp.chipVence(vc.ddmm, vc.dias == null ? "—" : vc.dias)) : null;
+  const r = e ? e.resultado : null;
+  const rotulo = { fontSize: TIPO_CARD.rotulo, fontWeight: 400, color: T.textSecondary };
+  const metaVence = vc && !vc.ambar ? " · " + (vc.tipo === "vence" ? "vence " + vc.ddmm + (vc.dias == null ? "" : " (" + vc.dias + "d)") : textoVence) : "";
+  const meta = p.qty + " ações · PM R$ " + price(p.avg)
+    + (e ? " · " + (e.nomeTexto || "estratégia não classificada") + metaVence : "");
+  const explica = e ? (e.didatica && e.didatica.borisExplica) : (leituraPlano && leituraPlano.didatica ? leituraPlano.didatica.borisExplica : null);
+  const idCorpo = "cartao-corpo-" + p.t;
+  let resNode;
+  if (e) {
+    resNode = r && r.total != null
+      ? <span style={{ color: corDe(r.total) }}>{numDe(r.total, "—")}</span>
+      : <span style={{ color: T.textMuted }}>Parcial</span>;
+  } else {
+    resNode = <span style={{ color: corDe(leituraPlano ? leituraPlano.resultado : null) }}>{numDe(leituraPlano ? leituraPlano.resultado : null, "—")}</span>;
+  }
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: `${SP[3]}px`, flexWrap: "wrap" }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontFamily: MONO, fontWeight: 700, fontSize: TIPO_CARD.titulo, lineHeight: 1.2 }}>{p.t}</div>
+          {nomeEmpresa && <div style={rotulo}>{nomeEmpresa}</div>}
+        </div>
+        <div style={{ textAlign: "right", fontFamily: MONO, fontVariantNumeric: "tabular-nums" }}>
+          <div style={{ fontSize: TIPO_CARD.titulo, fontWeight: 700, lineHeight: 1.2 }}>{resNode}</div>
+          {e && r && (
+            <div style={{ ...rotulo, fontFamily: MONO }}>
+              {cp.estruturaAcoesRotulo} {numDe(r.acoes, "indisp.")} · {cp.estruturaOpcoesRotulo} {numDe(r.pernasCotadas, "indisp.")}
+            </div>
+          )}
+          {!e && leituraPlano && leituraPlano.variacaoPct != null && (
+            <div style={{ ...rotulo, fontFamily: MONO, color: corDe(leituraPlano.resultado) }}>{pct(leituraPlano.variacaoPct)}</div>
+          )}
+        </div>
+      </div>
+      <div style={{ ...rotulo, marginTop: `${SP[1]}px` }}>{meta}</div>
+      {vc && vc.ambar && (
+        <div style={{ marginTop: `${SP[2]}px` }}>
+          <span style={{ background: T.warnTint10, border: `1px solid ${T.warn}`, color: T.warn, padding: `${SP[1]}px ${SP[2]}px`, borderRadius: "999px", fontSize: TIPO_CARD.rotulo, fontWeight: 700, whiteSpace: "nowrap" }}>{textoVence}</span>
+        </div>
+      )}
+      {(modoLeitura === "carregando" || modoLeitura === "falha") && (
+        <div role="status" aria-live="polite" style={{ marginTop: `${SP[3]}px`, display: "flex", alignItems: "center", flexWrap: "wrap", gap: `${SP[2]}px`, ...rotulo }}>
+          <span>{estruturaCardTxt(modo, modoLeitura === "carregando" ? "lendo" : "indisponivel")}</span>
+          {modoLeitura === "falha" && <BotaoAtualizarEstrutura leitura={leituraEstrutura} onClick={onAtualizar} cp={cp} />}
+        </div>
+      )}
+      <div style={{ marginTop: `${SP[3]}px` }}>
+        {e ? <FaixaVencimento e={e} cp={cp} modo={modo} /> : <ReguaPlano p={p} leitura={leituraPlano} cp={cp} modo={modo} />}
+      </div>
+      <div style={{ marginTop: `${SP[3]}px` }}>
+        <LinhaEstadoV6 p={p} e={e} leitura={leituraPlano} modo={modo} />
+      </div>
+      {!operador && explica && (
+        <div style={{ marginTop: `${SP[3]}px`, fontSize: TIPO_CARD.corpo, fontWeight: 400, color: T.textSecondary, lineHeight: 1.5 }}>
+          <b style={{ fontWeight: 700, color: T.accent }}>{cartaoDidaticaTxt("boris_explica")}</b> {explica}
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={() => setAberto((v) => !v)}
+        aria-expanded={aberto}
+        aria-controls={idCorpo}
+        style={{ display: "block", width: "100%", minHeight: 44, marginTop: `${SP[3]}px`, background: "transparent", border: "none", borderTop: `1px solid ${T.borderSubtle}`, color: T.accent, fontSize: TIPO_CARD.corpo, fontWeight: 700, textAlign: "center" }}
+      >
+        {cartaoPosicaoTxt(modo, aberto ? "rodape_fechar" : "rodape_abrir")}
+      </button>
+      <div id={idCorpo} hidden={!aberto}>{aberto ? children : null}</div>
+    </div>
+  );
+}
+
 // Fase 32 (32-03, D-01/D-02/D-03): substitui os dois blocos que a tela de
 // Posições tinha (OportunidadesOpcoes/CuradoriaEstruturas, que migraram
 // para o topo da sub-aba Setups da aba Opções) por UMA linha de chamada
@@ -4870,6 +5127,8 @@ function CarteiraScreen({ ctx }) {
   const { data, quotes, analysis, A, goMercado, cp, operador } = ctx;   // FASE 8B (B1)
   // Fase 45 (D-01..D-04): leitura da estrutura só para ativos com pernas abertas.
   const { leituras, atualizar: atualizarEstrutura } = useEstruturasPosicao(data, operador, ctx.escopoSeq);
+  // Fase 46 (CART6-01): leitura do plano de todas as posições, em lote.
+  const plano = useLeiturasPlano(data, quotes, operador, ctx.escopoSeq);
   const comPernas = new Set(tickersComPernas(data.positions, data.optionPositions));
   useEffect(() => { track("portfolio_view"); }, []);   // qa/47 (Fase 2)
   // Fase 32 (32-04): o estado de "qual posição tem o detalhe de opções
@@ -4970,14 +5229,8 @@ function CarteiraScreen({ ctx }) {
         {data.positions.map((p) => {
           const q = byQ(p.t);
           const cur = markPrice(q, p);
-          const avg = Number(p.avg) || 0;
-          const pnl = (cur - avg) * p.qty;
-          const pnlPct = avg > 0 ? (cur / avg - 1) * 100 : 0;
-          const color = pnl >= 0 ? T.positive : T.negative;
-          const cell = (label, value, c) => (<div><div style={kicker}>{label}</div><div style={{ fontFamily: MONO, fontSize: "13px", color: c }}>{value}</div></div>);
           const leitura = leituras[p.t];
           const modoLeitura = estadoLeitura(comPernas.has(p.t), leitura);
-          const modoTxt = operador ? "operador" : "estudo";
           return (
             // id: âncora de scroll — mesmo mecanismo já em produção pro deep
             // link do push (App.jsx:7446-7449, "ativo-"+t). Fase 32 (32-04):
@@ -4987,31 +5240,14 @@ function CarteiraScreen({ ctx }) {
             // mais `scrollIntoView`. A âncora FICA: é o mesmo mecanismo do
             // deep link de push acima, e removê-la quebraria um caminho que
             // não é desta fase.
-            <div key={p.t} id={"posicao-" + p.t} style={{ ...card, padding: modoLeitura === "estruturada" ? `${SP[4]}px` : "14px 15px" }}>
+            <div key={p.t} id={"posicao-" + p.t} style={{ ...card, padding: `${SP[4]}px` }}>
+              {/* Fase 46 (CART6-01, D-13/D-14): card fechado v6 para TODA posição;
+                  aberto, o corpo é o detalhe da Fase 45/anterior (46-06 o
+                  reorganiza em faces Ação | Opções). */}
+              <CartaoPosicao p={p} nomeEmpresa={q && typeof q.name === "string" && q.name ? q.name : null} modoLeitura={modoLeitura} leituraEstrutura={leitura} leituraPlano={plano.leituras[p.t]} cp={cp} operador={operador} onAtualizar={() => atualizarEstrutura(p.t)}>
               {modoLeitura === "estruturada" ? (
                 <CardPosicaoEstruturada p={p} leitura={leitura} cp={cp} operador={operador} ctx={ctx} data={data} total={total} onAtualizar={() => atualizarEstrutura(p.t)} onEditarStopAlvo={() => setEditFor(editFor === p.t ? null : p.t)} />
               ) : (<>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "10px", flexWrap: "wrap" }}>
-                <div>
-                  <div style={{ display: "flex", alignItems: "baseline", gap: "8px", flexWrap: "wrap" }}>
-                    <span style={{ fontFamily: MONO, fontWeight: 700, fontSize: "16px" }}>{p.t}</span>
-                    <span style={{ color: T.textFaint, fontFamily: MONO, fontSize: "12px" }}>{p.qty} cotas · PM R$ {price(p.avg)}</span>
-                    {p.qtyTravada > 0 ? <TravaPill qty={p.qtyTravada} cp={cp} /> : null}
-                  </div>
-                </div>
-                <div style={{ textAlign: "right", fontFamily: MONO }}>
-                  <div style={{ fontSize: "16px", fontWeight: 600, color }}>{moneySigned(pnl)}</div>
-                  <div style={{ fontSize: "12px", color }}>{pct(pnlPct)}</div>
-                </div>
-              </div>
-              {(modoLeitura === "carregando" || modoLeitura === "falha") && (
-                <div role="status" aria-live="polite" style={{ marginTop: "10px", display: "flex", alignItems: "center", flexWrap: "wrap", gap: `${SP[2]}px`, fontSize: "11.5px", color: T.textMuted, lineHeight: 1.5 }}>
-                  <span>{estruturaCardTxt(modoTxt, modoLeitura === "carregando" ? "lendo" : "indisponivel")}</span>
-                  {modoLeitura === "falha" && (
-                    <BotaoAtualizarEstrutura leitura={leitura} onClick={() => atualizarEstrutura(p.t)} cp={cp} />
-                  )}
-                </div>
-              )}
               <AvisoLiquidacao evento={eventoLiquidacaoRecente(data.history, p.t)} cp={cp} />
               {/* FASE 3 (mock v2): a régua POSIÇÃO NO RISCO substitui as 4 células —
                   onde o preço está entre stop e alvo, à primeira vista. */}
@@ -5156,6 +5392,7 @@ function CarteiraScreen({ ctx }) {
                   <div style={{ fontSize: "11px", color: T.textFaint, flex: 1, minWidth: "140px", lineHeight: 1.4 }}>Sai do campo para salvar — deixar vazio não apaga; use ✕ para limpar. A régua acima reflete na hora. MV <span style={{ fontFamily: MONO, color: T.textPrimary, fontWeight: 600 }}>{money(p.qty * cur)}</span></div>
                 </div>
               )}
+              </CartaoPosicao>
             </div>
           );
         })}

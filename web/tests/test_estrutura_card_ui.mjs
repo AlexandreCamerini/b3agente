@@ -86,8 +86,13 @@ const cart = limpo(functionBody("CarteiraScreen"));
 ok("CarteiraScreen usa estadoLeitura", /estadoLeitura\(/.test(cart));
 ok("CardPosicaoEstruturada só em estruturada", /modoLeitura === "estruturada" \? \(\s*<CardPosicaoEstruturada/.test(cart));
 ok("aviso 'sem stop' do card atual guardado por mostraAvisoSemStop(", /mostraAvisoSemStop\([^)]*\) && <div[^>]*>⚠ Posição sem stop definido/.test(cart));
-ok("linha role=status 'lendo'", /role="status"/.test(cart) && /"lendo"/.test(cart));
-ok("linha role=status 'indisponivel'", /"indisponivel"/.test(cart));
+// Fase 46 (D-15, 2026-09-30): a linha role=status (lendo/indisponivel) saiu do
+// ramo simples de CarteiraScreen e foi para o card fechado v6 (CartaoPosicao),
+// que a mostra para toda posição com pernas; mesma asserção, novo endereço.
+const cartao46 = limpo(functionBody("CartaoPosicao"));
+ok("linha role=status 'lendo' (agora em CartaoPosicao)", /role="status"/.test(cartao46) && /"lendo"/.test(cartao46));
+ok("linha role=status 'indisponivel' (agora em CartaoPosicao)", /"indisponivel"/.test(cartao46));
+ok("CarteiraScreen renderiza CartaoPosicao (Fase 46)", /<CartaoPosicao/.test(cart));
 ok("PlanRuler 'POSIÇÃO NO RISCO' segue no card atual", /caption="POSIÇÃO NO RISCO"/.test(cart));
 
 // --- CardPosicaoEstruturada -------------------------------------------------
