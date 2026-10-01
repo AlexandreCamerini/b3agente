@@ -4832,10 +4832,10 @@ function LinhaEstadoV6({ p, e, leitura, modo }) {
 // 46-UAT (2026-10-01, G-04): meta como fileira de chips pill que quebram sozinhos.
 function ChipsMetaV6({ p, e, vc, modo, textoVence }) {
   const itens = chipsMetaV6({ p, estrutura: e, vc });
-  const chip = { borderRadius: "999px", background: T.bgBase, color: T.textSecondary, fontSize: TIPO_CARD.chip, padding: `${SP[1]}px ${SP[2]}px`, whiteSpace: "nowrap" };
+  const chipPill = { borderRadius: "999px", background: T.bgBase, color: T.textSecondary, fontSize: TIPO_CARD.chip, padding: `${SP[1]}px ${SP[2]}px`, whiteSpace: "nowrap" };
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: `${SP[2]}px` }}>
-      {itens.map((it, i) => <span key={(it.chave || "txt") + i} style={chip}>{it.texto || cartaoPosicaoTxt(modo, it.chave, it.vals)}</span>)}
+      {itens.map((it, i) => <span key={(it.chave || "txt") + i} style={chipPill}>{it.texto || cartaoPosicaoTxt(modo, it.chave, it.vals)}</span>)}
       {vc && vc.ambar && (
         <span style={{ background: T.warnTint10, border: `1px solid ${T.warn}`, color: T.warn, padding: `${SP[1]}px ${SP[2]}px`, borderRadius: "999px", fontSize: TIPO_CARD.rotulo, fontWeight: 700, whiteSpace: "nowrap" }}>{textoVence}</span>
       )}
