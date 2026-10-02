@@ -387,7 +387,12 @@ Plans:
 4. AL-02 — `plano.status` ignorado: falha de `/api/carteira/leitura` mantém leitura antiga como atual (princípio 4 do produto).
 5. Triagem de MD-01..06 (estado "Sem stop e alvo" com put; "sem teto" com cobertura parcial; preço sem fonte/horário; cabeçalho só com ações; idx do simulador) — incluir só o que o planner justificar.
 **Fora de escopo:** aba Opções não executa a estrutura (não reproduzida); BX-01..07 (backlog).
-**Plans:** a planejar (`/gsd-plan-phase 46.1`)
+**Plans:** 5 plans
+- [ ] 46.1-01-PLAN.md — vocabulário 46.1 (skill_ref ↔ copy) + AL-01 equilíbrio do collar + MD-02 aria teto parcial + MD-03a nota de PM (onda 1)
+- [ ] 46.1-02-PLAN.md — G-08 backend: causa da falta de prêmio por perna (`motivoSemCotacao`) + MD-03b corte das compras recentes (onda 1)
+- [ ] 46.1-03-PLAN.md — helpers puros: G-07 nome com fallback, AL-02 situação da leitura, G-08 notas, MD-01, MD-05 (onda 1)
+- [ ] 46.1-04-PLAN.md — fiação no App.jsx (hook com retry, CarteiraScreen, CartaoPosicao, LinhasResultadoV6) + guardiões (onda 2)
+- [ ] 46.1-05-PLAN.md — checkpoint do Alex no iPhone (servidor local mydata): G-07, G-08, AL-02 (onda 3)
 
 ### Phase 47: Didática — expectativa matemática × taxa de acerto
 **Goal:** o tema obrigatório do CLAUDE.md ganha verbete e o microtexto passa a abri-lo.
