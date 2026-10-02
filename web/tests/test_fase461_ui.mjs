@@ -37,7 +37,7 @@ for (const k of ['res.chipCabecalho', '"leitura_falhou"', '"leitura_desatualizad
 }
 ok("CartaoPosicao sem disabled=", !/disabled=/.test(cartao));
 ok("LinhasResultadoV6 renderiza notas", /notas/.test(linhas) && /n\.chave/.test(linhas));
-ok("sem dangerouslyDisableSetInnerHTML nos trechos", !/dangerouslySetInnerHTML/.test(cartao + linhas));
+ok("sem dangerouslySetInnerHTML nos trechos", !/dangerouslySetInnerHTML/.test(cartao + linhas));
 
 const CHAVES = ["motivo_lendo", "motivo_leitura_indisponivel", "chip_desatualizado", "tentar_de_novo", "legenda_resultado_so_acoes",
   "leitura_falhou", "leitura_desatualizada", "causa_sem_cotacao", "causa_fora_da_cadeia", "causa_sem_negocio", "causa_fonte_indisponivel", "payoff_aria_teto_parcial"];
