@@ -195,7 +195,8 @@ ok("botões definir stop/alvo nunca desabilitados", !/onEditarStopAlvo[^\n]*disa
   // 46-UAT (2026-10-01, G-01): sem total o card mostra "—" + chip "total suspenso" (res.cabecalho.suspenso),
   // nunca soma parcial nem a palavra "Parcial"; linhasResultadoV6 lê resultado.total.
   const ecSrc2 = readFileSync(new URL("../src/estruturaCard.js", import.meta.url), "utf8");
-  ok("resultado total do card fechado: r.total != null senão 'Parcial'", /res\.cabecalho\.suspenso/.test(cf) && /"chip_total_suspenso"/.test(cf) && !/Parcial/.test(cf) && /numOk\(r\.total\)/.test(ecSrc2) && !/<ReguaFaixa/.test(card));
+  // 46.1 (2026-10-02, AL-02): o chip do cabeçalho vem de res.chipCabecalho; 'chip_total_suspenso' é decidido em linhasResultadoV6.
+  ok("resultado total do card fechado: r.total != null senão 'Parcial'", /res\.chipCabecalho/.test(cf) && /"chip_total_suspenso"/.test(ecSrc2) && !/Parcial/.test(cf) && /numOk\(r\.total\)/.test(ecSrc2) && !/<ReguaFaixa/.test(card));
 }
 
 // --- pós-teste local (correção 2): rótulo "hoje" não vaza do card ----------

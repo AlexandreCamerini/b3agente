@@ -7,7 +7,7 @@ import { createChart, ColorType, CrosshairMode, LineStyle } from "lightweight-ch
 import { sampleTechnicals } from "./demo.js";
 import { DISCLAIMERS, TERMO_OPERADOR_VERSAO, TERMO_DESCOBERTO_VERSAO } from "./disclaimers.js";
 import { copyFor, historicoTxt, entradaAutoTxt, reconciliacaoTxt, reconciliacaoPorQueImporta, estruturaCardTxt, cartaoPosicaoTxt, cartaoDidaticaTxt } from "./copy.js";
-import { tickersComPernas, assinaturaEstrutura, estadoLeitura, mostraAvisoSemStop, mostraRR, valorRR, criarFilaLeituras, tipoPillTravada, chipVencimento, ddmmDeIso, tomDoEstado, dominioRegua, posRegua, sinalResultado, kickerResultadoSoAcoes, ancoraRotulo, estadoPrincipalV6, linhasResultadoV6, chipsMetaV6, rsSinalNbsp, fonteValorCabecalho, pctCapitalTexto, flipDuracaoMs, prefereMovimentoReduzido, faceInicial, pontoDoIndice, indiceNomeado, zonaVisual, rotulosSemColisao, colunasDaGrade, rsNbsp } from "./estruturaCard.js";
+import { tickersComPernas, assinaturaEstrutura, estadoLeitura, mostraAvisoSemStop, mostraRR, valorRR, criarFilaLeituras, tipoPillTravada, chipVencimento, ddmmDeIso, tomDoEstado, dominioRegua, posRegua, sinalResultado, kickerResultadoSoAcoes, ancoraRotulo, estadoPrincipalV6, linhasResultadoV6, chipsMetaV6, rsSinalNbsp, fonteValorCabecalho, pctCapitalTexto, flipDuracaoMs, prefereMovimentoReduzido, faceInicial, pontoDoIndice, indiceNomeado, zonaVisual, rotulosSemColisao, colunasDaGrade, rsNbsp, nomeEmpresaCard, sigPosicaoLeitura, situacaoLeituraPlano } from "./estruturaCard.js";
 import { varsCartaoV6, ALFA_ZONA_V6, ALFA_ZONA_MEIO_V6 } from "./cartaoV6Cores.js"; // 2026-10-01: cores do design v6 ESCOPADAS ao card (CSS vars no wrapper); não toca T/PALETTE
 // Fase 41 (TELAS-01): registro único das 8 telas que o assistente conhece —
 // BottomNav/petTela leem daqui nesta plano (41-02); tourPassos/ajudaSecoes
@@ -4481,12 +4481,18 @@ function useEstruturasPosicao(data, operador, escopoSeq) {
 // muda (sem polling). Token `seqRef` monotônico e nunca zerado + `corteRef` por
 // escopo: resposta de outra conta/época é descartada (T-46-15, mesmo padrão
 // do hook de estruturas). Falha mantém as leituras anteriores e marca "falha".
+// 46.1 (2026-10-02, AL-02): cada leitura aceita carrega `_sigPos` (assinatura da
+// posição no pedido, sem preço) e `_lidaEm` (HH:MM local); `sigs` expõe a
+// assinatura ATUAL por ticker, para o card detectar leitura desatualizada.
+// `tentarDeNovo` só por toque (zera a assinatura e incrementa `tentativa`):
+// nenhum retry automático em laço (T-46.1-11).
 function useLeiturasPlano(data, quotes, operador, escopoSeq) {
   const [estado, setEstado] = useState({ status: "carregando", leituras: {} });
   const seqRef = useRef(0);
   const corteRef = useRef(0);
   const vivoRef = useRef(true);
   const ultimaRef = useRef(null);
+  const [tentativa, setTentativa] = useState(0);
   const modo = operador ? "operador" : "estudo";
   const posicoes = (data.positions || []).map((p) => {
     const q = (quotes && quotes[p.t]) || null;
@@ -4498,6 +4504,9 @@ function useLeiturasPlano(data, quotes, operador, escopoSeq) {
     };
   });
   const assinatura = JSON.stringify([modo, posicoes.map((x) => ({ ...x, preco: x.preco == null ? null : nf2.format(x.preco) }))]);
+  const sigs = {};
+  posicoes.forEach((x) => { sigs[x.t] = sigPosicaoLeitura(x); });
+  const tentarDeNovo = useCallback(() => { ultimaRef.current = null; setTentativa((n) => n + 1); }, []);
 
   useEffect(() => {
     vivoRef.current = true;
@@ -4519,14 +4528,22 @@ function useLeiturasPlano(data, quotes, operador, escopoSeq) {
     if (posicoes.length === 0) { setEstado({ status: "ok", leituras: {} }); return; }
     const meu = ++seqRef.current;
     const aceita = () => vivoRef.current && meu === seqRef.current && meu > corteRef.current;
+    const sigsReq = { ...sigs };
     setEstado((prev) => ({ ...prev, status: "carregando" }));
     store.carteiraLeitura({ modo, posicoes }).then(
-      (r) => { if (aceita()) setEstado({ status: "ok", leituras: (r && r.leituras) || {} }); },
+      (r) => {
+        if (!aceita()) return;
+        const lidaEm = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+        const brutas = (r && r.leituras) || {};
+        const leituras = {};
+        Object.keys(brutas).forEach((t) => { leituras[t] = { ...brutas[t], _sigPos: sigsReq[t], _lidaEm: lidaEm }; });
+        setEstado({ status: "ok", leituras });
+      },
       () => { if (aceita()) setEstado((prev) => ({ ...prev, status: "falha" })); }
     );
-  }, [assinatura, escopoSeq]);
+  }, [assinatura, escopoSeq, tentativa]);
 
-  return estado;
+  return { ...estado, sigs, tentarDeNovo };
 }
 
 // Fase 45 (CARD-02, D-07/D-10, UI-SPEC M6): régua "faixa no vencimento".
@@ -4855,7 +4872,7 @@ function ChipsMetaV6({ p, e, vc, modo, textoVence }) {
 }
 
 // 46-UAT (2026-10-01, G-02): linhas rótulo (sans) / valor (mono, nowrap) com hairline.
-function LinhasResultadoV6({ linhas, modo }) {
+function LinhasResultadoV6({ linhas, modo, notas }) {
   const corSinal = (v) => { const s = sinalResultado(v); return s === "pos" ? T.positive : s === "neg" ? T.negative : T.textMuted; };
   return (
     <div style={{ marginTop: `${SP[3]}px` }}>
@@ -4871,11 +4888,14 @@ function LinhasResultadoV6({ linhas, modo }) {
           )}
         </div>
       ))}
+      {(notas || []).map((n, i) => (
+        <div key={n.chave + i} style={{ paddingTop: `${SP[1]}px`, fontSize: TIPO_CARD.rotulo, color: T.textSecondary, lineHeight: 1.5, overflowWrap: "anywhere" }}>{cartaoPosicaoTxt(modo, n.chave, n.vals)}</div>
+      ))}
     </div>
   );
 }
 
-function CartaoPosicao({ p, nomeEmpresa, modoLeitura, leituraEstrutura, leituraPlano, cp, operador, ctx, data, total, onAtualizar, histAberto, onHist, editAberto, onEditar }) {
+function CartaoPosicao({ p, nomeEmpresa, modoLeitura, leituraEstrutura, leituraPlano, situacaoPlano, onTentarPlano, cp, operador, ctx, data, total, onAtualizar, histAberto, onHist, editAberto, onEditar }) {
   const [aberto, setAberto] = useState(false);
   // 46-06 (D-17): face e expansor de compras locais por posição; sobrevivem a
   // fechar/abrir na sessão (não persistidos). null = ainda sem escolha do usuário.
@@ -4889,7 +4909,7 @@ function CartaoPosicao({ p, nomeEmpresa, modoLeitura, leituraEstrutura, leituraP
   const rotulo = { fontSize: TIPO_CARD.rotulo, fontWeight: 400, color: T.textSecondary };
   // 46-UAT (2026-10-01, G-01/G-02): número do cabeçalho e da linha Estrutura vêm do mesmo helper.
   const pctCap = pctDoCapital(p.qty, leituraPlano ? leituraPlano.preco : null, total);
-  const res = linhasResultadoV6({ estrutura: e, leituraPlano, pctCapital: e ? null : pctCap });
+  const res = linhasResultadoV6({ estrutura: e, leituraPlano, pctCapital: e ? null : pctCap, situacaoPlano, estruturaPendente: modoLeitura === "carregando" || modoLeitura === "falha" });
   const explica = e ? (e.didatica && e.didatica.borisExplica) : (leituraPlano && leituraPlano.didatica ? leituraPlano.didatica.borisExplica : null);
   const idCorpo = "cartao-corpo-" + p.t;
   const nPernas = e ? (e.pernas || []).length : 0;
@@ -4908,14 +4928,20 @@ function CartaoPosicao({ p, nomeEmpresa, modoLeitura, leituraEstrutura, leituraP
         </div>
         <div style={{ flex: "0 0 auto", whiteSpace: "nowrap", textAlign: "right" }}>
           <div style={{ fontFamily: MONO, fontVariantNumeric: "tabular-nums", fontWeight: 700, fontSize: fonteValorCabecalho(txtValor), letterSpacing: "-0.3px", lineHeight: 1.2, color: corValor }}>{txtValor}</div>
-          {res.cabecalho.suspenso ? (
-            <span style={{ display: "inline-block", marginTop: `${SP[1]}px`, background: "var(--cv-pendente-bg)", color: "var(--cv-pendente-texto)", borderRadius: "999px", fontSize: TIPO_CARD.chip, padding: `${SP[1]}px ${SP[2]}px`, whiteSpace: "nowrap" }}>{cartaoPosicaoTxt(modo, "chip_total_suspenso")}</span>
+          {res.chipCabecalho ? (
+            <span style={{ display: "inline-block", marginTop: `${SP[1]}px`, background: "var(--cv-pendente-bg)", color: "var(--cv-pendente-texto)", borderRadius: "999px", fontSize: TIPO_CARD.chip, padding: `${SP[1]}px ${SP[2]}px`, whiteSpace: "nowrap" }}>{cartaoPosicaoTxt(modo, res.chipCabecalho)}</span>
           ) : res.cabecalho.legenda ? (
             <div style={{ fontSize: TIPO_CARD.legenda, color: T.textSecondary, whiteSpace: "nowrap" }}>{cartaoPosicaoTxt(modo, res.cabecalho.legenda, res.cabecalho.legenda === "legenda_resultado_variacao" ? { pct: pct(res.cabecalho.vals.pct) } : res.cabecalho.vals)}</div>
           ) : null}
         </div>
       </div>
-      <LinhasResultadoV6 linhas={res.linhas} modo={modo} />
+      <LinhasResultadoV6 linhas={res.linhas} modo={modo} notas={res.notas} />
+      {(situacaoPlano === "falha" || situacaoPlano === "desatualizada") && (
+        <div role="status" aria-live="polite" style={{ marginTop: `${SP[3]}px`, display: "flex", alignItems: "center", flexWrap: "wrap", gap: `${SP[2]}px`, ...rotulo }}>
+          <span>{cartaoPosicaoTxt(modo, situacaoPlano === "falha" ? "leitura_falhou" : "leitura_desatualizada", { hora: (leituraPlano && leituraPlano._lidaEm) || "—" })}</span>
+          <button type="button" onClick={onTentarPlano} style={{ minHeight: 44, background: "transparent", border: "none", color: T.accent, fontSize: TIPO_CARD.corpo, fontWeight: 700 }}>{cartaoPosicaoTxt(modo, "tentar_de_novo")}</button>
+        </div>
+      )}
       <div style={{ marginTop: `${SP[3]}px` }}>
         <ChipsMetaV6 p={p} e={e} vc={vc} modo={modo} textoVence={textoVence} />
       </div>
@@ -5531,6 +5557,8 @@ function CarteiraScreen({ ctx }) {
   const { leituras, atualizar: atualizarEstrutura } = useEstruturasPosicao(data, operador, ctx.escopoSeq);
   // Fase 46 (CART6-01): leitura do plano de todas as posições, em lote.
   const plano = useLeiturasPlano(data, quotes, operador, ctx.escopoSeq);
+  // 46.1 (2026-10-02, G-07): último nome visto por ticker (cotação some, nome fica).
+  const nomesRef = useRef({});
   const comPernas = new Set(tickersComPernas(data.positions, data.optionPositions));
   useEffect(() => { track("portfolio_view"); }, []);   // qa/47 (Fase 2)
   // Fase 32 (32-04): o estado de "qual posição tem o detalhe de opções
@@ -5632,6 +5660,9 @@ function CarteiraScreen({ ctx }) {
           const q = byQ(p.t);
           const leitura = leituras[p.t];
           const modoLeitura = estadoLeitura(comPernas.has(p.t), leitura);
+          if (q && typeof q.name === "string" && q.name.trim()) nomesRef.current[p.t] = q.name.trim();
+          const nomeEmpresa = nomeEmpresaCard(p.t, q, data.catalog, nomesRef.current[p.t]);
+          const vig = situacaoLeituraPlano({ status: plano.status, leitura: plano.leituras[p.t], sigAtual: plano.sigs[p.t] });
           return (
             // id: âncora de scroll — mesmo mecanismo já em produção pro deep
             // link do push (App.jsx:7446-7449, "ativo-"+t). Fase 32 (32-04):
@@ -5644,7 +5675,7 @@ function CarteiraScreen({ ctx }) {
             <div key={p.t} id={"posicao-" + p.t} style={{ ...card, ...varsCartaoV6(themeKey, operador ? "operador" : "estudo"), padding: `${SP[4]}px` }}>
               {/* Fase 46 (CART6-01/02, D-13/D-14): card v6 para TODA posição; aberto,
                   o corpo (faces Ação | Opções + Bóris IA) vive em CartaoPosicao. */}
-              <CartaoPosicao p={p} nomeEmpresa={q && typeof q.name === "string" && q.name ? q.name : null} modoLeitura={modoLeitura} leituraEstrutura={leitura} leituraPlano={plano.leituras[p.t]} cp={cp} operador={operador} ctx={ctx} data={data} total={total} onAtualizar={() => atualizarEstrutura(p.t)} histAberto={histFor === p.t} onHist={() => setHistFor(histFor === p.t ? null : p.t)} editAberto={editFor === p.t} onEditar={() => setEditFor(editFor === p.t ? null : p.t)} />
+              <CartaoPosicao p={p} nomeEmpresa={nomeEmpresa} modoLeitura={modoLeitura} leituraEstrutura={leitura} leituraPlano={vig.leitura} situacaoPlano={vig.situacao} onTentarPlano={plano.tentarDeNovo} cp={cp} operador={operador} ctx={ctx} data={data} total={total} onAtualizar={() => atualizarEstrutura(p.t)} histAberto={histFor === p.t} onHist={() => setHistFor(histFor === p.t ? null : p.t)} editAberto={editFor === p.t} onEditar={() => setEditFor(editFor === p.t ? null : p.t)} />
             </div>
           );
         })}
