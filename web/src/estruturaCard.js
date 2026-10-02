@@ -406,6 +406,56 @@ export function linhasResultadoV6({ estrutura, leituraPlano, pctCapital } = {}) 
   };
 }
 
+// ---------------------------------------------------------------------------
+// 46.1 (2026-10-02, G-07/AL-02): nome da empresa e situação da leitura do plano.
+// Só decide qual dado/estado mostrar — nenhuma aritmética financeira.
+// ---------------------------------------------------------------------------
+
+// G-07: nome do card só de fonte determinística (cotação > último nome visto >
+// catálogo). Nome igual ao ticker (o catálogo custom grava n = ticker) não é
+// nome. Sem nome conhecido: null e o card mostra só o ticker, nunca inventado.
+export function nomeEmpresaCard(t, q, catalog, ultimoNome) {
+  const tk = String(t == null ? "" : t).trim().toUpperCase();
+  const valido = (v) => {
+    if (typeof v !== "string") return null;
+    const s = v.trim();
+    return s && s.toUpperCase() !== tk ? s : null;
+  };
+  const doCatalogo = () => {
+    if (!Array.isArray(catalog)) return null;
+    const it = catalog.find((c) => c && String(c.t == null ? "" : c.t).trim().toUpperCase() === tk);
+    return it ? valido(it.n) : null;
+  };
+  return valido(q && q.name) || valido(ultimoNome) || doCatalogo() || null;
+}
+
+// AL-02: assinatura da posição para a qual a leitura foi calculada. Sem preço
+// (refresh de cotação não invalida); posição/plano diferentes invalidam.
+export function sigPosicaoLeitura(x) {
+  const p = x || {};
+  return JSON.stringify([
+    p.t, p.qty, p.avg, p.stop ?? null, p.alvo ?? null, p.qtyTravada ?? null,
+    p.setupEntrada || null, p.compras || [],
+  ]);
+}
+
+// AL-02 / princípio 4: leitura só é "ok" se calculada para a MESMA posição.
+// -> { situacao: "ok" | "carregando" | "desatualizada" | "falha", leitura }.
+export function situacaoLeituraPlano({ status, leitura, sigAtual } = {}) {
+  const casa = !!leitura && leitura._sigPos === sigAtual;
+  if (status === "falha") {
+    return casa
+      ? { situacao: "desatualizada", leitura: { ...leitura, desatualizada: true } }
+      : { situacao: "falha", leitura: null };
+  }
+  if (status === "ok") {
+    if (!leitura) return { situacao: "falha", leitura: null };
+    return casa ? { situacao: "ok", leitura } : { situacao: "carregando", leitura: null };
+  }
+  // "carregando" (e qualquer status desconhecido): refresh em voo mantém a leitura casada.
+  return casa ? { situacao: "ok", leitura } : { situacao: "carregando", leitura: null };
+}
+
 // G-04: chips da meta como LISTA de chaves — nunca frase corrida.
 export function chipsMetaV6({ p, estrutura, vc } = {}) {
   const chips = [];
