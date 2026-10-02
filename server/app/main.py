@@ -3252,13 +3252,17 @@ async def options_proposta(ticker: str, multiperna: bool = False, scope: Optiona
                 if v and v not in vencimentos:
                     vencimentos.append(v)
             contratos_por_id, spot_est = {}, None
+            status_cadeias = {}  # 46.1 (G-08): causa da falta de prêmio por vencimento
             for venc in vencimentos:
                 try:
                     ch = await options_provider.get_options(t, venc)
                 except Exception:
+                    status_cadeias[venc] = "falha"
                     continue  # só as pernas deste vencimento ficam sem cotação
                 if not isinstance(ch, dict) or ch.get("providerStatus") != "ok":
+                    status_cadeias[venc] = "falha"
                     continue
+                status_cadeias[venc] = "ok"
                 for c in (ch.get("calls") or []) + (ch.get("puts") or []):
                     if isinstance(c, dict) and c.get("contractSymbol"):
                         contratos_por_id[c["contractSymbol"]] = c
@@ -3273,7 +3277,8 @@ async def options_proposta(ticker: str, multiperna: bool = False, scope: Optiona
                          if (pos_op_aberta and resultado.get("proposta") is None) else None)
             estrutura = estrutura_posicao.ler_estrutura(
                 option_positions, t, posicao, spot_est, contratos_por_id,
-                _hoje_brt(), modo, motivo_sem_proposta=motivo_sp)
+                _hoje_brt(), modo, motivo_sem_proposta=motivo_sp,
+                status_cadeias=status_cadeias)
     except Exception as e:
         estrutura = None
         obslog.log("err", f"options_proposta estrutura {t}: {type(e).__name__}: {e}", level="warn")
@@ -4371,10 +4376,11 @@ async def post_carteira_leitura(body: dict = Body(default={}),
                 pos["setupEntrada"] = {"invalidacao": se.get("invalidacao"),
                                        "lado": se.get("lado")}
             compras_brutas = item.get("compras")
+            # 46.1 (MD-03b): filtra os dict e só então corta, mantendo as MAIS
+            # RECENTES (o front envia antiga→recente).
             compras = [{"qty": c.get("qty"), "price": c.get("price")}
-                       for c in (compras_brutas[:_LEITURA_MAX_COMPRAS]
-                                 if isinstance(compras_brutas, list) else [])
-                       if isinstance(c, dict)]
+                       for c in (compras_brutas if isinstance(compras_brutas, list) else [])
+                       if isinstance(c, dict)][-_LEITURA_MAX_COMPRAS:]
             leituras[t] = cartao_posicao.leitura_plano(pos, item.get("preco"), compras, modo)
         except Exception as e:
             obslog.log("err", f"carteira_leitura {t}: {type(e).__name__}: {e}", level="warn")
