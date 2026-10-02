@@ -193,6 +193,7 @@ export function estadoPrincipalV6({ p, estrutura, leituraPlano } = {}) {
   let principal = null;
   const est = estrutura && estrutura.estado;
   const texto = estrutura ? estrutura.estadoTexto : undefined;
+  const protegidaPelaPut = !!(p && estrutura && estrutura.stopTexto != null && p.stop == null);
 
   if (est === "vencida") principal = linha("motor", { texto }, "encerrada", "ⓘ");
   else if (est === "exercicio_provavel") principal = linha("motor", { texto }, "atencao", "⚠");
@@ -203,11 +204,16 @@ export function estadoPrincipalV6({ p, estrutura, leituraPlano } = {}) {
     if (travada > 0 && livre === 0) principal = linha("estado_travadas_todas", {}, "info", "cadeado");
     else if (travada > 0 && livre > 0 && livre < qty) {
       principal = linha("estado_travadas_parcial", { n: travada, m: qty, k: livre }, "info", "cadeado");
+    } else if (protegidaPelaPut) {
+      // 46.1 (2026-10-02, MD-01): proteção declarada pelo motor (stopTexto) — não
+      // acusa "sem stop e alvo" nem fora/dentro do plano.
+      principal = null;
     } else if (p.stop == null && p.alvo == null) principal = linha("estado_sem_plano", {}, "atencao", "⚠");
     else if (p.alvo == null) principal = linha("estado_falta_alvo", {}, "atencao", "⚠");
     else if (p.stop == null) principal = linha("estado_falta_stop", {}, "atencao", "⚠");
     else {
-      const pos = leituraPlano ? leituraPlano.posicaoNoPlano : null;
+      // 46.1 (2026-10-02, AL-02): leitura desatualizada não sustenta estado de risco.
+      const pos = leituraPlano && !leituraPlano.desatualizada ? leituraPlano.posicaoNoPlano : null;
       if (pos === "abaixo_stop") principal = linha("estado_abaixo_stop", {}, "atencao", "⚠");
       else if (pos === "acima_alvo") principal = linha("estado_acima_alvo", {}, "atencao", "⚠");
       else if (pos === "dentro" && !estrutura) principal = linha("estado_dentro", {}, "neutro", "✓");
@@ -218,7 +224,7 @@ export function estadoPrincipalV6({ p, estrutura, leituraPlano } = {}) {
   // indisponível saíram daqui — a informação vive no motivo da linha
   // 'Opções · contrato' (linhasResultadoV6). Cotação indisponível só vira o
   // estado quando nenhum outro estado ocupa a linha.
-  if (!principal && !estrutura && leituraPlano && leituraPlano.preco == null) {
+  if (!principal && !estrutura && leituraPlano && !leituraPlano.desatualizada && leituraPlano.preco == null) {
     principal = linha("extra_cotacao_indisponivel", {}, "info", "ⓘ");
   }
   return { principal, extras };
@@ -364,7 +370,12 @@ export function fonteValorCabecalho(texto) {
 
 // G-01/G-02: linhas Ações / Opções · contrato / Estrutura (ou Ações / Do capital)
 // e o valor do cabeçalho — com estrutura, a MESMA referência da linha Estrutura.
-export function linhasResultadoV6({ estrutura, leituraPlano, pctCapital } = {}) {
+// 46.1 (2026-10-02): `situacaoPlano` (AL-02) e `estruturaPendente` (MD-05) entram
+// como parâmetros; `chipCabecalho` e `notas` saem no NÍVEL DE CIMA do retorno
+// (o guardião test_cartao_v6_logica compara `cabecalho` por JSON exato).
+const CAUSAS_SEM_COTACAO = ["fonte_indisponivel", "fora_da_cadeia", "sem_negocio", "sem_cotacao"];
+
+export function linhasResultadoV6({ estrutura, leituraPlano, pctCapital, situacaoPlano = "ok", estruturaPendente = false } = {}) {
   const linha = (chave, vals, valor, tipo, motivo, total) => ({ chave, vals, valor, tipo, motivo, total: !!total });
   if (estrutura && estrutura.resultado) {
     const r = estrutura.resultado;
@@ -386,23 +397,50 @@ export function linhasResultadoV6({ estrutura, leituraPlano, pctCapital } = {}) 
       else motivoTotal = "motivo_aguardando_cotacao";
     }
     out.push(linha("linha_estrutura", {}, total, "dinheiro", motivoTotal, true));
+    // 46.1 (2026-10-02, G-08): causa por perna sem prêmio, agrupada por causa.
+    const notas = [];
+    if (total === null) {
+      const porCausa = {};
+      for (const perna of Array.isArray(estrutura.pernas) ? estrutura.pernas : []) {
+        if (numOk(perna.resultado) || semDados.includes(perna.id)) continue;
+        const causa = CAUSAS_SEM_COTACAO.includes(perna.motivoSemCotacao) ? perna.motivoSemCotacao : "sem_cotacao";
+        (porCausa[causa] = porCausa[causa] || []).push(perna.id != null ? String(perna.id) : "—");
+      }
+      for (const causa of CAUSAS_SEM_COTACAO) {
+        if (porCausa[causa]) notas.push({ chave: "causa_" + causa, vals: { contratos: porCausa[causa].join(", ") } });
+      }
+    }
     return {
       cabecalho: { valor: total, legenda: total === null ? null : "legenda_resultado_estrutura", vals: {}, suspenso: total === null },
       linhas: out,
+      chipCabecalho: total === null ? "chip_total_suspenso" : null,
+      notas,
     };
   }
   const res = leituraPlano && numOk(leituraPlano.resultado) ? leituraPlano.resultado : null;
-  const out = [linha("linha_acoes", {}, res, "dinheiro", res === null ? "motivo_cotacao_indisponivel" : null, false)];
+  // 46.1 (2026-10-02, AL-02): sem leitura válida o motivo é da LEITURA, nunca "cotação indisponível".
+  let motivoAcoes = null;
+  let chipCabecalho = null;
+  if (situacaoPlano === "carregando") motivoAcoes = "motivo_lendo";
+  else if (situacaoPlano === "falha") motivoAcoes = "motivo_leitura_indisponivel";
+  else {
+    if (res === null) { motivoAcoes = "motivo_cotacao_indisponivel"; chipCabecalho = "chip_total_suspenso"; }
+    if (situacaoPlano === "desatualizada") chipCabecalho = "chip_desatualizado";
+  }
+  const out = [linha("linha_acoes", {}, res, "dinheiro", res === null ? motivoAcoes : null, false)];
   if (numOk(pctCapital)) out.push(linha("do_capital", {}, pctCapital, "pct", null, false));
   const varPct = leituraPlano && numOk(leituraPlano.variacaoPct) ? leituraPlano.variacaoPct : null;
   return {
     cabecalho: {
       valor: res,
-      legenda: res === null || varPct === null ? null : "legenda_resultado_variacao",
-      vals: varPct === null ? {} : { pct: varPct },
+      // 46.1 (2026-10-02, MD-05): com estrutura ainda pendente o valor é só das ações.
+      legenda: res === null ? null : estruturaPendente ? "legenda_resultado_so_acoes" : varPct === null ? null : "legenda_resultado_variacao",
+      vals: estruturaPendente || varPct === null ? {} : { pct: varPct },
       suspenso: res === null,
     },
     linhas: out,
+    chipCabecalho,
+    notas: [],
   };
 }
 
