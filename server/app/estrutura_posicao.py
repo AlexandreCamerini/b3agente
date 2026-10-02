@@ -65,6 +65,24 @@ def _r2(v: Optional[float]) -> Optional[float]:
     return None if v is None else round(v, 2)
 
 
+# 46.1 (G-08): causa determinística da falta de prêmio atual (enum fechado).
+MOTIVOS_SEM_COTACAO = ("fonte_indisponivel", "fora_da_cadeia", "sem_negocio", "sem_cotacao")
+
+
+def _motivo_sem_cotacao(p: dict, contrato, status_cadeias) -> Optional[str]:
+    """None se cotada ou sem lado; senão um de MOTIVOS_SEM_COTACAO."""
+    if p["premioAtual"] is not None or p["lado"] is None:
+        return None
+    if isinstance(contrato, dict):
+        return "sem_negocio"
+    st = status_cadeias.get(p["vencimento"]) if isinstance(status_cadeias, dict) else None
+    if st == "falha":
+        return "fonte_indisponivel"
+    if st == "ok":
+        return "fora_da_cadeia"
+    return "sem_cotacao"
+
+
 def _perna(op: dict) -> dict:
     """Normaliza uma `optionPosition`. `side` ausente = comprada (modelo antigo).
 
@@ -297,8 +315,12 @@ def _estado(pernas: list, spot: Optional[float], hoje, modo: str) -> dict:
 
 
 def ler_estrutura(option_positions, underlying, posicao, spot, contratos_por_id,
-                  hoje, modo, motivo_sem_proposta=None) -> Optional[dict]:
+                  hoje, modo, motivo_sem_proposta=None,
+                  status_cadeias=None) -> Optional[dict]:
     """Leitura determinística da estrutura aberta de `underlying`.
+
+    `status_cadeias` (46.1, G-08): mapa vencimento bruto -> "ok"|"falha" vindo
+    da rota; None = desconhecido (causa cai em "sem_cotacao").
 
     `None` quando não há nenhuma perna do ativo. Números arredondados a 2
     casas; None = desconhecido, nunca 0.0.
@@ -317,6 +339,7 @@ def ler_estrutura(option_positions, underlying, posicao, spot, contratos_por_id,
             p, contratos.get(p["id"]), modo)
         p["resultado"] = _resultado_perna(p)
         ct = contratos.get(p["id"])
+        p["motivoSemCotacao"] = _motivo_sem_cotacao(p, ct, status_cadeias)  # 46.1 (G-08)
         p["liquidez"] = _liquidez(ct)
         p["lastOk"] = isinstance(ct, dict) and _num(ct.get("lastPrice")) is not None
         d = _data(p["vencimento"])
@@ -373,6 +396,7 @@ def ler_estrutura(option_positions, underlying, posicao, spot, contratos_por_id,
         "origemPremio": p["origemPremio"], "origemTexto": p["origemTexto"],
         "resultado": p["resultado"], "diasParaVencimento": p["dias"],
         "liquidez": p["liquidez"], "encerrar": _encerrar_perna(p, modo),
+        "motivoSemCotacao": p["motivoSemCotacao"],
     } for p in pernas]
 
     faixa, motivo_faixa, motivo_faixa_txt, descoberta, descoberta_txt, entrada_payoff = _faixa(
