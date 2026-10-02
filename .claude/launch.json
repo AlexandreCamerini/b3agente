@@ -83,6 +83,15 @@
       "port": 8787
     },
     {
+      "name": "api-mydata",
+      "runtimeExecutable": "/bin/sh",
+      "runtimeArgs": [
+        "-c",
+        "PY=server/.venv/bin/python; [ -x \"$PY\" ] || PY=\"$(dirname \"$(git rev-parse --git-common-dir)\")/server/.venv/bin/python\"; B3_OPTIONS_PROVIDER=mydata exec \"$PY\" -m uvicorn app.main:app --host 0.0.0.0 --port 8787 --app-dir server"
+      ],
+      "port": 8787
+    },
+    {
       "name": "api-admin-bootstrap",
       "runtimeExecutable": "/bin/sh",
       "runtimeArgs": [
